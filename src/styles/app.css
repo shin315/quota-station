@@ -1,0 +1,71 @@
+/* App-only rules on top of the prototype's tokens.css and components.css. */
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  font: var(--fs-base) / var(--lh) var(--font);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: default;
+}
+
+/* The popover window is transparent: macOS draws its popover material
+   behind the page, and the page keeps the prototype's glass tint on top. */
+body.popover-window {
+  background: transparent;
+  overflow: hidden;
+}
+
+.qs.app-popover .pop {
+  width: 100%;
+  max-height: 100vh;
+}
+
+/* Rows only show numbers in this milestone: no hover, no pointer. */
+.qs .row.ro {
+  cursor: default;
+}
+.qs .row.ro:not(.on):hover {
+  background: transparent;
+}
+
+/* The settings window is a plain window on the window background. */
+body.settings-window {
+  background: var(--winbg);
+}
+.qs.app-settings .main {
+  padding: 16px 22px 22px;
+}
+.qs.app-settings .inp {
+  -webkit-user-select: text;
+  user-select: text;
+}
+.qs.app-settings .fb {
+  margin: 0;
+}
+
+/* Browser preview (npm run dev, outside Tauri): the popover on a desktop. */
+body.preview {
+  background: var(--desk);
+  padding: 24px;
+  box-sizing: border-box;
+  min-height: 100%;
+}
+body.preview .qs.app-popover {
+  width: var(--pop-w);
+  margin-left: auto;
+}
+body.preview .qs.app-popover .pop {
+  max-height: var(--pop-max);
+}
+body.preview.settings-window {
+  background: var(--winbg);
+  padding: 0;
+}

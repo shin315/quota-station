@@ -1,0 +1,74 @@
+{
+  "generatedAt": "2026-01-16T07:20:00.000Z",
+  "claude": {
+    "status": "unavailable",
+    "reason": "usage_schema_mismatch",
+    "accounts": [],
+    "pool": {
+      "kind": "none",
+      "room": null,
+      "percent": null,
+      "line": null,
+      "scope": null,
+      "members": 0,
+      "rooms": [],
+      "nextRefillAt": null,
+      "refills": [],
+      "exhausted": false,
+      "reason": "claude_swap_unavailable"
+    },
+    "newestReadingAt": null,
+    "stale": false,
+    "personalHours": "8-23"
+  },
+  "agy": {
+    "status": "unavailable",
+    "reason": "index_version_unsupported",
+    "accounts": [
+      {
+        "number": 0,
+        "role": "unknown",
+        "active": true,
+        "disabled": false,
+        "reading": "fresh",
+        "fetchedAt": "2026-01-16T07:16:00.000Z",
+        "source": "live",
+        "membership": "unknown",
+        "leavesAt": null,
+        "lines": [
+          {
+            "kind": "session",
+            "percent": 98.0,
+            "resetsAt": "2026-01-16T09:18:00.000Z",
+            "pending": false,
+            "atLeast": false
+          },
+          {
+            "kind": "week",
+            "percent": 94.0,
+            "resetsAt": "2026-01-20T07:20:00.000Z",
+            "pending": false,
+            "atLeast": false
+          }
+        ]
+      }
+    ],
+    "pool": {
+      "kind": "active",
+      "room": null,
+      "percent": 94.0,
+      "line": "week",
+      "scope": "gemini",
+      "members": 0,
+      "rooms": [],
+      "nextRefillAt": null,
+      "refills": [],
+      "exhausted": false,
+      "reason": null
+    },
+    "newestReadingAt": "2026-01-16T07:16:00.000Z",
+    "stale": false,
+    "personalHours": null
+  },
+  "keychain": "unknown"
+}

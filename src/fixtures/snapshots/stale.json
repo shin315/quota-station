@@ -1,0 +1,210 @@
+{
+  "generatedAt": "2026-01-16T07:20:00.000Z",
+  "claude": {
+    "status": "ok",
+    "reason": null,
+    "accounts": [
+      {
+        "number": 1,
+        "role": "personal",
+        "active": false,
+        "disabled": false,
+        "reading": "stale",
+        "fetchedAt": "2026-01-16T06:39:00.000Z",
+        "source": "claudeSwap",
+        "membership": "in",
+        "leavesAt": null,
+        "lines": [
+          {
+            "kind": "week",
+            "percent": 100.0,
+            "resetsAt": "2026-01-22T15:20:00.000Z",
+            "pending": false,
+            "atLeast": false
+          },
+          {
+            "kind": "fableWeek",
+            "percent": 96.0,
+            "resetsAt": "2026-01-22T15:20:00.000Z",
+            "pending": false,
+            "atLeast": false
+          }
+        ]
+      },
+      {
+        "number": 2,
+        "role": "team",
+        "active": true,
+        "disabled": false,
+        "reading": "stale",
+        "fetchedAt": "2026-01-16T06:39:00.000Z",
+        "source": "claudeSwap",
+        "membership": "in",
+        "leavesAt": "2026-01-16T10:45:00.000Z",
+        "lines": [
+          {
+            "kind": "session",
+            "percent": 27.0,
+            "resetsAt": "2026-01-16T10:29:00.000Z",
+            "pending": false,
+            "atLeast": false
+          },
+          {
+            "kind": "fableWeek",
+            "percent": 13.0,
+            "resetsAt": "2026-01-18T01:20:00.000Z",
+            "pending": false,
+            "atLeast": false
+          }
+        ]
+      },
+      {
+        "number": 3,
+        "role": "team",
+        "active": false,
+        "disabled": false,
+        "reading": "stale",
+        "fetchedAt": "2026-01-16T06:39:00.000Z",
+        "source": "claudeSwap",
+        "membership": "in",
+        "leavesAt": null,
+        "lines": [
+          {
+            "kind": "session",
+            "percent": 100.0,
+            "resetsAt": null,
+            "pending": false,
+            "atLeast": false
+          },
+          {
+            "kind": "fableWeek",
+            "percent": 50.0,
+            "resetsAt": "2026-01-16T20:20:00.000Z",
+            "pending": false,
+            "atLeast": false
+          }
+        ]
+      },
+      {
+        "number": 4,
+        "role": "team",
+        "active": false,
+        "disabled": false,
+        "reading": "stale",
+        "fetchedAt": "2026-01-16T06:39:00.000Z",
+        "source": "claudeSwap",
+        "membership": "in",
+        "leavesAt": null,
+        "lines": [
+          {
+            "kind": "session",
+            "percent": 98.0,
+            "resetsAt": "2026-01-16T10:09:00.000Z",
+            "pending": false,
+            "atLeast": false
+          },
+          {
+            "kind": "fableWeek",
+            "percent": 98.0,
+            "resetsAt": null,
+            "pending": false,
+            "atLeast": true
+          }
+        ]
+      }
+    ],
+    "pool": {
+      "kind": "active",
+      "room": null,
+      "percent": 27.0,
+      "line": "session",
+      "scope": null,
+      "members": 0,
+      "rooms": [],
+      "nextRefillAt": "2026-01-16T10:29:00.000Z",
+      "refills": [],
+      "exhausted": false,
+      "reason": "claude_row_not_fresh"
+    },
+    "newestReadingAt": "2026-01-16T06:39:00.000Z",
+    "stale": true,
+    "personalHours": "8-23"
+  },
+  "agy": {
+    "status": "ok",
+    "reason": null,
+    "accounts": [
+      {
+        "number": 1,
+        "role": "unknown",
+        "active": false,
+        "disabled": false,
+        "reading": "stale",
+        "fetchedAt": "2026-01-16T06:55:00.000Z",
+        "source": "cockpit",
+        "membership": "unknown",
+        "leavesAt": null,
+        "lines": [
+          {
+            "kind": "gemini",
+            "percent": 63.0,
+            "resetsAt": "2026-01-21T07:20:00.000Z",
+            "pending": false,
+            "atLeast": false
+          },
+          {
+            "kind": "claudeGpt",
+            "percent": 82.0,
+            "resetsAt": "2026-01-21T11:20:00.000Z",
+            "pending": false,
+            "atLeast": false
+          }
+        ]
+      },
+      {
+        "number": 2,
+        "role": "unknown",
+        "active": true,
+        "disabled": false,
+        "reading": "fresh",
+        "fetchedAt": "2026-01-16T07:19:10.000Z",
+        "source": "cockpit",
+        "membership": "unknown",
+        "leavesAt": null,
+        "lines": [
+          {
+            "kind": "gemini",
+            "percent": 94.0,
+            "resetsAt": "2026-01-20T07:20:00.000Z",
+            "pending": false,
+            "atLeast": false
+          },
+          {
+            "kind": "claudeGpt",
+            "percent": null,
+            "resetsAt": null,
+            "pending": true,
+            "atLeast": false
+          }
+        ]
+      }
+    ],
+    "pool": {
+      "kind": "active",
+      "room": null,
+      "percent": 94.0,
+      "line": "week",
+      "scope": "gemini",
+      "members": 0,
+      "rooms": [],
+      "nextRefillAt": null,
+      "refills": [],
+      "exhausted": false,
+      "reason": null
+    },
+    "newestReadingAt": "2026-01-16T07:19:10.000Z",
+    "stale": false,
+    "personalHours": null
+  },
+  "keychain": "unknown"
+}

@@ -1,0 +1,213 @@
+{
+  "generatedAt": "2026-01-16T07:20:00.000Z",
+  "schemaVersion": 5,
+  "providers": [
+    {
+      "provider": "claude",
+      "windows": [
+        {
+          "id": "five_hour",
+          "label": "five_hour",
+          "kind": "session",
+          "percentRemaining": 4,
+          "resetsAt": "2026-01-16T09:52:00.000Z"
+        },
+        {
+          "id": "seven_day",
+          "label": "seven_day",
+          "kind": "weekly",
+          "percentRemaining": 40,
+          "resetsAt": "2026-01-21T03:00:00.000Z"
+        }
+      ],
+      "state": {
+        "status": "fresh",
+        "stale": false
+      },
+      "quotaSemantics": {
+        "status": "known",
+        "effectiveAvailability": [
+          {
+            "scope": "all_models",
+            "status": "known",
+            "effectivePercentRemaining": 100,
+            "boundedBy": [
+              "five_hour",
+              "seven_day"
+            ]
+          }
+        ]
+      },
+      "claudeSwap": {
+        "status": "ok",
+        "activeSlot": 2,
+        "activeBasis": "identity",
+        "slots": [
+          {
+            "slot": 1,
+            "active": false,
+            "disabled": false,
+            "status": "fresh",
+            "ageSeconds": 120,
+            "fetchedAt": "2026-01-16T07:18:00.000Z",
+            "effectivePercentRemaining": 5,
+            "limitedBy": "five_hour",
+            "resetsAt": "2026-01-16T09:40:00.000Z",
+            "scopes": [
+              {
+                "scope": "model:fable",
+                "status": "known",
+                "effectivePercentRemaining": 96,
+                "limitedBy": "five_hour + seven_day + model:fable",
+                "resetsAt": "2026-01-22T15:20:00.000Z"
+              }
+            ]
+          },
+          {
+            "slot": 2,
+            "active": true,
+            "disabled": false,
+            "status": "fresh",
+            "ageSeconds": 36,
+            "fetchedAt": "2026-01-16T07:19:24.000Z",
+            "effectivePercentRemaining": 4,
+            "limitedBy": "five_hour",
+            "resetsAt": "2026-01-16T09:52:00.000Z",
+            "scopes": [
+              {
+                "scope": "model:fable",
+                "status": "known",
+                "effectivePercentRemaining": 13,
+                "limitedBy": "model:fable",
+                "resetsAt": "2026-01-18T01:20:00.000Z"
+              }
+            ]
+          },
+          {
+            "slot": 3,
+            "active": false,
+            "disabled": false,
+            "status": "fresh",
+            "ageSeconds": 200,
+            "fetchedAt": "2026-01-16T07:16:40.000Z",
+            "effectivePercentRemaining": 3,
+            "limitedBy": "five_hour",
+            "scopes": [
+              {
+                "scope": "model:fable",
+                "status": "known",
+                "effectivePercentRemaining": 50,
+                "limitedBy": "model:fable",
+                "resetsAt": "2026-01-16T20:20:00.000Z"
+              }
+            ],
+            "resetsAt": "2026-01-16T09:40:00.000Z"
+          },
+          {
+            "slot": 4,
+            "active": false,
+            "disabled": false,
+            "status": "fresh",
+            "ageSeconds": 300,
+            "fetchedAt": "2026-01-16T07:15:00.000Z",
+            "effectivePercentRemaining": 6,
+            "limitedBy": "five_hour",
+            "resetsAt": "2026-01-16T09:52:00.000Z",
+            "scopes": [
+              {
+                "scope": "model:fable",
+                "status": "known",
+                "effectivePercentRemaining": 98,
+                "limitedBy": "five_hour",
+                "resetsAt": "2026-01-16T10:09:00.000Z"
+              }
+            ]
+          }
+        ]
+      },
+      "claudePool": {
+        "status": "pool",
+        "activeSlot": 2,
+        "rotation": {
+          "team": [
+            2,
+            3,
+            4
+          ],
+          "personal": 1,
+          "personalHours": "8-23",
+          "full": 90,
+          "fableFull": 95,
+          "expire": [
+            {
+              "slot": 2,
+              "at": "2026-01-16T10:45:00.000Z"
+            }
+          ]
+        },
+        "members": [
+          {
+            "slot": 2,
+            "role": "team",
+            "active": true,
+            "leavesAt": "2026-01-16T10:45:00.000Z"
+          },
+          {
+            "slot": 3,
+            "role": "team",
+            "active": false
+          },
+          {
+            "slot": 4,
+            "role": "team",
+            "active": false
+          },
+          {
+            "slot": 1,
+            "role": "personal",
+            "active": false,
+            "leavesAt": "2026-01-16T16:59:59.000Z"
+          }
+        ],
+        "excluded": [],
+        "scopes": [
+          {
+            "scope": "all_models",
+            "effectivePercentRemaining": 0,
+            "slotsOfRoom": 0,
+            "nextRefillAt": "2026-01-16T09:40:00.000Z",
+            "slots": [
+              {
+                "slot": 1,
+                "roomPercent": 0,
+                "refillAt": "2026-01-16T09:40:00.000Z"
+              },
+              {
+                "slot": 2,
+                "roomPercent": 0,
+                "refillAt": "2026-01-16T09:52:00.000Z"
+              },
+              {
+                "slot": 3,
+                "roomPercent": 0,
+                "refillAt": "2026-01-16T09:40:00.000Z"
+              },
+              {
+                "slot": 4,
+                "roomPercent": 0,
+                "refillAt": "2026-01-16T09:52:00.000Z"
+              }
+            ],
+            "activeSlot": {
+              "effectivePercentRemaining": 4,
+              "runway": "exhausted_now"
+            }
+          }
+        ]
+      },
+      "accountKeys": [
+        "default"
+      ]
+    }
+  ]
+}
