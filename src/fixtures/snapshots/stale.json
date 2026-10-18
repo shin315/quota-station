@@ -1,5 +1,4 @@
 {
-  "generatedAt": "2026-01-16T07:20:00.000Z",
   "claude": {
     "status": "ok",
     "reason": null,
@@ -126,6 +125,7 @@
       "exhausted": false,
       "reason": "claude_row_not_fresh"
     },
+    "generatedAt": "2026-01-16T07:20:00.000Z",
     "newestReadingAt": "2026-01-16T06:39:00.000Z",
     "stale": true,
     "personalHours": "8-23"
@@ -202,6 +202,7 @@
       "exhausted": false,
       "reason": null
     },
+    "generatedAt": "2026-01-16T07:20:00.000Z",
     "newestReadingAt": "2026-01-16T07:19:10.000Z",
     "stale": false,
     "personalHours": null

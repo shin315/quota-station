@@ -176,6 +176,8 @@ pub struct Section {
     pub reason: Option<String>,
     pub accounts: Vec<Account>,
     pub pool: Pool,
+    /// When quota-axi wrote the report behind this section.
+    pub generated_at: Option<String>,
     /// The newest reading behind the accounts.
     pub newest_reading_at: Option<String>,
     /// Every reading is older than [`STALE_AFTER_SECONDS`].
@@ -191,6 +193,7 @@ impl Section {
             reason: None,
             accounts: Vec::new(),
             pool: Pool::none(),
+            generated_at: None,
             newest_reading_at: None,
             stale: false,
             personal_hours: None,
@@ -214,7 +217,6 @@ pub enum Keychain {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
-    pub generated_at: Option<String>,
     pub claude: Section,
     pub agy: Section,
     pub keychain: Keychain,
@@ -224,16 +226,23 @@ impl Snapshot {
     /// Builds the snapshot from the last `--provider claude` and
     /// `--provider agy` reports; either may be missing.
     pub fn build(claude: Option<&Response>, agy: Option<&Response>) -> Self {
-        let generated_at =
-            latest([claude, agy].into_iter().flatten().map(|r| r.generated_at.as_str()));
+        let stamp = |mut section: Section, report: &Response| {
+            section.generated_at = Some(report.generated_at.clone());
+            section
+        };
         let (claude_section, keychain) = match claude {
-            Some(report) => claude_section(report),
+            Some(report) => {
+                let (section, keychain) = claude_section(report);
+                (stamp(section, report), keychain)
+            }
             None => (Section::empty(SectionStatus::Unread), Keychain::Unknown),
         };
         Snapshot {
-            generated_at,
             claude: claude_section,
-            agy: agy.map_or_else(|| Section::empty(SectionStatus::Unread), agy_section),
+            agy: agy.map_or_else(
+                || Section::empty(SectionStatus::Unread),
+                |report| stamp(agy_section(report), report),
+            ),
             keychain,
         }
     }

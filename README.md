@@ -97,21 +97,12 @@ npm run app:build
 The bundle is written to `target/release/bundle/macos/Quota Station.app`. It
 is ad-hoc signed and is not installed anywhere. Open it from there to try it.
 
-`QUOTA_STATION_LOG=1` prints one line per read to stderr: the title, the tone
-and each slot's percentages. No names are printed.
-
 ### Browser preview
 
-`npm run dev` serves the popover on fixture data at http://localhost:1420/.
-These query parameters choose what it shows:
-
-- `state`: one of `fresh` (the default), `no-cockpit`, `keychain`, `stale`,
-  `reset-pending`, `exhausted`, `no-rotation`, `unavailable`,
-  `no-antigravity` or `agy-pool`.
-- `view=settings` shows the settings window.
-- `error`: one of `notConfigured`, `notFound`, `spawn`, `timeout`, `exit` or
-  `parse`.
-- `theme`: `light` or `dark`.
+`npm run dev` serves the popover at http://localhost:1420/ on the fixtures and
+the fake Rust side the tests use. Query parameters: `state` (a file name in
+`src/fixtures/snapshots/`), `view=settings`, `error` (an error kind) and
+`theme` (`light` or `dark`).
 
 ## Tests
 

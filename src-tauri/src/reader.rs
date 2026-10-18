@@ -43,6 +43,7 @@ fn run(app: &AppHandle, state: &AppState) {
         inner.read_now = false;
         inner.reading = true;
         let path = inner.quota_axi();
+        let generation = inner.claude_generation;
         let check_version =
             path.is_some() && inner.version.as_ref().map(|(p, _)| p) != path.as_ref();
         drop(inner);
@@ -55,7 +56,7 @@ fn run(app: &AppHandle, state: &AppState) {
         });
 
         let mut inner = state.lock();
-        store(&mut inner, claude, agy);
+        store(&mut inner, generation, claude, agy);
         if let Some(v) = version {
             inner.version = Some(v);
         }
@@ -81,18 +82,22 @@ fn read_both(path: Option<PathBuf>) -> (Result<Response, RunError>, Result<Respo
 }
 
 /// A failed read keeps the last good report, so the popover can show the
-/// last numbers with their age next to the error.
+/// last numbers with their age next to the error. A Claude result from a
+/// read that started before a Keychain grant (`generation` behind) is dropped.
 pub fn store(
     inner: &mut Inner,
+    generation: u64,
     claude: Result<Response, RunError>,
     agy: Result<Response, RunError>,
 ) {
-    match claude {
-        Ok(r) => {
-            inner.claude = Some(r);
-            inner.claude_error = None;
+    if inner.claude_generation == generation {
+        match claude {
+            Ok(r) => {
+                inner.claude = Some(r);
+                inner.claude_error = None;
+            }
+            Err(e) => inner.claude_error = Some(e),
         }
-        Err(e) => inner.claude_error = Some(e),
     }
     match agy {
         Ok(r) => {
@@ -113,44 +118,44 @@ pub fn publish(app: &AppHandle, state: &AppState) {
         let icon = quota_station_core::icon(has_data.then_some(&snapshot), failing);
         (inner.model(), icon)
     };
-    if std::env::var_os("QUOTA_STATION_LOG").is_some() {
-        log_read(&model, &icon);
-    }
     tray::apply(app, &icon);
     let _ = app.emit("model", &model);
 }
 
-/// One line per update on stderr when `QUOTA_STATION_LOG` is set, to check a
-/// build against `quota-axi --tui` without opening the popover. Slot numbers
-/// and percentages only.
-fn log_read(model: &crate::state::Model, icon: &quota_station_core::Icon) {
-    let s = &model.snapshot;
-    let lines = |a: &quota_station_core::snapshot::Account| {
-        a.lines
-            .iter()
-            .map(|l| l.percent.map_or("-".to_string(), |p| format!("{p}")))
-            .collect::<Vec<_>>()
-            .join("/")
-    };
-    let accounts = |sec: &quota_station_core::snapshot::Section| {
-        sec.accounts
-            .iter()
-            .map(|a| format!("{}{}={}", a.number, if a.active { "*" } else { "" }, lines(a)))
-            .collect::<Vec<_>>()
-            .join(" ")
-    };
-    eprintln!(
-        "quota-station: reads={} reading={} title={} tone={:?} keychain={:?} claude={:?}[{}] agy={:?}[{}] errors={:?}/{:?}",
-        model.reads,
-        model.reading,
-        icon.title,
-        icon.tone,
-        s.keychain,
-        s.claude.status,
-        accounts(&s.claude),
-        s.agy.status,
-        accounts(&s.agy),
-        model.errors.claude.as_ref().map(|e| e.kind),
-        model.errors.agy.as_ref().map(|e| e.kind),
+#[cfg(test)]
+mod tests {
+    use quota_station_core::axi;
+    use quota_station_core::snapshot::Keychain;
+
+    use super::*;
+
+    fn report(text: &str) -> Response {
+        axi::parse(text).expect("fixture parses")
+    }
+
+    fn inner() -> Inner {
+        Inner::new(PathBuf::new(), PathBuf::from("/nonexistent/settings.json"), "Mac".into())
+    }
+
+    const REQUIRED: &str = include_str!(
+        "../../crates/quota-station-core/tests/fixtures/claude-keychain-required.json"
     );
+    const GRANTED: &str =
+        include_str!("../../crates/quota-station-core/tests/fixtures/claude-pool-schema5.json");
+    const AGY: &str =
+        include_str!("../../crates/quota-station-core/tests/fixtures/agy-cockpit.json");
+
+    #[test]
+    fn a_read_started_before_a_keychain_grant_keeps_the_granted_report() {
+        let mut inner = inner();
+        let started = inner.claude_generation;
+        inner.store_grant(report(GRANTED));
+        store(&mut inner, started, Ok(report(REQUIRED)), Ok(report(AGY)));
+        assert_eq!(inner.snapshot().keychain, Keychain::Granted);
+        assert!(inner.agy.is_some());
+
+        let next = inner.claude_generation;
+        store(&mut inner, next, Ok(report(REQUIRED)), Ok(report(AGY)));
+        assert_eq!(inner.snapshot().keychain, Keychain::Required);
+    }
 }

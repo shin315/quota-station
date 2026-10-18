@@ -63,6 +63,8 @@ export interface Section {
   reason: string | null;
   accounts: Account[];
   pool: Pool;
+  /** When quota-axi wrote the report behind this section. */
+  generatedAt: string | null;
   newestReadingAt: string | null;
   stale: boolean;
   /** `8-23` */
@@ -72,7 +74,6 @@ export interface Section {
 export type Keychain = 'granted' | 'required' | 'unknown';
 
 export interface Snapshot {
-  generatedAt: string | null;
   claude: Section;
   agy: Section;
   keychain: Keychain;

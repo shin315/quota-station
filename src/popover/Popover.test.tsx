@@ -1,14 +1,16 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PopoverApp } from '../App';
 import { fakeApi } from '../fixtures/fakeApi';
 import { failing, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
+import type { Api } from '../lib/api';
 import type { Model } from '../lib/model';
 
 const clock = () => FIXTURE_NOW;
 
 async function open(model: Model) {
   const fake = fakeApi(model);
+  for (const name of Object.keys(fake.api) as (keyof Api)[]) vi.spyOn(fake.api, name);
   render(
     <div className="qs app-popover">
       <PopoverApp api={fake.api} clock={clock} />
@@ -51,7 +53,7 @@ describe('popover', () => {
     const fake = await open(fixtureModel('keychain'));
     expect(fake.api.grantKeychain).not.toHaveBeenCalled();
     const granted = fixtureModel('fresh');
-    fake.api.grantKeychain.mockImplementation(async () => granted);
+    vi.mocked(fake.api.grantKeychain).mockImplementation(async () => granted);
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Cấp quyền một lần' }));
     });
@@ -62,6 +64,7 @@ describe('popover', () => {
 
   it('a refused Keychain prompt says so', async () => {
     const fake = await open(fixtureModel('keychain'));
+    vi.mocked(fake.api.grantKeychain).mockImplementation(async () => fake.current());
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Cấp quyền một lần' }));
     });

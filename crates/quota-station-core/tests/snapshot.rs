@@ -236,7 +236,18 @@ fn nothing_read_yet_is_unread() {
     let s = Snapshot::build(None, None);
     assert_eq!(s.claude.status, SectionStatus::Unread);
     assert_eq!(s.agy.status, SectionStatus::Unread);
-    assert_eq!(s.generated_at, None);
+    assert_eq!(s.claude.generated_at, None);
+    assert_eq!(s.agy.generated_at, None);
+}
+
+#[test]
+fn each_section_keeps_the_time_of_its_own_report() {
+    let claude = fixture("claude-pool-schema5.json");
+    let mut agy = fixture("agy-cockpit.json");
+    agy.generated_at = "2026-01-16T06:50:00.000Z".into();
+    let s = Snapshot::build(Some(&claude), Some(&agy));
+    assert_eq!(s.claude.generated_at.as_deref(), Some("2026-01-16T07:20:00.000Z"));
+    assert_eq!(s.agy.generated_at.as_deref(), Some("2026-01-16T06:50:00.000Z"));
 }
 
 #[test]
@@ -250,5 +261,6 @@ fn snapshot_serializes_in_camel_case_for_the_ui() {
     assert_eq!(v["claude"]["accounts"][1]["lines"][1]["kind"], "fableWeek");
     assert_eq!(v["agy"]["status"], "noSidecar");
     assert_eq!(v["keychain"], "granted");
-    assert_eq!(v["generatedAt"], "2026-01-16T07:20:00.000Z");
+    assert_eq!(v["claude"]["generatedAt"], "2026-01-16T07:20:00.000Z");
+    assert_eq!(v["agy"]["generatedAt"], "2026-01-16T07:20:00.000Z");
 }

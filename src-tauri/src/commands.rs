@@ -91,8 +91,7 @@ pub async fn grant_keychain(app: AppHandle, state: State<'_, AppState>) -> Resul
         inner.granting = false;
         match result {
             Ok(report) => {
-                inner.claude = Some(report);
-                inner.claude_error = None;
+                inner.store_grant(report);
                 Ok(())
             }
             Err(e) => Err(e.to_string()),

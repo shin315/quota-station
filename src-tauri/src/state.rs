@@ -45,6 +45,9 @@ pub struct Inner {
     pub agy: Option<Response>,
     pub claude_error: Option<RunError>,
     pub agy_error: Option<RunError>,
+    /// Bumped when a Keychain grant stores a Claude report, so a read that
+    /// started before it cannot put the older report back.
+    pub claude_generation: u64,
     pub reading: bool,
     /// Completed reads, so the UI can tell when the read it asked for is done.
     pub reads: u64,
@@ -69,6 +72,7 @@ impl Inner {
             agy: None,
             claude_error: None,
             agy_error: None,
+            claude_generation: 0,
             reading: false,
             reads: 0,
             read_now: true,
@@ -82,6 +86,13 @@ impl Inner {
     /// The quota-axi to run: the user's path, else the first usual place.
     pub fn quota_axi(&self) -> Option<PathBuf> {
         self.settings.quota_axi_path.clone().or_else(|| runner::discover(&self.home))
+    }
+
+    /// Stores the report a Keychain grant read, ahead of any read in flight.
+    pub fn store_grant(&mut self, report: Response) {
+        self.claude = Some(report);
+        self.claude_error = None;
+        self.claude_generation += 1;
     }
 
     pub fn snapshot(&self) -> Snapshot {

@@ -185,6 +185,20 @@ describe('popover view', () => {
     expect(v.banner?.body).toBe('quota-axi không chạy được: quá thời gian chờ. Đang hiện số cuối lúc 14:20.');
   });
 
+  it('a provider that stopped answering keeps the time of its own last numbers', () => {
+    const agyOld = fixtureModel('fresh', { errors: { claude: null, agy: { kind: 'timeout', detail: '' } } });
+    agyOld.snapshot.agy.generatedAt = '2026-01-16T06:50:00.000Z';
+    const a = popoverView(agyOld, FIXTURE_NOW);
+    expect(a.agy.note).toEqual({ tone: 'warn', text: 'Không đọc được số Antigravity mới. Đang hiện số lúc 13:50.' });
+    expect(a.pools.agy).toMatchObject({ sub: 'số lúc 13:50', tone: 'muted' });
+
+    const claudeOld = fixtureModel('fresh', { errors: { claude: { kind: 'timeout', detail: '' }, agy: null } });
+    claudeOld.snapshot.claude.generatedAt = '2026-01-16T06:50:00.000Z';
+    const c = popoverView(claudeOld, FIXTURE_NOW);
+    expect(c.banner?.body).toBe('quota-axi không chạy được: quá thời gian chờ. Đang hiện số cuối lúc 13:50.');
+    expect(c.pools.claude).toMatchObject({ sub: 'số lúc 13:50', tone: 'muted' });
+  });
+
   it('before the first read says it is reading', () => {
     const m = fixtureModel('fresh', { reading: true });
     m.snapshot.claude = { ...m.snapshot.claude, status: 'unread', accounts: [], newestReadingAt: null };

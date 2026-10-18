@@ -317,8 +317,8 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
   const cErr = model.errors.claude;
   const gErr = model.errors.agy;
   const hasClaude = c.status !== 'unread';
-  const lastClaude = cErr && hasClaude ? clock(s.generatedAt) || null : null;
-  const lastAgy = gErr && g.status !== 'unread' ? clock(s.generatedAt) || null : null;
+  const lastClaude = cErr && hasClaude ? clock(c.generatedAt) || null : null;
+  const lastAgy = gErr && g.status !== 'unread' ? clock(g.generatedAt) || null : null;
 
   const names = claudeNames(c.accounts);
   const nameOf = (n: number) => names.get(n)?.name ?? 'Tài khoản ' + n;

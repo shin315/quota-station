@@ -1,12 +1,14 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SettingsApp } from '../App';
 import { fakeApi } from '../fixtures/fakeApi';
 import { FIXTURE_NOW, fixtureModel } from '../fixtures/models';
+import type { Api } from '../lib/api';
 import type { Model } from '../lib/model';
 
 async function open(model: Model) {
   const fake = fakeApi(model);
+  for (const name of Object.keys(fake.api) as (keyof Api)[]) vi.spyOn(fake.api, name);
   render(
     <div className="qs app-settings">
       <SettingsApp api={fake.api} clock={() => FIXTURE_NOW} />
@@ -32,7 +34,7 @@ describe('settings', () => {
     expect(screen.getByText('chưa cấp')).toBeTruthy();
     expect(screen.getByText('Đến khi cấp, dòng Claude dùng số chưa được cập nhật từ claude-swap.')).toBeTruthy();
     expect(fake.api.grantKeychain).not.toHaveBeenCalled();
-    fake.api.grantKeychain.mockImplementation(async () => fixtureModel('fresh'));
+    vi.mocked(fake.api.grantKeychain).mockImplementation(async () => fixtureModel('fresh'));
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Cấp quyền một lần' }));
     });
@@ -48,7 +50,7 @@ describe('settings', () => {
 
   it('refuses a path with no file and offers to find quota-axi again', async () => {
     const fake = await open(fixtureModel('fresh'));
-    fake.api.setQuotaAxiPath.mockImplementation(async (path: string) => {
+    vi.mocked(fake.api.setQuotaAxiPath).mockImplementation(async (path: string) => {
       if (path) throw new Error('notFound');
       return fake.current();
     });

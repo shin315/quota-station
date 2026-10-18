@@ -1,5 +1,4 @@
 {
-  "generatedAt": "2026-01-16T07:20:00.000Z",
   "claude": {
     "status": "unavailable",
     "reason": "usage_schema_mismatch",
@@ -17,6 +16,7 @@
       "exhausted": false,
       "reason": "claude_swap_unavailable"
     },
+    "generatedAt": "2026-01-16T07:20:00.000Z",
     "newestReadingAt": null,
     "stale": false,
     "personalHours": "8-23"
@@ -66,6 +66,7 @@
       "exhausted": false,
       "reason": null
     },
+    "generatedAt": "2026-01-16T07:20:00.000Z",
     "newestReadingAt": "2026-01-16T07:16:00.000Z",
     "stale": false,
     "personalHours": null
