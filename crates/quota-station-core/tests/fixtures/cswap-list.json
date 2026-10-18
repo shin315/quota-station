@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "activeAccountNumber": 2,
+  "accounts": [
+    {
+      "number": 1,
+      "email": "lanpham.dev@example.com",
+      "organizationName": "lanpham.dev@example.com's Organization",
+      "organizationUuid": "00000000-0000-4000-8000-000000000001",
+      "isOrganization": true,
+      "active": false,
+      "usageStatus": "ok",
+      "usage": {
+        "fiveHour": { "pct": 0.0 },
+        "sevenDay": { "pct": 2.0, "resetsAt": "2030-01-19T13:59:59.552000+00:00", "countdown": "3d 21h", "clock": "Jan 19 20:59", "expectedPct": 44.4, "aheadOfPace": false, "willLastToReset": true },
+        "scoped": [
+          { "pct": 0.0, "resetsAt": "2030-01-19T14:00:00+00:00", "countdown": "3d 21h", "clock": "Jan 19 21:00", "name": "Fable" }
+        ]
+      },
+      "loginExpiresAt": "2030-02-10T07:53:49Z",
+      "usageFetchedAt": "2030-01-15T16:39:20Z",
+      "usageAgeSeconds": 132.3
+    },
+    {
+      "number": 2,
+      "email": "lan.acme1@example.com",
+      "organizationName": "Acme Studio",
+      "organizationUuid": "00000000-0000-4000-8000-000000000002",
+      "isOrganization": true,
+      "active": true,
+      "usageStatus": "ok",
+      "usage": {
+        "fiveHour": { "pct": 38.0, "resetsAt": "2030-01-15T16:40:00.397549+00:00", "countdown": "9m", "clock": "23:40" },
+        "scoped": [
+          { "pct": 11.0, "resetsAt": "2030-01-20T18:59:59+00:00", "countdown": "5d 2h", "clock": "Jan 21 01:59", "name": "Fable" }
+        ]
+      },
+      "loginExpiresAt": "2030-02-12T12:22:27Z",
+      "usageFetchedAt": "2030-01-15T16:39:20Z",
+      "usageAgeSeconds": 132.3
+    },
+    {
+      "number": 3,
+      "email": "lan.acme2@example.com",
+      "organizationName": "Acme Studio",
+      "organizationUuid": "00000000-0000-4000-8000-000000000002",
+      "isOrganization": true,
+      "active": false,
+      "usageStatus": "ok",
+      "usage": {
+        "fiveHour": { "pct": 90.0, "resetsAt": "2030-01-15T17:10:00.384000+00:00", "countdown": "39m", "clock": "00:10" },
+        "scoped": [
+          { "pct": 23.0, "resetsAt": "2030-01-18T20:00:00+00:00", "countdown": "3d 3h", "clock": "Jan 19 03:00", "name": "Fable" }
+        ]
+      },
+      "loginExpiresAt": "2030-02-12T01:35:52Z",
+      "usageFetchedAt": "2030-01-15T16:34:38Z",
+      "usageAgeSeconds": 414.7
+    }
+  ]
+}

@@ -54,6 +54,8 @@ fn main() {
             app.manage(state.clone());
             state.lock().center = Some(std::sync::Arc::new(alerting::start_center(app.handle())));
 
+            let theme = state.lock().settings.theme;
+            windows::apply_theme(app.handle(), theme);
             tray::build(app)?;
             if let Some(popover) = app.get_webview_window(windows::POPOVER) {
                 let handle = app.handle().clone();
@@ -73,6 +75,8 @@ fn main() {
             commands::popover_resize,
             commands::set_quota_axi_path,
             commands::set_machine_name,
+            commands::set_show_names,
+            commands::set_theme,
             commands::grant_keychain,
             commands::claude_sessions,
             commands::switch_claude,
@@ -95,7 +99,6 @@ fn main() {
             antigravity::agy_logout,
             antigravity::agy_open_verification,
             antigravity::agy_tab_opened,
-            antigravity::set_show_email,
             agy_switch::agy_app_state,
             agy_switch::switch_agy,
             agy_switch::agy_dismiss_overwrite,

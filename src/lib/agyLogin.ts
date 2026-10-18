@@ -1,9 +1,10 @@
 // The words of the Antigravity login card (M4a): the accounts this app logs
 // in, what is missing before it can, what each login or logout did, and how
 // the app's own read of each account's quota stands (M4b). Accounts go by
-// number ("Ultra 1"), as on the quota rows; the email shows only when the
-// owner turns it on in Cài đặt.
+// their email, as on the quota rows, or by number ("Ultra 1") when the
+// owner hides names in Cài đặt.
 
+import { agyNames } from './accounts';
 import { clock } from './format';
 import type { AgyAccounts, AgyLogin, AgyLoginDone, AgyReadError, ClientStatus } from './model';
 import type { ChipView, FeedbackView } from './view';
@@ -14,9 +15,13 @@ export function agyLoginName(n: number): string {
 
 export interface AgyRowView {
   id: string;
+  /** Its place in the app's list, as quota-axi numbers it. */
+  number: number;
   name: string;
+  /** The whole email, for hover; '' while names are hidden. */
+  full: string;
   short: string;
-  /** The email or Google name when shown, then what the account needs. */
+  /** What the account needs, or ''. */
   sub: string;
   chip: ChipView;
   /** "Đăng nhập lại" on an account Google stopped accepting. */
@@ -70,13 +75,16 @@ export function agyReadLine(reading: boolean, error: AgyReadError | null): AgyRo
 }
 
 export function agyRows(view: AgyAccounts): AgyRowView[] {
+  const names = agyNames(view.accounts.map((a) => ({ number: a.number, email: a.email ?? undefined })));
   return view.accounts.map((a) => {
-    const who = [a.email, a.name].filter(Boolean).join(' · ');
+    const name = names.get(a.number)!;
     return {
       id: a.id,
-      name: agyLoginName(a.number),
+      number: a.number,
+      name: name.name,
+      full: name.full,
       short: 'U' + a.number,
-      sub: [who, NEEDS[a.status]].filter(Boolean).join('. ') || 'Đăng nhập giữ trong Keychain của app trên Mac này.',
+      sub: NEEDS[a.status],
       chip: CHIPS[a.status],
       relogin: a.status === 'needsLogin' || a.status === 'forbidden',
       verify: (a.status === 'needsVerification' || a.status === 'forbidden') && a.verify,

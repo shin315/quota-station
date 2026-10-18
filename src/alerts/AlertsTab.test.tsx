@@ -70,7 +70,7 @@ describe('the Cảnh báo tab', () => {
     await act(async () => {
       fireEvent.click(within(card('Team A rời vòng lúc 14:45')).getByRole('button', { name: 'Chuyển ngay' }));
     });
-    expect(screen.getByRole('dialog', { name: /Team B/ })).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: /lan\.acme2/ })).toBeTruthy();
     expect(fake.api.switchClaude).not.toHaveBeenCalled();
   });
 
@@ -83,6 +83,7 @@ describe('the Cảnh báo tab', () => {
     await screen.findByText('Đã chuyển lại sang Ultra 2');
     const o = card('Antigravity đổi về tài khoản cũ');
     expect(within(o).getByText('Bạn đã chọn “Thoát app rồi chuyển lại”.')).toBeTruthy();
+    // The result stays written on the card, not as a passing toast.
     expect(within(o).getByText('Antigravity.app đã mở lại với tài khoản này.')).toBeTruthy();
   });
 
@@ -197,7 +198,7 @@ describe('a button on a macOS card', () => {
     await act(async () => {
       fake.cardOpensSwitch(3);
     });
-    expect(screen.getByRole('dialog', { name: /Team B/ })).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: /lan\.acme2/ })).toBeTruthy();
     expect(fake.api.switchClaude).not.toHaveBeenCalled();
   });
 });

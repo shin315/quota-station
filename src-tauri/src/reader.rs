@@ -1,7 +1,8 @@
 //! The reader thread: runs quota-axi on the schedule and pushes each result
 //! to the menu bar and the windows. It also looks at the switcher: the pause
 //! flag on every read, and the dry run, log and launchd while a window is
-//! open or after the owner acted. Each read also wakes the Antigravity
+//! open or after the owner acted. Beside quota-axi it runs `cswap list
+//! --json` for every Claude account's windows and names. Each read also wakes the Antigravity
 //! quota thread for the account in use, and each Antigravity reading goes
 //! to the six-hour watch after an Antigravity switch. After each read the
 //! history and the alerts look at the new numbers (`alerting`).
@@ -13,7 +14,7 @@ use std::time::{Duration, Instant, SystemTime};
 use quota_station_core::axi::Response;
 use quota_station_core::runner::{self, ProviderId, RunError};
 use quota_station_core::switcher::{self, DryRunError};
-use quota_station_core::{local_time, pause, schedule};
+use quota_station_core::{cswap, local_time, pause, schedule};
 use tauri::{AppHandle, Emitter};
 use time::OffsetDateTime;
 
@@ -76,8 +77,11 @@ fn run(app: &AppHandle, state: &AppState) {
 
         // The switcher check runs beside the read, and the numbers are shown
         // as soon as they are in: a slow dry run never holds them back.
+        let cswap_path = cswap::discover(&home);
         let switcher = thread::spawn(move || check_switcher(&home, full, pause_generation));
+        let list = thread::spawn(move || cswap_path.map(|p| cswap::list(&p)));
         let (claude, agy) = read_both(path.clone());
+        let list = list.join().ok().flatten();
         let version = path.filter(|_| check_version).map(|p| {
             let v = runner::version(&p).map_err(|e| e.to_string());
             (p, v)
@@ -90,6 +94,7 @@ fn run(app: &AppHandle, state: &AppState) {
         if let Some(v) = version {
             inner.version = Some(v);
         }
+        store_list(&mut inner, list);
         inner.reading = false;
         inner.reads += 1;
         inner.schedule.mark_read(Instant::now());
@@ -220,6 +225,16 @@ pub fn store(
     }
 }
 
+/// claude-swap's list: a failed run keeps the last one; no claude-swap,
+/// none.
+fn store_list(inner: &mut Inner, list: Option<Result<Vec<cswap::SwapAccount>, cswap::ListError>>) {
+    match list {
+        Some(Ok(list)) => inner.claude_list = Some(list),
+        None | Some(Err(cswap::ListError::NotFound)) => inner.claude_list = None,
+        Some(Err(_)) => {}
+    }
+}
+
 /// Pushes the current state to the menu bar icon and to every window.
 pub fn publish(app: &AppHandle, state: &AppState) {
     let (model, icon) = {
@@ -293,6 +308,17 @@ mod tests {
         let now = inner.agy_generation;
         assert!(store(&mut inner, (claude, now), Ok(report(GRANTED)), Ok(report(AGY))));
         assert!(inner.agy.is_some());
+    }
+
+    #[test]
+    fn a_failed_claude_swap_list_keeps_the_last_one() {
+        let mut inner = inner();
+        let account = cswap::SwapAccount { number: 1, ..Default::default() };
+        store_list(&mut inner, Some(Ok(vec![account])));
+        store_list(&mut inner, Some(Err(cswap::ListError::Timeout)));
+        assert_eq!(inner.claude_list.as_ref().map(Vec::len), Some(1));
+        store_list(&mut inner, None);
+        assert!(inner.claude_list.is_none(), "claude-swap is gone");
     }
 
     #[test]

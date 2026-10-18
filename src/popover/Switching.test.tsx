@@ -23,9 +23,9 @@ async function open(model: Model, options: FakeOptions = {}, clock = () => FIXTU
 
 /** Opens the switch sheet from a Claude row and waits for the session count. */
 async function sheetFor(name: string) {
-  const row = within(screen.getByRole('list', { name: 'CLAUDE CODE' }))
+  const row = within(screen.getByRole('list', { name: 'CLAUDE' }))
     .getAllByRole('button')
-    .find((b) => b.getAttribute('aria-label')!.startsWith(name + ' '))!;
+    .find((b) => /^[,.]/.test(b.getAttribute('aria-label')!.slice(name.length)) && b.getAttribute('aria-label')!.startsWith(name))!;
   await act(async () => {
     fireEvent.click(row);
   });
@@ -43,13 +43,13 @@ afterEach(cleanup);
 describe('the Claude switch sheet', () => {
   it('names the target, counts the live sessions and offers the four holds, one hour by default', async () => {
     const fake = await open(fixtureModel('fresh'));
-    const sheet = await sheetFor('Team B');
+    const sheet = await sheetFor('lan.acme2');
     expect(fake.api.claudeSessions).toHaveBeenCalledTimes(1);
     expect(facts(sheet)).toEqual([
-      'Team B còn 100% hạn mức 5 giờ, 50% hạn mức Fable tuần.',
+      'lan.acme2 đã dùng 0% 5 giờ, 50% Fable.',
       '5 phiên Claude đang chạy sẽ tạo lại bộ nhớ đệm ở tin nhắn tiếp theo. Việc này dùng thêm hạn mức.',
     ]);
-    // Team B's five-hour window has not started: "Đến lúc đặt lại" is five hours from now.
+    // lan.acme2's five-hour window has not started: "Đến lúc đặt lại" is five hours from now.
     expect(radios(sheet)).toEqual([
       '○ 30 phútđến 14:50',
       '● 1 giờđến 15:20',
@@ -63,60 +63,62 @@ describe('the Claude switch sheet', () => {
 
   it('"Đến lúc đặt lại" ends at the five-hour reset of an account whose window runs', async () => {
     await open(fixtureModel('fresh'));
-    const sheet = await sheetFor('Team C');
+    const sheet = await sheetFor('lan.acme3');
     expect(within(sheet).getByRole('radio', { name: /Đến lúc đặt lại/ }).textContent).toBe('Đến lúc đặt lạiđến 17:09');
-    expect(facts(sheet)[0]).toBe('Team C còn 98% hạn mức 5 giờ, ≥98% hạn mức Fable tuần.');
+    expect(facts(sheet)[0]).toBe('lan.acme3 đã dùng 2% 5 giờ, 2% Fable.');
   });
 
   it('confirming switches with the hold chosen and reports what the re-read shows', async () => {
     const fake = await open(fixtureModel('fresh'));
-    const sheet = await sheetFor('Team B');
+    const sheet = await sheetFor('lan.acme2');
     await act(async () => {
-      fireEvent.click(within(sheet).getByRole('button', { name: 'Chuyển sang Team B' }));
+      fireEvent.click(within(sheet).getByRole('button', { name: 'Chuyển sang lan.acme2' }));
     });
     expect(fake.api.switchClaude).toHaveBeenCalledWith(3, '2026-01-16T08:20:40.000Z');
     expect(screen.queryByRole('dialog', { name: /Chuyển Claude/ })).toBeNull();
-    expect(screen.getByText('Đã chuyển sang Team B. Giữ tài khoản này đến 15:20.')).toBeTruthy();
-    expect(screen.getByText('Đọc lại sau 5 giây: Team B đang dùng ✓. Tự chuyển Claude tạm dừng tới lúc đó.')).toBeTruthy();
-    // The model the fake pushed: Team B is active and the switcher is held.
-    expect(screen.getByText('Giữ Team B đến 15:20')).toBeTruthy();
+    expect(screen.getByText('Đã chuyển sang lan.acme2. Giữ tài khoản này đến 15:20.')).toBeTruthy();
+    expect(screen.getByText('Đọc lại sau 5 giây: lan.acme2 đang dùng ✓. Tự chuyển Claude tạm dừng tới lúc đó.')).toBeTruthy();
+    // The model the fake pushed: lan.acme2 is active and the switcher is held.
+    expect(document.querySelector('.acard2.on')!.getAttribute('aria-label')).toMatch(/^lan\.acme2,/);
     expect(screen.getByRole('switch', { name: 'Tự chuyển Claude, đang tạm dừng' }).getAttribute('aria-checked')).toBe('false');
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Đóng' }));
     });
-    expect(screen.queryByText(/Đã chuyển sang Team B/)).toBeNull();
+    expect(screen.queryByText(/Đã chuyển sang lan.acme2/)).toBeNull();
   });
 
   it('"Để tự chuyển" switches without a hold and says the switcher may switch again', async () => {
     const fake = await open(fixtureModel('fresh'));
-    const sheet = await sheetFor('Team B');
+    const sheet = await sheetFor('lan.acme2');
     fireEvent.click(within(sheet).getByRole('radio', { name: /Để tự chuyển/ }));
     expect(within(sheet).getByText('Tự chuyển vẫn bật. Switcher có thể đổi sang tài khoản khác ở lần kiểm sau (trong vòng 3 phút).')).toBeTruthy();
     await act(async () => {
-      fireEvent.click(within(sheet).getByRole('button', { name: 'Chuyển sang Team B' }));
+      fireEvent.click(within(sheet).getByRole('button', { name: 'Chuyển sang lan.acme2' }));
     });
     expect(fake.api.switchClaude).toHaveBeenCalledWith(3, null);
-    expect(screen.getByText('Đã chuyển sang Team B.')).toBeTruthy();
-    expect(
-      screen.getByText('Đọc lại sau 5 giây: Team B đang dùng ✓. Tự chuyển vẫn bật: switcher kiểm lại trong vòng 3 phút và có thể đổi tài khoản.'),
-    ).toBeTruthy();
+    // Done with nothing to answer: a toast that says so, the details on hover.
+    const toast = screen.getByText('Đã chuyển sang lan.acme2');
+    expect(toast.className).toBe('toast');
+    expect(toast.getAttribute('title')).toBe(
+      'Đọc lại sau 5 giây: lan.acme2 đang dùng ✓. Tự chuyển vẫn bật: switcher kiểm lại trong vòng 3 phút và có thể đổi tài khoản.',
+    );
   });
 
   it('the hold ends at the time its choice shows, even when the clock has moved on since', async () => {
     let now = FIXTURE_NOW;
     const fake = await open(fixtureModel('fresh'), {}, () => now);
-    const sheet = await sheetFor('Team B');
+    const sheet = await sheetFor('lan.acme2');
     expect(within(sheet).getByRole('radio', { name: /1 giờ/ }).textContent).toBe('1 giờđến 15:20');
     now = new Date('2026-01-16T07:21:50.000Z'); // a minute later, before the window's clock ticks
     await act(async () => {
-      fireEvent.click(within(sheet).getByRole('button', { name: 'Chuyển sang Team B' }));
+      fireEvent.click(within(sheet).getByRole('button', { name: 'Chuyển sang lan.acme2' }));
     });
     expect(fake.api.switchClaude).toHaveBeenCalledWith(3, '2026-01-16T08:20:40.000Z');
   });
 
   it('the arrow keys move the hold choice', async () => {
     await open(fixtureModel('fresh'));
-    const sheet = await sheetFor('Team B');
+    const sheet = await sheetFor('lan.acme2');
     const checked = within(sheet).getByRole('radio', { name: /1 giờ/ });
     fireEvent.keyDown(checked, { key: 'ArrowRight' });
     expect(within(sheet).getByRole('radio', { name: /Đến lúc đặt lại/ }).getAttribute('aria-checked')).toBe('true');
@@ -127,19 +129,19 @@ describe('the Claude switch sheet', () => {
     let finish: (o: Outcome) => void = () => {};
     const fake = await open(fixtureModel('fresh'));
     vi.mocked(fake.api.switchClaude).mockImplementation(() => new Promise((r) => (finish = r)));
-    const sheet = await sheetFor('Team B');
+    const sheet = await sheetFor('lan.acme2');
     await act(async () => {
-      fireEvent.click(within(sheet).getByRole('button', { name: 'Chuyển sang Team B' }));
+      fireEvent.click(within(sheet).getByRole('button', { name: 'Chuyển sang lan.acme2' }));
     });
-    const working = screen.getByRole('dialog', { name: 'Đang chuyển sang Team B…' });
+    const working = screen.getByRole('dialog', { name: 'Đang chuyển sang lan.acme2…' });
     expect(within(working).getByText('cswap switch 3 đang chuyển tài khoản')).toBeTruthy();
     // Escape does not leave a running switch.
     fireEvent.keyDown(window, { key: 'Escape' });
-    expect(screen.getByRole('dialog', { name: 'Đang chuyển sang Team B…' })).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: 'Đang chuyển sang lan.acme2…' })).toBeTruthy();
     expect(fake.api.hidePopover).not.toHaveBeenCalled();
     await act(async () => finish({ kind: 'switched', slot: 3, hold: null }));
     expect(screen.queryByRole('dialog', { name: /Đang chuyển/ })).toBeNull();
-    expect(screen.getByText('Đã chuyển sang Team B.')).toBeTruthy();
+    expect(screen.getByText('Đã chuyển sang lan.acme2')).toBeTruthy();
   });
 
   it('when the switcher switches back, says so and offers to switch again', async () => {
@@ -152,26 +154,26 @@ describe('the Claude switch sheet', () => {
         hold: holdUntil ? { until: '2026-01-16T08:20:00.000Z', failed: false } : null,
       }),
     });
-    const sheet = await sheetFor('Team B');
+    const sheet = await sheetFor('lan.acme2');
     await act(async () => {
-      fireEvent.click(within(sheet).getByRole('button', { name: 'Chuyển sang Team B' }));
+      fireEvent.click(within(sheet).getByRole('button', { name: 'Chuyển sang lan.acme2' }));
     });
-    expect(screen.getByText('Switcher vừa chuyển sang Team A lúc 14:21')).toBeTruthy();
-    expect(screen.getByText('Hai lần ghi gần nhau, lần sau thắng. Đang dùng Team A. Tự chuyển Claude tạm dừng tới 15:20.')).toBeTruthy();
+    expect(screen.getByText('Switcher vừa chuyển sang lan.acme1 lúc 14:21')).toBeTruthy();
+    expect(screen.getByText('Hai lần ghi gần nhau, lần sau thắng. Đang dùng lan.acme1. Tự chuyển Claude tạm dừng tới 15:20.')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Cho phép tự chuyển lại' })).toBeTruthy();
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Chuyển lại sang Team B' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Chuyển lại sang lan.acme2' }));
     });
-    expect(screen.getByRole('dialog', { name: 'Chuyển Claude sang Team B?' })).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: 'Chuyển Claude sang lan.acme2?' })).toBeTruthy();
   });
 
   it('another switch winning is not blamed on the switcher', async () => {
     await open(fixtureModel('fresh'), { outcome: (slot) => ({ kind: 'raced', slot, active: 4, bySwitcherAt: null, hold: null }) });
-    const sheet = await sheetFor('Team B');
+    const sheet = await sheetFor('lan.acme2');
     await act(async () => {
-      fireEvent.click(within(sheet).getByRole('button', { name: 'Chuyển sang Team B' }));
+      fireEvent.click(within(sheet).getByRole('button', { name: 'Chuyển sang lan.acme2' }));
     });
-    expect(screen.getByText('Một lần chuyển khác vừa chuyển sang Team C')).toBeTruthy();
+    expect(screen.getByText('Một lần chuyển khác vừa chuyển sang lan.acme3')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Cho phép tự chuyển lại' })).toBeNull();
   });
 
@@ -179,33 +181,33 @@ describe('the Claude switch sheet', () => {
     await open(fixtureModel('fresh'), {
       outcome: (slot) => ({ kind: 'failed', slot, error: 'refused', detail: 'ClaudeSwitchError: Account-3 … needs /login', active: null }),
     });
-    const sheet = await sheetFor('Team B');
+    const sheet = await sheetFor('lan.acme2');
     await act(async () => {
-      fireEvent.click(within(sheet).getByRole('button', { name: 'Chuyển sang Team B' }));
+      fireEvent.click(within(sheet).getByRole('button', { name: 'Chuyển sang lan.acme2' }));
     });
-    expect(screen.getByText('Chưa chuyển được sang Team B')).toBeTruthy();
+    expect(screen.getByText('Chưa chuyển được sang lan.acme2')).toBeTruthy();
     expect(screen.getByText('cswap báo: ClaudeSwitchError: Account-3 … needs /login. Chưa đổi gì.')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Thử lại' })).toBeTruthy();
-    // Nothing changed: Team A is still the one in use.
-    expect(screen.getByText('Claude còn tương đương 2,3 tài khoản')).toBeTruthy();
+    // Nothing changed: lan.acme1 is still the one in use.
+    expect(document.querySelector('.acard2.on')!.getAttribute('aria-label')).toMatch(/^lan\.acme1, Acme Studio, đang dùng\./);
   });
 
   it('an unconfirmed switch asks for a refresh', async () => {
     await open(fixtureModel('fresh'), { outcome: (slot) => ({ kind: 'unconfirmed', slot, hold: null }) });
-    const sheet = await sheetFor('Team B');
+    const sheet = await sheetFor('lan.acme2');
     await act(async () => {
-      fireEvent.click(within(sheet).getByRole('button', { name: 'Chuyển sang Team B' }));
+      fireEvent.click(within(sheet).getByRole('button', { name: 'Chuyển sang lan.acme2' }));
     });
-    expect(screen.getByText('Đã gửi lệnh chuyển sang Team B')).toBeTruthy();
+    expect(screen.getByText('Đã gửi lệnh chuyển sang lan.acme2')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Làm mới' })).toBeTruthy();
   });
 
   it('Thôi and Escape close the sheet without switching, and Escape then hides the popover', async () => {
     const fake = await open(fixtureModel('fresh'));
-    let sheet = await sheetFor('Team B');
+    let sheet = await sheetFor('lan.acme2');
     fireEvent.click(within(sheet).getByRole('button', { name: 'Thôi' }));
     expect(screen.queryByRole('dialog', { name: /Chuyển Claude/ })).toBeNull();
-    sheet = await sheetFor('Team B');
+    sheet = await sheetFor('lan.acme2');
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.queryByRole('dialog', { name: /Chuyển Claude/ })).toBeNull();
     expect(fake.api.hidePopover).not.toHaveBeenCalled();
@@ -216,21 +218,21 @@ describe('the Claude switch sheet', () => {
 
   it('session counts: none, unreadable records, and a folder that cannot be read', async () => {
     await open(fixtureModel('fresh'), { sessions: { live: 0, unreadable: 0 } });
-    expect(facts(await sheetFor('Team B'))[1]).toBe(
+    expect(facts(await sheetFor('lan.acme2'))[1]).toBe(
       'Không có phiên Claude nào đang chạy trên máy này, nên không phiên nào phải tạo lại bộ nhớ đệm.',
     );
     cleanup();
     await open(fixtureModel('fresh'), { sessions: { live: 3, unreadable: 1 } });
-    expect(facts(await sheetFor('Team B'))[1]).toMatch(/^Ít nhất 3 phiên Claude đang chạy/);
+    expect(facts(await sheetFor('lan.acme2'))[1]).toMatch(/^Ít nhất 3 phiên Claude đang chạy/);
     cleanup();
     await open(fixtureModel('fresh'), { sessions: null });
-    expect(facts(await sheetFor('Team B'))[1]).toMatch(/^Các phiên Claude đang chạy sẽ tạo lại bộ nhớ đệm/);
+    expect(facts(await sheetFor('lan.acme2'))[1]).toMatch(/^Các phiên Claude đang chạy sẽ tạo lại bộ nhớ đệm/);
   });
 
   it('the personal account outside its hours warns that the switcher will move away', async () => {
     // 00:30 at UTC+7: outside the personal hours 8-23.
     await open(fixtureModel('fresh'), {}, () => new Date('2026-01-16T17:30:00.000Z'));
-    const sheet = await sheetFor('Cá nhân');
+    const sheet = await sheetFor('lanpham.dev');
     expect(facts(sheet)).toContain(
       'Bây giờ là 00:30, ngoài giờ 08–23 của tài khoản Cá nhân. Nếu để tự chuyển, switcher sẽ đổi sang tài khoản khác trong vòng 3 phút.',
     );
@@ -242,7 +244,7 @@ describe('the Claude switch sheet', () => {
 
   it('without cswap nothing can switch', async () => {
     await open(fixtureModel('fresh', { claudeSwitch: { cswap: false, busy: null } }));
-    const rows = within(screen.getByRole('list', { name: 'CLAUDE CODE' })).getAllByRole('button');
+    const rows = within(screen.getByRole('list', { name: 'CLAUDE' })).getAllByRole('button');
     expect(rows.every((r) => r.getAttribute('aria-disabled') === 'true')).toBe(true);
     expect(rows[2].getAttribute('aria-label')).toMatch(/\. Chưa chuyển được: không tìm thấy cswap$/);
     expect(screen.getByText('Không tìm thấy cswap trên máy này: chưa chuyển được tài khoản Claude.')).toBeTruthy();
@@ -250,19 +252,19 @@ describe('the Claude switch sheet', () => {
 
   it('a switch from the other window that lands on this sheet’s account closes the sheet', async () => {
     const fake = await open(fixtureModel('fresh'));
-    await sheetFor('Team B');
+    await sheetFor('lan.acme2');
     const model = fixtureModel('fresh');
     act(() => fake.push({ ...model, claudeSwitch: { cswap: true, busy: 3 } }));
-    expect(screen.getByRole('dialog', { name: 'Đang chuyển sang Team B…' })).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: 'Đang chuyển sang lan.acme2…' })).toBeTruthy();
     const accounts = model.snapshot.claude.accounts.map((a) => ({ ...a, active: a.number === 3 }));
     act(() => fake.push({ ...model, snapshot: { ...model.snapshot, claude: { ...model.snapshot.claude, accounts } } }));
-    expect(screen.queryByRole('dialog', { name: /Team B/ })).toBeNull();
+    expect(screen.queryByRole('dialog', { name: /lan.acme2/ })).toBeNull();
     expect(fake.api.switchClaude).not.toHaveBeenCalled();
   });
 
   it('while a switch runs from another window, rows wait', async () => {
     await open(fixtureModel('fresh', { claudeSwitch: { cswap: true, busy: 3 } }));
-    const rows = within(screen.getByRole('list', { name: 'CLAUDE CODE' })).getAllByRole('button');
+    const rows = within(screen.getByRole('list', { name: 'CLAUDE' })).getAllByRole('button');
     expect(rows[3].getAttribute('aria-label')).toMatch(/\. Đang chuyển tài khoản$/);
   });
 });
@@ -272,22 +274,21 @@ describe('the pause control', () => {
     const fake = await open(fixtureModel('fresh'));
     fireEvent.click(screen.getByRole('switch', { name: 'Tự chuyển Claude' }));
     const sheet = screen.getByRole('dialog', { name: 'Tạm dừng tự chuyển Claude?' });
-    expect(within(sheet).getByText('Giữ Team A. Switcher sẽ không đổi tài khoản Claude trong thời gian này. Hạn mức vẫn cập nhật.')).toBeTruthy();
+    expect(within(sheet).getByText('Giữ lan.acme1. Switcher sẽ không đổi tài khoản Claude trong thời gian này. Hạn mức vẫn cập nhật.')).toBeTruthy();
     expect(radios(sheet)).toEqual(['● 1 giờđến 15:20', '○ Đến 18:00hôm nay', '○ Đến khi tôi bật lạikhông có giờ hết hạn']);
     await act(async () => {
       fireEvent.click(within(sheet).getByRole('button', { name: 'Tạm dừng' }));
     });
     expect(fake.api.pauseSwitching).toHaveBeenCalledWith('2026-01-16T08:20:40.000Z');
     expect(screen.getByText('Đã tạm dừng tự chuyển Claude')).toBeTruthy();
-    expect(screen.getByText('Giữ Team A đến 15:20. Hết thời gian này, tự chuyển sẽ bật lại.')).toBeTruthy();
-    // The why line, the toggle and the summary say so; the banner waits for the line to close.
+    expect(screen.getByText('Giữ lan.acme1 đến 15:20. Hết thời gian này, tự chuyển sẽ bật lại.')).toBeTruthy();
+    // The why line and the toggle say so; the banner waits for the line to close.
     expect(screen.getByText('Tự chuyển đang tạm dừng')).toBeTruthy();
     expect(screen.getByText('Đang tạm dừng tới 15:20: tạm dừng trong Quota Station lúc 14:20')).toBeTruthy();
     expect(screen.getByRole('switch', { name: 'Tự chuyển Claude, đang tạm dừng' }).getAttribute('aria-checked')).toBe('false');
-    expect(screen.getByText('Giữ Team A đến 15:20')).toBeTruthy();
-    expect(screen.queryByText('Đang giữ Team A đến 15:20')).toBeNull();
+    expect(screen.queryByText('Đang giữ lan.acme1 đến 15:20')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Đóng' }));
-    expect(screen.getByText('Đang giữ Team A đến 15:20')).toBeTruthy();
+    expect(screen.getByText('Đang giữ lan.acme1 đến 15:20')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Thêm 1 giờ' })).toBeTruthy();
   });
 
@@ -313,9 +314,9 @@ describe('the pause control', () => {
       fireEvent.click(within(sheet).getByRole('button', { name: 'Tạm dừng' }));
     });
     expect(fake.api.pauseSwitching).toHaveBeenCalledWith(null);
-    expect(screen.getByText('Giữ Team A đến khi bạn bật lại. Bật lại bằng công tắc Tự chuyển Claude.')).toBeTruthy();
+    expect(screen.getByText('Giữ lan.acme1 đến khi bạn bật lại. Bật lại bằng công tắc Tự chuyển Claude.')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Đóng' }));
-    expect(screen.getByText('Đang giữ Team A đến khi bạn bật lại')).toBeTruthy();
+    expect(screen.getByText('Đang giữ lan.acme1 đến khi bạn bật lại')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Thêm 1 giờ' })).toBeNull();
     expect(screen.getByText('Đang tạm dừng đến khi bạn bật lại: tạm dừng trong Quota Station lúc 14:20')).toBeTruthy();
   });
@@ -354,7 +355,7 @@ describe('the pause control', () => {
     });
     expect(fake.api.extendPause).toHaveBeenCalledWith(60);
     expect(screen.getByText('Đã thêm 1 giờ. Tự chuyển Claude vẫn tạm dừng.')).toBeTruthy();
-    expect(screen.getAllByText('Giữ Team A đến 16:20')).toHaveLength(2);
+    expect(screen.getAllByText('Giữ lan.acme1 đến 16:20')).toHaveLength(1);
     await act(async () => {
       fireEvent.click(screen.getByRole('switch', { name: 'Tự chuyển Claude, đang tạm dừng' }));
     });

@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MainWindowApp } from '../App';
-import { fakeApi, type FakeOptions } from '../fixtures/fakeApi';
+import { fakeApi, hideNames, type FakeOptions } from '../fixtures/fakeApi';
 import { FIXTURE_NOW, fixtureModel, peerFixture, rotationFixture, rulesFixture } from '../fixtures/models';
 import type { Api } from '../lib/api';
 import type { Model, Tab } from '../lib/model';
@@ -19,8 +19,8 @@ async function open(model: Model = fixtureModel('fresh'), options: FakeOptions =
 }
 
 const heading = () => screen.getByRole('heading', { level: 2 }).textContent;
-const team = () => within(screen.getByRole('group', { name: /Tài khoản Team được xoay vòng/ }));
-const personal = () => within(screen.getByRole('group', { name: /Tài khoản cá nhân/ }));
+const team = () => within(screen.getByRole('group', { name: /^Team trong vòng/ }));
+const personal = () => within(screen.getByRole('group', { name: /^Cá nhân/ }));
 const macs = () => within(screen.getByLabelText('Các Mac'));
 const saveButton = () => screen.queryByRole('button', { name: /^Lưu cho/ }) as HTMLButtonElement | null;
 const press = async (el: HTMLElement) => {
@@ -38,20 +38,22 @@ describe('rules editor', () => {
   it('shows the rules on this Mac and one status per Mac', async () => {
     await open();
     expect(heading()).toBe('Luật xoay vòng');
-    expect(screen.getByText('~/.config/cswap-prefer-team/rotation')).toBeTruthy();
+    expect(screen.queryByText('~/.config/cswap-prefer-team/rotation')).toBeNull();
     const chips = team().getAllByRole('button');
     expect(chips.map((b) => [b.textContent, b.getAttribute('aria-pressed')])).toEqual([
-      ['1Team A, thứ tự 1', 'true'],
-      ['2Team B, thứ tự 2', 'true'],
-      ['3Team C, thứ tự 3', 'true'],
+      ['1lan.acme1, thứ tự 1', 'true'],
+      ['2lan.acme2, thứ tự 2', 'true'],
+      ['3lan.acme3, thứ tự 3', 'true'],
     ]);
-    expect(personal().getByRole('button', { name: /Cá nhân/ }).getAttribute('aria-pressed')).toBe('true');
+    // The whole email on hover.
+    expect(chips[0].getAttribute('title')).toBe('lan.acme1@example.com');
+    expect(personal().getByRole('button', { name: /lanpham\.dev/ }).getAttribute('aria-pressed')).toBe('true');
     expect((screen.getByLabelText('Giờ bắt đầu dùng tài khoản cá nhân') as HTMLSelectElement).value).toBe('8');
     expect((screen.getByLabelText('Giờ kết thúc dùng tài khoản cá nhân') as HTMLSelectElement).value).toBe('24');
     expect((screen.getByLabelText('Ngưỡng tự chuyển, phần trăm hạn mức 5 giờ đã dùng') as HTMLInputElement).value).toBe('90');
     expect((screen.getByLabelText('Ngưỡng Fable tuần, phần trăm đã dùng') as HTMLInputElement).value).toBe('95');
-    expect((screen.getByLabelText('Giờ rời vòng của Team A') as HTMLInputElement).value).toBe('2026-01-16T17:45');
-    expect(screen.getByRole('button', { name: 'Đặt giờ rời vòng cho Team B' })).toBeTruthy();
+    expect((screen.getByLabelText('Giờ rời vòng của lan.acme1') as HTMLInputElement).value).toBe('2026-01-16T17:45');
+    expect(screen.getByRole('button', { name: 'Đặt giờ rời vòng cho lan.acme2' })).toBeTruthy();
 
     expect(macs().getByText('Mac mini (máy này)').textContent).toBe('Mac mini (máy này) · lưu 14:02');
     expect(macs().getByText('Mac B').textContent).toBe('Mac B · đã nhận 14:02');
@@ -63,13 +65,13 @@ describe('rules editor', () => {
 
   it('chips and sliders edit the draft, and Huỷ thay đổi puts the file back', async () => {
     const fake = await open();
-    await press(team().getByRole('button', { name: /Team B/ }));
+    await press(team().getByRole('button', { name: /lan\.acme2/ }));
     expect(team().getAllByRole('button').map((b) => b.getAttribute('aria-pressed'))).toEqual(['true', 'false', 'true']);
-    expect(team().getByRole('button', { name: /Team C/ }).textContent).toBe('2Team C, thứ tự 2');
+    expect(team().getByRole('button', { name: /lan\.acme3/ }).textContent).toBe('2lan.acme3, thứ tự 2');
     // A slot out of the Team rotation can become the personal one.
-    expect(personal().getByRole('button', { name: /Team B/ })).toBeTruthy();
+    expect(personal().getByRole('button', { name: /lan\.acme2/ })).toBeTruthy();
     fireEvent.change(screen.getByLabelText('Ngưỡng tự chuyển, phần trăm hạn mức 5 giờ đã dùng'), { target: { value: '85' } });
-    expect(screen.getByText(/Tự chuyển khi đã dùng 85% hạn mức 5 giờ/)).toBeTruthy();
+    expect(screen.getByText('85%')).toBeTruthy();
     expect(screen.getByText('Có 2 thay đổi chưa lưu.')).toBeTruthy();
     expect(macs().getByText('Mac mini (máy này)').textContent).toBe('Mac mini (máy này) · chưa lưu');
     expect(saveButton()?.disabled).toBe(false);
@@ -85,15 +87,16 @@ describe('rules editor', () => {
   it('saves for every Mac and says when', async () => {
     const fake = await open();
     fireEvent.change(screen.getByLabelText('Ngưỡng tự chuyển, phần trăm hạn mức 5 giờ đã dùng'), { target: { value: '85' } });
-    await press(screen.getByRole('button', { name: 'Đặt giờ rời vòng cho Team B' }));
-    expect((screen.getByLabelText('Giờ rời vòng của Team B') as HTMLInputElement).value).toBe('2026-01-16T18:00');
+    await press(screen.getByRole('button', { name: 'Đặt giờ rời vòng cho lan.acme2' }));
+    expect((screen.getByLabelText('Giờ rời vòng của lan.acme2') as HTMLInputElement).value).toBe('2026-01-16T18:00');
     await press(saveButton()!);
     expect(fake.api.saveRotation).toHaveBeenCalledWith(
       rulesFixture({ full: 85, expire: [{ slot: 2, at: '2026-01-16T17:45' }, { slot: 3, at: '2026-01-16T18:00' }] }),
       'v1',
     );
-    expect(screen.getByText('Đã lưu luật cho cả ba Mac lúc 14:20')).toBeTruthy();
-    expect(screen.getByText('quota-axi đọc lại: đã kiểm tra đủ 6 mục của luật ✓')).toBeTruthy();
+    // A save that went well is a toast; what quota-axi said is on hover.
+    const toast = screen.getByText('Đã lưu luật cho cả ba Mac lúc 14:20').closest('.toast')!;
+    expect(toast.getAttribute('title')).toContain('quota-axi đọc lại: đã kiểm tra đủ 6 mục của luật ✓');
     expect(screen.queryByText(/thay đổi chưa lưu/)).toBeNull();
     expect(macs().getByText('Mac C').textContent).toBe('Mac C · đã nhận 14:20');
   });
@@ -194,8 +197,8 @@ describe('rules editor', () => {
     await press(screen.getByRole('button', { name: 'So sánh' }));
     await press(screen.getByRole('button', { name: 'Giữ bản máy này' }));
     expect(fake.api.keepRotation).toHaveBeenCalledWith('v1');
-    expect(screen.getByText('Đã giữ bản của máy này')).toBeTruthy();
-    expect(screen.getByText('Đã gửi bản 14:20 tới Mac B. Bản của Mac B được sao lưu trên máy đó.')).toBeTruthy();
+    const toast = screen.getByText('Đã giữ bản của máy này').closest('.toast')!;
+    expect(toast.getAttribute('title')).toBe('Đã gửi bản 14:20 tới Mac B. Bản của Mac B được sao lưu trên máy đó.');
   });
 
   it('two Macs editing: a newer copy arriving during an edit wins until the owner chooses', async () => {
@@ -229,10 +232,10 @@ describe('rules editor', () => {
 
   it('leaving the tab with unsaved changes asks first', async () => {
     await open();
-    await press(team().getByRole('button', { name: /Team C/ }));
+    await press(team().getByRole('button', { name: /lan\.acme3/ }));
     await press(screen.getByRole('button', { name: 'Claude' }));
     const dialog = screen.getByRole('dialog', { name: 'Lưu thay đổi luật trước khi rời trang này?' });
-    expect(within(dialog).getByText('Tài khoản Team được xoay vòng: Team A, Team B, Team C → Team A, Team B')).toBeTruthy();
+    expect(within(dialog).getByText('Tài khoản Team được xoay vòng: lan.acme1, lan.acme2, lan.acme3 → lan.acme1, lan.acme2')).toBeTruthy();
     await press(within(dialog).getByRole('button', { name: 'Huỷ' }));
     expect(heading()).toBe('Luật xoay vòng');
     await press(screen.getByRole('button', { name: 'Claude' }));
@@ -244,7 +247,7 @@ describe('rules editor', () => {
 
   it('closing the window with unsaved changes asks, and Lưu saves before it closes', async () => {
     const fake = await open();
-    await press(team().getByRole('button', { name: /Team C/ }));
+    await press(team().getByRole('button', { name: /lan\.acme3/ }));
     await act(async () => fake.requestClose());
     const dialog = screen.getByRole('dialog', { name: 'Lưu thay đổi luật trước khi đóng cửa sổ?' });
     await press(within(dialog).getByRole('button', { name: 'Lưu' }));
@@ -254,7 +257,7 @@ describe('rules editor', () => {
 
   it('quitting from the menu bar with unsaved changes asks first', async () => {
     const fake = await open();
-    await press(team().getByRole('button', { name: /Team C/ }));
+    await press(team().getByRole('button', { name: /lan\.acme3/ }));
     await act(async () => fake.requestQuit());
     const dialog = screen.getByRole('dialog', { name: 'Lưu thay đổi luật trước khi thoát Quota Station?' });
     await press(within(dialog).getByRole('button', { name: 'Bỏ thay đổi' }));
@@ -307,9 +310,51 @@ describe('rules editor', () => {
 
   it('previews what the switcher would do with the draft', async () => {
     const fake = await open();
-    expect(await screen.findByText('Vẫn dùng Team A: chưa tới ngưỡng tự chuyển.', {}, { timeout: 2000 })).toBeTruthy();
-    await press(team().getByRole('button', { name: /Team A/ }));
-    expect(await screen.findByText(/^Lần kiểm tới sẽ chuyển sang Team B/, {}, { timeout: 2000 })).toBeTruthy();
+    expect(await screen.findByText('Vẫn dùng lan.acme1: chưa tới ngưỡng tự chuyển.', {}, { timeout: 2000 })).toBeTruthy();
+    await press(team().getByRole('button', { name: /lan\.acme1/ }));
+    expect(await screen.findByText(/^Lần kiểm tới sẽ chuyển sang lan\.acme2/, {}, { timeout: 2000 })).toBeTruthy();
     expect(fake.api.previewRotation).toHaveBeenLastCalledWith(rulesFixture({ team: [3, 4] }));
+  });
+
+  it('rows have short names and no line of explanation', async () => {
+    await open();
+    for (const label of ['Team trong vòng', 'Cá nhân', 'Chuyển khi 5 giờ đã dùng', 'Bỏ qua khi Fable tuần đã dùng', 'Giờ rời vòng', 'Xem trước'])
+      expect(screen.getAllByText(label).length).toBeGreaterThan(0);
+    const card = document.querySelector('.card .form')!;
+    expect(card.textContent).not.toMatch(/Khoá/);
+    expect(card.querySelectorAll('.fl small')).toHaveLength(0);
+  });
+
+  it('each slider mark sits where its value is', async () => {
+    await open();
+    const slider = screen.getByLabelText('Ngưỡng tự chuyển, phần trăm hạn mức 5 giờ đã dùng').closest('.slider')!;
+    expect(slider.className).toBe('slider ticks');
+    const marks = Array.from(slider.querySelectorAll<HTMLElement>('.marks span')).map((m) => [m.textContent, m.style.left]);
+    expect(marks).toEqual([
+      ['80', '0%'],
+      ['85', '27.78%'],
+      ['90', '55.56%'],
+      ['95', '83.33%'],
+      ['98', '100%'],
+    ]);
+  });
+
+  it('the preview is one sentence, with the switcher’s line on hover', async () => {
+    await open();
+    const line = await screen.findByText('Vẫn dùng lan.acme1: chưa tới ngưỡng tự chuyển.', {}, { timeout: 2000 });
+    const preview = line.closest('.preview')!;
+    expect(preview.textContent).toBe('Vẫn dùng lan.acme1: chưa tới ngưỡng tự chuyển.');
+    expect(preview.getAttribute('title')).toBeTruthy();
+  });
+
+  it('goes by place when names are hidden', async () => {
+    await open(hideNames(fixtureModel('fresh')));
+    expect(team().getAllByRole('button').map((b) => [b.textContent, b.getAttribute('title')])).toEqual([
+      ['1Team A, thứ tự 1', 'tài khoản 2'],
+      ['2Team B, thứ tự 2', 'tài khoản 3'],
+      ['3Team C, thứ tự 3', 'tài khoản 4'],
+    ]);
+    expect(personal().getByRole('button', { name: /Cá nhân/ })).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/@|lan\.|Acme/);
   });
 });

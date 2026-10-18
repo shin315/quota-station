@@ -28,7 +28,8 @@
             "pending": false,
             "atLeast": false
           }
-        ]
+        ],
+        "windows": []
       },
       {
         "number": 2,
@@ -45,6 +46,29 @@
             "kind": "session",
             "percent": 26.0,
             "resetsAt": "2026-01-16T10:29:00.000Z",
+            "pending": false,
+            "atLeast": false
+          },
+          {
+            "kind": "fableWeek",
+            "percent": 13.0,
+            "resetsAt": "2026-01-18T01:20:00.000Z",
+            "pending": false,
+            "atLeast": false
+          }
+        ],
+        "windows": [
+          {
+            "kind": "session",
+            "percent": 26.0,
+            "resetsAt": "2026-01-16T10:29:00.000Z",
+            "pending": false,
+            "atLeast": false
+          },
+          {
+            "kind": "week",
+            "percent": 61.0,
+            "resetsAt": "2026-01-21T03:00:00.000Z",
             "pending": false,
             "atLeast": false
           },
@@ -82,7 +106,8 @@
             "pending": false,
             "atLeast": false
           }
-        ]
+        ],
+        "windows": []
       },
       {
         "number": 4,
@@ -109,7 +134,8 @@
             "pending": true,
             "atLeast": false
           }
-        ]
+        ],
+        "windows": []
       }
     ],
     "pool": {
@@ -147,7 +173,8 @@
     "generatedAt": "2026-01-16T07:20:00.000Z",
     "newestReadingAt": "2026-01-16T07:20:00.000Z",
     "stale": false,
-    "personalHours": "8-23"
+    "personalHours": "8-23",
+    "source": null
   },
   "agy": {
     "status": "ok",
@@ -178,7 +205,8 @@
             "pending": false,
             "atLeast": false
           }
-        ]
+        ],
+        "windows": []
       },
       {
         "number": 2,
@@ -205,6 +233,36 @@
             "pending": true,
             "atLeast": false
           }
+        ],
+        "windows": [
+          {
+            "kind": "geminiSession",
+            "percent": 98.0,
+            "resetsAt": "2026-01-16T09:18:00.000Z",
+            "pending": false,
+            "atLeast": false
+          },
+          {
+            "kind": "geminiWeek",
+            "percent": 94.0,
+            "resetsAt": "2026-01-20T07:20:00.000Z",
+            "pending": false,
+            "atLeast": false
+          },
+          {
+            "kind": "claudeGptSession",
+            "percent": 100.0,
+            "resetsAt": "2026-01-16T12:20:00.000Z",
+            "pending": false,
+            "atLeast": false
+          },
+          {
+            "kind": "claudeGptWeek",
+            "percent": 100.0,
+            "resetsAt": "2026-01-22T07:20:00.000Z",
+            "pending": false,
+            "atLeast": false
+          }
         ]
       }
     ],
@@ -224,7 +282,8 @@
     "generatedAt": "2026-01-16T07:20:00.000Z",
     "newestReadingAt": "2026-01-16T07:19:10.000Z",
     "stale": false,
-    "personalHours": null
+    "personalHours": null,
+    "source": null
   },
   "keychain": "granted"
 }

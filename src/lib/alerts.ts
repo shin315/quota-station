@@ -14,7 +14,7 @@ export const ALERT_KINDS: { kind: AlertKind; title: string; text: string }[] = [
   {
     kind: 'pool',
     title: 'Hạn mức Claude trong vòng sắp cạn / có lại',
-    text: 'Khi hạn mức trong vòng còn từ 10% trở xuống và khi có lại. Cùng luật với firstmate.',
+    text: 'Khi hạn mức trong vòng đã dùng từ 90% trở lên và khi có lại. Cùng luật với firstmate.',
   },
   { kind: 'leaving', title: 'Tài khoản sắp rời vòng', text: '30 phút trước giờ rời vòng trong file luật.' },
   {
@@ -135,7 +135,7 @@ function slots(f: FirstmateView, nameOf: (n: number) => string): string {
   const line = f.line!;
   if (!line.slots.length) return '—';
   return line.slots
-    .map((s) => nameOf(s.slot) + ' ' + (s.reset ? 'vừa đặt lại' : s.percent == null ? '?' : percent(s.percent)))
+    .map((s) => nameOf(s.slot) + ' ' + (s.reset ? 'vừa đặt lại' : s.percent == null ? '?' : 'đã dùng ' + percent(100 - s.percent)))
     .join(' · ');
 }
 
@@ -202,7 +202,7 @@ export function firstmateTab(model: Model, now: Date): FirstmateTabView {
     },
     { key: 'Chờ hạn mức Claude', ...ON_OFF(line.dry, { t: 'đang chờ', k: 'bad' }, { t: 'không', k: 'ok' }) },
     { key: 'Tài khoản đang dùng', value: line.active != null ? nameOf(line.active) : '—' },
-    { key: 'Còn lại từng tài khoản', value: slots(f, nameOf) },
+    { key: 'Đã dùng từng tài khoản', value: slots(f, nameOf) },
     { key: 'Có lại lúc', value: line.nextReset ? dayClock(line.nextReset, now) : '—' },
     { key: 'quota-axi có +cswap', ...ON_OFF(line.fork, { t: 'có', k: 'ok' }, { t: 'không', k: 'bad' }) },
     { key: 'Đọc được claude-swap', ...ON_OFF(line.claudeSwap, { t: 'được', k: 'ok' }, { t: 'không', k: 'bad' }) },

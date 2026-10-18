@@ -66,7 +66,7 @@ function AlertCard({ card, pressing, onPress }: { card: AlertCardView; pressing:
                 </div>
               </div>
             ) : r ? (
-              <Feedback fb={r} onAction={() => {}} />
+              <Feedback fb={r} inline onAction={() => {}} />
             ) : null}
           </div>
         ) : null}

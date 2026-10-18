@@ -1,11 +1,12 @@
 // What the Lịch sử tab shows (F08): the app's own switches, the switcher's
 // log and the changes the app saw, a day at a time, newest first. Pure,
-// like `view.ts`. Copy follows the prototype's `tabHistory`.
+// like `view.ts`. Copy follows the prototype's `tabHistory`: accounts by
+// the window's names, a short reason, and the switcher's own line on hover.
 
-import { agyNameOf } from './agySwitch';
+import { agyNames, claudeNames } from './accounts';
 import { clock, pad } from './format';
-import type { AgyHow, HistoryEntry, HistorySource, Model } from './model';
-import { dayClock, namesOf, whyText, type NameOf } from './switching';
+import type { AgyHow, HistoryEntry, HistorySource, Model, Why } from './model';
+import { dayClock, type NameOf } from './switching';
 import type { ChipView } from './view';
 
 export type HistoryFilter = 'all' | 'claude' | 'antigravity';
@@ -48,10 +49,6 @@ export function dayLabel(iso: string, now: Date): string {
 
 const SOURCES: Record<HistorySource, string> = { app: 'app', switcher: 'switcher', observed: 'quan sát' };
 
-function cap(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
 /** The switcher's line without the stamp it starts with. */
 function logText(raw: string): string {
   return raw.replace(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} /, '');
@@ -62,6 +59,24 @@ const AGY_HOW: Record<AgyHow, string> = {
   quitFirst: ' · thoát app rồi chuyển',
   keepRunning: ' · chuyển khi app vẫn mở',
 };
+
+/** Why the switcher switched, short: `5 giờ đã dùng 0% · đặt lại 23:40`. Every percent is the share used. */
+function switcherWhy(w: Why, nameOf: NameOf): string {
+  switch (w.kind) {
+    case 'expiring':
+      return 'Rời vòng lúc ' + w.at;
+    case 'early':
+      return '5 giờ đã dùng ' + Math.round(100 - w.left) + '% · đặt lại ' + w.at + ', sớm hơn ' + nameOf(w.before);
+    case 'room':
+      return '5 giờ đã dùng ' + Math.round(w.used) + '%' + (w.ends ? ' · đặt lại ' + w.ends : '');
+    case 'personal':
+      return 'Hết tài khoản Team còn hạn mức · 5 giờ đã dùng ' + Math.round(w.used) + '%';
+    case 'park':
+      return 'Hết tài khoản còn hạn mức · đặt lại sớm nhất ' + w.at;
+    default:
+      return 'Switcher chuyển';
+  }
+}
 
 function why(e: HistoryEntry, nameOf: NameOf, now: Date): string {
   const c = e.cause;
@@ -74,15 +89,11 @@ function why(e: HistoryEntry, nameOf: NameOf, now: Date): string {
       return s;
     }
     case 'switcher':
-      return c.why.kind === 'other' ? 'Switcher ghi: ' + logText(c.raw) : cap(whyText(c.why, nameOf(e.to ?? 0), nameOf));
-    case 'primed': {
-      const exit = /\(exit [^)]*\)/.exec(c.raw);
-      return 'Bắt đầu tính hạn mức 5 giờ sớm' + (exit ? ' ' + exit[0] : '');
-    }
+      return switcherWhy(c.why, nameOf);
+    case 'primed':
+      return 'Bắt đầu tính 5 giờ sớm';
     case 'observed':
-      return e.app === 'claude'
-        ? 'Tài khoản đang dùng đổi giữa hai lần đọc, không do app hay switcher'
-        : 'Tài khoản agy đang dùng đổi giữa hai lần đọc, không do app';
+      return e.app === 'claude' ? 'Đổi giữa hai lần đọc, không do app hay switcher' : 'Đổi giữa hai lần đọc, không do app';
     case 'agySwitch': {
       let s = 'Bạn chuyển trong app' + (AGY_HOW[c.how as AgyHow] ?? '');
       if (c.reopened === false) s += ' · chưa mở lại được app';
@@ -102,9 +113,24 @@ function pill(e: HistoryEntry): HistoryRowView['pill'] {
   return { t: 'Chuyển', k: 'sw' };
 }
 
+/**
+ * The window's names for each app's accounts, built from the snapshot now:
+ * the email's part before `@` while names show, else Team A, Ultra 1. A slot
+ * the snapshot no longer lists goes by its place.
+ */
+export function historyNames(model: Model): { claude: NameOf; agy: NameOf } {
+  const c = claudeNames(model.snapshot.claude.accounts, model.snapshot.claude.personalHours);
+  const g = agyNames(model.snapshot.agy.accounts);
+  return {
+    claude: (n) => c.get(n)?.name ?? 'Tài khoản ' + n,
+    agy: (n) => g.get(n)?.name ?? 'Ultra ' + n,
+  };
+}
+
 export function historyRow(e: HistoryEntry, i: number, model: Model, now: Date): HistoryRowView {
-  const claude = namesOf(model);
-  const nameOf: NameOf = e.app === 'claude' ? claude : agyNameOf;
+  const names = historyNames(model);
+  const claude = names.claude;
+  const nameOf: NameOf = e.app === 'claude' ? claude : names.agy;
   const c = e.cause;
   return {
     key: e.at + ':' + i,

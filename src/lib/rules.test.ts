@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { hideNames } from '../fixtures/fakeApi';
 import { FIXTURE_NOW, fixtureModel, peerFixture, rotationFixture, rulesFixture } from '../fixtures/models';
 import type { Model, PeerView } from './model';
 import {
@@ -6,8 +7,10 @@ import {
   compareRows,
   hoursText,
   keyWords,
+  markLeft,
   peerLine,
   ruleChanges,
+  ruleEmails,
   ruleNames,
   rulesErrorBanner,
   rulesProblem,
@@ -49,15 +52,29 @@ describe('rules view', () => {
       expire: [{ slot: 3, at: '2026-01-17T09:00' }],
     });
     expect(ruleChanges(before, after, nameOf, FIXTURE_NOW)).toEqual([
-      'Tài khoản Team được xoay vòng: Team A, Team B, Team C → Team B, Team A',
-      'Tài khoản cá nhân: Cá nhân → không có',
+      'Tài khoản Team được xoay vòng: lan.acme1, lan.acme2, lan.acme3 → lan.acme2, lan.acme1',
+      'Tài khoản cá nhân: lanpham.dev → không có',
       'Giờ dùng tài khoản cá nhân: 08:00–24:00 → 09:00–22:00',
       'Ngưỡng tự chuyển: 90% → 85%',
       'Ngưỡng Fable tuần: 95% → 97%',
-      'Giờ rời vòng của Team A: 17:45 → chưa đặt',
-      'Giờ rời vòng của Team B: chưa đặt → ngày mai 09:00',
+      'Giờ rời vòng của lan.acme1: 17:45 → chưa đặt',
+      'Giờ rời vòng của lan.acme2: chưa đặt → ngày mai 09:00',
     ]);
     expect(ruleChanges(before, rulesFixture(), nameOf, FIXTURE_NOW)).toEqual([]);
+  });
+
+  it('names accounts by email while names show, else by place, never capitalized', () => {
+    const shown = ruleNames(fixtureModel('fresh'));
+    expect([1, 2, 3, 4, 9].map(shown)).toEqual(['lanpham.dev', 'lan.acme1', 'lan.acme2', 'lan.acme3', 'Tài khoản 9']);
+    expect(ruleEmails(fixtureModel('fresh'))(2)).toBe('lan.acme1@example.com');
+    const hidden = hideNames(fixtureModel('fresh'));
+    expect([1, 2, 3, 4].map(ruleNames(hidden))).toEqual(['Cá nhân', 'Team A', 'Team B', 'Team C']);
+    expect(ruleEmails(hidden)(2)).toBe('');
+  });
+
+  it('places each slider mark where its value is', () => {
+    expect([80, 85, 90, 95, 98].map((v) => markLeft(v, 80, 98))).toEqual([0, 27.78, 55.56, 83.33, 100]);
+    expect(markLeft(90, 90, 90)).toBe(0);
   });
 
   it('says why rules cannot be saved yet', () => {
@@ -177,6 +194,6 @@ describe('rules view', () => {
       ['Giờ dùng tài khoản cá nhân', '08:00–24:00', '08:00–22:00'],
       ['Ngưỡng tự chuyển', '90%', '88%'],
     ]);
-    expect(rows.find((r) => r.label === 'Giờ rời vòng')?.mine).toBe('Team A 17:45');
+    expect(rows.find((r) => r.label === 'Giờ rời vòng')?.mine).toBe('lan.acme1 17:45');
   });
 });

@@ -171,7 +171,7 @@ fn the_pool_running_dry_and_coming_back_are_two_cards() {
     assert_eq!(card.kind, Kind::Pool);
     assert_eq!(card.title, "Hạn mức Claude trong vòng sắp cạn");
     assert_eq!(card.body, "Còn tương đương 0,4 tài khoản. Cá nhân có lại hạn mức lúc 17:29.");
-    assert_eq!(labels(&card.actions), ["Sang Cá nhân (còn 12%)", "Thôi"]);
+    assert_eq!(labels(&card.actions), ["Sang Cá nhân (đã dùng 88%)", "Thôi"]);
 
     // Still dry on the next reads, and after a restart: no second card.
     assert!(run(&mut memory, &facts(T0 + 6 * MIN, Some(&dry)), &center).is_empty());

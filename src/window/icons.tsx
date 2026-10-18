@@ -4,11 +4,44 @@
 const P = { width: 15, height: 15, viewBox: '0 0 16 16', 'aria-hidden': true } as const;
 const S = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.4 } as const;
 
-export function WindowIcon() {
+/** The popover's theme button in a light look: switch to dark. */
+export function MoonIcon() {
   return (
     <svg {...P}>
-      <rect x="2" y="3" width="12" height="10" rx="2" {...S} />
-      <path d="M6 3v10" {...S} />
+      <path d="M13.2 10.1A5.6 5.6 0 015.9 2.8a5.6 5.6 0 107.3 7.3z" {...S} strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** The same in a dark look: switch to light. */
+export function SunIcon() {
+  return (
+    <svg {...P}>
+      <circle cx="8" cy="8" r="3" fill="currentColor" />
+      <path
+        d="M8 1.2v1.6M8 13.2v1.6M1.2 8h1.6M13.2 8h1.6M3.2 3.2l1.1 1.1M11.7 11.7l1.1 1.1M3.2 12.8l1.1-1.1M11.7 4.3l1.1-1.1"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+/** Opens the main window: a box with an arrow out of it. */
+export function OpenIcon() {
+  return (
+    <svg {...P}>
+      <path d="M7 3H4.2A1.7 1.7 0 002.5 4.7v7.1a1.7 1.7 0 001.7 1.7h7.1a1.7 1.7 0 001.7-1.7V9" {...S} strokeLinecap="round" />
+      <path d="M9.5 2.5h4v4M13.5 2.5L8 8" {...S} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function ChevronIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true">
+      <path d="M4 2.5L7.5 6 4 9.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

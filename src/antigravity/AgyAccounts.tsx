@@ -1,11 +1,11 @@
-// The Antigravity tab's login card (M4a): the accounts this app logs in on
-// this Mac, "Thêm tài khoản", "Đăng xuất" with a confirmation in the row,
-// and the accounts that need a new login or a verification. While a login
+// The Antigravity accounts this app logs in on this Mac (M4a), merged into
+// the Antigravity tab's account table: "Thêm tài khoản" in the card's
+// header, "Đăng xuất" with a confirmation under the row, "Đăng nhập lại" and
+// "Mở trang xác minh" on the accounts that need them, and whether the app is
+// reading each account's quota or its last read failed (M4b). While a login
 // waits for the browser, the card offers to paste the callback URL and to
-// cancel. Since M4b each row also says when the app is reading that
-// account's quota and when its last read failed; the numbers themselves
-// stay on the quota rows, from quota-axi. Switching is on the account rows
-// (M4c).
+// cancel. Logins quota-axi does not list yet stay in a short list under the
+// table.
 
 import { useState } from 'react';
 import { Button, Chip } from '../components/parts';
@@ -22,13 +22,7 @@ import {
   type AgyRowView,
 } from '../lib/agyLogin';
 import type { AgyAccounts as AgyAccountsModel } from '../lib/model';
-import type { FeedbackView } from '../lib/view';
-
-export interface AgyAccountsProps {
-  view: AgyAccountsModel;
-  api: Api;
-  onFeedback(fb: FeedbackView | null): void;
-}
+import type { ChipView, FeedbackView } from '../lib/view';
 
 function Waiting({ api }: { api: Api }) {
   const [url, setUrl] = useState('');
@@ -81,70 +75,24 @@ function Waiting({ api }: { api: Api }) {
   );
 }
 
-function Row(props: {
-  row: AgyRowView;
+export interface AgyLogins {
+  api: Api;
+  view: AgyAccountsModel;
+  rows: AgyRowView[];
+  /** A login or a logout runs. */
   busy: boolean;
-  confirming: boolean;
-  onAsk(): void;
-  onKeep(): void;
-  onLogout(): void;
-  onLogin(): void;
-  onVerify(): void;
-}) {
-  const r = props.row;
-  if (props.confirming) {
-    return (
-      <div className="arow" role="listitem" aria-label={r.name}>
-        <div>
-          <b>Đăng xuất {r.name} khỏi Quota Station?</b>
-          <small>App xoá đăng nhập của mình (mục Keychain riêng của app). Antigravity.app và agy vẫn đăng nhập như cũ; Google không bị thu hồi gì.</small>
-        </div>
-        <Button onClick={props.onKeep}>Thôi</Button>
-        <Button primary disabled={props.busy} onClick={props.onLogout}>
-          Đăng xuất
-        </Button>
-      </div>
-    );
-  }
-  return (
-    <div className="arow" role="listitem" aria-label={r.name}>
-      <div>
-        <b>{r.name}</b>
-        <small>{r.sub}</small>
-        {r.read ? (
-          <small className={'aread ' + r.read.tone} role="status">
-            {r.read.tone === 'info' ? <span className="spin" aria-hidden="true" /> : null}
-            {r.read.text}
-          </small>
-        ) : null}
-      </div>
-      <Chip chip={r.chip} />
-      <div className="acts" style={{ display: 'flex', gap: 6 }}>
-        {r.relogin ? (
-          <Button primary disabled={props.busy} onClick={props.onLogin}>
-            Đăng nhập lại
-          </Button>
-        ) : null}
-        {r.verify ? (
-          <Button primary onClick={props.onVerify}>
-            Mở trang xác minh
-          </Button>
-        ) : null}
-        <Button label={'Đăng xuất ' + r.name} disabled={props.busy} onClick={props.onAsk}>
-          Đăng xuất
-        </Button>
-      </div>
-    </div>
-  );
+  /** The login whose logout is being confirmed. */
+  confirm: string | null;
+  notice: ReturnType<typeof clientNotice>;
+  login(): void;
+  verify(row: AgyRowView): void;
+  logout(row: AgyRowView): void;
+  ask(id: string | null): void;
 }
 
-export function AgyAccounts({ view, api, onFeedback }: AgyAccountsProps) {
+export function useAgyLogins(view: AgyAccountsModel, api: Api, onFeedback: (fb: FeedbackView | null) => void): AgyLogins {
   const [confirm, setConfirm] = useState<string | null>(null);
   const [leaving, setLeaving] = useState(false);
-  const rows = agyRows(view);
-  const notice = clientNotice(view);
-  const busy = view.loggingIn || leaving;
-
   const login = async () => {
     onFeedback(null);
     try {
@@ -172,55 +120,128 @@ export function AgyAccounts({ view, api, onFeedback }: AgyAccountsProps) {
       setConfirm(null);
     }
   };
+  return {
+    api,
+    view,
+    rows: agyRows(view),
+    busy: view.loggingIn || leaving,
+    confirm,
+    notice: clientNotice(view),
+    login: () => void login(),
+    verify: (row) => void verify(row),
+    logout: (row) => void logout(row),
+    ask: setConfirm,
+  };
+}
 
+/** The login's state as chips beside its name: what it needs, and the app's read of it. */
+export function loginChips(row: AgyRowView | undefined): ChipView[] {
+  if (!row) return [];
+  const chips: ChipView[] = [];
+  if (row.chip.k !== 'ok') chips.push({ ...row.chip, title: row.sub || undefined });
+  if (row.read)
+    chips.push({
+      t: row.read.tone === 'info' ? row.read.text : 'đọc lỗi',
+      k: row.read.tone === 'bad' ? 'bad' : row.read.tone === 'warn' ? 'warn' : 'info',
+      title: row.read.text,
+    });
+  return chips;
+}
+
+export function AddAccount({ logins }: { logins: AgyLogins }) {
   return (
-    <div className="card">
-      <h4>
-        <span className="idm g" />
-        Đăng nhập trong Quota Station
-        <span className="r">{rows.length ? rows.length + ' tài khoản' : ''}</span>
-      </h4>
+    <Button primary disabled={!!logins.notice || logins.view.indexError || logins.busy} onClick={logins.login}>
+      Thêm tài khoản
+    </Button>
+  );
+}
+
+/** A login's buttons in its table row. */
+export function LoginActions({ logins, row }: { logins: AgyLogins; row: AgyRowView }) {
+  return (
+    <>
+      {row.relogin ? (
+        <Button primary disabled={logins.busy} onClick={logins.login}>
+          Đăng nhập lại
+        </Button>
+      ) : null}
+      {row.verify ? (
+        <Button primary onClick={() => logins.verify(row)}>
+          Mở trang xác minh
+        </Button>
+      ) : null}
+      <Button label={'Đăng xuất ' + row.name} disabled={logins.busy} onClick={() => logins.ask(row.id)}>
+        Đăng xuất
+      </Button>
+    </>
+  );
+}
+
+/** Under the row whose logout is asked: what it does, and the two answers. */
+export function LogoutConfirm({ logins, row }: { logins: AgyLogins; row: AgyRowView }) {
+  return (
+    <div className="arow confirm" role="group" aria-label={'Đăng xuất ' + row.name}>
+      <div>
+        <b>Đăng xuất {row.name} khỏi Quota Station?</b>
+        <small>Antigravity.app và agy vẫn đăng nhập như cũ.</small>
+      </div>
+      <Button onClick={() => logins.ask(null)}>Thôi</Button>
+      <Button primary disabled={logins.busy} onClick={() => logins.logout(row)}>
+        Đăng xuất
+      </Button>
+    </div>
+  );
+}
+
+/**
+ * What the table cannot say: a missing OAuth client, an unreadable list,
+ * the logins quota-axi does not list yet, and a login waiting for the browser.
+ */
+export function LoginNotes({ logins, listed }: { logins: AgyLogins; listed: number[] }) {
+  const { notice, view } = logins;
+  const extra = logins.rows.filter((r) => !listed.includes(r.number));
+  return (
+    <>
       {notice ? (
-        <div className={'banner ' + notice.tone} role="status" style={{ margin: '4px 0 8px' }}>
+        <div className={'banner ' + notice.tone} role="status" style={{ margin: '8px 0' }}>
           <b>{notice.title}</b>
           <p>{notice.body}</p>
         </div>
       ) : null}
       {view.indexError ? (
-        <div className="banner bad" role="status" style={{ margin: '4px 0 8px' }}>
+        <div className="banner bad" role="status" style={{ margin: '8px 0' }}>
           <b>Không đọc được danh sách tài khoản</b>
           <p>File accounts.json trong thư mục antigravity của app bị hỏng. App để nguyên file, không ghi đè.</p>
         </div>
       ) : null}
-      {rows.length ? (
-        <div role="list" aria-label="Tài khoản Antigravity đăng nhập trong app">
-          {rows.map((r) => (
-            <Row
-              key={r.id}
-              row={r}
-              busy={busy}
-              confirming={confirm === r.id}
-              onAsk={() => setConfirm(r.id)}
-              onKeep={() => setConfirm(null)}
-              onLogout={() => void logout(r)}
-              onLogin={() => void login()}
-              onVerify={() => void verify(r)}
-            />
-          ))}
+      {extra.length ? (
+        <div role="list" aria-label="Tài khoản đăng nhập trong app">
+          {extra.map((r) =>
+            logins.confirm === r.id ? (
+              <LogoutConfirm key={r.id} logins={logins} row={r} />
+            ) : (
+              <div className="arow" role="listitem" aria-label={r.name} key={r.id}>
+                <div>
+                  <b title={r.full || undefined}>{r.name}</b>
+                  {r.sub ? <small>{r.sub}</small> : null}
+                  {r.read ? (
+                    <small className={'aread ' + r.read.tone} role="status">
+                      {r.read.tone === 'info' ? <span className="spin" aria-hidden="true" /> : null}
+                      {r.read.text}
+                    </small>
+                  ) : null}
+                </div>
+                <Chip chip={r.chip} />
+                <div className="acts" style={{ display: 'flex', gap: 6 }}>
+                  <LoginActions logins={logins} row={r} />
+                </div>
+              </div>
+            ),
+          )}
         </div>
-      ) : !view.indexError ? (
-        <p>Chưa có tài khoản Antigravity nào đăng nhập trong app trên máy này.</p>
       ) : null}
-      {view.loggingIn ? <Waiting api={api} /> : null}
-      <div className="row2" style={{ marginTop: 10 }}>
-        <p style={{ margin: 0, flex: 1 }}>
-          Mỗi Mac giữ đăng nhập của riêng nó. App tự đọc hạn mức của các tài khoản này, không dày hơn Cockpit, rồi quota-axi đọc lại số
-          đó. Chuyển tài khoản bằng nút Chuyển ở bảng trên hoặc trong popover.
-        </p>
-        <Button primary disabled={!!notice || view.indexError || busy} onClick={() => void login()}>
-          Thêm tài khoản
-        </Button>
-      </div>
-    </div>
+      {!logins.rows.length && !view.indexError ? <p className="note">Chưa có tài khoản nào đăng nhập trong app.</p> : null}
+      {view.loggingIn ? <Waiting api={logins.api} /> : null}
+    </>
   );
 }

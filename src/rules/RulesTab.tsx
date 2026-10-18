@@ -1,13 +1,14 @@
 // The Luật xoay vòng tab (F06): the prototype's rules editor (mockup B's
-// chips and sliders), the preview from the switcher's dry run, the save bar
-// with one line per Mac, and the two dialogs: compare two copies, and
-// unsaved changes. The state is in `useRules`.
+// chips and sliders), the preview from the switcher's dry run in one
+// sentence, the save bar with one line per Mac, and the two dialogs: compare
+// two copies, and unsaved changes. Rows carry short names and no line of
+// explanation; accounts go by the window's names. The state is in `useRules`.
 
 import { Banner, Button, Chip, Dot, Feedback } from '../components/parts';
 import { SHEET_TITLE_ID } from '../components/Sheets';
 import { clock, pad } from '../lib/format';
 import type { Model, Rules } from '../lib/model';
-import { compareRows, localLine, macsWord, peerLine, rotationBanner, rulesProblem, slotsOf } from '../lib/rules';
+import { compareRows, localLine, macsWord, markLeft, peerLine, rotationBanner, ruleEmails, rulesProblem, slotsOf } from '../lib/rules';
 import type { Action, FeedbackView, PopoverView } from '../lib/view';
 import type { RulesState } from './useRules';
 
@@ -40,11 +41,15 @@ function Changed({ on }: { on: boolean }) {
   return on ? <span className="chg"> · đã đổi</span> : null;
 }
 
-function Slider(props: { id: string; value: number; label: string; disabled: boolean; onChange(v: number): void }) {
+/** The marks under a threshold slider. */
+const MARKS = [80, 85, 90, 95, 98];
+
+/** A threshold slider; each mark sits where its value is on the track. */
+export function Slider(props: { id: string; value: number; label: string; disabled: boolean; onChange(v: number): void }) {
   const min = Math.min(80, Math.floor(props.value));
   const max = Math.max(98, Math.ceil(props.value));
   return (
-    <div className="slider">
+    <div className="slider ticks">
       <span className="val">{props.value}%</span>
       <input
         type="range"
@@ -58,8 +63,10 @@ function Slider(props: { id: string; value: number; label: string; disabled: boo
         onChange={(e) => props.onChange(Number(e.target.value))}
       />
       <div className="marks" aria-hidden="true">
-        {[80, 85, 90, 95, 98].map((m) => (
-          <span key={m}>{m}</span>
+        {MARKS.filter((m) => m >= min && m <= max).map((m) => (
+          <span key={m} style={{ left: markLeft(m, min, max) + '%' }}>
+            {m}
+          </span>
         ))}
       </div>
     </div>
@@ -84,6 +91,7 @@ function Editor({ model, rules: st, now }: { model: Model; rules: RulesState; no
   const r = st.current as Rules;
   const sv = st.saved ?? model.rotation.defaults;
   const nameOf = st.nameOf;
+  const emailOf = ruleEmails(model);
   const slots = slotsOf(model, r, st.saved);
   const teamChanged = r.team.join() !== sv.team.join();
   const persChanged = r.personal !== sv.personal || r.personalFrom !== sv.personalFrom || r.personalTo !== sv.personalTo;
@@ -99,9 +107,8 @@ function Editor({ model, rules: st, now }: { model: Model; rules: RulesState; no
     <div className="form">
       <div className={'fr' + (teamChanged ? ' changed' : '')}>
         <div className="fl" id="qs-r-team">
-          Tài khoản Team được xoay vòng
+          Team trong vòng
           <Changed on={teamChanged} />
-          <small>Bấm để thêm hoặc bỏ. Số là thứ tự ưu tiên. Khoá team</small>
         </div>
         <div>
           <div className="pick" role="group" aria-labelledby="qs-r-team">
@@ -114,7 +121,7 @@ function Editor({ model, rules: st, now }: { model: Model; rules: RulesState; no
                     key={n}
                     type="button"
                     aria-pressed={i >= 0}
-                    title={'tài khoản ' + n}
+                    title={emailOf(n) || 'tài khoản ' + n}
                     disabled={disabled}
                     onClick={() => st.edit((d) => (d.team = i >= 0 ? d.team.filter((x) => x !== n) : [...d.team, n]))}
                   >
@@ -133,9 +140,8 @@ function Editor({ model, rules: st, now }: { model: Model; rules: RulesState; no
 
       <div className={'fr' + (persChanged ? ' changed' : '')}>
         <div className="fl" id="qs-r-pers">
-          Tài khoản cá nhân
+          Cá nhân
           <Changed on={persChanged} />
-          <small>Chỉ dùng trong giờ. Khoá personal, personal_hours</small>
         </div>
         <div>
           <div className="pick" role="group" aria-labelledby="qs-r-pers">
@@ -149,7 +155,7 @@ function Editor({ model, rules: st, now }: { model: Model; rules: RulesState; no
                     key={n}
                     type="button"
                     aria-pressed={on}
-                    title={'tài khoản ' + n}
+                    title={emailOf(n) || 'tài khoản ' + n}
                     disabled={disabled}
                     onClick={() => st.edit((d) => (d.personal = on ? null : n))}
                   >
@@ -199,18 +205,16 @@ function Editor({ model, rules: st, now }: { model: Model; rules: RulesState; no
 
       <div className={'fr' + (r.full !== sv.full ? ' changed' : '')}>
         <div className="fl">
-          Tự chuyển khi đã dùng {r.full}% hạn mức 5 giờ
+          Chuyển khi 5 giờ đã dùng
           <Changed on={r.full !== sv.full} />
-          <small>Ngưỡng tự chuyển. Khoá full</small>
         </div>
         <Slider id="full" disabled={disabled} value={r.full} label="Ngưỡng tự chuyển, phần trăm hạn mức 5 giờ đã dùng" onChange={(v) => st.edit((d) => (d.full = v))} />
       </div>
 
       <div className={'fr' + (r.fableFull !== sv.fableFull ? ' changed' : '')}>
         <div className="fl">
-          Bỏ qua tài khoản khi đã dùng {r.fableFull}% hạn mức Fable trong tuần
+          Bỏ qua khi Fable tuần đã dùng
           <Changed on={r.fableFull !== sv.fableFull} />
-          <small>Khoá fable_full</small>
         </div>
         <Slider id="fable" disabled={disabled} value={r.fableFull} label="Ngưỡng Fable tuần, phần trăm đã dùng" onChange={(v) => st.edit((d) => (d.fableFull = v))} />
       </div>
@@ -219,7 +223,6 @@ function Editor({ model, rules: st, now }: { model: Model; rules: RulesState; no
         <div className="fl">
           Giờ rời vòng
           <Changed on={expChanged} />
-          <small>Sau giờ này, tài khoản không còn trong vòng. Khoá expire</small>
         </div>
         <div>
           <div className="kvt" style={{ maxWidth: 480 }}>
@@ -268,18 +271,10 @@ function Editor({ model, rules: st, now }: { model: Model; rules: RulesState; no
       </div>
 
       <div className="fr">
-        <div className="fl">
-          Xem trước<small>Từ switcher --dry-run với luật đang sửa, lúc {clock(now.toISOString())}</small>
-        </div>
-        <div className="preview" aria-live="polite">
+        <div className="fl">Xem trước</div>
+        <div className="preview" aria-live="polite" title={st.preview?.kind === 'ok' ? st.preview.raw : undefined}>
           {st.preview?.kind === 'ok' ? (
-            <>
-              <b>{st.preview.text}</b>
-              <br />
-              <span className="mono" style={{ fontSize: 'var(--fs-sm)' }}>
-                {st.preview.raw}
-              </span>
-            </>
+            <b>{st.preview.text}</b>
           ) : st.preview?.kind === 'error' ? (
             <span>{st.preview.text}</span>
           ) : st.preview?.kind === 'loading' ? (
@@ -343,7 +338,6 @@ export function RulesTab({ model, fresh, rules: st, feedback, now, onAction }: R
           <Dot tone={fresh.tone} />
           {model.machine} · {fresh.text}
         </small>
-        <span className="mono">{model.rotation.path}</span>
       </div>
       {feedback ? <Feedback fb={feedback} onAction={onAction} /> : null}
       {banner ? <Banner banner={banner} onAction={onAction} busy={null} /> : null}

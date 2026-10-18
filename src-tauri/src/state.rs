@@ -9,14 +9,16 @@ use quota_station_core::alerts::{self, Memory};
 use quota_station_core::antigravity::fs::AppDir;
 use quota_station_core::antigravity::oauth_server;
 use quota_station_core::antigravity::pace::Pace;
+use quota_station_core::antigravity::{export, index};
 use quota_station_core::axi::Response;
+use quota_station_core::detail::{self, AgyDetail};
 use quota_station_core::firstmate::{self, Reading};
 use quota_station_core::history::Seen;
 use quota_station_core::peers::{self, PeerState, SyncLog};
 use quota_station_core::rotation::{self, FileState, Rules, Stamp};
 use quota_station_core::runner::{self, RunError};
 use quota_station_core::schedule::Schedule;
-use quota_station_core::settings::Settings;
+use quota_station_core::settings::{Settings, Theme};
 use quota_station_core::switcher::{Decision, DryRun, LogLine};
 use quota_station_core::switching::Tools;
 use quota_station_core::{cswap, local_time, pause, switcher, Snapshot};
@@ -105,6 +107,9 @@ pub struct Inner {
     pub agy: Option<Response>,
     pub claude_error: Option<RunError>,
     pub agy_error: Option<RunError>,
+    /// claude-swap's list as last read: every Claude account's windows,
+    /// email and organization. Never written to disk.
+    pub claude_list: Option<Vec<cswap::SwapAccount>>,
     /// Bumped when a Keychain grant or a switch stores a Claude report, so a
     /// read that started before it cannot put the older report back.
     pub claude_generation: u64,
@@ -259,6 +264,7 @@ impl Inner {
             agy: None,
             claude_error: None,
             agy_error: None,
+            claude_list: None,
             claude_generation: 0,
             agy_generation: 0,
             reading: false,
@@ -350,6 +356,42 @@ impl Inner {
         Snapshot::build(self.claude.as_ref(), self.agy.as_ref())
     }
 
+    /// The snapshot the windows draw: every account's windows from
+    /// claude-swap's list and the app's own Antigravity readings, and the
+    /// names unless the owner hides them, in which case none is sent.
+    pub fn detailed_snapshot(&self) -> Snapshot {
+        let mut snapshot = self.snapshot();
+        let now = Some(OffsetDateTime::now_utc());
+        if let Some(list) = &self.claude_list {
+            detail::apply_claude(&mut snapshot.claude, list, now);
+        }
+        if snapshot.agy.source.as_deref() == Some("quota-station") {
+            detail::apply_agy(&mut snapshot.agy, &self.agy_details(), now);
+        }
+        if self.settings.hide_names {
+            detail::hide_names(&mut snapshot.claude);
+            detail::hide_names(&mut snapshot.agy);
+        }
+        snapshot
+    }
+
+    /// Each Antigravity account this app logs in, by its number, with its
+    /// last reading.
+    fn agy_details(&self) -> Vec<AgyDetail> {
+        let app = self.app_dir();
+        let Ok(index) = index::load(&app) else { return Vec::new() };
+        index
+            .accounts
+            .iter()
+            .enumerate()
+            .map(|(i, a)| AgyDetail {
+                number: (i + 1) as u32,
+                email: Some(a.email.clone()),
+                payload: export::read(&app, &a.email).map(|r| r.payload),
+            })
+            .collect()
+    }
+
     pub fn model(&self) -> Model {
         let path = self.quota_axi();
         let version = self
@@ -358,7 +400,7 @@ impl Inner {
             .filter(|(p, _)| Some(p) == path.as_ref())
             .and_then(|(_, v)| v.as_ref().ok().cloned());
         Model {
-            snapshot: self.snapshot(),
+            snapshot: self.detailed_snapshot(),
             errors: Errors {
                 claude: self.claude_error.as_ref().map(ErrorView::from),
                 agy: self.agy_error.as_ref().map(ErrorView::from),
@@ -380,7 +422,8 @@ impl Inner {
                 cswap: cswap::discover(&self.home).is_some(),
                 busy: self.switching,
             },
-            show_email: self.settings.show_email,
+            show_names: !self.settings.hide_names,
+            theme: self.settings.theme,
             antigravity: antigravity::view(self),
             agy_switch: agy_switch::view(self),
             rotation: self.rotation_view(),
@@ -480,8 +523,9 @@ pub struct Model {
     pub granting: bool,
     pub switcher: SwitcherView,
     pub claude_switch: ClaudeSwitchView,
-    /// Emails of the accounts logged in here may show.
-    pub show_email: bool,
+    /// Account names (emails, organizations) may show.
+    pub show_names: bool,
+    pub theme: Theme,
     /// The Antigravity accounts this app logs in itself.
     pub antigravity: AccountsView,
     /// Switching them (M4c).
@@ -730,6 +774,29 @@ mod tests {
         assert!(!c.current, "Mac C has an older file of this Mac");
         assert!(d.state.is_none() && !d.current, "Mac D was never sent anything");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn hidden_names_never_reach_the_windows() {
+        let mut inner = inner();
+        let report =
+            include_str!("../../crates/quota-station-core/tests/fixtures/claude-pool-schema5.json");
+        let list =
+            include_str!("../../crates/quota-station-core/tests/fixtures/cswap-list-pool.json");
+        inner.claude = quota_station_core::axi::parse(report).ok();
+        inner.claude_list = cswap::parse_list(list);
+        let model = inner.model();
+        assert!(model.show_names);
+        let first = &model.snapshot.claude.accounts[0];
+        assert_eq!(first.email.as_deref(), Some("lanpham.dev@example.com"));
+        assert_eq!(first.windows.len(), 3);
+
+        inner.settings.hide_names = true;
+        let model = inner.model();
+        assert!(!model.show_names);
+        let json = serde_json::to_string(&model).unwrap();
+        assert!(!json.contains("@example.com") && !json.contains("Acme"));
+        assert_eq!(model.snapshot.claude.accounts[0].windows.len(), 3, "the numbers stay");
     }
 
     #[test]

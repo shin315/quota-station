@@ -11,8 +11,8 @@ import type { Api } from '../lib/api';
 import type { AgyOverwrite, AgyStatus, Model } from '../lib/model';
 
 /**
- * The fresh fixture with Ultra 1 and Ultra 2 logged in here and listed by
- * quota-axi; Ultra 2 is in use.
+ * The fresh fixture with lanpham.ultra and lan.ultra2 logged in here and listed by
+ * quota-axi; lan.ultra2 is in use.
  */
 function listed(over: { status?: AgyStatus; overwritten?: AgyOverwrite } = {}): Model {
   return fixtureModel('fresh', {
@@ -34,14 +34,14 @@ async function openPopover(model: Model, options: FakeOptions = {}) {
 }
 
 const agyRows = () => within(screen.getByRole('list', { name: 'ANTIGRAVITY' })).getAllByRole('button');
-const ultra1 = () => agyRows().find((b) => b.getAttribute('aria-label')!.startsWith('Ultra 1 '))!;
-const ultra2 = () => agyRows().find((b) => b.getAttribute('aria-label')!.startsWith('Ultra 2 '))!;
+const ultra1 = () => agyRows().find((b) => /^lanpham\.ultra[,.]/.test(b.getAttribute('aria-label')!))!;
+const ultra2 = () => agyRows().find((b) => /^lan\.ultra2[,.]/.test(b.getAttribute('aria-label')!))!;
 
 async function sheetForUltra1() {
   await act(async () => {
     fireEvent.click(ultra1());
   });
-  return screen.getByRole('dialog', { name: 'Chuyển Antigravity sang Ultra 1?' });
+  return screen.getByRole('dialog', { name: 'Chuyển Antigravity sang lanpham.ultra?' });
 }
 
 const facts = (sheet: HTMLElement) => within(sheet).getAllByRole('listitem').map((li) => li.textContent);
@@ -53,11 +53,12 @@ describe('the Antigravity switch sheet', () => {
   it('a row of an account logged in here opens it, with the three buttons while Antigravity.app runs', async () => {
     const fake = await openPopover(listed());
     expect(ultra1().getAttribute('aria-disabled')).toBeNull();
-    expect(ultra1().getAttribute('aria-label')).toMatch(/^Ultra 1 \(Quota Station, tài khoản 1\)\..*\. Bấm để chuyển$/);
+    expect(ultra1().getAttribute('aria-label')).toMatch(/^lanpham\.ultra\. Gemini 5 giờ đã dùng .*\. Bấm để chuyển$/);
+    expect(ultra1().getAttribute('title')).toBe('lanpham.ultra@example.com · Quota Station · tài khoản 1');
     const sheet = await sheetForUltra1();
     expect(fake.api.agyAppState).toHaveBeenCalledTimes(1);
     expect(facts(sheet)).toEqual([
-      'Ultra 1 còn 63% Gemini, 82% Claude/GPT.',
+      'lanpham.ultra đã dùng 37% Gemini tuần, 18% Claude/GPT tuần.',
       'Antigravity.app đang chạy. App đang chạy có thể ghi lại tài khoản cũ, nên thoát app rồi chuyển là chắc nhất.',
       'Phiên agy đang chạy giữ tài khoản cũ cho tới khi khởi động lại.',
     ]);
@@ -77,11 +78,13 @@ describe('the Antigravity switch sheet', () => {
     });
     expect(fake.api.switchAgy).toHaveBeenCalledWith('antigravity_fake1', 'quitFirst');
     expect(screen.queryByRole('dialog', { name: /Chuyển Antigravity/ })).toBeNull();
-    expect(screen.getByText('Đã chuyển Antigravity sang Ultra 1.')).toBeTruthy();
-    expect(
-      screen.getByText('Đọc lại sau 5 giây: agy đang dùng Ultra 1 ✓. Phiên agy đang chạy vẫn dùng tài khoản cũ cho tới khi khởi động lại.'),
-    ).toBeTruthy();
-    // The model the fake pushed: Ultra 1 is in use.
+    // Done with nothing to answer: a toast, the check on hover.
+    const toast = screen.getByText('Đã chuyển Antigravity sang lanpham.ultra');
+    expect(toast.className).toBe('toast');
+    expect(toast.getAttribute('title')).toBe(
+      'Đọc lại sau 5 giây: agy đang dùng lanpham.ultra ✓. Phiên agy đang chạy vẫn dùng tài khoản cũ cho tới khi khởi động lại.',
+    );
+    // The model the fake pushed: lanpham.ultra is in use.
     expect(ultra1().getAttribute('aria-label')).toMatch(/đang dùng/);
   });
 
@@ -92,6 +95,8 @@ describe('the Antigravity switch sheet', () => {
       fireEvent.click(within(sheet).getByRole('button', { name: 'Chuyển, để app chạy' }));
     });
     expect(fake.api.switchAgy).toHaveBeenCalledWith('antigravity_fake1', 'keepRunning');
+    // Not a passing toast: the line stays with the warning in view.
+    expect(screen.getByText('Đã chuyển Antigravity sang lanpham.ultra.')).toBeTruthy();
     expect(screen.getByText(/Antigravity.app vẫn chạy và có thể ghi lại tài khoản cũ; app sẽ báo nếu bị ghi đè trong 6 giờ tới\./)).toBeTruthy();
   });
 
@@ -194,7 +199,7 @@ describe('the Antigravity switch sheet', () => {
     await act(async () => {
       fireEvent.click(within(sheet).getByRole('button', { name: 'Thoát app rồi chuyển' }));
     });
-    const working = screen.getByRole('dialog', { name: 'Đang chuyển Antigravity sang Ultra 1…' });
+    const working = screen.getByRole('dialog', { name: 'Đang chuyển Antigravity sang lanpham.ultra…' });
     expect(
       within(working).getByText(
         'Thoát Antigravity.app, ghi đăng nhập dùng chung của Antigravity.app và agy, mở lại app, rồi đợi 5 giây để đọc lại tài khoản agy đang dùng.',
@@ -203,7 +208,7 @@ describe('the Antigravity switch sheet', () => {
     await act(async () => {
       await new Promise((r) => setTimeout(r, 80));
     });
-    expect(screen.getByText('Đã chuyển Antigravity sang Ultra 1.')).toBeTruthy();
+    expect(screen.getByText('Đã chuyển Antigravity sang lanpham.ultra')).toBeTruthy();
   });
 
   it('agy still on the old account reads as not confirmed', async () => {
@@ -214,10 +219,10 @@ describe('the Antigravity switch sheet', () => {
     await act(async () => {
       fireEvent.click(within(sheet).getByRole('button', { name: 'Thoát app rồi chuyển' }));
     });
-    expect(screen.getByText('Đã ghi tài khoản Ultra 1 cho Antigravity')).toBeTruthy();
+    expect(screen.getByText('Đã ghi tài khoản lanpham.ultra cho Antigravity')).toBeTruthy();
     expect(
       screen.getByText(
-        'Nhưng đọc lại sau 5 giây, agy vẫn đang dùng Ultra 2. Antigravity.app hoặc phiên agy đang chạy có thể vẫn giữ tài khoản cũ.',
+        'Nhưng đọc lại sau 5 giây, agy vẫn đang dùng lan.ultra2. Antigravity.app hoặc phiên agy đang chạy có thể vẫn giữ tài khoản cũ.',
       ),
     ).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Làm mới' })).toBeTruthy();
@@ -231,7 +236,7 @@ describe('the Antigravity switch sheet', () => {
     await act(async () => {
       fireEvent.click(within(sheet).getByRole('button', { name: 'Thoát app rồi chuyển' }));
     });
-    expect(screen.getByText('Chưa chuyển được Antigravity sang Ultra 1')).toBeTruthy();
+    expect(screen.getByText('Chưa chuyển được Antigravity sang lanpham.ultra')).toBeTruthy();
     expect(
       screen.getByText(/Antigravity.app không thoát trong 20 giây, có thể đang hỏi lưu việc\. App không ép thoát và chưa đổi đăng nhập nào\./),
     ).toBeTruthy();
@@ -240,7 +245,7 @@ describe('the Antigravity switch sheet', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
     });
-    expect(screen.getByRole('dialog', { name: 'Chuyển Antigravity sang Ultra 1?' })).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: 'Chuyển Antigravity sang lanpham.ultra?' })).toBeTruthy();
   });
 
   it('a failed write keeps the old login, says the app is back, and offers "Thử lại"', async () => {
@@ -286,7 +291,7 @@ describe('the Antigravity switch sheet', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
     });
-    expect(screen.getByRole('dialog', { name: 'Chuyển Antigravity sang Ultra 1?' })).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: 'Chuyển Antigravity sang lanpham.ultra?' })).toBeTruthy();
     expect(fake.api.agyAppState).toHaveBeenCalledTimes(2);
   });
 
@@ -296,7 +301,7 @@ describe('the Antigravity switch sheet', () => {
     await act(async () => {
       fake.push({ ...fake.current(), agySwitch: { ...fake.current().agySwitch, busy: 1 } });
     });
-    const working = screen.getByRole('dialog', { name: 'Đang chuyển Antigravity sang Ultra 1…' });
+    const working = screen.getByRole('dialog', { name: 'Đang chuyển Antigravity sang lanpham.ultra…' });
     expect(
       within(working).getByText('Ghi đăng nhập dùng chung của Antigravity.app và agy, rồi đợi 5 giây để đọc lại tài khoản agy đang dùng.'),
     ).toBeTruthy();
@@ -315,7 +320,7 @@ describe('the Antigravity switch sheet', () => {
   it('an account that needs a new login does not switch', async () => {
     const fake = await openPopover(listed({ status: 'needsLogin' }));
     expect(ultra1().getAttribute('aria-disabled')).toBe('true');
-    expect(ultra1().getAttribute('title')).toBe('Quota Station · tài khoản 1 · Cần đăng nhập lại trong tab Antigravity');
+    expect(ultra1().getAttribute('title')).toBe('lanpham.ultra@example.com · Quota Station · tài khoản 1 · Cần đăng nhập lại trong tab Antigravity');
     fireEvent.click(ultra1());
     expect(screen.queryByRole('dialog', { name: /Chuyển Antigravity/ })).toBeNull();
     expect(fake.api.agyAppState).not.toHaveBeenCalled();
@@ -329,7 +334,7 @@ describe('the Antigravity switch sheet', () => {
       }),
     );
     expect(ultra1().getAttribute('aria-disabled')).toBe('true');
-    expect(ultra1().getAttribute('title')).toBe('Quota Station · tài khoản 1 · Chưa đăng nhập tài khoản này trong Quota Station');
+    expect(ultra1().getAttribute('title')).toBe('lanpham.ultra@example.com · Quota Station · tài khoản 1 · Chưa đăng nhập tài khoản này trong Quota Station');
   });
 });
 
@@ -353,13 +358,13 @@ describe('the overwrite banner', () => {
     const banner = screen.getByText('Chuyển Antigravity bị ghi đè').closest('.banner') as HTMLElement;
     expect(
       within(banner).getByText(
-        'Lúc 14:10 agy lại dùng Ultra 2 sau khi chuyển sang Ultra 1. Antigravity.app đang chạy có thể đã ghi lại đăng nhập cũ.',
+        'Lúc 14:10 agy lại dùng lan.ultra2 sau khi chuyển sang lanpham.ultra. Antigravity.app đang chạy có thể đã ghi lại đăng nhập cũ.',
       ),
     ).toBeTruthy();
     await act(async () => {
       fireEvent.click(within(banner).getByRole('button', { name: 'Chuyển lại' }));
     });
-    expect(screen.getByRole('dialog', { name: 'Chuyển Antigravity sang Ultra 1?' })).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: 'Chuyển Antigravity sang lanpham.ultra?' })).toBeTruthy();
     expect(fake.api.agyAppState).toHaveBeenCalledTimes(1);
   });
 
@@ -390,11 +395,11 @@ describe('the overwrite banner', () => {
     );
     await screen.findByRole('navigation', { name: 'Mục' });
     expect(screen.getByText('Chuyển Antigravity bị ghi đè')).toBeTruthy();
-    const button = screen.getByRole('button', { name: 'Chuyển sang Ultra 1' }) as HTMLButtonElement;
+    const button = screen.getByRole('button', { name: 'Chuyển sang lanpham.ultra' }) as HTMLButtonElement;
     expect(button.disabled).toBe(false);
     await act(async () => {
       fireEvent.click(button);
     });
-    expect(screen.getByRole('dialog', { name: 'Chuyển Antigravity sang Ultra 1?' })).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: 'Chuyển Antigravity sang lanpham.ultra?' })).toBeTruthy();
   });
 });

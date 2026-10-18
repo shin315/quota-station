@@ -4,12 +4,12 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertsTab } from './alerts/AlertsTab';
-import { AgyAccounts } from './antigravity/AgyAccounts';
+import { useAgyLogins } from './antigravity/AgyAccounts';
 import { SheetBody, type SheetState } from './components/Sheets';
 import { agyLoginOf, agySwitchErrorFeedback, agySwitchFeedback, type AppAnswer } from './lib/agySwitch';
 import type { Api } from './lib/api';
 import { alertFailedFeedback, testFailedFeedback } from './lib/alerts';
-import type { AgyHow, AlertKind, Model, Sessions, Tab } from './lib/model';
+import type { AgyHow, AlertKind, Model, Sessions, Tab, Theme } from './lib/model';
 import {
   autoView,
   extendedFeedback,
@@ -22,7 +22,7 @@ import {
   type PauseChoice,
 } from './lib/switching';
 import { sidebarLine, syncSummary } from './lib/rules';
-import { keychainFeedback, popoverView, refreshedFeedback, settingsFailedFeedback, type Action, type FeedbackView } from './lib/view';
+import { isQuiet, keychainFeedback, popoverView, refreshedFeedback, settingsFailedFeedback, type Action, type FeedbackView } from './lib/view';
 import { windowView } from './lib/window';
 import { Popover } from './popover/Popover';
 import { FirstmateTab } from './firstmate/FirstmateTab';
@@ -32,8 +32,10 @@ import { useRules } from './rules/useRules';
 import { Settings } from './settings/Settings';
 import { MainWindow } from './window/MainWindow';
 
-/** Feedback lines clear themselves after this long. */
+/** Feedback lines without buttons clear themselves after this long. */
 const FEEDBACK_MS = 8000;
+/** A line that only says something went well goes sooner. */
+const QUIET_MS = 6000;
 
 function useModel(api: Api): Model | null {
   const [model, setModel] = useState<Model | null>(null);
@@ -63,17 +65,51 @@ function useNow(clock: () => Date, everyMs = 15000): Date {
   return now;
 }
 
-function useFeedback(): [FeedbackView | null, (fb: FeedbackView | null) => void] {
-  const [fb, setFb] = useState<FeedbackView | null>(null);
+/** macOS's own look, where the page can ask for it. */
+const systemLook = (): MediaQueryList | null => (typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-color-scheme: dark)') : null);
+
+/**
+ * Puts the owner's look on the page (`data-theme` drives every token) and
+ * says whether what is on screen now is dark: the setting, or macOS's own
+ * look while the setting follows it.
+ */
+export function useTheme(theme: Theme | undefined): boolean {
+  const [systemDark, setSystemDark] = useState(() => !!systemLook()?.matches);
+  useEffect(() => {
+    const media = systemLook();
+    if (!media) return;
+    const on = (e: MediaQueryListEvent) => setSystemDark(e.matches);
+    media.addEventListener?.('change', on);
+    return () => media.removeEventListener?.('change', on);
+  }, []);
+  useEffect(() => {
+    if (!theme) return;
+    document.documentElement.dataset.theme = theme;
+    document.querySelectorAll<HTMLElement>('.qs[data-theme]').forEach((el) => (el.dataset.theme = theme));
+  }, [theme]);
+  return theme === 'dark' || (theme !== 'light' && systemDark);
+}
+
+/**
+ * The line after an action. It belongs to the tab it was asked from (`where`
+ * says which tab is on screen when it is shown) and shows only there. A line
+ * that only says something went well goes after six seconds; one with
+ * buttons waits for one of them; any other goes after eight.
+ */
+function useFeedback(where?: Tab | null): [FeedbackView | null, (fb: FeedbackView | null) => void] {
+  const [fb, setFb] = useState<{ view: FeedbackView; tab: Tab | null } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const here = useRef(where ?? null);
+  here.current = where ?? null;
   const show = useCallback((next: FeedbackView | null) => {
     clearTimeout(timer.current);
-    setFb(next);
-    // A line with buttons waits for one of them.
-    if (next && !next.actions?.length) timer.current = setTimeout(() => setFb(null), FEEDBACK_MS);
+    setFb(next ? { view: next, tab: here.current } : null);
+    if (!next) return;
+    if (isQuiet(next)) timer.current = setTimeout(() => setFb(null), QUIET_MS);
+    else if (!next.actions?.length) timer.current = setTimeout(() => setFb(null), FEEDBACK_MS);
   }, []);
   useEffect(() => () => clearTimeout(timer.current), []);
-  return [fb, show];
+  return [fb && fb.tab === (where ?? null) ? fb.view : null, show];
 }
 
 /** Refresh and Keychain buttons: busy while they run, then a feedback line. */
@@ -167,9 +203,10 @@ function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeed
     setWorking(true);
     setAgyHow(how);
     try {
-      showFeedback(agySwitchFeedback(await api.switchAgy(login.id, how)));
+      const outcome = await api.switchAgy(login.id, how);
+      showFeedback(agySwitchFeedback(outcome, latest.current));
     } catch (e) {
-      showFeedback(agySwitchErrorFeedback(number, e));
+      showFeedback(agySwitchErrorFeedback(number, e, latest.current));
     } finally {
       setWorking(false);
       setAgyHow(null);
@@ -269,6 +306,9 @@ export interface AppProps {
 
 const systemClock = () => new Date();
 
+/** Before the first model: no account logged in yet. */
+const NO_LOGINS: Model['antigravity'] = { client: 'ok', clientPath: '', accounts: [], indexError: false, loggingIn: false };
+
 /** Null once a call went through, else what it was refused with. */
 const refusal = (call: Promise<unknown>): Promise<string | null> =>
   call.then(
@@ -278,6 +318,7 @@ const refusal = (call: Promise<unknown>): Promise<string | null> =>
 
 export function PopoverApp({ api, clock = systemClock }: AppProps) {
   const model = useModel(api);
+  const dark = useTheme(model?.theme);
   const now = useNow(clock);
   const [feedback, showFeedback] = useFeedback();
   const [keychainLater, setKeychainLater] = useState(false);
@@ -326,6 +367,7 @@ export function PopoverApp({ api, clock = systemClock }: AppProps) {
     if (switching.act(act)) return;
     if (act === 'settings') return void api.openWindow('settings');
     if (act === 'window') return void api.openWindow('overview');
+    if (act === 'theme') return void api.setTheme(dark ? 'light' : 'dark').catch(() => showFeedback(settingsFailedFeedback()));
     if (act === 'dismiss') return setKeychainLater(true);
     if (act === 'refresh') return void refresh();
     if (act === 'keychain') return void grant();
@@ -340,6 +382,7 @@ export function PopoverApp({ api, clock = systemClock }: AppProps) {
       sync={syncSummary(model)}
       feedback={feedback}
       busy={busy}
+      dark={dark}
       onAction={onAction}
       onSwitch={switching.openSwitch}
       onSwitchAgy={switching.openSwitchAgy}
@@ -353,10 +396,12 @@ export function PopoverApp({ api, clock = systemClock }: AppProps) {
 
 export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   const model = useModel(api);
+  useTheme(model?.theme);
   const now = useNow(clock);
-  const [feedback, showFeedback] = useFeedback();
   const [keychainLater, setKeychainLater] = useState(false);
   const [tab, setTab] = useState<Tab | null>(null);
+  const [feedback, showFeedback] = useFeedback(tab);
+  const agyLogins = useAgyLogins(model?.antigravity ?? NO_LOGINS, api, showFeedback);
   const { busy, refresh, grant } = useActions(api, model, clock, showFeedback);
   const switching = useSwitching(api, model, clock, showFeedback);
   const rules = useRules(api, model, clock, showFeedback, tab);
@@ -442,7 +487,8 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       }
       onFind={() => void api.setQuotaAxiPath('').catch(() => showFeedback(settingsFailedFeedback()))}
       onGrant={() => void grant()}
-      onShowEmail={(on) => void api.setShowEmail(on).catch(() => showFeedback(settingsFailedFeedback()))}
+      onShowNames={(on) => void api.setShowNames(on).catch(() => showFeedback(settingsFailedFeedback()))}
+      onTheme={(theme) => void api.setTheme(theme).catch(() => showFeedback(settingsFailedFeedback()))}
       onSetMachine={(name) =>
         api.setMachineName(name).then(
           () => true,
@@ -515,7 +561,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       }
       firstmate={<FirstmateTab model={model} fresh={view.fresh} now={now} onAction={onAction} />}
       unanswered={model.alerts.unanswered}
-      agyAccounts={<AgyAccounts view={model.antigravity} api={api} onFeedback={showFeedback} />}
+      agyLogins={agyLogins}
       dialog={dialog}
     />
   );
