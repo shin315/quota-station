@@ -18,6 +18,7 @@ import type {
   Rules,
   Sessions,
   Tab,
+  Theme,
 } from './model';
 
 export interface Api {
@@ -96,7 +97,9 @@ export interface Api {
   agyOpenVerification(id: string): Promise<void>;
   /** The Antigravity tab opened: the app reads every account now, unless read in the last minute. */
   agyTabOpened(): Promise<void>;
-  setShowEmail(on: boolean): Promise<Model>;
+  /** Shows or hides account names (emails, organizations) in both windows. */
+  setShowNames(on: boolean): Promise<Model>;
+  setTheme(theme: Theme): Promise<Model>;
   /** Is Antigravity.app installed, which version, does it run; asked when the switch sheet opens. */
   agyAppState(): Promise<AgyApp>;
   /**
@@ -179,7 +182,8 @@ export const tauriApi: Api = {
   agyLogout: (id) => invoke<Model>('agy_logout', { id }),
   agyOpenVerification: (id) => invoke('agy_open_verification', { id }),
   agyTabOpened: () => invoke('agy_tab_opened'),
-  setShowEmail: (on) => invoke<Model>('set_show_email', { on }),
+  setShowNames: (on) => invoke<Model>('set_show_names', { on }),
+  setTheme: (theme) => invoke<Model>('set_theme', { theme }),
   agyAppState: () => invoke<AgyApp>('agy_app_state'),
   switchAgy: (id, how) => invoke<AgyOutcome>('switch_agy', { id, how }),
   agyDismissOverwrite: () => invoke<Model>('agy_dismiss_overwrite'),

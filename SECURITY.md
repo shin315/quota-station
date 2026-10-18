@@ -28,8 +28,9 @@ changes the app should keep these rules, or say plainly which one changes.
   and `auth_method` (`consumer`), and is on `security`'s command line for
   the moment it runs, the same limit as below.
 
-The app gets Claude numbers only from quota-axi's output, and switches
-Claude only through `cswap switch N --json`.
+The app gets Claude numbers only from quota-axi's output and from
+`cswap list --json` (claude-swap's cached usage, read-only, no credential),
+and switches Claude only through `cswap switch N --json`.
 
 ## What the app keeps
 
@@ -78,8 +79,11 @@ In the owner's login Keychain, not in that folder:
   the same macOS user can see; claude-swap and Cockpit Tools have the same
   limit.
 
-Emails stay in the index and the Keychain. They do not show in the windows
-unless the owner turns on `Hiện email`, and the app logs none. The windows
+Emails stay in the index and the Keychain. They go to the windows, with
+the Claude accounts' emails and organizations from `cswap list --json`
+(held in memory only), while `Hiện email` is on, which it is by default;
+turned off, the model sent to the windows carries none. The app writes no
+email or organization to a file of its own or a log. The windows
 do get each account's id, which is Cockpit's: `antigravity_` and the MD5 of
 the email. It is not the email, but anyone who guesses an address can check
 the guess against it, so it is kept as private as the index.

@@ -7,13 +7,15 @@
 // báo and Firstmate come from M6, and Cảnh báo counts the alerts nobody
 // answered yet. The sidebar keeps Codex, a later milestone, in place, disabled.
 
-import type { ReactNode } from 'react';
-import { Banner, Button, Chip, Dot, Feedback, Meter, Toggle } from '../components/parts';
+import { Fragment, type ReactNode } from 'react';
+import { AddAccount, LoginActions, LoginNotes, LogoutConfirm, loginChips, type AgyLogins } from '../antigravity/AgyAccounts';
+import { AccountName, InUse, RoomStrip, WindowCell } from '../components/accounts';
+import { Banner, Button, Chip, Dot, Feedback, Toggle } from '../components/parts';
 import { SHEET_TITLE_ID, useDialog } from '../components/Sheets';
 import type { Tab } from '../lib/model';
-import { pauseOptions, type PauseChoice } from '../lib/switching';
-import { bannerUnder, type Action, type FeedbackView, type NoteView, type RowView } from '../lib/view';
-import type { BigPoolView, WindowView } from '../lib/window';
+import { pauseOptions, type AutoView, type PauseChoice } from '../lib/switching';
+import { bannerUnder, type Action, type CardView, type ChipView, type FeedbackView, type NoteView } from '../lib/view';
+import type { KeyValue, WindowView } from '../lib/window';
 import { NAV_ICONS } from './icons';
 
 type NavId = keyof typeof NAV_ICONS;
@@ -121,99 +123,103 @@ function Card(props: { title: ReactNode; kind?: 'c' | 'g'; children: ReactNode }
   );
 }
 
-function BigPool({ pool }: { pool: BigPoolView }) {
+/** "Chuyển" is a button to press; the account in use gets a status in its place. */
+function SwitchCell({ card, onSwitch }: { card: CardView; onSwitch(slot: number): void }) {
+  if (card.active) return <InUse />;
+  if (card.slot === 0) return null;
   return (
-    <div className="card" title={pool.hover || undefined}>
-      <h4>
-        <span className={'idm ' + pool.kind} />
-        {pool.title}
-      </h4>
-      <div className="big">
-        {pool.value}
-        {pool.unit ? <i>{pool.unit}</i> : null}
-      </div>
-      <span className="meter" aria-hidden="true">
-        <i className={pool.fill} style={{ width: pool.percent + '%' }} />
-      </span>
-      <small className="pline">{pool.line}</small>
-    </div>
-  );
-}
-
-/** The row's switch button: none on the active row, off where it cannot switch. */
-function SwitchCell({ row, onSwitch }: { row: RowView; onSwitch(slot: number): void }) {
-  if (row.active || row.slot === 0) return <span />;
-  return (
-    <Button
-      primary
-      disabled={!row.switchable}
-      label={'Chuyển sang ' + row.name}
-      title={row.off || undefined}
-      onClick={() => onSwitch(row.slot)}
-    >
+    <Button primary disabled={!card.switchable} label={'Chuyển sang ' + card.name} title={card.off || undefined} onClick={() => onSwitch(card.slot)}>
       Chuyển
     </Button>
   );
 }
 
-/** One account in a window table: the prototype's `trRow`. */
-function TableRow({ row, freshness, onSwitch }: { row: RowView; freshness: boolean; onSwitch(slot: number): void }) {
-  const chips = freshness ? row.tags : row.chips;
+/** One account in a window table: its name, a fixed column per window, and its buttons. */
+function TableRow(props: { card: CardView; long: boolean; extra?: ReactNode; chips?: ChipView[]; onSwitch(slot: number): void }) {
+  const c = props.card;
   return (
-    <div className={'tr' + (row.active ? ' on' : '')} role="listitem" aria-label={row.label} title={row.title || undefined}>
-      <span className={'av ' + row.kind} aria-hidden="true">
-        {row.short}
-      </span>
-      <div className="nm" aria-hidden="true">
-        <b>{row.name}</b>
-        {chips.map((c) => (
-          <Chip key={c.t} chip={c} />
-        ))}
-      </div>
-      {row.lines.map((l) => (
-        <div className="cell" key={l.label} title={l.title || undefined} aria-hidden="true">
-          <small>
-            <span>{l.label}</span>
-            <b>{l.text}</b>
-          </small>
-          <Meter percent={l.percent} tone={row.dim ? 'muted' : l.tone} />
-          <em>{l.long}</em>
-        </div>
+    <div className={'wt-r' + (c.active ? ' on' : '')} role="listitem" aria-label={c.label} title={c.title || undefined}>
+      <AccountName name={c.name} sub={c.sub} full={c.full} chips={[...c.chips, ...(props.chips ?? [])]} />
+      {c.cells.map((cell) => (
+        <WindowCell key={cell.label} cell={cell} long={props.long} dim={c.dim} />
       ))}
-      {freshness ? (
-        <span className="fresh" aria-hidden="true">
-          {row.freshness ? <Chip chip={row.freshness} /> : '—'}
-        </span>
-      ) : null}
-      <SwitchCell row={row} onSwitch={onSwitch} />
+      <span className="act">
+        <SwitchCell card={c} onSwitch={props.onSwitch} />
+        {props.extra}
+      </span>
     </div>
   );
 }
 
-function AccountTable(props: {
-  label: string;
-  rows: RowView[];
-  header?: boolean;
-  freshness?: boolean;
-  onSwitch(slot: number): void;
-}) {
-  if (!props.rows.length) return null;
-  const fresh = !!props.freshness;
+/** Claude: 5 giờ · Tuần · Fable tuần, the same columns for every account. */
+function ClaudeTable(props: { cards: CardView[]; long?: boolean; onSwitch(slot: number): void }) {
+  if (!props.cards.length) return null;
   return (
-    <div className={'tbl' + (fresh ? ' withfresh' : '')} role="list" aria-label={props.label}>
-      {props.header ? (
-        <div className="tr h" aria-hidden="true">
-          <span />
-          <span>Tài khoản</span>
-          <span>Hạn mức 5 giờ</span>
-          <span>Hạn mức tuần / Fable</span>
-          {fresh ? <span>Cập nhật</span> : null}
+    <div className="wt c" role="list" aria-label="Claude Code">
+      <div className="wt-r h" aria-hidden="true">
+        <span>đã dùng</span>
+        <span>5 giờ</span>
+        <span>Tuần</span>
+        <span>Fable tuần</span>
+        <span />
+      </div>
+      {props.cards.map((c) => (
+        <TableRow key={c.key} card={c} long={!!props.long} onSwitch={props.onSwitch} />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Antigravity: Gemini and Claude/GPT, five hours and a week each. An
+ * account only Cockpit Tools reads has one number per group instead.
+ */
+function AgyTable(props: { cards: CardView[]; long?: boolean; logins?: AgyLogins; onSwitch(slot: number): void }) {
+  if (!props.cards.length) return null;
+  const four = props.cards.every((c) => c.cells.length === 4);
+  const logins = props.logins;
+  return (
+    <div className={'wt g' + (four ? '' : ' two') + (logins ? ' acts' : '')} role="list" aria-label="Antigravity">
+      {four ? (
+        <>
+          <div className="wt-r h" aria-hidden="true">
+            <span />
+            <span className="grp">Gemini</span>
+            <span className="grp">Claude/GPT</span>
+            <span />
+          </div>
+          <div className="wt-r h h2" aria-hidden="true">
+            <span>đã dùng</span>
+            <span>5 giờ</span>
+            <span>Tuần</span>
+            <span>5 giờ</span>
+            <span>Tuần</span>
+            <span />
+          </div>
+        </>
+      ) : (
+        <div className="wt-r h" aria-hidden="true">
+          <span>đã dùng</span>
+          <span>Gemini</span>
+          <span>Claude/GPT</span>
           <span />
         </div>
-      ) : null}
-      {props.rows.map((r) => (
-        <TableRow key={r.key} row={r} freshness={fresh} onSwitch={props.onSwitch} />
-      ))}
+      )}
+      {props.cards.map((c) => {
+        const row = logins?.rows.find((r) => r.number === c.slot);
+        return (
+          <Fragment key={c.key}>
+            <TableRow
+              card={c}
+              long={!!props.long}
+              chips={loginChips(row)}
+              extra={logins && row ? <LoginActions logins={logins} row={row} /> : null}
+              onSwitch={props.onSwitch}
+            />
+            {logins && row && logins.confirm === row.id ? <LogoutConfirm logins={logins} row={row} /> : null}
+          </Fragment>
+        );
+      })}
     </div>
   );
 }
@@ -222,13 +228,31 @@ function Note({ note }: { note: NoteView | null }) {
   return note ? <p className={('note ' + note.tone).trim()}>{note.text}</p> : null;
 }
 
-function KeyValues({ rows }: { rows: WindowView['agy']['cockpit'] }) {
+function KeyValues({ rows }: { rows: KeyValue[] }) {
   return (
     <div className="kvt">
       {rows.map((r) => [
         <span key={r.key + ':k'}>{r.key}</span>,
-        <span key={r.key + ':v'}>{r.chip ? <Chip chip={r.chip} /> : r.value}</span>,
+        <span key={r.key + ':v'} className={r.mono ? 'mono' : undefined}>
+          {r.chip ? <Chip chip={r.chip} /> : r.value}
+        </span>,
       ])}
+    </div>
+  );
+}
+
+/** Automatic switching on one line: what it does now, and its switch. */
+function AutoCard({ auto, onToggle, children }: { auto: AutoView; onToggle(): void; children?: ReactNode }) {
+  return (
+    <div className="card">
+      <div className="sw-row">
+        <div className="t">
+          <b>{auto.title}</b>
+          <small>{auto.line}</small>
+        </div>
+        <Toggle on={auto.toggle.on} label={auto.toggle.label} disabled={auto.toggle.disabled} onClick={onToggle} />
+      </div>
+      {children}
     </div>
   );
 }
@@ -246,8 +270,8 @@ interface TabProps {
   onToggle(): void;
   onPause(preset: PauseChoice): void;
   now: Date;
-  /** The Antigravity tab's login card. */
-  agyAccounts?: ReactNode;
+  /** The accounts the app logs in, merged into the Antigravity table. */
+  agyLogins?: AgyLogins;
 }
 
 function Top(props: TabProps & { title: string; banner?: boolean }) {
@@ -266,32 +290,22 @@ function Overview(props: TabProps) {
   return (
     <>
       <Top {...props} title="Tổng quan" />
-      <div className="grid">
+      <div className="grid ov">
         <div className="stack">
-          <div className="grid2">
-            <BigPool pool={v.pools.claude} />
-            <BigPool pool={v.pools.agy} />
-          </div>
-          <Card title={v.claude.title} kind="c">
-            <AccountTable label="Claude Code" rows={v.claude.rows} header onSwitch={props.onSwitch} />
+          {v.room ? <RoomStrip room={v.room} big /> : null}
+          <Card title="Claude" kind="c">
+            <ClaudeTable cards={v.claude.cards} onSwitch={props.onSwitch} />
             <Note note={v.claude.note} />
           </Card>
           {v.agy.present ? (
-            <Card title={v.agy.title} kind="g">
-              <AccountTable label="Antigravity" rows={v.agy.rows} onSwitch={props.onSwitchAgy} />
+            <Card title="Antigravity" kind="g">
+              <AgyTable cards={v.agy.cards} onSwitch={props.onSwitchAgy} />
               <Note note={v.agy.note} />
             </Card>
           ) : null}
         </div>
         <div className="stack">
-          <Card title={v.whyTitle}>
-            <div className="why">{v.auto.why}</div>
-            {v.auto.log && !v.auto.paused ? <small className="pline">{v.auto.log}</small> : null}
-            <div className="row2" style={{ marginTop: 10 }}>
-              <span style={{ fontSize: 'var(--fs-sm)' }}>Tự chuyển Claude</span>
-              <Toggle on={v.auto.toggle.on} label={v.auto.toggle.label} disabled={v.auto.toggle.disabled} onClick={props.onToggle} />
-            </div>
-          </Card>
+          <AutoCard auto={v.auto} onToggle={props.onToggle} />
           <Card title="Sắp tới">
             {v.upcoming.length ? (
               <div className="list">
@@ -318,25 +332,19 @@ function Overview(props: TabProps) {
 function ClaudeTab(props: TabProps) {
   const v = props.view;
   const a = v.auto;
+  const sw = v.switcher;
   return (
     <>
       <Top {...props} title="Claude" />
       {v.claudeBanner ? <Banner banner={v.claudeBanner} onAction={props.onAction} busy={props.busy} /> : null}
-      <Card title={v.claude.tabTitle} kind="c">
-        <AccountTable label="Claude Code" rows={v.claude.rows} header freshness onSwitch={props.onSwitch} />
+      <Card title={<>Tài khoản{v.claude.count ? <span className="r">{v.claude.count}</span> : null}</>} kind="c">
+        <ClaudeTable cards={v.claude.cards} long onSwitch={props.onSwitch} />
         <Note note={v.claude.note} />
       </Card>
       <div className="grid2">
-        <Card title="Tự chuyển">
-          <div className="row2">
-            <div className="why" style={{ flex: 1 }}>
-              {a.title}
-              <small className="pline">{a.line}</small>
-            </div>
-            <Toggle on={a.toggle.on} label={a.toggle.label} disabled={a.toggle.disabled} onClick={props.onToggle} />
-          </div>
-          <p style={{ margin: '10px 0 4px' }} id="qs-qp">
-            Tạm dừng nhanh
+        <AutoCard auto={a} onToggle={props.onToggle}>
+          <p style={{ margin: '12px 0 4px' }} id="qs-qp">
+            Tạm dừng
           </p>
           <div className="seg" role="group" aria-labelledby="qs-qp">
             {pauseOptions(props.now).map((o) => (
@@ -345,27 +353,16 @@ function ClaudeTab(props: TabProps) {
               </button>
             ))}
           </div>
-          {a.raw ? (
-            <>
-              <p style={{ margin: '10px 0 0' }}>
-                Quyết định gần nhất của switcher{a.at ? ' (' + a.at + ')' : ''}: {a.paused ? a.raw : a.why}
-              </p>
-              <p className="tech">
-                Dòng gốc: <span className="mono">{a.raw}</span>
-              </p>
-            </>
-          ) : null}
-          {a.log ? (
-            <>
-              <p style={{ margin: '10px 0 0' }}>Nhật ký switcher: {a.log}</p>
-              <p className="tech">
-                Dòng gốc: <span className="mono">{a.logRaw}</span>
-              </p>
-            </>
-          ) : null}
-        </Card>
+        </AutoCard>
         <Card title="Switcher">
-          <KeyValues rows={v.switcher} />
+          <div className="line">
+            <Dot tone={sw.tone} />
+            {sw.line}
+          </div>
+          <details className="more">
+            <summary>Chi tiết</summary>
+            <KeyValues rows={sw.details} />
+          </details>
         </Card>
       </div>
     </>
@@ -374,35 +371,28 @@ function ClaudeTab(props: TabProps) {
 
 function AgyTab(props: TabProps) {
   const a = props.view.agy;
+  const logins = props.agyLogins;
   return (
     <>
       <Top {...props} title="Antigravity" banner={false} />
       {a.banner ? <Banner banner={a.banner} onAction={props.onAction} busy={props.busy} /> : null}
-      {a.present ? (
-        <>
-          <Card title="Tài khoản" kind="g">
-            <AccountTable label="Antigravity" rows={a.rows} onSwitch={props.onSwitchAgy} />
-            {a.others ? <p className="note">{a.others}</p> : null}
-            <Note note={a.tabNote} />
+      <Card title={<>Tài khoản{logins ? <span className="r">{<AddAccount logins={logins} />}</span> : null}</>} kind="g">
+        {a.present ? <AgyTable cards={a.cards} long logins={a.own ? logins : undefined} onSwitch={props.onSwitchAgy} /> : null}
+        {!a.present ? (
+          <div className="empty">
+            <b>Máy này chưa có Antigravity</b>
+          </div>
+        ) : null}
+        <Note note={a.tabNote} />
+        {logins ? <LoginNotes logins={logins} listed={a.own ? a.cards.map((c) => c.slot) : []} /> : null}
+      </Card>
+      {a.cockpit ? (
+        <div className="grid2">
+          <Card title="Cockpit Tools">
+            <KeyValues rows={a.cockpit} />
           </Card>
-          {props.agyAccounts}
-          <div className="grid2">
-            <Card title="Cockpit">
-              <KeyValues rows={a.cockpit} />
-            </Card>
-          </div>
-        </>
-      ) : (
-        <>
-          <div className="card">
-            <div className="empty">
-              <b>Máy này chưa có Antigravity</b>quota-axi không thấy Antigravity trên máy này.
-            </div>
-            <Note note={a.tabNote} />
-          </div>
-          {props.agyAccounts}
-        </>
-      )}
+        </div>
+      ) : null}
     </>
   );
 }
@@ -432,8 +422,8 @@ export interface MainWindowProps {
   unanswered?: number;
   /** Under the machine name in the sidebar: whether the other Macs have the rules. */
   syncNote?: string | null;
-  /** The Antigravity tab's login card. */
-  agyAccounts?: ReactNode;
+  /** The accounts the app logs in, merged into the Antigravity table. */
+  agyLogins?: AgyLogins;
   /** The open dialog's body; null when none is open. */
   dialog?: ReactNode;
 }
@@ -449,7 +439,7 @@ export function MainWindow(props: MainWindowProps) {
     onToggle: props.onToggle,
     onPause: props.onPause,
     now: props.now,
-    agyAccounts: props.agyAccounts,
+    agyLogins: props.agyLogins,
   };
   const open = !!props.dialog;
   const dialog = useDialog(open);

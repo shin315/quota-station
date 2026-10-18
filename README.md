@@ -50,9 +50,16 @@ the confirmation sheet first.
   example `57%`. Before the first read it shows `–`. The tooltip and the
   VoiceOver label say the same in words. While automatic switching is paused,
   two small pause bars follow the number.
-- **Popover** (left click). The two pools, then every Claude Code and
-  Antigravity account with its allowances (`5 giờ`, `Tuần`, `Fable tuần`,
-  `Gemini`, `Claude/GPT`) and when each one resets. It also has banners for
+- **Popover** (left click). A card per account, the one in use first: every
+  Claude Code account with its `5 giờ`, `Tuần` and `Fable` windows, every
+  Antigravity account with `Gemini 5 giờ`, `Gemini tuần`, `Claude/GPT 5 giờ`
+  and `Claude/GPT tuần`, each as the share **used** (the bar fills as the
+  quota goes; amber from 70 %, red from 90 %) with when it resets; a five-hour
+  window not started yet reads `0% chưa dùng`. Above the Claude cards, the
+  room left in the rotation before the switch threshold, in accounts, with a
+  bar per account. The `CLAUDE` and `ANTIGRAVITY` headers fold their group to
+  one line (the account in use and its tightest window), and a folded group
+  stays folded the next time the popover opens. It also has banners for
   stale numbers, an unavailable source, numbers waiting after a reset, an
   exhausted rotation, missing Keychain permission and a failing quota-axi.
   Every Claude account other than the one in use is a button that opens the
@@ -61,8 +68,14 @@ the confirmation sheet first.
   `Tự chuyển Claude` switch and the line that says why Claude is on its
   account, and, when other Macs are set up, which of them have the rotation
   rules (`Mac B: 14:30 · Mac C: chưa tới được, sẽ thử lại`). Its header has
-  two buttons: the gear opens the settings tab and the window button opens
-  the main window.
+  two buttons: the moon (or sun) turns the look dark (or light) for both
+  windows, and the box with an arrow opens the main window on `Tổng quan`.
+- **Names.** Accounts go by the part of their email before `@` when every
+  account shares one domain (the whole email otherwise, and always on hover),
+  with the organization of a Team seat or `Cá nhân · 08–23` under it.
+  Turning off `Hiện email` in `Cài đặt` names them by place instead (`Team A`,
+  `Cá nhân`, `Ultra 1`), for screenshots, and then no email or organization
+  reaches the windows at all.
 - **Switching Claude** (F04). The confirmation sheet names the account, its
   allowances, and how many Claude Code sessions running on this Mac will
   rebuild their prompt cache on their next message, which costs quota. It
@@ -87,21 +100,25 @@ the confirmation sheet first.
   (refresh), `Cài đặt…` (settings), `Thoát Quota Station` (quit).
 - **Main window.** The same numbers as the popover, from the same read, in
   these tabs:
-  - `Tổng quan`: both pools with how the rotation number adds up, every
-    Claude Code and Antigravity account in a table with each allowance and
-    its reset in words, `Vì sao đang ở …` with the `Tự chuyển Claude`
-    switch, and `Sắp tới`, the resets and rotation ends of the next 24 hours
-    as the readings give them.
-  - `Claude`: the accounts with a `Cập nhật` column, the age of each
-    account's own reading, and a `Chuyển` button on each account not in
-    use. Below it, `Tự chuyển` (the switch, quick pause choices, the
-    switcher's last decision and log line, each with its raw line) and
-    `Switcher` (whether launchd runs it, its last log time, whether
-    `com.cswap.auto` is loaded, the pause, and whether the switcher reads
-    the pause flag). A switcher that launchd does not run gets a banner.
-  - `Antigravity`: the accounts, how old the numbers of the accounts not in
-    use are, and whether Cockpit answers. A Mac without Cockpit or without
-    Antigravity says so. Below them, `Đăng nhập trong Quota Station`, the
+  - `Tổng quan`: the room left in the rotation with each account's bar,
+    every Claude Code and Antigravity account in a table with fixed columns
+    (`5 giờ · Tuần · Fable tuần` for Claude; `5 giờ` and `Tuần` under
+    `Gemini` and `Claude/GPT` for Antigravity), each the share used, the
+    `Tự chuyển Claude` switch with its one line, and `Sắp tới`, the resets
+    and rotation ends of the next 24 hours as the readings give them.
+  - `Claude`: the accounts, with a `Chuyển` button on each account not in
+    use and a `Đang dùng` status (a dot and words, nothing to press) on the
+    one in use; an old reading gets a chip by the name. Below it,
+    `Tự chuyển` (the switch and the pause choices) and `Switcher` (one line;
+    whether launchd runs it, `com.cswap.auto`, the pause, whether it reads
+    the pause flag, and its last decision and log line as printed sit under
+    `Chi tiết`). A switcher that launchd does not run gets a banner.
+  - `Antigravity`: the accounts, with `Chuyển` and `Đăng xuất` on each one
+    this app logs in and `Thêm tài khoản` in the card's header. A Mac without
+    an account list or without Antigravity says so; a card for Cockpit Tools
+    shows only where the accounts come from Cockpit Tools. The accounts
+    this app logs in that quota-axi does not list yet stay under the table:
+    the
     Antigravity accounts this app logs in itself, each with `đang đọc…`
     while the app reads its quota and `đọc lỗi: …` when that read failed
     (below). Opening the tab reads every account.
@@ -113,7 +130,8 @@ the confirmation sheet first.
     `Các Mac khác`: a name and an SSH alias for each other Mac, with
     `Thêm Mac`, `Bỏ` and `Thử SSH` (reads that Mac's rotation file and
     changes nothing), whether `oauth-client.json` is in place and usable,
-    `Hiện email` (off by default), `File của firstmate` (the path to
+    `Hiện email` (on by default; off names accounts by place), `Giao diện`
+    (`Theo macOS`, `Sáng` or `Tối`), `File của firstmate` (the path to
     Firstmate's `quota-pool.last`; nothing is built in, and only a file of
     that name is taken), `Thông báo` (whether macOS lets the cards show,
     `Gửi thử` and a switch for each kind of alert), and the app itself (M7):
@@ -293,8 +311,12 @@ assumes another Mac has any. Each Mac installs and updates its own copy
   once. macOS shows its own prompt. The app itself never opens Claude's
   Keychain item or any other tool's credential file; the only Keychain items
   it opens are its own Antigravity ones (below).
-- It ignores the identity fields in quota-axi's output (emails, ids). Accounts
-  are shown by role and slot number.
+- It ignores the identity fields in quota-axi's output (emails, ids). Each
+  read also runs `cswap list --json`, which reads claude-swap's own cache
+  and asks no server, for every Claude account's three windows, its email
+  and its organization; they stay in memory, go to the windows only while
+  `Hiện email` is on, and are never written to a file or a log. Without
+  claude-swap, or when it fails, the accounts keep quota-axi's one number.
 - Switching runs `cswap switch N --json` (claude-swap holds Claude Code's
   credential locks while it writes) and nothing else of claude-swap's. The
   app reads only the account numbers from its answer, takes email addresses
@@ -611,7 +633,8 @@ Antigravity login card: `agy` (`two`, `relogin`, `verify`, `noclient`,
 `tooopen`, `invalid`, `broken`, or for the quota reads `reading`, `failing`
 and `forbidden`), `login` (how a login ends, for example
 `timeout`, `noRefreshToken` or `keychain`; it keeps the next account after
-3 seconds by default) and `email=on`. For switching Antigravity: `agyswitch`
+3 seconds by default) and `email=off` (names by place), `theme` (`light` or
+`dark`). For switching Antigravity: `agyswitch`
 (`on`, or `overwritten` for the banner), `agyapp` (`closed`, `missing`,
 `old`, `unreadable` or `unknown`; Antigravity.app runs by default) and `agyoutcome`
 (`unconfirmed`, `notquit` or `write`). For M6: `history=empty`, `alerts`

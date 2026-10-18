@@ -4,6 +4,7 @@ import { MainWindowApp, PopoverApp } from './App';
 import { tauriApi, type Api } from './lib/api';
 import './styles/tokens.css';
 import './styles/components.css';
+import './styles/redesign.css';
 import './styles/app.css';
 
 type View = 'popover' | 'window';

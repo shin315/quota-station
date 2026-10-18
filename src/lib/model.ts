@@ -1,7 +1,17 @@
 // The model the Rust side sends (`src-tauri/src/state.rs`, `quota-station-core::snapshot`).
 // Field names are serde's camelCase; `Option` arrives as null.
 
-export type LineKind = 'session' | 'week' | 'fableWeek' | 'gemini' | 'claudeGpt';
+export type LineKind =
+  | 'session'
+  | 'week'
+  | 'fableWeek'
+  | 'gemini'
+  | 'claudeGpt'
+  /** Antigravity's four windows, each on its own (`Account.windows`). */
+  | 'geminiSession'
+  | 'geminiWeek'
+  | 'claudeGptSession'
+  | 'claudeGptWeek';
 
 export interface Line {
   kind: LineKind;
@@ -30,7 +40,14 @@ export interface Account {
   source: Source;
   membership: Membership;
   leavesAt: string | null;
+  /** quota-axi's numbers: the tighter window only, when it reports one. */
   lines: Line[];
+  /** Every window on its own, from claude-swap's list (Claude) or the app's own reading (Antigravity); empty when neither has it. */
+  windows: Line[];
+  /** Only while the owner shows names. */
+  email?: string;
+  /** The Claude account's organization, only while the owner shows names. */
+  org?: string;
 }
 
 export type PoolKind = 'rotation' | 'active' | 'none';
@@ -69,6 +86,8 @@ export interface Section {
   stale: boolean;
   /** `8-23` */
   personalHours: string | null;
+  /** Who read the Antigravity accounts quota-axi lists: `quota-station` (this app) or Cockpit Tools. */
+  source: string | null;
 }
 
 export type Keychain = 'granted' | 'required' | 'unknown';
@@ -289,6 +308,8 @@ export interface AgyReadError {
 }
 
 /** One account logged in here (`src-tauri/src/antigravity.rs` `AccountView`). */
+export type Theme = 'auto' | 'light' | 'dark';
+
 export interface AgyLogin {
   id: string;
   /** Its place in the app's list, from 1, as quota-axi numbers it. */
@@ -545,8 +566,9 @@ export interface Model {
   switcher: SwitcherView;
   claudeSwitch: ClaudeSwitchView;
   rotation: RotationView;
-  /** Emails of the accounts logged in here may show. */
-  showEmail: boolean;
+  /** Account names (emails, organizations) may show; off, none reaches the window. */
+  showNames: boolean;
+  theme: Theme;
   antigravity: AgyAccounts;
   agySwitch: AgySwitchView;
   /** The five alerts (M6). */

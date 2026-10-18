@@ -1,20 +1,25 @@
 // The Cài đặt tab of the main window: where quota-axi is, Keychain access
 // for quota-axi, this Mac's name, the other Macs the rotation file is
 // copied to (an SSH alias each), the Antigravity OAuth client file,
-// whether emails show, Firstmate's state file, the macOS notifications
-// with the five kinds of alert (M6), and the app itself (M7): launching at
-// login, the clone it updates from, its version and "Cập nhật từ mã nguồn".
-// Rows and copy come from the prototype's Cài đặt tab.
-// Each Mac runs its own copy and switches only itself; refresh, theme and
-// Codex come in later milestones.
+// whether account names show, the light or dark look, Firstmate's state
+// file, the macOS notifications with the five kinds of alert (M6), and the
+// app itself (M7): launching at login, the clone it updates from, its
+// version and "Cập nhật từ mã nguồn". Rows speak for themselves: no line of
+// explanation under them. Each Mac runs its own copy and switches only itself.
 
 import { useState } from 'react';
 import { AlertKinds } from '../alerts/AlertsTab';
 import { Button, Chip, Dot, Feedback, Toggle } from '../components/parts';
 import { PERMISSION_CHIPS, UNREAD } from '../lib/alerts';
 import type { ChipView } from '../lib/view';
-import type { AlertKind, AppView, ClientStatus, Model, Peer, PeerTest, UpdateError } from '../lib/model';
+import type { AlertKind, AppView, ClientStatus, Model, Peer, PeerTest, Theme, UpdateError } from '../lib/model';
 import type { Action, FeedbackView, PopoverView } from '../lib/view';
+
+const THEMES: [Theme, string][] = [
+  ['auto', 'Theo macOS'],
+  ['light', 'Sáng'],
+  ['dark', 'Tối'],
+];
 
 export interface SettingsProps {
   model: Model;
@@ -30,7 +35,9 @@ export interface SettingsProps {
   /** Resolves to null once saved, else the refusal (`badAlias:1`, `sameAlias:1`, `tooMany`). */
   onSetPeers(peers: Peer[]): Promise<string | null>;
   onTestPeer(alias: string): Promise<PeerTest>;
-  onShowEmail(on: boolean): void;
+  /** Names (emails, organizations) on or off, in both windows. */
+  onShowNames(on: boolean): void;
+  onTheme(theme: Theme): void;
   /** Resolves to null once saved, else the refusal (`notPoolFile`, `notFound`). */
   onSetFirstmate(path: string): Promise<string | null>;
   onTestAlert(kind: AlertKind): void;
@@ -90,7 +97,7 @@ function MachineName({ model, onSet }: { model: Model; onSet(name: string): Prom
   return (
     <div className="fr">
       <label htmlFor="qs-name">
-        Tên máy này<small>Hiện ở đầu popover và cửa sổ</small>
+        Tên máy này
       </label>
       <div>
         <input
@@ -175,7 +182,6 @@ function OtherMacs({ model, onSet, onTest }: { model: Model; onSet: SettingsProp
     <div className="fr">
       <div className="fl">
         Các Mac khác
-        <small>Tên kết nối SSH để gửi luật xoay vòng. Mỗi Mac chạy bản Quota Station riêng; app không điều khiển máy khác.</small>
       </div>
       <div className="macs">
         {rows.map((r, i) => {
@@ -273,7 +279,7 @@ function FirstmateFile({ model, onSet }: { model: Model; onSet: SettingsProps['o
   return (
     <div className="fr">
       <label htmlFor="qs-fm">
-        File của firstmate<small>quota-pool.last, firstmate ghi sau mỗi lần kiểm hạn mức</small>
+        File của firstmate
       </label>
       <div>
         <input
@@ -303,7 +309,7 @@ function Notifications(props: { model: Model; onAction: SettingsProps['onAction'
   return (
     <div className="fr">
       <div className="fl">
-        Thông báo<small>Thẻ macOS có nút cho năm loại cảnh báo. Gửi thử để xem thẻ trông thế nào</small>
+        Thông báo
       </div>
       <div>
         <Chip chip={PERMISSION_CHIPS[a.permission]} />{' '}
@@ -331,7 +337,7 @@ function LaunchAtLogin({ app, onSet, onOpen }: { app: AppView; onSet: SettingsPr
   return (
     <div className="fr">
       <div className="fl">
-        Mở khi đăng nhập<small>Mặc định tắt. Dùng mục đăng nhập của macOS</small>
+        Mở khi đăng nhập
       </div>
       <div>
         <Toggle on={on} label="Mở khi đăng nhập" disabled={busy || state === 'unavailable'} onClick={() => void toggle()} />
@@ -376,7 +382,7 @@ function SourceDir({ app, onSet }: { app: AppView; onSet: SettingsProps['onSetSo
   return (
     <div className="fr">
       <label htmlFor="qs-src">
-        Mã nguồn<small>Bản clone repo trên máy này, để cập nhật app</small>
+        Mã nguồn
       </label>
       <div>
         <input
@@ -449,7 +455,7 @@ function Version({ app, onUpdate, onRelaunch }: { app: AppView; onUpdate: Settin
   return (
     <div className="fr">
       <div className="fl">
-        Phiên bản<small>Cập nhật: git pull --ff-only rồi scripts/install.sh</small>
+        Phiên bản
       </div>
       <div>
         <span className="mono">
@@ -485,7 +491,8 @@ export function Settings({
   onSetMachine,
   onSetPeers,
   onTestPeer,
-  onShowEmail,
+  onShowNames,
+  onTheme,
   onSetFirstmate,
   onTestAlert,
   onAlertSwitch,
@@ -519,7 +526,7 @@ export function Settings({
         <div className="form">
           <div className="fr">
             <label htmlFor="qs-axi">
-              quota-axi<small>Tự tìm đường dẫn. Cần phiên bản có hỗ trợ +cswap.</small>
+              quota-axi
             </label>
             <div>
               <input
@@ -547,7 +554,7 @@ export function Settings({
           </div>
           <div className="fr">
             <div className="fl">
-              Quyền Keychain<small>Để quota-axi đọc dòng Claude trực tiếp</small>
+              Quyền Keychain
             </div>
             <div>
               {keychain === 'granted' ? (
@@ -573,7 +580,7 @@ export function Settings({
           <OtherMacs model={model} onSet={onSetPeers} onTest={onTestPeer} />
           <div className="fr">
             <div className="fl">
-              OAuth client Antigravity<small>File oauth-client.json để đăng nhập Antigravity trong app</small>
+              OAuth client Antigravity
             </div>
             <div>
               <Chip chip={CLIENT_CHIPS[model.antigravity.client]} />
@@ -584,10 +591,22 @@ export function Settings({
           </div>
           <div className="fr">
             <div className="fl" id="qs-email-l">
-              Hiện email<small>Mặc định tắt. Tài khoản gọi theo số</small>
+              Hiện email
             </div>
             <div>
-              <Toggle on={model.showEmail} label="Hiện email" onClick={() => onShowEmail(!model.showEmail)} />
+              <Toggle on={model.showNames} label="Hiện email" onClick={() => onShowNames(!model.showNames)} />
+            </div>
+          </div>
+          <div className="fr">
+            <div className="fl" id="qs-theme-l">
+              Giao diện
+            </div>
+            <div className="seg inline" role="group" aria-labelledby="qs-theme-l">
+              {THEMES.map(([v, t]) => (
+                <button key={v} type="button" aria-pressed={model.theme === v} onClick={() => onTheme(v)}>
+                  {t}
+                </button>
+              ))}
             </div>
           </div>
           <FirstmateFile model={model} onSet={onSetFirstmate} />

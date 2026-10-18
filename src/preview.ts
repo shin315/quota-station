@@ -24,7 +24,7 @@
 
 import type { Api } from './lib/api';
 import type { AgyAccounts, AgyApp, AgyHow, AgyOutcome, ErrorView, Model, Outcome, Tab, UpdateError, UpdateOutcome } from './lib/model';
-import { fakeApi, fakeEmail } from './fixtures/fakeApi';
+import { fakeApi, fakeEmail, hideNames } from './fixtures/fakeApi';
 import {
   agyAccount,
   agyFixture,
@@ -204,10 +204,12 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
       overwritten: agySwitch === 'overwritten' ? { to: 1, from: 2, at: '2026-01-16T07:10:00.000Z', overwrites: 1 } : null,
     };
   }
-  if (params.get('email') === 'on') {
-    over.showEmail = true;
+  // Names show unless `email=off`, as in the app.
+  if (params.get('email') !== 'off') {
     if (over.antigravity) over.antigravity.accounts = over.antigravity.accounts.map((a) => ({ ...a, email: fakeEmail(a.number) }));
   }
+  const theme = params.get('theme');
+  if (theme === 'light' || theme === 'dark') over.theme = theme;
   const alerts = pick(ALERTS, params.get('alerts') ?? (tab === 'alerts' ? 'on' : null));
   if (alerts) over.alerts = alerts();
   const firstmate = pick(FIRSTMATES, params.get('firstmate'));
@@ -216,7 +218,8 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
   if (app) over.app = app();
   const agyApp = params.get('agyapp');
   const ends = LOGIN_ENDS.find((k) => k.toLowerCase() === params.get('login')?.toLowerCase());
-  const { api } = fakeApi(fixtureModel(SNAPSHOTS[state] ? state : 'fresh', over), tab, {
+  const model = fixtureModel(SNAPSHOTS[state] ? state : 'fresh', over);
+  const { api } = fakeApi(params.get('email') === 'off' ? hideNames(model) : model, tab, {
     switchDelayMs: 1500,
     outcome: pick(OUTCOMES, params.get('outcome')),
     saveDelayMs: 1000,

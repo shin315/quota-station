@@ -92,7 +92,26 @@ const unanswered = (recent: AlertRecord[]) => recent.filter((r) => !r.alert.test
 
 /** The made-up email of a fake account. */
 export function fakeEmail(number: number): string {
-  return 'ultra' + number + '@example.com';
+  return number === 1 ? 'lanpham.ultra@example.com' : 'lan.ultra' + number + '@example.com';
+}
+
+/** The snapshot without names, as Rust sends it when the owner hides them. */
+function withoutNames(m: Model): Model['snapshot'] {
+  const strip = (s: Model['snapshot']['claude']) => ({
+    ...s,
+    accounts: s.accounts.map(({ email: _e, org: _o, ...a }) => a),
+  });
+  return { ...m.snapshot, claude: strip(m.snapshot.claude), agy: strip(m.snapshot.agy) };
+}
+
+/** The model as Rust sends it with names hidden: no email or organization anywhere. */
+export function hideNames(m: Model): Model {
+  return {
+    ...m,
+    showNames: false,
+    snapshot: withoutNames(m),
+    antigravity: { ...m.antigravity, accounts: m.antigravity.accounts.map((a) => ({ ...a, email: null, name: null })) },
+  };
 }
 
 /** RFC 3339 cut to the minute, as the pause flag keeps it. */
@@ -114,6 +133,8 @@ function stampAt(d: Date): string {
 
 export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: FakeOptions = {}) {
   let model = initial;
+  // The names Rust would send again when the owner shows them.
+  const named = initial.snapshot;
   let tab = initialTab;
   let version = 1;
   const now = options.clock ?? (() => new Date());
@@ -318,7 +339,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
               readError: null,
             },
           ];
-      push({ ...model, antigravity: agy({ loggingIn: false, accounts: accounts(next, model.showEmail) }) });
+      push({ ...model, antigravity: agy({ loggingIn: false, accounts: accounts(next, model.showNames) }) });
       const done: AgyLoginDone = again ? { number: again.number, added: false } : { number: next.length, added: true };
       return done;
     },
@@ -335,7 +356,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
     agyLogout: async (id) => {
       const list = model.antigravity.accounts;
       if (!list.some((a) => a.id === id)) throw new Error('notFound');
-      push({ ...model, antigravity: agy({ accounts: accounts(list.filter((a) => a.id !== id), model.showEmail) }) });
+      push({ ...model, antigravity: agy({ accounts: accounts(list.filter((a) => a.id !== id), model.showNames) }) });
       return model;
     },
     agyOpenVerification: async () => {},
@@ -510,8 +531,13 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       openSwitchListeners.add(handler);
       return () => openSwitchListeners.delete(handler);
     },
-    setShowEmail: async (on) => {
-      push({ ...model, showEmail: on, antigravity: agy({ accounts: accounts(model.antigravity.accounts, on) }) });
+    setShowNames: async (on) => {
+      const snapshot = on ? named : withoutNames(model);
+      push({ ...model, showNames: on, snapshot, antigravity: agy({ accounts: accounts(model.antigravity.accounts, on) }) });
+      return model;
+    },
+    setTheme: async (theme) => {
+      push({ ...model, theme });
       return model;
     },
     onModel: async (handler) => {

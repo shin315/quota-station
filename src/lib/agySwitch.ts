@@ -3,13 +3,21 @@
 // running Antigravity.app wrote its old login back within six hours. Pure,
 // like `switching.ts`: the same model and answers give the same words.
 
-import { clock, percent } from './format';
+import { clock } from './format';
 import type { AgyApp, AgyHow, AgyLogin, AgyOutcome, Model } from './model';
 import type { FactView, NameOf } from './switching';
-import { agyName, type Action, type BannerView, type FeedbackView } from './view';
+import { agyCells, agyGroups } from './accounts';
+import { agyName, agyNames, type Action, type BannerView, type FeedbackView } from './view';
 
 /** `Ultra 2`, by the number quota-axi and the app's list share. */
 export const agyNameOf: NameOf = (n) => agyName({ number: n }).name;
+
+/** Names by the model's accounts: their email while names show, else Ultra N. */
+export function agyNamesOf(model: Model | null | undefined): NameOf {
+  if (!model) return agyNameOf;
+  const names = agyNames(model.snapshot.agy.accounts);
+  return (n) => names.get(n)?.name ?? agyNameOf(n);
+}
 
 /** The account logged in here with that number, when quota-axi numbers the app's own list. */
 export function agyLoginOf(model: Model, number: number): AgyLogin | null {
@@ -35,22 +43,19 @@ export interface AgySheetView {
   waiting: boolean;
 }
 
-const LINE_WORDS: Record<string, string> = { gemini: 'Gemini', claudeGpt: 'Claude/GPT' };
-
 /** The sheet for switching to account `number`; null when it is not one of the app's accounts. */
 export function agySheet(model: Model, number: number, app: AppAnswer): AgySheetView | null {
   const login = agyLoginOf(model, number);
   const target = model.snapshot.agy.accounts.find((a) => a.number === number);
   if (!login || !target) return null;
-  const name = agyNameOf(number);
+  const name = agyNamesOf(model)(number);
   const facts: FactView[] = [];
-  const parts = target.lines
-    .filter((l) => LINE_WORDS[l.kind])
-    .map((l) => {
-      const p = l.pending ? null : l.percent;
-      return (p == null ? 'chưa có số' : '**' + percent(p) + '**') + ' ' + LINE_WORDS[l.kind];
-    });
-  if (parts.length) facts.push({ k: '', text: name + ' còn ' + parts.join(', ') + '.' });
+  // Each model group's tighter window, as the share used. No reset is read
+  // here, so the clock does not matter.
+  const parts = agyGroups(agyCells(target, new Date(0)))
+    .filter((g) => g.cell)
+    .map((g) => '**' + g.cell!.text + '** ' + g.label + ' ' + g.cell!.unit);
+  if (parts.length) facts.push({ k: '', text: name + ' đã dùng ' + parts.join(', ') + '.' });
 
   let blocked = false;
   if (login.status === 'needsLogin') {
@@ -176,17 +181,19 @@ function failedBody(error: string, detail: string, reopened: boolean | null): st
 /** Errors worth a second try as they are. */
 const RETRY = new Set(['prepareTimeout', 'prepare', 'refresh', 'notQuit', 'appState', 'appRunning', 'appVersion', 'write', 'writeTimeout']);
 
-export function agySwitchFeedback(outcome: AgyOutcome): FeedbackView {
-  const t = agyNameOf(outcome.number);
+export function agySwitchFeedback(outcome: AgyOutcome, model?: Model | null): FeedbackView {
+  const nameOf = agyNamesOf(model);
+  const t = nameOf(outcome.number);
   switch (outcome.kind) {
     case 'switched': {
       const tail = tails(outcome);
       const by = outcome.basis === 'cockpit' ? ' (theo tài khoản app vừa ghi; agy chưa có số để đối chiếu)' : '';
       return {
-        tone: tail.warn ? 'warn' : '',
+        // Antigravity.app kept running may write the old account back: say so, not as a passing toast.
+        tone: tail.warn ? 'warn' : outcome.how === 'keepRunning' ? 'info' : '',
         title: 'Đã chuyển Antigravity sang ' + t + '.',
         body: 'Đọc lại sau 5 giây: agy đang dùng ' + t + by + ' ✓.' + tail.text + ' Phiên agy đang chạy vẫn dùng tài khoản cũ cho tới khi khởi động lại.',
-        actions: [CLOSE],
+        actions: [],
       };
     }
     case 'unconfirmed': {
@@ -196,7 +203,7 @@ export function agySwitchFeedback(outcome: AgyOutcome): FeedbackView {
         title: 'Đã ghi tài khoản ' + t + ' cho Antigravity',
         body:
           (outcome.active != null
-            ? 'Nhưng đọc lại sau 5 giây, agy vẫn đang dùng ' + agyNameOf(outcome.active) + '. Antigravity.app hoặc phiên agy đang chạy có thể vẫn giữ tài khoản cũ.'
+            ? 'Nhưng đọc lại sau 5 giây, agy vẫn đang dùng ' + nameOf(outcome.active) + '. Antigravity.app hoặc phiên agy đang chạy có thể vẫn giữ tài khoản cũ.'
             : 'Nhưng app chưa đọc lại được tài khoản agy đang dùng để kiểm.') + tail.text,
         actions: [REFRESH, CLOSE],
       };
@@ -212,10 +219,10 @@ export function agySwitchFeedback(outcome: AgyOutcome): FeedbackView {
 }
 
 /** The switch call itself was refused (`busy`, `loggingOut`, `loggingIn`, `unknownAccount`, `index`) or broke. */
-export function agySwitchErrorFeedback(number: number, error: unknown): FeedbackView {
+export function agySwitchErrorFeedback(number: number, error: unknown, model?: Model | null): FeedbackView {
   return {
     tone: 'bad',
-    title: 'Chưa chuyển được Antigravity sang ' + agyNameOf(number),
+    title: 'Chưa chuyển được Antigravity sang ' + agyNamesOf(model)(number),
     body: failedBody(String(error), '', null),
     actions: [CLOSE],
   };
@@ -227,13 +234,14 @@ export function agySwitchErrorFeedback(number: number, error: unknown): Feedback
 export function overwriteBanner(model: Model): BannerView | null {
   const o = model.agySwitch.overwritten;
   if (!o) return null;
-  const to = agyNameOf(o.to);
+  const nameOf = agyNamesOf(model);
+  const to = nameOf(o.to);
   const again = o.overwrites > 1 ? ' Đây là lần thứ ' + o.overwrites + '.' : '';
   return {
     tone: 'warn',
     title: 'Chuyển Antigravity bị ghi đè',
     body:
-      'Lúc ' + clock(o.at) + ' agy lại dùng ' + agyNameOf(o.from) + ' sau khi chuyển sang ' + to +
+      'Lúc ' + clock(o.at) + ' agy lại dùng ' + nameOf(o.from) + ' sau khi chuyển sang ' + to +
       '. Antigravity.app đang chạy có thể đã ghi lại đăng nhập cũ.' + again,
     actions: [
       { label: 'Chuyển lại', act: ('agy:switch:' + o.to) as Action },

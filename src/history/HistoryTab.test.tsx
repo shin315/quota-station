@@ -4,15 +4,16 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MainWindowApp } from '../App';
-import { fakeApi } from '../fixtures/fakeApi';
+import { fakeApi, hideNames } from '../fixtures/fakeApi';
 import { FIXTURE_NOW, fixtureModel, historyFixture } from '../fixtures/models';
 import type { Api } from '../lib/api';
 import type { HistoryEntry } from '../lib/model';
 
 const ENTRIES = historyFixture();
 
-async function open(history: HistoryEntry[]) {
-  const fake = fakeApi(fixtureModel('fresh'), 'history', { history });
+async function open(history: HistoryEntry[], names = true) {
+  const model = fixtureModel('fresh');
+  const fake = fakeApi(names ? model : hideNames(model), 'history', { history });
   for (const name of Object.keys(fake.api) as (keyof Api)[]) vi.spyOn(fake.api, name);
   render(
     <div className="qs app-window">
@@ -38,16 +39,27 @@ describe('the Lịch sử tab', () => {
     await screen.findByText('Hôm nay');
     expect(fake.api.getHistory).toHaveBeenCalled();
     expect(rows('Hôm nay')).toEqual([
-      '14:12 | Chuyển | Team B→Team ABạn chuyển tay · giữ đến 15:20 | app',
-      '13:40 | Cảnh báo | Ultra 2→Ultra 1Antigravity.app đổi về tài khoản cũ (lần 1/2) | quan sát',
-      '13:20 | Antigravity | Ultra 1→Ultra 2Bạn chuyển trong app · thoát app rồi chuyển | app',
-      '09:12 | Chuyển | Team BTeam B còn hạn mức (đã dùng 4%, hạn mức 5 giờ đặt lại lúc 15:00). | switcher',
-      '08:01 | Mồi | Team BBắt đầu tính hạn mức 5 giờ sớm (exit 0) | switcher',
+      '14:12 | Chuyển | lan.acme2→lan.acme1Bạn chuyển tay · giữ đến 15:20 | app',
+      '13:40 | Cảnh báo | lan.ultra2→lanpham.ultraAntigravity.app đổi về tài khoản cũ (lần 1/2) | quan sát',
+      '13:20 | Antigravity | lanpham.ultra→lan.ultra2Bạn chuyển trong app · thoát app rồi chuyển | app',
+      '09:12 | Chuyển | lan.acme25 giờ đã dùng 4% · đặt lại 15:00 | switcher',
+      '08:01 | Mồi | lan.acme2Bắt đầu tính 5 giờ sớm | switcher',
     ]);
-    expect(rows('Hôm qua')).toEqual([
-      '22:47 | Chuyển | Team A→Cá nhânTài khoản đang dùng đổi giữa hai lần đọc, không do app hay switcher | quan sát',
-    ]);
-    expect(screen.getByText(/^Lịch sử của Mac mini\. Nguồn: app \(bạn bấm\)/)).toBeTruthy();
+    expect(rows('Hôm qua')).toEqual(['22:47 | Chuyển | lan.acme1→lanpham.devĐổi giữa hai lần đọc, không do app hay switcher | quan sát']);
+    // No line of explanation, no exit code; the switcher's own line is on hover only.
+    expect(screen.queryByText(/^Lịch sử của/)).toBeNull();
+    expect(screen.queryByText(/exit 0/)).toBeNull();
+    const primed = screen.getByRole('region', { name: 'Hôm nay' }).querySelectorAll('.hrow')[4];
+    expect(primed.getAttribute('title')).toMatch(/exit 0/);
+    expect(primed.className).toBe('hrow r3');
+  });
+
+  it('goes by place when names are hidden', async () => {
+    await open(ENTRIES, false);
+    await screen.findByText('Hôm nay');
+    expect(rows('Hôm nay')[0]).toBe('14:12 | Chuyển | Team B→Team ABạn chuyển tay · giữ đến 15:20 | app');
+    expect(rows('Hôm nay')[1]).toMatch(/^13:40 \| Cảnh báo \| Ultra 2→Ultra 1/);
+    expect(document.body.textContent).not.toMatch(/@|lan\.|Acme/);
   });
 
   it('filters by app', async () => {

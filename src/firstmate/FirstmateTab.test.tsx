@@ -40,8 +40,8 @@ describe('the Firstmate tab', () => {
     expect(seen()).toEqual([
       'Hạn mức Claude trong vòng: tương đương 2,3 tài khoản (quota-axi)',
       'Chờ hạn mức Claude: không',
-      'Tài khoản đang dùng: Team A',
-      'Còn lại từng tài khoản: Cá nhân 29% · Team A 0% · Team B 100% · Team C 98%',
+      'Tài khoản đang dùng: lan.acme1',
+      'Đã dùng từng tài khoản: lanpham.dev đã dùng 71% · lan.acme1 đã dùng 100% · lan.acme2 đã dùng 0% · lan.acme3 đã dùng 2%',
       'Có lại lúc: —',
       'quota-axi có +cswap: có',
       'Đọc được claude-swap: được',

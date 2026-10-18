@@ -537,7 +537,9 @@ pub fn remind_at(now: i64, offset: UtcOffset) -> i64 {
 fn pool_amount(c: &PoolCheck, names: &BTreeMap<u32, String>) -> String {
     match (c.room, c.active) {
         (Some(room), _) => format!("Còn tương đương {} tài khoản", room_text(room)),
-        (None, Some(a)) => format!("{} đã dùng {}%", name_of(names, a), (100.0 - c.active_left).round()),
+        (None, Some(a)) => {
+            format!("{} đã dùng {}%", name_of(names, a), (100.0 - c.active_left).round())
+        }
         (None, None) => "Hạn mức Claude gần hết".to_string(),
     }
 }

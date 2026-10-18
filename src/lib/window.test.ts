@@ -6,130 +6,92 @@ import { windowView } from './window';
 const view = (name: string, over = {}) => windowView(fixtureModel(name, over), FIXTURE_NOW);
 
 describe('main window view', () => {
-  it('shows the same snapshot as the popover', () => {
+  it('shows the same snapshot as the popover, the tables in slot order', () => {
     const model = fixtureModel('fresh');
     const w = windowView(model, FIXTURE_NOW);
     const p = popoverView(model, FIXTURE_NOW);
     expect(w.machine).toBe('Mac mini');
     expect(w.fresh).toEqual(p.fresh);
     expect(w.banner).toEqual(p.banner);
-    expect(w.claude.rows).toEqual(p.claude.rows);
-    expect(w.agy.rows).toEqual(p.agy.rows);
-    expect(w.pools.claude.value).toBe(p.pools.claude.value);
+    expect(w.room).toEqual(p.claude.room);
+    expect(w.claude.cards.map((c) => c.slot)).toEqual([1, 2, 3, 4]);
+    expect([...w.claude.cards].sort((x, y) => x.key.localeCompare(y.key))).toEqual([...p.claude.cards].sort((x, y) => x.key.localeCompare(y.key)));
+    expect(w.agy.cards.map((c) => c.name)).toEqual(['lanpham.ultra', 'lan.ultra2']);
   });
 
-  it('spells out how the rotation number adds up', () => {
-    const v = view('fresh');
-    expect(v.pools.claude).toMatchObject({
-      title: 'Hạn mức Claude trong vòng',
-      value: '2,3',
-      unit: 'tài khoản',
-      fill: 'c',
-      line: 'Tương đương, cộng phần còn lại · Team A 0% + Team B 100% + Team C 98% + Cá nhân 29%',
-    });
-    expect(v.pools.agy).toMatchObject({ title: 'Antigravity', value: '94%', fill: 'muted', line: 'Chỉ tài khoản đang dùng' });
-    expect(view('agy-pool').pools.agy).toMatchObject({ value: '1,2', fill: 'g', line: 'Tương đương, theo Gemini · Ultra 2 52% + Ultra 1 70%' });
-  });
-
-  it('an empty rotation says when it comes back, without the parts', () => {
-    expect(view('exhausted').pools.claude).toMatchObject({ value: '0,0', fill: 'bad', line: 'Cạn · có lại lúc 16:40' });
-  });
-
-  it('names the Claude cards by what the Mac has', () => {
-    expect(view('fresh').claude).toMatchObject({ title: 'Claude Code · 4 tài khoản', tabTitle: '4 tài khoản claude-swap trên máy này' });
+  it('counts the Claude accounts by what the Mac has', () => {
+    expect(view('fresh').claude.count).toBe('4 tài khoản claude-swap');
     const unavailable = view('unavailable').claude;
-    expect(unavailable).toMatchObject({ title: 'Claude Code', tabTitle: 'Tài khoản Claude Code trên máy này', rows: [] });
+    expect(unavailable).toMatchObject({ count: '', cards: [] });
     expect(unavailable.note?.text).toBe('Không đọc được danh sách tài khoản của claude-swap (usage_schema_mismatch).');
   });
 
-  it('gives every account a freshness chip from its own reading', () => {
-    const rows = view('fresh').claude.rows;
-    expect(rows.map((r) => r.freshness)).toEqual([
-      { t: '2 phút trước', k: '' },
-      { t: '40 giây trước', k: '' },
-      { t: '4 phút trước', k: '' },
-      { t: '5 phút trước', k: '' },
-    ]);
-    // The freshness column replaces the popover's freshness chip; the other chips stay.
-    expect(rows[1].tags.map((c) => c.t)).toEqual(['đang dùng', 'rời vòng 17:45']);
-
-    const stale = view('stale').claude.rows[2];
-    expect(stale.freshness).toEqual({ t: '41 phút trước', k: 'stale' });
-    expect(stale.tags).toEqual([]);
-    expect(stale.chips).toEqual([{ t: 'cập nhật 41 phút trước', k: 'stale' }]);
-
-    const pending = view('reset-pending').claude.rows[3];
-    expect(pending.freshness).toEqual({ t: 'chờ số sau mốc đặt lại', k: 'info' });
-    expect(pending.tags).toEqual([]);
-  });
-
-  it('writes resets in full words for the tables', () => {
-    const [personal, teamA, teamB, teamC] = view('fresh').claude.rows;
-    expect(personal.lines.map((l) => l.long)).toEqual(['Đặt lại sau 6 ngày 7 giờ 59 phút', 'Đặt lại sau 6 ngày 7 giờ 59 phút']);
-    expect(teamA.lines[0].long).toBe('Đặt lại sau 3 giờ 08 phút');
-    expect(teamB.lines[0].long).toBe('Chưa bắt đầu tính giờ');
-    expect(teamC.lines[1].long).toBe('');
-    expect(view('reset-pending').claude.rows[3].lines[0].long).toBe('Đang chờ số mới');
+  it('writes resets in words for the tables, minutes only within a day', () => {
+    const [personal, acme1, acme2] = view('fresh').claude.cards;
+    expect(personal.cells.map((c) => c.long)).toEqual(['chưa dùng', '↻ 6 ngày 7 giờ', '↻ 6 ngày 7 giờ']);
+    expect(acme1.cells[0].long).toBe('↻ 3 giờ 08 phút');
+    expect(acme2.cells[1]).toMatchObject({ none: true, long: 'không có' });
+    expect(view('reset-pending').claude.cards[3].cells[0].long).toBe('chờ số');
   });
 
   it('lists what comes next from the readings only', () => {
     expect(view('fresh').upcoming.map((u) => [u.at, u.what, u.tone])).toEqual([
-      ['17:09', 'Team C có lại hạn mức 5 giờ', 'ok'],
-      ['17:29', 'Team A có lại hạn mức 5 giờ', 'ok'],
-      ['17:45', 'Team A rời vòng', 'warn'],
-      ['ngày mai 03:20', 'Hạn mức Fable tuần của Team B đặt lại', ''],
+      ['16:18', 'lan.ultra2 có lại hạn mức Gemini 5 giờ', 'ok'],
+      ['17:00', 'lanpham.ultra có lại hạn mức Claude/GPT 5 giờ', 'ok'],
+      ['17:09', 'lan.acme3 có lại hạn mức 5 giờ', 'ok'],
+      ['17:29', 'lan.acme1 có lại hạn mức 5 giờ', 'ok'],
+      ['17:45', 'lan.acme1 rời vòng', 'warn'],
     ]);
-    // Full allowances are left out, and a list is cut at five.
+    // Windows nothing was used of are left out, and a list is cut at five.
     const exhausted = view('exhausted').upcoming;
     expect(exhausted).toHaveLength(5);
-    expect(exhausted[0]).toMatchObject({ at: '16:40', what: 'Cá nhân có lại hạn mức 5 giờ' });
+    expect(exhausted).toContainEqual(expect.objectContaining({ at: '16:40', what: 'Cá nhân có lại hạn mức 5 giờ' }));
     // The one account a provider row reads goes by the provider's name.
-    expect(view('no-cockpit').upcoming[0]).toMatchObject({ at: '16:18', what: 'Antigravity có lại hạn mức 5 giờ' });
+    expect(view('no-cockpit').upcoming[0]).toMatchObject({ at: '16:18', what: 'Antigravity có lại hạn mức Gemini 5 giờ' });
     // Numbers from before quota-axi stopped answering give no times.
     expect(view('fresh', { errors: failing('notFound') }).upcoming).toEqual([]);
   });
 
-  it('the Antigravity tab says how old the other accounts are and that Cockpit runs', () => {
-    const a = view('fresh').agy;
-    expect(a).toMatchObject({ present: true, title: 'Antigravity · 2 tài khoản', banner: null });
-    expect(a.others).toBe(
-      'Số của tài khoản không dùng do Cockpit làm mới không đều: Ultra 1 đọc 25 phút trước. App không cảnh báo khi Antigravity xuống thấp.',
-    );
-    expect(a.cockpit).toEqual([
+  it('shows the Cockpit Tools card only where the accounts come from Cockpit Tools', () => {
+    const own = view('fresh').agy;
+    expect(own).toMatchObject({ present: true, banner: null, own: true, cockpit: null });
+    const m = fixtureModel('cockpit');
+    m.snapshot.agy.source = 'cockpit';
+    const cockpit = windowView(m, FIXTURE_NOW).agy;
+    expect(cockpit.own).toBe(false);
+    expect(cockpit.cockpit).toEqual([
       { key: 'Cockpit Tools', value: 'đang chạy', chip: { t: 'đang chạy', k: 'ok' } },
-      { key: 'Tài khoản trong Cockpit', value: '2' },
+      { key: 'Tài khoản trong Cockpit Tools', value: '2' },
     ]);
+    // quota-axi from before it said whose files it read: no card either.
+    expect(view('cockpit').agy.cockpit).toBeNull();
   });
 
-  it('a Mac without Cockpit sees why only one Antigravity account shows', () => {
+  it('a Mac without an account list sees why only one Antigravity account shows', () => {
     const a = view('no-cockpit').agy;
     expect(a.banner).toEqual({
       tone: 'info',
-      title: 'Chưa thấy Cockpit trên máy này',
-      body: 'Số Antigravity lấy từ agy, chỉ có tài khoản đang dùng. Cần Cockpit để thấy mọi tài khoản và chuyển.',
+      title: 'Chỉ thấy tài khoản đang dùng',
+      body: 'quota-axi chưa có danh sách tài khoản Antigravity trên máy này. Đăng nhập tài khoản ở đây để thấy và chuyển mọi tài khoản.',
       actions: [],
     });
-    expect(a.others).toBe('');
-    expect(a.cockpit).toEqual([{ key: 'Cockpit Tools', value: 'chưa thấy', chip: { t: 'chưa thấy', k: 'bad' } }]);
-    expect(view('unavailable').agy.banner).toMatchObject({ tone: 'warn', title: 'Không đọc được Cockpit' });
+    expect(a.cockpit).toBeNull();
+    expect(view('unavailable').agy.banner).toMatchObject({ tone: 'warn', title: 'Không đọc được danh sách tài khoản' });
   });
 
-  it('the Antigravity tab says when quota-axi fails and stops calling Cockpit running', () => {
+  it('the Antigravity tab says when quota-axi fails', () => {
     const both = view('fresh', { errors: failing('notFound') });
     expect(both.agy.banner).toEqual(both.banner);
     expect(both.agy.banner).toMatchObject({ tone: 'bad', title: 'Không chạy được quota-axi' });
-    expect(both.agy.others).toBe('');
-    expect(both.agy.cockpit).toEqual([{ key: 'Cockpit Tools', value: 'không rõ', chip: { t: 'không rõ', k: '' } }]);
     expect(view('no-antigravity', { errors: failing('notFound') }).agy.banner).toMatchObject({ title: 'Không chạy được quota-axi' });
 
     const agyOnly = view('no-cockpit', { errors: { claude: null, agy: { kind: 'timeout', detail: '' } } }).agy;
-    expect(agyOnly.banner).toMatchObject({ title: 'Chưa thấy Cockpit trên máy này' });
+    expect(agyOnly.banner).toMatchObject({ title: 'Chỉ thấy tài khoản đang dùng' });
     expect(agyOnly.tabNote).toEqual({ tone: 'warn', text: 'Không đọc được số Antigravity mới. Đang hiện số lúc 14:20.' });
     expect(view('fresh').agy.tabNote).toBeNull();
-    expect(view('no-cockpit').agy.tabNote).toBeNull();
   });
 
-  it('an undone Antigravity switch takes the tab\'s banner, after a quota-axi failure', () => {
+  it("an undone Antigravity switch takes the tab's banner, after a quota-axi failure", () => {
     const overwritten = { busy: null, listed: true, overwritten: { to: 1, from: 2, at: '2026-01-16T07:10:00.000Z', overwrites: 1 } };
     for (const name of ['no-cockpit', 'unavailable']) {
       expect(view(name, { agySwitch: overwritten }).agy.banner).toMatchObject({ tone: 'warn', title: 'Chuyển Antigravity bị ghi đè' });
@@ -138,9 +100,15 @@ describe('main window view', () => {
     expect(failed.agy.banner).toMatchObject({ title: 'Không chạy được quota-axi' });
   });
 
+  it('the switcher card is one line, the rest folded', () => {
+    const s = view('fresh').switcher;
+    expect(s.line).toMatch(/^Chạy mỗi 3 phút · kiểm lúc \d\d:\d\d$/);
+    expect(s.tone).toBe('ok');
+    expect(s.details.map((d) => d.key)).toContain('LaunchAgent cswap-prefer-team');
+    expect(s.details.find((d) => d.key.startsWith('Quyết định gần nhất'))).toMatchObject({ mono: true });
+  });
+
   it('a Mac without Antigravity has no Antigravity card', () => {
-    const v = view('no-antigravity');
-    expect(v.agy.present).toBe(false);
-    expect(v.pools.agy).toMatchObject({ value: '—', line: 'Không có trên máy này' });
+    expect(view('no-antigravity').agy.present).toBe(false);
   });
 });

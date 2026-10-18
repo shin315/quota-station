@@ -4,9 +4,10 @@
 // copies. Pure, like `view.ts`. Copy follows the approved prototype
 // (`tabRules`, `compareTable`, `leaveDialog`, `fbLine` rules-*).
 
+import { claudeNames } from './accounts';
 import { clock, pad } from './format';
 import type { Model, PeerView, Rules, RulesError, Stamp } from './model';
-import { dayClock, namesOf, type NameOf } from './switching';
+import { dayClock, type NameOf } from './switching';
 import type { BannerView, FeedbackView } from './view';
 
 export function cloneRules(r: Rules): Rules {
@@ -63,10 +64,24 @@ export function slotsOf(model: Model, ...rules: (Rules | null)[]): number[] {
   return [...out].sort((a, b) => a - b);
 }
 
-/** The editor's names: the window's (`Team A`), `Tài khoản 5` for a slot it does not list. */
+/**
+ * The editor's names: the window's (`lan.acme1`, or `Team A` while names
+ * are hidden), `Tài khoản 5` for a slot it does not list.
+ */
 export function ruleNames(model: Model): NameOf {
-  const of = namesOf(model);
-  return (n) => cap(of(n));
+  const names = claudeNames(model.snapshot.claude.accounts, model.snapshot.claude.personalHours);
+  return (n) => names.get(n)?.name ?? 'Tài khoản ' + n;
+}
+
+/** The whole email of each slot, for hover; '' while names are hidden. */
+export function ruleEmails(model: Model): (slot: number) => string {
+  const names = claudeNames(model.snapshot.claude.accounts);
+  return (n) => names.get(n)?.full ?? '';
+}
+
+/** Where a mark sits on a slider from `min` to `max`, in percent of its width. */
+export function markLeft(value: number, min: number, max: number): number {
+  return max > min ? Math.round(((value - min) / (max - min)) * 10000) / 100 : 0;
 }
 
 /** What changed from `a` (saved) to `b` (the editor), one line each. */

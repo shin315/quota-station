@@ -6,6 +6,7 @@
 
 import { clock, pad, percent } from './format';
 import type { Account, Decision, Hold, LogLine, Model, Outcome, Sessions, Why } from './model';
+import { BAD_USED, claudeCells, tightest } from './accounts';
 import { claudeNames, type Action, type BannerView, type FeedbackView } from './view';
 
 /** The switcher's LaunchAgent runs every 180 seconds. */
@@ -157,12 +158,6 @@ function sessionsFact(sessions: Sessions | null | 'loading'): FactView {
   return { k: 'w', text: '**' + n + '** đang chạy sẽ tạo lại bộ nhớ đệm ở tin nhắn tiếp theo. Việc này dùng thêm hạn mức.' };
 }
 
-const LINE_WORDS: Record<string, string> = {
-  session: 'hạn mức 5 giờ',
-  week: 'hạn mức tuần',
-  fableWeek: 'hạn mức Fable tuần',
-};
-
 export function claudeSheet(
   model: Model,
   slot: number,
@@ -176,13 +171,10 @@ export function claudeSheet(
   const nameOf = namesOf(model);
   const name = nameOf(slot);
   const facts: FactView[] = [];
-  const parts = target.lines
-    .filter((l) => LINE_WORDS[l.kind])
-    .map((l) => {
-      const p = l.pending ? null : l.percent;
-      return (p == null ? 'chưa có số' : '**' + (l.atLeast ? '≥' : '') + percent(p) + '**') + ' ' + LINE_WORDS[l.kind];
-    });
-  if (parts.length) facts.push({ k: '', text: name + ' còn ' + parts.join(', ') + '.' });
+  // Every window, as the share used.
+  const cells = claudeCells(target, now).filter((c) => !c.none);
+  const parts = cells.map((c) => (c.used == null ? 'chưa có số' : '**' + c.text + '**') + ' ' + c.unit);
+  if (parts.length) facts.push({ k: '', text: name + ' đã dùng ' + parts.join(', ') + '.' });
   facts.push(sessionsFact(sessions));
 
   const personalOut = target.role === 'personal' && inHours(c.personalHours, now) === false;
@@ -197,9 +189,8 @@ export function claudeSheet(
   } else if (target.membership === 'out' || target.membership === 'ended') {
     facts.push({ k: 'w', text: name + ' không còn trong vòng xoay. Nếu để tự chuyển, switcher sẽ đổi sang tài khoản trong vòng.' });
   }
-  const first = target.lines[0];
-  if (first && !first.pending && first.percent != null && first.percent <= 10)
-    facts.push({ k: 'w', text: name + ' chỉ còn ' + percent(first.percent) + ' ' + LINE_WORDS[first.kind] + '.' });
+  const tight = tightest(cells);
+  if (tight && tight.used! >= BAD_USED) facts.push({ k: 'w', text: name + ' đã dùng ' + tight.used + '% hạn mức ' + tight.unit + '.' });
   const blocked = !model.claudeSwitch.cswap;
   if (blocked) facts.push({ k: 'x', text: 'Không chạy được `cswap` (không tìm thấy lệnh). Cài lại claude-swap rồi thử lại.' });
 
@@ -266,7 +257,7 @@ export function whyText(why: Why, name: string, nameOf: NameOf): string {
     case 'expiring':
       return 'ưu tiên dùng ' + name + ' trước khi tài khoản rời vòng lúc ' + why.at + '.';
     case 'early':
-      return 'hạn mức 5 giờ của ' + name + ' đặt lại lúc ' + why.at + ' khi còn ' + why.left + '%, sớm hơn ' + nameOf(why.before) + '.';
+      return 'hạn mức 5 giờ của ' + name + ' đặt lại lúc ' + why.at + ' khi mới dùng ' + (100 - why.left) + '%, sớm hơn ' + nameOf(why.before) + '.';
     case 'room':
       return name + ' còn hạn mức (đã dùng ' + used(why.used) + (why.ends ? ', hạn mức 5 giờ đặt lại lúc ' + why.ends : '') + ').';
     case 'personal':

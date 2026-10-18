@@ -4,7 +4,7 @@
 
 import { Fragment, useRef, type KeyboardEvent, type ReactNode } from 'react';
 import type { ChoiceView } from '../lib/switching';
-import type { Action, BannerView, ChipView, FeedbackView } from '../lib/view';
+import { isQuiet, type Action, type BannerView, type ChipView, type FeedbackView } from '../lib/view';
 
 export function Meter({ percent, tone }: { percent: number | null; tone: string }) {
   const width = percent == null ? 0 : Math.max(percent, 1);
@@ -17,7 +17,11 @@ export function Meter({ percent, tone }: { percent: number | null; tone: string 
 }
 
 export function Chip({ chip }: { chip: ChipView }) {
-  return <span className={('chip ' + chip.k).trim()}>{chip.t}</span>;
+  return (
+    <span className={('chip ' + chip.k).trim()} title={chip.title}>
+      {chip.t}
+    </span>
+  );
 }
 
 export function Button(props: {
@@ -62,7 +66,21 @@ export function Banner(props: { banner: BannerView; onAction: (act: Action) => v
   );
 }
 
-export function Feedback({ fb, onAction }: { fb: FeedbackView; onAction: (act: Action) => void }) {
+/** A finished action, said once at the bottom; it goes by itself. */
+export function Toast({ fb }: { fb: FeedbackView }) {
+  return (
+    <div className="toast" role="status" title={fb.body || undefined}>
+      <span className="ok" aria-hidden="true">
+        ✓
+      </span>
+      {fb.title.replace(/\.$/, '')}
+    </div>
+  );
+}
+
+/** `inline`: a line inside a card, which never becomes a toast. */
+export function Feedback({ fb, inline, onAction }: { fb: FeedbackView; inline?: boolean; onAction: (act: Action) => void }) {
+  if (isQuiet(fb) && !inline) return <Toast fb={fb} />;
   return (
     <div className={('fb ' + fb.tone).trim()} role="status">
       <div style={{ minWidth: 0, flex: 1 }}>
@@ -169,16 +187,3 @@ export function Dot({ tone }: { tone: string }) {
 }
 
 /** SF Symbols-like gear, drawn as in the prototype sketch. */
-export function GearIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
-      <circle cx="8" cy="8" r="2.3" fill="none" stroke="currentColor" strokeWidth="1.4" />
-      <path
-        d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}

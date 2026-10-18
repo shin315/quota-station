@@ -1,10 +1,11 @@
 // The Lịch sử tab (F08): every switch on this Mac, newest first, a day at a
 // time, from the app's journal, the switcher's log and what the readings
 // showed. The list is read from the Rust side when the tab opens and again
-// after each read while it is open.
+// after each read while it is open. Each row: time, tag, the accounts and a
+// short reason, and where it came from; the switcher's own line on hover.
 
 import { useEffect, useState } from 'react';
-import { Chip, Dot } from '../components/parts';
+import { Dot } from '../components/parts';
 import { HISTORY_FILTERS, historyDays, type HistoryFilter } from '../lib/history';
 import type { HistoryEntry, Model } from '../lib/model';
 import type { PopoverView } from '../lib/view';
@@ -69,14 +70,11 @@ export function HistoryTab({ model, fresh, now, load }: HistoryTabProps) {
           </div>
         ) : (
           <>
-            <p style={{ margin: 0 }}>
-              Lịch sử của {model.machine}. Nguồn: app (bạn bấm), switcher (dòng log), quan sát (tài khoản đổi giữa hai lần đọc).
-            </p>
             {days.map((d) => (
               <section key={d.label} aria-label={d.label}>
                 <div className="day">{d.label}</div>
                 {d.rows.map((r) => (
-                  <div className="hrow" key={r.key} title={r.raw ?? undefined}>
+                  <div className="hrow r3" key={r.key} title={r.raw ?? undefined}>
                     <time>{r.time}</time>
                     <span>
                       <span className={('pill ' + r.pill.k).trim()}>{r.pill.t}</span>
@@ -95,9 +93,7 @@ export function HistoryTab({ model, fresh, now, load }: HistoryTabProps) {
                       </div>
                       <small>{r.why}</small>
                     </div>
-                    <span>
-                      <Chip chip={r.source} />
-                    </span>
+                    <span className="src">{r.source.t}</span>
                   </div>
                 ))}
               </section>

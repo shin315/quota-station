@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MainWindowApp } from '../App';
 import { fakeApi, type FakeOptions } from '../fixtures/fakeApi';
@@ -60,15 +60,32 @@ describe('settings tab', () => {
     expect(screen.getByText('chưa có')).toBeTruthy();
   });
 
-  it('the email switch is off by default and saves through the fake', async () => {
+  it('the email switch is on by default and turning it off saves through the fake', async () => {
     const fake = await open(fixtureModel('fresh'));
     const toggle = screen.getByRole('switch', { name: 'Hiện email' });
-    expect(toggle.getAttribute('aria-checked')).toBe('false');
+    expect(toggle.getAttribute('aria-checked')).toBe('true');
     await act(async () => {
       fireEvent.click(toggle);
     });
-    expect(fake.api.setShowEmail).toHaveBeenCalledWith(true);
-    expect(screen.getByRole('switch', { name: 'Hiện email' }).getAttribute('aria-checked')).toBe('true');
+    expect(fake.api.setShowNames).toHaveBeenCalledWith(false);
+    expect(screen.getByRole('switch', { name: 'Hiện email' }).getAttribute('aria-checked')).toBe('false');
+    // Hidden, no email or organization is left in the model the window draws.
+    expect(JSON.stringify(fake.current().snapshot)).not.toMatch(/@example\.com|Acme/);
+  });
+
+  it('the look follows macOS by default and saves Sáng or Tối through the fake', async () => {
+    const fake = await open(fixtureModel('fresh'));
+    const group = screen.getByRole('group', { name: 'Giao diện' });
+    const pressed = () => within(group).getAllByRole('button').filter((b) => b.getAttribute('aria-pressed') === 'true').map((b) => b.textContent);
+    expect(within(group).getAllByRole('button').map((b) => b.textContent)).toEqual(['Theo macOS', 'Sáng', 'Tối']);
+    expect(pressed()).toEqual(['Theo macOS']);
+    await act(async () => {
+      fireEvent.click(within(group).getByRole('button', { name: 'Tối' }));
+    });
+    expect(fake.api.setTheme).toHaveBeenCalledWith('dark');
+    expect(pressed()).toEqual(['Tối']);
+    expect(document.documentElement.dataset.theme).toBe('dark');
+    document.documentElement.dataset.theme = 'auto';
   });
 
   it('refuses a path with no file and offers to find quota-axi again', async () => {
