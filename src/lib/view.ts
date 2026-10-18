@@ -485,6 +485,10 @@ export function refreshedFeedback(now: Date): FeedbackView {
   return { tone: '', title: 'Đã làm mới', body: 'Đọc lại số lúc ' + clock(now.toISOString()) + '.' };
 }
 
+export function settingsFailedFeedback(): FeedbackView {
+  return { tone: 'bad', title: 'Chưa lưu được cài đặt', body: 'Không ghi được file cài đặt của app trên máy này. Thử lại.' };
+}
+
 export function keychainFeedback(model: Model | null): FeedbackView {
   return model?.snapshot.keychain === 'granted'
     ? { tone: '', title: 'Đã cấp quyền Keychain', body: 'Dòng Claude giờ đọc trực tiếp từ quota-axi.' }

@@ -16,7 +16,8 @@ export interface SettingsProps {
   onSetPath(path: string): Promise<boolean>;
   onFind(): void;
   onGrant(): void;
-  onSetMachine(name: string): void;
+  /** Resolves to false when the name could not be saved. */
+  onSetMachine(name: string): Promise<boolean>;
 }
 
 function pathHint(model: Model, refused: boolean): { tone: 'ok' | 'bad' | ''; text: string } {
@@ -47,10 +48,10 @@ function useField(value: string): [string, (next: string) => void] {
   return [text, setText];
 }
 
-function MachineName({ model, onSet }: { model: Model; onSet(name: string): void }) {
+function MachineName({ model, onSet }: { model: Model; onSet(name: string): Promise<boolean> }) {
   const [name, setName] = useField(model.machine);
-  const commit = () => {
-    if (name.trim() !== model.machine) onSet(name);
+  const commit = async () => {
+    if (name.trim() !== model.machine && !(await onSet(name))) setName(model.machine);
   };
   return (
     <div className="fr">
@@ -69,7 +70,7 @@ function MachineName({ model, onSet }: { model: Model; onSet(name: string): void
           onChange={(e) => setName(e.target.value)}
           onBlur={commit}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') commit();
+            if (e.key === 'Enter') void commit();
           }}
         />
         <div className="fhint">Để trống để dùng tên trong macOS: {model.machineDefault}.</div>

@@ -133,6 +133,15 @@ describe('main window', () => {
     expect(fake.api.openWindow).not.toHaveBeenCalled();
   });
 
+  it('the Antigravity tab says quota-axi is not running instead of calling Cockpit running', async () => {
+    await open(fixtureModel('fresh', { errors: failing('notFound') }), 'agy');
+    expect(screen.getByText('Không chạy được quota-axi')).toBeTruthy();
+    expect(screen.queryByText('đang chạy')).toBeNull();
+    expect(screen.getByText('không rõ')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Chọn đường dẫn…' }));
+    expect(heading()).toBe('Cài đặt');
+  });
+
   it('follows the reader like the popover does', async () => {
     const fake = await open(fixtureModel('fresh'));
     act(() => fake.push(fixtureModel('exhausted')));

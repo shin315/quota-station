@@ -53,8 +53,10 @@ export interface WindowView {
     rows: RowView[];
     /** Section note for the overview card. */
     note: NoteView | null;
-    /** Why the Antigravity tab sees only the signed-in account. */
+    /** The Antigravity tab's banner: quota-axi not running, else why it sees only the signed-in account. */
     banner: BannerView | null;
+    /** The Antigravity tab's note: the Antigravity read failed while the Claude one did not. */
+    tabNote: NoteView | null;
     /** How old the numbers of the accounts not in use are. */
     others: string;
     cockpit: KeyValue[];
@@ -171,9 +173,10 @@ function agyOthers(g: Section, now: Date): string {
   );
 }
 
-function cockpitRows(g: Section): KeyValue[] {
-  const chip: ChipView =
-    g.status === 'ok'
+function cockpitRows(g: Section, failing: boolean): KeyValue[] {
+  const chip: ChipView = failing
+    ? { t: 'không rõ', k: '' }
+    : g.status === 'ok'
       ? { t: 'đang chạy', k: 'ok' }
       : g.status === 'unavailable'
         ? { t: 'không đọc được', k: 'bad' }
@@ -181,7 +184,7 @@ function cockpitRows(g: Section): KeyValue[] {
           ? { t: 'chưa đọc', k: '' }
           : { t: 'chưa thấy', k: 'bad' };
   const rows: KeyValue[] = [{ key: 'Cockpit Tools', value: chip.t, chip }];
-  if (g.status === 'ok') rows.push({ key: 'Tài khoản trong Cockpit', value: String(g.accounts.length) });
+  if (!failing && g.status === 'ok') rows.push({ key: 'Tài khoản trong Cockpit', value: String(g.accounts.length) });
   return rows;
 }
 
@@ -193,8 +196,9 @@ export function windowView(model: Model, now: Date, options: ViewOptions = {}): 
   const g = model.snapshot.agy;
   const swap = c.accounts.some((a) => a.number > 0);
   const count = pv.claude.rows.length;
+  const cErr = model.errors.claude;
+  const gErr = model.errors.agy;
   const present = g.status !== 'notSetUp';
-  const banner = agyBanner(g);
   return {
     machine: pv.machine,
     fresh: pv.fresh,
@@ -214,9 +218,10 @@ export function windowView(model: Model, now: Date, options: ViewOptions = {}): 
       title: pv.agy.rows.length ? 'Antigravity · ' + pv.agy.rows.length + ' tài khoản' : 'Antigravity',
       rows: pv.agy.rows,
       note: pv.agy.note,
-      banner,
-      others: g.status === 'ok' && !model.errors.agy ? agyOthers(g, now) : '',
-      cockpit: cockpitRows(g),
+      banner: cErr ? pv.banner : agyBanner(g),
+      tabNote: gErr && !cErr ? pv.agy.note : null,
+      others: g.status === 'ok' && !gErr ? agyOthers(g, now) : '',
+      cockpit: cockpitRows(g, !!gErr),
     },
     upcoming: upcoming(model, now),
   };

@@ -93,6 +93,19 @@ describe('settings tab', () => {
     expect(input.value).toBe('Mac mini');
   });
 
+  it('a name that cannot be saved says so and goes back to the saved one', async () => {
+    const fake = await open(fixtureModel('fresh'));
+    vi.mocked(fake.api.setMachineName).mockRejectedValue('denied');
+    const input = screen.getByLabelText(/Tên máy này/) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'Mac phòng khách' } });
+    await act(async () => {
+      fireEvent.keyDown(input, { key: 'Enter' });
+    });
+    expect(screen.getByText('Chưa lưu được cài đặt')).toBeTruthy();
+    expect(input.value).toBe('Mac mini');
+    expect(screen.getByText('Mac mini · cập nhật 40 giây trước')).toBeTruthy();
+  });
+
   it('an unchanged name is not saved again', async () => {
     const fake = await open(fixtureModel('fresh'));
     const input = screen.getByLabelText(/Tên máy này/);

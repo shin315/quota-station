@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Api } from './lib/api';
 import type { Model, Tab } from './lib/model';
-import { keychainFeedback, popoverView, refreshedFeedback, type Action, type FeedbackView } from './lib/view';
+import { keychainFeedback, popoverView, refreshedFeedback, settingsFailedFeedback, type Action, type FeedbackView } from './lib/view';
 import { windowView } from './lib/window';
 import { Popover } from './popover/Popover';
 import { Settings } from './settings/Settings';
@@ -160,9 +160,17 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
           () => false,
         )
       }
-      onFind={() => void api.setQuotaAxiPath('')}
+      onFind={() => void api.setQuotaAxiPath('').catch(() => showFeedback(settingsFailedFeedback()))}
       onGrant={() => void grant()}
-      onSetMachine={(name) => void api.setMachineName(name)}
+      onSetMachine={(name) =>
+        api.setMachineName(name).then(
+          () => true,
+          () => {
+            showFeedback(settingsFailedFeedback());
+            return false;
+          },
+        )
+      }
     />
   );
   return (

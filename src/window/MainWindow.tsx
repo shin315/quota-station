@@ -264,31 +264,31 @@ function ClaudeTab(props: TabProps) {
 
 function AgyTab(props: TabProps) {
   const a = props.view.agy;
-  if (!a.present)
-    return (
-      <>
-        <Top {...props} title="Antigravity" banner={false} />
+  return (
+    <>
+      <Top {...props} title="Antigravity" banner={false} />
+      {a.banner ? <Banner banner={a.banner} onAction={props.onAction} busy={props.busy} /> : null}
+      {a.present ? (
+        <>
+          <Card title="Tài khoản" kind="g">
+            <AccountTable label="Antigravity" rows={a.rows} />
+            {a.others ? <p className="note">{a.others}</p> : null}
+            <Note note={a.tabNote} />
+          </Card>
+          <div className="grid2">
+            <Card title="Cockpit">
+              <KeyValues rows={a.cockpit} />
+            </Card>
+          </div>
+        </>
+      ) : (
         <div className="card">
           <div className="empty">
             <b>Máy này chưa có Antigravity</b>quota-axi không thấy Antigravity trên máy này.
           </div>
+          <Note note={a.tabNote} />
         </div>
-      </>
-    );
-  return (
-    <>
-      <Top {...props} title="Antigravity" banner={false} />
-      {a.banner ? <Banner banner={a.banner} onAction={props.onAction} /> : null}
-      <Card title="Tài khoản" kind="g">
-        <AccountTable label="Antigravity" rows={a.rows} />
-        {a.others ? <p className="note">{a.others}</p> : null}
-        {a.banner ? null : <Note note={a.note} />}
-      </Card>
-      <div className="grid2">
-        <Card title="Cockpit">
-          <KeyValues rows={a.cockpit} />
-        </Card>
-      </div>
+      )}
     </>
   );
 }

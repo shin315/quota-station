@@ -114,6 +114,21 @@ describe('main window view', () => {
     expect(view('unavailable').agy.banner).toMatchObject({ tone: 'warn', title: 'Không đọc được Cockpit' });
   });
 
+  it('the Antigravity tab says when quota-axi fails and stops calling Cockpit running', () => {
+    const both = view('fresh', { errors: failing('notFound') });
+    expect(both.agy.banner).toEqual(both.banner);
+    expect(both.agy.banner).toMatchObject({ tone: 'bad', title: 'Không chạy được quota-axi' });
+    expect(both.agy.others).toBe('');
+    expect(both.agy.cockpit).toEqual([{ key: 'Cockpit Tools', value: 'không rõ', chip: { t: 'không rõ', k: '' } }]);
+    expect(view('no-antigravity', { errors: failing('notFound') }).agy.banner).toMatchObject({ title: 'Không chạy được quota-axi' });
+
+    const agyOnly = view('no-cockpit', { errors: { claude: null, agy: { kind: 'timeout', detail: '' } } }).agy;
+    expect(agyOnly.banner).toMatchObject({ title: 'Chưa thấy Cockpit trên máy này' });
+    expect(agyOnly.tabNote).toEqual({ tone: 'warn', text: 'Không đọc được số Antigravity mới. Đang hiện số lúc 14:20.' });
+    expect(view('fresh').agy.tabNote).toBeNull();
+    expect(view('no-cockpit').agy.tabNote).toBeNull();
+  });
+
   it('a Mac without Antigravity has no Antigravity card', () => {
     const v = view('no-antigravity');
     expect(v.agy.present).toBe(false);
