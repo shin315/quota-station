@@ -114,9 +114,76 @@ describe('settings tab', () => {
     expect(fake.api.setMachineName).not.toHaveBeenCalled();
   });
 
-  it('has no row that reaches another Mac', async () => {
-    await open(fixtureModel('fresh'));
-    expect(screen.queryByText(/SSH/)).toBeNull();
-    expect(screen.queryByText('Các Mac khác')).toBeNull();
+  it('lists the other Macs with their SSH alias, and adds, renames and removes them', async () => {
+    const fake = await open(fixtureModel('fresh'));
+    expect(screen.getByText('Các Mac khác')).toBeTruthy();
+    const alias = screen.getByLabelText('Tên kết nối SSH của Mac B') as HTMLInputElement;
+    expect(alias.value).toBe('mac-b');
+    expect((screen.getByLabelText('Tên kết nối SSH của Mac C') as HTMLInputElement).value).toBe('mac-c');
+
+    // A new row is saved once it has an alias.
+    fireEvent.click(screen.getByRole('button', { name: 'Thêm Mac' }));
+    expect(screen.getByText('Nhập tên kết nối SSH')).toBeTruthy();
+    const name = screen.getByLabelText('Tên của Mac mới') as HTMLInputElement;
+    fireEvent.change(name, { target: { value: 'Mac D' } });
+    fireEvent.blur(name);
+    expect(fake.api.setPeers).not.toHaveBeenCalled();
+    const newAlias = screen.getByLabelText('Tên kết nối SSH của Mac D');
+    fireEvent.change(newAlias, { target: { value: 'mac-d' } });
+    await act(async () => {
+      fireEvent.keyDown(newAlias, { key: 'Enter' });
+    });
+    expect(fake.api.setPeers).toHaveBeenLastCalledWith([
+      { name: 'Mac B', alias: 'mac-b' },
+      { name: 'Mac C', alias: 'mac-c' },
+      { name: 'Mac D', alias: 'mac-d' },
+    ]);
+    expect(fake.current().rotation.peers.map((p) => p.alias)).toEqual(['mac-b', 'mac-c', 'mac-d']);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Bỏ Mac C' }));
+    });
+    expect(fake.api.setPeers).toHaveBeenLastCalledWith([
+      { name: 'Mac B', alias: 'mac-b' },
+      { name: 'Mac D', alias: 'mac-d' },
+    ]);
+    expect(screen.queryByLabelText('Tên kết nối SSH của Mac C')).toBeNull();
+  });
+
+  it('refuses an alias ssh would read as an option and says why', async () => {
+    const fake = await open(fixtureModel('fresh'));
+    const alias = screen.getByLabelText('Tên kết nối SSH của Mac B');
+    fireEvent.change(alias, { target: { value: '-oProxyCommand=x' } });
+    await act(async () => {
+      fireEvent.blur(alias);
+    });
+    expect(fake.api.setPeers).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Tên kết nối chỉ gồm chữ, số và . - _ @, không bắt đầu bằng dấu gạch.')).toBeTruthy();
+    expect(fake.current().rotation.peers[0].alias).toBe('mac-b');
+  });
+
+  it('Thử SSH reads each Mac and shows which one it reached', async () => {
+    const fake = fakeApi(fixtureModel('fresh'), 'settings', { unreachable: ['mac-c'] });
+    vi.spyOn(fake.api, 'testPeer');
+    render(
+      <div className="qs app-window">
+        <MainWindowApp api={fake.api} clock={() => FIXTURE_NOW} />
+      </div>,
+    );
+    await screen.findByRole('heading', { name: 'Cài đặt' });
+    expect(screen.getAllByText('Chưa thử')).toHaveLength(2);
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Thử SSH' }));
+    });
+    expect(fake.api.testPeer).toHaveBeenCalledWith('mac-b');
+    expect(fake.api.testPeer).toHaveBeenCalledWith('mac-c');
+    expect(screen.getByText('SSH ổn')).toBeTruthy();
+    expect(screen.getByText('SSH hết giờ chờ. Kiểm tên kết nối hoặc bật máy đó.')).toBeTruthy();
+  });
+
+  it('with no other Mac the rules stay on this Mac', async () => {
+    await open(fixtureModel('fresh', { rotation: { ...fixtureModel('fresh').rotation, peers: [] } }));
+    expect(screen.getByText('Chưa có Mac nào. Luật xoay vòng chỉ lưu trên máy này.')).toBeTruthy();
+    expect((screen.getByRole('button', { name: 'Thử SSH' }) as HTMLButtonElement).disabled).toBe(true);
   });
 });

@@ -153,17 +153,41 @@ pub(crate) struct Output {
 /// Runs `path` with `args`, stopping it at `timeout`. Also runs claude-swap
 /// and the switcher, which take the same care.
 pub(crate) fn run(path: &Path, args: &[String], timeout: Duration) -> Result<Output, RunError> {
+    run_with(path, args, &[], None, timeout)
+}
+
+/// [`run`] with extra environment variables and, when `input` is given, that
+/// text on stdin (closed once written).
+pub(crate) fn run_with(
+    path: &Path,
+    args: &[String],
+    env: &[(&str, &std::ffi::OsStr)],
+    input: Option<&str>,
+    timeout: Duration,
+) -> Result<Output, RunError> {
     if !path.is_file() {
         return Err(RunError::NotFound(path.to_path_buf()));
     }
-    let mut child = Command::new(path)
+    let mut command = Command::new(path);
+    command
         .args(args)
         .env("PATH", child_path(path, std::env::var_os("PATH")))
-        .stdin(Stdio::null())
+        .stdin(if input.is_some() { Stdio::piped() } else { Stdio::null() })
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| RunError::Spawn(e.to_string()))?;
+        .stderr(Stdio::piped());
+    for (key, value) in env {
+        command.env(key, value);
+    }
+    let mut child = command.spawn().map_err(|e| RunError::Spawn(e.to_string()))?;
+    // Written from its own thread, so a child that does not read cannot
+    // block the timeout below.
+    let feed = input.zip(child.stdin.take()).map(|(text, mut pipe)| {
+        let text = text.to_string();
+        thread::spawn(move || {
+            use std::io::Write;
+            let _ = pipe.write_all(text.as_bytes());
+        })
+    });
     let drain = |pipe: Option<Box<dyn Read + Send>>| {
         thread::spawn(move || {
             let mut buf = Vec::new();
@@ -188,6 +212,9 @@ pub(crate) fn run(path: &Path, args: &[String], timeout: Duration) -> Result<Out
             Err(e) => return Err(RunError::Spawn(e.to_string())),
         }
     };
+    if let Some(feed) = feed {
+        let _ = feed.join();
+    }
     Ok(Output {
         code: status.code(),
         stdout: stdout.join().unwrap_or_default(),

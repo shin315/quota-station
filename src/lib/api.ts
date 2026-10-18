@@ -3,7 +3,7 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import type { Model, Outcome, Sessions, Tab } from './model';
+import type { Decision, Model, Outcome, Peer, PeerTest, Rules, Sessions, Tab } from './model';
 
 export interface Api {
   getModel(): Promise<Model>;
@@ -34,6 +34,29 @@ export interface Api {
   /** Moves the end of a timed pause later. */
   extendPause(minutes: number): Promise<Model>;
   resumeSwitching(): Promise<Model>;
+  /**
+   * Writes the rules on this Mac, has quota-axi check them and copies them to the other Macs.
+   * `base` is the file version the editor started from. Rejects with a `RulesError`.
+   */
+  saveRotation(rules: Rules, base: string | null): Promise<Model>;
+  /** Takes the other Mac's copy as this Mac's file, then copies it out. Rejects with a `RulesError`. */
+  adoptRotation(alias: string, base: string | null): Promise<Model>;
+  /** Stamps this Mac's file again so it is the newest, then copies it out. Rejects with a `RulesError`. */
+  keepRotation(base: string | null): Promise<Model>;
+  /** Tries every Mac that is behind now. */
+  retryRotation(): Promise<Model>;
+  /** Rejects with `badAlias:<i>`, `sameAlias:<i>` or `tooMany`. */
+  setPeers(peers: Peer[]): Promise<Model>;
+  /** Reads the other Mac's rotation file over SSH; changes nothing. */
+  testPeer(alias: string): Promise<PeerTest>;
+  /** The switcher's `--dry-run` with these rules; rejects with the dry run's error kind. */
+  previewRotation(rules: Rules): Promise<{ decision: Decision; raw: string }>;
+  /** The editor holds unsaved changes: closing the main window asks first. */
+  rulesDirty(dirty: boolean): Promise<void>;
+  /** Closes the main window without asking again. */
+  closeMain(): Promise<void>;
+  /** The main window was asked to close while the editor held unsaved changes. */
+  onCloseRequested(handler: () => void): Promise<() => void>;
   onModel(handler: (model: Model) => void): Promise<() => void>;
   /** The main window is asked to show a tab while it is open. */
   onTab(handler: (tab: Tab) => void): Promise<() => void>;
@@ -54,6 +77,16 @@ export const tauriApi: Api = {
   pauseSwitching: (until) => invoke<Model>('pause_switching', { until }),
   extendPause: (minutes) => invoke<Model>('extend_pause', { minutes }),
   resumeSwitching: () => invoke<Model>('resume_switching'),
+  saveRotation: (rules, base) => invoke<Model>('save_rotation', { rules, base }),
+  adoptRotation: (alias, base) => invoke<Model>('adopt_rotation', { alias, base }),
+  keepRotation: (base) => invoke<Model>('keep_rotation', { base }),
+  retryRotation: () => invoke<Model>('retry_rotation'),
+  setPeers: (peers) => invoke<Model>('set_peers', { peers }),
+  testPeer: (alias) => invoke<PeerTest>('test_peer', { alias }),
+  previewRotation: (rules) => invoke('preview_rotation', { rules }),
+  rulesDirty: (dirty) => invoke('rules_dirty', { dirty }),
+  closeMain: () => invoke('close_main'),
+  onCloseRequested: (handler) => listen('closeRequested', () => handler()),
   onModel: (handler) => listen<Model>('model', (event) => handler(event.payload)),
   onTab: (handler) => listen<Tab>('tab', (event) => handler(event.payload)),
 };

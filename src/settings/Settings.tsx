@@ -1,12 +1,12 @@
 // The Cài đặt tab of the main window: where quota-axi is, Keychain access
-// for quota-axi, and this Mac's name. Rows and copy come from the
-// prototype's Cài đặt tab. Each Mac runs its own copy, so there is no row
-// for other Macs; email, login, refresh, theme and Codex come in later
-// milestones.
+// for quota-axi, this Mac's name, and the other Macs the rotation file is
+// copied to (an SSH alias each). Rows and copy come from the prototype's
+// Cài đặt tab. Each Mac runs its own copy and switches only itself; email,
+// login, refresh, theme and Codex come in later milestones.
 
 import { useState } from 'react';
 import { Button, Chip, Dot, Feedback } from '../components/parts';
-import type { Model } from '../lib/model';
+import type { Model, Peer, PeerTest } from '../lib/model';
 import type { Action, FeedbackView, PopoverView } from '../lib/view';
 
 export interface SettingsProps {
@@ -20,6 +20,9 @@ export interface SettingsProps {
   onGrant(): void;
   /** Resolves to false when the name could not be saved. */
   onSetMachine(name: string): Promise<boolean>;
+  /** Resolves to null once saved, else the refusal (`badAlias:1`, `sameAlias:1`, `tooMany`). */
+  onSetPeers(peers: Peer[]): Promise<string | null>;
+  onTestPeer(alias: string): Promise<PeerTest>;
 }
 
 function pathHint(model: Model, refused: boolean): { tone: 'ok' | 'bad' | ''; text: string } {
@@ -81,7 +84,131 @@ function MachineName({ model, onSet }: { model: Model; onSet(name: string): Prom
   );
 }
 
-export function Settings({ model, fresh, feedback, onAction, onSetPath, onFind, onGrant, onSetMachine }: SettingsProps) {
+type SshTest = { kind: 'testing' } | { kind: 'ok'; hasFile: boolean } | { kind: 'fail'; error: string | null };
+
+function testText(t: SshTest | undefined, alias: string): { tone: string; text: string } {
+  if (!alias.trim()) return { tone: 'bad', text: 'Nhập tên kết nối SSH' };
+  if (!t) return { tone: 'muted', text: 'Chưa thử' };
+  if (t.kind === 'testing') return { tone: 'muted', text: 'Đang thử…' };
+  if (t.kind === 'ok') return { tone: 'ok', text: t.hasFile ? 'SSH ổn' : 'SSH ổn · máy đó chưa có file luật' };
+  return {
+    tone: 'bad',
+    text: t.error === 'timeout' || !t.error ? 'SSH hết giờ chờ. Kiểm tên kết nối hoặc bật máy đó.' : 'SSH không tới được: ' + t.error,
+  };
+}
+
+const PEER_ERRORS: Record<string, string> = {
+  badAlias: 'Tên kết nối chỉ gồm chữ, số và . - _ @, không bắt đầu bằng dấu gạch.',
+  sameAlias: 'Tên kết nối này đã có ở dòng trên.',
+  tooMany: 'Tối đa 8 Mac.',
+};
+
+/** "Các Mac khác": a name and an SSH alias for each, saved when a field is left. */
+function OtherMacs({ model, onSet, onTest }: { model: Model; onSet: SettingsProps['onSetPeers']; onTest: SettingsProps['onTestPeer'] }) {
+  const saved = model.rotation.peers.map((p) => ({ name: p.name, alias: p.alias }));
+  const key = JSON.stringify(saved);
+  const [rows, setRows] = useState<Peer[]>(saved);
+  const [seen, setSeen] = useState(key);
+  const [error, setError] = useState<{ row: number; text: string } | null>(null);
+  const [tests, setTests] = useState<Record<string, SshTest>>({});
+  if (seen !== key) {
+    setSeen(key);
+    setRows(saved);
+  }
+  const commit = async (next: Peer[]) => {
+    // A new row waits for its alias.
+    if (next.some((p) => !p.alias.trim()) || JSON.stringify(next) === key) return;
+    const refused = await onSet(next);
+    if (!refused) return setError(null);
+    const [code, at] = refused.split(':');
+    setError({ row: Number(at ?? -1), text: PEER_ERRORS[code] ?? 'Chưa lưu được: ' + refused });
+  };
+  const set = (i: number, field: keyof Peer, value: string) => setRows(rows.map((r, j) => (j === i ? { ...r, [field]: value } : r)));
+  const onKey = (e: { key: string }) => {
+    if (e.key === 'Enter') void commit(rows);
+  };
+  const test = async () => {
+    const aliases = rows.map((r) => r.alias.trim()).filter(Boolean);
+    setTests(Object.fromEntries(aliases.map((a) => [a, { kind: 'testing' } as SshTest])));
+    await Promise.all(
+      aliases.map(async (a) => {
+        const r = await onTest(a).catch((e: unknown) => ({ reached: false, error: String(e), hasFile: false, stamp: null }) as PeerTest);
+        const t: SshTest = r.reached ? { kind: 'ok', hasFile: r.hasFile } : { kind: 'fail', error: r.error };
+        setTests((cur) => ({ ...cur, [a]: t }));
+      }),
+    );
+  };
+  return (
+    <div className="fr">
+      <div className="fl">
+        Các Mac khác
+        <small>Tên kết nối SSH để gửi luật xoay vòng. Mỗi Mac chạy bản Quota Station riêng; app không điều khiển máy khác.</small>
+      </div>
+      <div className="macs">
+        {rows.map((r, i) => {
+          const t = testText(tests[r.alias.trim()], r.alias);
+          const label = r.name.trim() || 'Mac mới';
+          return (
+            <div className="mac" key={i}>
+              <Dot tone={t.tone} />
+              <input
+                className="inp s2"
+                value={r.name}
+                placeholder="Tên Mac"
+                maxLength={40}
+                spellCheck={false}
+                autoComplete="off"
+                aria-label={'Tên của ' + label}
+                onChange={(e) => set(i, 'name', e.target.value)}
+                onBlur={() => void commit(rows)}
+                onKeyDown={onKey}
+              />
+              <span className="mal">tên kết nối</span>
+              <input
+                className={'inp mono s2' + (error?.row === i ? ' bad' : '')}
+                value={r.alias}
+                placeholder="vd. mac-b"
+                maxLength={64}
+                spellCheck={false}
+                autoComplete="off"
+                aria-label={'Tên kết nối SSH của ' + label}
+                onChange={(e) => set(i, 'alias', e.target.value)}
+                onBlur={() => void commit(rows)}
+                onKeyDown={onKey}
+              />
+              <small>{t.text}</small>
+              <button
+                type="button"
+                className="lnk"
+                aria-label={'Bỏ ' + label}
+                onClick={() => {
+                  const next = rows.filter((_, j) => j !== i);
+                  setRows(next);
+                  void commit(next);
+                }}
+              >
+                Bỏ
+              </button>
+            </div>
+          );
+        })}
+        {error ? <div className="fhint bad">{error.text}</div> : null}
+        {!rows.length ? <div className="fhint">Chưa có Mac nào. Luật xoay vòng chỉ lưu trên máy này.</div> : null}
+        {!model.rotation.ssh ? <div className="fhint bad">Không thấy ssh trên máy này.</div> : null}
+        <div>
+          <Button disabled={rows.length >= 8} onClick={() => setRows([...rows, { name: '', alias: '' }])}>
+            Thêm Mac
+          </Button>{' '}
+          <Button disabled={!rows.some((r) => r.alias.trim())} onClick={() => void test()}>
+            Thử SSH
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function Settings({ model, fresh, feedback, onAction, onSetPath, onFind, onGrant, onSetMachine, onSetPeers, onTestPeer }: SettingsProps) {
   const [path, setPath] = useField(model.quotaAxi.path ?? '');
   const [refused, setRefused] = useState(false);
 
@@ -157,6 +284,7 @@ export function Settings({ model, fresh, feedback, onAction, onSetPath, onFind, 
             </div>
           </div>
           <MachineName model={model} onSet={onSetMachine} />
+          <OtherMacs model={model} onSet={onSetPeers} onTest={onTestPeer} />
         </div>
       </div>
     </>

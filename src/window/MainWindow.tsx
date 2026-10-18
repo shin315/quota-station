@@ -1,7 +1,8 @@
 // The main window: the prototype's window with the tabs Tổng quan, Claude,
-// Antigravity and Cài đặt. Claude accounts switch from the tables (F04), and
-// Tổng quan and Claude show automatic switching and why Claude is on its
-// account (F07). The sidebar keeps the tabs of later milestones in place,
+// Antigravity, Luật xoay vòng and Cài đặt. Claude accounts switch from the
+// tables (F04), Tổng quan and Claude show automatic switching and why Claude
+// is on its account (F07), and Luật xoay vòng edits the rotation for every
+// Mac (F06). The sidebar keeps the tabs of later milestones in place,
 // disabled, and Antigravity switches in a later milestone.
 
 import type { ReactNode } from 'react';
@@ -23,7 +24,7 @@ const NAVS: (['-', string] | [NavId, string, 'later'?])[] = [
   ['agy', 'Antigravity'],
   ['codex', 'Codex', 'later'],
   ['-', 'Tự động'],
-  ['rules', 'Luật xoay vòng', 'later'],
+  ['rules', 'Luật xoay vòng'],
   ['history', 'Lịch sử', 'later'],
   ['alerts', 'Cảnh báo', 'later'],
   ['firstmate', 'Firstmate', 'later'],
@@ -46,7 +47,7 @@ function NavButton(props: { id: NavId; label: string; tab: Tab; later?: boolean;
   );
 }
 
-function Sidebar({ tab, machine, onTab }: { tab: Tab; machine: string; onTab(tab: Tab): void }) {
+function Sidebar({ tab, machine, note, onTab }: { tab: Tab; machine: string; note: string | null; onTab(tab: Tab): void }) {
   return (
     <nav className="side" aria-label="Mục">
       {/* macOS draws the window's traffic lights here; the browser preview draws the prototype's. */}
@@ -66,7 +67,10 @@ function Sidebar({ tab, machine, onTab }: { tab: Tab; machine: string; onTab(tab
       )}
       <div className="grow" data-tauri-drag-region />
       <NavButton id="settings" label="Cài đặt" tab={tab} onTab={onTab} />
-      <div className="machine">{machine}</div>
+      <div className="machine">
+        <span>{machine}</span>
+        {note ? ' · ' + note : null}
+      </div>
     </nav>
   );
 }
@@ -389,6 +393,10 @@ export interface MainWindowProps {
   onPause(preset: PauseChoice): void;
   /** The Cài đặt tab, drawn by the settings component. */
   settings: ReactNode;
+  /** The Luật xoay vòng tab, drawn by the rules editor. */
+  rules: ReactNode;
+  /** Under the machine name in the sidebar: whether the other Macs have the rules. */
+  syncNote?: string | null;
   /** The open dialog's body; null when none is open. */
   dialog?: ReactNode;
 }
@@ -409,11 +417,12 @@ export function MainWindow(props: MainWindowProps) {
   return (
     <div className="win-o">
       <div style={{ display: 'contents' }} inert={open}>
-        <Sidebar tab={props.tab} machine={props.view.machine} onTab={props.onTab} />
+        <Sidebar tab={props.tab} machine={props.view.machine} note={props.syncNote ?? null} onTab={props.onTab} />
         <main className="main">
           {props.tab === 'overview' ? <Overview {...tabProps} /> : null}
           {props.tab === 'claude' ? <ClaudeTab {...tabProps} /> : null}
           {props.tab === 'agy' ? <AgyTab {...tabProps} /> : null}
+          {props.tab === 'rules' ? props.rules : null}
           {props.tab === 'settings' ? props.settings : null}
         </main>
       </div>

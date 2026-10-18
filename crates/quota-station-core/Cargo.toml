@@ -1,6 +1,6 @@
 [package]
 name = "quota-station-core"
-description = "Reads quota-axi, turns its JSON into the Quota Station snapshot, paces refreshes, and switches Claude through claude-swap."
+description = "Reads quota-axi, turns its JSON into the Quota Station snapshot, paces refreshes, switches Claude through claude-swap, and keeps the rotation file in step across Macs."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

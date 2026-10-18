@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PopoverApp } from '../App';
 import { fakeApi } from '../fixtures/fakeApi';
-import { failing, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
+import { failing, FIXTURE_NOW, fixtureModel, peerFixture, rotationFixture } from '../fixtures/models';
 import type { Api } from '../lib/api';
 import type { Model } from '../lib/model';
 
@@ -120,5 +120,19 @@ describe('popover', () => {
     act(() => fake.push(fixtureModel('exhausted')));
     expect(screen.getByText('Hạn mức Claude trong vòng đã cạn')).toBeTruthy();
     expect(screen.getByText('Có lại lúc 16:40 khi Cá nhân và Team B được đặt lại.')).toBeTruthy();
+  });
+
+  it('the footer says which Macs have the rotation rules', async () => {
+    await open(fixtureModel('fresh'));
+    expect(screen.getByText('Luật xoay vòng · Mac B: 14:02 · Mac C: 14:02')).toBeTruthy();
+    cleanup();
+    const down = rotationFixture({
+      peers: [peerFixture('Mac B', 'mac-b'), peerFixture('Mac C', 'mac-c', { state: { kind: 'unreachable', error: 'x', retryAt: '2026-01-16T07:25:40.000Z' } })],
+    });
+    await open(fixtureModel('fresh', { rotation: down }));
+    expect(screen.getByText('Luật xoay vòng · Mac B: 14:02 · Mac C: chưa tới được, sẽ thử lại')).toBeTruthy();
+    cleanup();
+    await open(fixtureModel('fresh', { rotation: rotationFixture({ peers: [] }) }));
+    expect(screen.queryByText(/^Luật xoay vòng ·/)).toBeNull();
   });
 });

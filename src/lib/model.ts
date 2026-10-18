@@ -184,8 +184,92 @@ export type Outcome =
    */
   | { kind: 'failed'; slot: number; error: string; detail: string; active: number | null };
 
+// ===== The rotation file and the other Macs (M5) =====
+
+/** The six keys of the rotation file (`quota-station-core::rotation::Rules`). */
+export interface Rules {
+  /** Team slots in the switcher's order. */
+  team: number[];
+  personal: number | null;
+  /** `personal_hours = 8-23`: hour 8 through hour 23, both included. */
+  personalFrom: number;
+  personalTo: number;
+  /** Percent of a window used at which the switcher moves on. */
+  full: number;
+  fableFull: number;
+  /** `at` as written: `2026-10-16T17:45`, local time. */
+  expire: { slot: number; at: string }[];
+}
+
+/** The `# updated = <time> by <machine>` line. */
+export interface Stamp {
+  /** RFC 3339 with the writing Mac's offset. */
+  at: string;
+  machine: string;
+}
+
+/** Where another Mac stands with this Mac's file (`quota-station-core::peers::PeerState`). Times are RFC 3339. */
+export type PeerState =
+  | { kind: 'synced'; at: string }
+  | { kind: 'unreachable'; error: string; retryAt: string }
+  | { kind: 'mismatch'; retryAt: string }
+  | { kind: 'failed'; error: string; retryAt: string }
+  | { kind: 'newer'; their: Stamp }
+  | { kind: 'edited'; their: Stamp };
+
+export interface PeerView {
+  name: string;
+  alias: string;
+  /** Null: nothing sent to it yet. */
+  state: PeerState | null;
+  /** The state is about this Mac's file as it is now. */
+  current: boolean;
+  /** Its rules, when it holds another copy. */
+  theirRules: Rules | null;
+  pushing: boolean;
+}
+
+export interface RotationView {
+  /** `~/.config/cswap-prefer-team/rotation` */
+  path: string;
+  status: 'ok' | 'missing' | 'invalid' | 'unreadable';
+  rules: Rules | null;
+  /** quota-axi's reason for an invalid file (`rotation_bad_value:full`), or the read error. */
+  reason: string | null;
+  /** Sent back with a save, so a file changed meanwhile is not overwritten. */
+  version: string | null;
+  stamp: Stamp | null;
+  ignoredKeys: string[];
+  defaults: Rules;
+  saving: boolean;
+  peers: PeerView[];
+  /** An `ssh` to copy the file with. */
+  ssh: boolean;
+}
+
+/** Why a rotation command did nothing, or put the file back. */
+export interface RulesError {
+  kind: 'busy' | 'changed' | 'invalid' | 'write' | 'refused' | 'unchecked' | 'unreachable' | 'noFile' | 'unknownMac';
+  detail: string | null;
+  /** The file before is back on disk. */
+  restored: boolean;
+}
+
+/** What "Thử SSH" found. */
+export interface PeerTest {
+  reached: boolean;
+  error: string | null;
+  hasFile: boolean;
+  stamp: Stamp | null;
+}
+
+export interface Peer {
+  name: string;
+  alias: string;
+}
+
 /** The main window's tabs in this build (`src-tauri/src/state.rs` `Tab`). */
-export type Tab = 'overview' | 'claude' | 'agy' | 'settings';
+export type Tab = 'overview' | 'claude' | 'agy' | 'rules' | 'settings';
 
 export interface Model {
   snapshot: Snapshot;
@@ -200,4 +284,5 @@ export interface Model {
   granting: boolean;
   switcher: SwitcherView;
   claudeSwitch: ClaudeSwitchView;
+  rotation: RotationView;
 }

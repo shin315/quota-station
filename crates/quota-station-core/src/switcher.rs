@@ -223,12 +223,23 @@ impl DryRunError {
 
 /// `cswap-prefer-team --dry-run`: the decision it would act on now.
 pub fn dry_run(script: &Path) -> Result<DryRun, DryRunError> {
-    let out =
-        runner::run(script, &["--dry-run".to_string()], DRY_RUN_TIMEOUT).map_err(|e| match e {
-            RunError::NotFound(_) | RunError::NotConfigured => DryRunError::NotFound,
-            RunError::Timeout(_) => DryRunError::Timeout,
-            other => DryRunError::Failed(other.to_string()),
-        })?;
+    dry_run_env(script, &[])
+}
+
+/// The decision it would make with the rules in `rotation` instead of its
+/// rotation file, for the editor's preview: the switcher reads
+/// `CSWAP_ROTATION_FILE` before its default path.
+pub fn dry_run_with(script: &Path, rotation: &Path) -> Result<DryRun, DryRunError> {
+    dry_run_env(script, &[("CSWAP_ROTATION_FILE", rotation.as_os_str())])
+}
+
+fn dry_run_env(script: &Path, env: &[(&str, &std::ffi::OsStr)]) -> Result<DryRun, DryRunError> {
+    let args = ["--dry-run".to_string()];
+    let out = runner::run_with(script, &args, env, None, DRY_RUN_TIMEOUT).map_err(|e| match e {
+        RunError::NotFound(_) | RunError::NotConfigured => DryRunError::NotFound,
+        RunError::Timeout(_) => DryRunError::Timeout,
+        other => DryRunError::Failed(other.to_string()),
+    })?;
     let text = String::from_utf8_lossy(&out.stdout);
     let line = text.lines().map(str::trim).find(|l| !l.is_empty());
     match line {

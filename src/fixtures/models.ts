@@ -1,7 +1,7 @@
 // Models built from the snapshot fixtures that Rust generates
 // (`crates/quota-station-core/tests/ui_fixtures.rs`). Synthetic data only.
 
-import type { ErrorView, Model, Snapshot, SwitcherView } from '../lib/model';
+import type { ErrorView, Model, PeerView, RotationView, Rules, Snapshot, SwitcherView } from '../lib/model';
 
 const files = import.meta.glob('./snapshots/*.json', { eager: true, import: 'default' }) as Record<string, Snapshot>;
 
@@ -48,6 +48,44 @@ export function heldSwitcher(over: Partial<SwitcherView> = {}): SwitcherView {
   });
 }
 
+/** The rotation in the fixtures: Team A, B and C in turn, Cá nhân 08:00–24:00, Team A leaving at 17:45. */
+export function rulesFixture(over: Partial<Rules> = {}): Rules {
+  return {
+    team: [2, 3, 4],
+    personal: 1,
+    personalFrom: 8,
+    personalTo: 23,
+    full: 90,
+    fableFull: 95,
+    expire: [{ slot: 2, at: '2026-01-16T17:45' }],
+    ...over,
+  };
+}
+
+/** Saved on this Mac at 14:02 (UTC+7); Mac B and Mac C have it. */
+export const SAVED_AT = '2026-01-16T14:02:00+07:00';
+
+export function peerFixture(name: string, alias: string, over: Partial<PeerView> = {}): PeerView {
+  return { name, alias, state: { kind: 'synced', at: '2026-01-16T07:02:05.000Z' }, current: true, theirRules: null, pushing: false, ...over };
+}
+
+export function rotationFixture(over: Partial<RotationView> = {}): RotationView {
+  return {
+    path: '~/.config/cswap-prefer-team/rotation',
+    status: 'ok',
+    rules: rulesFixture(),
+    reason: null,
+    version: 'v1',
+    stamp: { at: SAVED_AT, machine: 'Mac mini' },
+    ignoredKeys: [],
+    defaults: rulesFixture({ expire: [] }),
+    saving: false,
+    peers: [peerFixture('Mac B', 'mac-b'), peerFixture('Mac C', 'mac-c')],
+    ssh: true,
+    ...over,
+  };
+}
+
 export function fixtureModel(name: string, over: Partial<Model> = {}): Model {
   const snapshot = SNAPSHOTS[name];
   if (!snapshot) throw new Error('no snapshot fixture ' + name);
@@ -62,6 +100,7 @@ export function fixtureModel(name: string, over: Partial<Model> = {}): Model {
     granting: false,
     switcher: switcherFixture(),
     claudeSwitch: { cswap: true, busy: null },
+    rotation: rotationFixture(),
     ...over,
   };
 }

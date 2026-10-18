@@ -1,10 +1,13 @@
 //! What the app holds between reads, and the model every window draws.
 
+use std::collections::BTreeSet;
 use std::path::PathBuf;
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::Instant;
 
 use quota_station_core::axi::Response;
+use quota_station_core::peers::{self, PeerState, SyncLog};
+use quota_station_core::rotation::{self, FileState, Rules, Stamp};
 use quota_station_core::runner::{self, RunError};
 use quota_station_core::schedule::Schedule;
 use quota_station_core::settings::Settings;
@@ -21,11 +24,27 @@ pub struct Shared {
     inner: Mutex<Inner>,
     /// Wakes the reader thread early: a read was asked for, or settings changed.
     pub wake: Condvar,
+    /// Wakes the rotation sync thread: a save, or the list of Macs changed.
+    pub sync_wake: Condvar,
+    /// Held while copying the rotation file to the other Macs, so two copies
+    /// to the same Mac never run at once.
+    pub push_lock: Mutex<()>,
 }
 
 impl Shared {
     pub fn new(inner: Inner) -> AppState {
-        Arc::new(Shared { inner: Mutex::new(inner), wake: Condvar::new() })
+        Arc::new(Shared {
+            inner: Mutex::new(inner),
+            wake: Condvar::new(),
+            sync_wake: Condvar::new(),
+            push_lock: Mutex::new(()),
+        })
+    }
+
+    /// Asks the sync thread to look at the other Macs now.
+    pub fn request_sync(&self) {
+        self.lock().sync_now = true;
+        self.sync_wake.notify_all();
     }
 
     pub fn lock(&self) -> MutexGuard<'_, Inner> {
@@ -76,6 +95,16 @@ pub struct Inner {
     pub switcher_now: bool,
     /// The slot a manual switch is running for.
     pub switching: Option<u32>,
+    /// Where each other Mac stands with this Mac's rotation file.
+    pub sync: SyncLog,
+    pub sync_file: PathBuf,
+    pub sync_now: bool,
+    /// Aliases of the Macs a copy is going to now.
+    pub pushing: BTreeSet<String>,
+    /// A rotation save is running.
+    pub rotation_saving: bool,
+    /// The rules editor holds changes not saved yet: closing the main window asks first.
+    pub rules_dirty: bool,
 }
 
 /// What the app last saw of the `cswap-prefer-team` switcher.
@@ -128,12 +157,14 @@ pub enum Tab {
     Overview,
     Claude,
     Agy,
+    Rules,
     Settings,
 }
 
 impl Inner {
     pub fn new(home: PathBuf, settings_file: PathBuf, system_machine: String) -> Self {
         let settings = Settings::load(&settings_file);
+        let sync_file = settings_file.with_file_name("rotation-sync.json");
         Inner {
             home,
             settings_file,
@@ -155,6 +186,12 @@ impl Inner {
             switcher: SwitcherState::default(),
             switcher_now: true,
             switching: None,
+            sync: SyncLog::load(&sync_file),
+            sync_file,
+            sync_now: true,
+            pushing: BTreeSet::new(),
+            rotation_saving: false,
+            rules_dirty: false,
         }
     }
 
@@ -233,6 +270,56 @@ impl Inner {
                 cswap: cswap::discover(&self.home).is_some(),
                 busy: self.switching,
             },
+            rotation: self.rotation_view(),
+        }
+    }
+
+    /// The rotation file as it is on disk now, and each other Mac against it.
+    pub fn rotation_view(&self) -> RotationView {
+        let file = rotation::path(&self.home);
+        let state = rotation::load(&file);
+        let stamp = state.stamp().cloned();
+        let (status, rules, reason, ignored_keys) = match &state {
+            FileState::Missing => ("missing", None, None, Vec::new()),
+            FileState::Unreadable(e) => ("unreadable", None, Some(e.clone()), Vec::new()),
+            FileState::Invalid { reason, .. } => {
+                ("invalid", None, Some(reason.clone()), Vec::new())
+            }
+            FileState::Ok { parsed, .. } => {
+                ("ok", Some(parsed.rules.clone()), None, parsed.ignored_keys.clone())
+            }
+        };
+        let peers = self
+            .settings
+            .peers
+            .iter()
+            .map(|p| {
+                let record = self.sync.peers.get(&p.alias);
+                PeerView {
+                    name: p.name.clone(),
+                    alias: p.alias.clone(),
+                    current: record.zip(stamp.as_ref()).is_some_and(|(r, s)| r.against == s.at),
+                    state: record.map(|r| r.state.clone()),
+                    their_rules: record
+                        .and_then(|r| r.their_text.as_deref())
+                        .and_then(|t| rotation::parse(t).ok())
+                        .map(|p| p.rules),
+                    pushing: self.pushing.contains(&p.alias),
+                }
+            })
+            .collect();
+        RotationView {
+            path: runner::display_path(&file, &self.home),
+            status,
+            rules,
+            reason,
+            version: state.version(),
+            stamp,
+            ignored_keys,
+            defaults: Rules::defaults(),
+            saving: self.rotation_saving,
+            peers,
+            ssh: peers::find_ssh(std::env::var_os("PATH").as_deref()).is_some(),
         }
     }
 
@@ -276,6 +363,46 @@ pub struct Model {
     pub granting: bool,
     pub switcher: SwitcherView,
     pub claude_switch: ClaudeSwitchView,
+    pub rotation: RotationView,
+}
+
+/// The rotation file and the other Macs (F06).
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RotationView {
+    /// `~/.config/cswap-prefer-team/rotation`
+    pub path: String,
+    /// `ok`, `missing`, `invalid` (quota-axi would refuse it) or `unreadable`.
+    pub status: &'static str,
+    pub rules: Option<Rules>,
+    /// quota-axi's reason for an invalid file, or the read error.
+    pub reason: Option<String>,
+    /// Sent back with a save, so a file changed meanwhile is not overwritten.
+    pub version: Option<String>,
+    /// The `# updated = … by …` line; `None` before the app first saved.
+    pub stamp: Option<Stamp>,
+    pub ignored_keys: Vec<String>,
+    /// What "Tạo từ mặc định" writes: the switcher's built-in values.
+    pub defaults: Rules,
+    pub saving: bool,
+    pub peers: Vec<PeerView>,
+    /// An `ssh` to copy the file with.
+    pub ssh: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PeerView {
+    pub name: String,
+    pub alias: String,
+    /// `None`: nothing sent to it yet.
+    pub state: Option<PeerState>,
+    /// The state is about this Mac's file as it is now.
+    pub current: bool,
+    /// Its rules, when it holds another copy (newer, or edited there).
+    pub their_rules: Option<Rules>,
+    /// A copy is going to it now.
+    pub pushing: bool,
 }
 
 /// The switcher as the windows show it (F07).
@@ -421,6 +548,58 @@ mod tests {
         inner.switcher.pause = Some(pause::Flag { until: Some(expired), reason: None });
         assert!(!inner.switcher.paused(now));
         assert!(!inner.model().switcher.pause.unwrap().holds);
+    }
+
+    #[test]
+    fn each_other_mac_is_shown_against_the_file_on_disk_now() {
+        use quota_station_core::peers::PeerRecord;
+        use quota_station_core::settings::Peer;
+        let dir = std::env::temp_dir().join(format!("qs-state-rotation-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let mut inner = Inner::new(dir.clone(), dir.join("app/settings.json"), "Mac A".into());
+        assert_eq!(inner.rotation_view().status, "missing");
+
+        let at = OffsetDateTime::from_unix_timestamp(1_768_548_000).unwrap();
+        let stamp = Stamp::new(at, "Mac A");
+        let text = rotation::render(&Rules::defaults(), &stamp, None);
+        let file = rotation::path(&dir);
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(&file, &text).unwrap();
+        let peer = |name: &str, alias: &str| Peer { name: name.into(), alias: alias.into() };
+        inner.settings.peers =
+            vec![peer("Mac B", "mac-b"), peer("Mac C", "mac-c"), peer("Mac D", "mac-d")];
+        let newer = Stamp::new(at + time::Duration::minutes(9), "Mac B");
+        let mut theirs = Rules::defaults();
+        theirs.full = 88.0;
+        inner.sync.peers.insert(
+            "mac-b".into(),
+            PeerRecord {
+                state: PeerState::Newer { their: newer.clone() },
+                against: stamp.at.clone(),
+                their_text: Some(rotation::render(&theirs, &newer, None)),
+            },
+        );
+        inner.sync.peers.insert(
+            "mac-c".into(),
+            PeerRecord {
+                state: PeerState::Synced { at: "2026-01-16T07:00:00Z".into() },
+                against: "2026-01-16T13:00:00+07:00".into(),
+                their_text: None,
+            },
+        );
+
+        let view = inner.rotation_view();
+        assert_eq!(view.status, "ok");
+        assert_eq!(view.rules, Some(Rules::defaults()));
+        assert_eq!(view.stamp, Some(stamp));
+        assert_eq!(view.version, Some(rotation::version(&text)));
+        assert_eq!(view.path, "~/.config/cswap-prefer-team/rotation");
+        let [b, c, d] = &view.peers[..] else { panic!("three Macs") };
+        assert!(b.current);
+        assert_eq!(b.their_rules.as_ref().map(|r| r.full), Some(88.0));
+        assert!(!c.current, "Mac C has an older file of this Mac");
+        assert!(d.state.is_none() && !d.current, "Mac D was never sent anything");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
