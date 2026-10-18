@@ -211,9 +211,15 @@ fn upsert_account(
         index.current_account_id = Some(id.clone());
     }
     if let Err(e) = index::save(deps.app, &index) {
-        // A new account's item would be left with nothing pointing at it.
+        // A new account's item would be left with nothing pointing at it; one
+        // that cannot be removed either is named, so it does not go unseen.
         if existing.is_none() {
-            let _ = deps.keychain.delete(&id);
+            if let Err(left) = deps.keychain.delete(&id) {
+                let (IndexError::Write(why) | IndexError::Unreadable(why)) = e;
+                return Err(LoginError::Index(IndexError::Write(format!(
+                    "{why}; the new Keychain item is left too: {left}"
+                ))));
+            }
         }
         return Err(LoginError::Index(e));
     }

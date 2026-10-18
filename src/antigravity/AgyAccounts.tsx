@@ -13,6 +13,7 @@ import {
   agyLogoutErrorFeedback,
   agyLogoutFeedback,
   agyRows,
+  agyVerifyErrorFeedback,
   clientNotice,
   pasteHint,
   type AgyRowView,
@@ -143,6 +144,13 @@ export function AgyAccounts({ view, api, onFeedback }: AgyAccountsProps) {
       onFeedback(agyLoginErrorFeedback(e));
     }
   };
+  const verify = async (row: AgyRowView) => {
+    try {
+      await api.agyOpenVerification(row.id);
+    } catch (e) {
+      onFeedback(agyVerifyErrorFeedback(row.name, e));
+    }
+  };
   const logout = async (row: AgyRowView) => {
     setLeaving(true);
     try {
@@ -187,7 +195,7 @@ export function AgyAccounts({ view, api, onFeedback }: AgyAccountsProps) {
               onKeep={() => setConfirm(null)}
               onLogout={() => void logout(r)}
               onLogin={() => void login()}
-              onVerify={() => void api.agyOpenVerification(r.id)}
+              onVerify={() => void verify(r)}
             />
           ))}
         </div>

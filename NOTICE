@@ -14,6 +14,10 @@ Adapted parts. Each file names its source and its changes in its header.
   from src-tauri/src/modules/oauth.rs: the authorization URL, the code
   exchange, the token refresh, userinfo, and the rule that refreshes a token
   only when it has less than 300 seconds left.
+- crates/quota-station-core/src/antigravity/client.rs
+  from src-tauri/src/modules/oauth.rs: the client's key name
+  (antigravity_enterprise) and the single client it logs in with, read here
+  from oauth-client.json.
 - crates/quota-station-core/src/antigravity/oauth_server.rs
   from src-tauri/src/modules/oauth_server.rs: the loopback callback server,
   the state check, the request limits, the 10-minute wait and the pasted

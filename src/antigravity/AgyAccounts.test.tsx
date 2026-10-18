@@ -95,6 +95,7 @@ describe('Antigravity login card', () => {
       fireEvent.click(within(second).getByRole('button', { name: 'Mở trang xác minh' }));
     });
     expect(fake.api.agyOpenVerification).toHaveBeenCalledWith('antigravity_fake2');
+    expect(screen.queryByText(/trang xác minh cho/)).toBeNull();
 
     // Logging in again answers it.
     await act(async () => {
@@ -108,6 +109,20 @@ describe('Antigravity login card', () => {
     });
     expect(screen.getByText('Đã đăng nhập lại Ultra 1')).toBeTruthy();
     expect(within(list()).queryByText('cần đăng nhập lại')).toBeNull();
+  });
+
+  it('a verification page that does not open says so', async () => {
+    const fake = await open(withAgy({ accounts: [agyAccount(1, { status: 'needsVerification', verify: true })] }));
+    vi.mocked(fake.api.agyOpenVerification).mockRejectedValueOnce('noPage');
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Mở trang xác minh' }));
+    });
+    expect(screen.getByText('Không còn trang xác minh cho Ultra 1')).toBeTruthy();
+    vi.mocked(fake.api.agyOpenVerification).mockRejectedValueOnce('browser');
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Mở trang xác minh' }));
+    });
+    expect(screen.getByText('Không mở được trình duyệt')).toBeTruthy();
   });
 
   it('adds an account through the browser and says so', async () => {

@@ -48,7 +48,7 @@ describe('settings tab', () => {
     expect(screen.getByText('macOS sẽ hỏi. Bấm "Luôn cho phép". App không đọc mục Keychain của Claude.')).toBeTruthy();
   });
 
-  it('says whether oauth-client.json is in place, never what it holds', async () => {
+  it('says whether oauth-client.json is in place and where it goes', async () => {
     await open(fixtureModel('fresh'));
     expect(screen.getByText('có, dùng được')).toBeTruthy();
     expect(screen.getByText('~/Library/Application Support/com.shin315.quota-station/oauth-client.json')).toBeTruthy();

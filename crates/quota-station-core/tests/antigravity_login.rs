@@ -228,7 +228,32 @@ fn a_failing_keychain_leaves_the_index_unwritten() {
     let LoginError::Keychain(e) = result.unwrap_err() else { panic!() };
     assert!(e.to_string().contains("exited 36"), "{e}");
     assert!(!home.index_file().exists(), "no index without the token");
-    assert!(!home.index_file().parent().unwrap().join("accounts.json.tmp").exists());
+    assert!(!home.index_file().parent().unwrap().exists(), "nothing written at all");
+}
+
+#[test]
+fn an_index_that_cannot_be_written_takes_the_new_item_back() {
+    let home = Home::new("agy-noindex");
+    let google = FakeGoogle::start(Script::default());
+    let dir = home.index_file().parent().unwrap().to_path_buf();
+    std::fs::create_dir_all(&dir).unwrap();
+    // An immutable folder: making it 700 before the write fails.
+    let flags = |flag: &str| {
+        let status = std::process::Command::new("chflags").arg(flag).arg(&dir).status().unwrap();
+        assert!(status.success());
+    };
+    flags("uchg");
+
+    let (result, _) = log_in(&home, &google);
+    assert!(matches!(result, Err(LoginError::Index(index::IndexError::Write(_)))));
+    assert!(home.item(ACCOUNT_ID).is_none(), "the new item is taken back");
+
+    home.fail_security("delete");
+    let (result, _) = log_in(&home, &google);
+    let Err(LoginError::Index(e)) = result else { panic!() };
+    assert!(e.to_string().contains("the new Keychain item is left too"), "{e}");
+    assert!(home.item(ACCOUNT_ID).is_some());
+    flags("nouchg");
 }
 
 #[test]
@@ -598,4 +623,27 @@ fn an_unreadable_index_is_reported_and_left_alone() {
     assert!(matches!(result, Err(LoginError::Index(index::IndexError::Unreadable(_)))));
     assert_eq!(std::fs::read_to_string(home.index_file()).unwrap(), "{ broken");
     assert!(home.security_calls().is_empty(), "nothing kept when the index cannot be read");
+}
+
+#[test]
+fn an_unreadable_status_file_is_left_alone() {
+    let home = Home::new("agy-badstatus");
+    let google =
+        FakeGoogle::start(Script { refresh: (400, INVALID_GRANT.into()), ..Script::default() });
+    log_in(&home, &google).0.unwrap();
+    let status = home.index_file().with_file_name("status.json");
+    let broken = r#"{"accounts":{"antigravity_other":{"state":"later"}}}"#;
+    std::fs::write(&status, broken).unwrap();
+    let endpoints = google.endpoints();
+    let deps = home.deps(&endpoints);
+
+    assert!(matches!(
+        index::set_standing(&home.app, ACCOUNT_ID, Some(Standing::NeedsLogin { since: NOW })),
+        Err(index::IndexError::Unreadable(_))
+    ));
+    assert_eq!(login::fresh_token(&deps, ACCOUNT_ID, NOW + 3599), Err(UseError::NeedsLogin));
+    log_in(&home, &google).0.unwrap();
+
+    assert_eq!(std::fs::read_to_string(&status).unwrap(), broken, "no status was dropped");
+    assert!(index::load_statuses(&home.app).accounts.is_empty(), "the windows show none");
 }

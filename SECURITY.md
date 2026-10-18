@@ -26,7 +26,7 @@ Claude only through `cswap switch N --json`.
 
 ## What the app keeps
 
-All under `~/Library/Application Support/com.shin315.quota-station/`:
+Files, under `~/Library/Application Support/com.shin315.quota-station/`:
 
 - `oauth-client.json`: the Antigravity OAuth client, which the owner puts
   there (see the README). The app only reads it, and refuses it unless only
@@ -36,6 +36,9 @@ All under `~/Library/Application Support/com.shin315.quota-station/`:
 - `antigravity/` (mode 700): `accounts.json`, the account index in Cockpit's
   layout (ids, emails, names, times; no token), and `status.json`, the
   accounts that need a new login or a verification. Both files are mode 600.
+
+In the owner's login Keychain, not in that folder:
+
 - One Keychain item per Antigravity account logged in through the app:
   service `com.shin315.quota-station.antigravity`, account the app's account
   id, value the account's tokens as JSON. Items are added without `-A`, so
@@ -47,7 +50,10 @@ All under `~/Library/Application Support/com.shin315.quota-station/`:
   limit.
 
 Emails stay in the index and the Keychain. They do not show in the windows
-unless the owner turns on `Hiện email`, and the app logs none.
+unless the owner turns on `Hiện email`, and the app logs none. The windows
+do get each account's id, which is Cockpit's: `antigravity_` and the MD5 of
+the email. It is not the email, but anyone who guesses an address can check
+the guess against it, so it is kept as private as the index.
 
 Tokens are refreshed only right before a use, when they have under five
 minutes left. Nothing refreshes them on a timer. Logging out deletes the
@@ -57,7 +63,11 @@ app's item and the index line, and asks Google to revoke nothing.
 
 - Every file the Antigravity code opens goes through one guard
   (`crates/quota-station-core/src/antigravity/fs.rs`). It refuses any path
-  outside the app's folder before opening it.
+  outside the app's folder, and any path through a folder in it that is a
+  symlink, before opening it; its tests check both. The symlink check runs
+  just before the file is opened, so it guards against mistakes in the
+  app, not against another program of the same macOS user, which could
+  read the folder anyway.
 - `tests/antigravity_spy.rs` runs every login flow (two logins, a pasted
   callback, a new login of an account, a refresh, a refused refresh, a
   logout) in a temporary home that has a decoy, holding a sentinel secret,

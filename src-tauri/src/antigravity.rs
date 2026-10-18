@@ -2,7 +2,8 @@
 //! of them, and the commands to add one through Google's consent screen,
 //! take a pasted callback, cancel, log out and open Google's verification
 //! page. Tokens stay in the app's own Keychain items; the windows only ever
-//! get numbers, statuses and, when the owner turns them on, the emails.
+//! get each account's id (Cockpit's MD5 of its email), its number, its
+//! status and, when the owner turns them on, the emails.
 
 use quota_station_core::antigravity::client::{self, ClientStatus};
 use quota_station_core::antigravity::fs::AppDir;
@@ -38,6 +39,8 @@ pub struct AccountsView {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountView {
+    /// Cockpit's id: `antigravity_` and the MD5 of the email. Not the email,
+    /// but a guessed address can be checked against it (SECURITY.md).
     pub id: String,
     /// Its place in the index, from 1, as quota-axi numbers it.
     pub number: usize,

@@ -74,7 +74,7 @@ export function clientNotice(view: AgyAccounts): { tone: 'warn' | 'bad'; title: 
     unreadable: {
       tone: 'bad',
       title: 'Không đọc được oauth-client.json',
-      body: 'Kiểm đó là một file thường mà tài khoản macOS của bạn đọc được. ' + where,
+      body: 'Kiểm tra xem đó có phải là một file thường mà tài khoản macOS của bạn đọc được không. ' + where,
     },
   };
   return view.client === 'ok' ? null : notices[view.client];
@@ -130,7 +130,7 @@ export function agyLoginErrorFeedback(e: unknown): FeedbackView | null {
     case 'invalidGrant':
       return { tone: 'bad', title: 'Google từ chối mã đăng nhập', body: 'Mã đã hết hạn hoặc đã được dùng. Bắt đầu lại từ Thêm tài khoản.' };
     case 'network':
-      return { tone: 'warn', title: 'Không kết nối được Google', body: withDetail('Chưa thêm tài khoản. Kiểm mạng rồi thử lại.') };
+      return { tone: 'warn', title: 'Không kết nối được Google', body: withDetail('Chưa thêm tài khoản. Kiểm tra mạng rồi thử lại.') };
     case 'exchange':
       return { tone: 'bad', title: 'Google từ chối đăng nhập', body: withDetail('Chưa thêm tài khoản.') };
     case 'userInfo':
@@ -174,6 +174,17 @@ export function pasteHint(e: unknown): string {
 
 export function agyLogoutFeedback(name: string): FeedbackView {
   return { tone: '', title: 'Đã đăng xuất ' + name, body: 'Đã xoá đăng nhập của app. Antigravity.app và agy vẫn đăng nhập như cũ.' };
+}
+
+/** Why "Mở trang xác minh" opened nothing. */
+export function agyVerifyErrorFeedback(name: string, e: unknown): FeedbackView {
+  return errorKind(e) === 'browser'
+    ? { tone: 'bad', title: 'Không mở được trình duyệt', body: 'Trang xác minh của ' + name + ' chưa mở. Thử lại.' }
+    : {
+        tone: 'warn',
+        title: 'Không còn trang xác minh cho ' + name,
+        body: 'Trạng thái của tài khoản đã đổi, hoặc trang Google gửi không phải trang của Google. App không mở trang nào.',
+      };
 }
 
 export function agyLogoutErrorFeedback(name: string, e: unknown): FeedbackView {

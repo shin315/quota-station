@@ -1,3 +1,9 @@
+// Adapted from Cockpit Tools `src-tauri/src/modules/oauth.rs` (1.3.70,
+// commit 244b957, CC BY-NC-SA 4.0): the client's key name and the one
+// client it logs in with; changes: the id and the secret come from
+// `oauth-client.json` instead of constants in the source, and the file is
+// checked before use.
+
 //! The OAuth client the app logs in with: Antigravity's own, the one Cockpit
 //! Tools uses, so Google sees the same client either way. Its id and secret
 //! never go into this public repository. The owner puts them in

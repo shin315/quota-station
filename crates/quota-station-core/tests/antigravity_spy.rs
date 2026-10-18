@@ -149,6 +149,22 @@ fn the_antigravity_flows_never_touch_another_tools_secrets() {
     }
 }
 
+/// What opens, makes, moves or removes files, or asks the filesystem about
+/// a path, outside the folder guard.
+const FILE_CALLS: [&str; 11] = [
+    "fs::",
+    "std::fs",
+    "File::",
+    "OpenOptions",
+    "DirBuilder",
+    ".exists()",
+    ".is_dir()",
+    ".read_dir(",
+    ".read_link(",
+    ".canonicalize(",
+    "symlink_metadata",
+];
+
 /// Every file of the Antigravity module and the app's commands for it: only
 /// the folder guard touches files, and no code (comments aside) names
 /// another tool's secret files or the shared Keychain item.
@@ -181,9 +197,17 @@ fn only_the_folder_guard_opens_files() {
                 continue;
             }
             if file != "fs.rs" {
-                for call in ["std::fs::", "File::open", "fs::read", "fs::write", "OpenOptions"] {
+                // The guard's own module and the trait for a file's mode are
+                // the only `fs` paths allowed; any other names the filesystem.
+                let code = code
+                    .replace("super::fs::", "")
+                    .replace("antigravity::fs::", "")
+                    .replace("unix::fs::PermissionsExt", "");
+                for call in FILE_CALLS {
                     assert!(!code.contains(call), "{file}:{}: {line}", n + 1);
                 }
+                let std_group = code.starts_with("use std::{") && code.contains("fs");
+                assert!(!std_group, "{file}:{}: {line}", n + 1);
             }
             for name in names {
                 assert!(!code.contains(name), "{file}:{}: {line}", n + 1);

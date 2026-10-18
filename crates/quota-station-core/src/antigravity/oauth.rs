@@ -12,7 +12,7 @@
 
 use std::time::Duration;
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use super::client::{OAuthClient, CLIENT_KEY};
 use super::token::TokenData;
@@ -63,7 +63,7 @@ impl Endpoints {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Deserialize)]
 pub struct TokenResponse {
     pub access_token: String,
     pub expires_in: i64,
@@ -77,7 +77,17 @@ pub struct TokenResponse {
     pub oauth_client_key: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+/// Never prints a token.
+impl std::fmt::Debug for TokenResponse {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TokenResponse")
+            .field("expires_in", &self.expires_in)
+            .field("has_refresh_token", &self.refresh_token.is_some())
+            .finish_non_exhaustive()
+    }
+}
+
+#[derive(Deserialize)]
 pub struct UserInfo {
     #[serde(default)]
     pub id: Option<String>,
@@ -86,6 +96,13 @@ pub struct UserInfo {
     pub given_name: Option<String>,
     pub family_name: Option<String>,
     pub picture: Option<String>,
+}
+
+/// Never prints the email or the name.
+impl std::fmt::Debug for UserInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("UserInfo").finish_non_exhaustive()
+    }
 }
 
 impl UserInfo {
@@ -138,11 +155,10 @@ impl std::fmt::Display for OAuthError {
 
 impl std::error::Error for OAuthError {}
 
-fn http() -> reqwest::blocking::Client {
-    reqwest::blocking::Client::builder()
-        .timeout(HTTP_TIMEOUT)
-        .build()
-        .unwrap_or_else(|_| reqwest::blocking::Client::new())
+/// A client with the timeout; one that cannot be built (no TLS backend) is
+/// a network failure, never a client without the timeout.
+fn http() -> Result<reqwest::blocking::Client, OAuthError> {
+    reqwest::blocking::Client::builder().timeout(HTTP_TIMEOUT).build().map_err(network)
 }
 
 /// reqwest's message without the URL it adds: the URL is one of the fixed
@@ -222,7 +238,7 @@ pub fn exchange_code(
         ("grant_type", "authorization_code"),
     ];
 
-    let response = http().post(&endpoints.token).form(&params).send().map_err(network)?;
+    let response = http()?.post(&endpoints.token).form(&params).send().map_err(network)?;
     let mut token_res: TokenResponse = read(response)?;
     token_res.oauth_client_key = Some(CLIENT_KEY.to_string());
     Ok(token_res)
@@ -241,7 +257,7 @@ pub fn refresh_access_token(
         ("grant_type", "refresh_token"),
     ];
 
-    let response = http().post(&endpoints.token).form(&params).send().map_err(network)?;
+    let response = http()?.post(&endpoints.token).form(&params).send().map_err(network)?;
     let mut token_data: TokenResponse = read(response)?;
     token_data.oauth_client_key = Some(CLIENT_KEY.to_string());
     Ok(token_data)
@@ -249,7 +265,7 @@ pub fn refresh_access_token(
 
 pub fn get_user_info(endpoints: &Endpoints, access_token: &str) -> Result<UserInfo, OAuthError> {
     let response =
-        http().get(&endpoints.userinfo).bearer_auth(access_token).send().map_err(network)?;
+        http()?.get(&endpoints.userinfo).bearer_auth(access_token).send().map_err(network)?;
     read(response)
 }
 

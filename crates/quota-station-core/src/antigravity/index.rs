@@ -144,17 +144,28 @@ pub struct Statuses {
     pub accounts: BTreeMap<String, Standing>,
 }
 
-/// The statuses; a missing or unreadable file reads as none.
-pub fn load_statuses(app: &AppDir) -> Statuses {
-    app.read_to_string(&status_path(app))
-        .ok()
-        .and_then(|text| serde_json::from_str(&text).ok())
-        .unwrap_or_default()
+/// The statuses; none yet reads as none.
+pub fn read_statuses(app: &AppDir) -> Result<Statuses, IndexError> {
+    let text = match app.read_to_string(&status_path(app)) {
+        Ok(text) => text,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Statuses::default()),
+        Err(e) => return Err(IndexError::Unreadable(e.to_string())),
+    };
+    if text.trim().is_empty() {
+        return Ok(Statuses::default());
+    }
+    serde_json::from_str(&text).map_err(|e| IndexError::Unreadable(e.to_string()))
 }
 
-/// Sets or clears (`None`) one account's status.
+/// The statuses for the windows; an unreadable file shows as none.
+pub fn load_statuses(app: &AppDir) -> Statuses {
+    read_statuses(app).unwrap_or_default()
+}
+
+/// Sets or clears (`None`) one account's status. An unreadable file is left
+/// as it is, so no other account loses its status.
 pub fn set_standing(app: &AppDir, id: &str, standing: Option<Standing>) -> Result<(), IndexError> {
-    let mut statuses = load_statuses(app);
+    let mut statuses = read_statuses(app)?;
     let changed = match standing {
         Some(s) => statuses.accounts.insert(id.to_string(), s.clone()) != Some(s),
         None => statuses.accounts.remove(id).is_some(),
