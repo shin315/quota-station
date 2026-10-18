@@ -1,11 +1,12 @@
 //! What the app holds between reads, and the model every window draws.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::Instant;
 
 use quota_station_core::antigravity::oauth_server;
+use quota_station_core::antigravity::pace::Pace;
 use quota_station_core::axi::Response;
 use quota_station_core::peers::{self, PeerState, SyncLog};
 use quota_station_core::rotation::{self, FileState, Rules, Stamp};
@@ -32,6 +33,12 @@ pub struct Shared {
     /// Held while copying the rotation file to the other Macs, so two copies
     /// to the same Mac never run at once.
     pub push_lock: Mutex<()>,
+    /// Wakes the Antigravity quota thread: a read, the tab, a login.
+    pub agy_wake: Condvar,
+    /// Held while Antigravity accounts are read and while one logs out, so
+    /// a read never writes an account's token or reading back after its
+    /// logout removed them.
+    pub agy_accounts: Mutex<()>,
 }
 
 impl Shared {
@@ -41,6 +48,8 @@ impl Shared {
             wake: Condvar::new(),
             sync_wake: Condvar::new(),
             push_lock: Mutex::new(()),
+            agy_wake: Condvar::new(),
+            agy_accounts: Mutex::new(()),
         })
     }
 
@@ -66,6 +75,11 @@ impl Shared {
     pub fn request_switcher(&self) {
         self.lock().switcher_now = true;
         self.wake.notify_all();
+    }
+
+    /// Wakes the Antigravity quota thread after a change to its pace.
+    pub fn wake_agy(&self) {
+        self.agy_wake.notify_all();
     }
 }
 
@@ -117,6 +131,22 @@ pub struct Inner {
     /// The running login while it waits for the browser: takes a pasted
     /// callback or a cancel.
     pub agy_login: Option<oauth_server::Handle>,
+    /// When each Antigravity account is read next (M4b).
+    pub agy_pace: Pace,
+    /// The Antigravity accounts being read now, or whose last read failed,
+    /// by id. An account not here was read, or has nothing to report.
+    pub agy_reads: BTreeMap<String, ReadState>,
+}
+
+/// How the app's own read of an Antigravity account stands.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ReadState {
+    Reading,
+    /// `quota::ReadError::kind` and its message.
+    Failed {
+        kind: &'static str,
+        detail: String,
+    },
 }
 
 /// What the app last saw of the `cswap-prefer-team` switcher.
@@ -207,6 +237,8 @@ impl Inner {
             quit_pending: false,
             agy_logging_in: false,
             agy_login: None,
+            agy_pace: Pace::new(),
+            agy_reads: BTreeMap::new(),
         }
     }
 
@@ -249,6 +281,16 @@ impl Inner {
         self.claude = Some(report);
         self.claude_error = None;
         self.claude_generation += 1;
+    }
+
+    /// quota-axi's account in use, by its place in this app's Antigravity
+    /// index, when quota-axi read this app's folder.
+    pub fn agy_active_number(&self) -> Option<usize> {
+        let cockpit = self.agy.as_ref()?.primary("agy")?.cockpit.as_ref()?;
+        if cockpit.status != "ok" || cockpit.source.as_deref() != Some("quota-station") {
+            return None;
+        }
+        cockpit.accounts.iter().find(|a| a.active).map(|a| a.account as usize)
     }
 
     pub fn snapshot(&self) -> Snapshot {

@@ -3,9 +3,10 @@
 //! The app only ever runs quota-axi reads. Every read passes
 //! `--no-credential-refresh` and reuses quota-axi's shared cache with
 //! `--max-age`, so a refresh adds no vendor call while the cache is young.
-//! [`read_fresh`] skips the cache, for the check right after a switch. The
-//! one exception is [`grant_keychain`], which the user starts from a button:
-//! it lets quota-axi ask macOS for Keychain access once.
+//! [`read_fresh`] skips the cache, for the check right after a switch, and
+//! [`read_again`] reuses it for up to an hour, when only the report needs
+//! building again. The one exception is [`grant_keychain`], which the user
+//! starts from a button: it lets quota-axi ask macOS for Keychain access once.
 
 use std::ffi::OsString;
 use std::io::Read;
@@ -14,7 +15,10 @@ use std::process::{Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
+use time::OffsetDateTime;
+
 use crate::axi::{self, ParseError, Response};
+use crate::time_util;
 
 /// How long a read may run. The first `agy` read of a cold cache runs
 /// `agy -p /quota` and took about 6 seconds when measured.
@@ -23,6 +27,11 @@ pub const READ_TIMEOUT: Duration = Duration::from_secs(45);
 pub const GRANT_TIMEOUT: Duration = Duration::from_secs(180);
 /// quota-axi's shared cache may answer while younger than this.
 pub const MAX_AGE: &str = "120s";
+/// [`read_again`] reuses quota-axi's last successful reading up to this old
+/// (quota-axi's longest `--max-age`).
+pub const REUSE_MAX_AGE: &str = "60m";
+/// [`reusable`]: [`REUSE_MAX_AGE`], less a margin for the run itself.
+pub const REUSE_WITHIN: Duration = Duration::from_secs(55 * 60);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProviderId {
@@ -107,6 +116,30 @@ pub fn read(path: &Path, provider: ProviderId) -> Result<Response, RunError> {
 
 pub fn read_fresh(path: &Path, provider: ProviderId) -> Result<Response, RunError> {
     report(path, &fresh_read_args(provider), READ_TIMEOUT)
+}
+
+/// The report again without a new reading: quota-axi serves its last
+/// successful reading of the provider (up to [`REUSE_MAX_AGE`] old), so it
+/// asks the vendor nothing, and builds the rest of the report anew. The app
+/// uses it right after writing an Antigravity account's quota, which
+/// quota-axi's `cockpit` block reads from the files at every run.
+pub fn read_again(path: &Path, provider: ProviderId) -> Result<Response, RunError> {
+    report(path, &read_args_with(provider, REUSE_MAX_AGE), READ_TIMEOUT)
+}
+
+/// [`read_again`] would reuse `report`'s reading of `provider` at `now`:
+/// the reading worked and was taken under [`REUSE_WITHIN`] ago. A reused
+/// reading says when it was taken; a new one was taken with the report.
+pub fn reusable(report: &Response, provider: ProviderId, now: OffsetDateTime) -> bool {
+    let Some(row) = report.primary(provider.as_str()) else {
+        return false;
+    };
+    let taken = row.state.refreshed_at.as_deref().unwrap_or(&report.generated_at);
+    row.state.error.is_none()
+        && time_util::parse_ts(taken).is_some_and(|at| {
+            let age = now - at;
+            !age.is_negative() && age < REUSE_WITHIN
+        })
 }
 
 pub fn grant_keychain(path: &Path) -> Result<Response, RunError> {

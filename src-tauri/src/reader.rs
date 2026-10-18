@@ -1,7 +1,8 @@
 //! The reader thread: runs quota-axi on the schedule and pushes each result
 //! to the menu bar and the windows. It also looks at the switcher: the pause
 //! flag on every read, and the dry run, log and launchd while a window is
-//! open or after the owner acted.
+//! open or after the owner acted. Each read also wakes the Antigravity
+//! quota thread for the account in use.
 
 use std::path::{Path, PathBuf};
 use std::thread;
@@ -87,7 +88,11 @@ fn run(app: &AppHandle, state: &AppState) {
         inner.reading = false;
         inner.reads += 1;
         inner.schedule.mark_read(Instant::now());
+        // The Antigravity account in use is read with every quota-axi read,
+        // once this one has said which account that is.
+        inner.agy_pace.cycle();
         drop(inner);
+        state.wake_agy();
         publish(app, state);
 
         if let Ok(check) = switcher.join() {

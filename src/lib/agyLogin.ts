@@ -1,9 +1,11 @@
 // The words of the Antigravity login card (M4a): the accounts this app logs
-// in, what is missing before it can, and what each login or logout did.
-// Accounts go by number ("Ultra 1"), as on the quota rows; the email shows
-// only when the owner turns it on in Cài đặt.
+// in, what is missing before it can, what each login or logout did, and how
+// the app's own read of each account's quota stands (M4b). Accounts go by
+// number ("Ultra 1"), as on the quota rows; the email shows only when the
+// owner turns it on in Cài đặt.
 
-import type { AgyAccounts, AgyLogin, AgyLoginDone, ClientStatus } from './model';
+import { clock } from './format';
+import type { AgyAccounts, AgyLogin, AgyLoginDone, AgyReadError, ClientStatus } from './model';
 import type { ChipView, FeedbackView } from './view';
 
 export function agyLoginName(n: number): string {
@@ -21,19 +23,51 @@ export interface AgyRowView {
   relogin: boolean;
   /** "Mở trang xác minh" when Google sent one. */
   verify: boolean;
+  /** "đang đọc…" while the app reads its quota, "đọc lỗi: …" after a failed read. */
+  read: { tone: 'info' | 'warn' | 'bad'; text: string } | null;
 }
 
 const CHIPS: Record<AgyLogin['status'], ChipView> = {
   ok: { t: 'đã đăng nhập', k: 'ok' },
   needsLogin: { t: 'cần đăng nhập lại', k: 'bad' },
   needsVerification: { t: 'cần xác minh', k: 'warn' },
+  forbidden: { t: 'Google chặn', k: 'bad' },
 };
 
 const NEEDS: Record<AgyLogin['status'], string> = {
   ok: '',
   needsLogin: 'Google không nhận đăng nhập cũ nữa. Đăng nhập lại để dùng tiếp tài khoản này.',
   needsVerification: 'Google yêu cầu xác minh tài khoản này trước khi dùng tiếp.',
+  forbidden: 'Google từ chối đọc hạn mức của tài khoản này (403), nên app thôi đọc nó. Đăng nhập lại để thử lại.',
 };
+
+/** Why a read failed, after "đọc lỗi: ". */
+const READ_ERRORS: Record<string, string> = {
+  network: 'không kết nối được Google',
+  unauthorized: 'Google không nhận đăng nhập (401)',
+  rateLimited: 'Google báo gọi quá nhiều (429)',
+  server: 'máy chủ Google đang lỗi',
+  rejected: 'Google từ chối',
+  verification: 'Google yêu cầu xác minh',
+  parse: 'Google trả lời lạ',
+  keychain: 'không đọc được Keychain',
+  client: 'oauth-client.json chưa dùng được',
+  refresh: 'không làm mới được đăng nhập',
+  cache: 'không ghi được số vào thư mục của app',
+  index: 'không đọc được danh sách tài khoản',
+};
+
+/** The kinds whose detail helps the owner tell what went wrong. */
+const WITH_DETAIL = new Set(['rejected', 'parse', 'keychain', 'refresh', 'cache', 'index']);
+
+export function agyReadLine(reading: boolean, error: AgyReadError | null): AgyRowView['read'] {
+  if (reading) return { tone: 'info', text: 'đang đọc…' };
+  if (!error) return null;
+  const why = (READ_ERRORS[error.kind] ?? 'lỗi không rõ') + (WITH_DETAIL.has(error.kind) && error.detail ? ' (' + error.detail + ')' : '');
+  const retry = clock(error.retryAt);
+  const then = retry ? 'Giữ số cũ; app đọc lại lúc ' + retry + '.' : 'Giữ số cũ.';
+  return { tone: error.retryAt ? 'warn' : 'bad', text: 'đọc lỗi: ' + why + '. ' + then };
+}
 
 export function agyRows(view: AgyAccounts): AgyRowView[] {
   return view.accounts.map((a) => {
@@ -44,8 +78,9 @@ export function agyRows(view: AgyAccounts): AgyRowView[] {
       short: 'U' + a.number,
       sub: [who, NEEDS[a.status]].filter(Boolean).join('. ') || 'Đăng nhập giữ trong Keychain của app trên Mac này.',
       chip: CHIPS[a.status],
-      relogin: a.status === 'needsLogin',
-      verify: a.status === 'needsVerification' && a.verify,
+      relogin: a.status === 'needsLogin' || a.status === 'forbidden',
+      verify: (a.status === 'needsVerification' || a.status === 'forbidden') && a.verify,
+      read: agyReadLine(a.reading, a.readError),
     };
   });
 }

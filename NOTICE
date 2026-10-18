@@ -30,6 +30,25 @@ Adapted parts. Each file names its source and its changes in its header.
 - crates/quota-station-core/src/antigravity/login.rs
   follows the order of start_oauth_login in src-tauri/src/commands/oauth.rs
   and the invalid_grant handling in src-tauri/src/modules/account.rs.
+- crates/quota-station-core/src/antigravity/cloud_code.rs
+  from src-tauri/src/modules/quota.rs: the Cloud Code hosts and their
+  choice, the loadCodeAssist request and its metadata, the
+  fetchAvailableModels and retrieveUserQuotaSummary requests and the payload
+  cached from them, the 403 handling, the retries a second apart, and the
+  reading of Google's error bodies and verification links.
+- crates/quota-station-core/src/antigravity/version.rs
+  from src-tauri/src/modules/wakeup_gateway.rs and
+  src-tauri/src/modules/quota.rs: where Antigravity's version is read
+  (product.json, Info.plist through plutil, google-auth-library), the user
+  agents, x-goog-api-client, the platform name and the defaults.
+- crates/quota-station-core/src/antigravity/export.rs
+  from src-tauri/src/modules/quota.rs: the quota cache record, its file name
+  (the SHA-256 of the email), its folder and its 60-second TTL.
+- crates/quota-station-core/src/antigravity/quota.rs
+  follows the order of fetch_quota_with_fresh_token in
+  src-tauri/src/modules/account.rs and fetch_quota_with_context in
+  src-tauri/src/modules/quota.rs, and their handling of 403, invalid_grant
+  and verification requests.
 
 What was changed:
 
@@ -41,8 +60,15 @@ What was changed:
   AES-encrypted files with their key beside them.
 - A thread and blocking HTTP instead of async tasks and Tauri events; typed
   errors that keep no response body, token or secret; no logging.
+- Quota reads: no environment overrides, no autopush host, no onboardUser,
+  no subscription tier or credit parsing (only the GCP ToS mark is read);
+  loadCodeAssist only while a token lacks a project or the GCP ToS mark,
+  and an answer without the mark is kept as no GCP ToS; a 429 or 5xx is
+  not retried at once but waits longer before the next read; a quota
+  summary that does not come back keeps the last full reading instead of
+  caching one without it; the cache lives in the app's own folder.
 - The pages the browser sees are translated to Vietnamese, error messages to
   English.
 
-Later milestones that adapt more of Cockpit Tools (reading quota, switching
-the Antigravity account) add their parts to this list.
+A later milestone that adapts more of Cockpit Tools (switching the
+Antigravity account) adds its parts to this list.

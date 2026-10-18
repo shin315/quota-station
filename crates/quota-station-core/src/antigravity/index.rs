@@ -11,7 +11,8 @@
 //!   id, email, name, created and last-used times, current account), so
 //!   quota-axi can read it as it reads Cockpit's;
 //! - `status.json`, the accounts that need the owner: a new login after
-//!   Google refused the refresh token, or a verification Google asks for.
+//!   Google refused the refresh token, a verification Google asks for, or
+//!   an account the quota API refuses.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -132,6 +133,14 @@ pub enum Standing {
     /// subscription (`SUBSCRIPTION_REQUIRED`), with Google's link when it
     /// sent one.
     NeedsVerification {
+        since: i64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        url: Option<String>,
+    },
+    /// The quota API answered 403 (Cockpit's `is_forbidden`): the account is
+    /// not read again until a new login, with Google's verification link
+    /// when it sent one.
+    Forbidden {
         since: i64,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         url: Option<String>,

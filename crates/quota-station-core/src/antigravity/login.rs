@@ -9,7 +9,8 @@
 use std::path::Path;
 use std::time::Duration;
 
-use super::client::{self, ClientStatus};
+use super::client::{self, ClientStatus, OAuthClient};
+use super::export;
 use super::fs::AppDir;
 use super::index::{self, AccountSummary, IndexError, Standing};
 use super::oauth::{self, Endpoints, OAuthError};
@@ -249,15 +250,16 @@ impl std::fmt::Display for LogoutError {
 
 impl std::error::Error for LogoutError {}
 
-/// Forgets an account in this app: its Keychain item, its index line and its
-/// status. Antigravity.app and agy stay logged in as they are, and Google is
-/// not asked to revoke anything (Cockpit does not either). The item goes
-/// first, so a failure leaves the account listed rather than a token behind.
+/// Forgets an account in this app: its Keychain item, its index line, its
+/// status and its quota reading. Antigravity.app and agy stay logged in as
+/// they are, and Google is not asked to revoke anything (Cockpit does not
+/// either). The item goes first, so a failure leaves the account listed
+/// rather than a token behind.
 pub fn logout(deps: &Deps, id: &str) -> Result<(), LogoutError> {
     let mut index = index::load(deps.app).map_err(LogoutError::Index)?;
-    if !index.accounts.iter().any(|s| s.id == id) {
+    let Some(email) = index.accounts.iter().find(|s| s.id == id).map(|s| s.email.clone()) else {
         return Err(LogoutError::NotFound);
-    }
+    };
     deps.keychain.delete(id).map_err(LogoutError::Keychain)?;
     index.accounts.retain(|s| s.id != id);
     if index.current_account_id.as_deref() == Some(id) {
@@ -265,6 +267,8 @@ pub fn logout(deps: &Deps, id: &str) -> Result<(), LogoutError> {
     }
     index::save(deps.app, &index).map_err(LogoutError::Index)?;
     let _ = index::set_standing(deps.app, id, None);
+    // quota-axi reads only listed accounts; the reading goes for tidiness.
+    let _ = export::remove(deps.app, &email);
     Ok(())
 }
 
@@ -297,7 +301,32 @@ impl std::error::Error for UseError {}
 pub fn fresh_token(deps: &Deps, id: &str, now: i64) -> Result<TokenData, UseError> {
     let client = client::load(deps.app).map_err(UseError::Client)?;
     let token = deps.keychain.read(id).map_err(UseError::Keychain)?;
-    match oauth::ensure_fresh_token(deps.endpoints, &client, &token, now) {
+    renew(deps, &client, id, &token, now)
+}
+
+/// [`fresh_token`] for a token the caller already read from the Keychain.
+/// `oauth-client.json` is needed only when a refresh is due.
+pub fn refresh_if_due(
+    deps: &Deps,
+    id: &str,
+    token: &TokenData,
+    now: i64,
+) -> Result<TokenData, UseError> {
+    if token.expiry_timestamp > now + oauth::REFRESH_MARGIN_SECS {
+        return Ok(token.clone());
+    }
+    let client = client::load(deps.app).map_err(UseError::Client)?;
+    renew(deps, &client, id, token, now)
+}
+
+fn renew(
+    deps: &Deps,
+    client: &OAuthClient,
+    id: &str,
+    token: &TokenData,
+    now: i64,
+) -> Result<TokenData, UseError> {
+    match oauth::ensure_fresh_token(deps.endpoints, client, token, now) {
         Ok(fresh) => {
             if fresh.access_token != token.access_token {
                 // As Cockpit: the fresh token works now even if keeping it failed.

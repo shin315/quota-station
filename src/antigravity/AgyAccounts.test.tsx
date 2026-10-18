@@ -227,3 +227,77 @@ describe('Antigravity login card', () => {
     expect(addButton().disabled).toBe(true);
   });
 });
+
+describe('Antigravity quota reads', () => {
+  it('opening the tab asks the app to read every account', async () => {
+    const fake = await open(withAgy({ accounts: [agyAccount(1), agyAccount(2)] }));
+    expect(fake.api.agyTabOpened).toHaveBeenCalledTimes(1);
+    cleanup();
+
+    const other = fakeApi(withAgy({ accounts: [agyAccount(1)] }), 'overview');
+    vi.spyOn(other.api, 'agyTabOpened');
+    render(
+      <div className="qs app-window">
+        <MainWindowApp api={other.api} clock={() => FIXTURE_NOW} />
+      </div>,
+    );
+    await screen.findByRole('heading', { name: 'Tổng quan' });
+    expect(other.api.agyTabOpened).not.toHaveBeenCalled();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Antigravity' }));
+    });
+    expect(other.api.agyTabOpened).toHaveBeenCalledTimes(1);
+  });
+
+  it('a row says while the app reads it, and nothing once it is read', async () => {
+    await open(withAgy({ accounts: [agyAccount(1, { reading: true }), agyAccount(2)] }));
+    const [first, second] = within(list()).getAllByRole('listitem');
+    expect(within(first).getByRole('status').textContent).toBe('đang đọc…');
+    expect(within(second).queryByRole('status')).toBeNull();
+    expect(within(second).getByText('đã đăng nhập')).toBeTruthy();
+  });
+
+  it('a failed read says why and that the last numbers stay', async () => {
+    await open(
+      withAgy({
+        accounts: [
+          agyAccount(1, { readError: { kind: 'network', detail: 'fetchAvailableModels: no answer', retryAt: null } }),
+          agyAccount(2, { readError: { kind: 'rateLimited', detail: '', retryAt: '2026-01-16T07:24:00.000Z' } }),
+          agyAccount(3, { readError: { kind: 'rejected', detail: 'fetchAvailableModels: Google refused (400)', retryAt: null } }),
+          agyAccount(4, { readError: { kind: 'unauthorized', detail: '', retryAt: null } }),
+        ],
+      }),
+    );
+    const rows = within(list()).getAllByRole('listitem');
+    const line = (i: number) => within(rows[i]).getByRole('status');
+    expect(line(0).textContent).toBe('đọc lỗi: không kết nối được Google. Giữ số cũ.');
+    expect(line(0).className).toContain('bad');
+    expect(line(1).textContent).toBe('đọc lỗi: Google báo gọi quá nhiều (429). Giữ số cũ; app đọc lại lúc 14:24.');
+    expect(line(1).className).toContain('warn');
+    expect(line(2).textContent).toBe('đọc lỗi: Google từ chối (fetchAvailableModels: Google refused (400)). Giữ số cũ.');
+    expect(line(3).textContent).toBe('đọc lỗi: Google không nhận đăng nhập (401). Giữ số cũ.');
+    // The login chips stay as they are: a failed read is not a logout.
+    expect(within(list()).getAllByText('đã đăng nhập')).toHaveLength(4);
+  });
+
+  it('an account Google refused is no longer read and can log in again', async () => {
+    const fake = await open(withAgy({ accounts: [agyAccount(1), agyAccount(2, { status: 'forbidden', verify: true })] }));
+    const second = within(list()).getAllByRole('listitem')[1];
+    expect(within(second).getByText('Google chặn')).toBeTruthy();
+    expect(within(second).getByText(/từ chối đọc hạn mức của tài khoản này \(403\), nên app thôi đọc nó/)).toBeTruthy();
+    await act(async () => {
+      fireEvent.click(within(second).getByRole('button', { name: 'Mở trang xác minh' }));
+    });
+    expect(fake.api.agyOpenVerification).toHaveBeenCalledWith('antigravity_fake2');
+    await act(async () => {
+      fireEvent.click(within(second).getByRole('button', { name: 'Đăng nhập lại' }));
+    });
+    expect(fake.api.agyLogin).toHaveBeenCalledTimes(1);
+  });
+
+  it('a Mac with no account logged in still says it has no Antigravity, and reads nothing', async () => {
+    await open(fixtureModel('no-antigravity', { antigravity: agyFixture() }));
+    expect(screen.getByText('Máy này chưa có Antigravity')).toBeTruthy();
+    expect(screen.queryByText(/đang đọc|đọc lỗi/)).toBeNull();
+  });
+});

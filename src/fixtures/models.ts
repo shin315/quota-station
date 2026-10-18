@@ -100,7 +100,17 @@ export function agyFixture(over: Partial<AgyAccounts> = {}): AgyAccounts {
 
 /** An account logged in here, numbered `n`; emails stay hidden unless given. */
 export function agyAccount(n: number, over: Partial<AgyLogin> = {}): AgyLogin {
-  return { id: 'antigravity_fake' + n, number: n, email: null, name: null, status: 'ok', verify: false, ...over };
+  return {
+    id: 'antigravity_fake' + n,
+    number: n,
+    email: null,
+    name: null,
+    status: 'ok',
+    verify: false,
+    reading: false,
+    readError: null,
+    ...over,
+  };
 }
 
 export function fixtureModel(name: string, over: Partial<Model> = {}): Model {

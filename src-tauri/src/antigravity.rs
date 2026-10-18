@@ -1,9 +1,11 @@
-//! The Antigravity accounts this app logs in (M4a): what the windows show
-//! of them, and the commands to add one through Google's consent screen,
-//! take a pasted callback, cancel, log out and open Google's verification
-//! page. Tokens stay in the app's own Keychain items; the windows only ever
-//! get each account's id (Cockpit's MD5 of its email), its number, its
-//! status and, when the owner turns them on, the emails.
+//! The Antigravity accounts this app logs in (M4a) and reads (M4b): what the
+//! windows show of them, and the commands to add one through Google's
+//! consent screen, take a pasted callback, cancel, log out, open Google's
+//! verification page, and read every account when the tab opens. Tokens
+//! stay in the app's own Keychain items; the windows only ever get each
+//! account's id (Cockpit's MD5 of its email), its number, its status, how
+//! the app's read of it stands and, when the owner turns them on, the
+//! emails. The numbers themselves come from quota-axi.
 
 use quota_station_core::antigravity::client::{self, ClientStatus};
 use quota_station_core::antigravity::fs::AppDir;
@@ -20,7 +22,7 @@ use tauri::{AppHandle, State};
 use time::OffsetDateTime;
 
 use crate::reader;
-use crate::state::{AppState, Inner, Model};
+use crate::state::{AppState, Inner, Model, ReadState};
 
 /// The Antigravity accounts card and the settings row.
 #[derive(Debug, Clone, Serialize)]
@@ -47,15 +49,36 @@ pub struct AccountView {
     /// Only when the owner turned emails on.
     pub email: Option<String>,
     pub name: Option<String>,
-    /// `ok`, `needsLogin` or `needsVerification`.
+    /// `ok`, `needsLogin`, `needsVerification` or `forbidden`.
     pub status: &'static str,
     /// Google sent a verification page for it.
     pub verify: bool,
+    /// The app is reading its quota now.
+    pub reading: bool,
+    /// The app's last read of it failed; the last numbers stay.
+    pub read_error: Option<ReadErrorView>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReadErrorView {
+    /// `quota::ReadError::kind`: `network`, `rateLimited`, `server`…
+    pub kind: &'static str,
+    pub detail: String,
+    /// After a 429 or a 5xx: when the app reads it again, RFC 3339.
+    pub retry_at: Option<String>,
 }
 
 pub fn view(inner: &Inner) -> AccountsView {
     let app = inner.app_dir();
     let show = inner.settings.show_email;
+    let now = OffsetDateTime::now_utc();
+    let now_ms = (now.unix_timestamp_nanos() / 1_000_000) as i64;
+    let rfc = |ms: i64| {
+        OffsetDateTime::from_unix_timestamp(ms.div_euclid(1000))
+            .ok()
+            .and_then(|t| t.format(&time::format_description::well_known::Rfc3339).ok())
+    };
     let index = index::load(&app);
     let statuses = index::load_statuses(&app);
     let accounts = index
@@ -66,6 +89,7 @@ pub fn view(inner: &Inner) -> AccountsView {
         .enumerate()
         .map(|(i, a)| {
             let standing = statuses.accounts.get(&a.id);
+            let read = inner.agy_reads.get(&a.id);
             AccountView {
                 id: a.id.clone(),
                 number: i + 1,
@@ -75,8 +99,18 @@ pub fn view(inner: &Inner) -> AccountsView {
                     None => "ok",
                     Some(Standing::NeedsLogin { .. }) => "needsLogin",
                     Some(Standing::NeedsVerification { .. }) => "needsVerification",
+                    Some(Standing::Forbidden { .. }) => "forbidden",
                 },
-                verify: matches!(standing, Some(Standing::NeedsVerification { url: Some(_), .. })),
+                verify: verification_page(standing).is_some(),
+                reading: matches!(read, Some(ReadState::Reading)),
+                read_error: match read {
+                    Some(ReadState::Failed { kind, detail }) => Some(ReadErrorView {
+                        kind,
+                        detail: detail.clone(),
+                        retry_at: inner.agy_pace.waiting_until(&a.id, now_ms).and_then(rfc),
+                    }),
+                    _ => None,
+                },
             }
         })
         .collect();
@@ -160,7 +194,12 @@ pub async fn agy_login(app: AppHandle, state: State<'_, AppState>) -> Result<Log
     }
     reader::publish(&app, &shared);
     match done {
-        Ok(Ok(kept)) => Ok(LoginDone { number: kept.number, added: kept.added }),
+        Ok(Ok(kept)) => {
+            // Its quota is read now, as Cockpit reads it right after a login.
+            shared.lock().agy_pace.ask(&kept.id);
+            shared.wake_agy();
+            Ok(LoginDone { number: kept.number, added: kept.added })
+        }
         Ok(Err(e)) => Err(Failure::from(&e)),
         Err(e) => Err(Failure { kind: "spawn", detail: e.to_string() }),
     }
@@ -201,10 +240,22 @@ pub async fn agy_logout(
 ) -> Result<Model, String> {
     let shared = state.inner().clone();
     let dir = shared.lock().app_dir();
-    let result = tauri::async_runtime::spawn_blocking(move || {
-        let endpoints = Endpoints::google();
-        let keychain = Keychain::system();
-        login::logout(&Deps { app: &dir, endpoints: &endpoints, keychain: &keychain }, &id)
+    let result = tauri::async_runtime::spawn_blocking({
+        let shared = shared.clone();
+        move || {
+            // Waits for a quota read that is under way to end first.
+            let _no_read = shared.agy_accounts.lock().unwrap_or_else(|e| e.into_inner());
+            let endpoints = Endpoints::google();
+            let keychain = Keychain::system();
+            let deps = Deps { app: &dir, endpoints: &endpoints, keychain: &keychain };
+            let result = login::logout(&deps, &id);
+            if result.is_ok() {
+                let mut inner = shared.lock();
+                inner.agy_reads.remove(&id);
+                inner.agy_pace.forget(&id);
+            }
+            result
+        }
     })
     .await
     .map_err(|e| e.to_string())?;
@@ -218,20 +269,36 @@ pub async fn agy_logout(
     Ok(model)
 }
 
+/// The verification page Google sent with a status, if any.
+fn verification_page(standing: Option<&Standing>) -> Option<&str> {
+    match standing {
+        Some(Standing::NeedsVerification { url: Some(url), .. })
+        | Some(Standing::Forbidden { url: Some(url), .. }) => Some(url),
+        _ => None,
+    }
+}
+
 /// Opens the verification page Google sent for an account, when it is one
 /// of Google's own pages.
 #[tauri::command]
 pub fn agy_open_verification(state: State<'_, AppState>, id: String) -> Result<(), String> {
     let dir = state.lock().app_dir();
     let statuses = index::load_statuses(&dir);
-    let Some(Standing::NeedsVerification { url: Some(url), .. }) = statuses.accounts.get(&id)
-    else {
+    let Some(url) = verification_page(statuses.accounts.get(&id)) else {
         return Err("noPage".into());
     };
     if !is_google_page(url) {
         return Err("noPage".into());
     }
     SystemBrowser.open(url).map_err(|_| "browser".to_string())
+}
+
+/// The `Antigravity` tab opened: every account is read now, unless it was
+/// read in the last minute (`quota_station_core::antigravity::pace`).
+#[tauri::command]
+pub fn agy_tab_opened(state: State<'_, AppState>) {
+    state.lock().agy_pace.ask_all();
+    state.wake_agy();
 }
 
 fn is_google_page(url: &str) -> bool {

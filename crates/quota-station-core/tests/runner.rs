@@ -7,7 +7,7 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use common::fixture_path;
+use common::{fixture, fixture_path};
 use quota_station_core::runner::{
     self, candidates, child_path, discover, display_path, expand_path, ProviderId, RunError,
 };
@@ -85,6 +85,41 @@ fn an_unsupported_schema_is_a_parse_error() {
     let axi = fake(&dir, Some(&fixture_path("schema-unsupported.json")), 0);
     let err = runner::read(&axi, ProviderId::Claude).unwrap_err();
     assert!(matches!(err, RunError::Parse(_)));
+}
+
+#[test]
+fn reading_again_reuses_quota_axis_last_reading() {
+    let dir = temp_dir();
+    let axi = fake(&dir, Some(&fixture_path("agy-cockpit.json")), 0);
+    runner::read_again(&axi, ProviderId::Agy).unwrap();
+    assert_eq!(
+        recorded_args(&dir),
+        ["--provider", "agy", "--json", "--max-age", "60m", "--no-credential-refresh"]
+    );
+}
+
+#[test]
+fn a_reading_is_reused_only_while_young_and_working() {
+    use time::format_description::well_known::Rfc3339;
+    let datetime = |at: &str| time::OffsetDateTime::parse(at, &Rfc3339).unwrap();
+    // Reused at 07:16, reported at 07:20.
+    let report = fixture("agy-cockpit.json");
+    let at = |t| runner::reusable(&report, ProviderId::Agy, t);
+    assert!(at(datetime("2026-01-16T07:20:00Z")));
+    assert!(at(datetime("2026-01-16T08:10:00Z")), "54 minutes old");
+    assert!(!at(datetime("2026-01-16T08:11:00Z")), "55 minutes old");
+    assert!(!at(datetime("2026-01-16T07:15:00Z")), "taken after now");
+    assert!(!runner::reusable(&report, ProviderId::Claude, datetime("2026-01-16T07:20:00Z")));
+
+    // A new reading was taken with the report.
+    let mut fresh = report.clone();
+    fresh.providers.iter_mut().for_each(|p| p.state.refreshed_at = None);
+    assert!(runner::reusable(&fresh, ProviderId::Agy, datetime("2026-01-16T08:14:00Z")));
+    assert!(!runner::reusable(&fresh, ProviderId::Agy, datetime("2026-01-16T08:15:00Z")));
+
+    let mut failed = report;
+    failed.providers.iter_mut().for_each(|p| p.state.error = Some("network".into()));
+    assert!(!runner::reusable(&failed, ProviderId::Agy, datetime("2026-01-16T07:20:00Z")));
 }
 
 #[test]

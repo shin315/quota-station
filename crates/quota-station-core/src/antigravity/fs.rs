@@ -2,7 +2,9 @@
 //! only paths inside the app's Application Support folder are allowed: a
 //! path anywhere else, or one that passes through a symlinked folder, is
 //! refused before it is opened. So no bug in this module can reach another
-//! tool's login files (SECURITY.md lists them).
+//! tool's login files (SECURITY.md lists them). The one other place read is
+//! an installed app's bundle ([`Bundle`]), only for its version, and never
+//! written.
 //!
 //! With the `test-support` feature every path is also recorded, for the spy
 //! test that runs every flow and checks where they went.
@@ -103,6 +105,53 @@ impl AppDir {
     }
 }
 
+/// An installed app's bundle, such as Antigravity's, read only for its
+/// version: files are read by their place inside the bundle, never written,
+/// and nothing outside the bundle can be named.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Bundle(PathBuf);
+
+impl Bundle {
+    pub fn new(path: impl Into<PathBuf>) -> Self {
+        Bundle(path.into())
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.0
+    }
+
+    /// `parts` joined under the bundle; `None` for an empty or `..` part.
+    fn file(&self, parts: &[&str]) -> Option<PathBuf> {
+        let plain = |p: &&str| {
+            let mut c = Path::new(p).components();
+            matches!((c.next(), c.next()), (Some(Component::Normal(_)), None))
+        };
+        parts.iter().all(plain).then(|| parts.iter().fold(self.0.clone(), |p, part| p.join(part)))
+    }
+
+    /// The bundle is there (a symlink to one counts, as `Path::exists`).
+    pub fn present(&self) -> bool {
+        record(&self.0);
+        std::fs::metadata(&self.0).is_ok()
+    }
+
+    /// Something is at `parts` inside the bundle.
+    pub fn has(&self, parts: &[&str]) -> bool {
+        self.file(parts).is_some_and(|path| {
+            record(&path);
+            std::fs::metadata(path).is_ok()
+        })
+    }
+
+    pub fn read_to_string(&self, parts: &[&str]) -> io::Result<String> {
+        let path = self
+            .file(parts)
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "not inside the bundle"))?;
+        record(&path);
+        std::fs::read_to_string(path)
+    }
+}
+
 #[cfg(feature = "test-support")]
 static OPENED: std::sync::Mutex<Vec<PathBuf>> = std::sync::Mutex::new(Vec::new());
 
@@ -134,6 +183,25 @@ mod tests {
         assert!(dir.check(Path::new("/tmp/qs-application/x")).is_err());
         assert!(dir.check(Path::new("relative/x")).is_err());
         assert!(AppDir::new("").check(Path::new("x")).is_err());
+    }
+
+    #[test]
+    fn a_bundle_reads_only_inside_itself() {
+        let base = std::env::temp_dir().join(format!("qs-bundle-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        std::fs::create_dir_all(base.join("App.app/Contents")).unwrap();
+        std::fs::write(base.join("App.app/Contents/product.json"), "{}").unwrap();
+        std::fs::write(base.join("outside.json"), "{}").unwrap();
+        let bundle = Bundle::new(base.join("App.app"));
+        assert!(bundle.present());
+        assert!(bundle.has(&["Contents", "product.json"]));
+        assert_eq!(bundle.read_to_string(&["Contents", "product.json"]).unwrap(), "{}");
+        assert!(!bundle.has(&["..", "outside.json"]));
+        assert!(bundle.read_to_string(&["..", "outside.json"]).is_err());
+        assert!(bundle.read_to_string(&["Contents/../../outside.json"]).is_err());
+        assert!(bundle.read_to_string(&["/etc/hosts"]).is_err());
+        assert!(!Bundle::new(base.join("Missing.app")).present());
+        std::fs::remove_dir_all(&base).unwrap();
     }
 
     #[test]
