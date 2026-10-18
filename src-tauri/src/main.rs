@@ -1,7 +1,7 @@
 //! Quota Station: AI coding quota in the macOS menu bar.
 //!
 //! Each Mac runs its own copy and reads only its own machine through
-//! quota-axi. This build (M1) only reads: it never switches an account.
+//! quota-axi. This build (M2) only reads: it never switches an account.
 
 mod commands;
 mod reader;
@@ -13,13 +13,13 @@ use std::process::Command;
 
 use tauri::Manager;
 
-use crate::state::{Inner, Shared};
+use crate::state::{Inner, Shared, Tab};
 
 fn main() {
     tauri::Builder::default()
-        // A second launch shows this copy's settings instead of a second icon.
+        // A second launch shows this copy's main window instead of a second icon.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            windows::open_settings(app);
+            windows::open_main(app, Tab::Overview);
         }))
         .plugin(tauri_plugin_positioner::init())
         .setup(|app| {
@@ -42,10 +42,12 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             commands::get_model,
             commands::refresh,
-            commands::open_settings,
+            commands::open_window,
+            commands::main_tab,
             commands::hide_popover,
             commands::popover_resize,
             commands::set_quota_axi_path,
+            commands::set_machine_name,
             commands::grant_keychain,
         ])
         .run(tauri::generate_context!())

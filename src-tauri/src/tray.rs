@@ -9,7 +9,7 @@ use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{App, AppHandle, Manager};
 
-use crate::state::AppState;
+use crate::state::{AppState, Tab};
 use crate::windows;
 
 const TRAY_ID: &str = "quota-station";
@@ -20,11 +20,14 @@ const GLYPH_SCALE: u32 = 2;
 static LAST: Mutex<Option<Icon>> = Mutex::new(None);
 
 pub fn build(app: &App) -> tauri::Result<()> {
+    let window = MenuItem::with_id(app, "window", "Mở cửa sổ chính", true, None::<&str>)?;
     let refresh = MenuItem::with_id(app, "refresh", "Làm mới", true, None::<&str>)?;
     let settings = MenuItem::with_id(app, "settings", "Cài đặt…", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Thoát Quota Station", true, None::<&str>)?;
-    let menu =
-        Menu::with_items(app, &[&refresh, &settings, &PredefinedMenuItem::separator(app)?, &quit])?;
+    let menu = Menu::with_items(
+        app,
+        &[&window, &refresh, &settings, &PredefinedMenuItem::separator(app)?, &quit],
+    )?;
     let blank = Icon {
         title: "–".into(),
         tone: quota_station_core::Tone::Muted,
@@ -54,7 +57,8 @@ pub fn build(app: &App) -> tauri::Result<()> {
         })
         .on_menu_event(|app, event| match event.id.as_ref() {
             "refresh" => app.state::<AppState>().request_read(),
-            "settings" => windows::open_settings(app),
+            "window" => windows::open_main(app, Tab::Overview),
+            "settings" => windows::open_main(app, Tab::Settings),
             "quit" => app.exit(0),
             _ => {}
         })

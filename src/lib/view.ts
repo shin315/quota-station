@@ -1,4 +1,5 @@
-// Turns the model into what the popover shows. Pure: the same model and
+// Turns the model into what the popover shows; the main window builds on
+// the same view (`window.ts`). Pure: the same model and
 // clock give the same view, so Vitest covers every state without a window.
 // Copy follows the approved prototype (Hướng 1 · Kính macOS, bước 0.7).
 
@@ -6,7 +7,7 @@ import { age, clock, hours, minutesUntil, percent, resetShort, resetWords, room,
 import type { Account, ErrorView, Line, LineKind, Model, Pool, Section } from './model';
 
 export type Tone = 'ok' | 'warn' | 'bad' | 'muted' | 'info';
-export type Action = 'refresh' | 'settings' | 'keychain' | 'dismiss';
+export type Action = 'refresh' | 'settings' | 'window' | 'keychain' | 'dismiss';
 
 export interface ChipView {
   t: string;
@@ -21,6 +22,8 @@ export interface LineView {
   reset: string;
   tone: 'ok' | 'warn' | 'bad' | 'muted';
   words: string;
+  /** The reset in full words for the window tables: `Đặt lại sau 3 giờ 09 phút`. */
+  long: string;
   /** Hover text, when the number needs a word of explanation. */
   title: string;
 }
@@ -32,7 +35,12 @@ export interface RowView {
   kind: 'c' | 'g';
   active: boolean;
   dim: boolean;
+  /** Every chip the popover shows: `tags` and then `freshness`. */
   chips: ChipView[];
+  /** Role, rotation and source chips, without the freshness chip. */
+  tags: ChipView[];
+  /** How fresh the account's reading is, `40 giây trước`: its own age, never the app's last call. */
+  freshness: ChipView | null;
   lines: LineView[];
   label: string;
   title: string;
@@ -47,6 +55,8 @@ export interface PoolView {
   sub: string;
   tone: 'ok' | 'bad' | 'muted';
   title: string;
+  /** Rotation: each counted account's room, `Team A 27%`. */
+  parts: string[];
 }
 
 export interface BannerView {
@@ -120,7 +130,7 @@ export function claudeNames(accounts: Account[]): Map<number, { name: string; sh
   return out;
 }
 
-function agyName(a: Account): { name: string; short: string } {
+export function agyName(a: Account): { name: string; short: string } {
   return a.number === 0 ? { name: 'Tài khoản đang dùng', short: 'G' } : { name: 'Ultra ' + a.number, short: 'U' + a.number };
 }
 
@@ -149,6 +159,7 @@ function lineView(line: Line, now: Date): LineView {
     text: p == null ? '—' : (atLeast ? '≥' : '') + percent(p),
     reset,
     tone: meterTone(p),
+    long: words ? words.charAt(0).toUpperCase() + words.slice(1) : '',
     words:
       'Hạn mức ' +
       label +
@@ -180,15 +191,21 @@ function rowView(a: Account, kind: 'c' | 'g', names: { name: string; short: stri
     if (a.leavesAt) chips.push({ t: 'rời vòng ' + clock(a.leavesAt), k: 'warn' });
     if (a.disabled) chips.push({ t: 'đã tắt', k: '' });
   }
+  let freshness: ChipView | null = null;
+  let source: ChipView | null = null;
   if (!ctx.old) {
     const since = secondsSince(a.fetchedAt, ctx.now);
-    if (a.reading === 'stale' && since != null) chips.push({ t: 'cập nhật ' + age(since) + ' trước', k: 'stale' });
-    if (a.reading === 'resetPending') chips.push({ t: 'chờ số sau mốc đặt lại', k: 'info' });
-    if (a.reading === 'noData') chips.push({ t: 'chưa có số', k: '' });
-    if (kind === 'c' && a.active && a.source === 'claudeSwap' && ctx.keychainRequired) chips.push({ t: 'số từ claude-swap', k: 'info' });
+    if (a.reading === 'resetPending') freshness = { t: 'chờ số sau mốc đặt lại', k: 'info' };
+    else if (a.reading === 'noData') freshness = { t: 'chưa có số', k: '' };
+    else if (since != null) freshness = { t: age(since) + ' trước', k: a.reading === 'stale' ? 'stale' : '' };
+    if (kind === 'c' && a.active && a.source === 'claudeSwap' && ctx.keychainRequired) source = { t: 'số từ claude-swap', k: 'info' };
   }
+  // The popover shows the freshness chip only when the reading is not fresh.
+  const late = freshness && a.reading !== 'fresh' ? [a.reading === 'stale' ? { ...freshness, t: 'cập nhật ' + freshness.t } : freshness] : [];
+  const tags = source ? [...chips, source] : chips;
+  const all = [...chips, ...late, ...(source ? [source] : [])];
   const lines = a.lines.map((l) => lineView(l, ctx.now));
-  const tail = chips.filter((c) => c.k !== 'on').map((c) => c.t);
+  const tail = all.filter((c) => c.k !== 'on').map((c) => c.t);
   const where = a.number === 0 ? '' : kind === 'c' ? 'claude-swap · tài khoản ' + a.number : 'Cockpit · tài khoản ' + a.number;
   return {
     key: kind + a.number,
@@ -197,7 +214,9 @@ function rowView(a: Account, kind: 'c' | 'g', names: { name: string; short: stri
     kind,
     active: a.active,
     dim: ctx.old || a.reading === 'stale',
-    chips,
+    chips: all,
+    tags,
+    freshness,
     lines,
     label:
       names.name +
@@ -212,11 +231,15 @@ function rowView(a: Account, kind: 'c' | 'g', names: { name: string; short: stri
 
 // ===== Pools =====
 
+function poolParts(pool: Pool, names: (n: number) => string): string[] {
+  return pool.kind === 'rotation' ? pool.rooms.map((r) => names(r.number) + ' ' + percent(r.percent)) : [];
+}
+
 function poolTitle(pool: Pool, names: (n: number) => string, unit: string): string {
   if (pool.kind !== 'rotation' || !pool.rooms.length || pool.room == null) return '';
   return (
     'Cộng phần còn lại trước ngưỡng tự chuyển: ' +
-    pool.rooms.map((r) => names(r.number) + ' ' + percent(r.percent)).join(' + ') +
+    poolParts(pool, names).join(' + ') +
     ' ≈ ' +
     room(pool.room) +
     ' ' +
@@ -229,7 +252,7 @@ function claudePool(s: Section, old: string | null, names: (n: number) => string
   const p = s.pool;
   const label = p.kind === 'rotation' ? 'Claude trong vòng' : 'Claude';
   if (p.kind === 'none' || (p.kind === 'rotation' ? p.room == null : p.percent == null)) {
-    return { label, kind: 'c', value: '—', unit: null, percent: 0, sub: 'chưa có số', tone: 'muted', title: '' };
+    return { label, kind: 'c', value: '—', unit: null, percent: 0, sub: 'chưa có số', tone: 'muted', title: '', parts: [] };
   }
   const rotation = p.kind === 'rotation';
   const view: PoolView = {
@@ -241,6 +264,7 @@ function claudePool(s: Section, old: string | null, names: (n: number) => string
     sub: rotation ? 'tương đương, cộng phần còn lại' : 'chỉ tài khoản đang dùng',
     tone: rotation ? 'ok' : 'muted',
     title: poolTitle(p, names, 'tài khoản'),
+    parts: poolParts(p, names),
   };
   if (p.exhausted) {
     view.tone = 'bad';
@@ -256,7 +280,7 @@ function claudePool(s: Section, old: string | null, names: (n: number) => string
 
 function agyPool(s: Section, old: string | null): PoolView {
   const p = s.pool;
-  const base = { label: 'Antigravity', kind: 'g' as const, title: '' };
+  const base = { label: 'Antigravity', kind: 'g' as const, title: '', parts: [] as string[] };
   if (s.status === 'notSetUp') {
     return { ...base, value: '—', unit: null, percent: 0, sub: 'không có trên máy này', tone: 'muted' };
   }
@@ -272,6 +296,7 @@ function agyPool(s: Section, old: string | null): PoolView {
     sub: rotation ? 'tương đương, theo ' + (p.scope === 'claude_gpt' ? 'Claude/GPT' : 'Gemini') : 'chỉ tài khoản đang dùng',
     tone: rotation ? 'ok' : 'muted',
     title: poolTitle(p, (n) => 'Ultra ' + n, 'tài khoản'),
+    parts: poolParts(p, (n) => 'Ultra ' + n),
   };
   if (p.exhausted) view.tone = 'bad';
   if (old) {
@@ -458,6 +483,10 @@ export interface FeedbackView {
 
 export function refreshedFeedback(now: Date): FeedbackView {
   return { tone: '', title: 'Đã làm mới', body: 'Đọc lại số lúc ' + clock(now.toISOString()) + '.' };
+}
+
+export function settingsFailedFeedback(): FeedbackView {
+  return { tone: 'bad', title: 'Chưa lưu được cài đặt', body: 'Không ghi được file cài đặt của app trên máy này. Thử lại.' };
 }
 
 export function keychainFeedback(model: Model | null): FeedbackView {

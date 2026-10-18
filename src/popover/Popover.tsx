@@ -1,9 +1,11 @@
 // The read-only popover (F01, F03): the prototype's popover without the
-// switching parts, which arrive in later milestones.
+// switching parts, which arrive in later milestones. Its header opens the
+// main window and the settings tab.
 
 import { useLayoutEffect, useRef } from 'react';
 import { Banner, Chip, Dot, Feedback, GearIcon, Meter } from '../components/parts';
 import type { Action, FeedbackView, PoolView, PopoverView, RowView, SectionView } from '../lib/view';
+import { WindowIcon } from '../window/icons';
 
 function PoolTile({ pool }: { pool: PoolView }) {
   const cls = pool.tone === 'bad' ? 'bad' : pool.tone === 'muted' ? 'muted' : pool.kind;
@@ -117,6 +119,9 @@ export function Popover({ view, feedback, busy, onAction, onHeight }: PopoverPro
         </div>
         <button type="button" className="ib" aria-label="Cài đặt" title="Cài đặt" onClick={() => onAction('settings')}>
           <GearIcon />
+        </button>
+        <button type="button" className="ib" aria-label="Mở cửa sổ chính" title="Mở cửa sổ chính" onClick={() => onAction('window')}>
+          <WindowIcon />
         </button>
       </div>
       <div className="body">

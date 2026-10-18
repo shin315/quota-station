@@ -95,12 +95,18 @@ export interface QuotaAxi {
   fork: boolean | null;
 }
 
+/** The main window's tabs in this build (`src-tauri/src/state.rs` `Tab`). */
+export type Tab = 'overview' | 'claude' | 'agy' | 'settings';
+
 export interface Model {
   snapshot: Snapshot;
   errors: { claude: ErrorView | null; agy: ErrorView | null };
   reading: boolean;
   reads: number;
+  /** The name shown for this Mac: set in settings, else the one macOS gives. */
   machine: string;
+  /** The name macOS gives this Mac. */
+  machineDefault: string;
   quotaAxi: QuotaAxi;
   granting: boolean;
 }

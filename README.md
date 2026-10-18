@@ -11,12 +11,15 @@ under CC BY-NC-SA 4.0. See [License](#license).
 
 ![The menu bar item for four fixture cases, in light and dark menu bars](docs/menubar.png)
 
-Both images use the synthetic test fixtures, not real accounts. The menu bar
-image is drawn from the app's own glyph code, not captured from the screen.
+<img src="docs/window.png" width="760" alt="The main window's Tổng quan tab on fixture data: the two pools, the Claude Code and Antigravity accounts in tables, and the next resets">
+
+All three images use the synthetic test fixtures, not real accounts. The menu
+bar image is drawn from the app's own glyph code, not captured from the screen.
 
 ## What it does
 
-This is milestone M1, "Khung và số". The app only reads.
+This is milestone M2, "Cửa sổ chính chỉ đọc", on top of M1 "Khung và số".
+The app only reads.
 
 - **Menu bar item.** A template glyph with one bar for Claude and one for
   Antigravity. Next to it is the whole-rotation number. When there is a
@@ -29,23 +32,39 @@ This is milestone M1, "Khung và số". The app only reads.
   `Gemini`, `Claude/GPT`) and when each one resets. It also has banners for
   stale numbers, an unavailable source, numbers waiting after a reset, an
   exhausted rotation, missing Keychain permission and a failing quota-axi. It
-  has no switch buttons. The only button is the gear, which opens settings.
-- **Short menu** (right click). `Làm mới` (refresh), `Cài đặt…` (settings),
-  `Thoát Quota Station` (quit).
-- **Settings window.** The quota-axi path, either found automatically or set
-  by hand, and a one-time button that lets quota-axi ask macOS for Keychain
-  access.
+  has no switch buttons. Its header has two buttons: the gear opens the
+  settings tab and the window button opens the main window.
+- **Short menu** (right click). `Mở cửa sổ chính` (main window), `Làm mới`
+  (refresh), `Cài đặt…` (settings), `Thoát Quota Station` (quit).
+- **Main window.** The same numbers as the popover, from the same read, in
+  four tabs:
+  - `Tổng quan`: both pools with how the rotation number adds up, every
+    Claude Code and Antigravity account in a table with each allowance and
+    its reset in words, and `Sắp tới`, the resets and rotation ends of the
+    next 24 hours as the readings give them.
+  - `Claude`: the accounts with a `Cập nhật` column, the age of each
+    account's own reading.
+  - `Antigravity`: the accounts, how old the numbers of the accounts not in
+    use are, and whether Cockpit answers. A Mac without Cockpit or without
+    Antigravity says so.
+  - `Cài đặt`: the quota-axi path, either found automatically or set by hand,
+    a one-time button that lets quota-axi ask macOS for Keychain access, and
+    the name shown for this Mac (empty uses the name macOS gives it).
 
-Each Mac runs its own copy and reads only its own machine. Switching
-accounts, the main window, notifications, history and installing as a login
-item come in later milestones.
+  The sidebar also lists `Codex`, `Luật xoay vòng`, `Lịch sử`, `Cảnh báo` and
+  `Firstmate`, greyed out: they come in later milestones.
+
+Each Mac runs its own copy and reads only its own machine; the app never
+reaches another Mac. Switching accounts, the rotation editor, notifications,
+history and installing as a login item come in later milestones.
 
 ### What it reads and runs
 
 - `quota-axi --provider claude --json --max-age 120s --no-credential-refresh`,
   and the same for `--provider agy`. The app reads every 60 seconds while the
-  popover is open and every 5 minutes while it is hidden. It also reads when
-  the popover opens, after the Mac wakes and on `Làm mới`.
+  popover or the main window is open and every 5 minutes while both are
+  hidden. It also reads when either opens, after the Mac wakes and on
+  `Làm mới`.
 - The Keychain button runs
   `quota-axi --provider claude --json --allow-keychain-prompt --no-credential-refresh`
   once. macOS shows its own prompt. The app itself never opens the Keychain
@@ -101,18 +120,18 @@ is ad-hoc signed and is not installed anywhere. Open it from there to try it.
 
 `npm run dev` serves the popover at http://localhost:1420/ on the fixtures and
 the fake Rust side the tests use. Query parameters: `state` (a file name in
-`src/fixtures/snapshots/`), `view=settings`, `error` (an error kind) and
-`theme` (`light` or `dark`).
+`src/fixtures/snapshots/`), `view=window` with `tab` (`overview`, `claude`,
+`agy` or `settings`), `error` (an error kind) and `theme` (`light` or `dark`).
 
 ## Tests
 
 ```sh
 cargo test --workspace   # parsing, snapshot rules, icon, runner, schedule
-npm test                 # Vitest: popover and settings views
+npm test                 # Vitest: popover and main window views
 ```
 
 The quota-axi fixtures in `crates/quota-station-core/tests/fixtures/` are
-synthetic, with made-up ids and values. The popover tests use JSON snapshots
+synthetic, with made-up ids and values. The popover and window tests use JSON snapshots
 in `src/fixtures/snapshots/`, which the Rust side builds from those fixtures.
 After changing the snapshot rules, regenerate them with this command:
 
@@ -125,8 +144,8 @@ UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test ui_fixtures
 - `crates/quota-station-core/` is plain Rust. It runs and parses quota-axi,
   turns its output into a snapshot, holds the icon rules and glyph, and
   schedules reads.
-- `src-tauri/` is the Tauri 2 shell: the tray item, the popover and settings
-  windows, the read loop and the commands.
+- `src-tauri/` is the Tauri 2 shell: the tray item, the popover and the main
+  window, the read loop and the commands.
 - `src/` is the React and TypeScript frontend. Its `styles/tokens.css` and
   `styles/components.css` come from the approved prototype.
 

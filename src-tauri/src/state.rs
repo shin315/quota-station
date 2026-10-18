@@ -1,4 +1,4 @@
-//! What the app holds between reads, and the model both windows draw.
+//! What the app holds between reads, and the model every window draws.
 
 use std::path::PathBuf;
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
@@ -9,7 +9,7 @@ use quota_station_core::runner::{self, RunError};
 use quota_station_core::schedule::Schedule;
 use quota_station_core::settings::Settings;
 use quota_station_core::Snapshot;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 pub type AppState = Arc<Shared>;
 
@@ -40,7 +40,8 @@ pub struct Inner {
     pub home: PathBuf,
     pub settings_file: PathBuf,
     pub settings: Settings,
-    pub machine: String,
+    /// The name macOS gives this Mac, used when the user has set none.
+    pub system_machine: String,
     pub claude: Option<Response>,
     pub agy: Option<Response>,
     pub claude_error: Option<RunError>,
@@ -58,16 +59,29 @@ pub struct Inner {
     pub granting: bool,
     /// When the popover last hid itself on losing focus.
     pub popover_hidden_at: Option<Instant>,
+    /// The tab the main window shows next: set when something opens it.
+    pub main_tab: Tab,
+}
+
+/// The main window's tabs that this build has. Later milestones add more.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Tab {
+    #[default]
+    Overview,
+    Claude,
+    Agy,
+    Settings,
 }
 
 impl Inner {
-    pub fn new(home: PathBuf, settings_file: PathBuf, machine: String) -> Self {
+    pub fn new(home: PathBuf, settings_file: PathBuf, system_machine: String) -> Self {
         let settings = Settings::load(&settings_file);
         Inner {
             home,
             settings_file,
             settings,
-            machine,
+            system_machine,
             claude: None,
             agy: None,
             claude_error: None,
@@ -80,7 +94,19 @@ impl Inner {
             version: None,
             granting: false,
             popover_hidden_at: None,
+            main_tab: Tab::Overview,
         }
+    }
+
+    /// The name shown for this Mac: the user's, else the one macOS gives.
+    pub fn machine(&self) -> String {
+        self.settings.machine_name.clone().unwrap_or_else(|| self.system_machine.clone())
+    }
+
+    /// Records whether the popover or the main window is on screen. Returns
+    /// true when one just opened and a read is due.
+    pub fn set_visible(&mut self, popover: bool, main: bool) -> bool {
+        self.schedule.set_visible(popover || main, Instant::now())
     }
 
     /// The quota-axi to run: the user's path, else the first usual place.
@@ -114,7 +140,8 @@ impl Inner {
             },
             reading: self.reading,
             reads: self.reads,
-            machine: self.machine.clone(),
+            machine: self.machine(),
+            machine_default: self.system_machine.clone(),
             quota_axi: QuotaAxi {
                 exists: path.as_ref().is_some_and(|p| p.is_file()),
                 path: path.as_ref().map(|p| runner::display_path(p, &self.home)),
@@ -127,7 +154,7 @@ impl Inner {
     }
 }
 
-/// Everything the popover and the settings window draw.
+/// Everything the popover and the main window draw.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Model {
@@ -136,6 +163,8 @@ pub struct Model {
     pub reading: bool,
     pub reads: u64,
     pub machine: String,
+    /// The name macOS gives this Mac, for the setting's placeholder.
+    pub machine_default: String,
     pub quota_axi: QuotaAxi,
     pub granting: bool,
 }
@@ -180,5 +209,37 @@ impl From<&RunError> for ErrorView {
             other => other.to_string(),
         };
         ErrorView { kind, detail }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn inner() -> Inner {
+        Inner::new(PathBuf::new(), PathBuf::from("/nonexistent/settings.json"), "Mac mini".into())
+    }
+
+    #[test]
+    fn the_machine_name_set_by_the_user_wins_over_the_one_macos_gives() {
+        let mut inner = inner();
+        assert_eq!(inner.model().machine, "Mac mini");
+        inner.settings.machine_name = Some("Mac phòng khách".into());
+        let model = inner.model();
+        assert_eq!(model.machine, "Mac phòng khách");
+        assert_eq!(model.machine_default, "Mac mini");
+    }
+
+    #[test]
+    fn the_main_window_counts_as_open_for_the_read_pace() {
+        let mut inner = inner();
+        inner.schedule.mark_read(Instant::now());
+        assert!(!inner.set_visible(false, true), "a read just happened");
+        assert!(inner.schedule.visible());
+        inner.set_visible(true, true);
+        inner.set_visible(false, true);
+        assert!(inner.schedule.visible(), "closing the popover keeps the window's pace");
+        inner.set_visible(false, false);
+        assert!(!inner.schedule.visible());
     }
 }
