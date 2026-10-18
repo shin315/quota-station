@@ -158,7 +158,7 @@ quota of the Antigravity accounts logged in here, at Cockpit's pace or slower
   read, or why it did not switch. Antigravity.app older than 2.0 is named
   and refused, and one whose version cannot be read stops the switch
   before anything is written (`Missing` only when there is no
-Antigravity.app at all). A switch is refused, with a message, while an
+  Antigravity.app at all). A switch is refused, with a message, while an
   Antigravity login, logout or another switch runs, and a login is refused
   while a switch runs. For six hours after a switch, a reading that
   shows the old account back in use brings the banner `Chuyển Antigravity
