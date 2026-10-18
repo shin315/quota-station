@@ -5,10 +5,12 @@
 //! when the owner confirms, and pauses the `cswap-prefer-team` switcher.
 //! Since M5 it edits the rotation file and copies it to the owner's other
 //! Macs over SSH, so every Mac's switcher follows the same rules.
-//! Since M4a it logs Antigravity accounts in itself, and since M4b it reads
-//! their quota itself and leaves it where quota-axi reads it.
+//! Since M4a it logs Antigravity accounts in itself, since M4b it reads
+//! their quota itself and leaves it where quota-axi reads it, and since M4c
+//! it switches the Antigravity account without Cockpit Tools.
 
 mod agy_quota;
+mod agy_switch;
 mod antigravity;
 mod commands;
 mod reader;
@@ -81,6 +83,9 @@ fn main() {
             antigravity::agy_open_verification,
             antigravity::agy_tab_opened,
             antigravity::set_show_email,
+            agy_switch::agy_app_state,
+            agy_switch::switch_agy,
+            agy_switch::agy_dismiss_overwrite,
         ])
         .run(tauri::generate_context!())
         .expect("Quota Station failed to start");

@@ -114,7 +114,7 @@ fn round(app: &AppHandle, state: &AppState) {
 /// otherwise ask the vendor again: the next timed read shows the new
 /// numbers instead.
 fn show(app: &AppHandle, state: &AppState) {
-    let path = {
+    let (path, generation) = {
         let inner = state.lock();
         let now = OffsetDateTime::now_utc();
         let reusable = inner.agy_error.is_none()
@@ -122,11 +122,17 @@ fn show(app: &AppHandle, state: &AppState) {
         if !reusable {
             return;
         }
-        inner.quota_axi()
+        (inner.quota_axi(), inner.agy_generation)
     };
     let Some(path) = path else { return };
     if let Ok(report) = runner::read_again(&path, ProviderId::Agy) {
-        state.lock().agy = Some(report);
+        let mut inner = state.lock();
+        // An Antigravity switch meanwhile has the newer word on the account in use.
+        if inner.agy_generation != generation {
+            return;
+        }
+        inner.agy = Some(report);
+        drop(inner);
         reader::publish(app, state);
     }
 }

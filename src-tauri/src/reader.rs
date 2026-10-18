@@ -2,7 +2,8 @@
 //! to the menu bar and the windows. It also looks at the switcher: the pause
 //! flag on every read, and the dry run, log and launchd while a window is
 //! open or after the owner acted. Each read also wakes the Antigravity
-//! quota thread for the account in use.
+//! quota thread for the account in use, and each Antigravity reading goes
+//! to the six-hour watch after an Antigravity switch.
 
 use std::path::{Path, PathBuf};
 use std::thread;
@@ -66,6 +67,7 @@ fn run(app: &AppHandle, state: &AppState) {
         inner.reading = true;
         let path = inner.quota_axi();
         let generation = inner.claude_generation;
+        let agy_generation = inner.agy_generation;
         let check_version =
             path.is_some() && inner.version.as_ref().map(|(p, _)| p) != path.as_ref();
         drop(inner);
@@ -81,7 +83,9 @@ fn run(app: &AppHandle, state: &AppState) {
         });
 
         let mut inner = state.lock();
-        store(&mut inner, generation, claude, agy);
+        if store(&mut inner, (generation, agy_generation), claude, agy) {
+            crate::agy_switch::observe(&inner);
+        }
         if let Some(v) = version {
             inner.version = Some(v);
         }
@@ -179,13 +183,16 @@ fn read_both(path: Option<PathBuf>) -> (Result<Response, RunError>, Result<Respo
 
 /// A failed read keeps the last good report, so the popover can show the
 /// last numbers with their age next to the error. A Claude result from a
-/// read that started before a Keychain grant (`generation` behind) is dropped.
+/// read that started before a Keychain grant, and an Antigravity one from a
+/// read that started before or during a switch (`generations` behind), are
+/// dropped. Returns whether the Antigravity report was kept.
 pub fn store(
     inner: &mut Inner,
-    generation: u64,
+    generations: (u64, u64),
     claude: Result<Response, RunError>,
     agy: Result<Response, RunError>,
-) {
+) -> bool {
+    let (generation, agy_generation) = generations;
     if inner.claude_generation == generation {
         match claude {
             Ok(r) => {
@@ -195,12 +202,19 @@ pub fn store(
             Err(e) => inner.claude_error = Some(e),
         }
     }
+    if inner.agy_generation != agy_generation {
+        return false;
+    }
     match agy {
         Ok(r) => {
             inner.agy = Some(r);
             inner.agy_error = None;
+            true
         }
-        Err(e) => inner.agy_error = Some(e),
+        Err(e) => {
+            inner.agy_error = Some(e);
+            false
+        }
     }
 }
 
@@ -247,13 +261,36 @@ mod tests {
         let mut inner = inner();
         let started = inner.claude_generation;
         inner.store_claude(report(GRANTED));
-        store(&mut inner, started, Ok(report(REQUIRED)), Ok(report(AGY)));
+        store(&mut inner, (started, 0), Ok(report(REQUIRED)), Ok(report(AGY)));
         assert_eq!(inner.snapshot().keychain, Keychain::Granted);
         assert!(inner.agy.is_some());
 
         let next = inner.claude_generation;
-        store(&mut inner, next, Ok(report(REQUIRED)), Ok(report(AGY)));
+        store(&mut inner, (next, 0), Ok(report(REQUIRED)), Ok(report(AGY)));
         assert_eq!(inner.snapshot().keychain, Keychain::Required);
+    }
+
+    #[test]
+    fn an_antigravity_read_started_before_a_switch_ends_is_dropped() {
+        let mut inner = inner();
+        let started = inner.agy_generation;
+        // A switch starts and stores its own reading meanwhile.
+        inner.agy_generation += 2;
+        let claude = inner.claude_generation;
+        assert!(!store(&mut inner, (claude, started), Ok(report(GRANTED)), Ok(report(AGY))));
+        assert!(inner.agy.is_none());
+        assert!(inner.claude.is_some(), "the Claude half is kept");
+        assert!(!store(
+            &mut inner,
+            (claude, started),
+            Ok(report(GRANTED)),
+            Err(RunError::NotConfigured)
+        ));
+        assert!(inner.agy_error.is_none());
+
+        let now = inner.agy_generation;
+        assert!(store(&mut inner, (claude, now), Ok(report(GRANTED)), Ok(report(AGY))));
+        assert!(inner.agy.is_some());
     }
 
     #[test]

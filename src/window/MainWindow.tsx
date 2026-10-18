@@ -2,9 +2,9 @@
 // Antigravity, Luật xoay vòng and Cài đặt. Claude accounts switch from the
 // tables (F04), Tổng quan and Claude show automatic switching and why Claude
 // is on its account (F07), Luật xoay vòng edits the rotation for every Mac
-// (F06), and Antigravity also shows the accounts the app logs in (M4a). The
-// sidebar keeps the tabs of later milestones in place, disabled, and
-// Antigravity switches in a later milestone.
+// (F06), and Antigravity also shows the accounts the app logs in (M4a) and
+// switches from its tables once quota-axi lists them (M4c). The sidebar
+// keeps the tabs of later milestones in place, disabled.
 
 import type { ReactNode } from 'react';
 import { Banner, Button, Chip, Dot, Feedback, Meter, Toggle } from '../components/parts';
@@ -223,6 +223,8 @@ interface TabProps {
   feedback: FeedbackView | null;
   onAction(act: Action): void;
   onSwitch(slot: number): void;
+  /** An Antigravity row's switch button (M4c). */
+  onSwitchAgy(number: number): void;
   onToggle(): void;
   onPause(preset: PauseChoice): void;
   now: Date;
@@ -258,7 +260,7 @@ function Overview(props: TabProps) {
           </Card>
           {v.agy.present ? (
             <Card title={v.agy.title} kind="g">
-              <AccountTable label="Antigravity" rows={v.agy.rows} onSwitch={props.onSwitch} />
+              <AccountTable label="Antigravity" rows={v.agy.rows} onSwitch={props.onSwitchAgy} />
               <Note note={v.agy.note} />
             </Card>
           ) : null}
@@ -361,7 +363,7 @@ function AgyTab(props: TabProps) {
       {a.present ? (
         <>
           <Card title="Tài khoản" kind="g">
-            <AccountTable label="Antigravity" rows={a.rows} onSwitch={props.onSwitch} />
+            <AccountTable label="Antigravity" rows={a.rows} onSwitch={props.onSwitchAgy} />
             {a.others ? <p className="note">{a.others}</p> : null}
             <Note note={a.tabNote} />
           </Card>
@@ -396,6 +398,8 @@ export interface MainWindowProps {
   onTab(tab: Tab): void;
   onAction(act: Action): void;
   onSwitch(slot: number): void;
+  /** An Antigravity row's switch button; none leaves the rows without one that works. */
+  onSwitchAgy?(number: number): void;
   onToggle(): void;
   onPause(preset: PauseChoice): void;
   /** The Cài đặt tab, drawn by the settings component. */
@@ -417,6 +421,7 @@ export function MainWindow(props: MainWindowProps) {
     feedback: props.feedback,
     onAction: props.onAction,
     onSwitch: props.onSwitch,
+    onSwitchAgy: props.onSwitchAgy ?? (() => {}),
     onToggle: props.onToggle,
     onPause: props.onPause,
     now: props.now,

@@ -3,6 +3,7 @@
 // window and the popover show the same snapshot with the same names, numbers
 // and banners. Pure, like `view.ts`.
 
+import { overwriteBanner } from './agySwitch';
 import { age, clock, minutesUntil, secondsSince } from './format';
 import type { Account, LineKind, Model, Section } from './model';
 import { autoView, dayClock, namesOf, pauseOf, type AutoView } from './switching';
@@ -54,7 +55,11 @@ export interface WindowView {
     rows: RowView[];
     /** Section note for the overview card. */
     note: NoteView | null;
-    /** The Antigravity tab's banner: quota-axi not running, else why it sees only the signed-in account. */
+    /**
+     * The Antigravity tab's banner: quota-axi not running, else a switch
+     * Antigravity.app wrote back ("Chuyển Antigravity bị ghi đè"), else why
+     * quota-axi sees only the signed-in account.
+     */
     banner: BannerView | null;
     /** The Antigravity tab's note: the Antigravity read failed while the Claude one did not. */
     tabNote: NoteView | null;
@@ -267,7 +272,7 @@ export function windowView(model: Model, now: Date, options: ViewOptions = {}): 
       title: pv.agy.rows.length ? 'Antigravity · ' + pv.agy.rows.length + ' tài khoản' : 'Antigravity',
       rows: pv.agy.rows,
       note: pv.agy.note,
-      banner: cErr ? pv.banner : agyBanner(g),
+      banner: cErr ? pv.banner : (overwriteBanner(model) ?? agyBanner(g)),
       tabNote: gErr && !cErr ? pv.agy.note : null,
       others: g.status === 'ok' && !gErr ? agyOthers(g, now) : '',
       cockpit: cockpitRows(g, !!gErr),

@@ -130,6 +130,7 @@ export function fixtureModel(name: string, over: Partial<Model> = {}): Model {
     rotation: rotationFixture(),
     showEmail: false,
     antigravity: agyFixture(),
+    agySwitch: { busy: null, listed: false, overwritten: null },
     ...over,
   };
 }

@@ -129,6 +129,15 @@ describe('main window view', () => {
     expect(view('no-cockpit').agy.tabNote).toBeNull();
   });
 
+  it('an undone Antigravity switch takes the tab\'s banner, after a quota-axi failure', () => {
+    const overwritten = { busy: null, listed: true, overwritten: { to: 1, from: 2, at: '2026-01-16T07:10:00.000Z', overwrites: 1 } };
+    for (const name of ['no-cockpit', 'unavailable']) {
+      expect(view(name, { agySwitch: overwritten }).agy.banner).toMatchObject({ tone: 'warn', title: 'Chuyển Antigravity bị ghi đè' });
+    }
+    const failed = view('no-cockpit', { agySwitch: overwritten, errors: failing('notFound') });
+    expect(failed.agy.banner).toMatchObject({ title: 'Không chạy được quota-axi' });
+  });
+
   it('a Mac without Antigravity has no Antigravity card', () => {
     const v = view('no-antigravity');
     expect(v.agy.present).toBe(false);

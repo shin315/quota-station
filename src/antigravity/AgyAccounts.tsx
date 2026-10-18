@@ -4,7 +4,8 @@
 // waits for the browser, the card offers to paste the callback URL and to
 // cancel. Since M4b each row also says when the app is reading that
 // account's quota and when its last read failed; the numbers themselves
-// stay on the quota rows, from quota-axi. Switching comes in a later milestone.
+// stay on the quota rows, from quota-axi. Switching is on the account rows
+// (M4c).
 
 import { useState } from 'react';
 import { Button, Chip } from '../components/parts';
@@ -214,7 +215,7 @@ export function AgyAccounts({ view, api, onFeedback }: AgyAccountsProps) {
       <div className="row2" style={{ marginTop: 10 }}>
         <p style={{ margin: 0, flex: 1 }}>
           Mỗi Mac giữ đăng nhập của riêng nó. App tự đọc hạn mức của các tài khoản này, không dày hơn Cockpit, rồi quota-axi đọc lại số
-          đó. Chuyển Antigravity từ app có ở bản sau.
+          đó. Chuyển tài khoản bằng nút Chuyển ở bảng trên hoặc trong popover.
         </p>
         <Button primary disabled={!!notice || view.indexError || busy} onClick={() => void login()}>
           Thêm tài khoản

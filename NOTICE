@@ -49,17 +49,39 @@ Adapted parts. Each file names its source and its changes in its header.
   src-tauri/src/modules/account.rs and fetch_quota_with_context in
   src-tauri/src/modules/quota.rs, and their handling of 403, invalid_grant
   and verification requests.
+- crates/quota-station-core/src/antigravity/credential.rs
+  from src-tauri/src/modules/antigravity_credential.rs: the login payload
+  Antigravity.app and agy share, its go-keyring-base64 value, and the
+  security command that writes the gemini/antigravity Keychain item with a
+  15-second timeout.
+- crates/quota-station-core/tests/antigravity_credential.rs
+  from src-tauri/src/modules/antigravity_credential_tests.rs: the tests that
+  a failed write keeps the old item and that a hung write is stopped before
+  it can write late.
+- crates/quota-station-core/src/antigravity/desktop.rs
+  from src-tauri/src/commands/account.rs and
+  src-tauri/src/commands/system_config_types.rs: the version compare and the
+  rule that Antigravity.app 2.0 and later keep their login in the Keychain.
+- crates/quota-station-core/src/antigravity/switch.rs
+  from src-tauri/src/commands/account_desktop_switch.rs and
+  prepare_account_for_injection in src-tauri/src/modules/account.rs: one
+  switch at a time, the 60-second preparation (a fresh token and the
+  project lookup through cloud_code.rs), quitting before and opening after,
+  writing the login before the account pointers, and a reopen failure
+  reported apart.
 
 What was changed:
 
-- macOS only. The Windows and Linux branches, the SQLite store, the
-  WebSocket server, wake-up and the other platforms are not included.
+- macOS only. The Windows and Linux branches, the SQLite store (and with
+  it switching Antigravity.app older than 2.0), the instance management,
+  the WebSocket server, wake-up and the other platforms are not included.
 - One OAuth client, read from a local oauth-client.json instead of
   constants in the source.
 - Tokens are kept in the app's own macOS Keychain items instead of
   AES-encrypted files with their key beside them.
 - A thread and blocking HTTP instead of async tasks and Tauri events; typed
-  errors that keep no response body, token or secret; no logging.
+  errors that keep no response body, token or secret; nothing about a login
+  or a token is logged.
 - Quota reads: no environment overrides, no autopush host, no onboardUser,
   no subscription tier or credit parsing (only the GCP ToS mark is read);
   loadCodeAssist only while a token lacks a project or the GCP ToS mark,
@@ -69,6 +91,10 @@ What was changed:
   caching one without it; the cache lives in the app's own folder.
 - The pages the browser sees are translated to Vietnamese, error messages to
   English.
+- Antigravity.app is quit with osascript and opened with open -b instead of
+  closed by its process; it is never killed. The switch is checked with
+  quota-axi afterwards, logged in the app's own folder, and watched for six
+  hours for a running app writing its old login back.
 
-A later milestone that adapts more of Cockpit Tools (switching the
-Antigravity account) adds its parts to this list.
+A later milestone that adapts more of Cockpit Tools adds its parts to
+this list.

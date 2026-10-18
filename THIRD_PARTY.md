@@ -2,9 +2,9 @@
 
 Quota Station talks to quota-axi and claude-swap below: it runs them as
 separate programs and reads their output, and none of their source code is
-copied into this repository. Parts of its Antigravity login and quota
-reading are adapted from Cockpit Tools; [`NOTICE`](NOTICE) lists those
-files and what was changed.
+copied into this repository. Parts of its Antigravity login, quota
+reading and account switch are adapted from Cockpit Tools;
+[`NOTICE`](NOTICE) lists those files and what was changed.
 
 ## quota-axi
 
@@ -78,10 +78,12 @@ SOFTWARE.
   © jlcodes
 - How it is used: adapted code. The Antigravity login (the OAuth URL, the
   loopback callback, the code exchange, the token refresh, userinfo, the
-  token record and the account index) and the quota reading (the Cloud Code
+  token record and the account index), the quota reading (the Cloud Code
   calls, the user agent and its version lookup, the host choice, and the
-  quota cache layout with its TTL) are adapted from Cockpit Tools 1.3.70,
-  commit 244b957. See [`NOTICE`](NOTICE) for the files and the changes; each
+  quota cache layout with its TTL) and the Antigravity account switch (the
+  shared Keychain login it writes, the Antigravity.app version rule and the
+  order of a switch) are adapted from Cockpit Tools 1.3.70, commit 244b957.
+  See [`NOTICE`](NOTICE) for the files and the changes; each
   adapted file also says so in its header. This is why Quota Station is
   shared under the same license. The app also shows the Antigravity
   accounts that quota-axi's `cockpit` sidecar reports, and Cockpit's menu bar

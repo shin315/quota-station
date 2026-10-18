@@ -4,7 +4,8 @@
 // Copy follows the approved prototype (Hướng 1 · Kính macOS, bước 0.7).
 
 import { age, clock, hours, minutesUntil, percent, resetShort, resetWords, room, secondsSince } from './format';
-import type { Account, ErrorView, Line, LineKind, Model, Pool, Section } from './model';
+import { overwriteBanner } from './agySwitch';
+import type { Account, AgyLogin, ErrorView, Line, LineKind, Model, Pool, Section } from './model';
 import { pausedSummary, switcherBanner } from './switching';
 
 export type Tone = 'ok' | 'warn' | 'bad' | 'muted' | 'info';
@@ -23,6 +24,10 @@ export type Action =
   | 'guide:switcher'
   /** Opens the switch sheet for a Claude slot. */
   | `switch:${number}`
+  /** Opens the switch sheet for an Antigravity account (M4c). */
+  | `agy:switch:${number}`
+  /** "Thôi" on the overwrite banner: stops watching the last Antigravity switch. */
+  | 'agy:keep'
   /** The rotation editor's banners and feedback (M5). */
   | RulesAction;
 
@@ -72,7 +77,7 @@ export interface RowView {
   title: string;
   /** claude-swap slot or Cockpit account number. */
   slot: number;
-  /** A Claude account the owner can switch to now. */
+  /** An account the owner can switch to now. */
   switchable: boolean;
   /** Why this row cannot be switched to; '' when it can, or when it is the active one. */
   off: string;
@@ -162,7 +167,7 @@ export function claudeNames(accounts: Account[]): Map<number, { name: string; sh
   return out;
 }
 
-export function agyName(a: Account): { name: string; short: string } {
+export function agyName(a: Pick<Account, 'number'>): { name: string; short: string } {
   return a.number === 0 ? { name: 'Tài khoản đang dùng', short: 'G' } : { name: 'Ultra ' + a.number, short: 'U' + a.number };
 }
 
@@ -208,15 +213,35 @@ interface RowContext {
   old: boolean;
   keychainRequired: boolean;
   personalHours: string | null;
-  /** Claude rows: what switching needs. Null for Antigravity, which switches in a later milestone. */
+  /** Claude rows: what switching needs. */
   switching: { listed: boolean; cswap: boolean; busy: number | null } | null;
+  /** Antigravity rows: what switching needs (M4c). */
+  agy: AgyRowSwitch | null;
+}
+
+interface AgyRowSwitch {
+  /** quota-axi numbers the app's own list. */
+  listed: boolean;
+  busy: number | null;
+  /** The accounts logged in here, by number. */
+  logins: Map<number, AgyLogin>;
+}
+
+function agyOffReason(a: Account, g: AgyRowSwitch): string {
+  if (a.active || a.number === 0) return '';
+  if (!g.listed) return 'Chưa chuyển được: quota-axi chưa liệt kê tài khoản của Quota Station';
+  const login = g.logins.get(a.number);
+  if (!login) return 'Chưa đăng nhập tài khoản này trong Quota Station';
+  if (g.busy != null) return 'Đang chuyển tài khoản';
+  if (login.status === 'needsLogin') return 'Cần đăng nhập lại trong tab Antigravity';
+  return '';
 }
 
 function offReason(a: Account, ctx: RowContext): string {
+  if (ctx.agy) return agyOffReason(a, ctx.agy);
   const sw = ctx.switching;
   if (a.active) return '';
-  if (!sw) return 'Chuyển Antigravity có ở bản sau';
-  if (!sw.listed || a.number === 0) return '';
+  if (!sw || !sw.listed || a.number === 0) return '';
   if (sw.busy != null) return 'Đang chuyển tài khoản';
   if (!sw.cswap) return 'Chưa chuyển được: không tìm thấy cswap';
   if (a.disabled) return 'Tài khoản đã tắt trong claude-swap';
@@ -251,9 +276,15 @@ function rowView(a: Account, kind: 'c' | 'g', names: { name: string; short: stri
   const all = [...chips, ...late, ...(source ? [source] : [])];
   const lines = a.lines.map((l) => lineView(l, ctx.now));
   const tail = all.filter((c) => c.k !== 'on').map((c) => c.t);
-  const where = a.number === 0 ? '' : kind === 'c' ? 'claude-swap · tài khoản ' + a.number : 'Cockpit · tài khoản ' + a.number;
+  const where =
+    a.number === 0
+      ? ''
+      : kind === 'c'
+        ? 'claude-swap · tài khoản ' + a.number
+        : (ctx.agy?.listed ? 'Quota Station' : 'Cockpit') + ' · tài khoản ' + a.number;
   const off = offReason(a, ctx);
-  const switchable = !!ctx.switching?.listed && a.number > 0 && !a.active && !off;
+  const listed = kind === 'c' ? !!ctx.switching?.listed : !!ctx.agy?.listed;
+  const switchable = listed && a.number > 0 && !a.active && !off;
   return {
     key: kind + a.number,
     name: names.name,
@@ -405,13 +436,20 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
     keychainRequired,
     personalHours: section.personalHours,
     switching: null,
+    agy: null,
   });
   const claudeSwitching = { listed: c.status === 'ok', cswap: model.claudeSwitch.cswap, busy: model.claudeSwitch.busy };
 
   const claudeRows = c.accounts.map((a) =>
     rowView(a, 'c', names.get(a.number)!, { ...ctx(!!cErr, c), switching: claudeSwitching }),
   );
-  const agyRows = g.status === 'notSetUp' ? [] : g.accounts.map((a) => rowView(a, 'g', agyName(a), ctx(!!gErr, g)));
+  const agySwitching: AgyRowSwitch = {
+    listed: g.status === 'ok' && model.agySwitch.listed,
+    busy: model.agySwitch.busy,
+    logins: new Map(model.antigravity.accounts.map((a) => [a.number, a])),
+  };
+  const agyRows =
+    g.status === 'notSetUp' ? [] : g.accounts.map((a) => rowView(a, 'g', agyName(a), { ...ctx(!!gErr, g), agy: agySwitching }));
   const active = c.accounts.find((a) => a.active);
   const activeName = active ? nameOf(active.number) : null;
 
@@ -452,8 +490,10 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
   let banner: BannerView | null = null;
   const pendingAccount = c.accounts.find((a) => a.reading === 'resetPending');
   const switcher = switcherBanner(model, now);
+  const overwritten = overwriteBanner(model);
   if (cErr) banner = errorBanner(cErr, lastClaude);
   else if (switcher && switcher.tone !== 'info') banner = switcher;
+  else if (overwritten) banner = overwritten;
   else if (pool.exhausted) {
     const who = pool.refills.map(nameOf);
     const at = clock(pool.nextRefillAt);

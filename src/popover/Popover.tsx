@@ -1,7 +1,7 @@
-// The popover (F01, F03, F04, F07): every account, a Claude row opens the
-// switch sheet, and the footer holds the automatic switching toggle with why
-// Claude is on its account. Its header opens the main window and the settings
-// tab. Antigravity rows switch in a later milestone.
+// The popover (F01, F03, F04, F07): every account, a Claude or Antigravity
+// row opens its switch sheet, and the footer holds the automatic switching
+// toggle with why Claude is on its account. Its header opens the main window
+// and the settings tab.
 
 import { useLayoutEffect, useRef, type ReactNode } from 'react';
 import { Banner, Chip, Dot, Feedback, GearIcon, Meter, Toggle } from '../components/parts';
@@ -151,6 +151,8 @@ export interface PopoverProps {
   busy?: Action | null;
   onAction(act: Action): void;
   onSwitch(slot: number): void;
+  /** An Antigravity row was pressed (M4c). */
+  onSwitchAgy?(number: number): void;
   onToggle(): void;
   /** The open sheet's body; null when none is open. */
   sheet?: ReactNode;
@@ -159,7 +161,7 @@ export interface PopoverProps {
   onHeight?(height: number): void;
 }
 
-export function Popover({ view, auto, sync = null, feedback, busy, onAction, onSwitch, onToggle, sheet, onCloseSheet, onHeight }: PopoverProps) {
+export function Popover({ view, auto, sync = null, feedback, busy, onAction, onSwitch, onSwitchAgy, onToggle, sheet, onCloseSheet, onHeight }: PopoverProps) {
   const head = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const foot = useRef<HTMLDivElement>(null);
@@ -216,7 +218,7 @@ export function Popover({ view, auto, sync = null, feedback, busy, onAction, onS
             <PoolTile pool={view.pools.agy} />
           </div>
           <SectionBlock id="c" title="CLAUDE CODE" section={view.claude} onSwitch={onSwitch} />
-          <SectionBlock id="g" title="ANTIGRAVITY" section={view.agy} onSwitch={onSwitch} />
+          <SectionBlock id="g" title="ANTIGRAVITY" section={view.agy} onSwitch={onSwitchAgy ?? (() => {})} />
           <div className="legend" aria-hidden="true">
             ↻ đặt lại sau · n = ngày · g = giờ
           </div>

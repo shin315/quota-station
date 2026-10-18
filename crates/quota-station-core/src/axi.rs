@@ -214,10 +214,15 @@ pub struct Cockpit {
     pub status: String,
     #[serde(default)]
     pub reason: Option<String>,
-    /// Whose files quota-axi read: `quota-station` (this app's folder) or
-    /// `cockpit`; none when a folder was named.
+    /// Whose files quota-axi read: `quota-station` (this app's folder,
+    /// numbered as the app lists them) or `cockpit`; none when a folder was
+    /// named, or from an older fork.
     #[serde(default)]
     pub source: Option<String>,
+    /// How the account in use was told: `identity`, `reading` (the live
+    /// reading matched its numbers) or `cockpit` (the binding last written).
+    #[serde(default)]
+    pub active_basis: Option<String>,
     #[serde(default)]
     pub accounts: Vec<CockpitAccount>,
 }
