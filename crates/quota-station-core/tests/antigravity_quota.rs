@@ -302,6 +302,12 @@ fn a_403_stops_the_reads_until_a_new_login() {
     log_in(&home, &google, NOW_MS + 31 * MIN);
     assert_eq!(standing(&home, &id), None);
     assert_eq!(read(&home, &google, &id, NOW_MS + 31 * MIN), Ok(Outcome::Read));
+
+    // A 403 whose status cannot be saved is a failed read, shown as one.
+    std::fs::write(index::status_path(&home.app), "not json").unwrap();
+    google.set(|s| s.models = (403, verify_body(403)));
+    let err = read(&home, &google, &id, NOW_MS + 40 * MIN).unwrap_err();
+    assert!(matches!(err, ReadError::Index(_)) && !err.in_status(), "{err:?}");
 }
 
 #[test]

@@ -54,8 +54,9 @@ pub struct Script {
     pub load_code_assist: (u16, String),
     pub models: (u16, String),
     pub summary: (u16, String),
-    /// Answers given before the ones above, each once, in order: the end of
-    /// the path (`v1internal:fetchAvailableModels`), the status, the body.
+    /// Answers given before the ones above, each once, in order for each
+    /// call: the end of the path (`v1internal:fetchAvailableModels`), the
+    /// status, the body.
     pub queue: Vec<(String, u16, String)>,
     /// How long every Cloud Code answer takes.
     pub delay: Duration,

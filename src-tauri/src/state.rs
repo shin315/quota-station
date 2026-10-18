@@ -35,6 +35,10 @@ pub struct Shared {
     pub push_lock: Mutex<()>,
     /// Wakes the Antigravity quota thread: a read, the tab, a login.
     pub agy_wake: Condvar,
+    /// Held while Antigravity accounts are read and while one logs out, so
+    /// a read never writes an account's token or reading back after its
+    /// logout removed them.
+    pub agy_accounts: Mutex<()>,
 }
 
 impl Shared {
@@ -45,6 +49,7 @@ impl Shared {
             sync_wake: Condvar::new(),
             push_lock: Mutex::new(()),
             agy_wake: Condvar::new(),
+            agy_accounts: Mutex::new(()),
         })
     }
 

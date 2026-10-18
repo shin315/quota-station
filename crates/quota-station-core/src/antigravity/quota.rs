@@ -232,7 +232,9 @@ pub fn read_account(deps: &Deps, id: &str, now_ms: i64) -> ReadResult {
         }
         Err(e) if e.forbidden() => {
             let url = e.api_error().and_then(|a| a.validation_url.clone());
-            let _ = index::set_standing(app, id, Some(Standing::Forbidden { since: now, url }));
+            // Unsaved, the status would not stop the reads: say why instead.
+            index::set_standing(app, id, Some(Standing::Forbidden { since: now, url }))
+                .map_err(ReadError::Index)?;
             Err(ReadError::Forbidden)
         }
         Err(e) => {

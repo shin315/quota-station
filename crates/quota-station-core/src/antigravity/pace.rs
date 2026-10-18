@@ -59,6 +59,8 @@ struct Account {
 pub struct Pace {
     cycle: bool,
     all: bool,
+    /// An account was asked for since the last [`Pace::take`].
+    asked: bool,
     accounts: BTreeMap<String, Account>,
 }
 
@@ -80,11 +82,19 @@ impl Pace {
     /// One account is due: it just logged in.
     pub fn ask(&mut self, id: &str) {
         self.accounts.entry(id.to_string()).or_default().asked = true;
+        self.asked = true;
     }
 
-    /// Something asked for a read since the last [`Pace::take`].
+    /// Something asked for a read since the last [`Pace::take`]. An ask
+    /// that has to wait (a read within the minute, a back-off) is not
+    /// pending: a later look takes it once the wait is over.
     pub fn pending(&self) -> bool {
-        self.cycle || self.all || self.accounts.values().any(|a| a.asked)
+        self.cycle || self.all || self.asked
+    }
+
+    /// The account logged out: its asks and waits go with it.
+    pub fn forget(&mut self, id: &str) {
+        self.accounts.remove(id);
     }
 
     /// The accounts to read now, the one in use (`active`) first, then in
@@ -100,6 +110,10 @@ impl Pace {
         let mut due = Vec::new();
         for c in order {
             if c.skip {
+                // Asked before it was refused: a new login asks again.
+                if let Some(a) = self.accounts.get_mut(&c.id) {
+                    a.asked = false;
+                }
                 continue;
             }
             let is_active = Some(c.id.as_str()) == active;
@@ -118,6 +132,7 @@ impl Pace {
         }
         self.cycle = false;
         self.all = false;
+        self.asked = false;
         due
     }
 
@@ -203,6 +218,36 @@ mod tests {
         // A failed try waits the usual ten minutes for the next.
         assert!(pace.take(&none, None, T0 + 9 * MIN).is_empty());
         assert_eq!(pace.take(&none, None, T0 + 11 * MIN), ["a", "b"]);
+    }
+
+    #[test]
+    fn an_ask_that_has_to_wait_is_not_pending() {
+        let mut pace = Pace::new();
+        let list = two(Some(T0 - 20 * MIN));
+        for id in ["a", "b"] {
+            pace.started(id, T0);
+            pace.finished(id, Finish::Done, T0);
+        }
+        // Asked within the minute: nothing to do now, nothing pending.
+        pace.ask("a");
+        assert!(pace.pending());
+        assert!(pace.take(&list, None, T0 + 10_000).is_empty());
+        assert!(!pace.pending());
+        // A later look takes it.
+        assert_eq!(pace.take(&list, None, T0 + MIN), ["a"]);
+
+        // An ask for an account that is skipped, or logged out, is dropped.
+        let mut pace = Pace::new();
+        let mut list = two(Some(T0));
+        list[0].skip = true;
+        pace.ask("a");
+        assert!(pace.take(&list, None, T0 + 2 * MIN).is_empty());
+        list[0].skip = false;
+        assert!(pace.take(&list, None, T0 + 3 * MIN).is_empty(), "a new login asks again");
+        pace.ask("c");
+        pace.forget("c");
+        assert!(pace.take(&list, None, T0 + 4 * MIN).is_empty());
+        assert!(!pace.pending());
     }
 
     #[test]

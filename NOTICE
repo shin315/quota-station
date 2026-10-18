@@ -61,11 +61,12 @@ What was changed:
 - A thread and blocking HTTP instead of async tasks and Tauri events; typed
   errors that keep no response body, token or secret; no logging.
 - Quota reads: no environment overrides, no autopush host, no onboardUser,
-  no tier or credit parsing; loadCodeAssist only while a token lacks a
-  project or the GCP ToS mark; a 429 or 5xx is not retried at once but
-  waits longer before the next read; a quota summary that does not come
-  back keeps the last full reading instead of caching one without it; the
-  cache lives in the app's own folder.
+  no subscription tier or credit parsing (only the GCP ToS mark is read);
+  loadCodeAssist only while a token lacks a project or the GCP ToS mark,
+  and an answer without the mark is kept as no GCP ToS; a 429 or 5xx is
+  not retried at once but waits longer before the next read; a quota
+  summary that does not come back keeps the last full reading instead of
+  caching one without it; the cache lives in the app's own folder.
 - The pages the browser sees are translated to Vietnamese, error messages to
   English.
 

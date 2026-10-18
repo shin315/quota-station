@@ -69,6 +69,8 @@ fn round(app: &AppHandle, state: &AppState) {
     let login = login::Deps { app: &dir, endpoints: &endpoints, keychain: &keychain };
     let deps = quota::Deps { login: &login, hosts: &hosts, identity: &identity };
     let mut new_reading = false;
+    // A logout waits for these reads, and a read after it finds no account.
+    let no_logout = state.agy_accounts.lock().unwrap_or_else(|e| e.into_inner());
     quota::read_in_turn(&deps, &due, &now_ms, &mut |id, result| {
         let now = now_ms();
         {
@@ -97,6 +99,7 @@ fn round(app: &AppHandle, state: &AppState) {
         }
         reader::publish(app, state);
     });
+    drop(no_logout);
 
     if new_reading {
         show(app, state);
@@ -106,19 +109,17 @@ fn round(app: &AppHandle, state: &AppState) {
 /// Shows new readings at once: quota-axi again, for Antigravity only and
 /// reusing its last successful reading (`runner::read_again`), so the run
 /// asks no vendor anything; only its `cockpit` block, which it reads from
-/// the files, is new. Skipped while quota-axi's last Antigravity reading
-/// failed, as it would then ask the vendor again: the next timed read shows
-/// the new numbers instead.
+/// the files, is new. Skipped unless quota-axi's last Antigravity reading
+/// worked and is young enough to reuse (`runner::reusable`), as it would
+/// otherwise ask the vendor again: the next timed read shows the new
+/// numbers instead.
 fn show(app: &AppHandle, state: &AppState) {
     let path = {
         let inner = state.lock();
-        let last_ok = inner.agy_error.is_none()
-            && inner
-                .agy
-                .as_ref()
-                .and_then(|r| r.primary("agy"))
-                .is_some_and(|p| p.state.error.is_none());
-        if !last_ok {
+        let now = OffsetDateTime::now_utc();
+        let reusable = inner.agy_error.is_none()
+            && inner.agy.as_ref().is_some_and(|r| runner::reusable(r, ProviderId::Agy, now));
+        if !reusable {
             return;
         }
         inner.quota_axi()

@@ -240,10 +240,22 @@ pub async fn agy_logout(
 ) -> Result<Model, String> {
     let shared = state.inner().clone();
     let dir = shared.lock().app_dir();
-    let result = tauri::async_runtime::spawn_blocking(move || {
-        let endpoints = Endpoints::google();
-        let keychain = Keychain::system();
-        login::logout(&Deps { app: &dir, endpoints: &endpoints, keychain: &keychain }, &id)
+    let result = tauri::async_runtime::spawn_blocking({
+        let shared = shared.clone();
+        move || {
+            // Waits for a quota read that is under way to end first.
+            let _no_read = shared.agy_accounts.lock().unwrap_or_else(|e| e.into_inner());
+            let endpoints = Endpoints::google();
+            let keychain = Keychain::system();
+            let deps = Deps { app: &dir, endpoints: &endpoints, keychain: &keychain };
+            let result = login::logout(&deps, &id);
+            if result.is_ok() {
+                let mut inner = shared.lock();
+                inner.agy_reads.remove(&id);
+                inner.agy_pace.forget(&id);
+            }
+            result
+        }
     })
     .await
     .map_err(|e| e.to_string())?;

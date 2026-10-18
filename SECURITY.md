@@ -64,11 +64,11 @@ Tokens are refreshed only right before a use (a quota read), when they have
 under five minutes left. Nothing refreshes them on a timer. Logging out
 deletes the app's item and the index line, and asks Google to revoke nothing.
 
-The only place outside its folder the Antigravity code reads is the
-Antigravity app's bundle, `/Applications/Antigravity IDE.app` (where
-Cockpit Tools looks), for its version: `product.json`, google-auth-library's
-`package.json`, and `Info.plist` through `/usr/bin/plutil -p`. It never
-writes there.
+Besides its own Keychain items, the only place outside its folder the
+Antigravity code reads is the Antigravity app's bundle,
+`/Applications/Antigravity IDE.app` (where Cockpit Tools looks), for its
+version: `product.json`, google-auth-library's `package.json`, and
+`Info.plist` through `/usr/bin/plutil -p`. It never writes there.
 
 ## How the tests hold the app to this
 

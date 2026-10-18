@@ -64,14 +64,11 @@ fn run(app: &AppHandle, state: &AppState) {
         inner.switcher_now = false;
         inner.read_now = false;
         inner.reading = true;
-        // The Antigravity account in use is read with every quota-axi read.
-        inner.agy_pace.cycle();
         let path = inner.quota_axi();
         let generation = inner.claude_generation;
         let check_version =
             path.is_some() && inner.version.as_ref().map(|(p, _)| p) != path.as_ref();
         drop(inner);
-        state.wake_agy();
         publish(app, state);
 
         // The switcher check runs beside the read, and the numbers are shown
@@ -91,7 +88,11 @@ fn run(app: &AppHandle, state: &AppState) {
         inner.reading = false;
         inner.reads += 1;
         inner.schedule.mark_read(Instant::now());
+        // The Antigravity account in use is read with every quota-axi read,
+        // once this one has said which account that is.
+        inner.agy_pace.cycle();
         drop(inner);
+        state.wake_agy();
         publish(app, state);
 
         if let Ok(check) = switcher.join() {

@@ -166,12 +166,14 @@ Antigravity accounts logged in here, at Cockpit's pace or slower (below).
   The pace is never denser than Cockpit's: the account in use with each
   quota-axi read, the others every 10 minutes and when the `Antigravity` tab
   opens, one account at a time, and no account twice within a minute (a
-  reading younger than that is used as it is). A network error is tried
-  three times, a second apart; after that, or after a 401, the last numbers
-  stay with their age. After a 429 or a 5xx the account waits 2 minutes,
-  then 4, 8, 16 and at most 30. A 403 marks it `Google chặn` and stops its
-  reads until a new login; an account that needs a new login is not read
-  either. A Mac with no account logged in reads nothing.
+  reading younger than that is used as it is). A network error on
+  `fetchAvailableModels` is tried three times, a second apart, as Cockpit
+  does; after that, or after any other failure, the last numbers stay with
+  their age. After a 429 or a 5xx the account waits at least 2 minutes,
+  then 4, 8, 16 and at most 30. A 403 on `fetchAvailableModels` marks it
+  `Google chặn` and stops its reads until a new login; an account that
+  needs a new login is not read either. A Mac with no account logged in
+  reads nothing.
 
 Each Mac runs its own copy and switches only its own machine; there is no
 switch button for another Mac. The only thing sent to another Mac is the
@@ -370,11 +372,13 @@ timeout, a pasted callback URL, a cancel, a Keychain that refuses (the index
 stays unwritten), logging out, and the `oauth-client.json` checks. The spy
 test is described in [`SECURITY.md`](SECURITY.md).
 
-The Antigravity quota tests (`tests/antigravity_quota.rs`) run against the
+The Antigravity quota tests
+(`crates/quota-station-core/tests/antigravity_quota.rs`) run against the
 same fake Google, which also answers `loadCodeAssist`,
 `fetchAvailableModels` and `retrieveUserQuotaSummary` with fixtures in
-Cockpit's cache format (`tests/fixtures/cloud-code/`), under a `daily` and a
-`prod` path; the hosts can be changed only in a test build. They compare
+Cockpit's cache format
+(`crates/quota-station-core/tests/fixtures/cloud-code/`), under a `daily`
+and a `prod` path; the hosts can be changed only in a test build. They compare
 the headers, bodies and user agents with Cockpit's, with and without a fake
 Antigravity bundle on disk; check that the cache file is the record Cockpit
 writes, byte for byte; and cover the 60-second reuse, one account at a time
