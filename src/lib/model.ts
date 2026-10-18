@@ -269,12 +269,24 @@ export interface Peer {
   alias: string;
 }
 
-// ===== Antigravity accounts the app logs in (M4a) =====
+// ===== Antigravity accounts the app logs in (M4a) and reads (M4b) =====
 
 /** What the app found in `oauth-client.json` (`quota-station-core::antigravity::client`). */
 export type ClientStatus = 'ok' | 'missing' | 'unreadable' | 'tooOpen' | 'invalid';
 
-export type AgyStatus = 'ok' | 'needsLogin' | 'needsVerification';
+export type AgyStatus = 'ok' | 'needsLogin' | 'needsVerification' | 'forbidden';
+
+/** The app's last read of an account failed (`src-tauri/src/antigravity.rs` `ReadErrorView`). */
+export interface AgyReadError {
+  /**
+   * `quota::ReadError::kind`: `network`, `unauthorized`, `rateLimited`, `server`, `rejected`,
+   * `verification`, `parse`, `keychain`, `client`, `refresh`, `cache` or `index`.
+   */
+  kind: string;
+  detail: string;
+  /** After a 429 or a 5xx: when the app reads it again (RFC 3339). */
+  retryAt: string | null;
+}
 
 /** One account logged in here (`src-tauri/src/antigravity.rs` `AccountView`). */
 export interface AgyLogin {
@@ -287,6 +299,10 @@ export interface AgyLogin {
   status: AgyStatus;
   /** Google sent a verification page for it. */
   verify: boolean;
+  /** The app is reading its quota now. */
+  reading: boolean;
+  /** The app's last read failed; quota-axi keeps the last numbers, with their age. */
+  readError: AgyReadError | null;
 }
 
 export interface AgyAccounts {

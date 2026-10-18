@@ -5,8 +5,10 @@
 //! when the owner confirms, and pauses the `cswap-prefer-team` switcher.
 //! Since M5 it edits the rotation file and copies it to the owner's other
 //! Macs over SSH, so every Mac's switcher follows the same rules.
-//! Since M4a it logs Antigravity accounts in itself.
+//! Since M4a it logs Antigravity accounts in itself, and since M4b it reads
+//! their quota itself and leaves it where quota-axi reads it.
 
+mod agy_quota;
 mod antigravity;
 mod commands;
 mod reader;
@@ -43,6 +45,7 @@ fn main() {
                 popover.on_window_event(move |event| windows::on_popover_event(&handle, event));
             }
             reader::spawn(app.handle().clone(), state.clone());
+            agy_quota::spawn(app.handle().clone(), state.clone());
             rules::spawn(app.handle().clone(), state);
             Ok(())
         })
@@ -76,6 +79,7 @@ fn main() {
             antigravity::agy_login_cancel,
             antigravity::agy_logout,
             antigravity::agy_open_verification,
+            antigravity::agy_tab_opened,
             antigravity::set_show_email,
         ])
         .run(tauri::generate_context!())

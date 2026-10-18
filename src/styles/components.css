@@ -367,6 +367,9 @@
 .qs .arow { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 9px 0; border-top: .5px solid var(--card-line); font-size: var(--fs-sm); }
 .qs .arow:first-child { border-top: 0; }
 .qs .arow small { display: block; color: var(--ink2); font-size: var(--fs-xs); }
+.qs .arow small.aread { display: flex; gap: 6px; align-items: center; margin-top: 2px; }
+.qs .arow small.aread.warn { color: var(--warn-ink); } .qs .arow small.aread.bad { color: var(--bad-ink); }
+.qs .arow small.aread .spin { width: 10px; height: 10px; border-width: 1.5px; margin-top: 0; }
 
 /* Thông báo macOS: hệ thống vẽ, app chỉ chọn lời và tối đa 4 nút */
 .qs .ndesk { position: relative; background: var(--desk); padding: 40px 18px 22px; min-height: 100%; }

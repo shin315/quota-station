@@ -34,8 +34,13 @@ Files, under `~/Library/Application Support/com.shin315.quota-station/`:
   repository, the logs or the windows; the windows only learn whether the
   file is usable.
 - `antigravity/` (mode 700): `accounts.json`, the account index in Cockpit's
-  layout (ids, emails, names, times; no token), and `status.json`, the
-  accounts that need a new login or a verification. Both files are mode 600.
+  layout (ids, emails, names, times; no token), `status.json`, the accounts
+  that need a new login or a verification or that Google refused, and
+  `cache/quota_api_v1_desktop/authorized/<SHA-256 of the email>.json`, each
+  account's last quota reading in Cockpit's cache layout (the email, the
+  Cloud Code project, the time, and Google's quota answers; no token).
+  quota-axi reads the index and the readings, as it reads Cockpit's. The
+  files are mode 600; logging out removes the account's reading.
 
 In the owner's login Keychain, not in that folder:
 
@@ -55,9 +60,15 @@ do get each account's id, which is Cockpit's: `antigravity_` and the MD5 of
 the email. It is not the email, but anyone who guesses an address can check
 the guess against it, so it is kept as private as the index.
 
-Tokens are refreshed only right before a use, when they have under five
-minutes left. Nothing refreshes them on a timer. Logging out deletes the
-app's item and the index line, and asks Google to revoke nothing.
+Tokens are refreshed only right before a use (a quota read), when they have
+under five minutes left. Nothing refreshes them on a timer. Logging out
+deletes the app's item and the index line, and asks Google to revoke nothing.
+
+The only place outside its folder the Antigravity code reads is the
+Antigravity app's bundle, `/Applications/Antigravity IDE.app` (where
+Cockpit Tools looks), for its version: `product.json`, google-auth-library's
+`package.json`, and `Info.plist` through `/usr/bin/plutil -p`. It never
+writes there.
 
 ## How the tests hold the app to this
 
@@ -67,20 +78,24 @@ app's item and the index line, and asks Google to revoke nothing.
   symlink, before opening it; its tests check both. The symlink check runs
   just before the file is opened, so it guards against mistakes in the
   app, not against another program of the same macOS user, which could
-  read the folder anyway.
+  read the folder anyway. The same file holds the read-only `Bundle` the
+  version is read through; it names files only inside the bundle.
 - `tests/antigravity_spy.rs` runs every login flow (two logins, a pasted
   callback, a new login of an account, a refresh, a refused refresh, a
-  logout) in a temporary home that has a decoy, holding a sentinel secret,
-  at every path listed above, and a decoy of the shared Keychain item. It
-  checks that every file opened was in the app's folder, that every
-  `security` run named the app's own service and no `-A`, that the decoys
-  are unchanged, and that the sentinel appears nowhere the app wrote or
-  sent anything. A second test checks that no other Antigravity source file
-  opens files itself or names those paths or the shared item.
-- The tests talk to a local fake Google and a fake `security` that keeps
-  items in a temporary folder. The Google endpoints can be changed only in
-  a test build, and `Keychain::system()` refuses to run in one, so no test
-  can reach Google or the real Keychain.
+  logout) and quota reads of both accounts (in turn, from the cache, and a
+  refused one) in a temporary home that has a decoy, holding a sentinel
+  secret, at every path listed above, and a decoy of the shared Keychain
+  item. It checks that every file opened was in the app's folder or the
+  fake Antigravity bundle, that every `security` run named the app's own
+  service and no `-A`, that the decoys are unchanged, and that the sentinel
+  appears nowhere the app wrote or sent anything. A second test checks that
+  no other Antigravity source file, nor the app's quota thread, opens files
+  itself or names those paths or the shared item.
+- The tests talk to a local fake Google (OAuth and Cloud Code) and a fake
+  `security` that keeps items in a temporary folder. The Google and Cloud
+  Code endpoints and the Antigravity bundle can be changed only in a test
+  build, and `Keychain::system()` refuses to run in one, so no test can
+  reach Google or the real Keychain.
 - CI has no Keychain access and no Google account.
 
 ## Terms of service
@@ -88,11 +103,17 @@ app's item and the index line, and asks Google to revoke nothing.
 The Antigravity login borrows Antigravity's own OAuth client, as Cockpit
 Tools does, so Google's consent screen names Antigravity, not Quota Station.
 The app calls Google exactly as Cockpit does: the same client, flow, scopes,
-parameters and refresh rule, never more often, and its tokens are used only
-for what Cockpit uses them for. The risk is therefore the one of using
-Cockpit Tools: Google may ask an account to verify itself, revoke its
-refresh token or lock it. The app then marks the account `cần đăng nhập
-lại` or `cần xác minh` and does not retry on its own.
+parameters and refresh rule, and for quota the same three Cloud Code calls
+(`loadCodeAssist`, `fetchAvailableModels`, `retrieveUserQuotaSummary`) with
+Antigravity's user agent, headers and bodies, built by code ported from
+Cockpit. It calls never more often: `loadCodeAssist` less often than
+Cockpit, the account in use at most once a minute, the others every 10
+minutes, one account at a time, and longer waits after a 429 or a 5xx. Its
+tokens are used only for what Cockpit uses them for; it never calls a
+model. The risk is therefore the one of using Cockpit Tools: Google may ask
+an account to verify itself, revoke its refresh token or lock it. The app
+then marks the account `cần đăng nhập lại`, `cần xác minh` or `Google chặn`
+and does not retry a refused account on its own.
 
 Changes that would make that risk larger, and so need the owner's say
 first: another user agent or other request headers, calling more often or

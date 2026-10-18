@@ -316,6 +316,11 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
     };
   }, [api]);
 
+  // Opening the Antigravity tab reads every account now (at most once a minute each).
+  useEffect(() => {
+    if (tab === 'agy') void api.agyTabOpened().catch(() => {});
+  }, [api, tab]);
+
   const onAction = (act: Action) => {
     if (switching.act(act)) return;
     if (rules.act(act)) return;

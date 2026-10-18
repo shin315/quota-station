@@ -1,0 +1,44 @@
+{
+  "groups": [
+    {
+      "displayName": "Gemini Models",
+      "description": "Models within this group: Fixture Gemini Pro",
+      "buckets": [
+        {
+          "bucketId": "gemini-weekly",
+          "displayName": "Weekly Limit",
+          "window": "weekly",
+          "remainingFraction": 0.82,
+          "resetTime": "2030-01-19T08:45:39Z"
+        },
+        {
+          "bucketId": "gemini-5h",
+          "displayName": "Five Hour Limit",
+          "window": "5h",
+          "remainingFraction": 0.91,
+          "resetTime": "2030-01-16T11:39:34Z"
+        }
+      ]
+    },
+    {
+      "displayName": "Claude and GPT models",
+      "description": "Models within this group: Fixture Claude Sonnet",
+      "buckets": [
+        {
+          "bucketId": "3p-weekly",
+          "displayName": "Weekly Limit",
+          "window": "weekly",
+          "remainingFraction": 0.64,
+          "resetTime": "2030-01-20T00:39:54Z"
+        },
+        {
+          "bucketId": "3p-5h",
+          "displayName": "Five Hour Limit",
+          "window": "5h",
+          "remainingFraction": 0.73,
+          "resetTime": "2030-01-16T12:52:10Z"
+        }
+      ]
+    }
+  ]
+}

@@ -88,6 +88,17 @@ fn an_unsupported_schema_is_a_parse_error() {
 }
 
 #[test]
+fn reading_again_reuses_quota_axis_last_reading() {
+    let dir = temp_dir();
+    let axi = fake(&dir, Some(&fixture_path("agy-cockpit.json")), 0);
+    runner::read_again(&axi, ProviderId::Agy).unwrap();
+    assert_eq!(
+        recorded_args(&dir),
+        ["--provider", "agy", "--json", "--max-age", "60m", "--no-credential-refresh"]
+    );
+}
+
+#[test]
 fn only_the_grant_button_allows_the_keychain_prompt() {
     assert!(!runner::read_args(ProviderId::Claude).contains(&"--allow-keychain-prompt".to_string()));
     assert!(!runner::read_args(ProviderId::Agy).contains(&"--allow-keychain-prompt".to_string()));

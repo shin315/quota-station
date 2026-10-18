@@ -2,17 +2,18 @@
 //! and the popover show, paces the reads, and switches Claude when the owner
 //! asks. No UI and no AppKit, so all of it is tested with `cargo test`.
 //!
-//! It writes the app's own files (settings, and the Antigravity index in
-//! [`antigravity`]), the switcher's pause flag, the rotation file
-//! ([`rotation`]), which it also copies to the owner's other Macs over SSH
-//! ([`peers`]), and the app's own Keychain items for the Antigravity accounts
-//! it logs in. The one command it runs that switches anything is
-//! `cswap switch N --json` ([`switching`]). The one it runs that writes
-//! anything elsewhere is the [`peers`] script over `ssh`, which replaces the
-//! rotation file on another Mac (keeping a backup there). Everything else it
-//! runs only reads: quota-axi, the switcher's `--dry-run` (which reads
-//! claude-swap's accounts and switches nothing), `ssh` reading the other
-//! Macs' rotation file, and `launchctl list`.
+//! It writes the app's own files (settings, and the Antigravity index and
+//! quota readings in [`antigravity`]), the switcher's pause flag, the
+//! rotation file ([`rotation`]), which it also copies to the owner's other
+//! Macs over SSH ([`peers`]), and the app's own Keychain items for the
+//! Antigravity accounts it logs in. The one command it runs that switches
+//! anything is `cswap switch N --json` ([`switching`]). The one it runs that
+//! writes anything elsewhere is the [`peers`] script over `ssh`, which
+//! replaces the rotation file on another Mac (keeping a backup there).
+//! Everything else it runs only reads: quota-axi, the switcher's
+//! `--dry-run` (which reads claude-swap's accounts and switches nothing),
+//! `ssh` reading the other Macs' rotation file, `launchctl list`, and
+//! `plutil -p` on Antigravity's `Info.plist`.
 
 pub mod antigravity;
 pub mod axi;

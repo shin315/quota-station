@@ -1,0 +1,19 @@
+{
+  "defaultAgentModelId": "fixture-gemini-pro",
+  "models": {
+    "fixture-claude-sonnet": {
+      "displayName": "Fixture Claude Sonnet",
+      "quotaInfo": {
+        "remainingFraction": 0.73,
+        "resetTime": "2030-01-16T12:52:10Z"
+      }
+    },
+    "fixture-gemini-pro": {
+      "displayName": "Fixture Gemini Pro",
+      "quotaInfo": {
+        "remainingFraction": 0.91,
+        "resetTime": "2030-01-16T11:39:34Z"
+      }
+    }
+  }
+}

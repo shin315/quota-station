@@ -3,9 +3,10 @@
 //! The app only ever runs quota-axi reads. Every read passes
 //! `--no-credential-refresh` and reuses quota-axi's shared cache with
 //! `--max-age`, so a refresh adds no vendor call while the cache is young.
-//! [`read_fresh`] skips the cache, for the check right after a switch. The
-//! one exception is [`grant_keychain`], which the user starts from a button:
-//! it lets quota-axi ask macOS for Keychain access once.
+//! [`read_fresh`] skips the cache, for the check right after a switch, and
+//! [`read_again`] reuses it for up to an hour, when only the report needs
+//! building again. The one exception is [`grant_keychain`], which the user
+//! starts from a button: it lets quota-axi ask macOS for Keychain access once.
 
 use std::ffi::OsString;
 use std::io::Read;
@@ -23,6 +24,9 @@ pub const READ_TIMEOUT: Duration = Duration::from_secs(45);
 pub const GRANT_TIMEOUT: Duration = Duration::from_secs(180);
 /// quota-axi's shared cache may answer while younger than this.
 pub const MAX_AGE: &str = "120s";
+/// [`read_again`] reuses quota-axi's last successful reading up to this old
+/// (quota-axi's longest `--max-age`).
+pub const REUSE_MAX_AGE: &str = "60m";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProviderId {
@@ -107,6 +111,15 @@ pub fn read(path: &Path, provider: ProviderId) -> Result<Response, RunError> {
 
 pub fn read_fresh(path: &Path, provider: ProviderId) -> Result<Response, RunError> {
     report(path, &fresh_read_args(provider), READ_TIMEOUT)
+}
+
+/// The report again without a new reading: quota-axi serves its last
+/// successful reading of the provider (up to [`REUSE_MAX_AGE`] old), so it
+/// asks the vendor nothing, and builds the rest of the report anew. The app
+/// uses it right after writing an Antigravity account's quota, which
+/// quota-axi's `cockpit` block reads from the files at every run.
+pub fn read_again(path: &Path, provider: ProviderId) -> Result<Response, RunError> {
+    report(path, &read_args_with(provider, REUSE_MAX_AGE), READ_TIMEOUT)
 }
 
 pub fn grant_keychain(path: &Path) -> Result<Response, RunError> {

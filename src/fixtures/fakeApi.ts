@@ -243,7 +243,19 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       const again = list.find((a) => a.status !== 'ok');
       const next = again
         ? list.map((a) => (a.id === again.id ? { ...a, status: 'ok' as const, verify: false } : a))
-        : [...list, { id: 'antigravity_fake' + (list.length + 1), number: 0, email: null, name: null, status: 'ok' as const, verify: false }];
+        : [
+            ...list,
+            {
+              id: 'antigravity_fake' + (list.length + 1),
+              number: 0,
+              email: null,
+              name: null,
+              status: 'ok' as const,
+              verify: false,
+              reading: false,
+              readError: null,
+            },
+          ];
       push({ ...model, antigravity: agy({ loggingIn: false, accounts: accounts(next, model.showEmail) }) });
       const done: AgyLoginDone = again ? { number: again.number, added: false } : { number: next.length, added: true };
       return done;
@@ -265,6 +277,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       return model;
     },
     agyOpenVerification: async () => {},
+    agyTabOpened: async () => {},
     setShowEmail: async (on) => {
       push({ ...model, showEmail: on, antigravity: agy({ accounts: accounts(model.antigravity.accounts, on) }) });
       return model;

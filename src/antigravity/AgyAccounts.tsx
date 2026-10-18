@@ -2,7 +2,9 @@
 // this Mac, "Thêm tài khoản", "Đăng xuất" with a confirmation in the row,
 // and the accounts that need a new login or a verification. While a login
 // waits for the browser, the card offers to paste the callback URL and to
-// cancel. Reading their quota and switching come in later milestones.
+// cancel. Since M4b each row also says when the app is reading that
+// account's quota and when its last read failed; the numbers themselves
+// stay on the quota rows, from quota-axi. Switching comes in a later milestone.
 
 import { useState } from 'react';
 import { Button, Chip } from '../components/parts';
@@ -108,6 +110,12 @@ function Row(props: {
       <div>
         <b>{r.name}</b>
         <small>{r.sub}</small>
+        {r.read ? (
+          <small className={'aread ' + r.read.tone} role="status">
+            {r.read.tone === 'info' ? <span className="spin" aria-hidden="true" /> : null}
+            {r.read.text}
+          </small>
+        ) : null}
       </div>
       <Chip chip={r.chip} />
       <div className="acts" style={{ display: 'flex', gap: 6 }}>
@@ -205,7 +213,8 @@ export function AgyAccounts({ view, api, onFeedback }: AgyAccountsProps) {
       {view.loggingIn ? <Waiting api={api} /> : null}
       <div className="row2" style={{ marginTop: 10 }}>
         <p style={{ margin: 0, flex: 1 }}>
-          Mỗi Mac giữ đăng nhập của riêng nó. Đọc hạn mức và chuyển Antigravity từ app có ở bản sau.
+          Mỗi Mac giữ đăng nhập của riêng nó. App tự đọc hạn mức của các tài khoản này, không dày hơn Cockpit, rồi quota-axi đọc lại số
+          đó. Chuyển Antigravity từ app có ở bản sau.
         </p>
         <Button primary disabled={!!notice || view.indexError || busy} onClick={() => void login()}>
           Thêm tài khoản

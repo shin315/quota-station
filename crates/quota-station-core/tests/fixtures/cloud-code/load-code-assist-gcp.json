@@ -1,0 +1,11 @@
+{
+  "currentTier": {
+    "id": "standard-tier",
+    "name": "Fixture Standard",
+    "usesGcpTos": true
+  },
+  "cloudaicompanionProject": {
+    "id": "fixture-gcp-project-2002",
+    "name": "Fixture GCP project"
+  }
+}

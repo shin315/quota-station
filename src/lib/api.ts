@@ -79,6 +79,8 @@ export interface Api {
   /** Logs an account out of this app. Rejects with `notFound`, `keychain` or `index`. */
   agyLogout(id: string): Promise<Model>;
   agyOpenVerification(id: string): Promise<void>;
+  /** The Antigravity tab opened: the app reads every account now, unless read in the last minute. */
+  agyTabOpened(): Promise<void>;
   setShowEmail(on: boolean): Promise<Model>;
   onModel(handler: (model: Model) => void): Promise<() => void>;
   /** The main window is asked to show a tab while it is open. */
@@ -117,6 +119,7 @@ export const tauriApi: Api = {
   agyLoginCancel: () => invoke('agy_login_cancel'),
   agyLogout: (id) => invoke<Model>('agy_logout', { id }),
   agyOpenVerification: (id) => invoke('agy_open_verification', { id }),
+  agyTabOpened: () => invoke('agy_tab_opened'),
   setShowEmail: (on) => invoke<Model>('set_show_email', { on }),
   onModel: (handler) => listen<Model>('model', (event) => handler(event.payload)),
   onTab: (handler) => listen<Tab>('tab', (event) => handler(event.payload)),

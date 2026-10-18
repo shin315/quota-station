@@ -214,6 +214,10 @@ pub struct Cockpit {
     pub status: String,
     #[serde(default)]
     pub reason: Option<String>,
+    /// Whose files quota-axi read: `quota-station` (this app's folder) or
+    /// `cockpit`; none when a folder was named.
+    #[serde(default)]
+    pub source: Option<String>,
     #[serde(default)]
     pub accounts: Vec<CockpitAccount>,
 }

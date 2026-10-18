@@ -1,15 +1,20 @@
-//! Fakes for the Antigravity login tests: a local Google (the consent page,
-//! `/token`, `/userinfo`), a browser that records the URL it is asked to open
-//! and follows Google's redirect to the app's callback, and a `security`
-//! that records its arguments and keeps items in a folder. Nothing here
-//! reaches Google or the Keychain.
+//! Fakes for the Antigravity tests: a local Google (the consent page,
+//! `/token`, `/userinfo`, and Cloud Code's `loadCodeAssist`,
+//! `fetchAvailableModels` and `retrieveUserQuotaSummary` under `/daily` and
+//! `/prod`), a browser that records the URL it is asked to open and follows
+//! Google's redirect to the app's callback, and a `security` that records
+//! its arguments and keeps items in a folder. Nothing here reaches Google or
+//! the Keychain.
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
+use std::time::Duration;
 
+use quota_station_core::antigravity::cloud_code::Hosts;
 use quota_station_core::antigravity::fs::AppDir;
 use quota_station_core::antigravity::login::{Browser, Deps};
 use quota_station_core::antigravity::oauth::Endpoints;
@@ -44,7 +49,26 @@ pub struct Script {
     /// `/token` with `grant_type=refresh_token`.
     pub refresh: (u16, String),
     pub userinfo: (u16, String),
+    /// Cloud Code: status and body. Status 0 closes the connection without
+    /// an answer, as a network failure does.
+    pub load_code_assist: (u16, String),
+    pub models: (u16, String),
+    pub summary: (u16, String),
+    /// Answers given before the ones above, each once, in order: the end of
+    /// the path (`v1internal:fetchAvailableModels`), the status, the body.
+    pub queue: Vec<(String, u16, String)>,
+    /// How long every Cloud Code answer takes.
+    pub delay: Duration,
 }
+
+/// A Cloud Code fixture: `tests/fixtures/cloud-code/<name>.json`.
+pub fn cloud_code(name: &str) -> String {
+    super::fixture_text(&format!("cloud-code/{name}.json"))
+}
+
+pub const LOAD_CODE_ASSIST: &str = "v1internal:loadCodeAssist";
+pub const MODELS: &str = "v1internal:fetchAvailableModels";
+pub const SUMMARY: &str = "v1internal:retrieveUserQuotaSummary";
 
 pub fn token_body(access: &str, refresh: Option<&str>) -> String {
     let refresh = refresh.map(|r| format!(r#","refresh_token":"{r}""#)).unwrap_or_default();
@@ -66,6 +90,11 @@ impl Default for Script {
                 200,
                 format!(r#"{{"id":"1000001","email":"{EMAIL}","name":"Người Thử","picture":"x"}}"#),
             ),
+            load_code_assist: (200, cloud_code("load-code-assist")),
+            models: (200, cloud_code("fetch-available-models")),
+            summary: (200, cloud_code("retrieve-user-quota-summary")),
+            queue: Vec::new(),
+            delay: Duration::ZERO,
         }
     }
 }
@@ -80,6 +109,16 @@ pub struct Request {
 }
 
 impl Request {
+    /// The JSON body.
+    pub fn json(&self) -> serde_json::Value {
+        serde_json::from_str(&self.body).unwrap()
+    }
+
+    /// `daily` or `prod` for a Cloud Code call.
+    pub fn host(&self) -> &str {
+        self.path.trim_start_matches('/').split('/').next().unwrap_or("")
+    }
+
     pub fn param(&self, key: &str) -> Option<String> {
         self.query.iter().find(|(k, _)| k == key).map(|(_, v)| v.clone())
     }
@@ -97,6 +136,8 @@ pub struct FakeGoogle {
     pub base: String,
     pub script: Arc<Mutex<Script>>,
     pub requests: Arc<Mutex<Vec<Request>>>,
+    /// The most Cloud Code requests that were answered at once.
+    pub most_at_once: Arc<AtomicUsize>,
 }
 
 impl FakeGoogle {
@@ -105,18 +146,38 @@ impl FakeGoogle {
         let base = format!("http://127.0.0.1:{}", listener.local_addr().unwrap().port());
         let script = Arc::new(Mutex::new(script));
         let requests = Arc::new(Mutex::new(Vec::new()));
-        let (s, r) = (script.clone(), requests.clone());
+        let most_at_once = Arc::new(AtomicUsize::new(0));
+        let now = Arc::new(AtomicUsize::new(0));
+        let (s, r, m) = (script.clone(), requests.clone(), most_at_once.clone());
         thread::spawn(move || {
             for stream in listener.incoming().flatten() {
-                let (s, r) = (s.clone(), r.clone());
-                thread::spawn(move || serve(stream, &s, &r));
+                let (s, r, m, n) = (s.clone(), r.clone(), m.clone(), now.clone());
+                thread::spawn(move || serve(stream, &s, &r, &m, &n));
             }
         });
-        FakeGoogle { base, script, requests }
+        FakeGoogle { base, script, requests, most_at_once }
     }
 
     pub fn endpoints(&self) -> Endpoints {
         Endpoints::fake(&self.base)
+    }
+
+    pub fn hosts(&self) -> Hosts {
+        Hosts::fake(&self.base)
+    }
+
+    /// The Cloud Code requests so far, in order.
+    pub fn cloud_code(&self) -> Vec<Request> {
+        self.requests().into_iter().filter(|r| r.path.contains("v1internal:")).collect()
+    }
+
+    /// The Cloud Code requests whose path ends with `call`.
+    pub fn calls(&self, call: &str) -> Vec<Request> {
+        self.requests().into_iter().filter(|r| r.path.ends_with(call)).collect()
+    }
+
+    pub fn clear(&self) {
+        self.requests.lock().unwrap().clear();
     }
 
     pub fn set(&self, change: impl FnOnce(&mut Script)) {
@@ -132,7 +193,13 @@ impl FakeGoogle {
     }
 }
 
-fn serve(stream: TcpStream, script: &Mutex<Script>, requests: &Mutex<Vec<Request>>) {
+fn serve(
+    stream: TcpStream,
+    script: &Mutex<Script>,
+    requests: &Mutex<Vec<Request>>,
+    most_at_once: &AtomicUsize,
+    at_once: &AtomicUsize,
+) {
     let mut reader = BufReader::new(stream.try_clone().unwrap());
     let mut line = String::new();
     if reader.read_line(&mut line).is_err() {
@@ -167,6 +234,34 @@ fn serve(stream: TcpStream, script: &Mutex<Script>, requests: &Mutex<Vec<Request
         body: String::from_utf8_lossy(&body).into_owned(),
     };
     requests.lock().unwrap().push(request.clone());
+    if request.path.contains("v1internal:") {
+        let n = at_once.fetch_add(1, Ordering::SeqCst) + 1;
+        most_at_once.fetch_max(n, Ordering::SeqCst);
+        let (delay, reply) = {
+            let mut script = script.lock().unwrap();
+            let queued = script.queue.iter().position(|(end, ..)| request.path.ends_with(end));
+            let reply = match queued {
+                Some(i) => {
+                    let (_, status, body) = script.queue.remove(i);
+                    (status, body)
+                }
+                None if request.path.ends_with(LOAD_CODE_ASSIST) => script.load_code_assist.clone(),
+                None if request.path.ends_with(MODELS) => script.models.clone(),
+                None if request.path.ends_with(SUMMARY) => script.summary.clone(),
+                None => (404, r#"{"error":{"code":404,"message":"not found"}}"#.into()),
+            };
+            (script.delay, reply)
+        };
+        thread::sleep(delay);
+        at_once.fetch_sub(1, Ordering::SeqCst);
+        let (status, body) = reply;
+        // Status 0: the connection closes with no answer.
+        if status != 0 {
+            let mut stream = stream;
+            let _ = stream.write_all(json(status, &body).as_bytes());
+        }
+        return;
+    }
     let script = script.lock().unwrap().clone();
 
     let reply = match request.path.as_str() {

@@ -5,7 +5,7 @@
 // `cswap=none` hides claude-swap. A switch takes 1.5 s, so the working sheet shows.
 // Rotation rules (M5): `tab=rules` with `rotation=unreachable|newer|edited|unstamped|missing|invalid|refused|single`;
 // a save takes 1 s, and `unreachable` leaves Mac C behind.
-// Antigravity logins (M4a): `agy=two|relogin|verify|noclient|tooopen|invalid|broken`
+// Antigravity logins (M4a) and reads (M4b): `agy=two|relogin|verify|noclient|tooopen|invalid|broken|reading|failing|forbidden`
 // sets the login card, `login=timeout|noRefreshToken|keychain|…` how a login ends
 // (it keeps the next account after 3 s by default, or at once on any pasted
 // URL with `code=` and `state=`), and `email=on` shows the made-up emails.
@@ -74,6 +74,15 @@ const AGY: Record<string, () => AgyAccounts> = {
   tooopen: () => agyFixture({ client: 'tooOpen' }),
   invalid: () => agyFixture({ client: 'invalid' }),
   broken: () => agyFixture({ indexError: true }),
+  reading: () => agyFixture({ accounts: [agyAccount(1, { reading: true }), agyAccount(2)] }),
+  failing: () =>
+    agyFixture({
+      accounts: [
+        agyAccount(1, { readError: { kind: 'network', detail: '', retryAt: null } }),
+        agyAccount(2, { readError: { kind: 'rateLimited', detail: '', retryAt: '2026-01-16T07:24:00.000Z' } }),
+      ],
+    }),
+  forbidden: () => agyFixture({ accounts: [agyAccount(1), agyAccount(2, { status: 'forbidden', verify: true })] }),
 };
 
 const LOGIN_ENDS = ['timeout', 'cancelled', 'noCode', 'stateMismatch', 'noRefreshToken', 'invalidGrant', 'network', 'keychain', 'index', 'browser'];
