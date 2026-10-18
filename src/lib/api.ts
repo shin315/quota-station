@@ -86,7 +86,8 @@ export interface Api {
   agyAppState(): Promise<AgyApp>;
   /**
    * Switches Antigravity to the account `id` the way `how` says, and reports what quota-axi shows
-   * five seconds later. Rejects with `busy` (a switch is running), `unknownAccount` or `index`.
+   * five seconds later. Rejects with `busy` (a switch is running), `loggingOut`, `loggingIn`,
+   * `unknownAccount` or `index`.
    */
   switchAgy(id: string, how: AgyHow): Promise<AgyOutcome>;
   /** "Thôi" on the overwrite banner: stops watching the last switch. */

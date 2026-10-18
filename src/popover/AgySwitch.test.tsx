@@ -178,7 +178,7 @@ describe('the Antigravity switch sheet', () => {
     await act(async () => {
       fireEvent.click(within(sheet).getByRole('button', { name: 'Thoát app rồi chuyển' }));
     });
-    expect(screen.getByText('Đang có một lần đăng nhập Antigravity. Chờ xong, hoặc bấm Huỷ, rồi thử lại.')).toBeTruthy();
+    expect(screen.getByText('Đang có một lần đăng nhập Antigravity. Chờ xong rồi thử lại.')).toBeTruthy();
   });
 
   it('when the app cannot tell whether Antigravity.app runs it offers all three', async () => {

@@ -245,9 +245,9 @@ pub fn read_account(deps: &Deps, id: &str, now_ms: i64) -> ReadResult {
     }
 }
 
-/// A Cloud Code call failed (other than the 403 that stops the reads): the
-/// last reading stays, and a verification Google asks for is kept as the
-/// account's status.
+/// A Cloud Code call failed without stopping the reads (not the 403 of
+/// `fetchAvailableModels`): the last reading stays, and a verification
+/// Google asks for is kept as the account's status.
 fn refused(app: &AppDir, id: &str, now: i64, e: CloudCodeError) -> ReadError {
     if let Some(api) = e.api_error().filter(|a| a.needs_verification()) {
         let url = api.validation_url.clone();

@@ -290,10 +290,10 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       return options.agyApp ?? { installed: 'supported', version: '2.24.0', running: true };
     },
     switchAgy: async (id, how) => {
-      const login = model.antigravity.accounts.find((a) => a.id === id);
-      if (!login) throw 'unknownAccount';
       if (model.agySwitch.busy != null) throw 'busy';
       if (model.antigravity.loggingIn) throw 'loggingIn';
+      const login = model.antigravity.accounts.find((a) => a.id === id);
+      if (!login) throw 'unknownAccount';
       const number = login.number;
       push({ ...model, agySwitch: { ...model.agySwitch, busy: number } });
       if (options.agySwitchDelayMs) await new Promise((r) => setTimeout(r, options.agySwitchDelayMs));

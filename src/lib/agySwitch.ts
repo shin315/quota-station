@@ -145,7 +145,7 @@ function failedBody(error: string, detail: string, reopened: boolean | null): st
     case 'loggingOut':
       return 'Đang đăng xuất một tài khoản Antigravity. Chờ xong rồi thử lại.';
     case 'loggingIn':
-      return 'Đang có một lần đăng nhập Antigravity. Chờ xong, hoặc bấm Huỷ, rồi thử lại.';
+      return 'Đang có một lần đăng nhập Antigravity. Chờ xong rồi thử lại.';
     case 'prepareTimeout':
       return 'Google không trả lời kịp trong 60 giây.' + nothing;
     case 'prepare':
