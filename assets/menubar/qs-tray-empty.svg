@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18">
+  <title>Phác thảo · Quota Station · icon thanh menu · Claude cạn</title>
+  <desc>Phác thảo. Ảnh template cho thanh menu macOS: chỉ đen và độ trong, hệ thống tự tô màu. Khung 18 pt cao. Bản build vẽ thanh theo phần trăm lúc chạy.</desc>
+  <path d="M9 2.2L16.6 15.6H1.4z" fill="none" stroke="#000" stroke-width="1.5" stroke-linejoin="round"/>
+  <path d="M9 6.6v4" stroke="#000" stroke-width="1.6" stroke-linecap="round"/>
+  <circle cx="9" cy="13" r="1" fill="#000"/>
+</svg>

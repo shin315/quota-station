@@ -1,0 +1,138 @@
+{
+  "generatedAt": "2026-01-16T07:20:00.000Z",
+  "schemaVersion": 5,
+  "providers": [
+    {
+      "provider": "claude",
+      "windows": [],
+      "state": {
+        "status": "stale",
+        "stale": true
+      },
+      "quotaSemantics": {
+        "status": "known",
+        "effectiveAvailability": [
+          {
+            "scope": "all_models",
+            "status": "known",
+            "effectivePercentRemaining": 100,
+            "boundedBy": [
+              "five_hour",
+              "seven_day"
+            ]
+          }
+        ]
+      },
+      "claudeSwap": {
+        "status": "ok",
+        "activeSlot": 2,
+        "activeBasis": "claude-swap",
+        "slots": [
+          {
+            "slot": 1,
+            "active": false,
+            "disabled": false,
+            "status": "stale",
+            "ageSeconds": 2460,
+            "fetchedAt": "2026-01-16T06:39:00.000Z",
+            "effectivePercentRemaining": 100,
+            "limitedBy": "five_hour + seven_day",
+            "resetsAt": "2026-01-22T15:20:00.000Z",
+            "scopes": [
+              {
+                "scope": "model:fable",
+                "status": "known",
+                "effectivePercentRemaining": 96,
+                "limitedBy": "five_hour + seven_day + model:fable",
+                "resetsAt": "2026-01-22T15:20:00.000Z"
+              }
+            ]
+          },
+          {
+            "slot": 2,
+            "active": true,
+            "disabled": false,
+            "status": "stale",
+            "ageSeconds": 2460,
+            "fetchedAt": "2026-01-16T06:39:00.000Z",
+            "effectivePercentRemaining": 27,
+            "limitedBy": "five_hour",
+            "resetsAt": "2026-01-16T10:29:00.000Z",
+            "scopes": [
+              {
+                "scope": "model:fable",
+                "status": "known",
+                "effectivePercentRemaining": 13,
+                "limitedBy": "model:fable",
+                "resetsAt": "2026-01-18T01:20:00.000Z"
+              }
+            ]
+          },
+          {
+            "slot": 3,
+            "active": false,
+            "disabled": false,
+            "status": "stale",
+            "ageSeconds": 2460,
+            "fetchedAt": "2026-01-16T06:39:00.000Z",
+            "effectivePercentRemaining": 100,
+            "limitedBy": "five_hour",
+            "scopes": [
+              {
+                "scope": "model:fable",
+                "status": "known",
+                "effectivePercentRemaining": 50,
+                "limitedBy": "model:fable",
+                "resetsAt": "2026-01-16T20:20:00.000Z"
+              }
+            ]
+          },
+          {
+            "slot": 4,
+            "active": false,
+            "disabled": false,
+            "status": "stale",
+            "ageSeconds": 2460,
+            "fetchedAt": "2026-01-16T06:39:00.000Z",
+            "effectivePercentRemaining": 98,
+            "limitedBy": "five_hour",
+            "resetsAt": "2026-01-16T10:09:00.000Z",
+            "scopes": [
+              {
+                "scope": "model:fable",
+                "status": "known",
+                "effectivePercentRemaining": 98,
+                "limitedBy": "five_hour",
+                "resetsAt": "2026-01-16T10:09:00.000Z"
+              }
+            ]
+          }
+        ]
+      },
+      "claudePool": {
+        "status": "active_slot",
+        "reason": "claude_row_not_fresh",
+        "rotation": {
+          "team": [
+            2,
+            3,
+            4
+          ],
+          "personal": 1,
+          "personalHours": "8-23",
+          "full": 90,
+          "fableFull": 95,
+          "expire": [
+            {
+              "slot": 2,
+              "at": "2026-01-16T10:45:00.000Z"
+            }
+          ]
+        }
+      },
+      "accountKeys": [
+        "default"
+      ]
+    }
+  ]
+}

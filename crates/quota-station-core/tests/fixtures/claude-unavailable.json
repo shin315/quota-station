@@ -1,0 +1,48 @@
+{
+  "generatedAt": "2026-01-16T07:20:00.000Z",
+  "schemaVersion": 5,
+  "providers": [
+    {
+      "provider": "claude",
+      "windows": [],
+      "state": {
+        "status": "unavailable",
+        "stale": false,
+        "error": "network_unreachable"
+      },
+      "quotaSemantics": {
+        "status": "unknown",
+        "effectiveAvailability": []
+      },
+      "claudeSwap": {
+        "status": "unavailable",
+        "reason": "usage_schema_mismatch",
+        "slots": []
+      },
+      "claudePool": {
+        "status": "active_slot",
+        "reason": "claude_swap_unavailable",
+        "rotation": {
+          "team": [
+            2,
+            3,
+            4
+          ],
+          "personal": 1,
+          "personalHours": "8-23",
+          "full": 90,
+          "fableFull": 95,
+          "expire": [
+            {
+              "slot": 2,
+              "at": "2026-01-16T10:45:00.000Z"
+            }
+          ]
+        }
+      },
+      "accountKeys": [
+        "default"
+      ]
+    }
+  ]
+}

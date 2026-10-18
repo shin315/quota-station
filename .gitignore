@@ -1,0 +1,10 @@
+# Build output
+/target/
+/dist/
+/node_modules/
+/src-tauri/gen/
+*.tsbuildinfo
+
+# Local tools and editor state
+.DS_Store
+/.tools/

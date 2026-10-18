@@ -1,0 +1,137 @@
+/* Quota Station design tokens, copied unchanged from the approved prototype
+   (step 0.7, 18/10/2026). The prototype header follows. */
+
+/* Quota Station · design tokens · Hướng 1 · Kính macOS · bước 0.5 (Phác thảo), sửa sau kiểm Codex 0.6.
+   Một nguồn cho prototype và cho React sau này: mỗi giá trị là một biến CSS.
+   Giao diện: data-theme="light" | "dark" | "auto" (theo hệ thống) đặt trên một phần tử bao.
+   Chất liệu: data-material="glass" (kính) | "solid" (nền đặc thay thế).
+   Tương phản: mọi token chữ (--ink, --ink2, --ink3, các token -ink, --on-accent trên --accent) đạt ít nhất 4,5:1
+   trên nền đặc, trên kính phủ nền máy, trên ô --fill2, và trên nền nhạt của chip (kể cả khi chip nằm trong dòng đang dùng). Riêng --ink3 sáng chỉ dùng trên nền đặc (thẻ, nền cửa sổ),
+   không dùng trên kính của thanh bên. design-system.html tính lại các tỉ lệ này từ token khi mở trang. */
+
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+
+  /* Chữ: chữ hệ thống, không tải font. Chữ số luôn thẳng cột (I08). */
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --fs-cap: 10.5px;   /* chip, nhãn thanh */
+  --fs-xs: 11px;      /* phụ đề, nhãn mục */
+  --fs-s: 11.5px;     /* dòng phụ */
+  --fs-sm: 12px;      /* nút, nội dung phụ */
+  --fs-body: 12.5px;  /* tên dòng, tiêu đề băng báo */
+  --fs-base: 13px;    /* chữ thường */
+  --fs-title: 13.5px; /* tiêu đề popover */
+  --fs-sheet: 14px;   /* tiêu đề tấm xác nhận */
+  --fs-num: 19px;     /* số ô trong vòng */
+  --fs-h2: 20px;      /* tiêu đề cửa sổ */
+  --fs-big: 24px;     /* số lớn trong cửa sổ */
+  --fw-reg: 400; --fw-med: 550; --fw-semi: 600; --fw-bold: 650;
+  --lh: 1.35;
+  --num: tabular-nums;
+
+  /* Khoảng cách: bậc 2px, dùng chủ yếu 4/8/12. */
+  --sp-1: 2px; --sp-2: 4px; --sp-3: 6px; --sp-4: 8px; --sp-5: 10px; --sp-6: 12px;
+  --sp-7: 14px; --sp-8: 16px; --sp-10: 20px; --sp-12: 24px;
+
+  /* Bo góc */
+  --r-pop: 16px; --r-win: 14px; --r-sheet: 13px; --r-card: 12px; --r-tile: 11px;
+  --r-row: 9px; --r-ctl: 7px; --r-chip: 999px;
+
+  /* Kích thước. --pop-max: popover không cao quá vùng màn hình dùng được (màn MacBook Air 13" trừ thanh menu và lề). */
+  --pop-w: 348px; --pop-max: 820px; --av: 26px; --tog-w: 32px; --tog-h: 19px; --meter-h: 4px; --meter-h-s: 3px;
+  --win-w: 980px; --win-h: 640px; --side-w: 212px;
+
+  /* Chuyển động: ngắn, không nảy. Tắt khi người dùng giảm chuyển động. */
+  --dur-1: 120ms; --dur-2: 180ms; --dur-3: 240ms; --ease: cubic-bezier(.2, .8, .2, 1);
+
+  /* Nền máy (chỉ để dựng cảnh) */
+  --desk: linear-gradient(135deg, #bcd3ee 0%, #e7dcf0 48%, #f4e1cf 100%);
+  --bar: rgba(255, 255, 255, .52); --bar-solid: #ececee; --bar-ink: #1d1d1f;
+
+  /* Kính và nền đặc thay thế (cùng màu, khác độ trong) */
+  --glass: rgba(250, 250, 252, .74); --glass-solid: #f5f5f7; --glass-line: rgba(0, 0, 0, .10);
+  --side: rgba(232, 232, 238, .78); --side-solid: #e9e9ee;
+  --blur-pop: 34px; --blur-side: 20px; --blur-bar: 24px; --sat: 1.8;
+
+  /* Chữ và nền */
+  --ink: #1d1d1f; --ink2: #5b5b60; --ink3: #6a6a6f;
+  --fill: rgba(0, 0, 0, .045); --fill2: rgba(0, 0, 0, .08); --sel: rgba(0, 122, 255, .11);
+  --card: #ffffff; --card-line: rgba(0, 0, 0, .07); --winbg: #f3f3f6; --scrim: rgba(0, 0, 0, .18);
+  --track: rgba(0, 0, 0, .09);
+
+  /* Hành động: xanh dương, tối hơn xanh hệ thống một chút để chữ trắng trên nút đạt 4,5:1.
+     --accent là nền nút và dấu chọn; --accent-ink là chữ, link và icon màu xanh. */
+  --accent: #0062cc; --accent-ink: #0062cc; --on-accent: #ffffff; --info-ink: #004fb0;
+
+  /* Trạng thái: chỉ để báo còn / sắp hết / cạn. --bad-fill là nền đỏ đặc có chữ trắng (huy hiệu số). */
+  --ok: #34c759; --ok-ink: #13652b;
+  --warn: #ff9f0a; --warn-ink: #874300;
+  --bad: #ff3b30; --bad-ink: #a8001a; --bad-fill: #d70015;
+
+  /* Nhận diện (I13): chỉ ở avatar, dấu mục và thanh ô trong vòng, không dùng cho trạng thái.
+     Bản -ink dùng cho chữ trên nền nhạt -tint. */
+  --id-claude: #c4613f; --id-claude-ink: #8a3c20; --id-claude-tint: rgba(196, 97, 63, .14);
+  --id-agy: #5856d6; --id-agy-ink: #4341b8; --id-agy-tint: rgba(88, 86, 214, .13);
+  --id-codex: #3a3a3c; --id-codex-ink: #3a3a3c; --id-codex-tint: rgba(58, 58, 60, .10);
+
+  /* Bóng */
+  --shadow-pop: 0 18px 50px rgba(30, 40, 70, .22);
+  --shadow-sheet: 0 10px 40px rgba(0, 0, 0, .28);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, .05);
+  --shadow-win: 0 24px 70px rgba(30, 40, 70, .28);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --desk: linear-gradient(135deg, #0f1d33 0%, #241a36 50%, #2c1f17 100%);
+  --bar: rgba(28, 28, 30, .55); --bar-solid: #232325; --bar-ink: #f5f5f7;
+  --glass: rgba(38, 38, 42, .74); --glass-solid: #2a2a2d; --glass-line: rgba(255, 255, 255, .12);
+  --side: rgba(46, 46, 50, .72); --side-solid: #2c2c30;
+  --ink: #f5f5f7; --ink2: #b4b4b9; --ink3: #a1a1a6;
+  --fill: rgba(255, 255, 255, .06); --fill2: rgba(255, 255, 255, .10); --sel: rgba(10, 132, 255, .24);
+  --card: #2a2a2d; --card-line: rgba(255, 255, 255, .07); --winbg: #1c1c1e; --scrim: rgba(0, 0, 0, .35);
+  --track: rgba(255, 255, 255, .13);
+  --accent: #0a66f0; --accent-ink: #64a8ff; --on-accent: #ffffff; --info-ink: #7db7ff;
+  --ok: #30d158; --ok-ink: #4fe07a;
+  --warn: #ff9f0a; --warn-ink: #ffc266;
+  --bad: #ff453a; --bad-ink: #ff9a92; --bad-fill: #d70015;
+  --id-claude: #e3825f; --id-claude-ink: #f5b394; --id-claude-tint: rgba(227, 130, 95, .20);
+  --id-agy: #8583ff; --id-agy-ink: #c4c2ff; --id-agy-tint: rgba(133, 131, 255, .22);
+  --id-codex: #d1d1d6; --id-codex-ink: #d1d1d6; --id-codex-tint: rgba(209, 209, 214, .14);
+  --shadow-pop: 0 18px 50px rgba(0, 0, 0, .55);
+  --shadow-sheet: 0 10px 40px rgba(0, 0, 0, .6);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, .3);
+  --shadow-win: 0 24px 70px rgba(0, 0, 0, .6);
+}
+
+/* data-theme="auto": theo giao diện hệ thống (bản app dùng đúng cách này). */
+@media (prefers-color-scheme: dark) {
+  [data-theme="auto"] {
+    color-scheme: dark;
+    --desk: linear-gradient(135deg, #0f1d33 0%, #241a36 50%, #2c1f17 100%);
+    --bar: rgba(28, 28, 30, .55); --bar-solid: #232325; --bar-ink: #f5f5f7;
+    --glass: rgba(38, 38, 42, .74); --glass-solid: #2a2a2d; --glass-line: rgba(255, 255, 255, .12);
+    --side: rgba(46, 46, 50, .72); --side-solid: #2c2c30;
+    --ink: #f5f5f7; --ink2: #b4b4b9; --ink3: #a1a1a6;
+    --fill: rgba(255, 255, 255, .06); --fill2: rgba(255, 255, 255, .10); --sel: rgba(10, 132, 255, .24);
+    --card: #2a2a2d; --card-line: rgba(255, 255, 255, .07); --winbg: #1c1c1e; --scrim: rgba(0, 0, 0, .35);
+    --track: rgba(255, 255, 255, .13);
+    --accent: #0a66f0; --accent-ink: #64a8ff; --on-accent: #ffffff; --info-ink: #7db7ff;
+    --ok: #30d158; --ok-ink: #4fe07a;
+    --warn: #ff9f0a; --warn-ink: #ffc266;
+    --bad: #ff453a; --bad-ink: #ff9a92; --bad-fill: #d70015;
+    --id-claude: #e3825f; --id-claude-ink: #f5b394; --id-claude-tint: rgba(227, 130, 95, .20);
+    --id-agy: #8583ff; --id-agy-ink: #c4c2ff; --id-agy-tint: rgba(133, 131, 255, .22);
+    --id-codex: #d1d1d6; --id-codex-ink: #d1d1d6; --id-codex-tint: rgba(209, 209, 214, .14);
+    --shadow-pop: 0 18px 50px rgba(0, 0, 0, .55);
+    --shadow-sheet: 0 10px 40px rgba(0, 0, 0, .6);
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, .3);
+    --shadow-win: 0 24px 70px rgba(0, 0, 0, .6);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root, [data-theme] { --dur-1: 0ms; --dur-2: 0ms; --dur-3: 0ms; }
+}
