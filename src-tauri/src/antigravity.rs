@@ -161,8 +161,8 @@ pub struct LoginDone {
 /// Adds an Antigravity account, or logs one in again: opens Google's consent
 /// screen in the default browser and waits up to 10 minutes for it to come
 /// back, then keeps the account. Rejects with `busy` while another login
-/// waits and `switching` while an Antigravity switch runs, which the login
-/// would otherwise race.
+/// waits, `switching` while an Antigravity switch runs and `loggingOut`
+/// while a logout runs, which the login would otherwise race.
 #[tauri::command]
 pub async fn agy_login(app: AppHandle, state: State<'_, AppState>) -> Result<LoginDone, Failure> {
     let shared = state.inner().clone();
@@ -233,9 +233,10 @@ pub fn agy_login_cancel(state: State<'_, AppState>) {
 
 /// Logs an account out of this app only. Antigravity.app and agy keep their
 /// own login. Rejects with `busy` while an Antigravity switch runs, which
-/// could otherwise point Antigravity at the account just logged out, and
-/// with `loggingOut` while another logout runs. A read that started before
-/// the logout is dropped, so it cannot show the account again.
+/// could otherwise point Antigravity at the account just logged out, with
+/// `loggingOut` while another logout runs and with `loggingIn` while a login
+/// runs, which would rewrite the account list under it. A read that started
+/// before the logout is dropped, so it cannot show the account again.
 #[tauri::command]
 pub async fn agy_logout(
     app: AppHandle,
@@ -245,11 +246,8 @@ pub async fn agy_logout(
     let shared = state.inner().clone();
     let dir = {
         let mut inner = shared.lock();
-        if inner.agy_switching.is_some() {
-            return Err("busy".into());
-        }
-        if inner.agy_logging_out {
-            return Err("loggingOut".into());
+        if let Some(why) = inner.agy_logout_refusal() {
+            return Err(why.into());
         }
         inner.agy_logging_out = true;
         inner.agy_generation += 1;
@@ -348,12 +346,31 @@ pub fn set_show_email(
 
 impl Inner {
     /// Why an Antigravity login cannot start now: `busy` while another
-    /// login waits, `switching` while an Antigravity switch runs.
+    /// login waits, `switching` while an Antigravity switch runs,
+    /// `loggingOut` while a logout runs; the login and the logout both
+    /// rewrite the account list.
     pub fn agy_login_refusal(&self) -> Option<&'static str> {
         if self.agy_logging_in {
             Some("busy")
         } else if self.agy_switching.is_some() {
             Some("switching")
+        } else if self.agy_logging_out {
+            Some("loggingOut")
+        } else {
+            None
+        }
+    }
+
+    /// Why an Antigravity logout cannot start now: `busy` while a switch
+    /// runs, `loggingOut` while another logout runs, `loggingIn` while a
+    /// login runs.
+    pub fn agy_logout_refusal(&self) -> Option<&'static str> {
+        if self.agy_switching.is_some() {
+            Some("busy")
+        } else if self.agy_logging_out {
+            Some("loggingOut")
+        } else if self.agy_logging_in {
+            Some("loggingIn")
         } else {
             None
         }
@@ -380,7 +397,7 @@ mod tests {
     }
 
     #[test]
-    fn a_login_is_refused_while_another_login_or_a_switch_runs() {
+    fn a_login_is_refused_while_another_login_a_switch_or_a_logout_runs() {
         let mut inner = Inner::new(
             std::path::PathBuf::new(),
             std::path::PathBuf::from("/nonexistent/settings.json"),
@@ -396,5 +413,33 @@ mod tests {
         assert_eq!(inner.agy_login_refusal(), Some("switching"));
         inner.agy_switching = None;
         assert_eq!(inner.agy_login_refusal(), None, "it can start once the switch ends");
+
+        inner.agy_logging_out = true;
+        assert_eq!(inner.agy_login_refusal(), Some("loggingOut"));
+        inner.agy_logging_out = false;
+        assert_eq!(inner.agy_login_refusal(), None, "it can start once the logout ends");
+    }
+
+    #[test]
+    fn a_logout_is_refused_while_a_switch_another_logout_or_a_login_runs() {
+        let mut inner = Inner::new(
+            std::path::PathBuf::new(),
+            std::path::PathBuf::from("/nonexistent/settings.json"),
+            "Mac".into(),
+        );
+        assert_eq!(inner.agy_logout_refusal(), None);
+
+        inner.agy_switching = Some(1);
+        assert_eq!(inner.agy_logout_refusal(), Some("busy"));
+        inner.agy_switching = None;
+
+        inner.agy_logging_out = true;
+        assert_eq!(inner.agy_logout_refusal(), Some("loggingOut"));
+        inner.agy_logging_out = false;
+
+        inner.agy_logging_in = true;
+        assert_eq!(inner.agy_logout_refusal(), Some("loggingIn"));
+        inner.agy_logging_in = false;
+        assert_eq!(inner.agy_logout_refusal(), None, "it can start once the login ends");
     }
 }
