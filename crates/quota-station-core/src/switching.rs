@@ -128,6 +128,10 @@ pub fn switch_claude(
 /// started at `started`. Nothing is written for a hold already over, or when
 /// a pause that lasts at least as long is on: a hold never shortens the
 /// owner's pause.
+///
+/// The flag keeps local time to the minute, and the sheet shows the end to
+/// the minute (`đến 15:20`), so the hold ends at the minute the owner saw:
+/// up to 59 seconds before a duration counted from the second.
 fn hold(
     tools: &Tools,
     slot: u32,
