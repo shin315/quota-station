@@ -102,6 +102,18 @@ describe('the Claude switch sheet', () => {
     ).toBeTruthy();
   });
 
+  it('the hold ends at the time its choice shows, even when the clock has moved on since', async () => {
+    let now = FIXTURE_NOW;
+    const fake = await open(fixtureModel('fresh'), {}, () => now);
+    const sheet = await sheetFor('Team B');
+    expect(within(sheet).getByRole('radio', { name: /1 giờ/ }).textContent).toBe('1 giờđến 15:20');
+    now = new Date('2026-01-16T07:21:50.000Z'); // a minute later, before the window's clock ticks
+    await act(async () => {
+      fireEvent.click(within(sheet).getByRole('button', { name: 'Chuyển sang Team B' }));
+    });
+    expect(fake.api.switchClaude).toHaveBeenCalledWith(3, '2026-01-16T08:20:40.000Z');
+  });
+
   it('the arrow keys move the hold choice', async () => {
     await open(fixtureModel('fresh'));
     const sheet = await sheetFor('Team B');
@@ -277,6 +289,18 @@ describe('the pause control', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Đóng' }));
     expect(screen.getByText('Đang giữ Team A đến 15:20')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Thêm 1 giờ' })).toBeTruthy();
+  });
+
+  it('the pause ends at the time its choice shows, even when the clock has moved on since', async () => {
+    let now = FIXTURE_NOW;
+    const fake = await open(fixtureModel('fresh'), {}, () => now);
+    fireEvent.click(screen.getByRole('switch', { name: 'Tự chuyển Claude' }));
+    const sheet = screen.getByRole('dialog', { name: 'Tạm dừng tự chuyển Claude?' });
+    now = new Date('2026-01-16T07:21:50.000Z');
+    await act(async () => {
+      fireEvent.click(within(sheet).getByRole('button', { name: 'Tạm dừng' }));
+    });
+    expect(fake.api.pauseSwitching).toHaveBeenCalledWith('2026-01-16T08:20:40.000Z');
   });
 
   it('"Đến khi tôi bật lại" pauses with no end and no "Thêm 1 giờ"', async () => {

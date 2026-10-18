@@ -189,8 +189,8 @@ the fake Rust side the tests use. Query parameters: `state` (a file name in
 `src/fixtures/snapshots/`), `view=window` with `tab` (`overview`, `claude`,
 `agy` or `settings`), `error` (an error kind) and `theme` (`light` or `dark`).
 For switching: `switcher` (`held`, `noguard`, `auto`, `stopped` or
-`missing`), `outcome` (`raced`, `failed` or `unconfirmed`; a switch lands by
-default) and `cswap=none`. Nothing is switched and no file is written: a
+`missing`), `outcome` (`raced`, `failed`, `stopped` for a cswap timeout, or
+`unconfirmed`; a switch lands by default) and `cswap=none`. Nothing is switched and no file is written: a
 switch only waits 1.5 seconds and updates the fixture.
 
 ## Tests

@@ -7,7 +7,6 @@ import type { Model, Sessions } from '../lib/model';
 import {
   claudeSheet,
   guide,
-  holdOptions,
   pauseOptions,
   pauseSheet,
   type HoldChoice,
@@ -54,7 +53,7 @@ export interface SheetBodyProps {
   sheet: SheetState;
   model: Model;
   now: Date;
-  /** A fresh clock for the moment the owner confirms: a hold runs from then. */
+  /** The clock at the moment the owner confirms, to catch a choice that has just lapsed. */
   clock: () => Date;
   sessions: Sessions | null | 'loading';
   /** The switch is running: the sheet shows it until the result is in. */
@@ -95,11 +94,8 @@ function ClaudeBody(props: SheetBodyProps & { slot: number }) {
       </>
     );
   }
-  const confirm = () => {
-    const target = props.model.snapshot.claude.accounts.find((a) => a.number === props.slot);
-    const until = target ? (holdOptions(target, props.clock()).find((o) => o.v === choice)?.until ?? null) : null;
-    props.onSwitch(props.slot, until);
-  };
+  // The hold ends at the time its choice shows.
+  const confirm = () => props.onSwitch(props.slot, v.options.find((o) => o.v === choice)?.until ?? null);
   return (
     <>
       <h3 id={SHEET_TITLE_ID}>{v.title}</h3>
@@ -142,11 +138,12 @@ function PauseBody(props: SheetBodyProps & { preset: PauseChoice }) {
   const value = v.options.some((o) => o.v === choice) ? choice : v.options[0].v;
   const confirm = () => {
     const at = props.clock();
-    const option = pauseOptions(at).find((o) => o.v === value);
     // "Đến 18:00" is gone once 18:00 has passed: show the choices again
     // rather than pause with no end.
+    if (!pauseOptions(at).some((o) => o.v === value)) return setLate(at);
+    // The pause ends at the time its choice shows.
+    const option = v.options.find((o) => o.v === value);
     if (option) props.onPause(option.until);
-    else setLate(at);
   };
   return (
     <>

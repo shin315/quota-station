@@ -1,7 +1,7 @@
 // Browser preview for `npm run dev`: the popover or the main window on a
 // fixture, without Tauri. `?state=keychain&view=window&tab=claude&error=notFound`.
 // Switching (M3): `switcher=held|noguard|auto|stopped|missing` sets the
-// switcher, `outcome=raced|failed|unconfirmed` what a switch reports, and
+// switcher, `outcome=raced|failed|stopped|unconfirmed` what a switch reports, and
 // `cswap=none` hides claude-swap. A switch takes 1.5 s, so the working sheet shows.
 
 import type { Api } from './lib/api';
@@ -24,8 +24,17 @@ const holdOf = (until: string | null) =>
   until ? { until: new Date(Math.floor(Date.parse(until) / 60000) * 60000).toISOString(), failed: false } : null;
 
 const OUTCOMES: Record<string, (slot: number, holdUntil: string | null) => Outcome> = {
-  raced: (slot, holdUntil) => ({ kind: 'raced', slot, active: 2, bySwitcherAt: '2026-01-16T07:21:00.000Z', hold: holdOf(holdUntil) }),
+  // The switcher puts back an account other than the one asked for.
+  raced: (slot, holdUntil) => ({
+    kind: 'raced',
+    slot,
+    active: slot === 2 ? 3 : 2,
+    bySwitcherAt: '2026-01-16T07:21:00.000Z',
+    hold: holdOf(holdUntil),
+  }),
   failed: (slot) => ({ kind: 'failed', slot, error: 'refused', detail: 'ClaudeSwitchError: Account-' + slot + ' … needs /login', active: null }),
+  // cswap timed out, and the account read again is still the one before.
+  stopped: (slot) => ({ kind: 'failed', slot, error: 'timeout', detail: 'cswap did not answer within 60s', active: slot === 2 ? 3 : 2 }),
   unconfirmed: (slot, holdUntil) => ({ kind: 'unconfirmed', slot, hold: holdOf(holdUntil) }),
 };
 

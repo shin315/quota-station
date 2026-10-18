@@ -75,7 +75,11 @@ impl std::error::Error for RunError {}
 
 /// The read the app makes for one provider.
 pub fn read_args(provider: ProviderId) -> Vec<String> {
-    ["--provider", provider.as_str(), "--json", "--max-age", MAX_AGE, "--no-credential-refresh"]
+    read_args_with(provider, MAX_AGE)
+}
+
+fn read_args_with(provider: ProviderId, max_age: &str) -> Vec<String> {
+    ["--provider", provider.as_str(), "--json", "--max-age", max_age, "--no-credential-refresh"]
         .map(String::from)
         .to_vec()
 }
@@ -86,9 +90,7 @@ pub fn read_args(provider: ProviderId) -> Vec<String> {
 /// the previous account's identity, since a Keychain login is not one of the
 /// files quota-axi checks before reusing.
 pub fn fresh_read_args(provider: ProviderId) -> Vec<String> {
-    ["--provider", provider.as_str(), "--json", "--max-age", "0", "--no-credential-refresh"]
-        .map(String::from)
-        .to_vec()
+    read_args_with(provider, "0")
 }
 
 /// One Claude read that may show the macOS Keychain prompt, the remedy
