@@ -7,6 +7,10 @@ The interface is in Vietnamese.
 **Personal, non-commercial project (cá nhân, phi thương mại).** It is shared
 under CC BY-NC-SA 4.0. See [License](#license).
 
+Based in part on [Cockpit Tools](https://github.com/jlcodes99/cockpit-tools)
+(dựa một phần trên Cockpit Tools): its Antigravity login is adapted from
+Cockpit's code. See [`NOTICE`](NOTICE).
+
 <img src="docs/popover.png" width="380" alt="The popover on fixture data: two pool tiles, four Claude Code accounts and two Antigravity accounts with their allowances and reset times">
 
 ![The menu bar item for four fixture cases, in light and dark menu bars](docs/menubar.png)
@@ -20,12 +24,14 @@ The popover and window images date from M2, before the switch buttons.
 ## What it does
 
 This is milestone M5, "Luật xoay vòng", on top of M3 "Chuyển Claude và tạm
-dừng", M2 "Cửa sổ chính chỉ đọc" and M1 "Khung và số". The app reads, and
-acts in three ways, each started by the owner: it switches the active Claude
-account through claude-swap, it pauses the automatic switcher, and it edits
-the switcher's rotation rules and copies them to the owner's other Macs. The
-one thing it does on its own is finish that last copy: a Mac that could not
-take the saved rules is tried again in the background.
+dừng", M2 "Cửa sổ chính chỉ đọc" and M1 "Khung và số", with M4a, "Đăng nhập
+Antigravity trong app", the first step of taking over what Cockpit Tools
+does. The app reads, and acts in four ways, each started by the owner: it
+switches the active Claude account through claude-swap, it pauses the
+automatic switcher, it edits the switcher's rotation rules and copies them
+to the owner's other Macs, and it logs Antigravity accounts in and out on
+this Mac. The one thing it does on its own is finish that rotation copy: a
+Mac that could not take the saved rules is tried again in the background.
 
 - **Menu bar item.** A template glyph with one bar for Claude and one for
   Antigravity. Next to it is the whole-rotation number. When there is a
@@ -84,15 +90,17 @@ take the saved rules is tried again in the background.
     the pause flag). A switcher that launchd does not run gets a banner.
   - `Antigravity`: the accounts, how old the numbers of the accounts not in
     use are, and whether Cockpit answers. A Mac without Cockpit or without
-    Antigravity says so.
+    Antigravity says so. Below them, `Đăng nhập trong Quota Station`, the
+    Antigravity accounts this app logs in itself (below).
   - `Luật xoay vòng`: the rotation editor (below).
   - `Cài đặt`: the quota-axi path, either found automatically or set by hand,
     a one-time button that lets quota-axi ask macOS for Keychain access, the
-    name shown for this Mac (empty uses the name macOS gives it), and
+    name shown for this Mac (empty uses the name macOS gives it),
     `Các Mac khác`: a name and an SSH alias for each other Mac, with
     `Thêm Mac`, `Bỏ` and `Thử SSH` (reads that Mac's rotation file and
-    changes nothing). A settings file from before M5 with a single
-    `sshAlias` moves into this list.
+    changes nothing), whether `oauth-client.json` is in place and usable,
+    and `Hiện email` (off by default). A settings file from before M5 with a
+    single `sshAlias` moves into the list of other Macs.
 
   The sidebar also lists `Codex`, `Lịch sử`, `Cảnh báo` and `Firstmate`,
   greyed out: they come in later milestones. Under the machine name it says
@@ -124,10 +132,25 @@ take the saved rules is tried again in the background.
   told to. Leaving the tab, closing the window or quitting from the menu bar
   with unsaved changes asks first.
 
+- **Antigravity logins** (M4a). `Thêm tài khoản` opens Google's consent
+  screen in the default browser, with Antigravity's own OAuth client, so the
+  screen names Antigravity, not Quota Station. The flow is Cockpit's: a
+  loopback callback on a random port, a fresh `state`, a 10-minute wait, the
+  code exchange, then userinfo for the email. A browser that cannot reach
+  the app can paste the callback URL instead. The card lists the accounts by
+  number (`Ultra 1`, `Ultra 2`, the order quota-axi will use) with
+  `đã đăng nhập`, `cần đăng nhập lại` (Google refused the refresh token) or
+  `cần xác minh` (Google asks for a verification), `Đăng nhập lại`, and
+  `Đăng xuất` with a confirmation in the row. Logging out forgets the account
+  in this app only: Antigravity.app and agy stay logged in. Without a usable
+  `oauth-client.json` the card says what is missing and cannot add. Reading
+  these accounts' quota and switching Antigravity come in later milestones.
+
 Each Mac runs its own copy and switches only its own machine; there is no
 switch button for another Mac. The only thing sent to another Mac is the
-rotation file. Switching Antigravity, notifications, history and installing
-as a login item come in later milestones.
+rotation file. Each Mac also keeps its own Antigravity logins, and nothing
+assumes another Mac has any. Switching Antigravity, notifications, history
+and installing as a login item come in later milestones.
 
 ### What it reads and runs
 
@@ -139,8 +162,9 @@ as a login item come in later milestones.
   Claude reading may still be the account from before the switch.
 - The Keychain button runs
   `quota-axi --provider claude --json --allow-keychain-prompt --no-credential-refresh`
-  once. macOS shows its own prompt. The app itself never opens the Keychain
-  or any credential file.
+  once. macOS shows its own prompt. The app itself never opens Claude's
+  Keychain item or any other tool's credential file; the only Keychain items
+  it opens are its own Antigravity ones (below).
 - It ignores the identity fields in quota-axi's output (emails, ids). Accounts
   are shown by role and slot number.
 - Switching runs `cswap switch N --json` (claude-swap holds Claude Code's
@@ -166,13 +190,52 @@ as a login item come in later milestones.
   mode means SSH never asks for a password or a host key. An alias must be
   letters, digits and `. - _ @`, and cannot start with `-`. The `ssh` used
   is the first on `PATH`, else `/usr/bin/ssh`.
+- Antigravity logins talk to Google only when the owner presses
+  `Thêm tài khoản` or `Đăng nhập lại`: the consent page opens in the browser
+  (`open <url>`), then `https://oauth2.googleapis.com/token` and
+  `https://www.googleapis.com/oauth2/v2/userinfo`. Before a later use, a
+  token with under five minutes left is refreshed at the same token URL.
+  The tokens go to the app's own Keychain items through
+  `/usr/bin/security add-generic-password`, `find-generic-password` and
+  `delete-generic-password`, service `com.shin315.quota-station.antigravity`.
+  [`SECURITY.md`](SECURITY.md) lists what the app never reads.
 - It writes these files: its own settings file,
   `~/Library/Application Support/com.shin315.quota-station/settings.json`,
-  with `rotation-sync.json` (where each other Mac stands) beside it; the
-  switcher's pause flag, `~/.config/cswap-prefer-team/pause`
+  with `rotation-sync.json` (where each other Mac stands) beside it; in the
+  same folder, `antigravity/accounts.json` (Cockpit's account index layout,
+  no token) and `antigravity/status.json` (accounts that need a new login or
+  a verification); the switcher's pause flag,
+  `~/.config/cswap-prefer-team/pause`
   (`until = YYYY-MM-DDTHH:MM` in local time and `reason = …`; no `until`
   pauses until resumed); and the rotation file with its backups. Each is
   written through a temporary file and a rename. Resuming deletes the flag.
+
+### The OAuth client file
+
+The Antigravity login uses Antigravity's own OAuth client, the one Cockpit
+Tools uses (its `src-tauri/src/modules/oauth.rs`). Its id and secret are not
+in this repository. Put them in a file on each Mac that logs in, readable
+only by you. With the real values in place of both `<…>`:
+
+```sh
+mkdir -p ~/Library/Application\ Support/com.shin315.quota-station
+( umask 077
+  cat > ~/Library/Application\ Support/com.shin315.quota-station/oauth-client.json <<'JSON'
+{ "client_id": "<client id>.apps.googleusercontent.com", "client_secret": "<client secret>" }
+JSON
+)
+```
+
+The app refuses the placeholders, a file others can read (it must be mode
+600), and anything that is not this JSON. `Cài đặt` shows whether the
+file is usable, and the `Antigravity` tab says what is missing.
+
+### Terms of service
+
+Logging in with Antigravity's client and calling Google as Antigravity does
+carries the same terms-of-service risk as using Cockpit Tools, no more: the
+app makes the same calls, no more often. [`SECURITY.md`](SECURITY.md) says
+what could happen and which changes would make the risk larger.
 
 ### The pause flag and the switcher
 
@@ -242,15 +305,31 @@ For the rotation rules: `rotation` (`unreachable`, `newer`, `edited`,
 `missing`, `invalid`, `refused` or `single`).
 For switching: `switcher` (`held`, `noguard`, `auto`, `stopped` or
 `missing`), `outcome` (`raced`, `failed`, `stopped` for a cswap timeout, or
-`unconfirmed`; a switch lands by default) and `cswap=none`. Nothing is switched and no file is written: a
-switch only waits 1.5 seconds and a save 1 second, and both update the fixture.
+`unconfirmed`; a switch lands by default) and `cswap=none`. For the
+Antigravity login card: `agy` (`two`, `relogin`, `verify`, `noclient`,
+`tooopen`, `invalid` or `broken`), `login` (how a login ends, for example
+`timeout`, `noRefreshToken` or `keychain`; it keeps the next account after
+3 seconds by default) and `email=on`. Nothing is switched, no browser opens
+and no file is written: a switch only waits 1.5 seconds and a save 1 second,
+and both update the fixture.
 
 ## Tests
 
 ```sh
-cargo test --workspace   # parsing, snapshot rules, icon, runner, schedule, switching, rotation, other Macs
-npm test                 # Vitest: popover and main window views, switch and pause sheets, rules editor
+cargo test --workspace   # parsing, snapshot rules, icon, runner, schedule, switching, rotation, other Macs, Antigravity login
+npm test                 # Vitest: popover and main window views, switch and pause sheets, rules editor, login card
 ```
+
+The Antigravity login tests never reach Google or the Keychain. They run
+against a local fake Google (a consent page that redirects to the app's
+callback with a code and a state, `/token` and `/userinfo`), a fake browser
+that records the URL it is asked to open and follows the redirect, and a
+fake `security` that records its arguments and keeps items in a temporary
+folder. They cover a wrong `state`, a consent without a code, no refresh
+token, `invalid_grant` on the exchange and on a refresh, the 10-minute
+timeout, a pasted callback URL, a cancel, a Keychain that refuses (the index
+stays unwritten), logging out, and the `oauth-client.json` checks. The spy
+test is described in [`SECURITY.md`](SECURITY.md).
 
 The switching tests never touch a real account. They run a fake `cswap` (a
 shell script in a temporary HOME) that switches, fails with an error, or is
@@ -284,7 +363,8 @@ UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test ui_fixtures
   turns its output into a snapshot, holds the icon rules and glyph, and
   schedules reads. It also runs `cswap switch`, counts live sessions, reads
   and writes the pause flag, and reads the switcher's dry run and log. It
-  reads, checks and writes the rotation file, and copies it over SSH.
+  reads, checks and writes the rotation file, and copies it over SSH. Its
+  `antigravity/` module logs Antigravity accounts in and out.
 - `src-tauri/` is the Tauri 2 shell: the tray item, the popover and the main
   window, the read loop and the commands.
 - `src/` is the React and TypeScript frontend. Its `styles/tokens.css` and
@@ -296,5 +376,6 @@ Copyright © 2026 Shin315.
 
 This work is licensed under the
 [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License](https://creativecommons.org/licenses/by-nc-sa/4.0/).
-The full text is in [`LICENSE`](LICENSE). The tools it talks to are listed in
-[`THIRD_PARTY.md`](THIRD_PARTY.md).
+The full text is in [`LICENSE`](LICENSE). Code adapted from Cockpit Tools,
+also CC BY-NC-SA 4.0, is credited in [`NOTICE`](NOTICE). The tools it talks
+to are listed in [`THIRD_PARTY.md`](THIRD_PARTY.md).

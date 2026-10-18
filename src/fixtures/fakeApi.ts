@@ -1,9 +1,10 @@
 // A fake Rust side on fixture data, for the tests and the browser preview.
-// Never runs quota-axi, claude-swap or the switcher, and writes no file.
+// Never runs quota-axi, claude-swap or the switcher, never opens a browser
+// or the Keychain, and writes no file.
 // Plain code: the preview bundle must not load Vitest.
 
 import type { Api } from '../lib/api';
-import type { Model, Outcome, PeerView, RotationView, RulesError, Sessions, Tab } from '../lib/model';
+import type { AgyLogin, AgyLoginDone, AgyLoginFailure, Model, Outcome, PeerView, RotationView, RulesError, Sessions, Tab } from '../lib/model';
 
 export interface FakeOptions {
   /** Aliases SSH cannot reach: a save leaves them behind, and "Thử SSH" fails. */
@@ -21,6 +22,18 @@ export interface FakeOptions {
   sessions?: Sessions | null;
   /** What a switch reports; by default it lands on the slot asked for. */
   outcome?: (slot: number, holdUntil: string | null) => Outcome;
+  /**
+   * How an Antigravity login ends when no callback is pasted and it is not cancelled; by default
+   * it keeps the next account after `agyLoginDelayMs`.
+   */
+  agyLogin?: () => AgyLoginFailure | null;
+  /** How long a login waits for the browser before it ends on its own; none waits for a paste. */
+  agyLoginDelayMs?: number;
+}
+
+/** The made-up email of a fake account. */
+export function fakeEmail(number: number): string {
+  return 'ultra' + number + '@example.com';
 }
 
 /** RFC 3339 cut to the minute, as the pause flag keeps it. */
@@ -77,6 +90,12 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
     model = next;
     listeners.forEach((l) => l(model));
   };
+  /** The accounts renumbered from 1, emails filled in or hidden as the switch says. */
+  const accounts = (list: AgyLogin[], show: boolean): AgyLogin[] =>
+    list.map((a, i) => ({ ...a, number: i + 1, email: show ? fakeEmail(i + 1) : null, name: show ? 'Người thử ' + (i + 1) : null }));
+  const agy = (over: Partial<Model['antigravity']>) => ({ ...model.antigravity, ...over });
+  /** Ends the waiting login: with a paste, a cancel or its own end. */
+  let endLogin: ((how: 'paste' | 'cancel' | 'self') => void) | null = null;
   const api: Api = {
     getModel: async () => model,
     refresh: async () => {
@@ -203,6 +222,52 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
     onQuitRequested: async (handler) => {
       quitListeners.add(handler);
       return () => quitListeners.delete(handler);
+    },
+    agyLogin: async () => {
+      if (model.antigravity.loggingIn) throw { kind: 'busy', detail: '' } satisfies AgyLoginFailure;
+      if (model.antigravity.client !== 'ok') throw { kind: 'client', detail: model.antigravity.client } satisfies AgyLoginFailure;
+      push({ ...model, antigravity: agy({ loggingIn: true }) });
+      const how = await new Promise<'paste' | 'cancel' | 'self'>((resolve) => {
+        endLogin = resolve;
+        if (options.agyLoginDelayMs != null) setTimeout(() => resolve('self'), options.agyLoginDelayMs);
+      });
+      endLogin = null;
+      const failure: AgyLoginFailure | null =
+        how === 'cancel' ? { kind: 'cancelled', detail: '' } : how === 'self' ? (options.agyLogin?.() ?? null) : null;
+      if (failure) {
+        push({ ...model, antigravity: agy({ loggingIn: false }) });
+        throw failure;
+      }
+      // A login of an account that needs one answers it; otherwise the next account is added.
+      const list = model.antigravity.accounts;
+      const again = list.find((a) => a.status !== 'ok');
+      const next = again
+        ? list.map((a) => (a.id === again.id ? { ...a, status: 'ok' as const, verify: false } : a))
+        : [...list, { id: 'antigravity_fake' + (list.length + 1), number: 0, email: null, name: null, status: 'ok' as const, verify: false }];
+      push({ ...model, antigravity: agy({ loggingIn: false, accounts: accounts(next, model.showEmail) }) });
+      const done: AgyLoginDone = again ? { number: again.number, added: false } : { number: next.length, added: true };
+      return done;
+    },
+    agyLoginCallback: async (url) => {
+      if (!endLogin) throw new Error('noLogin');
+      if (!url.includes('code=')) throw new Error('noCode');
+      if (!url.includes('state=')) throw new Error('noState');
+      if (url.includes('state=wrong')) throw new Error('stateMismatch');
+      endLogin('paste');
+    },
+    agyLoginCancel: async () => {
+      endLogin?.('cancel');
+    },
+    agyLogout: async (id) => {
+      const list = model.antigravity.accounts;
+      if (!list.some((a) => a.id === id)) throw new Error('notFound');
+      push({ ...model, antigravity: agy({ accounts: accounts(list.filter((a) => a.id !== id), model.showEmail) }) });
+      return model;
+    },
+    agyOpenVerification: async () => {},
+    setShowEmail: async (on) => {
+      push({ ...model, showEmail: on, antigravity: agy({ accounts: accounts(model.antigravity.accounts, on) }) });
+      return model;
     },
     onModel: async (handler) => {
       listeners.add(handler);

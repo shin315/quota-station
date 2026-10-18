@@ -1,0 +1,281 @@
+//! The Antigravity accounts this app logs in (M4a): what the windows show
+//! of them, and the commands to add one through Google's consent screen,
+//! take a pasted callback, cancel, log out and open Google's verification
+//! page. Tokens stay in the app's own Keychain items; the windows only ever
+//! get each account's id (Cockpit's MD5 of its email), its number, its
+//! status and, when the owner turns them on, the emails.
+
+use quota_station_core::antigravity::client::{self, ClientStatus};
+use quota_station_core::antigravity::fs::AppDir;
+use quota_station_core::antigravity::index::{self, Standing};
+use quota_station_core::antigravity::login::{
+    self, Browser, Deps, LoginError, LogoutError, SystemBrowser,
+};
+use quota_station_core::antigravity::oauth::Endpoints;
+use quota_station_core::antigravity::oauth_server::{CallbackError, LOGIN_TIMEOUT};
+use quota_station_core::antigravity::store::Keychain;
+use quota_station_core::runner;
+use serde::Serialize;
+use tauri::{AppHandle, State};
+use time::OffsetDateTime;
+
+use crate::reader;
+use crate::state::{AppState, Inner, Model};
+
+/// The Antigravity accounts card and the settings row.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AccountsView {
+    pub client: ClientStatus,
+    /// Where `oauth-client.json` goes, `~/…`.
+    pub client_path: String,
+    pub accounts: Vec<AccountView>,
+    /// `accounts.json` is there and cannot be read.
+    pub index_error: bool,
+    /// A login is waiting for the browser.
+    pub logging_in: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AccountView {
+    /// Cockpit's id: `antigravity_` and the MD5 of the email. Not the email,
+    /// but a guessed address can be checked against it (SECURITY.md).
+    pub id: String,
+    /// Its place in the index, from 1, as quota-axi numbers it.
+    pub number: usize,
+    /// Only when the owner turned emails on.
+    pub email: Option<String>,
+    pub name: Option<String>,
+    /// `ok`, `needsLogin` or `needsVerification`.
+    pub status: &'static str,
+    /// Google sent a verification page for it.
+    pub verify: bool,
+}
+
+pub fn view(inner: &Inner) -> AccountsView {
+    let app = inner.app_dir();
+    let show = inner.settings.show_email;
+    let index = index::load(&app);
+    let statuses = index::load_statuses(&app);
+    let accounts = index
+        .as_ref()
+        .map(|i| i.accounts.as_slice())
+        .unwrap_or_default()
+        .iter()
+        .enumerate()
+        .map(|(i, a)| {
+            let standing = statuses.accounts.get(&a.id);
+            AccountView {
+                id: a.id.clone(),
+                number: i + 1,
+                email: show.then(|| a.email.clone()),
+                name: if show { a.name.clone() } else { None },
+                status: match standing {
+                    None => "ok",
+                    Some(Standing::NeedsLogin { .. }) => "needsLogin",
+                    Some(Standing::NeedsVerification { .. }) => "needsVerification",
+                },
+                verify: matches!(standing, Some(Standing::NeedsVerification { url: Some(_), .. })),
+            }
+        })
+        .collect();
+    AccountsView {
+        client: client::status(&app),
+        client_path: runner::display_path(&client::path(&app), &inner.home),
+        accounts,
+        index_error: index.is_err(),
+        logging_in: inner.agy_logging_in,
+    }
+}
+
+fn unix_now() -> i64 {
+    OffsetDateTime::now_utc().unix_timestamp()
+}
+
+/// A login that did not keep an account, for the UI to word.
+#[derive(Debug, Clone, Serialize)]
+pub struct Failure {
+    pub kind: &'static str,
+    pub detail: String,
+}
+
+impl From<&LoginError> for Failure {
+    fn from(e: &LoginError) -> Self {
+        let detail = match e {
+            // `open`'s message may repeat the consent URL.
+            LoginError::Browser(_) => String::new(),
+            LoginError::Client(status) => format!("{status:?}"),
+            other => other.to_string(),
+        };
+        Failure { kind: e.kind(), detail }
+    }
+}
+
+fn failure(kind: &'static str) -> Failure {
+    Failure { kind, detail: String::new() }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoginDone {
+    pub number: usize,
+    /// Not listed before: a new account rather than a new login of one.
+    pub added: bool,
+}
+
+/// Adds an Antigravity account, or logs one in again: opens Google's consent
+/// screen in the default browser and waits up to 10 minutes for it to come
+/// back, then keeps the account. Rejects with `busy` while another login
+/// waits.
+#[tauri::command]
+pub async fn agy_login(app: AppHandle, state: State<'_, AppState>) -> Result<LoginDone, Failure> {
+    let shared = state.inner().clone();
+    let dir = {
+        let mut inner = shared.lock();
+        if inner.agy_logging_in {
+            return Err(failure("busy"));
+        }
+        inner.agy_logging_in = true;
+        inner.app_dir()
+    };
+    let done = tauri::async_runtime::spawn_blocking({
+        let shared = shared.clone();
+        let app = app.clone();
+        move || {
+            let endpoints = Endpoints::google();
+            let keychain = Keychain::system();
+            let deps = Deps { app: &dir, endpoints: &endpoints, keychain: &keychain };
+            let flow = login::prepare(&deps)?;
+            shared.lock().agy_login = Some(flow.handle());
+            reader::publish(&app, &shared);
+            login::complete(&deps, flow, &SystemBrowser, LOGIN_TIMEOUT, &unix_now)
+        }
+    })
+    .await;
+    {
+        let mut inner = shared.lock();
+        inner.agy_logging_in = false;
+        inner.agy_login = None;
+    }
+    reader::publish(&app, &shared);
+    match done {
+        Ok(Ok(kept)) => Ok(LoginDone { number: kept.number, added: kept.added }),
+        Ok(Err(e)) => Err(Failure::from(&e)),
+        Err(e) => Err(Failure { kind: "spawn", detail: e.to_string() }),
+    }
+}
+
+/// Finishes the waiting login with the callback URL the owner pasted, for a
+/// browser that could not reach the app. A URL that fails the checks leaves
+/// the login waiting.
+#[tauri::command]
+pub fn agy_login_callback(state: State<'_, AppState>, url: String) -> Result<(), String> {
+    let handle = state.lock().agy_login.clone().ok_or("noLogin")?;
+    handle.submit_callback_url(&url).map_err(|e| {
+        match e {
+            CallbackError::NoCode => "noCode",
+            CallbackError::NoState => "noState",
+            CallbackError::StateMismatch => "stateMismatch",
+            CallbackError::AlreadyHandled => "noLogin",
+            CallbackError::BadUrl(_) | CallbackError::BadRequest(_) => "badUrl",
+        }
+        .to_string()
+    })
+}
+
+#[tauri::command]
+pub fn agy_login_cancel(state: State<'_, AppState>) {
+    if let Some(handle) = state.lock().agy_login.clone() {
+        handle.cancel();
+    }
+}
+
+/// Logs an account out of this app only. Antigravity.app and agy keep their
+/// own login.
+#[tauri::command]
+pub async fn agy_logout(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<Model, String> {
+    let shared = state.inner().clone();
+    let dir = shared.lock().app_dir();
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        let endpoints = Endpoints::google();
+        let keychain = Keychain::system();
+        login::logout(&Deps { app: &dir, endpoints: &endpoints, keychain: &keychain }, &id)
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+    reader::publish(&app, &shared);
+    result.map_err(|e| match e {
+        LogoutError::NotFound => "notFound".to_string(),
+        LogoutError::Keychain(_) => "keychain".to_string(),
+        LogoutError::Index(_) => "index".to_string(),
+    })?;
+    let model = shared.lock().model();
+    Ok(model)
+}
+
+/// Opens the verification page Google sent for an account, when it is one
+/// of Google's own pages.
+#[tauri::command]
+pub fn agy_open_verification(state: State<'_, AppState>, id: String) -> Result<(), String> {
+    let dir = state.lock().app_dir();
+    let statuses = index::load_statuses(&dir);
+    let Some(Standing::NeedsVerification { url: Some(url), .. }) = statuses.accounts.get(&id)
+    else {
+        return Err("noPage".into());
+    };
+    if !is_google_page(url) {
+        return Err("noPage".into());
+    }
+    SystemBrowser.open(url).map_err(|_| "browser".to_string())
+}
+
+fn is_google_page(url: &str) -> bool {
+    let Ok(url) = url::Url::parse(url) else { return false };
+    let host = url.host_str().unwrap_or("");
+    url.scheme() == "https" && (host == "google.com" || host.ends_with(".google.com"))
+}
+
+/// Shows or hides the emails of the accounts logged in here.
+#[tauri::command]
+pub fn set_show_email(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    on: bool,
+) -> Result<Model, String> {
+    {
+        let mut inner = state.lock();
+        let mut settings = inner.settings.clone();
+        settings.show_email = on;
+        settings.save(&inner.settings_file).map_err(|e| e.to_string())?;
+        inner.settings = settings;
+    }
+    reader::publish(&app, &state);
+    Ok(state.lock().model())
+}
+
+impl Inner {
+    /// The app's Application Support folder, where `settings.json` is.
+    pub fn app_dir(&self) -> AppDir {
+        AppDir::new(self.settings_file.parent().map(|p| p.to_path_buf()).unwrap_or_default())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_googles_own_pages_open_for_a_verification() {
+        assert!(is_google_page("https://accounts.google.com/signin/continue?x=1"));
+        assert!(is_google_page("https://google.com/x"));
+        assert!(!is_google_page("http://accounts.google.com/x"));
+        assert!(!is_google_page("https://accounts.google.com.example.net/x"));
+        assert!(!is_google_page("https://example.com/?google.com"));
+        assert!(!is_google_page("file:///etc/passwd"));
+    }
+}

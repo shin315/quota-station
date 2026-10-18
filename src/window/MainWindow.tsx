@@ -1,9 +1,10 @@
 // The main window: the prototype's window with the tabs Tổng quan, Claude,
 // Antigravity, Luật xoay vòng and Cài đặt. Claude accounts switch from the
 // tables (F04), Tổng quan and Claude show automatic switching and why Claude
-// is on its account (F07), and Luật xoay vòng edits the rotation for every
-// Mac (F06). The sidebar keeps the tabs of later milestones in place,
-// disabled, and Antigravity switches in a later milestone.
+// is on its account (F07), Luật xoay vòng edits the rotation for every Mac
+// (F06), and Antigravity also shows the accounts the app logs in (M4a). The
+// sidebar keeps the tabs of later milestones in place, disabled, and
+// Antigravity switches in a later milestone.
 
 import type { ReactNode } from 'react';
 import { Banner, Button, Chip, Dot, Feedback, Meter, Toggle } from '../components/parts';
@@ -225,6 +226,8 @@ interface TabProps {
   onToggle(): void;
   onPause(preset: PauseChoice): void;
   now: Date;
+  /** The Antigravity tab's login card. */
+  agyAccounts?: ReactNode;
 }
 
 function Top(props: TabProps & { title: string; banner?: boolean }) {
@@ -362,6 +365,7 @@ function AgyTab(props: TabProps) {
             {a.others ? <p className="note">{a.others}</p> : null}
             <Note note={a.tabNote} />
           </Card>
+          {props.agyAccounts}
           <div className="grid2">
             <Card title="Cockpit">
               <KeyValues rows={a.cockpit} />
@@ -369,12 +373,15 @@ function AgyTab(props: TabProps) {
           </div>
         </>
       ) : (
-        <div className="card">
-          <div className="empty">
-            <b>Máy này chưa có Antigravity</b>quota-axi không thấy Antigravity trên máy này.
+        <>
+          <div className="card">
+            <div className="empty">
+              <b>Máy này chưa có Antigravity</b>quota-axi không thấy Antigravity trên máy này.
+            </div>
+            <Note note={a.tabNote} />
           </div>
-          <Note note={a.tabNote} />
-        </div>
+          {props.agyAccounts}
+        </>
       )}
     </>
   );
@@ -397,6 +404,8 @@ export interface MainWindowProps {
   rules: ReactNode;
   /** Under the machine name in the sidebar: whether the other Macs have the rules. */
   syncNote?: string | null;
+  /** The Antigravity tab's login card. */
+  agyAccounts?: ReactNode;
   /** The open dialog's body; null when none is open. */
   dialog?: ReactNode;
 }
@@ -411,6 +420,7 @@ export function MainWindow(props: MainWindowProps) {
     onToggle: props.onToggle,
     onPause: props.onPause,
     now: props.now,
+    agyAccounts: props.agyAccounts,
   };
   const open = !!props.dialog;
   const dialog = useDialog(open);

@@ -1,0 +1,48 @@
+Quota Station
+Copyright © 2026 Shin315
+Licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0
+International License (CC BY-NC-SA 4.0). See LICENSE.
+
+This work contains code adapted from Cockpit Tools
+(https://github.com/jlcodes99/cockpit-tools), © jlcodes, licensed under
+CC BY-NC-SA 4.0 (https://creativecommons.org/licenses/by-nc-sa/4.0/).
+Adapted from version 1.3.70, commit 244b957.
+
+Adapted parts. Each file names its source and its changes in its header.
+
+- crates/quota-station-core/src/antigravity/oauth.rs
+  from src-tauri/src/modules/oauth.rs: the authorization URL, the code
+  exchange, the token refresh, userinfo, and the rule that refreshes a token
+  only when it has less than 300 seconds left.
+- crates/quota-station-core/src/antigravity/client.rs
+  from src-tauri/src/modules/oauth.rs: the client's key name
+  (antigravity_enterprise) and the single client it logs in with, read here
+  from oauth-client.json.
+- crates/quota-station-core/src/antigravity/oauth_server.rs
+  from src-tauri/src/modules/oauth_server.rs: the loopback callback server,
+  the state check, the request limits, the 10-minute wait and the pasted
+  callback URL.
+- crates/quota-station-core/src/antigravity/token.rs
+  from src-tauri/src/models/token.rs: the token record.
+- crates/quota-station-core/src/antigravity/index.rs
+  from src-tauri/src/models/account.rs and src-tauri/src/modules/account.rs:
+  the account index layout (accounts.json, version 2.0) and the account id.
+- crates/quota-station-core/src/antigravity/login.rs
+  follows the order of start_oauth_login in src-tauri/src/commands/oauth.rs
+  and the invalid_grant handling in src-tauri/src/modules/account.rs.
+
+What was changed:
+
+- macOS only. The Windows and Linux branches, the SQLite store, the
+  WebSocket server, wake-up and the other platforms are not included.
+- One OAuth client, read from a local oauth-client.json instead of
+  constants in the source.
+- Tokens are kept in the app's own macOS Keychain items instead of
+  AES-encrypted files with their key beside them.
+- A thread and blocking HTTP instead of async tasks and Tauri events; typed
+  errors that keep no response body, token or secret; no logging.
+- The pages the browser sees are translated to Vietnamese, error messages to
+  English.
+
+Later milestones that adapt more of Cockpit Tools (reading quota, switching
+the Antigravity account) add their parts to this list.

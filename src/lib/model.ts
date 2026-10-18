@@ -269,6 +269,50 @@ export interface Peer {
   alias: string;
 }
 
+// ===== Antigravity accounts the app logs in (M4a) =====
+
+/** What the app found in `oauth-client.json` (`quota-station-core::antigravity::client`). */
+export type ClientStatus = 'ok' | 'missing' | 'unreadable' | 'tooOpen' | 'invalid';
+
+export type AgyStatus = 'ok' | 'needsLogin' | 'needsVerification';
+
+/** One account logged in here (`src-tauri/src/antigravity.rs` `AccountView`). */
+export interface AgyLogin {
+  id: string;
+  /** Its place in the app's list, from 1, as quota-axi numbers it. */
+  number: number;
+  /** Only when the owner turned emails on. */
+  email: string | null;
+  name: string | null;
+  status: AgyStatus;
+  /** Google sent a verification page for it. */
+  verify: boolean;
+}
+
+export interface AgyAccounts {
+  client: ClientStatus;
+  /** Where `oauth-client.json` goes, `~/…`. */
+  clientPath: string;
+  accounts: AgyLogin[];
+  /** `accounts.json` is there and cannot be read. */
+  indexError: boolean;
+  /** A login is waiting for the browser. */
+  loggingIn: boolean;
+}
+
+/** A login that kept an account. */
+export interface AgyLoginDone {
+  number: number;
+  /** A new account, not a new login of one already listed. */
+  added: boolean;
+}
+
+/** A login that kept nothing: `LoginError::kind` in Rust, plus `busy` and `spawn`. */
+export interface AgyLoginFailure {
+  kind: string;
+  detail: string;
+}
+
 /** The main window's tabs in this build (`src-tauri/src/state.rs` `Tab`). */
 export type Tab = 'overview' | 'claude' | 'agy' | 'rules' | 'settings';
 
@@ -286,4 +330,7 @@ export interface Model {
   switcher: SwitcherView;
   claudeSwitch: ClaudeSwitchView;
   rotation: RotationView;
+  /** Emails of the accounts logged in here may show. */
+  showEmail: boolean;
+  antigravity: AgyAccounts;
 }

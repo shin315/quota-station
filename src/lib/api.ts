@@ -3,7 +3,7 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import type { Decision, Model, Outcome, Peer, PeerTest, Rules, Sessions, Tab } from './model';
+import type { AgyLoginDone, Decision, Model, Outcome, Peer, PeerTest, Rules, Sessions, Tab } from './model';
 
 export interface Api {
   getModel(): Promise<Model>;
@@ -65,6 +65,21 @@ export interface Api {
   onQuitRequested(handler: () => void): Promise<() => void>;
   /** Takes a pending quit request: true once per request, also when the window opened for it before listening. */
   takeQuit(): Promise<boolean>;
+  /**
+   * Adds an Antigravity account, or logs one in again, through Google's consent screen in the
+   * browser; resolves once the account is kept. Rejects with an `AgyLoginFailure`.
+   */
+  agyLogin(): Promise<AgyLoginDone>;
+  /**
+   * The callback URL pasted for the waiting login. Rejects with `noLogin`, `stateMismatch`,
+   * `noCode`, `noState` or `badUrl`, and the login keeps waiting.
+   */
+  agyLoginCallback(url: string): Promise<void>;
+  agyLoginCancel(): Promise<void>;
+  /** Logs an account out of this app. Rejects with `notFound`, `keychain` or `index`. */
+  agyLogout(id: string): Promise<Model>;
+  agyOpenVerification(id: string): Promise<void>;
+  setShowEmail(on: boolean): Promise<Model>;
   onModel(handler: (model: Model) => void): Promise<() => void>;
   /** The main window is asked to show a tab while it is open. */
   onTab(handler: (tab: Tab) => void): Promise<() => void>;
@@ -97,6 +112,12 @@ export const tauriApi: Api = {
   onCloseRequested: (handler) => listen('closeRequested', () => handler()),
   onQuitRequested: (handler) => listen('quitRequested', () => handler()),
   takeQuit: () => invoke<boolean>('take_quit'),
+  agyLogin: () => invoke<AgyLoginDone>('agy_login'),
+  agyLoginCallback: (url) => invoke('agy_login_callback', { url }),
+  agyLoginCancel: () => invoke('agy_login_cancel'),
+  agyLogout: (id) => invoke<Model>('agy_logout', { id }),
+  agyOpenVerification: (id) => invoke('agy_open_verification', { id }),
+  setShowEmail: (on) => invoke<Model>('set_show_email', { on }),
   onModel: (handler) => listen<Model>('model', (event) => handler(event.payload)),
   onTab: (handler) => listen<Tab>('tab', (event) => handler(event.payload)),
 };

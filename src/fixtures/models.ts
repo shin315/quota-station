@@ -1,7 +1,7 @@
 // Models built from the snapshot fixtures that Rust generates
 // (`crates/quota-station-core/tests/ui_fixtures.rs`). Synthetic data only.
 
-import type { ErrorView, Model, PeerView, RotationView, Rules, Snapshot, SwitcherView } from '../lib/model';
+import type { AgyAccounts, AgyLogin, ErrorView, Model, PeerView, RotationView, Rules, Snapshot, SwitcherView } from '../lib/model';
 
 const files = import.meta.glob('./snapshots/*.json', { eager: true, import: 'default' }) as Record<string, Snapshot>;
 
@@ -86,6 +86,23 @@ export function rotationFixture(over: Partial<RotationView> = {}): RotationView 
   };
 }
 
+/** The Antigravity login card on a Mac with the OAuth client in place and no account yet. */
+export function agyFixture(over: Partial<AgyAccounts> = {}): AgyAccounts {
+  return {
+    client: 'ok',
+    clientPath: '~/Library/Application Support/com.shin315.quota-station/oauth-client.json',
+    accounts: [],
+    indexError: false,
+    loggingIn: false,
+    ...over,
+  };
+}
+
+/** An account logged in here, numbered `n`; emails stay hidden unless given. */
+export function agyAccount(n: number, over: Partial<AgyLogin> = {}): AgyLogin {
+  return { id: 'antigravity_fake' + n, number: n, email: null, name: null, status: 'ok', verify: false, ...over };
+}
+
 export function fixtureModel(name: string, over: Partial<Model> = {}): Model {
   const snapshot = SNAPSHOTS[name];
   if (!snapshot) throw new Error('no snapshot fixture ' + name);
@@ -101,6 +118,8 @@ export function fixtureModel(name: string, over: Partial<Model> = {}): Model {
     switcher: switcherFixture(),
     claudeSwitch: { cswap: true, busy: null },
     rotation: rotationFixture(),
+    showEmail: false,
+    antigravity: agyFixture(),
     ...over,
   };
 }

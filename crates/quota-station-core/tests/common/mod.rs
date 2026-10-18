@@ -3,6 +3,8 @@
 //! times, generated at 2026-01-16 07:20 UTC.
 #![allow(dead_code)]
 
+pub mod google;
+
 use std::path::PathBuf;
 
 use quota_station_core::axi::{self, Response};
