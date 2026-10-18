@@ -53,13 +53,13 @@ describe('main window', () => {
     expect(screen.getByText('Team A rời vòng')).toBeTruthy();
     expect(screen.getByText('ngày mai 03:20')).toBeTruthy();
 
-    // Every Claude account but the active one switches; Antigravity comes later.
+    // Every Claude account but the active one switches; Antigravity only once quota-axi lists the app's accounts.
     for (const name of ['Cá nhân', 'Team B', 'Team C']) {
       expect((screen.getByRole('button', { name: 'Chuyển sang ' + name }) as HTMLButtonElement).disabled).toBe(false);
     }
     const ultra = screen.getByRole('button', { name: 'Chuyển sang Ultra 1' }) as HTMLButtonElement;
     expect(ultra.disabled).toBe(true);
-    expect(ultra.title).toBe('Chuyển Antigravity có ở bản sau');
+    expect(ultra.title).toBe('Chưa chuyển được: quota-axi chưa liệt kê tài khoản của Quota Station');
     expect(screen.queryByRole('button', { name: 'Chuyển sang Team A' })).toBeNull();
   });
 
@@ -267,7 +267,7 @@ describe('switching Claude and pausing from the main window', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('Antigravity rows keep their switch for a later milestone', async () => {
+  it('Antigravity rows do not switch while quota-axi does not list the app\'s accounts', async () => {
     await open(fixtureModel('fresh'), 'agy');
     for (const b of screen.getAllByRole('button', { name: /^Chuyển sang / })) {
       expect((b as HTMLButtonElement).disabled).toBe(true);

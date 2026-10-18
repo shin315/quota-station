@@ -20,6 +20,7 @@ use serde::{Deserialize, Serialize};
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
+use crate::agy_switch::{self, SwitchView};
 use crate::antigravity::{self, AccountsView};
 
 pub type AppState = Arc<Shared>;
@@ -96,6 +97,10 @@ pub struct Inner {
     /// Bumped when a Keychain grant or a switch stores a Claude report, so a
     /// read that started before it cannot put the older report back.
     pub claude_generation: u64,
+    /// Bumped when an Antigravity switch or logout starts and ends, so a read
+    /// from before cannot put the old account back, count as an overwrite,
+    /// or show an account logged out.
+    pub agy_generation: u64,
     pub reading: bool,
     /// Completed reads, so the UI can tell when the read it asked for is done.
     pub reads: u64,
@@ -136,6 +141,11 @@ pub struct Inner {
     /// The Antigravity accounts being read now, or whose last read failed,
     /// by id. An account not here was read, or has nothing to report.
     pub agy_reads: BTreeMap<String, ReadState>,
+    /// The Antigravity account number a manual switch is running for.
+    pub agy_switching: Option<usize>,
+    /// A logout runs: a switch, or another logout, is refused meanwhile, as
+    /// a logout is while a switch runs.
+    pub agy_logging_out: bool,
 }
 
 /// How the app's own read of an Antigravity account stands.
@@ -217,6 +227,7 @@ impl Inner {
             claude_error: None,
             agy_error: None,
             claude_generation: 0,
+            agy_generation: 0,
             reading: false,
             reads: 0,
             read_now: true,
@@ -239,6 +250,8 @@ impl Inner {
             agy_login: None,
             agy_pace: Pace::new(),
             agy_reads: BTreeMap::new(),
+            agy_switching: None,
+            agy_logging_out: false,
         }
     }
 
@@ -329,6 +342,7 @@ impl Inner {
             },
             show_email: self.settings.show_email,
             antigravity: antigravity::view(self),
+            agy_switch: agy_switch::view(self),
             rotation: self.rotation_view(),
         }
     }
@@ -427,6 +441,8 @@ pub struct Model {
     pub show_email: bool,
     /// The Antigravity accounts this app logs in itself.
     pub antigravity: AccountsView,
+    /// Switching them (M4c).
+    pub agy_switch: SwitchView,
     pub rotation: RotationView,
 }
 

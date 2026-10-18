@@ -5,8 +5,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AgyAccounts } from './antigravity/AgyAccounts';
 import { SheetBody, type SheetState } from './components/Sheets';
+import { agyLoginOf, agySwitchErrorFeedback, agySwitchFeedback, type AppAnswer } from './lib/agySwitch';
 import type { Api } from './lib/api';
-import type { Model, Sessions, Tab } from './lib/model';
+import type { AgyHow, Model, Sessions, Tab } from './lib/model';
 import {
   autoView,
   extendedFeedback,
@@ -99,19 +100,29 @@ function useActions(api: Api, model: Model | null, clock: () => Date, showFeedba
 }
 
 /**
- * Switching Claude and pausing the switcher: the open sheet, the live session
- * count it shows, the running switch, and the feedback after each action.
+ * Switching Claude and Antigravity and pausing the switcher: the open sheet,
+ * the live session count or Antigravity.app's state it shows, the running
+ * switch, and the feedback after each action.
  */
 function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeedback: (fb: FeedbackView | null) => void) {
   const [sheet, setSheet] = useState<SheetState | null>(null);
   const [sessions, setSessions] = useState<Sessions | null | 'loading'>('loading');
+  const [agyApp, setAgyApp] = useState<AppAnswer>('loading');
   const [working, setWorking] = useState(false);
+  const [agyHow, setAgyHow] = useState<AgyHow | null>(null);
   // The feedback after a switch names accounts from the newest model.
   const latest = useRef(model);
   latest.current = model;
 
   const open = (next: SheetState) => {
     setSheet(next);
+    if (next.kind === 'agy') {
+      setAgyApp('loading');
+      void api.agyAppState().then(
+        (a) => setAgyApp(a),
+        () => setAgyApp(null),
+      );
+    }
     if (next.kind !== 'claude') return;
     setSessions('loading');
     void api.claudeSessions().then(
@@ -124,8 +135,13 @@ function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeed
   };
   // A switch from the other window landed on this sheet's account: there is
   // nothing left to confirm.
-  const target = sheet?.kind === 'claude' ? model?.snapshot.claude.accounts.find((a) => a.number === sheet.slot) : undefined;
-  const landed = !!target?.active && model?.claudeSwitch.busy == null && !working;
+  const target =
+    sheet?.kind === 'claude'
+      ? model?.snapshot.claude.accounts.find((a) => a.number === sheet.slot)
+      : sheet?.kind === 'agy'
+        ? model?.snapshot.agy.accounts.find((a) => a.number === sheet.number)
+        : undefined;
+  const landed = !!target?.active && model?.claudeSwitch.busy == null && model?.agySwitch.busy == null && !working;
   useEffect(() => {
     if (landed) setSheet(null);
   }, [landed]);
@@ -139,6 +155,28 @@ function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeed
     } finally {
       setWorking(false);
       setSheet(null);
+    }
+  };
+  const doSwitchAgy = async (number: number, how: AgyHow) => {
+    const login = latest.current && agyLoginOf(latest.current, number);
+    if (!login) return setSheet(null);
+    setWorking(true);
+    setAgyHow(how);
+    try {
+      showFeedback(agySwitchFeedback(await api.switchAgy(login.id, how)));
+    } catch (e) {
+      showFeedback(agySwitchErrorFeedback(number, e));
+    } finally {
+      setWorking(false);
+      setAgyHow(null);
+      setSheet(null);
+    }
+  };
+  const keepOverwrite = async () => {
+    try {
+      await api.agyDismissOverwrite();
+    } catch {
+      // The banner stays; nothing else to say.
     }
   };
   const pause = async (until: Date | null) => {
@@ -175,7 +213,11 @@ function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeed
     else if (a === 'addHour') void addHour();
     else if (a === 'closeFeedback') showFeedback(null);
     else if (a === 'guide:auto' || a === 'guide:switcher') open({ kind: 'guide', id: a === 'guide:auto' ? 'auto' : 'switcher' });
-    else if (a.startsWith('switch:')) {
+    else if (a === 'agy:keep') void keepOverwrite();
+    else if (a.startsWith('agy:switch:')) {
+      showFeedback(null);
+      open({ kind: 'agy', number: Number(a.slice('agy:switch:'.length)) });
+    } else if (a.startsWith('switch:')) {
       showFeedback(null);
       open({ kind: 'claude', slot: Number(a.slice('switch:'.length)) });
     } else return false;
@@ -189,9 +231,16 @@ function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeed
         now={now}
         clock={clock}
         sessions={sessions}
-        working={working || (sheet.kind === 'claude' && model.claudeSwitch.busy === sheet.slot)}
+        agyApp={agyApp}
+        working={
+          working ||
+          (sheet.kind === 'claude' && model.claudeSwitch.busy === sheet.slot) ||
+          (sheet.kind === 'agy' && model.agySwitch.busy === sheet.number)
+        }
+        agyHow={agyHow}
         onClose={close}
         onSwitch={(slot, until) => void doSwitch(slot, until)}
+        onSwitchAgy={(number, how) => void doSwitchAgy(number, how)}
         onPause={(until) => void pause(until)}
         onSettings={onSettings}
       />
@@ -204,6 +253,7 @@ function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeed
     act,
     body,
     openSwitch: (slot: number) => open({ kind: 'claude', slot }),
+    openSwitchAgy: (number: number) => open({ kind: 'agy', number }),
     openPause: (preset: PauseChoice) => open({ kind: 'pause', preset }),
   };
 }
@@ -265,6 +315,7 @@ export function PopoverApp({ api, clock = systemClock }: AppProps) {
       busy={busy}
       onAction={onAction}
       onSwitch={switching.openSwitch}
+      onSwitchAgy={switching.openSwitchAgy}
       onToggle={switching.toggle}
       sheet={switching.body(now, () => void api.openWindow('settings'))}
       onCloseSheet={switching.close}
@@ -385,6 +436,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       onTab={goTab}
       onAction={onAction}
       onSwitch={switching.openSwitch}
+      onSwitchAgy={switching.openSwitchAgy}
       onToggle={switching.toggle}
       onPause={switching.openPause}
       settings={settings}

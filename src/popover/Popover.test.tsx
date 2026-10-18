@@ -40,7 +40,7 @@ describe('popover', () => {
     expect(agy).toHaveLength(2);
     const ultra1 = agy.find((b) => !b.getAttribute('aria-label')!.includes('đang dùng'))!;
     expect(ultra1.getAttribute('aria-disabled')).toBe('true');
-    expect(ultra1.getAttribute('title')).toBe('Cockpit · tài khoản 1 · Chuyển Antigravity có ở bản sau');
+    expect(ultra1.getAttribute('title')).toBe('Cockpit · tài khoản 1 · Chưa chuyển được: quota-axi chưa liệt kê tài khoản của Quota Station');
     fireEvent.click(ultra1);
     fireEvent.click(rows[1]);
     expect(screen.queryByRole('dialog', { name: /Chuyển/ })).toBeNull();

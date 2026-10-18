@@ -4,8 +4,10 @@
 //! that Antigravity.app and agy share. Afterwards every file the module
 //! opened must be inside the app's folder or the (fake) Antigravity bundle it
 //! reads the version from, every `security` run must name the app's own
-//! service, the decoys must be as they were, and the sentinel must appear
-//! nowhere the app wrote or sent anything.
+//! service, except the one write of a switch, which must be Cockpit's exact
+//! command, the decoys must be as they were (the shared item replaced by the
+//! switch, never read), and the sentinel must appear nowhere the app wrote or
+//! sent anything.
 //!
 //! In a file of its own: the list of opened files is global to the test
 //! binary, so no other test that opens files may run beside it.
@@ -13,14 +15,20 @@
 mod common;
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
+use common::desktop::{agy_report, fake_quota_axi, FakeApp};
 use common::google::{
     token_body, FakeBrowser, FakeGoogle, Home, Script, ACCOUNT_ID, INVALID_GRANT, MODELS,
 };
+use quota_station_core::antigravity::credential::SharedLogin;
 use quota_station_core::antigravity::store::SERVICE;
+use quota_station_core::antigravity::switch::{
+    self, CloudCodeProbe, How, Limits, Outcome, Request,
+};
 use quota_station_core::antigravity::version::AntigravityApp;
-use quota_station_core::antigravity::{client, fs, index, login, pace, quota};
+use quota_station_core::antigravity::{client, fs, index, login, pace, quota, watch};
 
 const SENTINEL: &str = "SENTINEL-must-never-leave-0f3c";
 
@@ -81,6 +89,7 @@ fn the_antigravity_flows_never_touch_another_tools_secrets() {
 
     // Every flow there is: the client check, two logins (one through a
     // pasted callback), a new login of the first, a use with a refresh, a
+    // switch that quits and reopens Antigravity.app, the overwrite watch, a
     // refusal, and a logout.
     assert_eq!(client::status(&home.app), client::ClientStatus::Ok);
     let browser = FakeBrowser::following();
@@ -130,6 +139,35 @@ fn the_antigravity_flows_never_touch_another_tools_secrets() {
     assert!(quota::read_account(&reads, &second.id, ms + 120_000).is_err());
     assert!(!google.calls(MODELS).is_empty());
 
+    // A switch that quits and reopens a fake Antigravity.app, then the watch.
+    let shared_item = home.sec.join("items/gemini--antigravity");
+    let app = FakeApp::new(&home.home.join("desktop"), Some("2.24.0"));
+    app.start();
+    let axi = fake_quota_axi(&home.home);
+    std::fs::write(home.home.join("agy.json"), agy_report(2, Some(2), "reading", "quota-station"))
+        .unwrap();
+    let desktop = app.desktop();
+    let shared = SharedLogin::fake(home.sec.join("bin/security"), Duration::from_secs(5));
+    let switch_deps = switch::Deps {
+        app: &home.app,
+        endpoints: &endpoints,
+        keychain: &home.keychain,
+        probe: Arc::new(CloudCodeProbe { hosts: hosts.clone(), identity: identity.clone() }),
+        shared: &shared,
+        desktop: &desktop,
+        quota_axi: Some(&axi),
+    };
+    let request = Request { id: second.id.clone(), how: How::QuitFirst, from: None };
+    let limits = Limits { settle: Duration::ZERO, ..Limits::default() };
+    let done = switch::switch_antigravity(&switch_deps, &request, limits, &|| now() + 3600);
+    assert!(matches!(done.outcome, Outcome::Switched { .. }), "{:?}", done.outcome);
+    let report =
+        quota_station_core::axi::parse(&agy_report(2, Some(1), "reading", "quota-station"));
+    let active = switch::shown_active_id(&report.unwrap(), &index::load(&home.app).unwrap());
+    watch::observe(&home.app, active.as_deref(), now() + 7200);
+    watch::dismiss(&home.app).unwrap();
+    let _ = switch::read_log(&home.app);
+
     google.set(|s| s.refresh = (400, INVALID_GRANT.into()));
     // The read above refreshed this token; this refresh is due an hour on.
     assert!(login::fresh_token(&deps, &second.id, now() + 7100).is_err());
@@ -137,27 +175,49 @@ fn the_antigravity_flows_never_touch_another_tools_secrets() {
     let _ = index::load(&home.app).unwrap();
     let _ = index::load_statuses(&home.app);
 
-    // 1. Every file opened is in the app's folder, or in the bundle.
+    // 1. Every file opened is in the app's folder, or in a bundle: the one
+    // the version is read from, and the (fake) Antigravity.app the switch
+    // only looks for.
     let opened = fs::take_opened();
     assert!(!opened.is_empty());
     assert!(opened.iter().any(|p| p.starts_with(&bundle)), "the bundle was read");
     for path in &opened {
-        let allowed = path.starts_with(home.app.path()) || path.starts_with(&bundle);
+        let allowed =
+            path.starts_with(home.app.path()) || path.starts_with(&bundle) || path == &app.app;
         assert!(allowed, "opened {}", path.display());
     }
 
-    // 2. Every `security` run is for the app's own service.
+    // 2. Every `security` run is for the app's own service, but the one
+    // write of the switch, which is Cockpit's command and nothing else.
     let calls = home.security_calls();
     assert!(calls.len() >= 6, "{calls:?}");
+    let mut shared_writes = 0;
     for call in &calls {
+        if call.iter().any(|a| a == "gemini" || a == "antigravity") {
+            assert_eq!(call.len(), 9, "{call:?}");
+            assert_eq!(
+                call[..7],
+                ["add-generic-password", "-U", "-s", "gemini", "-a", "antigravity", "-w"]
+            );
+            assert!(call[7].starts_with("go-keyring-base64:") && call[8] == "-A", "{call:?}");
+            shared_writes += 1;
+            continue;
+        }
         let svc = call.iter().position(|a| a == "-s").map(|i| call[i + 1].as_str());
         assert_eq!(svc, Some(SERVICE), "{call:?}");
-        assert!(!call.iter().any(|a| a == "gemini" || a == "antigravity"), "{call:?}");
         assert!(!call.iter().any(|a| a == "-A"), "{call:?}");
     }
+    assert_eq!(shared_writes, 1);
 
-    // 3. The decoys are untouched.
-    assert_eq!(snapshot(&decoys), before);
+    // 3. The decoys are untouched, but the shared item, which the switch
+    // replaced without reading it.
+    let unchanged: Vec<_> =
+        snapshot(&decoys).into_iter().filter(|(f, ..)| *f != shared_item).collect();
+    let was: Vec<_> = before.into_iter().filter(|(f, ..)| *f != shared_item).collect();
+    assert_eq!(unchanged, was);
+    let item = std::fs::read_to_string(&shared_item).unwrap();
+    assert!(item.starts_with("go-keyring-base64:") && !item.contains(SENTINEL));
+    assert!(app.wait_running(true), "the switch opened Antigravity.app again");
 
     // 4. The sentinel is nowhere the app wrote or sent anything.
     let mut written = Vec::new();
@@ -195,12 +255,15 @@ const FILE_CALLS: [&str; 11] = [
 
 /// Every file of the Antigravity module and the app's commands for it: only
 /// the folder guard touches files, and no code (comments aside) names
-/// another tool's secret files or the shared Keychain item.
+/// another tool's secret files, nor the shared Keychain item outside the one
+/// module that writes it.
 #[test]
 fn only_the_folder_guard_opens_files() {
-    let sources: [(&str, &str); 16] = [
+    let sources: [(&str, &str); 21] = [
         ("client.rs", include_str!("../src/antigravity/client.rs")),
         ("cloud_code.rs", include_str!("../src/antigravity/cloud_code.rs")),
+        ("credential.rs", include_str!("../src/antigravity/credential.rs")),
+        ("desktop.rs", include_str!("../src/antigravity/desktop.rs")),
         ("export.rs", include_str!("../src/antigravity/export.rs")),
         ("fs.rs", include_str!("../src/antigravity/fs.rs")),
         ("index.rs", include_str!("../src/antigravity/index.rs")),
@@ -211,10 +274,13 @@ fn only_the_folder_guard_opens_files() {
         ("pace.rs", include_str!("../src/antigravity/pace.rs")),
         ("quota.rs", include_str!("../src/antigravity/quota.rs")),
         ("store.rs", include_str!("../src/antigravity/store.rs")),
+        ("switch.rs", include_str!("../src/antigravity/switch.rs")),
         ("token.rs", include_str!("../src/antigravity/token.rs")),
         ("version.rs", include_str!("../src/antigravity/version.rs")),
+        ("watch.rs", include_str!("../src/antigravity/watch.rs")),
         ("src-tauri antigravity.rs", include_str!("../../../src-tauri/src/antigravity.rs")),
         ("src-tauri agy_quota.rs", include_str!("../../../src-tauri/src/agy_quota.rs")),
+        ("src-tauri agy_switch.rs", include_str!("../../../src-tauri/src/agy_switch.rs")),
     ];
     let names = [
         ".cockpit_tools",
@@ -244,6 +310,10 @@ fn only_the_folder_guard_opens_files() {
                 assert!(!std_group, "{file}:{}: {line}", n + 1);
             }
             for name in names {
+                // Only the module that writes the shared login names it.
+                if file == "credential.rs" && name == "\"gemini\"" {
+                    continue;
+                }
                 assert!(!code.contains(name), "{file}:{}: {line}", n + 1);
             }
         }

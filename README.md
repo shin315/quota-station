@@ -8,7 +8,8 @@ The interface is in Vietnamese.
 under CC BY-NC-SA 4.0. See [License](#license).
 
 Based in part on [Cockpit Tools](https://github.com/jlcodes99/cockpit-tools)
-(dựa một phần trên Cockpit Tools): its Antigravity login and quota reading
+(dựa một phần trên Cockpit Tools): its Antigravity login, quota reading and
+account switch
 are adapted from Cockpit's code. See [`NOTICE`](NOTICE).
 
 <img src="docs/popover.png" width="380" alt="The popover on fixture data: two pool tiles, four Claude Code accounts and two Antigravity accounts with their allowances and reset times">
@@ -25,15 +26,17 @@ The popover and window images date from M2, before the switch buttons.
 
 This is milestone M5, "Luật xoay vòng", on top of M3 "Chuyển Claude và tạm
 dừng", M2 "Cửa sổ chính chỉ đọc" and M1 "Khung và số", with M4a, "Đăng nhập
-Antigravity trong app", and M4b, "App tự đọc hạn mức Antigravity", the first
-steps of taking over what Cockpit Tools does. The app reads, and acts in four
-ways, each started by the owner: it switches the active Claude account
-through claude-swap, it pauses the automatic switcher, it edits the
-switcher's rotation rules and copies them to the owner's other Macs, and it
-logs Antigravity accounts in and out on this Mac. Two things it does on its
-own: it finishes that rotation copy (a Mac that could not take the saved
-rules is tried again in the background), and it reads the quota of the
-Antigravity accounts logged in here, at Cockpit's pace or slower (below).
+Antigravity trong app", M4b, "App tự đọc hạn mức Antigravity", and M4c,
+"Chuyển Antigravity không cần Cockpit", the steps of taking over what Cockpit
+Tools does. The app reads, and acts in five ways, each started by the owner:
+it switches the active Claude account through claude-swap, it pauses the
+automatic switcher, it edits the switcher's rotation rules and copies them to
+the owner's other Macs, it logs Antigravity accounts in and out on this Mac,
+and it switches the Antigravity account that Antigravity.app and agy use. Two
+things it does on its own: it finishes that rotation copy (a Mac that could
+not take the saved rules is tried again in the background), and it reads the
+quota of the Antigravity accounts logged in here, at Cockpit's pace or slower
+(below).
 
 - **Menu bar item.** A template glyph with one bar for Claude and one for
   Antigravity. Next to it is the whole-rotation number. When there is a
@@ -48,7 +51,8 @@ Antigravity accounts logged in here, at Cockpit's pace or slower (below).
   stale numbers, an unavailable source, numbers waiting after a reset, an
   exhausted rotation, missing Keychain permission and a failing quota-axi.
   Every Claude account other than the one in use is a button that opens the
-  switch sheet (below). Antigravity rows do not switch yet. The footer has the
+  switch sheet (below), and so is every Antigravity account logged in here
+  once quota-axi lists the app's own accounts. The footer has the
   `Tự chuyển Claude` switch and the line that says why Claude is on its
   account, and, when other Macs are set up, which of them have the rotation
   rules (`Mac B: 14:30 · Mac C: chưa tới được, sẽ thử lại`). Its header has
@@ -136,6 +140,28 @@ Antigravity accounts logged in here, at Cockpit's pace or slower (below).
   told to. Leaving the tab, closing the window or quitting from the menu bar
   with unsaved changes asks first.
 
+- **Switching Antigravity** (M4c). The sheet names the account and its
+  allowances, says whether Antigravity.app runs, and that a running `agy`
+  session keeps the old account until it restarts. While Antigravity.app
+  runs it offers `Thoát app rồi chuyển` (quit the app politely, switch, open
+  it again), `Chuyển, để app chạy` (switch now; the running app may write
+  its old login back) and `Thôi`; when it does not run, only `Chuyển` and
+  `Thôi`. The switch makes the token fresh and, while the token lacks a
+  project or the GCP ToS mark, asks `loadCodeAssist` for them as the quota
+  read does (60 seconds at most); it quits the app and waits up to 20
+  seconds when asked (an app that does not quit stops the switch before the
+  shared login is touched; `Chuyển` stops if the app runs again by then),
+  writes the login Antigravity.app and agy share with Cockpit's own
+  `security` command, then points quota-axi's binding at the new account
+  and opens the app again. Five seconds later it reads Antigravity again and
+  says `Đã chuyển`, that agy still uses the old account or could not be
+  read, or why it did not switch. Antigravity.app older than 2.0 is named
+  and refused, and one whose version cannot be read stops the switch
+  before anything is written (`Missing` only when there is no
+  Antigravity.app at all). For six hours after a switch, a reading that
+  shows the old account back in use brings the banner `Chuyển Antigravity
+  bị ghi đè` with `Chuyển lại` and `Thôi`, and the overwrites are counted.
+
 - **Antigravity logins** (M4a). `Thêm tài khoản` opens Google's consent
   screen in the default browser, with Antigravity's own OAuth client, so the
   screen names Antigravity, not Quota Station. The flow is Cockpit's: a
@@ -148,7 +174,6 @@ Antigravity accounts logged in here, at Cockpit's pace or slower (below).
   `Đăng xuất` with a confirmation in the row. Logging out forgets the account
   in this app only: Antigravity.app and agy stay logged in. Without a usable
   `oauth-client.json` the card says what is missing and cannot add.
-  Switching Antigravity comes in a later milestone.
 - **Antigravity quota** (M4b). The app reads the quota of the accounts logged
   in here itself, as Cockpit Tools does: the token, refreshed only when it
   has under five minutes left, then Cloud Code's `fetchAvailableModels` and
@@ -178,8 +203,8 @@ Antigravity accounts logged in here, at Cockpit's pace or slower (below).
 Each Mac runs its own copy and switches only its own machine; there is no
 switch button for another Mac. The only thing sent to another Mac is the
 rotation file. Each Mac also keeps its own Antigravity logins, and nothing
-assumes another Mac has any. Switching Antigravity, notifications, history
-and installing as a login item come in later milestones.
+assumes another Mac has any. Notifications, history and installing as a
+login item come in later milestones.
 
 ### What it reads and runs
 
@@ -235,15 +260,28 @@ and installing as a login item come in later milestones.
   token lacks a project or the GCP ToS mark. The Antigravity version comes
   from the bundle's `product.json` or, through `/usr/bin/plutil -p`, its
   `Info.plist`; the bundle is only read.
+- Switching Antigravity runs, when the owner confirms:
+  `plutil -extract CFBundleShortVersionString raw` on Antigravity.app's
+  `Info.plist`, `pgrep -f /Applications/Antigravity.app/Contents/MacOS/Antigravity`,
+  `osascript -e 'tell application id "com.google.antigravity" to quit'` and
+  `open -b com.google.antigravity` (only with `Thoát app rồi chuyển`),
+  `…/v1internal:loadCodeAssist` while the token lacks a project or the GCP
+  ToS mark,
+  `security add-generic-password -U -s gemini -a antigravity -w go-keyring-base64:<…> -A`,
+  and then `quota-axi --provider agy --json --max-age 0 --no-credential-refresh`.
+  Opening the sheet runs only the `plutil` and `pgrep` questions.
 - It writes these files: its own settings file,
   `~/Library/Application Support/com.shin315.quota-station/settings.json`,
   with `rotation-sync.json` (where each other Mac stands) beside it; in the
   same folder, `antigravity/accounts.json` (Cockpit's account index layout,
   no token), `antigravity/status.json` (accounts that need a new login or a
-  verification, or that Google refused) and
+  verification, or that Google refused),
   `antigravity/cache/quota_api_v1_desktop/authorized/<SHA-256 of the email>.json`
-  (each account's last quota reading in Cockpit's cache layout, no token);
-  the switcher's pause flag,
+  (each account's last quota reading in Cockpit's cache layout, no token),
+  and after an Antigravity switch
+  `antigravity/antigravity_legacy_instances.json` (the account bound to
+  Antigravity.app, read by quota-axi), `antigravity/switch-log.jsonl` and
+  `antigravity/watch.json`; the switcher's pause flag,
   `~/.config/cswap-prefer-team/pause`
   (`until = YYYY-MM-DDTHH:MM` in local time and `reason = …`; no `until`
   pauses until resumed); and the rotation file with its backups. Each is
@@ -350,15 +388,18 @@ Antigravity login card: `agy` (`two`, `relogin`, `verify`, `noclient`,
 `tooopen`, `invalid`, `broken`, or for the quota reads `reading`, `failing`
 and `forbidden`), `login` (how a login ends, for example
 `timeout`, `noRefreshToken` or `keychain`; it keeps the next account after
-3 seconds by default) and `email=on`. Nothing is switched, no browser opens
+3 seconds by default) and `email=on`. For switching Antigravity: `agyswitch`
+(`on`, or `overwritten` for the banner), `agyapp` (`closed`, `missing`,
+`old`, `unreadable` or `unknown`; Antigravity.app runs by default) and `agyoutcome`
+(`unconfirmed`, `notquit` or `write`). Nothing is switched, no browser opens
 and no file is written: a switch only waits 1.5 seconds and a save 1 second,
 and both update the fixture.
 
 ## Tests
 
 ```sh
-cargo test --workspace   # parsing, snapshot rules, icon, runner, schedule, switching, rotation, other Macs, Antigravity login and quota
-npm test                 # Vitest: popover and main window views, switch and pause sheets, rules editor, login card and read states
+cargo test --workspace   # parsing, snapshot rules, icon, runner, schedule, switching, rotation, other Macs, Antigravity login, quota and switch
+npm test                 # Vitest: popover and main window views, switch and pause sheets, rules editor, login card and read states, Antigravity switch
 ```
 
 The Antigravity login tests never reach Google or the Keychain. They run
@@ -395,6 +436,23 @@ QUOTA_STATION_QUOTA_AXI=/path/to/quota-axi/dist/bin/quota-axi.js \
   cargo test -p quota-station-core --test antigravity_quota -- --ignored
 ```
 
+The Antigravity switch tests never touch the Keychain, Antigravity.app or
+quota-axi. A fake `security` checks that the shared login is written with
+Cockpit's exact arguments, keeps the old item when the write fails and is
+stopped when it hangs (the two tests ported from Cockpit). Antigravity.app
+is a shell process behind fake `plutil`, `pgrep`, `osascript` and `open`:
+one that quits, one that stays (the shared login is not touched and it keeps
+running), one opened again before a plain `Chuyển`, one whose plist cannot
+be read, one older than 2.0 and none at all; the fake `open` also records
+that the new login was in place before the app came back. A fake quota-axi
+answers the check with the new account, the old one, no answer, or Cockpit's
+numbering. The project lookup before a switch is the quota read's
+`loadCodeAssist`, against the same fake Google. They also cover a token
+refreshed before the write, an account that needs a new login or is logged
+out while it is prepared, the 60-second preparation and one that breaks,
+one switch at a time, a reopen that fails, and the six-hour watch on
+synthetic readings.
+
 The switching tests never touch a real account. They run a fake `cswap` (a
 shell script in a temporary HOME) that switches, fails with an error, or is
 switched back by a fake switcher writing its log; a fake quota-axi answers
@@ -429,7 +487,8 @@ UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test ui_fixtures
   and writes the pause flag, and reads the switcher's dry run and log. It
   reads, checks and writes the rotation file, and copies it over SSH. Its
   `antigravity/` module logs Antigravity accounts in and out, reads their
-  quota and paces those reads.
+  quota, paces those reads, and switches the account Antigravity.app and
+  agy use.
 - `src-tauri/` is the Tauri 2 shell: the tray item, the popover and the main
   window, the read loop, the Antigravity quota thread and the commands.
 - `src/` is the React and TypeScript frontend. Its `styles/tokens.css` and

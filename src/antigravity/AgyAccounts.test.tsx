@@ -221,6 +221,27 @@ describe('Antigravity login card', () => {
     expect(within(list()).getAllByRole('listitem')).toHaveLength(1);
   });
 
+  it('a logout refused while an Antigravity switch runs says to try again after it', async () => {
+    const fake = await open(withAgy({ accounts: [agyAccount(1)] }));
+    vi.mocked(fake.api.agyLogout).mockRejectedValue('busy');
+    fireEvent.click(screen.getByRole('button', { name: 'Đăng xuất Ultra 1' }));
+    await act(async () => {
+      fireEvent.click(within(list()).getByRole('button', { name: 'Đăng xuất' }));
+    });
+    expect(screen.getByText('Một lần chuyển Antigravity đang chạy. Chờ nó xong rồi thử lại.')).toBeTruthy();
+    expect(within(list()).getAllByRole('listitem')).toHaveLength(1);
+  });
+
+  it('a logout while another runs says so', async () => {
+    const fake = await open(withAgy({ accounts: [agyAccount(1)] }));
+    vi.mocked(fake.api.agyLogout).mockRejectedValue('loggingOut');
+    fireEvent.click(screen.getByRole('button', { name: 'Đăng xuất Ultra 1' }));
+    await act(async () => {
+      fireEvent.click(within(list()).getByRole('button', { name: 'Đăng xuất' }));
+    });
+    expect(screen.getByText('Một lần đăng xuất khác đang chạy. Chờ nó xong rồi thử lại.')).toBeTruthy();
+  });
+
   it('an unreadable account list is reported and nothing can be added', async () => {
     await open(withAgy({ indexError: true }));
     expect(screen.getByText('Không đọc được danh sách tài khoản')).toBeTruthy();

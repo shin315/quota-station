@@ -56,6 +56,7 @@ impl std::fmt::Display for StoreError {
 
 impl std::error::Error for StoreError {}
 
+#[derive(Debug, Clone)]
 pub struct Keychain {
     program: PathBuf,
 }

@@ -1,5 +1,6 @@
 //! What the windows can ask for. Only [`switch_claude`] acts outside the
-//! app: it runs `cswap switch N --json` on this Mac when the owner confirms.
+//! app here: it runs `cswap switch N --json` on this Mac when the owner
+//! confirms (switching Antigravity is in `agy_switch`).
 //! The pause commands write the switcher's pause flag; the rest write only
 //! the app's own settings file.
 

@@ -4,7 +4,7 @@
 // Plain code: the preview bundle must not load Vitest.
 
 import type { Api } from '../lib/api';
-import type { AgyLogin, AgyLoginDone, AgyLoginFailure, Model, Outcome, PeerView, RotationView, RulesError, Sessions, Tab } from '../lib/model';
+import type { AgyApp, AgyHow, AgyLogin, AgyLoginDone, AgyLoginFailure, AgyOutcome, Model, Outcome, PeerView, RotationView, RulesError, Sessions, Tab } from '../lib/model';
 
 export interface FakeOptions {
   /** Aliases SSH cannot reach: a save leaves them behind, and "Thử SSH" fails. */
@@ -29,6 +29,12 @@ export interface FakeOptions {
   agyLogin?: () => AgyLoginFailure | null;
   /** How long a login waits for the browser before it ends on its own; none waits for a paste. */
   agyLoginDelayMs?: number;
+  /** What the switch sheet learns about Antigravity.app; null makes the question fail. By default it runs. */
+  agyApp?: AgyApp | null;
+  /** What an Antigravity switch reports; by default it lands on the account asked for. */
+  agyOutcome?: (number: number, how: AgyHow) => AgyOutcome;
+  /** How long an Antigravity switch takes before it reports. */
+  agySwitchDelayMs?: number;
 }
 
 /** The made-up email of a fake account. */
@@ -278,6 +284,38 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
     },
     agyOpenVerification: async () => {},
     agyTabOpened: async () => {},
+    agyAppState: async () => {
+      if (options.agyApp === null) throw new Error('spawn');
+      return options.agyApp ?? { installed: 'supported', version: '2.24.0', running: true };
+    },
+    switchAgy: async (id, how) => {
+      const login = model.antigravity.accounts.find((a) => a.id === id);
+      if (!login) throw 'unknownAccount';
+      if (model.agySwitch.busy != null) throw 'busy';
+      const number = login.number;
+      push({ ...model, agySwitch: { ...model.agySwitch, busy: number } });
+      if (options.agySwitchDelayMs) await new Promise((r) => setTimeout(r, options.agySwitchDelayMs));
+      const outcome: AgyOutcome = options.agyOutcome?.(number, how) ?? {
+        kind: 'switched',
+        number,
+        how,
+        basis: 'reading',
+        reopened: how === 'quitFirst' ? true : null,
+        saved: true,
+      };
+      const lands = outcome.kind === 'switched' ? number : outcome.kind === 'unconfirmed' ? outcome.active : null;
+      const g = model.snapshot.agy;
+      push({
+        ...model,
+        snapshot: { ...model.snapshot, agy: { ...g, accounts: g.accounts.map((a) => (lands == null ? a : { ...a, active: a.number === lands })) } },
+        agySwitch: { ...model.agySwitch, busy: null, overwritten: outcome.kind === 'failed' ? model.agySwitch.overwritten : null },
+      });
+      return outcome;
+    },
+    agyDismissOverwrite: async () => {
+      push({ ...model, agySwitch: { ...model.agySwitch, overwritten: null } });
+      return model;
+    },
     setShowEmail: async (on) => {
       push({ ...model, showEmail: on, antigravity: agy({ accounts: accounts(model.antigravity.accounts, on) }) });
       return model;

@@ -1,6 +1,6 @@
 [package]
 name = "quota-station-core"
-description = "Reads quota-axi, turns its JSON into the Quota Station snapshot, paces refreshes, switches Claude through claude-swap, keeps the rotation file in step across Macs, and logs in Antigravity accounts and reads their quota."
+description = "Reads quota-axi, turns its JSON into the Quota Station snapshot, paces refreshes, switches Claude through claude-swap, keeps the rotation file in step across Macs, and logs in, reads the quota of and switches Antigravity accounts."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -15,6 +15,7 @@ publish = false
 test-support = []
 
 [dependencies]
+base64 = "0.22"
 libc = "0.2"
 md5 = "0.7"
 # The features Cockpit Tools builds reqwest 0.12 with that shape a request:

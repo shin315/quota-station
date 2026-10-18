@@ -329,6 +329,51 @@ export interface AgyLoginFailure {
   detail: string;
 }
 
+// ===== Switching the Antigravity account (M4c) =====
+
+/** The button pressed on the sheet (`quota-station-core::antigravity::switch::How`). */
+export type AgyHow = 'plain' | 'quitFirst' | 'keepRunning';
+
+/** Antigravity.app as the sheet sees it (`src-tauri/src/agy_switch.rs` `AppView`). */
+export interface AgyApp {
+  /** `unreadable`: there, but its version could not be read; the sheet offers no switch. */
+  installed: 'missing' | 'supported' | 'tooOld' | 'unreadable';
+  version: string | null;
+  /** Null when the process list could not be read. */
+  running: boolean | null;
+}
+
+/** What an Antigravity switch did (`quota-station-core::antigravity::switch::Outcome`). */
+export type AgyOutcome =
+  /**
+   * `basis`: quota-axi's `identity` when agy's login named the account,
+   * `reading` when agy's own numbers showed it, `cockpit` when only the
+   * binding the switch wrote answered.
+   */
+  | { kind: 'switched'; number: number; how: AgyHow; basis: string | null; reopened: boolean | null; saved: boolean }
+  /** The login was written; the check showed `active` in use, or could not tell (null). */
+  | { kind: 'unconfirmed'; number: number; how: AgyHow; active: number | null; reopened: boolean | null; saved: boolean }
+  /** Nothing switched. `reopened`: Antigravity.app was quit for the switch and opened again (or not). */
+  | { kind: 'failed'; number: number; error: string; detail: string; reopened: boolean | null };
+
+/** A switch a running Antigravity.app undid (the six-hour watch). */
+export interface AgyOverwrite {
+  /** The account switched to, and the one back in use. */
+  to: number;
+  from: number;
+  /** RFC 3339. */
+  at: string;
+  overwrites: number;
+}
+
+export interface AgySwitchView {
+  /** The account number a switch is running for. */
+  busy: number | null;
+  /** quota-axi lists this app's accounts, so a row's number is the account's number here. */
+  listed: boolean;
+  overwritten: AgyOverwrite | null;
+}
+
 /** The main window's tabs in this build (`src-tauri/src/state.rs` `Tab`). */
 export type Tab = 'overview' | 'claude' | 'agy' | 'rules' | 'settings';
 
@@ -349,4 +394,5 @@ export interface Model {
   /** Emails of the accounts logged in here may show. */
   showEmail: boolean;
   antigravity: AgyAccounts;
+  agySwitch: AgySwitchView;
 }

@@ -9,9 +9,14 @@
 // sets the login card, `login=timeout|noRefreshToken|keychain|…` how a login ends
 // (it keeps the next account after 3 s by default, or at once on any pasted
 // URL with `code=` and `state=`), and `email=on` shows the made-up emails.
+// Switching Antigravity (M4c): `agyswitch=on|overwritten` lists the two
+// accounts as the app's (the second one undone by Antigravity.app with
+// `overwritten`), `agyapp=closed|missing|old|unreadable|unknown` is what the sheet learns
+// about Antigravity.app (it runs by default), and
+// `agyoutcome=unconfirmed|notquit|write` what a switch reports. A switch takes 1.5 s.
 
 import type { Api } from './lib/api';
-import type { AgyAccounts, ErrorView, Model, Outcome, Tab } from './lib/model';
+import type { AgyAccounts, AgyApp, AgyHow, AgyOutcome, ErrorView, Model, Outcome, Tab } from './lib/model';
 import { fakeApi, fakeEmail } from './fixtures/fakeApi';
 import {
   agyAccount,
@@ -106,6 +111,27 @@ const OUTCOMES: Record<string, (slot: number, holdUntil: string | null) => Outco
   unconfirmed: (slot, holdUntil) => ({ kind: 'unconfirmed', slot, hold: holdOf(holdUntil) }),
 };
 
+const AGY_APPS: Record<string, AgyApp | null> = {
+  closed: { installed: 'supported', version: '2.24.0', running: false },
+  missing: { installed: 'missing', version: null, running: false },
+  old: { installed: 'tooOld', version: '1.20.5', running: true },
+  unreadable: { installed: 'unreadable', version: null, running: true },
+  unknown: null,
+};
+
+const AGY_OUTCOMES: Record<string, (number: number, how: AgyHow) => AgyOutcome> = {
+  // agy still reads the account from before.
+  unconfirmed: (number, how) => ({ kind: 'unconfirmed', number, how, active: number === 1 ? 2 : 1, reopened: how === 'quitFirst' ? true : null, saved: true }),
+  notquit: (number) => ({ kind: 'failed', number, error: 'notQuit', detail: '', reopened: null }),
+  write: (number, how) => ({
+    kind: 'failed',
+    number,
+    error: 'write',
+    detail: 'security exited 36: User interaction is not allowed.',
+    reopened: how === 'quitFirst' ? true : null,
+  }),
+};
+
 /** A table entry by query value, never one of Object.prototype's keys. */
 function pick<T>(table: Record<string, T>, key: string | null): T | undefined {
   return key !== null && Object.hasOwn(table, key) ? table[key] : undefined;
@@ -125,10 +151,20 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
   if (rules) over.rotation = rules();
   const agy = pick(AGY, params.get('agy'));
   if (agy) over.antigravity = agy();
+  const agySwitch = params.get('agyswitch');
+  if (agySwitch === 'on' || agySwitch === 'overwritten') {
+    if (!over.antigravity?.accounts.length) over.antigravity = AGY.two();
+    over.agySwitch = {
+      busy: null,
+      listed: true,
+      overwritten: agySwitch === 'overwritten' ? { to: 1, from: 2, at: '2026-01-16T07:10:00.000Z', overwrites: 1 } : null,
+    };
+  }
   if (params.get('email') === 'on') {
     over.showEmail = true;
     if (over.antigravity) over.antigravity.accounts = over.antigravity.accounts.map((a) => ({ ...a, email: fakeEmail(a.number) }));
   }
+  const agyApp = params.get('agyapp');
   const ends = LOGIN_ENDS.find((k) => k.toLowerCase() === params.get('login')?.toLowerCase());
   const { api } = fakeApi(fixtureModel(SNAPSHOTS[state] ? state : 'fresh', over), tab, {
     switchDelayMs: 1500,
@@ -139,6 +175,9 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
     rulesError: rotation === 'refused' ? { kind: 'refused', detail: 'rotation_bad_value:personal_hours', restored: true } : undefined,
     agyLoginDelayMs: 3000,
     agyLogin: ends ? () => ({ kind: ends, detail: '' }) : undefined,
+    agyApp: agyApp !== null && Object.hasOwn(AGY_APPS, agyApp) ? AGY_APPS[agyApp] : undefined,
+    agyOutcome: pick(AGY_OUTCOMES, params.get('agyoutcome')),
+    agySwitchDelayMs: 1500,
   });
   // The window opens on the same fixture and switcher states as the popover.
   const openWindow = async (next: Tab) => {

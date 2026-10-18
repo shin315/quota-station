@@ -232,6 +232,10 @@ export function agyLogoutErrorFeedback(name: string, e: unknown): FeedbackView {
         ? 'Keychain không xoá được mục của app; tài khoản vẫn trong danh sách. Mở khoá Keychain rồi thử lại.'
         : kind === 'notFound'
           ? 'Tài khoản không còn trong danh sách.'
-          : 'Không ghi được danh sách tài khoản. Thử lại.',
+          : kind === 'busy'
+            ? 'Một lần chuyển Antigravity đang chạy. Chờ nó xong rồi thử lại.'
+            : kind === 'loggingOut'
+              ? 'Một lần đăng xuất khác đang chạy. Chờ nó xong rồi thử lại.'
+              : 'Không ghi được danh sách tài khoản. Thử lại.',
   };
 }

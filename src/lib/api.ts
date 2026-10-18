@@ -3,7 +3,7 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import type { AgyLoginDone, Decision, Model, Outcome, Peer, PeerTest, Rules, Sessions, Tab } from './model';
+import type { AgyApp, AgyHow, AgyLoginDone, AgyOutcome, Decision, Model, Outcome, Peer, PeerTest, Rules, Sessions, Tab } from './model';
 
 export interface Api {
   getModel(): Promise<Model>;
@@ -82,6 +82,15 @@ export interface Api {
   /** The Antigravity tab opened: the app reads every account now, unless read in the last minute. */
   agyTabOpened(): Promise<void>;
   setShowEmail(on: boolean): Promise<Model>;
+  /** Is Antigravity.app installed, which version, does it run; asked when the switch sheet opens. */
+  agyAppState(): Promise<AgyApp>;
+  /**
+   * Switches Antigravity to the account `id` the way `how` says, and reports what quota-axi shows
+   * five seconds later. Rejects with `busy` (a switch is running), `unknownAccount` or `index`.
+   */
+  switchAgy(id: string, how: AgyHow): Promise<AgyOutcome>;
+  /** "Thôi" on the overwrite banner: stops watching the last switch. */
+  agyDismissOverwrite(): Promise<Model>;
   onModel(handler: (model: Model) => void): Promise<() => void>;
   /** The main window is asked to show a tab while it is open. */
   onTab(handler: (tab: Tab) => void): Promise<() => void>;
@@ -121,6 +130,9 @@ export const tauriApi: Api = {
   agyOpenVerification: (id) => invoke('agy_open_verification', { id }),
   agyTabOpened: () => invoke('agy_tab_opened'),
   setShowEmail: (on) => invoke<Model>('set_show_email', { on }),
+  agyAppState: () => invoke<AgyApp>('agy_app_state'),
+  switchAgy: (id, how) => invoke<AgyOutcome>('switch_agy', { id, how }),
+  agyDismissOverwrite: () => invoke<Model>('agy_dismiss_overwrite'),
   onModel: (handler) => listen<Model>('model', (event) => handler(event.payload)),
   onTab: (handler) => listen<Tab>('tab', (event) => handler(event.payload)),
 };
