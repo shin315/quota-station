@@ -21,6 +21,7 @@ export function fixtureModel(name: string, over: Partial<Model> = {}): Model {
     reading: false,
     reads: 1,
     machine: 'Mac mini',
+    machineDefault: 'Mac mini',
     quotaAxi: { path: '~/.local/bin/quota-axi', custom: false, exists: true, version: '0.1.61+cswap.4', fork: true },
     granting: false,
     ...over,

@@ -1,12 +1,14 @@
-// Window roots: the popover and the settings window share one model, pushed
-// by the Rust reader after every read.
+// Window roots: the popover and the main window share one model, pushed by
+// the Rust reader after every read, so both always show the same snapshot.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Api } from './lib/api';
-import type { Model } from './lib/model';
+import type { Model, Tab } from './lib/model';
 import { keychainFeedback, popoverView, refreshedFeedback, type Action, type FeedbackView } from './lib/view';
+import { windowView } from './lib/window';
 import { Popover } from './popover/Popover';
 import { Settings } from './settings/Settings';
+import { MainWindow } from './window/MainWindow';
 
 /** Feedback lines clear themselves after this long. */
 const FEEDBACK_MS = 8000;
@@ -51,18 +53,8 @@ function useFeedback(): [FeedbackView | null, (fb: FeedbackView | null) => void]
   return [fb, show];
 }
 
-export interface AppProps {
-  api: Api;
-  clock?: () => Date;
-}
-
-const systemClock = () => new Date();
-
-export function PopoverApp({ api, clock = systemClock }: AppProps) {
-  const model = useModel(api);
-  const now = useNow(clock);
-  const [feedback, showFeedback] = useFeedback();
-  const [keychainLater, setKeychainLater] = useState(false);
+/** Refresh and Keychain buttons: busy while they run, then a feedback line. */
+function useActions(api: Api, model: Model | null, clock: () => Date, showFeedback: (fb: FeedbackView | null) => void) {
   const [busy, setBusy] = useState<Action | null>(null);
   const waitingFor = useRef<number | null>(null);
 
@@ -75,6 +67,33 @@ export function PopoverApp({ api, clock = systemClock }: AppProps) {
     }
   }, [model, clock, showFeedback]);
 
+  const refresh = async () => {
+    setBusy('refresh');
+    waitingFor.current = await api.refresh();
+  };
+  const grant = async () => {
+    setBusy('keychain');
+    const result = await api.grantKeychain().catch(() => null);
+    setBusy(null);
+    showFeedback(keychainFeedback(result));
+  };
+  return { busy: model?.granting ? ('keychain' as const) : busy, refresh, grant };
+}
+
+export interface AppProps {
+  api: Api;
+  clock?: () => Date;
+}
+
+const systemClock = () => new Date();
+
+export function PopoverApp({ api, clock = systemClock }: AppProps) {
+  const model = useModel(api);
+  const now = useNow(clock);
+  const [feedback, showFeedback] = useFeedback();
+  const [keychainLater, setKeychainLater] = useState(false);
+  const { busy, refresh, grant } = useActions(api, model, clock, showFeedback);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') void api.hidePopover();
@@ -85,37 +104,55 @@ export function PopoverApp({ api, clock = systemClock }: AppProps) {
 
   const onHeight = useCallback((h: number) => void api.resizePopover(h), [api]);
 
-  const onAction = async (act: Action) => {
-    if (act === 'settings') return void api.openSettings();
+  const onAction = (act: Action) => {
+    if (act === 'settings') return void api.openWindow('settings');
+    if (act === 'window') return void api.openWindow('overview');
     if (act === 'dismiss') return setKeychainLater(true);
-    if (act === 'refresh') {
-      setBusy('refresh');
-      waitingFor.current = await api.refresh();
-      return;
-    }
-    if (act === 'keychain') {
-      setBusy('keychain');
-      const result = await api.grantKeychain().catch(() => null);
-      setBusy(null);
-      showFeedback(keychainFeedback(result));
-    }
+    if (act === 'refresh') return void refresh();
+    if (act === 'keychain') return void grant();
   };
 
   if (!model) return null;
   const view = popoverView(model, now, { keychainLater });
-  return <Popover view={view} feedback={feedback} busy={model.granting ? 'keychain' : busy} onAction={onAction} onHeight={onHeight} />;
+  return <Popover view={view} feedback={feedback} busy={busy} onAction={onAction} onHeight={onHeight} />;
 }
 
-export function SettingsApp({ api, clock = systemClock }: AppProps) {
+export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   const model = useModel(api);
   const now = useNow(clock);
   const [feedback, showFeedback] = useFeedback();
-  if (!model) return null;
-  const fresh = popoverView(model, now).fresh;
-  return (
+  const [keychainLater, setKeychainLater] = useState(false);
+  const [tab, setTab] = useState<Tab | null>(null);
+  const { busy, refresh, grant } = useActions(api, model, clock, showFeedback);
+
+  // The tab the window was opened for, then any tab asked for while it is open.
+  useEffect(() => {
+    let live = true;
+    let stop: (() => void) | undefined;
+    void api.onTab((t) => live && setTab(t)).then((unlisten) => {
+      if (live) stop = unlisten;
+      else unlisten();
+    });
+    void api.mainTab().then((t) => live && setTab((cur) => cur ?? t));
+    return () => {
+      live = false;
+      stop?.();
+    };
+  }, [api]);
+
+  const onAction = (act: Action) => {
+    if (act === 'settings') return setTab('settings');
+    if (act === 'dismiss') return setKeychainLater(true);
+    if (act === 'refresh') return void refresh();
+    if (act === 'keychain') return void grant();
+  };
+
+  if (!model || !tab) return null;
+  const view = windowView(model, now, { keychainLater });
+  const settings = (
     <Settings
       model={model}
-      fresh={fresh}
+      fresh={view.fresh}
       feedback={feedback}
       onSetPath={(path) =>
         api.setQuotaAxiPath(path).then(
@@ -124,10 +161,19 @@ export function SettingsApp({ api, clock = systemClock }: AppProps) {
         )
       }
       onFind={() => void api.setQuotaAxiPath('')}
-      onGrant={async () => {
-        const result = await api.grantKeychain().catch(() => null);
-        showFeedback(keychainFeedback(result));
-      }}
+      onGrant={() => void grant()}
+      onSetMachine={(name) => void api.setMachineName(name)}
+    />
+  );
+  return (
+    <MainWindow
+      tab={tab}
+      view={view}
+      busy={busy}
+      feedback={feedback}
+      onTab={setTab}
+      onAction={onAction}
+      settings={settings}
     />
   );
 }

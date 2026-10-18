@@ -36,19 +36,71 @@ body.popover-window {
   background: transparent;
 }
 
-/* The settings window is a plain window on the window background. */
-body.settings-window {
+/* The main window fills its window. The page runs under the title bar:
+   macOS draws the traffic lights in the sidebar's top corner, where the
+   prototype draws them, and the page leaves that corner empty. */
+body.main-window {
   background: var(--winbg);
+  overflow: hidden;
 }
-.qs.app-settings .main {
-  padding: 16px 22px 22px;
+.qs.app-window,
+.qs.app-window .win-o {
+  width: 100%;
+  height: 100%;
 }
-.qs.app-settings .inp {
+.qs.app-window .lights {
+  min-height: 14px;
+}
+body:not(.preview) .qs.app-window .lights i {
+  visibility: hidden;
+}
+.qs.app-window .main {
+  padding-bottom: 22px;
+}
+.qs.app-window .inp {
   -webkit-user-select: text;
   user-select: text;
 }
-.qs.app-settings .fb {
+.qs.app-window .fb {
   margin: 0;
+}
+
+/* Later milestones' tabs: in place, but not wired. */
+.qs .nav:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.qs .nav:disabled:hover {
+  background: transparent;
+}
+
+/* Window tables show numbers only in this milestone: no switch column. */
+.qs .tbl.ro .tr {
+  grid-template-columns: 24px minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1fr);
+}
+.qs .tbl.ro.withfresh .tr {
+  grid-template-columns: 24px minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1fr) 132px;
+}
+.qs .tbl.ro .tr .fresh {
+  justify-self: start;
+}
+.qs .card .pline {
+  display: block;
+  color: var(--ink2);
+  font-size: var(--fs-xs);
+  margin-top: 4px;
+}
+.qs .card .note {
+  margin: 8px 0 0;
+}
+.qs .card .note.warn {
+  color: var(--warn-ink);
+}
+.qs .card .note.bad {
+  color: var(--bad-ink);
+}
+.qs .list .dot {
+  margin-right: 6px;
 }
 
 /* Browser preview (npm run dev, outside Tauri): the popover on a desktop. */
@@ -65,7 +117,7 @@ body.preview .qs.app-popover {
 body.preview .qs.app-popover .pop {
   max-height: var(--pop-max);
 }
-body.preview.settings-window {
+body.preview.main-window {
   background: var(--winbg);
   padding: 0;
 }

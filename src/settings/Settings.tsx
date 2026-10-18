@@ -1,9 +1,10 @@
-// Settings for M1: where quota-axi is, and Keychain access for quota-axi.
-// Rows and copy come from the prototype's Cài đặt tab; the other rows
-// (machine name, other Macs, email, login, refresh, theme, Codex) come in
-// later milestones.
+// The Cài đặt tab of the main window: where quota-axi is, Keychain access
+// for quota-axi, and this Mac's name. Rows and copy come from the
+// prototype's Cài đặt tab. Each Mac runs its own copy, so there is no row
+// for other Macs; email, login, refresh, theme and Codex come in later
+// milestones.
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button, Chip, Dot, Feedback } from '../components/parts';
 import type { Model } from '../lib/model';
 import type { FeedbackView, PopoverView } from '../lib/view';
@@ -15,6 +16,7 @@ export interface SettingsProps {
   onSetPath(path: string): Promise<boolean>;
   onFind(): void;
   onGrant(): void;
+  onSetMachine(name: string): void;
 }
 
 function pathHint(model: Model, refused: boolean): { tone: 'ok' | 'bad' | ''; text: string } {
@@ -30,12 +32,55 @@ function pathHint(model: Model, refused: boolean): { tone: 'ok' | 'bad' | ''; te
   return { tone: '', text: '' };
 }
 
-export function Settings({ model, fresh, feedback, onSetPath, onFind, onGrant }: SettingsProps) {
-  const [path, setPath] = useState(model.quotaAxi.path ?? '');
+/**
+ * A text field that follows `value` when it changes on the Rust side. The
+ * reset happens during render, not in an effect: an effect that runs late
+ * would overwrite what the user just typed.
+ */
+function useField(value: string): [string, (next: string) => void] {
+  const [text, setText] = useState(value);
+  const [seen, setSeen] = useState(value);
+  if (seen !== value) {
+    setSeen(value);
+    setText(value);
+  }
+  return [text, setText];
+}
+
+function MachineName({ model, onSet }: { model: Model; onSet(name: string): void }) {
+  const [name, setName] = useField(model.machine);
+  const commit = () => {
+    if (name.trim() !== model.machine) onSet(name);
+  };
+  return (
+    <div className="fr">
+      <label htmlFor="qs-name">
+        Tên máy này<small>Hiện ở đầu popover và cửa sổ</small>
+      </label>
+      <div>
+        <input
+          id="qs-name"
+          className="inp"
+          value={name}
+          placeholder={model.machineDefault}
+          maxLength={40}
+          spellCheck={false}
+          autoComplete="off"
+          onChange={(e) => setName(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') commit();
+          }}
+        />
+        <div className="fhint">Để trống để dùng tên trong macOS: {model.machineDefault}.</div>
+      </div>
+    </div>
+  );
+}
+
+export function Settings({ model, fresh, feedback, onSetPath, onFind, onGrant, onSetMachine }: SettingsProps) {
+  const [path, setPath] = useField(model.quotaAxi.path ?? '');
   const [refused, setRefused] = useState(false);
-  useEffect(() => {
-    setPath(model.quotaAxi.path ?? '');
-  }, [model.quotaAxi.path]);
 
   const hint = pathHint(model, refused);
   const commit = async () => {
@@ -45,8 +90,8 @@ export function Settings({ model, fresh, feedback, onSetPath, onFind, onGrant }:
   const keychain = model.snapshot.keychain;
 
   return (
-    <div className="main">
-      <div className="tb">
+    <>
+      <div className="tb" data-tauri-drag-region>
         <h2>Cài đặt</h2>
         <small>
           <Dot tone={fresh.tone} />
@@ -108,8 +153,9 @@ export function Settings({ model, fresh, feedback, onSetPath, onFind, onGrant }:
               )}
             </div>
           </div>
+          <MachineName model={model} onSet={onSetMachine} />
         </div>
       </div>
-    </div>
+    </>
   );
 }

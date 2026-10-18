@@ -1,17 +1,17 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { SettingsApp } from '../App';
+import { MainWindowApp } from '../App';
 import { fakeApi } from '../fixtures/fakeApi';
 import { FIXTURE_NOW, fixtureModel } from '../fixtures/models';
 import type { Api } from '../lib/api';
 import type { Model } from '../lib/model';
 
 async function open(model: Model) {
-  const fake = fakeApi(model);
+  const fake = fakeApi(model, 'settings');
   for (const name of Object.keys(fake.api) as (keyof Api)[]) vi.spyOn(fake.api, name);
   render(
-    <div className="qs app-settings">
-      <SettingsApp api={fake.api} clock={() => FIXTURE_NOW} />
+    <div className="qs app-window">
+      <MainWindowApp api={fake.api} clock={() => FIXTURE_NOW} />
     </div>,
   );
   await screen.findByRole('heading', { name: 'Cài đặt' });
@@ -20,7 +20,7 @@ async function open(model: Model) {
 
 afterEach(cleanup);
 
-describe('settings', () => {
+describe('settings tab', () => {
   it('shows the quota-axi in use and that Keychain access is granted', async () => {
     await open(fixtureModel('fresh'));
     expect((screen.getByLabelText(/quota-axi/) as HTMLInputElement).value).toBe('~/.local/bin/quota-axi');
@@ -68,5 +68,42 @@ describe('settings', () => {
   it('names a quota-axi without the +cswap fork', async () => {
     await open(fixtureModel('fresh', { quotaAxi: { path: '/opt/homebrew/bin/quota-axi', custom: true, exists: true, version: '0.1.61', fork: false } }));
     expect(screen.getByText('Bản 0.1.61 không có +cswap: thiếu số claude-swap và luật xoay vòng.')).toBeTruthy();
+  });
+
+  it('names this Mac and goes back to the name macOS gives when emptied', async () => {
+    const fake = await open(fixtureModel('fresh'));
+    const input = screen.getByLabelText(/Tên máy này/) as HTMLInputElement;
+    expect(input.value).toBe('Mac mini');
+    expect(input.placeholder).toBe('Mac mini');
+    expect(screen.getByText('Để trống để dùng tên trong macOS: Mac mini.')).toBeTruthy();
+
+    fireEvent.change(input, { target: { value: 'Mac phòng khách' } });
+    await act(async () => {
+      fireEvent.keyDown(input, { key: 'Enter' });
+    });
+    expect(fake.api.setMachineName).toHaveBeenCalledWith('Mac phòng khách');
+    expect(screen.getByText('Mac phòng khách · cập nhật 40 giây trước')).toBeTruthy();
+    expect(screen.getAllByText('Mac phòng khách').length).toBeGreaterThan(0);
+
+    fireEvent.change(input, { target: { value: '' } });
+    await act(async () => {
+      fireEvent.blur(input);
+    });
+    expect(fake.api.setMachineName).toHaveBeenLastCalledWith('');
+    expect(input.value).toBe('Mac mini');
+  });
+
+  it('an unchanged name is not saved again', async () => {
+    const fake = await open(fixtureModel('fresh'));
+    const input = screen.getByLabelText(/Tên máy này/);
+    fireEvent.change(input, { target: { value: ' Mac mini ' } });
+    fireEvent.blur(input);
+    expect(fake.api.setMachineName).not.toHaveBeenCalled();
+  });
+
+  it('has no row that reaches another Mac', async () => {
+    await open(fixtureModel('fresh'));
+    expect(screen.queryByText(/SSH/)).toBeNull();
+    expect(screen.queryByText('Các Mac khác')).toBeNull();
   });
 });

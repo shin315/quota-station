@@ -34,17 +34,22 @@ describe('popover', () => {
     expect(rows[1].getAttribute('aria-label')).toMatch(/^Team A \(claude-swap, tài khoản 2\), đang dùng\./);
     expect(within(screen.getByRole('list', { name: 'ANTIGRAVITY' })).getAllByRole('listitem')).toHaveLength(2);
 
-    // The gear is the only button: rows, pools and the header switch nothing in M1.
-    expect(screen.getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['Cài đặt']);
+    // The header's two buttons are the only ones: rows and pools switch nothing yet.
+    expect(screen.getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual([
+      'Cài đặt',
+      'Mở cửa sổ chính',
+    ]);
     fireEvent.click(rows[2]);
     expect(fake.api.grantKeychain).not.toHaveBeenCalled();
     expect(fake.api.resizePopover).toHaveBeenCalled();
   });
 
-  it('opens settings from the gear and hides on Escape', async () => {
+  it('opens the main window on settings from the gear, on Tổng quan from the window button, and hides on Escape', async () => {
     const fake = await open(fixtureModel('fresh'));
     fireEvent.click(screen.getByRole('button', { name: 'Cài đặt' }));
-    expect(fake.api.openSettings).toHaveBeenCalledTimes(1);
+    expect(fake.api.openWindow).toHaveBeenLastCalledWith('settings');
+    fireEvent.click(screen.getByRole('button', { name: 'Mở cửa sổ chính' }));
+    expect(fake.api.openWindow).toHaveBeenLastCalledWith('overview');
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(fake.api.hidePopover).toHaveBeenCalledTimes(1);
   });
@@ -94,7 +99,7 @@ describe('popover', () => {
     const fake = await open(fixtureModel('fresh', { errors: failing('notFound') }));
     expect(screen.getByText('Không chạy được quota-axi')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Chọn đường dẫn…' }));
-    expect(fake.api.openSettings).toHaveBeenCalledTimes(1);
+    expect(fake.api.openWindow).toHaveBeenCalledWith('settings');
     expect(screen.getAllByRole('listitem').length).toBeGreaterThan(0);
   });
 

@@ -5,7 +5,7 @@ use quota_station_core::runner::{self, RunError};
 use tauri::{AppHandle, State};
 
 use crate::reader;
-use crate::state::{AppState, Model};
+use crate::state::{AppState, Model, Tab};
 use crate::windows;
 
 #[tauri::command]
@@ -23,8 +23,14 @@ pub fn refresh(state: State<'_, AppState>) -> u64 {
 }
 
 #[tauri::command]
-pub fn open_settings(app: AppHandle) {
-    windows::open_settings(&app);
+pub fn open_window(app: AppHandle, tab: Tab) {
+    windows::open_main(&app, tab);
+}
+
+/// The tab the main window should show when it first loads.
+#[tauri::command]
+pub fn main_tab(state: State<'_, AppState>) -> Tab {
+    state.lock().main_tab
 }
 
 #[tauri::command]
@@ -62,6 +68,25 @@ pub fn set_quota_axi_path(
         inner.settings = settings;
     }
     state.request_read();
+    reader::publish(&app, &state);
+    Ok(state.lock().model())
+}
+
+/// Sets the name shown for this Mac; an empty value goes back to the name
+/// macOS gives it. Stays on this Mac: nothing is sent anywhere.
+#[tauri::command]
+pub fn set_machine_name(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    name: String,
+) -> Result<Model, String> {
+    {
+        let mut inner = state.lock();
+        let mut settings = inner.settings.clone();
+        settings.machine_name = quota_station_core::settings::machine_name(&name);
+        settings.save(&inner.settings_file).map_err(|e| e.to_string())?;
+        inner.settings = settings;
+    }
     reader::publish(&app, &state);
     Ok(state.lock().model())
 }

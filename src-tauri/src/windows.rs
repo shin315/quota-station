@@ -1,16 +1,17 @@
-//! The popover under the menu bar item and the settings window.
+//! The popover under the menu bar item and the main window.
 
 use std::time::{Duration, Instant};
 
 use tauri::{
-    AppHandle, LogicalSize, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent,
+    AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, TitleBarStyle, WebviewUrl,
+    WebviewWindow, WebviewWindowBuilder, WindowEvent,
 };
 use tauri_plugin_positioner::{Position, WindowExt};
 
-use crate::state::AppState;
+use crate::state::{AppState, Tab};
 
 pub const POPOVER: &str = "popover";
-pub const SETTINGS: &str = "settings";
+pub const MAIN: &str = "main";
 /// `--pop-w` in the design tokens.
 const POPOVER_WIDTH: f64 = 348.0;
 /// `--pop-max`: never taller than a 13" MacBook Air screen allows.
@@ -18,9 +19,30 @@ const POPOVER_MAX_HEIGHT: f64 = 820.0;
 /// A click on the menu bar item first takes focus from an open popover,
 /// which hides it; the click that follows must not open it again.
 const REOPEN_GUARD: Duration = Duration::from_millis(300);
+/// `--win-w` and `--win-h` in the design tokens, a little taller for the
+/// title bar the page draws under.
+const MAIN_SIZE: (f64, f64) = (980.0, 660.0);
+const MAIN_MIN_SIZE: (f64, f64) = (760.0, 480.0);
+/// The traffic lights sit inside the sidebar, where the prototype draws them.
+const TRAFFIC_LIGHTS: (f64, f64) = (22.0, 26.0);
 
 fn popover(app: &AppHandle) -> Option<WebviewWindow> {
     app.get_webview_window(POPOVER)
+}
+
+fn main_window(app: &AppHandle) -> Option<WebviewWindow> {
+    app.get_webview_window(MAIN)
+}
+
+/// Tells the schedule what is on screen, and reads when a window just opened.
+fn update_visible(app: &AppHandle) {
+    let popover = popover(app).is_some_and(|w| w.is_visible().unwrap_or(false));
+    let main = main_window(app).is_some_and(|w| w.is_visible().unwrap_or(false));
+    let state = app.state::<AppState>();
+    let read = state.lock().set_visible(popover, main);
+    if read {
+        state.request_read();
+    }
 }
 
 pub fn toggle_popover(app: &AppHandle) {
@@ -37,20 +59,15 @@ pub fn toggle_popover(app: &AppHandle) {
     let _ = window.move_window_constrained(Position::TrayBottomCenter);
     let _ = window.show();
     let _ = window.set_focus();
-    let read = state.lock().schedule.set_visible(true, Instant::now());
-    if read {
-        state.request_read();
-    }
+    update_visible(app);
 }
 
 pub fn hide_popover(app: &AppHandle) {
     if let Some(window) = popover(app) {
         let _ = window.hide();
     }
-    let state = app.state::<AppState>();
-    let mut inner = state.lock();
-    inner.schedule.set_visible(false, Instant::now());
-    inner.popover_hidden_at = Some(Instant::now());
+    app.state::<AppState>().lock().popover_hidden_at = Some(Instant::now());
+    update_visible(app);
 }
 
 /// The popover closes when it loses focus, like a system popover.
@@ -75,20 +92,37 @@ pub fn resize_popover(app: &AppHandle, height: f64) {
     let _ = window.set_size(LogicalSize::new(POPOVER_WIDTH, height));
 }
 
-pub fn open_settings(app: &AppHandle) {
+/// Opens the main window on `tab`, or brings it forward and switches tab.
+/// A new window asks for its tab once it has loaded (`main_tab`).
+pub fn open_main(app: &AppHandle, tab: Tab) {
     hide_popover(app);
-    if let Some(window) = app.get_webview_window(SETTINGS) {
+    app.state::<AppState>().lock().main_tab = tab;
+    if let Some(window) = main_window(app) {
+        let _ = window.emit_to(MAIN, "tab", tab);
+        let _ = window.unminimize();
         let _ = window.show();
         let _ = window.set_focus();
+        update_visible(app);
         return;
     }
-    let built = WebviewWindowBuilder::new(app, SETTINGS, WebviewUrl::App("index.html".into()))
-        .title("Cài đặt · Quota Station")
-        .inner_size(600.0, 330.0)
-        .min_inner_size(520.0, 300.0)
+    let built = WebviewWindowBuilder::new(app, MAIN, WebviewUrl::App("index.html".into()))
+        .title("Quota Station")
+        .inner_size(MAIN_SIZE.0, MAIN_SIZE.1)
+        .min_inner_size(MAIN_MIN_SIZE.0, MAIN_MIN_SIZE.1)
+        .title_bar_style(TitleBarStyle::Overlay)
+        .hidden_title(true)
+        .traffic_light_position(LogicalPosition::new(TRAFFIC_LIGHTS.0, TRAFFIC_LIGHTS.1))
         .center()
         .build();
     if let Ok(window) = built {
+        let handle = app.clone();
+        window.on_window_event(move |event| {
+            if let WindowEvent::Destroyed = event {
+                let popover = popover(&handle).is_some_and(|w| w.is_visible().unwrap_or(false));
+                handle.state::<AppState>().lock().set_visible(popover, false);
+            }
+        });
         let _ = window.set_focus();
+        update_visible(app);
     }
 }

@@ -1,12 +1,12 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { PopoverApp, SettingsApp } from './App';
+import { MainWindowApp, PopoverApp } from './App';
 import { tauriApi, type Api } from './lib/api';
 import './styles/tokens.css';
 import './styles/components.css';
 import './styles/app.css';
 
-type View = 'popover' | 'settings';
+type View = 'popover' | 'window';
 
 function tauriLabel(): string | null {
   const meta = (window as { __TAURI_INTERNALS__?: { metadata?: { currentWindow?: { label?: string } } } }).__TAURI_INTERNALS__;
@@ -16,7 +16,7 @@ function tauriLabel(): string | null {
 async function start() {
   const label = tauriLabel();
   let api: Api = tauriApi;
-  let view: View = label === 'settings' ? 'settings' : 'popover';
+  let view: View = label === 'main' ? 'window' : 'popover';
   let clock: (() => Date) | undefined;
   let preview = false;
 
@@ -32,12 +32,12 @@ async function start() {
 
   const theme = preview ? new URLSearchParams(location.search).get('theme') : null;
   document.documentElement.dataset.theme = theme === 'light' || theme === 'dark' ? theme : 'auto';
-  document.body.classList.add(view === 'settings' ? 'settings-window' : 'popover-window');
+  document.body.classList.add(view === 'window' ? 'main-window' : 'popover-window');
   if (preview) document.body.classList.add('preview');
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
       <div className={'qs app-' + view} data-theme={document.documentElement.dataset.theme} data-material="glass">
-        {view === 'settings' ? <SettingsApp api={api} clock={clock} /> : <PopoverApp api={api} clock={clock} />}
+        {view === 'window' ? <MainWindowApp api={api} clock={clock} /> : <PopoverApp api={api} clock={clock} />}
       </div>
     </StrictMode>,
   );
