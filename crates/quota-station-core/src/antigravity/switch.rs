@@ -19,7 +19,7 @@
 //! 1. one switch at a time (a second one is refused as busy); the account
 //!    must be logged in here and not need a new login;
 //! 2. Antigravity.app must be 2.0 or later, or not installed (then only
-//!    agy's login changes);
+//!    agy's login changes); one whose version cannot be read stops here;
 //! 3. the account's token is made fresh and, while it has no GCP ToS mark
 //!    or no project, `loadCodeAssist` is asked for them, all within 60
 //!    seconds;
@@ -30,8 +30,9 @@
 //! 5. the account must still be logged in here, and the shared login is
 //!    written (`credential`); a failure leaves the old one as it was;
 //! 6. only then the index's current account and the binding quota-axi reads
-//!    are written, the six-hour watch starts, and the app is opened again if
-//!    it was quit (a failure to open is reported apart: the switch stands);
+//!    are written, both or neither, the six-hour watch starts, and the app
+//!    is opened again if it was quit (a failure to open is reported apart:
+//!    the switch stands);
 //! 7. five seconds later quota-axi reads Antigravity again, skipping its
 //!    cache, to say which account agy is really on.
 //!
@@ -167,8 +168,9 @@ pub struct Request {
 
 /// What a switch did. `reopened` is `None` when Antigravity.app was not quit
 /// for the switch, else whether it opened again. `saved` is false when the
-/// index or the binding could not be written: the switch itself stands, but
-/// quota-axi may name the account in use wrongly until the next switch.
+/// index and the binding could not both be written, so both still name the
+/// account from before: the switch itself stands, but quota-axi may name
+/// the account in use wrongly until the next switch.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum Outcome {
@@ -204,6 +206,8 @@ enum Stop {
     NeedsLogin,
     Index(String),
     OldApp(String),
+    /// Antigravity.app is there, but its version could not be read.
+    AppVersion(String),
     PrepareTimeout,
     /// The preparation thread ended without an answer.
     PrepareLost,
@@ -222,6 +226,7 @@ impl Stop {
             Stop::NeedsLogin | Stop::Prepare(UseError::NeedsLogin) => "needsLogin",
             Stop::Index(_) => "index",
             Stop::OldApp(_) => "oldApp",
+            Stop::AppVersion(_) => "appVersion",
             Stop::PrepareTimeout => "prepareTimeout",
             Stop::PrepareLost => "prepare",
             Stop::Prepare(UseError::Client(_)) => "client",
@@ -239,7 +244,7 @@ impl Stop {
     fn detail(&self) -> String {
         match self {
             Stop::Index(e) | Stop::AppState(e) => e.clone(),
-            Stop::OldApp(version) => version.clone(),
+            Stop::OldApp(version) | Stop::AppVersion(version) => version.clone(),
             Stop::Prepare(UseError::Client(s)) => format!("{s:?}"),
             Stop::Prepare(e) => e.to_string(),
             Stop::Write(e) => e.to_string(),
@@ -317,6 +322,9 @@ pub fn switch_antigravity(
     let installed = deps.desktop.installed();
     if let Installed::TooOld { version } = &installed {
         return stop(Stop::OldApp(version.clone()), None);
+    }
+    if let Installed::Unreadable { detail } = &installed {
+        return stop(Stop::AppVersion(detail.clone()), None);
     }
     let token = match prepare(deps, &request.id, &email, limits.prepare, started) {
         Ok(token) => token,
@@ -454,18 +462,26 @@ fn prepare(
 }
 
 /// Points the index and the binding at the new account, after the login is
-/// written (Cockpit's order). Each is written even when the other fails:
-/// the shared login already holds the new account, so a pointer left on the
-/// old one would only be wrong in another way, and `saved: false` says so.
+/// written (Cockpit's order). Both or neither: each file is replaced whole
+/// (`write_private`), the index first; if the binding then fails, the index
+/// is put back as it was, so the app and quota-axi never name different
+/// accounts, and `saved: false` says the pointers still name the old one.
 /// An account logged out meanwhile gets no pointer.
 fn commit(app: &AppDir, id: &str, now: i64) -> Result<(), String> {
+    let index_path = index::index_path(app);
+    let before = app.read_to_string(&index_path).map_err(|e| e.to_string())?;
     let mut index = index::load(app).map_err(|e| e.to_string())?;
     let summary = index.accounts.iter_mut().find(|a| a.id == id).ok_or("account logged out")?;
     summary.last_used = now;
     index.current_account_id = Some(id.to_string());
-    let saved = index::save(app, &index).map_err(|e| e.to_string());
-    let bound = write_binding(app, id);
-    saved.and(bound)
+    index::save(app, &index).map_err(|e| e.to_string())?;
+    if let Err(e) = write_binding(app, id) {
+        return Err(match app.write_private(&index_path, &before) {
+            Ok(()) => e,
+            Err(back) => format!("{e}; the index could not be put back: {back}"),
+        });
+    }
+    Ok(())
 }
 
 pub fn binding_path(app: &AppDir) -> PathBuf {

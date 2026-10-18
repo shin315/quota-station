@@ -94,7 +94,9 @@ What was changed:
 - Antigravity.app is quit with osascript and opened with open -b instead of
   closed by its process; it is never killed. The switch is checked with
   quota-axi afterwards, logged in the app's own folder, and watched for six
-  hours for a running app writing its old login back.
+  hours for a running app writing its old login back. An Antigravity.app
+  whose version cannot be read stops the switch instead of counting as new,
+  and the index and the binding are written together or not at all.
 
 A later milestone that adapts more of Cockpit Tools adds its parts to
 this list.

@@ -65,6 +65,12 @@ export function agySheet(model: Model, number: number, app: AppAnswer): AgySheet
       text:
         'Antigravity.app bản ' + (app.version ?? '?') + ' quá cũ: app chỉ chuyển được Antigravity.app 2.0 trở lên. Cập nhật Antigravity.app rồi thử lại.',
     });
+  } else if (app !== null && app.installed === 'unreadable') {
+    blocked = true;
+    facts.push({
+      k: 'x',
+      text: 'Không đọc được phiên bản Antigravity.app, nên app không biết bản này giữ đăng nhập ở đâu. Mở lại bảng này sau, hoặc cài lại Antigravity.app.',
+    });
   } else if (app === null || (app.installed === 'supported' && app.running === null))
     facts.push({ k: 'w', text: 'Không biết Antigravity.app có đang chạy không.' });
   else if (app.installed === 'missing') facts.push({ k: '', text: 'Máy này không có Antigravity.app: chỉ đổi tài khoản của agy.' });
@@ -134,6 +140,10 @@ function failedBody(error: string, detail: string, reopened: boolean | null): st
       return 'Google không nhận đăng nhập của tài khoản này nữa. Đăng nhập lại trong tab Antigravity rồi thử lại.' + nothing;
     case 'oldApp':
       return 'Antigravity.app bản ' + (detail || '?') + ' quá cũ: app chỉ chuyển được bản 2.0 trở lên.' + nothing;
+    case 'appVersion':
+      return 'Không đọc được phiên bản Antigravity.app' + (detail ? ' (' + detail + ')' : '') + ', nên app không chuyển.' + nothing;
+    case 'loggingOut':
+      return 'Đang đăng xuất một tài khoản Antigravity. Chờ xong rồi thử lại.';
     case 'prepareTimeout':
       return 'Google không trả lời kịp trong 60 giây.' + nothing;
     case 'prepare':
@@ -162,7 +172,7 @@ function failedBody(error: string, detail: string, reopened: boolean | null): st
 }
 
 /** Errors worth a second try as they are. */
-const RETRY = new Set(['prepareTimeout', 'prepare', 'refresh', 'notQuit', 'appState', 'appRunning', 'write', 'writeTimeout']);
+const RETRY = new Set(['prepareTimeout', 'prepare', 'refresh', 'notQuit', 'appState', 'appRunning', 'appVersion', 'write', 'writeTimeout']);
 
 export function agySwitchFeedback(outcome: AgyOutcome): FeedbackView {
   const t = agyNameOf(outcome.number);

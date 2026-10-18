@@ -336,7 +336,8 @@ export type AgyHow = 'plain' | 'quitFirst' | 'keepRunning';
 
 /** Antigravity.app as the sheet sees it (`src-tauri/src/agy_switch.rs` `AppView`). */
 export interface AgyApp {
-  installed: 'missing' | 'supported' | 'tooOld';
+  /** `unreadable`: there, but its version could not be read; the sheet offers no switch. */
+  installed: 'missing' | 'supported' | 'tooOld' | 'unreadable';
   version: string | null;
   /** Null when the process list could not be read. */
   running: boolean | null;

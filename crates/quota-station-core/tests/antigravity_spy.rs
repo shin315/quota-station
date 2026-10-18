@@ -175,12 +175,15 @@ fn the_antigravity_flows_never_touch_another_tools_secrets() {
     let _ = index::load(&home.app).unwrap();
     let _ = index::load_statuses(&home.app);
 
-    // 1. Every file opened is in the app's folder, or in the bundle.
+    // 1. Every file opened is in the app's folder, or in a bundle: the one
+    // the version is read from, and the (fake) Antigravity.app the switch
+    // only looks for.
     let opened = fs::take_opened();
     assert!(!opened.is_empty());
     assert!(opened.iter().any(|p| p.starts_with(&bundle)), "the bundle was read");
     for path in &opened {
-        let allowed = path.starts_with(home.app.path()) || path.starts_with(&bundle);
+        let allowed =
+            path.starts_with(home.app.path()) || path.starts_with(&bundle) || path == &app.app;
         assert!(allowed, "opened {}", path.display());
     }
 

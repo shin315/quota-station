@@ -5,17 +5,21 @@
 // (`read_antigravity_macos_bundle_metadata`) (1.3.70, commit 244b957, CC
 // BY-NC-SA 4.0); changes: only Antigravity.app 2.0 and later are switched
 // (the old SQLite login is not ported, so an older app is refused instead of
-// written another way), and the version is read with `plutil -extract`. The
-// quit and the reopen are the app's own: Cockpit closes the app's processes
+// written another way), a version that cannot be read stops the switch
+// instead of counting as new, and the version is read with `plutil
+// -extract`. The quit and the reopen are the app's own: Cockpit closes the
+// app's processes
 // by their data folder; this app asks macOS to quit it by its bundle id and
 // opens it again the same way.
 
 //! Antigravity.app, as a switch sees it: is it installed, which version, is
-//! it running, quit it politely, open it again. Every question is a short
-//! program run, never a file this app opens:
+//! it running, quit it politely, open it again. Every question but the first
+//! is a short program run, never a file this app opens:
 //!
-//! - installed and version: `plutil -extract CFBundleShortVersionString raw`
-//!   on its `Info.plist`;
+//! - installed: the bundle is there (`fs::Bundle::present`, which opens
+//!   nothing);
+//! - version: `plutil -extract CFBundleShortVersionString raw` on its
+//!   `Info.plist`;
 //! - running: `pgrep -f /Applications/Antigravity.app/Contents/MacOS/Antigravity`;
 //! - quit: `osascript -e 'tell application id "com.google.antigravity" to quit'`,
 //!   the same as choosing Quit in its menu, so the app may save its work or
@@ -28,6 +32,7 @@ use std::time::{Duration, Instant};
 
 use serde::Serialize;
 
+use super::fs::Bundle;
 use crate::runner;
 
 pub const BUNDLE_ID: &str = "com.google.antigravity";
@@ -46,14 +51,17 @@ const POLL: Duration = Duration::from_millis(250);
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Installed {
-    /// No Antigravity.app: a switch only changes agy's login.
+    /// No bundle at [`APP_PATH`]: a switch only changes agy's login.
     Missing,
-    /// 2.0 or later, or a version the rule cannot read (Cockpit treats that
-    /// as 2.0 too).
+    /// 2.0 or later.
     Supported { version: String },
     /// Older than 2.0: it keeps its login elsewhere, and the app does not
     /// switch it.
     TooOld { version: String },
+    /// The bundle is there, but its version could not be read or holds no
+    /// number: the switch stops before anything is written, since the app
+    /// cannot tell where this one keeps its login.
+    Unreadable { detail: String },
 }
 
 /// Cockpit's version compare: the numbers in each, part by part.
@@ -90,7 +98,8 @@ pub fn classify(version: &str) -> Installed {
     let version = version.trim().to_string();
     match compare_versions(&version, MIN_VERSION) {
         Some(std::cmp::Ordering::Less) => Installed::TooOld { version },
-        _ => Installed::Supported { version },
+        Some(_) => Installed::Supported { version },
+        None => Installed::Unreadable { detail: format!("version {version:?} has no number") },
     }
 }
 
@@ -161,26 +170,33 @@ impl Desktop {
         runner::run(program, &args, STEP).map_err(|e| e.to_string())
     }
 
-    /// Whether Antigravity.app is installed, and which version. An app whose
-    /// `Info.plist` has no version counts as supported, as in Cockpit.
+    /// Whether Antigravity.app is installed, and which version. `Missing`
+    /// only when the bundle is not there; a bundle whose version cannot be
+    /// read is `Unreadable`.
     pub fn installed(&self) -> Installed {
+        if !Bundle::new(&self.app).present() {
+            return Installed::Missing;
+        }
         let plist = self.app.join("Contents/Info.plist").display().to_string();
         let read = |key: &str| match self
             .run(&self.plutil, &["-extract", key, "raw", "-o", "-", &plist])
         {
             Ok(out) if out.code == Some(0) => {
                 let v = String::from_utf8_lossy(&out.stdout).trim().to_string();
-                (!v.is_empty()).then_some(v)
+                if v.is_empty() {
+                    Err(format!("{key} is empty"))
+                } else {
+                    Ok(v)
+                }
             }
-            _ => None,
+            Ok(out) => {
+                Err(format!("plutil exited {:?}: {}", out.code, runner::first_line(&out.stderr)))
+            }
+            Err(e) => Err(e),
         };
-        match read("CFBundleShortVersionString").or_else(|| read("CFBundleVersion")) {
-            Some(version) => classify(&version),
-            // A bundle whose plist has no version: there, of a kind not known.
-            None if read("CFBundleIdentifier").is_some() => {
-                Installed::Supported { version: String::new() }
-            }
-            None => Installed::Missing,
+        match read("CFBundleShortVersionString").or_else(|_| read("CFBundleVersion")) {
+            Ok(version) => classify(&version),
+            Err(detail) => Installed::Unreadable { detail },
         }
     }
 
@@ -236,7 +252,8 @@ mod tests {
         assert_eq!(classify("v10.1"), Installed::Supported { version: "v10.1".into() });
         assert_eq!(classify("1.20.5"), Installed::TooOld { version: "1.20.5".into() });
         assert_eq!(classify("1.99.99"), Installed::TooOld { version: "1.99.99".into() });
-        // Cockpit treats a version it cannot read as the new kind.
-        assert_eq!(classify("dev"), Installed::Supported { version: "dev".into() });
+        // Cockpit counts a version with no number as new; here it stops the switch.
+        assert!(matches!(classify("dev"), Installed::Unreadable { .. }));
+        assert!(matches!(classify(""), Installed::Unreadable { .. }));
     }
 }

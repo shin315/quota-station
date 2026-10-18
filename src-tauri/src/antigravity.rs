@@ -232,7 +232,9 @@ pub fn agy_login_cancel(state: State<'_, AppState>) {
 
 /// Logs an account out of this app only. Antigravity.app and agy keep their
 /// own login. Rejects with `busy` while an Antigravity switch runs, which
-/// could otherwise point Antigravity at the account just logged out.
+/// could otherwise point Antigravity at the account just logged out, and
+/// with `loggingOut` while another logout runs. A read that started before
+/// the logout is dropped, so it cannot show the account again.
 #[tauri::command]
 pub async fn agy_logout(
     app: AppHandle,
@@ -242,10 +244,14 @@ pub async fn agy_logout(
     let shared = state.inner().clone();
     let dir = {
         let mut inner = shared.lock();
-        if inner.agy_switching.is_some() || inner.agy_logging_out {
+        if inner.agy_switching.is_some() {
             return Err("busy".into());
         }
+        if inner.agy_logging_out {
+            return Err("loggingOut".into());
+        }
         inner.agy_logging_out = true;
+        inner.agy_generation += 1;
         inner.app_dir()
     };
     let result = tauri::async_runtime::spawn_blocking({
@@ -266,7 +272,12 @@ pub async fn agy_logout(
         }
     })
     .await;
-    shared.lock().agy_logging_out = false;
+    {
+        let mut inner = shared.lock();
+        inner.agy_logging_out = false;
+        // Reads that started while it ran may still list the account.
+        inner.agy_generation += 1;
+    }
     let result = result.map_err(|e| e.to_string())?;
     reader::publish(&app, &shared);
     result.map_err(|e| match e {

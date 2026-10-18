@@ -103,7 +103,8 @@ fn unix_now() -> i64 {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppView {
-    /// `missing`, `supported` or `tooOld`.
+    /// `missing`, `supported`, `tooOld` or `unreadable` (there, but its
+    /// version could not be read: the sheet does not offer a switch).
     pub installed: &'static str,
     pub version: Option<String>,
     /// `None` when the process list could not be read.
@@ -111,26 +112,29 @@ pub struct AppView {
 }
 
 /// Is Antigravity.app installed, which version, does it run. Asked when
-/// the switch sheet opens; it only runs `plutil` and `pgrep`.
+/// the switch sheet opens; it only runs `plutil` and `pgrep`. Rejects when
+/// it could not ask, and the sheet then says it does not know.
 #[tauri::command]
-pub async fn agy_app_state() -> AppView {
+pub async fn agy_app_state() -> Result<AppView, String> {
     tauri::async_runtime::spawn_blocking(|| {
         let desktop = Desktop::system();
         let (installed, version) = match desktop.installed() {
             Installed::Missing => ("missing", None),
             Installed::Supported { version } => ("supported", Some(version)),
             Installed::TooOld { version } => ("tooOld", Some(version)),
+            Installed::Unreadable { .. } => ("unreadable", None),
         };
         let running = if installed == "missing" { Some(false) } else { desktop.running().ok() };
         AppView { installed, version: version.filter(|v| !v.is_empty()), running }
     })
     .await
-    .unwrap_or(AppView { installed: "missing", version: None, running: None })
+    .map_err(|e| e.to_string())
 }
 
 /// Switches Antigravity to the account `id` after the owner confirmed it on
-/// the sheet, the way `how` says. Rejects with `busy` while a switch or a
-/// logout runs and with `unknownAccount` for an id this app does not list.
+/// the sheet, the way `how` says. Rejects with `busy` while a switch runs,
+/// `loggingOut` while a logout runs, and `unknownAccount` for an id this app
+/// does not list.
 #[tauri::command]
 pub async fn switch_agy(
     app: AppHandle,
@@ -141,8 +145,11 @@ pub async fn switch_agy(
     let shared = state.inner().clone();
     let (dir, quota_axi, from) = {
         let mut inner = shared.lock();
-        if inner.agy_switching.is_some() || inner.agy_logging_out {
+        if inner.agy_switching.is_some() {
             return Err("busy".into());
+        }
+        if inner.agy_logging_out {
+            return Err("loggingOut".into());
         }
         let dir = inner.app_dir();
         let index = index::load(&dir).map_err(|_| "index")?;

@@ -155,9 +155,10 @@ quota of the Antigravity accounts logged in here, at Cockpit's pace or slower
   `security` command, then points quota-axi's binding at the new account
   and opens the app again. Five seconds later it reads Antigravity again and
   says `Đã chuyển`, that agy still uses the old account or could not be
-  read, or why it did not switch. A known Antigravity.app version older
-  than 2.0 is named and refused; a version that cannot be read counts as a
-  new one, as in Cockpit. For six hours after a switch, a reading that
+  read, or why it did not switch. Antigravity.app older than 2.0 is named
+  and refused, and one whose version cannot be read stops the switch
+  before anything is written (`Missing` only when there is no
+  Antigravity.app at all). For six hours after a switch, a reading that
   shows the old account back in use brings the banner `Chuyển Antigravity
   bị ghi đè` with `Chuyển lại` and `Thôi`, and the overwrites are counted.
 
@@ -389,7 +390,7 @@ and `forbidden`), `login` (how a login ends, for example
 `timeout`, `noRefreshToken` or `keychain`; it keeps the next account after
 3 seconds by default) and `email=on`. For switching Antigravity: `agyswitch`
 (`on`, or `overwritten` for the banner), `agyapp` (`closed`, `missing`,
-`old` or `unknown`; Antigravity.app runs by default) and `agyoutcome`
+`old`, `unreadable` or `unknown`; Antigravity.app runs by default) and `agyoutcome`
 (`unconfirmed`, `notquit` or `write`). Nothing is switched, no browser opens
 and no file is written: a switch only waits 1.5 seconds and a save 1 second,
 and both update the fixture.

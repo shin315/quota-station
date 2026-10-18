@@ -234,6 +234,8 @@ export function agyLogoutErrorFeedback(name: string, e: unknown): FeedbackView {
           ? 'Tài khoản không còn trong danh sách.'
           : kind === 'busy'
             ? 'Một lần chuyển Antigravity đang chạy. Chờ nó xong rồi thử lại.'
-            : 'Không ghi được danh sách tài khoản. Thử lại.',
+            : kind === 'loggingOut'
+              ? 'Một lần đăng xuất khác đang chạy. Chờ nó xong rồi thử lại.'
+              : 'Không ghi được danh sách tài khoản. Thử lại.',
   };
 }

@@ -11,7 +11,7 @@
 // URL with `code=` and `state=`), and `email=on` shows the made-up emails.
 // Switching Antigravity (M4c): `agyswitch=on|overwritten` lists the two
 // accounts as the app's (the second one undone by Antigravity.app with
-// `overwritten`), `agyapp=closed|missing|old|unknown` is what the sheet learns
+// `overwritten`), `agyapp=closed|missing|old|unreadable|unknown` is what the sheet learns
 // about Antigravity.app (it runs by default), and
 // `agyoutcome=unconfirmed|notquit|write` what a switch reports. A switch takes 1.5 s.
 
@@ -115,6 +115,7 @@ const AGY_APPS: Record<string, AgyApp | null> = {
   closed: { installed: 'supported', version: '2.24.0', running: false },
   missing: { installed: 'missing', version: null, running: false },
   old: { installed: 'tooOld', version: '1.20.5', running: true },
+  unreadable: { installed: 'unreadable', version: null, running: true },
   unknown: null,
 };
 

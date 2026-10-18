@@ -140,6 +140,37 @@ describe('the Antigravity switch sheet', () => {
     }
   });
 
+  it('an Antigravity.app whose version cannot be read is named and cannot be switched', async () => {
+    await openPopover(listed(), { agyApp: { installed: 'unreadable', version: null, running: true } });
+    const sheet = await sheetForUltra1();
+    expect(facts(sheet)[1]).toMatch(/^Không đọc được phiên bản Antigravity\.app/);
+    expect(buttons(sheet)).toEqual(['Thôi']);
+  });
+
+  it('a version found unreadable during the switch is reported, nothing changed', async () => {
+    await openPopover(listed(), {
+      agyOutcome: (number) => ({ kind: 'failed', number, error: 'appVersion', detail: 'plutil exited Some(1): file does not exist', reopened: null }),
+    });
+    const sheet = await sheetForUltra1();
+    await act(async () => {
+      fireEvent.click(within(sheet).getByRole('button', { name: 'Thoát app rồi chuyển' }));
+    });
+    expect(
+      screen.getByText('Không đọc được phiên bản Antigravity.app (plutil exited Some(1): file does not exist), nên app không chuyển. Chưa đổi gì.'),
+    ).toBeTruthy();
+    expect(ultra2().getAttribute('aria-label')).toMatch(/đang dùng/);
+  });
+
+  it('a switch while an Antigravity logout runs says so', async () => {
+    const fake = await openPopover(listed());
+    const sheet = await sheetForUltra1();
+    vi.mocked(fake.api.switchAgy).mockRejectedValue('loggingOut');
+    await act(async () => {
+      fireEvent.click(within(sheet).getByRole('button', { name: 'Thoát app rồi chuyển' }));
+    });
+    expect(screen.getByText('Đang đăng xuất một tài khoản Antigravity. Chờ xong rồi thử lại.')).toBeTruthy();
+  });
+
   it('when the app cannot tell whether Antigravity.app runs it offers all three', async () => {
     await openPopover(listed(), { agyApp: null });
     const sheet = await sheetForUltra1();

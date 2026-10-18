@@ -97,9 +97,9 @@ pub struct Inner {
     /// Bumped when a Keychain grant or a switch stores a Claude report, so a
     /// read that started before it cannot put the older report back.
     pub claude_generation: u64,
-    /// Bumped when an Antigravity switch starts and when it stores its
-    /// report, so a read from before the switch cannot put the old account
-    /// back or count as an overwrite.
+    /// Bumped when an Antigravity switch or logout starts and ends, so a read
+    /// from before cannot put the old account back, count as an overwrite,
+    /// or show an account logged out.
     pub agy_generation: u64,
     pub reading: bool,
     /// Completed reads, so the UI can tell when the read it asked for is done.
@@ -143,7 +143,8 @@ pub struct Inner {
     pub agy_reads: BTreeMap<String, ReadState>,
     /// The Antigravity account number a manual switch is running for.
     pub agy_switching: Option<usize>,
-    /// A logout runs: a switch waits for it, and it for a switch.
+    /// A logout runs: a switch, or another logout, is refused meanwhile, as
+    /// a logout is while a switch runs.
     pub agy_logging_out: bool,
 }
 

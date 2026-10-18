@@ -98,7 +98,8 @@ stops the same way if it runs again by then.
   just before the file is opened, so it guards against mistakes in the
   app, not against another program of the same macOS user, which could
   read the folder anyway. The same file holds the read-only `Bundle` the
-  version is read through; it names files only inside the bundle.
+  version is read through, and that a switch asks whether Antigravity.app
+  is there at all; it names files only inside the bundle.
 - `tests/antigravity_spy.rs` runs every Antigravity flow (two logins, a
   pasted callback, a new login of an account, a refresh, quota reads of
   both accounts in turn, from the cache and a refused one, a switch that
@@ -106,7 +107,7 @@ stops the same way if it runs again by then.
   refresh, a logout) in a temporary home that has a decoy, holding a
   sentinel secret, at every path listed above, and a decoy of the shared
   Keychain item. It checks that every file opened was in the app's folder
-  or the fake Antigravity bundle, that every `security` run named the app's
+  or a fake Antigravity bundle, that every `security` run named the app's
   own service and no `-A` except the switch's one write, which must be
   Cockpit's exact command, that the decoys are unchanged (the shared item
   replaced, never read), and that the sentinel appears nowhere the app

@@ -311,15 +311,84 @@ fn a_plain_switch_stops_when_the_app_runs_again() {
 }
 
 #[test]
-fn an_app_whose_plist_cannot_be_read_is_still_quit_first() {
+fn an_app_whose_version_cannot_be_read_stops_the_switch_before_any_write() {
     let _one = serial();
     let s = setup("agy-switch-noplist", Some("2.24.0"));
     s.app.start();
+    // The bundle is there, its version is not: not taken for a missing app.
     std::fs::remove_file(s.app.app.join("Contents/Info.plist")).unwrap();
-    let done = s.run(How::QuitFirst);
-    assert_eq!(done.outcome, switched(2, How::QuitFirst, Some(true)));
-    assert_eq!(s.app.runs_of("osascript").len(), 1);
-    assert_eq!(s.app.item_at("quit").as_deref(), Some(OLD_LOGIN));
+    let keychain_before = s.home.item(&s.second);
+    for how in [How::QuitFirst, How::Plain, How::KeepRunning] {
+        let done = s.switch(how, NOW + 3500, Arc::new(NoProbe), limits());
+        let Outcome::Failed { error, detail, .. } = done.outcome else {
+            panic!("{:?}", done.outcome)
+        };
+        assert_eq!(error, "appVersion");
+        assert!(detail.contains("file does not exist"), "{detail}");
+    }
+    assert_eq!(s.shared_item(), OLD_LOGIN);
+    assert!(s.shared_calls().is_empty());
+    assert_eq!(s.current().as_deref(), Some(ACCOUNT_ID));
+    assert!(s.binding().is_none());
+    // Stopped before the preparation too: the token due for a refresh is not refreshed.
+    assert_eq!(s.home.item(&s.second), keychain_before);
+    assert!(s.app.runs_of("osascript").is_empty());
+    assert!(s.app.runs_of("pgrep").is_empty());
+    assert!(s.app.running());
+}
+
+#[test]
+fn a_version_with_no_number_stops_the_switch_too() {
+    let _one = serial();
+    let s = setup("agy-switch-dev", Some("dev"));
+    let Outcome::Failed { error, .. } = s.run(How::Plain).outcome else { panic!() };
+    assert_eq!(error, "appVersion");
+    assert_eq!(s.shared_item(), OLD_LOGIN);
+}
+
+/// Sets or clears the immutable flag of `path`, so writing over it fails.
+fn immutable(path: &std::path::Path, on: bool) {
+    let flag = if on { "uchg" } else { "nouchg" };
+    let ok = std::process::Command::new("/usr/bin/chflags").arg(flag).arg(path).status().unwrap();
+    assert!(ok.success());
+}
+
+/// Clears the flag again, even when the test fails.
+struct Mutable(PathBuf);
+
+impl Drop for Mutable {
+    fn drop(&mut self) {
+        immutable(&self.0, false);
+    }
+}
+
+#[test]
+fn the_two_pointers_are_written_together_or_not_at_all() {
+    let _one = serial();
+    // The binding cannot be written: the index is put back as it was.
+    let s = setup("agy-switch-binding-fails", Some("2.24.0"));
+    let index_path = index::index_path(&s.home.app);
+    let before = std::fs::read_to_string(&index_path).unwrap();
+    std::fs::create_dir_all(switch::binding_path(&s.home.app)).unwrap();
+    let done = s.run(How::Plain);
+    assert!(matches!(done.outcome, Outcome::Switched { saved: false, .. }), "{:?}", done.outcome);
+    assert_eq!(std::fs::read_to_string(&index_path).unwrap(), before);
+    assert_eq!(s.current().as_deref(), Some(ACCOUNT_ID));
+    assert!(switch::binding_path(&s.home.app).is_dir());
+    // The login itself is switched; the pointers say the old account.
+    assert_ne!(s.shared_item(), OLD_LOGIN);
+
+    // The index cannot be written: the binding is not written either.
+    let s = setup("agy-switch-index-fails", Some("2.24.0"));
+    let index_path = index::index_path(&s.home.app);
+    let before = std::fs::read_to_string(&index_path).unwrap();
+    immutable(&index_path, true);
+    let _mutable = Mutable(index_path.clone());
+    let done = s.run(How::Plain);
+    assert!(matches!(done.outcome, Outcome::Switched { saved: false, .. }), "{:?}", done.outcome);
+    assert_eq!(std::fs::read_to_string(&index_path).unwrap(), before);
+    assert!(s.binding().is_none());
+    assert_ne!(s.shared_item(), OLD_LOGIN);
 }
 
 #[test]
