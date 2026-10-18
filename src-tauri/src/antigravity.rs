@@ -71,7 +71,7 @@ pub struct ReadErrorView {
 
 pub fn view(inner: &Inner) -> AccountsView {
     let app = inner.app_dir();
-    let show = inner.settings.show_email;
+    let show = !inner.settings.hide_names;
     let now = OffsetDateTime::now_utc();
     let now_ms = (now.unix_timestamp_nanos() / 1_000_000) as i64;
     let rfc = |ms: i64| {
@@ -330,24 +330,6 @@ fn is_google_page(url: &str) -> bool {
     let Ok(url) = url::Url::parse(url) else { return false };
     let host = url.host_str().unwrap_or("");
     url.scheme() == "https" && (host == "google.com" || host.ends_with(".google.com"))
-}
-
-/// Shows or hides the emails of the accounts logged in here.
-#[tauri::command]
-pub fn set_show_email(
-    app: AppHandle,
-    state: State<'_, AppState>,
-    on: bool,
-) -> Result<Model, String> {
-    {
-        let mut inner = state.lock();
-        let mut settings = inner.settings.clone();
-        settings.show_email = on;
-        settings.save(&inner.settings_file).map_err(|e| e.to_string())?;
-        inner.settings = settings;
-    }
-    reader::publish(&app, &state);
-    Ok(state.lock().model())
 }
 
 impl Inner {

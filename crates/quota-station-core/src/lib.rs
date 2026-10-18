@@ -11,7 +11,8 @@
 //! anything is `cswap switch N --json` ([`switching`]). The one it runs that
 //! writes anything elsewhere is the [`peers`] script over `ssh`, which
 //! replaces the rotation file on another Mac (keeping a backup there).
-//! Everything else it runs only reads: quota-axi, the switcher's
+//! Everything else it runs only reads: quota-axi, `cswap list --json`
+//! (every Claude account's windows, email and organization), the switcher's
 //! `--dry-run` (which reads claude-swap's accounts and switches nothing),
 //! `ssh` reading the other Macs' rotation file, `launchctl list`, and
 //! `plutil -p` on Antigravity's `Info.plist`. It reads Firstmate's
@@ -26,6 +27,7 @@ pub mod alerts;
 pub mod antigravity;
 pub mod axi;
 pub mod cswap;
+pub mod detail;
 pub mod firstmate;
 pub mod history;
 pub mod icon;

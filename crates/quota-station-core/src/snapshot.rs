@@ -22,6 +22,11 @@ pub enum LineKind {
     FableWeek,
     Gemini,
     ClaudeGpt,
+    /// Antigravity's four windows, each on its own (`Account::windows`).
+    GeminiSession,
+    GeminiWeek,
+    ClaudeGptSession,
+    ClaudeGptWeek,
 }
 
 /// One allowance line of an account: percent left and when it resets.
@@ -91,7 +96,19 @@ pub struct Account {
     pub membership: Membership,
     /// A rotation end still ahead.
     pub leaves_at: Option<String>,
+    /// quota-axi's numbers: the tighter window only, when it reports one.
     pub lines: Vec<Line>,
+    /// Every window on its own, from claude-swap's list (Claude) or the
+    /// app's own reading (Antigravity); empty when neither has the account.
+    /// Filled after the build (`detail`).
+    pub windows: Vec<Line>,
+    /// The account's email; filled only while the owner shows names, and
+    /// left out of the JSON otherwise.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email: Option<String>,
+    /// The Claude account's organization, under the same rule.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub org: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -184,6 +201,9 @@ pub struct Section {
     pub stale: bool,
     /// The rotation's personal hours, `8-23`.
     pub personal_hours: Option<String>,
+    /// Who read the Antigravity accounts quota-axi lists: `quota-station`
+    /// (this app) or Cockpit Tools; none without that list.
+    pub source: Option<String>,
 }
 
 impl Section {
@@ -197,6 +217,7 @@ impl Section {
             newest_reading_at: None,
             stale: false,
             personal_hours: None,
+            source: None,
         }
     }
 
@@ -305,6 +326,10 @@ fn claude_section(report: &Response) -> (Section, Keychain) {
             s
         }
     };
+    // The account quota-axi reads live has its windows from that reading.
+    for account in section.accounts.iter_mut().filter(|a| a.source == Source::Live) {
+        account.windows = live_claude_windows(row);
+    }
     section.personal_hours = rotation.and_then(|r| r.personal_hours.clone());
     section.pool = match pool {
         Some(p) if p.status == "pool" => rotation_pool(
@@ -344,6 +369,27 @@ fn live_claude_lines(row: &Provider) -> Option<Vec<Line>> {
         });
     }
     Some(lines)
+}
+
+/// The live reading's five-hour, weekly and Fable windows, each on its own.
+fn live_claude_windows(row: &Provider) -> Vec<Line> {
+    [
+        ("five_hour", LineKind::Session),
+        ("seven_day", LineKind::Week),
+        ("model:fable", LineKind::FableWeek),
+    ]
+    .into_iter()
+    .filter_map(|(id, kind)| {
+        let w = row.windows.iter().find(|w| w.id == id && w.percent_remaining.is_some())?;
+        Some(Line {
+            kind,
+            percent: w.percent_remaining,
+            resets_at: w.resets_at.clone(),
+            pending: false,
+            at_least: false,
+        })
+    })
+    .collect()
 }
 
 /// The smallest percent left among `windows`, with the latest reset among
@@ -407,6 +453,9 @@ fn swap_account(
         source: if live.is_some() { Source::Live } else { Source::ClaudeSwap },
         membership,
         leaves_at,
+        windows: Vec::new(),
+        email: None,
+        org: None,
         lines,
     }
 }
@@ -462,6 +511,9 @@ fn live_only_account(lines: Option<&Vec<Line>>, live_at: &str) -> Option<Account
         source: Source::Live,
         membership: Membership::Unknown,
         leaves_at: None,
+        windows: Vec::new(),
+        email: None,
+        org: None,
         lines,
     })
 }
@@ -487,6 +539,9 @@ fn agy_section(report: &Response) -> Section {
                     source: Source::Cockpit,
                     membership: Membership::Unknown,
                     leaves_at: None,
+                    windows: Vec::new(),
+                    email: None,
+                    org: None,
                     lines: [("gemini", LineKind::Gemini), ("claude_gpt", LineKind::ClaudeGpt)]
                         .into_iter()
                         .filter_map(|(id, kind)| {
@@ -496,11 +551,17 @@ fn agy_section(report: &Response) -> Section {
                 })
                 .collect();
             s.accounts.sort_by_key(|a| a.number);
+            // The account in use has its four windows from the live row.
+            for account in s.accounts.iter_mut().filter(|a| a.active) {
+                account.windows = agy_live_windows(row);
+            }
+            s.source = cockpit.source.clone();
             s
         }
         Some(cockpit) => {
             let mut s = Section::empty(SectionStatus::Unavailable);
             s.reason = cockpit.reason.clone();
+            s.source = cockpit.source.clone();
             s.accounts.extend(live_agy_account(row, &report.generated_at));
             s
         }
@@ -535,6 +596,27 @@ fn agy_section(report: &Response) -> Section {
     section
 }
 
+/// The live `agy` row's four windows, each on its own.
+fn agy_live_windows(row: &Provider) -> Vec<Line> {
+    [
+        ("gemini_5h", LineKind::GeminiSession),
+        ("gemini_weekly", LineKind::GeminiWeek),
+        ("claude_gpt_5h", LineKind::ClaudeGptSession),
+        ("claude_gpt_weekly", LineKind::ClaudeGptWeek),
+    ]
+    .into_iter()
+    .filter_map(|(id, kind)| {
+        row.windows.iter().find(|w| w.id == id).map(|w| Line {
+            kind,
+            percent: w.percent_remaining,
+            resets_at: w.resets_at.clone(),
+            pending: false,
+            at_least: false,
+        })
+    })
+    .collect()
+}
+
 /// The signed-in Antigravity account from the live `agy` row: its Gemini
 /// five-hour and weekly windows.
 fn live_agy_account(row: &Provider, generated_at: &str) -> Option<Account> {
@@ -563,6 +645,9 @@ fn live_agy_account(row: &Provider, generated_at: &str) -> Option<Account> {
         source: Source::Live,
         membership: Membership::Unknown,
         leaves_at: None,
+        windows: agy_live_windows(row),
+        email: None,
+        org: None,
         lines,
     })
 }

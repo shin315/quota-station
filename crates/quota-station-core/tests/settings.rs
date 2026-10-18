@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use quota_station_core::alerts::{Kind, Switches};
 use quota_station_core::settings::{
-    machine_name, peers, Peer, PeersError, Settings, MACHINE_NAME_MAX, PEERS_MAX,
+    machine_name, peers, Peer, PeersError, Settings, Theme, MACHINE_NAME_MAX, PEERS_MAX,
 };
 
 #[test]
@@ -16,7 +16,8 @@ fn settings_round_trip_and_default_when_missing() {
         quota_axi_path: Some(PathBuf::from("/opt/tools/bin/quota-axi")),
         machine_name: Some("Mac phòng khách".into()),
         peers: vec![peer("Mac B", "mac-b"), peer("Mac C", "mac-c")],
-        show_email: true,
+        hide_names: true,
+        theme: Theme::Dark,
         alerts: Switches { leaving: false, firstmate: true, ..Switches::default() },
         firstmate_file: Some(PathBuf::from("/srv/example/quota-pool.last")),
         source_dir: Some(PathBuf::from("/srv/example/quota-station")),
@@ -27,7 +28,8 @@ fn settings_round_trip_and_default_when_missing() {
     assert!(text.contains("quotaAxiPath"));
     assert!(text.contains("machineName"));
     assert!(text.contains(r#""alias": "mac-c""#));
-    assert!(text.contains("\"showEmail\": true"));
+    assert!(text.contains("\"hideNames\": true"));
+    assert!(text.contains("\"theme\": \"dark\""));
     assert!(text.contains("\"leaving\": false"));
     assert!(text.contains("firstmateFile"));
     assert!(text.contains("sourceDir"));
@@ -45,7 +47,8 @@ fn a_settings_file_from_m1_still_loads() {
     let s = Settings::load(&file);
     assert_eq!(s.quota_axi_path, Some(PathBuf::from("/opt/tools/bin/quota-axi")));
     assert_eq!(s.machine_name, None);
-    assert!(!s.show_email, "emails stay hidden");
+    assert!(!s.hide_names, "names show");
+    assert_eq!(s.theme, Theme::Auto);
     // Alerts 1 to 4 on, Firstmate's off until a Mac has Firstmate.
     assert!([Kind::Pool, Kind::Leaving, Kind::Login, Kind::Overwrite]
         .iter()
@@ -53,6 +56,20 @@ fn a_settings_file_from_m1_still_loads() {
     assert!(!s.alerts.on(Kind::Firstmate));
     assert_eq!(s.firstmate_file, None);
     assert_eq!(s.source_dir, None);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn names_show_by_default_even_where_emails_were_turned_on_or_left_off() {
+    let dir = std::env::temp_dir().join(format!("qs-settings-names-{}", std::process::id()));
+    let file = dir.join("settings.json");
+    std::fs::create_dir_all(&dir).unwrap();
+    for text in [r#"{ "showEmail": true }"#, "{}", r#"{ "theme": "sepia" }"#] {
+        std::fs::write(&file, text).unwrap();
+        let s = Settings::load(&file);
+        assert!(!s.hide_names, "{text}");
+        assert_eq!(s.theme, Theme::Auto, "{text}");
+    }
     let _ = std::fs::remove_dir_all(&dir);
 }
 

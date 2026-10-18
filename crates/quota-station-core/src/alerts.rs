@@ -537,7 +537,7 @@ pub fn remind_at(now: i64, offset: UtcOffset) -> i64 {
 fn pool_amount(c: &PoolCheck, names: &BTreeMap<u32, String>) -> String {
     match (c.room, c.active) {
         (Some(room), _) => format!("Còn tương đương {} tài khoản", room_text(room)),
-        (None, Some(a)) => format!("{} còn {}%", name_of(names, a), c.active_left.round()),
+        (None, Some(a)) => format!("{} đã dùng {}%", name_of(names, a), (100.0 - c.active_left).round()),
         (None, None) => "Hạn mức Claude gần hết".to_string(),
     }
 }
@@ -564,7 +564,7 @@ fn pool_alerts(
         if let Some((slot, left)) = c.better() {
             actions.push(act(
                 format!("switch:{slot}"),
-                format!("Sang {} (còn {}%)", name_of(names, slot), left.round()),
+                format!("Sang {} (đã dùng {}%)", name_of(names, slot), (100.0 - left).round()),
             ));
         }
         actions.push(act("dismiss", "Thôi"));
@@ -1151,7 +1151,7 @@ pub fn sample(kind: Kind, now: i64, offset: UtcOffset) -> Alert {
             Tone::Bad,
             "Hạn mức Claude trong vòng sắp cạn".into(),
             format!("Thử: còn tương đương 0,4 tài khoản. Team B có lại hạn mức lúc {later}."),
-            vec![act("switch:0", "Sang Cá nhân (còn 19%)"), act("dismiss", "Thôi")],
+            vec![act("switch:0", "Sang Cá nhân (đã dùng 81%)"), act("dismiss", "Thôi")],
         ),
         Kind::Leaving => (
             Tone::Warn,

@@ -7,12 +7,17 @@ mod common;
 
 use std::path::PathBuf;
 
-use common::fixture;
+use common::{fixture, fixture_text};
+use quota_station_core::cswap;
+use quota_station_core::detail::{self, AgyDetail};
 use quota_station_core::Snapshot;
+use time::format_description::well_known::Rfc3339;
+use time::OffsetDateTime;
 
 /// (UI fixture, claude report, agy report)
 const SCENARIOS: &[(&str, &str, &str)] = &[
-    ("fresh", "claude-pool-schema5.json", "agy-cockpit.json"),
+    ("fresh", "claude-pool-schema5.json", "agy-quota-station.json"),
+    ("cockpit", "claude-pool-schema5.json", "agy-cockpit.json"),
     ("no-cockpit", "claude-pool-schema5.json", "agy-no-cockpit.json"),
     ("keychain", "claude-keychain-required.json", "agy-no-cockpit.json"),
     ("stale", "claude-stale.json", "agy-cockpit.json"),
@@ -28,12 +33,40 @@ fn ui_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../src/fixtures/snapshots")
 }
 
+/// Every window of every account, with names, as the app adds them.
+fn add_detail(snapshot: &mut Snapshot) {
+    let now = snapshot
+        .claude
+        .generated_at
+        .as_deref()
+        .and_then(|t| OffsetDateTime::parse(t, &Rfc3339).ok());
+    let list = cswap::parse_list(&fixture_text("cswap-list-pool.json")).unwrap();
+    detail::apply_claude(&mut snapshot.claude, &list, now);
+    let reading = |name: &str| serde_json::from_str(&fixture_text(name)).ok();
+    let details = [
+        AgyDetail {
+            number: 1,
+            email: Some("lanpham.ultra@example.com".into()),
+            payload: reading("agy-reading-1.json"),
+        },
+        AgyDetail {
+            number: 2,
+            email: Some("lan.ultra2@example.com".into()),
+            payload: reading("agy-reading-2.json"),
+        },
+    ];
+    detail::apply_agy(&mut snapshot.agy, &details, now);
+}
+
 #[test]
 fn ui_fixtures_match_the_snapshots_rust_builds() {
     let update = std::env::var_os("UPDATE_UI_FIXTURES").is_some();
     let mut stale = Vec::new();
     for (name, claude, agy) in SCENARIOS {
-        let snapshot = Snapshot::build(Some(&fixture(claude)), Some(&fixture(agy)));
+        let mut snapshot = Snapshot::build(Some(&fixture(claude)), Some(&fixture(agy)));
+        if *name == "fresh" {
+            add_detail(&mut snapshot);
+        }
         let text = serde_json::to_string_pretty(&snapshot).unwrap() + "\n";
         let file = ui_dir().join(format!("{name}.json"));
         if update {

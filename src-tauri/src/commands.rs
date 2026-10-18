@@ -8,6 +8,7 @@
 use quota_station_core::history;
 use quota_station_core::runner::{self, RunError};
 use quota_station_core::sessions::{self, Sessions};
+use quota_station_core::settings::Theme;
 use quota_station_core::switching::{self, Outcome};
 use quota_station_core::{local_time, pause};
 use tauri::{AppHandle, State};
@@ -94,6 +95,43 @@ pub fn set_machine_name(
         let mut inner = state.lock();
         let mut settings = inner.settings.clone();
         settings.machine_name = quota_station_core::settings::machine_name(&name);
+        settings.save(&inner.settings_file).map_err(|e| e.to_string())?;
+        inner.settings = settings;
+    }
+    reader::publish(&app, &state);
+    Ok(state.lock().model())
+}
+
+/// Shows or hides account names (emails, organizations) in both windows.
+/// Hidden, they never reach the windows.
+#[tauri::command]
+pub fn set_show_names(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    on: bool,
+) -> Result<Model, String> {
+    {
+        let mut inner = state.lock();
+        let mut settings = inner.settings.clone();
+        settings.hide_names = !on;
+        settings.save(&inner.settings_file).map_err(|e| e.to_string())?;
+        inner.settings = settings;
+    }
+    reader::publish(&app, &state);
+    Ok(state.lock().model())
+}
+
+/// Sets the light or dark look of both windows, or back to macOS's.
+#[tauri::command]
+pub fn set_theme(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    theme: Theme,
+) -> Result<Model, String> {
+    {
+        let mut inner = state.lock();
+        let mut settings = inner.settings.clone();
+        settings.theme = theme;
         settings.save(&inner.settings_file).map_err(|e| e.to_string())?;
         inner.settings = settings;
     }

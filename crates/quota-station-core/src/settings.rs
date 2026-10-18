@@ -1,6 +1,7 @@
 //! The app's own settings file, `settings.json` in its Application Support
 //! folder: the quota-axi path, the name this Mac goes by, the other Macs
-//! the rotation file is copied to, whether emails show, which alerts are on,
+//! the rotation file is copied to, whether account names show, the light or
+//! dark look, which alerts are on,
 //! where Firstmate's state file is and the clone "Cập nhật từ mã nguồn"
 //! builds from.
 
@@ -24,10 +25,15 @@ pub struct Settings {
     /// The other Macs, each reached by an SSH alias.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub peers: Vec<Peer>,
-    /// Show the emails of the Antigravity accounts logged in here. Off by
-    /// default: accounts go by number.
+    /// Account names (emails, organizations) are hidden, for screenshots:
+    /// accounts go by their place (Team A, Ultra 1). Off by default. It
+    /// replaces `showEmail`, which only Antigravity used and which was off
+    /// by default, so an older file shows names as a new one does.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub show_email: bool,
+    pub hide_names: bool,
+    /// Light, dark, or as macOS is.
+    #[serde(default, skip_serializing_if = "Theme::is_auto")]
+    pub theme: Theme,
     /// Which of the five alerts are on.
     #[serde(default, skip_serializing_if = "Switches::is_default")]
     pub alerts: Switches,
@@ -39,6 +45,23 @@ pub struct Settings {
     /// a Mac that installs a copy built elsewhere.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_dir: Option<PathBuf>,
+}
+
+/// How the windows look.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Theme {
+    /// As macOS is.
+    #[default]
+    Auto,
+    Light,
+    Dark,
+}
+
+impl Theme {
+    pub fn is_auto(&self) -> bool {
+        *self == Theme::Auto
+    }
 }
 
 /// Another of the owner's Macs.
@@ -66,7 +89,10 @@ struct Stored {
     #[serde(default)]
     ssh_alias: Option<String>,
     #[serde(default)]
-    show_email: bool,
+    hide_names: bool,
+    /// An unknown value reads as automatic.
+    #[serde(default)]
+    theme: serde_json::Value,
     #[serde(default)]
     alerts: Switches,
     #[serde(default)]
@@ -104,7 +130,8 @@ impl From<Stored> for Settings {
             quota_axi_path: s.quota_axi_path,
             machine_name: s.machine_name,
             peers,
-            show_email: s.show_email,
+            hide_names: s.hide_names,
+            theme: serde_json::from_value(s.theme).unwrap_or_default(),
             alerts: s.alerts,
             firstmate_file: s.firstmate_file,
             source_dir: s.source_dir,
