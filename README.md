@@ -47,10 +47,13 @@ claude-swap, and it pauses the automatic switcher.
   offers a hold so the switcher does not switch straight back: 30 phút,
   1 giờ (the default), until the account's next five-hour reset, or none.
   Confirming runs `cswap switch N --json`, writes the pause flag when a hold
-  was chosen, waits 5 seconds, reads the active account again and reports
-  what it finds: switched, switched back by the switcher (or by another
-  switch), not yet confirmed, or claude-swap's error. Outside the personal
-  account's hours the sheet warns that the switcher will move away from it.
+  was chosen (a hold never shortens a pause that is already on for longer),
+  waits 5 seconds, reads the active account again without quota-axi's cache
+  and reports what it finds: switched, switched back by the switcher (or by
+  another switch), not yet confirmed, or claude-swap's error. When `cswap`
+  times out or stops without an answer, the app reads the account in use
+  before saying whether the switch landed. Outside the personal account's
+  hours the sheet warns that the switcher will move away from it.
 - **Pausing automatic switching** (F07). The switch opens a sheet to pause
   for 1 giờ, until 18:00 or until turned back on; while paused it resumes at
   once, and the banner offers `Thêm 1 giờ`. The why line shows the
@@ -95,7 +98,8 @@ come in later milestones.
   and the same for `--provider agy`. The app reads every 60 seconds while the
   popover or the main window is open and every 5 minutes while both are
   hidden. It also reads when either opens, after the Mac wakes and on
-  `Làm mới`.
+  `Làm mới`. The check after a switch passes `--max-age 0` instead: a cached
+  Claude reading may still be the account from before the switch.
 - The Keychain button runs
   `quota-axi --provider claude --json --allow-keychain-prompt --no-credential-refresh`
   once. macOS shows its own prompt. The app itself never opens the Keychain

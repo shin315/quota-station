@@ -135,9 +135,19 @@ function ClaudeBody(props: SheetBodyProps & { slot: number }) {
 
 function PauseBody(props: SheetBodyProps & { preset: PauseChoice }) {
   const [choice, setChoice] = useState<PauseChoice>(props.preset);
-  const v = pauseSheet(props.model, choice, props.now);
+  // The clock as of the last confirm, when it ran ahead of the window's.
+  const [late, setLate] = useState<Date | null>(null);
+  const now = late && late > props.now ? late : props.now;
+  const v = pauseSheet(props.model, choice, now);
   const value = v.options.some((o) => o.v === choice) ? choice : v.options[0].v;
-  const confirm = () => props.onPause(pauseOptions(props.clock()).find((o) => o.v === value)?.until ?? null);
+  const confirm = () => {
+    const at = props.clock();
+    const option = pauseOptions(at).find((o) => o.v === value);
+    // "Đến 18:00" is gone once 18:00 has passed: show the choices again
+    // rather than pause with no end.
+    if (option) props.onPause(option.until);
+    else setLate(at);
+  };
   return (
     <>
       <h3 id={SHEET_TITLE_ID}>{v.title}</h3>

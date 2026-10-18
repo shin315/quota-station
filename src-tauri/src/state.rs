@@ -83,6 +83,9 @@ pub struct Inner {
 pub struct SwitcherState {
     /// The pause flag; `None` when there is none.
     pub pause: Option<pause::Flag>,
+    /// Bumped when a command writes or removes the flag, so a reader check
+    /// that read the flag before cannot put the older one back.
+    pub pause_generation: u64,
     pub dry_run: Option<DryRunRecord>,
     pub dry_run_error: Option<&'static str>,
     pub last_log: Option<LogLine>,
@@ -181,9 +184,11 @@ impl Inner {
         }
     }
 
-    /// Reads the pause flag again; an unreadable flag counts as none.
+    /// Reads the pause flag again after a command changed it; an unreadable
+    /// flag counts as none.
     pub fn reload_pause(&mut self) {
         self.switcher.pause = pause::read(&pause::path(&self.home)).ok().flatten();
+        self.switcher.pause_generation += 1;
     }
 
     /// Stores a Claude report read outside the reader loop (the Keychain

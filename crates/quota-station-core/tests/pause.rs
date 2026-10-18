@@ -66,6 +66,28 @@ fn write_is_atomic_read_back_and_remove() {
 }
 
 #[test]
+fn writes_at_the_same_time_never_share_a_temporary_file() {
+    let home = temp_dir("pause-race");
+    let file = pause::path(&home);
+    let writers: Vec<_> = (0..8)
+        .map(|i| {
+            let file = file.clone();
+            std::thread::spawn(move || {
+                (0..25).all(|_| {
+                    let flag = Flag { until: Some(format!("2026-10-16T18:{i:02}")), reason: None };
+                    pause::write(&file, &flag).is_ok()
+                })
+            })
+        })
+        .collect();
+    assert!(writers.into_iter().all(|w| w.join().unwrap()), "every write succeeds");
+    let flag = pause::read(&file).unwrap().expect("one whole flag");
+    assert!(flag.until.is_some_and(|u| u.starts_with("2026-10-16T18:0")));
+    let dir: Vec<_> = std::fs::read_dir(file.parent().unwrap()).unwrap().flatten().collect();
+    assert_eq!(dir.len(), 1, "no temporary file left behind");
+}
+
+#[test]
 fn the_flag_lives_next_to_the_switcher_rotation_file() {
     let home = std::path::Path::new("/home/someone");
     assert_eq!(pause::path(home), home.join(".config/cswap-prefer-team/pause"));

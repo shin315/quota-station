@@ -183,6 +183,32 @@ describe('switching Claude and pausing from the main window', () => {
     expect(screen.getByText('Đã chuyển sang Team C. Giữ tài khoản này đến 14:50.')).toBeTruthy();
   });
 
+  it('a refresh while paused keeps the paused banner and its buttons', async () => {
+    const fake = await open(fixtureModel('fresh', { reads: 3, switcher: heldSwitcher() }), 'claude');
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Làm mới' }));
+    });
+    act(() => fake.push(fixtureModel('fresh', { reads: 4, switcher: heldSwitcher() })));
+    expect(screen.getByText('Đã làm mới')).toBeTruthy();
+    expect(screen.getByText('Đang giữ Team A đến 15:20')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Thêm 1 giờ' })).toBeTruthy();
+  });
+
+  it('a feedback line keeps its buttons on the Cài đặt tab', async () => {
+    await open(fixtureModel('fresh'), 'claude');
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Chuyển sang Team C' }));
+    });
+    await act(async () => {
+      fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Chuyển sang Team C' }));
+    });
+    fireEvent.click(nav('Cài đặt'));
+    expect(screen.getByText('Đã chuyển sang Team C. Giữ tài khoản này đến 15:20.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Cho phép tự chuyển lại' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Đóng' }));
+    expect(screen.queryByText(/Đã chuyển sang Team C/)).toBeNull();
+  });
+
   it('Escape closes the dialog and Thôi does too, without switching', async () => {
     const fake = await open(fixtureModel('fresh'), 'claude');
     await act(async () => {

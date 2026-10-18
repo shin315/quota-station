@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { FIXTURE_NOW, fixtureModel, heldSwitcher, switcherFixture } from '../fixtures/models';
 import type { Decision } from './model';
+import { bannerUnder, refreshedFeedback } from './view';
 import {
   autoView,
   claudeSheet,
@@ -20,6 +21,20 @@ const model = fixtureModel('fresh');
 const nameOf = namesOf(model);
 const account = (n: number) => model.snapshot.claude.accounts.find((a) => a.number === n)!;
 const at = (iso: string) => new Date(iso);
+
+describe('bannerUnder', () => {
+  const paused = switcherBanner(fixtureModel('fresh', { switcher: heldSwitcher() }), FIXTURE_NOW);
+  it('the paused banner steps aside only for a line that already says the account is held', () => {
+    const held = fixtureModel('fresh', { switcher: heldSwitcher() });
+    expect(bannerUnder(paused, null)).toBe(paused);
+    expect(bannerUnder(paused, pausedFeedback(held, FIXTURE_NOW))).toBeNull();
+    const switched = switchFeedback({ kind: 'switched', slot: 3, hold: { until: '2026-01-16T08:20:00Z', failed: false } }, held, FIXTURE_NOW);
+    expect(bannerUnder(paused, switched)).toBeNull();
+    // A refresh or an unconfirmed switch leaves resume and "Thêm 1 giờ" in place.
+    expect(bannerUnder(paused, refreshedFeedback(FIXTURE_NOW))).toBe(paused);
+    expect(bannerUnder(paused, switchFeedback({ kind: 'unconfirmed', slot: 3, hold: null }, held, FIXTURE_NOW))).toBe(paused);
+  });
+});
 
 describe('dayClock', () => {
   it('names today, tomorrow and yesterday, and the date further off', () => {
@@ -188,9 +203,35 @@ describe('the switch sheet and its result', () => {
   });
 
   it('errors name what went wrong', () => {
-    const body = (error: string, detail = '') => switchFeedback({ kind: 'failed', slot: 3, error, detail }, model, FIXTURE_NOW).body;
+    const fb = (error: string, detail = '', active: number | null = null) =>
+      switchFeedback({ kind: 'failed', slot: 3, error, detail, active }, model, FIXTURE_NOW);
+    const body = (error: string, detail = '', active: number | null = null) => fb(error, detail, active).body;
     expect(body('notFound')).toBe('Không tìm thấy lệnh cswap trên máy này. Cài lại claude-swap rồi thử lại.');
+    expect(body('spawn', 'could not start cswap: denied')).toBe('cswap không chạy được: could not start cswap: denied. Chưa đổi gì.');
+    // cswap stopped without an answer: the account read again, or a refresh when it could not be.
+    expect(body('timeout', 'cswap did not answer within 60s', 2)).toBe('cswap không trả lời trong 60 giây. Đọc lại: đang dùng Team A.');
+    expect(fb('timeout', '', 2).actions!.map((a) => a.label)).toEqual(['Thử lại', 'Đóng']);
     expect(body('timeout')).toBe('cswap không trả lời trong 60 giây. Bấm Làm mới để xem tài khoản đang dùng.');
-    expect(body('exit', 'cswap exited 2: boom')).toBe('cswap không chạy được: cswap exited 2: boom. Chưa đổi gì.');
+    expect(fb('timeout').actions!.map((a) => a.label)).toEqual(['Làm mới', 'Đóng']);
+    expect(body('exit', 'cswap exited 2: boom', 2)).toBe('cswap dừng mà không báo kết quả (cswap exited 2: boom). Đọc lại: đang dùng Team A.');
+  });
+
+  it('records that cannot be read with no live session say so instead of "Ít nhất 0"', () => {
+    const v = claudeSheet(model, 3, '60', { live: 0, unreadable: 2 }, FIXTURE_NOW)!;
+    expect(v.facts[1]).toEqual({
+      k: 'w',
+      text: 'Không đọc được 2 bản ghi phiên Claude trên máy này, nên có thể có phiên đang chạy sẽ tạo lại bộ nhớ đệm ở tin nhắn tiếp theo.',
+    });
+  });
+
+  it('a hold shorter than the pause already on says the pause stays', () => {
+    const open = fixtureModel('fresh', { switcher: heldSwitcher({ pause: { until: null, reason: 'tạm dừng', holds: true } }) });
+    expect(claudeSheet(open, 3, '60', null, FIXTURE_NOW)!.hint.text).toBe(
+      'Đang tạm dừng đến khi bạn bật lại: tạm dừng. Lần tạm dừng này dài hơn nên được giữ nguyên.',
+    );
+    // Paused until 15:20: a 30-minute hold (14:50) keeps it, "Đến lúc đặt lại" (17:09) replaces it.
+    const held = fixtureModel('fresh', { switcher: heldSwitcher() });
+    expect(claudeSheet(held, 4, '30', null, FIXTURE_NOW)!.hint.text).toMatch(/được giữ nguyên\.$/);
+    expect(claudeSheet(held, 4, 'reset', null, FIXTURE_NOW)!.hint.text).toBe('Tạm dừng tự chuyển đến 17:09 để giữ tài khoản này.');
   });
 });

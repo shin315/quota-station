@@ -165,7 +165,7 @@ describe('the Claude switch sheet', () => {
 
   it('an error from cswap says nothing changed and offers to try again', async () => {
     await open(fixtureModel('fresh'), {
-      outcome: (slot) => ({ kind: 'failed', slot, error: 'refused', detail: 'ClaudeSwitchError: Account-3 … needs /login' }),
+      outcome: (slot) => ({ kind: 'failed', slot, error: 'refused', detail: 'ClaudeSwitchError: Account-3 … needs /login', active: null }),
     });
     const sheet = await sheetFor('Team B');
     await act(async () => {
@@ -236,6 +236,18 @@ describe('the Claude switch sheet', () => {
     expect(screen.getByText('Không tìm thấy cswap trên máy này: chưa chuyển được tài khoản Claude.')).toBeTruthy();
   });
 
+  it('a switch from the other window that lands on this sheet’s account closes the sheet', async () => {
+    const fake = await open(fixtureModel('fresh'));
+    await sheetFor('Team B');
+    const model = fixtureModel('fresh');
+    act(() => fake.push({ ...model, claudeSwitch: { cswap: true, busy: 3 } }));
+    expect(screen.getByRole('dialog', { name: 'Đang chuyển sang Team B…' })).toBeTruthy();
+    const accounts = model.snapshot.claude.accounts.map((a) => ({ ...a, active: a.number === 3 }));
+    act(() => fake.push({ ...model, snapshot: { ...model.snapshot, claude: { ...model.snapshot.claude, accounts } } }));
+    expect(screen.queryByRole('dialog', { name: /Team B/ })).toBeNull();
+    expect(fake.api.switchClaude).not.toHaveBeenCalled();
+  });
+
   it('while a switch runs from another window, rows wait', async () => {
     await open(fixtureModel('fresh', { claudeSwitch: { cswap: true, busy: 3 } }));
     const rows = within(screen.getByRole('list', { name: 'CLAUDE CODE' })).getAllByRole('button');
@@ -282,6 +294,23 @@ describe('the pause control', () => {
     expect(screen.getByText('Đang giữ Team A đến khi bạn bật lại')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Thêm 1 giờ' })).toBeNull();
     expect(screen.getByText('Đang tạm dừng đến khi bạn bật lại: tạm dừng trong Quota Station lúc 14:20')).toBeTruthy();
+  });
+
+  it('"Đến 18:00" confirmed after 18:00 shows the choices again instead of pausing with no end', async () => {
+    let now = new Date('2026-01-16T10:59:50.000Z'); // 17:59:50
+    const fake = await open(fixtureModel('fresh'), {}, () => now);
+    fireEvent.click(screen.getByRole('switch', { name: 'Tự chuyển Claude' }));
+    let sheet = screen.getByRole('dialog', { name: 'Tạm dừng tự chuyển Claude?' });
+    fireEvent.click(within(sheet).getByRole('radio', { name: /Đến 18:00/ }));
+    now = new Date('2026-01-16T11:00:05.000Z');
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Tạm dừng' }));
+    expect(fake.api.pauseSwitching).not.toHaveBeenCalled();
+    sheet = screen.getByRole('dialog', { name: 'Tạm dừng tự chuyển Claude?' });
+    expect(radios(sheet)).toEqual(['● 1 giờđến 19:00', '○ Đến khi tôi bật lạikhông có giờ hết hạn']);
+    await act(async () => {
+      fireEvent.click(within(sheet).getByRole('button', { name: 'Tạm dừng' }));
+    });
+    expect(fake.api.pauseSwitching).toHaveBeenCalledWith('2026-01-16T12:00:05.000Z');
   });
 
   it('after 18:00 there is no "Đến 18:00"', async () => {

@@ -534,14 +534,16 @@ export interface FeedbackView {
 }
 
 /**
- * The banner to show under a feedback line. A line after a switch or a
- * pause already says the account is held, so the paused banner steps aside
- * rather than repeat it and its buttons.
+ * The banner to show under a feedback line. A line that already says the
+ * account is held (it offers to resume, or reports the pause) makes the
+ * paused banner step aside rather than repeat it and its buttons; any other
+ * line leaves it in place.
  */
 export function bannerUnder(banner: BannerView | null, feedback: FeedbackView | null | undefined): BannerView | null {
   if (!banner || !feedback) return banner;
   const paused = banner.tone === 'info' && banner.actions.some((a) => a.act === 'resume');
-  return paused ? null : banner;
+  const repeats = feedback.tone === 'info' || !!feedback.actions?.some((a) => a.act === 'resume');
+  return paused && repeats ? null : banner;
 }
 
 export function refreshedFeedback(now: Date): FeedbackView {

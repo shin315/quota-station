@@ -25,7 +25,8 @@ export interface Api {
   claudeSessions(): Promise<Sessions | null>;
   /**
    * Runs `cswap switch N --json`, pauses the switcher until `holdUntil` (RFC 3339) when given, and
-   * reports what the re-read five seconds later shows. Rejects with `busy` or `unknownSlot`.
+   * reports what the re-read five seconds later shows. Rejects with `busy` (a switch is running),
+   * `unknownSlot` (not one of claude-swap's accounts) or `badTime` (`holdUntil` is not RFC 3339).
    */
   switchClaude(slot: number, holdUntil: string | null): Promise<Outcome>;
   /** Pauses automatic switching until `until` (RFC 3339), or until resumed when null. */

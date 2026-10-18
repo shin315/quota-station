@@ -8,6 +8,7 @@
 
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 /// Under the home folder, next to the switcher's `prime` flag and rotation file.
 pub const FILE: &str = ".config/cswap-prefer-team/pause";
@@ -87,13 +88,18 @@ pub fn read(file: &Path) -> io::Result<Option<Flag>> {
     }
 }
 
+/// Gives each write its own temporary file, so two writes at once (a hold
+/// and a pause) never share one.
+static WRITES: AtomicU64 = AtomicU64::new(0);
+
 /// Writes through a temporary file and a rename, so the switcher never reads
 /// half a flag.
 pub fn write(file: &Path, flag: &Flag) -> io::Result<()> {
     if let Some(dir) = file.parent() {
         std::fs::create_dir_all(dir)?;
     }
-    let tmp = file.with_file_name(format!("pause.tmp-{}", std::process::id()));
+    let n = WRITES.fetch_add(1, Ordering::Relaxed);
+    let tmp = file.with_file_name(format!("pause.tmp-{}-{n}", std::process::id()));
     std::fs::write(&tmp, flag.render())?;
     std::fs::rename(&tmp, file).inspect_err(|_| {
         let _ = std::fs::remove_file(&tmp);

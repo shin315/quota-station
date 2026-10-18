@@ -178,7 +178,8 @@ export type Outcome =
   | { kind: 'switched'; slot: number; hold: Hold | null }
   | { kind: 'raced'; slot: number; active: number; bySwitcherAt: string | null; hold: Hold | null }
   | { kind: 'unconfirmed'; slot: number; hold: Hold | null }
-  | { kind: 'failed'; slot: number; error: string; detail: string };
+  /** `active`: the account read again when cswap stopped without an answer; null when it answered. */
+  | { kind: 'failed'; slot: number; error: string; detail: string; active: number | null };
 
 /** The main window's tabs in this build (`src-tauri/src/state.rs` `Tab`). */
 export type Tab = 'overview' | 'claude' | 'agy' | 'settings';

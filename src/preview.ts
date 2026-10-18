@@ -19,11 +19,20 @@ const SWITCHERS: Record<string, () => Model['switcher']> = {
   missing: () => switcherFixture({ installed: false, dryRun: null, lastLog: null, service: null }),
 };
 
+/** The hold a switch writes: to the minute, as the pause flag keeps it. */
+const holdOf = (until: string | null) =>
+  until ? { until: new Date(Math.floor(Date.parse(until) / 60000) * 60000).toISOString(), failed: false } : null;
+
 const OUTCOMES: Record<string, (slot: number, holdUntil: string | null) => Outcome> = {
-  raced: (slot) => ({ kind: 'raced', slot, active: 2, bySwitcherAt: '2026-01-16T07:21:00.000Z', hold: null }),
-  failed: (slot) => ({ kind: 'failed', slot, error: 'refused', detail: 'ClaudeSwitchError: Account-' + slot + ' … needs /login' }),
-  unconfirmed: (slot) => ({ kind: 'unconfirmed', slot, hold: null }),
+  raced: (slot, holdUntil) => ({ kind: 'raced', slot, active: 2, bySwitcherAt: '2026-01-16T07:21:00.000Z', hold: holdOf(holdUntil) }),
+  failed: (slot) => ({ kind: 'failed', slot, error: 'refused', detail: 'ClaudeSwitchError: Account-' + slot + ' … needs /login', active: null }),
+  unconfirmed: (slot, holdUntil) => ({ kind: 'unconfirmed', slot, hold: holdOf(holdUntil) }),
 };
+
+/** A table entry by query value, never one of Object.prototype's keys. */
+function pick<T>(table: Record<string, T>, key: string | null): T | undefined {
+  return key !== null && Object.hasOwn(table, key) ? table[key] : undefined;
+}
 
 export function previewSetup(params: URLSearchParams): { api: Api; view: 'popover' | 'window'; clock: () => Date } {
   const state = params.get('state') ?? 'fresh';
@@ -31,13 +40,19 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
   const tab = TABS.find((t) => t === params.get('tab')) ?? 'overview';
   const view = params.get('view') === 'window' ? 'window' : 'popover';
   const over: Partial<Model> = error ? { errors: failing(error) } : {};
-  const switcher = SWITCHERS[params.get('switcher') ?? ''];
+  const switcher = pick(SWITCHERS, params.get('switcher'));
   if (switcher) over.switcher = switcher();
   if (params.get('cswap') === 'none') over.claudeSwitch = { cswap: false, busy: null };
   const { api } = fakeApi(fixtureModel(SNAPSHOTS[state] ? state : 'fresh', over), tab, {
     switchDelayMs: 1500,
-    outcome: OUTCOMES[params.get('outcome') ?? ''],
+    outcome: pick(OUTCOMES, params.get('outcome')),
   });
-  const openWindow = async (next: Tab) => void window.open('?view=window&tab=' + next + '&state=' + state, '_blank');
+  // The window opens on the same fixture and switcher states as the popover.
+  const openWindow = async (next: Tab) => {
+    const query = new URLSearchParams(params);
+    query.set('view', 'window');
+    query.set('tab', next);
+    window.open('?' + query.toString(), '_blank');
+  };
   return { api: view === 'popover' ? { ...api, openWindow } : api, view, clock: () => FIXTURE_NOW };
 }

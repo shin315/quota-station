@@ -110,8 +110,13 @@ pub struct DryRun {
 
 pub fn parse_decision(line: &str) -> Decision {
     let line = line.trim();
+    // Only the guard's two forms: other text after `paused` is not the guard.
     if let Some(rest) = line.strip_prefix("paused ") {
-        return paused(rest);
+        let until = rest.strip_prefix("until ").is_some_and(|u| !u.trim().is_empty());
+        if until || rest == "indefinitely" || rest.starts_with("indefinitely:") {
+            return paused(rest);
+        }
+        return Decision::Other;
     }
     let (head, detail) = match line.split_once(" (") {
         Some((head, rest)) => (head, rest.strip_suffix(')').unwrap_or(rest)),

@@ -313,7 +313,7 @@ function ClaudeTab(props: TabProps) {
           </p>
           <div className="seg" role="group" aria-labelledby="qs-qp">
             {pauseOptions(props.now).map((o) => (
-              <button key={o.v} type="button" aria-pressed="false" disabled={a.toggle.disabled} onClick={() => props.onPause(o.v)}>
+              <button key={o.v} type="button" disabled={a.toggle.disabled} onClick={() => props.onPause(o.v)}>
                 {o.t}
               </button>
             ))}

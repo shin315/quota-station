@@ -25,16 +25,19 @@ const SWITCHED: &str = r#"{
   "warnings": []
 }"#;
 
-/// A home with a fake quota-axi that reports the slot in `<home>/active` as
-/// claude-swap's active slot, and a fake cswap whose script `cswap(home)`
-/// returns.
+/// A home with a fake quota-axi and a fake cswap whose script `cswap(home)`
+/// returns. quota-axi reports the slot in `<home>/active` as claude-swap's
+/// active slot on a read that skips its cache (`--max-age 0`); a read that
+/// may reuse the cache gets the reading from before the switch, slot 2, as
+/// quota-axi does while a Keychain login changes under a cached reading.
 fn home_with(cswap: impl Fn(&Path) -> String) -> (PathBuf, Tools) {
     let home = temp_dir("switching");
     std::fs::write(home.join("active"), "2\n").unwrap();
     let axi = script(
         &home.join(".local/bin/quota-axi"),
         &format!(
-            "sed \"s/\\\"activeSlot\\\": [0-9][0-9]*/\\\"activeSlot\\\": $(cat '{}')/\" '{}'\n",
+            "case \" $* \" in *\" --max-age 0 \"*) slot=$(cat '{}') ;; *) slot=2 ;; esac\n\
+             sed \"s/\\\"activeSlot\\\": [0-9][0-9]*/\\\"activeSlot\\\": $slot/\" '{}'\n",
             home.join("active").display(),
             fixture_path("claude-pool-schema5.json").display()
         ),
@@ -105,13 +108,105 @@ fn an_error_from_cswap_changes_nothing() {
     });
     let until = OffsetDateTime::now_utc() + time::Duration::minutes(30);
     let done = switch_claude(&tools, 3, Some(until), Duration::from_millis(50));
-    let Outcome::Failed { slot: 3, error, detail } = &done.outcome else {
+    let Outcome::Failed { slot: 3, error, detail, active } = &done.outcome else {
         panic!("{:?}", done.outcome)
     };
     assert_eq!(error, "refused");
     assert_eq!(detail, "ClaudeSwitchError: Account-3 … needs /login", "no email reaches the UI");
+    assert_eq!(*active, None, "claude-swap said it did not switch: no re-read");
     assert!(!tools.pause_file.exists(), "no hold after a failed switch");
     assert!(done.report.is_none());
+}
+
+#[test]
+fn the_check_after_a_switch_skips_quota_axi_cache() {
+    // A cached reading would still name slot 2, the account before the switch.
+    let (_, tools) = home_with(succeeding);
+    let done = switch_claude(&tools, 3, None, Duration::from_millis(10));
+    assert_eq!(done.outcome, Outcome::Switched { slot: 3, hold: None });
+    let active = done
+        .report
+        .as_ref()
+        .and_then(|r| r.primary("claude"))
+        .and_then(|row| row.claude_swap.as_ref().and_then(|swap| swap.active_slot));
+    assert_eq!(active, Some(3), "the stored report is the fresh one");
+}
+
+#[test]
+fn cswap_stopping_without_an_answer_is_checked_before_reporting() {
+    // claude-swap switched, then ended without its JSON answer.
+    let (_, tools) = home_with(|h| {
+        format!("echo \"$2\" > '{}'\necho 'interrupted' >&2\nexit 1\n", h.join("active").display())
+    });
+    let until = OffsetDateTime::now_utc() + time::Duration::minutes(30);
+    let done = switch_claude(&tools, 3, Some(until), Duration::from_millis(10));
+    let Outcome::Switched { slot: 3, hold: Some(hold) } = &done.outcome else {
+        panic!("{:?}", done.outcome)
+    };
+    assert!(!hold.failed, "the switch landed, so the hold is written");
+    assert!(tools.pause_file.exists());
+
+    // It ended without switching: the failure says which account is in use.
+    let (_, tools) = home_with(|_| "echo 'interrupted' >&2\nexit 1\n".into());
+    let done = switch_claude(&tools, 3, Some(until), Duration::from_millis(10));
+    let Outcome::Failed { slot: 3, error, active, .. } = &done.outcome else {
+        panic!("{:?}", done.outcome)
+    };
+    assert_eq!(error, "exit");
+    assert_eq!(*active, Some(2));
+    assert!(done.report.is_some());
+    assert!(!tools.pause_file.exists(), "no hold when the switch did not land");
+}
+
+#[test]
+fn a_hold_never_shortens_a_longer_pause() {
+    let (_, tools) = home_with(succeeding);
+    let hour = OffsetDateTime::now_utc() + time::Duration::hours(1);
+
+    // Paused until the owner turns it back on: a one-hour hold leaves it be.
+    let open = pause::Flag {
+        until: None,
+        reason: Some("tạm dừng trong Quota Station lúc 14:20".into()),
+    };
+    pause::write(&tools.pause_file, &open).unwrap();
+    let done = switch_claude(&tools, 3, Some(hour), Duration::from_millis(10));
+    assert_eq!(done.outcome, Outcome::Switched { slot: 3, hold: None });
+    assert_eq!(pause::read(&tools.pause_file).unwrap(), Some(open));
+
+    // Paused for longer than the hold: kept too.
+    let later = pause::Flag {
+        until: Some(local_time::minute(hour + time::Duration::hours(2))),
+        reason: Some("tạm dừng trong Quota Station lúc 14:20".into()),
+    };
+    pause::write(&tools.pause_file, &later).unwrap();
+    let done = switch_claude(&tools, 3, Some(hour), Duration::from_millis(10));
+    assert_eq!(done.outcome, Outcome::Switched { slot: 3, hold: None });
+    assert_eq!(pause::read(&tools.pause_file).unwrap(), Some(later));
+
+    // A shorter pause gives way to the hold.
+    let sooner = pause::Flag {
+        until: Some(local_time::minute(OffsetDateTime::now_utc() + time::Duration::minutes(10))),
+        reason: None,
+    };
+    pause::write(&tools.pause_file, &sooner).unwrap();
+    let done = switch_claude(&tools, 3, Some(hour), Duration::from_millis(10));
+    assert!(matches!(&done.outcome, Outcome::Switched { hold: Some(h), .. } if !h.failed));
+    let flag = pause::read(&tools.pause_file).unwrap().unwrap();
+    assert_eq!(flag.until, Some(local_time::minute(hour)));
+}
+
+#[test]
+fn a_hold_that_cannot_be_written_is_reported() {
+    let (home, tools) = home_with(succeeding);
+    // The flag's folder is a file, so the flag cannot be written.
+    std::fs::write(home.join("blocked"), "").unwrap();
+    let tools = Tools { pause_file: home.join("blocked/pause"), ..tools };
+    let until = OffsetDateTime::now_utc() + time::Duration::minutes(30);
+    let done = switch_claude(&tools, 3, Some(until), Duration::from_millis(10));
+    let Outcome::Switched { slot: 3, hold: Some(hold) } = &done.outcome else {
+        panic!("{:?}", done.outcome)
+    };
+    assert!(hold.failed, "the switch stands, and the UI says the switcher is not held");
 }
 
 #[test]
@@ -196,6 +291,14 @@ fn cswap_answers() {
     assert_eq!(
         cswap::switch(&crash, 3).unwrap_err(),
         SwitchError::Exit { code: Some(3), message: "boom for …".into() }
+    );
+    // A reason or error type with an email in it loses the email too.
+    let odd = script(
+        &dir.join("odd"),
+        "echo '{\"switched\": false, \"to\": {\"number\": 2}, \"reason\": \"locked-by me@example.com\"}'\n",
+    );
+    assert!(
+        matches!(cswap::switch(&odd, 3).unwrap_err(), SwitchError::Refused { kind, .. } if kind == "locked-by …")
     );
     assert_eq!(cswap::switch(&dir.join("nope"), 3).unwrap_err(), SwitchError::NotFound);
 }

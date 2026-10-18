@@ -46,7 +46,12 @@ pub fn count_with(dir: &Path, alive: impl Fn(i32) -> bool) -> io::Result<Session
         Err(e) => return Err(e),
     };
     let mut out = Sessions::default();
-    for entry in entries.flatten() {
+    for entry in entries {
+        // An entry that cannot be listed may be a live session's record.
+        let Ok(entry) = entry else {
+            out.unreadable += 1;
+            continue;
+        };
         let path = entry.path();
         if path.extension().and_then(|e| e.to_str()) != Some("json") {
             continue;

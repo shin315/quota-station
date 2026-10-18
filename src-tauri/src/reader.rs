@@ -50,10 +50,11 @@ fn run(app: &AppHandle, state: &AppState) {
         let home = inner.home.clone();
         // A switcher look on its own, between reads.
         let read_due = inner.read_now || inner.schedule.due_in(Instant::now()).is_zero();
+        let pause_generation = inner.switcher.pause_generation;
         if !read_due {
             inner.switcher_now = false;
             drop(inner);
-            let check = check_switcher(&home, true);
+            let check = check_switcher(&home, true, pause_generation);
             check.store(&mut state.lock());
             publish(app, state);
             continue;
@@ -69,33 +70,38 @@ fn run(app: &AppHandle, state: &AppState) {
         drop(inner);
         publish(app, state);
 
-        let switcher = thread::spawn(move || check_switcher(&home, full));
+        // The switcher check runs beside the read, and the numbers are shown
+        // as soon as they are in: a slow dry run never holds them back.
+        let switcher = thread::spawn(move || check_switcher(&home, full, pause_generation));
         let (claude, agy) = read_both(path.clone());
         let version = path.filter(|_| check_version).map(|p| {
             let v = runner::version(&p).map_err(|e| e.to_string());
             (p, v)
         });
-        let check = switcher.join().ok();
 
         let mut inner = state.lock();
         store(&mut inner, generation, claude, agy);
         if let Some(v) = version {
             inner.version = Some(v);
         }
-        if let Some(check) = check {
-            check.store(&mut inner);
-        }
         inner.reading = false;
         inner.reads += 1;
         inner.schedule.mark_read(Instant::now());
         drop(inner);
         publish(app, state);
+
+        if let Ok(check) = switcher.join() {
+            check.store(&mut state.lock());
+            publish(app, state);
+        }
     }
 }
 
 /// One look at the switcher. Without `full`, only the pause flag.
 struct SwitcherCheck {
     pause: Option<pause::Flag>,
+    /// The flag's generation when the check started.
+    pause_generation: u64,
     full: Option<FullCheck>,
 }
 
@@ -106,7 +112,7 @@ struct FullCheck {
     auto_service: Option<bool>,
 }
 
-fn check_switcher(home: &Path, full: bool) -> SwitcherCheck {
+fn check_switcher(home: &Path, full: bool, pause_generation: u64) -> SwitcherCheck {
     let flag_file = pause::path(home);
     let pause = pause::read(&flag_file).ok().flatten();
     let full = full.then(|| {
@@ -124,13 +130,16 @@ fn check_switcher(home: &Path, full: bool) -> SwitcherCheck {
             auto_service: switcher::service_loaded(launchctl, switcher::AUTO_SERVICE),
         }
     });
-    SwitcherCheck { pause, full }
+    SwitcherCheck { pause, pause_generation, full }
 }
 
 impl SwitcherCheck {
     fn store(self, inner: &mut Inner) {
         let sw = &mut inner.switcher;
-        sw.pause = self.pause;
+        // A command changed the flag after this check read it: keep the newer.
+        if sw.pause_generation == self.pause_generation {
+            sw.pause = self.pause;
+        }
         if let Some(full) = self.full {
             match full.dry_run {
                 Ok(record) => {
@@ -240,5 +249,22 @@ mod tests {
         let next = inner.claude_generation;
         store(&mut inner, next, Ok(report(REQUIRED)), Ok(report(AGY)));
         assert_eq!(inner.snapshot().keychain, Keychain::Required);
+    }
+
+    #[test]
+    fn a_switcher_check_that_read_the_flag_before_a_pause_keeps_the_pause() {
+        let mut inner = inner();
+        let started = inner.switcher.pause_generation;
+        // The owner pauses while a check that saw no flag is running.
+        let flag = pause::Flag { until: None, reason: Some("tạm dừng".into()) };
+        inner.switcher.pause = Some(flag.clone());
+        inner.switcher.pause_generation += 1;
+        SwitcherCheck { pause: None, pause_generation: started, full: None }.store(&mut inner);
+        assert_eq!(inner.switcher.pause, Some(flag));
+
+        // A check that started after the pause is taken as it is.
+        let now = inner.switcher.pause_generation;
+        SwitcherCheck { pause: None, pause_generation: now, full: None }.store(&mut inner);
+        assert_eq!(inner.switcher.pause, None);
     }
 }

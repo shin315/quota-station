@@ -145,7 +145,7 @@ pub fn switch(path: &Path, slot: u32) -> Result<Switched, SwitchError> {
     };
     if let Some(error) = answer.error {
         return Err(SwitchError::Refused {
-            kind: error.kind.unwrap_or_else(|| "error".into()),
+            kind: redact(error.kind.as_deref().unwrap_or("error")),
             message: redact(error.message.as_deref().unwrap_or("")),
         });
     }
@@ -159,7 +159,11 @@ pub fn switch(path: &Path, slot: u32) -> Result<Switched, SwitchError> {
         Ok(switched)
     } else {
         Err(SwitchError::Refused {
-            kind: if switched.reason.is_empty() { "not-switched".into() } else { switched.reason },
+            kind: if switched.reason.is_empty() {
+                "not-switched".into()
+            } else {
+                redact(&switched.reason)
+            },
             message: redact(answer.message.as_deref().unwrap_or("")),
         })
     }

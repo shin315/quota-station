@@ -229,7 +229,7 @@ function claudeBanner(model: Model): BannerView | null {
   return {
     tone: 'bad',
     title: 'Switcher không chạy',
-    body: 'LaunchAgent com.cswap.prefer-team chưa được nạp. Tự chuyển Claude không xảy ra. Số vẫn cập nhật khi claude-swap làm mới.',
+    body: 'LaunchAgent com.cswap.prefer-team chưa được nạp, nên switcher không tự chuyển Claude. Số vẫn cập nhật khi claude-swap làm mới.',
     actions: [
       { label: 'Hướng dẫn nạp lại', act: 'guide:switcher' },
       { label: 'Làm mới', act: 'refresh' },

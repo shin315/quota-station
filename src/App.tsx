@@ -118,6 +118,13 @@ function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeed
   const close = () => {
     if (!working) setSheet(null);
   };
+  // A switch from the other window landed on this sheet's account: there is
+  // nothing left to confirm.
+  const target = sheet?.kind === 'claude' ? model?.snapshot.claude.accounts.find((a) => a.number === sheet.slot) : undefined;
+  const landed = !!target?.active && model?.claudeSwitch.busy == null && !working;
+  useEffect(() => {
+    if (landed) setSheet(null);
+  }, [landed]);
   const doSwitch = async (slot: number, holdUntil: Date | null) => {
     setWorking(true);
     try {
@@ -312,6 +319,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       model={model}
       fresh={view.fresh}
       feedback={feedback}
+      onAction={onAction}
       onSetPath={(path) =>
         api.setQuotaAxiPath(path).then(
           () => true,

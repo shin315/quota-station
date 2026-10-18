@@ -3,8 +3,9 @@
 //! The app only ever runs quota-axi reads. Every read passes
 //! `--no-credential-refresh` and reuses quota-axi's shared cache with
 //! `--max-age`, so a refresh adds no vendor call while the cache is young.
-//! The one exception is [`grant_keychain`], which the user starts from a
-//! button: it lets quota-axi ask macOS for Keychain access once.
+//! [`read_fresh`] skips the cache, for the check right after a switch. The
+//! one exception is [`grant_keychain`], which the user starts from a button:
+//! it lets quota-axi ask macOS for Keychain access once.
 
 use std::ffi::OsString;
 use std::io::Read;
@@ -79,6 +80,17 @@ pub fn read_args(provider: ProviderId) -> Vec<String> {
         .to_vec()
 }
 
+/// The same read without the shared cache (`--max-age 0` always asks the
+/// vendor). quota-axi names claude-swap's active slot by the identity of the
+/// Claude reading, and a reused reading taken before a switch still carries
+/// the previous account's identity, since a Keychain login is not one of the
+/// files quota-axi checks before reusing.
+pub fn fresh_read_args(provider: ProviderId) -> Vec<String> {
+    ["--provider", provider.as_str(), "--json", "--max-age", "0", "--no-credential-refresh"]
+        .map(String::from)
+        .to_vec()
+}
+
 /// One Claude read that may show the macOS Keychain prompt, the remedy
 /// quota-axi names for `keychain_prompt_required`.
 pub fn grant_args() -> Vec<String> {
@@ -89,6 +101,10 @@ pub fn grant_args() -> Vec<String> {
 
 pub fn read(path: &Path, provider: ProviderId) -> Result<Response, RunError> {
     report(path, &read_args(provider), READ_TIMEOUT)
+}
+
+pub fn read_fresh(path: &Path, provider: ProviderId) -> Result<Response, RunError> {
+    report(path, &fresh_read_args(provider), READ_TIMEOUT)
 }
 
 pub fn grant_keychain(path: &Path) -> Result<Response, RunError> {

@@ -147,6 +147,12 @@ function sessionsFact(sessions: Sessions | null | 'loading'): FactView {
     return { k: 'w', text: 'Các phiên Claude đang chạy sẽ tạo lại bộ nhớ đệm ở tin nhắn tiếp theo. Việc này dùng thêm hạn mức.' };
   if (sessions.live === 0 && sessions.unreadable === 0)
     return { k: '', text: 'Không có phiên Claude nào đang chạy trên máy này, nên không phiên nào phải tạo lại bộ nhớ đệm.' };
+  if (sessions.live === 0)
+    return {
+      k: 'w',
+      text:
+        'Không đọc được ' + sessions.unreadable + ' bản ghi phiên Claude trên máy này, nên có thể có phiên đang chạy sẽ tạo lại bộ nhớ đệm ở tin nhắn tiếp theo.',
+    };
   const n = (sessions.unreadable ? 'Ít nhất ' : '') + sessions.live + ' phiên Claude';
   return { k: 'w', text: '**' + n + '** đang chạy sẽ tạo lại bộ nhớ đệm ở tin nhắn tiếp theo. Việc này dùng thêm hạn mức.' };
 }
@@ -201,7 +207,10 @@ export function claudeSheet(
   const cur = options.find((o) => o.v === choice) ?? options[1];
   const paused = pauseOf(model, now);
   let hint: ClaudeSheetView['hint'];
-  if (cur.until) {
+  if (cur.until && paused && outlasts(paused, cur.until)) {
+    // The hold is written to the minute, and never shortens a longer pause.
+    hint = { tone: '', text: pausedLine(paused, now) + '. Lần tạm dừng này dài hơn nên được giữ nguyên.' };
+  } else if (cur.until) {
     hint = { tone: '', text: 'Tạm dừng tự chuyển đến ' + dayClock(cur.until.toISOString(), now) + ' để giữ tài khoản này.' };
     if (model.switcher.guard === false)
       hint = { tone: 'warn', text: 'Switcher trên máy này chưa đọc cờ tạm dừng, nên vẫn có thể đổi tài khoản.' };
@@ -213,6 +222,13 @@ export function claudeSheet(
     hint = { tone: '', text: 'Tự chuyển vẫn bật. Switcher có thể đổi sang tài khoản khác ở lần kiểm sau (' + SWITCHER_EVERY + ').' };
   }
   return { title: 'Chuyển Claude sang ' + name + '?', facts, options, hint, confirm: 'Chuyển sang ' + name, blocked };
+}
+
+/** The pause runs past a hold ending at `until`, which is written to the minute. */
+function outlasts(p: PauseState, until: Date): boolean {
+  const minute = new Date(until);
+  minute.setSeconds(0, 0);
+  return !p.until || new Date(p.until) > minute;
 }
 
 // ===== The pause sheet (F07) =====
@@ -471,14 +487,29 @@ export function switchFeedback(outcome: Outcome, model: Model, now: Date): Feedb
     case 'failed': {
       let body: string;
       if (outcome.error === 'notFound') body = 'Không tìm thấy lệnh cswap trên máy này. Cài lại claude-swap rồi thử lại.';
-      else if (outcome.error === 'timeout') body = 'cswap không trả lời trong 60 giây. Bấm Làm mới để xem tài khoản đang dùng.';
       else if (outcome.error === 'refused') body = 'cswap báo: ' + outcome.detail + '. Chưa đổi gì.';
-      else body = 'cswap không chạy được' + (outcome.detail ? ': ' + outcome.detail : '') + '. Chưa đổi gì.';
+      else if (outcome.error === 'timeout' || outcome.error === 'exit') {
+        // cswap stopped without an answer; the app read the account in use again.
+        const head =
+          outcome.error === 'timeout'
+            ? 'cswap không trả lời trong 60 giây.'
+            : 'cswap dừng mà không báo kết quả' + (outcome.detail ? ' (' + outcome.detail + ')' : '') + '.';
+        body =
+          head +
+          (outcome.active != null
+            ? ' Đọc lại: đang dùng ' + nameOf(outcome.active) + '.'
+            : ' Bấm Làm mới để xem tài khoản đang dùng.');
+      } else body = 'cswap không chạy được' + (outcome.detail ? ': ' + outcome.detail : '') + '. Chưa đổi gì.';
       return {
         tone: 'bad',
         title: 'Chưa chuyển được sang ' + t,
         body,
-        actions: outcome.error === 'notFound' ? [CLOSE] : outcome.error === 'timeout' ? [{ label: 'Làm mới', act: 'refresh' }, CLOSE] : [retry, CLOSE],
+        actions:
+          outcome.error === 'notFound'
+            ? [CLOSE]
+            : outcome.active == null && (outcome.error === 'timeout' || outcome.error === 'exit')
+              ? [{ label: 'Làm mới', act: 'refresh' }, CLOSE]
+              : [retry, CLOSE],
       };
     }
   }

@@ -62,13 +62,13 @@ export function Banner(props: { banner: BannerView; onAction: (act: Action) => v
   );
 }
 
-export function Feedback({ fb, onAction }: { fb: FeedbackView; onAction?: (act: Action) => void }) {
+export function Feedback({ fb, onAction }: { fb: FeedbackView; onAction: (act: Action) => void }) {
   return (
     <div className={('fb ' + fb.tone).trim()} role="status">
       <div style={{ minWidth: 0, flex: 1 }}>
         <b>{fb.title}</b>
         <small>{fb.body}</small>
-        {fb.actions?.length && onAction ? (
+        {fb.actions?.length ? (
           <div className="acts">
             {fb.actions.map((a, i) => (
               <Button key={a.act} primary={i === 0 && fb.tone !== ''} onClick={() => onAction(a.act)}>

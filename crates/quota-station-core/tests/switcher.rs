@@ -74,6 +74,10 @@ fn the_pause_guard_lines() {
         parse_decision("paused indefinitely"),
         Decision::Paused { until: None, reason: None }
     );
+    // Other text after `paused` is not the guard, so it does not prove one.
+    assert_eq!(parse_decision("paused by someone else"), Decision::Other);
+    assert_eq!(parse_decision("paused until "), Decision::Other);
+    assert_eq!(parse_decision("paused indefinitelyish"), Decision::Other);
 }
 
 #[test]
