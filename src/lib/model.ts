@@ -95,6 +95,95 @@ export interface QuotaAxi {
   fork: boolean | null;
 }
 
+// ===== The switcher and manual switching (M3) =====
+
+/** Why the switcher would switch (`quota-station-core::switcher::Why`). Times are the switcher's local `HH:MM`. */
+export type Why =
+  | { kind: 'expiring'; at: string }
+  | { kind: 'early'; at: string; left: number; before: number }
+  | { kind: 'room'; used: number; ends: string | null }
+  | { kind: 'personal'; used: number }
+  | { kind: 'park'; at: string }
+  | { kind: 'other' };
+
+/** The switcher's `--dry-run` decision line, in parts. */
+export type Decision =
+  | { kind: 'stay' }
+  | { kind: 'unknown'; slot: number }
+  | { kind: 'waiting'; slot: number; at: string }
+  | { kind: 'switch'; slot: number; why: Why }
+  | { kind: 'wait' }
+  | { kind: 'paused'; until: string | null; reason: string | null }
+  | { kind: 'other' };
+
+export type LogEvent =
+  | { kind: 'switch'; slot: number }
+  | { kind: 'switchFailed'; slot: number }
+  | { kind: 'primed'; slot: number }
+  | { kind: 'pauseEnded' }
+  | { kind: 'other' };
+
+export interface LogLine {
+  /** RFC 3339. */
+  at: string | null;
+  event: LogEvent;
+  raw: string;
+}
+
+export interface PauseView {
+  /** RFC 3339; null pauses until the owner resumes. */
+  until: string | null;
+  reason: string | null;
+  /** The flag held when the model was built. */
+  holds: boolean;
+}
+
+export interface SwitcherView {
+  /** `cswap-prefer-team` is on this Mac. */
+  installed: boolean;
+  /** The pause flag; null when there is none. */
+  pause: PauseView | null;
+  dryRun: { decision: Decision; raw: string; at: string } | null;
+  dryRunError: string | null;
+  /** False: the switcher decided as if not paused while the flag held, so it does not read the flag yet. */
+  guard: boolean | null;
+  lastLog: LogLine | null;
+  /** `com.cswap.prefer-team` is loaded. */
+  service: boolean | null;
+  /** `com.cswap.auto`, claude-swap's own switcher, is loaded. */
+  autoService: boolean | null;
+}
+
+export interface ClaudeSwitchView {
+  /** claude-swap is on this Mac. */
+  cswap: boolean;
+  /** The slot a switch is running for. */
+  busy: number | null;
+}
+
+export interface Sessions {
+  live: number;
+  unreadable: number;
+}
+
+export interface Hold {
+  /** RFC 3339. */
+  until: string;
+  /** The pause flag could not be written. */
+  failed: boolean;
+}
+
+/** What a switch really did (`quota-station-core::switching::Outcome`). */
+export type Outcome =
+  | { kind: 'switched'; slot: number; hold: Hold | null }
+  | { kind: 'raced'; slot: number; active: number; bySwitcherAt: string | null; hold: Hold | null }
+  | { kind: 'unconfirmed'; slot: number; hold: Hold | null }
+  /**
+   * `active`: the account read again when cswap stopped without an answer (timed out, or ended
+   * without one). Null when cswap answered, and when that re-read found no active account.
+   */
+  | { kind: 'failed'; slot: number; error: string; detail: string; active: number | null };
+
 /** The main window's tabs in this build (`src-tauri/src/state.rs` `Tab`). */
 export type Tab = 'overview' | 'claude' | 'agy' | 'settings';
 
@@ -109,4 +198,6 @@ export interface Model {
   machineDefault: string;
   quotaAxi: QuotaAxi;
   granting: boolean;
+  switcher: SwitcherView;
+  claudeSwitch: ClaudeSwitchView;
 }

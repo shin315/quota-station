@@ -40,9 +40,9 @@ SOFTWARE.
 
 - Project: https://github.com/realiti4/claude-swap
 - How it is used: the app reads claude-swap's numbers only through
-  quota-axi's `claudeSwap` and `claudePool` sidecars. It does not run `cswap`
-  or open claude-swap's files. Later milestones will run `cswap` for
-  switching.
+  quota-axi's `claudeSwap` and `claudePool` sidecars. To switch the active
+  Claude account it runs one command, `cswap switch N --json`, when the owner
+  confirms. It does not open claude-swap's files.
 - License: MIT
 
 ```

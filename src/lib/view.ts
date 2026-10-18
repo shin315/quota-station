@@ -5,9 +5,24 @@
 
 import { age, clock, hours, minutesUntil, percent, resetShort, resetWords, room, secondsSince } from './format';
 import type { Account, ErrorView, Line, LineKind, Model, Pool, Section } from './model';
+import { pausedSummary, switcherBanner } from './switching';
 
 export type Tone = 'ok' | 'warn' | 'bad' | 'muted' | 'info';
-export type Action = 'refresh' | 'settings' | 'window' | 'keychain' | 'dismiss';
+export type Action =
+  | 'refresh'
+  | 'settings'
+  | 'window'
+  | 'keychain'
+  | 'dismiss'
+  /** Removes the pause flag. */
+  | 'resume'
+  /** One more hour on a timed pause. */
+  | 'addHour'
+  | 'closeFeedback'
+  | 'guide:auto'
+  | 'guide:switcher'
+  /** Opens the switch sheet for a Claude slot. */
+  | `switch:${number}`;
 
 export interface ChipView {
   t: string;
@@ -44,6 +59,12 @@ export interface RowView {
   lines: LineView[];
   label: string;
   title: string;
+  /** claude-swap slot or Cockpit account number. */
+  slot: number;
+  /** A Claude account the owner can switch to now. */
+  switchable: boolean;
+  /** Why this row cannot be switched to; '' when it can, or when it is the active one. */
+  off: string;
 }
 
 export interface PoolView {
@@ -176,6 +197,19 @@ interface RowContext {
   old: boolean;
   keychainRequired: boolean;
   personalHours: string | null;
+  /** Claude rows: what switching needs. Null for Antigravity, which switches in a later milestone. */
+  switching: { listed: boolean; cswap: boolean; busy: number | null } | null;
+}
+
+function offReason(a: Account, ctx: RowContext): string {
+  const sw = ctx.switching;
+  if (a.active) return '';
+  if (!sw) return 'Chuyển Antigravity có ở bản sau';
+  if (!sw.listed || a.number === 0) return '';
+  if (sw.busy != null) return 'Đang chuyển tài khoản';
+  if (!sw.cswap) return 'Chưa chuyển được: không tìm thấy cswap';
+  if (a.disabled) return 'Tài khoản đã tắt trong claude-swap';
+  return '';
 }
 
 function rowView(a: Account, kind: 'c' | 'g', names: { name: string; short: string }, ctx: RowContext): RowView {
@@ -207,6 +241,8 @@ function rowView(a: Account, kind: 'c' | 'g', names: { name: string; short: stri
   const lines = a.lines.map((l) => lineView(l, ctx.now));
   const tail = all.filter((c) => c.k !== 'on').map((c) => c.t);
   const where = a.number === 0 ? '' : kind === 'c' ? 'claude-swap · tài khoản ' + a.number : 'Cockpit · tài khoản ' + a.number;
+  const off = offReason(a, ctx);
+  const switchable = !!ctx.switching?.listed && a.number > 0 && !a.active && !off;
   return {
     key: kind + a.number,
     name: names.name,
@@ -224,8 +260,12 @@ function rowView(a: Account, kind: 'c' | 'g', names: { name: string; short: stri
       (a.active ? ', đang dùng' : '') +
       '. ' +
       lines.map((l) => l.words).join('. ') +
-      (tail.length ? '. ' + tail.join(', ') : ''),
-    title: where,
+      (tail.length ? '. ' + tail.join(', ') : '') +
+      (switchable ? '. Bấm để chuyển' : off ? '. ' + off : ''),
+    title: [where, off].filter(Boolean).join(' · '),
+    slot: a.number,
+    switchable,
+    off,
   };
 }
 
@@ -353,9 +393,13 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
     old,
     keychainRequired,
     personalHours: section.personalHours,
+    switching: null,
   });
+  const claudeSwitching = { listed: c.status === 'ok', cswap: model.claudeSwitch.cswap, busy: model.claudeSwitch.busy };
 
-  const claudeRows = c.accounts.map((a) => rowView(a, 'c', names.get(a.number)!, ctx(!!cErr, c)));
+  const claudeRows = c.accounts.map((a) =>
+    rowView(a, 'c', names.get(a.number)!, { ...ctx(!!cErr, c), switching: claudeSwitching }),
+  );
   const agyRows = g.status === 'notSetUp' ? [] : g.accounts.map((a) => rowView(a, 'g', agyName(a), ctx(!!gErr, g)));
   const active = c.accounts.find((a) => a.active);
   const activeName = active ? nameOf(active.number) : null;
@@ -371,10 +415,12 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
   const claudeAge = secondsSince(c.newestReadingAt, now);
   const staleWords = claudeAge != null ? age(claudeAge) : '';
 
-  // Summary (I11): only numbers already read, no forecast.
+  // Summary (I11): only numbers already read, no forecast. A held account comes first.
   const summary: PopoverView['summary'] = [];
   const pool = c.pool;
+  const held = pausedSummary(model, now);
   if (cErr) summary.push({ t: 'Không đọc được số mới' });
+  else if (held) summary.push({ t: held });
   else if (c.stale && staleWords) summary.push({ t: 'Hạn mức Claude chưa cập nhật trong ' + staleWords });
   else if (pool.exhausted)
     summary.push({ t: pool.nextRefillAt ? 'Claude cạn đến ' + clock(pool.nextRefillAt) : 'Claude đã cạn', bad: true });
@@ -394,7 +440,9 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
   // One banner at a time, most urgent first.
   let banner: BannerView | null = null;
   const pendingAccount = c.accounts.find((a) => a.reading === 'resetPending');
+  const switcher = switcherBanner(model, now);
   if (cErr) banner = errorBanner(cErr, lastClaude);
+  else if (switcher && switcher.tone !== 'info') banner = switcher;
   else if (pool.exhausted) {
     const who = pool.refills.map(nameOf);
     const at = clock(pool.nextRefillAt);
@@ -431,7 +479,7 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
       body: 'Đang chờ claude-swap đọc số mới. App không hiện 100% khi chưa có số thật.',
       actions: [{ label: 'Làm mới', act: 'refresh' }],
     };
-  }
+  } else if (switcher) banner = switcher;
 
   // Section notes.
   let claudeNote: NoteView | null = null;
@@ -445,6 +493,8 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
           : 'quota-axi không báo danh sách tài khoản của claude-swap.',
     };
   else if (c.status === 'notSetUp') claudeNote = { tone: '', text: 'Máy này chưa có Claude Code' };
+  else if (!model.claudeSwitch.cswap && c.accounts.some((a) => a.number > 0))
+    claudeNote = { tone: 'warn', text: 'Không tìm thấy cswap trên máy này: chưa chuyển được tài khoản Claude.' };
 
   let agyNote: NoteView | null = null;
   if (g.status === 'noSidecar') agyNote = { tone: '', text: 'Máy này chưa có Cockpit: chỉ thấy tài khoản đang dùng, chưa chuyển được' };
@@ -479,6 +529,21 @@ export interface FeedbackView {
   tone: '' | 'info' | 'warn' | 'bad';
   title: string;
   body: string;
+  /** Buttons under the line; a line with buttons stays until one is pressed. */
+  actions?: { label: string; act: Action }[];
+}
+
+/**
+ * The banner to show under a feedback line. A line that already says the
+ * account is held (it offers to resume, or reports the pause) makes the
+ * paused banner step aside rather than repeat it and its buttons; any other
+ * line leaves it in place.
+ */
+export function bannerUnder(banner: BannerView | null, feedback: FeedbackView | null | undefined): BannerView | null {
+  if (!banner || !feedback) return banner;
+  const paused = banner.tone === 'info' && banner.actions.some((a) => a.act === 'resume');
+  const repeats = feedback.tone === 'info' || !!feedback.actions?.some((a) => a.act === 'resume');
+  return paused && repeats ? null : banner;
 }
 
 export function refreshedFeedback(now: Date): FeedbackView {

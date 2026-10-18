@@ -7,12 +7,14 @@
 import { useState } from 'react';
 import { Button, Chip, Dot, Feedback } from '../components/parts';
 import type { Model } from '../lib/model';
-import type { FeedbackView, PopoverView } from '../lib/view';
+import type { Action, FeedbackView, PopoverView } from '../lib/view';
 
 export interface SettingsProps {
   model: Model;
   fresh: PopoverView['fresh'];
   feedback?: FeedbackView | null;
+  /** The buttons on a feedback line, the same as on the other tabs. */
+  onAction(act: Action): void;
   onSetPath(path: string): Promise<boolean>;
   onFind(): void;
   onGrant(): void;
@@ -79,7 +81,7 @@ function MachineName({ model, onSet }: { model: Model; onSet(name: string): Prom
   );
 }
 
-export function Settings({ model, fresh, feedback, onSetPath, onFind, onGrant, onSetMachine }: SettingsProps) {
+export function Settings({ model, fresh, feedback, onAction, onSetPath, onFind, onGrant, onSetMachine }: SettingsProps) {
   const [path, setPath] = useField(model.quotaAxi.path ?? '');
   const [refused, setRefused] = useState(false);
 
@@ -99,7 +101,7 @@ export function Settings({ model, fresh, feedback, onSetPath, onFind, onGrant, o
           {model.machine} · {fresh.text}
         </small>
       </div>
-      {feedback ? <Feedback fb={feedback} /> : null}
+      {feedback ? <Feedback fb={feedback} onAction={onAction} /> : null}
       <div className="card">
         <div className="form">
           <div className="fr">

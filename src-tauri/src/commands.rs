@@ -1,8 +1,15 @@
-//! What the windows can ask for. None of these switch an account or write
-//! anywhere but the app's own settings file.
+//! What the windows can ask for. Only [`switch_claude`] acts outside the
+//! app: it runs `cswap switch N --json` on this Mac when the owner confirms.
+//! The pause commands write the switcher's pause flag; the rest write only
+//! the app's own settings file.
 
 use quota_station_core::runner::{self, RunError};
+use quota_station_core::sessions::{self, Sessions};
+use quota_station_core::switching::{self, Outcome};
+use quota_station_core::{local_time, pause};
 use tauri::{AppHandle, State};
+use time::format_description::well_known::Rfc3339;
+use time::{Duration, OffsetDateTime};
 
 use crate::reader;
 use crate::state::{AppState, Model, Tab};
@@ -116,7 +123,7 @@ pub async fn grant_keychain(app: AppHandle, state: State<'_, AppState>) -> Resul
         inner.granting = false;
         match result {
             Ok(report) => {
-                inner.store_grant(report);
+                inner.store_claude(report);
                 Ok(())
             }
             Err(e) => Err(e.to_string()),
@@ -124,4 +131,122 @@ pub async fn grant_keychain(app: AppHandle, state: State<'_, AppState>) -> Resul
     };
     reader::publish(&app, &shared);
     outcome.map(|()| shared.lock().model())
+}
+
+/// How many Claude Code sessions run on this Mac now, for the switch sheet.
+/// `None` when the sessions folder cannot be read.
+#[tauri::command]
+pub fn claude_sessions(state: State<'_, AppState>) -> Option<Sessions> {
+    let dir = sessions::dir(&state.lock().home);
+    sessions::count(&dir).ok()
+}
+
+/// Switches Claude to `slot` with claude-swap, after the owner confirmed it
+/// on the sheet. With `hold_until` (RFC 3339) the switcher is paused until
+/// then. Reads the active account again five seconds later and reports
+/// what really happened.
+#[tauri::command]
+pub async fn switch_claude(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    slot: u32,
+    hold_until: Option<String>,
+) -> Result<Outcome, String> {
+    let shared = state.inner().clone();
+    let hold = match hold_until.as_deref() {
+        Some(text) => Some(OffsetDateTime::parse(text, &Rfc3339).map_err(|_| "badTime")?),
+        None => None,
+    };
+    let tools = {
+        let mut inner = shared.lock();
+        if inner.switching.is_some() {
+            return Err("busy".into());
+        }
+        let known = inner.snapshot().claude.accounts.iter().any(|a| a.number == slot && slot > 0);
+        if !known {
+            return Err("unknownSlot".into());
+        }
+        inner.switching = Some(slot);
+        inner.switch_tools()
+    };
+    reader::publish(&app, &shared);
+    let done = tauri::async_runtime::spawn_blocking(move || {
+        switching::switch_claude(&tools, slot, hold, switching::SETTLE)
+    })
+    .await;
+    {
+        let mut inner = shared.lock();
+        inner.switching = None;
+        if let Ok(Some(report)) = done.as_ref().map(|d| d.report.clone()) {
+            inner.store_claude(report);
+        }
+        inner.reload_pause();
+    }
+    shared.request_switcher();
+    reader::publish(&app, &shared);
+    done.map(|d| d.outcome).map_err(|e| e.to_string())
+}
+
+/// Pauses automatic switching until `until` (RFC 3339), or until the owner
+/// resumes when it is `None`.
+#[tauri::command]
+pub fn pause_switching(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    until: Option<String>,
+) -> Result<Model, String> {
+    let now = OffsetDateTime::now_utc();
+    let until = match until.as_deref() {
+        Some(text) => {
+            let t = OffsetDateTime::parse(text, &Rfc3339).map_err(|_| "badTime")?;
+            if t <= now {
+                return Err("past".into());
+            }
+            Some(local_time::minute(t))
+        }
+        None => None,
+    };
+    let flag = pause::Flag { until, reason: Some(pause::pause_reason(&local_time::clock(now))) };
+    write_flag(&app, &state, Some(flag))
+}
+
+/// Moves the end of a timed pause `minutes` later, keeping why it started.
+#[tauri::command]
+pub fn extend_pause(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    minutes: u32,
+) -> Result<Model, String> {
+    let file = pause::path(&state.lock().home);
+    let mut flag = pause::read(&file).map_err(|e| e.to_string())?.ok_or("notPaused")?;
+    let until = flag.until.as_deref().and_then(local_time::instant).ok_or("noEnd")?;
+    let from = until.max(OffsetDateTime::now_utc());
+    flag.until = Some(local_time::minute(from + Duration::minutes(i64::from(minutes))));
+    write_flag(&app, &state, Some(flag))
+}
+
+/// Lets the switcher switch again: removes the pause flag.
+#[tauri::command]
+pub fn resume_switching(app: AppHandle, state: State<'_, AppState>) -> Result<Model, String> {
+    write_flag(&app, &state, None)
+}
+
+fn write_flag(
+    app: &AppHandle,
+    state: &State<'_, AppState>,
+    flag: Option<pause::Flag>,
+) -> Result<Model, String> {
+    {
+        let mut inner = state.lock();
+        let file = pause::path(&inner.home);
+        match &flag {
+            Some(flag) => pause::write(&file, flag),
+            None => pause::remove(&file),
+        }
+        .map_err(|e| e.to_string())?;
+        inner.reload_pause();
+    }
+    state.request_switcher();
+    reader::publish(app, state);
+    Ok(state.lock().model())
 }

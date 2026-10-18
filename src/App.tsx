@@ -1,9 +1,22 @@
 // Window roots: the popover and the main window share one model, pushed by
 // the Rust reader after every read, so both always show the same snapshot.
+// Each window opens its own sheets; a switch running from one shows in both.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { SheetBody, type SheetState } from './components/Sheets';
 import type { Api } from './lib/api';
-import type { Model, Tab } from './lib/model';
+import type { Model, Sessions, Tab } from './lib/model';
+import {
+  autoView,
+  extendedFeedback,
+  pauseFailedFeedback,
+  pauseOf,
+  pausedFeedback,
+  resumedFeedback,
+  switchErrorFeedback,
+  switchFeedback,
+  type PauseChoice,
+} from './lib/switching';
 import { keychainFeedback, popoverView, refreshedFeedback, settingsFailedFeedback, type Action, type FeedbackView } from './lib/view';
 import { windowView } from './lib/window';
 import { Popover } from './popover/Popover';
@@ -47,7 +60,8 @@ function useFeedback(): [FeedbackView | null, (fb: FeedbackView | null) => void]
   const show = useCallback((next: FeedbackView | null) => {
     clearTimeout(timer.current);
     setFb(next);
-    if (next) timer.current = setTimeout(() => setFb(null), FEEDBACK_MS);
+    // A line with buttons waits for one of them.
+    if (next && !next.actions?.length) timer.current = setTimeout(() => setFb(null), FEEDBACK_MS);
   }, []);
   useEffect(() => () => clearTimeout(timer.current), []);
   return [fb, show];
@@ -80,6 +94,116 @@ function useActions(api: Api, model: Model | null, clock: () => Date, showFeedba
   return { busy: model?.granting ? ('keychain' as const) : busy, refresh, grant };
 }
 
+/**
+ * Switching Claude and pausing the switcher: the open sheet, the live session
+ * count it shows, the running switch, and the feedback after each action.
+ */
+function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeedback: (fb: FeedbackView | null) => void) {
+  const [sheet, setSheet] = useState<SheetState | null>(null);
+  const [sessions, setSessions] = useState<Sessions | null | 'loading'>('loading');
+  const [working, setWorking] = useState(false);
+  // The feedback after a switch names accounts from the newest model.
+  const latest = useRef(model);
+  latest.current = model;
+
+  const open = (next: SheetState) => {
+    setSheet(next);
+    if (next.kind !== 'claude') return;
+    setSessions('loading');
+    void api.claudeSessions().then(
+      (n) => setSessions(n),
+      () => setSessions(null),
+    );
+  };
+  const close = () => {
+    if (!working) setSheet(null);
+  };
+  // A switch from the other window landed on this sheet's account: there is
+  // nothing left to confirm.
+  const target = sheet?.kind === 'claude' ? model?.snapshot.claude.accounts.find((a) => a.number === sheet.slot) : undefined;
+  const landed = !!target?.active && model?.claudeSwitch.busy == null && !working;
+  useEffect(() => {
+    if (landed) setSheet(null);
+  }, [landed]);
+  const doSwitch = async (slot: number, holdUntil: Date | null) => {
+    setWorking(true);
+    try {
+      const outcome = await api.switchClaude(slot, holdUntil ? holdUntil.toISOString() : null);
+      if (latest.current) showFeedback(switchFeedback(outcome, latest.current, clock()));
+    } catch (e) {
+      if (latest.current) showFeedback(switchErrorFeedback(slot, e, latest.current));
+    } finally {
+      setWorking(false);
+      setSheet(null);
+    }
+  };
+  const pause = async (until: Date | null) => {
+    setSheet(null);
+    try {
+      showFeedback(pausedFeedback(await api.pauseSwitching(until ? until.toISOString() : null), clock()));
+    } catch {
+      showFeedback(pauseFailedFeedback(false));
+    }
+  };
+  const resume = async () => {
+    try {
+      await api.resumeSwitching();
+      showFeedback(resumedFeedback());
+    } catch {
+      showFeedback(pauseFailedFeedback(true));
+    }
+  };
+  const addHour = async () => {
+    try {
+      showFeedback(extendedFeedback(await api.extendPause(60), clock()));
+    } catch {
+      showFeedback(pauseFailedFeedback(false));
+    }
+  };
+  /** The toggle: on pauses through the sheet, off resumes at once. */
+  const toggle = () => {
+    if (model && pauseOf(model, clock())) void resume();
+    else open({ kind: 'pause', preset: '60' });
+  };
+  /** The switcher's actions on banners and feedback lines. Returns false for others. */
+  const act = (a: Action): boolean => {
+    if (a === 'resume') void resume();
+    else if (a === 'addHour') void addHour();
+    else if (a === 'closeFeedback') showFeedback(null);
+    else if (a === 'guide:auto' || a === 'guide:switcher') open({ kind: 'guide', id: a === 'guide:auto' ? 'auto' : 'switcher' });
+    else if (a.startsWith('switch:')) {
+      showFeedback(null);
+      open({ kind: 'claude', slot: Number(a.slice('switch:'.length)) });
+    } else return false;
+    return true;
+  };
+  const body = (now: Date, onSettings: () => void) =>
+    sheet && model ? (
+      <SheetBody
+        sheet={sheet}
+        model={model}
+        now={now}
+        clock={clock}
+        sessions={sessions}
+        working={working || (sheet.kind === 'claude' && model.claudeSwitch.busy === sheet.slot)}
+        onClose={close}
+        onSwitch={(slot, until) => void doSwitch(slot, until)}
+        onPause={(until) => void pause(until)}
+        onSettings={onSettings}
+      />
+    ) : null;
+  return {
+    sheet,
+    open,
+    close,
+    toggle,
+    act,
+    body,
+    openSwitch: (slot: number) => open({ kind: 'claude', slot }),
+    openPause: (preset: PauseChoice) => open({ kind: 'pause', preset }),
+  };
+}
+
 export interface AppProps {
   api: Api;
   clock?: () => Date;
@@ -93,18 +217,32 @@ export function PopoverApp({ api, clock = systemClock }: AppProps) {
   const [feedback, showFeedback] = useFeedback();
   const [keychainLater, setKeychainLater] = useState(false);
   const { busy, refresh, grant } = useActions(api, model, clock, showFeedback);
+  const switching = useSwitching(api, model, clock, showFeedback);
+  const sheetOpen = !!switching.sheet;
+  const closeSheet = useRef(switching.close);
+  closeSheet.current = switching.close;
 
+  // Escape closes an open sheet first, then the popover. Losing focus hides
+  // the popover, and a sheet that is not switching goes with it.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') void api.hidePopover();
+      if (e.key !== 'Escape') return;
+      if (sheetOpen) closeSheet.current();
+      else void api.hidePopover();
     };
+    const onBlur = () => closeSheet.current();
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [api]);
+    window.addEventListener('blur', onBlur);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('blur', onBlur);
+    };
+  }, [api, sheetOpen]);
 
   const onHeight = useCallback((h: number) => void api.resizePopover(h), [api]);
 
   const onAction = (act: Action) => {
+    if (switching.act(act)) return;
     if (act === 'settings') return void api.openWindow('settings');
     if (act === 'window') return void api.openWindow('overview');
     if (act === 'dismiss') return setKeychainLater(true);
@@ -114,7 +252,20 @@ export function PopoverApp({ api, clock = systemClock }: AppProps) {
 
   if (!model) return null;
   const view = popoverView(model, now, { keychainLater });
-  return <Popover view={view} feedback={feedback} busy={busy} onAction={onAction} onHeight={onHeight} />;
+  return (
+    <Popover
+      view={view}
+      auto={autoView(model, now)}
+      feedback={feedback}
+      busy={busy}
+      onAction={onAction}
+      onSwitch={switching.openSwitch}
+      onToggle={switching.toggle}
+      sheet={switching.body(now, () => void api.openWindow('settings'))}
+      onCloseSheet={switching.close}
+      onHeight={onHeight}
+    />
+  );
 }
 
 export function MainWindowApp({ api, clock = systemClock }: AppProps) {
@@ -124,6 +275,19 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   const [keychainLater, setKeychainLater] = useState(false);
   const [tab, setTab] = useState<Tab | null>(null);
   const { busy, refresh, grant } = useActions(api, model, clock, showFeedback);
+  const switching = useSwitching(api, model, clock, showFeedback);
+  const sheetOpen = !!switching.sheet;
+  const closeSheet = useRef(switching.close);
+  closeSheet.current = switching.close;
+
+  useEffect(() => {
+    if (!sheetOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeSheet.current();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [sheetOpen]);
 
   // The tab the window was opened for, then any tab asked for while it is open.
   useEffect(() => {
@@ -141,6 +305,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   }, [api]);
 
   const onAction = (act: Action) => {
+    if (switching.act(act)) return;
     if (act === 'settings') return setTab('settings');
     if (act === 'dismiss') return setKeychainLater(true);
     if (act === 'refresh') return void refresh();
@@ -154,6 +319,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       model={model}
       fresh={view.fresh}
       feedback={feedback}
+      onAction={onAction}
       onSetPath={(path) =>
         api.setQuotaAxiPath(path).then(
           () => true,
@@ -179,9 +345,17 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       view={view}
       busy={busy}
       feedback={feedback}
+      now={now}
       onTab={setTab}
       onAction={onAction}
+      onSwitch={switching.openSwitch}
+      onToggle={switching.toggle}
+      onPause={switching.openPause}
       settings={settings}
+      dialog={switching.body(now, () => {
+        switching.close();
+        setTab('settings');
+      })}
     />
   );
 }

@@ -23,25 +23,37 @@ async function open(model: Model) {
 afterEach(cleanup);
 
 describe('popover', () => {
-  it('shows numbers only: every account, no switching control', async () => {
+  it('shows every account: Claude rows switch, the active row and Antigravity rows do not', async () => {
     const fake = await open(fixtureModel('fresh'));
     expect(screen.getByText('Mac mini · cập nhật 40 giây trước')).toBeTruthy();
     expect(screen.getByText('Claude còn tương đương 2,3 tài khoản')).toBeTruthy();
 
     const claude = screen.getByRole('list', { name: 'CLAUDE CODE' });
-    const rows = within(claude).getAllByRole('listitem');
+    const rows = within(claude).getAllByRole('listitem').map((li) => within(li).getByRole('button'));
     expect(rows).toHaveLength(4);
     expect(rows[1].getAttribute('aria-label')).toMatch(/^Team A \(claude-swap, tài khoản 2\), đang dùng\./);
-    expect(within(screen.getByRole('list', { name: 'ANTIGRAVITY' })).getAllByRole('listitem')).toHaveLength(2);
+    expect(rows[1].getAttribute('aria-disabled')).toBe('true');
+    expect(rows[2].getAttribute('aria-label')).toMatch(/^Team B .*\. Bấm để chuyển$/);
+    expect(rows[2].getAttribute('aria-disabled')).toBeNull();
 
-    // The header's two buttons are the only ones: rows and pools switch nothing yet.
-    expect(screen.getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual([
-      'Cài đặt',
-      'Mở cửa sổ chính',
-    ]);
-    fireEvent.click(rows[2]);
-    expect(fake.api.grantKeychain).not.toHaveBeenCalled();
+    const agy = within(screen.getByRole('list', { name: 'ANTIGRAVITY' })).getAllByRole('button');
+    expect(agy).toHaveLength(2);
+    const ultra1 = agy.find((b) => !b.getAttribute('aria-label')!.includes('đang dùng'))!;
+    expect(ultra1.getAttribute('aria-disabled')).toBe('true');
+    expect(ultra1.getAttribute('title')).toBe('Cockpit · tài khoản 1 · Chuyển Antigravity có ở bản sau');
+    fireEvent.click(ultra1);
+    fireEvent.click(rows[1]);
+    expect(screen.queryByRole('dialog', { name: /Chuyển/ })).toBeNull();
+    expect(fake.api.claudeSessions).not.toHaveBeenCalled();
     expect(fake.api.resizePopover).toHaveBeenCalled();
+  });
+
+  it('the footer has the automatic switching toggle and why Claude is on its account', async () => {
+    await open(fixtureModel('fresh'));
+    const toggle = screen.getByRole('switch', { name: 'Tự chuyển Claude' });
+    expect(toggle.getAttribute('aria-checked')).toBe('true');
+    expect(screen.getByText('14:19 · Vẫn dùng Team A: chưa tới ngưỡng tự chuyển.')).toBeTruthy();
+    expect(screen.getByText('09:12 · Switcher chuyển sang Team A.')).toBeTruthy();
   });
 
   it('opens the main window on settings from the gear, on Tổng quan from the window button, and hides on Escape', async () => {

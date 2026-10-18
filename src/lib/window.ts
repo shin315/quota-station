@@ -5,6 +5,7 @@
 
 import { age, clock, minutesUntil, secondsSince } from './format';
 import type { Account, LineKind, Model, Section } from './model';
+import { autoView, dayClock, namesOf, pauseOf, type AutoView } from './switching';
 import { agyName, claudeNames, popoverView, type BannerView, type ChipView, type NoteView, type PoolView, type PopoverView, type RowView, type ViewOptions } from './view';
 
 export interface BigPoolView {
@@ -62,6 +63,14 @@ export interface WindowView {
     cockpit: KeyValue[];
   };
   upcoming: UpcomingView[];
+  /** Automatic switching and why Claude is on its account (F07). */
+  auto: AutoView;
+  /** "Vì sao đang ở Team A". */
+  whyTitle: string;
+  /** The Claude tab's own banner: the switcher's LaunchAgent is not loaded. */
+  claudeBanner: BannerView | null;
+  /** The Claude tab's Switcher card. */
+  switcher: KeyValue[];
 }
 
 /** How far ahead Sắp tới looks. */
@@ -188,6 +197,46 @@ function cockpitRows(g: Section, failing: boolean): KeyValue[] {
   return rows;
 }
 
+// ===== The switcher (F07) =====
+
+function switcherRows(model: Model, now: Date): KeyValue[] {
+  const sw = model.switcher;
+  const chip = (t: string, k: ChipView['k']): ChipView => ({ t, k });
+  const service = !sw.installed
+    ? chip('không có trên máy này', 'bad')
+    : sw.service === true
+      ? chip('chạy mỗi 3 phút', 'ok')
+      : sw.service === false
+        ? chip('chưa nạp', 'bad')
+        : chip('không rõ', '');
+  const auto = sw.autoService === true ? chip('đang nạp', 'warn') : sw.autoService === false ? chip('tắt', 'ok') : chip('không rõ', '');
+  const p = pauseOf(model, now);
+  const rows: KeyValue[] = [
+    { key: 'LaunchAgent cswap-prefer-team', value: service.t, chip: service },
+    { key: 'Nhật ký gần nhất', value: sw.lastLog?.at ? dayClock(sw.lastLog.at, now) : '—' },
+    { key: 'com.cswap.auto', value: auto.t, chip: auto },
+    { key: 'Tạm dừng tự chuyển', value: p ? (p.until ? 'đến ' + dayClock(p.until, now) : 'đến khi bật lại') : 'không' },
+  ];
+  if (sw.guard != null) {
+    const guard = sw.guard ? chip('có', 'ok') : chip('chưa', 'bad');
+    rows.push({ key: 'Switcher đọc cờ tạm dừng', value: guard.t, chip: guard });
+  }
+  return rows;
+}
+
+function claudeBanner(model: Model): BannerView | null {
+  if (!model.switcher.installed || model.switcher.service !== false) return null;
+  return {
+    tone: 'bad',
+    title: 'Switcher không chạy',
+    body: 'LaunchAgent com.cswap.prefer-team chưa được nạp, nên switcher không tự chuyển Claude. Số vẫn cập nhật khi claude-swap làm mới.',
+    actions: [
+      { label: 'Hướng dẫn nạp lại', act: 'guide:switcher' },
+      { label: 'Làm mới', act: 'refresh' },
+    ],
+  };
+}
+
 // ===== The window =====
 
 export function windowView(model: Model, now: Date, options: ViewOptions = {}): WindowView {
@@ -224,5 +273,12 @@ export function windowView(model: Model, now: Date, options: ViewOptions = {}): 
       cockpit: cockpitRows(g, !!gErr),
     },
     upcoming: upcoming(model, now),
+    auto: autoView(model, now),
+    whyTitle: (() => {
+      const active = c.accounts.find((a) => a.active && a.number > 0);
+      return 'Vì sao đang ở ' + (active ? namesOf(model)(active.number) : 'tài khoản này');
+    })(),
+    claudeBanner: claudeBanner(model),
+    switcher: switcherRows(model, now),
   };
 }

@@ -30,8 +30,23 @@ pub struct Icon {
     pub agy: Option<f64>,
     /// Draw the Antigravity bar: false where this Mac has no Antigravity.
     pub show_agy: bool,
+    /// Automatic switching is paused: two upright bars after the glyph.
+    pub paused: bool,
     /// What VoiceOver reads and the tooltip shows.
     pub label: String,
+}
+
+impl Icon {
+    /// Marks automatic switching as paused, as `qs-tray-paused.svg` draws
+    /// it. An empty rotation or no number keeps its own glyph: that matters
+    /// more than the pause.
+    pub fn with_pause(mut self, paused: bool) -> Icon {
+        if paused && matches!(self.tone, Tone::Ok | Tone::Warn) {
+            self.paused = true;
+            self.label.push_str(". Tự chuyển đang tạm dừng");
+        }
+        self
+    }
 }
 
 /// Room in accounts, one decimal, Vietnamese comma: `2,3`.
@@ -64,6 +79,7 @@ pub fn icon(snapshot: Option<&Snapshot>, failing: bool) -> Icon {
             claude: None,
             agy: None,
             show_agy: snapshot.is_none_or(|s| s.agy.status != SectionStatus::NotSetUp),
+            paused: false,
             label: "Quota Station. Claude: chưa đọc được".to_string(),
         };
     };
@@ -104,30 +120,35 @@ pub fn icon(snapshot: Option<&Snapshot>, failing: bool) -> Icon {
         claude: claude.percent,
         agy: if show_agy { s.agy.pool.percent } else { None },
         show_agy,
+        paused: false,
         label,
     }
 }
 
 /// Frame of the glyph in points: the sketch's 18 pt template frame.
 pub const GLYPH_POINTS: u32 = 18;
+/// Width of the paused glyph, `qs-tray-paused.svg`: the bars and a pause sign.
+pub const PAUSED_POINTS: u32 = 26;
 
 /// Renders the glyph as a template image: black, with coverage in alpha.
-/// Returns RGBA rows of `18 * scale` square pixels.
+/// Returns RGBA rows, `18 * scale` pixels high and as wide, or 26 points
+/// wide while paused, with the width and height.
 pub fn render_glyph(icon: &Icon, scale: u32) -> (Vec<u8>, u32, u32) {
-    let size = GLYPH_POINTS * scale;
+    let height = GLYPH_POINTS * scale;
+    let width = if icon.paused { PAUSED_POINTS } else { GLYPH_POINTS } * scale;
     let s = f64::from(scale);
-    let mut rgba = vec![0u8; (size * size * 4) as usize];
-    for py in 0..size {
-        for px in 0..size {
+    let mut rgba = vec![0u8; (width * height * 4) as usize];
+    for py in 0..height {
+        for px in 0..width {
             // Sample at the pixel centre, in points.
             let x = (f64::from(px) + 0.5) / s;
             let y = (f64::from(py) + 0.5) / s;
             let a = coverage(icon, x, y, s);
-            let i = ((py * size + px) * 4) as usize;
+            let i = ((py * width + px) * 4) as usize;
             rgba[i + 3] = (a * 255.0).round() as u8;
         }
     }
-    (rgba, size, size)
+    (rgba, width, height)
 }
 
 /// Bar geometry from `qs-tray-base.svg`: an outlined capsule and a fill
@@ -157,6 +178,12 @@ fn coverage(icon: &Icon, x: f64, y: f64, scale: f64) -> f64 {
         &[(6.9, icon.claude)]
     };
     let mut cover: f64 = 0.0;
+    if icon.paused {
+        // qs-tray-paused.svg: two 2.2 × 9 pt bars right of the glyph.
+        for x0 in [19.2, 23.1] {
+            cover = cover.max(aa(round_rect(x, y, x0, 4.5, 2.2, 9.0, 1.0)));
+        }
+    }
     for &(top, percent) in tops {
         let ring = round_rect(x, y, BAR_X, top, BAR_W, BAR_H, BAR_H / 2.0).abs() - BAR_STROKE / 2.0;
         cover = cover.max(aa(ring));

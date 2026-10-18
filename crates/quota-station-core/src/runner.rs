@@ -3,8 +3,9 @@
 //! The app only ever runs quota-axi reads. Every read passes
 //! `--no-credential-refresh` and reuses quota-axi's shared cache with
 //! `--max-age`, so a refresh adds no vendor call while the cache is young.
-//! The one exception is [`grant_keychain`], which the user starts from a
-//! button: it lets quota-axi ask macOS for Keychain access once.
+//! [`read_fresh`] skips the cache, for the check right after a switch. The
+//! one exception is [`grant_keychain`], which the user starts from a button:
+//! it lets quota-axi ask macOS for Keychain access once.
 
 use std::ffi::OsString;
 use std::io::Read;
@@ -74,9 +75,22 @@ impl std::error::Error for RunError {}
 
 /// The read the app makes for one provider.
 pub fn read_args(provider: ProviderId) -> Vec<String> {
-    ["--provider", provider.as_str(), "--json", "--max-age", MAX_AGE, "--no-credential-refresh"]
+    read_args_with(provider, MAX_AGE)
+}
+
+fn read_args_with(provider: ProviderId, max_age: &str) -> Vec<String> {
+    ["--provider", provider.as_str(), "--json", "--max-age", max_age, "--no-credential-refresh"]
         .map(String::from)
         .to_vec()
+}
+
+/// The same read without the shared cache (`--max-age 0` always asks the
+/// vendor). quota-axi names claude-swap's active slot by the identity of the
+/// Claude reading, and a reused reading taken before a switch still carries
+/// the previous account's identity, since a Keychain login is not one of the
+/// files quota-axi checks before reusing.
+pub fn fresh_read_args(provider: ProviderId) -> Vec<String> {
+    read_args_with(provider, "0")
 }
 
 /// One Claude read that may show the macOS Keychain prompt, the remedy
@@ -89,6 +103,10 @@ pub fn grant_args() -> Vec<String> {
 
 pub fn read(path: &Path, provider: ProviderId) -> Result<Response, RunError> {
     report(path, &read_args(provider), READ_TIMEOUT)
+}
+
+pub fn read_fresh(path: &Path, provider: ProviderId) -> Result<Response, RunError> {
+    report(path, &fresh_read_args(provider), READ_TIMEOUT)
 }
 
 pub fn grant_keychain(path: &Path) -> Result<Response, RunError> {
@@ -126,13 +144,15 @@ fn report(path: &Path, args: &[String], timeout: Duration) -> Result<Response, R
     }
 }
 
-struct Output {
-    code: Option<i32>,
-    stdout: Vec<u8>,
-    stderr: Vec<u8>,
+pub(crate) struct Output {
+    pub code: Option<i32>,
+    pub stdout: Vec<u8>,
+    pub stderr: Vec<u8>,
 }
 
-fn run(path: &Path, args: &[String], timeout: Duration) -> Result<Output, RunError> {
+/// Runs `path` with `args`, stopping it at `timeout`. Also runs claude-swap
+/// and the switcher, which take the same care.
+pub(crate) fn run(path: &Path, args: &[String], timeout: Duration) -> Result<Output, RunError> {
     if !path.is_file() {
         return Err(RunError::NotFound(path.to_path_buf()));
     }
@@ -175,7 +195,7 @@ fn run(path: &Path, args: &[String], timeout: Duration) -> Result<Output, RunErr
     })
 }
 
-fn first_line(bytes: &[u8]) -> String {
+pub(crate) fn first_line(bytes: &[u8]) -> String {
     String::from_utf8_lossy(bytes).lines().next().unwrap_or("").trim().to_string()
 }
 

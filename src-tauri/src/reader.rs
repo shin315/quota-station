@@ -1,16 +1,20 @@
 //! The reader thread: runs quota-axi on the schedule and pushes each result
-//! to the menu bar and the windows.
+//! to the menu bar and the windows. It also looks at the switcher: the pause
+//! flag on every read, and the dry run, log and launchd while a window is
+//! open or after the owner acted.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime};
 
 use quota_station_core::axi::Response;
 use quota_station_core::runner::{self, ProviderId, RunError};
-use quota_station_core::schedule;
+use quota_station_core::switcher::{self, DryRunError};
+use quota_station_core::{local_time, pause, schedule};
 use tauri::{AppHandle, Emitter};
+use time::OffsetDateTime;
 
-use crate::state::{AppState, Inner};
+use crate::state::{AppState, DryRunRecord, Inner};
 use crate::tray;
 
 /// The longest single wait, so a sleep of the Mac is noticed soon after it wakes.
@@ -26,8 +30,11 @@ pub fn spawn(app: AppHandle, state: AppState) {
 fn run(app: &AppHandle, state: &AppState) {
     loop {
         let mut inner = state.lock();
-        let wait =
-            if inner.read_now { Duration::ZERO } else { inner.schedule.due_in(Instant::now()) };
+        let wait = if inner.read_now || inner.switcher_now {
+            Duration::ZERO
+        } else {
+            inner.schedule.due_in(Instant::now())
+        };
         if !wait.is_zero() {
             let (mono, wall) = (Instant::now(), SystemTime::now());
             let (mut inner, _) = state
@@ -40,6 +47,20 @@ fn run(app: &AppHandle, state: &AppState) {
             }
             continue;
         }
+        let home = inner.home.clone();
+        // A switcher look on its own, between reads.
+        let read_due = inner.read_now || inner.schedule.due_in(Instant::now()).is_zero();
+        let pause_generation = inner.switcher.pause_generation;
+        if !read_due {
+            inner.switcher_now = false;
+            drop(inner);
+            let check = check_switcher(&home, true, pause_generation);
+            check.store(&mut state.lock());
+            publish(app, state);
+            continue;
+        }
+        let full = inner.switcher_now || inner.schedule.visible();
+        inner.switcher_now = false;
         inner.read_now = false;
         inner.reading = true;
         let path = inner.quota_axi();
@@ -49,6 +70,9 @@ fn run(app: &AppHandle, state: &AppState) {
         drop(inner);
         publish(app, state);
 
+        // The switcher check runs beside the read, and the numbers are shown
+        // as soon as they are in: a slow dry run never holds them back.
+        let switcher = thread::spawn(move || check_switcher(&home, full, pause_generation));
         let (claude, agy) = read_both(path.clone());
         let version = path.filter(|_| check_version).map(|p| {
             let v = runner::version(&p).map_err(|e| e.to_string());
@@ -65,6 +89,73 @@ fn run(app: &AppHandle, state: &AppState) {
         inner.schedule.mark_read(Instant::now());
         drop(inner);
         publish(app, state);
+
+        if let Ok(check) = switcher.join() {
+            check.store(&mut state.lock());
+            publish(app, state);
+        }
+    }
+}
+
+/// One look at the switcher. Without `full`, only the pause flag.
+struct SwitcherCheck {
+    pause: Option<pause::Flag>,
+    /// The flag's generation when the check started.
+    pause_generation: u64,
+    full: Option<FullCheck>,
+}
+
+struct FullCheck {
+    dry_run: Result<DryRunRecord, DryRunError>,
+    last_log: Option<switcher::LogLine>,
+    service: Option<bool>,
+    auto_service: Option<bool>,
+}
+
+fn check_switcher(home: &Path, full: bool, pause_generation: u64) -> SwitcherCheck {
+    let flag_file = pause::path(home);
+    let pause = pause::read(&flag_file).ok().flatten();
+    let full = full.then(|| {
+        let at = OffsetDateTime::now_utc();
+        let flag_held = pause.as_ref().is_some_and(|f| f.holds(&local_time::stamp(at)));
+        let launchctl = Path::new(switcher::LAUNCHCTL);
+        FullCheck {
+            dry_run: switcher::dry_run(&switcher::script(home)).map(|run| DryRunRecord {
+                run,
+                at,
+                flag_held,
+            }),
+            last_log: switcher::last_log_line(&switcher::log_file(home)),
+            service: switcher::service_loaded(launchctl, switcher::SERVICE),
+            auto_service: switcher::service_loaded(launchctl, switcher::AUTO_SERVICE),
+        }
+    });
+    SwitcherCheck { pause, pause_generation, full }
+}
+
+impl SwitcherCheck {
+    fn store(self, inner: &mut Inner) {
+        let sw = &mut inner.switcher;
+        // A command changed the flag after this check read it: keep the newer.
+        if sw.pause_generation == self.pause_generation {
+            sw.pause = self.pause;
+        }
+        if let Some(full) = self.full {
+            match full.dry_run {
+                Ok(record) => {
+                    sw.dry_run = Some(record);
+                    sw.dry_run_error = None;
+                }
+                Err(e) => {
+                    sw.dry_run = None;
+                    sw.dry_run_error = Some(e.kind());
+                }
+            }
+            sw.last_log = full.last_log;
+            sw.service = full.service;
+            sw.auto_service = full.auto_service;
+            sw.checked_at = Some(Instant::now());
+        }
     }
 }
 
@@ -115,7 +206,8 @@ pub fn publish(app: &AppHandle, state: &AppState) {
         let snapshot = inner.snapshot();
         let failing = inner.claude_error.is_some();
         let has_data = inner.claude.is_some();
-        let icon = quota_station_core::icon(has_data.then_some(&snapshot), failing);
+        let icon = quota_station_core::icon(has_data.then_some(&snapshot), failing)
+            .with_pause(inner.switcher.paused(OffsetDateTime::now_utc()));
         (inner.model(), icon)
     };
     tray::apply(app, &icon);
@@ -149,7 +241,7 @@ mod tests {
     fn a_read_started_before_a_keychain_grant_keeps_the_granted_report() {
         let mut inner = inner();
         let started = inner.claude_generation;
-        inner.store_grant(report(GRANTED));
+        inner.store_claude(report(GRANTED));
         store(&mut inner, started, Ok(report(REQUIRED)), Ok(report(AGY)));
         assert_eq!(inner.snapshot().keychain, Keychain::Granted);
         assert!(inner.agy.is_some());
@@ -157,5 +249,22 @@ mod tests {
         let next = inner.claude_generation;
         store(&mut inner, next, Ok(report(REQUIRED)), Ok(report(AGY)));
         assert_eq!(inner.snapshot().keychain, Keychain::Required);
+    }
+
+    #[test]
+    fn a_switcher_check_that_read_the_flag_before_a_pause_keeps_the_pause() {
+        let mut inner = inner();
+        let started = inner.switcher.pause_generation;
+        // The owner pauses while a check that saw no flag is running.
+        let flag = pause::Flag { until: None, reason: Some("tạm dừng".into()) };
+        inner.switcher.pause = Some(flag.clone());
+        inner.switcher.pause_generation += 1;
+        SwitcherCheck { pause: None, pause_generation: started, full: None }.store(&mut inner);
+        assert_eq!(inner.switcher.pause, Some(flag));
+
+        // A check that started after the pause is taken as it is.
+        let now = inner.switcher.pause_generation;
+        SwitcherCheck { pause: None, pause_generation: now, full: None }.store(&mut inner);
+        assert_eq!(inner.switcher.pause, None);
     }
 }

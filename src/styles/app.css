@@ -28,7 +28,7 @@ body.popover-window {
   max-height: 100vh;
 }
 
-/* Rows only show numbers in this milestone: no hover, no pointer. */
+/* The one account a provider row reads without a sidecar: nothing to switch to. */
 .qs .row.ro {
   cursor: default;
 }
@@ -74,14 +74,11 @@ body:not(.preview) .qs.app-window .lights i {
   background: transparent;
 }
 
-/* Window tables show numbers only in this milestone: no switch column. */
-.qs .tbl.ro .tr {
-  grid-template-columns: 24px minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1fr);
+/* The Claude tab's table adds a freshness column before the switch button. */
+.qs .tbl.withfresh .tr {
+  grid-template-columns: 24px minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1fr) 112px 78px;
 }
-.qs .tbl.ro.withfresh .tr {
-  grid-template-columns: 24px minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1fr) 132px;
-}
-.qs .tbl.ro .tr .fresh {
+.qs .tbl .tr .fresh {
   justify-self: start;
 }
 .qs .card .pline {
@@ -101,6 +98,11 @@ body:not(.preview) .qs.app-window .lights i {
 }
 .qs .list .dot {
   margin-right: 6px;
+}
+
+/* The dialog layer covers the whole window, sidebar included. */
+.qs.app-window .dlg-wrap {
+  border-radius: inherit;
 }
 
 /* Browser preview (npm run dev, outside Tauri): the popover on a desktop. */
