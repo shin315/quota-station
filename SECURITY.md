@@ -52,6 +52,9 @@ Files, under `~/Library/Application Support/com.shin315.quota-station/`:
   (time, account ids, the button pressed and the result of the last 200
   switches) and `watch.json` (the six-hour watch of the last switch). The
   files are mode 600; logging out removes the account's reading.
+- `update/install.log` (M7, mode 600): the output of the last
+  `Cập nhật từ mã nguồn` build, which names folders on this Mac and nothing
+  secret; each update replaces it.
 - `history/history.jsonl` and `alerts/alerts.json` (M6, folders mode 700,
   files mode 600): the switch history (time, Claude slot numbers or the
   app's Antigravity account ids, how a switch was made, at most 500 lines)
@@ -111,6 +114,25 @@ touched (a token refreshed for the switch stays in the app's own item, and
 the attempt is logged). `Chuyển`, offered while the app was not running,
 stops the same way if it runs again by then.
 
+## Installing, updating and launching at login (M7)
+
+- `scripts/install.sh` signs with an `Apple Development` identity it finds
+  with `security find-identity -v -p codesigning` (a list of names, no
+  secret), or ad-hoc. It writes only the build folder and
+  `<Applications folder>/Quota Station.app`, removes only the quarantine
+  mark on that copy, never adds a login item or a launchd job, and never
+  uses `sudo`. A copy given with `--app` must carry the app's bundle id and
+  a valid signature.
+- `Cập nhật từ mã nguồn` runs the clone the owner sets in `Cài đặt`: the
+  code it builds is whatever that clone's upstream holds, as when the owner
+  builds by hand. git runs with prompts off, so it never waits for a
+  password, and with `--ff-only`, so it never merges or resets a clone with
+  local changes. It runs only when the owner presses the button.
+- `Mở khi đăng nhập` uses macOS's `SMAppService.mainApp`, only when the
+  owner turns the switch on or off; macOS shows the item in System Settings
+  › General › Login Items, where the owner can turn it off as well. Nothing
+  registers it on install or at start.
+
 ## How the tests hold the app to this
 
 - Every file the Antigravity code opens goes through one guard
@@ -145,6 +167,12 @@ stops the same way if it runs again by then.
   refuse to run in one, so no test can reach Google, the real Keychain or
   the real Antigravity.app.
 - CI has no Keychain access and no Google account.
+- The install tests run `scripts/install.sh` in a temporary folder with fake
+  `open` and `security`, and fakes of `launchctl`, `osascript` and `sfltool`
+  that fail the test if they run; the update tests use temporary git
+  repositories and a fake install script; the login item tests use a fake
+  backend. No test opens an app, writes to `/Applications` or registers a
+  login item.
 
 ## Terms of service
 

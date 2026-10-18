@@ -9,13 +9,17 @@
 //! their quota itself and leaves it where quota-axi reads it, and since M4c
 //! it switches the Antigravity account without Cockpit Tools. Since M6 it
 //! keeps a history of the switches, sends five alerts as macOS cards with
-//! buttons, and shows what Firstmate sees.
+//! buttons, and shows what Firstmate sees. Since M7 it can launch at login
+//! (a switch in settings, off by default) and update itself from a clone of
+//! its source with `scripts/install.sh`.
 
 mod agy_quota;
 mod agy_switch;
 mod alerting;
 mod antigravity;
 mod commands;
+mod install;
+mod login_item;
 mod notify;
 mod reader;
 mod rules;
@@ -42,7 +46,11 @@ fn main() {
 
             let home = app.path().home_dir()?;
             let settings_file = app.path().app_config_dir()?.join("settings.json");
-            let state = Shared::new(Inner::new(home, settings_file, machine_name()));
+            let mut inner = Inner::new(home, settings_file, machine_name());
+            inner.app_version = app.package_info().version.to_string();
+            let state = Shared::new(inner);
+            // Only asks macOS: the app never registers itself.
+            install::read_login(&state);
             app.manage(state.clone());
             state.lock().center = Some(std::sync::Arc::new(alerting::start_center(app.handle())));
 
@@ -98,6 +106,12 @@ fn main() {
             alerting::get_history,
             alerting::notify_refresh,
             alerting::open_notification_settings,
+            install::settings_opened,
+            install::set_launch_at_login,
+            install::open_login_items,
+            install::set_source_dir,
+            install::update_from_source,
+            install::relaunch,
         ])
         .run(tauri::generate_context!())
         .expect("Quota Station failed to start");

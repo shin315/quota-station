@@ -16,6 +16,11 @@
 //! `ssh` reading the other Macs' rotation file, `launchctl list`, and
 //! `plutil -p` on Antigravity's `Info.plist`. It reads Firstmate's
 //! `quota-pool.last` ([`firstmate`]) only at the path set in settings.
+//!
+//! [`update`] runs, only when the owner presses `Cập nhật từ mã nguồn`,
+//! `git pull --ff-only` in the clone set in settings and that clone's
+//! `scripts/install.sh`, which replaces the installed app. [`login_item`]
+//! turns launching at login on or off through a backend the app gives it.
 
 pub mod alerts;
 pub mod antigravity;
@@ -25,6 +30,7 @@ pub mod firstmate;
 pub mod history;
 pub mod icon;
 pub mod local_time;
+pub mod login_item;
 pub mod pause;
 pub mod peers;
 pub mod rotation;
@@ -36,6 +42,7 @@ pub mod snapshot;
 pub mod switcher;
 pub mod switching;
 mod time_util;
+pub mod update;
 
 pub use icon::{icon, Icon, Tone};
 pub use snapshot::Snapshot;

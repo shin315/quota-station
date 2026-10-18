@@ -489,6 +489,45 @@ export interface FirstmateView {
   ownDry: boolean | null;
 }
 
+/** The app as a login item (`quota-station-core::login_item::Status`). */
+export type LaunchAtLogin = 'off' | 'on' | 'needsApproval' | 'unavailable';
+
+/** Where "Cập nhật từ mã nguồn" is (`quota-station-core::update::Step`). */
+export type UpdateStep = 'pulling' | 'installing';
+
+export type UpdateOutcome =
+  /** The clone had nothing new, and this copy was built from it. */
+  | { kind: 'upToDate'; commit: string }
+  /** The new copy is in place; it runs once the app opens again. */
+  | { kind: 'installed'; commit: string; version: string | null };
+
+export type UpdateError =
+  | { kind: 'source'; reason: 'missing' | 'notSource' }
+  /** `git pull --ff-only` refused or failed: its last line. */
+  | { kind: 'pull'; detail: string }
+  /** `scripts/install.sh` failed: its own error line, or its last line. */
+  | { kind: 'install'; detail: string }
+  | { kind: 'timeout'; step: UpdateStep }
+  | { kind: 'spawn'; detail: string };
+
+/** The app itself (`src-tauri/src/install.rs` `AppView`, M7). */
+export interface AppView {
+  version: string;
+  /** The commit it was built from, 7 characters, `-dirty` kept; null when not built by `scripts/install.sh`. */
+  commit: string | null;
+  launchAtLogin: LaunchAtLogin;
+  /** The clone to update from, `~/…`; null when not set. */
+  source: string | null;
+  sourceStatus: 'notSet' | 'ok' | 'missing' | 'notSource';
+  /** Runs from an installed `.app`, so an update has somewhere to go. */
+  bundled: boolean;
+  updating: UpdateStep | null;
+  outcome: UpdateOutcome | null;
+  error: UpdateError | null;
+  /** The last install's output, `~/…`. */
+  log: string;
+}
+
 /** The main window's tabs in this build (`src-tauri/src/state.rs` `Tab`). */
 export type Tab = 'overview' | 'claude' | 'agy' | 'rules' | 'history' | 'alerts' | 'firstmate' | 'settings';
 
@@ -514,4 +553,6 @@ export interface Model {
   alerts: AlertsView;
   /** What Firstmate sees (M6). */
   firstmate: FirstmateView;
+  /** Version, launching at login and the update from source (M7). */
+  app: AppView;
 }

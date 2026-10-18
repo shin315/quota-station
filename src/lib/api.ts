@@ -124,6 +124,21 @@ export interface Api {
   notifyRefresh(): Promise<void>;
   /** System Settings › Notifications. */
   openNotificationSettings(): Promise<void>;
+  /** The Cài đặt tab opened: asks macOS again whether the app launches at login. */
+  settingsOpened(): Promise<void>;
+  /** Turns launching at login on or off. Rejects with `unavailable` or macOS's message. */
+  setLaunchAtLogin(on: boolean): Promise<Model>;
+  /** System Settings › General › Login Items, where macOS asks for approval. */
+  openLoginItems(): Promise<void>;
+  /** The clone to update from; empty forgets it. Rejects with `missing` or `notSource`. */
+  setSourceDir(path: string): Promise<Model>;
+  /**
+   * `git pull --ff-only` in the clone, then its `scripts/install.sh`; the steps and the result come
+   * in the model. Rejects with `busy`, `noSource` or `unbundled`.
+   */
+  updateFromSource(): Promise<Model>;
+  /** Quits and opens the copy just installed. Rejects with `notInstalled`, `rulesDirty` or `unbundled`. */
+  relaunch(): Promise<void>;
   /** A button on a macOS card asks the popover to open its switch sheet for a Claude account. */
   onOpenSwitch(handler: (slot: number) => void): Promise<() => void>;
   onModel(handler: (model: Model) => void): Promise<() => void>;
@@ -175,6 +190,12 @@ export const tauriApi: Api = {
   getHistory: () => invoke<HistoryEntry[]>('get_history'),
   notifyRefresh: () => invoke('notify_refresh'),
   openNotificationSettings: () => invoke('open_notification_settings'),
+  settingsOpened: () => invoke('settings_opened'),
+  setLaunchAtLogin: (on) => invoke<Model>('set_launch_at_login', { on }),
+  openLoginItems: () => invoke('open_login_items'),
+  setSourceDir: (path) => invoke<Model>('set_source_dir', { path }),
+  updateFromSource: () => invoke<Model>('update_from_source'),
+  relaunch: () => invoke('relaunch'),
   onOpenSwitch: (handler) => listen<number>('openSwitch', (event) => handler(event.payload)),
   onModel: (handler) => listen<Model>('model', (event) => handler(event.payload)),
   onTab: (handler) => listen<Tab>('tab', (event) => handler(event.payload)),

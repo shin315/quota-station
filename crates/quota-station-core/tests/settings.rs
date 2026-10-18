@@ -19,6 +19,7 @@ fn settings_round_trip_and_default_when_missing() {
         show_email: true,
         alerts: Switches { leaving: false, firstmate: true, ..Switches::default() },
         firstmate_file: Some(PathBuf::from("/srv/example/quota-pool.last")),
+        source_dir: Some(PathBuf::from("/srv/example/quota-station")),
     };
     s.save(&file).unwrap();
     assert_eq!(Settings::load(&file), s);
@@ -29,6 +30,7 @@ fn settings_round_trip_and_default_when_missing() {
     assert!(text.contains("\"showEmail\": true"));
     assert!(text.contains("\"leaving\": false"));
     assert!(text.contains("firstmateFile"));
+    assert!(text.contains("sourceDir"));
 
     std::fs::write(&file, "{ not json").unwrap();
     assert_eq!(Settings::load(&file), Settings::default());
@@ -50,6 +52,7 @@ fn a_settings_file_from_m1_still_loads() {
         .all(|k| s.alerts.on(*k)));
     assert!(!s.alerts.on(Kind::Firstmate));
     assert_eq!(s.firstmate_file, None);
+    assert_eq!(s.source_dir, None);
     let _ = std::fs::remove_dir_all(&dir);
 }
 

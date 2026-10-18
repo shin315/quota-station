@@ -34,6 +34,11 @@ pub type Refused = Arc<dyn Fn(String) + Send + Sync>;
 /// A category's id and its buttons, each an id and a label.
 type Category = (String, Vec<(String, String)>);
 
+/// The process is a packaged `.app` with a bundle id.
+pub fn bundled() -> bool {
+    mac::bundled()
+}
+
 pub struct Center {
     permission: Arc<Mutex<Permission>>,
     /// The button sets registered so far, by category id.

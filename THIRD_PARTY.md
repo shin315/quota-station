@@ -44,7 +44,9 @@ SOFTWARE.
 - How it is used: the app reads claude-swap's numbers only through
   quota-axi's `claudeSwap` and `claudePool` sidecars. To switch the active
   Claude account it runs one command, `cswap switch N --json`, when the owner
-  confirms. It does not open claude-swap's files.
+  confirms. It does not open claude-swap's files. The README's switch-over
+  checklist asks the owner to run `cswap menubar --uninstall-service` by
+  hand on each Mac; the app never runs it.
 - License: MIT
 
 ```
@@ -92,5 +94,5 @@ SOFTWARE.
 ## Libraries
 
 The Rust crates and npm packages this app builds with, such as Tauri, serde,
-time, reqwest, url, uuid, md5, sha2, React and Vite, keep their own licenses. Those licenses are listed in
+time, reqwest, url, uuid, md5, sha2, objc2, React and Vite, keep their own licenses. Those licenses are listed in
 `Cargo.lock`, `package-lock.json` and each package's own files.

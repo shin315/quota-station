@@ -24,6 +24,8 @@ import type {
   RulesError,
   Sessions,
   Tab,
+  UpdateError,
+  UpdateOutcome,
 } from '../lib/model';
 
 export interface FakeOptions {
@@ -59,6 +61,12 @@ export interface FakeOptions {
   history?: HistoryEntry[];
   /** What a `quota-pool.last` set in Cài đặt reads as; without it a path finds no file. */
   firstmate?: FirstmateView;
+  /** macOS waits for the owner's approval after the login switch is turned on. */
+  loginApproval?: boolean;
+  /** How "Cập nhật từ mã nguồn" ends; by default it installs 0.1.1 from a new commit. */
+  update?: () => UpdateOutcome | UpdateError;
+  /** How long each update step takes; the preview waits to show them. */
+  updateDelayMs?: number;
 }
 
 const said = (title: string, body: string): AlertSaid => ({ tone: 'info', title, body });
@@ -117,6 +125,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
   /** What the last `closeMain` did: the tests check a quit really quits. */
   let closed: 'window' | 'app' | null = null;
   let quitPending = options.quitPending ?? false;
+  let relaunched = 0;
   const delay = () => (options.saveDelayMs ? new Promise((r) => setTimeout(r, options.saveDelayMs)) : Promise.resolve());
   /** Every Mac SSH reaches takes the file; the others wait 5 minutes. */
   const sent = (peers: PeerView[]): PeerView[] =>
@@ -451,6 +460,49 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       push({ ...model, firstmate: { ...options.firstmate, file: path.trim() } });
       return model;
     },
+    settingsOpened: async () => {},
+    setLaunchAtLogin: async (on) => {
+      if (model.app.launchAtLogin === 'unavailable') throw 'unavailable';
+      push({ ...model, app: { ...model.app, launchAtLogin: !on ? 'off' : options.loginApproval ? 'needsApproval' : 'on' } });
+      return model;
+    },
+    openLoginItems: async () => {},
+    // A clone is a path ending in `quota-station`; `nowhere` has no folder.
+    setSourceDir: async (path) => {
+      const p = path.trim();
+      if (!p) {
+        push({ ...model, app: { ...model.app, source: null, sourceStatus: 'notSet' } });
+        return model;
+      }
+      if (p.includes('nowhere')) throw 'missing';
+      if (!/quota-station\/?$/.test(p)) throw 'notSource';
+      push({ ...model, app: { ...model.app, source: p, sourceStatus: 'ok' } });
+      return model;
+    },
+    updateFromSource: async () => {
+      if (model.app.updating) throw 'busy';
+      if (!model.app.bundled) throw 'unbundled';
+      if (model.app.sourceStatus !== 'ok') throw 'noSource';
+      const ends = options.update?.() ?? { kind: 'installed', commit: 'b2c3d4e5f60718293a4b5c6d7e8f901234567890', version: '0.1.1' };
+      const wait = () => (options.updateDelayMs ? new Promise((r) => setTimeout(r, options.updateDelayMs)) : Promise.resolve());
+      push({ ...model, app: { ...model.app, updating: 'pulling', outcome: null, error: null } });
+      await wait();
+      const pulled = ends.kind !== 'upToDate' && ends.kind !== 'pull' && ends.kind !== 'source' && !(ends.kind === 'timeout' && ends.step === 'pulling');
+      if (pulled) {
+        push({ ...model, app: { ...model.app, updating: 'installing' } });
+        await wait();
+      }
+      const done = ends.kind === 'upToDate' || ends.kind === 'installed';
+      push({
+        ...model,
+        app: { ...model.app, updating: null, outcome: done ? (ends as UpdateOutcome) : null, error: done ? null : (ends as UpdateError) },
+      });
+      return model;
+    },
+    relaunch: async () => {
+      if (model.app.outcome?.kind !== 'installed') throw 'notInstalled';
+      relaunched += 1;
+    },
     getHistory: async () => options.history ?? [],
     notifyRefresh: async () => {},
     openNotificationSettings: async () => {},
@@ -480,5 +532,15 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
   };
   /** A button on a macOS card that opens the popover's switch sheet. */
   const cardOpensSwitch = (slot: number) => openSwitchListeners.forEach((l) => l(slot));
-  return { api, push, current: () => model, requestClose, requestQuit, closed: () => closed, cardOpensSwitch };
+  return {
+    api,
+    push,
+    current: () => model,
+    requestClose,
+    requestQuit,
+    closed: () => closed,
+    cardOpensSwitch,
+    /** How many times "Mở lại" quit the app. */
+    relaunched: () => relaunched,
+  };
 }

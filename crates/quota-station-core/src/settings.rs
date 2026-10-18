@@ -1,7 +1,8 @@
 //! The app's own settings file, `settings.json` in its Application Support
 //! folder: the quota-axi path, the name this Mac goes by, the other Macs
-//! the rotation file is copied to, whether emails show, which alerts are on
-//! and where Firstmate's state file is.
+//! the rotation file is copied to, whether emails show, which alerts are on,
+//! where Firstmate's state file is and the clone "Cập nhật từ mã nguồn"
+//! builds from.
 
 use std::io;
 use std::path::{Path, PathBuf};
@@ -34,6 +35,10 @@ pub struct Settings {
     /// without Firstmate.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub firstmate_file: Option<PathBuf>,
+    /// The clone of this repository the app updates itself from; `None` on
+    /// a Mac that installs a copy built elsewhere.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_dir: Option<PathBuf>,
 }
 
 /// Another of the owner's Macs.
@@ -66,6 +71,8 @@ struct Stored {
     alerts: Switches,
     #[serde(default)]
     firstmate_file: Option<PathBuf>,
+    #[serde(default)]
+    source_dir: Option<PathBuf>,
 }
 
 impl From<Stored> for Settings {
@@ -100,6 +107,7 @@ impl From<Stored> for Settings {
             show_email: s.show_email,
             alerts: s.alerts,
             firstmate_file: s.firstmate_file,
+            source_dir: s.source_dir,
         }
     }
 }

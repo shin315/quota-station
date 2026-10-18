@@ -269,6 +269,13 @@ export interface AppProps {
 
 const systemClock = () => new Date();
 
+/** Null once a call went through, else what it was refused with. */
+const refusal = (call: Promise<unknown>): Promise<string | null> =>
+  call.then(
+    () => null,
+    (e: unknown) => String(e),
+  );
+
 export function PopoverApp({ api, clock = systemClock }: AppProps) {
   const model = useModel(api);
   const now = useNow(clock);
@@ -392,6 +399,8 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
     if (tab === 'agy') void api.agyTabOpened().catch(() => {});
     // Whether macOS shows the cards may have changed in System Settings.
     if (tab === 'alerts' || tab === 'settings') void api.notifyRefresh().catch(() => {});
+    // So may launching at login.
+    if (tab === 'settings') void api.settingsOpened().catch(() => {});
   }, [api, tab]);
 
   const onAction = (act: Action) => {
@@ -458,6 +467,11 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       }
       onTestAlert={testAlert}
       onAlertSwitch={alertSwitch}
+      onLaunchAtLogin={(on) => refusal(api.setLaunchAtLogin(on))}
+      onOpenLoginItems={() => void api.openLoginItems().catch(() => showFeedback(settingsFailedFeedback()))}
+      onSetSource={(path) => refusal(api.setSourceDir(path))}
+      onUpdate={() => refusal(api.updateFromSource())}
+      onRelaunch={() => refusal(api.relaunch())}
     />
   );
   const goTab = (next: Tab) => rules.guardTab(tab, next, setTab);

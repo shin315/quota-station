@@ -3,6 +3,7 @@
 
 import type {
   AgyAccounts,
+  AppView,
   AgyLogin,
   AlertRecord,
   AlertsView,
@@ -267,6 +268,23 @@ export function historyFixture(): HistoryEntry[] {
   ];
 }
 
+/** The app's own row: an installed copy, built by `scripts/install.sh` from a made-up commit. */
+export function appFixture(over: Partial<AppView> = {}): AppView {
+  return {
+    version: '0.1.0',
+    commit: 'a1b2c3d',
+    launchAtLogin: 'off',
+    source: '~/src/quota-station',
+    sourceStatus: 'ok',
+    bundled: true,
+    updating: null,
+    outcome: null,
+    error: null,
+    log: '~/Library/Application Support/com.shin315.quota-station/update/install.log',
+    ...over,
+  };
+}
+
 export function fixtureModel(name: string, over: Partial<Model> = {}): Model {
   const snapshot = SNAPSHOTS[name];
   if (!snapshot) throw new Error('no snapshot fixture ' + name);
@@ -287,6 +305,7 @@ export function fixtureModel(name: string, over: Partial<Model> = {}): Model {
     agySwitch: { busy: null, listed: false, overwritten: null },
     alerts: alertsFixture(),
     firstmate: { file: null, status: 'notSet', line: null, writtenAt: null, fresh: false, ownDry: false },
+    app: appFixture(),
     ...over,
   };
 }

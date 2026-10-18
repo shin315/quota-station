@@ -18,9 +18,12 @@
 // `history=empty`, `alerts=on|off|unbundled|empty` (two cards by default on
 // `tab=alerts`; `off` is macOS refusing the cards) and
 // `firstmate=ok|holding|stale|missing|unset` (unset by default).
+// The app itself (M7), on `tab=settings`: `app=on|approval|unavailable|nosource|unbundled`
+// sets the login switch and the clone, and `update=uptodate|pull|install|timeout` how
+// "Cập nhật từ mã nguồn" ends (by default it installs 0.1.1). Each step takes 1.5 s.
 
 import type { Api } from './lib/api';
-import type { AgyAccounts, AgyApp, AgyHow, AgyOutcome, ErrorView, Model, Outcome, Tab } from './lib/model';
+import type { AgyAccounts, AgyApp, AgyHow, AgyOutcome, ErrorView, Model, Outcome, Tab, UpdateError, UpdateOutcome } from './lib/model';
 import { fakeApi, fakeEmail } from './fixtures/fakeApi';
 import {
   agyAccount,
@@ -35,6 +38,7 @@ import {
   SNAPSHOTS,
   switcherFixture,
   alertsFixture,
+  appFixture,
   firstmateFixture,
   historyFixture,
   leavingAlert,
@@ -57,6 +61,21 @@ const FIRSTMATES: Record<string, () => Model['firstmate']> = {
   stale: () => firstmateFixture({ writtenAt: '2026-01-16T05:20:00.000Z', fresh: false }),
   missing: () => firstmateFixture({ status: 'missing', line: null, writtenAt: null, fresh: false }),
   unset: () => fixtureModel('fresh').firstmate,
+};
+
+const APPS: Record<string, () => Model['app']> = {
+  on: () => appFixture({ launchAtLogin: 'on' }),
+  approval: () => appFixture({ launchAtLogin: 'needsApproval' }),
+  unavailable: () => appFixture({ launchAtLogin: 'unavailable', bundled: false, commit: null }),
+  nosource: () => appFixture({ source: null, sourceStatus: 'notSet' }),
+  unbundled: () => appFixture({ bundled: false, launchAtLogin: 'unavailable', commit: null }),
+};
+
+const UPDATES: Record<string, () => UpdateOutcome | UpdateError> = {
+  uptodate: () => ({ kind: 'upToDate', commit: 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678' }),
+  pull: () => ({ kind: 'pull', detail: 'fatal: Not possible to fast-forward, aborting.' }),
+  install: () => ({ kind: 'install', detail: 'cargo tauri build failed' }),
+  timeout: () => ({ kind: 'timeout', step: 'installing' }),
 };
 
 const RETRY = '2026-01-16T07:21:40.000Z';
@@ -193,6 +212,8 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
   if (alerts) over.alerts = alerts();
   const firstmate = pick(FIRSTMATES, params.get('firstmate'));
   if (firstmate) over.firstmate = firstmate();
+  const app = pick(APPS, params.get('app'));
+  if (app) over.app = app();
   const agyApp = params.get('agyapp');
   const ends = LOGIN_ENDS.find((k) => k.toLowerCase() === params.get('login')?.toLowerCase());
   const { api } = fakeApi(fixtureModel(SNAPSHOTS[state] ? state : 'fresh', over), tab, {
@@ -209,6 +230,9 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
     agySwitchDelayMs: 1500,
     history: params.get('history') === 'empty' ? [] : historyFixture(),
     firstmate: firstmateFixture(),
+    loginApproval: params.get('app') === 'approval',
+    update: pick(UPDATES, params.get('update')),
+    updateDelayMs: 1500,
   });
   // The window opens on the same fixture and switcher states as the popover.
   const openWindow = async (next: Tab) => {

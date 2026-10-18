@@ -24,7 +24,8 @@ The popover and window images date from M2, before the switch buttons.
 
 ## What it does
 
-This is milestone M6, "Lịch sử, cảnh báo và Firstmate", on top of M5 "Luật
+This is milestone M7, "Chuyển đổi" (installing, updating and launching at
+login), on top of M6, "Lịch sử, cảnh báo và Firstmate", M5 "Luật
 xoay vòng", M3 "Chuyển Claude và tạm dừng", M2 "Cửa sổ chính chỉ đọc" and M1
 "Khung và số", with M4a, "Đăng nhập Antigravity trong app", M4b, "App tự đọc
 hạn mức Antigravity", and M4c, "Chuyển Antigravity không cần Cockpit", the
@@ -114,9 +115,13 @@ the confirmation sheet first.
     changes nothing), whether `oauth-client.json` is in place and usable,
     `Hiện email` (off by default), `File của firstmate` (the path to
     Firstmate's `quota-pool.last`; nothing is built in, and only a file of
-    that name is taken) and `Thông báo` (whether macOS lets the cards show,
-    `Gửi thử` and a switch for each kind of alert). A settings file from
-    before M5 with a single `sshAlias` moves into the list of other Macs.
+    that name is taken), `Thông báo` (whether macOS lets the cards show,
+    `Gửi thử` and a switch for each kind of alert), and the app itself (M7):
+    `Mở khi đăng nhập` (off by default; see [Install](#install)), `Mã nguồn`
+    (the clone this Mac updates from) and `Phiên bản` (the version and the
+    commit it was built from, with `Cập nhật từ mã nguồn`; see
+    [Update](#update)). A settings file from before M5 with a single
+    `sshAlias` moves into the list of other Macs.
 
   The sidebar also lists `Codex`, greyed out: it comes in a later milestone.
   `Cảnh báo` carries the number of cards nobody has answered yet. Under the
@@ -272,8 +277,8 @@ the confirmation sheet first.
 Each Mac runs its own copy and switches only its own machine; there is no
 switch button for another Mac. The only thing sent to another Mac is the
 rotation file. Each Mac also keeps its own Antigravity logins, and nothing
-assumes another Mac has any. Installing as a login item comes in a later
-milestone.
+assumes another Mac has any. Each Mac installs and updates its own copy
+(below).
 
 ### What it reads and runs
 
@@ -347,10 +352,21 @@ milestone.
   The cards go through macOS's own notification center
   (`UNUserNotificationCenter`); `Mở Cài đặt hệ thống` runs
   `open x-apple.systempreferences:com.apple.Notifications-Settings.extension`.
+- `Mở khi đăng nhập` (M7) registers and unregisters the app with macOS's
+  `SMAppService.mainApp`, only when the switch is pressed; the settings tab
+  asks macOS for the switch's state when it opens.
+- `Cập nhật từ mã nguồn` (M7) runs, only when pressed,
+  `git -C <clone> pull --ff-only` (with `GIT_TERMINAL_PROMPT=0` and
+  `GIT_SSH_COMMAND="ssh -o BatchMode=yes"`, so git never waits for a
+  password), `git -C <clone> rev-parse HEAD`, and then, unless this copy was
+  built from that commit, `/bin/bash <clone>/scripts/install.sh --dest
+  <the folder this app is in> --no-open`. `Mở lại` quits the app and has
+  `/bin/sh` wait for it to end before `open` starts the new copy.
 - It writes these files: its own settings file,
   `~/Library/Application Support/com.shin315.quota-station/settings.json`,
   with `rotation-sync.json` (where each other Mac stands) beside it; in the
-  same folder, `antigravity/accounts.json` (Cockpit's account index layout,
+  same folder, `update/install.log` (the last update's build output),
+  `antigravity/accounts.json` (Cockpit's account index layout,
   no token), `antigravity/status.json` (accounts that need a new login or a
   verification, or that Google refused),
   `antigravity/cache/quota_api_v1_desktop/authorized/<SHA-256 of the email>.json`
@@ -419,7 +435,8 @@ flag and does not show Claude as paused.
 ## Requirements
 
 - macOS 13 or later
-- Rust stable (1.85 or later) and Node.js 20 or later (CI uses 24)
+- To build: Rust stable (1.85 or later) and Node.js 20 or later (CI uses
+  24). A Mac without them installs a copy built on another Mac.
 - quota-axi on the Mac, with JSON schema 5 or 6. The claude-swap, rotation and
   Cockpit sidecars come from the `+cswap` fork. Without them the app shows
   only the account in use.
@@ -432,6 +449,131 @@ The app looks for quota-axi in these places: `~/.local/bin`, nvm's Node
 versions (newest first), `/opt/homebrew/bin` and `/usr/local/bin`. You can
 also set the path in settings.
 
+## Install
+
+From a clone, on a Mac with Rust and Node.js:
+
+```sh
+git clone https://github.com/shin315/quota-station.git
+cd quota-station
+scripts/install.sh
+```
+
+`scripts/install.sh` runs `npm ci` when `package-lock.json` changed, makes a
+release build (`cargo tauri build --bundles app` when the Tauri CLI is
+installed with cargo, else the npm one), signs it with the first
+`Apple Development` identity in the Keychain or ad-hoc when there is none
+(`--identity <name>` picks one, `--identity -` forces ad-hoc), checks the
+signature, copies it to `/Applications/Quota Station.app` (next to the old
+copy first, then swapped, so a failed copy leaves the old one), clears the
+quarantine mark and opens it. Options: `--dest <folder>` installs elsewhere,
+`--no-open` does not open it, and `--help` lists them. It never adds a login
+item and never asks for `sudo`. While the old copy runs it is not opened
+again: quit it from its menu (`Thoát Quota Station`) and open the new one.
+
+On a Mac that cannot build, make a package on one that can and copy it
+over (with `scp`, AirDrop or a USB stick):
+
+```sh
+scripts/install.sh --package ~/Desktop          # writes quota-station-<version>.zip
+# on the other Mac, where the zip arrived:
+ditto -x -k quota-station-0.1.0.zip . && ./quota-station-0.1.0/install.sh --app "./quota-station-0.1.0/Quota Station.app"
+```
+
+The zip holds the signed app and `install.sh`. `--app` also takes the zip
+itself. A copy given with `--app` must be Quota Station
+(`com.shin315.quota-station`) with a valid signature; it is installed as it
+is, not signed again, with the quarantine mark macOS puts on downloads and
+AirDrop cleared.
+
+Then, on a Mac that logs in to Antigravity, put `oauth-client.json` in place
+([below](#the-oauth-client-file)), and in `Cài đặt` turn on `Mở khi đăng
+nhập` if the app should start with the Mac. That switch uses macOS's own
+login items (System Settings › General › Login Items); when macOS asks for
+approval, the row says so and opens that page.
+
+## Update
+
+In `Cài đặt`, set `Mã nguồn` to the clone (a folder with `.git` and
+`scripts/install.sh`), then press `Cập nhật từ mã nguồn`. The app runs
+`git pull --ff-only` there, and when the clone's commit is not the one this
+copy was built from, `scripts/install.sh --dest <the folder this app is in>
+--no-open`. The row shows each step, and then `Đã là bản mới nhất`, the
+version installed with `Mở lại` (quits and opens the new copy), or why it
+stopped: a clone that cannot fast-forward, a build error (the full output is
+in `update/install.log` in the app's folder), or a build longer than 30
+minutes. A clone with local commits is never merged or reset. The version
+and the commit show in the same row.
+
+From a terminal, the same is:
+
+```sh
+cd quota-station && git pull --ff-only && scripts/install.sh
+```
+
+On a Mac that installs packages, install the newer package with `--app` as
+above.
+
+## Uninstall
+
+1. In `Cài đặt`, turn `Mở khi đăng nhập` off (or remove Quota Station in
+   System Settings › General › Login Items).
+2. `Thoát Quota Station` from its menu, then move
+   `/Applications/Quota Station.app` to the Trash.
+3. Optionally, its data: `~/Library/Application Support/com.shin315.quota-station/`
+   (settings, the Antigravity index and readings, history, alerts and
+   `oauth-client.json`), and the app's own Keychain items, service
+   `com.shin315.quota-station.antigravity`, in Keychain Access. Log the
+   Antigravity accounts out in the app first to delete those items. Leave
+   the `gemini`/`antigravity` item alone: Antigravity.app and agy use it.
+
+The pause flag and the rotation file belong to the switcher and stay.
+
+## Switching over, Mac by Mac
+
+The goal is one menu bar icon on each Mac: Quota Station's. Do one Mac at a
+time.
+
+1. **Install** Quota Station as above and open it. Check that it reads both
+   providers on this Mac, and on a Mac with Antigravity, that `oauth-client.json`
+   is usable (`Cài đặt`) and the accounts this Mac uses are logged in, with
+   fresh numbers and none that needs a new login.
+2. **Check that Cockpit Tools is gone:**
+
+   ```sh
+   ls -d "/Applications/Cockpit Tools.app" ~/.cockpit_tools ~/.antigravity_cockpit
+   lsof -i :19528
+   launchctl list | grep -i cockpit
+   ```
+
+   and look for Cockpit in System Settings › General › Login Items. Before
+   relying on the app alone, also check that
+   `quota-axi --provider agy --json` reports `cockpit.status` `ok` with
+   `source` `quota-station`, and that one Antigravity switch from the app,
+   and one back, both say `Đã chuyển`.
+
+   If Cockpit is found: quit it, remove it from Login Items (it starts
+   itself through its autostart setting), and move
+   `/Applications/Cockpit Tools.app` to the Trash. Keep `~/.cockpit_tools`
+   for 7 days: it holds Cockpit's own copy of the logins, and reinstalling
+   Cockpit with that folder in place brings them back. Delete it after that.
+   Do not delete the `gemini`/`antigravity` Keychain item: Antigravity.app
+   and agy use it.
+3. **Turn off claude-swap's own menu bar**, when you decide to on this Mac:
+
+   ```sh
+   cswap menubar --uninstall-service
+   ```
+
+   Claude numbers stay fresh without it: the `cswap-prefer-team` switcher
+   runs `cswap list --json` every three minutes, which refreshes
+   claude-swap's cache that quota-axi reads.
+4. **Confirm one icon:** the menu bar shows Quota Station and neither
+   claude-swap's item nor Cockpit's.
+
+A Mac without Antigravity (no Antigravity.app and no agy) has no Cockpit
+step: its Antigravity tile and tab keep saying `không có trên máy này`.
+
 ## Build and run
 
 ```sh
@@ -439,7 +581,7 @@ npm install
 npm run app            # dev: Vite and the Tauri app, with reload
 ```
 
-To make a release `.app`, run these commands:
+To make a release `.app` without installing it, run these commands:
 
 ```sh
 cargo install tauri-cli --version '^2' --locked   # once
@@ -450,6 +592,8 @@ npm run app:build
 
 The bundle is written to `target/release/bundle/macos/Quota Station.app`. It
 is ad-hoc signed and is not installed anywhere. Open it from there to try it.
+A copy run this way or with `npm run app` cannot launch at login or update
+itself; `scripts/install.sh` installs it.
 
 ### Browser preview
 
@@ -473,16 +617,44 @@ and `forbidden`), `login` (how a login ends, for example
 (`unconfirmed`, `notquit` or `write`). For M6: `history=empty`, `alerts`
 (`on`, the default on `tab=alerts`, `off` for notifications turned off,
 `unbundled` or `empty`) and `firstmate` (`ok`, `holding`, `stale`,
-`missing` or `unset`, the default). Nothing is switched, no browser opens
-and no file is written: a switch only waits 1.5 seconds and a save 1 second,
-and both update the fixture.
+`missing` or `unset`, the default). For M7, on `tab=settings`: `app` (`on`,
+`approval`, `unavailable`, `nosource` or `unbundled`) and `update`
+(`uptodate`, `pull`, `install` or `timeout`; an update installs 0.1.1 by
+default). Nothing is switched, no browser opens and no file is written: a
+switch only waits 1.5 seconds, a save 1 second and each update step 1.5
+seconds, and they update the fixture.
 
 ## Tests
 
 ```sh
-cargo test --workspace   # parsing, snapshot rules, icon, runner, schedule, switching, rotation, other Macs, Antigravity login, quota and switch, history, alerts, Firstmate's file
-npm test                 # Vitest: popover and main window views, switch and pause sheets, rules editor, login card and read states, Antigravity switch, history, alerts and Firstmate tabs
+cargo test --workspace   # parsing, snapshot rules, icon, runner, schedule, switching, rotation, other Macs, Antigravity login, quota and switch, history, alerts, Firstmate's file, install.sh, update, login item
+npm test                 # Vitest: popover and main window views, switch and pause sheets, rules editor, login card and read states, Antigravity switch, history, alerts, Firstmate and settings tabs
 ```
+
+The install tests (`crates/quota-station-core/tests/install_script.rs`) run
+`scripts/install.sh` with macOS's `/bin/bash` on a clean temporary folder: a
+source tree holding only the script and the files it checks, a fake `cargo`
+whose `tauri build` writes a small bundle, and an Applications folder in the
+same folder. The real `codesign`, `ditto`, `xattr` and `plutil` work on
+those files; `open`, `security`, `npm` and `npx` are fakes that record their
+arguments, and so are `launchctl`, `osascript` and `sfltool`, which must
+never run. They check the build output, the ad-hoc and the Apple
+Development signature, the copy and the swap with an old copy, the
+quarantine mark cleared, `open` called once (or not with `--no-open`), a
+failed build that leaves the old copy, `npm ci` after a lock file change,
+the commit passed to the build, and a package that installs with `--app` on
+a Mac without `cargo` or `npm`, from the folder or the zip.
+
+The update tests (`tests/update.rs`) run real git on temporary repositories
+(a bare origin, the clone, and a second clone that pushes) with a temporary
+HOME and no git config, and a fake `install.sh` that records its arguments:
+a new commit pulled and installed, nothing new, a clone that cannot
+fast-forward (left as it is), an origin that is gone, a failed install, and
+what counts as a clone. The login item tests (`tests/login_item.rs`) use a
+fake backend that keeps the state macOS would: on, off, waiting for
+approval, not a packaged app, and refused. Reading the switch never
+registers anything. No test opens an app, registers a login item or writes
+to `/Applications`.
 
 The Antigravity login tests never reach Google or the Keychain. They run
 against a local fake Google (a consent page that redirects to the app's
@@ -587,10 +759,14 @@ UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test ui_fixtures
   `antigravity/` module logs Antigravity accounts in and out, reads their
   quota, paces those reads, and switches the account Antigravity.app and
   agy use. `history`, `alerts` and `firstmate` keep the switch history, run
-  the five alert rules and read Firstmate's `quota-pool.last`.
+  the five alert rules and read Firstmate's `quota-pool.last`. `update`
+  pulls the clone and runs its install script; `login_item` holds the rule
+  of the `Mở khi đăng nhập` switch.
 - `src-tauri/` is the Tauri 2 shell: the tray item, the popover and the main
   window, the read loop, the Antigravity quota thread, the macOS
-  notification center (`notify.rs`) and the commands.
+  notification center (`notify.rs`), the login item (`login_item.rs`), the
+  update (`install.rs`) and the commands.
+- `scripts/install.sh` builds, signs, installs and packages the app.
 - `src/` is the React and TypeScript frontend. Its `styles/tokens.css` and
   `styles/components.css` come from the approved prototype.
 
