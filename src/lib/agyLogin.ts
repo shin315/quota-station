@@ -188,6 +188,8 @@ export function agyLoginErrorFeedback(e: unknown): FeedbackView | null {
       return { tone: 'info', title: 'Đang có một lần đăng nhập', body: 'Xong lần đó, hoặc bấm Huỷ, rồi thử lại.' };
     case 'switching':
       return { tone: 'info', title: 'Đang chuyển Antigravity', body: 'Chờ lần chuyển xong rồi đăng nhập.' };
+    case 'loggingOut':
+      return { tone: 'info', title: 'Đang đăng xuất một tài khoản', body: 'Chờ lần đăng xuất xong rồi đăng nhập.' };
     default:
       return { tone: 'bad', title: 'Chưa đăng nhập được', body: withDetail('Chưa thêm tài khoản.') };
   }
@@ -238,6 +240,8 @@ export function agyLogoutErrorFeedback(name: string, e: unknown): FeedbackView {
             ? 'Một lần chuyển Antigravity đang chạy. Chờ nó xong rồi thử lại.'
             : kind === 'loggingOut'
               ? 'Một lần đăng xuất khác đang chạy. Chờ nó xong rồi thử lại.'
-              : 'Không ghi được danh sách tài khoản. Thử lại.',
+              : kind === 'loggingIn'
+                ? 'Một lần đăng nhập đang chờ. Xong lần đó, hoặc bấm Huỷ, rồi thử lại.'
+                : 'Không ghi được danh sách tài khoản. Thử lại.',
   };
 }

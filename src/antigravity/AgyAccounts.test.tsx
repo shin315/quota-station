@@ -184,6 +184,7 @@ describe('Antigravity login card', () => {
     ['invalidGrant', 'Google từ chối mã đăng nhập'],
     ['keychain', 'Không lưu được vào Keychain'],
     ['network', 'Không kết nối được Google'],
+    ['loggingOut', 'Đang đăng xuất một tài khoản'],
   ])('a login that ends with %s says so', async (kind, title) => {
     await open(withAgy({}), { agyLoginDelayMs: 0, agyLogin: () => ({ kind, detail: '' }) });
     await act(async () => {
@@ -252,6 +253,17 @@ describe('Antigravity login card', () => {
       fireEvent.click(within(list()).getByRole('button', { name: 'Đăng xuất' }));
     });
     expect(screen.getByText('Một lần đăng xuất khác đang chạy. Chờ nó xong rồi thử lại.')).toBeTruthy();
+  });
+
+  it('a logout refused while a login waits says to finish or cancel it first', async () => {
+    const fake = await open(withAgy({ accounts: [agyAccount(1)] }));
+    vi.mocked(fake.api.agyLogout).mockRejectedValue('loggingIn');
+    fireEvent.click(screen.getByRole('button', { name: 'Đăng xuất Ultra 1' }));
+    await act(async () => {
+      fireEvent.click(within(list()).getByRole('button', { name: 'Đăng xuất' }));
+    });
+    expect(screen.getByText('Một lần đăng nhập đang chờ. Xong lần đó, hoặc bấm Huỷ, rồi thử lại.')).toBeTruthy();
+    expect(within(list()).getAllByRole('listitem')).toHaveLength(1);
   });
 
   it('an unreadable account list is reported and nothing can be added', async () => {
