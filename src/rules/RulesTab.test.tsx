@@ -263,6 +263,15 @@ describe('rules editor', () => {
     expect(fake.closed()).toBe('app');
   });
 
+  it('a quit chosen before the window listened is still answered once', async () => {
+    const fake = await open(fixtureModel('fresh'), { quitPending: true });
+    await act(async () => {});
+    // Nothing unsaved in this window: it quits.
+    expect(fake.api.takeQuit).toHaveBeenCalled();
+    expect(fake.api.closeMain).toHaveBeenCalledTimes(1);
+    expect(fake.api.closeMain).toHaveBeenCalledWith(true);
+  });
+
   it('another Mac whose copy has no updated line is not overwritten until the owner keeps this one', async () => {
     const model = fixtureModel('fresh', {
       rotation: rotationFixture({ peers: [peerFixture('Mac B', 'mac-b'), peerFixture('Mac C', 'mac-c', { state: { kind: 'edited', their: null }, theirRules: null })] }),

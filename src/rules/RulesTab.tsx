@@ -365,7 +365,8 @@ export function RulesTab({ model, fresh, rules: st, feedback, now, onAction }: R
 export function CompareDialog({ model, rules: st, now }: { model: Model; rules: RulesState; now: Date }) {
   const peer = model.rotation.peers.find((p) => p.alias === st.compare);
   const mine = model.rotation.rules;
-  const conflict = !!peer?.state && (peer.state.kind === 'newer' || peer.state.kind === 'edited');
+  // As the banner sees it: a conflict about this Mac's file as it is now.
+  const conflict = !!peer?.current && !!peer.state && (peer.state.kind === 'newer' || peer.state.kind === 'edited');
   if (!peer || !mine || !peer.theirRules) {
     return (
       <>

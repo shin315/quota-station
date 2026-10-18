@@ -105,6 +105,10 @@ pub struct Inner {
     pub rotation_saving: bool,
     /// The rules editor holds changes not saved yet: closing the main window asks first.
     pub rules_dirty: bool,
+    /// `Thoát Quota Station` waits for the main window to ask about unsaved
+    /// rules. Kept here, not only sent as an event, because a window opened
+    /// for it may not listen yet; the page takes it with `take_quit`.
+    pub quit_pending: bool,
 }
 
 /// What the app last saw of the `cswap-prefer-team` switcher.
@@ -192,6 +196,7 @@ impl Inner {
             pushing: BTreeSet::new(),
             rotation_saving: false,
             rules_dirty: false,
+            quit_pending: false,
         }
     }
 

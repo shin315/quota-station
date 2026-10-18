@@ -198,12 +198,18 @@ export function useRules(api: Api, model: Model | null, clock: () => Date, showF
         else void api.closeMain(false);
       })
       .then(keep);
-    void api
-      .onQuitRequested(() => {
+    // The request is taken from the Rust side, so a window opened for it
+    // still sees it once it listens, and an event seen twice acts once.
+    const quit = () =>
+      void api.takeQuit().then((asked) => {
+        if (!live || !asked) return;
         if (dirtyNow.current) setLeave({ kind: 'quit' });
         else void api.closeMain(true);
-      })
-      .then(keep);
+      });
+    void api
+      .onQuitRequested(quit)
+      .then(keep)
+      .then(() => live && quit());
     return () => {
       live = false;
       stops.forEach((s) => s());

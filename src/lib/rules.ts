@@ -209,7 +209,8 @@ export function rotationBanner(model: Model): BannerView | null {
           ? 'Có người sửa luật trên ' + other.name + ' sau bản ' + at + ' của máy này.'
           : other.state.their
             ? 'File luật trên ' + other.name + ' khác bản ' + at + ' của máy này dù cùng dấu thời gian.'
-            : 'File luật trên ' + other.name + ' không có dòng updated của app, có thể đã được sửa tay. App không ghi đè.') + ' App không tự gộp hai bản. Tải bản đó về?',
+            : 'File luật trên ' + other.name + ' không có dòng updated của app, hoặc app không đọc được nó; có thể đã được sửa tay. App không ghi đè.') +
+          ' App không tự gộp hai bản. Tải bản đó về?',
       actions: [
         // A copy the app cannot read cannot be taken; the compare sheet still offers keeping this one.
         ...(other.theirRules ? [{ label: 'Dùng bản trên ' + other.name, act: `rules:adopt:${other.alias}` as const }] : []),

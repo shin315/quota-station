@@ -144,11 +144,19 @@ pub fn close_main(app: &AppHandle) {
 }
 
 /// `Thoát Quota Station`: quits, unless the rules editor holds unsaved
-/// changes; then the main window asks first and quits through `close_main`.
+/// changes; then the main window asks first and quits through the
+/// `close_main` command with `quit` set. The request is kept until the page
+/// takes it (`take_quit`), whether it was listening already or opens now.
 pub fn quit(app: &AppHandle) {
-    if !app.state::<AppState>().lock().rules_dirty {
-        app.exit(0);
-        return;
+    {
+        let state = app.state::<AppState>();
+        let mut inner = state.lock();
+        if !inner.rules_dirty {
+            drop(inner);
+            app.exit(0);
+            return;
+        }
+        inner.quit_pending = true;
     }
     open_main(app, Tab::Rules);
     if let Some(window) = main_window(app) {

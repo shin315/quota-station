@@ -373,6 +373,23 @@ fn threshold(text: &str) -> Option<f64> {
 /// place of its first line, a key the file lacked goes at the end, and the
 /// stamp goes first. A line quota-axi cannot read is dropped (the backup
 /// keeps it).
+/// Another Mac's copy taken as this Mac's file: its rules and its other
+/// lines, stamped again by `machine` later than both copies. Without that, a
+/// copy with no `updated` line would never be sent on, and one carrying this
+/// Mac's own stamp would read as hand-edited on every other Mac.
+pub fn adopt(
+    theirs: &str,
+    mine: Option<&Stamp>,
+    at: OffsetDateTime,
+    machine: &str,
+) -> Result<String, String> {
+    let parsed = parse(theirs)?;
+    parsed.rules.check()?;
+    let latest = [parsed.stamp.as_ref(), mine].into_iter().flatten().max_by_key(|s| s.instant());
+    let stamp = Stamp::next(at, machine, latest);
+    Ok(render(&parsed.rules, &stamp, Some(theirs)))
+}
+
 pub fn render(rules: &Rules, stamp: &Stamp, previous: Option<&str>) -> String {
     let mut out = vec![stamp.line()];
     let mut written: Vec<&str> = Vec::new();

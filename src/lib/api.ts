@@ -63,6 +63,8 @@ export interface Api {
   onCloseRequested(handler: () => void): Promise<() => void>;
   /** `Thoát Quota Station` was chosen while the editor held unsaved changes. */
   onQuitRequested(handler: () => void): Promise<() => void>;
+  /** Takes a pending quit request: true once per request, also when the window opened for it before listening. */
+  takeQuit(): Promise<boolean>;
   onModel(handler: (model: Model) => void): Promise<() => void>;
   /** The main window is asked to show a tab while it is open. */
   onTab(handler: (tab: Tab) => void): Promise<() => void>;
@@ -94,6 +96,7 @@ export const tauriApi: Api = {
   closeMain: (quit) => invoke('close_main', { quit }),
   onCloseRequested: (handler) => listen('closeRequested', () => handler()),
   onQuitRequested: (handler) => listen('quitRequested', () => handler()),
+  takeQuit: () => invoke<boolean>('take_quit'),
   onModel: (handler) => listen<Model>('model', (event) => handler(event.payload)),
   onTab: (handler) => listen<Tab>('tab', (event) => handler(event.payload)),
 };

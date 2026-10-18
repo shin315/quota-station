@@ -14,6 +14,8 @@ export interface FakeOptions {
   saveDelayMs?: number;
   /** When an action happens, for the stamps it writes. */
   clock?: () => Date;
+  /** `Thoát Quota Station` was chosen before the window listened. */
+  quitPending?: boolean;
   /** How long a switch takes before it reports; the preview waits to show the working sheet. */
   switchDelayMs?: number;
   sessions?: Sessions | null;
@@ -49,6 +51,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
   const quitListeners = new Set<() => void>();
   /** What the last `closeMain` did: the tests check a quit really quits. */
   let closed: 'window' | 'app' | null = null;
+  let quitPending = options.quitPending ?? false;
   const delay = () => (options.saveDelayMs ? new Promise((r) => setTimeout(r, options.saveDelayMs)) : Promise.resolve());
   /** Every Mac SSH reaches takes the file; the others wait 5 minutes. */
   const sent = (peers: PeerView[]): PeerView[] =>
@@ -147,8 +150,8 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
     saveRotation: (rules, base) => write(base, () => ({ rules, stamp: { at: stampAt(now()), machine: model.machine } })),
     adoptRotation: (alias, base) => {
       const peer = model.rotation.peers.find((p) => p.alias === alias);
-      const their = peer?.state && (peer.state.kind === 'newer' || peer.state.kind === 'edited') ? peer.state.their : null;
-      return write(base, (r) => ({ rules: peer?.theirRules ?? r.rules, stamp: their ?? r.stamp }));
+      // Stamped again by this Mac, as the Rust side does, so it goes out as the newest copy.
+      return write(base, (r) => ({ rules: peer?.theirRules ?? r.rules, stamp: { at: stampAt(now()), machine: model.machine } }));
     },
     keepRotation: (base) => write(base, () => ({ stamp: { at: stampAt(now()), machine: model.machine } })),
     retryRotation: async () => {
@@ -192,6 +195,11 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       closeListeners.add(handler);
       return () => closeListeners.delete(handler);
     },
+    takeQuit: async () => {
+      const asked = quitPending;
+      quitPending = false;
+      return asked;
+    },
     onQuitRequested: async (handler) => {
       quitListeners.add(handler);
       return () => quitListeners.delete(handler);
@@ -208,6 +216,9 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
   /** The window's close button, as macOS would press it with unsaved rules. */
   const requestClose = () => closeListeners.forEach((l) => l());
   /** `Thoát Quota Station` in the menu bar menu with unsaved rules. */
-  const requestQuit = () => quitListeners.forEach((l) => l());
+  const requestQuit = () => {
+    quitPending = true;
+    quitListeners.forEach((l) => l());
+  };
   return { api, push, current: () => model, requestClose, requestQuit, closed: () => closed };
 }

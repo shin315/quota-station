@@ -120,6 +120,13 @@ describe('rules view', () => {
       ],
     });
 
+    const unread = withPeers(peerFixture('Mac B', 'mac-b', { state: { kind: 'edited', their: null }, theirRules: null }));
+    expect(rotationBanner(unread)).toMatchObject({
+      title: 'Bản trên Mac B đã bị sửa tay',
+      body: 'File luật trên Mac B không có dòng updated của app, hoặc app không đọc được nó; có thể đã được sửa tay. App không ghi đè. App không tự gộp hai bản. Tải bản đó về?',
+      actions: [{ label: 'So sánh', act: 'rules:compare:mac-b' }],
+    });
+
     const down = withPeers(peerFixture('Mac B', 'mac-b'), peerFixture('Mac C', 'mac-c', { state: { kind: 'unreachable', error: 'x', retryAt: RETRY } }));
     expect(rotationBanner(down)).toEqual({
       tone: 'warn',

@@ -67,6 +67,7 @@ fn main() {
             rules::test_peer,
             rules::preview_rotation,
             rules::rules_dirty,
+            rules::take_quit,
             rules::close_main,
         ])
         .run(tauri::generate_context!())

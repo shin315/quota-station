@@ -230,7 +230,8 @@ pub async fn save_rotation(
 }
 
 /// Takes the copy on the Mac at `alias` as this Mac's file (it was newer, or
-/// edited there), then copies it to the other Macs.
+/// edited there), stamped again so it is the newest copy, then copies it to
+/// the other Macs.
 #[tauri::command]
 pub async fn adopt_rotation(
     app: AppHandle,
@@ -257,13 +258,9 @@ pub async fn adopt_rotation(
     .unwrap_or_else(|e| {
         Err(RulesError { kind: "unreachable", detail: Some(e.to_string()), restored: false })
     })?;
-    write_here(&app, &state, base, false, move |_, _| {
-        rotation::parse(&theirs).map_err(|r| RulesError {
-            kind: "invalid",
-            detail: Some(r),
-            restored: false,
-        })?;
-        Ok(theirs)
+    write_here(&app, &state, base, false, move |current, machine| {
+        rotation::adopt(&theirs, current.stamp(), OffsetDateTime::now_utc(), machine)
+            .map_err(|r| RulesError { kind: "invalid", detail: Some(r), restored: false })
     })
     .await
 }
@@ -413,11 +410,22 @@ pub fn rules_dirty(state: State<'_, AppState>, dirty: bool) {
     state.lock().rules_dirty = dirty;
 }
 
+/// Takes a pending `Thoát Quota Station` request: true once per request, for
+/// the page to ask about unsaved rules (or quit when there are none).
+#[tauri::command]
+pub fn take_quit(state: State<'_, AppState>) -> bool {
+    std::mem::take(&mut state.lock().quit_pending)
+}
+
 /// Closes the main window after the owner answered the unsaved-changes
 /// dialog, or quits the app when the dialog came from `Thoát Quota Station`.
 #[tauri::command]
 pub fn close_main(app: AppHandle, state: State<'_, AppState>, quit: bool) {
-    state.lock().rules_dirty = false;
+    {
+        let mut inner = state.lock();
+        inner.rules_dirty = false;
+        inner.quit_pending = false;
+    }
     if quit {
         app.exit(0);
     } else {

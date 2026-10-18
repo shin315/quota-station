@@ -8,8 +8,8 @@ use std::path::{Path, PathBuf};
 
 use common::{fixture, fixture_path, script, temp_dir};
 use quota_station_core::rotation::{
-    self, apply, backups, load, parse, render, verdict, ApplyError, Expire, FileState, Rules,
-    Stamp, Verdict, BACKUPS_KEPT,
+    self, adopt, apply, backups, load, parse, render, verdict, ApplyError, Expire, FileState,
+    Rules, Stamp, Verdict, BACKUPS_KEPT,
 };
 use time::OffsetDateTime;
 
@@ -342,4 +342,36 @@ fn a_personal_slot_that_is_also_team_is_never_written_and_reads_as_invalid() {
         apply(&s.file, Some(&s.quota_axi), &overlap, base(&s.file).as_deref(), now()).unwrap_err();
     assert_eq!(err, ApplyError::Invalid("rotation_personal_in_team".into()));
     let _ = std::fs::remove_dir_all(&s.dir);
+}
+
+#[test]
+fn an_adopted_copy_is_stamped_again_later_than_both_copies() {
+    let mine = stamp("Mac A");
+    let theirs = format!("{FILE}note = from Mac B\n");
+
+    // No `updated` line there: the taken copy carries one, so it is sent on.
+    let taken = adopt(&theirs, Some(&mine), now(), "Mac A").unwrap();
+    let p = parse(&taken).unwrap();
+    assert_eq!(p.rules, parse(FILE).unwrap().rules);
+    assert!(taken.contains("note = from Mac B"));
+    let new = p.stamp.unwrap();
+    assert_eq!(new.machine, "Mac A");
+    assert!(new.newer_than(Some(&mine)));
+
+    // This Mac's own stamp there (edited by hand after a copy): newer than it too.
+    let same =
+        render(&parse(FILE).unwrap().rules, &mine, Some(FILE)).replace("full = 90", "full = 88");
+    let taken = parse(&adopt(&same, Some(&mine), now(), "Mac A").unwrap()).unwrap();
+    assert_eq!(taken.rules.full, 88.0);
+    assert!(taken.stamp.unwrap().newer_than(Some(&mine)));
+
+    // A newer stamp from a clock ahead: still later than that one.
+    let ahead = Stamp::new(now() + time::Duration::minutes(5), "Mac B");
+    let later = render(&parse(FILE).unwrap().rules, &ahead, Some(FILE));
+    let taken = parse(&adopt(&later, Some(&mine), now(), "Mac A").unwrap()).unwrap();
+    assert!(taken.stamp.unwrap().newer_than(Some(&ahead)));
+
+    // A copy that breaks the rules is not taken.
+    let bad = FILE.replace("personal = 1", "personal = 2");
+    assert_eq!(adopt(&bad, Some(&mine), now(), "Mac A").unwrap_err(), "rotation_personal_in_team");
 }
