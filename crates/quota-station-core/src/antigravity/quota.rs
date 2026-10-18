@@ -10,7 +10,11 @@
 //! Fewer calls than Cockpit, never more: a reading younger than a minute is
 //! used before any call is made, and `loadCodeAssist` (which Cockpit asks
 //! before every reading) is asked only while the token has no project or no
-//! GCP ToS mark: after a login, or when Google gave none.
+//! GCP ToS mark: after a login, or when Google gave none. Unlike Cockpit,
+//! which reads on without it, a failed `loadCodeAssist` ends the read like a
+//! failed quota call: the last reading stays with its age, and a 429 or a
+//! 5xx backs the account off, so a struggling Google is not asked again
+//! every minute.
 
 use super::client::ClientStatus;
 use super::cloud_code::{self, CloudCode, CloudCodeError, Context, Hosts};
@@ -208,15 +212,15 @@ pub fn read_account(deps: &Deps, id: &str, now_ms: i64) -> ReadResult {
     let cloud = CloudCode { hosts: deps.hosts, identity: deps.identity };
     let has_project = cloud_code::valid_project_id(token.project_id.as_deref()).is_some();
     if token.is_gcp_tos.is_none() || !has_project {
-        // A failure here does not stop the reading, as in Cockpit.
-        if let Ok(info) = cloud.load_code_assist(&token.access_token, &email, &ctx) {
-            if info.project_id.is_some() {
-                token.project_id = info.project_id;
-            }
-            // Asked and answered: a token without the mark is asked again.
-            token.is_gcp_tos = Some(info.is_gcp_tos.unwrap_or(false));
-            let _ = deps.login.keychain.save(id, &token);
+        let info = cloud
+            .load_code_assist(&token.access_token, &email, &ctx)
+            .map_err(|e| refused(app, id, now, e))?;
+        if info.project_id.is_some() {
+            token.project_id = info.project_id;
         }
+        // Asked and answered: a token without the mark is asked again.
+        token.is_gcp_tos = Some(info.is_gcp_tos.unwrap_or(false));
+        let _ = deps.login.keychain.save(id, &token);
     }
 
     let ctx = Context::from_token(&token);
@@ -237,13 +241,18 @@ pub fn read_account(deps: &Deps, id: &str, now_ms: i64) -> ReadResult {
                 .map_err(ReadError::Index)?;
             Err(ReadError::Forbidden)
         }
-        Err(e) => {
-            if let Some(api) = e.api_error().filter(|a| a.needs_verification()) {
-                let url = api.validation_url.clone();
-                let verify = Standing::NeedsVerification { since: now, url };
-                let _ = index::set_standing(app, id, Some(verify));
-            }
-            Err(ReadError::CloudCode(e))
-        }
+        Err(e) => Err(refused(app, id, now, e)),
     }
+}
+
+/// A Cloud Code call failed (other than the 403 that stops the reads): the
+/// last reading stays, and a verification Google asks for is kept as the
+/// account's status.
+fn refused(app: &AppDir, id: &str, now: i64, e: CloudCodeError) -> ReadError {
+    if let Some(api) = e.api_error().filter(|a| a.needs_verification()) {
+        let url = api.validation_url.clone();
+        let verify = Standing::NeedsVerification { since: now, url };
+        let _ = index::set_standing(app, id, Some(verify));
+    }
+    ReadError::CloudCode(e)
 }

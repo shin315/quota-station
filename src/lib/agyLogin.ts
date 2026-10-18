@@ -186,6 +186,8 @@ export function agyLoginErrorFeedback(e: unknown): FeedbackView | null {
       return { tone: 'bad', title: 'Không mở được cổng cục bộ cho đăng nhập', body: withDetail('Chưa thêm tài khoản.') };
     case 'busy':
       return { tone: 'info', title: 'Đang có một lần đăng nhập', body: 'Xong lần đó, hoặc bấm Huỷ, rồi thử lại.' };
+    case 'switching':
+      return { tone: 'info', title: 'Đang chuyển Antigravity', body: 'Chờ lần chuyển xong rồi đăng nhập.' };
     default:
       return { tone: 'bad', title: 'Chưa đăng nhập được', body: withDetail('Chưa thêm tài khoản.') };
   }

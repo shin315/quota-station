@@ -70,17 +70,19 @@ pub fn account_id(email: &str) -> String {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum IndexError {
-    /// The file is there and is not an index this app can read. It is left
-    /// alone rather than replaced.
-    Unreadable(String),
-    Write(String),
+    /// The file is there and is not one this app can read. It is left alone
+    /// rather than replaced. Carries the file's name (`accounts.json` or
+    /// `status.json`) and why.
+    Unreadable(&'static str, String),
+    /// The file could not be written: its name and why.
+    Write(&'static str, String),
 }
 
 impl std::fmt::Display for IndexError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            IndexError::Unreadable(e) => write!(f, "cannot read {INDEX_FILE}: {e}"),
-            IndexError::Write(e) => write!(f, "cannot write {INDEX_FILE}: {e}"),
+            IndexError::Unreadable(file, e) => write!(f, "cannot read {file}: {e}"),
+            IndexError::Write(file, e) => write!(f, "cannot write {file}: {e}"),
         }
     }
 }
@@ -104,22 +106,24 @@ pub fn load(app: &AppDir) -> Result<AccountIndex, IndexError> {
     let text = match app.read_to_string(&index_path(app)) {
         Ok(text) => text,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(AccountIndex::new()),
-        Err(e) => return Err(IndexError::Unreadable(e.to_string())),
+        Err(e) => return Err(IndexError::Unreadable(INDEX_FILE, e.to_string())),
     };
     if text.trim().is_empty() {
         return Ok(AccountIndex::new());
     }
-    let index: AccountIndex =
-        serde_json::from_str(&text).map_err(|e| IndexError::Unreadable(e.to_string()))?;
+    let index: AccountIndex = serde_json::from_str(&text)
+        .map_err(|e| IndexError::Unreadable(INDEX_FILE, e.to_string()))?;
     if index.version != INDEX_VERSION {
-        return Err(IndexError::Unreadable(format!("version {}", index.version)));
+        return Err(IndexError::Unreadable(INDEX_FILE, format!("version {}", index.version)));
     }
     Ok(index)
 }
 
 pub fn save(app: &AppDir, index: &AccountIndex) -> Result<(), IndexError> {
-    let text = serde_json::to_string_pretty(index).map_err(|e| IndexError::Write(e.to_string()))?;
-    app.write_private(&index_path(app), &text).map_err(|e| IndexError::Write(e.to_string()))
+    let text = serde_json::to_string_pretty(index)
+        .map_err(|e| IndexError::Write(INDEX_FILE, e.to_string()))?;
+    app.write_private(&index_path(app), &text)
+        .map_err(|e| IndexError::Write(INDEX_FILE, e.to_string()))
 }
 
 /// Why an account needs the owner. Accounts that need nothing are not listed.
@@ -158,12 +162,12 @@ pub fn read_statuses(app: &AppDir) -> Result<Statuses, IndexError> {
     let text = match app.read_to_string(&status_path(app)) {
         Ok(text) => text,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Statuses::default()),
-        Err(e) => return Err(IndexError::Unreadable(e.to_string())),
+        Err(e) => return Err(IndexError::Unreadable(STATUS_FILE, e.to_string())),
     };
     if text.trim().is_empty() {
         return Ok(Statuses::default());
     }
-    serde_json::from_str(&text).map_err(|e| IndexError::Unreadable(e.to_string()))
+    serde_json::from_str(&text).map_err(|e| IndexError::Unreadable(STATUS_FILE, e.to_string()))
 }
 
 /// The statuses for the windows; an unreadable file shows as none.
@@ -182,7 +186,8 @@ pub fn set_standing(app: &AppDir, id: &str, standing: Option<Standing>) -> Resul
     if !changed {
         return Ok(());
     }
-    let text =
-        serde_json::to_string_pretty(&statuses).map_err(|e| IndexError::Write(e.to_string()))?;
-    app.write_private(&status_path(app), &text).map_err(|e| IndexError::Write(e.to_string()))
+    let text = serde_json::to_string_pretty(&statuses)
+        .map_err(|e| IndexError::Write(STATUS_FILE, e.to_string()))?;
+    app.write_private(&status_path(app), &text)
+        .map_err(|e| IndexError::Write(STATUS_FILE, e.to_string()))
 }

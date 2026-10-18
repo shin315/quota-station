@@ -141,6 +141,18 @@ describe('Antigravity login card', () => {
     expect(screen.queryByText(/Đang chờ đăng nhập/)).toBeNull();
   });
 
+  it('a login while an Antigravity switch runs says so and starts nothing', async () => {
+    const fake = await open(withAgy({ accounts: [agyAccount(1)] }, { agySwitch: { busy: 1, listed: true, overwritten: null } }));
+    await act(async () => {
+      fireEvent.click(addButton());
+    });
+    expect(fake.api.agyLogin).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Đang chuyển Antigravity')).toBeTruthy();
+    expect(screen.getByText('Chờ lần chuyển xong rồi đăng nhập.')).toBeTruthy();
+    expect(screen.queryByText(/Đang chờ đăng nhập/)).toBeNull();
+    expect(addButton().disabled).toBe(false);
+  });
+
   it('a pasted URL the login refuses keeps it waiting, and Huỷ ends it', async () => {
     const fake = await open(withAgy({}));
     await act(async () => {

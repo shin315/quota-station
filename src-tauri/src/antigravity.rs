@@ -161,14 +161,15 @@ pub struct LoginDone {
 /// Adds an Antigravity account, or logs one in again: opens Google's consent
 /// screen in the default browser and waits up to 10 minutes for it to come
 /// back, then keeps the account. Rejects with `busy` while another login
-/// waits.
+/// waits and `switching` while an Antigravity switch runs, which the login
+/// would otherwise race.
 #[tauri::command]
 pub async fn agy_login(app: AppHandle, state: State<'_, AppState>) -> Result<LoginDone, Failure> {
     let shared = state.inner().clone();
     let dir = {
         let mut inner = shared.lock();
-        if inner.agy_logging_in {
-            return Err(failure("busy"));
+        if let Some(why) = inner.agy_login_refusal() {
+            return Err(failure(why));
         }
         inner.agy_logging_in = true;
         inner.app_dir()
@@ -346,6 +347,18 @@ pub fn set_show_email(
 }
 
 impl Inner {
+    /// Why an Antigravity login cannot start now: `busy` while another
+    /// login waits, `switching` while an Antigravity switch runs.
+    pub fn agy_login_refusal(&self) -> Option<&'static str> {
+        if self.agy_logging_in {
+            Some("busy")
+        } else if self.agy_switching.is_some() {
+            Some("switching")
+        } else {
+            None
+        }
+    }
+
     /// The app's Application Support folder, where `settings.json` is.
     pub fn app_dir(&self) -> AppDir {
         AppDir::new(self.settings_file.parent().map(|p| p.to_path_buf()).unwrap_or_default())
@@ -364,5 +377,24 @@ mod tests {
         assert!(!is_google_page("https://accounts.google.com.example.net/x"));
         assert!(!is_google_page("https://example.com/?google.com"));
         assert!(!is_google_page("file:///etc/passwd"));
+    }
+
+    #[test]
+    fn a_login_is_refused_while_another_login_or_a_switch_runs() {
+        let mut inner = Inner::new(
+            std::path::PathBuf::new(),
+            std::path::PathBuf::from("/nonexistent/settings.json"),
+            "Mac".into(),
+        );
+        assert_eq!(inner.agy_login_refusal(), None);
+
+        inner.agy_logging_in = true;
+        assert_eq!(inner.agy_login_refusal(), Some("busy"));
+        inner.agy_logging_in = false;
+
+        inner.agy_switching = Some(1);
+        assert_eq!(inner.agy_login_refusal(), Some("switching"));
+        inner.agy_switching = None;
+        assert_eq!(inner.agy_login_refusal(), None, "it can start once the switch ends");
     }
 }

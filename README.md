@@ -158,7 +158,9 @@ quota of the Antigravity accounts logged in here, at Cockpit's pace or slower
   read, or why it did not switch. Antigravity.app older than 2.0 is named
   and refused, and one whose version cannot be read stops the switch
   before anything is written (`Missing` only when there is no
-  Antigravity.app at all). For six hours after a switch, a reading that
+Antigravity.app at all). A switch is refused, with a message, while an
+  Antigravity login, logout or another switch runs, and a login is refused
+  while a switch runs. For six hours after a switch, a reading that
   shows the old account back in use brings the banner `Chuyển Antigravity
   bị ghi đè` with `Chuyển lại` and `Thôi`, and the overwrites are counted.
 
@@ -182,7 +184,9 @@ quota of the Antigravity accounts logged in here, at Cockpit's pace or slower
   `/Applications/Antigravity IDE.app`, where Cockpit looks, or Cockpit's
   `1.20.5` without it). `loadCodeAssist`, which gives the account's project
   and whether it is a GCP ToS account, is asked after a login and while the
-  token lacks either; a GCP ToS account with a project is read from
+  token lacks either (unlike Cockpit, a failed answer ends the read like a
+  failed quota call: the last reading stays, and a 429 or 5xx backs the
+  account off); a GCP ToS account with a project is read from
   `cloudcode-pa.googleapis.com`, every other from
   `daily-cloudcode-pa.googleapis.com`. Each reading goes, in Cockpit's cache
   layout, to the app's `antigravity/` folder, which quota-axi (`+cswap.5`)

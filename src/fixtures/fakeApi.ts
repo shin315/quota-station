@@ -231,6 +231,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
     },
     agyLogin: async () => {
       if (model.antigravity.loggingIn) throw { kind: 'busy', detail: '' } satisfies AgyLoginFailure;
+      if (model.agySwitch.busy != null) throw { kind: 'switching', detail: '' } satisfies AgyLoginFailure;
       if (model.antigravity.client !== 'ok') throw { kind: 'client', detail: model.antigravity.client } satisfies AgyLoginFailure;
       push({ ...model, antigravity: agy({ loggingIn: true }) });
       const how = await new Promise<'paste' | 'cancel' | 'self'>((resolve) => {
@@ -292,6 +293,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       const login = model.antigravity.accounts.find((a) => a.id === id);
       if (!login) throw 'unknownAccount';
       if (model.agySwitch.busy != null) throw 'busy';
+      if (model.antigravity.loggingIn) throw 'loggingIn';
       const number = login.number;
       push({ ...model, agySwitch: { ...model.agySwitch, busy: number } });
       if (options.agySwitchDelayMs) await new Promise((r) => setTimeout(r, options.agySwitchDelayMs));
