@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MainWindowApp } from '../App';
 import { fakeApi } from '../fixtures/fakeApi';
-import { agyFixture, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
+import { agyFixture, alertsFixture, firstmateFixture, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
 import type { Api } from '../lib/api';
 import type { Model } from '../lib/model';
 
@@ -248,5 +248,89 @@ describe('settings tab', () => {
     await open(fixtureModel('fresh', { rotation: { ...fixtureModel('fresh').rotation, peers: [] } }));
     expect(screen.getByText('Chưa có Mac nào. Luật xoay vòng chỉ lưu trên máy này.')).toBeTruthy();
     expect((screen.getByRole('button', { name: 'Thử SSH' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+describe('settings for M6', () => {
+  async function openWith(model: Parameters<typeof open>[0], firstmate = firstmateFixture()) {
+    const fake = fakeApi(model, 'settings', { firstmate });
+    for (const name of Object.keys(fake.api) as (keyof Api)[]) vi.spyOn(fake.api, name);
+    render(
+      <div className="qs app-window">
+        <MainWindowApp api={fake.api} clock={() => FIXTURE_NOW} />
+      </div>,
+    );
+    await screen.findByRole('heading', { name: 'Cài đặt' });
+    return fake;
+  }
+  const fmInput = () => screen.getByLabelText(/^File của firstmate/) as HTMLInputElement;
+
+  it('Firstmate\'s file has no path built in, and only quota-pool.last is taken', async () => {
+    const fake = await openWith(fixtureModel('fresh'));
+    expect(fmInput().value).toBe('');
+    expect(screen.getByText('Để trống nếu máy này không có firstmate.')).toBeTruthy();
+
+    fireEvent.change(fmInput(), { target: { value: '~/notes/secrets.txt' } });
+    await act(async () => {
+      fireEvent.blur(fmInput());
+    });
+    expect(fake.api.setFirstmateFile).toHaveBeenCalledWith('~/notes/secrets.txt');
+    expect(screen.getByText('File phải tên là quota-pool.last.')).toBeTruthy();
+    expect(fake.current().firstmate.status).toBe('notSet');
+
+    fireEvent.change(fmInput(), { target: { value: '~/example/watch/quota-pool.last' } });
+    await act(async () => {
+      fireEvent.keyDown(fmInput(), { key: 'Enter' });
+    });
+    expect(fake.current().firstmate.file).toBe('~/example/watch/quota-pool.last');
+    expect(screen.getByText('Đọc được ✓')).toBeTruthy();
+  });
+
+  it('a path with no file is refused and the one before stays', async () => {
+    const fake = fakeApi(fixtureModel('fresh'), 'settings');
+    vi.spyOn(fake.api, 'setFirstmateFile');
+    render(
+      <div className="qs app-window">
+        <MainWindowApp api={fake.api} clock={() => FIXTURE_NOW} />
+      </div>,
+    );
+    await screen.findByRole('heading', { name: 'Cài đặt' });
+    fireEvent.change(fmInput(), { target: { value: '~/nowhere/quota-pool.last' } });
+    await act(async () => {
+      fireEvent.blur(fmInput());
+    });
+    expect(screen.getByText('Không có file ở đường dẫn này.')).toBeTruthy();
+    expect(fake.current().firstmate.file).toBeNull();
+  });
+
+  it('Thông báo shows whether macOS lets the cards show, with "Gửi thử" and a switch for each kind', async () => {
+    const fake = await openWith(fixtureModel('fresh'));
+    expect(screen.getByText('đang bật')).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: /^Gửi thử: / })).toHaveLength(5);
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Gửi thử: Hạn mức Claude trong vòng sắp cạn / có lại' }));
+    });
+    expect(fake.api.testAlert).toHaveBeenCalledWith('pool');
+    await act(async () => {
+      fireEvent.click(screen.getByRole('switch', { name: 'Tài khoản cần đăng nhập lại' }));
+    });
+    expect(fake.api.setAlertSwitch).toHaveBeenCalledWith('login', false);
+    expect(fake.current().alerts.switches.login).toBe(false);
+    expect(fake.api.notifyRefresh).toHaveBeenCalled();
+  });
+
+  it('with notifications off, it says so and opens System Settings', async () => {
+    const fake = await openWith(fixtureModel('fresh', { alerts: alertsFixture({ permission: 'denied' }) }));
+    expect(screen.getByText('đang tắt')).toBeTruthy();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Mở Cài đặt hệ thống' }));
+    });
+    expect(fake.api.openNotificationSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it('a run outside the packaged app says macOS shows no cards', async () => {
+    await openWith(fixtureModel('fresh', { alerts: alertsFixture({ permission: 'unbundled' }) }));
+    expect(screen.getByText('bản chạy thử')).toBeTruthy();
+    expect(screen.getByText('Chỉ app đã đóng gói mới gửi được thẻ macOS. Cảnh báo vẫn có ở tab Cảnh báo.')).toBeTruthy();
   });
 });

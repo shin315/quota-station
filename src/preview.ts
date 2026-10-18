@@ -14,6 +14,10 @@
 // `overwritten`), `agyapp=closed|missing|old|unreadable|unknown` is what the sheet learns
 // about Antigravity.app (it runs by default), and
 // `agyoutcome=unconfirmed|notquit|write` what a switch reports. A switch takes 1.5 s.
+// History, alerts and Firstmate (M6): `tab=history|alerts|firstmate`, with
+// `history=empty`, `alerts=on|off|unbundled|empty` (two cards by default on
+// `tab=alerts`; `off` is macOS refusing the cards) and
+// `firstmate=ok|holding|stale|missing|unset` (unset by default).
 
 import type { Api } from './lib/api';
 import type { AgyAccounts, AgyApp, AgyHow, AgyOutcome, ErrorView, Model, Outcome, Tab } from './lib/model';
@@ -30,9 +34,30 @@ import {
   rulesFixture,
   SNAPSHOTS,
   switcherFixture,
+  alertsFixture,
+  firstmateFixture,
+  historyFixture,
+  leavingAlert,
+  overwriteAlert,
 } from './fixtures/models';
 
-const TABS: Tab[] = ['overview', 'claude', 'agy', 'rules', 'settings'];
+const TABS: Tab[] = ['overview', 'claude', 'agy', 'rules', 'history', 'alerts', 'firstmate', 'settings'];
+
+const ALERTS: Record<string, () => Model['alerts']> = {
+  on: () => alertsFixture({ recent: [overwriteAlert(), leavingAlert()], unanswered: 2 }),
+  off: () => alertsFixture({ recent: [overwriteAlert(), leavingAlert()], unanswered: 2, permission: 'denied' }),
+  unbundled: () => alertsFixture({ recent: [overwriteAlert(), leavingAlert()], unanswered: 2, permission: 'unbundled' }),
+  empty: () => alertsFixture(),
+};
+
+const FIRSTMATES: Record<string, () => Model['firstmate']> = {
+  ok: () => firstmateFixture(),
+  holding: () =>
+    firstmateFixture({ line: { ...firstmateFixture().line!, dry: true, nextReset: '2026-01-16T09:40:00.000Z' }, ownDry: true }),
+  stale: () => firstmateFixture({ writtenAt: '2026-01-16T05:20:00.000Z', fresh: false }),
+  missing: () => firstmateFixture({ status: 'missing', line: null, writtenAt: null, fresh: false }),
+  unset: () => fixtureModel('fresh').firstmate,
+};
 
 const RETRY = '2026-01-16T07:21:40.000Z';
 const NEWER = { at: '2026-01-16T14:11:00+07:00', machine: 'Mac B' };
@@ -164,6 +189,10 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
     over.showEmail = true;
     if (over.antigravity) over.antigravity.accounts = over.antigravity.accounts.map((a) => ({ ...a, email: fakeEmail(a.number) }));
   }
+  const alerts = pick(ALERTS, params.get('alerts') ?? (tab === 'alerts' ? 'on' : null));
+  if (alerts) over.alerts = alerts();
+  const firstmate = pick(FIRSTMATES, params.get('firstmate'));
+  if (firstmate) over.firstmate = firstmate();
   const agyApp = params.get('agyapp');
   const ends = LOGIN_ENDS.find((k) => k.toLowerCase() === params.get('login')?.toLowerCase());
   const { api } = fakeApi(fixtureModel(SNAPSHOTS[state] ? state : 'fresh', over), tab, {
@@ -178,6 +207,8 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
     agyApp: agyApp !== null && Object.hasOwn(AGY_APPS, agyApp) ? AGY_APPS[agyApp] : undefined,
     agyOutcome: pick(AGY_OUTCOMES, params.get('agyoutcome')),
     agySwitchDelayMs: 1500,
+    history: params.get('history') === 'empty' ? [] : historyFixture(),
+    firstmate: firstmateFixture(),
   });
   // The window opens on the same fixture and switcher states as the popover.
   const openWindow = async (next: Tab) => {

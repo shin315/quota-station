@@ -65,7 +65,7 @@ describe('main window', () => {
 
   it('later tabs sit in the sidebar but cannot be opened', async () => {
     const fake = await open(fixtureModel('fresh'));
-    for (const name of ['Codex', 'Lịch sử', 'Cảnh báo', 'Firstmate']) {
+    for (const name of ['Codex']) {
       const b = nav(name) as HTMLButtonElement;
       expect(b.disabled).toBe(true);
       expect(b.title).toBe('Có ở bản sau');

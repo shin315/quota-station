@@ -3,7 +3,22 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import type { AgyApp, AgyHow, AgyLoginDone, AgyOutcome, Decision, Model, Outcome, Peer, PeerTest, Rules, Sessions, Tab } from './model';
+import type {
+  AgyApp,
+  AgyHow,
+  AgyLoginDone,
+  AgyOutcome,
+  AlertKind,
+  Decision,
+  HistoryEntry,
+  Model,
+  Outcome,
+  Peer,
+  PeerTest,
+  Rules,
+  Sessions,
+  Tab,
+} from './model';
 
 export interface Api {
   getModel(): Promise<Model>;
@@ -92,6 +107,25 @@ export interface Api {
   switchAgy(id: string, how: AgyHow): Promise<AgyOutcome>;
   /** "Thôi" on the overwrite banner: stops watching the last switch. */
   agyDismissOverwrite(): Promise<Model>;
+  /**
+   * A button on an alert card in the Cảnh báo tab, the same as on the macOS card. A switch back
+   * runs on the Rust side and its result comes in the model; `openSwitch` asks this window to open
+   * its switch sheet. Rejects with `answered`, `unknown` or `noSuchAction`.
+   */
+  alertAction(id: string, action: string): Promise<{ openSwitch: number | null }>;
+  /** "Gửi thử": a sample card of this kind, with buttons that change nothing. */
+  testAlert(kind: AlertKind): Promise<Model>;
+  setAlertSwitch(kind: AlertKind, on: boolean): Promise<Model>;
+  /** Firstmate's `quota-pool.last`; empty forgets it. Rejects with `notPoolFile` or `notFound`. */
+  setFirstmateFile(path: string): Promise<Model>;
+  /** The History tab's lines, newest first. */
+  getHistory(): Promise<HistoryEntry[]>;
+  /** Asks macOS again whether cards may show; the answer comes in the model. */
+  notifyRefresh(): Promise<void>;
+  /** System Settings › Notifications. */
+  openNotificationSettings(): Promise<void>;
+  /** A button on a macOS card asks the popover to open its switch sheet for a Claude account. */
+  onOpenSwitch(handler: (slot: number) => void): Promise<() => void>;
   onModel(handler: (model: Model) => void): Promise<() => void>;
   /** The main window is asked to show a tab while it is open. */
   onTab(handler: (tab: Tab) => void): Promise<() => void>;
@@ -134,6 +168,14 @@ export const tauriApi: Api = {
   agyAppState: () => invoke<AgyApp>('agy_app_state'),
   switchAgy: (id, how) => invoke<AgyOutcome>('switch_agy', { id, how }),
   agyDismissOverwrite: () => invoke<Model>('agy_dismiss_overwrite'),
+  alertAction: (id, action) => invoke('alert_action', { id, action }),
+  testAlert: (kind) => invoke<Model>('test_alert', { kind }),
+  setAlertSwitch: (kind, on) => invoke<Model>('set_alert_switch', { kind, on }),
+  setFirstmateFile: (path) => invoke<Model>('set_firstmate_file', { path }),
+  getHistory: () => invoke<HistoryEntry[]>('get_history'),
+  notifyRefresh: () => invoke('notify_refresh'),
+  openNotificationSettings: () => invoke('open_notification_settings'),
+  onOpenSwitch: (handler) => listen<number>('openSwitch', (event) => handler(event.payload)),
   onModel: (handler) => listen<Model>('model', (event) => handler(event.payload)),
   onTab: (handler) => listen<Tab>('tab', (event) => handler(event.payload)),
 };

@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use quota_station_core::alerts::{Kind, Switches};
 use quota_station_core::settings::{
     machine_name, peers, Peer, PeersError, Settings, MACHINE_NAME_MAX, PEERS_MAX,
 };
@@ -16,6 +17,8 @@ fn settings_round_trip_and_default_when_missing() {
         machine_name: Some("Mac phòng khách".into()),
         peers: vec![peer("Mac B", "mac-b"), peer("Mac C", "mac-c")],
         show_email: true,
+        alerts: Switches { leaving: false, firstmate: true, ..Switches::default() },
+        firstmate_file: Some(PathBuf::from("/srv/example/quota-pool.last")),
     };
     s.save(&file).unwrap();
     assert_eq!(Settings::load(&file), s);
@@ -24,6 +27,8 @@ fn settings_round_trip_and_default_when_missing() {
     assert!(text.contains("machineName"));
     assert!(text.contains(r#""alias": "mac-c""#));
     assert!(text.contains("\"showEmail\": true"));
+    assert!(text.contains("\"leaving\": false"));
+    assert!(text.contains("firstmateFile"));
 
     std::fs::write(&file, "{ not json").unwrap();
     assert_eq!(Settings::load(&file), Settings::default());
@@ -39,6 +44,12 @@ fn a_settings_file_from_m1_still_loads() {
     assert_eq!(s.quota_axi_path, Some(PathBuf::from("/opt/tools/bin/quota-axi")));
     assert_eq!(s.machine_name, None);
     assert!(!s.show_email, "emails stay hidden");
+    // Alerts 1 to 4 on, Firstmate's off until a Mac has Firstmate.
+    assert!([Kind::Pool, Kind::Leaving, Kind::Login, Kind::Overwrite]
+        .iter()
+        .all(|k| s.alerts.on(*k)));
+    assert!(!s.alerts.on(Kind::Firstmate));
+    assert_eq!(s.firstmate_file, None);
     let _ = std::fs::remove_dir_all(&dir);
 }
 

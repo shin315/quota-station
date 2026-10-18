@@ -302,8 +302,14 @@ fn verification_page(standing: Option<&Standing>) -> Option<&str> {
 #[tauri::command]
 pub fn agy_open_verification(state: State<'_, AppState>, id: String) -> Result<(), String> {
     let dir = state.lock().app_dir();
-    let statuses = index::load_statuses(&dir);
-    let Some(url) = verification_page(statuses.accounts.get(&id)) else {
+    open_verification(&dir, &id)
+}
+
+/// The verification page for account `id`, in the browser; also for the
+/// button on an alert card.
+pub fn open_verification(dir: &AppDir, id: &str) -> Result<(), String> {
+    let statuses = index::load_statuses(dir);
+    let Some(url) = verification_page(statuses.accounts.get(id)) else {
         return Err("noPage".into());
     };
     if !is_google_page(url) {

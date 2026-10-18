@@ -160,7 +160,16 @@ pub async fn switch_agy(
     id: String,
     how: How,
 ) -> Result<Outcome, String> {
-    let shared = state.inner().clone();
+    switch(&app, state.inner().clone(), id, how).await
+}
+
+/// One switch, from the sheet or from an alert card's "Chuyển lại".
+pub async fn switch(
+    app: &AppHandle,
+    shared: AppState,
+    id: String,
+    how: How,
+) -> Result<Outcome, String> {
     let (dir, quota_axi, from) = {
         let mut inner = shared.lock();
         if let Some(why) = inner.agy_switch_refusal() {
@@ -174,7 +183,7 @@ pub async fn switch_agy(
         inner.agy_generation += 1;
         (dir, inner.quota_axi(), from)
     };
-    reader::publish(&app, &shared);
+    reader::publish(app, &shared);
     let done = tauri::async_runtime::spawn_blocking(move || {
         let endpoints = Endpoints::google();
         let keychain = Keychain::system();
@@ -206,7 +215,9 @@ pub async fn switch_agy(
             inner.agy_error = None;
         }
     }
-    reader::publish(&app, &shared);
+    // The switch log has its line: the change it made is not seen as one of its own.
+    crate::alerting::track_history(&shared);
+    reader::publish(app, &shared);
     done.map(|d| d.outcome).map_err(|e| e.to_string())
 }
 

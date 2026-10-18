@@ -261,7 +261,7 @@ function used(n: number): string {
   return percent(n);
 }
 
-function whyText(why: Why, name: string, nameOf: NameOf): string {
+export function whyText(why: Why, name: string, nameOf: NameOf): string {
   switch (why.kind) {
     case 'expiring':
       return 'ưu tiên dùng ' + name + ' trước khi tài khoản rời vòng lúc ' + why.at + '.';

@@ -52,6 +52,13 @@ Files, under `~/Library/Application Support/com.shin315.quota-station/`:
   (time, account ids, the button pressed and the result of the last 200
   switches) and `watch.json` (the six-hour watch of the last switch). The
   files are mode 600; logging out removes the account's reading.
+- `history/history.jsonl` and `alerts/alerts.json` (M6, folders mode 700,
+  files mode 600): the switch history (time, Claude slot numbers or the
+  app's Antigravity account ids, how a switch was made, at most 500 lines)
+  and the alerts (each card's words and buttons, when it was sent, what was
+  pressed and how it went, and the snoozes; the newest 30 cards). Neither
+  holds an email or a token: cards name accounts as the windows do
+  (`Team A`, `Ultra 2`), and claude-swap's error text never goes on a card.
 
 In the owner's login Keychain, not in that folder:
 
@@ -74,6 +81,17 @@ the guess against it, so it is kept as private as the index.
 Tokens are refreshed only right before a use (a quota read), when they have
 under five minutes left. Nothing refreshes them on a timer. Logging out
 deletes the app's item and the index line, and asks Google to revoke nothing.
+
+The history and the alerts read, besides the app's own folder, only the
+last 64 KB of the switcher's log and, at the path the owner sets in
+`Cài đặt`, Firstmate's `quota-pool.last`. No path to that file is built in.
+The app takes it only when the file is called `quota-pool.last`, opens it
+only when it is a plain file of at most 16 KB, and keeps only the keys
+Firstmate writes there (`fork`, `auto`, `cs`, `active`, `pool` and the
+per-account percents and next reset), each checked, so nothing else in a
+file the path points at can show. The macOS cards go through the system's
+notification center with the app's own bundle id; a card is withdrawn once
+it is answered in the app.
 
 Besides its own Keychain items, the only place outside its folder the
 Antigravity code reads is the Antigravity app's bundle,

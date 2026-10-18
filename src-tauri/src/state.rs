@@ -5,9 +5,13 @@ use std::path::PathBuf;
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::Instant;
 
+use quota_station_core::alerts::{self, Memory};
+use quota_station_core::antigravity::fs::AppDir;
 use quota_station_core::antigravity::oauth_server;
 use quota_station_core::antigravity::pace::Pace;
 use quota_station_core::axi::Response;
+use quota_station_core::firstmate::{self, Reading};
+use quota_station_core::history::Seen;
 use quota_station_core::peers::{self, PeerState, SyncLog};
 use quota_station_core::rotation::{self, FileState, Rules, Stamp};
 use quota_station_core::runner::{self, RunError};
@@ -21,7 +25,9 @@ use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
 use crate::agy_switch::{self, SwitchView};
+use crate::alerting::{self, AlertsView, FirstmateView};
 use crate::antigravity::{self, AccountsView};
+use crate::notify;
 
 pub type AppState = Arc<Shared>;
 
@@ -40,6 +46,9 @@ pub struct Shared {
     /// a read never writes an account's token or reading back after its
     /// logout removed them.
     pub agy_accounts: Mutex<()>,
+    /// Held while the history compares the newest readings, so a read and a
+    /// switch never keep the same change twice.
+    pub history: Mutex<()>,
 }
 
 impl Shared {
@@ -51,6 +60,7 @@ impl Shared {
             push_lock: Mutex::new(()),
             agy_wake: Condvar::new(),
             agy_accounts: Mutex::new(()),
+            history: Mutex::new(()),
         })
     }
 
@@ -146,6 +156,15 @@ pub struct Inner {
     /// A logout runs: a switch, or another logout, is refused meanwhile, as
     /// a logout is while a switch runs.
     pub agy_logging_out: bool,
+    /// The alerts sent and answered, kept in `alerts/alerts.json` (M6).
+    pub alerts: Memory,
+    /// The accounts the last readings showed in use, for the history.
+    pub seen: Seen,
+    /// Firstmate's state file as last read; `None` before the first read or
+    /// with no path set.
+    pub firstmate: Option<Result<Reading, firstmate::ReadError>>,
+    /// macOS's notification center; `None` until the app has started it.
+    pub center: Option<Arc<notify::Center>>,
 }
 
 /// How the app's own read of an Antigravity account stands.
@@ -201,7 +220,7 @@ impl SwitcherState {
     }
 }
 
-/// The main window's tabs that this build has. Later milestones add more.
+/// The main window's tabs that this build has. Codex comes later.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Tab {
@@ -210,6 +229,9 @@ pub enum Tab {
     Claude,
     Agy,
     Rules,
+    History,
+    Alerts,
+    Firstmate,
     Settings,
 }
 
@@ -217,6 +239,8 @@ impl Inner {
     pub fn new(home: PathBuf, settings_file: PathBuf, system_machine: String) -> Self {
         let settings = Settings::load(&settings_file);
         let sync_file = settings_file.with_file_name("rotation-sync.json");
+        let app_dir =
+            AppDir::new(settings_file.parent().map(|p| p.to_path_buf()).unwrap_or_default());
         Inner {
             home,
             settings_file,
@@ -252,6 +276,10 @@ impl Inner {
             agy_reads: BTreeMap::new(),
             agy_switching: None,
             agy_logging_out: false,
+            alerts: alerts::load(&app_dir),
+            seen: Seen::default(),
+            firstmate: None,
+            center: None,
         }
     }
 
@@ -344,6 +372,8 @@ impl Inner {
             antigravity: antigravity::view(self),
             agy_switch: agy_switch::view(self),
             rotation: self.rotation_view(),
+            alerts: alerting::alerts_view(self),
+            firstmate: alerting::firstmate_view(self),
         }
     }
 
@@ -444,6 +474,10 @@ pub struct Model {
     /// Switching them (M4c).
     pub agy_switch: SwitchView,
     pub rotation: RotationView,
+    /// The five alerts (M6).
+    pub alerts: AlertsView,
+    /// What Firstmate sees (M6).
+    pub firstmate: FirstmateView,
 }
 
 /// The rotation file and the other Macs (F06).

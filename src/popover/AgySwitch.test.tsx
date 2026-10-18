@@ -336,8 +336,20 @@ describe('the Antigravity switch sheet', () => {
 describe('the overwrite banner', () => {
   const overwritten: AgyOverwrite = { to: 1, from: 2, at: '2026-01-16T07:10:00.000Z', overwrites: 1 };
 
-  it('says the switch was undone and "Chuyển lại" opens the sheet again', async () => {
-    const fake = await openPopover(listed({ overwritten }));
+  it('is not in the popover: the macOS card with its buttons replaces it', async () => {
+    await openPopover(listed({ overwritten }));
+    expect(screen.queryByText('Chuyển Antigravity bị ghi đè')).toBeNull();
+  });
+
+  it('on the Antigravity tab, "Chuyển lại" opens the sheet again', async () => {
+    const fake = fakeApi(listed({ overwritten }), 'agy');
+    for (const name of Object.keys(fake.api) as (keyof Api)[]) vi.spyOn(fake.api, name);
+    render(
+      <div className="qs app-window">
+        <MainWindowApp api={fake.api} clock={() => FIXTURE_NOW} />
+      </div>,
+    );
+    await screen.findByRole('navigation', { name: 'Mục' });
     const banner = screen.getByText('Chuyển Antigravity bị ghi đè').closest('.banner') as HTMLElement;
     expect(
       within(banner).getByText(
@@ -351,8 +363,15 @@ describe('the overwrite banner', () => {
     expect(fake.api.agyAppState).toHaveBeenCalledTimes(1);
   });
 
-  it('"Thôi" stops the watch and the banner goes', async () => {
-    const fake = await openPopover(listed({ overwritten: { ...overwritten, overwrites: 2 } }));
+  it('on the Antigravity tab, "Thôi" stops the watch and the banner goes', async () => {
+    const fake = fakeApi(listed({ overwritten: { ...overwritten, overwrites: 2 } }), 'agy');
+    for (const name of Object.keys(fake.api) as (keyof Api)[]) vi.spyOn(fake.api, name);
+    render(
+      <div className="qs app-window">
+        <MainWindowApp api={fake.api} clock={() => FIXTURE_NOW} />
+      </div>,
+    );
+    await screen.findByRole('navigation', { name: 'Mục' });
     expect(screen.getByText(/Đây là lần thứ 2\./)).toBeTruthy();
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Thôi' }));

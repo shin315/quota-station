@@ -24,19 +24,23 @@ The popover and window images date from M2, before the switch buttons.
 
 ## What it does
 
-This is milestone M5, "Luật xoay vòng", on top of M3 "Chuyển Claude và tạm
-dừng", M2 "Cửa sổ chính chỉ đọc" and M1 "Khung và số", with M4a, "Đăng nhập
-Antigravity trong app", M4b, "App tự đọc hạn mức Antigravity", and M4c,
-"Chuyển Antigravity không cần Cockpit", the steps of taking over what Cockpit
-Tools does. The app reads, and acts in five ways, each started by the owner:
+This is milestone M6, "Lịch sử, cảnh báo và Firstmate", on top of M5 "Luật
+xoay vòng", M3 "Chuyển Claude và tạm dừng", M2 "Cửa sổ chính chỉ đọc" and M1
+"Khung và số", with M4a, "Đăng nhập Antigravity trong app", M4b, "App tự đọc
+hạn mức Antigravity", and M4c, "Chuyển Antigravity không cần Cockpit", the
+steps of taking over what Cockpit Tools does. The app reads, and acts in five
+ways, each started by the owner:
 it switches the active Claude account through claude-swap, it pauses the
 automatic switcher, it edits the switcher's rotation rules and copies them to
 the owner's other Macs, it logs Antigravity accounts in and out on this Mac,
-and it switches the Antigravity account that Antigravity.app and agy use. Two
+and it switches the Antigravity account that Antigravity.app and agy use. Four
 things it does on its own: it finishes that rotation copy (a Mac that could
-not take the saved rules is tried again in the background), and it reads the
-quota of the Antigravity accounts logged in here, at Cockpit's pace or slower
-(below).
+not take the saved rules is tried again in the background), it reads the
+quota of the Antigravity accounts logged in here, at Cockpit's pace or slower,
+it keeps a history of the switches on this Mac, and it posts a macOS
+notification card with buttons for five kinds of alert (below). A button on a
+card does what the same button in the app does: a Claude switch still opens
+the confirmation sheet first.
 
 - **Menu bar item.** A template glyph with one bar for Claude and one for
   Antigravity. Next to it is the whole-rotation number. When there is a
@@ -81,7 +85,7 @@ quota of the Antigravity accounts logged in here, at Cockpit's pace or slower
 - **Short menu** (right click). `Mở cửa sổ chính` (main window), `Làm mới`
   (refresh), `Cài đặt…` (settings), `Thoát Quota Station` (quit).
 - **Main window.** The same numbers as the popover, from the same read, in
-  four tabs:
+  these tabs:
   - `Tổng quan`: both pools with how the rotation number adds up, every
     Claude Code and Antigravity account in a table with each allowance and
     its reset in words, `Vì sao đang ở …` with the `Tự chuyển Claude`
@@ -101,18 +105,22 @@ quota of the Antigravity accounts logged in here, at Cockpit's pace or slower
     while the app reads its quota and `đọc lỗi: …` when that read failed
     (below). Opening the tab reads every account.
   - `Luật xoay vòng`: the rotation editor (below).
+  - `Lịch sử`, `Cảnh báo` and `Firstmate` (M6, below).
   - `Cài đặt`: the quota-axi path, either found automatically or set by hand,
     a one-time button that lets quota-axi ask macOS for Keychain access, the
     name shown for this Mac (empty uses the name macOS gives it),
     `Các Mac khác`: a name and an SSH alias for each other Mac, with
     `Thêm Mac`, `Bỏ` and `Thử SSH` (reads that Mac's rotation file and
     changes nothing), whether `oauth-client.json` is in place and usable,
-    and `Hiện email` (off by default). A settings file from before M5 with a
-    single `sshAlias` moves into the list of other Macs.
+    `Hiện email` (off by default), `File của firstmate` (the path to
+    Firstmate's `quota-pool.last`; nothing is built in, and only a file of
+    that name is taken) and `Thông báo` (whether macOS lets the cards show,
+    `Gửi thử` and a switch for each kind of alert). A settings file from
+    before M5 with a single `sshAlias` moves into the list of other Macs.
 
-  The sidebar also lists `Codex`, `Lịch sử`, `Cảnh báo` and `Firstmate`,
-  greyed out: they come in later milestones. Under the machine name it says
-  whether the other Macs have the rules.
+  The sidebar also lists `Codex`, greyed out: it comes in a later milestone.
+  `Cảnh báo` carries the number of cards nobody has answered yet. Under the
+  machine name it says whether the other Macs have the rules.
 - **Rotation rules** (F06). The editor shows the rotation file's six keys:
   the Team accounts in the rotation (chips; the number is the order), the
   personal account and its hours, the two thresholds (sliders), and when an
@@ -161,8 +169,64 @@ quota of the Antigravity accounts logged in here, at Cockpit's pace or slower
   Antigravity.app at all). A switch is refused, with a message, while an
   Antigravity login, logout or another switch runs, and a login is refused
   while a switch runs. For six hours after a switch, a reading that
-  shows the old account back in use brings the banner `Chuyển Antigravity
-  bị ghi đè` with `Chuyển lại` and `Thôi`, and the overwrites are counted.
+  shows the old account back in use is counted as an overwrite and brings
+  alert 4 (below); the `Antigravity` tab also shows the banner
+  `Chuyển Antigravity bị ghi đè` with `Chuyển lại` and `Thôi`. The popover
+  has no banner for it: the macOS card replaces it.
+
+- **History** (F08, `Lịch sử`). Every switch on this Mac, newest first, a day
+  at a time, filtered by `Tất cả`, `Claude` or `Antigravity`. Each line has
+  its time, a tag, the accounts before and after, why, and where it comes
+  from: `app` (a switch made in this app, Claude or Antigravity), `switcher`
+  (a `switch to slot N` or `primed slot N` line in the switcher's log, read
+  from its last 64 KB) or `quan sát` (the account in use changed between two
+  reads and neither the app nor the switcher made it, or Antigravity.app
+  wrote the old login back). The app keeps its own lines, at most 500, in
+  `history/history.jsonl`; the Antigravity switches come from its own
+  `antigravity/switch-log.jsonl`, never from Cockpit's switch history.
+- **Alerts** (F09, `Cảnh báo`). After every read the app checks five rules
+  and sends each new alert once, as a macOS card with buttons; the same card
+  stays in the `Cảnh báo` tab, with the same buttons. A button pressed on
+  either counts once, and the card then says what was chosen and how it
+  went. Each alert has a key, so the same event never alerts twice.
+  1. `Hạn mức Claude trong vòng sắp cạn` and `Claude đã có lại hạn mức`:
+     Firstmate's rule on claude-swap's numbers. The rotation's accounts that
+     have not left it (the personal one only inside its hours) count; the
+     pool is dry when the account in use has 10% or less left and no other
+     has 15% or more. The card names when an account resets and offers
+     `Sang <tài khoản> (còn N%)`, which opens the switch sheet, and `Thôi`.
+  2. `<tài khoản> rời vòng lúc HH:MM`: 30 minutes before an account leaves
+     the rotation (`expire` in the rules). For the account in use it offers
+     `Ổn` and `Chuyển ngay` (the switch sheet).
+  3. `<tài khoản> cần đăng nhập lại`: claude-swap reports an error only a
+     new login mends (`invalid_grant`, `no_refresh_token`, a relogin), or the
+     login expires within 3 days, when quota-axi gives `loginExpiresAt`
+     (today it does not, so only the error fires). `Nhắc ngày mai` asks again
+     at 09:00 the next day. Antigravity accounts that need a new login or a
+     verification get their own card, with `Đăng nhập lại` (the
+     `Antigravity` tab) or `Mở trang xác minh`.
+  4. `Antigravity đổi về tài khoản cũ`: the six-hour watch after an
+     Antigravity switch saw the old account back. While it has happened at
+     most twice the card offers `Thoát app rồi chuyển lại`, `Chuyển lại`
+     (they switch back at once, as the sheet's buttons do) and `Thôi`;
+     after that it only says so.
+  5. `Firstmate đang chờ hạn mức Claude`: Firstmate's `quota-pool.last`,
+     written within the last 30 minutes, says `pool=dry`. Off by default.
+
+  `Gửi thử` sends a sample of each kind, marked as a test, whose buttons
+  change nothing. A Mac where notifications are off for the app says so,
+  with `Mở Cài đặt hệ thống`; the alerts still come to the tab. macOS asks
+  once for leave to show cards, the first time the app runs. Only the
+  packaged `.app` can post cards: `tauri dev` keeps the alerts in the tab.
+  The cards name accounts as the app does, never by email. What was sent,
+  answered and snoozed is kept in `alerts/alerts.json` (the newest 30 cards).
+- **Firstmate** (F10). Whether Firstmate holds new Claude work, from the
+  line its quota-pool watch writes, `quota-pool.last`, at the path set in
+  `Cài đặt`, next to the pool quota-axi reports: the account in use, what
+  each account has left, the next reset, whether quota-axi has `+cswap` and
+  whether Firstmate could read claude-swap, and when the file was written.
+  A file older than 30 minutes says Firstmate may not be running, and a Mac
+  without the file says so. Only the keys Firstmate writes are read.
 
 - **Antigravity logins** (M4a). `Thêm tài khoản` opens Google's consent
   screen in the default browser, with Antigravity's own OAuth client, so the
@@ -207,8 +271,8 @@ quota of the Antigravity accounts logged in here, at Cockpit's pace or slower
 Each Mac runs its own copy and switches only its own machine; there is no
 switch button for another Mac. The only thing sent to another Mac is the
 rotation file. Each Mac also keeps its own Antigravity logins, and nothing
-assumes another Mac has any. Notifications, history and installing as a
-login item come in later milestones.
+assumes another Mac has any. Installing as a login item comes in a later
+milestone.
 
 ### What it reads and runs
 
@@ -274,6 +338,14 @@ login item come in later milestones.
   `security add-generic-password -U -s gemini -a antigravity -w go-keyring-base64:<…> -A`,
   and then `quota-axi --provider agy --json --max-age 0 --no-credential-refresh`.
   Opening the sheet runs only the `plutil` and `pgrep` questions.
+- History and alerts (M6) read, after each read: the last 64 KB of the
+  switcher's log, the rotation file (when quota-axi gives no rotation),
+  the app's own Antigravity files, Firstmate's `quota-pool.last` at the path
+  set in `Cài đặt` (at most 16 KB, a plain file of that name only), and,
+  while an overwrite card waits for an answer, `pgrep` for Antigravity.app.
+  The cards go through macOS's own notification center
+  (`UNUserNotificationCenter`); `Mở Cài đặt hệ thống` runs
+  `open x-apple.systempreferences:com.apple.Notifications-Settings.extension`.
 - It writes these files: its own settings file,
   `~/Library/Application Support/com.shin315.quota-station/settings.json`,
   with `rotation-sync.json` (where each other Mac stands) beside it; in the
@@ -285,7 +357,8 @@ login item come in later milestones.
   and after an Antigravity switch
   `antigravity/antigravity_legacy_instances.json` (the account bound to
   Antigravity.app, read by quota-axi), `antigravity/switch-log.jsonl` and
-  `antigravity/watch.json`; the switcher's pause flag,
+  `antigravity/watch.json`; `history/history.jsonl` and
+  `alerts/alerts.json` (M6, no email or token); the switcher's pause flag,
   `~/.config/cswap-prefer-team/pause`
   (`until = YYYY-MM-DDTHH:MM` in local time and `reason = …`; no `until`
   pauses until resumed); and the rotation file with its backups. Each is
@@ -402,8 +475,8 @@ and both update the fixture.
 ## Tests
 
 ```sh
-cargo test --workspace   # parsing, snapshot rules, icon, runner, schedule, switching, rotation, other Macs, Antigravity login, quota and switch
-npm test                 # Vitest: popover and main window views, switch and pause sheets, rules editor, login card and read states, Antigravity switch
+cargo test --workspace   # parsing, snapshot rules, icon, runner, schedule, switching, rotation, other Macs, Antigravity login, quota and switch, history, alerts, Firstmate's file
+npm test                 # Vitest: popover and main window views, switch and pause sheets, rules editor, login card and read states, Antigravity switch, history, alerts and Firstmate tabs
 ```
 
 The Antigravity login tests never reach Google or the Keychain. They run
@@ -474,6 +547,22 @@ file, an older copy (replaced, backup kept, ten newest kept), the copy
 already there, the 5-minute retry, a newer copy that wins, and a copy edited
 by hand.
 
+The history and alert tests (`crates/quota-station-core/tests/history.rs`
+and `tests/alerts.rs`) run on synthetic quota-axi reports, switcher logs and
+app folders in temporary directories, with a fake notification center that
+records each card, its buttons and what was withdrawn, and presses a button.
+They step through readings: the pool going dry and coming back, an account
+leaving the rotation in 30 minutes (and not for an account that left
+already), a login expiring in 3 days and a claude-swap login error,
+Antigravity accounts that need a new login or a verification, an overwrite
+within 6 hours (offering to switch back twice, then only saying so), and
+Firstmate's `pool=dry`, fresh and stale. They check that each event alerts
+once, that a switched-off kind sends nothing, that `Nhắc ngày mai` comes back
+at 09:00, that a test card changes nothing, and that a press counts once on
+either card. The history tests merge the app's journal, its Antigravity
+switch log and the switcher's log, and keep a change nothing explains as
+`quan sát` only once. Nothing posts a real notification.
+
 The quota-axi fixtures in `crates/quota-station-core/tests/fixtures/` are
 synthetic, with made-up ids and values. The popover and window tests use JSON snapshots
 in `src/fixtures/snapshots/`, which the Rust side builds from those fixtures.
@@ -492,9 +581,11 @@ UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test ui_fixtures
   reads, checks and writes the rotation file, and copies it over SSH. Its
   `antigravity/` module logs Antigravity accounts in and out, reads their
   quota, paces those reads, and switches the account Antigravity.app and
-  agy use.
+  agy use. `history`, `alerts` and `firstmate` keep the switch history, run
+  the five alert rules and read Firstmate's `quota-pool.last`.
 - `src-tauri/` is the Tauri 2 shell: the tray item, the popover and the main
-  window, the read loop, the Antigravity quota thread and the commands.
+  window, the read loop, the Antigravity quota thread, the macOS
+  notification center (`notify.rs`) and the commands.
 - `src/` is the React and TypeScript frontend. Its `styles/tokens.css` and
   `styles/components.css` come from the approved prototype.
 

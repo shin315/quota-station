@@ -4,7 +4,6 @@
 // Copy follows the approved prototype (Hướng 1 · Kính macOS, bước 0.7).
 
 import { age, clock, hours, minutesUntil, percent, resetShort, resetWords, room, secondsSince } from './format';
-import { overwriteBanner } from './agySwitch';
 import type { Account, AgyLogin, ErrorView, Line, LineKind, Model, Pool, Section } from './model';
 import { pausedSummary, switcherBanner } from './switching';
 
@@ -28,6 +27,8 @@ export type Action =
   | `agy:switch:${number}`
   /** "Thôi" on the overwrite banner: stops watching the last Antigravity switch. */
   | 'agy:keep'
+  /** System Settings › Notifications (M6). */
+  | 'notify:settings'
   /** The rotation editor's banners and feedback (M5). */
   | RulesAction;
 
@@ -490,10 +491,10 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
   let banner: BannerView | null = null;
   const pendingAccount = c.accounts.find((a) => a.reading === 'resetPending');
   const switcher = switcherBanner(model, now);
-  const overwritten = overwriteBanner(model);
+  // An Antigravity switch written over comes as a macOS card with buttons (M6),
+  // and stays on the main window's Antigravity tab; the popover has no banner for it.
   if (cErr) banner = errorBanner(cErr, lastClaude);
   else if (switcher && switcher.tone !== 'info') banner = switcher;
-  else if (overwritten) banner = overwritten;
   else if (pool.exhausted) {
     const who = pool.refills.map(nameOf);
     const at = clock(pool.nextRefillAt);

@@ -3,11 +3,13 @@
 // Each window opens its own sheets; a switch running from one shows in both.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AlertsTab } from './alerts/AlertsTab';
 import { AgyAccounts } from './antigravity/AgyAccounts';
 import { SheetBody, type SheetState } from './components/Sheets';
 import { agyLoginOf, agySwitchErrorFeedback, agySwitchFeedback, type AppAnswer } from './lib/agySwitch';
 import type { Api } from './lib/api';
-import type { AgyHow, Model, Sessions, Tab } from './lib/model';
+import { alertFailedFeedback } from './lib/alerts';
+import type { AgyHow, AlertKind, Model, Sessions, Tab } from './lib/model';
 import {
   autoView,
   extendedFeedback,
@@ -23,6 +25,8 @@ import { sidebarLine, syncSummary } from './lib/rules';
 import { keychainFeedback, popoverView, refreshedFeedback, settingsFailedFeedback, type Action, type FeedbackView } from './lib/view';
 import { windowView } from './lib/window';
 import { Popover } from './popover/Popover';
+import { FirstmateTab } from './firstmate/FirstmateTab';
+import { HistoryTab } from './history/HistoryTab';
 import { CompareDialog, LeaveDialog, RulesTab } from './rules/RulesTab';
 import { useRules } from './rules/useRules';
 import { Settings } from './settings/Settings';
@@ -293,6 +297,22 @@ export function PopoverApp({ api, clock = systemClock }: AppProps) {
     };
   }, [api, sheetOpen]);
 
+  // A button on a macOS card ("Sang …", "Chuyển ngay") opens the switch sheet here.
+  const openSwitch = useRef(switching.openSwitch);
+  openSwitch.current = switching.openSwitch;
+  useEffect(() => {
+    let live = true;
+    let stop: (() => void) | undefined;
+    void api.onOpenSwitch((slot) => live && openSwitch.current(slot)).then((unlisten) => {
+      if (live) stop = unlisten;
+      else unlisten();
+    });
+    return () => {
+      live = false;
+      stop?.();
+    };
+  }, [api]);
+
   const onHeight = useCallback((h: number) => void api.resizePopover(h), [api]);
 
   const onAction = (act: Action) => {
@@ -370,16 +390,32 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   // Opening the Antigravity tab reads every account now (at most once a minute each).
   useEffect(() => {
     if (tab === 'agy') void api.agyTabOpened().catch(() => {});
+    // Whether macOS shows the cards may have changed in System Settings.
+    if (tab === 'alerts' || tab === 'settings') void api.notifyRefresh().catch(() => {});
   }, [api, tab]);
 
   const onAction = (act: Action) => {
     if (switching.act(act)) return;
     if (rules.act(act)) return;
+    if (act === 'notify:settings') return void api.openNotificationSettings().catch(() => showFeedback(settingsFailedFeedback()));
     if (act === 'settings') return rules.guardTab(tab, 'settings', setTab);
     if (act === 'dismiss') return setKeychainLater(true);
     if (act === 'refresh') return void refresh();
     if (act === 'keychain') return void grant();
   };
+
+  /** A button on a card in the Cảnh báo tab; "Sang …" opens this window's switch sheet. */
+  const pressAlert = async (id: string, action: string) => {
+    try {
+      const pressed = await api.alertAction(id, action);
+      if (pressed.openSwitch != null) switching.openSwitch(pressed.openSwitch);
+    } catch (e) {
+      showFeedback(alertFailedFeedback(e));
+    }
+  };
+  const testAlert = (kind: AlertKind) => void api.testAlert(kind).catch(() => showFeedback(settingsFailedFeedback()));
+  const alertSwitch = (kind: AlertKind, on: boolean) =>
+    void api.setAlertSwitch(kind, on).catch(() => showFeedback(settingsFailedFeedback()));
 
   if (!model || !tab) return null;
   const view = windowView(model, now, { keychainLater });
@@ -414,6 +450,14 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
         )
       }
       onTestPeer={(alias) => api.testPeer(alias)}
+      onSetFirstmate={(path) =>
+        api.setFirstmateFile(path).then(
+          () => null,
+          (e: unknown) => String(e),
+        )
+      }
+      onTestAlert={testAlert}
+      onAlertSwitch={alertSwitch}
     />
   );
   const goTab = (next: Tab) => rules.guardTab(tab, next, setTab);
@@ -442,6 +486,21 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       settings={settings}
       syncNote={sidebarLine(model)}
       rules={<RulesTab model={model} fresh={view.fresh} rules={rules} feedback={feedback} now={now} onAction={onAction} />}
+      history={<HistoryTab model={model} fresh={view.fresh} now={now} load={api.getHistory} />}
+      alerts={
+        <AlertsTab
+          model={model}
+          fresh={view.fresh}
+          feedback={feedback}
+          now={now}
+          onAction={onAction}
+          onPress={pressAlert}
+          onTest={testAlert}
+          onSwitch={alertSwitch}
+        />
+      }
+      firstmate={<FirstmateTab model={model} fresh={view.fresh} now={now} onAction={onAction} />}
+      unanswered={model.alerts.unanswered}
       agyAccounts={<AgyAccounts view={model.antigravity} api={api} onFeedback={showFeedback} />}
       dialog={dialog}
     />

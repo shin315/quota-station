@@ -7,12 +7,16 @@
 //! Macs over SSH, so every Mac's switcher follows the same rules.
 //! Since M4a it logs Antigravity accounts in itself, since M4b it reads
 //! their quota itself and leaves it where quota-axi reads it, and since M4c
-//! it switches the Antigravity account without Cockpit Tools.
+//! it switches the Antigravity account without Cockpit Tools. Since M6 it
+//! keeps a history of the switches, sends five alerts as macOS cards with
+//! buttons, and shows what Firstmate sees.
 
 mod agy_quota;
 mod agy_switch;
+mod alerting;
 mod antigravity;
 mod commands;
+mod notify;
 mod reader;
 mod rules;
 mod state;
@@ -40,6 +44,7 @@ fn main() {
             let settings_file = app.path().app_config_dir()?.join("settings.json");
             let state = Shared::new(Inner::new(home, settings_file, machine_name()));
             app.manage(state.clone());
+            state.lock().center = Some(std::sync::Arc::new(alerting::start_center(app.handle())));
 
             tray::build(app)?;
             if let Some(popover) = app.get_webview_window(windows::POPOVER) {
@@ -86,6 +91,13 @@ fn main() {
             agy_switch::agy_app_state,
             agy_switch::switch_agy,
             agy_switch::agy_dismiss_overwrite,
+            alerting::alert_action,
+            alerting::test_alert,
+            alerting::set_alert_switch,
+            alerting::set_firstmate_file,
+            alerting::get_history,
+            alerting::notify_refresh,
+            alerting::open_notification_settings,
         ])
         .run(tauri::generate_context!())
         .expect("Quota Station failed to start");
