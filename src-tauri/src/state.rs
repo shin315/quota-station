@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::Instant;
 
+use quota_station_core::antigravity::oauth_server;
 use quota_station_core::axi::Response;
 use quota_station_core::peers::{self, PeerState, SyncLog};
 use quota_station_core::rotation::{self, FileState, Rules, Stamp};
@@ -17,6 +18,8 @@ use quota_station_core::{cswap, local_time, pause, switcher, Snapshot};
 use serde::{Deserialize, Serialize};
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
+
+use crate::antigravity::{self, AccountsView};
 
 pub type AppState = Arc<Shared>;
 
@@ -109,6 +112,11 @@ pub struct Inner {
     /// rules. Kept here, not only sent as an event, because a window opened
     /// for it may not listen yet; the page takes it with `take_quit`.
     pub quit_pending: bool,
+    /// An Antigravity login is running.
+    pub agy_logging_in: bool,
+    /// The running login while it waits for the browser: takes a pasted
+    /// callback or a cancel.
+    pub agy_login: Option<oauth_server::Handle>,
 }
 
 /// What the app last saw of the `cswap-prefer-team` switcher.
@@ -197,6 +205,8 @@ impl Inner {
             rotation_saving: false,
             rules_dirty: false,
             quit_pending: false,
+            agy_logging_in: false,
+            agy_login: None,
         }
     }
 
@@ -275,6 +285,8 @@ impl Inner {
                 cswap: cswap::discover(&self.home).is_some(),
                 busy: self.switching,
             },
+            show_email: self.settings.show_email,
+            antigravity: antigravity::view(self),
             rotation: self.rotation_view(),
         }
     }
@@ -369,6 +381,10 @@ pub struct Model {
     pub granting: bool,
     pub switcher: SwitcherView,
     pub claude_switch: ClaudeSwitchView,
+    /// Emails of the accounts logged in here may show.
+    pub show_email: bool,
+    /// The Antigravity accounts this app logs in itself.
+    pub antigravity: AccountsView,
     pub rotation: RotationView,
 }
 

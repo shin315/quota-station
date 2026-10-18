@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MainWindowApp } from '../App';
 import { fakeApi } from '../fixtures/fakeApi';
-import { FIXTURE_NOW, fixtureModel } from '../fixtures/models';
+import { agyFixture, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
 import type { Api } from '../lib/api';
 import type { Model } from '../lib/model';
 
@@ -45,7 +45,30 @@ describe('settings tab', () => {
   it('while macOS asks, the button waits and says what to press', async () => {
     await open(fixtureModel('keychain', { granting: true }));
     expect((screen.getByRole('button', { name: 'Cấp quyền một lần' }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByText('macOS sẽ hỏi. Bấm "Luôn cho phép". App không đọc Keychain.')).toBeTruthy();
+    expect(screen.getByText('macOS sẽ hỏi. Bấm "Luôn cho phép". App không đọc mục Keychain của Claude.')).toBeTruthy();
+  });
+
+  it('says whether oauth-client.json is in place, never what it holds', async () => {
+    await open(fixtureModel('fresh'));
+    expect(screen.getByText('có, dùng được')).toBeTruthy();
+    expect(screen.getByText('~/Library/Application Support/com.shin315.quota-station/oauth-client.json')).toBeTruthy();
+    cleanup();
+    await open(fixtureModel('fresh', { antigravity: agyFixture({ client: 'tooOpen' }) }));
+    expect(screen.getByText('cần quyền 600')).toBeTruthy();
+    cleanup();
+    await open(fixtureModel('fresh', { antigravity: agyFixture({ client: 'missing' }) }));
+    expect(screen.getByText('chưa có')).toBeTruthy();
+  });
+
+  it('the email switch is off by default and saves through the fake', async () => {
+    const fake = await open(fixtureModel('fresh'));
+    const toggle = screen.getByRole('switch', { name: 'Hiện email' });
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
+    await act(async () => {
+      fireEvent.click(toggle);
+    });
+    expect(fake.api.setShowEmail).toHaveBeenCalledWith(true);
+    expect(screen.getByRole('switch', { name: 'Hiện email' }).getAttribute('aria-checked')).toBe('true');
   });
 
   it('refuses a path with no file and offers to find quota-axi again', async () => {

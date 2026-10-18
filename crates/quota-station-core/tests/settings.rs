@@ -15,6 +15,7 @@ fn settings_round_trip_and_default_when_missing() {
         quota_axi_path: Some(PathBuf::from("/opt/tools/bin/quota-axi")),
         machine_name: Some("Mac phòng khách".into()),
         peers: vec![peer("Mac B", "mac-b"), peer("Mac C", "mac-c")],
+        show_email: true,
     };
     s.save(&file).unwrap();
     assert_eq!(Settings::load(&file), s);
@@ -22,6 +23,7 @@ fn settings_round_trip_and_default_when_missing() {
     assert!(text.contains("quotaAxiPath"));
     assert!(text.contains("machineName"));
     assert!(text.contains(r#""alias": "mac-c""#));
+    assert!(text.contains("\"showEmail\": true"));
 
     std::fs::write(&file, "{ not json").unwrap();
     assert_eq!(Settings::load(&file), Settings::default());
@@ -36,6 +38,7 @@ fn a_settings_file_from_m1_still_loads() {
     let s = Settings::load(&file);
     assert_eq!(s.quota_axi_path, Some(PathBuf::from("/opt/tools/bin/quota-axi")));
     assert_eq!(s.machine_name, None);
+    assert!(!s.show_email, "emails stay hidden");
     let _ = std::fs::remove_dir_all(&dir);
 }
 

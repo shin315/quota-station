@@ -5,11 +5,27 @@
 // `cswap=none` hides claude-swap. A switch takes 1.5 s, so the working sheet shows.
 // Rotation rules (M5): `tab=rules` with `rotation=unreachable|newer|edited|unstamped|missing|invalid|refused|single`;
 // a save takes 1 s, and `unreachable` leaves Mac C behind.
+// Antigravity logins (M4a): `agy=two|relogin|verify|noclient|tooopen|invalid|broken`
+// sets the login card, `login=timeout|noRefreshToken|keychain|…` how a login ends
+// (it keeps the next account after 3 s by default, or at once on any pasted
+// URL with `code=` and `state=`), and `email=on` shows the made-up emails.
 
 import type { Api } from './lib/api';
-import type { ErrorView, Model, Outcome, Tab } from './lib/model';
-import { fakeApi } from './fixtures/fakeApi';
-import { failing, FIXTURE_NOW, fixtureModel, heldSwitcher, peerFixture, rotationFixture, rulesFixture, SNAPSHOTS, switcherFixture } from './fixtures/models';
+import type { AgyAccounts, ErrorView, Model, Outcome, Tab } from './lib/model';
+import { fakeApi, fakeEmail } from './fixtures/fakeApi';
+import {
+  agyAccount,
+  agyFixture,
+  failing,
+  FIXTURE_NOW,
+  fixtureModel,
+  heldSwitcher,
+  peerFixture,
+  rotationFixture,
+  rulesFixture,
+  SNAPSHOTS,
+  switcherFixture,
+} from './fixtures/models';
 
 const TABS: Tab[] = ['overview', 'claude', 'agy', 'rules', 'settings'];
 
@@ -50,6 +66,18 @@ const SWITCHERS: Record<string, () => Model['switcher']> = {
   missing: () => switcherFixture({ installed: false, dryRun: null, lastLog: null, service: null }),
 };
 
+const AGY: Record<string, () => AgyAccounts> = {
+  two: () => agyFixture({ accounts: [agyAccount(1), agyAccount(2)] }),
+  relogin: () => agyFixture({ accounts: [agyAccount(1), agyAccount(2, { status: 'needsLogin' })] }),
+  verify: () => agyFixture({ accounts: [agyAccount(1, { status: 'needsVerification', verify: true }), agyAccount(2)] }),
+  noclient: () => agyFixture({ client: 'missing' }),
+  tooopen: () => agyFixture({ client: 'tooOpen' }),
+  invalid: () => agyFixture({ client: 'invalid' }),
+  broken: () => agyFixture({ indexError: true }),
+};
+
+const LOGIN_ENDS = ['timeout', 'cancelled', 'noCode', 'stateMismatch', 'noRefreshToken', 'invalidGrant', 'network', 'keychain', 'index', 'browser'];
+
 /** The hold a switch writes: to the minute, as the pause flag keeps it. */
 const holdOf = (until: string | null) =>
   until ? { until: new Date(Math.floor(Date.parse(until) / 60000) * 60000).toISOString(), failed: false } : null;
@@ -86,6 +114,13 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
   const rotation = params.get('rotation');
   const rules = pick(ROTATIONS, rotation);
   if (rules) over.rotation = rules();
+  const agy = pick(AGY, params.get('agy'));
+  if (agy) over.antigravity = agy();
+  if (params.get('email') === 'on') {
+    over.showEmail = true;
+    if (over.antigravity) over.antigravity.accounts = over.antigravity.accounts.map((a) => ({ ...a, email: fakeEmail(a.number) }));
+  }
+  const ends = LOGIN_ENDS.find((k) => k.toLowerCase() === params.get('login')?.toLowerCase());
   const { api } = fakeApi(fixtureModel(SNAPSHOTS[state] ? state : 'fresh', over), tab, {
     switchDelayMs: 1500,
     outcome: pick(OUTCOMES, params.get('outcome')),
@@ -93,6 +128,8 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
     clock: () => FIXTURE_NOW,
     unreachable: rotation === 'unreachable' ? ['mac-c'] : [],
     rulesError: rotation === 'refused' ? { kind: 'refused', detail: 'rotation_bad_value:personal_hours', restored: true } : undefined,
+    agyLoginDelayMs: 3000,
+    agyLogin: ends ? () => ({ kind: ends, detail: '' }) : undefined,
   });
   // The window opens on the same fixture and switcher states as the popover.
   const openWindow = async (next: Tab) => {

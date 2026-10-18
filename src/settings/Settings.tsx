@@ -1,12 +1,14 @@
 // The Cài đặt tab of the main window: where quota-axi is, Keychain access
-// for quota-axi, this Mac's name, and the other Macs the rotation file is
-// copied to (an SSH alias each). Rows and copy come from the prototype's
-// Cài đặt tab. Each Mac runs its own copy and switches only itself; email,
-// login, refresh, theme and Codex come in later milestones.
+// for quota-axi, this Mac's name, the other Macs the rotation file is
+// copied to (an SSH alias each), the Antigravity OAuth client file and
+// whether emails show. Rows and copy come from the prototype's Cài đặt tab.
+// Each Mac runs its own copy and switches only itself; login, refresh,
+// theme and Codex come in later milestones.
 
 import { useState } from 'react';
-import { Button, Chip, Dot, Feedback } from '../components/parts';
-import type { Model, Peer, PeerTest } from '../lib/model';
+import { Button, Chip, Dot, Feedback, Toggle } from '../components/parts';
+import type { ChipView } from '../lib/view';
+import type { ClientStatus, Model, Peer, PeerTest } from '../lib/model';
 import type { Action, FeedbackView, PopoverView } from '../lib/view';
 
 export interface SettingsProps {
@@ -23,7 +25,16 @@ export interface SettingsProps {
   /** Resolves to null once saved, else the refusal (`badAlias:1`, `sameAlias:1`, `tooMany`). */
   onSetPeers(peers: Peer[]): Promise<string | null>;
   onTestPeer(alias: string): Promise<PeerTest>;
+  onShowEmail(on: boolean): void;
 }
+
+const CLIENT_CHIPS: Record<ClientStatus, ChipView> = {
+  ok: { t: 'có, dùng được', k: 'ok' },
+  missing: { t: 'chưa có', k: 'warn' },
+  tooOpen: { t: 'cần quyền 600', k: 'bad' },
+  invalid: { t: 'chưa đúng', k: 'bad' },
+  unreadable: { t: 'không đọc được', k: 'bad' },
+};
 
 function pathHint(model: Model, refused: boolean): { tone: 'ok' | 'bad' | ''; text: string } {
   const q = model.quotaAxi;
@@ -212,7 +223,7 @@ function OtherMacs({ model, onSet, onTest }: { model: Model; onSet: SettingsProp
   );
 }
 
-export function Settings({ model, fresh, feedback, onAction, onSetPath, onFind, onGrant, onSetMachine, onSetPeers, onTestPeer }: SettingsProps) {
+export function Settings({ model, fresh, feedback, onAction, onSetPath, onFind, onGrant, onSetMachine, onSetPeers, onTestPeer, onShowEmail }: SettingsProps) {
   const [path, setPath] = useField(model.quotaAxi.path ?? '');
   const [refused, setRefused] = useState(false);
 
@@ -278,7 +289,7 @@ export function Settings({ model, fresh, feedback, onAction, onSetPath, onFind, 
                   </Button>
                   <div className="fhint">
                     {model.granting
-                      ? 'macOS sẽ hỏi. Bấm "Luôn cho phép". App không đọc Keychain.'
+                      ? 'macOS sẽ hỏi. Bấm "Luôn cho phép". App không đọc mục Keychain của Claude.'
                       : 'Đến khi cấp, dòng Claude dùng số chưa được cập nhật từ claude-swap.'}
                   </div>
                 </>
@@ -289,6 +300,25 @@ export function Settings({ model, fresh, feedback, onAction, onSetPath, onFind, 
           </div>
           <MachineName model={model} onSet={onSetMachine} />
           <OtherMacs model={model} onSet={onSetPeers} onTest={onTestPeer} />
+          <div className="fr">
+            <div className="fl">
+              OAuth client Antigravity<small>File oauth-client.json để đăng nhập Antigravity trong app</small>
+            </div>
+            <div>
+              <Chip chip={CLIENT_CHIPS[model.antigravity.client]} />
+              <div className="fhint">
+                <span className="mono">{model.antigravity.clientPath}</span>, quyền 600, chỉ có trên Mac này. README ghi định dạng.
+              </div>
+            </div>
+          </div>
+          <div className="fr">
+            <div className="fl" id="qs-email-l">
+              Hiện email<small>Mặc định tắt. Tài khoản gọi theo số</small>
+            </div>
+            <div>
+              <Toggle on={model.showEmail} label="Hiện email" onClick={() => onShowEmail(!model.showEmail)} />
+            </div>
+          </div>
         </div>
       </div>
     </>

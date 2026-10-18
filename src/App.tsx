@@ -3,6 +3,7 @@
 // Each window opens its own sheets; a switch running from one shows in both.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AgyAccounts } from './antigravity/AgyAccounts';
 import { SheetBody, type SheetState } from './components/Sheets';
 import type { Api } from './lib/api';
 import type { Model, Sessions, Tab } from './lib/model';
@@ -340,6 +341,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       }
       onFind={() => void api.setQuotaAxiPath('').catch(() => showFeedback(settingsFailedFeedback()))}
       onGrant={() => void grant()}
+      onShowEmail={(on) => void api.setShowEmail(on).catch(() => showFeedback(settingsFailedFeedback()))}
       onSetMachine={(name) =>
         api.setMachineName(name).then(
           () => true,
@@ -383,6 +385,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       settings={settings}
       syncNote={sidebarLine(model)}
       rules={<RulesTab model={model} fresh={view.fresh} rules={rules} feedback={feedback} now={now} onAction={onAction} />}
+      agyAccounts={<AgyAccounts view={model.antigravity} api={api} onFeedback={showFeedback} />}
       dialog={dialog}
     />
   );

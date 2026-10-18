@@ -1,6 +1,6 @@
 //! The app's own settings file, `settings.json` in its Application Support
-//! folder: the quota-axi path, the name this Mac goes by, and the other Macs
-//! the rotation file is copied to.
+//! folder: the quota-axi path, the name this Mac goes by, the other Macs
+//! the rotation file is copied to, and whether emails show.
 
 use std::io;
 use std::path::{Path, PathBuf};
@@ -21,6 +21,10 @@ pub struct Settings {
     /// The other Macs, each reached by an SSH alias.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub peers: Vec<Peer>,
+    /// Show the emails of the Antigravity accounts logged in here. Off by
+    /// default: accounts go by number.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub show_email: bool,
 }
 
 /// Another of the owner's Macs.
@@ -47,6 +51,8 @@ struct Stored {
     peers: Vec<serde_json::Value>,
     #[serde(default)]
     ssh_alias: Option<String>,
+    #[serde(default)]
+    show_email: bool,
 }
 
 impl From<Stored> for Settings {
@@ -74,7 +80,12 @@ impl From<Stored> for Settings {
                 }
             }
         }
-        Settings { quota_axi_path: s.quota_axi_path, machine_name: s.machine_name, peers }
+        Settings {
+            quota_axi_path: s.quota_axi_path,
+            machine_name: s.machine_name,
+            peers,
+            show_email: s.show_email,
+        }
     }
 }
 

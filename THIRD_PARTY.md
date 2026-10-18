@@ -1,8 +1,9 @@
 # Third-party notices
 
-Quota Station talks to the tools below. It runs them as separate programs
-and reads their output. None of their source code is copied into this
-repository.
+Quota Station talks to quota-axi and claude-swap below: it runs them as
+separate programs and reads their output, and none of their source code is
+copied into this repository. Part of its Antigravity login is adapted from
+Cockpit Tools; [`NOTICE`](NOTICE) lists those files and what was changed.
 
 ## quota-axi
 
@@ -71,15 +72,20 @@ SOFTWARE.
 
 ## Cockpit Tools
 
-- Project: https://github.com/jlcodes99/cockpit-tools (CC BY-NC-SA 4.0)
-- How it is used: the app shows the Antigravity accounts that quota-axi's
-  `cockpit` sidecar reports. Cockpit's menu bar card was a design reference
-  for the popover. No Cockpit code is ported in this version, so there is no
-  `NOTICE` file yet. When a module is ported, it will get a `NOTICE` that
-  credits Cockpit Tools, links its license and says what was changed.
+- Project: https://github.com/jlcodes99/cockpit-tools
+- License: CC BY-NC-SA 4.0 (https://creativecommons.org/licenses/by-nc-sa/4.0/),
+  © jlcodes
+- How it is used: adapted code. The Antigravity login (the OAuth URL, the
+  loopback callback, the code exchange, the token refresh, userinfo, the
+  token record and the account index) is adapted from Cockpit Tools 1.3.70,
+  commit 244b957. See [`NOTICE`](NOTICE) for the files and the changes; each
+  adapted file also says so in its header. This is why Quota Station is
+  shared under the same license. The app also shows the Antigravity
+  accounts that quota-axi's `cockpit` sidecar reports, and Cockpit's menu bar
+  card was a design reference for the popover.
 
 ## Libraries
 
 The Rust crates and npm packages this app builds with, such as Tauri, serde,
-time, React and Vite, keep their own licenses. Those licenses are listed in
+time, reqwest, url, uuid, md5, React and Vite, keep their own licenses. Those licenses are listed in
 `Cargo.lock`, `package-lock.json` and each package's own files.

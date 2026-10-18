@@ -5,7 +5,9 @@
 //! when the owner confirms, and pauses the `cswap-prefer-team` switcher.
 //! Since M5 it edits the rotation file and copies it to the owner's other
 //! Macs over SSH, so every Mac's switcher follows the same rules.
+//! Since M4a it logs Antigravity accounts in itself.
 
+mod antigravity;
 mod commands;
 mod reader;
 mod rules;
@@ -69,6 +71,12 @@ fn main() {
             rules::rules_dirty,
             rules::take_quit,
             rules::close_main,
+            antigravity::agy_login,
+            antigravity::agy_login_callback,
+            antigravity::agy_login_cancel,
+            antigravity::agy_logout,
+            antigravity::agy_open_verification,
+            antigravity::set_show_email,
         ])
         .run(tauri::generate_context!())
         .expect("Quota Station failed to start");
