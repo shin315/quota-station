@@ -40,7 +40,7 @@ function Changed({ on }: { on: boolean }) {
   return on ? <span className="chg"> · đã đổi</span> : null;
 }
 
-function Slider(props: { id: string; value: number; label: string; onChange(v: number): void }) {
+function Slider(props: { id: string; value: number; label: string; disabled: boolean; onChange(v: number): void }) {
   const min = Math.min(80, Math.floor(props.value));
   const max = Math.max(98, Math.ceil(props.value));
   return (
@@ -54,6 +54,7 @@ function Slider(props: { id: string; value: number; label: string; onChange(v: n
         value={props.value}
         aria-label={props.label}
         aria-valuetext={props.value + '%'}
+        disabled={props.disabled}
         onChange={(e) => props.onChange(Number(e.target.value))}
       />
       <div className="marks" aria-hidden="true">
@@ -105,7 +106,7 @@ function Editor({ model, rules: st, now }: { model: Model; rules: RulesState; no
         <div>
           <div className="pick" role="group" aria-labelledby="qs-r-team">
             {slots
-              .filter((n) => n !== r.personal)
+              .filter((n) => n !== r.personal || r.team.includes(n))
               .map((n) => {
                 const i = r.team.indexOf(n);
                 return (
@@ -139,7 +140,8 @@ function Editor({ model, rules: st, now }: { model: Model; rules: RulesState; no
         <div>
           <div className="pick" role="group" aria-labelledby="qs-r-pers">
             {slots
-              .filter((n) => !r.team.includes(n))
+              // The chosen one stays shown even inside Team, so the overlap can be undone here.
+              .filter((n) => !r.team.includes(n) || r.personal === n)
               .map((n) => {
                 const on = r.personal === n;
                 return (
@@ -201,7 +203,7 @@ function Editor({ model, rules: st, now }: { model: Model; rules: RulesState; no
           <Changed on={r.full !== sv.full} />
           <small>Ngưỡng tự chuyển. Khoá full</small>
         </div>
-        <Slider id="full" value={r.full} label="Ngưỡng tự chuyển, phần trăm hạn mức 5 giờ đã dùng" onChange={(v) => st.edit((d) => (d.full = v))} />
+        <Slider id="full" disabled={disabled} value={r.full} label="Ngưỡng tự chuyển, phần trăm hạn mức 5 giờ đã dùng" onChange={(v) => st.edit((d) => (d.full = v))} />
       </div>
 
       <div className={'fr' + (r.fableFull !== sv.fableFull ? ' changed' : '')}>
@@ -210,7 +212,7 @@ function Editor({ model, rules: st, now }: { model: Model; rules: RulesState; no
           <Changed on={r.fableFull !== sv.fableFull} />
           <small>Khoá fable_full</small>
         </div>
-        <Slider id="fable" value={r.fableFull} label="Ngưỡng Fable tuần, phần trăm đã dùng" onChange={(v) => st.edit((d) => (d.fableFull = v))} />
+        <Slider id="fable" disabled={disabled} value={r.fableFull} label="Ngưỡng Fable tuần, phần trăm đã dùng" onChange={(v) => st.edit((d) => (d.fableFull = v))} />
       </div>
 
       <div className={'fr' + (expChanged ? ' changed' : '')}>
@@ -363,12 +365,22 @@ export function RulesTab({ model, fresh, rules: st, feedback, now, onAction }: R
 export function CompareDialog({ model, rules: st, now }: { model: Model; rules: RulesState; now: Date }) {
   const peer = model.rotation.peers.find((p) => p.alias === st.compare);
   const mine = model.rotation.rules;
+  const conflict = !!peer?.state && (peer.state.kind === 'newer' || peer.state.kind === 'edited');
   if (!peer || !mine || !peer.theirRules) {
     return (
       <>
         <h3 id={SHEET_TITLE_ID}>So sánh hai bản luật</h3>
-        <p className="lead">Chưa có bản của Mac kia để so sánh. Bấm Thử lại rồi mở lại.</p>
+        <p className="lead">
+          {peer && mine && conflict
+            ? 'App không đọc được bản trên ' + peer.name + ' nên không so sánh được. Giữ bản máy này để ghi đè nó (bản kia được sao lưu trên ' + peer.name + ').'
+            : 'Chưa có bản của Mac kia để so sánh. Bấm Thử lại rồi mở lại.'}
+        </p>
         <div className="btns">
+          {peer && mine && conflict ? (
+            <Button large onClick={() => void st.keep(peer.alias)}>
+              Giữ bản máy này
+            </Button>
+          ) : null}
           <Button large primary onClick={st.closeCompare}>
             Đóng
           </Button>
@@ -382,7 +394,7 @@ export function CompareDialog({ model, rules: st, now }: { model: Model; rules: 
     <>
       <h3 id={SHEET_TITLE_ID}>So sánh hai bản luật</h3>
       <p className="lead">
-        Máy này lưu lúc {model.rotation.stamp ? clock(model.rotation.stamp.at) : '—'}. {peer.name} lưu lúc {their ? clock(their.at) : '—'}. App không tự gộp hai bản.
+        Máy này lưu lúc {model.rotation.stamp ? clock(model.rotation.stamp.at) : '—'}. {their ? peer.name + ' lưu lúc ' + clock(their.at) + '.' : 'Bản trên ' + peer.name + ' không có dòng updated của app.'} App không tự gộp hai bản.
       </p>
       <table className="cmp">
         <thead>
@@ -422,12 +434,17 @@ export function CompareDialog({ model, rules: st, now }: { model: Model; rules: 
   );
 }
 
-/** Unsaved changes when leaving the tab or closing the window. */
+const LEAVE_TITLES = {
+  tab: 'Lưu thay đổi luật trước khi rời trang này?',
+  close: 'Lưu thay đổi luật trước khi đóng cửa sổ?',
+  quit: 'Lưu thay đổi luật trước khi thoát Quota Station?',
+} as const;
+
+/** Unsaved changes when leaving the tab, closing the window or quitting. */
 export function LeaveDialog({ rules: st, onAnswer }: { rules: RulesState; onAnswer(a: 'discard' | 'cancel' | 'save'): void }) {
-  const close = st.leave?.kind === 'close';
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>{close ? 'Lưu thay đổi luật trước khi đóng cửa sổ?' : 'Lưu thay đổi luật trước khi rời trang này?'}</h3>
+      <h3 id={SHEET_TITLE_ID}>{LEAVE_TITLES[st.leave?.kind ?? 'tab']}</h3>
       <ul className="facts">
         {st.changes.map((c) => (
           <li key={c}>

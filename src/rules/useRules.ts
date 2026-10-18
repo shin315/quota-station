@@ -35,8 +35,8 @@ export type Working = 'save' | 'adopt' | 'keep' | 'retry';
 
 export type Preview = { kind: 'loading' } | { kind: 'ok'; text: string; raw: string } | { kind: 'error'; text: string };
 
-/** Ask before leaving the tab (`tab`) or closing the window (`close`). */
-export type Leave = { kind: 'tab'; tab: Tab } | { kind: 'close' };
+/** Ask before leaving the tab (`tab`), closing the window (`close`) or quitting the app (`quit`). */
+export type Leave = { kind: 'tab'; tab: Tab } | { kind: 'close' } | { kind: 'quit' };
 
 /** Waits this long after the last change before asking the switcher for a preview. */
 const PREVIEW_MS = 700;
@@ -96,7 +96,8 @@ export function useRules(api: Api, model: Model | null, clock: () => Date, showF
     setWorking(what);
     try {
       const m = await call();
-      setDraft(null);
+      // Retrying leaves this Mac's file alone, so the edits stay.
+      if (what !== 'retry') setDraft(null);
       setError(null);
       showFeedback(feedback(m));
       return true;
@@ -186,19 +187,26 @@ export function useRules(api: Api, model: Model | null, clock: () => Date, showF
   dirtyNow.current = dirty;
   useEffect(() => {
     let live = true;
-    let stop: (() => void) | undefined;
+    const stops: (() => void)[] = [];
+    const keep = (unlisten: () => void) => {
+      if (live) stops.push(unlisten);
+      else unlisten();
+    };
     void api
       .onCloseRequested(() => {
         if (dirtyNow.current) setLeave({ kind: 'close' });
-        else void api.closeMain();
+        else void api.closeMain(false);
       })
-      .then((unlisten) => {
-        if (live) stop = unlisten;
-        else unlisten();
-      });
+      .then(keep);
+    void api
+      .onQuitRequested(() => {
+        if (dirtyNow.current) setLeave({ kind: 'quit' });
+        else void api.closeMain(true);
+      })
+      .then(keep);
     return () => {
       live = false;
-      stop?.();
+      stops.forEach((s) => s());
     };
   }, [api]);
 
@@ -218,7 +226,7 @@ export function useRules(api: Api, model: Model | null, clock: () => Date, showF
     if (l.kind === 'tab') go(l.tab);
     else {
       await api.rulesDirty(false);
-      await api.closeMain();
+      await api.closeMain(l.kind === 'quit');
     }
   };
 

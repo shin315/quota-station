@@ -98,7 +98,7 @@ fn rules_are_checked_before_writing() {
     assert_eq!(Rules::defaults().check(), Ok(()));
     let mut r = Rules::defaults();
     r.personal = Some(3);
-    assert_eq!(r.check().unwrap_err(), "rotation_bad_value:personal", "personal is also Team");
+    assert_eq!(r.check().unwrap_err(), "rotation_personal_in_team");
     let mut r = Rules::defaults();
     r.personal_to = 24;
     assert_eq!(r.check().unwrap_err(), "rotation_bad_value:personal_hours");
@@ -309,4 +309,37 @@ fn quota_axis_verdict_on_a_report() {
         Verdict::Refused("rotation_bad_value:personal_hours".into())
     );
     assert_eq!(verdict(&fixture("claude-no-rotation.json")), Verdict::NotRead);
+}
+
+#[test]
+fn a_rewrite_drops_lines_quota_axi_cannot_read_and_the_backup_keeps_them() {
+    let s = setup("rot-drop");
+    let before = format!("{FILE}not a key line\nTeam = 2\nnote = kept\n");
+    assert_eq!(parse(&before).unwrap_err(), "rotation_malformed_line");
+    let text = render(&Rules::defaults(), &stamp("Mac A"), Some(&before));
+    assert!(!text.contains("not a key line") && !text.contains("Team = 2"), "{text}");
+    assert!(text.contains("note = kept\n"));
+    std::fs::create_dir_all(s.file.parent().unwrap()).unwrap();
+    std::fs::write(&s.file, &before).unwrap();
+    let applied =
+        apply(&s.file, Some(&s.quota_axi), &text, base(&s.file).as_deref(), now()).unwrap();
+    assert_eq!(std::fs::read_to_string(applied.backup.unwrap()).unwrap(), before);
+    let _ = std::fs::remove_dir_all(&s.dir);
+}
+
+#[test]
+fn a_personal_slot_that_is_also_team_is_never_written_and_reads_as_invalid() {
+    let s = setup("rot-overlap");
+    let overlap = FILE.replace("personal = 1", "personal = 3");
+    std::fs::create_dir_all(s.file.parent().unwrap()).unwrap();
+    std::fs::write(&s.file, &overlap).unwrap();
+    // On disk it is invalid, so the editor starts from the defaults.
+    assert!(
+        matches!(load(&s.file), FileState::Invalid { ref reason, .. } if reason == "rotation_personal_in_team")
+    );
+    // A copy taken from another Mac with the same overlap is refused before writing.
+    let err =
+        apply(&s.file, Some(&s.quota_axi), &overlap, base(&s.file).as_deref(), now()).unwrap_err();
+    assert_eq!(err, ApplyError::Invalid("rotation_personal_in_team".into()));
+    let _ = std::fs::remove_dir_all(&s.dir);
 }

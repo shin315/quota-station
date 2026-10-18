@@ -4,11 +4,16 @@
 //! all of them follow the same rules.
 //!
 //! A copy goes like this: read the other Mac's file; when it already has this
-//! text, done; when its `updated` stamp is newer, or the same stamp with other
-//! text (edited by hand there), stop and let the owner choose, since the app
-//! never merges two copies; otherwise write it there the way the app writes
-//! here (temporary file, rename, `rotation.bak-<time>`), and read it back to
-//! compare. A Mac that cannot be reached is tried again every 5 minutes.
+//! text, done; when its `updated` stamp is newer, or it was edited by hand
+//! there (the same stamp with other text, no stamp, or text quota-axi cannot
+//! read), stop and let the owner choose, since the app never merges two
+//! copies; otherwise write it there the way the app writes here (temporary
+//! file, rename, `rotation.bak-<time>`), and read it back to compare. The
+//! write first checks the file there is still the one just read (its POSIX
+//! `cksum`), so a copy saved there in between is not overwritten. A Mac that
+//! cannot be reached is tried again every 5 minutes. A Mac's state is kept
+//! against the version (the text) of this Mac's file, not its stamp, so two
+//! saves within one second are two copies to send.
 //!
 //! SSH runs with `BatchMode=yes`, so it never asks for a password or a host
 //! key: an alias that needs either fails as unreachable. The only commands it
@@ -39,22 +44,51 @@ pub const ALIAS_MAX: usize = 64;
 const SSH_FAILED: i32 = 255;
 /// The read script's exit when the other Mac has no rotation file.
 const NO_FILE: i32 = 3;
+/// The write script's exit when the file there is not the one read before.
+const CHANGED: i32 = 4;
 
 /// Prints the other Mac's rotation file, or exits 3 when it has none.
 const READ_SCRIPT: &str =
     "f=\"$HOME/.config/cswap-prefer-team/rotation\"; [ -e \"$f\" ] || exit 3; cat \"$f\"";
 
-/// Takes the new file on stdin: writes it next to the old one, keeps the old
-/// one as `rotation.bak-<time>` (the newest 10 stay), renames it into place
-/// and prints what is there now, for the read-back.
-const WRITE_SCRIPT: &str = concat!(
-    "set -e; d=\"$HOME/.config/cswap-prefer-team\"; f=\"$d/rotation\"; mkdir -p \"$d\"; ",
-    "t=\"$d/.rotation.tmp-qs-$$\"; cat > \"$t\"; ",
-    "if [ -e \"$f\" ]; then cp -p \"$f\" \"$d/rotation.bak-$(date +%Y%m%d-%H%M%S)\"; fi; ",
-    "mv -f \"$t\" \"$f\"; n=0; ls -1r \"$d\" | while read -r b; do case \"$b\" in ",
-    "rotation.bak-*) n=$((n+1)); [ \"$n\" -le 10 ] || rm -f \"$d/$b\";; esac; done; ",
-    "cat \"$f\""
-);
+/// Takes the new file on stdin. Exits 4 unless the file there is still the
+/// one read before (`expect`: its `cksum`, or `none` for no file); then writes
+/// the new one next to it, keeps the old one as `rotation.bak-<time>-<pid>`
+/// (the newest 10 stay), renames it into place and prints what is there now,
+/// for the read-back.
+fn write_script(expect: &str) -> String {
+    format!(
+        concat!(
+            "set -e; d=\"$HOME/.config/cswap-prefer-team\"; f=\"$d/rotation\"; mkdir -p \"$d\"; ",
+            "c=none; if [ -e \"$f\" ]; then set -- $(cksum < \"$f\"); c=$1; fi; ",
+            "if [ \"$c\" != {expect} ]; then cat > /dev/null; exit 4; fi; ",
+            "t=\"$d/.rotation.tmp-qs-$$\"; cat > \"$t\"; ",
+            "if [ -e \"$f\" ]; then cp -p \"$f\" \"$d/rotation.bak-$(date +%Y%m%d-%H%M%S)-$$\"; fi; ",
+            "mv -f \"$t\" \"$f\"; n=0; ls -1r \"$d\" | while read -r b; do case \"$b\" in ",
+            "rotation.bak-*) n=$((n+1)); [ \"$n\" -le 10 ] || rm -f \"$d/$b\";; esac; done; ",
+            "cat \"$f\""
+        ),
+        expect = expect
+    )
+}
+
+/// The POSIX `cksum` CRC of `text`, the value the write script compares.
+pub fn cksum(text: &str) -> u32 {
+    let step = |crc: u32, byte: u8| {
+        let mut c = crc ^ (u32::from(byte) << 24);
+        for _ in 0..8 {
+            c = if c & 0x8000_0000 != 0 { (c << 1) ^ 0x04C1_1DB7 } else { c << 1 };
+        }
+        c
+    };
+    let mut crc = text.bytes().fold(0, step);
+    let mut len = text.len();
+    while len > 0 {
+        crc = step(crc, (len & 0xff) as u8);
+        len >>= 8;
+    }
+    !crc
+}
 
 /// An SSH alias as typed in settings: what `~/.ssh/config` or a host name
 /// allows, and never something `ssh` would read as an option.
@@ -82,6 +116,8 @@ pub enum RemoteError {
     Timeout,
     /// The command ran there and failed.
     Failed(String),
+    /// The file there changed after it was read; nothing was written.
+    Changed,
 }
 
 impl std::fmt::Display for RemoteError {
@@ -90,6 +126,7 @@ impl std::fmt::Display for RemoteError {
             RemoteError::Unreachable(e) => write!(f, "{e}"),
             RemoteError::Timeout => write!(f, "SSH hết giờ chờ ({} giây)", SSH_TIMEOUT.as_secs()),
             RemoteError::Failed(e) => write!(f, "{e}"),
+            RemoteError::Changed => write!(f, "file luật trên máy đó vừa đổi trong lúc gửi"),
         }
     }
 }
@@ -142,12 +179,19 @@ pub fn read(program: &Path, alias: &str) -> Result<Option<String>, RemoteError> 
     }
 }
 
-/// Writes `text` as the other Mac's rotation file and returns what it reads
-/// back.
-pub fn write(program: &Path, alias: &str, text: &str) -> Result<String, RemoteError> {
-    let out = ssh(program, alias, WRITE_SCRIPT, Some(text))?;
+/// Writes `text` as the other Mac's rotation file, when the file there is
+/// still `before` (`None`: no file), and returns what it reads back.
+pub fn write(
+    program: &Path,
+    alias: &str,
+    text: &str,
+    before: Option<&str>,
+) -> Result<String, RemoteError> {
+    let expect = before.map(|b| cksum(b).to_string()).unwrap_or_else(|| "none".into());
+    let out = ssh(program, alias, &write_script(&expect), Some(text))?;
     match out.code {
         Some(0) => Ok(String::from_utf8_lossy(&out.stdout).into_owned()),
+        Some(CHANGED) => Err(RemoteError::Changed),
         _ => Err(failure(&out)),
     }
 }
@@ -160,8 +204,9 @@ pub enum Plan {
     Write,
     /// Its copy is newer: the owner chooses.
     Newer(Stamp),
-    /// Its copy has this Mac's stamp and other text: edited by hand there.
-    Edited(Stamp),
+    /// Edited by hand there: this Mac's stamp with other text, no stamp at
+    /// all (`None`), or text quota-axi cannot read. The owner chooses.
+    Edited(Option<Stamp>),
 }
 
 pub fn plan(local: &str, stamp: &Stamp, theirs: Option<&str>) -> Plan {
@@ -169,11 +214,12 @@ pub fn plan(local: &str, stamp: &Stamp, theirs: Option<&str>) -> Plan {
     if theirs == local {
         return Plan::Same;
     }
-    // A file quota-axi cannot read there is replaced (its backup stays).
-    match rotation::parse(theirs).ok().and_then(|p| p.stamp) {
+    let Ok(parsed) = rotation::parse(theirs) else { return Plan::Edited(None) };
+    match parsed.stamp {
         Some(s) if s.newer_than(Some(stamp)) => Plan::Newer(s),
-        Some(s) if s == *stamp => Plan::Edited(s),
-        _ => Plan::Write,
+        Some(s) if s == *stamp => Plan::Edited(Some(s)),
+        Some(_) => Plan::Write,
+        None => Plan::Edited(None),
     }
 }
 
@@ -202,9 +248,10 @@ pub enum PeerState {
     Newer {
         their: Stamp,
     },
-    /// Its file has this Mac's stamp and other text; nothing was written.
+    /// Its file was edited by hand (`their`: its stamp, if any); nothing was
+    /// written.
     Edited {
-        their: Stamp,
+        their: Option<Stamp>,
     },
 }
 
@@ -212,7 +259,7 @@ pub enum PeerState {
 #[serde(rename_all = "camelCase")]
 pub struct PeerRecord {
     pub state: PeerState,
-    /// This Mac's stamp (`Stamp::at`) the state is about.
+    /// The version of this Mac's file ([`rotation::version`]) the state is about.
     pub against: String,
     /// The other Mac's text when it holds another copy, for comparing.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -224,15 +271,20 @@ fn rfc(t: OffsetDateTime) -> String {
 }
 
 /// Copies this Mac's file (`text`, stamped `stamp`) to the Mac at `alias`.
+/// With `force` (the owner chose this Mac's copy over the other one), a newer
+/// or hand-edited copy there is replaced too; the check that it did not
+/// change since it was read still holds.
 pub fn push(
     program: &Path,
     alias: &str,
     text: &str,
     stamp: &Stamp,
     now: OffsetDateTime,
+    force: bool,
 ) -> PeerRecord {
     let retry_at = rfc(now + time::Duration::minutes(RETRY_MINUTES));
-    let record = |state, their_text| PeerRecord { state, against: stamp.at.clone(), their_text };
+    let against = rotation::version(text);
+    let record = |state, their_text| PeerRecord { state, against: against.clone(), their_text };
     let fail = |e: RemoteError| match e {
         RemoteError::Unreachable(error) => {
             record(PeerState::Unreachable { error, retry_at: retry_at.clone() }, None)
@@ -244,32 +296,39 @@ pub fn push(
             },
             None,
         ),
-        RemoteError::Failed(error) => {
-            record(PeerState::Failed { error, retry_at: retry_at.clone() }, None)
+        e @ (RemoteError::Failed(_) | RemoteError::Changed) => {
+            record(PeerState::Failed { error: e.to_string(), retry_at: retry_at.clone() }, None)
         }
     };
-    let theirs = match read(program, alias) {
-        Ok(t) => t,
-        Err(e) => return fail(e),
-    };
-    match plan(text, stamp, theirs.as_deref()) {
-        Plan::Same => record(PeerState::Synced { at: rfc(now) }, None),
-        Plan::Newer(their) => record(PeerState::Newer { their }, theirs),
-        Plan::Edited(their) => record(PeerState::Edited { their }, theirs),
-        Plan::Write => match write(program, alias, text) {
-            Ok(back) if back == text => record(PeerState::Synced { at: rfc(now) }, None),
-            Ok(_) => record(PeerState::Mismatch { retry_at: retry_at.clone() }, None),
-            Err(e) => fail(e),
-        },
+    // A copy saved there between the read and the write is read again once.
+    for _ in 0..2 {
+        let theirs = match read(program, alias) {
+            Ok(t) => t,
+            Err(e) => return fail(e),
+        };
+        match plan(text, stamp, theirs.as_deref()) {
+            Plan::Same => return record(PeerState::Synced { at: rfc(now) }, None),
+            Plan::Newer(their) if !force => return record(PeerState::Newer { their }, theirs),
+            Plan::Edited(their) if !force => return record(PeerState::Edited { their }, theirs),
+            _ => {}
+        }
+        match write(program, alias, text, theirs.as_deref()) {
+            Ok(back) if back == text => return record(PeerState::Synced { at: rfc(now) }, None),
+            Ok(_) => return record(PeerState::Mismatch { retry_at: retry_at.clone() }, None),
+            Err(RemoteError::Changed) => continue,
+            Err(e) => return fail(e),
+        }
     }
+    fail(RemoteError::Changed)
 }
 
-/// Whether the Mac's copy should be tried now: never tried, about an older
-/// file of this Mac, or a failed try whose wait is over. A Mac with a newer or
-/// hand-edited copy waits for the owner.
-pub fn due(record: Option<&PeerRecord>, stamp: &Stamp, now: OffsetDateTime) -> bool {
+/// Whether the Mac's copy should be tried now: never tried, about another
+/// version of this Mac's file (`version`, [`rotation::version`]), or a failed
+/// try whose wait is over. A Mac with a newer or hand-edited copy waits for
+/// the owner.
+pub fn due(record: Option<&PeerRecord>, version: &str, now: OffsetDateTime) -> bool {
     let Some(r) = record else { return true };
-    if r.against != stamp.at {
+    if r.against != version {
         return true;
     }
     match &r.state {
@@ -323,6 +382,26 @@ mod tests {
     #[test]
     fn the_scripts_fit_in_single_quotes() {
         assert!(!READ_SCRIPT.contains('\''));
-        assert!(!WRITE_SCRIPT.contains('\''));
+        assert!(!write_script("none").contains('\''));
+    }
+
+    #[test]
+    fn cksum_matches_the_posix_tool() {
+        use std::io::Write;
+        use std::process::{Command, Stdio};
+        for text in ["", "a", "team = 2 3 4\npersonal = 1\n", &"x".repeat(300)] {
+            let mut child = Command::new("cksum")
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .spawn()
+                .expect("cksum runs");
+            child.stdin.take().unwrap().write_all(text.as_bytes()).unwrap();
+            let out = String::from_utf8(child.wait_with_output().unwrap().stdout).unwrap();
+            assert_eq!(
+                out.split_whitespace().next(),
+                Some(cksum(text).to_string().as_str()),
+                "{text:?}"
+            );
+        }
     }
 }

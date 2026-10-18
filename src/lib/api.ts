@@ -49,14 +49,20 @@ export interface Api {
   setPeers(peers: Peer[]): Promise<Model>;
   /** Reads the other Mac's rotation file over SSH; changes nothing. */
   testPeer(alias: string): Promise<PeerTest>;
-  /** The switcher's `--dry-run` with these rules; rejects with the dry run's error kind. */
+  /**
+   * The switcher's `--dry-run` with these rules. Rejects with a quota-axi reason
+   * (`rotation_bad_value:<key>`, `rotation_personal_in_team`) for rules that
+   * cannot be written, or with the dry run's error kind (`notFound`, `timeout`, …).
+   */
   previewRotation(rules: Rules): Promise<{ decision: Decision; raw: string }>;
   /** The editor holds unsaved changes: closing the main window asks first. */
   rulesDirty(dirty: boolean): Promise<void>;
-  /** Closes the main window without asking again. */
-  closeMain(): Promise<void>;
+  /** Closes the main window, or quits the app with `quit`, without asking again. */
+  closeMain(quit: boolean): Promise<void>;
   /** The main window was asked to close while the editor held unsaved changes. */
   onCloseRequested(handler: () => void): Promise<() => void>;
+  /** `Thoát Quota Station` was chosen while the editor held unsaved changes. */
+  onQuitRequested(handler: () => void): Promise<() => void>;
   onModel(handler: (model: Model) => void): Promise<() => void>;
   /** The main window is asked to show a tab while it is open. */
   onTab(handler: (tab: Tab) => void): Promise<() => void>;
@@ -85,8 +91,9 @@ export const tauriApi: Api = {
   testPeer: (alias) => invoke<PeerTest>('test_peer', { alias }),
   previewRotation: (rules) => invoke('preview_rotation', { rules }),
   rulesDirty: (dirty) => invoke('rules_dirty', { dirty }),
-  closeMain: () => invoke('close_main'),
+  closeMain: (quit) => invoke('close_main', { quit }),
   onCloseRequested: (handler) => listen('closeRequested', () => handler()),
+  onQuitRequested: (handler) => listen('quitRequested', () => handler()),
   onModel: (handler) => listen<Model>('model', (event) => handler(event.payload)),
   onTab: (handler) => listen<Tab>('tab', (event) => handler(event.payload)),
 };

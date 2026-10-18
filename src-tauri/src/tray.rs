@@ -60,7 +60,7 @@ pub fn build(app: &App) -> tauri::Result<()> {
             "refresh" => app.state::<AppState>().request_read(),
             "window" => windows::open_main(app, Tab::Overview),
             "settings" => windows::open_main(app, Tab::Settings),
-            "quit" => app.exit(0),
+            "quit" => windows::quit(app),
             _ => {}
         })
         .build(app)?;

@@ -148,6 +148,46 @@ describe('settings tab', () => {
       { name: 'Mac D', alias: 'mac-d' },
     ]);
     expect(screen.queryByLabelText('Tên kết nối SSH của Mac C')).toBeNull();
+
+    const rename = screen.getByLabelText('Tên của Mac D');
+    fireEvent.change(rename, { target: { value: 'Mac phòng làm việc' } });
+    await act(async () => {
+      fireEvent.blur(rename);
+    });
+    expect(fake.api.setPeers).toHaveBeenLastCalledWith([
+      { name: 'Mac B', alias: 'mac-b' },
+      { name: 'Mac phòng làm việc', alias: 'mac-d' },
+    ]);
+    expect(fake.current().rotation.peers.map((p) => p.name)).toEqual(['Mac B', 'Mac phòng làm việc']);
+  });
+
+  it('a new row with no alias yet neither blocks nor loses the edits to the others', async () => {
+    const fake = await open(fixtureModel('fresh'));
+    fireEvent.click(screen.getByRole('button', { name: 'Thêm Mac' }));
+    const name = screen.getByLabelText('Tên của Mac B');
+    fireEvent.change(name, { target: { value: 'Mac B2' } });
+    await act(async () => {
+      fireEvent.blur(name);
+    });
+    expect(fake.api.setPeers).toHaveBeenLastCalledWith([
+      { name: 'Mac B2', alias: 'mac-b' },
+      { name: 'Mac C', alias: 'mac-c' },
+    ]);
+    // The new row is still there, waiting for its alias.
+    expect(screen.getByLabelText('Tên kết nối SSH của Mac mới')).toBeTruthy();
+    expect(screen.getByText('Nhập tên kết nối SSH')).toBeTruthy();
+  });
+
+  it('an alias listed twice is refused on the row that repeats it', async () => {
+    const fake = await open(fixtureModel('fresh'));
+    const alias = screen.getByLabelText('Tên kết nối SSH của Mac C');
+    fireEvent.change(alias, { target: { value: 'MAC-B' } });
+    await act(async () => {
+      fireEvent.blur(alias);
+    });
+    expect(screen.getByText('Tên kết nối này đã có ở dòng trên.')).toBeTruthy();
+    expect(alias.className).toContain('bad');
+    expect(fake.current().rotation.peers.map((p) => p.alias)).toEqual(['mac-b', 'mac-c']);
   });
 
   it('refuses an alias ssh would read as an option and says why', async () => {

@@ -111,6 +111,35 @@ describe('rules editor', () => {
     expect(fake.api.retryRotation).toHaveBeenCalledTimes(1);
   });
 
+  it('Thử lại keeps the edits the owner has not saved', async () => {
+    const down = rotationFixture({
+      peers: [peerFixture('Mac B', 'mac-b'), peerFixture('Mac C', 'mac-c', { state: { kind: 'unreachable', error: 'x', retryAt: '2026-01-16T07:25:40.000Z' } })],
+    });
+    const fake = await open(fixtureModel('fresh', { rotation: down }));
+    fireEvent.change(screen.getByLabelText('Ngưỡng tự chuyển, phần trăm hạn mức 5 giờ đã dùng'), { target: { value: '85' } });
+    await press(screen.getByRole('button', { name: 'Thử lại' }));
+    expect(fake.api.retryRotation).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Có 1 thay đổi chưa lưu.')).toBeTruthy();
+    expect((screen.getByLabelText('Ngưỡng tự chuyển, phần trăm hạn mức 5 giờ đã dùng') as HTMLInputElement).value).toBe('85');
+  });
+
+  it('nothing can be edited while a save runs', async () => {
+    await open(fixtureModel('fresh'), { saveDelayMs: 30 });
+    const slider = screen.getByLabelText('Ngưỡng tự chuyển, phần trăm hạn mức 5 giờ đã dùng') as HTMLInputElement;
+    fireEvent.change(slider, { target: { value: '85' } });
+    await press(saveButton()!);
+    expect(slider.disabled).toBe(true);
+    expect((screen.getByLabelText('Ngưỡng Fable tuần, phần trăm đã dùng') as HTMLInputElement).disabled).toBe(true);
+    expect(await screen.findByText('Đã lưu luật cho cả ba Mac lúc 14:20')).toBeTruthy();
+    expect(slider.disabled).toBe(false);
+  });
+
+  it('a file with the personal account inside Team is shown as invalid, to save over', async () => {
+    await open(fixtureModel('fresh', { rotation: rotationFixture({ status: 'invalid', rules: null, reason: 'rotation_personal_in_team' }) }));
+    expect(screen.getByText('File luật trên máy này không hợp lệ')).toBeTruthy();
+    expect(screen.getByText(/^Tài khoản cá nhân cũng nằm trong vòng Team\./)).toBeTruthy();
+  });
+
   it('a save quota-axi refuses shows the key and that the file before is back', async () => {
     await open(fixtureModel('fresh'), { rulesError: { kind: 'refused', detail: 'rotation_bad_value:personal_hours', restored: true } });
     fireEvent.change(screen.getByLabelText('Ngưỡng tự chuyển, phần trăm hạn mức 5 giờ đã dùng'), { target: { value: '85' } });
@@ -220,7 +249,32 @@ describe('rules editor', () => {
     const dialog = screen.getByRole('dialog', { name: 'Lưu thay đổi luật trước khi đóng cửa sổ?' });
     await press(within(dialog).getByRole('button', { name: 'Lưu' }));
     expect(fake.api.saveRotation).toHaveBeenCalledWith(rulesFixture({ team: [2, 3] }), 'v1');
-    expect(fake.api.closeMain).toHaveBeenCalledTimes(1);
+    expect(fake.api.closeMain).toHaveBeenCalledWith(false);
+  });
+
+  it('quitting from the menu bar with unsaved changes asks first', async () => {
+    const fake = await open();
+    await press(team().getByRole('button', { name: /Team C/ }));
+    await act(async () => fake.requestQuit());
+    const dialog = screen.getByRole('dialog', { name: 'Lưu thay đổi luật trước khi thoát Quota Station?' });
+    await press(within(dialog).getByRole('button', { name: 'Bỏ thay đổi' }));
+    expect(fake.api.saveRotation).not.toHaveBeenCalled();
+    expect(fake.api.closeMain).toHaveBeenCalledWith(true);
+    expect(fake.closed()).toBe('app');
+  });
+
+  it('another Mac whose copy has no updated line is not overwritten until the owner keeps this one', async () => {
+    const model = fixtureModel('fresh', {
+      rotation: rotationFixture({ peers: [peerFixture('Mac B', 'mac-b'), peerFixture('Mac C', 'mac-c', { state: { kind: 'edited', their: null }, theirRules: null })] }),
+    });
+    const fake = await open(model);
+    expect(screen.getByText('Bản trên Mac C đã bị sửa tay')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Dùng bản trên Mac C' })).toBeNull();
+    await press(screen.getByRole('button', { name: 'So sánh' }));
+    const dialog = screen.getByRole('dialog', { name: 'So sánh hai bản luật' });
+    await press(within(dialog).getByRole('button', { name: 'Giữ bản máy này' }));
+    expect(fake.api.keepRotation).toHaveBeenCalledWith('v1');
+    expect(macs().getByText('Mac C').textContent).toBe('Mac C · đã nhận 14:20');
   });
 
   it('closing with nothing unsaved closes at once', async () => {

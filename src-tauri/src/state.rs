@@ -279,6 +279,7 @@ impl Inner {
         let file = rotation::path(&self.home);
         let state = rotation::load(&file);
         let stamp = state.stamp().cloned();
+        let version = state.version();
         let (status, rules, reason, ignored_keys) = match &state {
             FileState::Missing => ("missing", None, None, Vec::new()),
             FileState::Unreadable(e) => ("unreadable", None, Some(e.clone()), Vec::new()),
@@ -298,7 +299,7 @@ impl Inner {
                 PeerView {
                     name: p.name.clone(),
                     alias: p.alias.clone(),
-                    current: record.zip(stamp.as_ref()).is_some_and(|(r, s)| r.against == s.at),
+                    current: record.zip(version.as_ref()).is_some_and(|(r, v)| r.against == *v),
                     state: record.map(|r| r.state.clone()),
                     their_rules: record
                         .and_then(|r| r.their_text.as_deref())
@@ -313,7 +314,7 @@ impl Inner {
             status,
             rules,
             reason,
-            version: state.version(),
+            version,
             stamp,
             ignored_keys,
             defaults: Rules::defaults(),
@@ -379,7 +380,8 @@ pub struct RotationView {
     pub reason: Option<String>,
     /// Sent back with a save, so a file changed meanwhile is not overwritten.
     pub version: Option<String>,
-    /// The `# updated = … by …` line; `None` before the app first saved.
+    /// The `# updated = … by …` line of a valid file; `None` for a file the app
+    /// never saved, and for a missing or invalid one.
     pub stamp: Option<Stamp>,
     pub ignored_keys: Vec<String>,
     /// What "Tạo từ mặc định" writes: the switcher's built-in values.
@@ -575,7 +577,7 @@ mod tests {
             "mac-b".into(),
             PeerRecord {
                 state: PeerState::Newer { their: newer.clone() },
-                against: stamp.at.clone(),
+                against: rotation::version(&text),
                 their_text: Some(rotation::render(&theirs, &newer, None)),
             },
         );

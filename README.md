@@ -21,9 +21,11 @@ The popover and window images date from M2, before the switch buttons.
 
 This is milestone M5, "Luật xoay vòng", on top of M3 "Chuyển Claude và tạm
 dừng", M2 "Cửa sổ chính chỉ đọc" and M1 "Khung và số". The app reads, and
-acts in three ways, each only when the owner asks: it switches the active
-Claude account through claude-swap, it pauses the automatic switcher, and it
-edits the switcher's rotation rules and copies them to the owner's other Macs.
+acts in three ways, each started by the owner: it switches the active Claude
+account through claude-swap, it pauses the automatic switcher, and it edits
+the switcher's rotation rules and copies them to the owner's other Macs. The
+one thing it does on its own is finish that last copy: a Mac that could not
+take the saved rules is tried again in the background.
 
 - **Menu bar item.** A template glyph with one bar for Claude and one for
   Antigravity. Next to it is the whole-rotation number. When there is a
@@ -100,8 +102,10 @@ edits the switcher's rotation rules and copies them to the owner's other Macs.
   personal account and its hours, the two thresholds (sliders), and when an
   account leaves the rotation. It marks what changed, previews what the
   switcher would decide with the edited rules (its `--dry-run` pointed at a
-  draft copy), and saves with `Lưu cho cả ba Mac`. A save rewrites the six
-  keys in place and keeps every other line, puts a
+  draft copy), and saves with one button named for the Macs it reaches
+  (`Lưu cho cả ba Mac` with two other Macs set, `Lưu cho máy này` with none).
+  A save rewrites the six keys in place and keeps every other readable line
+  (a line quota-axi cannot read stays only in the backup), puts a
   `# updated = <time> by <machine>` comment at the top, writes through a
   temporary file and a rename, and keeps the file before as
   `rotation.bak-<time>` (the newest 10 stay). quota-axi then reads the file;
@@ -111,12 +115,14 @@ edits the switcher's rotation rules and copies them to the owner's other Macs.
   per Mac: `đã nhận 14:30`, `chưa tới được · thử lại 14:35`, `có bản mới hơn`.
   A Mac that could not take it is tried again every 5 minutes, also after a
   restart. When another Mac holds a newer copy (a later `updated`), or one
-  edited by hand there, nothing is overwritten: the tab offers that copy,
+  edited by hand there (its content differs from its stamp, or it has no
+  `updated` line), nothing is overwritten: the write itself checks the file
+  is still the one just read, and the tab offers that copy,
   side by side with this Mac's, or keeping this Mac's (stamped again, so it
   is the newest). When a newer copy lands on this Mac during an edit, the
   editor says `Bản trên <máy> mới hơn, tải lại?` and saves over it only when
-  told to. Leaving the tab or closing the window with unsaved changes asks
-  first.
+  told to. Leaving the tab, closing the window or quitting from the menu bar
+  with unsaved changes asks first.
 
 Each Mac runs its own copy and switches only its own machine; there is no
 switch button for another Mac. The only thing sent to another Mac is the

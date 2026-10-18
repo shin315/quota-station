@@ -3,7 +3,7 @@
 // Switching (M3): `switcher=held|noguard|auto|stopped|missing` sets the
 // switcher, `outcome=raced|failed|stopped|unconfirmed` what a switch reports, and
 // `cswap=none` hides claude-swap. A switch takes 1.5 s, so the working sheet shows.
-// Rotation rules (M5): `tab=rules` with `rotation=unreachable|newer|edited|missing|invalid|refused|single`;
+// Rotation rules (M5): `tab=rules` with `rotation=unreachable|newer|edited|unstamped|missing|invalid|refused|single`;
 // a save takes 1 s, and `unreachable` leaves Mac C behind.
 
 import type { Api } from './lib/api';
@@ -20,7 +20,14 @@ const ROTATIONS: Record<string, () => Model['rotation']> = {
   unreachable: () =>
     rotationFixture({
       stamp: { at: '2026-01-16T14:16:00+07:00', machine: 'Mac mini' },
-      peers: [peerFixture('Mac B', 'mac-b'), peerFixture('Mac C', 'mac-c', { state: { kind: 'unreachable', error: 'ssh: connect to host mac-c port 22: Operation timed out', retryAt: RETRY } })],
+      peers: [
+        peerFixture('Mac B', 'mac-b', { state: { kind: 'synced', at: '2026-01-16T07:16:04.000Z' } }),
+        peerFixture('Mac C', 'mac-c', { state: { kind: 'unreachable', error: 'ssh: connect to host mac-c port 22: Operation timed out', retryAt: RETRY } }),
+      ],
+    }),
+  unstamped: () =>
+    rotationFixture({
+      peers: [peerFixture('Mac B', 'mac-b'), peerFixture('Mac C', 'mac-c', { state: { kind: 'edited', their: null }, theirRules: null })],
     }),
   newer: () =>
     rotationFixture({

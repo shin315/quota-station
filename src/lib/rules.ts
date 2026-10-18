@@ -39,6 +39,7 @@ export function keyWords(reason: string | null): string {
   if (what === 'rotation_bad_value') return 'khoá ' + key + ' sai';
   if (what === 'rotation_missing_key') return 'thiếu khoá ' + key;
   if (what === 'rotation_malformed_line') return 'có dòng không đọc được';
+  if (what === 'rotation_personal_in_team') return 'tài khoản cá nhân cũng nằm trong vòng Team';
   return reason;
 }
 
@@ -92,6 +93,7 @@ export function ruleChanges(a: Rules, b: Rules, nameOf: NameOf, now: Date): stri
 export function rulesProblem(r: Rules): string | null {
   if (!r.team.length) return 'Chọn ít nhất một tài khoản Team.';
   if (r.personalTo < r.personalFrom) return 'Giờ kết thúc phải sau giờ bắt đầu.';
+  if (r.personal !== null && r.team.includes(r.personal)) return 'Tài khoản cá nhân không được nằm trong vòng Team.';
   return null;
 }
 
@@ -150,6 +152,7 @@ export function localLine(model: Model, dirty: boolean, restored: boolean): MacL
   if (restored) return line('bad', r.stamp ? 'đã khôi phục bản ' + clock(r.stamp.at) : 'đã khôi phục bản trước');
   if (dirty) return line('warn', 'chưa lưu');
   if (r.status === 'missing') return line('muted', 'chưa có file');
+  if (r.status === 'unreadable') return line('bad', 'không đọc được file');
   if (r.status !== 'ok') return line('bad', 'file không hợp lệ');
   return line('ok', r.stamp ? 'lưu ' + clock(r.stamp.at) : 'chưa lưu bằng app');
 }
@@ -188,7 +191,7 @@ export function rotationBanner(model: Model): BannerView | null {
   if (r.status === 'invalid')
     return {
       tone: 'bad',
-      title: 'quota-axi không đọc được file luật trên máy này',
+      title: 'File luật trên máy này không hợp lệ',
       body:
         cap(keyWords(r.reason)) +
         '. quota-axi đang tính theo tài khoản đang dùng. Bộ sửa hiện mặc định của switcher: lưu để ghi đè, bản cũ được sao lưu.',
@@ -197,17 +200,20 @@ export function rotationBanner(model: Model): BannerView | null {
   const at = r.stamp ? clock(r.stamp.at) : '';
   const other = r.peers.find(conflict);
   if (other && other.state && (other.state.kind === 'newer' || other.state.kind === 'edited')) {
-    const newer = other.state.kind === 'newer';
+    const newer = other.state.kind === 'newer' ? other.state.their : null;
     return {
       tone: 'info',
-      title: newer ? 'Bản trên ' + other.name + ' mới hơn (' + clock(other.state.their.at) + ')' : 'Bản trên ' + other.name + ' đã bị sửa tay',
+      title: newer ? 'Bản trên ' + other.name + ' mới hơn (' + clock(newer.at) + ')' : 'Bản trên ' + other.name + ' đã bị sửa tay',
       body:
         (newer
           ? 'Có người sửa luật trên ' + other.name + ' sau bản ' + at + ' của máy này.'
-          : 'File luật trên ' + other.name + ' khác bản ' + at + ' của máy này dù cùng dấu thời gian.') + ' App không tự gộp hai bản. Tải bản đó về?',
+          : other.state.their
+            ? 'File luật trên ' + other.name + ' khác bản ' + at + ' của máy này dù cùng dấu thời gian.'
+            : 'File luật trên ' + other.name + ' không có dòng updated của app, có thể đã được sửa tay. App không ghi đè.') + ' App không tự gộp hai bản. Tải bản đó về?',
       actions: [
-        { label: 'Dùng bản trên ' + other.name, act: ('rules:adopt:' + other.alias) as `rules:${string}` },
-        { label: 'So sánh', act: ('rules:compare:' + other.alias) as `rules:${string}` },
+        // A copy the app cannot read cannot be taken; the compare sheet still offers keeping this one.
+        ...(other.theirRules ? [{ label: 'Dùng bản trên ' + other.name, act: `rules:adopt:${other.alias}` as const }] : []),
+        { label: 'So sánh', act: `rules:compare:${other.alias}` },
       ],
     };
   }
@@ -265,7 +271,12 @@ export function rulesErrorBanner(e: RulesError, before: Stamp | null, peer?: str
       return {
         tone: 'warn',
         title: 'Chưa tải được bản trên ' + (peer ?? 'Mac kia'),
-        body: e.kind === 'noFile' ? 'Máy đó không có file luật.' : 'SSH không tới được' + (e.detail ? ': ' + e.detail : '') + '. Máy này giữ nguyên.',
+        body:
+          e.kind === 'noFile'
+            ? 'Máy đó không có file luật.'
+            : e.kind === 'unknownMac'
+              ? 'Mac này không còn trong Cài đặt › Các Mac khác. Thêm lại rồi thử. Máy này giữ nguyên.'
+              : 'SSH không tới được' + (e.detail ? ': ' + e.detail : '') + '. Máy này giữ nguyên.',
         actions: [],
       };
     default:

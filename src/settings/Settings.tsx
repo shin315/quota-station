@@ -91,6 +91,7 @@ function testText(t: SshTest | undefined, alias: string): { tone: string; text: 
   if (!t) return { tone: 'muted', text: 'Chưa thử' };
   if (t.kind === 'testing') return { tone: 'muted', text: 'Đang thử…' };
   if (t.kind === 'ok') return { tone: 'ok', text: t.hasFile ? 'SSH ổn' : 'SSH ổn · máy đó chưa có file luật' };
+  if (t.error === 'badAlias') return { tone: 'bad', text: PEER_ERRORS.badAlias };
   return {
     tone: 'bad',
     text: t.error === 'timeout' || !t.error ? 'SSH hết giờ chờ. Kiểm tên kết nối hoặc bật máy đó.' : 'SSH không tới được: ' + t.error,
@@ -112,16 +113,19 @@ function OtherMacs({ model, onSet, onTest }: { model: Model; onSet: SettingsProp
   const [error, setError] = useState<{ row: number; text: string } | null>(null);
   const [tests, setTests] = useState<Record<string, SshTest>>({});
   if (seen !== key) {
+    // A new row still waiting for its alias stays under the saved ones.
     setSeen(key);
-    setRows(saved);
+    setRows([...saved, ...rows.filter((r) => !r.alias.trim())]);
   }
   const commit = async (next: Peer[]) => {
-    // A new row waits for its alias.
-    if (next.some((p) => !p.alias.trim()) || JSON.stringify(next) === key) return;
-    const refused = await onSet(next);
+    // A new row waits for its alias; the others are saved without it.
+    const rowOf = next.flatMap((p, i) => (p.alias.trim() ? [i] : []));
+    const complete = rowOf.map((i) => next[i]);
+    if (JSON.stringify(complete) === key) return setError(null);
+    const refused = await onSet(complete);
     if (!refused) return setError(null);
     const [code, at] = refused.split(':');
-    setError({ row: Number(at ?? -1), text: PEER_ERRORS[code] ?? 'Chưa lưu được: ' + refused });
+    setError({ row: at === undefined ? -1 : (rowOf[Number(at)] ?? -1), text: PEER_ERRORS[code] ?? 'Chưa lưu được: ' + refused });
   };
   const set = (i: number, field: keyof Peer, value: string) => setRows(rows.map((r, j) => (j === i ? { ...r, [field]: value } : r)));
   const onKey = (e: { key: string }) => {

@@ -46,6 +46,9 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
   const listeners = new Set<(m: Model) => void>();
   const tabListeners = new Set<(t: Tab) => void>();
   const closeListeners = new Set<() => void>();
+  const quitListeners = new Set<() => void>();
+  /** What the last `closeMain` did: the tests check a quit really quits. */
+  let closed: 'window' | 'app' | null = null;
   const delay = () => (options.saveDelayMs ? new Promise((r) => setTimeout(r, options.saveDelayMs)) : Promise.resolve());
   /** Every Mac SSH reaches takes the file; the others wait 5 minutes. */
   const sent = (peers: PeerView[]): PeerView[] =>
@@ -149,12 +152,19 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
     },
     keepRotation: (base) => write(base, () => ({ stamp: { at: stampAt(now()), machine: model.machine } })),
     retryRotation: async () => {
-      push({ ...model, rotation: { ...model.rotation, peers: sent(model.rotation.peers) } });
+      // A newer or hand-edited copy waits for the owner, as on the Rust side.
+      const waits = (p: PeerView) => p.current && (p.state?.kind === 'newer' || p.state?.kind === 'edited');
+      const tried = sent(model.rotation.peers);
+      push({ ...model, rotation: { ...model.rotation, peers: model.rotation.peers.map((p, i) => (waits(p) ? p : tried[i])) } });
       return model;
     },
     setPeers: async (peers) => {
+      if (peers.length > 8) throw 'tooMany';
       const bad = peers.findIndex((p) => !/^[A-Za-z0-9][A-Za-z0-9._@-]*$/.test(p.alias.trim()));
       if (bad >= 0) throw 'badAlias:' + bad;
+      const lower = peers.map((p) => p.alias.trim().toLowerCase());
+      const same = lower.findIndex((a, i) => lower.indexOf(a) < i);
+      if (same >= 0) throw 'sameAlias:' + same;
       const known = new Map(model.rotation.peers.map((p) => [p.alias, p]));
       const next = peers.map((p): PeerView => {
         const alias = p.alias.trim();
@@ -175,10 +185,16 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       return { decision: { kind: 'switch', slot: next, why: { kind: 'room', used: 0, ends: null } }, raw: 'switch ' + next + ' (0.0%, window not started)' };
     },
     rulesDirty: async () => {},
-    closeMain: async () => {},
+    closeMain: async (quit) => {
+      closed = quit ? 'app' : 'window';
+    },
     onCloseRequested: async (handler) => {
       closeListeners.add(handler);
       return () => closeListeners.delete(handler);
+    },
+    onQuitRequested: async (handler) => {
+      quitListeners.add(handler);
+      return () => quitListeners.delete(handler);
     },
     onModel: async (handler) => {
       listeners.add(handler);
@@ -191,5 +207,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
   };
   /** The window's close button, as macOS would press it with unsaved rules. */
   const requestClose = () => closeListeners.forEach((l) => l());
-  return { api, push, current: () => model, requestClose };
+  /** `Thoát Quota Station` in the menu bar menu with unsaved rules. */
+  const requestQuit = () => quitListeners.forEach((l) => l());
+  return { api, push, current: () => model, requestClose, requestQuit, closed: () => closed };
 }

@@ -83,8 +83,8 @@ impl Rules {
     }
 
     /// The same checks quota-axi makes, plus one of the app's own: the
-    /// personal slot is not also a Team slot. `Err` is quota-axi's reason,
-    /// `rotation_bad_value:<key>`.
+    /// personal slot is not also a Team slot (`rotation_personal_in_team`).
+    /// Otherwise `Err` is quota-axi's reason, `rotation_bad_value:<key>`.
     pub fn check(&self) -> Result<(), String> {
         let bad = |key: &str| Err(format!("rotation_bad_value:{key}"));
         let mut seen = Vec::new();
@@ -97,8 +97,11 @@ impl Rules {
         if self.team.is_empty() {
             return bad("team");
         }
-        if self.personal.is_some_and(|p| p == 0 || self.team.contains(&p)) {
+        if self.personal == Some(0) {
             return bad("personal");
+        }
+        if self.personal.is_some_and(|p| self.team.contains(&p)) {
+            return Err("rotation_personal_in_team".into());
         }
         if self.personal_from > self.personal_to || self.personal_to > 23 {
             return bad("personal_hours");
@@ -179,7 +182,12 @@ fn end_time_ok(at: &str) -> bool {
     let offset_ok = match rest.as_bytes() {
         [] | [b'Z'] => true,
         [s, h1, h2, b':', m1, m2] => {
-            (*s == b'+' || *s == b'-') && [h1, h2, m1, m2].iter().all(|c| c.is_ascii_digit())
+            let two = |a: u8, b: u8| {
+                (a.is_ascii_digit() && b.is_ascii_digit()).then(|| (a - b'0') * 10 + (b - b'0'))
+            };
+            (*s == b'+' || *s == b'-')
+                && two(*h1, *h2).is_some_and(|h| h <= 23)
+                && two(*m1, *m2).is_some_and(|m| m <= 59)
         }
         _ => false,
     };
@@ -208,6 +216,13 @@ impl Stamp {
             m.unsigned_abs()
         );
         Stamp { at, machine: machine.replace(['\n', '\r'], " ").trim().to_string() }
+    }
+
+    /// The stamp for a save at `at`, always later than `previous`: two saves
+    /// within one second still tell apart which is newer.
+    pub fn next(at: OffsetDateTime, machine: &str, previous: Option<&Stamp>) -> Stamp {
+        let after = previous.and_then(Stamp::instant).map(|p| p + time::Duration::seconds(1));
+        Stamp::new(after.map_or(at, |a| a.max(at)), machine)
     }
 
     pub fn instant(&self) -> Option<OffsetDateTime> {
@@ -455,9 +470,12 @@ pub fn version(text: &str) -> String {
     format!("{h:016x}")
 }
 
+/// A file that breaks [`Rules::check`] (a personal slot that is also a Team
+/// slot) counts as invalid too, so the editor starts it from the defaults
+/// instead of from rules it could never save.
 pub fn load(file: &Path) -> FileState {
     match std::fs::read_to_string(file) {
-        Ok(text) => match parse(&text) {
+        Ok(text) => match parse(&text).and_then(|p| p.rules.check().map(|()| p)) {
             Ok(parsed) => FileState::Ok { text, parsed },
             Err(reason) => FileState::Invalid { text, reason },
         },
@@ -611,7 +629,8 @@ pub fn apply(
     base: Option<&str>,
     now: OffsetDateTime,
 ) -> Result<Applied, ApplyError> {
-    let parsed = parse(text).map_err(ApplyError::Invalid)?;
+    let parsed =
+        parse(text).and_then(|p| p.rules.check().map(|()| p)).map_err(ApplyError::Invalid)?;
     let current = load(file);
     if let FileState::Unreadable(e) = &current {
         return Err(ApplyError::Write(e.clone()));
@@ -652,8 +671,15 @@ mod tests {
         ] {
             assert!(end_time_ok(ok), "{ok}");
         }
-        for bad in ["2026-10-16", "2026-10-16 17:45", "2026-13-16T17:45", "2026-10-16T17:45+7", "x"]
-        {
+        for bad in [
+            "2026-10-16",
+            "2026-10-16 17:45",
+            "2026-13-16T17:45",
+            "2026-10-16T17:45+7",
+            "2026-10-16T17:45+99:99",
+            "2026-10-16T17:45-07:60",
+            "x",
+        ] {
             assert!(!end_time_ok(bad), "{bad}");
         }
     }

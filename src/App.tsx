@@ -284,10 +284,11 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   const ruleDialog = rules.leave ? 'leave' : rules.compare ? 'compare' : null;
   const sheetOpen = !!switching.sheet || !!ruleDialog;
   const closeSheet = useRef(switching.close);
+  // Escape closes the sheet on show: the unsaved-changes one, then a switch, then the comparison.
   closeSheet.current = () => {
     if (rules.leave) void rules.answerLeave('cancel', setTab);
+    else if (switching.sheet) switching.close();
     else if (rules.compare) rules.closeCompare();
-    else switching.close();
   };
 
   useEffect(() => {
@@ -317,7 +318,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   const onAction = (act: Action) => {
     if (switching.act(act)) return;
     if (rules.act(act)) return;
-    if (act === 'settings') return setTab('settings');
+    if (act === 'settings') return rules.guardTab(tab, 'settings', setTab);
     if (act === 'dismiss') return setKeychainLater(true);
     if (act === 'refresh') return void refresh();
     if (act === 'keychain') return void grant();
@@ -359,15 +360,14 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   );
   const goTab = (next: Tab) => rules.guardTab(tab, next, setTab);
   const dialog =
-    switching.body(now, () => {
-      switching.close();
-      setTab('settings');
-    }) ??
-    (ruleDialog === 'leave' ? (
+    ruleDialog === 'leave' ? (
       <LeaveDialog rules={rules} onAnswer={(a) => void rules.answerLeave(a, setTab)} />
-    ) : ruleDialog === 'compare' ? (
-      <CompareDialog model={model} rules={rules} now={now} />
-    ) : null);
+    ) : (
+      (switching.body(now, () => {
+        switching.close();
+        goTab('settings');
+      }) ?? (ruleDialog === 'compare' ? <CompareDialog model={model} rules={rules} now={now} /> : null))
+    );
   return (
     <MainWindow
       tab={tab}

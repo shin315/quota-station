@@ -5,9 +5,12 @@
 //! It writes the app's own settings file, the switcher's pause flag and the
 //! rotation file ([`rotation`]), which it also copies to the owner's other
 //! Macs over SSH ([`peers`]). The one command it runs that switches anything
-//! is `cswap switch N --json` ([`switching`]). Everything else it runs only
+//! is `cswap switch N --json` ([`switching`]). The one it runs that writes
+//! anything is the [`peers`] script over `ssh`, which replaces the rotation
+//! file on another Mac (keeping a backup there). Everything else it runs only
 //! reads: quota-axi, the switcher's `--dry-run` (which reads claude-swap's
-//! accounts and switches nothing) and `launchctl list`.
+//! accounts and switches nothing), `ssh` reading the other Macs' rotation
+//! file, and `launchctl list`.
 
 pub mod axi;
 pub mod cswap;

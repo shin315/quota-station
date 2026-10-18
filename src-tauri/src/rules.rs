@@ -40,17 +40,19 @@ pub fn spawn(app: AppHandle, state: AppState) {
                 }
                 inner.sync_now = false;
             }
-            push_peers(&app, &state, false);
+            push_peers(&app, &state, false, false);
         })
         .expect("sync thread starts");
 }
 
 /// Copies this Mac's rotation file to the other Macs that need it: never
 /// tried, behind this Mac's file, or failed and past their 5 minutes. With
-/// `now_all`, a failed Mac is tried without waiting. Does nothing before the
-/// app has saved the file once (no `updated` stamp: nothing of the app's to
-/// copy), or while the file is one quota-axi would refuse.
-pub fn push_peers(app: &AppHandle, state: &AppState, now_all: bool) {
+/// `now_all`, a failed Mac is tried without waiting. With `force_conflicts`
+/// (the owner kept this Mac's copy), a Mac holding a newer or hand-edited
+/// copy is written too. Does nothing before the app has saved the file once
+/// (no `updated` stamp: nothing of the app's to copy), or while the file is
+/// one quota-axi would refuse.
+pub fn push_peers(app: &AppHandle, state: &AppState, now_all: bool, force_conflicts: bool) {
     let _one_at_a_time = state.push_lock.lock().unwrap_or_else(|e| e.into_inner());
     let (file, peers) = {
         let inner = state.lock();
@@ -58,16 +60,23 @@ pub fn push_peers(app: &AppHandle, state: &AppState, now_all: bool) {
     };
     let FileState::Ok { text, parsed } = rotation::load(&file) else { return };
     let Some(stamp) = parsed.stamp else { return };
+    let version = rotation::version(&text);
     let now = OffsetDateTime::now_utc();
     // A wait counts as over when every Mac is tried now.
     let check_at = if now_all { now + time::Duration::minutes(RETRY_MINUTES) } else { now };
-    let due: Vec<Peer> = {
+    let due: Vec<(Peer, bool)> = {
         let mut inner = state.lock();
-        let due: Vec<Peer> = peers
+        let due: Vec<(Peer, bool)> = peers
             .into_iter()
-            .filter(|p| peers::due(inner.sync.peers.get(&p.alias), &stamp, check_at))
+            .filter_map(|p| {
+                let record = inner.sync.peers.get(&p.alias);
+                let conflict = record.is_some_and(|r| {
+                    matches!(r.state, PeerState::Newer { .. } | PeerState::Edited { .. })
+                });
+                peers::due(record, &version, check_at).then_some((p, force_conflicts && conflict))
+            })
             .collect();
-        inner.pushing.extend(due.iter().map(|p| p.alias.clone()));
+        inner.pushing.extend(due.iter().map(|(p, _)| p.alias.clone()));
         due
     };
     if due.is_empty() {
@@ -77,17 +86,18 @@ pub fn push_peers(app: &AppHandle, state: &AppState, now_all: bool) {
     let ssh = peers::find_ssh(std::env::var_os("PATH").as_deref());
     let jobs: Vec<_> = due
         .into_iter()
-        .map(|p| {
-            let (ssh, text, stamp) = (ssh.clone(), text.clone(), stamp.clone());
+        .map(|(p, force)| {
+            let (ssh, text, stamp, version) =
+                (ssh.clone(), text.clone(), stamp.clone(), version.clone());
             thread::spawn(move || {
                 let record = match ssh {
-                    Some(ssh) => peers::push(&ssh, &p.alias, &text, &stamp, now),
+                    Some(ssh) => peers::push(&ssh, &p.alias, &text, &stamp, now, force),
                     None => PeerRecord {
                         state: PeerState::Failed {
                             error: "không thấy ssh trên máy này".into(),
                             retry_at: retry_at(now),
                         },
-                        against: stamp.at.clone(),
+                        against: version,
                         their_text: None,
                     },
                 };
@@ -153,6 +163,7 @@ async fn write_here(
     app: &AppHandle,
     state: &AppState,
     base: Option<String>,
+    force_conflicts: bool,
     text: impl FnOnce(&FileState, &str) -> Result<String, RulesError> + Send + 'static,
 ) -> Result<Model, RulesError> {
     let (file, quota_axi, machine) = {
@@ -188,7 +199,10 @@ async fn write_here(
     reader::publish(app, state);
     ok?;
     let (app2, state2) = (app.clone(), state.clone());
-    let _ = tauri::async_runtime::spawn_blocking(move || push_peers(&app2, &state2, true)).await;
+    let _ = tauri::async_runtime::spawn_blocking(move || {
+        push_peers(&app2, &state2, true, force_conflicts)
+    })
+    .await;
     Ok(state.lock().model())
 }
 
@@ -203,13 +217,13 @@ pub async fn save_rotation(
     base: Option<String>,
 ) -> Result<Model, RulesError> {
     let state = state.inner().clone();
-    write_here(&app, &state, base, move |current, machine| {
+    write_here(&app, &state, base, false, move |current, machine| {
         rules.check().map_err(|r| RulesError {
             kind: "invalid",
             detail: Some(r),
             restored: false,
         })?;
-        let stamp = Stamp::new(OffsetDateTime::now_utc(), machine);
+        let stamp = Stamp::next(OffsetDateTime::now_utc(), machine, current.stamp());
         Ok(rotation::render(&rules, &stamp, current.text()))
     })
     .await
@@ -243,7 +257,7 @@ pub async fn adopt_rotation(
     .unwrap_or_else(|e| {
         Err(RulesError { kind: "unreachable", detail: Some(e.to_string()), restored: false })
     })?;
-    write_here(&app, &state, base, move |_, _| {
+    write_here(&app, &state, base, false, move |_, _| {
         rotation::parse(&theirs).map_err(|r| RulesError {
             kind: "invalid",
             detail: Some(r),
@@ -263,9 +277,9 @@ pub async fn keep_rotation(
     base: Option<String>,
 ) -> Result<Model, RulesError> {
     let state = state.inner().clone();
-    write_here(&app, &state, base, |current, machine| match current {
+    write_here(&app, &state, base, true, |current, machine| match current {
         FileState::Ok { text, parsed } => {
-            let stamp = Stamp::new(OffsetDateTime::now_utc(), machine);
+            let stamp = Stamp::next(OffsetDateTime::now_utc(), machine, parsed.stamp.as_ref());
             Ok(rotation::render(&parsed.rules, &stamp, Some(text)))
         }
         _ => Err(RulesError::new("noFile")),
@@ -278,7 +292,7 @@ pub async fn keep_rotation(
 pub async fn retry_rotation(app: AppHandle, state: State<'_, AppState>) -> Result<Model, String> {
     let state = state.inner().clone();
     let (app2, state2) = (app.clone(), state.clone());
-    tauri::async_runtime::spawn_blocking(move || push_peers(&app2, &state2, true))
+    tauri::async_runtime::spawn_blocking(move || push_peers(&app2, &state2, true, false))
         .await
         .map_err(|e| e.to_string())?;
     let model = state.lock().model();
@@ -399,9 +413,14 @@ pub fn rules_dirty(state: State<'_, AppState>, dirty: bool) {
     state.lock().rules_dirty = dirty;
 }
 
-/// Closes the main window after the owner answered the unsaved-changes dialog.
+/// Closes the main window after the owner answered the unsaved-changes
+/// dialog, or quits the app when the dialog came from `Thoát Quota Station`.
 #[tauri::command]
-pub fn close_main(app: AppHandle, state: State<'_, AppState>) {
+pub fn close_main(app: AppHandle, state: State<'_, AppState>, quit: bool) {
     state.lock().rules_dirty = false;
-    windows::close_main(&app);
+    if quit {
+        app.exit(0);
+    } else {
+        windows::close_main(&app);
+    }
 }

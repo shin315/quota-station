@@ -33,6 +33,7 @@ describe('rules view', () => {
     expect(keyWords('rotation_bad_value:personal_hours')).toBe('khoá personal_hours sai');
     expect(keyWords('rotation_missing_key:full')).toBe('thiếu khoá full');
     expect(keyWords('rotation_malformed_line')).toBe('có dòng không đọc được');
+    expect(keyWords('rotation_personal_in_team')).toBe('tài khoản cá nhân cũng nằm trong vòng Team');
   });
 
   it('lists every change by account name', () => {
@@ -63,6 +64,7 @@ describe('rules view', () => {
     expect(rulesProblem(rulesFixture())).toBeNull();
     expect(rulesProblem(rulesFixture({ team: [] }))).toBe('Chọn ít nhất một tài khoản Team.');
     expect(rulesProblem(rulesFixture({ personalFrom: 20, personalTo: 7 }))).toBe('Giờ kết thúc phải sau giờ bắt đầu.');
+    expect(rulesProblem(rulesFixture({ team: [1, 2], personal: 1 }))).toBe('Tài khoản cá nhân không được nằm trong vòng Team.');
   });
 
   it('one status per Mac', () => {
@@ -81,6 +83,7 @@ describe('rules view', () => {
       text: 'có bản mới hơn 14:11',
     });
     expect(line({ state: { kind: 'edited', their: { at: '2026-01-16T14:02:00+07:00', machine: 'Mac mini' } } }).short).toBe('Mac C: bản đã bị sửa tay');
+    expect(line({ state: { kind: 'edited', their: null } }).short).toBe('Mac C: bản đã bị sửa tay');
     expect(line({ current: false }).short).toBe('Mac C: chưa nhận bản mới, sẽ gửi');
     expect(line({ state: null }).short).toBe('Mac C: chưa gửi lần nào');
     expect(line({ pushing: true }).text).toBe('đang gửi…');

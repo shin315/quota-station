@@ -142,3 +142,16 @@ pub fn close_main(app: &AppHandle) {
         let _ = window.destroy();
     }
 }
+
+/// `Thoát Quota Station`: quits, unless the rules editor holds unsaved
+/// changes; then the main window asks first and quits through `close_main`.
+pub fn quit(app: &AppHandle) {
+    if !app.state::<AppState>().lock().rules_dirty {
+        app.exit(0);
+        return;
+    }
+    open_main(app, Tab::Rules);
+    if let Some(window) = main_window(app) {
+        let _ = window.emit_to(MAIN, "quitRequested", ());
+    }
+}

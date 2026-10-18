@@ -215,7 +215,8 @@ export type PeerState =
   | { kind: 'mismatch'; retryAt: string }
   | { kind: 'failed'; error: string; retryAt: string }
   | { kind: 'newer'; their: Stamp }
-  | { kind: 'edited'; their: Stamp };
+  /** `their` is null for a copy with no `updated` line, or one the app cannot read. */
+  | { kind: 'edited'; their: Stamp | null };
 
 export interface PeerView {
   name: string;

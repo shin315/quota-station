@@ -81,6 +81,17 @@ fn the_single_ssh_alias_moves_into_the_list_of_other_macs() {
     assert!(Settings::load(&file).peers.is_empty());
     std::fs::write(&file, r#"{ "sshAlias": "" }"#).unwrap();
     assert!(Settings::load(&file).peers.is_empty());
+
+    // A broken entry is dropped, never the whole file; the list is tidied as typed ones are.
+    std::fs::write(
+        &file,
+        r#"{ "machineName": "Mac A", "peers": [{ "name": "Mac B" }, 7, { "alias": " mac-c " },
+            { "name": "C2", "alias": "MAC-C" }, { "name": "X", "alias": "-oX=y" }] }"#,
+    )
+    .unwrap();
+    let s = Settings::load(&file);
+    assert_eq!(s.machine_name.as_deref(), Some("Mac A"));
+    assert_eq!(s.peers, vec![peer("mac-c", "mac-c")]);
     let _ = std::fs::remove_dir_all(&dir);
 }
 

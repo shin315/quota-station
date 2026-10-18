@@ -34,7 +34,8 @@ pub struct Peer {
 }
 
 /// The file as written by any version: the plan's single `sshAlias` for the
-/// one other Mac became the list of [`Peer`]s.
+/// one other Mac became the list of [`Peer`]s. The list is read loosely: an
+/// entry that is not a Mac with a usable alias is dropped, not the file.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Stored {
@@ -43,19 +44,34 @@ struct Stored {
     #[serde(default)]
     machine_name: Option<String>,
     #[serde(default)]
-    peers: Vec<Peer>,
+    peers: Vec<serde_json::Value>,
     #[serde(default)]
     ssh_alias: Option<String>,
 }
 
 impl From<Stored> for Settings {
     fn from(s: Stored) -> Settings {
-        let mut peers = s.peers;
-        if peers.is_empty() {
-            if let Some(alias) =
-                s.ssh_alias.as_deref().map(str::trim).filter(|a| peers::alias_ok(a))
-            {
-                peers.push(Peer { name: alias.to_string(), alias: alias.to_string() });
+        let text = |v: &serde_json::Value, key: &str| v.get(key)?.as_str().map(String::from);
+        let mut found: Vec<Peer> = s
+            .peers
+            .iter()
+            .filter_map(|v| {
+                Some(Peer { name: text(v, "name").unwrap_or_default(), alias: text(v, "alias")? })
+            })
+            .collect();
+        if found.is_empty() {
+            found.extend(s.ssh_alias.map(|alias| Peer { name: String::new(), alias }));
+        }
+        // The same tidying as settings typed in the app, one entry at a time.
+        let mut peers: Vec<Peer> = Vec::new();
+        for p in found {
+            if peers.len() == PEERS_MAX {
+                break;
+            }
+            if let Ok(one) = self::peers(&[p]) {
+                if !peers.iter().any(|q| q.alias.eq_ignore_ascii_case(&one[0].alias)) {
+                    peers.extend(one);
+                }
             }
         }
         Settings { quota_axi_path: s.quota_axi_path, machine_name: s.machine_name, peers }
