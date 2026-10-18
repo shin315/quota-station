@@ -144,6 +144,8 @@ function failedBody(error: string, detail: string, reopened: boolean | null): st
       return 'Không đọc được phiên bản Antigravity.app' + (detail ? ' (' + detail + ')' : '') + ', nên app không chuyển.' + nothing;
     case 'loggingOut':
       return 'Đang đăng xuất một tài khoản Antigravity. Chờ xong rồi thử lại.';
+    case 'loggingIn':
+      return 'Đang có một lần đăng nhập Antigravity. Chờ xong rồi thử lại.';
     case 'prepareTimeout':
       return 'Google không trả lời kịp trong 60 giây.' + nothing;
     case 'prepare':
@@ -209,7 +211,7 @@ export function agySwitchFeedback(outcome: AgyOutcome): FeedbackView {
   }
 }
 
-/** The switch call itself was refused (`busy`, `unknownAccount`, `index`) or broke. */
+/** The switch call itself was refused (`busy`, `loggingOut`, `loggingIn`, `unknownAccount`, `index`) or broke. */
 export function agySwitchErrorFeedback(number: number, error: unknown): FeedbackView {
   return {
     tone: 'bad',

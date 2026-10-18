@@ -131,10 +131,28 @@ pub async fn agy_app_state() -> Result<AppView, String> {
     .map_err(|e| e.to_string())
 }
 
+impl Inner {
+    /// Why an Antigravity switch cannot start now: `busy` while a switch
+    /// runs, `loggingOut` while a logout runs, `loggingIn` while a login
+    /// runs, which could otherwise change the account list and the Keychain
+    /// items under the switch.
+    pub fn agy_switch_refusal(&self) -> Option<&'static str> {
+        if self.agy_switching.is_some() {
+            Some("busy")
+        } else if self.agy_logging_out {
+            Some("loggingOut")
+        } else if self.agy_logging_in {
+            Some("loggingIn")
+        } else {
+            None
+        }
+    }
+}
+
 /// Switches Antigravity to the account `id` after the owner confirmed it on
 /// the sheet, the way `how` says. Rejects with `busy` while a switch runs,
-/// `loggingOut` while a logout runs, and `unknownAccount` for an id this app
-/// does not list.
+/// `loggingOut` while a logout runs, `loggingIn` while a login runs, and
+/// `unknownAccount` for an id this app does not list.
 #[tauri::command]
 pub async fn switch_agy(
     app: AppHandle,
@@ -145,11 +163,8 @@ pub async fn switch_agy(
     let shared = state.inner().clone();
     let (dir, quota_axi, from) = {
         let mut inner = shared.lock();
-        if inner.agy_switching.is_some() {
-            return Err("busy".into());
-        }
-        if inner.agy_logging_out {
-            return Err("loggingOut".into());
+        if let Some(why) = inner.agy_switch_refusal() {
+            return Err(why.into());
         }
         let dir = inner.app_dir();
         let index = index::load(&dir).map_err(|_| "index")?;
@@ -202,4 +217,33 @@ pub fn agy_dismiss_overwrite(app: AppHandle, state: State<'_, AppState>) -> Resu
     watch::dismiss(&dir).map_err(|e| e.to_string())?;
     reader::publish(&app, &state);
     Ok(state.lock().model())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use super::*;
+
+    fn inner() -> Inner {
+        Inner::new(PathBuf::new(), PathBuf::from("/nonexistent/settings.json"), "Mac".into())
+    }
+
+    #[test]
+    fn a_switch_is_refused_while_a_login_a_logout_or_another_switch_runs() {
+        let mut inner = inner();
+        assert_eq!(inner.agy_switch_refusal(), None);
+
+        inner.agy_logging_in = true;
+        assert_eq!(inner.agy_switch_refusal(), Some("loggingIn"));
+        inner.agy_logging_in = false;
+        assert_eq!(inner.agy_switch_refusal(), None, "it can start once the login ends");
+
+        inner.agy_logging_out = true;
+        assert_eq!(inner.agy_switch_refusal(), Some("loggingOut"));
+        inner.agy_logging_out = false;
+
+        inner.agy_switching = Some(2);
+        assert_eq!(inner.agy_switch_refusal(), Some("busy"));
+    }
 }

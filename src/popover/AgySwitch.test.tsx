@@ -171,6 +171,16 @@ describe('the Antigravity switch sheet', () => {
     expect(screen.getByText('Đang đăng xuất một tài khoản Antigravity. Chờ xong rồi thử lại.')).toBeTruthy();
   });
 
+  it('a switch while an Antigravity login runs says so', async () => {
+    const fake = await openPopover(listed());
+    const sheet = await sheetForUltra1();
+    vi.mocked(fake.api.switchAgy).mockRejectedValue('loggingIn');
+    await act(async () => {
+      fireEvent.click(within(sheet).getByRole('button', { name: 'Thoát app rồi chuyển' }));
+    });
+    expect(screen.getByText('Đang có một lần đăng nhập Antigravity. Chờ xong rồi thử lại.')).toBeTruthy();
+  });
+
   it('when the app cannot tell whether Antigravity.app runs it offers all three', async () => {
     await openPopover(listed(), { agyApp: null });
     const sheet = await sheetForUltra1();

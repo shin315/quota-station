@@ -216,10 +216,11 @@ fn upsert_account(
         // that cannot be removed either is named, so it does not go unseen.
         if existing.is_none() {
             if let Err(left) = deps.keychain.delete(&id) {
-                let (IndexError::Write(why) | IndexError::Unreadable(why)) = e;
-                return Err(LoginError::Index(IndexError::Write(format!(
-                    "{why}; the new Keychain item is left too: {left}"
-                ))));
+                let (IndexError::Write(file, why) | IndexError::Unreadable(file, why)) = e;
+                return Err(LoginError::Index(IndexError::Write(
+                    file,
+                    format!("{why}; the new Keychain item is left too: {left}"),
+                )));
             }
         }
         return Err(LoginError::Index(e));

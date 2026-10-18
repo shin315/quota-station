@@ -245,7 +245,7 @@ fn an_index_that_cannot_be_written_takes_the_new_item_back() {
     flags("uchg");
 
     let (result, _) = log_in(&home, &google);
-    assert!(matches!(result, Err(LoginError::Index(index::IndexError::Write(_)))));
+    assert!(matches!(result, Err(LoginError::Index(index::IndexError::Write(..)))));
     assert!(home.item(ACCOUNT_ID).is_none(), "the new item is taken back");
 
     home.fail_security("delete");
@@ -620,7 +620,7 @@ fn an_unreadable_index_is_reported_and_left_alone() {
 
     let (result, _) = log_in(&home, &google);
 
-    assert!(matches!(result, Err(LoginError::Index(index::IndexError::Unreadable(_)))));
+    assert!(matches!(result, Err(LoginError::Index(index::IndexError::Unreadable(..)))));
     assert_eq!(std::fs::read_to_string(home.index_file()).unwrap(), "{ broken");
     assert!(home.security_calls().is_empty(), "nothing kept when the index cannot be read");
 }
@@ -639,7 +639,7 @@ fn an_unreadable_status_file_is_left_alone() {
 
     assert!(matches!(
         index::set_standing(&home.app, ACCOUNT_ID, Some(Standing::NeedsLogin { since: NOW })),
-        Err(index::IndexError::Unreadable(_))
+        Err(index::IndexError::Unreadable(..))
     ));
     assert_eq!(login::fresh_token(&deps, ACCOUNT_ID, NOW + 3599), Err(UseError::NeedsLogin));
     log_in(&home, &google).0.unwrap();

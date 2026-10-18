@@ -308,6 +308,9 @@ fn a_403_stops_the_reads_until_a_new_login() {
     google.set(|s| s.models = (403, verify_body(403)));
     let err = read(&home, &google, &id, NOW_MS + 40 * MIN).unwrap_err();
     assert!(matches!(err, ReadError::Index(_)) && !err.in_status(), "{err:?}");
+    // It names the file that failed, not the account index.
+    let words = err.to_string();
+    assert!(words.contains("status.json") && !words.contains("accounts.json"), "{words}");
 }
 
 #[test]
@@ -350,6 +353,91 @@ fn a_429_or_5xx_is_not_retried_keeps_the_last_reading_and_backs_off() {
     assert_eq!(pace.waiting_until(&id, NOW_MS), Some(NOW_MS + 2 * MIN));
     pace.finished(&id, quota::finish(&Err(err)), NOW_MS);
     assert_eq!(pace.waiting_until(&id, NOW_MS), Some(NOW_MS + 4 * MIN));
+}
+
+#[test]
+fn a_failed_load_code_assist_ends_the_read_like_a_failed_quota_call() {
+    let home = Home::new("agy-quota-lca");
+    // Google names no project, so every read asks loadCodeAssist again.
+    let google =
+        FakeGoogle::start(Script { load_code_assist: (200, "{}".into()), ..Script::default() });
+    let id = log_in(&home, &google, NOW_MS);
+    read(&home, &google, &id, NOW_MS).unwrap();
+    let before = cache_text(&home, EMAIL).unwrap();
+
+    for (status, kind) in [(429, "rateLimited"), (503, "server"), (500, "server")] {
+        google.clear();
+        google.set(|s| s.load_code_assist = (status, "{}".into()));
+        let result = read(&home, &google, &id, NOW_MS + 2 * MIN);
+        let err = result.clone().unwrap_err();
+        assert_eq!(err.kind(), kind);
+        assert!(err.throttled(), "{status}");
+        assert_eq!(quota::finish(&result), Finish::Throttled);
+        assert_eq!(
+            ends(&google.cloud_code()),
+            [LOAD_CODE_ASSIST],
+            "{status}: no quota call after it"
+        );
+        assert_eq!(
+            cache_text(&home, EMAIL).unwrap(),
+            before,
+            "the last reading stays, with its age"
+        );
+    }
+
+    // A refusal that is not a backoff fails the read the same way.
+    google.clear();
+    google.set(|s| s.load_code_assist = (401, r#"{"error":{"code":401}}"#.into()));
+    let result = read(&home, &google, &id, NOW_MS + 2 * MIN);
+    let err = result.clone().unwrap_err();
+    assert_eq!(err.kind(), "unauthorized");
+    assert!(!err.throttled());
+    assert_eq!(quota::finish(&result), Finish::Failed);
+    assert_eq!(ends(&google.cloud_code()), [LOAD_CODE_ASSIST]);
+    assert_eq!(cache_text(&home, EMAIL).unwrap(), before);
+
+    // So does a request for a verification, which is kept as the status.
+    google.clear();
+    google.set(|s| s.load_code_assist = (403, verify_body(403)));
+    let err = read(&home, &google, &id, NOW_MS + 2 * MIN).unwrap_err();
+    assert_eq!(err.kind(), "verification");
+    assert!(matches!(standing(&home, &id), Some(Standing::NeedsVerification { url: Some(_), .. })));
+    assert_eq!(cache_text(&home, EMAIL).unwrap(), before);
+
+    // The pace waits 2, 4, 8… minutes after a 429 on loadCodeAssist too.
+    google.set(|s| s.load_code_assist = (429, "{}".into()));
+    let err = read(&home, &google, &id, NOW_MS + 2 * MIN).unwrap_err();
+    let mut pace = Pace::new();
+    pace.started(&id, NOW_MS);
+    pace.finished(&id, quota::finish(&Err(err.clone())), NOW_MS);
+    assert_eq!(pace.waiting_until(&id, NOW_MS), Some(NOW_MS + 2 * MIN));
+    pace.finished(&id, quota::finish(&Err(err)), NOW_MS);
+    assert_eq!(pace.waiting_until(&id, NOW_MS), Some(NOW_MS + 4 * MIN));
+
+    // When it answers again the read goes on to the quota calls.
+    google.clear();
+    google.set(|s| s.load_code_assist = (200, cloud_code("load-code-assist")));
+    assert_eq!(read(&home, &google, &id, NOW_MS + 4 * MIN), Ok(Outcome::Read));
+    assert_eq!(ends(&google.cloud_code()), [LOAD_CODE_ASSIST, MODELS, SUMMARY]);
+    assert_eq!(standing(&home, &id), None, "a full reading answers the verification");
+}
+
+#[test]
+fn a_load_code_assist_with_no_answer_fails_the_read_and_keeps_the_last_reading() {
+    let home = Home::new("agy-quota-lca-net");
+    let google =
+        FakeGoogle::start(Script { load_code_assist: (200, "{}".into()), ..Script::default() });
+    let id = log_in(&home, &google, NOW_MS);
+    read(&home, &google, &id, NOW_MS).unwrap();
+    let before = cache_text(&home, EMAIL).unwrap();
+
+    google.clear();
+    google.set(|s| s.load_code_assist = (0, String::new()));
+    let err = read(&home, &google, &id, NOW_MS + 2 * MIN).unwrap_err();
+    assert_eq!(err.kind(), "network");
+    assert!(!err.throttled());
+    assert_eq!(ends(&google.cloud_code()), [LOAD_CODE_ASSIST]);
+    assert_eq!(cache_text(&home, EMAIL).unwrap(), before);
 }
 
 #[test]
