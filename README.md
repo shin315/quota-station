@@ -117,11 +117,10 @@ the confirmation sheet first.
     this app logs in and `Thêm tài khoản` in the card's header. A Mac without
     an account list or without Antigravity says so; a card for Cockpit Tools
     shows only where the accounts come from Cockpit Tools. The accounts
-    this app logs in that quota-axi does not list yet stay under the table:
-    the
-    Antigravity accounts this app logs in itself, each with `đang đọc…`
-    while the app reads its quota and `đọc lỗi: …` when that read failed
-    (below). Opening the tab reads every account.
+    this app logs in that quota-axi does not list yet stay in a short list
+    under the table. Each account the app logs in shows `đang đọc…` while
+    the app reads its quota and `đọc lỗi` (the reason on hover) when that
+    read failed (below). Opening the tab reads every account.
   - `Luật xoay vòng`: the rotation editor (below).
   - `Lịch sử`, `Cảnh báo` and `Firstmate` (M6, below).
   - `Cài đặt`: the quota-axi path, either found automatically or set by hand,
