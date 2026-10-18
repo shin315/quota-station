@@ -27,6 +27,7 @@ use time::OffsetDateTime;
 use crate::agy_switch::{self, SwitchView};
 use crate::alerting::{self, AlertsView, FirstmateView};
 use crate::antigravity::{self, AccountsView};
+use crate::install::{self, AppView, InstallState};
 use crate::notify;
 
 pub type AppState = Arc<Shared>;
@@ -168,6 +169,10 @@ pub struct Inner {
     pub own_dry: Option<bool>,
     /// macOS's notification center; `None` until the app has started it.
     pub center: Option<Arc<notify::Center>>,
+    /// This copy's version, from `tauri.conf.json`.
+    pub app_version: String,
+    /// Launching at login and the update from source (M7).
+    pub install: InstallState,
 }
 
 /// How the app's own read of an Antigravity account stands.
@@ -285,6 +290,8 @@ impl Inner {
             firstmate,
             own_dry: None,
             center: None,
+            app_version: String::new(),
+            install: InstallState::default(),
         }
     }
 
@@ -379,6 +386,7 @@ impl Inner {
             rotation: self.rotation_view(),
             alerts: alerting::alerts_view(self),
             firstmate: alerting::firstmate_view(self),
+            app: install::view(self),
         }
     }
 
@@ -483,6 +491,8 @@ pub struct Model {
     pub alerts: AlertsView,
     /// What Firstmate sees (M6).
     pub firstmate: FirstmateView,
+    /// The app itself: version, launching at login, the update (M7).
+    pub app: AppView,
 }
 
 /// The rotation file and the other Macs (F06).

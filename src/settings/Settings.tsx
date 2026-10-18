@@ -1,18 +1,19 @@
 // The Cài đặt tab of the main window: where quota-axi is, Keychain access
 // for quota-axi, this Mac's name, the other Macs the rotation file is
 // copied to (an SSH alias each), the Antigravity OAuth client file,
-// whether emails show, Firstmate's state file and the macOS notifications
-// with the five kinds of alert (M6). Rows and copy come from the
-// prototype's Cài đặt tab.
-// Each Mac runs its own copy and switches only itself; login, refresh,
-// theme and Codex come in later milestones.
+// whether emails show, Firstmate's state file, the macOS notifications
+// with the five kinds of alert (M6), and the app itself (M7): launching at
+// login, the clone it updates from, its version and "Cập nhật từ mã nguồn".
+// Rows and copy come from the prototype's Cài đặt tab.
+// Each Mac runs its own copy and switches only itself; refresh, theme and
+// Codex come in later milestones.
 
 import { useState } from 'react';
 import { AlertKinds } from '../alerts/AlertsTab';
 import { Button, Chip, Dot, Feedback, Toggle } from '../components/parts';
 import { PERMISSION_CHIPS, UNREAD } from '../lib/alerts';
 import type { ChipView } from '../lib/view';
-import type { AlertKind, ClientStatus, Model, Peer, PeerTest } from '../lib/model';
+import type { AlertKind, AppView, ClientStatus, Model, Peer, PeerTest, UpdateError } from '../lib/model';
 import type { Action, FeedbackView, PopoverView } from '../lib/view';
 
 export interface SettingsProps {
@@ -34,6 +35,15 @@ export interface SettingsProps {
   onSetFirstmate(path: string): Promise<string | null>;
   onTestAlert(kind: AlertKind): void;
   onAlertSwitch(kind: AlertKind, on: boolean): void;
+  /** Resolves to null once changed, else the refusal (`unavailable`, or macOS's message). */
+  onLaunchAtLogin(on: boolean): Promise<string | null>;
+  onOpenLoginItems(): void;
+  /** Resolves to null once saved, else the refusal (`missing`, `notSource`). */
+  onSetSource(path: string): Promise<string | null>;
+  /** Resolves to null once the update ran (how it went is in the model), else the refusal. */
+  onUpdate(): Promise<string | null>;
+  /** The app quits on success; resolves to the refusal (`rulesDirty`, …) otherwise. */
+  onRelaunch(): Promise<string | null>;
 }
 
 const CLIENT_CHIPS: Record<ClientStatus, ChipView> = {
@@ -307,6 +317,163 @@ function Notifications(props: { model: Model; onAction: SettingsProps['onAction'
   );
 }
 
+/** "Mở khi đăng nhập": macOS's own login item, off until turned on here. */
+function LaunchAtLogin({ app, onSet, onOpen }: { app: AppView; onSet: SettingsProps['onLaunchAtLogin']; onOpen(): void }) {
+  const [refused, setRefused] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const state = app.launchAtLogin;
+  const on = state === 'on' || state === 'needsApproval';
+  const toggle = async () => {
+    setBusy(true);
+    setRefused(await onSet(!on));
+    setBusy(false);
+  };
+  return (
+    <div className="fr">
+      <div className="fl">
+        Mở khi đăng nhập<small>Mặc định tắt. Dùng mục đăng nhập của macOS</small>
+      </div>
+      <div>
+        <Toggle on={on} label="Mở khi đăng nhập" disabled={busy || state === 'unavailable'} onClick={() => void toggle()} />
+        {state === 'needsApproval' ? (
+          <>
+            {' '}
+            <Chip chip={{ t: 'chờ duyệt', k: 'warn' }} />{' '}
+            <Button label="Mở Cài đặt hệ thống: Mục đăng nhập" onClick={onOpen}>
+              Mở Cài đặt hệ thống
+            </Button>
+            <div className="fhint">macOS cần bạn bật Quota Station trong Cài đặt hệ thống › Cài đặt chung › Mục đăng nhập.</div>
+          </>
+        ) : null}
+        {state === 'unavailable' ? <div className="fhint">Chỉ bản .app đã cài mới mở khi đăng nhập được.</div> : null}
+        {refused && refused !== 'unavailable' ? <div className="fhint bad">Chưa đổi được: {refused}</div> : null}
+      </div>
+    </div>
+  );
+}
+
+const SOURCE_REFUSED: Record<string, string> = {
+  missing: 'Không có thư mục ở đường dẫn này.',
+  notSource: 'Thư mục này không phải bản clone Quota Station: cần .git và scripts/install.sh.',
+};
+
+function sourceHint(app: AppView, refused: string | null): { tone: 'ok' | 'bad' | ''; text: string } {
+  if (refused) return { tone: 'bad', text: SOURCE_REFUSED[refused] ?? 'Chưa lưu được: ' + refused };
+  if (app.sourceStatus === 'ok') return { tone: 'ok', text: 'Có scripts/install.sh ✓' };
+  if (app.sourceStatus === 'notSet') return { tone: '', text: 'Để trống trên Mac cài bằng gói build từ Mac khác.' };
+  return { tone: 'bad', text: SOURCE_REFUSED[app.sourceStatus] };
+}
+
+/** The clone "Cập nhật từ mã nguồn" pulls and builds. */
+function SourceDir({ app, onSet }: { app: AppView; onSet: SettingsProps['onSetSource'] }) {
+  const [path, setPath] = useField(app.source ?? '');
+  const [refused, setRefused] = useState<string | null>(null);
+  const commit = async () => {
+    if (path.trim() === (app.source ?? '')) return setRefused(null);
+    setRefused(await onSet(path.trim()));
+  };
+  const hint = sourceHint(app, refused);
+  return (
+    <div className="fr">
+      <label htmlFor="qs-src">
+        Mã nguồn<small>Bản clone repo trên máy này, để cập nhật app</small>
+      </label>
+      <div>
+        <input
+          id="qs-src"
+          className={'inp mono' + (hint.tone === 'bad' ? ' bad' : '')}
+          value={path}
+          placeholder="vd. ~/Code/quota-station"
+          spellCheck={false}
+          autoComplete="off"
+          disabled={!!app.updating}
+          onChange={(e) => {
+            setPath(e.target.value);
+            setRefused(null);
+          }}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void commit();
+          }}
+        />
+        {hint.text ? <div className={('fhint ' + hint.tone).trim()}>{hint.text}</div> : null}
+      </div>
+    </div>
+  );
+}
+
+function errorText(e: UpdateError, log: string): string {
+  switch (e.kind) {
+    case 'source':
+      return SOURCE_REFUSED[e.reason];
+    case 'pull':
+      return 'git pull không chạy được: ' + e.detail;
+    case 'install':
+      return 'Build hoặc cài lỗi: ' + e.detail + '. Log đầy đủ: ' + log;
+    case 'timeout':
+      return e.step === 'pulling' ? 'git pull hết giờ chờ. Kiểm mạng rồi thử lại.' : 'Build quá 30 phút nên đã dừng. Log: ' + log;
+    case 'spawn':
+      return 'Không chạy được: ' + e.detail;
+  }
+}
+
+const UPDATE_REFUSED: Record<string, string> = {
+  busy: 'Đang cập nhật.',
+  noSource: 'Đặt thư mục mã nguồn ở trên để cập nhật.',
+  unbundled: 'Bản đang chạy không phải .app đã cài, nên không có gì để cập nhật.',
+  rulesDirty: 'Luật xoay vòng còn thay đổi chưa lưu. Lưu hoặc bỏ trước khi mở lại.',
+  notInstalled: 'Chưa có bản mới để mở.',
+};
+
+/** The version and "Cập nhật từ mã nguồn": git pull --ff-only, then scripts/install.sh. */
+function Version({ app, onUpdate, onRelaunch }: { app: AppView; onUpdate: SettingsProps['onUpdate']; onRelaunch: SettingsProps['onRelaunch'] }) {
+  const [refused, setRefused] = useState<string | null>(null);
+  const run = async (act: () => Promise<string | null>) => {
+    setRefused(null);
+    setRefused(await act());
+  };
+  const short = (commit: string) => commit.slice(0, 7);
+  let line: { tone: 'ok' | 'bad' | ''; text: string } | null = null;
+  if (app.updating === 'pulling') line = { tone: '', text: 'Đang lấy mã mới (git pull --ff-only)…' };
+  else if (app.updating === 'installing') line = { tone: '', text: 'Đang build và cài. Mất vài phút; app vẫn chạy như thường.' };
+  else if (app.error) line = { tone: 'bad', text: errorText(app.error, app.log) };
+  else if (app.outcome?.kind === 'upToDate') line = { tone: 'ok', text: 'Đã là bản mới nhất (' + short(app.outcome.commit) + ').' };
+  else if (app.outcome?.kind === 'installed')
+    line = {
+      tone: 'ok',
+      text: 'Đã cài ' + (app.outcome.version ?? 'bản mới') + ' (' + short(app.outcome.commit) + '). Mở lại để dùng bản mới.',
+    };
+  else if (!app.bundled) line = { tone: '', text: UPDATE_REFUSED.unbundled };
+  else if (app.sourceStatus === 'notSet') line = { tone: '', text: UPDATE_REFUSED.noSource };
+  const ready = app.bundled && app.sourceStatus === 'ok' && !app.updating;
+  return (
+    <div className="fr">
+      <div className="fl">
+        Phiên bản<small>Cập nhật: git pull --ff-only rồi scripts/install.sh</small>
+      </div>
+      <div>
+        <span className="mono">
+          {app.version}
+          {app.commit ? ' · ' + app.commit : ''}
+        </span>
+        <div style={{ marginTop: 6 }}>
+          <Button primary disabled={!ready} onClick={() => void run(onUpdate)}>
+            {app.updating ? 'Đang cập nhật…' : 'Cập nhật từ mã nguồn'}
+          </Button>
+          {app.outcome?.kind === 'installed' && !app.updating ? (
+            <>
+              {' '}
+              <Button onClick={() => void run(onRelaunch)}>Mở lại</Button>
+            </>
+          ) : null}
+        </div>
+        {line ? <div className={('fhint ' + line.tone).trim()}>{line.text}</div> : null}
+        {refused ? <div className="fhint bad">{UPDATE_REFUSED[refused] ?? 'Chưa chạy được: ' + refused}</div> : null}
+      </div>
+    </div>
+  );
+}
+
 export function Settings({
   model,
   fresh,
@@ -322,6 +489,11 @@ export function Settings({
   onSetFirstmate,
   onTestAlert,
   onAlertSwitch,
+  onLaunchAtLogin,
+  onOpenLoginItems,
+  onSetSource,
+  onUpdate,
+  onRelaunch,
 }: SettingsProps) {
   const [path, setPath] = useField(model.quotaAxi.path ?? '');
   const [refused, setRefused] = useState(false);
@@ -420,6 +592,9 @@ export function Settings({
           </div>
           <FirstmateFile model={model} onSet={onSetFirstmate} />
           <Notifications model={model} onAction={onAction} onTest={onTestAlert} onSwitch={onAlertSwitch} />
+          <LaunchAtLogin app={model.app} onSet={onLaunchAtLogin} onOpen={onOpenLoginItems} />
+          <SourceDir app={model.app} onSet={onSetSource} />
+          <Version app={model.app} onUpdate={onUpdate} onRelaunch={onRelaunch} />
         </div>
       </div>
     </>

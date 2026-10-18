@@ -1,8 +1,8 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MainWindowApp } from '../App';
-import { fakeApi } from '../fixtures/fakeApi';
-import { agyFixture, alertsFixture, firstmateFixture, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
+import { fakeApi, type FakeOptions } from '../fixtures/fakeApi';
+import { agyFixture, alertsFixture, appFixture, firstmateFixture, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
 import type { Api } from '../lib/api';
 import type { Model } from '../lib/model';
 
@@ -333,5 +333,168 @@ describe('settings for M6', () => {
     await openWith(fixtureModel('fresh', { alerts: alertsFixture({ permission: 'unbundled' }) }));
     expect(screen.getByText('bản chạy thử')).toBeTruthy();
     expect(screen.getByText('Chỉ app đã đóng gói mới gửi được thẻ macOS. Cảnh báo vẫn có ở tab Cảnh báo.')).toBeTruthy();
+  });
+});
+
+describe('settings for M7: the app itself', () => {
+  async function openApp(over: Partial<Model['app']> = {}, options: FakeOptions = {}) {
+    const fake = fakeApi(fixtureModel('fresh', { app: appFixture(over) }), 'settings', options);
+    for (const name of Object.keys(fake.api) as (keyof Api)[]) vi.spyOn(fake.api, name);
+    render(
+      <div className="qs app-window">
+        <MainWindowApp api={fake.api} clock={() => FIXTURE_NOW} />
+      </div>,
+    );
+    await screen.findByRole('heading', { name: 'Cài đặt' });
+    return fake;
+  }
+  const loginSwitch = () => screen.getByRole('switch', { name: 'Mở khi đăng nhập' });
+  const updateButton = () => screen.getByRole('button', { name: /Cập nhật từ mã nguồn|Đang cập nhật…/ }) as HTMLButtonElement;
+  const sourceInput = () => screen.getByLabelText(/^Mã nguồn/) as HTMLInputElement;
+
+  it('shows the version and the commit it was built from', async () => {
+    await openApp();
+    expect(screen.getByText('0.1.0 · a1b2c3d')).toBeTruthy();
+    cleanup();
+    await openApp({ commit: null });
+    expect(screen.getByText('0.1.0')).toBeTruthy();
+  });
+
+  it('launching at login is off by default, and opening the tab only asks macOS', async () => {
+    const fake = await openApp();
+    expect(loginSwitch().getAttribute('aria-checked')).toBe('false');
+    expect(fake.api.settingsOpened).toHaveBeenCalled();
+    expect(fake.api.setLaunchAtLogin).not.toHaveBeenCalled();
+  });
+
+  it('the switch turns the login item on and off through the fake', async () => {
+    const fake = await openApp();
+    await act(async () => {
+      fireEvent.click(loginSwitch());
+    });
+    expect(fake.api.setLaunchAtLogin).toHaveBeenLastCalledWith(true);
+    expect(loginSwitch().getAttribute('aria-checked')).toBe('true');
+    await act(async () => {
+      fireEvent.click(loginSwitch());
+    });
+    expect(fake.api.setLaunchAtLogin).toHaveBeenLastCalledWith(false);
+    expect(loginSwitch().getAttribute('aria-checked')).toBe('false');
+  });
+
+  it('a login item waiting for approval says where to allow it', async () => {
+    const fake = await openApp({}, { loginApproval: true });
+    await act(async () => {
+      fireEvent.click(loginSwitch());
+    });
+    expect(screen.getByText('chờ duyệt')).toBeTruthy();
+    expect(screen.getByText('macOS cần bạn bật Quota Station trong Cài đặt hệ thống › Cài đặt chung › Mục đăng nhập.')).toBeTruthy();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Mở Cài đặt hệ thống: Mục đăng nhập' }));
+    });
+    expect(fake.api.openLoginItems).toHaveBeenCalledTimes(1);
+  });
+
+  it('outside the installed app the switch and the update are off', async () => {
+    const fake = await openApp({ launchAtLogin: 'unavailable', bundled: false });
+    expect((loginSwitch() as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText('Chỉ bản .app đã cài mới mở khi đăng nhập được.')).toBeTruthy();
+    expect(updateButton().disabled).toBe(true);
+    expect(screen.getByText('Bản đang chạy không phải .app đã cài, nên không có gì để cập nhật.')).toBeTruthy();
+    expect(fake.api.updateFromSource).not.toHaveBeenCalled();
+  });
+
+  it('a refusal from macOS is shown and the switch stays off', async () => {
+    const fake = await openApp();
+    vi.mocked(fake.api.setLaunchAtLogin).mockRejectedValue('Operation not permitted');
+    await act(async () => {
+      fireEvent.click(loginSwitch());
+    });
+    expect(screen.getByText('Chưa đổi được: Operation not permitted')).toBeTruthy();
+    expect(loginSwitch().getAttribute('aria-checked')).toBe('false');
+  });
+
+  it('the source folder must be a clone with the install script', async () => {
+    const fake = await openApp({ source: null, sourceStatus: 'notSet' });
+    expect(screen.getByText('Để trống trên Mac cài bằng gói build từ Mac khác.')).toBeTruthy();
+    expect(screen.getByText('Đặt thư mục mã nguồn ở trên để cập nhật.')).toBeTruthy();
+    expect(updateButton().disabled).toBe(true);
+
+    fireEvent.change(sourceInput(), { target: { value: '~/Documents' } });
+    await act(async () => {
+      fireEvent.keyDown(sourceInput(), { key: 'Enter' });
+    });
+    expect(fake.api.setSourceDir).toHaveBeenLastCalledWith('~/Documents');
+    expect(screen.getByText('Thư mục này không phải bản clone Quota Station: cần .git và scripts/install.sh.')).toBeTruthy();
+
+    fireEvent.change(sourceInput(), { target: { value: '~/nowhere/quota-station' } });
+    await act(async () => {
+      fireEvent.blur(sourceInput());
+    });
+    expect(screen.getByText('Không có thư mục ở đường dẫn này.')).toBeTruthy();
+
+    fireEvent.change(sourceInput(), { target: { value: '~/Code/quota-station' } });
+    await act(async () => {
+      fireEvent.blur(sourceInput());
+    });
+    expect(fake.current().app.source).toBe('~/Code/quota-station');
+    expect(screen.getByText('Có scripts/install.sh ✓')).toBeTruthy();
+    expect(updateButton().disabled).toBe(false);
+  });
+
+  it('an update pulls, installs and offers to open the new copy', async () => {
+    const fake = await openApp();
+    await act(async () => {
+      fireEvent.click(updateButton());
+    });
+    expect(fake.api.updateFromSource).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText('Đã cài 0.1.1 (b2c3d4e). Mở lại để dùng bản mới.')).toBeTruthy();
+    expect(fake.relaunched()).toBe(0);
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Mở lại' }));
+    });
+    expect(fake.api.relaunch).toHaveBeenCalledTimes(1);
+    expect(fake.relaunched()).toBe(1);
+  });
+
+  it('while it runs it says which step it is on', async () => {
+    await openApp({ updating: 'pulling' });
+    expect(screen.getByText('Đang lấy mã mới (git pull --ff-only)…')).toBeTruthy();
+    expect(updateButton().disabled).toBe(true);
+    expect(sourceInput().disabled).toBe(true);
+    cleanup();
+    await openApp({ updating: 'installing' });
+    expect(screen.getByText('Đang build và cài. Mất vài phút; app vẫn chạy như thường.')).toBeTruthy();
+  });
+
+  it('nothing new installs nothing', async () => {
+    const fake = await openApp({}, { update: () => ({ kind: 'upToDate', commit: 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678' }) });
+    await act(async () => {
+      fireEvent.click(updateButton());
+    });
+    expect(await screen.findByText('Đã là bản mới nhất (a1b2c3d).')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Mở lại' })).toBeNull();
+    expect(fake.api.relaunch).not.toHaveBeenCalled();
+  });
+
+  it('a pull or an install that fails says why, and where the log is', async () => {
+    await openApp({ error: { kind: 'pull', detail: 'fatal: Not possible to fast-forward, aborting.' } });
+    expect(screen.getByText('git pull không chạy được: fatal: Not possible to fast-forward, aborting.')).toBeTruthy();
+    cleanup();
+    await openApp({ error: { kind: 'install', detail: 'cargo is not installed' } });
+    expect(
+      screen.getByText(
+        'Build hoặc cài lỗi: cargo is not installed. Log đầy đủ: ~/Library/Application Support/com.shin315.quota-station/update/install.log',
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Mở lại' })).toBeNull();
+  });
+
+  it('opening again waits for unsaved rules', async () => {
+    const fake = await openApp({ outcome: { kind: 'installed', commit: 'b2c3d4e5f6', version: '0.1.1' } });
+    vi.mocked(fake.api.relaunch).mockRejectedValue('rulesDirty');
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Mở lại' }));
+    });
+    expect(screen.getByText('Luật xoay vòng còn thay đổi chưa lưu. Lưu hoặc bỏ trước khi mở lại.')).toBeTruthy();
   });
 });
