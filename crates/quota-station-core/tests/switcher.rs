@@ -5,8 +5,8 @@ mod common;
 
 use common::{script, temp_dir};
 use quota_station_core::switcher::{
-    dry_run, last_log_line, parse_decision, parse_log_line, service_loaded, Decision, DryRunError,
-    LogEvent, Why,
+    dry_run, dry_run_with, last_log_line, parse_decision, parse_log_line, service_loaded, Decision,
+    DryRunError, LogEvent, Why,
 };
 
 #[test]
@@ -92,6 +92,21 @@ fn a_dry_run_reads_the_first_line_and_skips_the_priming_note() {
     let quiet = script(&dir.join("quiet"), "exit 0\n");
     assert_eq!(dry_run(&quiet).unwrap_err(), DryRunError::NoDecision);
     assert_eq!(dry_run(&dir.join("missing")).unwrap_err(), DryRunError::NotFound);
+}
+
+#[test]
+fn the_preview_dry_run_points_the_switcher_at_the_draft_file() {
+    let dir = temp_dir("dry-run-draft");
+    let draft = dir.join("rotation-preview");
+    std::fs::write(&draft, "full = 85\n").unwrap();
+    // A fake switcher that decides from the file it is pointed at.
+    let s = script(
+        &dir.join("cswap-prefer-team"),
+        "grep -q 'full = 85' \"$CSWAP_ROTATION_FILE\" && echo 'switch 3 (86.0%, ends 15:00)' || echo stay\n",
+    );
+    let run = dry_run_with(&s, &draft).unwrap();
+    assert_eq!(run.raw, "switch 3 (86.0%, ends 15:00)");
+    assert_eq!(dry_run(&s).unwrap().raw, "stay", "without it the variable is unset");
 }
 
 #[test]

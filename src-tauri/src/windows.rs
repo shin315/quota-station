@@ -116,13 +116,50 @@ pub fn open_main(app: &AppHandle, tab: Tab) {
         .build();
     if let Ok(window) = built {
         let handle = app.clone();
-        window.on_window_event(move |event| {
-            if let WindowEvent::Destroyed = event {
+        window.on_window_event(move |event| match event {
+            // Unsaved rules: the window asks first, and closes itself through
+            // `close_main` once the owner answered.
+            WindowEvent::CloseRequested { api, .. }
+                if handle.state::<AppState>().lock().rules_dirty =>
+            {
+                api.prevent_close();
+                let _ = handle.emit_to(MAIN, "closeRequested", ());
+            }
+            WindowEvent::Destroyed => {
                 let popover = popover(&handle).is_some_and(|w| w.is_visible().unwrap_or(false));
                 handle.state::<AppState>().lock().set_visible(popover, false);
             }
+            _ => {}
         });
         let _ = window.set_focus();
         update_visible(app);
+    }
+}
+
+/// Closes the main window without asking again.
+pub fn close_main(app: &AppHandle) {
+    if let Some(window) = main_window(app) {
+        let _ = window.destroy();
+    }
+}
+
+/// `Thoát Quota Station`: quits, unless the rules editor holds unsaved
+/// changes; then the main window asks first and quits through the
+/// `close_main` command with `quit` set. The request is kept until the page
+/// takes it (`take_quit`), whether it was listening already or opens now.
+pub fn quit(app: &AppHandle) {
+    {
+        let state = app.state::<AppState>();
+        let mut inner = state.lock();
+        if !inner.rules_dirty {
+            drop(inner);
+            app.exit(0);
+            return;
+        }
+        inner.quit_pending = true;
+    }
+    open_main(app, Tab::Rules);
+    if let Some(window) = main_window(app) {
+        let _ = window.emit_to(MAIN, "quitRequested", ());
     }
 }

@@ -1,11 +1,14 @@
 //! Quota Station: AI coding quota in the macOS menu bar.
 //!
-//! Each Mac runs its own copy and acts only on its own machine. It reads
+//! Each Mac runs its own copy and switches only its own machine. It reads
 //! through quota-axi; since M3 it also switches Claude through claude-swap
 //! when the owner confirms, and pauses the `cswap-prefer-team` switcher.
+//! Since M5 it edits the rotation file and copies it to the owner's other
+//! Macs over SSH, so every Mac's switcher follows the same rules.
 
 mod commands;
 mod reader;
+mod rules;
 mod state;
 mod tray;
 mod windows;
@@ -37,7 +40,8 @@ fn main() {
                 let handle = app.handle().clone();
                 popover.on_window_event(move |event| windows::on_popover_event(&handle, event));
             }
-            reader::spawn(app.handle().clone(), state);
+            reader::spawn(app.handle().clone(), state.clone());
+            rules::spawn(app.handle().clone(), state);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -55,6 +59,16 @@ fn main() {
             commands::pause_switching,
             commands::extend_pause,
             commands::resume_switching,
+            rules::save_rotation,
+            rules::adopt_rotation,
+            rules::keep_rotation,
+            rules::retry_rotation,
+            rules::set_peers,
+            rules::test_peer,
+            rules::preview_rotation,
+            rules::rules_dirty,
+            rules::take_quit,
+            rules::close_main,
         ])
         .run(tauri::generate_context!())
         .expect("Quota Station failed to start");

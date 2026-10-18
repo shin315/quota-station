@@ -17,9 +17,12 @@ import {
   switchFeedback,
   type PauseChoice,
 } from './lib/switching';
+import { sidebarLine, syncSummary } from './lib/rules';
 import { keychainFeedback, popoverView, refreshedFeedback, settingsFailedFeedback, type Action, type FeedbackView } from './lib/view';
 import { windowView } from './lib/window';
 import { Popover } from './popover/Popover';
+import { CompareDialog, LeaveDialog, RulesTab } from './rules/RulesTab';
+import { useRules } from './rules/useRules';
 import { Settings } from './settings/Settings';
 import { MainWindow } from './window/MainWindow';
 
@@ -256,6 +259,7 @@ export function PopoverApp({ api, clock = systemClock }: AppProps) {
     <Popover
       view={view}
       auto={autoView(model, now)}
+      sync={syncSummary(model)}
       feedback={feedback}
       busy={busy}
       onAction={onAction}
@@ -276,9 +280,16 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   const [tab, setTab] = useState<Tab | null>(null);
   const { busy, refresh, grant } = useActions(api, model, clock, showFeedback);
   const switching = useSwitching(api, model, clock, showFeedback);
-  const sheetOpen = !!switching.sheet;
+  const rules = useRules(api, model, clock, showFeedback, tab);
+  const ruleDialog = rules.leave ? 'leave' : rules.compare ? 'compare' : null;
+  const sheetOpen = !!switching.sheet || !!ruleDialog;
   const closeSheet = useRef(switching.close);
-  closeSheet.current = switching.close;
+  // Escape closes the sheet on show: the unsaved-changes one, then a switch, then the comparison.
+  closeSheet.current = () => {
+    if (rules.leave) void rules.answerLeave('cancel', setTab);
+    else if (switching.sheet) switching.close();
+    else if (rules.compare) rules.closeCompare();
+  };
 
   useEffect(() => {
     if (!sheetOpen) return;
@@ -306,7 +317,8 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
 
   const onAction = (act: Action) => {
     if (switching.act(act)) return;
-    if (act === 'settings') return setTab('settings');
+    if (rules.act(act)) return;
+    if (act === 'settings') return rules.guardTab(tab, 'settings', setTab);
     if (act === 'dismiss') return setKeychainLater(true);
     if (act === 'refresh') return void refresh();
     if (act === 'keychain') return void grant();
@@ -337,8 +349,25 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
           },
         )
       }
+      onSetPeers={(peers) =>
+        api.setPeers(peers).then(
+          () => null,
+          (e: unknown) => String(e),
+        )
+      }
+      onTestPeer={(alias) => api.testPeer(alias)}
     />
   );
+  const goTab = (next: Tab) => rules.guardTab(tab, next, setTab);
+  const dialog =
+    ruleDialog === 'leave' ? (
+      <LeaveDialog rules={rules} onAnswer={(a) => void rules.answerLeave(a, setTab)} />
+    ) : (
+      (switching.body(now, () => {
+        switching.close();
+        goTab('settings');
+      }) ?? (ruleDialog === 'compare' ? <CompareDialog model={model} rules={rules} now={now} /> : null))
+    );
   return (
     <MainWindow
       tab={tab}
@@ -346,16 +375,15 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       busy={busy}
       feedback={feedback}
       now={now}
-      onTab={setTab}
+      onTab={goTab}
       onAction={onAction}
       onSwitch={switching.openSwitch}
       onToggle={switching.toggle}
       onPause={switching.openPause}
       settings={settings}
-      dialog={switching.body(now, () => {
-        switching.close();
-        setTab('settings');
-      })}
+      syncNote={sidebarLine(model)}
+      rules={<RulesTab model={model} fresh={view.fresh} rules={rules} feedback={feedback} now={now} onAction={onAction} />}
+      dialog={dialog}
     />
   );
 }

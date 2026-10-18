@@ -22,7 +22,18 @@ export type Action =
   | 'guide:auto'
   | 'guide:switcher'
   /** Opens the switch sheet for a Claude slot. */
-  | `switch:${number}`;
+  | `switch:${number}`
+  /** The rotation editor's banners and feedback (M5). */
+  | RulesAction;
+
+export type RulesAction =
+  | 'rules:create'
+  | 'rules:retry'
+  | 'rules:reload'
+  | 'rules:overwrite'
+  | 'rules:dismiss'
+  | `rules:adopt:${string}`
+  | `rules:compare:${string}`;
 
 export interface ChipView {
   t: string;

@@ -113,22 +113,40 @@ function SectionBlock(props: { id: 'c' | 'g'; title: string; section: SectionVie
 }
 
 /** G17: outside the scrolling body, so the toggle is always in view. */
-function Footer({ auto, onToggle }: { auto: AutoView; onToggle(): void }) {
+function Footer({ auto, sync, onToggle }: { auto: AutoView; sync: SyncLine | null; onToggle(): void }) {
   return (
-    <div className="li">
-      <div className="t">
-        <b>{auto.title}</b>
-        <small>{auto.line}</small>
-        {auto.log && !auto.paused ? <small>{auto.log}</small> : null}
+    <>
+      <div className="li">
+        <div className="t">
+          <b>{auto.title}</b>
+          <small>{auto.line}</small>
+          {auto.log && !auto.paused ? <small>{auto.log}</small> : null}
+        </div>
+        <Toggle on={auto.toggle.on} label={auto.toggle.label} disabled={auto.toggle.disabled} onClick={onToggle} />
       </div>
-      <Toggle on={auto.toggle.on} label={auto.toggle.label} disabled={auto.toggle.disabled} onClick={onToggle} />
-    </div>
+      {sync ? (
+        <div className="li">
+          <span className={'dot ' + sync.tone} aria-hidden="true" />
+          <div className="t">
+            <small>Luật xoay vòng · {sync.text}</small>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
+}
+
+/** The other Macs and the rotation file, in the footer (I09). */
+export interface SyncLine {
+  tone: 'ok' | 'warn' | 'bad' | 'info' | 'muted';
+  text: string;
 }
 
 export interface PopoverProps {
   view: PopoverView;
   auto: AutoView;
+  /** The other Macs' copies of the rotation file; null with no other Mac. */
+  sync?: SyncLine | null;
   feedback?: FeedbackView | null;
   busy?: Action | null;
   onAction(act: Action): void;
@@ -141,7 +159,7 @@ export interface PopoverProps {
   onHeight?(height: number): void;
 }
 
-export function Popover({ view, auto, feedback, busy, onAction, onSwitch, onToggle, sheet, onCloseSheet, onHeight }: PopoverProps) {
+export function Popover({ view, auto, sync = null, feedback, busy, onAction, onSwitch, onToggle, sheet, onCloseSheet, onHeight }: PopoverProps) {
   const head = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const foot = useRef<HTMLDivElement>(null);
@@ -205,7 +223,7 @@ export function Popover({ view, auto, feedback, busy, onAction, onSwitch, onTogg
         </div>
       </div>
       <div className="ft" ref={foot} inert={open}>
-        <Footer auto={auto} onToggle={onToggle} />
+        <Footer auto={auto} sync={sync} onToggle={onToggle} />
       </div>
       <div className="scrim" aria-hidden="true" onClick={onCloseSheet} />
       {sheet ? (
