@@ -34,6 +34,7 @@ pub fn build(app: &App) -> tauri::Result<()> {
         claude: None,
         agy: None,
         show_agy: true,
+        paused: false,
         label: "Quota Station".into(),
     };
     TrayIconBuilder::with_id(TRAY_ID)

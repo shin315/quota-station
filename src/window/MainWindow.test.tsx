@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MainWindowApp } from '../App';
 import { fakeApi } from '../fixtures/fakeApi';
-import { failing, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
+import { failing, FIXTURE_NOW, fixtureModel, heldSwitcher, switcherFixture } from '../fixtures/models';
 import type { Api } from '../lib/api';
 import type { Model, Tab } from '../lib/model';
 
@@ -30,7 +30,7 @@ describe('main window', () => {
     expect(nav('Claude').getAttribute('aria-current')).toBe('page');
   });
 
-  it('Tổng quan shows the pools, every account and what comes next, with nothing to switch', async () => {
+  it('Tổng quan shows the pools, every account, why Claude is on its account and what comes next', async () => {
     await open(fixtureModel('fresh'));
     expect(heading()).toBe('Tổng quan');
     expect(screen.getByText('Mac mini · cập nhật 40 giây trước')).toBeTruthy();
@@ -41,17 +41,26 @@ describe('main window', () => {
     const rows = within(claude).getAllByRole('listitem');
     expect(rows).toHaveLength(4);
     expect(rows[1].getAttribute('aria-label')).toMatch(/^Team A \(claude-swap, tài khoản 2\), đang dùng\./);
+    expect(within(rows[1]).queryByRole('button')).toBeNull();
     expect(within(screen.getByRole('list', { name: 'Antigravity' })).getAllByRole('listitem')).toHaveLength(2);
     expect(screen.getByText('Đặt lại sau 3 giờ 08 phút')).toBeTruthy();
+
+    expect(screen.getByText('Vì sao đang ở Team A')).toBeTruthy();
+    expect(screen.getByText('Vẫn dùng Team A: chưa tới ngưỡng tự chuyển.')).toBeTruthy();
+    expect(screen.getByRole('switch', { name: 'Tự chuyển Claude' }).getAttribute('aria-checked')).toBe('true');
 
     expect(screen.getByText('Sắp tới')).toBeTruthy();
     expect(screen.getByText('Team A rời vòng')).toBeTruthy();
     expect(screen.getByText('ngày mai 03:20')).toBeTruthy();
 
-    // Only the title bar's refresh and the sidebar act; no account can be switched here.
-    expect(screen.queryByRole('button', { name: /Chuyển/ })).toBeNull();
-    const main = screen.getByRole('main');
-    expect(within(main).getAllByRole('button').map((b) => b.textContent)).toEqual(['Làm mới']);
+    // Every Claude account but the active one switches; Antigravity comes later.
+    for (const name of ['Cá nhân', 'Team B', 'Team C']) {
+      expect((screen.getByRole('button', { name: 'Chuyển sang ' + name }) as HTMLButtonElement).disabled).toBe(false);
+    }
+    const ultra = screen.getByRole('button', { name: 'Chuyển sang Ultra 1' }) as HTMLButtonElement;
+    expect(ultra.disabled).toBe(true);
+    expect(ultra.title).toBe('Chuyển Antigravity có ở bản sau');
+    expect(screen.queryByRole('button', { name: 'Chuyển sang Team A' })).toBeNull();
   });
 
   it('later tabs sit in the sidebar but cannot be opened', async () => {
@@ -147,5 +156,95 @@ describe('main window', () => {
     act(() => fake.push(fixtureModel('exhausted')));
     expect(screen.getByText('Hạn mức Claude trong vòng đã cạn')).toBeTruthy();
     expect(screen.getByText('Cạn · có lại lúc 16:40')).toBeTruthy();
+  });
+});
+
+describe('switching Claude and pausing from the main window', () => {
+  const kv = () => {
+    const out: Record<string, string> = {};
+    const cells = Array.from(document.querySelectorAll('.kvt > span'));
+    for (let i = 0; i < cells.length; i += 2) out[cells[i].textContent!] = cells[i + 1].textContent!;
+    return out;
+  };
+
+  it('"Chuyển" on the Claude tab opens the confirmation and switches with the hold chosen', async () => {
+    const fake = await open(fixtureModel('fresh'), 'claude');
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Chuyển sang Team C' }));
+    });
+    const dialog = screen.getByRole('dialog', { name: 'Chuyển Claude sang Team C?' });
+    expect(within(dialog).getAllByRole('listitem')[1].textContent).toMatch(/^5 phiên Claude đang chạy/);
+    fireEvent.click(within(dialog).getByRole('radio', { name: /30 phút/ }));
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Chuyển sang Team C' }));
+    });
+    expect(fake.api.switchClaude).toHaveBeenCalledWith(4, '2026-01-16T07:50:40.000Z');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByText('Đã chuyển sang Team C. Giữ tài khoản này đến 14:50.')).toBeTruthy();
+  });
+
+  it('Escape closes the dialog and Thôi does too, without switching', async () => {
+    const fake = await open(fixtureModel('fresh'), 'claude');
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Chuyển sang Team B' }));
+    });
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Chuyển sang Team B' }));
+    });
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Thôi' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(fake.api.switchClaude).not.toHaveBeenCalled();
+  });
+
+  it('the Tự chuyển card shows the switcher’s last decision and log, and quick pause opens the sheet on its choice', async () => {
+    const fake = await open(fixtureModel('fresh'), 'claude');
+    expect(screen.getByText('Quyết định gần nhất của switcher (14:19): Vẫn dùng Team A: chưa tới ngưỡng tự chuyển.')).toBeTruthy();
+    expect(screen.getByText('stay')).toBeTruthy();
+    expect(screen.getByText('2026-01-16 09:12:05 switch to slot 2 (ends for good at 17:45, use it first)')).toBeTruthy();
+    const quick = within(screen.getByRole('group', { name: 'Tạm dừng nhanh' }))
+      .getAllByRole('button')
+      .map((b) => b.textContent);
+    expect(quick).toEqual(['1 giờ', 'Đến 18:00', 'Đến khi tôi bật lại']);
+    fireEvent.click(screen.getByRole('button', { name: 'Đến 18:00' }));
+    const sheet = screen.getByRole('dialog', { name: 'Tạm dừng tự chuyển Claude?' });
+    expect(within(sheet).getByRole('radio', { name: /Đến 18:00/ }).getAttribute('aria-checked')).toBe('true');
+    await act(async () => {
+      fireEvent.click(within(sheet).getByRole('button', { name: 'Tạm dừng' }));
+    });
+    expect(fake.api.pauseSwitching).toHaveBeenCalledWith('2026-01-16T11:00:00.000Z');
+    expect(kv()['Tạm dừng tự chuyển']).toBe('đến 18:00');
+  });
+
+  it('the Switcher card says whether it runs, when it last wrote, and whether it reads the pause flag', async () => {
+    await open(fixtureModel('fresh', { switcher: heldSwitcher() }), 'claude');
+    expect(kv()).toEqual({
+      'LaunchAgent cswap-prefer-team': 'chạy mỗi 3 phút',
+      'Nhật ký gần nhất': '09:12',
+      'com.cswap.auto': 'tắt',
+      'Tạm dừng tự chuyển': 'đến 15:20',
+      'Switcher đọc cờ tạm dừng': 'có',
+    });
+    // While paused, the decision is the switcher's own paused line.
+    expect(screen.getByText(/^Quyết định gần nhất của switcher \(\d\d:\d\d\): paused until/)).toBeTruthy();
+  });
+
+  it('a switcher that is not loaded gets a banner and a guide to load it again', async () => {
+    await open(fixtureModel('fresh', { switcher: switcherFixture({ service: false }) }), 'claude');
+    expect(screen.getByText('Switcher không chạy')).toBeTruthy();
+    expect(kv()['LaunchAgent cswap-prefer-team']).toBe('chưa nạp');
+    fireEvent.click(screen.getByRole('button', { name: 'Hướng dẫn nạp lại' }));
+    const guide = screen.getByRole('dialog', { name: 'Nạp lại switcher' });
+    expect(within(guide).getByText('launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.cswap.prefer-team.plist')).toBeTruthy();
+    fireEvent.click(within(guide).getByRole('button', { name: 'Đóng' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('Antigravity rows keep their switch for a later milestone', async () => {
+    await open(fixtureModel('fresh'), 'agy');
+    for (const b of screen.getAllByRole('button', { name: /^Chuyển sang / })) {
+      expect((b as HTMLButtonElement).disabled).toBe(true);
+    }
   });
 });

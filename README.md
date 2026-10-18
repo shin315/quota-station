@@ -15,35 +15,65 @@ under CC BY-NC-SA 4.0. See [License](#license).
 
 All three images use the synthetic test fixtures, not real accounts. The menu
 bar image is drawn from the app's own glyph code, not captured from the screen.
+The popover and window images date from M2, before the switch buttons.
 
 ## What it does
 
-This is milestone M2, "Cửa sổ chính chỉ đọc", on top of M1 "Khung và số".
-The app only reads.
+This is milestone M3, "Chuyển Claude và tạm dừng", on top of M2 "Cửa sổ
+chính chỉ đọc" and M1 "Khung và số". The app reads, and acts in two ways,
+each only when the owner asks: it switches the active Claude account through
+claude-swap, and it pauses the automatic switcher.
 
 - **Menu bar item.** A template glyph with one bar for Claude and one for
   Antigravity. Next to it is the whole-rotation number. When there is a
   rotation this is the room left, counted in accounts: `2,3` means about 2.3
   accounts' worth. With no rotation it is the active account's percent, for
   example `57%`. Before the first read it shows `–`. The tooltip and the
-  VoiceOver label say the same in words.
+  VoiceOver label say the same in words. While automatic switching is paused,
+  two small pause bars follow the number.
 - **Popover** (left click). The two pools, then every Claude Code and
   Antigravity account with its allowances (`5 giờ`, `Tuần`, `Fable tuần`,
   `Gemini`, `Claude/GPT`) and when each one resets. It also has banners for
   stale numbers, an unavailable source, numbers waiting after a reset, an
-  exhausted rotation, missing Keychain permission and a failing quota-axi. It
-  has no switch buttons. Its header has two buttons: the gear opens the
-  settings tab and the window button opens the main window.
+  exhausted rotation, missing Keychain permission and a failing quota-axi.
+  Every Claude account other than the one in use is a button that opens the
+  switch sheet (below). Antigravity rows do not switch yet. The footer has the
+  `Tự chuyển Claude` switch and the line that says why Claude is on its
+  account. Its header has two buttons: the gear opens the settings tab and
+  the window button opens the main window.
+- **Switching Claude** (F04). The confirmation sheet names the account, its
+  allowances, and how many Claude Code sessions running on this Mac will
+  rebuild their prompt cache on their next message, which costs quota. It
+  offers a hold so the switcher does not switch straight back: 30 phút,
+  1 giờ (the default), until the account's next five-hour reset, or none.
+  Confirming runs `cswap switch N --json`, writes the pause flag when a hold
+  was chosen, waits 5 seconds, reads the active account again and reports
+  what it finds: switched, switched back by the switcher (or by another
+  switch), not yet confirmed, or claude-swap's error. Outside the personal
+  account's hours the sheet warns that the switcher will move away from it.
+- **Pausing automatic switching** (F07). The switch opens a sheet to pause
+  for 1 giờ, until 18:00 or until turned back on; while paused it resumes at
+  once, and the banner offers `Thêm 1 giờ`. The why line shows the
+  switcher's own decision from `--dry-run` and its last log line, or
+  `Đang tạm dừng tới HH:MM: <lý do>` while the pause holds. Banners warn
+  when claude-swap's own automatic switcher (`com.cswap.auto`) is loaded
+  again, and when the switcher ignores the pause flag.
 - **Short menu** (right click). `Mở cửa sổ chính` (main window), `Làm mới`
   (refresh), `Cài đặt…` (settings), `Thoát Quota Station` (quit).
 - **Main window.** The same numbers as the popover, from the same read, in
   four tabs:
   - `Tổng quan`: both pools with how the rotation number adds up, every
     Claude Code and Antigravity account in a table with each allowance and
-    its reset in words, and `Sắp tới`, the resets and rotation ends of the
-    next 24 hours as the readings give them.
+    its reset in words, `Vì sao đang ở …` with the `Tự chuyển Claude`
+    switch, and `Sắp tới`, the resets and rotation ends of the next 24 hours
+    as the readings give them.
   - `Claude`: the accounts with a `Cập nhật` column, the age of each
-    account's own reading.
+    account's own reading, and a `Chuyển` button on each account not in
+    use. Below it, `Tự chuyển` (the switch, quick pause choices, the
+    switcher's last decision and log line, each with its raw line) and
+    `Switcher` (whether launchd runs it, its last log time, whether
+    `com.cswap.auto` is loaded, the pause, and whether the switcher reads
+    the pause flag). A switcher that launchd does not run gets a banner.
   - `Antigravity`: the accounts, how old the numbers of the accounts not in
     use are, and whether Cockpit answers. A Mac without Cockpit or without
     Antigravity says so.
@@ -54,9 +84,10 @@ The app only reads.
   The sidebar also lists `Codex`, `Luật xoay vòng`, `Lịch sử`, `Cảnh báo` and
   `Firstmate`, greyed out: they come in later milestones.
 
-Each Mac runs its own copy and reads only its own machine; the app never
-reaches another Mac. Switching accounts, the rotation editor, notifications,
-history and installing as a login item come in later milestones.
+Each Mac runs its own copy and acts only on its own machine; the app never
+reaches another Mac and has no switch button for one. Switching Antigravity,
+the rotation editor, notifications, history and installing as a login item
+come in later milestones.
 
 ### What it reads and runs
 
@@ -71,8 +102,37 @@ history and installing as a login item come in later milestones.
   or any credential file.
 - It ignores the identity fields in quota-axi's output (emails, ids). Accounts
   are shown by role and slot number.
-- It writes only its own settings file,
-  `~/Library/Application Support/com.shin315.quota-station/settings.json`.
+- Switching runs `cswap switch N --json` (claude-swap holds Claude Code's
+  credential locks while it writes) and nothing else of claude-swap's. The
+  app reads only the account numbers from its answer, takes email addresses
+  out of its error messages, and looks for `cswap` in `~/.local/bin`,
+  `/opt/homebrew/bin` and `/usr/local/bin`.
+- Live sessions are counted from `~/.claude/sessions/*.json`: only the `pid`
+  and `kind` fields are read, and a session counts when its process is alive.
+- The switcher: `~/.local/bin/cswap-prefer-team --dry-run`, which switches
+  nothing, the last line of `~/Library/Logs/cswap-prefer-team.log`, and
+  `launchctl list` for `com.cswap.prefer-team` and `com.cswap.auto`. These
+  run with each read while the popover or the main window is open, and after
+  a switch or a pause; while both are hidden only the pause flag is read. The
+  app never runs the switcher for real.
+- It writes two files: its own settings file,
+  `~/Library/Application Support/com.shin315.quota-station/settings.json`,
+  and the switcher's pause flag, `~/.config/cswap-prefer-team/pause`
+  (`until = YYYY-MM-DDTHH:MM` in local time and `reason = …`; no `until`
+  pauses until resumed), written through a temporary file and a rename.
+  Resuming deletes the flag.
+
+### The pause flag and the switcher
+
+The switcher decides on its own every three minutes; the app only asks it to
+wait. That needs a guard at the top of the switcher: while the flag holds,
+exit; once `until` has passed, delete the flag and go on, and print
+`paused until <until>: <reason>` (or `paused indefinitely: <reason>`) on
+`--dry-run`. The switcher script is not part of this repository. The app
+compares `until` with the local time as text, the same rule as the guard, so
+both agree on when a pause ends. When a dry run made while the flag holds
+still prints a normal decision, the app reports that the switcher ignores the
+flag and does not show Claude as paused.
 
 ### How the numbers relate to `quota-axi --tui`
 
@@ -92,6 +152,8 @@ history and installing as a login item come in later milestones.
 - quota-axi on the Mac, with JSON schema 5 or 6. The claude-swap, rotation and
   Cockpit sidecars come from the `+cswap` fork. Without them the app shows
   only the account in use.
+- For switching, claude-swap (`cswap`) with `switch --json`. For pausing, the
+  `cswap-prefer-team` switcher with the pause guard described above.
 
 The app looks for quota-axi in these places: `~/.local/bin`, nvm's Node
 versions (newest first), `/opt/homebrew/bin` and `/usr/local/bin`. You can
@@ -122,13 +184,24 @@ is ad-hoc signed and is not installed anywhere. Open it from there to try it.
 the fake Rust side the tests use. Query parameters: `state` (a file name in
 `src/fixtures/snapshots/`), `view=window` with `tab` (`overview`, `claude`,
 `agy` or `settings`), `error` (an error kind) and `theme` (`light` or `dark`).
+For switching: `switcher` (`held`, `noguard`, `auto`, `stopped` or
+`missing`), `outcome` (`raced`, `failed` or `unconfirmed`; a switch lands by
+default) and `cswap=none`. Nothing is switched and no file is written: a
+switch only waits 1.5 seconds and updates the fixture.
 
 ## Tests
 
 ```sh
-cargo test --workspace   # parsing, snapshot rules, icon, runner, schedule
-npm test                 # Vitest: popover and main window views
+cargo test --workspace   # parsing, snapshot rules, icon, runner, schedule, switching
+npm test                 # Vitest: popover and main window views, switch and pause sheets
 ```
+
+The switching tests never touch a real account. They run a fake `cswap` (a
+shell script in a temporary HOME) that switches, fails with an error, or is
+switched back by a fake switcher writing its log; a fake quota-axi answers
+the read after the switch. Session counting runs on session files in a
+temporary folder, and the pause flag tests write it there with an `until`
+ahead, passed, malformed or missing.
 
 The quota-axi fixtures in `crates/quota-station-core/tests/fixtures/` are
 synthetic, with made-up ids and values. The popover and window tests use JSON snapshots
@@ -143,7 +216,8 @@ UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test ui_fixtures
 
 - `crates/quota-station-core/` is plain Rust. It runs and parses quota-axi,
   turns its output into a snapshot, holds the icon rules and glyph, and
-  schedules reads.
+  schedules reads. It also runs `cswap switch`, counts live sessions, reads
+  and writes the pause flag, and reads the switcher's dry run and log.
 - `src-tauri/` is the Tauri 2 shell: the tray item, the popover and the main
   window, the read loop and the commands.
 - `src/` is the React and TypeScript frontend. Its `styles/tokens.css` and

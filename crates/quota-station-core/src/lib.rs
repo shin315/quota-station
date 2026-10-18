@@ -1,16 +1,22 @@
 //! Quota Station's core: reads quota-axi, builds the snapshot the menu bar
-//! and the popover show, and paces the reads. No UI and no AppKit, so all of
-//! it is tested with `cargo test`.
+//! and the popover show, paces the reads, and switches Claude when the owner
+//! asks. No UI and no AppKit, so all of it is tested with `cargo test`.
 //!
-//! Read-only by design: nothing here switches an account or writes outside
-//! the app's own settings file.
+//! It writes only the app's own settings file and the switcher's pause flag,
+//! and its one action outside is `cswap switch N --json` ([`switching`]).
 
 pub mod axi;
+pub mod cswap;
 pub mod icon;
+pub mod local_time;
+pub mod pause;
 pub mod runner;
 pub mod schedule;
+pub mod sessions;
 pub mod settings;
 pub mod snapshot;
+pub mod switcher;
+pub mod switching;
 mod time_util;
 
 pub use icon::{icon, Icon, Tone};

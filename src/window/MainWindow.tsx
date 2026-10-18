@@ -1,11 +1,15 @@
-// The main window (M2, read only): the prototype's window with the tabs
-// Tổng quan, Claude, Antigravity and Cài đặt. The sidebar keeps the tabs of
-// later milestones in place, disabled. No row or button switches an account.
+// The main window: the prototype's window with the tabs Tổng quan, Claude,
+// Antigravity and Cài đặt. Claude accounts switch from the tables (F04), and
+// Tổng quan and Claude show automatic switching and why Claude is on its
+// account (F07). The sidebar keeps the tabs of later milestones in place,
+// disabled, and Antigravity switches in a later milestone.
 
 import type { ReactNode } from 'react';
-import { Banner, Button, Chip, Dot, Feedback, Meter } from '../components/parts';
+import { Banner, Button, Chip, Dot, Feedback, Meter, Toggle } from '../components/parts';
+import { SHEET_TITLE_ID, useDialog } from '../components/Sheets';
 import type { Tab } from '../lib/model';
-import type { Action, FeedbackView, NoteView, RowView } from '../lib/view';
+import { pauseOptions, type PauseChoice } from '../lib/switching';
+import { bannerUnder, type Action, type FeedbackView, type NoteView, type RowView } from '../lib/view';
 import type { BigPoolView, WindowView } from '../lib/window';
 import { NAV_ICONS } from './icons';
 
@@ -113,8 +117,24 @@ function BigPool({ pool }: { pool: BigPoolView }) {
   );
 }
 
-/** One account in a window table: the prototype's `trRow`, without the switch button. */
-function TableRow({ row, freshness }: { row: RowView; freshness: boolean }) {
+/** The row's switch button: none on the active row, off where it cannot switch. */
+function SwitchCell({ row, onSwitch }: { row: RowView; onSwitch(slot: number): void }) {
+  if (row.active || row.slot === 0) return <span />;
+  return (
+    <Button
+      primary
+      disabled={!row.switchable}
+      label={'Chuyển sang ' + row.name}
+      title={row.off || undefined}
+      onClick={() => onSwitch(row.slot)}
+    >
+      Chuyển
+    </Button>
+  );
+}
+
+/** One account in a window table: the prototype's `trRow`. */
+function TableRow({ row, freshness, onSwitch }: { row: RowView; freshness: boolean; onSwitch(slot: number): void }) {
   const chips = freshness ? row.tags : row.chips;
   return (
     <div className={'tr' + (row.active ? ' on' : '')} role="listitem" aria-label={row.label} title={row.title || undefined}>
@@ -142,15 +162,22 @@ function TableRow({ row, freshness }: { row: RowView; freshness: boolean }) {
           {row.freshness ? <Chip chip={row.freshness} /> : '—'}
         </span>
       ) : null}
+      <SwitchCell row={row} onSwitch={onSwitch} />
     </div>
   );
 }
 
-function AccountTable(props: { label: string; rows: RowView[]; header?: boolean; freshness?: boolean }) {
+function AccountTable(props: {
+  label: string;
+  rows: RowView[];
+  header?: boolean;
+  freshness?: boolean;
+  onSwitch(slot: number): void;
+}) {
   if (!props.rows.length) return null;
   const fresh = !!props.freshness;
   return (
-    <div className={'tbl ro' + (fresh ? ' withfresh' : '')} role="list" aria-label={props.label}>
+    <div className={'tbl' + (fresh ? ' withfresh' : '')} role="list" aria-label={props.label}>
       {props.header ? (
         <div className="tr h" aria-hidden="true">
           <span />
@@ -158,10 +185,11 @@ function AccountTable(props: { label: string; rows: RowView[]; header?: boolean;
           <span>Hạn mức 5 giờ</span>
           <span>Hạn mức tuần / Fable</span>
           {fresh ? <span>Cập nhật</span> : null}
+          <span />
         </div>
       ) : null}
       {props.rows.map((r) => (
-        <TableRow key={r.key} row={r} freshness={fresh} />
+        <TableRow key={r.key} row={r} freshness={fresh} onSwitch={props.onSwitch} />
       ))}
     </div>
   );
@@ -189,16 +217,19 @@ interface TabProps {
   busy: Action | null;
   feedback: FeedbackView | null;
   onAction(act: Action): void;
+  onSwitch(slot: number): void;
+  onToggle(): void;
+  onPause(preset: PauseChoice): void;
+  now: Date;
 }
 
 function Top(props: TabProps & { title: string; banner?: boolean }) {
+  const banner = props.banner !== false ? bannerUnder(props.view.banner, props.feedback) : null;
   return (
     <>
       <TitleBar title={props.title} view={props.view} busy={props.busy === 'refresh'} onRefresh={() => props.onAction('refresh')} />
-      {props.feedback ? <Feedback fb={props.feedback} /> : null}
-      {props.banner !== false && props.view.banner ? (
-        <Banner banner={props.view.banner} onAction={props.onAction} busy={props.busy} />
-      ) : null}
+      {props.feedback ? <Feedback fb={props.feedback} onAction={props.onAction} /> : null}
+      {banner ? <Banner banner={banner} onAction={props.onAction} busy={props.busy} /> : null}
     </>
   );
 }
@@ -215,17 +246,25 @@ function Overview(props: TabProps) {
             <BigPool pool={v.pools.agy} />
           </div>
           <Card title={v.claude.title} kind="c">
-            <AccountTable label="Claude Code" rows={v.claude.rows} header />
+            <AccountTable label="Claude Code" rows={v.claude.rows} header onSwitch={props.onSwitch} />
             <Note note={v.claude.note} />
           </Card>
           {v.agy.present ? (
             <Card title={v.agy.title} kind="g">
-              <AccountTable label="Antigravity" rows={v.agy.rows} />
+              <AccountTable label="Antigravity" rows={v.agy.rows} onSwitch={props.onSwitch} />
               <Note note={v.agy.note} />
             </Card>
           ) : null}
         </div>
         <div className="stack">
+          <Card title={v.whyTitle}>
+            <div className="why">{v.auto.why}</div>
+            {v.auto.log && !v.auto.paused ? <small className="pline">{v.auto.log}</small> : null}
+            <div className="row2" style={{ marginTop: 10 }}>
+              <span style={{ fontSize: 'var(--fs-sm)' }}>Tự chuyển Claude</span>
+              <Toggle on={v.auto.toggle.on} label={v.auto.toggle.label} disabled={v.auto.toggle.disabled} onClick={props.onToggle} />
+            </div>
+          </Card>
           <Card title="Sắp tới">
             {v.upcoming.length ? (
               <div className="list">
@@ -251,13 +290,57 @@ function Overview(props: TabProps) {
 
 function ClaudeTab(props: TabProps) {
   const v = props.view;
+  const a = v.auto;
   return (
     <>
       <Top {...props} title="Claude" />
+      {v.claudeBanner ? <Banner banner={v.claudeBanner} onAction={props.onAction} busy={props.busy} /> : null}
       <Card title={v.claude.tabTitle} kind="c">
-        <AccountTable label="Claude Code" rows={v.claude.rows} header freshness />
+        <AccountTable label="Claude Code" rows={v.claude.rows} header freshness onSwitch={props.onSwitch} />
         <Note note={v.claude.note} />
       </Card>
+      <div className="grid2">
+        <Card title="Tự chuyển">
+          <div className="row2">
+            <div className="why" style={{ flex: 1 }}>
+              {a.title}
+              <small className="pline">{a.line}</small>
+            </div>
+            <Toggle on={a.toggle.on} label={a.toggle.label} disabled={a.toggle.disabled} onClick={props.onToggle} />
+          </div>
+          <p style={{ margin: '10px 0 4px' }} id="qs-qp">
+            Tạm dừng nhanh
+          </p>
+          <div className="seg" role="group" aria-labelledby="qs-qp">
+            {pauseOptions(props.now).map((o) => (
+              <button key={o.v} type="button" aria-pressed="false" disabled={a.toggle.disabled} onClick={() => props.onPause(o.v)}>
+                {o.t}
+              </button>
+            ))}
+          </div>
+          {a.raw ? (
+            <>
+              <p style={{ margin: '10px 0 0' }}>
+                Quyết định gần nhất của switcher{a.at ? ' (' + a.at + ')' : ''}: {a.paused ? a.raw : a.why}
+              </p>
+              <p className="tech">
+                Dòng gốc: <span className="mono">{a.raw}</span>
+              </p>
+            </>
+          ) : null}
+          {a.log ? (
+            <>
+              <p style={{ margin: '10px 0 0' }}>Nhật ký switcher: {a.log}</p>
+              <p className="tech">
+                Dòng gốc: <span className="mono">{a.logRaw}</span>
+              </p>
+            </>
+          ) : null}
+        </Card>
+        <Card title="Switcher">
+          <KeyValues rows={v.switcher} />
+        </Card>
+      </div>
     </>
   );
 }
@@ -271,7 +354,7 @@ function AgyTab(props: TabProps) {
       {a.present ? (
         <>
           <Card title="Tài khoản" kind="g">
-            <AccountTable label="Antigravity" rows={a.rows} />
+            <AccountTable label="Antigravity" rows={a.rows} onSwitch={props.onSwitch} />
             {a.others ? <p className="note">{a.others}</p> : null}
             <Note note={a.tabNote} />
           </Card>
@@ -298,23 +381,57 @@ export interface MainWindowProps {
   view: WindowView;
   busy: Action | null;
   feedback: FeedbackView | null;
+  now: Date;
   onTab(tab: Tab): void;
   onAction(act: Action): void;
+  onSwitch(slot: number): void;
+  onToggle(): void;
+  onPause(preset: PauseChoice): void;
   /** The Cài đặt tab, drawn by the settings component. */
   settings: ReactNode;
+  /** The open dialog's body; null when none is open. */
+  dialog?: ReactNode;
 }
 
 export function MainWindow(props: MainWindowProps) {
-  const tabProps: TabProps = { view: props.view, busy: props.busy, feedback: props.feedback, onAction: props.onAction };
+  const tabProps: TabProps = {
+    view: props.view,
+    busy: props.busy,
+    feedback: props.feedback,
+    onAction: props.onAction,
+    onSwitch: props.onSwitch,
+    onToggle: props.onToggle,
+    onPause: props.onPause,
+    now: props.now,
+  };
+  const open = !!props.dialog;
+  const dialog = useDialog(open);
   return (
     <div className="win-o">
-      <Sidebar tab={props.tab} machine={props.view.machine} onTab={props.onTab} />
-      <main className="main">
-        {props.tab === 'overview' ? <Overview {...tabProps} /> : null}
-        {props.tab === 'claude' ? <ClaudeTab {...tabProps} /> : null}
-        {props.tab === 'agy' ? <AgyTab {...tabProps} /> : null}
-        {props.tab === 'settings' ? props.settings : null}
-      </main>
+      <div style={{ display: 'contents' }} inert={open}>
+        <Sidebar tab={props.tab} machine={props.view.machine} onTab={props.onTab} />
+        <main className="main">
+          {props.tab === 'overview' ? <Overview {...tabProps} /> : null}
+          {props.tab === 'claude' ? <ClaudeTab {...tabProps} /> : null}
+          {props.tab === 'agy' ? <AgyTab {...tabProps} /> : null}
+          {props.tab === 'settings' ? props.settings : null}
+        </main>
+      </div>
+      {open ? (
+        <div className="dlg-wrap">
+          <div
+            className="dlg wide"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={SHEET_TITLE_ID}
+            tabIndex={-1}
+            ref={dialog.ref}
+            onKeyDown={dialog.onKeyDown}
+          >
+            {props.dialog}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

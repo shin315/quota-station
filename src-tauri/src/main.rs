@@ -1,7 +1,8 @@
 //! Quota Station: AI coding quota in the macOS menu bar.
 //!
-//! Each Mac runs its own copy and reads only its own machine through
-//! quota-axi. This build (M2) only reads: it never switches an account.
+//! Each Mac runs its own copy and acts only on its own machine. It reads
+//! through quota-axi; since M3 it also switches Claude through claude-swap
+//! when the owner confirms, and pauses the `cswap-prefer-team` switcher.
 
 mod commands;
 mod reader;
@@ -49,6 +50,11 @@ fn main() {
             commands::set_quota_axi_path,
             commands::set_machine_name,
             commands::grant_keychain,
+            commands::claude_sessions,
+            commands::switch_claude,
+            commands::pause_switching,
+            commands::extend_pause,
+            commands::resume_switching,
         ])
         .run(tauri::generate_context!())
         .expect("Quota Station failed to start");

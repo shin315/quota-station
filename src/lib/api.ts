@@ -3,7 +3,7 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import type { Model, Tab } from './model';
+import type { Model, Outcome, Sessions, Tab } from './model';
 
 export interface Api {
   getModel(): Promise<Model>;
@@ -21,6 +21,18 @@ export interface Api {
   setMachineName(name: string): Promise<Model>;
   /** Lets quota-axi ask macOS for Keychain access once. */
   grantKeychain(): Promise<Model>;
+  /** Live Claude Code sessions on this Mac; null when they cannot be counted. */
+  claudeSessions(): Promise<Sessions | null>;
+  /**
+   * Runs `cswap switch N --json`, pauses the switcher until `holdUntil` (RFC 3339) when given, and
+   * reports what the re-read five seconds later shows. Rejects with `busy` or `unknownSlot`.
+   */
+  switchClaude(slot: number, holdUntil: string | null): Promise<Outcome>;
+  /** Pauses automatic switching until `until` (RFC 3339), or until resumed when null. */
+  pauseSwitching(until: string | null): Promise<Model>;
+  /** Moves the end of a timed pause later. */
+  extendPause(minutes: number): Promise<Model>;
+  resumeSwitching(): Promise<Model>;
   onModel(handler: (model: Model) => void): Promise<() => void>;
   /** The main window is asked to show a tab while it is open. */
   onTab(handler: (tab: Tab) => void): Promise<() => void>;
@@ -36,6 +48,11 @@ export const tauriApi: Api = {
   setQuotaAxiPath: (path) => invoke<Model>('set_quota_axi_path', { path }),
   setMachineName: (name) => invoke<Model>('set_machine_name', { name }),
   grantKeychain: () => invoke<Model>('grant_keychain'),
+  claudeSessions: () => invoke<Sessions | null>('claude_sessions'),
+  switchClaude: (slot, holdUntil) => invoke<Outcome>('switch_claude', { slot, holdUntil }),
+  pauseSwitching: (until) => invoke<Model>('pause_switching', { until }),
+  extendPause: (minutes) => invoke<Model>('extend_pause', { minutes }),
+  resumeSwitching: () => invoke<Model>('resume_switching'),
   onModel: (handler) => listen<Model>('model', (event) => handler(event.payload)),
   onTab: (handler) => listen<Tab>('tab', (event) => handler(event.payload)),
 };

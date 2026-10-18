@@ -1,10 +1,13 @@
-// The read-only popover (F01, F03): the prototype's popover without the
-// switching parts, which arrive in later milestones. Its header opens the
-// main window and the settings tab.
+// The popover (F01, F03, F04, F07): every account, a Claude row opens the
+// switch sheet, and the footer holds the automatic switching toggle with why
+// Claude is on its account. Its header opens the main window and the settings
+// tab. Antigravity rows switch in a later milestone.
 
-import { useLayoutEffect, useRef } from 'react';
-import { Banner, Chip, Dot, Feedback, GearIcon, Meter } from '../components/parts';
-import type { Action, FeedbackView, PoolView, PopoverView, RowView, SectionView } from '../lib/view';
+import { useLayoutEffect, useRef, type ReactNode } from 'react';
+import { Banner, Chip, Dot, Feedback, GearIcon, Meter, Toggle } from '../components/parts';
+import { SHEET_TITLE_ID, useDialog } from '../components/Sheets';
+import type { AutoView } from '../lib/switching';
+import { bannerUnder, type Action, type FeedbackView, type PoolView, type PopoverView, type RowView, type SectionView } from '../lib/view';
 import { WindowIcon } from '../window/icons';
 
 function PoolTile({ pool }: { pool: PoolView }) {
@@ -27,14 +30,9 @@ function PoolTile({ pool }: { pool: PoolView }) {
   );
 }
 
-function AccountRow({ row }: { row: RowView }) {
+function RowContent({ row }: { row: RowView }) {
   return (
-    <div
-      className={'row ro' + (row.active ? ' on' : '') + (row.dim ? ' dim' : '')}
-      role="listitem"
-      aria-label={row.label}
-      title={row.title || undefined}
-    >
+    <>
       <span className={'av ' + row.kind} aria-hidden="true">
         {row.short}
       </span>
@@ -56,11 +54,42 @@ function AccountRow({ row }: { row: RowView }) {
           ))}
         </span>
       </span>
+    </>
+  );
+}
+
+/**
+ * A row the owner can press opens the switch sheet. The active row and the
+ * rows that cannot switch stay buttons with `aria-disabled`, so they keep
+ * focus and screen readers read them (G10). The one account a provider row
+ * reads without a sidecar has nothing to switch to and is not a button.
+ */
+function AccountRow({ row, onSwitch }: { row: RowView; onSwitch(slot: number): void }) {
+  const cls = 'row' + (row.active ? ' on' : '') + (row.dim ? ' dim' : '');
+  if (row.slot === 0) {
+    return (
+      <div className={cls + ' ro'} role="listitem" aria-label={row.label} title={row.title || undefined}>
+        <RowContent row={row} />
+      </div>
+    );
+  }
+  return (
+    <div role="listitem">
+      <button
+        type="button"
+        className={cls}
+        aria-label={row.label}
+        aria-disabled={row.switchable ? undefined : true}
+        title={row.title || undefined}
+        onClick={row.switchable ? () => onSwitch(row.slot) : undefined}
+      >
+        <RowContent row={row} />
+      </button>
     </div>
   );
 }
 
-function SectionBlock(props: { id: 'c' | 'g'; title: string; section: SectionView }) {
+function SectionBlock(props: { id: 'c' | 'g'; title: string; section: SectionView; onSwitch(slot: number): void }) {
   const s = props.section;
   return (
     <>
@@ -74,7 +103,7 @@ function SectionBlock(props: { id: 'c' | 'g'; title: string; section: SectionVie
       {s.rows.length ? (
         <div className="rows" role="list" aria-label={props.title}>
           {s.rows.map((r) => (
-            <AccountRow key={r.key} row={r} />
+            <AccountRow key={r.key} row={r} onSwitch={props.onSwitch} />
           ))}
         </div>
       ) : null}
@@ -83,33 +112,61 @@ function SectionBlock(props: { id: 'c' | 'g'; title: string; section: SectionVie
   );
 }
 
+/** G17: outside the scrolling body, so the toggle is always in view. */
+function Footer({ auto, onToggle }: { auto: AutoView; onToggle(): void }) {
+  return (
+    <div className="li">
+      <div className="t">
+        <b>{auto.title}</b>
+        <small>{auto.line}</small>
+        {auto.log && !auto.paused ? <small>{auto.log}</small> : null}
+      </div>
+      <Toggle on={auto.toggle.on} label={auto.toggle.label} disabled={auto.toggle.disabled} onClick={onToggle} />
+    </div>
+  );
+}
+
 export interface PopoverProps {
   view: PopoverView;
+  auto: AutoView;
   feedback?: FeedbackView | null;
   busy?: Action | null;
   onAction(act: Action): void;
+  onSwitch(slot: number): void;
+  onToggle(): void;
+  /** The open sheet's body; null when none is open. */
+  sheet?: ReactNode;
+  onCloseSheet?(): void;
   /** The popover's natural height, so the window can fit it. */
   onHeight?(height: number): void;
 }
 
-export function Popover({ view, feedback, busy, onAction, onHeight }: PopoverProps) {
+export function Popover({ view, auto, feedback, busy, onAction, onSwitch, onToggle, sheet, onCloseSheet, onHeight }: PopoverProps) {
   const head = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
+  const foot = useRef<HTMLDivElement>(null);
+  const open = !!sheet;
+  const dialog = useDialog(open);
+  const banner = bannerUnder(view.banner, feedback);
 
   useLayoutEffect(() => {
     if (!onHeight || !head.current || !content.current) return;
-    const measure = () => onHeight((head.current?.offsetHeight ?? 0) + (content.current?.offsetHeight ?? 0) + 4);
+    const measure = () => {
+      const natural = (head.current?.offsetHeight ?? 0) + (content.current?.offsetHeight ?? 0) + (foot.current?.offsetHeight ?? 0) + 4;
+      // An open sheet needs room for all of itself above the popover's bottom edge.
+      const sheetHeight = dialog.ref.current ? dialog.ref.current.scrollHeight + 16 : 0;
+      onHeight(Math.max(natural, sheetHeight));
+    };
     measure();
     if (typeof ResizeObserver === 'undefined') return;
     const ro = new ResizeObserver(measure);
-    ro.observe(head.current);
-    ro.observe(content.current);
+    for (const el of [head.current, content.current, foot.current, dialog.ref.current]) if (el) ro.observe(el);
     return () => ro.disconnect();
-  }, [onHeight]);
+  }, [onHeight, open, dialog.ref]);
 
   return (
-    <div className="pop" role="dialog" aria-label="Quota Station">
-      <div className="hd" ref={head}>
+    <div className={'pop' + (open ? ' open' : '')} role="dialog" aria-label="Quota Station">
+      <div className="hd" ref={head} inert={open}>
         <div className="tt">
           <b>Quota Station</b>
           <small>
@@ -124,7 +181,7 @@ export function Popover({ view, feedback, busy, onAction, onHeight }: PopoverPro
           <WindowIcon />
         </button>
       </div>
-      <div className="body">
+      <div className="body" inert={open}>
         <div ref={content}>
           <div className="sum">
             {view.summary.map((x, i) => (
@@ -134,19 +191,36 @@ export function Popover({ view, feedback, busy, onAction, onHeight }: PopoverPro
               </span>
             ))}
           </div>
-          {feedback ? <Feedback fb={feedback} /> : null}
-          {view.banner ? <Banner banner={view.banner} onAction={onAction} busy={busy} /> : null}
+          {feedback ? <Feedback fb={feedback} onAction={onAction} /> : null}
+          {banner ? <Banner banner={banner} onAction={onAction} busy={busy} /> : null}
           <div className="pools">
             <PoolTile pool={view.pools.claude} />
             <PoolTile pool={view.pools.agy} />
           </div>
-          <SectionBlock id="c" title="CLAUDE CODE" section={view.claude} />
-          <SectionBlock id="g" title="ANTIGRAVITY" section={view.agy} />
+          <SectionBlock id="c" title="CLAUDE CODE" section={view.claude} onSwitch={onSwitch} />
+          <SectionBlock id="g" title="ANTIGRAVITY" section={view.agy} onSwitch={onSwitch} />
           <div className="legend" aria-hidden="true">
             ↻ đặt lại sau · n = ngày · g = giờ
           </div>
         </div>
       </div>
+      <div className="ft" ref={foot} inert={open}>
+        <Footer auto={auto} onToggle={onToggle} />
+      </div>
+      <div className="scrim" aria-hidden="true" onClick={onCloseSheet} />
+      {sheet ? (
+        <div
+          className="sheet"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={SHEET_TITLE_ID}
+          tabIndex={-1}
+          ref={dialog.ref}
+          onKeyDown={dialog.onKeyDown}
+        >
+          {sheet}
+        </div>
+      ) : null}
     </div>
   );
 }

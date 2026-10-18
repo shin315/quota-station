@@ -72,6 +72,7 @@ fn sample(tone: Tone, show_agy: bool) -> Icon {
         claude: Some(56.75),
         agy: Some(94.0),
         show_agy,
+        paused: false,
         label: String::new(),
     }
 }
@@ -142,4 +143,24 @@ fn glyph_snapshot_exhausted_triangle() {
 ..................
 ";
     assert_eq!(glyph_ascii(&sample(Tone::Bad, true), 1), expected);
+}
+
+#[test]
+fn a_paused_switcher_adds_a_pause_sign_and_says_so() {
+    let paused = icon(Some(&snap("claude-pool-schema5.json", Some("agy-no-cockpit.json"))), false)
+        .with_pause(true);
+    assert!(paused.paused);
+    assert!(paused.label.ends_with(". Tự chuyển đang tạm dừng"));
+    let (_, w, h) = render_glyph(&paused, 2);
+    assert_eq!((w, h), (52, 36));
+    let rows = glyph_ascii(&paused, 1);
+    assert_eq!(rows.lines().nth(5), Some(".#+#######.....+#..##+.##+"));
+    assert_eq!(rows.lines().nth(8), Some("....++++++++++.....##+.##+"));
+
+    // An empty rotation or no number keeps its own glyph.
+    let empty = icon(Some(&snap("claude-exhausted.json", None)), false).with_pause(true);
+    assert!(!empty.paused);
+    assert!(!empty.label.contains("tạm dừng"));
+    assert!(!icon(None, false).with_pause(true).paused);
+    assert!(!icon(Some(&snap("claude-pool-schema5.json", None)), false).with_pause(false).paused);
 }

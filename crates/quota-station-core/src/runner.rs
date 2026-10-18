@@ -126,13 +126,15 @@ fn report(path: &Path, args: &[String], timeout: Duration) -> Result<Response, R
     }
 }
 
-struct Output {
-    code: Option<i32>,
-    stdout: Vec<u8>,
-    stderr: Vec<u8>,
+pub(crate) struct Output {
+    pub code: Option<i32>,
+    pub stdout: Vec<u8>,
+    pub stderr: Vec<u8>,
 }
 
-fn run(path: &Path, args: &[String], timeout: Duration) -> Result<Output, RunError> {
+/// Runs `path` with `args`, stopping it at `timeout`. Also runs claude-swap
+/// and the switcher, which take the same care.
+pub(crate) fn run(path: &Path, args: &[String], timeout: Duration) -> Result<Output, RunError> {
     if !path.is_file() {
         return Err(RunError::NotFound(path.to_path_buf()));
     }
@@ -175,7 +177,7 @@ fn run(path: &Path, args: &[String], timeout: Duration) -> Result<Output, RunErr
     })
 }
 
-fn first_line(bytes: &[u8]) -> String {
+pub(crate) fn first_line(bytes: &[u8]) -> String {
     String::from_utf8_lossy(bytes).lines().next().unwrap_or("").trim().to_string()
 }
 
