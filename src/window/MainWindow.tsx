@@ -3,8 +3,9 @@
 // tables (F04), Tổng quan and Claude show automatic switching and why Claude
 // is on its account (F07), Luật xoay vòng edits the rotation for every Mac
 // (F06), and Antigravity also shows the accounts the app logs in (M4a) and
-// switches from its tables once quota-axi lists them (M4c). The sidebar
-// keeps the tabs of later milestones in place, disabled.
+// switches from its tables once quota-axi lists them (M4c). Lịch sử, Cảnh
+// báo and Firstmate come from M6, and Cảnh báo counts the alerts nobody
+// answered yet. The sidebar keeps Codex, a later milestone, in place, disabled.
 
 import type { ReactNode } from 'react';
 import { Banner, Button, Chip, Dot, Feedback, Meter, Toggle } from '../components/parts';
@@ -26,12 +27,12 @@ const NAVS: (['-', string] | [NavId, string, 'later'?])[] = [
   ['codex', 'Codex', 'later'],
   ['-', 'Tự động'],
   ['rules', 'Luật xoay vòng'],
-  ['history', 'Lịch sử', 'later'],
-  ['alerts', 'Cảnh báo', 'later'],
-  ['firstmate', 'Firstmate', 'later'],
+  ['history', 'Lịch sử'],
+  ['alerts', 'Cảnh báo'],
+  ['firstmate', 'Firstmate'],
 ];
 
-function NavButton(props: { id: NavId; label: string; tab: Tab; later?: boolean; onTab(tab: Tab): void }) {
+function NavButton(props: { id: NavId; label: string; tab: Tab; later?: boolean; badge?: number; onTab(tab: Tab): void }) {
   const on = props.id === props.tab;
   return (
     <button
@@ -44,11 +45,20 @@ function NavButton(props: { id: NavId; label: string; tab: Tab; later?: boolean;
     >
       {NAV_ICONS[props.id]}
       {props.label}
+      {props.badge ? (
+        <>
+          <span className="badge" aria-hidden="true">
+            {props.badge}
+          </span>
+          <span className="vh">, {props.badge} cảnh báo mới</span>
+        </>
+      ) : null}
     </button>
   );
 }
 
-function Sidebar({ tab, machine, note, onTab }: { tab: Tab; machine: string; note: string | null; onTab(tab: Tab): void }) {
+function Sidebar(props: { tab: Tab; machine: string; note: string | null; alerts: number; onTab(tab: Tab): void }) {
+  const { tab, machine, note, onTab } = props;
   return (
     <nav className="side" aria-label="Mục">
       {/* macOS draws the window's traffic lights here; the browser preview draws the prototype's. */}
@@ -63,7 +73,15 @@ function Sidebar({ tab, machine, note, onTab }: { tab: Tab; machine: string; not
             {n[1]}
           </div>
         ) : (
-          <NavButton key={n[0]} id={n[0]} label={n[1]} later={n[2] === 'later'} tab={tab} onTab={onTab} />
+          <NavButton
+            key={n[0]}
+            id={n[0]}
+            label={n[1]}
+            later={n[2] === 'later'}
+            badge={n[0] === 'alerts' ? props.alerts : undefined}
+            tab={tab}
+            onTab={onTab}
+          />
         ),
       )}
       <div className="grow" data-tauri-drag-region />
@@ -406,6 +424,12 @@ export interface MainWindowProps {
   settings: ReactNode;
   /** The Luật xoay vòng tab, drawn by the rules editor. */
   rules: ReactNode;
+  /** The Lịch sử, Cảnh báo and Firstmate tabs (M6). */
+  history?: ReactNode;
+  alerts?: ReactNode;
+  firstmate?: ReactNode;
+  /** Alerts with buttons nobody pressed yet, on the sidebar. */
+  unanswered?: number;
   /** Under the machine name in the sidebar: whether the other Macs have the rules. */
   syncNote?: string | null;
   /** The Antigravity tab's login card. */
@@ -432,12 +456,21 @@ export function MainWindow(props: MainWindowProps) {
   return (
     <div className="win-o">
       <div style={{ display: 'contents' }} inert={open}>
-        <Sidebar tab={props.tab} machine={props.view.machine} note={props.syncNote ?? null} onTab={props.onTab} />
+        <Sidebar
+          tab={props.tab}
+          machine={props.view.machine}
+          note={props.syncNote ?? null}
+          alerts={props.unanswered ?? 0}
+          onTab={props.onTab}
+        />
         <main className="main">
           {props.tab === 'overview' ? <Overview {...tabProps} /> : null}
           {props.tab === 'claude' ? <ClaudeTab {...tabProps} /> : null}
           {props.tab === 'agy' ? <AgyTab {...tabProps} /> : null}
           {props.tab === 'rules' ? props.rules : null}
+          {props.tab === 'history' ? props.history : null}
+          {props.tab === 'alerts' ? props.alerts : null}
+          {props.tab === 'firstmate' ? props.firstmate : null}
           {props.tab === 'settings' ? props.settings : null}
         </main>
       </div>

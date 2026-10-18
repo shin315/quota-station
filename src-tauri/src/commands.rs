@@ -1,9 +1,11 @@
 //! What the windows can ask for. Only [`switch_claude`] acts outside the
 //! app here: it runs `cswap switch N --json` on this Mac when the owner
-//! confirms (switching Antigravity is in `agy_switch`).
+//! confirms (switching Antigravity is in `agy_switch`), and keeps the
+//! switch in the history.
 //! The pause commands write the switcher's pause flag; the rest write only
 //! the app's own settings file.
 
+use quota_station_core::history;
 use quota_station_core::runner::{self, RunError};
 use quota_station_core::sessions::{self, Sessions};
 use quota_station_core::switching::{self, Outcome};
@@ -158,23 +160,41 @@ pub async fn switch_claude(
         Some(text) => Some(OffsetDateTime::parse(text, &Rfc3339).map_err(|_| "badTime")?),
         None => None,
     };
-    let tools = {
+    let (tools, from, dir) = {
         let mut inner = shared.lock();
         if inner.switching.is_some() {
             return Err("busy".into());
         }
-        let known = inner.snapshot().claude.accounts.iter().any(|a| a.number == slot && slot > 0);
+        let snapshot = inner.snapshot();
+        let known = snapshot.claude.accounts.iter().any(|a| a.number == slot && slot > 0);
         if !known {
             return Err("unknownSlot".into());
         }
+        let from = snapshot.claude.active().map(|a| a.number).filter(|n| *n > 0);
         inner.switching = Some(slot);
-        inner.switch_tools()
+        (inner.switch_tools(), from, inner.app_dir())
     };
     reader::publish(&app, &shared);
     let done = tauri::async_runtime::spawn_blocking(move || {
         switching::switch_claude(&tools, slot, hold, switching::SETTLE)
     })
     .await;
+    // Kept before the reading that shows it, so the change is this switch's.
+    if let Ok(d) = &done {
+        let landed = match &d.outcome {
+            Outcome::Switched { hold, .. } => Some(("switched", hold)),
+            Outcome::Raced { hold, .. } => Some(("raced", hold)),
+            Outcome::Unconfirmed { hold, .. } => Some(("unconfirmed", hold)),
+            Outcome::Failed { .. } => None,
+        };
+        if let Some((result, hold)) = landed {
+            let until = hold.as_ref().filter(|h| !h.failed).map(|h| h.until.clone());
+            let at = OffsetDateTime::now_utc().unix_timestamp();
+            // The same lock as the history's look at the readings.
+            let _one = shared.history.lock().unwrap_or_else(|e| e.into_inner());
+            let _ = history::manual_claude(&dir, from, slot, until, result, at);
+        }
+    }
     {
         let mut inner = shared.lock();
         inner.switching = None;
@@ -183,6 +203,7 @@ pub async fn switch_claude(
         }
         inner.reload_pause();
     }
+    crate::alerting::track_history(&shared);
     shared.request_switcher();
     reader::publish(&app, &shared);
     done.map(|d| d.outcome).map_err(|e| e.to_string())

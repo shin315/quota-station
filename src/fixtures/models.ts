@@ -1,7 +1,21 @@
 // Models built from the snapshot fixtures that Rust generates
 // (`crates/quota-station-core/tests/ui_fixtures.rs`). Synthetic data only.
 
-import type { AgyAccounts, AgyLogin, ErrorView, Model, PeerView, RotationView, Rules, Snapshot, SwitcherView } from '../lib/model';
+import type {
+  AgyAccounts,
+  AgyLogin,
+  AlertRecord,
+  AlertsView,
+  ErrorView,
+  FirstmateView,
+  HistoryEntry,
+  Model,
+  PeerView,
+  RotationView,
+  Rules,
+  Snapshot,
+  SwitcherView,
+} from '../lib/model';
 
 const files = import.meta.glob('./snapshots/*.json', { eager: true, import: 'default' }) as Record<string, Snapshot>;
 
@@ -113,6 +127,146 @@ export function agyAccount(n: number, over: Partial<AgyLogin> = {}): AgyLogin {
   };
 }
 
+/** No alert yet, the five switches as they ship, and macOS letting the cards show. */
+export function alertsFixture(over: Partial<AlertsView> = {}): AlertsView {
+  return {
+    recent: [],
+    switches: { pool: true, leaving: true, login: true, overwrite: true, firstmate: false },
+    unanswered: 0,
+    permission: 'allowed',
+    ...over,
+  };
+}
+
+/**
+ * Team A leaving the rotation at 14:45, sent at 14:15 (UTC+7) on the fixture day:
+ * the prototype's card 2, with its two buttons.
+ */
+export function leavingAlert(over: Partial<AlertRecord> = {}): AlertRecord {
+  return {
+    id: 'leaving:2:2026-01-16T14:45@1768547700',
+    alert: {
+      key: 'leaving:2:2026-01-16T14:45',
+      kind: 'leaving',
+      tone: 'warn',
+      title: 'Team A rời vòng lúc 14:45',
+      body: 'Còn 30 phút. Sau đó switcher chuyển sang tài khoản khác trong vòng.',
+      actions: [
+        { id: 'dismiss', label: 'Ổn' },
+        { id: 'switch:3', label: 'Chuyển ngay' },
+      ],
+      at: 1768547700,
+    },
+    notified: true,
+    answer: null,
+    ...over,
+  };
+}
+
+/** Antigravity.app wrote Ultra 1 back at 14:10, 20 minutes after a switch to Ultra 2. */
+export function overwriteAlert(over: Partial<AlertRecord> = {}): AlertRecord {
+  return {
+    id: 'overwrite:antigravity_fake2:1768547400@1768547400',
+    alert: {
+      key: 'overwrite:antigravity_fake2:1768547400',
+      kind: 'overwrite',
+      tone: 'warn',
+      title: 'Antigravity đổi về tài khoản cũ',
+      body: 'Lúc 14:10 Antigravity.app đổi về Ultra 1. Bạn đã chuyển sang Ultra 2 lúc 13:50.',
+      actions: [
+        { id: 'agy:quitFirst:2', label: 'Thoát app rồi chuyển lại' },
+        { id: 'agy:keepRunning:2', label: 'Chuyển lại' },
+        { id: 'agy:keep', label: 'Thôi' },
+      ],
+      at: 1768547400,
+    },
+    notified: true,
+    answer: null,
+    ...over,
+  };
+}
+
+/** Firstmate's file is set and was written a minute ago: the pool has room. */
+export function firstmateFixture(over: Partial<FirstmateView> = {}): FirstmateView {
+  return {
+    file: '~/example/quota-pool.last',
+    status: 'ok',
+    line: {
+      fork: true,
+      autoSwitcher: false,
+      claudeSwap: true,
+      active: 2,
+      dry: false,
+      slots: [
+        { slot: 1, percent: 29, reset: false },
+        { slot: 2, percent: 0, reset: false },
+        { slot: 3, percent: 100, reset: false },
+        { slot: 4, percent: 98, reset: false },
+      ],
+      nextReset: null,
+    },
+    writtenAt: '2026-01-16T07:19:40.000Z',
+    fresh: true,
+    ownDry: false,
+    ...over,
+  };
+}
+
+/**
+ * A morning on this Mac, newest first as the Rust side sends them (UTC+7): a manual
+ * switch, an Antigravity switch Antigravity.app undid, the switcher's switch and prime,
+ * and a change seen last night that nothing here made.
+ */
+export function historyFixture(): HistoryEntry[] {
+  return [
+    {
+      at: '2026-01-16T07:12:00Z',
+      app: 'claude',
+      source: 'app',
+      from: 3,
+      to: 2,
+      cause: { kind: 'manual', holdUntil: '2026-01-16T08:20:00Z', result: 'switched' },
+    },
+    {
+      at: '2026-01-16T06:40:00Z',
+      app: 'antigravity',
+      source: 'observed',
+      from: 2,
+      to: 1,
+      cause: { kind: 'agyOverwrite', overwrites: 1 },
+    },
+    {
+      at: '2026-01-16T06:20:00Z',
+      app: 'antigravity',
+      source: 'app',
+      from: 1,
+      to: 2,
+      cause: { kind: 'agySwitch', how: 'quitFirst', result: 'switched', reopened: true },
+    },
+    {
+      at: '2026-01-16T02:12:05Z',
+      app: 'claude',
+      source: 'switcher',
+      from: null,
+      to: 3,
+      cause: {
+        kind: 'switcher',
+        why: { kind: 'room', used: 4, ends: '15:00' },
+        raw: '2026-01-16 09:12:05 switch to slot 3 (4.0%, ends 15:00)',
+      },
+    },
+    {
+      at: '2026-01-16T01:01:00Z',
+      app: 'claude',
+      source: 'switcher',
+      from: null,
+      to: 3,
+      cause: { kind: 'primed', raw: '2026-01-16 08:01:00 primed slot 3 (exit 0)' },
+    },
+    { at: '2026-01-15T15:47:00Z', app: 'claude', source: 'observed', from: 2, to: 1, cause: { kind: 'observed' } },
+  ];
+}
+
 export function fixtureModel(name: string, over: Partial<Model> = {}): Model {
   const snapshot = SNAPSHOTS[name];
   if (!snapshot) throw new Error('no snapshot fixture ' + name);
@@ -131,6 +285,8 @@ export function fixtureModel(name: string, over: Partial<Model> = {}): Model {
     showEmail: false,
     antigravity: agyFixture(),
     agySwitch: { busy: null, listed: false, overwritten: null },
+    alerts: alertsFixture(),
+    firstmate: { file: null, status: 'notSet', line: null, writtenAt: null, fresh: false, ownDry: false },
     ...over,
   };
 }

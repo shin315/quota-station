@@ -135,6 +135,14 @@ pub struct SwapSlot {
     pub resets_at: Option<String>,
     #[serde(default)]
     pub scopes: Vec<Scope>,
+    /// claude-swap's last fetch error for the slot (`invalid_grant`,
+    /// `http-429`), or why no reading could be used (`no_reading`).
+    #[serde(default)]
+    pub error: Option<String>,
+    /// When the slot's login itself ends (claude-swap's `loginExpiresAt`),
+    /// for a quota-axi that passes it through.
+    #[serde(default)]
+    pub login_expires_at: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

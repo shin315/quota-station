@@ -3,7 +3,8 @@
 //! flag on every read, and the dry run, log and launchd while a window is
 //! open or after the owner acted. Each read also wakes the Antigravity
 //! quota thread for the account in use, and each Antigravity reading goes
-//! to the six-hour watch after an Antigravity switch.
+//! to the six-hour watch after an Antigravity switch. After each read the
+//! history and the alerts look at the new numbers (`alerting`).
 
 use std::path::{Path, PathBuf};
 use std::thread;
@@ -97,6 +98,7 @@ fn run(app: &AppHandle, state: &AppState) {
         inner.agy_pace.cycle();
         drop(inner);
         state.wake_agy();
+        crate::alerting::after_read(state);
         publish(app, state);
 
         if let Ok(check) = switcher.join() {

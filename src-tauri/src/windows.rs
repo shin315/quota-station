@@ -62,6 +62,18 @@ pub fn toggle_popover(app: &AppHandle) {
     update_visible(app);
 }
 
+/// Shows the popover under the menu bar item, for a button on a macOS card
+/// that opens a switch sheet there.
+pub fn show_popover(app: &AppHandle) {
+    let Some(window) = popover(app) else { return };
+    if !window.is_visible().unwrap_or(false) {
+        let _ = window.move_window_constrained(Position::TrayBottomCenter);
+        let _ = window.show();
+    }
+    let _ = window.set_focus();
+    update_visible(app);
+}
+
 pub fn hide_popover(app: &AppHandle) {
     if let Some(window) = popover(app) {
         let _ = window.hide();

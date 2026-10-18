@@ -374,8 +374,123 @@ export interface AgySwitchView {
   overwritten: AgyOverwrite | null;
 }
 
+// ===== History, alerts and Firstmate (M6) =====
+
+/** Where a history line comes from (`quota-station-core::history::Source`). */
+export type HistorySource = 'app' | 'switcher' | 'observed';
+
+export type HistoryCause =
+  /** The owner switched Claude in this app; `result` is what the check after it found. */
+  | { kind: 'manual'; holdUntil: string | null; result: 'switched' | 'raced' | 'unconfirmed' | string }
+  | { kind: 'switcher'; why: Why; raw: string }
+  /** The switcher started a five-hour window early. */
+  | { kind: 'primed'; raw: string }
+  /** The account in use changed between two readings, and nothing here or in the switcher's log switched it. */
+  | { kind: 'observed' }
+  | { kind: 'agySwitch'; how: AgyHow; result: 'switched' | 'unconfirmed' | string; reopened: boolean | null }
+  /** Antigravity.app wrote the old login back after a switch. */
+  | { kind: 'agyOverwrite'; overwrites: number };
+
+/** One line of the History tab (`quota-station-core::history::Entry`). */
+export interface HistoryEntry {
+  /** RFC 3339. */
+  at: string;
+  app: 'claude' | 'antigravity';
+  source: HistorySource;
+  from: number | null;
+  /** Null for an Antigravity account no longer logged in here. */
+  to: number | null;
+  cause: HistoryCause;
+}
+
+export type AlertKind = 'pool' | 'leaving' | 'login' | 'overwrite' | 'firstmate';
+export type AlertTone = 'ok' | 'warn' | 'bad' | 'info';
+
+export interface AlertAct {
+  /** `dismiss`, `snooze`, `switch:N`, `agy:keep`, `agy:<how>:N`, `agy:login` or `agy:verify:N`. */
+  id: string;
+  label: string;
+}
+
+/** One alert, as the macOS card shows it (`quota-station-core::alerts::Alert`). */
+export interface Alert {
+  key: string;
+  kind: AlertKind;
+  tone: AlertTone;
+  title: string;
+  body: string;
+  actions: AlertAct[];
+  /** Unix seconds. */
+  at: number;
+  /** Sent with "Gửi thử": its buttons change nothing. */
+  test?: boolean;
+}
+
+export interface AlertSaid {
+  tone: AlertTone;
+  title: string;
+  body: string;
+}
+
+export interface AlertAnswer {
+  action: string;
+  label: string;
+  /** Unix seconds. */
+  at: number;
+  /** Null while a switch back runs. */
+  result: AlertSaid | null;
+}
+
+export interface AlertRecord {
+  /** The card's id, the same on the macOS card. */
+  id: string;
+  alert: Alert;
+  /** macOS took the card. */
+  notified: boolean;
+  answer: AlertAnswer | null;
+}
+
+export type AlertSwitches = Record<AlertKind, boolean>;
+
+/** `unbundled`: the app does not run as a packaged `.app`, so macOS shows no cards. */
+export type NotifyPermission = 'unknown' | 'allowed' | 'denied' | 'unbundled';
+
+export interface AlertsView {
+  /** Newest first. */
+  recent: AlertRecord[];
+  switches: AlertSwitches;
+  /** Cards with buttons nobody pressed yet. */
+  unanswered: number;
+  permission: NotifyPermission;
+}
+
+/** Firstmate's `quota-pool.last`, in parts (`quota-station-core::firstmate::PoolLine`). */
+export interface PoolLine {
+  fork: boolean | null;
+  autoSwitcher: boolean | null;
+  claudeSwap: boolean | null;
+  active: number | null;
+  /** `pool=dry`: Firstmate holds new Claude work. */
+  dry: boolean | null;
+  slots: { slot: number; percent: number | null; reset: boolean }[];
+  nextReset: string | null;
+}
+
+export interface FirstmateView {
+  /** `~/…`; null when not set. */
+  file: string | null;
+  status: 'notSet' | 'ok' | 'missing' | 'notPlain' | 'notPoolFile' | 'unreadable';
+  line: PoolLine | null;
+  /** When Firstmate last wrote it, RFC 3339. */
+  writtenAt: string | null;
+  /** Written within 30 minutes: Firstmate is running. */
+  fresh: boolean;
+  /** The same dry rule, counted by the app from quota-axi's numbers. */
+  ownDry: boolean | null;
+}
+
 /** The main window's tabs in this build (`src-tauri/src/state.rs` `Tab`). */
-export type Tab = 'overview' | 'claude' | 'agy' | 'rules' | 'settings';
+export type Tab = 'overview' | 'claude' | 'agy' | 'rules' | 'history' | 'alerts' | 'firstmate' | 'settings';
 
 export interface Model {
   snapshot: Snapshot;
@@ -395,4 +510,8 @@ export interface Model {
   showEmail: boolean;
   antigravity: AgyAccounts;
   agySwitch: AgySwitchView;
+  /** The five alerts (M6). */
+  alerts: AlertsView;
+  /** What Firstmate sees (M6). */
+  firstmate: FirstmateView;
 }

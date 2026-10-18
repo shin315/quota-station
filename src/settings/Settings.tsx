@@ -1,14 +1,18 @@
 // The Cài đặt tab of the main window: where quota-axi is, Keychain access
 // for quota-axi, this Mac's name, the other Macs the rotation file is
-// copied to (an SSH alias each), the Antigravity OAuth client file and
-// whether emails show. Rows and copy come from the prototype's Cài đặt tab.
+// copied to (an SSH alias each), the Antigravity OAuth client file,
+// whether emails show, Firstmate's state file and the macOS notifications
+// with the five kinds of alert (M6). Rows and copy come from the
+// prototype's Cài đặt tab.
 // Each Mac runs its own copy and switches only itself; login, refresh,
 // theme and Codex come in later milestones.
 
 import { useState } from 'react';
+import { AlertKinds } from '../alerts/AlertsTab';
 import { Button, Chip, Dot, Feedback, Toggle } from '../components/parts';
+import { PERMISSION_CHIPS, UNREAD } from '../lib/alerts';
 import type { ChipView } from '../lib/view';
-import type { ClientStatus, Model, Peer, PeerTest } from '../lib/model';
+import type { AlertKind, ClientStatus, Model, Peer, PeerTest } from '../lib/model';
 import type { Action, FeedbackView, PopoverView } from '../lib/view';
 
 export interface SettingsProps {
@@ -26,6 +30,10 @@ export interface SettingsProps {
   onSetPeers(peers: Peer[]): Promise<string | null>;
   onTestPeer(alias: string): Promise<PeerTest>;
   onShowEmail(on: boolean): void;
+  /** Resolves to null once saved, else the refusal (`notPoolFile`, `notFound`). */
+  onSetFirstmate(path: string): Promise<string | null>;
+  onTestAlert(kind: AlertKind): void;
+  onAlertSwitch(kind: AlertKind, on: boolean): void;
 }
 
 const CLIENT_CHIPS: Record<ClientStatus, ChipView> = {
@@ -223,7 +231,98 @@ function OtherMacs({ model, onSet, onTest }: { model: Model; onSet: SettingsProp
   );
 }
 
-export function Settings({ model, fresh, feedback, onAction, onSetPath, onFind, onGrant, onSetMachine, onSetPeers, onTestPeer, onShowEmail }: SettingsProps) {
+const FIRSTMATE_REFUSED: Record<string, string> = {
+  notPoolFile: UNREAD.notPoolFile,
+  notFound: 'Không có file ở đường dẫn này.',
+};
+
+function firstmateHint(model: Model, refused: string | null): { tone: 'ok' | 'bad' | ''; text: string } {
+  if (refused) return { tone: 'bad', text: FIRSTMATE_REFUSED[refused] ?? 'Chưa lưu được: ' + refused };
+  const f = model.firstmate;
+  switch (f.status) {
+    case 'notSet':
+      return { tone: '', text: 'Để trống nếu máy này không có firstmate.' };
+    case 'ok':
+      return f.fresh ? { tone: 'ok', text: 'Đọc được ✓' } : { tone: '', text: 'Đọc được, nhưng firstmate chưa ghi lại file trong 30 phút qua.' };
+    case 'missing':
+      return { tone: 'bad', text: 'Không có file ở đường dẫn này.' };
+    default:
+      return { tone: 'bad', text: UNREAD[f.status] ?? UNREAD.unreadable };
+  }
+}
+
+/** Firstmate's `quota-pool.last`: no path is built in, the owner sets it. */
+function FirstmateFile({ model, onSet }: { model: Model; onSet: SettingsProps['onSetFirstmate'] }) {
+  const [path, setPath] = useField(model.firstmate.file ?? '');
+  const [refused, setRefused] = useState<string | null>(null);
+  const commit = async () => {
+    if (path.trim() === (model.firstmate.file ?? '')) return setRefused(null);
+    setRefused(await onSet(path.trim()));
+  };
+  const hint = firstmateHint(model, refused);
+  return (
+    <div className="fr">
+      <label htmlFor="qs-fm">
+        File của firstmate<small>quota-pool.last, firstmate ghi sau mỗi lần kiểm hạn mức</small>
+      </label>
+      <div>
+        <input
+          id="qs-fm"
+          className={'inp mono' + (hint.tone === 'bad' ? ' bad' : '')}
+          value={path}
+          placeholder="đường dẫn tới quota-pool.last"
+          spellCheck={false}
+          autoComplete="off"
+          onChange={(e) => {
+            setPath(e.target.value);
+            setRefused(null);
+          }}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void commit();
+          }}
+        />
+        {hint.text ? <div className={('fhint ' + hint.tone).trim()}>{hint.text}</div> : null}
+      </div>
+    </div>
+  );
+}
+
+function Notifications(props: { model: Model; onAction: SettingsProps['onAction']; onTest: SettingsProps['onTestAlert']; onSwitch: SettingsProps['onAlertSwitch'] }) {
+  const a = props.model.alerts;
+  return (
+    <div className="fr">
+      <div className="fl">
+        Thông báo<small>Thẻ macOS có nút cho năm loại cảnh báo. Gửi thử để xem thẻ trông thế nào</small>
+      </div>
+      <div>
+        <Chip chip={PERMISSION_CHIPS[a.permission]} />{' '}
+        {a.permission === 'denied' ? <Button onClick={() => props.onAction('notify:settings')}>Mở Cài đặt hệ thống</Button> : null}
+        {a.permission === 'unbundled' ? <div className="fhint">Chỉ app đã đóng gói mới gửi được thẻ macOS. Cảnh báo vẫn có ở tab Cảnh báo.</div> : null}
+        <div style={{ marginTop: 6 }}>
+          <AlertKinds switches={a.switches} testOff={a.permission === 'denied'} onTest={props.onTest} onSwitch={props.onSwitch} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function Settings({
+  model,
+  fresh,
+  feedback,
+  onAction,
+  onSetPath,
+  onFind,
+  onGrant,
+  onSetMachine,
+  onSetPeers,
+  onTestPeer,
+  onShowEmail,
+  onSetFirstmate,
+  onTestAlert,
+  onAlertSwitch,
+}: SettingsProps) {
   const [path, setPath] = useField(model.quotaAxi.path ?? '');
   const [refused, setRefused] = useState(false);
 
@@ -319,6 +418,8 @@ export function Settings({ model, fresh, feedback, onAction, onSetPath, onFind, 
               <Toggle on={model.showEmail} label="Hiện email" onClick={() => onShowEmail(!model.showEmail)} />
             </div>
           </div>
+          <FirstmateFile model={model} onSet={onSetFirstmate} />
+          <Notifications model={model} onAction={onAction} onTest={onTestAlert} onSwitch={onAlertSwitch} />
         </div>
       </div>
     </>

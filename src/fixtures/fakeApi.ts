@@ -4,7 +4,27 @@
 // Plain code: the preview bundle must not load Vitest.
 
 import type { Api } from '../lib/api';
-import type { AgyApp, AgyHow, AgyLogin, AgyLoginDone, AgyLoginFailure, AgyOutcome, Model, Outcome, PeerView, RotationView, RulesError, Sessions, Tab } from '../lib/model';
+import type {
+  AgyApp,
+  AgyHow,
+  AgyLogin,
+  AgyLoginDone,
+  AgyLoginFailure,
+  AgyOutcome,
+  Alert,
+  AlertKind,
+  AlertRecord,
+  AlertSaid,
+  FirstmateView,
+  HistoryEntry,
+  Model,
+  Outcome,
+  PeerView,
+  RotationView,
+  RulesError,
+  Sessions,
+  Tab,
+} from '../lib/model';
 
 export interface FakeOptions {
   /** Aliases SSH cannot reach: a save leaves them behind, and "Thử SSH" fails. */
@@ -35,7 +55,32 @@ export interface FakeOptions {
   agyOutcome?: (number: number, how: AgyHow) => AgyOutcome;
   /** How long an Antigravity switch takes before it reports. */
   agySwitchDelayMs?: number;
+  /** The History tab's lines; none by default. */
+  history?: HistoryEntry[];
+  /** What a `quota-pool.last` set in Cài đặt reads as; without it a path finds no file. */
+  firstmate?: FirstmateView;
 }
+
+const said = (title: string, body: string): AlertSaid => ({ tone: 'info', title, body });
+
+/** The sample "Gửi thử" sends: modelled on the Rust side's `alerts::sample`, with shorter words. */
+function sample(kind: AlertKind, at: number): Alert {
+  const base = { key: 'test:' + kind + ':' + at, kind, at, test: true };
+  switch (kind) {
+    case 'pool':
+      return { ...base, tone: 'bad', title: 'Hạn mức Claude trong vòng sắp cạn', body: 'Thử: còn tương đương 0,4 tài khoản.', actions: [{ id: 'switch:0', label: 'Sang Cá nhân (còn 19%)' }, { id: 'dismiss', label: 'Thôi' }] };
+    case 'leaving':
+      return { ...base, tone: 'warn', title: 'Team A rời vòng sau 30 phút', body: 'Thử: còn 30 phút.', actions: [{ id: 'dismiss', label: 'Ổn' }, { id: 'switch:0', label: 'Chuyển ngay' }] };
+    case 'login':
+      return { ...base, tone: 'warn', title: 'Team B cần đăng nhập lại', body: 'Thử: đăng nhập hết hạn sau 2 ngày.', actions: [{ id: 'snooze', label: 'Nhắc ngày mai' }, { id: 'dismiss', label: 'Đã biết' }] };
+    case 'overwrite':
+      return { ...base, tone: 'warn', title: 'Antigravity đổi về tài khoản cũ', body: 'Thử: Antigravity.app đổi về Ultra 1.', actions: [{ id: 'agy:quitFirst:0', label: 'Thoát app rồi chuyển lại' }, { id: 'agy:keepRunning:0', label: 'Chuyển lại' }, { id: 'agy:keep', label: 'Thôi' }] };
+    case 'firstmate':
+      return { ...base, tone: 'info', title: 'Firstmate đang chờ hạn mức Claude', body: 'Thử: hạn mức trong vòng dưới ngưỡng.', actions: [] };
+  }
+}
+
+const unanswered = (recent: AlertRecord[]) => recent.filter((r) => !r.alert.test && !r.answer && r.alert.actions.length).length;
 
 /** The made-up email of a fake account. */
 export function fakeEmail(number: number): string {
@@ -67,6 +112,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
   const listeners = new Set<(m: Model) => void>();
   const tabListeners = new Set<(t: Tab) => void>();
   const closeListeners = new Set<() => void>();
+  const openSwitchListeners = new Set<(slot: number) => void>();
   const quitListeners = new Set<() => void>();
   /** What the last `closeMain` did: the tests check a quit really quits. */
   let closed: 'window' | 'app' | null = null;
@@ -318,6 +364,100 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       push({ ...model, agySwitch: { ...model.agySwitch, overwritten: null } });
       return model;
     },
+    alertAction: async (id, action) => {
+      const record = model.alerts.recent.find((r) => r.id === id);
+      if (!record) throw 'unknown';
+      if (record.answer) throw 'answered';
+      const pressed = record.alert.actions.find((a) => a.id === action);
+      if (!pressed) throw 'noSuchAction';
+      const at = Math.floor(now().getTime() / 1000);
+      let result: AlertSaid | null;
+      let openSwitch: number | null = null;
+      let switchBack: { number: number; how: AgyHow } | null = null;
+      const agy = /^agy:(plain|quitFirst|keepRunning):(\d+)$/.exec(action);
+      if (record.alert.test) result = said('Thông báo thử', 'Bạn đã bấm “' + pressed.label + '”. Thông báo thử không làm gì cả.');
+      else if (action === 'dismiss')
+        result =
+          record.alert.kind === 'pool'
+            ? said('Đã bỏ qua cảnh báo này', 'Không lặp lại cho cùng sự kiện. Quota Station báo lại khi hạn mức trong vòng có lại.')
+            : said('Đã ghi nhận', record.alert.kind === 'leaving' ? 'Không nhắc lại cho lần rời vòng này.' : 'Không nhắc lại cho lần này.');
+      else if (action === 'snooze') result = said('Sẽ nhắc lại lúc 09:00 ngày mai', 'Thứ Bảy 17/01.');
+      else if (action === 'agy:keep') result = said('Đã bỏ qua', 'Antigravity giữ tài khoản đang dùng. App thôi canh lần chuyển này.');
+      else if (action === 'agy:login') {
+        result = said('Đã mở tab Antigravity', 'Bấm Đăng nhập lại ở dòng của tài khoản này.');
+        // The Rust side opens the main window on the Antigravity tab.
+        tab = 'agy';
+        tabListeners.forEach((l) => l('agy'));
+      }
+      else if (action.startsWith('agy:verify:')) result = said('Đã mở trang xác minh', 'Trang của Google mở trong trình duyệt.');
+      else if (action.startsWith('switch:')) {
+        result = said('Đã mở tấm hỏi chuyển', 'Xác nhận trên tấm để chuyển. Chưa có gì thay đổi.');
+        openSwitch = Number(action.slice('switch:'.length));
+      } else if (agy) {
+        result = null;
+        switchBack = { number: Number(agy[2]), how: agy[1] as AgyHow };
+      } else throw 'noSuchAction';
+      const answer = (r: AlertSaid | null) => {
+        const recent = model.alerts.recent.map((x) =>
+          x.id === id ? { ...x, answer: { action, label: pressed.label, at, result: r } } : x,
+        );
+        push({
+          ...model,
+          alerts: { ...model.alerts, recent, unanswered: unanswered(recent) },
+          agySwitch: action === 'agy:keep' ? { ...model.agySwitch, overwritten: null } : model.agySwitch,
+        });
+      };
+      answer(result);
+      if (switchBack) {
+        const n = switchBack.number;
+        // The same switch as the sheet's: busy, then the account in use, the watch over.
+        push({ ...model, agySwitch: { ...model.agySwitch, busy: n } });
+        if (options.agySwitchDelayMs) await new Promise((r) => setTimeout(r, options.agySwitchDelayMs));
+        const g = model.snapshot.agy;
+        push({
+          ...model,
+          snapshot: { ...model.snapshot, agy: { ...g, accounts: g.accounts.map((a) => ({ ...a, active: a.number === n })) } },
+          agySwitch: { ...model.agySwitch, busy: null, overwritten: null },
+        });
+        answer({
+          tone: 'ok',
+          title: 'Đã chuyển lại sang Ultra ' + n,
+          body:
+            switchBack.how === 'quitFirst'
+              ? 'Antigravity.app đã mở lại với tài khoản này.'
+              : 'Antigravity.app vẫn mở nên có thể đổi về lần nữa. Nếu vậy, app báo thêm.',
+        });
+      }
+      return { openSwitch };
+    },
+    testAlert: async (kind) => {
+      const alert = sample(kind, Math.floor(now().getTime() / 1000));
+      const record: AlertRecord = { id: alert.key + '@' + alert.at, alert, notified: model.alerts.permission === 'allowed', answer: null };
+      const recent = [record, ...model.alerts.recent.filter((r) => r.id !== record.id)].slice(0, 30);
+      push({ ...model, alerts: { ...model.alerts, recent, unanswered: unanswered(recent) } });
+      return model;
+    },
+    setAlertSwitch: async (kind, on) => {
+      push({ ...model, alerts: { ...model.alerts, switches: { ...model.alerts.switches, [kind]: on } } });
+      return model;
+    },
+    setFirstmateFile: async (path) => {
+      if (!path.trim()) {
+        push({ ...model, firstmate: { file: null, status: 'notSet', line: null, writtenAt: null, fresh: false, ownDry: model.firstmate.ownDry } });
+        return model;
+      }
+      if (!/(^|\/)quota-pool\.last$/.test(path.trim())) throw 'notPoolFile';
+      if (!options.firstmate) throw 'notFound';
+      push({ ...model, firstmate: { ...options.firstmate, file: path.trim() } });
+      return model;
+    },
+    getHistory: async () => options.history ?? [],
+    notifyRefresh: async () => {},
+    openNotificationSettings: async () => {},
+    onOpenSwitch: async (handler) => {
+      openSwitchListeners.add(handler);
+      return () => openSwitchListeners.delete(handler);
+    },
     setShowEmail: async (on) => {
       push({ ...model, showEmail: on, antigravity: agy({ accounts: accounts(model.antigravity.accounts, on) }) });
       return model;
@@ -338,5 +478,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
     quitPending = true;
     quitListeners.forEach((l) => l());
   };
-  return { api, push, current: () => model, requestClose, requestQuit, closed: () => closed };
+  /** A button on a macOS card that opens the popover's switch sheet. */
+  const cardOpensSwitch = (slot: number) => openSwitchListeners.forEach((l) => l(slot));
+  return { api, push, current: () => model, requestClose, requestQuit, closed: () => closed, cardOpensSwitch };
 }

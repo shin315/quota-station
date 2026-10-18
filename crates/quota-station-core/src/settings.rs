@@ -1,12 +1,14 @@
 //! The app's own settings file, `settings.json` in its Application Support
 //! folder: the quota-axi path, the name this Mac goes by, the other Macs
-//! the rotation file is copied to, and whether emails show.
+//! the rotation file is copied to, whether emails show, which alerts are on
+//! and where Firstmate's state file is.
 
 use std::io;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+use crate::alerts::Switches;
 use crate::peers;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -25,6 +27,13 @@ pub struct Settings {
     /// default: accounts go by number.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub show_email: bool,
+    /// Which of the five alerts are on.
+    #[serde(default, skip_serializing_if = "Switches::is_default")]
+    pub alerts: Switches,
+    /// Firstmate's `quota-pool.last`, set by the user; `None` on a Mac
+    /// without Firstmate.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub firstmate_file: Option<PathBuf>,
 }
 
 /// Another of the owner's Macs.
@@ -53,6 +62,10 @@ struct Stored {
     ssh_alias: Option<String>,
     #[serde(default)]
     show_email: bool,
+    #[serde(default)]
+    alerts: Switches,
+    #[serde(default)]
+    firstmate_file: Option<PathBuf>,
 }
 
 impl From<Stored> for Settings {
@@ -85,6 +98,8 @@ impl From<Stored> for Settings {
             machine_name: s.machine_name,
             peers,
             show_email: s.show_email,
+            alerts: s.alerts,
+            firstmate_file: s.firstmate_file,
         }
     }
 }
