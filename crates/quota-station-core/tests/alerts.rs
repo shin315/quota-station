@@ -17,6 +17,7 @@ use quota_station_core::antigravity::switch::How;
 use quota_station_core::antigravity::watch;
 use quota_station_core::axi::{self, Response};
 use quota_station_core::firstmate;
+use quota_station_core::rotation::{Expire, Rules};
 use serde_json::{json, Value};
 use time::{OffsetDateTime, UtcOffset};
 
@@ -50,8 +51,12 @@ fn slot(n: u32, left: f64, active: bool) -> Value {
 /// A `--provider claude` report with claude-swap's slots and the rotation
 /// Team 2 3 4, Cá nhân 1 from 8 to 23, and `expire` entries.
 fn report(slots: Vec<Value>, expire: Vec<(u32, i64)>, room: f64) -> Response {
+    axi::parse(&report_value(slots, expire, room).to_string()).expect("synthetic report parses")
+}
+
+fn report_value(slots: Vec<Value>, expire: Vec<(u32, i64)>, room: f64) -> Value {
     let active = slots.iter().find(|s| s["active"] == true).and_then(|s| s["slot"].as_u64());
-    let text = json!({
+    json!({
         "generatedAt": "2026-01-16T07:20:00.000Z",
         "schemaVersion": 6,
         "providers": [{
@@ -69,7 +74,14 @@ fn report(slots: Vec<Value>, expire: Vec<(u32, i64)>, room: f64) -> Response {
                 "scopes": [{ "scope": "all_models", "effectivePercentRemaining": room * 25.0, "slotsOfRoom": room, "slots": [] }]
             }
         }]
-    });
+    })
+}
+
+/// The same report from a quota-axi that does not give the rotation: the
+/// app then reads the rotation file itself.
+fn report_without_rotation(slots: Vec<Value>) -> Response {
+    let mut text = report_value(slots, vec![], 2.0);
+    text["providers"][0]["claudePool"]["rotation"] = Value::Null;
     axi::parse(&text.to_string()).expect("synthetic report parses")
 }
 
@@ -253,6 +265,23 @@ fn an_account_leaving_the_rotation_is_told_thirty_minutes_before() {
 }
 
 #[test]
+fn without_quota_axi_s_rotation_the_rotation_file_says_who_leaves() {
+    let center = FakeCenter::default();
+    let mut memory = Memory::default();
+    let ends = T0 + HOUR;
+    let r = report_without_rotation(vec![slot(2, 60.0, true), slot(3, 90.0, false)]);
+    let rules = Rules { expire: vec![Expire { slot: 2, at: rfc(ends) }], ..Rules::defaults() };
+    let mut f = facts(ends - 30 * MIN, Some(&r));
+    f.rules = Some(&rules);
+    run(&mut memory, &f, &center);
+    let card = center.last();
+    assert_eq!(card.kind, Kind::Leaving);
+    // Named as the windows name it without quota-axi's rotation.
+    assert_eq!(card.title, "Tài khoản 2 rời vòng lúc 15:20");
+    assert_eq!(labels(&card.actions), ["Ổn", "Chuyển ngay"]);
+}
+
+#[test]
 fn a_claude_login_ending_within_three_days_or_refused_asks_for_a_new_login() {
     let center = FakeCenter::default();
     let mut memory = Memory::default();
@@ -298,6 +327,19 @@ fn a_claude_login_ending_within_three_days_or_refused_asks_for_a_new_login() {
     assert!(card.body.contains("(invalid_grant)"), "{}", card.body);
     // A passing 429 is not a login to renew.
     assert!(!center.titles().iter().any(|t| t.starts_with("Cá nhân")));
+
+    // Any other error that asks for a new login goes on the card as a code,
+    // never as claude-swap's own words.
+    let mut e = slot(3, 0.0, false);
+    e["error"] = json!("Relogin required for owner@example.com: token revoked");
+    let r = report(vec![slot(2, 60.0, true), e], vec![], 2.0);
+    run(&mut memory, &facts(T0 + MIN, Some(&r)), &center);
+    let card = center.last();
+    assert_eq!(card.title, "Team B cần đăng nhập lại");
+    assert!(card.body.contains("(relogin)"), "{}", card.body);
+    assert!(!format!("{card:?}").contains("example.com"), "{card:?}");
+    assert_eq!(alerts::relogin_code(" INVALID_GRANT "), Some("invalid_grant"));
+    assert_eq!(alerts::relogin_code("http-429"), None);
 }
 
 #[test]
@@ -513,22 +555,32 @@ fn a_card_takes_one_answer_whichever_card_was_pressed() {
     let r = report(vec![slot(2, 60.0, true), slot(3, 90.0, false)], vec![(2, ends)], 2.0);
     run(&mut memory, &facts(T0, Some(&r)), &center);
     let card = center.last();
-    // In the app first, then the macOS card.
+    // In the app first: the macOS card is withdrawn, it has nothing left to ask.
     assert_eq!(
-        alerts::answer(&mut memory, &card.id, "dismiss", T0 + MIN, offset()),
+        alerts::answer_in_app(&mut memory, &card.id, "dismiss", T0 + MIN, offset(), &center),
         Ok(Effect::None)
     );
+    assert_eq!(*center.withdrawn.lock().unwrap(), vec![card.id.clone()]);
     let said = memory.record(&card.id).unwrap().answer.clone().unwrap().result.unwrap();
     assert_eq!(said.title, "Đã ghi nhận");
+    // Then the macOS card, pressed before it went: refused, nothing else withdrawn.
     assert_eq!(
         alerts::answer(&mut memory, &card.id, "switch:3", T0 + 2 * MIN, offset()),
         Err(alerts::AnswerError::Answered)
     );
     assert_eq!(
-        alerts::answer(&mut memory, "nope", "dismiss", T0, offset()),
+        alerts::answer_in_app(&mut memory, "nope", "dismiss", T0, offset(), &center),
         Err(alerts::AnswerError::Unknown)
     );
+    assert_eq!(center.withdrawn.lock().unwrap().len(), 1);
     assert_eq!(memory.unanswered(), 0);
+
+    // A button on the macOS card leaves that card to macOS.
+    let r = report(vec![slot(2, 60.0, true), slot(4, 90.0, false)], vec![(4, ends)], 2.0);
+    run(&mut memory, &facts(T0 + 5 * MIN, Some(&r)), &center);
+    let other = center.last();
+    center.press(&mut memory, &other, "Ổn", T0 + 6 * MIN);
+    assert_eq!(center.withdrawn.lock().unwrap().len(), 1);
 }
 
 #[test]

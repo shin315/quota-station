@@ -605,26 +605,29 @@ fn leaving_alerts(
     f: &Facts,
 ) -> Vec<Alert> {
     let now = f.now.unix_timestamp();
-    let Some(rotation) = report
+    // quota-axi's rotation, else the rotation file this Mac reads, as for the pool.
+    let expire: Vec<(u32, &str)> = match report
         .primary("claude")
         .and_then(|r| r.claude_pool.as_ref())
         .and_then(|p| p.rotation.as_ref())
-    else {
-        return Vec::new();
+    {
+        Some(r) => r.expire.iter().map(|e| (e.slot, e.at.as_str())).collect(),
+        None => f
+            .rules
+            .map_or_else(Vec::new, |r| r.expire.iter().map(|e| (e.slot, e.at.as_str())).collect()),
     };
     let active = check.and_then(|c| c.active);
-    rotation
-        .expire
-        .iter()
-        .filter_map(|e| {
-            let at = instant(&e.at)?.unix_timestamp();
+    expire
+        .into_iter()
+        .filter_map(|(slot, at)| {
+            let at = instant(at)?.unix_timestamp();
             if !(now < at && at - now <= LEAVING_BEFORE) {
                 return None;
             }
-            let name = name_of(names, e.slot);
+            let name = name_of(names, slot);
             let mut body = format!("Còn {}.", span(at - now));
             let mut actions = vec![act("dismiss", "Ổn")];
-            if active == Some(e.slot) {
+            if active == Some(slot) {
                 body += " Sau đó switcher chuyển sang tài khoản khác trong vòng.";
                 if let Some((slot, _)) = check.and_then(PoolCheck::best_other) {
                     actions.push(act(format!("switch:{slot}"), "Chuyển ngay"));
@@ -633,7 +636,7 @@ fn leaving_alerts(
                 body += " Sau đó tài khoản này không còn trong vòng.";
             }
             Some(Alert {
-                key: format!("leave:{}:{}", e.slot, at),
+                key: format!("leave:{slot}:{at}"),
                 kind: Kind::Leaving,
                 tone: Tone::Warn,
                 title: format!("{name} rời vòng lúc {}", clock(at, f.offset)),
@@ -646,10 +649,22 @@ fn leaving_alerts(
         .collect()
 }
 
-/// A claude-swap error that only a new login mends.
-pub fn relogin_error(error: &str) -> bool {
+/// A claude-swap error that only a new login mends, as one of the known
+/// codes (`relogin` for any other that asks for one). The card and its key
+/// carry only this code, never claude-swap's own text.
+pub fn relogin_code(error: &str) -> Option<&'static str> {
     let e = error.trim().to_ascii_lowercase();
-    RELOGIN_ERRORS.contains(&e.as_str()) || e.contains("relogin") || e.contains("re-login")
+    if let Some(code) = RELOGIN_ERRORS.iter().find(|c| **c == e) {
+        Some(code)
+    } else if e.contains("relogin") || e.contains("re-login") {
+        Some("relogin")
+    } else {
+        None
+    }
+}
+
+pub fn relogin_error(error: &str) -> bool {
+    relogin_code(error).is_some()
 }
 
 const CLAUDE_RELOGIN: &str = "Đăng nhập lại bằng claude-swap trong Terminal.";
@@ -692,7 +707,7 @@ fn login_alerts(report: &Response, names: &BTreeMap<u32, String>, f: &Facts) -> 
                 at: now,
                 test: false,
             });
-        } else if let Some(error) = slot.error.as_deref().filter(|e| relogin_error(e)) {
+        } else if let Some(error) = slot.error.as_deref().and_then(relogin_code) {
             out.push(Alert {
                 key: format!("login:claude:{}:error:{error}", slot.slot),
                 kind: Kind::Login,
@@ -1066,6 +1081,21 @@ pub fn answer(
     };
     record.answer =
         Some(Answer { action: pressed.id, label: pressed.label, at: now, result: said });
+    Ok(effect)
+}
+
+/// [`answer`] for a button pressed on the card in the app: once the answer
+/// is taken, the macOS card has nothing left to ask and is withdrawn.
+pub fn answer_in_app(
+    memory: &mut Memory,
+    id: &str,
+    action: &str,
+    now: i64,
+    offset: UtcOffset,
+    center: &dyn Notifier,
+) -> Result<Effect, AnswerError> {
+    let effect = answer(memory, id, action, now, offset)?;
+    center.withdraw(id);
     Ok(effect)
 }
 

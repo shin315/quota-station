@@ -8,7 +8,7 @@ import { AgyAccounts } from './antigravity/AgyAccounts';
 import { SheetBody, type SheetState } from './components/Sheets';
 import { agyLoginOf, agySwitchErrorFeedback, agySwitchFeedback, type AppAnswer } from './lib/agySwitch';
 import type { Api } from './lib/api';
-import { alertFailedFeedback } from './lib/alerts';
+import { alertFailedFeedback, testFailedFeedback } from './lib/alerts';
 import type { AgyHow, AlertKind, Model, Sessions, Tab } from './lib/model';
 import {
   autoView,
@@ -413,7 +413,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       showFeedback(alertFailedFeedback(e));
     }
   };
-  const testAlert = (kind: AlertKind) => void api.testAlert(kind).catch(() => showFeedback(settingsFailedFeedback()));
+  const testAlert = (kind: AlertKind) => void api.testAlert(kind).catch((e: unknown) => showFeedback(testFailedFeedback(e)));
   const alertSwitch = (kind: AlertKind, on: boolean) =>
     void api.setAlertSwitch(kind, on).catch(() => showFeedback(settingsFailedFeedback()));
 

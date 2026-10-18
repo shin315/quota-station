@@ -13,7 +13,7 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
-use quota_station_core::alerts::{self, Effect, Facts, Kind, Notifier, Record, Switches};
+use quota_station_core::alerts::{self, Effect, Facts, Kind, Record, Switches};
 use quota_station_core::antigravity::desktop::Desktop;
 use quota_station_core::antigravity::fs::AppDir;
 use quota_station_core::antigravity::switch::{self as agy};
@@ -89,11 +89,7 @@ pub fn firstmate_view(inner: &Inner) -> FirstmateView {
         line: reading.map(|r| r.line.clone()),
         written_at: reading.and_then(|r| rfc(r.modified_at)),
         fresh: reading.is_some_and(|r| r.fresh(now.unix_timestamp())),
-        own_dry: inner
-            .claude
-            .as_ref()
-            .and_then(|r| alerts::pool_check(r, None, now, local_time::offset_at(now)))
-            .map(|c| c.dry),
+        own_dry: inner.own_dry,
     }
 }
 
@@ -108,6 +104,11 @@ pub fn track_history(state: &AppState) {
     let _one = state.history.lock().unwrap_or_else(|e| e.into_inner());
     let (dir, log, mut seen, claude, agy) = {
         let inner = state.lock();
+        // A switch keeps its own line when it ends, then looks again; a
+        // reading taken meanwhile is not compared.
+        if inner.switching.is_some() || inner.agy_switching.is_some() {
+            return;
+        }
         let snapshot = inner.snapshot();
         let claude = (snapshot.claude.status == SectionStatus::Ok)
             .then(|| snapshot.claude.active().map(|a| a.number))
@@ -165,6 +166,10 @@ fn evaluate(state: &AppState) {
     let before = inner.alerts.clone();
     let switches = inner.settings.alerts;
     let ids = alerts::evaluate(&mut inner.alerts, &facts, &switches);
+    inner.own_dry = claude
+        .as_ref()
+        .and_then(|r| alerts::pool_check(r, rules.as_ref(), now, facts.offset))
+        .map(|c| c.dry);
     if let Some(center) = inner.center.clone() {
         alerts::deliver(&mut inner.alerts, &ids, &*center);
     }
@@ -233,26 +238,19 @@ pub async fn press(
     on_macos: bool,
 ) -> Result<Pressed, String> {
     let now = OffsetDateTime::now_utc();
-    let (effect, dir, center) = {
+    let (at, offset) = (now.unix_timestamp(), local_time::offset_at(now));
+    let (effect, dir) = {
         let mut inner = shared.lock();
-        let effect = alerts::answer(
-            &mut inner.alerts,
-            id,
-            action,
-            now.unix_timestamp(),
-            local_time::offset_at(now),
-        )
+        let center = inner.center.clone().filter(|_| !on_macos);
+        let effect = match center {
+            Some(c) => alerts::answer_in_app(&mut inner.alerts, id, action, at, offset, &*c),
+            None => alerts::answer(&mut inner.alerts, id, action, at, offset),
+        }
         .map_err(|e| e.code().to_string())?;
         let dir = inner.app_dir();
         let _ = alerts::save(&dir, &inner.alerts);
-        (effect, dir, inner.center.clone())
+        (effect, dir)
     };
-    // Answered in the app: the macOS card has nothing left to ask.
-    if !on_macos {
-        if let Some(center) = center {
-            center.withdraw(id);
-        }
-    }
     reader::publish(app, &shared);
     match effect {
         Effect::None => {}
@@ -397,5 +395,22 @@ pub fn open_notification_settings() -> Result<(), String> {
 /// Starts the macOS notification center, with presses coming to [`on_card`].
 pub fn start_center(app: &AppHandle) -> notify::Center {
     let handle = app.clone();
-    notify::Center::start(Box::new(move |id, action| on_card(&handle, id, action)))
+    let refused = app.clone();
+    notify::Center::start(
+        Box::new(move |id, action| on_card(&handle, id, action)),
+        Arc::new(move |id| on_refused(&refused, &id)),
+    )
+}
+
+/// macOS did not post a card it was given: the card stays in the app only.
+fn on_refused(app: &AppHandle, id: &str) {
+    let shared = app.state::<AppState>().inner().clone();
+    {
+        let mut inner = shared.lock();
+        let Some(record) = inner.alerts.recent.iter_mut().find(|r| r.id == id) else { return };
+        record.notified = false;
+        let dir = inner.app_dir();
+        let _ = alerts::save(&dir, &inner.alerts);
+    }
+    reader::publish(app, &shared);
 }

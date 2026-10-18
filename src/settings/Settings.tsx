@@ -10,7 +10,7 @@
 import { useState } from 'react';
 import { AlertKinds } from '../alerts/AlertsTab';
 import { Button, Chip, Dot, Feedback, Toggle } from '../components/parts';
-import { PERMISSION_CHIPS } from '../lib/alerts';
+import { PERMISSION_CHIPS, UNREAD } from '../lib/alerts';
 import type { ChipView } from '../lib/view';
 import type { AlertKind, ClientStatus, Model, Peer, PeerTest } from '../lib/model';
 import type { Action, FeedbackView, PopoverView } from '../lib/view';
@@ -232,7 +232,7 @@ function OtherMacs({ model, onSet, onTest }: { model: Model; onSet: SettingsProp
 }
 
 const FIRSTMATE_REFUSED: Record<string, string> = {
-  notPoolFile: 'File phải tên là quota-pool.last.',
+  notPoolFile: UNREAD.notPoolFile,
   notFound: 'Không có file ở đường dẫn này.',
 };
 
@@ -246,10 +246,8 @@ function firstmateHint(model: Model, refused: string | null): { tone: 'ok' | 'ba
       return f.fresh ? { tone: 'ok', text: 'Đọc được ✓' } : { tone: '', text: 'Đọc được, nhưng firstmate chưa ghi lại file trong 30 phút qua.' };
     case 'missing':
       return { tone: 'bad', text: 'Không có file ở đường dẫn này.' };
-    case 'notPoolFile':
-      return { tone: 'bad', text: FIRSTMATE_REFUSED.notPoolFile };
     default:
-      return { tone: 'bad', text: 'Không đọc được file này.' };
+      return { tone: 'bad', text: UNREAD[f.status] ?? UNREAD.unreadable };
   }
 }
 

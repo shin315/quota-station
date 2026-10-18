@@ -21,6 +21,9 @@ const MAX_BYTES: u64 = 16 * 1024;
 /// Firstmate sweeps every few minutes: a file older than this says it is
 /// not running, and its `pool=` is not acted on.
 pub const STALE_AFTER_SECS: i64 = 30 * 60;
+/// A file written this far ahead of this Mac's clock still counts (the
+/// clocks may differ a little); one further ahead does not.
+const AHEAD_SECS: i64 = 60;
 
 /// The parts of the line the app reads.
 #[derive(Debug, Clone, Default, PartialEq, Serialize)]
@@ -114,9 +117,9 @@ pub struct Reading {
 }
 
 impl Reading {
-    /// Firstmate wrote it within [`STALE_AFTER_SECS`].
+    /// Firstmate wrote it within [`STALE_AFTER_SECS`], and not later than now.
     pub fn fresh(&self, now: i64) -> bool {
-        now - self.modified_at <= STALE_AFTER_SECS
+        (-AHEAD_SECS..=STALE_AFTER_SECS).contains(&(now - self.modified_at))
     }
 
     /// Firstmate holds new Claude work now, by a file fresh enough to trust.
@@ -151,16 +154,24 @@ pub fn is_pool_file(path: &Path) -> bool {
     path.file_name().is_some_and(|n| n == FILE_NAME)
 }
 
-/// Reads the state file at `path`.
+/// Reads the state file at `path`: a plain file, not a symlink (it is
+/// opened without following one) and not a pipe or a device.
 pub fn read(path: &Path) -> Result<Reading, ReadError> {
+    use std::os::unix::fs::OpenOptionsExt;
     if !is_pool_file(path) {
         return Err(ReadError::NotPoolFile);
     }
-    let meta = match std::fs::metadata(path) {
-        Ok(m) => m,
+    let file = match std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+        .open(path)
+    {
+        Ok(f) => f,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Err(ReadError::Missing),
+        Err(e) if e.raw_os_error() == Some(libc::ELOOP) => return Err(ReadError::NotPlain),
         Err(e) => return Err(ReadError::Unreadable(e.to_string())),
     };
+    let meta = file.metadata().map_err(|e| ReadError::Unreadable(e.to_string()))?;
     if !meta.is_file() || meta.len() > MAX_BYTES {
         return Err(ReadError::NotPlain);
     }
@@ -171,8 +182,8 @@ pub fn read(path: &Path) -> Result<Reading, ReadError> {
         .and_then(|d| i64::try_from(d.as_secs()).ok())
         .unwrap_or(0);
     let mut text = String::new();
-    std::fs::File::open(path)
-        .and_then(|f| f.take(MAX_BYTES).read_to_string(&mut text))
+    file.take(MAX_BYTES)
+        .read_to_string(&mut text)
         .map_err(|e| ReadError::Unreadable(e.to_string()))?;
     Ok(Reading { line: parse(&text), modified_at })
 }
@@ -232,6 +243,18 @@ mod tests {
         let now = reading.modified_at + 60;
         assert_eq!(reading.holding(now), Some(false));
         assert_eq!(reading.holding(reading.modified_at + STALE_AFTER_SECS + 1), None);
+        // Written well ahead of this Mac's clock: not trusted either.
+        assert_eq!(reading.holding(reading.modified_at - 2 * AHEAD_SECS), None);
+        assert_eq!(reading.holding(reading.modified_at - 5), Some(false));
+
+        // A symlink by that name is not followed, nor is a folder read.
+        let linked = dir.join("linked");
+        std::fs::create_dir_all(&linked).unwrap();
+        std::os::unix::fs::symlink(&other, linked.join(FILE_NAME)).unwrap();
+        assert_eq!(read(&linked.join(FILE_NAME)), Err(ReadError::NotPlain));
+        let folder = dir.join("folder").join(FILE_NAME);
+        std::fs::create_dir_all(&folder).unwrap();
+        assert_eq!(read(&folder), Err(ReadError::NotPlain));
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

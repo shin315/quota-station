@@ -287,7 +287,7 @@ describe('settings for M6', () => {
   });
 
   it('a path with no file is refused and the one before stays', async () => {
-    const fake = fakeApi(fixtureModel('fresh'), 'settings');
+    const fake = fakeApi(fixtureModel('fresh', { firstmate: firstmateFixture() }), 'settings');
     vi.spyOn(fake.api, 'setFirstmateFile');
     render(
       <div className="qs app-window">
@@ -300,7 +300,8 @@ describe('settings for M6', () => {
       fireEvent.blur(fmInput());
     });
     expect(screen.getByText('Không có file ở đường dẫn này.')).toBeTruthy();
-    expect(fake.current().firstmate.file).toBeNull();
+    expect(fake.current().firstmate.file).toBe('~/example/quota-pool.last');
+    expect(fake.current().firstmate.status).toBe('ok');
   });
 
   it('Thông báo shows whether macOS lets the cards show, with "Gửi thử" and a switch for each kind', async () => {

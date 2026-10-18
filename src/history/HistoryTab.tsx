@@ -22,8 +22,10 @@ export function HistoryTab({ model, fresh, now, load }: HistoryTabProps) {
   // A new read or a switch may have added a line.
   const reads = model.reads;
   const switching = model.claudeSwitch.busy != null || model.agySwitch.busy != null;
+  const loaded = entries !== null;
   useEffect(() => {
-    if (switching) return;
+    // Read once on opening; after that, not while a switch is half done.
+    if (switching && loaded) return;
     let live = true;
     load().then(
       (e) => live && setEntries(e),
@@ -32,7 +34,7 @@ export function HistoryTab({ model, fresh, now, load }: HistoryTabProps) {
     return () => {
       live = false;
     };
-  }, [load, reads, switching]);
+  }, [load, reads, switching, loaded]);
 
   const days = Array.isArray(entries) ? historyDays(entries, filter, model, now) : [];
   return (
@@ -56,10 +58,14 @@ export function HistoryTab({ model, fresh, now, load }: HistoryTabProps) {
           <div className="empty">
             <b>Chưa đọc được lịch sử</b>App thử lại sau lần đọc số tới.
           </div>
-        ) : !days.length ? (
+        ) : !entries.length ? (
           <div className="empty">
             <b>Chưa có lần chuyển nào</b>Lịch sử của máy này bắt đầu từ khi cài app. Mỗi lần chuyển tay, switcher chuyển, hay app thấy tài khoản
             đổi sẽ hiện ở đây.
+          </div>
+        ) : !days.length ? (
+          <div className="empty">
+            <b>Chưa có lần chuyển {filter === 'claude' ? 'Claude' : 'Antigravity'} nào</b>Chọn Tất cả để xem các lần chuyển khác.
           </div>
         ) : (
           <>
@@ -80,7 +86,7 @@ export function HistoryTab({ model, fresh, now, load }: HistoryTabProps) {
                         {r.from ? (
                           <>
                             <span className="from">{r.from}</span>
-                            <span className="arrow" aria-label="sang">
+                            <span className="arrow" role="img" aria-label="sang">
                               →
                             </span>
                           </>

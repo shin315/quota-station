@@ -193,7 +193,8 @@ the confirmation sheet first.
      Firstmate's rule on claude-swap's numbers. The rotation's accounts that
      have not left it (the personal one only inside its hours) count; the
      pool is dry when the account in use has 10% or less left and no other
-     has 15% or more. The card names when an account resets and offers
+     has 15% or more. Without quota-axi's rotation the app uses the rotation
+     file, for this alert and the next. The card names when an account resets and offers
      `Sang <tài khoản> (còn N%)`, which opens the switch sheet, and `Thôi`.
   2. `<tài khoản> rời vòng lúc HH:MM`: 30 minutes before an account leaves
      the rotation (`expire` in the rules). For the account in use it offers
@@ -455,7 +456,8 @@ is ad-hoc signed and is not installed anywhere. Open it from there to try it.
 `npm run dev` serves the popover at http://localhost:1420/ on the fixtures and
 the fake Rust side the tests use. Query parameters: `state` (a file name in
 `src/fixtures/snapshots/`), `view=window` with `tab` (`overview`, `claude`,
-`agy`, `rules` or `settings`), `error` (an error kind) and `theme` (`light` or `dark`).
+`agy`, `rules`, `history`, `alerts`, `firstmate` or `settings`), `error` (an
+error kind) and `theme` (`light` or `dark`).
 For the rotation rules: `rotation` (`unreachable`, `newer`, `edited`,
 `missing`, `invalid`, `refused` or `single`).
 For switching: `switcher` (`held`, `noguard`, `auto`, `stopped` or
@@ -468,7 +470,10 @@ and `forbidden`), `login` (how a login ends, for example
 3 seconds by default) and `email=on`. For switching Antigravity: `agyswitch`
 (`on`, or `overwritten` for the banner), `agyapp` (`closed`, `missing`,
 `old`, `unreadable` or `unknown`; Antigravity.app runs by default) and `agyoutcome`
-(`unconfirmed`, `notquit` or `write`). Nothing is switched, no browser opens
+(`unconfirmed`, `notquit` or `write`). For M6: `history=empty`, `alerts`
+(`on`, the default on `tab=alerts`, `off` for notifications turned off,
+`unbundled` or `empty`) and `firstmate` (`ok`, `holding`, `stale`,
+`missing` or `unset`, the default). Nothing is switched, no browser opens
 and no file is written: a switch only waits 1.5 seconds and a save 1 second,
 and both update the fixture.
 

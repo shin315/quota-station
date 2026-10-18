@@ -28,6 +28,9 @@ pub enum Permission {
 /// card itself).
 pub type Handler = Box<dyn Fn(String, Option<String>) + Send + Sync>;
 
+/// A card macOS refused after taking it: its id.
+pub type Refused = Arc<dyn Fn(String) + Send + Sync>;
+
 /// A category's id and its buttons, each an id and a label.
 type Category = (String, Vec<(String, String)>);
 
@@ -35,15 +38,17 @@ pub struct Center {
     permission: Arc<Mutex<Permission>>,
     /// The button sets registered so far, by category id.
     categories: Mutex<Vec<Category>>,
+    refused: Refused,
 }
 
 impl Center {
     /// Sets the delegate that takes the presses and asks macOS, once, for
-    /// leave to show cards.
-    pub fn start(handler: Handler) -> Center {
+    /// leave to show cards. `refused` hears of a card macOS did not post.
+    pub fn start(handler: Handler, refused: Refused) -> Center {
         let center = Center {
             permission: Arc::new(Mutex::new(Permission::Unknown)),
             categories: Mutex::new(Vec::new()),
+            refused,
         };
         if mac::bundled() {
             mac::start(handler, center.permission.clone());
@@ -88,7 +93,7 @@ impl Notifier for Center {
             _ => {}
         }
         let category = self.category(card);
-        mac::post(card, &category);
+        mac::post(card, &category, self.refused.clone());
         Ok(())
     }
 
@@ -118,7 +123,7 @@ mod mac {
     };
     use quota_station_core::alerts::Card;
 
-    use super::{Handler, Permission};
+    use super::{Handler, Permission, Refused};
 
     pub struct Ivars {
         handler: Handler,
@@ -245,7 +250,8 @@ mod mac {
         center().setNotificationCategories(&NSSet::from_retained_slice(&categories));
     }
 
-    pub fn post(card: &Card, category: &str) {
+    /// Posts the card; macOS answers later, and a refusal goes to `refused`.
+    pub fn post(card: &Card, category: &str, refused: Refused) {
         let content = UNMutableNotificationContent::new();
         content.setTitle(&NSString::from_str(&card.title));
         content.setBody(&NSString::from_str(&card.body));
@@ -257,11 +263,19 @@ mod mac {
             &content,
             None,
         );
-        center().addNotificationRequest_withCompletionHandler(&request, None);
+        let id = card.id.clone();
+        let done = RcBlock::new(move |error: *mut NSError| {
+            if !error.is_null() {
+                refused(id.clone());
+            }
+        });
+        center().addNotificationRequest_withCompletionHandler(&request, Some(&done));
     }
 
+    /// Takes the card away, shown or still waiting to show.
     pub fn withdraw(id: &str) {
         let ids = NSArray::from_retained_slice(&[NSString::from_str(id)]);
+        center().removePendingNotificationRequestsWithIdentifiers(&ids);
         center().removeDeliveredNotificationsWithIdentifiers(&ids);
     }
 }
@@ -273,7 +287,7 @@ mod mac {
 
     use quota_station_core::alerts::Card;
 
-    use super::{Handler, Permission};
+    use super::{Handler, Permission, Refused};
 
     pub fn bundled() -> bool {
         false
@@ -281,6 +295,6 @@ mod mac {
     pub fn start(_: Handler, _: Arc<Mutex<Permission>>) {}
     pub fn refresh(_: Arc<Mutex<Permission>>) {}
     pub fn set_categories(_: &[super::Category]) {}
-    pub fn post(_: &Card, _: &str) {}
+    pub fn post(_: &Card, _: &str, _: Refused) {}
     pub fn withdraw(_: &str) {}
 }

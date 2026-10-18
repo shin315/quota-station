@@ -190,6 +190,8 @@ pub async fn switch_claude(
         if let Some((result, hold)) = landed {
             let until = hold.as_ref().filter(|h| !h.failed).map(|h| h.until.clone());
             let at = OffsetDateTime::now_utc().unix_timestamp();
+            // The same lock as the history's look at the readings.
+            let _one = shared.history.lock().unwrap_or_else(|e| e.into_inner());
             let _ = history::manual_claude(&dir, from, slot, until, result, at);
         }
     }

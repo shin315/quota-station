@@ -58,7 +58,10 @@ Files, under `~/Library/Application Support/com.shin315.quota-station/`:
   and the alerts (each card's words and buttons, when it was sent, what was
   pressed and how it went, and the snoozes; the newest 30 cards). Neither
   holds an email or a token: cards name accounts as the windows do
-  (`Team A`, `Ultra 2`), and claude-swap's error text never goes on a card.
+  (`Team A`, `Ultra 2`), and claude-swap's error text never goes on a card:
+  a login error shows only as one of the known codes (`invalid_grant`,
+  `no_refresh_token`, `no-access-token`, `relogin_required`, or `relogin`
+  for any other that asks for a new login).
 
 In the owner's login Keychain, not in that folder:
 
@@ -86,7 +89,8 @@ The history and the alerts read, besides the app's own folder, only the
 last 64 KB of the switcher's log and, at the path the owner sets in
 `Cài đặt`, Firstmate's `quota-pool.last`. No path to that file is built in.
 The app takes it only when the file is called `quota-pool.last`, opens it
-only when it is a plain file of at most 16 KB, and keeps only the keys
+without following a symlink, reads it only when it is a plain file of at
+most 16 KB, and keeps only the keys
 Firstmate writes there (`fork`, `auto`, `cs`, `active`, `pool` and the
 per-account percents and next reset), each checked, so nothing else in a
 file the path points at can show. The macOS cards go through the system's

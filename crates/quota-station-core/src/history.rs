@@ -193,20 +193,26 @@ fn unix(at: &str) -> Option<i64> {
 pub fn switcher_lines(log: &Path) -> Vec<switcher::LogLine> {
     let Ok(mut f) = std::fs::File::open(log) else { return Vec::new() };
     let len = f.metadata().map(|m| m.len()).unwrap_or(0);
-    if f.seek(SeekFrom::Start(len.saturating_sub(SWITCHER_TAIL))).is_err() {
+    // One byte before the tail too, to tell whether it starts a line.
+    let start = len.saturating_sub(SWITCHER_TAIL + 1);
+    if f.seek(SeekFrom::Start(start)).is_err() {
         return Vec::new();
     }
     let mut bytes = Vec::new();
     if f.read_to_end(&mut bytes).is_err() {
         return Vec::new();
     }
-    let text = String::from_utf8_lossy(&bytes);
-    let mut lines = text.lines();
-    // A tail that starts mid-line drops that line.
-    if len > SWITCHER_TAIL {
-        lines.next();
-    }
-    lines
+    // A tail that starts mid-line drops that line; one that starts a line keeps it.
+    let tail = if start == 0 {
+        &bytes[..]
+    } else {
+        match bytes.iter().position(|b| *b == b'\n') {
+            Some(i) => &bytes[i + 1..],
+            None => &[][..],
+        }
+    };
+    let text = String::from_utf8_lossy(tail);
+    text.lines()
         .map(switcher::parse_log_line)
         .filter(|l| {
             l.at.is_some() && matches!(l.event, LogEvent::Switch { .. } | LogEvent::Primed { .. })

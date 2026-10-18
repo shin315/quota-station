@@ -199,3 +199,23 @@ fn the_journal_keeps_its_newest_lines_and_skips_broken_ones() {
     assert_eq!(kept[0].at, T0 + 10);
     assert_eq!(history::collect(&app, &log, history::SHOWN).len(), history::SHOWN);
 }
+
+#[test]
+fn a_line_that_starts_the_log_s_last_64_kb_is_kept_and_a_cut_one_is_not() {
+    let (_, log, _) = setup(0);
+    let tail: usize = 64 * 1024;
+    let first = log_line(T0 - 50 * MIN, "switch to slot 2 (4.0%, ends 15:00)");
+    let target = log_line(T0 - 40 * MIN, "switch to slot 3 (5.0%, ends 16:00)");
+    // A line of padding so that the target and what follows are exactly the tail.
+    let stamp = log_line(T0 - 30 * MIN, "");
+    let pad = log_line(T0 - 30 * MIN, &"x".repeat(tail - target.len() - stamp.len()));
+    assert_eq!(target.len() + pad.len(), tail);
+    write_log(&log, &[first.clone(), target.clone(), pad.clone()]);
+    let slots: Vec<_> = history::switcher_lines(&log).iter().map(|l| l.raw.clone()).collect();
+    assert_eq!(slots, vec![target.trim_end().to_string()]);
+
+    // One byte more of padding: the target is cut, so it is left out.
+    let pad = log_line(T0 - 30 * MIN, &"x".repeat(tail - target.len() - stamp.len() + 1));
+    write_log(&log, &[first, target, pad]);
+    assert!(history::switcher_lines(&log).is_empty());
+}

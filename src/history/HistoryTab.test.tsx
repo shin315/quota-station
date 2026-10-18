@@ -35,8 +35,8 @@ afterEach(cleanup);
 describe('the Lịch sử tab', () => {
   it('lists every switch a day at a time, with why and where it came from', async () => {
     const fake = await open(ENTRIES);
-    expect(fake.api.getHistory).toHaveBeenCalled();
     await screen.findByText('Hôm nay');
+    expect(fake.api.getHistory).toHaveBeenCalled();
     expect(rows('Hôm nay')).toEqual([
       '14:12 | Chuyển | Team B→Team ABạn chuyển tay · giữ đến 15:20 | app',
       '13:40 | Cảnh báo | Ultra 2→Ultra 1Antigravity.app đổi về tài khoản cũ (lần 1/2) | quan sát',
@@ -63,9 +63,27 @@ describe('the Lịch sử tab', () => {
     expect(rows('Hôm qua')).toHaveLength(1);
   });
 
-  it('says when there is nothing yet', async () => {
+  it('says when there is nothing yet, and when only the filter leaves nothing', async () => {
     await open([]);
     expect(await screen.findByText('Chưa có lần chuyển nào')).toBeTruthy();
+    cleanup();
+    await open(ENTRIES.filter((e) => e.app === 'claude'));
+    await screen.findByText('Hôm nay');
+    fireEvent.click(within(screen.getByRole('group', { name: 'Lọc lịch sử' })).getByRole('button', { name: 'Antigravity' }));
+    expect(screen.getByText('Chưa có lần chuyển Antigravity nào')).toBeTruthy();
+    expect(screen.queryByText('Chưa có lần chuyển nào')).toBeNull();
+  });
+
+  it('opened while a switch runs, it still reads the list', async () => {
+    const fake = fakeApi(fixtureModel('fresh', { claudeSwitch: { cswap: true, busy: 3 } }), 'history', { history: ENTRIES });
+    vi.spyOn(fake.api, 'getHistory');
+    render(
+      <div className="qs app-window">
+        <MainWindowApp api={fake.api} clock={() => FIXTURE_NOW} />
+      </div>,
+    );
+    expect(await screen.findByText('Hôm nay')).toBeTruthy();
+    expect(fake.api.getHistory).toHaveBeenCalled();
   });
 
   it('reads the list again after the next read', async () => {

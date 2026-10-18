@@ -63,7 +63,7 @@ export interface FakeOptions {
 
 const said = (title: string, body: string): AlertSaid => ({ tone: 'info', title, body });
 
-/** The sample "Gửi thử" sends, in the words of the Rust side's `alerts::sample`. */
+/** The sample "Gửi thử" sends: modelled on the Rust side's `alerts::sample`, with shorter words. */
 function sample(kind: AlertKind, at: number): Alert {
   const base = { key: 'test:' + kind + ':' + at, kind, at, test: true };
   switch (kind) {
@@ -383,7 +383,12 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
             : said('Đã ghi nhận', record.alert.kind === 'leaving' ? 'Không nhắc lại cho lần rời vòng này.' : 'Không nhắc lại cho lần này.');
       else if (action === 'snooze') result = said('Sẽ nhắc lại lúc 09:00 ngày mai', 'Thứ Bảy 17/01.');
       else if (action === 'agy:keep') result = said('Đã bỏ qua', 'Antigravity giữ tài khoản đang dùng. App thôi canh lần chuyển này.');
-      else if (action === 'agy:login') result = said('Đã mở tab Antigravity', 'Bấm Đăng nhập lại ở dòng của tài khoản này.');
+      else if (action === 'agy:login') {
+        result = said('Đã mở tab Antigravity', 'Bấm Đăng nhập lại ở dòng của tài khoản này.');
+        // The Rust side opens the main window on the Antigravity tab.
+        tab = 'agy';
+        tabListeners.forEach((l) => l('agy'));
+      }
       else if (action.startsWith('agy:verify:')) result = said('Đã mở trang xác minh', 'Trang của Google mở trong trình duyệt.');
       else if (action.startsWith('switch:')) {
         result = said('Đã mở tấm hỏi chuyển', 'Xác nhận trên tấm để chuyển. Chưa có gì thay đổi.');
@@ -404,8 +409,16 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       };
       answer(result);
       if (switchBack) {
-        if (options.agySwitchDelayMs) await new Promise((r) => setTimeout(r, options.agySwitchDelayMs));
         const n = switchBack.number;
+        // The same switch as the sheet's: busy, then the account in use, the watch over.
+        push({ ...model, agySwitch: { ...model.agySwitch, busy: n } });
+        if (options.agySwitchDelayMs) await new Promise((r) => setTimeout(r, options.agySwitchDelayMs));
+        const g = model.snapshot.agy;
+        push({
+          ...model,
+          snapshot: { ...model.snapshot, agy: { ...g, accounts: g.accounts.map((a) => ({ ...a, active: a.number === n })) } },
+          agySwitch: { ...model.agySwitch, busy: null, overwritten: null },
+        });
         answer({
           tone: 'ok',
           title: 'Đã chuyển lại sang Ultra ' + n,
@@ -421,7 +434,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       const alert = sample(kind, Math.floor(now().getTime() / 1000));
       const record: AlertRecord = { id: alert.key + '@' + alert.at, alert, notified: model.alerts.permission === 'allowed', answer: null };
       const recent = [record, ...model.alerts.recent.filter((r) => r.id !== record.id)].slice(0, 30);
-      push({ ...model, alerts: { ...model.alerts, recent } });
+      push({ ...model, alerts: { ...model.alerts, recent, unanswered: unanswered(recent) } });
       return model;
     },
     setAlertSwitch: async (kind, on) => {

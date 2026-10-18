@@ -166,9 +166,9 @@ export function leavingAlert(over: Partial<AlertRecord> = {}): AlertRecord {
 /** Antigravity.app wrote Ultra 1 back at 14:10, 20 minutes after a switch to Ultra 2. */
 export function overwriteAlert(over: Partial<AlertRecord> = {}): AlertRecord {
   return {
-    id: 'overwrite:1768546200@1768547400',
+    id: 'overwrite:antigravity_fake2:1768547400@1768547400',
     alert: {
-      key: 'overwrite:1768546200:1',
+      key: 'overwrite:antigravity_fake2:1768547400',
       kind: 'overwrite',
       tone: 'warn',
       title: 'Antigravity đổi về tài khoản cũ',

@@ -14,7 +14,7 @@ export const ALERT_KINDS: { kind: AlertKind; title: string; text: string }[] = [
   {
     kind: 'pool',
     title: 'Hạn mức Claude trong vòng sắp cạn / có lại',
-    text: 'Khi hạn mức trong vòng xuống dưới 10% và khi có lại. Cùng luật với firstmate.',
+    text: 'Khi hạn mức trong vòng còn từ 10% trở xuống và khi có lại. Cùng luật với firstmate.',
   },
   { kind: 'leaving', title: 'Tài khoản sắp rời vòng', text: '30 phút trước giờ rời vòng trong file luật.' },
   {
@@ -124,7 +124,8 @@ export interface FirstmateTabView {
   setUp: boolean;
 }
 
-const UNREAD: Record<string, string> = {
+/** Why Firstmate's file could not be read, by `FirstmateView.status`. */
+export const UNREAD: Record<string, string> = {
   notPlain: 'Đường dẫn không phải một file thường, hoặc file lớn hơn file của firstmate.',
   notPoolFile: 'File phải tên là quota-pool.last.',
   unreadable: 'Không mở được file.',
@@ -226,6 +227,9 @@ const PRESS_REFUSED: Record<string, string> = {
   answered: 'Cảnh báo này đã có câu trả lời, có thể từ thẻ macOS.',
   unknown: 'App không còn giữ cảnh báo này.',
   noSuchAction: 'Thẻ này không có nút đó.',
+  noPage: 'Google chưa gửi trang xác minh cho tài khoản này. Đăng nhập lại trong tab Antigravity.',
+  notFound: 'Tài khoản này không còn đăng nhập trong app.',
+  browser: 'Không mở được trình duyệt.',
 };
 
 /** A button on a card that the Rust side refused, or that broke. */
@@ -235,6 +239,16 @@ export function alertFailedFeedback(error: unknown): FeedbackView {
     tone: 'warn',
     title: 'Chưa làm được',
     body: PRESS_REFUSED[code] ?? 'Lý do: ' + code + '.',
+    actions: [{ label: 'Đóng', act: 'closeFeedback' }],
+  };
+}
+
+/** "Gửi thử" did not go out; it saves nothing, so nothing else changed. */
+export function testFailedFeedback(error: unknown): FeedbackView {
+  return {
+    tone: 'warn',
+    title: 'Chưa gửi được thông báo thử',
+    body: 'Lý do: ' + String(error) + '. Không có gì thay đổi.',
     actions: [{ label: 'Đóng', act: 'closeFeedback' }],
   };
 }

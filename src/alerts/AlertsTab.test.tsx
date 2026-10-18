@@ -79,7 +79,7 @@ describe('the Cảnh báo tab', () => {
     await act(async () => {
       fireEvent.click(within(card('Antigravity đổi về tài khoản cũ')).getByRole('button', { name: 'Thoát app rồi chuyển lại' }));
     });
-    expect(fake.api.alertAction).toHaveBeenCalledWith('overwrite:1768546200@1768547400', 'agy:quitFirst:2');
+    expect(fake.api.alertAction).toHaveBeenCalledWith('overwrite:antigravity_fake2:1768547400@1768547400', 'agy:quitFirst:2');
     await screen.findByText('Đã chuyển lại sang Ultra 2');
     const o = card('Antigravity đổi về tài khoản cũ');
     expect(within(o).getByText('Bạn đã chọn “Thoát app rồi chuyển lại”.')).toBeTruthy();
@@ -120,11 +120,50 @@ describe('the Cảnh báo tab', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  it('a test card that does not go out says so, not that settings were not saved', async () => {
+    const fake = await open(withAlerts());
+    vi.mocked(fake.api.testAlert).mockRejectedValueOnce('io');
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Gửi thử: Tài khoản sắp rời vòng' }));
+    });
+    expect(screen.getByText('Chưa gửi được thông báo thử')).toBeTruthy();
+    expect(screen.queryByText(/Chưa lưu được/)).toBeNull();
+  });
+
+  it('"Đăng nhập lại" on an Antigravity card opens the Antigravity tab', async () => {
+    const relogin = leavingAlert({
+      id: 'agy:login:antigravity_fake2@1768547700',
+      alert: {
+        ...leavingAlert().alert,
+        key: 'agy:login:antigravity_fake2',
+        kind: 'login',
+        title: 'Ultra 2 cần đăng nhập lại',
+        body: 'Google không nhận đăng nhập của tài khoản này nữa. Đăng nhập lại trong tab Antigravity.',
+        actions: [
+          { id: 'agy:login', label: 'Đăng nhập lại' },
+          { id: 'dismiss', label: 'Đã biết' },
+        ],
+      },
+    });
+    await open(withAlerts({ recent: [relogin] }));
+    await act(async () => {
+      fireEvent.click(within(card('Ultra 2 cần đăng nhập lại')).getByRole('button', { name: 'Đăng nhập lại' }));
+    });
+    expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('Antigravity');
+  });
+
   it('each kind has its switch, and Firstmate starts off', async () => {
     const fake = await open(withAlerts());
+    const states = [
+      'Hạn mức Claude trong vòng sắp cạn / có lại',
+      'Tài khoản sắp rời vòng',
+      'Tài khoản cần đăng nhập lại',
+      'Antigravity đổi về tài khoản cũ',
+      'Firstmate đang chờ hạn mức Claude',
+    ].map((name) => screen.getByRole('switch', { name }).getAttribute('aria-checked'));
+    expect(states).toEqual(['true', 'true', 'true', 'true', 'false']);
+    expect(screen.getAllByRole('switch', { name: /./ }).filter((s) => s.closest('.arow'))).toHaveLength(5);
     const firstmate = screen.getByRole('switch', { name: 'Firstmate đang chờ hạn mức Claude' });
-    expect(firstmate.getAttribute('aria-checked')).toBe('false');
-    expect(screen.getByRole('switch', { name: 'Antigravity đổi về tài khoản cũ' }).getAttribute('aria-checked')).toBe('true');
     await act(async () => {
       fireEvent.click(firstmate);
     });

@@ -160,9 +160,12 @@ pub struct Inner {
     pub alerts: Memory,
     /// The accounts the last readings showed in use, for the history.
     pub seen: Seen,
-    /// Firstmate's state file as last read; `None` before the first read or
-    /// with no path set.
+    /// Firstmate's state file as last read (at start, then after each read);
+    /// `None` with no path set.
     pub firstmate: Option<Result<Reading, firstmate::ReadError>>,
+    /// Firstmate's dry rule on the newest quota-axi numbers, counted by the
+    /// app with the same rotation the alerts use.
+    pub own_dry: Option<bool>,
     /// macOS's notification center; `None` until the app has started it.
     pub center: Option<Arc<notify::Center>>,
 }
@@ -238,6 +241,7 @@ pub enum Tab {
 impl Inner {
     pub fn new(home: PathBuf, settings_file: PathBuf, system_machine: String) -> Self {
         let settings = Settings::load(&settings_file);
+        let firstmate = settings.firstmate_file.as_deref().map(firstmate::read);
         let sync_file = settings_file.with_file_name("rotation-sync.json");
         let app_dir =
             AppDir::new(settings_file.parent().map(|p| p.to_path_buf()).unwrap_or_default());
@@ -278,7 +282,8 @@ impl Inner {
             agy_logging_out: false,
             alerts: alerts::load(&app_dir),
             seen: Seen::default(),
-            firstmate: None,
+            firstmate,
+            own_dry: None,
             center: None,
         }
     }
