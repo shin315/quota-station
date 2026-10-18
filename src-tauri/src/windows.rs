@@ -149,6 +149,17 @@ pub fn open_main(app: &AppHandle, tab: Tab) {
 }
 
 /// Closes the main window without asking again.
+/// The owner's look for macOS's own parts of the windows (the popover's
+/// material, the title bar): `None` follows macOS.
+pub fn apply_theme(app: &AppHandle, theme: quota_station_core::settings::Theme) {
+    use quota_station_core::settings::Theme;
+    app.set_theme(match theme {
+        Theme::Auto => None,
+        Theme::Light => Some(tauri::Theme::Light),
+        Theme::Dark => Some(tauri::Theme::Dark),
+    });
+}
+
 pub fn close_main(app: &AppHandle) {
     if let Some(window) = main_window(app) {
         let _ = window.destroy();

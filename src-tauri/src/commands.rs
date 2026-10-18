@@ -135,6 +135,7 @@ pub fn set_theme(
         settings.save(&inner.settings_file).map_err(|e| e.to_string())?;
         inner.settings = settings;
     }
+    windows::apply_theme(&app, theme);
     reader::publish(&app, &state);
     Ok(state.lock().model())
 }

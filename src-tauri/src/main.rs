@@ -54,6 +54,8 @@ fn main() {
             app.manage(state.clone());
             state.lock().center = Some(std::sync::Arc::new(alerting::start_center(app.handle())));
 
+            let theme = state.lock().settings.theme;
+            windows::apply_theme(app.handle(), theme);
             tray::build(app)?;
             if let Some(popover) = app.get_webview_window(windows::POPOVER) {
                 let handle = app.handle().clone();
