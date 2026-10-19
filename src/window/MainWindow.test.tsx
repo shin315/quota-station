@@ -38,9 +38,9 @@ describe('main window', () => {
     expect(screen.queryByText(/còn dùng được|tài khoản Claude/)).toBeNull();
     const tiles = within(screen.getByRole('list', { name: 'Đang dùng' })).getAllByRole('listitem');
     expect(tiles.map((t) => t.textContent)).toEqual([
-      'Claudelan.acme1Acme Studio87%đã dùng Fable · ↻ 1n 17g',
-      'Geminilan.ultra2Antigravity6%đã dùng tuần · ↻ 3n 23g',
-      'CodexrelayCodex đi qua relay—ChatGPT đã dùng 41% tuần',
+      'Claudelan.acme1Acme Studio74%đã dùng 5 giờ · ↻ 3:08',
+      'Geminilan.ultra2Antigravity2%đã dùng 5 giờ · ↻ 1:57',
+      'CodexrelayCodex đi qua relay—ChatGPT đã dùng 23% 5 giờ',
     ]);
 
     const claude = screen.getByRole('list', { name: 'Claude Code' });

@@ -5,7 +5,7 @@
 
 import { agyCells, agyGroups, agyNames, cellOf, claudeCells, claudeNames, tightest, WARN_USED, type AccountName, type CellView, type UsedTone } from './accounts';
 import { age, clock, secondsSince } from './format';
-import type { Account, AgyLogin, ErrorView, Model, Section } from './model';
+import type { Account, AgyLogin, ErrorView, LineKind, MenubarWindow, Model, Section } from './model';
 import { codexBanner, currentId, shortName } from './codex';
 import { switcherBanner } from './switching';
 
@@ -295,24 +295,41 @@ function shortRows(kind: 'c' | 'g', cells: CellView[]): CellView[] {
 
 // ===== Đang dùng =====
 
+const WINDOW_KINDS: Record<Exclude<MenubarWindow, 'tightest'>, LineKind[]> = {
+  fiveHours: ['session', 'geminiSession', 'claudeGptSession'],
+  week: ['week', 'geminiWeek', 'claudeGptWeek'],
+  fableWeek: ['fableWeek'],
+};
+
 /**
- * The account's tightest window, the menu bar's rule: none while any
- * window waits for a number after its reset, never a number that may be
- * the wrong one.
+ * The window picked for the menu bar, the menu bar's rule (`icon::chosen`):
+ * five hours when the account has no window of that kind, the tightest
+ * without either. None while a window it rests on waits for a number after
+ * its reset, never a number that may be the wrong one.
  */
-function nowNumber(cells: CellView[]): CellView | null {
+function nowNumber(cells: CellView[], window: MenubarWindow): CellView | null {
   const real = cells.filter((c) => !c.none);
-  if (real.some((c) => c.used == null || c.reset === 'chờ số')) return null;
-  return tightest(real);
+  let from = real;
+  for (const w of [window, 'fiveHours'] as const) {
+    if (w === 'tightest') break;
+    const found = real.filter((c) => WINDOW_KINDS[w].includes(c.kind));
+    if (found.length) {
+      from = found;
+      break;
+    }
+  }
+  if (from.some((c) => c.used == null || c.reset === 'chờ số')) return null;
+  return tightest(from);
 }
 
 function nowRow(
   base: Pick<NowRowView, 'id' | 'svc' | 'name' | 'sub'>,
   cells: CellView[],
+  window: MenubarWindow,
   why: string | null,
   extra: NowRowView['extra'] = null,
 ): NowRowView {
-  const t = why == null ? nowNumber(cells) : null;
+  const t = why == null ? nowNumber(cells, window) : null;
   const note = why ?? (t ? '' : 'không có số');
   const words = cells.filter((c) => !c.none).map((c) => c.words).join('. ');
   return {
@@ -338,12 +355,12 @@ function codexNow(model: Model, now: Date): NowRowView | null {
   const err = !!model.errors.codex;
   if (v.current !== 'chatgpt') {
     const name = shortName(v, currentId(v));
-    const t = !err ? nowNumber(cells) : null;
-    return nowRow({ id: 'x', svc: 'Codex', name, sub: 'Codex đi qua ' + name }, [], t ? 'ChatGPT đã dùng ' + t.text + ' ' + t.unit : name + ' không báo hạn mức');
+    const t = !err ? nowNumber(cells, model.menubarWindow) : null;
+    return nowRow({ id: 'x', svc: 'Codex', name, sub: 'Codex đi qua ' + name }, [], model.menubarWindow, t ? 'ChatGPT đã dùng ' + t.text + ' ' + t.unit : name + ' không báo hạn mức');
   }
   if (s.status === 'notSetUp') return null;
   const why = err ? 'không đọc được số' : s.status === 'unread' ? 'chưa có số' : s.status === 'unavailable' ? 'không đọc được số' : null;
-  return nowRow({ id: 'x', svc: 'Codex', name: 'ChatGPT', sub: '' }, cells, why);
+  return nowRow({ id: 'x', svc: 'Codex', name: 'ChatGPT', sub: '' }, cells, model.menubarWindow, why);
 }
 
 function nowView(model: Model, claudeCards: CardView[], agyCards: CardView[], now: Date): NowView {
@@ -354,7 +371,7 @@ function nowView(model: Model, claudeCards: CardView[], agyCards: CardView[], no
     const a = claudeCards.find((c) => c.active);
     const acc = s.claude.accounts.find((x) => x.active);
     const why = failing(model.errors.claude, s.claude) ?? (acc && (acc.reading === 'resetPending' || acc.reading === 'noData') ? 'chờ số mới' : null);
-    rows.push(nowRow({ id: 'c', svc: 'Claude', name: a?.name ?? '—', sub: a?.sub ?? '' }, a?.cells ?? [], a ? why : (why ?? 'chưa biết tài khoản nào')));
+    rows.push(nowRow({ id: 'c', svc: 'Claude', name: a?.name ?? '—', sub: a?.sub ?? '' }, a?.cells ?? [], model.menubarWindow, a ? why : (why ?? 'chưa biết tài khoản nào')));
   }
   if (s.agy.status !== 'notSetUp') {
     const a = agyCards.find((c) => c.active);
@@ -363,7 +380,7 @@ function nowView(model: Model, claudeCards: CardView[], agyCards: CardView[], no
     const gemini = a ? a.cells.filter((c) => c.label.startsWith('Gemini')) : [];
     const cg = a && why == null ? agyGroups(a.cells)[1].cell : null;
     const extra = cg && cg.used != null && cg.used >= WARN_USED ? { text: cg.text, tone: cg.tone } : null;
-    rows.push(nowRow({ id: 'g', svc: 'Gemini', name: a?.name ?? '—', sub: 'Antigravity' }, gemini, a ? why : (why ?? 'chưa biết tài khoản nào'), extra));
+    rows.push(nowRow({ id: 'g', svc: 'Gemini', name: a?.name ?? '—', sub: 'Antigravity' }, gemini, model.menubarWindow, a ? why : (why ?? 'chưa biết tài khoản nào'), extra));
   }
   const codex = codexNow(model, now);
   if (codex) rows.push(codex);

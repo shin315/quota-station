@@ -23,6 +23,7 @@ import type {
   Tab,
   Theme,
   Menubar,
+  MenubarWindow,
 } from './model';
 
 export interface Api {
@@ -106,6 +107,8 @@ export interface Api {
   setTheme(theme: Theme): Promise<Model>;
   /** The service the menu bar title follows; stays on this Mac. */
   setMenubar(menubar: Menubar): Promise<Model>;
+  /** The window the menu bar title shows; stays on this Mac. */
+  setMenubarWindow(window: MenubarWindow): Promise<Model>;
   /** Is Antigravity.app installed, which version, does it run; asked when the switch sheet opens. */
   agyAppState(): Promise<AgyApp>;
   /**
@@ -206,6 +209,7 @@ export const tauriApi: Api = {
   setShowNames: (on) => invoke<Model>('set_show_names', { on }),
   setTheme: (theme) => invoke<Model>('set_theme', { theme }),
   setMenubar: (menubar) => invoke<Model>('set_menubar', { menubar }),
+  setMenubarWindow: (window) => invoke<Model>('set_menubar_window', { window }),
   agyAppState: () => invoke<AgyApp>('agy_app_state'),
   switchAgy: (id, how) => invoke<AgyOutcome>('switch_agy', { id, how }),
   agyDismissOverwrite: () => invoke<Model>('agy_dismiss_overwrite'),

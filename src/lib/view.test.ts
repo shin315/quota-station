@@ -19,14 +19,14 @@ describe('popover view', () => {
       ['lan.acme2', 'Acme Studio', false],
       ['lan.acme3', 'Acme Studio', false],
     ]);
-    // The menu bar's number for each service: the account in use and its tightest window.
+    // The menu bar's number for each service: the account in use and its five hours, by default.
     expect(now(v.now)).toEqual([
-      ['Claude', 'lan.acme1', '87%', 'Fable', '↻ 1n 17g', ''],
-      ['Gemini', 'lan.ultra2', '6%', 'tuần', '↻ 3n 23g', ''],
+      ['Claude', 'lan.acme1', '74%', '5 giờ', '↻ 3:08', ''],
+      ['Gemini', 'lan.ultra2', '2%', '5 giờ', '↻ 1:57', ''],
       // Codex goes through its own provider: no number, the ChatGPT account's on hover.
-      ['Codex', 'relay', '—', '', '', 'ChatGPT đã dùng 41% tuần'],
+      ['Codex', 'relay', '—', '', '', 'ChatGPT đã dùng 23% 5 giờ'],
     ]);
-    expect(v.now.rows[0]).toMatchObject({ sub: 'Acme Studio', tone: 'warn', title: 'Claude: lan.acme1 đã dùng 87% Fable', extra: null });
+    expect(v.now.rows[0]).toMatchObject({ sub: 'Acme Studio', tone: 'warn', title: 'Claude: lan.acme1 đã dùng 74% 5 giờ', extra: null });
     expect(v.now.rows[0].label).toBe(
       'Claude, lan.acme1. 5 giờ đã dùng 74%, đặt lại sau 3 giờ 08 phút. Tuần đã dùng 39%, đặt lại sau 4 ngày 19 giờ 39 phút. Fable đã dùng 87%, đặt lại sau 1 ngày 17 giờ 59 phút',
     );
@@ -62,14 +62,14 @@ describe('popover view', () => {
     const ultra2 = m.snapshot.agy.accounts.find((a) => a.active)!;
     ultra2.windows = ultra2.windows.map((w) => (w.kind === 'claudeGptWeek' ? { ...w, percent: 14 } : w));
     const row = popoverView(m, FIXTURE_NOW).now.rows[1];
-    expect(row).toMatchObject({ name: 'lan.ultra2', text: '6%', extra: { text: '86%', tone: 'warn' } });
-    expect(row.title).toBe('Gemini: lan.ultra2 đã dùng 6% tuần · Claude/GPT 86%');
+    expect(row).toMatchObject({ name: 'lan.ultra2', text: '2%', extra: { text: '86%', tone: 'warn' } });
+    expect(row.title).toBe('Gemini: lan.ultra2 đã dùng 2% 5 giờ · Claude/GPT 86%');
     expect(view('fresh').now.rows[1].extra).toBeNull();
   });
 
   it('Codex on its ChatGPT login shows that account’s number, and no Codex folder no row', () => {
     const chatgpt = view('fresh', { codex: codexFixture({ current: 'chatgpt' }) });
-    expect(now(chatgpt.now)[2]).toEqual(['Codex', 'ChatGPT', '41%', 'tuần', '↻ 4n 5g', '']);
+    expect(now(chatgpt.now)[2]).toEqual(['Codex', 'ChatGPT', '23%', '5 giờ', '↻ 2:09', '']);
     expect(view('fresh', { codex: codexFixture({ present: false }) }).now.rows.map((r) => r.id)).toEqual(['c', 'g']);
     // Not read yet, or quota-axi failing for Codex: the name and no number.
     const unread = fixtureModel('fresh', { codex: codexFixture({ current: 'chatgpt' }) });
@@ -80,6 +80,36 @@ describe('popover view', () => {
     // No ChatGPT login on a Mac whose Codex uses it: no row.
     const nologin = view('no-antigravity', { codex: codexFixture({ current: 'chatgpt' }) });
     expect(nologin.now.rows.map((r) => r.id)).toEqual(['c']);
+  });
+
+  it('Đang dùng shows the window picked for the menu bar, five hours where a service lacks it, else the tightest', () => {
+    const pick = (menubarWindow: string) => now(view('fresh', { menubarWindow, codex: codexFixture({ current: 'chatgpt' }) }).now).map((r) => r.slice(2, 4));
+    expect(pick('week')).toEqual([
+      ['39%', 'tuần'],
+      ['6%', 'tuần'],
+      ['41%', 'tuần'],
+    ]);
+    // Only Claude has Fable tuần: Gemini and Codex show their five hours.
+    expect(pick('fableWeek')).toEqual([
+      ['87%', 'Fable'],
+      ['2%', '5 giờ'],
+      ['23%', '5 giờ'],
+    ]);
+    // The tightest, as before there was a choice.
+    expect(pick('tightest')).toEqual([
+      ['87%', 'Fable'],
+      ['6%', 'tuần'],
+      ['41%', 'tuần'],
+    ]);
+    const tight = view('fresh', { menubarWindow: 'tightest' }).now.rows[0];
+    expect(tight.title).toBe('Claude: lan.acme1 đã dùng 87% Fable');
+    // A Team seat has no week: its five hours; with only Fable, the tightest.
+    const seat = fixtureModel('fresh', { menubarWindow: 'week' });
+    const acme1 = seat.snapshot.claude.accounts.find((a) => a.active)!;
+    acme1.windows = acme1.windows.filter((w) => w.kind !== 'week');
+    expect(now(popoverView(seat, FIXTURE_NOW).now)[0].slice(2, 4)).toEqual(['74%', '5 giờ']);
+    acme1.windows = acme1.windows.filter((w) => w.kind === 'fableWeek');
+    expect(now(popoverView(seat, FIXTURE_NOW).now)[0].slice(2, 4)).toEqual(['87%', 'Fable']);
   });
 
   it('a window waiting after its reset leaves Đang dùng without a number', () => {

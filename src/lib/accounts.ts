@@ -24,6 +24,8 @@ export function usedTone(used: number | null): UsedTone {
 // ===== Windows =====
 
 export interface CellView {
+  /** The window it is: the menu bar's choice picks a cell by it. */
+  kind: LineKind;
   /** `5 giờ`, `Tuần`, `Fable`, `Gemini 5 giờ`… */
   label: string;
   /** Lower case, after a number: `5 giờ`, `tuần`. */
@@ -68,7 +70,7 @@ function longReset(minutes: number): string {
 export function cellOf(line: Line | undefined, kind: LineKind, now: Date, missing = 'không có'): CellView {
   const [label, unit, rank] = LABEL[kind];
   if (!line) {
-    return { label, unit, used: null, text: '—', tone: 'muted', reset: missing, long: missing, none: true, title: missing, words: label + ' ' + missing, rank };
+    return { kind, label, unit, used: null, text: '—', tone: 'muted', reset: missing, long: missing, none: true, title: missing, words: label + ' ' + missing, rank };
   }
   const used = usedOf(line);
   const mins = minutesUntil(line.resetsAt, now);
@@ -89,6 +91,7 @@ export function cellOf(line: Line | undefined, kind: LineKind, now: Date, missin
   const bound = used != null && line.atLeast;
   const text = used == null ? '—' : (bound ? '≤' : '') + used + '%';
   return {
+    kind,
     label,
     unit,
     used,

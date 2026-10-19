@@ -53,6 +53,36 @@ describe('settings tab', () => {
     expect([codex2.disabled, codex2.title]).toEqual([true, 'Codex chưa đăng nhập ChatGPT.']);
   });
 
+  it('Số trên thanh menu picks the window the title shows, five hours by default', async () => {
+    const fake = await open(fixtureModel('fresh'));
+    const group = screen.getByRole('group', { name: 'Số trên thanh menu' });
+    const buttons = within(group).getAllByRole('button') as HTMLButtonElement[];
+    expect(buttons.map((b) => [b.textContent, b.getAttribute('aria-pressed'), b.disabled])).toEqual([
+      ['5 giờ', 'true', false],
+      ['Tuần', 'false', false],
+      ['Fable tuần', 'false', false],
+      ['Chặt nhất', 'false', false],
+    ]);
+    await act(async () => {
+      fireEvent.click(buttons[2]);
+    });
+    expect(fake.api.setMenubarWindow).toHaveBeenCalledWith('fableWeek');
+    expect(buttons[2].getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('Fable tuần is greyed out unless the title follows Claude, and a saved Fable falls back to five hours', async () => {
+    await open(fixtureModel('fresh', { menubar: 'gemini', menubarWindow: 'fableWeek' }));
+    const [, , fable] = within(screen.getByRole('group', { name: 'Số trên thanh menu' })).getAllByRole('button') as HTMLButtonElement[];
+    expect([fable.disabled, fable.title]).toEqual([true, 'Gemini không có Fable tuần.']);
+    expect(screen.getByText('Gemini không có Fable tuần: thanh menu hiện 5 giờ.')).toBeTruthy();
+    cleanup();
+    // This Mac lacks the service picked: the title follows Claude, which has Fable.
+    await open(fixtureModel('no-antigravity', { menubar: 'gemini', menubarWindow: 'fableWeek' }));
+    const [, , fable2] = within(screen.getByRole('group', { name: 'Số trên thanh menu' })).getAllByRole('button') as HTMLButtonElement[];
+    expect(fable2.disabled).toBe(false);
+    expect(screen.queryByText(/thanh menu hiện 5 giờ/)).toBeNull();
+  });
+
   it('shows the quota-axi in use and that Keychain access is granted', async () => {
     await open(fixtureModel('fresh'));
     expect((screen.getByLabelText(/quota-axi/) as HTMLInputElement).value).toBe('~/.local/bin/quota-axi');

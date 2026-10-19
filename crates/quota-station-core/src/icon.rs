@@ -1,7 +1,8 @@
 //! The menu bar icon (F02): a monochrome template glyph with one bar per
 //! service, and the title beside it: the account in use and its share used
-//! for the service the owner picked (Claude, Gemini or Codex), the way
-//! claude-swap's own menu bar named the account in use.
+//! for the service and the window the owner picked (Claude, Gemini or Codex;
+//! 5 giờ, tuần, Fable tuần or the tightest), the way claude-swap's own menu
+//! bar named the account in use.
 //!
 //! The glyph follows the approved sketch `qs-tray-*.svg` on an 18 pt frame;
 //! each bar fills as its account's tightest window is used. The title is
@@ -10,7 +11,7 @@
 use serde::Serialize;
 use time::OffsetDateTime;
 
-use crate::settings::Menubar;
+use crate::settings::{Menubar, MenubarWindow};
 use crate::snapshot::{Account, Line, LineKind, Reading, Role, Section, SectionStatus, Snapshot};
 use crate::time_util::parse_ts;
 
@@ -78,6 +79,8 @@ pub struct Failing {
 pub struct Context {
     /// The service the title follows, from settings.
     pub follow: Menubar,
+    /// The window the title shows, from settings.
+    pub window: MenubarWindow,
     pub failing: Failing,
     pub codex: CodexUse,
     pub now: OffsetDateTime,
@@ -190,6 +193,33 @@ fn pick<'a>(a: &'a Account, kinds: &[LineKind]) -> Vec<&'a Line> {
     lines_of(a).iter().filter(|l| kinds.contains(&l.kind)).collect()
 }
 
+const FIVE_HOURS: &[LineKind] =
+    &[LineKind::Session, LineKind::GeminiSession, LineKind::ClaudeGptSession];
+const WEEK: &[LineKind] = &[LineKind::Week, LineKind::GeminiWeek, LineKind::ClaudeGptWeek];
+
+/// The window the owner picked and its share used: the five-hour window when
+/// the account has no window of that kind, and the tightest without either.
+/// `None` when that window has no number now.
+fn chosen<'a>(
+    lines: &[&'a Line],
+    window: MenubarWindow,
+    now: OffsetDateTime,
+) -> Option<(&'a Line, f64)> {
+    for w in [window, MenubarWindow::FiveHours] {
+        let kinds = match w {
+            MenubarWindow::FiveHours => FIVE_HOURS,
+            MenubarWindow::Week => WEEK,
+            MenubarWindow::FableWeek => &[LineKind::FableWeek],
+            MenubarWindow::Tightest => break,
+        };
+        let found: Vec<&Line> = lines.iter().copied().filter(|l| kinds.contains(&l.kind)).collect();
+        if !found.is_empty() {
+            return tightest(&found, now);
+        }
+    }
+    tightest(lines, now)
+}
+
 const GEMINI: &[LineKind] = &[
     LineKind::GeminiSession,
     LineKind::GeminiWeek,
@@ -235,11 +265,14 @@ pub fn reset_words(minutes: i64) -> String {
     format!("đặt lại sau {}", parts.join(" "))
 }
 
-/// What one service shows: whose account, and its tightest window.
+/// What one service shows: whose account, and the window picked.
 struct Now<'a> {
     /// Uncut: the title cuts it, the label reads it whole.
     name: String,
+    /// The window the title shows.
     tight: Option<(&'a Line, f64)>,
+    /// The tightest window's share used: the bar fills with it.
+    bar: Option<f64>,
     /// The number is old: quota-axi's last reading is stale.
     stale: bool,
     /// Codex goes through a provider that reports no quota: no number is
@@ -283,38 +316,60 @@ fn readable(a: &Account) -> bool {
 fn claude_now<'a>(s: &'a Snapshot, cx: &Context) -> Now<'a> {
     let section = &s.claude;
     let Some(a) = section.active() else {
-        return Now { name: "Claude".into(), tight: None, stale: false, no_quota: false };
+        return Now {
+            name: "Claude".into(),
+            tight: None,
+            bar: None,
+            stale: false,
+            no_quota: false,
+        };
     };
-    let tight =
-        (!cx.failing.claude && readable(a)).then(|| tightest(&pick(a, CLAUDE), cx.now)).flatten();
-    Now { name: claude_name(section, a), tight, stale: section.stale, no_quota: false }
+    let lines = if !cx.failing.claude && readable(a) { pick(a, CLAUDE) } else { Vec::new() };
+    Now {
+        name: claude_name(section, a),
+        tight: chosen(&lines, cx.window, cx.now),
+        bar: tightest(&lines, cx.now).map(|(_, u)| u),
+        stale: section.stale,
+        no_quota: false,
+    }
 }
 
 fn agy_now<'a>(s: &'a Snapshot, cx: &Context, kinds: &[LineKind]) -> Now<'a> {
     let section = &s.agy;
     let Some(a) = section.active() else {
-        return Now { name: "Gemini".into(), tight: None, stale: false, no_quota: false };
+        return Now {
+            name: "Gemini".into(),
+            tight: None,
+            bar: None,
+            stale: false,
+            no_quota: false,
+        };
     };
-    let tight =
-        (!cx.failing.agy && readable(a)).then(|| tightest(&pick(a, kinds), cx.now)).flatten();
-    Now { name: agy_name(a), tight, stale: section.stale, no_quota: false }
+    let lines = if !cx.failing.agy && readable(a) { pick(a, kinds) } else { Vec::new() };
+    Now {
+        name: agy_name(a),
+        tight: chosen(&lines, cx.window, cx.now),
+        bar: tightest(&lines, cx.now).map(|(_, u)| u),
+        stale: section.stale,
+        no_quota: false,
+    }
 }
 
 fn codex_now<'a>(s: &'a Snapshot, cx: &Context) -> Now<'a> {
     if let CodexUse::Provider(name) = &cx.codex {
-        return Now { name: name.clone(), tight: None, stale: false, no_quota: true };
+        return Now { name: name.clone(), tight: None, bar: None, stale: false, no_quota: true };
     }
     let section = &s.codex;
     let tight = section
         .active()
         .filter(|a| !cx.failing.codex && readable(a))
-        .and_then(|a| tightest(&pick(a, &[LineKind::Session, LineKind::Week]), cx.now));
+        .and_then(|a| chosen(&pick(a, &[LineKind::Session, LineKind::Week]), cx.window, cx.now));
     let name = if section.status == SectionStatus::Unread && cx.codex == CodexUse::Missing {
         "Codex"
     } else {
         "ChatGPT"
     };
-    Now { name: name.into(), tight, stale: section.stale, no_quota: false }
+    Now { name: name.into(), tight, bar: None, stale: section.stale, no_quota: false }
 }
 
 /// The service the title follows: the one picked, or Claude when this Mac
@@ -402,8 +457,8 @@ pub fn icon(snapshot: Option<&Snapshot>, cx: &Context) -> Icon {
     Icon {
         title: shown.title(),
         tone,
-        claude: claude.tight.map(|(_, u)| u),
-        agy: if show_agy { gemini.tight.map(|(_, u)| u) } else { None },
+        claude: claude.bar,
+        agy: if show_agy { gemini.bar } else { None },
         show_agy,
         paused: false,
         label,

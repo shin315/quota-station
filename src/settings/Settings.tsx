@@ -12,7 +12,7 @@ import { AlertKinds } from '../alerts/AlertsTab';
 import { Button, Chip, Dot, Feedback, Toggle } from '../components/parts';
 import { PERMISSION_CHIPS, UNREAD } from '../lib/alerts';
 import type { ChipView } from '../lib/view';
-import type { AlertKind, AppView, ClientStatus, Menubar, Model, Peer, PeerTest, Theme, UpdateError } from '../lib/model';
+import type { AlertKind, AppView, ClientStatus, Menubar, MenubarWindow, Model, Peer, PeerTest, Theme, UpdateError } from '../lib/model';
 import type { Action, FeedbackView, PopoverView } from '../lib/view';
 
 const THEMES: [Theme, string][] = [
@@ -40,6 +40,8 @@ export interface SettingsProps {
   onTheme(theme: Theme): void;
   /** The service the menu bar title follows. */
   onMenubar(menubar: Menubar): void;
+  /** The window the menu bar title shows. */
+  onMenubarWindow(window: MenubarWindow): void;
   /** Resolves to null once saved, else the refusal (`notPoolFile`, `notFound`). */
   onSetFirstmate(path: string): Promise<string | null>;
   /** Codex's folder; empty is `~/.codex`. Resolves to what it was refused with, or null. */
@@ -575,6 +577,49 @@ function MenubarRow({ model, onPick }: { model: Model; onPick(menubar: Menubar):
   );
 }
 
+const MENUBAR_WINDOWS: [MenubarWindow, string][] = [
+  ['fiveHours', '5 giờ'],
+  ['week', 'Tuần'],
+  ['fableWeek', 'Fable tuần'],
+  ['tightest', 'Chặt nhất'],
+];
+
+/**
+ * Why the menu bar cannot show a window: only Claude has Fable tuần, and the
+ * title follows Claude when this Mac lacks the service picked. '' when it can.
+ */
+export function menubarWindowOff(model: Model, window: MenubarWindow): string {
+  const follows = menubarOff(model, model.menubar) ? 'claude' : model.menubar;
+  if (window !== 'fableWeek' || follows === 'claude') return '';
+  return (follows === 'gemini' ? 'Gemini' : 'Codex') + ' không có Fable tuần.';
+}
+
+/** Số trên thanh menu: which window's share used the menu bar shows. */
+function MenubarWindowRow({ model, onPick }: { model: Model; onPick(window: MenubarWindow): void }) {
+  const picked = menubarWindowOff(model, model.menubarWindow);
+  return (
+    <div className="fr">
+      <div className="fl" id="qs-mbwindow-l">
+        Số trên thanh menu
+      </div>
+      <div>
+        <div className="seg inline" role="group" aria-labelledby="qs-mbwindow-l">
+          {MENUBAR_WINDOWS.map(([v, t]) => {
+            const off = menubarWindowOff(model, v);
+            return (
+              <button key={v} type="button" aria-pressed={model.menubarWindow === v} disabled={!!off} title={off || undefined} onClick={() => onPick(v)}>
+                {t}
+              </button>
+            );
+          })}
+        </div>
+        <div className="fhint">Chặt nhất: hạn mức đã dùng nhiều nhất.</div>
+        {picked ? <div className="fhint off">{picked.replace(/\.$/, '') + ': thanh menu hiện 5 giờ.'}</div> : null}
+      </div>
+    </div>
+  );
+}
+
 export function Settings({
   model,
   fresh,
@@ -589,6 +634,7 @@ export function Settings({
   onShowNames,
   onTheme,
   onMenubar,
+  onMenubarWindow,
   onSetFirstmate,
   onSetCodexHome,
   onTestAlert,
@@ -707,6 +753,7 @@ export function Settings({
             </div>
           </div>
           <MenubarRow model={model} onPick={onMenubar} />
+          <MenubarWindowRow model={model} onPick={onMenubarWindow} />
           <FirstmateFile model={model} onSet={onSetFirstmate} />
           {onSetCodexHome ? <CodexHome model={model} onSet={onSetCodexHome} /> : null}
           <Notifications model={model} onAction={onAction} onTest={onTestAlert} onSwitch={onAlertSwitch} />
