@@ -6,6 +6,7 @@ import './styles/tokens.css';
 import './styles/components.css';
 import './styles/redesign.css';
 import './styles/app.css';
+import './styles/agents.css';
 
 type View = 'popover' | 'window';
 

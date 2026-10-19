@@ -6,6 +6,7 @@
 // switches from its tables once quota-axi lists them (M4c). Lịch sử, Cảnh
 // báo and Firstmate come from M6, and Cảnh báo counts the alerts nobody
 // answered yet. Codex (M8) has its own tab and a compact card on Tổng quan.
+// The Agent group starts with MCP (M9): every agent's MCP servers in one table.
 
 import { Fragment, type ReactNode } from 'react';
 import { AddAccount, LoginActions, LoginNotes, LogoutConfirm, loginChips, type AgyLogins } from '../antigravity/AgyAccounts';
@@ -32,6 +33,8 @@ const NAVS: (['-', string] | [NavId, string])[] = [
   ['history', 'Lịch sử'],
   ['alerts', 'Cảnh báo'],
   ['firstmate', 'Firstmate'],
+  ['-', 'Agent'],
+  ['mcp', 'MCP'],
 ];
 
 function NavButton(props: { id: NavId; label: string; tab: Tab; badge?: number; onTab(tab: Tab): void }) {
@@ -417,6 +420,8 @@ export interface MainWindowProps {
   /** The Codex tab (M8) and Codex's card on Tổng quan. */
   codex?: ReactNode;
   codexCard?: ReactNode;
+  /** The MCP tab (M9). */
+  mcp?: ReactNode;
   /** The Lịch sử, Cảnh báo and Firstmate tabs (M6). */
   history?: ReactNode;
   alerts?: ReactNode;
@@ -429,6 +434,8 @@ export interface MainWindowProps {
   agyLogins?: AgyLogins;
   /** The open dialog's body; null when none is open. */
   dialog?: ReactNode;
+  /** Its width: the MCP preview and form need more room than a confirmation. */
+  dialogSize?: 'wide' | 'lg' | 'xl';
 }
 
 export function MainWindow(props: MainWindowProps) {
@@ -466,13 +473,14 @@ export function MainWindow(props: MainWindowProps) {
           {props.tab === 'history' ? props.history : null}
           {props.tab === 'alerts' ? props.alerts : null}
           {props.tab === 'firstmate' ? props.firstmate : null}
+          {props.tab === 'mcp' ? props.mcp : null}
           {props.tab === 'settings' ? props.settings : null}
         </main>
       </div>
       {open ? (
         <div className="dlg-wrap">
           <div
-            className="dlg wide"
+            className={'dlg ' + (props.dialogSize ?? 'wide')}
             role="dialog"
             aria-modal="true"
             aria-labelledby={SHEET_TITLE_ID}

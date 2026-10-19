@@ -36,7 +36,11 @@ export type Action =
   /** Codex (M8): the row, a switch sheet, the restart sheet, the change made outside, guides and the tab. */
   | CodexAction
   /** The rotation editor's banners and feedback (M5). */
-  | RulesAction;
+  | RulesAction
+  /** The MCP tab (M9): open it, undo the last write, its backups, read again. */
+  | McpAction;
+
+export type McpAction = 'mcp:tab' | 'mcp:undo' | 'mcp:backups' | 'mcp:reread' | `mcp:key:${string}` | `mcp:howcmd:${string}` | `mcp:later:${string}`;
 
 export type CodexAction =
   | 'codex:open'
@@ -48,7 +52,6 @@ export type CodexAction =
   | 'codex:check'
   | 'codex:tab'
   | 'codex:guide:login'
-  | 'codex:mcp'
   | 'codex:backup';
 
 export type RulesAction =

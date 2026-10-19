@@ -27,6 +27,7 @@ use serde::{Deserialize, Serialize};
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
+use crate::agents::{self, McpView};
 use crate::agy_switch::{self, SwitchView};
 use crate::alerting::{self, AlertsView, FirstmateView};
 use crate::antigravity::{self, AccountsView};
@@ -194,6 +195,8 @@ pub struct Inner {
     pub install: InstallState,
     /// Codex's files, processes and provider as last looked at (M8).
     pub codex: codex::Live,
+    /// The MCP table as last read, and the last write (M9).
+    pub mcp: agents::Live,
 }
 
 /// How the app's own read of an Antigravity account stands.
@@ -262,6 +265,7 @@ pub enum Tab {
     History,
     Alerts,
     Firstmate,
+    Mcp,
     Settings,
 }
 
@@ -318,6 +322,7 @@ impl Inner {
             app_version: String::new(),
             install: InstallState::default(),
             codex: codex::Live::default(),
+            mcp: agents::Live::default(),
         }
     }
 
@@ -477,6 +482,7 @@ impl Inner {
             firstmate: alerting::firstmate_view(self),
             app: install::view(self),
             codex: codex::view(self),
+            mcp: agents::view(self),
         }
     }
 
@@ -588,6 +594,8 @@ pub struct Model {
     pub app: AppView,
     /// Switching Codex (M8).
     pub codex: CodexView,
+    /// Every agent's MCP servers (M9).
+    pub mcp: McpView,
 }
 
 /// The rotation file and the other Macs (F06).

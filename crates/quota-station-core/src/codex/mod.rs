@@ -5,10 +5,12 @@
 //! The app writes one file, `<Codex home>/config.toml`, and in it only the
 //! keys the switch owns ([`config`]): `model_provider`, and
 //! `requires_openai_auth` in the custom provider's table. It backs the file
-//! up first and checks it was not changed meanwhile ([`files`]). It never
-//! writes `auth.json` (only its shape is looked at, [`login`]) or the
-//! `[mcp_servers]` list, and the custom provider's settings come from the
-//! file itself: no host, URL or key is built in. It runs `ps` and, when the
+//! up first, with the keys left out of the backup, and checks it was not
+//! changed meanwhile ([`files`]). It never writes `auth.json` (only its
+//! shape is looked at, [`login`]); the switch never writes the
+//! `[mcp_servers]` list, which only the MCP tab edits
+//! ([`crate::agents::codex_mcp`]); and the custom provider's settings come
+//! from the file itself: no host, URL or key is built in. It runs `ps` and, when the
 //! owner confirms, `codex app-server daemon restart` ([`procs`]); it asks the
 //! provider's `/models` with no key to see that it answers ([`probe`]).
 
@@ -243,35 +245,4 @@ pub fn keep(app: &AppDir, hash: &str, parsed: Option<&Parsed>) -> std::io::Resul
         record.last_custom = Some(c.id.clone());
     }
     files::save(app, &record)
-}
-
-/// The MCP list as the export file holds it: names, kinds, on or off. No
-/// command, URL, header or environment variable, which may hold secrets.
-pub fn mcp_export(parsed: &Parsed, machine: &str, at: &str) -> String {
-    let mut out = format!(
-        "# Danh sách MCP của Codex trên {machine}, đọc từ config.toml lúc {at}\n# tên · loại · bật/tắt\n"
-    );
-    for m in &parsed.mcp {
-        out.push_str(&format!(
-            "{} · {} · {}\n",
-            m.name,
-            m.kind,
-            if m.enabled { "bật" } else { "tắt" }
-        ));
-    }
-    if parsed.mcp.is_empty() {
-        out.push_str("(không có máy chủ MCP nào)\n");
-    }
-    out
-}
-
-/// A free name for the export in `dir`: `codex-mcp-DD-MM.txt`, then `-2`, ….
-pub fn export_path(dir: &Path, day: &str) -> PathBuf {
-    let mut path = dir.join(format!("codex-mcp-{day}.txt"));
-    let mut n = 2;
-    while path.exists() {
-        path = dir.join(format!("codex-mcp-{day}-{n}.txt"));
-        n += 1;
-    }
-    path
 }

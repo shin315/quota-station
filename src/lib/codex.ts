@@ -413,14 +413,3 @@ export function codexRestartFeedback(r: CodexRestart | 'busy' | 'error', model: 
     : { tone: '', title: 'Tiến trình nền Codex đã khởi động lại', body: 'Mở lại codex trong Terminal để dùng ' + name + '.' };
 }
 
-export function mcpSavedFeedback(path: string, count: number): FeedbackView {
-  return {
-    tone: 'info',
-    title: 'Đã lưu danh sách MCP',
-    body: count + ' máy chủ MCP → ' + path + '. Dùng file này để so với danh sách trong CC Switch.',
-  };
-}
-
-export function mcpFailedFeedback(): FeedbackView {
-  return { tone: 'bad', title: 'Chưa lưu được danh sách MCP', body: 'Không ghi được file vào thư mục Tải về. Thử lại.' };
-}

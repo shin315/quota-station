@@ -1,8 +1,9 @@
 // The Codex tab of the main window (M8) and Codex's compact card on Tổng
 // quan. The tab: the provider in use with a choice between the two sides
 // (each opens the confirmation sheet), Codex on this Mac, the resumable
-// sessions by provider, the recent switches, the MCP list read only with its
-// export, the guide to stop using CC Switch, and the file the app writes.
+// sessions by provider, the recent switches, how many MCP servers Codex has
+// (they are turned on and off in the MCP tab, M9), the guide to stop using CC
+// Switch, and the file the app writes.
 
 import type { ReactNode } from 'react';
 import { Banner, Button, Chip, Dot, Feedback } from '../components/parts';
@@ -216,28 +217,16 @@ function Recent({ v, now }: { v: CodexView; now: Date }) {
   );
 }
 
-function McpList({ v, onAction }: { v: CodexView; onAction(a: Action): void }) {
+/** Codex's MCP servers in one line: the MCP tab turns them on and off (M9). */
+function McpLine({ v, onAction }: { v: CodexView; onAction(a: Action): void }) {
+  const on = v.mcp.filter((m) => m.enabled).length;
   return (
-    <Card title={<>Danh sách MCP của Codex<span className="r">đọc từ config.toml</span></>}>
-      {v.mcp.length ? (
-        <Rows
-          rows={v.mcp.map((m) => ({
-            id: m.name,
-            key: (
-              <>
-                <span className="mono">{m.name}</span> · {m.kind}
-              </>
-            ),
-            value: <Chip chip={m.enabled ? { t: 'bật', k: 'ok' } : { t: 'tắt', k: '' }} />,
-          }))}
-        />
-      ) : (
-        <p>config.toml không có máy chủ MCP nào.</p>
-      )}
-      <p style={{ margin: '10px 0 8px' }}>App không ghi phần này. Trước khi ngừng dùng CC Switch, xuất danh sách để giữ.</p>
-      <Button disabled={v.config !== 'ok'} onClick={() => onAction('codex:mcp')}>
-        Xuất danh sách MCP…
-      </Button>
+    <Card title={<>MCP của Codex<span className="r">đọc từ config.toml</span></>}>
+      <div className="row2">
+        <span>{v.mcp.length ? v.mcp.length + ' MCP · ' + on + ' đang bật' : 'config.toml không có máy chủ MCP nào.'}</span>
+        <Button onClick={() => onAction('mcp:tab')}>Mở tab MCP</Button>
+      </div>
+      <p style={{ margin: '8px 0 0' }}>Bật, tắt, thêm hay xoá MCP cho cả ba agent ở tab MCP. Chuyển nhà cung cấp không đụng tới phần này.</p>
     </Card>
   );
 }
@@ -269,7 +258,7 @@ function CcSwitchGuide({ v, macs, now }: { v: CodexView; macs: number; now: Date
       cls: step(steady, true),
     },
     { text: 'Xuất bản sao lưu SQL của CC Switch', small: 'CC Switch › Cài đặt › Import/Export › Export SQL Backup', cls: step(false, steady) },
-    { text: 'Xuất danh sách MCP và so với MCP trong CC Switch', small: 'MCP đang tắt chỉ có trong dữ liệu CC Switch', cls: step(false, steady) },
+    { text: 'So danh sách ở tab MCP với MCP trong CC Switch', small: 'MCP đang tắt chỉ có trong dữ liệu CC Switch: thêm lại ở tab MCP', cls: step(false, steady) },
     { text: 'Chuyển Codex một lần bằng Quota Station', cls: step(!!v.firstSwitchAt, steady) },
     {
       text: 'Dọn dấu vết CC Switch trong config.toml',
@@ -308,13 +297,14 @@ function Files({ v, now, onAction }: { v: CodexView; now: Date; onAction(a: Acti
       <Rows
         rows={[
           { id: 'w', key: 'Ghi', value: <span className="mono">{v.home}/config.toml</span> },
-          { id: 'n', key: 'Không ghi', value: <span className="mono">auth.json · [mcp_servers]</span> },
+          { id: 'n', key: 'Không ghi', value: <span className="mono">auth.json</span> },
+          { id: 'm', key: 'MCP', value: <><span className="mono">[mcp_servers]</span> chỉ đổi từ tab MCP</> },
           {
             id: 'b',
             key: 'Sao lưu',
             value: (
               <>
-                {v.backups.length} bản · giữ 10 bản gần nhất{' '}
+                {v.backups.length} bản · giữ 10 bản gần nhất · không chứa khoá{' '}
                 <button type="button" className="lnk" onClick={() => onAction('codex:backup')}>
                   Xem
                 </button>
@@ -405,7 +395,7 @@ export function CodexTab({ model, fresh, feedback, now, onAction }: CodexTabProp
           <Recent v={v} now={now} />
         </div>
         <div className="stack">
-          <McpList v={v} onAction={onAction} />
+          <McpLine v={v} onAction={onAction} />
           <CcSwitchGuide v={v} macs={1 + model.rotation.peers.length} now={now} />
           <Files v={v} now={now} onAction={onAction} />
         </div>

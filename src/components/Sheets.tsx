@@ -29,11 +29,11 @@ export type SheetState =
   /** Restart Codex's background process; `after` straight after a switch whose box was ticked. */
   | { kind: 'daemon'; after: boolean }
   | { kind: 'codexExternal' }
-  | { kind: 'codexInfo'; id: 'login' | 'mcp' | 'backup' };
+  | { kind: 'codexInfo'; id: 'login' | 'backup' };
 
 export const SHEET_TITLE_ID = 'qs-dlg-t';
 
-const FOCUSABLE = 'button:not([disabled]):not([tabindex="-1"]), [href], input:not([disabled])';
+const FOCUSABLE = 'button:not([disabled]):not([tabindex="-1"]), [href], input:not([disabled]), textarea:not([disabled])';
 
 /**
  * G10: the dialog takes focus when it opens, keeps Tab inside, and gives
@@ -87,7 +87,6 @@ export interface SheetBodyProps {
   onCodexKeep?(): void;
   /** Another Codex sheet: "Về lại …", the guides. */
   onCodexOpen?(sheet: SheetState): void;
-  onCodexExport?(): void;
   /** The guide to stop using CC Switch, in the Codex tab. */
   onCodexGuide?(): void;
 }
@@ -410,7 +409,7 @@ function ExternalBody(props: SheetBodyProps) {
   );
 }
 
-function CodexInfoBody(props: SheetBodyProps & { id: 'login' | 'mcp' | 'backup' }) {
+function CodexInfoBody(props: SheetBodyProps & { id: 'login' | 'backup' }) {
   const v = props.model.codex;
   const close = (
     <Button large primary onClick={props.onClose}>
@@ -430,39 +429,6 @@ function CodexInfoBody(props: SheetBodyProps & { id: 'login' | 'mcp' | 'backup' 
         <div className="btns">{close}</div>
       </>
     );
-  if (props.id === 'mcp')
-    return (
-      <>
-        <h3 id={SHEET_TITLE_ID}>Xuất danh sách MCP của Codex</h3>
-        <p className="lead">
-          Đọc từ <span className="mono">{v.home}/config.toml</span>. App không ghi phần <span className="mono">[mcp_servers]</span>.
-        </p>
-        <div className="kvt" style={{ marginBottom: 10 }}>
-          {v.mcp.length ? (
-            v.mcp.map((m) => [
-              <span key={m.name + ':k'}>
-                <span className="mono">{m.name}</span> · {m.kind}
-              </span>,
-              <span key={m.name + ':v'}>{m.enabled ? 'bật' : 'tắt'}</span>,
-            ])
-          ) : (
-            <span>Không có máy chủ MCP nào</span>
-          )}
-        </div>
-        <p className="lead">
-          Lưu vào thư mục Tải về (tên, loại, bật hay tắt; không chép lệnh, địa chỉ hay biến môi trường). Dùng file này để so với danh sách MCP
-          trong CC Switch trước khi ngừng dùng CC Switch.
-        </p>
-        <div className="btns">
-          <Button large onClick={props.onClose}>
-            Thôi
-          </Button>
-          <Button large primary onClick={props.onCodexExport}>
-            Lưu file
-          </Button>
-        </div>
-      </>
-    );
   return (
     <>
       <h3 id={SHEET_TITLE_ID}>Thư mục sao lưu Codex</h3>
@@ -479,7 +445,10 @@ function CodexInfoBody(props: SheetBodyProps & { id: 'login' | 'mcp' | 'backup' 
           <span>Chưa có bản sao lưu nào: app chưa ghi config.toml lần nào.</span>
         )}
       </div>
-      <p className="lead">Giữ 10 bản gần nhất. Lần ghi lỗi không đổi file đang dùng, nên chưa cần khôi phục.</p>
+      <p className="lead">
+        Giữ 10 bản gần nhất. Bản lưu không chứa khoá: app thay giá trị của khoá bằng <span className="mono">&lt;redacted&gt;</span>. Lần ghi lỗi
+        không đổi file đang dùng, nên chưa cần khôi phục.
+      </p>
       <div className="btns">{close}</div>
     </>
   );

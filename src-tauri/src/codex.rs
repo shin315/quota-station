@@ -327,6 +327,9 @@ pub fn spawn(app: AppHandle, state: AppState) {
 }
 
 fn run(app: &AppHandle, state: &AppState) {
+    // Before M9 the switch kept `config.toml` whole in its backups.
+    let backups = state.lock().codex_backups();
+    files::scrub_backups(&backups);
     loop {
         look(app, state);
         let inner = state.lock();
@@ -454,7 +457,7 @@ pub async fn codex_switch(
     let shared = state.inner().clone();
     let (home, dir) = {
         let mut inner = shared.lock();
-        if inner.codex.busy.is_some() {
+        if inner.codex.busy.is_some() || inner.mcp.busy == Some("writing") {
             return Err("busy".into());
         }
         inner.codex.busy = Some("switching");
@@ -538,24 +541,6 @@ pub fn codex_keep(app: AppHandle, state: State<'_, AppState>) -> Result<Model, S
 #[tauri::command]
 pub fn codex_check(state: State<'_, AppState>) {
     request(state.inner(), true);
-}
-
-/// Saves the MCP list (names, kinds, on or off) to `~/Downloads`; returns
-/// where, as `~/…`. Rejects with `unread` when the file could not be read.
-#[tauri::command]
-pub fn codex_export_mcp(state: State<'_, AppState>) -> Result<String, String> {
-    let inner = state.lock();
-    let parsed = inner.codex.reading.as_ref().and_then(Reading::parsed).ok_or("unread")?;
-    // `YYYY-MM-DDTHH:MM:SS` on this Mac's clock.
-    let stamp = quota_station_core::local_time::stamp(OffsetDateTime::now_utc());
-    let (day, month, clock) = (&stamp[8..10], &stamp[5..7], &stamp[11..16]);
-    let text = codex::mcp_export(parsed, &inner.machine(), &format!("{day}/{month} {clock}"));
-    let day = format!("{day}-{month}");
-    let dir = inner.home.join("Downloads");
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    let path = codex::export_path(&dir, &day);
-    std::fs::write(&path, text).map_err(|e| e.to_string())?;
-    Ok(runner::display_path(&path, &inner.home))
 }
 
 /// Sets Codex's folder; empty goes back to `~/.codex`. Rejects a path that

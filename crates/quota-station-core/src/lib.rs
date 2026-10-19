@@ -7,10 +7,11 @@
 //! [`alerts`] sent and were answered), the switcher's pause flag, the
 //! rotation file ([`rotation`]), which it also copies to the owner's other
 //! Macs over SSH ([`peers`]), and the app's own Keychain items for the
-//! Antigravity accounts it logs in. The one command it runs that switches
-//! anything is `cswap switch N --json` ([`switching`]). The one it runs that
-//! writes anything elsewhere is the [`peers`] script over `ssh`, which
-//! replaces the rotation file on another Mac (keeping a backup there).
+//! Antigravity accounts it logs in and for MCP secrets. The one command it runs that switches
+//! anything is `cswap switch N --json` ([`switching`]). The ones it runs
+//! that write anything elsewhere are the [`peers`] script over `ssh`, which
+//! replaces the rotation file on another Mac (keeping a backup there), and
+//! `claude mcp add-json`/`remove` ([`agents`]) from the MCP tab.
 //! Everything else it runs only reads: quota-axi, `cswap list --json`
 //! (every Claude account's windows, email and organization), the switcher's
 //! `--dry-run` (which reads claude-swap's accounts and switches nothing),
@@ -25,9 +26,18 @@
 //!
 //! [`codex`] switches Codex between the ChatGPT login and a custom provider
 //! when the owner confirms: it writes only the provider choice in Codex's
-//! `config.toml` (keeping a backup), never `auth.json` or the MCP list, and
-//! runs `codex app-server daemon restart` only when the owner asks.
+//! `config.toml` (keeping a backup without the keys), never `auth.json` or
+//! the MCP list, and runs `codex app-server daemon restart` only when the
+//! owner asks.
+//!
+//! [`agents`] is the MCP tab (M9): after a preview the owner confirmed, it
+//! writes the `[mcp_servers.<name>]` tables of Codex's `config.toml`, the
+//! `mcpServers` of Antigravity's `mcp_config.json`, and Claude Code's list
+//! through `claude mcp add-json`/`remove --scope user` (Claude Code writes
+//! `~/.claude.json` itself). Each file is backed up first with its secrets
+//! left out; secrets the app must keep go to its own Keychain items.
 
+pub mod agents;
 pub mod alerts;
 pub mod antigravity;
 pub mod axi;

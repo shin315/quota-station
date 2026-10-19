@@ -28,9 +28,11 @@
 // The menu bar's service (19/10/2026): `menubar=claude|gemini|codex` on `tab=settings`,
 // and `agyhot=on` puts the Antigravity account in use at 86 % of its Claude/GPT week,
 // which Đang dùng then shows beside Gemini.
+// MCP (M9): `tab=mcp` with `mcp=empty|parse|noagy|nocli|unread`, and `mcpoutcome=changed`
+// for a write that finds a file changed. A preview or a write takes 0.6 s.
 
 import type { Api } from './lib/api';
-import type { AgyAccounts, AgyApp, AgyHow, AgyOutcome, CodexOutcome, CodexTarget, ErrorView, Model, Outcome, Tab, UpdateError, UpdateOutcome } from './lib/model';
+import type { AgyAccounts, AgyApp, AgyHow, AgyOutcome, CodexOutcome, CodexTarget, ErrorView, McpTable, Model, Outcome, Tab, UpdateError, UpdateOutcome } from './lib/model';
 import { fakeApi, fakeEmail, hideNames } from './fixtures/fakeApi';
 import {
   agyAccount,
@@ -48,12 +50,33 @@ import {
   appFixture,
   codexFixture,
   firstmateFixture,
+  mcpFixture,
+  mcpTableFixture,
   historyFixture,
   leavingAlert,
   overwriteAlert,
 } from './fixtures/models';
 
-const TABS: Tab[] = ['overview', 'claude', 'agy', 'codex', 'rules', 'history', 'alerts', 'firstmate', 'settings'];
+const TABS: Tab[] = ['overview', 'claude', 'agy', 'codex', 'rules', 'history', 'alerts', 'firstmate', 'mcp', 'settings'];
+
+const MCP_COLUMN = (agent: 'claude' | 'codex' | 'agy', over: Partial<McpTable['columns'][number]>) => (t: McpTable) =>
+  t.columns.map((c) => (c.agent === agent ? { ...c, ...over } : c));
+const MCP: Record<string, () => Model['mcp']> = {
+  empty: () => mcpFixture({ table: mcpTableFixture({ rows: [], stored: [] }), backups: [] }),
+  parse: () => {
+    const t = mcpTableFixture();
+    return mcpFixture({ table: { ...t, columns: MCP_COLUMN('codex', { state: 'invalid', reason: 'TOML parse error at line 48, column 1', writable: false })(t) } });
+  },
+  noagy: () => {
+    const t = mcpTableFixture();
+    return mcpFixture({ table: { ...t, columns: MCP_COLUMN('agy', { state: 'absent', present: false, writable: false })(t) } });
+  },
+  nocli: () => {
+    const t = mcpTableFixture();
+    return mcpFixture({ table: { ...t, columns: MCP_COLUMN('claude', { state: 'noCli', writable: false })(t) } });
+  },
+  unread: () => mcpFixture({ table: null, readAt: null }),
+};
 
 const RELAY = codexFixture().custom!;
 const CODEX: Record<string, () => Model['codex']> = {
@@ -261,6 +284,8 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
   if (app) over.app = app();
   const codex = pick(CODEX, params.get('codex'));
   if (codex) over.codex = codex();
+  const mcp = pick(MCP, params.get('mcp'));
+  if (mcp) over.mcp = mcp();
   const agyApp = params.get('agyapp');
   const ends = LOGIN_ENDS.find((k) => k.toLowerCase() === params.get('login')?.toLowerCase());
   const menubar = params.get('menubar');
@@ -290,6 +315,8 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
     updateDelayMs: 1500,
     codexOutcome: pick(CODEX_OUTCOMES, params.get('codexoutcome')),
     codexDelayMs: 1500,
+    mcpChanged: params.get('mcpoutcome') === 'changed',
+    mcpDelayMs: 600,
   });
   // The window opens on the same fixture and switcher states as the popover.
   const openWindow = async (next: Tab) => {

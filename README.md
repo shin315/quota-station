@@ -24,19 +24,21 @@ the screen; the popover and window images are the browser preview.
 
 ## What it does
 
-This is milestone M8, "Chuyển Codex" (switching Codex between the ChatGPT
-login and a custom API provider), on top of M7, "Chuyển đổi" (installing,
+This is milestone M9, "MCP" (every agent's MCP servers in one table), on top
+of M8, "Chuyển Codex" (switching Codex between the ChatGPT
+login and a custom API provider), M7, "Chuyển đổi" (installing,
 updating and launching at login), M6, "Lịch sử, cảnh báo và Firstmate", M5 "Luật
 xoay vòng", M3 "Chuyển Claude và tạm dừng", M2 "Cửa sổ chính chỉ đọc" and M1
 "Khung và số", with M4a, "Đăng nhập Antigravity trong app", M4b, "App tự đọc
 hạn mức Antigravity", and M4c, "Chuyển Antigravity không cần Cockpit", the
-steps of taking over what Cockpit Tools does. The app reads, and acts in six
+steps of taking over what Cockpit Tools does. The app reads, and acts in seven
 ways, each started by the owner:
 it switches the active Claude account through claude-swap, it pauses the
 automatic switcher, it edits the switcher's rotation rules and copies them to
 the owner's other Macs, it logs Antigravity accounts in and out on this Mac,
-it switches the Antigravity account that Antigravity.app and agy use, and it
-switches the provider Codex uses (below). Four
+it switches the Antigravity account that Antigravity.app and agy use, it
+switches the provider Codex uses, and it turns MCP servers on and off, adds,
+edits and removes them for Claude Code, Codex and Antigravity (below). Four
 things it does on its own: it finishes that rotation copy (a Mac that could
 not take the saved rules is tried again in the background), it reads the
 quota of the Antigravity accounts logged in here, at Cockpit's pace or slower,
@@ -300,8 +302,8 @@ the confirmation sheet first.
   The `Codex` tab shows the provider (both sides, the address, how the key
   is given, and `requires_openai_auth`), Codex on this Mac (terminal
   sessions, Codex App, the background process, the version), the sessions
-  that can be resumed by provider, the recent switches, the MCP list (read
-  only, with an export of names, kinds and on/off), the file the app writes
+  that can be resumed by provider, the recent switches, how many MCP servers
+  Codex has (the `MCP` tab turns them on and off), the file the app writes
   with its backups, and a step-by-step guide to stop using CC Switch. While
   CC Switch still runs and manages Codex, a banner says to switch Codex in
   one place only: CC Switch's next switch overwrites the provider choice.
@@ -314,16 +316,55 @@ the confirmation sheet first.
   provider's table, `requires_openai_auth` change. That key is on when the
   table's key comes from an environment variable or a bearer token and a
   ChatGPT login exists, and off for a key sent in its own header, as CC
-  Switch decides it. Every other byte stays, comments included; `auth.json`
-  and `[mcp_servers]` are never written. Before writing, the app checks the
-  file is still the one the sheet was built from (a SHA-256), keeps a
-  backup, writes a temporary file and renames it, and reads the result. The
+  Switch decides it. Every other byte stays, comments included; a switch
+  never writes `auth.json` or `[mcp_servers]`. Before writing, the app checks
+  the file is still the one the sheet was built from (a SHA-256), keeps a
+  backup with every key in it replaced by `<redacted>`, writes a temporary
+  file and renames it, and reads the result. The
   Codex folder is `~/.codex` unless `Cài đặt › Thư mục Codex` says
   otherwise.
 
   <img src="docs/codex-row.png" width="300" alt="The popover's Codex row on fixture data: the custom provider in use, a CC Switch chip and the way back to ChatGPT"> <img src="docs/codex-sheet.png" width="300" alt="The Codex confirmation sheet: the facts of the switch and the restart box, off">
 
   <img src="docs/codex-tab.png" width="760" alt="The Codex tab on fixture data: the provider, Codex on this Mac, the resumable sessions, the recent switches, the MCP list, the CC Switch guide and the file the app writes">
+
+- **MCP** (M9). The `MCP` tab, under `Agent` in the sidebar, puts every MCP
+  server of Claude Code, Codex and Antigravity in one table: a row per
+  server, with the line `trên máy · <command>` or `qua mạng · <host>`, a
+  small lock when it has a key, and chips only when something is the matter
+  (`thiếu khoá`, `lệnh chưa cài`, `khác giữa các agent`); and a column of
+  macOS checkboxes per agent, headed by the agent's own icon. A tick is not
+  written at once: the box turns light blue with an amber dot and the bar
+  under the table lists `N thay đổi chưa ghi`, so a tick taken back drops
+  out. The icon at a column's head opens its menu: `Bật tất cả`,
+  `Tắt tất cả` (both skip a box that cannot be ticked) and
+  `Bỏ N thay đổi chưa ghi`. `Xem trước và ghi…` shows one preview for the
+  whole batch, by agent: the lines each file gains and loses, the
+  `claude mcp` commands for Claude Code, the backups and what to restart.
+  Each file is written once, and the line after it offers `Hoàn tác` (the
+  whole batch back) and `Bản lưu`. `Thêm MCP` fills one server in for every
+  agent at once, by hand or by pasting the JSON or TOML a README gives;
+  `Sửa` first compares a server that differs between agents (its keys only
+  as `giống nhau` or `khác nhau`); `Xoá` turns it off everywhere and keeps
+  it in the app's store to turn on again, or removes it for good. Under the
+  table, one line each: the servers kept in the store, the ones Codex App
+  and plugins bring themselves (shown, never edited), and the backups.
+
+  Keys never show. A key typed or pasted goes to the app's own Keychain
+  items, with the Bitwarden item it is in; the preview masks every key; a
+  server short of its key keeps its boxes locked until `Dán khoá`. Codex is
+  written in its `[mcp_servers.<name>]` tables (`enabled = false` turns one
+  off), Antigravity in `~/.gemini/config/mcp_config.json`
+  (`"disabled": true`), and Claude Code only through
+  `claude mcp add-json`/`remove --scope user`, which writes `~/.claude.json`
+  itself; Claude Code has no off, so the app keeps a server turned off there
+  and puts it back when it is ticked again. A file that does not parse is
+  shown and never written, and a file changed after the preview stops the
+  batch. See [SECURITY.md](SECURITY.md) for what is kept where.
+
+  <img src="docs/mcp-tab.png" width="760" alt="The MCP tab on fixture data: a row per made-up server, a checkbox per agent, three ticks not written yet on the pending bar, and the lines for the store, the servers Codex brings itself and the backups">
+
+  <img src="docs/mcp-menu.png" width="372" alt="A column's menu: Bật tất cả, Tắt tất cả and Bỏ 1 thay đổi chưa ghi"> <img src="docs/mcp-preview.png" width="372" alt="The batch preview: the line Codex loses, the entry Antigravity gains with its key masked, and the claude command">
 
 - **Antigravity logins** (M4a). `Thêm tài khoản` opens Google's consent
   screen in the default browser, with Antigravity's own OAuth client, so the
@@ -473,8 +514,14 @@ assumes another Mac has any. Each Mac installs and updates its own copy
   three tries; any HTTP answer, a 401 included, counts. A switch writes
   `config.toml` as above; with the box ticked, or from the tab's own sheet,
   it runs `codex app-server daemon restart` with `CODEX_HOME` set.
-  `Xuất danh sách MCP…` writes `~/Downloads/codex-mcp-DD-MM.txt` (names,
-  kinds and on/off only).
+- MCP (M9), when the `MCP` tab opens, on `Đọc lại`, and after each write:
+  `~/.claude.json` (only its `mcpServers`), the Codex folder's `config.toml`
+  (only `[mcp_servers]`) and `~/.gemini/config/mcp_config.json`; whether
+  `claude` and each server's command are in the usual folders; and, for a
+  server whose key must come from the app, whether its Keychain item is
+  there (never its value until a write needs it). After a preview the owner
+  confirmed it writes those two files and runs `claude mcp add-json` and
+  `claude mcp remove` with `--scope user`.
 - It writes these files: its own settings file,
   `~/Library/Application Support/com.shin315.quota-station/settings.json`,
   with `rotation-sync.json` (where each other Mac stands) beside it; in the
@@ -492,8 +539,12 @@ assumes another Mac has any. Each Mac installs and updates its own copy
   hash of the app's last write, to tell a change made outside the app),
   `codex/switch-log.jsonl` (the last 200 switches) and
   `backups/codex/config.toml.<time>` (the newest 10 copies of Codex's
-  `config.toml` before each switch, mode 600 in a folder only you can open:
-  they hold the provider's key when the file does); the switcher's pause flag,
+  `config.toml` before each switch or MCP write, mode 600 in a folder only
+  you can open, every key replaced by `<redacted>`); `backups/claude/` and
+  `backups/antigravity/` (the same for Claude Code's MCP list and
+  Antigravity's `mcp_config.json`), `agents/mcp-store.json` (the servers the
+  app keeps, no key) and `agents/mcp-log.jsonl` (the last 200 MCP writes);
+  the switcher's pause flag,
   `~/.config/cswap-prefer-team/pause`
   (`until = YYYY-MM-DDTHH:MM` in local time and `reason = …`; no `until`
   pauses until resumed); and the rotation file with its backups. Each is
@@ -718,7 +769,7 @@ itself; `scripts/install.sh` installs it.
 `npm run dev` serves the popover at http://localhost:1420/ on the fixtures and
 the fake Rust side the tests use. Query parameters: `state` (a file name in
 `src/fixtures/snapshots/`), `view=window` with `tab` (`overview`, `claude`,
-`agy`, `codex`, `rules`, `history`, `alerts`, `firstmate` or `settings`), `error` (an
+`agy`, `codex`, `rules`, `history`, `alerts`, `firstmate`, `mcp` or `settings`), `error` (an
 error kind) and `theme` (`light` or `dark`).
 For the rotation rules: `rotation` (`unreachable`, `newer`, `edited`,
 `missing`, `invalid`, `refused` or `single`).
@@ -742,7 +793,10 @@ and `forbidden`), `login` (how a login ends, for example
 default). For M8: `codex` (`chatgpt` for the ChatGPT login in use,
 `ccswitch`, `down`, `external`, `nologin`, `nokey`, `placeholder`,
 `header`, `broken` or `none`; the custom provider is in use by default) and
-`codexoutcome` (`changed` or `refused`; a switch lands by default). Nothing
+`codexoutcome` (`changed` or `refused`; a switch lands by default). For M9,
+on `tab=mcp`: `mcp` (`empty`, `parse` for a Codex file that does not parse,
+`noagy`, `nocli` or `unread`) and `mcpoutcome=changed` (a write finds a
+file changed). Nothing
 is switched, no browser opens and no file is written: a
 switch only waits 1.5 seconds, a save 1 second and each update step 1.5
 seconds, and they update the fixture.
@@ -750,8 +804,8 @@ seconds, and they update the fixture.
 ## Tests
 
 ```sh
-cargo test --workspace   # parsing, snapshot rules, icon, runner, schedule, switching, rotation, other Macs, Antigravity login, quota and switch, history, alerts, Firstmate's file, install.sh, update, login item, Codex switch
-npm test                 # Vitest: popover and main window views, switch and pause sheets, rules editor, login card and read states, Antigravity switch, Codex switch, history, alerts, Firstmate and settings tabs
+cargo test --workspace   # parsing, snapshot rules, icon, runner, schedule, switching, rotation, other Macs, Antigravity login, quota and switch, history, alerts, Firstmate's file, install.sh, update, login item, Codex switch, MCP
+npm test                 # Vitest: popover and main window views, switch and pause sheets, rules editor, login card and read states, Antigravity switch, Codex switch, history, alerts, Firstmate, MCP and settings tabs
 ```
 
 The install tests (`crates/quota-station-core/tests/install_script.rs`) run
@@ -883,6 +937,20 @@ table; the restart command and its `CODEX_HOME` (a fake `codex`); and the
 reachability check against a local server, which sees no key. No test
 reads the real `~/.codex`, runs the real Codex or touches a login.
 
+The MCP tests (`crates/quota-station-core/tests/agents_mcp.rs`) work on a
+temporary home holding a Codex `config.toml` and an Antigravity
+`mcp_config.json` from fixtures, a fake `claude` that keeps
+`~/.claude.json` and records its arguments, and a fake `security`. They
+check that one preview leads to one write per file that changes only the
+entries in the batch, byte for byte, and that `Hoàn tác` gives back the
+files as they were; that a file changed after the preview stops the whole
+batch; that a file that does not parse is never written; Claude Code's off,
+putting a server away and bringing it back, editing, and adding with a
+typed or pasted key; and that the trap keys in the fixtures show up nowhere
+the app keeps or sends anything. The Vitest tests check the checkboxes'
+roles and keys, the column menus (roles, arrows, Esc, focus back on the
+icon), the pending bar and the preview, write and undo on a fake Rust side.
+
 ```sh
 UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test ui_fixtures
 ```
@@ -902,13 +970,18 @@ UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test ui_fixtures
   of the `Mở khi đăng nhập` switch. `codex` reads and switches Codex's
   provider: the file and its edit, the login's shape, the safe write and
   backups, the process table and the restart, the reachability check, the
-  resumable sessions and the switch log.
+  resumable sessions and the switch log. `agents` is the MCP tab: each
+  agent's list, the edits of one entry, the batch, the safe write it shares
+  with `codex`, the backups without keys, the app's store and its Keychain
+  items.
 - `src-tauri/` is the Tauri 2 shell: the tray item, the popover and the main
   window, the read loop, the Antigravity quota thread, the macOS
   notification center (`notify.rs`), the login item (`login_item.rs`), the
-  update (`install.rs`), the Codex thread (`codex.rs`) and the commands.
+  update (`install.rs`), the Codex thread (`codex.rs`), the MCP tab's
+  commands (`agents.rs`) and the other commands.
 - `scripts/install.sh` builds, signs, installs and packages the app.
-- `src/` is the React and TypeScript frontend. Its `styles/tokens.css` and
+- `src/` is the React and TypeScript frontend; `src/agents/` holds the MCP
+  tab and its `CheckMatrix`, which the Skills tab will reuse. Its `styles/tokens.css` and
   `styles/components.css` come from the approved prototype.
 
 ## License

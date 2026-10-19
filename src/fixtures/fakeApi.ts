@@ -4,7 +4,9 @@
 // Plain code: the preview bundle must not load Vitest.
 
 import type { Api } from '../lib/api';
+import { fakeApply, fakePaste, fakePreview } from './fakeMcp';
 import type {
+  Agent,
   AgyApp,
   AgyHow,
   AgyLogin,
@@ -20,6 +22,7 @@ import type {
   CodexTarget,
   FirstmateView,
   HistoryEntry,
+  McpOutcome,
   Model,
   Outcome,
   PeerView,
@@ -76,6 +79,10 @@ export interface FakeOptions {
   update?: () => UpdateOutcome | UpdateError;
   /** How long each update step takes; the preview waits to show them. */
   updateDelayMs?: number;
+  /** A write finds a file changed since the preview: nothing is written. */
+  mcpChanged?: boolean;
+  /** How long an MCP preview or write takes. */
+  mcpDelayMs?: number;
 }
 
 const said = (title: string, body: string): AlertSaid => ({ tone: 'info', title, body });
@@ -156,6 +163,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
   let closed: 'window' | 'app' | null = null;
   let quitPending = options.quitPending ?? false;
   let relaunched = 0;
+  let lastMcpUndo: McpOutcome['undo'] = null;
   const delay = () => (options.saveDelayMs ? new Promise((r) => setTimeout(r, options.saveDelayMs)) : Promise.resolve());
   /** Every Mac SSH reaches takes the file; the others wait 5 minutes. */
   const sent = (peers: PeerView[]): PeerView[] =>
@@ -442,7 +450,64 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       return model;
     },
     codexCheck: async () => {},
-    codexExportMcp: async () => '~/Downloads/codex-mcp-16-01.txt',
+    mcpRead: async () => {
+      push({ ...model, mcp: { ...model.mcp, busy: 'reading' } });
+      if (options.mcpDelayMs) await new Promise((r) => setTimeout(r, options.mcpDelayMs));
+      push({ ...model, mcp: { ...model.mcp, busy: null, readAt: now().toISOString() } });
+    },
+    mcpPreview: async (changes) => {
+      if (options.mcpDelayMs) await new Promise((r) => setTimeout(r, options.mcpDelayMs));
+      if (!model.mcp.table) throw 'notRead';
+      return fakePreview(model.mcp.table, changes);
+    },
+    mcpWrite: async (changes, bases) => {
+      if (model.mcp.busy === 'writing' || model.codex.busy) throw 'busy';
+      const table = model.mcp.table;
+      if (!table) throw 'notRead';
+      const at = Math.floor(now().getTime() / 1000);
+      if (options.mcpChanged) {
+        const agent = (Object.keys(bases)[0] ?? 'codex') as Agent;
+        return { done: [], failed: { agent, error: { kind: 'changed' } }, undo: null, at };
+      }
+      push({ ...model, mcp: { ...model.mcp, busy: 'writing' } });
+      if (options.mcpDelayMs) await new Promise((r) => setTimeout(r, options.mcpDelayMs));
+      const { table: next, outcome } = fakeApply(table, changes, at);
+      const iso = new Date(at * 1000).toISOString();
+      const backups = outcome.done.map((d) => ({ agent: d.agent, at: iso, file: d.backup ?? '', changes: changes.filter((c) => c.agent === d.agent).map((c) => c.name + ':' + c.to.kind) }));
+      push({ ...model, mcp: { ...model.mcp, busy: null, table: next, readAt: iso, last: { at: iso, outcome, canUndo: !!outcome.undo }, backups: [...backups, ...model.mcp.backups] } });
+      lastMcpUndo = outcome.undo;
+      return outcome;
+    },
+    mcpUndo: async () => {
+      const undo = lastMcpUndo;
+      if (!undo || !model.mcp.table) throw 'nothing';
+      lastMcpUndo = null;
+      const at = Math.floor(now().getTime() / 1000);
+      const { table, outcome } = fakeApply(model.mcp.table, undo.changes, at);
+      push({ ...model, mcp: { ...model.mcp, table, last: model.mcp.last ? { ...model.mcp.last, canUndo: false } : null } });
+      return { ...outcome, undo: null };
+    },
+    mcpSaveSecret: async (name, slot) => {
+      const table = model.mcp.table;
+      if (!table) return;
+      const rows = table.rows.map((r) => {
+        if (r.name !== name) return r;
+        const secrets = r.secrets.map((s) => (s.id === slot ? { ...s, have: true } : s));
+        const full = secrets.every((s) => s.have);
+        const cells = Object.fromEntries(
+          Object.entries(r.cells).map(([a, c]) => [a, full && c.lock === 'missingKey' ? { ...c, lock: null } : c]),
+        ) as typeof r.cells;
+        return { ...r, secrets, cells };
+      });
+      const stored = table.stored.map((k) => (k.name === name ? { ...k, missing: k.missing.filter((m) => m !== slot) } : k));
+      push({ ...model, mcp: { ...model.mcp, table: { ...table, rows, stored } } });
+    },
+    mcpPaste: async (text) => fakePaste(text),
+    mcpForget: async (name) => {
+      const table = model.mcp.table;
+      if (table) push({ ...model, mcp: { ...model.mcp, table: { ...table, stored: table.stored.filter((k) => k.name !== name) } } });
+    },
+    mcpOpenBackups: async () => {},
     setCodexHome: async (path) => {
       if (path && !path.startsWith('~')) throw new Error('notFound');
       push({ ...model, codex: { ...model.codex, home: path || '~/.codex', customHome: !!path } });

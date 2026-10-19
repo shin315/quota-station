@@ -208,7 +208,7 @@ describe('the Codex tab', () => {
     return fake;
   }
 
-  it('shows the provider, Codex on this Mac, the sessions, the MCP list, the CC Switch guide and the file it writes', async () => {
+  it('shows the provider, Codex on this Mac, the sessions, its MCP count, the CC Switch guide and the file it writes', async () => {
     const fake = await openTab(withCodex());
     expect(fake.api.codexCheck).toHaveBeenCalled();
     const choice = screen.getByRole('group', { name: 'Nhà cung cấp Codex' });
@@ -218,8 +218,9 @@ describe('the Codex tab', () => {
     expect(screen.getByText('0.163.0 · tiến trình nền đang chạy')).toBeTruthy();
     expect(screen.getByText('128')).toBeTruthy();
     expect(screen.getByText('54')).toBeTruthy();
-    expect(screen.getByText('docs-search')).toBeTruthy();
-    expect(screen.getByText('auth.json · [mcp_servers]')).toBeTruthy();
+    expect(screen.getByText('4 MCP · 3 đang bật')).toBeTruthy();
+    expect(screen.getByText('auth.json')).toBeTruthy();
+    expect(screen.getByText('chỉ đổi từ tab MCP', { exact: false })).toBeTruthy();
     expect(screen.getByText('mã băm khớp')).toBeTruthy();
     const guide = document.getElementById('cc-card')!;
     expect(within(guide).getAllByRole('listitem')).toHaveLength(8);
@@ -230,12 +231,14 @@ describe('the Codex tab', () => {
     expect(screen.getByRole('dialog', { name: 'Chuyển Codex về tài khoản ChatGPT?' })).toBeTruthy();
   });
 
-  it('exports the MCP list after a preview, and restarts the background process only after its own sheet', async () => {
+  it('sends the MCP list to the MCP tab, and restarts the background process only after its own sheet', async () => {
     const fake = await openTab(withCodex());
-    await press(screen.getByRole('button', { name: 'Xuất danh sách MCP…' }));
-    await press(within(screen.getByRole('dialog', { name: 'Xuất danh sách MCP của Codex' })).getByRole('button', { name: 'Lưu file' }));
-    expect(fake.api.codexExportMcp).toHaveBeenCalled();
-    expect(screen.getByText(/4 máy chủ MCP → ~\/Downloads\/codex-mcp-16-01\.txt/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Xuất danh sách MCP…' })).toBeNull();
+    await press(screen.getByRole('button', { name: 'Mở tab MCP' }));
+    expect(await screen.findByRole('heading', { level: 2, name: 'MCP' })).toBeTruthy();
+    expect(fake.api.mcpRead).toHaveBeenCalled();
+    await press(screen.getByRole('button', { name: 'Codex' }));
+    await screen.findByRole('heading', { level: 2, name: 'Codex' });
 
     await press(screen.getByRole('button', { name: 'Khởi động lại tiến trình nền…' }));
     expect(fake.api.codexRestart).not.toHaveBeenCalled();
