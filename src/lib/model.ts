@@ -1009,6 +1009,84 @@ export interface RestorePlan {
   keys: { mcp: string; slot: string; label: string; bitwarden: string | null }[];
   skipped: { agent: Agent; reason: 'absent' | 'readOnly' | 'sse'; name: string | null }[];
   bases: Partial<Record<Agent, string>>;
+  /** The pack's skills, plugins and instruction files (M12); none in an older pack. */
+  skills?: RestoreSkillPlan | null;
+  plugins?: RestorePluginPlan | null;
+  files?: RestoreFilePlan | null;
+}
+
+/** `agents::restore::SkillItem`: a skill of the pack this Mac has not got. */
+export interface RestoreSkillItem {
+  name: string;
+  /** `github`: installed from its repository again; `hand`: copied from the pack. */
+  kind: 'github' | 'hand';
+  repo: string | null;
+  on: Agent[];
+  checked: boolean;
+  blocked: 'noNpx' | 'cloud' | null;
+}
+
+export interface RestoreSkillPlan {
+  items: RestoreSkillItem[];
+  same: string[];
+  /** Skills installed by hand whose files are not in the pack. */
+  leftOut: { name: string; why: 'key' | 'link' | 'large' | 'unreadable' | 'old' }[];
+}
+
+/** `agents::restore::PluginItem`. */
+export interface RestorePluginItem {
+  agent: Agent;
+  /** `name@marketplace`. */
+  id: string;
+  enabled: boolean;
+  /** The marketplace added first. */
+  market: string | null;
+  checked: boolean;
+  note: 'noSource' | 'codexOff' | null;
+}
+
+export interface RestorePluginPlan {
+  items: RestorePluginItem[];
+  same: string[];
+  skipped: { agent: Agent; reason: 'noCli' | 'failed'; name: string | null }[];
+}
+
+/** `agents::restore::FileItem`: an instruction file to write. */
+export interface RestoreFileItem {
+  /** `~/…`. */
+  path: string;
+  agent: Agent | null;
+  kind: 'add' | 'replace';
+  checked: boolean;
+  /** For a replace: the lines that differ; `del` this Mac's, `add` the pack's, keys masked. */
+  changed: number;
+  diff: McpLine[];
+}
+
+export interface RestoreFilePlan {
+  items: RestoreFileItem[];
+  same: string[];
+  kept: { path: string; agent: Agent | null; why: 'key' | 'absent' | 'unreadable' | 'path' }[];
+  bases: Record<string, string>;
+}
+
+/** `agents::restore::More`: the skills, plugins and files ticked. */
+export interface RestoreMore {
+  skills: string[];
+  plugins: { agent: Agent; id: string }[];
+  files: string[];
+  fileBases: Record<string, string>;
+}
+
+/** `agents::restore::PartResult`: how one skill, plugin or file ended. */
+export interface RestorePartResult {
+  part: 'skill' | 'plugin' | 'file';
+  id: string;
+  agent: Agent | null;
+  kind: string;
+  ok: boolean;
+  why: 'noNpx' | 'npx' | 'cloud' | 'damaged' | 'taken' | 'links' | 'noCli' | 'login' | 'command' | 'changed' | 'io' | null;
+  retry: boolean;
 }
 
 export interface RestoreItemResult {
@@ -1030,6 +1108,8 @@ export interface RestoreDone {
   failed: { agent: Agent; error: McpFailure } | null;
   written: { agent: Agent; changes: number; backup: string | null }[];
   keys: number;
+  /** The skills, plugins and instruction files (M12). */
+  parts?: RestorePartResult[];
   canUndo: boolean;
 }
 
@@ -1038,6 +1118,12 @@ export interface RestoreUndone {
   outcome: McpOutcome | null;
   kept: number;
   keys: number;
+  /** Skills removed, plugins uninstalled, instruction files put back (M12). */
+  skills?: number;
+  plugins?: number;
+  files?: number;
+  /** What stays: changed since, or its undo did not run. */
+  left?: number;
 }
 
 // ===== Skills, plugins and instruction files (M11) =====

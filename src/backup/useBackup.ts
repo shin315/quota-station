@@ -1,17 +1,18 @@
-// The Sao lưu tab's state (M10): the open dialog, "Sao lưu bây giờ", and
-// the Khôi phục sheet's four steps: pick a pack, the preview the Rust side
-// reads from the files now, the keys to paste from Bitwarden, and the
-// restore with its result and its undo. A pasted key stays in the sheet
-// only until the restore runs: it goes to the Keychain, never back.
+// The Sao lưu tab's state (M10, M12): the open dialog, "Sao lưu bây giờ",
+// and the Khôi phục sheet's four steps: pick a pack, the preview the Rust
+// side reads now (servers, skills, plugins, instruction files), the keys to
+// paste from Bitwarden, and the restore with its result, "Thử lại" on a
+// part that failed, and the undo. A pasted key stays in the sheet only
+// until the restore runs: it goes to the Keychain, never back.
 
 import { useState } from 'react';
 import type { Api } from '../lib/api';
 import {
   backupNowError,
   initialTicks,
-  itemKey,
   keySlot,
   keysFor,
+  moreFor,
   packedFeedback,
   picked,
   restoreError,
@@ -20,7 +21,7 @@ import {
   usable,
   type Ticks,
 } from '../lib/backup';
-import type { BackupKey, Model, PackSummary, RestoreDone, RestorePlan } from '../lib/model';
+import type { BackupKey, Model, PackSummary, RestoreDone, RestorePartResult, RestorePlan } from '../lib/model';
 import type { Action, FeedbackView } from '../lib/view';
 
 export type RestoreStep = 'pick' | 'prev' | 'keys' | 'run' | 'done';
@@ -37,7 +38,11 @@ export interface RestoreDialog {
   error: FeedbackView | null;
   /** The item whose "So sánh" is open. */
   compare: string | null;
+  /** The part "Thử lại" runs now, as `part|agent|id`. */
+  retrying?: string | null;
 }
+
+export const partKey = (r: RestorePartResult): string => r.part + '|' + (r.agent ?? '') + '|' + r.id;
 
 export type BackupDialog =
   | RestoreDialog
@@ -102,12 +107,16 @@ export function useBackup(api: Api, model: Model | null, showFeedback: (fb: Feed
   };
 
   /** The ticks still meaning a line of `plan`. */
-  const pick = (ticks: Ticks, plan: RestorePlan): Ticks => Object.fromEntries(Object.entries(ticks).filter(([k]) => plan.items.some((i) => itemKey(i) === k)));
+  const pick = (ticks: Ticks, plan: RestorePlan): Ticks => {
+    const known = initialTicks(plan);
+    return Object.fromEntries(Object.entries(ticks).filter(([k]) => k in known));
+  };
 
   const run = async (d: RestoreDialog) => {
     if (!d.pack || !d.plan) return;
     const plan = d.plan;
     const picks = picked(plan, d.ticks).map((i) => ({ name: i.name, kind: i.kind }));
+    const more = moreFor(plan, d.ticks);
     const keys = keysFor(plan, d.ticks)
       .map((k) => ({ mcp: k.mcp, slot: k.slot, value: (d.keys[keySlot(k)] ?? '').trim() }))
       .filter((k) => k.value);
@@ -115,10 +124,31 @@ export function useBackup(api: Api, model: Model | null, showFeedback: (fb: Feed
     setDialog({ ...d, step: 'run', keys: {}, error: null });
     setWorking(true);
     try {
-      const done = await api.restoreRun(d.pack, picks, keys, plan.bases);
+      const done = await api.restoreRun(d.pack, picks, more, keys, plan.bases);
       setDialog({ ...d, step: 'done', keys: {}, done, error: null });
     } catch (e) {
       setDialog({ ...d, step: 'prev', keys: {}, error: restoreError(e) });
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  /** "Thử lại" on one part of the result: its line becomes what this run says. */
+  const retry = async (d: RestoreDialog, r: RestorePartResult) => {
+    if (!d.pack || !d.done) return;
+    const key = partKey(r);
+    setDialog({ ...d, retrying: key });
+    setWorking(true);
+    try {
+      const again = await api.restoreRetry(d.pack, r.part, r.id, r.agent);
+      setDialog((x) =>
+        x?.kind === 'restore' && x.done
+          ? { ...x, retrying: null, done: { ...x.done, canUndo: x.done.canUndo || again.ok, parts: (x.done.parts ?? []).map((p) => (partKey(p) === key ? again : p)) } }
+          : x,
+      );
+    } catch (e) {
+      setDialog((x) => (x?.kind === 'restore' ? { ...x, retrying: null } : x));
+      showFeedback(restoreError(e));
     } finally {
       setWorking(false);
     }
@@ -213,6 +243,7 @@ export function useBackup(api: Api, model: Model | null, showFeedback: (fb: Feed
     next,
     back: (d: RestoreDialog) => setDialog({ ...d, step: d.step === 'keys' ? 'prev' : 'pick', error: null }),
     toPreview: (d: RestoreDialog) => void toPreview(d),
+    retry: (d: RestoreDialog, r: RestorePartResult) => void retry(d, r),
     undo: (force: boolean, from: RestoreDialog | null) => void undo(force, from),
     replaceKey: (key: BackupKey, value: string) => void replaceKey(key, value),
     deleteKey: (key: BackupKey) => void deleteKey(key),

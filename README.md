@@ -24,9 +24,11 @@ the screen; the popover and window images are the browser preview.
 
 ## What it does
 
-This is milestone M10, "Sao lưu và khôi phục" (backing the MCP servers up
-to iCloud Drive and restoring them on any Mac), on top of M9, "MCP" (every
-agent's MCP servers in one table), M8, "Chuyển Codex" (switching Codex between the ChatGPT
+This is milestone M12, the rest of "Sao lưu và khôi phục" (skills, plugins
+and instruction files in the backup pack, restored with the MCP servers),
+on top of M11, "Skills, Plugin, File hướng dẫn", M10, "Sao lưu và khôi phục"
+(backing the MCP servers up to iCloud Drive and restoring them on any Mac),
+M9, "MCP" (every agent's MCP servers in one table), M8, "Chuyển Codex" (switching Codex between the ChatGPT
 login and a custom API provider), M7, "Chuyển đổi" (installing,
 updating and launching at login), M6, "Lịch sử, cảnh báo và Firstmate", M5 "Luật
 xoay vòng", M3 "Chuyển Claude và tạm dừng", M2 "Cửa sổ chính chỉ đọc" and M1
@@ -40,7 +42,8 @@ the owner's other Macs, it logs Antigravity accounts in and out on this Mac,
 it switches the Antigravity account that Antigravity.app and agy use, it
 switches the provider Codex uses, and it turns MCP servers on and off, adds,
 edits and removes them for Claude Code, Codex and Antigravity, and it backs
-those servers up and restores them (below). Five things it does on its own: it finishes that rotation copy (a Mac that could
+those servers, the skills, the plugins and the instruction files up and
+restores them (below). Five things it does on its own: it finishes that rotation copy (a Mac that could
 not take the saved rules is tried again in the background), it reads the
 quota of the Antigravity accounts logged in here, at Cockpit's pace or slower,
 it keeps a history of the switches on this Mac, it backs the MCP servers up
@@ -411,9 +414,9 @@ the confirmation sheet first.
   stands against the newest backup pack (with a line-by-line `So sánh`) and
   whether it goes into the pack. The app never edits one, and a file with a
   line shaped like a key stays out of every pack, the value masked when it
-  is shown. The backup pack now lists the skills (their source, not their
-  content), the plugins and the instruction files; restoring them comes
-  later. See [SECURITY.md](SECURITY.md#skills-plugins-and-instruction-files-m11).
+  is shown. The backup pack lists the skills (their source, and the files
+  of those installed by hand), the plugins and the instruction files, and a
+  restore puts them back (M12, below). See [SECURITY.md](SECURITY.md#skills-plugins-and-instruction-files-m11).
 
   <img src="docs/skills-tab.png" width="760" alt="The Skills tab on fixture data: a row per made-up skill with a checkbox per agent, two with a newer version, the filters, and the lines for the skills installed by hand, a link to nothing and the skills agents and plugins bring">
 
@@ -447,9 +450,25 @@ the confirmation sheet first.
   `Hoàn tác lần khôi phục` takes the whole restore back, asking first when a
   file was edited since. See [SECURITY.md](SECURITY.md#backup-packs-and-restore-m10).
 
+  Since M12 the pack also holds the skills (those from GitHub by their
+  source, those installed by hand with their files, unless a file has a
+  line shaped like a key), the plugins and the instruction files, and the
+  same preview shows them by group after the servers: skills from GitHub
+  are installed again with `npx skills`, the newest version; skills
+  installed by hand are copied from the pack; plugins are installed by
+  Claude Code's and Codex's own commands; an instruction file this Mac has
+  not got is written, and one that differs is not ticked, with `So sánh`,
+  so the Mac's own stays unless the owner ticks it. Each agent's box is set
+  as the pack had it. One part failing (a plugin that needs a login, GitHub
+  out of reach, a skill iCloud has not downloaded) leaves the others to run,
+  and the result offers `Thử lại` for it; `Hoàn tác lần khôi phục` takes all
+  of it back. See [SECURITY.md](SECURITY.md#restoring-skills-plugins-and-instruction-files-m12).
+
   <img src="docs/backup-tab.png" width="760" alt="The Sao lưu tab on fixture data: the newest pack, the packs of three made-up Macs, the two Tự sao lưu switches and the two keys the app keeps">
 
-  <img src="docs/restore-preview.png" width="372" alt="The restore sheet's preview: three servers to add ticked, one not installed here added turned off, one that differs from the pack not ticked"> <img src="docs/restore-keys.png" width="372" alt="The restore sheet asking for the key one server needs, in a password field, with its Bitwarden item">
+  <img src="docs/restore-preview.png" width="372" alt="The restore sheet's preview: servers to add ticked, one that differs not ticked; five skills from GitHub and three installed by hand; seven plugins; CLAUDE.md to add, ticked, and AGENTS.md that differs, not ticked, with So sánh"> <img src="docs/restore-partial.png" width="372" alt="A restore done in part: the servers, eight skills, six plugins and CLAUDE.md done, the formatter plugin needing a login with Thử lại, and what is left to do">
+
+  <img src="docs/restore-keys.png" width="372" alt="The restore sheet asking for the key one server needs, in a password field, with its Bitwarden item">
 
 - **Antigravity logins** (M4a). `Thêm tài khoản` opens Google's consent
   screen in the default browser, with Antigravity's own OAuth client, so the
@@ -614,7 +633,12 @@ assumes another Mac has any. Each Mac installs and updates its own copy
   and `secrets-needed.json`, with no key; a restore reads them and writes
   the agent files as the MCP tab does, and keeps
   `agents/restore-last.json` (what `Hoàn tác` needs, no key) in the app's
-  folder.
+  folder. From M12 a pack also holds `skills.json`, `plugins.json`,
+  `instructions.json` and a `skills/` folder with the skills installed by
+  hand; a restore reads them, installs skills with `npx skills`, copies the
+  others into `~/.agents/skills`, runs `claude plugin …` and `codex plugin
+  …` to install plugins, and writes the instruction files the owner ticked,
+  keeping the old ones in `backups/instructions/`.
 - Skills (M11), when the `Skills` tab opens and on `Đọc lại`: the shared
   folder `~/.agents/skills` and its lock file `~/.agents/.skill-lock.json`
   (read only), `~/.claude/skills`, `~/.gemini/config/skills`, the Codex
@@ -911,7 +935,8 @@ on `tab=mcp`: `mcp` (`empty`, `parse` for a Codex file that does not parse,
 file changed). For M10, on `tab=backup`: `backup` (`empty`, `icloud` for a
 pack not downloaded yet, `noicloud`, `restored` or `unread`) and
 `restoreoutcome` (`changed` for a file changed after the preview,
-`undochanged` for one edited after the restore). For M11: `skills` (`empty`,
+`undochanged` for one edited after the restore; from M12 also `partial` for
+a restore whose formatter plugin needs a login, with `Thử lại`). For M11: `skills` (`empty`,
 `nonpx`, `offline` or `unread`) and `skillsoutcome=changed` on
 `tab=skills`, `plugins=noclaude` on `tab=plugins` and `instr=clean` on
 `tab=instr`. Nothing
@@ -1081,6 +1106,16 @@ a pack not downloaded yet; the 10 packs kept; and that a restore leaves
 Codex's provider and the logins as they were. The Vitest tests walk the tab
 and the sheet on a fake Rust side and check that a pasted key never stays
 in the page.
+
+The restore tests of M12 (`crates/quota-station-core/tests/agents_restore.rs`)
+pack the skills, plugins and instruction files of one temporary home and
+restore them on another, with a fake `npx` and fake `claude` and `codex`
+that record their arguments. They check that the pack copies skills
+installed by hand and not those with a source, the exact commands a
+restore and its undo run, that a file that differs keeps the Mac's own
+unless ticked, that one part failing leaves the others to run and `Thử lại`
+gets it done, that `Hoàn tác` takes it all back, and that no trap key
+reaches the pack, the plan, the result, the record or the app's backups.
 
 ```sh
 UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test ui_fixtures

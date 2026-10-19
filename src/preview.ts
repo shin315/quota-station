@@ -34,6 +34,7 @@
 // Sao lưu (M10): `tab=backup` with `backup=empty|icloud|noicloud|restored|unread`
 // (`icloud`: a pack iCloud Drive has not downloaded), and `restoreoutcome=changed|undochanged`
 // for a restore, or its undo, that finds a file changed. A restore takes 1.2 s.
+// M12: `restoreoutcome=partial` for a restore whose formatter plugin needs a login.
 // Skills, Plugin and File hướng dẫn (M11): `tab=skills|plugins|instr`, with
 // `skills=empty|nonpx|offline|unread`, `plugins=noclaude` and `instr=clean`;
 // `skillsoutcome=changed` for a write that finds a folder changed. npx and a
@@ -366,6 +367,7 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
     mcpDelayMs: 600,
     restoreChanged: params.get('restoreoutcome') === 'changed',
     restoreUndoChanged: params.get('restoreoutcome') === 'undochanged',
+    restorePartial: params.get('restoreoutcome') === 'partial',
     restoreDelayMs: 1200,
     skillsChanged: params.get('skillsoutcome') === 'changed',
     skillsDelayMs: 800,

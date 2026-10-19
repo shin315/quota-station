@@ -70,8 +70,14 @@ Files, under `~/Library/Application Support/com.shin315.quota-station/`:
 - `agents/restore-last.json` (M10, mode 600): the last restore from a
   backup pack (its time, the pack's name and Mac name, the changes that
   undo it, the servers it put in the app's store and the Keychain items it
-  made), so `Hoàn tác` can take the whole restore back; undoing it removes
-  the file. It holds no secret.
+  made, and from M12 the skills it installed with their folder hashes, the
+  plugins and Claude Code marketplaces it added, and the instruction files
+  it wrote with their SHA-256 and backup's name), so `Hoàn tác` can take the
+  whole restore back; undoing it removes the file. It holds no secret.
+- `backups/instructions/<path>.<time>` (M12, mode 600 in a folder of mode
+  700): an instruction file as it was before a restore replaced it, the
+  newest 10 of each file. A file with a line shaped like a key is never
+  replaced, so none of these holds one.
 
 In the owner's login Keychain, not in that folder:
 
@@ -361,13 +367,14 @@ hướng dẫn tabs only read.
   marketplace list --json` (with `DISABLE_AUTOUPDATER=1`, 30 seconds) and
   `codex plugin list --json`, and reads each installed plugin's own folder
   to count what it brings. It never installs, removes, turns on or off a
-  plugin or a marketplace. A marketplace URL with a user or password has
-  them taken out before it is shown or packed.
+  plugin or a marketplace; only a restore does (M12, below). A marketplace
+  URL with a user or password has them taken out before it is shown or
+  packed.
 - Instruction files: `~/.claude/CLAUDE.md`, `~/.claude/rules/**/*.md` (three
   levels), `AGENTS.md` in the Codex folder, `~/.gemini/GEMINI.md`, and any
   `.md` or `.txt` file in the home folder the owner adds (not in the app's
-  folder, at most 1 MB). The app never writes one; `Mở file` opens it in
-  the default text editor.
+  folder, at most 1 MB). The tabs never write one; `Mở file` opens it in
+  the default text editor. Only a restore writes one (M12, below).
 - A line shaped like a key (a private key block, a long token-like value
   after a key-ish name, a known token prefix) or holding any secret value
   now in an agent's MCP config marks the file: it stays out of every pack,
@@ -383,8 +390,79 @@ hướng dẫn tabs only read.
   newest pack's list) and `instructions.json` (the text and SHA-256 of each
   instruction file the owner keeps in, with no line shaped like a key). The
   pack is refused, as before, if any file in it holds a secret value the
-  app read from an agent's file. Restoring skills, plugins and instruction
-  files is not part of this version.
+  app read from an agent's file. M12 adds the files of the skills installed
+  by hand and restores all three (below).
+
+## Restoring skills, plugins and instruction files (M12)
+
+A restore now also puts back the pack's skills, plugins and instruction
+files, in the same sheet, after the same preview, under the same undo.
+
+- The pack copies each skill installed by hand into `skills/<name>/` (files
+  mode 600, or 700 for those that run; folders 700), with its Git tree id
+  and the list of files that run in `skills.json`. A skill with a source
+  (from GitHub, in the lock file) is not copied: a restore installs it from
+  there again. A skill is left out, and `skills.json` says why, when a line
+  of any of its files is shaped like a key or holds a secret value read
+  from an agent's file, when it holds a symlink, or when it is over 20 MB
+  or 1,000 files. Each folder is checked again as the pack is written, and
+  one that now holds a key stops the whole pack. `.git` and `.DS_Store` are
+  not copied. Pruning an old pack removes its `skills/` folder too.
+- Nothing is written before `Khôi phục`. The preview reads the shared
+  folder, the agents' skill folders and the instruction files, and asks
+  each agent's own command for its plugin list (`claude plugin list
+  --json`, `claude plugin marketplace list --json`, `codex plugin list
+  --json`); that is all it runs.
+- Skills: a skill this Mac already has (in the shared folder, an agent's
+  own, Codex's own) is left as it is. One from GitHub is installed with
+  `npx -y skills add <owner/repo> --skill <name> -g -y -a claude-code` as
+  the Skills tab does (the newest version), one per repository. One
+  installed by hand is copied from the pack into the shared folder, to a
+  temporary name first; its tree id must match the pack's or the copy is
+  removed; then it is renamed into place. Then each agent's box is set as
+  the pack had it through the Skills tab's checked batch (links, Codex's
+  `[[skills.config]]` entries). Nothing in a skill is run; a skill whose
+  files iCloud Drive has not downloaded is not copied.
+- Plugins: a plugin this Mac already has is left as it is, and so are those
+  of the agent's own marketplaces (Codex App's bundled ones). Each other is
+  installed with the agent's own command, the arguments as a list, no shell,
+  `DISABLE_AUTOUPDATER=1`, 3 minutes each: `claude plugin marketplace add
+  <source>` when this Mac has not got the marketplace (from GitHub or a Git
+  URL without credentials; one only on the other Mac's disk is not
+  offered), `claude plugin install <name@marketplace>`, then `claude plugin
+  disable <name@marketplace>` for one that was off; for Codex `codex plugin
+  marketplace add <owner/repo>` and `codex plugin add <name@marketplace>`.
+  Codex has no command to turn a plugin off, so one that was off is offered
+  unticked. The app never passes `--yes` and never answers a prompt: a
+  plugin whose marketplace asks to run a command of its own fails, as one
+  that needs a login does. These are the same commands the Plugin tab shows.
+- Instruction files: one this Mac has not got is written (offered ticked).
+  One that differs is offered unticked with a line-by-line `So sánh` (key
+  values masked): the Mac's own stays unless the owner ticks it. One whose
+  copy here has a line shaped like a key is never replaced, and one whose
+  agent is not on this Mac is left out. A pack's path must be `~/…` in the
+  home folder, a `.md`, `.mdc` or `.txt` file, outside the app's folder;
+  Codex's `AGENTS.md` goes to this Mac's Codex folder. Each write is checked
+  against the SHA-256 the preview read (a file changed since is not
+  written), keeps the old file in `backups/instructions/` and goes through
+  a temporary file and a rename.
+- One part failing leaves the others to run: each skill, plugin and file
+  ends on its own, and the result offers `Thử lại` where trying again may
+  help (a login, iCloud Drive downloading, a command that failed). `Thử
+  lại` runs that one part again and adds it to the same restore record.
+- `Hoàn tác` takes all of it back with the servers: each skill the restore
+  installed (through `npx skills remove` for one from GitHub, removed from
+  the shared folder after a copy into `backups/skills/` for one copied by
+  hand, then the links to it and the app's Codex entries for it), each
+  plugin it installed (`claude plugin uninstall`, `codex plugin remove`),
+  each Claude Code marketplace it added once no plugin from it is left
+  (`claude plugin marketplace remove`), and each file it wrote (the old one
+  put back, or a new one removed). A skill or file changed since the
+  restore is asked about first; with a yes it stays as it is.
+- Codex's provider, logins and accounts are never touched; the only lines a
+  restore may add to `config.toml` are the MCP servers and the
+  `[[skills.config]]` entries, and anything a `codex plugin` command itself
+  writes.
 
 ## How the tests hold the app to this
 
@@ -458,6 +536,23 @@ hướng dẫn tabs only read.
   and that an instruction file holding a key (a trap value, and an MCP
   secret) never reaches a pack, a backup or what the windows get.
   `GitHub::api()` refuses to run in a test build.
+- `tests/agents_restore.rs` (M12) packs skills, plugins and instruction
+  files from one temporary home and restores them on another, with a fake
+  `npx`, fake `claude` and `codex` that record every argument and keep
+  their plugins in files, and a fake iCloud Drive folder. It checks that a
+  pack copies the skills installed by hand and not those from GitHub,
+  leaves out one holding a key or a link and stops when one gains a key;
+  the exact `npx` and plugin commands a restore and its undo run, and that
+  they are the ones the Plugin tab shows; that a file that differs keeps
+  the Mac's own unless ticked and one holding a key here is never written;
+  that a failing plugin, `npx` or a skill iCloud has not downloaded leaves
+  the other parts to run and `Thử lại` gets them done; and that `Hoàn tác`
+  takes it all back, asking first about a skill or file changed since. Its
+  traps (Codex's provider key, an MCP key, a key in a skill installed by
+  hand, a key in an instruction file on the new Mac, a marketplace URL's
+  password) must not be in a pack, the plan, the result, the restore
+  record, the app's backups, the shared skills or the commands run, and no
+  skill's `run.sh` may ever run.
 - CI has no Keychain access and no Google account.
 - The install tests run `scripts/install.sh` in a temporary folder with fake
   `open` and `security`, and fakes of `launchctl`, `osascript` and `sfltool`

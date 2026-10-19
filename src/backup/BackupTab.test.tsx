@@ -1,4 +1,4 @@
-// The Sao lưu tab and the Khôi phục sheet (M10) on the fake Rust side:
+// The Sao lưu tab and the Khôi phục sheet (M10, M12) on the fake Rust side:
 // nothing here reads or writes an agent's file, iCloud Drive or the
 // Keychain. Every pack, Mac and key is made up.
 
@@ -102,7 +102,7 @@ describe('the Khôi phục sheet', () => {
     expect(screen.getByText('Máy này chưa cài notes-mcp: thêm nhưng để tắt')).toBeTruthy();
     const replace = screen.getByRole('checkbox', { name: /^design-kit/ }) as HTMLInputElement;
     expect(replace.checked).toBe(false);
-    await press(within(dialog()).getByRole('button', { name: 'So sánh' }));
+    await press(within(dialog()).getByRole('button', { name: 'So sánh design-kit' }));
     expect(within(dialog()).getByText('design-kit-mcp --theme dark')).toBeTruthy();
     expect(screen.getByText('Giống trên máy: browser.')).toBeTruthy();
     expect(within(dialog()).getByText('Không đổi đăng nhập, tài khoản hay nhà cung cấp Codex.')).toBeTruthy();
@@ -126,6 +126,7 @@ describe('the Khôi phục sheet', () => {
         { name: 'tracker', kind: 'add' },
         { name: 'notes', kind: 'add' },
       ],
+      expect.objectContaining({ files: ['~/.claude/CLAUDE.md'] }),
       [{ mcp: 'docs-search', slot: 'header:Authorization', value: 'fake-pasted-value' }],
       { claude: 'b-claude', codex: 'b-codex', agy: 'b-agy' },
     );
@@ -165,6 +166,66 @@ describe('the Khôi phục sheet', () => {
     expect(fake.api.restoreUndo).toHaveBeenLastCalledWith(true);
     expect(await screen.findByText('Đã hoàn tác lần khôi phục.')).toBeTruthy();
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+});
+
+describe('the skills, plugins and instruction files of a restore', () => {
+  it('previews them by group in plain words, a file that differs unticked with its lines', async () => {
+    await toPreviewOn();
+    const box = (name: RegExp) => screen.getByRole('checkbox', { name }) as HTMLInputElement;
+    expect(box(/^5 skill từ GitHub/).checked).toBe(true);
+    expect(screen.getByText(/^Cài lại từ GitHub, bản mới nhất · /)).toBeTruthy();
+    expect(box(/^3 skill cài tay/).checked).toBe(true);
+    expect(screen.getByText('Chép từ gói · deploy-check, trace-reader, notes-helper')).toBeTruthy();
+    expect(box(/^7 plugin/).checked).toBe(true);
+    expect(screen.getByText(/^Cài bằng chính Claude Code và Codex · /)).toBeTruthy();
+    expect(box(/^CLAUDE.md của Claude Code/).checked).toBe(true);
+    expect(screen.getByText('Máy này chưa có')).toBeTruthy();
+    expect(box(/^AGENTS.md của Codex/).checked).toBe(false);
+    expect(screen.getByText('Khác 3 dòng. Bỏ chọn là giữ bản trên máy.')).toBeTruthy();
+    await press(within(dialog()).getByRole('button', { name: 'So sánh AGENTS.md của Codex' }));
+    expect(within(dialog()).getByText('Run the tests and the linter first.')).toBeTruthy();
+    expect(screen.getByText('Giống trên máy: 3 file.')).toBeTruthy();
+    // Nothing technical: no folder, no command, no file format.
+    const text = dialog().textContent ?? '';
+    expect(text).not.toMatch(/~\/|npx|claude plugin|codex plugin|\.json|Keychain/);
+  });
+
+  it('sends only what stays ticked', async () => {
+    const fake = await toPreviewOn();
+    await press(screen.getByRole('checkbox', { name: /^5 skill từ GitHub/ }));
+    await press(screen.getByRole('checkbox', { name: /^7 plugin/ }));
+    await press(screen.getByRole('checkbox', { name: /^AGENTS.md của Codex/ }));
+    await press(within(dialog()).getByRole('button', { name: 'Tiếp: dán khoá' }));
+    await press(within(dialog()).getByRole('button', { name: 'Khôi phục' }));
+    const more = vi.mocked(fake.api.restoreRun).mock.calls[0][2];
+    expect(more.skills).toEqual(['deploy-check', 'trace-reader', 'notes-helper']);
+    expect(more.plugins).toEqual([]);
+    expect(more.files).toEqual(['~/.claude/CLAUDE.md', '~/.codex/AGENTS.md']);
+    expect(more.fileBases['~/.codex/AGENTS.md']).toBe('b-agents');
+    expect(await within(dialog()).findByText('3 skill cài tay')).toBeTruthy();
+    expect(within(dialog()).getByText('AGENTS.md của Codex · thay bằng bản trong gói')).toBeTruthy();
+  });
+
+  it('says a part that failed, runs the others, and tries it again', async () => {
+    const fake = await toPreviewOn(fixtureModel('fresh'), { restorePartial: true });
+    await press(within(dialog()).getByRole('button', { name: 'Tiếp: dán khoá' }));
+    await press(within(dialog()).getByRole('button', { name: 'Khôi phục' }));
+    expect(await within(dialog()).findByRole('heading', { name: 'Đã khôi phục một phần' })).toBeTruthy();
+    expect(within(dialog()).getByText('5 skill từ GitHub')).toBeTruthy();
+    expect(within(dialog()).getByText('6 plugin')).toBeTruthy();
+    expect(within(dialog()).getByText('Plugin formatter')).toBeTruthy();
+    expect(within(dialog()).getByText('cần đăng nhập')).toBeTruthy();
+    expect(within(dialog()).getByText('Đăng nhập trong Claude Code rồi bấm Thử lại ở plugin formatter.')).toBeTruthy();
+    await press(within(dialog()).getByRole('button', { name: 'Thử lại Plugin formatter' }));
+    expect(fake.api.restoreRetry).toHaveBeenCalledWith('agents-20260116-141000-studio-mini', 'plugin', 'formatter@tools-market', 'claude');
+    expect(await within(dialog()).findByRole('heading', { name: 'Đã khôi phục' })).toBeTruthy();
+    expect(within(dialog()).getByText('7 plugin')).toBeTruthy();
+    expect(within(dialog()).queryByRole('button', { name: /^Thử lại/ })).toBeNull();
+    // The undo says it takes the skills, plugins and files back too.
+    await press(within(dialog()).getByRole('button', { name: 'Hoàn tác lần khôi phục…' }));
+    expect(within(dialog()).getByText('Gỡ các skill và plugin vừa cài, bằng lệnh của agent.')).toBeTruthy();
+    expect(within(dialog()).getByText('Trả file hướng dẫn vừa ghi về như trước.')).toBeTruthy();
   });
 });
 
