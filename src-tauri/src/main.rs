@@ -15,7 +15,10 @@
 //! the ChatGPT login and a custom API provider, keeping the ChatGPT login.
 //! Since M9 it shows the MCP servers of Claude Code, Codex and Antigravity
 //! in one table and turns them on, off, adds and removes them, after a
-//! preview of the whole batch.
+//! preview of the whole batch. Since M10 it backs them up to iCloud Drive
+//! and restores them. Since M11 it does the same for the skills, shows the
+//! plugins and the instruction files, and says when a skill from GitHub has
+//! a newer version.
 
 mod agents;
 mod agy_quota;
@@ -30,6 +33,7 @@ mod login_item;
 mod notify;
 mod reader;
 mod rules;
+mod skills;
 mod state;
 mod tray;
 mod windows;
@@ -125,6 +129,30 @@ fn main() {
             agents::mcp_paste,
             agents::mcp_forget,
             agents::mcp_open_backups,
+            skills::skills_read,
+            skills::skills_preview,
+            skills::skills_write,
+            skills::skills_undo,
+            skills::skills_drop_link,
+            skills::skills_list_repo,
+            skills::skills_read_md,
+            skills::skills_install,
+            skills::skills_update,
+            skills::skills_skip,
+            skills::skills_remove,
+            skills::skills_import,
+            skills::skills_open_link,
+            skills::skills_check,
+            skills::skills_set_checks,
+            skills::plugins_read,
+            skills::instr_read,
+            skills::instr_show,
+            skills::instr_compare,
+            skills::instr_include,
+            skills::instr_not_key,
+            skills::instr_add,
+            skills::instr_forget,
+            skills::instr_open,
             backup::backup_read,
             backup::backup_now,
             backup::backup_set_auto,

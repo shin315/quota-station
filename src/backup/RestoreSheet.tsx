@@ -83,6 +83,21 @@ function ViewBody({ d, backup, now }: { d: Extract<BackupDialog, { kind: 'view' 
             <li className="ok">
               <span>{s.servers.length} MCP, và agent nào đang bật</span>
             </li>
+            {s.skills?.length ? (
+              <li className="ok">
+                <span title={s.skills.join(', ')}>{s.skills.length} skill: skill từ GitHub ghi nguồn, skill cài tay ghi tên</span>
+              </li>
+            ) : null}
+            {s.plugins?.length ? (
+              <li className="ok">
+                <span title={s.plugins.join(', ')}>{s.plugins.length} plugin, và bật hay tắt</span>
+              </li>
+            ) : null}
+            {s.instructions?.length ? (
+              <li className="ok">
+                <span title={s.instructions.join(', ')}>{s.instructions.length} file hướng dẫn</span>
+              </li>
+            ) : null}
           </ul>
           <div className="sec-t">Khoá cần dán khi khôi phục</div>
           {s.keys.length ? (
@@ -95,7 +110,8 @@ function ViewBody({ d, backup, now }: { d: Extract<BackupDialog, { kind: 'view' 
             items={[
               ['', 'Khoá, đăng nhập và tài khoản'],
               ['', 'Nhà cung cấp Codex'],
-              ['', 'MCP có sẵn của agent, của plugin'],
+              ['', 'MCP và skill có sẵn của agent, của plugin'],
+              ['', 'File hướng dẫn có dòng dạng khoá'],
             ]}
           />
         </>

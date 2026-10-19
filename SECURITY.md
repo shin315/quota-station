@@ -301,6 +301,91 @@ iCloud Drive, and restores one on this Mac or another.
   Keychain items it created. A file changed since the restore is not
   overwritten unless the owner confirms it.
 
+## Skills, plugins and instruction files (M11)
+
+The Skills tab turns each skill on or off per agent and installs, updates
+and removes skills from GitHub through `npx skills`; the Plugin and File
+hướng dẫn tabs only read.
+
+- There is one store of skills, the shared folder `~/.agents/skills` that
+  `npx skills` installs into; the app keeps no second one. It reads
+  `~/.agents/.skill-lock.json` (where each skill came from) and never writes
+  it: only `npx skills` does. Claude Code's `~/.claude/skills` and
+  Antigravity's `~/.gemini/config/skills` are read for their entries;
+  Codex's `skills` folder only for the skills it brings (`.system`), which
+  are shown and never touched, as are the skills a plugin brings.
+- Turning a skill on for Claude Code or Antigravity makes a relative
+  symlink in that agent's folder to the skill in the shared folder; turning
+  it off removes that symlink and nothing else. The app never removes a
+  folder to turn a skill off, and never removes a symlink that points
+  anywhere but the shared folder, except `Bỏ liên kết` for a link that
+  points to nothing. Codex reads the shared folder itself, so turning a
+  skill off there is a `[[skills.config]]` entry (`name`, `enabled = false`)
+  in Codex's `config.toml`; the edit is checked to change nothing else of
+  the file, and is the MCP tab's checked write with its backup (keys
+  `<redacted>`).
+- Every batch goes through a preview, and a folder or `config.toml` changed
+  after it stops the batch before anything is written. Before a write the
+  app saves the agent's list of links as `backups/skills/<agent>-links.json.<time>`;
+  before `Cập nhật`, `Gỡ hẳn` and `Gom về` it copies the skill's folder to
+  `backups/skills/<name>.folder.<time>` (symlinks copied as symlinks, at
+  most 100 MB or 5,000 files). It keeps the newest 10 of each, mode 600 in
+  folders of mode 700.
+- `Gom về` moves a skill installed by hand in one agent's folder into the
+  shared folder, after that copy, and puts a link where it was; a skill
+  that was a link to a folder elsewhere is copied and that folder is left
+  as it is. `Hoàn tác` puts it back.
+- `npx skills` runs only when the owner presses `Tìm skill`, `Đọc SKILL.md`,
+  `Cài`, `Cập nhật` or `Gỡ hẳn`: `npx -y skills add <owner/repo> --list`,
+  `use <owner/repo>@<skill>`, `add <owner/repo> --skill <name> -g -y -a
+  claude-code`, `update <name> -g -y` and `remove <name> -g -y`. The
+  arguments are a list, never a shell line; it runs in an empty folder of
+  the app's (`agents/npx`), not in a project, with `DO_NOT_TRACK=1`,
+  `DISABLE_TELEMETRY=1`, no colours, and a limit of 2 minutes (listing,
+  reading) or 5 minutes (installing). The tool downloads the repository
+  and copies files; nothing in a skill is run by the app or by the install.
+  `Gỡ hẳn` is offered only for skills in the lock file; the app never
+  removes a skill installed by hand.
+- Newer versions: once a day after a reading (and on `Kiểm bản mới`), the
+  app asks GitHub one question per repository in the lock file,
+  `GET https://api.github.com/repos/<owner>/<repo>/git/trees/HEAD?recursive=1`,
+  with no token, and compares the skill's folder hash with the one in the
+  lock file. It is the app's only network call for skills. A failed check
+  is tried again after an hour. What it found (names, hashes, times, the
+  versions skipped with `Bỏ qua bản này`) is `agents/skill-updates.json`.
+  The app never updates a skill on its own. It shows `skill có bản mới` in
+  the Cảnh báo tab once per set of versions, and as a macOS card only when
+  `Báo bằng thông báo macOS` is on in Cài đặt (off by default);
+  `Kiểm bản mới` there can be turned off.
+- The Plugin tab runs `claude plugin list --json` and `claude plugin
+  marketplace list --json` (with `DISABLE_AUTOUPDATER=1`, 30 seconds) and
+  `codex plugin list --json`, and reads each installed plugin's own folder
+  to count what it brings. It never installs, removes, turns on or off a
+  plugin or a marketplace. A marketplace URL with a user or password has
+  them taken out before it is shown or packed.
+- Instruction files: `~/.claude/CLAUDE.md`, `~/.claude/rules/**/*.md` (three
+  levels), `AGENTS.md` in the Codex folder, `~/.gemini/GEMINI.md`, and any
+  `.md` or `.txt` file in the home folder the owner adds (not in the app's
+  folder, at most 1 MB). The app never writes one; `Mở file` opens it in
+  the default text editor.
+- A line shaped like a key (a private key block, a long token-like value
+  after a key-ish name, a known token prefix) or holding any secret value
+  now in an agent's MCP config marks the file: it stays out of every pack,
+  and the windows get the line with the value as `••••••`. `Không phải
+  khoá` remembers that one line by a SHA-256 of its path and text, in
+  `agents/instructions.json`, with the files added and left out; the line
+  itself is not kept.
+- The backup pack gains three files, listed in the manifest's `sections`:
+  `skills.json` (each skill's name, repository and path for skills from
+  GitHub, `hand` for the others, and the agents it is on in; no content),
+  `plugins.json` (each agent's plugins by `name@marketplace`, on or off,
+  and the marketplaces; an agent whose plugins cannot be read keeps the
+  newest pack's list) and `instructions.json` (the text and SHA-256 of each
+  instruction file the owner keeps in, with no line shaped like a key). The
+  pack is refused, as before, if any file in it holds a secret value the
+  app read from an agent's file. Restoring skills, plugins and instruction
+  files is not part of this version.
+
 ## How the tests hold the app to this
 
 - Every file the Antigravity code opens goes through one guard
@@ -357,6 +442,22 @@ iCloud Drive, and restores one on this Mac or another.
   pasted one: no pack may hold any of them, a pack that would is refused,
   the pasted key may appear only in the fake Keychain and the agent files,
   and a restore must leave Codex's provider and the logins as they were.
+- `tests/agents_skills.rs` runs the Skills, Plugin and File hướng dẫn code
+  on a temporary home: a shared folder with its lock file, Claude Code's
+  and Antigravity's folders (links, a skill installed by hand, a link to
+  nothing), Codex's `config.toml` with trap keys, a fake `npx` that records
+  its arguments and does to the folders what `npx skills` does, fake
+  `claude` and `codex` plugin listers, and a fake GitHub on a local port.
+  Every skill holds a `run.sh` that leaves a mark if it runs; no test sees
+  the mark. It checks that turning off never removes a folder, that only
+  `[[skills.config]]` changes in `config.toml`, that a folder changed after
+  the preview stops the batch, `Hoàn tác`, gathering and putting back, that
+  installing and updating keep each agent's box as asked, that the check
+  asks GitHub once per repository with no token and updates nothing, that
+  the plugin listers are never asked to install, remove, turn on or off,
+  and that an instruction file holding a key (a trap value, and an MCP
+  secret) never reaches a pack, a backup or what the windows get.
+  `GitHub::api()` refuses to run in a test build.
 - CI has no Keychain access and no Google account.
 - The install tests run `scripts/install.sh` in a temporary folder with fake
   `open` and `security`, and fakes of `launchctl`, `osascript` and `sfltool`

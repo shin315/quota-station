@@ -33,6 +33,16 @@ import type {
   McpOutcome,
   McpPaste,
   McpPreview,
+  McpLine,
+  InstrShown,
+  RepoList,
+  SkillChange,
+  SkillGathered,
+  SkillInstalled,
+  SkillOutcome,
+  SkillPreview,
+  SkillRemoved,
+  SkillUpdated,
 } from './model';
 
 export interface Api {
@@ -157,6 +167,54 @@ export interface Api {
   mcpForget(name: string, slots: string[], keys: boolean): Promise<void>;
   /** An agent's backups folder in Finder. Rejects with `missing`. */
   mcpOpenBackups(agent: Agent): Promise<void>;
+  /** The Skills tab opened, or "Đọc lại": every agent's skills read again; the table comes in the model. */
+  skillsRead(): Promise<void>;
+  /** What turning the boxes on or off would write, read from the folders and `config.toml` now. */
+  skillsPreview(changes: SkillChange[]): Promise<SkillPreview>;
+  /** Writes the batch the preview showed. Rejects with `busy`. */
+  skillsWrite(changes: SkillChange[], bases: SkillPreview['bases']): Promise<SkillOutcome>;
+  /** "Hoàn tác" of the last batch, install or gathering: `undone` or `failed`. Rejects with `nothing` or `busy`. */
+  skillsUndo(): Promise<'undone' | 'failed'>;
+  /** "Bỏ liên kết": a link to nothing in an agent's folder; never a folder. */
+  skillsDropLink(agent: Agent, name: string): Promise<void>;
+  /** The skills in a GitHub repository, through `npx skills`. Rejects with `badRepo`, `noNpx`, `noSkills`, `timeout`, `failed:…`. */
+  skillsListRepo(repo: string): Promise<RepoList>;
+  /** "Đọc SKILL.md" before installing. */
+  skillsReadMd(repo: string, skill: string): Promise<string>;
+  /** "Cài": `npx skills add`, then each agent's box as asked. Rejects with `busy`, `noNpx`, `badRepo`. */
+  skillsInstall(repo: string, names: string[], agents: Record<Agent, boolean>): Promise<SkillInstalled>;
+  /** "Cập nhật": a copy kept first; the boxes stay. */
+  skillsUpdate(name: string): Promise<SkillUpdated>;
+  /** "Bỏ qua bản này". */
+  skillsSkip(name: string): Promise<void>;
+  /** "Gỡ hẳn": a copy kept first, then `npx skills remove`. */
+  skillsRemove(name: string): Promise<SkillRemoved>;
+  /** "Gom": skills installed by hand moved into the shared folder. */
+  skillsImport(names: string[]): Promise<SkillGathered>;
+  /** A skill's history on GitHub, in the browser. */
+  skillsOpenLink(url: string): Promise<void>;
+  /** "Kiểm bản mới": one question to GitHub per repository in the lock file. */
+  skillsCheck(): Promise<void>;
+  /** Cài đặt › Skills. */
+  skillsSetChecks(daily: boolean, notify: boolean): Promise<void>;
+  /** The Plugin tab opened, or "Đọc lại": each agent's own `plugin list`. */
+  pluginsRead(): Promise<void>;
+  /** The File hướng dẫn tab opened, or "Đọc lại". */
+  instrRead(): Promise<void>;
+  /** "Xem": the file, keys masked. Rejects with `missing`, `large`, `binary`. */
+  instrShow(path: string): Promise<InstrShown>;
+  /** "So sánh": the file against the newest pack's copy, keys masked. Rejects with `noPack` or `notInPack`. */
+  instrCompare(path: string): Promise<McpLine[]>;
+  /** "Trong gói". */
+  instrInclude(path: string, on: boolean): Promise<void>;
+  /** "Không phải khoá" for one line (from 1). */
+  instrNotKey(path: string, line: number): Promise<void>;
+  /** "Thêm file…": a `.md` or `.txt` in the home folder. Resolves to how it is shown; rejects with `outside`, `type`, `missing`, `large`. */
+  instrAdd(path: string): Promise<string>;
+  /** A file added by hand leaves the list. */
+  instrForget(path: string): Promise<void>;
+  /** "Mở file": in the default text editor. */
+  instrOpen(path: string): Promise<void>;
   /** The Sao lưu tab opened, or "Kiểm lại": the packs and the keys listed again; they come in the model. */
   backupRead(): Promise<void>;
   /** "Sao lưu bây giờ": the new pack's name. Rejects with `busy`, `noICloud`, `secret` or `io:…`. */
@@ -270,6 +328,30 @@ export const tauriApi: Api = {
   mcpPaste: (text, save, bitwarden) => invoke<McpPaste>('mcp_paste', { text, save, bitwarden }),
   mcpForget: (name, slots, keys) => invoke('mcp_forget', { name, slots, keys }),
   mcpOpenBackups: (agent) => invoke('mcp_open_backups', { agent }),
+  skillsRead: () => invoke('skills_read'),
+  skillsPreview: (changes) => invoke<SkillPreview>('skills_preview', { changes }),
+  skillsWrite: (changes, bases) => invoke<SkillOutcome>('skills_write', { changes, bases }),
+  skillsUndo: () => invoke<'undone' | 'failed'>('skills_undo'),
+  skillsDropLink: (agent, name) => invoke('skills_drop_link', { agent, name }),
+  skillsListRepo: (repo) => invoke<RepoList>('skills_list_repo', { repo }),
+  skillsReadMd: (repo, skill) => invoke<string>('skills_read_md', { repo, skill }),
+  skillsInstall: (repo, names, agents) => invoke<SkillInstalled>('skills_install', { repo, names, agents }),
+  skillsUpdate: (name) => invoke<SkillUpdated>('skills_update', { name }),
+  skillsSkip: (name) => invoke('skills_skip', { name }),
+  skillsRemove: (name) => invoke<SkillRemoved>('skills_remove', { name }),
+  skillsImport: (names) => invoke<SkillGathered>('skills_import', { names }),
+  skillsOpenLink: (url) => invoke('skills_open_link', { url }),
+  skillsCheck: () => invoke('skills_check'),
+  skillsSetChecks: (daily, notify) => invoke('skills_set_checks', { daily, notify }),
+  pluginsRead: () => invoke('plugins_read'),
+  instrRead: () => invoke('instr_read'),
+  instrShow: (path) => invoke<InstrShown>('instr_show', { path }),
+  instrCompare: (path) => invoke('instr_compare', { path }),
+  instrInclude: (path, on) => invoke('instr_include', { path, on }),
+  instrNotKey: (path, line) => invoke('instr_not_key', { path, line }),
+  instrAdd: (path) => invoke<string>('instr_add', { path }),
+  instrForget: (path) => invoke('instr_forget', { path }),
+  instrOpen: (path) => invoke('instr_open', { path }),
   backupRead: () => invoke('backup_read'),
   backupNow: () => invoke<string>('backup_now'),
   backupSetAuto: (afterChange, daily) => invoke('backup_set_auto', { afterChange, daily }),

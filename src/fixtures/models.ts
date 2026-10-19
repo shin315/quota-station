@@ -2,6 +2,7 @@
 // (`crates/quota-station-core/tests/ui_fixtures.rs`). Synthetic data only.
 
 import { backupFixture } from './fakeBackup';
+import { instrFixture, pluginsFixture, skillsFixture } from './fakeSkills';
 import type {
   AgyAccounts,
   AppView,
@@ -492,6 +493,9 @@ export function fixtureModel(name: string, over: Partial<Model> = {}): Model {
     codex: codexFixture(),
     mcp: mcpFixture(),
     backup: backupFixture(),
+    skills: skillsFixture(),
+    plugins: pluginsFixture(),
+    instructions: instrFixture(),
     ...over,
   };
 }

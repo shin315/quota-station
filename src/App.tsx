@@ -6,6 +6,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { McpDialogBody, mcpDialogSize } from './agents/McpDialogs';
 import { McpTab } from './agents/McpTab';
 import { useMcp } from './agents/useMcp';
+import { InstrDialogBody, InstrTab, instrDialogSize, useInstr } from './agents/InstrTab';
+import { PluginDialogBody, PluginTab, usePlugins } from './agents/PluginTab';
+import { SkillDialogBody, skillDialogSize } from './agents/SkillDialogs';
+import { SkillsTab } from './agents/SkillsTab';
+import { useSkills } from './agents/useSkills';
 import { BackupTab } from './backup/BackupTab';
 import { BackupDialogBody, backupDialogSize } from './backup/RestoreSheet';
 import { useBackup } from './backup/useBackup';
@@ -491,10 +496,13 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   const switching = useSwitching(api, model, clock, showFeedback);
   const rules = useRules(api, model, clock, showFeedback, tab);
   const mcp = useMcp(api, model, showFeedback);
+  const skills = useSkills(api, model, showFeedback);
+  const plugins = usePlugins();
+  const instr = useInstr(api, model, showFeedback);
   const toTab = useRef<(t: Tab) => void>(() => {});
   const backup = useBackup(api, model, showFeedback, { rekey: mcp.rekey, onTab: (t) => toTab.current(t) });
   const ruleDialog = rules.leave ? 'leave' : rules.compare ? 'compare' : null;
-  const sheetOpen = !!switching.sheet || !!ruleDialog || !!mcp.dialog || !!backup.dialog;
+  const sheetOpen = !!switching.sheet || !!ruleDialog || !!mcp.dialog || !!backup.dialog || !!skills.dialog || plugins.open || !!instr.dialog;
   const closeSheet = useRef(switching.close);
   // Escape closes the sheet on show: the unsaved-changes one, then a switch, then the comparison, then an MCP dialog.
   closeSheet.current = () => {
@@ -503,6 +511,9 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
     else if (rules.compare) rules.closeCompare();
     else if (mcp.dialog) mcp.close();
     else if (backup.dialog) backup.close();
+    else if (skills.dialog) skills.close();
+    else if (plugins.open) plugins.close();
+    else if (instr.dialog) instr.close();
   };
 
   useEffect(() => {
@@ -540,6 +551,10 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
     if (tab === 'settings') void api.settingsOpened().catch(() => {});
     // Opening the MCP tab reads every agent's list now.
     if (tab === 'mcp') void api.mcpRead().catch(() => {});
+    // Opening Skills, Plugin or File hướng dẫn reads them now.
+    if (tab === 'skills') void api.skillsRead().catch(() => {});
+    if (tab === 'plugins') void api.pluginsRead().catch(() => {});
+    if (tab === 'instr') void api.instrRead().catch(() => {});
     // Opening the Sao lưu tab lists the packs and the keys now; the MCP table names the keys.
     if (tab === 'backup') {
       void api.backupRead().catch(() => {});
@@ -552,6 +567,9 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
     if (rules.act(act)) return;
     if (mcp.act(act)) return;
     if (backup.act(act)) return;
+    if (skills.act(act)) return;
+    if (instr.act(act)) return;
+    if (act === 'plugins:reread') return void api.pluginsRead().catch(() => {});
     if (act === 'mcp:tab') return rules.guardTab(tab, 'mcp', setTab);
     if (act === 'notify:settings') return void api.openNotificationSettings().catch(() => showFeedback(settingsFailedFeedback()));
     if (act === 'settings') return rules.guardTab(tab, 'settings', setTab);
@@ -624,6 +642,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       onSetSource={(path) => refusal(api.setSourceDir(path))}
       onUpdate={() => refusal(api.updateFromSource())}
       onRelaunch={() => refusal(api.relaunch())}
+      onSkillChecks={(daily, notify) => void api.skillsSetChecks(daily, notify).catch(() => showFeedback(settingsFailedFeedback()))}
     />
   );
   const goTab = (next: Tab) => rules.guardTab(tab, next, setTab);
@@ -649,10 +668,28 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
         <McpDialogBody mcp={mcp} model={model} now={now} />
       ) : backup.dialog ? (
         <BackupDialogBody backup={backup} model={model} now={now} />
+      ) : skills.dialog ? (
+        <SkillDialogBody skills={skills} model={model} />
+      ) : plugins.open ? (
+        <PluginDialogBody model={model} plugins={plugins} />
+      ) : instr.dialog ? (
+        <InstrDialogBody instr={instr} model={model} now={now} />
       ) : null))
     );
   const dialogSize =
-    switching.sheet || ruleDialog ? undefined : mcp.dialog ? mcpDialogSize(mcp.dialog) : backup.dialog ? backupDialogSize(backup.dialog) : undefined;
+    switching.sheet || ruleDialog
+      ? undefined
+      : mcp.dialog
+        ? mcpDialogSize(mcp.dialog)
+        : backup.dialog
+          ? backupDialogSize(backup.dialog)
+          : skills.dialog
+            ? skillDialogSize(skills.dialog)
+            : plugins.open
+              ? 'xl'
+              : instr.dialog
+                ? instrDialogSize(instr.dialog)
+                : undefined;
   return (
     <MainWindow
       tab={tab}
@@ -672,6 +709,9 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       codex={<CodexTab model={model} fresh={view.fresh} feedback={feedback} now={now} onAction={onAction} />}
       codexCard={<CodexCard model={model} onAction={onAction} />}
       mcp={<McpTab model={model} fresh={view.fresh} feedback={feedback} now={now} mcp={mcp} onAction={onAction} />}
+      skills={<SkillsTab model={model} fresh={view.fresh} feedback={feedback} skills={skills} onAction={onAction} />}
+      plugins={<PluginTab model={model} fresh={view.fresh} plugins={plugins} onAction={onAction} />}
+      instr={<InstrTab model={model} fresh={view.fresh} feedback={feedback} now={now} instr={instr} onAction={onAction} />}
       backup={<BackupTab model={model} fresh={view.fresh} feedback={feedback} now={now} backup={backup} onAction={onAction} />}
       history={<HistoryTab model={model} fresh={view.fresh} now={now} load={api.getHistory} />}
       alerts={

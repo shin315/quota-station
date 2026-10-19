@@ -49,7 +49,7 @@ function Steps({ at }: { at: 0 | 1 }) {
   );
 }
 
-function Facts({ items }: { items: [string, string][] }) {
+export function Facts({ items }: { items: [string, string][] }) {
   return (
     <ul className="facts">
       {items.map(([k, t]) => (
@@ -61,7 +61,7 @@ function Facts({ items }: { items: [string, string][] }) {
   );
 }
 
-const LINE_CLASS: Record<McpLine['op'], string> = { ctx: 'c', add: 'a', del: 'd', gap: 'g' };
+export const LINE_CLASS: Record<McpLine['op'], string> = { ctx: 'c', add: 'a', del: 'd', gap: 'g' };
 
 function blockLabel(agent: Agent, b: McpBlock): string {
   const what = agent === 'codex' ? '[mcp_servers.' + b.name + ']' : b.name;

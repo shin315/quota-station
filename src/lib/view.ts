@@ -40,7 +40,19 @@ export type Action =
   /** The MCP tab (M9): open it, undo the last write, its backups, read again. */
   | McpAction
   /** The Sao lưu tab (M10): read again, its folder in Finder, undo the last restore, restore. */
-  | BackupAction;
+  | BackupAction
+  /** The Skills, Plugin and File hướng dẫn tabs (M11). */
+  | SkillAction;
+
+export type SkillAction =
+  | 'skills:undo'
+  | 'skills:reread'
+  | 'skills:check'
+  | 'skills:npx'
+  | `skills:update:${string}`
+  | 'plugins:reread'
+  | 'instr:reread'
+  | `instr:key:${string}`;
 
 export type BackupAction = 'backup:reread' | 'backup:open' | 'backup:undo' | 'backup:restore';
 

@@ -200,10 +200,25 @@ pub(crate) fn run_with(
     input: Option<&str>,
     timeout: Duration,
 ) -> Result<Output, RunError> {
+    run_in(path, args, env, input, None, timeout)
+}
+
+/// [`run_with`] in the folder `cwd`, when given.
+pub(crate) fn run_in(
+    path: &Path,
+    args: &[String],
+    env: &[(&str, &std::ffi::OsStr)],
+    input: Option<&str>,
+    cwd: Option<&Path>,
+    timeout: Duration,
+) -> Result<Output, RunError> {
     if !path.is_file() {
         return Err(RunError::NotFound(path.to_path_buf()));
     }
     let mut command = Command::new(path);
+    if let Some(dir) = cwd {
+        command.current_dir(dir);
+    }
     command
         .args(args)
         .env("PATH", child_path(path, std::env::var_os("PATH")))

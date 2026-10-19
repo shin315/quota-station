@@ -191,8 +191,10 @@ fn make(inner_of: &AppState, skip_same: bool) -> Result<Option<String>, PackErro
     };
     let readings = agents::read_all(&places);
     let store = kho::load(&dir);
-    let p = pack::content(&home, &readings, &store, &mac, &version, OffsetDateTime::now_utc());
-    if skip_same && pack::unchanged(&root, &mac, &p.manifest.mcp_hash) {
+    let mut p = pack::content(&home, &readings, &store, &mac, &version, OffsetDateTime::now_utc());
+    let (skills, plugins, instructions) = crate::skills::pack_extras(inner_of);
+    p.extend(Some(skills), Some(plugins), Some(instructions));
+    if skip_same && pack::same_as_newest(&root, &mac, &p) {
         return Ok(None);
     }
     pack::write(&root, &home, &p, &readings).map(Some)

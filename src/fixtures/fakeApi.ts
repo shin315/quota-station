@@ -6,6 +6,7 @@
 import type { Api } from '../lib/api';
 import { fakeRestore, planFixture, summaryFixture } from './fakeBackup';
 import { fakeApply, fakePaste, fakePreview } from './fakeMcp';
+import { fakeSkillApply, fakeSkillPreview, instrDiffFixture, instrShownFixture, repoFixture, SKILL_MD } from './fakeSkills';
 import type {
   Agent,
   AgyApp,
@@ -25,6 +26,7 @@ import type {
   HistoryEntry,
   McpOutcome,
   Model,
+  SkillOutcome,
   Outcome,
   PeerView,
   RotationView,
@@ -90,6 +92,10 @@ export interface FakeOptions {
   restoreUndoChanged?: boolean;
   /** How long a restore takes; the preview waits to show the running step. */
   restoreDelayMs?: number;
+  /** A skills write finds a folder changed since the preview: nothing is written. */
+  skillsChanged?: boolean;
+  /** How long `npx skills` and a skills write take. */
+  skillsDelayMs?: number;
 }
 
 const said = (title: string, body: string): AlertSaid => ({ tone: 'info', title, body });
@@ -108,6 +114,8 @@ function sample(kind: AlertKind, at: number): Alert {
       return { ...base, tone: 'warn', title: 'Antigravity đổi về tài khoản cũ', body: 'Thử: Antigravity.app đổi về Ultra 1.', actions: [{ id: 'agy:quitFirst:0', label: 'Thoát app rồi chuyển lại' }, { id: 'agy:keepRunning:0', label: 'Chuyển lại' }, { id: 'agy:keep', label: 'Thôi' }] };
     case 'firstmate':
       return { ...base, tone: 'info', title: 'Firstmate đang chờ hạn mức Claude', body: 'Thử: hạn mức trong vòng dưới ngưỡng.', actions: [] };
+    case 'skill':
+      return { ...base, tone: 'info', title: '2 skill có bản mới', body: 'Thử: ui-polish, sql-helper. App không tự cập nhật.', actions: [{ id: 'skills:open', label: 'Xem' }, { id: 'dismiss', label: 'Để sau' }] };
   }
 }
 
@@ -171,6 +179,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
   let quitPending = options.quitPending ?? false;
   let relaunched = 0;
   let lastMcpUndo: McpOutcome['undo'] = null;
+  let lastSkillUndo: SkillOutcome['undo'] = null;
   const delay = () => (options.saveDelayMs ? new Promise((r) => setTimeout(r, options.saveDelayMs)) : Promise.resolve());
   /** Every Mac SSH reaches takes the file; the others wait 5 minutes. */
   const sent = (peers: PeerView[]): PeerView[] =>
@@ -515,6 +524,148 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       if (table) push({ ...model, mcp: { ...model.mcp, table: { ...table, stored: table.stored.filter((k) => k.name !== name) } } });
     },
     mcpOpenBackups: async () => {},
+    skillsRead: async () => {
+      push({ ...model, skills: { ...model.skills, busy: 'reading' } });
+      if (options.skillsDelayMs) await new Promise((r) => setTimeout(r, options.skillsDelayMs));
+      push({ ...model, skills: { ...model.skills, busy: null, readAt: now().toISOString() } });
+    },
+    skillsPreview: async (changes) => {
+      if (!model.skills.table) throw 'notRead';
+      return fakeSkillPreview(model.skills.table, changes);
+    },
+    skillsWrite: async (changes) => {
+      if (model.skills.busy || model.mcp.busy === 'writing' || model.codex.busy) throw 'busy';
+      const table = model.skills.table;
+      if (!table) throw 'notRead';
+      const at = Math.floor(now().getTime() / 1000);
+      if (options.skillsChanged) return { done: [], failed: { agent: changes[0]?.agent ?? 'codex', error: { kind: 'changed' } }, undo: null, at };
+      push({ ...model, skills: { ...model.skills, busy: 'writing' } });
+      if (options.skillsDelayMs) await new Promise((r) => setTimeout(r, options.skillsDelayMs));
+      const { table: next, outcome } = fakeSkillApply(table, changes, at);
+      const iso = new Date(at * 1000).toISOString();
+      lastSkillUndo = outcome.undo;
+      push({ ...model, skills: { ...model.skills, busy: null, table: next, readAt: iso, last: { at: iso, kind: 'batch', names: changes.map((c) => c.name), outcome, canUndo: true } } });
+      return outcome;
+    },
+    skillsUndo: async () => {
+      const undo = lastSkillUndo;
+      const table = model.skills.table;
+      if (!undo || !table) throw 'nothing';
+      lastSkillUndo = null;
+      const { table: next } = fakeSkillApply(table, undo.changes, Math.floor(now().getTime() / 1000));
+      push({ ...model, skills: { ...model.skills, table: next, last: model.skills.last ? { ...model.skills.last, canUndo: false } : null } });
+      return 'undone';
+    },
+    skillsDropLink: async (agent, name) => {
+      const table = model.skills.table;
+      if (table) push({ ...model, skills: { ...model.skills, table: { ...table, broken: table.broken.filter((b) => !(b.agent === agent && b.name === name)) } } });
+    },
+    skillsListRepo: async (repo) => {
+      if (!model.skills.npx) throw 'noNpx';
+      if (options.skillsDelayMs) await new Promise((r) => setTimeout(r, options.skillsDelayMs));
+      const r = repo.trim().replace(/^https:\/\/github\.com\//, '').replace(/\.git$/, '');
+      if (!/^[\w.-]+\/[\w.-]+$/.test(r)) throw 'badRepo';
+      if (r.endsWith('skils')) throw 'failed:Repository not found';
+      return repoFixture(r);
+    },
+    skillsReadMd: async () => SKILL_MD,
+    skillsInstall: async (repo, names, agents) => {
+      if (model.skills.busy) throw 'busy';
+      const table = model.skills.table;
+      if (!table) throw 'notRead';
+      push({ ...model, skills: { ...model.skills, busy: 'installing' } });
+      if (options.skillsDelayMs) await new Promise((r) => setTimeout(r, options.skillsDelayMs));
+      const at = Math.floor(now().getTime() / 1000);
+      const cell = (a: 'claude' | 'codex' | 'agy') => ({ state: agents[a] ? ('on' as const) : ('off' as const), lock: null });
+      const added = names.map((name) => ({
+        name,
+        source: 'github' as const,
+        repo,
+        home: null,
+        cells: { claude: cell('claude'), codex: cell('codex'), agy: cell('agy') },
+        edited: false,
+        update: null,
+        size: 12_000,
+        importable: false,
+      }));
+      const rows = [...table.rows, ...added].sort((a, b) => a.name.localeCompare(b.name));
+      const outcome: SkillOutcome = { done: [], failed: null, undo: null, at };
+      const iso = new Date(at * 1000).toISOString();
+      push({ ...model, skills: { ...model.skills, busy: null, table: { ...table, rows }, last: { at: iso, kind: 'install', names, outcome, canUndo: true } } });
+      return { names, outcome, error: null };
+    },
+    skillsUpdate: async (name) => {
+      const table = model.skills.table;
+      if (!table) throw 'notRead';
+      push({ ...model, skills: { ...model.skills, busy: 'updating' } });
+      if (options.skillsDelayMs) await new Promise((r) => setTimeout(r, options.skillsDelayMs));
+      const rows = table.rows.map((r) => (r.name === name ? { ...r, update: null, edited: false } : r));
+      push({ ...model, skills: { ...model.skills, busy: null, table: { ...table, rows } } });
+      return { name, backup: name + '.folder.20260116-142000', error: null };
+    },
+    skillsSkip: async (name) => {
+      const table = model.skills.table;
+      if (table) push({ ...model, skills: { ...model.skills, table: { ...table, rows: table.rows.map((r) => (r.name === name ? { ...r, update: null } : r)) } } });
+    },
+    skillsRemove: async (name) => {
+      const table = model.skills.table;
+      if (!table) throw 'notRead';
+      push({ ...model, skills: { ...model.skills, table: { ...table, rows: table.rows.filter((r) => r.name !== name) } } });
+      return { names: [name], backups: [name + '.folder.20260116-142000'], error: null };
+    },
+    skillsImport: async (names) => {
+      const table = model.skills.table;
+      if (!table) throw 'notRead';
+      const at = Math.floor(now().getTime() / 1000);
+      const moved = table.rows.filter((r) => names.includes(r.name) && r.home).map((r) => ({ name: r.name, home: r.home! }));
+      const rows = table.rows.map((r) => {
+        if (!names.includes(r.name) || !r.home) return r;
+        const cells = { ...r.cells };
+        for (const a of ['claude', 'codex', 'agy'] as const) cells[a] = { state: a === r.home ? 'on' : 'off', lock: null };
+        return { ...r, home: null, importable: false, cells };
+      });
+      push({ ...model, skills: { ...model.skills, table: { ...table, rows }, last: { at: new Date(at * 1000).toISOString(), kind: 'import', names, outcome: null, canUndo: true } } });
+      return { moved, failed: null, at };
+    },
+    skillsOpenLink: async () => {},
+    skillsCheck: async () => {
+      push({ ...model, skills: { ...model.skills, updates: { ...model.skills.updates, checking: true } } });
+      if (options.skillsDelayMs) await new Promise((r) => setTimeout(r, options.skillsDelayMs));
+      push({ ...model, skills: { ...model.skills, updates: { ...model.skills.updates, checking: false, checkedAt: now().toISOString(), error: null } } });
+    },
+    skillsSetChecks: async (daily, notify) => {
+      push({ ...model, skills: { ...model.skills, updates: { ...model.skills.updates, settings: { daily, notify } } } });
+    },
+    pluginsRead: async () => {
+      push({ ...model, plugins: { ...model.plugins, readAt: now().toISOString() } });
+    },
+    instrRead: async () => {
+      push({ ...model, instructions: { ...model.instructions, readAt: now().toISOString() } });
+    },
+    instrShow: async (path) => instrShownFixture(path),
+    instrCompare: async () => instrDiffFixture(),
+    instrInclude: async (path, on) => {
+      const v = model.instructions.view;
+      if (v) push({ ...model, instructions: { ...model.instructions, view: { ...v, files: v.files.map((f) => (f.path === path ? { ...f, include: on } : f)) } } });
+    },
+    instrNotKey: async (path, line) => {
+      const v = model.instructions.view;
+      if (v) push({ ...model, instructions: { ...model.instructions, view: { ...v, files: v.files.map((f) => (f.path === path ? { ...f, keyLines: f.keyLines.filter((l) => l !== line) } : f)) } } });
+    },
+    instrAdd: async (path) => {
+      const p = path.trim().replace(/^\/Users\/[^/]+/, '~');
+      if (!p.startsWith('~/')) throw 'outside';
+      if (!/\.(md|txt)$/.test(p)) throw 'type';
+      const v = model.instructions.view;
+      const file = { path: p, agent: null, modifiedAt: now().toISOString(), size: 800, lines: 20, keyLines: [], error: null, include: true, extra: true, vsPack: 'new' as const };
+      if (v) push({ ...model, instructions: { ...model.instructions, view: { ...v, files: [...v.files, file] } } });
+      return p;
+    },
+    instrForget: async (path) => {
+      const v = model.instructions.view;
+      if (v) push({ ...model, instructions: { ...model.instructions, view: { ...v, files: v.files.filter((f) => f.path !== path) } } });
+    },
+    instrOpen: async () => {},
     backupRead: async () => {
       push({ ...model, backup: { ...model.backup, readAt: now().toISOString() } });
     },
@@ -596,7 +747,11 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
         tab = 'agy';
         tabListeners.forEach((l) => l('agy'));
       }
-      else if (action.startsWith('agy:verify:')) result = said('Đã mở trang xác minh', 'Trang của Google mở trong trình duyệt.');
+      else if (action === 'skills:open') {
+        result = said('Đã mở tab Skills', 'Bấm Cập nhật ở skill bạn muốn. App không tự cập nhật.');
+        tab = 'skills';
+        tabListeners.forEach((l) => l('skills'));
+      } else if (action.startsWith('agy:verify:')) result = said('Đã mở trang xác minh', 'Trang của Google mở trong trình duyệt.');
       else if (action.startsWith('switch:')) {
         result = said('Đã mở tấm hỏi chuyển', 'Xác nhận trên tấm để chuyển. Chưa có gì thay đổi.');
         openSwitch = Number(action.slice('switch:'.length));

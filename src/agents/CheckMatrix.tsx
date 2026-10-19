@@ -20,9 +20,9 @@ export function AgentLogo({ agent }: { agent: Agent }) {
 }
 
 export interface MatrixCell {
-  /** `null`: nothing to tick here (`—`), or the file is unreadable (`?`). */
+  /** `null`: nothing to tick here (`—`), the file is unreadable (`?`), or a skill's link points to nothing (`!`). */
   checked: boolean | null;
-  mark?: '—' | '?';
+  mark?: '—' | '?' | '!';
   pending: boolean;
   disabled: boolean;
   title: string;
@@ -154,7 +154,7 @@ function ColumnHead(props: {
 function CheckCell({ cell, label, onToggle }: { cell: MatrixCell; label: string; onToggle(): void }) {
   if (cell.checked == null)
     return (
-      <span className={cell.mark === '?' ? 'q' : 'na'} title={cell.title || undefined} role="img" aria-label={label + ': ' + (cell.title || 'không có')}>
+      <span className={cell.mark === '?' || cell.mark === '!' ? 'q' : 'na'} title={cell.title || undefined} role="img" aria-label={label + ': ' + (cell.title || 'không có')}>
         {cell.mark ?? '—'}
       </span>
     );

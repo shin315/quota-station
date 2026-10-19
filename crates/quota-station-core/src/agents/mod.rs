@@ -19,19 +19,31 @@
 //!
 //! [`look`] builds what the windows see. It reads the files, keeps no
 //! secret (only which secrets exist), and drops the text.
+//!
+//! M11 adds the rest of the Agent group: the skills ([`skills`], written
+//! the same way, installed and updated through `npx skills` in [`npx`] and
+//! [`skill_ops`], newer versions found by [`skill_updates`]), the plugins
+//! ([`plugins`], read only) and the instruction files ([`instructions`],
+//! read only).
 
 pub mod agy_mcp;
 pub mod batch;
 pub mod claude_mcp;
 pub mod codex_mcp;
 pub mod def;
+pub mod instructions;
 pub mod json_text;
 pub mod kho;
+pub mod npx;
 pub mod pack;
 pub mod paste;
+pub mod plugins;
 pub mod redact;
 pub mod restore;
 pub mod secrets;
+pub mod skill_ops;
+pub mod skill_updates;
+pub mod skills;
 pub mod write;
 
 use std::collections::{BTreeMap, BTreeSet};
