@@ -4,7 +4,7 @@
 //! dark look, which service the menu bar follows and which of its windows
 //! the title shows, which alerts are on,
 //! where Firstmate's state file is, the clone "Cập nhật từ mã nguồn"
-//! builds from and Codex's folder.
+//! builds from, Codex's folder and when the agents' backup packs are made.
 
 use std::io;
 use std::path::{Path, PathBuf};
@@ -57,6 +57,36 @@ pub struct Settings {
     /// Codex's folder, set by the user; `None` is `~/.codex`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub codex_home: Option<PathBuf>,
+    /// When a backup pack of the agents is made on its own (M10).
+    #[serde(default, skip_serializing_if = "AutoBackup::is_default")]
+    pub auto_backup: AutoBackup,
+}
+
+/// "Tự sao lưu": after each change the app writes to an agent, and once a
+/// day when an agent's list changed outside the app. Both on by default.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AutoBackup {
+    #[serde(default = "yes")]
+    pub after_change: bool,
+    #[serde(default = "yes")]
+    pub daily: bool,
+}
+
+fn yes() -> bool {
+    true
+}
+
+impl Default for AutoBackup {
+    fn default() -> Self {
+        AutoBackup { after_change: true, daily: true }
+    }
+}
+
+impl AutoBackup {
+    pub fn is_default(&self) -> bool {
+        *self == AutoBackup::default()
+    }
 }
 
 /// How the windows look.
@@ -157,6 +187,9 @@ struct Stored {
     source_dir: Option<PathBuf>,
     #[serde(default)]
     codex_home: Option<PathBuf>,
+    /// An unknown value reads as both on.
+    #[serde(default)]
+    auto_backup: serde_json::Value,
 }
 
 impl From<Stored> for Settings {
@@ -196,6 +229,7 @@ impl From<Stored> for Settings {
             firstmate_file: s.firstmate_file,
             source_dir: s.source_dir,
             codex_home: s.codex_home,
+            auto_backup: serde_json::from_value(s.auto_backup).unwrap_or_default(),
         }
     }
 }

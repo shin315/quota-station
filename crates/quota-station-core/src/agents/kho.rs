@@ -1,6 +1,8 @@
 //! The app's store of MCP servers that are in no agent's file: those turned
-//! off in Claude Code (which has no off, so the app removed them), and
-//! those put away from every agent ("Tắt ở mọi agent, giữ trong kho"). The
+//! off in Claude Code (which has no off, so the app removed them), those
+//! put away from every agent ("Tắt ở mọi agent, giữ trong kho"), and those
+//! a restore added turned off because their key or command is not on this
+//! Mac yet (M10: "thêm nhưng tắt"). The
 //! file holds each server's definition with its secrets left out, the slots
 //! the secrets go back to, and the Bitwarden item to look in for each; the
 //! secrets themselves are in the Keychain ([`super::secrets`]).
@@ -78,6 +80,11 @@ pub struct Kho {
     /// Put away from every agent, by name.
     #[serde(default)]
     pub stored: BTreeMap<String, Kept>,
+    /// Restored from a pack but not on yet, by name: off in each of
+    /// [`Kept::agents`] that does not have it, until its key is pasted or
+    /// its command installed and the box ticked.
+    #[serde(default)]
+    pub waiting: BTreeMap<String, Kept>,
     /// The Bitwarden item to look in for a secret.
     #[serde(default)]
     pub hints: Vec<Hint>,
@@ -92,6 +99,21 @@ pub struct Hint {
 }
 
 impl Kho {
+    /// The restored server `name` waits to be turned on in `agent`.
+    pub fn waits(&self, name: &str, agent: Agent) -> bool {
+        self.waiting.get(name).is_some_and(|k| k.agents.contains(&agent))
+    }
+
+    /// `agent` no longer waits for `name`; the entry goes with its last.
+    pub fn unwait(&mut self, name: &str, agent: Agent) {
+        if let Some(k) = self.waiting.get_mut(name) {
+            k.agents.retain(|a| *a != agent);
+            if k.agents.is_empty() {
+                self.waiting.remove(name);
+            }
+        }
+    }
+
     pub fn hint(&self, mcp: &str, slot: &str) -> Option<&str> {
         self.hints.iter().find(|h| h.mcp == mcp && h.slot == slot).map(|h| h.bitwarden.as_str())
     }

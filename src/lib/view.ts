@@ -38,7 +38,11 @@ export type Action =
   /** The rotation editor's banners and feedback (M5). */
   | RulesAction
   /** The MCP tab (M9): open it, undo the last write, its backups, read again. */
-  | McpAction;
+  | McpAction
+  /** The Sao lưu tab (M10): read again, its folder in Finder, undo the last restore, restore. */
+  | BackupAction;
+
+export type BackupAction = 'backup:reread' | 'backup:open' | 'backup:undo' | 'backup:restore';
 
 export type McpAction = 'mcp:tab' | 'mcp:undo' | 'mcp:backups' | 'mcp:reread' | `mcp:key:${string}` | `mcp:howcmd:${string}` | `mcp:later:${string}`;
 

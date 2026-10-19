@@ -307,6 +307,20 @@ export function useMcp(api: Api, model: Model | null, showFeedback: (fb: Feedbac
     void api.mcpRead().catch(() => {});
   };
 
+  /** A key replaced in the Sao lưu tab: into every agent whose entry holds it, through the preview. */
+  const rekey = (name: string, slot: string): boolean => {
+    const row = rows.find((r) => r.name === name);
+    if (!row) return false;
+    const agents = editable(row).filter((a) => row.defs[a]?.slots.includes(slot));
+    const changes: McpChange[] = agents.flatMap((agent) => {
+      const v = row.defs[agent];
+      return v ? [{ name, agent, to: { kind: 'def' as const, def: v.def, from: agent, keychain: [slot], off: false } }] : [];
+    });
+    if (!changes.length) return false;
+    void preview(changes, { title: 'Đưa khoá mới của ' + name + ' vào ' + agents.map((a) => AGENT_NAME[a]).join(', ') + '?' });
+    return true;
+  };
+
   /** The MCP tab's actions on banners and feedback lines. Returns false for others. */
   const act = (a: Action): boolean => {
     if (a === 'mcp:undo') void undo();
@@ -334,6 +348,7 @@ export function useMcp(api: Api, model: Model | null, showFeedback: (fb: Feedbac
     close,
     act,
     reread,
+    rekey,
     toggle: (row: McpRow, agent: Agent) => setPending((p) => toggle(p, row, agent)),
     setColumn: (agent: Agent, on: boolean) => setPending((p) => setColumn(p, rows, agent, on)),
     clearColumn: (agent: Agent) => setPending((p) => clearColumn(p, agent)),

@@ -6,6 +6,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { McpDialogBody, mcpDialogSize } from './agents/McpDialogs';
 import { McpTab } from './agents/McpTab';
 import { useMcp } from './agents/useMcp';
+import { BackupTab } from './backup/BackupTab';
+import { BackupDialogBody, backupDialogSize } from './backup/RestoreSheet';
+import { useBackup } from './backup/useBackup';
 import { AlertsTab } from './alerts/AlertsTab';
 import { CodexCard, CodexTab } from './codex/CodexTab';
 import { useAgyLogins } from './antigravity/AgyAccounts';
@@ -488,8 +491,10 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   const switching = useSwitching(api, model, clock, showFeedback);
   const rules = useRules(api, model, clock, showFeedback, tab);
   const mcp = useMcp(api, model, showFeedback);
+  const toTab = useRef<(t: Tab) => void>(() => {});
+  const backup = useBackup(api, model, showFeedback, { rekey: mcp.rekey, onTab: (t) => toTab.current(t) });
   const ruleDialog = rules.leave ? 'leave' : rules.compare ? 'compare' : null;
-  const sheetOpen = !!switching.sheet || !!ruleDialog || !!mcp.dialog;
+  const sheetOpen = !!switching.sheet || !!ruleDialog || !!mcp.dialog || !!backup.dialog;
   const closeSheet = useRef(switching.close);
   // Escape closes the sheet on show: the unsaved-changes one, then a switch, then the comparison, then an MCP dialog.
   closeSheet.current = () => {
@@ -497,6 +502,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
     else if (switching.sheet) switching.close();
     else if (rules.compare) rules.closeCompare();
     else if (mcp.dialog) mcp.close();
+    else if (backup.dialog) backup.close();
   };
 
   useEffect(() => {
@@ -534,12 +540,18 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
     if (tab === 'settings') void api.settingsOpened().catch(() => {});
     // Opening the MCP tab reads every agent's list now.
     if (tab === 'mcp') void api.mcpRead().catch(() => {});
+    // Opening the Sao lưu tab lists the packs and the keys now; the MCP table names the keys.
+    if (tab === 'backup') {
+      void api.backupRead().catch(() => {});
+      void api.mcpRead().catch(() => {});
+    }
   }, [api, tab]);
 
   const onAction = (act: Action) => {
     if (switching.act(act)) return;
     if (rules.act(act)) return;
     if (mcp.act(act)) return;
+    if (backup.act(act)) return;
     if (act === 'mcp:tab') return rules.guardTab(tab, 'mcp', setTab);
     if (act === 'notify:settings') return void api.openNotificationSettings().catch(() => showFeedback(settingsFailedFeedback()));
     if (act === 'settings') return rules.guardTab(tab, 'settings', setTab);
@@ -615,6 +627,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
     />
   );
   const goTab = (next: Tab) => rules.guardTab(tab, next, setTab);
+  toTab.current = goTab;
   const dialog =
     ruleDialog === 'leave' ? (
       <LeaveDialog rules={rules} onAnswer={(a) => void rules.answerLeave(a, setTab)} />
@@ -634,9 +647,12 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
         <CompareDialog model={model} rules={rules} now={now} />
       ) : mcp.dialog ? (
         <McpDialogBody mcp={mcp} model={model} now={now} />
+      ) : backup.dialog ? (
+        <BackupDialogBody backup={backup} model={model} now={now} />
       ) : null))
     );
-  const dialogSize = !switching.sheet && !ruleDialog && mcp.dialog ? mcpDialogSize(mcp.dialog) : undefined;
+  const dialogSize =
+    switching.sheet || ruleDialog ? undefined : mcp.dialog ? mcpDialogSize(mcp.dialog) : backup.dialog ? backupDialogSize(backup.dialog) : undefined;
   return (
     <MainWindow
       tab={tab}
@@ -656,6 +672,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       codex={<CodexTab model={model} fresh={view.fresh} feedback={feedback} now={now} onAction={onAction} />}
       codexCard={<CodexCard model={model} onAction={onAction} />}
       mcp={<McpTab model={model} fresh={view.fresh} feedback={feedback} now={now} mcp={mcp} onAction={onAction} />}
+      backup={<BackupTab model={model} fresh={view.fresh} feedback={feedback} now={now} backup={backup} onAction={onAction} />}
       history={<HistoryTab model={model} fresh={view.fresh} now={now} load={api.getHistory} />}
       alerts={
         <AlertsTab

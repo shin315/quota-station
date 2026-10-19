@@ -4,6 +4,7 @@
 // Plain code: the preview bundle must not load Vitest.
 
 import type { Api } from '../lib/api';
+import { fakeRestore, planFixture, summaryFixture } from './fakeBackup';
 import { fakeApply, fakePaste, fakePreview } from './fakeMcp';
 import type {
   Agent,
@@ -83,6 +84,12 @@ export interface FakeOptions {
   mcpChanged?: boolean;
   /** How long an MCP preview or write takes. */
   mcpDelayMs?: number;
+  /** A restore finds Codex's file changed since its preview: nothing is written. */
+  restoreChanged?: boolean;
+  /** The undo of a restore finds Codex's file changed since: it asks first. */
+  restoreUndoChanged?: boolean;
+  /** How long a restore takes; the preview waits to show the running step. */
+  restoreDelayMs?: number;
 }
 
 const said = (title: string, body: string): AlertSaid => ({ tone: 'info', title, body });
@@ -508,6 +515,53 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       if (table) push({ ...model, mcp: { ...model.mcp, table: { ...table, stored: table.stored.filter((k) => k.name !== name) } } });
     },
     mcpOpenBackups: async () => {},
+    backupRead: async () => {
+      push({ ...model, backup: { ...model.backup, readAt: now().toISOString() } });
+    },
+    backupNow: async () => {
+      if (!model.backup.icloud) throw 'noICloud';
+      const at = Math.floor(now().getTime() / 1000);
+      const id = 'agents-' + at + '-' + model.machine.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      const count = model.mcp.table?.rows.length ?? 0;
+      const keys = model.mcp.table?.rows.reduce((n, r) => n + r.secrets.length, 0) ?? 0;
+      const pack = { id, state: 'ok' as const, at, mac: model.machine, mine: true, mcp: count, keys, newer: false };
+      push({ ...model, backup: { ...model.backup, packs: [pack, ...(model.backup.packs ?? [])].slice(0, 10), autoError: null } });
+      return id;
+    },
+    backupSetAuto: async (afterChange, daily) => {
+      push({ ...model, backup: { ...model.backup, auto: { afterChange, daily } } });
+    },
+    backupOpenFolder: async () => {},
+    backupDeleteKey: async (mcp, slot) => {
+      push({ ...model, backup: { ...model.backup, keys: (model.backup.keys ?? []).filter((k) => !(k.mcp === mcp && k.slot === slot)) } });
+    },
+    packSummary: async (id) => {
+      const p = model.backup.packs?.find((x) => x.id === id);
+      if (p?.state === 'cloud') throw 'cloud';
+      return summaryFixture(id);
+    },
+    restorePlan: async (id) => {
+      const p = model.backup.packs?.find((x) => x.id === id);
+      if (p?.state === 'cloud') throw 'cloud';
+      return planFixture(id);
+    },
+    restoreRun: async (id, picks, keys) => {
+      if (model.mcp.busy === 'writing' || model.codex.busy) throw 'busy';
+      if (options.restoreChanged) throw 'changed:codex';
+      push({ ...model, backup: { ...model.backup, busy: 'restoring' } });
+      if (options.restoreDelayMs) await new Promise((r) => setTimeout(r, options.restoreDelayMs));
+      const at = Math.floor(now().getTime() / 1000);
+      const done = fakeRestore(planFixture(id), picks, keys.map((k) => k.mcp + '|' + k.slot), at);
+      const mac = planFixture(id).mac;
+      push({ ...model, backup: { ...model.backup, busy: null, restore: done.canUndo ? { at, pack: id, mac } : model.backup.restore } });
+      return done;
+    },
+    restoreUndo: async (force) => {
+      if (!model.backup.restore) throw 'nothing';
+      if (options.restoreUndoChanged && !force) throw 'changed:codex';
+      push({ ...model, backup: { ...model.backup, restore: null } });
+      return { outcome: null, kept: 1, keys: 1 };
+    },
     setCodexHome: async (path) => {
       if (path && !path.startsWith('~')) throw new Error('notFound');
       push({ ...model, codex: { ...model.codex, home: path || '~/.codex', customHome: !!path } });

@@ -7,6 +7,7 @@
 // báo and Firstmate come from M6, and Cảnh báo counts the alerts nobody
 // answered yet. Codex (M8) has its own tab and a compact card on Tổng quan.
 // The Agent group starts with MCP (M9): every agent's MCP servers in one table.
+// The Sao lưu group has the backup packs and the restore (M10).
 
 import { Fragment, type ReactNode } from 'react';
 import { AddAccount, LoginActions, LoginNotes, LogoutConfirm, loginChips, type AgyLogins } from '../antigravity/AgyAccounts';
@@ -35,6 +36,8 @@ const NAVS: (['-', string] | [NavId, string])[] = [
   ['firstmate', 'Firstmate'],
   ['-', 'Agent'],
   ['mcp', 'MCP'],
+  ['-', 'Sao lưu'],
+  ['backup', 'Sao lưu'],
 ];
 
 function NavButton(props: { id: NavId; label: string; tab: Tab; badge?: number; onTab(tab: Tab): void }) {
@@ -422,6 +425,8 @@ export interface MainWindowProps {
   codexCard?: ReactNode;
   /** The MCP tab (M9). */
   mcp?: ReactNode;
+  /** The Sao lưu tab (M10). */
+  backup?: ReactNode;
   /** The Lịch sử, Cảnh báo and Firstmate tabs (M6). */
   history?: ReactNode;
   alerts?: ReactNode;
@@ -474,6 +479,7 @@ export function MainWindow(props: MainWindowProps) {
           {props.tab === 'alerts' ? props.alerts : null}
           {props.tab === 'firstmate' ? props.firstmate : null}
           {props.tab === 'mcp' ? props.mcp : null}
+          {props.tab === 'backup' ? props.backup : null}
           {props.tab === 'settings' ? props.settings : null}
         </main>
       </div>

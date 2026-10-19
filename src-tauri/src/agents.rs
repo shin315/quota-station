@@ -11,6 +11,7 @@ use quota_station_core::agents::batch::{self, Change, Outcome, Preview, Undo};
 use quota_station_core::agents::paste::{self, Paste};
 use quota_station_core::agents::secrets::Secrets;
 use quota_station_core::agents::{self, claude_mcp, kho, Agent, Places, View};
+use quota_station_core::antigravity::fs::AppDir;
 use serde::Serialize;
 use tauri::{AppHandle, State};
 use time::format_description::well_known::Rfc3339;
@@ -115,7 +116,7 @@ pub fn view(inner: &Inner) -> McpView {
 }
 
 /// Reads every agent's list again and publishes the table.
-fn look(app: &AppHandle, state: &AppState) {
+pub fn look(app: &AppHandle, state: &AppState) {
     let (places, dir) = {
         let inner = state.lock();
         (inner.mcp_places(), inner.app_dir())
@@ -169,13 +170,11 @@ pub async fn mcp_preview(
 /// Writes the batch the owner saw in the preview: `bases` are the files as
 /// the preview read them. Rejects with `busy` while a write or a Codex
 /// switch runs.
-async fn run_write(
-    app: &AppHandle,
-    shared: &AppState,
-    changes: Vec<Change>,
-    bases: std::collections::BTreeMap<Agent, String>,
-) -> Result<Outcome, String> {
-    let (places, dir) = {
+/// Starts a write to the agents' files: one at a time, never during a
+/// Codex switch. The MCP tab's batches and a restore (M10) both go
+/// through here.
+pub fn begin_write(app: &AppHandle, shared: &AppState) -> Result<(Places, AppDir), String> {
+    let out = {
         let mut inner = shared.lock();
         if inner.mcp.busy == Some("writing") || inner.codex.busy.is_some() {
             return Err("busy".into());
@@ -187,26 +186,45 @@ async fn run_write(
         (inner.mcp_places(), inner.app_dir())
     };
     reader::publish(app, shared);
-    let done = tauri::async_runtime::spawn_blocking(move || {
-        batch::write(&places, &dir, &Secrets::system(), &changes, &bases, OffsetDateTime::now_utc())
-    })
-    .await;
+    Ok(out)
+}
+
+/// Ends a write begun with [`begin_write`]: reads the table again and asks
+/// the Codex tab to look.
+pub async fn end_write(app: &AppHandle, shared: &AppState) {
     {
         let mut inner = shared.lock();
         inner.mcp.busy = None;
         inner.codex.generation += 1;
-        if let Ok(out) = &done {
-            inner.mcp.last = Some(LastWrite {
-                at: rfc(OffsetDateTime::now_utc()),
-                outcome: out.clone(),
-                undo: out.undo.clone(),
-            });
-        }
     }
     let a = app.clone();
     let s = shared.clone();
     let _ = tauri::async_runtime::spawn_blocking(move || look(&a, &s)).await;
     crate::codex::request(shared, false);
+}
+
+async fn run_write(
+    app: &AppHandle,
+    shared: &AppState,
+    changes: Vec<Change>,
+    bases: std::collections::BTreeMap<Agent, String>,
+) -> Result<Outcome, String> {
+    let (places, dir) = begin_write(app, shared)?;
+    let done = tauri::async_runtime::spawn_blocking(move || {
+        batch::write(&places, &dir, &Secrets::system(), &changes, &bases, OffsetDateTime::now_utc())
+    })
+    .await;
+    if let Ok(out) = &done {
+        shared.lock().mcp.last = Some(LastWrite {
+            at: rfc(OffsetDateTime::now_utc()),
+            outcome: out.clone(),
+            undo: out.undo.clone(),
+        });
+    }
+    end_write(app, shared).await;
+    if done.as_ref().is_ok_and(|o| !o.done.is_empty()) {
+        crate::backup::after_change(app, shared);
+    }
     done.map_err(|e| e.to_string())
 }
 

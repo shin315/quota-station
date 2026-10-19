@@ -1,6 +1,7 @@
 // Models built from the snapshot fixtures that Rust generates
 // (`crates/quota-station-core/tests/ui_fixtures.rs`). Synthetic data only.
 
+import { backupFixture } from './fakeBackup';
 import type {
   AgyAccounts,
   AppView,
@@ -490,6 +491,7 @@ export function fixtureModel(name: string, over: Partial<Model> = {}): Model {
     app: appFixture(),
     codex: codexFixture(),
     mcp: mcpFixture(),
+    backup: backupFixture(),
     ...over,
   };
 }

@@ -88,6 +88,8 @@ enum Op {
         extra: Map<String, Json>,
         unpark: bool,
         unstore: bool,
+        /// A restored server the app kept off for this agent: no longer.
+        unwait: bool,
     },
     Remove {
         store: bool,
@@ -100,6 +102,12 @@ enum Op {
     },
     /// Claude Code: one the app kept, dropped (and put away with `store`).
     Unpark {
+        store: bool,
+        agents: Vec<Agent>,
+    },
+    /// A restored server waiting for this agent, dropped (and put away
+    /// with `store`). No file changes.
+    Unwait {
         store: bool,
         agents: Vec<Agent>,
     },
@@ -116,7 +124,7 @@ fn action(op: &Op) -> &'static str {
         Op::Enable => "on",
         Op::Disable | Op::Park => "off",
         Op::Add { .. } => "add",
-        Op::Remove { .. } | Op::Unpark { .. } => "remove",
+        Op::Remove { .. } | Op::Unpark { .. } | Op::Unwait { .. } => "remove",
         Op::Replace { .. } => "replace",
     }
 }
@@ -195,9 +203,13 @@ fn resolve(
 /// it keeps, and whether it leaves the app's parked or stored copies.
 type Source = (Def, Option<Agent>, Map<String, Json>, bool, bool);
 
-/// What a new entry for `name` is copied from: the app's own copy for
-/// Claude Code, another agent's entry (one that is on first), or the store.
+/// What a new entry for `name` is copied from: the restored copy waiting
+/// for this agent, the app's own copy for Claude Code, another agent's
+/// entry (one that is on first), or the store.
 fn source(readings: &[Reading], store: &Kho, name: &str, agent: Agent) -> Option<Source> {
+    if let Some(k) = store.waiting.get(name).filter(|_| store.waits(name, agent)) {
+        return Some((k.def.clone(), None, Map::new(), false, false));
+    }
     if agent == Agent::Claude {
         if let Some(k) = store.parked.get(name) {
             return Some((k.def.clone(), None, k.extra.clone(), true, false));
@@ -266,11 +278,13 @@ fn plan(
         let editable = server.is_some_and(|s| s.editable && s.def.is_some());
         let parked =
             c.agent == Agent::Claude && server.is_none() && store.parked.contains_key(&c.name);
+        let waits = server.is_none() && store.waits(&c.name, c.agent);
         let present: Vec<Agent> = readings
             .iter()
             .filter(|r| {
                 r.server(&c.name).is_some()
                     || (r.agent == Agent::Claude && store.parked.contains_key(&c.name))
+                    || store.waits(&c.name, r.agent)
             })
             .map(|r| r.agent)
             .collect();
@@ -311,6 +325,7 @@ fn plan(
                             extra,
                             unpark,
                             unstore,
+                            unwait: waits,
                         })
                     }
                 },
@@ -322,6 +337,9 @@ fn plan(
                 (To::Absent { .. }, Some(_)) if !editable => Err("shape"),
                 (To::Absent { store }, Some(_)) => {
                     Ok(Op::Remove { store: *store, agents: present.clone() })
+                }
+                (To::Absent { store }, None) if waits => {
+                    Ok(Op::Unwait { store: *store, agents: present.clone() })
                 }
                 (To::Absent { store }, None) if parked => {
                     Ok(Op::Unpark { store: *store, agents: present.clone() })
@@ -349,6 +367,7 @@ fn plan(
                             .unwrap_or_default(),
                         unpark: parked,
                         unstore: store.stored.contains_key(&c.name),
+                        unwait: waits,
                     }),
             };
         match op {
@@ -592,7 +611,7 @@ pub fn preview(places: &Places, app: &AppDir, secrets: &Secrets, changes: &[Chan
             };
             let (lines, commands) = if *agent == Agent::Claude {
                 (Vec::new(), claude_lines(step, def.as_ref()))
-            } else if matches!(step.op, Op::Unpark { .. }) {
+            } else if matches!(step.op, Op::Unpark { .. } | Op::Unwait { .. }) {
                 (Vec::new(), Vec::new())
             } else {
                 match edit(*agent, &text, step, def.as_ref()) {
@@ -629,7 +648,10 @@ pub fn preview(places: &Places, app: &AppDir, secrets: &Secrets, changes: &[Chan
                 from,
                 kept: matches!(
                     step.op,
-                    Op::Park | Op::Remove { store: true, .. } | Op::Unpark { store: true, .. }
+                    Op::Park
+                        | Op::Remove { store: true, .. }
+                        | Op::Unpark { store: true, .. }
+                        | Op::Unwait { store: true, .. }
                 ),
             });
         }
@@ -791,13 +813,26 @@ fn keep(
     kho::save(app, store).map_err(|e| Failure::Keychain { detail: e.to_string() })
 }
 
+/// `agent` stops waiting for the restored `name`; with `keep_it` the server
+/// goes to the store for the agents it was in.
+fn unwait(store: &mut Kho, name: &str, agent: Agent, keep_it: bool, agents: &[Agent]) {
+    if keep_it {
+        if let Some(k) = store.waiting.get(name) {
+            let mut kept = k.clone();
+            kept.agents = agents.to_vec();
+            store.stored.insert(name.to_string(), kept);
+        }
+    }
+    store.unwait(name, agent);
+}
+
 /// What puts one step back.
 fn inverse(agent: Agent, step: &Step, old: Option<&Def>, old_enabled: bool) -> Option<Change> {
     let to = match &step.op {
         Op::Enable => To::Off,
         Op::Disable => To::On,
         Op::Park => To::On,
-        Op::Add { unpark: true, .. } => To::Off,
+        Op::Add { unpark: true, .. } | Op::Add { unwait: true, .. } => To::Off,
         Op::Add { unstore, .. } => To::Absent { store: *unstore },
         Op::Remove { .. } | Op::Replace { .. } => {
             let old = old?;
@@ -808,7 +843,7 @@ fn inverse(agent: Agent, step: &Step, old: Option<&Def>, old_enabled: bool) -> O
                 off: !old_enabled,
             }
         }
-        Op::Unpark { .. } => return None,
+        Op::Unpark { .. } | Op::Unwait { .. } => return None,
     };
     Some(Change { name: step.name.clone(), agent, to })
 }
@@ -902,6 +937,10 @@ fn write_file(
             })?
             .map(|d| for_agent(agent, &d));
         let old = r.server(&step.name);
+        if matches!(step.op, Op::Unwait { .. }) {
+            after_write.push(step);
+            continue;
+        }
         if let Op::Remove { store: keep_it, agents } = &step.op {
             if let Some(d) = old.and_then(|s| s.def.as_ref()) {
                 if *keep_it {
@@ -937,14 +976,21 @@ fn write_file(
     };
     let backup =
         clean.as_ref().map(|c| write::Backup { dir: &backups, prefix, bytes: c.as_bytes() });
-    let written = write::write(file, base.as_deref().map(str::as_bytes), &text, backup, now);
+    // Only the app's store changes (a waiting server dropped): the file
+    // stays as it is.
+    let untouched = text == base.clone().unwrap_or_default();
+    let written = if untouched {
+        Ok(None)
+    } else {
+        write::write(file, base.as_deref().map(str::as_bytes), &text, backup, now)
+    };
     let names: Vec<String> =
         steps.iter().map(|s| format!("{}:{}", s.name, action(&s.op))).collect();
     match written {
         Ok(backup) => {
             let backup =
                 backup.and_then(|p| p.file_name().map(|n| n.to_string_lossy().to_string()));
-            if agent == Agent::Codex {
+            if agent == Agent::Codex && !untouched {
                 let mut record = codex_files::load(app);
                 let mcp = crate::codex::config::parse(&text, None)
                     .map(|p| crate::codex::config::mcp_fingerprint(&p.mcp))
@@ -953,10 +999,21 @@ fn write_file(
                 let _ = codex_files::save(app, &record);
             }
             for step in after_write {
-                if let Op::Add { unstore: true, .. } = step.op {
-                    store.stored.remove(&step.name);
-                    let _ = kho::save(app, store);
+                match &step.op {
+                    Op::Add { unstore, unwait, .. } if *unstore || *unwait => {
+                        if *unstore {
+                            store.stored.remove(&step.name);
+                        }
+                        if *unwait {
+                            store.unwait(&step.name, agent);
+                        }
+                    }
+                    Op::Unwait { store: keep_it, agents } => {
+                        unwait(store, &step.name, agent, *keep_it, agents);
+                    }
+                    _ => continue,
                 }
+                let _ = kho::save(app, store);
             }
             log_append(
                 app,
@@ -1047,6 +1104,11 @@ fn write_claude(
                     }
                     cli.remove(&step.name).map_err(cli_err)?;
                 }
+                Op::Unwait { store: keep_it, agents } => {
+                    unwait(store, &step.name, Agent::Claude, *keep_it, agents);
+                    kho::save(app, store)
+                        .map_err(|e| Failure::Keychain { detail: e.to_string() })?;
+                }
                 Op::Unpark { store: keep_it, agents } => {
                     if let Some(mut k) = store.parked.remove(&step.name) {
                         if *keep_it {
@@ -1057,7 +1119,7 @@ fn write_claude(
                             .map_err(|e| Failure::Keychain { detail: e.to_string() })?;
                     }
                 }
-                Op::Add { extra, unpark, unstore, .. } => {
+                Op::Add { extra, unpark, unstore, unwait, .. } => {
                     let d = step_def(step, have, true)
                         .map_err(|_| Failure::Refused {
                             refused: vec![Refused {
@@ -1076,7 +1138,10 @@ fn write_claude(
                     if *unstore {
                         store.stored.remove(&step.name);
                     }
-                    if *unpark || *unstore {
+                    if *unwait {
+                        store.unwait(&step.name, Agent::Claude);
+                    }
+                    if *unpark || *unstore || *unwait {
                         let _ = kho::save(app, store);
                     }
                 }
@@ -1124,7 +1189,7 @@ fn write_claude(
 
 /// Claude Code's list after one command says what the step meant.
 fn verify(places: &Places, step: &Step, have: &Have<'_>) -> Result<(), Failure> {
-    if matches!(step.op, Op::Unpark { .. }) {
+    if matches!(step.op, Op::Unpark { .. } | Op::Unwait { .. }) {
         return Ok(());
     }
     let entries = claude_mcp::read(&places.claude_json).ok().flatten().unwrap_or_default();

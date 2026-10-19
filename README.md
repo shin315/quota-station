@@ -24,25 +24,27 @@ the screen; the popover and window images are the browser preview.
 
 ## What it does
 
-This is milestone M9, "MCP" (every agent's MCP servers in one table), on top
-of M8, "Chuyển Codex" (switching Codex between the ChatGPT
+This is milestone M10, "Sao lưu và khôi phục" (backing the MCP servers up
+to iCloud Drive and restoring them on any Mac), on top of M9, "MCP" (every
+agent's MCP servers in one table), M8, "Chuyển Codex" (switching Codex between the ChatGPT
 login and a custom API provider), M7, "Chuyển đổi" (installing,
 updating and launching at login), M6, "Lịch sử, cảnh báo và Firstmate", M5 "Luật
 xoay vòng", M3 "Chuyển Claude và tạm dừng", M2 "Cửa sổ chính chỉ đọc" and M1
 "Khung và số", with M4a, "Đăng nhập Antigravity trong app", M4b, "App tự đọc
 hạn mức Antigravity", and M4c, "Chuyển Antigravity không cần Cockpit", the
-steps of taking over what Cockpit Tools does. The app reads, and acts in seven
+steps of taking over what Cockpit Tools does. The app reads, and acts in eight
 ways, each started by the owner:
 it switches the active Claude account through claude-swap, it pauses the
 automatic switcher, it edits the switcher's rotation rules and copies them to
 the owner's other Macs, it logs Antigravity accounts in and out on this Mac,
 it switches the Antigravity account that Antigravity.app and agy use, it
 switches the provider Codex uses, and it turns MCP servers on and off, adds,
-edits and removes them for Claude Code, Codex and Antigravity (below). Four
-things it does on its own: it finishes that rotation copy (a Mac that could
+edits and removes them for Claude Code, Codex and Antigravity, and it backs
+those servers up and restores them (below). Five things it does on its own: it finishes that rotation copy (a Mac that could
 not take the saved rules is tried again in the background), it reads the
 quota of the Antigravity accounts logged in here, at Cockpit's pace or slower,
-it keeps a history of the switches on this Mac, and it posts a macOS
+it keeps a history of the switches on this Mac, it backs the MCP servers up
+when they change (after a write in the app and once a day), and it posts a macOS
 notification card with buttons for five kinds of alert (below). A button on a
 card does what the same button in the app does: a Claude switch still opens
 the confirmation sheet first.
@@ -376,6 +378,34 @@ the confirmation sheet first.
 
   <img src="docs/mcp-menu.png" width="372" alt="A column's menu: Bật tất cả, Tắt tất cả and Bỏ 1 thay đổi chưa ghi"> <img src="docs/mcp-preview.png" width="372" alt="The batch preview: the line Codex loses, the entry Antigravity gains with its key masked, and the claude command">
 
+- **Sao lưu và khôi phục** (M10). The `Sao lưu` tab saves the MCP servers
+  of the three agents, and which agent has each one on, to a pack in iCloud
+  Drive, so any of the owner's Macs can restore it. It shows the newest
+  pack, every Mac's packs (a pack iCloud has not downloaded yet says so and
+  cannot be picked until it is), the two switches of `Tự sao lưu` (after
+  each change in the app, and daily when something changed) and the keys
+  the app keeps on this Mac, by name and Bitwarden item, to replace or
+  delete; it keeps the newest 10 packs of each Mac. `Xem trong gói` says
+  what a pack holds in plain words. A pack never holds a key, and paths in
+  it are written from the home folder, so they change to the Mac that
+  restores it.
+
+  `Khôi phục…` opens a sheet in steps: pick a pack, then one preview of
+  what changes on this Mac. Servers to add are ticked; one that differs from
+  the pack is not, and `So sánh` shows the two side by side; the ones
+  already the same are listed in one line. Next the keys the pack needs are
+  asked for in password fields, with the Bitwarden item each is in. A server
+  left without its key, or whose command is not installed here, is added
+  turned off, and the result says what is left to do. The write is the MCP
+  tab's checked write, so a file changed after the preview stops it, and a
+  restore never touches a login, an account or Codex's provider. Once done,
+  `Hoàn tác lần khôi phục` takes the whole restore back, asking first when a
+  file was edited since. See [SECURITY.md](SECURITY.md#backup-packs-and-restore-m10).
+
+  <img src="docs/backup-tab.png" width="760" alt="The Sao lưu tab on fixture data: the newest pack, the packs of three made-up Macs, the two Tự sao lưu switches and the two keys the app keeps">
+
+  <img src="docs/restore-preview.png" width="372" alt="The restore sheet's preview: three servers to add ticked, one not installed here added turned off, one that differs from the pack not ticked"> <img src="docs/restore-keys.png" width="372" alt="The restore sheet asking for the key one server needs, in a password field, with its Bitwarden item">
+
 - **Antigravity logins** (M4a). `Thêm tài khoản` opens Google's consent
   screen in the default browser, with Antigravity's own OAuth client, so the
   screen names Antigravity, not Quota Station. The flow is Cockpit's: a
@@ -532,6 +562,14 @@ assumes another Mac has any. Each Mac installs and updates its own copy
   there (never its value until a write needs it). After a preview the owner
   confirmed it writes those two files and runs `claude mcp add-json` and
   `claude mcp remove` with `--scope user`.
+- Backups (M10), when the `Sao lưu` tab opens, on `Kiểm lại`, after each
+  MCP write and once a day: the `Quota Station Agents` folder at the top of
+  iCloud Drive, each pack's `manifest.json` (and whether iCloud has
+  downloaded it). A pack is three files there, `manifest.json`, `mcp.json`
+  and `secrets-needed.json`, with no key; a restore reads them and writes
+  the agent files as the MCP tab does, and keeps
+  `agents/restore-last.json` (what `Hoàn tác` needs, no key) in the app's
+  folder.
 - It writes these files: its own settings file,
   `~/Library/Application Support/com.shin315.quota-station/settings.json`,
   with `rotation-sync.json` (where each other Mac stands) beside it; in the
@@ -779,7 +817,7 @@ itself; `scripts/install.sh` installs it.
 `npm run dev` serves the popover at http://localhost:1420/ on the fixtures and
 the fake Rust side the tests use. Query parameters: `state` (a file name in
 `src/fixtures/snapshots/`), `view=window` with `tab` (`overview`, `claude`,
-`agy`, `codex`, `rules`, `history`, `alerts`, `firstmate`, `mcp` or `settings`), `error` (an
+`agy`, `codex`, `rules`, `history`, `alerts`, `firstmate`, `mcp`, `backup` or `settings`), `error` (an
 error kind) and `theme` (`light` or `dark`).
 For the rotation rules: `rotation` (`unreachable`, `newer`, `edited`,
 `missing`, `invalid`, `refused` or `single`).
@@ -806,7 +844,10 @@ default). For M8: `codex` (`chatgpt` for the ChatGPT login in use,
 `codexoutcome` (`changed` or `refused`; a switch lands by default). For M9,
 on `tab=mcp`: `mcp` (`empty`, `parse` for a Codex file that does not parse,
 `noagy`, `nocli` or `unread`) and `mcpoutcome=changed` (a write finds a
-file changed). Nothing
+file changed). For M10, on `tab=backup`: `backup` (`empty`, `icloud` for a
+pack not downloaded yet, `noicloud`, `restored` or `unread`) and
+`restoreoutcome` (`changed` for a file changed after the preview,
+`undochanged` for one edited after the restore). Nothing
 is switched, no browser opens and no file is written: a
 switch only waits 1.5 seconds, a save 1 second and each update step 1.5
 seconds, and they update the fixture.
@@ -814,8 +855,8 @@ seconds, and they update the fixture.
 ## Tests
 
 ```sh
-cargo test --workspace   # parsing, snapshot rules, icon, runner, schedule, switching, rotation, other Macs, Antigravity login, quota and switch, history, alerts, Firstmate's file, install.sh, update, login item, Codex switch, MCP
-npm test                 # Vitest: popover and main window views, switch and pause sheets, rules editor, login card and read states, Antigravity switch, Codex switch, history, alerts, Firstmate, MCP and settings tabs
+cargo test --workspace   # parsing, snapshot rules, icon, runner, schedule, switching, rotation, other Macs, Antigravity login, quota and switch, history, alerts, Firstmate's file, install.sh, update, login item, Codex switch, MCP, backup packs and restore
+npm test                 # Vitest: popover and main window views, switch and pause sheets, rules editor, login card and read states, Antigravity switch, Codex switch, history, alerts, Firstmate, MCP, backup and settings tabs, restore sheet
 ```
 
 The install tests (`crates/quota-station-core/tests/install_script.rs`) run
@@ -961,6 +1002,19 @@ the app keeps or sends anything. The Vitest tests check the checkboxes'
 roles and keys, the column menus (roles, arrows, Esc, focus back on the
 icon), the pending bar and the preview, write and undo on a fake Rust side.
 
+The backup tests (`crates/quota-station-core/tests/agents_backup.rs`) make
+packs in a temporary iCloud Drive folder from the same kind of temporary
+home, and restore them on another one. They check that no pack holds a
+trap key and that a pack that would is refused; that a restore asks for the
+keys, adds a server short of one turned off and changes paths to the new
+home; that servers already the same are left alone and one that differs is
+not ticked; that a file changed after the preview stops the restore; that
+`Hoàn tác` takes the whole restore back, asking when a file changed since;
+a pack not downloaded yet; the 10 packs kept; and that a restore leaves
+Codex's provider and the logins as they were. The Vitest tests walk the tab
+and the sheet on a fake Rust side and check that a pasted key never stays
+in the page.
+
 ```sh
 UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test ui_fixtures
 ```
@@ -983,15 +1037,17 @@ UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test ui_fixtures
   resumable sessions and the switch log. `agents` is the MCP tab: each
   agent's list, the edits of one entry, the batch, the safe write it shares
   with `codex`, the backups without keys, the app's store and its Keychain
-  items.
+  items; `agents/pack.rs` makes, lists and reads the backup packs and
+  `agents/restore.rs` plans, runs and undoes a restore.
 - `src-tauri/` is the Tauri 2 shell: the tray item, the popover and the main
   window, the read loop, the Antigravity quota thread, the macOS
   notification center (`notify.rs`), the login item (`login_item.rs`), the
   update (`install.rs`), the Codex thread (`codex.rs`), the MCP tab's
-  commands (`agents.rs`) and the other commands.
+  commands (`agents.rs`), the backup tab's (`backup.rs`) and the other commands.
 - `scripts/install.sh` builds, signs, installs and packages the app.
 - `src/` is the React and TypeScript frontend; `src/agents/` holds the MCP
-  tab and its `CheckMatrix`, which the Skills tab will reuse. Its `styles/tokens.css` and
+  tab and its `CheckMatrix`, which the Skills tab will reuse, and
+  `src/backup/` the backup tab and the restore sheet. Its `styles/tokens.css` and
   `styles/components.css` come from the approved prototype.
 
 ## License

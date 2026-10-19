@@ -12,7 +12,7 @@
 
 use std::ops::Range;
 
-use serde_json::Value as Json;
+use serde_json::{Map, Value as Json};
 use toml_edit::{Document, DocumentMut, Item, TableLike, Value};
 
 use super::def::{Def, Pair};
@@ -432,13 +432,18 @@ pub fn check(before: &str, after: &str, name: &str, edit: &Edit<'_>) -> Result<(
             all.get_mut("mcp_servers").and_then(Json::as_object_mut).and_then(|s| s.remove(name));
         (all, server)
     };
-    let (rest_a, server_a) = rest(&a);
+    let (mut rest_a, server_a) = rest(&a);
     let (mut rest_b, server_b) = rest(&b);
-    // A first server makes `mcp_servers` appear; that is the server's part.
-    if !rest_a.contains_key("mcp_servers")
-        && rest_b.get("mcp_servers").and_then(Json::as_object).is_some_and(|m| m.is_empty())
-    {
+    // A first server makes `mcp_servers` appear, and the last one takes it
+    // away; that is the server's part.
+    let empty = |m: &Map<String, Json>| {
+        m.get("mcp_servers").and_then(Json::as_object).is_some_and(|m| m.is_empty())
+    };
+    if !rest_a.contains_key("mcp_servers") && empty(&rest_b) {
         rest_b.remove("mcp_servers");
+    }
+    if !rest_b.contains_key("mcp_servers") && empty(&rest_a) {
+        rest_a.remove("mcp_servers");
     }
     if rest_a != rest_b {
         return Err(EditError::Check("otherKeys"));
@@ -559,5 +564,12 @@ trust_level = "trusted"
         assert_eq!(set_enabled(text, "files", false).unwrap_err(), EditError::Shape);
         assert_eq!(remove(text, "docs").unwrap_err(), EditError::Shape);
         assert!(!read(text).unwrap()[0].editable);
+    }
+
+    #[test]
+    fn the_last_server_can_be_removed() {
+        let text =
+            "model = \"gpt-5.5\"\n\n[mcp_servers.docs]\nurl = \"https://docs.example.com/mcp\"\n";
+        assert_eq!(remove(text, "docs").unwrap(), "model = \"gpt-5.5\"\n\n");
     }
 }

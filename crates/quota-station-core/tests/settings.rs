@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use quota_station_core::alerts::{Kind, Switches};
 use quota_station_core::settings::{
-    machine_name, peers, Menubar, MenubarWindow, Peer, PeersError, Settings, Theme,
+    machine_name, peers, AutoBackup, Menubar, MenubarWindow, Peer, PeersError, Settings, Theme,
     MACHINE_NAME_MAX, PEERS_MAX,
 };
 
@@ -25,6 +25,7 @@ fn settings_round_trip_and_default_when_missing() {
         firstmate_file: Some(PathBuf::from("/srv/example/quota-pool.last")),
         source_dir: Some(PathBuf::from("/srv/example/quota-station")),
         codex_home: Some(PathBuf::from("/srv/example/codex")),
+        auto_backup: AutoBackup { after_change: false, daily: true },
     };
     s.save(&file).unwrap();
     assert_eq!(Settings::load(&file), s);
@@ -40,6 +41,7 @@ fn settings_round_trip_and_default_when_missing() {
     assert!(text.contains("firstmateFile"));
     assert!(text.contains("sourceDir"));
     assert!(text.contains("codexHome"));
+    assert!(text.contains("\"afterChange\": false"));
 
     std::fs::write(&file, "{ not json").unwrap();
     assert_eq!(Settings::load(&file), Settings::default());

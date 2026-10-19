@@ -67,9 +67,16 @@ Files, under `~/Library/Application Support/com.shin315.quota-station/`:
   `no_refresh_token`, `no-access-token`, `relogin_required`, or `relogin`
   for any other that asks for a new login).
 
+- `agents/restore-last.json` (M10, mode 600): the last restore from a
+  backup pack (its time, the pack's name and Mac name, the changes that
+  undo it, the servers it put in the app's store and the Keychain items it
+  made), so `Hoàn tác` can take the whole restore back; undoing it removes
+  the file. It holds no secret.
+
 In the owner's login Keychain, not in that folder:
 
-- For MCP secrets (M9), one item per secret: see the MCP tab below.
+- For MCP secrets (M9), one item per secret: see the MCP tab below. A
+  restore (M10) adds the keys the owner pasted the same way.
 - One Keychain item per Antigravity account logged in through the app:
   service `com.shin315.quota-station.antigravity`, account the app's account
   id, value the account's tokens as JSON. Items are added without `-A`, so
@@ -242,6 +249,58 @@ one table and writes the owner's ticks after one preview.
   Code had turned off (kept by the app) that the batch dropped is not put
   back in the app's store.
 
+## Backup packs and restore (M10)
+
+The Sao lưu tab saves the MCP servers of the three agents to a pack in
+iCloud Drive, and restores one on this Mac or another.
+
+- Where: a folder per pack, `agents-<date>-<time>-<Mac>`, under
+  `Quota Station Agents` at the top of the owner's iCloud Drive
+  (`~/Library/Mobile Documents/com~apple~CloudDocs/`). Each holds three
+  files of the app's: `manifest.json` (format, app version, Mac name, time,
+  how many servers and keys), `mcp.json` (each server, each agent it is in
+  and whether it is on there) and `secrets-needed.json` (which server needs
+  which key, by slot name and the Bitwarden item the owner typed). The app
+  keeps the newest 10 packs of this Mac and never deletes another Mac's;
+  pruning removes only its three files and then the empty folder. iCloud
+  Drive turned off means no pack: the tab says so and writes nothing.
+- No key ever goes in a pack. Every secret is `<redacted>` before the pack
+  is made, and the app refuses to write a pack if any secret value it read
+  from an agent's file, or the redaction check, finds one in it. Paths under
+  the home folder are written as `~/…`; servers whose command lives in an
+  app's bundle, and anything the app does not own (logins, accounts, Codex's
+  provider and `model_provider`), are left out. The pack is written to a
+  temporary folder next to it and renamed into place.
+- Packs made on their own: after each write the app makes through the MCP
+  tab, and once a day after a reading, but only when the servers changed
+  since this Mac's newest pack. Both can be turned off on the tab; the
+  choice is `autoBackup` in `settings.json`.
+- A pack iCloud Drive has not downloaded yet (the folder holds only
+  `.manifest.json.icloud`, or the file is a placeholder) is listed as not
+  downloaded and cannot be opened; the tab offers to open the folder in
+  Finder so iCloud downloads it. A pack from a newer app, or one that does
+  not parse, is listed and never opened.
+- Restoring reads the pack, compares it with this Mac's agent files and
+  shows one preview: servers to add (ticked), servers that differ from the
+  pack (not ticked, with a side by side), and the ones already the same.
+  Paths change to this Mac's home; a command not found where the pack had
+  it is looked for in the usual folders. The keys the pack needs are asked
+  for in password fields; a pasted key goes to the Keychain as an MCP
+  secret (above) only when the owner presses `Khôi phục`, and the window
+  forgets it. A server still short of a key, or whose command is not
+  installed here, is added turned off: Claude Code has no off, so the app
+  keeps it in its store as M9 does, and for Codex and Antigravity the store
+  marks it as waiting until the owner turns it on or removes it from the
+  MCP tab.
+- The write is the MCP tab's checked write, with its backups: every file is
+  compared with the one the preview read, and one changed by another
+  program stops the restore before anything is written. A restore never
+  changes a login, an account or Codex's provider.
+- `Hoàn tác` takes the whole restore back from `agents/restore-last.json`:
+  the servers it added or replaced, the store entries it made and the
+  Keychain items it created. A file changed since the restore is not
+  overwritten unless the owner confirms it.
+
 ## How the tests hold the app to this
 
 - Every file the Antigravity code opens goes through one guard
@@ -290,6 +349,14 @@ one table and writes the owner's ticks after one preview.
   or runs `security` outside `secrets.rs`. `tests/codex.rs` checks that a
   switch's backup holds no key and that an older whole backup loses its
   keys. `Secrets::system()` refuses to run in a test build.
+- `tests/agents_backup.rs` makes packs and restores them (on another Mac's
+  home, a server that differs, a file changed after the preview, `Hoàn tác`
+  of the whole restore and after a later edit, a pack not downloaded yet,
+  the 10 kept packs) in temporary homes, with a fake iCloud Drive folder, a
+  fake `claude` and a fake `security`. Its fixtures hold trap secrets and a
+  pasted one: no pack may hold any of them, a pack that would is refused,
+  the pasted key may appear only in the fake Keychain and the agent files,
+  and a restore must leave Codex's provider and the logins as they were.
 - CI has no Keychain access and no Google account.
 - The install tests run `scripts/install.sh` in a temporary folder with fake
   `open` and `security`, and fakes of `launchctl`, `osascript` and `sfltool`
