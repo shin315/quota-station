@@ -8,7 +8,10 @@
 // table.
 
 import { useState } from 'react';
-import { Button, Chip } from '../components/parts';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
+import { LIST_ROW } from '../components/page';
+import { BannerBox, Button, Chip, FeedbackLine, FieldHint, Spinner } from '../components/parts';
 import type { Api } from '../lib/api';
 import {
   agyLoginErrorFeedback,
@@ -24,6 +27,7 @@ import {
 import type { AgyAccounts as AgyAccountsModel } from '../lib/model';
 import type { ChipView, FeedbackView } from '../lib/view';
 
+/** A login's row under the table, or the question under its row. */
 function Waiting({ api }: { api: Api }) {
   const [url, setUrl] = useState('');
   const [hint, setHint] = useState('');
@@ -37,21 +41,22 @@ function Waiting({ api }: { api: Api }) {
     }
   };
   return (
-    <div className="fb info" role="status" style={{ margin: '8px 0 0' }}>
-      <span className="spin" aria-hidden="true" />
+    <FeedbackLine tone="info" style={{ margin: '8px 0 0' }}>
+      <Spinner />
       <div style={{ minWidth: 0, flex: 1 }}>
-        <b>Đang chờ đăng nhập trong trình duyệt…</b>
-        <small>
+        <b className="block font-semi">Đang chờ đăng nhập trong trình duyệt…</b>
+        <small className="block text-xs text-ink2">
           Trang của Google mở trong trình duyệt mặc định. Màn hình đồng ý ghi tên ứng dụng của Antigravity, không phải Quota Station: app
           đăng nhập bằng client của Antigravity, như Cockpit. Chờ tối đa 10 phút.
         </small>
-        <label htmlFor="qs-agy-cb" className="fhint" style={{ display: 'block', marginTop: 8 }}>
+        <label htmlFor="qs-agy-cb" className="mt-1 text-xs text-ink2" style={{ display: 'block', marginTop: 8 }}>
           Trình duyệt không quay lại được app? Dán URL trên thanh địa chỉ vào đây.
         </label>
-        <div className="row2" style={{ marginTop: 4 }}>
-          <input
+        <div className="flex items-center justify-between gap-2.5" style={{ marginTop: 4 }}>
+          <Input
             id="qs-agy-cb"
-            className={'inp mono' + (hint ? ' bad' : '')}
+            mono
+            invalid={!!hint}
             value={url}
             placeholder="http://localhost:…/oauth-callback?state=…&code=…"
             spellCheck={false}
@@ -69,9 +74,9 @@ function Waiting({ api }: { api: Api }) {
           </Button>
           <Button onClick={() => void api.agyLoginCancel()}>Huỷ</Button>
         </div>
-        {hint ? <div className="fhint bad">{hint}</div> : null}
+        {hint ? <FieldHint tone="bad">{hint}</FieldHint> : null}
       </div>
-    </div>
+    </FeedbackLine>
   );
 }
 
@@ -150,7 +155,7 @@ export function loginChips(row: AgyRowView | undefined): ChipView[] {
 
 export function AddAccount({ logins }: { logins: AgyLogins }) {
   return (
-    <Button primary disabled={!!logins.notice || logins.view.indexError || logins.busy} onClick={logins.login}>
+    <Button primary className="text-s" disabled={!!logins.notice || logins.view.indexError || logins.busy} onClick={logins.login}>
       Thêm tài khoản
     </Button>
   );
@@ -178,12 +183,12 @@ export function LoginActions({ logins, row }: { logins: AgyLogins; row: AgyRowVi
 }
 
 /** Under the row whose logout is asked: what it does, and the two answers. */
-export function LogoutConfirm({ logins, row }: { logins: AgyLogins; row: AgyRowView }) {
+export function LogoutConfirm({ logins, row, inTable }: { logins: AgyLogins; row: AgyRowView; inTable?: boolean }) {
   return (
-    <div className="arow confirm" role="group" aria-label={'Đăng xuất ' + row.name}>
+    <div className={cn(LIST_ROW, inTable && 'mt-0 mb-1.5')} role="group" aria-label={'Đăng xuất ' + row.name}>
       <div>
         <b>Đăng xuất {row.name} khỏi Quota Station?</b>
-        <small>Antigravity.app và agy vẫn đăng nhập như cũ.</small>
+        <small className="block text-xs text-ink2">Antigravity.app và agy vẫn đăng nhập như cũ.</small>
       </div>
       <Button onClick={() => logins.ask(null)}>Thôi</Button>
       <Button primary disabled={logins.busy} onClick={() => logins.logout(row)}>
@@ -203,16 +208,15 @@ export function LoginNotes({ logins, listed }: { logins: AgyLogins; listed: numb
   return (
     <>
       {notice ? (
-        <div className={'banner ' + notice.tone} role="status" style={{ margin: '8px 0' }}>
-          <b>{notice.title}</b>
-          <p>{notice.body}</p>
-        </div>
+        <BannerBox tone={notice.tone} title={notice.title} body={notice.body} style={{ margin: '8px 0' }} />
       ) : null}
       {view.indexError ? (
-        <div className="banner bad" role="status" style={{ margin: '8px 0' }}>
-          <b>Không đọc được danh sách tài khoản</b>
-          <p>File accounts.json trong thư mục antigravity của app bị hỏng. App để nguyên file, không ghi đè.</p>
-        </div>
+        <BannerBox
+          tone="bad"
+          title="Không đọc được danh sách tài khoản"
+          body="File accounts.json trong thư mục antigravity của app bị hỏng. App để nguyên file, không ghi đè."
+          style={{ margin: '8px 0' }}
+        />
       ) : null}
       {extra.length ? (
         <div role="list" aria-label="Tài khoản đăng nhập trong app">
@@ -220,19 +224,25 @@ export function LoginNotes({ logins, listed }: { logins: AgyLogins; listed: numb
             logins.confirm === r.id ? (
               <LogoutConfirm key={r.id} logins={logins} row={r} />
             ) : (
-              <div className="arow" role="listitem" aria-label={r.name} key={r.id}>
+              <div className={LIST_ROW} role="listitem" aria-label={r.name} key={r.id}>
                 <div>
                   <b title={r.full || undefined}>{r.name}</b>
-                  {r.sub ? <small>{r.sub}</small> : null}
+                  {r.sub ? <small className="block text-xs text-ink2">{r.sub}</small> : null}
                   {r.read ? (
-                    <small className={'aread ' + r.read.tone} role="status">
-                      {r.read.tone === 'info' ? <span className="spin" aria-hidden="true" /> : null}
+                    <small
+                      className={cn(
+                        'mt-0.5 flex items-center gap-1.5 text-xs',
+                        r.read.tone === 'warn' ? 'text-warn-ink' : r.read.tone === 'bad' ? 'text-bad-ink' : 'text-ink2',
+                      )}
+                      role="status"
+                    >
+                      {r.read.tone === 'info' ? <Spinner className="mt-0 size-2.5 border-[1.5px]" /> : null}
                       {r.read.text}
                     </small>
                   ) : null}
                 </div>
                 <Chip chip={r.chip} />
-                <div className="acts" style={{ display: 'flex', gap: 6 }}>
+                <div style={{ display: 'flex', gap: 6 }}>
                   <LoginActions logins={logins} row={r} />
                 </div>
               </div>
@@ -240,7 +250,7 @@ export function LoginNotes({ logins, listed }: { logins: AgyLogins; listed: numb
           )}
         </div>
       ) : null}
-      {!logins.rows.length && !view.indexError ? <p className="note">Chưa có tài khoản nào đăng nhập trong app.</p> : null}
+      {!logins.rows.length && !view.indexError ? <p className="mt-2 mb-0 text-sm text-ink2">Chưa có tài khoản nào đăng nhập trong app.</p> : null}
       {view.loggingIn ? <Waiting api={logins.api} /> : null}
     </>
   );

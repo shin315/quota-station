@@ -55,8 +55,8 @@ describe('the Codex row', () => {
       'Hoàn tất việc đang chạy trước khi chuyển. Yêu cầu tiếp theo của phiên cũ có thể dùng nhà cung cấp mới và gặp lỗi.',
       'Các phiên có thể tiếp tục được tách theo nhà cung cấp: codex resume chỉ hiện phiên làm trên tài khoản ChatGPT. Codex App vẫn thấy hết.',
     ]);
-    const box = within(sheet).getByRole('checkbox', { name: /Khởi động lại tiến trình nền Codex sau khi chuyển/ }) as HTMLInputElement;
-    expect(box.checked).toBe(false);
+    const box = within(sheet).getByRole('checkbox', { name: /Khởi động lại tiến trình nền Codex sau khi chuyển/ });
+    expect(box.getAttribute('aria-checked')).toBe('false');
   });
 
   it('switches on confirm with the file hash the sheet showed, and says to restart Codex', async () => {

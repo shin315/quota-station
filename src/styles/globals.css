@@ -1,0 +1,71 @@
+/* Quota Station's styles: Tailwind CSS v4 and shadcn/ui on the design tokens.
+   Without Preflight: the components were drawn on the browser's own defaults
+   (headings, lists, small text), and every component sets what it changes. */
+
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+@import "./tokens.css";
+@import "./theme.css";
+@import "./glass.css";
+
+@layer base {
+  html,
+  body,
+  #root {
+    margin: 0;
+    height: 100%;
+  }
+
+  body {
+    font: var(--fs-base) / var(--lh) var(--font);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    -webkit-user-select: none;
+    user-select: none;
+    cursor: default;
+  }
+
+  /* Both windows are transparent: macOS draws the material behind the page. */
+  body.popover-window,
+  body.main-window {
+    background: transparent;
+    overflow: hidden;
+  }
+
+  .qs {
+    font: var(--fs-base) / var(--lh) var(--font);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+  .qs *,
+  .qs *::before,
+  .qs *::after {
+    box-sizing: border-box;
+  }
+  .qs button {
+    font: inherit;
+    color: inherit;
+  }
+  /* The keyboard's focus ring. A dialog that takes focus by script (tabindex=-1) draws none. */
+  .qs :focus-visible {
+    outline: 2px solid var(--accent-ink);
+    outline-offset: 2px;
+  }
+  .qs [tabindex="-1"]:focus {
+    outline: none;
+  }
+
+  /* Browser preview (npm run dev, outside Tauri): the popover on a desktop,
+     and the main window filling it. */
+  body.preview {
+    background: var(--desk);
+    padding: 24px;
+    box-sizing: border-box;
+    min-height: 100%;
+  }
+  body.preview.main-window {
+    padding: 0;
+  }
+}

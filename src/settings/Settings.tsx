@@ -11,7 +11,12 @@
 import { useState } from 'react';
 import { AlertKinds } from '../alerts/AlertsTab';
 import { EnvCard } from './EnvCard';
-import { Button, Chip, Dot, Feedback, Toggle } from '../components/parts';
+import { Card as Panel } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Segment, Segmented } from '@/components/ui/segmented';
+import { IdMark } from '../components/accounts';
+import { LABEL, rowClass, TabHead, TabSub, TabTitle } from '../components/page';
+import { Button, Chip, CODE, Dot, Feedback, FieldHint, LinkButton, Toggle } from '../components/parts';
 import { PERMISSION_CHIPS, UNREAD } from '../lib/alerts';
 import type { ChipView } from '../lib/view';
 import type { AlertKind, AppView, ClientStatus, Menubar, MenubarWindow, Model, Peer, PeerTest, Theme, UpdateError } from '../lib/model';
@@ -105,14 +110,13 @@ function MachineName({ model, onSet }: { model: Model; onSet(name: string): Prom
     if (name.trim() !== model.machine && !(await onSet(name))) setName(model.machine);
   };
   return (
-    <div className="fr">
-      <label htmlFor="qs-name">
+    <div className={rowClass()}>
+      <label className={LABEL} htmlFor="qs-name">
         Tên máy này
       </label>
       <div>
-        <input
+        <Input
           id="qs-name"
-          className="inp"
           value={name}
           placeholder={model.machineDefault}
           maxLength={40}
@@ -124,7 +128,7 @@ function MachineName({ model, onSet }: { model: Model; onSet(name: string): Prom
             if (e.key === 'Enter') void commit();
           }}
         />
-        <div className="fhint">Để trống để dùng tên trong macOS: {model.machineDefault}.</div>
+        <FieldHint>Để trống để dùng tên trong macOS: {model.machineDefault}.</FieldHint>
       </div>
     </div>
   );
@@ -189,19 +193,19 @@ function OtherMacs({ model, onSet, onTest }: { model: Model; onSet: SettingsProp
     );
   };
   return (
-    <div className="fr">
-      <div className="fl">
+    <div className={rowClass()}>
+      <div className={LABEL}>
         Các Mac khác
       </div>
-      <div className="macs">
+      <div className="grid gap-1.5">
         {rows.map((r, i) => {
           const t = testText(tests[r.alias.trim()], r.alias);
           const label = r.name.trim() || 'Mac mới';
           return (
-            <div className="mac" key={i}>
+            <div className="flex items-center gap-2 text-sm" key={i}>
               <Dot tone={t.tone} />
-              <input
-                className="inp s2"
+              <Input
+                className="w-[150px]"
                 value={r.name}
                 placeholder="Tên Mac"
                 maxLength={40}
@@ -212,9 +216,11 @@ function OtherMacs({ model, onSet, onTest }: { model: Model; onSet: SettingsProp
                 onBlur={() => void commit(rows)}
                 onKeyDown={onKey}
               />
-              <span className="mal">tên kết nối</span>
-              <input
-                className={'inp mono s2' + (error?.row === i ? ' bad' : '')}
+              <span className="whitespace-nowrap text-xs text-ink2">tên kết nối</span>
+              <Input
+                mono
+                invalid={error?.row === i}
+                className="w-[150px]"
                 value={r.alias}
                 placeholder="vd. mac-b"
                 maxLength={64}
@@ -225,10 +231,8 @@ function OtherMacs({ model, onSet, onTest }: { model: Model; onSet: SettingsProp
                 onBlur={() => void commit(rows)}
                 onKeyDown={onKey}
               />
-              <small>{t.text}</small>
-              <button
-                type="button"
-                className="lnk"
+              <small className="text-ink2">{t.text}</small>
+              <LinkButton
                 aria-label={'Bỏ ' + label}
                 onClick={() => {
                   const next = rows.filter((_, j) => j !== i);
@@ -237,13 +241,13 @@ function OtherMacs({ model, onSet, onTest }: { model: Model; onSet: SettingsProp
                 }}
               >
                 Bỏ
-              </button>
+              </LinkButton>
             </div>
           );
         })}
-        {error ? <div className="fhint bad">{error.text}</div> : null}
-        {!rows.length ? <div className="fhint">Chưa có Mac nào. Luật xoay vòng chỉ lưu trên máy này.</div> : null}
-        {!model.rotation.ssh ? <div className="fhint bad">Không thấy ssh trên máy này.</div> : null}
+        {error ? <FieldHint tone="bad">{error.text}</FieldHint> : null}
+        {!rows.length ? <FieldHint>Chưa có Mac nào. Luật xoay vòng chỉ lưu trên máy này.</FieldHint> : null}
+        {!model.rotation.ssh ? <FieldHint tone="bad">Không thấy ssh trên máy này.</FieldHint> : null}
         <div>
           <Button disabled={rows.length >= 8} onClick={() => setRows([...rows, { name: '', alias: '' }])}>
             Thêm Mac
@@ -287,14 +291,15 @@ function FirstmateFile({ model, onSet }: { model: Model; onSet: SettingsProps['o
   };
   const hint = firstmateHint(model, refused);
   return (
-    <div className="fr">
-      <label htmlFor="qs-fm">
+    <div className={rowClass()}>
+      <label className={LABEL} htmlFor="qs-fm">
         File của firstmate
       </label>
       <div>
-        <input
+        <Input
           id="qs-fm"
-          className={'inp mono' + (hint.tone === 'bad' ? ' bad' : '')}
+          mono
+          invalid={hint.tone === 'bad'}
           value={path}
           placeholder="đường dẫn tới quota-pool.last"
           spellCheck={false}
@@ -308,7 +313,7 @@ function FirstmateFile({ model, onSet }: { model: Model; onSet: SettingsProps['o
             if (e.key === 'Enter') void commit();
           }}
         />
-        {hint.text ? <div className={('fhint ' + hint.tone).trim()}>{hint.text}</div> : null}
+        {hint.text ? <FieldHint tone={hint.tone}>{hint.text}</FieldHint> : null}
       </div>
     </div>
   );
@@ -332,12 +337,13 @@ function CodexHome({ model, onSet }: { model: Model; onSet: NonNullable<Settings
       ? 'Không thấy thư mục Codex ở ' + model.codex.home + '.'
       : 'Đọc được ✓ · app chỉ sửa config.toml ở đây khi bạn chuyển Codex.';
   return (
-    <div className="fr">
-      <label htmlFor="qs-codex">Thư mục Codex</label>
+    <div className={rowClass()}>
+      <label className={LABEL} htmlFor="qs-codex">Thư mục Codex</label>
       <div>
-        <input
+        <Input
           id="qs-codex"
-          className={'inp mono' + (bad ? ' bad' : '')}
+          mono
+          invalid={bad}
           value={path}
           placeholder="~/.codex"
           spellCheck={false}
@@ -351,7 +357,7 @@ function CodexHome({ model, onSet }: { model: Model; onSet: NonNullable<Settings
             if (e.key === 'Enter') void commit();
           }}
         />
-        <div className={('fhint ' + (bad ? 'bad' : model.codex.present ? 'ok' : '')).trim()}>{hint}</div>
+        <FieldHint tone={bad ? 'bad' : model.codex.present ? 'ok' : ''}>{hint}</FieldHint>
       </div>
     </div>
   );
@@ -360,15 +366,15 @@ function CodexHome({ model, onSet }: { model: Model; onSet: NonNullable<Settings
 function Notifications(props: { model: Model; onAction: SettingsProps['onAction']; onTest: SettingsProps['onTestAlert']; onSwitch: SettingsProps['onAlertSwitch'] }) {
   const a = props.model.alerts;
   return (
-    <div className="fr">
-      <div className="fl">
+    <div className={rowClass()}>
+      <div className={LABEL}>
         Thông báo
       </div>
       <div>
         <Chip chip={PERMISSION_CHIPS[a.permission]} />{' '}
         {a.permission === 'denied' ? <Button onClick={() => props.onAction('notify:settings')}>Mở Cài đặt hệ thống</Button> : null}
-        {a.permission === 'unbundled' ? <div className="fhint">Chỉ app đã đóng gói mới gửi được thẻ macOS. Cảnh báo vẫn có ở tab Cảnh báo.</div> : null}
-        <div style={{ marginTop: 6 }}>
+        {a.permission === 'unbundled' ? <FieldHint>Chỉ app đã đóng gói mới gửi được thẻ macOS. Cảnh báo vẫn có ở tab Cảnh báo.</FieldHint> : null}
+        <div className="mt-1.5">
           <AlertKinds switches={a.switches} testOff={a.permission === 'denied'} onTest={props.onTest} onSwitch={props.onSwitch} />
         </div>
       </div>
@@ -388,8 +394,8 @@ function LaunchAtLogin({ app, onSet, onOpen }: { app: AppView; onSet: SettingsPr
     setBusy(false);
   };
   return (
-    <div className="fr">
-      <div className="fl">
+    <div className={rowClass()}>
+      <div className={LABEL}>
         Mở khi đăng nhập
       </div>
       <div>
@@ -401,11 +407,11 @@ function LaunchAtLogin({ app, onSet, onOpen }: { app: AppView; onSet: SettingsPr
             <Button label="Mở Cài đặt hệ thống: Mục đăng nhập" onClick={onOpen}>
               Mở Cài đặt hệ thống
             </Button>
-            <div className="fhint">macOS cần bạn bật Quota Station trong Cài đặt hệ thống › Cài đặt chung › Mục đăng nhập.</div>
+            <FieldHint>macOS cần bạn bật Quota Station trong Cài đặt hệ thống › Cài đặt chung › Mục đăng nhập.</FieldHint>
           </>
         ) : null}
-        {state === 'unavailable' ? <div className="fhint">Chỉ bản .app đã cài mới mở khi đăng nhập được.</div> : null}
-        {refused && refused !== 'unavailable' ? <div className="fhint bad">Chưa đổi được: {refused}</div> : null}
+        {state === 'unavailable' ? <FieldHint>Chỉ bản .app đã cài mới mở khi đăng nhập được.</FieldHint> : null}
+        {refused && refused !== 'unavailable' ? <FieldHint tone="bad">Chưa đổi được: {refused}</FieldHint> : null}
       </div>
     </div>
   );
@@ -433,14 +439,15 @@ function SourceDir({ app, onSet }: { app: AppView; onSet: SettingsProps['onSetSo
   };
   const hint = sourceHint(app, refused);
   return (
-    <div className="fr">
-      <label htmlFor="qs-src">
+    <div className={rowClass()}>
+      <label className={LABEL} htmlFor="qs-src">
         Mã nguồn
       </label>
       <div>
-        <input
+        <Input
           id="qs-src"
-          className={'inp mono' + (hint.tone === 'bad' ? ' bad' : '')}
+          mono
+          invalid={hint.tone === 'bad'}
           value={path}
           placeholder="vd. ~/Code/quota-station"
           spellCheck={false}
@@ -455,7 +462,7 @@ function SourceDir({ app, onSet }: { app: AppView; onSet: SettingsProps['onSetSo
             if (e.key === 'Enter') void commit();
           }}
         />
-        {hint.text ? <div className={('fhint ' + hint.tone).trim()}>{hint.text}</div> : null}
+        {hint.text ? <FieldHint tone={hint.tone}>{hint.text}</FieldHint> : null}
       </div>
     </div>
   );
@@ -506,16 +513,16 @@ function Version({ app, onUpdate, onRelaunch }: { app: AppView; onUpdate: Settin
   else if (app.sourceStatus === 'notSet') line = { tone: '', text: UPDATE_REFUSED.noSource };
   const ready = app.bundled && app.sourceStatus === 'ok' && !app.updating;
   return (
-    <div className="fr">
-      <div className="fl">
+    <div className={rowClass()}>
+      <div className={LABEL}>
         Phiên bản
       </div>
       <div>
-        <span className="mono">
+        <span className={CODE}>
           {app.version}
           {app.commit ? ' · ' + app.commit : ''}
         </span>
-        <div style={{ marginTop: 6 }}>
+        <div className="mt-1.5">
           <Button primary disabled={!ready} onClick={() => void run(onUpdate)}>
             {app.updating ? 'Đang cập nhật…' : 'Cập nhật từ mã nguồn'}
           </Button>
@@ -526,8 +533,8 @@ function Version({ app, onUpdate, onRelaunch }: { app: AppView; onUpdate: Settin
             </>
           ) : null}
         </div>
-        {line ? <div className={('fhint ' + line.tone).trim()}>{line.text}</div> : null}
-        {refused ? <div className="fhint bad">{UPDATE_REFUSED[refused] ?? 'Chưa chạy được: ' + refused}</div> : null}
+        {line ? <FieldHint tone={line.tone}>{line.text}</FieldHint> : null}
+        {refused ? <FieldHint tone="bad">{UPDATE_REFUSED[refused] ?? 'Chưa chạy được: ' + refused}</FieldHint> : null}
       </div>
     </div>
   );
@@ -559,27 +566,27 @@ function SkillChecksRows({ model, onSet }: { model: Model; onSet: NonNullable<Se
   const c = model.skills.updates.settings;
   return (
     <>
-      <div className="fr">
-        <div className="fl" id="qs-skcheck-l">
+      <div className={rowClass()}>
+        <div className={LABEL} id="qs-skcheck-l">
           Kiểm bản mới
         </div>
         <div>
-          <div className="seg inline" role="group" aria-labelledby="qs-skcheck-l">
-            <button type="button" aria-pressed={c.daily} onClick={() => onSet(true, c.notify)}>
+          <Segmented variant="inline" aria-labelledby="qs-skcheck-l">
+            <Segment pressed={c.daily} onClick={() => onSet(true, c.notify)}>
               Mỗi ngày
-            </button>
-            <button type="button" aria-pressed={!c.daily} onClick={() => onSet(false, c.notify)}>
+            </Segment>
+            <Segment pressed={!c.daily} onClick={() => onSet(false, c.notify)}>
               Tắt
-            </button>
-          </div>
-          <div className="fhint">Hỏi GitHub một lần cho mỗi repo có skill đã cài. App không tự cập nhật skill.</div>
+            </Segment>
+          </Segmented>
+          <FieldHint>Hỏi GitHub một lần cho mỗi repo có skill đã cài. App không tự cập nhật skill.</FieldHint>
         </div>
       </div>
-      <div className="fr">
-        <div className="fl">Báo bằng thông báo macOS</div>
+      <div className={rowClass()}>
+        <div className={LABEL}>Báo bằng thông báo macOS</div>
         <div>
           <Toggle on={c.notify} label="Báo skill có bản mới bằng thông báo macOS" onClick={() => onSet(c.daily, !c.notify)} />
-          <div className="fhint">Tắt thì chỉ báo trong tab Cảnh báo.</div>
+          <FieldHint>Tắt thì chỉ báo trong tab Cảnh báo.</FieldHint>
         </div>
       </div>
     </>
@@ -590,24 +597,24 @@ function MenubarRow({ model, onPick }: { model: Model; onPick(menubar: Menubar):
   const offs = MENUBARS.map(([v]) => menubarOff(model, v)).filter(Boolean);
   const picked = menubarOff(model, model.menubar);
   return (
-    <div className="fr">
-      <div className="fl" id="qs-menubar-l">
+    <div className={rowClass()}>
+      <div className={LABEL} id="qs-menubar-l">
         Thanh menu
       </div>
       <div>
-        <div className="seg mbsel" role="group" aria-labelledby="qs-menubar-l">
+        <Segmented variant="menubar" aria-labelledby="qs-menubar-l">
           {MENUBARS.map(([v, t, id]) => {
             const off = menubarOff(model, v);
             return (
-              <button key={v} type="button" aria-pressed={model.menubar === v} disabled={!!off} title={off || undefined} onClick={() => onPick(v)}>
-                <span className={'idm ' + id} aria-hidden="true" />
+              <Segment key={v} pressed={model.menubar === v} disabled={!!off} title={off || undefined} onClick={() => onPick(v)}>
+                <IdMark id={id} />
                 {t}
-              </button>
+              </Segment>
             );
           })}
-        </div>
-        <div className="fhint">Tên và phần trăm đã dùng của tài khoản đang dùng.</div>
-        {offs.length ? <div className="fhint off">{picked ? picked.replace(/\.$/, '') + ': thanh menu theo Claude.' : offs.join(' ')}</div> : null}
+        </Segmented>
+        <FieldHint>Tên và phần trăm đã dùng của tài khoản đang dùng.</FieldHint>
+        {offs.length ? <FieldHint tone="off">{picked ? picked.replace(/\.$/, '') + ': thanh menu theo Claude.' : offs.join(' ')}</FieldHint> : null}
       </div>
     </div>
   );
@@ -634,23 +641,23 @@ export function menubarWindowOff(model: Model, window: MenubarWindow): string {
 function MenubarWindowRow({ model, onPick }: { model: Model; onPick(window: MenubarWindow): void }) {
   const picked = menubarWindowOff(model, model.menubarWindow);
   return (
-    <div className="fr">
-      <div className="fl" id="qs-mbwindow-l">
+    <div className={rowClass()}>
+      <div className={LABEL} id="qs-mbwindow-l">
         Số trên thanh menu
       </div>
       <div>
-        <div className="seg inline" role="group" aria-labelledby="qs-mbwindow-l">
+        <Segmented variant="inline" aria-labelledby="qs-mbwindow-l">
           {MENUBAR_WINDOWS.map(([v, t]) => {
             const off = menubarWindowOff(model, v);
             return (
-              <button key={v} type="button" aria-pressed={model.menubarWindow === v} disabled={!!off} title={off || undefined} onClick={() => onPick(v)}>
+              <Segment key={v} pressed={model.menubarWindow === v} disabled={!!off} title={off || undefined} onClick={() => onPick(v)}>
                 {t}
-              </button>
+              </Segment>
             );
           })}
-        </div>
-        <div className="fhint">Chặt nhất: hạn mức đã dùng nhiều nhất.</div>
-        {picked ? <div className="fhint off">{picked.replace(/\.$/, '') + ': thanh menu hiện 5 giờ.'}</div> : null}
+        </Segmented>
+        <FieldHint>Chặt nhất: hạn mức đã dùng nhiều nhất.</FieldHint>
+        {picked ? <FieldHint tone="off">{picked.replace(/\.$/, '') + ': thanh menu hiện 5 giờ.'}</FieldHint> : null}
       </div>
     </div>
   );
@@ -694,25 +701,26 @@ export function Settings({
 
   return (
     <>
-      <div className="tb" data-tauri-drag-region="deep">
-        <h2>Cài đặt</h2>
-        <small>
+      <TabHead>
+        <TabTitle>Cài đặt</TabTitle>
+        <TabSub>
           <Dot tone={fresh.tone} />
           {model.machine} · {fresh.text}
-        </small>
-      </div>
+        </TabSub>
+      </TabHead>
       {feedback ? <Feedback fb={feedback} onAction={onAction} /> : null}
       <EnvCard model={model} onAction={onAction} />
-      <div className="card">
-        <div className="form">
-          <div className="fr">
-            <label htmlFor="qs-axi">
+      <Panel>
+        <div className="grid">
+          <div className={rowClass()}>
+            <label className={LABEL} htmlFor="qs-axi">
               quota-axi
             </label>
             <div>
-              <input
+              <Input
                 id="qs-axi"
-                className={'inp mono' + (hint.tone === 'bad' ? ' bad' : '')}
+                mono
+                invalid={hint.tone === 'bad'}
                 value={path}
                 spellCheck={false}
                 autoComplete="off"
@@ -725,16 +733,16 @@ export function Settings({
                   if (e.key === 'Enter') void commit();
                 }}
               />
-              {hint.text ? <div className={('fhint ' + hint.tone).trim()}>{hint.text}</div> : null}
+              {hint.text ? <FieldHint tone={hint.tone}>{hint.text}</FieldHint> : null}
               {hint.tone === 'bad' ? (
-                <div style={{ marginTop: 6 }}>
+                <div className="mt-1.5">
                   <Button onClick={onFind}>Tự tìm lại</Button>
                 </div>
               ) : null}
             </div>
           </div>
-          <div className="fr">
-            <div className="fl">
+          <div className={rowClass()}>
+            <div className={LABEL}>
               Quyền Keychain
             </div>
             <div>
@@ -746,11 +754,11 @@ export function Settings({
                   <Button primary disabled={model.granting} onClick={onGrant}>
                     Cấp quyền một lần
                   </Button>
-                  <div className="fhint">
+                  <FieldHint>
                     {model.granting
                       ? 'macOS sẽ hỏi. Bấm "Luôn cho phép". App không đọc mục Keychain của Claude.'
                       : 'Đến khi cấp, dòng Claude dùng số chưa được cập nhật từ claude-swap.'}
-                  </div>
+                  </FieldHint>
                 </>
               ) : (
                 <Chip chip={{ t: 'chưa rõ', k: '' }} />
@@ -759,36 +767,36 @@ export function Settings({
           </div>
           <MachineName model={model} onSet={onSetMachine} />
           <OtherMacs model={model} onSet={onSetPeers} onTest={onTestPeer} />
-          <div className="fr">
-            <div className="fl">
+          <div className={rowClass()}>
+            <div className={LABEL}>
               OAuth client Antigravity
             </div>
             <div>
               <Chip chip={CLIENT_CHIPS[model.antigravity.client]} />
-              <div className="fhint">
-                <span className="mono">{model.antigravity.clientPath}</span>, quyền 600, chỉ có trên Mac này. README ghi định dạng.
-              </div>
+              <FieldHint>
+                <span className={CODE}>{model.antigravity.clientPath}</span>, quyền 600, chỉ có trên Mac này. README ghi định dạng.
+              </FieldHint>
             </div>
           </div>
-          <div className="fr">
-            <div className="fl" id="qs-email-l">
+          <div className={rowClass()}>
+            <div className={LABEL} id="qs-email-l">
               Hiện email
             </div>
             <div>
               <Toggle on={model.showNames} label="Hiện email" onClick={() => onShowNames(!model.showNames)} />
             </div>
           </div>
-          <div className="fr">
-            <div className="fl" id="qs-theme-l">
+          <div className={rowClass()}>
+            <div className={LABEL} id="qs-theme-l">
               Giao diện
             </div>
-            <div className="seg inline" role="group" aria-labelledby="qs-theme-l">
+            <Segmented variant="inline" className="justify-self-start" aria-labelledby="qs-theme-l">
               {THEMES.map(([v, t]) => (
-                <button key={v} type="button" aria-pressed={model.theme === v} onClick={() => onTheme(v)}>
+                <Segment key={v} className="px-3.5" pressed={model.theme === v} onClick={() => onTheme(v)}>
                   {t}
-                </button>
+                </Segment>
               ))}
-            </div>
+            </Segmented>
           </div>
           <MenubarRow model={model} onPick={onMenubar} />
           <MenubarWindowRow model={model} onPick={onMenubarWindow} />
@@ -800,7 +808,7 @@ export function Settings({
           <SourceDir app={model.app} onSet={onSetSource} />
           <Version app={model.app} onUpdate={onUpdate} onRelaunch={onRelaunch} />
         </div>
-      </div>
+      </Panel>
     </>
   );
 }

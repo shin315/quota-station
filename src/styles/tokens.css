@@ -1,5 +1,8 @@
-/* Quota Station design tokens, copied unchanged from the approved prototype
-   (step 0.7, 18/10/2026). The prototype header follows. */
+/* Quota Station design tokens, from the approved prototype (step 0.7,
+   18/10/2026). The one source of every colour, size and shadow: theme.css
+   maps them to Tailwind's theme and to shadcn/ui's variables. A few names
+   changed where they met Tailwind's own namespaces: --font-mono is --mono,
+   --blur-* is --bl-*, --shadow-* is --sh-*. The prototype header follows. */
 
 /* Quota Station · design tokens · Hướng 1 · Kính macOS · bước 0.5 (Phác thảo), sửa sau kiểm Codex 0.6.
    Một nguồn cho prototype và cho React sau này: mỗi giá trị là một biến CSS.
@@ -15,7 +18,7 @@
 
   /* Chữ: chữ hệ thống, không tải font. Chữ số luôn thẳng cột (I08). */
   --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
-  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
   --fs-cap: 10.5px;   /* chip, nhãn thanh */
   --fs-xs: 11px;      /* phụ đề, nhãn mục */
   --fs-s: 11.5px;     /* dòng phụ */
@@ -53,7 +56,7 @@
   /* Kính và nền đặc thay thế (cùng màu, khác độ trong) */
   --glass: rgba(250, 250, 252, .74); --glass-solid: #f5f5f7; --glass-line: rgba(0, 0, 0, .10);
   --side: rgba(232, 232, 238, .78); --side-solid: #e9e9ee;
-  --blur-pop: 34px; --blur-side: 20px; --blur-bar: 24px; --sat: 1.8;
+  --bl-pop: 34px; --bl-side: 20px; --bl-bar: 24px; --sat: 1.8;
 
   /* Chữ và nền */
   --ink: #1d1d1f; --ink2: #5b5b60; --ink3: #6a6a6f;
@@ -77,10 +80,10 @@
   --id-codex: #3a3a3c; --id-codex-ink: #3a3a3c; --id-codex-tint: rgba(58, 58, 60, .10);
 
   /* Bóng */
-  --shadow-pop: 0 18px 50px rgba(30, 40, 70, .22);
-  --shadow-sheet: 0 10px 40px rgba(0, 0, 0, .28);
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, .05);
-  --shadow-win: 0 24px 70px rgba(30, 40, 70, .28);
+  --sh-pop: 0 18px 50px rgba(30, 40, 70, .22);
+  --sh-sheet: 0 10px 40px rgba(0, 0, 0, .28);
+  --sh-card: 0 1px 2px rgba(0, 0, 0, .05);
+  --sh-win: 0 24px 70px rgba(30, 40, 70, .28);
 }
 
 [data-theme="dark"] {
@@ -100,10 +103,10 @@
   --id-claude: #e3825f; --id-claude-ink: #f5b394; --id-claude-tint: rgba(227, 130, 95, .20);
   --id-agy: #8583ff; --id-agy-ink: #c4c2ff; --id-agy-tint: rgba(133, 131, 255, .22);
   --id-codex: #d1d1d6; --id-codex-ink: #d1d1d6; --id-codex-tint: rgba(209, 209, 214, .14);
-  --shadow-pop: 0 18px 50px rgba(0, 0, 0, .55);
-  --shadow-sheet: 0 10px 40px rgba(0, 0, 0, .6);
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, .3);
-  --shadow-win: 0 24px 70px rgba(0, 0, 0, .6);
+  --sh-pop: 0 18px 50px rgba(0, 0, 0, .55);
+  --sh-sheet: 0 10px 40px rgba(0, 0, 0, .6);
+  --sh-card: 0 1px 2px rgba(0, 0, 0, .3);
+  --sh-win: 0 24px 70px rgba(0, 0, 0, .6);
 }
 
 /* data-theme="auto": theo giao diện hệ thống (bản app dùng đúng cách này). */
@@ -125,10 +128,10 @@
     --id-claude: #e3825f; --id-claude-ink: #f5b394; --id-claude-tint: rgba(227, 130, 95, .20);
     --id-agy: #8583ff; --id-agy-ink: #c4c2ff; --id-agy-tint: rgba(133, 131, 255, .22);
     --id-codex: #d1d1d6; --id-codex-ink: #d1d1d6; --id-codex-tint: rgba(209, 209, 214, .14);
-    --shadow-pop: 0 18px 50px rgba(0, 0, 0, .55);
-    --shadow-sheet: 0 10px 40px rgba(0, 0, 0, .6);
-    --shadow-card: 0 1px 2px rgba(0, 0, 0, .3);
-    --shadow-win: 0 24px 70px rgba(0, 0, 0, .6);
+    --sh-pop: 0 18px 50px rgba(0, 0, 0, .55);
+    --sh-sheet: 0 10px 40px rgba(0, 0, 0, .6);
+    --sh-card: 0 1px 2px rgba(0, 0, 0, .3);
+    --sh-win: 0 24px 70px rgba(0, 0, 0, .6);
   }
 }
 

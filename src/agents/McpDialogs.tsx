@@ -8,8 +8,13 @@
 // that start empty, and what the preview shows is masked by the Rust side.
 
 import { useEffect, useRef, useState } from 'react';
-import { Button, ChoiceGroup } from '../components/parts';
-import { SHEET_TITLE_ID } from '../components/Sheets';
+import { DialogButtons, DialogLead, DialogSection, DialogTitle } from '@/components/ui/dialog';
+import { Input, Textarea } from '@/components/ui/input';
+import { Segment, Segmented } from '@/components/ui/segmented';
+import { cn } from '@/lib/utils';
+import { CheckLine, CheckRow, Command, COMPARE, COMPARE_DIFF, COMPARE_HEAD, DiffFile, DiffLine, DiffView, KeyMasked, PACK_META, PACK_ROW, SECRET_ROW, Steps as StepList, TECH } from '../components/blocks';
+import { LABEL, rowClass } from '../components/page';
+import { Button, ChoiceGroup, CODE, Facts as FactList, FeedbackLine, FeedbackText, FieldHint, LinkButton } from '../components/parts';
 import {
   AGENT_NAME,
   AGENTS,
@@ -22,10 +27,10 @@ import {
   type FormPair,
   type McpForm,
 } from '../lib/mcp';
-import type { Agent, McpBlock, McpDef, McpLine, McpPaste, McpRow, Model } from '../lib/model';
+import type { Agent, McpBlock, McpDef, McpPaste, McpRow, Model } from '../lib/model';
 import { dayClock } from '../lib/switching';
 import { LOCK_ICON } from '../window/icons';
-import { AgentLogo } from './CheckMatrix';
+import { AgentLogo, HEAD_OFF, MATRIX_CELL, MATRIX_HEAD, MATRIX_NAME, MATRIX_ROW, MATRIX_TITLE } from './CheckMatrix';
 import { khoAgents } from './McpTab';
 import type { BatchDialog, FormDialog, Mcp, McpDialog } from './useMcp';
 
@@ -37,31 +42,12 @@ export function mcpDialogSize(d: McpDialog): 'lg' | 'xl' | 'wide' {
 }
 
 function Steps({ at }: { at: 0 | 1 }) {
-  return (
-    <ol className="stp" aria-label="Các bước">
-      {['Điền', 'Xem trước'].map((t, i) => (
-        <li key={t} className={i === at ? 'on' : i < at ? 'done' : undefined} aria-current={i === at ? 'step' : undefined}>
-          <i>{i < at ? '✓' : i + 1}</i>
-          {t}
-        </li>
-      ))}
-    </ol>
-  );
+  return <StepList names={['Điền', 'Xem trước']} at={at} />;
 }
 
 export function Facts({ items }: { items: [string, string][] }) {
-  return (
-    <ul className="facts">
-      {items.map(([k, t]) => (
-        <li key={t} className={k || undefined}>
-          <span>{t}</span>
-        </li>
-      ))}
-    </ul>
-  );
+  return <FactList items={items.map(([k, text]) => ({ k, text }))} />;
 }
-
-export const LINE_CLASS: Record<McpLine['op'], string> = { ctx: 'c', add: 'a', del: 'd', gap: 'g' };
 
 function blockLabel(agent: Agent, b: McpBlock): string {
   const what = agent === 'codex' ? '[mcp_servers.' + b.name + ']' : b.name;
@@ -72,20 +58,14 @@ function blockLabel(agent: Agent, b: McpBlock): string {
 
 function Diff({ file, agent, block }: { file: string; agent: Agent; block: McpBlock }) {
   return (
-    <div className="diff">
-      <div className="fh">
-        <span className="mono">{file}</span>
-        <span className="r">{blockLabel(agent, block)}</span>
-      </div>
-      <pre>
-        {block.lines.map((l, i) => (
-          <span key={i} className={LINE_CLASS[l.op]}>
-            {l.op === 'gap' ? '…' : l.text || ' '}
-            {l.secret ? <span className="kc">khoá, đã che</span> : null}
-          </span>
-        ))}
-      </pre>
-    </div>
+    <DiffView head={<DiffFile>{file}</DiffFile>} right={blockLabel(agent, block)}>
+      {block.lines.map((l, i) => (
+        <DiffLine key={i} op={l.op}>
+          {l.op === 'gap' ? '…' : l.text || ' '}
+          {l.secret ? <KeyMasked /> : null}
+        </DiffLine>
+      ))}
+    </DiffView>
   );
 }
 
@@ -109,20 +89,15 @@ export function BlockView({ agent, file, block }: { agent: Agent; file: string; 
     return (
       <>
         {block.commands.map((c) => (
-          <div key={c} className="cmd">
-            <span className="p" aria-hidden="true">
-              $
-            </span>
-            <code>{c}</code>
-          </div>
+          <Command key={c}>{c}</Command>
         ))}
-        <p className="tech">{(claudeNote(block) + ' ' + extra).trim()}</p>
+        <p className={TECH}>{(claudeNote(block) + ' ' + extra).trim()}</p>
       </>
     );
   return (
     <>
       <Diff file={file} agent={agent} block={block} />
-      {extra ? <p className="tech">{extra}</p> : null}
+      {extra ? <p className={TECH}>{extra}</p> : null}
     </>
   );
 }
@@ -139,29 +114,29 @@ function BatchBody({ d, mcp, rows }: { d: BatchDialog; mcp: Mcp; rows: McpRow[] 
   ];
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>{d.title}</h3>
+      <DialogTitle>{d.title}</DialogTitle>
       {d.steps ? <Steps at={1} /> : null}
-      <p className="lead">{previewLead(p, rows)}</p>
+      <DialogLead>{previewLead(p, rows)}</DialogLead>
       {p.groups.map((g) => (
         <section key={g.agent} aria-label={AGENT_NAME[g.agent]}>
-          <div className="sec-t">
+          <DialogSection>
             <AgentLogo agent={g.agent} />
             {AGENT_NAME[g.agent]}
-          </div>
+          </DialogSection>
           {g.blocks.map((b) => (
             <BlockView key={b.name + b.action} agent={g.agent} file={g.file} block={b} />
           ))}
         </section>
       ))}
       <Facts items={facts} />
-      <div className="btns">
+      <DialogButtons>
         <Button large disabled={mcp.working} onClick={mcp.back}>
           Quay lại
         </Button>
         <Button large primary disabled={mcp.working} onClick={mcp.write}>
           {mcp.working ? 'Đang ghi…' : 'Ghi ' + n + ' thay đổi'}
         </Button>
-      </div>
+      </DialogButtons>
     </>
   );
 }
@@ -172,17 +147,16 @@ function PairRow(props: { pair: FormPair; i: number; http: boolean; onChange(p: 
   const p = props.pair;
   const label = props.http ? 'Header' : 'Biến';
   return (
-    <div className="pair">
-      <input
-        className="inp mono"
+    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_auto] items-center gap-1.5">
+      <Input
+        mono
         aria-label={label + ' ' + (props.i + 1) + ': tên'}
         value={p.name}
         placeholder={props.http ? 'Authorization' : 'API_KEY'}
         onChange={(e) => props.onChange({ ...p, name: e.target.value, secret: p.kept || isSecretPair(e.target.value, p.value) })}
       />
-      <span className="in" style={{ display: 'flex', gap: 6, alignItems: 'center', minWidth: 0 }}>
-        <input
-          className="inp"
+      <span className="flex min-w-0 items-center gap-1.5">
+        <Input
           type={p.secret ? 'password' : 'text'}
           autoComplete="off"
           spellCheck={false}
@@ -192,15 +166,15 @@ function PairRow(props: { pair: FormPair; i: number; http: boolean; onChange(p: 
           onChange={(e) => props.onChange({ ...p, value: e.target.value, secret: p.kept || isSecretPair(p.name, e.target.value) })}
         />
         {p.secret ? (
-          <span className="lock" title="Giá trị vào Keychain, không hiện lại">
+          <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs text-info-ink [&_svg]:flex-none" title="Giá trị vào Keychain, không hiện lại">
             {LOCK_ICON}
             Keychain
           </span>
         ) : null}
       </span>
-      <button type="button" className="lnk sm" aria-label={'Bỏ dòng ' + (p.name || props.i + 1)} onClick={props.onRemove}>
+      <LinkButton small aria-label={'Bỏ dòng ' + (p.name || props.i + 1)} onClick={props.onRemove}>
         Bỏ
-      </button>
+      </LinkButton>
     </div>
   );
 }
@@ -208,14 +182,20 @@ function PairRow(props: { pair: FormPair; i: number; http: boolean; onChange(p: 
 function AgentTicks(props: { model: Model; value: Record<Agent, boolean>; label: string; onChange(v: Record<Agent, boolean>): void }) {
   const cols = props.model.mcp.table?.columns ?? [];
   return (
-    <div role="group" aria-label={props.label} style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 14px' }}>
+    <div role="group" aria-label={props.label} className="flex flex-wrap gap-x-3.5 gap-y-1">
       {AGENTS.map((a) => {
         const can = !!cols.find((c) => c.agent === a)?.writable;
         return (
-          <label key={a} className="check" style={{ margin: 0 }} title={can ? undefined : AGENT_NAME[a] + ': chỉ xem trên máy này'}>
-            <input type="checkbox" checked={can && props.value[a]} disabled={!can} onChange={(e) => props.onChange({ ...props.value, [a]: e.target.checked })} />
+          <CheckLine
+            key={a}
+            className="m-0"
+            title={can ? undefined : AGENT_NAME[a] + ': chỉ xem trên máy này'}
+            checked={can && props.value[a]}
+            disabled={!can}
+            onChange={(on) => props.onChange({ ...props.value, [a]: on })}
+          >
             {AGENT_NAME[a]}
-          </label>
+          </CheckLine>
         );
       })}
     </div>
@@ -268,25 +248,25 @@ function FormBody({ d, mcp, model }: { d: FormDialog; mcp: Mcp; model: Model }) 
   const pasteSecrets = !!d.found?.servers.some((s) => s.slots.length);
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>{f.edit ? 'Sửa ' + f.name : 'Thêm MCP'}</h3>
+      <DialogTitle>{f.edit ? 'Sửa ' + f.name : 'Thêm MCP'}</DialogTitle>
       {f.edit ? null : <Steps at={0} />}
       {f.edit ? null : (
-        <div className="seg inline" role="group" aria-label="Cách thêm" style={{ margin: '0 0 10px' }}>
-          <button type="button" aria-pressed={d.mode === 'form'} onClick={() => mcp.setDialog({ ...d, mode: 'form', error: null })}>
+        <Segmented variant="inline" className="mt-0 mb-2.5" aria-label="Cách thêm">
+          <Segment pressed={d.mode === 'form'} onClick={() => mcp.setDialog({ ...d, mode: 'form', error: null })}>
             Điền tay
-          </button>
-          <button type="button" aria-pressed={d.mode === 'paste'} onClick={() => mcp.setDialog({ ...d, mode: 'paste', error: null })}>
+          </Segment>
+          <Segment pressed={d.mode === 'paste'} onClick={() => mcp.setDialog({ ...d, mode: 'paste', error: null })}>
             Dán JSON hoặc TOML
-          </button>
-        </div>
+          </Segment>
+        </Segmented>
       )}
       {d.mode === 'paste' ? (
         <>
           {d.saved ? (
-            <p className="lead">Khoá đã vào Keychain. Bấm Tiếp để xem lại phần sẽ ghi, hoặc dán đoạn khác.</p>
+            <DialogLead>Khoá đã vào Keychain. Bấm Tiếp để xem lại phần sẽ ghi, hoặc dán đoạn khác.</DialogLead>
           ) : null}
-          <textarea
-            className="inp mono"
+          <Textarea
+            mono
             rows={9}
             aria-label="JSON hoặc TOML"
             spellCheck={false}
@@ -297,22 +277,22 @@ function FormBody({ d, mcp, model }: { d: FormDialog; mcp: Mcp; model: Model }) 
             onChange={(e) => onPaste(e.target.value)}
           />
           {summary.facts.length || summary.error ? (
-            <div className="box" style={{ marginTop: 8 }}>
-              {summary.error ? <p className="fhint bad" style={{ margin: 0 }}>{summary.error}</p> : <Facts items={summary.facts} />}
+            <div className="mt-2 rounded-tile bg-fill px-2.5 py-2 text-sm">
+              {summary.error ? <p className="m-0 text-xs text-bad-ink">{summary.error}</p> : <Facts items={summary.facts} />}
             </div>
           ) : null}
-          <div className="form" style={{ marginTop: 8 }}>
+          <div className="mt-2 grid">
             {pasteSecrets ? (
-              <div className="fr">
-                <label htmlFor="mcp-bw">Tên trong Bitwarden</label>
+              <div className={rowClass()}>
+                <label className={LABEL} htmlFor="mcp-bw">Tên trong Bitwarden</label>
                 <div>
-                  <input id="mcp-bw" className="inp" value={f.bitwarden} onChange={(e) => set({ bitwarden: e.target.value })} />
-                  <div className="fhint">Chỉ là gợi ý để biết khoá nằm ở mục nào khi phải dán lại.</div>
+                  <Input id="mcp-bw" value={f.bitwarden} onChange={(e) => set({ bitwarden: e.target.value })} />
+                  <FieldHint>Chỉ là gợi ý để biết khoá nằm ở mục nào khi phải dán lại.</FieldHint>
                 </div>
               </div>
             ) : null}
-            <div className="fr">
-              <span className="fl">Bật cho</span>
+            <div className={rowClass()}>
+              <span className={LABEL}>Bật cho</span>
               <div>
                 <AgentTicks model={model} label="Bật cho" value={f.agents} onChange={(agents) => set({ agents })} />
               </div>
@@ -320,13 +300,13 @@ function FormBody({ d, mcp, model }: { d: FormDialog; mcp: Mcp; model: Model }) 
           </div>
         </>
       ) : (
-        <div className="form">
-          <div className="fr">
-            <label htmlFor="mcp-name">Tên</label>
+        <div className="grid">
+          <div className={rowClass()}>
+            <label className={LABEL} htmlFor="mcp-name">Tên</label>
             <div>
-              <input
+              <Input
                 id="mcp-name"
-                className="inp mono"
+                mono
                 value={f.name}
                 readOnly={f.edit}
                 autoComplete="off"
@@ -335,25 +315,25 @@ function FormBody({ d, mcp, model }: { d: FormDialog; mcp: Mcp; model: Model }) 
               />
             </div>
           </div>
-          <div className="fr">
-            <span className="fl">Chạy bằng</span>
+          <div className={rowClass()}>
+            <span className={LABEL}>Chạy bằng</span>
             <div>
-              <div className="seg inline" role="group" aria-label="Chạy bằng">
-                <button type="button" aria-pressed={!http} disabled={f.edit} onClick={() => set({ kind: 'stdio', line: '', pairs: [] })}>
+              <Segmented variant="inline" aria-label="Chạy bằng">
+                <Segment pressed={!http} disabled={f.edit} onClick={() => set({ kind: 'stdio', line: '', pairs: [] })}>
                   Lệnh trên máy
-                </button>
-                <button type="button" aria-pressed={http} disabled={f.edit} onClick={() => set({ kind: 'http', line: '', pairs: [] })}>
+                </Segment>
+                <Segment pressed={http} disabled={f.edit} onClick={() => set({ kind: 'http', line: '', pairs: [] })}>
                   Địa chỉ http
-                </button>
-              </div>
+                </Segment>
+              </Segmented>
             </div>
           </div>
-          <div className="fr">
-            <label htmlFor="mcp-line">{http ? 'Địa chỉ' : 'Lệnh và tham số'}</label>
+          <div className={rowClass()}>
+            <label className={LABEL} htmlFor="mcp-line">{http ? 'Địa chỉ' : 'Lệnh và tham số'}</label>
             <div>
-              <input
+              <Input
                 id="mcp-line"
-                className="inp mono"
+                mono
                 value={f.line}
                 autoComplete="off"
                 spellCheck={false}
@@ -361,15 +341,15 @@ function FormBody({ d, mcp, model }: { d: FormDialog; mcp: Mcp; model: Model }) 
                 onChange={(e) => set({ line: e.target.value })}
               />
               {lineSecret ? (
-                <div className="fhint">Lệnh có giá trị giống khoá: nên để khoá ở biến môi trường. Xem trước và bản lưu vẫn che nó.</div>
+                <FieldHint>Lệnh có giá trị giống khoá: nên để khoá ở biến môi trường. Xem trước và bản lưu vẫn che nó.</FieldHint>
               ) : !http ? (
-                <div className="fhint">Tên lệnh như npx hay uvx: agent tìm trong PATH của nó.</div>
+                <FieldHint>Tên lệnh như npx hay uvx: agent tìm trong PATH của nó.</FieldHint>
               ) : null}
             </div>
           </div>
-          <div className="fr">
-            <span className="fl">{http ? 'Header' : 'Biến môi trường'}</span>
-            <div className="pairs">
+          <div className={rowClass()}>
+            <span className={LABEL}>{http ? 'Header' : 'Biến môi trường'}</span>
+            <div className="grid gap-1.5">
               {f.pairs.map((p, i) => (
                 <PairRow
                   key={i}
@@ -381,45 +361,45 @@ function FormBody({ d, mcp, model }: { d: FormDialog; mcp: Mcp; model: Model }) 
                 />
               ))}
               <div>
-                <button type="button" className="lnk sm" onClick={() => set({ pairs: [...f.pairs, { name: '', value: '', secret: false, kept: false }] })}>
+                <LinkButton small onClick={() => set({ pairs: [...f.pairs, { name: '', value: '', secret: false, kept: false }] })}>
                   + Thêm {http ? 'header' : 'biến'}
-                </button>
+                </LinkButton>
               </div>
               {secrets ? (
                 <>
-                  <div className="fhint">Tên có dạng khoá: giá trị vào Keychain, không hiện lại, không vào bản lưu.</div>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <label htmlFor="mcp-bw" className="fhint" style={{ margin: 0, whiteSpace: 'nowrap' }}>
+                  <FieldHint>Tên có dạng khoá: giá trị vào Keychain, không hiện lại, không vào bản lưu.</FieldHint>
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="mcp-bw" className="m-0 whitespace-nowrap text-xs text-ink2">
                       Tên trong Bitwarden
                     </label>
-                    <input id="mcp-bw" className="inp" value={f.bitwarden} onChange={(e) => set({ bitwarden: e.target.value })} />
+                    <Input id="mcp-bw" value={f.bitwarden} onChange={(e) => set({ bitwarden: e.target.value })} />
                   </div>
                 </>
               ) : null}
             </div>
           </div>
-          <div className="fr">
-            <span className="fl">{f.edit ? 'Ghi cho' : 'Bật cho'}</span>
+          <div className={rowClass()}>
+            <span className={LABEL}>{f.edit ? 'Ghi cho' : 'Bật cho'}</span>
             <div>
               <AgentTicks model={model} label={f.edit ? 'Ghi cho' : 'Bật cho'} value={f.agents} onChange={(agents) => set({ agents })} />
-              {f.edit ? <div className="fhint">Agent chưa có {f.name} mà được tick thì thêm mới.</div> : null}
+              {f.edit ? <FieldHint>Agent chưa có {f.name} mà được tick thì thêm mới.</FieldHint> : null}
             </div>
           </div>
         </div>
       )}
       {d.error ? (
-        <p className="fhint bad" role="alert">
+        <p className="mt-1 text-xs text-bad-ink" role="alert">
           {d.error}
         </p>
       ) : null}
-      <div className="btns" style={{ marginTop: 12 }}>
+      <DialogButtons className="mt-3">
         <Button large disabled={mcp.working} onClick={mcp.close}>
           Huỷ
         </Button>
         <Button large primary disabled={mcp.working || (d.mode === 'paste' && !d.saved && !d.found?.servers.length)} onClick={() => mcp.submitForm(d)}>
           {mcp.working ? 'Đang đọc…' : 'Tiếp: xem trước'}
         </Button>
-      </div>
+      </DialogButtons>
     </>
   );
 }
@@ -468,11 +448,16 @@ function CompareBody({ d, mcp }: { d: Extract<McpDialog, { kind: 'compare' }>; m
   };
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>{row.name} khác nhau giữa các agent</h3>
-      <div className="dr" style={{ gridTemplateColumns: '140px repeat(' + agents.length + ', minmax(0, 1fr))' }} role="table" aria-label={'So ' + row.name}>
-        <span className="h" role="columnheader" />
+      <DialogTitle>{row.name} khác nhau giữa các agent</DialogTitle>
+      <div
+        className={COMPARE}
+        style={{ gridTemplateColumns: '140px repeat(' + agents.length + ', minmax(0, 1fr))' }}
+        role="table"
+        aria-label={'So ' + row.name}
+      >
+        <span className={COMPARE_HEAD} role="columnheader" />
         {agents.map((a) => (
-          <span key={a} className="h" role="columnheader">
+          <span key={a} className={COMPARE_HEAD} role="columnheader">
             <AgentLogo agent={a} />
             {AGENT_NAME[a]}
           </span>
@@ -480,11 +465,11 @@ function CompareBody({ d, mcp }: { d: Extract<McpDialog, { kind: 'compare' }>; m
         {lines.map((l) => {
           const differs = new Set(l.cells).size > 1 || l.cells.includes('khác nhau');
           return [
-            <span key={l.k + ':k'} className="k" role="rowheader">
+            <span key={l.k + ':k'} className="text-ink2" role="rowheader">
               {l.k}
             </span>,
             ...l.cells.map((c, i) => (
-              <span key={l.k + ':' + i} className={(differs ? 'x ' : '') + (l.secret || c.startsWith('(') ? '' : 'mono')} role="cell">
+              <span key={l.k + ':' + i} className={cn(!l.secret && !c.startsWith('(') && CODE, differs && COMPARE_DIFF)} role="cell">
                 {l.secret ? (
                   <>
                     {LOCK_ICON} {c}
@@ -497,20 +482,20 @@ function CompareBody({ d, mcp }: { d: Extract<McpDialog, { kind: 'compare' }>; m
           ];
         })}
       </div>
-      <p className="tech" style={{ marginTop: 4 }}>
+      <p className={TECH}>
         Khoá chỉ so trong máy, không hiện.
       </p>
-      <div style={{ marginTop: 10 }}>
+      <div className="mt-2.5">
         <ChoiceGroup id="mcp-cmp" label="Dùng bản nào" options={options} value={d.pick} onChange={(pick) => mcp.setDialog({ ...d, pick })} />
       </div>
-      <div className="btns" style={{ marginTop: 12 }}>
+      <DialogButtons className="mt-3">
         <Button large onClick={mcp.close}>
           Huỷ
         </Button>
         <Button large primary disabled={mcp.working} onClick={next}>
           {d.pick === 'keep' ? 'Xong' : d.pick === 'form' ? 'Mở biểu mẫu' : 'Tiếp: xem trước'}
         </Button>
-      </div>
+      </DialogButtons>
     </>
   );
 }
@@ -520,13 +505,13 @@ function CompareBody({ d, mcp }: { d: Extract<McpDialog, { kind: 'compare' }>; m
 function Gone({ mcp }: { mcp: Mcp }) {
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>Không còn MCP này</h3>
-      <p className="lead">Danh sách vừa đổi. Bấm Đọc lại rồi thử lại.</p>
-      <div className="btns">
+      <DialogTitle>Không còn MCP này</DialogTitle>
+      <DialogLead>Danh sách vừa đổi. Bấm Đọc lại rồi thử lại.</DialogLead>
+      <DialogButtons>
         <Button large primary onClick={mcp.close}>
           Đóng
         </Button>
-      </div>
+      </DialogButtons>
     </>
   );
 }
@@ -538,8 +523,8 @@ function DelBody({ d, mcp }: { d: Extract<McpDialog, { kind: 'del' }>; mcp: Mcp 
   const labels = row.secrets.map((s) => s.label).join(', ');
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>Xoá {row.name}?</h3>
-      <p className="lead">Đang có ở {where.join(', ')}.</p>
+      <DialogTitle>Xoá {row.name}?</DialogTitle>
+      <DialogLead>Đang có ở {where.join(', ')}.</DialogLead>
       <ChoiceGroup
         id="mcp-del"
         label="Cách xoá"
@@ -551,25 +536,24 @@ function DelBody({ d, mcp }: { d: Extract<McpDialog, { kind: 'del' }>; mcp: Mcp 
         onChange={(mode) => mcp.setDialog({ ...d, mode })}
       />
       {d.mode === 'hard' && row.secrets.length ? (
-        <label className="check" style={{ marginTop: 10 }}>
-          <input type="checkbox" checked={d.keys} onChange={(e) => mcp.setDialog({ ...d, keys: e.target.checked })} />
+        <CheckLine className="mt-2.5" checked={d.keys} onChange={(keys) => mcp.setDialog({ ...d, keys })}>
           <span>
             Xoá cả khoá {labels} trong Keychain
             <small>Bản lưu trước khi ghi không có khoá; thêm lại sẽ hỏi dán lại.</small>
           </span>
-        </label>
+        </CheckLine>
       ) : null}
-      <div style={{ marginTop: 10 }}>
+      <div className="mt-2.5">
         <Facts items={[['ok', 'Xem trước từng file rồi mới ghi. Sao lưu file của ' + where.join(', ') + ' trước khi ghi.']]} />
       </div>
-      <div className="btns">
+      <DialogButtons>
         <Button large onClick={mcp.close}>
           Huỷ
         </Button>
         <Button large primary disabled={mcp.working} onClick={() => mcp.remove(d)}>
           {d.mode === 'hard' ? 'Tiếp: xem trước khi xoá hẳn' : 'Tiếp: xem trước'}
         </Button>
-      </div>
+      </DialogButtons>
     </>
   );
 }
@@ -582,32 +566,30 @@ function KhoBody({ d, mcp }: { d: Extract<McpDialog, { kind: 'kho' }>; mcp: Mcp 
   const sse = k.kind === 'sse';
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>Bật lại {k.name}</h3>
-      <p className="lead">Chọn agent. App ghi lại cấu hình đã giữ trong kho, khoá lấy từ Keychain.</p>
+      <DialogTitle>Bật lại {k.name}</DialogTitle>
+      <DialogLead>Chọn agent. App ghi lại cấu hình đã giữ trong kho, khoá lấy từ Keychain.</DialogLead>
       {k.missing.length ? (
-        <div className="fb warn" role="status" style={{ margin: '0 0 8px' }}>
+        <FeedbackLine tone="warn" style={{ margin: '0 0 8px' }}>
           <div>
-            <b>Keychain không còn khoá {k.missing.join(', ')}</b>
-            <small>Dán khoá trước, rồi bật lại.</small>
+            <FeedbackText title={'Keychain không còn khoá ' + k.missing.join(', ')} body="Dán khoá trước, rồi bật lại." />
           </div>
-        </div>
+        </FeedbackLine>
       ) : null}
       <div>
         {AGENTS.map((a) => {
           const off = !can[a] || (a === 'codex' && sse);
           return (
-            <label key={a} className={'ck' + (off ? ' dis' : '')}>
-              <input type="checkbox" checked={!off && d.agents[a]} disabled={off} onChange={(e) => mcp.setDialog({ ...d, agents: { ...d.agents, [a]: e.target.checked } })} />
+            <CheckRow key={a} off={off} checked={!off && d.agents[a]} disabled={off} onChange={(on) => mcp.setDialog({ ...d, agents: { ...d.agents, [a]: on } })}>
               <span>
                 <b>{AGENT_NAME[a]}</b>
                 <small>{a === 'claude' ? 'claude mcp add-json --scope user' : files[a]}</small>
               </span>
               <span>{off ? <small>{a === 'codex' && sse ? 'không chạy SSE' : 'chỉ xem'}</small> : null}</span>
-            </label>
+            </CheckRow>
           );
         })}
       </div>
-      <div className="btns" style={{ marginTop: 12 }}>
+      <DialogButtons className="mt-3">
         <Button large onClick={mcp.close}>
           Huỷ
         </Button>
@@ -620,7 +602,7 @@ function KhoBody({ d, mcp }: { d: Extract<McpDialog, { kind: 'kho' }>; mcp: Mcp 
             Tiếp: xem trước
           </Button>
         )}
-      </div>
+      </DialogButtons>
     </>
   );
 }
@@ -630,25 +612,24 @@ function ForgetBody({ d, mcp }: { d: Extract<McpDialog, { kind: 'forget' }>; mcp
   if (!k) return <Gone mcp={mcp} />;
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>Xoá hẳn {k.name}?</h3>
-      <p className="lead">Bỏ khỏi kho của app. Không agent nào đang có {k.name}, nên không file nào của agent đổi.</p>
+      <DialogTitle>Xoá hẳn {k.name}?</DialogTitle>
+      <DialogLead>Bỏ khỏi kho của app. Không agent nào đang có {k.name}, nên không file nào của agent đổi.</DialogLead>
       {k.def.slots.length ? (
-        <label className="check">
-          <input type="checkbox" checked={d.keys} onChange={(e) => mcp.setDialog({ ...d, keys: e.target.checked })} />
+        <CheckLine checked={d.keys} onChange={(keys) => mcp.setDialog({ ...d, keys })}>
           <span>
             Xoá cả khoá trong Keychain
             <small>Thêm lại sau sẽ phải dán lại khoá.</small>
           </span>
-        </label>
+        </CheckLine>
       ) : null}
-      <div className="btns">
+      <DialogButtons>
         <Button large onClick={mcp.close}>
           Huỷ
         </Button>
-        <button type="button" className="btn lg danger" disabled={mcp.working} onClick={() => mcp.forget(k.name, d.keys)}>
+        <Button large danger disabled={mcp.working} onClick={() => mcp.forget(k.name, d.keys)}>
           Xoá hẳn
-        </button>
-      </div>
+        </Button>
+      </DialogButtons>
     </>
   );
 }
@@ -662,26 +643,26 @@ function KeyBody({ d, mcp }: { d: Extract<McpDialog, { kind: 'key' }>; mcp: Mcp 
   if (!secrets.length)
     return (
       <>
-        <h3 id={SHEET_TITLE_ID}>{d.name} đã có đủ khoá</h3>
-        <div className="btns">
+        <DialogTitle>{d.name} đã có đủ khoá</DialogTitle>
+        <DialogButtons>
           <Button large primary onClick={mcp.close}>
             Đóng
           </Button>
-        </div>
+        </DialogButtons>
       </>
     );
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>Dán khoá cho {d.name}</h3>
+      <DialogTitle>Dán khoá cho {d.name}</DialogTitle>
       {secrets.map((s) => (
-        <div key={s.id} className="sec">
+        <div key={s.id} className={SECRET_ROW}>
           <span>
             <b>{s.label}</b>
             <small>{s.bitwarden ? 'Bitwarden: ' + s.bitwarden : 'Khoá này chưa có trên máy này'}</small>
           </span>
-          <span className="in">
-            <input
-              className="inp"
+          <span className="flex items-center gap-1.5">
+            <Input
+              className="font-mono tracking-[.12em]"
               type="password"
               autoComplete="off"
               aria-label={s.label}
@@ -692,23 +673,23 @@ function KeyBody({ d, mcp }: { d: Extract<McpDialog, { kind: 'key' }>; mcp: Mcp 
           </span>
         </div>
       ))}
-      <div className="form" style={{ margin: '4px 0 8px' }}>
-        <div className="fr">
-          <label htmlFor="mcp-key-bw">Tên trong Bitwarden</label>
+      <div className="mt-1 mb-2 grid">
+        <div className={rowClass()}>
+          <label className={LABEL} htmlFor="mcp-key-bw">Tên trong Bitwarden</label>
           <div>
-            <input id="mcp-key-bw" className="inp" value={bitwarden} placeholder={secrets[0]?.bitwarden ?? ''} onChange={(e) => setBitwarden(e.target.value)} />
+            <Input id="mcp-key-bw" value={bitwarden} placeholder={secrets[0]?.bitwarden ?? ''} onChange={(e) => setBitwarden(e.target.value)} />
           </div>
         </div>
       </div>
       <Facts items={[['ok', 'Lưu vào Keychain của Quota Station. App không hiện lại giá trị.'], ['ok', 'Sau đó tick ' + d.name + ' cho agent cần dùng.']]} />
-      <div className="btns">
+      <DialogButtons>
         <Button large onClick={mcp.close}>
           Huỷ
         </Button>
         <Button large primary disabled={mcp.working || !Object.values(values).some(Boolean)} onClick={() => mcp.saveKeys(d.name, values, bitwarden)}>
           Lưu vào Keychain
         </Button>
-      </div>
+      </DialogButtons>
     </>
   );
 }
@@ -718,16 +699,11 @@ function HowCmdBody({ d, mcp }: { d: Extract<McpDialog, { kind: 'howCmd' }>; mcp
   const command = row?.missingCommand?.command ?? '';
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>Cài lệnh của {d.name}</h3>
-      <p className="lead">{d.name} chạy lệnh này, mà máy này chưa có:</p>
-      <div className="cmd">
-        <span className="p" aria-hidden="true">
-          $
-        </span>
-        <code>{command}</code>
-      </div>
-      <p className="tech">App không tự cài lệnh. Cài theo hướng dẫn của MCP đó (thường là npm, brew hay uv), rồi bấm Đọc lại.</p>
-      <div className="btns">
+      <DialogTitle>Cài lệnh của {d.name}</DialogTitle>
+      <DialogLead>{d.name} chạy lệnh này, mà máy này chưa có:</DialogLead>
+      <Command>{command}</Command>
+      <p className={TECH}>App không tự cài lệnh. Cài theo hướng dẫn của MCP đó (thường là npm, brew hay uv), rồi bấm Đọc lại.</p>
+      <DialogButtons>
         <Button large onClick={mcp.close}>
           Đóng
         </Button>
@@ -741,7 +717,7 @@ function HowCmdBody({ d, mcp }: { d: Extract<McpDialog, { kind: 'howCmd' }>; mcp
         >
           Đọc lại
         </Button>
-      </div>
+      </DialogButtons>
     </>
   );
 }
@@ -750,35 +726,35 @@ function OwnedBody({ mcp }: { mcp: Mcp }) {
   const owned = mcp.table?.owned ?? [];
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>MCP có sẵn trong agent và plugin</h3>
-      <div className="mx">
-        <div className="mx-r h">
+      <DialogTitle>MCP có sẵn trong agent và plugin</DialogTitle>
+      <div className="grid">
+        <div className={cn(MATRIX_ROW, MATRIX_HEAD)}>
           <span>Tên</span>
           {AGENTS.map((a) => (
-            <span key={a} className="ac">
-              <span className="agb dis" title={AGENT_NAME[a]}>
+            <span key={a} className="relative justify-center">
+              <span className={HEAD_OFF} title={AGENT_NAME[a]}>
                 <AgentLogo agent={a} />
-                <span className="vh">{AGENT_NAME[a]}</span>
+                <span className="sr-only">{AGENT_NAME[a]}</span>
               </span>
             </span>
           ))}
         </div>
         {owned.map((o) => (
-          <div key={o.name} className="mx-r ro" role="group" aria-label={o.name}>
-            <div className="nm">
-              <div className="t">
+          <div key={o.name} className={MATRIX_ROW} role="group" aria-label={o.name}>
+            <div className={cn(MATRIX_NAME, '[&_b]:font-med [&_b]:text-ink2')}>
+              <div className={MATRIX_TITLE}>
                 <b>{o.name}</b>
               </div>
               <small>của {o.owner}</small>
             </div>
             {AGENTS.map((a) => (
-              <span key={a} className="ce">
+              <span key={a} className={MATRIX_CELL}>
                 {o.agents.includes(a) ? (
-                  <span className="mk" role="img" aria-label={'có ở ' + AGENT_NAME[a]}>
+                  <span className="text-sm text-ink2" role="img" aria-label={'có ở ' + AGENT_NAME[a]}>
                     ✓
                   </span>
                 ) : (
-                  <span className="na" role="img" aria-label={'không có ở ' + AGENT_NAME[a]}>
+                  <span className="text-ink3" role="img" aria-label={'không có ở ' + AGENT_NAME[a]}>
                     —
                   </span>
                 )}
@@ -787,7 +763,7 @@ function OwnedBody({ mcp }: { mcp: Mcp }) {
           </div>
         ))}
       </div>
-      <div style={{ marginTop: 10 }}>
+      <div className="mt-2.5">
         <Facts
           items={[
             ['', 'Đến từ chính agent hoặc từ plugin, nên app chỉ xem: không bật tắt, không sao lưu.'],
@@ -795,11 +771,11 @@ function OwnedBody({ mcp }: { mcp: Mcp }) {
           ]}
         />
       </div>
-      <div className="btns">
+      <DialogButtons>
         <Button large primary onClick={mcp.close}>
           Đóng
         </Button>
-      </div>
+      </DialogButtons>
     </>
   );
 }
@@ -824,25 +800,25 @@ function BackupsBody({ mcp, model, now }: { mcp: Mcp; model: Model; now: Date })
   const agents = AGENTS.filter((a) => list.some((b) => b.agent === a));
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>Bản đã lưu trước khi ghi</h3>
-      <p className="lead">Giữ 10 bản gần nhất cho mỗi agent, trên máy này. Bản lưu không chứa khoá: giá trị của khoá được thay bằng &lt;redacted&gt;.</p>
+      <DialogTitle>Bản đã lưu trước khi ghi</DialogTitle>
+      <DialogLead>Giữ 10 bản gần nhất cho mỗi agent, trên máy này. Bản lưu không chứa khoá: giá trị của khoá được thay bằng &lt;redacted&gt;.</DialogLead>
       {list.length ? (
         <div>
           {list.slice(0, 30).map((b) => (
-            <div key={b.agent + b.file} className="pk">
-              <span className="m">{dayClock(b.at, now)}</span>
+            <div key={b.agent + b.file} className={PACK_ROW}>
+              <span className={PACK_META}>{dayClock(b.at, now)}</span>
               <span>
                 {AGENT_NAME[b.agent]}
-                <small>{backupNote(b.agent, b.changes)}</small>
+                <small className="block text-xs text-ink2">{backupNote(b.agent, b.changes)}</small>
               </span>
-              <span className="m mono">{b.file}</span>
+              <span className={cn(PACK_META, 'rounded-sm bg-fill px-1 font-mono leading-[normal] [overflow-wrap:anywhere]')}>{b.file}</span>
             </div>
           ))}
         </div>
       ) : (
-        <p className="lead">Chưa có bản lưu nào: app chưa ghi danh sách MCP lần nào.</p>
+        <DialogLead>Chưa có bản lưu nào: app chưa ghi danh sách MCP lần nào.</DialogLead>
       )}
-      <div className="btns" style={{ marginTop: 12 }}>
+      <DialogButtons className="mt-3">
         {agents.map((a) => (
           <Button key={a} large onClick={() => mcp.openBackups(a)}>
             Mở thư mục {AGENT_NAME[a]}
@@ -851,7 +827,7 @@ function BackupsBody({ mcp, model, now }: { mcp: Mcp; model: Model; now: Date })
         <Button large primary onClick={mcp.close}>
           Đóng
         </Button>
-      </div>
+      </DialogButtons>
     </>
   );
 }

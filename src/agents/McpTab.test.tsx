@@ -21,15 +21,31 @@ async function openTab(model: Model = fixtureModel('fresh'), options: FakeOption
   return fake;
 }
 
+/** Radix moves focus a tick after React commits: the menu's arrows, the icon again when the menu closes. */
+async function tick() {
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 0));
+  });
+}
+
 async function press(el: HTMLElement) {
   await act(async () => {
     fireEvent.click(el);
   });
+  await tick();
 }
 
 async function key(el: Element | Window, k: string) {
   await act(async () => {
     fireEvent.keyDown(el, { key: k });
+  });
+  await tick();
+}
+
+/** Opens a column's menu as a pointer does: Radix opens a menu on pointerdown, not on click. */
+async function openMenu(el: HTMLElement) {
+  await act(async () => {
+    fireEvent.pointerDown(el, { button: 0, ctrlKey: false });
   });
 }
 
@@ -85,20 +101,21 @@ describe('the MCP tab', () => {
     const icon = screen.getByRole('button', { name: 'Antigravity: tuỳ chọn cột' });
     expect(icon.getAttribute('aria-haspopup')).toBe('menu');
     expect(icon.getAttribute('aria-expanded')).toBe('false');
-    await press(icon);
+    await openMenu(icon);
     expect(icon.getAttribute('aria-expanded')).toBe('true');
     const menu = screen.getByRole('menu', { name: 'Antigravity' });
     const items = within(menu).getAllByRole('menuitem');
     expect(items.map((i) => i.textContent)).toEqual(['Bật tất cả', 'Tắt tất cả']);
     expect(within(menu).getByText('3/6 MCP đang tick')).toBeTruthy();
+    // The keys go where the focus is, as a keyboard sends them.
     expect(document.activeElement).toBe(items[0]);
-    await key(menu, 'ArrowDown');
+    await key(items[0], 'ArrowDown');
     expect(document.activeElement).toBe(items[1]);
-    await key(menu, 'ArrowDown');
+    await key(items[1], 'ArrowDown');
     expect(document.activeElement).toBe(items[0]);
-    await key(menu, 'ArrowUp');
+    await key(items[0], 'ArrowUp');
     expect(document.activeElement).toBe(items[1]);
-    await key(menu, 'Escape');
+    await key(items[1], 'Escape');
     expect(screen.queryByRole('menu')).toBeNull();
     expect(document.activeElement).toBe(icon);
     expect(icon.getAttribute('aria-expanded')).toBe('false');
@@ -106,13 +123,13 @@ describe('the MCP tab', () => {
 
   it('Bật tất cả skips a locked box; Bỏ N thay đổi chưa ghi takes the column back', async () => {
     await openTab();
-    await press(screen.getByRole('button', { name: 'Antigravity: tuỳ chọn cột' }));
+    await openMenu(screen.getByRole('button', { name: 'Antigravity: tuỳ chọn cột' }));
     await press(screen.getByRole('menuitem', { name: 'Bật tất cả' }));
     expect(screen.queryByRole('menu')).toBeNull();
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Antigravity: tuỳ chọn cột' }));
     expect(screen.getByText('3 thay đổi chưa ghi')).toBeTruthy();
     expect(box('ticket-desk cho Antigravity').getAttribute('aria-checked')).toBe('false');
-    await press(screen.getByRole('button', { name: 'Antigravity: tuỳ chọn cột' }));
+    await openMenu(screen.getByRole('button', { name: 'Antigravity: tuỳ chọn cột' }));
     expect(screen.getByRole('menuitem', { name: 'Bật tất cả' }).hasAttribute('disabled')).toBe(true);
     await press(screen.getByRole('menuitem', { name: 'Bỏ 3 thay đổi chưa ghi' }));
     expect(screen.queryByText(/thay đổi chưa ghi/)).toBeNull();
@@ -120,10 +137,12 @@ describe('the MCP tab', () => {
 
   it('a click outside closes the menu', async () => {
     await openTab();
-    await press(screen.getByRole('button', { name: 'Codex: tuỳ chọn cột' }));
+    await openMenu(screen.getByRole('button', { name: 'Codex: tuỳ chọn cột' }));
     expect(screen.getByRole('menu')).toBeTruthy();
     await act(async () => {
-      fireEvent.mouseDown(document.body);
+      // The menu listens for a press outside from the next tick on.
+      await new Promise((r) => setTimeout(r, 0));
+      fireEvent.pointerDown(document.body);
     });
     expect(screen.queryByRole('menu')).toBeNull();
   });

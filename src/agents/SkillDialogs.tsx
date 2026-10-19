@@ -4,13 +4,16 @@
 // by hand, a newer version, removing, the skills agents and plugins bring,
 // a link to nothing, and how to get `npx`. No dialog runs a skill.
 
-import { Banner, Button, ChoiceGroup } from '../components/parts';
-import { SHEET_TITLE_ID } from '../components/Sheets';
+import { DialogButtons, DialogLead, DialogSection, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
+import { CheckLine, CheckRow, Command, DiffFile, DiffLine, DiffView, Steps as StepList, TECH, type LineOp } from '../components/blocks';
+import { Banner, Button, Chip, ChoiceGroup, FieldHint, KVT, LinkButton } from '../components/parts';
 import { AGENT_NAME, AGENTS, RESTART } from '../lib/mcp';
 import type { Agent, Model } from '../lib/model';
 import { groupFile, onAt, sizeText, skillRefusalText } from '../lib/skills';
 import { AgentLogo } from './CheckMatrix';
-import { Facts, LINE_CLASS } from './McpDialogs';
+import { Facts } from './McpDialogs';
 import type { SkillBatch, SkillDialog, SkillGh, Skills } from './useSkills';
 
 /** The dialog's width: the preview and the repository's list need room. */
@@ -20,46 +23,31 @@ export function skillDialogSize(d: SkillDialog): 'lg' | 'xl' | 'wide' {
 }
 
 function Steps({ at }: { at: 0 | 1 | 2 }) {
-  return (
-    <ol className="stp" aria-label="Các bước">
-      {['Repo', 'Chọn skill', 'Cài'].map((t, i) => (
-        <li key={t} className={i === at ? 'on' : i < at ? 'done' : undefined} aria-current={i === at ? 'step' : undefined}>
-          <i>{i < at ? '✓' : i + 1}</i>
-          {t}
-        </li>
-      ))}
-    </ol>
-  );
+  return <StepList names={['Repo', 'Chọn skill', 'Cài']} at={at} />;
 }
 
-export function Lines({ head, right, lines }: { head: string; right: string; lines: { op: keyof typeof LINE_CLASS; text: string }[] }) {
+export function Lines({ head, right, lines }: { head: string; right: string; lines: { op: LineOp; text: string }[] }) {
   return (
-    <div className="diff">
-      <div className="fh">
-        <span className="mono">{head}</span>
-        <span className="r">{right}</span>
-      </div>
-      <pre>
-        {lines.map((l, i) => (
-          <span key={i} className={LINE_CLASS[l.op]}>
-            {l.op === 'gap' ? '…' : l.text || ' '}
-          </span>
-        ))}
-      </pre>
-    </div>
+    <DiffView head={<DiffFile>{head}</DiffFile>} right={right}>
+      {lines.map((l, i) => (
+        <DiffLine key={i} op={l.op}>
+          {l.op === 'gap' ? '…' : l.text || ' '}
+        </DiffLine>
+      ))}
+    </DiffView>
   );
 }
 
 function Gone({ skills }: { skills: Skills }) {
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>Không còn skill này</h3>
-      <p className="lead">Danh sách vừa đổi. Bấm Đọc lại rồi thử lại.</p>
-      <div className="btns">
+      <DialogTitle>Không còn skill này</DialogTitle>
+      <DialogLead>Danh sách vừa đổi. Bấm Đọc lại rồi thử lại.</DialogLead>
+      <DialogButtons>
         <Button large primary onClick={skills.close}>
           Đóng
         </Button>
-      </div>
+      </DialogButtons>
     </>
   );
 }
@@ -76,27 +64,27 @@ function BatchBody({ d, skills }: { d: SkillBatch; skills: Skills }) {
   ];
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>{d.title}</h3>
-      <p className="lead">Không chép, không sửa nội dung skill.</p>
+      <DialogTitle>{d.title}</DialogTitle>
+      <DialogLead>Không chép, không sửa nội dung skill.</DialogLead>
       {p.groups.map((g) => (
         <section key={g.agent} aria-label={AGENT_NAME[g.agent]}>
-          <div className="sec-t">
+          <DialogSection>
             <AgentLogo agent={g.agent} />
             {AGENT_NAME[g.agent]}
-          </div>
+          </DialogSection>
           <Lines head={g.file} right={g.agent === 'codex' ? g.count + ' skill' : g.count + ' liên kết'} lines={g.lines} />
-          {g.agent === 'codex' ? <p className="tech">Codex đọc thẳng thư mục chung, nên bật hay tắt cho Codex là một mục [[skills.config]] trong config.toml.</p> : null}
+          {g.agent === 'codex' ? <p className={TECH}>Codex đọc thẳng thư mục chung, nên bật hay tắt cho Codex là một mục [[skills.config]] trong config.toml.</p> : null}
         </section>
       ))}
       <Facts items={facts} />
-      <div className="btns">
+      <DialogButtons>
         <Button large disabled={skills.working} onClick={skills.close}>
           Quay lại
         </Button>
         <Button large primary disabled={skills.working} onClick={skills.write}>
           {skills.working ? 'Đang ghi…' : 'Ghi ' + n + ' thay đổi'}
         </Button>
-      </div>
+      </DialogButtons>
     </>
   );
 }
@@ -104,14 +92,20 @@ function BatchBody({ d, skills }: { d: SkillBatch; skills: Skills }) {
 function AgentTicks(props: { model: Model; value: Record<Agent, boolean>; onChange(v: Record<Agent, boolean>): void }) {
   const cols = props.model.skills.table?.columns ?? [];
   return (
-    <div role="group" aria-label="Bật cho" style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 14px' }}>
+    <div role="group" aria-label="Bật cho" className="flex flex-wrap gap-x-3.5 gap-y-1">
       {AGENTS.map((a) => {
         const can = !!cols.find((c) => c.agent === a)?.writable;
         return (
-          <label key={a} className="check" style={{ margin: 0 }} title={can ? undefined : AGENT_NAME[a] + ': chỉ xem trên máy này'}>
-            <input type="checkbox" checked={can && props.value[a]} disabled={!can} onChange={(e) => props.onChange({ ...props.value, [a]: e.target.checked })} />
+          <CheckLine
+            key={a}
+            className="m-0"
+            title={can ? undefined : AGENT_NAME[a] + ': chỉ xem trên máy này'}
+            checked={can && props.value[a]}
+            disabled={!can}
+            onChange={(on) => props.onChange({ ...props.value, [a]: on })}
+          >
             {AGENT_NAME[a]}
-          </label>
+          </CheckLine>
         );
       })}
     </div>
@@ -122,14 +116,15 @@ function GhFind({ d, skills }: { d: SkillGh; skills: Skills }) {
   const go = () => d.repo.trim() && skills.findRepo(d);
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>Cài skill từ GitHub</h3>
+      <DialogTitle>Cài skill từ GitHub</DialogTitle>
       <Steps at={0} />
-      <label className="seglbl" htmlFor="gh-repo">
+      <label className="text-s font-semi" htmlFor="gh-repo">
         Repo hoặc link GitHub
       </label>
-      <input
+      <Input
         id="gh-repo"
-        className={'inp mono' + (d.error ? ' bad' : '')}
+        mono
+        invalid={!!d.error}
         value={d.repo}
         placeholder="chủ/tên-repo"
         autoFocus
@@ -141,21 +136,21 @@ function GhFind({ d, skills }: { d: SkillGh; skills: Skills }) {
         }}
       />
       {d.error ? (
-        <div className="fhint bad" id="gh-repo-e">
+        <FieldHint tone="bad" id="gh-repo-e">
           {d.error}
-        </div>
+        </FieldHint>
       ) : null}
-      <div style={{ marginTop: 10 }}>
+      <div className="mt-2.5">
         <Facts items={[['w', 'Skill có thể chạy lệnh trên máy khi agent dùng nó. Chỉ cài từ nguồn bạn tin.']]} />
       </div>
-      <div className="btns">
+      <DialogButtons>
         <Button large onClick={skills.close}>
           Huỷ
         </Button>
         <Button large primary disabled={!d.repo.trim() || skills.working} onClick={go}>
           {skills.working ? 'Đang tìm…' : 'Tìm skill'}
         </Button>
-      </div>
+      </DialogButtons>
     </>
   );
 }
@@ -166,66 +161,63 @@ function GhPick({ d, skills, model }: { d: SkillGh; skills: Skills; model: Model
   if (d.reading)
     return (
       <>
-        <h3 id={SHEET_TITLE_ID}>SKILL.md của {d.reading.name}</h3>
-        <p className="lead">Chỉ đọc. Cài xong, agent làm theo hướng dẫn này khi dùng skill.</p>
+        <DialogTitle>SKILL.md của {d.reading.name}</DialogTitle>
+        <DialogLead>Chỉ đọc. Cài xong, agent làm theo hướng dẫn này khi dùng skill.</DialogLead>
         {d.reading.error ? (
-          <p className="note bad">{d.reading.error}</p>
+          <p>{d.reading.error}</p>
         ) : d.reading.text == null ? (
-          <p className="note">Đang đọc từ {d.repo}…</p>
+          <p>Đang đọc từ {d.repo}…</p>
         ) : (
-          <div className="diff">
-            <pre>
-              {d.reading.text.split('\n').map((l, i) => (
-                <span key={i} className="c">
-                  {l || ' '}
-                </span>
-              ))}
-            </pre>
-          </div>
+          <DiffView>
+            {d.reading.text.split('\n').map((l, i) => (
+              <DiffLine key={i} op="ctx">
+                {l || ' '}
+              </DiffLine>
+            ))}
+          </DiffView>
         )}
-        <div className="btns">
+        <DialogButtons>
           <Button large primary onClick={() => skills.setDialog({ ...d, reading: null })}>
             Quay lại danh sách
           </Button>
-        </div>
+        </DialogButtons>
       </>
     );
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>Chọn skill trong {d.repo}</h3>
+      <DialogTitle>Chọn skill trong {d.repo}</DialogTitle>
       <Steps at={1} />
       <div role="group" aria-label="Skill trong repo">
         {list.map((s) => (
-          <label key={s.name} className={'ck' + (s.installed ? ' dis' : '')}>
-            <input type="checkbox" checked={!s.installed && d.picked.includes(s.name)} disabled={s.installed} onChange={(e) => pick(s.name, e.target.checked)} />
+          <CheckRow key={s.name} off={s.installed} checked={!s.installed && d.picked.includes(s.name)} disabled={s.installed} onChange={(on) => pick(s.name, on)}>
             <span>
               <b>{s.name}</b>
               <small>{s.description}</small>
             </span>
             {s.installed ? (
-              <span className="chip ok">đã cài</span>
+              <Chip chip={{ t: 'đã cài', k: 'ok' }} />
             ) : (
-              <button type="button" className="lnk sm" aria-label={'Đọc SKILL.md của ' + s.name} onClick={(e) => (e.preventDefault(), skills.readMd(d, s.name))}>
+              <LinkButton small aria-label={'Đọc SKILL.md của ' + s.name} onClick={(e) => (e.preventDefault(), skills.readMd(d, s.name))}>
                 Đọc SKILL.md
-              </button>
+              </LinkButton>
             )}
-          </label>
+          </CheckRow>
         ))}
       </div>
-      <div className="sec-t">Bật cho</div>
+      <DialogSection>Bật cho</DialogSection>
       <AgentTicks model={model} value={d.agents} onChange={(agents) => skills.setDialog({ ...d, agents })} />
-      <div className="btns">
+      <DialogButtons>
         <Button large onClick={() => skills.setDialog({ ...d, step: 'find' })}>
           Quay lại
         </Button>
-        <span className="grow" />
+        <span className="flex-1" />
         <Button large onClick={skills.close}>
           Huỷ
         </Button>
         <Button large primary disabled={!d.picked.length} onClick={() => skills.setDialog({ ...d, step: 'preview' })}>
           Tiếp: xem trước
         </Button>
-      </div>
+      </DialogButtons>
     </>
   );
 }
@@ -240,15 +232,10 @@ function GhPreview({ d, skills }: { d: SkillGh; skills: Skills }) {
   const title = names.length === 1 ? 'Cài ' + names[0] + '?' : 'Cài ' + names.length + ' skill?';
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>{skills.working ? 'Đang cài ' + names.join(', ') : title}</h3>
+      <DialogTitle>{skills.working ? 'Đang cài ' + names.join(', ') : title}</DialogTitle>
       <Steps at={2} />
-      <div className="cmd">
-        <span className="p" aria-hidden="true">
-          $
-        </span>
-        <code>{'npx skills add ' + d.repo + names.map((n) => ' --skill ' + n).join('') + ' -g -y -a claude-code'}</code>
-      </div>
-      <p className="tech">Chính lệnh npx skills cài vào ~/.agents/skills và ghi nguồn vào file khoá của nó. App chạy lệnh trong một thư mục trống của app.</p>
+      <Command>{'npx skills add ' + d.repo + names.map((n) => ' --skill ' + n).join('') + ' -g -y -a claude-code'}</Command>
+      <p className={TECH}>Chính lệnh npx skills cài vào ~/.agents/skills và ghi nguồn vào file khoá của nó. App chạy lệnh trong một thư mục trống của app.</p>
       <Lines head="liên kết" right="sau khi cài" lines={lines} />
       <Facts
         items={[
@@ -257,18 +244,18 @@ function GhPreview({ d, skills }: { d: SkillGh; skills: Skills }) {
           ['ok', 'Hoàn tác được: gỡ skill vừa cài, có bản lưu trước khi gỡ.'],
         ]}
       />
-      <div className="btns">
+      <DialogButtons>
         <Button large disabled={skills.working} onClick={() => skills.setDialog({ ...d, step: 'pick' })}>
           Quay lại
         </Button>
-        <span className="grow" />
+        <span className="flex-1" />
         <Button large disabled={skills.working} onClick={skills.close}>
           Huỷ
         </Button>
         <Button large primary disabled={skills.working} onClick={() => skills.install(d)}>
           {skills.working ? 'Đang cài…' : 'Cài'}
         </Button>
-      </div>
+      </DialogButtons>
     </>
   );
 }
@@ -279,12 +266,11 @@ function ImportBody({ d, skills }: { d: Extract<SkillDialog, { kind: 'import' }>
   const n = d.picked.length;
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>Gom {rows.length} skill cài tay về một chỗ</h3>
-      <p className="lead">App chuyển các skill này vào thư mục chung của ba agent. Agent nào đang bật vẫn bật như cũ.</p>
+      <DialogTitle>Gom {rows.length} skill cài tay về một chỗ</DialogTitle>
+      <DialogLead>App chuyển các skill này vào thư mục chung của ba agent. Agent nào đang bật vẫn bật như cũ.</DialogLead>
       <div role="group" aria-label="Skill cài tay">
         {rows.map((r) => (
-          <label key={r.name} className="ck">
-            <input type="checkbox" checked={d.picked.includes(r.name)} onChange={(e) => pick(r.name, e.target.checked)} />
+          <CheckRow key={r.name} checked={d.picked.includes(r.name)} onChange={(on) => pick(r.name, on)}>
             <span>
               <b>{r.name}</b>
               <small>
@@ -292,10 +278,10 @@ function ImportBody({ d, skills }: { d: Extract<SkillDialog, { kind: 'import' }>
               </small>
             </span>
             <small>{onAt(r)}</small>
-          </label>
+          </CheckRow>
         ))}
       </div>
-      <div style={{ marginTop: 10 }}>
+      <div className="mt-2.5">
         <Facts
           items={[
             ['ok', 'Lưu lại bản cũ trước khi chuyển. Hoàn tác được.'],
@@ -303,14 +289,14 @@ function ImportBody({ d, skills }: { d: Extract<SkillDialog, { kind: 'import' }>
           ]}
         />
       </div>
-      <div className="btns">
+      <DialogButtons>
         <Button large onClick={skills.close}>
           Để sau
         </Button>
         <Button large primary disabled={!n || skills.working} onClick={() => skills.gather(d.picked)}>
           {skills.working ? 'Đang gom…' : 'Gom ' + n + ' skill'}
         </Button>
-      </div>
+      </DialogButtons>
     </>
   );
 }
@@ -327,8 +313,8 @@ function UpdateBody({ d, skills }: { d: Extract<SkillDialog, { kind: 'update' }>
   if (!r || !u) return <Gone skills={skills} />;
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>Cập nhật {r.name}?</h3>
-      <div className="kvt" style={{ marginBottom: 10 }}>
+      <DialogTitle>Cập nhật {r.name}?</DialogTitle>
+      <div className={cn(KVT, 'mb-2.5')}>
         <span>Bản trên máy</span>
         <span>{u.fromAt ? day(u.fromAt) : 'không rõ ngày cài'}</span>
         <span>Bản mới</span>
@@ -350,22 +336,20 @@ function UpdateBody({ d, skills }: { d: Extract<SkillDialog, { kind: 'update' }>
           ['ok', 'Lưu lại bản đang có trước khi cập nhật.'],
         ]}
       />
-      <p className="tech">Cập nhật bằng npx skills update {r.name}. Không chạy script nào của skill.</p>
-      <button type="button" className="lnk" onClick={() => skills.openLink(u.link)}>
-        Xem thay đổi trên GitHub
-      </button>
-      <div className="btns">
+      <p className={TECH}>Cập nhật bằng npx skills update {r.name}. Không chạy script nào của skill.</p>
+      <LinkButton onClick={() => skills.openLink(u.link)}>Xem thay đổi trên GitHub</LinkButton>
+      <DialogButtons>
         <Button large disabled={skills.working} onClick={() => skills.skip(r.name)}>
           Bỏ qua bản này
         </Button>
-        <span className="grow" />
+        <span className="flex-1" />
         <Button large disabled={skills.working} onClick={skills.close}>
           Huỷ
         </Button>
         <Button large primary disabled={skills.working} onClick={() => skills.update(r.name)}>
           {skills.working ? 'Đang cập nhật…' : 'Cập nhật'}
         </Button>
-      </div>
+      </DialogButtons>
     </>
   );
 }
@@ -377,8 +361,8 @@ function DelBody({ d, skills }: { d: Extract<SkillDialog, { kind: 'del' }>; skil
   const mode = fromLock ? d.mode : 'off';
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>Gỡ {r.name}?</h3>
-      <p className="lead">Đang bật ở {onAt(r)}.</p>
+      <DialogTitle>Gỡ {r.name}?</DialogTitle>
+      <DialogLead>Đang bật ở {onAt(r)}.</DialogLead>
       <ChoiceGroup<RowMode>
         id="sk-del"
         label="Cách gỡ"
@@ -389,7 +373,7 @@ function DelBody({ d, skills }: { d: Extract<SkillDialog, { kind: 'del' }>; skil
         ]}
         onChange={(m) => skills.setDialog({ ...d, mode: fromLock ? m : 'off' })}
       />
-      <div style={{ marginTop: 10 }}>
+      <div className="mt-2.5">
         <Facts
           items={
             mode === 'hard'
@@ -398,14 +382,14 @@ function DelBody({ d, skills }: { d: Extract<SkillDialog, { kind: 'del' }>; skil
           }
         />
       </div>
-      <div className="btns">
+      <DialogButtons>
         <Button large onClick={skills.close}>
           Huỷ
         </Button>
         <Button large primary={mode !== 'hard'} danger={mode === 'hard'} disabled={skills.working} onClick={() => skills.remove(r, mode)}>
           {mode === 'hard' ? (skills.working ? 'Đang gỡ…' : 'Gỡ hẳn') : 'Tiếp: xem trước'}
         </Button>
-      </div>
+      </DialogButtons>
     </>
   );
 }
@@ -416,17 +400,17 @@ function OwnedBody({ skills }: { skills: Skills }) {
   const owned = skills.table?.owned ?? [];
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>Skill có sẵn trong agent và plugin</h3>
-      <div className="kvt">
+      <DialogTitle>Skill có sẵn trong agent và plugin</DialogTitle>
+      <div className={KVT}>
         {owned.flatMap((o) => [
           <span key={o.what + ':k'}>{o.what}</span>,
           <span key={o.what + ':v'}>
             {o.names.length} skill · {AGENT_NAME[o.agent]}
-            <small style={{ display: 'block', color: 'var(--ink2)' }}>{o.names.join(', ')}</small>
+            <small className="block text-ink2">{o.names.join(', ')}</small>
           </span>,
         ])}
       </div>
-      <div style={{ marginTop: 10 }}>
+      <div className="mt-2.5">
         <Facts
           items={[
             ['', 'App chỉ xem các skill này: không bật tắt, không sao lưu.'],
@@ -434,11 +418,11 @@ function OwnedBody({ skills }: { skills: Skills }) {
           ]}
         />
       </div>
-      <div className="btns">
+      <DialogButtons>
         <Button large primary onClick={skills.close}>
           Đóng
         </Button>
-      </div>
+      </DialogButtons>
     </>
   );
 }
@@ -450,11 +434,11 @@ function BrokenBody({ d, skills }: { d: Extract<SkillDialog, { kind: 'broken' }>
   const inShared = skills.table?.rows.some((r) => r.name === b.name && r.home == null);
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>Liên kết hỏng: {b.name}</h3>
-      <p className="lead">
+      <DialogTitle>Liên kết hỏng: {b.name}</DialogTitle>
+      <DialogLead>
         {dir}
         {b.name} trỏ tới một thư mục không còn.
-      </p>
+      </DialogLead>
       <Lines head={dir} right="bỏ liên kết" lines={[{ op: 'del', text: b.name + ' → ' + b.target + ' (không còn)' }]} />
       <Facts
         items={[
@@ -462,14 +446,14 @@ function BrokenBody({ d, skills }: { d: Extract<SkillDialog, { kind: 'broken' }>
           inShared ? ['', b.name + ' có ở thư mục chung: tick lại ô của ' + AGENT_NAME[b.agent] + ' để bật.'] : ['w', 'Không thấy ' + b.name + ' ở thư mục chung. Muốn dùng lại thì cài lại từ GitHub.'],
         ]}
       />
-      <div className="btns">
+      <DialogButtons>
         <Button large onClick={skills.close}>
           Huỷ
         </Button>
         <Button large primary disabled={skills.working} onClick={() => skills.dropLink(b.agent, b.name)}>
           Bỏ liên kết
         </Button>
-      </div>
+      </DialogButtons>
     </>
   );
 }
@@ -477,8 +461,8 @@ function BrokenBody({ d, skills }: { d: Extract<SkillDialog, { kind: 'broken' }>
 function NpxBody({ skills }: { skills: Skills }) {
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>Cài Node.js để có npx</h3>
-      <p className="lead">App dùng npx skills để cài và cập nhật skill từ GitHub, nên cần Node.js trên máy này.</p>
+      <DialogTitle>Cài Node.js để có npx</DialogTitle>
+      <DialogLead>App dùng npx skills để cài và cập nhật skill từ GitHub, nên cần Node.js trên máy này.</DialogLead>
       <Facts
         items={[
           ['', 'Cài Node.js bản LTS từ nodejs.org, hoặc bằng Homebrew: brew install node.'],
@@ -486,7 +470,7 @@ function NpxBody({ skills }: { skills: Skills }) {
           ['ok', 'Bật, tắt và gom skill không cần npx.'],
         ]}
       />
-      <div className="btns">
+      <DialogButtons>
         <Button large onClick={skills.close}>
           Đóng
         </Button>
@@ -500,7 +484,7 @@ function NpxBody({ skills }: { skills: Skills }) {
         >
           Đọc lại
         </Button>
-      </div>
+      </DialogButtons>
     </>
   );
 }

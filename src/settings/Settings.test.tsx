@@ -288,7 +288,7 @@ describe('settings tab', () => {
       fireEvent.blur(alias);
     });
     expect(screen.getByText('Tên kết nối này đã có ở dòng trên.')).toBeTruthy();
-    expect(alias.className).toContain('bad');
+    expect(alias.getAttribute('data-invalid')).toBe('true');
     expect(fake.current().rotation.peers.map((p) => p.alias)).toEqual(['mac-b', 'mac-c']);
   });
 

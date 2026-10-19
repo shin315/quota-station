@@ -1,0 +1,71 @@
+/* The glass: what Tailwind's utilities cannot say well on their own. Each
+   material keeps its fallbacks with it: the solid ground when macOS reduces
+   transparency, when a window asks for it (data-material="solid"), and when
+   the WebView has no backdrop-filter. */
+
+/* The popover's glass and the column menus': tint and blur. */
+@utility material-pop {
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(var(--bl-pop)) saturate(var(--sat));
+  backdrop-filter: blur(var(--bl-pop)) saturate(var(--sat));
+  &:where([data-material="solid"], [data-material="solid"] *) {
+    background: var(--glass-solid);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    background: var(--glass-solid);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    background: var(--glass-solid);
+  }
+}
+
+/* The main window: one sheet of glass, like the popover (10/2026). The window
+   is transparent and macOS draws the popover's material behind all of it
+   (windows.rs); the page lays the popover's glass tint on top, and macOS
+   draws the corners, the border and the shadow. */
+@utility material-window {
+  background: var(--glass);
+  &:where([data-material="solid"], [data-material="solid"] *) {
+    background: var(--glass-solid);
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    background: var(--glass-solid);
+  }
+  /* The browser preview has no macOS material: the glass blurs the desktop instead. */
+  &:where(body.preview *) {
+    -webkit-backdrop-filter: blur(var(--bl-pop)) saturate(var(--sat));
+    backdrop-filter: blur(var(--bl-pop)) saturate(var(--sat));
+  }
+}
+
+/* Text on glass. tokens.css promises 4.5:1 for --ink3 and --accent-ink on
+   solid surfaces; on the glass of the popover and the main window, its
+   frosted panels and the rows and tiles in use, they are a step stronger. */
+.qs.app-window[data-theme="light"],
+.qs.app-popover[data-theme="light"] {
+  --ink3: #5e5e63;
+  --accent-ink: #005cc0;
+}
+.qs.app-window[data-theme="dark"],
+.qs.app-popover[data-theme="dark"] {
+  --ink3: #aaaaaf;
+  --accent-ink: #6dadff;
+}
+@media not (prefers-color-scheme: dark) {
+  .qs.app-window[data-theme="auto"],
+  .qs.app-popover[data-theme="auto"] {
+    --ink3: #5e5e63;
+    --accent-ink: #005cc0;
+  }
+}
+@media (prefers-color-scheme: dark) {
+  .qs.app-window[data-theme="auto"],
+  .qs.app-popover[data-theme="auto"] {
+    --ink3: #aaaaaf;
+    --accent-ink: #6dadff;
+  }
+}

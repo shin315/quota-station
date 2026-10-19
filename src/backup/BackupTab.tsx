@@ -4,7 +4,11 @@
 // Bitwarden item only: replace or delete, never show). No folder path, no
 // "Keychain", nothing technical.
 
-import { Banner, Button, Chip, Dot, Feedback, Toggle } from '../components/parts';
+import { Card as Panel, CardText, CardTitle } from '@/components/ui/card';
+import { PACK_META, PACK_ROW, ROW_ACTIONS, SETTING_ROW } from '../components/blocks';
+import { COUNT, Empty, EmptyIcon, GRID, STACK, TabHead, TabSub, TabTitle } from '../components/page';
+import { Banner, Button, Chip, Dot, Feedback, LinkButton, Toggle } from '../components/parts';
+import { cn } from '@/lib/utils';
 import { clock } from '../lib/format';
 import { keysLine, macOf, packLine, packNote, packWhen, packWhenLower, autoErrorText, usable } from '../lib/backup';
 import type { Model, PackInfo } from '../lib/model';
@@ -50,22 +54,22 @@ function PackRow({ p, model, now, backup }: { p: PackInfo; model: Model; now: Da
   const open = usable(p);
   const when = packWhen(p.at, now);
   return (
-    <div className="pk">
+    <div className={PACK_ROW}>
       <span>
         {when}
-        <small className="m">{macOf(p, model.machine)}</small>
+        <small className={PACK_META}>{macOf(p, model.machine)}</small>
       </span>
-      <span className="m">
+      <span className={PACK_META}>
         {p.state === 'ok' ? packLine(p) : null}
         {note ? <Chip chip={{ t: note, k: p.state === 'broken' ? 'bad' : 'warn' }} /> : null}
       </span>
-      <span className="a">
-        <button type="button" className="lnk sm" aria-label={'Xem gói ' + when} disabled={!open} onClick={() => backup.openView(p.id)}>
+      <span className="flex gap-2.5">
+        <LinkButton small aria-label={'Xem gói ' + when} disabled={!open} onClick={() => backup.openView(p.id)}>
           Xem
-        </button>
-        <button type="button" className="lnk sm" aria-label={'Khôi phục gói ' + when} disabled={!open || backup.working} onClick={() => backup.openRestore(p.id)}>
+        </LinkButton>
+        <LinkButton small aria-label={'Khôi phục gói ' + when} disabled={!open || backup.working} onClick={() => backup.openRestore(p.id)}>
           Khôi phục…
-        </button>
+        </LinkButton>
       </span>
     </div>
   );
@@ -85,30 +89,30 @@ export function BackupTab({ model, feedback, now, backup, onAction }: BackupTabP
   const busy = backup.working;
   const packs = v.packs;
   const top = (
-    <div className="tb" data-tauri-drag-region>
-      <h2>Sao lưu</h2>
-      <small>
+    <TabHead data-tauri-drag-region>
+      <TabTitle>Sao lưu</TabTitle>
+      <TabSub>
         <Dot tone={v.icloud ? 'ok' : 'stale'} />
         {model.machine} · iCloud Drive
-      </small>
+      </TabSub>
       <Button primary disabled={busy || !v.icloud} onClick={backup.backupNow}>
         {v.busy === 'packing' ? 'Đang sao lưu…' : 'Sao lưu bây giờ'}
       </Button>
       <Button disabled={busy || !packs?.some(usable)} onClick={() => backup.openRestore()}>
         Khôi phục…
       </Button>
-    </div>
+    </TabHead>
   );
   if (!packs)
     return (
       <>
         {top}
-        <div className="card">
-          <div className="empty">
+        <Panel>
+          <Empty>
             <b>Đang tìm các gói sao lưu…</b>
             Trong iCloud Drive.
-          </div>
-        </div>
+          </Empty>
+        </Panel>
       </>
     );
   const list = banners(model, now);
@@ -122,81 +126,79 @@ export function BackupTab({ model, feedback, now, backup, onAction }: BackupTabP
         <Banner key={b.title} banner={b} onAction={onAction} />
       ))}
       {!packs.length ? (
-        <div className="card">
-          <div className="empty">
-            <span className="ei" aria-hidden="true">
-              {ARCHIVE_BIG}
-            </span>
+        <Panel>
+          <Empty>
+            <EmptyIcon>{ARCHIVE_BIG}</EmptyIcon>
             <b>Chưa có gói sao lưu nào</b>
-            <p className="note">Gói gồm các MCP của bạn, không có khoá. Lưu trong iCloud Drive để máy khác lấy được.</p>
-            <div className="btns">
+            <CardText className="mt-2 mb-0">Gói gồm các MCP của bạn, không có khoá. Lưu trong iCloud Drive để máy khác lấy được.</CardText>
+            <div className="mt-2.5 flex flex-wrap justify-center gap-2">
               <Button primary disabled={busy || !v.icloud} onClick={backup.backupNow}>
                 Sao lưu lần đầu
               </Button>
             </div>
-          </div>
-        </div>
+          </Empty>
+        </Panel>
       ) : (
-        <div className="bkg">
-          <div className="stack">
+        <div className={cn(GRID, 'max-[860px]:grid-cols-[minmax(0,1fr)]')}>
+          <div className={STACK}>
             {last ? (
-              <div className="card">
-                <h4>Gói gần nhất</h4>
-                <div className="bigw">{packWhen(last.at, now)}</div>
-                <p className="ln">{macOf(last, model.machine) + ' · ' + packLine(last)}</p>
-                <p className="note" style={{ margin: 0 }}>
+              <Panel>
+                <CardTitle>Gói gần nhất</CardTitle>
+                <div className="text-h2 font-bold tracking-[-.02em] tabular-nums">{packWhen(last.at, now)}</div>
+                <p className="mt-0.5 mb-1 text-sm text-ink2">{macOf(last, model.machine) + ' · ' + packLine(last)}</p>
+                <CardText className="m-0">
                   {keysLine(last.keys)}{' '}
-                  <button type="button" className="lnk sm" onClick={() => backup.openView(last.id)}>
+                  <LinkButton small onClick={() => backup.openView(last.id)}>
                     Xem trong gói
-                  </button>
-                </p>
-              </div>
+                  </LinkButton>
+                </CardText>
+              </Panel>
             ) : null}
-            <div className="card">
-              <h4>
-                Các gói <span className="cnt">{packs.length}</span>
-              </h4>
+            <Panel>
+              <CardTitle>
+                Các gói <span className={COUNT}>{packs.length}</span>
+              </CardTitle>
               {packs.map((p) => (
                 <PackRow key={p.id} p={p} model={model} now={now} backup={backup} />
               ))}
-            </div>
+            </Panel>
           </div>
-          <div className="stack">
-            <div className="card">
-              <h4>Tự sao lưu</h4>
-              <div className="set">
+          <div className={STACK}>
+            <Panel>
+              <CardTitle>Tự sao lưu</CardTitle>
+              <div className={SETTING_ROW}>
                 <span>Sau mỗi thay đổi trong app</span>
                 <Toggle on={v.auto.afterChange} label="Sau mỗi thay đổi trong app" onClick={() => backup.setAuto(!v.auto.afterChange, v.auto.daily)} />
               </div>
-              <div className="set">
+              <div className={SETTING_ROW}>
                 <span>Mỗi ngày, nếu agent có gì đổi</span>
                 <Toggle on={v.auto.daily} label="Mỗi ngày, nếu agent có gì đổi" onClick={() => backup.setAuto(v.auto.afterChange, !v.auto.daily)} />
               </div>
-              <p className="note">Giữ 10 gói gần nhất của mỗi Mac.</p>
-            </div>
-            <div className="card">
-              <h4>
-                Khoá đã lưu <span className="cnt">{keys.length}</span>
-              </h4>
+              <CardText className="mt-2 mb-0">Giữ 10 gói gần nhất của mỗi Mac.</CardText>
+            </Panel>
+            <Panel>
+              <CardTitle>
+                Khoá đã lưu <span className={COUNT}>{keys.length}</span>
+              </CardTitle>
               {keys.map((k) => (
-                <div key={k.mcp + '|' + k.slot} className="set">
+                <div key={k.mcp + '|' + k.slot} className={SETTING_ROW}>
                   <div>
                     <b>{k.mcp}</b>
                     <small>{k.bitwarden ? 'Trong Bitwarden: ' + k.bitwarden : k.label}</small>
                   </div>
-                  <div className="a">
-                    <button type="button" className="lnk sm" aria-label={'Thay khoá ' + k.mcp} disabled={busy} onClick={() => backup.setDialog({ kind: 'key', key: k })}>
+                  <div className={ROW_ACTIONS}>
+                    <LinkButton small aria-label={'Thay khoá ' + k.mcp} disabled={busy} onClick={() => backup.setDialog({ kind: 'key', key: k })}>
                       Thay
-                    </button>
-                    <button type="button" className="lnk sm" aria-label={'Xoá khoá ' + k.mcp} disabled={busy} onClick={() => backup.setDialog({ kind: 'delKey', key: k })}>
+                    </LinkButton>
+                    <LinkButton small aria-label={'Xoá khoá ' + k.mcp} disabled={busy} onClick={() => backup.setDialog({ kind: 'delKey', key: k })}>
                       Xoá
-                    </button>
+                    </LinkButton>
                   </div>
                 </div>
               ))}
-              {!keys.length ? <p className="note">Chưa có khoá nào app giữ trên máy này.</p> : null}
-              <p className="note">Khoá chỉ nằm trên máy này, không vào gói.</p>
-            </div>
+              {!keys.length ? <CardText className="mt-2 mb-0">Chưa có khoá nào app giữ trên máy này.</CardText> : null}
+              <CardText className="mt-2 mb-0">Khoá chỉ nằm trên máy này, không vào gói.</CardText>
+            </Panel>
           </div>
         </div>
       )}

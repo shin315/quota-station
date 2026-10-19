@@ -1338,8 +1338,47 @@ UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test env_check
   tab and its `CheckMatrix`, which the Skills tab reuses, the Plugin and
   File hướng dẫn tabs, and the Bộ cấu hình tab (`SetsTab.tsx`), and
   `src/backup/` the backup tab, the restore sheet and the copy tab;
-  `src/settings/EnvCard.tsx` is Cài đặt's card of the variables. Its `styles/tokens.css` and
-  `styles/components.css` come from the approved prototype.
+  `src/settings/EnvCard.tsx` is Cài đặt's card of the variables. The
+  front-end stack is below.
+
+### Front-end stack
+
+The frontend is React 19 and TypeScript, built by Vite. It is styled with
+Tailwind CSS v4 (through `@tailwindcss/vite`, with no config file) and its
+interactive parts are shadcn/ui components on Radix primitives.
+
+- `src/styles/tokens.css` holds every colour, size, radius, shadow and blur
+  of the approved prototype, for light and dark and for Reduce transparency.
+  It is the one place to change a colour: nothing else names one.
+- `src/styles/theme.css` maps those tokens to Tailwind's theme
+  (`@theme inline`: `text-ink2`, `bg-fill`, `rounded-tile`, `shadow-sheet`
+  and the rest) and to shadcn/ui's variables. Tailwind's own colours, text
+  sizes, weights, shadows and blurs are cleared, so only the prototype's
+  exist.
+  `dark:` follows the window's `data-theme`, not the system setting alone.
+- `src/styles/glass.css` draws the materials: the popover's and the main
+  window's glass (`material-pop`, `material-window`), the frosted panels and
+  the solid fills Reduce transparency asks for.
+- `src/styles/globals.css` imports Tailwind (without its reset, which the
+  prototype never had) and the three files above; `src/main.tsx` imports
+  only it.
+- `src/components/ui/` holds the shadcn/ui components, customised to the
+  macOS controls: `button`, `badge`, `card`, `checkbox` (the macOS box),
+  `dialog` (the sheets and dialogs), `dropdown-menu` (a column's menu),
+  `input`, `radio-group` and `switch`, with `segmented` (the app's own, on
+  Radix Toggle). They keep the ARIA roles,
+  keyboard paths and focus returns the tests check. `components.json`
+  records their setup for the shadcn CLI.
+- `src/components/parts.tsx`, `page.tsx` and `blocks.tsx` build the app's
+  own pieces from them: a tab's head, its panels and rows, a diff, the
+  progress of a write. `src/lib/utils.ts` has `cn`, which merges class
+  names with tailwind-merge set to the theme's names.
+
+A few class names stay on elements that tests or other selectors look for
+(`acard2`, `wt-r`, `hrow`, `pendbar`, `toast` and the like); they carry no
+style. A test reads a control's state from its ARIA attribute
+(`aria-checked`, `aria-pressed`) or its `data-tone`, `data-variant` or
+`data-op`, not from its classes.
 
 ## License
 

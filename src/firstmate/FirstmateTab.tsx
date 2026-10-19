@@ -2,7 +2,9 @@
 // line its quota-pool watch writes (`quota-pool.last`, at the path set in
 // Cài đặt), next to the pool quota-axi reports. Read only.
 
-import { Button, Chip, Dot } from '../components/parts';
+import { Card as Panel, CardText, CardTitle } from '@/components/ui/card';
+import { TabHead, TabSub, TabTitle } from '../components/page';
+import { Button, Chip, Dot, KVT } from '../components/parts';
 import { firstmateTab } from '../lib/alerts';
 import type { Model } from '../lib/model';
 import type { Action, PopoverView } from '../lib/view';
@@ -18,36 +20,36 @@ export function FirstmateTab({ model, fresh, now, onAction }: FirstmateTabProps)
   const v = firstmateTab(model, now);
   return (
     <>
-      <div className="tb" data-tauri-drag-region="deep">
-        <h2>Firstmate</h2>
-        <small>
+      <TabHead>
+        <TabTitle>Firstmate</TabTitle>
+        <TabSub>
           <Dot tone={fresh.tone} />
           {model.machine} · {fresh.text}
-        </small>
-      </div>
-      <div className="card">
-        <div className="row2">
+        </TabSub>
+      </TabHead>
+      <Panel>
+        <div className="flex items-center justify-between gap-2.5">
           <div role="status">
-            <b style={{ fontSize: 'var(--fs-sheet)' }}>
-              <span className={'dot ' + v.tone} aria-hidden="true" style={{ marginRight: 8 }} />
+            <b className="text-sheet">
+              <Dot tone={v.tone} className="mr-2" />
               {v.title}
             </b>
-            <p style={{ margin: '4px 0 0' }}>{v.body}</p>
+            <CardText className="mt-1 mb-0">{v.body}</CardText>
           </div>
           {v.setUp ? <Button onClick={() => onAction('settings')}>Mở Cài đặt</Button> : null}
         </div>
-      </div>
+      </Panel>
       {v.rows.length ? (
-        <div className="card">
-          <h4>Firstmate đang thấy</h4>
-          <div className="kvt">
+        <Panel>
+          <CardTitle>Firstmate đang thấy</CardTitle>
+          <div className={KVT}>
             {v.rows.map((r) => [
               <span key={r.key + ':k'}>{r.key}</span>,
               <span key={r.key + ':v'}>{r.chip ? <Chip chip={r.chip} /> : r.value}</span>,
             ])}
           </div>
-          {v.note ? <p style={{ margin: '10px 0 0' }}>{v.note}</p> : null}
-        </div>
+          {v.note ? <CardText className="mt-2.5 mb-0">{v.note}</CardText> : null}
+        </Panel>
       ) : null}
     </>
   );

@@ -5,7 +5,9 @@
 // process, the file changed outside the app, and its guides and previews.
 // Both hosts draw the same body.
 
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useState } from 'react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { DialogButtons, DialogLead, DialogTitle } from '@/components/ui/dialog';
 import { agySheet, agyWorking, type AppAnswer } from '../lib/agySwitch';
 import { codexSheet, daemonFacts, externalSheet, longName, targetId } from '../lib/codex';
 import { dayClock } from '../lib/switching';
@@ -18,7 +20,10 @@ import {
   type HoldChoice,
   type PauseChoice,
 } from '../lib/switching';
-import { Button, ChoiceGroup, Rich } from './parts';
+import { Button, ChoiceGroup, CODE, Facts as FactList, FeedbackLine, FeedbackText, Hint, KVT, LinkButton, Rich, Spinner } from './parts';
+
+/** A numbered how-to list. */
+const HOWTO = 'm-0 mb-3 grid gap-1.5 pl-5 text-sm';
 
 export type SheetState =
   | { kind: 'claude'; slot: number }
@@ -30,36 +35,6 @@ export type SheetState =
   | { kind: 'daemon'; after: boolean }
   | { kind: 'codexExternal' }
   | { kind: 'codexInfo'; id: 'login' | 'backup' };
-
-export const SHEET_TITLE_ID = 'qs-dlg-t';
-
-const FOCUSABLE = 'button:not([disabled]):not([tabindex="-1"]), [href], input:not([disabled]), textarea:not([disabled])';
-
-/**
- * G10: the dialog takes focus when it opens, keeps Tab inside, and gives
- * focus back to where it was when it closes.
- */
-export function useDialog(open: boolean) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const before = document.activeElement as HTMLElement | null;
-    const el = ref.current;
-    const first = el?.querySelector<HTMLElement>('[role="radio"][aria-checked="true"]') ?? el?.querySelector<HTMLElement>(FOCUSABLE);
-    (first ?? el)?.focus();
-    return () => before?.focus?.();
-  }, [open]);
-  const onKeyDown = (e: KeyboardEvent) => {
-    if (e.key !== 'Tab' || !ref.current) return;
-    const items = Array.from(ref.current.querySelectorAll<HTMLElement>(FOCUSABLE + ', [role="radio"][tabindex="0"]'));
-    if (!items.length) return;
-    const i = items.indexOf(document.activeElement as HTMLElement);
-    const next = e.shiftKey ? (i <= 0 ? items.length - 1 : i - 1) : i === items.length - 1 ? 0 : i + 1;
-    e.preventDefault();
-    items[next].focus();
-  };
-  return { ref, onKeyDown };
-}
 
 export interface SheetBodyProps {
   sheet: SheetState;
@@ -97,27 +72,26 @@ function ClaudeBody(props: SheetBodyProps & { slot: number }) {
   if (!v) {
     return (
       <>
-        <h3 id={SHEET_TITLE_ID}>Không còn tài khoản này</h3>
-        <p className="lead">claude-swap không còn liệt kê tài khoản {props.slot}. Bấm Làm mới rồi thử lại.</p>
-        <div className="btns">
+        <DialogTitle>Không còn tài khoản này</DialogTitle>
+        <DialogLead>claude-swap không còn liệt kê tài khoản {props.slot}. Bấm Làm mới rồi thử lại.</DialogLead>
+        <DialogButtons>
           <Button large primary onClick={props.onClose}>
             Đóng
           </Button>
-        </div>
+        </DialogButtons>
       </>
     );
   }
   if (props.working) {
     return (
       <>
-        <h3 id={SHEET_TITLE_ID}>{v.confirm.replace('Chuyển sang', 'Đang chuyển sang')}…</h3>
-        <div className="fb info" role="status" style={{ margin: '8px 0 0' }}>
-          <span className="spin" aria-hidden="true" />
+        <DialogTitle>{v.confirm.replace('Chuyển sang', 'Đang chuyển sang')}…</DialogTitle>
+        <FeedbackLine tone="info" style={{ margin: '8px 0 0' }}>
+          <Spinner />
           <div>
-            <b>cswap switch {props.slot} đang chuyển tài khoản</b>
-            <small>Sau đó app đợi 5 giây rồi đọc lại tài khoản đang dùng để kiểm.</small>
+            <FeedbackText title={'cswap switch ' + props.slot + ' đang chuyển tài khoản'} body="Sau đó app đợi 5 giây rồi đọc lại tài khoản đang dùng để kiểm." />
           </div>
-        </div>
+        </FeedbackLine>
       </>
     );
   }
@@ -125,25 +99,17 @@ function ClaudeBody(props: SheetBodyProps & { slot: number }) {
   const confirm = () => props.onSwitch(props.slot, v.options.find((o) => o.v === choice)?.until ?? null);
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>{v.title}</h3>
-      <ul className="facts">
-        {v.facts.map((f) => (
-          <li key={f.text} className={f.k}>
-            <span>
-              <Rich text={f.text} />
-            </span>
-          </li>
-        ))}
-      </ul>
+      <DialogTitle>{v.title}</DialogTitle>
+      <Facts facts={v.facts} />
       <ChoiceGroup<HoldChoice> id="qs-hold" label="Giữ tài khoản này" options={v.options} value={choice} onChange={setChoice} />
-      <div className={('hint ' + v.hint.tone).trim()} aria-live="polite">
+      <Hint tone={v.hint.tone} aria-live="polite">
         {v.hint.text}
-      </div>
-      <div className="btns">
+      </Hint>
+      <DialogButtons>
         {v.blocked ? (
-          <button type="button" className="lnk" style={{ marginRight: 'auto' }} onClick={props.onSettings}>
+          <LinkButton style={{ marginRight: 'auto' }} onClick={props.onSettings}>
             Mở cài đặt
-          </button>
+          </LinkButton>
         ) : null}
         <Button large onClick={props.onClose}>
           Thôi
@@ -151,7 +117,7 @@ function ClaudeBody(props: SheetBodyProps & { slot: number }) {
         <Button large primary disabled={v.blocked} onClick={confirm}>
           {v.confirm}
         </Button>
-      </div>
+      </DialogButtons>
     </>
   );
 }
@@ -161,43 +127,34 @@ function AgyBody(props: SheetBodyProps & { number: number }) {
   if (!v) {
     return (
       <>
-        <h3 id={SHEET_TITLE_ID}>Không còn tài khoản này</h3>
-        <p className="lead">Tài khoản Antigravity {props.number} không còn trong danh sách đăng nhập của app. Bấm Làm mới rồi thử lại.</p>
-        <div className="btns">
+        <DialogTitle>Không còn tài khoản này</DialogTitle>
+        <DialogLead>Tài khoản Antigravity {props.number} không còn trong danh sách đăng nhập của app. Bấm Làm mới rồi thử lại.</DialogLead>
+        <DialogButtons>
           <Button large primary onClick={props.onClose}>
             Đóng
           </Button>
-        </div>
+        </DialogButtons>
       </>
     );
   }
   if (props.working) {
     return (
       <>
-        <h3 id={SHEET_TITLE_ID}>{v.title.replace('Chuyển', 'Đang chuyển').replace('?', '…')}</h3>
-        <div className="fb info" role="status" style={{ margin: '8px 0 0' }}>
-          <span className="spin" aria-hidden="true" />
+        <DialogTitle>{v.title.replace('Chuyển', 'Đang chuyển').replace('?', '…')}</DialogTitle>
+        <FeedbackLine tone="info" style={{ margin: '8px 0 0' }}>
+          <Spinner />
           <div>
-            <b>Đang chuyển tài khoản Antigravity</b>
-            <small>{agyWorking(props.agyHow)}</small>
+            <FeedbackText title="Đang chuyển tài khoản Antigravity" body={agyWorking(props.agyHow)} />
           </div>
-        </div>
+        </FeedbackLine>
       </>
     );
   }
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>{v.title}</h3>
-      <ul className="facts">
-        {v.facts.map((f) => (
-          <li key={f.text} className={f.k}>
-            <span>
-              <Rich text={f.text} />
-            </span>
-          </li>
-        ))}
-      </ul>
-      <div className="btns">
+      <DialogTitle>{v.title}</DialogTitle>
+      <Facts facts={v.facts} />
+      <DialogButtons>
         <Button large onClick={props.onClose}>
           Thôi
         </Button>
@@ -206,7 +163,7 @@ function AgyBody(props: SheetBodyProps & { number: number }) {
             {b.label}
           </Button>
         ))}
-      </div>
+      </DialogButtons>
     </>
   );
 }
@@ -229,20 +186,18 @@ function PauseBody(props: SheetBodyProps & { preset: PauseChoice }) {
   };
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>{v.title}</h3>
-      <p className="lead">{v.lead}</p>
+      <DialogTitle>{v.title}</DialogTitle>
+      <DialogLead>{v.lead}</DialogLead>
       <ChoiceGroup<PauseChoice> id="qs-pause" label="Trong bao lâu" options={v.options} value={value} columns={3} onChange={setChoice} />
-      <div className="hint" aria-live="polite">
-        {v.hint}
-      </div>
-      <div className="btns">
+      <Hint aria-live="polite">{v.hint}</Hint>
+      <DialogButtons>
         <Button large onClick={props.onClose}>
           Thôi
         </Button>
         <Button large primary onClick={confirm}>
           Tạm dừng
         </Button>
-      </div>
+      </DialogButtons>
     </>
   );
 }
@@ -251,49 +206,40 @@ function GuideBody(props: SheetBodyProps & { id: 'auto' | 'switcher' }) {
   const g = guide(props.id);
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>{g.title}</h3>
-      <p className="lead">{g.lead}</p>
-      <ol className="howto">
+      <DialogTitle>{g.title}</DialogTitle>
+      <DialogLead>{g.lead}</DialogLead>
+      <ol className={HOWTO}>
         {g.steps.map((s) => (
           <li key={s}>
             <Rich text={s} />
           </li>
         ))}
       </ol>
-      <div className="btns">
+      <DialogButtons>
         <Button large primary onClick={props.onClose}>
           Đóng
         </Button>
-      </div>
+      </DialogButtons>
     </>
   );
 }
 
 function Facts({ facts }: { facts: { k: string; text: string }[] }) {
   return (
-    <ul className="facts">
-      {facts.map((f) => (
-        <li key={f.text} className={f.k}>
-          <span>
-            <Rich text={f.text} />
-          </span>
-        </li>
-      ))}
-    </ul>
+    <FactList items={facts.map((f) => ({ k: f.k, key: f.text, text: <Rich text={f.text} /> }))} />
   );
 }
 
 function Working({ title, line, detail }: { title: string; line: string; detail: string }) {
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>{title}</h3>
-      <div className="fb info" role="status" style={{ margin: '8px 0 0' }}>
-        <span className="spin" aria-hidden="true" />
+      <DialogTitle>{title}</DialogTitle>
+      <FeedbackLine tone="info" style={{ margin: '8px 0 0' }}>
+        <Spinner />
         <div>
-          <b>{line}</b>
-          <small>{detail}</small>
+          <FeedbackText title={line} body={detail} />
         </div>
-      </div>
+      </FeedbackLine>
     </>
   );
 }
@@ -313,21 +259,23 @@ function CodexBody(props: SheetBodyProps & { target: CodexTarget }) {
     );
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>{v.title}</h3>
-      <p className="lead">{v.lead}</p>
+      <DialogTitle>{v.title}</DialogTitle>
+      <DialogLead>{v.lead}</DialogLead>
       <Facts facts={v.facts} />
-      <label className="check">
-        <input type="checkbox" checked={restart} disabled={v.blocked} onChange={(e) => setRestart(e.target.checked)} />
+      <label className="mb-2.5 flex cursor-pointer items-start gap-2 text-sm">
+        <Checkbox checked={restart} disabled={v.blocked} onCheckedChange={(on) => setRestart(on === true)} />
         <span>
           Khởi động lại tiến trình nền Codex sau khi chuyển
-          <small>Việc đang chạy trong Terminal sẽ bị ngắt. App hỏi lại một lần trước khi làm. Codex App vẫn phải tự thoát và mở lại.</small>
+          <small className="block text-xs text-ink2">
+            Việc đang chạy trong Terminal sẽ bị ngắt. App hỏi lại một lần trước khi làm. Codex App vẫn phải tự thoát và mở lại.
+          </small>
         </span>
       </label>
-      <div className="btns">
+      <DialogButtons>
         {v.ccSwitch && props.onCodexGuide ? (
-          <button type="button" className="lnk" style={{ marginRight: 'auto' }} onClick={props.onCodexGuide}>
+          <LinkButton style={{ marginRight: 'auto' }} onClick={props.onCodexGuide}>
             Hướng dẫn ngừng dùng CC Switch
-          </button>
+          </LinkButton>
         ) : null}
         <Button large onClick={props.onClose}>
           Thôi
@@ -335,7 +283,7 @@ function CodexBody(props: SheetBodyProps & { target: CodexTarget }) {
         <Button large primary disabled={v.blocked} onClick={() => props.onCodexSwitch?.(props.target, restart)}>
           {v.confirm}
         </Button>
-      </div>
+      </DialogButtons>
     </>
   );
 }
@@ -347,15 +295,15 @@ function DaemonBody(props: SheetBodyProps & { after: boolean }) {
   const name = longName(v, v.current === 'custom' && v.custom ? v.custom.id : 'openai');
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>Khởi động lại tiến trình nền Codex?</h3>
+      <DialogTitle>Khởi động lại tiến trình nền Codex?</DialogTitle>
       {props.after ? (
-        <p className="lead">
+        <DialogLead>
           Đã chuyển Codex sang {name}. Bạn đã chọn khởi động lại tiến trình nền sau khi chuyển; app hỏi lại vì việc này ngắt việc đang chạy.
-        </p>
+        </DialogLead>
       ) : null}
-      {v.procs && !v.procs.daemon ? <p className="lead">Tiến trình nền Codex đang không chạy: không có gì để khởi động lại.</p> : null}
+      {v.procs && !v.procs.daemon ? <DialogLead>Tiến trình nền Codex đang không chạy: không có gì để khởi động lại.</DialogLead> : null}
       <Facts facts={daemonFacts()} />
-      <div className="btns">
+      <DialogButtons>
         {props.after ? (
           <Button large onClick={props.onCodexSkipRestart}>
             Không khởi động lại
@@ -368,7 +316,7 @@ function DaemonBody(props: SheetBodyProps & { after: boolean }) {
         <Button large primary disabled={v.busy != null} onClick={() => props.onCodexRestart?.(props.after)}>
           Khởi động lại
         </Button>
-      </div>
+      </DialogButtons>
     </>
   );
 }
@@ -378,24 +326,31 @@ function ExternalBody(props: SheetBodyProps) {
   if (!v)
     return (
       <>
-        <h3 id={SHEET_TITLE_ID}>Cấu hình Codex không còn khác</h3>
-        <p className="lead">config.toml đang là bản app ghi lần cuối, hoặc bạn đã giữ bản này.</p>
-        <div className="btns">
+        <DialogTitle>Cấu hình Codex không còn khác</DialogTitle>
+        <DialogLead>config.toml đang là bản app ghi lần cuối, hoặc bạn đã giữ bản này.</DialogLead>
+        <DialogButtons>
           <Button large primary onClick={props.onClose}>
             Đóng
           </Button>
-        </div>
+        </DialogButtons>
       </>
     );
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>Cấu hình Codex đã đổi ngoài app</h3>
-      <p className="lead">{v.lead}</p>
-      <dl className="kv">
-        {v.rows.map((r) => [<dt key={r.key + ':k'}>{r.key}</dt>, <dd key={r.key + ':v'}>{r.value}</dd>])}
+      <DialogTitle>Cấu hình Codex đã đổi ngoài app</DialogTitle>
+      <DialogLead>{v.lead}</DialogLead>
+      <dl className="m-0 mb-2.5 grid grid-cols-[auto_1fr] gap-x-2.5 gap-y-[3px] text-sm">
+        {v.rows.map((r) => [
+          <dt key={r.key + ':k'} className="text-ink2">
+            {r.key}
+          </dt>,
+          <dd key={r.key + ':v'} className="m-0 tabular-nums">
+            {r.value}
+          </dd>,
+        ])}
       </dl>
       <Facts facts={[{ k: '', text: 'Bản trước khi đổi vẫn còn trong thư mục sao lưu của app.' }]} />
-      <div className="btns">
+      <DialogButtons>
         {v.back ? (
           <Button large onClick={() => props.onCodexOpen?.({ kind: 'codex', target: v.back!.target })}>
             {v.back.label}
@@ -404,7 +359,7 @@ function ExternalBody(props: SheetBodyProps) {
         <Button large primary onClick={props.onCodexKeep}>
           Giữ như bây giờ
         </Button>
-      </div>
+      </DialogButtons>
     </>
   );
 }
@@ -419,23 +374,23 @@ function CodexInfoBody(props: SheetBodyProps & { id: 'login' | 'backup' }) {
   if (props.id === 'login')
     return (
       <>
-        <h3 id={SHEET_TITLE_ID}>Đăng nhập ChatGPT cho Codex</h3>
-        <p className="lead">Quota Station không đăng nhập hộ và không đọc nội dung đăng nhập.</p>
-        <ol className="howto">
+        <DialogTitle>Đăng nhập ChatGPT cho Codex</DialogTitle>
+        <DialogLead>Quota Station không đăng nhập hộ và không đọc nội dung đăng nhập.</DialogLead>
+        <ol className={HOWTO}>
           <li>Mở Codex App.</li>
           <li>Chọn đăng nhập bằng ChatGPT và làm theo trang đăng nhập.</li>
           <li>Quay lại tab Codex, bấm Kiểm lại.</li>
         </ol>
-        <div className="btns">{close}</div>
+        <DialogButtons>{close}</DialogButtons>
       </>
     );
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>Thư mục sao lưu Codex</h3>
-      <p className="lead">
-        <span className="mono">{v.backupDir}</span>
-      </p>
-      <div className="kvt" style={{ marginBottom: 10 }}>
+      <DialogTitle>Thư mục sao lưu Codex</DialogTitle>
+      <DialogLead>
+        <span className={CODE}>{v.backupDir}</span>
+      </DialogLead>
+      <div className={KVT} style={{ marginBottom: 10 }}>
         {v.backups.length ? (
           v.backups.map((b, i) => [
             <span key={b + ':k'}>config.toml · {dayClock(b, props.now)}</span>,
@@ -445,11 +400,11 @@ function CodexInfoBody(props: SheetBodyProps & { id: 'login' | 'backup' }) {
           <span>Chưa có bản sao lưu nào: app chưa ghi config.toml lần nào.</span>
         )}
       </div>
-      <p className="lead">
-        Giữ 10 bản gần nhất. Bản lưu không chứa khoá: app thay giá trị của khoá bằng <span className="mono">&lt;redacted&gt;</span>. Lần ghi lỗi
+      <DialogLead>
+        Giữ 10 bản gần nhất. Bản lưu không chứa khoá: app thay giá trị của khoá bằng <span className={CODE}>&lt;redacted&gt;</span>. Lần ghi lỗi
         không đổi file đang dùng, nên chưa cần khôi phục.
-      </p>
-      <div className="btns">{close}</div>
+      </DialogLead>
+      <DialogButtons>{close}</DialogButtons>
     </>
   );
 }

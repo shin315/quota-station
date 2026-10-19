@@ -30,7 +30,7 @@ async function press(el: HTMLElement) {
 
 const dialog = () => screen.getByRole('dialog');
 const button = (name: string | RegExp) => screen.getByRole('button', { name });
-const box = (name: RegExp) => screen.getByRole('checkbox', { name }) as HTMLInputElement;
+const box = (name: RegExp) => screen.getByRole('checkbox', { name }) as HTMLButtonElement;
 
 async function compare() {
   await press(button('So sánh'));
@@ -48,11 +48,11 @@ describe('the Chép sang Mac khác tab', () => {
     expect(screen.getByRole('radio', { name: /Mac B/ }).getAttribute('aria-checked')).toBe('true');
     await compare();
     expect(fake.api.copyCompare).toHaveBeenCalledWith('mac-b');
-    expect(box(/^design-kit/).checked).toBe(true);
-    expect(box(/^deploy-check/).checked).toBe(true);
-    expect(box(/^formatter/).checked).toBe(true);
-    expect(box(/^files/).checked).toBe(false);
-    expect(box(/^ui-polish/).checked).toBe(false);
+    expect(box(/^design-kit/).getAttribute('aria-checked')).toBe('true');
+    expect(box(/^deploy-check/).getAttribute('aria-checked')).toBe('true');
+    expect(box(/^formatter/).getAttribute('aria-checked')).toBe('true');
+    expect(box(/^files/).getAttribute('aria-checked')).toBe('false');
+    expect(box(/^ui-polish/).getAttribute('aria-checked')).toBe('false');
     expect(box(/^tracker/).disabled).toBe(true);
     expect(screen.getByRole('switch', { name: 'Gửi cả khoá qua SSH' }).getAttribute('aria-checked')).toBe('false');
     expect(screen.getByText('Giống nhau: 11 mục.')).toBeTruthy();
@@ -73,7 +73,7 @@ describe('the Chép sang Mac khác tab', () => {
     await press(button('Xem CLAUDE.md của Claude Code'));
     // Sending: the other Mac's file now, then after the copy.
     expect(within(dialog()).getByText('Trên Mac B bây giờ → sau khi chép')).toBeTruthy();
-    expect(within(dialog()).getByText('- Dùng pnpm cho dự án mới.').className).toBe('a');
+    expect(within(dialog()).getByText('- Dùng pnpm cho dự án mới.').getAttribute('data-op')).toBe('add');
   });
 
   it('copies the ticked items without keys, then undoes it on the other Mac', async () => {
@@ -121,7 +121,7 @@ describe('the Chép sang Mac khác tab', () => {
     const fake = await openTab();
     await press(button('Lấy từ Mac B về'));
     await compare();
-    expect(box(/^tracker/).checked).toBe(true);
+    expect(box(/^tracker/).getAttribute('aria-checked')).toBe('true');
     expect(box(/^design-kit/).disabled).toBe(true);
     expect(box(/^ui-polish/).disabled).toBe(true);
     await press(button('Chép 1 mục về máy này…'));

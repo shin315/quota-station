@@ -320,7 +320,7 @@ describe('rules editor', () => {
     await open();
     for (const label of ['Team trong vòng', 'Cá nhân', 'Chuyển khi 5 giờ đã dùng', 'Bỏ qua khi Fable tuần đã dùng', 'Giờ rời vòng', 'Xem trước'])
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
-    const card = document.querySelector('.card .form')!;
+    const card = document.querySelector('.form')!;
     expect(card.textContent).not.toMatch(/Khoá/);
     expect(card.querySelectorAll('.fl small')).toHaveLength(0);
   });
@@ -328,7 +328,6 @@ describe('rules editor', () => {
   it('each slider mark sits where its value is', async () => {
     await open();
     const slider = screen.getByLabelText('Ngưỡng tự chuyển, phần trăm hạn mức 5 giờ đã dùng').closest('.slider')!;
-    expect(slider.className).toBe('slider ticks');
     const marks = Array.from(slider.querySelectorAll<HTMLElement>('.marks span')).map((m) => [m.textContent, m.style.left]);
     expect(marks).toEqual([
       ['80', '0%'],

@@ -9,9 +9,10 @@
 // opens the confirmation sheet, never a one-tap switch.
 
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { AccountName, NowStrip, WindowRow } from '../components/accounts';
+import { Dialog, DialogContent, DialogOverlay } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
+import { AccountName, IdMark, NowStrip, WindowRow } from '../components/accounts';
 import { Banner, Chip, Dot, Feedback, Toggle } from '../components/parts';
-import { SHEET_TITLE_ID, useDialog } from '../components/Sheets';
 import type { AutoView } from '../lib/switching';
 import type { CodexRowView } from '../lib/codex';
 import { bannerUnder, type Action, type CardView, type FeedbackView, type GroupView, type PopoverView } from '../lib/view';
@@ -39,12 +40,25 @@ function saveFolded(folded: Folded) {
   }
 }
 
+/** A round icon button in the popover's header. */
+const ICON_BUTTON = 'grid size-[26px] cursor-pointer place-items-center rounded-ctl border-0 bg-transparent text-ink2 hover:bg-fill [&_svg]:block';
+
+/** A group's header line: Claude and Antigravity fold; Codex's does not. */
+const GROUP_HEAD = 'mx-1.5 mt-1 mb-0.5 flex w-[calc(100%-12px)] items-center gap-1.5 rounded-row border-0 bg-transparent px-2 py-[5px] text-left text-xs text-ink2';
+
+const NOTE_TONE: Record<string, string> = { warn: 'bg-warn/14 text-warn-ink', bad: 'bg-bad/12 text-bad-ink' };
+
+/** A note under a group: what is the matter with its accounts. */
+function GroupNote({ note }: { note: { tone: string; text: string } }) {
+  return <div className={cn('mx-3.5 mt-0.5 mb-1 rounded-lg px-2 py-1.5 text-s', NOTE_TONE[note.tone] ?? 'bg-fill text-ink2')}>{note.text}</div>;
+}
+
 function CardBody({ card }: { card: CardView }) {
   return (
     <>
       {/* The card's frame says it is in use; the main window keeps the organization and the hours. */}
-      <span className="h">
-        <AccountName name={card.name} sub="" full={card.full} chips={card.chips} />
+      <span className="flex min-w-0 items-baseline gap-1.5">
+        <AccountName name={card.name} sub="" full={card.full} chips={card.chips} card />
       </span>
       {card.rows.map((c) => (
         <WindowRow key={c.label} cell={c} wide={card.kind === 'g'} dim={card.dim} />
@@ -60,10 +74,13 @@ function CardBody({ card }: { card: CardView }) {
  * row reads without an account list has nothing to switch to and is not a button.
  */
 function AccountCard({ card, onSwitch }: { card: CardView; onSwitch(slot: number): void }) {
-  const cls = 'acard2' + (card.active ? ' on' : '') + (card.dim ? ' dim' : '');
+  const cls = cn(
+    'acard2 block w-full rounded-tile border-0 bg-fill px-[11px] pt-2 pb-[9px] text-left',
+    card.active ? 'on cursor-default bg-sel shadow-[inset_0_0_0_1.5px_var(--accent)]' : 'cursor-pointer aria-disabled:cursor-default not-aria-disabled:hover:bg-sel',
+  );
   if (card.slot === 0) {
     return (
-      <div className={cls + ' ro'} role="listitem" aria-label={card.label} title={card.title || undefined}>
+      <div className={cn(cls, 'cursor-default')} role="listitem" aria-label={card.label} title={card.title || undefined}>
         <CardBody card={card} />
       </div>
     );
@@ -89,23 +106,23 @@ function Group(props: { group: GroupView; folded: boolean; onFold(): void; onSwi
   return (
     <section aria-label={g.title}>
       {/* Đang dùng already says whose account and how much: the header is the group's name alone. */}
-      <button type="button" className="ghd" aria-expanded={!props.folded} onClick={props.onFold}>
-        <span className={'chev' + (props.folded ? '' : ' open')}>
+      <button type="button" className={cn(GROUP_HEAD, 'cursor-pointer hover:bg-fill')} aria-expanded={!props.folded} onClick={props.onFold}>
+        <span className={cn('inline-grid place-items-center transition-transform duration-(--dur-1) ease-qs', props.folded ? '' : 'rotate-90')}>
           <ChevronIcon />
         </span>
-        <span className={'idm ' + g.id} />
-        <span className="lbl">{g.title}</span>
+        <IdMark id={g.id} />
+        <span className="font-bold tracking-[.02em]">{g.title}</span>
       </button>
       {props.folded ? null : (
         <>
           {g.cards.length ? (
-            <div className="acards" role="list" aria-label={g.title}>
+            <div className="grid gap-1.5 px-2.5 pb-1" role="list" aria-label={g.title}>
               {g.cards.map((c) => (
                 <AccountCard key={c.key} card={c} onSwitch={props.onSwitch} />
               ))}
             </div>
           ) : null}
-          {g.note ? <div className={('gnote ' + g.note.tone).trim()}>{g.note.text}</div> : null}
+          {g.note ? <GroupNote note={g.note} /> : null}
         </>
       )}
     </section>
@@ -120,35 +137,38 @@ function Group(props: { group: GroupView; folded: boolean; onFold(): void; onSwi
 function CodexSection({ row, onOpen }: { row: CodexRowView; onOpen(): void }) {
   return (
     <section aria-label="Codex">
-      <div className="ghd st">
-        <span className="idm x" />
-        <span className="lbl">CODEX</span>
+      <div className={cn(GROUP_HEAD, 'cursor-default')}>
+        <IdMark id="x" />
+        <span className="font-bold tracking-[.02em]">CODEX</span>
       </div>
-      <div className="rows">
+      <div className="px-1.5">
         <button
           type="button"
-          className="row cx one"
+          className="group grid w-full cursor-pointer grid-cols-[var(--av)_minmax(0,1fr)_auto] items-center gap-[9px] rounded-row border-0 bg-transparent px-2 py-[5px] text-left focus-visible:-outline-offset-2 aria-disabled:cursor-default not-aria-disabled:hover:bg-fill"
           aria-disabled={row.off ? true : undefined}
           aria-label={row.label + '. ' + row.sub + (row.head ? '. ' + row.head : '')}
           onClick={row.off ? undefined : onOpen}
         >
-          <span className="av x" aria-hidden="true">
+          <span
+            className="grid size-(--av) place-items-center rounded-full bg-id-codex-tint text-[10.5px] font-heavy text-id-codex-ink [&_svg]:size-[13px]"
+            aria-hidden="true"
+          >
             {NAV_ICONS.codex}
           </span>
-          <span className="rc">
-            <span className="nm">
-              <b>Codex</b>
+          <span className="min-w-0">
+            <span className="flex min-w-0 flex-wrap items-center gap-[5px]">
+              <b className="text-body font-semi">Codex</b>
               {row.chips.map((c) => (
-                <Chip key={c.t} chip={c} />
+                <Chip key={c.t} chip={c} className="font-med" />
               ))}
             </span>
           </span>
-          <span className="cxgo" aria-hidden="true">
+          <span className="whitespace-nowrap text-sm font-med text-accent-ink group-aria-disabled:text-ink2 group-aria-disabled:line-through" aria-hidden="true">
             {row.go}
           </span>
         </button>
       </div>
-      {row.note ? <div className={('gnote ' + row.note.tone).trim()}>{row.note.text}</div> : null}
+      {row.note ? <GroupNote note={row.note} /> : null}
     </section>
   );
 }
@@ -162,18 +182,18 @@ function CodexSection({ row, onOpen }: { row: CodexRowView; onOpen(): void }) {
 function Footer({ auto, sync, onToggle }: { auto: AutoView; sync: SyncLine | null; onToggle(): void }) {
   return (
     <>
-      <div className="li">
-        <div className="t">
+      <div className="li flex items-center gap-2 text-sm">
+        <div className="min-w-0 flex-1">
           <b>{auto.title}</b>
-          {auto.popLine ? <small>{auto.popLine}</small> : null}
+          {auto.popLine ? <small className="block text-xs text-ink2">{auto.popLine}</small> : null}
         </div>
         <Toggle on={auto.toggle.on} label={auto.toggle.label} disabled={auto.toggle.disabled} onClick={onToggle} />
       </div>
       {sync && sync.tone !== 'ok' ? (
-        <div className="li">
-          <span className={'dot ' + sync.tone} aria-hidden="true" />
-          <div className="t">
-            <small>Luật xoay vòng · {sync.text}</small>
+        <div className="li flex items-center gap-2 text-sm">
+          <Dot tone={sync.tone} />
+          <div className="min-w-0 flex-1">
+            <small className="block text-xs text-ink2">Luật xoay vòng · {sync.text}</small>
           </div>
         </div>
       ) : null}
@@ -215,7 +235,7 @@ export function Popover({ view, codex = null, auto, sync = null, feedback, busy,
   const content = useRef<HTMLDivElement>(null);
   const foot = useRef<HTMLDivElement>(null);
   const open = !!sheet;
-  const dialog = useDialog(open);
+  const sheetRef = useRef<HTMLDivElement>(null);
   const banner = bannerUnder(view.banner, feedback);
   const [folded, setFolded] = useState(loadFolded);
   const fold = (id: 'c' | 'g') =>
@@ -231,35 +251,40 @@ export function Popover({ view, codex = null, auto, sync = null, feedback, busy,
     const measure = () => {
       const natural = (head.current?.offsetHeight ?? 0) + (content.current?.offsetHeight ?? 0) + (foot.current?.offsetHeight ?? 0) + 4;
       // An open sheet needs room for all of itself above the popover's bottom edge.
-      const sheetHeight = dialog.ref.current ? dialog.ref.current.scrollHeight + 16 : 0;
+      const sheetHeight = sheetRef.current ? sheetRef.current.scrollHeight + 16 : 0;
       onHeight(Math.max(natural, sheetHeight));
     };
     measure();
     if (typeof ResizeObserver === 'undefined') return;
     const ro = new ResizeObserver(measure);
-    for (const el of [head.current, content.current, foot.current, dialog.ref.current]) if (el) ro.observe(el);
+    for (const el of [head.current, content.current, foot.current, sheetRef.current]) if (el) ro.observe(el);
     return () => ro.disconnect();
-  }, [onHeight, open, dialog.ref, folded]);
+  }, [onHeight, open, folded]);
 
   return (
-    <div className={'pop' + (open ? ' open' : '')} role="dialog" aria-label="Quota Station">
-      <div className="hd one" ref={head} inert={open}>
+    <div
+      data-slot="popover"
+      className="material-pop relative flex max-h-screen w-full max-w-full flex-col overflow-hidden rounded-pop shadow-[var(--sh-pop),inset_0_0_0_.5px_var(--glass-line)] in-[.preview]:max-h-(--pop-max)"
+      role="dialog"
+      aria-label="Quota Station"
+    >
+      <div className="flex flex-none items-center gap-1 pt-2.5 pr-2.5 pb-1.5 pl-3.5" ref={head} inert={open}>
         {/* One line: this Mac, and how old the numbers are only when they are not fresh. */}
-        <div className="tt">
-          <b>
+        <div className="min-w-0 flex-1">
+          <b className="flex min-w-0 items-center gap-1.5 whitespace-nowrap text-body font-semi">
             <Dot tone={view.fresh.tone} />
             {view.machine}
-            {view.fresh.tone === 'ok' ? null : <small>· {view.fresh.text}</small>}
+            {view.fresh.tone === 'ok' ? null : <small className="overflow-hidden text-ellipsis text-s font-reg text-ink2">· {view.fresh.text}</small>}
           </b>
         </div>
-        <button type="button" className="ib" aria-label={theme} title={theme} onClick={() => onAction('theme')}>
+        <button type="button" className={ICON_BUTTON} aria-label={theme} title={theme} onClick={() => onAction('theme')}>
           {dark ? <SunIcon /> : <MoonIcon />}
         </button>
-        <button type="button" className="ib" aria-label="Mở Quota Station" title="Mở Quota Station" onClick={() => onAction('window')}>
+        <button type="button" className={ICON_BUTTON} aria-label="Mở Quota Station" title="Mở Quota Station" onClick={() => onAction('window')}>
           <OpenIcon />
         </button>
       </div>
-      <div className="body" inert={open}>
+      <div className="body min-h-0 flex-[1_1_auto] overflow-y-auto overscroll-contain pb-1" inert={open}>
         <div ref={content}>
           {feedback ? <Feedback fb={feedback} onAction={onAction} /> : null}
           {banner ? <Banner banner={banner} onAction={onAction} busy={busy} /> : null}
@@ -269,23 +294,21 @@ export function Popover({ view, codex = null, auto, sync = null, feedback, busy,
           {codex ? <CodexSection row={codex} onOpen={() => onAction('codex:open')} /> : null}
         </div>
       </div>
-      <div className="ft" ref={foot} inert={open}>
+      <div className="grid flex-none gap-[7px] border-t-[.5px] border-glass-line px-3.5 pt-2 pb-2.5" ref={foot} inert={open}>
         <Footer auto={auto} sync={sync} onToggle={onToggle} />
       </div>
-      <div className="scrim" aria-hidden="true" onClick={onCloseSheet} />
-      {sheet ? (
-        <div
-          className="sheet"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby={SHEET_TITLE_ID}
-          tabIndex={-1}
-          ref={dialog.ref}
-          onKeyDown={dialog.onKeyDown}
-        >
-          {sheet}
-        </div>
-      ) : null}
+      <DialogOverlay
+        className={cn('z-20 transition-opacity duration-(--dur-2) ease-qs', open ? 'opacity-100' : 'pointer-events-none opacity-0')}
+        aria-hidden="true"
+        onClick={onCloseSheet}
+      />
+      <Dialog open={open}>
+        {sheet ? (
+          <DialogContent kind="sheet" ref={sheetRef}>
+            {sheet}
+          </DialogContent>
+        ) : null}
+      </Dialog>
     </div>
   );
 }
