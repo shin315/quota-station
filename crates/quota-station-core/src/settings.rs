@@ -1,7 +1,8 @@
 //! The app's own settings file, `settings.json` in its Application Support
 //! folder: the quota-axi path, the name this Mac goes by, the other Macs
 //! the rotation file is copied to, whether account names show, the light or
-//! dark look, which service the menu bar follows, which alerts are on,
+//! dark look, which service the menu bar follows and which of its windows
+//! the title shows, which alerts are on,
 //! where Firstmate's state file is, the clone "Cập nhật từ mã nguồn"
 //! builds from and Codex's folder.
 
@@ -38,6 +39,10 @@ pub struct Settings {
     /// Each Mac keeps its own.
     #[serde(default, skip_serializing_if = "Menubar::is_claude")]
     pub menubar: Menubar,
+    /// The window whose share used the menu bar title shows. Each Mac keeps
+    /// its own.
+    #[serde(default, skip_serializing_if = "MenubarWindow::is_five_hours")]
+    pub menubar_window: MenubarWindow,
     /// Which of the five alerts are on.
     #[serde(default, skip_serializing_if = "Switches::is_default")]
     pub alerts: Switches,
@@ -88,6 +93,27 @@ impl Menubar {
     }
 }
 
+/// The window the menu bar title shows. A service without that window shows
+/// its five-hour window instead, and the tightest one without either.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum MenubarWindow {
+    #[default]
+    FiveHours,
+    Week,
+    /// Claude's Fable weekly window.
+    FableWeek,
+    /// The window used the most, as the title showed before there was a
+    /// choice.
+    Tightest,
+}
+
+impl MenubarWindow {
+    pub fn is_five_hours(&self) -> bool {
+        *self == MenubarWindow::FiveHours
+    }
+}
+
 /// Another of the owner's Macs.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -120,6 +146,9 @@ struct Stored {
     /// An unknown value reads as Claude.
     #[serde(default)]
     menubar: serde_json::Value,
+    /// An unknown value reads as five hours.
+    #[serde(default)]
+    menubar_window: serde_json::Value,
     #[serde(default)]
     alerts: Switches,
     #[serde(default)]
@@ -162,6 +191,7 @@ impl From<Stored> for Settings {
             hide_names: s.hide_names,
             theme: serde_json::from_value(s.theme).unwrap_or_default(),
             menubar: serde_json::from_value(s.menubar).unwrap_or_default(),
+            menubar_window: serde_json::from_value(s.menubar_window).unwrap_or_default(),
             alerts: s.alerts,
             firstmate_file: s.firstmate_file,
             source_dir: s.source_dir,
