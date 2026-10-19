@@ -5,7 +5,7 @@
 // (F06), and Antigravity also shows the accounts the app logs in (M4a) and
 // switches from its tables once quota-axi lists them (M4c). Lịch sử, Cảnh
 // báo and Firstmate come from M6, and Cảnh báo counts the alerts nobody
-// answered yet. The sidebar keeps Codex, a later milestone, in place, disabled.
+// answered yet. Codex (M8) has its own tab and a compact card on Tổng quan.
 
 import { Fragment, type ReactNode } from 'react';
 import { AddAccount, LoginActions, LoginNotes, LogoutConfirm, loginChips, type AgyLogins } from '../antigravity/AgyAccounts';
@@ -20,13 +20,13 @@ import { NAV_ICONS } from './icons';
 
 type NavId = keyof typeof NAV_ICONS;
 
-/** The prototype's sidebar; `later` tabs arrive in later milestones. */
-const NAVS: (['-', string] | [NavId, string, 'later'?])[] = [
+/** The prototype's sidebar. */
+const NAVS: (['-', string] | [NavId, string])[] = [
   ['overview', 'Tổng quan'],
   ['-', 'Tài khoản'],
   ['claude', 'Claude'],
   ['agy', 'Antigravity'],
-  ['codex', 'Codex', 'later'],
+  ['codex', 'Codex'],
   ['-', 'Tự động'],
   ['rules', 'Luật xoay vòng'],
   ['history', 'Lịch sử'],
@@ -34,16 +34,14 @@ const NAVS: (['-', string] | [NavId, string, 'later'?])[] = [
   ['firstmate', 'Firstmate'],
 ];
 
-function NavButton(props: { id: NavId; label: string; tab: Tab; later?: boolean; badge?: number; onTab(tab: Tab): void }) {
+function NavButton(props: { id: NavId; label: string; tab: Tab; badge?: number; onTab(tab: Tab): void }) {
   const on = props.id === props.tab;
   return (
     <button
       type="button"
       className={'nav' + (on ? ' on' : '')}
       aria-current={on ? 'page' : undefined}
-      disabled={props.later}
-      title={props.later ? 'Có ở bản sau' : undefined}
-      onClick={props.later ? undefined : () => props.onTab(props.id as Tab)}
+      onClick={() => props.onTab(props.id as Tab)}
     >
       {NAV_ICONS[props.id]}
       {props.label}
@@ -79,7 +77,6 @@ function Sidebar(props: { tab: Tab; machine: string; note: string | null; alerts
             key={n[0]}
             id={n[0]}
             label={n[1]}
-            later={n[2] === 'later'}
             badge={n[0] === 'alerts' ? props.alerts : undefined}
             tab={tab}
             onTab={onTab}
@@ -272,6 +269,8 @@ interface TabProps {
   now: Date;
   /** The accounts the app logs in, merged into the Antigravity table. */
   agyLogins?: AgyLogins;
+  /** Codex's card on Tổng quan (M8). */
+  codexCard?: ReactNode;
 }
 
 function Top(props: TabProps & { title: string; banner?: boolean }) {
@@ -303,6 +302,7 @@ function Overview(props: TabProps) {
               <Note note={v.agy.note} />
             </Card>
           ) : null}
+          {props.codexCard}
         </div>
         <div className="stack">
           <AutoCard auto={v.auto} onToggle={props.onToggle} />
@@ -414,6 +414,9 @@ export interface MainWindowProps {
   settings: ReactNode;
   /** The Luật xoay vòng tab, drawn by the rules editor. */
   rules: ReactNode;
+  /** The Codex tab (M8) and Codex's card on Tổng quan. */
+  codex?: ReactNode;
+  codexCard?: ReactNode;
   /** The Lịch sử, Cảnh báo and Firstmate tabs (M6). */
   history?: ReactNode;
   alerts?: ReactNode;
@@ -440,6 +443,7 @@ export function MainWindow(props: MainWindowProps) {
     onPause: props.onPause,
     now: props.now,
     agyLogins: props.agyLogins,
+    codexCard: props.codexCard,
   };
   const open = !!props.dialog;
   const dialog = useDialog(open);
@@ -457,6 +461,7 @@ export function MainWindow(props: MainWindowProps) {
           {props.tab === 'overview' ? <Overview {...tabProps} /> : null}
           {props.tab === 'claude' ? <ClaudeTab {...tabProps} /> : null}
           {props.tab === 'agy' ? <AgyTab {...tabProps} /> : null}
+          {props.tab === 'codex' ? props.codex : null}
           {props.tab === 'rules' ? props.rules : null}
           {props.tab === 'history' ? props.history : null}
           {props.tab === 'alerts' ? props.alerts : null}

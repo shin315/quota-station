@@ -3,15 +3,18 @@
 // folds from its header to one line, and stays folded the next time the
 // popover opens. A card opens its switch sheet; the footer holds the
 // automatic switching toggle. The header's two buttons switch between the
-// light and dark look and open the main window.
+// light and dark look and open the main window. Under the groups, Codex is
+// one row (M8): the provider in use and where a switch would go; pressing it
+// opens the confirmation sheet, never a one-tap switch.
 
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { AccountName, RoomStrip, WindowRow } from '../components/accounts';
 import { Banner, Chip, Dot, Feedback, Toggle } from '../components/parts';
 import { SHEET_TITLE_ID, useDialog } from '../components/Sheets';
 import type { AutoView } from '../lib/switching';
+import type { CodexRowView } from '../lib/codex';
 import { bannerUnder, type Action, type CardView, type FeedbackView, type GroupView, type PopoverView } from '../lib/view';
-import { ChevronIcon, MoonIcon, OpenIcon, SunIcon } from '../window/icons';
+import { ChevronIcon, MoonIcon, NAV_ICONS, OpenIcon, SunIcon } from '../window/icons';
 
 /** Which groups are folded, kept in this window's storage so it outlives the app. */
 export const FOLD_KEY = 'quota-station.popover.folded';
@@ -126,6 +129,39 @@ function Group(props: { group: GroupView; folded: boolean; onFold(): void; onSwi
   );
 }
 
+/** CodexRow = `.row.cx`: the provider in use, its state, and `→` where a switch goes. */
+function CodexSection({ row, onOpen }: { row: CodexRowView; onOpen(): void }) {
+  return (
+    <section aria-label="Codex">
+      <div className="ghd st">
+        <span className="idm x" />
+        <span className="lbl">CODEX</span>
+        <span className="gsum">{row.head}</span>
+      </div>
+      <div className="rows">
+        <button type="button" className="row cx" aria-disabled={row.off ? true : undefined} aria-label={row.label} onClick={row.off ? undefined : onOpen}>
+          <span className="av x" aria-hidden="true">
+            {NAV_ICONS.codex}
+          </span>
+          <span className="rc">
+            <span className="nm">
+              <b>Codex</b>
+              {row.chips.map((c) => (
+                <Chip key={c.t} chip={c} />
+              ))}
+            </span>
+            <span className="cxsub">{row.sub}</span>
+          </span>
+          <span className="cxgo" aria-hidden="true">
+            {row.go}
+          </span>
+        </button>
+      </div>
+      {row.note ? <div className={('gnote ' + row.note.tone).trim()}>{row.note.text}</div> : null}
+    </section>
+  );
+}
+
 /** G17: outside the scrolling body, so the toggle is always in view. */
 function Footer({ auto, sync, onToggle }: { auto: AutoView; sync: SyncLine | null; onToggle(): void }) {
   return (
@@ -157,6 +193,8 @@ export interface SyncLine {
 
 export interface PopoverProps {
   view: PopoverView;
+  /** The Codex row (M8); null on a Mac without Codex. */
+  codex?: CodexRowView | null;
   auto: AutoView;
   /** The other Macs' copies of the rotation file; null with no other Mac. */
   sync?: SyncLine | null;
@@ -176,7 +214,7 @@ export interface PopoverProps {
   onHeight?(height: number): void;
 }
 
-export function Popover({ view, auto, sync = null, feedback, busy, dark = false, onAction, onSwitch, onSwitchAgy, onToggle, sheet, onCloseSheet, onHeight }: PopoverProps) {
+export function Popover({ view, codex = null, auto, sync = null, feedback, busy, dark = false, onAction, onSwitch, onSwitchAgy, onToggle, sheet, onCloseSheet, onHeight }: PopoverProps) {
   const head = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const foot = useRef<HTMLDivElement>(null);
@@ -230,6 +268,7 @@ export function Popover({ view, auto, sync = null, feedback, busy, dark = false,
           {banner ? <Banner banner={banner} onAction={onAction} busy={busy} /> : null}
           <Group group={view.claude} folded={folded.c} onFold={() => fold('c')} onSwitch={onSwitch} />
           <Group group={view.agy} folded={folded.g} onFold={() => fold('g')} onSwitch={onSwitchAgy ?? (() => {})} />
+          {codex ? <CodexSection row={codex} onOpen={() => onAction('codex:open')} /> : null}
         </div>
       </div>
       <div className="ft" ref={foot} inert={open}>

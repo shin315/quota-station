@@ -29,6 +29,7 @@ use time::OffsetDateTime;
 use crate::agy_switch::{self, SwitchView};
 use crate::alerting::{self, AlertsView, FirstmateView};
 use crate::antigravity::{self, AccountsView};
+use crate::codex::{self, CodexView};
 use crate::install::{self, AppView, InstallState};
 use crate::notify;
 
@@ -52,6 +53,8 @@ pub struct Shared {
     /// Held while the history compares the newest readings, so a read and a
     /// switch never keep the same change twice.
     pub history: Mutex<()>,
+    /// Wakes the Codex thread: a read, the Codex tab, a switch (M8).
+    pub codex_wake: Condvar,
 }
 
 impl Shared {
@@ -64,6 +67,7 @@ impl Shared {
             agy_wake: Condvar::new(),
             agy_accounts: Mutex::new(()),
             history: Mutex::new(()),
+            codex_wake: Condvar::new(),
         })
     }
 
@@ -78,10 +82,15 @@ impl Shared {
         self.inner.lock().unwrap_or_else(|e| e.into_inner())
     }
 
-    /// Asks the reader thread for a read now.
+    /// Asks the reader thread for a read now, and the Codex thread for a look.
     pub fn request_read(&self) {
-        self.lock().read_now = true;
+        {
+            let mut inner = self.lock();
+            inner.read_now = true;
+            inner.codex.now = true;
+        }
         self.wake.notify_all();
+        self.codex_wake.notify_all();
     }
 
     /// Asks the reader thread to look at the switcher again: its dry run,
@@ -178,6 +187,8 @@ pub struct Inner {
     pub app_version: String,
     /// Launching at login and the update from source (M7).
     pub install: InstallState,
+    /// Codex's files, processes and provider as last looked at (M8).
+    pub codex: codex::Live,
 }
 
 /// How the app's own read of an Antigravity account stands.
@@ -233,7 +244,7 @@ impl SwitcherState {
     }
 }
 
-/// The main window's tabs that this build has. Codex comes later.
+/// The main window's tabs.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Tab {
@@ -241,6 +252,7 @@ pub enum Tab {
     Overview,
     Claude,
     Agy,
+    Codex,
     Rules,
     History,
     Alerts,
@@ -298,6 +310,7 @@ impl Inner {
             center: None,
             app_version: String::new(),
             install: InstallState::default(),
+            codex: codex::Live::default(),
         }
     }
 
@@ -430,6 +443,7 @@ impl Inner {
             alerts: alerting::alerts_view(self),
             firstmate: alerting::firstmate_view(self),
             app: install::view(self),
+            codex: codex::view(self),
         }
     }
 
@@ -537,6 +551,8 @@ pub struct Model {
     pub firstmate: FirstmateView,
     /// The app itself: version, launching at login, the update (M7).
     pub app: AppView,
+    /// Switching Codex (M8).
+    pub codex: CodexView,
 }
 
 /// The rotation file and the other Macs (F06).

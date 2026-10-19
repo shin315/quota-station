@@ -100,3 +100,66 @@ What was changed:
 
 A later milestone that adapts more of Cockpit Tools adds its parts to
 this list.
+
+----------------------------------------------------------------------------
+
+This work also contains code ported from CC Switch
+(https://github.com/farion1231/cc-switch), version 4.0.15, commit 79e754ab,
+licensed under the MIT License:
+
+  MIT License
+
+  Copyright (c) 2025 Jason Young
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+
+Ported parts. Each file names its source in its header.
+
+- crates/quota-station-core/src/codex/config.rs
+  from src-tauri/src/live/project/codex.rs: the reserved provider ids
+  (openai, ollama, lmstudio) and the built-in ones; how a provider table's
+  own credentials are told apart (env_key, experimental_bearer_token, and
+  the header styles: auth, aws, headers, query_params); the
+  requires_openai_auth rule (on for an environment or bearer key when a
+  ChatGPT login exists, off otherwise); the refusal of a table with no key of
+  its own; the placeholder CC Switch leaves in a dormant table; and the check
+  that the active profile does not choose another provider.
+- crates/quota-station-core/src/codex/login.rs
+  from src-tauri/src/codex_config.rs: which auth.json fields count as a
+  login, and the credential store modes (file, keyring, auto, ephemeral).
+- crates/quota-station-core/src/codex/procs.rs
+  from src-tauri/src/services/provider/codex_client_catalog.rs: telling
+  Codex's shared background process (app-server --managed-daemon) from the
+  other app-servers by its command line, and restarting it with
+  codex app-server daemon restart under CODEX_HOME.
+
+What was changed:
+
+- Only the provider choice is switched. The app keeps no provider list or
+  database of its own: the custom provider's id, address and key come from
+  the existing config.toml, and no host, address or key is built in.
+- The edit is made on the file's text with toml_edit, and only
+  model_provider and the custom table's requires_openai_auth change; a check
+  refuses any other change. auth.json and [mcp_servers] are never written,
+  and the MCP list is never rebuilt.
+- Each write checks a SHA-256 of the file the owner saw, keeps a backup
+  (mode 600, the newest ten), re-reads before the rename and verifies after;
+  a symlinked config.toml stays a symlink.
+- The background process is restarted only after the owner ticks the box
+  or confirms its own sheet; nothing is killed.

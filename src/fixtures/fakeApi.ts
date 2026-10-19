@@ -15,6 +15,9 @@ import type {
   AlertKind,
   AlertRecord,
   AlertSaid,
+  CodexOutcome,
+  CodexRestart,
+  CodexTarget,
   FirstmateView,
   HistoryEntry,
   Model,
@@ -57,6 +60,12 @@ export interface FakeOptions {
   agyOutcome?: (number: number, how: AgyHow) => AgyOutcome;
   /** How long an Antigravity switch takes before it reports. */
   agySwitchDelayMs?: number;
+  /** What a Codex switch reports; by default it lands where it was asked to. */
+  codexOutcome?: (target: CodexTarget) => CodexOutcome;
+  /** What a restart of Codex's background process reports; by default it restarts. */
+  codexRestart?: CodexRestart;
+  /** How long a Codex switch or restart takes; the preview waits to show the working sheet. */
+  codexDelayMs?: number;
   /** The History tab's lines; none by default. */
   history?: HistoryEntry[];
   /** What a `quota-pool.last` set in Cài đặt reads as; without it a path finds no file. */
@@ -389,6 +398,55 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
         agySwitch: { ...model.agySwitch, busy: null, overwritten: outcome.kind === 'failed' ? model.agySwitch.overwritten : null },
       });
       return outcome;
+    },
+    codexSwitch: async (target, base) => {
+      const c = model.codex;
+      push({ ...model, codex: { ...c, busy: 'switching' } });
+      if (options.codexDelayMs) await new Promise((r) => setTimeout(r, options.codexDelayMs));
+      const from = c.current === 'custom' && c.custom ? c.custom.id : c.current === 'other' && c.other ? c.other : 'openai';
+      const to = target === 'custom' ? (c.custom?.id ?? 'custom') : 'openai';
+      const outcome: CodexOutcome =
+        options.codexOutcome?.(target) ??
+        (base !== c.hash
+          ? { kind: 'failed', target, error: { kind: 'changed' } }
+          : { kind: 'switched', target, from, to, backup: 'config.toml.20260116-142040' });
+      const at = now().toISOString();
+      push({
+        ...model,
+        codex:
+          outcome.kind === 'switched'
+            ? {
+                ...c,
+                busy: null,
+                current: target === 'custom' ? 'custom' : 'chatgpt',
+                hash: c.hash + "'",
+                external: null,
+                lastWrite: { at, provider: to, matches: true },
+                backups: [at, ...c.backups].slice(0, 10),
+                recent: [{ at, from, to, result: 'switched', restarted: null }, ...c.recent].slice(0, 5),
+              }
+            : { ...c, busy: null },
+      });
+      return outcome;
+    },
+    codexRestart: async (afterSwitch) => {
+      push({ ...model, codex: { ...model.codex, busy: 'restarting' } });
+      if (options.codexDelayMs) await new Promise((r) => setTimeout(r, options.codexDelayMs));
+      const out: CodexRestart = options.codexRestart ?? (model.codex.procs?.daemon ? { kind: 'restarted' } : { kind: 'notRunning' });
+      const recent = afterSwitch && model.codex.recent[0] ? [{ ...model.codex.recent[0], restarted: out.kind === 'restarted' }, ...model.codex.recent.slice(1)] : model.codex.recent;
+      push({ ...model, codex: { ...model.codex, busy: null, recent } });
+      return out;
+    },
+    codexKeep: async () => {
+      push({ ...model, codex: { ...model.codex, external: null } });
+      return model;
+    },
+    codexCheck: async () => {},
+    codexExportMcp: async () => '~/Downloads/codex-mcp-16-01.txt',
+    setCodexHome: async (path) => {
+      if (path && !path.startsWith('~')) throw new Error('notFound');
+      push({ ...model, codex: { ...model.codex, home: path || '~/.codex', customHome: !!path } });
+      return model;
     },
     agyDismissOverwrite: async () => {
       push({ ...model, agySwitch: { ...model.agySwitch, overwritten: null } });

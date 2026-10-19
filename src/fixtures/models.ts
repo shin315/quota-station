@@ -7,6 +7,7 @@ import type {
   AgyLogin,
   AlertRecord,
   AlertsView,
+  CodexView,
   ErrorView,
   FirstmateView,
   HistoryEntry,
@@ -229,6 +230,14 @@ export function historyFixture(): HistoryEntry[] {
       cause: { kind: 'manual', holdUntil: '2026-01-16T08:20:00Z', result: 'switched' },
     },
     {
+      at: '2026-01-16T06:50:00Z',
+      app: 'codex',
+      source: 'app',
+      from: null,
+      to: null,
+      cause: { kind: 'codexSwitch', from: 'openai', to: 'custom', restarted: true },
+    },
+    {
       at: '2026-01-16T06:40:00Z',
       app: 'antigravity',
       source: 'observed',
@@ -285,6 +294,60 @@ export function appFixture(over: Partial<AppView> = {}): AppView {
   };
 }
 
+/**
+ * Codex on this Mac (M8): it goes through a made-up custom provider, `relay`, with its own key,
+ * keeps the ChatGPT login, and the app wrote the file last. No real host, key or path.
+ */
+export function codexFixture(over: Partial<CodexView> = {}): CodexView {
+  return {
+    home: '~/.codex',
+    customHome: false,
+    present: true,
+    config: 'ok',
+    reason: null,
+    hash: 'h1',
+    current: 'custom',
+    other: null,
+    custom: {
+      id: 'custom',
+      name: 'relay',
+      baseUrl: 'https://relay.example.com/v1',
+      key: 'bearer',
+      envKey: null,
+      requiresOpenaiAuth: true,
+      plain: true,
+    },
+    wantsRequires: true,
+    refusal: null,
+    backRefusal: null,
+    login: 'chatGpt',
+    reach: { state: 'up', ms: 180, since: null, checkedAt: '2026-01-16T07:19:00Z' },
+    ccSwitch: { installed: true, running: false, data: true, traces: [] },
+    external: null,
+    procs: { sessions: 3, app: true, daemon: true, ccSwitch: false },
+    version: '0.163.0',
+    mcp: [
+      { name: 'files', kind: 'stdio', enabled: true },
+      { name: 'browser', kind: 'stdio', enabled: true },
+      { name: 'docs-search', kind: 'http', enabled: true },
+      { name: 'tracker', kind: 'http', enabled: false },
+    ],
+    resume: { openai: 128, custom: 54 },
+    lastWrite: { at: '2026-01-16T06:40:00Z', provider: 'custom', matches: true },
+    backups: ['2026-01-16T06:40:00Z', '2026-01-15T02:05:00Z', '2026-01-14T11:22:00Z'],
+    backupDir: '~/Library/Application Support/com.shin315.quota-station/backups/codex',
+    recent: [
+      { at: '2026-01-16T06:40:00Z', from: 'openai', to: 'custom', result: 'switched', restarted: true },
+      { at: '2026-01-15T15:47:00Z', from: 'custom', to: 'openai', result: 'observed', restarted: null },
+      { at: '2026-01-15T02:05:00Z', from: 'openai', to: 'custom', result: 'switched', restarted: null },
+    ],
+    firstSwitchAt: '2026-01-14T11:22:00Z',
+    busy: null,
+    openaiBaseUrl: false,
+    ...over,
+  };
+}
+
 export function fixtureModel(name: string, over: Partial<Model> = {}): Model {
   const snapshot = SNAPSHOTS[name];
   if (!snapshot) throw new Error('no snapshot fixture ' + name);
@@ -307,6 +370,7 @@ export function fixtureModel(name: string, over: Partial<Model> = {}): Model {
     alerts: alertsFixture(),
     firstmate: { file: null, status: 'notSet', line: null, writtenAt: null, fresh: false, ownDry: false },
     app: appFixture(),
+    codex: codexFixture(),
     ...over,
   };
 }

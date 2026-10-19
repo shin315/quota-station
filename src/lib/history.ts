@@ -4,24 +4,26 @@
 // the window's names, a short reason, and the switcher's own line on hover.
 
 import { agyNames, claudeNames } from './accounts';
+import { shortName } from './codex';
 import { clock, pad } from './format';
 import type { AgyHow, HistoryEntry, HistorySource, Model, Why } from './model';
 import { dayClock, type NameOf } from './switching';
 import type { ChipView } from './view';
 
-export type HistoryFilter = 'all' | 'claude' | 'antigravity';
+export type HistoryFilter = 'all' | 'claude' | 'antigravity' | 'codex';
 
 export const HISTORY_FILTERS: { v: HistoryFilter; t: string }[] = [
   { v: 'all', t: 'Tất cả' },
   { v: 'claude', t: 'Claude' },
   { v: 'antigravity', t: 'Antigravity' },
+  { v: 'codex', t: 'Codex' },
 ];
 
 export interface HistoryRowView {
   key: string;
   time: string;
   /** The tag before the accounts; `k` is the `.pill` color. */
-  pill: { t: string; k: '' | 'sw' | 'g' | 'w' };
+  pill: { t: string; k: '' | 'sw' | 'g' | 'x' | 'w' };
   from: string | null;
   to: string;
   why: string;
@@ -102,6 +104,10 @@ function why(e: HistoryEntry, nameOf: NameOf, now: Date): string {
     }
     case 'agyOverwrite':
       return 'Antigravity.app đổi về tài khoản cũ (lần ' + c.overwrites + (c.overwrites <= 2 ? '/2' : '') + ')';
+    case 'codexSwitch':
+      return 'Bạn chuyển trong app · giữ đăng nhập ChatGPT' + (c.restarted ? ' · đã khởi động lại tiến trình nền' : '');
+    case 'codexObserved':
+      return 'config.toml đổi ngoài app (có thể do CC Switch hoặc sửa tay)';
   }
 }
 
@@ -109,6 +115,7 @@ function pill(e: HistoryEntry): HistoryRowView['pill'] {
   const c = e.cause;
   if (c.kind === 'agyOverwrite') return { t: 'Cảnh báo', k: 'w' };
   if (e.app === 'antigravity') return { t: 'Antigravity', k: 'g' };
+  if (e.app === 'codex') return { t: 'Codex', k: 'x' };
   if (c.kind === 'primed') return { t: 'Mồi', k: '' };
   return { t: 'Chuyển', k: 'sw' };
 }
@@ -132,6 +139,18 @@ export function historyRow(e: HistoryEntry, i: number, model: Model, now: Date):
   const claude = names.claude;
   const nameOf: NameOf = e.app === 'claude' ? claude : names.agy;
   const c = e.cause;
+  if (c.kind === 'codexSwitch' || c.kind === 'codexObserved') {
+    return {
+      key: e.at + ':' + i,
+      time: clock(e.at),
+      pill: pill(e),
+      from: shortName(model.codex, c.from),
+      to: shortName(model.codex, c.to),
+      why: why(e, claude, now),
+      source: { t: SOURCES[e.source], k: '' },
+      raw: null,
+    };
+  }
   return {
     key: e.at + ':' + i,
     time: clock(e.at),

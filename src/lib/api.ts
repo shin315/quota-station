@@ -4,6 +4,9 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import type {
+  CodexOutcome,
+  CodexRestart,
+  CodexTarget,
   AgyApp,
   AgyHow,
   AgyLoginDone,
@@ -111,6 +114,21 @@ export interface Api {
   /** "Thôi" on the overwrite banner: stops watching the last switch. */
   agyDismissOverwrite(): Promise<Model>;
   /**
+   * Switches Codex after the owner confirmed it, when `config.toml` still has the hash the sheet
+   * showed. Rejects with `busy` while a switch or a restart runs.
+   */
+  codexSwitch(target: CodexTarget, base: string | null): Promise<CodexOutcome>;
+  /** Restarts Codex's background process, after its own confirmation. Rejects with `busy`. */
+  codexRestart(afterSwitch: boolean): Promise<CodexRestart>;
+  /** Keeps `config.toml` as changed outside the app; it is not reported again. */
+  codexKeep(): Promise<Model>;
+  /** The Codex tab opened, or "Kiểm lại": look at Codex now and count the resumable sessions. */
+  codexCheck(): Promise<void>;
+  /** Saves the MCP list to Downloads; resolves to where, as `~/…`. */
+  codexExportMcp(): Promise<string>;
+  /** Codex's folder; empty goes back to `~/.codex`. Rejects with `notFound`. */
+  setCodexHome(path: string): Promise<Model>;
+  /**
    * A button on an alert card in the Cảnh báo tab, the same as on the macOS card. A switch back
    * runs on the Rust side and its result comes in the model; `openSwitch` asks this window to open
    * its switch sheet. Rejects with `answered`, `unknown` or `noSuchAction`.
@@ -187,6 +205,12 @@ export const tauriApi: Api = {
   agyAppState: () => invoke<AgyApp>('agy_app_state'),
   switchAgy: (id, how) => invoke<AgyOutcome>('switch_agy', { id, how }),
   agyDismissOverwrite: () => invoke<Model>('agy_dismiss_overwrite'),
+  codexSwitch: (target, base) => invoke<CodexOutcome>('codex_switch', { target, base }),
+  codexRestart: (afterSwitch) => invoke<CodexRestart>('codex_restart', { afterSwitch }),
+  codexKeep: () => invoke<Model>('codex_keep'),
+  codexCheck: () => invoke('codex_check'),
+  codexExportMcp: () => invoke<string>('codex_export_mcp'),
+  setCodexHome: (path) => invoke<Model>('set_codex_home', { path }),
   alertAction: (id, action) => invoke('alert_action', { id, action }),
   testAlert: (kind) => invoke<Model>('test_alert', { kind }),
   setAlertSwitch: (kind, on) => invoke<Model>('set_alert_switch', { kind, on }),

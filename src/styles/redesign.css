@@ -141,6 +141,12 @@
 .qs .pop { position: relative; }
 .qs .fr > .seg.inline { justify-self: start; }
 .qs .fr > .seg.inline button { padding: 4px 14px; }
+/* Codex (M8): a header that does not fold, and its one row. */
+.qs .ghd.st { cursor: default; }
+.qs .ghd.st:hover { background: transparent; }
+.qs .row.cx .av svg { width: 13px; height: 13px; }
+.qs .row.cx .nm .chip { font-weight: var(--fw-med); }
+.qs .seg.inline button[aria-pressed="true"] { cursor: default; }
 /* A narrow window: Tổng quan's side column goes under the tables. */
 @media (max-width: 1000px) {
   .qs .grid.ov { grid-template-columns: minmax(0, 1fr); }

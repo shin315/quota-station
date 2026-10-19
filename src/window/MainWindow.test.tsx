@@ -86,16 +86,14 @@ describe('main window', () => {
     expect(document.body.innerHTML).not.toContain('example.com');
   });
 
-  it('later tabs sit in the sidebar but cannot be opened', async () => {
+  it('Codex has its own tab, which looks at Codex when it opens, and a card on Tổng quan', async () => {
     const fake = await open(fixtureModel('fresh'));
-    for (const name of ['Codex']) {
-      const b = nav(name) as HTMLButtonElement;
-      expect(b.disabled).toBe(true);
-      expect(b.title).toBe('Có ở bản sau');
-      fireEvent.click(b);
-    }
-    expect(heading()).toBe('Tổng quan');
-    expect(fake.api.openWindow).not.toHaveBeenCalled();
+    expect(screen.getByText('Qua relay')).toBeTruthy();
+    expect(screen.getByText('trả lời 180 ms · giữ đăng nhập ChatGPT')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Về ChatGPT' })).toBeTruthy();
+    fireEvent.click(nav('Codex'));
+    expect(heading()).toBe('Codex');
+    expect(fake.api.codexCheck).toHaveBeenCalled();
   });
 
   it('switches tabs from the sidebar and when asked from outside', async () => {

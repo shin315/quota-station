@@ -21,6 +21,7 @@ fn settings_round_trip_and_default_when_missing() {
         alerts: Switches { leaving: false, firstmate: true, ..Switches::default() },
         firstmate_file: Some(PathBuf::from("/srv/example/quota-pool.last")),
         source_dir: Some(PathBuf::from("/srv/example/quota-station")),
+        codex_home: Some(PathBuf::from("/srv/example/codex")),
     };
     s.save(&file).unwrap();
     assert_eq!(Settings::load(&file), s);
@@ -33,6 +34,7 @@ fn settings_round_trip_and_default_when_missing() {
     assert!(text.contains("\"leaving\": false"));
     assert!(text.contains("firstmateFile"));
     assert!(text.contains("sourceDir"));
+    assert!(text.contains("codexHome"));
 
     std::fs::write(&file, "{ not json").unwrap();
     assert_eq!(Settings::load(&file), Settings::default());
@@ -56,6 +58,7 @@ fn a_settings_file_from_m1_still_loads() {
     assert!(!s.alerts.on(Kind::Firstmate));
     assert_eq!(s.firstmate_file, None);
     assert_eq!(s.source_dir, None);
+    assert_eq!(s.codex_home, None, "Codex's own ~/.codex");
     let _ = std::fs::remove_dir_all(&dir);
 }
 

@@ -22,10 +22,16 @@
 //! `git pull --ff-only` in the clone set in settings and that clone's
 //! `scripts/install.sh`, which replaces the installed app. [`login_item`]
 //! turns launching at login on or off through a backend the app gives it.
+//!
+//! [`codex`] switches Codex between the ChatGPT login and a custom provider
+//! when the owner confirms: it writes only the provider choice in Codex's
+//! `config.toml` (keeping a backup), never `auth.json` or the MCP list, and
+//! runs `codex app-server daemon restart` only when the owner asks.
 
 pub mod alerts;
 pub mod antigravity;
 pub mod axi;
+pub mod codex;
 pub mod cswap;
 pub mod detail;
 pub mod firstmate;

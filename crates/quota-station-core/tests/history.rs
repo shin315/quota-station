@@ -219,3 +219,31 @@ fn a_line_that_starts_the_log_s_last_64_kb_is_kept_and_a_cut_one_is_not() {
     write_log(&log, &[first, target, pad]);
     assert!(history::switcher_lines(&log).is_empty());
 }
+
+#[test]
+fn codex_switches_and_changes_seen_outside_come_from_the_codex_log() {
+    use quota_station_core::codex::log as codex_log;
+    let (app, log, _) = setup(0);
+    let line = |at: i64, from: &str, to: &str, result: &str| codex_log::Line {
+        at,
+        from: from.into(),
+        to: to.into(),
+        result: result.into(),
+        restarted: None,
+    };
+    codex_log::append(&app, &line(T0, "openai", "relay", "switched")).unwrap();
+    codex_log::mark_restarted(&app, true).unwrap();
+    codex_log::append(&app, &line(T0 + MIN, "relay", "openai", "failed")).unwrap();
+    codex_log::append(&app, &line(T0 + 2 * MIN, "relay", "openai", "observed")).unwrap();
+
+    let all = history::collect(&app, &log, 50);
+    assert_eq!(all.len(), 2, "a failed switch is not history");
+    assert!(all.iter().all(|e| e.app == App::Codex && e.from.is_none() && e.to.is_none()));
+    assert_eq!(all[0].source, Source::Observed);
+    assert_eq!(all[0].cause, Cause::CodexObserved { from: "relay".into(), to: "openai".into() });
+    assert_eq!(all[1].source, Source::App);
+    assert_eq!(
+        all[1].cause,
+        Cause::CodexSwitch { from: "openai".into(), to: "relay".into(), restarted: Some(true) }
+    );
+}

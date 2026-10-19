@@ -119,8 +119,8 @@ export function pauseOptions(now: Date): ChoiceView<PauseChoice>[] {
 // ===== The Claude switch sheet (F04) =====
 
 export interface FactView {
-  /** `.facts li` class: '' bullet, `w` warning, `x` blocker. */
-  k: '' | 'w' | 'x';
+  /** `.facts li` class: '' bullet, `w` warning, `x` blocker, `ok` a promise kept. */
+  k: '' | 'w' | 'x' | 'ok';
   /** Text with **bold** runs. */
   text: string;
 }

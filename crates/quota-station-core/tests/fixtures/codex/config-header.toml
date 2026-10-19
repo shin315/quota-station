@@ -1,0 +1,8 @@
+model = "gpt-5.5"
+
+[model_providers.custom]
+name = "gateway"
+base_url = "https://gateway.example.com/v1"
+wire_api = "responses"
+requires_openai_auth = true
+http_headers = { Authorization = "Bearer test-key-not-real" }

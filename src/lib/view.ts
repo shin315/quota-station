@@ -6,6 +6,7 @@
 import { agyCells, agyGroups, agyNames, claudeCells, claudeNames, tightest, usedTone, type AccountName, type CellView, type UsedTone } from './accounts';
 import { age, clock, minutesUntil, room, secondsSince } from './format';
 import type { Account, AgyLogin, ErrorView, Model, Section } from './model';
+import { codexBanner } from './codex';
 import { switcherBanner } from './switching';
 
 export type Tone = 'ok' | 'warn' | 'bad' | 'muted' | 'info';
@@ -32,8 +33,23 @@ export type Action =
   | 'agy:keep'
   /** System Settings › Notifications (M6). */
   | 'notify:settings'
+  /** Codex (M8): the row, a switch sheet, the restart sheet, the change made outside, guides and the tab. */
+  | CodexAction
   /** The rotation editor's banners and feedback (M5). */
   | RulesAction;
+
+export type CodexAction =
+  | 'codex:open'
+  | 'codex:switch:chatGpt'
+  | 'codex:switch:custom'
+  | 'codex:daemon'
+  | 'codex:external'
+  | 'codex:keep'
+  | 'codex:check'
+  | 'codex:tab'
+  | 'codex:guide:login'
+  | 'codex:mcp'
+  | 'codex:backup';
 
 export type RulesAction =
   | 'rules:create'
@@ -360,6 +376,7 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
   let banner: BannerView | null = null;
   const pendingAccount = c.accounts.find((a) => a.reading === 'resetPending');
   const switcher = switcherBanner(model, now);
+  const codex = codexBanner(model);
   // An Antigravity switch written over comes as a macOS card with buttons (M6),
   // and stays on the main window's Antigravity tab; the popover has no banner for it.
   if (cErr) banner = errorBanner(cErr, lastClaude);
@@ -393,14 +410,16 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
         { label: 'Để sau', act: 'dismiss' },
       ],
     };
-  } else if (pendingAccount) {
+  } else if (codex && codex.tone !== 'info') banner = codex;
+  else if (pendingAccount) {
     banner = {
       tone: 'info',
       title: nameOf(pendingAccount.number) + ' vừa qua mốc đặt lại',
       body: 'Đang chờ claude-swap đọc số mới. App không hiện số khi chưa có số thật.',
       actions: [{ label: 'Làm mới', act: 'refresh' }],
     };
-  } else if (switcher) banner = switcher;
+  } else if (codex) banner = codex;
+  else if (switcher) banner = switcher;
 
   // Group notes.
   let claudeNote: NoteView | null = null;
