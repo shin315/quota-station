@@ -1,5 +1,6 @@
 // The Plugin tab of the main window (M11, E): the plugins Claude Code and
-// Codex list themselves, what each brings, and their marketplaces. Read
+// Codex list themselves (a plugin for a known service with its logo), what
+// each brings, and their marketplaces. Read
 // only: the app never installs, removes, turns on or off a plugin. "Lệnh cài
 // lại" shows the agents' own commands a restore would run.
 
@@ -8,8 +9,10 @@ import { Card as Panel, CardText, CardTitle } from '@/components/ui/card';
 import { DialogButtons, DialogLead, DialogSection, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { Command } from '../components/blocks';
+import { ServiceIcon } from '../components/logos';
 import { COUNT, Empty, GRID2, TabHead, TabSub, TabTitle } from '../components/page';
 import { Banner, Button, Chip, CODE, Dot, KVT } from '../components/parts';
+import { pluginName, serviceOf } from '../lib/brands';
 import { clock } from '../lib/format';
 import { AGENT_NAME, AGENTS } from '../lib/mcp';
 import type { Agent, Marketplace, Model, PluginSide } from '../lib/model';
@@ -54,8 +57,11 @@ function Rows({ side }: { side: PluginSide }) {
       </div>
       {side.plugins.map((p) => (
         <div key={p.id} className={PLUGIN_ROW} role="listitem" aria-label={p.id + (p.enabled ? ', bật' : ', tắt')}>
-          <span className="[font:11.5px_var(--mono)] [overflow-wrap:anywhere]" title={p.version ? 'bản ' + p.version : undefined}>
-            {p.id}
+          <span className="flex min-w-0 items-center gap-1.5">
+            <ServiceIcon service={serviceOf(pluginName(p.id))} />
+            <span className="min-w-0 [font:11.5px_var(--mono)] [overflow-wrap:anywhere]" title={p.version ? 'bản ' + p.version : undefined}>
+              {p.id}
+            </span>
           </span>
           <span title={p.brings.skills.length ? 'skill: ' + p.brings.skills.join(', ') : undefined}>{brings(p)}</span>
           <span>

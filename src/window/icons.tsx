@@ -1,5 +1,7 @@
 // Sidebar and header icons, drawn as in the prototype sketch (`ui.js` `IC`),
-// SF Symbols-like.
+// SF Symbols-like. The three agents show their own logos (components/logos.tsx).
+
+import { AgentIcon } from '../components/logos';
 
 const P = { width: 15, height: 15, viewBox: '0 0 16 16', 'aria-hidden': true } as const;
 const S = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.4 } as const;
@@ -60,22 +62,9 @@ export const NAV_ICONS = {
       <path d="M3 13.5V8.5M8 13.5V3M13 13.5V6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
     </svg>
   ),
-  claude: (
-    <svg {...P}>
-      <path d="M8 1.8l1.5 4.7L14.2 8l-4.7 1.5L8 14.2 6.5 9.5 1.8 8l4.7-1.5z" fill="currentColor" />
-    </svg>
-  ),
-  agy: (
-    <svg {...P}>
-      <path d="M8 2l5.5 11h-3L8 7.6 5.5 13h-3z" fill="currentColor" />
-    </svg>
-  ),
-  codex: (
-    <svg {...P}>
-      <rect x="1.8" y="2.8" width="12.4" height="10.4" rx="2.2" {...S} />
-      <path d="M4.6 6.2l2 1.8-2 1.8M8.2 10.2h3.2" {...S} strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  ),
+  claude: <AgentIcon agent="claude" className="size-[15px]" />,
+  agy: <AgentIcon agent="agy" className="size-[15px]" />,
+  codex: <AgentIcon agent="codex" className="size-[15px]" />,
   rules: (
     <svg {...P}>
       <path d="M3 5h8M3 11h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />

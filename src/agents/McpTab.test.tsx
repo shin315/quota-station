@@ -5,7 +5,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MainWindowApp } from '../App';
 import { fakeApi, type FakeOptions } from '../fixtures/fakeApi';
-import { FIXTURE_NOW, fixtureModel, mcpFixture, mcpTableFixture } from '../fixtures/models';
+import { FIXTURE_NOW, fixtureModel, mcpBrandsFixture, mcpFixture, mcpTableFixture } from '../fixtures/models';
 import type { Api } from '../lib/api';
 import type { Model } from '../lib/model';
 
@@ -155,6 +155,20 @@ describe('the MCP tab', () => {
     expect(screen.getByText('Codex, chỉ xem')).toBeTruthy();
     expect(screen.getByText('Không đọc được config.toml của Codex')).toBeTruthy();
     expect(screen.queryByRole('checkbox', { name: /cho Codex/ })).toBeNull();
+  });
+
+  it("shows a known service's logo before a server's or a connector's name, and leaves the others plain", async () => {
+    await openTab(fixtureModel('fresh', { mcp: mcpFixture({ table: mcpBrandsFixture() }) }));
+    const logo = (el: HTMLElement) => el.querySelector('.logo');
+    expect(logo(screen.getByRole('group', { name: 'figma' }))).not.toBeNull();
+    // By its package, and by its host.
+    expect(logo(screen.getByRole('group', { name: 'repo-tools' }))).not.toBeNull();
+    expect(logo(screen.getByRole('group', { name: 'issues' }))).not.toBeNull();
+    expect(logo(screen.getByRole('group', { name: 'files' }))).toBeNull();
+    await press(screen.getByRole('button', { name: 'Xem' }));
+    const d = screen.getByRole('dialog', { name: 'MCP có sẵn trong agent và plugin' });
+    expect(logo(within(d).getByRole('group', { name: 'claude.ai Google Drive' }))).not.toBeNull();
+    expect(logo(within(d).getByRole('group', { name: 'js-repl' }))).toBeNull();
   });
 
   it('writes every tick in one preview, one file each, and offers Hoàn tác', async () => {

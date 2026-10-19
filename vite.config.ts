@@ -15,5 +15,7 @@ export default defineConfig({
     // Fixture times read like the prototype (14:20) at UTC+7.
     env: { TZ: 'Asia/Bangkok' },
     include: ['src/**/*.test.{ts,tsx}'],
+    // The logos' look rules are read by their test; the other styles stay out.
+    css: { include: [/logos\.css/] },
   },
 });

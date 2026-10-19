@@ -10,8 +10,6 @@ import type { ChipView, FeedbackView } from './view';
 
 export const AGENTS: Agent[] = ['claude', 'codex', 'agy'];
 export const AGENT_NAME: Record<Agent, string> = { claude: 'Claude Code', codex: 'Codex', agy: 'Antigravity' };
-/** The identity class of each agent's icon (`.agl.c`, `.idm.x`, …). */
-export const AGENT_MARK: Record<Agent, 'c' | 'x' | 'g'> = { claude: 'c', codex: 'x', agy: 'g' };
 /** What the windows show, and send back, in a secret's place. */
 export const MASK = '••••••';
 

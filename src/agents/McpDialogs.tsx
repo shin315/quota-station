@@ -13,6 +13,7 @@ import { Input, Textarea } from '@/components/ui/input';
 import { Segment, Segmented } from '@/components/ui/segmented';
 import { cn } from '@/lib/utils';
 import { CheckLine, CheckRow, Command, COMPARE, COMPARE_DIFF, COMPARE_HEAD, DiffFile, DiffLine, DiffView, KeyMasked, PACK_META, PACK_ROW, SECRET_ROW, Steps as StepList, TECH } from '../components/blocks';
+import { ServiceIcon } from '../components/logos';
 import { LABEL, rowClass } from '../components/page';
 import { Button, ChoiceGroup, CODE, Facts as FactList, FeedbackLine, FeedbackText, FieldHint, LinkButton } from '../components/parts';
 import {
@@ -27,6 +28,7 @@ import {
   type FormPair,
   type McpForm,
 } from '../lib/mcp';
+import { serviceOf } from '../lib/brands';
 import type { Agent, McpBlock, McpDef, McpPaste, McpRow, Model } from '../lib/model';
 import { dayClock } from '../lib/switching';
 import { LOCK_ICON } from '../window/icons';
@@ -743,6 +745,7 @@ function OwnedBody({ mcp }: { mcp: Mcp }) {
           <div key={o.name} className={MATRIX_ROW} role="group" aria-label={o.name}>
             <div className={cn(MATRIX_NAME, '[&_b]:font-med [&_b]:text-ink2')}>
               <div className={MATRIX_TITLE}>
+                <ServiceIcon service={serviceOf(o.name)} />
                 <b>{o.name}</b>
               </div>
               <small>của {o.owner}</small>

@@ -1,12 +1,15 @@
 // The MCP tab of the main window (M9): every MCP server of Claude Code,
 // Codex and Antigravity in one matrix, a checkbox per agent. Ticks wait on
-// the pending bar until one preview writes them all; under the table, one
+// the pending bar until one preview writes them all; a server for a known
+// service shows that service's logo before its name; under the table, one
 // short line each for the servers kept in the app's store, the ones agents
 // and plugins bring themselves (read only), and the backups.
 
 import { Card as Panel, CardText, CardTitle } from '@/components/ui/card';
 import { COUNT, Empty, EmptyIcon, InfoLine, TabHead, TabSub, TabTitle } from '../components/page';
+import { ServiceIcon } from '../components/logos';
 import { Banner, Button, Chip, Dot, Feedback, LinkButton } from '../components/parts';
+import { serviceOf } from '../lib/brands';
 import { clock } from '../lib/format';
 import {
   AGENT_NAME,
@@ -104,6 +107,7 @@ function Name({ row }: { row: McpRow }) {
   return (
     <>
       <div className={MATRIX_TITLE}>
+        <ServiceIcon service={serviceOf(row.name, row.program, row.host)} />
         <b>{row.name}</b>
         {locked ? (
           <span className={LOCK} role="img" aria-label="có khoá, giữ ngoài giao diện" title="Có khoá. App không hiện, không ghi vào bản lưu hay log.">

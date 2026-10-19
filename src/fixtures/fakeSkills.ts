@@ -235,6 +235,20 @@ export function pluginsFixture(over: Partial<PluginsView> = {}): PluginsView {
   };
 }
 
+/** The same plugins named after real services, so their logos show; `formatter` names none. */
+export function pluginsBrandsFixture(): PluginsView {
+  const p = pluginsFixture();
+  const plugin = (id: string, mcp: number) => ({ id, enabled: true, version: '1.0.0', brings: { mcp, skills: [], commands: 1, hooks: false, agents: 0 } });
+  return {
+    ...p,
+    sides: p.sides!.map((s) =>
+      s.agent === 'claude'
+        ? { ...s, plugins: [plugin('github@acme-plugins', 1), plugin('figma@acme-plugins', 1), s.plugins.find((x) => x.id.startsWith('formatter@'))!, plugin('stripe@tools-market', 1)] }
+        : { ...s, plugins: [plugin('gmail@codex-market', 1), plugin('google-calendar@codex-market', 1), plugin('linear@codex-market', 1)] },
+    ),
+  };
+}
+
 function file(path: string, agent: Agent | null, over: Partial<InstrFile> = {}): InstrFile {
   return {
     path,
