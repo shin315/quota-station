@@ -1,0 +1,3 @@
+{"timestamp":"2026-01-16T05:00:00.000Z","type":"session_meta","payload":{"id":"0199-codex-2","cwd":"/Users/demo/Projects/api-server","cli_version":"0.170.0","instructions":"TRAP-conversation-7c41e9"}}
+{"timestamp":"2026-01-16T05:00:05.000Z","type":"event_msg","payload":{"type":"token_count","info":{"usage":{"in":100,"out":20}}}}
+{"timestamp":"2026-01-16T05:00:06.000Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input":"many"}}}}

@@ -8,6 +8,7 @@ import { fakeParts, fakeRestore, planFixture, summaryFixture } from './fakeBacku
 import { comparisonFixture, copyDoneFixture, copyUndoneFixture } from './fakeCopy';
 import { fakeApply, fakePaste, fakePreview } from './fakeMcp';
 import { fakeSetChanges, fakeSetDrift } from './fakeSets';
+import { SKIPPED_NONE, statsReport } from './fakeStats';
 import { fakeSkillApply, fakeSkillPreview, instrDiffFixture, instrShownFixture, repoFixture, SKILL_MD } from './fakeSkills';
 import type {
   Agent,
@@ -26,6 +27,7 @@ import type {
   CodexRestart,
   CodexTarget,
   EnvFound,
+  StatsSkipped,
   FirstmateView,
   HistoryEntry,
   McpOutcome,
@@ -118,6 +120,12 @@ export interface FakeOptions {
   setsChanged?: Agent;
   /** How long a set's preview, apply and undo take. */
   setsDelayMs?: number;
+  /** Thống kê (M16): the logs skipped, as the report says them. */
+  statsSkipped?: StatsSkipped[];
+  /** "Đọc lại" walks a first read's progress, a step this often. */
+  statsStepMs?: number;
+  /** The report cannot be read. */
+  statsFails?: boolean;
 }
 
 const said = (title: string, body: string): AlertSaid => ({ tone: 'info', title, body });
@@ -243,6 +251,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
   /** "Bỏ qua" keeps what it hid, for "Hoàn tác"; "Mở file" what it opened. */
   const envHidden = new Map<string, EnvFound>();
   const envOpened: string[] = [];
+  let statsSkipped = structuredClone(options.statsSkipped ?? SKIPPED_NONE);
   const api: Api = {
     getModel: async () => model,
     refresh: async () => {
@@ -667,6 +676,33 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
     },
     skillsSetChecks: async (daily, notify) => {
       push({ ...model, skills: { ...model.skills, updates: { ...model.skills.updates, settings: { daily, notify } } } });
+    },
+    statsRead: async () => {
+      if (model.stats.reading) return;
+      const step = options.statsStepMs;
+      const done = () => push({ ...model, stats: { ...model.stats, reading: false, first: false, progress: [], generation: model.stats.generation + 1, readAt: now().toISOString() } });
+      if (!step) return done();
+      // A first read: Claude Code's logs, then Codex's, a tenth at a time.
+      const first = !model.stats.readAt;
+      push({ ...model, stats: { ...model.stats, reading: true, first, progress: [] } });
+      const totals = { claude: 2140, codex: 960 } as const;
+      for (const agent of ['claude', 'codex'] as const) {
+        for (let i = 0; i <= 10; i++) {
+          await new Promise((r) => setTimeout(r, step));
+          const progress = model.stats.progress.filter((p) => p.agent !== agent);
+          progress.push({ agent, done: Math.round((totals[agent] * i) / 10), total: totals[agent] });
+          push({ ...model, stats: { ...model.stats, progress } });
+        }
+      }
+      done();
+    },
+    statsReport: async (period) => {
+      if (options.statsFails) throw 'io';
+      return statsReport(period, statsSkipped);
+    },
+    statsAck: async () => {
+      statsSkipped = statsSkipped.map((s) => ({ ...s, acknowledged: s.sessions }));
+      push({ ...model, stats: { ...model.stats, generation: model.stats.generation + 1 } });
     },
     envCheck: async () => {
       push({ ...model, env: { ...model.env, checking: true } });

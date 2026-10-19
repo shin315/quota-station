@@ -206,6 +206,8 @@ pub struct Inner {
     pub env: crate::env::Live,
     /// The configuration sets' deleted set and running write (M15).
     pub sets: crate::sets::Live,
+    /// The token statistics' index and running read (M16).
+    pub stats: crate::stats::Live,
 }
 
 /// How the app's own read of an Antigravity account stands.
@@ -267,6 +269,7 @@ impl SwitcherState {
 pub enum Tab {
     #[default]
     Overview,
+    Stats,
     Claude,
     Agy,
     Codex,
@@ -342,6 +345,7 @@ impl Inner {
             skills: crate::skills::Live::default(),
             env: crate::env::Live::default(),
             sets: crate::sets::Live::default(),
+            stats: crate::stats::Live::default(),
             copy: crate::copy::Live::default(),
         }
     }
@@ -511,6 +515,7 @@ impl Inner {
             instructions: crate::skills::instr_view(self),
             env: crate::env::view(self),
             sets: crate::sets::view(self),
+            stats: crate::stats::view(self),
         }
     }
 
@@ -635,6 +640,8 @@ pub struct Model {
     pub env: crate::env::EnvView,
     /// The configuration sets (M15).
     pub sets: crate::sets::SetsView,
+    /// The token statistics' read (M16); the numbers come with `stats_report`.
+    pub stats: crate::stats::StatsView,
 }
 
 /// The rotation file and the other Macs (F06).

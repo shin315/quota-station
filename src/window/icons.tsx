@@ -55,6 +55,11 @@ export const NAV_ICONS = {
       <rect x="9" y="9" width="5" height="5" rx="1.3" fill="currentColor" />
     </svg>
   ),
+  stats: (
+    <svg {...P}>
+      <path d="M3 13.5V8.5M8 13.5V3M13 13.5V6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+    </svg>
+  ),
   claude: (
     <svg {...P}>
       <path d="M8 1.8l1.5 4.7L14.2 8l-4.7 1.5L8 14.2 6.5 9.5 1.8 8l4.7-1.5z" fill="currentColor" />

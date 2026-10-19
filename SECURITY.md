@@ -87,6 +87,14 @@ Files, under `~/Library/Application Support/com.shin315.quota-station/`:
   server's and skill's name with on or off, and a side of the Codex switch)
   and what puts the last apply back (the same names, on or off, and the
   files' hashes). It holds no definition and no key.
+- `stats/index.json` (M16, mode 600): the token statistics' index. For each
+  session log read, its path, device and inode, how many bytes were read,
+  the SHA-256 of its first 256 bytes, how many lines were skipped, the
+  agent's version and, for Codex, the folder, model and running token
+  totals; the token counts per quarter hour, agent, model and project
+  folder for the last 62 days; and an 8-byte hash of each Claude response's
+  id, so a response is counted once. No line of a log, no prompt, reply,
+  tool output or instruction, nothing that came from a conversation.
 
 In the owner's login Keychain, not in that folder:
 
@@ -581,6 +589,33 @@ owner presses `Áp bộ` after its preview. It adds no write path of its own.
   folder, mode 600: names, on or off, and when; never a definition or a
   key. A set is never applied on its own, at login or when a project opens.
 
+## Token statistics (M16)
+
+`Thống kê` counts the tokens Claude Code and Codex used on this Mac from
+their own session logs: `~/.claude/projects/**/*.jsonl`, and `sessions/` and
+`archived_sessions/` in the Codex folder. It reads session logs but keeps
+only counts, never text.
+
+- Only four things are read from a line: the token counts, the model, the
+  time and the project folder (and the agent's version, to name a format the
+  app cannot read). Each line is deserialized into a struct that names those
+  fields and nothing else, so serde skips the conversation, the prompts,
+  the thinking, the tool calls and their output without copying them, and
+  the line's bytes are zeroed once read. Nothing from a conversation is
+  stored, logged, indexed, exported or shown.
+- The logs are read when the tab opens and on `Đọc lại`, on a thread of its
+  own, never on a timer. Later reads take only what was appended; a log is
+  never written, moved or deleted. Symlinks are not followed.
+- A line or a log in a format the app does not know is skipped and counted
+  (`Bỏ qua N phiên`), never guessed.
+- Nothing is sent anywhere, and no other Mac's logs are read: the copy to
+  another Mac (M13) does not carry the index. Antigravity keeps no token log
+  on the Mac the app can read, so it has no numbers.
+- `Giá API tương đương` comes from one table in the code
+  (`crates/quota-station-core/src/stats/prices.rs`, with its source and
+  date); nothing fetches prices. The Claude account of a session is
+  approximate, from the switch history the app already keeps.
+
 ## How the tests hold the app to this
 
 - Every file the Antigravity code opens goes through one guard
@@ -705,6 +740,19 @@ owner presses `Áp bộ` after its preview. It adds no write path of its own.
   never run, and the undo, also after the provider line changed. Trap keys
   in the agents' files are in no preview, result, drift, undo, sets file or
   other file of the app's.
+- `tests/stats.rs` (M16) reads synthetic session logs of Claude Code 1.0
+  and 2.0 and of Codex before and after its token events
+  (`tests/fixtures/stats/`) in a temporary home: a response written over
+  several lines or copied into a resumed session counts once, a count Codex
+  repeats adds nothing, a format the app does not know is skipped and
+  counted, a later read takes only what was appended (a line still being
+  written waits), and a truncated, replaced, deleted or archived log is
+  counted right. The trap: every prompt, reply, thinking block, tool call,
+  tool output and instruction in the fixtures carries the same text, which
+  is in no index, report or other file of the app's. The window's tests
+  draw that very report (`src/fixtures/stats-trap.json`), its table and its
+  hover cards, and find no such text. No test reads the real `~/.claude`
+  or `~/.codex`.
 - CI has no Keychain access and no Google account.
 - The install tests run `scripts/install.sh` in a temporary folder with fake
   `open` and `security`, and fakes of `launchctl`, `osascript` and `sfltool`

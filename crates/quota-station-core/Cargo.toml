@@ -22,7 +22,9 @@ md5 = "0.7"
 # the default TLS (macOS's own) and the same Accept-Encoding.
 reqwest = { version = "0.12", features = ["blocking", "json", "gzip", "brotli", "deflate", "zstd"] }
 serde.workspace = true
-serde_json.workspace = true
+# `raw_value`: the session logs' lines are read for their token fields
+# only; the rest of a line is skipped without being copied (`stats`).
+serde_json = { workspace = true, features = ["raw_value"] }
 # The quota cache is named by the SHA-256 of the email, as Cockpit names it.
 sha2 = "0.10"
 # Git's object ids: a skill folder's tree hash, as `npx skills` records it.

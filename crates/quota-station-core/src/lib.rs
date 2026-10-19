@@ -39,6 +39,10 @@
 //! through `claude mcp add-json`/`remove --scope user` (Claude Code writes
 //! `~/.claude.json` itself). Each file is backed up first with its secrets
 //! left out; secrets the app must keep go to its own Keychain items.
+//!
+//! [`stats`] (M16) reads Claude Code's and Codex's session logs on this
+//! Mac for their token counts, model, time and project folder only, and
+//! keeps those counts in its own index; no conversation text is kept.
 
 pub mod agents;
 pub mod alerts;
@@ -60,6 +64,7 @@ pub mod schedule;
 pub mod sessions;
 pub mod settings;
 pub mod snapshot;
+pub mod stats;
 pub mod switcher;
 pub mod switching;
 mod time_util;

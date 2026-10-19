@@ -20,6 +20,8 @@
 //! plugins and the instruction files, and says when a skill from GitHub has
 //! a newer version. Since M13 it copies them, item by item, to or from
 //! another Mac over SSH, where that Mac's own Quota Station writes them.
+//! Since M16 it counts the tokens in this Mac's own session logs (Thống kê),
+//! keeping the counts only.
 
 mod agents;
 mod agy_quota;
@@ -39,6 +41,7 @@ mod rules;
 mod sets;
 mod skills;
 mod state;
+mod stats;
 mod tray;
 mod windows;
 
@@ -164,6 +167,9 @@ fn main() {
             sets::sets_preview,
             sets::sets_apply,
             sets::sets_undo,
+            stats::stats_read,
+            stats::stats_report,
+            stats::stats_ack,
             skills::plugins_read,
             skills::instr_read,
             skills::instr_show,

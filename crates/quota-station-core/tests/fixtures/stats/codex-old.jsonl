@@ -1,0 +1,4 @@
+{"id":"0199-codex-old","timestamp":"2025-12-20T09:00:00.000Z","instructions":"TRAP-conversation-7c41e9","git":null}
+{"record_type":"state"}
+{"type":"message","role":"user","content":[{"type":"input_text","text":"TRAP-conversation-7c41e9"}]}
+{"type":"reasoning","summary":[{"type":"summary_text","text":"TRAP-conversation-7c41e9"}]}

@@ -49,6 +49,9 @@
 // entry; `sets=empty|fresh|even` for none, none applied, or none drifted, and
 // `setsoutcome=changed` for an apply that finds Codex's file changed. A preview, an apply and
 // an undo take 0.5 s.
+// Thống kê (M16): `tab=stats` with made-up counts for made-up projects; `stats=first` shows the
+// first read halfway, `stats=new` starts one that runs (a step every 0.4 s), `stats=skip` has
+// 38 Codex sessions in a format the app cannot read, `stats=fail` a report that cannot be read.
 
 import type { Api } from './lib/api';
 import type { AgyAccounts, AgyApp, AgyHow, AgyOutcome, CodexOutcome, CodexTarget, ErrorView, McpTable, Model, Outcome, Tab, UpdateError, UpdateOutcome } from './lib/model';
@@ -56,6 +59,7 @@ import { fakeApi, fakeEmail, hideNames } from './fixtures/fakeApi';
 import { backupFixture, packsFixture } from './fixtures/fakeBackup';
 import { API_KEY, BASE_URL, CLAUDE_BASE, envAlert, envFixture, LAUNCHD_GEMINI } from './fixtures/fakeEnv';
 import { setsFixture } from './fixtures/fakeSets';
+import { firstReadFixture, SKIPPED_CODEX, statsFixture } from './fixtures/fakeStats';
 import { instrFixture, pluginsFixture, skillsFixture, skillTableFixture } from './fixtures/fakeSkills';
 import {
   agyAccount,
@@ -80,7 +84,7 @@ import {
   overwriteAlert,
 } from './fixtures/models';
 
-const TABS: Tab[] = ['overview', 'claude', 'agy', 'codex', 'rules', 'history', 'alerts', 'firstmate', 'mcp', 'skills', 'plugins', 'instr', 'sets', 'backup', 'copy', 'settings'];
+const TABS: Tab[] = ['overview', 'stats', 'claude', 'agy', 'codex', 'rules', 'history', 'alerts', 'firstmate', 'mcp', 'skills', 'plugins', 'instr', 'sets', 'backup', 'copy', 'settings'];
 
 const SKILLS: Record<string, () => Model['skills']> = {
   empty: () => skillsFixture({ table: skillTableFixture({ rows: [], owned: [], broken: [] }) }),
@@ -363,6 +367,9 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
   if (sets) over.sets = sets();
   const instr = pick(INSTRS, params.get('instr'));
   if (instr) over.instructions = instr();
+  const stats = params.get('stats');
+  if (stats === 'first') over.stats = firstReadFixture();
+  if (stats === 'new') over.stats = statsFixture({ readAt: null });
   const agyApp = params.get('agyapp');
   const ends = LOGIN_ENDS.find((k) => k.toLowerCase() === params.get('login')?.toLowerCase());
   const menubar = params.get('menubar');
@@ -415,6 +422,9 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
     envDelayMs: 300,
     setsChanged: params.get('setsoutcome') === 'changed' ? 'codex' : undefined,
     setsDelayMs: 500,
+    statsSkipped: stats === 'skip' ? SKIPPED_CODEX : undefined,
+    statsStepMs: stats === 'new' ? 400 : undefined,
+    statsFails: stats === 'fail',
   });
   // The window opens on the same fixture and switcher states as the popover.
   const openWindow = async (next: Tab) => {

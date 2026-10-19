@@ -24,9 +24,11 @@ the screen; the popover and window images are the browser preview.
 
 ## What it does
 
-This is milestone M15, "Bộ cấu hình" (named sets of MCP servers and skills
+This is milestone M16, "Thống kê" (the tokens Claude Code and Codex used
+on this Mac, counted from their own session logs, which the app reads for
+the counts only), on top of M15, "Bộ cấu hình" (named sets of MCP servers and skills
 turned on or off, applied to the whole Mac in one go after one preview),
-on top of M14, "Biến môi trường đè đăng nhập" (saying when an
+M14, "Biến môi trường đè đăng nhập" (saying when an
 environment variable in a shell file or launchd overrides an agent's
 login, by its name, never its value), M13, "Chép sang Mac khác"
 (copying the MCP servers, skills, plugins and instruction files to or from
@@ -569,6 +571,39 @@ the confirmation sheet first.
 
   <img src="docs/sets-codex.png" width="760" alt="Step 2: the set is applied and the Codex switch's own sheet asks to switch Codex back to the ChatGPT account">
 
+- **Thống kê** (M16), right under Tổng quan. The tokens Claude Code and
+  Codex used on this Mac, from their own session logs
+  (`~/.claude/projects/**/*.jsonl`; `sessions/` and `archived_sessions/` in
+  the Codex folder): the total, each agent's share, a column per hour for
+  `Hôm nay` or per day for `7 ngày` and `30 ngày` (labels five days apart),
+  and the counts by agent, by Claude account, by model (input, output and
+  cache reads) and by project folder. `Giá API tương đương` is what the
+  tokens would cost at the API prices, only to compare with the
+  subscriptions; the prices are one table in the code with its source and
+  date. The Claude account is approximate: each quarter hour goes to the
+  account the switch history says was in use. Antigravity keeps no token
+  log on the Mac, so its row says `chưa có log token trên máy`. The chart
+  has one colour for every bar, a mark beside each agent's name, a number
+  on the tallest bar only, and each value on hover and from the keyboard
+  (the arrows move along the bars); `Xem bảng` has every number in a table.
+  Only the token counts, the model, the time and the folder are read from a
+  line, never the conversation. The first read shows each agent's progress
+  and later ones read only what was appended; a log in a format the app does
+  not know is skipped and counted (`Bỏ qua 38 phiên Codex`, with `Đã biết`),
+  never guessed. The counts are `stats/index.json` in the app's folder.
+
+  <img src="docs/stats-week.png" width="760" alt="Thống kê on fixture data, 7 ngày: 45,5 triệu token, Claude Code and Codex, Giá API tương đương $412, a bar a day, and the counts by agent, Claude account, model and made-up project">
+
+  <img src="docs/stats-month.png" width="760" alt="30 ngày: thirty bars in one colour, labels five days apart, a number on the tallest only">
+
+  <img src="docs/stats-today.png" width="760" alt="Hôm nay by hour, with the hover card of 14:00 giving Claude Code and Codex">
+
+  <img src="docs/stats-table.png" width="760" alt="Xem bảng: every day of the chart with Claude Code, Codex and Tổng, and Cộng">
+
+  <img src="docs/stats-first.png" width="760" alt="The first read: Claude Code's 2.140 logs done, Codex at 640/960, Antigravity chưa có log token trên máy">
+
+  <img src="docs/stats-skip.png" width="760" alt="Bỏ qua 38 phiên Codex: Codex 0.170.0 writes a log the app cannot read yet, with Đã biết">
+
 - **Antigravity logins** (M4a). `Thêm tài khoản` opens Google's consent
   screen in the default browser, with Antigravity's own OAuth client, so the
   screen names Antigravity, not Quota Station. The flow is Cockpit's: a
@@ -775,6 +810,10 @@ assumes another Mac has any. Each Mac installs and updates its own copy
   them, and `~/.claude/sessions` and the process list for the sessions
   running now. The sets and the last apply's undo (names and on or off, no
   key) are `agents/sets.json`. Every write is the MCP or Skills tab's.
+- Token statistics (M16): `~/.claude/projects/**/*.jsonl` and the Codex
+  folder's `sessions/` and `archived_sessions/`, for each line's token
+  counts, model, time and project folder only; the bytes are zeroed after.
+  The counts are `stats/index.json` (no text). Nothing is sent anywhere.
 - It writes these files: its own settings file,
   `~/Library/Application Support/com.shin315.quota-station/settings.json`,
   with `rotation-sync.json` (where each other Mac stands) beside it; in the
@@ -1065,7 +1104,10 @@ over Claude Code, `launchd`, `unread` or `unchecked`; none set by default) on
 `tab=settings` and `tab=claude`, and `alerts=env` on `tab=alerts`. For M15,
 on `tab=sets` with three made-up sets: `sets` (`empty`, `fresh` for none
 applied, `even` for no drift) and `setsoutcome=changed` for an apply that
-finds Codex's file changed. Nothing
+finds Codex's file changed. For M16, on `tab=stats` with made-up projects:
+`stats` (`first` for the first read halfway, `new` for one that runs,
+`skip` for 38 Codex sessions the app cannot read, `fail` for a report that
+cannot be read). Nothing
 is switched, no browser opens and no file is written: a
 switch only waits 1.5 seconds, a save 1 second and each update step 1.5
 seconds, and they update the fixture.
@@ -1290,9 +1332,28 @@ tại`, the editor, the preview by agent, step 2 opening the Codex switch's
 own sheet (and never switching on its own), a file changed since the
 preview, the undo and a delete.
 
+The M16 tests (`crates/quota-station-core/tests/stats.rs`) read synthetic
+session logs (`tests/fixtures/stats/`) of Claude Code 1.0 and 2.0, of Codex
+before and after its token events, and of versions whose format the app
+does not know, in a fake home. They check each count; that a response
+written over several lines, or copied into a resumed session, counts once;
+that a count Codex repeats adds nothing; that unknown lines are skipped and
+counted per session, with the version that wrote them; that a later read
+takes only what was appended and leaves a line still being written for the
+next; that a truncated, replaced, deleted or archived log is counted right;
+the index across a restart and its 62 days; the days and hours on the Mac's
+clock, the Claude accounts from the switch history, and the prices. The
+trap: the conversation in every fixture carries one text, found in no
+index, report or file of the app's; the report is
+`src/fixtures/stats-trap.json`, which the Vitest tests draw with its table
+and hover cards, finding no such text. They also walk the periods, the
+chart's single Tab stop and arrow keys, `Xem bảng`, the first read's
+progress and `Đã biết`.
+
 ```sh
 UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test ui_fixtures
 UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test env_check
+UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test stats
 ```
 
 ## Layout
@@ -1323,7 +1384,11 @@ UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test env_check
   instruction files. `agents/env_check.rs` finds the variables that override
   a login by name in the shell files and launchd. `agents/sets.rs` turns a
   configuration set into the MCP and Skills tabs' batches, applies and
-  undoes it, and says how far the Mac drifted from it.
+  undoes it, and says how far the Mac drifted from it. `stats/` reads the
+  session logs for their token counts (`claude_log.rs`, `codex_log.rs`),
+  keeps the index of how far each was read and the counts
+  (`index.rs`), adds them up for a period (`report.rs`) and holds the one
+  price table (`prices.rs`).
 - `src-tauri/` is the Tauri 2 shell: the tray item, the popover and the main
   window, the read loop, the Antigravity quota thread, the macOS
   notification center (`notify.rs`), the login item (`login_item.rs`), the
@@ -1332,13 +1397,15 @@ UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test env_check
   and File hướng dẫn tabs' (`skills.rs`), the copy tab's and the
   `quota-station agents …` commands another Mac runs (`copy.rs`), the check
   of the variables that override a login (`env.rs`), the Bộ cấu hình tab's
-  commands (`sets.rs`) and the other commands.
+  commands (`sets.rs`), the Thống kê tab's read and report (`stats.rs`) and
+  the other commands.
 - `scripts/install.sh` builds, signs, installs and packages the app.
 - `src/` is the React and TypeScript frontend; `src/agents/` holds the MCP
   tab and its `CheckMatrix`, which the Skills tab reuses, the Plugin and
   File hướng dẫn tabs, and the Bộ cấu hình tab (`SetsTab.tsx`), and
   `src/backup/` the backup tab, the restore sheet and the copy tab;
-  `src/settings/EnvCard.tsx` is Cài đặt's card of the variables. The
+  `src/settings/EnvCard.tsx` is Cài đặt's card of the variables, and
+  `src/stats/StatsTab.tsx` the Thống kê tab and its SVG chart. The
   front-end stack is below.
 
 ### Front-end stack
