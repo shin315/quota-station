@@ -265,6 +265,8 @@ pub async fn press(
         }
         Effect::OpenAgyTab => windows::open_main(app, Tab::Agy),
         Effect::OpenSkills => windows::open_main(app, Tab::Skills),
+        Effect::OpenSettings => windows::open_main(app, Tab::Settings),
+        Effect::IgnoreEnv { name } => crate::env::ignore_name(app, &shared, &name)?,
         Effect::OpenVerification { number } => {
             let id = account_id(&dir, number).ok_or("notFound")?;
             crate::antigravity::open_verification(&dir, &id)?;

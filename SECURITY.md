@@ -520,6 +520,34 @@ Station, which does every write there.
 - Codex's provider, logins and accounts are never part of it, and nothing
   else is ever run on the other Mac.
 
+## Variables that override a login (M14)
+
+`Cài đặt › Biến môi trường đè đăng nhập`, the Claude tab's red banner and
+one alert per variable say when one of eleven environment variables
+(`ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL`,
+`CLAUDE_CODE_OAUTH_TOKEN`, `CLAUDE_CONFIG_DIR`, `OPENAI_API_KEY`,
+`OPENAI_BASE_URL`, `CODEX_HOME`, `GEMINI_API_KEY`, `GOOGLE_API_KEY`,
+`GOOGLE_CLOUD_PROJECT`) is set where it overrides an agent's login. The app
+learns whether each is set and where, never its value.
+
+- Five shell files in the home folder are read as bytes: `~/.zshenv`,
+  `~/.zprofile`, `~/.zshrc`, `~/.bash_profile`, `~/.profile`. None is ever
+  run or `source`d, and no shell is started. A name counts only at the
+  start of a line (`export NAME=` or `NAME=`, after spaces); only the line
+  number is kept, and the bytes are zeroed before they are let go. A file
+  larger than 1 MB is not read.
+- `/bin/launchctl getenv NAME` is run for each name, with fixed arguments.
+  It prints the value, so its output is only asked whether it is empty and
+  then zeroed at once: never kept, logged, stored or shown.
+- What the windows get, what an alert says and what the app keeps hold the
+  name, the file's `~/…` and the line, nothing else. The alerts show in the
+  app only, never as a macOS card. `Bỏ qua` keeps the ignored names and
+  places in `agents/env-ignored.json` in the app's folder.
+- `Mở file` runs `/usr/bin/open` on that one shell file: at the line with
+  the `vscode://`, `cursor://` or `zed://` URL when that editor is in
+  `/Applications` or `~/Applications`, else `open -t`. The app never edits a
+  shell file and never unsets a variable, in a file or in launchd.
+
 ## How the tests hold the app to this
 
 - Every file the Antigravity code opens goes through one guard
@@ -622,6 +650,18 @@ Station, which does every write there.
   changed since the comparison is not written, that invalid names and paths
   and another protocol are refused, and that a write running or lost is
   told apart. No test opens a real SSH connection.
+- `tests/env_check.rs` (M14) checks fake home folders with fake shell files
+  and a fake `launchctl` that records its words. It checks that a name is
+  found only at the start of a line and its last line wins, that
+  `launchctl` is asked `getenv NAME` for the eleven names and nothing else,
+  that a file it cannot read is said and the rest still checked, that a
+  shell file with commands in it (`touch`, `$(…)`, `source`) is never run,
+  and the trap: a value planted in every file and in `launchctl`'s answer
+  is not in the result, the alerts, any file in the app's folder or what
+  the window is sent. The window's tests draw that very model
+  (`src/fixtures/env-trap.json`) on Cài đặt, the Claude tab and Cảnh báo
+  and find no value there. No test reads the real home, its shell files or
+  launchd.
 - CI has no Keychain access and no Google account.
 - The install tests run `scripts/install.sh` in a temporary folder with fake
   `open` and `security`, and fakes of `launchctl`, `osascript` and `sfltool`

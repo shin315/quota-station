@@ -1,0 +1,854 @@
+{
+  "alerts": [
+    {
+      "alert": {
+        "actions": [
+          {
+            "id": "env:settings",
+            "label": "Xem"
+          },
+          {
+            "id": "env:ignore:GOOGLE_CLOUD_PROJECT",
+            "label": "Bỏ qua"
+          }
+        ],
+        "at": 1768547700,
+        "body": "Đặt ở ~/.zshenv dòng 22, ~/.zprofile dòng 22, ~/.zshrc dòng 22, ~/.bash_profile dòng 22, ~/.profile dòng 22 và launchctl. Trong Terminal, Antigravity có thể tính hạn mức vào dự án Google Cloud này thay cho tài khoản đang đăng nhập.",
+        "key": "env:GOOGLE_CLOUD_PROJECT:zshenv,zprofile,zshrc,bashProfile,profile,launchctl",
+        "kind": "env",
+        "title": "GOOGLE_CLOUD_PROJECT đang đè đăng nhập Antigravity",
+        "tone": "warn"
+      },
+      "answer": null,
+      "id": "env:GOOGLE_CLOUD_PROJECT:zshenv,zprofile,zshrc,bashProfile,profile,launchctl@1768547700",
+      "notified": false
+    },
+    {
+      "alert": {
+        "actions": [
+          {
+            "id": "env:settings",
+            "label": "Xem"
+          },
+          {
+            "id": "env:ignore:GOOGLE_API_KEY",
+            "label": "Bỏ qua"
+          }
+        ],
+        "at": 1768547700,
+        "body": "Đặt ở ~/.zshenv dòng 20, ~/.zprofile dòng 20, ~/.zshrc dòng 20, ~/.bash_profile dòng 20, ~/.profile dòng 20 và launchctl. Trong Terminal, Antigravity có thể dùng khoá này thay cho tài khoản Google đang đăng nhập.",
+        "key": "env:GOOGLE_API_KEY:zshenv,zprofile,zshrc,bashProfile,profile,launchctl",
+        "kind": "env",
+        "title": "GOOGLE_API_KEY đang đè đăng nhập Antigravity",
+        "tone": "bad"
+      },
+      "answer": null,
+      "id": "env:GOOGLE_API_KEY:zshenv,zprofile,zshrc,bashProfile,profile,launchctl@1768547700",
+      "notified": false
+    },
+    {
+      "alert": {
+        "actions": [
+          {
+            "id": "env:settings",
+            "label": "Xem"
+          },
+          {
+            "id": "env:ignore:GEMINI_API_KEY",
+            "label": "Bỏ qua"
+          }
+        ],
+        "at": 1768547700,
+        "body": "Đặt ở ~/.zshenv dòng 18, ~/.zprofile dòng 18, ~/.zshrc dòng 18, ~/.bash_profile dòng 18, ~/.profile dòng 18 và launchctl. Trong Terminal, Antigravity có thể dùng khoá này thay cho tài khoản Google đang đăng nhập.",
+        "key": "env:GEMINI_API_KEY:zshenv,zprofile,zshrc,bashProfile,profile,launchctl",
+        "kind": "env",
+        "title": "GEMINI_API_KEY đang đè đăng nhập Antigravity",
+        "tone": "bad"
+      },
+      "answer": null,
+      "id": "env:GEMINI_API_KEY:zshenv,zprofile,zshrc,bashProfile,profile,launchctl@1768547700",
+      "notified": false
+    },
+    {
+      "alert": {
+        "actions": [
+          {
+            "id": "env:settings",
+            "label": "Xem"
+          },
+          {
+            "id": "env:ignore:CODEX_HOME",
+            "label": "Bỏ qua"
+          }
+        ],
+        "at": 1768547700,
+        "body": "Đặt ở ~/.zshenv dòng 16, ~/.zprofile dòng 16, ~/.zshrc dòng 16, ~/.bash_profile dòng 16, ~/.profile dòng 16 và launchctl. Trong Terminal, Codex đọc cấu hình và đăng nhập ở thư mục này, không phải thư mục app đang theo dõi.",
+        "key": "env:CODEX_HOME:zshenv,zprofile,zshrc,bashProfile,profile,launchctl",
+        "kind": "env",
+        "title": "CODEX_HOME đang đè đăng nhập Codex",
+        "tone": "warn"
+      },
+      "answer": null,
+      "id": "env:CODEX_HOME:zshenv,zprofile,zshrc,bashProfile,profile,launchctl@1768547700",
+      "notified": false
+    },
+    {
+      "alert": {
+        "actions": [
+          {
+            "id": "env:settings",
+            "label": "Xem"
+          },
+          {
+            "id": "env:ignore:OPENAI_BASE_URL",
+            "label": "Bỏ qua"
+          }
+        ],
+        "at": 1768547700,
+        "body": "Đặt ở ~/.zshenv dòng 14, ~/.zprofile dòng 14, ~/.zshrc dòng 14, ~/.bash_profile dòng 14, ~/.profile dòng 14 và launchctl. Trong Terminal, Codex gửi yêu cầu tới địa chỉ này thay cho nhà cung cấp trong config.toml.",
+        "key": "env:OPENAI_BASE_URL:zshenv,zprofile,zshrc,bashProfile,profile,launchctl",
+        "kind": "env",
+        "title": "OPENAI_BASE_URL đang đè đăng nhập Codex",
+        "tone": "warn"
+      },
+      "answer": null,
+      "id": "env:OPENAI_BASE_URL:zshenv,zprofile,zshrc,bashProfile,profile,launchctl@1768547700",
+      "notified": false
+    },
+    {
+      "alert": {
+        "actions": [
+          {
+            "id": "env:settings",
+            "label": "Xem"
+          },
+          {
+            "id": "env:ignore:OPENAI_API_KEY",
+            "label": "Bỏ qua"
+          }
+        ],
+        "at": 1768547700,
+        "body": "Đặt ở ~/.zshenv dòng 12, ~/.zprofile dòng 12, ~/.zshrc dòng 12, ~/.bash_profile dòng 12, ~/.profile dòng 12 và launchctl. Trong Terminal, Codex có thể dùng khoá này thay cho đăng nhập ChatGPT.",
+        "key": "env:OPENAI_API_KEY:zshenv,zprofile,zshrc,bashProfile,profile,launchctl",
+        "kind": "env",
+        "title": "OPENAI_API_KEY đang đè đăng nhập Codex",
+        "tone": "bad"
+      },
+      "answer": {
+        "action": "env:ignore:OPENAI_API_KEY",
+        "at": 1768547760,
+        "label": "Bỏ qua",
+        "result": {
+          "body": "Báo lại nếu biến được đặt ở chỗ khác. App không sửa file shell.",
+          "title": "Đã bỏ qua OPENAI_API_KEY",
+          "tone": "info"
+        }
+      },
+      "id": "env:OPENAI_API_KEY:zshenv,zprofile,zshrc,bashProfile,profile,launchctl@1768547700",
+      "notified": false
+    },
+    {
+      "alert": {
+        "actions": [
+          {
+            "id": "env:settings",
+            "label": "Xem"
+          },
+          {
+            "id": "env:ignore:CLAUDE_CONFIG_DIR",
+            "label": "Bỏ qua"
+          }
+        ],
+        "at": 1768547700,
+        "body": "Đặt ở ~/.zshenv dòng 10, ~/.zprofile dòng 10, ~/.zshrc dòng 10, ~/.bash_profile dòng 10, ~/.profile dòng 10 và launchctl. Trong Terminal, Claude Code đọc đăng nhập ở thư mục này, không phải chỗ claude-swap chuyển tài khoản.",
+        "key": "env:CLAUDE_CONFIG_DIR:zshenv,zprofile,zshrc,bashProfile,profile,launchctl",
+        "kind": "env",
+        "title": "CLAUDE_CONFIG_DIR đang đè đăng nhập Claude Code",
+        "tone": "warn"
+      },
+      "answer": null,
+      "id": "env:CLAUDE_CONFIG_DIR:zshenv,zprofile,zshrc,bashProfile,profile,launchctl@1768547700",
+      "notified": false
+    },
+    {
+      "alert": {
+        "actions": [
+          {
+            "id": "env:settings",
+            "label": "Xem"
+          },
+          {
+            "id": "env:ignore:CLAUDE_CODE_OAUTH_TOKEN",
+            "label": "Bỏ qua"
+          }
+        ],
+        "at": 1768547700,
+        "body": "Đặt ở ~/.zshenv dòng 8, ~/.zprofile dòng 8, ~/.zshrc dòng 8, ~/.bash_profile dòng 8, ~/.profile dòng 8 và launchctl. Trong Terminal, Claude Code dùng token này thay cho tài khoản claude-swap đang chọn.",
+        "key": "env:CLAUDE_CODE_OAUTH_TOKEN:zshenv,zprofile,zshrc,bashProfile,profile,launchctl",
+        "kind": "env",
+        "title": "CLAUDE_CODE_OAUTH_TOKEN đang đè đăng nhập Claude Code",
+        "tone": "bad"
+      },
+      "answer": null,
+      "id": "env:CLAUDE_CODE_OAUTH_TOKEN:zshenv,zprofile,zshrc,bashProfile,profile,launchctl@1768547700",
+      "notified": false
+    },
+    {
+      "alert": {
+        "actions": [
+          {
+            "id": "env:settings",
+            "label": "Xem"
+          },
+          {
+            "id": "env:ignore:ANTHROPIC_BASE_URL",
+            "label": "Bỏ qua"
+          }
+        ],
+        "at": 1768547700,
+        "body": "Đặt ở ~/.zshenv dòng 6, ~/.zprofile dòng 6, ~/.zshrc dòng 6, ~/.bash_profile dòng 6, ~/.profile dòng 6 và launchctl. Trong Terminal, Claude Code gửi yêu cầu tới địa chỉ này thay cho máy chủ của Anthropic.",
+        "key": "env:ANTHROPIC_BASE_URL:zshenv,zprofile,zshrc,bashProfile,profile,launchctl",
+        "kind": "env",
+        "title": "ANTHROPIC_BASE_URL đang đè đăng nhập Claude Code",
+        "tone": "warn"
+      },
+      "answer": null,
+      "id": "env:ANTHROPIC_BASE_URL:zshenv,zprofile,zshrc,bashProfile,profile,launchctl@1768547700",
+      "notified": false
+    },
+    {
+      "alert": {
+        "actions": [
+          {
+            "id": "env:settings",
+            "label": "Xem"
+          },
+          {
+            "id": "env:ignore:ANTHROPIC_AUTH_TOKEN",
+            "label": "Bỏ qua"
+          }
+        ],
+        "at": 1768547700,
+        "body": "Đặt ở ~/.zshenv dòng 4, ~/.zprofile dòng 4, ~/.zshrc dòng 4, ~/.bash_profile dòng 4, ~/.profile dòng 4 và launchctl. Trong Terminal, Claude Code gửi token này thay cho đăng nhập của tài khoản claude-swap đang chọn.",
+        "key": "env:ANTHROPIC_AUTH_TOKEN:zshenv,zprofile,zshrc,bashProfile,profile,launchctl",
+        "kind": "env",
+        "title": "ANTHROPIC_AUTH_TOKEN đang đè đăng nhập Claude Code",
+        "tone": "bad"
+      },
+      "answer": null,
+      "id": "env:ANTHROPIC_AUTH_TOKEN:zshenv,zprofile,zshrc,bashProfile,profile,launchctl@1768547700",
+      "notified": false
+    },
+    {
+      "alert": {
+        "actions": [
+          {
+            "id": "env:settings",
+            "label": "Xem"
+          },
+          {
+            "id": "env:ignore:ANTHROPIC_API_KEY",
+            "label": "Bỏ qua"
+          }
+        ],
+        "at": 1768547700,
+        "body": "Đặt ở ~/.zshenv dòng 2, ~/.zprofile dòng 2, ~/.bash_profile dòng 2, ~/.profile dòng 2 và launchctl. Trong Terminal, Claude Code dùng khoá này thay cho tài khoản claude-swap đang chọn.",
+        "key": "env:ANTHROPIC_API_KEY:zshenv,zprofile,bashProfile,profile,launchctl",
+        "kind": "env",
+        "title": "ANTHROPIC_API_KEY đang đè đăng nhập Claude Code",
+        "tone": "bad"
+      },
+      "answer": null,
+      "id": "env:ANTHROPIC_API_KEY:zshenv,zprofile,bashProfile,profile,launchctl@1768547700",
+      "notified": false
+    }
+  ],
+  "found": [
+    {
+      "agent": "claude",
+      "effect": "Trong Terminal, Claude Code dùng khoá này thay cho tài khoản claude-swap đang chọn.",
+      "id": "ANTHROPIC_API_KEY@zshenv",
+      "line": 2,
+      "name": "ANTHROPIC_API_KEY",
+      "place": "zshenv",
+      "weight": "bad"
+    },
+    {
+      "agent": "claude",
+      "effect": "Trong Terminal, Claude Code dùng khoá này thay cho tài khoản claude-swap đang chọn.",
+      "id": "ANTHROPIC_API_KEY@zprofile",
+      "line": 2,
+      "name": "ANTHROPIC_API_KEY",
+      "place": "zprofile",
+      "weight": "bad"
+    },
+    {
+      "agent": "claude",
+      "effect": "Trong Terminal, Claude Code dùng khoá này thay cho tài khoản claude-swap đang chọn.",
+      "id": "ANTHROPIC_API_KEY@bashProfile",
+      "line": 2,
+      "name": "ANTHROPIC_API_KEY",
+      "place": "bashProfile",
+      "weight": "bad"
+    },
+    {
+      "agent": "claude",
+      "effect": "Trong Terminal, Claude Code dùng khoá này thay cho tài khoản claude-swap đang chọn.",
+      "id": "ANTHROPIC_API_KEY@profile",
+      "line": 2,
+      "name": "ANTHROPIC_API_KEY",
+      "place": "profile",
+      "weight": "bad"
+    },
+    {
+      "agent": "claude",
+      "effect": "Trong các app mở từ Dock, Claude Code dùng khoá này thay cho tài khoản claude-swap đang chọn.",
+      "id": "ANTHROPIC_API_KEY@launchctl",
+      "line": null,
+      "name": "ANTHROPIC_API_KEY",
+      "place": "launchctl",
+      "weight": "bad"
+    },
+    {
+      "agent": "claude",
+      "effect": "Trong Terminal, Claude Code gửi token này thay cho đăng nhập của tài khoản claude-swap đang chọn.",
+      "id": "ANTHROPIC_AUTH_TOKEN@zshenv",
+      "line": 4,
+      "name": "ANTHROPIC_AUTH_TOKEN",
+      "place": "zshenv",
+      "weight": "bad"
+    },
+    {
+      "agent": "claude",
+      "effect": "Trong Terminal, Claude Code gửi token này thay cho đăng nhập của tài khoản claude-swap đang chọn.",
+      "id": "ANTHROPIC_AUTH_TOKEN@zprofile",
+      "line": 4,
+      "name": "ANTHROPIC_AUTH_TOKEN",
+      "place": "zprofile",
+      "weight": "bad"
+    },
+    {
+      "agent": "claude",
+      "effect": "Trong Terminal, Claude Code gửi token này thay cho đăng nhập của tài khoản claude-swap đang chọn.",
+      "id": "ANTHROPIC_AUTH_TOKEN@zshrc",
+      "line": 4,
+      "name": "ANTHROPIC_AUTH_TOKEN",
+      "place": "zshrc",
+      "weight": "bad"
+    },
+    {
+      "agent": "claude",
+      "effect": "Trong Terminal, Claude Code gửi token này thay cho đăng nhập của tài khoản claude-swap đang chọn.",
+      "id": "ANTHROPIC_AUTH_TOKEN@bashProfile",
+      "line": 4,
+      "name": "ANTHROPIC_AUTH_TOKEN",
+      "place": "bashProfile",
+      "weight": "bad"
+    },
+    {
+      "agent": "claude",
+      "effect": "Trong Terminal, Claude Code gửi token này thay cho đăng nhập của tài khoản claude-swap đang chọn.",
+      "id": "ANTHROPIC_AUTH_TOKEN@profile",
+      "line": 4,
+      "name": "ANTHROPIC_AUTH_TOKEN",
+      "place": "profile",
+      "weight": "bad"
+    },
+    {
+      "agent": "claude",
+      "effect": "Trong các app mở từ Dock, Claude Code gửi token này thay cho đăng nhập của tài khoản claude-swap đang chọn.",
+      "id": "ANTHROPIC_AUTH_TOKEN@launchctl",
+      "line": null,
+      "name": "ANTHROPIC_AUTH_TOKEN",
+      "place": "launchctl",
+      "weight": "bad"
+    },
+    {
+      "agent": "claude",
+      "effect": "Trong Terminal, Claude Code gửi yêu cầu tới địa chỉ này thay cho máy chủ của Anthropic.",
+      "id": "ANTHROPIC_BASE_URL@zshenv",
+      "line": 6,
+      "name": "ANTHROPIC_BASE_URL",
+      "place": "zshenv",
+      "weight": "warn"
+    },
+    {
+      "agent": "claude",
+      "effect": "Trong Terminal, Claude Code gửi yêu cầu tới địa chỉ này thay cho máy chủ của Anthropic.",
+      "id": "ANTHROPIC_BASE_URL@zprofile",
+      "line": 6,
+      "name": "ANTHROPIC_BASE_URL",
+      "place": "zprofile",
+      "weight": "warn"
+    },
+    {
+      "agent": "claude",
+      "effect": "Trong Terminal, Claude Code gửi yêu cầu tới địa chỉ này thay cho máy chủ của Anthropic.",
+      "id": "ANTHROPIC_BASE_URL@zshrc",
+      "line": 6,
+      "name": "ANTHROPIC_BASE_URL",
+      "place": "zshrc",
+      "weight": "warn"
+    },
+    {
+      "agent": "claude",
+      "effect": "Trong Terminal, Claude Code gửi yêu cầu tới địa chỉ này thay cho máy chủ của Anthropic.",
+      "id": "ANTHROPIC_BASE_URL@bashProfile",
+      "line": 6,
+      "name": "ANTHROPIC_BASE_URL",
+      "place": "bashProfile",
+      "weight": "warn"
+    },
+    {
+      "agent": "claude",
+      "effect": "Trong Terminal, Claude Code gửi yêu cầu tới địa chỉ này thay cho máy chủ của Anthropic.",
+      "id": "ANTHROPIC_BASE_URL@profile",
+      "line": 6,
+      "name": "ANTHROPIC_BASE_URL",
+      "place": "profile",
+      "weight": "warn"
+    },
+    {
+      "agent": "claude",
+      "effect": "Trong các app mở từ Dock, Claude Code gửi yêu cầu tới địa chỉ này thay cho máy chủ của Anthropic.",
+      "id": "ANTHROPIC_BASE_URL@launchctl",
+      "line": null,
+      "name": "ANTHROPIC_BASE_URL",
+      "place": "launchctl",
+      "weight": "warn"
+    },
+    {
+      "agent": "claude",
+      "effect": "Trong Terminal, Claude Code dùng token này thay cho tài khoản claude-swap đang chọn.",
+      "id": "CLAUDE_CODE_OAUTH_TOKEN@zshenv",
+      "line": 8,
+      "name": "CLAUDE_CODE_OAUTH_TOKEN",
+      "place": "zshenv",
+      "weight": "bad"
+    },
+    {
+      "agent": "claude",
+      "effect": "Trong Terminal, Claude Code dùng token này thay cho tài khoản claude-swap đang chọn.",
+      "id": "CLAUDE_CODE_OAUTH_TOKEN@zprofile",
+      "line": 8,
+      "name": "CLAUDE_CODE_OAUTH_TOKEN",
+      "place": "zprofile",
+      "weight": "bad"
+    },
+    {
+      "agent": "claude",
+      "effect": "Trong Terminal, Claude Code dùng token này thay cho tài khoản claude-swap đang chọn.",
+      "id": "CLAUDE_CODE_OAUTH_TOKEN@zshrc",
+      "line": 8,
+      "name": "CLAUDE_CODE_OAUTH_TOKEN",
+      "place": "zshrc",
+      "weight": "bad"
+    },
+    {
+      "agent": "claude",
+      "effect": "Trong Terminal, Claude Code dùng token này thay cho tài khoản claude-swap đang chọn.",
+      "id": "CLAUDE_CODE_OAUTH_TOKEN@bashProfile",
+      "line": 8,
+      "name": "CLAUDE_CODE_OAUTH_TOKEN",
+      "place": "bashProfile",
+      "weight": "bad"
+    },
+    {
+      "agent": "claude",
+      "effect": "Trong Terminal, Claude Code dùng token này thay cho tài khoản claude-swap đang chọn.",
+      "id": "CLAUDE_CODE_OAUTH_TOKEN@profile",
+      "line": 8,
+      "name": "CLAUDE_CODE_OAUTH_TOKEN",
+      "place": "profile",
+      "weight": "bad"
+    },
+    {
+      "agent": "claude",
+      "effect": "Trong các app mở từ Dock, Claude Code dùng token này thay cho tài khoản claude-swap đang chọn.",
+      "id": "CLAUDE_CODE_OAUTH_TOKEN@launchctl",
+      "line": null,
+      "name": "CLAUDE_CODE_OAUTH_TOKEN",
+      "place": "launchctl",
+      "weight": "bad"
+    },
+    {
+      "agent": "claude",
+      "effect": "Trong Terminal, Claude Code đọc đăng nhập ở thư mục này, không phải chỗ claude-swap chuyển tài khoản.",
+      "id": "CLAUDE_CONFIG_DIR@zshenv",
+      "line": 10,
+      "name": "CLAUDE_CONFIG_DIR",
+      "place": "zshenv",
+      "weight": "warn"
+    },
+    {
+      "agent": "claude",
+      "effect": "Trong Terminal, Claude Code đọc đăng nhập ở thư mục này, không phải chỗ claude-swap chuyển tài khoản.",
+      "id": "CLAUDE_CONFIG_DIR@zprofile",
+      "line": 10,
+      "name": "CLAUDE_CONFIG_DIR",
+      "place": "zprofile",
+      "weight": "warn"
+    },
+    {
+      "agent": "claude",
+      "effect": "Trong Terminal, Claude Code đọc đăng nhập ở thư mục này, không phải chỗ claude-swap chuyển tài khoản.",
+      "id": "CLAUDE_CONFIG_DIR@zshrc",
+      "line": 10,
+      "name": "CLAUDE_CONFIG_DIR",
+      "place": "zshrc",
+      "weight": "warn"
+    },
+    {
+      "agent": "claude",
+      "effect": "Trong Terminal, Claude Code đọc đăng nhập ở thư mục này, không phải chỗ claude-swap chuyển tài khoản.",
+      "id": "CLAUDE_CONFIG_DIR@bashProfile",
+      "line": 10,
+      "name": "CLAUDE_CONFIG_DIR",
+      "place": "bashProfile",
+      "weight": "warn"
+    },
+    {
+      "agent": "claude",
+      "effect": "Trong Terminal, Claude Code đọc đăng nhập ở thư mục này, không phải chỗ claude-swap chuyển tài khoản.",
+      "id": "CLAUDE_CONFIG_DIR@profile",
+      "line": 10,
+      "name": "CLAUDE_CONFIG_DIR",
+      "place": "profile",
+      "weight": "warn"
+    },
+    {
+      "agent": "claude",
+      "effect": "Trong các app mở từ Dock, Claude Code đọc đăng nhập ở thư mục này, không phải chỗ claude-swap chuyển tài khoản.",
+      "id": "CLAUDE_CONFIG_DIR@launchctl",
+      "line": null,
+      "name": "CLAUDE_CONFIG_DIR",
+      "place": "launchctl",
+      "weight": "warn"
+    },
+    {
+      "agent": "codex",
+      "effect": "Trong Terminal, Codex có thể dùng khoá này thay cho đăng nhập ChatGPT.",
+      "id": "OPENAI_API_KEY@zshenv",
+      "line": 12,
+      "name": "OPENAI_API_KEY",
+      "place": "zshenv",
+      "weight": "bad"
+    },
+    {
+      "agent": "codex",
+      "effect": "Trong Terminal, Codex có thể dùng khoá này thay cho đăng nhập ChatGPT.",
+      "id": "OPENAI_API_KEY@zprofile",
+      "line": 12,
+      "name": "OPENAI_API_KEY",
+      "place": "zprofile",
+      "weight": "bad"
+    },
+    {
+      "agent": "codex",
+      "effect": "Trong Terminal, Codex có thể dùng khoá này thay cho đăng nhập ChatGPT.",
+      "id": "OPENAI_API_KEY@zshrc",
+      "line": 12,
+      "name": "OPENAI_API_KEY",
+      "place": "zshrc",
+      "weight": "bad"
+    },
+    {
+      "agent": "codex",
+      "effect": "Trong Terminal, Codex có thể dùng khoá này thay cho đăng nhập ChatGPT.",
+      "id": "OPENAI_API_KEY@bashProfile",
+      "line": 12,
+      "name": "OPENAI_API_KEY",
+      "place": "bashProfile",
+      "weight": "bad"
+    },
+    {
+      "agent": "codex",
+      "effect": "Trong Terminal, Codex có thể dùng khoá này thay cho đăng nhập ChatGPT.",
+      "id": "OPENAI_API_KEY@profile",
+      "line": 12,
+      "name": "OPENAI_API_KEY",
+      "place": "profile",
+      "weight": "bad"
+    },
+    {
+      "agent": "codex",
+      "effect": "Trong các app mở từ Dock, Codex có thể dùng khoá này thay cho đăng nhập ChatGPT.",
+      "id": "OPENAI_API_KEY@launchctl",
+      "line": null,
+      "name": "OPENAI_API_KEY",
+      "place": "launchctl",
+      "weight": "bad"
+    },
+    {
+      "agent": "codex",
+      "effect": "Trong Terminal, Codex gửi yêu cầu tới địa chỉ này thay cho nhà cung cấp trong config.toml.",
+      "id": "OPENAI_BASE_URL@zshenv",
+      "line": 14,
+      "name": "OPENAI_BASE_URL",
+      "place": "zshenv",
+      "weight": "warn"
+    },
+    {
+      "agent": "codex",
+      "effect": "Trong Terminal, Codex gửi yêu cầu tới địa chỉ này thay cho nhà cung cấp trong config.toml.",
+      "id": "OPENAI_BASE_URL@zprofile",
+      "line": 14,
+      "name": "OPENAI_BASE_URL",
+      "place": "zprofile",
+      "weight": "warn"
+    },
+    {
+      "agent": "codex",
+      "effect": "Trong Terminal, Codex gửi yêu cầu tới địa chỉ này thay cho nhà cung cấp trong config.toml.",
+      "id": "OPENAI_BASE_URL@zshrc",
+      "line": 14,
+      "name": "OPENAI_BASE_URL",
+      "place": "zshrc",
+      "weight": "warn"
+    },
+    {
+      "agent": "codex",
+      "effect": "Trong Terminal, Codex gửi yêu cầu tới địa chỉ này thay cho nhà cung cấp trong config.toml.",
+      "id": "OPENAI_BASE_URL@bashProfile",
+      "line": 14,
+      "name": "OPENAI_BASE_URL",
+      "place": "bashProfile",
+      "weight": "warn"
+    },
+    {
+      "agent": "codex",
+      "effect": "Trong Terminal, Codex gửi yêu cầu tới địa chỉ này thay cho nhà cung cấp trong config.toml.",
+      "id": "OPENAI_BASE_URL@profile",
+      "line": 14,
+      "name": "OPENAI_BASE_URL",
+      "place": "profile",
+      "weight": "warn"
+    },
+    {
+      "agent": "codex",
+      "effect": "Trong các app mở từ Dock, Codex gửi yêu cầu tới địa chỉ này thay cho nhà cung cấp trong config.toml.",
+      "id": "OPENAI_BASE_URL@launchctl",
+      "line": null,
+      "name": "OPENAI_BASE_URL",
+      "place": "launchctl",
+      "weight": "warn"
+    },
+    {
+      "agent": "codex",
+      "effect": "Trong Terminal, Codex đọc cấu hình và đăng nhập ở thư mục này, không phải thư mục app đang theo dõi.",
+      "id": "CODEX_HOME@zshenv",
+      "line": 16,
+      "name": "CODEX_HOME",
+      "place": "zshenv",
+      "weight": "warn"
+    },
+    {
+      "agent": "codex",
+      "effect": "Trong Terminal, Codex đọc cấu hình và đăng nhập ở thư mục này, không phải thư mục app đang theo dõi.",
+      "id": "CODEX_HOME@zprofile",
+      "line": 16,
+      "name": "CODEX_HOME",
+      "place": "zprofile",
+      "weight": "warn"
+    },
+    {
+      "agent": "codex",
+      "effect": "Trong Terminal, Codex đọc cấu hình và đăng nhập ở thư mục này, không phải thư mục app đang theo dõi.",
+      "id": "CODEX_HOME@zshrc",
+      "line": 16,
+      "name": "CODEX_HOME",
+      "place": "zshrc",
+      "weight": "warn"
+    },
+    {
+      "agent": "codex",
+      "effect": "Trong Terminal, Codex đọc cấu hình và đăng nhập ở thư mục này, không phải thư mục app đang theo dõi.",
+      "id": "CODEX_HOME@bashProfile",
+      "line": 16,
+      "name": "CODEX_HOME",
+      "place": "bashProfile",
+      "weight": "warn"
+    },
+    {
+      "agent": "codex",
+      "effect": "Trong Terminal, Codex đọc cấu hình và đăng nhập ở thư mục này, không phải thư mục app đang theo dõi.",
+      "id": "CODEX_HOME@profile",
+      "line": 16,
+      "name": "CODEX_HOME",
+      "place": "profile",
+      "weight": "warn"
+    },
+    {
+      "agent": "codex",
+      "effect": "Trong các app mở từ Dock, Codex đọc cấu hình và đăng nhập ở thư mục này, không phải thư mục app đang theo dõi.",
+      "id": "CODEX_HOME@launchctl",
+      "line": null,
+      "name": "CODEX_HOME",
+      "place": "launchctl",
+      "weight": "warn"
+    },
+    {
+      "agent": "agy",
+      "effect": "Trong Terminal, Antigravity có thể dùng khoá này thay cho tài khoản Google đang đăng nhập.",
+      "id": "GEMINI_API_KEY@zshenv",
+      "line": 18,
+      "name": "GEMINI_API_KEY",
+      "place": "zshenv",
+      "weight": "bad"
+    },
+    {
+      "agent": "agy",
+      "effect": "Trong Terminal, Antigravity có thể dùng khoá này thay cho tài khoản Google đang đăng nhập.",
+      "id": "GEMINI_API_KEY@zprofile",
+      "line": 18,
+      "name": "GEMINI_API_KEY",
+      "place": "zprofile",
+      "weight": "bad"
+    },
+    {
+      "agent": "agy",
+      "effect": "Trong Terminal, Antigravity có thể dùng khoá này thay cho tài khoản Google đang đăng nhập.",
+      "id": "GEMINI_API_KEY@zshrc",
+      "line": 18,
+      "name": "GEMINI_API_KEY",
+      "place": "zshrc",
+      "weight": "bad"
+    },
+    {
+      "agent": "agy",
+      "effect": "Trong Terminal, Antigravity có thể dùng khoá này thay cho tài khoản Google đang đăng nhập.",
+      "id": "GEMINI_API_KEY@bashProfile",
+      "line": 18,
+      "name": "GEMINI_API_KEY",
+      "place": "bashProfile",
+      "weight": "bad"
+    },
+    {
+      "agent": "agy",
+      "effect": "Trong Terminal, Antigravity có thể dùng khoá này thay cho tài khoản Google đang đăng nhập.",
+      "id": "GEMINI_API_KEY@profile",
+      "line": 18,
+      "name": "GEMINI_API_KEY",
+      "place": "profile",
+      "weight": "bad"
+    },
+    {
+      "agent": "agy",
+      "effect": "Trong các app mở từ Dock, Antigravity có thể dùng khoá này thay cho tài khoản Google đang đăng nhập.",
+      "id": "GEMINI_API_KEY@launchctl",
+      "line": null,
+      "name": "GEMINI_API_KEY",
+      "place": "launchctl",
+      "weight": "bad"
+    },
+    {
+      "agent": "agy",
+      "effect": "Trong Terminal, Antigravity có thể dùng khoá này thay cho tài khoản Google đang đăng nhập.",
+      "id": "GOOGLE_API_KEY@zshenv",
+      "line": 20,
+      "name": "GOOGLE_API_KEY",
+      "place": "zshenv",
+      "weight": "bad"
+    },
+    {
+      "agent": "agy",
+      "effect": "Trong Terminal, Antigravity có thể dùng khoá này thay cho tài khoản Google đang đăng nhập.",
+      "id": "GOOGLE_API_KEY@zprofile",
+      "line": 20,
+      "name": "GOOGLE_API_KEY",
+      "place": "zprofile",
+      "weight": "bad"
+    },
+    {
+      "agent": "agy",
+      "effect": "Trong Terminal, Antigravity có thể dùng khoá này thay cho tài khoản Google đang đăng nhập.",
+      "id": "GOOGLE_API_KEY@zshrc",
+      "line": 20,
+      "name": "GOOGLE_API_KEY",
+      "place": "zshrc",
+      "weight": "bad"
+    },
+    {
+      "agent": "agy",
+      "effect": "Trong Terminal, Antigravity có thể dùng khoá này thay cho tài khoản Google đang đăng nhập.",
+      "id": "GOOGLE_API_KEY@bashProfile",
+      "line": 20,
+      "name": "GOOGLE_API_KEY",
+      "place": "bashProfile",
+      "weight": "bad"
+    },
+    {
+      "agent": "agy",
+      "effect": "Trong Terminal, Antigravity có thể dùng khoá này thay cho tài khoản Google đang đăng nhập.",
+      "id": "GOOGLE_API_KEY@profile",
+      "line": 20,
+      "name": "GOOGLE_API_KEY",
+      "place": "profile",
+      "weight": "bad"
+    },
+    {
+      "agent": "agy",
+      "effect": "Trong các app mở từ Dock, Antigravity có thể dùng khoá này thay cho tài khoản Google đang đăng nhập.",
+      "id": "GOOGLE_API_KEY@launchctl",
+      "line": null,
+      "name": "GOOGLE_API_KEY",
+      "place": "launchctl",
+      "weight": "bad"
+    },
+    {
+      "agent": "agy",
+      "effect": "Trong Terminal, Antigravity có thể tính hạn mức vào dự án Google Cloud này thay cho tài khoản đang đăng nhập.",
+      "id": "GOOGLE_CLOUD_PROJECT@zshenv",
+      "line": 22,
+      "name": "GOOGLE_CLOUD_PROJECT",
+      "place": "zshenv",
+      "weight": "warn"
+    },
+    {
+      "agent": "agy",
+      "effect": "Trong Terminal, Antigravity có thể tính hạn mức vào dự án Google Cloud này thay cho tài khoản đang đăng nhập.",
+      "id": "GOOGLE_CLOUD_PROJECT@zprofile",
+      "line": 22,
+      "name": "GOOGLE_CLOUD_PROJECT",
+      "place": "zprofile",
+      "weight": "warn"
+    },
+    {
+      "agent": "agy",
+      "effect": "Trong Terminal, Antigravity có thể tính hạn mức vào dự án Google Cloud này thay cho tài khoản đang đăng nhập.",
+      "id": "GOOGLE_CLOUD_PROJECT@zshrc",
+      "line": 22,
+      "name": "GOOGLE_CLOUD_PROJECT",
+      "place": "zshrc",
+      "weight": "warn"
+    },
+    {
+      "agent": "agy",
+      "effect": "Trong Terminal, Antigravity có thể tính hạn mức vào dự án Google Cloud này thay cho tài khoản đang đăng nhập.",
+      "id": "GOOGLE_CLOUD_PROJECT@bashProfile",
+      "line": 22,
+      "name": "GOOGLE_CLOUD_PROJECT",
+      "place": "bashProfile",
+      "weight": "warn"
+    },
+    {
+      "agent": "agy",
+      "effect": "Trong Terminal, Antigravity có thể tính hạn mức vào dự án Google Cloud này thay cho tài khoản đang đăng nhập.",
+      "id": "GOOGLE_CLOUD_PROJECT@profile",
+      "line": 22,
+      "name": "GOOGLE_CLOUD_PROJECT",
+      "place": "profile",
+      "weight": "warn"
+    },
+    {
+      "agent": "agy",
+      "effect": "Trong các app mở từ Dock, Antigravity có thể tính hạn mức vào dự án Google Cloud này thay cho tài khoản đang đăng nhập.",
+      "id": "GOOGLE_CLOUD_PROJECT@launchctl",
+      "line": null,
+      "name": "GOOGLE_CLOUD_PROJECT",
+      "place": "launchctl",
+      "weight": "warn"
+    }
+  ],
+  "unread": []
+}

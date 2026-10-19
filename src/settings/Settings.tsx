@@ -6,9 +6,11 @@
 // app itself (M7): launching at login, the clone it updates from, its
 // version and "Cập nhật từ mã nguồn". Rows speak for themselves: no line of
 // explanation under them. Each Mac runs its own copy and switches only itself.
+// First comes the card of the variables that override a login (M14).
 
 import { useState } from 'react';
 import { AlertKinds } from '../alerts/AlertsTab';
+import { EnvCard } from './EnvCard';
 import { Button, Chip, Dot, Feedback, Toggle } from '../components/parts';
 import { PERMISSION_CHIPS, UNREAD } from '../lib/alerts';
 import type { ChipView } from '../lib/view';
@@ -700,6 +702,7 @@ export function Settings({
         </small>
       </div>
       {feedback ? <Feedback fb={feedback} onAction={onAction} /> : null}
+      <EnvCard model={model} onAction={onAction} />
       <div className="card">
         <div className="form">
           <div className="fr">

@@ -173,3 +173,14 @@
 .qs .lnum pre > span::before { content: attr(data-n); width: 22px; text-align: right; left: 6px; }
 .qs .lnum pre > span.hl { background: color-mix(in srgb, var(--warn) 18%, transparent); }
 .qs .dlg .diff { max-height: 46vh; overflow: auto; }
+
+/* ===== Biến môi trường đè đăng nhập (M14), the first card of Cài đặt ===== */
+.qs .ev { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; padding: 9px 0; border-top: .5px solid var(--card-line); font-size: var(--fs-sm); }
+.qs .ev:first-child { border-top: 0; padding-top: 2px; }
+.qs .ev b { font: var(--fw-semi) 12px var(--font-mono); overflow-wrap: anywhere; }
+.qs .ev small { display: block; color: var(--ink2); font-size: var(--fs-xs); }
+.qs .ev .a { display: flex; gap: 6px; align-items: flex-start; }
+.qs .card .ev-none { margin: 2px 0 8px; color: var(--ink); display: flex; gap: 6px; align-items: center; }
+.qs .card .ev-foot { margin: 6px 0 0; }
+.qs .dlg .ev-vars { display: block; line-height: 1.9; margin: 0 0 6px; font-size: var(--fs-xs); overflow-wrap: anywhere; }
+.qs .card .ev-unread { margin: 4px 0 0; }

@@ -25,6 +25,9 @@
 //! [`skill_ops`], newer versions found by [`skill_updates`]), the plugins
 //! ([`plugins`], read only) and the instruction files ([`instructions`],
 //! read only).
+//!
+//! M14 adds [`env_check`]: the environment variables in the shell files and
+//! launchd that override an agent's login, found by name, never by value.
 
 pub mod agy_mcp;
 pub mod batch;
@@ -32,6 +35,7 @@ pub mod claude_mcp;
 pub mod codex_mcp;
 pub mod copy;
 pub mod def;
+pub mod env_check;
 pub mod instructions;
 pub mod json_text;
 pub mod kho;

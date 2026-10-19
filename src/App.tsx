@@ -45,6 +45,7 @@ import { FirstmateTab } from './firstmate/FirstmateTab';
 import { HistoryTab } from './history/HistoryTab';
 import { CompareDialog, LeaveDialog, RulesTab } from './rules/RulesTab';
 import { useRules } from './rules/useRules';
+import { EnvListBody, useEnv } from './settings/EnvCard';
 import { Settings } from './settings/Settings';
 import { MainWindow } from './window/MainWindow';
 
@@ -505,9 +506,10 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   const toTab = useRef<(t: Tab) => void>(() => {});
   const backup = useBackup(api, model, showFeedback, { rekey: mcp.rekey, onTab: (t) => toTab.current(t) });
   const copy = useCopy(api, model, showFeedback);
+  const env = useEnv(api, model, showFeedback);
   const ruleDialog = rules.leave ? 'leave' : rules.compare ? 'compare' : null;
   const sheetOpen =
-    !!switching.sheet || !!ruleDialog || !!mcp.dialog || !!backup.dialog || !!copy.dialog || !!skills.dialog || plugins.open || !!instr.dialog;
+    !!switching.sheet || !!ruleDialog || !!mcp.dialog || !!backup.dialog || !!copy.dialog || !!skills.dialog || plugins.open || !!instr.dialog || env.list;
   const closeSheet = useRef(switching.close);
   // Escape closes the sheet on show: the unsaved-changes one, then a switch, then the comparison, then an MCP dialog.
   closeSheet.current = () => {
@@ -520,6 +522,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
     else if (skills.dialog) skills.close();
     else if (plugins.open) plugins.close();
     else if (instr.dialog) instr.close();
+    else if (env.list) env.close();
   };
 
   useEffect(() => {
@@ -555,8 +558,11 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
     if (tab === 'codex') void api.codexCheck().catch(() => {});
     // Whether macOS shows the cards may have changed in System Settings.
     if (tab === 'alerts' || tab === 'settings') void api.notifyRefresh().catch(() => {});
-    // So may launching at login.
-    if (tab === 'settings') void api.settingsOpened().catch(() => {});
+    // So may launching at login, and the shell files: the variables are looked at again.
+    if (tab === 'settings') {
+      void api.settingsOpened().catch(() => {});
+      void api.envCheck().catch(() => {});
+    }
     // Opening the MCP tab reads every agent's list now.
     if (tab === 'mcp') void api.mcpRead().catch(() => {});
     // Opening Skills, Plugin or File hướng dẫn reads them now.
@@ -577,6 +583,8 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
     if (backup.act(act)) return;
     if (skills.act(act)) return;
     if (instr.act(act)) return;
+    if (env.act(act)) return;
+    if (act === 'env:settings') return rules.guardTab(tab, 'settings', setTab);
     if (act === 'plugins:reread') return void api.pluginsRead().catch(() => {});
     if (act === 'mcp:tab') return rules.guardTab(tab, 'mcp', setTab);
     if (act === 'notify:settings') return void api.openNotificationSettings().catch(() => showFeedback(settingsFailedFeedback()));
@@ -684,6 +692,8 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
         <PluginDialogBody model={model} plugins={plugins} />
       ) : instr.dialog ? (
         <InstrDialogBody instr={instr} model={model} now={now} />
+      ) : env.list ? (
+        <EnvListBody model={model} env={env} />
       ) : null))
     );
   const dialogSize =
@@ -701,7 +711,9 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
               ? 'xl'
               : instr.dialog
                 ? instrDialogSize(instr.dialog)
-                : undefined;
+                : env.list
+                  ? 'lg'
+                  : undefined;
   return (
     <MainWindow
       tab={tab}

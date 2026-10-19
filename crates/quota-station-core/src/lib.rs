@@ -15,7 +15,10 @@
 //! Everything else it runs only reads: quota-axi, `cswap list --json`
 //! (every Claude account's windows, email and organization), the switcher's
 //! `--dry-run` (which reads claude-swap's accounts and switches nothing),
-//! `ssh` reading the other Macs' rotation file, `launchctl list`, and
+//! `ssh` reading the other Macs' rotation file, `launchctl list`,
+//! `launchctl getenv NAME` for the variables that override a login
+//! ([`agents::env_check`], which keeps whether a value is there, never the
+//! value), and
 //! `plutil -p` on Antigravity's `Info.plist`. It reads Firstmate's
 //! `quota-pool.last` ([`firstmate`]) only at the path set in settings.
 //!

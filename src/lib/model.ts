@@ -435,8 +435,11 @@ export interface HistoryEntry {
 
 /** The five kinds with a switch each (M6). */
 export type SwitchKind = 'pool' | 'leaving' | 'login' | 'overwrite' | 'firstmate';
-/** `skill`: skills with a newer version (M11), shown in the app only unless Cài đặt says otherwise. */
-export type AlertKind = SwitchKind | 'skill';
+/**
+ * `skill`: skills with a newer version (M11), shown in the app only unless Cài đặt says otherwise.
+ * `env`: a variable overriding a login (M14), in the app only.
+ */
+export type AlertKind = SwitchKind | 'skill' | 'env';
 export type AlertTone = 'ok' | 'warn' | 'bad' | 'info';
 
 export interface AlertAct {
@@ -929,6 +932,44 @@ export interface Model {
   skills: SkillsView;
   plugins: PluginsView;
   instructions: InstrView;
+  /** The variables that override a login (M14). */
+  env: EnvView;
+}
+
+// ===== Variables that override a login (M14) =====
+
+/** `agents::env_check::Place`: five shell files in the home folder, and launchd. */
+export type EnvPlace = 'zshenv' | 'zprofile' | 'zshrc' | 'bashProfile' | 'profile' | 'launchctl';
+
+/** `agents::env_check::Found`: a name set in one place. Never its value. */
+export interface EnvFound {
+  /** `ANTHROPIC_API_KEY@zshrc`. */
+  id: string;
+  name: string;
+  agent: Agent;
+  /** `bad`: a key or token replaces the login; `warn`: an address, folder or project. */
+  weight: 'bad' | 'warn';
+  place: EnvPlace;
+  /** The line that sets it, from 1; none in launchd. */
+  line: number | null;
+  /** "Trong Terminal, Claude Code dùng khoá này thay cho …". */
+  effect: string;
+}
+
+/** `env::EnvView`: Cài đặt's card and the Claude tab's banner. */
+export interface EnvView {
+  /** RFC 3339; none before the first check. */
+  checkedAt: string | null;
+  checking: boolean;
+  /** The eleven names and the six places' labels. */
+  vars: string[];
+  places: string[];
+  /** Set and not ignored. */
+  found: EnvFound[];
+  /** How many "Bỏ qua" hides. */
+  ignored: number;
+  /** Places that could not be looked at. */
+  unread: EnvPlace[];
 }
 
 // ===== Backup and restore (M10) =====

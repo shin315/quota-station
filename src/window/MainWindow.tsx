@@ -10,6 +10,7 @@
 // then Skills, Plugin and File hướng dẫn (M11).
 // The Sao lưu group has the backup packs and the restore (M10), and the copy
 // to or from another Mac over SSH (M13).
+// The Claude tab has a red banner while a variable overrides Claude Code's login (M14).
 
 import { Fragment, type ReactNode } from 'react';
 import { AddAccount, LoginActions, LoginNotes, LogoutConfirm, loginChips, type AgyLogins } from '../antigravity/AgyAccounts';
@@ -347,6 +348,7 @@ function ClaudeTab(props: TabProps) {
   return (
     <>
       <Top {...props} title="Claude" />
+      {v.envBanner ? <Banner banner={v.envBanner} onAction={props.onAction} busy={props.busy} /> : null}
       {v.claudeBanner ? <Banner banner={v.claudeBanner} onAction={props.onAction} busy={props.busy} /> : null}
       <Card title={<>Tài khoản{v.claude.count ? <span className="r">{v.claude.count}</span> : null}</>} kind="c">
         <ClaudeTable cards={v.claude.cards} onSwitch={props.onSwitch} />
