@@ -57,6 +57,18 @@ body:not(.preview) .qs.app-window .lights i {
 .qs.app-window .main {
   padding-bottom: 22px;
 }
+/* The window's top edge, the height of the page's top padding: it drags the
+   window over the sidebar and the page alike, however far the page has
+   scrolled. The title row below drags too. Dialogs, menus and toasts sit
+   above it. */
+.qs .win-o > .dragbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 16px;
+  z-index: 10;
+}
 .qs.app-window .inp {
   -webkit-user-select: text;
   user-select: text;

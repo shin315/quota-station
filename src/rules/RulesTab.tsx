@@ -332,7 +332,7 @@ export function RulesTab({ model, fresh, rules: st, feedback, now, onAction }: R
   const banner = st.banner ?? st.error?.banner ?? rotationBanner(model);
   return (
     <>
-      <div className="tb" data-tauri-drag-region>
+      <div className="tb" data-tauri-drag-region="deep">
         <h2>Luật xoay vòng</h2>
         <small>
           <Dot tone={fresh.tone} />

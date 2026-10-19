@@ -36,17 +36,19 @@ describe('popover', () => {
     const claude = screen.getByRole('list', { name: 'CLAUDE' });
     const cards = within(claude).getAllByRole('listitem').map((li) => within(li).getByRole('button'));
     expect(cards).toHaveLength(4);
+    // The main window's order: the personal account, then the Team seats; the one in use keeps its place.
+    expect(cards.map((c) => c.getAttribute('aria-label')!.split(',')[0])).toEqual(['lanpham.dev', 'lan.acme1', 'lan.acme2', 'lan.acme3']);
     // The spoken label keeps every word the screen no longer writes.
-    expect(cards[0].getAttribute('aria-label')).toMatch(/^lan\.acme1, Acme Studio, đang dùng\. 5 giờ đã dùng 74%/);
-    expect(within(cards[0]).queryByText('đang dùng')).toBeNull();
-    expect(within(cards[0]).queryByText('Acme Studio')).toBeNull();
+    expect(cards[1].getAttribute('aria-label')).toMatch(/^lan\.acme1, Acme Studio, đang dùng\. 5 giờ đã dùng 74%/);
+    expect(within(cards[1]).queryByText('đang dùng')).toBeNull();
+    expect(within(cards[1]).queryByText('Acme Studio')).toBeNull();
     expect(within(cards[2]).queryByText('Tuần')).toBeNull();
-    expect(within(cards[1]).queryByText('chưa dùng')).toBeNull();
-    expect(cards[0].getAttribute('aria-disabled')).toBe('true');
-    expect(cards[0].getAttribute('title')).toBe('lan.acme1@example.com · claude-swap · tài khoản 2');
+    expect(within(cards[0]).queryByText('chưa dùng')).toBeNull();
+    expect(cards[1].getAttribute('aria-disabled')).toBe('true');
+    expect(cards[1].getAttribute('title')).toBe('lan.acme1@example.com · claude-swap · tài khoản 2');
     expect(cards[2].getAttribute('aria-label')).toMatch(/^lan\.acme2, Acme Studio\. .*\. Bấm để chuyển$/);
     expect(cards[2].getAttribute('aria-disabled')).toBeNull();
-    expect(within(cards[0]).getByText('74%')).toBeTruthy();
+    expect(within(cards[1]).getByText('74%')).toBeTruthy();
     expect(screen.queryByText('2,3')).toBeNull();
 
     const agy = within(screen.getByRole('list', { name: 'ANTIGRAVITY' })).getAllByRole('button');
@@ -57,7 +59,7 @@ describe('popover', () => {
       'lanpham.ultra@example.com · Cockpit Tools · tài khoản 1 · Chưa chuyển được: quota-axi chưa liệt kê tài khoản của Quota Station',
     );
     fireEvent.click(ultra1);
-    fireEvent.click(cards[0]);
+    fireEvent.click(cards[1]);
     expect(screen.queryByRole('dialog', { name: /Chuyển/ })).toBeNull();
     expect(fake.api.claudeSessions).not.toHaveBeenCalled();
     fireEvent.click(cards[2]);
@@ -123,7 +125,7 @@ describe('popover', () => {
   it('Đang dùng heads the popover: each service, its account, share used and reset', async () => {
     await open(fixtureModel('fresh'));
     const now = within(screen.getByRole('list', { name: 'Đang dùng' })).getAllByRole('listitem');
-    expect(now.map((r) => r.textContent)).toEqual(['Claudelan.acme174%↻ 3:08', 'Geminilan.ultra22%↻ 1:57', 'Codexrelay—']);
+    expect(now.map((r) => r.textContent)).toEqual(['Claudelan.acme174%↻ 3h 8m', 'Geminilan.ultra22%↻ 1h 57m', 'Codexrelay—']);
     expect(now[0].getAttribute('title')).toBe('Claude: lan.acme1 đã dùng 74% 5 giờ');
     expect(now[2].getAttribute('title')).toBe('Codex: relay, ChatGPT đã dùng 23% 5 giờ');
     cleanup();

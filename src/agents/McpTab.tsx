@@ -150,7 +150,7 @@ export function McpTab({ model, fresh, feedback, now, mcp, onAction }: McpTabPro
   const busy = v.busy != null || mcp.working;
   const sub = v.busy === 'reading' ? 'đang đọc…' : v.readAt ? 'đọc lúc ' + clock(v.readAt) : fresh.text;
   const top = (
-    <div className="tb" data-tauri-drag-region>
+    <div className="tb" data-tauri-drag-region="deep">
       <h2>MCP</h2>
       <small>
         <Dot tone={v.busy === 'reading' ? 'stale' : 'ok'} />

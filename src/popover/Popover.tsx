@@ -1,7 +1,7 @@
 // The popover (F01, F03, F04, F07), at the approved "Gọn hơn" level: one
 // header line with this Mac's name, Đang dùng on top (the account in use on
 // each service, its share used and when it resets), then a card per
-// account, the one in use first. Each group (Claude, Antigravity) folds to
+// account in the main window's order, the one in use framed. Each group (Claude, Antigravity) folds to
 // its header alone, and stays folded the next time the popover opens. A card opens its switch sheet; the footer holds the
 // automatic switching toggle. The header's two buttons switch between the
 // light and dark look and open the main window. Under the groups, Codex is

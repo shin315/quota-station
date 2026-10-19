@@ -35,10 +35,8 @@ export interface CellView {
   /** `38%`, `≤4%` (only a bound is known), `—`. */
   text: string;
   tone: UsedTone;
-  /** `↻ 3:09`, `chưa dùng`, `chờ số`, ''. */
+  /** `↻ 3h 9m`, `↻ 4d 10h`, `chưa dùng`, `chờ số`, ''. */
   reset: string;
-  /** `↻ 3 ngày 21 giờ`, for the tables. */
-  long: string;
   /** No such window for this account (a Team seat has no week). */
   none: boolean;
   /** Hover text. */
@@ -61,31 +59,23 @@ const LABEL: Record<LineKind, [string, string, number]> = {
   claudeGptWeek: ['Claude/GPT tuần', 'tuần', 1],
 };
 
-/** `↻ 3 giờ 09 phút` within a day, `↻ 4 ngày 23 giờ` beyond: minutes stop mattering. */
-function longReset(minutes: number): string {
-  const m = minutes >= 1440 ? minutes - (minutes % 60) : minutes;
-  return '↻ ' + resetWords(m).replace('đặt lại sau ', '');
-}
-
 export function cellOf(line: Line | undefined, kind: LineKind, now: Date, missing = 'không có'): CellView {
   const [label, unit, rank] = LABEL[kind];
   if (!line) {
-    return { kind, label, unit, used: null, text: '—', tone: 'muted', reset: missing, long: missing, none: true, title: missing, words: label + ' ' + missing, rank };
+    return { kind, label, unit, used: null, text: '—', tone: 'muted', reset: missing, none: true, title: missing, words: label + ' ' + missing, rank };
   }
   const used = usedOf(line);
   const mins = minutesUntil(line.resetsAt, now);
   let reset = '';
-  let long = '';
   let words = '';
   if (line.pending || (used != null && mins != null && mins <= 0)) {
-    reset = long = 'chờ số';
+    reset = 'chờ số';
     words = 'đang chờ số mới';
   } else if (mins != null) {
     reset = '↻ ' + resetShort(mins);
-    long = longReset(mins);
     words = resetWords(mins);
   } else if (used === 0 && !line.atLeast) {
-    reset = long = words = 'chưa dùng';
+    reset = words = 'chưa dùng';
   }
   // quota-axi knows only a bound for a window another one limits first.
   const bound = used != null && line.atLeast;
@@ -98,7 +88,6 @@ export function cellOf(line: Line | undefined, kind: LineKind, now: Date, missin
     text,
     tone: usedTone(used),
     reset,
-    long,
     none: false,
     title: used == null ? label + ': chưa có số' : label + ' đã dùng ' + (bound ? 'nhiều nhất ' : '') + used + '%',
     words: label + ' ' + (used == null ? 'chưa có số' : 'đã dùng ' + (bound ? 'nhiều nhất ' : '') + used + '%') + (words ? ', ' + words : ''),

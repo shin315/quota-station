@@ -6,7 +6,7 @@ import { windowView } from './window';
 const view = (name: string, over = {}) => windowView(fixtureModel(name, over), FIXTURE_NOW);
 
 describe('main window view', () => {
-  it('shows the same snapshot as the popover, the tables in slot order', () => {
+  it('shows the same snapshot as the popover, both in slot order', () => {
     const model = fixtureModel('fresh');
     const w = windowView(model, FIXTURE_NOW);
     const p = popoverView(model, FIXTURE_NOW);
@@ -16,8 +16,10 @@ describe('main window view', () => {
     // Đang dùng on Tổng quan is the popover's, with the same numbers.
     expect(w.now).toEqual(p.now);
     expect(w.claude.cards.map((c) => c.slot)).toEqual([1, 2, 3, 4]);
-    expect([...w.claude.cards].sort((x, y) => x.key.localeCompare(y.key))).toEqual([...p.claude.cards].sort((x, y) => x.key.localeCompare(y.key)));
+    // The popover lists the accounts in the same order, the one in use in its place.
+    expect(w.claude.cards).toEqual(p.claude.cards);
     expect(w.agy.cards.map((c) => c.name)).toEqual(['lanpham.ultra', 'lan.ultra2']);
+    expect(w.agy.cards).toEqual(p.agy.cards);
   });
 
   it('counts the Claude accounts by what the Mac has', () => {
@@ -27,12 +29,12 @@ describe('main window view', () => {
     expect(unavailable.note?.text).toBe('Không đọc được danh sách tài khoản của claude-swap (usage_schema_mismatch).');
   });
 
-  it('writes resets in words for the tables, minutes only within a day', () => {
+  it('writes resets in the tables as the popover does, minutes only within a day', () => {
     const [personal, acme1, acme2] = view('fresh').claude.cards;
-    expect(personal.cells.map((c) => c.long)).toEqual(['chưa dùng', '↻ 6 ngày 7 giờ', '↻ 6 ngày 7 giờ']);
-    expect(acme1.cells[0].long).toBe('↻ 3 giờ 08 phút');
-    expect(acme2.cells[1]).toMatchObject({ none: true, long: 'không có' });
-    expect(view('reset-pending').claude.cards[3].cells[0].long).toBe('chờ số');
+    expect(personal.cells.map((c) => c.reset)).toEqual(['chưa dùng', '↻ 6d 7h', '↻ 6d 7h']);
+    expect(acme1.cells[0].reset).toBe('↻ 3h 8m');
+    expect(acme2.cells[1]).toMatchObject({ none: true, reset: 'không có' });
+    expect(view('reset-pending').claude.cards[3].cells[0].reset).toBe('chờ số');
   });
 
   it('lists what comes next from the readings only', () => {

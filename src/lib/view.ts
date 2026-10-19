@@ -276,9 +276,12 @@ function cardView(a: Account, kind: 'c' | 'g', names: AccountName, ctx: CardCont
   };
 }
 
-/** The account in use first, then the others in their order. */
-function activeFirst<T extends { active: boolean }>(list: T[]): T[] {
-  return [...list.filter((x) => x.active), ...list.filter((x) => !x.active)];
+/**
+ * In slot order, the order the main window's tables list them: the account
+ * in use keeps its place and only its frame marks it.
+ */
+function bySlot(cards: CardView[]): CardView[] {
+  return [...cards].sort((x, y) => x.slot - y.slot);
 }
 
 // ===== The popover's shorter cards =====
@@ -535,8 +538,6 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
   if (gErr && !cErr && g.status !== 'unread')
     agyNote = { tone: 'warn', text: 'Không đọc được số Antigravity mới' + (lastAgy ? '. Đang hiện số lúc ' + lastAgy + '.' : '.') };
 
-  const claudeOrdered = activeFirst(claudeCards);
-  const agyOrdered = activeFirst(agyCards);
   return {
     machine: model.machine,
     fresh,
@@ -545,13 +546,13 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
     claude: {
       id: 'c',
       title: 'CLAUDE',
-      cards: claudeOrdered,
+      cards: bySlot(claudeCards),
       note: claudeNote,
     },
     agy: {
       id: 'g',
       title: 'ANTIGRAVITY',
-      cards: agyOrdered,
+      cards: bySlot(agyCards),
       note: agyNote,
     },
   };

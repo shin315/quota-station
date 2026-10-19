@@ -76,7 +76,8 @@ the confirmation sheet first.
   one line per service (Claude, Gemini, Codex) with the account in use, its
   share used and when that resets, the window named on hover; Antigravity's
   Claude/GPT models join the Gemini line from 70 % used. Then a card per
-  account, the one in use first (its frame marks it): every Claude Code
+  account, in the main window's order (the one in use keeps its place, its
+  frame marks it): every Claude Code
   account with its `5 giờ`, `Tuần` and `Fable` windows (a Team seat with no
   week has no `Tuần` line), every Antigravity account with a `Gemini` and a
   `Claude/GPT` line, each the tighter of that group's two windows, each as

@@ -103,7 +103,7 @@ export function AlertsTab(props: AlertsTabProps) {
   };
   return (
     <>
-      <div className="tb" data-tauri-drag-region>
+      <div className="tb" data-tauri-drag-region="deep">
         <h2>Cảnh báo</h2>
         <small>
           <Dot tone={fresh.tone} />

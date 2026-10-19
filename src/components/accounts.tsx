@@ -25,7 +25,7 @@ export function AccountName(props: { name: string; sub: string; full: string; ch
 }
 
 /** One window in a table cell: the share used, a bar, and when it resets. */
-export function WindowCell({ cell, long, dim }: { cell: CellView; long?: boolean; dim?: boolean }) {
+export function WindowCell({ cell, dim }: { cell: CellView; dim?: boolean }) {
   if (cell.none) {
     return (
       <span className="wc none" title={cell.title}>
@@ -38,7 +38,7 @@ export function WindowCell({ cell, long, dim }: { cell: CellView; long?: boolean
     <span className="wc" title={cell.title}>
       <b className={tone === 'ok' || tone === 'muted' ? undefined : tone}>{cell.text}</b>
       <Meter percent={cell.used} tone={tone} />
-      <small>{long ? cell.long : cell.reset}</small>
+      <small>{cell.reset}</small>
     </span>
   );
 }

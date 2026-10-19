@@ -340,7 +340,7 @@ export interface CodexTabProps {
 export function CodexTab({ model, fresh, feedback, now, onAction }: CodexTabProps) {
   const v = model.codex;
   const top = (
-    <div className="tb" data-tauri-drag-region>
+    <div className="tb" data-tauri-drag-region="deep">
       <h2>Codex</h2>
       <small>
         <Dot tone={fresh.tone} />
