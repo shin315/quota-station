@@ -199,4 +199,6 @@ What was changed: every class is the app's own, drawn on its design tokens
 (the macOS checkbox, switch, sheet and column menu); a few take
 props the app needs (a dialog's kind, a field's invalid state, a column
 menu's first focus). segmented.tsx, in the same folder, is the app's own,
-on Radix Toggle.
+on Radix Toggle. src/components/ui/svgs/ is not shadcn/ui code: it holds
+the logos added from svgl (MIT), listed in THIRD_PARTY.md with its license
+and the two Codex files' one change.

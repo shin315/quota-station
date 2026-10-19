@@ -1,9 +1,9 @@
 // The Agent tabs' matrix (M9, reused by Skills in M11): a row per item, a
 // column per agent, a macOS checkbox in every cell. The whole cell is what
 // is pressed; a tick is not written yet (light fill, amber dot) until the
-// pending bar's preview. Each column head is the agent's own icon and opens
+// pending bar's preview. Each column head is the agent's own logo and opens
 // the column's menu: Bật tất cả, Tắt tất cả, Bỏ N thay đổi chưa ghi. A
-// column that is read only has its icon dimmed and no menu.
+// column that is read only has its logo dimmed and no menu.
 
 import { useRef, useState, type ReactNode } from 'react';
 import { Checkbox as CheckboxPrimitive } from 'radix-ui';
@@ -17,20 +17,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { AGENT_MARK, AGENT_NAME, AGENTS, type ColumnMenu } from '../lib/mcp';
+import { AGENT_NAME, AGENTS, type ColumnMenu } from '../lib/mcp';
 import type { Agent } from '../lib/model';
-import { NAV_ICONS } from '../window/icons';
+import { AgentIcon } from '../components/logos';
 import { Button } from '../components/parts';
 
-/** Each agent's icon in its own colour. */
-const LOGO_INK: Record<'c' | 'x' | 'g', string> = { c: 'text-id-claude-ink', x: 'text-id-codex-ink', g: 'text-id-agy-ink' };
-
+/** An agent's logo, 16 px (a dialog's heading makes it smaller through `.agl`). */
 export function AgentLogo({ agent }: { agent: Agent }) {
-  return (
-    <span className={cn('agl inline-flex size-4 items-center justify-center [&_svg]:size-4', LOGO_INK[AGENT_MARK[agent]])} aria-hidden="true">
-      {NAV_ICONS[agent]}
-    </span>
-  );
+  return <AgentIcon agent={agent} className="agl" />;
 }
 
 /**
@@ -39,7 +33,7 @@ export function AgentLogo({ agent }: { agent: Agent }) {
  */
 export const MATRIX_ROW =
   'grid grid-cols-[minmax(0,1.7fr)_repeat(3,var(--mx-cell,96px))_132px] items-center gap-2 border-t-[.5px] border-card-line px-1.5 py-2 text-sm first:border-t-0 in-data-[kind=dialog]:grid-cols-[minmax(0,1fr)_repeat(3,64px)]';
-/** The head row: the column icons, small and grey. */
+/** The head row: the column logos, and the names small and grey. */
 export const MATRIX_HEAD = 'pt-0 pb-1 text-xs text-ink3 [&>span]:flex [&>span]:items-center [&>span]:gap-[5px]';
 /** The name cell: the name in bold, the line under it cut short. */
 export const MATRIX_NAME =
@@ -66,15 +60,15 @@ export interface MatrixColumn {
   agent: Agent;
   /** The column has a menu: it can be written and has a box to tick. */
   open: boolean;
-  /** Why the icon is dimmed. */
+  /** Why the logo is dimmed. */
   note?: string;
 }
 
 const HEAD_BUTTON = 'agb inline-flex h-7 items-center gap-[3px] rounded-[8px] border-0 bg-transparent pr-[7px] pl-2 text-ink2';
-/** A column head with no menu: the icon dimmed. */
+/** A column head with no menu: the logo dimmed. */
 export const HEAD_OFF = cn(HEAD_BUTTON, 'cursor-default pr-2 opacity-50');
 
-/** The icon at a column's head, and its menu. */
+/** The logo at a column's head, and its menu. */
 function ColumnHead(props: {
   column: MatrixColumn;
   noun: string;

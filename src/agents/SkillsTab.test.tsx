@@ -6,7 +6,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MainWindowApp } from '../App';
 import { fakeApi, type FakeOptions } from '../fixtures/fakeApi';
-import { pluginsFixture, skillsFixture } from '../fixtures/fakeSkills';
+import { pluginsBrandsFixture, pluginsFixture, skillsFixture } from '../fixtures/fakeSkills';
 import { alertsFixture, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
 import type { Api } from '../lib/api';
 import type { Model, Tab } from '../lib/model';
@@ -266,6 +266,14 @@ describe('the Plugin tab', () => {
     await press(screen.getByRole('button', { name: 'Lệnh cài lại' }));
     expect(within(dialog()).getByText('claude plugin install issue-hub@acme-plugins')).toBeTruthy();
     expect(within(dialog()).getByText('codex plugin add sheets@codex-market')).toBeTruthy();
+  });
+
+  it("shows a known service's logo before a plugin, never from its marketplace's name", async () => {
+    await openTab('plugins', fixtureModel('fresh', { plugins: pluginsBrandsFixture() }));
+    const row = (name: string) => screen.getByRole('listitem', { name: name + ', bật' });
+    expect(row('github@acme-plugins').querySelector('.logo')).not.toBeNull();
+    expect(row('google-calendar@codex-market').querySelector('.logo')).not.toBeNull();
+    expect(row('formatter@tools-market').querySelector('.logo')).toBeNull();
   });
 
   it('without claude: says the pack keeps the old list', async () => {

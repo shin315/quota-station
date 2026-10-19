@@ -1,0 +1,22 @@
+/* A logo drawn for each look (components/logos.tsx): only the one for the
+   look in use shows, whether the owner chose it or "auto" follows macOS. */
+
+.logo-dark {
+  display: none;
+}
+
+[data-theme="dark"] .logo-light {
+  display: none;
+}
+[data-theme="dark"] .logo-dark {
+  display: block;
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-theme="auto"] .logo-light {
+    display: none;
+  }
+  [data-theme="auto"] .logo-dark {
+    display: block;
+  }
+}

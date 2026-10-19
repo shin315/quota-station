@@ -31,6 +31,8 @@
 // which Đang dùng then shows beside Gemini.
 // MCP (M9): `tab=mcp` with `mcp=empty|parse|noagy|nocli|unread`, and `mcpoutcome=changed`
 // for a write that finds a file changed. A preview or a write takes 0.6 s.
+// The services' logos: `mcp=brands` and `plugins=brands` name the made-up servers, connectors
+// and plugins after real services.
 // Sao lưu (M10): `tab=backup` with `backup=empty|icloud|noicloud|restored|unread`
 // (`icloud`: a pack iCloud Drive has not downloaded), and `restoreoutcome=changed|undochanged`
 // for a restore, or its undo, that finds a file changed. A restore takes 1.2 s.
@@ -60,7 +62,7 @@ import { backupFixture, packsFixture } from './fixtures/fakeBackup';
 import { API_KEY, BASE_URL, CLAUDE_BASE, envAlert, envFixture, LAUNCHD_GEMINI } from './fixtures/fakeEnv';
 import { setsFixture } from './fixtures/fakeSets';
 import { firstReadFixture, SKIPPED_CODEX, statsFixture } from './fixtures/fakeStats';
-import { instrFixture, pluginsFixture, skillsFixture, skillTableFixture } from './fixtures/fakeSkills';
+import { instrFixture, pluginsBrandsFixture, pluginsFixture, skillsFixture, skillTableFixture } from './fixtures/fakeSkills';
 import {
   agyAccount,
   agyFixture,
@@ -77,6 +79,7 @@ import {
   appFixture,
   codexFixture,
   firstmateFixture,
+  mcpBrandsFixture,
   mcpFixture,
   mcpTableFixture,
   historyFixture,
@@ -93,6 +96,7 @@ const SKILLS: Record<string, () => Model['skills']> = {
   unread: () => skillsFixture({ table: null, readAt: null }),
 };
 const PLUGINS: Record<string, () => Model['plugins']> = {
+  brands: pluginsBrandsFixture,
   noclaude: () => {
     const p = pluginsFixture();
     return { ...p, sides: p.sides!.map((s) => (s.agent === 'claude' ? { ...s, state: 'noCli', plugins: [], marketplaces: [] } : s)), reinstall: { codex: p.reinstall.codex } };
@@ -136,6 +140,7 @@ const MCP: Record<string, () => Model['mcp']> = {
     return mcpFixture({ table: { ...t, columns: MCP_COLUMN('claude', { state: 'noCli', writable: false })(t) } });
   },
   unread: () => mcpFixture({ table: null, readAt: null }),
+  brands: () => mcpFixture({ table: mcpBrandsFixture() }),
 };
 
 const BACKUP: Record<string, () => Model['backup']> = {

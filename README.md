@@ -394,13 +394,17 @@ the confirmation sheet first.
 
 - **MCP** (M9). The `MCP` tab, under `Agent` in the sidebar, puts every MCP
   server of Claude Code, Codex and Antigravity in one table: a row per
-  server, with the line `trên máy · <command>` or `qua mạng · <host>`, a
-  small lock when it has a key, and chips only when something is the matter
-  (`thiếu khoá`, `lệnh chưa cài`, `khác giữa các agent`); and a column of
-  macOS checkboxes per agent, headed by the agent's own icon. A tick is not
+  server, with the line `trên máy · <command>` or `qua mạng · <host>`, the
+  service's logo before the name when its name, package or host names a
+  service the app knows (GitHub, Notion, Figma, Slack, Linear and others;
+  the Plugin tab's plugins and the MCP an agent or a plugin brings get one
+  the same way), a small lock when it has a key, and chips only when
+  something is the matter (`thiếu khoá`, `lệnh chưa cài`,
+  `khác giữa các agent`); and a column of macOS checkboxes per agent,
+  headed by the agent's own logo. A tick is not
   written at once: the box turns light blue with an amber dot and the bar
   under the table lists `N thay đổi chưa ghi`, so a tick taken back drops
-  out. The icon at a column's head opens its menu: `Bật tất cả`,
+  out. The logo at a column's head opens its menu: `Bật tất cả`,
   `Tắt tất cả` (both skip a box that cannot be ticked) and
   `Bỏ N thay đổi chưa ghi`. `Xem trước và ghi…` shows one preview for the
   whole batch, by agent: the lines each file gains and loses, the

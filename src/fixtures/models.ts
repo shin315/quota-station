@@ -457,6 +457,43 @@ export function mcpTableFixture(over: Partial<McpTable> = {}): McpTable {
   };
 }
 
+/**
+ * The same table on servers named after real services, so their logos show: one by its name,
+ * one only by its package, one only by its host, the rest by name, and `files` with none.
+ * The connectors Claude Code brings itself name services too.
+ */
+export function mcpBrandsFixture(): McpTable {
+  const t = mcpTableFixture();
+  const gh = stdio('npx', ['-y', '@modelcontextprotocol/server-github'], [{ name: 'GITHUB_PERSONAL_ACCESS_TOKEN', value: MASK }]);
+  const repo = mcpRow({
+    name: 'repo-tools',
+    program: '@modelcontextprotocol/server-github',
+    secrets: [{ id: 'env:GITHUB_PERSONAL_ACCESS_TOKEN', label: 'GITHUB_PERSONAL_ACCESS_TOKEN', place: 'env', have: true, bitwarden: null }],
+    cells: { claude: ON, codex: ON, agy: OFF },
+    defs: { claude: view(gh, ['env:GITHUB_PERSONAL_ACCESS_TOKEN']), codex: view(gh, ['env:GITHUB_PERSONAL_ACCESS_TOKEN']) },
+  });
+  const remote = (name: string, host: string, cells: McpRow['cells']) =>
+    mcpRow({ name, kind: 'http', host, cells, defs: { claude: view(http('https://' + host + '/mcp')) } });
+  return {
+    ...t,
+    rows: [
+      remote('figma', 'mcp.figma.com', { claude: ON, codex: ON, agy: ON }),
+      t.rows.find((r) => r.name === 'files')!,
+      remote('issues', 'mcp.linear.app', { claude: ON, codex: OFF, agy: ABSENT }),
+      remote('notion', 'mcp.notion.com', { claude: ON, codex: ABSENT, agy: ON }),
+      repo,
+      remote('supabase', 'mcp.supabase.com', { claude: OFF, codex: ON, agy: ABSENT }),
+      remote('vercel', 'mcp.vercel.com', { claude: ON, codex: ABSENT, agy: ABSENT }),
+    ],
+    owned: [
+      { name: 'claude.ai Gmail', owner: 'Claude Code', agents: ['claude'] },
+      { name: 'claude.ai Google Drive', owner: 'Claude Code', agents: ['claude'] },
+      { name: 'claude.ai Slack', owner: 'Claude Code', agents: ['claude'] },
+      { name: 'js-repl', owner: 'Codex', agents: ['codex'] },
+    ],
+  };
+}
+
 export function mcpFixture(over: Partial<McpView> = {}): McpView {
   return {
     table: mcpTableFixture(),

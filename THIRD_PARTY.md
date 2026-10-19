@@ -6,7 +6,7 @@ copied into this repository. Parts of its Antigravity login, quota
 reading and account switch are adapted from Cockpit Tools, parts of
 its Codex switch are ported from CC Switch, and its interface components
 are adapted from shadcn/ui; [`NOTICE`](NOTICE) lists those files and what
-was changed.
+was changed. The agents' and the services' logos come from svgl.
 
 ## quota-axi
 
@@ -143,6 +143,47 @@ SOFTWARE.
 MIT License
 
 Copyright (c) 2023 shadcn
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## svgl
+
+- Project: https://github.com/pheralb/svgl (https://svgl.app)
+- How it is used: vendored logos. The Claude, Codex and Antigravity logos,
+  and the logos of the services an MCP server, a plugin or a connector is
+  for (GitHub, Notion, Figma, Slack, Linear, Supabase, Vercel, Cloudflare,
+  Gmail, Google Drive, Google Calendar, Stripe, Atlassian, Asana, Canva,
+  Playwright and PostgreSQL), were added through svgl's shadcn registry
+  (`components.json`) into `src/components/ui/svgs/`. They are part of the
+  app, so nothing is fetched while it runs. The only change: the two Codex
+  files lose their `<title>`, since the name is written beside the logo.
+- Trademarks: each logo is a trademark of its owner. The app uses a logo
+  only to name that service next to its name; it does not mean the owner
+  made, endorses or supports Quota Station, and no logo is used as the
+  app's own icon.
+- License (svgl's code): MIT
+
+```
+MIT License
+
+Copyright (c) 2022 Pablo Hdez
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

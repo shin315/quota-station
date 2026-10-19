@@ -5,14 +5,16 @@
 
 import { Card, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import type { Agent } from '../lib/model';
 import type { CellView, ChipView, NowView, UsedTone } from '../lib/view';
+import { AgentIcon } from './logos';
 import { Chip, Dot, Meter } from './parts';
 
-/** The service's square mark: Claude, Antigravity (Gemini), Codex. */
-const ID_FILL: Record<string, string> = { c: 'bg-id-claude', g: 'bg-id-agy', x: 'bg-id-codex' };
+/** The service's logo, small: Claude, Antigravity (Gemini), Codex. */
+const ID_AGENT: Record<string, Agent> = { c: 'claude', g: 'agy', x: 'codex' };
 
 export function IdMark({ id, className }: { id: string; className?: string }) {
-  return <span className={cn('inline-block size-2 rounded-[2px]', ID_FILL[id], className)} />;
+  return <AgentIcon agent={ID_AGENT[id]} className={cn('size-3', className)} />;
 }
 
 /** A number's colour when its quota runs short. */

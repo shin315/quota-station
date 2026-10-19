@@ -12,11 +12,12 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Dialog, DialogContent, DialogOverlay } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { AccountName, IdMark, NowStrip, WindowRow } from '../components/accounts';
+import { AgentIcon } from '../components/logos';
 import { Banner, Chip, Dot, Feedback, LinkButton, Toggle } from '../components/parts';
 import type { AutoView } from '../lib/switching';
 import type { CodexRowView } from '../lib/codex';
 import { bannerUnder, type Action, type CardView, type FeedbackView, type GroupView, type PopoverView } from '../lib/view';
-import { ChevronIcon, MoonIcon, NAV_ICONS, OpenIcon, SunIcon } from '../window/icons';
+import { ChevronIcon, MoonIcon, OpenIcon, SunIcon } from '../window/icons';
 
 /** Which groups are folded, kept in this window's storage so it outlives the app. */
 export const FOLD_KEY = 'quota-station.popover.folded';
@@ -149,11 +150,8 @@ function CodexSection({ row, onOpen, onAction }: { row: CodexRowView; onOpen(): 
           aria-label={row.label + '. ' + row.sub + (row.head ? '. ' + row.head : '')}
           onClick={row.off ? undefined : onOpen}
         >
-          <span
-            className="grid size-(--av) place-items-center rounded-full bg-id-codex-tint text-[10.5px] font-heavy text-id-codex-ink [&_svg]:size-[13px]"
-            aria-hidden="true"
-          >
-            {NAV_ICONS.codex}
+          <span className="grid size-(--av) place-items-center" aria-hidden="true">
+            <AgentIcon agent="codex" />
           </span>
           <span className="min-w-0">
             <span className="flex min-w-0 flex-wrap items-center gap-[5px]">
