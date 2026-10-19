@@ -312,6 +312,8 @@ export interface AgyReadError {
 /** One account logged in here (`src-tauri/src/antigravity.rs` `AccountView`). */
 export type Theme = 'auto' | 'light' | 'dark';
 export type Menubar = 'claude' | 'gemini' | 'codex';
+/** The window the menu bar title shows; one the service lacks falls back to five hours, then the tightest. */
+export type MenubarWindow = 'fiveHours' | 'week' | 'fableWeek' | 'tightest';
 
 export interface AgyLogin {
   id: string;
@@ -889,6 +891,8 @@ export interface Model {
   theme: Theme;
   /** The service the menu bar title follows. */
   menubar: Menubar;
+  /** The window whose share used the menu bar title and Đang dùng show. */
+  menubarWindow: MenubarWindow;
   antigravity: AgyAccounts;
   agySwitch: AgySwitchView;
   /** The five alerts (M6). */

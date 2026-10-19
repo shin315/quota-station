@@ -53,17 +53,23 @@ the confirmation sheet first.
   claude-swap's own menu bar named it. The service is Claude by default;
   `Thanh menu` in `Cài đặt` and `Thanh menu theo` in the right-click menu
   pick Gemini (Antigravity's Gemini models) or Codex instead, on each Mac.
-  The number is the account's window used the most (a tie names the longer
-  window), the same one Đang dùng shows; which window it is shows on hover.
+  The number is the account's five-hour window by default; `Số trên thanh
+  menu` in `Cài đặt` and in the right-click menu picks `Tuần`, `Fable tuần`
+  (Claude only) or `Chặt nhất` (the window used the most, a tie naming the
+  longer window) instead, on each Mac. A service without the window picked
+  shows its five-hour window, and the window used the most without that
+  either. Đang dùng shows the same window; which window it is shows on hover.
   The name is the part of the email before `@`, cut to 12 characters with
   `…`, or the account's place (`Team A`, `Ultra 1`) while names are hidden.
   Codex shows `ChatGPT` and that account's number on its ChatGPT login, and
   only the provider's name when it goes through a provider of its own,
   which reports no quota. Without a number (no read yet, quota-axi failing,
   a window waiting for its number after a reset) the title is the name and
-  `–`. A Mac without Antigravity, or without Codex, follows Claude. The
-  tooltip and the VoiceOver label give every service in words, windows and
-  resets included. While automatic switching is paused, two small pause bars
+  `–`; only the window shown needs a number, except for `Chặt nhất`, which
+  needs every window. A Mac without Antigravity, or without Codex, follows
+  Claude. The glyph's bars still fill with each account's window used the
+  most. The tooltip and the VoiceOver label give every service in words,
+  the window shown and its reset included. While automatic switching is paused, two small pause bars
   follow the glyph; an exhausted Claude rotation draws a warning triangle.
 - **Popover** (left click). One header line with this Mac's name; how old
   the numbers are shows only when they are not fresh. On top, `Đang dùng`:
@@ -119,7 +125,9 @@ the confirmation sheet first.
   again, and when the switcher ignores the pause flag.
 - **Short menu** (right click). `Mở cửa sổ chính` (main window), `Làm mới`
   (refresh), `Thanh menu theo` (Claude, Gemini or Codex, ticked; a service
-  this Mac lacks is greyed out), `Cài đặt…` (settings), `Thoát Quota Station`
+  this Mac lacks is greyed out), `Số trên thanh menu` (`5 giờ`, `Tuần`,
+  `Fable tuần` or `Chặt nhất`, ticked; `Fable tuần` is greyed out unless the
+  title follows Claude), `Cài đặt…` (settings), `Thoát Quota Station`
   (quit).
 - **Main window.** The same numbers as the popover, from the same read, in
   these tabs:
@@ -155,7 +163,9 @@ the confirmation sheet first.
     `Hiện email` (on by default; off names accounts by place), `Giao diện`
     (`Theo macOS`, `Sáng` or `Tối`), `Thanh menu` (the service the menu bar
     title follows: Claude, Gemini or Codex; one this Mac lacks is greyed out
-    with the reason), `File của firstmate` (the path to
+    with the reason), `Số trên thanh menu` (the window the title shows:
+    `5 giờ` by default, `Tuần`, `Fable tuần` or `Chặt nhất`; `Fable tuần` is
+    greyed out unless the title follows Claude), `File của firstmate` (the path to
     Firstmate's `quota-pool.last`; nothing is built in, and only a file of
     that name is taken), `Thông báo` (whether macOS lets the cards show,
     `Gửi thử` and a switch for each kind of alert), and the app itself (M7):

@@ -85,6 +85,7 @@ fn main() {
             commands::set_show_names,
             commands::set_theme,
             commands::set_menubar,
+            commands::set_menubar_window,
             commands::grant_keychain,
             commands::claude_sessions,
             commands::switch_claude,

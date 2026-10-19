@@ -19,7 +19,7 @@ use quota_station_core::peers::{self, PeerState, SyncLog};
 use quota_station_core::rotation::{self, FileState, Rules, Stamp};
 use quota_station_core::runner::{self, RunError};
 use quota_station_core::schedule::Schedule;
-use quota_station_core::settings::{Menubar, Settings, Theme};
+use quota_station_core::settings::{Menubar, MenubarWindow, Settings, Theme};
 use quota_station_core::switcher::{Decision, DryRun, LogLine};
 use quota_station_core::switching::Tools;
 use quota_station_core::{cswap, local_time, pause, switcher, Snapshot};
@@ -427,6 +427,7 @@ impl Inner {
     pub fn icon(&self, snapshot: &Snapshot, now: OffsetDateTime) -> Icon {
         let cx = Context {
             follow: self.settings.menubar,
+            window: self.settings.menubar_window,
             failing: Failing {
                 claude: self.claude_error.is_some(),
                 agy: self.agy_error.is_some(),
@@ -475,6 +476,7 @@ impl Inner {
             show_names: !self.settings.hide_names,
             theme: self.settings.theme,
             menubar: self.settings.menubar,
+            menubar_window: self.settings.menubar_window,
             antigravity: antigravity::view(self),
             agy_switch: agy_switch::view(self),
             rotation: self.rotation_view(),
@@ -581,6 +583,8 @@ pub struct Model {
     pub theme: Theme,
     /// The service the menu bar title follows.
     pub menubar: Menubar,
+    /// The window whose share used the menu bar title shows.
+    pub menubar_window: MenubarWindow,
     /// The Antigravity accounts this app logs in itself.
     pub antigravity: AccountsView,
     /// Switching them (M4c).

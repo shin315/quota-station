@@ -667,6 +667,10 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       push({ ...model, menubar });
       return model;
     },
+    setMenubarWindow: async (menubarWindow) => {
+      push({ ...model, menubarWindow });
+      return model;
+    },
     onModel: async (handler) => {
       listeners.add(handler);
       return () => listeners.delete(handler);

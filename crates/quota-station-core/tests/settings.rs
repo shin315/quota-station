@@ -2,7 +2,8 @@ use std::path::PathBuf;
 
 use quota_station_core::alerts::{Kind, Switches};
 use quota_station_core::settings::{
-    machine_name, peers, Menubar, Peer, PeersError, Settings, Theme, MACHINE_NAME_MAX, PEERS_MAX,
+    machine_name, peers, Menubar, MenubarWindow, Peer, PeersError, Settings, Theme,
+    MACHINE_NAME_MAX, PEERS_MAX,
 };
 
 #[test]
@@ -19,6 +20,7 @@ fn settings_round_trip_and_default_when_missing() {
         hide_names: true,
         theme: Theme::Dark,
         menubar: Menubar::Codex,
+        menubar_window: MenubarWindow::FableWeek,
         alerts: Switches { leaving: false, firstmate: true, ..Switches::default() },
         firstmate_file: Some(PathBuf::from("/srv/example/quota-pool.last")),
         source_dir: Some(PathBuf::from("/srv/example/quota-station")),
@@ -33,6 +35,7 @@ fn settings_round_trip_and_default_when_missing() {
     assert!(text.contains("\"hideNames\": true"));
     assert!(text.contains("\"theme\": \"dark\""));
     assert!(text.contains("\"menubar\": \"codex\""));
+    assert!(text.contains("\"menubarWindow\": \"fableWeek\""));
     assert!(text.contains("\"leaving\": false"));
     assert!(text.contains("firstmateFile"));
     assert!(text.contains("sourceDir"));
@@ -54,6 +57,7 @@ fn a_settings_file_from_m1_still_loads() {
     assert!(!s.hide_names, "names show");
     assert_eq!(s.theme, Theme::Auto);
     assert_eq!(s.menubar, Menubar::Claude, "the menu bar follows Claude");
+    assert_eq!(s.menubar_window, MenubarWindow::FiveHours, "the title shows five hours");
     // Alerts 1 to 4 on, Firstmate's off until a Mac has Firstmate.
     assert!([Kind::Pool, Kind::Leaving, Kind::Login, Kind::Overwrite]
         .iter()
@@ -97,6 +101,31 @@ fn the_menu_bar_follows_claude_unless_told_and_an_unknown_value_reads_as_claude(
     // The default is not written: a file from before keeps its shape.
     Settings::default().save(&file).unwrap();
     assert!(!std::fs::read_to_string(&file).unwrap().contains("menubar"));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn the_title_shows_five_hours_unless_told_and_an_unknown_value_reads_as_five_hours() {
+    let dir = std::env::temp_dir().join(format!("qs-settings-window-{}", std::process::id()));
+    let file = dir.join("settings.json");
+    std::fs::create_dir_all(&dir).unwrap();
+    for (text, want) in [
+        // A file from before the choice, following a service: five hours.
+        (r#"{ "menubar": "codex" }"#, MenubarWindow::FiveHours),
+        ("{}", MenubarWindow::FiveHours),
+        (r#"{ "menubarWindow": "week" }"#, MenubarWindow::Week),
+        (r#"{ "menubarWindow": "fableWeek" }"#, MenubarWindow::FableWeek),
+        (r#"{ "menubarWindow": "tightest" }"#, MenubarWindow::Tightest),
+        (r#"{ "menubarWindow": "month" }"#, MenubarWindow::FiveHours),
+        (r#"{ "menubarWindow": 2 }"#, MenubarWindow::FiveHours),
+    ] {
+        std::fs::write(&file, text).unwrap();
+        assert_eq!(Settings::load(&file).menubar_window, want, "{text}");
+    }
+    // The default is not written: a file from before keeps its shape.
+    let s = Settings { menubar: Menubar::Gemini, ..Settings::default() };
+    s.save(&file).unwrap();
+    assert!(!std::fs::read_to_string(&file).unwrap().contains("menubarWindow"));
     let _ = std::fs::remove_dir_all(&dir);
 }
 

@@ -26,6 +26,7 @@
 // default), and `codexoutcome=changed|refused` what a switch reports. A switch or a
 // restart takes 1.5 s; `tab=codex` opens the Codex tab.
 // The menu bar's service (19/10/2026): `menubar=claude|gemini|codex` on `tab=settings`,
+// `mbwindow=fiveHours|week|fableWeek|tightest` the window its title shows,
 // and `agyhot=on` puts the Antigravity account in use at 86 % of its Claude/GPT week,
 // which Đang dùng then shows beside Gemini.
 // MCP (M9): `tab=mcp` with `mcp=empty|parse|noagy|nocli|unread`, and `mcpoutcome=changed`
@@ -290,6 +291,8 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
   const ends = LOGIN_ENDS.find((k) => k.toLowerCase() === params.get('login')?.toLowerCase());
   const menubar = params.get('menubar');
   if (menubar === 'claude' || menubar === 'gemini' || menubar === 'codex') over.menubar = menubar;
+  const mbwindow = params.get('mbwindow');
+  if (mbwindow === 'fiveHours' || mbwindow === 'week' || mbwindow === 'fableWeek' || mbwindow === 'tightest') over.menubarWindow = mbwindow;
   const model = fixtureModel(SNAPSHOTS[state] ? state : 'fresh', over);
   if (params.get('agyhot') === 'on') {
     for (const a of model.snapshot.agy.accounts.filter((x) => x.active)) {

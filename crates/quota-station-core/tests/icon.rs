@@ -5,8 +5,8 @@ use quota_station_core::icon::{
     glyph_ascii, icon, render_glyph, reset_words, short_name, CodexUse, Context, Failing, Icon,
     Tone,
 };
-use quota_station_core::settings::Menubar;
-use quota_station_core::snapshot::{Role, SectionStatus};
+use quota_station_core::settings::{Menubar, MenubarWindow};
+use quota_station_core::snapshot::{LineKind, Role, SectionStatus};
 use quota_station_core::Snapshot;
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
@@ -26,9 +26,15 @@ fn full() -> Snapshot {
         .with_codex(Some(&fixture("codex-chatgpt.json")))
 }
 
+/// The tightest window, as the title showed before there was a choice.
 fn cx(follow: Menubar) -> Context {
+    shows(follow, MenubarWindow::Tightest)
+}
+
+fn shows(follow: Menubar, window: MenubarWindow) -> Context {
     Context {
         follow,
+        window,
         failing: Failing::default(),
         codex: CodexUse::ChatGpt,
         now: at("2026-01-16T07:20:00Z"),
@@ -69,6 +75,74 @@ fn the_title_follows_gemini_or_codex_when_picked() {
     assert_eq!(icon(Some(&s), &cx(Menubar::Codex)).title, "ChatGPT 41%");
     // The bars stay Claude's and Antigravity's whatever the title follows.
     assert_eq!(icon(Some(&s), &cx(Menubar::Codex)).claude, Some(87.0));
+}
+
+#[test]
+fn the_title_shows_the_window_picked_and_the_bars_stay_the_tightest() {
+    let s = full();
+    // Team A: 5 giờ 74 %, tuần 39 %, Fable 87 %.
+    let five = icon(Some(&s), &shows(Menubar::Claude, MenubarWindow::default()));
+    assert_eq!(five.title, "Team A 74%");
+    assert!(
+        five.label.starts_with("Quota Station. Claude: Team A đã dùng 74% 5 giờ, "),
+        "{}",
+        five.label
+    );
+    assert_eq!(five.claude, Some(87.0), "the bar fills with the tightest window");
+    let week = icon(Some(&s), &shows(Menubar::Claude, MenubarWindow::Week));
+    assert_eq!(week.title, "Team A 39%");
+    assert!(week.label.contains("Team A đã dùng 39% tuần"), "{}", week.label);
+    let fable = icon(Some(&s), &shows(Menubar::Claude, MenubarWindow::FableWeek));
+    assert_eq!(fable.title, "Team A 87%");
+    assert!(fable.label.contains("Team A đã dùng 87% Fable tuần"), "{}", fable.label);
+    assert_eq!(
+        icon(Some(&s), &shows(Menubar::Claude, MenubarWindow::Tightest)).title,
+        "Team A 87%"
+    );
+    // Every service in the label names the window picked.
+    assert!(week.label.contains("Antigravity: Gemini đã dùng 6% Gemini tuần"), "{}", week.label);
+    assert!(five.label.contains("Codex: ChatGPT đã dùng 23% 5 giờ"), "{}", five.label);
+    assert!(week.label.contains("Codex: ChatGPT đã dùng 41% tuần"), "{}", week.label);
+}
+
+#[test]
+fn a_window_the_service_lacks_falls_back_to_five_hours_then_the_tightest() {
+    let s = full();
+    // Codex and Gemini have no Fable window: their five hours.
+    let codex = icon(Some(&s), &shows(Menubar::Codex, MenubarWindow::FableWeek));
+    assert_eq!(codex.title, "ChatGPT 23%");
+    assert!(codex.label.contains("Codex: ChatGPT đã dùng 23% 5 giờ"), "{}", codex.label);
+    let gemini = icon(Some(&s), &shows(Menubar::Gemini, MenubarWindow::FableWeek));
+    let five = icon(Some(&s), &shows(Menubar::Gemini, MenubarWindow::FiveHours));
+    assert_eq!(gemini.title, five.title);
+    assert!(gemini.label.contains("Gemini 5 giờ"), "{}", gemini.label);
+    // A Team seat has no week: its five hours.
+    let mut seat = full();
+    let team = seat.claude.accounts.iter_mut().find(|a| a.active).unwrap();
+    team.windows.retain(|l| l.kind != LineKind::Week);
+    assert_eq!(icon(Some(&seat), &shows(Menubar::Claude, MenubarWindow::Week)).title, "Team A 74%");
+    // Neither the window picked nor five hours: the tightest.
+    let mut fable_only = full();
+    let team = fable_only.claude.accounts.iter_mut().find(|a| a.active).unwrap();
+    team.windows.retain(|l| l.kind == LineKind::FableWeek);
+    assert_eq!(
+        icon(Some(&fable_only), &shows(Menubar::Claude, MenubarWindow::Week)).title,
+        "Team A 87%"
+    );
+}
+
+#[test]
+fn the_window_picked_without_a_number_shows_no_number() {
+    let mut s = full();
+    let team = s.claude.accounts.iter_mut().find(|a| a.active).unwrap();
+    team.windows.iter_mut().filter(|l| l.kind == LineKind::Session).for_each(|l| l.pending = true);
+    // Five hours waits for its number: no number, never another window's.
+    let i = icon(Some(&s), &shows(Menubar::Claude, MenubarWindow::FiveHours));
+    assert_eq!((i.title.as_str(), i.tone), ("Team A –", Tone::Muted));
+    // The week's own number is known and is the one picked.
+    assert_eq!(icon(Some(&s), &shows(Menubar::Claude, MenubarWindow::Week)).title, "Team A 39%");
+    // The tightest needs every window.
+    assert_eq!(icon(Some(&s), &shows(Menubar::Claude, MenubarWindow::Tightest)).title, "Team A –");
 }
 
 #[test]

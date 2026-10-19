@@ -482,6 +482,7 @@ export function fixtureModel(name: string, over: Partial<Model> = {}): Model {
     showNames: true,
     theme: 'auto',
     menubar: 'claude',
+    menubarWindow: 'fiveHours',
     antigravity: agyFixture(),
     agySwitch: { busy: null, listed: false, overwritten: null },
     alerts: alertsFixture(),

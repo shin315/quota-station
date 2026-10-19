@@ -270,6 +270,8 @@ pub fn publish(app: &AppHandle, state: &AppState) {
             picked: inner.settings.menubar,
             gemini: has(Menubar::Gemini),
             codex: has(Menubar::Codex),
+            window: inner.settings.menubar_window,
+            fable: icon::followed(&snapshot, inner.settings.menubar, &codex) == Menubar::Claude,
         };
         (inner.model_with(snapshot), icon, follow)
     };

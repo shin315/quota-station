@@ -123,9 +123,9 @@ describe('popover', () => {
   it('Đang dùng heads the popover: each service, its account, share used and reset', async () => {
     await open(fixtureModel('fresh'));
     const now = within(screen.getByRole('list', { name: 'Đang dùng' })).getAllByRole('listitem');
-    expect(now.map((r) => r.textContent)).toEqual(['Claudelan.acme187%↻ 1n 17g', 'Geminilan.ultra26%↻ 3n 23g', 'Codexrelay—']);
-    expect(now[0].getAttribute('title')).toBe('Claude: lan.acme1 đã dùng 87% Fable');
-    expect(now[2].getAttribute('title')).toBe('Codex: relay, ChatGPT đã dùng 41% tuần');
+    expect(now.map((r) => r.textContent)).toEqual(['Claudelan.acme174%↻ 3:08', 'Geminilan.ultra22%↻ 1:57', 'Codexrelay—']);
+    expect(now[0].getAttribute('title')).toBe('Claude: lan.acme1 đã dùng 74% 5 giờ');
+    expect(now[2].getAttribute('title')).toBe('Codex: relay, ChatGPT đã dùng 23% 5 giờ');
     cleanup();
     // Old numbers: the age comes back in the header.
     await open(fixtureModel('stale'));
