@@ -14,10 +14,14 @@
 // Bộ cấu hình (M15) closes the Agent group: named sets applied for the whole Mac.
 
 import { Fragment, type ReactNode } from 'react';
+import { Card as Panel, CardText, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogOverlay } from '@/components/ui/dialog';
+import { Segment, Segmented } from '@/components/ui/segmented';
+import { cn } from '@/lib/utils';
 import { AddAccount, LoginActions, LoginNotes, LogoutConfirm, loginChips, type AgyLogins } from '../antigravity/AgyAccounts';
-import { AccountName, InUse, NowCard, WindowCell } from '../components/accounts';
-import { Banner, Button, Chip, Dot, Feedback, Toggle } from '../components/parts';
-import { SHEET_TITLE_ID, useDialog } from '../components/Sheets';
+import { AccountName, IdMark, InUse, NowCard, WindowCell } from '../components/accounts';
+import { Empty, GRID2, STACK, TabHead, TabSub, TabTitle } from '../components/page';
+import { Banner, Button, Chip, CODE, Dot, Feedback, KVT, Toggle } from '../components/parts';
 import type { Tab } from '../lib/model';
 import { pauseOptions, type AutoView, type PauseChoice } from '../lib/switching';
 import { bannerUnder, type Action, type CardView, type ChipView, type FeedbackView, type NoteView } from '../lib/view';
@@ -54,7 +58,10 @@ function NavButton(props: { id: NavId; label: string; tab: Tab; badge?: number; 
   return (
     <button
       type="button"
-      className={'nav' + (on ? ' on' : '')}
+      className={cn(
+        'flex w-full cursor-pointer items-center gap-[9px] rounded-lg border-0 px-2 py-[5px] text-left text-base [&>svg]:flex-[0_0_auto] [&>svg]:text-accent-ink',
+        on ? 'bg-fill2 font-semi' : 'bg-transparent hover:bg-fill',
+      )}
       aria-current={on ? 'page' : undefined}
       onClick={() => props.onTab(props.id as Tab)}
     >
@@ -62,10 +69,10 @@ function NavButton(props: { id: NavId; label: string; tab: Tab; badge?: number; 
       {props.label}
       {props.badge ? (
         <>
-          <span className="badge" aria-hidden="true">
+          <span className="ml-auto rounded-full bg-bad-fill px-1.5 text-cap leading-4 font-heavy text-white" aria-hidden="true">
             {props.badge}
           </span>
-          <span className="vh">, {props.badge} cảnh báo mới</span>
+          <span className="sr-only">, {props.badge} cảnh báo mới</span>
         </>
       ) : null}
     </button>
@@ -75,16 +82,16 @@ function NavButton(props: { id: NavId; label: string; tab: Tab; badge?: number; 
 function Sidebar(props: { tab: Tab; machine: string; note: string | null; alerts: number; onTab(tab: Tab): void }) {
   const { tab, machine, note, onTab } = props;
   return (
-    <nav className="side" aria-label="Mục" data-tauri-drag-region>
+    <nav className="m-0 flex min-h-0 flex-col gap-px rounded-none bg-transparent px-2.5 pt-5 pb-2.5" aria-label="Mục" data-tauri-drag-region>
       {/* macOS draws the window's traffic lights here; the browser preview draws the prototype's. */}
-      <div className="lights" data-tauri-drag-region aria-hidden="true">
-        <i />
-        <i />
-        <i />
+      <div className="flex min-h-3.5 items-center gap-[7px] px-3 pb-3.5" data-tauri-drag-region aria-hidden="true">
+        <i className={LIGHT + ' bg-[#ff5f57]'} />
+        <i className={LIGHT + ' bg-[#febc2e]'} />
+        <i className={LIGHT + ' bg-[#28c840]'} />
       </div>
       {NAVS.map((n) =>
         n[0] === '-' ? (
-          <div className="grp" key={n[1]}>
+          <div className="px-2 pt-2 pb-0.5 text-cap font-semi tracking-[.02em] text-ink2" key={n[1]}>
             {n[1]}
           </div>
         ) : (
@@ -98,9 +105,9 @@ function Sidebar(props: { tab: Tab; machine: string; note: string | null; alerts
           />
         ),
       )}
-      <div className="grow" data-tauri-drag-region />
+      <div className="flex-1" data-tauri-drag-region />
       <NavButton id="settings" label="Cài đặt" tab={tab} onTab={onTab} />
-      <div className="machine">
+      <div className="px-2 py-1.5 text-s text-ink2">
         <span>{machine}</span>
         {note ? ' · ' + note : null}
       </div>
@@ -110,28 +117,31 @@ function Sidebar(props: { tab: Tab; machine: string; note: string | null; alerts
 
 function TitleBar(props: { title: string; view: WindowView; busy: boolean; onRefresh(): void }) {
   return (
-    <div className="tb" data-tauri-drag-region="deep">
-      <h2>{props.title}</h2>
-      <small>
+    <TabHead>
+      <TabTitle>{props.title}</TabTitle>
+      <TabSub>
         <Dot tone={props.view.fresh.tone} />
         {props.view.machine} · {props.view.fresh.text}
-      </small>
+      </TabSub>
       <Button disabled={props.busy} onClick={props.onRefresh}>
         Làm mới
       </Button>
-    </div>
+    </TabHead>
   );
 }
 
+/** The traffic lights the browser preview draws; macOS draws its own in the app. */
+const LIGHT = 'size-3 rounded-full [body:not(.preview)_&]:invisible';
+
 function Card(props: { title: ReactNode; kind?: 'c' | 'g'; children: ReactNode }) {
   return (
-    <div className="card">
-      <h4>
-        {props.kind ? <span className={'idm ' + props.kind} /> : null}
+    <Panel>
+      <CardTitle>
+        {props.kind ? <IdMark id={props.kind} /> : null}
         {props.title}
-      </h4>
+      </CardTitle>
       {props.children}
-    </div>
+    </Panel>
   );
 }
 
@@ -146,16 +156,29 @@ function SwitchCell({ card, onSwitch }: { card: CardView; onSwitch(slot: number)
   );
 }
 
+/**
+ * A row of a window table; the table sets its columns (--wt-cols). The row
+ * in use is lit, and the hairlines around it give way.
+ */
+const ROW = 'wt-r grid grid-cols-(--wt-cols) items-center gap-2.5 border-t-[.5px] border-card-line px-1.5 py-2 text-sm first:border-t-0 [.on+&]:border-t-transparent';
+/** The table's head rows: the windows' names. */
+const HEAD = ROW + ' h pt-0 pb-1 text-xs text-ink3';
+
 /** One account in a window table: its name, a fixed column per window, and its buttons. */
-function TableRow(props: { card: CardView; extra?: ReactNode; chips?: ChipView[]; onSwitch(slot: number): void }) {
+function TableRow(props: { card: CardView; extra?: ReactNode; chips?: ChipView[]; tight?: boolean; onSwitch(slot: number): void }) {
   const c = props.card;
   return (
-    <div className={'wt-r' + (c.active ? ' on' : '')} role="listitem" aria-label={c.label} title={c.title || undefined}>
+    <div
+      className={cn(ROW, c.active && 'on rounded-lg border-t-transparent bg-[color-mix(in_srgb,var(--sel)_70%,transparent)]')}
+      role="listitem"
+      aria-label={c.label}
+      title={c.title || undefined}
+    >
       <AccountName name={c.name} sub={c.sub} full={c.full} chips={[...c.chips, ...(props.chips ?? [])]} />
       {c.cells.map((cell) => (
-        <WindowCell key={cell.label} cell={cell} dim={c.dim} />
+        <WindowCell key={cell.label} cell={cell} dim={c.dim} tight={props.tight} />
       ))}
-      <span className="act">
+      <span className="flex items-center justify-end gap-1.5">
         <SwitchCell card={c} onSwitch={props.onSwitch} />
         {props.extra}
       </span>
@@ -163,12 +186,12 @@ function TableRow(props: { card: CardView; extra?: ReactNode; chips?: ChipView[]
   );
 }
 
-/** Claude: 5 giờ · Tuần · Fable tuần, the same columns for every account. */
-function ClaudeTable(props: { cards: CardView[]; onSwitch(slot: number): void }) {
+/** Claude: 5 giờ · Tuần · Fable tuần, the same columns for every account. `tight`: on Tổng quan. */
+function ClaudeTable(props: { cards: CardView[]; tight?: boolean; onSwitch(slot: number): void }) {
   if (!props.cards.length) return null;
   return (
-    <div className="wt c" role="list" aria-label="Claude Code">
-      <div className="wt-r h" aria-hidden="true">
+    <div className="grid [--wt-cols:minmax(96px,1.25fr)_repeat(3,minmax(0,1fr))_76px]" role="list" aria-label="Claude Code">
+      <div className={HEAD} aria-hidden="true">
         <span>đã dùng</span>
         <span>5 giờ</span>
         <span>Tuần</span>
@@ -176,7 +199,7 @@ function ClaudeTable(props: { cards: CardView[]; onSwitch(slot: number): void })
         <span />
       </div>
       {props.cards.map((c) => (
-        <TableRow key={c.key} card={c} onSwitch={props.onSwitch} />
+        <TableRow key={c.key} card={c} tight={props.tight} onSwitch={props.onSwitch} />
       ))}
     </div>
   );
@@ -186,21 +209,32 @@ function ClaudeTable(props: { cards: CardView[]; onSwitch(slot: number): void })
  * Antigravity: Gemini and Claude/GPT, five hours and a week each. An
  * account only Cockpit Tools reads has one number per group instead.
  */
-function AgyTable(props: { cards: CardView[]; logins?: AgyLogins; onSwitch(slot: number): void }) {
+function AgyTable(props: { cards: CardView[]; logins?: AgyLogins; tight?: boolean; onSwitch(slot: number): void }) {
   if (!props.cards.length) return null;
   const four = props.cards.every((c) => c.cells.length === 4);
   const logins = props.logins;
+  const cols = props.tight
+    ? four
+      ? '[--wt-cols:minmax(96px,1fr)_repeat(4,minmax(0,.82fr))_70px]'
+      : '[--wt-cols:minmax(96px,1fr)_repeat(2,minmax(0,1fr))_70px]'
+    : four
+      ? logins
+        ? '[--wt-cols:minmax(0,1.1fr)_repeat(4,minmax(0,.8fr))_180px]'
+        : '[--wt-cols:minmax(104px,1.25fr)_repeat(4,minmax(0,.8fr))_76px]'
+      : logins
+        ? '[--wt-cols:minmax(0,1.2fr)_repeat(2,minmax(0,1fr))_180px]'
+        : '[--wt-cols:minmax(104px,1.25fr)_repeat(2,minmax(0,1fr))_76px]';
   return (
-    <div className={'wt g' + (four ? '' : ' two') + (logins ? ' acts' : '')} role="list" aria-label="Antigravity">
+    <div className={cn('grid', cols)} role="list" aria-label="Antigravity">
       {four ? (
         <>
-          <div className="wt-r h" aria-hidden="true">
+          <div className={HEAD} aria-hidden="true">
             <span />
-            <span className="grp">Gemini</span>
-            <span className="grp">Claude/GPT</span>
+            <span className={GROUP}>Gemini</span>
+            <span className={GROUP}>Claude/GPT</span>
             <span />
           </div>
-          <div className="wt-r h h2" aria-hidden="true">
+          <div className={cn(HEAD, 'border-t-0')} aria-hidden="true">
             <span>đã dùng</span>
             <span>5 giờ</span>
             <span>Tuần</span>
@@ -210,7 +244,7 @@ function AgyTable(props: { cards: CardView[]; logins?: AgyLogins; onSwitch(slot:
           </div>
         </>
       ) : (
-        <div className="wt-r h" aria-hidden="true">
+        <div className={HEAD} aria-hidden="true">
           <span>đã dùng</span>
           <span>Gemini</span>
           <span>Claude/GPT</span>
@@ -223,11 +257,12 @@ function AgyTable(props: { cards: CardView[]; logins?: AgyLogins; onSwitch(slot:
           <Fragment key={c.key}>
             <TableRow
               card={c}
+              tight={props.tight}
               chips={loginChips(row)}
               extra={logins && row ? <LoginActions logins={logins} row={row} /> : null}
               onSwitch={props.onSwitch}
             />
-            {logins && row && logins.confirm === row.id ? <LogoutConfirm logins={logins} row={row} /> : null}
+            {logins && row && logins.confirm === row.id ? <LogoutConfirm logins={logins} row={row} inTable /> : null}
           </Fragment>
         );
       })}
@@ -235,16 +270,21 @@ function AgyTable(props: { cards: CardView[]; logins?: AgyLogins; onSwitch(slot:
   );
 }
 
+/** Two head cells over a service's windows. */
+const GROUP = 'col-span-2 border-b-[.5px] border-card-line pb-0.5';
+
 function Note({ note }: { note: NoteView | null }) {
-  return note ? <p className={('note ' + note.tone).trim()}>{note.text}</p> : null;
+  return note ? (
+    <CardText className={cn('mt-2 mb-0', note.tone === 'warn' ? 'text-warn-ink' : note.tone === 'bad' ? 'text-bad-ink' : undefined)}>{note.text}</CardText>
+  ) : null;
 }
 
 function KeyValues({ rows }: { rows: KeyValue[] }) {
   return (
-    <div className="kvt">
+    <div className={KVT}>
       {rows.map((r) => [
         <span key={r.key + ':k'}>{r.key}</span>,
-        <span key={r.key + ':v'} className={r.mono ? 'mono' : undefined}>
+        <span key={r.key + ':v'} className={r.mono ? CODE : undefined}>
           {r.chip ? <Chip chip={r.chip} /> : r.value}
         </span>,
       ])}
@@ -255,16 +295,16 @@ function KeyValues({ rows }: { rows: KeyValue[] }) {
 /** Automatic switching on one line: what it does now, and its switch. */
 function AutoCard({ auto, onToggle, children }: { auto: AutoView; onToggle(): void; children?: ReactNode }) {
   return (
-    <div className="card">
-      <div className="sw-row">
-        <div className="t">
-          <b>{auto.title}</b>
-          <small>{auto.line}</small>
+    <Panel>
+      <div className="flex items-center justify-between gap-2.5">
+        <div className="min-w-0">
+          <b className="block text-body font-semi">{auto.title}</b>
+          <small className="block text-xs text-ink2">{auto.line}</small>
         </div>
         <Toggle on={auto.toggle.on} label={auto.toggle.label} disabled={auto.toggle.disabled} onClick={onToggle} />
       </div>
       {children}
-    </div>
+    </Panel>
   );
 }
 
@@ -303,38 +343,38 @@ function Overview(props: TabProps) {
   return (
     <>
       <Top {...props} title="Tổng quan" />
-      <div className="grid ov">
-        <div className="stack">
+      <div className="grid grid-cols-[minmax(0,2.6fr)_minmax(0,1fr)] items-start gap-3 [@media(max-width:1000px)]:grid-cols-[minmax(0,1fr)]">
+        <div className={STACK}>
           <NowCard now={v.now} />
           <Card title="Claude" kind="c">
-            <ClaudeTable cards={v.claude.cards} onSwitch={props.onSwitch} />
+            <ClaudeTable cards={v.claude.cards} tight onSwitch={props.onSwitch} />
             <Note note={v.claude.note} />
           </Card>
           {v.agy.present ? (
             <Card title="Antigravity" kind="g">
-              <AgyTable cards={v.agy.cards} onSwitch={props.onSwitchAgy} />
+              <AgyTable cards={v.agy.cards} tight onSwitch={props.onSwitchAgy} />
               <Note note={v.agy.note} />
             </Card>
           ) : null}
           {props.codexCard}
         </div>
-        <div className="stack">
+        <div className={STACK}>
           <AutoCard auto={v.auto} onToggle={props.onToggle} />
           <Card title="Sắp tới">
             {v.upcoming.length ? (
-              <div className="list">
+              <div className="grid gap-2 text-sm">
                 {v.upcoming.map((u) => (
-                  <div key={u.key}>
-                    <time>{u.at}</time>
+                  <div key={u.key} className="grid grid-cols-[54px_minmax(0,1fr)] gap-2">
+                    <time className="text-ink2 tabular-nums">{u.at}</time>
                     <span>
-                      {u.tone ? <span className={'dot ' + u.tone} aria-hidden="true" /> : null}
+                      {u.tone ? <Dot tone={u.tone} className="mr-1.5" /> : null}
                       {u.what}
                     </span>
                   </div>
                 ))}
               </div>
             ) : (
-              <p>Không có mốc đặt lại nào trong 24 giờ tới.</p>
+              <CardText>Không có mốc đặt lại nào trong 24 giờ tới.</CardText>
             )}
           </Card>
         </div>
@@ -352,31 +392,33 @@ function ClaudeTab(props: TabProps) {
       <Top {...props} title="Claude" />
       {v.envBanner ? <Banner banner={v.envBanner} onAction={props.onAction} busy={props.busy} /> : null}
       {v.claudeBanner ? <Banner banner={v.claudeBanner} onAction={props.onAction} busy={props.busy} /> : null}
-      <Card title={<>Tài khoản{v.claude.count ? <span className="r">{v.claude.count}</span> : null}</>} kind="c">
+      <Card title={<>Tài khoản{v.claude.count ? <span className="ml-auto font-reg">{v.claude.count}</span> : null}</>} kind="c">
         <ClaudeTable cards={v.claude.cards} onSwitch={props.onSwitch} />
         <Note note={v.claude.note} />
       </Card>
-      <div className="grid2">
+      <div className={GRID2}>
         <AutoCard auto={a} onToggle={props.onToggle}>
-          <p style={{ margin: '12px 0 4px' }} id="qs-qp">
+          <CardText style={{ margin: '12px 0 4px' }} id="qs-qp">
             Tạm dừng
-          </p>
-          <div className="seg" role="group" aria-labelledby="qs-qp">
+          </CardText>
+          <Segmented aria-labelledby="qs-qp">
             {pauseOptions(props.now).map((o) => (
-              <button key={o.v} type="button" disabled={a.toggle.disabled} onClick={() => props.onPause(o.v)}>
+              <Segment key={o.v} disabled={a.toggle.disabled} onClick={() => props.onPause(o.v)}>
                 {o.t}
-              </button>
+              </Segment>
             ))}
-          </div>
+          </Segmented>
         </AutoCard>
         <Card title="Switcher">
-          <div className="line">
-            <Dot tone={sw.tone} />
+          <div className="text-sm text-ink2">
+            <Dot tone={sw.tone} className="mr-1.5" />
             {sw.line}
           </div>
-          <details className="more">
-            <summary>Chi tiết</summary>
-            <KeyValues rows={sw.details} />
+          <details className="mt-2 text-sm text-ink2">
+            <summary className="cursor-pointer list-none text-accent-ink [&::-webkit-details-marker]:hidden">Chi tiết</summary>
+            <div className="mt-2">
+              <KeyValues rows={sw.details} />
+            </div>
           </details>
         </Card>
       </div>
@@ -391,18 +433,18 @@ function AgyTab(props: TabProps) {
     <>
       <Top {...props} title="Antigravity" banner={false} />
       {a.banner ? <Banner banner={a.banner} onAction={props.onAction} busy={props.busy} /> : null}
-      <Card title={<>Tài khoản{logins ? <span className="r">{<AddAccount logins={logins} />}</span> : null}</>} kind="g">
+      <Card title={<>Tài khoản{logins ? <span className="ml-auto font-reg">{<AddAccount logins={logins} />}</span> : null}</>} kind="g">
         {a.present ? <AgyTable cards={a.cards} logins={a.own ? logins : undefined} onSwitch={props.onSwitchAgy} /> : null}
         {!a.present ? (
-          <div className="empty">
+          <Empty>
             <b>Máy này chưa có Antigravity</b>
-          </div>
+          </Empty>
         ) : null}
         <Note note={a.tabNote} />
         {logins ? <LoginNotes logins={logins} listed={a.own ? a.cards.map((c) => c.slot) : []} /> : null}
       </Card>
       {a.cockpit ? (
-        <div className="grid2">
+        <div className={GRID2}>
           <Card title="Cockpit Tools">
             <KeyValues rows={a.cockpit} />
           </Card>
@@ -475,11 +517,10 @@ export function MainWindow(props: MainWindowProps) {
     codexCard: props.codexCard,
   };
   const open = !!props.dialog;
-  const dialog = useDialog(open);
   return (
-    <div className="win-o">
+    <div className="win-o material-window relative grid h-full w-full grid-cols-[var(--side-w)_minmax(0,1fr)] overflow-hidden">
       {/* The window's top edge drags it, over the sidebar and the page alike, as a title bar would. */}
-      <div className="dragbar" data-tauri-drag-region aria-hidden="true" />
+      <div className="dragbar absolute top-0 right-0 left-0 z-10 h-4" data-tauri-drag-region aria-hidden="true" />
       <div style={{ display: 'contents' }} inert={open}>
         <Sidebar
           tab={props.tab}
@@ -488,7 +529,7 @@ export function MainWindow(props: MainWindowProps) {
           alerts={props.unanswered ?? 0}
           onTab={props.onTab}
         />
-        <main className="main">
+        <main className="main relative flex min-w-0 flex-col gap-3 overflow-y-auto pt-4 pr-[22px] pb-[22px] pl-3.5">
           {props.tab === 'overview' ? <Overview {...tabProps} /> : null}
           {props.tab === 'claude' ? <ClaudeTab {...tabProps} /> : null}
           {props.tab === 'agy' ? <AgyTab {...tabProps} /> : null}
@@ -507,21 +548,14 @@ export function MainWindow(props: MainWindowProps) {
           {props.tab === 'settings' ? props.settings : null}
         </main>
       </div>
-      {open ? (
-        <div className="dlg-wrap">
-          <div
-            className={'dlg ' + (props.dialogSize ?? 'wide')}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={SHEET_TITLE_ID}
-            tabIndex={-1}
-            ref={dialog.ref}
-            onKeyDown={dialog.onKeyDown}
-          >
-            {props.dialog}
-          </div>
-        </div>
-      ) : null}
+      {/* The dialog layer covers the whole window, sidebar included. */}
+      <Dialog open={open}>
+        {open ? (
+          <DialogOverlay className="z-30 grid place-items-center rounded-[inherit]">
+            <DialogContent size={props.dialogSize ?? 'wide'}>{props.dialog}</DialogContent>
+          </DialogOverlay>
+        ) : null}
+      </Dialog>
     </div>
   );
 }

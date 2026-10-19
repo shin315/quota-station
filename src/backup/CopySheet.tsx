@@ -4,14 +4,14 @@
 // the copy running, its result with "Hoàn tác trên …", and the undo, which
 // runs on the Mac the copy was written to.
 
-import { LINE_CLASS } from '../agents/McpDialogs';
+import { DialogButtons, DialogLead, DialogTitle } from '@/components/ui/dialog';
+import { COMPARE, COMPARE_DIFF, COMPARE_HEAD, DiffLine, DiffView, Progress, TECH } from '../components/blocks';
 import { Button } from '../components/parts';
-import { SHEET_TITLE_ID } from '../components/Sheets';
 import { changedLines } from '../lib/backup';
 import { day, doneLines, itemKey, itemName, onText, planLine, stateChip } from '../lib/copy';
 import { AGENT_NAME, joinCommand } from '../lib/mcp';
 import type { CopyItem, McpDef } from '../lib/model';
-import { Facts, Progress } from './RestoreSheet';
+import { Facts } from './RestoreSheet';
 import type { Copy, CopyDialog } from './useCopy';
 
 export function copyDialogSize(d: CopyDialog, copy: Copy): 'lg' | 'xl' {
@@ -33,10 +33,10 @@ function pairs(def: McpDef | null): string {
 }
 
 function Cells({ k, a, b }: { k: string; a: string; b: string }) {
-  const x = a !== b ? 'x' : undefined;
+  const x = a !== b ? COMPARE_DIFF : undefined;
   return (
     <>
-      <span className="k">{k}</span>
+      <span className="text-ink2">{k}</span>
       <span className={x}>{a || '–'}</span>
       <span className={x}>{b || '–'}</span>
     </>
@@ -47,16 +47,16 @@ function ItemBody({ i, copy }: { i: CopyItem; copy: Copy }) {
   const name = itemName(i);
   const head = (
     <>
-      <span className="h" />
-      <span className="h">{copy.here}</span>
-      <span className="h">{copy.other}</span>
+      <span className={COMPARE_HEAD} />
+      <span className={COMPARE_HEAD}>{copy.here}</span>
+      <span className={COMPARE_HEAD}>{copy.other}</span>
     </>
   );
   let body;
   if (i.group === 'mcp') {
     body = (
       <>
-        <div className="dr">
+        <div className={COMPARE}>
           {head}
           {i.compare.map((c) => (
             <Cells key={c.agent} k={AGENT_NAME[c.agent]} a={command(c.mine)} b={command(c.theirs)} />
@@ -66,17 +66,17 @@ function ItemBody({ i, copy }: { i: CopyItem; copy: Copy }) {
           ) : null}
           <Cells k="Agent bật" a={onText(i.mineOn)} b={onText(i.theirsOn)} />
         </div>
-        <p className="tech">Đường dẫn lệnh khác nhau giữa hai máy là bình thường, không tính là khác. Khoá không đọc, không so.</p>
+        <p className={TECH}>Đường dẫn lệnh khác nhau giữa hai máy là bình thường, không tính là khác. Khoá không đọc, không so.</p>
       </>
     );
   } else if (i.group === 'skill') {
     body = (
       <>
-        <div className="dr">
+        <div className={COMPARE}>
           {head}
           <Cells k="Bản" a={i.mineAt ? day(i.mineAt) : 'cài tay'} b={i.theirsAt ? day(i.theirsAt) : 'cài tay'} />
         </div>
-        <p className="tech">
+        <p className={TECH}>
           {i.state === 'ver'
             ? 'Chép là cập nhật skill lên bản mới nhất từ GitHub trên máy có bản cũ hơn. App lưu bản đang có trước khi cập nhật.'
             : 'Hai bản cài tay khác nhau: sửa trên một máy cho giống ý bạn, app không tự chọn bản nào.'}
@@ -89,36 +89,30 @@ function ItemBody({ i, copy }: { i: CopyItem; copy: Copy }) {
     const dest = copy.push ? copy.other : copy.here;
     const lines = copy.push ? i.lines.map((l) => ({ ...l, op: l.op === 'add' ? ('del' as const) : l.op === 'del' ? ('add' as const) : l.op })) : i.lines;
     body = (
-      <div className="diff">
-        <div className="fh">
-          <span>Trên {dest} bây giờ → sau khi chép</span>
-          <span className="r">{i.changed} dòng khác</span>
-        </div>
-        <pre>
-          {lines.length ? (
-            lines.map((l, n) => (
-              <span key={n} className={LINE_CLASS[l.op]}>
-                {l.op === 'gap' ? '…' : l.text || ' '}
-              </span>
-            ))
-          ) : (
-            <span className="c">Có dòng giống khoá ở một máy: app không hiện, không chép.</span>
-          )}
-        </pre>
-      </div>
+      <DiffView head={<span>Trên {dest} bây giờ → sau khi chép</span>} right={i.changed + ' dòng khác'}>
+        {lines.length ? (
+          lines.map((l, n) => (
+            <DiffLine key={n} op={l.op}>
+              {l.op === 'gap' ? '…' : l.text || ' '}
+            </DiffLine>
+          ))
+        ) : (
+          <DiffLine op="ctx">Có dòng giống khoá ở một máy: app không hiện, không chép.</DiffLine>
+        )}
+      </DiffView>
     );
   }
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>
+      <DialogTitle>
         {name} · {stateChip(i, copy.other).t}
-      </h3>
+      </DialogTitle>
       {body}
-      <div className="btns">
+      <DialogButtons>
         <Button large primary onClick={copy.close}>
           Đóng
         </Button>
-      </div>
+      </DialogButtons>
     </>
   );
 }
@@ -130,10 +124,10 @@ function GoBody({ d, copy }: { d: Extract<CopyDialog, { kind: 'go' }>; copy: Cop
   if (d.step === 'prev')
     return (
       <>
-        <h3 id={SHEET_TITLE_ID}>
+        <DialogTitle>
           Chép {items.length} mục {copy.push ? 'sang ' + copy.other : 'về máy này'}?
-        </h3>
-        <p className="lead">Quota Station trên {dest} tự ghi, sao lưu trước khi ghi.</p>
+        </DialogTitle>
+        <DialogLead>Quota Station trên {dest} tự ghi, sao lưu trước khi ghi.</DialogLead>
         <Facts items={items.map((i) => ['', planLine(i, copy.keys, dest)])} />
         <Facts
           items={[
@@ -143,33 +137,26 @@ function GoBody({ d, copy }: { d: Extract<CopyDialog, { kind: 'go' }>; copy: Cop
           ]}
         />
         {d.error ? (
-          <p className="fhint bad" role="alert">
+          <p className="mt-1 text-xs text-bad-ink" role="alert">
             <b>{d.error.title}.</b> {d.error.body}
           </p>
         ) : null}
-        <div className="btns">
+        <DialogButtons>
           <Button large onClick={copy.close}>
             Huỷ
           </Button>
           <Button large primary disabled={!items.length || copy.working} onClick={copy.run}>
             Chép
           </Button>
-        </div>
+        </DialogButtons>
       </>
     );
   if (d.step === 'run' || d.step === 'undoing' || !d.done)
     return (
       <>
-        <h3 id={SHEET_TITLE_ID}>{d.step === 'undoing' ? 'Đang hoàn tác trên ' + dest + '…' : 'Đang chép…'}</h3>
-        <ul className="prog" aria-busy="true">
-          {items.map((i) => (
-            <li key={itemKey(i)} className="dim">
-              <span className="ic wait" aria-hidden="true" />
-              <span>{itemName(i)}</span>
-            </li>
-          ))}
-        </ul>
-        <p className="note">{copy.push ? copy.other + ' tự ghi bằng Quota Station của nó. App hỏi lại mỗi giây, mỗi lần chờ tối đa 20 giây.' : 'Đang ghi trên máy này.'}</p>
+        <DialogTitle>{d.step === 'undoing' ? 'Đang hoàn tác trên ' + dest + '…' : 'Đang chép…'}</DialogTitle>
+        <Progress busy lines={items.map((i): [string, string, string] => ['wait', itemName(i), ''])} />
+        <p>{copy.push ? copy.other + ' tự ghi bằng Quota Station của nó. App hỏi lại mỗi giây, mỗi lần chờ tối đa 20 giây.' : 'Đang ghi trên máy này.'}</p>
       </>
     );
   const done = d.done;
@@ -177,7 +164,7 @@ function GoBody({ d, copy }: { d: Extract<CopyDialog, { kind: 'go' }>; copy: Cop
     const changed = d.changed ? changedLines('changed:' + d.changed).map((t) => t.replace('lần khôi phục', 'lần chép')) : null;
     return (
       <>
-        <h3 id={SHEET_TITLE_ID}>Hoàn tác lần chép trên {dest}?</h3>
+        <DialogTitle>Hoàn tác lần chép trên {dest}?</DialogTitle>
         {changed ? (
           <Facts items={[...changed.map((t): [string, string] => ['w', t]), ['', 'Hoàn tác vẫn chỉ bỏ những gì lần chép đã thêm hay thay; phần sửa thêm vẫn giữ.']]} />
         ) : (
@@ -189,14 +176,14 @@ function GoBody({ d, copy }: { d: Extract<CopyDialog, { kind: 'go' }>; copy: Cop
             ]}
           />
         )}
-        <div className="btns">
+        <DialogButtons>
           <Button large onClick={copy.backToDone}>
             Huỷ
           </Button>
           <Button large danger disabled={copy.working} onClick={() => copy.undo(!!changed)}>
             {changed ? 'Vẫn hoàn tác' : 'Hoàn tác'}
           </Button>
-        </div>
+        </DialogButtons>
       </>
     );
   }
@@ -204,24 +191,24 @@ function GoBody({ d, copy }: { d: Extract<CopyDialog, { kind: 'go' }>; copy: Cop
   const partly = lines.some(([t]) => t === 'x');
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>{partly ? 'Đã chép một phần' : 'Đã chép ' + items.length + ' mục'}</h3>
+      <DialogTitle>{partly ? 'Đã chép một phần' : 'Đã chép ' + items.length + ' mục'}</DialogTitle>
       <Progress lines={lines} />
       {d.error ? (
-        <p className="fhint bad" role="alert">
+        <p className="mt-1 text-xs text-bad-ink" role="alert">
           <b>{d.error.title}.</b> {d.error.body}
         </p>
       ) : null}
-      <div className="btns">
+      <DialogButtons>
         {done.canUndo ? (
           <Button large disabled={copy.working} onClick={copy.askUndo}>
             Hoàn tác trên {dest}
           </Button>
         ) : null}
-        <span className="grow" />
+        <span className="flex-1" />
         <Button large primary onClick={copy.finish}>
           Xong
         </Button>
-      </div>
+      </DialogButtons>
     </>
   );
 }

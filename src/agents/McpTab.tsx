@@ -4,8 +4,9 @@
 // short line each for the servers kept in the app's store, the ones agents
 // and plugins bring themselves (read only), and the backups.
 
-import type { ReactNode } from 'react';
-import { Banner, Button, Chip, Dot, Feedback } from '../components/parts';
+import { Card as Panel, CardText, CardTitle } from '@/components/ui/card';
+import { COUNT, Empty, EmptyIcon, InfoLine, TabHead, TabSub, TabTitle } from '../components/page';
+import { Banner, Button, Chip, Dot, Feedback, LinkButton } from '../components/parts';
 import { clock } from '../lib/format';
 import {
   AGENT_NAME,
@@ -22,7 +23,7 @@ import type { Agent, McpRow, McpTable, Model } from '../lib/model';
 import { dayClock } from '../lib/switching';
 import type { Action, BannerView, FeedbackView, PopoverView } from '../lib/view';
 import { ARCHIVE_ICON, LOCK_ICON, NAV_ICONS, PLUG_BIG, PUZZLE_ICON } from '../window/icons';
-import { CheckMatrix, PendingBar, type MatrixCell, type MatrixColumn } from './CheckMatrix';
+import { CheckMatrix, LOCK, MATRIX_HOVER, MATRIX_TITLE, PendingBar, type MatrixCell, type MatrixColumn } from './CheckMatrix';
 import { editable, type Mcp } from './useMcp';
 
 /** What is the matter with a column, said once above the table. */
@@ -102,10 +103,10 @@ function Name({ row }: { row: McpRow }) {
   const locked = row.secrets.length > 0 && row.secrets.every((s) => s.have);
   return (
     <>
-      <div className="t">
+      <div className={MATRIX_TITLE}>
         <b>{row.name}</b>
         {locked ? (
-          <span className="lk" role="img" aria-label="có khoá, giữ ngoài giao diện" title="Có khoá. App không hiện, không ghi vào bản lưu hay log.">
+          <span className={LOCK} role="img" aria-label="có khoá, giữ ngoài giao diện" title="Có khoá. App không hiện, không ghi vào bản lưu hay log.">
             {LOCK_ICON}
           </span>
         ) : null}
@@ -115,18 +116,6 @@ function Name({ row }: { row: McpRow }) {
       </div>
       <small>{whereLine(row)}</small>
     </>
-  );
-}
-
-function InfoLine({ icon, children, actions }: { icon: ReactNode; children: ReactNode; actions: ReactNode }) {
-  return (
-    <div className="ml">
-      <span className="mi0" aria-hidden="true">
-        {icon}
-      </span>
-      <span className="t">{children}</span>
-      <span className="a">{actions}</span>
-    </div>
   );
 }
 
@@ -150,30 +139,30 @@ export function McpTab({ model, fresh, feedback, now, mcp, onAction }: McpTabPro
   const busy = v.busy != null || mcp.working;
   const sub = v.busy === 'reading' ? 'đang đọc…' : v.readAt ? 'đọc lúc ' + clock(v.readAt) : fresh.text;
   const top = (
-    <div className="tb" data-tauri-drag-region="deep">
-      <h2>MCP</h2>
-      <small>
+    <TabHead>
+      <TabTitle>MCP</TabTitle>
+      <TabSub>
         <Dot tone={v.busy === 'reading' ? 'stale' : 'ok'} />
         {model.machine} · {sub}
-      </small>
+      </TabSub>
       <Button primary disabled={!table || busy} onClick={mcp.add}>
         Thêm MCP
       </Button>
       <Button disabled={busy} onClick={mcp.reread}>
         Đọc lại
       </Button>
-    </div>
+    </TabHead>
   );
   if (!table)
     return (
       <>
         {top}
-        <div className="card">
-          <div className="empty">
+        <Panel>
+          <Empty>
             <b>Đang đọc danh sách MCP…</b>
             Claude Code, Codex và Antigravity, trên máy này.
-          </div>
-        </div>
+          </Empty>
+        </Panel>
       </>
     );
   const banners = [...columnBanners(table), ...rowBanners(table.rows, mcp.later)];
@@ -186,10 +175,10 @@ export function McpTab({ model, fresh, feedback, now, mcp, onAction }: McpTabPro
         <Banner key={b.title} banner={b} onAction={onAction} />
       ))}
       {table.rows.length ? (
-        <div className="card">
-          <h4>
-            MCP của bạn <span className="cnt">{table.rows.length}</span>
-          </h4>
+        <Panel>
+          <CardTitle>
+            MCP của bạn <span className={COUNT}>{table.rows.length}</span>
+          </CardTitle>
           <CheckMatrix
             noun="MCP"
             rows={table.rows}
@@ -199,22 +188,21 @@ export function McpTab({ model, fresh, feedback, now, mcp, onAction }: McpTabPro
             actions={(r) => (
               <>
                 {rowCanAll(mcp.pending, r) ? (
-                  <button type="button" className="lnk sm hv" aria-label={'Bật ' + r.name + ' cho cả ba agent'} onClick={() => mcp.rowAll(r)}>
+                  <LinkButton small className={MATRIX_HOVER} aria-label={'Bật ' + r.name + ' cho cả ba agent'} onClick={() => mcp.rowAll(r)}>
                     Bật cả ba
-                  </button>
+                  </LinkButton>
                 ) : null}
-                <button type="button" className="lnk sm" aria-label={'Sửa ' + r.name} disabled={!editable(r).length || busy} onClick={() => mcp.edit(r)}>
+                <LinkButton small aria-label={'Sửa ' + r.name} disabled={!editable(r).length || busy} onClick={() => mcp.edit(r)}>
                   Sửa
-                </button>
-                <button
-                  type="button"
-                  className="lnk sm"
+                </LinkButton>
+                <LinkButton
+                  small
                   aria-label={'Xoá ' + r.name}
                   disabled={busy || !Object.values(r.cells).some((c) => c.state !== 'absent' && c.lock !== 'readOnly' && c.lock !== 'shape')}
                   onClick={() => mcp.setDialog({ kind: 'del', name: r.name, mode: 'kho', keys: true })}
                 >
                   Xoá
-                </button>
+                </LinkButton>
               </>
             )}
             cell={(r, a) => cellOf(table, mcp, r, a)}
@@ -225,25 +213,23 @@ export function McpTab({ model, fresh, feedback, now, mcp, onAction }: McpTabPro
             flash={mcp.flash}
           />
           <PendingBar lines={list.map(pendingText)} busy={busy} onClear={mcp.clearPending} onPreview={mcp.previewPending} />
-        </div>
+        </Panel>
       ) : (
-        <div className="card">
-          <div className="empty">
-            <span className="ei" aria-hidden="true">
-              {PLUG_BIG}
-            </span>
+        <Panel>
+          <Empty>
+            <EmptyIcon>{PLUG_BIG}</EmptyIcon>
             <b>Chưa có MCP nào trên máy này</b>
-            <p className="note">Thêm một MCP một lần cho cả ba agent.</p>
-            <div className="btns">
+            <CardText className="mt-2 mb-0">Thêm một MCP một lần cho cả ba agent.</CardText>
+            <div className="mt-2.5 flex flex-wrap justify-center gap-2">
               <Button primary disabled={busy} onClick={mcp.add}>
                 Thêm MCP
               </Button>
             </div>
-          </div>
-        </div>
+          </Empty>
+        </Panel>
       )}
-      <div className="card">
-        <div className="mlines">
+      <Panel>
+        <div className="grid">
           {table.stored.map((k) => (
             <InfoLine
               key={k.name}
@@ -253,9 +239,9 @@ export function McpTab({ model, fresh, feedback, now, mcp, onAction }: McpTabPro
                   <Button disabled={busy} onClick={() => mcp.setDialog({ kind: 'kho', name: k.name, agents: khoAgents(table, k.agents) })}>
                     Bật lại…
                   </Button>
-                  <button type="button" className="lnk sm" disabled={busy} onClick={() => mcp.setDialog({ kind: 'forget', name: k.name, keys: true })}>
+                  <LinkButton small disabled={busy} onClick={() => mcp.setDialog({ kind: 'forget', name: k.name, keys: true })}>
                     Xoá hẳn
-                  </button>
+                  </LinkButton>
                 </>
               }
             >
@@ -266,9 +252,9 @@ export function McpTab({ model, fresh, feedback, now, mcp, onAction }: McpTabPro
             <InfoLine
               icon={PUZZLE_ICON}
               actions={
-                <button type="button" className="lnk sm" onClick={() => mcp.setDialog({ kind: 'owned' })}>
+                <LinkButton small onClick={() => mcp.setDialog({ kind: 'owned' })}>
                   Xem
-                </button>
+                </LinkButton>
               }
             >
               {table.owned.length} MCP có sẵn trong {owners(table)}. App để yên, không sửa.
@@ -277,15 +263,15 @@ export function McpTab({ model, fresh, feedback, now, mcp, onAction }: McpTabPro
           <InfoLine
             icon={NAV_ICONS.history}
             actions={
-              <button type="button" className="lnk sm" onClick={() => mcp.setDialog({ kind: 'backups' })}>
+              <LinkButton small onClick={() => mcp.setDialog({ kind: 'backups' })}>
                 Bản đã lưu
-              </button>
+              </LinkButton>
             }
           >
             Trước mỗi lần ghi, app lưu lại bản cũ để lấy lại được. Bản lưu không chứa khoá.
           </InfoLine>
         </div>
-      </div>
+      </Panel>
     </>
   );
 }

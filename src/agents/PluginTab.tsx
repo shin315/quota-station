@@ -4,8 +4,12 @@
 // lại" shows the agents' own commands a restore would run.
 
 import { useState } from 'react';
-import { Banner, Button, Chip, Dot } from '../components/parts';
-import { SHEET_TITLE_ID } from '../components/Sheets';
+import { Card as Panel, CardText, CardTitle } from '@/components/ui/card';
+import { DialogButtons, DialogLead, DialogSection, DialogTitle } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
+import { Command } from '../components/blocks';
+import { COUNT, Empty, GRID2, TabHead, TabSub, TabTitle } from '../components/page';
+import { Banner, Button, Chip, CODE, Dot, KVT } from '../components/parts';
 import { clock } from '../lib/format';
 import { AGENT_NAME, AGENTS } from '../lib/mcp';
 import type { Agent, Marketplace, Model, PluginSide } from '../lib/model';
@@ -35,19 +39,22 @@ function sideBanner(s: PluginSide): BannerView | null {
   return null;
 }
 
+/** A plugin: its id, what it brings, on or off. */
+const PLUGIN_ROW = 'grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_70px] items-center gap-2.5 border-t-[.5px] border-card-line py-[7px] text-sm';
+
 function Rows({ side }: { side: PluginSide }) {
-  if (side.state !== 'ok') return <p className="note">Chưa đọc được.</p>;
-  if (!side.plugins.length) return <p className="note">Chưa cài plugin nào.</p>;
+  if (side.state !== 'ok') return <CardText className="mt-2 mb-0">Chưa đọc được.</CardText>;
+  if (!side.plugins.length) return <CardText className="mt-2 mb-0">Chưa cài plugin nào.</CardText>;
   return (
     <div role="list" aria-label={'Plugin của ' + AGENT_NAME[side.agent]}>
-      <div className="pr h" aria-hidden="true">
+      <div className={cn(PLUGIN_ROW, 'border-t-0 pt-0 text-xs text-ink3')} aria-hidden="true">
         <span>Plugin</span>
         <span>Mang theo</span>
         <span>Trạng thái</span>
       </div>
       {side.plugins.map((p) => (
-        <div key={p.id} className="pr" role="listitem" aria-label={p.id + (p.enabled ? ', bật' : ', tắt')}>
-          <span className="id" title={p.version ? 'bản ' + p.version : undefined}>
+        <div key={p.id} className={PLUGIN_ROW} role="listitem" aria-label={p.id + (p.enabled ? ', bật' : ', tắt')}>
+          <span className="[font:11.5px_var(--mono)] [overflow-wrap:anywhere]" title={p.version ? 'bản ' + p.version : undefined}>
             {p.id}
           </span>
           <span title={p.brings.skills.length ? 'skill: ' + p.brings.skills.join(', ') : undefined}>{brings(p)}</span>
@@ -87,71 +94,71 @@ export function PluginTab({ model, fresh, plugins, onAction }: PluginTabProps) {
   const markets = (sides ?? []).flatMap((s) => s.marketplaces.map((m) => ({ ...m, agent: s.agent })));
   return (
     <>
-      <div className="tb" data-tauri-drag-region="deep">
-        <h2>Plugin</h2>
-        <small>
+      <TabHead>
+        <TabTitle>Plugin</TabTitle>
+        <TabSub>
           <Dot tone={v.busy ? 'stale' : 'ok'} />
           {model.machine} · {sub}
-        </small>
+        </TabSub>
         <Button disabled={!sides} onClick={plugins.show}>
           Lệnh cài lại
         </Button>
         <Button disabled={v.busy} onClick={() => onAction('plugins:reread')}>
           Đọc lại
         </Button>
-      </div>
+      </TabHead>
       {(sides ?? []).map((s) => {
         const b = sideBanner(s);
         return b ? <Banner key={s.agent} banner={b} onAction={onAction} /> : null;
       })}
-      <p className="note" style={{ margin: 0 }}>
+      <p className="m-0">
         Chỉ xem. App không cài, gỡ, bật hay tắt plugin ở đây; khi khôi phục, app chạy lệnh cài của chính agent.
       </p>
       {!sides ? (
-        <div className="card">
-          <div className="empty">
+        <Panel>
+          <Empty>
             <b>Đang đọc danh sách plugin…</b>
             Claude Code và Codex, trên máy này.
-          </div>
-        </div>
+          </Empty>
+        </Panel>
       ) : (
         <>
-          <div className="grid2">
+          <div className={GRID2}>
             {sides.map((s) => (
-              <div key={s.agent} className="card">
-                <h4>
-                  <AgentLogo agent={s.agent} /> {AGENT_NAME[s.agent]} <span className="cnt">{s.state === 'ok' ? s.plugins.length : '?'}</span>
-                </h4>
+              <Panel key={s.agent}>
+                <CardTitle>
+                  <AgentLogo agent={s.agent} /> {AGENT_NAME[s.agent]} <span className={COUNT}>{s.state === 'ok' ? s.plugins.length : '?'}</span>
+                </CardTitle>
                 <Rows side={s} />
-              </div>
+              </Panel>
             ))}
           </div>
-          <div className="card">
-            <h4>
-              Marketplace <span className="cnt">{markets.length}</span>
-            </h4>
+          <Panel>
+            <CardTitle>
+              Marketplace <span className={COUNT}>{markets.length}</span>
+            </CardTitle>
             {markets.length ? (
-              <div className="kvt">
+              <div className={KVT}>
                 {markets.flatMap((m) => [
                   <span key={m.agent + m.name + ':k'}>
-                    <span className="mono">{m.name}</span> · {marketSource(m)}
+                    <span className={CODE}>{m.name}</span> · {marketSource(m)}
                   </span>,
                   <span key={m.agent + m.name + ':v'}>{AGENT_NAME[m.agent]}</span>,
                 ])}
               </div>
             ) : (
-              <p className="note">Chưa thêm marketplace nào.</p>
+              <CardText className="mt-2 mb-0">Chưa thêm marketplace nào.</CardText>
             )}
-          </div>
-          <div className="card">
-            <h4>Trong gói sao lưu</h4>
-            <div className="kvt">
+          </Panel>
+          <Panel>
+            <CardTitle>Trong gói sao lưu</CardTitle>
+            <div className={KVT}>
               <span>Ghi</span>
               <span>tên@marketplace, nguồn marketplace, bật hay tắt</span>
               <span>Không ghi</span>
               <span>nội dung plugin, MCP và skill plugin mang theo</span>
             </div>
-          </div>
+          </Panel>
         </>
       )}
     </>
@@ -163,34 +170,29 @@ export function PluginDialogBody({ model, plugins }: { model: Model; plugins: Pl
   const agents = AGENTS.filter((a) => r[a]?.length);
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>Lệnh app chạy khi khôi phục</h3>
-      <p className="lead">Đúng lệnh của từng agent, chạy lần lượt, có xem trước. Plugin có sẵn của agent không cần cài lại.</p>
+      <DialogTitle>Lệnh app chạy khi khôi phục</DialogTitle>
+      <DialogLead>Đúng lệnh của từng agent, chạy lần lượt, có xem trước. Plugin có sẵn của agent không cần cài lại.</DialogLead>
       {agents.length ? (
         agents.map((a) => (
           <section key={a} aria-label={AGENT_NAME[a]}>
-            <div className="sec-t">
+            <DialogSection>
               <AgentLogo agent={a} />
               {AGENT_NAME[a]}
-            </div>
+            </DialogSection>
             {r[a]!.map((c) => (
-              <div key={c} className="cmd">
-                <span className="p" aria-hidden="true">
-                  $
-                </span>
-                <code>{c}</code>
-              </div>
+              <Command key={c}>{c}</Command>
             ))}
           </section>
         ))
       ) : (
-        <p className="note">Không có plugin nào cần cài lại.</p>
+        <p>Không có plugin nào cần cài lại.</p>
       )}
       <Facts items={[['', 'Chỉ để xem: khôi phục plugin làm ở phần khôi phục gói sao lưu.']]} />
-      <div className="btns">
+      <DialogButtons>
         <Button large primary onClick={plugins.close}>
           Đóng
         </Button>
-      </div>
+      </DialogButtons>
     </>
   );
 }

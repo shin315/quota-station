@@ -80,7 +80,7 @@ describe('the Antigravity switch sheet', () => {
     expect(screen.queryByRole('dialog', { name: /Chuyển Antigravity/ })).toBeNull();
     // Done with nothing to answer: a toast, the check on hover.
     const toast = screen.getByText('Đã chuyển Antigravity sang lanpham.ultra');
-    expect(toast.className).toBe('toast');
+    expect(toast.getAttribute('role')).toBe('status');
     expect(toast.getAttribute('title')).toBe(
       'Đọc lại sau 5 giây: agy đang dùng lanpham.ultra ✓. Phiên agy đang chạy vẫn dùng tài khoản cũ cho tới khi khởi động lại.',
     );

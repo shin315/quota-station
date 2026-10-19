@@ -6,8 +6,9 @@
 
 import { useRef, useState } from 'react';
 import { Facts } from '../agents/McpDialogs';
-import { Button, Chip } from '../components/parts';
-import { SHEET_TITLE_ID } from '../components/Sheets';
+import { Card as Panel, CardText, CardTitle } from '@/components/ui/card';
+import { DialogButtons, DialogSection, DialogTitle } from '@/components/ui/dialog';
+import { Button, Chip, LinkButton } from '../components/parts';
 import type { Api } from '../lib/api';
 import {
   agentChip,
@@ -77,18 +78,23 @@ export type EnvState = ReturnType<typeof useEnv>;
 export function EnvCard({ model, onAction }: { model: Model; onAction(act: Action): void }) {
   const env = model.env;
   return (
-    <div className="card env-card">
-      <h4>Biến môi trường đè đăng nhập</h4>
+    <Panel className="env-card">
+      <CardTitle>Biến môi trường đè đăng nhập</CardTitle>
       {env.found.length ? (
         <div role="list" aria-label="Biến đè đăng nhập">
           {env.found.map((f) => (
-            <div key={f.id} className="ev" role="listitem" aria-label={f.name + ', ' + whereLine(f)}>
+            <div
+              key={f.id}
+              className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 border-t-[.5px] border-card-line py-[9px] text-sm first:border-t-0 first:pt-0.5"
+              role="listitem"
+              aria-label={f.name + ', ' + whereLine(f)}
+            >
               <span>
-                <b>{f.name}</b> <Chip chip={agentChip(f)} />
-                <small>{whereLine(f)}</small>
-                <small>{f.effect}</small>
+                <b className="[font:var(--fw-semi)_12px_var(--mono)] [overflow-wrap:anywhere]">{f.name}</b> <Chip chip={agentChip(f)} />
+                <small className="block text-xs text-ink2">{whereLine(f)}</small>
+                <small className="block text-xs text-ink2">{f.effect}</small>
               </span>
-              <span className="a">
+              <span className="flex items-start gap-1.5">
                 {f.place !== 'launchctl' ? (
                   <Button label={'Mở file: ' + whereLine(f)} onClick={() => onAction(`env:open:${f.id}`)}>
                     Mở file
@@ -102,22 +108,22 @@ export function EnvCard({ model, onAction }: { model: Model; onAction(act: Actio
           ))}
         </div>
       ) : env.checkedAt ? (
-        <p className="ev-none">
+        <CardText className="mt-0.5 flex items-center gap-1.5 text-ink">
           <Chip chip={{ t: 'không có', k: 'ok' }} /> Không có biến nào đè đăng nhập.
-        </p>
+        </CardText>
       ) : null}
-      {unreadNote(env) ? <p className="note warn ev-unread">{unreadNote(env)}</p> : null}
-      <p className="note ev-foot">
+      {unreadNote(env) ? <CardText className="mt-1 mb-0 text-warn-ink">{unreadNote(env)}</CardText> : null}
+      <CardText className="mt-1.5 mb-0">
         {checkedLine(env)}{' '}
-        <button type="button" className="lnk sm" disabled={env.checking} onClick={() => onAction('env:check')}>
+        <LinkButton small disabled={env.checking} onClick={() => onAction('env:check')}>
           Kiểm lại
-        </button>
+        </LinkButton>
         {' · '}
-        <button type="button" className="lnk sm" onClick={() => onAction('env:list')}>
+        <LinkButton small onClick={() => onAction('env:list')}>
           Xem danh sách
-        </button>
-      </p>
-    </div>
+        </LinkButton>
+      </CardText>
+    </Panel>
   );
 }
 
@@ -125,20 +131,20 @@ export function EnvCard({ model, onAction }: { model: Model; onAction(act: Actio
 export function EnvListBody({ model, env }: { model: Model; env: EnvState }) {
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>App kiểm những gì</h3>
-      <div className="sec-t">Biến</div>
-      <p className="mono ev-vars">{model.env.vars.join(' · ')}</p>
-      <div className="sec-t">Chỗ</div>
+      <DialogTitle>App kiểm những gì</DialogTitle>
+      <DialogSection>Biến</DialogSection>
+      <p className="mt-0 mb-1.5 block rounded-sm bg-fill px-1 font-mono text-xs leading-[1.9] text-ink [overflow-wrap:anywhere]">{model.env.vars.join(' · ')}</p>
+      <DialogSection>Chỗ</DialogSection>
       <Facts items={model.env.places.map((p) => ['', p === 'launchctl' ? 'launchctl (app mở từ Dock)' : p])} />
-      <p className="tech">
+      <p className="mt-1.5 mb-0 text-xs text-ink2">
         App tìm tên biến ở đầu dòng trong từng file và hỏi launchctl biến có đặt hay không. App không đọc giá trị, không chạy file shell, không sửa
         file và không tự bỏ biến.
       </p>
-      <div className="btns">
+      <DialogButtons>
         <Button large primary onClick={env.close}>
           Đóng
         </Button>
-      </div>
+      </DialogButtons>
     </>
   );
 }

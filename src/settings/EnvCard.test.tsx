@@ -40,13 +40,13 @@ describe('Cài đặt › Biến môi trường đè đăng nhập', () => {
   it('comes first, checks again when Cài đặt opens, and says each variable, its place and what it does', async () => {
     const fake = await openTab('settings', withEnv([API_KEY, BASE_URL, LAUNCHD_GEMINI]));
     expect(fake.api.envCheck).toHaveBeenCalled();
-    const h4s = [...document.querySelectorAll('.main .card h4')].map((h) => h.textContent);
+    const h4s = [...document.querySelectorAll('.main [data-slot=card] h4')].map((h) => h.textContent);
     expect(h4s[0]).toBe('Biến môi trường đè đăng nhập');
     const key = row('ANTHROPIC_API_KEY');
-    expect(within(key).getByText('Claude Code').className).toBe('chip bad');
+    expect(within(key).getByText('Claude Code').getAttribute('data-tone')).toBe('bad');
     expect(within(key).getByText('~/.zshrc · dòng 42')).toBeTruthy();
     expect(within(key).getByText('Trong Terminal, Claude Code dùng khoá này thay cho tài khoản claude-swap đang chọn.')).toBeTruthy();
-    expect(within(row('OPENAI_BASE_URL')).getByText('Codex').className).toBe('chip warn');
+    expect(within(row('OPENAI_BASE_URL')).getByText('Codex').getAttribute('data-tone')).toBe('warn');
     // launchd has no file to open.
     const launchd = row('GEMINI_API_KEY');
     expect(within(launchd).getByText('launchctl · app mở từ Dock')).toBeTruthy();
@@ -81,7 +81,7 @@ describe('Cài đặt › Biến môi trường đè đăng nhập', () => {
   it('none set: one green line, and "Kiểm lại" looks again', async () => {
     const fake = await openTab('settings', withEnv([]));
     expect(within(card()).queryByRole('list')).toBeNull();
-    expect(within(card()).getByText('không có').className).toBe('chip ok');
+    expect(within(card()).getByText('không có').getAttribute('data-tone')).toBe('ok');
     expect(within(card()).getByText('Không có biến nào đè đăng nhập.')).toBeTruthy();
     vi.mocked(fake.api.envCheck).mockClear();
     await press(within(card()).getByRole('button', { name: 'Kiểm lại' }));
@@ -117,7 +117,7 @@ describe('the Claude tab', () => {
   it('has a red banner while a variable overrides Claude Code, with "Mở file", "Bỏ qua" and "Kiểm lại"', async () => {
     const fake = await openTab('claude', withEnv([API_KEY, BASE_URL]));
     const banner = screen.getByText('ANTHROPIC_API_KEY đang đè đăng nhập Claude').closest('.banner') as HTMLElement;
-    expect(banner.className).toBe('banner bad');
+    expect(banner.getAttribute('data-tone')).toBe('bad');
     expect(
       within(banner).getByText('Đặt ở ~/.zshrc dòng 42. Trong Terminal, Claude Code dùng khoá này thay cho tài khoản claude-swap đang chọn.'),
     ).toBeTruthy();

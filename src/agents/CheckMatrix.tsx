@@ -5,19 +5,53 @@
 // the column's menu: Bật tất cả, Tắt tất cả, Bỏ N thay đổi chưa ghi. A
 // column that is read only has its icon dimmed and no menu.
 
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
+import { Checkbox as CheckboxPrimitive } from 'radix-ui';
+import { CheckboxBox } from '@/components/ui/checkbox';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
 import { AGENT_MARK, AGENT_NAME, AGENTS, type ColumnMenu } from '../lib/mcp';
 import type { Agent } from '../lib/model';
 import { NAV_ICONS } from '../window/icons';
 import { Button } from '../components/parts';
 
+/** Each agent's icon in its own colour. */
+const LOGO_INK: Record<'c' | 'x' | 'g', string> = { c: 'text-id-claude-ink', x: 'text-id-codex-ink', g: 'text-id-agy-ink' };
+
 export function AgentLogo({ agent }: { agent: Agent }) {
   return (
-    <span className={'agl ' + AGENT_MARK[agent]} aria-hidden="true">
+    <span className={cn('agl inline-flex size-4 items-center justify-center [&_svg]:size-4', LOGO_INK[AGENT_MARK[agent]])} aria-hidden="true">
       {NAV_ICONS[agent]}
     </span>
   );
 }
+
+/**
+ * A row of the matrix: the name, a column per agent (`--mx-cell` wide), the
+ * row's links. In a dialog the columns are narrower.
+ */
+export const MATRIX_ROW =
+  'grid grid-cols-[minmax(0,1.7fr)_repeat(3,var(--mx-cell,96px))_132px] items-center gap-2 border-t-[.5px] border-card-line px-1.5 py-2 text-sm first:border-t-0 in-data-[kind=dialog]:grid-cols-[minmax(0,1fr)_repeat(3,64px)]';
+/** The head row: the column icons, small and grey. */
+export const MATRIX_HEAD = 'pt-0 pb-1 text-xs text-ink3 [&>span]:flex [&>span]:items-center [&>span]:gap-[5px]';
+/** The name cell: the name in bold, the line under it cut short. */
+export const MATRIX_NAME =
+  'block min-w-0 [&_b]:text-body [&_b]:font-semi [&_b]:[overflow-wrap:anywhere] [&_small]:block [&_small]:overflow-hidden [&_small]:text-ellipsis [&_small]:whitespace-nowrap [&_small]:text-xs [&_small]:text-ink2';
+/** The name and its chips on one line. */
+export const MATRIX_TITLE = 'flex flex-wrap items-center gap-1.5';
+/** A row's link that shows while the row is pointed at or holds the focus. */
+export const MATRIX_HOVER = 'opacity-0 group-focus-within/row:opacity-100 group-hover/row:opacity-100';
+/** A lock next to a name: the row has a key, kept out of sight. */
+export const LOCK = 'inline-flex text-ink3';
+/** A cell: its box in the middle. */
+export const MATRIX_CELL = 'flex min-h-[22px] items-center justify-center';
 
 export interface MatrixCell {
   /** `null`: nothing to tick here (`—`), the file is unreadable (`?`), or a skill's link points to nothing (`!`). */
@@ -36,6 +70,10 @@ export interface MatrixColumn {
   note?: string;
 }
 
+const HEAD_BUTTON = 'agb inline-flex h-7 items-center gap-[3px] rounded-[8px] border-0 bg-transparent pr-[7px] pl-2 text-ink2';
+/** A column head with no menu: the icon dimmed. */
+export const HEAD_OFF = cn(HEAD_BUTTON, 'cursor-default pr-2 opacity-50');
+
 /** The icon at a column's head, and its menu. */
 function ColumnHead(props: {
   column: MatrixColumn;
@@ -48,131 +86,114 @@ function ColumnHead(props: {
 }) {
   const { agent } = props.column;
   const name = AGENT_NAME[agent];
-  const button = useRef<HTMLButtonElement>(null);
   const list = useRef<HTMLDivElement>(null);
   const m = props.menu;
-  const items = (): HTMLButtonElement[] => Array.from(list.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not([disabled])') ?? []);
-  const onOpen = useRef(props.onOpen);
-  onOpen.current = props.onOpen;
-
-  // Open: focus on the first item; a press anywhere else closes it.
-  useEffect(() => {
-    if (!props.open) return;
-    items()[0]?.focus();
-    const away = (e: MouseEvent) => {
-      const t = e.target as Node;
-      if (!list.current?.contains(t) && !button.current?.contains(t)) onOpen.current(false);
-    };
-    document.addEventListener('mousedown', away);
-    return () => document.removeEventListener('mousedown', away);
-  }, [props.open]);
-
-  const close = () => {
-    props.onOpen(false);
-    button.current?.focus();
-  };
-  const pick = (run: () => void) => {
-    run();
-    close();
-  };
-  const onKey = (e: KeyboardEvent) => {
-    const all = items();
-    const i = all.indexOf(document.activeElement as HTMLButtonElement);
-    const go = (n: number) => {
-      e.preventDefault();
-      all[(n + all.length) % all.length]?.focus();
-    };
-    if (e.key === 'ArrowDown') go(i + 1);
-    else if (e.key === 'ArrowUp') go(i < 0 ? all.length - 1 : i - 1);
-    else if (e.key === 'Home') go(0);
-    else if (e.key === 'End') go(all.length - 1);
-    else if (e.key === 'Escape') {
-      // The menu closes; the dialog or the window behind it stays.
-      e.preventDefault();
-      e.stopPropagation();
-      close();
-    } else if (e.key === 'Tab') props.onOpen(false);
-  };
 
   if (!props.column.open)
     return (
-      <span className="agb dis" title={name + ': ' + (props.column.note ?? 'chỉ xem')}>
+      <span className={HEAD_OFF} title={name + ': ' + (props.column.note ?? 'chỉ xem')}>
         <AgentLogo agent={agent} />
-        <span className="vh">{name}, chỉ xem</span>
+        <span className="sr-only">{name}, chỉ xem</span>
       </span>
     );
   return (
-    <>
-      <button
-        ref={button}
-        type="button"
-        className={'agb' + (props.open ? ' on' : '')}
-        aria-haspopup="menu"
-        aria-expanded={props.open}
+    <DropdownMenu open={props.open} onOpenChange={props.onOpen} modal={false}>
+      <DropdownMenuTrigger
+        className={cn(HEAD_BUTTON, 'cursor-pointer hover:bg-fill focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent data-[state=open]:bg-fill')}
         aria-label={name + ': tuỳ chọn cột'}
         title={name}
-        onClick={() => props.onOpen(!props.open)}
-        onKeyDown={(e) => {
-          if (e.key === 'ArrowDown' && !props.open) {
-            e.preventDefault();
-            props.onOpen(true);
-          }
-        }}
       >
         <AgentLogo agent={agent} />
-        <span className="cv" aria-hidden="true" />
-      </button>
-      {props.open ? (
-        <div ref={list} className="cmenu" role="menu" aria-label={name} onKeyDown={onKey}>
-          <div className="mh" aria-hidden="true">
-            <b>{name}</b>
-            <small>
-              {m.ticked}/{m.total} {props.noun} đang tick
-            </small>
-          </div>
-          <button type="button" role="menuitem" className="mi" tabIndex={-1} disabled={m.ticked === m.total} onClick={() => pick(() => props.onSet(true))}>
+        <span className="size-0 border-x-[3.5px] border-t-4 border-x-transparent border-t-ink3" aria-hidden="true" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        ref={list}
+        aria-label={name}
+        aria-labelledby={undefined}
+        loop
+        // Open: focus on the first item, however it was opened (Radix focuses
+        // the menu itself when a pointer opens it).
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          list.current?.querySelector<HTMLElement>('[role="menuitem"]:not([disabled])')?.focus();
+        }}
+        // The menu closes; the dialog or the window behind it stays.
+        onEscapeKeyDown={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          if (e.key === 'Tab') props.onOpen(false);
+        }}
+      >
+        <DropdownMenuLabel aria-hidden="true">
+          <b className="block text-sm font-semi text-ink">{name}</b>
+          <small className="text-xs text-ink2">
+            {m.ticked}/{m.total} {props.noun} đang tick
+          </small>
+        </DropdownMenuLabel>
+        <DropdownMenuItem asChild disabled={m.ticked === m.total} onSelect={() => props.onSet(true)}>
+          <button type="button" disabled={m.ticked === m.total}>
             Bật tất cả
           </button>
-          <button type="button" role="menuitem" className="mi" tabIndex={-1} disabled={m.ticked === 0} onClick={() => pick(() => props.onSet(false))}>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild disabled={m.ticked === 0} onSelect={() => props.onSet(false)}>
+          <button type="button" disabled={m.ticked === 0}>
             Tắt tất cả
           </button>
-          {m.pending ? (
-            <>
-              <div className="sep" role="separator" />
-              <button type="button" role="menuitem" className="mi" tabIndex={-1} onClick={() => pick(props.onClear)}>
-                Bỏ {m.pending} thay đổi chưa ghi
-              </button>
-            </>
-          ) : null}
-        </div>
-      ) : null}
-    </>
+        </DropdownMenuItem>
+        {m.pending ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild onSelect={props.onClear}>
+              <button type="button">Bỏ {m.pending} thay đổi chưa ghi</button>
+            </DropdownMenuItem>
+          </>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
-/** One box. `aria-disabled` keeps a locked box reachable, so its reason can be read. */
+/**
+ * One box. `aria-disabled` keeps a locked box reachable, so its reason can be
+ * read. Enter ticks it too, as the button it was did.
+ */
 function CheckCell({ cell, label, onToggle }: { cell: MatrixCell; label: string; onToggle(): void }) {
   if (cell.checked == null)
     return (
-      <span className={cell.mark === '?' || cell.mark === '!' ? 'q' : 'na'} title={cell.title || undefined} role="img" aria-label={label + ': ' + (cell.title || 'không có')}>
+      <span
+        className={cell.mark === '?' || cell.mark === '!' ? 'font-bold text-warn-ink' : 'text-ink3'}
+        title={cell.title || undefined}
+        role="img"
+        aria-label={label + ': ' + (cell.title || 'không có')}
+      >
         {cell.mark ?? '—'}
       </span>
     );
+  const toggle = () => {
+    if (!cell.disabled) onToggle();
+  };
   return (
-    <button
-      type="button"
-      className={'cbx' + (cell.pending ? ' pend' : '')}
-      role="checkbox"
-      aria-checked={cell.checked}
+    <CheckboxPrimitive.Root
+      data-slot="checkbox"
+      className={cn(
+        'group/cb relative flex min-h-[34px] w-full cursor-pointer items-center justify-center gap-1.5 rounded-[8px] border-0 bg-transparent px-1 hover:bg-fill',
+        'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent',
+        cell.pending && "bg-accent/10 hover:bg-accent/10 after:absolute after:top-[5px] after:right-[7px] after:size-1.5 after:rounded-full after:bg-warn after:content-['']",
+        'aria-disabled:cursor-default aria-disabled:opacity-40 aria-disabled:hover:bg-transparent',
+      )}
+      checked={cell.checked}
       aria-disabled={cell.disabled || undefined}
       aria-label={label + (cell.pending ? ', chưa ghi' : '')}
       title={cell.title || undefined}
-      onClick={() => {
-        if (!cell.disabled) onToggle();
+      onCheckedChange={toggle}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          toggle();
+        }
       }}
     >
-      <span className="bx" aria-hidden="true" />
-    </button>
+      <CheckboxBox />
+    </CheckboxPrimitive.Root>
   );
 }
 
@@ -199,11 +220,11 @@ export function CheckMatrix<R>(props: CheckMatrixProps<R>) {
   const [menu, setMenu] = useState<Agent | null>(null);
   const columns = AGENTS.map((a) => props.columns.find((c) => c.agent === a) ?? { agent: a, open: false });
   return (
-    <div className="mx">
-      <div className="mx-r h">
+    <div className="grid">
+      <div className={cn(MATRIX_ROW, MATRIX_HEAD)}>
         <span>Tên</span>
         {columns.map((c) => (
-          <span key={c.agent} className="ac">
+          <span key={c.agent} className="relative justify-center">
             <ColumnHead
               column={c}
               noun={props.noun}
@@ -220,14 +241,24 @@ export function CheckMatrix<R>(props: CheckMatrixProps<R>) {
       {props.rows.map((r) => {
         const key = props.rowKey(r);
         return (
-          <div key={key} className={'mx-r' + (props.flash === key ? ' flash' : '')} role="group" aria-label={key}>
-            <div className="nm">{props.name(r)}</div>
+          <div
+            key={key}
+            className={cn(
+              MATRIX_ROW,
+              'group/row',
+              props.flash === key && 'flash rounded-[8px] border-t-transparent bg-accent/10',
+              '[.flash+&]:border-t-transparent',
+            )}
+            role="group"
+            aria-label={key}
+          >
+            <div className={MATRIX_NAME}>{props.name(r)}</div>
             {AGENTS.map((a) => (
-              <span key={a} className="ce">
+              <span key={a} className={MATRIX_CELL}>
                 <CheckCell cell={props.cell(r, a)} label={key + ' cho ' + AGENT_NAME[a]} onToggle={() => props.onToggle(r, a)} />
               </span>
             ))}
-            <span className="act">{props.actions?.(r)}</span>
+            <span className="flex items-center justify-end gap-2.5">{props.actions?.(r)}</span>
           </div>
         );
       })}
@@ -240,11 +271,11 @@ export function PendingBar(props: { lines: string[]; busy?: boolean; onClear(): 
   const n = props.lines.length;
   if (!n) return null;
   return (
-    <div className="pendbar" role="status">
-      <span className="pd" aria-hidden="true" />
-      <span className="t">
+    <div className="pendbar mt-2 flex items-center gap-2.5 rounded-[10px] bg-[color-mix(in_srgb,var(--warn)_10%,var(--fill))] px-2.5 py-2" role="status">
+      <span className="size-1.5 flex-[0_0_6px] rounded-full bg-warn" aria-hidden="true" />
+      <span className="min-w-0 flex-auto text-sm">
         <b>{n} thay đổi chưa ghi</b>
-        <small title={props.lines.join(' · ')}>{props.lines.slice(0, 3).join(' · ') + (n > 3 ? ' · …' : '')}</small>
+        <small className="block overflow-hidden text-ellipsis whitespace-nowrap text-xs text-ink2" title={props.lines.join(' · ')}>{props.lines.slice(0, 3).join(' · ') + (n > 3 ? ' · …' : '')}</small>
       </span>
       <Button onClick={props.onClear}>Bỏ</Button>
       <Button primary disabled={props.busy} onClick={props.onPreview}>

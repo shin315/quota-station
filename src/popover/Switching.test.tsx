@@ -98,7 +98,7 @@ describe('the Claude switch sheet', () => {
     expect(fake.api.switchClaude).toHaveBeenCalledWith(3, null);
     // Done with nothing to answer: a toast that says so, the details on hover.
     const toast = screen.getByText('Đã chuyển sang lan.acme2');
-    expect(toast.className).toBe('toast');
+    expect(toast.getAttribute('role')).toBe('status');
     expect(toast.getAttribute('title')).toBe(
       'Đọc lại sau 5 giây: lan.acme2 đang dùng ✓. Tự chuyển vẫn bật: switcher kiểm lại trong vòng 3 phút và có thể đổi tài khoản.',
     );
@@ -120,7 +120,11 @@ describe('the Claude switch sheet', () => {
     await open(fixtureModel('fresh'));
     const sheet = await sheetFor('lan.acme2');
     const checked = within(sheet).getByRole('radio', { name: /1 giờ/ });
-    fireEvent.keyDown(checked, { key: 'ArrowRight' });
+    // Radix moves to the next choice, and so picks it, a tick after the key.
+    await act(async () => {
+      fireEvent.keyDown(checked, { key: 'ArrowRight' });
+      await new Promise((r) => setTimeout(r, 0));
+    });
     expect(within(sheet).getByRole('radio', { name: /Đến lúc đặt lại/ }).getAttribute('aria-checked')).toBe('true');
     expect(within(sheet).getByText('Tạm dừng tự chuyển đến 19:20 để giữ tài khoản này.')).toBeTruthy();
   });
@@ -237,9 +241,7 @@ describe('the Claude switch sheet', () => {
       'Bây giờ là 00:30, ngoài giờ 08–23 của tài khoản Cá nhân. Nếu để tự chuyển, switcher sẽ đổi sang tài khoản khác trong vòng 3 phút.',
     );
     fireEvent.click(within(sheet).getByRole('radio', { name: /Để tự chuyển/ }));
-    expect(within(sheet).getByText('Ngoài giờ dùng tài khoản Cá nhân. Chọn thời lượng giữ để tránh tự chuyển sang tài khoản khác.').className).toBe(
-      'hint warn',
-    );
+    expect(within(sheet).getByText('Ngoài giờ dùng tài khoản Cá nhân. Chọn thời lượng giữ để tránh tự chuyển sang tài khoản khác.').getAttribute('data-tone')).toBe('warn');
   });
 
   it('without cswap nothing can switch', async () => {

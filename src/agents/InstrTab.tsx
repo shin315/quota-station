@@ -6,15 +6,20 @@
 // masked wherever the window shows it.
 
 import { useState } from 'react';
-import { Banner, Button, Chip, Dot, Feedback, Toggle } from '../components/parts';
-import { SHEET_TITLE_ID } from '../components/Sheets';
+import { Banner, Button, Chip, Dot, Feedback, Toggle, FieldHint, LinkButton } from '../components/parts';
+import { Card as Panel, CardText, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
+import { DiffFile, DiffLine, DiffView, KeyMasked, TECH } from '../components/blocks';
+import { COUNT, Empty, TabHead, TabSub, TabTitle } from '../components/page';
+import { DialogButtons, DialogLead, DialogTitle } from '@/components/ui/dialog';
 import type { Api } from '../lib/api';
 import { clock } from '../lib/format';
 import { AGENT_NAME } from '../lib/mcp';
 import type { InstrFile, InstrShown, McpLine, Model } from '../lib/model';
 import { dayClock } from '../lib/switching';
 import type { Action, BannerView, ChipView, FeedbackView, PopoverView } from '../lib/view';
-import { Facts, LINE_CLASS } from './McpDialogs';
+import { Facts } from './McpDialogs';
 
 export type InstrDialog =
   | { kind: 'view'; path: string; shown: InstrShown | null; error: string | null }
@@ -167,21 +172,24 @@ export interface InstrTabProps {
   onAction(act: Action): void;
 }
 
+/** An instruction file: its path, agent, when it changed, against the pack, in the pack, a link. */
+const FILE_ROW = 'grid grid-cols-[minmax(0,1.6fr)_90px_104px_minmax(0,1.1fr)_62px_56px] items-center gap-2.5 border-t-[.5px] border-card-line px-1.5 py-[7px] text-sm';
+
 export function InstrTab({ model, fresh, feedback, now, instr, onAction }: InstrTabProps) {
   const v = model.instructions;
   const view = v.view;
   const sub = v.readAt ? 'đọc lúc ' + clock(v.readAt) : fresh.text;
   return (
     <>
-      <div className="tb" data-tauri-drag-region="deep">
-        <h2>File hướng dẫn</h2>
-        <small>
+      <TabHead>
+        <TabTitle>File hướng dẫn</TabTitle>
+        <TabSub>
           <Dot tone="ok" />
           {model.machine} · {sub}
-        </small>
+        </TabSub>
         <Button onClick={() => instr.setDialog({ kind: 'add', path: '', error: null })}>Thêm file…</Button>
         <Button onClick={instr.reread}>Đọc lại</Button>
-      </div>
+      </TabHead>
       {feedback ? <Feedback fb={feedback} onAction={onAction} /> : null}
       {(view?.files ?? [])
         .filter((f) => f.keyLines.length)
@@ -189,20 +197,20 @@ export function InstrTab({ model, fresh, feedback, now, instr, onAction }: Instr
           <Banner key={f.path} banner={keyBanner(f)} onAction={onAction} />
         ))}
       {!view ? (
-        <div className="card">
-          <div className="empty">
+        <Panel>
+          <Empty>
             <b>Đang đọc file hướng dẫn…</b>
             CLAUDE.md, AGENTS.md, GEMINI.md và các file luật, trên máy này.
-          </div>
-        </div>
+          </Empty>
+        </Panel>
       ) : (
-        <div className="card">
-          <h4>
-            Trong máy này <span className="cnt">{view.files.length}</span>
-          </h4>
+        <Panel>
+          <CardTitle>
+            Trong máy này <span className={COUNT}>{view.files.length}</span>
+          </CardTitle>
           {view.files.length ? (
             <div role="list" aria-label="File hướng dẫn">
-              <div className="frow h" aria-hidden="true">
+              <div className={cn(FILE_ROW, 'border-t-0 pt-0 text-xs text-ink3')} aria-hidden="true">
                 <span>File</span>
                 <span>Agent</span>
                 <span>Sửa lúc</span>
@@ -214,10 +222,10 @@ export function InstrTab({ model, fresh, feedback, now, instr, onAction }: Instr
                 const key = f.keyLines.length > 0;
                 const diff = f.vsPack === 'changed' && !key;
                 return (
-                  <div key={f.path} className="frow" role="listitem" aria-label={f.path}>
-                    <span className="p">{f.path}</span>
+                  <div key={f.path} className={FILE_ROW} role="listitem" aria-label={f.path}>
+                    <span className="[font:11.5px_var(--mono)] [overflow-wrap:anywhere]">{f.path}</span>
                     <span>{f.agent ? AGENT_NAME[f.agent] : 'thêm tay'}</span>
-                    <span className="m">{f.modifiedAt ? dayClock(f.modifiedAt, now) : '—'}</span>
+                    <span className="text-ink2 tabular-nums">{f.modifiedAt ? dayClock(f.modifiedAt, now) : '—'}</span>
                     <span>
                       <Chip chip={statusChip(f, view.packAt)} />
                     </span>
@@ -225,43 +233,41 @@ export function InstrTab({ model, fresh, feedback, now, instr, onAction }: Instr
                       <Toggle on={f.include && !key && !f.error} disabled={key || !!f.error} label={'Đưa ' + f.path + ' vào gói'} onClick={() => instr.include(f.path, !f.include)} />
                     </span>
                     <span>
-                      <button type="button" className="lnk sm" aria-label={(diff ? 'So sánh ' : 'Xem ') + f.path} onClick={() => (diff ? instr.compare(f.path) : instr.show(f.path))}>
+                      <LinkButton small aria-label={(diff ? 'So sánh ' : 'Xem ') + f.path} onClick={() => (diff ? instr.compare(f.path) : instr.show(f.path))}>
                         {diff ? 'So sánh' : 'Xem'}
-                      </button>
+                      </LinkButton>
                     </span>
                   </div>
                 );
               })}
             </div>
           ) : (
-            <p className="note">Không thấy file hướng dẫn nào. Thêm file bằng nút Thêm file….</p>
+            <CardText className="mt-2 mb-0">Không thấy file hướng dẫn nào. Thêm file bằng nút Thêm file….</CardText>
           )}
-        </div>
+        </Panel>
       )}
-      <div className="card">
+      <Panel>
         <Facts
           items={[
             ['', 'App không sửa các file này. Khôi phục chỉ ghi file bạn chọn, sau khi xem so sánh từng dòng.'],
             ['', 'Bản trên máy khác gói thì mặc định giữ bản trên máy.'],
           ]}
         />
-      </div>
+      </Panel>
     </>
   );
 }
 
 function Numbered({ shown }: { shown: InstrShown }) {
   return (
-    <div className="diff lnum">
-      <pre>
-        {shown.lines.map((l, i) => (
-          <span key={i} data-n={i + 1} className={l.key ? 'hl' : 'c'}>
-            {l.text || ' '}
-            {l.key ? <span className="kc">dạng khoá, đã che</span> : null}
-          </span>
-        ))}
-      </pre>
-    </div>
+    <DiffView>
+      {shown.lines.map((l, i) => (
+        <DiffLine key={i} n={i + 1} op={l.key ? undefined : 'ctx'} lit={l.key}>
+          {l.text || ' '}
+          {l.key ? <KeyMasked>dạng khoá, đã che</KeyMasked> : null}
+        </DiffLine>
+      ))}
+    </DiffView>
   );
 }
 
@@ -271,9 +277,9 @@ function ViewBody({ d, instr, now }: { d: Extract<InstrDialog, { kind: 'view' }>
   const meta = f ? (f.size < 1024 ? f.size + ' B' : Math.round(f.size / 1024) + ' KB') + (f.modifiedAt ? ' · sửa ' + dayClock(f.modifiedAt, now) : '') : '';
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>{d.path}</h3>
-      <p className="lead">{keys.length ? 'Dòng ' + keys.join(', ') + ' có dạng khoá. Giá trị đã được che.' : meta + ' · chỉ xem'}</p>
-      {d.error ? <p className="note bad">{d.error}</p> : d.shown ? <Numbered shown={d.shown} /> : <p className="note">Đang đọc…</p>}
+      <DialogTitle>{d.path}</DialogTitle>
+      <DialogLead>{keys.length ? 'Dòng ' + keys.join(', ') + ' có dạng khoá. Giá trị đã được che.' : meta + ' · chỉ xem'}</DialogLead>
+      {d.error ? <p>{d.error}</p> : d.shown ? <Numbered shown={d.shown} /> : <p>Đang đọc…</p>}
       {keys.length ? (
         <Facts
           items={[
@@ -282,7 +288,7 @@ function ViewBody({ d, instr, now }: { d: Extract<InstrDialog, { kind: 'view' }>
           ]}
         />
       ) : null}
-      <div className="btns">
+      <DialogButtons>
         {keys.length ? (
           <Button large disabled={instr.working} onClick={() => instr.notKey(d.path, keys[0])}>
             Dòng {keys[0]} không phải khoá
@@ -293,7 +299,7 @@ function ViewBody({ d, instr, now }: { d: Extract<InstrDialog, { kind: 'view' }>
             Bỏ khỏi danh sách
           </Button>
         ) : null}
-        <span className="grow" />
+        <span className="flex-1" />
         <Button large onClick={() => instr.open(d.path)}>
           Mở trong trình soạn thảo
         </Button>
@@ -313,7 +319,7 @@ function ViewBody({ d, instr, now }: { d: Extract<InstrDialog, { kind: 'view' }>
             Đóng
           </Button>
         )}
-      </div>
+      </DialogButtons>
     </>
   );
 }
@@ -323,38 +329,32 @@ function DiffBody({ d, instr, model }: { d: Extract<InstrDialog, { kind: 'diff' 
   const changed = d.lines?.filter((l) => l.op === 'add' || l.op === 'del').length ?? 0;
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>
+      <DialogTitle>
         {d.path} · so với gói {at ? clock(new Date(at * 1000).toISOString()) : ''}
-      </h3>
+      </DialogTitle>
       {d.error ? (
-        <p className="note bad">{d.error}</p>
+        <p>{d.error}</p>
       ) : d.lines ? (
-        <div className="diff">
-          <div className="fh">
-            <span className="mono">{file(d.path)}</span>
-            <span className="r">{changed} dòng khác</span>
-          </div>
-          <pre>
-            {d.lines.map((l, i) => (
-              <span key={i} className={LINE_CLASS[l.op]}>
-                {l.op === 'gap' ? '…' : l.text || ' '}
-                {l.secret ? <span className="kc">khoá, đã che</span> : null}
-              </span>
-            ))}
-          </pre>
-        </div>
+        <DiffView head={<DiffFile>{file(d.path)}</DiffFile>} right={changed + ' dòng khác'}>
+          {d.lines.map((l, i) => (
+            <DiffLine key={i} op={l.op}>
+              {l.op === 'gap' ? '…' : l.text || ' '}
+              {l.secret ? <KeyMasked /> : null}
+            </DiffLine>
+          ))}
+        </DiffView>
       ) : (
-        <p className="note">Đang so…</p>
+        <p>Đang so…</p>
       )}
-      <p className="tech">Gói tự sao lưu sẽ lấy bản trên máy ở lần tới.</p>
-      <div className="btns">
+      <p className={TECH}>Gói tự sao lưu sẽ lấy bản trên máy ở lần tới.</p>
+      <DialogButtons>
         <Button large disabled={instr.working} onClick={instr.backupNow}>
           {instr.working ? 'Đang sao lưu…' : 'Sao lưu bây giờ'}
         </Button>
         <Button large primary onClick={instr.close}>
           Đóng
         </Button>
-      </div>
+      </DialogButtons>
     </>
   );
 }
@@ -363,13 +363,14 @@ function AddBody({ d, instr }: { d: Extract<InstrDialog, { kind: 'add' }>; instr
   const go = () => d.path.trim() && instr.add(d);
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>Thêm file hướng dẫn</h3>
-      <label className="seglbl" htmlFor="in-add">
+      <DialogTitle>Thêm file hướng dẫn</DialogTitle>
+      <label className="text-s font-semi" htmlFor="in-add">
         Đường dẫn file .md hoặc .txt trong thư mục nhà
       </label>
-      <input
+      <Input
         id="in-add"
-        className={'inp mono' + (d.error ? ' bad' : '')}
+        mono
+        invalid={!!d.error}
         value={d.path}
         placeholder="~/notes/team.md"
         autoFocus
@@ -379,18 +380,18 @@ function AddBody({ d, instr }: { d: Extract<InstrDialog, { kind: 'add' }>; instr
           if (e.key === 'Enter') go();
         }}
       />
-      {d.error ? <div className="fhint bad">{d.error}</div> : null}
-      <div style={{ marginTop: 10 }}>
+      {d.error ? <FieldHint tone="bad">{d.error}</FieldHint> : null}
+      <div className="mt-2.5">
         <Facts items={[['ok', 'App chỉ đọc file này để đưa vào gói sao lưu, không sửa.']]} />
       </div>
-      <div className="btns">
+      <DialogButtons>
         <Button large onClick={instr.close}>
           Huỷ
         </Button>
         <Button large primary disabled={!d.path.trim() || instr.working} onClick={go}>
           Thêm
         </Button>
-      </div>
+      </DialogButtons>
     </>
   );
 }

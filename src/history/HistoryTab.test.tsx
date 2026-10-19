@@ -52,7 +52,7 @@ describe('the Lịch sử tab', () => {
     expect(screen.queryByText(/exit 0/)).toBeNull();
     const primed = screen.getByRole('region', { name: 'Hôm nay' }).querySelectorAll('.hrow')[5];
     expect(primed.getAttribute('title')).toMatch(/exit 0/);
-    expect(primed.className).toBe('hrow r3');
+    expect(primed.classList.contains('hrow')).toBe(true);
   });
 
   it('goes by place when names are hidden', async () => {

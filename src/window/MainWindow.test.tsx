@@ -93,10 +93,10 @@ describe('main window', () => {
     const rows = within(screen.getByRole('list', { name: 'Claude Code' })).getAllByRole('listitem');
     const inUse = within(rows[1]).getByText('Đang dùng');
     expect(inUse.closest('button')).toBeNull();
-    expect(inUse.className).toBe('inuse');
-    expect(inUse.querySelector('.dot.ok')).toBeTruthy();
+    expect(inUse.tagName).toBe('SPAN');
+    expect(inUse.querySelector('[data-tone=ok]')).toBeTruthy();
     const press = within(rows[2]).getByRole('button', { name: 'Chuyển sang lan.acme2' });
-    expect(press.className).toBe('btn pri');
+    expect(press.getAttribute('data-variant')).toBe('primary');
     expect(press.textContent).toBe('Chuyển');
   });
 

@@ -5,49 +5,35 @@
 // with; what both have but not alike, the owner ticks. "Gửi cả khoá qua SSH"
 // starts off. Frosted panels on the window's glass, no panel inside one.
 
-import { useRef, type KeyboardEvent } from 'react';
-import { Banner, Button, Chip, Dot, Feedback, Toggle } from '../components/parts';
+import { Card as Panel, CardText, CardTitle } from '@/components/ui/card';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Segment, Segmented } from '@/components/ui/segmented';
+import { cn } from '@/lib/utils';
+import { CheckRow, Progress, SETTING_ROW } from '../components/blocks';
+import { COUNT, Empty, EmptyIcon, GRID, STACK, TabHead, TabSub, TabTitle } from '../components/page';
+import { Banner, Button, Chip, Dot, Feedback, LinkButton, Toggle } from '../components/parts';
 import { GROUPS, hasView, itemKey, itemName, itemNote, macChip, readAt, sameLine, selectable, stateChip, wrongWay } from '../lib/copy';
 import type { CopyItem, Model } from '../lib/model';
 import type { Action, FeedbackView } from '../lib/view';
 import { NAV_ICONS, SYNC_BIG } from '../window/icons';
 import type { Copy } from './useCopy';
 
+/** The Macs to copy with: arrow keys move the choice, Tab reaches the chosen one. */
 function MacList({ copy }: { copy: Copy }) {
-  const group = useRef<HTMLDivElement>(null);
-  const move = (e: KeyboardEvent, i: number) => {
-    const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
-    if (!step) return;
-    e.preventDefault();
-    const n = copy.peers.length;
-    const next = (i + step + n) % n;
-    copy.choose(copy.peers[next].alias);
-    group.current?.querySelectorAll<HTMLButtonElement>('[role="radio"]')[next]?.focus();
-  };
   return (
-    <div ref={group} className="opts" role="radiogroup" aria-label="Mac">
-      {copy.peers.map((p, i) => {
-        const on = p.alias === copy.mac;
+    <RadioGroup aria-label="Mac" value={copy.mac ?? ''} onValueChange={copy.choose}>
+      {copy.peers.map((p) => {
         const chip = macChip(copy.answers[p.alias]);
         return (
-          <button
-            key={p.alias}
-            type="button"
-            role="radio"
-            aria-checked={on}
-            tabIndex={on ? 0 : -1}
-            disabled={copy.working || copy.phase === 'reading'}
-            onClick={() => copy.choose(p.alias)}
-            onKeyDown={(e) => move(e, i)}
-          >
-            <b>
+          <RadioGroupItem key={p.alias} value={p.alias} disabled={copy.working || copy.phase === 'reading'}>
+            <b className="font-semi">
               {p.name || p.alias} {chip ? <Chip chip={chip} /> : null}
             </b>
-            <small>tên kết nối {p.alias}</small>
-          </button>
+            <small className="col-start-2 text-xs text-ink2 tabular-nums">tên kết nối {p.alias}</small>
+          </RadioGroupItem>
         );
       })}
-    </div>
+    </RadioGroup>
   );
 }
 
@@ -57,18 +43,16 @@ function ItemRow({ i, copy }: { i: CopyItem; copy: Copy }) {
   const can = selectable(i, copy.push);
   const name = itemName(i);
   return (
-    <label className={'ck' + (can ? '' : ' off')}>
-      <input type="checkbox" checked={can && !!copy.ticks[k]} disabled={!can || copy.working} onChange={(e) => copy.tick(k, e.target.checked)} />
+    <CheckRow className={can ? undefined : 'cursor-default [&_b]:text-ink2'} checked={can && !!copy.ticks[k]} disabled={!can || copy.working} onChange={(on) => copy.tick(k, on)}>
       <span>
         <b>{name}</b>
         <small>{itemNote(i, copy.push, copy.here, copy.other, copy.keys)}</small>
       </span>
-      <span className="r">
+      <span className="flex items-center gap-1.5">
         <Chip chip={stateChip(i, copy.other)} />
         {hasView(i) && !wrong ? (
-          <button
-            type="button"
-            className="lnk sm"
+          <LinkButton
+            small
             aria-label={'Xem ' + name}
             onClick={(e) => {
               e.preventDefault();
@@ -76,10 +60,10 @@ function ItemRow({ i, copy }: { i: CopyItem; copy: Copy }) {
             }}
           >
             Xem
-          </button>
+          </LinkButton>
         ) : null}
       </span>
-    </label>
+    </CheckRow>
   );
 }
 
@@ -88,19 +72,19 @@ function DiffList({ copy }: { copy: Copy }) {
   if (!c) return null;
   const arrow = copy.push ? ' → ' : ' ← ';
   return (
-    <div className="card">
-      <h4>
+    <Panel>
+      <CardTitle>
         Khác nhau · {copy.here}
         {arrow}
-        {copy.other} <span className="cnt">{readAt(c)}</span>
-      </h4>
+        {copy.other} <span className={COUNT}>{readAt(c)}</span>
+      </CardTitle>
       {c.diff.items.length ? (
         GROUPS.map(({ group, title }) => {
           const list = c.diff.items.filter((i) => i.group === group);
           if (!list.length) return null;
           return (
-            <div key={group} className="cpg" role="group" aria-label={title}>
-              <div className="sec-t">
+            <div key={group} className="[&+&]:mt-1.5 [&>div+label]:border-t-0" role="group" aria-label={title}>
+              <div className="mt-1.5 mb-0.5 flex items-center gap-1.5 text-xs font-bold text-ink2 [&_svg]:size-[13px]">
                 {NAV_ICONS[group === 'skill' ? 'skills' : group === 'plugin' ? 'plugins' : group === 'file' ? 'instr' : 'mcp']}
                 {title}
               </div>
@@ -111,18 +95,18 @@ function DiffList({ copy }: { copy: Copy }) {
           );
         })
       ) : (
-        <p className="note">Hai máy giống nhau: không có gì để chép.</p>
+        <CardText className="mt-2 mb-0">Hai máy giống nhau: không có gì để chép.</CardText>
       )}
-      <p className="note">
+      <CardText className="mt-2 mb-0">
         {sameLine(c)}{' '}
         {c.diff.same.length ? (
-          <button type="button" className="lnk sm" aria-expanded={copy.showSame} onClick={() => copy.setShowSame(!copy.showSame)}>
+          <LinkButton small aria-expanded={copy.showSame} onClick={() => copy.setShowSame(!copy.showSame)}>
             {copy.showSame ? 'Ẩn' : 'Hiện'}
-          </button>
+          </LinkButton>
         ) : null}
-      </p>
-      {copy.showSame ? <p className="note">{c.diff.same.join(', ')}</p> : null}
-    </div>
+      </CardText>
+      {copy.showSame ? <CardText className="mt-2 mb-0">{c.diff.same.join(', ')}</CardText> : null}
+    </Panel>
   );
 }
 
@@ -137,32 +121,30 @@ export function CopyTab({ model, feedback, copy, onAction }: CopyTabProps) {
   const ssh = model.rotation.ssh;
   const act = (a: Action) => (a === 'copy:compare' ? copy.compare() : onAction(a));
   const top = (
-    <div className="tb" data-tauri-drag-region>
-      <h2>Chép sang Mac khác</h2>
-      <small>
+    <TabHead data-tauri-drag-region>
+      <TabTitle>Chép sang Mac khác</TabTitle>
+      <TabSub>
         <Dot tone={ssh ? 'ok' : 'stale'} />
         {model.machine} · qua SSH
-      </small>
-    </div>
+      </TabSub>
+    </TabHead>
   );
   if (!copy.peers.length)
     return (
       <>
         {top}
-        <div className="card">
-          <div className="empty">
-            <span className="ei" aria-hidden="true">
-              {SYNC_BIG}
-            </span>
+        <Panel>
+          <Empty>
+            <EmptyIcon>{SYNC_BIG}</EmptyIcon>
             <b>Chưa có Mac nào để chép</b>
-            <p className="note">Thêm Mac trong Cài đặt › Các Mac khác, bằng tên kết nối SSH của nó.</p>
-            <div className="btns">
+            <CardText className="mt-2 mb-0">Thêm Mac trong Cài đặt › Các Mac khác, bằng tên kết nối SSH của nó.</CardText>
+            <div className="mt-2.5 flex flex-wrap justify-center gap-2">
               <Button primary onClick={() => onAction('settings')}>
                 Mở Cài đặt
               </Button>
             </div>
-          </div>
-        </div>
+          </Empty>
+        </Panel>
       </>
     );
   const reading = copy.phase === 'reading';
@@ -173,23 +155,23 @@ export function CopyTab({ model, feedback, copy, onAction }: CopyTabProps) {
     <>
       {top}
       {!ssh ? <Banner banner={{ tone: 'bad', title: 'Không thấy ssh trên máy này', body: 'App dùng ssh của macOS để nói chuyện với Mac khác.', actions: [] }} onAction={act} /> : null}
-      <div className="card">
-        <h4>Mac</h4>
+      <Panel>
+        <CardTitle>Mac</CardTitle>
         <MacList copy={copy} />
-        <div className="cprow">
-          <div className="seg inline" role="group" aria-label="Chiều chép">
-            <button type="button" aria-pressed={copy.push} disabled={copy.working || reading} onClick={() => copy.way(true)}>
+        <div className="mt-2.5 flex flex-wrap items-center gap-2.5">
+          <Segmented variant="inline" aria-label="Chiều chép">
+            <Segment className="px-3" pressed={copy.push} disabled={copy.working || reading} onClick={() => copy.way(true)}>
               Từ máy này sang {copy.other}
-            </button>
-            <button type="button" aria-pressed={!copy.push} disabled={copy.working || reading} onClick={() => copy.way(false)}>
+            </Segment>
+            <Segment className="px-3" pressed={!copy.push} disabled={copy.working || reading} onClick={() => copy.way(false)}>
               Lấy từ {copy.other} về
-            </button>
-          </div>
-          <Button primary disabled={!ssh || reading || copy.working || !copy.mac} onClick={copy.compare}>
+            </Segment>
+          </Segmented>
+          <Button primary className="ml-auto" disabled={!ssh || reading || copy.working || !copy.mac} onClick={copy.compare}>
             {copy.phase === 'idle' ? 'So sánh' : 'So sánh lại'}
           </Button>
         </div>
-      </div>
+      </Panel>
       {feedback ? <Feedback fb={feedback} onAction={act} /> : null}
       {copy.phase === 'error' && err ? (
         <Banner
@@ -208,61 +190,46 @@ export function CopyTab({ model, feedback, copy, onAction }: CopyTabProps) {
         />
       ) : null}
       {reading ? (
-        <div className="card">
-          <ul className="prog" aria-busy="true">
-            <li>
-              <span className="ic" aria-hidden="true">
-                ✓
-              </span>
-              <span>Kết nối {copy.mac}</span>
-            </li>
-            <li>
-              <span className="ic run" aria-hidden="true" />
-              <span>
-                Đọc MCP, skills, plugin và file hướng dẫn trên {copy.other}
-                <small>chỉ đọc tên, cấu hình và mã băm; không đọc khoá</small>
-              </span>
-            </li>
-            <li className="dim">
-              <span className="ic wait" aria-hidden="true" />
-              <span>So với máy này</span>
-            </li>
-          </ul>
-        </div>
+        <Panel>
+          <Progress
+            busy
+            lines={[
+              ['', 'Kết nối ' + copy.mac, ''],
+              ['run', 'Đọc MCP, skills, plugin và file hướng dẫn trên ' + copy.other, 'chỉ đọc tên, cấu hình và mã băm; không đọc khoá'],
+              ['wait', 'So với máy này', ''],
+            ]}
+          />
+        </Panel>
       ) : null}
       {copy.phase === 'idle' ? (
-        <div className="card">
-          <p className="note" style={{ margin: 0 }}>
-            Chọn Mac và bấm So sánh. App chỉ đọc, chưa ghi gì.
-          </p>
-        </div>
+        <Panel>
+          <CardText className="m-0">Chọn Mac và bấm So sánh. App chỉ đọc, chưa ghi gì.</CardText>
+        </Panel>
       ) : null}
       {copy.phase === 'diff' && copy.cmp ? (
-        <div className="bkg">
-          <div className="stack">
+        <div className={cn(GRID, 'max-[860px]:grid-cols-[minmax(0,1fr)]')}>
+          <div className={STACK}>
             <DiffList copy={copy} />
           </div>
-          <div className="stack">
-            <div className="card">
-              <h4>Khoá</h4>
-              <div className="set">
+          <div className={STACK}>
+            <Panel>
+              <CardTitle>Khoá</CardTitle>
+              <div className={SETTING_ROW}>
                 <span>Gửi cả khoá qua SSH</span>
                 <Toggle on={copy.keys} label="Gửi cả khoá qua SSH" disabled={copy.working} onClick={() => copy.setKeys(!copy.keys)} />
               </div>
-              <p className="note">
+              <CardText className="mt-2 mb-0">
                 {copy.keys
                   ? 'Khoá đi trong kết nối SSH và vào thẳng Keychain của ' + (copy.push ? copy.other : 'máy này') + '; không nằm trên đĩa ở chỗ nào khác.'
                   : (copy.push ? copy.other : 'Máy này') + ' sẽ hỏi dán khoá khi mở Quota Station.'}
-              </p>
-            </div>
-            <div className="card">
-              <p className="note" style={{ margin: '0 0 8px' }}>
-                Chỉ chép mục đã chọn. Không ghi đè cả gói, không bên nào tự thắng.
-              </p>
+              </CardText>
+            </Panel>
+            <Panel>
+              <CardText className="mt-0 mb-2">Chỉ chép mục đã chọn. Không ghi đè cả gói, không bên nào tự thắng.</CardText>
               <Button primary large disabled={!n || copy.working} onClick={copy.openGo}>
                 {n ? 'Chép ' + n + ' mục' + (copy.push ? ' sang ' + copy.other : ' về máy này') + '…' : 'Chưa chọn mục nào'}
               </Button>
-            </div>
+            </Panel>
           </div>
         </div>
       ) : null}

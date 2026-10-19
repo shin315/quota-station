@@ -5,14 +5,16 @@
 // its own); under it, one line each for the skills installed by hand to
 // gather, the links to nothing, and the skills agents and plugins bring.
 
-import type { ReactNode } from 'react';
-import { Banner, Button, Chip, Dot, Feedback } from '../components/parts';
+import { Card as Panel, CardText, CardTitle } from '@/components/ui/card';
+import { Segment, Segmented } from '@/components/ui/segmented';
+import { COUNT, Empty, EmptyIcon, InfoLine, TabHead, TabSub, TabTitle } from '../components/page';
+import { Banner, Button, Chip, Dot, Feedback, LinkButton } from '../components/parts';
 import { AGENT_NAME, columnMenu, pendingList, shown } from '../lib/mcp';
 import type { Agent, Model, SkillRow, SkillTable } from '../lib/model';
 import { checkedLine, FILTER_WORD, filterCounts, filterRows, pendingSkillText, skillBanners, skillCellTitle, skillChips, sourceLine, type SkillFilter } from '../lib/skills';
 import type { Action, FeedbackView, PopoverView } from '../lib/view';
 import { PUZZLE_ICON, SPARK_BIG, STACK_ICON } from '../window/icons';
-import { CheckMatrix, PendingBar, type MatrixCell, type MatrixColumn } from './CheckMatrix';
+import { CheckMatrix, MATRIX_TITLE, PendingBar, type MatrixCell, type MatrixColumn } from './CheckMatrix';
 import type { Skills } from './useSkills';
 
 function columns(table: SkillTable): MatrixColumn[] {
@@ -37,7 +39,7 @@ function cellOf(table: SkillTable, skills: Skills, row: SkillRow, agent: Agent):
 function Name({ row }: { row: SkillRow }) {
   return (
     <>
-      <div className="t">
+      <div className={MATRIX_TITLE}>
         <b>{row.name}</b>
         {skillChips(row).map((c) => (
           <Chip key={c.t} chip={c} />
@@ -48,29 +50,17 @@ function Name({ row }: { row: SkillRow }) {
   );
 }
 
-function InfoLine({ icon, children, actions }: { icon: ReactNode; children: ReactNode; actions: ReactNode }) {
-  return (
-    <div className="ml">
-      <span className="mi0" aria-hidden="true">
-        {icon}
-      </span>
-      <span className="t">{children}</span>
-      <span className="a">{actions}</span>
-    </div>
-  );
-}
-
 function Filters({ rows, value, onChange }: { rows: SkillRow[]; value: SkillFilter; onChange(f: SkillFilter): void }) {
   const n = filterCounts(rows);
   return (
-    <div className="filt">
-      <div className="seg inline" role="group" aria-label="Lọc">
+    <div className="mt-0 mb-1.5 flex flex-wrap items-center gap-2">
+      <Segmented variant="inline" aria-label="Lọc">
         {(Object.keys(FILTER_WORD) as SkillFilter[]).map((f) => (
-          <button key={f} type="button" aria-pressed={value === f} onClick={() => onChange(f)}>
+          <Segment key={f} pressed={value === f} onClick={() => onChange(f)}>
             {FILTER_WORD[f]} {n[f]}
-          </button>
+          </Segment>
         ))}
-      </div>
+      </Segmented>
     </div>
   );
 }
@@ -89,30 +79,30 @@ export function SkillsTab({ model, fresh, feedback, skills, onAction }: SkillsTa
   const busy = skills.working;
   const sub = v.busy === 'reading' ? 'đang đọc…' : v.readAt ? checkedLine(v) : fresh.text;
   const top = (
-    <div className="tb" data-tauri-drag-region="deep">
-      <h2>Skills</h2>
-      <small>
+    <TabHead>
+      <TabTitle>Skills</TabTitle>
+      <TabSub>
         <Dot tone={v.busy === 'reading' || v.updates.checking ? 'stale' : 'ok'} />
         {model.machine} · {sub}
-      </small>
+      </TabSub>
       <Button primary disabled={!table || busy || !v.npx} title={v.npx ? undefined : 'Không tìm thấy npx'} onClick={skills.openGh}>
         Cài từ GitHub
       </Button>
       <Button disabled={v.updates.checking} onClick={skills.check}>
         {v.updates.checking ? 'Đang kiểm…' : 'Kiểm bản mới'}
       </Button>
-    </div>
+    </TabHead>
   );
   if (!table)
     return (
       <>
         {top}
-        <div className="card">
-          <div className="empty">
+        <Panel>
+          <Empty>
             <b>Đang đọc danh sách skill…</b>
             Claude Code, Codex và Antigravity, trên máy này.
-          </div>
-        </div>
+          </Empty>
+        </Panel>
       </>
     );
   const list = filterRows(table.rows, skills.filter);
@@ -128,13 +118,13 @@ export function SkillsTab({ model, fresh, feedback, skills, onAction }: SkillsTa
         <Banner key={b.title} banner={b} onAction={onAction} />
       ))}
       {table.rows.length ? (
-        <div className="card">
-          <h4>
-            Skills của bạn <span className="cnt">{table.rows.length}</span>
-          </h4>
+        <Panel>
+          <CardTitle>
+            Skills của bạn <span className={COUNT}>{table.rows.length}</span>
+          </CardTitle>
           <Filters rows={table.rows} value={skills.filter} onChange={skills.setFilter} />
           {list.length ? (
-            <div className="sk">
+            <div className="[--mx-cell:104px]">
               <CheckMatrix
                 noun="skill"
                 rows={list}
@@ -144,20 +134,19 @@ export function SkillsTab({ model, fresh, feedback, skills, onAction }: SkillsTa
                 actions={(r) => (
                   <>
                     {r.update && v.npx ? (
-                      <button type="button" className="lnk sm" aria-label={'Cập nhật ' + r.name} disabled={busy} onClick={() => skills.setDialog({ kind: 'update', name: r.name })}>
+                      <LinkButton small aria-label={'Cập nhật ' + r.name} disabled={busy} onClick={() => skills.setDialog({ kind: 'update', name: r.name })}>
                         Cập nhật
-                      </button>
+                      </LinkButton>
                     ) : null}
-                    <button
-                      type="button"
-                      className="lnk sm"
+                    <LinkButton
+                      small
                       aria-label={'Gỡ ' + r.name}
                       disabled={busy || r.home != null}
                       title={r.home ? 'Gom về thư mục chung trước' : undefined}
                       onClick={() => skills.setDialog({ kind: 'del', name: r.name, mode: 'off' })}
                     >
                       Gỡ
-                    </button>
+                    </LinkButton>
                   </>
                 )}
                 cell={(r, a) => cellOf(table, skills, r, a)}
@@ -169,29 +158,27 @@ export function SkillsTab({ model, fresh, feedback, skills, onAction }: SkillsTa
               />
             </div>
           ) : (
-            <p className="note">Không có skill nào ở mục này.</p>
+            <CardText className="mt-2 mb-0">Không có skill nào ở mục này.</CardText>
           )}
           <PendingBar lines={pend.map(pendingSkillText)} busy={busy} onClear={skills.clearPending} onPreview={skills.previewPending} />
-        </div>
+        </Panel>
       ) : (
-        <div className="card">
-          <div className="empty">
-            <span className="ei" aria-hidden="true">
-              {SPARK_BIG}
-            </span>
+        <Panel>
+          <Empty>
+            <EmptyIcon>{SPARK_BIG}</EmptyIcon>
             <b>Chưa có skill nào</b>
-            <p className="note">Cài từ GitHub, hoặc khôi phục từ gói sao lưu.</p>
-            <div className="btns">
+            <CardText className="mt-2 mb-0">Cài từ GitHub, hoặc khôi phục từ gói sao lưu.</CardText>
+            <div className="mt-2.5 flex flex-wrap justify-center gap-2">
               <Button primary disabled={busy || !v.npx} onClick={skills.openGh}>
                 Cài từ GitHub
               </Button>
             </div>
-          </div>
-        </div>
+          </Empty>
+        </Panel>
       )}
       {showHand || table.broken.length || owned ? (
-        <div className="card">
-          <div className="mlines">
+        <Panel>
+          <div className="grid">
             {showHand ? (
               <InfoLine
                 icon={STACK_ICON}
@@ -209,9 +196,9 @@ export function SkillsTab({ model, fresh, feedback, skills, onAction }: SkillsTa
                 key={b.agent + b.name}
                 icon={NAV_LINK}
                 actions={
-                  <button type="button" className="lnk sm" disabled={busy} onClick={() => skills.setDialog({ kind: 'broken', agent: b.agent, name: b.name })}>
+                  <LinkButton small disabled={busy} onClick={() => skills.setDialog({ kind: 'broken', agent: b.agent, name: b.name })}>
                     Sửa liên kết
-                  </button>
+                  </LinkButton>
                 }
               >
                 <b>{b.name}</b> ở {AGENT_NAME[b.agent]} trỏ tới một thư mục không còn.
@@ -221,16 +208,16 @@ export function SkillsTab({ model, fresh, feedback, skills, onAction }: SkillsTa
               <InfoLine
                 icon={PUZZLE_ICON}
                 actions={
-                  <button type="button" className="lnk sm" onClick={() => skills.setDialog({ kind: 'owned' })}>
+                  <LinkButton small onClick={() => skills.setDialog({ kind: 'owned' })}>
                     Xem
-                  </button>
+                  </LinkButton>
                 }
               >
                 {owned} skill có sẵn trong agent và plugin. App để yên, không sửa.
               </InfoLine>
             ) : null}
           </div>
-        </div>
+        </Panel>
       ) : null}
     </>
   );

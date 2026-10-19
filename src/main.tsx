@@ -2,12 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MainWindowApp, PopoverApp } from './App';
 import { tauriApi, type Api } from './lib/api';
-import './styles/tokens.css';
-import './styles/components.css';
-import './styles/redesign.css';
-import './styles/app.css';
-import './styles/agents.css';
-import './styles/backup.css';
+import './styles/globals.css';
 
 type View = 'popover' | 'window';
 
@@ -39,7 +34,11 @@ async function start() {
   if (preview) document.body.classList.add('preview');
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
-      <div className={'qs app-' + view} data-theme={document.documentElement.dataset.theme} data-material="glass">
+      <div
+        className={'qs app-' + view + (view === 'window' ? ' h-full w-full' : ' in-[.preview]:ml-auto in-[.preview]:w-(--pop-w)')}
+        data-theme={document.documentElement.dataset.theme}
+        data-material="glass"
+      >
         {view === 'window' ? <MainWindowApp api={api} clock={clock} /> : <PopoverApp api={api} clock={clock} />}
       </div>
     </StrictMode>,

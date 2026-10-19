@@ -3,9 +3,10 @@
 Quota Station talks to quota-axi and claude-swap below: it runs them as
 separate programs and reads their output, and none of their source code is
 copied into this repository. Parts of its Antigravity login, quota
-reading and account switch are adapted from Cockpit Tools, and parts of
-its Codex switch are ported from CC Switch; [`NOTICE`](NOTICE) lists those
-files and what was changed.
+reading and account switch are adapted from Cockpit Tools, parts of
+its Codex switch are ported from CC Switch, and its interface components
+are adapted from shadcn/ui; [`NOTICE`](NOTICE) lists those files and what
+was changed.
 
 ## quota-axi
 
@@ -129,8 +130,42 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+## shadcn/ui
+
+- Project: https://github.com/shadcn-ui/ui
+- How it is used: adapted code. The components in `src/components/ui/`
+  follow shadcn/ui's components (their structure, slots and Radix wiring)
+  and are restyled to the app's macOS controls; `components.json` records
+  their setup. See [`NOTICE`](NOTICE).
+- License: MIT
+
+```
+MIT License
+
+Copyright (c) 2023 shadcn
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
 ## Libraries
 
 The Rust crates and npm packages this app builds with, such as Tauri, serde,
-time, reqwest, url, uuid, md5, sha2, toml_edit, objc2, React and Vite, keep their own licenses. Those licenses are listed in
+time, reqwest, url, uuid, md5, sha2, toml_edit, objc2, React, Vite, Tailwind
+CSS, Radix, class-variance-authority, clsx and tailwind-merge, keep their own licenses. Those licenses are listed in
 `Cargo.lock`, `package-lock.json` and each package's own files.

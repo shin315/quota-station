@@ -1,0 +1,152 @@
+/* The tokens (tokens.css) as Tailwind's theme and as shadcn/ui's variables.
+   tokens.css stays the one source: every value here reads a token, so the
+   light, dark and "auto" looks and the stronger text on glass (glass.css)
+   follow it. `inline`: a utility reads the token where it is used, so a
+   token a window redefines is the one it gets. */
+
+@theme {
+  /* Only the theme's own names: no colours, sizes or shadows of Tailwind's palette. */
+  --color-*: initial;
+  --text-*: initial;
+  --font-weight-*: initial;
+  --shadow-*: initial;
+  --blur-*: initial;
+  --color-white: #fff;
+  /* The working spinner, and a step still running in a list. */
+  --animate-qs-spin: qs-spin 0.8s linear infinite;
+  --animate-qs-pulse: qs-pulse 1.2s ease-in-out infinite;
+  @keyframes qs-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  @keyframes qs-pulse {
+    50% {
+      opacity: 0.45;
+    }
+  }
+  /* The two weights the prototype wrote as numbers. */
+  --font-weight-heavy: 700;
+  --font-weight-black: 800;
+}
+
+@theme inline {
+  --font-sans: var(--font);
+  --font-mono: var(--mono);
+
+  --text-cap: var(--fs-cap);
+  --text-xs: var(--fs-xs);
+  --text-s: var(--fs-s);
+  --text-sm: var(--fs-sm);
+  --text-body: var(--fs-body);
+  --text-base: var(--fs-base);
+  --text-title: var(--fs-title);
+  --text-sheet: var(--fs-sheet);
+  --text-num: var(--fs-num);
+  --text-h2: var(--fs-h2);
+  --text-big: var(--fs-big);
+
+  --font-weight-reg: var(--fw-reg);
+  --font-weight-med: var(--fw-med);
+  --font-weight-semi: var(--fw-semi);
+  --font-weight-bold: var(--fw-bold);
+
+  --radius-pop: var(--r-pop);
+  --radius-win: var(--r-win);
+  --radius-sheet: var(--r-sheet);
+  --radius-card: var(--r-card);
+  --radius-tile: var(--r-tile);
+  --radius-row: var(--r-row);
+  --radius-ctl: var(--r-ctl);
+  --radius-chip: var(--r-chip);
+
+  --shadow-pop: var(--sh-pop);
+  --shadow-sheet: var(--sh-sheet);
+  --shadow-card: var(--sh-card);
+  --shadow-win: var(--sh-win);
+
+  --blur-pop: var(--bl-pop);
+  --blur-side: var(--bl-side);
+  --blur-bar: var(--bl-bar);
+
+  --ease-qs: var(--ease);
+
+  --color-ink: var(--ink);
+  --color-ink2: var(--ink2);
+  --color-ink3: var(--ink3);
+  --color-fill: var(--fill);
+  --color-fill2: var(--fill2);
+  --color-sel: var(--sel);
+  --color-card: var(--card);
+  --color-card-line: var(--card-line);
+  --color-winbg: var(--winbg);
+  --color-scrim: var(--scrim);
+  --color-track: var(--track);
+  --color-glass: var(--glass);
+  --color-glass-solid: var(--glass-solid);
+  --color-glass-line: var(--glass-line);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-on-accent: var(--on-accent);
+  --color-info-ink: var(--info-ink);
+  --color-ok: var(--ok);
+  --color-ok-ink: var(--ok-ink);
+  --color-warn: var(--warn);
+  --color-warn-ink: var(--warn-ink);
+  --color-bad: var(--bad);
+  --color-bad-ink: var(--bad-ink);
+  --color-bad-fill: var(--bad-fill);
+  --color-id-claude: var(--id-claude);
+  --color-id-claude-ink: var(--id-claude-ink);
+  --color-id-claude-tint: var(--id-claude-tint);
+  --color-id-agy: var(--id-agy);
+  --color-id-agy-ink: var(--id-agy-ink);
+  --color-id-agy-tint: var(--id-agy-tint);
+  --color-id-codex: var(--id-codex);
+  --color-id-codex-ink: var(--id-codex-ink);
+  --color-id-codex-tint: var(--id-codex-tint);
+
+  /* shadcn/ui's names, for its components. */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+/* shadcn/ui's variables, on every element that sets a look (data-theme), so
+   they follow the tokens that element redefines. --card and --accent are
+   tokens already and mean what shadcn/ui means: the card's ground, and the
+   fill of a chosen menu item. */
+[data-theme] {
+  --background: var(--winbg);
+  --foreground: var(--ink);
+  --card-foreground: var(--ink);
+  --popover: var(--glass);
+  --popover-foreground: var(--ink);
+  --primary: var(--accent);
+  --primary-foreground: var(--on-accent);
+  --secondary: var(--fill2);
+  --secondary-foreground: var(--ink);
+  --muted: var(--fill);
+  --muted-foreground: var(--ink2);
+  --accent-foreground: var(--on-accent);
+  --destructive: var(--bad-ink);
+  --border: var(--card-line);
+  --input: var(--fill);
+  --ring: var(--accent-ink);
+}
+
+/* An explicit dark look (data-theme="dark"); "auto" follows macOS through the tokens. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));

@@ -4,8 +4,13 @@
 // two copies, and unsaved changes. Rows carry short names and no line of
 // explanation; accounts go by the window's names. The state is in `useRules`.
 
-import { Banner, Button, Chip, Dot, Feedback } from '../components/parts';
-import { SHEET_TITLE_ID } from '../components/Sheets';
+import { buttonVariants } from '@/components/ui/button';
+import { Card as Panel, CardText } from '@/components/ui/card';
+import { DialogButtons, DialogLead, DialogTitle } from '@/components/ui/dialog';
+import { inputVariants, Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
+import { Empty, LABEL, rowClass, TabHead, TabSub, TabTitle } from '../components/page';
+import { Banner, Button, Chip, Dot, Facts, Feedback, FieldHint, KVT, LinkButton, Spinner } from '../components/parts';
 import { clock, pad } from '../lib/format';
 import type { Model, Rules } from '../lib/model';
 import { compareRows, localLine, macsWord, markLeft, peerLine, rotationBanner, ruleEmails, rulesProblem, slotsOf } from '../lib/rules';
@@ -38,8 +43,13 @@ function defaultEnd(now: Date): string {
 }
 
 function Changed({ on }: { on: boolean }) {
-  return on ? <span className="chg"> · đã đổi</span> : null;
+  return on ? <span className="font-semi text-accent-ink"> · đã đổi</span> : null;
 }
+
+/** An account to pick: a chip with its place in the round, blue once picked. */
+const PICK = 'group/pk inline-flex cursor-pointer items-center gap-1.5 rounded-chip border-0 bg-fill py-[3px] pr-2.5 pl-1.5 text-sm aria-pressed:bg-accent/15 aria-pressed:text-info-ink';
+const PICK_MARK =
+  'grid size-4 place-items-center rounded-full bg-fill2 text-[10px] font-heavy text-ink2 group-aria-pressed/pk:bg-accent group-aria-pressed/pk:text-on-accent';
 
 /** The marks under a threshold slider. */
 const MARKS = [80, 85, 90, 95, 98];
@@ -49,9 +59,10 @@ export function Slider(props: { id: string; value: number; label: string; disabl
   const min = Math.min(80, Math.floor(props.value));
   const max = Math.max(98, Math.ceil(props.value));
   return (
-    <div className="slider ticks">
-      <span className="val">{props.value}%</span>
+    <div className="slider relative max-w-[420px] pt-[18px]">
+      <span className="absolute top-0 right-0 text-sm font-semi tabular-nums">{props.value}%</span>
       <input
+        className="mx-0 mt-1 mb-0.5 w-full accent-accent"
         type="range"
         min={min}
         max={max}
@@ -62,9 +73,12 @@ export function Slider(props: { id: string; value: number; label: string; disabl
         disabled={props.disabled}
         onChange={(e) => props.onChange(Number(e.target.value))}
       />
-      <div className="marks" aria-hidden="true">
+      <div className="marks relative block h-3.5 text-cap text-ink3 tabular-nums" aria-hidden="true">
         {MARKS.filter((m) => m >= min && m <= max).map((m) => (
-          <span key={m} style={{ left: markLeft(m, min, max) + '%' }}>
+          <span
+            key={m}
+            className="absolute top-0 -translate-x-1/2 before:absolute before:top-[-5px] before:left-1/2 before:h-1 before:w-px before:bg-ink3 before:content-[''] first:translate-x-0 first:before:left-0 last:-translate-x-full last:before:right-0 last:before:left-auto"
+            style={{ left: markLeft(m, min, max) + '%' }}>
             {m}
           </span>
         ))}
@@ -77,7 +91,7 @@ function HourSelect(props: { value: number; from: number; to: number; label: str
   const hours: number[] = [];
   for (let h = props.from; h <= props.to; h++) hours.push(h);
   return (
-    <select className="inp tsel" value={props.value} aria-label={props.label} disabled={props.disabled} onChange={(e) => props.onChange(Number(e.target.value))}>
+    <select className={cn(inputVariants(), 'w-auto')} value={props.value} aria-label={props.label} disabled={props.disabled} onChange={(e) => props.onChange(Number(e.target.value))}>
       {hours.map((h) => (
         <option key={h} value={h}>
           {pad(h)}:00
@@ -104,14 +118,14 @@ function Editor({ model, rules: st, now }: { model: Model; rules: RulesState; no
   const disabled = st.working != null;
 
   return (
-    <div className="form">
-      <div className={'fr' + (teamChanged ? ' changed' : '')}>
-        <div className="fl" id="qs-r-team">
+    <div className="form grid">
+      <div className={rowClass(teamChanged)}>
+        <div className={LABEL} id="qs-r-team">
           Team trong vòng
           <Changed on={teamChanged} />
         </div>
         <div>
-          <div className="pick" role="group" aria-labelledby="qs-r-team">
+          <div className="flex flex-wrap gap-1.5" role="group" aria-labelledby="qs-r-team">
             {slots
               .filter((n) => n !== r.personal || r.team.includes(n))
               .map((n) => {
@@ -120,31 +134,32 @@ function Editor({ model, rules: st, now }: { model: Model; rules: RulesState; no
                   <button
                     key={n}
                     type="button"
+                    className={PICK}
                     aria-pressed={i >= 0}
                     title={emailOf(n) || 'tài khoản ' + n}
                     disabled={disabled}
                     onClick={() => st.edit((d) => (d.team = i >= 0 ? d.team.filter((x) => x !== n) : [...d.team, n]))}
                   >
-                    <span className="o" aria-hidden="true">
+                    <span className={PICK_MARK} aria-hidden="true">
                       {i >= 0 ? i + 1 : ''}
                     </span>
                     {nameOf(n)}
-                    {i >= 0 ? <span className="vh">, thứ tự {i + 1}</span> : null}
+                    {i >= 0 ? <span className="sr-only">, thứ tự {i + 1}</span> : null}
                   </button>
                 );
               })}
           </div>
-          {!r.team.length ? <div className="fhint bad">Chọn ít nhất một tài khoản Team.</div> : null}
+          {!r.team.length ? <FieldHint tone="bad">Chọn ít nhất một tài khoản Team.</FieldHint> : null}
         </div>
       </div>
 
-      <div className={'fr' + (persChanged ? ' changed' : '')}>
-        <div className="fl" id="qs-r-pers">
+      <div className={rowClass(persChanged)}>
+        <div className={LABEL} id="qs-r-pers">
           Cá nhân
           <Changed on={persChanged} />
         </div>
         <div>
-          <div className="pick" role="group" aria-labelledby="qs-r-pers">
+          <div className="flex flex-wrap gap-1.5" role="group" aria-labelledby="qs-r-pers">
             {slots
               // The chosen one stays shown even inside Team, so the overlap can be undone here.
               .filter((n) => !r.team.includes(n) || r.personal === n)
@@ -154,21 +169,22 @@ function Editor({ model, rules: st, now }: { model: Model; rules: RulesState; no
                   <button
                     key={n}
                     type="button"
+                    className={PICK}
                     aria-pressed={on}
                     title={emailOf(n) || 'tài khoản ' + n}
                     disabled={disabled}
                     onClick={() => st.edit((d) => (d.personal = on ? null : n))}
                   >
-                    <span className="o" aria-hidden="true">
+                    <span className={PICK_MARK} aria-hidden="true">
                       {on ? '✓' : ''}
                     </span>
                     {nameOf(n)}
-                    {on ? <span className="vh">, trong vòng</span> : null}
+                    {on ? <span className="sr-only">, trong vòng</span> : null}
                   </button>
                 );
               })}
           </div>
-          <div className="trange" style={{ marginTop: 8 }}>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
             <span>Từ</span>
             <HourSelect
               value={r.personalFrom}
@@ -187,45 +203,45 @@ function Editor({ model, rules: st, now }: { model: Model; rules: RulesState; no
               disabled={disabled}
               onChange={(v) => st.edit((d) => (d.personalTo = v - 1))}
             />
-            <span style={{ color: 'var(--ink2)' }}>mỗi ngày</span>
+            <span className="text-ink2">mỗi ngày</span>
           </div>
-          <div className="tbar24" aria-hidden="true">
-            <i style={{ left: ((r.personalFrom / 24) * 100).toFixed(1) + '%', width: ((Math.max(endHour - r.personalFrom, 0) / 24) * 100).toFixed(1) + '%' }} />
-            <em style={{ left: ((nowMin / 1440) * 100).toFixed(1) + '%' }} />
+          <div className="relative mt-2 h-2 rounded-[4px] bg-track" aria-hidden="true">
+            <i className="absolute inset-y-0 rounded-[4px] bg-accent" style={{ left: ((r.personalFrom / 24) * 100).toFixed(1) + '%', width: ((Math.max(endHour - r.personalFrom, 0) / 24) * 100).toFixed(1) + '%' }} />
+            <em className="absolute -top-0.5 h-3 w-0.5 rounded-[1px] bg-ink" style={{ left: ((nowMin / 1440) * 100).toFixed(1) + '%' }} />
           </div>
-          <div className="tticks" aria-hidden="true">
+          <div className="mt-[3px] flex justify-between text-cap text-ink3 tabular-nums" aria-hidden="true">
             {[0, 6, 12, 18, 24].map((t) => (
               <span key={t}>{t}</span>
             ))}
           </div>
-          {hoursBad ? <div className="fhint bad">Giờ kết thúc phải sau giờ bắt đầu.</div> : null}
-          {!r.personal ? <div className="fhint">Không có tài khoản cá nhân: switcher chỉ dùng các tài khoản Team.</div> : null}
+          {hoursBad ? <FieldHint tone="bad">Giờ kết thúc phải sau giờ bắt đầu.</FieldHint> : null}
+          {!r.personal ? <FieldHint>Không có tài khoản cá nhân: switcher chỉ dùng các tài khoản Team.</FieldHint> : null}
         </div>
       </div>
 
-      <div className={'fr' + (r.full !== sv.full ? ' changed' : '')}>
-        <div className="fl">
+      <div className={rowClass(r.full !== sv.full)}>
+        <div className={LABEL}>
           Chuyển khi 5 giờ đã dùng
           <Changed on={r.full !== sv.full} />
         </div>
         <Slider id="full" disabled={disabled} value={r.full} label="Ngưỡng tự chuyển, phần trăm hạn mức 5 giờ đã dùng" onChange={(v) => st.edit((d) => (d.full = v))} />
       </div>
 
-      <div className={'fr' + (r.fableFull !== sv.fableFull ? ' changed' : '')}>
-        <div className="fl">
+      <div className={rowClass(r.fableFull !== sv.fableFull)}>
+        <div className={LABEL}>
           Bỏ qua khi Fable tuần đã dùng
           <Changed on={r.fableFull !== sv.fableFull} />
         </div>
         <Slider id="fable" disabled={disabled} value={r.fableFull} label="Ngưỡng Fable tuần, phần trăm đã dùng" onChange={(v) => st.edit((d) => (d.fableFull = v))} />
       </div>
 
-      <div className={'fr' + (expChanged ? ' changed' : '')}>
-        <div className="fl">
+      <div className={rowClass(expChanged)}>
+        <div className={LABEL}>
           Giờ rời vòng
           <Changed on={expChanged} />
         </div>
         <div>
-          <div className="kvt" style={{ maxWidth: 480 }}>
+          <div className={cn(KVT, 'max-w-[480px]')}>
             {expireSlots.map((n) => {
               const e = r.expire.find((x) => x.slot === n);
               return [
@@ -233,10 +249,9 @@ function Editor({ model, rules: st, now }: { model: Model; rules: RulesState; no
                 <span key={n + ':v'}>
                   {e ? (
                     <>
-                      <input
+                      <Input
                         type="datetime-local"
-                        className="inp s"
-                        style={{ width: 196 }}
+                        className="w-[196px]"
                         value={localInput(e.at)}
                         aria-label={'Giờ rời vòng của ' + nameOf(n)}
                         disabled={disabled}
@@ -245,22 +260,20 @@ function Editor({ model, rules: st, now }: { model: Model; rules: RulesState; no
                           if (v) st.edit((d) => (d.expire = d.expire.map((x) => (x.slot === n ? { slot: n, at: v } : x))));
                         }}
                       />{' '}
-                      <button type="button" className="lnk" disabled={disabled} onClick={() => st.edit((d) => (d.expire = d.expire.filter((x) => x.slot !== n)))}>
+                      <LinkButton disabled={disabled} onClick={() => st.edit((d) => (d.expire = d.expire.filter((x) => x.slot !== n)))}>
                         Bỏ
-                      </button>
+                      </LinkButton>
                     </>
                   ) : (
                     <>
-                      <span style={{ color: 'var(--ink2)' }}>Chưa đặt giờ rời vòng</span>{' '}
-                      <button
-                        type="button"
-                        className="lnk"
+                      <span className="text-ink2">Chưa đặt giờ rời vòng</span>{' '}
+                      <LinkButton
                         aria-label={'Đặt giờ rời vòng cho ' + nameOf(n)}
                         disabled={disabled}
                         onClick={() => st.edit((d) => (d.expire = [...d.expire, { slot: n, at: defaultEnd(now) }].sort((a, b) => a.slot - b.slot)))}
                       >
                         Đặt giờ
-                      </button>
+                      </LinkButton>
                     </>
                   )}
                 </span>,
@@ -270,9 +283,9 @@ function Editor({ model, rules: st, now }: { model: Model; rules: RulesState; no
         </div>
       </div>
 
-      <div className="fr">
-        <div className="fl">Xem trước</div>
-        <div className="preview" aria-live="polite" title={st.preview?.kind === 'ok' ? st.preview.raw : undefined}>
+      <div className={rowClass(false)}>
+        <div className={LABEL}>Xem trước</div>
+        <div className="preview rounded-[8px] bg-fill px-2.5 py-2 text-sm [&_b]:font-semi" aria-live="polite" title={st.preview?.kind === 'ok' ? st.preview.raw : undefined}>
           {st.preview?.kind === 'ok' ? (
             <b>{st.preview.text}</b>
           ) : st.preview?.kind === 'error' ? (
@@ -285,7 +298,7 @@ function Editor({ model, rules: st, now }: { model: Model; rules: RulesState; no
         </div>
       </div>
       {model.rotation.ignoredKeys.length ? (
-        <p className="note">Giữ nguyên các khoá khác trong file: {model.rotation.ignoredKeys.join(', ')}.</p>
+        <CardText className="mt-2 mb-0">Giữ nguyên các khoá khác trong file: {model.rotation.ignoredKeys.join(', ')}.</CardText>
       ) : null}
     </div>
   );
@@ -297,16 +310,16 @@ function SaveBar({ model, rules: st }: { model: Model; rules: RulesState }) {
   const problem = st.current ? rulesProblem(st.current) : 'no rules';
   const canSave = !!st.current && !problem && (st.dirty || model.rotation.status === 'invalid') && !st.stale;
   return (
-    <div className="savebar">
-      <div className="macs" aria-label="Các Mac">
+    <div className="flex flex-wrap items-center gap-2.5 border-t-[.5px] border-card-line pt-2.5">
+      <div className="grid gap-1.5" aria-label="Các Mac">
         {macs.map((m) => (
-          <div className="mac" key={m.name} title={m.title || undefined}>
+          <div className="flex items-center gap-2 text-sm" key={m.name} title={m.title || undefined}>
             <Dot tone={m.tone} />
-            {m.name} <small>· {m.text}</small>
+            {m.name} <small className="text-ink2">· {m.text}</small>
           </div>
         ))}
       </div>
-      <span className="grow" aria-live="polite">
+      <span className="min-w-[160px] flex-1 text-sm text-ink2" aria-live="polite">
         {st.dirty ? 'Có ' + st.changes.length + ' thay đổi chưa lưu.' : ''}
       </span>
       {st.dirty ? (
@@ -315,8 +328,8 @@ function SaveBar({ model, rules: st }: { model: Model; rules: RulesState }) {
         </Button>
       ) : null}
       {st.working === 'save' ? (
-        <span className="btn lg pri" style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }} role="status">
-          <span className="spin" style={{ borderTopColor: '#fff' }} aria-hidden="true" />
+        <span className={cn(buttonVariants({ variant: 'primary', size: 'lg' }), 'inline-flex items-center gap-1.5')} role="status">
+          <Spinner className="border-t-white" />
           Đang lưu…
         </span>
       ) : (
@@ -332,28 +345,31 @@ export function RulesTab({ model, fresh, rules: st, feedback, now, onAction }: R
   const banner = st.banner ?? st.error?.banner ?? rotationBanner(model);
   return (
     <>
-      <div className="tb" data-tauri-drag-region="deep">
-        <h2>Luật xoay vòng</h2>
-        <small>
+      <TabHead>
+        <TabTitle>Luật xoay vòng</TabTitle>
+        <TabSub>
           <Dot tone={fresh.tone} />
           {model.machine} · {fresh.text}
-        </small>
-      </div>
+        </TabSub>
+      </TabHead>
       {feedback ? <Feedback fb={feedback} onAction={onAction} /> : null}
       {banner ? <Banner banner={banner} onAction={onAction} busy={null} /> : null}
-      <div className="card">
+      <Panel>
         {st.current ? (
           <Editor model={model} rules={st} now={now} />
         ) : (
-          <div className="empty">
+          <Empty>
             <b>Chưa có luật để sửa</b>Tạo file từ mặc định của switcher rồi sửa và lưu cho các Mac.
-          </div>
+          </Empty>
         )}
         <SaveBar model={model} rules={st} />
-      </div>
+      </Panel>
     </>
   );
 }
+
+const TH = 'px-1.5 py-1 text-left text-xs font-semi text-ink2';
+const TD = 'border-t-[.5px] border-card-line px-1.5 py-[5px] align-top tabular-nums';
 
 /** "So sánh hai bản luật": this Mac's copy beside another Mac's. */
 export function CompareDialog({ model, rules: st, now }: { model: Model; rules: RulesState; now: Date }) {
@@ -364,13 +380,13 @@ export function CompareDialog({ model, rules: st, now }: { model: Model; rules: 
   if (!peer || !mine || !peer.theirRules) {
     return (
       <>
-        <h3 id={SHEET_TITLE_ID}>So sánh hai bản luật</h3>
-        <p className="lead">
+        <DialogTitle>So sánh hai bản luật</DialogTitle>
+        <DialogLead>
           {peer && mine && conflict
             ? 'App không đọc được bản trên ' + peer.name + ' nên không so sánh được. Giữ bản máy này để ghi đè nó (bản kia được sao lưu trên ' + peer.name + ').'
             : 'Chưa có bản của Mac kia để so sánh. Bấm Thử lại rồi mở lại.'}
-        </p>
-        <div className="btns">
+        </DialogLead>
+        <DialogButtons>
           {peer && mine && conflict ? (
             <Button large onClick={() => void st.keep(peer.alias)}>
               Giữ bản máy này
@@ -379,7 +395,7 @@ export function CompareDialog({ model, rules: st, now }: { model: Model; rules: 
           <Button large primary onClick={st.closeCompare}>
             Đóng
           </Button>
-        </div>
+        </DialogButtons>
       </>
     );
   }
@@ -387,22 +403,22 @@ export function CompareDialog({ model, rules: st, now }: { model: Model; rules: 
   const rows = compareRows(mine, peer.theirRules, st.nameOf, now);
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>So sánh hai bản luật</h3>
-      <p className="lead">
+      <DialogTitle>So sánh hai bản luật</DialogTitle>
+      <DialogLead>
         Máy này lưu lúc {model.rotation.stamp ? clock(model.rotation.stamp.at) : '—'}. {their ? peer.name + ' lưu lúc ' + clock(their.at) + '.' : 'Bản trên ' + peer.name + ' không có dòng updated của app.'} App không tự gộp hai bản.
-      </p>
-      <table className="cmp">
+      </DialogLead>
+      <table className="mt-0 mb-3 w-full border-collapse text-sm">
         <thead>
           <tr>
-            <th>Mục</th>
-            <th>Máy này</th>
-            <th>{peer.name}</th>
+            <th className={TH}>Mục</th>
+            <th className={TH}>Máy này</th>
+            <th className={TH}>{peer.name}</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={row.label} className={row.diff ? 'diff' : undefined}>
-              <td>
+            <tr key={row.label} className={row.diff ? '[&>td]:bg-warn/10' : undefined}>
+              <td className={TD}>
                 {row.label}
                 {row.diff ? (
                   <>
@@ -411,20 +427,20 @@ export function CompareDialog({ model, rules: st, now }: { model: Model; rules: 
                   </>
                 ) : null}
               </td>
-              <td>{row.mine}</td>
-              <td>{row.theirs}</td>
+              <td className={TD}>{row.mine}</td>
+              <td className={TD}>{row.theirs}</td>
             </tr>
           ))}
         </tbody>
       </table>
-      <div className="btns">
+      <DialogButtons>
         <Button large onClick={() => void st.keep(peer.alias)}>
           Giữ bản máy này
         </Button>
         <Button large primary onClick={() => void st.adopt(peer.alias)}>
           {'Dùng bản trên ' + peer.name}
         </Button>
-      </div>
+      </DialogButtons>
     </>
   );
 }
@@ -439,16 +455,10 @@ const LEAVE_TITLES = {
 export function LeaveDialog({ rules: st, onAnswer }: { rules: RulesState; onAnswer(a: 'discard' | 'cancel' | 'save'): void }) {
   return (
     <>
-      <h3 id={SHEET_TITLE_ID}>{LEAVE_TITLES[st.leave?.kind ?? 'tab']}</h3>
-      <ul className="facts">
-        {st.changes.map((c) => (
-          <li key={c}>
-            <span>{c}</span>
-          </li>
-        ))}
-      </ul>
-      <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--ink2)', margin: '0 0 12px' }}>Chưa lưu trên máy nào.</p>
-      <div className="btns">
+      <DialogTitle>{LEAVE_TITLES[st.leave?.kind ?? 'tab']}</DialogTitle>
+      <Facts items={st.changes.map((c) => ({ k: '', text: c }))} />
+      <p className="mt-0 mb-3 text-sm text-ink2">Chưa lưu trên máy nào.</p>
+      <DialogButtons>
         <Button large onClick={() => onAnswer('discard')}>
           Bỏ thay đổi
         </Button>
@@ -458,7 +468,7 @@ export function LeaveDialog({ rules: st, onAnswer }: { rules: RulesState; onAnsw
         <Button large primary disabled={!!(st.current && rulesProblem(st.current))} onClick={() => onAnswer('save')}>
           Lưu
         </Button>
-      </div>
+      </DialogButtons>
     </>
   );
 }

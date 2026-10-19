@@ -5,6 +5,10 @@
 // short reason, and where it came from; the switcher's own line on hover.
 
 import { useEffect, useState } from 'react';
+import { Badge, badgeTone } from '@/components/ui/badge';
+import { Card as Panel } from '@/components/ui/card';
+import { Segment, Segmented } from '@/components/ui/segmented';
+import { Empty, TabHead, TabSub, TabTitle } from '../components/page';
 import { Dot } from '../components/parts';
 import { HISTORY_FILTERS, historyDays, type HistoryFilter } from '../lib/history';
 import type { HistoryEntry, Model } from '../lib/model';
@@ -16,6 +20,9 @@ export interface HistoryTabProps {
   now: Date;
   load(): Promise<HistoryEntry[]>;
 }
+
+/** The history's tags by kind: a switch is blue, a warning amber, a service its colour. */
+const PILL_TONE: Record<string, 'info' | 'warn'> = { sw: 'info', w: 'warn' };
 
 export function HistoryTab({ model, fresh, now, load }: HistoryTabProps) {
   const [filter, setFilter] = useState<HistoryFilter>('all');
@@ -40,67 +47,73 @@ export function HistoryTab({ model, fresh, now, load }: HistoryTabProps) {
   const days = Array.isArray(entries) ? historyDays(entries, filter, model, now) : [];
   return (
     <>
-      <div className="tb" data-tauri-drag-region="deep">
-        <h2>Lịch sử</h2>
-        <small>
+      <TabHead>
+        <TabTitle>Lịch sử</TabTitle>
+        <TabSub>
           <Dot tone={fresh.tone} />
           {model.machine} · {fresh.text}
-        </small>
-        <div className="seg inline" role="group" aria-label="Lọc lịch sử">
+        </TabSub>
+        <Segmented variant="inline" aria-label="Lọc lịch sử">
           {HISTORY_FILTERS.map((f) => (
-            <button key={f.v} type="button" aria-pressed={filter === f.v} onClick={() => setFilter(f.v)}>
+            <Segment key={f.v} pressed={filter === f.v} onClick={() => setFilter(f.v)}>
               {f.t}
-            </button>
+            </Segment>
           ))}
-        </div>
-      </div>
-      <div className="card">
+        </Segmented>
+      </TabHead>
+      <Panel>
         {entries === null ? null : entries === 'failed' ? (
-          <div className="empty">
+          <Empty>
             <b>Chưa đọc được lịch sử</b>App thử lại sau lần đọc số tới.
-          </div>
+          </Empty>
         ) : !entries.length ? (
-          <div className="empty">
+          <Empty>
             <b>Chưa có lần chuyển nào</b>Lịch sử của máy này bắt đầu từ khi cài app. Mỗi lần chuyển tay, switcher chuyển, hay app thấy tài khoản
             đổi sẽ hiện ở đây.
-          </div>
+          </Empty>
         ) : !days.length ? (
-          <div className="empty">
+          <Empty>
             <b>Chưa có lần chuyển {HISTORY_FILTERS.find((f) => f.v === filter)?.t} nào</b>Chọn Tất cả để xem các lần chuyển khác.
-          </div>
+          </Empty>
         ) : (
           <>
             {days.map((d) => (
               <section key={d.label} aria-label={d.label}>
-                <div className="day">{d.label}</div>
+                <div className="pt-2.5 pb-1 text-xs font-bold text-ink2">{d.label}</div>
                 {d.rows.map((r) => (
-                  <div className="hrow r3" key={r.key} title={r.raw ?? undefined}>
-                    <time>{r.time}</time>
+                  <div
+                    className="hrow grid grid-cols-[48px_92px_minmax(0,1fr)_auto] items-start gap-2.5 border-t-[.5px] border-card-line py-2 text-sm"
+                    key={r.key}
+                    title={r.raw ?? undefined}
+                  >
+                    <time className="pt-px text-ink2 tabular-nums">{r.time}</time>
                     <span>
-                      <span className={('pill ' + r.pill.k).trim()}>{r.pill.t}</span>
+                      <Badge shape="pill" tone={PILL_TONE[r.pill.k] ?? badgeTone(r.pill.k)}>
+                        {r.pill.t}
+                      </Badge>
                     </span>
                     <div>
-                      <div className="what">
+                      <div className="flex flex-wrap items-center gap-1.5">
                         {r.from ? (
                           <>
-                            <span className="from">{r.from}</span>
-                            <span className="arrow" role="img" aria-label="sang">
+                            <span className="rounded-md bg-fill px-1.5 py-px text-s">{r.from}</span>
+                            <span className="text-ink3" role="img" aria-label="sang">
                               →
                             </span>
                           </>
                         ) : null}
-                        <span className="to">{r.to}</span>
+                        <span className="rounded-md bg-ok/15 px-1.5 py-px text-s font-semi text-ok-ink">{r.to}</span>
                       </div>
-                      <small>{r.why}</small>
+                      <small className="mt-0.5 block text-ink2">{r.why}</small>
                     </div>
-                    <span className="src">{r.source.t}</span>
+                    <span className="whitespace-nowrap pt-0.5 text-cap text-ink3">{r.source.t}</span>
                   </div>
                 ))}
               </section>
             ))}
           </>
         )}
-      </div>
+      </Panel>
     </>
   );
 }

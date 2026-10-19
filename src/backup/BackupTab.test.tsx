@@ -96,12 +96,12 @@ describe('the Sao lưu tab', () => {
 describe('the Khôi phục sheet', () => {
   it('previews adds ticked and a different server unticked, with a side by side', async () => {
     await toPreviewOn();
-    const add = screen.getByRole('checkbox', { name: /^docs-search/ }) as HTMLInputElement;
-    expect(add.checked).toBe(true);
+    const add = screen.getByRole('checkbox', { name: /^docs-search/ });
+    expect(add.getAttribute('aria-checked')).toBe('true');
     expect(screen.getByText('Thêm cho cả ba agent · cần dán khoá')).toBeTruthy();
     expect(screen.getByText('Máy này chưa cài notes-mcp: thêm nhưng để tắt')).toBeTruthy();
-    const replace = screen.getByRole('checkbox', { name: /^design-kit/ }) as HTMLInputElement;
-    expect(replace.checked).toBe(false);
+    const replace = screen.getByRole('checkbox', { name: /^design-kit/ });
+    expect(replace.getAttribute('aria-checked')).toBe('false');
     await press(within(dialog()).getByRole('button', { name: 'So sánh design-kit' }));
     expect(within(dialog()).getByText('design-kit-mcp --theme dark')).toBeTruthy();
     expect(screen.getByText('Giống trên máy: browser.')).toBeTruthy();
@@ -172,16 +172,16 @@ describe('the Khôi phục sheet', () => {
 describe('the skills, plugins and instruction files of a restore', () => {
   it('previews them by group in plain words, a file that differs unticked with its lines', async () => {
     await toPreviewOn();
-    const box = (name: RegExp) => screen.getByRole('checkbox', { name }) as HTMLInputElement;
-    expect(box(/^5 skill từ GitHub/).checked).toBe(true);
+    const box = (name: RegExp) => screen.getByRole('checkbox', { name });
+    expect(box(/^5 skill từ GitHub/).getAttribute('aria-checked')).toBe('true');
     expect(screen.getByText(/^Cài lại từ GitHub, bản mới nhất · /)).toBeTruthy();
-    expect(box(/^3 skill cài tay/).checked).toBe(true);
+    expect(box(/^3 skill cài tay/).getAttribute('aria-checked')).toBe('true');
     expect(screen.getByText('Chép từ gói · deploy-check, trace-reader, notes-helper')).toBeTruthy();
-    expect(box(/^7 plugin/).checked).toBe(true);
+    expect(box(/^7 plugin/).getAttribute('aria-checked')).toBe('true');
     expect(screen.getByText(/^Cài bằng chính Claude Code và Codex · /)).toBeTruthy();
-    expect(box(/^CLAUDE.md của Claude Code/).checked).toBe(true);
+    expect(box(/^CLAUDE.md của Claude Code/).getAttribute('aria-checked')).toBe('true');
     expect(screen.getByText('Máy này chưa có')).toBeTruthy();
-    expect(box(/^AGENTS.md của Codex/).checked).toBe(false);
+    expect(box(/^AGENTS.md của Codex/).getAttribute('aria-checked')).toBe('false');
     expect(screen.getByText('Khác 3 dòng. Bỏ chọn là giữ bản trên máy.')).toBeTruthy();
     await press(within(dialog()).getByRole('button', { name: 'So sánh AGENTS.md của Codex' }));
     expect(within(dialog()).getByText('Run the tests and the linter first.')).toBeTruthy();

@@ -23,10 +23,25 @@ async function openTab(tab: Tab, model: Model = fixtureModel('fresh'), options: 
   return fake;
 }
 
+/** Opens a column's menu as a pointer does: Radix opens a menu on pointerdown, not on click. */
+async function openMenu(el: HTMLElement) {
+  await act(async () => {
+    fireEvent.pointerDown(el, { button: 0, ctrlKey: false });
+  });
+}
+
+/** Radix moves focus a tick after React commits: the menu's arrows, the icon again when the menu closes. */
+async function tick() {
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 0));
+  });
+}
+
 async function press(el: HTMLElement) {
   await act(async () => {
     fireEvent.click(el);
   });
+  await tick();
 }
 
 const box = (name: string) => screen.getByRole('checkbox', { name: new RegExp('^' + name) });
@@ -119,7 +134,7 @@ describe('the Skills tab', () => {
     await press(screen.getByRole('button', { name: 'Có bản mới 2' }));
     expect(screen.queryByRole('group', { name: 'pdf-tools' })).toBeNull();
     expect(screen.getByRole('group', { name: 'ui-polish' })).toBeTruthy();
-    await press(screen.getByRole('button', { name: 'Antigravity: tuỳ chọn cột' }));
+    await openMenu(screen.getByRole('button', { name: 'Antigravity: tuỳ chọn cột' }));
     expect(within(screen.getByRole('menu')).getByText('0/2 skill đang tick')).toBeTruthy();
     await press(screen.getByRole('menuitem', { name: 'Bật tất cả' }));
     expect(screen.getByText('2 thay đổi chưa ghi')).toBeTruthy();
