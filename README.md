@@ -466,7 +466,9 @@ the confirmation sheet first.
 
   <img src="docs/backup-tab.png" width="760" alt="The Sao lưu tab on fixture data: the newest pack, the packs of three made-up Macs, the two Tự sao lưu switches and the two keys the app keeps">
 
-  <img src="docs/restore-preview.png" width="372" alt="The restore sheet's preview: servers to add ticked, one that differs not ticked; five skills from GitHub and three installed by hand; seven plugins; CLAUDE.md to add, ticked, and AGENTS.md that differs, not ticked, with So sánh"> <img src="docs/restore-partial.png" width="372" alt="A restore done in part: the servers, eight skills, six plugins and CLAUDE.md done, the formatter plugin needing a login with Thử lại, and what is left to do">
+  <img src="docs/restore-preview.png" width="760" alt="The restore sheet's preview over the glass main window: servers to add ticked, one that differs not ticked; five skills from GitHub and three installed by hand; seven plugins; CLAUDE.md to add, ticked, and AGENTS.md that differs, not ticked, with So sánh">
+
+  <img src="docs/restore-partial.png" width="760" alt="A restore done in part: the servers, eight skills, six plugins and CLAUDE.md done, the formatter plugin needing a login with Thử lại, and what is left to do">
 
   <img src="docs/restore-keys.png" width="372" alt="The restore sheet asking for the key one server needs, in a password field, with its Bitwarden item">
 
