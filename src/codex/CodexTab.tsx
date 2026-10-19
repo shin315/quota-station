@@ -1,16 +1,16 @@
 // The Codex tab of the main window (M8) and Codex's compact card on Tổng
-// quan. The tab: the provider in use with a choice between the two sides
-// (each opens the confirmation sheet), Codex on this Mac, the resumable
-// sessions by provider, the recent switches, how many MCP servers Codex has
-// (they are turned on and off in the MCP tab, M9), the guide to stop using CC
-// Switch, and the file the app writes.
+// quan. The tab reads like the Claude and Antigravity tabs: one table with
+// the two sides (each "Chuyển" opens the confirmation sheet), "Dán khoá…"
+// for the custom provider and the plugins box under it, the technical
+// detail behind "Chi tiết"; then Codex on this Mac and the folded guide to
+// stop using CC Switch.
 
 import type { ReactNode } from 'react';
 import { Card as Panel, CardText, CardTitle } from '@/components/ui/card';
-import { Segment, Segmented } from '@/components/ui/segmented';
 import { cn } from '@/lib/utils';
-import { IdMark } from '../components/accounts';
-import { Empty, GRID, GRID2, STACK, TabHead, TabSub, TabTitle } from '../components/page';
+import { AccountName, IdMark, InUse } from '../components/accounts';
+import { CheckLine } from '../components/blocks';
+import { Empty, GRID2, TABLE_ROW, TABLE_ROW_ON, TabHead, TabSub, TabTitle } from '../components/page';
 import { Banner, BannerBox, Button, Chip, CODE, Dot, Feedback, KVT, LinkButton } from '../components/parts';
 import {
   CHATGPT_ID,
@@ -20,8 +20,14 @@ import {
   currentId,
   externalBanner,
   hasLogin,
+  keyMode,
+  PLUGINS_HINT,
+  pluginsNeedApply,
+  PLUGINS_LABEL,
+  recentText,
   refusalText,
   shortName,
+  undoLabel,
 } from '../lib/codex';
 import type { CodexView, Model } from '../lib/model';
 import { dayClock } from '../lib/switching';
@@ -44,6 +50,8 @@ function Card(props: { title: ReactNode; id?: string; x?: boolean; children: Rea
 
 /** A line with its button at the far end. */
 const ROW2 = 'flex items-center justify-between gap-2.5';
+const DETAILS = 'mt-2 text-sm text-ink2';
+const SUMMARY = 'cursor-pointer list-none text-accent-ink [&::-webkit-details-marker]:hidden';
 
 /** A note at the end of a card; red or amber when it warns. */
 function Note({ tone, children }: { tone: string; children: ReactNode }) {
@@ -90,150 +98,215 @@ function keyChip(v: CodexView): ChipView {
   }
 }
 
-function reachChip(v: CodexView, now: Date): ChipView {
-  if (v.reach.state === 'up') return { t: 'trả lời ' + v.reach.ms + ' ms', k: 'ok' };
-  if (v.reach.state === 'down') return { t: 'không trả lời từ ' + (v.reach.since ? dayClock(v.reach.since, now) : '?'), k: 'bad' };
-  return { t: v.custom?.baseUrl ? 'đang kiểm…' : 'không có base_url', k: '' };
+/** The custom provider's row chips: only what needs acting on. */
+function customChips(v: CodexView): ChipView[] {
+  const c = v.custom;
+  if (!c) return [];
+  const chips: ChipView[] = [];
+  if (c.key === 'placeholder') chips.push({ t: 'chỉ khoá giữ chỗ', k: 'bad' });
+  if (c.key === 'none') chips.push({ t: 'chưa có khoá', k: 'bad' });
+  if (c.proxy) chips.push({ t: 'qua proxy CC Switch', k: 'warn' });
+  if (v.reach.state === 'down') chips.push({ t: 'không trả lời', k: 'bad' });
+  return chips;
 }
 
-function Provider({ v, now, onAction }: { v: CodexView; now: Date; onAction(a: Action): void }) {
+function host(url: string | null): string {
+  if (!url) return 'không có base_url';
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
+  }
+}
+
+function reachText(v: CodexView, now: Date): string {
+  if (v.reach.state === 'up') return 'trả lời ' + v.reach.ms + ' ms';
+  if (v.reach.state === 'down') return 'không trả lời từ ' + (v.reach.since ? dayClock(v.reach.since, now) : '?');
+  return v.custom?.baseUrl ? 'đang kiểm…' : '';
+}
+
+/** "Chuyển" is a button to press; the side in use gets a status in its place. */
+function SideCell({ on, off, label, title, act, onAction }: { on: boolean; off: boolean; label: string; title?: string; act: Action; onAction(a: Action): void }) {
+  if (on) return <InUse />;
+  return (
+    <Button primary disabled={off} label={label} title={title} onClick={() => onAction(act)}>
+      Chuyển
+    </Button>
+  );
+}
+
+function Providers({ v, now, onAction, onPlugins }: { v: CodexView; now: Date; onAction(a: Action): void; onPlugins(on: boolean): void }) {
   const c = v.custom;
-  const name = c?.name ?? 'Nhà cung cấp riêng';
-  const sides: { t: string; on: boolean; act: Action; off: boolean }[] = [
-    { t: 'Tài khoản ChatGPT', on: v.current === 'chatgpt', act: 'codex:switch:chatGpt', off: !!v.backRefusal },
-    { t: name, on: v.current === 'custom', act: 'codex:switch:custom', off: !!v.refusal },
-  ];
+  const busy = v.busy != null;
+  const refusal = v.current === 'custom' ? v.backRefusal : v.refusal;
+  const mode = keyMode(v);
+  const loginSub = hasLogin(v) ? 'đăng nhập còn trong máy' : '';
+  return (
+    <Card title="Nhà cung cấp" x>
+      <div className="grid [--wt-cols:minmax(0,1fr)_auto]" role="list" aria-label="Nhà cung cấp Codex">
+        <div className={cn(TABLE_ROW, v.current === 'chatgpt' && TABLE_ROW_ON)} role="listitem" aria-label="Tài khoản ChatGPT">
+          <AccountName name="Tài khoản ChatGPT" sub={loginSub} full="" chips={hasLogin(v) ? [] : [{ t: 'chưa đăng nhập', k: 'warn' }]} />
+          <span className="flex items-center justify-end gap-2.5">
+            <SideCell
+              on={v.current === 'chatgpt'}
+              off={!!v.backRefusal || busy}
+              label="Chuyển sang tài khoản ChatGPT"
+              title={v.backRefusal ? refusalText(v, v.backRefusal) : undefined}
+              act="codex:switch:chatGpt"
+              onAction={onAction}
+            />
+          </span>
+        </div>
+        {c ? (
+          <div className={cn(TABLE_ROW, v.current === 'custom' && TABLE_ROW_ON)} role="listitem" aria-label={c.name}>
+            <AccountName name={c.name} sub={[host(c.baseUrl), reachText(v, now)].filter(Boolean).join(' · ')} full={c.baseUrl ?? ''} chips={customChips(v)} />
+            <span className="flex items-center justify-end gap-2.5">
+              {mode ? (
+                <LinkButton disabled={busy} onClick={() => onAction('codex:key')}>
+                  {mode === 'replace' ? 'Đổi khoá…' : mode === 'env' ? 'Cách đặt khoá…' : 'Dán khoá…'}
+                </LinkButton>
+              ) : null}
+              <SideCell
+                on={v.current === 'custom'}
+                off={!!v.refusal || busy}
+                label={'Chuyển sang ' + c.name}
+                title={v.refusal ? refusalText(v, v.refusal) : undefined}
+                act="codex:switch:custom"
+                onAction={onAction}
+              />
+            </span>
+          </div>
+        ) : null}
+      </div>
+      {v.current === 'other' ? <Note tone="warn">Codex đang dùng nhà cung cấp "{v.other}". Chọn một bên để chuyển.</Note> : null}
+      {refusal ? <Note tone={refusal.kind === 'noCustom' ? '' : 'bad'}>{refusalText(v, refusal)}</Note> : null}
+      {v.openaiBaseUrl ? <Note tone="warn">config.toml có openai_base_url: tài khoản ChatGPT đang được gửi tới địa chỉ khác.</Note> : null}
+      {c ? (
+        <CheckLine className="mt-2.5 mb-0" checked={v.plugins} disabled={busy} onChange={onPlugins}>
+          <span>
+            {PLUGINS_LABEL}
+            <small>{PLUGINS_HINT}</small>
+          </span>
+        </CheckLine>
+      ) : null}
+      {pluginsNeedApply(v, v.plugins) ? (
+        <div className={cn(ROW2, 'mt-1.5 text-sm text-warn-ink')}>
+          <span>config.toml chưa theo lựa chọn này.</span>
+          <LinkButton disabled={busy} onClick={() => onAction('codex:plugins:apply')}>
+            Áp dụng ngay…
+          </LinkButton>
+        </div>
+      ) : null}
+      {v.keyUndo ? (
+        <div className={cn(ROW2, 'mt-2 text-sm text-ink2')}>
+          <span>Đã dán khoá{v.keyUndo.at ? ' lúc ' + dayClock(v.keyUndo.at, now) : ''}.</span>
+          <LinkButton disabled={busy} onClick={() => onAction('codex:undoKey')}>
+            {undoLabel(v.keyUndo)}
+          </LinkButton>
+        </div>
+      ) : null}
+      <Details v={v} now={now} onAction={onAction} />
+    </Card>
+  );
+}
+
+/** What the tab used to spell out, behind one "Chi tiết". */
+function Details({ v, now, onAction }: { v: CodexView; now: Date; onAction(a: Action): void }) {
+  const c = v.custom;
+  const w = v.lastWrite;
   const requires = c?.requiresOpenaiAuth == null ? 'chưa có' : String(c.requiresOpenaiAuth);
   const wants = v.wantsRequires != null && v.wantsRequires !== c?.requiresOpenaiAuth ? ' → ' + v.wantsRequires + ' khi chuyển' : '';
-  const refusal = v.current === 'custom' ? v.backRefusal : v.refusal;
+  const r = v.resume;
   return (
-    <Card title="Nhà cung cấp đang dùng" x>
-      <Segmented variant="inline" aria-label="Nhà cung cấp Codex">
-        {sides.map((s) => (
-          <Segment key={s.act} pressed={s.on} disabled={!s.on && (s.off || v.busy != null)} onClick={s.on ? undefined : () => onAction(s.act)}>
-            {s.t}
-          </Segment>
-        ))}
-      </Segmented>
-      {v.current === 'other' ? <Note tone="warn">Codex đang dùng nhà cung cấp "{v.other}". Chọn một bên để chuyển.</Note> : null}
-      <div style={{ marginTop: 12 }}>
+    <details className={DETAILS}>
+      <summary className={SUMMARY}>Chi tiết</summary>
+      <div className="mt-2 grid gap-3">
         <Rows
           rows={[
             { id: 'login', key: 'Đăng nhập ChatGPT (auth.json)', value: <Chip chip={loginChip(v)} /> },
             ...(c
               ? [
-                  {
-                    id: 'url',
-                    key: (
-                      <>
-                        {c.name}
-                        {c.baseUrl ? <> · <span className={CODE}>{c.baseUrl}</span></> : null}
-                      </>
-                    ),
-                    value: <Chip chip={reachChip(v, now)} />,
-                  },
-                  { id: 'key', key: 'Cấu hình ' + c.name + ' có khoá API riêng', value: <Chip chip={keyChip(v)} /> },
+                  { id: 'url', key: 'Địa chỉ ' + c.name, value: c.baseUrl ? <span className={CODE}>{c.baseUrl}</span> : 'không có' },
+                  { id: 'key', key: 'Khoá API riêng', value: <Chip chip={keyChip(v)} /> },
                   { id: 'req', key: 'requires_openai_auth', value: <span className={CODE}>{requires + wants}</span> },
                 ]
               : []),
+            { id: 'w', key: 'File app ghi', value: <span className={CODE}>{v.home}/config.toml</span> },
+            { id: 'n', key: 'Không ghi', value: <span className={CODE}>auth.json · [mcp_servers]</span> },
+            {
+              id: 'b',
+              key: 'Sao lưu',
+              value: (
+                <>
+                  {v.backups.length} bản · không chứa khoá <LinkButton onClick={() => onAction('codex:backup')}>Xem</LinkButton>
+                </>
+              ),
+            },
+            {
+              id: 'l',
+              key: 'App ghi lần cuối',
+              value: w ? (
+                <>
+                  {(w.at ? dayClock(w.at, now) + ' · ' : '') + shortName(v, w.provider) + ' '}
+                  <Chip chip={w.matches ? { t: 'mã băm khớp', k: 'ok' } : { t: 'file đã khác', k: 'warn' }} />
+                </>
+              ) : (
+                'chưa ghi lần nào'
+              ),
+            },
+            {
+              id: 'r',
+              key: 'Phiên tiếp tục được',
+              value: r ? 'ChatGPT ' + (r[CHATGPT_ID] ?? 0) + (c ? ' · ' + c.name + ' ' + (r[c.id] ?? 0) : '') + ' (codex resume tách theo nhà cung cấp)' : '…',
+            },
           ]}
         />
+        <div>
+          <b className="mb-1 block text-xs font-semi text-ink2">Lần chuyển gần đây</b>
+          {v.recent.length ? (
+            <div className="grid gap-1">
+              {v.recent.map((e) => (
+                <div key={e.at + e.to + e.result} className="grid grid-cols-[64px_minmax(0,1fr)] gap-2">
+                  <time className="tabular-nums">{dayClock(e.at, now)}</time>
+                  <span className="text-ink">{recentText(v, e)}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            'Chưa có lần chuyển nào trên máy này.'
+          )}
+        </div>
       </div>
-      {refusal ? <Note tone={refusal.kind === 'noCustom' ? '' : 'bad'}>{refusalText(v, refusal)}</Note> : null}
-      {v.openaiBaseUrl ? <Note tone="warn">config.toml có openai_base_url: tài khoản ChatGPT đang được gửi tới địa chỉ khác.</Note> : null}
-      <CardText style={{ margin: '10px 0 0' }}>Bấm vào bên chưa chọn để mở tấm xác nhận. App chỉ đổi dòng chọn nhà cung cấp trong config.toml.</CardText>
-    </Card>
+    </details>
   );
 }
 
 function OnThisMac({ v, onAction }: { v: CodexView; onAction(a: Action): void }) {
   const p = v.procs;
+  const on = v.mcp.filter((m) => m.enabled).length;
+  const line = [
+    'CLI ' + (v.version ?? 'không tìm thấy'),
+    p ? p.sessions + ' phiên Terminal' : null,
+    p ? 'Codex App ' + (p.app ? 'đang mở' : 'không mở') : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
   return (
     <Card title="Codex trên máy này">
-      <Rows
-        rows={[
-          { id: 'cli', key: 'Codex CLI', value: (v.version ?? 'không tìm thấy') + ' · tiến trình nền ' + (p ? (p.daemon ? 'đang chạy' : 'không chạy') : 'không rõ') },
-          { id: 'tty', key: 'Phiên codex trong Terminal', value: p ? String(p.sessions) : 'không rõ' },
-          { id: 'app', key: 'Codex App', value: p ? (p.app ? 'đang mở' : 'không mở') : 'không rõ' },
-        ]}
-      />
-      <div className={ROW2} style={{ marginTop: 10 }}>
-        <small style={{ color: 'var(--ink2)' }}>Đổi nhà cung cấp xong thì Codex App phải thoát hẳn (⌘Q) và mở lại.</small>
+      <div className="text-sm text-ink2">
+        <Dot tone={p?.daemon ? 'ok' : 'muted'} className="mr-1.5" />
+        {line}
+      </div>
+      <div className={cn(ROW2, 'mt-1.5 text-sm text-ink2')}>
+        <span>{v.mcp.length ? v.mcp.length + ' MCP · ' + on + ' đang bật' : 'Chưa có MCP'}</span>
+        <LinkButton onClick={() => onAction('mcp:tab')}>Mở tab MCP</LinkButton>
+      </div>
+      <div className={cn(ROW2, 'mt-2.5')}>
+        <small className="text-xs text-ink2">Đổi xong: ⌘Q Codex App rồi mở lại.</small>
         <Button disabled={v.busy != null} onClick={() => onAction('codex:daemon')}>
           Khởi động lại tiến trình nền…
         </Button>
       </div>
-    </Card>
-  );
-}
-
-function Resumable({ v }: { v: CodexView }) {
-  const r = v.resume;
-  const chatgpt = r?.[CHATGPT_ID] ?? 0;
-  const custom = v.custom ? (r?.[v.custom.id] ?? 0) : 0;
-  const other = r ? Object.entries(r).reduce((n, [id, c]) => (id === CHATGPT_ID || id === v.custom?.id ? n : n + c), 0) : 0;
-  const tile = (label: string, n: number | null) => (
-    <div className="min-w-0 rounded-tile bg-transparent px-0 pt-0.5 pb-0">
-      <small className="flex items-center gap-[5px] text-xs text-ink2">{label}</small>
-      <b className="block text-num font-bold tracking-[-.01em] tabular-nums">
-        {n == null ? '…' : n}
-        <i className="ml-[3px] text-sm font-med not-italic text-ink2">phiên</i>
-      </b>
-    </div>
-  );
-  return (
-    <Card title="Các phiên có thể tiếp tục">
-      <div className={GRID2}>
-        {tile('Tài khoản ChatGPT', r ? chatgpt : null)}
-        {v.custom ? tile(v.custom.name, r ? custom : null) : null}
-      </div>
-      <CardText style={{ margin: '10px 0 0' }}>
-        Codex ghi nhà cung cấp vào từng phiên. <span className={CODE}>codex resume</span> chỉ hiện nhóm của bên đang dùng; Codex App hiện cả
-        hai. App không gộp hay chuyển lịch sử. Tiếp tục phiên ở nhà cung cấp khác có thể gặp lỗi: một số dữ liệu mã hoá chỉ nhà cung cấp cũ
-        đọc được.{other ? ' ' + other + ' phiên khác thuộc nhà cung cấp khác.' : ''}
-      </CardText>
-    </Card>
-  );
-}
-
-function Recent({ v, now }: { v: CodexView; now: Date }) {
-  return (
-    <Card title="Lần chuyển gần đây">
-      {v.recent.length ? (
-        <div className="grid gap-2 text-sm">
-          {v.recent.map((r) => (
-            <div key={r.at + r.to} className="grid grid-cols-[54px_minmax(0,1fr)] gap-2">
-              <time className="text-ink2 tabular-nums">{dayClock(r.at, now)}</time>
-              <span>
-                <b>
-                  Codex · {shortName(v, r.from)} → {shortName(v, r.to)}
-                </b>
-                <small style={{ display: 'block', color: 'var(--ink2)' }}>
-                  {r.result === 'observed'
-                    ? 'config.toml đổi ngoài app (có thể do CC Switch hoặc sửa tay)'
-                    : 'Bạn chuyển trong app · giữ đăng nhập ChatGPT' + (r.restarted ? ' · đã khởi động lại tiến trình nền' : '')}
-                </small>
-              </span>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <CardText>Chưa có lần chuyển nào trên máy này.</CardText>
-      )}
-    </Card>
-  );
-}
-
-/** Codex's MCP servers in one line: the MCP tab turns them on and off (M9). */
-function McpLine({ v, onAction }: { v: CodexView; onAction(a: Action): void }) {
-  const on = v.mcp.filter((m) => m.enabled).length;
-  return (
-    <Card title={<>MCP của Codex<span className="ml-auto font-reg">đọc từ config.toml</span></>}>
-      <div className={ROW2}>
-        <span>{v.mcp.length ? v.mcp.length + ' MCP · ' + on + ' đang bật' : 'config.toml không có máy chủ MCP nào.'}</span>
-        <Button onClick={() => onAction('mcp:tab')}>Mở tab MCP</Button>
-      </div>
-      <CardText style={{ margin: '8px 0 0' }}>Bật, tắt, thêm hay xoá MCP cho cả ba agent ở tab MCP. Chuyển nhà cung cấp không đụng tới phần này.</CardText>
     </Card>
   );
 }
@@ -280,66 +353,43 @@ function CcSwitchGuide({ v, macs, now }: { v: CodexView; macs: number; now: Date
     },
     { text: 'Sau một ngày ổn: bỏ CC Switch.app vào Thùng rác', small: 'Giữ thư mục ~/.cc-switch thêm 2 tuần', cls: step(!cc.installed, steady) },
   ];
+  const done = items.filter((i) => i.cls === 'done').length;
   return (
-    <Card id="cc-card" title={<>Hướng dẫn ngừng dùng CC Switch<span className="ml-auto font-reg"><Chip chip={chip} /></span></>}>
-      <CardText>Giữ CC Switch tới khi Quota Station chuyển Codex ổn vài ngày trên {where}.</CardText>
-      <ol className="m-0 grid list-none gap-[7px] p-0 text-sm [counter-reset:st]">
-        {items.map((i) => (
-          <li
-            key={i.text}
-            className={cn(
-              'grid grid-cols-[20px_minmax(0,1fr)] items-start gap-2 before:grid before:size-[18px] before:place-items-center before:rounded-full before:text-[10px] before:font-heavy before:[counter-increment:st]',
-              i.cls === 'done'
-                ? "before:bg-ok/20 before:text-ok-ink before:content-['✓']"
-                : 'before:bg-fill2 before:text-ink2 before:content-[counter(st)]',
-              i.cls === 'lock' &&
-                "grid-cols-[20px_minmax(0,1fr)_auto] text-ink2 after:whitespace-nowrap after:rounded-chip after:bg-fill2 after:px-1.5 after:text-cap after:leading-4 after:text-ink2 after:content-['chờ_bước_trước']",
-            )}
-          >
-            <span>
-              {i.text}
-              {i.small ? <small className="block text-xs text-ink2">{i.small}</small> : null}
-            </span>
-          </li>
-        ))}
-      </ol>
-    </Card>
-  );
-}
-
-function Files({ v, now, onAction }: { v: CodexView; now: Date; onAction(a: Action): void }) {
-  const w = v.lastWrite;
-  return (
-    <Card title="File app ghi">
-      <Rows
-        rows={[
-          { id: 'w', key: 'Ghi', value: <span className={CODE}>{v.home}/config.toml</span> },
-          { id: 'n', key: 'Không ghi', value: <span className={CODE}>auth.json</span> },
-          { id: 'm', key: 'MCP', value: <><span className={CODE}>[mcp_servers]</span> chỉ đổi từ tab MCP</> },
-          {
-            id: 'b',
-            key: 'Sao lưu',
-            value: (
-              <>
-                {v.backups.length} bản · giữ 10 bản gần nhất · không chứa khoá{' '}
-                <LinkButton onClick={() => onAction('codex:backup')}>Xem</LinkButton>
-              </>
-            ),
-          },
-          {
-            id: 'l',
-            key: 'App ghi lần cuối',
-            value: w ? (
-              <>
-                {(w.at ? dayClock(w.at, now) + ' · ' : '') + shortName(v, w.provider) + ' '}
-                <Chip chip={w.matches ? { t: 'mã băm khớp', k: 'ok' } : { t: 'file đã khác', k: 'warn' }} />
-              </>
-            ) : (
-              'chưa ghi lần nào'
-            ),
-          },
-        ]}
-      />
+    <Card
+      id="cc-card"
+      title={
+        <>
+          {'Ngừng dùng CC Switch · ' + done + '/' + items.length}
+          <span className="ml-auto font-reg">
+            <Chip chip={chip} />
+          </span>
+        </>
+      }
+    >
+      <CardText className="mb-0">Giữ CC Switch tới khi Quota Station chuyển Codex ổn vài ngày.</CardText>
+      <details className={DETAILS}>
+        <summary className={SUMMARY}>Xem các bước</summary>
+        <ol className="m-0 mt-2 grid list-none gap-[7px] p-0 text-sm text-ink [counter-reset:st]">
+          {items.map((i) => (
+            <li
+              key={i.text}
+              className={cn(
+                'grid grid-cols-[20px_minmax(0,1fr)] items-start gap-2 before:grid before:size-[18px] before:place-items-center before:rounded-full before:text-[10px] before:font-heavy before:[counter-increment:st]',
+                i.cls === 'done'
+                  ? "before:bg-ok/20 before:text-ok-ink before:content-['✓']"
+                  : 'before:bg-fill2 before:text-ink2 before:content-[counter(st)]',
+                i.cls === 'lock' &&
+                  "grid-cols-[20px_minmax(0,1fr)_auto] text-ink2 after:whitespace-nowrap after:rounded-chip after:bg-fill2 after:px-1.5 after:text-cap after:leading-4 after:text-ink2 after:content-['chờ_bước_trước']",
+              )}
+            >
+              <span>
+                {i.text}
+                {i.small ? <small className="block text-xs text-ink2">{i.small}</small> : null}
+              </span>
+            </li>
+          ))}
+        </ol>
+      </details>
     </Card>
   );
 }
@@ -350,9 +400,11 @@ export interface CodexTabProps {
   feedback: FeedbackView | null;
   now: Date;
   onAction(act: Action): void;
+  /** "Dùng plugin khi chạy Custom API". */
+  onPlugins(on: boolean): void;
 }
 
-export function CodexTab({ model, fresh, feedback, now, onAction }: CodexTabProps) {
+export function CodexTab({ model, fresh, feedback, now, onAction, onPlugins }: CodexTabProps) {
   const v = model.codex;
   const top = (
     <TabHead>
@@ -385,8 +437,8 @@ export function CodexTab({ model, fresh, feedback, now, onAction }: CodexTabProp
   if (ccSwitchManages(v))
     banners.push({
       tone: 'warn',
-      title: 'CC Switch đang chạy và quản lý Codex',
-      body: 'Khi CC Switch chuyển nhà cung cấp, nó ghi đè lựa chọn nhà cung cấp trong config.toml. Trong lúc thử, chỉ chuyển Codex ở một nơi.',
+      title: 'CC Switch đang chạy và cũng đổi Codex',
+      body: 'Chỉ chuyển Codex ở một nơi: lần chuyển sau của CC Switch ghi đè lựa chọn ở đây.',
       actions: [],
     });
   return (
@@ -403,18 +455,10 @@ export function CodexTab({ model, fresh, feedback, now, onAction }: CodexTabProp
           body={(v.reason ?? 'Không rõ lý do') + '. App không sửa file này cho tới khi Codex đọc được nó.'}
         />
       ) : null}
-      <div className={GRID}>
-        <div className={STACK}>
-          <Provider v={v} now={now} onAction={onAction} />
-          <OnThisMac v={v} onAction={onAction} />
-          <Resumable v={v} />
-          <Recent v={v} now={now} />
-        </div>
-        <div className={STACK}>
-          <McpLine v={v} onAction={onAction} />
-          <CcSwitchGuide v={v} macs={1 + model.rotation.peers.length} now={now} />
-          <Files v={v} now={now} onAction={onAction} />
-        </div>
+      <Providers v={v} now={now} onAction={onAction} onPlugins={onPlugins} />
+      <div className={GRID2}>
+        <OnThisMac v={v} onAction={onAction} />
+        <CcSwitchGuide v={v} macs={1 + model.rotation.peers.length} now={now} />
       </div>
     </>
   );

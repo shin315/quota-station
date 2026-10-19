@@ -605,3 +605,18 @@ fn no_key_reaches_the_app_s_folder_or_the_windows() {
     assert!(!h.npx.join("calls").exists(), "a set never runs npx");
     let _ = &h.root;
 }
+
+#[test]
+fn a_key_pasted_for_codex_s_provider_never_goes_into_a_set() {
+    use quota_station_core::codex;
+    let h = setup();
+    let key = "sk-pasted-sets-trap-0123456789";
+    let codex_home = h.home.join(".codex");
+    let base = codex::files::sha256(codex_text(&h).as_bytes());
+    let out = codex::set_key(&codex_home, &h.app, key, None, &base, at(0));
+    assert!(matches!(out, codex::KeyOutcome::Written { .. }), "{out:?}");
+    let s = put(&h, &web_app());
+    let p = preview(&h, &s);
+    assert!(!serde_json::to_string(&p).unwrap().contains(key));
+    assert!(!all_text(h.app.path()).contains(key), "nor in the app's folder");
+}

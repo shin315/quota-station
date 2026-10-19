@@ -4,7 +4,9 @@
 //!
 //! The app writes one file, `<Codex home>/config.toml`, and in it only the
 //! keys the switch owns ([`config`]): `model_provider`, and
-//! `requires_openai_auth` in the custom provider's table. It backs the file
+//! `requires_openai_auth` in the custom provider's table; and, when the
+//! owner pastes one ("Dán khoá", [`set_key`]), the provider's own key and
+//! the `base_url` that pointed at CC Switch's proxy. It backs the file
 //! up first, with the keys left out of the backup, and checks it was not
 //! changed meanwhile ([`files`]). It never writes `auth.json` (only its
 //! shape is looked at, [`login`]); the switch never writes the
@@ -27,9 +29,11 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 use time::OffsetDateTime;
 
+use crate::agents::batch::Line as PreviewLine;
+use crate::agents::def::MASK;
 use crate::antigravity::fs::AppDir;
-use config::{Parsed, Refusal, Target};
-use files::{Record, WriteError};
+use config::{KeyKind, KeyPlan, KeyRefusal, Parsed, Refusal, Target};
+use files::{KeyUndo, Record, WriteError};
 use login::Login;
 
 /// Codex's folder under the home folder, unless the owner sets another.
@@ -149,13 +153,16 @@ pub enum Outcome {
 }
 
 /// Switches to `target`, when `config.toml` still hashes to `base_hash`
-/// (the file the owner saw on the sheet). Keeps the switch in the log and
-/// the write in the record.
+/// (the file the owner saw on the sheet). `plugins` is the owner's "Dùng
+/// plugin khi chạy Custom API" ([`config::requires_openai_auth`]). On the
+/// custom provider already, a switch to it only applies `plugins`. Keeps
+/// the switch in the log and the write in the record.
 pub fn switch(
     codex_home: &Path,
     app: &AppDir,
     target: Target,
     base_hash: Option<&str>,
+    plugins: bool,
     now: OffsetDateTime,
 ) -> Outcome {
     let file = codex_home.join(CONFIG);
@@ -183,7 +190,7 @@ pub fn switch(
     };
     let store = parsed.store;
     let login = login::check(codex_home, store);
-    let plan = match config::plan(&parsed, target, login.on_disk()) {
+    let plan = match config::plan(&parsed, target, login.on_disk(), plugins) {
         Ok(p) => p,
         Err(refusal) => return Outcome::Refused { target, refusal },
     };
@@ -199,6 +206,8 @@ pub fn switch(
     if new_text == text {
         return Outcome::Already { target };
     }
+    let result = if from == to { "plugins" } else { "switched" };
+    let requires = plan.requires.as_ref().map(|(_, r)| *r);
     let backups = app.path().join(files::BACKUP_DIR);
     let at = now.unix_timestamp();
     match files::write(&file, &bytes, &hash, &new_text, &backups, now) {
@@ -209,6 +218,7 @@ pub fn switch(
             record.written_provider = plan.selector.clone();
             record.written_mcp = mcp;
             record.kept_hash = None;
+            record.key_undo = None;
             if let Some(c) = &parsed.custom {
                 record.last_custom = Some(c.id.clone());
             }
@@ -219,8 +229,9 @@ pub fn switch(
                     at,
                     from: from.clone(),
                     to: to.clone(),
-                    result: "switched".into(),
+                    result: result.into(),
                     restarted: None,
+                    requires,
                 },
             );
             let backup =
@@ -230,7 +241,7 @@ pub fn switch(
         Err(error) => {
             let _ = log::append(
                 app,
-                &log::Line { at, from, to, result: "failed".into(), restarted: None },
+                &log::Line { at, from, to, result: "failed".into(), restarted: None, requires },
             );
             Outcome::Failed { target, error }
         }
@@ -245,4 +256,317 @@ pub fn keep(app: &AppDir, hash: &str, parsed: Option<&Parsed>) -> std::io::Resul
         record.last_custom = Some(c.id.clone());
     }
     files::save(app, &record)
+}
+
+// ===== "Dán khoá" =====
+
+/// What the key sheet shows before anything is written. Holds no key: only
+/// [`config::hint`] of the new one.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KeyPreview {
+    /// Sent back with the write, so a file changed since is not overwritten.
+    pub hash: Option<String>,
+    /// The lines that change, in the provider's table.
+    pub lines: Vec<PreviewLine>,
+    pub refusal: Option<KeyRefusal>,
+    /// What the parser or the check said.
+    pub detail: Option<String>,
+    /// A key already sits in the table: it is replaced, and cannot be put back.
+    pub replaces: bool,
+    /// What "Hoàn tác" puts back: `placeholder`, `empty` or `none` (the
+    /// line goes); `None` when there is no undo.
+    pub undo: Option<&'static str>,
+}
+
+/// What a key write, or its undo, did. Holds no key.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
+pub enum KeyOutcome {
+    /// `undo`: "Hoàn tác" can put the table back.
+    Written {
+        provider: String,
+        backup: String,
+        undo: bool,
+    },
+    Undone {
+        provider: String,
+        backup: String,
+    },
+    /// The table already holds this key and address: nothing written.
+    Already,
+    Refused {
+        refusal: KeyRefusal,
+    },
+    Invalid {
+        detail: String,
+    },
+    Failed {
+        error: WriteError,
+    },
+}
+
+/// The file, its hash, its text and what it says, for a key write.
+struct Loaded {
+    bytes: Vec<u8>,
+    hash: String,
+    parsed: Parsed,
+}
+
+fn load(codex_home: &Path, record: &Record) -> Result<Loaded, KeyOutcome> {
+    let bytes = match read_bytes(&codex_home.join(CONFIG)) {
+        Ok(b) => b,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            return Err(KeyOutcome::Refused { refusal: KeyRefusal::NoCustom })
+        }
+        Err(e) => return Err(KeyOutcome::Invalid { detail: e.to_string() }),
+    };
+    let hash = files::sha256(&bytes);
+    let text = std::str::from_utf8(&bytes)
+        .map_err(|_| KeyOutcome::Invalid { detail: "not UTF-8".into() })?;
+    let parsed = config::parse(text, record.last_custom.as_deref())
+        .map_err(|detail| KeyOutcome::Invalid { detail })?;
+    Ok(Loaded { bytes, hash, parsed })
+}
+
+impl Loaded {
+    fn text(&self) -> &str {
+        std::str::from_utf8(&self.bytes).unwrap_or_default()
+    }
+}
+
+/// The plan for the owner's `key` and `base_url`, and the edited text.
+fn key_edit(
+    loaded: &Loaded,
+    key: &str,
+    base_url: Option<&str>,
+) -> Result<(KeyPlan, String), KeyOutcome> {
+    let refused = |refusal| KeyOutcome::Refused { refusal };
+    let key = config::clean_key(key).map_err(refused)?;
+    let base_url = base_url
+        .filter(|u| !u.trim().is_empty())
+        .map(config::clean_url)
+        .transpose()
+        .map_err(refused)?;
+    let plan = config::key_plan(&loaded.parsed, key, base_url).map_err(refused)?;
+    let text = config::apply_key(loaded.text(), &plan).map_err(|e| match e {
+        config::PatchError::Parse(detail) => KeyOutcome::Invalid { detail },
+        config::PatchError::Check(what) => KeyOutcome::Invalid { detail: format!("check: {what}") },
+    })?;
+    Ok((plan, text))
+}
+
+fn undo_word(token: &Option<String>) -> &'static str {
+    match token.as_deref() {
+        None => "none",
+        Some(config::PROXY_TOKEN_PLACEHOLDER) => "placeholder",
+        Some(_) => "empty",
+    }
+}
+
+/// The preview of [`set_key`]: the lines that change, the new key shown
+/// only as its [`config::hint`].
+pub fn key_preview(
+    codex_home: &Path,
+    app: &AppDir,
+    key: &str,
+    base_url: Option<&str>,
+) -> KeyPreview {
+    let record = files::load(app);
+    let loaded = match load(codex_home, &record) {
+        Ok(l) => l,
+        Err(out) => return preview_refused(None, out),
+    };
+    let hash = Some(loaded.hash.clone());
+    let (plan, _) = match key_edit(&loaded, key, base_url) {
+        Ok(p) => p,
+        Err(out) => return preview_refused(hash, out),
+    };
+    let custom = loaded.parsed.custom.as_ref();
+    let old = config::old_token(loaded.text(), &plan.id);
+    let line = |op: &'static str, text: String, secret: bool| PreviewLine { op, text, secret };
+    let quoted = |v: &str| toml_edit::Value::from(v).to_string().trim().to_string();
+    let mut lines = vec![line("ctx", format!("[model_providers.{}]", plan.id), false)];
+    if let Some(old) = custom.and_then(|c| c.base_url.as_deref()) {
+        if let Some(new) = plan.base_url.as_deref().filter(|n| *n != old) {
+            let shown = if crate::agents::def::secret_url(old) { MASK } else { old };
+            lines.push(line("del", format!("base_url = {}", quoted(shown)), false));
+            lines.push(line("add", format!("base_url = {}", quoted(new)), false));
+        }
+    } else if let Some(new) = plan.base_url.as_deref() {
+        lines.push(line("add", format!("base_url = {}", quoted(new)), false));
+    }
+    let token = plan.token.as_deref().unwrap_or_default();
+    match &old {
+        config::OldToken::NotAKey(v) => {
+            lines.push(line("del", format!("{} = {}", config::BEARER_KEY, quoted(v)), false))
+        }
+        config::OldToken::Absent => {}
+        config::OldToken::Key => {
+            lines.push(line("del", format!("{} = {}", config::BEARER_KEY, quoted(MASK)), true))
+        }
+    }
+    lines.push(line(
+        "add",
+        format!("{} = {}", config::BEARER_KEY, quoted(&config::hint(token))),
+        true,
+    ));
+    KeyPreview {
+        hash,
+        lines,
+        refusal: None,
+        detail: None,
+        replaces: old == config::OldToken::Key,
+        undo: old.restore().map(|t| undo_word(&t)),
+    }
+}
+
+fn preview_refused(hash: Option<String>, out: KeyOutcome) -> KeyPreview {
+    let mut p = KeyPreview { hash, ..KeyPreview::default() };
+    match out {
+        KeyOutcome::Refused { refusal } => p.refusal = Some(refusal),
+        KeyOutcome::Invalid { detail } => p.detail = Some(detail),
+        _ => {}
+    }
+    p
+}
+
+/// "Dán khoá": writes `key` as the custom provider's
+/// `experimental_bearer_token`, and `base_url` when given, when
+/// `config.toml` still hashes to `base_hash` (the file the preview showed).
+/// Backs the file up with its keys left out, keeps what an undo needs
+/// (never a key), and logs it by the provider's id only. `auth.json`, the
+/// provider in use and `requires_openai_auth` are not touched.
+pub fn set_key(
+    codex_home: &Path,
+    app: &AppDir,
+    key: &str,
+    base_url: Option<&str>,
+    base_hash: &str,
+    now: OffsetDateTime,
+) -> KeyOutcome {
+    let mut record = files::load(app);
+    let loaded = match load(codex_home, &record) {
+        Ok(l) => l,
+        Err(out) => return out,
+    };
+    if loaded.hash != base_hash {
+        return KeyOutcome::Failed { error: WriteError::Changed };
+    }
+    let (plan, new_text) = match key_edit(&loaded, key, base_url) {
+        Ok(p) => p,
+        Err(out) => return out,
+    };
+    if new_text == loaded.text() {
+        return KeyOutcome::Already;
+    }
+    let restore = config::old_token(loaded.text(), &plan.id).restore();
+    let old_url = loaded.parsed.custom.as_ref().and_then(|c| c.base_url.clone());
+    let undo = restore.map(|token| KeyUndo {
+        hash: files::sha256(new_text.as_bytes()),
+        provider: plan.id.clone(),
+        token,
+        base_url: plan.base_url.as_ref().and(old_url),
+        at: now.unix_timestamp(),
+    });
+    let can_undo = undo.is_some();
+    match write_key(codex_home, app, &mut record, &loaded, &new_text, &plan.id, "key", now) {
+        Ok(backup) => {
+            record.key_undo = undo;
+            let _ = files::save(app, &record);
+            KeyOutcome::Written { provider: plan.id, backup, undo: can_undo }
+        }
+        Err(error) => KeyOutcome::Failed { error },
+    }
+}
+
+/// "Hoàn tác" after [`set_key`]: puts back the table's placeholder (or no
+/// key) and its old `base_url`, only while the file is still the one the
+/// key write left.
+pub fn undo_key(
+    codex_home: &Path,
+    app: &AppDir,
+    base_hash: &str,
+    now: OffsetDateTime,
+) -> KeyOutcome {
+    let mut record = files::load(app);
+    let Some(undo) = record.key_undo.clone() else {
+        return KeyOutcome::Refused { refusal: KeyRefusal::NoUndo };
+    };
+    let loaded = match load(codex_home, &record) {
+        Ok(l) => l,
+        Err(out) => return out,
+    };
+    if loaded.hash != base_hash || loaded.hash != undo.hash {
+        return KeyOutcome::Failed { error: WriteError::Changed };
+    }
+    let plan = KeyPlan { id: undo.provider.clone(), token: undo.token, base_url: undo.base_url };
+    let new_text = match config::apply_key(loaded.text(), &plan) {
+        Ok(t) => t,
+        Err(config::PatchError::Parse(detail)) => return KeyOutcome::Invalid { detail },
+        Err(config::PatchError::Check(what)) => {
+            return KeyOutcome::Invalid { detail: format!("check: {what}") }
+        }
+    };
+    match write_key(codex_home, app, &mut record, &loaded, &new_text, &plan.id, "keyUndo", now) {
+        Ok(backup) => {
+            record.key_undo = None;
+            let _ = files::save(app, &record);
+            KeyOutcome::Undone { provider: plan.id, backup }
+        }
+        Err(error) => KeyOutcome::Failed { error },
+    }
+}
+
+/// Writes a key edit like a switch: the backup without keys, the record
+/// following the file when it was the app's, and a log line with no key.
+#[allow(clippy::too_many_arguments)]
+fn write_key(
+    codex_home: &Path,
+    app: &AppDir,
+    record: &mut Record,
+    loaded: &Loaded,
+    new_text: &str,
+    id: &str,
+    result: &str,
+    now: OffsetDateTime,
+) -> Result<String, WriteError> {
+    let backups = app.path().join(files::BACKUP_DIR);
+    let at = now.unix_timestamp();
+    let line = |result: &str| log::Line {
+        at,
+        from: id.to_string(),
+        to: id.to_string(),
+        result: result.into(),
+        restarted: None,
+        requires: None,
+    };
+    match files::write(
+        &codex_home.join(CONFIG),
+        &loaded.bytes,
+        &loaded.hash,
+        new_text,
+        &backups,
+        now,
+    ) {
+        Ok(backup) => {
+            let after = files::sha256(new_text.as_bytes());
+            let mcp = config::mcp_fingerprint(&loaded.parsed.mcp);
+            record.follow(&loaded.hash, &after, mcp);
+            let _ = log::append(app, &line(result));
+            Ok(backup.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default())
+        }
+        Err(error) => {
+            let _ = log::append(app, &line("failed"));
+            Err(error)
+        }
+    }
+}
+
+/// Whether the custom provider's table takes a pasted key: CC Switch's
+/// placeholder, no key, or a key to replace, in a plain table.
+pub fn takes_key(parsed: &Parsed) -> bool {
+    parsed.custom.as_ref().is_some_and(|c| {
+        c.plain && matches!(c.key, KeyKind::Bearer | KeyKind::Placeholder | KeyKind::None)
+    })
 }

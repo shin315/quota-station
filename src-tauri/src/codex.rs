@@ -4,7 +4,9 @@
 //!
 //! The switch writes `config.toml` only when the owner confirms, and only
 //! the keys `quota_station_core::codex::config` names. The windows never get
-//! a key: only what kind of key the provider has.
+//! a key: only what kind of key the provider has. A key the owner pastes
+//! ("Dán khoá") goes one way, from the window to the core, and comes back
+//! only as its hint.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -17,7 +19,9 @@ use quota_station_core::codex::files::{self, Record};
 use quota_station_core::codex::login::Login;
 use quota_station_core::codex::probe::{self, Answer};
 use quota_station_core::codex::procs::{self, Procs, Restart};
-use quota_station_core::codex::{self, log, resume, FileState, Outcome, Reading};
+use quota_station_core::codex::{
+    self, log, resume, FileState, KeyOutcome, KeyPreview, Outcome, Reading,
+};
 use quota_station_core::icon::CodexUse;
 use quota_station_core::runner;
 use serde::Serialize;
@@ -129,6 +133,12 @@ pub struct CodexView {
     pub custom: Option<Custom>,
     /// What a switch to the custom provider would write.
     pub wants_requires: Option<bool>,
+    /// "Dùng plugin khi chạy Custom API (giữ đăng nhập ChatGPT)".
+    pub plugins: bool,
+    /// The custom provider's table takes a pasted key ("Dán khoá").
+    pub takes_key: bool,
+    /// "Hoàn tác" after "Dán khoá", while the file is the one it left.
+    pub key_undo: Option<KeyUndoView>,
     /// Why a switch to the custom provider, or back, cannot run.
     pub refusal: Option<Refusal>,
     pub back_refusal: Option<Refusal>,
@@ -151,6 +161,16 @@ pub struct CodexView {
     pub busy: Option<&'static str>,
     /// A top-level `openai_base_url` sends the ChatGPT login elsewhere.
     pub openai_base_url: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KeyUndoView {
+    pub at: Option<String>,
+    /// What it puts back: `placeholder`, `empty` or `none`.
+    pub token: &'static str,
+    /// It puts the old `base_url` back too.
+    pub base_url: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -228,7 +248,8 @@ pub fn view(inner: &Inner) -> CodexView {
     };
     let (current, other) = parsed.map(|p| current_name(&p.current())).unwrap_or(("chatgpt", None));
     let login = reading.login;
-    let plan = |target| parsed.map(|p| config::plan(p, target, login.on_disk()));
+    let plugins = inner.settings.codex.plugins;
+    let plan = |target| parsed.map(|p| config::plan(p, target, login.on_disk(), plugins));
     let to_custom = plan(Target::Custom);
     let refusal = match &to_custom {
         Some(Err(r)) => Some(r.clone()),
@@ -250,6 +271,18 @@ pub fn view(inner: &Inner) -> CodexView {
         }),
         _ => None,
     };
+    let key_undo =
+        record.key_undo.as_ref().filter(|u| reading.hash.as_deref() == Some(u.hash.as_str())).map(
+            |u| KeyUndoView {
+                at: rfc(u.at),
+                token: match u.token.as_deref() {
+                    None => "none",
+                    Some(config::PROXY_TOKEN_PLACEHOLDER) => "placeholder",
+                    Some(_) => "empty",
+                },
+                base_url: u.base_url.is_some(),
+            },
+        );
     let last_write = record.written_hash.as_ref().map(|w| LastWrite {
         at: record.written_at.and_then(rfc),
         provider: codex::provider_id(record.written_provider.as_deref()),
@@ -292,6 +325,9 @@ pub fn view(inner: &Inner) -> CodexView {
         other,
         custom: parsed.and_then(|p| p.custom.clone()),
         wants_requires,
+        plugins,
+        takes_key: parsed.is_some_and(codex::takes_key),
+        key_undo,
         refusal,
         back_refusal,
         login,
@@ -437,7 +473,14 @@ fn observe(dir: &AppDir, live: &mut Live, record: &Record, reading: &Reading) {
         let at = OffsetDateTime::now_utc().unix_timestamp();
         let _ = log::append(
             dir,
-            &log::Line { at, from: before, to: now, result: "observed".into(), restarted: None },
+            &log::Line {
+                at,
+                from: before,
+                to: now,
+                result: "observed".into(),
+                restarted: None,
+                requires: None,
+            },
         );
     }
 }
@@ -455,6 +498,21 @@ pub async fn codex_switch(
     base: Option<String>,
 ) -> Result<Outcome, String> {
     let shared = state.inner().clone();
+    let plugins = shared.lock().settings.codex.plugins;
+    write(&app, &shared, move |home, dir| {
+        codex::switch(home, dir, target, base.as_deref(), plugins, OffsetDateTime::now_utc())
+    })
+    .await
+}
+
+/// Runs one write of `config.toml` (a switch, a key, its undo) with the
+/// Codex thread held off, then reads the file again. Rejects with `busy`
+/// while another switch, restart or MCP write runs.
+async fn write<T: Send + 'static>(
+    app: &AppHandle,
+    shared: &AppState,
+    run: impl FnOnce(&std::path::Path, &AppDir) -> T + Send + 'static,
+) -> Result<T, String> {
     let (home, dir) = {
         let mut inner = shared.lock();
         if inner.codex.busy.is_some() || inner.mcp.busy == Some("writing") {
@@ -464,9 +522,9 @@ pub async fn codex_switch(
         inner.codex.generation += 1;
         (inner.codex_home(), inner.app_dir())
     };
-    reader::publish(&app, &shared);
+    reader::publish(app, shared);
     let done = tauri::async_runtime::spawn_blocking(move || {
-        let out = codex::switch(&home, &dir, target, base.as_deref(), OffsetDateTime::now_utc());
+        let out = run(&home, &dir);
         let record = files::load(&dir);
         let reading = codex::read(&home, &record);
         (out, reading)
@@ -483,9 +541,81 @@ pub async fn codex_switch(
             inner.codex.reading = Some(reading.clone());
         }
     }
-    request(&shared, false);
-    reader::publish(&app, &shared);
+    request(shared, false);
+    reader::publish(app, shared);
     done.map(|(out, _)| out).map_err(|e| e.to_string())
+}
+
+/// The key sheet's preview: the lines "Dán khoá" would change, the key
+/// shown only as its hint. Writes nothing.
+#[tauri::command]
+pub async fn codex_key_preview(
+    state: State<'_, AppState>,
+    key: String,
+    base_url: Option<String>,
+) -> Result<KeyPreview, String> {
+    let (home, dir) = {
+        let inner = state.lock();
+        (inner.codex_home(), inner.app_dir())
+    };
+    tauri::async_runtime::spawn_blocking(move || {
+        codex::key_preview(&home, &dir, &key, base_url.as_deref())
+    })
+    .await
+    .map_err(|_| "error".to_string())
+}
+
+/// "Dán khoá", after the owner confirmed its preview. `base` is the file's
+/// hash the preview showed.
+#[tauri::command]
+pub async fn codex_set_key(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    key: String,
+    base_url: Option<String>,
+    base: String,
+) -> Result<KeyOutcome, String> {
+    let shared = state.inner().clone();
+    write(&app, &shared, move |home, dir| {
+        codex::set_key(home, dir, &key, base_url.as_deref(), &base, OffsetDateTime::now_utc())
+    })
+    .await
+    // A join error's text could name the closure's values: say no more.
+    .map_err(|e| if e == "busy" { e } else { "error".into() })
+}
+
+/// "Hoàn tác" after "Dán khoá".
+#[tauri::command]
+pub async fn codex_undo_key(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    base: String,
+) -> Result<KeyOutcome, String> {
+    let shared = state.inner().clone();
+    write(&app, &shared, move |home, dir| {
+        codex::undo_key(home, dir, &base, OffsetDateTime::now_utc())
+    })
+    .await
+}
+
+/// "Dùng plugin khi chạy Custom API": kept in the settings for the next
+/// switch. Writes nothing to Codex: applying it to the provider in use is
+/// a switch the owner confirms.
+#[tauri::command]
+pub fn set_codex_plugins(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    on: bool,
+) -> Result<Model, String> {
+    {
+        let mut inner = state.lock();
+        let mut settings = inner.settings.clone();
+        settings.codex.plugins = on;
+        settings.save(&inner.settings_file).map_err(|e| e.to_string())?;
+        inner.settings = settings;
+    }
+    reader::publish(&app, &state);
+    Ok(state.lock().model())
 }
 
 /// Restarts Codex's background process, after the owner confirmed it on its

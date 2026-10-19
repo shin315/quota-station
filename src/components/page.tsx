@@ -33,6 +33,15 @@ export function rowClass(changed = false): string {
   );
 }
 
+/**
+ * A row of an accounts table; the table sets its columns (--wt-cols). The
+ * row in use is lit, and the hairlines around it give way.
+ */
+export const TABLE_ROW =
+  'wt-r grid grid-cols-(--wt-cols) items-center gap-2.5 border-t-[.5px] border-card-line px-1.5 py-2 text-sm first:border-t-0 [.on+&]:border-t-transparent';
+/** The lit row of an accounts table: the one in use. */
+export const TABLE_ROW_ON = 'on rounded-lg border-t-transparent bg-[color-mix(in_srgb,var(--sel)_70%,transparent)]';
+
 /** A form row's name. */
 export const LABEL = 'fl pt-[3px] text-sm font-semi';
 

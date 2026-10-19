@@ -601,6 +601,8 @@ export interface CodexCustom {
   requiresOpenaiAuth: boolean | null;
   /** A plain `[model_providers.<id>]` table; other shapes are not edited. */
   plain: boolean;
+  /** `baseUrl` points at CC Switch's local proxy (port 15721). */
+  proxy: boolean;
 }
 
 /** Why a switch cannot run (`codex::config::Refusal`). */
@@ -641,8 +643,11 @@ export interface CodexRecent {
   /** Provider ids; `openai` is the ChatGPT login. */
   from: string;
   to: string;
-  result: 'switched' | 'observed' | string;
+  /** `plugins`: the plugins choice applied on the provider in use; `key`, `keyUndo`: "Dán khoá" and its undo. */
+  result: 'switched' | 'observed' | 'plugins' | 'key' | 'keyUndo' | string;
   restarted: boolean | null;
+  /** `requires_openai_auth` written on the way to the custom provider. */
+  requires?: boolean | null;
 }
 
 export interface CodexView {
@@ -659,6 +664,12 @@ export interface CodexView {
   custom: CodexCustom | null;
   /** The `requires_openai_auth` a switch to the custom provider writes. */
   wantsRequires: boolean | null;
+  /** "Dùng plugin khi chạy Custom API (giữ đăng nhập ChatGPT)": kept in the settings, on by default. */
+  plugins: boolean;
+  /** The custom provider's table takes a pasted key ("Dán khoá"). */
+  takesKey: boolean;
+  /** "Hoàn tác" after "Dán khoá", while the file is still the one it left. */
+  keyUndo: { at: string | null; token: 'placeholder' | 'empty' | 'none'; baseUrl: boolean } | null;
   refusal: CodexRefusal | null;
   backRefusal: CodexRefusal | null;
   login: CodexLogin;
@@ -699,6 +710,41 @@ export type CodexOutcome =
   | { kind: 'refused'; target: CodexTarget; refusal: CodexRefusal }
   | { kind: 'invalid'; target: CodexTarget; detail: string }
   | { kind: 'failed'; target: CodexTarget; error: CodexWriteError };
+
+/** Why a pasted key is not written (`codex::config::KeyRefusal`). */
+export type CodexKeyRefusal =
+  | { kind: 'noCustom' }
+  | { kind: 'envKey'; var: string }
+  | { kind: 'headers' }
+  | { kind: 'shape' }
+  | { kind: 'empty' }
+  | { kind: 'notAKey' }
+  | { kind: 'tooLong' }
+  | { kind: 'placeholder' }
+  | { kind: 'reference' }
+  | { kind: 'badUrl' }
+  | { kind: 'noUndo' };
+
+/** `codex::KeyPreview`: the lines "Dán khoá" changes; the new key only as `sk-…abcd`. */
+export interface CodexKeyPreview {
+  hash: string | null;
+  lines: { op: 'ctx' | 'add' | 'del' | 'gap'; text: string; secret: boolean }[];
+  refusal: CodexKeyRefusal | null;
+  detail: string | null;
+  /** A key already sits there: it is replaced and cannot be put back. */
+  replaces: boolean;
+  /** What "Hoàn tác" puts back; null: no undo. */
+  undo: 'placeholder' | 'empty' | 'none' | null;
+}
+
+/** `codex::KeyOutcome`: never the key. */
+export type CodexKeyOutcome =
+  | { kind: 'written'; provider: string; backup: string; undo: boolean }
+  | { kind: 'undone'; provider: string; backup: string }
+  | { kind: 'already' }
+  | { kind: 'refused'; refusal: CodexKeyRefusal }
+  | { kind: 'invalid'; detail: string }
+  | { kind: 'failed'; error: CodexWriteError };
 
 /** `codex::procs::Restart`. */
 export type CodexRestart = { kind: 'restarted' } | { kind: 'notRunning' } | { kind: 'noCodex' } | { kind: 'failed'; detail: string };

@@ -78,6 +78,9 @@ export type CodexAction =
   | 'codex:check'
   | 'codex:tab'
   | 'codex:guide:login'
+  | 'codex:key'
+  | 'codex:undoKey'
+  | 'codex:plugins:apply'
   | 'codex:backup';
 
 export type RulesAction =

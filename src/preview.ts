@@ -21,7 +21,7 @@
 // The app itself (M7), on `tab=settings`: `app=on|approval|unavailable|nosource|unbundled`
 // sets the login switch and the clone, and `update=uptodate|pull|install|timeout` how
 // "Cập nhật từ mã nguồn" ends (by default it installs 0.1.1). Each step takes 1.5 s.
-// Codex (M8): `codex=chatgpt|ccswitch|down|external|nologin|nokey|placeholder|header|broken|none`
+// Codex (M8): `codex=chatgpt|ccswitch|down|external|nologin|nokey|placeholder|header|envkey|noplugins|broken|none`
 // sets the six states of the design and more (Codex goes through the made-up `relay` by
 // default), and `codexoutcome=changed|refused` what a switch reports. A switch or a
 // restart takes 1.5 s; `tab=codex` opens the Codex tab.
@@ -166,12 +166,14 @@ const CODEX: Record<string, () => Model['codex']> = {
   placeholder: () =>
     codexFixture({
       current: 'chatgpt',
-      custom: { ...RELAY, name: 'custom', baseUrl: 'http://127.0.0.1:15721/v1', key: 'placeholder', requiresOpenaiAuth: null },
+      custom: { ...RELAY, name: 'custom', baseUrl: 'http://127.0.0.1:15721/v1', key: 'placeholder', requiresOpenaiAuth: null, proxy: true },
       wantsRequires: null,
       refusal: { kind: 'placeholder' },
       ccSwitch: { installed: true, running: false, data: true, traces: ['model_catalog_json = "cc-switch-model-catalog.json"', '[model_providers.custom] experimental_bearer_token = "PROXY_MANAGED"'] },
     }),
-  header: () => codexFixture({ current: 'chatgpt', custom: { ...RELAY, key: 'headers' }, wantsRequires: false }),
+  header: () => codexFixture({ current: 'chatgpt', custom: { ...RELAY, key: 'headers' }, wantsRequires: false, takesKey: false }),
+  envkey: () => codexFixture({ current: 'chatgpt', custom: { ...RELAY, key: 'envKey', envKey: 'RELAY_API_KEY' }, takesKey: false }),
+  noplugins: () => codexFixture({ plugins: false, wantsRequires: false, custom: { ...RELAY, requiresOpenaiAuth: false } }),
   broken: () => codexFixture({ config: 'invalid', reason: 'TOML parse error at line 3', refusal: { kind: 'noCustom' }, custom: null, mcp: [] }),
   none: () => codexFixture({ present: false }),
 };

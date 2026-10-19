@@ -803,3 +803,19 @@ fn inventory_files_say_why_one_stays() {
     let _unused: BTreeMap<String, String> = inv.file_bases();
     let _: Option<Inventory> = None;
 }
+
+#[test]
+fn a_key_pasted_for_codex_s_provider_never_goes_to_another_mac() {
+    use quota_station_core::codex;
+    let a = mini();
+    let key = "sk-pasted-copy-trap-0123456789";
+    let codex_home = a.home.join(".codex");
+    let h = codex::files::sha256(&std::fs::read(codex_home.join(codex::CONFIG)).unwrap());
+    let out = codex::set_key(&codex_home, &a.app, key, None, &h, at(0));
+    assert!(matches!(out, codex::KeyOutcome::Written { .. }), "{out:?}");
+    let here = here(&a);
+    assert!(!serde_json::to_string(&here.inventory()).unwrap().contains(key));
+    let sel = Selection { mcp: vec!["tracker".into(), "files".into()], ..Selection::default() };
+    let with = copy::payload(&here, &sel, Some(&a.secrets)).unwrap();
+    assert!(!serde_json::to_string(&with).unwrap().contains(key), "not even with its keys");
+}

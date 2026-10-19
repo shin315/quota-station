@@ -4,7 +4,8 @@
 //! dark look, which service the menu bar follows and which of its windows
 //! the title shows, which alerts are on,
 //! where Firstmate's state file is, the clone "Cập nhật từ mã nguồn"
-//! builds from, Codex's folder, when the agents' backup packs are made and
+//! builds from, Codex's folder and whether Codex keeps the ChatGPT login
+//! for plugins under a custom API, when the agents' backup packs are made and
 //! how the app looks for newer versions of the skills.
 
 use std::io;
@@ -58,12 +59,37 @@ pub struct Settings {
     /// Codex's folder, set by the user; `None` is `~/.codex`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub codex_home: Option<PathBuf>,
+    /// How Codex runs on the custom provider.
+    #[serde(default, skip_serializing_if = "CodexOptions::is_default")]
+    pub codex: CodexOptions,
     /// When a backup pack of the agents is made on its own (M10).
     #[serde(default, skip_serializing_if = "AutoBackup::is_default")]
     pub auto_backup: AutoBackup,
     /// Looking for newer versions of the skills (M11).
     #[serde(default, skip_serializing_if = "SkillChecks::is_default")]
     pub skill_checks: SkillChecks,
+}
+
+/// "Dùng plugin khi chạy Custom API (giữ đăng nhập ChatGPT)": on by
+/// default, as the switch did before there was a choice. Off, a switch to
+/// the custom provider writes `requires_openai_auth = false`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexOptions {
+    #[serde(default = "yes")]
+    pub plugins: bool,
+}
+
+impl Default for CodexOptions {
+    fn default() -> Self {
+        CodexOptions { plugins: true }
+    }
+}
+
+impl CodexOptions {
+    pub fn is_default(&self) -> bool {
+        *self == CodexOptions::default()
+    }
 }
 
 /// "Kiểm bản mới" (once a day, or never) and "Báo bằng thông báo macOS"
@@ -214,6 +240,9 @@ struct Stored {
     source_dir: Option<PathBuf>,
     #[serde(default)]
     codex_home: Option<PathBuf>,
+    /// An unknown value reads as plugins on.
+    #[serde(default)]
+    codex: serde_json::Value,
     /// An unknown value reads as both on.
     #[serde(default)]
     auto_backup: serde_json::Value,
@@ -259,6 +288,7 @@ impl From<Stored> for Settings {
             firstmate_file: s.firstmate_file,
             source_dir: s.source_dir,
             codex_home: s.codex_home,
+            codex: serde_json::from_value(s.codex).unwrap_or_default(),
             auto_backup: serde_json::from_value(s.auto_backup).unwrap_or_default(),
             skill_checks: serde_json::from_value(s.skill_checks).unwrap_or_default(),
         }

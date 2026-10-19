@@ -10,6 +10,11 @@
 //! text, at the places the parser found, and checked by [`apply`] before it
 //! is returned. A switch never writes `auth.json` or `[mcp_servers]`.
 //!
+//! "Dán khoá" ([`key_plan`], [`apply_key`]) is the one other edit: the
+//! custom provider's own `experimental_bearer_token`, and its `base_url` when
+//! it still points at CC Switch's local proxy, in that table only and checked
+//! the same way. The key is never kept, printed or sent back to a window.
+//!
 //! Ported in part from CC Switch (MIT, © 2025 Jason Young), commit 79e754ab,
 //! `src-tauri/src/live/project/codex.rs`: the reserved and built-in provider
 //! ids, how a table's own credentials are told apart (`declared_auth`), the
@@ -37,6 +42,19 @@ pub const CC_SWITCH_ID: &str = "custom";
 pub const PROXY_TOKEN_PLACEHOLDER: &str = "PROXY_MANAGED";
 /// The model list CC Switch writes and points `model_catalog_json` at.
 pub const CC_SWITCH_CATALOG: &str = "cc-switch-model-catalog.json";
+/// The port of CC Switch's local proxy, which its dormant table points at.
+pub const CC_SWITCH_PROXY_PORT: u16 = 15721;
+/// The key Codex reads from a custom provider's table.
+pub const BEARER_KEY: &str = "experimental_bearer_token";
+
+/// `base_url` goes to CC Switch's local proxy: without CC Switch running,
+/// Codex reaches nothing there.
+pub fn cc_switch_proxy(base_url: &str) -> bool {
+    url::Url::parse(base_url).is_ok_and(|u| {
+        matches!(u.host_str(), Some("127.0.0.1" | "localhost" | "[::1]"))
+            && u.port() == Some(CC_SWITCH_PROXY_PORT)
+    })
+}
 
 fn is_built_in(id: &str) -> bool {
     BUILT_IN_IDS.contains(&id)
@@ -60,6 +78,9 @@ pub enum KeyKind {
 }
 
 /// The `requires_openai_auth` the custom provider's table should hold.
+/// `plugins` is the owner's "Dùng plugin khi chạy Custom API": unticked, it
+/// is always `false`, so Codex leaves the ChatGPT login alone under the
+/// custom provider (and with it the plugins' apps and connectors).
 ///
 /// Codex does not take the request's credentials from it (`env_key` and
 /// `experimental_bearer_token` come first), but it decides the login
@@ -69,8 +90,8 @@ pub enum KeyKind {
 /// control). Only a provider with its own key (Bearer, EnvKey) follows the
 /// login; Headers and None are always `false`, or the request would fall
 /// back to the ChatGPT login and send it to the third party.
-pub fn requires_openai_auth(kind: KeyKind, login: bool) -> bool {
-    matches!(kind, KeyKind::EnvKey | KeyKind::Bearer) && login
+pub fn requires_openai_auth(kind: KeyKind, login: bool, plugins: bool) -> bool {
+    matches!(kind, KeyKind::EnvKey | KeyKind::Bearer) && login && plugins
 }
 
 /// `cli_auth_credentials_store`: where Codex keeps its login.
@@ -99,6 +120,8 @@ pub struct Custom {
     pub requires_openai_auth: Option<bool>,
     /// A plain `[model_providers.<id>]` table: other shapes are not edited.
     pub plain: bool,
+    /// `base_url` points at CC Switch's local proxy.
+    pub proxy: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -281,9 +304,11 @@ pub fn parse(text: &str, remembered: Option<&str>) -> Result<Parsed, String> {
         }
         let plain = matches!(doc.get("model_providers"), Some(Item::Table(_)))
             && matches!(item, Item::Table(t) if !t.is_dotted());
+        let base_url = non_empty_str(table.get("base_url"));
         Some(Custom {
             name: non_empty_str(table.get("name")).unwrap_or_else(|| id.clone()),
-            base_url: non_empty_str(table.get("base_url")),
+            proxy: base_url.as_deref().is_some_and(cc_switch_proxy),
+            base_url,
             key,
             env_key: non_empty_str(table.get("env_key")),
             requires_openai_auth: table_bool(table, "requires_openai_auth"),
@@ -375,9 +400,11 @@ pub struct Plan {
     pub requires: Option<(String, bool)>,
 }
 
-/// The edit for `target`. `login` says whether Codex has a login (see
-/// [`requires_openai_auth`]).
-pub fn plan(parsed: &Parsed, target: Target, login: bool) -> Result<Plan, Refusal> {
+/// The edit for `target`. `login` says whether Codex has a login and
+/// `plugins` what the owner chose (see [`requires_openai_auth`]). Planned
+/// while Codex is already on the custom provider, it only sets
+/// `requires_openai_auth`: how a change of `plugins` is applied at once.
+pub fn plan(parsed: &Parsed, target: Target, login: bool, plugins: bool) -> Result<Plan, Refusal> {
     let (selector, requires) = match target {
         Target::ChatGpt => (None, None),
         Target::Custom => {
@@ -390,7 +417,7 @@ pub fn plan(parsed: &Parsed, target: Target, login: bool) -> Result<Plan, Refusa
             if !custom.plain {
                 return Err(Refusal::Shape);
             }
-            let requires = requires_openai_auth(custom.key, login);
+            let requires = requires_openai_auth(custom.key, login, plugins);
             (Some(custom.id.clone()), Some((custom.id.clone(), requires)))
         }
     };
@@ -424,6 +451,28 @@ fn line_end(text: &str, at: usize) -> usize {
     text[at..].find('\n').map(|i| at + i + 1).unwrap_or(text.len())
 }
 
+/// A new last line for `table`: after its last line of its own, else after
+/// its header.
+fn insert(text: &str, table: &toml_edit::Table, line: &str) -> Result<Edit, PatchError> {
+    let last = table
+        .iter()
+        .filter_map(|(k, item)| {
+            if item.is_table() {
+                return None;
+            }
+            let (key, _) = table.get_key_value(k)?;
+            key.span()?;
+            item.span().map(|s| s.end)
+        })
+        .max();
+    let after = match last {
+        Some(end) => line_end(text, end),
+        None => line_end(text, table.span().ok_or(PatchError::Check("span"))?.end),
+    };
+    let newline = if after > 0 && !text[..after].ends_with('\n') { "\n" } else { "" };
+    Ok(Edit { at: after..after, text: format!("{newline}{line}\n") })
+}
+
 fn quoted(s: &str) -> String {
     toml_edit::Value::from(s).to_string().trim().to_string()
 }
@@ -437,6 +486,7 @@ pub fn apply(text: &str, plan: &Plan) -> Result<String, PatchError> {
 
     let current = root.get_key_value("model_provider");
     match (&plan.selector, current) {
+        (Some(id), Some((_, item))) if item.as_str() == Some(id.as_str()) => {}
         (Some(id), Some((_, item))) => {
             let span = item.span().ok_or(PatchError::Check("span"))?;
             edits.push(Edit { at: span, text: quoted(id) });
@@ -466,29 +516,7 @@ pub fn apply(text: &str, plan: &Plan) -> Result<String, PatchError> {
                     edits.push(Edit { at: span, text: want.to_string() });
                 }
             }
-            None => {
-                // After the table's last line of its own, else after its header.
-                let last = table
-                    .iter()
-                    .filter_map(|(k, item)| {
-                        if item.is_table() {
-                            return None;
-                        }
-                        let (key, _) = table.get_key_value(k)?;
-                        key.span()?;
-                        item.span().map(|s| s.end)
-                    })
-                    .max();
-                let after = match last {
-                    Some(end) => line_end(text, end),
-                    None => line_end(text, table.span().ok_or(PatchError::Check("span"))?.end),
-                };
-                let newline = if after > 0 && !text[..after].ends_with('\n') { "\n" } else { "" };
-                edits.push(Edit {
-                    at: after..after,
-                    text: format!("{newline}requires_openai_auth = {want}\n"),
-                });
-            }
+            None => edits.push(insert(text, table, &format!("requires_openai_auth = {want}"))?),
         }
     }
 
@@ -535,6 +563,273 @@ fn check(before: &str, after: &str, plan: &Plan) -> Result<(), PatchError> {
         if section(&before_doc, key) != section(&doc, key) {
             return Err(PatchError::Check("section"));
         }
+    }
+    Ok(())
+}
+
+// ===== "Dán khoá": the custom provider's own key =====
+
+/// The longest key taken: far more than any provider's.
+const KEY_MAX: usize = 4096;
+
+/// Why a key cannot be written.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
+pub enum KeyRefusal {
+    /// The file has no custom provider table.
+    NoCustom,
+    /// The table reads its key from a variable: the owner sets it, the app
+    /// writes nothing.
+    EnvKey {
+        var: String,
+    },
+    /// The table sends its own header, `auth` command or `aws`: a bearer
+    /// key beside it would change what Codex sends.
+    Headers,
+    /// The table is inline or dotted: not edited.
+    Shape,
+    Empty,
+    /// Spaces, line breaks or control characters inside: not a key.
+    NotAKey,
+    TooLong,
+    /// CC Switch's placeholder, not a key.
+    Placeholder,
+    /// `${NAME}` or `$NAME`: a variable's name, not its value.
+    Reference,
+    /// Not an `http(s)://` address, or one that carries a secret.
+    BadUrl,
+    /// Nothing the app wrote to undo, or the file changed since.
+    NoUndo,
+}
+
+/// The owner's paste, tidied: a key copied with the line it sat on
+/// (`OPENAI_API_KEY=…`, `experimental_bearer_token = "…"`), `Bearer ` or
+/// quotes around it gives the key alone.
+pub fn clean_key(text: &str) -> Result<String, KeyRefusal> {
+    use crate::agents::def;
+    let mut k = text.trim();
+    let k_line = k.strip_prefix("export ").unwrap_or(k);
+    if let Some((name, value)) = k_line.split_once('=') {
+        if def::secret_name(name.trim()) && !name.trim().contains(char::is_whitespace) {
+            k = value.trim();
+        }
+    }
+    k = k.strip_prefix("Bearer ").unwrap_or(k).trim();
+    for q in ['"', '\''] {
+        if k.len() >= 2 && k.starts_with(q) && k.ends_with(q) {
+            k = &k[1..k.len() - 1];
+        }
+    }
+    if k.is_empty() {
+        return Err(KeyRefusal::Empty);
+    }
+    if k.len() > KEY_MAX {
+        return Err(KeyRefusal::TooLong);
+    }
+    if k.chars().any(|c| c.is_whitespace() || c.is_control()) {
+        return Err(KeyRefusal::NotAKey);
+    }
+    if k == PROXY_TOKEN_PLACEHOLDER {
+        return Err(KeyRefusal::Placeholder);
+    }
+    if def::only_references(k) {
+        return Err(KeyRefusal::Reference);
+    }
+    Ok(k.to_string())
+}
+
+/// The key as the preview shows it: its first three and last four
+/// characters, or only the mask when it is too short to show any.
+pub fn hint(key: &str) -> String {
+    let chars: Vec<char> = key.chars().collect();
+    if chars.len() < 16 {
+        return crate::agents::def::MASK.to_string();
+    }
+    let head: String = chars[..3].iter().collect();
+    let tail: String = chars[chars.len() - 4..].iter().collect();
+    format!("{head}…{tail}")
+}
+
+/// An address Codex can send requests to, without a secret in it.
+pub fn clean_url(text: &str) -> Result<String, KeyRefusal> {
+    let t = text.trim();
+    let ok = url::Url::parse(t).is_ok_and(|u| {
+        matches!(u.scheme(), "http" | "https") && u.host_str().is_some_and(|h| !h.is_empty())
+    });
+    if !ok || t.chars().any(char::is_whitespace) || crate::agents::def::secret_url(t) {
+        return Err(KeyRefusal::BadUrl);
+    }
+    Ok(t.to_string())
+}
+
+/// The edit "Dán khoá" makes, or its undo: in the custom provider's table,
+/// `experimental_bearer_token` set (or removed) and `base_url` set.
+#[derive(Clone, PartialEq, Eq)]
+pub struct KeyPlan {
+    pub id: String,
+    /// The value to write; `None` removes the line.
+    pub token: Option<String>,
+    pub base_url: Option<String>,
+}
+
+/// The key is never printed, not even in a test's failure.
+impl std::fmt::Debug for KeyPlan {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("KeyPlan")
+            .field("id", &self.id)
+            .field("token", &self.token.as_ref().map(|_| crate::agents::def::MASK))
+            .field("base_url", &self.base_url)
+            .finish()
+    }
+}
+
+/// The edit that puts `key` (already through [`clean_key`]) in the custom
+/// provider's table, and `base_url` (through [`clean_url`]) when given.
+pub fn key_plan(
+    parsed: &Parsed,
+    key: String,
+    base_url: Option<String>,
+) -> Result<KeyPlan, KeyRefusal> {
+    let custom = parsed.custom.as_ref().ok_or(KeyRefusal::NoCustom)?;
+    match custom.key {
+        KeyKind::EnvKey => {
+            return Err(KeyRefusal::EnvKey { var: custom.env_key.clone().unwrap_or_default() })
+        }
+        KeyKind::Headers => return Err(KeyRefusal::Headers),
+        _ => {}
+    }
+    if !custom.plain {
+        return Err(KeyRefusal::Shape);
+    }
+    Ok(KeyPlan { id: custom.id.clone(), token: Some(key), base_url })
+}
+
+/// The table's `experimental_bearer_token` before a key write.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum OldToken {
+    Absent,
+    /// CC Switch's placeholder or an empty string, which an undo can put back.
+    NotAKey(String),
+    /// A key: the app does not keep it, so it cannot be put back.
+    Key,
+}
+
+impl OldToken {
+    /// What an undo writes back (`None` removes the line); `None` when it cannot.
+    pub fn restore(&self) -> Option<Option<String>> {
+        match self {
+            OldToken::Absent => Some(None),
+            OldToken::NotAKey(v) => Some(Some(v.clone())),
+            OldToken::Key => None,
+        }
+    }
+}
+
+/// The custom provider `id`'s `experimental_bearer_token` in `text`.
+pub fn old_token(text: &str, id: &str) -> OldToken {
+    let doc: Result<DocumentMut, _> = text.parse();
+    let value = doc.ok().and_then(|d| {
+        d.get("model_providers")
+            .and_then(|p| p.get(id))
+            .and_then(|t| t.get(BEARER_KEY))
+            .map(|i| i.as_str().map(str::to_string))
+    });
+    match value {
+        None => OldToken::Absent,
+        Some(Some(v)) if v.trim().is_empty() || v == PROXY_TOKEN_PLACEHOLDER => {
+            OldToken::NotAKey(v)
+        }
+        Some(_) => OldToken::Key,
+    }
+}
+
+/// The text with the key plan's edit made, checked like [`apply`].
+pub fn apply_key(text: &str, plan: &KeyPlan) -> Result<String, PatchError> {
+    let doc = Document::parse(text).map_err(|e| PatchError::Parse(e.message().to_string()))?;
+    let table = doc
+        .as_table()
+        .get("model_providers")
+        .and_then(Item::as_table)
+        .and_then(|p| p.get(&plan.id))
+        .and_then(Item::as_table)
+        .ok_or(PatchError::Check("table"))?;
+    let mut edits: Vec<Edit> = Vec::new();
+    let mut new_lines: Vec<String> = Vec::new();
+    for (key, want) in [(BEARER_KEY, plan.token.as_deref()), ("base_url", plan.base_url.as_deref())]
+    {
+        let set = key == BEARER_KEY || want.is_some();
+        match (table.get_key_value(key), want) {
+            (Some((_, item)), Some(v)) => {
+                if item.as_str() != Some(v) {
+                    let span = item.span().ok_or(PatchError::Check("span"))?;
+                    edits.push(Edit { at: span, text: quoted(v) });
+                }
+            }
+            (Some((k, item)), None) if set => {
+                let start = line_start(text, k.span().ok_or(PatchError::Check("span"))?.start);
+                let end = line_end(text, item.span().ok_or(PatchError::Check("span"))?.end);
+                edits.push(Edit { at: start..end, text: String::new() });
+            }
+            (None, Some(v)) => new_lines.push(format!("{key} = {}", quoted(v))),
+            _ => {}
+        }
+    }
+    if !new_lines.is_empty() {
+        edits.push(insert(text, table, &new_lines.join("\n"))?);
+    }
+    let mut out = text.to_string();
+    edits.sort_by_key(|e| std::cmp::Reverse(e.at.start));
+    for e in edits {
+        out.replace_range(e.at, &e.text);
+    }
+    check_key(text, &out, plan)?;
+    Ok(out)
+}
+
+/// The key edit changed only its own lines in its own table, and the file
+/// now holds what the plan says.
+fn check_key(before: &str, after: &str, plan: &KeyPlan) -> Result<(), PatchError> {
+    let keys: &[&str] =
+        if plan.base_url.is_some() { &[BEARER_KEY, "base_url"] } else { &[BEARER_KEY] };
+    let owned = |line: &str| {
+        let t = line.trim_start();
+        keys.iter()
+            .any(|k| t.strip_prefix(k).is_some_and(|rest| rest.trim_start().starts_with('=')))
+    };
+    let rest = |t: &str| t.split_inclusive('\n').filter(|l| !owned(l)).collect::<String>();
+    if rest(before) != rest(after) {
+        return Err(PatchError::Check("otherLines"));
+    }
+    let parse = |t: &str| t.parse::<DocumentMut>().map_err(|_| PatchError::Check("parse"));
+    let (mut b, mut a) = (parse(before)?, parse(after)?);
+    let got = |d: &DocumentMut, key: &str| {
+        d.get("model_providers")
+            .and_then(|p| p.get(&plan.id))
+            .and_then(|t| t.get(key))
+            .and_then(Item::as_str)
+            .map(str::to_string)
+    };
+    if got(&a, BEARER_KEY) != plan.token {
+        return Err(PatchError::Check("token"));
+    }
+    if plan.base_url.is_some() && got(&a, "base_url") != plan.base_url {
+        return Err(PatchError::Check("baseUrl"));
+    }
+    // Everything else, in this table and every other, reads the same.
+    for d in [&mut b, &mut a] {
+        if let Some(t) = d
+            .get_mut("model_providers")
+            .and_then(Item::as_table_like_mut)
+            .and_then(|p| p.get_mut(&plan.id))
+            .and_then(Item::as_table_like_mut)
+        {
+            for key in keys {
+                t.remove(key);
+            }
+        }
+    }
+    if b.to_string() != a.to_string() {
+        return Err(PatchError::Check("section"));
     }
     Ok(())
 }
