@@ -22,6 +22,7 @@ import type {
   Sessions,
   Tab,
   Theme,
+  Menubar,
 } from './model';
 
 export interface Api {
@@ -103,6 +104,8 @@ export interface Api {
   /** Shows or hides account names (emails, organizations) in both windows. */
   setShowNames(on: boolean): Promise<Model>;
   setTheme(theme: Theme): Promise<Model>;
+  /** The service the menu bar title follows; stays on this Mac. */
+  setMenubar(menubar: Menubar): Promise<Model>;
   /** Is Antigravity.app installed, which version, does it run; asked when the switch sheet opens. */
   agyAppState(): Promise<AgyApp>;
   /**
@@ -202,6 +205,7 @@ export const tauriApi: Api = {
   agyTabOpened: () => invoke('agy_tab_opened'),
   setShowNames: (on) => invoke<Model>('set_show_names', { on }),
   setTheme: (theme) => invoke<Model>('set_theme', { theme }),
+  setMenubar: (menubar) => invoke<Model>('set_menubar', { menubar }),
   agyAppState: () => invoke<AgyApp>('agy_app_state'),
   switchAgy: (id, how) => invoke<AgyOutcome>('switch_agy', { id, how }),
   agyDismissOverwrite: () => invoke<Model>('agy_dismiss_overwrite'),

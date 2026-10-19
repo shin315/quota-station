@@ -170,7 +170,8 @@ fn the_pool_running_dry_and_coming_back_are_two_cards() {
     let card = center.last();
     assert_eq!(card.kind, Kind::Pool);
     assert_eq!(card.title, "Hạn mức Claude trong vòng sắp cạn");
-    assert_eq!(card.body, "Còn tương đương 0,4 tài khoản. Cá nhân có lại hạn mức lúc 17:29.");
+    // The account in use and when another comes back, never a room in accounts.
+    assert_eq!(card.body, "Team A đã dùng 92%. Cá nhân có lại hạn mức lúc 17:29.");
     assert_eq!(labels(&card.actions), ["Sang Cá nhân (đã dùng 88%)", "Thôi"]);
 
     // Still dry on the next reads, and after a restart: no second card.
@@ -188,7 +189,7 @@ fn the_pool_running_dry_and_coming_back_are_two_cards() {
     run(&mut restarted, &facts(T0 + HOUR, Some(&back)), &center);
     let card = center.last();
     assert_eq!(card.title, "Claude đã có lại hạn mức");
-    assert_eq!(card.body, "Còn tương đương 1,2 tài khoản trong vòng.");
+    assert_eq!(card.body, "Team C có lại hạn mức: đã dùng 0%.");
     assert!(card.actions.is_empty());
     assert_eq!(center.titles().len(), 2);
 
@@ -591,6 +592,7 @@ fn a_test_card_shows_the_real_buttons_and_changes_nothing() {
         let alert = alerts::sample(kind, T0, offset());
         assert!(alert.test);
         assert!(alert.body.starts_with("Thử:"), "{}", alert.body);
+        assert!(!alert.body.contains("tương đương"), "{}", alert.body);
         let id = alerts::keep_test(&mut memory, alert);
         alerts::deliver(&mut memory, std::slice::from_ref(&id), &center);
     }

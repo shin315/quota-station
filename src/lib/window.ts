@@ -7,7 +7,7 @@ import { overwriteBanner } from './agySwitch';
 import { clock, minutesUntil } from './format';
 import type { Account, LineKind, Model, Section } from './model';
 import { autoView, dayClock, pauseOf, type AutoView } from './switching';
-import { agyNames, claudeNames, popoverView, type BannerView, type CardView, type ChipView, type NoteView, type PopoverView, type RoomView, type ViewOptions } from './view';
+import { agyNames, claudeNames, popoverView, type BannerView, type CardView, type ChipView, type NoteView, type NowView, type PopoverView, type ViewOptions } from './view';
 
 export interface UpcomingView {
   key: string;
@@ -28,8 +28,8 @@ export interface WindowView {
   machine: string;
   fresh: PopoverView['fresh'];
   banner: BannerView | null;
-  /** Claude's room before the switch threshold, for Tổng quan. */
-  room: RoomView | null;
+  /** Đang dùng, Tổng quan's first card: the account in use on each service. */
+  now: NowView;
   claude: {
     /** `4 tài khoản claude-swap`. */
     count: string;
@@ -220,7 +220,7 @@ export function windowView(model: Model, now: Date, options: ViewOptions = {}): 
     machine: pv.machine,
     fresh: pv.fresh,
     banner: pv.banner,
-    room: pv.claude.room,
+    now: pv.now,
     claude: {
       count: pv.claude.cards.length ? pv.claude.cards.length + ' tài khoản' + (swap ? ' claude-swap' : '') : '',
       cards: bySlot(pv.claude.cards),

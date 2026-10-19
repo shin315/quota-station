@@ -25,6 +25,9 @@
 // sets the six states of the design and more (Codex goes through the made-up `relay` by
 // default), and `codexoutcome=changed|refused` what a switch reports. A switch or a
 // restart takes 1.5 s; `tab=codex` opens the Codex tab.
+// The menu bar's service (19/10/2026): `menubar=claude|gemini|codex` on `tab=settings`,
+// and `agyhot=on` puts the Antigravity account in use at 86 % of its Claude/GPT week,
+// which Đang dùng then shows beside Gemini.
 
 import type { Api } from './lib/api';
 import type { AgyAccounts, AgyApp, AgyHow, AgyOutcome, CodexOutcome, CodexTarget, ErrorView, Model, Outcome, Tab, UpdateError, UpdateOutcome } from './lib/model';
@@ -260,7 +263,14 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
   if (codex) over.codex = codex();
   const agyApp = params.get('agyapp');
   const ends = LOGIN_ENDS.find((k) => k.toLowerCase() === params.get('login')?.toLowerCase());
+  const menubar = params.get('menubar');
+  if (menubar === 'claude' || menubar === 'gemini' || menubar === 'codex') over.menubar = menubar;
   const model = fixtureModel(SNAPSHOTS[state] ? state : 'fresh', over);
+  if (params.get('agyhot') === 'on') {
+    for (const a of model.snapshot.agy.accounts.filter((x) => x.active)) {
+      a.windows = a.windows.map((w) => (w.kind === 'claudeGptWeek' ? { ...w, percent: 14 } : w));
+    }
+  }
   const { api } = fakeApi(params.get('email') === 'off' ? hideNames(model) : model, tab, {
     switchDelayMs: 1500,
     outcome: pick(OUTCOMES, params.get('outcome')),

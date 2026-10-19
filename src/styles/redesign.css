@@ -2,7 +2,7 @@
    used, fewer words), copied from its prototype (`prototype/redesign.css`,
    rounds 1-3); the app's own additions come last. Everything sits under .qs
    and reads only tokens.css. Classes → React: AccountName = .an,
-   WindowCell = .wc, WindowRow = .wrow, RoomStrip = .room, AccountCard =
+   WindowCell = .wc, WindowRow = .wrow, NowStrip = .now, AccountCard =
    .acard2, group header = .ghd, InUse = .inuse, Toast = .toast. */
 
 /* ===== Tên tài khoản (AccountName) ===== */
@@ -21,17 +21,6 @@
 .qs .wc.none b { color: var(--ink3); font-weight: var(--fw-reg); }
 
 /* ===== Phần còn dùng được trong vòng (RoomStrip) ===== */
-.qs .room { margin: 0 10px 4px; background: var(--fill); border-radius: var(--r-tile); padding: 8px 10px 9px; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 12px; align-items: center; }
-.qs .room .v { font-size: var(--fs-num); font-weight: var(--fw-bold); letter-spacing: -.01em; font-variant-numeric: var(--num); line-height: 1.1; }
-.qs .room .v i { font-style: normal; font-size: var(--fs-sm); font-weight: var(--fw-med); color: var(--ink2); margin-left: 3px; }
-.qs .room .segs { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 3px; }
-.qs .room .seg1 { display: block; height: 6px; border-radius: 3px; background: var(--track); overflow: hidden; }
-.qs .room .seg1 i { display: block; height: 100%; background: var(--id-claude); }
-.qs .room .sub { grid-column: 1 / -1; font-size: var(--fs-s); color: var(--ink2); }
-.qs .room .names { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 3px; font-size: var(--fs-cap); color: var(--ink2); margin-top: 3px; font-variant-numeric: var(--num); }
-.qs .room .names span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.qs .room.card { margin: 0; background: var(--card); padding: 12px 14px; }
-.qs .room.card .v { font-size: var(--fs-big); }
 
 /* ===== Bảng tài khoản trong cửa sổ ===== */
 .qs .wt { display: grid; }
@@ -89,9 +78,6 @@
 .qs .grid.ov .wt .wc small { font-size: var(--fs-cap); }
 
 /* ===== Vòng 2 (19/10): phần trăm đã dùng, ba phương án popover ===== */
-.qs .room .seg1 { position: relative; }
-.qs .room .seg1 i.ok { background: var(--ok); } .qs .room .seg1 i.warn { background: var(--warn); } .qs .room .seg1 i.bad { background: var(--bad); }
-.qs .room .seg1 em { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--ink2); opacity: .7; }
 .qs .tn-warn { color: var(--warn-ink) !important; } .qs .tn-bad { color: var(--bad-ink) !important; }
 
 /* B · Mỗi tài khoản một thẻ */
@@ -118,7 +104,6 @@
 .qs .ghd .chev.open { transform: rotate(90deg); }
 .qs .ghd .gsum { margin-left: auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: var(--num); }
 .qs .ghd .gsum b { color: var(--ink); font-weight: var(--fw-semi); }
-.qs .ghd + .room { margin-top: 2px; }
 .qs .inuse { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); font-weight: var(--fw-semi); color: var(--ok-ink); white-space: nowrap; cursor: default; padding: 4px 2px; }
 
 /* ===== App additions ===== */
@@ -151,3 +136,39 @@
 @media (max-width: 1000px) {
   .qs .grid.ov { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Thanh menu và Đang dùng (19/10/2026): copied from the approved sketch's
+   menubar.css (.now, .now-r, .nowc, .nowg, .nt, .seg.mbsel, .hd.one), the
+   "Gọn hơn" level of the popover. */
+.qs .now { margin: 2px 10px 6px; background: var(--fill); border-radius: var(--r-tile); padding: 5px 10px 6px; display: grid; gap: 3px; }
+.qs .now-r { display: grid; grid-template-columns: 62px minmax(0, 1fr) 34px 52px; gap: 7px; align-items: center; font-size: var(--fs-xs); color: var(--ink2); font-variant-numeric: var(--num); min-height: 19px; }
+.qs .now-r .svc { display: inline-flex; align-items: center; gap: 5px; color: var(--ink2); }
+.qs .now-r .svc .idm { margin: 0; }
+.qs .now-r .nmw { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.qs .now-r .nm { color: var(--ink); font-weight: var(--fw-semi); font-size: var(--fs-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+/* Antigravity's Claude/GPT from 70 % used: never cut, the name gives way first. */
+.qs .now-r .xt { flex: none; font-weight: var(--fw-semi); white-space: nowrap; }
+.qs .now-r .pc { text-align: right; color: var(--ink); font-weight: var(--fw-semi); }
+.qs .now-r .pc.none { color: var(--ink3); font-weight: var(--fw-reg); }
+.qs .now-r .r { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; }
+.qs .nowc h4 { margin-bottom: 10px; }
+.qs .nowg { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 10px; }
+.qs .nt { background: var(--fill); border-radius: var(--r-tile); padding: 10px 12px; display: grid; gap: 2px; min-width: 0; font-variant-numeric: var(--num); }
+.qs .nt .svc { display: inline-flex; align-items: center; gap: 6px; color: var(--ink2); font-size: var(--fs-xs); }
+.qs .nt .svc .idm { margin: 0; }
+.qs .nt .nm { font-weight: var(--fw-semi); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 4px; }
+.qs .nt .sub { color: var(--ink2); font-size: var(--fs-cap); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qs .nt .bigp { font-size: var(--fs-big); font-weight: var(--fw-bold); line-height: 1.1; margin-top: 6px; }
+.qs .nt .bigp.none { color: var(--ink3); font-weight: var(--fw-reg); }
+.qs .nt .meter { margin: 3px 0 2px; }
+.qs .nt > small:last-child { color: var(--ink2); font-size: var(--fs-cap); }
+.qs .hd.one { padding: 10px 10px 6px 14px; }
+.qs .hd.one .tt b { display: flex; align-items: center; gap: 6px; font-size: var(--fs-body); font-weight: var(--fw-semi); min-width: 0; white-space: nowrap; }
+.qs .hd.one .tt b small { display: inline; font-weight: var(--fw-reg); overflow: hidden; text-overflow: ellipsis; }
+.qs .row.cx.one { align-items: center; }
+.qs .seg.mbsel { display: inline-flex; background: var(--fill2); border-radius: 8px; padding: 2px; gap: 2px; }
+.qs .seg.mbsel button { border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 12.5px; padding: 4px 12px; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px; }
+.qs .seg.mbsel button[aria-pressed="true"] { background: var(--card); box-shadow: 0 1px 3px rgba(0, 0, 0, .2); font-weight: 600; cursor: default; }
+.qs .seg.mbsel button[disabled] { color: var(--ink3); }
+.qs .seg.mbsel .idm { margin: 0; }
+.qs .fhint.off { color: var(--ink3); }

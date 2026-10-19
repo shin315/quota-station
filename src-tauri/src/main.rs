@@ -80,6 +80,7 @@ fn main() {
             commands::set_machine_name,
             commands::set_show_names,
             commands::set_theme,
+            commands::set_menubar,
             commands::grant_keychain,
             commands::claude_sessions,
             commands::switch_claude,

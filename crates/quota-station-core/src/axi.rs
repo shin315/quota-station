@@ -25,6 +25,9 @@ pub struct Provider {
     pub provider: String,
     #[serde(default)]
     pub account_key: Option<String>,
+    /// The credentials this row speaks for: Codex's own login is `codex-home`.
+    #[serde(default)]
+    pub account_keys: Vec<String>,
     #[serde(default)]
     pub windows: Vec<Window>,
     #[serde(default)]

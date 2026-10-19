@@ -18,6 +18,7 @@ use quota_station_core::codex::login::Login;
 use quota_station_core::codex::probe::{self, Answer};
 use quota_station_core::codex::procs::{self, Procs, Restart};
 use quota_station_core::codex::{self, log, resume, FileState, Outcome, Reading};
+use quota_station_core::icon::CodexUse;
 use quota_station_core::runner;
 use serde::Serialize;
 use tauri::{AppHandle, State};
@@ -82,6 +83,22 @@ impl Inner {
     /// The Codex folder the app reads and edits.
     pub fn codex_home(&self) -> PathBuf {
         codex::home(&self.home, self.settings.codex_home.as_deref())
+    }
+
+    /// How Codex reaches its models, for the menu bar: before the first look
+    /// at `config.toml`, a Codex folder counts as the ChatGPT login.
+    pub fn codex_use(&self) -> CodexUse {
+        let Some(reading) = &self.codex.reading else {
+            return if self.codex_home().is_dir() { CodexUse::ChatGpt } else { CodexUse::Missing };
+        };
+        if !reading.present {
+            return CodexUse::Missing;
+        }
+        match reading.parsed().map(|p| (p.current(), p.custom.as_ref())) {
+            Some((Current::Custom, Some(custom))) => CodexUse::Provider(custom.name.clone()),
+            Some((Current::Other(id), _)) => CodexUse::Provider(id),
+            _ => CodexUse::ChatGpt,
+        }
     }
 
     fn codex_backups(&self) -> PathBuf {

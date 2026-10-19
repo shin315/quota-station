@@ -4,7 +4,7 @@
 // `view.ts`. Copy follows the prototype's `tabAlerts`, `alertCard` and
 // `tabFirstmate`.
 
-import { age, clock, percent, room, secondsSince } from './format';
+import { age, clock, percent, secondsSince } from './format';
 import type { AlertKind, AlertRecord, AlertTone, FirstmateView, Model, NotifyPermission } from './model';
 import { dayClock, namesOf } from './switching';
 import type { BannerView, ChipView, FeedbackView, Tone } from './view';
@@ -194,12 +194,7 @@ export function firstmateTab(model: Model, now: Date): FirstmateTabView {
   else if (line.dry === false) head = { tone: 'ok', title: 'Firstmate thấy đủ hạn mức Claude', body: 'Không chờ hạn mức.' };
   else head = { tone: 'muted', title: 'Firstmate chưa tính được hạn mức Claude', body: 'File không ghi hạn mức đã cạn hay chưa.' };
 
-  const pool = model.snapshot.claude.pool;
   const rows: FirstmateTabView['rows'] = [
-    {
-      key: 'Hạn mức Claude trong vòng',
-      value: pool.kind === 'rotation' && pool.room != null ? 'tương đương ' + room(pool.room) + ' tài khoản (quota-axi)' : '—',
-    },
     { key: 'Chờ hạn mức Claude', ...ON_OFF(line.dry, { t: 'đang chờ', k: 'bad' }, { t: 'không', k: 'ok' }) },
     { key: 'Tài khoản đang dùng', value: line.active != null ? nameOf(line.active) : '—' },
     { key: 'Đã dùng từng tài khoản', value: slots(f, nameOf) },

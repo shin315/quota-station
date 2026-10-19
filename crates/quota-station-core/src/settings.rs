@@ -1,7 +1,7 @@
 //! The app's own settings file, `settings.json` in its Application Support
 //! folder: the quota-axi path, the name this Mac goes by, the other Macs
 //! the rotation file is copied to, whether account names show, the light or
-//! dark look, which alerts are on,
+//! dark look, which service the menu bar follows, which alerts are on,
 //! where Firstmate's state file is, the clone "Cập nhật từ mã nguồn"
 //! builds from and Codex's folder.
 
@@ -34,6 +34,10 @@ pub struct Settings {
     /// Light, dark, or as macOS is.
     #[serde(default, skip_serializing_if = "Theme::is_auto")]
     pub theme: Theme,
+    /// The service whose account and percent used the menu bar shows.
+    /// Each Mac keeps its own.
+    #[serde(default, skip_serializing_if = "Menubar::is_claude")]
+    pub menubar: Menubar,
     /// Which of the five alerts are on.
     #[serde(default, skip_serializing_if = "Switches::is_default")]
     pub alerts: Switches,
@@ -67,6 +71,23 @@ impl Theme {
     }
 }
 
+/// The service the menu bar title follows.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Menubar {
+    #[default]
+    Claude,
+    /// Antigravity's Gemini models.
+    Gemini,
+    Codex,
+}
+
+impl Menubar {
+    pub fn is_claude(&self) -> bool {
+        *self == Menubar::Claude
+    }
+}
+
 /// Another of the owner's Macs.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -96,6 +117,9 @@ struct Stored {
     /// An unknown value reads as automatic.
     #[serde(default)]
     theme: serde_json::Value,
+    /// An unknown value reads as Claude.
+    #[serde(default)]
+    menubar: serde_json::Value,
     #[serde(default)]
     alerts: Switches,
     #[serde(default)]
@@ -137,6 +161,7 @@ impl From<Stored> for Settings {
             peers,
             hide_names: s.hide_names,
             theme: serde_json::from_value(s.theme).unwrap_or_default(),
+            menubar: serde_json::from_value(s.menubar).unwrap_or_default(),
             alerts: s.alerts,
             firstmate_file: s.firstmate_file,
             source_dir: s.source_dir,

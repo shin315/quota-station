@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MainWindowApp } from '../App';
 import { fakeApi, type FakeOptions } from '../fixtures/fakeApi';
-import { agyFixture, alertsFixture, appFixture, firstmateFixture, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
+import { agyFixture, alertsFixture, appFixture, codexFixture, firstmateFixture, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
 import type { Api } from '../lib/api';
 import type { Model } from '../lib/model';
 
@@ -21,6 +21,38 @@ async function open(model: Model) {
 afterEach(cleanup);
 
 describe('settings tab', () => {
+  it('Thanh menu picks the service the menu bar title follows', async () => {
+    const fake = await open(fixtureModel('fresh'));
+    const group = screen.getByRole('group', { name: 'Thanh menu' });
+    const [claude, gemini, codex] = within(group).getAllByRole('button');
+    expect([claude, gemini, codex].map((b) => [b.textContent, b.getAttribute('aria-pressed'), (b as HTMLButtonElement).disabled])).toEqual([
+      ['Claude', 'true', false],
+      ['Gemini', 'false', false],
+      ['Codex', 'false', false],
+    ]);
+    expect(screen.getByText('Tên và phần trăm đã dùng của tài khoản đang dùng.')).toBeTruthy();
+    await act(async () => {
+      fireEvent.click(codex);
+    });
+    expect(fake.api.setMenubar).toHaveBeenCalledWith('codex');
+    expect(codex.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('a service this Mac lacks is greyed out with the reason, and the title falls back to Claude', async () => {
+    await open(fixtureModel('no-antigravity', { menubar: 'gemini', codex: codexFixture({ present: false }) }));
+    const group = screen.getByRole('group', { name: 'Thanh menu' });
+    const [, gemini, codex] = within(group).getAllByRole('button') as HTMLButtonElement[];
+    expect([gemini.disabled, codex.disabled]).toEqual([true, true]);
+    expect(gemini.title).toBe('Máy này chưa có Antigravity.');
+    expect(codex.title).toBe('Máy này chưa có Codex.');
+    expect(screen.getByText('Máy này chưa có Antigravity: thanh menu theo Claude.')).toBeTruthy();
+    cleanup();
+    // Codex on its ChatGPT login without one signed in.
+    await open(fixtureModel('no-antigravity', { codex: codexFixture({ current: 'chatgpt' }) }));
+    const [, , codex2] = within(screen.getByRole('group', { name: 'Thanh menu' })).getAllByRole('button') as HTMLButtonElement[];
+    expect([codex2.disabled, codex2.title]).toEqual([true, 'Codex chưa đăng nhập ChatGPT.']);
+  });
+
   it('shows the quota-axi in use and that Keychain access is granted', async () => {
     await open(fixtureModel('fresh'));
     expect((screen.getByLabelText(/quota-axi/) as HTMLInputElement).value).toBe('~/.local/bin/quota-axi');

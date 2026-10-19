@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use quota_station_core::alerts::{Kind, Switches};
 use quota_station_core::settings::{
-    machine_name, peers, Peer, PeersError, Settings, Theme, MACHINE_NAME_MAX, PEERS_MAX,
+    machine_name, peers, Menubar, Peer, PeersError, Settings, Theme, MACHINE_NAME_MAX, PEERS_MAX,
 };
 
 #[test]
@@ -18,6 +18,7 @@ fn settings_round_trip_and_default_when_missing() {
         peers: vec![peer("Mac B", "mac-b"), peer("Mac C", "mac-c")],
         hide_names: true,
         theme: Theme::Dark,
+        menubar: Menubar::Codex,
         alerts: Switches { leaving: false, firstmate: true, ..Switches::default() },
         firstmate_file: Some(PathBuf::from("/srv/example/quota-pool.last")),
         source_dir: Some(PathBuf::from("/srv/example/quota-station")),
@@ -31,6 +32,7 @@ fn settings_round_trip_and_default_when_missing() {
     assert!(text.contains(r#""alias": "mac-c""#));
     assert!(text.contains("\"hideNames\": true"));
     assert!(text.contains("\"theme\": \"dark\""));
+    assert!(text.contains("\"menubar\": \"codex\""));
     assert!(text.contains("\"leaving\": false"));
     assert!(text.contains("firstmateFile"));
     assert!(text.contains("sourceDir"));
@@ -51,6 +53,7 @@ fn a_settings_file_from_m1_still_loads() {
     assert_eq!(s.machine_name, None);
     assert!(!s.hide_names, "names show");
     assert_eq!(s.theme, Theme::Auto);
+    assert_eq!(s.menubar, Menubar::Claude, "the menu bar follows Claude");
     // Alerts 1 to 4 on, Firstmate's off until a Mac has Firstmate.
     assert!([Kind::Pool, Kind::Leaving, Kind::Login, Kind::Overwrite]
         .iter()
@@ -73,6 +76,27 @@ fn names_show_by_default_even_where_emails_were_turned_on_or_left_off() {
         assert!(!s.hide_names, "{text}");
         assert_eq!(s.theme, Theme::Auto, "{text}");
     }
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn the_menu_bar_follows_claude_unless_told_and_an_unknown_value_reads_as_claude() {
+    let dir = std::env::temp_dir().join(format!("qs-settings-menubar-{}", std::process::id()));
+    let file = dir.join("settings.json");
+    std::fs::create_dir_all(&dir).unwrap();
+    for (text, want) in [
+        ("{}", Menubar::Claude),
+        (r#"{ "menubar": "gemini" }"#, Menubar::Gemini),
+        (r#"{ "menubar": "codex" }"#, Menubar::Codex),
+        (r#"{ "menubar": "cursor" }"#, Menubar::Claude),
+        (r#"{ "menubar": 3 }"#, Menubar::Claude),
+    ] {
+        std::fs::write(&file, text).unwrap();
+        assert_eq!(Settings::load(&file).menubar, want, "{text}");
+    }
+    // The default is not written: a file from before keeps its shape.
+    Settings::default().save(&file).unwrap();
+    assert!(!std::fs::read_to_string(&file).unwrap().contains("menubar"));
     let _ = std::fs::remove_dir_all(&dir);
 }
 

@@ -14,19 +14,29 @@ use quota_station_core::Snapshot;
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
-/// (UI fixture, claude report, agy report)
-const SCENARIOS: &[(&str, &str, &str)] = &[
-    ("fresh", "claude-pool-schema5.json", "agy-quota-station.json"),
-    ("cockpit", "claude-pool-schema5.json", "agy-cockpit.json"),
-    ("no-cockpit", "claude-pool-schema5.json", "agy-no-cockpit.json"),
-    ("keychain", "claude-keychain-required.json", "agy-no-cockpit.json"),
-    ("stale", "claude-stale.json", "agy-cockpit.json"),
-    ("reset-pending", "claude-reset-pending.json", "agy-cockpit.json"),
-    ("exhausted", "claude-exhausted.json", "agy-cockpit.json"),
-    ("no-rotation", "claude-no-rotation.json", "agy-no-cockpit.json"),
-    ("unavailable", "claude-unavailable.json", "agy-cockpit-unavailable.json"),
-    ("no-antigravity", "claude-pool-schema5.json", "agy-not-set-up.json"),
-    ("agy-pool", "claude-pool-schema5.json", "agy-pool.json"),
+/// (UI fixture, claude report, agy report, codex report)
+const SCENARIOS: &[(&str, &str, &str, Option<&str>)] = &[
+    ("fresh", "claude-pool-schema5.json", "agy-quota-station.json", Some("codex-chatgpt.json")),
+    ("cockpit", "claude-pool-schema5.json", "agy-cockpit.json", Some("codex-chatgpt.json")),
+    ("no-cockpit", "claude-pool-schema5.json", "agy-no-cockpit.json", None),
+    ("keychain", "claude-keychain-required.json", "agy-no-cockpit.json", None),
+    ("stale", "claude-stale.json", "agy-cockpit.json", None),
+    ("reset-pending", "claude-reset-pending.json", "agy-cockpit.json", None),
+    ("exhausted", "claude-exhausted.json", "agy-cockpit.json", None),
+    ("no-rotation", "claude-no-rotation.json", "agy-no-cockpit.json", None),
+    (
+        "unavailable",
+        "claude-unavailable.json",
+        "agy-cockpit-unavailable.json",
+        Some("codex-unavailable.json"),
+    ),
+    (
+        "no-antigravity",
+        "claude-pool-schema5.json",
+        "agy-not-set-up.json",
+        Some("codex-not-set-up.json"),
+    ),
+    ("agy-pool", "claude-pool-schema5.json", "agy-pool.json", None),
 ];
 
 fn ui_dir() -> PathBuf {
@@ -62,8 +72,10 @@ fn add_detail(snapshot: &mut Snapshot) {
 fn ui_fixtures_match_the_snapshots_rust_builds() {
     let update = std::env::var_os("UPDATE_UI_FIXTURES").is_some();
     let mut stale = Vec::new();
-    for (name, claude, agy) in SCENARIOS {
-        let mut snapshot = Snapshot::build(Some(&fixture(claude)), Some(&fixture(agy)));
+    for (name, claude, agy, codex) in SCENARIOS {
+        let codex = codex.map(fixture);
+        let mut snapshot =
+            Snapshot::build(Some(&fixture(claude)), Some(&fixture(agy))).with_codex(codex.as_ref());
         if *name == "fresh" {
             add_detail(&mut snapshot);
         }

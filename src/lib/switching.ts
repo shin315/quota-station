@@ -312,6 +312,12 @@ export interface AutoView {
   title: string;
   /** The why line: the pause, else the switcher's decision with its time. */
   line: string;
+  /**
+   * The popover's why line: the same, only when there is something to act
+   * on (a pause or hold, waiting for quota, a switch coming, the switcher
+   * missing or failing); null while Claude simply stays on its account.
+   */
+  popLine: string | null;
   /** The decision alone, for the overview's "Vì sao" card. */
   why: string;
   /** The switcher's last log line in words. */
@@ -337,10 +343,13 @@ export function autoView(model: Model, now: Date): AutoView {
   else if (sw.dryRunError) why = 'Chưa đọc được quyết định của switcher (' + dryRunReason(sw.dryRunError) + ').';
   else why = 'Đang hỏi switcher…';
   const off = !sw.installed || sw.service === false;
+  const line = paused ? pausedLine(paused, now) : at && sw.dryRun && !off ? at + ' · ' + why : why;
+  const usual = !paused && !off && (sw.dryRun ? sw.dryRun.decision.kind === 'stay' : !sw.dryRunError);
   return {
     paused,
     title: paused ? 'Tự chuyển đang tạm dừng' : 'Tự chuyển Claude',
-    line: paused ? pausedLine(paused, now) : at && sw.dryRun && !off ? at + ' · ' + why : why,
+    line,
+    popLine: usual ? null : line,
     why: paused ? pausedLine(paused, now) + '.' : why,
     log: sw.lastLog ? logText(sw.lastLog, nameOf, now) : null,
     raw: sw.dryRun?.raw ?? null,

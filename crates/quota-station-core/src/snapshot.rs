@@ -1,5 +1,6 @@
 //! The snapshot the tray and the popover draw: every Claude and Antigravity
-//! account on this Mac, the whole-rotation numbers, and how fresh they are.
+//! account on this Mac, Codex's ChatGPT account, the whole-rotation numbers,
+//! and how fresh they are.
 //!
 //! Built only from quota-axi's report. Numbers are never guessed: a window
 //! past its reset stays empty (`pending`) until the owner measures again.
@@ -240,6 +241,9 @@ pub enum Keychain {
 pub struct Snapshot {
     pub claude: Section,
     pub agy: Section,
+    /// Codex's own ChatGPT login: one account, its five-hour and weekly
+    /// windows. Unread until [`Snapshot::with_codex`] adds a report.
+    pub codex: Section,
     pub keychain: Keychain,
 }
 
@@ -264,8 +268,18 @@ impl Snapshot {
                 || Section::empty(SectionStatus::Unread),
                 |report| stamp(agy_section(report), report),
             ),
+            codex: Section::empty(SectionStatus::Unread),
             keychain,
         }
+    }
+
+    /// Adds the last `--provider codex` report, when there is one.
+    pub fn with_codex(mut self, report: Option<&Response>) -> Self {
+        if let Some(report) = report {
+            self.codex = codex_section(report);
+            self.codex.generated_at = Some(report.generated_at.clone());
+        }
+        self
     }
 }
 
@@ -650,6 +664,62 @@ fn live_agy_account(row: &Provider, generated_at: &str) -> Option<Account> {
         org: None,
         lines,
     })
+}
+
+/// Codex's own login (`codex-home`) when quota-axi reads several: the one
+/// Codex itself signs in with. Its five-hour and weekly windows.
+fn codex_section(report: &Response) -> Section {
+    let mut rows = report.providers.iter().filter(|p| p.provider == "codex");
+    let first = rows.clone().next();
+    let Some(row) = rows.find(|p| p.account_keys.iter().any(|k| k == "codex-home")).or(first)
+    else {
+        return Section::empty(SectionStatus::NotSetUp);
+    };
+    if row.not_set_up {
+        return Section::empty(SectionStatus::NotSetUp);
+    }
+    let lines: Vec<Line> = [("five_hour", LineKind::Session), ("weekly", LineKind::Week)]
+        .into_iter()
+        .filter_map(|(id, kind)| {
+            let w = row.windows.iter().find(|w| w.id == id && w.percent_remaining.is_some())?;
+            Some(Line {
+                kind,
+                percent: w.percent_remaining,
+                resets_at: w.resets_at.clone(),
+                pending: false,
+                at_least: false,
+            })
+        })
+        .collect();
+    let mut section = if lines.is_empty() {
+        let mut s = Section::empty(SectionStatus::Unavailable);
+        s.reason = row.state.error.clone().or_else(|| row.state.reason.clone());
+        s
+    } else {
+        let mut s = Section::empty(SectionStatus::Ok);
+        s.accounts.push(Account {
+            number: 0,
+            role: Role::Unknown,
+            active: true,
+            disabled: false,
+            reading: reading(&row.state.status),
+            fetched_at: row
+                .state
+                .refreshed_at
+                .clone()
+                .or_else(|| Some(report.generated_at.clone())),
+            source: Source::Live,
+            membership: Membership::Unknown,
+            leaves_at: None,
+            windows: lines.clone(),
+            email: None,
+            org: None,
+            lines,
+        });
+        s
+    };
+    finish(&mut section, parse_ts(&report.generated_at));
+    section
 }
 
 fn rotation_pool(scope: Option<&axi::ClaudePoolScope>, members: usize) -> Pool {

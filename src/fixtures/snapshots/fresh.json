@@ -376,5 +376,72 @@
     "personalHours": null,
     "source": "quota-station"
   },
+  "codex": {
+    "status": "ok",
+    "reason": null,
+    "accounts": [
+      {
+        "number": 0,
+        "role": "unknown",
+        "active": true,
+        "disabled": false,
+        "reading": "fresh",
+        "fetchedAt": "2026-01-16T07:19:00.000Z",
+        "source": "live",
+        "membership": "unknown",
+        "leavesAt": null,
+        "lines": [
+          {
+            "kind": "session",
+            "percent": 77.0,
+            "resetsAt": "2026-01-16T09:30:00.000Z",
+            "pending": false,
+            "atLeast": false
+          },
+          {
+            "kind": "week",
+            "percent": 59.0,
+            "resetsAt": "2026-01-20T13:00:00.000Z",
+            "pending": false,
+            "atLeast": false
+          }
+        ],
+        "windows": [
+          {
+            "kind": "session",
+            "percent": 77.0,
+            "resetsAt": "2026-01-16T09:30:00.000Z",
+            "pending": false,
+            "atLeast": false
+          },
+          {
+            "kind": "week",
+            "percent": 59.0,
+            "resetsAt": "2026-01-20T13:00:00.000Z",
+            "pending": false,
+            "atLeast": false
+          }
+        ]
+      }
+    ],
+    "pool": {
+      "kind": "none",
+      "room": null,
+      "percent": null,
+      "line": null,
+      "scope": null,
+      "members": 0,
+      "rooms": [],
+      "nextRefillAt": null,
+      "refills": [],
+      "exhausted": false,
+      "reason": null
+    },
+    "generatedAt": "2026-01-16T07:20:00.000Z",
+    "newestReadingAt": "2026-01-16T07:19:00.000Z",
+    "stale": false,
+    "personalHours": null,
+    "source": null
+  },
   "keychain": "granted"
 }

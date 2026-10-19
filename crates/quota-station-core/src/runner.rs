@@ -37,6 +37,7 @@ pub const REUSE_WITHIN: Duration = Duration::from_secs(55 * 60);
 pub enum ProviderId {
     Claude,
     Agy,
+    Codex,
 }
 
 impl ProviderId {
@@ -44,6 +45,7 @@ impl ProviderId {
         match self {
             ProviderId::Claude => "claude",
             ProviderId::Agy => "agy",
+            ProviderId::Codex => "codex",
         }
     }
 }

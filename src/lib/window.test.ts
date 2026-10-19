@@ -13,7 +13,8 @@ describe('main window view', () => {
     expect(w.machine).toBe('Mac mini');
     expect(w.fresh).toEqual(p.fresh);
     expect(w.banner).toEqual(p.banner);
-    expect(w.room).toEqual(p.claude.room);
+    // Đang dùng on Tổng quan is the popover's, with the same numbers.
+    expect(w.now).toEqual(p.now);
     expect(w.claude.cards.map((c) => c.slot)).toEqual([1, 2, 3, 4]);
     expect([...w.claude.cards].sort((x, y) => x.key.localeCompare(y.key))).toEqual([...p.claude.cards].sort((x, y) => x.key.localeCompare(y.key)));
     expect(w.agy.cards.map((c) => c.name)).toEqual(['lanpham.ultra', 'lan.ultra2']);

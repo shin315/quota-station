@@ -9,7 +9,7 @@
 
 import { Fragment, type ReactNode } from 'react';
 import { AddAccount, LoginActions, LoginNotes, LogoutConfirm, loginChips, type AgyLogins } from '../antigravity/AgyAccounts';
-import { AccountName, InUse, RoomStrip, WindowCell } from '../components/accounts';
+import { AccountName, InUse, NowCard, WindowCell } from '../components/accounts';
 import { Banner, Button, Chip, Dot, Feedback, Toggle } from '../components/parts';
 import { SHEET_TITLE_ID, useDialog } from '../components/Sheets';
 import type { Tab } from '../lib/model';
@@ -291,7 +291,7 @@ function Overview(props: TabProps) {
       <Top {...props} title="Tổng quan" />
       <div className="grid ov">
         <div className="stack">
-          {v.room ? <RoomStrip room={v.room} big /> : null}
+          <NowCard now={v.now} />
           <Card title="Claude" kind="c">
             <ClaudeTable cards={v.claude.cards} onSwitch={props.onSwitch} />
             <Note note={v.claude.note} />
