@@ -2,7 +2,7 @@
 // for quota-axi, this Mac's name, the other Macs the rotation file is
 // copied to (an SSH alias each), the Antigravity OAuth client file,
 // whether account names show, the light or dark look, Firstmate's state
-// file, the macOS notifications with the five kinds of alert (M6), and the
+// file, Codex's folder (M8), the macOS notifications with the five kinds of alert (M6), and the
 // app itself (M7): launching at login, the clone it updates from, its
 // version and "Cập nhật từ mã nguồn". Rows speak for themselves: no line of
 // explanation under them. Each Mac runs its own copy and switches only itself.
@@ -40,6 +40,8 @@ export interface SettingsProps {
   onTheme(theme: Theme): void;
   /** Resolves to null once saved, else the refusal (`notPoolFile`, `notFound`). */
   onSetFirstmate(path: string): Promise<string | null>;
+  /** Codex's folder; empty is `~/.codex`. Resolves to what it was refused with, or null. */
+  onSetCodexHome?(path: string): Promise<string | null>;
   onTestAlert(kind: AlertKind): void;
   onAlertSwitch(kind: AlertKind, on: boolean): void;
   /** Resolves to null once changed, else the refusal (`unavailable`, or macOS's message). */
@@ -304,6 +306,49 @@ function FirstmateFile({ model, onSet }: { model: Model; onSet: SettingsProps['o
   );
 }
 
+/** Codex's folder (M8): `~/.codex` unless set; the switch edits `config.toml` there. */
+function CodexHome({ model, onSet }: { model: Model; onSet: NonNullable<SettingsProps['onSetCodexHome']> }) {
+  const shown = model.codex.customHome ? model.codex.home : '';
+  const [path, setPath] = useField(shown);
+  const [refused, setRefused] = useState<string | null>(null);
+  const commit = async () => {
+    if (path.trim() === shown) return setRefused(null);
+    setRefused(await onSet(path.trim()));
+  };
+  const bad = refused != null;
+  const hint = bad
+    ? refused === 'notFound'
+      ? 'Không có thư mục ở đường dẫn này.'
+      : 'Chưa lưu được: ' + refused
+    : !model.codex.present
+      ? 'Không thấy thư mục Codex ở ' + model.codex.home + '.'
+      : 'Đọc được ✓ · app chỉ sửa config.toml ở đây khi bạn chuyển Codex.';
+  return (
+    <div className="fr">
+      <label htmlFor="qs-codex">Thư mục Codex</label>
+      <div>
+        <input
+          id="qs-codex"
+          className={'inp mono' + (bad ? ' bad' : '')}
+          value={path}
+          placeholder="~/.codex"
+          spellCheck={false}
+          autoComplete="off"
+          onChange={(e) => {
+            setPath(e.target.value);
+            setRefused(null);
+          }}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void commit();
+          }}
+        />
+        <div className={('fhint ' + (bad ? 'bad' : model.codex.present ? 'ok' : '')).trim()}>{hint}</div>
+      </div>
+    </div>
+  );
+}
+
 function Notifications(props: { model: Model; onAction: SettingsProps['onAction']; onTest: SettingsProps['onTestAlert']; onSwitch: SettingsProps['onAlertSwitch'] }) {
   const a = props.model.alerts;
   return (
@@ -494,6 +539,7 @@ export function Settings({
   onShowNames,
   onTheme,
   onSetFirstmate,
+  onSetCodexHome,
   onTestAlert,
   onAlertSwitch,
   onLaunchAtLogin,
@@ -610,6 +656,7 @@ export function Settings({
             </div>
           </div>
           <FirstmateFile model={model} onSet={onSetFirstmate} />
+          {onSetCodexHome ? <CodexHome model={model} onSet={onSetCodexHome} /> : null}
           <Notifications model={model} onAction={onAction} onTest={onTestAlert} onSwitch={onAlertSwitch} />
           <LaunchAtLogin app={model.app} onSet={onLaunchAtLogin} onOpen={onOpenLoginItems} />
           <SourceDir app={model.app} onSet={onSetSource} />

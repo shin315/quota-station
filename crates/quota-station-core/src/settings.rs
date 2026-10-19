@@ -2,8 +2,8 @@
 //! folder: the quota-axi path, the name this Mac goes by, the other Macs
 //! the rotation file is copied to, whether account names show, the light or
 //! dark look, which alerts are on,
-//! where Firstmate's state file is and the clone "Cập nhật từ mã nguồn"
-//! builds from.
+//! where Firstmate's state file is, the clone "Cập nhật từ mã nguồn"
+//! builds from and Codex's folder.
 
 use std::io;
 use std::path::{Path, PathBuf};
@@ -45,6 +45,9 @@ pub struct Settings {
     /// a Mac that installs a copy built elsewhere.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_dir: Option<PathBuf>,
+    /// Codex's folder, set by the user; `None` is `~/.codex`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub codex_home: Option<PathBuf>,
 }
 
 /// How the windows look.
@@ -99,6 +102,8 @@ struct Stored {
     firstmate_file: Option<PathBuf>,
     #[serde(default)]
     source_dir: Option<PathBuf>,
+    #[serde(default)]
+    codex_home: Option<PathBuf>,
 }
 
 impl From<Stored> for Settings {
@@ -135,6 +140,7 @@ impl From<Stored> for Settings {
             alerts: s.alerts,
             firstmate_file: s.firstmate_file,
             source_dir: s.source_dir,
+            codex_home: s.codex_home,
         }
     }
 }

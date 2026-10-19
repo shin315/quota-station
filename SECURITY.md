@@ -137,6 +137,40 @@ stops the same way if it runs again by then.
   › General › Login Items, where the owner can turn it off as well. Nothing
   registers it on install or at start.
 
+## Switching Codex (M8)
+
+- The app writes one file of Codex's, `config.toml` in the Codex folder
+  (`~/.codex` unless set otherwise), and only when the owner confirms a
+  switch. In it only `model_provider` and the custom provider table's
+  `requires_openai_auth` change; the edit is checked before it is written,
+  and any other change refuses the write.
+- It never writes `auth.json`. It reads the file into memory only to tell
+  which kind of login it holds (the names of its fields, never their
+  values), zeroes the bytes and keeps nothing. A login kept in the Keychain
+  (`cli_auth_credentials_store = "keyring"` or `"auto"`) is not looked at.
+- It never writes `[mcp_servers]` and never rebuilds the MCP list. The MCP
+  export writes names, kinds and on/off only: no command, address, header or
+  environment variable.
+- The custom provider's key can sit in `config.toml`. The app reads it only
+  to tell how it is given (an environment variable name, a bearer token, a
+  header) and that one is there; it never shows, logs or sends the key. The
+  backups in `backups/codex/` are copies of `config.toml` and so can hold
+  the key: they are mode 600 in a folder of mode 700, and only the newest 10
+  stay. `codex/state.json` and `codex/switch-log.jsonl` hold hashes,
+  provider ids and times, no key.
+- The reachability check sends `GET <base_url>/models` with no key, no
+  login and no cookie. The address is the one in the provider's table.
+- It reads the process table with `ps` (command lines, which can name
+  folders) and keeps only counts and yes/no answers. It runs
+  `codex --version` and, only after the owner confirms,
+  `codex app-server daemon restart`; it never kills a Codex process.
+- It never runs or opens CC Switch or reads its data: it only checks whether
+  `/Applications/CC Switch.app` and `~/.cc-switch` exist.
+- The Codex tests use a temporary Codex folder filled from fixtures with
+  fake keys and fake logins, a fake `codex` that records its arguments and
+  a local server for the reachability check, which asserts it got no
+  `Authorization` header. No test reads the real Codex folder.
+
 ## How the tests hold the app to this
 
 - Every file the Antigravity code opens goes through one guard

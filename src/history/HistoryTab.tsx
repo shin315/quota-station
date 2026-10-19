@@ -22,7 +22,7 @@ export function HistoryTab({ model, fresh, now, load }: HistoryTabProps) {
   const [entries, setEntries] = useState<HistoryEntry[] | 'failed' | null>(null);
   // A new read or a switch may have added a line.
   const reads = model.reads;
-  const switching = model.claudeSwitch.busy != null || model.agySwitch.busy != null;
+  const switching = model.claudeSwitch.busy != null || model.agySwitch.busy != null || model.codex.busy != null;
   const loaded = entries !== null;
   useEffect(() => {
     // Read once on opening; after that, not while a switch is half done.
@@ -66,7 +66,7 @@ export function HistoryTab({ model, fresh, now, load }: HistoryTabProps) {
           </div>
         ) : !days.length ? (
           <div className="empty">
-            <b>Chưa có lần chuyển {filter === 'claude' ? 'Claude' : 'Antigravity'} nào</b>Chọn Tất cả để xem các lần chuyển khác.
+            <b>Chưa có lần chuyển {HISTORY_FILTERS.find((f) => f.v === filter)?.t} nào</b>Chọn Tất cả để xem các lần chuyển khác.
           </div>
         ) : (
           <>

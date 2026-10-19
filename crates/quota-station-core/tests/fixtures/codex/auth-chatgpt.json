@@ -1,0 +1,10 @@
+{
+  "OPENAI_API_KEY": null,
+  "tokens": {
+    "id_token": "test-id-token-not-real",
+    "access_token": "test-access-token-not-real",
+    "refresh_token": "test-refresh-token-not-real",
+    "account_id": "test-account"
+  },
+  "last_refresh": "2026-10-18T07:00:00Z"
+}

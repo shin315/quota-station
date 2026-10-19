@@ -40,6 +40,7 @@ describe('the Lịch sử tab', () => {
     expect(fake.api.getHistory).toHaveBeenCalled();
     expect(rows('Hôm nay')).toEqual([
       '14:12 | Chuyển | lan.acme2→lan.acme1Bạn chuyển tay · giữ đến 15:20 | app',
+      '13:50 | Codex | ChatGPT→relayBạn chuyển trong app · giữ đăng nhập ChatGPT · đã khởi động lại tiến trình nền | app',
       '13:40 | Cảnh báo | lan.ultra2→lanpham.ultraAntigravity.app đổi về tài khoản cũ (lần 1/2) | quan sát',
       '13:20 | Antigravity | lanpham.ultra→lan.ultra2Bạn chuyển trong app · thoát app rồi chuyển | app',
       '09:12 | Chuyển | lan.acme25 giờ đã dùng 4% · đặt lại 15:00 | switcher',
@@ -49,7 +50,7 @@ describe('the Lịch sử tab', () => {
     // No line of explanation, no exit code; the switcher's own line is on hover only.
     expect(screen.queryByText(/^Lịch sử của/)).toBeNull();
     expect(screen.queryByText(/exit 0/)).toBeNull();
-    const primed = screen.getByRole('region', { name: 'Hôm nay' }).querySelectorAll('.hrow')[4];
+    const primed = screen.getByRole('region', { name: 'Hôm nay' }).querySelectorAll('.hrow')[5];
     expect(primed.getAttribute('title')).toMatch(/exit 0/);
     expect(primed.className).toBe('hrow r3');
   });
@@ -58,7 +59,7 @@ describe('the Lịch sử tab', () => {
     await open(ENTRIES, false);
     await screen.findByText('Hôm nay');
     expect(rows('Hôm nay')[0]).toBe('14:12 | Chuyển | Team B→Team ABạn chuyển tay · giữ đến 15:20 | app');
-    expect(rows('Hôm nay')[1]).toMatch(/^13:40 \| Cảnh báo \| Ultra 2→Ultra 1/);
+    expect(rows('Hôm nay')[2]).toMatch(/^13:40 \| Cảnh báo \| Ultra 2→Ultra 1/);
     expect(document.body.textContent).not.toMatch(/@|lan\.|Acme/);
   });
 
@@ -73,6 +74,10 @@ describe('the Lịch sử tab', () => {
     fireEvent.click(within(filter).getByRole('button', { name: 'Claude' }));
     expect(rows('Hôm nay')).toHaveLength(3);
     expect(rows('Hôm qua')).toHaveLength(1);
+    fireEvent.click(within(filter).getByRole('button', { name: 'Codex' }));
+    expect(rows('Hôm nay')).toEqual([
+      '13:50 | Codex | ChatGPT→relayBạn chuyển trong app · giữ đăng nhập ChatGPT · đã khởi động lại tiến trình nền | app',
+    ]);
   });
 
   it('says when there is nothing yet, and when only the filter leaves nothing', async () => {

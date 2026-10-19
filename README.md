@@ -24,17 +24,19 @@ The popover and window images date from M2, before the switch buttons.
 
 ## What it does
 
-This is milestone M7, "Chuyển đổi" (installing, updating and launching at
-login), on top of M6, "Lịch sử, cảnh báo và Firstmate", M5 "Luật
+This is milestone M8, "Chuyển Codex" (switching Codex between the ChatGPT
+login and a custom API provider), on top of M7, "Chuyển đổi" (installing,
+updating and launching at login), M6, "Lịch sử, cảnh báo và Firstmate", M5 "Luật
 xoay vòng", M3 "Chuyển Claude và tạm dừng", M2 "Cửa sổ chính chỉ đọc" and M1
 "Khung và số", with M4a, "Đăng nhập Antigravity trong app", M4b, "App tự đọc
 hạn mức Antigravity", and M4c, "Chuyển Antigravity không cần Cockpit", the
-steps of taking over what Cockpit Tools does. The app reads, and acts in five
+steps of taking over what Cockpit Tools does. The app reads, and acts in six
 ways, each started by the owner:
 it switches the active Claude account through claude-swap, it pauses the
 automatic switcher, it edits the switcher's rotation rules and copies them to
 the owner's other Macs, it logs Antigravity accounts in and out on this Mac,
-and it switches the Antigravity account that Antigravity.app and agy use. Four
+it switches the Antigravity account that Antigravity.app and agy use, and it
+switches the provider Codex uses (below). Four
 things it does on its own: it finishes that rotation copy (a Mac that could
 not take the saved rules is tried again in the background), it reads the
 quota of the Antigravity accounts logged in here, at Cockpit's pace or slower,
@@ -140,8 +142,10 @@ the confirmation sheet first.
     [Update](#update)). A settings file from before M5 with a single
     `sshAlias` moves into the list of other Macs.
 
-  The sidebar also lists `Codex`, greyed out: it comes in a later milestone.
-  `Cảnh báo` carries the number of cards nobody has answered yet. Under the
+  - `Codex` (M8, below).
+
+  `Tổng quan` also has a small Codex card: the provider in use, whether the
+  ChatGPT login is kept, and a button that opens the same sheet. `Cảnh báo` carries the number of cards nobody has answered yet. Under the
   machine name it says whether the other Macs have the rules.
 - **Rotation rules** (F06). The editor shows the rotation file's six keys:
   the Team accounts in the rotation (chips; the number is the order), the
@@ -250,6 +254,54 @@ the confirmation sheet first.
   whether Firstmate could read claude-swap, and when the file was written.
   A file older than 30 minutes says Firstmate may not be running, and a Mac
   without the file says so. Only the keys Firstmate writes are read.
+- **Switching Codex** (M8). Codex can go through the official ChatGPT login
+  or through a custom API provider that its `config.toml` already describes
+  (a `[model_providers.<id>]` table with its own key). The app switches
+  between the two and keeps the ChatGPT login in place, so Codex App's
+  plugins and remote control keep working while Codex goes through the
+  custom provider. The popover has a `CODEX` row: the provider in use, its
+  state as chips (the custom provider not answering, CC Switch also
+  managing Codex, a change made outside the app, no ChatGPT login) and the
+  way it would switch (`→ ChatGPT`). Pressing the row never switches: it
+  opens a sheet with five facts (what changes, the sessions already running,
+  the background process, the ChatGPT login, the one file written and its
+  backup), plus any risk of the moment, and a `Khởi động lại tiến trình nền
+  Codex sau khi chuyển` box, off by default. Ticking it restarts Codex's shared
+  background process after the switch, with its own sheet first. A switch
+  the app cannot make safely is refused with the reason under the row: no
+  custom provider table, a table without a key of its own (the ChatGPT login
+  would be sent to the provider), the placeholder key CC Switch leaves in a
+  table it does not use, a profile that picks its own provider, or a table
+  written inline. The custom provider's name, address and key always come
+  from the file; nothing is built in.
+
+  The `Codex` tab shows the provider (both sides, the address, how the key
+  is given, and `requires_openai_auth`), Codex on this Mac (terminal
+  sessions, Codex App, the background process, the version), the sessions
+  that can be resumed by provider, the recent switches, the MCP list (read
+  only, with an export of names, kinds and on/off), the file the app writes
+  with its backups, and a step-by-step guide to stop using CC Switch. While
+  CC Switch still runs and manages Codex, a banner says to switch Codex in
+  one place only: CC Switch's next switch overwrites the provider choice.
+  A change made to `config.toml` outside the app shows as a banner with
+  `Xem thay đổi` and `Đã hiểu`; the app never writes it back. Every switch,
+  and every change seen from outside, goes to `Lịch sử` under `Codex`.
+
+  How the file is written: only `model_provider` (set to the custom
+  provider's id, or removed for the ChatGPT login) and, in the custom
+  provider's table, `requires_openai_auth` change. That key is on when the
+  table's key comes from an environment variable or a bearer token and a
+  ChatGPT login exists, and off for a key sent in its own header, as CC
+  Switch decides it. Every other byte stays, comments included; `auth.json`
+  and `[mcp_servers]` are never written. Before writing, the app checks the
+  file is still the one the sheet was built from (a SHA-256), keeps a
+  backup, writes a temporary file and renames it, and reads the result. The
+  Codex folder is `~/.codex` unless `Cài đặt › Thư mục Codex` says
+  otherwise.
+
+  <img src="docs/codex-row.png" width="300" alt="The popover's Codex row on fixture data: the custom provider in use, a CC Switch chip and the way back to ChatGPT"> <img src="docs/codex-sheet.png" width="300" alt="The Codex confirmation sheet: the facts of the switch and the restart box, off">
+
+  <img src="docs/codex-tab.png" width="760" alt="The Codex tab on fixture data: the provider, Codex on this Mac, the resumable sessions, the recent switches, the MCP list, the CC Switch guide and the file the app writes">
 
 - **Antigravity logins** (M4a). `Thêm tài khoản` opens Google's consent
   screen in the default browser, with Antigravity's own OAuth client, so the
@@ -383,6 +435,21 @@ assumes another Mac has any. Each Mac installs and updates its own copy
   built from that commit, `/bin/bash <clone>/scripts/install.sh --dest
   <the folder this app is in> --no-open`. `Mở lại` quits the app and has
   `/bin/sh` wait for it to end before `open` starts the new copy.
+- Codex (M8), while the popover or the main window is open every 60
+  seconds, every 5 minutes while both are hidden, and when the `Codex` tab
+  opens: `config.toml` in the Codex folder; the shape of `auth.json` (which
+  kind of login it holds; no value is kept, and the file is never written);
+  `ps -ww -Ao tty=,command=` for terminal sessions, Codex App, the
+  background process and CC Switch; `codex --version`; the first line of
+  each `sessions/**/rollout-*.jsonl` for its provider; and whether
+  `/Applications/CC Switch.app` and `~/.cc-switch` exist (nothing inside is
+  read). It checks the custom provider answers with
+  `GET <base_url>/models` with no key and no login, five seconds at most,
+  three tries; any HTTP answer, a 401 included, counts. A switch writes
+  `config.toml` as above; with the box ticked, or from the tab's own sheet,
+  it runs `codex app-server daemon restart` with `CODEX_HOME` set.
+  `Xuất danh sách MCP…` writes `~/Downloads/codex-mcp-DD-MM.txt` (names,
+  kinds and on/off only).
 - It writes these files: its own settings file,
   `~/Library/Application Support/com.shin315.quota-station/settings.json`,
   with `rotation-sync.json` (where each other Mac stands) beside it; in the
@@ -396,7 +463,12 @@ assumes another Mac has any. Each Mac installs and updates its own copy
   `antigravity/antigravity_legacy_instances.json` (the account bound to
   Antigravity.app, read by quota-axi), `antigravity/switch-log.jsonl` and
   `antigravity/watch.json`; `history/history.jsonl` and
-  `alerts/alerts.json` (M6, no email or token); the switcher's pause flag,
+  `alerts/alerts.json` (M6, no email or token); `codex/state.json` (the
+  hash of the app's last write, to tell a change made outside the app),
+  `codex/switch-log.jsonl` (the last 200 switches) and
+  `backups/codex/config.toml.<time>` (the newest 10 copies of Codex's
+  `config.toml` before each switch, mode 600 in a folder only you can open:
+  they hold the provider's key when the file does); the switcher's pause flag,
   `~/.config/cswap-prefer-team/pause`
   (`until = YYYY-MM-DDTHH:MM` in local time and `reason = …`; no `until`
   pauses until resumed); and the rotation file with its backups. Each is
@@ -621,7 +693,7 @@ itself; `scripts/install.sh` installs it.
 `npm run dev` serves the popover at http://localhost:1420/ on the fixtures and
 the fake Rust side the tests use. Query parameters: `state` (a file name in
 `src/fixtures/snapshots/`), `view=window` with `tab` (`overview`, `claude`,
-`agy`, `rules`, `history`, `alerts`, `firstmate` or `settings`), `error` (an
+`agy`, `codex`, `rules`, `history`, `alerts`, `firstmate` or `settings`), `error` (an
 error kind) and `theme` (`light` or `dark`).
 For the rotation rules: `rotation` (`unreachable`, `newer`, `edited`,
 `missing`, `invalid`, `refused` or `single`).
@@ -642,15 +714,19 @@ and `forbidden`), `login` (how a login ends, for example
 `missing` or `unset`, the default). For M7, on `tab=settings`: `app` (`on`,
 `approval`, `unavailable`, `nosource` or `unbundled`) and `update`
 (`uptodate`, `pull`, `install` or `timeout`; an update installs 0.1.1 by
-default). Nothing is switched, no browser opens and no file is written: a
+default). For M8: `codex` (`chatgpt` for the ChatGPT login in use,
+`ccswitch`, `down`, `external`, `nologin`, `nokey`, `placeholder`,
+`header`, `broken` or `none`; the custom provider is in use by default) and
+`codexoutcome` (`changed` or `refused`; a switch lands by default). Nothing
+is switched, no browser opens and no file is written: a
 switch only waits 1.5 seconds, a save 1 second and each update step 1.5
 seconds, and they update the fixture.
 
 ## Tests
 
 ```sh
-cargo test --workspace   # parsing, snapshot rules, icon, runner, schedule, switching, rotation, other Macs, Antigravity login, quota and switch, history, alerts, Firstmate's file, install.sh, update, login item
-npm test                 # Vitest: popover and main window views, switch and pause sheets, rules editor, login card and read states, Antigravity switch, history, alerts, Firstmate and settings tabs
+cargo test --workspace   # parsing, snapshot rules, icon, runner, schedule, switching, rotation, other Macs, Antigravity login, quota and switch, history, alerts, Firstmate's file, install.sh, update, login item, Codex switch
+npm test                 # Vitest: popover and main window views, switch and pause sheets, rules editor, login card and read states, Antigravity switch, Codex switch, history, alerts, Firstmate and settings tabs
 ```
 
 The install tests (`crates/quota-station-core/tests/install_script.rs`) run
@@ -767,6 +843,21 @@ synthetic, with made-up ids and values. The popover and window tests use JSON sn
 in `src/fixtures/snapshots/`, which the Rust side builds from those fixtures.
 After changing the snapshot rules, regenerate them with this command:
 
+The Codex tests (`crates/quota-station-core/tests/codex.rs`) work on a
+temporary Codex folder filled from `tests/fixtures/codex/` (fake providers,
+fake keys and fake logins) and a temporary app folder. They check that a
+switch either way changes only the owned lines and leaves every other byte,
+`auth.json` (bytes and modification time) and the MCP list as they were;
+that switching there and back gives the original file; that
+`requires_openai_auth` follows the rule for each kind of key, with and
+without a login; that each refusal writes nothing; that a file changed
+after the sheet opened, or between the check and the rename, is not
+replaced; that a symlinked file stays a symlink; the backups and their
+mode; the record of the app's own write; the login shapes; the process
+table; the restart command and its `CODEX_HOME` (a fake `codex`); and the
+reachability check against a local server, which sees no key. No test
+reads the real `~/.codex`, runs the real Codex or touches a login.
+
 ```sh
 UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test ui_fixtures
 ```
@@ -783,11 +874,14 @@ UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test ui_fixtures
   agy use. `history`, `alerts` and `firstmate` keep the switch history, run
   the five alert rules and read Firstmate's `quota-pool.last`. `update`
   pulls the clone and runs its install script; `login_item` holds the rule
-  of the `Mở khi đăng nhập` switch.
+  of the `Mở khi đăng nhập` switch. `codex` reads and switches Codex's
+  provider: the file and its edit, the login's shape, the safe write and
+  backups, the process table and the restart, the reachability check, the
+  resumable sessions and the switch log.
 - `src-tauri/` is the Tauri 2 shell: the tray item, the popover and the main
   window, the read loop, the Antigravity quota thread, the macOS
   notification center (`notify.rs`), the login item (`login_item.rs`), the
-  update (`install.rs`) and the commands.
+  update (`install.rs`), the Codex thread (`codex.rs`) and the commands.
 - `scripts/install.sh` builds, signs, installs and packages the app.
 - `src/` is the React and TypeScript frontend. Its `styles/tokens.css` and
   `styles/components.css` come from the approved prototype.
@@ -799,5 +893,6 @@ Copyright © 2026 Shin315.
 This work is licensed under the
 [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License](https://creativecommons.org/licenses/by-nc-sa/4.0/).
 The full text is in [`LICENSE`](LICENSE). Code adapted from Cockpit Tools,
-also CC BY-NC-SA 4.0, is credited in [`NOTICE`](NOTICE). The tools it talks
+also CC BY-NC-SA 4.0, and code ported from CC Switch (MIT) are credited in
+[`NOTICE`](NOTICE). The tools it talks
 to are listed in [`THIRD_PARTY.md`](THIRD_PARTY.md).

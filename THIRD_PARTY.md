@@ -3,8 +3,9 @@
 Quota Station talks to quota-axi and claude-swap below: it runs them as
 separate programs and reads their output, and none of their source code is
 copied into this repository. Parts of its Antigravity login, quota
-reading and account switch are adapted from Cockpit Tools;
-[`NOTICE`](NOTICE) lists those files and what was changed.
+reading and account switch are adapted from Cockpit Tools, and parts of
+its Codex switch are ported from CC Switch; [`NOTICE`](NOTICE) lists those
+files and what was changed.
 
 ## quota-axi
 
@@ -91,8 +92,45 @@ SOFTWARE.
   accounts that quota-axi's `cockpit` sidecar reports, and Cockpit's menu bar
   card was a design reference for the popover.
 
+## CC Switch
+
+- Project: https://github.com/farion1231/cc-switch
+- How it is used: ported code. The rules the Codex switch follows (the
+  reserved provider ids, how a provider table's own key is told apart, the
+  `requires_openai_auth` rule, the refusals, the `auth.json` login fields
+  and how Codex's shared background process is found and restarted) are
+  ported from CC Switch 4.0.15, commit 79e754ab. See [`NOTICE`](NOTICE) for
+  the files and the changes. The app never runs CC Switch or reads its data:
+  it only checks whether CC Switch.app and its folder exist, whether it is
+  running (from the process table), and what it left in `config.toml`.
+- License: MIT
+
+```
+MIT License
+
+Copyright (c) 2025 Jason Young
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
 ## Libraries
 
 The Rust crates and npm packages this app builds with, such as Tauri, serde,
-time, reqwest, url, uuid, md5, sha2, objc2, React and Vite, keep their own licenses. Those licenses are listed in
+time, reqwest, url, uuid, md5, sha2, toml_edit, objc2, React and Vite, keep their own licenses. Those licenses are listed in
 `Cargo.lock`, `package-lock.json` and each package's own files.

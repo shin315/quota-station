@@ -4,12 +4,14 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertsTab } from './alerts/AlertsTab';
+import { CodexCard, CodexTab } from './codex/CodexTab';
 import { useAgyLogins } from './antigravity/AgyAccounts';
 import { SheetBody, type SheetState } from './components/Sheets';
 import { agyLoginOf, agySwitchErrorFeedback, agySwitchFeedback, type AppAnswer } from './lib/agySwitch';
+import { codexErrorFeedback, codexFeedback, codexRow, codexRestartFeedback, mcpFailedFeedback, mcpSavedFeedback, nextTarget } from './lib/codex';
 import type { Api } from './lib/api';
 import { alertFailedFeedback, testFailedFeedback } from './lib/alerts';
-import type { AgyHow, AlertKind, Model, Sessions, Tab, Theme } from './lib/model';
+import type { AgyHow, AlertKind, CodexOutcome, CodexTarget, Model, Sessions, Tab, Theme } from './lib/model';
 import {
   autoView,
   extendedFeedback,
@@ -140,7 +142,7 @@ function useActions(api: Api, model: Model | null, clock: () => Date, showFeedba
 }
 
 /**
- * Switching Claude and Antigravity and pausing the switcher: the open sheet,
+ * Switching Claude, Antigravity and Codex and pausing the switcher: the open sheet,
  * the live session count or Antigravity.app's state it shows, the running
  * switch, and the feedback after each action.
  */
@@ -153,6 +155,8 @@ function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeed
   // The feedback after a switch names accounts from the newest model.
   const latest = useRef(model);
   latest.current = model;
+  /** The Codex switch the restart sheet follows, for "Không khởi động lại". */
+  const codexDone = useRef<CodexOutcome | null>(null);
 
   const open = (next: SheetState) => {
     setSheet(next);
@@ -213,6 +217,57 @@ function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeed
       setSheet(null);
     }
   };
+  const doCodexSwitch = async (target: CodexTarget, restart: boolean) => {
+    setWorking(true);
+    let next: SheetState | null = null;
+    try {
+      const outcome = await api.codexSwitch(target, latest.current?.codex.hash ?? null);
+      if (outcome.kind === 'switched' && restart) {
+        // G14: the box asks once more before anything is interrupted.
+        codexDone.current = outcome;
+        next = { kind: 'daemon', after: true };
+      } else if (latest.current) showFeedback(codexFeedback(outcome, latest.current));
+    } catch (e) {
+      if (latest.current) showFeedback(codexErrorFeedback(target, e, latest.current));
+    } finally {
+      setWorking(false);
+      setSheet(next);
+    }
+  };
+  const doCodexRestart = async (after: boolean) => {
+    setWorking(true);
+    try {
+      const out = await api.codexRestart(after);
+      if (latest.current) showFeedback(codexRestartFeedback(out, latest.current, after));
+    } catch (e) {
+      if (latest.current) showFeedback(codexRestartFeedback(String(e) === 'busy' ? 'busy' : 'error', latest.current, after));
+    } finally {
+      setWorking(false);
+      setSheet(null);
+      codexDone.current = null;
+    }
+  };
+  const skipCodexRestart = () => {
+    setSheet(null);
+    if (codexDone.current && latest.current) showFeedback(codexFeedback(codexDone.current, latest.current));
+    codexDone.current = null;
+  };
+  const keepCodex = async () => {
+    setSheet(null);
+    try {
+      await api.codexKeep();
+    } catch {
+      // The banner stays; nothing else to say.
+    }
+  };
+  const exportMcp = async () => {
+    setSheet(null);
+    try {
+      showFeedback(mcpSavedFeedback(await api.codexExportMcp(), latest.current?.codex.mcp.length ?? 0));
+    } catch {
+      showFeedback(mcpFailedFeedback());
+    }
+  };
   const keepOverwrite = async () => {
     try {
       await api.agyDismissOverwrite();
@@ -255,6 +310,22 @@ function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeed
     else if (a === 'closeFeedback') showFeedback(null);
     else if (a === 'guide:auto' || a === 'guide:switcher') open({ kind: 'guide', id: a === 'guide:auto' ? 'auto' : 'switcher' });
     else if (a === 'agy:keep') void keepOverwrite();
+    else if (a === 'codex:open' && model) open(model.codex.external ? { kind: 'codexExternal' } : { kind: 'codex', target: nextTarget(model.codex) });
+    else if (a === 'codex:switch:chatGpt' || a === 'codex:switch:custom') {
+      showFeedback(null);
+      open({ kind: 'codex', target: a === 'codex:switch:custom' ? 'custom' : 'chatGpt' });
+    } else if (a === 'codex:daemon') {
+      showFeedback(null);
+      open({ kind: 'daemon', after: false });
+    } else if (a === 'codex:external') open({ kind: 'codexExternal' });
+    else if (a === 'codex:keep') void keepCodex();
+    else if (a === 'codex:check') void api.codexCheck().catch(() => {});
+    else if (a === 'codex:guide:login') open({ kind: 'codexInfo', id: 'login' });
+    else if (a === 'codex:mcp') open({ kind: 'codexInfo', id: 'mcp' });
+    else if (a === 'codex:backup') {
+      showFeedback(null);
+      open({ kind: 'codexInfo', id: 'backup' });
+    }
     else if (a.startsWith('agy:switch:')) {
       showFeedback(null);
       open({ kind: 'agy', number: Number(a.slice('agy:switch:'.length)) });
@@ -264,7 +335,7 @@ function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeed
     } else return false;
     return true;
   };
-  const body = (now: Date, onSettings: () => void) =>
+  const body = (now: Date, onSettings: () => void, onCodexGuide?: () => void) =>
     sheet && model ? (
       <SheetBody
         sheet={sheet}
@@ -276,7 +347,9 @@ function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeed
         working={
           working ||
           (sheet.kind === 'claude' && model.claudeSwitch.busy === sheet.slot) ||
-          (sheet.kind === 'agy' && model.agySwitch.busy === sheet.number)
+          (sheet.kind === 'agy' && model.agySwitch.busy === sheet.number) ||
+          (sheet.kind === 'codex' && model.codex.busy === 'switching') ||
+          (sheet.kind === 'daemon' && model.codex.busy === 'restarting')
         }
         agyHow={agyHow}
         onClose={close}
@@ -284,6 +357,13 @@ function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeed
         onSwitchAgy={(number, how) => void doSwitchAgy(number, how)}
         onPause={(until) => void pause(until)}
         onSettings={onSettings}
+        onCodexSwitch={(target, restart) => void doCodexSwitch(target, restart)}
+        onCodexRestart={(after) => void doCodexRestart(after)}
+        onCodexSkipRestart={skipCodexRestart}
+        onCodexKeep={() => void keepCodex()}
+        onCodexOpen={open}
+        onCodexExport={() => void exportMcp()}
+        onCodexGuide={onCodexGuide}
       />
     ) : null;
   return {
@@ -367,6 +447,7 @@ export function PopoverApp({ api, clock = systemClock }: AppProps) {
     if (switching.act(act)) return;
     if (act === 'settings') return void api.openWindow('settings');
     if (act === 'window') return void api.openWindow('overview');
+    if (act === 'codex:tab') return void api.openWindow('codex');
     if (act === 'theme') return void api.setTheme(dark ? 'light' : 'dark').catch(() => showFeedback(settingsFailedFeedback()));
     if (act === 'dismiss') return setKeychainLater(true);
     if (act === 'refresh') return void refresh();
@@ -378,6 +459,7 @@ export function PopoverApp({ api, clock = systemClock }: AppProps) {
   return (
     <Popover
       view={view}
+      codex={codexRow(model)}
       auto={autoView(model, now)}
       sync={syncSummary(model)}
       feedback={feedback}
@@ -387,7 +469,14 @@ export function PopoverApp({ api, clock = systemClock }: AppProps) {
       onSwitch={switching.openSwitch}
       onSwitchAgy={switching.openSwitchAgy}
       onToggle={switching.toggle}
-      sheet={switching.body(now, () => void api.openWindow('settings'))}
+      sheet={switching.body(
+        now,
+        () => void api.openWindow('settings'),
+        () => {
+          switching.close();
+          void api.openWindow('codex');
+        },
+      )}
       onCloseSheet={switching.close}
       onHeight={onHeight}
     />
@@ -442,6 +531,8 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   // Opening the Antigravity tab reads every account now (at most once a minute each).
   useEffect(() => {
     if (tab === 'agy') void api.agyTabOpened().catch(() => {});
+    // Opening the Codex tab looks at Codex now and counts the resumable sessions.
+    if (tab === 'codex') void api.codexCheck().catch(() => {});
     // Whether macOS shows the cards may have changed in System Settings.
     if (tab === 'alerts' || tab === 'settings') void api.notifyRefresh().catch(() => {});
     // So may launching at login.
@@ -453,6 +544,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
     if (rules.act(act)) return;
     if (act === 'notify:settings') return void api.openNotificationSettings().catch(() => showFeedback(settingsFailedFeedback()));
     if (act === 'settings') return rules.guardTab(tab, 'settings', setTab);
+    if (act === 'codex:tab') return rules.guardTab(tab, 'codex', setTab);
     if (act === 'dismiss') return setKeychainLater(true);
     if (act === 'refresh') return void refresh();
     if (act === 'keychain') return void grant();
@@ -511,6 +603,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
           (e: unknown) => String(e),
         )
       }
+      onSetCodexHome={(path) => refusal(api.setCodexHome(path))}
       onTestAlert={testAlert}
       onAlertSwitch={alertSwitch}
       onLaunchAtLogin={(on) => refusal(api.setLaunchAtLogin(on))}
@@ -525,10 +618,17 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
     ruleDialog === 'leave' ? (
       <LeaveDialog rules={rules} onAnswer={(a) => void rules.answerLeave(a, setTab)} />
     ) : (
-      (switching.body(now, () => {
-        switching.close();
-        goTab('settings');
-      }) ?? (ruleDialog === 'compare' ? <CompareDialog model={model} rules={rules} now={now} /> : null))
+      (switching.body(
+        now,
+        () => {
+          switching.close();
+          goTab('settings');
+        },
+        () => {
+          switching.close();
+          goTab('codex');
+        },
+      ) ?? (ruleDialog === 'compare' ? <CompareDialog model={model} rules={rules} now={now} /> : null))
     );
   return (
     <MainWindow
@@ -546,6 +646,8 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       settings={settings}
       syncNote={sidebarLine(model)}
       rules={<RulesTab model={model} fresh={view.fresh} rules={rules} feedback={feedback} now={now} onAction={onAction} />}
+      codex={<CodexTab model={model} fresh={view.fresh} feedback={feedback} now={now} onAction={onAction} />}
+      codexCard={<CodexCard model={model} onAction={onAction} />}
       history={<HistoryTab model={model} fresh={view.fresh} now={now} load={api.getHistory} />}
       alerts={
         <AlertsTab

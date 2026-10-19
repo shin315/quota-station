@@ -21,9 +21,13 @@
 // The app itself (M7), on `tab=settings`: `app=on|approval|unavailable|nosource|unbundled`
 // sets the login switch and the clone, and `update=uptodate|pull|install|timeout` how
 // "Cập nhật từ mã nguồn" ends (by default it installs 0.1.1). Each step takes 1.5 s.
+// Codex (M8): `codex=chatgpt|ccswitch|down|external|nologin|nokey|placeholder|header|broken|none`
+// sets the six states of the design and more (Codex goes through the made-up `relay` by
+// default), and `codexoutcome=changed|refused` what a switch reports. A switch or a
+// restart takes 1.5 s; `tab=codex` opens the Codex tab.
 
 import type { Api } from './lib/api';
-import type { AgyAccounts, AgyApp, AgyHow, AgyOutcome, ErrorView, Model, Outcome, Tab, UpdateError, UpdateOutcome } from './lib/model';
+import type { AgyAccounts, AgyApp, AgyHow, AgyOutcome, CodexOutcome, CodexTarget, ErrorView, Model, Outcome, Tab, UpdateError, UpdateOutcome } from './lib/model';
 import { fakeApi, fakeEmail, hideNames } from './fixtures/fakeApi';
 import {
   agyAccount,
@@ -39,13 +43,49 @@ import {
   switcherFixture,
   alertsFixture,
   appFixture,
+  codexFixture,
   firstmateFixture,
   historyFixture,
   leavingAlert,
   overwriteAlert,
 } from './fixtures/models';
 
-const TABS: Tab[] = ['overview', 'claude', 'agy', 'rules', 'history', 'alerts', 'firstmate', 'settings'];
+const TABS: Tab[] = ['overview', 'claude', 'agy', 'codex', 'rules', 'history', 'alerts', 'firstmate', 'settings'];
+
+const RELAY = codexFixture().custom!;
+const CODEX: Record<string, () => Model['codex']> = {
+  chatgpt: () => codexFixture({ current: 'chatgpt' }),
+  ccswitch: () =>
+    codexFixture({
+      ccSwitch: { installed: true, running: true, data: true, traces: ['model_catalog_json = "cc-switch-model-catalog.json"'] },
+      procs: { sessions: 3, app: true, daemon: true, ccSwitch: true },
+    }),
+  down: () => codexFixture({ reach: { state: 'down', ms: null, since: '2026-01-16T07:12:00Z', checkedAt: '2026-01-16T07:20:00Z' } }),
+  external: () =>
+    codexFixture({
+      current: 'chatgpt',
+      external: { at: '2026-01-16T07:02:00Z', lastAt: '2026-01-16T06:40:00Z', lastProvider: 'custom', now: 'openai', mcpChanged: true, mcpCount: 4 },
+      lastWrite: { at: '2026-01-16T06:40:00Z', provider: 'custom', matches: false },
+    }),
+  nologin: () => codexFixture({ current: 'chatgpt', login: 'missing', wantsRequires: false }),
+  nokey: () => codexFixture({ current: 'chatgpt', custom: { ...RELAY, key: 'none' }, wantsRequires: null, refusal: { kind: 'noKey' } }),
+  placeholder: () =>
+    codexFixture({
+      current: 'chatgpt',
+      custom: { ...RELAY, name: 'custom', baseUrl: 'http://127.0.0.1:15721/v1', key: 'placeholder', requiresOpenaiAuth: null },
+      wantsRequires: null,
+      refusal: { kind: 'placeholder' },
+      ccSwitch: { installed: true, running: false, data: true, traces: ['model_catalog_json = "cc-switch-model-catalog.json"', '[model_providers.custom] experimental_bearer_token = "PROXY_MANAGED"'] },
+    }),
+  header: () => codexFixture({ current: 'chatgpt', custom: { ...RELAY, key: 'headers' }, wantsRequires: false }),
+  broken: () => codexFixture({ config: 'invalid', reason: 'TOML parse error at line 3', refusal: { kind: 'noCustom' }, custom: null, mcp: [] }),
+  none: () => codexFixture({ present: false }),
+};
+
+const CODEX_OUTCOMES: Record<string, (target: CodexTarget) => CodexOutcome> = {
+  changed: (target) => ({ kind: 'failed', target, error: { kind: 'changed' } }),
+  refused: (target) => ({ kind: 'refused', target, refusal: { kind: 'noKey' } }),
+};
 
 const ALERTS: Record<string, () => Model['alerts']> = {
   on: () => alertsFixture({ recent: [overwriteAlert(), leavingAlert()], unanswered: 2 }),
@@ -216,6 +256,8 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
   if (firstmate) over.firstmate = firstmate();
   const app = pick(APPS, params.get('app'));
   if (app) over.app = app();
+  const codex = pick(CODEX, params.get('codex'));
+  if (codex) over.codex = codex();
   const agyApp = params.get('agyapp');
   const ends = LOGIN_ENDS.find((k) => k.toLowerCase() === params.get('login')?.toLowerCase());
   const model = fixtureModel(SNAPSHOTS[state] ? state : 'fresh', over);
@@ -236,6 +278,8 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
     loginApproval: params.get('app') === 'approval',
     update: pick(UPDATES, params.get('update')),
     updateDelayMs: 1500,
+    codexOutcome: pick(CODEX_OUTCOMES, params.get('codexoutcome')),
+    codexDelayMs: 1500,
   });
   // The window opens on the same fixture and switcher states as the popover.
   const openWindow = async (next: Tab) => {

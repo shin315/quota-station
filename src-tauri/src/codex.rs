@@ -1,0 +1,574 @@
+//! Switching Codex from the app (M8): a thread that looks at Codex's files,
+//! the process table and whether the custom provider answers, the model the
+//! windows draw from it, and the commands the Codex row, sheet and tab use.
+//!
+//! The switch writes `config.toml` only when the owner confirms, and only
+//! the keys `quota_station_core::codex::config` names. The windows never get
+//! a key: only what kind of key the provider has.
+
+use std::collections::BTreeMap;
+use std::path::PathBuf;
+use std::thread;
+use std::time::Duration;
+
+use quota_station_core::antigravity::fs::AppDir;
+use quota_station_core::codex::config::{self, Current, Custom, Mcp, Refusal, Target};
+use quota_station_core::codex::files::{self, Record};
+use quota_station_core::codex::login::Login;
+use quota_station_core::codex::probe::{self, Answer};
+use quota_station_core::codex::procs::{self, Procs, Restart};
+use quota_station_core::codex::{self, log, resume, FileState, Outcome, Reading};
+use quota_station_core::runner;
+use serde::Serialize;
+use tauri::{AppHandle, State};
+use time::format_description::well_known::Rfc3339;
+use time::OffsetDateTime;
+
+use crate::reader;
+use crate::state::{AppState, Inner, Model};
+
+/// How often the thread looks while a window is open, and while none is.
+const VISIBLE_EVERY: Duration = Duration::from_secs(60);
+const HIDDEN_EVERY: Duration = Duration::from_secs(5 * 60);
+/// The Codex tab shows the last switches.
+const RECENT: usize = 5;
+
+/// What the app holds about Codex between looks.
+#[derive(Debug, Default)]
+pub struct Live {
+    pub reading: Option<Reading>,
+    pub procs: Option<Procs>,
+    /// `codex --version`, once per path found.
+    pub version: Option<(PathBuf, Option<String>)>,
+    pub reach: Reach,
+    /// Resumable sessions by provider, counted when the Codex tab opens.
+    pub resume: Option<BTreeMap<String, u32>>,
+    /// `switching` or `restarting` while one runs.
+    pub busy: Option<&'static str>,
+    /// The provider id the last look saw, to notice a change made outside.
+    pub seen: Option<String>,
+    /// A look is asked for now; with `resume`, the sessions are counted too.
+    pub now: bool,
+    pub count_resume: bool,
+    /// Bumped when a switch writes the file, so a look that read it before
+    /// cannot put the old reading back or count the switch as made outside.
+    pub generation: u64,
+}
+
+/// Whether the custom provider answers.
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Reach {
+    /// `unknown` (not asked yet, or no provider), `up` or `down`.
+    pub state: &'static str,
+    pub ms: Option<u64>,
+    /// When it stopped answering, RFC 3339.
+    pub since: Option<String>,
+    pub checked_at: Option<String>,
+    /// The base URL it was asked at: a change asks again at once.
+    #[serde(skip)]
+    pub url: Option<String>,
+}
+
+fn rfc(at: i64) -> Option<String> {
+    OffsetDateTime::from_unix_timestamp(at).ok()?.format(&Rfc3339).ok()
+}
+
+fn now_rfc() -> String {
+    OffsetDateTime::now_utc().format(&Rfc3339).unwrap_or_default()
+}
+
+impl Inner {
+    /// The Codex folder the app reads and edits.
+    pub fn codex_home(&self) -> PathBuf {
+        codex::home(&self.home, self.settings.codex_home.as_deref())
+    }
+
+    fn codex_backups(&self) -> PathBuf {
+        self.app_dir().path().join(files::BACKUP_DIR)
+    }
+}
+
+// ===== The model =====
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexView {
+    /// `~/.codex`
+    pub home: String,
+    /// Set in settings rather than Codex's own.
+    pub custom_home: bool,
+    /// The Codex folder is there.
+    pub present: bool,
+    /// `ok`, `missing`, `invalid` or `unreadable`.
+    pub config: &'static str,
+    pub reason: Option<String>,
+    /// Sent back with a switch, so a file changed since is not overwritten.
+    pub hash: Option<String>,
+    /// `chatgpt`, `custom` or `other`.
+    pub current: &'static str,
+    /// The id in use when it is `other`.
+    pub other: Option<String>,
+    pub custom: Option<Custom>,
+    /// What a switch to the custom provider would write.
+    pub wants_requires: Option<bool>,
+    /// Why a switch to the custom provider, or back, cannot run.
+    pub refusal: Option<Refusal>,
+    pub back_refusal: Option<Refusal>,
+    pub login: Login,
+    pub reach: Reach,
+    pub cc_switch: CcSwitchView,
+    pub external: Option<ExternalView>,
+    pub procs: Option<Procs>,
+    pub version: Option<String>,
+    pub mcp: Vec<Mcp>,
+    pub resume: Option<BTreeMap<String, u32>>,
+    pub last_write: Option<LastWrite>,
+    /// When each backup was taken, newest first, RFC 3339.
+    pub backups: Vec<String>,
+    pub backup_dir: String,
+    /// The last switches and changes, newest first.
+    pub recent: Vec<RecentView>,
+    /// The app's first switch on this Mac.
+    pub first_switch_at: Option<String>,
+    pub busy: Option<&'static str>,
+    /// A top-level `openai_base_url` sends the ChatGPT login elsewhere.
+    pub openai_base_url: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CcSwitchView {
+    /// `CC Switch.app` is in /Applications.
+    pub installed: bool,
+    pub running: bool,
+    /// Its folder `~/.cc-switch` is there (only its presence is looked at).
+    pub data: bool,
+    /// What it left in `config.toml`.
+    pub traces: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExternalView {
+    /// When the file changed.
+    pub at: Option<String>,
+    pub last_at: Option<String>,
+    /// The provider id the app wrote, and the one in use now.
+    pub last_provider: String,
+    pub now: String,
+    pub mcp_changed: bool,
+    pub mcp_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LastWrite {
+    pub at: Option<String>,
+    pub provider: String,
+    /// The file is still the one the app wrote.
+    pub matches: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecentView {
+    pub at: String,
+    pub from: String,
+    pub to: String,
+    /// `switched` or `observed`.
+    pub result: String,
+    pub restarted: Option<bool>,
+}
+
+fn current_name(c: &Current) -> (&'static str, Option<String>) {
+    match c {
+        Current::ChatGpt => ("chatgpt", None),
+        Current::Custom => ("custom", None),
+        Current::Other(id) => ("other", Some(id.clone())),
+    }
+}
+
+pub fn view(inner: &Inner) -> CodexView {
+    let live = &inner.codex;
+    let app = inner.app_dir();
+    let record = files::load(&app);
+    let home = inner.codex_home();
+    let empty = Reading {
+        present: false,
+        file: FileState::Missing,
+        hash: None,
+        modified_at: None,
+        login: Login::Missing,
+    };
+    let reading = live.reading.as_ref().unwrap_or(&empty);
+    let parsed = reading.parsed();
+    let (config, reason) = match &reading.file {
+        FileState::Ok(_) => ("ok", None),
+        FileState::Missing => ("missing", None),
+        FileState::Invalid(r) => ("invalid", Some(r.clone())),
+        FileState::Unreadable(r) => ("unreadable", Some(r.clone())),
+    };
+    let (current, other) = parsed.map(|p| current_name(&p.current())).unwrap_or(("chatgpt", None));
+    let login = reading.login;
+    let plan = |target| parsed.map(|p| config::plan(p, target, login.on_disk()));
+    let to_custom = plan(Target::Custom);
+    let refusal = match &to_custom {
+        Some(Err(r)) => Some(r.clone()),
+        None => Some(Refusal::NoCustom),
+        Some(Ok(_)) => None,
+    };
+    let back_refusal = plan(Target::ChatGpt).and_then(|r| r.err());
+    let wants_requires = to_custom.and_then(|r| r.ok()).and_then(|p| p.requires).map(|(_, w)| w);
+
+    let external = match (parsed, reading.hash.as_deref()) {
+        (Some(p), Some(hash)) if record.changed_outside(hash) => Some(ExternalView {
+            at: reading.modified_at.and_then(rfc),
+            last_at: record.written_at.and_then(rfc),
+            last_provider: codex::provider_id(record.written_provider.as_deref()),
+            now: codex::provider_id(p.selected.as_deref()),
+            mcp_changed: record.written_mcp.as_deref()
+                != Some(config::mcp_fingerprint(&p.mcp).as_str()),
+            mcp_count: p.mcp.len(),
+        }),
+        _ => None,
+    };
+    let last_write = record.written_hash.as_ref().map(|w| LastWrite {
+        at: record.written_at.and_then(rfc),
+        provider: codex::provider_id(record.written_provider.as_deref()),
+        matches: reading.hash.as_deref() == Some(w.as_str()),
+    });
+
+    let backups = files::backups(&inner.codex_backups())
+        .iter()
+        .filter_map(|p| {
+            let t = std::fs::metadata(p).and_then(|m| m.modified()).ok()?;
+            OffsetDateTime::from(t).format(&Rfc3339).ok()
+        })
+        .collect();
+    let lines = log::read(&app);
+    let first_switch_at = lines.iter().find(|l| l.result == "switched").and_then(|l| rfc(l.at));
+    let recent = lines
+        .iter()
+        .rev()
+        .filter(|l| l.result != "failed")
+        .take(RECENT)
+        .filter_map(|l| {
+            Some(RecentView {
+                at: rfc(l.at)?,
+                from: l.from.clone(),
+                to: l.to.clone(),
+                result: l.result.clone(),
+                restarted: l.restarted,
+            })
+        })
+        .collect();
+
+    CodexView {
+        home: runner::display_path(&home, &inner.home),
+        custom_home: inner.settings.codex_home.is_some(),
+        present: reading.present,
+        config,
+        reason,
+        hash: reading.hash.clone(),
+        current,
+        other,
+        custom: parsed.and_then(|p| p.custom.clone()),
+        wants_requires,
+        refusal,
+        back_refusal,
+        login,
+        reach: live.reach.clone(),
+        cc_switch: CcSwitchView {
+            installed: std::path::Path::new("/Applications/CC Switch.app").exists(),
+            running: live.procs.as_ref().is_some_and(|p| p.cc_switch),
+            data: inner.home.join(".cc-switch").is_dir(),
+            traces: parsed.map(|p| p.traces.clone()).unwrap_or_default(),
+        },
+        external,
+        procs: live.procs.clone(),
+        version: live.version.as_ref().and_then(|(_, v)| v.clone()),
+        mcp: parsed.map(|p| p.mcp.clone()).unwrap_or_default(),
+        resume: live.resume.clone(),
+        last_write,
+        backups,
+        backup_dir: runner::display_path(&inner.codex_backups(), &inner.home),
+        recent,
+        first_switch_at,
+        busy: live.busy,
+        openai_base_url: parsed.is_some_and(|p| p.openai_base_url),
+    }
+}
+
+// ===== The thread =====
+
+pub fn spawn(app: AppHandle, state: AppState) {
+    thread::Builder::new()
+        .name("codex".into())
+        .spawn(move || run(&app, &state))
+        .expect("Codex thread starts");
+}
+
+fn run(app: &AppHandle, state: &AppState) {
+    loop {
+        look(app, state);
+        let inner = state.lock();
+        if inner.codex.now {
+            continue;
+        }
+        let every = if inner.schedule.visible() { VISIBLE_EVERY } else { HIDDEN_EVERY };
+        let _ = state.codex_wake.wait_timeout(inner, every);
+    }
+}
+
+/// Asks the thread to look now; with `resume`, it counts the sessions too.
+pub fn request(state: &AppState, resume: bool) {
+    {
+        let mut inner = state.lock();
+        inner.codex.now = true;
+        inner.codex.count_resume |= resume;
+    }
+    state.codex_wake.notify_all();
+}
+
+/// Reads the files and the process table, notes a change of provider made
+/// outside the app, then asks the custom provider.
+fn look(app: &AppHandle, state: &AppState) {
+    let (home, dir, count, user_home, generation) = {
+        let mut inner = state.lock();
+        inner.codex.now = false;
+        let count = std::mem::take(&mut inner.codex.count_resume);
+        (inner.codex_home(), inner.app_dir(), count, inner.home.clone(), inner.codex.generation)
+    };
+    let record = files::load(&dir);
+    let reading = codex::read(&home, &record);
+    let procs = procs::read();
+    let resume = count.then(|| resume::count(&home));
+    let found = procs::discover(&user_home);
+    let base = reading.parsed().and_then(|p| p.custom.as_ref()).and_then(|c| c.base_url.clone());
+    {
+        let mut inner = state.lock();
+        if inner.codex.generation != generation || inner.codex.busy == Some("switching") {
+            // A switch wrote meanwhile: its own reading stands; look again.
+            inner.codex.now = true;
+            return;
+        }
+        observe(&dir, &mut inner.codex, &record, &reading);
+        if inner.codex.version.as_ref().map(|(p, _)| Some(p)) != Some(found.as_ref()) {
+            inner.codex.version = found.map(|p| {
+                let v = procs::version(&p);
+                (p, v)
+            });
+        }
+        inner.codex.reading = Some(reading);
+        inner.codex.procs = procs.or(inner.codex.procs.take());
+        if resume.is_some() {
+            inner.codex.resume = resume;
+        }
+        if base.is_none() {
+            inner.codex.reach = Reach { state: "unknown", ..Reach::default() };
+        }
+    }
+    reader::publish(app, state);
+    if let Some(url) = base {
+        let answer = probe::check(&url);
+        let mut inner = state.lock();
+        let reach = &mut inner.codex.reach;
+        let at = now_rfc();
+        match answer {
+            Answer::Up { ms } => {
+                *reach = Reach {
+                    state: "up",
+                    ms: Some(ms),
+                    since: None,
+                    checked_at: Some(at),
+                    url: Some(url),
+                }
+            }
+            Answer::Down { .. } | Answer::BadUrl => {
+                let since = reach.since.clone().filter(|_| {
+                    reach.state == "down" && reach.url.as_deref() == Some(url.as_str())
+                });
+                *reach = Reach {
+                    state: "down",
+                    ms: None,
+                    since: since.or(Some(at.clone())),
+                    checked_at: Some(at),
+                    url: Some(url),
+                };
+            }
+        }
+        drop(inner);
+        reader::publish(app, state);
+    }
+}
+
+/// A provider in use that the app did not write: kept in the log once.
+fn observe(dir: &AppDir, live: &mut Live, record: &Record, reading: &Reading) {
+    let Some(parsed) = reading.parsed() else { return };
+    let now = codex::provider_id(parsed.selected.as_deref());
+    let before = live.seen.replace(now.clone());
+    let Some(before) = before else { return };
+    let outside = reading
+        .hash
+        .as_deref()
+        .is_some_and(|h| record.changed_outside(h) || record.written_hash.is_none());
+    if before != now && outside {
+        let at = OffsetDateTime::now_utc().unix_timestamp();
+        let _ = log::append(
+            dir,
+            &log::Line { at, from: before, to: now, result: "observed".into(), restarted: None },
+        );
+    }
+}
+
+// ===== Commands =====
+
+/// Switches Codex to `target` after the owner confirmed it on the sheet.
+/// `base` is the file's hash the sheet showed: a file changed since is not
+/// overwritten. Rejects with `busy` while a switch or a restart runs.
+#[tauri::command]
+pub async fn codex_switch(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    target: Target,
+    base: Option<String>,
+) -> Result<Outcome, String> {
+    let shared = state.inner().clone();
+    let (home, dir) = {
+        let mut inner = shared.lock();
+        if inner.codex.busy.is_some() {
+            return Err("busy".into());
+        }
+        inner.codex.busy = Some("switching");
+        inner.codex.generation += 1;
+        (inner.codex_home(), inner.app_dir())
+    };
+    reader::publish(&app, &shared);
+    let done = tauri::async_runtime::spawn_blocking(move || {
+        let out = codex::switch(&home, &dir, target, base.as_deref(), OffsetDateTime::now_utc());
+        let record = files::load(&dir);
+        let reading = codex::read(&home, &record);
+        (out, reading)
+    })
+    .await;
+    {
+        let mut inner = shared.lock();
+        inner.codex.busy = None;
+        inner.codex.generation += 1;
+        if let Ok((_, reading)) = &done {
+            if let Some(p) = reading.parsed() {
+                inner.codex.seen = Some(codex::provider_id(p.selected.as_deref()));
+            }
+            inner.codex.reading = Some(reading.clone());
+        }
+    }
+    request(&shared, false);
+    reader::publish(&app, &shared);
+    done.map(|(out, _)| out).map_err(|e| e.to_string())
+}
+
+/// Restarts Codex's background process, after the owner confirmed it on its
+/// own sheet. `after_switch` marks the last switch in the log as followed
+/// by it.
+#[tauri::command]
+pub async fn codex_restart(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    after_switch: bool,
+) -> Result<Restart, String> {
+    let shared = state.inner().clone();
+    let (home, user_home, dir) = {
+        let mut inner = shared.lock();
+        if inner.codex.busy.is_some() {
+            return Err("busy".into());
+        }
+        inner.codex.busy = Some("restarting");
+        (inner.codex_home(), inner.home.clone(), inner.app_dir())
+    };
+    reader::publish(&app, &shared);
+    let done = tauri::async_runtime::spawn_blocking(move || {
+        // The process table now, not the last look's.
+        let running = procs::read().map(|p| p.daemon).unwrap_or(true);
+        let out = procs::restart_daemon(procs::discover(&user_home).as_deref(), &home, running);
+        if after_switch {
+            let _ = log::mark_restarted(&dir, out == Restart::Restarted);
+        }
+        out
+    })
+    .await;
+    shared.lock().codex.busy = None;
+    request(&shared, false);
+    reader::publish(&app, &shared);
+    done.map_err(|e| e.to_string())
+}
+
+/// "Giữ như bây giờ" and "Đã hiểu": the file changed outside the app is
+/// kept as it is, and not reported again.
+#[tauri::command]
+pub fn codex_keep(app: AppHandle, state: State<'_, AppState>) -> Result<Model, String> {
+    {
+        let inner = state.lock();
+        let reading = inner.codex.reading.as_ref().ok_or("unread")?;
+        let hash = reading.hash.as_deref().ok_or("unread")?;
+        codex::keep(&inner.app_dir(), hash, reading.parsed()).map_err(|e| e.to_string())?;
+    }
+    reader::publish(&app, &state);
+    Ok(state.lock().model())
+}
+
+/// The Codex tab opened, or "Kiểm lại": look now and count the sessions.
+#[tauri::command]
+pub fn codex_check(state: State<'_, AppState>) {
+    request(state.inner(), true);
+}
+
+/// Saves the MCP list (names, kinds, on or off) to `~/Downloads`; returns
+/// where, as `~/…`. Rejects with `unread` when the file could not be read.
+#[tauri::command]
+pub fn codex_export_mcp(state: State<'_, AppState>) -> Result<String, String> {
+    let inner = state.lock();
+    let parsed = inner.codex.reading.as_ref().and_then(Reading::parsed).ok_or("unread")?;
+    // `YYYY-MM-DDTHH:MM:SS` on this Mac's clock.
+    let stamp = quota_station_core::local_time::stamp(OffsetDateTime::now_utc());
+    let (day, month, clock) = (&stamp[8..10], &stamp[5..7], &stamp[11..16]);
+    let text = codex::mcp_export(parsed, &inner.machine(), &format!("{day}/{month} {clock}"));
+    let day = format!("{day}-{month}");
+    let dir = inner.home.join("Downloads");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let path = codex::export_path(&dir, &day);
+    std::fs::write(&path, text).map_err(|e| e.to_string())?;
+    Ok(runner::display_path(&path, &inner.home))
+}
+
+/// Sets Codex's folder; empty goes back to `~/.codex`. Rejects a path that
+/// is not a folder.
+#[tauri::command]
+pub fn set_codex_home(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    path: String,
+) -> Result<Model, String> {
+    {
+        let mut inner = state.lock();
+        let chosen = if path.trim().is_empty() {
+            None
+        } else {
+            let p = runner::expand_path(&path, &inner.home);
+            if !p.is_dir() {
+                return Err("notFound".into());
+            }
+            Some(p)
+        };
+        let mut settings = inner.settings.clone();
+        settings.codex_home = chosen;
+        settings.save(&inner.settings_file).map_err(|e| e.to_string())?;
+        inner.settings = settings;
+        inner.codex.reading = None;
+        inner.codex.seen = None;
+        inner.codex.resume = None;
+    }
+    request(state.inner(), true);
+    reader::publish(&app, &state);
+    Ok(state.lock().model())
+}

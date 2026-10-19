@@ -7,10 +7,13 @@
 //!   to explain it, and an Antigravity switch that Antigravity.app undid (the
 //!   six-hour watch of M4c);
 //! - the switcher's log: its switches and primes;
-//! - the app's Antigravity switch log of M4c, `antigravity/switch-log.jsonl`.
+//! - the app's Antigravity switch log of M4c, `antigravity/switch-log.jsonl`;
+//! - the app's Codex switch log of M8, `codex/switch-log.jsonl`: the owner's
+//!   switches and the changes of provider made outside the app.
 //!
 //! Accounts are kept by slot number (Claude) and by the app's account id
-//! (Antigravity, shown by its number in the app's list); never an email.
+//! (Antigravity, shown by its number in the app's list), Codex providers by
+//! id; never an email.
 
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
@@ -22,6 +25,7 @@ use time::OffsetDateTime;
 use crate::antigravity::fs::AppDir;
 use crate::antigravity::switch::{self as agy_switch, How};
 use crate::antigravity::{index, watch};
+use crate::codex::log as codex_log;
 use crate::switcher::{self, LogEvent, Why};
 
 /// In the app's folder, `history/history.jsonl`.
@@ -43,6 +47,7 @@ pub const SHOWN: usize = 200;
 pub enum App {
     Claude,
     Antigravity,
+    Codex,
 }
 
 /// Where a line comes from.
@@ -128,6 +133,19 @@ pub enum Cause {
     },
     AgyOverwrite {
         overwrites: u32,
+    },
+    /// A Codex switch from this app (M8), by provider id (`openai` is the
+    /// ChatGPT login); `restarted` when the background process was
+    /// restarted after it.
+    CodexSwitch {
+        from: String,
+        to: String,
+        restarted: Option<bool>,
+    },
+    /// `config.toml` chose another provider and the app did not write it.
+    CodexObserved {
+        from: String,
+        to: String,
     },
 }
 
@@ -242,6 +260,8 @@ pub fn collect(app: &AppDir, switcher_log: &Path, limit: usize) -> Vec<Entry> {
         let (from, to) = match line.app {
             App::Claude => (line.from.as_deref().and_then(slot), slot(&line.to)),
             App::Antigravity => (line.from.as_deref().and_then(number), number(&line.to)),
+            // The Codex log keeps its own lines.
+            App::Codex => continue,
         };
         if line.app == App::Claude && to.is_none() {
             continue;
@@ -276,6 +296,25 @@ pub fn collect(app: &AppDir, switcher_log: &Path, limit: usize) -> Vec<Entry> {
                     reopened: line.reopened,
                 },
             },
+        ));
+    }
+
+    for line in codex_log::read(app) {
+        let cause = match line.result.as_str() {
+            "switched" => {
+                Cause::CodexSwitch { from: line.from, to: line.to, restarted: line.restarted }
+            }
+            "observed" => Cause::CodexObserved { from: line.from, to: line.to },
+            _ => continue,
+        };
+        let source = if matches!(cause, Cause::CodexObserved { .. }) {
+            Source::Observed
+        } else {
+            Source::App
+        };
+        out.push((
+            line.at,
+            Entry { at: rfc(line.at), app: App::Codex, source, from: None, to: None, cause },
         ));
     }
 

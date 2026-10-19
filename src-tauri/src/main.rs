@@ -11,12 +11,14 @@
 //! keeps a history of the switches, sends five alerts as macOS cards with
 //! buttons, and shows what Firstmate sees. Since M7 it can launch at login
 //! (a switch in settings, off by default) and update itself from a clone of
-//! its source with `scripts/install.sh`.
+//! its source with `scripts/install.sh`. Since M8 it switches Codex between
+//! the ChatGPT login and a custom API provider, keeping the ChatGPT login.
 
 mod agy_quota;
 mod agy_switch;
 mod alerting;
 mod antigravity;
+mod codex;
 mod commands;
 mod install;
 mod login_item;
@@ -63,6 +65,7 @@ fn main() {
             }
             reader::spawn(app.handle().clone(), state.clone());
             agy_quota::spawn(app.handle().clone(), state.clone());
+            codex::spawn(app.handle().clone(), state.clone());
             rules::spawn(app.handle().clone(), state);
             Ok(())
         })
@@ -102,6 +105,12 @@ fn main() {
             agy_switch::agy_app_state,
             agy_switch::switch_agy,
             agy_switch::agy_dismiss_overwrite,
+            codex::codex_switch,
+            codex::codex_restart,
+            codex::codex_keep,
+            codex::codex_check,
+            codex::codex_export_mcp,
+            codex::set_codex_home,
             alerting::alert_action,
             alerting::test_alert,
             alerting::set_alert_switch,

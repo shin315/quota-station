@@ -410,13 +410,17 @@ export type HistoryCause =
   | { kind: 'observed' }
   | { kind: 'agySwitch'; how: AgyHow; result: 'switched' | 'unconfirmed' | string; reopened: boolean | null }
   /** Antigravity.app wrote the old login back after a switch. */
-  | { kind: 'agyOverwrite'; overwrites: number };
+  | { kind: 'agyOverwrite'; overwrites: number }
+  /** A Codex switch from this app (M8), by provider id: `openai` is the ChatGPT login. */
+  | { kind: 'codexSwitch'; from: string; to: string; restarted: boolean | null }
+  /** `config.toml` chose another provider and the app did not write it. */
+  | { kind: 'codexObserved'; from: string; to: string };
 
 /** One line of the History tab (`quota-station-core::history::Entry`). */
 export interface HistoryEntry {
   /** RFC 3339. */
   at: string;
-  app: 'claude' | 'antigravity';
+  app: 'claude' | 'antigravity' | 'codex';
   source: HistorySource;
   from: number | null;
   /** Null for an Antigravity account no longer logged in here. */
@@ -550,7 +554,126 @@ export interface AppView {
 }
 
 /** The main window's tabs in this build (`src-tauri/src/state.rs` `Tab`). */
-export type Tab = 'overview' | 'claude' | 'agy' | 'rules' | 'history' | 'alerts' | 'firstmate' | 'settings';
+export type Tab = 'overview' | 'claude' | 'agy' | 'codex' | 'rules' | 'history' | 'alerts' | 'firstmate' | 'settings';
+
+// ===== Codex (M8) =====
+
+/** Where the custom provider's credentials come from (`codex::config::KeyKind`); never the key itself. */
+export type CodexKey = 'bearer' | 'envKey' | 'headers' | 'placeholder' | 'none';
+
+/** The custom provider table in `config.toml` a switch goes to. */
+export interface CodexCustom {
+  id: string;
+  /** Its `name`, else the id. */
+  name: string;
+  baseUrl: string | null;
+  key: CodexKey;
+  /** The variable `env_key` names. */
+  envKey: string | null;
+  requiresOpenaiAuth: boolean | null;
+  /** A plain `[model_providers.<id>]` table; other shapes are not edited. */
+  plain: boolean;
+}
+
+/** Why a switch cannot run (`codex::config::Refusal`). */
+export type CodexRefusal =
+  | { kind: 'noCustom' }
+  | { kind: 'noKey' }
+  | { kind: 'placeholder' }
+  | { kind: 'profile'; profile: string; key: string }
+  | { kind: 'shape' };
+
+/** `codex::login::Login`: the shape of `auth.json`, never its values. */
+export type CodexLogin = 'chatGpt' | 'other' | 'apiKey' | 'missing' | 'unreadable' | 'keychain' | 'ephemeral';
+
+export interface CodexMcp {
+  name: string;
+  kind: 'stdio' | 'http' | 'other';
+  enabled: boolean;
+}
+
+export interface CodexReach {
+  state: 'unknown' | 'up' | 'down';
+  ms: number | null;
+  /** When it stopped answering. */
+  since: string | null;
+  checkedAt: string | null;
+}
+
+export interface CodexProcs {
+  /** `codex` running in a terminal. */
+  sessions: number;
+  app: boolean;
+  daemon: boolean;
+  ccSwitch: boolean;
+}
+
+export interface CodexRecent {
+  at: string;
+  /** Provider ids; `openai` is the ChatGPT login. */
+  from: string;
+  to: string;
+  result: 'switched' | 'observed' | string;
+  restarted: boolean | null;
+}
+
+export interface CodexView {
+  /** `~/.codex` */
+  home: string;
+  customHome: boolean;
+  present: boolean;
+  config: 'ok' | 'missing' | 'invalid' | 'unreadable';
+  reason: string | null;
+  /** Sent back with a switch: a file changed since is not overwritten. */
+  hash: string | null;
+  current: 'chatgpt' | 'custom' | 'other';
+  other: string | null;
+  custom: CodexCustom | null;
+  /** The `requires_openai_auth` a switch to the custom provider writes. */
+  wantsRequires: boolean | null;
+  refusal: CodexRefusal | null;
+  backRefusal: CodexRefusal | null;
+  login: CodexLogin;
+  reach: CodexReach;
+  ccSwitch: { installed: boolean; running: boolean; data: boolean; traces: string[] };
+  /** `config.toml` changed outside the app since its last write. */
+  external: {
+    at: string | null;
+    lastAt: string | null;
+    lastProvider: string;
+    now: string;
+    mcpChanged: boolean;
+    mcpCount: number;
+  } | null;
+  procs: CodexProcs | null;
+  version: string | null;
+  mcp: CodexMcp[];
+  /** Resumable sessions by provider id (`''`: unknown); counted when the Codex tab opens. */
+  resume: Record<string, number> | null;
+  lastWrite: { at: string | null; provider: string; matches: boolean } | null;
+  /** When each backup was taken, newest first. */
+  backups: string[];
+  backupDir: string;
+  recent: CodexRecent[];
+  firstSwitchAt: string | null;
+  busy: 'switching' | 'restarting' | null;
+  openaiBaseUrl: boolean;
+}
+
+export type CodexTarget = 'chatGpt' | 'custom';
+
+export type CodexWriteError = { kind: 'changed' } | { kind: 'io'; detail: string } | { kind: 'verify' };
+
+/** `codex::Outcome`. */
+export type CodexOutcome =
+  | { kind: 'switched'; target: CodexTarget; from: string; to: string; backup: string }
+  | { kind: 'already'; target: CodexTarget }
+  | { kind: 'refused'; target: CodexTarget; refusal: CodexRefusal }
+  | { kind: 'invalid'; target: CodexTarget; detail: string }
+  | { kind: 'failed'; target: CodexTarget; error: CodexWriteError };
+
+/** `codex::procs::Restart`. */
+export type CodexRestart = { kind: 'restarted' } | { kind: 'notRunning' } | { kind: 'noCodex' } | { kind: 'failed'; detail: string };
 
 export interface Model {
   snapshot: Snapshot;
@@ -577,4 +700,6 @@ export interface Model {
   firstmate: FirstmateView;
   /** Version, launching at login and the update from source (M7). */
   app: AppView;
+  /** Switching Codex (M8). */
+  codex: CodexView;
 }

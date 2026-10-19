@@ -2916,6 +2916,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "time",
+ "toml_edit 0.25.17+spec-1.1.0",
  "url",
  "uuid",
 ]
@@ -4289,6 +4290,7 @@ dependencies = [
  "indexmap 2.14.2",
  "toml_datetime 1.1.2+spec-1.1.0",
  "toml_parser",
+ "toml_writer",
  "winnow 1.0.4",
 ]
 
