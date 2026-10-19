@@ -567,6 +567,7 @@ export interface AppView {
 /** The main window's tabs in this build (`src-tauri/src/state.rs` `Tab`). */
 export type Tab =
   | 'overview'
+  | 'stats'
   | 'claude'
   | 'agy'
   | 'codex'
@@ -937,6 +938,99 @@ export interface Model {
   env: EnvView;
   /** The configuration sets (M15). */
   sets: SetsView;
+  /** The token statistics' read (M16); the numbers come with `statsReport`. */
+  stats: StatsView;
+}
+
+// ===== Thống kê (M16) =====
+
+/** `stats::index::Progress`: logs read of the logs found. */
+export interface StatsProgress {
+  agent: Agent;
+  done: number;
+  total: number;
+}
+
+/** `src-tauri/src/stats.rs` `StatsView`. */
+export interface StatsView {
+  reading: boolean;
+  /** The read running is the first: no log was read before. */
+  first: boolean;
+  progress: StatsProgress[];
+  /** Bumped after each read and "Đã biết": the tab asks for its numbers again. */
+  generation: number;
+  /** The last read could not save the index. */
+  failed: boolean;
+  /** RFC 3339; none before the first read. */
+  readAt: string | null;
+}
+
+/** `stats::report::Period`: Hôm nay by hour, 7 ngày, 30 ngày. */
+export type StatsPeriod = 'today' | 'week' | 'month';
+
+/** One column: an hour (`14:00`) or a day (`18/10`). */
+export interface StatsPoint {
+  label: string;
+  claude: number;
+  codex: number;
+}
+
+export interface StatsModelRow {
+  model: string;
+  agent: Agent;
+  /** Input, written to a cache or not. */
+  input: number;
+  cacheRead: number;
+  output: number;
+  total: number;
+  /** null: the price table does not have the model. */
+  usd: number | null;
+}
+
+export interface StatsProjectRow {
+  /** The folder's own name; empty when the logs do not say. */
+  name: string;
+  /** `~/Projects/web-shop`. */
+  path: string;
+  tokens: number;
+}
+
+export interface StatsAccountRow {
+  /** claude-swap's slot; null when the switch history cannot tell. */
+  slot: number | null;
+  tokens: number;
+}
+
+/** `stats::index::Skipped`: the logs in a format the app does not know. */
+export interface StatsSkipped {
+  agent: Agent;
+  sessions: number;
+  lines: number;
+  versions: string[];
+  /** Unix seconds. */
+  since: number | null;
+  /** Sessions counted when "Đã biết" was pressed. */
+  acknowledged: number;
+}
+
+/** `stats::report::Report`. */
+export interface StatsReport {
+  period: StatsPeriod;
+  points: StatsPoint[];
+  claude: number;
+  codex: number;
+  total: number;
+  usd: number;
+  unpriced: string[];
+  models: StatsModelRow[];
+  projects: StatsProjectRow[];
+  accounts: StatsAccountRow[];
+  /** `2026-10-19`. */
+  pricesAsOf: string;
+  pricesSource: string;
+  skipped: StatsSkipped[];
+  /** Unix seconds. */
+  readAt: number | null;
 }
 
 // ===== Variables that override a login (M14) =====

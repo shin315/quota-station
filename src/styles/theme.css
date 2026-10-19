@@ -105,6 +105,8 @@
   --color-id-codex: var(--id-codex);
   --color-id-codex-ink: var(--id-codex-ink);
   --color-id-codex-tint: var(--id-codex-tint);
+  --color-series-1: var(--series-1);
+  --color-grid: var(--grid);
 
   /* shadcn/ui's names, for its components. */
   --color-background: var(--background);

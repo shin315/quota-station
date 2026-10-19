@@ -12,6 +12,7 @@ import { SkillDialogBody, skillDialogSize } from './agents/SkillDialogs';
 import { SetDialogBody, SetsTab, setDialogSize } from './agents/SetsTab';
 import { SkillsTab } from './agents/SkillsTab';
 import { useSets } from './agents/useSets';
+import { StatsTab, useStats } from './stats/StatsTab';
 import { useSkills } from './agents/useSkills';
 import { BackupTab } from './backup/BackupTab';
 import { BackupDialogBody, backupDialogSize } from './backup/RestoreSheet';
@@ -511,6 +512,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   const env = useEnv(api, model, showFeedback);
   const onActionRef = useRef<(a: Action) => void>(() => {});
   const sets = useSets(api, model, showFeedback, (a) => onActionRef.current(a));
+  const stats = useStats(api, model, tab === 'stats');
   const ruleDialog = rules.leave ? 'leave' : rules.compare ? 'compare' : null;
   const sheetOpen =
     !!switching.sheet || !!ruleDialog || !!mcp.dialog || !!backup.dialog || !!copy.dialog || !!skills.dialog || plugins.open || !!instr.dialog || env.list || !!sets.dialog;
@@ -568,6 +570,8 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       void api.settingsOpened().catch(() => {});
       void api.envCheck().catch(() => {});
     }
+    // Opening Thống kê reads what the session logs gained since the last read.
+    if (tab === 'stats') void api.statsRead().catch(() => {});
     // Opening the MCP tab reads every agent's list now.
     if (tab === 'mcp') void api.mcpRead().catch(() => {});
     // Opening Skills, Plugin or File hướng dẫn reads them now.
@@ -751,6 +755,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       mcp={<McpTab model={model} fresh={view.fresh} feedback={feedback} now={now} mcp={mcp} onAction={onAction} />}
       skills={<SkillsTab model={model} fresh={view.fresh} feedback={feedback} skills={skills} onAction={onAction} />}
       plugins={<PluginTab model={model} fresh={view.fresh} plugins={plugins} onAction={onAction} />}
+      stats={<StatsTab model={model} fresh={view.fresh} stats={stats} />}
       sets={<SetsTab model={model} fresh={view.fresh} feedback={feedback} now={now} sets={sets} onAction={onAction} />}
       instr={<InstrTab model={model} fresh={view.fresh} feedback={feedback} now={now} instr={instr} onAction={onAction} />}
       backup={<BackupTab model={model} fresh={view.fresh} feedback={feedback} now={now} backup={backup} onAction={onAction} />}

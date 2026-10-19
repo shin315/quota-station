@@ -28,6 +28,8 @@ import type {
   PeerTest,
   Rules,
   Sessions,
+  StatsPeriod,
+  StatsReport,
   Tab,
   Theme,
   Menubar,
@@ -225,6 +227,12 @@ export interface Api {
   setsApply(id: string, sent: SetSent): Promise<SetOutcome>;
   /** "Hoàn tác bộ": every entry the last apply changed, put back. Rejects with `busy`, `nothing`. */
   setsUndo(): Promise<SetUndone>;
+  /** The Thống kê tab opened, or "Đọc lại" (M16): what the session logs gained, read off the UI thread. */
+  statsRead(): Promise<void>;
+  /** The tab's numbers for a period, from the index. */
+  statsReport(period: StatsPeriod): Promise<StatsReport>;
+  /** "Đã biết" on the notice of skipped logs. Rejects with `busy` while a read runs. */
+  statsAck(): Promise<void>;
   /** The Plugin tab opened, or "Đọc lại": each agent's own `plugin list`. */
   pluginsRead(): Promise<void>;
   /** The File hướng dẫn tab opened, or "Đọc lại". */
@@ -407,6 +415,9 @@ export const tauriApi: Api = {
   setsPreview: (id) => invoke<SetPreview>('sets_preview', { id }),
   setsApply: (id, sent) => invoke<SetOutcome>('sets_apply', { id, sent }),
   setsUndo: () => invoke<SetUndone>('sets_undo'),
+  statsRead: () => invoke('stats_read'),
+  statsReport: (period) => invoke<StatsReport>('stats_report', { period }),
+  statsAck: () => invoke('stats_ack'),
   pluginsRead: () => invoke('plugins_read'),
   instrRead: () => invoke('instr_read'),
   instrShow: (path) => invoke<InstrShown>('instr_show', { path }),

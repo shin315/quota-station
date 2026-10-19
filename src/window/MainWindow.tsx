@@ -12,6 +12,7 @@
 // to or from another Mac over SSH (M13).
 // The Claude tab has a red banner while a variable overrides Claude Code's login (M14).
 // Bộ cấu hình (M15) closes the Agent group: named sets applied for the whole Mac.
+// Thống kê (M16) follows Tổng quan: the tokens counted from this Mac's session logs.
 
 import { Fragment, type ReactNode } from 'react';
 import { Card as Panel, CardText, CardTitle } from '@/components/ui/card';
@@ -33,6 +34,7 @@ type NavId = keyof typeof NAV_ICONS;
 /** The prototype's sidebar. */
 const NAVS: (['-', string] | [NavId, string])[] = [
   ['overview', 'Tổng quan'],
+  ['stats', 'Thống kê'],
   ['-', 'Tài khoản'],
   ['claude', 'Claude'],
   ['agy', 'Antigravity'],
@@ -482,6 +484,8 @@ export interface MainWindowProps {
   instr?: ReactNode;
   /** The Bộ cấu hình tab (M15). */
   sets?: ReactNode;
+  /** The Thống kê tab (M16). */
+  stats?: ReactNode;
   /** The Sao lưu tab (M10). */
   backup?: ReactNode;
   /** The Chép sang Mac khác tab (M13). */
@@ -531,6 +535,7 @@ export function MainWindow(props: MainWindowProps) {
         />
         <main className="main relative flex min-w-0 flex-col gap-3 overflow-y-auto pt-4 pr-[22px] pb-[22px] pl-3.5">
           {props.tab === 'overview' ? <Overview {...tabProps} /> : null}
+          {props.tab === 'stats' ? props.stats : null}
           {props.tab === 'claude' ? <ClaudeTab {...tabProps} /> : null}
           {props.tab === 'agy' ? <AgyTab {...tabProps} /> : null}
           {props.tab === 'codex' ? props.codex : null}

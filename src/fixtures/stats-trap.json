@@ -1,0 +1,140 @@
+{
+  "accounts": [
+    {
+      "slot": null,
+      "tokens": 26684
+    }
+  ],
+  "claude": 26684,
+  "codex": 31000,
+  "models": [
+    {
+      "agent": "codex",
+      "cacheRead": 12000,
+      "input": 6000,
+      "model": "gpt-5.1-codex-max",
+      "output": 400,
+      "total": 18400,
+      "usd": 0.013
+    },
+    {
+      "agent": "claude",
+      "cacheRead": 12000,
+      "input": 504,
+      "model": "claude-opus-4-5-20251101",
+      "output": 120,
+      "total": 12624,
+      "usd": 0.012145
+    },
+    {
+      "agent": "codex",
+      "cacheRead": 8000,
+      "input": 4000,
+      "model": "gpt-5-codex",
+      "output": 600,
+      "total": 12600,
+      "usd": 0.012
+    },
+    {
+      "agent": "claude",
+      "cacheRead": 10000,
+      "input": 2010,
+      "model": "claude-sonnet-4-5-20250929",
+      "output": 300,
+      "total": 12310,
+      "usd": 0.01503
+    },
+    {
+      "agent": "claude",
+      "cacheRead": 0,
+      "input": 1500,
+      "model": "claude-sonnet-4-20250514",
+      "output": 250,
+      "total": 1750,
+      "usd": 0.00825
+    }
+  ],
+  "period": "week",
+  "points": [
+    {
+      "claude": 0,
+      "codex": 0,
+      "label": "10/01"
+    },
+    {
+      "claude": 0,
+      "codex": 0,
+      "label": "11/01"
+    },
+    {
+      "claude": 0,
+      "codex": 0,
+      "label": "12/01"
+    },
+    {
+      "claude": 0,
+      "codex": 0,
+      "label": "13/01"
+    },
+    {
+      "claude": 0,
+      "codex": 0,
+      "label": "14/01"
+    },
+    {
+      "claude": 1750,
+      "codex": 0,
+      "label": "15/01"
+    },
+    {
+      "claude": 24934,
+      "codex": 31000,
+      "label": "16/01"
+    }
+  ],
+  "pricesAsOf": "2026-10-19",
+  "pricesSource": "anthropic.com/pricing · openai.com/api/pricing",
+  "projects": [
+    {
+      "name": "api-server",
+      "path": "~/Projects/api-server",
+      "tokens": 31000
+    },
+    {
+      "name": "web-shop",
+      "path": "~/Projects/web-shop",
+      "tokens": 24934
+    },
+    {
+      "name": "notes-app",
+      "path": "~/Projects/notes-app",
+      "tokens": 1750
+    }
+  ],
+  "readAt": 1768548000,
+  "skipped": [
+    {
+      "acknowledged": 0,
+      "agent": "claude",
+      "lines": 4,
+      "sessions": 1,
+      "since": null,
+      "versions": [
+        "9.9.0"
+      ]
+    },
+    {
+      "acknowledged": 0,
+      "agent": "codex",
+      "lines": 2,
+      "sessions": 1,
+      "since": null,
+      "versions": [
+        "0.170.0"
+      ]
+    }
+  ],
+  "total": 57684,
+  "unpriced": [],
+  "usd": 0.06042499999999999
+}
