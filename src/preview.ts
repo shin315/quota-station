@@ -39,6 +39,10 @@
 // `skills=empty|nonpx|offline|unread`, `plugins=noclaude` and `instr=clean`;
 // `skillsoutcome=changed` for a write that finds a folder changed. npx and a
 // write take 0.8 s.
+// Chép sang Mac khác (M13): `tab=copy` with the made-up Macs "MacBook Air" (`travel-air`) and
+// "Studio iMac" (`studio-imac`), and `copy=unreach|old|noapp|none|changed`: the first Mac does
+// not answer, runs version 1, has no app; no Mac in settings; a copy finds a file changed.
+// A comparison, a copy and its undo take 0.9 s.
 
 import type { Api } from './lib/api';
 import type { AgyAccounts, AgyApp, AgyHow, AgyOutcome, CodexOutcome, CodexTarget, ErrorView, McpTable, Model, Outcome, Tab, UpdateError, UpdateOutcome } from './lib/model';
@@ -68,7 +72,7 @@ import {
   overwriteAlert,
 } from './fixtures/models';
 
-const TABS: Tab[] = ['overview', 'claude', 'agy', 'codex', 'rules', 'history', 'alerts', 'firstmate', 'mcp', 'skills', 'plugins', 'instr', 'backup', 'settings'];
+const TABS: Tab[] = ['overview', 'claude', 'agy', 'codex', 'rules', 'history', 'alerts', 'firstmate', 'mcp', 'skills', 'plugins', 'instr', 'backup', 'copy', 'settings'];
 
 const SKILLS: Record<string, () => Model['skills']> = {
   empty: () => skillsFixture({ table: skillTableFixture({ rows: [], owned: [], broken: [] }) }),
@@ -338,6 +342,11 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
   if (menubar === 'claude' || menubar === 'gemini' || menubar === 'codex') over.menubar = menubar;
   const mbwindow = params.get('mbwindow');
   if (mbwindow === 'fiveHours' || mbwindow === 'week' || mbwindow === 'fableWeek' || mbwindow === 'tightest') over.menubarWindow = mbwindow;
+  const copy = params.get('copy');
+  if (tab === 'copy' || copy) {
+    const peers = copy === 'none' ? [] : [peerFixture('MacBook Air', 'travel-air'), peerFixture('Studio iMac', 'studio-imac')];
+    over.rotation = rotationFixture({ peers });
+  }
   const model = fixtureModel(SNAPSHOTS[state] ? state : 'fresh', over);
   if (params.get('agyhot') === 'on') {
     for (const a of model.snapshot.agy.accounts.filter((x) => x.active)) {
@@ -371,6 +380,11 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
     restoreDelayMs: 1200,
     skillsChanged: params.get('skillsoutcome') === 'changed',
     skillsDelayMs: 800,
+    copyUnreach: copy === 'unreach' ? ['travel-air'] : [],
+    copyOld: copy === 'old' ? ['travel-air'] : [],
+    copyNoApp: copy === 'noapp' ? ['travel-air'] : [],
+    copyChanged: copy === 'changed',
+    copyDelayMs: 900,
   });
   // The window opens on the same fixture and switcher states as the popover.
   const openWindow = async (next: Tab) => {

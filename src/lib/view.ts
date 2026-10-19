@@ -54,7 +54,7 @@ export type SkillAction =
   | 'instr:reread'
   | `instr:key:${string}`;
 
-export type BackupAction = 'backup:reread' | 'backup:open' | 'backup:undo' | 'backup:restore';
+export type BackupAction = 'backup:reread' | 'backup:open' | 'backup:undo' | 'backup:restore' | 'copy:compare';
 
 export type McpAction = 'mcp:tab' | 'mcp:undo' | 'mcp:backups' | 'mcp:reread' | `mcp:key:${string}` | `mcp:howcmd:${string}` | `mcp:later:${string}`;
 

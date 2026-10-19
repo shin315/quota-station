@@ -576,6 +576,7 @@ export type Tab =
   | 'plugins'
   | 'instr'
   | 'backup'
+  | 'copy'
   | 'settings';
 
 // ===== Codex (M8) =====
@@ -1124,6 +1125,60 @@ export interface RestoreUndone {
   files?: number;
   /** What stays: changed since, or its undo did not run. */
   left?: number;
+}
+
+// ===== Chép sang Mac khác (M13) =====
+
+/** `agents::copy::DiffItem`: one item the two Macs do not have alike. */
+export interface CopyItem {
+  group: 'mcp' | 'skill' | 'plugin' | 'file';
+  /** The server's or skill's name, the plugin's `name@marketplace`, the file's `~/…`. */
+  id: string;
+  agent: Agent | null;
+  /** `mine`: only on this Mac; `theirs`: only on the other; `diff`, `ver`, `text`: both, not alike. */
+  state: 'mine' | 'theirs' | 'diff' | 'ver' | 'text';
+  /** What differs: `command`, `args`, `env`, `cwd`, `url`, `headers`, `agents`, `source`. */
+  what: string[];
+  /** Why it cannot go from this Mac (`push`) or come to it (`pull`). */
+  push: CopyBlock | null;
+  pull: CopyBlock | null;
+  /** A skill left out: `key`, `link`, `large`, `unreadable`. */
+  note: string | null;
+  /** A skill installed by hand: its files go along. */
+  hand: boolean;
+  /** A server's secrets, by their names. */
+  keys: string[];
+  mineOn: Agent[];
+  theirsOn: Agent[];
+  /** A server's definitions on each Mac, secrets masked. */
+  compare: { agent: Agent; mine: McpDef | null; theirs: McpDef | null }[];
+  /** A skill's version on each Mac, RFC 3339. */
+  mineAt: string | null;
+  theirsAt: string | null;
+  /** A file's lines, this Mac's against the other's. */
+  lines: McpLine[];
+  changed: number;
+}
+
+export type CopyBlock = 'leftOut' | 'older' | 'hand' | 'source' | 'key' | 'excluded' | 'unreadable' | 'absent';
+
+/** What "So sánh" found (`src-tauri/src/copy.rs` `Comparison`). */
+export interface CopyComparison {
+  alias: string;
+  /** The other Mac's name in its app. */
+  mac: string;
+  /** When it was read, Unix seconds. */
+  at: number;
+  diff: { items: CopyItem[]; same: string[] };
+}
+
+/** The items ticked (`agents::copy::Selection`); `updates` are skills to bring to their newest version. */
+export interface CopySelection {
+  mcp: string[];
+  skills: string[];
+  updates: string[];
+  plugins: { agent: Agent; id: string }[];
+  files: string[];
 }
 
 // ===== Skills, plugins and instruction files (M11) =====

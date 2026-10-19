@@ -201,6 +201,7 @@ pub struct Inner {
     pub backup: crate::backup::Live,
     /// The skills table, the plugins, the instruction files (M11).
     pub skills: crate::skills::Live,
+    pub copy: crate::copy::Live,
 }
 
 /// How the app's own read of an Antigravity account stands.
@@ -274,6 +275,7 @@ pub enum Tab {
     Plugins,
     Instr,
     Backup,
+    Copy,
     Settings,
 }
 
@@ -333,6 +335,7 @@ impl Inner {
             mcp: agents::Live::default(),
             backup: crate::backup::Live::default(),
             skills: crate::skills::Live::default(),
+            copy: crate::copy::Live::default(),
         }
     }
 

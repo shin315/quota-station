@@ -78,6 +78,11 @@ Files, under `~/Library/Application Support/com.shin315.quota-station/`:
   700): an instruction file as it was before a restore replaced it, the
   newest 10 of each file. A file with a line shaped like a key is never
   replaced, so none of these holds one.
+- `agents/copy-job.json` (M13, mode 600): on the Mac a copy is written to,
+  the copy or undo running there (when it started, its process id) and how
+  it ended (the same result a restore shows). It holds no key. While a copy
+  is written, the items sent are in `agents/incoming/` (mode 700), as a
+  pack of only those items with no key; it is removed when the copy ends.
 
 In the owner's login Keychain, not in that folder:
 
@@ -464,6 +469,57 @@ files, in the same sheet, after the same preview, under the same undo.
   `[[skills.config]]` entries, and anything a `codex plugin` command itself
   writes.
 
+## Copying to another Mac (M13)
+
+`Chép sang Mac khác` compares this Mac with one of `Cài đặt › Các Mac
+khác` and copies the items the owner ticks, one way or the other. It talks
+to the other Mac only through `ssh` and only to that Mac's own Quota
+Station, which does every write there.
+
+- One fixed script per call, built from constants only: `ssh -o
+  BatchMode=yes -o ConnectTimeout=5 -T <alias> /bin/sh -c '<script>'`, the
+  alias checked as for the rotation copy. The script looks for `Quota
+  Station.app` in `/Applications` and then `~/Applications`, reads
+  `QuotaStationAgents` from its `Info.plist` with `/usr/bin/plutil`, and
+  runs `quota-station agents read|export|start|status`, nothing else.
+  Nothing that is copied ever goes into the command: names, definitions,
+  files and keys go on stdin. Each call stops after 20 seconds.
+- A Mac whose app does not say `QuotaStationAgents` (version 1 of the app),
+  or that has no app, is never run, so never read or written to: the tab
+  says so and offers nothing to copy.
+- Reading the other Mac (`read`) prints what a backup pack would hold:
+  names, definitions with every secret replaced by `<redacted>`, skill
+  sources and tree ids, plugin lists, instruction files (none with a line
+  shaped like a key) and the SHA-256 of each agent file it would write.
+  Never a key's value. A command at another path on the other Mac is not a
+  difference.
+- Nothing is written before `Chép`, and only the items ticked are sent:
+  never a whole pack. When both Macs have an item but not alike, it starts
+  unticked; neither side wins on its own. A newer skill is never brought
+  down to an older one, and a file with a line shaped like a key on either
+  Mac is never copied.
+- The Mac that receives the items writes them as the restore of a pack of
+  only those items (M10, M12): the same checked write against the hashes
+  read at the comparison (a file changed since stops it, nothing written),
+  the same backups first, the same `Hoàn tác`. A skill from GitHub that is
+  newer on the sending Mac is updated with `npx -y skills update <name> -g
+  -y` after its folder is kept in `backups/skills/`. The write runs on its own
+  on that Mac (`agents start` starts `agents job` in its own process group
+  and returns), and this Mac asks `agents status` every second, each call
+  again limited to 20 seconds, for at most 15 minutes. One write at a time.
+- Keys stay home unless the owner turns on `Gửi cả khoá qua SSH`, which is
+  off for each new comparison. Then the values the app keeps for the
+  ticked servers go inside the SSH connection on stdin, from `agents start`
+  to `agents job` through a pipe, and into the receiving Mac's Keychain as
+  a restore puts a pasted key; they are never on a command line or on disk
+  on either Mac. With it off, a server that needs a key is added turned
+  off, and the receiving Mac asks for the key.
+- `Hoàn tác trên <Mac>` runs on the Mac that was written to, with the
+  record Quota Station there kept (`agents/restore-last.json`), and only
+  while that record is still this copy's.
+- Codex's provider, logins and accounts are never part of it, and nothing
+  else is ever run on the other Mac.
+
 ## How the tests hold the app to this
 
 - Every file the Antigravity code opens goes through one guard
@@ -553,6 +609,19 @@ files, in the same sheet, after the same preview, under the same undo.
   password) must not be in a pack, the plan, the result, the restore
   record, the app's backups, the shared skills or the commands run, and no
   skill's `run.sh` may ever run.
+- `tests/agents_copy.rs` (M13) copies between two temporary homes with a
+  fake `ssh` that records its arguments and stdin and runs the script on
+  the other home, a fake app bundle there (with and without
+  `QuotaStationAgents` in its `Info.plist`) that replays canned replies,
+  and fake `npx`, `claude`, `codex` and `security`. It checks that the
+  script is the same fixed text for every call, with `BatchMode=yes` and
+  the 20-second limit; that a Mac on version 1 or without the app is never
+  run; that an inventory and a payload without `Gửi cả khoá` hold no trap
+  key, and that with it the keys go on stdin only and land in the fake
+  Keychain; that a copy is the restore's write with its undo, that a file
+  changed since the comparison is not written, that invalid names and paths
+  and another protocol are refused, and that a write running or lost is
+  told apart. No test opens a real SSH connection.
 - CI has no Keychain access and no Google account.
 - The install tests run `scripts/install.sh` in a temporary folder with fake
   `open` and `security`, and fakes of `launchctl`, `osascript` and `sfltool`

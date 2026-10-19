@@ -13,6 +13,9 @@ import { SkillsTab } from './agents/SkillsTab';
 import { useSkills } from './agents/useSkills';
 import { BackupTab } from './backup/BackupTab';
 import { BackupDialogBody, backupDialogSize } from './backup/RestoreSheet';
+import { CopyTab } from './backup/CopyTab';
+import { CopyDialogBody, copyDialogSize } from './backup/CopySheet';
+import { useCopy } from './backup/useCopy';
 import { useBackup } from './backup/useBackup';
 import { AlertsTab } from './alerts/AlertsTab';
 import { CodexCard, CodexTab } from './codex/CodexTab';
@@ -501,8 +504,10 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   const instr = useInstr(api, model, showFeedback);
   const toTab = useRef<(t: Tab) => void>(() => {});
   const backup = useBackup(api, model, showFeedback, { rekey: mcp.rekey, onTab: (t) => toTab.current(t) });
+  const copy = useCopy(api, model, showFeedback);
   const ruleDialog = rules.leave ? 'leave' : rules.compare ? 'compare' : null;
-  const sheetOpen = !!switching.sheet || !!ruleDialog || !!mcp.dialog || !!backup.dialog || !!skills.dialog || plugins.open || !!instr.dialog;
+  const sheetOpen =
+    !!switching.sheet || !!ruleDialog || !!mcp.dialog || !!backup.dialog || !!copy.dialog || !!skills.dialog || plugins.open || !!instr.dialog;
   const closeSheet = useRef(switching.close);
   // Escape closes the sheet on show: the unsaved-changes one, then a switch, then the comparison, then an MCP dialog.
   closeSheet.current = () => {
@@ -511,6 +516,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
     else if (rules.compare) rules.closeCompare();
     else if (mcp.dialog) mcp.close();
     else if (backup.dialog) backup.close();
+    else if (copy.dialog) copy.close();
     else if (skills.dialog) skills.close();
     else if (plugins.open) plugins.close();
     else if (instr.dialog) instr.close();
@@ -670,6 +676,8 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
         <McpDialogBody mcp={mcp} model={model} now={now} />
       ) : backup.dialog ? (
         <BackupDialogBody backup={backup} model={model} now={now} />
+      ) : copy.dialog ? (
+        <CopyDialogBody copy={copy} />
       ) : skills.dialog ? (
         <SkillDialogBody skills={skills} model={model} />
       ) : plugins.open ? (
@@ -685,7 +693,9 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
         ? mcpDialogSize(mcp.dialog)
         : backup.dialog
           ? backupDialogSize(backup.dialog)
-          : skills.dialog
+          : copy.dialog
+            ? copyDialogSize(copy.dialog, copy)
+            : skills.dialog
             ? skillDialogSize(skills.dialog)
             : plugins.open
               ? 'xl'
@@ -715,6 +725,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       plugins={<PluginTab model={model} fresh={view.fresh} plugins={plugins} onAction={onAction} />}
       instr={<InstrTab model={model} fresh={view.fresh} feedback={feedback} now={now} instr={instr} onAction={onAction} />}
       backup={<BackupTab model={model} fresh={view.fresh} feedback={feedback} now={now} backup={backup} onAction={onAction} />}
+      copy={<CopyTab model={model} feedback={feedback} copy={copy} onAction={onAction} />}
       history={<HistoryTab model={model} fresh={view.fresh} now={now} load={api.getHistory} />}
       alerts={
         <AlertsTab

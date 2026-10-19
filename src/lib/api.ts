@@ -4,6 +4,8 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import type {
+  CopyComparison,
+  CopySelection,
   PackSummary,
   RestoreDone,
   RestoreMore,
@@ -250,6 +252,21 @@ export interface Api {
    */
   restoreUndo(force: boolean): Promise<RestoreUndone>;
   /**
+   * Chép sang Mac khác (M13), "So sánh": reads the other Mac over SSH and this one; writes nothing.
+   * Rejects with `unreachable:<line>`, `timeout`, `noApp`, `old`, `noSsh`, `unknownMac`, `busy`,
+   * `refused:<why>`, `failed:<line>` or `reply`.
+   */
+  copyCompare(alias: string): Promise<CopyComparison>;
+  /**
+   * "Chép": the items ticked, `push` from this Mac to the other (written there by its own app),
+   * else from it to this Mac. Keys go only with `keys`. Resolves to what the restore did there or
+   * here; rejects as `copyCompare` does, or with `stale`, `changed:<agents>`, `keychain`, `skill`,
+   * `lost` or `waiting`.
+   */
+  copyRun(alias: string, push: boolean, selection: CopySelection, keys: boolean): Promise<RestoreDone>;
+  /** "Hoàn tác" of the copy that ran at `at`, on the Mac it was written to. Rejects with `gone`, `changed:…`, … */
+  copyUndo(alias: string, push: boolean, at: number, force: boolean): Promise<RestoreUndone>;
+  /**
    * A button on an alert card in the Cảnh báo tab, the same as on the macOS card. A switch back
    * runs on the Rust side and its result comes in the model; `openSwitch` asks this window to open
    * its switch sheet. Rejects with `answered`, `unknown` or `noSuchAction`.
@@ -375,6 +392,9 @@ export const tauriApi: Api = {
   restoreRun: (id, picks, more, keys, bases) => invoke<RestoreDone>('restore_run', { id, picks, more, keys, bases }),
   restoreRetry: (id, part, item, agent) => invoke<RestorePartResult>('restore_retry', { id, part, item, agent }),
   restoreUndo: (force) => invoke<RestoreUndone>('restore_undo', { force }),
+  copyCompare: (alias) => invoke<CopyComparison>('copy_compare', { alias }),
+  copyRun: (alias, push, selection, keys) => invoke<RestoreDone>('copy_run', { alias, push, selection, keys }),
+  copyUndo: (alias, push, at, force) => invoke<RestoreUndone>('copy_undo', { alias, push, at, force }),
   alertAction: (id, action) => invoke('alert_action', { id, action }),
   testAlert: (kind) => invoke<Model>('test_alert', { kind }),
   setAlertSwitch: (kind, on) => invoke<Model>('set_alert_switch', { kind, on }),

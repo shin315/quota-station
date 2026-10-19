@@ -5,10 +5,12 @@
 
 import type { Api } from '../lib/api';
 import { fakeParts, fakeRestore, planFixture, summaryFixture } from './fakeBackup';
+import { comparisonFixture, copyDoneFixture, copyUndoneFixture } from './fakeCopy';
 import { fakeApply, fakePaste, fakePreview } from './fakeMcp';
 import { fakeSkillApply, fakeSkillPreview, instrDiffFixture, instrShownFixture, repoFixture, SKILL_MD } from './fakeSkills';
 import type {
   Agent,
+  CopyComparison,
   AgyApp,
   AgyHow,
   AgyLogin,
@@ -98,6 +100,14 @@ export interface FakeOptions {
   skillsChanged?: boolean;
   /** How long `npx skills` and a skills write take. */
   skillsDelayMs?: number;
+  /** Chép sang Mac khác (M13): Macs that do not answer, run version 1, or have no app. */
+  copyUnreach?: string[];
+  copyOld?: string[];
+  copyNoApp?: string[];
+  /** A copy finds the other Mac's file changed since the comparison: nothing is written. */
+  copyChanged?: boolean;
+  /** How long a comparison, a copy and its undo take. */
+  copyDelayMs?: number;
 }
 
 const said = (title: string, body: string): AlertSaid => ({ tone: 'info', title, body });
@@ -213,6 +223,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
   const agy = (over: Partial<Model['antigravity']>) => ({ ...model.antigravity, ...over });
   /** Ends the waiting login: with a paste, a cancel or its own end. */
   let endLogin: ((how: 'paste' | 'cancel' | 'self') => void) | null = null;
+  let lastCopy: CopyComparison | null = null;
   const api: Api = {
     getModel: async () => model,
     refresh: async () => {
@@ -714,6 +725,24 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
     restoreRetry: async (_id, part, item, agent) => {
       if (options.restoreDelayMs) await new Promise((r) => setTimeout(r, options.restoreDelayMs));
       return { part, id: item, agent, kind: '', ok: true, why: null, retry: false };
+    },
+    copyCompare: async (alias) => {
+      if (options.copyDelayMs) await new Promise((r) => setTimeout(r, options.copyDelayMs));
+      if (options.copyUnreach?.includes(alias)) throw 'unreachable:ssh: connect to host ' + alias + ' port 22: Operation timed out';
+      if (options.copyOld?.includes(alias)) throw 'old';
+      if (options.copyNoApp?.includes(alias)) throw 'noApp';
+      const peer = model.rotation.peers.find((p) => p.alias === alias);
+      return (lastCopy = comparisonFixture(alias, peer?.name || alias));
+    },
+    copyRun: async (alias, _push, selection, keys) => {
+      if (options.copyDelayMs) await new Promise((r) => setTimeout(r, options.copyDelayMs));
+      if (options.copyChanged) throw 'changed:codex';
+      const c = lastCopy ?? comparisonFixture(alias, alias);
+      return copyDoneFixture(c, selection, keys, Math.floor(now().getTime() / 1000));
+    },
+    copyUndo: async () => {
+      if (options.copyDelayMs) await new Promise((r) => setTimeout(r, options.copyDelayMs));
+      return copyUndoneFixture();
     },
     restoreUndo: async (force) => {
       if (!model.backup.restore) throw 'nothing';

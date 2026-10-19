@@ -30,6 +30,7 @@ pub mod agy_mcp;
 pub mod batch;
 pub mod claude_mcp;
 pub mod codex_mcp;
+pub mod copy;
 pub mod def;
 pub mod instructions;
 pub mod json_text;

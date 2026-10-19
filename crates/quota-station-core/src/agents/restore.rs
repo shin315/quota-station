@@ -845,11 +845,28 @@ pub struct Record {
     pub markets: Vec<String>,
     #[serde(default)]
     pub files: Vec<FileDone>,
+    /// Skills from GitHub a copy from another Mac brought to their newest
+    /// version (M13).
+    #[serde(default)]
+    pub updated: Vec<SkillUpdated>,
+}
+
+/// A skill a copy updated: the copy of its folder kept before, in the
+/// app's backups, and its tree id just after.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SkillUpdated {
+    pub name: String,
+    pub backup: String,
+    pub hash: String,
 }
 
 impl Record {
     fn other_parts(&self) -> bool {
-        !self.skills.is_empty() || !self.plugins.is_empty() || !self.files.is_empty()
+        !self.skills.is_empty()
+            || !self.plugins.is_empty()
+            || !self.files.is_empty()
+            || !self.updated.is_empty()
     }
 }
 
@@ -857,7 +874,7 @@ pub fn last(app: &AppDir) -> Option<Record> {
     app.read_to_string(&app.path().join(FILE)).ok().and_then(|t| serde_json::from_str(&t).ok())
 }
 
-fn save_record(app: &AppDir, record: &Record) {
+pub(crate) fn save_record(app: &AppDir, record: &Record) {
     if let Ok(text) = serde_json::to_string_pretty(record) {
         let _ = app.write_private(&app.path().join(FILE), &text);
     }
@@ -1084,6 +1101,7 @@ pub fn run(
         plugins: Vec::new(),
         markets: Vec::new(),
         files: Vec::new(),
+        updated: Vec::new(),
     };
     let mut parts = Vec::new();
     if let Some(plan) = &fresh.skills {
@@ -1509,6 +1527,7 @@ pub fn retry(
         plugins: Vec::new(),
         markets: Vec::new(),
         files: Vec::new(),
+        updated: Vec::new(),
     });
     let gone = |part: &'static str| PartResult::new(part, item, agent, "").fail("changed", false);
     let result = match part {
@@ -1623,10 +1642,14 @@ pub fn changed_since(places: &Places, tools: &Tools, record: &Record) -> Changed
             }
         }
     }
-    for s in &record.skills {
-        let dir = tools.skills.shared.join(&s.name);
-        if dir.exists() && skill_updates::tree_hash(&dir).ok().as_deref() != Some(s.hash.as_str()) {
-            out.skills.push(s.name.clone());
+    let skills = record.skills.iter().map(|s| (&s.name, &s.hash));
+    for (name, hash) in skills.chain(record.updated.iter().map(|s| (&s.name, &s.hash))) {
+        let dir = tools.skills.shared.join(name);
+        if dir.exists()
+            && skill_updates::tree_hash(&dir).ok().as_deref() != Some(hash.as_str())
+            && !out.skills.contains(name)
+        {
+            out.skills.push(name.clone());
         }
     }
     out
@@ -1768,6 +1791,65 @@ fn undo_skills(
         done.skills += removed.len();
         skill_ops::tidy(places, app, &removed, now);
     }
+    // A skill a copy updated gets the folder kept before back, the links
+    // and boxes as they are.
+    for s in &record.updated {
+        let dir = places.shared.join(&s.name);
+        let kept = app.path().join(skills::BACKUP_DIR).join(&s.backup);
+        if changed.skills.contains(&s.name) || !kept.is_dir() {
+            done.left += 1;
+            continue;
+        }
+        let tmp = places.shared.join(format!(".{}.qs-undo-{}", s.name, std::process::id()));
+        let _ = std::fs::remove_dir_all(&tmp);
+        let ok = skills::copy_tree(&kept, &tmp).is_ok()
+            && skills::keep_folder(app, &s.name, &dir, now).is_ok()
+            && std::fs::remove_dir_all(&dir).is_ok()
+            && std::fs::rename(&tmp, &dir).is_ok();
+        if ok {
+            done.skills += 1;
+        } else {
+            let _ = std::fs::remove_dir_all(&tmp);
+            done.left += 1;
+        }
+    }
+}
+
+/// Brings each skill of `names` from GitHub to its newest version, as the
+/// Skills tab's "Cập nhật" does (a copy of the folder kept first), for a
+/// copy from another Mac whose skill is newer. Each is noted in `record`
+/// for the undo.
+pub(crate) fn update_skills(
+    tools: &Tools,
+    app: &AppDir,
+    names: &[String],
+    record: &mut Record,
+    now: OffsetDateTime,
+) -> Vec<PartResult> {
+    let places = &tools.skills;
+    let mut out = Vec::new();
+    for name in names {
+        let part = PartResult::new("skill", name, None, "update");
+        let Some(npx) = &tools.npx else {
+            out.push(part.fail("noNpx", false));
+            continue;
+        };
+        let dir = places.shared.join(name);
+        let before = skill_updates::tree_hash(&dir).ok();
+        let u = skill_ops::update(places, app, npx, name, now);
+        let after = skill_updates::tree_hash(&dir).ok();
+        if let (Some(backup), Some(hash)) = (u.backup, after.clone()) {
+            if after != before {
+                record.updated.push(SkillUpdated { name: name.clone(), backup, hash });
+            }
+        }
+        out.push(match u.error {
+            None => part,
+            Some(NpxError::NoNpx) => part.fail("noNpx", false),
+            Some(_) => part.fail("npx", false),
+        });
+    }
+    out
 }
 
 fn undo_plugins(tools: &Tools, record: &Record, done: &mut Undone) {

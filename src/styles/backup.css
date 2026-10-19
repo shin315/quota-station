@@ -1,4 +1,5 @@
-/* The Sao lưu tab and the Khôi phục sheet (M10 · C), from the approved phase 2 prototype (round 2).
+/* The Sao lưu tab and the Khôi phục sheet (M10 · C), from the approved phase 2 prototype (round 2),
+   and the Chép sang Mac khác tab (M13 · D): CopyTab's way row = .cprow, its groups = .cpg.
    Reads only tokens.css, under .qs like agents.css. Classes and their components:
    BackupGrid = .bkg, PackRow = .pk, SettingRow = .set, RestoreList = .grpx + .ck, ProgressList = .prog,
    RestoreCompare = .rcmp. */
@@ -53,3 +54,18 @@
 .qs .prog li small { display: block; color: var(--ink2); font-size: var(--fs-xs); }
 .qs .prog li.dim { color: var(--ink2); }
 .qs .grpx .note { font-size: var(--fs-xs); color: var(--ink2); }
+
+/* Chép sang Mac khác (M13): the Mac and the way, then the items by group in one
+   frosted panel, each group a heading over its rows: no panel inside a panel. */
+.qs .cprow { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 10px; }
+.qs .cprow .seg.inline button { padding: 4px 12px; }
+.qs .cprow > .btn { margin-left: auto; }
+.qs .cpg + .cpg { margin-top: 6px; }
+.qs .cpg .sec-t { font-size: var(--fs-xs); font-weight: var(--fw-bold); color: var(--ink2); margin: 6px 0 2px; display: flex; gap: 6px; align-items: center; }
+.qs .cpg .sec-t svg { width: 13px; height: 13px; }
+.qs .cpg .sec-t + .ck { border-top: 0; }
+.qs .ck.off { cursor: default; }
+.qs .ck.off b { color: var(--ink2); }
+.qs .prog li .ic.run { background: color-mix(in srgb, var(--accent) 22%, transparent); animation: qs-pulse 1.2s ease-in-out infinite; }
+@keyframes qs-pulse { 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .qs .prog li .ic.run { animation: none; } }

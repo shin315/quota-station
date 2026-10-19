@@ -68,7 +68,7 @@ function Steps({ at }: { at: number }) {
   );
 }
 
-function Facts({ items }: { items: [string, string][] }) {
+export function Facts({ items }: { items: [string, string][] }) {
   return (
     <ul className="facts">
       {items.map(([k, t]) => (
@@ -462,7 +462,7 @@ function KeysStep({ d, backup }: { d: RestoreDialog; backup: Backup }) {
   );
 }
 
-function Progress({ lines }: { lines: [string, string, string, ReactNode?][] }) {
+export function Progress({ lines }: { lines: [string, string, string, ReactNode?][] }) {
   return (
     <ul className="prog">
       {lines.map(([tone, title, sub, action]) => (
