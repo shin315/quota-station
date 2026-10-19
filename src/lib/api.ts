@@ -24,6 +24,11 @@ import type {
   Theme,
   Menubar,
   MenubarWindow,
+  Agent,
+  McpChange,
+  McpOutcome,
+  McpPaste,
+  McpPreview,
 } from './model';
 
 export interface Api {
@@ -130,10 +135,24 @@ export interface Api {
   codexKeep(): Promise<Model>;
   /** The Codex tab opened, or "Kiểm lại": look at Codex now and count the resumable sessions. */
   codexCheck(): Promise<void>;
-  /** Saves the MCP list to Downloads; resolves to where, as `~/…`. */
-  codexExportMcp(): Promise<string>;
   /** Codex's folder; empty goes back to `~/.codex`. Rejects with `notFound`. */
   setCodexHome(path: string): Promise<Model>;
+  /** The MCP tab opened, or "Đọc lại": every agent's list read again; the table comes in the model. */
+  mcpRead(): Promise<void>;
+  /** What `changes` would write, read from the files now, secrets masked. */
+  mcpPreview(changes: McpChange[]): Promise<McpPreview>;
+  /** Writes the batch the preview showed; `bases` are the files as it read them. Rejects with `busy`. */
+  mcpWrite(changes: McpChange[], bases: McpPreview['bases']): Promise<McpOutcome>;
+  /** "Hoàn tác": the last write put back. Rejects with `nothing` or `busy`. */
+  mcpUndo(): Promise<McpOutcome>;
+  /** A key typed or pasted: straight to the Keychain, with the Bitwarden item it is in. Never sent back. */
+  mcpSaveSecret(name: string, slot: string, value: string, bitwarden: string | null): Promise<void>;
+  /** The servers in a pasted JSON or TOML; with `save`, their secrets go to the Keychain first, with the Bitwarden item. */
+  mcpPaste(text: string, save: boolean, bitwarden: string | null): Promise<McpPaste>;
+  /** "Xoá hẳn": out of the app's store, and with `keys` out of the Keychain. */
+  mcpForget(name: string, slots: string[], keys: boolean): Promise<void>;
+  /** An agent's backups folder in Finder. Rejects with `missing`. */
+  mcpOpenBackups(agent: Agent): Promise<void>;
   /**
    * A button on an alert card in the Cảnh báo tab, the same as on the macOS card. A switch back
    * runs on the Rust side and its result comes in the model; `openSwitch` asks this window to open
@@ -217,8 +236,15 @@ export const tauriApi: Api = {
   codexRestart: (afterSwitch) => invoke<CodexRestart>('codex_restart', { afterSwitch }),
   codexKeep: () => invoke<Model>('codex_keep'),
   codexCheck: () => invoke('codex_check'),
-  codexExportMcp: () => invoke<string>('codex_export_mcp'),
   setCodexHome: (path) => invoke<Model>('set_codex_home', { path }),
+  mcpRead: () => invoke('mcp_read'),
+  mcpPreview: (changes) => invoke<McpPreview>('mcp_preview', { changes }),
+  mcpWrite: (changes, bases) => invoke<McpOutcome>('mcp_write', { changes, bases }),
+  mcpUndo: () => invoke<McpOutcome>('mcp_undo'),
+  mcpSaveSecret: (name, slot, value, bitwarden) => invoke('mcp_save_secret', { name, slot, value, bitwarden }),
+  mcpPaste: (text, save, bitwarden) => invoke<McpPaste>('mcp_paste', { text, save, bitwarden }),
+  mcpForget: (name, slots, keys) => invoke('mcp_forget', { name, slots, keys }),
+  mcpOpenBackups: (agent) => invoke('mcp_open_backups', { agent }),
   alertAction: (id, action) => invoke('alert_action', { id, action }),
   testAlert: (kind) => invoke<Model>('test_alert', { kind }),
   setAlertSwitch: (kind, on) => invoke<Model>('set_alert_switch', { kind, on }),

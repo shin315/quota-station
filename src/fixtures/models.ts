@@ -11,6 +11,10 @@ import type {
   ErrorView,
   FirstmateView,
   HistoryEntry,
+  McpDef,
+  McpRow,
+  McpTable,
+  McpView,
   Model,
   PeerView,
   RotationView,
@@ -348,6 +352,118 @@ export function codexFixture(over: Partial<CodexView> = {}): CodexView {
   };
 }
 
+const ON = { state: 'on', lock: null, parked: false } as const;
+const OFF = { state: 'off', lock: null, parked: false } as const;
+const ABSENT = { state: 'absent', lock: null, parked: false } as const;
+const view = (def: McpDef, slots: string[] = []) => ({ def, slots, extra: [] });
+const stdio = (command: string, args: string[] = [], env: { name: string; value: string }[] = []): McpDef => ({ kind: 'stdio', command, args, env, cwd: null });
+const http = (url: string, headers: { name: string; value: string }[] = []): McpDef => ({ kind: 'http', url, headers, sse: false });
+const MASK = '••••••';
+
+function mcpRow(over: Partial<McpRow> & Pick<McpRow, 'name' | 'cells'>): McpRow {
+  return { kind: 'stdio', program: null, host: null, secrets: [], differs: false, missingCommand: null, defs: {}, sameSecrets: {}, ...over };
+}
+
+/**
+ * The MCP table (M9) on made-up servers: one on everywhere, one with a key kept out of sight, one
+ * that differs between Claude Code and Antigravity, one turned off in Claude Code (the app keeps
+ * it), one short of its key, one whose command is not found, and Codex App's own two.
+ */
+export function mcpTableFixture(over: Partial<McpTable> = {}): McpTable {
+  const files = stdio('npx', ['-y', 'files-mcp', '~/Projects']);
+  const browser = stdio('browser-mcp');
+  const docs = http('https://docs.example.com/mcp', [{ name: 'Authorization', value: MASK }]);
+  const kitClaude = stdio('design-kit-mcp', ['--theme', 'dark'], [{ name: 'DESIGN_KIT_TOKEN', value: MASK }]);
+  const kitAgy = stdio('design-kit-mcp', [], [{ name: 'DESIGN_KIT_TOKEN', value: MASK }]);
+  const tracker = http('https://tracker.example.com/mcp', [{ name: 'Authorization', value: '<redacted>' }]);
+  const notes = stdio('notes-mcp', ['--vault', 'work']);
+  const desk = stdio('npx', ['-y', 'ticket-desk-mcp'], [{ name: 'TICKET_DESK_KEY', value: '<redacted>' }]);
+  return {
+    columns: [
+      { agent: 'claude', present: true, file: '~/.claude.json', state: 'ok', reason: null, writable: true },
+      { agent: 'codex', present: true, file: '~/.codex/config.toml', state: 'ok', reason: null, writable: true },
+      { agent: 'agy', present: true, file: '~/.gemini/config/mcp_config.json', state: 'ok', reason: null, writable: true },
+    ],
+    rows: [
+      mcpRow({ name: 'browser', program: 'browser-mcp', cells: { claude: ON, codex: ON, agy: OFF }, defs: { claude: view(browser), codex: view(browser), agy: view(browser) } }),
+      mcpRow({
+        name: 'design-kit',
+        program: 'design-kit-mcp',
+        secrets: [{ id: 'env:DESIGN_KIT_TOKEN', label: 'DESIGN_KIT_TOKEN', place: 'env', have: true, bitwarden: 'Design Kit' }],
+        cells: { claude: ON, codex: ABSENT, agy: ON },
+        differs: true,
+        defs: { claude: view(kitClaude, ['env:DESIGN_KIT_TOKEN']), agy: view(kitAgy, ['env:DESIGN_KIT_TOKEN']) },
+        sameSecrets: { 'env:DESIGN_KIT_TOKEN': true },
+      }),
+      mcpRow({
+        name: 'docs-search',
+        kind: 'http',
+        host: 'docs.example.com',
+        secrets: [{ id: 'header:Authorization', label: 'Authorization', place: 'header', have: true, bitwarden: 'Docs search' }],
+        cells: { claude: ON, codex: ON, agy: ABSENT },
+        defs: { claude: view(docs, ['header:Authorization']), codex: view(docs, ['header:Authorization']) },
+        sameSecrets: { 'header:Authorization': true },
+      }),
+      mcpRow({ name: 'files', program: 'files-mcp', cells: { claude: ON, codex: ON, agy: ON }, defs: { claude: view(files), codex: view(files), agy: view(files) } }),
+      mcpRow({
+        name: 'notes',
+        program: 'notes-mcp',
+        cells: { claude: ABSENT, codex: OFF, agy: ON },
+        missingCommand: { command: 'notes-mcp', path: false },
+        defs: { codex: view(notes), agy: view(notes) },
+      }),
+      mcpRow({
+        name: 'ticket-desk',
+        program: 'ticket-desk-mcp',
+        secrets: [{ id: 'env:TICKET_DESK_KEY', label: 'TICKET_DESK_KEY', place: 'env', have: false, bitwarden: 'Ticket Desk' }],
+        cells: { claude: { state: 'off', lock: 'missingKey', parked: true }, codex: { state: 'absent', lock: 'missingKey', parked: false }, agy: { state: 'absent', lock: 'missingKey', parked: false } },
+        defs: { claude: view(desk, ['env:TICKET_DESK_KEY']) },
+      }),
+      mcpRow({
+        name: 'tracker',
+        kind: 'http',
+        host: 'tracker.example.com',
+        secrets: [{ id: 'header:Authorization', label: 'Authorization', place: 'header', have: true, bitwarden: null }],
+        cells: { claude: { state: 'off', lock: null, parked: true }, codex: OFF, agy: ABSENT },
+        defs: { claude: view(tracker, ['header:Authorization']), codex: view(http('https://tracker.example.com/mcp', [{ name: 'Authorization', value: MASK }]), ['header:Authorization']) },
+      }),
+    ],
+    owned: [
+      { name: 'js-repl', owner: 'Codex', agents: ['codex'] },
+      { name: 'screen-control', owner: 'Codex', agents: ['codex'] },
+    ],
+    stored: [
+      {
+        name: 'old-wiki',
+        kind: 'http',
+        program: null,
+        host: 'wiki.example.com',
+        at: 1768380000,
+        agents: ['claude', 'codex'],
+        def: view(http('https://wiki.example.com/mcp')),
+        missing: [],
+      },
+    ],
+    ...over,
+  };
+}
+
+export function mcpFixture(over: Partial<McpView> = {}): McpView {
+  return {
+    table: mcpTableFixture(),
+    readAt: '2026-01-16T07:19:30Z',
+    busy: null,
+    last: null,
+    backups: [
+      { agent: 'codex', at: '2026-01-16T06:52:00Z', file: 'config.toml.20260116-135200', changes: ['docs-search:on'] },
+      { agent: 'codex', at: '2026-01-16T06:40:00Z', file: 'config.toml.20260116-134000', changes: [] },
+      { agent: 'claude', at: '2026-01-16T06:30:00Z', file: 'mcpServers.json.20260116-133000', changes: ['tracker:off'] },
+      { agent: 'agy', at: '2026-01-15T15:40:00Z', file: 'mcp_config.json.20260115-224000', changes: ['files:add'] },
+    ],
+    ...over,
+  };
+}
+
 export function fixtureModel(name: string, over: Partial<Model> = {}): Model {
   const snapshot = SNAPSHOTS[name];
   if (!snapshot) throw new Error('no snapshot fixture ' + name);
@@ -373,6 +489,7 @@ export function fixtureModel(name: string, over: Partial<Model> = {}): Model {
     firstmate: { file: null, status: 'notSet', line: null, writtenAt: null, fresh: false, ownDry: false },
     app: appFixture(),
     codex: codexFixture(),
+    mcp: mcpFixture(),
     ...over,
   };
 }

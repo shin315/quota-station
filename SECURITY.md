@@ -69,6 +69,7 @@ Files, under `~/Library/Application Support/com.shin315.quota-station/`:
 
 In the owner's login Keychain, not in that folder:
 
+- For MCP secrets (M9), one item per secret: see the MCP tab below.
 - One Keychain item per Antigravity account logged in through the app:
   service `com.shin315.quota-station.antigravity`, account the app's account
   id, value the account's tokens as JSON. Items are added without `-A`, so
@@ -148,15 +149,19 @@ stops the same way if it runs again by then.
   which kind of login it holds (the names of its fields, never their
   values), zeroes the bytes and keeps nothing. A login kept in the Keychain
   (`cli_auth_credentials_store = "keyring"` or `"auto"`) is not looked at.
-- It never writes `[mcp_servers]` and never rebuilds the MCP list. The MCP
-  export writes names, kinds and on/off only: no command, address, header or
-  environment variable.
+- A switch never writes `[mcp_servers]`; only the MCP tab does (M9, below).
+  The switch is still the one path that changes the Codex provider: nothing
+  in the MCP tab writes `model_provider` or a provider table.
 - The custom provider's key can sit in `config.toml`. The app reads it only
   to tell how it is given (an environment variable name, a bearer token, a
   header) and that one is there; it never shows, logs or sends the key. The
-  backups in `backups/codex/` are copies of `config.toml` and so can hold
-  the key: they are mode 600 in a folder of mode 700, and only the newest 10
-  stay. `codex/state.json` and `codex/switch-log.jsonl` hold hashes,
+  backups in `backups/codex/` are copies of `config.toml` with every secret
+  value replaced by `<redacted>` (keys, tokens, passwords, secret headers and
+  environment variables, secrets in an address), so they hold no key. Since
+  M9 the app also rewrites, when it starts, any older backup there
+  that was a whole copy, keeping its time; one it cannot read as TOML is
+  removed. Backups are mode 600 in a folder of mode 700, and only the newest
+  10 stay. `codex/state.json` and `codex/switch-log.jsonl` hold hashes,
   provider ids and times, no key.
 - The reachability check sends `GET <base_url>/models` with no key, no
   login and no cookie. The address is the one in the provider's table.
@@ -170,6 +175,72 @@ stops the same way if it runs again by then.
   fake keys and fake logins, a fake `codex` that records its arguments and
   a local server for the reachability check, which asserts it got no
   `Authorization` header. No test reads the real Codex folder.
+
+## The MCP tab (M9)
+
+The MCP tab shows every MCP server of Claude Code, Codex and Antigravity in
+one table and writes the owner's ticks after one preview.
+
+- Files it reads: `~/.claude.json` (only its top-level `mcpServers` is
+  parsed; the rest of the file, which can hold an API key or the account,
+  is dropped unread), `config.toml` in the Codex folder (only
+  `[mcp_servers]` is read into the table), and
+  `~/.gemini/config/mcp_config.json`. To tell whether a server's command is
+  installed it only checks that the file exists, in the usual folders.
+- What it writes, and only after the owner saw the preview of that very
+  write and confirmed it: in `config.toml` the `[mcp_servers.<name>]` tables
+  the batch names (`enabled = false` to turn one off), in `mcp_config.json`
+  the entries under `mcpServers` the batch names (`"disabled": true` to turn
+  one off), and for Claude Code only `claude mcp add-json <name> '<json>'
+  --scope user` and `claude mcp remove <name> --scope user`, so Claude Code
+  writes `~/.claude.json` itself; the app never writes that file. Every
+  other byte of the two files it edits stays as it was, which the edit is
+  checked against before it is written. A server whose command lives inside
+  an app's bundle (Codex App's own) and a file that does not parse are shown
+  and never written.
+- Each write is checked as the Codex switch's is: the file is compared with
+  the one the preview read, the new text goes to a temporary file (mode
+  600), the old one is backed up, the file is compared again and only then
+  replaced, and read back. One file changed by another program stops the
+  whole batch before anything is written. Claude Code's list is compared
+  the same way, and checked after each `claude` command.
+- Backups, under the app's folder: `backups/codex/` (shared with the switch),
+  `backups/claude/` (Claude Code's `mcpServers` only) and
+  `backups/antigravity/`, mode 600 in folders of mode 700, the newest 10 of
+  each. Every secret in them is `<redacted>`; `Hoàn tác` takes secrets from
+  the agent files and the Keychain, not from a backup.
+- The app's own files: `agents/mcp-store.json` holds the servers in no
+  agent's file (Claude Code has no off, so turning one off there removes it
+  and the app keeps it; and servers put away with `Xoá`) with every secret
+  `<redacted>`, the slots the secrets go back to, and the Bitwarden item
+  names the owner typed; the app refuses to save it if a secret would be in
+  it. `agents/mcp-log.jsonl` holds the time, the agent, `name:action` and
+  the backup's file name of the last 200 writes. Both are mode 600.
+- Secrets the app must keep itself (a key typed or pasted in the add form or
+  for a server short of one, a server turned off in Claude Code or put away)
+  go to the owner's login Keychain: service
+  `com.shin315.quota-station.mcp-secret`, account `<server>:<slot>` (for
+  example `docs:header:Authorization`), added without `-A` with
+  `/usr/bin/security`. The value is on `security`'s command line for the
+  moment it runs, the same limit as the Antigravity items. A key copied from
+  one agent to another is read from the first agent's file and is not kept.
+- The windows never get a secret. The table says only which secrets a server
+  has, whether the app can find them, and, for two agents, whether they are
+  the same. The preview, the result and the error lines mask every secret
+  (`••••••`); text `claude` prints is shown with the secrets it was given
+  taken out. A key typed in the form is a password field that goes to the
+  Keychain before the preview, and the form forgets it; a pasted JSON or
+  TOML is read with its secrets masked, and its secrets go to the Keychain
+  only when the owner presses `Tiếp`. No secret is written to a log.
+- `claude mcp add-json` gets the server's JSON, secrets included, on its
+  command line for the moment it runs, which other processes of the same
+  macOS user can see; it is the only way to give Claude Code a server
+  without the app writing `~/.claude.json`. The app runs `claude` with
+  `DISABLE_AUTOUPDATER=1` and a 30-second limit.
+- `Hoàn tác` puts back the last batch with the secrets each server has now,
+  so a secret changed by that batch is not restored; and a server Claude
+  Code had turned off (kept by the app) that the batch dropped is not put
+  back in the app's store.
 
 ## How the tests hold the app to this
 
@@ -204,6 +275,21 @@ stops the same way if it runs again by then.
   `Keychain::system()`, `SharedLogin::system()` and `Desktop::system()`
   refuse to run in one, so no test can reach Google, the real Keychain or
   the real Antigravity.app.
+- `tests/agents_mcp.rs` runs the MCP tab's reads, previews and writes
+  (turning on and off in each agent, a batch over all three, `Hoàn tác`, a
+  file changed after the preview, a file that does not parse, Claude Code's
+  off, putting away and bringing back, editing, a server added with a typed
+  or pasted key) on a temporary home, with a fake `claude` that records its
+  arguments and a fake `security`. Its fixtures hold trap secrets, and a
+  sentinel outside `mcpServers` in `~/.claude.json`: the traps may appear
+  only in the agent files, the fake `claude`'s arguments and the fake
+  Keychain, never in the app's folder (backups, store, log) or in what the
+  windows get, and the sentinel nowhere. It checks that only the entries in
+  the batch change, byte for byte, that every `security` run names the
+  app's own service without `-A`, and that no MCP source names a login file
+  or runs `security` outside `secrets.rs`. `tests/codex.rs` checks that a
+  switch's backup holds no key and that an older whole backup loses its
+  keys. `Secrets::system()` refuses to run in a test build.
 - CI has no Keychain access and no Google account.
 - The install tests run `scripts/install.sh` in a temporary folder with fake
   `open` and `security`, and fakes of `launchctl`, `osascript` and `sfltool`

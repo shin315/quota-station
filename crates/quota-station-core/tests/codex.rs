@@ -180,7 +180,15 @@ fn switching_to_the_custom_provider_keeps_the_chatgpt_login_and_everything_else(
     assert_eq!(std::fs::metadata(home.join(codex::AUTH)).unwrap().modified().unwrap(), auth_mtime);
 
     let backup = app.path().join(files::BACKUP_DIR).join(backup);
-    assert_eq!(std::fs::read_to_string(&backup).unwrap(), before, "the file before is kept");
+    let kept = std::fs::read_to_string(&backup).unwrap();
+    assert_eq!(
+        kept,
+        before
+            .replace("\"test-key-not-real\"", "\"<redacted>\"")
+            .replace("\"test-token-not-real\"", "\"<redacted>\""),
+        "the file before is kept, its keys left out"
+    );
+    assert!(!kept.contains("not-real"), "no key in the backup: {kept}");
     assert_eq!(std::fs::metadata(&backup).unwrap().permissions().mode() & 0o777, 0o600);
     assert_eq!(
         std::fs::metadata(home.join(codex::CONFIG)).unwrap().permissions().mode() & 0o777,
@@ -384,6 +392,27 @@ fn the_newest_ten_backups_stay() {
 }
 
 #[test]
+fn backups_kept_whole_before_m9_lose_their_keys() {
+    let dir = temp_dir("codex-old-backups");
+    let whole = fixture_text("codex/config-chatgpt.toml");
+    let old = files::backup(whole.as_bytes(), &dir, at(0)).unwrap();
+    let stamp = std::time::SystemTime::UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+    std::fs::File::options().write(true).open(&old).unwrap().set_modified(stamp).unwrap();
+    let garbage = files::backup(b"not = [toml", &dir, at(60)).unwrap();
+
+    assert_eq!(files::scrub_backups(&dir), 2);
+    let kept = std::fs::read_to_string(&old).unwrap();
+    assert!(!kept.contains("not-real"), "{kept}");
+    assert!(kept.contains("experimental_bearer_token = \"<redacted>\""), "{kept}");
+    assert_eq!(kept.lines().count(), whole.lines().count(), "every other line stays");
+    assert_eq!(std::fs::metadata(&old).unwrap().modified().unwrap(), stamp, "its time is kept");
+    assert_eq!(std::fs::metadata(&old).unwrap().permissions().mode() & 0o777, 0o600);
+    assert!(!garbage.exists(), "one that does not read as TOML might hold a key: removed");
+    assert_eq!(files::scrub_backups(&dir), 0, "a second run changes nothing");
+    assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1, "no temporary file left");
+}
+
+#[test]
 fn a_change_outside_the_app_is_seen_and_can_be_kept() {
     let (home, app) = setup("config-chatgpt.toml", Some("auth-chatgpt.json"));
     assert!(
@@ -526,22 +555,6 @@ fn resumable_sessions_are_counted_by_their_provider() {
     assert_eq!(counts.get("custom"), Some(&1));
     assert_eq!(counts.get(""), Some(&1), "one without a provider");
     assert_eq!(counts.values().sum::<u32>(), 5);
-}
-
-#[test]
-fn the_mcp_export_holds_no_command_url_or_secret() {
-    let parsed = config::parse(&fixture_text("codex/config-chatgpt.toml"), None).unwrap();
-    let text = codex::mcp_export(&parsed, "Mac A", "16/01 14:20");
-    assert!(text.contains("files · stdio · bật") && text.contains("tracker · http · tắt"));
-    for secret in
-        ["npx", "docs.example.com", "test-token-not-real", "test-key-not-real", "FILES_TOKEN"]
-    {
-        assert!(!text.contains(secret), "{secret} in {text}");
-    }
-    let dir = temp_dir("codex-export");
-    let first = codex::export_path(&dir, "16-01");
-    std::fs::write(&first, "x").unwrap();
-    assert_eq!(codex::export_path(&dir, "16-01").file_name().unwrap(), "codex-mcp-16-01-2.txt");
 }
 
 #[test]

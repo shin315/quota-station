@@ -13,7 +13,11 @@
 //! (a switch in settings, off by default) and update itself from a clone of
 //! its source with `scripts/install.sh`. Since M8 it switches Codex between
 //! the ChatGPT login and a custom API provider, keeping the ChatGPT login.
+//! Since M9 it shows the MCP servers of Claude Code, Codex and Antigravity
+//! in one table and turns them on, off, adds and removes them, after a
+//! preview of the whole batch.
 
+mod agents;
 mod agy_quota;
 mod agy_switch;
 mod alerting;
@@ -111,8 +115,15 @@ fn main() {
             codex::codex_restart,
             codex::codex_keep,
             codex::codex_check,
-            codex::codex_export_mcp,
             codex::set_codex_home,
+            agents::mcp_read,
+            agents::mcp_preview,
+            agents::mcp_write,
+            agents::mcp_undo,
+            agents::mcp_save_secret,
+            agents::mcp_paste,
+            agents::mcp_forget,
+            agents::mcp_open_backups,
             alerting::alert_action,
             alerting::test_alert,
             alerting::set_alert_switch,

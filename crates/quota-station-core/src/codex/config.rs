@@ -1,13 +1,14 @@
 //! Codex's `config.toml`: which provider it uses, the custom provider table
-//! a switch goes to, its own key, the MCP list (read only) and what CC Switch
-//! left behind; and the edit a switch makes.
+//! a switch goes to, its own key, the MCP list (read here; only the MCP tab
+//! edits it, [`crate::agents::codex_mcp`]) and what CC Switch left behind;
+//! and the edit a switch makes.
 //!
 //! The edit touches only the keys the switch owns: `model_provider` at the
 //! top of the file (set to the custom provider's id, or removed for the
 //! ChatGPT login), and `requires_openai_auth` in that provider's table when
 //! switching to it. Every other byte stays as it was: the edit is made on the
 //! text, at the places the parser found, and checked by [`apply`] before it
-//! is returned. `auth.json` and `[mcp_servers]` are never written.
+//! is returned. A switch never writes `auth.json` or `[mcp_servers]`.
 //!
 //! Ported in part from CC Switch (MIT, © 2025 Jason Young), commit 79e754ab,
 //! `src-tauri/src/live/project/codex.rs`: the reserved and built-in provider

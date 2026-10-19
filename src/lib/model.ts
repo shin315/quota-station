@@ -559,7 +559,7 @@ export interface AppView {
 }
 
 /** The main window's tabs in this build (`src-tauri/src/state.rs` `Tab`). */
-export type Tab = 'overview' | 'claude' | 'agy' | 'codex' | 'rules' | 'history' | 'alerts' | 'firstmate' | 'settings';
+export type Tab = 'overview' | 'claude' | 'agy' | 'codex' | 'rules' | 'history' | 'alerts' | 'firstmate' | 'mcp' | 'settings';
 
 // ===== Codex (M8) =====
 
@@ -680,6 +680,198 @@ export type CodexOutcome =
 /** `codex::procs::Restart`. */
 export type CodexRestart = { kind: 'restarted' } | { kind: 'notRunning' } | { kind: 'noCodex' } | { kind: 'failed'; detail: string };
 
+// ===== MCP (M9) =====
+
+/** `agents::Agent`: a column of the MCP table. */
+export type Agent = 'claude' | 'codex' | 'agy';
+
+/** One `NAME = value` of an environment or of headers; a secret's value is the mask. */
+export interface McpPair {
+  name: string;
+  value: string;
+}
+
+/** `agents::def::Def`: how a server runs. Its secrets are the mask: the windows never hold one. */
+export type McpDef =
+  | { kind: 'stdio'; command: string; args: string[]; env: McpPair[]; cwd: string | null }
+  | { kind: 'http'; url: string; headers: McpPair[]; sse: boolean };
+
+export type McpPlace = 'env' | 'header' | 'arg' | 'url';
+
+export interface McpColumn {
+  agent: Agent;
+  present: boolean;
+  /** `~/.codex/config.toml` */
+  file: string;
+  /** `missing`: no file yet; `absent`: the agent is not on this Mac; `noCli`: no `claude`. */
+  state: 'ok' | 'missing' | 'invalid' | 'unreadable' | 'absent' | 'noCli';
+  reason: string | null;
+  writable: boolean;
+}
+
+export type McpLock = 'readOnly' | 'shape' | 'missingKey' | 'noCommand' | 'sse';
+
+export interface McpCell {
+  /** `off`: in the file and off, or kept by the app for Claude Code (`parked`). */
+  state: 'on' | 'off' | 'absent';
+  lock: McpLock | null;
+  parked: boolean;
+}
+
+export interface McpSecret {
+  /** `env:NAME`, `header:NAME`, `arg:2`, `url`: also its Keychain item. */
+  id: string;
+  label: string;
+  place: McpPlace;
+  /** In an agent's file or the app's Keychain item. */
+  have: boolean;
+  bitwarden: string | null;
+}
+
+export interface McpDefView {
+  def: McpDef;
+  /** The slots holding a secret (masked in `def`). */
+  slots: string[];
+  /** Members the agent's entry has that the app does not carry. */
+  extra: string[];
+}
+
+export interface McpRow {
+  name: string;
+  kind: 'stdio' | 'http' | 'sse' | 'other';
+  /** The command, or the package `npx` runs. */
+  program: string | null;
+  host: string | null;
+  secrets: McpSecret[];
+  cells: Record<Agent, McpCell>;
+  /** Not the same server in every agent that has it. */
+  differs: boolean;
+  /** `path`: a full path that is not there; else a name not found in the usual folders. */
+  missingCommand: { command: string; path: boolean } | null;
+  defs: Partial<Record<Agent, McpDefView>>;
+  /** For a secret two agents hold: only whether they hold the same. */
+  sameSecrets: Record<string, boolean>;
+}
+
+export interface McpOwned {
+  name: string;
+  owner: string;
+  agents: Agent[];
+}
+
+export interface McpStored {
+  name: string;
+  kind: McpRow['kind'];
+  program: string | null;
+  host: string | null;
+  /** Unix seconds. */
+  at: number;
+  agents: Agent[];
+  def: McpDefView;
+  /** Secrets the Keychain no longer holds. */
+  missing: string[];
+}
+
+export interface McpTable {
+  columns: McpColumn[];
+  rows: McpRow[];
+  owned: McpOwned[];
+  stored: McpStored[];
+}
+
+/** `agents::batch::To`. */
+export type McpTo =
+  | { kind: 'on' }
+  | { kind: 'off' }
+  | { kind: 'absent'; store: boolean }
+  | { kind: 'def'; def: McpDef; from: Agent | null; keychain: string[]; off: boolean };
+
+export interface McpChange {
+  name: string;
+  agent: Agent;
+  to: McpTo;
+}
+
+export type McpRefusal = 'readOnly' | 'shape' | 'owned' | 'missingKey' | 'noCommand' | 'sse' | 'badName' | 'unknown' | 'nothing';
+
+export interface McpLine {
+  op: 'ctx' | 'add' | 'del' | 'gap';
+  text: string;
+  /** The line holds a masked secret. */
+  secret: boolean;
+}
+
+export interface McpBlock {
+  name: string;
+  action: 'on' | 'off' | 'add' | 'remove' | 'replace';
+  lines: McpLine[];
+  /** Claude Code: the commands run, secrets masked. */
+  commands: string[];
+  secret: boolean;
+  dropped: string[];
+  from: Agent | null;
+  /** The app keeps it: Claude Code's off, a delete into the store. */
+  kept: boolean;
+}
+
+export interface McpPreview {
+  groups: { agent: Agent; file: string; backups: string; blocks: McpBlock[] }[];
+  refused: { name: string; agent: Agent; reason: McpRefusal }[];
+  /** Sent back with the write. */
+  changes: McpChange[];
+  bases: Partial<Record<Agent, string>>;
+}
+
+export type McpEditError =
+  | { kind: 'parse'; detail: string }
+  | { kind: 'missing' }
+  | { kind: 'exists' }
+  | { kind: 'shape' }
+  | { kind: 'unsupported' }
+  | { kind: 'check'; detail: string };
+
+export type McpFailure =
+  | { kind: 'changed' }
+  | { kind: 'refused'; refused: McpPreview['refused'] }
+  | { kind: 'edit'; error: McpEditError }
+  | { kind: 'write'; error: CodexWriteError }
+  | { kind: 'cli'; detail: string }
+  | { kind: 'keychain'; detail: string }
+  | { kind: 'verify' };
+
+/** `agents::batch::Outcome`. */
+export interface McpOutcome {
+  done: { agent: Agent; changes: number; backup: string | null }[];
+  failed: { agent: Agent; error: McpFailure } | null;
+  undo: { changes: McpChange[]; bases: Partial<Record<Agent, string>> } | null;
+  at: number;
+}
+
+/** `agents::paste::Paste`: what a pasted JSON or TOML holds, secrets masked. */
+export interface McpPaste {
+  servers: { name: string; def: McpDef; slots: { id: string; label: string; place: McpPlace }[] }[];
+  skipped: string[];
+  error: 'empty' | 'tooLong' | 'parse' | 'noName' | 'none' | 'keychain' | null;
+  detail: string | null;
+}
+
+export interface McpBackup {
+  agent: Agent;
+  at: string;
+  file: string;
+  /** `name:action` of the write it came before. */
+  changes: string[];
+}
+
+export interface McpView {
+  /** `null` until the tab first reads. */
+  table: McpTable | null;
+  readAt: string | null;
+  busy: 'reading' | 'writing' | null;
+  last: { at: string; outcome: McpOutcome; canUndo: boolean } | null;
+  backups: McpBackup[];
+}
+
 export interface Model {
   snapshot: Snapshot;
   errors: { claude: ErrorView | null; agy: ErrorView | null; codex: ErrorView | null };
@@ -711,4 +903,6 @@ export interface Model {
   app: AppView;
   /** Switching Codex (M8). */
   codex: CodexView;
+  /** Every agent's MCP servers (M9). */
+  mcp: McpView;
 }

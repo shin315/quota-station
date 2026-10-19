@@ -3,12 +3,15 @@
 // Each window opens its own sheets; a switch running from one shows in both.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { McpDialogBody, mcpDialogSize } from './agents/McpDialogs';
+import { McpTab } from './agents/McpTab';
+import { useMcp } from './agents/useMcp';
 import { AlertsTab } from './alerts/AlertsTab';
 import { CodexCard, CodexTab } from './codex/CodexTab';
 import { useAgyLogins } from './antigravity/AgyAccounts';
 import { SheetBody, type SheetState } from './components/Sheets';
 import { agyLoginOf, agySwitchErrorFeedback, agySwitchFeedback, type AppAnswer } from './lib/agySwitch';
-import { codexErrorFeedback, codexFeedback, codexRow, codexRestartFeedback, mcpFailedFeedback, mcpSavedFeedback, nextTarget } from './lib/codex';
+import { codexErrorFeedback, codexFeedback, codexRow, codexRestartFeedback, nextTarget } from './lib/codex';
 import type { Api } from './lib/api';
 import { alertFailedFeedback, testFailedFeedback } from './lib/alerts';
 import type { AgyHow, AlertKind, CodexOutcome, CodexTarget, Model, Sessions, Tab, Theme } from './lib/model';
@@ -260,14 +263,6 @@ function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeed
       // The banner stays; nothing else to say.
     }
   };
-  const exportMcp = async () => {
-    setSheet(null);
-    try {
-      showFeedback(mcpSavedFeedback(await api.codexExportMcp(), latest.current?.codex.mcp.length ?? 0));
-    } catch {
-      showFeedback(mcpFailedFeedback());
-    }
-  };
   const keepOverwrite = async () => {
     try {
       await api.agyDismissOverwrite();
@@ -321,7 +316,6 @@ function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeed
     else if (a === 'codex:keep') void keepCodex();
     else if (a === 'codex:check') void api.codexCheck().catch(() => {});
     else if (a === 'codex:guide:login') open({ kind: 'codexInfo', id: 'login' });
-    else if (a === 'codex:mcp') open({ kind: 'codexInfo', id: 'mcp' });
     else if (a === 'codex:backup') {
       showFeedback(null);
       open({ kind: 'codexInfo', id: 'backup' });
@@ -362,7 +356,6 @@ function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeed
         onCodexSkipRestart={skipCodexRestart}
         onCodexKeep={() => void keepCodex()}
         onCodexOpen={open}
-        onCodexExport={() => void exportMcp()}
         onCodexGuide={onCodexGuide}
       />
     ) : null;
@@ -494,14 +487,16 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   const { busy, refresh, grant } = useActions(api, model, clock, showFeedback);
   const switching = useSwitching(api, model, clock, showFeedback);
   const rules = useRules(api, model, clock, showFeedback, tab);
+  const mcp = useMcp(api, model, showFeedback);
   const ruleDialog = rules.leave ? 'leave' : rules.compare ? 'compare' : null;
-  const sheetOpen = !!switching.sheet || !!ruleDialog;
+  const sheetOpen = !!switching.sheet || !!ruleDialog || !!mcp.dialog;
   const closeSheet = useRef(switching.close);
-  // Escape closes the sheet on show: the unsaved-changes one, then a switch, then the comparison.
+  // Escape closes the sheet on show: the unsaved-changes one, then a switch, then the comparison, then an MCP dialog.
   closeSheet.current = () => {
     if (rules.leave) void rules.answerLeave('cancel', setTab);
     else if (switching.sheet) switching.close();
     else if (rules.compare) rules.closeCompare();
+    else if (mcp.dialog) mcp.close();
   };
 
   useEffect(() => {
@@ -537,11 +532,15 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
     if (tab === 'alerts' || tab === 'settings') void api.notifyRefresh().catch(() => {});
     // So may launching at login.
     if (tab === 'settings') void api.settingsOpened().catch(() => {});
+    // Opening the MCP tab reads every agent's list now.
+    if (tab === 'mcp') void api.mcpRead().catch(() => {});
   }, [api, tab]);
 
   const onAction = (act: Action) => {
     if (switching.act(act)) return;
     if (rules.act(act)) return;
+    if (mcp.act(act)) return;
+    if (act === 'mcp:tab') return rules.guardTab(tab, 'mcp', setTab);
     if (act === 'notify:settings') return void api.openNotificationSettings().catch(() => showFeedback(settingsFailedFeedback()));
     if (act === 'settings') return rules.guardTab(tab, 'settings', setTab);
     if (act === 'codex:tab') return rules.guardTab(tab, 'codex', setTab);
@@ -630,8 +629,14 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
           switching.close();
           goTab('codex');
         },
-      ) ?? (ruleDialog === 'compare' ? <CompareDialog model={model} rules={rules} now={now} /> : null))
+      ) ??
+      (ruleDialog === 'compare' ? (
+        <CompareDialog model={model} rules={rules} now={now} />
+      ) : mcp.dialog ? (
+        <McpDialogBody mcp={mcp} model={model} now={now} />
+      ) : null))
     );
+  const dialogSize = !switching.sheet && !ruleDialog && mcp.dialog ? mcpDialogSize(mcp.dialog) : undefined;
   return (
     <MainWindow
       tab={tab}
@@ -650,6 +655,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       rules={<RulesTab model={model} fresh={view.fresh} rules={rules} feedback={feedback} now={now} onAction={onAction} />}
       codex={<CodexTab model={model} fresh={view.fresh} feedback={feedback} now={now} onAction={onAction} />}
       codexCard={<CodexCard model={model} onAction={onAction} />}
+      mcp={<McpTab model={model} fresh={view.fresh} feedback={feedback} now={now} mcp={mcp} onAction={onAction} />}
       history={<HistoryTab model={model} fresh={view.fresh} now={now} load={api.getHistory} />}
       alerts={
         <AlertsTab
@@ -667,6 +673,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       unanswered={model.alerts.unanswered}
       agyLogins={agyLogins}
       dialog={dialog}
+      dialogSize={dialogSize}
     />
   );
 }
