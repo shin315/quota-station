@@ -2,7 +2,7 @@
 // the Rust reader after every read, so both always show the same snapshot.
 // Each window opens its own sheets; a switch running from one shows in both.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { McpDialogBody, mcpDialogSize } from './agents/McpDialogs';
 import { McpTab } from './agents/McpTab';
 import { useMcp } from './agents/useMcp';
@@ -541,7 +541,9 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   }, [api]);
 
   // Opening the Antigravity tab reads every account now (at most once a minute each).
-  useEffect(() => {
+  // A layout effect: the read is asked in the same commit that shows the tab,
+  // not in a passive effect that may run some time after the tab is on screen.
+  useLayoutEffect(() => {
     if (tab === 'agy') void api.agyTabOpened().catch(() => {});
     // Opening the Codex tab looks at Codex now and counts the resumable sessions.
     if (tab === 'codex') void api.codexCheck().catch(() => {});

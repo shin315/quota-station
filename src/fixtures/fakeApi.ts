@@ -4,7 +4,7 @@
 // Plain code: the preview bundle must not load Vitest.
 
 import type { Api } from '../lib/api';
-import { fakeRestore, planFixture, summaryFixture } from './fakeBackup';
+import { fakeParts, fakeRestore, planFixture, summaryFixture } from './fakeBackup';
 import { fakeApply, fakePaste, fakePreview } from './fakeMcp';
 import { fakeSkillApply, fakeSkillPreview, instrDiffFixture, instrShownFixture, repoFixture, SKILL_MD } from './fakeSkills';
 import type {
@@ -92,6 +92,8 @@ export interface FakeOptions {
   restoreUndoChanged?: boolean;
   /** How long a restore takes; the preview waits to show the running step. */
   restoreDelayMs?: number;
+  /** A restore's formatter plugin needs a login: "Thử lại" gets it done. */
+  restorePartial?: boolean;
   /** A skills write finds a folder changed since the preview: nothing is written. */
   skillsChanged?: boolean;
   /** How long `npx skills` and a skills write take. */
@@ -696,16 +698,22 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       if (p?.state === 'cloud') throw 'cloud';
       return planFixture(id);
     },
-    restoreRun: async (id, picks, keys) => {
+    restoreRun: async (id, picks, more, keys) => {
       if (model.mcp.busy === 'writing' || model.codex.busy) throw 'busy';
       if (options.restoreChanged) throw 'changed:codex';
       push({ ...model, backup: { ...model.backup, busy: 'restoring' } });
       if (options.restoreDelayMs) await new Promise((r) => setTimeout(r, options.restoreDelayMs));
       const at = Math.floor(now().getTime() / 1000);
-      const done = fakeRestore(planFixture(id), picks, keys.map((k) => k.mcp + '|' + k.slot), at);
+      const base = fakeRestore(planFixture(id), picks, keys.map((k) => k.mcp + '|' + k.slot), at);
+      const parts = fakeParts(planFixture(id), more, !!options.restorePartial);
+      const done = { ...base, parts, canUndo: base.canUndo || parts.some((r) => r.ok) };
       const mac = planFixture(id).mac;
       push({ ...model, backup: { ...model.backup, busy: null, restore: done.canUndo ? { at, pack: id, mac } : model.backup.restore } });
       return done;
+    },
+    restoreRetry: async (_id, part, item, agent) => {
+      if (options.restoreDelayMs) await new Promise((r) => setTimeout(r, options.restoreDelayMs));
+      return { part, id: item, agent, kind: '', ok: true, why: null, retry: false };
     },
     restoreUndo: async (force) => {
       if (!model.backup.restore) throw 'nothing';

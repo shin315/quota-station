@@ -816,9 +816,25 @@ fn row(places: &SkillPlaces, look: &Look, updates: &skill_updates::Updates, name
     }
 }
 
+/// The folder of a skill installed by hand: in the shared folder, or in the
+/// one agent's folder that has it (where a link to elsewhere leads).
+pub fn hand_folder(places: &SkillPlaces, look: &Look, name: &str) -> Option<PathBuf> {
+    if look.shared.contains(name) {
+        return Some(places.shared.join(name));
+    }
+    let agent = *look.own(name).first()?;
+    std::fs::canonicalize(places.dir(agent).join(name)).ok()
+}
+
 /// What a backup pack keeps of the skills: each one's source and the
-/// agents it is on for. Not the skills' files.
-pub fn packed(places: &SkillPlaces, look: &Look) -> super::pack::SkillList {
+/// agents it is on for, and the folders of those installed by hand that
+/// can go into it (none holding a line shaped like a key or one of
+/// `known`). A skill from GitHub is installed from there again: no files.
+pub fn packed(
+    places: &SkillPlaces,
+    look: &Look,
+    known: &[String],
+) -> (super::pack::SkillList, Vec<(String, PathBuf)>) {
     let mut names: BTreeSet<String> = look.shared.clone();
     for r in look.readings.iter().filter(|r| r.present) {
         names.extend(
@@ -828,11 +844,12 @@ pub fn packed(places: &SkillPlaces, look: &Look) -> super::pack::SkillList {
                 .map(|(n, _)| n.clone()),
         );
     }
+    let mut folders = Vec::new();
     let skills = names
         .into_iter()
         .map(|name| {
             let locked = look.locked(&name).filter(|l| l.github() && look.shared.contains(&name));
-            super::pack::PackedSkill {
+            let mut s = super::pack::PackedSkill {
                 repo: locked.map(|l| l.source.clone()),
                 skill_path: locked.and_then(|l| l.skill_path.clone()),
                 hand: locked.is_none(),
@@ -840,11 +857,33 @@ pub fn packed(places: &SkillPlaces, look: &Look) -> super::pack::SkillList {
                     .into_iter()
                     .filter(|a| look.reading(*a).present && look.on(places, &name, *a))
                     .collect(),
+                copied: false,
+                hash: None,
+                exec: Vec::new(),
+                left_out: None,
                 name,
+            };
+            if s.hand {
+                let checked = hand_folder(places, look, &s.name)
+                    .ok_or("unreadable")
+                    .and_then(|dir| super::pack::check_skill(&dir, known).map(|f| (dir, f)));
+                match checked {
+                    Ok((dir, files)) => match skill_updates::tree_hash(&dir) {
+                        Ok(hash) => {
+                            s.copied = true;
+                            s.hash = Some(hash);
+                            s.exec = files.iter().filter(|f| f.1).map(|f| f.0.clone()).collect();
+                            folders.push((s.name.clone(), dir));
+                        }
+                        Err(_) => s.left_out = Some("unreadable".into()),
+                    },
+                    Err(why) => s.left_out = Some(why.into()),
+                }
             }
+            s
         })
         .collect();
-    super::pack::SkillList { skills }
+    (super::pack::SkillList { skills }, folders)
 }
 
 // ===== The batch =====

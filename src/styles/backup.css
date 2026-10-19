@@ -35,6 +35,11 @@
 .qs .ck small { display: block; color: var(--ink2); font-size: var(--fs-xs); }
 .qs .ck .r { display: flex; gap: 6px; align-items: center; }
 .qs .rcmp { display: grid; gap: 6px; margin: 0 0 8px 26px; }
+/* An instruction file's diff inside its group: no panel inside a panel, the
+   group's own fill is its ground. */
+.qs .grpx .diff { background: transparent; border-radius: 0; margin: 0 0 8px 26px; border-top: .5px solid var(--card-line); }
+.qs .grpx .diff .fh { padding: 5px 0; }
+.qs .grpx .diff pre > span { padding-right: 0; }
 .qs .rcmp .rc { display: grid; grid-template-columns: 90px minmax(0, 1fr) minmax(0, 1fr); gap: 8px; font-size: var(--fs-xs); }
 .qs .rcmp .rc small { display: block; color: var(--ink3); }
 .qs .rcmp code { display: block; font: 11px var(--font-mono); overflow-wrap: anywhere; color: var(--ink); }

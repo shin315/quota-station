@@ -6,6 +6,8 @@ import { listen } from '@tauri-apps/api/event';
 import type {
   PackSummary,
   RestoreDone,
+  RestoreMore,
+  RestorePartResult,
   RestorePlan,
   RestoreUndone,
   CodexOutcome,
@@ -233,8 +235,19 @@ export interface Api {
    * Khôi phục, step 4. The pasted keys go to the Keychain and are never sent back; `bases` are
    * the files as the plan read them. Rejects with `busy`, `changed:<agents>`, `keychain` or a pack error.
    */
-  restoreRun(id: string, picks: { name: string; kind: string }[], keys: { mcp: string; slot: string; value: string }[], bases: RestorePlan['bases']): Promise<RestoreDone>;
-  /** "Hoàn tác lần khôi phục"; `force` once the owner agreed to files changed since. Rejects with `nothing`, `changed:<agents>`, `busy`, `failed`. */
+  restoreRun(
+    id: string,
+    picks: { name: string; kind: string }[],
+    more: RestoreMore,
+    keys: { mcp: string; slot: string; value: string }[],
+    bases: RestorePlan['bases'],
+  ): Promise<RestoreDone>;
+  /** "Thử lại" on one skill, plugin or instruction file of the last restore. Rejects with `busy` or a pack error. */
+  restoreRetry(id: string, part: RestorePartResult['part'], item: string, agent: Agent | null): Promise<RestorePartResult>;
+  /**
+   * "Hoàn tác lần khôi phục"; `force` once the owner agreed to what changed since. Rejects with `nothing`,
+   * `changed:<agents>` (then `file:<~/…>` and `skill:<name>` lines), `busy`, `failed`.
+   */
   restoreUndo(force: boolean): Promise<RestoreUndone>;
   /**
    * A button on an alert card in the Cảnh báo tab, the same as on the macOS card. A switch back
@@ -359,7 +372,8 @@ export const tauriApi: Api = {
   backupDeleteKey: (mcp, slot) => invoke('backup_delete_key', { mcp, slot }),
   packSummary: (id) => invoke<PackSummary>('pack_summary', { id }),
   restorePlan: (id) => invoke<RestorePlan>('restore_plan', { id }),
-  restoreRun: (id, picks, keys, bases) => invoke<RestoreDone>('restore_run', { id, picks, keys, bases }),
+  restoreRun: (id, picks, more, keys, bases) => invoke<RestoreDone>('restore_run', { id, picks, more, keys, bases }),
+  restoreRetry: (id, part, item, agent) => invoke<RestorePartResult>('restore_retry', { id, part, item, agent }),
   restoreUndo: (force) => invoke<RestoreUndone>('restore_undo', { force }),
   alertAction: (id, action) => invoke('alert_action', { id, action }),
   testAlert: (kind) => invoke<Model>('test_alert', { kind }),

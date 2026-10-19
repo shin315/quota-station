@@ -15,6 +15,7 @@ use quota_station_core::agents::instructions::{self, Choices, Shown};
 use quota_station_core::agents::npx::{self, Listed, Npx, NpxError};
 use quota_station_core::agents::pack::{self, PluginList};
 use quota_station_core::agents::plugins::{self, Side};
+use quota_station_core::agents::restore;
 use quota_station_core::agents::skill_ops::{self, Installed, Removed, Updated};
 use quota_station_core::agents::skill_updates::{self, GitHub, Updates};
 use quota_station_core::agents::skills::{
@@ -142,6 +143,39 @@ impl Inner {
         let program = places.npx.clone()?;
         Some(Npx::new(program, npx::run_dir(self.app_dir().path())))
     }
+
+    /// What a restore uses besides the MCP files: the skills' folders,
+    /// `npx`, the agents' own commands for plugins.
+    pub fn restore_tools(&self) -> restore::Tools {
+        let places = self.skill_places();
+        restore::Tools {
+            npx: self.npx(&places),
+            claude: claude_mcp::discover(&self.home),
+            codex: procs::discover(&self.home),
+            codex_home: self.codex_home(),
+            root: self.pack_root(),
+            skills: places,
+        }
+    }
+}
+
+/// A restore writes skills too: the Skills tab's jobs wait for it, and it
+/// waits for theirs.
+pub fn begin_restore(state: &AppState) -> Result<(), String> {
+    let mut inner = state.lock();
+    if inner.skills.busy.is_some() {
+        return Err("busy".into());
+    }
+    inner.skills.busy = Some("writing");
+    Ok(())
+}
+
+/// After a restore: the Skills, Plugin and File hướng dẫn tabs read again.
+pub async fn end_restore(app: &AppHandle, state: &AppState) {
+    state.lock().skills.busy = None;
+    look_async(app, state, true).await;
+    let (a, s) = (app.clone(), state.clone());
+    let _ = tauri::async_runtime::spawn_blocking(move || instr_look(&a, &s)).await;
 }
 
 pub fn skills_view(inner: &Inner) -> SkillsView {
@@ -965,7 +999,7 @@ pub fn instr_open(state: State<'_, AppState>, path: String) -> Result<(), String
 
 /// The skills, plugins and instruction files for a pack. An agent whose
 /// plugins could not be read keeps the newest pack's list.
-pub fn pack_extras(state: &AppState) -> (pack::SkillList, PluginList, pack::InstructionList) {
+pub fn pack_extras(state: &AppState) -> PackExtras {
     let (places, home, codex_home, dir, mcp, root, mac, cached) = {
         let inner = state.lock();
         (
@@ -979,8 +1013,9 @@ pub fn pack_extras(state: &AppState) -> (pack::SkillList, PluginList, pack::Inst
             inner.skills.plugins.clone(),
         )
     };
+    let known = known(&mcp);
     let look = skills::read(&places);
-    let skill_list = skills::packed(&places, &look);
+    let (skill_list, folders) = skills::packed(&places, &look, &known);
     let sides = match cached {
         Some(s) if s.iter().all(Side::ok) => s,
         _ => read_plugins(&home),
@@ -1011,7 +1046,21 @@ pub fn pack_extras(state: &AppState) -> (pack::SkillList, PluginList, pack::Inst
         })
         .collect();
     let choices = instructions::load(&dir);
-    let read = instructions::read_all(&home, &codex_home, &choices, &known(&mcp));
+    let read = instructions::read_all(&home, &codex_home, &choices, &known);
     let files = instructions::packed(&read, &choices);
-    (skill_list, PluginList { agents }, pack::InstructionList { files })
+    PackExtras {
+        skills: skill_list,
+        folders,
+        plugins: PluginList { agents },
+        instructions: pack::InstructionList { files },
+    }
+}
+
+/// What [`pack_extras`] gives a pack: its sections after `mcp`, and the
+/// folders of the skills installed by hand that it copies.
+pub struct PackExtras {
+    pub skills: pack::SkillList,
+    pub folders: Vec<(String, std::path::PathBuf)>,
+    pub plugins: PluginList,
+    pub instructions: pack::InstructionList,
 }

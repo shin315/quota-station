@@ -119,6 +119,35 @@ describe('main window', () => {
     expect(fake.api.codexCheck).toHaveBeenCalled();
   });
 
+  it('asks for a tab\'s read in the commit that shows the tab, even on a slow machine', async () => {
+    // Every look at the clock finds 10 ms gone, so React's scheduler yields
+    // after each piece of work: a passive effect would run after the tab is
+    // on screen, as it did now and then on a busy CI runner.
+    let t = performance.now();
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => (t += 10));
+    try {
+      const reads: [Tab, string, keyof Api][] = [
+        ['backup', 'Sao lưu', 'backupRead'],
+        ['mcp', 'MCP', 'mcpRead'],
+        ['settings', 'Cài đặt', 'settingsOpened'],
+      ];
+      for (const [tab, name, read] of reads) {
+        const fake = fakeApi(fixtureModel('fresh'), tab);
+        const asked = vi.spyOn(fake.api, read);
+        render(
+          <div className="qs app-window">
+            <MainWindowApp api={fake.api} clock={() => FIXTURE_NOW} />
+          </div>,
+        );
+        await screen.findByRole('heading', { level: 2, name });
+        expect(asked).toHaveBeenCalled();
+        cleanup();
+      }
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
   it('switches tabs from the sidebar and when asked from outside', async () => {
     const fake = await open(fixtureModel('fresh'));
     fireEvent.click(nav('Antigravity'));

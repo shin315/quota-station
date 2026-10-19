@@ -1,12 +1,13 @@
-//! The Sao lưu tab (M10, the MCP part of C): the backup packs in iCloud
-//! Drive, "Sao lưu bây giờ", the packs made on their own, the keys the app
-//! keeps, and the Khôi phục sheet's steps.
+//! The Sao lưu tab (M10 and M12, C): the backup packs in iCloud Drive,
+//! "Sao lưu bây giờ", the packs made on their own, the keys the app keeps,
+//! and the Khôi phục sheet's steps for the MCP servers, skills, plugins and
+//! instruction files.
 //!
 //! Packs hold no secret (`quota_station_core::agents::pack`). A restore
-//! writes the agents' files through the same guard as the MCP tab's
-//! batches, so one write runs at a time and never during a Codex switch.
-//! A key pasted in the sheet goes from the window to the Keychain and is
-//! never sent back.
+//! writes the agents' files through the same guard as the MCP tab's and the
+//! Skills tab's batches, so one write runs at a time and never during a
+//! Codex switch. A key pasted in the sheet goes from the window to the
+//! Keychain and is never sent back.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -14,7 +15,7 @@ use std::time::{Duration, Instant};
 
 use quota_station_core::agents::pack::{self, Info, LoadError, PackError, Summary};
 use quota_station_core::agents::restore::{
-    self, Done, Pasted, Pick, Plan, RunError, UndoError, Undone,
+    self, Changed, Done, More, PartResult, Pasted, Pick, Plan, RunError, UndoError, Undone,
 };
 use quota_station_core::agents::secrets::Secrets;
 use quota_station_core::agents::{self, kho, Agent, Places};
@@ -192,8 +193,9 @@ fn make(inner_of: &AppState, skip_same: bool) -> Result<Option<String>, PackErro
     let readings = agents::read_all(&places);
     let store = kho::load(&dir);
     let mut p = pack::content(&home, &readings, &store, &mac, &version, OffsetDateTime::now_utc());
-    let (skills, plugins, instructions) = crate::skills::pack_extras(inner_of);
-    p.extend(Some(skills), Some(plugins), Some(instructions));
+    let extras = crate::skills::pack_extras(inner_of);
+    p.extend(Some(extras.skills), Some(extras.plugins), Some(extras.instructions));
+    p.folders = extras.folders;
     if skip_same && pack::same_as_newest(&root, &mac, &p) {
         return Ok(None);
     }
@@ -348,11 +350,11 @@ pub async fn restore_plan(state: State<'_, AppState>, id: String) -> Result<Plan
     let shared = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let p = load(&shared, &id)?;
-        let (places, dir) = {
+        let (places, dir, tools) = {
             let inner = shared.lock();
-            (inner.mcp_places(), inner.app_dir())
+            (inner.mcp_places(), inner.app_dir(), inner.restore_tools())
         };
-        Ok(restore::plan(&places, &dir, &Secrets::system(), &id, &p))
+        Ok(restore::plan(&places, &dir, &Secrets::system(), &tools, &id, &p))
     })
     .await
     .map_err(|e| e.to_string())?
@@ -370,17 +372,43 @@ fn agents_code(agents: &[Agent]) -> String {
         .join(",")
 }
 
-/// Khôi phục, step 4: the servers ticked, the keys pasted, and the files
-/// as the preview read them.
+/// The words a changed file or skill is said in: the agents' codes, then
+/// `file:<~/…>` and `skill:<name>`, one per line.
+fn changed_code(c: &Changed) -> String {
+    let mut out = vec![agents_code(&c.agents)];
+    out.extend(c.files.iter().map(|f| format!("file:{f}")));
+    out.extend(c.skills.iter().map(|s| format!("skill:{s}")));
+    format!("changed:{}", out.join("\n"))
+}
+
+/// Starts a restore's writes: the MCP guard and the Skills tab's.
+fn begin_restore(app: &AppHandle, shared: &AppState) -> Result<(Places, AppDir), String> {
+    crate::skills::begin_restore(shared)?;
+    crate::agents::begin_write(app, shared).inspect_err(|_| {
+        shared.lock().skills.busy = None;
+    })
+}
+
+async fn end_restore(app: &AppHandle, shared: &AppState) {
+    crate::agents::end_write(app, shared).await;
+    crate::skills::end_restore(app, shared).await;
+    look_async(app, shared).await;
+}
+
+/// Khôi phục, step 4: the servers ticked, the keys pasted, the files as the
+/// preview read them, and the skills, plugins and instruction files ticked.
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn restore_run(
     app: AppHandle,
     state: State<'_, AppState>,
     id: String,
     picks: Vec<Pick>,
+    more: Option<More>,
     keys: Vec<Pasted>,
     bases: BTreeMap<Agent, String>,
 ) -> Result<Done, String> {
+    let more = more.unwrap_or_default();
     let shared = state.inner().clone();
     let p = {
         let s = shared.clone();
@@ -389,17 +417,23 @@ pub async fn restore_run(
             .await
             .map_err(|e| e.to_string())??
     };
-    let (places, dir) = crate::agents::begin_write(&app, &shared)?;
-    shared.lock().backup.busy = Some("restoring");
+    let (places, dir) = begin_restore(&app, &shared)?;
+    let tools = {
+        let mut inner = shared.lock();
+        inner.backup.busy = Some("restoring");
+        inner.restore_tools()
+    };
     reader::publish(&app, &shared);
     let done = tauri::async_runtime::spawn_blocking(move || {
         restore::run(
             &places,
             &dir,
             &Secrets::system(),
+            &tools,
             &id,
             &p,
             &picks,
+            &more,
             &keys,
             &bases,
             OffsetDateTime::now_utc(),
@@ -408,13 +442,61 @@ pub async fn restore_run(
     .await
     .map_err(|e| e.to_string());
     shared.lock().backup.busy = None;
-    crate::agents::end_write(&app, &shared).await;
-    look_async(&app, &shared).await;
+    end_restore(&app, &shared).await;
     let done = done?.map_err(|e| match e {
         RunError::Changed(a) => format!("changed:{}", agents_code(&a)),
         RunError::Keychain(_) => "keychain".to_string(),
     })?;
     if !done.written.is_empty() || done.can_undo {
+        after_change(&app, &shared);
+    }
+    Ok(done)
+}
+
+/// "Thử lại" on one skill, plugin or instruction file of the last restore.
+#[tauri::command]
+pub async fn restore_retry(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+    part: String,
+    item: String,
+    agent: Option<Agent>,
+) -> Result<PartResult, String> {
+    let shared = state.inner().clone();
+    let p = {
+        let s = shared.clone();
+        let id = id.clone();
+        tauri::async_runtime::spawn_blocking(move || load(&s, &id))
+            .await
+            .map_err(|e| e.to_string())??
+    };
+    let (places, dir) = begin_restore(&app, &shared)?;
+    let tools = {
+        let mut inner = shared.lock();
+        inner.backup.busy = Some("restoring");
+        inner.restore_tools()
+    };
+    reader::publish(&app, &shared);
+    let done = tauri::async_runtime::spawn_blocking(move || {
+        restore::retry(
+            &places,
+            &dir,
+            &tools,
+            &id,
+            &p,
+            &part,
+            &item,
+            agent,
+            OffsetDateTime::now_utc(),
+        )
+    })
+    .await
+    .map_err(|e| e.to_string());
+    shared.lock().backup.busy = None;
+    end_restore(&app, &shared).await;
+    let done = done?;
+    if done.ok {
         after_change(&app, &shared);
     }
     Ok(done)
@@ -429,17 +511,17 @@ pub async fn restore_undo(
     force: bool,
 ) -> Result<Undone, String> {
     let shared = state.inner().clone();
-    let (places, dir) = crate::agents::begin_write(&app, &shared)?;
+    let (places, dir) = begin_restore(&app, &shared)?;
+    let tools = shared.lock().restore_tools();
     let done = tauri::async_runtime::spawn_blocking(move || {
-        restore::undo(&places, &dir, &Secrets::system(), force, OffsetDateTime::now_utc())
+        restore::undo(&places, &dir, &Secrets::system(), &tools, force, OffsetDateTime::now_utc())
     })
     .await
     .map_err(|e| e.to_string());
-    crate::agents::end_write(&app, &shared).await;
-    look_async(&app, &shared).await;
+    end_restore(&app, &shared).await;
     done?.map_err(|e| match e {
         UndoError::Nothing => "nothing".to_string(),
-        UndoError::Changed(a) => format!("changed:{}", agents_code(&a)),
+        UndoError::Changed(c) => changed_code(&c),
         UndoError::Failed(_) => "failed".to_string(),
     })
 }

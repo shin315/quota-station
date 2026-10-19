@@ -1,10 +1,24 @@
-// The Sao lưu tab's fake Rust side (M10), for the tests and the browser
+// The Sao lưu tab's fake Rust side (M10, M12), for the tests and the browser
 // preview: packs of three made-up Macs, one not downloaded from iCloud yet,
-// a restore plan shaped like `agents::restore::plan`'s, and a run that ends
-// as `agents::restore::run` would. No file, no Keychain, no iCloud Drive;
-// every name is made up and every secret is the mask.
+// a restore plan shaped like `agents::restore::plan`'s (servers, skills,
+// plugins, instruction files), and a run that ends as `agents::restore::run`
+// would. No file, no Keychain, no iCloud Drive; every name is made up and
+// every secret is the mask.
 
-import type { BackupView, McpDef, McpDefView, PackInfo, PackSummary, RestoreDone, RestoreItem, RestorePlan } from '../lib/model';
+import type {
+  BackupView,
+  McpDef,
+  McpDefView,
+  PackInfo,
+  PackSummary,
+  RestoreDone,
+  RestoreItem,
+  RestoreMore,
+  RestorePartResult,
+  RestorePlan,
+  RestorePluginItem,
+  RestoreSkillItem,
+} from '../lib/model';
 
 const MASK = '••••••';
 /** 2026-01-16 07:20 UTC, the fixtures' "now". */
@@ -107,7 +121,78 @@ export function planFixture(id: string): RestorePlan {
     keys: [{ mcp: 'docs-search', slot: 'header:Authorization', label: 'Authorization', bitwarden: 'Docs Search API' }],
     skipped: [],
     bases: { claude: 'b-claude', codex: 'b-codex', agy: 'b-agy' },
+    skills: {
+      items: [
+        ...['pdf-tools', 'ui-polish', 'release-notes', 'sql-helper', 'changelog-writer'].map((name) => skill(name, 'github')),
+        ...['deploy-check', 'trace-reader', 'notes-helper'].map((name) => skill(name, 'hand')),
+      ],
+      same: [],
+      leftOut: [],
+    },
+    plugins: {
+      items: [
+        plugin('claude', 'issue-hub@acme-plugins', 'acme-plugins'),
+        plugin('claude', 'review-kit@acme-plugins', null, false),
+        plugin('claude', 'formatter@tools-market', 'tools-market'),
+        plugin('claude', 'design-sync@acme-plugins', null),
+        plugin('codex', 'sheets@codex-market', 'codex-market'),
+        plugin('codex', 'slides@codex-market', null),
+        plugin('codex', 'notes-sync@codex-market', null),
+      ],
+      same: [],
+      skipped: [],
+    },
+    files: {
+      items: [
+        { path: '~/.claude/CLAUDE.md', agent: 'claude', kind: 'add', checked: true, changed: 0, diff: [] },
+        {
+          path: '~/.codex/AGENTS.md',
+          agent: 'codex',
+          kind: 'replace',
+          checked: false,
+          changed: 3,
+          diff: [
+            { op: 'ctx', text: '# Codex', secret: false },
+            { op: 'del', text: 'Run the tests first.', secret: false },
+            { op: 'add', text: 'Run the tests and the linter first.', secret: false },
+            { op: 'add', text: 'Keep commits small.', secret: false },
+            { op: 'add', text: 'Write Vietnamese in the app.', secret: false },
+          ],
+        },
+      ],
+      same: ['~/.claude/rules/style.md', '~/.claude/rules/review.md', '~/.gemini/GEMINI.md'],
+      kept: [],
+      bases: { '~/.claude/CLAUDE.md': '', '~/.codex/AGENTS.md': 'b-agents' },
+    },
   };
+}
+
+function skill(name: string, kind: 'github' | 'hand'): RestoreSkillItem {
+  return { name, kind, repo: kind === 'github' ? 'acme/agent-skills' : null, on: ['claude', 'agy'], checked: true, blocked: null };
+}
+
+function plugin(agent: 'claude' | 'codex', id: string, market: string | null, enabled = true): RestorePluginItem {
+  return { agent, id, enabled, market, checked: true, note: null };
+}
+
+/** How the skills, plugins and files ticked end; with `partial`, the formatter plugin needs a login. */
+export function fakeParts(plan: RestorePlan, more: RestoreMore, partial: boolean): RestorePartResult[] {
+  const ok = (part: RestorePartResult['part'], id: string, agent: RestorePartResult['agent'], kind: string): RestorePartResult => ({
+    part,
+    id,
+    agent,
+    kind,
+    ok: true,
+    why: null,
+    retry: false,
+  });
+  return [
+    ...(plan.skills?.items ?? []).filter((i) => more.skills.includes(i.name)).map((i) => ok('skill', i.name, null, i.kind)),
+    ...(plan.plugins?.items ?? [])
+      .filter((i) => more.plugins.some((p) => p.agent === i.agent && p.id === i.id))
+      .map((i) => (partial && i.id.startsWith('formatter@') ? { ...ok('plugin', i.id, i.agent, ''), ok: false, why: 'login' as const, retry: true } : ok('plugin', i.id, i.agent, ''))),
+    ...(plan.files?.items ?? []).filter((f) => more.files.includes(f.path)).map((f) => ok('file', f.path, f.agent, f.kind)),
+  ];
 }
 
 /** What a restore of `picks` ends as, with `pasted` the slots a key was pasted for. */
