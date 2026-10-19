@@ -40,7 +40,7 @@ export function HistoryTab({ model, fresh, now, load }: HistoryTabProps) {
   const days = Array.isArray(entries) ? historyDays(entries, filter, model, now) : [];
   return (
     <>
-      <div className="tb" data-tauri-drag-region>
+      <div className="tb" data-tauri-drag-region="deep">
         <h2>Lịch sử</h2>
         <small>
           <Dot tone={fresh.tone} />

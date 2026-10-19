@@ -44,12 +44,11 @@ describe('share used', () => {
     expect(cellOf(line({ percent: 10, resetsAt: soon }), 'session', FIXTURE_NOW)).toMatchObject({
       text: '90%',
       tone: 'bad',
-      reset: '↻ 3:09',
-      long: '↻ 3 giờ 09 phút',
+      reset: '↻ 3h 9m',
       words: '5 giờ đã dùng 90%, đặt lại sau 3 giờ 09 phút',
     });
     const later = new Date(FIXTURE_NOW.getTime() + (4 * 1440 + 19 * 60 + 39) * 60000).toISOString();
-    expect(cellOf(line({ kind: 'week', percent: 61, resetsAt: later }), 'week', FIXTURE_NOW).long).toBe('↻ 4 ngày 19 giờ');
+    expect(cellOf(line({ kind: 'week', percent: 61, resetsAt: later }), 'week', FIXTURE_NOW).reset).toBe('↻ 4d 19h');
   });
 
   it('the tightest window is the one used most; a tie names the longer one', () => {

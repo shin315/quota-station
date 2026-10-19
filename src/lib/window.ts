@@ -214,7 +214,6 @@ export function windowView(model: Model, now: Date, options: ViewOptions = {}): 
   const cErr = model.errors.claude;
   const gErr = model.errors.agy;
   const present = g.status !== 'notSetUp';
-  const bySlot = (cards: CardView[]) => [...cards].sort((x, y) => x.slot - y.slot);
   const auto = autoView(model, now);
   return {
     machine: pv.machine,
@@ -223,12 +222,12 @@ export function windowView(model: Model, now: Date, options: ViewOptions = {}): 
     now: pv.now,
     claude: {
       count: pv.claude.cards.length ? pv.claude.cards.length + ' tài khoản' + (swap ? ' claude-swap' : '') : '',
-      cards: bySlot(pv.claude.cards),
+      cards: pv.claude.cards,
       note: pv.claude.note,
     },
     agy: {
       present,
-      cards: bySlot(pv.agy.cards),
+      cards: pv.agy.cards,
       note: pv.agy.note,
       banner: cErr ? pv.banner : (overwriteBanner(model) ?? agyBanner(g)),
       tabNote: gErr && !cErr ? pv.agy.note : null,

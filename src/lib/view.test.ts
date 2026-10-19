@@ -9,20 +9,20 @@ const rows = (c: CardView) => c.rows.map((x) => [x.label, x.text, x.reset]);
 const now = (n: NowView) => n.rows.map((r) => [r.svc, r.name, r.text, r.unit, r.reset, r.note]);
 
 describe('popover view', () => {
-  it('shows a card per account, the one in use first, and Đang dùng for every service', () => {
+  it('shows a card per account in slot order, the one in use in its place, and Đang dùng for every service', () => {
     const v = view('fresh');
     expect(v.fresh).toEqual({ tone: 'ok', text: 'cập nhật 40 giây trước' });
     expect(v.banner).toBeNull();
     expect(v.claude.cards.map((c) => [c.name, c.sub, c.active])).toEqual([
-      ['lan.acme1', 'Acme Studio', true],
       ['lanpham.dev', 'Cá nhân · 08–23', false],
+      ['lan.acme1', 'Acme Studio', true],
       ['lan.acme2', 'Acme Studio', false],
       ['lan.acme3', 'Acme Studio', false],
     ]);
     // The menu bar's number for each service: the account in use and its five hours, by default.
     expect(now(v.now)).toEqual([
-      ['Claude', 'lan.acme1', '74%', '5 giờ', '↻ 3:08', ''],
-      ['Gemini', 'lan.ultra2', '2%', '5 giờ', '↻ 1:57', ''],
+      ['Claude', 'lan.acme1', '74%', '5 giờ', '↻ 3h 8m', ''],
+      ['Gemini', 'lan.ultra2', '2%', '5 giờ', '↻ 1h 57m', ''],
       // Codex goes through its own provider: no number, the ChatGPT account's on hover.
       ['Codex', 'relay', '—', '', '', 'ChatGPT đã dùng 23% 5 giờ'],
     ]);
@@ -37,20 +37,20 @@ describe('popover view', () => {
 
   it('the popover cards drop windows an account does not have and words that say nothing', () => {
     const v = view('fresh');
-    const [acme1, personal, acme2] = v.claude.cards;
+    const [personal, acme1, acme2] = v.claude.cards;
     expect(rows(acme1)).toEqual(cells(acme1));
     // An idle window has no `chưa dùng`; a Team seat has no week row at all.
     expect(rows(personal)[0]).toEqual(['5 giờ', '0%', '']);
     expect(rows(acme2).map((r) => r[0])).toEqual(['5 giờ', 'Fable']);
     // Antigravity: Gemini and Claude/GPT, each the tighter of its two windows.
-    const [ultra2, ultra1] = v.agy.cards;
+    const [ultra1, ultra2] = v.agy.cards;
     expect(rows(ultra2)).toEqual([
-      ['Gemini', '6%', '↻ 3n 23g'],
-      ['Claude/GPT', '0%', '↻ 5n 23g'],
+      ['Gemini', '6%', '↻ 3d 23h'],
+      ['Claude/GPT', '0%', '↻ 5d 23h'],
     ]);
     expect(rows(ultra1)).toEqual([
-      ['Gemini', '37%', '↻ 4n 23g'],
-      ['Claude/GPT', '18%', '↻ 5n 3g'],
+      ['Gemini', '37%', '↻ 4d 23h'],
+      ['Claude/GPT', '18%', '↻ 5d 3h'],
     ]);
     // The spoken label keeps every window.
     expect(ultra2.label).toContain('Gemini 5 giờ đã dùng 2%');
@@ -69,7 +69,7 @@ describe('popover view', () => {
 
   it('Codex on its ChatGPT login shows that account’s number, and no Codex folder no row', () => {
     const chatgpt = view('fresh', { codex: codexFixture({ current: 'chatgpt' }) });
-    expect(now(chatgpt.now)[2]).toEqual(['Codex', 'ChatGPT', '23%', '5 giờ', '↻ 2:09', '']);
+    expect(now(chatgpt.now)[2]).toEqual(['Codex', 'ChatGPT', '23%', '5 giờ', '↻ 2h 9m', '']);
     expect(view('fresh', { codex: codexFixture({ present: false }) }).now.rows.map((r) => r.id)).toEqual(['c', 'g']);
     // Not read yet, or quota-axi failing for Codex: the name and no number.
     const unread = fixtureModel('fresh', { codex: codexFixture({ current: 'chatgpt' }) });
@@ -120,11 +120,11 @@ describe('popover view', () => {
   });
 
   it('every window is the share used, with its reset, and an idle five hours reads chưa dùng', () => {
-    const [acme1, personal, acme2] = view('fresh').claude.cards;
+    const [personal, acme1, acme2] = view('fresh').claude.cards;
     expect(cells(acme1)).toEqual([
-      ['5 giờ', '74%', '↻ 3:08'],
-      ['Tuần', '39%', '↻ 4n 19g'],
-      ['Fable', '87%', '↻ 1n 17g'],
+      ['5 giờ', '74%', '↻ 3h 8m'],
+      ['Tuần', '39%', '↻ 4d 19h'],
+      ['Fable', '87%', '↻ 1d 17h'],
     ]);
     expect(acme1.cells.map((c) => c.tone)).toEqual(['warn', 'ok', 'warn']);
     expect(acme1.chips).toEqual([{ t: 'rời vòng 17:45', k: 'warn' }]);
@@ -138,7 +138,7 @@ describe('popover view', () => {
 
   it('the tightest window wins, and a tie names the longer window', () => {
     const v = view('fresh');
-    expect(v.claude.cards[0].tight).toMatchObject({ label: 'Fable', used: 87, tone: 'warn' });
+    expect(v.claude.cards.find((c) => c.active)!.tight).toMatchObject({ label: 'Fable', used: 87, tone: 'warn' });
     const m = fixtureModel('fresh');
     const a = m.snapshot.claude.accounts.find((x) => x.number === 3)!;
     a.windows = a.windows.map((w) => ({ ...w, percent: 60 }));
@@ -148,13 +148,13 @@ describe('popover view', () => {
 
   it('Antigravity cards have the four windows from the app’s own reading', () => {
     const v = view('fresh');
-    const [ultra2, ultra1] = v.agy.cards;
+    const [ultra1, ultra2] = v.agy.cards;
     expect(ultra2).toMatchObject({ name: 'lan.ultra2', active: true });
     expect(cells(ultra2)).toEqual([
-      ['Gemini 5 giờ', '2%', '↻ 1:57'],
-      ['Gemini tuần', '6%', '↻ 3n 23g'],
-      ['Claude/GPT 5 giờ', '0%', '↻ 4:59'],
-      ['Claude/GPT tuần', '0%', '↻ 5n 23g'],
+      ['Gemini 5 giờ', '2%', '↻ 1h 57m'],
+      ['Gemini tuần', '6%', '↻ 3d 23h'],
+      ['Claude/GPT 5 giờ', '0%', '↻ 4h 59m'],
+      ['Claude/GPT tuần', '0%', '↻ 5d 23h'],
     ]);
     expect(ultra1.name).toBe('lanpham.ultra');
     expect(ultra1.dim).toBe(true);
@@ -163,10 +163,10 @@ describe('popover view', () => {
   });
 
   it('accounts only Cockpit Tools reads show its one number per model group', () => {
-    const [ultra2, ultra1] = view('cockpit').agy.cards;
+    const [ultra1, ultra2] = view('cockpit').agy.cards;
     expect(cells(ultra1)).toEqual([
-      ['Gemini', '37%', '↻ 4n 23g'],
-      ['Claude/GPT', '18%', '↻ 5n 3g'],
+      ['Gemini', '37%', '↻ 4d 23h'],
+      ['Claude/GPT', '18%', '↻ 5d 3h'],
     ]);
     // The account in use has its four windows from the live row.
     expect(ultra2.cells).toHaveLength(4);
@@ -175,12 +175,12 @@ describe('popover view', () => {
   it('hidden names fall back to the places, and the folded line follows', () => {
     const v = popoverView(hideNames(fixtureModel('fresh')), FIXTURE_NOW);
     expect(v.claude.cards.map((c) => [c.name, c.sub, c.full])).toEqual([
-      ['Team A', '', ''],
       ['Cá nhân', '08–23', ''],
+      ['Team A', '', ''],
       ['Team B', '', ''],
       ['Team C', '', ''],
     ]);
-    expect(v.agy.cards.map((c) => c.name)).toEqual(['Ultra 2', 'Ultra 1']);
+    expect(v.agy.cards.map((c) => c.name)).toEqual(['Ultra 1', 'Ultra 2']);
     expect(JSON.stringify(v)).not.toContain('@');
     expect(JSON.stringify(v)).not.toContain('Acme');
   });

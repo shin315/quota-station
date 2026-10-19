@@ -2,13 +2,17 @@ import { describe, expect, it } from 'vitest';
 import { age, clock, hours, resetShort, resetWords } from './format';
 
 describe('format', () => {
-  it('writes time to reset the way the prototype does', () => {
-    expect(resetShort(189)).toBe('3:09');
-    expect(resetShort(41)).toBe('0:41');
-    expect(resetShort(13 * 60)).toBe('13g');
-    expect(resetShort(1440 + 18 * 60)).toBe('1n 18g');
-    expect(resetShort(5 * 1440)).toBe('5n');
-    expect(resetShort(0)).toBe('0:01');
+  it('writes time to reset in d, h and m, never as a clock', () => {
+    expect(resetShort(4 * 60 + 37)).toBe('4h 37m');
+    expect(resetShort(17)).toBe('0h 17m');
+    expect(resetShort(189)).toBe('3h 9m');
+    expect(resetShort(13 * 60)).toBe('13h 0m');
+    expect(resetShort(1439)).toBe('23h 59m');
+    expect(resetShort(1440)).toBe('1d 0h');
+    expect(resetShort(4 * 1440 + 10 * 60 + 59)).toBe('4d 10h');
+    expect(resetShort(3 * 1440 + 5 * 60)).toBe('3d 5h');
+    expect(resetShort(0)).toBe('0h 1m');
+    expect(resetShort(-5)).toBe('0h 1m');
   });
 
   it('says the reset in words for screen readers', () => {

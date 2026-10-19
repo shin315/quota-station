@@ -30,6 +30,23 @@ describe('main window', () => {
     expect(nav('Claude').getAttribute('aria-current')).toBe('page');
   });
 
+  it('drags from the whole top strip and the title row, its buttons still buttons', async () => {
+    await open(fixtureModel('fresh'));
+    const strip = document.querySelector('.win-o > .dragbar')!;
+    expect(strip.getAttribute('data-tauri-drag-region')).toBe('true');
+    // Deep: the title and the freshness line drag too, not only the gaps between them.
+    const bar = screen.getByRole('heading', { level: 2 }).parentElement!;
+    expect(bar.getAttribute('data-tauri-drag-region')).toBe('deep');
+    const refresh = within(bar).getByRole('button', { name: 'Làm mới' });
+    expect(refresh.hasAttribute('data-tauri-drag-region')).toBe(false);
+    expect(screen.getByRole('navigation', { name: 'Mục' }).hasAttribute('data-tauri-drag-region')).toBe(true);
+    for (const tab of ['rules', 'history', 'alerts', 'firstmate', 'settings', 'codex', 'mcp'] as Tab[]) {
+      cleanup();
+      await open(fixtureModel('fresh'), tab);
+      expect(screen.getByRole('heading', { level: 2 }).parentElement!.getAttribute('data-tauri-drag-region')).toBe('deep');
+    }
+  });
+
   it('Tổng quan shows Đang dùng, every account by its windows, automatic switching and what comes next', async () => {
     await open(fixtureModel('fresh'));
     expect(heading()).toBe('Tổng quan');
@@ -38,8 +55,8 @@ describe('main window', () => {
     expect(screen.queryByText(/còn dùng được|tài khoản Claude/)).toBeNull();
     const tiles = within(screen.getByRole('list', { name: 'Đang dùng' })).getAllByRole('listitem');
     expect(tiles.map((t) => t.textContent)).toEqual([
-      'Claudelan.acme1Acme Studio74%đã dùng 5 giờ · ↻ 3:08',
-      'Geminilan.ultra2Antigravity2%đã dùng 5 giờ · ↻ 1:57',
+      'Claudelan.acme1Acme Studio74%đã dùng 5 giờ · ↻ 3h 8m',
+      'Geminilan.ultra2Antigravity2%đã dùng 5 giờ · ↻ 1h 57m',
       'CodexrelayCodex đi qua relay—ChatGPT đã dùng 23% 5 giờ',
     ]);
 

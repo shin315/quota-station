@@ -18,7 +18,7 @@ export function FirstmateTab({ model, fresh, now, onAction }: FirstmateTabProps)
   const v = firstmateTab(model, now);
   return (
     <>
-      <div className="tb" data-tauri-drag-region>
+      <div className="tb" data-tauri-drag-region="deep">
         <h2>Firstmate</h2>
         <small>
           <Dot tone={fresh.tone} />
