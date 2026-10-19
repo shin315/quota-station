@@ -25,7 +25,7 @@ import { CodexCard, CodexTab } from './codex/CodexTab';
 import { useAgyLogins } from './antigravity/AgyAccounts';
 import { SheetBody, type SheetState } from './components/Sheets';
 import { agyLoginOf, agySwitchErrorFeedback, agySwitchFeedback, type AppAnswer } from './lib/agySwitch';
-import { codexErrorFeedback, codexFeedback, codexRow, codexRestartFeedback, nextTarget } from './lib/codex';
+import { codexErrorFeedback, codexFeedback, codexRow, codexRestartFeedback, keyFeedback, nextTarget, pluginsNeedApply } from './lib/codex';
 import type { Api } from './lib/api';
 import { alertFailedFeedback, testFailedFeedback } from './lib/alerts';
 import type { AgyHow, AlertKind, CodexOutcome, CodexTarget, Model, Sessions, Tab, Theme } from './lib/model';
@@ -270,6 +270,38 @@ function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeed
     if (codexDone.current && latest.current) showFeedback(codexFeedback(codexDone.current, latest.current));
     codexDone.current = null;
   };
+  const doCodexSetKey = async (key: string, baseUrl: string | null, base: string, undo: NonNullable<Model['codex']['keyUndo']> | null) => {
+    setWorking(true);
+    try {
+      const out = await api.codexSetKey(key, baseUrl, base);
+      if (latest.current) showFeedback(keyFeedback(out, latest.current, undo));
+    } catch (e) {
+      showFeedback({ tone: 'bad', title: 'Chưa ghi khoá', body: String(e) === 'busy' ? 'Một lần chuyển hoặc ghi khác đang chạy. Chờ xong rồi thử lại.' : 'Không gọi được lệnh ghi khoá. Chưa đổi gì.', actions: [{ label: 'Đóng', act: 'closeFeedback' }] });
+    } finally {
+      setWorking(false);
+      setSheet(null);
+    }
+  };
+  const undoCodexKey = async () => {
+    const base = latest.current?.codex.hash;
+    if (!base) return;
+    try {
+      const out = await api.codexUndoKey(base);
+      if (latest.current) showFeedback(keyFeedback(out, latest.current));
+    } catch (e) {
+      showFeedback({ tone: 'bad', title: 'Chưa hoàn tác', body: String(e) === 'busy' ? 'Một lần chuyển hoặc ghi khác đang chạy. Chờ xong rồi thử lại.' : 'Không gọi được lệnh. Chưa đổi gì.', actions: [{ label: 'Đóng', act: 'closeFeedback' }] });
+    }
+  };
+  /** The plugins box: kept at once; on the custom provider in use, "Áp dụng ngay?" follows. */
+  const setCodexPlugins = async (on: boolean, offer: boolean) => {
+    const before = latest.current?.codex;
+    try {
+      await api.setCodexPlugins(on);
+    } catch {
+      return showFeedback(settingsFailedFeedback());
+    }
+    if (offer && before && pluginsNeedApply(before, on)) open({ kind: 'codexPlugins', on });
+  };
   const keepCodex = async () => {
     setSheet(null);
     try {
@@ -331,6 +363,16 @@ function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeed
     else if (a === 'codex:keep') void keepCodex();
     else if (a === 'codex:check') void api.codexCheck().catch(() => {});
     else if (a === 'codex:guide:login') open({ kind: 'codexInfo', id: 'login' });
+    else if (a === 'codex:key') {
+      showFeedback(null);
+      open({ kind: 'codexKey' });
+    } else if (a === 'codex:plugins:apply' && model) {
+      showFeedback(null);
+      open({ kind: 'codexPlugins', on: model.codex.plugins });
+    } else if (a === 'codex:undoKey') {
+      showFeedback(null);
+      void undoCodexKey();
+    }
     else if (a === 'codex:backup') {
       showFeedback(null);
       open({ kind: 'codexInfo', id: 'backup' });
@@ -357,7 +399,7 @@ function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeed
           working ||
           (sheet.kind === 'claude' && model.claudeSwitch.busy === sheet.slot) ||
           (sheet.kind === 'agy' && model.agySwitch.busy === sheet.number) ||
-          (sheet.kind === 'codex' && model.codex.busy === 'switching') ||
+          ((sheet.kind === 'codex' || sheet.kind === 'codexKey' || sheet.kind === 'codexPlugins') && model.codex.busy === 'switching') ||
           (sheet.kind === 'daemon' && model.codex.busy === 'restarting')
         }
         agyHow={agyHow}
@@ -372,6 +414,9 @@ function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeed
         onCodexKeep={() => void keepCodex()}
         onCodexOpen={open}
         onCodexGuide={onCodexGuide}
+        onCodexPlugins={(on) => void setCodexPlugins(on, false)}
+        onCodexKeyPreview={(key, baseUrl) => api.codexKeyPreview(key, baseUrl)}
+        onCodexSetKey={(key, baseUrl, base, undo) => void doCodexSetKey(key, baseUrl, base, undo)}
       />
     ) : null;
   return {
@@ -384,6 +429,7 @@ function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeed
     openSwitch: (slot: number) => open({ kind: 'claude', slot }),
     openSwitchAgy: (number: number) => open({ kind: 'agy', number }),
     openPause: (preset: PauseChoice) => open({ kind: 'pause', preset }),
+    setCodexPlugins: (on: boolean) => void setCodexPlugins(on, true),
   };
 }
 
@@ -750,7 +796,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       settings={settings}
       syncNote={sidebarLine(model)}
       rules={<RulesTab model={model} fresh={view.fresh} rules={rules} feedback={feedback} now={now} onAction={onAction} />}
-      codex={<CodexTab model={model} fresh={view.fresh} feedback={feedback} now={now} onAction={onAction} />}
+      codex={<CodexTab model={model} fresh={view.fresh} feedback={feedback} now={now} onAction={onAction} onPlugins={switching.setCodexPlugins} />}
       codexCard={<CodexCard model={model} onAction={onAction} />}
       mcp={<McpTab model={model} fresh={view.fresh} feedback={feedback} now={now} mcp={mcp} onAction={onAction} />}
       skills={<SkillsTab model={model} fresh={view.fresh} feedback={feedback} skills={skills} onAction={onAction} />}

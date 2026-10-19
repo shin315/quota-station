@@ -230,6 +230,7 @@ fn codex_switches_and_changes_seen_outside_come_from_the_codex_log() {
         to: to.into(),
         result: result.into(),
         restarted: None,
+        requires: None,
     };
     codex_log::append(&app, &line(T0, "openai", "relay", "switched")).unwrap();
     codex_log::mark_restarted(&app, true).unwrap();

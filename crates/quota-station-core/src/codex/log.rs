@@ -16,11 +16,16 @@ pub struct Line {
     pub at: i64,
     pub from: String,
     pub to: String,
-    /// `switched`, `failed` or `observed` (changed outside the app).
+    /// `switched`, `failed`, `observed` (changed outside the app), `plugins`
+    /// (the plugins choice applied on the custom provider in use), `key`
+    /// ("Dán khoá") or `keyUndo`. A key's line names only the provider.
     pub result: String,
     /// The background process was restarted after the switch.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub restarted: Option<bool>,
+    /// `requires_openai_auth` as written, on the way to the custom provider.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub requires: Option<bool>,
 }
 
 pub fn read(app: &AppDir) -> Vec<Line> {
@@ -38,7 +43,11 @@ pub fn append(app: &AppDir, line: &Line) -> std::io::Result<()> {
 /// Marks the newest switch as followed by a restart of the background process.
 pub fn mark_restarted(app: &AppDir, restarted: bool) -> std::io::Result<()> {
     let mut lines = read(app);
-    let Some(last) = lines.iter_mut().rev().find(|l| l.result == "switched") else { return Ok(()) };
+    let Some(last) =
+        lines.iter_mut().rev().find(|l| l.result == "switched" || l.result == "plugins")
+    else {
+        return Ok(());
+    };
     last.restarted = Some(restarted);
     write(app, &lines)
 }

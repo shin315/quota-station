@@ -12,7 +12,7 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Dialog, DialogContent, DialogOverlay } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { AccountName, IdMark, NowStrip, WindowRow } from '../components/accounts';
-import { Banner, Chip, Dot, Feedback, Toggle } from '../components/parts';
+import { Banner, Chip, Dot, Feedback, LinkButton, Toggle } from '../components/parts';
 import type { AutoView } from '../lib/switching';
 import type { CodexRowView } from '../lib/codex';
 import { bannerUnder, type Action, type CardView, type FeedbackView, type GroupView, type PopoverView } from '../lib/view';
@@ -134,7 +134,7 @@ function Group(props: { group: GroupView; folded: boolean; onFold(): void; onSwi
  * `→` where a switch goes. The sub-line and Codex App's state stay in the
  * Codex tab and the row's spoken label.
  */
-function CodexSection({ row, onOpen }: { row: CodexRowView; onOpen(): void }) {
+function CodexSection({ row, onOpen, onAction }: { row: CodexRowView; onOpen(): void; onAction(act: Action): void }) {
   return (
     <section aria-label="Codex">
       <div className={cn(GROUP_HEAD, 'cursor-default')}>
@@ -169,6 +169,13 @@ function CodexSection({ row, onOpen }: { row: CodexRowView; onOpen(): void }) {
         </button>
       </div>
       {row.note ? <GroupNote note={row.note} /> : null}
+      {row.fix ? (
+        <div className="mx-3.5 mb-1.5">
+          <LinkButton small onClick={() => onAction(row.fix!.act)}>
+            {row.fix.label}
+          </LinkButton>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -291,7 +298,7 @@ export function Popover({ view, codex = null, auto, sync = null, feedback, busy,
           <NowStrip now={view.now} />
           <Group group={view.claude} folded={folded.c} onFold={() => fold('c')} onSwitch={onSwitch} />
           <Group group={view.agy} folded={folded.g} onFold={() => fold('g')} onSwitch={onSwitchAgy ?? (() => {})} />
-          {codex ? <CodexSection row={codex} onOpen={() => onAction('codex:open')} /> : null}
+          {codex ? <CodexSection row={codex} onOpen={() => onAction('codex:open')} onAction={onAction} /> : null}
         </div>
       </div>
       <div className="grid flex-none gap-[7px] border-t-[.5px] border-glass-line px-3.5 pt-2 pb-2.5" ref={foot} inert={open}>

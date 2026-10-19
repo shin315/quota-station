@@ -6,7 +6,7 @@
 // name its table in config.toml gives it, never a name built in here.
 
 import { clock } from './format';
-import type { CodexOutcome, CodexRefusal, CodexRestart, CodexTarget, CodexView, Model } from './model';
+import type { CodexKeyOutcome, CodexKeyPreview, CodexKeyRefusal, CodexOutcome, CodexRefusal, CodexRestart, CodexTarget, CodexView, Model } from './model';
 import type { FactView } from './switching';
 import type { Action, BannerView, ChipView, FeedbackView, NoteView } from './view';
 
@@ -60,9 +60,9 @@ export function refusalText(v: CodexView, r: CodexRefusal): string {
     case 'noCustom':
       return 'config.toml chưa có bảng nhà cung cấp riêng ([model_providers.<tên>]) để chuyển sang.';
     case 'noKey':
-      return 'Cấu hình ' + name + ' trong config.toml không có khoá API riêng. App không chuyển sang ' + name + ', để đăng nhập ChatGPT không bị gửi tới ' + name + '.';
+      return name + ' chưa có khoá API riêng nên chưa chuyển được. Dán khoá để dùng ' + name + '.';
     case 'placeholder':
-      return 'Bảng ' + name + ' trong config.toml chỉ có khoá giữ chỗ của CC Switch; khoá thật nằm trong dữ liệu của CC Switch. Thêm khoá API riêng vào bảng (experimental_bearer_token hoặc env_key) thì app mới chuyển được.';
+      return name + ' chỉ có khoá giữ chỗ của CC Switch nên chưa chuyển được. Dán khoá thật để dùng ' + name + '.';
     case 'profile':
       return 'Profile "' + r.profile + '" đang dùng tự chọn đường đi (' + r.key + '), nên đổi dòng chọn nhà cung cấp không có tác dụng. App không chuyển.';
     case 'shape':
@@ -83,6 +83,13 @@ export interface CodexRowView {
   off: boolean;
   label: string;
   note: NoteView | null;
+  /** "Dán khoá…" under a note that says the provider has no key of its own. */
+  fix: { label: string; act: Action } | null;
+}
+
+/** Codex goes through the custom provider without the ChatGPT login: plugins unticked. */
+function loginOff(v: CodexView): boolean {
+  return v.current === 'custom' && v.custom?.requiresOpenaiAuth === false;
 }
 
 /** Null on a Mac without a Codex folder. */
@@ -106,7 +113,7 @@ export function codexRow(model: Model): CodexRowView | null {
       : v.current === 'other'
         ? 'Nhà cung cấp ' + cur
         : 'Tài khoản ChatGPT';
-  if (hasLogin(v)) sub += ' · giữ đăng nhập ChatGPT';
+  if (hasLogin(v)) sub += loginOff(v) ? ' · không dùng đăng nhập ChatGPT' : ' · giữ đăng nhập ChatGPT';
 
   const target = nextTarget(v);
   const refusal = target === 'custom' ? v.refusal : v.backRefusal;
@@ -126,6 +133,7 @@ export function codexRow(model: Model): CodexRowView | null {
     off,
     label: 'Codex đang dùng ' + longName(v, cur) + '. ' + (off ? 'Chưa chuyển được sang ' + longName(v, targetId(v, target)) : 'Bấm để chuyển sang ' + longName(v, targetId(v, target))),
     note,
+    fix: refusal && (refusal.kind === 'noKey' || refusal.kind === 'placeholder') && v.takesKey ? { label: 'Dán khoá…', act: 'codex:key' } : null,
   };
 }
 
@@ -229,10 +237,15 @@ export function codexSheet(model: Model, target: CodexTarget): CodexSheetView {
           ? '**Chưa có đăng nhập ChatGPT.** Sau khi chuyển, Codex sẽ mở trang đăng nhập.'
           : '**Chưa có đăng nhập ChatGPT.** Plugin và điều khiển từ xa của Codex App cần đăng nhập này.',
     });
-  else if (target === 'custom' && v.wantsRequires === false)
+  else if (target === 'custom' && v.custom?.key === 'headers')
     facts.push({
       k: 'w',
       text: 'Khoá của ' + name + ' gửi qua header, nên app đặt `requires_openai_auth = false` để đăng nhập ChatGPT không bị gửi tới ' + name + '. Plugin và điều khiển từ xa có thể không chạy khi dùng ' + name + '.',
+    });
+  else if (target === 'custom' && !v.plugins)
+    facts.push({
+      k: 'w',
+      text: '**Không dùng đăng nhập ChatGPT** khi chạy ' + name + ' (ô "Dùng plugin" đang bỏ tick): plugin cần đăng nhập (apps, connector) sẽ tắt. `auth.json` vẫn giữ nguyên.',
     });
   else facts.push({ k: 'ok', text: 'Giữ đăng nhập ChatGPT để Codex App tiếp tục dùng plugin và điều khiển từ xa.' });
   // 2. One file, one line, a backup first.
@@ -331,10 +344,20 @@ export function codexFeedback(outcome: CodexOutcome, model: Model): FeedbackView
   const to = longName(v, targetId(v, outcome.target));
   switch (outcome.kind) {
     case 'switched':
+      if (outcome.from === outcome.to)
+        return {
+          tone: '',
+          title: (v.plugins ? 'Đã bật' : 'Đã tắt') + ' plugin khi chạy ' + to,
+          body: restartLine(v, to),
+          actions: [{ label: 'Khởi động lại tiến trình nền Codex…', act: 'codex:daemon' }, CLOSE],
+        };
       return {
         tone: '',
         title: 'Đã chuyển Codex sang ' + to,
-        body: (hasLogin(v) ? 'Vẫn giữ đăng nhập ChatGPT. ' : '') + restartLine(v, to) + ' Bản cũ của config.toml nằm trong thư mục sao lưu.',
+        body:
+          (hasLogin(v) ? (outcome.target === 'custom' && !v.plugins ? 'Không dùng đăng nhập ChatGPT (plugin tắt). ' : 'Vẫn giữ đăng nhập ChatGPT. ') : '') +
+          restartLine(v, to) +
+          ' Bản cũ của config.toml nằm trong thư mục sao lưu.',
         actions: [{ label: 'Khởi động lại tiến trình nền Codex…', act: 'codex:daemon' }, CLOSE],
       };
     case 'already':
@@ -413,3 +436,153 @@ export function codexRestartFeedback(r: CodexRestart | 'busy' | 'error', model: 
     : { tone: '', title: 'Tiến trình nền Codex đã khởi động lại', body: 'Mở lại codex trong Terminal để dùng ' + name + '.' };
 }
 
+
+// ===== "Dùng plugin khi chạy Custom API" =====
+
+/** The checkbox's words: the label and its one-line hint. */
+export const PLUGINS_LABEL = 'Dùng plugin khi chạy Custom API (giữ đăng nhập ChatGPT)';
+export const PLUGINS_HINT = 'Bỏ tick: Codex không dùng đăng nhập ChatGPT khi chạy Custom API, plugin cần đăng nhập sẽ tắt.';
+
+/** The `requires_openai_auth` a switch to the custom provider would write with the box `on`. */
+export function wantsWith(v: CodexView, on: boolean): boolean | null {
+  if (!v.custom || v.wantsRequires == null) return null;
+  return (v.custom.key === 'bearer' || v.custom.key === 'envKey') && v.login !== 'missing' && v.login !== 'apiKey' && v.login !== 'unreadable' && v.login !== 'ephemeral' && on;
+}
+
+/** The box changed while Codex is on the custom provider: whether to offer applying it now. */
+export function pluginsNeedApply(v: CodexView, on: boolean): boolean {
+  const want = wantsWith(v, on);
+  return v.current === 'custom' && want != null && v.custom?.requiresOpenaiAuth !== want && !v.refusal;
+}
+
+export interface PluginsSheetView {
+  title: string;
+  facts: FactView[];
+}
+
+/** "Áp dụng ngay?": the box changed while Codex is on the custom provider. */
+export function pluginsSheet(model: Model, on: boolean): PluginsSheetView {
+  const v = model.codex;
+  const name = v.custom?.name ?? 'nhà cung cấp riêng';
+  const want = wantsWith(v, on) ?? false;
+  const sessions = v.procs?.sessions;
+  return {
+    title: 'Áp dụng ngay cho ' + name + '?',
+    facts: [
+      on
+        ? { k: 'ok', text: 'Codex dùng lại đăng nhập ChatGPT khi chạy ' + name + ': plugin chạy như với tài khoản ChatGPT.' }
+        : { k: 'w', text: '**Không dùng đăng nhập ChatGPT** khi chạy ' + name + ': plugin cần đăng nhập (apps, connector) sẽ tắt.' },
+      { k: '', text: 'Chỉ đổi `requires_openai_auth = ' + want + '` trong bảng ' + name + '. Sao lưu trước khi ghi. Không đụng `auth.json`.' },
+      {
+        k: 'w',
+        text: 'Thoát hẳn Codex App (⌘Q) rồi mở lại; ' + (sessions == null ? 'các phiên codex' : '**' + sessions + ' phiên codex**') + ' trong Terminal cần mở lại.',
+      },
+    ],
+  };
+}
+
+// ===== "Dán khoá" =====
+
+/** What the key sheet is for: a key to paste, a key to replace, or a variable to set. */
+export function keyMode(v: CodexView): 'paste' | 'replace' | 'env' | null {
+  const c = v.custom;
+  if (!c) return null;
+  if (c.key === 'envKey') return 'env';
+  if (!v.takesKey) return null;
+  return c.key === 'bearer' ? 'replace' : 'paste';
+}
+
+export function keyRefusalText(v: CodexView, r: CodexKeyRefusal): string {
+  const name = v.custom?.name ?? 'nhà cung cấp riêng';
+  switch (r.kind) {
+    case 'noCustom':
+      return 'config.toml chưa có bảng nhà cung cấp riêng để ghi khoá.';
+    case 'envKey':
+      return name + ' đọc khoá từ biến ' + r.var + ': đặt biến này, app không ghi gì.';
+    case 'headers':
+      return name + ' gửi khoá qua header: app không thêm khoá thứ hai.';
+    case 'shape':
+      return 'Bảng ' + name + ' viết gọn trên một dòng; app chỉ sửa bảng dạng [model_providers.' + (v.custom?.id ?? '…') + '].';
+    case 'empty':
+      return 'Chưa có khoá.';
+    case 'notAKey':
+      return 'Khoá không được có dấu cách hay xuống dòng.';
+    case 'tooLong':
+      return 'Khoá quá dài.';
+    case 'placeholder':
+      return 'PROXY_MANAGED là khoá giữ chỗ của CC Switch, không phải khoá thật.';
+    case 'reference':
+      return 'Đây là tên biến, không phải khoá.';
+    case 'badUrl':
+      return 'Địa chỉ phải bắt đầu bằng https:// (hoặc http://) và không chứa mật khẩu hay khoá.';
+    case 'noUndo':
+      return 'Không còn gì để hoàn tác.';
+  }
+}
+
+/** "Hoàn tác" with what it can and cannot put back on the button itself. */
+export function undoLabel(u: NonNullable<CodexView['keyUndo']>): string {
+  const back = u.token === 'placeholder' ? 'trả lại PROXY_MANAGED' : u.token === 'empty' ? 'trả lại khoá rỗng' : 'bỏ khoá vừa dán';
+  return 'Hoàn tác: ' + back + (u.baseUrl ? ' và địa chỉ cũ' : '');
+}
+
+/** The preview's facts: the backup, the login, the undo and its limit. */
+export function keyFacts(v: CodexView, p: CodexKeyPreview): FactView[] {
+  const facts: FactView[] = [
+    { k: '', text: 'Chỉ sửa bảng ' + (v.custom?.name ?? '…') + ' trong `config.toml`. Sao lưu trước khi ghi, bản lưu không chứa khoá. Không đụng `auth.json`.' },
+  ];
+  if (p.replaces) facts.push({ k: 'w', text: 'Khoá cũ bị thay. App không giữ khoá cũ nên **không hoàn tác được**.' });
+  else if (p.undo)
+    facts.push({
+      k: '',
+      text: 'Có nút Hoàn tác: ' + (p.undo === 'placeholder' ? 'trả lại khoá giữ chỗ PROXY_MANAGED' : p.undo === 'empty' ? 'trả lại khoá rỗng' : 'bỏ khoá vừa dán') + '.',
+    });
+  if (v.current === 'custom') facts.push({ k: 'w', text: 'Codex đang dùng ' + (v.custom?.name ?? '…') + ': thoát hẳn Codex App (⌘Q) rồi mở lại để dùng khoá mới.' });
+  return facts;
+}
+
+/** After "Dán khoá" or its undo; `undo`: what the preview said the undo puts back. Never names the key. */
+export function keyFeedback(out: CodexKeyOutcome, model: Model, undo: NonNullable<CodexView['keyUndo']> | null = null): FeedbackView {
+  const v = model.codex;
+  const name = v.custom?.name ?? 'nhà cung cấp riêng';
+  switch (out.kind) {
+    case 'written':
+      return {
+        tone: '',
+        title: 'Đã ghi khoá cho ' + name,
+        body: (v.current === 'custom' ? restartLine(v, name) : 'Giờ chuyển Codex sang ' + name + ' được.') + ' Bản cũ của config.toml nằm trong thư mục sao lưu.',
+        actions: [...(out.undo && undo ? [{ label: undoLabel(undo), act: 'codex:undoKey' as Action }] : []), CLOSE],
+      };
+    case 'undone':
+      return { tone: '', title: 'Đã hoàn tác khoá của ' + name, body: 'Bảng ' + name + ' trở lại như trước khi dán khoá.' };
+    case 'already':
+      return { tone: 'info', title: name + ' đã có đúng khoá này', body: 'App không ghi gì.' };
+    case 'refused':
+      return { tone: 'bad', title: 'Chưa ghi khoá', body: keyRefusalText(v, out.refusal) + ' Chưa đổi gì.', actions: [{ label: 'Đóng', act: 'closeFeedback' }] };
+    case 'invalid':
+      return { tone: 'bad', title: 'Không sửa được config.toml', body: 'App không đọc được file này như Codex đọc (' + out.detail + '). Chưa đổi gì.', actions: [{ label: 'Đóng', act: 'closeFeedback' }] };
+    case 'failed':
+      return {
+        tone: 'bad',
+        title: 'Chưa ghi khoá',
+        body:
+          out.error.kind === 'changed'
+            ? 'config.toml đã đổi sau khi xem trước. Chưa đổi gì: mở lại để xem bản mới.'
+            : out.error.kind === 'verify'
+              ? 'Đọc lại sau khi ghi không khớp. Bản cũ nằm trong thư mục sao lưu.'
+              : 'Lỗi khi ghi (' + out.error.detail + '). Chưa đổi gì.',
+        actions: [{ label: 'Xem thư mục sao lưu', act: 'codex:backup' }, { label: 'Đóng', act: 'closeFeedback' }],
+      };
+  }
+}
+
+/** The recent list's line for one entry, short. */
+export function recentText(v: CodexView, r: CodexView['recent'][number]): string {
+  const name = shortName(v, r.to);
+  if (r.result === 'key') return name + ': dán khoá API';
+  if (r.result === 'keyUndo') return name + ': hoàn tác khoá';
+  if (r.result === 'plugins') return name + ': ' + (r.requires === false ? 'tắt plugin' : 'bật plugin');
+  const arrow = shortName(v, r.from) + ' → ' + name;
+  if (r.result === 'observed') return arrow + ' · đổi ngoài app';
+  return arrow + (r.restarted ? ' · đã khởi động lại tiến trình nền' : '');
+}

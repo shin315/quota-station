@@ -23,6 +23,8 @@ import type {
   AlertKind,
   AlertRecord,
   AlertSaid,
+  CodexKeyOutcome,
+  CodexKeyPreview,
   CodexOutcome,
   CodexRestart,
   CodexTarget,
@@ -470,6 +472,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       if (options.codexDelayMs) await new Promise((r) => setTimeout(r, options.codexDelayMs));
       const from = c.current === 'custom' && c.custom ? c.custom.id : c.current === 'other' && c.other ? c.other : 'openai';
       const to = target === 'custom' ? (c.custom?.id ?? 'custom') : 'openai';
+      const requires = target === 'custom' ? c.wantsRequires : null;
       const outcome: CodexOutcome =
         options.codexOutcome?.(target) ??
         (base !== c.hash
@@ -484,11 +487,13 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
                 ...c,
                 busy: null,
                 current: target === 'custom' ? 'custom' : 'chatgpt',
+                custom: c.custom && requires != null ? { ...c.custom, requiresOpenaiAuth: requires } : c.custom,
+                keyUndo: null,
                 hash: c.hash + "'",
                 external: null,
                 lastWrite: { at, provider: to, matches: true },
                 backups: [at, ...c.backups].slice(0, 10),
-                recent: [{ at, from, to, result: 'switched', restarted: null }, ...c.recent].slice(0, 5),
+                recent: [{ at, from, to, result: from === to ? 'plugins' : 'switched', restarted: null, requires }, ...c.recent].slice(0, 5),
               }
             : { ...c, busy: null },
       });
@@ -507,6 +512,68 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       return model;
     },
     codexCheck: async () => {},
+    codexKeyPreview: async (key, baseUrl) => {
+      if (options.codexDelayMs) await new Promise((r) => setTimeout(r, 300));
+      return fakeKeyPreview(model.codex, key, baseUrl);
+    },
+    codexSetKey: async (key, baseUrl, base) => {
+      const c = model.codex;
+      if (c.busy) throw 'busy';
+      const p = fakeKeyPreview(c, key, baseUrl);
+      if (p.refusal) return { kind: 'refused', refusal: p.refusal } satisfies CodexKeyOutcome;
+      push({ ...model, codex: { ...c, busy: 'switching' } });
+      if (options.codexDelayMs) await new Promise((r) => setTimeout(r, options.codexDelayMs));
+      if (base !== c.hash) {
+        push({ ...model, codex: { ...c, busy: null } });
+        return { kind: 'failed', error: { kind: 'changed' } } satisfies CodexKeyOutcome;
+      }
+      const at = now().toISOString();
+      const id = c.custom!.id;
+      const keyUndo = p.undo ? { at, token: p.undo, baseUrl: !!baseUrl } : null;
+      push({
+        ...model,
+        codex: {
+          ...c,
+          busy: null,
+          hash: c.hash + 'k',
+          custom: { ...c.custom!, key: 'bearer', baseUrl: baseUrl || c.custom!.baseUrl, proxy: baseUrl ? false : c.custom!.proxy },
+          refusal: c.refusal?.kind === 'noKey' || c.refusal?.kind === 'placeholder' ? null : c.refusal,
+          wantsRequires: c.login === 'chatGpt' && c.plugins,
+          keyUndo,
+          backups: [at, ...c.backups].slice(0, 10),
+          recent: [{ at, from: id, to: id, result: 'key', restarted: null }, ...c.recent].slice(0, 5),
+        },
+      });
+      return { kind: 'written', provider: id, backup: 'config.toml.20260116-142040', undo: !!keyUndo } satisfies CodexKeyOutcome;
+    },
+    codexUndoKey: async (base) => {
+      const c = model.codex;
+      if (!c.keyUndo) return { kind: 'refused', refusal: { kind: 'noUndo' } } satisfies CodexKeyOutcome;
+      if (base !== c.hash) return { kind: 'failed', error: { kind: 'changed' } } satisfies CodexKeyOutcome;
+      const at = now().toISOString();
+      const id = c.custom!.id;
+      const key = c.keyUndo.token === 'placeholder' ? 'placeholder' : 'none';
+      push({
+        ...model,
+        codex: {
+          ...c,
+          hash: c.hash + 'u',
+          custom: { ...c.custom!, key },
+          refusal: c.current === 'custom' ? c.refusal : { kind: key === 'placeholder' ? 'placeholder' : 'noKey' },
+          wantsRequires: null,
+          keyUndo: null,
+          recent: [{ at, from: id, to: id, result: 'keyUndo', restarted: null }, ...c.recent].slice(0, 5),
+        },
+      });
+      return { kind: 'undone', provider: id, backup: 'config.toml.20260116-142100' } satisfies CodexKeyOutcome;
+    },
+    setCodexPlugins: async (on) => {
+      const c = model.codex;
+      const own = c.custom?.key === 'bearer' || c.custom?.key === 'envKey';
+      const wantsRequires = c.wantsRequires == null ? null : own && (c.login === 'chatGpt' || c.login === 'keychain') && on;
+      push({ ...model, codex: { ...c, plugins: on, wantsRequires } });
+      return model;
+    },
     mcpRead: async () => {
       push({ ...model, mcp: { ...model.mcp, busy: 'reading' } });
       if (options.mcpDelayMs) await new Promise((r) => setTimeout(r, options.mcpDelayMs));
@@ -1151,4 +1218,29 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
     /** The ids "Mở file" opened (M14). */
     envOpened: () => envOpened,
   };
+}
+
+/** What the Rust side shows for "Dán khoá", on a fixture: the key only as its hint. */
+export function fakeKeyPreview(c: Model['codex'], key: string, baseUrl: string | null): CodexKeyPreview {
+  const none: CodexKeyPreview = { hash: c.hash, lines: [], refusal: null, detail: null, replaces: false, undo: null };
+  const k = key.trim().replace(/^Bearer /, '');
+  const custom = c.custom;
+  if (!custom) return { ...none, refusal: { kind: 'noCustom' } };
+  if (custom.key === 'envKey') return { ...none, refusal: { kind: 'envKey', var: custom.envKey ?? '' } };
+  if (custom.key === 'headers') return { ...none, refusal: { kind: 'headers' } };
+  if (!k) return { ...none, refusal: { kind: 'empty' } };
+  if (/\s/.test(k)) return { ...none, refusal: { kind: 'notAKey' } };
+  if (k === 'PROXY_MANAGED') return { ...none, refusal: { kind: 'placeholder' } };
+  if (baseUrl && !/^https?:\/\/[^\s@]+$/.test(baseUrl.trim())) return { ...none, refusal: { kind: 'badUrl' } };
+  const hint = k.length < 16 ? '••••••' : k.slice(0, 3) + '…' + k.slice(-4);
+  const lines: CodexKeyPreview['lines'] = [{ op: 'ctx', text: '[model_providers.' + custom.id + ']', secret: false }];
+  if (baseUrl && baseUrl.trim() !== custom.baseUrl) {
+    if (custom.baseUrl) lines.push({ op: 'del', text: 'base_url = "' + custom.baseUrl + '"', secret: false });
+    lines.push({ op: 'add', text: 'base_url = "' + baseUrl.trim() + '"', secret: false });
+  }
+  if (custom.key === 'placeholder') lines.push({ op: 'del', text: 'experimental_bearer_token = "PROXY_MANAGED"', secret: false });
+  if (custom.key === 'bearer') lines.push({ op: 'del', text: 'experimental_bearer_token = "••••••"', secret: true });
+  lines.push({ op: 'add', text: 'experimental_bearer_token = "' + hint + '"', secret: true });
+  const replaces = custom.key === 'bearer';
+  return { ...none, lines, replaces, undo: replaces ? null : custom.key === 'placeholder' ? 'placeholder' : 'none' };
 }

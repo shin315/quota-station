@@ -12,6 +12,8 @@ import type {
   RestorePartResult,
   RestorePlan,
   RestoreUndone,
+  CodexKeyOutcome,
+  CodexKeyPreview,
   CodexOutcome,
   CodexRestart,
   CodexTarget,
@@ -162,6 +164,14 @@ export interface Api {
   codexCheck(): Promise<void>;
   /** Codex's folder; empty goes back to `~/.codex`. Rejects with `notFound`. */
   setCodexHome(path: string): Promise<Model>;
+  /** "Dán khoá": what writing `key` (and `baseUrl`) would change; the key comes back only as its hint. */
+  codexKeyPreview(key: string, baseUrl: string | null): Promise<CodexKeyPreview>;
+  /** Writes the key after the owner confirmed the preview whose hash is `base`. Rejects with `busy`. */
+  codexSetKey(key: string, baseUrl: string | null, base: string): Promise<CodexKeyOutcome>;
+  /** "Hoàn tác" after "Dán khoá". Rejects with `busy`. */
+  codexUndoKey(base: string): Promise<CodexKeyOutcome>;
+  /** "Dùng plugin khi chạy Custom API": kept for the next switch; writes nothing to Codex. */
+  setCodexPlugins(on: boolean): Promise<Model>;
   /** The MCP tab opened, or "Đọc lại": every agent's list read again; the table comes in the model. */
   mcpRead(): Promise<void>;
   /** What `changes` would write, read from the files now, secrets masked. */
@@ -382,6 +392,10 @@ export const tauriApi: Api = {
   codexKeep: () => invoke<Model>('codex_keep'),
   codexCheck: () => invoke('codex_check'),
   setCodexHome: (path) => invoke<Model>('set_codex_home', { path }),
+  codexKeyPreview: (key, baseUrl) => invoke<CodexKeyPreview>('codex_key_preview', { key, baseUrl }),
+  codexSetKey: (key, baseUrl, base) => invoke<CodexKeyOutcome>('codex_set_key', { key, baseUrl, base }),
+  codexUndoKey: (base) => invoke<CodexKeyOutcome>('codex_undo_key', { base }),
+  setCodexPlugins: (on) => invoke<Model>('set_codex_plugins', { on }),
   mcpRead: () => invoke('mcp_read'),
   mcpPreview: (changes) => invoke<McpPreview>('mcp_preview', { changes }),
   mcpWrite: (changes, bases) => invoke<McpOutcome>('mcp_write', { changes, bases }),

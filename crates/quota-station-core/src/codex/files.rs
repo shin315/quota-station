@@ -47,6 +47,28 @@ pub struct Record {
     /// The custom provider last seen in use, so the switch goes back to it.
     #[serde(default)]
     pub last_custom: Option<String>,
+    /// What "Hoàn tác" after "Dán khoá" puts back.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key_undo: Option<KeyUndo>,
+}
+
+/// The custom provider's table before "Dán khoá", as far as it held no key:
+/// a key written over another key cannot be undone, since the app never
+/// keeps one.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KeyUndo {
+    /// SHA-256 of the file the key write left: the undo runs only on it.
+    pub hash: String,
+    pub provider: String,
+    /// `experimental_bearer_token` before: CC Switch's placeholder, empty,
+    /// or `None` when there was none.
+    pub token: Option<String>,
+    /// `base_url` before, when the write changed it.
+    #[serde(default)]
+    pub base_url: Option<String>,
+    /// Unix seconds.
+    pub at: i64,
 }
 
 pub fn record_path(app: &AppDir) -> PathBuf {
@@ -77,6 +99,10 @@ impl Record {
     /// was the app's own write, or one the owner kept, stays so, and the
     /// Codex tab does not report the app's own change as made outside.
     pub fn follow(&mut self, before: &str, after: &str, mcp: String) {
+        // The MCP list does not touch the provider's table: the undo still fits.
+        if let Some(u) = self.key_undo.as_mut().filter(|u| u.hash == before) {
+            u.hash = after.to_string();
+        }
         if self.written_hash.as_deref() == Some(before) {
             self.written_hash = Some(after.to_string());
             self.written_mcp = Some(mcp);

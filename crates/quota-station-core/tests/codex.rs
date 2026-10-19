@@ -20,10 +20,10 @@ use std::time::Duration;
 
 use common::{fixture_text, temp_dir};
 use quota_station_core::antigravity::fs::AppDir;
-use quota_station_core::codex::config::{self, Current, KeyKind, Refusal, Target};
+use quota_station_core::codex::config::{self, Current, KeyKind, KeyRefusal, Refusal, Target};
 use quota_station_core::codex::files::{self, Record, WriteError};
 use quota_station_core::codex::login::{self, Login};
-use quota_station_core::codex::{self, log, probe, procs, resume, FileState, Outcome};
+use quota_station_core::codex::{self, log, probe, procs, resume, FileState, KeyOutcome, Outcome};
 use time::OffsetDateTime;
 
 const T0: i64 = 1_768_548_000;
@@ -146,7 +146,12 @@ fn requires_openai_auth_follows_the_login_only_for_a_provider_with_its_own_key()
         (KeyKind::None, true, false),
         (KeyKind::Placeholder, true, false),
     ] {
-        assert_eq!(config::requires_openai_auth(kind, login), want, "{kind:?} with login {login}");
+        assert_eq!(
+            config::requires_openai_auth(kind, login, true),
+            want,
+            "{kind:?} with login {login}"
+        );
+        assert!(!config::requires_openai_auth(kind, login, false), "plugins off: never");
     }
 }
 
@@ -159,7 +164,7 @@ fn switching_to_the_custom_provider_keeps_the_chatgpt_login_and_everything_else(
 
     let reading = codex::read(&home, &Record::default());
     assert_eq!(reading.login, Login::ChatGpt);
-    let out = codex::switch(&home, &app, Target::Custom, reading.hash.as_deref(), at(0));
+    let out = codex::switch(&home, &app, Target::Custom, reading.hash.as_deref(), true, at(0));
     let Outcome::Switched { from, to, backup, .. } = out else { panic!("{out:?}") };
     assert_eq!((from.as_str(), to.as_str()), ("openai", "custom"));
 
@@ -213,7 +218,7 @@ fn switching_back_removes_only_the_provider_line_and_keeps_the_table() {
     let (home, app) = setup("config-custom.toml", Some("auth-chatgpt.json"));
     let before = config_text(&home);
     let reading = codex::read(&home, &Record::default());
-    let out = codex::switch(&home, &app, Target::ChatGpt, reading.hash.as_deref(), at(0));
+    let out = codex::switch(&home, &app, Target::ChatGpt, reading.hash.as_deref(), true, at(0));
     assert!(matches!(out, Outcome::Switched { .. }), "{out:?}");
     let after = config_text(&home);
     assert!(!after.contains("model_provider ="));
@@ -243,12 +248,12 @@ fn a_switch_there_and_back_gives_the_same_bytes() {
     let before = std::fs::read(home.join(codex::CONFIG)).unwrap();
     let h = hash(&home);
     assert!(matches!(
-        codex::switch(&home, &app, Target::Custom, Some(&h), at(0)),
+        codex::switch(&home, &app, Target::Custom, Some(&h), true, at(0)),
         Outcome::Switched { .. }
     ));
     let h = hash(&home);
     assert!(matches!(
-        codex::switch(&home, &app, Target::ChatGpt, Some(&h), at(60)),
+        codex::switch(&home, &app, Target::ChatGpt, Some(&h), true, at(60)),
         Outcome::Switched { .. }
     ));
     assert_eq!(std::fs::read(home.join(codex::CONFIG)).unwrap(), before);
@@ -261,7 +266,7 @@ fn requires_openai_auth_is_written_by_the_rule() {
     let (home, app) = setup("config-envkey.toml", None);
     let h = hash(&home);
     assert!(matches!(
-        codex::switch(&home, &app, Target::Custom, Some(&h), at(0)),
+        codex::switch(&home, &app, Target::Custom, Some(&h), true, at(0)),
         Outcome::Switched { .. }
     ));
     assert_eq!(requires(&home, "relay"), Some(false));
@@ -273,7 +278,7 @@ fn requires_openai_auth_is_written_by_the_rule() {
     let (home, app) = setup("config-envkey.toml", Some("auth-chatgpt.json"));
     let h = hash(&home);
     assert!(matches!(
-        codex::switch(&home, &app, Target::Custom, Some(&h), at(0)),
+        codex::switch(&home, &app, Target::Custom, Some(&h), true, at(0)),
         Outcome::Switched { .. }
     ));
     assert_eq!(requires(&home, "relay"), Some(true));
@@ -282,7 +287,7 @@ fn requires_openai_auth_is_written_by_the_rule() {
     let (home, app) = setup("config-envkey.toml", Some("auth-apikey.json"));
     let h = hash(&home);
     assert!(matches!(
-        codex::switch(&home, &app, Target::Custom, Some(&h), at(0)),
+        codex::switch(&home, &app, Target::Custom, Some(&h), true, at(0)),
         Outcome::Switched { .. }
     ));
     assert_eq!(requires(&home, "relay"), Some(false));
@@ -292,7 +297,7 @@ fn requires_openai_auth_is_written_by_the_rule() {
     let before = config_text(&home);
     let h = hash(&home);
     assert!(matches!(
-        codex::switch(&home, &app, Target::Custom, Some(&h), at(0)),
+        codex::switch(&home, &app, Target::Custom, Some(&h), true, at(0)),
         Outcome::Switched { .. }
     ));
     assert_eq!(requires(&home, "custom"), Some(false));
@@ -312,14 +317,14 @@ fn a_provider_without_its_own_key_is_refused_and_nothing_is_written() {
         let (home, app) = setup(fixture, Some("auth-chatgpt.json"));
         let before = std::fs::read(home.join(codex::CONFIG)).unwrap();
         let h = hash(&home);
-        let out = codex::switch(&home, &app, Target::Custom, Some(&h), at(0));
+        let out = codex::switch(&home, &app, Target::Custom, Some(&h), true, at(0));
         assert_eq!(out, Outcome::Refused { target: Target::Custom, refusal }, "{fixture}");
         assert_eq!(std::fs::read(home.join(codex::CONFIG)).unwrap(), before);
         assert!(files::backups(&app.path().join(files::BACKUP_DIR)).is_empty());
     }
     let inline = "model = \"x\"\nmodel_providers = { custom = { env_key = \"K\" } }\n";
     let parsed = config::parse(inline, None).unwrap();
-    assert_eq!(config::plan(&parsed, Target::Custom, true), Err(Refusal::Shape));
+    assert_eq!(config::plan(&parsed, Target::Custom, true, true), Err(Refusal::Shape));
 }
 
 #[test]
@@ -329,7 +334,7 @@ fn a_file_changed_after_the_sheet_opened_is_not_overwritten() {
     let mut text = config_text(&home);
     text.push_str("\n# edited meanwhile\n");
     std::fs::write(home.join(codex::CONFIG), &text).unwrap();
-    let out = codex::switch(&home, &app, Target::Custom, Some(&seen), at(0));
+    let out = codex::switch(&home, &app, Target::Custom, Some(&seen), true, at(0));
     assert_eq!(out, Outcome::Failed { target: Target::Custom, error: WriteError::Changed });
     assert_eq!(config_text(&home), text);
 }
@@ -372,7 +377,7 @@ fn a_symlinked_config_stays_a_symlink() {
     std::os::unix::fs::symlink(&real, home.join(codex::CONFIG)).unwrap();
     let h = hash(&home);
     assert!(matches!(
-        codex::switch(&home, &app, Target::Custom, Some(&h), at(0)),
+        codex::switch(&home, &app, Target::Custom, Some(&h), true, at(0)),
         Outcome::Switched { .. }
     ));
     assert!(std::fs::symlink_metadata(home.join(codex::CONFIG)).unwrap().file_type().is_symlink());
@@ -420,7 +425,7 @@ fn a_change_outside_the_app_is_seen_and_can_be_kept() {
         "nothing to compare before the first write"
     );
     let h = hash(&home);
-    codex::switch(&home, &app, Target::Custom, Some(&h), at(0));
+    codex::switch(&home, &app, Target::Custom, Some(&h), true, at(0));
     // CC Switch, or a hand, switches back.
     let text = config_text(&home).replacen("model_provider = \"custom\"\n", "", 1);
     std::fs::write(home.join(codex::CONFIG), text).unwrap();
@@ -460,7 +465,7 @@ fn a_missing_or_broken_config_is_read_as_such() {
     std::fs::write(root.join(codex::CONFIG), "model = [\n").unwrap();
     assert!(matches!(codex::read(&root, &Record::default()).file, FileState::Invalid(_)));
     let app = AppDir::new(root.join("app"));
-    let out = codex::switch(&root, &app, Target::ChatGpt, None, at(0));
+    let out = codex::switch(&root, &app, Target::ChatGpt, None, true, at(0));
     assert!(matches!(out, Outcome::Invalid { .. }), "{out:?}");
     assert_eq!(std::fs::read_to_string(root.join(codex::CONFIG)).unwrap(), "model = [\n");
 }
@@ -561,7 +566,350 @@ fn resumable_sessions_are_counted_by_their_provider() {
 fn the_log_marks_a_restart_on_the_last_switch() {
     let (home, app) = setup("config-chatgpt.toml", Some("auth-chatgpt.json"));
     let h = hash(&home);
-    codex::switch(&home, &app, Target::Custom, Some(&h), at(0));
+    codex::switch(&home, &app, Target::Custom, Some(&h), true, at(0));
     log::mark_restarted(&app, true).unwrap();
     assert_eq!(log::read(&app)[0].restarted, Some(true));
+}
+
+// ===== "Dán khoá" and "Dùng plugin khi chạy Custom API" =====
+
+/// A made-up key, long enough to show a hint.
+const NEW_KEY: &str = "sk-pasted-trap-key-0123456789abcd";
+
+/// Every file the app keeps, as one text, to look for a key in.
+fn app_text(app: &AppDir) -> String {
+    let mut out = String::new();
+    let mut dirs = vec![app.path().to_path_buf()];
+    while let Some(d) = dirs.pop() {
+        for e in std::fs::read_dir(&d).into_iter().flatten().flatten() {
+            let p = e.path();
+            if p.is_dir() {
+                dirs.push(p);
+            } else {
+                out.push_str(&String::from_utf8_lossy(&std::fs::read(&p).unwrap()));
+            }
+        }
+    }
+    out
+}
+
+/// The lines of `after` that are not in `before`, and the other way.
+fn changed_lines<'a>(before: &'a str, after: &'a str) -> (Vec<&'a str>, Vec<&'a str>) {
+    let gone = before.lines().filter(|l| !after.lines().any(|a| a == *l)).collect();
+    let new = after.lines().filter(|l| !before.lines().any(|b| b == *l)).collect();
+    (gone, new)
+}
+
+fn token(home: &Path, id: &str) -> Option<String> {
+    let doc: toml_edit::DocumentMut = config_text(home).parse().unwrap();
+    doc.get("model_providers")?
+        .get(id)?
+        .get("experimental_bearer_token")?
+        .as_str()
+        .map(String::from)
+}
+
+#[test]
+fn a_pasted_key_replaces_cc_switch_s_placeholder_on_its_one_line() {
+    let (home, app) = setup("config-dormant.toml", Some("auth-chatgpt.json"));
+    let before = config_text(&home);
+    let auth = std::fs::read(home.join(codex::AUTH)).unwrap();
+    let h = hash(&home);
+
+    let preview = codex::key_preview(&home, &app, NEW_KEY, None);
+    assert_eq!(preview.refusal, None);
+    assert_eq!(preview.hash.as_deref(), Some(h.as_str()));
+    assert_eq!(preview.undo, Some("placeholder"));
+    assert!(!preview.replaces);
+    let shown = serde_json::to_string(&preview).unwrap();
+    assert!(!shown.contains(NEW_KEY), "the preview masks the key: {shown}");
+    assert!(shown.contains("sk-…abcd"), "{shown}");
+    assert!(shown.contains("PROXY_MANAGED"), "the placeholder is not a key: {shown}");
+    assert_eq!(config_text(&home), before, "a preview writes nothing");
+
+    let out = codex::set_key(&home, &app, NEW_KEY, None, &h, at(0));
+    let KeyOutcome::Written { provider, backup, undo } = &out else { panic!("{out:?}") };
+    assert_eq!((provider.as_str(), *undo), ("custom", true));
+    let after = config_text(&home);
+    assert_eq!(
+        changed_lines(&before, &after),
+        (
+            vec!["experimental_bearer_token = \"PROXY_MANAGED\""],
+            vec!["experimental_bearer_token = \"sk-pasted-trap-key-0123456789abcd\""]
+        ),
+        "only the key's line changes"
+    );
+    assert_eq!(before.lines().count(), after.lines().count());
+    assert_eq!(std::fs::read(home.join(codex::AUTH)).unwrap(), auth, "auth.json byte for byte");
+    assert!(after.contains("model_catalog_json = \"cc-switch-model-catalog.json\""), "kept");
+
+    // The key is nowhere but in config.toml.
+    let kept = std::fs::read_to_string(app.path().join(files::BACKUP_DIR).join(backup)).unwrap();
+    assert!(kept.contains("experimental_bearer_token = \"<redacted>\""), "{kept}");
+    for (what, text) in [
+        ("the outcome", serde_json::to_string(&out).unwrap()),
+        ("its debug text", format!("{out:?}")),
+        ("the app's folder", app_text(&app)),
+    ] {
+        assert!(!text.contains(NEW_KEY) && !text.contains("0123456789abcd"), "key in {what}");
+    }
+    let lines = log::read(&app);
+    assert_eq!((lines[0].from.as_str(), lines[0].result.as_str()), ("custom", "key"));
+
+    // With a key of its own, the table now takes the switch, and keeps the login.
+    let reading = codex::read(&home, &files::load(&app));
+    assert_eq!(reading.parsed().unwrap().custom.as_ref().unwrap().key, KeyKind::Bearer);
+    let out = codex::switch(&home, &app, Target::Custom, reading.hash.as_deref(), true, at(60));
+    assert!(matches!(out, Outcome::Switched { .. }), "{out:?}");
+    assert_eq!(requires(&home, "custom"), Some(true));
+    assert_eq!(std::fs::read(home.join(codex::AUTH)).unwrap(), auth);
+}
+
+#[test]
+fn the_real_address_replaces_cc_switch_s_proxy_in_the_same_write_and_undo_puts_both_back() {
+    let (home, app) = setup("config-dormant.toml", Some("auth-chatgpt.json"));
+    let before = std::fs::read(home.join(codex::CONFIG)).unwrap();
+    let parsed = codex::read(&home, &Record::default());
+    assert!(
+        parsed.parsed().unwrap().custom.as_ref().unwrap().proxy,
+        "127.0.0.1:15721 is CC Switch's"
+    );
+    let url = "https://relay.example.com/v1";
+    let preview = codex::key_preview(&home, &app, NEW_KEY, Some(url));
+    let texts: Vec<_> = preview.lines.iter().map(|l| (l.op, l.text.as_str())).collect();
+    assert!(texts.contains(&("del", "base_url = \"http://127.0.0.1:15721/v1\"")), "{texts:?}");
+    assert!(texts.contains(&("add", "base_url = \"https://relay.example.com/v1\"")), "{texts:?}");
+
+    let h = hash(&home);
+    assert!(matches!(
+        codex::set_key(&home, &app, NEW_KEY, Some(url), &h, at(0)),
+        KeyOutcome::Written { undo: true, .. }
+    ));
+    let after = config_text(&home);
+    let (gone, new) = changed_lines(std::str::from_utf8(&before).unwrap(), &after);
+    assert_eq!(gone.len(), 2, "{gone:?}");
+    assert_eq!(
+        new,
+        [
+            "base_url = \"https://relay.example.com/v1\"",
+            &format!("experimental_bearer_token = \"{NEW_KEY}\"")
+        ]
+    );
+    let undo = files::load(&app).key_undo.unwrap();
+    assert_eq!(undo.token.as_deref(), Some("PROXY_MANAGED"));
+    assert_eq!(undo.base_url.as_deref(), Some("http://127.0.0.1:15721/v1"));
+
+    let h = hash(&home);
+    let out = codex::undo_key(&home, &app, &h, at(60));
+    assert!(matches!(out, KeyOutcome::Undone { .. }), "{out:?}");
+    assert_eq!(
+        std::fs::read(home.join(codex::CONFIG)).unwrap(),
+        before,
+        "the same bytes as before"
+    );
+    assert_eq!(files::load(&app).key_undo, None);
+    assert!(!app_text(&app).contains(NEW_KEY), "the undo's backup leaves the key out too");
+    assert_eq!(
+        codex::undo_key(&home, &app, &hash(&home), at(90)),
+        KeyOutcome::Refused { refusal: KeyRefusal::NoUndo }
+    );
+}
+
+#[test]
+fn a_table_with_no_key_gets_a_new_last_line_and_undo_removes_it() {
+    let (home, app) = setup("config-nokey.toml", Some("auth-chatgpt.json"));
+    let before = std::fs::read(home.join(codex::CONFIG)).unwrap();
+    let h = hash(&home);
+    assert_eq!(codex::key_preview(&home, &app, NEW_KEY, None).undo, Some("none"));
+    assert!(matches!(
+        codex::set_key(&home, &app, NEW_KEY, None, &h, at(0)),
+        KeyOutcome::Written { undo: true, .. }
+    ));
+    assert!(config_text(&home).ends_with(&format!(
+        "requires_openai_auth = true\nexperimental_bearer_token = \"{NEW_KEY}\"\n"
+    )));
+    let h = hash(&home);
+    assert!(matches!(codex::undo_key(&home, &app, &h, at(60)), KeyOutcome::Undone { .. }));
+    assert_eq!(std::fs::read(home.join(codex::CONFIG)).unwrap(), before);
+}
+
+#[test]
+fn a_key_written_over_a_key_cannot_be_undone_and_the_preview_says_so() {
+    let (home, app) = setup("config-chatgpt.toml", Some("auth-chatgpt.json"));
+    let before = config_text(&home);
+    let preview = codex::key_preview(&home, &app, NEW_KEY, None);
+    assert!(preview.replaces);
+    assert_eq!(preview.undo, None);
+    let shown = serde_json::to_string(&preview).unwrap();
+    assert!(!shown.contains("test-key-not-real"), "nor the old key: {shown}");
+    let h = hash(&home);
+    let out = codex::set_key(&home, &app, NEW_KEY, None, &h, at(0));
+    assert!(matches!(out, KeyOutcome::Written { undo: false, .. }), "{out:?}");
+    assert_eq!(token(&home, "custom").as_deref(), Some(NEW_KEY));
+    assert_eq!(
+        changed_lines(&before, &config_text(&home)).0,
+        ["experimental_bearer_token = \"test-key-not-real\"   # the provider's own key"]
+    );
+    assert!(
+        config_text(&home).contains(&format!(
+            "experimental_bearer_token = \"{NEW_KEY}\"   # the provider's own key"
+        )),
+        "the comment after it stays"
+    );
+    assert_eq!(files::load(&app).key_undo, None);
+    // The same key again: nothing to write.
+    assert_eq!(
+        codex::set_key(&home, &app, NEW_KEY, None, &hash(&home), at(30)),
+        KeyOutcome::Already
+    );
+}
+
+#[test]
+fn a_key_is_not_written_into_a_file_changed_since_the_preview() {
+    let (home, app) = setup("config-dormant.toml", None);
+    let seen = codex::key_preview(&home, &app, NEW_KEY, None).hash.unwrap();
+    let mut text = config_text(&home);
+    text.push_str("# edited meanwhile\n");
+    std::fs::write(home.join(codex::CONFIG), &text).unwrap();
+    assert_eq!(
+        codex::set_key(&home, &app, NEW_KEY, None, &seen, at(0)),
+        KeyOutcome::Failed { error: WriteError::Changed }
+    );
+    assert_eq!(config_text(&home), text);
+    assert!(files::backups(&app.path().join(files::BACKUP_DIR)).is_empty());
+
+    // Nor is an undo once the file changed after the key went in.
+    let h = hash(&home);
+    codex::set_key(&home, &app, NEW_KEY, None, &h, at(10));
+    let mut text = config_text(&home);
+    text.push_str("# and again\n");
+    std::fs::write(home.join(codex::CONFIG), &text).unwrap();
+    assert_eq!(
+        codex::undo_key(&home, &app, &hash(&home), at(20)),
+        KeyOutcome::Failed { error: WriteError::Changed }
+    );
+    assert_eq!(config_text(&home), text);
+}
+
+#[test]
+fn a_key_is_refused_where_the_table_does_not_take_one_and_nothing_is_written() {
+    for (fixture, refusal) in [
+        ("config-envkey.toml", KeyRefusal::EnvKey { var: "RELAY_API_KEY".into() }),
+        ("config-header.toml", KeyRefusal::Headers),
+    ] {
+        let (home, app) = setup(fixture, Some("auth-chatgpt.json"));
+        let before = std::fs::read(home.join(codex::CONFIG)).unwrap();
+        let h = hash(&home);
+        assert_eq!(codex::key_preview(&home, &app, NEW_KEY, None).refusal, Some(refusal.clone()));
+        assert_eq!(
+            codex::set_key(&home, &app, NEW_KEY, None, &h, at(0)),
+            KeyOutcome::Refused { refusal },
+            "{fixture}"
+        );
+        assert_eq!(std::fs::read(home.join(codex::CONFIG)).unwrap(), before);
+        assert!(!app_text(&app).contains(NEW_KEY));
+    }
+    let inline = "model_providers = { custom = { name = \"relay\", experimental_bearer_token = \"PROXY_MANAGED\" } }\n";
+    let parsed = config::parse(inline, None).unwrap();
+    assert_eq!(config::key_plan(&parsed, NEW_KEY.into(), None), Err(KeyRefusal::Shape));
+    let (home, app) = setup("config-dormant.toml", None);
+    let h = hash(&home);
+    for (bad_url, why) in
+        [("ftp://relay.example.com", "scheme"), ("https://u:pw@relay.example.com", "password")]
+    {
+        assert_eq!(
+            codex::set_key(&home, &app, NEW_KEY, Some(bad_url), &h, at(0)),
+            KeyOutcome::Refused { refusal: KeyRefusal::BadUrl },
+            "{why}"
+        );
+    }
+}
+
+#[test]
+fn a_paste_gives_the_key_alone_or_says_why_it_is_not_one() {
+    for pasted in [
+        NEW_KEY.to_string(),
+        format!("  {NEW_KEY}\n"),
+        format!("Bearer {NEW_KEY}"),
+        format!("\"{NEW_KEY}\""),
+        format!("OPENAI_API_KEY={NEW_KEY}"),
+        format!("export RELAY_API_KEY='{NEW_KEY}'"),
+        format!("experimental_bearer_token = \"{NEW_KEY}\""),
+    ] {
+        assert_eq!(config::clean_key(&pasted).as_deref(), Ok(NEW_KEY), "{pasted}");
+    }
+    assert_eq!(config::clean_key("  "), Err(KeyRefusal::Empty));
+    assert_eq!(config::clean_key("sk-one two"), Err(KeyRefusal::NotAKey));
+    assert_eq!(config::clean_key("PROXY_MANAGED"), Err(KeyRefusal::Placeholder));
+    assert_eq!(config::clean_key("${RELAY_API_KEY}"), Err(KeyRefusal::Reference));
+    assert_eq!(config::clean_key(&"k".repeat(5000)), Err(KeyRefusal::TooLong));
+    assert_eq!(config::hint(NEW_KEY), "sk-…abcd");
+    assert_eq!(config::hint("short-key"), "••••••", "too short to show any of it");
+    assert!(!format!(
+        "{:?}",
+        config::KeyPlan { id: "c".into(), token: Some(NEW_KEY.into()), base_url: None }
+    )
+    .contains(NEW_KEY));
+}
+
+#[test]
+fn unticked_plugins_write_false_ticked_write_true_and_auth_json_never_changes() {
+    for plugins in [true, false] {
+        let (home, app) = setup("config-chatgpt.toml", Some("auth-chatgpt.json"));
+        let auth = std::fs::read(home.join(codex::AUTH)).unwrap();
+        let start = std::fs::read(home.join(codex::CONFIG)).unwrap();
+        let h = hash(&home);
+        let out = codex::switch(&home, &app, Target::Custom, Some(&h), plugins, at(0));
+        assert!(matches!(out, Outcome::Switched { .. }), "{out:?}");
+        assert_eq!(requires(&home, "custom"), Some(plugins), "plugins {plugins}");
+        assert_eq!(log::read(&app)[0].requires, Some(plugins));
+        assert_eq!(std::fs::read(home.join(codex::AUTH)).unwrap(), auth, "plugins {plugins}");
+        // And back to ChatGPT, at once: the login was never touched.
+        let h = hash(&home);
+        let out = codex::switch(&home, &app, Target::ChatGpt, Some(&h), plugins, at(60));
+        assert!(matches!(out, Outcome::Switched { .. }), "{out:?}");
+        assert_eq!(std::fs::read(home.join(codex::AUTH)).unwrap(), auth);
+        assert_eq!(login::check(&home, config::AuthStore::File), Login::ChatGpt);
+        if plugins {
+            assert_eq!(std::fs::read(home.join(codex::CONFIG)).unwrap(), start);
+        }
+    }
+}
+
+#[test]
+fn changing_plugins_on_the_custom_provider_in_use_rewrites_only_that_key() {
+    let (home, app) = setup("config-custom.toml", Some("auth-chatgpt.json"));
+    let auth = std::fs::read(home.join(codex::AUTH)).unwrap();
+    let before = config_text(&home);
+    let h = hash(&home);
+    let out = codex::switch(&home, &app, Target::Custom, Some(&h), false, at(0));
+    let Outcome::Switched { from, to, .. } = &out else { panic!("{out:?}") };
+    assert_eq!((from.as_str(), to.as_str()), ("custom", "custom"));
+    let after = config_text(&home);
+    assert_eq!(
+        changed_lines(&before, &after),
+        (vec!["requires_openai_auth = true"], vec!["requires_openai_auth = false"])
+    );
+    assert_eq!(before.lines().count(), after.lines().count());
+    assert_eq!(std::fs::read(home.join(codex::AUTH)).unwrap(), auth);
+    let line = &log::read(&app)[0];
+    assert_eq!((line.result.as_str(), line.requires), ("plugins", Some(false)));
+    // Ticked again: back to the same bytes.
+    let h = hash(&home);
+    assert!(matches!(
+        codex::switch(&home, &app, Target::Custom, Some(&h), true, at(60)),
+        Outcome::Switched { .. }
+    ));
+    assert_eq!(config_text(&home), before);
+    // Nothing to change: nothing written.
+    assert_eq!(
+        codex::switch(&home, &app, Target::Custom, Some(&hash(&home)), true, at(90)),
+        Outcome::Already { target: Target::Custom }
+    );
+    // A provider line in single quotes is not rewritten in double ones.
+    let text = before.replace("model_provider = \"custom\"", "model_provider = 'custom'");
+    let plan =
+        config::plan(&config::parse(&text, None).unwrap(), Target::Custom, true, false).unwrap();
+    let out = config::apply(&text, &plan).unwrap();
+    assert_eq!(changed_lines(&text, &out).0, ["requires_openai_auth = true"]);
 }

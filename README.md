@@ -324,37 +324,73 @@ the confirmation sheet first.
   custom provider table, a table without a key of its own (the ChatGPT login
   would be sent to the provider), the placeholder key CC Switch leaves in a
   table it does not use, a profile that picks its own provider, or a table
-  written inline. The custom provider's name, address and key always come
-  from the file; nothing is built in.
+  written inline. Under the two notes about a missing key, `Dán khoá…` opens
+  the key sheet. The custom provider's name and address come from the file,
+  and its key from the file or from the owner's paste; nothing is built in.
 
-  The `Codex` tab shows the provider (both sides, the address, how the key
-  is given, and `requires_openai_auth`), Codex on this Mac (terminal
-  sessions, Codex App, the background process, the version), the sessions
-  that can be resumed by provider, the recent switches, how many MCP servers
-  Codex has (the `MCP` tab turns them on and off), the file the app writes
-  with its backups, and a step-by-step guide to stop using CC Switch. While
-  CC Switch still runs and manages Codex, a banner says to switch Codex in
-  one place only: CC Switch's next switch overwrites the provider choice.
-  A change made to `config.toml` outside the app shows as a banner with
-  `Xem thay đổi` and `Đã hiểu`; the app never writes it back. Every switch,
-  and every change seen from outside, goes to `Lịch sử` under `Codex`.
+  `Dán khoá…` (or `Đổi khoá…`) puts the owner's key in the custom
+  provider's table as `experimental_bearer_token`, the way CC Switch's
+  direct switch keeps it. The key goes in a password field; a paste with
+  `Bearer `, quotes or the `NAME=` it was copied with gives the key alone.
+  When the table still points at CC Switch's local proxy
+  (`127.0.0.1:15721`), the same sheet takes the provider's real address. A
+  preview shows the lines that change, the key only as `sk-…abcd`; the
+  write keeps a backup with the key left out and refuses a file changed
+  since the preview. `Hoàn tác` puts CC Switch's placeholder (or no key) and
+  the old address back while the file is the one the write left; a key
+  written over another key cannot be undone, since the app never keeps a
+  key, and the preview says so. A table that reads its key from `env_key`
+  gets the steps to set the variable, and nothing is written. CC Switch's
+  `model_catalog_json` is only reported: Codex does not start without that
+  file. The key never reaches a window, the log, `Lịch sử`, a backup, the
+  copy to another Mac or a configuration set.
+
+  `Dùng plugin khi chạy Custom API (giữ đăng nhập ChatGPT)` is a checkbox,
+  ticked by default and kept in the settings. Ticked, a switch to the
+  custom provider keeps the ChatGPT login in use, as above. Unticked, it
+  writes `requires_openai_auth = false`: Codex leaves the ChatGPT login
+  alone under the custom provider, and the plugins' parts that need it
+  (apps, connectors, the online catalogue) are off. `auth.json` is never
+  written either way, so the way back to ChatGPT is instant. Changing the
+  box while Codex is on the custom provider offers `Áp dụng ngay`, with the
+  same confirmation, backup and reopen-Codex-App note as a switch, and
+  rewrites only that one key. The switch sheet's login line follows the
+  box, and the box is on that sheet too.
+
+  The `Codex` tab reads like the Claude and Antigravity tabs: one table with
+  the two sides (`Chuyển` on the one not in use, `Dán khoá…` on the custom
+  provider), the plugins box, and the technical detail (`auth.json`, the
+  address, how the key is given, `requires_openai_auth`, the file written
+  and its backups, the sessions that can be resumed by provider, the recent
+  switches) behind `Chi tiết`. Below, Codex on this Mac in a line (CLI,
+  terminal sessions, Codex App, the MCP count, `Khởi động lại tiến trình
+  nền…`) and the guide to stop using CC Switch folded to its progress
+  (`Ngừng dùng CC Switch · 3/8`). While CC Switch still runs and manages
+  Codex, a banner says to switch Codex in one place only: CC Switch's next
+  switch overwrites the provider choice. A change made to `config.toml`
+  outside the app shows as a banner with `Xem thay đổi` and `Đã hiểu`; the
+  app never writes it back. Every switch, and every change seen from
+  outside, goes to `Lịch sử` under `Codex`. Opening or installing the app
+  changes nothing in Codex's files: every write follows a confirmation.
 
   How the file is written: only `model_provider` (set to the custom
   provider's id, or removed for the ChatGPT login) and, in the custom
   provider's table, `requires_openai_auth` change. That key is on when the
-  table's key comes from an environment variable or a bearer token and a
-  ChatGPT login exists, and off for a key sent in its own header, as CC
-  Switch decides it. Every other byte stays, comments included; a switch
-  never writes `auth.json` or `[mcp_servers]`. Before writing, the app checks
-  the file is still the one the sheet was built from (a SHA-256), keeps a
-  backup with every key in it replaced by `<redacted>`, writes a temporary
-  file and renames it, and reads the result. The
-  Codex folder is `~/.codex` unless `Cài đặt › Thư mục Codex` says
-  otherwise.
+  table's key comes from an environment variable or a bearer token, a
+  ChatGPT login exists and the plugins box is ticked, and off for a key
+  sent in its own header, as CC Switch decides it. `Dán khoá` writes only
+  the table's `experimental_bearer_token` and, when asked, its `base_url`.
+  Every other byte stays, comments included; the app never writes
+  `auth.json`, and a switch never writes `[mcp_servers]` or `profiles`.
+  Before writing, the app checks the file is still the one the sheet was
+  built from (a SHA-256), keeps a backup with every key in it replaced by
+  `<redacted>`, writes a temporary file and renames it, and reads the
+  result. The Codex folder is `~/.codex` unless `Cài đặt › Thư mục Codex`
+  says otherwise.
 
   <img src="docs/codex-row.png" width="300" alt="The popover's Codex row on fixture data: the custom provider in use, a CC Switch chip and the way back to ChatGPT"> <img src="docs/codex-sheet.png" width="300" alt="The Codex confirmation sheet: the facts of the switch and the restart box, off">
 
-  <img src="docs/codex-tab.png" width="760" alt="The Codex tab on fixture data: the provider, Codex on this Mac, the resumable sessions, the recent switches, the MCP list, the CC Switch guide and the file the app writes">
+  <img src="docs/codex-tab.png" width="760" alt="The Codex tab on fixture data: the two sides with relay in use, Đổi khoá and the plugins box ticked, Chi tiết folded, Codex on this Mac in a line and the CC Switch guide at 3 of 8"> <img src="docs/codex-key.png" width="372" alt="The key preview: base_url from CC Switch's proxy to the provider's address, PROXY_MANAGED replaced by the key shown as sk-…wxyz, and the undo it offers">
 
 - **MCP** (M9). The `MCP` tab, under `Agent` in the sidebar, puts every MCP
   server of Claude Code, Codex and Antigravity in one table: a row per

@@ -21,7 +21,7 @@ import { Segment, Segmented } from '@/components/ui/segmented';
 import { cn } from '@/lib/utils';
 import { AddAccount, LoginActions, LoginNotes, LogoutConfirm, loginChips, type AgyLogins } from '../antigravity/AgyAccounts';
 import { AccountName, IdMark, InUse, NowCard, WindowCell } from '../components/accounts';
-import { Empty, GRID2, STACK, TabHead, TabSub, TabTitle } from '../components/page';
+import { Empty, GRID2, STACK, TABLE_ROW, TABLE_ROW_ON, TabHead, TabSub, TabTitle } from '../components/page';
 import { Banner, Button, Chip, CODE, Dot, Feedback, KVT, Toggle } from '../components/parts';
 import type { Tab } from '../lib/model';
 import { pauseOptions, type AutoView, type PauseChoice } from '../lib/switching';
@@ -158,11 +158,8 @@ function SwitchCell({ card, onSwitch }: { card: CardView; onSwitch(slot: number)
   );
 }
 
-/**
- * A row of a window table; the table sets its columns (--wt-cols). The row
- * in use is lit, and the hairlines around it give way.
- */
-const ROW = 'wt-r grid grid-cols-(--wt-cols) items-center gap-2.5 border-t-[.5px] border-card-line px-1.5 py-2 text-sm first:border-t-0 [.on+&]:border-t-transparent';
+/** A row of a window table (see TABLE_ROW). */
+const ROW = TABLE_ROW;
 /** The table's head rows: the windows' names. */
 const HEAD = ROW + ' h pt-0 pb-1 text-xs text-ink3';
 
@@ -171,7 +168,7 @@ function TableRow(props: { card: CardView; extra?: ReactNode; chips?: ChipView[]
   const c = props.card;
   return (
     <div
-      className={cn(ROW, c.active && 'on rounded-lg border-t-transparent bg-[color-mix(in_srgb,var(--sel)_70%,transparent)]')}
+      className={cn(ROW, c.active && TABLE_ROW_ON)}
       role="listitem"
       aria-label={c.label}
       title={c.title || undefined}

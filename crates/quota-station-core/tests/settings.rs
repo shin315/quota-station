@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 use quota_station_core::alerts::{Kind, Switches};
 use quota_station_core::settings::{
-    machine_name, peers, AutoBackup, Menubar, MenubarWindow, Peer, PeersError, Settings,
-    SkillChecks, Theme, MACHINE_NAME_MAX, PEERS_MAX,
+    machine_name, peers, AutoBackup, CodexOptions, Menubar, MenubarWindow, Peer, PeersError,
+    Settings, SkillChecks, Theme, MACHINE_NAME_MAX, PEERS_MAX,
 };
 
 #[test]
@@ -25,6 +25,7 @@ fn settings_round_trip_and_default_when_missing() {
         firstmate_file: Some(PathBuf::from("/srv/example/quota-pool.last")),
         source_dir: Some(PathBuf::from("/srv/example/quota-station")),
         codex_home: Some(PathBuf::from("/srv/example/codex")),
+        codex: CodexOptions { plugins: false },
         auto_backup: AutoBackup { after_change: false, daily: true },
         skill_checks: SkillChecks { daily: false, notify: true },
     };
@@ -199,4 +200,27 @@ fn other_macs_typed_in_settings_are_tidied_and_checked() {
     let many: Vec<Peer> = (0..=PEERS_MAX).map(|i| peer("M", &format!("m{i}"))).collect();
     assert_eq!(peers(&many), Err(PeersError::TooMany));
     assert_eq!(PeersError::SameAlias(1).code(), "sameAlias:1");
+}
+
+#[test]
+fn plugins_under_the_custom_api_are_on_unless_unticked_and_the_choice_persists() {
+    assert!(Settings::default().codex.plugins, "ticked by default, as before there was a choice");
+    assert!(serde_json::from_str::<Settings>("{}").unwrap().codex.plugins);
+    assert!(
+        serde_json::from_str::<Settings>(r#"{ "codex": "odd" }"#).unwrap().codex.plugins,
+        "an unknown value reads as ticked"
+    );
+    let dir = std::env::temp_dir().join(format!("qs-settings-codex-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let file = dir.join("settings.json");
+    let off = Settings { codex: CodexOptions { plugins: false }, ..Settings::default() };
+    off.save(&file).unwrap();
+    assert!(std::fs::read_to_string(&file).unwrap().contains("\"plugins\": false"));
+    assert!(!Settings::load(&file).codex.plugins, "unticked stays unticked");
+    Settings::default().save(&file).unwrap();
+    assert!(
+        !std::fs::read_to_string(&file).unwrap().contains("codex"),
+        "the default is not written"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
 }
