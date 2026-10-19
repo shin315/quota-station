@@ -11,6 +11,7 @@
 // The Sao lưu group has the backup packs and the restore (M10), and the copy
 // to or from another Mac over SSH (M13).
 // The Claude tab has a red banner while a variable overrides Claude Code's login (M14).
+// Bộ cấu hình (M15) closes the Agent group: named sets applied for the whole Mac.
 
 import { Fragment, type ReactNode } from 'react';
 import { AddAccount, LoginActions, LoginNotes, LogoutConfirm, loginChips, type AgyLogins } from '../antigravity/AgyAccounts';
@@ -42,6 +43,7 @@ const NAVS: (['-', string] | [NavId, string])[] = [
   ['skills', 'Skills'],
   ['plugins', 'Plugin'],
   ['instr', 'File hướng dẫn'],
+  ['sets', 'Bộ cấu hình'],
   ['-', 'Sao lưu'],
   ['backup', 'Sao lưu'],
   ['copy', 'Chép sang Mac khác'],
@@ -436,6 +438,8 @@ export interface MainWindowProps {
   skills?: ReactNode;
   plugins?: ReactNode;
   instr?: ReactNode;
+  /** The Bộ cấu hình tab (M15). */
+  sets?: ReactNode;
   /** The Sao lưu tab (M10). */
   backup?: ReactNode;
   /** The Chép sang Mac khác tab (M13). */
@@ -497,6 +501,7 @@ export function MainWindow(props: MainWindowProps) {
           {props.tab === 'skills' ? props.skills : null}
           {props.tab === 'plugins' ? props.plugins : null}
           {props.tab === 'instr' ? props.instr : null}
+          {props.tab === 'sets' ? props.sets : null}
           {props.tab === 'backup' ? props.backup : null}
           {props.tab === 'copy' ? props.copy : null}
           {props.tab === 'settings' ? props.settings : null}

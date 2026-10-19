@@ -204,6 +204,8 @@ pub struct Inner {
     pub copy: crate::copy::Live,
     /// The variables that override a login (M14).
     pub env: crate::env::Live,
+    /// The configuration sets' deleted set and running write (M15).
+    pub sets: crate::sets::Live,
 }
 
 /// How the app's own read of an Antigravity account stands.
@@ -276,6 +278,7 @@ pub enum Tab {
     Skills,
     Plugins,
     Instr,
+    Sets,
     Backup,
     Copy,
     Settings,
@@ -338,6 +341,7 @@ impl Inner {
             backup: crate::backup::Live::default(),
             skills: crate::skills::Live::default(),
             env: crate::env::Live::default(),
+            sets: crate::sets::Live::default(),
             copy: crate::copy::Live::default(),
         }
     }
@@ -506,6 +510,7 @@ impl Inner {
             plugins: crate::skills::plugins_view(self),
             instructions: crate::skills::instr_view(self),
             env: crate::env::view(self),
+            sets: crate::sets::view(self),
         }
     }
 
@@ -628,6 +633,8 @@ pub struct Model {
     pub instructions: crate::skills::InstrView,
     /// The variables that override a login (M14).
     pub env: crate::env::EnvView,
+    /// The configuration sets (M15).
+    pub sets: crate::sets::SetsView,
 }
 
 /// The rotation file and the other Macs (F06).

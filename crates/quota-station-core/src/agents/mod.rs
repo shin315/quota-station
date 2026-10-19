@@ -28,6 +28,10 @@
 //!
 //! M14 adds [`env_check`]: the environment variables in the shell files and
 //! launchd that override an agent's login, found by name, never by value.
+//!
+//! M15 adds [`sets`]: named sets of MCP servers and skills turned on or off
+//! for the whole Mac, applied through the same checked batches after one
+//! preview; Codex's provider stays with the Codex switch.
 
 pub mod agy_mcp;
 pub mod batch;
@@ -46,6 +50,7 @@ pub mod plugins;
 pub mod redact;
 pub mod restore;
 pub mod secrets;
+pub mod sets;
 pub mod skill_ops;
 pub mod skill_updates;
 pub mod skills;

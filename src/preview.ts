@@ -45,12 +45,17 @@
 // A comparison, a copy and its undo take 0.9 s.
 // Variables that override a login (M14): `env=found|claude2|launchd|unread|unchecked` (none set by
 // default), shown on `tab=settings` (the card), `tab=claude` (the banner) and with `alerts=env`.
+// Bộ cấu hình (M15): `tab=sets` with three made-up sets, Web app applied and drifted by one
+// entry; `sets=empty|fresh|even` for none, none applied, or none drifted, and
+// `setsoutcome=changed` for an apply that finds Codex's file changed. A preview, an apply and
+// an undo take 0.5 s.
 
 import type { Api } from './lib/api';
 import type { AgyAccounts, AgyApp, AgyHow, AgyOutcome, CodexOutcome, CodexTarget, ErrorView, McpTable, Model, Outcome, Tab, UpdateError, UpdateOutcome } from './lib/model';
 import { fakeApi, fakeEmail, hideNames } from './fixtures/fakeApi';
 import { backupFixture, packsFixture } from './fixtures/fakeBackup';
 import { API_KEY, BASE_URL, CLAUDE_BASE, envAlert, envFixture, LAUNCHD_GEMINI } from './fixtures/fakeEnv';
+import { setsFixture } from './fixtures/fakeSets';
 import { instrFixture, pluginsFixture, skillsFixture, skillTableFixture } from './fixtures/fakeSkills';
 import {
   agyAccount,
@@ -75,7 +80,7 @@ import {
   overwriteAlert,
 } from './fixtures/models';
 
-const TABS: Tab[] = ['overview', 'claude', 'agy', 'codex', 'rules', 'history', 'alerts', 'firstmate', 'mcp', 'skills', 'plugins', 'instr', 'backup', 'copy', 'settings'];
+const TABS: Tab[] = ['overview', 'claude', 'agy', 'codex', 'rules', 'history', 'alerts', 'firstmate', 'mcp', 'skills', 'plugins', 'instr', 'sets', 'backup', 'copy', 'settings'];
 
 const SKILLS: Record<string, () => Model['skills']> = {
   empty: () => skillsFixture({ table: skillTableFixture({ rows: [], owned: [], broken: [] }) }),
@@ -94,6 +99,12 @@ const INSTRS: Record<string, () => Model['instructions']> = {
     const i = instrFixture();
     return { ...i, view: { ...i.view!, files: i.view!.files.filter((f) => !f.keyLines.length) } };
   },
+};
+
+const SETS: Record<string, () => Model['sets']> = {
+  empty: () => setsFixture({ sets: [], applied: null }),
+  fresh: () => setsFixture({ applied: null }),
+  even: () => setsFixture({ applied: { ...setsFixture().applied!, drift: [] } }),
 };
 
 const ENVS: Record<string, () => Model['env']> = {
@@ -348,6 +359,8 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
   if (plugins) over.plugins = plugins();
   const env = pick(ENVS, params.get('env') ?? (params.get('alerts') === 'env' ? 'found' : null));
   if (env) over.env = env();
+  const sets = pick(SETS, params.get('sets'));
+  if (sets) over.sets = sets();
   const instr = pick(INSTRS, params.get('instr'));
   if (instr) over.instructions = instr();
   const agyApp = params.get('agyapp');
@@ -400,6 +413,8 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
     copyChanged: copy === 'changed',
     copyDelayMs: 900,
     envDelayMs: 300,
+    setsChanged: params.get('setsoutcome') === 'changed' ? 'codex' : undefined,
+    setsDelayMs: 500,
   });
   // The window opens on the same fixture and switcher states as the popover.
   const openWindow = async (next: Tab) => {

@@ -4,6 +4,7 @@
 import { envFixture } from './fakeEnv';
 import { backupFixture } from './fakeBackup';
 import { instrFixture, pluginsFixture, skillsFixture } from './fakeSkills';
+import { setsFixture } from './fakeSets';
 import type {
   AgyAccounts,
   AppView,
@@ -498,6 +499,7 @@ export function fixtureModel(name: string, over: Partial<Model> = {}): Model {
     plugins: pluginsFixture(),
     instructions: instrFixture(),
     env: envFixture(),
+    sets: setsFixture(),
     ...over,
   };
 }

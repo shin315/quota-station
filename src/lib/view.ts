@@ -44,9 +44,14 @@ export type Action =
   /** The Skills, Plugin and File hướng dẫn tabs (M11). */
   | SkillAction
   /** The variables that override a login (M14): Cài đặt's card and the Claude tab's banner. */
-  | EnvAction;
+  | EnvAction
+  /** The configuration sets (M15): a new one, undo the last apply or delete, apply one. */
+  | SetsAction;
 
 /** "Kiểm lại", "Xem danh sách", the card in Cài đặt, and "Mở file", "Bỏ qua", its "Hoàn tác" on one place's id. */
+/** "Tạo bộ", "Hoàn tác bộ", "Hoàn tác" of a delete, "Áp…" on one set (M15). */
+export type SetsAction = 'sets:new' | 'sets:undo' | 'sets:undelete' | `sets:apply:${string}`;
+
 export type EnvAction = 'env:check' | 'env:list' | 'env:settings' | `env:open:${string}` | `env:ignore:${string}` | `env:back:${string}`;
 
 export type SkillAction =

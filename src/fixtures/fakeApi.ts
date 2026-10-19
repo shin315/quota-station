@@ -7,6 +7,7 @@ import type { Api } from '../lib/api';
 import { fakeParts, fakeRestore, planFixture, summaryFixture } from './fakeBackup';
 import { comparisonFixture, copyDoneFixture, copyUndoneFixture } from './fakeCopy';
 import { fakeApply, fakePaste, fakePreview } from './fakeMcp';
+import { fakeSetChanges, fakeSetDrift } from './fakeSets';
 import { fakeSkillApply, fakeSkillPreview, instrDiffFixture, instrShownFixture, repoFixture, SKILL_MD } from './fakeSkills';
 import type {
   Agent,
@@ -29,6 +30,8 @@ import type {
   HistoryEntry,
   McpOutcome,
   Model,
+  SetOutcome,
+  SetsView,
   SkillOutcome,
   Outcome,
   PeerView,
@@ -111,6 +114,10 @@ export interface FakeOptions {
   copyDelayMs?: number;
   /** How long "Kiểm lại" takes (M14). */
   envDelayMs?: number;
+  /** "Áp bộ" finds an agent's file changed since the preview (M15): nothing is written. */
+  setsChanged?: Agent;
+  /** How long a set's preview, apply and undo take. */
+  setsDelayMs?: number;
 }
 
 const said = (title: string, body: string): AlertSaid => ({ tone: 'info', title, body });
@@ -197,6 +204,10 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
   let relaunched = 0;
   let lastMcpUndo: McpOutcome['undo'] = null;
   let lastSkillUndo: SkillOutcome['undo'] = null;
+  /** The last apply's undo, and the set deleted last. */
+  let lastSetUndo: { mcp: McpOutcome['undo']; skills: SkillOutcome['undo']; codexBefore: string | null } | null = null;
+  let removedSet: { set: SetsView['sets'][number]; index: number; applied: SetsView['applied'] } | null = null;
+  const setsWait = () => (options.setsDelayMs ? new Promise((r) => setTimeout(r, options.setsDelayMs)) : Promise.resolve());
   const delay = () => (options.saveDelayMs ? new Promise((r) => setTimeout(r, options.saveDelayMs)) : Promise.resolve());
   /** Every Mac SSH reaches takes the file; the others wait 5 minutes. */
   const sent = (peers: PeerView[]): PeerView[] =>
@@ -690,6 +701,110 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       if (!f) return;
       envHidden.delete(id);
       push({ ...model, env: { ...model.env, found: [...model.env.found, f], ignored: Math.max(0, model.env.ignored - 1) } });
+    },
+    setsSave: async (set) => {
+      const name = set.name.trim();
+      if (!name || name.length > 60) throw 'name';
+      if (model.sets.sets.some((s) => s.id !== set.id && s.name.toLowerCase() === name.toLowerCase())) throw 'taken';
+      const saved = { ...set, name, id: set.id || 's' + now().getTime() };
+      const known = model.sets.sets.some((s) => s.id === saved.id);
+      const list = known ? model.sets.sets.map((s) => (s.id === saved.id ? saved : s)) : [...model.sets.sets, saved];
+      const applied = model.sets.applied;
+      const drift = applied?.id === saved.id ? fakeSetDrift(saved, model.mcp.table, model.skills.table) : applied?.drift;
+      push({ ...model, sets: { ...model.sets, sets: list, removed: null, applied: applied ? { ...applied, drift: drift ?? null } : null } });
+      return saved;
+    },
+    setsDelete: async (id) => {
+      const index = model.sets.sets.findIndex((s) => s.id === id);
+      if (index < 0) throw 'missing';
+      const set = model.sets.sets[index];
+      const applied = model.sets.applied?.id === id ? model.sets.applied : null;
+      removedSet = { set, index, applied };
+      push({ ...model, sets: { ...model.sets, sets: model.sets.sets.filter((s) => s.id !== id), applied: applied ? null : model.sets.applied, removed: set.name } });
+    },
+    setsUndelete: async () => {
+      const r = removedSet;
+      if (!r) throw 'nothing';
+      removedSet = null;
+      const list = [...model.sets.sets];
+      list.splice(Math.min(r.index, list.length), 0, r.set);
+      push({ ...model, sets: { ...model.sets, sets: list, applied: model.sets.applied ?? r.applied, removed: null } });
+    },
+    setsPreview: async (id) => {
+      await setsWait();
+      const set = model.sets.sets.find((s) => s.id === id);
+      if (!set) throw 'missing';
+      const mcp = model.mcp.table;
+      const skills = model.skills.table;
+      const ch = fakeSetChanges(set, mcp, skills);
+      return {
+        id,
+        name: set.name,
+        mcp: mcp ? fakePreview(mcp, ch.mcp) : { groups: [], refused: [], changes: [], bases: {} },
+        skills: skills ? fakeSkillPreview(skills, ch.skills) : { groups: [], refused: [], changes: [], bases: {} },
+        skipped: ch.skipped,
+        codex: set.codex,
+      };
+    },
+    setsApply: async (id, sent) => {
+      if (model.sets.busy || model.mcp.busy === 'writing' || model.skills.busy || model.codex.busy) throw 'busy';
+      const set = model.sets.sets.find((s) => s.id === id);
+      if (!set) throw 'missing';
+      if (options.setsChanged) throw 'changed:' + options.setsChanged;
+      push({ ...model, sets: { ...model.sets, busy: 'applying' } });
+      await setsWait();
+      const at = Math.floor(now().getTime() / 1000);
+      const out: SetOutcome = { mcp: null, skills: null, ok: true, at };
+      let mcp = model.mcp.table;
+      let skills = model.skills.table;
+      if (mcp && sent.mcp.length) {
+        const r = fakeApply(mcp, sent.mcp, at);
+        mcp = r.table;
+        out.mcp = r.outcome;
+      }
+      if (skills && sent.skills.length) {
+        const r = fakeSkillApply(skills, sent.skills, at);
+        skills = r.table;
+        out.skills = r.outcome;
+      }
+      const side = set.codex === 'chatGpt' ? 'chatgpt' : set.codex;
+      const codexBefore = set.codex && side !== model.codex.current ? model.codex.current : null;
+      lastSetUndo = { mcp: out.mcp?.undo ?? null, skills: out.skills?.undo ?? null, codexBefore };
+      const iso = new Date(at * 1000).toISOString();
+      push({
+        ...model,
+        mcp: { ...model.mcp, table: mcp, readAt: iso },
+        skills: { ...model.skills, table: skills, readAt: iso },
+        sets: {
+          ...model.sets,
+          busy: null,
+          applied: { id, name: set.name, at: iso, drift: fakeSetDrift(set, mcp, skills), canUndo: !!(sent.mcp.length || sent.skills.length), codexBefore },
+        },
+      });
+      return out;
+    },
+    setsUndo: async () => {
+      const u = lastSetUndo ?? (model.sets.applied?.canUndo ? { mcp: null, skills: null, codexBefore: model.sets.applied.codexBefore } : null);
+      if (!u || !model.sets.applied) throw 'nothing';
+      push({ ...model, sets: { ...model.sets, busy: 'undoing' } });
+      await setsWait();
+      lastSetUndo = null;
+      const at = Math.floor(now().getTime() / 1000);
+      let mcp = model.mcp.table;
+      let skills = model.skills.table;
+      const done = { skills: null as SkillOutcome | null, mcp: null as McpOutcome | null };
+      if (skills && u.skills?.changes.length) {
+        const r = fakeSkillApply(skills, u.skills.changes, at);
+        skills = r.table;
+        done.skills = { ...r.outcome, undo: null };
+      }
+      if (mcp && u.mcp?.changes.length) {
+        const r = fakeApply(mcp, u.mcp.changes, at);
+        mcp = r.table;
+        done.mcp = { ...r.outcome, undo: null };
+      }
+      push({ ...model, mcp: { ...model.mcp, table: mcp }, skills: { ...model.skills, table: skills }, sets: { ...model.sets, busy: null, applied: null } });
+      return { ...done, left: [], ok: true, codexBefore: u.codexBefore };
     },
     pluginsRead: async () => {
       push({ ...model, plugins: { ...model.plugins, readAt: now().toISOString() } });
