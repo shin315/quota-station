@@ -83,6 +83,10 @@ Files, under `~/Library/Application Support/com.shin315.quota-station/`:
   it ended (the same result a restore shows). It holds no key. While a copy
   is written, the items sent are in `agents/incoming/` (mode 700), as a
   pack of only those items with no key; it is removed when the copy ends.
+- `agents/sets.json` (M15, mode 600): the configuration sets (each MCP
+  server's and skill's name with on or off, and a side of the Codex switch)
+  and what puts the last apply back (the same names, on or off, and the
+  files' hashes). It holds no definition and no key.
 
 In the owner's login Keychain, not in that folder:
 
@@ -548,6 +552,35 @@ learns whether each is set and where, never its value.
   `/Applications` or `~/Applications`, else `open -t`. The app never edits a
   shell file and never unsets a variable, in a file or in launchd.
 
+## Configuration sets (M15)
+
+`Bộ cấu hình` keeps named sets of MCP servers and skills to turn on or off
+and a side of the Codex switch, and applies one to the whole Mac when the
+owner presses `Áp bộ` after its preview. It adds no write path of its own.
+
+- A set never writes into a project's folder; it changes the same user-level
+  files the MCP and Skills tabs do, through their checked batches
+  (`agents::batch::write`, `agents::skills::write`): each file read again,
+  backed up first without its secrets, written once, only the entries the
+  set names, and nothing at all when any file or skills folder changed
+  since the preview. The write takes only the changes the set makes now;
+  any other change sent with it is refused before anything is written.
+- It turns entries on and off only: it never adds a server to an agent that
+  has not got it, never copies a definition or a key between agents, and
+  never installs, updates or removes a skill (it never runs `npx`). Turning
+  Claude Code's server off and on again is the MCP tab's own `claude mcp`
+  path, with its key from the app's Keychain item.
+- Codex's provider is never changed by a set. When a set wants the other
+  side, the windows open the Codex switch's own confirmation sheet (M8) as
+  step 2, and nothing switches until the owner confirms it there. The undo
+  does not switch Codex back either; it offers that same sheet.
+- `Hoàn tác bộ` puts back, through the same batches, the entries the apply
+  changed and that are still as it left them; one changed or removed since
+  stays as it is.
+- The sets and the last apply's undo are `agents/sets.json` in the app's
+  folder, mode 600: names, on or off, and when; never a definition or a
+  key. A set is never applied on its own, at login or when a project opens.
+
 ## How the tests hold the app to this
 
 - Every file the Antigravity code opens goes through one guard
@@ -662,6 +695,16 @@ learns whether each is set and where, never its value.
   (`src/fixtures/env-trap.json`) on Cài đặt, the Claude tab and Cảnh báo
   and find no value there. No test reads the real home, its shell files or
   launchd.
+- `tests/agents_sets.rs` (M15) applies sets on a temporary home with
+  Codex's and Antigravity's files, a fake `claude` and a fake `npx` that
+  record their arguments, and a fake `security`. It checks that only the
+  set's entries change (the provider line and every other entry stay, a
+  file with nothing to change stays byte for byte), that Codex's provider
+  never changes, that a file or folder changed since the preview stops the
+  whole set, that a change the set does not make is refused, that `npx` is
+  never run, and the undo, also after the provider line changed. Trap keys
+  in the agents' files are in no preview, result, drift, undo, sets file or
+  other file of the app's.
 - CI has no Keychain access and no Google account.
 - The install tests run `scripts/install.sh` in a temporary folder with fake
   `open` and `security`, and fakes of `launchctl`, `osascript` and `sfltool`

@@ -325,7 +325,7 @@ pub async fn skills_preview(
 
 /// Starts a write: one at a time with the MCP tab's and a restore's, never
 /// during a Codex switch or another skills job.
-fn begin(
+pub(crate) fn begin(
     app: &AppHandle,
     shared: &AppState,
     what: &'static str,
@@ -350,7 +350,7 @@ fn agents_begin(app: &AppHandle, shared: &AppState) -> Result<(agents::Places, A
     crate::agents::begin_write(app, shared)
 }
 
-async fn end(app: &AppHandle, shared: &AppState, changed: bool) {
+pub(crate) async fn end(app: &AppHandle, shared: &AppState, changed: bool) {
     shared.lock().skills.busy = None;
     crate::agents::end_write(app, shared).await;
     look_async(app, shared, false).await;

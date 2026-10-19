@@ -97,7 +97,7 @@ function claudeNote(b: McpBlock): string {
   return notes.join(' ');
 }
 
-function BlockView({ agent, file, block }: { agent: Agent; file: string; block: McpBlock }) {
+export function BlockView({ agent, file, block }: { agent: Agent; file: string; block: McpBlock }) {
   const extra = [
     block.from ? 'Chép từ ' + AGENT_NAME[block.from] + '.' : '',
     block.dropped.length ? AGENT_NAME[agent] + ' không có ' + block.dropped.join(', ') + ': bỏ khi ghi.' : '',

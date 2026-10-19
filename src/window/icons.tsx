@@ -119,6 +119,12 @@ export const NAV_ICONS = {
       <path d="M6 8h4.5M6 10.6h4.5" {...S} strokeWidth="1.3" strokeLinecap="round" />
     </svg>
   ),
+  sets: (
+    <svg {...P}>
+      <path d="M8 2l6 3-6 3-6-3z" fill="currentColor" />
+      <path d="M2 8l6 3 6-3M2 11l6 3 6-3" {...S} strokeLinejoin="round" />
+    </svg>
+  ),
   backup: (
     <svg {...P}>
       <rect x="1.8" y="2.5" width="12.4" height="3.4" rx="1" fill="currentColor" />
@@ -204,5 +210,13 @@ export const STACK_ICON = (
 export const SPARK_BIG = (
   <svg width="22" height="22" viewBox="0 0 16 16" aria-hidden="true">
     <path d="M9.2 1.6L3.6 9h3.8l-.9 5.4L12.4 7H8.6z" fill="currentColor" />
+  </svg>
+);
+
+/** The big stack of the empty Bộ cấu hình tab. */
+export const STACK_BIG = (
+  <svg width="22" height="22" viewBox="0 0 16 16" aria-hidden="true">
+    <path d="M8 2l6 3-6 3-6-3z" fill="currentColor" />
+    <path d="M2 8l6 3 6-3M2 11l6 3 6-3" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
   </svg>
 );

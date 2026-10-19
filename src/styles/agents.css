@@ -184,3 +184,25 @@
 .qs .card .ev-foot { margin: 6px 0 0; }
 .qs .dlg .ev-vars { display: block; line-height: 1.9; margin: 0 0 6px; font-size: var(--fs-xs); overflow-wrap: anywhere; }
 .qs .card .ev-unread { margin: 4px 0 0; }
+
+/* ===== Bộ cấu hình (M15) ===== */
+/* SetEditor = .sedit: an entry, then Bật · Tắt · Không đổi. */
+.qs .sedit { display: grid; margin: 0 0 4px; }
+.qs .sedit .se { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 4px 0; border-top: .5px solid var(--card-line); font-size: var(--fs-sm); }
+.qs .sedit .se:first-child { border-top: 0; }
+.qs .sedit .se > span { overflow-wrap: anywhere; }
+.qs .sedit .se small { display: block; color: var(--ink3); font-size: var(--fs-xs); }
+.qs .sedit .seg { width: 232px; }
+.qs .sedit .seg button { padding: 3px 6px; }
+.qs .setcx .seglbl { margin-top: 10px; display: flex; gap: 6px; align-items: center; color: var(--ink2); font-size: var(--fs-xs); font-weight: var(--fw-bold); }
+/* SetApply = .sapply: what a set changes, one agent a row. */
+.qs .sapply { display: grid; margin: 0 0 4px; }
+.qs .sapply .sa { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 4px 12px; padding: 8px 0; border-top: .5px solid var(--card-line); font-size: var(--fs-sm); }
+.qs .sapply .sa:first-child { border-top: 0; padding-top: 2px; }
+.qs .sapply .sa > span:first-child { display: flex; gap: 6px; align-items: center; color: var(--ink2); }
+.qs .sapply .sa .l { display: block; overflow-wrap: anywhere; }
+.qs .card .sline { display: block; color: var(--ink2); font-size: var(--fs-xs); overflow-wrap: anywhere; }
+.qs .card .row2 .a { display: flex; gap: 10px; align-items: center; flex: none; }
+@media (max-width: 640px) {
+  .qs .sapply .sa { grid-template-columns: minmax(0, 1fr); }
+}

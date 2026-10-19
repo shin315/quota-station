@@ -32,7 +32,7 @@ function Steps({ at }: { at: 0 | 1 | 2 }) {
   );
 }
 
-function Lines({ head, right, lines }: { head: string; right: string; lines: { op: keyof typeof LINE_CLASS; text: string }[] }) {
+export function Lines({ head, right, lines }: { head: string; right: string; lines: { op: keyof typeof LINE_CLASS; text: string }[] }) {
   return (
     <div className="diff">
       <div className="fh">

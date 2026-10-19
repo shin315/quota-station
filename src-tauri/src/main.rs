@@ -36,6 +36,7 @@ mod login_item;
 mod notify;
 mod reader;
 mod rules;
+mod sets;
 mod skills;
 mod state;
 mod tray;
@@ -157,6 +158,12 @@ fn main() {
             env::env_open,
             env::env_ignore,
             env::env_unignore,
+            sets::sets_save,
+            sets::sets_delete,
+            sets::sets_undelete,
+            sets::sets_preview,
+            sets::sets_apply,
+            sets::sets_undo,
             skills::plugins_read,
             skills::instr_read,
             skills::instr_show,

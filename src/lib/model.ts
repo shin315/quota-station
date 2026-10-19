@@ -578,6 +578,7 @@ export type Tab =
   | 'skills'
   | 'plugins'
   | 'instr'
+  | 'sets'
   | 'backup'
   | 'copy'
   | 'settings';
@@ -934,6 +935,8 @@ export interface Model {
   instructions: InstrView;
   /** The variables that override a login (M14). */
   env: EnvView;
+  /** The configuration sets (M15). */
+  sets: SetsView;
 }
 
 // ===== Variables that override a login (M14) =====
@@ -1436,4 +1439,91 @@ export interface InstrView {
 export interface InstrShown {
   path: string;
   lines: { text: string; key: boolean; notKey: boolean }[];
+}
+
+// ===== Configuration sets (M15) =====
+
+/** `agents::sets::Want`: an entry a set turns on or off; one not named stays as it is. */
+export type SetWant = 'on' | 'off';
+
+/** `agents::sets::Set`: named after a project, applied for the whole Mac. */
+export interface ConfigSet {
+  /** Empty for a new set: the Rust side gives it one. */
+  id: string;
+  name: string;
+  mcp: Record<string, SetWant>;
+  skills: Record<string, SetWant>;
+  /** The side of the Codex switch the set wants; null: Giữ nguyên. */
+  codex: CodexTarget | null;
+}
+
+/** `agents::sets::Drifted`: an entry no longer as the applied set says. */
+export interface SetDrifted {
+  kind: 'mcp' | 'skill';
+  name: string;
+  want: SetWant;
+  agents: Agent[];
+}
+
+export interface SetsView {
+  sets: ConfigSet[];
+  applied: {
+    id: string;
+    name: string;
+    at: string;
+    /** null until the MCP and Skills tables are read. */
+    drift: SetDrifted[] | null;
+    canUndo: boolean;
+    /** The side Codex was on before the set asked for the other (`chatgpt`, `custom`, `other`). */
+    codexBefore: string | null;
+  } | null;
+  busy: 'applying' | 'undoing' | null;
+  /** The name of the set deleted last, while it can be put back. */
+  removed: string | null;
+}
+
+/** `agents::sets::Skipped`: an entry of the set that cannot be made as it says. */
+export interface SetSkipped {
+  kind: 'mcp' | 'skill';
+  name: string;
+  /** null: for every agent. */
+  agent: Agent | null;
+  /** `notHere`, `owned`, or the box's lock. */
+  reason: string;
+}
+
+/** `agents::sets::Preview`: the MCP and Skills tabs' own previews of the set. */
+export interface SetPreview {
+  id: string;
+  name: string;
+  mcp: McpPreview;
+  skills: SkillPreview;
+  skipped: SetSkipped[];
+  codex: CodexTarget | null;
+}
+
+/** `agents::sets::Sent`: what the preview showed, sent back with the write. */
+export interface SetSent {
+  mcp: McpChange[];
+  mcpBases: Partial<Record<Agent, string>>;
+  skills: SkillChange[];
+  skillBases: Partial<Record<Agent, string>>;
+}
+
+/** `agents::sets::Outcome`. */
+export interface SetOutcome {
+  mcp: McpOutcome | null;
+  skills: SkillOutcome | null;
+  ok: boolean;
+  at: number;
+}
+
+/** `agents::sets::Undone`. */
+export interface SetUndone {
+  skills: SkillOutcome | null;
+  mcp: McpOutcome | null;
+  /** Entries changed since the apply: left as they are. */
+  left: string[];
+  ok: boolean;
+  codexBefore: string | null;
 }

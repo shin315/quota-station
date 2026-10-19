@@ -9,7 +9,9 @@ import { useMcp } from './agents/useMcp';
 import { InstrDialogBody, InstrTab, instrDialogSize, useInstr } from './agents/InstrTab';
 import { PluginDialogBody, PluginTab, usePlugins } from './agents/PluginTab';
 import { SkillDialogBody, skillDialogSize } from './agents/SkillDialogs';
+import { SetDialogBody, SetsTab, setDialogSize } from './agents/SetsTab';
 import { SkillsTab } from './agents/SkillsTab';
+import { useSets } from './agents/useSets';
 import { useSkills } from './agents/useSkills';
 import { BackupTab } from './backup/BackupTab';
 import { BackupDialogBody, backupDialogSize } from './backup/RestoreSheet';
@@ -507,9 +509,11 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   const backup = useBackup(api, model, showFeedback, { rekey: mcp.rekey, onTab: (t) => toTab.current(t) });
   const copy = useCopy(api, model, showFeedback);
   const env = useEnv(api, model, showFeedback);
+  const onActionRef = useRef<(a: Action) => void>(() => {});
+  const sets = useSets(api, model, showFeedback, (a) => onActionRef.current(a));
   const ruleDialog = rules.leave ? 'leave' : rules.compare ? 'compare' : null;
   const sheetOpen =
-    !!switching.sheet || !!ruleDialog || !!mcp.dialog || !!backup.dialog || !!copy.dialog || !!skills.dialog || plugins.open || !!instr.dialog || env.list;
+    !!switching.sheet || !!ruleDialog || !!mcp.dialog || !!backup.dialog || !!copy.dialog || !!skills.dialog || plugins.open || !!instr.dialog || env.list || !!sets.dialog;
   const closeSheet = useRef(switching.close);
   // Escape closes the sheet on show: the unsaved-changes one, then a switch, then the comparison, then an MCP dialog.
   closeSheet.current = () => {
@@ -523,6 +527,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
     else if (plugins.open) plugins.close();
     else if (instr.dialog) instr.close();
     else if (env.list) env.close();
+    else if (sets.dialog) sets.close();
   };
 
   useEffect(() => {
@@ -569,6 +574,11 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
     if (tab === 'skills') void api.skillsRead().catch(() => {});
     if (tab === 'plugins') void api.pluginsRead().catch(() => {});
     if (tab === 'instr') void api.instrRead().catch(() => {});
+    // Opening Bộ cấu hình reads the MCP and Skills tables: the editor lists them, the drift needs them.
+    if (tab === 'sets') {
+      void api.mcpRead().catch(() => {});
+      void api.skillsRead().catch(() => {});
+    }
     // Opening the Sao lưu tab lists the packs and the keys now; the MCP table names the keys.
     if (tab === 'backup') {
       void api.backupRead().catch(() => {});
@@ -584,6 +594,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
     if (skills.act(act)) return;
     if (instr.act(act)) return;
     if (env.act(act)) return;
+    if (sets.act(act)) return;
     if (act === 'env:settings') return rules.guardTab(tab, 'settings', setTab);
     if (act === 'plugins:reread') return void api.pluginsRead().catch(() => {});
     if (act === 'mcp:tab') return rules.guardTab(tab, 'mcp', setTab);
@@ -594,6 +605,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
     if (act === 'refresh') return void refresh();
     if (act === 'keychain') return void grant();
   };
+  onActionRef.current = onAction;
 
   /** A button on a card in the Cảnh báo tab; "Sang …" opens this window's switch sheet. */
   const pressAlert = async (id: string, action: string) => {
@@ -694,6 +706,8 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
         <InstrDialogBody instr={instr} model={model} now={now} />
       ) : env.list ? (
         <EnvListBody model={model} env={env} />
+      ) : sets.dialog ? (
+        <SetDialogBody sets={sets} model={model} />
       ) : null))
     );
   const dialogSize =
@@ -713,7 +727,9 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
                 ? instrDialogSize(instr.dialog)
                 : env.list
                   ? 'lg'
-                  : undefined;
+                  : sets.dialog
+                    ? setDialogSize(sets.dialog)
+                    : undefined;
   return (
     <MainWindow
       tab={tab}
@@ -735,6 +751,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       mcp={<McpTab model={model} fresh={view.fresh} feedback={feedback} now={now} mcp={mcp} onAction={onAction} />}
       skills={<SkillsTab model={model} fresh={view.fresh} feedback={feedback} skills={skills} onAction={onAction} />}
       plugins={<PluginTab model={model} fresh={view.fresh} plugins={plugins} onAction={onAction} />}
+      sets={<SetsTab model={model} fresh={view.fresh} feedback={feedback} now={now} sets={sets} onAction={onAction} />}
       instr={<InstrTab model={model} fresh={view.fresh} feedback={feedback} now={now} instr={instr} onAction={onAction} />}
       backup={<BackupTab model={model} fresh={view.fresh} feedback={feedback} now={now} backup={backup} onAction={onAction} />}
       copy={<CopyTab model={model} feedback={feedback} copy={copy} onAction={onAction} />}

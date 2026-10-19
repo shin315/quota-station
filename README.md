@@ -24,9 +24,11 @@ the screen; the popover and window images are the browser preview.
 
 ## What it does
 
-This is milestone M14, "Biến môi trường đè đăng nhập" (saying when an
+This is milestone M15, "Bộ cấu hình" (named sets of MCP servers and skills
+turned on or off, applied to the whole Mac in one go after one preview),
+on top of M14, "Biến môi trường đè đăng nhập" (saying when an
 environment variable in a shell file or launchd overrides an agent's
-login, by its name, never its value), on top of M13, "Chép sang Mac khác"
+login, by its name, never its value), M13, "Chép sang Mac khác"
 (copying the MCP servers, skills, plugins and instruction files to or from
 another Mac over SSH, item by item), M12, the rest of "Sao lưu và khôi phục" (skills, plugins
 and instruction files in the backup pack, restored with the MCP servers),
@@ -47,7 +49,8 @@ it switches the Antigravity account that Antigravity.app and agy use, it
 switches the provider Codex uses, and it turns MCP servers on and off, adds,
 edits and removes them for Claude Code, Codex and Antigravity, and it backs
 those servers, the skills, the plugins and the instruction files up,
-restores them and copies them to or from the owner's other Macs (below). Five things it does on its own: it finishes that rotation copy (a Mac that could
+restores them and copies them to or from the owner's other Macs, and applies
+a set of them for the whole Mac (below). Five things it does on its own: it finishes that rotation copy (a Mac that could
 not take the saved rules is tried again in the background), it reads the
 quota of the Antigravity accounts logged in here, at Cockpit's pace or slower,
 it keeps a history of the switches on this Mac, it backs the MCP servers up
@@ -529,6 +532,43 @@ the confirmation sheet first.
 
   <img src="docs/env-none.png" width="760" alt="The card with nothing set: one green line, Không có biến nào đè đăng nhập">
 
+- **Bộ cấu hình** (M15). A set is named after a project (`Web app`,
+  `Viết tài liệu`) and says, for each MCP server and skill, `Bật`, `Tắt` or
+  `Không đổi`, and for Codex `Giữ nguyên` or a side of the Codex switch. It
+  applies to the whole Mac, every project and every session opened after;
+  nothing is written into a project's folder. `Tạo bộ` lists every server
+  and skill of the MCP and Skills tables; `Lấy từ cấu hình hiện tại` sets
+  `Bật` for an entry on in every agent that has it, `Tắt` for one off in all
+  of them and `Không đổi` for the rest, so the set changes nothing applied
+  straight away. `Áp…` reads the files now and lists, agent by agent, what
+  changes: a server for every agent that has it (a box that is locked, or an
+  entry this Mac has not got, is skipped and said), a skill for every agent
+  whose box can be ticked; it says how many Claude Code and Codex sessions
+  run now, which keep the old configuration until they are opened again, and
+  `Xem từng dòng sẽ ghi` shows the MCP and Skills tabs' own previews.
+  `Áp bộ` writes exactly that through the MCP and Skills tabs' checked
+  batches: each file read again, backed up without secrets, written once,
+  only the set's entries changed, and nothing at all when a file changed
+  since the preview. A set that wants Codex on the other side then opens the
+  Codex switch's own sheet as step 2; the set never changes Codex's provider
+  itself, and `Thôi` leaves Codex as it is, with `Chuyển Codex` on the line
+  to open the sheet again later. `Đang dùng` names the set applied last and
+  says `đã lệch N mục` with what no longer is as the set says (Codex on the
+  other side included), or `đúng như bộ`. `Hoàn tác bộ` puts back every
+  entry the apply changed that is still as the apply left it; an entry
+  changed or removed since stays as it is and is named, and when step 2
+  switched Codex the line offers the Codex switch back. `Xoá` removes a set
+  (with `Hoàn tác`) and changes no agent file. A set is never applied on its
+  own.
+
+  <img src="docs/sets-tab.png" width="760" alt="Bộ cấu hình on fixture data: Web app in use, đã lệch 1 mục because browser is off in Antigravity, and three made-up sets with Áp…, Sửa and Xoá">
+
+  <img src="docs/sets-edit.png" width="760" alt="Sửa bộ Web app: each MCP server and skill with Bật, Tắt and Không đổi, Lấy từ cấu hình hiện tại, and Codex Giữ nguyên, Tài khoản ChatGPT or relay through the Codex switch">
+
+  <img src="docs/sets-apply.png" width="760" alt="Áp bộ Viết tài liệu?: what changes for Claude Code, Codex and Antigravity, step 2 to open the Codex switch, and the running sessions that keep the old configuration">
+
+  <img src="docs/sets-codex.png" width="760" alt="Step 2: the set is applied and the Codex switch's own sheet asks to switch Codex back to the ChatGPT account">
+
 - **Antigravity logins** (M4a). `Thêm tài khoản` opens Google's consent
   screen in the default browser, with Antigravity's own OAuth client, so the
   screen names Antigravity, not Quota Station. The flow is Cockpit's: a
@@ -731,6 +771,10 @@ assumes another Mac has any. Each Mac installs and updates its own copy
   is only asked whether it is empty, then zeroed. `Mở file` runs
   `/usr/bin/open` on that file (a `vscode://`, `cursor://` or `zed://` URL
   at the line, else `-t`). `Bỏ qua` is `agents/env-ignored.json`.
+- Configuration sets (M15): the MCP and Skills tables as their tabs read
+  them, and `~/.claude/sessions` and the process list for the sessions
+  running now. The sets and the last apply's undo (names and on or off, no
+  key) are `agents/sets.json`. Every write is the MCP or Skills tab's.
 - It writes these files: its own settings file,
   `~/Library/Application Support/com.shin315.quota-station/settings.json`,
   with `rotation-sync.json` (where each other Mac stands) beside it; in the
@@ -1018,7 +1062,10 @@ a restore whose formatter plugin needs a login, with `Thử lại`). For M11: `s
 `noapp`, `none` for no Mac in `Cài đặt`, or `changed` for a copy that finds
 a file changed). For M14: `env` (`found`, `claude2` for two variables
 over Claude Code, `launchd`, `unread` or `unchecked`; none set by default) on
-`tab=settings` and `tab=claude`, and `alerts=env` on `tab=alerts`. Nothing
+`tab=settings` and `tab=claude`, and `alerts=env` on `tab=alerts`. For M15,
+on `tab=sets` with three made-up sets: `sets` (`empty`, `fresh` for none
+applied, `even` for no drift) and `setsoutcome=changed` for an apply that
+finds Codex's file changed. Nothing
 is switched, no browser opens and no file is written: a
 switch only waits 1.5 seconds, a save 1 second and each update step 1.5
 seconds, and they update the fixture.
@@ -1224,6 +1271,25 @@ the Vitest tests draw on Cài đặt, the Claude tab and Cảnh báo, again
 finding no value; they also walk `Mở file`, `Bỏ qua` and its `Hoàn tác`,
 `Kiểm lại`, `Xem danh sách`, the banner and the alert cards.
 
+The M15 tests (`crates/quota-station-core/tests/agents_sets.rs`) apply sets
+on a fake home: Codex's `config.toml` with a custom provider, Antigravity's
+`mcp_config.json`, Claude Code's list kept by a fake `claude` that records
+its arguments, a shared folder of skills with the agents' links and a fake
+`npx` that records its arguments (a set never runs it). They check that the
+preview writes nothing; that applying changes only the set's entries (every
+other box, the provider line and its key stay, Antigravity's file is byte
+for byte the same, `claude` runs once for the one server); that Codex's
+provider never changes and the side it was on is kept for the undo; that a
+file or skills folder changed since the preview stops the whole set; that a
+change the set does not make is refused; the drift after a change by hand;
+and the undo of a whole set, also after the Codex switch changed the
+provider line and with entries changed or removed since. Their trap keys
+are in no preview, result, drift, undo, sets file or other file of the
+app's. The Vitest tests walk the tab: the drift, `Lấy từ cấu hình hiện
+tại`, the editor, the preview by agent, step 2 opening the Codex switch's
+own sheet (and never switching on its own), a file changed since the
+preview, the undo and a delete.
+
 ```sh
 UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test ui_fixtures
 UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test env_check
@@ -1255,7 +1321,9 @@ UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test env_check
   `npx skills`, `skill_updates.rs` asks GitHub for newer versions,
   `plugins.rs` reads the agents' plugin lists and `instructions.rs` the
   instruction files. `agents/env_check.rs` finds the variables that override
-  a login by name in the shell files and launchd.
+  a login by name in the shell files and launchd. `agents/sets.rs` turns a
+  configuration set into the MCP and Skills tabs' batches, applies and
+  undoes it, and says how far the Mac drifted from it.
 - `src-tauri/` is the Tauri 2 shell: the tray item, the popover and the main
   window, the read loop, the Antigravity quota thread, the macOS
   notification center (`notify.rs`), the login item (`login_item.rs`), the
@@ -1263,11 +1331,12 @@ UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test env_check
   commands (`agents.rs`), the backup tab's (`backup.rs`), the Skills, Plugin
   and File hướng dẫn tabs' (`skills.rs`), the copy tab's and the
   `quota-station agents …` commands another Mac runs (`copy.rs`), the check
-  of the variables that override a login (`env.rs`) and the other commands.
+  of the variables that override a login (`env.rs`), the Bộ cấu hình tab's
+  commands (`sets.rs`) and the other commands.
 - `scripts/install.sh` builds, signs, installs and packages the app.
 - `src/` is the React and TypeScript frontend; `src/agents/` holds the MCP
   tab and its `CheckMatrix`, which the Skills tab reuses, the Plugin and
-  File hướng dẫn tabs, and
+  File hướng dẫn tabs, and the Bộ cấu hình tab (`SetsTab.tsx`), and
   `src/backup/` the backup tab, the restore sheet and the copy tab;
   `src/settings/EnvCard.tsx` is Cài đặt's card of the variables. Its `styles/tokens.css` and
   `styles/components.css` come from the approved prototype.

@@ -47,6 +47,11 @@ import type {
   SkillPreview,
   SkillRemoved,
   SkillUpdated,
+  ConfigSet,
+  SetOutcome,
+  SetPreview,
+  SetSent,
+  SetUndone,
 } from './model';
 
 export interface Api {
@@ -208,6 +213,18 @@ export interface Api {
   /** "Bỏ qua" on one place, and its "Hoàn tác". */
   envIgnore(id: string): Promise<void>;
   envUnignore(id: string): Promise<void>;
+  /** "Lưu bộ" (M15): a new set (empty id) or one edited. Rejects with `name`, `taken`, `badEntry:…`, `full`, `io`. */
+  setsSave(set: ConfigSet): Promise<ConfigSet>;
+  /** "Xoá": the set goes; no agent file changes. */
+  setsDelete(id: string): Promise<void>;
+  /** "Hoàn tác" of the last delete. */
+  setsUndelete(): Promise<void>;
+  /** "Áp…": what the set would write, read from the files now. */
+  setsPreview(id: string): Promise<SetPreview>;
+  /** "Áp bộ": what the preview showed. Rejects with `busy`, `missing`, `changed:<agent>`, `notTheSet`. */
+  setsApply(id: string, sent: SetSent): Promise<SetOutcome>;
+  /** "Hoàn tác bộ": every entry the last apply changed, put back. Rejects with `busy`, `nothing`. */
+  setsUndo(): Promise<SetUndone>;
   /** The Plugin tab opened, or "Đọc lại": each agent's own `plugin list`. */
   pluginsRead(): Promise<void>;
   /** The File hướng dẫn tab opened, or "Đọc lại". */
@@ -384,6 +401,12 @@ export const tauriApi: Api = {
   envOpen: (id) => invoke<string | null>('env_open', { id }),
   envIgnore: (id) => invoke('env_ignore', { id }),
   envUnignore: (id) => invoke('env_unignore', { id }),
+  setsSave: (set) => invoke<ConfigSet>('sets_save', { set }),
+  setsDelete: (id) => invoke('sets_delete', { id }),
+  setsUndelete: () => invoke('sets_undelete'),
+  setsPreview: (id) => invoke<SetPreview>('sets_preview', { id }),
+  setsApply: (id, sent) => invoke<SetOutcome>('sets_apply', { id, sent }),
+  setsUndo: () => invoke<SetUndone>('sets_undo'),
   pluginsRead: () => invoke('plugins_read'),
   instrRead: () => invoke('instr_read'),
   instrShow: (path) => invoke<InstrShown>('instr_show', { path }),
