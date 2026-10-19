@@ -197,6 +197,8 @@ pub struct Inner {
     pub codex: codex::Live,
     /// The MCP table as last read, and the last write (M9).
     pub mcp: agents::Live,
+    /// The backup packs and the last restore (M10).
+    pub backup: crate::backup::Live,
 }
 
 /// How the app's own read of an Antigravity account stands.
@@ -266,6 +268,7 @@ pub enum Tab {
     Alerts,
     Firstmate,
     Mcp,
+    Backup,
     Settings,
 }
 
@@ -323,6 +326,7 @@ impl Inner {
             install: InstallState::default(),
             codex: codex::Live::default(),
             mcp: agents::Live::default(),
+            backup: crate::backup::Live::default(),
         }
     }
 
@@ -485,6 +489,7 @@ impl Inner {
             app: install::view(self),
             codex: codex::view(self),
             mcp: agents::view(self),
+            backup: crate::backup::view(self),
         }
     }
 
@@ -600,6 +605,7 @@ pub struct Model {
     pub codex: CodexView,
     /// Every agent's MCP servers (M9).
     pub mcp: McpView,
+    pub backup: crate::backup::BackupView,
 }
 
 /// The rotation file and the other Macs (F06).

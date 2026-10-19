@@ -27,8 +27,10 @@ pub mod codex_mcp;
 pub mod def;
 pub mod json_text;
 pub mod kho;
+pub mod pack;
 pub mod paste;
 pub mod redact;
+pub mod restore;
 pub mod secrets;
 pub mod write;
 
@@ -299,7 +301,7 @@ pub fn writable(places: &Places, r: &Reading) -> bool {
 // ===== Commands on this Mac =====
 
 /// Folders a command named without a path is usually in.
-fn search_dirs(home: &Path) -> Vec<PathBuf> {
+pub(crate) fn search_dirs(home: &Path) -> Vec<PathBuf> {
     let mut out: Vec<PathBuf> = vec![
         home.join(".local/bin"),
         home.join(".cargo/bin"),
@@ -378,7 +380,8 @@ pub struct Cell {
     /// Why the box cannot be ticked: `readOnly`, `shape`, `missingKey`,
     /// `noCommand` or `sse`.
     pub lock: Option<&'static str>,
-    /// Claude Code's server turned off: kept by the app.
+    /// Off and kept by the app: Claude Code's server turned off, or one a
+    /// restore added off until its key or command is here.
     pub parked: bool,
 }
 
@@ -453,7 +456,7 @@ fn kind(def: Option<&Def>) -> &'static str {
     }
 }
 
-fn def_view(def: &Def, extra: &[String]) -> DefView {
+pub(crate) fn def_view(def: &Def, extra: &[String]) -> DefView {
     DefView {
         def: def.masked(MASK),
         slots: def.slots().into_iter().map(|s| s.id).collect(),
@@ -462,7 +465,7 @@ fn def_view(def: &Def, extra: &[String]) -> DefView {
 }
 
 /// A stored definition (secrets [`def::REDACTED`]) for the windows.
-fn kept_view(kept: &kho::Kept) -> DefView {
+pub(crate) fn kept_view(kept: &kho::Kept) -> DefView {
     let mut def = kept.def.clone();
     for slot in &kept.slots {
         def.set(slot, MASK);
@@ -547,6 +550,12 @@ pub fn view(places: &Places, readings: &[Reading], store: &kho::Kho, secrets: &S
     if claude_ok {
         names.extend(store.parked.keys().cloned());
     }
+    // A restored server waiting for its key or command, where it waits.
+    for (name, k) in &store.waiting {
+        if readings.iter().any(|r| r.ok() && k.agents.contains(&r.agent)) {
+            names.insert(name.clone());
+        }
+    }
 
     let mut rows: Vec<Row> = names
         .into_iter()
@@ -581,6 +590,7 @@ fn row(
     name: &str,
 ) -> Row {
     let parked = store.parked.get(name);
+    let waiting = store.waiting.get(name);
     // Every definition of it, for the comparison and the edit form.
     let mut defs: BTreeMap<Agent, DefView> = BTreeMap::new();
     let mut found: Vec<(Agent, &Def)> = Vec::new();
@@ -596,8 +606,15 @@ fn row(
     if let (Some(k), false) = (parked, claude_has) {
         defs.insert(Agent::Claude, kept_view(k));
     }
-    let first_def: Option<Def> =
-        found.first().map(|(_, d)| (*d).clone()).or_else(|| parked.map(|k| k.def.clone()));
+    if let Some(k) = waiting {
+        for a in &k.agents {
+            defs.entry(*a).or_insert_with(|| kept_view(k));
+        }
+    }
+    let first_def: Option<Def> = found
+        .first()
+        .map(|(_, d)| (*d).clone())
+        .or_else(|| parked.or(waiting).map(|k| k.def.clone()));
     let def = first_def.as_ref();
 
     // The secrets: every slot any of its definitions has.
@@ -609,7 +626,7 @@ fn row(
             }
         }
     }
-    if let Some(k) = parked {
+    for k in parked.into_iter().chain(waiting) {
         for id in &k.slots {
             if !slots.iter().any(|x| &x.id == id) {
                 let place = match id.split_once(':').map(|(p, _)| p) {
@@ -653,7 +670,8 @@ fn row(
         .iter()
         .map(|r| {
             let server = r.server(name);
-            let is_parked = r.agent == Agent::Claude && server.is_none() && parked.is_some();
+            let is_parked = server.is_none()
+                && ((r.agent == Agent::Claude && parked.is_some()) || store.waits(name, r.agent));
             let state = match server {
                 Some(s) if s.enabled => "on",
                 Some(_) => "off",

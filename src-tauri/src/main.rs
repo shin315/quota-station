@@ -22,6 +22,7 @@ mod agy_quota;
 mod agy_switch;
 mod alerting;
 mod antigravity;
+mod backup;
 mod codex;
 mod commands;
 mod install;
@@ -124,6 +125,15 @@ fn main() {
             agents::mcp_paste,
             agents::mcp_forget,
             agents::mcp_open_backups,
+            backup::backup_read,
+            backup::backup_now,
+            backup::backup_set_auto,
+            backup::backup_open_folder,
+            backup::backup_delete_key,
+            backup::pack_summary,
+            backup::restore_plan,
+            backup::restore_run,
+            backup::restore_undo,
             alerting::alert_action,
             alerting::test_alert,
             alerting::set_alert_switch,

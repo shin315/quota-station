@@ -7,6 +7,7 @@ import './styles/components.css';
 import './styles/redesign.css';
 import './styles/app.css';
 import './styles/agents.css';
+import './styles/backup.css';
 
 type View = 'popover' | 'window';
 

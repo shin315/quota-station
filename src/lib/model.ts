@@ -559,7 +559,7 @@ export interface AppView {
 }
 
 /** The main window's tabs in this build (`src-tauri/src/state.rs` `Tab`). */
-export type Tab = 'overview' | 'claude' | 'agy' | 'codex' | 'rules' | 'history' | 'alerts' | 'firstmate' | 'mcp' | 'settings';
+export type Tab = 'overview' | 'claude' | 'agy' | 'codex' | 'rules' | 'history' | 'alerts' | 'firstmate' | 'mcp' | 'backup' | 'settings';
 
 // ===== Codex (M8) =====
 
@@ -905,4 +905,112 @@ export interface Model {
   codex: CodexView;
   /** Every agent's MCP servers (M9). */
   mcp: McpView;
+  /** The backup packs and the last restore (M10). */
+  backup: BackupView;
+}
+
+// ===== Backup and restore (M10) =====
+
+/** `agents::pack::Info`: a pack in iCloud Drive's folder. */
+export interface PackInfo {
+  /** The folder's name. */
+  id: string;
+  /** `cloud`: iCloud Drive has not downloaded it yet. */
+  state: 'ok' | 'cloud' | 'broken';
+  /** Unix seconds. */
+  at: number | null;
+  mac: string | null;
+  mine: boolean;
+  mcp: number;
+  keys: number;
+  /** Written by a later version of the app. */
+  newer: boolean;
+}
+
+/** A key the app keeps in the Keychain: names only. */
+export interface BackupKey {
+  mcp: string;
+  slot: string;
+  label: string;
+  bitwarden: string | null;
+}
+
+export interface BackupView {
+  /** iCloud Drive is on on this Mac. */
+  icloud: boolean;
+  /** `null` until the tab first reads. */
+  packs: PackInfo[] | null;
+  keys: BackupKey[] | null;
+  readAt: string | null;
+  busy: 'packing' | 'restoring' | null;
+  auto: { afterChange: boolean; daily: boolean };
+  /** The last restore, while it can be undone. */
+  restore: { at: number; pack: string; mac: string } | null;
+  autoError: { kind: 'noICloud' | 'secret' | 'io'; detail?: string } | null;
+}
+
+/** `agents::pack::Summary`: "Xem trong gói". */
+export interface PackSummary {
+  id: string;
+  mac: string;
+  at: number;
+  servers: { name: string; agents: Agent[]; on: Agent[] }[];
+  keys: { mcp: string; slot: string; label: string; bitwarden: string | null }[];
+}
+
+/** `agents::restore::Item`: one line of the restore preview. */
+export interface RestoreItem {
+  name: string;
+  kind: 'add' | 'replace';
+  agents: Agent[];
+  checked: boolean;
+  /** Agents it goes to turned off, as in the pack. */
+  off: Agent[];
+  missingCommand: string | null;
+  moved: boolean;
+  /** Slots this Mac has no key for. */
+  keys: string[];
+  login: boolean;
+  compare: { agent: Agent; here: McpDefView; pack: McpDefView }[];
+}
+
+/** `agents::restore::Plan`. */
+export interface RestorePlan {
+  pack: string;
+  mac: string;
+  at: number;
+  items: RestoreItem[];
+  same: string[];
+  keys: { mcp: string; slot: string; label: string; bitwarden: string | null }[];
+  skipped: { agent: Agent; reason: 'absent' | 'readOnly' | 'sse'; name: string | null }[];
+  bases: Partial<Record<Agent, string>>;
+}
+
+export interface RestoreItemResult {
+  name: string;
+  kind: 'add' | 'replace';
+  done: Agent[];
+  kept: Agent[];
+  why: 'noKey' | 'noCommand' | null;
+  failed: Agent[];
+  skipped: 'noKey' | 'noCommand' | null;
+  login: boolean;
+  command: string | null;
+}
+
+/** `agents::restore::Done`. */
+export interface RestoreDone {
+  at: number;
+  items: RestoreItemResult[];
+  failed: { agent: Agent; error: McpFailure } | null;
+  written: { agent: Agent; changes: number; backup: string | null }[];
+  keys: number;
+  canUndo: boolean;
+}
+
+/** `agents::restore::Undone`. */
+export interface RestoreUndone {
+  outcome: McpOutcome | null;
+  kept: number;
+  keys: number;
 }

@@ -4,6 +4,10 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import type {
+  PackSummary,
+  RestoreDone,
+  RestorePlan,
+  RestoreUndone,
   CodexOutcome,
   CodexRestart,
   CodexTarget,
@@ -153,6 +157,27 @@ export interface Api {
   mcpForget(name: string, slots: string[], keys: boolean): Promise<void>;
   /** An agent's backups folder in Finder. Rejects with `missing`. */
   mcpOpenBackups(agent: Agent): Promise<void>;
+  /** The Sao lưu tab opened, or "Kiểm lại": the packs and the keys listed again; they come in the model. */
+  backupRead(): Promise<void>;
+  /** "Sao lưu bây giờ": the new pack's name. Rejects with `busy`, `noICloud`, `secret` or `io:…`. */
+  backupNow(): Promise<string>;
+  /** "Tự sao lưu": after each change in the app, and once a day when an agent changed. */
+  backupSetAuto(afterChange: boolean, daily: boolean): Promise<void>;
+  /** The packs' folder in Finder. Rejects with `missing`. */
+  backupOpenFolder(): Promise<void>;
+  /** "Xoá khoá": the Keychain item goes; the agents keep their own copy. */
+  backupDeleteKey(mcp: string, slot: string): Promise<void>;
+  /** "Xem trong gói". Rejects with `cloud`, `missing`, `newer`, `invalid:…`. */
+  packSummary(id: string): Promise<PackSummary>;
+  /** Khôi phục, step 2: what the pack would do on this Mac. Writes nothing. */
+  restorePlan(id: string): Promise<RestorePlan>;
+  /**
+   * Khôi phục, step 4. The pasted keys go to the Keychain and are never sent back; `bases` are
+   * the files as the plan read them. Rejects with `busy`, `changed:<agents>`, `keychain` or a pack error.
+   */
+  restoreRun(id: string, picks: { name: string; kind: string }[], keys: { mcp: string; slot: string; value: string }[], bases: RestorePlan['bases']): Promise<RestoreDone>;
+  /** "Hoàn tác lần khôi phục"; `force` once the owner agreed to files changed since. Rejects with `nothing`, `changed:<agents>`, `busy`, `failed`. */
+  restoreUndo(force: boolean): Promise<RestoreUndone>;
   /**
    * A button on an alert card in the Cảnh báo tab, the same as on the macOS card. A switch back
    * runs on the Rust side and its result comes in the model; `openSwitch` asks this window to open
@@ -245,6 +270,15 @@ export const tauriApi: Api = {
   mcpPaste: (text, save, bitwarden) => invoke<McpPaste>('mcp_paste', { text, save, bitwarden }),
   mcpForget: (name, slots, keys) => invoke('mcp_forget', { name, slots, keys }),
   mcpOpenBackups: (agent) => invoke('mcp_open_backups', { agent }),
+  backupRead: () => invoke('backup_read'),
+  backupNow: () => invoke<string>('backup_now'),
+  backupSetAuto: (afterChange, daily) => invoke('backup_set_auto', { afterChange, daily }),
+  backupOpenFolder: () => invoke('backup_open_folder'),
+  backupDeleteKey: (mcp, slot) => invoke('backup_delete_key', { mcp, slot }),
+  packSummary: (id) => invoke<PackSummary>('pack_summary', { id }),
+  restorePlan: (id) => invoke<RestorePlan>('restore_plan', { id }),
+  restoreRun: (id, picks, keys, bases) => invoke<RestoreDone>('restore_run', { id, picks, keys, bases }),
+  restoreUndo: (force) => invoke<RestoreUndone>('restore_undo', { force }),
   alertAction: (id, action) => invoke('alert_action', { id, action }),
   testAlert: (kind) => invoke<Model>('test_alert', { kind }),
   setAlertSwitch: (kind, on) => invoke<Model>('set_alert_switch', { kind, on }),

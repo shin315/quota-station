@@ -27,6 +27,8 @@ export function Chip({ chip }: { chip: ChipView }) {
 export function Button(props: {
   children: ReactNode;
   primary?: boolean;
+  /** Removes or puts back something: red. */
+  danger?: boolean;
   large?: boolean;
   disabled?: boolean;
   label?: string;
@@ -36,7 +38,7 @@ export function Button(props: {
   return (
     <button
       type="button"
-      className={'btn' + (props.primary ? ' pri' : '') + (props.large ? ' lg' : '')}
+      className={'btn' + (props.primary ? ' pri' : '') + (props.danger ? ' danger' : '') + (props.large ? ' lg' : '')}
       disabled={props.disabled}
       aria-label={props.label}
       title={props.title}

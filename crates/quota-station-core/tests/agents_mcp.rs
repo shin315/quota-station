@@ -15,8 +15,9 @@ mod common;
 
 use std::path::{Path, PathBuf};
 
+use common::claude::fake_claude;
 use common::google::fake_security;
-use common::{script, temp_dir};
+use common::temp_dir;
 use quota_station_core::agents::batch::{self, Change, Outcome, Preview, To};
 use quota_station_core::agents::def::{Def, Pair, MASK};
 use quota_station_core::agents::secrets::{self, Secrets};
@@ -81,42 +82,6 @@ fn at(offset: i64) -> OffsetDateTime {
     OffsetDateTime::from_unix_timestamp(1_768_548_000 + offset).unwrap()
 }
 
-/// A fake `claude`: `mcp add-json` and `mcp remove` keep one file per
-/// server, and every run writes `~/.claude.json` again from them, with
-/// keys of its own around `mcpServers` as Claude Code's file has.
-fn fake_claude(dir: &Path, home: &Path) -> PathBuf {
-    std::fs::create_dir_all(dir.join("servers")).unwrap();
-    let body = r#"d='@DIR@'
-for a in "$@"; do printf '%s\037' "$a" >> "$d/calls"; done
-printf '\n' >> "$d/calls"
-if [ -e "$d/fail" ]; then echo "could not add $3: $4" >&2; exit 1; fi
-case "$1 $2" in
-  "mcp add-json")
-    [ -e "$d/servers/$3" ] && { echo "MCP server $3 already exists in user config" >&2; exit 1; }
-    printf '%s' "$4" > "$d/servers/$3" ;;
-  "mcp remove")
-    [ -e "$d/servers/$3" ] || { echo "No user-scoped MCP server found with name: $3" >&2; exit 1; }
-    rm "$d/servers/$3" ;;
-esac
-{
-  printf '{\n  "numStartups": 7,\n  "oauthAccount": { "emailAddress": "someone@example.com" },\n  "primaryApiKey": "@SENTINEL@",\n  "mcpServers": {'
-  first=1
-  for f in "$d"/servers/*; do
-    [ -e "$f" ] || continue
-    [ "$first" = 1 ] || printf ','
-    first=0
-    printf '\n    "%s": ' "$(basename "$f")"
-    cat "$f"
-  done
-  printf '\n  },\n  "projects": { "/work/app": { "mcpServers": { "local-only": { "command": "x" } } } }\n}\n'
-} > '@HOME@/.claude.json'
-"#
-    .replace("@DIR@", &dir.display().to_string())
-    .replace("@HOME@", &home.display().to_string())
-    .replace("@SENTINEL@", SENTINEL);
-    script(&dir.join("bin/claude"), &body)
-}
-
 struct Home {
     home: PathBuf,
     app: AppDir,
@@ -134,7 +99,7 @@ fn setup() -> Home {
     std::fs::write(home.join(".codex/config.toml"), CODEX).unwrap();
     std::fs::write(home.join(".gemini/config/mcp_config.json"), AGY).unwrap();
     let claude = root.join("claude");
-    let cli = fake_claude(&claude, &home);
+    let cli = fake_claude(&claude, &home, SENTINEL);
     std::fs::write(claude.join("servers/browser"), BROWSER).unwrap();
     std::fs::write(claude.join("servers/tracker"), TRACKER).unwrap();
     // Builds `~/.claude.json`; not a call the app made.

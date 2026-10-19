@@ -31,10 +31,14 @@
 // which Đang dùng then shows beside Gemini.
 // MCP (M9): `tab=mcp` with `mcp=empty|parse|noagy|nocli|unread`, and `mcpoutcome=changed`
 // for a write that finds a file changed. A preview or a write takes 0.6 s.
+// Sao lưu (M10): `tab=backup` with `backup=empty|icloud|noicloud|restored|unread`
+// (`icloud`: a pack iCloud Drive has not downloaded), and `restoreoutcome=changed|undochanged`
+// for a restore, or its undo, that finds a file changed. A restore takes 1.2 s.
 
 import type { Api } from './lib/api';
 import type { AgyAccounts, AgyApp, AgyHow, AgyOutcome, CodexOutcome, CodexTarget, ErrorView, McpTable, Model, Outcome, Tab, UpdateError, UpdateOutcome } from './lib/model';
 import { fakeApi, fakeEmail, hideNames } from './fixtures/fakeApi';
+import { backupFixture, packsFixture } from './fixtures/fakeBackup';
 import {
   agyAccount,
   agyFixture,
@@ -58,7 +62,7 @@ import {
   overwriteAlert,
 } from './fixtures/models';
 
-const TABS: Tab[] = ['overview', 'claude', 'agy', 'codex', 'rules', 'history', 'alerts', 'firstmate', 'mcp', 'settings'];
+const TABS: Tab[] = ['overview', 'claude', 'agy', 'codex', 'rules', 'history', 'alerts', 'firstmate', 'mcp', 'backup', 'settings'];
 
 const MCP_COLUMN = (agent: 'claude' | 'codex' | 'agy', over: Partial<McpTable['columns'][number]>) => (t: McpTable) =>
   t.columns.map((c) => (c.agent === agent ? { ...c, ...over } : c));
@@ -77,6 +81,14 @@ const MCP: Record<string, () => Model['mcp']> = {
     return mcpFixture({ table: { ...t, columns: MCP_COLUMN('claude', { state: 'noCli', writable: false })(t) } });
   },
   unread: () => mcpFixture({ table: null, readAt: null }),
+};
+
+const BACKUP: Record<string, () => Model['backup']> = {
+  empty: () => backupFixture({ packs: [], keys: [] }),
+  icloud: () => backupFixture({ packs: packsFixture() }),
+  noicloud: () => backupFixture({ icloud: false, packs: [] }),
+  restored: () => backupFixture({ restore: { at: 1768547700, pack: 'agents-20260116-141000-studio-mini', mac: 'Mac mini' } }),
+  unread: () => backupFixture({ packs: null, keys: null, readAt: null }),
 };
 
 const RELAY = codexFixture().custom!;
@@ -287,6 +299,8 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
   if (codex) over.codex = codex();
   const mcp = pick(MCP, params.get('mcp'));
   if (mcp) over.mcp = mcp();
+  const backup = pick(BACKUP, params.get('backup'));
+  if (backup) over.backup = backup();
   const agyApp = params.get('agyapp');
   const ends = LOGIN_ENDS.find((k) => k.toLowerCase() === params.get('login')?.toLowerCase());
   const menubar = params.get('menubar');
@@ -320,6 +334,9 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
     codexDelayMs: 1500,
     mcpChanged: params.get('mcpoutcome') === 'changed',
     mcpDelayMs: 600,
+    restoreChanged: params.get('restoreoutcome') === 'changed',
+    restoreUndoChanged: params.get('restoreoutcome') === 'undochanged',
+    restoreDelayMs: 1200,
   });
   // The window opens on the same fixture and switcher states as the popover.
   const openWindow = async (next: Tab) => {

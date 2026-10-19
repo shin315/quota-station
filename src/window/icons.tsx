@@ -103,6 +103,13 @@ export const NAV_ICONS = {
       <path d="M8 11.9v2.4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   ),
+  backup: (
+    <svg {...P}>
+      <rect x="1.8" y="2.5" width="12.4" height="3.4" rx="1" fill="currentColor" />
+      <path d="M2.8 6.5h10.4v6.2a1 1 0 01-1 1H3.8a1 1 0 01-1-1z" {...S} />
+      <path d="M6.4 9h3.2" {...S} strokeLinecap="round" />
+    </svg>
+  ),
   settings: (
     <svg {...P}>
       <circle cx="8" cy="8" r="2.3" {...S} />
@@ -141,5 +148,14 @@ export const PLUG_BIG = (
     <path d="M5.5 1.8v3M10.5 1.8v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     <path d="M3.5 4.8h9v2.6a4.5 4.5 0 01-9 0z" fill="currentColor" />
     <path d="M8 11.9v2.4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+  </svg>
+);
+
+/** The big box of the empty Sao lưu tab. */
+export const ARCHIVE_BIG = (
+  <svg width="22" height="22" viewBox="0 0 16 16" aria-hidden="true">
+    <rect x="1.8" y="2.5" width="12.4" height="3.4" rx="1" fill="currentColor" />
+    <path d="M2.8 6.5h10.4v6.2a1 1 0 01-1 1H3.8a1 1 0 01-1-1z" fill="none" stroke="currentColor" strokeWidth="1.4" />
+    <path d="M6.4 9h3.2" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
   </svg>
 );
