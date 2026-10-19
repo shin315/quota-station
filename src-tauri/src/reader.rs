@@ -2,7 +2,8 @@
 //! to the menu bar and the windows. It also looks at the switcher: the pause
 //! flag on every read, and the dry run, log and launchd while a window is
 //! open or after the owner acted. Beside quota-axi it runs `cswap list
-//! --json` for every Claude account's windows and names. Each read also wakes the Antigravity
+//! --json` for every Claude account's windows and names, and quota-axi's
+//! Codex read where this Mac has a Codex folder. Each read also wakes the Antigravity
 //! quota thread for the account in use, and each Antigravity reading goes
 //! to the six-hour watch after an Antigravity switch. After each read the
 //! history and the alerts look at the new numbers (`alerting`).
@@ -13,8 +14,9 @@ use std::time::{Duration, Instant, SystemTime};
 
 use quota_station_core::axi::Response;
 use quota_station_core::runner::{self, ProviderId, RunError};
+use quota_station_core::settings::Menubar;
 use quota_station_core::switcher::{self, DryRunError};
-use quota_station_core::{cswap, local_time, pause, schedule};
+use quota_station_core::{cswap, icon, local_time, pause, schedule};
 use tauri::{AppHandle, Emitter};
 use time::OffsetDateTime;
 
@@ -72,6 +74,7 @@ fn run(app: &AppHandle, state: &AppState) {
         let agy_generation = inner.agy_generation;
         let check_version =
             path.is_some() && inner.version.as_ref().map(|(p, _)| p) != path.as_ref();
+        let codex_path = path.clone().filter(|_| inner.codex_home().is_dir());
         drop(inner);
         publish(app, state);
 
@@ -80,8 +83,11 @@ fn run(app: &AppHandle, state: &AppState) {
         let cswap_path = cswap::discover(&home);
         let switcher = thread::spawn(move || check_switcher(&home, full, pause_generation));
         let list = thread::spawn(move || cswap_path.map(|p| cswap::list(&p)));
+        let codex = thread::spawn(move || codex_path.map(|p| runner::read(&p, ProviderId::Codex)));
         let (claude, agy) = read_both(path.clone());
         let list = list.join().ok().flatten();
+        let codex =
+            codex.join().unwrap_or_else(|_| Some(Err(RunError::Spawn("reader panicked".into()))));
         let version = path.filter(|_| check_version).map(|p| {
             let v = runner::version(&p).map_err(|e| e.to_string());
             (p, v)
@@ -95,6 +101,7 @@ fn run(app: &AppHandle, state: &AppState) {
             inner.version = Some(v);
         }
         store_list(&mut inner, list);
+        store_codex(&mut inner, codex);
         inner.reading = false;
         inner.reads += 1;
         inner.schedule.mark_read(Instant::now());
@@ -235,18 +242,38 @@ fn store_list(inner: &mut Inner, list: Option<Result<Vec<cswap::SwapAccount>, cs
     }
 }
 
+/// quota-axi's Codex read: a failed read keeps the last report beside the
+/// error, as for Claude; no Codex folder, nothing.
+fn store_codex(inner: &mut Inner, codex: Option<Result<Response, RunError>>) {
+    match codex {
+        Some(Ok(r)) => {
+            inner.codex_quota = Some(r);
+            inner.codex_quota_error = None;
+        }
+        Some(Err(e)) => inner.codex_quota_error = Some(e),
+        None => {
+            inner.codex_quota = None;
+            inner.codex_quota_error = None;
+        }
+    }
+}
+
 /// Pushes the current state to the menu bar icon and to every window.
 pub fn publish(app: &AppHandle, state: &AppState) {
-    let (model, icon) = {
+    let (model, icon, follow) = {
         let inner = state.lock();
-        let snapshot = inner.snapshot();
-        let failing = inner.claude_error.is_some();
-        let has_data = inner.claude.is_some();
-        let icon = quota_station_core::icon(has_data.then_some(&snapshot), failing)
-            .with_pause(inner.switcher.paused(OffsetDateTime::now_utc()));
-        (inner.model(), icon)
+        let snapshot = inner.detailed_snapshot();
+        let icon = inner.icon(&snapshot, OffsetDateTime::now_utc());
+        let codex = inner.codex_use();
+        let has = |m: Menubar| icon::followed(&snapshot, m, &codex) == m;
+        let follow = tray::Follow {
+            picked: inner.settings.menubar,
+            gemini: has(Menubar::Gemini),
+            codex: has(Menubar::Codex),
+        };
+        (inner.model_with(snapshot), icon, follow)
     };
-    tray::apply(app, &icon);
+    tray::apply(app, &icon, follow);
     let _ = app.emit("model", &model);
 }
 
@@ -319,6 +346,21 @@ mod tests {
         assert_eq!(inner.claude_list.as_ref().map(Vec::len), Some(1));
         store_list(&mut inner, None);
         assert!(inner.claude_list.is_none(), "claude-swap is gone");
+    }
+
+    const CODEX: &str =
+        include_str!("../../crates/quota-station-core/tests/fixtures/codex-chatgpt.json");
+
+    #[test]
+    fn a_failed_codex_read_keeps_the_last_report_and_no_codex_folder_clears_it() {
+        let mut inner = inner();
+        store_codex(&mut inner, Some(Ok(report(CODEX))));
+        assert!(inner.codex_quota.is_some());
+        store_codex(&mut inner, Some(Err(RunError::Timeout(Duration::from_secs(45)))));
+        assert!(inner.codex_quota.is_some(), "the last numbers stay, with the error");
+        assert!(inner.codex_quota_error.is_some());
+        store_codex(&mut inner, None);
+        assert!(inner.codex_quota.is_none() && inner.codex_quota_error.is_none());
     }
 
     #[test]

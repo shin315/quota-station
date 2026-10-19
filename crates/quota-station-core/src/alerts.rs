@@ -342,8 +342,6 @@ pub struct PoolCheck {
     pub others: Vec<(u32, f64)>,
     /// The first reset among the usable accounts under 15 %, and whose.
     pub next_reset: Option<(u32, String)>,
-    /// quota-axi's room for the whole rotation, in accounts.
-    pub room: Option<f64>,
 }
 
 impl PoolCheck {
@@ -433,13 +431,7 @@ pub fn pool_check(
         })
         .min_by_key(|(t, _, _)| *t)
         .map(|(_, slot, at)| (slot, at));
-    let room = row
-        .claude_pool
-        .as_ref()
-        .filter(|p| p.status == "pool")
-        .and_then(|p| p.scopes.iter().find(|s| s.scope == "all_models").or(p.scopes.first()))
-        .map(|s| s.slots_of_room);
-    Some(PoolCheck { dry, active, active_left, others, next_reset, room })
+    Some(PoolCheck { dry, active, active_left, others, next_reset })
 }
 
 /// Claude accounts by the names the windows give them: Cá nhân, then Team
@@ -514,11 +506,6 @@ fn span(secs: i64) -> String {
     }
 }
 
-/// `2,3`, the way the menu bar writes room.
-fn room_text(room: f64) -> String {
-    format!("{:.1}", (room * 10.0).round() / 10.0).replace('.', ",")
-}
-
 fn name_of(names: &BTreeMap<u32, String>, slot: u32) -> String {
     names.get(&slot).cloned().unwrap_or_else(|| format!("Tài khoản {slot}"))
 }
@@ -534,13 +521,23 @@ pub fn remind_at(now: i64, offset: UtcOffset) -> i64 {
 
 // ===== The rules =====
 
+/// The account in use and its share used, never the rotation's room.
 fn pool_amount(c: &PoolCheck, names: &BTreeMap<u32, String>) -> String {
-    match (c.room, c.active) {
-        (Some(room), _) => format!("Còn tương đương {} tài khoản", room_text(room)),
-        (None, Some(a)) => {
-            format!("{} đã dùng {}%", name_of(names, a), (100.0 - c.active_left).round())
+    match c.active {
+        Some(a) => format!("{} đã dùng {}%", name_of(names, a), (100.0 - c.active_left).round()),
+        None => "Hạn mức Claude gần hết".to_string(),
+    }
+}
+
+/// The account with the most left now, the one in use among them, and its
+/// share used: which account has quota again.
+fn pool_back(c: &PoolCheck, names: &BTreeMap<u32, String>) -> String {
+    let best = c.active.map(|a| (a, c.active_left)).into_iter().chain(c.best_other());
+    match best.max_by(|a, b| a.1.total_cmp(&b.1)) {
+        Some((slot, left)) => {
+            format!("{} có lại hạn mức: đã dùng {}%.", name_of(names, slot), (100.0 - left).round())
         }
-        (None, None) => "Hạn mức Claude gần hết".to_string(),
+        None => "Có lại hạn mức Claude.".to_string(),
     }
 }
 
@@ -582,10 +579,7 @@ fn pool_alerts(
         });
     }
     if !c.dry && was_dry {
-        let body = match c.room {
-            Some(room) => format!("Còn tương đương {} tài khoản trong vòng.", room_text(room)),
-            None => pool_amount(c, names) + ".",
-        };
+        let body = pool_back(c, names);
         return Some(Alert {
             key: format!("pool:back:{now}"),
             kind: Kind::Pool,
@@ -1152,7 +1146,7 @@ pub fn sample(kind: Kind, now: i64, offset: UtcOffset) -> Alert {
         Kind::Pool => (
             Tone::Bad,
             "Hạn mức Claude trong vòng sắp cạn".into(),
-            format!("Thử: còn tương đương 0,4 tài khoản. Team B có lại hạn mức lúc {later}."),
+            format!("Thử: Team A đã dùng 92%. Team B có lại hạn mức lúc {later}."),
             vec![act("switch:0", "Sang Cá nhân (đã dùng 81%)"), act("dismiss", "Thôi")],
         ),
         Kind::Leaving => (

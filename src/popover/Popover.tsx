@@ -1,14 +1,15 @@
-// The popover (F01, F03, F04, F07): a card per account, the one in use
-// first, every window as the share used. Each group (Claude, Antigravity)
-// folds from its header to one line, and stays folded the next time the
-// popover opens. A card opens its switch sheet; the footer holds the
+// The popover (F01, F03, F04, F07), at the approved "Gọn hơn" level: one
+// header line with this Mac's name, Đang dùng on top (the account in use on
+// each service, its share used and when it resets), then a card per
+// account, the one in use first. Each group (Claude, Antigravity) folds to
+// its header alone, and stays folded the next time the popover opens. A card opens its switch sheet; the footer holds the
 // automatic switching toggle. The header's two buttons switch between the
 // light and dark look and open the main window. Under the groups, Codex is
 // one row (M8): the provider in use and where a switch would go; pressing it
 // opens the confirmation sheet, never a one-tap switch.
 
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { AccountName, RoomStrip, WindowRow } from '../components/accounts';
+import { AccountName, NowStrip, WindowRow } from '../components/accounts';
 import { Banner, Chip, Dot, Feedback, Toggle } from '../components/parts';
 import { SHEET_TITLE_ID, useDialog } from '../components/Sheets';
 import type { AutoView } from '../lib/switching';
@@ -41,11 +42,11 @@ function saveFolded(folded: Folded) {
 function CardBody({ card }: { card: CardView }) {
   return (
     <>
+      {/* The card's frame says it is in use; the main window keeps the organization and the hours. */}
       <span className="h">
-        <AccountName name={card.name} sub={card.sub} full={card.full} chips={card.chips} />
-        {card.active ? <Chip chip={{ t: 'đang dùng', k: 'on' }} /> : null}
+        <AccountName name={card.name} sub="" full={card.full} chips={card.chips} />
       </span>
-      {card.cells.map((c) => (
+      {card.rows.map((c) => (
         <WindowRow key={c.label} cell={c} wide={card.kind === 'g'} dim={card.dim} />
       ))}
     </>
@@ -85,36 +86,18 @@ function AccountCard({ card, onSwitch }: { card: CardView; onSwitch(slot: number
 
 function Group(props: { group: GroupView; folded: boolean; onFold(): void; onSwitch(slot: number): void }) {
   const g = props.group;
-  const sum = g.folded;
   return (
     <section aria-label={g.title}>
+      {/* Đang dùng already says whose account and how much: the header is the group's name alone. */}
       <button type="button" className="ghd" aria-expanded={!props.folded} onClick={props.onFold}>
         <span className={'chev' + (props.folded ? '' : ' open')}>
           <ChevronIcon />
         </span>
         <span className={'idm ' + g.id} />
         <span className="lbl">{g.title}</span>
-        <span className="gsum">
-          {props.folded && sum ? (
-            <>
-              {sum.name}
-              {sum.parts.map((p) => (
-                <span key={p.label}>
-                  {' · '}
-                  {g.id === 'g' ? p.label + ' ' : null}
-                  <b className={p.tone === 'warn' || p.tone === 'bad' ? 'tn-' + p.tone : undefined}>{p.text}</b>
-                  {g.id === 'c' && p.label ? ' ' + p.label : null}
-                </span>
-              ))}
-            </>
-          ) : props.folded ? null : (
-            'đã dùng'
-          )}
-        </span>
       </button>
       {props.folded ? null : (
         <>
-          {g.room ? <RoomStrip room={g.room} /> : null}
           {g.cards.length ? (
             <div className="acards" role="list" aria-label={g.title}>
               {g.cards.map((c) => (
@@ -129,17 +112,26 @@ function Group(props: { group: GroupView; folded: boolean; onFold(): void; onSwi
   );
 }
 
-/** CodexRow = `.row.cx`: the provider in use, its state, and `→` where a switch goes. */
+/**
+ * CodexRow = `.row.cx`, one line: the provider in use, any state chip, and
+ * `→` where a switch goes. The sub-line and Codex App's state stay in the
+ * Codex tab and the row's spoken label.
+ */
 function CodexSection({ row, onOpen }: { row: CodexRowView; onOpen(): void }) {
   return (
     <section aria-label="Codex">
       <div className="ghd st">
         <span className="idm x" />
         <span className="lbl">CODEX</span>
-        <span className="gsum">{row.head}</span>
       </div>
       <div className="rows">
-        <button type="button" className="row cx" aria-disabled={row.off ? true : undefined} aria-label={row.label} onClick={row.off ? undefined : onOpen}>
+        <button
+          type="button"
+          className="row cx one"
+          aria-disabled={row.off ? true : undefined}
+          aria-label={row.label + '. ' + row.sub + (row.head ? '. ' + row.head : '')}
+          onClick={row.off ? undefined : onOpen}
+        >
           <span className="av x" aria-hidden="true">
             {NAV_ICONS.codex}
           </span>
@@ -150,7 +142,6 @@ function CodexSection({ row, onOpen }: { row: CodexRowView; onOpen(): void }) {
                 <Chip key={c.t} chip={c} />
               ))}
             </span>
-            <span className="cxsub">{row.sub}</span>
           </span>
           <span className="cxgo" aria-hidden="true">
             {row.go}
@@ -162,18 +153,23 @@ function CodexSection({ row, onOpen }: { row: CodexRowView; onOpen(): void }) {
   );
 }
 
-/** G17: outside the scrolling body, so the toggle is always in view. */
+/**
+ * G17: outside the scrolling body, so the toggle is always in view. The why
+ * line shows only when there is something to act on; the usual reason stays
+ * on the main window's Claude tab. The other Macs' line likewise shows only
+ * when a copy is behind or failed.
+ */
 function Footer({ auto, sync, onToggle }: { auto: AutoView; sync: SyncLine | null; onToggle(): void }) {
   return (
     <>
       <div className="li">
         <div className="t">
           <b>{auto.title}</b>
-          <small>{auto.line}</small>
+          {auto.popLine ? <small>{auto.popLine}</small> : null}
         </div>
         <Toggle on={auto.toggle.on} label={auto.toggle.label} disabled={auto.toggle.disabled} onClick={onToggle} />
       </div>
-      {sync ? (
+      {sync && sync.tone !== 'ok' ? (
         <div className="li">
           <span className={'dot ' + sync.tone} aria-hidden="true" />
           <div className="t">
@@ -247,13 +243,14 @@ export function Popover({ view, codex = null, auto, sync = null, feedback, busy,
 
   return (
     <div className={'pop' + (open ? ' open' : '')} role="dialog" aria-label="Quota Station">
-      <div className="hd" ref={head} inert={open}>
+      <div className="hd one" ref={head} inert={open}>
+        {/* One line: this Mac, and how old the numbers are only when they are not fresh. */}
         <div className="tt">
-          <b>Quota Station</b>
-          <small>
+          <b>
             <Dot tone={view.fresh.tone} />
-            {view.machine} · {view.fresh.text}
-          </small>
+            {view.machine}
+            {view.fresh.tone === 'ok' ? null : <small>· {view.fresh.text}</small>}
+          </b>
         </div>
         <button type="button" className="ib" aria-label={theme} title={theme} onClick={() => onAction('theme')}>
           {dark ? <SunIcon /> : <MoonIcon />}
@@ -266,6 +263,7 @@ export function Popover({ view, codex = null, auto, sync = null, feedback, busy,
         <div ref={content}>
           {feedback ? <Feedback fb={feedback} onAction={onAction} /> : null}
           {banner ? <Banner banner={banner} onAction={onAction} busy={busy} /> : null}
+          <NowStrip now={view.now} />
           <Group group={view.claude} folded={folded.c} onFold={() => fold('c')} onSwitch={onSwitch} />
           <Group group={view.agy} folded={folded.g} onFold={() => fold('g')} onSwitch={onSwitchAgy ?? (() => {})} />
           {codex ? <CodexSection row={codex} onOpen={() => onAction('codex:open')} /> : null}

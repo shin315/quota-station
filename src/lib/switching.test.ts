@@ -169,6 +169,20 @@ describe('the switcher in words', () => {
     const v = autoView(fixtureModel('fresh', { switcher: switcherFixture({ dryRun: null, dryRunError: 'noDecision' }) }), FIXTURE_NOW);
     expect(v.why).toBe('Chưa đọc được quyết định của switcher (switcher không in quyết định, có thể cswap list lỗi).');
   });
+
+  it('the popover writes the why line only when there is something to act on', () => {
+    const at = (switcher: Parameters<typeof switcherFixture>[0]) => autoView(fixtureModel('fresh', { switcher: switcherFixture(switcher) }), FIXTURE_NOW).popLine;
+    // Claude staying on its account, or the switcher not asked yet: nothing.
+    expect(at({})).toBeNull();
+    expect(at({ dryRun: null })).toBeNull();
+    // A pause, waiting for quota, a switch coming, the switcher missing or failing: the line.
+    expect(autoView(fixtureModel('fresh', { switcher: heldSwitcher() }), FIXTURE_NOW).popLine).toMatch(/tạm dừng/i);
+    const waiting: Decision = { kind: 'waiting', slot: 3, at: '16:40' };
+    expect(at({ dryRun: { decision: waiting, raw: 'wait', at: '2026-01-16T07:19:40.000Z' } })).toContain('chờ');
+    expect(at({ installed: false })).toBe('Không thấy cswap-prefer-team trên máy này: không có tự chuyển Claude.');
+    expect(at({ service: false })).toContain('LaunchAgent');
+    expect(at({ dryRun: null, dryRunError: 'timeout' })).toContain('Chưa đọc được quyết định');
+  });
 });
 
 describe('the switch sheet and its result', () => {

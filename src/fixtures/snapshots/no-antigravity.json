@@ -199,5 +199,28 @@
     "personalHours": null,
     "source": null
   },
+  "codex": {
+    "status": "notSetUp",
+    "reason": null,
+    "accounts": [],
+    "pool": {
+      "kind": "none",
+      "room": null,
+      "percent": null,
+      "line": null,
+      "scope": null,
+      "members": 0,
+      "rooms": [],
+      "nextRefillAt": null,
+      "refills": [],
+      "exhausted": false,
+      "reason": null
+    },
+    "generatedAt": "2026-01-16T07:20:00.000Z",
+    "newestReadingAt": null,
+    "stale": false,
+    "personalHours": null,
+    "source": null
+  },
   "keychain": "granted"
 }

@@ -1,0 +1,18 @@
+{
+  "generatedAt": "2026-01-16T07:20:00.000Z",
+  "schemaVersion": 5,
+  "providers": [
+    {
+      "provider": "codex",
+      "windows": [],
+      "state": {
+        "status": "unavailable",
+        "stale": false,
+        "error": "Codex sign-in required"
+      },
+      "accountKeys": [
+        "codex-home"
+      ]
+    }
+  ]
+}

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PopoverApp } from '../App';
 import { FOLD_KEY } from './Popover';
 import { fakeApi } from '../fixtures/fakeApi';
-import { failing, FIXTURE_NOW, fixtureModel, peerFixture, rotationFixture } from '../fixtures/models';
+import { failing, FIXTURE_NOW, fixtureModel, heldSwitcher, peerFixture, rotationFixture } from '../fixtures/models';
 import type { Api } from '../lib/api';
 import type { Model } from '../lib/model';
 
@@ -26,20 +26,28 @@ afterEach(cleanup);
 describe('popover', () => {
   it('shows a card per account: Claude cards switch, the card in use and unlisted Antigravity ones do not', async () => {
     const fake = await open(fixtureModel('fresh'));
-    expect(screen.getByText('Mac mini · cập nhật 40 giây trước')).toBeTruthy();
+    // One header line: this Mac, no title and no age while the numbers are fresh.
+    expect(screen.getByText('Mac mini')).toBeTruthy();
+    expect(screen.queryByText(/cập nhật .* trước/)).toBeNull();
+    expect(screen.queryByText('Quota Station')).toBeNull();
     expect(screen.queryByText(/còn tương đương/)).toBeNull();
     expect(screen.queryByText(/n = ngày/)).toBeNull();
 
     const claude = screen.getByRole('list', { name: 'CLAUDE' });
     const cards = within(claude).getAllByRole('listitem').map((li) => within(li).getByRole('button'));
     expect(cards).toHaveLength(4);
+    // The spoken label keeps every word the screen no longer writes.
     expect(cards[0].getAttribute('aria-label')).toMatch(/^lan\.acme1, Acme Studio, đang dùng\. 5 giờ đã dùng 74%/);
+    expect(within(cards[0]).queryByText('đang dùng')).toBeNull();
+    expect(within(cards[0]).queryByText('Acme Studio')).toBeNull();
+    expect(within(cards[2]).queryByText('Tuần')).toBeNull();
+    expect(within(cards[1]).queryByText('chưa dùng')).toBeNull();
     expect(cards[0].getAttribute('aria-disabled')).toBe('true');
     expect(cards[0].getAttribute('title')).toBe('lan.acme1@example.com · claude-swap · tài khoản 2');
     expect(cards[2].getAttribute('aria-label')).toMatch(/^lan\.acme2, Acme Studio\. .*\. Bấm để chuyển$/);
     expect(cards[2].getAttribute('aria-disabled')).toBeNull();
     expect(within(cards[0]).getByText('74%')).toBeTruthy();
-    expect(screen.getByText('2,3')).toBeTruthy();
+    expect(screen.queryByText('2,3')).toBeNull();
 
     const agy = within(screen.getByRole('list', { name: 'ANTIGRAVITY' })).getAllByRole('button');
     expect(agy).toHaveLength(2);
@@ -65,7 +73,8 @@ describe('popover', () => {
     fireEvent.click(head);
     expect(head.getAttribute('aria-expanded')).toBe('false');
     expect(screen.queryByRole('list', { name: 'CLAUDE' })).toBeNull();
-    expect(head.textContent).toBe('CLAUDElan.acme1 · 87% Fable');
+    // The header is the group's name alone: Đang dùng above says whose account and how much.
+    expect(head.textContent).toBe('CLAUDE');
     // Antigravity stays open.
     expect(screen.getByRole('list', { name: 'ANTIGRAVITY' })).toBeTruthy();
     expect(JSON.parse(localStorage.getItem(FOLD_KEY)!)).toEqual({ c: true, g: false });
@@ -75,7 +84,8 @@ describe('popover', () => {
     expect(screen.getByRole('button', { name: /CLAUDE/ }).getAttribute('aria-expanded')).toBe('false');
     const agyHead = screen.getByRole('button', { name: /ANTIGRAVITY/ });
     fireEvent.click(agyHead);
-    expect(agyHead.textContent).toBe('ANTIGRAVITYlan.ultra2 · Gemini 6% · C/GPT 0%');
+    expect(agyHead.textContent).toBe('ANTIGRAVITY');
+    expect(screen.getByRole('list', { name: 'Đang dùng' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /CLAUDE/ }));
     expect(screen.getByRole('list', { name: 'CLAUDE' })).toBeTruthy();
     expect(JSON.parse(localStorage.getItem(FOLD_KEY)!)).toEqual({ c: false, g: true });
@@ -101,8 +111,25 @@ describe('popover', () => {
     await open(fixtureModel('fresh'));
     const toggle = screen.getByRole('switch', { name: 'Tự chuyển Claude' });
     expect(toggle.getAttribute('aria-checked')).toBe('true');
-    expect(screen.getByText('14:19 · Vẫn dùng lan.acme1: chưa tới ngưỡng tự chuyển.')).toBeTruthy();
+    // Claude simply staying on its account needs no words here; the Claude tab has them.
+    expect(screen.queryByText(/Vẫn dùng lan\.acme1/)).toBeNull();
     expect(screen.queryByText('09:12 · Switcher chuyển sang lan.acme1.')).toBeNull();
+    cleanup();
+    // A pause is something to act on: its line shows.
+    await open(fixtureModel('fresh', { switcher: heldSwitcher() }));
+    expect(screen.getByRole('switch', { name: /Tự chuyển Claude/ }).closest('.li')!.querySelector('small')).toBeTruthy();
+  });
+
+  it('Đang dùng heads the popover: each service, its account, share used and reset', async () => {
+    await open(fixtureModel('fresh'));
+    const now = within(screen.getByRole('list', { name: 'Đang dùng' })).getAllByRole('listitem');
+    expect(now.map((r) => r.textContent)).toEqual(['Claudelan.acme187%↻ 1n 17g', 'Geminilan.ultra26%↻ 3n 23g', 'Codexrelay—']);
+    expect(now[0].getAttribute('title')).toBe('Claude: lan.acme1 đã dùng 87% Fable');
+    expect(now[2].getAttribute('title')).toBe('Codex: relay, ChatGPT đã dùng 41% tuần');
+    cleanup();
+    // Old numbers: the age comes back in the header.
+    await open(fixtureModel('stale'));
+    expect(screen.getByText('· cập nhật 41 phút trước')).toBeTruthy();
   });
 
   it('one header button turns the look dark or light, the other opens the main window; Escape hides', async () => {
@@ -201,9 +228,9 @@ describe('popover', () => {
     expect(screen.getByText('Có lại lúc 16:40 khi Cá nhân và Team B được đặt lại.')).toBeTruthy();
   });
 
-  it('the footer says which Macs have the rotation rules', async () => {
+  it('the footer says which Macs have the rotation rules only when one is behind', async () => {
     await open(fixtureModel('fresh'));
-    expect(screen.getByText('Luật xoay vòng · Mac B: 14:02 · Mac C: 14:02')).toBeTruthy();
+    expect(screen.queryByText(/^Luật xoay vòng ·/)).toBeNull();
     cleanup();
     const down = rotationFixture({
       peers: [peerFixture('Mac B', 'mac-b'), peerFixture('Mac C', 'mac-c', { state: { kind: 'unreachable', error: 'x', retryAt: '2026-01-16T07:25:40.000Z' } })],

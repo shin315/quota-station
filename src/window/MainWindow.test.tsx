@@ -30,12 +30,18 @@ describe('main window', () => {
     expect(nav('Claude').getAttribute('aria-current')).toBe('page');
   });
 
-  it('Tổng quan shows the room left, every account by its windows, automatic switching and what comes next', async () => {
+  it('Tổng quan shows Đang dùng, every account by its windows, automatic switching and what comes next', async () => {
     await open(fixtureModel('fresh'));
     expect(heading()).toBe('Tổng quan');
     expect(screen.getByText('Mac mini · cập nhật 40 giây trước')).toBeTruthy();
-    expect(screen.getByText('còn dùng được trước ngưỡng 90%')).toBeTruthy();
-    expect(screen.getByText('lan.acme1 87%')).toBeTruthy();
+    // Đang dùng replaces the room in accounts: a tile per service.
+    expect(screen.queryByText(/còn dùng được|tài khoản Claude/)).toBeNull();
+    const tiles = within(screen.getByRole('list', { name: 'Đang dùng' })).getAllByRole('listitem');
+    expect(tiles.map((t) => t.textContent)).toEqual([
+      'Claudelan.acme1Acme Studio87%đã dùng Fable · ↻ 1n 17g',
+      'Geminilan.ultra2Antigravity6%đã dùng tuần · ↻ 3n 23g',
+      'CodexrelayCodex đi qua relay—ChatGPT đã dùng 41% tuần',
+    ]);
 
     const claude = screen.getByRole('list', { name: 'Claude Code' });
     const rows = within(claude).getAllByRole('listitem');
@@ -196,7 +202,8 @@ describe('main window', () => {
   it('quota-axi missing points to the settings tab and keeps the last numbers', async () => {
     const fake = await open(fixtureModel('fresh', { errors: failing('notFound') }));
     expect(screen.getByText('Mac mini · không đọc được số')).toBeTruthy();
-    expect(screen.getByText('số lúc 14:20')).toBeTruthy();
+    // Đang dùng shows no old number as a new one.
+    expect(screen.getAllByText('không đọc được số').length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole('button', { name: 'Chọn đường dẫn…' }));
     expect(heading()).toBe('Cài đặt');
     expect(fake.api.openWindow).not.toHaveBeenCalled();
@@ -213,7 +220,7 @@ describe('main window', () => {
     const fake = await open(fixtureModel('fresh'));
     act(() => fake.push(fixtureModel('exhausted')));
     expect(screen.getByText('Hạn mức Claude trong vòng đã cạn')).toBeTruthy();
-    expect(screen.getByText('cạn · có lại lúc 16:40')).toBeTruthy();
+    expect(screen.getAllByText('96%').length).toBeGreaterThan(0);
   });
 });
 

@@ -8,7 +8,7 @@
 use quota_station_core::history;
 use quota_station_core::runner::{self, RunError};
 use quota_station_core::sessions::{self, Sessions};
-use quota_station_core::settings::Theme;
+use quota_station_core::settings::{Menubar, Theme};
 use quota_station_core::switching::{self, Outcome};
 use quota_station_core::{local_time, pause};
 use tauri::{AppHandle, State};
@@ -119,6 +119,31 @@ pub fn set_show_names(
     }
     reader::publish(&app, &state);
     Ok(state.lock().model())
+}
+
+/// Sets the service the menu bar title follows. Stays on this Mac.
+#[tauri::command]
+pub fn set_menubar(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    menubar: Menubar,
+) -> Result<Model, String> {
+    save_menubar(&app, &state, menubar)?;
+    Ok(state.lock().model())
+}
+
+/// The one way the menu bar's service is saved: from Cài đặt and from the
+/// right-click menu.
+pub fn save_menubar(app: &AppHandle, state: &AppState, menubar: Menubar) -> Result<(), String> {
+    {
+        let mut inner = state.lock();
+        let mut settings = inner.settings.clone();
+        settings.menubar = menubar;
+        settings.save(&inner.settings_file).map_err(|e| e.to_string())?;
+        inner.settings = settings;
+    }
+    reader::publish(app, state);
+    Ok(())
 }
 
 /// Sets the light or dark look of both windows, or back to macOS's.

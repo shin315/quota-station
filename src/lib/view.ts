@@ -3,10 +3,10 @@
 // clock give the same view, so Vitest covers every state without a window.
 // Copy follows the approved prototype (Hướng 1 · Kính macOS, bước 0.7).
 
-import { agyCells, agyGroups, agyNames, claudeCells, claudeNames, tightest, usedTone, type AccountName, type CellView, type UsedTone } from './accounts';
-import { age, clock, minutesUntil, room, secondsSince } from './format';
+import { agyCells, agyGroups, agyNames, cellOf, claudeCells, claudeNames, tightest, WARN_USED, type AccountName, type CellView, type UsedTone } from './accounts';
+import { age, clock, secondsSince } from './format';
 import type { Account, AgyLogin, ErrorView, Model, Section } from './model';
-import { codexBanner } from './codex';
+import { codexBanner, currentId, shortName } from './codex';
 import { switcherBanner } from './switching';
 
 export type Tone = 'ok' | 'warn' | 'bad' | 'muted' | 'info';
@@ -84,7 +84,13 @@ export interface CardView {
   chips: ChipView[];
   /** 5 giờ · Tuần · Fable, or Antigravity's four windows. */
   cells: CellView[];
-  /** The window used the most, for a folded group. */
+  /**
+   * The popover's shorter card: no row for a window the account does not
+   * have (a Team seat has no week), Antigravity's Gemini and Claude/GPT as
+   * one row each (the tighter window), and no `chưa dùng`.
+   */
+  rows: CellView[];
+  /** The window used the most: the number the menu bar and Đang dùng show. */
   tight: CellView | null;
   /** For screen readers. */
   label: string;
@@ -96,17 +102,35 @@ export interface CardView {
   off: string;
 }
 
-/** Claude's room before the switch threshold, in accounts, with each member's tightest window. */
-export interface RoomView {
-  value: string;
-  unit: string;
+/** One service in Đang dùng: the account in use, its tightest window and when that resets. */
+export interface NowRowView {
+  id: 'c' | 'g' | 'x';
+  svc: 'Claude' | 'Gemini' | 'Codex';
+  /** Whole, the layout cuts it: `lan.acme1`, `Team A`, `ChatGPT`, a provider's name. */
+  name: string;
+  /** Under the name on Tổng quan: the organization, `Antigravity`, `Codex đi qua relay`. */
   sub: string;
-  tone: 'ok' | 'bad' | 'muted';
-  /** Each member's share used of its tightest window. */
-  segs: { key: string; name: string; used: number | null; tone: UsedTone; text: string }[];
-  /** Where the switch threshold sits on each segment, 0–100; null when unknown. */
-  mark: number | null;
+  used: number | null;
+  /** `38%`, or `—` without a number. */
+  text: string;
+  tone: UsedTone;
+  /** The window the number is: `5 giờ`, `tuần`, `Fable`. */
+  unit: string;
+  /** `↻ 0:09`; '' when the window has not been used. */
+  reset: string;
+  /** Without a number, why: `không có số`, `ChatGPT đã dùng 41% tuần`. */
+  note: string;
+  /** Antigravity's Claude/GPT models from 70 % used (`86%`), so folding the group never hides it. */
+  extra: { text: string; tone: UsedTone } | null;
+  /** Hover: the window named. */
   title: string;
+  /** For screen readers: every window and when it resets. */
+  label: string;
+}
+
+/** Đang dùng (replaces the rotation's room): the account in use on each service. */
+export interface NowView {
+  rows: NowRowView[];
 }
 
 export interface BannerView {
@@ -126,16 +150,15 @@ export interface GroupView {
   title: string;
   /** Active account first. */
   cards: CardView[];
-  room: RoomView | null;
-  /** What a folded group still shows: the account in use and its numbers. */
-  folded: { name: string; parts: { label: string; text: string; tone: UsedTone }[] } | null;
   note: NoteView | null;
 }
 
 export interface PopoverView {
   machine: string;
+  /** The popover writes it only when the tone is not `ok`: old numbers, none, an error. */
   fresh: { tone: Tone; text: string };
   banner: BannerView | null;
+  now: NowView;
   claude: GroupView;
   agy: GroupView;
 }
@@ -234,6 +257,7 @@ function cardView(a: Account, kind: 'c' | 'g', names: AccountName, ctx: CardCont
     dim: ctx.old || a.reading === 'stale',
     chips,
     cells,
+    rows: shortRows(kind, cells),
     tight: tightest(cells),
     label:
       names.name +
@@ -254,48 +278,96 @@ function activeFirst<T extends { active: boolean }>(list: T[]): T[] {
   return [...list.filter((x) => x.active), ...list.filter((x) => !x.active)];
 }
 
-// ===== Room =====
+// ===== The popover's shorter cards =====
 
-function roomView(model: Model, s: Section, unit: string, names: (n: number) => string, cards: CardView[], old: string | null, now: Date): RoomView | null {
-  const p = s.pool;
-  if (p.kind !== 'rotation' || p.room == null) return null;
-  const mark = s === model.snapshot.claude ? (model.rotation.rules?.full ?? null) : null;
-  const segs = p.rooms.map((r) => {
-    const t = cards.find((c) => c.slot === r.number)?.tight ?? null;
-    return { key: String(r.number), name: names(r.number), used: t?.used ?? null, tone: usedTone(t?.used ?? null), text: t ? t.used + '% ' + t.unit : '—' };
-  });
-  const view: RoomView = {
-    value: room(p.room),
-    unit,
-    sub: mark != null ? 'còn dùng được trước ngưỡng ' + mark + '%' : 'còn dùng được trước ngưỡng tự chuyển',
-    tone: 'ok',
-    segs,
-    mark,
-    title: segs.map((x) => x.name + ' đã dùng ' + x.text).join(' · '),
-  };
-  if (p.exhausted) {
-    view.tone = 'bad';
-    const at = minutesUntil(p.nextRefillAt, now) != null ? clock(p.nextRefillAt) : '';
-    view.sub = at ? 'cạn · có lại lúc ' + at : 'cạn';
-  }
-  if (old) {
-    view.sub = 'số lúc ' + old;
-    view.tone = 'muted';
-  }
-  return view;
+function quiet(c: CellView): CellView {
+  return c.reset === 'chưa dùng' ? { ...c, reset: '' } : c;
 }
 
-function foldedOf(kind: 'c' | 'g', cards: CardView[]): GroupView['folded'] {
-  const a = cards.find((c) => c.active) ?? cards[0];
-  if (!a) return null;
-  if (kind === 'c') {
-    const t = a.tight;
-    return { name: a.name, parts: [{ label: t ? t.unit : '', text: t ? t.used + '%' : '—', tone: t?.tone ?? 'muted' }] };
-  }
+function shortRows(kind: 'c' | 'g', cells: CellView[]): CellView[] {
+  if (kind === 'c') return cells.filter((c) => !c.none).map(quiet);
+  if (!cells.some((c) => c.label.startsWith('Gemini '))) return cells.map(quiet);
+  return agyGroups(cells).map((g) => {
+    const cell = g.cell ?? cellOf(undefined, g.label === 'Gemini' ? 'gemini' : 'claudeGpt', new Date(0), '');
+    return quiet({ ...cell, label: g.label, none: false });
+  });
+}
+
+// ===== Đang dùng =====
+
+/**
+ * The account's tightest window, the menu bar's rule: none while any
+ * window waits for a number after its reset, never a number that may be
+ * the wrong one.
+ */
+function nowNumber(cells: CellView[]): CellView | null {
+  const real = cells.filter((c) => !c.none);
+  if (real.some((c) => c.used == null || c.reset === 'chờ số')) return null;
+  return tightest(real);
+}
+
+function nowRow(
+  base: Pick<NowRowView, 'id' | 'svc' | 'name' | 'sub'>,
+  cells: CellView[],
+  why: string | null,
+  extra: NowRowView['extra'] = null,
+): NowRowView {
+  const t = why == null ? nowNumber(cells) : null;
+  const note = why ?? (t ? '' : 'không có số');
+  const words = cells.filter((c) => !c.none).map((c) => c.words).join('. ');
   return {
-    name: a.name,
-    parts: agyGroups(a.cells).map((g) => ({ label: g.short, text: g.cell ? g.cell.used + '%' : '—', tone: g.cell?.tone ?? 'muted' })),
+    ...base,
+    used: t?.used ?? null,
+    text: t ? t.text : '—',
+    tone: t?.tone ?? 'muted',
+    unit: t?.unit ?? '',
+    reset: t && t.reset !== 'chưa dùng' ? t.reset : '',
+    note,
+    extra,
+    title: base.svc + ': ' + (t ? base.name + ' đã dùng ' + t.text + ' ' + t.unit : base.name + ', ' + note) + (extra ? ' · Claude/GPT ' + extra.text : ''),
+    label: base.svc + ', ' + base.name + '. ' + (why ?? (words || note)),
   };
+}
+
+function codexNow(model: Model, now: Date): NowRowView | null {
+  const v = model.codex;
+  if (!v.present) return null;
+  const s = model.snapshot.codex;
+  const a = s.accounts.find((x) => x.active);
+  const cells = a ? (['session', 'week'] as const).map((k) => cellOf(a.windows.find((l) => l.kind === k), k, now, '')) : [];
+  const err = !!model.errors.codex;
+  if (v.current !== 'chatgpt') {
+    const name = shortName(v, currentId(v));
+    const t = !err ? nowNumber(cells) : null;
+    return nowRow({ id: 'x', svc: 'Codex', name, sub: 'Codex đi qua ' + name }, [], t ? 'ChatGPT đã dùng ' + t.text + ' ' + t.unit : name + ' không báo hạn mức');
+  }
+  if (s.status === 'notSetUp') return null;
+  const why = err ? 'không đọc được số' : s.status === 'unread' ? 'chưa có số' : s.status === 'unavailable' ? 'không đọc được số' : null;
+  return nowRow({ id: 'x', svc: 'Codex', name: 'ChatGPT', sub: '' }, cells, why);
+}
+
+function nowView(model: Model, claudeCards: CardView[], agyCards: CardView[], now: Date): NowView {
+  const s = model.snapshot;
+  const rows: NowRowView[] = [];
+  const failing = (e: ErrorView | null, section: Section) => (e ? 'không đọc được số' : section.status === 'unread' ? 'chưa có số' : null);
+  if (s.claude.status !== 'notSetUp') {
+    const a = claudeCards.find((c) => c.active);
+    const acc = s.claude.accounts.find((x) => x.active);
+    const why = failing(model.errors.claude, s.claude) ?? (acc && (acc.reading === 'resetPending' || acc.reading === 'noData') ? 'chờ số mới' : null);
+    rows.push(nowRow({ id: 'c', svc: 'Claude', name: a?.name ?? '—', sub: a?.sub ?? '' }, a?.cells ?? [], a ? why : (why ?? 'chưa biết tài khoản nào')));
+  }
+  if (s.agy.status !== 'notSetUp') {
+    const a = agyCards.find((c) => c.active);
+    const acc = s.agy.accounts.find((x) => x.active);
+    const why = failing(model.errors.agy, s.agy) ?? (acc && (acc.reading === 'resetPending' || acc.reading === 'noData') ? 'chờ số mới' : null);
+    const gemini = a ? a.cells.filter((c) => c.label.startsWith('Gemini')) : [];
+    const cg = a && why == null ? agyGroups(a.cells)[1].cell : null;
+    const extra = cg && cg.used != null && cg.used >= WARN_USED ? { text: cg.text, tone: cg.tone } : null;
+    rows.push(nowRow({ id: 'g', svc: 'Gemini', name: a?.name ?? '—', sub: 'Antigravity' }, gemini, a ? why : (why ?? 'chưa biết tài khoản nào'), extra));
+  }
+  const codex = codexNow(model, now);
+  if (codex) rows.push(codex);
+  return { rows };
 }
 
 // ===== Banner and summary =====
@@ -449,20 +521,17 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
     machine: model.machine,
     fresh,
     banner,
+    now: nowView(model, claudeCards, agyCards, now),
     claude: {
       id: 'c',
       title: 'CLAUDE',
       cards: claudeOrdered,
-      room: roomView(model, c, 'tài khoản Claude', nameOf, claudeCards, lastClaude, now),
-      folded: foldedOf('c', claudeOrdered),
       note: claudeNote,
     },
     agy: {
       id: 'g',
       title: 'ANTIGRAVITY',
       cards: agyOrdered,
-      room: roomView(model, g, 'tài khoản Antigravity', (n) => gNames.get(n)?.name ?? 'Ultra ' + n, agyCards, lastAgy, now),
-      folded: foldedOf('g', agyOrdered),
       note: agyNote,
     },
   };

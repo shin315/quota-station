@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { age, clock, hours, resetShort, resetWords, room } from './format';
+import { age, clock, hours, resetShort, resetWords } from './format';
 
 describe('format', () => {
   it('writes time to reset the way the prototype does', () => {
@@ -15,12 +15,6 @@ describe('format', () => {
     expect(resetWords(189)).toBe('đặt lại sau 3 giờ 09 phút');
     expect(resetWords(41)).toBe('đặt lại sau 41 phút');
     expect(resetWords(1440 + 18 * 60)).toBe('đặt lại sau 1 ngày 18 giờ');
-  });
-
-  it('rounds room to one decimal with a comma, like the menu bar title', () => {
-    expect(room(2.27)).toBe('2,3');
-    expect(room(0)).toBe('0,0');
-    expect(room(1.25)).toBe('1,3');
   });
 
   it('formats ages, local clock and personal hours', () => {

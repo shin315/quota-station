@@ -1,13 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { hideNames } from '../fixtures/fakeApi';
-import { failing, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
-import { popoverView, type CardView } from './view';
+import { codexFixture, failing, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
+import { popoverView, type CardView, type NowView } from './view';
 
 const view = (name: string, over = {}, options = {}) => popoverView(fixtureModel(name, over), FIXTURE_NOW, options);
 const cells = (c: CardView) => c.cells.map((x) => [x.label, x.text, x.reset]);
+const rows = (c: CardView) => c.rows.map((x) => [x.label, x.text, x.reset]);
+const now = (n: NowView) => n.rows.map((r) => [r.svc, r.name, r.text, r.unit, r.reset, r.note]);
 
 describe('popover view', () => {
-  it('shows a card per account, the one in use first, and the room left in the rotation', () => {
+  it('shows a card per account, the one in use first, and Đang dùng for every service', () => {
     const v = view('fresh');
     expect(v.fresh).toEqual({ tone: 'ok', text: 'cập nhật 40 giây trước' });
     expect(v.banner).toBeNull();
@@ -17,14 +19,74 @@ describe('popover view', () => {
       ['lan.acme2', 'Acme Studio', false],
       ['lan.acme3', 'Acme Studio', false],
     ]);
-    expect(v.claude.room).toMatchObject({ value: '2,3', unit: 'tài khoản Claude', sub: 'còn dùng được trước ngưỡng 90%', mark: 90, tone: 'ok' });
-    expect(v.claude.room!.segs.map((s) => [s.name, s.used, s.tone])).toEqual([
-      ['lan.acme1', 87, 'warn'],
-      ['lan.acme2', 50, 'ok'],
-      ['lan.acme3', 2, 'ok'],
-      ['lanpham.dev', 4, 'ok'],
+    // The menu bar's number for each service: the account in use and its tightest window.
+    expect(now(v.now)).toEqual([
+      ['Claude', 'lan.acme1', '87%', 'Fable', '↻ 1n 17g', ''],
+      ['Gemini', 'lan.ultra2', '6%', 'tuần', '↻ 3n 23g', ''],
+      // Codex goes through its own provider: no number, the ChatGPT account's on hover.
+      ['Codex', 'relay', '—', '', '', 'ChatGPT đã dùng 41% tuần'],
     ]);
-    expect(v.claude.room!.title).toBe('lan.acme1 đã dùng 87% Fable · lan.acme2 đã dùng 50% Fable · lan.acme3 đã dùng 2% Fable · lanpham.dev đã dùng 4% Fable');
+    expect(v.now.rows[0]).toMatchObject({ sub: 'Acme Studio', tone: 'warn', title: 'Claude: lan.acme1 đã dùng 87% Fable', extra: null });
+    expect(v.now.rows[0].label).toBe(
+      'Claude, lan.acme1. 5 giờ đã dùng 74%, đặt lại sau 3 giờ 08 phút. Tuần đã dùng 39%, đặt lại sau 4 ngày 19 giờ 39 phút. Fable đã dùng 87%, đặt lại sau 1 ngày 17 giờ 59 phút',
+    );
+    expect(v.now.rows[2].sub).toBe('Codex đi qua relay');
+    // No room in accounts anywhere.
+    expect(JSON.stringify(v)).not.toMatch(/tài khoản Claude|còn dùng được/);
+  });
+
+  it('the popover cards drop windows an account does not have and words that say nothing', () => {
+    const v = view('fresh');
+    const [acme1, personal, acme2] = v.claude.cards;
+    expect(rows(acme1)).toEqual(cells(acme1));
+    // An idle window has no `chưa dùng`; a Team seat has no week row at all.
+    expect(rows(personal)[0]).toEqual(['5 giờ', '0%', '']);
+    expect(rows(acme2).map((r) => r[0])).toEqual(['5 giờ', 'Fable']);
+    // Antigravity: Gemini and Claude/GPT, each the tighter of its two windows.
+    const [ultra2, ultra1] = v.agy.cards;
+    expect(rows(ultra2)).toEqual([
+      ['Gemini', '6%', '↻ 3n 23g'],
+      ['Claude/GPT', '0%', '↻ 5n 23g'],
+    ]);
+    expect(rows(ultra1)).toEqual([
+      ['Gemini', '37%', '↻ 4n 23g'],
+      ['Claude/GPT', '18%', '↻ 5n 3g'],
+    ]);
+    // The spoken label keeps every window.
+    expect(ultra2.label).toContain('Gemini 5 giờ đã dùng 2%');
+    expect(ultra2.label).toContain('Claude/GPT tuần đã dùng 0%');
+  });
+
+  it('Antigravity’s Claude/GPT from 70 % used shows in Đang dùng, so folding never hides it', () => {
+    const m = fixtureModel('fresh');
+    const ultra2 = m.snapshot.agy.accounts.find((a) => a.active)!;
+    ultra2.windows = ultra2.windows.map((w) => (w.kind === 'claudeGptWeek' ? { ...w, percent: 14 } : w));
+    const row = popoverView(m, FIXTURE_NOW).now.rows[1];
+    expect(row).toMatchObject({ name: 'lan.ultra2', text: '6%', extra: { text: '86%', tone: 'warn' } });
+    expect(row.title).toBe('Gemini: lan.ultra2 đã dùng 6% tuần · Claude/GPT 86%');
+    expect(view('fresh').now.rows[1].extra).toBeNull();
+  });
+
+  it('Codex on its ChatGPT login shows that account’s number, and no Codex folder no row', () => {
+    const chatgpt = view('fresh', { codex: codexFixture({ current: 'chatgpt' }) });
+    expect(now(chatgpt.now)[2]).toEqual(['Codex', 'ChatGPT', '41%', 'tuần', '↻ 4n 5g', '']);
+    expect(view('fresh', { codex: codexFixture({ present: false }) }).now.rows.map((r) => r.id)).toEqual(['c', 'g']);
+    // Not read yet, or quota-axi failing for Codex: the name and no number.
+    const unread = fixtureModel('fresh', { codex: codexFixture({ current: 'chatgpt' }) });
+    unread.snapshot.codex = { ...unread.snapshot.codex, status: 'unread', accounts: [] };
+    expect(now(popoverView(unread, FIXTURE_NOW).now)[2]).toEqual(['Codex', 'ChatGPT', '—', '', '', 'chưa có số']);
+    const err = view('fresh', { codex: codexFixture({ current: 'chatgpt' }), errors: { claude: null, agy: null, codex: { kind: 'timeout', detail: '' } } });
+    expect(err.now.rows[2]).toMatchObject({ text: '—', note: 'không đọc được số' });
+    // No ChatGPT login on a Mac whose Codex uses it: no row.
+    const nologin = view('no-antigravity', { codex: codexFixture({ current: 'chatgpt' }) });
+    expect(nologin.now.rows.map((r) => r.id)).toEqual(['c']);
+  });
+
+  it('a window waiting after its reset leaves Đang dùng without a number', () => {
+    const m = fixtureModel('fresh');
+    const acme1 = m.snapshot.claude.accounts.find((a) => a.active)!;
+    acme1.windows = acme1.windows.map((w) => (w.kind === 'session' ? { ...w, pending: true, percent: null } : w));
+    expect(popoverView(m, FIXTURE_NOW).now.rows[0]).toMatchObject({ text: '—', note: 'không có số', used: null });
   });
 
   it('every window is the share used, with its reset, and an idle five hours reads chưa dùng', () => {
@@ -46,7 +108,7 @@ describe('popover view', () => {
 
   it('the tightest window wins, and a tie names the longer window', () => {
     const v = view('fresh');
-    expect(v.claude.folded).toEqual({ name: 'lan.acme1', parts: [{ label: 'Fable', text: '87%', tone: 'warn' }] });
+    expect(v.claude.cards[0].tight).toMatchObject({ label: 'Fable', used: 87, tone: 'warn' });
     const m = fixtureModel('fresh');
     const a = m.snapshot.claude.accounts.find((x) => x.number === 3)!;
     a.windows = a.windows.map((w) => ({ ...w, percent: 60 }));
@@ -67,13 +129,7 @@ describe('popover view', () => {
     expect(ultra1.name).toBe('lanpham.ultra');
     expect(ultra1.dim).toBe(true);
     expect(ultra1.chips).toEqual([{ t: 'số 25 phút trước', k: 'stale' }]);
-    expect(v.agy.folded).toEqual({
-      name: 'lan.ultra2',
-      parts: [
-        { label: 'Gemini', text: '6%', tone: 'ok' },
-        { label: 'C/GPT', text: '0%', tone: 'ok' },
-      ],
-    });
+
   });
 
   it('accounts only Cockpit Tools reads show its one number per model group', () => {
@@ -119,7 +175,6 @@ describe('popover view', () => {
     });
     const teamA = v.claude.cards.find((r) => r.name === 'Team A')!;
     expect(teamA.chips.map((c) => c.t)).toContain('số từ claude-swap');
-    expect(v.claude.room).toBeNull();
     expect(view('keychain', {}, { keychainLater: true }).banner).toBeNull();
   });
 
@@ -159,13 +214,12 @@ describe('popover view', () => {
       body: 'Có lại lúc 16:40 khi Cá nhân và Team B được đặt lại.',
       actions: [],
     });
-    expect(v.claude.room).toMatchObject({ value: '0,0', sub: 'cạn · có lại lúc 16:40', tone: 'bad' });
+    expect(v.now.rows[0]).toMatchObject({ text: '96%', tone: 'bad' });
   });
 
   it('without a rotation file names accounts by number', () => {
     const v = view('no-rotation');
     expect(v.claude.cards.map((r) => r.name).sort()).toEqual(['Tài khoản 1', 'Tài khoản 2', 'Tài khoản 3', 'Tài khoản 4']);
-    expect(v.claude.room).toBeNull();
   });
 
   it('an unreadable claude-swap and account list say why without guessing numbers', () => {
@@ -178,13 +232,14 @@ describe('popover view', () => {
   it('a Mac without Antigravity has no Antigravity cards', () => {
     const v = view('no-antigravity');
     expect(v.agy.cards).toEqual([]);
-    expect(v.agy.folded).toBeNull();
+    expect(v.now.rows.map((r) => r.svc)).toEqual(['Claude', 'Codex']);
     expect(v.agy.note?.text).toBe('Máy này chưa có Antigravity');
   });
 
-  it('an agy rotation counts room in accounts', () => {
+  it('an Antigravity rotation still shows the account in use, not its room', () => {
     const v = view('agy-pool');
-    expect(v.agy.room).toMatchObject({ value: '1,2', unit: 'tài khoản Antigravity', mark: null, tone: 'ok' });
+    expect(v.now.rows[1]).toMatchObject({ svc: 'Gemini' });
+    expect(JSON.stringify(v)).not.toContain('tài khoản Antigravity');
   });
 
   it('quota-axi missing keeps the last numbers, marked old', () => {
@@ -199,7 +254,8 @@ describe('popover view', () => {
         { label: 'Thử lại', act: 'refresh' },
       ],
     });
-    expect(v.claude.room).toMatchObject({ sub: 'số lúc 14:20', tone: 'muted' });
+    // Đang dùng never shows an old number as a new one.
+    expect(v.now.rows[0]).toMatchObject({ name: 'lan.acme1', text: '—', note: 'không đọc được số' });
     expect(v.claude.cards.every((r) => r.dim)).toBe(true);
   });
 
@@ -209,17 +265,18 @@ describe('popover view', () => {
   });
 
   it('a provider that stopped answering keeps the time of its own last numbers', () => {
-    const agyOld = fixtureModel('fresh', { errors: { claude: null, agy: { kind: 'timeout', detail: '' } } });
+    const agyOld = fixtureModel('fresh', { errors: { claude: null, agy: { kind: 'timeout', detail: '' }, codex: null } });
     agyOld.snapshot.agy.generatedAt = '2026-01-16T06:50:00.000Z';
     const a = popoverView(agyOld, FIXTURE_NOW);
     expect(a.agy.note).toEqual({ tone: 'warn', text: 'Không đọc được số Antigravity mới. Đang hiện số lúc 13:50.' });
     expect(a.agy.cards.every((c) => c.dim)).toBe(true);
 
-    const claudeOld = fixtureModel('fresh', { errors: { claude: { kind: 'timeout', detail: '' }, agy: null } });
+    const claudeOld = fixtureModel('fresh', { errors: { claude: { kind: 'timeout', detail: '' }, agy: null, codex: null } });
     claudeOld.snapshot.claude.generatedAt = '2026-01-16T06:50:00.000Z';
     const c = popoverView(claudeOld, FIXTURE_NOW);
     expect(c.banner?.body).toBe('quota-axi không chạy được: quá thời gian chờ. Đang hiện số cuối lúc 13:50.');
-    expect(c.claude.room).toMatchObject({ sub: 'số lúc 13:50', tone: 'muted' });
+    expect(c.now.rows[0].note).toBe('không đọc được số');
+    expect(a.now.rows[1].note).toBe('không đọc được số');
   });
 
   it('before the first read says it is reading', () => {

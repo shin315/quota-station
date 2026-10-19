@@ -95,6 +95,8 @@ export type Keychain = 'granted' | 'required' | 'unknown';
 export interface Snapshot {
   claude: Section;
   agy: Section;
+  /** Codex's own ChatGPT login (`quota-axi --provider codex`): one account, five hours and a week. */
+  codex: Section;
   keychain: Keychain;
 }
 
@@ -309,6 +311,7 @@ export interface AgyReadError {
 
 /** One account logged in here (`src-tauri/src/antigravity.rs` `AccountView`). */
 export type Theme = 'auto' | 'light' | 'dark';
+export type Menubar = 'claude' | 'gemini' | 'codex';
 
 export interface AgyLogin {
   id: string;
@@ -677,7 +680,7 @@ export type CodexRestart = { kind: 'restarted' } | { kind: 'notRunning' } | { ki
 
 export interface Model {
   snapshot: Snapshot;
-  errors: { claude: ErrorView | null; agy: ErrorView | null };
+  errors: { claude: ErrorView | null; agy: ErrorView | null; codex: ErrorView | null };
   reading: boolean;
   reads: number;
   /** The name shown for this Mac: set in settings, else the one macOS gives. */
@@ -692,6 +695,8 @@ export interface Model {
   /** Account names (emails, organizations) may show; off, none reaches the window. */
   showNames: boolean;
   theme: Theme;
+  /** The service the menu bar title follows. */
+  menubar: Menubar;
   antigravity: AgyAccounts;
   agySwitch: AgySwitchView;
   /** The five alerts (M6). */

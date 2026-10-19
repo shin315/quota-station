@@ -11,11 +11,6 @@ export function clock(iso: string | null): string {
   return Number.isNaN(d.getTime()) ? '' : pad(d.getHours()) + ':' + pad(d.getMinutes());
 }
 
-/** Room in accounts with a Vietnamese decimal comma: `2,3`. Matches the menu bar title. */
-export function room(value: number): string {
-  return (Math.round(value * 10) / 10).toFixed(1).replace('.', ',');
-}
-
 export function percent(value: number): string {
   return Math.round(value) + '%';
 }

@@ -353,7 +353,7 @@ export function fixtureModel(name: string, over: Partial<Model> = {}): Model {
   if (!snapshot) throw new Error('no snapshot fixture ' + name);
   return {
     snapshot: structuredClone(snapshot),
-    errors: { claude: null, agy: null },
+    errors: { claude: null, agy: null, codex: null },
     reading: false,
     reads: 1,
     machine: 'Mac mini',
@@ -365,6 +365,7 @@ export function fixtureModel(name: string, over: Partial<Model> = {}): Model {
     rotation: rotationFixture(),
     showNames: true,
     theme: 'auto',
+    menubar: 'claude',
     antigravity: agyFixture(),
     agySwitch: { busy: null, listed: false, overwritten: null },
     alerts: alertsFixture(),
@@ -376,5 +377,5 @@ export function fixtureModel(name: string, over: Partial<Model> = {}): Model {
 }
 
 export function failing(kind: ErrorView['kind'], detail = ''): Model['errors'] {
-  return { claude: { kind, detail }, agy: { kind, detail } };
+  return { claude: { kind, detail }, agy: { kind, detail }, codex: { kind, detail } };
 }

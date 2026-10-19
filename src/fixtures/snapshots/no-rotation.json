@@ -238,5 +238,28 @@
     "personalHours": null,
     "source": null
   },
+  "codex": {
+    "status": "unread",
+    "reason": null,
+    "accounts": [],
+    "pool": {
+      "kind": "none",
+      "room": null,
+      "percent": null,
+      "line": null,
+      "scope": null,
+      "members": 0,
+      "rooms": [],
+      "nextRefillAt": null,
+      "refills": [],
+      "exhausted": false,
+      "reason": null
+    },
+    "generatedAt": null,
+    "newestReadingAt": null,
+    "stale": false,
+    "personalHours": null,
+    "source": null
+  },
   "keychain": "granted"
 }

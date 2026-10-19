@@ -581,6 +581,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       onGrant={() => void grant()}
       onShowNames={(on) => void api.setShowNames(on).catch(() => showFeedback(settingsFailedFeedback()))}
       onTheme={(theme) => void api.setTheme(theme).catch(() => showFeedback(settingsFailedFeedback()))}
+      onMenubar={(menubar) => void api.setMenubar(menubar).catch(() => showFeedback(settingsFailedFeedback()))}
       onSetMachine={(name) =>
         api.setMachineName(name).then(
           () => true,

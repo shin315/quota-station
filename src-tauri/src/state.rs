@@ -14,11 +14,12 @@ use quota_station_core::axi::Response;
 use quota_station_core::detail::{self, AgyDetail};
 use quota_station_core::firstmate::{self, Reading};
 use quota_station_core::history::Seen;
+use quota_station_core::icon::{self, Context, Failing, Icon};
 use quota_station_core::peers::{self, PeerState, SyncLog};
 use quota_station_core::rotation::{self, FileState, Rules, Stamp};
 use quota_station_core::runner::{self, RunError};
 use quota_station_core::schedule::Schedule;
-use quota_station_core::settings::{Settings, Theme};
+use quota_station_core::settings::{Menubar, Settings, Theme};
 use quota_station_core::switcher::{Decision, DryRun, LogLine};
 use quota_station_core::switching::Tools;
 use quota_station_core::{cswap, local_time, pause, switcher, Snapshot};
@@ -116,6 +117,10 @@ pub struct Inner {
     pub agy: Option<Response>,
     pub claude_error: Option<RunError>,
     pub agy_error: Option<RunError>,
+    /// The last `--provider codex` report and read error, for the menu bar
+    /// and the Đang dùng block; none on a Mac without a Codex folder.
+    pub codex_quota: Option<Response>,
+    pub codex_quota_error: Option<RunError>,
     /// claude-swap's list as last read: every Claude account's windows,
     /// email and organization. Never written to disk.
     pub claude_list: Option<Vec<cswap::SwapAccount>>,
@@ -276,6 +281,8 @@ impl Inner {
             agy: None,
             claude_error: None,
             agy_error: None,
+            codex_quota: None,
+            codex_quota_error: None,
             claude_list: None,
             claude_generation: 0,
             agy_generation: 0,
@@ -367,6 +374,7 @@ impl Inner {
 
     pub fn snapshot(&self) -> Snapshot {
         Snapshot::build(self.claude.as_ref(), self.agy.as_ref())
+            .with_codex(self.codex_quota.as_ref())
     }
 
     /// The snapshot the windows draw: every account's windows from
@@ -406,6 +414,29 @@ impl Inner {
     }
 
     pub fn model(&self) -> Model {
+        self.model_with(self.detailed_snapshot())
+    }
+
+    /// The menu bar icon for `snapshot`, the detailed one the windows get:
+    /// only it has the names and every window.
+    pub fn icon(&self, snapshot: &Snapshot, now: OffsetDateTime) -> Icon {
+        let cx = Context {
+            follow: self.settings.menubar,
+            failing: Failing {
+                claude: self.claude_error.is_some(),
+                agy: self.agy_error.is_some(),
+                codex: self.codex_quota_error.is_some(),
+            },
+            codex: self.codex_use(),
+            now,
+        };
+        icon::icon(self.claude.is_some().then_some(snapshot), &cx)
+            .with_pause(self.switcher.paused(now))
+    }
+
+    /// The model for `snapshot`: [`Inner::detailed_snapshot`] reads the
+    /// app's Antigravity files, so a caller that has one passes it in.
+    pub fn model_with(&self, snapshot: Snapshot) -> Model {
         let path = self.quota_axi();
         let version = self
             .version
@@ -413,10 +444,11 @@ impl Inner {
             .filter(|(p, _)| Some(p) == path.as_ref())
             .and_then(|(_, v)| v.as_ref().ok().cloned());
         Model {
-            snapshot: self.detailed_snapshot(),
+            snapshot,
             errors: Errors {
                 claude: self.claude_error.as_ref().map(ErrorView::from),
                 agy: self.agy_error.as_ref().map(ErrorView::from),
+                codex: self.codex_quota_error.as_ref().map(ErrorView::from),
             },
             reading: self.reading,
             reads: self.reads,
@@ -437,6 +469,7 @@ impl Inner {
             },
             show_names: !self.settings.hide_names,
             theme: self.settings.theme,
+            menubar: self.settings.menubar,
             antigravity: antigravity::view(self),
             agy_switch: agy_switch::view(self),
             rotation: self.rotation_view(),
@@ -540,6 +573,8 @@ pub struct Model {
     /// Account names (emails, organizations) may show.
     pub show_names: bool,
     pub theme: Theme,
+    /// The service the menu bar title follows.
+    pub menubar: Menubar,
     /// The Antigravity accounts this app logs in itself.
     pub antigravity: AccountsView,
     /// Switching them (M4c).
@@ -644,6 +679,7 @@ pub struct ClaudeSwitchView {
 pub struct Errors {
     pub claude: Option<ErrorView>,
     pub agy: Option<ErrorView>,
+    pub codex: Option<ErrorView>,
 }
 
 #[derive(Debug, Clone, Serialize)]

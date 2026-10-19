@@ -1,7 +1,7 @@
 # Quota Station
 
-A macOS menu bar app that shows how much Claude Code and Antigravity quota
-is left on this Mac, as reported by [quota-axi](https://github.com/kunchenguid/quota-axi).
+A macOS menu bar app that shows how much Claude Code, Antigravity and Codex
+quota is used on this Mac, as reported by [quota-axi](https://github.com/kunchenguid/quota-axi).
 The interface is in Vietnamese.
 
 **Personal, non-commercial project (cá nhân, phi thương mại).** It is shared
@@ -12,15 +12,15 @@ Based in part on [Cockpit Tools](https://github.com/jlcodes99/cockpit-tools)
 account switch
 are adapted from Cockpit's code. See [`NOTICE`](NOTICE).
 
-<img src="docs/popover.png" width="380" alt="The popover on fixture data: two pool tiles, four Claude Code accounts and two Antigravity accounts with their allowances and reset times">
+<img src="docs/popover.png" width="380" alt="The popover on fixture data: Đang dùng for Claude, Gemini and Codex, then four Claude Code accounts and two Antigravity accounts with their share used and reset times, and the Codex row">
 
-![The menu bar item for four fixture cases, in light and dark menu bars](docs/menubar.png)
+![The menu bar item for five fixture cases (following Claude, Gemini, Codex on ChatGPT, Codex through a provider, an exhausted rotation), in light and dark menu bars](docs/menubar.png)
 
-<img src="docs/window.png" width="760" alt="The main window's Tổng quan tab on fixture data: the two pools, the Claude Code and Antigravity accounts in tables, and the next resets">
+<img src="docs/window.png" width="760" alt="The main window's Tổng quan tab on fixture data: Đang dùng with a tile per service, the Claude Code and Antigravity accounts in tables, the Codex card and the next resets">
 
 All three images use the synthetic test fixtures, not real accounts. The menu
-bar image is drawn from the app's own glyph code, not captured from the screen.
-The popover and window images date from M2, before the switch buttons.
+bar image is drawn from the app's own glyph and title code, not captured from
+the screen; the popover and window images are the browser preview.
 
 ## What it does
 
@@ -46,30 +46,47 @@ card does what the same button in the app does: a Claude switch still opens
 the confirmation sheet first.
 
 - **Menu bar item.** A template glyph with one bar for Claude and one for
-  Antigravity. Next to it is the whole-rotation number. When there is a
-  rotation this is the room left, counted in accounts: `2,3` means about 2.3
-  accounts' worth. With no rotation it is the active account's percent, for
-  example `57%`. Before the first read it shows `–`. The tooltip and the
-  VoiceOver label say the same in words. While automatic switching is paused,
-  two small pause bars follow the number.
-- **Popover** (left click). A card per account, the one in use first: every
-  Claude Code account with its `5 giờ`, `Tuần` and `Fable` windows, every
-  Antigravity account with `Gemini 5 giờ`, `Gemini tuần`, `Claude/GPT 5 giờ`
-  and `Claude/GPT tuần`, each as the share **used** (the bar fills as the
-  quota goes; amber from 70 %, red from 90 %) with when it resets; a five-hour
-  window not started yet reads `0% chưa dùng`. Above the Claude cards, the
-  room left in the rotation before the switch threshold, in accounts, with a
-  bar per account. The `CLAUDE` and `ANTIGRAVITY` headers fold their group to
-  one line (the account in use and its tightest window), and a folded group
-  stays folded the next time the popover opens. It also has banners for
+  Antigravity, each filling as its account in use is used. Next to it is the
+  account in use and its share used for one service, `lan.acme1 38%`, the way
+  claude-swap's own menu bar named it. The service is Claude by default;
+  `Thanh menu` in `Cài đặt` and `Thanh menu theo` in the right-click menu
+  pick Gemini (Antigravity's Gemini models) or Codex instead, on each Mac.
+  The number is the account's window used the most (a tie names the longer
+  window), the same one Đang dùng shows; which window it is shows on hover.
+  The name is the part of the email before `@`, cut to 12 characters with
+  `…`, or the account's place (`Team A`, `Ultra 1`) while names are hidden.
+  Codex shows `ChatGPT` and that account's number on its ChatGPT login, and
+  only the provider's name when it goes through a provider of its own,
+  which reports no quota. Without a number (no read yet, quota-axi failing,
+  a window waiting for its number after a reset) the title is the name and
+  `–`. A Mac without Antigravity, or without Codex, follows Claude. The
+  tooltip and the VoiceOver label give every service in words, windows and
+  resets included. While automatic switching is paused, two small pause bars
+  follow the glyph; an exhausted Claude rotation draws a warning triangle.
+- **Popover** (left click). One header line with this Mac's name; how old
+  the numbers are shows only when they are not fresh. On top, `Đang dùng`:
+  one line per service (Claude, Gemini, Codex) with the account in use, its
+  share used and when that resets, the window named on hover; Antigravity's
+  Claude/GPT models join the Gemini line from 70 % used. Then a card per
+  account, the one in use first (its frame marks it): every Claude Code
+  account with its `5 giờ`, `Tuần` and `Fable` windows (a Team seat with no
+  week has no `Tuần` line), every Antigravity account with a `Gemini` and a
+  `Claude/GPT` line, each the tighter of that group's two windows, each as
+  the share **used** (the bar fills as the quota goes; amber from 70 %, red
+  from 90 %) with when it resets. The `CLAUDE` and `ANTIGRAVITY` headers fold
+  their group to the header alone, and a folded group stays folded the next
+  time the popover opens. Every window, the organization and the hours stay
+  in the cards' spoken labels and in the main window. It also has banners for
   stale numbers, an unavailable source, numbers waiting after a reset, an
   exhausted rotation, missing Keychain permission and a failing quota-axi.
   Every Claude account other than the one in use is a button that opens the
   switch sheet (below), and so is every Antigravity account logged in here
   once quota-axi lists the app's own accounts. The footer has the
-  `Tự chuyển Claude` switch and the line that says why Claude is on its
-  account, and, when other Macs are set up, which of them have the rotation
-  rules (`Mac B: 14:30 · Mac C: chưa tới được, sẽ thử lại`). Its header has
+  `Tự chuyển Claude` switch; the line that says why Claude is on its account
+  shows only when there is something to act on (a pause or hold, waiting for
+  quota, a switch coming, the switcher missing or failing), and the other
+  Macs' line only when one of them is behind
+  (`Mac B: 14:30 · Mac C: chưa tới được, sẽ thử lại`). Its header has
   two buttons: the moon (or sun) turns the look dark (or light) for both
   windows, and the box with an arrow opens the main window on `Tổng quan`.
 - **Names.** Accounts go by the part of their email before `@` when every
@@ -99,11 +116,13 @@ the confirmation sheet first.
   when claude-swap's own automatic switcher (`com.cswap.auto`) is loaded
   again, and when the switcher ignores the pause flag.
 - **Short menu** (right click). `Mở cửa sổ chính` (main window), `Làm mới`
-  (refresh), `Cài đặt…` (settings), `Thoát Quota Station` (quit).
+  (refresh), `Thanh menu theo` (Claude, Gemini or Codex, ticked; a service
+  this Mac lacks is greyed out), `Cài đặt…` (settings), `Thoát Quota Station`
+  (quit).
 - **Main window.** The same numbers as the popover, from the same read, in
   these tabs:
-  - `Tổng quan`: the room left in the rotation with each account's bar,
-    every Claude Code and Antigravity account in a table with fixed columns
+  - `Tổng quan`: `Đang dùng`, a tile per service with the account in use,
+    its share used large, the window and its reset, every Claude Code and Antigravity account in a table with fixed columns
     (`5 giờ · Tuần · Fable tuần` for Claude; `5 giờ` and `Tuần` under
     `Gemini` and `Claude/GPT` for Antigravity), each the share used, the
     `Tự chuyển Claude` switch with its one line, and `Sắp tới`, the resets
@@ -132,7 +151,9 @@ the confirmation sheet first.
     `Thêm Mac`, `Bỏ` and `Thử SSH` (reads that Mac's rotation file and
     changes nothing), whether `oauth-client.json` is in place and usable,
     `Hiện email` (on by default; off names accounts by place), `Giao diện`
-    (`Theo macOS`, `Sáng` or `Tối`), `File của firstmate` (the path to
+    (`Theo macOS`, `Sáng` or `Tối`), `Thanh menu` (the service the menu bar
+    title follows: Claude, Gemini or Codex; one this Mac lacks is greyed out
+    with the reason), `File của firstmate` (the path to
     Firstmate's `quota-pool.last`; nothing is built in, and only a file of
     that name is taken), `Thông báo` (whether macOS lets the cards show,
     `Gửi thử` and a switch for each kind of alert), and the app itself (M7):
@@ -220,7 +241,8 @@ the confirmation sheet first.
      have not left it (the personal one only inside its hours) count; the
      pool is dry when the account in use has 10% or less left and no other
      has 15% or more. Without quota-axi's rotation the app uses the rotation
-     file, for this alert and the next. The card names when an account resets and offers
+     file, for this alert and the next. The card names the account in use
+     and its share used, and when an account resets, and offers
      `Sang <tài khoản> (còn N%)`, which opens the switch sheet, and `Thôi`.
   2. `<tài khoản> rời vòng lúc HH:MM`: 30 minutes before an account leaves
      the rotation (`expire` in the rules). For the account in use it offers
@@ -249,7 +271,7 @@ the confirmation sheet first.
   answered and snoozed is kept in `alerts/alerts.json` (the newest 30 cards).
 - **Firstmate** (F10). Whether Firstmate holds new Claude work, from the
   line its quota-pool watch writes, `quota-pool.last`, at the path set in
-  `Cài đặt`, next to the pool quota-axi reports: the account in use, what
+  `Cài đặt`: the account in use, what
   each account has left, the next reset, whether quota-axi has `+cswap` and
   whether Firstmate could read claude-swap, and when the file was written.
   A file older than 30 minutes says Firstmate may not be running, and a Mac
@@ -259,7 +281,7 @@ the confirmation sheet first.
   (a `[model_providers.<id>]` table with its own key). The app switches
   between the two and keeps the ChatGPT login in place, so Codex App's
   plugins and remote control keep working while Codex goes through the
-  custom provider. The popover has a `CODEX` row: the provider in use, its
+  custom provider. The popover has a one-line `CODEX` row: the provider in use, its
   state as chips (the custom provider not answering, CC Switch also
   managing Codex, a change made outside the app, no ChatGPT login) and the
   way it would switch (`→ ChatGPT`). Pressing the row never switches: it
@@ -352,7 +374,10 @@ assumes another Mac has any. Each Mac installs and updates its own copy
 ### What it reads and runs
 
 - `quota-axi --provider claude --json --max-age 120s --no-credential-refresh`,
-  and the same for `--provider agy`. The app reads every 60 seconds while the
+  and the same for `--provider agy`, and for `--provider codex` on a Mac with
+  a Codex folder (its ChatGPT login's five-hour and weekly windows, for the
+  menu bar and `Đang dùng`; when quota-axi has no stored login it may ask
+  Codex's own read-only `app-server`, as quota-axi documents). The app reads every 60 seconds while the
   popover or the main window is open and every 5 minutes while both are
   hidden. It also reads when either opens, after the Mac wakes and on
   `Làm mới`. The check after a switch passes `--max-age 0` instead: a cached

@@ -39,9 +39,12 @@ describe('the Codex row', () => {
   it('shows the provider in use and where a switch goes, and opens the sheet instead of switching', async () => {
     const fake = await openPopover(withCodex());
     const section = screen.getByRole('region', { name: 'Codex' });
-    expect(within(section).getByText('Codex App đang mở')).toBeTruthy();
-    expect(codexRow().textContent).toBe('CodexrelayTrả lời 180 ms · giữ đăng nhập ChatGPT→ ChatGPT');
-    expect(codexRow().getAttribute('aria-label')).toBe('Codex đang dùng relay. Bấm để chuyển sang tài khoản ChatGPT');
+    // One line at the Gọn hơn level; what it leaves out is in the spoken label and the Codex tab.
+    expect(within(section).queryByText('Codex App đang mở')).toBeNull();
+    expect(codexRow().textContent).toBe('Codexrelay→ ChatGPT');
+    expect(codexRow().getAttribute('aria-label')).toBe(
+      'Codex đang dùng relay. Bấm để chuyển sang tài khoản ChatGPT. Trả lời 180 ms · giữ đăng nhập ChatGPT. Codex App đang mở',
+    );
     await press(codexRow());
     expect(fake.api.codexSwitch).not.toHaveBeenCalled();
     const sheet = screen.getByRole('dialog', { name: 'Chuyển Codex về tài khoản ChatGPT?' });

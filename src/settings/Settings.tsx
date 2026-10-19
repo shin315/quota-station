@@ -12,7 +12,7 @@ import { AlertKinds } from '../alerts/AlertsTab';
 import { Button, Chip, Dot, Feedback, Toggle } from '../components/parts';
 import { PERMISSION_CHIPS, UNREAD } from '../lib/alerts';
 import type { ChipView } from '../lib/view';
-import type { AlertKind, AppView, ClientStatus, Model, Peer, PeerTest, Theme, UpdateError } from '../lib/model';
+import type { AlertKind, AppView, ClientStatus, Menubar, Model, Peer, PeerTest, Theme, UpdateError } from '../lib/model';
 import type { Action, FeedbackView, PopoverView } from '../lib/view';
 
 const THEMES: [Theme, string][] = [
@@ -38,6 +38,8 @@ export interface SettingsProps {
   /** Names (emails, organizations) on or off, in both windows. */
   onShowNames(on: boolean): void;
   onTheme(theme: Theme): void;
+  /** The service the menu bar title follows. */
+  onMenubar(menubar: Menubar): void;
   /** Resolves to null once saved, else the refusal (`notPoolFile`, `notFound`). */
   onSetFirstmate(path: string): Promise<string | null>;
   /** Codex's folder; empty is `~/.codex`. Resolves to what it was refused with, or null. */
@@ -525,6 +527,54 @@ function Version({ app, onUpdate, onRelaunch }: { app: AppView; onUpdate: Settin
   );
 }
 
+const MENUBARS: [Menubar, string, 'c' | 'g' | 'x'][] = [
+  ['claude', 'Claude', 'c'],
+  ['gemini', 'Gemini', 'g'],
+  ['codex', 'Codex', 'x'],
+];
+
+/**
+ * Why this Mac cannot follow a service in the menu bar, as the Rust side
+ * decides it (`icon::followed`): no Antigravity, or no Codex reached through
+ * a ChatGPT login or a provider of its own. '' when it can.
+ */
+export function menubarOff(model: Model, menubar: Menubar): string {
+  if (menubar === 'gemini' && model.snapshot.agy.status === 'notSetUp') return 'Máy này chưa có Antigravity.';
+  if (menubar === 'codex') {
+    if (!model.codex.present) return 'Máy này chưa có Codex.';
+    if (model.codex.current === 'chatgpt' && model.snapshot.codex.status === 'notSetUp') return 'Codex chưa đăng nhập ChatGPT.';
+  }
+  return '';
+}
+
+/** Thanh menu: which service's account and percent used the menu bar shows. */
+function MenubarRow({ model, onPick }: { model: Model; onPick(menubar: Menubar): void }) {
+  const offs = MENUBARS.map(([v]) => menubarOff(model, v)).filter(Boolean);
+  const picked = menubarOff(model, model.menubar);
+  return (
+    <div className="fr">
+      <div className="fl" id="qs-menubar-l">
+        Thanh menu
+      </div>
+      <div>
+        <div className="seg mbsel" role="group" aria-labelledby="qs-menubar-l">
+          {MENUBARS.map(([v, t, id]) => {
+            const off = menubarOff(model, v);
+            return (
+              <button key={v} type="button" aria-pressed={model.menubar === v} disabled={!!off} title={off || undefined} onClick={() => onPick(v)}>
+                <span className={'idm ' + id} aria-hidden="true" />
+                {t}
+              </button>
+            );
+          })}
+        </div>
+        <div className="fhint">Tên và phần trăm đã dùng của tài khoản đang dùng.</div>
+        {offs.length ? <div className="fhint off">{picked ? picked.replace(/\.$/, '') + ': thanh menu theo Claude.' : offs.join(' ')}</div> : null}
+      </div>
+    </div>
+  );
+}
+
 export function Settings({
   model,
   fresh,
@@ -538,6 +588,7 @@ export function Settings({
   onTestPeer,
   onShowNames,
   onTheme,
+  onMenubar,
   onSetFirstmate,
   onSetCodexHome,
   onTestAlert,
@@ -655,6 +706,7 @@ export function Settings({
               ))}
             </div>
           </div>
+          <MenubarRow model={model} onPick={onMenubar} />
           <FirstmateFile model={model} onSet={onSetFirstmate} />
           {onSetCodexHome ? <CodexHome model={model} onSet={onSetCodexHome} /> : null}
           <Notifications model={model} onAction={onAction} onTest={onTestAlert} onSwitch={onAlertSwitch} />

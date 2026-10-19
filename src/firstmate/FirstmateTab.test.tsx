@@ -38,7 +38,6 @@ describe('the Firstmate tab', () => {
     expect(screen.getByText('Firstmate thấy đủ hạn mức Claude')).toBeTruthy();
     expect(screen.getByText('Không chờ hạn mức.')).toBeTruthy();
     expect(seen()).toEqual([
-      'Hạn mức Claude trong vòng: tương đương 2,3 tài khoản (quota-axi)',
       'Chờ hạn mức Claude: không',
       'Tài khoản đang dùng: lan.acme1',
       'Đã dùng từng tài khoản: lanpham.dev đã dùng 71% · lan.acme1 đã dùng 100% · lan.acme2 đã dùng 0% · lan.acme3 đã dùng 2%',
