@@ -4,6 +4,7 @@
 // and banners. Pure, like `view.ts`.
 
 import { overwriteBanner } from './agySwitch';
+import { envBanner } from './env';
 import { clock, minutesUntil } from './format';
 import type { Account, LineKind, Model, Section } from './model';
 import { autoView, dayClock, pauseOf, type AutoView } from './switching';
@@ -61,6 +62,8 @@ export interface WindowView {
   auto: AutoView;
   /** The Claude tab's own banner: the switcher's LaunchAgent is not loaded. */
   claudeBanner: BannerView | null;
+  /** The Claude tab's red banner: a variable overrides Claude Code's login (M14). */
+  envBanner: BannerView | null;
   /** The Claude tab's Switcher card: one line, the rest folded. */
   switcher: { line: string; tone: 'ok' | 'warn' | 'bad' | 'muted'; details: KeyValue[] };
 }
@@ -237,6 +240,7 @@ export function windowView(model: Model, now: Date, options: ViewOptions = {}): 
     upcoming: upcoming(model, now),
     auto,
     claudeBanner: claudeBanner(model),
+    envBanner: envBanner(model),
     switcher: switcherCard(model, auto, now),
   };
 }

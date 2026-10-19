@@ -18,6 +18,10 @@
 //! version on GitHub ([`skill_alert`]). It shows in the app; a macOS card
 //! only when the owner turned that on in Cài đặt.
 //!
+//! And one for each environment variable that overrides a login (M14, I):
+//! [`env_alerts`], in the app only, never a macOS card. It names the
+//! variable and where it is set, never its value.
+//!
 //! An alert's key names its event (the account, the time it ends), and a
 //! key is sent once; "Nhắc ngày mai" sends it again the next morning while
 //! it still holds. The cards name accounts the way the windows do (Team A,
@@ -31,6 +35,7 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use time::{OffsetDateTime, UtcOffset, Weekday};
 
+use crate::agents::env_check;
 use crate::antigravity::fs::AppDir;
 use crate::antigravity::index::{self, Standing};
 use crate::antigravity::switch::{How, Outcome as AgyOutcome};
@@ -75,6 +80,8 @@ pub enum Kind {
     Firstmate,
     /// Skills with a newer version (M11): not one of the five, no switch here.
     Skill,
+    /// A variable overriding a login (M14): in the app only, no switch.
+    Env,
 }
 
 impl Kind {
@@ -90,6 +97,7 @@ impl Kind {
             Kind::Overwrite => 4,
             Kind::Firstmate => 5,
             Kind::Skill => 6,
+            Kind::Env => 7,
         }
     }
 }
@@ -121,7 +129,7 @@ impl Switches {
             Kind::Overwrite => self.overwrite,
             Kind::Firstmate => self.firstmate,
             // Its own settings say whether the app checks at all.
-            Kind::Skill => true,
+            Kind::Skill | Kind::Env => true,
         }
     }
 
@@ -132,7 +140,7 @@ impl Switches {
             Kind::Login => self.login = on,
             Kind::Overwrite => self.overwrite = on,
             Kind::Firstmate => self.firstmate = on,
-            Kind::Skill => {}
+            Kind::Skill | Kind::Env => {}
         }
     }
 
@@ -970,6 +978,12 @@ pub enum Effect {
     },
     /// The Skills tab, where the new versions are.
     OpenSkills,
+    /// Cài đặt, where the variables' card is.
+    OpenSettings,
+    /// "Bỏ qua" on a variable: every place the card named.
+    IgnoreEnv {
+        name: String,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1068,6 +1082,20 @@ pub fn answer(
             "Bấm Cập nhật ở skill bạn muốn. App không tự cập nhật.",
         );
         (Effect::OpenSkills, Some(said))
+    } else if action == "env:settings" {
+        let said = said(
+            Tone::Info,
+            "Đã mở Cài đặt",
+            "Thẻ Biến môi trường đè đăng nhập ở đầu trang. App không sửa file shell.",
+        );
+        (Effect::OpenSettings, Some(said))
+    } else if let Some(name) = action.strip_prefix("env:ignore:") {
+        let said = said(
+            Tone::Info,
+            format!("Đã bỏ qua {name}"),
+            "Báo lại nếu biến được đặt ở chỗ khác. App không sửa file shell.",
+        );
+        (Effect::IgnoreEnv { name: name.to_string() }, Some(said))
     } else if action == "agy:login" {
         let said = said(
             Tone::Info,
@@ -1209,6 +1237,12 @@ pub fn sample(kind: Kind, now: i64, offset: UtcOffset) -> Alert {
             "Thử: ui-polish, sql-helper. App không tự cập nhật.".into(),
             vec![act("skills:open", "Xem"), act("dismiss", "Để sau")],
         ),
+        Kind::Env => (
+            Tone::Bad,
+            "ANTHROPIC_API_KEY đang đè đăng nhập Claude Code".into(),
+            "Thử: đặt ở ~/.zshrc dòng 42. App không đọc giá trị.".into(),
+            vec![act("env:settings", "Xem"), act("env:ignore:ANTHROPIC_API_KEY", "Bỏ qua")],
+        ),
     };
     Alert {
         key: format!("test:{}:{now}", kind.number()),
@@ -1253,6 +1287,73 @@ pub fn skill_alert(memory: &mut Memory, found: &[(String, String)], now: i64) ->
     memory.recent.insert(0, Record { id: id.clone(), alert, notified: false, answer: None });
     memory.recent.truncate(RECENT_KEEP);
     Some(id)
+}
+
+/// The alerts for the variables that override a login (I): one card for
+/// each variable, naming every place it is set, sent again only when it is
+/// set somewhere new. `found` holds no value, so neither does the card.
+/// Returns the new cards' ids.
+pub fn env_alerts(memory: &mut Memory, found: &[env_check::Found], now: i64) -> Vec<String> {
+    let mut ids = Vec::new();
+    for v in &env_check::VARS {
+        let here: Vec<&env_check::Found> = found.iter().filter(|f| f.name == v.name).collect();
+        let Some(first) = here.first() else { continue };
+        let places: Vec<&str> = here.iter().map(|f| f.place.word()).collect();
+        let key = format!("env:{}:{}", v.name, places.join(","));
+        if memory.sent.contains_key(&key) {
+            continue;
+        }
+        let at: Vec<String> = here.iter().map(|f| f.at()).collect();
+        let alert = Alert {
+            key: key.clone(),
+            kind: Kind::Env,
+            tone: match v.weight {
+                env_check::Weight::Bad => Tone::Bad,
+                env_check::Weight::Warn => Tone::Warn,
+            },
+            title: format!("{} đang đè đăng nhập {}", v.name, v.agent.label()),
+            body: format!("Đặt ở {}. {}", in_words(&at), first.effect),
+            actions: vec![
+                act("env:settings", "Xem"),
+                act(format!("env:ignore:{}", v.name), "Bỏ qua"),
+            ],
+            at: now,
+            test: false,
+        };
+        memory.sent.insert(key.clone(), now);
+        let id = format!("{key}@{now}");
+        memory.recent.retain(|r| r.id != id);
+        memory.recent.insert(0, Record { id: id.clone(), alert, notified: false, answer: None });
+        ids.push(id);
+    }
+    memory.recent.truncate(RECENT_KEEP);
+    ids
+}
+
+/// `a`, `a và b`, `a, b và c`.
+fn in_words(parts: &[String]) -> String {
+    match parts.split_last() {
+        Some((last, [])) => last.clone(),
+        Some((last, rest)) => format!("{} và {last}", rest.join(", ")),
+        None => String::new(),
+    }
+}
+
+/// "Bỏ qua" pressed on `name` in Cài đặt or the Claude tab: its cards
+/// nobody answered yet take that answer too, so they stop counting.
+pub fn env_ignored(memory: &mut Memory, name: &str, now: i64, offset: UtcOffset) -> Vec<String> {
+    let action = format!("env:ignore:{name}");
+    let ids: Vec<String> = memory
+        .recent
+        .iter()
+        .filter(|r| r.alert.kind == Kind::Env && !r.alert.test && r.answer.is_none())
+        .filter(|r| r.alert.actions.iter().any(|a| a.id == action))
+        .map(|r| r.id.clone())
+        .collect();
+    for id in &ids {
+        let _ = answer(memory, id, &action, now, offset);
+    }
+    ids
 }
 
 /// Keeps a test card in `memory.recent` and returns its id.

@@ -24,9 +24,11 @@ the screen; the popover and window images are the browser preview.
 
 ## What it does
 
-This is milestone M13, "Chép sang Mac khác" (copying the MCP servers,
-skills, plugins and instruction files to or from another Mac over SSH, item
-by item), on top of M12, the rest of "Sao lưu và khôi phục" (skills, plugins
+This is milestone M14, "Biến môi trường đè đăng nhập" (saying when an
+environment variable in a shell file or launchd overrides an agent's
+login, by its name, never its value), on top of M13, "Chép sang Mac khác"
+(copying the MCP servers, skills, plugins and instruction files to or from
+another Mac over SSH, item by item), M12, the rest of "Sao lưu và khôi phục" (skills, plugins
 and instruction files in the backup pack, restored with the MCP servers),
 M11, "Skills, Plugin, File hướng dẫn", M10, "Sao lưu và khôi phục"
 (backing the MCP servers up to iCloud Drive and restoring them on any Mac),
@@ -500,6 +502,33 @@ the confirmation sheet first.
 
   <img src="docs/copy-unreach.png" width="372" alt="The other Mac does not answer over SSH, with Thử lại and Mở Cài đặt"> <img src="docs/copy-old.png" width="372" alt="The other Mac's Quota Station is still version 1: nothing is offered to copy">
 
+- **Biến môi trường đè đăng nhập** (M14). An `ANTHROPIC_API_KEY` in
+  `~/.zshrc` makes Claude Code in Terminal use that key, whatever account
+  the app switches to. The app looks for eleven such names
+  (`ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL`,
+  `CLAUDE_CODE_OAUTH_TOKEN`, `CLAUDE_CONFIG_DIR`, `OPENAI_API_KEY`,
+  `OPENAI_BASE_URL`, `CODEX_HOME`, `GEMINI_API_KEY`, `GOOGLE_API_KEY`,
+  `GOOGLE_CLOUD_PROJECT`) in six places: `~/.zshenv`, `~/.zprofile`,
+  `~/.zshrc`, `~/.bash_profile`, `~/.profile` and launchd (what apps opened
+  from the Dock get). It learns only whether each is set, in which file and
+  on which line, never its value, and never runs a shell file. The first
+  card of `Cài đặt` names each variable, the agent it overrides, the file
+  and line and what it does, with `Mở file` (in Visual Studio Code, Cursor
+  or Zed at the line when one is installed, else the default text editor)
+  and `Bỏ qua`, which has `Hoàn tác`; with none, one green line.
+  `Xem danh sách` lists the names and the places. A variable that overrides
+  Claude Code also puts a red banner at the top of the `Claude` tab, and
+  each variable gets one card in `Cảnh báo`, in the app only, sent again
+  only when it is set somewhere new. The app checks at most every 10
+  minutes after a read, when `Cài đặt` opens and on `Kiểm lại`; it never
+  edits a shell file and never unsets anything.
+
+  <img src="docs/env-card.png" width="760" alt="Cài đặt on fixture data: the card Biến môi trường đè đăng nhập with ANTHROPIC_API_KEY in ~/.zshrc on line 42 for Claude Code and OPENAI_BASE_URL in ~/.zprofile on line 7 for Codex, each with Mở file and Bỏ qua">
+
+  <img src="docs/env-claude.png" width="760" alt="The Claude tab with the red banner: ANTHROPIC_API_KEY đang đè đăng nhập Claude, with Mở ~/.zshrc ở dòng 42, Bỏ qua and Kiểm lại">
+
+  <img src="docs/env-none.png" width="760" alt="The card with nothing set: one green line, Không có biến nào đè đăng nhập">
+
 - **Antigravity logins** (M4a). `Thêm tài khoản` opens Google's consent
   screen in the default browser, with Antigravity's own OAuth client, so the
   screen names Antigravity, not Quota Station. The flow is Cockpit's: a
@@ -695,6 +724,13 @@ assumes another Mac has any. Each Mac installs and updates its own copy
   goes on stdin, and each call stops after 20 seconds. On the Mac written
   to, the app keeps `agents/copy-job.json` (the write running, no key) and,
   while it runs, the items in `agents/incoming/`.
+- Variables that override a login (M14): the bytes of `~/.zshenv`,
+  `~/.zprofile`, `~/.zshrc`, `~/.bash_profile` and `~/.profile`, searched
+  for eleven names at the start of a line and zeroed after (never run or
+  `source`d), and `/bin/launchctl getenv NAME` for each name, whose output
+  is only asked whether it is empty, then zeroed. `Mở file` runs
+  `/usr/bin/open` on that file (a `vscode://`, `cursor://` or `zed://` URL
+  at the line, else `-t`). `Bỏ qua` is `agents/env-ignored.json`.
 - It writes these files: its own settings file,
   `~/Library/Application Support/com.shin315.quota-station/settings.json`,
   with `rotation-sync.json` (where each other Mac stands) beside it; in the
@@ -980,7 +1016,9 @@ a restore whose formatter plugin needs a login, with `Thử lại`). For M11: `s
 `tab=instr`. For M13, on `tab=copy` with two made-up Macs: `copy`
 (`unreach` for a Mac that does not answer, `old` for one on version 1,
 `noapp`, `none` for no Mac in `Cài đặt`, or `changed` for a copy that finds
-a file changed). Nothing
+a file changed). For M14: `env` (`found`, `claude2` for two variables
+over Claude Code, `launchd`, `unread` or `unchecked`; none set by default) on
+`tab=settings` and `tab=claude`, and `alerts=env` on `tab=alerts`. Nothing
 is switched, no browser opens and no file is written: a
 switch only waits 1.5 seconds, a save 1 second and each update step 1.5
 seconds, and they update the fixture.
@@ -1174,8 +1212,21 @@ and its dialogs on a fake Rust side: the ticks to begin with, the item that
 cannot go this way, the keys switch off, the copy and its undo, and the
 unreachable and version-1 Macs.
 
+The M14 tests (`crates/quota-station-core/tests/env_check.rs`) check fake
+home folders with fake shell files and a fake `launchctl` that records its
+words: a name counts only at the start of a line, the last line wins,
+`launchctl` is asked `getenv NAME` for the eleven names and nothing else, a
+file it cannot read is said, and a shell file with commands in it is never
+run. Their trap plants a value in every file and in `launchctl`'s answer
+and finds it nowhere: not in the result, the alerts, the app's folder or
+what the window is sent. That model is `src/fixtures/env-trap.json`, which
+the Vitest tests draw on Cài đặt, the Claude tab and Cảnh báo, again
+finding no value; they also walk `Mở file`, `Bỏ qua` and its `Hoàn tác`,
+`Kiểm lại`, `Xem danh sách`, the banner and the alert cards.
+
 ```sh
 UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test ui_fixtures
+UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test env_check
 ```
 
 ## Layout
@@ -1203,20 +1254,22 @@ UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test ui_fixtures
   `skill_ops.rs` and `npx.rs` install, update and remove through
   `npx skills`, `skill_updates.rs` asks GitHub for newer versions,
   `plugins.rs` reads the agents' plugin lists and `instructions.rs` the
-  instruction files.
+  instruction files. `agents/env_check.rs` finds the variables that override
+  a login by name in the shell files and launchd.
 - `src-tauri/` is the Tauri 2 shell: the tray item, the popover and the main
   window, the read loop, the Antigravity quota thread, the macOS
   notification center (`notify.rs`), the login item (`login_item.rs`), the
   update (`install.rs`), the Codex thread (`codex.rs`), the MCP tab's
   commands (`agents.rs`), the backup tab's (`backup.rs`), the Skills, Plugin
   and File hướng dẫn tabs' (`skills.rs`), the copy tab's and the
-  `quota-station agents …` commands another Mac runs (`copy.rs`) and the
-  other commands.
+  `quota-station agents …` commands another Mac runs (`copy.rs`), the check
+  of the variables that override a login (`env.rs`) and the other commands.
 - `scripts/install.sh` builds, signs, installs and packages the app.
 - `src/` is the React and TypeScript frontend; `src/agents/` holds the MCP
   tab and its `CheckMatrix`, which the Skills tab reuses, the Plugin and
   File hướng dẫn tabs, and
-  `src/backup/` the backup tab, the restore sheet and the copy tab. Its `styles/tokens.css` and
+  `src/backup/` the backup tab, the restore sheet and the copy tab;
+  `src/settings/EnvCard.tsx` is Cài đặt's card of the variables. Its `styles/tokens.css` and
   `styles/components.css` come from the approved prototype.
 
 ## License

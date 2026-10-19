@@ -43,11 +43,14 @@
 // "Studio iMac" (`studio-imac`), and `copy=unreach|old|noapp|none|changed`: the first Mac does
 // not answer, runs version 1, has no app; no Mac in settings; a copy finds a file changed.
 // A comparison, a copy and its undo take 0.9 s.
+// Variables that override a login (M14): `env=found|claude2|launchd|unread|unchecked` (none set by
+// default), shown on `tab=settings` (the card), `tab=claude` (the banner) and with `alerts=env`.
 
 import type { Api } from './lib/api';
 import type { AgyAccounts, AgyApp, AgyHow, AgyOutcome, CodexOutcome, CodexTarget, ErrorView, McpTable, Model, Outcome, Tab, UpdateError, UpdateOutcome } from './lib/model';
 import { fakeApi, fakeEmail, hideNames } from './fixtures/fakeApi';
 import { backupFixture, packsFixture } from './fixtures/fakeBackup';
+import { API_KEY, BASE_URL, CLAUDE_BASE, envAlert, envFixture, LAUNCHD_GEMINI } from './fixtures/fakeEnv';
 import { instrFixture, pluginsFixture, skillsFixture, skillTableFixture } from './fixtures/fakeSkills';
 import {
   agyAccount,
@@ -91,6 +94,14 @@ const INSTRS: Record<string, () => Model['instructions']> = {
     const i = instrFixture();
     return { ...i, view: { ...i.view!, files: i.view!.files.filter((f) => !f.keyLines.length) } };
   },
+};
+
+const ENVS: Record<string, () => Model['env']> = {
+  found: () => envFixture({ found: [API_KEY, BASE_URL] }),
+  claude2: () => envFixture({ found: [API_KEY, CLAUDE_BASE, BASE_URL] }),
+  launchd: () => envFixture({ found: [API_KEY, BASE_URL, LAUNCHD_GEMINI] }),
+  unread: () => envFixture({ found: [API_KEY], unread: ['zprofile'], ignored: 1 }),
+  unchecked: () => envFixture({ checkedAt: null }),
 };
 
 const MCP_COLUMN = (agent: 'claude' | 'codex' | 'agy', over: Partial<McpTable['columns'][number]>) => (t: McpTable) =>
@@ -160,6 +171,7 @@ const ALERTS: Record<string, () => Model['alerts']> = {
   off: () => alertsFixture({ recent: [overwriteAlert(), leavingAlert()], unanswered: 2, permission: 'denied' }),
   unbundled: () => alertsFixture({ recent: [overwriteAlert(), leavingAlert()], unanswered: 2, permission: 'unbundled' }),
   empty: () => alertsFixture(),
+  env: () => alertsFixture({ recent: [envAlert(API_KEY), envAlert(BASE_URL, 1768547640)], unanswered: 2 }),
 };
 
 const FIRSTMATES: Record<string, () => Model['firstmate']> = {
@@ -334,6 +346,8 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
   if (skills) over.skills = skills();
   const plugins = pick(PLUGINS, params.get('plugins'));
   if (plugins) over.plugins = plugins();
+  const env = pick(ENVS, params.get('env') ?? (params.get('alerts') === 'env' ? 'found' : null));
+  if (env) over.env = env();
   const instr = pick(INSTRS, params.get('instr'));
   if (instr) over.instructions = instr();
   const agyApp = params.get('agyapp');
@@ -385,6 +399,7 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
     copyNoApp: copy === 'noapp' ? ['travel-air'] : [],
     copyChanged: copy === 'changed',
     copyDelayMs: 900,
+    envDelayMs: 300,
   });
   // The window opens on the same fixture and switcher states as the popover.
   const openWindow = async (next: Tab) => {

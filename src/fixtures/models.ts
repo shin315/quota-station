@@ -1,6 +1,7 @@
 // Models built from the snapshot fixtures that Rust generates
 // (`crates/quota-station-core/tests/ui_fixtures.rs`). Synthetic data only.
 
+import { envFixture } from './fakeEnv';
 import { backupFixture } from './fakeBackup';
 import { instrFixture, pluginsFixture, skillsFixture } from './fakeSkills';
 import type {
@@ -496,6 +497,7 @@ export function fixtureModel(name: string, over: Partial<Model> = {}): Model {
     skills: skillsFixture(),
     plugins: pluginsFixture(),
     instructions: instrFixture(),
+    env: envFixture(),
     ...over,
   };
 }

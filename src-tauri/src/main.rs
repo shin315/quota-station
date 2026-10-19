@@ -30,6 +30,7 @@ mod backup;
 mod codex;
 mod commands;
 mod copy;
+mod env;
 mod install;
 mod login_item;
 mod notify;
@@ -152,6 +153,10 @@ fn main() {
             skills::skills_open_link,
             skills::skills_check,
             skills::skills_set_checks,
+            env::env_check,
+            env::env_open,
+            env::env_ignore,
+            env::env_unignore,
             skills::plugins_read,
             skills::instr_read,
             skills::instr_show,

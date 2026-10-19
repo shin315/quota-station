@@ -42,7 +42,12 @@ export type Action =
   /** The Sao lưu tab (M10): read again, its folder in Finder, undo the last restore, restore. */
   | BackupAction
   /** The Skills, Plugin and File hướng dẫn tabs (M11). */
-  | SkillAction;
+  | SkillAction
+  /** The variables that override a login (M14): Cài đặt's card and the Claude tab's banner. */
+  | EnvAction;
+
+/** "Kiểm lại", "Xem danh sách", the card in Cài đặt, and "Mở file", "Bỏ qua", its "Hoàn tác" on one place's id. */
+export type EnvAction = 'env:check' | 'env:list' | 'env:settings' | `env:open:${string}` | `env:ignore:${string}` | `env:back:${string}`;
 
 export type SkillAction =
   | 'skills:undo'

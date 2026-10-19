@@ -201,6 +201,13 @@ export interface Api {
   skillsCheck(): Promise<void>;
   /** Cài đặt › Skills. */
   skillsSetChecks(daily: boolean, notify: boolean): Promise<void>;
+  /** "Kiểm lại", and Cài đặt opening: the shell files and launchd, by name (M14). */
+  envCheck(): Promise<void>;
+  /** "Mở file" at the line. Resolves to the editor that went to the line, or null (the default editor, no line). Rejects with `notFound`, `noFile`, `open`. */
+  envOpen(id: string): Promise<string | null>;
+  /** "Bỏ qua" on one place, and its "Hoàn tác". */
+  envIgnore(id: string): Promise<void>;
+  envUnignore(id: string): Promise<void>;
   /** The Plugin tab opened, or "Đọc lại": each agent's own `plugin list`. */
   pluginsRead(): Promise<void>;
   /** The File hướng dẫn tab opened, or "Đọc lại". */
@@ -373,6 +380,10 @@ export const tauriApi: Api = {
   skillsOpenLink: (url) => invoke('skills_open_link', { url }),
   skillsCheck: () => invoke('skills_check'),
   skillsSetChecks: (daily, notify) => invoke('skills_set_checks', { daily, notify }),
+  envCheck: () => invoke('env_check'),
+  envOpen: (id) => invoke<string | null>('env_open', { id }),
+  envIgnore: (id) => invoke('env_ignore', { id }),
+  envUnignore: (id) => invoke('env_unignore', { id }),
   pluginsRead: () => invoke('plugins_read'),
   instrRead: () => invoke('instr_read'),
   instrShow: (path) => invoke<InstrShown>('instr_show', { path }),

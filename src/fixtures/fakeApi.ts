@@ -24,6 +24,7 @@ import type {
   CodexOutcome,
   CodexRestart,
   CodexTarget,
+  EnvFound,
   FirstmateView,
   HistoryEntry,
   McpOutcome,
@@ -108,6 +109,8 @@ export interface FakeOptions {
   copyChanged?: boolean;
   /** How long a comparison, a copy and its undo take. */
   copyDelayMs?: number;
+  /** How long "Kiểm lại" takes (M14). */
+  envDelayMs?: number;
 }
 
 const said = (title: string, body: string): AlertSaid => ({ tone: 'info', title, body });
@@ -128,6 +131,8 @@ function sample(kind: AlertKind, at: number): Alert {
       return { ...base, tone: 'info', title: 'Firstmate đang chờ hạn mức Claude', body: 'Thử: hạn mức trong vòng dưới ngưỡng.', actions: [] };
     case 'skill':
       return { ...base, tone: 'info', title: '2 skill có bản mới', body: 'Thử: ui-polish, sql-helper. App không tự cập nhật.', actions: [{ id: 'skills:open', label: 'Xem' }, { id: 'dismiss', label: 'Để sau' }] };
+    case 'env':
+      return { ...base, tone: 'bad', title: 'ANTHROPIC_API_KEY đang đè đăng nhập Claude Code', body: 'Thử: đặt ở ~/.zshrc dòng 42. App không đọc giá trị.', actions: [{ id: 'env:settings', label: 'Xem' }, { id: 'env:ignore:ANTHROPIC_API_KEY', label: 'Bỏ qua' }] };
   }
 }
 
@@ -224,6 +229,9 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
   /** Ends the waiting login: with a paste, a cancel or its own end. */
   let endLogin: ((how: 'paste' | 'cancel' | 'self') => void) | null = null;
   let lastCopy: CopyComparison | null = null;
+  /** "Bỏ qua" keeps what it hid, for "Hoàn tác"; "Mở file" what it opened. */
+  const envHidden = new Map<string, EnvFound>();
+  const envOpened: string[] = [];
   const api: Api = {
     getModel: async () => model,
     refresh: async () => {
@@ -649,6 +657,40 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
     skillsSetChecks: async (daily, notify) => {
       push({ ...model, skills: { ...model.skills, updates: { ...model.skills.updates, settings: { daily, notify } } } });
     },
+    envCheck: async () => {
+      push({ ...model, env: { ...model.env, checking: true } });
+      if (options.envDelayMs) await new Promise((r) => setTimeout(r, options.envDelayMs));
+      push({ ...model, env: { ...model.env, checking: false, checkedAt: now().toISOString() } });
+    },
+    envOpen: async (id) => {
+      const f = model.env.found.find((x) => x.id === id);
+      if (!f) throw 'notFound';
+      if (f.place === 'launchctl') throw 'noFile';
+      envOpened.push(id);
+      return 'Visual Studio Code';
+    },
+    envIgnore: async (id) => {
+      const f = model.env.found.find((x) => x.id === id);
+      if (!f) throw 'notFound';
+      envHidden.set(id, f);
+      const name = f.name;
+      const recent = model.alerts.recent.map((r) =>
+        r.alert.kind === 'env' && !r.answer && r.alert.actions.some((a) => a.id === 'env:ignore:' + name)
+          ? { ...r, answer: { action: 'env:ignore:' + name, label: 'Bỏ qua', at: Math.floor(now().getTime() / 1000), result: said('Đã bỏ qua ' + name, 'Báo lại nếu biến được đặt ở chỗ khác. App không sửa file shell.') } }
+          : r,
+      );
+      push({
+        ...model,
+        env: { ...model.env, found: model.env.found.filter((x) => x.id !== id), ignored: model.env.ignored + 1 },
+        alerts: { ...model.alerts, recent, unanswered: unanswered(recent) },
+      });
+    },
+    envUnignore: async (id) => {
+      const f = envHidden.get(id);
+      if (!f) return;
+      envHidden.delete(id);
+      push({ ...model, env: { ...model.env, found: [...model.env.found, f], ignored: Math.max(0, model.env.ignored - 1) } });
+    },
     pluginsRead: async () => {
       push({ ...model, plugins: { ...model.plugins, readAt: now().toISOString() } });
     },
@@ -784,7 +826,17 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
         tab = 'agy';
         tabListeners.forEach((l) => l('agy'));
       }
-      else if (action === 'skills:open') {
+      else if (action === 'env:settings') {
+        result = said('Đã mở Cài đặt', 'Thẻ Biến môi trường đè đăng nhập ở đầu trang. App không sửa file shell.');
+        tab = 'settings';
+        tabListeners.forEach((l) => l('settings'));
+      } else if (action.startsWith('env:ignore:')) {
+        const name = action.slice('env:ignore:'.length);
+        result = said('Đã bỏ qua ' + name, 'Báo lại nếu biến được đặt ở chỗ khác. App không sửa file shell.');
+        for (const f of model.env.found.filter((x) => x.name === name)) envHidden.set(f.id, f);
+        const gone = model.env.found.filter((x) => x.name === name).length;
+        push({ ...model, env: { ...model.env, found: model.env.found.filter((x) => x.name !== name), ignored: model.env.ignored + gone } });
+      } else if (action === 'skills:open') {
         result = said('Đã mở tab Skills', 'Bấm Cập nhật ở skill bạn muốn. App không tự cập nhật.');
         tab = 'skills';
         tabListeners.forEach((l) => l('skills'));
@@ -945,5 +997,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
     cardOpensSwitch,
     /** How many times "Mở lại" quit the app. */
     relaunched: () => relaunched,
+    /** The ids "Mở file" opened (M14). */
+    envOpened: () => envOpened,
   };
 }

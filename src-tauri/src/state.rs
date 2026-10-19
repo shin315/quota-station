@@ -202,6 +202,8 @@ pub struct Inner {
     /// The skills table, the plugins, the instruction files (M11).
     pub skills: crate::skills::Live,
     pub copy: crate::copy::Live,
+    /// The variables that override a login (M14).
+    pub env: crate::env::Live,
 }
 
 /// How the app's own read of an Antigravity account stands.
@@ -335,6 +337,7 @@ impl Inner {
             mcp: agents::Live::default(),
             backup: crate::backup::Live::default(),
             skills: crate::skills::Live::default(),
+            env: crate::env::Live::default(),
             copy: crate::copy::Live::default(),
         }
     }
@@ -502,6 +505,7 @@ impl Inner {
             skills: crate::skills::skills_view(self),
             plugins: crate::skills::plugins_view(self),
             instructions: crate::skills::instr_view(self),
+            env: crate::env::view(self),
         }
     }
 
@@ -622,6 +626,8 @@ pub struct Model {
     pub skills: crate::skills::SkillsView,
     pub plugins: crate::skills::PluginsView,
     pub instructions: crate::skills::InstrView,
+    /// The variables that override a login (M14).
+    pub env: crate::env::EnvView,
 }
 
 /// The rotation file and the other Macs (F06).
