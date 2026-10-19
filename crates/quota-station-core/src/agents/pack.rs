@@ -13,8 +13,12 @@
 //! and read only when it is:
 //!
 //! - `skills.json`: each skill, its GitHub source when it has one, whether
-//!   it was installed by hand, and the agents it is on for. No skill's
-//!   files yet.
+//!   it was installed by hand, and the agents it is on for.
+//! - `skills/<name>/` (M12): the files of each skill installed by hand, so a
+//!   restore can put it back. A skill from GitHub is installed from there
+//!   again and has no files here. A skill with a line shaped like a key, a
+//!   link, or more than [`SKILL_MAX_BYTES`] stays out, and `skills.json`
+//!   says why.
 //! - `plugins.json`: Claude Code's and Codex's plugins (`name@marketplace`,
 //!   on or off) and the marketplaces' sources. When an agent's list could
 //!   not be read, the newest pack's list for it is kept, marked so.
@@ -58,6 +62,11 @@ const FILES: [&str; 3] = [MANIFEST, MCP, SECRETS];
 const SKILLS: &str = "skills.json";
 const PLUGINS: &str = "plugins.json";
 const INSTRUCTIONS: &str = "instructions.json";
+/// The folder of the skills installed by hand.
+const SKILL_FILES: &str = "skills";
+/// The most a skill installed by hand may hold to go into a pack.
+pub const SKILL_MAX_BYTES: u64 = 20 * 1024 * 1024;
+const SKILL_MAX_FILES: usize = 1000;
 /// Every file the app writes in a pack.
 const ALL_FILES: [&str; 6] = [MANIFEST, MCP, SECRETS, SKILLS, PLUGINS, INSTRUCTIONS];
 /// A pack's files are a few kilobytes.
@@ -154,6 +163,20 @@ pub struct PackedSkill {
     pub hand: bool,
     /// The agents it is on for.
     pub on: Vec<Agent>,
+    /// Installed by hand, and its files are in the pack under
+    /// `skills/<name>/`.
+    #[serde(default)]
+    pub copied: bool,
+    /// The folder's Git tree id as packed, which a restore checks.
+    #[serde(default)]
+    pub hash: Option<String>,
+    /// Its files that run: iCloud Drive may not keep the mode.
+    #[serde(default)]
+    pub exec: Vec<String>,
+    /// Why a skill installed by hand has no files in the pack: `key`,
+    /// `link`, `large` or `unreadable`.
+    #[serde(default)]
+    pub left_out: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -185,6 +208,9 @@ pub struct Pack {
     pub skills: Option<SkillList>,
     pub plugins: Option<PluginList>,
     pub instructions: Option<InstructionList>,
+    /// The folders of the skills `skills` says are copied, on this Mac:
+    /// what [`write`] copies. Empty for a pack read back.
+    pub folders: Vec<(String, PathBuf)>,
 }
 
 impl Pack {
@@ -438,6 +464,7 @@ pub fn content(
         skills: None,
         plugins: None,
         instructions: None,
+        folders: Vec::new(),
     }
 }
 
@@ -460,6 +487,86 @@ pub fn secret_values(readings: &[Reading]) -> Vec<String> {
         })
         .filter(|v| v.len() >= 4 && v != REDACTED && v != MASK)
         .collect()
+}
+
+/// What a folder copy leaves out, as the tree hash does.
+fn ignored(name: &str) -> bool {
+    name == ".DS_Store" || name == ".git"
+}
+
+/// A skill folder's files, by their path in it, and whether each runs.
+pub type SkillFiles = Vec<(String, bool)>;
+
+/// Whether the skill folder `dir` may go into a pack: each file's path and
+/// whether it runs, or why not (`key`, `link`, `large`, `unreadable`). No
+/// line of it may be shaped like a key or hold one of `known`.
+pub fn check_skill(dir: &Path, known: &[String]) -> Result<SkillFiles, &'static str> {
+    use std::os::unix::fs::PermissionsExt;
+    let mut out = Vec::new();
+    let mut bytes = 0u64;
+    let mut stack = vec![(dir.to_path_buf(), String::new())];
+    while let Some((d, prefix)) = stack.pop() {
+        for e in std::fs::read_dir(&d).map_err(|_| "unreadable")?.flatten() {
+            let name = e.file_name().to_string_lossy().to_string();
+            if ignored(&name) {
+                continue;
+            }
+            let rel = if prefix.is_empty() { name.clone() } else { format!("{prefix}/{name}") };
+            let meta = std::fs::symlink_metadata(e.path()).map_err(|_| "unreadable")?;
+            if meta.file_type().is_symlink() {
+                return Err("link");
+            }
+            if meta.is_dir() {
+                stack.push((e.path(), rel));
+                continue;
+            }
+            if !meta.is_file() {
+                return Err("unreadable");
+            }
+            bytes += meta.len();
+            if bytes > SKILL_MAX_BYTES || out.len() >= SKILL_MAX_FILES {
+                return Err("large");
+            }
+            let data = std::fs::read(e.path()).map_err(|_| "unreadable")?;
+            let text = String::from_utf8_lossy(&data);
+            if text.lines().any(|l| instructions::key_span(l, known).is_some()) {
+                return Err("key");
+            }
+            out.push((rel, meta.permissions().mode() & 0o111 != 0));
+        }
+    }
+    out.sort();
+    Ok(out)
+}
+
+/// Copies the files `files` lists from `from` to the new folder `to`: mode
+/// 700 for those that run, 600 for the others. Nothing else, no link.
+pub fn copy_skill(from: &Path, to: &Path, files: &[(String, bool)]) -> io::Result<()> {
+    use std::os::unix::fs::DirBuilderExt;
+    std::fs::DirBuilder::new().mode(0o700).create(to)?;
+    for (rel, exec) in files {
+        let rel = Path::new(rel);
+        if rel.components().any(|c| !matches!(c, std::path::Component::Normal(_))) {
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, "not a plain path"));
+        }
+        let dst = to.join(rel);
+        if let Some(parent) = dst.parent() {
+            std::fs::DirBuilder::new().recursive(true).mode(0o700).create(parent)?;
+        }
+        let src = from.join(rel);
+        if std::fs::symlink_metadata(&src)?.file_type().is_symlink() {
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, "a link"));
+        }
+        let mut input = std::fs::File::open(&src)?;
+        let mut output = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(if *exec { 0o700 } else { 0o600 })
+            .open(&dst)?;
+        io::copy(&mut input, &mut output)?;
+        output.sync_all()?;
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -547,6 +654,19 @@ pub fn write(
         id = format!("{base}-{n}");
         n += 1;
     }
+    // Each skill folder checked again as it is now: one that holds a key
+    // stops the pack.
+    let mut copies: Vec<(&PackedSkill, &Path, SkillFiles)> = Vec::new();
+    for s in pack.skills.iter().flat_map(|l| &l.skills).filter(|s| s.copied) {
+        let Some((_, folder)) = pack.folders.iter().find(|(n, _)| *n == s.name) else {
+            return Err(PackError::Io(format!("{}: no folder", s.name)));
+        };
+        match check_skill(folder, &known) {
+            Ok(files) => copies.push((s, folder, files)),
+            Err("key") => return Err(PackError::Secret),
+            Err(why) => return Err(PackError::Io(format!("{}: {why}", s.name))),
+        }
+    }
     // Written aside, then put in place whole: a pack is never half there.
     let tmp = root.join(format!(".{id}.qs-{}", std::process::id()));
     let result = (|| -> io::Result<()> {
@@ -554,13 +674,21 @@ pub fn write(
         for (name, t) in &texts {
             write_file(&tmp.join(name), t)?;
         }
+        if !copies.is_empty() {
+            std::fs::create_dir(tmp.join(SKILL_FILES))?;
+        }
+        for (s, folder, files) in &copies {
+            let to = tmp.join(SKILL_FILES).join(&s.name);
+            copy_skill(folder, &to, files)?;
+            if super::skill_updates::tree_hash(&to).ok() != s.hash {
+                return Err(io::Error::other(format!("{} changed while packed", s.name)));
+            }
+        }
         std::fs::rename(&tmp, root.join(&id))
     })();
     if let Err(e) = result {
-        for name in ALL_FILES {
-            let _ = std::fs::remove_file(tmp.join(name));
-        }
-        let _ = std::fs::remove_dir(&tmp);
+        // The app's own folder, written just now.
+        let _ = std::fs::remove_dir_all(&tmp);
         return Err(e.into());
     }
     prune(root, &pack.manifest.mac);
@@ -576,6 +704,7 @@ fn prune(root: &Path, mac: &str) {
         for name in ALL_FILES {
             let _ = std::fs::remove_file(dir.join(name));
         }
+        let _ = std::fs::remove_dir_all(dir.join(SKILL_FILES));
         let _ = std::fs::remove_dir(&dir);
     }
 }
@@ -745,13 +874,45 @@ pub fn load(root: &Path, id: &str) -> Result<Pack, LoadError> {
         serde_json::from_str(&t).map_err(|e| LoadError::Invalid(format!("{name}: {e}")))
     }
     let skills = if has("skills") { Some(section::<SkillList>(&dir, SKILLS)?) } else { None };
+    for s in skills.iter().flat_map(|l| &l.skills) {
+        let repo_ok = s.repo.as_deref().is_none_or(super::skills::repo_ok);
+        if !super::skills::valid_name(&s.name) || !repo_ok {
+            return Err(LoadError::Invalid(format!("{SKILLS}: {}", s.name)));
+        }
+    }
     let plugins = if has("plugins") { Some(section::<PluginList>(&dir, PLUGINS)?) } else { None };
     let instructions = if has("instructions") {
         Some(section::<InstructionList>(&dir, INSTRUCTIONS)?)
     } else {
         None
     };
-    Ok(Pack { manifest, mcp, secrets, skills, plugins, instructions })
+    Ok(Pack { manifest, mcp, secrets, skills, plugins, instructions, folders: Vec::new() })
+}
+
+/// The folder of the skill `name`'s files in the pack `id`.
+pub fn skill_dir(root: &Path, id: &str, name: &str) -> PathBuf {
+    root.join(id).join(SKILL_FILES).join(name)
+}
+
+/// A file under `dir` iCloud Drive has not downloaded yet.
+pub fn in_cloud_under(dir: &Path) -> bool {
+    let mut stack = vec![dir.to_path_buf()];
+    while let Some(d) = stack.pop() {
+        for e in std::fs::read_dir(&d).into_iter().flatten().flatten() {
+            let name = e.file_name().to_string_lossy().to_string();
+            if name.starts_with('.') && name.ends_with(".icloud") {
+                return true;
+            }
+            let Ok(m) = std::fs::symlink_metadata(e.path()) else { continue };
+            if dataless(&m) {
+                return true;
+            }
+            if m.is_dir() {
+                stack.push(e.path());
+            }
+        }
+    }
+    false
 }
 
 /// What "Xem trong gói" says: each server and the agents it is on in,

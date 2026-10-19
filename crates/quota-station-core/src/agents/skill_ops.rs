@@ -28,7 +28,7 @@ pub struct Installed {
 
 /// The boxes of `names` set to `want` (agents present and writable), as a
 /// checked batch.
-fn set_boxes(
+pub fn set_boxes(
     places: &SkillPlaces,
     app: &AppDir,
     names: &[String],
@@ -190,7 +190,15 @@ pub fn remove(
     }
     let after = skills::read(places);
     out.names = names.iter().filter(|n| !after.shared.contains(*n)).cloned().collect();
-    for n in &out.names {
+    tidy(places, app, &out.names, now);
+    out
+}
+
+/// After skills left the shared folder: the links to them that now lead
+/// nowhere, and the app's own Codex entries for them, go.
+pub fn tidy(places: &SkillPlaces, app: &AppDir, names: &[String], now: OffsetDateTime) {
+    let after = skills::read(places);
+    for n in names {
         for agent in [Agent::Claude, Agent::Agy] {
             if matches!(after.reading(agent).entries.get(n), Some(Entry::Broken { .. })) {
                 let _ = skills::drop_broken(places, agent, n);
@@ -199,8 +207,7 @@ pub fn remove(
     }
     // Codex's entries the app wrote for a skill no longer there.
     let codex = after.reading(Agent::Codex);
-    let stale: Vec<(String, bool)> = out
-        .names
+    let stale: Vec<(String, bool)> = names
         .iter()
         .filter(|n| skills::codex_off(places, &codex.config, n))
         .map(|n| (n.clone(), true))
@@ -208,5 +215,4 @@ pub fn remove(
     if !stale.is_empty() && codex.writable() {
         let _ = skills::write_codex(places, app, codex, &stale, now);
     }
-    out
 }

@@ -161,6 +161,7 @@ fn main() {
             backup::pack_summary,
             backup::restore_plan,
             backup::restore_run,
+            backup::restore_retry,
             backup::restore_undo,
             alerting::alert_action,
             alerting::test_alert,

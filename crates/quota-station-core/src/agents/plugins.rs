@@ -7,8 +7,10 @@
 //!
 //! Read by asking each agent's own command: `claude plugin list --json`
 //! and `claude plugin marketplace list --json`, `codex plugin list --json`.
-//! The app never installs, removes, turns on or off a plugin; the commands
-//! a restore would run are only shown here ([`reinstall`]).
+//! The Plugin tab never installs, removes, turns on or off a plugin; it
+//! shows the commands a restore runs ([`reinstall`]). Only a restore (M12)
+//! runs them, and its undo the matching removals ([`Step`]), each through
+//! the agent's own command.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -21,6 +23,8 @@ use super::Agent;
 use crate::runner::{self, RunError};
 
 const TIMEOUT: Duration = Duration::from_secs(30);
+/// Installing fetches the marketplace and the plugin.
+pub const INSTALL_TIMEOUT: Duration = Duration::from_secs(180);
 
 /// What a plugin brings.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -282,37 +286,110 @@ pub fn read_codex(codex: Option<&Path>, home: &Path) -> Side {
     }
 }
 
+/// One command of the agent's own that a restore (or its undo) runs.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Step {
+    pub agent: Agent,
+    /// After `claude` or `codex`.
+    pub args: Vec<String>,
+}
+
+impl Step {
+    fn new(agent: Agent, args: &[&str]) -> Self {
+        Step { agent, args: args.iter().map(|a| a.to_string()).collect() }
+    }
+
+    /// The command as the Plugin tab shows it.
+    pub fn line(&self) -> String {
+        format!("{} {}", cli(self.agent), self.args.join(" "))
+    }
+}
+
+fn cli(agent: Agent) -> &'static str {
+    match agent {
+        Agent::Claude => "claude",
+        _ => "codex",
+    }
+}
+
+/// A plugin of the agent's own marketplace: it comes with the agent (Codex
+/// App's bundled ones), nothing installs it.
+pub fn builtin(side: &Side, p: &Plugin) -> bool {
+    side.agent == Agent::Codex
+        && side.marketplaces.iter().any(|m| m.name == p.marketplace() && m.kind == "builtin")
+}
+
+/// Adding the marketplace `name` from where `side` had it, when it can be:
+/// from GitHub or a Git address.
+pub fn market_step(side: &Side, name: &str) -> Option<Step> {
+    let m = side.marketplaces.iter().find(|m| m.name == name)?;
+    let src = m.source.as_deref().filter(|_| m.kind == "github" || m.kind == "git")?;
+    Some(Step::new(side.agent, &["plugin", "marketplace", "add", src]))
+}
+
+/// Installing `p` as it was: Claude Code's turned off again after, when it
+/// was off. Codex has no command to turn one off.
+pub fn install_steps(agent: Agent, p: &Plugin) -> Vec<Step> {
+    match agent {
+        Agent::Claude => {
+            let mut out = vec![Step::new(agent, &["plugin", "install", &p.id])];
+            if !p.enabled {
+                out.push(Step::new(agent, &["plugin", "disable", &p.id]));
+            }
+            out
+        }
+        _ => vec![Step::new(agent, &["plugin", "add", &p.id])],
+    }
+}
+
+/// What takes a plugin the restore installed away again.
+pub fn uninstall_step(agent: Agent, id: &str) -> Step {
+    match agent {
+        Agent::Claude => Step::new(agent, &["plugin", "uninstall", id]),
+        _ => Step::new(agent, &["plugin", "remove", id]),
+    }
+}
+
+/// What takes a marketplace the restore added away again (Claude Code's).
+pub fn market_remove_step(name: &str) -> Step {
+    Step::new(Agent::Claude, &["plugin", "marketplace", "remove", name])
+}
+
 /// What a restore would run to get the plugins back, in order: each
 /// marketplace added, each plugin installed, those off turned off. The
 /// agent's own marketplaces come with the agent.
 pub fn reinstall(side: &Side) -> Vec<String> {
-    let cli = match side.agent {
-        Agent::Claude => "claude",
-        _ => "codex",
-    };
-    let used: Vec<&str> = side.plugins.iter().map(Plugin::marketplace).collect();
+    let mut used: Vec<&str> = Vec::new();
+    for p in side.plugins.iter().filter(|p| !builtin(side, p)) {
+        if !used.contains(&p.marketplace()) {
+            used.push(p.marketplace());
+        }
+    }
     let mut out = Vec::new();
     for m in side.marketplaces.iter().filter(|m| used.contains(&m.name.as_str())) {
-        if let Some(src) = m.source.as_deref().filter(|_| m.kind == "github" || m.kind == "git") {
-            out.push(format!("{cli} plugin marketplace add {src}"));
+        if let Some(step) = market_step(side, &m.name) {
+            out.push(step.line());
         }
     }
-    let builtin = |p: &Plugin| {
-        side.marketplaces.iter().any(|m| m.name == p.marketplace() && m.kind == "builtin")
-    };
-    for p in &side.plugins {
-        match side.agent {
-            Agent::Claude => {
-                out.push(format!("claude plugin install {}", p.id));
-                if !p.enabled {
-                    out.push(format!("claude plugin disable {}", p.id));
-                }
-            }
-            _ if builtin(p) => {}
-            _ => out.push(format!("codex plugin add {}", p.id)),
-        }
+    for p in side.plugins.iter().filter(|p| !builtin(side, p)) {
+        out.extend(install_steps(side.agent, p).iter().map(Step::line));
     }
     out
+}
+
+/// Runs `step` with the agent's command `program`: the arguments as a list,
+/// no shell, nothing asked (no terminal to answer). The error is the
+/// command's first line.
+pub fn run_step(program: &Path, step: &Step) -> Result<(), String> {
+    let env = [("DISABLE_AUTOUPDATER", std::ffi::OsStr::new("1"))];
+    let out = runner::run_with(program, &step.args, &env, None, INSTALL_TIMEOUT)
+        .map_err(|e| e.to_string())?;
+    if out.code == Some(0) {
+        return Ok(());
+    }
+    let err = runner::first_line(&out.stderr);
+    Err(if err.is_empty() { runner::first_line(&out.stdout) } else { err })
 }
 
 /// The skills plugins bring, by plugin: shown in the Skills tab, never

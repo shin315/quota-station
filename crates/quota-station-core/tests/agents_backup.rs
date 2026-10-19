@@ -21,8 +21,11 @@ use common::{script, temp_dir};
 use quota_station_core::agents::batch::{self, Change, To};
 use quota_station_core::agents::def::Def;
 use quota_station_core::agents::pack::{self, Pack};
-use quota_station_core::agents::restore::{self, Pasted, Pick, Plan, RunError, UndoError};
+use quota_station_core::agents::restore::{
+    self, More, Pasted, Pick, Plan, RunError, Tools, UndoError,
+};
 use quota_station_core::agents::secrets::Secrets;
+use quota_station_core::agents::skills::SkillPlaces;
 use quota_station_core::agents::{self, kho, Agent, Places};
 use quota_station_core::antigravity::fs::AppDir;
 use time::OffsetDateTime;
@@ -185,6 +188,18 @@ fn codex_text(m: &Mac) -> String {
     std::fs::read_to_string(m.home.join(".codex/config.toml")).unwrap()
 }
 
+/// What a restore uses besides the MCP files: no `npx`, no plugin commands.
+fn tools(m: &Mac, root: &Path) -> Tools {
+    Tools {
+        skills: SkillPlaces::new(&m.home, &m.home.join(".codex"), None),
+        npx: None,
+        claude: None,
+        codex: None,
+        codex_home: m.home.join(".codex"),
+        root: root.to_path_buf(),
+    }
+}
+
 fn picks(plan: &Plan) -> Vec<Pick> {
     plan.items
         .iter()
@@ -260,7 +275,7 @@ fn restore_asks_for_keys_adds_without_one_turned_off_and_follows_the_mac() {
     let (id, p) = back_up(&old, &root, at(0));
     let new = new_mac();
 
-    let plan = restore::plan(&new.places, &new.app, &new.secrets, &id, &p);
+    let plan = restore::plan(&new.places, &new.app, &new.secrets, &tools(&new, &root), &id, &p);
     no_trap("the plan", &serde_json::to_string(&plan).unwrap());
     let item = |name: &str| plan.items.iter().find(|i| i.name == name).unwrap();
     assert_eq!(item("files").agents, [Agent::Codex]);
@@ -291,9 +306,11 @@ fn restore_asks_for_keys_adds_without_one_turned_off_and_follows_the_mac() {
         &new.places,
         &new.app,
         &new.secrets,
+        &tools(&new, &root),
         &id,
         &p,
         &picks(&plan),
+        &More::default(),
         &pasted,
         &plan.bases,
         at(60),
@@ -368,7 +385,7 @@ fn the_same_server_is_left_alone_and_a_different_one_is_not_ticked() {
     // The same Mac, after Codex's files got a different root.
     let mine = codex_text(&old).replace("--root=", "--root=/elsewhere");
     std::fs::write(old.home.join(".codex/config.toml"), &mine).unwrap();
-    let plan = restore::plan(&old.places, &old.app, &old.secrets, &id, &p);
+    let plan = restore::plan(&old.places, &old.app, &old.secrets, &tools(&old, &root), &id, &p);
     let files: Vec<_> = plan.items.iter().filter(|i| i.name == "files").collect();
     assert_eq!(files.len(), 1);
     assert_eq!((files[0].kind, files[0].checked), ("replace", false));
@@ -378,18 +395,40 @@ fn the_same_server_is_left_alone_and_a_different_one_is_not_ticked() {
     no_trap("the plan", &serde_json::to_string(&plan).unwrap());
 
     // Nothing ticked: nothing changes.
-    let done =
-        restore::run(&old.places, &old.app, &old.secrets, &id, &p, &[], &[], &plan.bases, at(60))
-            .unwrap();
+    let done = restore::run(
+        &old.places,
+        &old.app,
+        &old.secrets,
+        &tools(&old, &root),
+        &id,
+        &p,
+        &[],
+        &More::default(),
+        &[],
+        &plan.bases,
+        at(60),
+    )
+    .unwrap();
     assert!(!done.can_undo);
     assert_eq!(codex_text(&old), mine);
 
     // Ticked: the pack's in place of the Mac's, with the Mac's own key.
     let pick = [Pick { name: "files".into(), kind: "replace".into() }];
-    let plan = restore::plan(&old.places, &old.app, &old.secrets, &id, &p);
-    let done =
-        restore::run(&old.places, &old.app, &old.secrets, &id, &p, &pick, &[], &plan.bases, at(90))
-            .unwrap();
+    let plan = restore::plan(&old.places, &old.app, &old.secrets, &tools(&old, &root), &id, &p);
+    let done = restore::run(
+        &old.places,
+        &old.app,
+        &old.secrets,
+        &tools(&old, &root),
+        &id,
+        &p,
+        &pick,
+        &More::default(),
+        &[],
+        &plan.bases,
+        at(90),
+    )
+    .unwrap();
     assert_eq!(done.items[0].done, [Agent::Codex]);
     let codex = codex_text(&old);
     assert!(codex.contains("--root=") && !codex.contains("/elsewhere"), "{codex}");
@@ -403,7 +442,7 @@ fn a_file_changed_after_the_preview_stops_the_restore() {
     let root = temp_dir("packs");
     let (id, p) = back_up(&old, &root, at(0));
     let new = new_mac();
-    let plan = restore::plan(&new.places, &new.app, &new.secrets, &id, &p);
+    let plan = restore::plan(&new.places, &new.app, &new.secrets, &tools(&new, &root), &id, &p);
     std::fs::write(new.home.join(".codex/config.toml"), format!("{FRESH_CODEX}# edited\n"))
         .unwrap();
     let pasted = [Pasted {
@@ -415,9 +454,11 @@ fn a_file_changed_after_the_preview_stops_the_restore() {
         &new.places,
         &new.app,
         &new.secrets,
+        &tools(&new, &root),
         &id,
         &p,
         &picks(&plan),
+        &More::default(),
         &pasted,
         &plan.bases,
         at(60),
@@ -434,7 +475,7 @@ fn the_whole_restore_is_undone_and_a_file_changed_since_is_asked_first() {
     let root = temp_dir("packs");
     let (id, p) = back_up(&old, &root, at(0));
     let new = new_mac();
-    let plan = restore::plan(&new.places, &new.app, &new.secrets, &id, &p);
+    let plan = restore::plan(&new.places, &new.app, &new.secrets, &tools(&new, &root), &id, &p);
     let pasted = [Pasted {
         mcp: "files".into(),
         slot: "env:FILES_TOKEN".into(),
@@ -444,9 +485,11 @@ fn the_whole_restore_is_undone_and_a_file_changed_since_is_asked_first() {
         &new.places,
         &new.app,
         &new.secrets,
+        &tools(&new, &root),
         &id,
         &p,
         &picks(&plan),
+        &More::default(),
         &pasted,
         &plan.bases,
         at(60),
@@ -458,13 +501,15 @@ fn the_whole_restore_is_undone_and_a_file_changed_since_is_asked_first() {
     // Codex's file edited after the restore: asked first.
     let edited = format!("# edited after\n{}", codex_text(&new));
     std::fs::write(new.home.join(".codex/config.toml"), &edited).unwrap();
-    match restore::undo(&new.places, &new.app, &new.secrets, false, at(90)) {
-        Err(UndoError::Changed(agents)) => assert_eq!(agents, [Agent::Codex]),
+    match restore::undo(&new.places, &new.app, &new.secrets, &tools(&new, &root), false, at(90)) {
+        Err(UndoError::Changed(c)) => assert_eq!(c.agents, [Agent::Codex]),
         other => panic!("{other:?}"),
     }
     assert_eq!(codex_text(&new), edited, "nothing written before the owner says");
 
-    let undone = restore::undo(&new.places, &new.app, &new.secrets, true, at(120)).unwrap();
+    let undone =
+        restore::undo(&new.places, &new.app, &new.secrets, &tools(&new, &root), true, at(120))
+            .unwrap();
     assert!(undone.outcome.as_ref().is_some_and(|o| o.failed.is_none()));
     assert_eq!(
         codex_text(&new).trim_end(),
@@ -477,7 +522,7 @@ fn the_whole_restore_is_undone_and_a_file_changed_since_is_asked_first() {
     assert!(items.is_empty(), "the Keychain items the restore made are gone: {items:?}");
     assert!(restore::last(&new.app).is_none());
     assert!(matches!(
-        restore::undo(&new.places, &new.app, &new.secrets, false, at(130)),
+        restore::undo(&new.places, &new.app, &new.secrets, &tools(&new, &root), false, at(130)),
         Err(UndoError::Nothing)
     ));
     holds_no_secret(new.app.path());
@@ -529,14 +574,26 @@ fn restore_never_touches_the_codex_provider_or_logins() {
     let root = temp_dir("packs");
     let (id, p) = back_up(&old, &root, at(0));
     let new = new_mac();
-    let plan = restore::plan(&new.places, &new.app, &new.secrets, &id, &p);
+    let plan = restore::plan(&new.places, &new.app, &new.secrets, &tools(&new, &root), &id, &p);
     let all: Vec<Pick> = plan
         .items
         .iter()
         .map(|i| Pick { name: i.name.clone(), kind: i.kind.to_string() })
         .collect();
-    restore::run(&new.places, &new.app, &new.secrets, &id, &p, &all, &[], &plan.bases, at(60))
-        .unwrap();
+    restore::run(
+        &new.places,
+        &new.app,
+        &new.secrets,
+        &tools(&new, &root),
+        &id,
+        &p,
+        &all,
+        &More::default(),
+        &[],
+        &plan.bases,
+        at(60),
+    )
+    .unwrap();
     let text = codex_text(&new);
     assert!(text.starts_with(FRESH_CODEX), "{text}");
     let claude = std::fs::read_to_string(new.home.join(".claude.json")).unwrap();
@@ -554,14 +611,16 @@ fn a_waiting_server_deleted_in_the_mcp_tab_leaves_the_files_as_they_are() {
     let root = temp_dir("packs");
     let (id, p) = back_up(&old, &root, at(0));
     let new = new_mac();
-    let plan = restore::plan(&new.places, &new.app, &new.secrets, &id, &p);
+    let plan = restore::plan(&new.places, &new.app, &new.secrets, &tools(&new, &root), &id, &p);
     restore::run(
         &new.places,
         &new.app,
         &new.secrets,
+        &tools(&new, &root),
         &id,
         &p,
         &picks(&plan),
+        &More::default(),
         &[],
         &plan.bases,
         at(60),

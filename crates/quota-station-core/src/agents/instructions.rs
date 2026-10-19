@@ -203,7 +203,7 @@ pub fn check_extra(home: &Path, app: &Path, input: &str) -> Result<String, &'sta
     Ok(runner::display_path(&p, home))
 }
 
-fn read_text(p: &Path) -> Result<String, String> {
+pub(crate) fn read_text(p: &Path) -> Result<String, String> {
     let mut bytes = Vec::new();
     std::fs::File::open(p)
         .and_then(|f| f.take(MAX_FILE + 1).read_to_end(&mut bytes))

@@ -855,11 +855,9 @@ fn an_instruction_file_with_a_key_never_reaches_a_pack_or_the_windows() {
     let store = agents::kho::load(&h.app);
     let mut p = pack::content(&h.home, &readings, &store, "Studio mini", "2.0.0", at(0));
     let look = skills::read(&h.places);
-    p.extend(
-        Some(skills::packed(&h.places, &look)),
-        None,
-        Some(pack::InstructionList { files: packed.clone() }),
-    );
+    let (list, folders) = skills::packed(&h.places, &look, &known);
+    p.extend(Some(list), None, Some(pack::InstructionList { files: packed.clone() }));
+    p.folders = folders;
     let root = h.root.join("packs");
     let id = pack::write(&root, &h.home, &p, &readings).unwrap();
     let all = all_text(&root.join(&id));
