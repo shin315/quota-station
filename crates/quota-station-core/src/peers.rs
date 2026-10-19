@@ -17,7 +17,8 @@
 //!
 //! SSH runs with `BatchMode=yes`, so it never asks for a password or a host
 //! key: an alias that needs either fails as unreachable. The only commands it
-//! runs on the other Mac are the two fixed scripts below.
+//! runs on the other Mac are the two fixed scripts below, and the copy of the
+//! agents' setup (M13, `agents::copy`) runs its own fixed ones the same way.
 
 use std::collections::BTreeMap;
 use std::ffi::OsStr;
@@ -131,7 +132,7 @@ impl std::fmt::Display for RemoteError {
     }
 }
 
-fn ssh(
+pub(crate) fn ssh(
     program: &Path,
     alias: &str,
     script: &str,

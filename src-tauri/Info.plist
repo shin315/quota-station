@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Merged into the bundle's Info.plist by Tauri. QuotaStationAgents: the
+     version of the copy between Macs (M13) this app speaks; another Mac
+     runs `quota-station agents` here only when it is there. -->
 <plist version="1.0">
 <dict>
-  <!-- A menu bar app: no Dock icon, no app menu. -->
-  <key>LSUIElement</key>
-  <true/>
+	<key>QuotaStationAgents</key>
+	<integer>1</integer>
 </dict>
 </plist>

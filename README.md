@@ -24,9 +24,11 @@ the screen; the popover and window images are the browser preview.
 
 ## What it does
 
-This is milestone M12, the rest of "Sao lưu và khôi phục" (skills, plugins
+This is milestone M13, "Chép sang Mac khác" (copying the MCP servers,
+skills, plugins and instruction files to or from another Mac over SSH, item
+by item), on top of M12, the rest of "Sao lưu và khôi phục" (skills, plugins
 and instruction files in the backup pack, restored with the MCP servers),
-on top of M11, "Skills, Plugin, File hướng dẫn", M10, "Sao lưu và khôi phục"
+M11, "Skills, Plugin, File hướng dẫn", M10, "Sao lưu và khôi phục"
 (backing the MCP servers up to iCloud Drive and restoring them on any Mac),
 M9, "MCP" (every agent's MCP servers in one table), M8, "Chuyển Codex" (switching Codex between the ChatGPT
 login and a custom API provider), M7, "Chuyển đổi" (installing,
@@ -42,8 +44,8 @@ the owner's other Macs, it logs Antigravity accounts in and out on this Mac,
 it switches the Antigravity account that Antigravity.app and agy use, it
 switches the provider Codex uses, and it turns MCP servers on and off, adds,
 edits and removes them for Claude Code, Codex and Antigravity, and it backs
-those servers, the skills, the plugins and the instruction files up and
-restores them (below). Five things it does on its own: it finishes that rotation copy (a Mac that could
+those servers, the skills, the plugins and the instruction files up,
+restores them and copies them to or from the owner's other Macs (below). Five things it does on its own: it finishes that rotation copy (a Mac that could
 not take the saved rules is tried again in the background), it reads the
 quota of the Antigravity accounts logged in here, at Cockpit's pace or slower,
 it keeps a history of the switches on this Mac, it backs the MCP servers up
@@ -472,6 +474,32 @@ the confirmation sheet first.
 
   <img src="docs/restore-keys.png" width="372" alt="The restore sheet asking for the key one server needs, in a password field, with its Bitwarden item">
 
+- **Chép sang Mac khác** (M13). The tab copies MCP servers, skills,
+  plugins and instruction files between this Mac and one of `Cài đặt › Các
+  Mac khác`, either way (`Từ máy này sang …` or `Lấy từ … về`). `So sánh`
+  reads the other Mac through its own Quota Station over SSH (names,
+  configuration and hashes, never a key) and lists what differs by group:
+  what only one Mac has, a server whose configuration differs (a command at
+  another path is not a difference), a skill of another version, a file of
+  other text. What only the sending Mac has starts ticked; what both have
+  but not alike starts unticked, and `Xem` shows it on both Macs side by
+  side. `Chép N mục` shows what will happen, and the Mac that receives the
+  items writes them itself, as a restore of only those items: the same
+  checked write, backups first, and `Hoàn tác trên …` runs on that Mac.
+  `Gửi cả khoá qua SSH` is off by default: a server that needs a key is
+  then added turned off and that Mac asks for the key. A Mac that does not
+  answer, or whose app is still version 1, is never written to. Codex's
+  provider, logins and accounts are never part of a copy. See
+  [SECURITY.md](SECURITY.md#copying-to-another-mac-m13).
+
+  <img src="docs/copy-diff.png" width="760" alt="The Chép sang Mac khác tab on fixture data: two made-up Macs, the way from this Mac, and what differs by group: a server only here ticked, one with other arguments, one only on the other Mac greyed out, a newer skill, a skill installed by hand, a plugin and an instruction file, with Gửi cả khoá qua SSH off">
+
+  <img src="docs/copy-item.png" width="372" alt="One server on both Macs side by side: the command by its name only, the arguments that differ, the agents it is on"> <img src="docs/copy-file.png" width="372" alt="An instruction file's lines as they are on the other Mac now and after the copy">
+
+  <img src="docs/copy-preview.png" width="760" alt="The copy preview: three items and what happens to each, no change to Codex's provider, logins or accounts, no key sent, undo on the other Mac">
+
+  <img src="docs/copy-unreach.png" width="372" alt="The other Mac does not answer over SSH, with Thử lại and Mở Cài đặt"> <img src="docs/copy-old.png" width="372" alt="The other Mac's Quota Station is still version 1: nothing is offered to copy">
+
 - **Antigravity logins** (M4a). `Thêm tài khoản` opens Google's consent
   screen in the default browser, with Antigravity's own OAuth client, so the
   screen names Antigravity, not Quota Station. The flow is Cockpit's: a
@@ -659,6 +687,14 @@ assumes another Mac has any. Each Mac installs and updates its own copy
   `~/.claude/CLAUDE.md`, `~/.claude/rules/**/*.md`, the Codex folder's
   `AGENTS.md`, `~/.gemini/GEMINI.md` and the files added by hand; the
   choices made there are `agents/instructions.json`. It never writes them.
+- Copying to another Mac (M13), on `So sánh` and `Chép` in the `Chép sang
+  Mac khác` tab: `ssh -o BatchMode=yes -o ConnectTimeout=5 -T <alias>` with
+  one fixed script that finds `Quota Station.app` in `/Applications` or
+  `~/Applications`, checks its `Info.plist` with `/usr/bin/plutil` and runs
+  `quota-station agents read|export|start|status`; whatever a call carries
+  goes on stdin, and each call stops after 20 seconds. On the Mac written
+  to, the app keeps `agents/copy-job.json` (the write running, no key) and,
+  while it runs, the items in `agents/incoming/`.
 - It writes these files: its own settings file,
   `~/Library/Application Support/com.shin315.quota-station/settings.json`,
   with `rotation-sync.json` (where each other Mac stands) beside it; in the
@@ -907,7 +943,7 @@ itself; `scripts/install.sh` installs it.
 the fake Rust side the tests use. Query parameters: `state` (a file name in
 `src/fixtures/snapshots/`), `view=window` with `tab` (`overview`, `claude`,
 `agy`, `codex`, `rules`, `history`, `alerts`, `firstmate`, `mcp`, `skills`,
-`plugins`, `instr`, `backup` or `settings`), `error` (an
+`plugins`, `instr`, `backup`, `copy` or `settings`), `error` (an
 error kind) and `theme` (`light` or `dark`).
 For the rotation rules: `rotation` (`unreachable`, `newer`, `edited`,
 `missing`, `invalid`, `refused` or `single`).
@@ -941,7 +977,10 @@ pack not downloaded yet, `noicloud`, `restored` or `unread`) and
 a restore whose formatter plugin needs a login, with `Thử lại`). For M11: `skills` (`empty`,
 `nonpx`, `offline` or `unread`) and `skillsoutcome=changed` on
 `tab=skills`, `plugins=noclaude` on `tab=plugins` and `instr=clean` on
-`tab=instr`. Nothing
+`tab=instr`. For M13, on `tab=copy` with two made-up Macs: `copy`
+(`unreach` for a Mac that does not answer, `old` for one on version 1,
+`noapp`, `none` for no Mac in `Cài đặt`, or `changed` for a copy that finds
+a file changed). Nothing
 is switched, no browser opens and no file is written: a
 switch only waits 1.5 seconds, a save 1 second and each update step 1.5
 seconds, and they update the fixture.
@@ -1119,6 +1158,22 @@ unless ticked, that one part failing leaves the others to run and `Thử lại`
 gets it done, that `Hoàn tác` takes it all back, and that no trap key
 reaches the pack, the plan, the result, the record or the app's backups.
 
+The copy tests of M13 (`crates/quota-station-core/tests/agents_copy.rs`)
+copy between two temporary homes through a fake `ssh` that records its
+arguments and stdin and runs the script on the other home, where a fake
+app bundle answers with canned replies, with or without
+`QuotaStationAgents` in its `Info.plist`. They check that the script is the
+same fixed text for every call, with `BatchMode=yes` and the 20-second
+limit; that a Mac on version 1 or without the app is never run; that the
+comparison and a copy without `Gửi cả khoá` hold no trap key, and that with
+it keys go on stdin only and land in the fake Keychain; that a copy is the
+restore's checked write with its undo; that a file changed since the
+comparison is not written; and that bad names, paths and protocols are
+refused. No test opens a real SSH connection. The Vitest tests walk the tab
+and its dialogs on a fake Rust side: the ticks to begin with, the item that
+cannot go this way, the keys switch off, the copy and its undo, and the
+unreachable and version-1 Macs.
+
 ```sh
 UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test ui_fixtures
 ```
@@ -1142,7 +1197,8 @@ UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test ui_fixtures
   agent's list, the edits of one entry, the batch, the safe write it shares
   with `codex`, the backups without keys, the app's store and its Keychain
   items; `agents/pack.rs` makes, lists and reads the backup packs and
-  `agents/restore.rs` plans, runs and undoes a restore. `agents/skills.rs`
+  `agents/restore.rs` plans, runs and undoes a restore; `agents/copy.rs`
+  compares two Macs and copies between them over SSH. `agents/skills.rs`
   reads and writes the Skills tab's links and `[[skills.config]]` entries,
   `skill_ops.rs` and `npx.rs` install, update and remove through
   `npx skills`, `skill_updates.rs` asks GitHub for newer versions,
@@ -1153,12 +1209,14 @@ UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test ui_fixtures
   notification center (`notify.rs`), the login item (`login_item.rs`), the
   update (`install.rs`), the Codex thread (`codex.rs`), the MCP tab's
   commands (`agents.rs`), the backup tab's (`backup.rs`), the Skills, Plugin
-  and File hướng dẫn tabs' (`skills.rs`) and the other commands.
+  and File hướng dẫn tabs' (`skills.rs`), the copy tab's and the
+  `quota-station agents …` commands another Mac runs (`copy.rs`) and the
+  other commands.
 - `scripts/install.sh` builds, signs, installs and packages the app.
 - `src/` is the React and TypeScript frontend; `src/agents/` holds the MCP
   tab and its `CheckMatrix`, which the Skills tab reuses, the Plugin and
   File hướng dẫn tabs, and
-  `src/backup/` the backup tab and the restore sheet. Its `styles/tokens.css` and
+  `src/backup/` the backup tab, the restore sheet and the copy tab. Its `styles/tokens.css` and
   `styles/components.css` come from the approved prototype.
 
 ## License

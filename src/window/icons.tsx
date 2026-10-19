@@ -126,6 +126,13 @@ export const NAV_ICONS = {
       <path d="M6.4 9h3.2" {...S} strokeLinecap="round" />
     </svg>
   ),
+  copy: (
+    <svg {...P}>
+      <rect x="1.5" y="3" width="5.5" height="4" rx=".8" {...S} strokeWidth="1.3" />
+      <rect x="9" y="9" width="5.5" height="4" rx=".8" {...S} strokeWidth="1.3" />
+      <path d="M9.5 4.2h2.6a1.4 1.4 0 011.4 1.4v1.6M6.5 11.8H3.9a1.4 1.4 0 01-1.4-1.4V8.8" {...S} strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  ),
   settings: (
     <svg {...P}>
       <circle cx="8" cy="8" r="2.3" {...S} />
@@ -164,6 +171,15 @@ export const PLUG_BIG = (
     <path d="M5.5 1.8v3M10.5 1.8v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     <path d="M3.5 4.8h9v2.6a4.5 4.5 0 01-9 0z" fill="currentColor" />
     <path d="M8 11.9v2.4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+  </svg>
+);
+
+/** The two Macs of the empty Chép sang Mac khác tab. */
+export const SYNC_BIG = (
+  <svg width="22" height="22" viewBox="0 0 16 16" aria-hidden="true">
+    <rect x="1.5" y="3" width="5.5" height="4" rx=".8" fill="none" stroke="currentColor" strokeWidth="1.3" />
+    <rect x="9" y="9" width="5.5" height="4" rx=".8" fill="none" stroke="currentColor" strokeWidth="1.3" />
+    <path d="M9.5 4.2h2.6a1.4 1.4 0 011.4 1.4v1.6M6.5 11.8H3.9a1.4 1.4 0 01-1.4-1.4V8.8" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
   </svg>
 );
 

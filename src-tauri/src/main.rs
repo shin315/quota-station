@@ -18,7 +18,8 @@
 //! preview of the whole batch. Since M10 it backs them up to iCloud Drive
 //! and restores them. Since M11 it does the same for the skills, shows the
 //! plugins and the instruction files, and says when a skill from GitHub has
-//! a newer version.
+//! a newer version. Since M13 it copies them, item by item, to or from
+//! another Mac over SSH, where that Mac's own Quota Station writes them.
 
 mod agents;
 mod agy_quota;
@@ -28,6 +29,7 @@ mod antigravity;
 mod backup;
 mod codex;
 mod commands;
+mod copy;
 mod install;
 mod login_item;
 mod notify;
@@ -45,6 +47,12 @@ use tauri::Manager;
 use crate::state::{Inner, Shared, Tab};
 
 fn main() {
+    // Another Mac's Quota Station runs `quota-station agents <word>` here
+    // over SSH (M13): answered without a window, and nothing else starts.
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.first().map(String::as_str) == Some("agents") {
+        std::process::exit(copy::cli(&args[1..]));
+    }
     tauri::Builder::default()
         // A second launch shows this copy's main window instead of a second icon.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -163,6 +171,9 @@ fn main() {
             backup::restore_run,
             backup::restore_retry,
             backup::restore_undo,
+            copy::copy_compare,
+            copy::copy_run,
+            copy::copy_undo,
             alerting::alert_action,
             alerting::test_alert,
             alerting::set_alert_switch,
@@ -182,7 +193,7 @@ fn main() {
 }
 
 /// The name macOS shows for this Mac (System Settings › General › About).
-fn machine_name() -> String {
+pub(crate) fn machine_name() -> String {
     Command::new("/usr/sbin/scutil")
         .args(["--get", "ComputerName"])
         .output()

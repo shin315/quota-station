@@ -8,7 +8,8 @@
 // answered yet. Codex (M8) has its own tab and a compact card on Tổng quan.
 // The Agent group starts with MCP (M9): every agent's MCP servers in one table,
 // then Skills, Plugin and File hướng dẫn (M11).
-// The Sao lưu group has the backup packs and the restore (M10).
+// The Sao lưu group has the backup packs and the restore (M10), and the copy
+// to or from another Mac over SSH (M13).
 
 import { Fragment, type ReactNode } from 'react';
 import { AddAccount, LoginActions, LoginNotes, LogoutConfirm, loginChips, type AgyLogins } from '../antigravity/AgyAccounts';
@@ -42,6 +43,7 @@ const NAVS: (['-', string] | [NavId, string])[] = [
   ['instr', 'File hướng dẫn'],
   ['-', 'Sao lưu'],
   ['backup', 'Sao lưu'],
+  ['copy', 'Chép sang Mac khác'],
 ];
 
 function NavButton(props: { id: NavId; label: string; tab: Tab; badge?: number; onTab(tab: Tab): void }) {
@@ -434,6 +436,8 @@ export interface MainWindowProps {
   instr?: ReactNode;
   /** The Sao lưu tab (M10). */
   backup?: ReactNode;
+  /** The Chép sang Mac khác tab (M13). */
+  copy?: ReactNode;
   /** The Lịch sử, Cảnh báo and Firstmate tabs (M6). */
   history?: ReactNode;
   alerts?: ReactNode;
@@ -492,6 +496,7 @@ export function MainWindow(props: MainWindowProps) {
           {props.tab === 'plugins' ? props.plugins : null}
           {props.tab === 'instr' ? props.instr : null}
           {props.tab === 'backup' ? props.backup : null}
+          {props.tab === 'copy' ? props.copy : null}
           {props.tab === 'settings' ? props.settings : null}
         </main>
       </div>
