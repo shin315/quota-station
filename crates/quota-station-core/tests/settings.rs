@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 use quota_station_core::alerts::{Kind, Switches};
 use quota_station_core::settings::{
-    machine_name, peers, AutoBackup, Menubar, MenubarWindow, Peer, PeersError, Settings, Theme,
-    MACHINE_NAME_MAX, PEERS_MAX,
+    machine_name, peers, AutoBackup, Menubar, MenubarWindow, Peer, PeersError, Settings,
+    SkillChecks, Theme, MACHINE_NAME_MAX, PEERS_MAX,
 };
 
 #[test]
@@ -26,6 +26,7 @@ fn settings_round_trip_and_default_when_missing() {
         source_dir: Some(PathBuf::from("/srv/example/quota-station")),
         codex_home: Some(PathBuf::from("/srv/example/codex")),
         auto_backup: AutoBackup { after_change: false, daily: true },
+        skill_checks: SkillChecks { daily: false, notify: true },
     };
     s.save(&file).unwrap();
     assert_eq!(Settings::load(&file), s);
@@ -42,6 +43,7 @@ fn settings_round_trip_and_default_when_missing() {
     assert!(text.contains("sourceDir"));
     assert!(text.contains("codexHome"));
     assert!(text.contains("\"afterChange\": false"));
+    assert!(text.contains(r#""skillChecks": {"#));
 
     std::fs::write(&file, "{ not json").unwrap();
     assert_eq!(Settings::load(&file), Settings::default());

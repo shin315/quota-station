@@ -264,6 +264,7 @@ pub async fn press(
             reader::publish(app, &shared);
         }
         Effect::OpenAgyTab => windows::open_main(app, Tab::Agy),
+        Effect::OpenSkills => windows::open_main(app, Tab::Skills),
         Effect::OpenVerification { number } => {
             let id = account_id(&dir, number).ok_or("notFound")?;
             crate::antigravity::open_verification(&dir, &id)?;

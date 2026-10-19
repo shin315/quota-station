@@ -14,6 +14,10 @@
 //!    (M4c) saw the old account back in use.
 //! 5. Firstmate holding new Claude work: `pool=dry` in its state file.
 //!
+//! And one more of its own (M11, G), not among the five: skills with a newer
+//! version on GitHub ([`skill_alert`]). It shows in the app; a macOS card
+//! only when the owner turned that on in Cài đặt.
+//!
 //! An alert's key names its event (the account, the time it ends), and a
 //! key is sent once; "Nhắc ngày mai" sends it again the next morning while
 //! it still holds. The cards name accounts the way the windows do (Team A,
@@ -69,6 +73,8 @@ pub enum Kind {
     Login,
     Overwrite,
     Firstmate,
+    /// Skills with a newer version (M11): not one of the five, no switch here.
+    Skill,
 }
 
 impl Kind {
@@ -83,6 +89,7 @@ impl Kind {
             Kind::Login => 3,
             Kind::Overwrite => 4,
             Kind::Firstmate => 5,
+            Kind::Skill => 6,
         }
     }
 }
@@ -113,6 +120,8 @@ impl Switches {
             Kind::Login => self.login,
             Kind::Overwrite => self.overwrite,
             Kind::Firstmate => self.firstmate,
+            // Its own settings say whether the app checks at all.
+            Kind::Skill => true,
         }
     }
 
@@ -123,6 +132,7 @@ impl Switches {
             Kind::Login => self.login = on,
             Kind::Overwrite => self.overwrite = on,
             Kind::Firstmate => self.firstmate = on,
+            Kind::Skill => {}
         }
     }
 
@@ -958,6 +968,8 @@ pub enum Effect {
     OpenVerification {
         number: u32,
     },
+    /// The Skills tab, where the new versions are.
+    OpenSkills,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1049,6 +1061,13 @@ pub fn answer(
             "Antigravity giữ tài khoản đang dùng. App thôi canh lần chuyển này.",
         );
         (Effect::DismissOverwrite, Some(said))
+    } else if action == "skills:open" {
+        let said = said(
+            Tone::Info,
+            "Đã mở tab Skills",
+            "Bấm Cập nhật ở skill bạn muốn. App không tự cập nhật.",
+        );
+        (Effect::OpenSkills, Some(said))
     } else if action == "agy:login" {
         let said = said(
             Tone::Info,
@@ -1184,6 +1203,12 @@ pub fn sample(kind: Kind, now: i64, offset: UtcOffset) -> Alert {
             format!("Thử: hạn mức trong vòng dưới ngưỡng. Có lại lúc {later}."),
             Vec::new(),
         ),
+        Kind::Skill => (
+            Tone::Info,
+            "2 skill có bản mới".into(),
+            "Thử: ui-polish, sql-helper. App không tự cập nhật.".into(),
+            vec![act("skills:open", "Xem"), act("dismiss", "Để sau")],
+        ),
     };
     Alert {
         key: format!("test:{}:{now}", kind.number()),
@@ -1195,6 +1220,39 @@ pub fn sample(kind: Kind, now: i64, offset: UtcOffset) -> Alert {
         at: now,
         test: true,
     }
+}
+
+/// The alert for skills with a newer version (G): one card for each new
+/// set of versions (`found` is each skill's name and new tree id), never
+/// twice for the same set. Returns its id when it is new.
+pub fn skill_alert(memory: &mut Memory, found: &[(String, String)], now: i64) -> Option<String> {
+    if found.is_empty() {
+        return None;
+    }
+    let mut parts: Vec<String> = found.iter().map(|(n, to)| format!("{n}@{to}")).collect();
+    parts.sort();
+    let key = format!("skills:{}", &crate::agents::write::sha256(parts.join(",").as_bytes())[..16]);
+    if memory.sent.contains_key(&key) {
+        return None;
+    }
+    let mut names: Vec<&str> = found.iter().map(|(n, _)| n.as_str()).collect();
+    names.sort();
+    let alert = Alert {
+        key: key.clone(),
+        kind: Kind::Skill,
+        tone: Tone::Info,
+        title: format!("{} skill có bản mới", names.len()),
+        body: format!("{}. App không tự cập nhật.", names.join(", ")),
+        actions: vec![act("skills:open", "Xem"), act("dismiss", "Để sau")],
+        at: now,
+        test: false,
+    };
+    memory.sent.insert(key.clone(), now);
+    let id = format!("{key}@{now}");
+    memory.recent.retain(|r| r.id != id);
+    memory.recent.insert(0, Record { id: id.clone(), alert, notified: false, answer: None });
+    memory.recent.truncate(RECENT_KEEP);
+    Some(id)
 }
 
 /// Keeps a test card in `memory.recent` and returns its id.

@@ -4,7 +4,8 @@
 //! dark look, which service the menu bar follows and which of its windows
 //! the title shows, which alerts are on,
 //! where Firstmate's state file is, the clone "Cập nhật từ mã nguồn"
-//! builds from, Codex's folder and when the agents' backup packs are made.
+//! builds from, Codex's folder, when the agents' backup packs are made and
+//! how the app looks for newer versions of the skills.
 
 use std::io;
 use std::path::{Path, PathBuf};
@@ -60,6 +61,32 @@ pub struct Settings {
     /// When a backup pack of the agents is made on its own (M10).
     #[serde(default, skip_serializing_if = "AutoBackup::is_default")]
     pub auto_backup: AutoBackup,
+    /// Looking for newer versions of the skills (M11).
+    #[serde(default, skip_serializing_if = "SkillChecks::is_default")]
+    pub skill_checks: SkillChecks,
+}
+
+/// "Kiểm bản mới" (once a day, or never) and "Báo bằng thông báo macOS"
+/// (off by default: the alert shows in the app only).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SkillChecks {
+    #[serde(default = "yes")]
+    pub daily: bool,
+    #[serde(default)]
+    pub notify: bool,
+}
+
+impl Default for SkillChecks {
+    fn default() -> Self {
+        SkillChecks { daily: true, notify: false }
+    }
+}
+
+impl SkillChecks {
+    pub fn is_default(&self) -> bool {
+        *self == SkillChecks::default()
+    }
 }
 
 /// "Tự sao lưu": after each change the app writes to an agent, and once a
@@ -190,6 +217,9 @@ struct Stored {
     /// An unknown value reads as both on.
     #[serde(default)]
     auto_backup: serde_json::Value,
+    /// An unknown value reads as daily, no macOS card.
+    #[serde(default)]
+    skill_checks: serde_json::Value,
 }
 
 impl From<Stored> for Settings {
@@ -230,6 +260,7 @@ impl From<Stored> for Settings {
             source_dir: s.source_dir,
             codex_home: s.codex_home,
             auto_backup: serde_json::from_value(s.auto_backup).unwrap_or_default(),
+            skill_checks: serde_json::from_value(s.skill_checks).unwrap_or_default(),
         }
     }
 }

@@ -9,6 +9,18 @@
 //! - `secrets-needed.json`: each secret's MCP, slot, name and the Bitwarden
 //!   item it is in. No value, and no hash of one.
 //!
+//! The sections after `mcp` (M11), each named in the manifest's `sections`
+//! and read only when it is:
+//!
+//! - `skills.json`: each skill, its GitHub source when it has one, whether
+//!   it was installed by hand, and the agents it is on for. No skill's
+//!   files yet.
+//! - `plugins.json`: Claude Code's and Codex's plugins (`name@marketplace`,
+//!   on or off) and the marketplaces' sources. When an agent's list could
+//!   not be read, the newest pack's list for it is kept, marked so.
+//! - `instructions.json`: the instruction files the owner keeps in, each
+//!   with its text. A file with a line shaped like a key is never here.
+//!
 //! The servers an app brings itself (Codex App's own) are not in it, nor
 //! are logins, accounts or Codex's provider. Every file is checked before
 //! it is written: no string shaped like a secret, and none of the values in
@@ -30,7 +42,7 @@ use time::OffsetDateTime;
 
 use super::def::{Def, MASK, REDACTED};
 use super::kho::Kho;
-use super::{batch, redact, Agent, Reading};
+use super::{batch, instructions, plugins, redact, Agent, Reading};
 use crate::local_time;
 
 /// The folder in iCloud Drive.
@@ -43,6 +55,11 @@ const MANIFEST: &str = "manifest.json";
 const MCP: &str = "mcp.json";
 const SECRETS: &str = "secrets-needed.json";
 const FILES: [&str; 3] = [MANIFEST, MCP, SECRETS];
+const SKILLS: &str = "skills.json";
+const PLUGINS: &str = "plugins.json";
+const INSTRUCTIONS: &str = "instructions.json";
+/// Every file the app writes in a pack.
+const ALL_FILES: [&str; 6] = [MANIFEST, MCP, SECRETS, SKILLS, PLUGINS, INSTRUCTIONS];
 /// A pack's files are a few kilobytes.
 const MAX_FILE: u64 = 4 * 1024 * 1024;
 /// A pack folder's name starts so.
@@ -68,8 +85,8 @@ pub struct Manifest {
     pub mac: String,
     /// Unix seconds.
     pub at: i64,
-    /// What the pack holds: `mcp` for now; skills, plugins and instruction
-    /// files come later.
+    /// What the pack holds: `mcp`, then `skills`, `plugins` and
+    /// `instructions` when it has them.
     pub sections: Vec<String>,
     pub mcp: usize,
     /// Secrets a restore asks for.
@@ -122,15 +139,95 @@ pub struct SecretsNeeded {
     pub secrets: Vec<Needed>,
 }
 
-/// A pack's three files.
+/// One skill in a pack.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PackedSkill {
+    pub name: String,
+    /// `owner/repo` for a skill from GitHub.
+    #[serde(default)]
+    pub repo: Option<String>,
+    /// Its `SKILL.md` in the repository.
+    #[serde(default)]
+    pub skill_path: Option<String>,
+    /// Installed by hand: no source to install it from again.
+    pub hand: bool,
+    /// The agents it is on for.
+    pub on: Vec<Agent>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SkillList {
+    pub skills: Vec<PackedSkill>,
+}
+
+/// Each agent's plugins; `state` is `kept` for a list taken from an older
+/// pack because the agent's could not be read.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginList {
+    pub agents: Vec<plugins::Side>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstructionList {
+    pub files: Vec<instructions::Packed>,
+}
+
+/// A pack's files.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Pack {
     pub manifest: Manifest,
     pub mcp: McpList,
     pub secrets: SecretsNeeded,
+    pub skills: Option<SkillList>,
+    pub plugins: Option<PluginList>,
+    pub instructions: Option<InstructionList>,
 }
 
 impl Pack {
+    /// Adds the skills, plugins and instruction files to the pack.
+    pub fn extend(
+        &mut self,
+        skills: Option<SkillList>,
+        plugins: Option<PluginList>,
+        instructions: Option<InstructionList>,
+    ) {
+        for (name, here) in [
+            ("skills", skills.is_some()),
+            ("plugins", plugins.is_some()),
+            ("instructions", instructions.is_some()),
+        ] {
+            if here && !self.manifest.sections.iter().any(|s| s == name) {
+                self.manifest.sections.push(name.into());
+            }
+        }
+        self.skills = skills;
+        self.plugins = plugins;
+        self.instructions = instructions;
+    }
+
+    /// The pack's files and their text.
+    fn texts(&self) -> Vec<(&'static str, String)> {
+        let mut out = vec![
+            (MANIFEST, text(&self.manifest)),
+            (MCP, text(&self.mcp)),
+            (SECRETS, text(&self.secrets)),
+        ];
+        if let Some(s) = &self.skills {
+            out.push((SKILLS, text(s)));
+        }
+        if let Some(p) = &self.plugins {
+            out.push((PLUGINS, text(p)));
+        }
+        if let Some(i) = &self.instructions {
+            out.push((INSTRUCTIONS, text(i)));
+        }
+        out
+    }
+
     pub fn needed(&self, mcp: &str, slot: &str) -> Option<&Needed> {
         self.secrets.secrets.iter().find(|n| n.mcp == mcp && n.slot == slot)
     }
@@ -334,15 +431,23 @@ pub fn content(
         keys: secrets.len(),
         mcp_hash: super::write::sha256(text(&mcp).as_bytes()),
     };
-    Pack { manifest, mcp, secrets: SecretsNeeded { secrets } }
+    Pack {
+        manifest,
+        mcp,
+        secrets: SecretsNeeded { secrets },
+        skills: None,
+        plugins: None,
+        instructions: None,
+    }
 }
 
 fn text<T: Serialize>(v: &T) -> String {
     serde_json::to_string_pretty(v).expect("JSON serializes") + "\n"
 }
 
-/// Every secret value in the agents' files now, to look for in a pack.
-fn values(readings: &[Reading]) -> Vec<String> {
+/// Every secret value in the agents' files now, to look for in a pack (and
+/// in the instruction files that go into one).
+pub fn secret_values(readings: &[Reading]) -> Vec<String> {
     readings
         .iter()
         .flat_map(|r| r.servers.iter())
@@ -421,9 +526,8 @@ pub fn write(
     pack: &Pack,
     readings: &[Reading],
 ) -> Result<String, PackError> {
-    let texts =
-        [(MANIFEST, text(&pack.manifest)), (MCP, text(&pack.mcp)), (SECRETS, text(&pack.secrets))];
-    let known = values(readings);
+    let texts = pack.texts();
+    let known = secret_values(readings);
     for (_, t) in &texts {
         let clean = redact::json(t).is_ok_and(|c| c == *t);
         if !clean || known.iter().any(|v| t.contains(v.as_str())) {
@@ -453,7 +557,7 @@ pub fn write(
         std::fs::rename(&tmp, root.join(&id))
     })();
     if let Err(e) = result {
-        for name in FILES {
+        for name in ALL_FILES {
             let _ = std::fs::remove_file(tmp.join(name));
         }
         let _ = std::fs::remove_dir(&tmp);
@@ -469,7 +573,7 @@ fn prune(root: &Path, mac: &str) {
     let mine: Vec<Info> = list(root, mac).into_iter().filter(|p| p.mine).collect();
     for old in mine.into_iter().skip(KEPT) {
         let dir = root.join(&old.id);
-        for name in FILES {
+        for name in ALL_FILES {
             let _ = std::fs::remove_file(dir.join(name));
         }
         let _ = std::fs::remove_dir(&dir);
@@ -631,7 +735,23 @@ pub fn load(root: &Path, id: &str) -> Result<Pack, LoadError> {
             return Err(LoadError::Invalid(format!("{MCP}: {}", s.name)));
         }
     }
-    Ok(Pack { manifest, mcp, secrets })
+    let has = |section: &str| manifest.sections.iter().any(|s| s == section);
+    fn section<T: for<'de> Deserialize<'de>>(dir: &Path, name: &str) -> Result<T, LoadError> {
+        if in_cloud(&dir.join(name)) {
+            return Err(LoadError::Cloud);
+        }
+        let t =
+            read_small(&dir.join(name)).map_err(|e| LoadError::Invalid(format!("{name}: {e}")))?;
+        serde_json::from_str(&t).map_err(|e| LoadError::Invalid(format!("{name}: {e}")))
+    }
+    let skills = if has("skills") { Some(section::<SkillList>(&dir, SKILLS)?) } else { None };
+    let plugins = if has("plugins") { Some(section::<PluginList>(&dir, PLUGINS)?) } else { None };
+    let instructions = if has("instructions") {
+        Some(section::<InstructionList>(&dir, INSTRUCTIONS)?)
+    } else {
+        None
+    };
+    Ok(Pack { manifest, mcp, secrets, skills, plugins, instructions })
 }
 
 /// What "Xem trong gói" says: each server and the agents it is on in,
@@ -644,6 +764,11 @@ pub struct Summary {
     pub at: i64,
     pub servers: Vec<SummaryServer>,
     pub keys: Vec<Needed>,
+    /// The skills, plugins (`name@marketplace`) and instruction files
+    /// (`~/…`) in it, when it has them.
+    pub skills: Vec<String>,
+    pub plugins: Vec<String>,
+    pub instructions: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -670,6 +795,19 @@ pub fn summary(id: &str, pack: &Pack) -> Summary {
             })
             .collect(),
         keys: pack.secrets.secrets.clone(),
+        skills: pack.skills.iter().flat_map(|s| s.skills.iter().map(|k| k.name.clone())).collect(),
+        plugins: pack
+            .plugins
+            .iter()
+            .flat_map(|p| p.agents.iter().flat_map(|a| a.plugins.iter().map(|x| x.id.clone())))
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .collect(),
+        instructions: pack
+            .instructions
+            .iter()
+            .flat_map(|i| i.files.iter().map(|f| f.path.clone()))
+            .collect(),
     }
 }
 
@@ -679,6 +817,32 @@ pub fn unchanged(root: &Path, mac: &str, mcp_hash: &str) -> bool {
         .into_iter()
         .find(|p| p.mine)
         .is_some_and(|p| p.mcp_hash.as_deref() == Some(mcp_hash))
+}
+
+/// The newest pack `mac` wrote holds what `pack` would: its servers and
+/// each other section's text.
+pub fn same_as_newest(root: &Path, mac: &str, pack: &Pack) -> bool {
+    let Some(newest) = list(root, mac).into_iter().find(|p| p.mine) else { return false };
+    if newest.mcp_hash.as_deref() != Some(pack.manifest.mcp_hash.as_str()) {
+        return false;
+    }
+    let dir = root.join(&newest.id);
+    pack.texts()
+        .iter()
+        .filter(|(name, _)| ![MANIFEST, MCP].contains(name))
+        .all(|(name, t)| read_small(&dir.join(name)).ok().as_deref() == Some(t.as_str()))
+        && [SKILLS, PLUGINS, INSTRUCTIONS]
+            .iter()
+            .filter(|n| !pack.texts().iter().any(|(m, _)| m == *n))
+            .all(|n| !dir.join(n).exists())
+}
+
+/// The newest pack `mac` wrote, read: for the instruction files' "so với
+/// gói" and the plugins an agent could not list.
+pub fn newest(root: &Path, mac: &str) -> Option<(i64, Pack)> {
+    let info = list(root, mac).into_iter().find(|p| p.mine && p.state == "ok")?;
+    let p = load(root, &info.id).ok()?;
+    Some((p.manifest.at, p))
 }
 
 /// The slots of `def` a restore fills: its [`REDACTED`] places.

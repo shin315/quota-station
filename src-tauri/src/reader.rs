@@ -112,6 +112,7 @@ fn run(app: &AppHandle, state: &AppState) {
         state.wake_agy();
         crate::alerting::after_read(state);
         crate::backup::daily(app, state);
+        crate::skills::daily(app, state);
         publish(app, state);
 
         if let Ok(check) = switcher.join() {

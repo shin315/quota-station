@@ -199,6 +199,8 @@ pub struct Inner {
     pub mcp: agents::Live,
     /// The backup packs and the last restore (M10).
     pub backup: crate::backup::Live,
+    /// The skills table, the plugins, the instruction files (M11).
+    pub skills: crate::skills::Live,
 }
 
 /// How the app's own read of an Antigravity account stands.
@@ -268,6 +270,9 @@ pub enum Tab {
     Alerts,
     Firstmate,
     Mcp,
+    Skills,
+    Plugins,
+    Instr,
     Backup,
     Settings,
 }
@@ -327,6 +332,7 @@ impl Inner {
             codex: codex::Live::default(),
             mcp: agents::Live::default(),
             backup: crate::backup::Live::default(),
+            skills: crate::skills::Live::default(),
         }
     }
 
@@ -490,6 +496,9 @@ impl Inner {
             codex: codex::view(self),
             mcp: agents::view(self),
             backup: crate::backup::view(self),
+            skills: crate::skills::skills_view(self),
+            plugins: crate::skills::plugins_view(self),
+            instructions: crate::skills::instr_view(self),
         }
     }
 
@@ -606,6 +615,10 @@ pub struct Model {
     /// Every agent's MCP servers (M9).
     pub mcp: McpView,
     pub backup: crate::backup::BackupView,
+    /// The skills, the plugins and the instruction files (M11).
+    pub skills: crate::skills::SkillsView,
+    pub plugins: crate::skills::PluginsView,
+    pub instructions: crate::skills::InstrView,
 }
 
 /// The rotation file and the other Macs (F06).

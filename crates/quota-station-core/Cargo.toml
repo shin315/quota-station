@@ -25,6 +25,8 @@ serde.workspace = true
 serde_json.workspace = true
 # The quota cache is named by the SHA-256 of the email, as Cockpit names it.
 sha2 = "0.10"
+# Git's object ids: a skill folder's tree hash, as `npx skills` records it.
+sha1 = "0.10"
 time.workspace = true
 toml_edit = "0.25"
 url = "2.5"
