@@ -379,6 +379,47 @@ the confirmation sheet first.
 
   <img src="docs/mcp-menu.png" width="372" alt="A column's menu: Bật tất cả, Tắt tất cả and Bỏ 1 thay đổi chưa ghi"> <img src="docs/mcp-preview.png" width="372" alt="The batch preview: the line Codex loses, the entry Antigravity gains with its key masked, and the claude command">
 
+- **Skills, Plugin và File hướng dẫn** (M11). The `Skills` tab shows every
+  skill of Claude Code, Codex and Antigravity in the MCP tab's table, a
+  checkbox per agent, filtered by `Tất cả`, `Từ GitHub`, `Cài tay` and
+  `Có bản mới`. Skills live once, in the shared folder `npx skills`
+  installs into (`~/.agents/skills`): a tick for Claude Code or Antigravity
+  is a link in that agent's folder, and for Codex, which reads the shared
+  folder itself, an `enabled = false` entry under `[[skills.config]]` in
+  `config.toml`. Ticks go through the same pending bar, preview, backups and
+  `Hoàn tác` as the MCP tab, and turning a skill off never removes a folder.
+  `Cài từ GitHub` takes a repository, lists its skills (with `Đọc SKILL.md`
+  to read one first), lets the owner pick the agents and shows the
+  `npx skills add` command before it runs; nothing in a skill runs on
+  install. Skills installed by hand in one agent's folder can be gathered
+  into the shared folder with `Gom về…`; skills Codex or a plugin brings are
+  listed and left alone. Once a day the app asks GitHub, one question per
+  repository in the skill lock file, whether a skill has a newer version,
+  and says so above the table and in the Cảnh báo tab (a macOS card only if
+  turned on in Cài đặt); it never updates on its own. `Cập nhật` shows what
+  changed, warns when the skill was edited on this Mac, keeps a copy and
+  keeps every agent's box; `Bỏ qua bản này` waits for the next version.
+
+  The `Plugin` tab lists the plugins `claude plugin list` and
+  `codex plugin list` report, what each brings and the marketplaces, and
+  the agents' own commands a restore would run; it changes nothing. The
+  `File hướng dẫn` tab lists CLAUDE.md, the rules under `~/.claude/rules`,
+  AGENTS.md, GEMINI.md and any file added by hand, when each changed, how it
+  stands against the newest backup pack (with a line-by-line `So sánh`) and
+  whether it goes into the pack. The app never edits one, and a file with a
+  line shaped like a key stays out of every pack, the value masked when it
+  is shown. The backup pack now lists the skills (their source, not their
+  content), the plugins and the instruction files; restoring them comes
+  later. See [SECURITY.md](SECURITY.md#skills-plugins-and-instruction-files-m11).
+
+  <img src="docs/skills-tab.png" width="760" alt="The Skills tab on fixture data: a row per made-up skill with a checkbox per agent, two with a newer version, the filters, and the lines for the skills installed by hand, a link to nothing and the skills agents and plugins bring">
+
+  <img src="docs/skill-update.png" width="540" alt="The update preview of a made-up skill: the version on this Mac, the newer one and what changed, Bỏ qua bản này and Cập nhật">
+
+  <img src="docs/plugin-tab.png" width="760" alt="The Plugin tab on fixture data: Claude Code's and Codex's plugins with what each brings, and the marketplaces">
+
+  <img src="docs/instr-tab.png" width="760" alt="The File hướng dẫn tab on fixture data: five instruction files, one kept out of the pack for a line shaped like a key, one changed since the newest pack">
+
 - **Sao lưu và khôi phục** (M10). The `Sao lưu` tab saves the MCP servers
   of the three agents, and which agent has each one on, to a pack in iCloud
   Drive, so any of the owner's Macs can restore it. It shows the newest
@@ -571,6 +612,24 @@ assumes another Mac has any. Each Mac installs and updates its own copy
   the agent files as the MCP tab does, and keeps
   `agents/restore-last.json` (what `Hoàn tác` needs, no key) in the app's
   folder.
+- Skills (M11), when the `Skills` tab opens and on `Đọc lại`: the shared
+  folder `~/.agents/skills` and its lock file `~/.agents/.skill-lock.json`
+  (read only), `~/.claude/skills`, `~/.gemini/config/skills`, the Codex
+  folder's `skills` and the `[[skills.config]]` entries of its
+  `config.toml`. After a preview the owner confirmed it makes or removes
+  links in the two folders and writes those entries. `npx -y skills …` runs
+  only on `Tìm skill`, `Đọc SKILL.md`, `Cài`, `Cập nhật` and `Gỡ hẳn`, in an
+  empty folder of the app's. Once a day it asks
+  `api.github.com/repos/<owner>/<repo>/git/trees/HEAD` once per repository
+  in the lock file, with no token, and keeps what it found in
+  `agents/skill-updates.json`.
+- Plugins (M11), when the `Plugin` tab opens: `claude plugin list --json`,
+  `claude plugin marketplace list --json` and `codex plugin list --json`,
+  and each installed plugin's own folder. Nothing else of the two commands.
+- Instruction files (M11), when the `File hướng dẫn` tab opens:
+  `~/.claude/CLAUDE.md`, `~/.claude/rules/**/*.md`, the Codex folder's
+  `AGENTS.md`, `~/.gemini/GEMINI.md` and the files added by hand; the
+  choices made there are `agents/instructions.json`. It never writes them.
 - It writes these files: its own settings file,
   `~/Library/Application Support/com.shin315.quota-station/settings.json`,
   with `rotation-sync.json` (where each other Mac stands) beside it; in the
@@ -818,7 +877,8 @@ itself; `scripts/install.sh` installs it.
 `npm run dev` serves the popover at http://localhost:1420/ on the fixtures and
 the fake Rust side the tests use. Query parameters: `state` (a file name in
 `src/fixtures/snapshots/`), `view=window` with `tab` (`overview`, `claude`,
-`agy`, `codex`, `rules`, `history`, `alerts`, `firstmate`, `mcp`, `backup` or `settings`), `error` (an
+`agy`, `codex`, `rules`, `history`, `alerts`, `firstmate`, `mcp`, `skills`,
+`plugins`, `instr`, `backup` or `settings`), `error` (an
 error kind) and `theme` (`light` or `dark`).
 For the rotation rules: `rotation` (`unreachable`, `newer`, `edited`,
 `missing`, `invalid`, `refused` or `single`).
@@ -848,7 +908,10 @@ on `tab=mcp`: `mcp` (`empty`, `parse` for a Codex file that does not parse,
 file changed). For M10, on `tab=backup`: `backup` (`empty`, `icloud` for a
 pack not downloaded yet, `noicloud`, `restored` or `unread`) and
 `restoreoutcome` (`changed` for a file changed after the preview,
-`undochanged` for one edited after the restore). Nothing
+`undochanged` for one edited after the restore). For M11: `skills` (`empty`,
+`nonpx`, `offline` or `unread`) and `skillsoutcome=changed` on
+`tab=skills`, `plugins=noclaude` on `tab=plugins` and `instr=clean` on
+`tab=instr`. Nothing
 is switched, no browser opens and no file is written: a
 switch only waits 1.5 seconds, a save 1 second and each update step 1.5
 seconds, and they update the fixture.
@@ -856,8 +919,8 @@ seconds, and they update the fixture.
 ## Tests
 
 ```sh
-cargo test --workspace   # parsing, snapshot rules, icon, runner, schedule, switching, rotation, other Macs, Antigravity login, quota and switch, history, alerts, Firstmate's file, install.sh, update, login item, Codex switch, MCP, backup packs and restore
-npm test                 # Vitest: popover and main window views, switch and pause sheets, rules editor, login card and read states, Antigravity switch, Codex switch, history, alerts, Firstmate, MCP, backup and settings tabs, restore sheet
+cargo test --workspace   # parsing, snapshot rules, icon, runner, schedule, switching, rotation, other Macs, Antigravity login, quota and switch, history, alerts, Firstmate's file, install.sh, update, login item, Codex switch, MCP, backup packs and restore, skills, plugins and instruction files
+npm test                 # Vitest: popover and main window views, switch and pause sheets, rules editor, login card and read states, Antigravity switch, Codex switch, history, alerts, Firstmate, MCP, Skills, Plugin, File hướng dẫn, backup and settings tabs, restore sheet
 ```
 
 The install tests (`crates/quota-station-core/tests/install_script.rs`) run
@@ -1039,15 +1102,22 @@ UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test ui_fixtures
   agent's list, the edits of one entry, the batch, the safe write it shares
   with `codex`, the backups without keys, the app's store and its Keychain
   items; `agents/pack.rs` makes, lists and reads the backup packs and
-  `agents/restore.rs` plans, runs and undoes a restore.
+  `agents/restore.rs` plans, runs and undoes a restore. `agents/skills.rs`
+  reads and writes the Skills tab's links and `[[skills.config]]` entries,
+  `skill_ops.rs` and `npx.rs` install, update and remove through
+  `npx skills`, `skill_updates.rs` asks GitHub for newer versions,
+  `plugins.rs` reads the agents' plugin lists and `instructions.rs` the
+  instruction files.
 - `src-tauri/` is the Tauri 2 shell: the tray item, the popover and the main
   window, the read loop, the Antigravity quota thread, the macOS
   notification center (`notify.rs`), the login item (`login_item.rs`), the
   update (`install.rs`), the Codex thread (`codex.rs`), the MCP tab's
-  commands (`agents.rs`), the backup tab's (`backup.rs`) and the other commands.
+  commands (`agents.rs`), the backup tab's (`backup.rs`), the Skills, Plugin
+  and File hướng dẫn tabs' (`skills.rs`) and the other commands.
 - `scripts/install.sh` builds, signs, installs and packages the app.
 - `src/` is the React and TypeScript frontend; `src/agents/` holds the MCP
-  tab and its `CheckMatrix`, which the Skills tab will reuse, and
+  tab and its `CheckMatrix`, which the Skills tab reuses, the Plugin and
+  File hướng dẫn tabs, and
   `src/backup/` the backup tab and the restore sheet. Its `styles/tokens.css` and
   `styles/components.css` come from the approved prototype.
 

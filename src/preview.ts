@@ -34,11 +34,16 @@
 // Sao lưu (M10): `tab=backup` with `backup=empty|icloud|noicloud|restored|unread`
 // (`icloud`: a pack iCloud Drive has not downloaded), and `restoreoutcome=changed|undochanged`
 // for a restore, or its undo, that finds a file changed. A restore takes 1.2 s.
+// Skills, Plugin and File hướng dẫn (M11): `tab=skills|plugins|instr`, with
+// `skills=empty|nonpx|offline|unread`, `plugins=noclaude` and `instr=clean`;
+// `skillsoutcome=changed` for a write that finds a folder changed. npx and a
+// write take 0.8 s.
 
 import type { Api } from './lib/api';
 import type { AgyAccounts, AgyApp, AgyHow, AgyOutcome, CodexOutcome, CodexTarget, ErrorView, McpTable, Model, Outcome, Tab, UpdateError, UpdateOutcome } from './lib/model';
 import { fakeApi, fakeEmail, hideNames } from './fixtures/fakeApi';
 import { backupFixture, packsFixture } from './fixtures/fakeBackup';
+import { instrFixture, pluginsFixture, skillsFixture, skillTableFixture } from './fixtures/fakeSkills';
 import {
   agyAccount,
   agyFixture,
@@ -62,7 +67,26 @@ import {
   overwriteAlert,
 } from './fixtures/models';
 
-const TABS: Tab[] = ['overview', 'claude', 'agy', 'codex', 'rules', 'history', 'alerts', 'firstmate', 'mcp', 'backup', 'settings'];
+const TABS: Tab[] = ['overview', 'claude', 'agy', 'codex', 'rules', 'history', 'alerts', 'firstmate', 'mcp', 'skills', 'plugins', 'instr', 'backup', 'settings'];
+
+const SKILLS: Record<string, () => Model['skills']> = {
+  empty: () => skillsFixture({ table: skillTableFixture({ rows: [], owned: [], broken: [] }) }),
+  nonpx: () => skillsFixture({ npx: false }),
+  offline: () => skillsFixture({ updates: { ...skillsFixture().updates, error: 'offline' } }),
+  unread: () => skillsFixture({ table: null, readAt: null }),
+};
+const PLUGINS: Record<string, () => Model['plugins']> = {
+  noclaude: () => {
+    const p = pluginsFixture();
+    return { ...p, sides: p.sides!.map((s) => (s.agent === 'claude' ? { ...s, state: 'noCli', plugins: [], marketplaces: [] } : s)), reinstall: { codex: p.reinstall.codex } };
+  },
+};
+const INSTRS: Record<string, () => Model['instructions']> = {
+  clean: () => {
+    const i = instrFixture();
+    return { ...i, view: { ...i.view!, files: i.view!.files.filter((f) => !f.keyLines.length) } };
+  },
+};
 
 const MCP_COLUMN = (agent: 'claude' | 'codex' | 'agy', over: Partial<McpTable['columns'][number]>) => (t: McpTable) =>
   t.columns.map((c) => (c.agent === agent ? { ...c, ...over } : c));
@@ -301,6 +325,12 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
   if (mcp) over.mcp = mcp();
   const backup = pick(BACKUP, params.get('backup'));
   if (backup) over.backup = backup();
+  const skills = pick(SKILLS, params.get('skills'));
+  if (skills) over.skills = skills();
+  const plugins = pick(PLUGINS, params.get('plugins'));
+  if (plugins) over.plugins = plugins();
+  const instr = pick(INSTRS, params.get('instr'));
+  if (instr) over.instructions = instr();
   const agyApp = params.get('agyapp');
   const ends = LOGIN_ENDS.find((k) => k.toLowerCase() === params.get('login')?.toLowerCase());
   const menubar = params.get('menubar');
@@ -337,6 +367,8 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
     restoreChanged: params.get('restoreoutcome') === 'changed',
     restoreUndoChanged: params.get('restoreoutcome') === 'undochanged',
     restoreDelayMs: 1200,
+    skillsChanged: params.get('skillsoutcome') === 'changed',
+    skillsDelayMs: 800,
   });
   // The window opens on the same fixture and switcher states as the popover.
   const openWindow = async (next: Tab) => {

@@ -6,7 +6,8 @@
 // switches from its tables once quota-axi lists them (M4c). Lịch sử, Cảnh
 // báo and Firstmate come from M6, and Cảnh báo counts the alerts nobody
 // answered yet. Codex (M8) has its own tab and a compact card on Tổng quan.
-// The Agent group starts with MCP (M9): every agent's MCP servers in one table.
+// The Agent group starts with MCP (M9): every agent's MCP servers in one table,
+// then Skills, Plugin and File hướng dẫn (M11).
 // The Sao lưu group has the backup packs and the restore (M10).
 
 import { Fragment, type ReactNode } from 'react';
@@ -36,6 +37,9 @@ const NAVS: (['-', string] | [NavId, string])[] = [
   ['firstmate', 'Firstmate'],
   ['-', 'Agent'],
   ['mcp', 'MCP'],
+  ['skills', 'Skills'],
+  ['plugins', 'Plugin'],
+  ['instr', 'File hướng dẫn'],
   ['-', 'Sao lưu'],
   ['backup', 'Sao lưu'],
 ];
@@ -424,6 +428,10 @@ export interface MainWindowProps {
   codexCard?: ReactNode;
   /** The MCP tab (M9). */
   mcp?: ReactNode;
+  /** The Skills, Plugin and File hướng dẫn tabs (M11). */
+  skills?: ReactNode;
+  plugins?: ReactNode;
+  instr?: ReactNode;
   /** The Sao lưu tab (M10). */
   backup?: ReactNode;
   /** The Lịch sử, Cảnh báo and Firstmate tabs (M6). */
@@ -480,6 +488,9 @@ export function MainWindow(props: MainWindowProps) {
           {props.tab === 'alerts' ? props.alerts : null}
           {props.tab === 'firstmate' ? props.firstmate : null}
           {props.tab === 'mcp' ? props.mcp : null}
+          {props.tab === 'skills' ? props.skills : null}
+          {props.tab === 'plugins' ? props.plugins : null}
+          {props.tab === 'instr' ? props.instr : null}
           {props.tab === 'backup' ? props.backup : null}
           {props.tab === 'settings' ? props.settings : null}
         </main>

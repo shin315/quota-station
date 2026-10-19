@@ -40,7 +40,7 @@ describe('main window', () => {
     const refresh = within(bar).getByRole('button', { name: 'Làm mới' });
     expect(refresh.hasAttribute('data-tauri-drag-region')).toBe(false);
     expect(screen.getByRole('navigation', { name: 'Mục' }).hasAttribute('data-tauri-drag-region')).toBe(true);
-    for (const tab of ['rules', 'history', 'alerts', 'firstmate', 'settings', 'codex', 'mcp'] as Tab[]) {
+    for (const tab of ['rules', 'history', 'alerts', 'firstmate', 'settings', 'codex', 'mcp', 'skills', 'plugins', 'instr'] as Tab[]) {
       cleanup();
       await open(fixtureModel('fresh'), tab);
       expect(screen.getByRole('heading', { level: 2 }).parentElement!.getAttribute('data-tauri-drag-region')).toBe('deep');

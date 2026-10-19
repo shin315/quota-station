@@ -57,6 +57,8 @@ export interface SettingsProps {
   onUpdate(): Promise<string | null>;
   /** The app quits on success; resolves to the refusal (`rulesDirty`, …) otherwise. */
   onRelaunch(): Promise<string | null>;
+  /** Skills (M11): "Kiểm bản mới" once a day or never, and whether a macOS card says so too. */
+  onSkillChecks?(daily: boolean, notify: boolean): void;
 }
 
 const CLIENT_CHIPS: Record<ClientStatus, ChipView> = {
@@ -550,6 +552,38 @@ export function menubarOff(model: Model, menubar: Menubar): string {
 }
 
 /** Thanh menu: which service's account and percent used the menu bar shows. */
+/** Skills (M11, G): looking for newer versions, and how the app says it found one. */
+function SkillChecksRows({ model, onSet }: { model: Model; onSet: NonNullable<SettingsProps['onSkillChecks']> }) {
+  const c = model.skills.updates.settings;
+  return (
+    <>
+      <div className="fr">
+        <div className="fl" id="qs-skcheck-l">
+          Kiểm bản mới
+        </div>
+        <div>
+          <div className="seg inline" role="group" aria-labelledby="qs-skcheck-l">
+            <button type="button" aria-pressed={c.daily} onClick={() => onSet(true, c.notify)}>
+              Mỗi ngày
+            </button>
+            <button type="button" aria-pressed={!c.daily} onClick={() => onSet(false, c.notify)}>
+              Tắt
+            </button>
+          </div>
+          <div className="fhint">Hỏi GitHub một lần cho mỗi repo có skill đã cài. App không tự cập nhật skill.</div>
+        </div>
+      </div>
+      <div className="fr">
+        <div className="fl">Báo bằng thông báo macOS</div>
+        <div>
+          <Toggle on={c.notify} label="Báo skill có bản mới bằng thông báo macOS" onClick={() => onSet(c.daily, !c.notify)} />
+          <div className="fhint">Tắt thì chỉ báo trong tab Cảnh báo.</div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 function MenubarRow({ model, onPick }: { model: Model; onPick(menubar: Menubar): void }) {
   const offs = MENUBARS.map(([v]) => menubarOff(model, v)).filter(Boolean);
   const picked = menubarOff(model, model.menubar);
@@ -644,6 +678,7 @@ export function Settings({
   onSetSource,
   onUpdate,
   onRelaunch,
+  onSkillChecks,
 }: SettingsProps) {
   const [path, setPath] = useField(model.quotaAxi.path ?? '');
   const [refused, setRefused] = useState(false);
@@ -757,6 +792,7 @@ export function Settings({
           <FirstmateFile model={model} onSet={onSetFirstmate} />
           {onSetCodexHome ? <CodexHome model={model} onSet={onSetCodexHome} /> : null}
           <Notifications model={model} onAction={onAction} onTest={onTestAlert} onSwitch={onAlertSwitch} />
+          {onSkillChecks ? <SkillChecksRows model={model} onSet={onSkillChecks} /> : null}
           <LaunchAtLogin app={model.app} onSet={onLaunchAtLogin} onOpen={onOpenLoginItems} />
           <SourceDir app={model.app} onSet={onSetSource} />
           <Version app={model.app} onUpdate={onUpdate} onRelaunch={onRelaunch} />

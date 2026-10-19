@@ -103,6 +103,22 @@ export const NAV_ICONS = {
       <path d="M8 11.9v2.4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   ),
+  skills: (
+    <svg {...P}>
+      <path d="M9.2 1.6L3.6 9h3.8l-.9 5.4L12.4 7H8.6z" fill="currentColor" />
+    </svg>
+  ),
+  plugins: (
+    <svg {...P}>
+      <path d="M3 4.5h3a1.6 1.6 0 113.2 0h2.8v2.8a1.6 1.6 0 110 3.2V13.5H3V10.5a1.6 1.6 0 100-3.2z" fill="currentColor" />
+    </svg>
+  ),
+  instr: (
+    <svg {...P}>
+      <path d="M4 1.8h5.5L12.5 5v9.2H4z" {...S} strokeLinejoin="round" />
+      <path d="M6 8h4.5M6 10.6h4.5" {...S} strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  ),
   backup: (
     <svg {...P}>
       <rect x="1.8" y="2.5" width="12.4" height="3.4" rx="1" fill="currentColor" />
@@ -157,5 +173,20 @@ export const ARCHIVE_BIG = (
     <rect x="1.8" y="2.5" width="12.4" height="3.4" rx="1" fill="currentColor" />
     <path d="M2.8 6.5h10.4v6.2a1 1 0 01-1 1H3.8a1 1 0 01-1-1z" fill="none" stroke="currentColor" strokeWidth="1.4" />
     <path d="M6.4 9h3.2" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+  </svg>
+);
+
+/** Skills installed by hand, gathered into one place. */
+export const STACK_ICON = (
+  <svg {...P}>
+    <path d="M8 2l6 3-6 3-6-3z" fill="currentColor" />
+    <path d="M2 8l6 3 6-3M2 11l6 3 6-3" {...S} strokeLinejoin="round" />
+  </svg>
+);
+
+/** The big spark of the empty Skills table. */
+export const SPARK_BIG = (
+  <svg width="22" height="22" viewBox="0 0 16 16" aria-hidden="true">
+    <path d="M9.2 1.6L3.6 9h3.8l-.9 5.4L12.4 7H8.6z" fill="currentColor" />
   </svg>
 );

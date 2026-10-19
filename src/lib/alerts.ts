@@ -5,12 +5,12 @@
 // `tabFirstmate`.
 
 import { age, clock, percent, secondsSince } from './format';
-import type { AlertKind, AlertRecord, AlertTone, FirstmateView, Model, NotifyPermission } from './model';
+import type { AlertRecord, AlertTone, FirstmateView, Model, NotifyPermission, SwitchKind } from './model';
 import { dayClock, namesOf } from './switching';
 import type { BannerView, ChipView, FeedbackView, Tone } from './view';
 
 /** The five kinds, in the prototype's order and words. */
-export const ALERT_KINDS: { kind: AlertKind; title: string; text: string }[] = [
+export const ALERT_KINDS: { kind: SwitchKind; title: string; text: string }[] = [
   {
     kind: 'pool',
     title: 'Hạn mức Claude trong vòng sắp cạn / có lại',

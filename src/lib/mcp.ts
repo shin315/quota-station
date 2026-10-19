@@ -1,6 +1,8 @@
 // The MCP tab's logic (M9), pure so Vitest covers it without a window: the
 // boxes ticked and not written yet, the column menus, the batch they become,
 // and the words around them. Copy follows the approved phase 2 prototype.
+// The boxes' helpers take any row of the matrix, so the Skills tab (M11)
+// uses them too.
 
 import { clock } from './format';
 import type { Agent, McpCell, McpChange, McpDef, McpFailure, McpLock, McpOutcome, McpPreview, McpRefusal, McpRow, McpTable } from './model';
@@ -18,18 +20,24 @@ export type Pending = Record<string, boolean>;
 
 export const pkey = (name: string, agent: Agent): string => name + '|' + agent;
 
-/** The box as the file has it. */
-export const original = (cell: McpCell): boolean => cell.state === 'on';
+/** A row of an Agent tab's matrix: an MCP server or a skill. */
+export interface BoxRow {
+  name: string;
+  cells: Record<Agent, { state: 'on' | 'off' | 'absent'; lock: string | null }>;
+}
 
-export function shown(pending: Pending, row: McpRow, agent: Agent): boolean {
+/** The box as the file has it. */
+export const original = (cell: Pick<McpCell, 'state'>): boolean => cell.state === 'on';
+
+export function shown(pending: Pending, row: BoxRow, agent: Agent): boolean {
   const p = pending[pkey(row.name, agent)];
   return p === undefined ? original(row.cells[agent]) : p;
 }
 
-export const tickable = (row: McpRow, agent: Agent): boolean => row.cells[agent].lock == null;
+export const tickable = (row: BoxRow, agent: Agent): boolean => row.cells[agent].lock == null;
 
 /** `pending` with the box set to `on`; set back to what the file has, it is no change at all. */
-export function setBox(pending: Pending, row: McpRow, agent: Agent, on: boolean): Pending {
+export function setBox(pending: Pending, row: BoxRow, agent: Agent, on: boolean): Pending {
   if (!tickable(row, agent)) return pending;
   const next = { ...pending };
   const key = pkey(row.name, agent);
@@ -38,10 +46,10 @@ export function setBox(pending: Pending, row: McpRow, agent: Agent, on: boolean)
   return next;
 }
 
-export const toggle = (pending: Pending, row: McpRow, agent: Agent): Pending => setBox(pending, row, agent, !shown(pending, row, agent));
+export const toggle = (pending: Pending, row: BoxRow, agent: Agent): Pending => setBox(pending, row, agent, !shown(pending, row, agent));
 
 /** "Bật tất cả" / "Tắt tất cả" of a column: a box that cannot be ticked is left as it is. */
-export function setColumn(pending: Pending, rows: McpRow[], agent: Agent, on: boolean): Pending {
+export function setColumn(pending: Pending, rows: BoxRow[], agent: Agent, on: boolean): Pending {
   return rows.reduce((p, row) => setBox(p, row, agent, on), pending);
 }
 
@@ -51,10 +59,10 @@ export function clearColumn(pending: Pending, agent: Agent): Pending {
 }
 
 /** "Bật cả ba": every box of the row that can be ticked. */
-export const rowAll = (pending: Pending, row: McpRow): Pending => AGENTS.reduce((p, a) => setBox(p, row, a, true), pending);
+export const rowAll = (pending: Pending, row: BoxRow): Pending => AGENTS.reduce((p, a) => setBox(p, row, a, true), pending);
 
 /** Whether "Bật cả ba" has anything to do. */
-export const rowCanAll = (pending: Pending, row: McpRow): boolean => AGENTS.some((a) => tickable(row, a) && !shown(pending, row, a));
+export const rowCanAll = (pending: Pending, row: BoxRow): boolean => AGENTS.some((a) => tickable(row, a) && !shown(pending, row, a));
 
 export interface PendingItem {
   name: string;
@@ -65,7 +73,7 @@ export interface PendingItem {
 }
 
 /** The changes not written, in the table's order, then the columns'. */
-export function pendingList(pending: Pending, rows: McpRow[]): PendingItem[] {
+export function pendingList(pending: Pending, rows: BoxRow[]): PendingItem[] {
   const out: PendingItem[] = [];
   for (const row of rows)
     for (const agent of AGENTS) {
@@ -89,7 +97,7 @@ export interface ColumnMenu {
   pending: number;
 }
 
-export function columnMenu(pending: Pending, rows: McpRow[], agent: Agent): ColumnMenu {
+export function columnMenu(pending: Pending, rows: BoxRow[], agent: Agent): ColumnMenu {
   const can = rows.filter((r) => tickable(r, agent));
   return {
     total: can.length,

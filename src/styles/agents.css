@@ -1,7 +1,8 @@
-/* The Agent group's tabs (M9 · MCP), from the approved phase 2 prototype (round 2).
+/* The Agent group's tabs (M9 · MCP, M11 · Skills, Plugin, File hướng dẫn), from the approved phase 2 prototype (round 2).
    Reads only tokens.css, under .qs like components.css. Classes and their components:
    AgentMatrix = .mx, CheckCell = .cbx, ColumnMenu = .agb + .cmenu, PendingBar = .pendbar,
-   InfoLines = .mlines, DiffView = .diff, CommandLine = .cmd, SecretField = .sec, CompareRow = .dr. */
+   InfoLines = .mlines, DiffView = .diff, CommandLine = .cmd, SecretField = .sec, CompareRow = .dr,
+   PluginRow = .pr, FileRow = .frow, the Skills filter = .filt. */
 
 .qs .card h4 .cnt { font-weight: var(--fw-reg); color: var(--ink3); }
 .qs .lnk.sm { font-size: var(--fs-xs); }
@@ -149,3 +150,26 @@
 .qs .ck.dis { cursor: default; color: var(--ink2); }
 .qs .empty .ei { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: var(--fill); color: var(--accent-ink); margin: 0 auto 8px; }
 .qs .empty .btns { justify-content: center; margin-top: 10px; }
+
+/* ===== Skills (M11): the same matrix, wider agent columns, a filter above ===== */
+.qs .sk .mx-r { grid-template-columns: minmax(0, 1.7fr) repeat(3, 104px) 132px; }
+.qs .filt { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 0 0 6px; }
+.qs .ck .chip { align-self: center; }
+
+/* PluginRow = .pr: a plugin, what it brings, on or off. */
+.qs .pr { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) 70px; gap: 10px; padding: 7px 0; border-top: .5px solid var(--card-line); font-size: var(--fs-sm); align-items: center; }
+.qs .pr.h { color: var(--ink3); font-size: var(--fs-xs); padding-top: 0; border-top: 0; }
+.qs .pr .id { font: 11.5px var(--font-mono); overflow-wrap: anywhere; }
+.qs .card h4 .agl { vertical-align: -3px; }
+
+/* FileRow = .frow: an instruction file. */
+.qs .frow { display: grid; grid-template-columns: minmax(0, 1.6fr) 90px 104px minmax(0, 1.1fr) 62px 56px; gap: 10px; align-items: center; padding: 7px 6px; border-top: .5px solid var(--card-line); font-size: var(--fs-sm); }
+.qs .frow.h { color: var(--ink3); font-size: var(--fs-xs); padding-top: 0; border-top: 0; }
+.qs .frow .p { font: 11.5px var(--font-mono); overflow-wrap: anywhere; }
+.qs .frow .m { color: var(--ink2); font-variant-numeric: var(--num); }
+
+/* A file shown whole: line numbers, the lines shaped like a key lit. */
+.qs .lnum pre > span { padding-left: 38px; }
+.qs .lnum pre > span::before { content: attr(data-n); width: 22px; text-align: right; left: 6px; }
+.qs .lnum pre > span.hl { background: color-mix(in srgb, var(--warn) 18%, transparent); }
+.qs .dlg .diff { max-height: 46vh; overflow: auto; }

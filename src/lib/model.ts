@@ -433,7 +433,10 @@ export interface HistoryEntry {
   cause: HistoryCause;
 }
 
-export type AlertKind = 'pool' | 'leaving' | 'login' | 'overwrite' | 'firstmate';
+/** The five kinds with a switch each (M6). */
+export type SwitchKind = 'pool' | 'leaving' | 'login' | 'overwrite' | 'firstmate';
+/** `skill`: skills with a newer version (M11), shown in the app only unless Cài đặt says otherwise. */
+export type AlertKind = SwitchKind | 'skill';
 export type AlertTone = 'ok' | 'warn' | 'bad' | 'info';
 
 export interface AlertAct {
@@ -480,7 +483,7 @@ export interface AlertRecord {
   answer: AlertAnswer | null;
 }
 
-export type AlertSwitches = Record<AlertKind, boolean>;
+export type AlertSwitches = Record<SwitchKind, boolean>;
 
 /** `unbundled`: the app does not run as a packaged `.app`, so macOS shows no cards. */
 export type NotifyPermission = 'unknown' | 'allowed' | 'denied' | 'unbundled';
@@ -559,7 +562,21 @@ export interface AppView {
 }
 
 /** The main window's tabs in this build (`src-tauri/src/state.rs` `Tab`). */
-export type Tab = 'overview' | 'claude' | 'agy' | 'codex' | 'rules' | 'history' | 'alerts' | 'firstmate' | 'mcp' | 'backup' | 'settings';
+export type Tab =
+  | 'overview'
+  | 'claude'
+  | 'agy'
+  | 'codex'
+  | 'rules'
+  | 'history'
+  | 'alerts'
+  | 'firstmate'
+  | 'mcp'
+  | 'skills'
+  | 'plugins'
+  | 'instr'
+  | 'backup'
+  | 'settings';
 
 // ===== Codex (M8) =====
 
@@ -907,6 +924,10 @@ export interface Model {
   mcp: McpView;
   /** The backup packs and the last restore (M10). */
   backup: BackupView;
+  /** The skills, the plugins and the instruction files (M11). */
+  skills: SkillsView;
+  plugins: PluginsView;
+  instructions: InstrView;
 }
 
 // ===== Backup and restore (M10) =====
@@ -956,6 +977,10 @@ export interface PackSummary {
   at: number;
   servers: { name: string; agents: Agent[]; on: Agent[] }[];
   keys: { mcp: string; slot: string; label: string; bitwarden: string | null }[];
+  /** The skills, plugins and instruction files in the pack (M11); none in an older one. */
+  skills?: string[];
+  plugins?: string[];
+  instructions?: string[];
 }
 
 /** `agents::restore::Item`: one line of the restore preview. */
@@ -1013,4 +1038,220 @@ export interface RestoreUndone {
   outcome: McpOutcome | null;
   kept: number;
   keys: number;
+}
+
+// ===== Skills, plugins and instruction files (M11) =====
+
+/** `agents::skills::Column`. */
+export interface SkillColumn {
+  agent: Agent;
+  present: boolean;
+  /** The folder, or Codex's `config.toml`. */
+  file: string;
+  /** `missing`: the agent is here, its skills folder not yet. */
+  state: 'ok' | 'missing' | 'absent' | 'invalid' | 'unreadable';
+  reason: string | null;
+  writable: boolean;
+}
+
+/** Why a box cannot be ticked: the column is read only, the skill is in an agent's own folder, another skill of that name is there, or its link points to nothing. */
+export type SkillLock = 'readOnly' | 'hand' | 'taken' | 'broken';
+
+export interface SkillCell {
+  state: 'on' | 'off' | 'absent';
+  lock: SkillLock | null;
+}
+
+/** A newer version on GitHub (G). */
+export interface SkillUpdate {
+  /** When the version on this Mac was installed (the lock file's date). */
+  fromAt: string | null;
+  /** Unix seconds: when the app first saw the newer version. */
+  seenAt: number;
+  /** "Sửa hướng dẫn, thêm 1 file". */
+  plain: string;
+  /** The skill's history on GitHub. */
+  link: string;
+}
+
+export interface SkillRow {
+  name: string;
+  /** `github`: in the lock file; `hand`: installed by hand; `other`: in the lock file from elsewhere. */
+  source: 'github' | 'other' | 'hand';
+  repo: string | null;
+  /** In an agent's own folder rather than the shared one: gather it first. */
+  home: Agent | null;
+  cells: Record<Agent, SkillCell>;
+  /** Changed on this Mac since it was installed. */
+  edited: boolean;
+  update: SkillUpdate | null;
+  /** Bytes. */
+  size: number;
+  importable: boolean;
+}
+
+/** Skills an agent or a plugin brings: read only. */
+export interface SkillOwned {
+  what: string;
+  agent: Agent;
+  names: string[];
+}
+
+export interface SkillBroken {
+  agent: Agent;
+  name: string;
+  target: string;
+}
+
+export interface SkillTable {
+  columns: SkillColumn[];
+  rows: SkillRow[];
+  owned: SkillOwned[];
+  broken: SkillBroken[];
+  /** The lock file could not be read. */
+  lockError: string | null;
+}
+
+export interface SkillChange {
+  name: string;
+  agent: Agent;
+  on: boolean;
+}
+
+export type SkillRefusal = SkillLock | 'badName' | 'unknown' | 'nothing';
+
+export interface SkillPreview {
+  groups: { agent: Agent; file: string; count: number; lines: McpLine[] }[];
+  refused: { name: string; agent: Agent; reason: SkillRefusal }[];
+  changes: SkillChange[];
+  bases: Partial<Record<Agent, string>>;
+}
+
+export type SkillFailure =
+  | { kind: 'changed' }
+  | { kind: 'refused'; refused: SkillPreview['refused'] }
+  | { kind: 'edit'; detail: string }
+  | { kind: 'write'; detail: string };
+
+export interface SkillOutcome {
+  done: { agent: Agent; changes: number; backup: string | null }[];
+  failed: { agent: Agent; error: SkillFailure } | null;
+  undo: { changes: SkillChange[]; bases: Partial<Record<Agent, string>> } | null;
+  at: number;
+}
+
+/** What `npx skills` said when it failed. */
+export type NpxError = { kind: 'noNpx' } | { kind: 'badRepo' } | { kind: 'noSkills' } | { kind: 'timeout' } | { kind: 'failed'; detail: string };
+
+export interface SkillInstalled {
+  names: string[];
+  outcome: SkillOutcome;
+  error: NpxError | null;
+}
+
+export interface SkillUpdated {
+  name: string;
+  backup: string | null;
+  error: NpxError | null;
+}
+
+export interface SkillRemoved {
+  names: string[];
+  backups: string[];
+  error: NpxError | null;
+}
+
+export interface SkillGathered {
+  moved: { name: string; home: Agent }[];
+  /** The skill that could not be moved, and why. */
+  failed: [string, string] | null;
+  at: number;
+}
+
+export interface RepoList {
+  repo: string;
+  skills: { name: string; description: string; installed: boolean }[];
+}
+
+export interface SkillChecks {
+  daily: boolean;
+  notify: boolean;
+}
+
+export interface SkillsView {
+  /** `null` until the tab first reads. */
+  table: SkillTable | null;
+  readAt: string | null;
+  busy: 'reading' | 'writing' | 'installing' | 'updating' | 'removing' | 'importing' | null;
+  /** `npx` is on this Mac. */
+  npx: boolean;
+  last: { at: string; kind: 'batch' | 'install' | 'import' | 'update' | 'remove'; names: string[]; outcome: SkillOutcome | null; canUndo: boolean } | null;
+  updates: {
+    checkedAt: string | null;
+    /** `offline`, `rateLimited`, … when the whole check failed. */
+    error: string | null;
+    /** Repositories GitHub did not answer for. */
+    failed: string[];
+    checking: boolean;
+    settings: SkillChecks;
+  };
+}
+
+/** `agents::plugins::Plugin`. */
+export interface Plugin {
+  /** `name@marketplace`. */
+  id: string;
+  enabled: boolean;
+  version: string | null;
+  brings: { mcp: number; skills: string[]; commands: number; hooks: boolean; agents: number };
+}
+
+export interface Marketplace {
+  name: string;
+  kind: 'github' | 'git' | 'local' | 'builtin' | 'other';
+  source: string | null;
+}
+
+/** One agent's plugins: `noCli` without its command, `kept` from the newest pack. */
+export interface PluginSide {
+  agent: Agent;
+  state: 'ok' | 'noCli' | 'failed' | 'kept';
+  detail: string | null;
+  plugins: Plugin[];
+  marketplaces: Marketplace[];
+}
+
+export interface PluginsView {
+  sides: PluginSide[] | null;
+  readAt: string | null;
+  busy: boolean;
+  /** What a restore would run, by agent. */
+  reinstall: Partial<Record<Agent, string[]>>;
+}
+
+/** `agents::instructions::FileView`. */
+export interface InstrFile {
+  /** `~/…`. */
+  path: string;
+  agent: Agent | null;
+  modifiedAt: string | null;
+  size: number;
+  lines: number;
+  /** Lines (from 1) shaped like a key: the file stays out of the pack. */
+  keyLines: number[];
+  error: string | null;
+  include: boolean;
+  /** Added with "Thêm file…". */
+  extra: boolean;
+  vsPack: 'same' | 'changed' | 'new' | 'noPack';
+}
+
+export interface InstrView {
+  view: { files: InstrFile[]; packAt: number | null } | null;
+  readAt: string | null;
+}
+
+export interface InstrShown {
+  path: string;
+  lines: { text: string; key: boolean; notKey: boolean }[];
 }
