@@ -40,13 +40,99 @@ body.popover-window {
    macOS draws the traffic lights in the sidebar's top corner, where the
    prototype draws them, and the page leaves that corner empty. */
 body.main-window {
-  background: var(--winbg);
+  background: transparent;
   overflow: hidden;
 }
 .qs.app-window,
 .qs.app-window .win-o {
   width: 100%;
   height: 100%;
+}
+
+/* One sheet of glass, like the popover (10/2026). The window is transparent
+   and macOS draws the popover's material behind all of it (windows.rs); the
+   page lays the popover's glass tint on top. macOS draws the corners, the
+   border and the shadow. */
+.qs.app-window .win-o {
+  background: var(--glass);
+  border-radius: 0;
+  box-shadow: none;
+}
+/* The sidebar has no panel of its own: it sits on the glass, flush with the
+   window's edges. The lights' slot stays where macOS draws them. */
+.qs.app-window .side {
+  margin: 0;
+  border-radius: 0;
+  padding: 20px 10px 10px;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+}
+.qs.app-window .side .lights {
+  padding: 0 12px 14px;
+}
+.qs.app-window .main {
+  padding-left: 14px;
+}
+/* Every group is a frosted panel like the popover's tiles: no border, no
+   shadow, and never a panel inside a panel. A group of cards (Đang dùng's
+   tiles, Cảnh báo's recent alerts) drops its own panel so the cards stand on
+   the glass, and number tiles inside a panel (Codex's sessions) drop theirs. */
+.qs.app-window .card,
+.qs.app-window .acard {
+  background: var(--fill);
+  box-shadow: none;
+}
+.qs.app-window .card.nowc,
+.qs.app-window .card:has(> .stack > .acard) {
+  background: transparent;
+  padding: 0;
+}
+.qs.app-window .card.nowc h4,
+.qs.app-window .card:has(> .stack > .acard) > h4 {
+  margin: 0 2px 8px;
+}
+.qs.app-window .card .pool {
+  background: transparent;
+  padding: 2px 0 0;
+}
+/* Reduce transparency: macOS makes the material solid, and so does the tint. */
+.qs.app-window[data-material="solid"] .win-o {
+  background: var(--glass-solid);
+}
+@media (prefers-reduced-transparency: reduce) {
+  .qs.app-window .win-o {
+    background: var(--glass-solid);
+  }
+}
+
+/* Text on glass. tokens.css promises 4.5:1 for --ink3 and --accent-ink on
+   solid surfaces; on the glass of the popover and the main window, its
+   frosted panels and the rows and tiles in use, they are a step stronger. */
+.qs.app-window[data-theme="light"],
+.qs.app-popover[data-theme="light"] {
+  --ink3: #5e5e63;
+  --accent-ink: #005cc0;
+}
+.qs.app-window[data-theme="dark"],
+.qs.app-popover[data-theme="dark"] {
+  --ink3: #aaaaaf;
+  --accent-ink: #6dadff;
+}
+@media not (prefers-color-scheme: dark) {
+  .qs.app-window[data-theme="auto"],
+  .qs.app-popover[data-theme="auto"] {
+    --ink3: #5e5e63;
+    --accent-ink: #005cc0;
+  }
+}
+@media (prefers-color-scheme: dark) {
+  .qs.app-window[data-theme="auto"],
+  .qs.app-popover[data-theme="auto"] {
+    --ink3: #aaaaaf;
+    --accent-ink: #6dadff;
+  }
 }
 .qs.app-window .lights {
   min-height: 14px;
@@ -131,7 +217,13 @@ body.preview .qs.app-popover {
 body.preview .qs.app-popover .pop {
   max-height: var(--pop-max);
 }
+/* The main window on a desktop too: the glass blurs the desktop the way
+   macOS's material does in the app. */
 body.preview.main-window {
-  background: var(--winbg);
+  background: var(--desk);
   padding: 0;
+}
+body.preview .qs.app-window .win-o {
+  backdrop-filter: blur(var(--blur-pop)) saturate(var(--sat));
+  -webkit-backdrop-filter: blur(var(--blur-pop)) saturate(var(--sat));
 }

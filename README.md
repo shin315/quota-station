@@ -132,7 +132,10 @@ the confirmation sheet first.
   `Fable tuần` or `Chặt nhất`, ticked; `Fable tuần` is greyed out unless the
   title follows Claude), `Cài đặt…` (settings), `Thoát Quota Station`
   (quit).
-- **Main window.** The same numbers as the popover, from the same read, in
+- **Main window.** One sheet of glass, like the popover: macOS draws the
+  popover's material behind the whole window, the sidebar sits on it with no
+  panel of its own, and each group is a frosted panel (solid when Reduce
+  transparency is on). The same numbers as the popover, from the same read, in
   these tabs:
   - `Tổng quan`: `Đang dùng`, a tile per service with the account in use,
     its share used large, the window and its reset, every Claude Code and Antigravity account in a table with fixed columns

@@ -2,6 +2,7 @@
 
 use std::time::{Duration, Instant};
 
+use tauri::window::{Effect, EffectState, EffectsBuilder};
 use tauri::{
     AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, TitleBarStyle, WebviewUrl,
     WebviewWindow, WebviewWindowBuilder, WindowEvent,
@@ -124,6 +125,15 @@ pub fn open_main(app: &AppHandle, tab: Tab) {
         .title_bar_style(TitleBarStyle::Overlay)
         .hidden_title(true)
         .traffic_light_position(LogicalPosition::new(TRAFFIC_LIGHTS.0, TRAFFIC_LIGHTS.1))
+        // One sheet of glass: macOS draws the popover's material behind the
+        // whole window, and the page lays the same glass tint on top.
+        .transparent(true)
+        .effects(
+            EffectsBuilder::new()
+                .effect(Effect::Popover)
+                .state(EffectState::FollowsWindowActiveState)
+                .build(),
+        )
         .center()
         .build();
     if let Ok(window) = built {
