@@ -108,6 +108,8 @@ export interface FakeOptions {
   skillsChanged?: boolean;
   /** How long `npx skills` and a skills write take. */
   skillsDelayMs?: number;
+  /** Skills `npx skills update` fails for, in "Cập nhật tất cả" and "Cập nhật cả bộ". */
+  skillsUpdateFail?: string[];
   /** Chép sang Mac khác (M13): Macs that do not answer, run version 1, or have no app. */
   copyUnreach?: string[];
   copyOld?: string[];
@@ -710,6 +712,21 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       const rows = table.rows.map((r) => (r.name === name ? { ...r, update: null, edited: false } : r));
       push({ ...model, skills: { ...model.skills, busy: null, table: { ...table, rows } } });
       return { name, backup: name + '.folder.20260116-142000', error: null };
+    },
+    skillsUpdateMany: async (names) => {
+      const table = model.skills.table;
+      if (!table) throw 'notRead';
+      if (model.skills.busy) throw 'busy';
+      const fail = options.skillsUpdateFail ?? [];
+      const results = names.map((name) => ({ name, backup: name + '.folder.20260116-142000', error: fail.includes(name) ? { kind: 'failed' as const, detail: 'Skill ' + name + ' not found' } : null }));
+      for (const [i, name] of names.entries()) {
+        push({ ...model, skills: { ...model.skills, busy: 'updating', progress: { done: i, total: names.length, name } } });
+        if (options.skillsDelayMs) await new Promise((r) => setTimeout(r, options.skillsDelayMs));
+      }
+      const ok = new Set(results.filter((r) => !r.error).map((r) => r.name));
+      const rows = table.rows.map((r) => (ok.has(r.name) ? { ...r, update: null, edited: false } : r));
+      push({ ...model, skills: { ...model.skills, busy: null, progress: null, table: { ...table, rows } } });
+      return { results, backups: '~/Library/Application Support/com.shin315.quota-station/backups/skills' };
     },
     skillsSkip: async (name) => {
       const table = model.skills.table;

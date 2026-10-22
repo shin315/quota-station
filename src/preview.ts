@@ -38,9 +38,10 @@
 // for a restore, or its undo, that finds a file changed. A restore takes 1.2 s.
 // M12: `restoreoutcome=partial` for a restore whose formatter plugin needs a login.
 // Skills, Plugin and File hướng dẫn (M11): `tab=skills|plugins|instr`, with
-// `skills=empty|nonpx|offline|unread`, `plugins=noclaude` and `instr=clean`;
-// `skillsoutcome=changed` for a write that finds a folder changed. npx and a
-// write take 0.8 s.
+// `skills=empty|nonpx|offline|unread|sets`, `plugins=noclaude` and `instr=clean`
+// (`sets`: acme/agent-skills has two newer versions too, for "Cập nhật cả bộ");
+// `skillsoutcome=changed` for a write that finds a folder changed, `skillsoutcome=updatefail`
+// for an update of release-notes that fails. npx and a write take 0.8 s.
 // Chép sang Mac khác (M13): `tab=copy` with the made-up Macs "MacBook Air" (`travel-air`) and
 // "Studio iMac" (`studio-imac`), and `copy=unreach|old|noapp|none|changed`: the first Mac does
 // not answer, runs version 1, has no app; no Mac in settings; a copy finds a file changed.
@@ -94,6 +95,11 @@ const SKILLS: Record<string, () => Model['skills']> = {
   nonpx: () => skillsFixture({ npx: false }),
   offline: () => skillsFixture({ updates: { ...skillsFixture().updates, error: 'offline' } }),
   unread: () => skillsFixture({ table: null, readAt: null }),
+  sets: () => {
+    const t = skillTableFixture();
+    const update = { fromAt: '2025-11-20T08:00:00Z', seenAt: 1768537000, plain: 'Sửa hướng dẫn', link: 'https://github.com/acme/agent-skills/commits/HEAD' };
+    return skillsFixture({ table: { ...t, rows: t.rows.map((r) => (r.name === 'pdf-tools' || r.name === 'release-notes' ? { ...r, update } : r)) } });
+  },
 };
 const PLUGINS: Record<string, () => Model['plugins']> = {
   brands: pluginsBrandsFixture,
@@ -420,6 +426,7 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
     restorePartial: params.get('restoreoutcome') === 'partial',
     restoreDelayMs: 1200,
     skillsChanged: params.get('skillsoutcome') === 'changed',
+    skillsUpdateFail: params.get('skillsoutcome') === 'updatefail' ? ['release-notes'] : undefined,
     skillsDelayMs: 800,
     copyUnreach: copy === 'unreach' ? ['travel-air'] : [],
     copyOld: copy === 'old' ? ['travel-air'] : [],

@@ -1,8 +1,9 @@
 // The Skills tab's dialogs (M11): the batch preview every box goes through,
 // installing from GitHub in three steps (the repository, the skills with
 // their SKILL.md to read first, the preview), gathering the skills installed
-// by hand, a newer version, removing, the skills agents and plugins bring,
-// a link to nothing, and how to get `npx`. No dialog runs a skill.
+// by hand, a newer version (one skill, or several in one preview), removing,
+// the skills agents and plugins bring, a link to nothing, and how to get
+// `npx`. No dialog runs a skill.
 
 import { DialogButtons, DialogLead, DialogSection, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -14,7 +15,7 @@ import type { Agent, Model } from '../lib/model';
 import { groupFile, onAt, sizeText, skillRefusalText } from '../lib/skills';
 import { AgentLogo } from './CheckMatrix';
 import { Facts } from './McpDialogs';
-import type { SkillBatch, SkillDialog, SkillGh, Skills } from './useSkills';
+import type { SkillBatch, SkillDialog, SkillGh, Skills, SkillUpdateMany } from './useSkills';
 
 /** The dialog's width: the preview and the repository's list need room. */
 export function skillDialogSize(d: SkillDialog): 'lg' | 'xl' | 'wide' {
@@ -354,6 +355,64 @@ function UpdateBody({ d, skills }: { d: Extract<SkillDialog, { kind: 'update' }>
   );
 }
 
+function UpdateManyBody({ d, skills, model }: { d: SkillUpdateMany; skills: Skills; model: Model }) {
+  const rows = (skills.table?.rows ?? []).filter((r) => r.update && d.names.includes(r.name));
+  if (!rows.length) return <Gone skills={skills} />;
+  const picked = rows.map((r) => r.name).filter((n) => d.picked.includes(n));
+  const pick = (name: string, on: boolean) => skills.setDialog({ ...d, picked: on ? [...d.picked, name] : d.picked.filter((n) => n !== name) });
+  const edited = rows.filter((r) => r.edited);
+  const p = skills.working ? model.skills.progress : null;
+  const n = picked.length;
+  return (
+    <>
+      <DialogTitle>{p ? 'Đang cập nhật ' + (p.done + 1) + '/' + p.total + ': ' + p.name : d.repo ? 'Cập nhật cả bộ ' + d.repo + '?' : 'Cập nhật tất cả skill có bản mới?'}</DialogTitle>
+      <DialogLead>{rows.length} skill có bản mới. Bỏ tick skill nào muốn để sau.</DialogLead>
+      {edited.length ? (
+        <Banner
+          banner={{
+            tone: 'warn',
+            title: 'Bạn đã sửa skill này trên máy',
+            body: edited.map((r) => r.name).join(', ') + ' chưa tick, để giữ phần bạn sửa. Tick thì bản mới thay phần bạn sửa; app lưu lại bản đang có để bạn lấy lại.',
+            actions: [],
+          }}
+          onAction={() => {}}
+        />
+      ) : null}
+      <div role="group" aria-label="Skill sẽ cập nhật">
+        {rows.map((r) => (
+          <CheckRow key={r.name} checked={picked.includes(r.name)} disabled={skills.working} onChange={(on) => pick(r.name, on)}>
+            <span>
+              <b>{r.name}</b>
+              <small>
+                {(r.update!.fromAt ? day(r.update!.fromAt) : 'không rõ ngày cài') + ' → ' + day(new Date(r.update!.seenAt * 1000).toISOString()) + ' · ' + r.update!.plain}
+                {d.repo ? null : ' · ' + (r.repo ?? 'không rõ nguồn')}
+              </small>
+            </span>
+            {r.edited ? <Chip chip={{ t: 'bạn đã sửa', k: 'warn' }} /> : null}
+          </CheckRow>
+        ))}
+      </div>
+      <div className="mt-2.5">
+        <Facts
+          items={[
+            ['ok', 'Agent nào đang bật skill vẫn bật.'],
+            ['ok', 'Lưu lại bản đang có của từng skill trước khi cập nhật.'],
+          ]}
+        />
+      </div>
+      <p className={TECH}>Cập nhật {n} skill, lần lượt bằng npx skills update &lt;tên&gt; -g -y. Không chạy script nào của skill.</p>
+      <DialogButtons>
+        <Button large disabled={skills.working} onClick={skills.close}>
+          Huỷ
+        </Button>
+        <Button large primary disabled={!n || skills.working} onClick={() => skills.updateMany(picked)}>
+          {skills.working ? 'Đang cập nhật…' : 'Cập nhật ' + n + ' skill'}
+        </Button>
+      </DialogButtons>
+    </>
+  );
+}
+
 function DelBody({ d, skills }: { d: Extract<SkillDialog, { kind: 'del' }>; skills: Skills }) {
   const r = skills.table?.rows.find((x) => x.name === d.name);
   if (!r) return <Gone skills={skills} />;
@@ -501,6 +560,8 @@ export function SkillDialogBody({ skills, model }: { skills: Skills; model: Mode
       return <ImportBody d={d} skills={skills} />;
     case 'update':
       return <UpdateBody d={d} skills={skills} />;
+    case 'updateMany':
+      return <UpdateManyBody d={d} skills={skills} model={model} />;
     case 'del':
       return <DelBody d={d} skills={skills} />;
     case 'owned':

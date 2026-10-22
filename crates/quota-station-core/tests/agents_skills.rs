@@ -418,6 +418,9 @@ case "$cmd" in
     done ;;
   use) printf 'Use the following SKILL.md:\n<SKILL.md>\n---\nname: x\n---\n# Changelog\n</SKILL.md>\n' ;;
   update)
+    # What the app's backups held when this update ran.
+    ls '@APP@/backups/skills' > "$d/backups-at-$1"
+    [ "$1" = "release-notes" ] && { echo "Skill release-notes not found in acme/agent-skills" >&2; exit 1; }
     printf 'More.\n' >> "$home/.agents/skills/$1/SKILL.md"
     # The tool links agents of its own choosing.
     rm -f "$home/.claude/skills/$1"
@@ -431,7 +434,8 @@ esac
 "#
     .replace("@DIR@", &dir.display().to_string())
     .replace("@HOME@", &h.home.display().to_string())
-    .replace("@MARK@", &h.mark.display().to_string());
+    .replace("@MARK@", &h.mark.display().to_string())
+    .replace("@APP@", &h.app.path().display().to_string());
     let program = script(&dir.join("bin/npx"), &body);
     Npx::new(program, npx::run_dir(h.app.path()))
 }
@@ -530,6 +534,65 @@ fn updating_keeps_a_copy_and_every_agent_s_box() {
     assert!(look.on(&h.places, "ui-polish", Agent::Claude), "Claude Code's link is back");
     assert!(!look.on(&h.places, "ui-polish", Agent::Agy), "the tool's Antigravity link went");
     assert!(!h.mark.exists());
+}
+
+#[test]
+fn updating_several_copies_every_folder_first_and_says_how_each_ended() {
+    let h = setup();
+    let n = fake_npx(&h);
+    let names: Vec<String> =
+        ["ui-polish", "find-notes", "release-notes", "sql-helper", "ui-polish"]
+            .map(String::from)
+            .into();
+    let mut steps = Vec::new();
+    let out = skill_ops::update_many(&h.places, &h.app, &n, &names, at(0), |i, total, name| {
+        steps.push((i, total, name.to_string()))
+    });
+    assert_eq!(
+        out.iter().map(|u| u.name.as_str()).collect::<Vec<_>>(),
+        ["ui-polish", "find-notes", "release-notes", "sql-helper"],
+        "each skill once, in the order asked"
+    );
+    assert!(
+        out[0].error.is_none() && out[3].error.is_none(),
+        "{:?} {:?}",
+        out[0].error,
+        out[3].error
+    );
+    // Installed by hand: no copy, no update, and why.
+    assert!(out[1].backup.is_none());
+    assert!(matches!(&out[1].error, Some(npx::NpxError::Failed(m)) if m.contains("file khoá")));
+    // The tool failed for one: its copy is kept, the others still ran.
+    assert!(out[2].backup.is_some());
+    assert!(matches!(&out[2].error, Some(npx::NpxError::Failed(m)) if m.contains("not found")));
+    // One update per skill, so each ends on its own.
+    assert_eq!(
+        calls(&h),
+        ["ui-polish", "release-notes", "sql-helper"].map(|s| [
+            "-y", "skills", "update", s, "-g", "-y"
+        ]
+        .map(String::from)
+        .to_vec())
+    );
+    assert_eq!(
+        steps,
+        [
+            (0, 3, "ui-polish".to_string()),
+            (1, 3, "release-notes".into()),
+            (2, 3, "sql-helper".into())
+        ]
+    );
+    // Every copy was made before the first update ran.
+    let at_first = std::fs::read_to_string(h.root.join("npx/backups-at-ui-polish")).unwrap();
+    for u in [&out[0], &out[2], &out[3]] {
+        assert!(at_first.lines().any(|l| Some(l) == u.backup.as_deref()), "{at_first}");
+    }
+    let look = skills::read(&h.places);
+    for name in ["ui-polish", "sql-helper"] {
+        assert!(look.on(&h.places, name, Agent::Claude), "{name}: Claude Code's link is back");
+        assert!(!look.on(&h.places, name, Agent::Agy), "{name}: the tool's Antigravity link went");
+    }
+    assert!(!h.mark.exists(), "updating ran nothing of the skills");
 }
 
 #[test]

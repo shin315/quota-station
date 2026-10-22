@@ -2,11 +2,11 @@
 // nothing here reads or writes a skill folder, runs `npx`, `claude` or
 // `codex`, or reaches GitHub. Every skill, plugin and file is made up.
 
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MainWindowApp } from '../App';
 import { fakeApi, type FakeOptions } from '../fixtures/fakeApi';
-import { pluginsBrandsFixture, pluginsFixture, skillsFixture } from '../fixtures/fakeSkills';
+import { pluginsBrandsFixture, pluginsFixture, skillsFixture, skillTableFixture } from '../fixtures/fakeSkills';
 import { alertsFixture, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
 import type { Api } from '../lib/api';
 import type { Model, Tab } from '../lib/model';
@@ -89,6 +89,56 @@ describe('the Skills tab', () => {
     expect(fake.api.skillsSkip).toHaveBeenCalledWith('ui-polish');
     expect(fake.api.skillsUpdate).not.toHaveBeenCalled();
     expect(screen.getByText('1 skill có bản mới')).toBeTruthy();
+  });
+
+  it('"Cập nhật tất cả" previews every newer version, a skill edited on this Mac not ticked', async () => {
+    const fake = await openTab('skills');
+    await press(screen.getByRole('button', { name: 'Cập nhật tất cả (2)' }));
+    const d = dialog();
+    expect(within(d).getByRole('heading', { name: 'Cập nhật tất cả skill có bản mới?' })).toBeTruthy();
+    expect(within(d).getByText('Bạn đã sửa skill này trên máy')).toBeTruthy();
+    const group = within(d).getByRole('group', { name: 'Skill sẽ cập nhật' });
+    expect(within(group).getByRole('checkbox', { name: /sql-helper/ }).getAttribute('aria-checked')).toBe('false');
+    expect(within(group).getByRole('checkbox', { name: /ui-polish/ }).getAttribute('aria-checked')).toBe('true');
+    expect(within(d).getByText('12/12 → 16/01 · Sửa hướng dẫn, thêm 1 file · uikit-lab/ui-skills')).toBeTruthy();
+    expect(within(d).getByText('Cập nhật 1 skill, lần lượt bằng npx skills update <tên> -g -y. Không chạy script nào của skill.')).toBeTruthy();
+    expect(fake.api.skillsUpdateMany).not.toHaveBeenCalled();
+    await press(within(group).getByRole('checkbox', { name: /sql-helper/ }));
+    await press(within(d).getByRole('button', { name: 'Cập nhật 2 skill' }));
+    expect(fake.api.skillsUpdateMany).toHaveBeenCalledWith(['sql-helper', 'ui-polish']);
+    expect(fake.api.skillsUpdate).not.toHaveBeenCalled();
+    expect(screen.getByText('Đã cập nhật 2 skill.')).toBeTruthy();
+    expect(screen.getByText('Agent nào đang bật vẫn bật. Bản cũ đã lưu ở ~/Library/Application Support/com.shin315.quota-station/backups/skills.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Cập nhật tất cả/ })).toBeNull();
+  });
+
+  it('"Cập nhật cả bộ" for each repository with a newer version, with progress and each skill\'s result', async () => {
+    const newer = { fromAt: '2025-12-02T09:00:00Z', seenAt: 1768537000, plain: 'Sửa hướng dẫn', link: 'https://github.com/acme/agent-skills/commits/HEAD' };
+    const rows = skillTableFixture().rows.map((r) => (r.name === 'pdf-tools' || r.name === 'release-notes' ? { ...r, update: newer } : r));
+    const fake = await openTab('skills', fixtureModel('fresh', { skills: skillsFixture({ table: skillTableFixture({ rows }) }) }), { skillsDelayMs: 200, skillsUpdateFail: ['release-notes'] });
+    await waitFor(() => expect(screen.queryByText(/đang đọc…/)).toBeNull());
+    expect(screen.getByText('Bản mới theo bộ')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Cập nhật cả bộ dataworks/skills' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Cập nhật cả bộ uikit-lab/ui-skills' })).toBeTruthy();
+    await press(screen.getByRole('button', { name: 'Cập nhật cả bộ acme/agent-skills' }));
+    const d = dialog();
+    expect(within(d).getByRole('heading', { name: 'Cập nhật cả bộ acme/agent-skills?' })).toBeTruthy();
+    expect(within(within(d).getByRole('group', { name: 'Skill sẽ cập nhật' })).getAllByRole('checkbox').map((b) => b.getAttribute('aria-label') ?? b.closest('label')?.textContent)).toEqual([
+      expect.stringContaining('pdf-tools'),
+      expect.stringContaining('release-notes'),
+    ]);
+    expect(within(d).queryByText('Bạn đã sửa skill này trên máy')).toBeNull();
+    await press(within(d).getByRole('button', { name: 'Cập nhật 2 skill' }));
+    expect(fake.api.skillsUpdateMany).toHaveBeenCalledWith(['pdf-tools', 'release-notes']);
+    // While it runs: the one at hand, and nothing else to press.
+    expect(within(dialog()).getByRole('heading', { name: /^Đang cập nhật \d\/2: / })).toBeTruthy();
+    expect((within(dialog()).getByRole('button', { name: 'Đang cập nhật…' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: /^Đang cập nhật \d\/2…$/, hidden: true }) as HTMLButtonElement).disabled).toBe(true);
+    expect(await screen.findByText('Đã cập nhật 1 skill, 1 skill chưa cập nhật.')).toBeTruthy();
+    expect(screen.getByText(/^Chưa cập nhật release-notes \(Skill release-notes not found\)\. Agent nào đang bật vẫn bật\. Bản cũ đã lưu ở /)).toBeTruthy();
+    // The set still has one newer version; pdf-tools has none.
+    expect(screen.getByRole('button', { name: 'Cập nhật cả bộ acme/agent-skills' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Cập nhật tất cả (3)' })).toBeTruthy();
   });
 
   it('writes the ticks through one preview, then offers Hoàn tác', async () => {

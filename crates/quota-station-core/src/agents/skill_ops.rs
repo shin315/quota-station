@@ -4,9 +4,10 @@
 //! link, and the app then makes or removes the other links (and Codex's
 //! entry) through the same checked batch as the table's boxes.
 //!
-//! An update or a removal keeps a copy of the skill's folder first.
+//! An update or a removal keeps a copy of the skill's folder first; updating
+//! several copies every folder before the first update.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::Serialize;
 use time::OffsetDateTime;
@@ -125,21 +126,49 @@ pub fn update(
     name: &str,
     now: OffsetDateTime,
 ) -> Updated {
-    let mut out = Updated { name: name.to_string(), backup: None, error: None };
+    let mut out = update_many(places, app, npx, &[name.to_string()], now, |_, _, _| {});
+    out.pop().unwrap_or(Updated { name: name.to_string(), backup: None, error: None })
+}
+
+/// "Cập nhật tất cả" and "Cập nhật cả bộ": a copy of every folder first,
+/// then `npx skills update` one skill at a time, so each says how it ended,
+/// then every agent's box as it was. A skill whose copy failed is not
+/// updated. `step(i, total, name)` before the i-th of the `total` updates.
+pub fn update_many(
+    places: &SkillPlaces,
+    app: &AppDir,
+    npx: &Npx,
+    names: &[String],
+    now: OffsetDateTime,
+    mut step: impl FnMut(usize, usize, &str),
+) -> Vec<Updated> {
     let before = skills::read(places);
-    if !skills::valid_name(name) || !before.shared.contains(name) || before.locked(name).is_none() {
-        out.error = Some(NpxError::Failed("không có trong file khoá".into()));
-        return out;
-    }
-    match skills::keep_folder(app, name, &places.shared.join(name), now) {
-        Ok(id) => out.backup = Some(id),
-        Err(e) => {
-            out.error = Some(NpxError::Failed(e.to_string()));
-            return out;
+    let mut seen = BTreeSet::new();
+    let mut out: Vec<Updated> = names
+        .iter()
+        .filter(|n| seen.insert(n.as_str()))
+        .map(|name| Updated { name: name.clone(), backup: None, error: None })
+        .collect();
+    for u in out.iter_mut() {
+        let name = u.name.as_str();
+        if !skills::valid_name(name)
+            || !before.shared.contains(name)
+            || before.locked(name).is_none()
+        {
+            u.error = Some(NpxError::Failed("không có trong file khoá".into()));
+            continue;
+        }
+        match skills::keep_folder(app, name, &places.shared.join(name), now) {
+            Ok(id) => u.backup = Some(id),
+            Err(e) => u.error = Some(NpxError::Failed(e.to_string())),
         }
     }
-    if let Err(e) = npx.update(name) {
-        out.error = Some(e);
+    let total = out.iter().filter(|u| u.error.is_none()).count();
+    for (i, u) in out.iter_mut().filter(|u| u.error.is_none()).enumerate() {
+        step(i, total, &u.name);
+        if let Err(e) = npx.update(&u.name) {
+            u.error = Some(e);
+        }
     }
     keep_links(places, &before);
     out

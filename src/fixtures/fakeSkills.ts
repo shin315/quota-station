@@ -106,6 +106,7 @@ export function skillsFixture(over: Partial<SkillsView> = {}): SkillsView {
     table: skillTableFixture(),
     readAt: '2026-01-16T07:19:30Z',
     busy: null,
+    progress: null,
     npx: true,
     last: null,
     updates: { checkedAt: '2026-01-16T02:12:00Z', error: null, failed: [], checking: false, settings: { daily: true, notify: false } },

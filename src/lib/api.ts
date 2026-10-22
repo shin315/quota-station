@@ -51,6 +51,7 @@ import type {
   SkillPreview,
   SkillRemoved,
   SkillUpdated,
+  SkillUpdatedMany,
   ConfigSet,
   SetOutcome,
   SetPreview,
@@ -206,6 +207,8 @@ export interface Api {
   skillsInstall(repo: string, names: string[], agents: Record<Agent, boolean>): Promise<SkillInstalled>;
   /** "Cập nhật": a copy kept first; the boxes stay. */
   skillsUpdate(name: string): Promise<SkillUpdated>;
+  /** "Cập nhật tất cả" and "Cập nhật cả bộ": a copy of each kept first, then one update at a time; the boxes stay. */
+  skillsUpdateMany(names: string[]): Promise<SkillUpdatedMany>;
   /** "Bỏ qua bản này". */
   skillsSkip(name: string): Promise<void>;
   /** "Gỡ hẳn": a copy kept first, then `npx skills remove`. */
@@ -413,6 +416,7 @@ export const tauriApi: Api = {
   skillsReadMd: (repo, skill) => invoke<string>('skills_read_md', { repo, skill }),
   skillsInstall: (repo, names, agents) => invoke<SkillInstalled>('skills_install', { repo, names, agents }),
   skillsUpdate: (name) => invoke<SkillUpdated>('skills_update', { name }),
+  skillsUpdateMany: (names) => invoke<SkillUpdatedMany>('skills_update_many', { names }),
   skillsSkip: (name) => invoke('skills_skip', { name }),
   skillsRemove: (name) => invoke<SkillRemoved>('skills_remove', { name }),
   skillsImport: (names) => invoke<SkillGathered>('skills_import', { names }),

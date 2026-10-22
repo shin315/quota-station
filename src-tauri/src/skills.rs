@@ -25,6 +25,7 @@ use quota_station_core::agents::{self, batch, claude_mcp, Agent};
 use quota_station_core::alerts;
 use quota_station_core::antigravity::fs::AppDir;
 use quota_station_core::codex::procs;
+use quota_station_core::runner;
 use quota_station_core::settings::SkillChecks;
 use serde::Serialize;
 use tauri::{AppHandle, State};
@@ -48,6 +49,8 @@ pub struct Live {
     /// `reading`, `writing`, `installing`, `updating`, `removing`,
     /// `importing` while one runs.
     pub busy: Option<&'static str>,
+    /// While several skills update: the one at hand.
+    pub progress: Option<Progress>,
     pub checking: bool,
     pub check_tried: Option<Instant>,
     pub last: Option<Last>,
@@ -56,6 +59,25 @@ pub struct Live {
     pub plugins_busy: bool,
     pub instr: Option<instructions::View>,
     pub instr_at: Option<String>,
+}
+
+/// "Cập nhật tất cả" or "Cập nhật cả bộ" under way: `done` of `total`
+/// updated, `name` now.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Progress {
+    pub done: usize,
+    pub total: usize,
+    pub name: String,
+}
+
+/// How "Cập nhật tất cả" or "Cập nhật cả bộ" ended: each skill, and the
+/// folder the copies are in.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdatedMany {
+    pub results: Vec<Updated>,
+    pub backups: String,
 }
 
 /// The last thing written, for the line under the table and its undo.
@@ -103,6 +125,7 @@ pub struct SkillsView {
     pub table: Option<View>,
     pub read_at: Option<String>,
     pub busy: Option<&'static str>,
+    pub progress: Option<Progress>,
     /// `npx` is on this Mac: installing and updating work.
     pub npx: bool,
     pub last: Option<LastView>,
@@ -185,6 +208,7 @@ pub fn skills_view(inner: &Inner) -> SkillsView {
         table: live.table.clone(),
         read_at: live.read_at.clone(),
         busy: live.busy,
+        progress: live.progress.clone(),
         npx: skills::discover_npx(&inner.home).is_some(),
         last: live.last.as_ref().map(|l| LastView {
             at: l.at.clone(),
@@ -609,6 +633,53 @@ pub async fn skills_update(
     }
     end(&app, &shared, done.as_ref().is_ok_and(|u| u.error.is_none())).await;
     done
+}
+
+/// "Cập nhật tất cả" and "Cập nhật cả bộ": a copy of each first, then
+/// `npx skills update` one at a time, the one at hand in the model; the
+/// boxes stay.
+#[tauri::command]
+pub async fn skills_update_many(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    names: Vec<String>,
+) -> Result<UpdatedMany, String> {
+    let shared = state.inner().clone();
+    let (places, dir) = begin(&app, &shared, "updating")?;
+    let (n, backups) = {
+        let inner = shared.lock();
+        let backups = runner::display_path(&dir.path().join(skills::BACKUP_DIR), &inner.home);
+        (inner.npx(&places), backups)
+    };
+    let Some(n) = n else {
+        end(&app, &shared, false).await;
+        return Err("noNpx".into());
+    };
+    let (a, s) = (app.clone(), shared.clone());
+    let done = tauri::async_runtime::spawn_blocking(move || {
+        skill_ops::update_many(
+            &places,
+            &dir,
+            &n,
+            &names,
+            OffsetDateTime::now_utc(),
+            |i, total, name| {
+                s.lock().skills.progress =
+                    Some(Progress { done: i, total, name: name.to_string() });
+                reader::publish(&a, &s);
+            },
+        )
+    })
+    .await
+    .map_err(|e| e.to_string());
+    shared.lock().skills.progress = None;
+    let updated: Vec<String> =
+        done.iter().flatten().filter(|u| u.error.is_none()).map(|u| u.name.clone()).collect();
+    if !updated.is_empty() {
+        remember(&shared, "update", updated.clone(), None, None);
+    }
+    end(&app, &shared, !updated.is_empty()).await;
+    done.map(|results| UpdatedMany { results, backups })
 }
 
 /// "Bỏ qua bản này".
