@@ -155,6 +155,7 @@ fn main() {
             skills::skills_read_md,
             skills::skills_install,
             skills::skills_update,
+            skills::skills_update_many,
             skills::skills_skip,
             skills::skills_remove,
             skills::skills_import,

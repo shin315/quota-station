@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Api } from '../lib/api';
 import { AGENT_NAME, AGENTS, clearColumn, original, setColumn, toggle, type Pending } from '../lib/mcp';
 import type { Agent, Model, RepoList, SkillChange, SkillPreview, SkillRow } from '../lib/model';
-import { npxText, skillChanges, skillRefusalText, skillWrittenFeedback, type SkillFilter } from '../lib/skills';
+import { bulkPicked, bulkUpdatedFeedback, npxText, skillChanges, skillRefusalText, skillWrittenFeedback, updateGroups, type SkillFilter } from '../lib/skills';
 import type { Action, FeedbackView } from '../lib/view';
 
 export interface SkillBatch {
@@ -33,11 +33,21 @@ export interface SkillGh {
   reading: { name: string; text: string | null; error: string | null } | null;
 }
 
+/** "Cập nhật tất cả" or "Cập nhật cả bộ": the skills with a newer version, those ticked to update. */
+export interface SkillUpdateMany {
+  kind: 'updateMany';
+  /** The repository of "Cập nhật cả bộ"; none for "Cập nhật tất cả". */
+  repo: string | null;
+  names: string[];
+  picked: string[];
+}
+
 export type SkillDialog =
   | SkillBatch
   | SkillGh
   | { kind: 'import'; picked: string[] }
   | { kind: 'update'; name: string }
+  | SkillUpdateMany
   | { kind: 'del'; name: string; mode: 'off' | 'hard' }
   | { kind: 'owned' }
   | { kind: 'broken'; agent: Agent; name: string }
@@ -245,6 +255,21 @@ export function useSkills(api: Api, model: Model | null, showFeedback: (fb: Feed
     lit(name);
   };
 
+  /** The preview of several updates: every skill with a newer version, or those of one repository. */
+  const openUpdateMany = (repo: string | null) => {
+    const names = repo ? (updateGroups(rows).find((g) => g.repo === repo)?.names ?? []) : rows.filter((r) => r.update).map((r) => r.name);
+    setDialog({ kind: 'updateMany', repo, names, picked: bulkPicked(rows, names) });
+  };
+
+  const updateMany = async (names: string[]) => {
+    const out = await run(() => api.skillsUpdateMany(names));
+    setDialog(null);
+    if (!out) return;
+    showFeedback(bulkUpdatedFeedback(out));
+    const first = out.results.find((r) => !r.error);
+    if (first) lit(first.name);
+  };
+
   const skip = async (name: string) => {
     await run(() => api.skillsSkip(name));
     setDialog(null);
@@ -312,6 +337,8 @@ export function useSkills(api: Api, model: Model | null, showFeedback: (fb: Feed
     install: (d: SkillGh) => void install(d),
     gather: (names: string[]) => void gather(names),
     update: (name: string) => void update(name),
+    openUpdateMany,
+    updateMany: (names: string[]) => void updateMany(names),
     skip: (name: string) => void skip(name),
     remove: (row: SkillRow, mode: 'off' | 'hard') => void remove(row, mode),
     dropLink: (agent: Agent, name: string) => void dropLink(agent, name),

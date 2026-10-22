@@ -2,7 +2,8 @@
 // Code, Codex and Antigravity in the MCP tab's matrix, a checkbox per agent.
 // Ticks wait on the pending bar until one preview writes them all. Above
 // the table, the newer versions found on GitHub (the app never updates on
-// its own); under it, one line each for the skills installed by hand to
+// its own), all of them or a repository's set at once through one preview;
+// under it, one line each for the skills installed by hand to
 // gather, the links to nothing, and the skills agents and plugins bring.
 
 import { Card as Panel, CardText, CardTitle } from '@/components/ui/card';
@@ -11,7 +12,7 @@ import { COUNT, Empty, EmptyIcon, InfoLine, TabHead, TabSub, TabTitle } from '..
 import { Banner, Button, Chip, Dot, Feedback, LinkButton } from '../components/parts';
 import { AGENT_NAME, columnMenu, pendingList, shown } from '../lib/mcp';
 import type { Agent, Model, SkillRow, SkillTable } from '../lib/model';
-import { checkedLine, FILTER_WORD, filterCounts, filterRows, pendingSkillText, skillBanners, skillCellTitle, skillChips, sourceLine, type SkillFilter } from '../lib/skills';
+import { checkedLine, FILTER_WORD, filterCounts, filterRows, pendingSkillText, skillBanners, skillCellTitle, skillChips, sourceLine, updateGroups, type SkillFilter } from '../lib/skills';
 import type { Action, FeedbackView, PopoverView } from '../lib/view';
 import { PUZZLE_ICON, SPARK_BIG, STACK_ICON } from '../window/icons';
 import { CheckMatrix, MATRIX_TITLE, PendingBar, type MatrixCell, type MatrixColumn } from './CheckMatrix';
@@ -78,6 +79,8 @@ export function SkillsTab({ model, fresh, feedback, skills, onAction }: SkillsTa
   const table = v.table;
   const busy = skills.working;
   const sub = v.busy === 'reading' ? 'đang đọc…' : v.readAt ? checkedLine(v) : fresh.text;
+  const newer = table?.rows.filter((r) => r.update).length ?? 0;
+  const p = v.progress;
   const top = (
     <TabHead>
       <TabTitle>Skills</TabTitle>
@@ -91,6 +94,11 @@ export function SkillsTab({ model, fresh, feedback, skills, onAction }: SkillsTa
       <Button disabled={v.updates.checking} onClick={skills.check}>
         {v.updates.checking ? 'Đang kiểm…' : 'Kiểm bản mới'}
       </Button>
+      {newer && v.npx ? (
+        <Button disabled={busy} onClick={() => skills.openUpdateMany(null)}>
+          {p ? 'Đang cập nhật ' + (p.done + 1) + '/' + p.total + '…' : 'Cập nhật tất cả (' + newer + ')'}
+        </Button>
+      ) : null}
     </TabHead>
   );
   if (!table)
@@ -110,6 +118,7 @@ export function SkillsTab({ model, fresh, feedback, skills, onAction }: SkillsTa
   const hand = table.rows.filter((r) => r.importable);
   const owned = table.owned.reduce((n, o) => n + o.names.length, 0);
   const showHand = hand.length > 0 && (skills.filter === 'all' || skills.filter === 'hand');
+  const sets = v.npx ? updateGroups(table.rows) : [];
   return (
     <>
       {top}
@@ -117,6 +126,28 @@ export function SkillsTab({ model, fresh, feedback, skills, onAction }: SkillsTa
       {skillBanners(v, table).map((b) => (
         <Banner key={b.title} banner={b} onAction={onAction} />
       ))}
+      {sets.length ? (
+        <Panel>
+          <CardTitle>
+            Bản mới theo bộ <span className={COUNT}>{sets.length}</span>
+          </CardTitle>
+          <div className="grid">
+            {sets.map((g) => (
+              <InfoLine
+                key={g.repo}
+                icon={NEWER_ICON}
+                actions={
+                  <LinkButton small aria-label={'Cập nhật cả bộ ' + g.repo} disabled={busy} onClick={() => skills.openUpdateMany(g.repo)}>
+                    Cập nhật cả bộ
+                  </LinkButton>
+                }
+              >
+                <b>{g.repo}</b> · {g.names.length} skill có bản mới: {g.names.join(', ')}
+              </InfoLine>
+            ))}
+          </div>
+        </Panel>
+      ) : null}
       {table.rows.length ? (
         <Panel>
           <CardTitle>
@@ -222,6 +253,13 @@ export function SkillsTab({ model, fresh, feedback, skills, onAction }: SkillsTa
     </>
   );
 }
+
+/** A newer version: an arrow up. */
+const NEWER_ICON = (
+  <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
+    <path d="M8 12.5v-9M4.5 7L8 3.5 11.5 7" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
 
 /** A link to nothing. */
 const NAV_LINK = (

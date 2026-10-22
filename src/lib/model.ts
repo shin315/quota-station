@@ -1480,6 +1480,12 @@ export interface SkillUpdated {
   error: NpxError | null;
 }
 
+/** "Cập nhật tất cả" or "Cập nhật cả bộ": how each skill ended, and the folder the copies are in. */
+export interface SkillUpdatedMany {
+  results: SkillUpdated[];
+  backups: string;
+}
+
 export interface SkillRemoved {
   names: string[];
   backups: string[];
@@ -1508,6 +1514,8 @@ export interface SkillsView {
   table: SkillTable | null;
   readAt: string | null;
   busy: 'reading' | 'writing' | 'installing' | 'updating' | 'removing' | 'importing' | null;
+  /** While several skills update: `done` of `total` updated, `name` now. */
+  progress: { done: number; total: number; name: string } | null;
   /** `npx` is on this Mac. */
   npx: boolean;
   last: { at: string; kind: 'batch' | 'install' | 'import' | 'update' | 'remove'; names: string[]; outcome: SkillOutcome | null; canUndo: boolean } | null;

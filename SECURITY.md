@@ -350,7 +350,8 @@ hướng dẫn tabs only read.
 - Every batch goes through a preview, and a folder or `config.toml` changed
   after it stops the batch before anything is written. Before a write the
   app saves the agent's list of links as `backups/skills/<agent>-links.json.<time>`;
-  before `Cập nhật`, `Gỡ hẳn` and `Gom về` it copies the skill's folder to
+  before `Cập nhật` (and `Cập nhật tất cả` or `Cập nhật cả bộ`, every
+  folder before the first update), `Gỡ hẳn` and `Gom về` it copies the skill's folder to
   `backups/skills/<name>.folder.<time>` (symlinks copied as symlinks, at
   most 100 MB or 5,000 files). It keeps the newest 10 of each, mode 600 in
   folders of mode 700.
@@ -359,7 +360,8 @@ hướng dẫn tabs only read.
   that was a link to a folder elsewhere is copied and that folder is left
   as it is. `Hoàn tác` puts it back.
 - `npx skills` runs only when the owner presses `Tìm skill`, `Đọc SKILL.md`,
-  `Cài`, `Cập nhật` or `Gỡ hẳn`: `npx -y skills add <owner/repo> --list`,
+  `Cài`, `Cập nhật` (or, in their preview, `Cập nhật tất cả` and `Cập nhật
+  cả bộ`, one skill after another) or `Gỡ hẳn`: `npx -y skills add <owner/repo> --list`,
   `use <owner/repo>@<skill>`, `add <owner/repo> --skill <name> -g -y -a
   claude-code`, `update <name> -g -y` and `remove <name> -g -y`. The
   arguments are a list, never a shell line; it runs in an empty folder of

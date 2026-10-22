@@ -454,6 +454,12 @@ the confirmation sheet first.
   turned on in Cài đặt); it never updates on its own. `Cập nhật` shows what
   changed, warns when the skill was edited on this Mac, keeps a copy and
   keeps every agent's box; `Bỏ qua bản này` waits for the next version.
+  `Cập nhật tất cả` (beside `Kiểm bản mới`) and `Cập nhật cả bộ` (for each
+  repository with a newer version, under `Bản mới theo bộ`) do the same for
+  several skills in one preview: each skill with its versions, the ones
+  edited on this Mac left unticked, a copy of every folder kept before the
+  first update, then one update at a time with the one at hand shown, and
+  a line saying which updated and which failed, and why.
 
   The `Plugin` tab lists the plugins `claude plugin list` and
   `codex plugin list` report, what each brings and the marketplaces, and

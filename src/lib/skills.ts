@@ -6,7 +6,7 @@
 
 import { clock } from './format';
 import { AGENT_NAME, AGENTS, pendingList, type Pending, type PendingItem } from './mcp';
-import type { Agent, NpxError, Plugin, SkillChange, SkillFailure, SkillLock, SkillOutcome, SkillRefusal, SkillRow, SkillTable, SkillsView } from './model';
+import type { Agent, NpxError, Plugin, SkillChange, SkillFailure, SkillLock, SkillOutcome, SkillRefusal, SkillRow, SkillTable, SkillUpdatedMany, SkillsView } from './model';
 import type { BannerView, ChipView, FeedbackView } from './view';
 
 export type SkillFilter = 'all' | 'github' | 'hand' | 'update';
@@ -124,6 +124,35 @@ export function npxText(e: NpxError | string): { title: string; body: string } {
   if (code === 'busy') return { title: 'Đang có một lần ghi khác', body: 'Đợi xong rồi thử lại.' };
   if (code.startsWith('failed:')) return { title: 'npx skills báo lỗi', body: code.slice('failed:'.length) || 'Không rõ lý do.' };
   return { title: 'Chưa làm được', body: code };
+}
+
+/** The skills with a newer version, by the repository they came from: a set from one repository usually updates together. A skill whose source is not known is only in "Cập nhật tất cả". */
+export function updateGroups(rows: SkillRow[]): { repo: string; names: string[] }[] {
+  const out = new Map<string, string[]>();
+  for (const r of rows) if (r.update && r.repo) out.set(r.repo, [...(out.get(r.repo) ?? []), r.name]);
+  return [...out].map(([repo, names]) => ({ repo, names }));
+}
+
+/** The skills of `names` ticked when the preview opens: all but those edited on this Mac, whose edits an update would replace. */
+export function bulkPicked(rows: SkillRow[], names: string[]): string[] {
+  return names.filter((n) => rows.some((r) => r.name === n && r.update && !r.edited));
+}
+
+/** The line after "Cập nhật tất cả" or "Cập nhật cả bộ": how many updated, which failed and why, and where the copies are. */
+export function bulkUpdatedFeedback(out: SkillUpdatedMany): FeedbackView {
+  const done = out.results.filter((r) => !r.error);
+  const failed = out.results.filter((r) => r.error);
+  const why = failed.map((r) => r.name + ' (' + (r.error!.kind === 'failed' ? r.error!.detail || 'không rõ lý do' : npxText(r.error!).title.toLowerCase()) + ')').join(', ');
+  const body = [
+    failed.length ? 'Chưa cập nhật ' + why + '.' : '',
+    done.length ? 'Agent nào đang bật vẫn bật.' : '',
+    out.results.some((r) => r.backup) ? 'Bản cũ đã lưu ở ' + out.backups + '.' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+  if (!done.length) return { tone: 'bad', title: 'Chưa cập nhật skill nào.', body };
+  if (!failed.length) return { tone: 'info', title: 'Đã cập nhật ' + done.length + ' skill.', body };
+  return { tone: 'warn', title: 'Đã cập nhật ' + done.length + ' skill, ' + failed.length + ' skill chưa cập nhật.', body };
 }
 
 /** "kiểm bản mới lúc 09:12", in the title row. */
