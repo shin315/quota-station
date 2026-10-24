@@ -677,11 +677,13 @@ export function MainWindow(props: MainWindowProps) {
         </main>
       </div>
       {/* The dialog layer covers the whole window, sidebar included; the
-          dialog stands on the page beside the sidebar, near the top, as drawn. */}
+          dialog stands on the page beside the sidebar, near the top, as drawn.
+          The one row fills the window below the top margin, so the dialog's
+          height can stop 36 px short of the bottom (100% − 120 px of the window). */}
       <Dialog open={open}>
         {open ? (
-          <DialogOverlay className="z-30 grid content-start justify-items-center rounded-[inherit] pt-[84px] pl-(--side-w)">
-            <DialogContent size={props.dialogSize ?? 'wide'} className="max-h-[calc(100%-120px)]">{props.dialog}</DialogContent>
+          <DialogOverlay className="z-30 grid grid-rows-[minmax(0,1fr)] items-start justify-items-center rounded-[inherit] pt-[84px] pl-(--side-w)">
+            <DialogContent size={props.dialogSize ?? 'wide'} className="max-h-[calc(100%-36px)]">{props.dialog}</DialogContent>
           </DialogOverlay>
         ) : null}
       </Dialog>
