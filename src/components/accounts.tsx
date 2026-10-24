@@ -31,7 +31,7 @@ function toneInk(tone: UsedTone | string): string | undefined {
  * `card`: on a popover card, where the chips go to the right. `dot`: a
  * table's row, with the dot that is green on the account in use.
  */
-export function AccountName(props: { name: string; sub: string; full: string; chips?: ChipView[]; card?: boolean; dot?: 'on' | 'off' }) {
+export function AccountName(props: { name: string; sub: string; full: string; chips?: ChipView[]; card?: boolean; dot?: 'on' | 'off' | 'rest' }) {
   const name = (
     <span className="an grid min-w-0 gap-px">
       <b className="overflow-hidden text-[15px] font-semi text-ellipsis whitespace-nowrap text-heading" title={props.full || undefined}>
@@ -50,7 +50,11 @@ export function AccountName(props: { name: string; sub: string; full: string; ch
   if (!props.dot) return name;
   return (
     <span className="flex min-w-0 items-start gap-2.5">
-      <Dot tone={props.dot === 'on' ? 'ok' : 'off'} className="mt-1.5 size-2.5 flex-none" />
+      {/* Out of the rotation: a ring instead of a dot. */}
+      <Dot
+        tone={props.dot === 'on' ? 'ok' : 'off'}
+        className={cn('mt-1.5 size-2.5 flex-none', props.dot === 'rest' && 'bg-transparent shadow-[inset_0_0_0_1.5px_var(--dot-off)]')}
+      />
       {name}
     </span>
   );

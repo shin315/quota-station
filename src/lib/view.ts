@@ -6,7 +6,7 @@
 // clock give the same view, so Vitest covers every state without a window.
 // Copy follows the approved prototype (Hướng 1 · Kính macOS, bước 0.7).
 
-import { agyCells, agyGroups, agyNames, cellOf, claudeCells, claudeNames, isGemini, tightest, WARN_USED, type AccountName, type CellView, type UsedTone } from './accounts';
+import { agyCells, agyGroups, agyNames, cellOf, claudeAliases, claudeCells, claudeNames, isGemini, tightest, WARN_USED, type AccountName, type CellView, type UsedTone } from './accounts';
 import { age, clock, secondsSince } from './format';
 import { t } from './i18n';
 import type { Account, AgyLogin, LineKind, MenubarWindow, Model, Section } from './model';
@@ -34,6 +34,7 @@ export type Action =
   | 'claude:import'
   /** Signs a Claude account in again (its slot): the Claude tab's dialog. */
   | `claude:relogin:${number}`
+  | `claude:unrest:${number}`
   /** Adds a Claude account: the Claude tab's dialog. */
   | 'claude:add'
   /** Opens the switch sheet for a Claude slot. */
@@ -288,7 +289,7 @@ function cardView(a: Account, kind: 'c' | 'g', names: AccountName, ctx: CardCont
     if (a.membership === 'out') chips.push({ t: t('ngoài vòng', 'out of rotation'), k: '' });
     if (a.membership === 'ended') chips.push({ t: t('đã rời vòng', 'left rotation'), k: '' });
     if (a.leavesAt) chips.push({ t: t('rời vòng ', 'leaves rotation ') + clock(a.leavesAt), k: 'warn' });
-    if (a.disabled) chips.push({ t: t('đã tắt', 'turned off'), k: '' });
+    if (a.disabled) chips.push({ t: t('nghỉ tự chuyển', 'out of auto-switch'), k: '' });
   }
   // Freshness shows only when the reading is not fresh: its own age, never the app's last call.
   const since = secondsSince(a.fetchedAt, ctx.now);
@@ -472,7 +473,7 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
   const s = model.snapshot;
   const c = s.claude;
   const g = s.agy;
-  const names = claudeNames(c.accounts, c.personalHours, model.advanced.on);
+  const names = claudeNames(c.accounts, c.personalHours, model.advanced.on, claudeAliases(model));
   const nameOf = (n: number) => names.get(n)?.name ?? t('Tài khoản ', 'Account ') + n;
   const keychainRequired = s.keychain === 'required';
   const ctx = (section: Section): CardContext => ({

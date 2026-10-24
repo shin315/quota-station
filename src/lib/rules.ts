@@ -7,7 +7,7 @@
 // copies. Pure, like `view.ts`. Copy follows the approved prototype
 // (`tabRules`, `compareTable`, `leaveDialog`, `fbLine` rules-*).
 
-import { claudeNames } from './accounts';
+import { claudeAliases, claudeNames } from './accounts';
 import { clock, pad } from './format';
 import { t } from './i18n';
 import type { AuthorModel } from './author';
@@ -76,7 +76,7 @@ export function slotsOf(model: Model, ...rules: (Rules | null)[]): number[] {
  * are hidden), `Tài khoản 5` for a slot it does not list.
  */
 export function ruleNames(model: Model): NameOf {
-  const names = claudeNames(model.snapshot.claude.accounts, model.snapshot.claude.personalHours, model.advanced.on);
+  const names = claudeNames(model.snapshot.claude.accounts, model.snapshot.claude.personalHours, model.advanced.on, claudeAliases(model));
   return (n) => names.get(n)?.name ?? t('Tài khoản ', 'Account ') + n;
 }
 

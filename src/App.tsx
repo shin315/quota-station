@@ -26,7 +26,10 @@ import { useBackup } from './backup/useBackup';
 import { AlertsTab } from './alerts/AlertsTab';
 import { CodexCard, CodexTab } from './codex/CodexTab';
 import { useAgyLogins } from '@agy/AgyAccounts';
-import { ClaudeAccounts } from './claude/ClaudeAccounts';
+import { claudeManage } from './claude/ClaudeAccounts';
+import { accountName } from './lib/claudeAccounts';
+import { ClaudeDialogBody } from './claude/ClaudeDialogs';
+import { useClaudeAccounts } from './claude/useClaudeAccounts';
 import { SheetBody, type SheetState } from './components/Sheets';
 import { agyLoginOf, agySwitchErrorFeedback, agySwitchFeedback, type AppAnswer } from '@agy/agySwitch';
 import { codexErrorFeedback, codexFeedback, codexRow, codexRestartFeedback, keyFeedback, nextTarget, pluginsNeedApply } from './lib/codex';
@@ -626,9 +629,12 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   const onActionRef = useRef<(a: Action) => void>(() => {});
   const sets = useSets(api, model, showFeedback, (a) => onActionRef.current(a));
   const stats = useStats(api, model, tab === 'stats');
+  // The Claude tab's dialogs name an account as its table does.
+  const claudeNames = useRef<(slot: number) => string>((slot) => t('Tài khoản ', 'Account ') + slot);
+  const claude = useClaudeAccounts(api, model, showFeedback, (slot) => claudeNames.current(slot));
   const ruleDialog = rules.leave ? 'leave' : rules.compare ? 'compare' : null;
   const sheetOpen =
-    !!switching.sheet || !!ruleDialog || !!mcp.dialog || !!backup.dialog || !!copy.dialog || !!skills.dialog || plugins.open || !!instr.dialog || env.list || !!sets.dialog;
+    !!switching.sheet || !!ruleDialog || !!mcp.dialog || !!backup.dialog || !!copy.dialog || !!skills.dialog || plugins.open || !!instr.dialog || env.list || !!sets.dialog || !!claude.dialog;
   const closeSheet = useRef(switching.close);
   // Escape closes the sheet on show: the unsaved-changes one, then a switch, then the comparison, then an MCP dialog.
   closeSheet.current = () => {
@@ -643,6 +649,8 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
     else if (instr.dialog) instr.close();
     else if (env.list) env.close();
     else if (sets.dialog) sets.close();
+    // The wait for the browser ends with its own Thôi, which stops the sign-in.
+    else if (claude.dialog && claude.dialog.kind !== 'wait') claude.close();
   };
 
   useEffect(() => {
@@ -704,6 +712,12 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   }, [api, tab]);
 
   const onAction = (act: Action) => {
+    // The Claude accounts' actions first: here they have the tab's dialogs and lines.
+    if (claude.act(act)) {
+      // A sign-in or an add asked from another tab's banner opens over the Claude tab.
+      if (act === 'claude:add' || act.startsWith('claude:relogin:')) rules.guardTab(tab, 'claude', setTab);
+      return;
+    }
     if (switching.act(act)) return;
     if (rules.act(act)) return;
     if (mcp.act(act)) return;
@@ -792,6 +806,9 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   );
   const goTab = (next: Tab) => rules.guardTab(tab, next, setTab);
   toTab.current = goTab;
+  const shownNames = new Map(view.claude.cards.map((c) => [c.slot, c.name]));
+  const nameOf = (slot: number) => shownNames.get(slot) ?? accountName(model.claudeAccounts.accounts.find((a) => a.slot === slot) ?? { slot, alias: null });
+  claudeNames.current = nameOf;
   const dialog =
     ruleDialog === 'leave' ? (
       <LeaveDialog rules={rules} onAnswer={(a) => void rules.answerLeave(a, setTab)} />
@@ -825,6 +842,8 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
         <EnvListBody model={model} env={env} />
       ) : sets.dialog ? (
         <SetDialogBody sets={sets} model={model} />
+      ) : claude.dialog ? (
+        <ClaudeDialogBody claude={claude} view={model.claudeAccounts} advanced={model.advanced.on} nameOf={nameOf} onTab={goTab} />
       ) : null))
     );
   const dialogSize =
@@ -846,7 +865,9 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
                   ? 'lg'
                   : sets.dialog
                     ? setDialogSize(sets.dialog)
-                    : undefined;
+                    : claude.dialog
+                      ? 'lg'
+                      : undefined;
   return (
     <MainWindow
       tab={tab}
@@ -893,7 +914,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       firstmateTab={model.advanced.on && model.advanced.firstmate}
       agyAccounts={model.capabilities.agyAccounts}
       agyLogins={agyLogins}
-      claudeAccounts={<ClaudeAccounts view={model.claudeAccounts} api={api} onAction={onAction} authorTools={model.capabilities.authorTools} />}
+      claude={claudeManage({ view: model.claudeAccounts, claude, advanced: model.advanced.on, onAction, authorTools: model.capabilities.authorTools })}
       dialog={dialog}
       dialogSize={dialogSize}
     />

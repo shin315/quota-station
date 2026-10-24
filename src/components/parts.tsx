@@ -244,16 +244,21 @@ export function Skeleton({ className }: { className?: string }) {
   );
 }
 
-/** `inline`: a line inside a card, which never becomes a toast. */
+/**
+ * `inline`: a line inside a card, which never becomes a toast. Its buttons
+ * sit to the right in the main window and under the text in the popover.
+ */
 export function Feedback(props: { fb: FeedbackView; inline?: boolean; onAction: (act: Action) => void; className?: string; style?: CSSProperties }) {
   const { fb, inline, onAction } = props;
   if (isQuiet(fb) && !inline) return <Toast fb={fb} />;
   return (
     <FeedbackLine tone={fb.tone} className={props.className} style={props.style}>
-      <div style={{ minWidth: 0, flex: 1 }}>
-        <FeedbackText title={fb.title} body={fb.body} />
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2 in-data-[slot=popover]:block">
+        <div className="min-w-0 flex-1">
+          <FeedbackText title={fb.title} body={fb.body} />
+        </div>
         {fb.actions?.length ? (
-          <div className="mt-2 flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 in-data-[slot=popover]:mt-2">
             {fb.actions.map((a) => (
               <Button key={a.act} small onClick={() => onAction(a.act)}>
                 {a.label}
@@ -285,7 +290,8 @@ export function ChoiceGroup<V extends string>(props: {
   id: string;
   label: string;
   labelClassName?: string;
-  options: ChoiceView<V>[];
+  /** `s`: the second line, with ``code`` or **bold** runs drawn (see Rich). */
+  options: (Omit<ChoiceView<V>, 'until'> & { until?: Date | null })[];
   value: V;
   /** Two columns by default; the pause's choices stack in one. */
   columns?: 1 | 3;
@@ -305,7 +311,9 @@ export function ChoiceGroup<V extends string>(props: {
         {props.options.map((o) => (
           <RadioGroupItem key={o.v} value={o.v}>
             <b className="font-semi">{o.t}</b>
-            <small className="col-start-2 text-xs text-ink2 tabular-nums">{o.s}</small>
+            <small className="col-start-2 text-xs text-ink2 tabular-nums">
+              <Rich text={o.s} />
+            </small>
           </RadioGroupItem>
         ))}
       </RadioGroup>

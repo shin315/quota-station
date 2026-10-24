@@ -3,13 +3,14 @@
 
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { agyLoginErrorFeedback } from '../antigravity/agyLogin';
-import { ClaudeAccounts } from '../claude/ClaudeAccounts';
+import { ClaudeDialogBody } from '../claude/ClaudeDialogs';
+import type { ClaudeAccountsState } from '../claude/useClaudeAccounts';
 import { CodexTab } from '../codex/CodexTab';
 import { claudeAccountsFixture, FIXTURE_NOW, fixtureModel, historyFixture, peerFixture, rotationFixture, rulesFixture } from '../fixtures/models';
 import { alertKinds, permissionChip } from './alerts';
-import type { Api } from './api';
-import { accountRows, workingText } from './claudeAccounts';
+import { quotaLine, resultFeedback, signInChip } from './claudeAccounts';
 import { dayLabel, historyDays } from './history';
 import { setLang } from './i18n';
 import { compareRows, peerLine, ruleNames, rulesProblem, saveFeedback, sidebarLine } from './rules';
@@ -57,14 +58,26 @@ describe('the tabs in English', () => {
     expect(permissionChip('denied').t).toBe('off');
   });
 
-  it('Claude accounts: rows, the running action and the card', () => {
+  it('Claude accounts: the details, the lines and the add dialog', () => {
     const view = claudeAccountsFixture();
-    const rows = accountRows(view);
-    expect(rows.find((r) => r.active)!.chips[0].t).toBe('in use');
-    expect(workingText({ ...view, working: 'import' })).toBe('Importing from claude-swap…');
-    render(<ClaudeAccounts view={view} api={{} as Api} onAction={() => {}} />);
-    expect(screen.getByRole('region', { name: 'Accounts Quota Station keeps' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Add a setup token' })).toBeTruthy();
+    const row = view.accounts[1];
+    expect(signInChip({ ...row, status: 'reloginRequired' }).t).toBe('expired');
+    expect(quotaLine(row)).toBe('73% 5-hour');
+    const rested = { ...view, accounts: view.accounts.map((a) => (a.slot === 3 ? { ...a, enabled: false } : a)) };
+    const fb = resultFeedback(rested, { action: 'enabled', ok: true, error: null, detail: null, slot: 3, renewed: false, imported: null }, 'Team B');
+    expect(fb!.title).toBe('Team B is now out of auto-switch.');
+    expect(fb!.actions!.map((a) => a.label)).toEqual(['Undo', 'Close']);
+    const claude = { dialog: { kind: 'add', how: 'browser', error: null }, pending: false } as unknown as ClaudeAccountsState;
+    render(
+      <Dialog open>
+        <DialogContent>
+          <ClaudeDialogBody claude={claude} view={view} advanced={false} nameOf={(n) => 'Account ' + n} onTab={() => {}} />
+        </DialogContent>
+      </Dialog>,
+    );
+    expect(screen.getByRole('heading', { name: 'Add a Claude account' })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: /Sign in with the browser/ })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: /Import from claude-swap|Import again from claude-swap/ })).toBeTruthy();
   });
 
   it('Antigravity sign-in feedback', () => {

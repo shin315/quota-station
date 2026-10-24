@@ -1,64 +1,57 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-// The Claude accounts Quota Station keeps, in words for the Claude tab: each
-// account's row, the card before any account is kept, the rotation's
-// LaunchAgent, and what the last action did.
+// The Claude accounts Quota Station keeps, in words for the Claude tab: an
+// account's name, sign-in and quota for its dialog, the card before any
+// account is kept, the rotation's LaunchAgent, and what an action did.
 
 import { t } from './i18n';
-import type { ClaudeAccountRow, ClaudeAccountsView, ClaudeActionDone } from './model';
-import type { ChipView, FeedbackView } from './view';
+import { clock, percent } from './format';
+import type { ClaudeAccountRow, ClaudeAccountsView, ClaudeActionDone, ClaudeWindowOut } from './model';
+import type { Action, ChipView, FeedbackView } from './view';
 
-export interface AccountRowView {
-  slot: number;
-  name: string;
-  /** The name the owner gave it; '' when it goes by its number. */
-  alias: string;
-  /** The email (while names show) and the account's kind. */
-  sub: string;
-  chips: ChipView[];
-  enabled: boolean;
-  active: boolean;
-  /** Why it cannot be removed; null when it can. */
-  keep: string | null;
-}
-
+/** The display name: the nickname, or the account's number. */
 export function accountName(row: Pick<ClaudeAccountRow, 'slot' | 'alias'>): string {
   return row.alias ? row.alias : t('Tài khoản ', 'Account ') + row.slot;
 }
 
-function statusChip(row: ClaudeAccountRow): ChipView | null {
+/** What a nickname stands in for: the part of the email before @, or the account's number. */
+export function localName(row: Pick<ClaudeAccountRow, 'slot' | 'email'>): string {
+  return row.email ? row.email.split('@')[0] : t('Tài khoản ', 'Account ') + row.slot;
+}
+
+/** The ⋯ menu and the detail dialog hold an account out of the rotation only while it can run. */
+export function rotationMatters(v: ClaudeAccountsView, advanced: boolean): boolean {
+  return v.rotation === true || advanced;
+}
+
+/** Whether the sign-in Quota Station keeps still works, as the detail dialog's chip. */
+export function signInChip(row: ClaudeAccountRow): ChipView {
   switch (row.status) {
     case 'reloginRequired':
-      return { t: t('cần đăng nhập lại', 'sign in again'), k: 'bad' };
-    case 'noData':
-      return { t: t('chưa có số', 'no numbers yet'), k: '' };
+      return { t: t('hết hạn', 'expired'), k: 'bad' };
     case 'stale':
       return { t: t('số cũ', 'old numbers'), k: 'stale' };
-    default:
-      return null;
+    case 'noData':
+      return { t: t('chưa có số', 'no numbers yet'), k: '' };
+    default: {
+      const at = clock(row.fetchedAt);
+      return { t: at ? t('ổn · đọc lúc ' + at, 'fine · read at ' + at) : t('ổn', 'fine'), k: 'ok' };
+    }
   }
 }
 
-export function accountRows(v: ClaudeAccountsView): AccountRowView[] {
-  return v.accounts.map((row) => {
-    const chips: ChipView[] = [];
-    if (row.active) chips.push({ t: t('đang dùng', 'in use'), k: 'ok' });
-    if (!row.enabled) chips.push({ t: t('ngoài vòng xoay', 'out of rotation'), k: '' });
-    const status = statusChip(row);
-    if (status) chips.push(status);
-    const parts = [row.email ?? null, row.kind === 'setupToken' ? 'setup token' : null, t('số ', 'No. ') + row.slot].filter(Boolean);
-    return {
-      slot: row.slot,
-      name: accountName(row),
-      alias: row.alias ?? '',
-      sub: parts.join(' · '),
-      chips,
-      enabled: row.enabled,
-      active: row.active,
-      keep: row.active ? t('Đang dùng: chuyển sang tài khoản khác trước khi xoá.', 'In use: switch to another account before removing it.') : null,
-    };
-  });
+/** `73% 5 giờ · 12% tuần`: the windows it has numbers for; '' when none. */
+export function quotaLine(row: ClaudeAccountRow): string {
+  const w = row.windows;
+  return [
+    [w.fiveHour, t('5 giờ', '5-hour')],
+    [w.sevenDay, t('tuần', 'week')],
+    [w.fable, t('Fable tuần', 'Fable week')],
+  ]
+    .filter((x): x is [ClaudeWindowOut, string] => x[0] != null)
+    .map(([x, name]) => percent(x.usedPercent) + ' ' + name)
+    .join(' · ');
 }
 
 /** Before Quota Station keeps any account: what to do first. */
@@ -105,26 +98,8 @@ export function rotationRow(v: ClaudeAccountsView): RotationRowView {
   return { on: v.rotation === true, disabled: !v.ready || (!!v.legacy && v.rotation !== true) || v.working != null, line, legacy };
 }
 
-/** The running action in words; null when none runs. */
-export function workingText(v: ClaudeAccountsView): string | null {
-  switch (v.working) {
-    case null:
-      return null;
-    case 'import':
-      return t('Đang nhập từ claude-swap…', 'Importing from claude-swap…');
-    case 'login':
-      return t(
-        'Đang chờ đăng nhập trong trình duyệt… Trang đăng nhập của Claude mở trong trình duyệt mặc định. Chờ tối đa 10 phút.',
-        'Waiting for sign-in in the browser… Claude’s sign-in page opens in the default browser. Waits up to 10 minutes.',
-      );
-    case 'rotation':
-      return t('Đang nạp LaunchAgent…', 'Loading the LaunchAgent…');
-    default:
-      return t('Đang lưu…', 'Saving…');
-  }
-}
-
-function errorText(done: ClaudeActionDone): string {
+/** What went wrong, in a line. */
+export function errorText(done: ClaudeActionDone): string {
   const detail = done.detail ? ': ' + done.detail : '';
   switch (done.error) {
     case 'busy':
@@ -178,46 +153,65 @@ function importText(done: ClaudeActionDone): string {
   return text + t(' claude-swap vẫn để nguyên.', ' claude-swap stays as it is.');
 }
 
-/** What the last action did, as a line under the card; null when there is none. */
-export function doneFeedback(v: ClaudeAccountsView): FeedbackView | null {
-  const done = v.last;
-  if (!done) return null;
-  if (!done.ok) return { tone: 'bad', title: errorText(done), body: '', actions: [] };
-  const who = done.slot != null ? accountName(v.accounts.find((a) => a.slot === done.slot) ?? { slot: done.slot, alias: null }) : '';
-  let title: string;
+const close = (): { label: string; act: Action } => ({ label: t('Đóng', 'Close'), act: 'closeFeedback' });
+
+/**
+ * What an action from the tab did, once it is done, as the line under the
+ * tab's head. `who`: the account's name as the table shows it, taken before
+ * the action (a removed account has none after). The adds report in their
+ * own dialog; null for those.
+ */
+export function resultFeedback(v: ClaudeAccountsView, done: ClaudeActionDone, who: string): FeedbackView | null {
+  if (!done.ok) return { tone: 'bad', title: errorText(done), body: '', actions: [close()] };
+  const row = v.accounts.find((a) => a.slot === done.slot);
   switch (done.action) {
     case 'import':
-      title = importText(done);
-      break;
-    case 'login':
-    case 'current':
-      title = done.renewed ? t('Đã cập nhật đăng nhập của ' + who + '.', 'Updated ' + who + '’s sign-in.') : t('Đã thêm ' + who + '.', 'Added ' + who + '.');
-      break;
-    case 'token':
-      title = t('Đã thêm setup token thành ' + who + '.', 'Added the setup token as ' + who + '.');
-      break;
+      return { tone: '', title: importText(done), body: '', actions: [] };
     case 'remove':
-      title = t(
-        'Đã xoá tài khoản ' + done.slot + ' khỏi Quota Station. Đăng nhập của Claude Code không đổi.',
-        'Removed account ' + done.slot + ' from Quota Station. Claude Code’s sign-in is unchanged.',
-      );
-      break;
+      return {
+        tone: '',
+        title: t('Đã xoá ' + who + ' khỏi máy này.', 'Removed ' + who + ' from this Mac.'),
+        body: t('Lịch sử vẫn giữ các lần chuyển cũ. Đăng nhập của Claude Code không đổi.', 'History keeps its past switches. Claude Code’s sign-in is unchanged.'),
+        actions: [close()],
+      };
     case 'alias':
-      title = t('Đã đổi tên thành ' + who + '.', 'Renamed to ' + who + '.');
-      break;
-    case 'enabled': {
-      const row = v.accounts.find((a) => a.slot === done.slot);
-      title =
-        row?.enabled === false
-          ? who + t(' ra khỏi vòng xoay; vẫn chuyển tay được.', ' left the rotation; you can still switch to it by hand.')
-          : who + t(' vào lại vòng xoay.', ' is back in rotation.');
-      break;
-    }
+      return row?.alias
+        ? {
+            tone: '',
+            title: t('Đã lưu tên gọi ' + row.alias + '.', 'Saved the nickname ' + row.alias + '.'),
+            body: t('Popover, cửa sổ này và Lịch sử dùng tên này.', 'The popover, this window and History use this name.'),
+            actions: [close()],
+          }
+        : { tone: '', title: t('Đã bỏ tên gọi của ' + who + '.', 'Removed ' + who + '’s nickname.'), body: '', actions: [] };
+    case 'enabled':
+      return row?.enabled === false
+        ? {
+            tone: '',
+            title: t('Đã cho ' + who + ' nghỉ khỏi tự chuyển.', who + ' is now out of auto-switch.'),
+            body: t('Tự chuyển trên máy này bỏ qua tài khoản này cho tới khi bạn cho vào lại.', 'Auto-switch on this Mac skips this account until you put it back.'),
+            actions: [{ label: t('Hoàn tác', 'Undo'), act: `claude:unrest:${done.slot ?? 0}` }, close()],
+          }
+        : { tone: '', title: t('Đã cho ' + who + ' vào lại tự chuyển.', who + ' is back in auto-switch.'), body: '', actions: [] };
     case 'rotation':
-      title = v.rotation
-        ? t('Đã bật tự chuyển bằng Quota Station.', 'Turned on auto-switch with Quota Station.')
-        : t('Đã tắt tự chuyển bằng Quota Station.', 'Turned off auto-switch with Quota Station.');
-      break;
+      return {
+        tone: '',
+        title: v.rotation
+          ? t('Đã bật tự chuyển bằng Quota Station.', 'Turned on auto-switch with Quota Station.')
+          : t('Đã tắt tự chuyển bằng Quota Station.', 'Turned off auto-switch with Quota Station.'),
+        body: '',
+        actions: [],
+      };
+    default:
+      return null;
   }
-  return { tone: '', title, body: '', actions: [] };
+}
+
+/** After an add's dialog closes: the account is in, its numbers come with the next read. */
+export function addedFeedback(who: string, relogin: boolean): FeedbackView {
+  return {
+    tone: '',
+    title: relogin ? t(who + ' đã đăng nhập lại.', who + ' is signed in again.') : t('Đã thêm ' + who + '.', 'Added ' + who + '.'),
+    body: t('Hạn mức có ở lần đọc tới.', 'Its quota shows up on the next read.'),
+    actions: [close()],
+  };
 }
