@@ -33,6 +33,7 @@ fn settings_round_trip_and_default_when_missing() {
         codex: CodexOptions { plugins: false },
         auto_backup: AutoBackup { after_change: false, daily: true },
         skill_checks: SkillChecks { daily: false, notify: true },
+        release_checks_off: true,
         backup_dir: Some(PathBuf::from("/srv/example/backups")),
         pool_alert: PoolAlert { dry_at_most: 5, room_at_least: 20 },
         advanced: true,
@@ -42,6 +43,7 @@ fn settings_round_trip_and_default_when_missing() {
     assert_eq!(Settings::load(&file), s);
     let text = std::fs::read_to_string(&file).unwrap();
     assert!(text.contains("machineName"));
+    assert!(text.contains(r#""releaseChecksOff": true"#));
     assert!(text.contains(r#""alias": "mac-c""#));
     assert!(text.contains("\"hideNames\": true"));
     assert!(text.contains("\"theme\": \"dark\""));

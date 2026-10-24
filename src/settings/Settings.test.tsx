@@ -413,10 +413,10 @@ describe('settings for M7: the app itself', () => {
 
   it('shows the version and the commit it was built from', async () => {
     await openApp();
-    expect(screen.getByText('0.1.0 · a1b2c3d')).toBeTruthy();
+    expect(screen.getByText('0.1.0 (a1b2c3d) · build từ mã nguồn')).toBeTruthy();
     cleanup();
     await openApp({ commit: null });
-    expect(screen.getByText('0.1.0')).toBeTruthy();
+    expect(screen.getByText('0.1.0 · build từ mã nguồn')).toBeTruthy();
   });
 
   it('launching at login is off by default, and opening the tab only asks macOS', async () => {
@@ -583,7 +583,7 @@ describe('settings: Nâng cao, alert 1 and the backup folder', () => {
     const sidebar = screen.getByRole('navigation', { name: 'Các tab' });
     expect(within(sidebar).queryByRole('button', { name: 'Luật xoay vòng' })).toBeNull();
     // The version stays where everyone sees it.
-    expect(screen.getByText('0.1.0 · a1b2c3d')).toBeTruthy();
+    expect(screen.getByText('0.1.0 (a1b2c3d) · build từ mã nguồn')).toBeTruthy();
   });
 
   it('a build without the author\'s tools has no Nâng cao card, switch or row', async () => {
@@ -600,7 +600,7 @@ describe('settings: Nâng cao, alert 1 and the backup folder', () => {
     expect(screen.queryByText('Tài khoản sắp rời vòng')).toBeNull();
     expect(screen.queryByText('Firstmate đang chờ hạn mức Claude')).toBeNull();
     // What every build has stays.
-    expect(screen.getByText('0.1.0 · a1b2c3d')).toBeTruthy();
+    expect(screen.getByText('0.1.0 (a1b2c3d) · build từ mã nguồn')).toBeTruthy();
     expect(screen.getByLabelText('Thư mục sao lưu')).toBeTruthy();
   });
 

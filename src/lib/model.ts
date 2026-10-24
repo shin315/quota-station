@@ -639,6 +639,39 @@ export interface AppView extends Partial<SourceView> {
   launchAtLogin: LaunchAtLogin;
 }
 
+/** The latest release on GitHub (`quota-station-core::release::Latest`). */
+export interface ReleaseLatest {
+  /** `0.3.0`. */
+  version: string;
+  publishedAt: string | null;
+  /** The notes' points, in plain words. */
+  notes: string[];
+  url: string;
+  /** The disk image, when the release has one. */
+  dmg: string | null;
+  size: number | null;
+}
+
+/** A newer Quota Station on GitHub Releases (`src-tauri/src/release.rs` `ReleaseView`). */
+export interface ReleaseView {
+  /** "Tự kiểm bản mới của app": once a day. */
+  auto: boolean;
+  checking: boolean;
+  /** Unix seconds of the last check that ended. */
+  checkedAt: number | null;
+  /** Why the last check did not reach GitHub: `offline`, `rateLimited`, a status. */
+  error: string | null;
+  /** The repository has no release yet. */
+  none: boolean;
+  latest: ReleaseLatest | null;
+  /** The latest release is newer than this copy. */
+  newer: boolean;
+  /** "Bỏ qua bản này". */
+  skipped: string | null;
+  /** "Để sau". */
+  later: string | null;
+}
+
 /** The main window's tabs in this build (`src-tauri/src/state.rs` `Tab`). */
 export type Tab =
   | 'overview'
@@ -1091,6 +1124,8 @@ export interface Model {
   backup: BackupView;
   /** The skills, the plugins and the instruction files (M11). */
   skills: SkillsView;
+  /** A newer version on GitHub Releases. */
+  release: ReleaseView;
   plugins: PluginsView;
   instructions: InstrView;
   /** The variables that override a login (M14). */

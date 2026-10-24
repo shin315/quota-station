@@ -37,6 +37,15 @@ export type Action =
   | `claude:unrest:${number}`
   /** Adds a Claude account: the Claude tab's dialog. */
   | 'claude:add'
+  /** A newer release: its dialog, putting it off, checking now, undoing a skip. */
+  | 'release:open'
+  | 'release:later'
+  | 'release:check'
+  | 'release:unskip'
+  /** The GitHub bug form, in the browser. */
+  | 'release:issue'
+  /** The diagnostic info's dialog. */
+  | 'diag:open'
   /** Opens the switch sheet for a Claude slot. */
   | `switch:${number}`
   /** Opens the switch sheet for an Antigravity account (M4c). */
