@@ -181,7 +181,7 @@ pub fn switch(store: &Store, slot: u32) -> Result<Switched, SwitchError> {
             }
         }
     }
-    if from == Some(slot) {
+    if from == Some(slot) && live.who().is_some() {
         return Ok(Switched { from, to: slot, already: true });
     }
 

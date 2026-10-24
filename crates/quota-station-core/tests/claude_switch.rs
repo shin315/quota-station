@@ -232,3 +232,13 @@ fn an_account_left_without_its_email_keeps_its_own_account_details() {
     assert!(!switch::switch(&mac.store, 2).unwrap().already);
     assert_eq!(switch::active_slot(&mac.store), Some(2));
 }
+
+#[test]
+fn a_switch_to_the_login_in_use_puts_its_account_back_in_the_config() {
+    let (mac, c2, _) = two_accounts("switch-same-no-who");
+    forget_who(&mac);
+    let done = switch::switch(&mac.store, 2).unwrap();
+    assert_eq!((done.from, done.already), (Some(2), false));
+    assert_eq!(switch::active_slot(&mac.store), Some(2));
+    assert_eq!(mac.live_credential(), Some(c2));
+}
