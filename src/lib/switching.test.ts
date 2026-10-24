@@ -91,12 +91,12 @@ describe('the pause', () => {
     expect(autoView(held, FIXTURE_NOW).line).toBe('Đang tạm dừng đến khi bạn bật lại');
   });
 
-  it('the banners: a switcher that ignores the flag first, then claude-swap’s own switcher, then the pause', () => {
+  it('the banners: a switcher that ignores the flag first, then an older switcher still loaded, then the pause', () => {
     expect(switcherBanner(model, FIXTURE_NOW)).toBeNull();
     expect(switcherBanner(fixtureModel('fresh', { switcher: heldSwitcher({ guard: false }) }), FIXTURE_NOW)?.tone).toBe('bad');
     expect(
-      switcherBanner(fixtureModel('fresh', { switcher: heldSwitcher({ autoService: true }) }), FIXTURE_NOW)?.title,
-    ).toBe('Hai bộ tự chuyển cùng chạy');
+      switcherBanner(fixtureModel('fresh', { switcher: heldSwitcher({ legacy: 'com.cswap.prefer-team' }) }), FIXTURE_NOW)?.title,
+    ).toBe('Bộ tự chuyển cũ còn chạy');
     const paused = switcherBanner(fixtureModel('fresh', { switcher: heldSwitcher() }), FIXTURE_NOW)!;
     expect(paused.title).toBe('Đang giữ lan.acme1 đến 15:20');
     expect(paused.actions.map((a) => a.act)).toEqual(['resume', 'addHour']);
@@ -161,13 +161,16 @@ describe('the switcher in words', () => {
     const missing = autoView(fixtureModel('fresh', { switcher: switcherFixture({ installed: false }) }), FIXTURE_NOW);
     expect(missing.toggle).toEqual({ on: false, disabled: true, label: 'Tự chuyển Claude' });
     const stopped = autoView(fixtureModel('fresh', { switcher: switcherFixture({ service: false }) }), FIXTURE_NOW);
-    expect(stopped.why).toBe('Switcher không chạy: LaunchAgent com.cswap.prefer-team chưa được nạp.');
+    expect(stopped.why).toBe('Tự chuyển của Quota Station đang tắt: bật nó ở tab Claude.');
     expect(stopped.toggle.disabled).toBe(true);
+    const legacy = autoView(fixtureModel('fresh', { switcher: switcherFixture({ legacy: 'com.cswap.prefer-team' }) }), FIXTURE_NOW);
+    expect(legacy.why).toBe('Bộ tự chuyển cũ com.cswap.prefer-team còn chạy, nên Quota Station chưa tự chuyển.');
+    expect(legacy.toggle.disabled).toBe(true);
   });
 
   it('a dry run that failed says why', () => {
-    const v = autoView(fixtureModel('fresh', { switcher: switcherFixture({ dryRun: null, dryRunError: 'noDecision' }) }), FIXTURE_NOW);
-    expect(v.why).toBe('Chưa đọc được quyết định của switcher (switcher không in quyết định, có thể cswap list lỗi).');
+    const v = autoView(fixtureModel('fresh', { switcher: switcherFixture({ dryRun: null, dryRunError: 'noAccounts' }) }), FIXTURE_NOW);
+    expect(v.why).toBe('Chưa đọc được quyết định của switcher (chưa có tài khoản).');
   });
 
   it('the popover writes the why line only when there is something to act on', () => {
@@ -179,24 +182,27 @@ describe('the switcher in words', () => {
     expect(autoView(fixtureModel('fresh', { switcher: heldSwitcher() }), FIXTURE_NOW).popLine).toMatch(/tạm dừng/i);
     const waiting: Decision = { kind: 'waiting', slot: 3, at: '16:40' };
     expect(at({ dryRun: { decision: waiting, raw: 'wait', at: '2026-01-16T07:19:40.000Z' } })).toContain('chờ');
-    expect(at({ installed: false })).toBe('Không thấy cswap-prefer-team trên máy này: không có tự chuyển Claude.');
-    expect(at({ service: false })).toContain('LaunchAgent');
+    expect(at({ installed: false })).toBe('Quota Station chưa giữ tài khoản Claude nào trên máy này: chưa có tự chuyển Claude.');
+    expect(at({ service: false })).toContain('đang tắt');
     expect(at({ dryRun: null, dryRunError: 'timeout' })).toContain('Chưa đọc được quyết định');
   });
 });
 
 describe('the switch sheet and its result', () => {
-  it('warns when the target is almost used up or out of the rotation, and blocks without cswap', () => {
+  it('warns when the target is almost used up or out of the rotation, and blocks before Quota Station keeps the accounts', () => {
     const low = fixtureModel('fresh');
     const a = low.snapshot.claude.accounts.find((x) => x.number === 3)!;
     a.windows[0] = { ...a.windows[0], percent: 8 };
     a.membership = 'out';
-    const v = claudeSheet({ ...low, claudeSwitch: { cswap: false, busy: null } }, 3, '60', { live: 1, unreadable: 0 }, FIXTURE_NOW)!;
+    const v = claudeSheet({ ...low, claudeSwitch: { ready: false, busy: null } }, 3, '60', { live: 1, unreadable: 0 }, FIXTURE_NOW)!;
     expect(v.facts.map((f) => f.k)).toEqual(['', 'w', 'w', 'w', 'x']);
     expect(v.facts[2].text).toBe('lan.acme2 không còn trong vòng xoay. Nếu để tự chuyển, switcher sẽ đổi sang tài khoản trong vòng.');
     expect(v.facts[0].text).toBe('lan.acme2 đã dùng **92%** 5 giờ, **50%** Fable.');
     expect(v.facts[3].text).toBe('lan.acme2 đã dùng 92% hạn mức 5 giờ.');
     expect(v.blocked).toBe(true);
+    const legacy = claudeSheet(fixtureModel('fresh', { switcher: switcherFixture({ legacy: 'com.cswap.prefer-team' }) }), 3, '60', null, FIXTURE_NOW)!;
+    expect(legacy.blocked).toBe(true);
+    expect(legacy.facts.at(-1)!.k).toBe('x');
   });
 
   it('a hold on a switcher that ignores the flag is a warning', () => {
@@ -230,14 +236,17 @@ describe('the switch sheet and its result', () => {
     const fb = (error: string, detail = '', active: number | null = null) =>
       switchFeedback({ kind: 'failed', slot: 3, error, detail, active }, model, FIXTURE_NOW);
     const body = (error: string, detail = '', active: number | null = null) => fb(error, detail, active).body;
-    expect(body('notFound')).toBe('Không tìm thấy lệnh cswap trên máy này. Cài lại claude-swap rồi thử lại.');
-    expect(body('spawn', 'could not start cswap: denied')).toBe('cswap không chạy được: could not start cswap: denied. Chưa đổi gì.');
-    // cswap stopped without an answer: the account read again, or a refresh when it could not be.
-    expect(body('timeout', 'cswap did not answer within 60s', 2)).toBe('cswap không trả lời trong 60 giây. Đọc lại: đang dùng lan.acme1.');
-    expect(fb('timeout', '', 2).actions!.map((a) => a.label)).toEqual(['Thử lại', 'Đóng']);
-    expect(body('timeout')).toBe('cswap không trả lời trong 60 giây. Bấm Làm mới để xem tài khoản đang dùng.');
-    expect(fb('timeout').actions!.map((a) => a.label)).toEqual(['Làm mới', 'Đóng']);
-    expect(body('exit', 'cswap exited 2: boom', 2)).toBe('cswap dừng mà không báo kết quả (cswap exited 2: boom). Đọc lại: đang dùng lan.acme1.');
+    expect(body('legacy', 'com.cswap.prefer-team')).toBe(
+      'Bộ tự chuyển cũ com.cswap.prefer-team còn chạy. Tắt nó trước theo hướng dẫn ở tab Claude. Chưa đổi gì.',
+    );
+    expect(fb('legacy', 'com.cswap.prefer-team').actions!.map((a) => a.label)).toEqual(['Đóng']);
+    expect(body('busy')).toContain('khoá đăng nhập');
+    expect(fb('busy').actions!.map((a) => a.label)).toEqual(['Thử lại', 'Đóng']);
+    expect(body('unmanaged')).toContain('Thêm tài khoản đang đăng nhập');
+    // The login did not read back: put back as it was, or the account in use when it could not be.
+    expect(body('unconfirmed')).toBe('Ghi xong nhưng đọc lại không khớp, nên app đã đặt lại như cũ. Chưa đổi gì.');
+    expect(body('unconfirmed', '', 2)).toBe('Ghi xong nhưng đọc lại không khớp, và không đặt lại được như cũ. Đang dùng lan.acme1.');
+    expect(body('keychain', 'security exited 36')).toBe('Keychain không cho đọc hoặc ghi đăng nhập (security exited 36). Chưa đổi gì.');
   });
 
   it('records that cannot be read with no live session say so instead of "Ít nhất 0"', () => {

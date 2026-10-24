@@ -107,7 +107,7 @@ describe('main window view', () => {
     const s = view('fresh').switcher;
     expect(s.line).toMatch(/^Chạy mỗi 3 phút · kiểm lúc \d\d:\d\d$/);
     expect(s.tone).toBe('ok');
-    expect(s.details.map((d) => d.key)).toContain('LaunchAgent cswap-prefer-team');
+    expect(s.details.map((d) => d.key)).toContain('LaunchAgent tự chuyển');
     expect(s.details.find((d) => d.key.startsWith('Quyết định gần nhất'))).toMatchObject({ mono: true });
   });
 

@@ -92,7 +92,7 @@ describe('the Lịch sử tab', () => {
   });
 
   it('opened while a switch runs, it still reads the list', async () => {
-    const fake = fakeApi(fixtureModel('fresh', { claudeSwitch: { cswap: true, busy: 3 } }), 'history', { history: ENTRIES });
+    const fake = fakeApi(fixtureModel('fresh', { claudeSwitch: { ready: true, busy: 3 } }), 'history', { history: ENTRIES });
     vi.spyOn(fake.api, 'getHistory');
     render(
       <div className="qs app-window">

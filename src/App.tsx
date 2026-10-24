@@ -23,6 +23,7 @@ import { useBackup } from './backup/useBackup';
 import { AlertsTab } from './alerts/AlertsTab';
 import { CodexCard, CodexTab } from './codex/CodexTab';
 import { useAgyLogins } from './antigravity/AgyAccounts';
+import { ClaudeAccounts } from './claude/ClaudeAccounts';
 import { SheetBody, type SheetState } from './components/Sheets';
 import { agyLoginOf, agySwitchErrorFeedback, agySwitchFeedback, type AppAnswer } from './lib/agySwitch';
 import { codexErrorFeedback, codexFeedback, codexRow, codexRestartFeedback, keyFeedback, nextTarget, pluginsNeedApply } from './lib/codex';
@@ -352,6 +353,8 @@ function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeed
     else if (a === 'closeFeedback') showFeedback(null);
     else if (a === 'guide:auto' || a === 'guide:switcher') open({ kind: 'guide', id: a === 'guide:auto' ? 'auto' : 'switcher' });
     else if (a === 'agy:keep') void keepOverwrite();
+    else if (a === 'claude:rotation:on') void api.claudeSetRotation(true).catch(() => {});
+    else if (a === 'claude:import') void api.claudeImport().catch(() => {});
     else if (a === 'codex:open' && model) open(model.codex.external ? { kind: 'codexExternal' } : { kind: 'codex', target: nextTarget(model.codex) });
     else if (a === 'codex:switch:chatGpt' || a === 'codex:switch:custom') {
       showFeedback(null);
@@ -822,6 +825,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       firstmate={<FirstmateTab model={model} fresh={view.fresh} now={now} onAction={onAction} />}
       unanswered={model.alerts.unanswered}
       agyLogins={agyLogins}
+      claudeAccounts={<ClaudeAccounts view={model.claudeAccounts} api={api} onAction={onAction} />}
       dialog={dialog}
       dialogSize={dialogSize}
     />

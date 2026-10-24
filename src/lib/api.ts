@@ -78,11 +78,25 @@ export interface Api {
   /** Live Claude Code sessions on this Mac; null when they cannot be counted. */
   claudeSessions(): Promise<Sessions | null>;
   /**
-   * Runs `cswap switch N --json`, pauses the switcher until `holdUntil` (RFC 3339) when given, and
-   * reports what the re-read five seconds later shows. Rejects with `busy` (a switch is running),
-   * `unknownSlot` (not one of claude-swap's accounts) or `badTime` (`holdUntil` is not RFC 3339).
+   * Switches Claude Code's login to the app's account `slot`, pauses the rotation until `holdUntil`
+   * (RFC 3339) when given, and reports what the second look five seconds later shows. Rejects with
+   * `busy` (a switch is running), `unknownSlot` or `badTime` (`holdUntil` is not RFC 3339).
    */
   switchClaude(slot: number, holdUntil: string | null): Promise<Outcome>;
+  /** Carries claude-swap's accounts over; claude-swap is left as it is. The result is in `claudeAccounts.last`. */
+  claudeImport(): Promise<Model>;
+  /** Logs a new account in with `claude auth login` in a folder of its own; waits for the browser. */
+  claudeAddLogin(): Promise<Model>;
+  claudeCancelLogin(): Promise<void>;
+  /** Adds the login Claude Code is on now. */
+  claudeAddCurrent(): Promise<Model>;
+  /** Adds a `claude setup-token` token, with the account's email when given. */
+  claudeAddToken(token: string, email: string | null): Promise<Model>;
+  claudeRemove(slot: number): Promise<Model>;
+  claudeSetAlias(slot: number, alias: string): Promise<Model>;
+  claudeSetEnabled(slot: number, enabled: boolean): Promise<Model>;
+  /** Loads or unloads the rotation's LaunchAgent. */
+  claudeSetRotation(on: boolean): Promise<Model>;
   /** Pauses automatic switching until `until` (RFC 3339), or until resumed when null. */
   pauseSwitching(until: string | null): Promise<Model>;
   /** Moves the end of a timed pause later. */
@@ -362,6 +376,15 @@ export const tauriApi: Api = {
   grantKeychain: () => invoke<Model>('grant_keychain'),
   claudeSessions: () => invoke<Sessions | null>('claude_sessions'),
   switchClaude: (slot, holdUntil) => invoke<Outcome>('switch_claude', { slot, holdUntil }),
+  claudeImport: () => invoke<Model>('claude_import'),
+  claudeAddLogin: () => invoke<Model>('claude_add_login'),
+  claudeCancelLogin: () => invoke<void>('claude_cancel_login'),
+  claudeAddCurrent: () => invoke<Model>('claude_add_current'),
+  claudeAddToken: (token, email) => invoke<Model>('claude_add_token', { token, email }),
+  claudeRemove: (slot) => invoke<Model>('claude_remove', { slot }),
+  claudeSetAlias: (slot, alias) => invoke<Model>('claude_set_alias', { slot, alias }),
+  claudeSetEnabled: (slot, enabled) => invoke<Model>('claude_set_enabled', { slot, enabled }),
+  claudeSetRotation: (on) => invoke<Model>('claude_set_rotation', { on }),
   pauseSwitching: (until) => invoke<Model>('pause_switching', { until }),
   extendPause: (minutes) => invoke<Model>('extend_pause', { minutes }),
   resumeSwitching: () => invoke<Model>('resume_switching'),

@@ -131,7 +131,7 @@ export interface ClaudeSheetView {
   options: ChoiceView<HoldChoice>[];
   hint: { tone: '' | 'warn'; text: string };
   confirm: string;
-  /** No cswap: the confirm button is off and the sheet offers the settings. */
+  /** Nothing can switch now (no accounts kept yet, or an older switcher loaded): the confirm button is off. */
   blocked: boolean;
 }
 
@@ -191,8 +191,12 @@ export function claudeSheet(
   }
   const tight = tightest(cells);
   if (tight && tight.used! >= BAD_USED) facts.push({ k: 'w', text: name + ' đã dùng ' + tight.used + '% hạn mức ' + tight.unit + '.' });
-  const blocked = !model.claudeSwitch.cswap;
-  if (blocked) facts.push({ k: 'x', text: 'Không chạy được `cswap` (không tìm thấy lệnh). Cài lại claude-swap rồi thử lại.' });
+  const legacy = model.switcher.legacy;
+  const blocked = !model.claudeSwitch.ready || !!legacy;
+  if (!model.claudeSwitch.ready)
+    facts.push({ k: 'x', text: 'Quota Station chưa giữ tài khoản Claude nào trên máy này. Nhập từ claude-swap hoặc thêm tài khoản ở tab Claude.' });
+  else if (legacy)
+    facts.push({ k: 'x', text: 'Bộ tự chuyển cũ `' + legacy + '` còn chạy. Tắt nó trước (hướng dẫn ở tab Claude), để hai bên không chuyển chồng nhau.' });
 
   const options = holdOptions(target, now);
   const cur = options.find((o) => o.v === choice) ?? options[1];
@@ -285,6 +289,8 @@ export function decisionText(d: Decision, raw: string, active: string | null, na
       return 'Lần kiểm tới sẽ chuyển sang ' + nameOf(d.slot) + ': ' + whyText(d.why, nameOf(d.slot), nameOf);
     case 'paused':
       return 'Switcher đang tạm dừng' + (d.reason ? ': ' + d.reason : '') + '.';
+    case 'blocked':
+      return 'Chưa tự chuyển: bộ tự chuyển cũ ' + d.label + ' còn chạy.';
     default:
       return 'Switcher báo: ' + raw;
   }
@@ -337,12 +343,13 @@ export function autoView(model: Model, now: Date): AutoView {
   const paused = pauseOf(model, now);
   const at = sw.dryRun ? clock(sw.dryRun.at) : null;
   let why: string;
-  if (!sw.installed) why = 'Không thấy cswap-prefer-team trên máy này: không có tự chuyển Claude.';
-  else if (sw.service === false) why = 'Switcher không chạy: LaunchAgent com.cswap.prefer-team chưa được nạp.';
+  if (!sw.installed) why = 'Quota Station chưa giữ tài khoản Claude nào trên máy này: chưa có tự chuyển Claude.';
+  else if (sw.legacy) why = 'Bộ tự chuyển cũ ' + sw.legacy + ' còn chạy, nên Quota Station chưa tự chuyển.';
+  else if (sw.service === false) why = 'Tự chuyển của Quota Station đang tắt: bật nó ở tab Claude.';
   else if (sw.dryRun) why = decisionText(sw.dryRun.decision, sw.dryRun.raw, active, nameOf);
   else if (sw.dryRunError) why = 'Chưa đọc được quyết định của switcher (' + dryRunReason(sw.dryRunError) + ').';
   else why = 'Đang hỏi switcher…';
-  const off = !sw.installed || sw.service === false;
+  const off = !sw.installed || !!sw.legacy || sw.service === false;
   const line = paused ? pausedLine(paused, now) : at && sw.dryRun && !off ? at + ' · ' + why : why;
   const usual = !paused && !off && (sw.dryRun ? sw.dryRun.decision.kind === 'stay' : !sw.dryRunError);
   return {
@@ -367,10 +374,8 @@ function dryRunReason(kind: string): string {
   switch (kind) {
     case 'timeout':
       return 'quá thời gian chờ';
-    case 'noDecision':
-      return 'switcher không in quyết định, có thể cswap list lỗi';
-    case 'notFound':
-      return 'không thấy switcher';
+    case 'noAccounts':
+      return 'chưa có tài khoản';
     default:
       return 'switcher chạy lỗi';
   }
@@ -386,14 +391,16 @@ export function switcherBanner(model: Model, now: Date): BannerView | null {
     return {
       tone: 'bad',
       title: 'Switcher chưa đọc cờ tạm dừng',
-      body: 'cswap-prefer-team trên máy này chưa có đoạn kiểm tra cờ tạm dừng, nên vẫn tự chuyển. Cài bản vá cho switcher, hoặc cho phép tự chuyển lại.',
+      body: 'Bộ tự chuyển trên máy này không dừng theo cờ tạm dừng, nên vẫn tự chuyển. Cho phép tự chuyển lại, hoặc tắt bộ tự chuyển đó.',
       actions: [{ label: 'Cho phép tự chuyển lại', act: 'resume' }],
     };
-  if (sw.autoService)
+  if (sw.legacy && sw.installed)
     return {
       tone: 'warn',
-      title: 'Hai bộ tự chuyển cùng chạy',
-      body: 'com.cswap.auto của claude-swap vừa được nạp lại. Chỉ nên có switcher. Tắt com.cswap.auto để tránh chuyển chồng nhau.',
+      title: 'Bộ tự chuyển cũ còn chạy',
+      body:
+        sw.legacy +
+        ' vẫn được nạp. Quota Station không chuyển tài khoản khi nó còn chạy, để hai bên không chuyển chồng nhau. Tắt nó theo hướng dẫn chuyển.',
       actions: [{ label: 'Hướng dẫn tắt', act: 'guide:auto' }],
     };
   return pausedBanner(model, now);
@@ -481,37 +488,44 @@ export function switchFeedback(outcome: Outcome, model: Model, now: Date): Feedb
       return {
         tone: 'warn',
         title: 'Đã gửi lệnh chuyển sang ' + t,
-        body: 'cswap báo đã chuyển, nhưng app chưa đọc lại được tài khoản đang dùng để kiểm.' + holdTail(outcome.hold, now),
+        body: 'Đã ghi đăng nhập mới, nhưng Claude Code giờ đang ở một tài khoản Quota Station không giữ.' + holdTail(outcome.hold, now),
         actions: [{ label: 'Làm mới', act: 'refresh' }, CLOSE],
       };
     case 'failed': {
-      let body: string;
-      if (outcome.error === 'notFound') body = 'Không tìm thấy lệnh cswap trên máy này. Cài lại claude-swap rồi thử lại.';
-      else if (outcome.error === 'refused') body = 'cswap báo: ' + outcome.detail + '. Chưa đổi gì.';
-      else if (outcome.error === 'timeout' || outcome.error === 'exit') {
-        // cswap stopped without an answer; the app read the account in use again.
-        const head =
-          outcome.error === 'timeout'
-            ? 'cswap không trả lời trong 60 giây.'
-            : 'cswap dừng mà không báo kết quả' + (outcome.detail ? ' (' + outcome.detail + ')' : '') + '.';
-        body =
-          head +
-          (outcome.active != null
-            ? ' Đọc lại: đang dùng ' + nameOf(outcome.active) + '.'
-            : ' Bấm Làm mới để xem tài khoản đang dùng.');
-      } else body = 'cswap không chạy được' + (outcome.detail ? ': ' + outcome.detail : '') + '. Chưa đổi gì.';
+      const body = failedBody(outcome, nameOf);
+      const stays = outcome.error === 'legacy' || outcome.error === 'unknownSlot' || outcome.error === 'unmanaged';
       return {
         tone: 'bad',
         title: 'Chưa chuyển được sang ' + t,
         body,
-        actions:
-          outcome.error === 'notFound'
-            ? [CLOSE]
-            : outcome.active == null && (outcome.error === 'timeout' || outcome.error === 'exit')
-              ? [{ label: 'Làm mới', act: 'refresh' }, CLOSE]
-              : [retry, CLOSE],
+        actions: stays ? [CLOSE] : [retry, CLOSE],
       };
     }
+  }
+}
+
+/** Why a switch did not land, in words. */
+function failedBody(outcome: Extract<Outcome, { kind: 'failed' }>, nameOf: NameOf): string {
+  const detail = outcome.detail ? ' (' + outcome.detail + ')' : '';
+  switch (outcome.error) {
+    case 'legacy':
+      return 'Bộ tự chuyển cũ ' + outcome.detail + ' còn chạy. Tắt nó trước theo hướng dẫn ở tab Claude. Chưa đổi gì.';
+    case 'busy':
+      return 'Claude Code đang giữ khoá đăng nhập (đang làm mới hoặc ghi đăng nhập). Thử lại sau vài giây. Chưa đổi gì.';
+    case 'noCredential':
+      return 'Quota Station không có đăng nhập dùng được của tài khoản này. Đăng nhập lại nó ở tab Claude. Chưa đổi gì.';
+    case 'unmanaged':
+      return 'Claude Code đang đăng nhập một tài khoản Quota Station chưa giữ. Thêm tài khoản đang đăng nhập ở tab Claude trước, để không mất đăng nhập đó. Chưa đổi gì.';
+    case 'unconfirmed':
+      return outcome.active != null
+        ? 'Ghi xong nhưng đọc lại không khớp, và không đặt lại được như cũ. Đang dùng ' + nameOf(outcome.active) + '.'
+        : 'Ghi xong nhưng đọc lại không khớp, nên app đã đặt lại như cũ. Chưa đổi gì.';
+    case 'unknownSlot':
+      return 'Quota Station không giữ tài khoản này. Chưa đổi gì.';
+    case 'keychain':
+      return 'Keychain không cho đọc hoặc ghi đăng nhập' + detail + '. Chưa đổi gì.';
+    default:
+      return 'Chuyển không được' + detail + '. Chưa đổi gì.';
   }
 }
 
@@ -526,7 +540,7 @@ export function switchErrorFeedback(slot: number, error: unknown, model: Model):
       why === 'busy'
         ? 'Một lần chuyển khác đang chạy. Chờ nó xong rồi thử lại.'
         : why === 'unknownSlot'
-          ? 'Tài khoản này không còn trong danh sách của claude-swap. Bấm Làm mới rồi thử lại.'
+          ? 'Quota Station không còn giữ tài khoản này. Bấm Làm mới rồi thử lại.'
           : 'Không gọi được lệnh chuyển. Chưa đổi gì.',
     actions: [CLOSE],
   };
@@ -571,20 +585,33 @@ export interface GuideView {
   steps: string[];
 }
 
+/**
+ * `auto`: stop the older switchers (step 1 of the cutover); `switcher`: the whole cutover from
+ * claude-swap, as the README's checklist has it.
+ */
 export function guide(id: 'auto' | 'switcher'): GuideView {
   return id === 'auto'
     ? {
-        title: 'Tắt bộ tự chuyển của claude-swap',
-        lead: 'Chỉ nên có một bộ tự chuyển là switcher, để hai bộ không chuyển chồng nhau. Quota Station không tự chạy lệnh này.',
-        steps: ['Mở Terminal.', 'Chạy `launchctl bootout gui/$(id -u)/com.cswap.auto`', 'Bấm Làm mới. Dòng com.cswap.auto phải hiện "tắt".'],
-      }
-    : {
-        title: 'Nạp lại switcher',
-        lead: 'Switcher là LaunchAgent com.cswap.prefer-team. Quota Station không tự chạy lệnh này.',
+        title: 'Tắt bộ tự chuyển cũ',
+        lead:
+          'Quota Station không chuyển tài khoản khi com.cswap.prefer-team hoặc com.cswap.auto còn được nạp, để hai bên không chuyển chồng nhau. Quota Station không tự chạy các lệnh này; claude-swap và dữ liệu của nó vẫn giữ nguyên.',
         steps: [
           'Mở Terminal trên máy này.',
-          'Chạy `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.cswap.prefer-team.plist`',
-          'Quay lại tab Claude và bấm Làm mới. Switcher chạy mỗi 3 phút.',
+          'Giữ một bản sao plist: `cp ~/Library/LaunchAgents/com.cswap.prefer-team.plist ~/Library/LaunchAgents/com.cswap.prefer-team.plist.bak`',
+          'Chạy `launchctl bootout gui/$(id -u)/com.cswap.prefer-team`',
+          'Nếu com.cswap.auto cũng đang nạp: `launchctl bootout gui/$(id -u)/com.cswap.auto`',
+          'Quay lại tab Claude và bấm Làm mới. Cảnh báo bộ tự chuyển cũ phải biến mất.',
+        ],
+      }
+    : {
+        title: 'Chuyển từ claude-swap sang Quota Station',
+        lead: 'Làm lần lượt trên từng Mac. claude-swap và dữ liệu của nó được giữ nguyên, để quay lại được khi cần.',
+        steps: [
+          'Tắt bộ tự chuyển cũ: giữ bản sao plist rồi `launchctl bootout gui/$(id -u)/com.cswap.prefer-team`.',
+          'Ở tab Claude, bấm **Nhập từ claude-swap**. Chạy lại lần nữa cũng không sao: chỉ đăng nhập mới hơn được lấy thêm.',
+          'Kiểm tra danh sách tài khoản, rồi bật **Tự chuyển bằng Quota Station**.',
+          'Firstmate đọc số từ `quota-station claude status --json` thay cho `cswap list --json`, và chạy `quota-station claude run N --` thay cho `cswap run N --`.',
+          'Chỉ gỡ claude-swap khi đã hỏi và mọi Mac đã chạy ổn.',
         ],
       };
 }

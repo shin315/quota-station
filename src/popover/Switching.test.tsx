@@ -138,7 +138,7 @@ describe('the Claude switch sheet', () => {
       fireEvent.click(within(sheet).getByRole('button', { name: 'Chuyển sang lan.acme2' }));
     });
     const working = screen.getByRole('dialog', { name: 'Đang chuyển sang lan.acme2…' });
-    expect(within(working).getByText('cswap switch 3 đang chuyển tài khoản')).toBeTruthy();
+    expect(within(working).getByText('Đang chuyển Claude Code sang tài khoản 3')).toBeTruthy();
     // Escape does not leave a running switch.
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.getByRole('dialog', { name: 'Đang chuyển sang lan.acme2…' })).toBeTruthy();
@@ -181,16 +181,16 @@ describe('the Claude switch sheet', () => {
     expect(screen.queryByRole('button', { name: 'Cho phép tự chuyển lại' })).toBeNull();
   });
 
-  it('an error from cswap says nothing changed and offers to try again', async () => {
+  it('a switch that does not land says nothing changed and offers to try again', async () => {
     await open(fixtureModel('fresh'), {
-      outcome: (slot) => ({ kind: 'failed', slot, error: 'refused', detail: 'ClaudeSwitchError: Account-3 … needs /login', active: null }),
+      outcome: (slot) => ({ kind: 'failed', slot, error: 'busy', detail: '', active: null }),
     });
     const sheet = await sheetFor('lan.acme2');
     await act(async () => {
       fireEvent.click(within(sheet).getByRole('button', { name: 'Chuyển sang lan.acme2' }));
     });
     expect(screen.getByText('Chưa chuyển được sang lan.acme2')).toBeTruthy();
-    expect(screen.getByText('cswap báo: ClaudeSwitchError: Account-3 … needs /login. Chưa đổi gì.')).toBeTruthy();
+    expect(screen.getByText('Claude Code đang giữ khoá đăng nhập (đang làm mới hoặc ghi đăng nhập). Thử lại sau vài giây. Chưa đổi gì.')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Thử lại' })).toBeTruthy();
     // Nothing changed: lan.acme1 is still the one in use.
     expect(document.querySelector('.acard2.on')!.getAttribute('aria-label')).toMatch(/^lan\.acme1, Acme Studio, đang dùng\./);
@@ -244,19 +244,19 @@ describe('the Claude switch sheet', () => {
     expect(within(sheet).getByText('Ngoài giờ dùng tài khoản Cá nhân. Chọn thời lượng giữ để tránh tự chuyển sang tài khoản khác.').getAttribute('data-tone')).toBe('warn');
   });
 
-  it('without cswap nothing can switch', async () => {
-    await open(fixtureModel('fresh', { claudeSwitch: { cswap: false, busy: null } }));
+  it('before Quota Station keeps any account nothing can switch', async () => {
+    await open(fixtureModel('fresh', { claudeSwitch: { ready: false, busy: null } }));
     const rows = within(screen.getByRole('list', { name: 'CLAUDE' })).getAllByRole('button');
     expect(rows.every((r) => r.getAttribute('aria-disabled') === 'true')).toBe(true);
-    expect(rows[2].getAttribute('aria-label')).toMatch(/\. Chưa chuyển được: không tìm thấy cswap$/);
-    expect(screen.getByText('Không tìm thấy cswap trên máy này: chưa chuyển được tài khoản Claude.')).toBeTruthy();
+    expect(rows[2].getAttribute('aria-label')).toMatch(/\. Chưa chuyển được: Quota Station chưa giữ tài khoản Claude$/);
+    expect(screen.getByText('Quota Station chưa giữ tài khoản Claude nào trên máy này: nhập từ claude-swap ở tab Claude để chuyển được tài khoản.')).toBeTruthy();
   });
 
   it('a switch from the other window that lands on this sheet’s account closes the sheet', async () => {
     const fake = await open(fixtureModel('fresh'));
     await sheetFor('lan.acme2');
     const model = fixtureModel('fresh');
-    act(() => fake.push({ ...model, claudeSwitch: { cswap: true, busy: 3 } }));
+    act(() => fake.push({ ...model, claudeSwitch: { ready: true, busy: 3 } }));
     expect(screen.getByRole('dialog', { name: 'Đang chuyển sang lan.acme2…' })).toBeTruthy();
     const accounts = model.snapshot.claude.accounts.map((a) => ({ ...a, active: a.number === 3 }));
     act(() => fake.push({ ...model, snapshot: { ...model.snapshot, claude: { ...model.snapshot.claude, accounts } } }));
@@ -265,7 +265,7 @@ describe('the Claude switch sheet', () => {
   });
 
   it('while a switch runs from another window, rows wait', async () => {
-    await open(fixtureModel('fresh', { claudeSwitch: { cswap: true, busy: 3 } }));
+    await open(fixtureModel('fresh', { claudeSwitch: { ready: true, busy: 3 } }));
     const rows = within(screen.getByRole('list', { name: 'CLAUDE' })).getAllByRole('button');
     expect(rows[3].getAttribute('aria-label')).toMatch(/\. Đang chuyển tài khoản$/);
   });
@@ -387,11 +387,11 @@ describe('the pause control', () => {
   });
 
   it('claude-swap’s own switcher loaded again is a warning with a guide', async () => {
-    await open(fixtureModel('fresh', { switcher: switcherFixture({ autoService: true }) }));
-    expect(screen.getByText('Hai bộ tự chuyển cùng chạy')).toBeTruthy();
+    await open(fixtureModel('fresh', { switcher: switcherFixture({ legacy: 'com.cswap.prefer-team' }) }));
+    expect(screen.getByText('Bộ tự chuyển cũ còn chạy')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Hướng dẫn tắt' }));
-    const guide = screen.getByRole('dialog', { name: 'Tắt bộ tự chuyển của claude-swap' });
-    expect(within(guide).getByText('launchctl bootout gui/$(id -u)/com.cswap.auto')).toBeTruthy();
+    const guide = screen.getByRole('dialog', { name: 'Tắt bộ tự chuyển cũ' });
+    expect(within(guide).getByText('launchctl bootout gui/$(id -u)/com.cswap.prefer-team')).toBeTruthy();
     fireEvent.click(within(guide).getByRole('button', { name: 'Đóng' }));
     expect(screen.queryByRole('dialog', { name: /Tắt bộ/ })).toBeNull();
   });
@@ -400,6 +400,6 @@ describe('the pause control', () => {
     await open(fixtureModel('fresh', { switcher: switcherFixture({ installed: false, dryRun: null, lastLog: null }) }));
     const toggle = screen.getByRole('switch', { name: 'Tự chuyển Claude' }) as HTMLButtonElement;
     expect(toggle.disabled).toBe(true);
-    expect(screen.getByText('Không thấy cswap-prefer-team trên máy này: không có tự chuyển Claude.')).toBeTruthy();
+    expect(screen.getByText('Quota Station chưa giữ tài khoản Claude nào trên máy này: chưa có tự chuyển Claude.')).toBeTruthy();
   });
 });

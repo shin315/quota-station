@@ -135,6 +135,8 @@ export type Decision =
   | { kind: 'switch'; slot: number; why: Why }
   | { kind: 'wait' }
   | { kind: 'paused'; until: string | null; reason: string | null }
+  /** `blocked (com.cswap.prefer-team is loaded)`: an older switcher runs, so nothing switches. */
+  | { kind: 'blocked'; label: string }
   | { kind: 'other' };
 
 export type LogEvent =
@@ -160,7 +162,7 @@ export interface PauseView {
 }
 
 export interface SwitcherView {
-  /** `cswap-prefer-team` is on this Mac. */
+  /** Quota Station keeps the Claude accounts on this Mac (imported or added), so its rotation can run. */
   installed: boolean;
   /** The pause flag; null when there is none. */
   pause: PauseView | null;
@@ -169,15 +171,15 @@ export interface SwitcherView {
   /** False: the switcher decided as if not paused while the flag held, so it does not read the flag yet. */
   guard: boolean | null;
   lastLog: LogLine | null;
-  /** `com.cswap.prefer-team` is loaded. */
+  /** The rotation's LaunchAgent (`com.shin315.quota-station.rotation`) is loaded. */
   service: boolean | null;
-  /** `com.cswap.auto`, claude-swap's own switcher, is loaded. */
-  autoService: boolean | null;
+  /** An older switcher still loaded (`com.cswap.prefer-team`, `com.cswap.auto`): nothing switches while it is. */
+  legacy: string | null;
 }
 
 export interface ClaudeSwitchView {
-  /** claude-swap is on this Mac. */
-  cswap: boolean;
+  /** Quota Station keeps the Claude accounts on this Mac; before that nothing can switch. */
+  ready: boolean;
   /** The slot a switch is running for. */
   busy: number | null;
 }
@@ -185,6 +187,71 @@ export interface ClaudeSwitchView {
 export interface Sessions {
   live: number;
   unreadable: number;
+}
+
+// ===== The Claude accounts Quota Station keeps =====
+
+export interface ClaudeWindowOut {
+  usedPercent: number;
+  /** RFC 3339. */
+  resetsAt: string | null;
+}
+
+/** One account, as `claude/state.json` and the Claude tab list it (`quota-station-core::claude::state::AccountOut`). */
+export interface ClaudeAccountRow {
+  slot: number;
+  alias: string | null;
+  /** In the rotation; held out, it is still switched to by hand. */
+  enabled: boolean;
+  active: boolean;
+  kind: 'login' | 'setupToken';
+  status: 'fresh' | 'stale' | 'noData' | 'reloginRequired';
+  fetchedAt: string | null;
+  ageSeconds: number | null;
+  windows: { fiveHour: ClaudeWindowOut | null; sevenDay: ClaudeWindowOut | null; fable: ClaudeWindowOut | null };
+  /** The last read's error kind (`http-429`, `invalid_grant`…). */
+  error: string | null;
+  /** Only while names show. */
+  email?: string | null;
+}
+
+export type ClaudeAccountAction = 'import' | 'login' | 'current' | 'token' | 'remove' | 'alias' | 'enabled' | 'rotation';
+
+export interface ClaudeImported {
+  added: number[];
+  updated: number[];
+  unchanged: number[];
+  /** `[slot, why]`: `slotTaken`, `elsewhere`, `apiKey`, `noConfig`, `noCredential`, `keychain`. */
+  skipped: [number, string][];
+  rotation: boolean;
+  prime: boolean;
+}
+
+export interface ClaudeActionDone {
+  action: ClaudeAccountAction;
+  ok: boolean;
+  error: string | null;
+  detail: string | null;
+  slot: number | null;
+  /** An add renewed an account the app had. */
+  renewed: boolean;
+  imported: ClaudeImported | null;
+}
+
+export interface ClaudeAccountsView {
+  /** Quota Station keeps the accounts on this Mac. */
+  ready: boolean;
+  /** claude-swap's folder is on this Mac, to import from. */
+  importable: boolean;
+  accounts: ClaudeAccountRow[];
+  working: ClaudeAccountAction | null;
+  last: ClaudeActionDone | null;
+  /** The rotation's LaunchAgent is loaded; null when that cannot be told. */
+  rotation: boolean | null;
+  /** An older switcher still loaded. */
+  legacy: string | null;
+  /** `claude` is on this Mac, to log a new account in with. */
+  claude: boolean;
 }
 
 export interface Hold {
@@ -200,8 +267,9 @@ export type Outcome =
   | { kind: 'raced'; slot: number; active: number; bySwitcherAt: string | null; hold: Hold | null }
   | { kind: 'unconfirmed'; slot: number; hold: Hold | null }
   /**
-   * `active`: the account read again when cswap stopped without an answer (timed out, or ended
-   * without one). Null when cswap answered, and when that re-read found no active account.
+   * `error`: the switch's error kind (`busy`, `noCredential`, `unmanaged`, `unconfirmed`, `keychain`, …),
+   * or `legacy` while an older switcher is loaded (its label in `detail`). `active`: the account in use
+   * when the login could not be put back as it was.
    */
   | { kind: 'failed'; slot: number; error: string; detail: string; active: number | null };
 
@@ -954,6 +1022,8 @@ export interface Model {
   granting: boolean;
   switcher: SwitcherView;
   claudeSwitch: ClaudeSwitchView;
+  /** The Claude accounts Quota Station keeps, and their actions. */
+  claudeAccounts: ClaudeAccountsView;
   rotation: RotationView;
   /** Account names (emails, organizations) may show; off, none reaches the window. */
   showNames: boolean;

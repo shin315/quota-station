@@ -324,6 +324,8 @@ interface TabProps {
   agyLogins?: AgyLogins;
   /** Codex's card on Tổng quan (M8). */
   codexCard?: ReactNode;
+  /** The Claude accounts Quota Station keeps, in the Claude tab. */
+  claudeAccounts?: ReactNode;
 }
 
 function Top(props: TabProps & { title: string; banner?: boolean }) {
@@ -395,6 +397,7 @@ function ClaudeTab(props: TabProps) {
         <ClaudeTable cards={v.claude.cards} onSwitch={props.onSwitch} />
         <Note note={v.claude.note} />
       </Card>
+      {props.claudeAccounts}
       <div className={GRID2}>
         <AutoCard auto={a} onToggle={props.onToggle}>
           <CardText style={{ margin: '12px 0 4px' }} id="qs-qp">
@@ -497,6 +500,8 @@ export interface MainWindowProps {
   syncNote?: string | null;
   /** The accounts the app logs in, merged into the Antigravity table. */
   agyLogins?: AgyLogins;
+  /** The Claude accounts Quota Station keeps, in the Claude tab. */
+  claudeAccounts?: ReactNode;
   /** The open dialog's body; null when none is open. */
   dialog?: ReactNode;
   /** Its width: the MCP preview and form need more room than a confirmation. */
@@ -516,6 +521,7 @@ export function MainWindow(props: MainWindowProps) {
     now: props.now,
     agyLogins: props.agyLogins,
     codexCard: props.codexCard,
+    claudeAccounts: props.claudeAccounts,
   };
   const open = !!props.dialog;
   return (

@@ -1,6 +1,6 @@
 // The confirmation sheets (ConfirmSheet `.sheet` in the popover, LeaveDialog
 // `.dlg` in the main window): switch Claude (F04), switch Antigravity (M4c),
-// pause automatic switching (F07), the two switcher guides, and Codex (M8):
+// pause automatic switching (F07), the two rotation guides, and Codex (M8):
 // its switch with the optional restart box, the restart of its background
 // process, the file changed outside the app, and its guides and previews;
 // "Dán khoá" for the custom provider and "Áp dụng ngay" for the plugins box.
@@ -114,7 +114,7 @@ function ClaudeBody(props: SheetBodyProps & { slot: number }) {
         <FeedbackLine tone="info" style={{ margin: '8px 0 0' }}>
           <Spinner />
           <div>
-            <FeedbackText title={'cswap switch ' + props.slot + ' đang chuyển tài khoản'} body="Sau đó app đợi 5 giây rồi đọc lại tài khoản đang dùng để kiểm." />
+            <FeedbackText title={'Đang chuyển Claude Code sang tài khoản ' + props.slot} body="Sau đó app đợi 5 giây rồi xem lại tài khoản đang dùng để kiểm." />
           </div>
         </FeedbackLine>
       </>
