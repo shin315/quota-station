@@ -636,6 +636,7 @@ export function fixtureModel(name: string, over: Partial<Model> = {}): AuthorMod
     backup: backupFixture(),
     skills: skillsFixture(),
     release: releaseFixture(),
+    firstRun: false,
     plugins: pluginsFixture(),
     instructions: instrFixture(),
     env: envFixture(),

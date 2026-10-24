@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MainWindowApp } from '../App';
 import { fakeApi, hideNames, type FakeOptions } from '../fixtures/fakeApi';
@@ -177,7 +177,8 @@ describe('the Claude accounts Quota Station keeps', () => {
   });
 
   it('a sign-in waits for the browser with its countdown, and Thôi stops it', async () => {
-    const fake = await open(withAccounts({}), { claudeDelayMs: 20 });
+    // Long enough that a slow runner still sees the wait before the sign-in ends.
+    const fake = await open(withAccounts({}), { claudeDelayMs: 400 });
     await press(screen.getByRole('button', { name: 'Thêm tài khoản' }));
     await press(inDialog('Tiếp tục'));
     expect(fake.api.claudeAddLogin).toHaveBeenCalledTimes(1);
@@ -185,10 +186,7 @@ describe('the Claude accounts Quota Station keeps', () => {
     expect(within(dialog()).getByText(/^Chờ tối đa 10 phút · còn \d+:\d\d$/)).toBeTruthy();
     await press(inDialog('Thôi'));
     expect(fake.api.claudeCancelLogin).toHaveBeenCalledTimes(1);
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 40));
-    });
-    expect(screen.queryByRole('dialog')).toBeNull();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(names()).toHaveLength(4);
   });
 

@@ -389,7 +389,7 @@ function AutoCard({ auto, tag, onToggle, children }: { auto: AutoView; tag?: Rea
 }
 
 /** A card with nothing in it yet: a dashed box, a bold line, a word, and its button. */
-function EmptyBox(props: { icon?: ReactNode; title: string; body?: string; children?: ReactNode }) {
+export function EmptyBox(props: { icon?: ReactNode; title: string; body?: string; children?: ReactNode }) {
   return (
     <div className="grid justify-items-center gap-1.5 rounded-card border border-dashed border-line-2 bg-card px-4 py-[22px] text-center">
       {props.icon}
@@ -704,6 +704,8 @@ export interface MainWindowProps {
   dialog?: ReactNode;
   /** Its width: the MCP preview and form need more room than a confirmation. */
   dialogSize?: 'wide' | 'lg' | 'xl';
+  /** A new install's first run: the whole window, without the sidebar. */
+  setup?: ReactNode;
 }
 
 export function MainWindow(props: MainWindowProps) {
@@ -726,47 +728,53 @@ export function MainWindow(props: MainWindowProps) {
   // A tab Nâng cao took away while it was open gives way to Tổng quan.
   const tab: Tab = hidden.has(props.tab as NavId) ? 'overview' : props.tab;
   return (
-    <div className="win-o material-window relative grid h-full w-full grid-cols-[var(--side-w)_minmax(0,1fr)] overflow-hidden">
+    <div className={cn('win-o material-window relative grid h-full w-full overflow-hidden', props.setup ? 'grid-cols-[minmax(0,1fr)]' : 'grid-cols-[var(--side-w)_minmax(0,1fr)]')}>
       {/* The window's top edge drags it, over the sidebar and the page alike, as a title bar would. */}
       <div className="dragbar absolute top-0 right-0 left-0 z-10 h-4" data-tauri-drag-region aria-hidden="true" />
-      <div style={{ display: 'contents' }} inert={open}>
-        <Sidebar
-          tab={tab}
-          machine={props.view.machine}
-          version={props.version ?? null}
-          note={props.advanced ? (props.syncNote ?? null) : null}
-          alerts={props.unanswered ?? 0}
-          hidden={hidden}
-          advanced={props.advanced}
-          onTab={props.onTab}
-        />
-        <main className="main material-main relative flex min-w-0 flex-col gap-3 overflow-y-auto pt-4 pr-[22px] pb-[22px] pl-3.5">
-          {tab === 'overview' ? <Overview {...tabProps} advanced={props.advanced} agyAccounts={props.agyAccounts} release={props.release} onTab={props.onTab} /> : null}
-          {tab === 'stats' ? props.stats : null}
-          {tab === 'claude' ? <ClaudeTab {...tabProps} advanced={props.advanced} /> : null}
-          {tab === 'agy' ? <AgyTab {...tabProps} agyAccounts={props.agyAccounts} /> : null}
-          {tab === 'codex' ? props.codex : null}
-          {tab === 'rules' ? props.rules : null}
-          {tab === 'history' ? props.history : null}
-          {tab === 'alerts' ? props.alerts : null}
-          {tab === 'firstmate' ? props.firstmate : null}
-          {tab === 'mcp' ? props.mcp : null}
-          {tab === 'skills' ? props.skills : null}
-          {tab === 'plugins' ? props.plugins : null}
-          {tab === 'instr' ? props.instr : null}
-          {tab === 'sets' ? props.sets : null}
-          {tab === 'backup' ? props.backup : null}
-          {tab === 'copy' ? props.copy : null}
-          {tab === 'settings' ? props.settings : null}
+      {props.setup ? (
+        <main className="main material-main relative flex min-w-0 overflow-y-auto" inert={open}>
+          {props.setup}
         </main>
-      </div>
+      ) : (
+        <div style={{ display: 'contents' }} inert={open}>
+          <Sidebar
+            tab={tab}
+            machine={props.view.machine}
+            version={props.version ?? null}
+            note={props.advanced ? (props.syncNote ?? null) : null}
+            alerts={props.unanswered ?? 0}
+            hidden={hidden}
+            advanced={props.advanced}
+            onTab={props.onTab}
+          />
+          <main className="main material-main relative flex min-w-0 flex-col gap-3 overflow-y-auto pt-4 pr-[22px] pb-[22px] pl-3.5">
+            {tab === 'overview' ? <Overview {...tabProps} advanced={props.advanced} agyAccounts={props.agyAccounts} release={props.release} onTab={props.onTab} /> : null}
+            {tab === 'stats' ? props.stats : null}
+            {tab === 'claude' ? <ClaudeTab {...tabProps} advanced={props.advanced} /> : null}
+            {tab === 'agy' ? <AgyTab {...tabProps} agyAccounts={props.agyAccounts} /> : null}
+            {tab === 'codex' ? props.codex : null}
+            {tab === 'rules' ? props.rules : null}
+            {tab === 'history' ? props.history : null}
+            {tab === 'alerts' ? props.alerts : null}
+            {tab === 'firstmate' ? props.firstmate : null}
+            {tab === 'mcp' ? props.mcp : null}
+            {tab === 'skills' ? props.skills : null}
+            {tab === 'plugins' ? props.plugins : null}
+            {tab === 'instr' ? props.instr : null}
+            {tab === 'sets' ? props.sets : null}
+            {tab === 'backup' ? props.backup : null}
+            {tab === 'copy' ? props.copy : null}
+            {tab === 'settings' ? props.settings : null}
+          </main>
+        </div>
+      )}
       {/* The dialog layer covers the whole window, sidebar included; the
           dialog stands on the page beside the sidebar, near the top, as drawn.
           The one row fills the window below the top margin, so the dialog's
           height can stop 36 px short of the bottom (100% − 120 px of the window). */}
       <Dialog open={open}>
         {open ? (
-          <DialogOverlay className="z-30 grid grid-rows-[minmax(0,1fr)] items-start justify-items-center rounded-[inherit] pt-[84px] pl-(--side-w)">
+          <DialogOverlay className={cn('z-30 grid grid-rows-[minmax(0,1fr)] items-start justify-items-center rounded-[inherit] pt-[84px]', !props.setup && 'pl-(--side-w)')}>
             <DialogContent size={props.dialogSize ?? 'wide'} className="max-h-[calc(100%-36px)]">{props.dialog}</DialogContent>
           </DialogOverlay>
         ) : null}

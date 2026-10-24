@@ -17,7 +17,7 @@ import type { ClaudeAccountRow, ClaudeAccountsView, Tab } from '../lib/model';
 import type { AddHow, ClaudeAccountsState, ClaudeDialog } from './useClaudeAccounts';
 
 /** How long `claude auth login` waits for the browser (the app's own limit). */
-const LOGIN_WAIT_MS = 10 * 60 * 1000;
+export const LOGIN_WAIT_MS = 10 * 60 * 1000;
 
 interface BodyProps {
   claude: ClaudeAccountsState;
@@ -133,7 +133,7 @@ function AddBody({ d, view, claude, nameOf }: { d: Extract<ClaudeDialog, { kind:
 }
 
 /** `9:12`. */
-function minutes(ms: number): string {
+export function minutes(ms: number): string {
   const s = Math.max(0, Math.ceil(ms / 1000));
   return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
 }

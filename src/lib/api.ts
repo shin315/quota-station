@@ -156,6 +156,8 @@ export interface Api {
   setTheme(theme: Theme): Promise<Model>;
   /** Vietnamese, English, or back to macOS's language. */
   setLanguage(language: Language): Promise<Model>;
+  /** The first run's last step: it does not show again; `popover` closes the window and opens the popover. */
+  finishSetup(open: 'window' | 'popover'): Promise<Model>;
   /** The service the menu bar title follows; stays on this Mac. */
   setMenubar(menubar: Menubar): Promise<Model>;
   /** The window the menu bar title shows; stays on this Mac. */
@@ -435,6 +437,7 @@ export const tauriApi: Api = {
   setShowNames: (on) => invoke<Model>('set_show_names', { on }),
   setTheme: (theme) => invoke<Model>('set_theme', { theme }),
   setLanguage: (language) => invoke<Model>('set_language', { language }),
+  finishSetup: (open) => invoke<Model>('finish_setup', { open }),
   setMenubar: (menubar) => invoke<Model>('set_menubar', { menubar }),
   setMenubarWindow: (window) => invoke<Model>('set_menubar_window', { window }),
   agyAppState: () => invoke<AgyApp>('agy_app_state'),

@@ -458,7 +458,7 @@ function Notifications(props: { model: Model; onAction: SettingsProps['onAction'
 }
 
 /** "Mở khi đăng nhập": macOS's own login item, off until turned on here. */
-function LaunchAtLogin({ app, onSet, onOpen }: { app: AppView; onSet: SettingsProps['onLaunchAtLogin']; onOpen(): void }) {
+export function LaunchAtLogin({ app, onSet, onOpen }: { app: AppView; onSet: SettingsProps['onLaunchAtLogin']; onOpen(): void }) {
   const [refused, setRefused] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const state = app.launchAtLogin;
@@ -872,7 +872,7 @@ function SkillChecksRows({ model, onSet }: { model: Model; onSet: NonNullable<Se
   );
 }
 
-function MenubarRow({ model, onPick }: { model: Model; onPick(menubar: Menubar): void }) {
+export function MenubarRow({ model, onPick }: { model: Model; onPick(menubar: Menubar): void }) {
   const offs = MENUBARS.map(([v]) => menubarOff(model, v)).filter(Boolean);
   const picked = menubarOff(model, model.menubar);
   return (
@@ -924,7 +924,7 @@ export function menubarWindowOff(model: Model, window: MenubarWindow): string {
 }
 
 /** Số trên thanh menu: which window's share used the menu bar shows. */
-function MenubarWindowRow({ model, onPick }: { model: Model; onPick(window: MenubarWindow): void }) {
+export function MenubarWindowRow({ model, onPick }: { model: Model; onPick(window: MenubarWindow): void }) {
   const picked = menubarWindowOff(model, model.menubarWindow);
   return (
     <div className={rowClass()}>
