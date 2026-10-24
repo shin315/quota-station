@@ -18,11 +18,16 @@ use common::{fixture_path, script};
 /// variables it got next to the home and prints a report.
 fn mac(tag: &str) -> (Mac, Tools) {
     let mac = Mac::new(tag);
-    for (slot, email) in [(2, "lan@team.example"), (3, "lan.b@team.example"), (4, "lan.c@team.example")] {
+    for (slot, email) in
+        [(2, "lan@team.example"), (3, "lan.b@team.example"), (4, "lan.c@team.example")]
+    {
         let login = credential(&format!("acc-{slot}"), &format!("ref-{slot}"), in_hours(5.0));
         mac.add(slot, email, "org-team", &login);
     }
-    mac.log_in(&mac.store.credential(2).unwrap().unwrap(), &oauth("lan@team.example", "uuid-2", "org-team"));
+    mac.log_in(
+        &mac.store.credential(2).unwrap().unwrap(),
+        &oauth("lan@team.example", "uuid-2", "org-team"),
+    );
     let axi = script(
         &mac.dir.join("bin/quota-axi"),
         &format!(
@@ -76,8 +81,10 @@ fn the_switch_is_in_the_files_quota_axi_and_firstmate_read() {
     let state: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(mac.paths.state()).unwrap()).unwrap();
     assert_eq!(state["activeSlot"], 3);
-    let sequence: serde_json::Value =
-        serde_json::from_str(&std::fs::read_to_string(mac.paths.swap().join("sequence.json")).unwrap()).unwrap();
+    let sequence: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(mac.paths.swap().join("sequence.json")).unwrap(),
+    )
+    .unwrap();
     assert_eq!(sequence["activeAccountNumber"], 3);
 }
 
@@ -121,7 +128,12 @@ fn nothing_switches_while_the_old_switcher_is_loaded() {
     let done = switch_claude(&tools, 3, None, &quiet);
     assert_eq!(
         done.outcome,
-        Outcome::Failed { slot: 3, error: "legacy".into(), detail: "com.cswap.prefer-team".into(), active: None }
+        Outcome::Failed {
+            slot: 3,
+            error: "legacy".into(),
+            detail: "com.cswap.prefer-team".into(),
+            active: None
+        }
     );
     assert_eq!(mac.live_email().as_deref(), Some("lan@team.example"));
 }
@@ -182,7 +194,11 @@ fn the_rotation_switching_back_is_reported_as_raced() {
     let (mac, tools) = mac("switching-raced");
     let rotation = || {
         switch::switch(&mac.store, 2).unwrap();
-        rotate::log(&mac.store, "switch to slot 2 (ends for good at 17:45, use it first)", OffsetDateTime::now_utc());
+        rotate::log(
+            &mac.store,
+            "switch to slot 2 (ends for good at 17:45, use it first)",
+            OffsetDateTime::now_utc(),
+        );
     };
     let done = switch_claude(&tools, 3, None, &rotation);
     let Outcome::Raced { slot: 3, active: 2, by_switcher_at, .. } = &done.outcome else {
@@ -198,13 +214,21 @@ fn another_switch_winning_is_raced_without_the_rotation() {
         switch::switch(&mac.store, 4).unwrap();
     };
     let done = switch_claude(&tools, 3, None, &other);
-    assert!(matches!(done.outcome, Outcome::Raced { slot: 3, active: 4, by_switcher_at: None, .. }));
+    assert!(matches!(
+        done.outcome,
+        Outcome::Raced { slot: 3, active: 4, by_switcher_at: None, .. }
+    ));
 }
 
 #[test]
 fn a_login_changed_to_one_the_app_does_not_keep_is_unconfirmed() {
     let (mac, tools) = mac("switching-unconfirmed");
-    let elsewhere = || mac.log_in(&credential("acc-x", "ref-x", in_hours(5.0)), &oauth("x@else.example", "uuid-x", "org-x"));
+    let elsewhere = || {
+        mac.log_in(
+            &credential("acc-x", "ref-x", in_hours(5.0)),
+            &oauth("x@else.example", "uuid-x", "org-x"),
+        )
+    };
     let done = switch_claude(&tools, 3, None, &elsewhere);
     assert!(matches!(done.outcome, Outcome::Unconfirmed { slot: 3, hold: None }));
 }

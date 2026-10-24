@@ -35,20 +35,35 @@ fn claude_swap(mac: &Mac) -> PathBuf {
             "3": { "email": TOKEN, "organizationUuid": "", "uuid": "" }
         }
     });
-    std::fs::write(dir.join("sequence.json"), serde_json::to_string_pretty(&sequence).unwrap()).unwrap();
+    std::fs::write(dir.join("sequence.json"), serde_json::to_string_pretty(&sequence).unwrap())
+        .unwrap();
     for (slot, email, org) in [(1, PERSONAL, "org-personal"), (2, TEAM, "org-team")] {
         let config = json!({ "oauthAccount": oauth(email, &format!("uuid-{slot}"), org) });
-        std::fs::write(dir.join(format!("configs/.claude-config-{slot}-{email}.json")), config.to_string()).unwrap();
+        std::fs::write(
+            dir.join(format!("configs/.claude-config-{slot}-{email}.json")),
+            config.to_string(),
+        )
+        .unwrap();
     }
     write_enc(&dir, 1, PERSONAL, &credential("acc-1", "ref-1", in_hours(5.0)));
-    mac.put_item("claude-swap", &format!("account-2-{TEAM}"), &credential("acc-2", "ref-2", in_hours(5.0)));
-    let token = json!({ "claudeAiOauth": { "accessToken": "setup-3", "scopes": ["user:inference"] } }).to_string();
+    mac.put_item(
+        "claude-swap",
+        &format!("account-2-{TEAM}"),
+        &credential("acc-2", "ref-2", in_hours(5.0)),
+    );
+    let token =
+        json!({ "claudeAiOauth": { "accessToken": "setup-3", "scopes": ["user:inference"] } })
+            .to_string();
     mac.put_item("claude-swap", &format!("account-3-{TOKEN}"), &token);
     dir
 }
 
 fn write_enc(dir: &Path, slot: u32, email: &str, credential: &str) {
-    std::fs::write(dir.join(format!("credentials/.creds-{slot}-{email}.enc")), STANDARD.encode(credential)).unwrap();
+    std::fs::write(
+        dir.join(format!("credentials/.creds-{slot}-{email}.enc")),
+        STANDARD.encode(credential),
+    )
+    .unwrap();
 }
 
 /// Every file under `dir` and its bytes.
@@ -79,13 +94,17 @@ fn every_claude_swap_account_comes_over_under_its_slot() {
     assert_eq!(list.get(2).unwrap().alias.as_deref(), Some("Team chính"));
     assert_eq!(list.get(3).unwrap().kind, Kind::SetupToken);
     assert_eq!(mac.store.credential(1).unwrap(), Some(credential_of(&dir, 1, PERSONAL)));
-    assert_eq!(mac.store.credential(2).unwrap(), mac.item("claude-swap", &format!("account-2-{TEAM}")));
+    assert_eq!(
+        mac.store.credential(2).unwrap(),
+        mac.item("claude-swap", &format!("account-2-{TEAM}"))
+    );
     assert_eq!(mac.store.oauth_account(2).unwrap().unwrap()["emailAddress"], TEAM);
     assert_eq!(mac.store.oauth_account(3).unwrap().unwrap()["emailAddress"], TOKEN);
 }
 
 fn credential_of(dir: &Path, slot: u32, email: &str) -> String {
-    let text = std::fs::read_to_string(dir.join(format!("credentials/.creds-{slot}-{email}.enc"))).unwrap();
+    let text = std::fs::read_to_string(dir.join(format!("credentials/.creds-{slot}-{email}.enc")))
+        .unwrap();
     String::from_utf8(STANDARD.decode(text.trim()).unwrap()).unwrap()
 }
 
@@ -101,8 +120,10 @@ fn claude_swaps_own_data_is_left_as_it_was() {
         .into_iter()
         .filter(|(p, _)| p.file_name().unwrap().to_string_lossy().starts_with("claude-swap--"))
         .collect();
-    let theirs: BTreeMap<_, _> =
-        items.into_iter().filter(|(p, _)| p.file_name().unwrap().to_string_lossy().starts_with("claude-swap--")).collect();
+    let theirs: BTreeMap<_, _> = items
+        .into_iter()
+        .filter(|(p, _)| p.file_name().unwrap().to_string_lossy().starts_with("claude-swap--"))
+        .collect();
     assert_eq!(after, theirs);
     assert!(!mac
         .security_calls()
@@ -148,14 +169,18 @@ fn a_slot_the_app_uses_for_another_account_is_not_taken() {
     let done = import::import(&mac.store, &dir).unwrap();
     assert_eq!(done.added, vec![1, 3]);
     assert!(done.skipped.contains(&(2, "slotTaken".to_string())));
-    assert_eq!(mac.store.oauth_account(2).unwrap().unwrap()["emailAddress"], "someone@else.example");
+    assert_eq!(
+        mac.store.oauth_account(2).unwrap().unwrap()["emailAddress"],
+        "someone@else.example"
+    );
 }
 
 #[test]
 fn an_api_key_account_is_left_in_claude_swap() {
     let mac = Mac::new("import-key");
     let dir = claude_swap(&mac);
-    let mut sequence: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("sequence.json")).unwrap()).unwrap();
+    let mut sequence: Value =
+        serde_json::from_str(&std::fs::read_to_string(dir.join("sequence.json")).unwrap()).unwrap();
     sequence["accounts"]["4"] = json!({ "email": "api@example.com", "kind": "api_key" });
     std::fs::write(dir.join("sequence.json"), sequence.to_string()).unwrap();
     let done = import::import(&mac.store, &dir).unwrap();
@@ -176,9 +201,15 @@ fn the_rotation_file_and_priming_come_over_once() {
     std::fs::write(state.join("prime-3"), "1894778400\n").unwrap();
     let done = import::import(&mac.store, &dir).unwrap();
     assert!(done.rotation && done.prime);
-    assert_eq!(std::fs::read_to_string(mac.paths.rotation()).unwrap(), "team = 2 3\npersonal = 1\nfull = 85\n");
+    assert_eq!(
+        std::fs::read_to_string(mac.paths.rotation()).unwrap(),
+        "team = 2 3\npersonal = 1\nfull = 85\n"
+    );
     assert!(mac.paths.prime_flag().exists());
-    assert_eq!(std::fs::read_to_string(mac.paths.prime_state().join("prime-3")).unwrap(), "1894778400\n");
+    assert_eq!(
+        std::fs::read_to_string(mac.paths.prime_state().join("prime-3")).unwrap(),
+        "1894778400\n"
+    );
     // The app's own file is the owner's from now on.
     std::fs::write(mac.paths.rotation(), "team = 3\n").unwrap();
     let again = import::import(&mac.store, &dir).unwrap();
@@ -211,5 +242,8 @@ fn claude_swaps_last_readings_seed_the_apps_only_for_the_same_account() {
 fn a_mac_without_claude_swap_has_nothing_to_import() {
     let mac = Mac::new("import-none");
     assert!(!import::available(&mac.home));
-    assert!(matches!(import::import(&mac.store, &import::source(&mac.home)), Err(import::ImportError::NotFound)));
+    assert!(matches!(
+        import::import(&mac.store, &import::source(&mac.home)),
+        Err(import::ImportError::NotFound)
+    ));
 }

@@ -211,7 +211,9 @@ pub fn import(store: &Store, dir: &Path) -> Result<Imported, ImportError> {
                 let newer = match ours.as_deref() {
                     None => true,
                     Some(o) if o == credential => false,
-                    Some(o) => cc::expires_at(&credential).unwrap_or(0) > cc::expires_at(o).unwrap_or(0),
+                    Some(o) => {
+                        cc::expires_at(&credential).unwrap_or(0) > cc::expires_at(o).unwrap_or(0)
+                    }
                 };
                 if newer {
                     if store.set_credential(f.slot, &credential).is_err() {
@@ -227,12 +229,18 @@ pub fn import(store: &Store, dir: &Path) -> Result<Imported, ImportError> {
             }
             None if list.find(&identity).is_some() => skip(f.slot, "elsewhere"),
             None => {
-                if store.set_credential(f.slot, &credential).is_err() || store.set_oauth_account(f.slot, &oauth).is_err() {
+                if store.set_credential(f.slot, &credential).is_err()
+                    || store.set_oauth_account(f.slot, &oauth).is_err()
+                {
                     let _ = store.forget(f.slot);
                     skip(f.slot, "keychain");
                     continue;
                 }
-                let alias = f.record.get("alias").and_then(Value::as_str).and_then(|a| store::clean_alias(a).ok().flatten());
+                let alias = f
+                    .record
+                    .get("alias")
+                    .and_then(Value::as_str)
+                    .and_then(|a| store::clean_alias(a).ok().flatten());
                 list.put(Account {
                     slot: f.slot,
                     alias,
@@ -258,7 +266,13 @@ pub fn import(store: &Store, dir: &Path) -> Result<Imported, ImportError> {
 
 /// claude-swap's last readings for the imported accounts the app has no
 /// reading of yet, and a fresh start for those whose login was replaced.
-fn seed_usage(store: &Store, dir: &Path, found: &[Found], imported: &[(u32, String)], updated: &[u32]) {
+fn seed_usage(
+    store: &Store,
+    dir: &Path,
+    found: &[Found],
+    imported: &[(u32, String)],
+    updated: &[u32],
+) {
     let theirs: Value = std::fs::read_to_string(dir.join("cache/usage.json"))
         .ok()
         .and_then(|t| serde_json::from_str(&t).ok())
@@ -273,7 +287,11 @@ fn seed_usage(store: &Store, dir: &Path, found: &[Found], imported: &[(u32, Stri
                 row.backoff_until = None;
             }
         }
-        if cache.accounts.get(&key).is_some_and(|r| r.identity == *identity && r.last_good.is_some()) {
+        if cache
+            .accounts
+            .get(&key)
+            .is_some_and(|r| r.identity == *identity && r.last_good.is_some())
+        {
             continue;
         }
         let Some(f) = found.iter().find(|f| f.slot == *slot) else { continue };
@@ -284,7 +302,10 @@ fn seed_usage(store: &Store, dir: &Path, found: &[Found], imported: &[(u32, Stri
         }
         let win = |v: Option<&Value>| -> Option<Win> {
             let v = v?;
-            Some(Win { pct: v.get("pct")?.as_f64()?, resets_at: v.get("resets_at").and_then(Value::as_str).map(String::from) })
+            Some(Win {
+                pct: v.get("pct")?.as_f64()?,
+                resets_at: v.get("resets_at").and_then(Value::as_str).map(String::from),
+            })
         };
         let good = row.get("lastGood");
         let reading = good.map(|g| usage::Reading {
@@ -299,7 +320,10 @@ fn seed_usage(store: &Store, dir: &Path, found: &[Found], imported: &[(u32, Stri
                             Some(Scoped {
                                 name: s.get("name")?.as_str()?.to_string(),
                                 pct: s.get("pct")?.as_f64()?,
-                                resets_at: s.get("resets_at").and_then(Value::as_str).map(String::from),
+                                resets_at: s
+                                    .get("resets_at")
+                                    .and_then(Value::as_str)
+                                    .map(String::from),
                             })
                         })
                         .collect()
@@ -339,7 +363,8 @@ fn copy_prime(paths: &Paths) -> bool {
     }
     let state = paths.prime_state();
     if super::private_dir(&state).is_ok() {
-        for entry in std::fs::read_dir(paths.home.join(PRIME_STATE)).into_iter().flatten().flatten() {
+        for entry in std::fs::read_dir(paths.home.join(PRIME_STATE)).into_iter().flatten().flatten()
+        {
             let name = entry.file_name().to_string_lossy().into_owned();
             if name.starts_with("prime-") {
                 let _ = std::fs::copy(entry.path(), state.join(&name));

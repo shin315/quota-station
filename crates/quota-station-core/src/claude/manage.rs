@@ -195,7 +195,8 @@ pub fn add_token(store: &Store, token: &str, email: Option<&str>) -> Result<Adde
         .filter(|e| !e.is_empty())
         .map(String::from)
         .unwrap_or_else(|| format!("setup-token-{next}@token.local"));
-    let credential = json!({ "claudeAiOauth": { "accessToken": token, "scopes": ["user:inference"] } });
+    let credential =
+        json!({ "claudeAiOauth": { "accessToken": token, "scopes": ["user:inference"] } });
     let oauth = json!({
         "emailAddress": email,
         "accountUuid": "",
@@ -237,7 +238,12 @@ pub fn add_from_folder(store: &Store, dir: &Path) -> Result<Added, ManageError> 
 /// then adds it. `interactive` lets it use the terminal (the command line);
 /// otherwise it gets no input and waits for the browser, until `cancel` is
 /// set or [`LOGIN_TIMEOUT`].
-pub fn login(store: &Store, claude: &Path, interactive: bool, cancel: &AtomicBool) -> Result<Added, ManageError> {
+pub fn login(
+    store: &Store,
+    claude: &Path,
+    interactive: bool,
+    cancel: &AtomicBool,
+) -> Result<Added, ManageError> {
     let dir = login_folder(store);
     clear_login(store, &dir);
     super::private_dir(&dir)?;

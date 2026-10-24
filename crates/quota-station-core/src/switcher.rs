@@ -125,7 +125,8 @@ pub fn parse_decision(line: &str) -> Decision {
         }
         return Decision::Other;
     }
-    if let Some(label) = line.strip_prefix("blocked (").and_then(|r| r.strip_suffix(" is loaded)")) {
+    if let Some(label) = line.strip_prefix("blocked (").and_then(|r| r.strip_suffix(" is loaded)"))
+    {
         return Decision::Blocked { label: label.to_string() };
     }
     let (head, detail) = match line.split_once(" (") {

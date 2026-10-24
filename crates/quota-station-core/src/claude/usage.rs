@@ -60,7 +60,10 @@ impl Endpoints {
     #[cfg(feature = "test-support")]
     pub fn fake(base: &str) -> Self {
         let base = base.trim_end_matches('/');
-        Endpoints { usage: format!("{base}/api/oauth/usage"), token: format!("{base}/v1/oauth/token") }
+        Endpoints {
+            usage: format!("{base}/api/oauth/usage"),
+            token: format!("{base}/v1/oauth/token"),
+        }
     }
 }
 
@@ -102,7 +105,8 @@ impl Reading {
 pub fn parse(data: &Value) -> Option<Reading> {
     let win = |v: &Value| -> Option<Win> {
         let pct = v.get("utilization")?.as_f64()?;
-        let resets_at = v.get("resets_at").and_then(Value::as_str).filter(|s| !s.is_empty()).map(String::from);
+        let resets_at =
+            v.get("resets_at").and_then(Value::as_str).filter(|s| !s.is_empty()).map(String::from);
         Some(Win { pct, resets_at })
     };
     let scoped = data
@@ -114,8 +118,11 @@ pub fn parse(data: &Value) -> Option<Reading> {
                 .filter_map(|l| {
                     let name = l.pointer("/scope/model/display_name")?.as_str()?.to_string();
                     let pct = l.get("percent")?.as_f64()?;
-                    let resets_at =
-                        l.get("resets_at").and_then(Value::as_str).filter(|s| !s.is_empty()).map(String::from);
+                    let resets_at = l
+                        .get("resets_at")
+                        .and_then(Value::as_str)
+                        .filter(|s| !s.is_empty())
+                        .map(String::from);
                     (!name.is_empty()).then_some(Scoped { name, pct, resets_at })
                 })
                 .collect::<Vec<_>>()
@@ -126,7 +133,8 @@ pub fn parse(data: &Value) -> Option<Reading> {
         seven_day: data.get("seven_day").filter(|v| v.is_object()).and_then(win),
         scoped,
     };
-    (reading.five_hour.is_some() || reading.seven_day.is_some() || !reading.scoped.is_empty()).then_some(reading)
+    (reading.five_hour.is_some() || reading.seven_day.is_some() || !reading.scoped.is_empty())
+        .then_some(reading)
 }
 
 /// What the app knows of one account's usage.
@@ -199,7 +207,10 @@ pub fn load(store: &Store) -> Cache {
 pub fn save(store: &Store, cache: &Cache) -> std::io::Result<()> {
     let mut cache = cache.clone();
     cache.version = VERSION;
-    super::write_private(&store.paths.usage(), &(serde_json::to_string_pretty(&cache).expect("serializes") + "\n"))
+    super::write_private(
+        &store.paths.usage(),
+        &(serde_json::to_string_pretty(&cache).expect("serializes") + "\n"),
+    )
 }
 
 /// Why one call failed.
@@ -238,7 +249,8 @@ fn fetch_usage(endpoints: &Endpoints, token: &str) -> Result<Reading, Failure> {
             .map(|v| v.max(0.0));
         return Err(Failure { kind: format!("http-{}", status.as_u16()), retry_after });
     }
-    let data: Value = response.json().map_err(|_| Failure { kind: "bad-response".into(), retry_after: None })?;
+    let data: Value =
+        response.json().map_err(|_| Failure { kind: "bad-response".into(), retry_after: None })?;
     parse(&data).ok_or(Failure { kind: "bad-response".into(), retry_after: None })
 }
 
@@ -274,7 +286,8 @@ fn refresh(endpoints: &Endpoints, credential: &str, now_ms: i64) -> Result<Strin
     let answer: Value = response.json().map_err(|_| transient())?;
     let access = answer.get("access_token").and_then(Value::as_str).ok_or_else(transient)?;
     let expires_in = answer.get("expires_in").and_then(Value::as_i64).ok_or_else(transient)?;
-    let oauth = data.get_mut("claudeAiOauth").and_then(Value::as_object_mut).ok_or_else(transient)?;
+    let oauth =
+        data.get_mut("claudeAiOauth").and_then(Value::as_object_mut).ok_or_else(transient)?;
     oauth.insert("accessToken".into(), Value::from(access));
     oauth.insert("expiresAt".into(), Value::from(now_ms + expires_in * 1000));
     if let Some(r) = answer.get("refresh_token").and_then(Value::as_str).filter(|r| !r.is_empty()) {
@@ -288,7 +301,11 @@ fn refresh(endpoints: &Endpoints, credential: &str, now_ms: i64) -> Result<Strin
 }
 
 fn access_token(credential: &str) -> Option<String> {
-    cc::oauth_part(credential)?.get("accessToken")?.as_str().filter(|t| !t.is_empty()).map(String::from)
+    cc::oauth_part(credential)?
+        .get("accessToken")?
+        .as_str()
+        .filter(|t| !t.is_empty())
+        .map(String::from)
 }
 
 fn expired(credential: &str, now_ms: i64) -> bool {
@@ -420,7 +437,8 @@ fn read_active(store: &Store, endpoints: &Endpoints) -> Result<Reading, Failure>
         // Claude Code refreshes its own login when it next runs.
         return Err(Failure { kind: "token_expired".into(), retry_after: None });
     }
-    let token = access_token(&credential).ok_or(Failure { kind: "no-access-token".into(), retry_after: None })?;
+    let token = access_token(&credential)
+        .ok_or(Failure { kind: "no-access-token".into(), retry_after: None })?;
     fetch_usage(endpoints, &token)
 }
 
@@ -435,7 +453,8 @@ fn read_stored(
 ) -> Result<Reading, Failure> {
     let keychain = |_| Failure { kind: "keychain_unavailable".into(), retry_after: None };
     let credential = {
-        let _app = AppLock::take(&store.paths).map_err(|_| Failure { kind: "busy".into(), retry_after: None })?;
+        let _app = AppLock::take(&store.paths)
+            .map_err(|_| Failure { kind: "busy".into(), retry_after: None })?;
         session::adopt_newer(store, slot);
         store.credential(slot).map_err(keychain)?
     }
@@ -449,11 +468,13 @@ fn read_stored(
     } else {
         credential
     };
-    let token = access_token(&credential).ok_or(Failure { kind: "no-access-token".into(), retry_after: None })?;
+    let token = access_token(&credential)
+        .ok_or(Failure { kind: "no-access-token".into(), retry_after: None })?;
     match fetch_usage(endpoints, &token) {
         Err(f) if f.kind == "http-401" && kind == Kind::Login && may_refresh => {
             let fresh = refresh_stored(store, endpoints, slot, &credential)?;
-            let token = access_token(&fresh).ok_or(Failure { kind: "no-access-token".into(), retry_after: None })?;
+            let token = access_token(&fresh)
+                .ok_or(Failure { kind: "no-access-token".into(), retry_after: None })?;
             fetch_usage(endpoints, &token)
         }
         other => other,
@@ -463,8 +484,14 @@ fn read_stored(
 /// Refreshes the app's copy of `slot`'s login under the app's lock. When the
 /// stored copy is no longer `seen` (another process refreshed it), that copy
 /// is used instead: a refresh token is never sent twice.
-fn refresh_stored(store: &Store, endpoints: &Endpoints, slot: u32, seen: &str) -> Result<String, Failure> {
-    let _app = AppLock::take(&store.paths).map_err(|_| Failure { kind: "busy".into(), retry_after: None })?;
+fn refresh_stored(
+    store: &Store,
+    endpoints: &Endpoints,
+    slot: u32,
+    seen: &str,
+) -> Result<String, Failure> {
+    let _app = AppLock::take(&store.paths)
+        .map_err(|_| Failure { kind: "busy".into(), retry_after: None })?;
     let current = store
         .credential(slot)
         .map_err(|_| Failure { kind: "keychain_unavailable".into(), retry_after: None })?
@@ -498,7 +525,10 @@ mod tests {
             ]
         });
         let r = parse(&data).unwrap();
-        assert_eq!(r.five_hour, Some(Win { pct: 38.0, resets_at: Some("2030-01-15T16:40:00Z".into()) }));
+        assert_eq!(
+            r.five_hour,
+            Some(Win { pct: 38.0, resets_at: Some("2030-01-15T16:40:00Z".into()) })
+        );
         assert_eq!(r.seven_day, None);
         assert_eq!(r.fable().map(|f| f.pct), Some(11.0));
         assert_eq!(r.scoped.len(), 1);

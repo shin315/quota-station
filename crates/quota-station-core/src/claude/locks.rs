@@ -178,9 +178,13 @@ fn jitter() -> u64 {
 
 /// Claude Code's two login locks, in its order.
 pub fn credentials(paths: &Paths) -> Result<(DirLock, DirLock), LockError> {
-    let refresh =
-        DirLock::take(&paths.claude_home().join(".oauth_refresh.lock"), CREDENTIALS_STALE, paths.lock_wait)?;
-    let login = DirLock::take(&paths.home.join(".claude.lock"), CREDENTIALS_STALE, paths.lock_wait)?;
+    let refresh = DirLock::take(
+        &paths.claude_home().join(".oauth_refresh.lock"),
+        CREDENTIALS_STALE,
+        paths.lock_wait,
+    )?;
+    let login =
+        DirLock::take(&paths.home.join(".claude.lock"), CREDENTIALS_STALE, paths.lock_wait)?;
     Ok((refresh, login))
 }
 

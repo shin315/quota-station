@@ -179,8 +179,14 @@ pub fn is_fork(version: &str) -> bool {
 
 /// A report is read from stdout whatever the exit code: quota-axi exits
 /// non-zero when a provider needs attention and still prints the report.
-fn report(path: &Path, args: &[String], env: &Env, timeout: Duration) -> Result<Response, RunError> {
-    let env: Vec<(&str, &std::ffi::OsStr)> = env.iter().map(|(k, v)| (k.as_str(), v.as_os_str())).collect();
+fn report(
+    path: &Path,
+    args: &[String],
+    env: &Env,
+    timeout: Duration,
+) -> Result<Response, RunError> {
+    let env: Vec<(&str, &std::ffi::OsStr)> =
+        env.iter().map(|(k, v)| (k.as_str(), v.as_os_str())).collect();
     let out = run_with(path, args, &env, None, timeout)?;
     let text = String::from_utf8_lossy(&out.stdout);
     match axi::parse(&text) {
@@ -378,8 +384,8 @@ mod tests {
         std::fs::write(&path, "#!/bin/sh\nsleep 5\n").unwrap();
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
         let started = Instant::now();
-        let err =
-            report(&path, &read_args(ProviderId::Claude), &[], Duration::from_millis(200)).unwrap_err();
+        let err = report(&path, &read_args(ProviderId::Claude), &[], Duration::from_millis(200))
+            .unwrap_err();
         assert_eq!(err, RunError::Timeout(Duration::from_millis(200)));
         assert!(started.elapsed() < Duration::from_secs(3));
     }

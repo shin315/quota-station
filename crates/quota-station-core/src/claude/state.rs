@@ -109,10 +109,9 @@ pub fn build(list: &List, cache: &Cache, active: Option<u32>, now: OffsetDateTim
                 windows: Windows {
                     five_hour: out(reading.and_then(|r| r.five_hour.as_ref())),
                     seven_day: out(reading.and_then(|r| r.seven_day.as_ref())),
-                    fable: reading.and_then(Reading::fable).map(|f| WindowOut {
-                        used_percent: f.pct,
-                        resets_at: f.resets_at.clone(),
-                    }),
+                    fable: reading
+                        .and_then(Reading::fable)
+                        .map(|f| WindowOut { used_percent: f.pct, resets_at: f.resets_at.clone() }),
                 },
                 error: row.and_then(|r| r.last_error.clone()),
                 email: None,
@@ -186,7 +185,10 @@ pub fn write(store: &Store, active: Option<u32>, now: OffsetDateTime) -> std::io
     let cache = usage::load(store);
     let state = build(&list, &cache, active, now);
     let pretty = |v: &Value| serde_json::to_string_pretty(v).expect("serializes") + "\n";
-    super::write_private(&store.paths.state(), &(serde_json::to_string_pretty(&state).expect("serializes") + "\n"))?;
+    super::write_private(
+        &store.paths.state(),
+        &(serde_json::to_string_pretty(&state).expect("serializes") + "\n"),
+    )?;
     let swap = store.paths.swap();
     super::write_private(&swap.join("sequence.json"), &pretty(&sequence(&list, active, now)))?;
     super::write_private(&swap.join("cache/usage.json"), &pretty(&swap_usage(&list, &cache)))
@@ -202,8 +204,10 @@ pub fn details(store: &Store, names: bool) -> Vec<ClaudeDetail> {
     list.accounts
         .iter()
         .map(|a| {
-            let reading =
-                cache.row(a.slot).filter(|r| r.identity == a.identity).and_then(|r| r.last_good.as_ref());
+            let reading = cache
+                .row(a.slot)
+                .filter(|r| r.identity == a.identity)
+                .and_then(|r| r.last_good.as_ref());
             let oauth = if names { store.oauth_account(a.slot).ok().flatten() } else { None };
             let text = |key: &str| {
                 oauth

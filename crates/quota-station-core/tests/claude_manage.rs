@@ -20,7 +20,10 @@ fn mac(tag: &str) -> Mac {
     let mac = Mac::new(tag);
     mac.add(2, "lan@team.example", "org-team", &credential("acc-2", "ref-2", in_hours(5.0)));
     mac.add(3, "lan.b@team.example", "org-team", &credential("acc-3", "ref-3", in_hours(5.0)));
-    mac.log_in(&mac.store.credential(2).unwrap().unwrap(), &oauth("lan@team.example", "uuid-2", "org-team"));
+    mac.log_in(
+        &mac.store.credential(2).unwrap().unwrap(),
+        &oauth("lan@team.example", "uuid-2", "org-team"),
+    );
     mac
 }
 
@@ -55,7 +58,10 @@ fn a_new_login_comes_in_under_the_next_slot_without_touching_claude_code() {
     let added = manage::login(&mac.store, &claude, false, &AtomicBool::new(false)).unwrap();
     assert_eq!((added.slot, added.new), (4, true));
     assert_eq!(mac.store.oauth_account(4).unwrap().unwrap()["emailAddress"], "lan.c@team.example");
-    assert_eq!(cc::refresh_token(&mac.store.credential(4).unwrap().unwrap()).as_deref(), Some("ref-new"));
+    assert_eq!(
+        cc::refresh_token(&mac.store.credential(4).unwrap().unwrap()).as_deref(),
+        Some("ref-new")
+    );
     assert_eq!(mac.live_credential(), live);
     assert_eq!(switch::active_slot(&mac.store), Some(2));
     // The login folder and its Keychain item are gone.
@@ -70,7 +76,10 @@ fn logging_in_an_account_the_app_has_renews_its_login() {
     let claude = fake_login(&mac, "lan.b@team.example", false);
     let added = manage::login(&mac.store, &claude, false, &AtomicBool::new(false)).unwrap();
     assert_eq!((added.slot, added.new), (3, false));
-    assert_eq!(cc::refresh_token(&mac.store.credential(3).unwrap().unwrap()).as_deref(), Some("ref-new"));
+    assert_eq!(
+        cc::refresh_token(&mac.store.credential(3).unwrap().unwrap()).as_deref(),
+        Some("ref-new")
+    );
     assert_eq!(mac.store.load().unwrap().accounts.len(), 2);
 }
 
@@ -79,7 +88,10 @@ fn a_login_that_fails_adds_nothing() {
     let mac = mac("manage-fail");
     let claude = fake_login(&mac, "", true);
     let err = manage::login(&mac.store, &claude, false, &AtomicBool::new(false)).unwrap_err();
-    assert!(matches!(&err, ManageError::Login(why) if why == "OAuth error: the browser closed"), "{err:?}");
+    assert!(
+        matches!(&err, ManageError::Login(why) if why == "OAuth error: the browser closed"),
+        "{err:?}"
+    );
     assert_eq!(mac.store.load().unwrap().accounts.len(), 2);
     assert!(!manage::login_folder(&mac.store).exists());
 }
@@ -96,7 +108,10 @@ fn a_cancelled_login_adds_nothing() {
 #[test]
 fn the_login_claude_code_is_on_can_be_added_and_then_switched_away_from() {
     let mac = mac("manage-live");
-    mac.log_in(&credential("acc-x", "ref-x", in_hours(5.0)), &oauth("lan.d@team.example", "uuid-x", "org-team"));
+    mac.log_in(
+        &credential("acc-x", "ref-x", in_hours(5.0)),
+        &oauth("lan.d@team.example", "uuid-x", "org-team"),
+    );
     assert!(switch::switch(&mac.store, 3).is_err(), "an unknown login stops a switch");
     let added = manage::adopt_live(&mac.store).unwrap();
     assert_eq!((added.slot, added.new), (4, true));
@@ -113,9 +128,15 @@ fn a_setup_token_is_kept_as_a_login_without_refresh() {
     assert_eq!(list.get(4).unwrap().kind, Kind::SetupToken);
     let stored: Value = serde_json::from_str(&mac.store.credential(4).unwrap().unwrap()).unwrap();
     assert_eq!(stored["claudeAiOauth"]["accessToken"], "sk-ant-oat01-made-up");
-    assert_eq!(mac.store.oauth_account(4).unwrap().unwrap()["emailAddress"], "setup-token-4@token.local");
+    assert_eq!(
+        mac.store.oauth_account(4).unwrap().unwrap()["emailAddress"],
+        "setup-token-4@token.local"
+    );
     for bad in ["", "two words", "line\nbreak"] {
-        assert!(matches!(manage::add_token(&mac.store, bad, None), Err(ManageError::BadToken)), "{bad:?}");
+        assert!(
+            matches!(manage::add_token(&mac.store, bad, None), Err(ManageError::BadToken)),
+            "{bad:?}"
+        );
     }
 }
 
@@ -228,9 +249,15 @@ fn the_rotation_agent_is_loaded_and_unloaded() {
     let cli = cli(&mac, None);
     assert_eq!(call(&cli, &["rotation", "on"]).0, 0);
     assert!(mac.loaded("com.shin315.quota-station.rotation"));
-    let plist = std::fs::read_to_string(mac.home.join("Library/LaunchAgents/com.shin315.quota-station.rotation.plist")).unwrap();
+    let plist = std::fs::read_to_string(
+        mac.home.join("Library/LaunchAgents/com.shin315.quota-station.rotation.plist"),
+    )
+    .unwrap();
     assert!(plist.contains(&format!("<string>{}</string>", cli.exe.display())));
     assert_eq!(call(&cli, &["rotation", "off"]).0, 0);
     assert!(!mac.loaded("com.shin315.quota-station.rotation"));
-    assert!(!mac.home.join("Library/LaunchAgents/com.shin315.quota-station.rotation.plist").exists());
+    assert!(!mac
+        .home
+        .join("Library/LaunchAgents/com.shin315.quota-station.rotation.plist")
+        .exists());
 }

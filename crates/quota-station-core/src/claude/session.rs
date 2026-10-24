@@ -23,7 +23,8 @@ use super::store::{Store, StoreError};
 use super::switch;
 
 /// The owner's Claude Code files a session shares, as links.
-const SHARED: [&str; 6] = ["settings.json", "keybindings.json", "CLAUDE.md", "skills", "commands", "agents"];
+const SHARED: [&str; 6] =
+    ["settings.json", "keybindings.json", "CLAUDE.md", "skills", "commands", "agents"];
 /// Variables that would make `claude` use another login than the folder's.
 pub const SCRUBBED: [&str; 5] = [
     "ANTHROPIC_API_KEY",
@@ -78,7 +79,8 @@ pub fn refresh_profile(store: &Store, slot: u32) {
     if !dir.is_dir() || live(&dir) {
         return;
     }
-    let (Some(service), Ok(Some(ours))) = (cc::profile_service(&dir), store.credential(slot)) else {
+    let (Some(service), Ok(Some(ours))) = (cc::profile_service(&dir), store.credential(slot))
+    else {
         return;
     };
     let _ = store.security.set(&service, &user_account(), &ours);
@@ -161,7 +163,8 @@ pub fn prepare(store: &Store, slot: u32) -> Result<PathBuf, SessionError> {
     }
     if !live(&dir) {
         adopt_newer(store, slot);
-        let ours = store.credential(slot)?.filter(|c| cc::usable(c)).ok_or(SessionError::NoCredential)?;
+        let ours =
+            store.credential(slot)?.filter(|c| cc::usable(c)).ok_or(SessionError::NoCredential)?;
         if profile_credential(&dir, store).as_deref() != Some(ours.as_str()) {
             store.security.set(&service, &user_account(), &ours)?;
         }
@@ -181,7 +184,10 @@ fn write_config(dir: &Path, oauth: &Value) -> std::io::Result<()> {
     map.insert("oauthAccount".into(), oauth.clone());
     map.insert("hasCompletedOnboarding".into(), Value::Bool(true));
     map.entry("theme").or_insert_with(|| Value::String("dark".into()));
-    super::write_private(&file, &(serde_json::to_string_pretty(&config).expect("serializes") + "\n"))
+    super::write_private(
+        &file,
+        &(serde_json::to_string_pretty(&config).expect("serializes") + "\n"),
+    )
 }
 
 /// Where `claude` is usually installed.

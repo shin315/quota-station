@@ -79,7 +79,10 @@ pub fn readings(store: &Store, now: OffsetDateTime) -> Vec<engine::Reading> {
                 fresh: row.is_some_and(|r| r.fresh(at)),
                 five_hour: win(reading.and_then(|r| r.five_hour.as_ref())),
                 seven_day: win(reading.and_then(|r| r.seven_day.as_ref())),
-                fable: win(reading.and_then(|r| r.fable()).map(|f| usage::Win { pct: f.pct, resets_at: f.resets_at.clone() }).as_ref()),
+                fable: win(reading
+                    .and_then(|r| r.fable())
+                    .map(|f| usage::Win { pct: f.pct, resets_at: f.resets_at.clone() })
+                    .as_ref()),
                 disabled: a.disabled,
             }
         })
@@ -93,8 +96,12 @@ fn primed(store: &Store) -> Option<BTreeMap<u32, f64>> {
     let mut last = BTreeMap::new();
     for entry in std::fs::read_dir(store.paths.prime_state()).into_iter().flatten().flatten() {
         let name = entry.file_name().to_string_lossy().into_owned();
-        let Some(slot) = name.strip_prefix("prime-").and_then(|n| n.parse::<u32>().ok()) else { continue };
-        if let Some(t) = std::fs::read_to_string(entry.path()).ok().and_then(|t| t.trim().parse::<f64>().ok()) {
+        let Some(slot) = name.strip_prefix("prime-").and_then(|n| n.parse::<u32>().ok()) else {
+            continue;
+        };
+        if let Some(t) =
+            std::fs::read_to_string(entry.path()).ok().and_then(|t| t.trim().parse::<f64>().ok())
+        {
             last.insert(slot, t);
         }
     }
@@ -124,7 +131,10 @@ pub enum Guard {
     /// The pause holds: the guard's line (`paused until …: reason`).
     Paused(String),
     /// The pause ended at `until`: a real run deletes the flag.
-    Ended { until: String, text: String },
+    Ended {
+        until: String,
+        text: String,
+    },
 }
 
 pub fn guard(pause_file: &Path, now: OffsetDateTime) -> Guard {
@@ -187,7 +197,9 @@ pub fn dry_run(store: &Store, tools: &Tools, rules: &Rules, now: OffsetDateTime)
 pub fn log(store: &Store, text: &str, now: OffsetDateTime) {
     let line = format!("{} {text}\n", local_time::stamp(now).replace('T', " "));
     if super::private_dir(&store.paths.dir).is_ok() {
-        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(store.paths.log()) {
+        if let Ok(mut f) =
+            std::fs::OpenOptions::new().create(true).append(true).open(store.paths.log())
+        {
             let _ = f.write_all(line.as_bytes());
         }
     }
@@ -228,8 +240,12 @@ pub fn run(store: &Store, tools: &Tools) -> Decided {
     if let Some(slot) = plan.target() {
         let rest = plan.decision.splitn(3, ' ').nth(2).unwrap_or("");
         match switch::switch(store, slot) {
-            Ok(_) => log(store, &format!("switch to slot {slot} {rest}"), OffsetDateTime::now_utc()),
-            Err(_) => log(store, &format!("switch to slot {slot} failed"), OffsetDateTime::now_utc()),
+            Ok(_) => {
+                log(store, &format!("switch to slot {slot} {rest}"), OffsetDateTime::now_utc())
+            }
+            Err(_) => {
+                log(store, &format!("switch to slot {slot} failed"), OffsetDateTime::now_utc())
+            }
         }
         let _ = super::state::write(store, switch::active_slot(store), OffsetDateTime::now_utc());
     }
@@ -249,7 +265,8 @@ fn prime(store: &Store, claude: &Path, slot: u32) {
         return;
     }
     let now = OffsetDateTime::now_utc();
-    let _ = std::fs::write(dir.join(format!("prime-{slot}")), format!("{}\n", now.unix_timestamp()));
+    let _ =
+        std::fs::write(dir.join(format!("prime-{slot}")), format!("{}\n", now.unix_timestamp()));
     let args: Vec<String> = [
         "-p",
         "ok",

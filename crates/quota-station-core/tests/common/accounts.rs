@@ -112,11 +112,14 @@ impl Request {
     }
 }
 
+/// An answer: status, body, extra headers.
+pub type Answer = (u16, String, Vec<(String, String)>);
+
 /// How the fake answers.
 #[derive(Clone, Debug, Default)]
 pub struct Answers {
-    /// `/api/oauth/usage` by access token: status, body, extra headers.
-    pub usage: BTreeMap<String, (u16, String, Vec<(String, String)>)>,
+    /// `/api/oauth/usage` by access token.
+    pub usage: BTreeMap<String, Answer>,
     /// `/v1/oauth/token` by refresh token: status and body.
     pub token: BTreeMap<String, (u16, String)>,
 }
@@ -148,7 +151,14 @@ impl FakeAnthropic {
     }
 
     /// The usage answer for `access`: the share used of each window.
-    pub fn usage(&self, access: &str, five: f64, five_reset: Option<&str>, week: Option<f64>, fable: Option<f64>) {
+    pub fn usage(
+        &self,
+        access: &str,
+        five: f64,
+        five_reset: Option<&str>,
+        week: Option<f64>,
+        fable: Option<f64>,
+    ) {
         let mut body = json!({ "five_hour": { "utilization": five, "resets_at": five_reset } });
         if let Some(w) = week {
             body["seven_day"] = json!({ "utilization": w, "resets_at": "2030-01-19T14:00:00Z" });
@@ -156,7 +166,11 @@ impl FakeAnthropic {
         if let Some(f) = fable {
             body["limits"] = json!([{ "scope": { "model": { "display_name": "Fable" } }, "percent": f, "resets_at": "2030-01-20T19:00:00Z" }]);
         }
-        self.answers.lock().unwrap().usage.insert(access.into(), (200, body.to_string(), Vec::new()));
+        self.answers
+            .lock()
+            .unwrap()
+            .usage
+            .insert(access.into(), (200, body.to_string(), Vec::new()));
     }
 
     pub fn usage_status(&self, access: &str, status: u16, headers: &[(&str, &str)]) {
@@ -166,7 +180,8 @@ impl FakeAnthropic {
 
     /// A refresh of `refresh` gives `access` and `next` for one hour.
     pub fn refreshes(&self, refresh: &str, access: &str, next: &str) {
-        let body = json!({ "access_token": access, "refresh_token": next, "expires_in": 3600 }).to_string();
+        let body = json!({ "access_token": access, "refresh_token": next, "expires_in": 3600 })
+            .to_string();
         self.answers.lock().unwrap().token.insert(refresh.into(), (200, body));
     }
 
@@ -210,17 +225,30 @@ fn serve(stream: TcpStream, answers: &Mutex<Answers>, requests: &Mutex<Vec<Reque
         .unwrap_or(0);
     let mut body = vec![0u8; length];
     let _ = reader.read_exact(&mut body);
-    let request = Request { method, path, headers, body: String::from_utf8_lossy(&body).into_owned() };
+    let request =
+        Request { method, path, headers, body: String::from_utf8_lossy(&body).into_owned() };
     requests.lock().unwrap().push(request.clone());
     let answers = answers.lock().unwrap().clone();
     let (status, body, extra) = match request.path.as_str() {
         "/api/oauth/usage" => {
-            let token = request.header("authorization").unwrap_or_default().trim_start_matches("Bearer ").to_string();
-            answers.usage.get(&token).cloned().unwrap_or((401, r#"{"error":"unauthorized"}"#.into(), Vec::new()))
+            let token = request
+                .header("authorization")
+                .unwrap_or_default()
+                .trim_start_matches("Bearer ")
+                .to_string();
+            answers.usage.get(&token).cloned().unwrap_or((
+                401,
+                r#"{"error":"unauthorized"}"#.into(),
+                Vec::new(),
+            ))
         }
         "/v1/oauth/token" => {
             let refresh = request.json()["refresh_token"].as_str().unwrap_or("").to_string();
-            let (s, b) = answers.token.get(&refresh).cloned().unwrap_or((400, r#"{"error":"invalid_grant"}"#.into()));
+            let (s, b) = answers
+                .token
+                .get(&refresh)
+                .cloned()
+                .unwrap_or((400, r#"{"error":"invalid_grant"}"#.into()));
             (s, b, Vec::new())
         }
         _ => (404, "{}".into(), Vec::new()),
@@ -292,7 +320,8 @@ impl Mac {
     }
 
     pub fn put_item(&self, service: &str, account: &str, value: &str) {
-        std::fs::write(self.dir.join("items").join(format!("{service}--{account}")), value).unwrap();
+        std::fs::write(self.dir.join("items").join(format!("{service}--{account}")), value)
+            .unwrap();
     }
 
     /// Every `security` run, without values.
@@ -308,7 +337,8 @@ impl Mac {
     pub fn log_in(&self, credential: &str, oauth: &Value) {
         self.put_item("Claude Code-credentials", &self.user(), credential);
         let config = json!({ "numStartups": 12, "oauthAccount": oauth, "projects": { "/tmp/x": { "allowedTools": [] } } });
-        std::fs::write(self.paths.claude_json(), serde_json::to_string_pretty(&config).unwrap()).unwrap();
+        std::fs::write(self.paths.claude_json(), serde_json::to_string_pretty(&config).unwrap())
+            .unwrap();
     }
 
     pub fn live_credential(&self) -> Option<String> {

@@ -124,7 +124,8 @@ pub fn remove(launchctl: &Path, home: &Path) -> Result<(), AgentError> {
 
 fn launchctl_run(launchctl: &Path, args: &[&str]) -> Result<(), AgentError> {
     let args: Vec<String> = args.iter().map(|a| a.to_string()).collect();
-    let out = runner::run(launchctl, &args, LAUNCHCTL_TIMEOUT).map_err(|e| AgentError::Launchctl(e.to_string()))?;
+    let out = runner::run(launchctl, &args, LAUNCHCTL_TIMEOUT)
+        .map_err(|e| AgentError::Launchctl(e.to_string()))?;
     match out.code {
         Some(0) => Ok(()),
         _ => Err(AgentError::Launchctl(runner::first_line(&out.stderr))),

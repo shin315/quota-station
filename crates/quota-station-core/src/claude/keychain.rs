@@ -130,7 +130,10 @@ impl Security {
         } else {
             // Too long for one `security -i` line: the hex goes on the
             // command line instead, as claude-swap does.
-            self.run(&["add-generic-password", "-U", "-a", account, "-s", service, "-X", &hex], None)?
+            self.run(
+                &["add-generic-password", "-U", "-a", account, "-s", service, "-X", &hex],
+                None,
+            )?
         };
         match out.code {
             Some(0) => Ok(()),

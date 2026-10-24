@@ -55,7 +55,7 @@ pub fn claude_details(name: &str) -> Vec<quota_station_core::detail::ClaudeDetai
     let data: Value = serde_json::from_str(&fixture_text(name)).expect("fixture parses");
     let text = |v: &Value| v.as_str().map(str::trim).filter(|t| !t.is_empty()).map(String::from);
     let usage = |v: &Value| {
-        Some(Usage { used: v.get("pct")?.as_f64()?, resets_at: v.get("resetsAt").and_then(|r| text(r)) })
+        Some(Usage { used: v.get("pct")?.as_f64()?, resets_at: v.get("resetsAt").and_then(text) })
     };
     data["accounts"]
         .as_array()
@@ -69,7 +69,11 @@ pub fn claude_details(name: &str) -> Vec<quota_station_core::detail::ClaudeDetai
             seven_day: usage(&a["usage"]["sevenDay"]),
             fable: a["usage"]["scoped"]
                 .as_array()
-                .and_then(|s| s.iter().find(|w| w["name"].as_str().is_some_and(|n| n.eq_ignore_ascii_case("fable"))))
+                .and_then(|s| {
+                    s.iter().find(|w| {
+                        w["name"].as_str().is_some_and(|n| n.eq_ignore_ascii_case("fable"))
+                    })
+                })
                 .and_then(usage),
         })
         .collect()

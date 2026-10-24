@@ -42,7 +42,10 @@ fn every_decision_line_the_switcher_prints() {
             Switch { slot: 3, why: Why::Park { at: at("16:40") } },
         ),
         ("wait (no account with room)", Wait),
-        ("blocked (com.cswap.prefer-team is loaded)", Blocked { label: at("com.cswap.prefer-team") }),
+        (
+            "blocked (com.cswap.prefer-team is loaded)",
+            Blocked { label: at("com.cswap.prefer-team") },
+        ),
         ("switch 3 (something new)", Switch { slot: 3, why: Why::Other }),
         ("dance", Other),
     ];

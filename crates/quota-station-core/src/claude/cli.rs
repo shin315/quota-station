@@ -68,15 +68,14 @@ pub fn run(cli: &Cli, args: &[String], out: &mut dyn Write, err: &mut dyn Write)
             let mut view = state::build(&list, &usage::load(store), active, now);
             if has("--emails") {
                 for a in &mut view.accounts {
-                    a.email = store
-                        .oauth_account(a.slot)
-                        .ok()
-                        .flatten()
-                        .and_then(|o| o.get("emailAddress").and_then(|e| e.as_str()).map(String::from));
+                    a.email = store.oauth_account(a.slot).ok().flatten().and_then(|o| {
+                        o.get("emailAddress").and_then(|e| e.as_str()).map(String::from)
+                    });
                 }
             }
             if has("--json") {
-                let _ = writeln!(out, "{}", serde_json::to_string_pretty(&view).expect("serializes"));
+                let _ =
+                    writeln!(out, "{}", serde_json::to_string_pretty(&view).expect("serializes"));
             } else {
                 print_status(&view, out);
             }
@@ -85,7 +84,10 @@ pub fn run(cli: &Cli, args: &[String], out: &mut dyn Write, err: &mut dyn Write)
         "switch" => {
             let Some(n) = slot(rest.first()) else { return usage_error(err) };
             if let Some(label) = agent::legacy_loaded(&cli.tools.launchctl) {
-                return fail(err, &format!("{label} is loaded; stop it first (see the README's cutover)"));
+                return fail(
+                    err,
+                    &format!("{label} is loaded; stop it first (see the README's cutover)"),
+                );
             }
             match switch::switch(store, n) {
                 Ok(done) => {
@@ -146,7 +148,8 @@ pub fn run(cli: &Cli, args: &[String], out: &mut dyn Write, err: &mut dyn Write)
         }
         "import" => match import::import(store, &import::source(&store.paths.home)) {
             Ok(done) => {
-                let _ = writeln!(out, "{}", serde_json::to_string_pretty(&done).expect("serializes"));
+                let _ =
+                    writeln!(out, "{}", serde_json::to_string_pretty(&done).expect("serializes"));
                 let _ = state::write(store, switch::active_slot(store), OffsetDateTime::now_utc());
                 0
             }
@@ -168,7 +171,12 @@ pub fn run(cli: &Cli, args: &[String], out: &mut dyn Write, err: &mut dyn Write)
             };
             match added {
                 Ok(a) => {
-                    let _ = writeln!(out, "{} account {}", if a.new { "added" } else { "updated" }, a.slot);
+                    let _ = writeln!(
+                        out,
+                        "{} account {}",
+                        if a.new { "added" } else { "updated" },
+                        a.slot
+                    );
                     0
                 }
                 Err(e) => fail(err, &e),
@@ -184,7 +192,8 @@ pub fn run(cli: &Cli, args: &[String], out: &mut dyn Write, err: &mut dyn Write)
             };
             match done {
                 Ok(()) => {
-                    let _ = state::write(store, switch::active_slot(store), OffsetDateTime::now_utc());
+                    let _ =
+                        state::write(store, switch::active_slot(store), OffsetDateTime::now_utc());
                     0
                 }
                 Err(e) => fail(err, &e),

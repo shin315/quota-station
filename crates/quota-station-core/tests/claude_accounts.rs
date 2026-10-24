@@ -18,7 +18,10 @@ fn mac(tag: &str) -> (Mac, FakeAnthropic) {
     let mac = Mac::new(tag);
     mac.add(2, "lan@team.example", "org-team", &credential("acc-2", "ref-2", in_hours(5.0)));
     mac.add(3, "lan.b@team.example", "org-team", &credential("acc-3", "ref-3", in_hours(5.0)));
-    mac.log_in(&credential("acc-2", "ref-2", in_hours(5.0)), &oauth("lan@team.example", "uuid-2", "org-team"));
+    mac.log_in(
+        &credential("acc-2", "ref-2", in_hours(5.0)),
+        &oauth("lan@team.example", "uuid-2", "org-team"),
+    );
     (mac, FakeAnthropic::start())
 }
 
@@ -61,7 +64,10 @@ fn a_reading_younger_than_three_minutes_is_reused() {
 #[test]
 fn the_login_in_use_is_never_refreshed_by_the_app() {
     let (mac, anthropic) = mac("usage-live");
-    mac.log_in(&credential("acc-2", "ref-2", in_hours(-1.0)), &oauth("lan@team.example", "uuid-2", "org-team"));
+    mac.log_in(
+        &credential("acc-2", "ref-2", in_hours(-1.0)),
+        &oauth("lan@team.example", "uuid-2", "org-team"),
+    );
     anthropic.refreshes("ref-2", "acc-2b", "ref-2b");
     anthropic.usage("acc-3", 5.0, None, None, None);
     let pass = read(&mac, &anthropic, false);
@@ -136,13 +142,20 @@ fn the_data_file_has_every_account_and_no_secret_or_email() {
     let data: Value = serde_json::from_str(&text).unwrap();
     assert_eq!(data["activeSlot"], 2);
     let accounts = data["accounts"].as_array().unwrap();
-    assert_eq!(accounts.iter().map(|a| a["slot"].as_u64().unwrap()).collect::<Vec<_>>(), vec![2, 3]);
+    assert_eq!(
+        accounts.iter().map(|a| a["slot"].as_u64().unwrap()).collect::<Vec<_>>(),
+        vec![2, 3]
+    );
     assert_eq!(accounts[0]["enabled"], true);
     assert_eq!(accounts[1]["enabled"], false);
     assert_eq!(accounts[0]["status"], "fresh");
     assert_eq!(accounts[0]["windows"]["fiveHour"]["usedPercent"], 30.0);
     assert_eq!(accounts[0]["windows"]["fiveHour"]["resetsAt"], "2030-01-16T09:00:00Z");
-    for file in [mac.paths.state(), mac.paths.swap().join("sequence.json"), mac.paths.swap().join("cache/usage.json")] {
+    for file in [
+        mac.paths.state(),
+        mac.paths.swap().join("sequence.json"),
+        mac.paths.swap().join("cache/usage.json"),
+    ] {
         let text = std::fs::read_to_string(&file).unwrap();
         for secret in ["acc-2", "acc-3", "ref-2", "ref-3", "@team.example"] {
             assert!(!text.contains(secret), "{} holds {secret}", file.display());
@@ -158,13 +171,20 @@ fn the_copy_for_quota_axi_pairs_each_reading_with_its_account() {
     read(&mac, &anthropic, false);
     state::write(&mac.store, switch::active_slot(&mac.store), OffsetDateTime::now_utc()).unwrap();
     let swap = mac.paths.swap();
-    let sequence: Value = serde_json::from_str(&std::fs::read_to_string(swap.join("sequence.json")).unwrap()).unwrap();
-    let usage: Value = serde_json::from_str(&std::fs::read_to_string(swap.join("cache/usage.json")).unwrap()).unwrap();
+    let sequence: Value =
+        serde_json::from_str(&std::fs::read_to_string(swap.join("sequence.json")).unwrap())
+            .unwrap();
+    let usage: Value =
+        serde_json::from_str(&std::fs::read_to_string(swap.join("cache/usage.json")).unwrap())
+            .unwrap();
     assert_eq!(sequence["activeAccountNumber"], 2);
     assert_eq!(usage["schemaVersion"], 2);
     for slot in ["2", "3"] {
         assert_eq!(sequence["accounts"][slot]["email"], usage["accounts"][slot]["email"]);
-        assert_eq!(sequence["accounts"][slot]["organizationUuid"], usage["accounts"][slot]["organizationUuid"]);
+        assert_eq!(
+            sequence["accounts"][slot]["organizationUuid"],
+            usage["accounts"][slot]["organizationUuid"]
+        );
     }
     assert_eq!(usage["accounts"]["3"]["lastGood"]["five_hour"]["pct"], 5.0);
 }
@@ -202,7 +222,9 @@ fn claude_runs_as_another_account_in_its_own_folder() {
     let ran = std::fs::read_to_string(mac.dir.join("claude-ran")).unwrap();
     let folder = session::folder(&mac.store, 3);
     assert_eq!(ran, format!("{}\n-p ok\n", folder.display()));
-    let config: Value = serde_json::from_str(&std::fs::read_to_string(folder.join(".claude.json")).unwrap()).unwrap();
+    let config: Value =
+        serde_json::from_str(&std::fs::read_to_string(folder.join(".claude.json")).unwrap())
+            .unwrap();
     assert_eq!(config["oauthAccount"]["emailAddress"], "lan.b@team.example");
     let service = cc::profile_service(&folder).unwrap();
     assert_eq!(mac.item(&service, &mac.user()), mac.store.credential(3).unwrap());

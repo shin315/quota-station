@@ -1,8 +1,9 @@
 //! What the windows can ask for. Only [`switch_claude`] acts outside the
-//! app here: it runs `cswap switch N --json` on this Mac when the owner
-//! confirms (switching Antigravity is in `agy_switch`), and keeps the
+//! app here: it switches Claude Code's login on this Mac to one of the
+//! app's accounts when the owner confirms (switching Antigravity is in
+//! `agy_switch`, the accounts' own actions in `claude`), and keeps the
 //! switch in the history.
-//! The pause commands write the switcher's pause flag; the rest write only
+//! The pause commands write the rotation's pause flag; the rest write only
 //! the app's own settings file.
 
 use quota_station_core::history;
@@ -116,6 +117,10 @@ pub fn set_show_names(
         settings.hide_names = !on;
         settings.save(&inner.settings_file).map_err(|e| e.to_string())?;
         inner.settings = settings;
+    }
+    // Shown again, the emails are read from the Keychain with the next read.
+    if on {
+        state.request_read();
     }
     reader::publish(&app, &state);
     Ok(state.lock().model())
@@ -238,10 +243,10 @@ pub fn claude_sessions(state: State<'_, AppState>) -> Option<Sessions> {
     sessions::count(&dir).ok()
 }
 
-/// Switches Claude to `slot` with claude-swap, after the owner confirmed it
-/// on the sheet. With `hold_until` (RFC 3339) the switcher is paused until
-/// then. Reads the active account again five seconds later and reports
-/// what really happened.
+/// Switches Claude Code to the app's account `slot`, after the owner
+/// confirmed it on the sheet. With `hold_until` (RFC 3339) the rotation is
+/// paused until then. Looks at the active account again five seconds later
+/// and reports what really happened.
 #[tauri::command]
 pub async fn switch_claude(
     app: AppHandle,
@@ -260,7 +265,9 @@ pub async fn switch_claude(
             return Err("busy".into());
         }
         let snapshot = inner.snapshot();
-        let known = snapshot.claude.accounts.iter().any(|a| a.number == slot && slot > 0);
+        let known = slot > 0
+            && (snapshot.claude.accounts.iter().any(|a| a.number == slot)
+                || inner.claude_accounts.iter().any(|a| a.slot == slot));
         if !known {
             return Err("unknownSlot".into());
         }
@@ -270,7 +277,7 @@ pub async fn switch_claude(
     };
     reader::publish(&app, &shared);
     let done = tauri::async_runtime::spawn_blocking(move || {
-        switching::switch_claude(&tools, slot, hold, switching::SETTLE)
+        switching::switch_claude(&tools, slot, hold, &switching::settle)
     })
     .await;
     // Kept before the reading that shows it, so the change is this switch's.

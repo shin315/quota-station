@@ -54,7 +54,14 @@ fn decide(rules: &Rules, accounts: &[Reading], active: Option<u32>, hour: u8) ->
 }
 
 fn decide_primed(accounts: &[Reading], active: Option<u32>, last: &BTreeMap<u32, f64>) -> Plan {
-    engine::decide(&Input { rules: &rules(), accounts, active, now: now(), hour: 12, prime: Some(last) })
+    engine::decide(&Input {
+        rules: &rules(),
+        accounts,
+        active,
+        now: now(),
+        hour: 12,
+        prime: Some(last),
+    })
 }
 
 #[test]
@@ -83,7 +90,10 @@ fn a_window_not_started_comes_after_a_running_one() {
     let accounts = [acct(2, 95.0, Some(60)), acct(3, 0.0, None), acct(4, 80.0, Some(250))];
     assert_eq!(decide(&rules(), &accounts, Some(2), 12).target(), Some(4));
     let only_fresh = [acct(2, 95.0, Some(60)), acct(3, 0.0, None)];
-    assert_eq!(decide(&rules(), &only_fresh, Some(2), 12).decision, "switch 3 (10.0%, window not started)");
+    assert_eq!(
+        decide(&rules(), &only_fresh, Some(2), 12).decision,
+        "switch 3 (10.0%, window not started)"
+    );
 }
 
 #[test]
@@ -97,7 +107,10 @@ fn an_account_out_of_fable_comes_last() {
 #[test]
 fn the_personal_account_only_in_its_hours_when_no_team_account_has_room() {
     let accounts = [acct(1, 20.0, None), acct(2, 95.0, Some(60)), acct(3, 92.0, Some(90))];
-    assert_eq!(decide(&rules(), &accounts, Some(2), 12).decision, "switch 1 (20.0%, no Team slot with room)");
+    assert_eq!(
+        decide(&rules(), &accounts, Some(2), 12).decision,
+        "switch 1 (20.0%, no Team slot with room)"
+    );
     assert_eq!(decide(&rules(), &accounts, Some(1), 12).decision, "stay");
     // At 07:00, before its hours, the Team account in use is used up instead.
     assert_eq!(
@@ -130,7 +143,10 @@ fn with_nothing_left_it_parks_on_the_window_that_resets_first() {
         format!("stay (waiting for slot 3 at {})", hm(at(30)))
     );
     let none_started = [acct(2, 100.0, None), acct(3, 100.0, None)];
-    assert_eq!(decide(&rules(), &none_started, Some(2), 12).decision, "wait (no account with room)");
+    assert_eq!(
+        decide(&rules(), &none_started, Some(2), 12).decision,
+        "wait (no account with room)"
+    );
 }
 
 #[test]
@@ -209,12 +225,20 @@ fn decisions_match_the_old_script() {
     let Some(script) = std::env::var_os("QUOTA_STATION_PREFER_TEAM") else { return };
     let cases: Vec<(Vec<Reading>, Option<u32>, u8)> = vec![
         (vec![acct(2, 89.0, Some(60)), acct(3, 0.0, Some(30))], Some(2), 12),
-        (vec![acct(2, 90.0, Some(60)), acct(3, 40.0, Some(200)), acct(4, 70.0, Some(100))], Some(2), 12),
+        (
+            vec![acct(2, 90.0, Some(60)), acct(3, 40.0, Some(200)), acct(4, 70.0, Some(100))],
+            Some(2),
+            12,
+        ),
         (vec![acct(2, 95.0, Some(60)), acct(3, 0.0, None)], Some(2), 12),
         (vec![acct(1, 20.0, None), acct(2, 95.0, Some(60)), acct(3, 92.0, Some(90))], Some(2), 12),
         (vec![acct(1, 20.0, None), acct(2, 95.0, Some(60)), acct(3, 92.0, Some(90))], Some(2), 7),
         (vec![acct(1, 95.0, None), acct(2, 93.0, Some(60)), acct(3, 99.0, Some(30))], Some(2), 12),
-        (vec![acct(1, 100.0, None), acct(2, 100.0, Some(60)), acct(3, 100.0, Some(30))], Some(2), 12),
+        (
+            vec![acct(1, 100.0, None), acct(2, 100.0, Some(60)), acct(3, 100.0, Some(30))],
+            Some(2),
+            12,
+        ),
         (vec![acct(2, 100.0, None), acct(3, 100.0, None)], Some(2), 12),
     ];
     for (accounts, active, hour) in cases {
@@ -234,7 +258,11 @@ fn decisions_match_the_old_script() {
                 })
             })
             .collect();
-        std::fs::write(&input, json!({ "activeAccountNumber": active, "accounts": list }).to_string()).unwrap();
+        std::fs::write(
+            &input,
+            json!({ "activeAccountNumber": active, "accounts": list }).to_string(),
+        )
+        .unwrap();
         let out = Command::new(&script)
             .arg("--dry-run")
             .env("HOME", &home)
@@ -263,7 +291,10 @@ fn three_accounts(tag: &str) -> (Mac, FakeAnthropic, Tools) {
     mac.add(1, "lan@example.com", "org-personal", &credential("acc-1", "ref-1", in_hours(5.0)));
     mac.add(2, "lan@team.example", "org-team", &credential("acc-2", "ref-2", in_hours(5.0)));
     mac.add(3, "lan.b@team.example", "org-team", &credential("acc-3", "ref-3", in_hours(5.0)));
-    mac.log_in(&credential("acc-2", "ref-2", in_hours(5.0)), &common::accounts::oauth("lan@team.example", "uuid-2", "org-team"));
+    mac.log_in(
+        &credential("acc-2", "ref-2", in_hours(5.0)),
+        &common::accounts::oauth("lan@team.example", "uuid-2", "org-team"),
+    );
     let tools = Tools {
         launchctl: mac.launchctl.clone(),
         claude: None,
@@ -287,7 +318,11 @@ fn a_run_moves_claude_code_off_a_full_account_and_logs_it() {
     assert_eq!(decided.line.split(' ').take(2).collect::<Vec<_>>(), ["switch", "3"]);
     assert_eq!(switch::active_slot(&mac.store), Some(3));
     assert_eq!(mac.live_email().as_deref(), Some("lan.b@team.example"));
-    assert!(log(&mac).lines().any(|l| l.contains(" switch to slot 3 (20.0%, ends ")), "{}", log(&mac));
+    assert!(
+        log(&mac).lines().any(|l| l.contains(" switch to slot 3 (20.0%, ends ")),
+        "{}",
+        log(&mac)
+    );
 }
 
 #[test]

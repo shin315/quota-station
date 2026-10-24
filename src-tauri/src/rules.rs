@@ -5,11 +5,10 @@
 //! take it is tried again every 5 minutes; one holding a newer copy waits
 //! for the owner to choose.
 
-use std::path::PathBuf;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
 use std::time::Duration;
 
+use quota_station_core::claude::rotate;
 use quota_station_core::peers::{self, PeerRecord, PeerState, RemoteError, RETRY_MINUTES};
 use quota_station_core::rotation::{self, ApplyError, FileState, Rules, Stamp};
 use quota_station_core::settings::{self, Peer};
@@ -56,7 +55,7 @@ pub fn push_peers(app: &AppHandle, state: &AppState, now_all: bool, force_confli
     let _one_at_a_time = state.push_lock.lock().unwrap_or_else(|e| e.into_inner());
     let (file, peers) = {
         let inner = state.lock();
-        (rotation::path(&inner.home), inner.settings.peers.clone())
+        (inner.claude_paths().rotation_file(), inner.settings.peers.clone())
     };
     let FileState::Ok { text, parsed } = rotation::load(&file) else { return };
     let Some(stamp) = parsed.stamp else { return };
@@ -369,12 +368,8 @@ pub async fn test_peer(alias: String) -> Result<PeerTest, String> {
     .map_err(|e| e.to_string())
 }
 
-/// Gives each preview its own draft file, so two previews at once never
-/// remove each other's.
-static PREVIEWS: AtomicU64 = AtomicU64::new(0);
-
-/// What the switcher would decide now with the editor's rules: its
-/// `--dry-run`, pointed at a draft file in the app's folder. Switches nothing
+/// What the rotation would decide now with the editor's rules, from the
+/// readings the app has: switches nothing, reads nothing over the network
 /// and leaves the rotation file alone.
 #[tauri::command]
 pub async fn preview_rotation(
@@ -382,23 +377,14 @@ pub async fn preview_rotation(
     rules: Rules,
 ) -> Result<DryRunView, String> {
     rules.check()?;
-    let (home, draft, machine) = {
+    let (store, tools) = {
         let inner = state.lock();
-        let n = PREVIEWS.fetch_add(1, Ordering::Relaxed);
-        let draft: PathBuf = inner.settings_file.with_file_name(format!("rotation-preview-{n}"));
-        (inner.home.clone(), draft, inner.machine())
+        (inner.claude_store(), inner.rotation_tools())
     };
     tauri::async_runtime::spawn_blocking(move || {
         let now = OffsetDateTime::now_utc();
-        let current = rotation::load(&rotation::path(&home));
-        let text = rotation::render(&rules, &Stamp::new(now, &machine), current.text());
-        if let Some(dir) = draft.parent() {
-            std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
-        }
-        std::fs::write(&draft, text).map_err(|e| e.to_string())?;
-        let run = switcher::dry_run_with(&switcher::script(&home), &draft);
-        let _ = std::fs::remove_file(&draft);
-        let run = run.map_err(|e| e.kind().to_string())?;
+        let decided = rotate::dry_run(&store, &tools, &rules, now);
+        let run = switcher::decided(&decided.line);
         Ok(DryRunView { decision: run.decision, raw: run.raw, at: String::new() })
     })
     .await

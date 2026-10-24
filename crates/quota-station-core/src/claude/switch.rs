@@ -43,7 +43,9 @@ pub enum SwitchError {
     Io(std::io::Error),
     /// The login or the config read back is not what was written; both were
     /// put back. `restored` is false when putting them back failed too.
-    NotConfirmed { restored: bool },
+    NotConfirmed {
+        restored: bool,
+    },
 }
 
 impl SwitchError {
@@ -79,7 +81,10 @@ impl std::fmt::Display for SwitchError {
                 write!(f, "the login did not read back as written; the old one is back")
             }
             SwitchError::NotConfirmed { restored: false } => {
-                write!(f, "the login did not read back as written, and putting the old one back failed")
+                write!(
+                    f,
+                    "the login did not read back as written, and putting the old one back failed"
+                )
             }
         }
     }
@@ -128,7 +133,8 @@ pub fn switch(store: &Store, slot: u32) -> Result<Switched, SwitchError> {
     // A session folder of the target that Claude Code refreshed holds the
     // newest copy of its login.
     session::adopt_newer(store, slot);
-    let target_cred = store.credential(slot)?.filter(|c| cc::usable(c)).ok_or(SwitchError::NoCredential)?;
+    let target_cred =
+        store.credential(slot)?.filter(|c| cc::usable(c)).ok_or(SwitchError::NoCredential)?;
     let target_oauth = store.oauth_account(slot)?.ok_or(SwitchError::NoCredential)?;
 
     let _login = locks::credentials(paths)?;
@@ -179,7 +185,9 @@ pub fn switch(store: &Store, slot: u32) -> Result<Switched, SwitchError> {
 
     let login_back = cc::read_credential(paths, &store.security).ok().flatten();
     let who_back = cc::read_oauth(paths).map(|o| Who::of(&o).identity());
-    if login_back.as_deref() != Some(composed.as_str()) || who_back.as_deref() != Some(target.identity.as_str()) {
+    if login_back.as_deref() != Some(composed.as_str())
+        || who_back.as_deref() != Some(target.identity.as_str())
+    {
         return Err(SwitchError::NotConfirmed { restored: put_back() });
     }
     Ok(Switched { from, to: slot, already: false })

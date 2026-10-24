@@ -1,8 +1,11 @@
 //! Quota Station: AI coding quota in the macOS menu bar.
 //!
 //! Each Mac runs its own copy and switches only its own machine. It reads
-//! through quota-axi; since M3 it also switches Claude through claude-swap
-//! when the owner confirms, and pauses the `cswap-prefer-team` switcher.
+//! through quota-axi; since M3 it also switches Claude when the owner
+//! confirms, and pauses the rotation. Since the Claude accounts moved in
+//! (`docs/claude-accounts.md`) it keeps their logins itself, reads their
+//! usage, runs the rotation from its own LaunchAgent and runs a process as a
+//! chosen account (`quota-station claude …`), without claude-swap.
 //! Since M5 it edits the rotation file and copies it to the owner's other
 //! Macs over SSH, so every Mac's switcher follows the same rules.
 //! Since M4a it logs Antigravity accounts in itself, since M4b it reads
@@ -29,6 +32,7 @@ mod agy_switch;
 mod alerting;
 mod antigravity;
 mod backup;
+mod claude;
 mod codex;
 mod commands;
 mod copy;
@@ -57,6 +61,11 @@ fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args.first().map(String::as_str) == Some("agents") {
         std::process::exit(copy::cli(&args[1..]));
+    }
+    // The Claude accounts from a terminal, Firstmate and the rotation's
+    // LaunchAgent: answered without a window.
+    if args.first().map(String::as_str) == Some("claude") {
+        std::process::exit(claude_cli(&args[1..]));
     }
     tauri::Builder::default()
         // A second launch shows this copy's main window instead of a second icon.
@@ -110,6 +119,15 @@ fn main() {
             commands::pause_switching,
             commands::extend_pause,
             commands::resume_switching,
+            claude::claude_import,
+            claude::claude_add_login,
+            claude::claude_cancel_login,
+            claude::claude_add_current,
+            claude::claude_add_token,
+            claude::claude_remove,
+            claude::claude_set_alias,
+            claude::claude_set_enabled,
+            claude::claude_set_rotation,
             rules::save_rotation,
             rules::adopt_rotation,
             rules::keep_rotation,
@@ -213,6 +231,21 @@ fn main() {
         ])
         .run(tauri::generate_context!())
         .expect("Quota Station failed to start");
+}
+
+/// `quota-station claude …`, with the owner's home and the Keychain.
+fn claude_cli(args: &[String]) -> i32 {
+    use quota_station_core::claude::{cli, keychain::Security, rotate, store::Store, Paths};
+    let Some(home) = std::env::var_os("HOME").map(std::path::PathBuf::from) else {
+        eprintln!("quota-station claude: HOME is not set");
+        return 1;
+    };
+    let cli = cli::Cli {
+        store: Store::new(Paths::for_home(&home), Security::system()),
+        tools: rotate::Tools::system(&home),
+        exe: std::env::current_exe().unwrap_or_else(|_| "quota-station".into()),
+    };
+    cli::run(&cli, args, &mut std::io::stdout(), &mut std::io::stderr())
 }
 
 /// The name macOS shows for this Mac (System Settings › General › About).

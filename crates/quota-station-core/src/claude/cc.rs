@@ -54,7 +54,10 @@ impl Live {
 
 /// The Keychain item first, then `~/.claude/.credentials.json`, as Claude
 /// Code reads them.
-pub fn read_credential(paths: &Paths, security: &Security) -> Result<Option<String>, KeychainError> {
+pub fn read_credential(
+    paths: &Paths,
+    security: &Security,
+) -> Result<Option<String>, KeychainError> {
     if let Some(c) = security.get(ACTIVE_SERVICE, &user_account())? {
         if !c.trim().is_empty() {
             return Ok(Some(c));
@@ -222,7 +225,9 @@ mod tests {
     #[test]
     fn only_oauth_account_changes_in_the_config() {
         let text = "{\n  \"numStartups\": 7,\n  \"oauthAccount\": {\n    \"emailAddress\": \"a@example.com\"\n  },\n  \"zeta\": [1, 2]\n}\n";
-        let out = spliced(Some(text), &json!({"emailAddress": "b@example.com", "accountUuid": "u2"})).unwrap();
+        let out =
+            spliced(Some(text), &json!({"emailAddress": "b@example.com", "accountUuid": "u2"}))
+                .unwrap();
         assert!(out.starts_with("{\n  \"numStartups\": 7,\n  \"oauthAccount\": {\n    \"accountUuid\": \"u2\",\n    \"emailAddress\": \"b@example.com\"\n  },"), "{out}");
         assert!(out.ends_with("  \"zeta\": [1, 2]\n}\n"), "{out}");
         let without = "{\n  \"a\": 1\n}\n";

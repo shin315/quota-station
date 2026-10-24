@@ -14,7 +14,8 @@ use common::accounts::{credential, in_hours, oauth, Mac};
 /// Team accounts 2 and 3 in the app, Claude Code on 2.
 fn two_accounts(tag: &str) -> (Mac, String, String) {
     let mac = Mac::new(tag);
-    let (c2, c3) = (credential("acc-2", "ref-2", in_hours(5.0)), credential("acc-3", "ref-3", in_hours(5.0)));
+    let (c2, c3) =
+        (credential("acc-2", "ref-2", in_hours(5.0)), credential("acc-3", "ref-3", in_hours(5.0)));
     mac.add(2, "lan@team.example", "org-team", &c2);
     mac.add(3, "lan.b@team.example", "org-team", &c3);
     mac.log_in(&c2, &oauth("lan@team.example", "uuid-2", "org-team"));
@@ -39,7 +40,8 @@ fn a_switch_puts_the_account_in_claude_codes_login() {
     assert_eq!(mac.live_email().as_deref(), Some("lan.b@team.example"));
     assert_eq!(switch::active_slot(&mac.store), Some(3));
     // Only `oauthAccount` changed in `~/.claude.json`.
-    let (mut a, mut b) = (config(&mac).as_object().unwrap().clone(), before.as_object().unwrap().clone());
+    let (mut a, mut b) =
+        (config(&mac).as_object().unwrap().clone(), before.as_object().unwrap().clone());
     a.remove("oauthAccount");
     b.remove("oauthAccount");
     assert_eq!(a, b);
@@ -57,7 +59,8 @@ fn the_outgoing_login_is_kept_as_claude_code_last_refreshed_it() {
 #[test]
 fn claude_codes_own_secrets_stay_with_the_live_login() {
     let (mac, _, _) = two_accounts("switch-shared");
-    let mut live: Value = serde_json::from_str(&credential("acc-2", "ref-2", in_hours(5.0))).unwrap();
+    let mut live: Value =
+        serde_json::from_str(&credential("acc-2", "ref-2", in_hours(5.0))).unwrap();
     live["mcpOAuth"] = serde_json::json!({ "linear": { "accessToken": "mcp-made-up" } });
     mac.put_item("Claude Code-credentials", &mac.user(), &live.to_string());
     switch::switch(&mac.store, 3).unwrap();
@@ -69,7 +72,8 @@ fn claude_codes_own_secrets_stay_with_the_live_login() {
 #[test]
 fn the_login_is_written_while_claude_codes_locks_are_held() {
     let (mac, _, _) = two_accounts("switch-locks");
-    std::fs::write(mac.dir.join("watch"), mac.home.join(".claude.lock").display().to_string()).unwrap();
+    std::fs::write(mac.dir.join("watch"), mac.home.join(".claude.lock").display().to_string())
+        .unwrap();
     switch::switch(&mac.store, 3).unwrap();
     let watched = std::fs::read_to_string(mac.dir.join("watched")).unwrap();
     assert!(watched.lines().any(|l| l == "held Claude Code-credentials"), "{watched}");
@@ -95,7 +99,8 @@ fn a_lock_left_behind_is_taken_over() {
     let (mac, _, _) = two_accounts("switch-stale");
     let lock = mac.home.join(".claude.lock");
     std::fs::create_dir(&lock).unwrap();
-    let old = Command::new("/usr/bin/touch").args(["-t", "202001010000"]).arg(&lock).status().unwrap();
+    let old =
+        Command::new("/usr/bin/touch").args(["-t", "202001010000"]).arg(&lock).status().unwrap();
     assert!(old.success());
     switch::switch(&mac.store, 3).unwrap();
     assert_eq!(switch::active_slot(&mac.store), Some(3));
@@ -137,5 +142,7 @@ fn switching_to_the_account_in_use_writes_nothing() {
     let (mac, _, _) = two_accounts("switch-same");
     let done = switch::switch(&mac.store, 2).unwrap();
     assert!(done.already);
-    assert!(!mac.security_calls().lines().any(|l| l.starts_with("add-generic-password") && l.ends_with("-s Claude Code-credentials")));
+    assert!(!mac.security_calls().lines().any(
+        |l| l.starts_with("add-generic-password") && l.ends_with("-s Claude Code-credentials")
+    ));
 }

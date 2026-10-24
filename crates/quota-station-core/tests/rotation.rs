@@ -220,8 +220,8 @@ fn a_file_quota_axi_refuses_is_rolled_back_to_the_backup() {
         render(&parse(FILE).unwrap().rules, &stamp("Mac A"), Some(FILE))
     );
 
-    let err =
-        apply(&s.file, Some(&s.quota_axi), &[], &text, base(&s.file).as_deref(), now()).unwrap_err();
+    let err = apply(&s.file, Some(&s.quota_axi), &[], &text, base(&s.file).as_deref(), now())
+        .unwrap_err();
     assert_eq!(
         err,
         ApplyError::Refused { reason: "rotation_bad_value:personal_hours".into(), restored: true }
@@ -254,7 +254,8 @@ fn a_file_quota_axi_cannot_check_is_rolled_back_too() {
         &s.dir.join("bin/plain-quota-axi"),
         &format!("cat '{}'\n", fixture_path("claude-no-rotation.json").display()),
     );
-    let err = apply(&s.file, Some(&plain), &[], &text, base(&s.file).as_deref(), now()).unwrap_err();
+    let err =
+        apply(&s.file, Some(&plain), &[], &text, base(&s.file).as_deref(), now()).unwrap_err();
     assert!(matches!(err, ApplyError::Unchecked { restored: true, .. }), "{err:?}");
     assert_eq!(std::fs::read_to_string(&s.file).unwrap(), FILE);
     let _ = std::fs::remove_dir_all(&s.dir);
@@ -271,13 +272,15 @@ fn a_file_changed_since_the_editor_read_it_is_not_overwritten() {
     std::fs::write(&s.file, &theirs).unwrap();
 
     let mine = render(&Rules::defaults(), &stamp("Mac A"), Some(FILE));
-    let err = apply(&s.file, Some(&s.quota_axi), &[], &mine, started.as_deref(), now()).unwrap_err();
+    let err =
+        apply(&s.file, Some(&s.quota_axi), &[], &mine, started.as_deref(), now()).unwrap_err();
     assert_eq!(err, ApplyError::Changed);
     assert_eq!(std::fs::read_to_string(&s.file).unwrap(), theirs);
 
     // Text quota-axi would refuse is never written.
-    let err = apply(&s.file, Some(&s.quota_axi), &[], "team = 2\n", base(&s.file).as_deref(), now())
-        .unwrap_err();
+    let err =
+        apply(&s.file, Some(&s.quota_axi), &[], "team = 2\n", base(&s.file).as_deref(), now())
+            .unwrap_err();
     assert_eq!(err, ApplyError::Invalid("rotation_missing_key:personal".into()));
     assert!(backups(s.file.parent().unwrap()).is_empty());
     let _ = std::fs::remove_dir_all(&s.dir);
@@ -338,8 +341,8 @@ fn a_personal_slot_that_is_also_team_is_never_written_and_reads_as_invalid() {
         matches!(load(&s.file), FileState::Invalid { ref reason, .. } if reason == "rotation_personal_in_team")
     );
     // A copy taken from another Mac with the same overlap is refused before writing.
-    let err =
-        apply(&s.file, Some(&s.quota_axi), &[], &overlap, base(&s.file).as_deref(), now()).unwrap_err();
+    let err = apply(&s.file, Some(&s.quota_axi), &[], &overlap, base(&s.file).as_deref(), now())
+        .unwrap_err();
     assert_eq!(err, ApplyError::Invalid("rotation_personal_in_team".into()));
     let _ = std::fs::remove_dir_all(&s.dir);
 }

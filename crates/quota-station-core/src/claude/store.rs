@@ -189,7 +189,9 @@ impl Store {
     pub fn load(&self) -> Result<List, StoreError> {
         match super::read_optional(&self.paths.accounts())? {
             None => Ok(List { version: VERSION, accounts: Vec::new() }),
-            Some(text) => serde_json::from_str(&text).map_err(|e| StoreError::Corrupt(e.to_string())),
+            Some(text) => {
+                serde_json::from_str(&text).map_err(|e| StoreError::Corrupt(e.to_string()))
+            }
         }
     }
 

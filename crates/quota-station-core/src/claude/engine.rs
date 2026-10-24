@@ -127,8 +127,8 @@ fn py_float(v: f64) -> String {
 
 /// `HH:MM` on this Mac's clock.
 fn hm(t: f64) -> String {
-    let at = OffsetDateTime::from_unix_timestamp(t.floor() as i64)
-        .unwrap_or(OffsetDateTime::UNIX_EPOCH);
+    let at =
+        OffsetDateTime::from_unix_timestamp(t.floor() as i64).unwrap_or(OffsetDateTime::UNIX_EPOCH);
     local_time::clock(at)
 }
 
@@ -145,7 +145,11 @@ impl View<'_> {
             return None;
         }
         let pcts: Vec<f64> = [a.five_hour.used, a.seven_day.used].into_iter().flatten().collect();
-        Some(pcts.into_iter().fold(None, |m: Option<f64>, p| Some(m.map_or(p, |m| m.max(p)))).unwrap_or(0.0))
+        Some(
+            pcts.into_iter()
+                .fold(None, |m: Option<f64>, p| Some(m.map_or(p, |m| m.max(p))))
+                .unwrap_or(0.0),
+        )
     }
 
     fn room(&self, n: u32) -> bool {
@@ -210,8 +214,11 @@ pub fn decide(input: &Input) -> Plan {
     let active = input.active;
     let has = |n: Option<u32>| n.is_some_and(|n| v.accts.contains_key(&n));
 
-    let urgent: Vec<u32> = team.iter().copied().filter(|n| expire.contains_key(n) && v.room(*n)).collect();
-    let decision = if let Some(a) = active.filter(|a| has(Some(*a)) && !gone(*a) && v.used(*a).is_none()) {
+    let urgent: Vec<u32> =
+        team.iter().copied().filter(|n| expire.contains_key(n) && v.room(*n)).collect();
+    let decision = if let Some(a) =
+        active.filter(|a| has(Some(*a)) && !gone(*a) && v.used(*a).is_none())
+    {
         format!("stay (slot {a} usage unknown)")
     } else if !urgent.is_empty() && !active.is_some_and(|a| urgent.contains(&a)) {
         let n = first_min(&urgent, |n| expire[&n]).unwrap_or(urgent[0]);
@@ -254,7 +261,10 @@ pub fn decide(input: &Input) -> Plan {
             if active == Some(p) {
                 "stay".to_string()
             } else {
-                format!("switch {p} ({}%, no Team slot with room)", py_float(v.used(p).unwrap_or(0.0)))
+                format!(
+                    "switch {p} ({}%, no Team slot with room)",
+                    py_float(v.used(p).unwrap_or(0.0))
+                )
             }
         } else {
             let started: Vec<u32> = team.iter().copied().filter(|n| v.ends(*n).is_some()).collect();
@@ -286,7 +296,8 @@ pub fn decide(input: &Input) -> Plan {
         let target = plan.target().or(active);
         for &n in &team {
             let fresh = v.accts.get(&n).is_some_and(|a| a.fresh);
-            if Some(n) == target || Some(n) == active || !fresh || v.ends(n).is_some() || !v.room(n) {
+            if Some(n) == target || Some(n) == active || !fresh || v.ends(n).is_some() || !v.room(n)
+            {
                 continue;
             }
             if now - last.get(&n).copied().unwrap_or(0.0) >= PRIME_GAP_SECONDS {
