@@ -166,6 +166,79 @@ What was changed:
 
 ----------------------------------------------------------------------------
 
+This work also contains code adapted from claude-swap
+(https://github.com/realiti4/claude-swap), licensed under the MIT License:
+
+  MIT License
+
+  Copyright (c) 2026 Onur Cetinkol
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+
+Adapted parts. Each file names its source in its header.
+
+- crates/quota-station-core/src/claude/keychain.rs
+  from macos_keychain.py: the security commands, the read with -w and exit
+  code 44 for a missing item, the write piped to security -i as hex, the
+  command-line fallback for a long value and the 5-second limit.
+- crates/quota-station-core/src/claude/locks.rs
+  from claude_locks.py: Claude Code's lock folders, their order and the
+  proper-lockfile protocol.
+- crates/quota-station-core/src/claude/cc.rs
+  from credentials.py, session.py and switcher.py: Claude Code's Keychain
+  items (the default one and the one keyed to a CLAUDE_CONFIG_DIR), the MCP
+  and plugin secrets kept from the live login, and oauthAccount in
+  ~/.claude.json.
+- crates/quota-station-core/src/claude/switch.rs
+  from _perform_switch in switcher.py: the locks, the outgoing account's
+  live login kept first, the target written, and everything put back when a
+  step fails.
+- crates/quota-station-core/src/claude/usage.rs
+  from oauth.py, usage_store.py and poll_policy.py: the usage and token
+  endpoints, headers, client id and bodies, the reading of the windows, the
+  error kinds, the expiry margin, the 180-second reuse and the back-off.
+- crates/quota-station-core/src/claude/session.rs
+  from session.py (cswap run): the folder per account, its links to the
+  owner's settings, the login variables removed from the environment, and
+  a newer login taken back.
+- crates/quota-station-core/src/claude/manage.rs
+  from cswap add and cswap add --token: a new login through claude auth
+  login in a folder of its own, and a setup token kept as a credential.
+- crates/quota-station-core/src/claude/import.rs
+  from switcher.py and credentials.py: where claude-swap keeps each
+  account's slot, oauthAccount and credential.
+
+What was changed:
+
+- The logins are in the app's own Keychain items
+  (com.shin315.quota-station.claude), and its files hold no email and no
+  token; a session's login goes to Claude Code's Keychain item for its
+  folder, never to a file.
+- A switch reads Claude Code's item and ~/.claude.json back and puts both
+  back when they do not match, and writes nothing while claude-swap's own
+  switchers are loaded.
+- The account in use is read with Claude Code's live token and never
+  refreshed by the app.
+- The import only reads claude-swap's folder and Keychain items.
+
+----------------------------------------------------------------------------
+
 This work also contains code adapted from shadcn/ui
 (https://github.com/shadcn-ui/ui), licensed under the MIT License:
 

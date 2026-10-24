@@ -121,6 +121,10 @@ quota-axi it runs.
 
 ## Cutover
 
-An explicit checklist in the README, run by the owner Mac by Mac: import,
-stop `com.cswap.prefer-team` (`launchctl bootout`, plist kept as a backup),
-turn on Quota Station's rotation. Nothing of claude-swap is removed.
+An explicit checklist in the README, run by the owner Mac by Mac: stop
+`com.cswap.prefer-team` (`launchctl bootout`, plist kept as a backup), import,
+turn on Quota Station's rotation, point Firstmate at `quota-station claude`.
+Until the older switcher is stopped, the app switches nothing and refreshes
+no token, so the two never rotate the same refresh token. Nothing of
+claude-swap is removed; the way back is to turn the app's rotation off and
+load the older switcher's plist again.

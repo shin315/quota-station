@@ -53,6 +53,11 @@ pub struct Endpoints {
 
 impl Endpoints {
     pub fn anthropic() -> Self {
+        // The tests talk to a local fake; one that reached for Anthropic stops
+        // here.
+        if cfg!(feature = "test-support") {
+            panic!("tests must use a fake Anthropic");
+        }
         Endpoints { usage: USAGE_URL.into(), token: TOKEN_URL.into() }
     }
 

@@ -1,9 +1,10 @@
 # Third-party notices
 
-Quota Station talks to quota-axi and claude-swap below: it runs them as
-separate programs and reads their output, and none of their source code is
-copied into this repository. Parts of its Antigravity login, quota
-reading and account switch are adapted from Cockpit Tools, parts of
+Quota Station runs quota-axi below as a separate program and reads its
+output; none of its source code is copied into this repository. The way it
+keeps the Claude accounts is adapted from claude-swap. Parts of its
+Antigravity login, quota reading and account switch are adapted from
+Cockpit Tools, parts of
 its Codex switch are ported from CC Switch, and its interface components
 are adapted from shadcn/ui; [`NOTICE`](NOTICE) lists those files and what
 was changed. The agents' and the services' logos come from svgl.
@@ -43,12 +44,15 @@ SOFTWARE.
 ## claude-swap
 
 - Project: https://github.com/realiti4/claude-swap
-- How it is used: the app reads claude-swap's numbers only through
-  quota-axi's `claudeSwap` and `claudePool` sidecars. To switch the active
-  Claude account it runs one command, `cswap switch N --json`, when the owner
-  confirms. It does not open claude-swap's files. The README's switch-over
-  checklist asks the owner to run `cswap menubar --uninstall-service` by
-  hand on each Mac; the app never runs it.
+- How it is used: Quota Station keeps the Claude accounts itself, and the
+  logic that touches Claude Code's login is adapted from claude-swap's
+  source: the `security` commands, Claude Code's Keychain items and lock
+  folders, the switch, the usage and token calls, the session folders,
+  adding a login or a setup token, and reading claude-swap's own folder for
+  `Nhập từ claude-swap`. [`NOTICE`](NOTICE) lists the files and what was
+  changed. The app runs no claude-swap command and never writes claude-swap's
+  files or Keychain items; the import only reads them, when the owner asks.
+  The README's cutover checklist leaves claude-swap installed.
 - License: MIT
 
 ```
