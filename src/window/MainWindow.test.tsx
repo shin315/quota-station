@@ -317,7 +317,8 @@ describe('a build without the author\'s tools', () => {
   it('the same Mac on a build with them keeps the tabs and the Firstmate line', async () => {
     await open(fixtureModel('fresh'), 'claude');
     for (const name of ['Luật xoay vòng', 'Firstmate', 'Chép sang Mac khác']) expect(nav(name)).toBeTruthy();
-    expect(screen.getByText(/Firstmate đọc `quota-station claude status --json`/)).toBeTruthy();
+    // The commands drawn as code, without their backticks.
+    expect(screen.getByText('quota-station claude status --json', { selector: 'code' }).closest('p')!.textContent).toMatch(/^Firstmate đọc quota-station claude status --json và chạy/);
   });
 });
 

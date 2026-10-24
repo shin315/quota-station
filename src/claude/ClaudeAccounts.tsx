@@ -9,7 +9,7 @@
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { CardText } from '@/components/ui/card';
-import { BannerBox, BannerButtons, Button, LinkButton, Toggle } from '../components/parts';
+import { BannerBox, BannerButtons, Button, LinkButton, Rich, Toggle } from '../components/parts';
 import { Icon } from '../components/icons';
 import { t } from '../lib/i18n';
 import { rotationMatters, rotationRow, setupText } from '../lib/claudeAccounts';
@@ -96,10 +96,13 @@ function Rotation({ view, claude, onAction, authorTools }: Props) {
       ) : null}
       {authorTools ? (
         <CardText className="mb-0 text-xs text-ink2">
-          {t(
-            'Firstmate đọc `quota-station claude status --json` và chạy `quota-station claude run N -- …`.',
-            'Firstmate reads `quota-station claude status --json` and runs `quota-station claude run N -- …`.',
-          )}
+          {/* The commands as code, not between backticks. */}
+          <Rich
+            text={t(
+              'Firstmate đọc `quota-station claude status --json` và chạy `quota-station claude run N -- …`.',
+              'Firstmate reads `quota-station claude status --json` and runs `quota-station claude run N -- …`.',
+            )}
+          />
         </CardText>
       ) : null}
     </div>

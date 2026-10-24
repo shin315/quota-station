@@ -65,11 +65,21 @@ export function AccountName(props: { name: string; sub: string; full: string; ch
   );
 }
 
+/** A window's name over its number, only where the table's head row is gone (a narrow page). */
+function CellName({ label }: { label: string }) {
+  return (
+    <small className="hidden truncate text-xs text-ink3 @max-[640px]/main:block" aria-hidden="true">
+      {label}
+    </small>
+  );
+}
+
 /** One window in a table cell: the share used, a bar under it, and when it resets. */
 export function WindowCell({ cell, dim }: { cell: CellView; dim?: boolean; tight?: boolean }) {
   if (cell.none) {
     return (
       <span className="wc min-w-0 tabular-nums" title={cell.title}>
+        <CellName label={cell.label} />
         <b className="block text-body font-reg text-ink3">—</b>
       </span>
     );
@@ -77,6 +87,7 @@ export function WindowCell({ cell, dim }: { cell: CellView; dim?: boolean; tight
   const tone = dim ? 'muted' : cell.tone;
   return (
     <span className="wc grid min-w-0 content-center gap-1 tabular-nums" title={cell.title}>
+      <CellName label={cell.label} />
       <b className={cn('block text-body font-semi', tone === 'warn' ? 'text-warn-ink' : tone === 'bad' ? 'text-bad-ink' : 'text-ink')}>{cell.text}</b>
       <Meter percent={cell.used} tone={tone} className="max-w-[132px]" />
       <small className="block overflow-hidden text-[13px] text-ellipsis whitespace-nowrap text-ink2">{cell.reset}</small>

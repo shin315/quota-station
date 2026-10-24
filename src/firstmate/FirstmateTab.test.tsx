@@ -10,10 +10,10 @@ import { MainWindowApp } from '../App';
 import { fakeApi } from '../fixtures/fakeApi';
 import { firstmateFixture, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
 import type { Api } from '../lib/api';
-import type { FirstmateView } from '../lib/model';
+import type { FirstmateView, Model } from '../lib/model';
 
-async function open(firstmate?: FirstmateView) {
-  const model = fixtureModel('fresh', firstmate ? { firstmate } : {});
+async function open(firstmate?: FirstmateView, language: Model['language'] = 'auto') {
+  const model = fixtureModel('fresh', { ...(firstmate ? { firstmate } : {}), language });
   const fake = fakeApi(model, 'firstmate');
   for (const name of Object.keys(fake.api) as (keyof Api)[]) vi.spyOn(fake.api, name);
   render(
@@ -84,5 +84,15 @@ describe('the Firstmate tab', () => {
     await open(firstmateFixture({ status: 'missing', line: null, writtenAt: null, fresh: false }));
     expect(screen.getByText('Không thấy firstmate trên máy này')).toBeTruthy();
     expect(screen.getByText('Không có file ~/example/quota-pool.last. Luật "cạn" vẫn tự tính từ số của app để báo.')).toBeTruthy();
+  });
+});
+
+describe('the Firstmate tab in English', () => {
+  it('has no Vietnamese left: the button and the card title', async () => {
+    await open(firstmateFixture(), 'en');
+    expect(screen.getByRole('heading', { name: 'What Firstmate sees' })).toBeTruthy();
+    cleanup();
+    await open(undefined, 'en');
+    expect(screen.getByRole('button', { name: 'Open Settings' })).toBeTruthy();
   });
 });

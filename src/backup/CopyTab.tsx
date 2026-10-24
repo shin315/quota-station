@@ -11,7 +11,6 @@
 import { Card as Panel, CardText, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Segment, Segmented } from '@/components/ui/segmented';
-import { cn } from '@/lib/utils';
 import { CheckRow, Progress, SETTING_ROW } from '../components/blocks';
 import { COUNT, Empty, EmptyIcon, GRID, STACK, TabHead, TabSub, TabTitle } from '../components/page';
 import { Banner, Button, Chip, Dot, Feedback, LinkButton, Toggle } from '../components/parts';
@@ -228,7 +227,7 @@ export function CopyTab({ model, feedback, copy, onAction }: CopyTabProps) {
         </Panel>
       ) : null}
       {copy.phase === 'diff' && copy.cmp ? (
-        <div className={cn(GRID, 'max-[860px]:grid-cols-[minmax(0,1fr)]')}>
+        <div className={GRID}>
           <div className={STACK}>
             <DiffList copy={copy} />
           </div>

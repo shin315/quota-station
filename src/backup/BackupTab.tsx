@@ -11,7 +11,6 @@ import { Card as Panel, CardText, CardTitle } from '@/components/ui/card';
 import { PACK_META, PACK_ROW, ROW_ACTIONS, SETTING_ROW } from '../components/blocks';
 import { COUNT, Empty, EmptyIcon, GRID, STACK, TabHead, TabSub, TabTitle } from '../components/page';
 import { Banner, Button, Chip, Dot, Feedback, LinkButton, Toggle } from '../components/parts';
-import { cn } from '@/lib/utils';
 import { clock } from '../lib/format';
 import { keysLine, macOf, packLine, packNote, packWhen, packWhenLower, autoErrorText, usable } from '../lib/backup';
 import { t } from '../lib/i18n';
@@ -148,7 +147,7 @@ export function BackupTab({ model, feedback, now, backup, onAction }: BackupTabP
           </Empty>
         </Panel>
       ) : (
-        <div className={cn(GRID, 'max-[860px]:grid-cols-[minmax(0,1fr)]')}>
+        <div className={GRID}>
           <div className={STACK}>
             {last ? (
               <Panel>

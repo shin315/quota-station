@@ -29,7 +29,7 @@ import { Segment, Segmented } from '@/components/ui/segmented';
 import { cn } from '@/lib/utils';
 import { AddAccount, LoginActions, LoginNotes, LogoutConfirm, loginChips, type AgyLogins } from '@agy/AgyAccounts';
 import { AccountName, IdMark, InUse, NowCard, WindowCell } from '../components/accounts';
-import { Empty, GRID2, STACK, TABLE, TABLE_HEAD, TABLE_ROW, TABLE_ROW_ON, TABLE_TIGHT, TabHead, TabSub, TabTitle } from '../components/page';
+import { Empty, GRID2, STACK, TABLE, TABLE_BOX, TABLE_CELLS, TABLE_END, TABLE_HEAD, TABLE_ROW, TABLE_ROW_ON, TABLE_TIGHT, TabHead, TabSub, TabTitle } from '../components/page';
 import { Banner, Button, Chip, CODE, Dot, Feedback, KVT, Toggle } from '../components/parts';
 import type { Tab } from '../lib/model';
 import { pauseOptions, type AutoView, type PauseChoice } from '../lib/switching';
@@ -264,14 +264,16 @@ function TableRow(props: { card: CardView; extra?: ReactNode; menu?: ReactNode; 
   return (
     <div className={cn(ROW, c.active && TABLE_ROW_ON, c.resting && 'bg-card-2')} role="listitem" aria-label={c.label} title={c.title || undefined}>
       <AccountName name={c.name} sub={c.sub} full={c.full} dot={c.active ? 'on' : c.resting ? 'rest' : 'off'} chips={[...c.chips, ...(props.chips ?? [])]} />
-      {c.cells.map((cell) => (
-        <WindowCell key={cell.label} cell={cell} dim={c.dim} />
-      ))}
-      <span className="flex items-center justify-end gap-1.5">
+      <span className={TABLE_CELLS}>
+        {c.cells.map((cell) => (
+          <WindowCell key={cell.label} cell={cell} dim={c.dim} />
+        ))}
+      </span>
+      <span className={cn('flex flex-wrap items-center justify-end gap-1.5', TABLE_END)}>
         <SwitchCell card={c} onSwitch={props.onSwitch} />
         {props.extra}
       </span>
-      {props.menu !== undefined ? <span className="flex justify-end">{props.menu}</span> : null}
+      {props.menu !== undefined ? <span className={cn('flex justify-end', TABLE_END)}>{props.menu}</span> : null}
     </div>
   );
 }
@@ -280,22 +282,25 @@ function TableRow(props: { card: CardView; extra?: ReactNode; menu?: ReactNode; 
 function ClaudeTable(props: { cards: CardView[]; tight?: boolean; menu?(card: CardView): ReactNode; onSwitch(slot: number): void }) {
   if (!props.cards.length) return null;
   // Whole class names, so Tailwind finds them; the Claude tab adds the ⋯ column.
+  // The buttons' column is as wide as the widest row's buttons.
   const cols = props.menu
-    ? '[--wt-cols:minmax(120px,1.4fr)_repeat(3,minmax(72px,1fr))_112px_28px]'
-    : '[--wt-cols:minmax(120px,1.4fr)_repeat(3,minmax(72px,1fr))_112px]';
+    ? '[--wt-cols:minmax(120px,1.4fr)_repeat(3,minmax(72px,1fr))_auto_28px]'
+    : '[--wt-cols:minmax(120px,1.4fr)_repeat(3,minmax(72px,1fr))_auto]';
   return (
-    <div className={cn(TABLE, cols, props.tight && TABLE_TIGHT)} role="list" aria-label="Claude Code">
-      <div className={HEAD} aria-hidden="true">
-        <span>{t('Tài khoản', 'Account')}</span>
-        <span>{t('5 giờ', '5-hour')}</span>
-        <span>{t('Tuần', 'Week')}</span>
-        <span>{t('Fable tuần', 'Fable week')}</span>
-        <span />
-        {props.menu ? <span /> : null}
+    <div className={cn(TABLE_BOX, props.tight && TABLE_TIGHT)}>
+      <div className={cn(TABLE, cols)} role="list" aria-label="Claude Code">
+        <div className={HEAD} aria-hidden="true">
+          <span>{t('Tài khoản', 'Account')}</span>
+          <span>{t('5 giờ', '5-hour')}</span>
+          <span>{t('Tuần', 'Week')}</span>
+          <span>{t('Fable tuần', 'Fable week')}</span>
+          <span />
+          {props.menu ? <span /> : null}
+        </div>
+        {props.cards.map((c) => (
+          <TableRow key={c.key} card={c} tight={props.tight} menu={props.menu ? props.menu(c) : undefined} onSwitch={props.onSwitch} />
+        ))}
       </div>
-      {props.cards.map((c) => (
-        <TableRow key={c.key} card={c} tight={props.tight} menu={props.menu ? props.menu(c) : undefined} onSwitch={props.onSwitch} />
-      ))}
     </div>
   );
 }
@@ -308,56 +313,55 @@ function AgyTable(props: { cards: CardView[]; logins?: AgyLogins; tight?: boolea
   if (!props.cards.length) return null;
   const four = props.cards.every((c) => c.cells.length === 4);
   const logins = props.logins;
-  // Whole class names, so Tailwind finds them.
+  // Whole class names, so Tailwind finds them. The buttons' column (Chuyển, and
+  // with the logins the verification page and Đăng xuất) is as wide as the widest row's.
   const cols = four
-    ? logins
-      ? '[--wt-cols:minmax(120px,1.6fr)_repeat(4,minmax(62px,1fr))_190px]'
-      : '[--wt-cols:minmax(120px,1.6fr)_repeat(4,minmax(62px,1fr))_112px]'
-    : logins
-      ? '[--wt-cols:minmax(120px,1.3fr)_repeat(2,minmax(72px,1fr))_190px]'
-      : '[--wt-cols:minmax(120px,1.3fr)_repeat(2,minmax(72px,1fr))_112px]';
+    ? '[--wt-cols:minmax(120px,1.6fr)_repeat(4,minmax(62px,1fr))_auto]'
+    : '[--wt-cols:minmax(120px,1.3fr)_repeat(2,minmax(72px,1fr))_auto]';
   return (
-    <div className={cn(TABLE, cols, props.tight && TABLE_TIGHT)} role="list" aria-label="Antigravity">
-      {four ? (
-        <>
-          <div className={cn(HEAD, 'pb-0 text-ink2')} aria-hidden="true">
-            <span />
-            <span className={GROUP}>Gemini</span>
-            <span className={GROUP}>Claude/GPT</span>
-            <span />
-          </div>
-          <div className={cn(HEAD, 'rounded-none pt-px')} aria-hidden="true">
+    <div className={cn(TABLE_BOX, props.tight && TABLE_TIGHT)}>
+      <div className={cn(TABLE, cols)} role="list" aria-label="Antigravity">
+        {four ? (
+          <>
+            <div className={cn(HEAD, 'pb-0 text-ink2')} aria-hidden="true">
+              <span />
+              <span className={GROUP}>Gemini</span>
+              <span className={GROUP}>Claude/GPT</span>
+              <span />
+            </div>
+            <div className={cn(HEAD, 'rounded-none pt-px')} aria-hidden="true">
+              <span>{t('Tài khoản', 'Account')}</span>
+              <span>{t('5 giờ', '5-hour')}</span>
+              <span>{t('Tuần', 'Week')}</span>
+              <span>{t('5 giờ', '5-hour')}</span>
+              <span>{t('Tuần', 'Week')}</span>
+              <span />
+            </div>
+          </>
+        ) : (
+          <div className={HEAD} aria-hidden="true">
             <span>{t('Tài khoản', 'Account')}</span>
-            <span>{t('5 giờ', '5-hour')}</span>
-            <span>{t('Tuần', 'Week')}</span>
-            <span>{t('5 giờ', '5-hour')}</span>
-            <span>{t('Tuần', 'Week')}</span>
+            <span>Gemini</span>
+            <span>Claude/GPT</span>
             <span />
           </div>
-        </>
-      ) : (
-        <div className={HEAD} aria-hidden="true">
-          <span>{t('Tài khoản', 'Account')}</span>
-          <span>Gemini</span>
-          <span>Claude/GPT</span>
-          <span />
-        </div>
-      )}
-      {props.cards.map((c) => {
-        const row = logins?.rows.find((r) => r.number === c.slot);
-        return (
-          <Fragment key={c.key}>
-            <TableRow
-              card={c}
-              tight={props.tight}
-              chips={loginChips(row)}
-              extra={logins && row ? <LoginActions logins={logins} row={row} /> : null}
-              onSwitch={props.onSwitch}
-            />
-            {logins && row && logins.confirm === row.id ? <LogoutConfirm logins={logins} row={row} inTable /> : null}
-          </Fragment>
-        );
-      })}
+        )}
+        {props.cards.map((c) => {
+          const row = logins?.rows.find((r) => r.number === c.slot);
+          return (
+            <Fragment key={c.key}>
+              <TableRow
+                card={c}
+                tight={props.tight}
+                chips={loginChips(row)}
+                extra={logins && row ? <LoginActions logins={logins} row={row} /> : null}
+                onSwitch={props.onSwitch}
+              />
+              {logins && row && logins.confirm === row.id ? <LogoutConfirm logins={logins} row={row} inTable /> : null}
+            </Fragment>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -749,7 +753,7 @@ export function MainWindow(props: MainWindowProps) {
       {/* The window's top edge drags it, over the sidebar and the page alike, as a title bar would. */}
       <div className="dragbar absolute top-0 right-0 left-0 z-10 h-4" data-tauri-drag-region aria-hidden="true" />
       {props.setup ? (
-        <main className="main material-main relative flex min-w-0 overflow-y-auto" inert={open}>
+        <main className="main material-main @container/main relative flex min-w-0 overflow-y-auto" inert={open}>
           {props.setup}
         </main>
       ) : (
@@ -792,7 +796,13 @@ export function MainWindow(props: MainWindowProps) {
           height can stop 36 px short of the bottom (100% − 120 px of the window). */}
       <Dialog open={open}>
         {open ? (
-          <DialogOverlay className={cn('z-30 grid grid-rows-[minmax(0,1fr)] items-start justify-items-center rounded-[inherit] pt-[84px]', !props.setup && 'pl-(--side-w)')}>
+          <DialogOverlay
+            className={cn(
+              'z-30 grid grid-rows-[minmax(0,1fr)] items-start justify-items-center rounded-[inherit] pt-[84px] [@media(max-height:640px)]:pt-6',
+              // Beside the sidebar where the widest dialog fits there; over the whole window, as the old one stood, where it does not.
+              !props.setup && 'min-[960px]:pl-(--side-w)',
+            )}
+          >
             <DialogContent size={props.dialogSize ?? 'wide'} className="max-h-[calc(100%-36px)]">{props.dialog}</DialogContent>
           </DialogOverlay>
         ) : null}
