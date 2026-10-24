@@ -212,6 +212,12 @@ pub fn set_theme(
     Ok(state.lock().model())
 }
 
+/// Whether macOS reduces transparency: the page shows the solid ground.
+#[tauri::command]
+pub fn reduce_transparency() -> bool {
+    windows::reduce_transparency()
+}
+
 /// Reads Claude Code's Keychain item once with the owner at hand: macOS may
 /// show its own prompt, and the read waits for the answer. Runs only when
 /// the owner presses the button; afterwards the timed reads read the item

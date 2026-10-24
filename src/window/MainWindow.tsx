@@ -104,7 +104,7 @@ function Sidebar(props: { tab: Tab; machine: string; note: string | null; alerts
     n[0] === '-' && n[1] === 'Tự động' && !props.advanced ? ['-', 'Theo dõi'] : n,
   );
   return (
-    <nav className="m-0 flex min-h-0 flex-col gap-px rounded-none bg-transparent px-2.5 pt-5 pb-2.5" aria-label="Mục" data-tauri-drag-region>
+    <nav className="material-side m-0 flex min-h-0 flex-col gap-px rounded-none border-r border-line px-2.5 pt-5 pb-2.5" aria-label="Mục" data-tauri-drag-region>
       {/* macOS draws the window's traffic lights here; the browser preview draws the prototype's. */}
       <div className="flex min-h-3.5 items-center gap-[7px] px-3 pb-3.5" data-tauri-drag-region aria-hidden="true">
         <i className={LIGHT + ' bg-[#ff5f57]'} />
@@ -567,7 +567,7 @@ export function MainWindow(props: MainWindowProps) {
           advanced={props.advanced}
           onTab={props.onTab}
         />
-        <main className="main relative flex min-w-0 flex-col gap-3 overflow-y-auto pt-4 pr-[22px] pb-[22px] pl-3.5">
+        <main className="main material-main relative flex min-w-0 flex-col gap-3 overflow-y-auto pt-4 pr-[22px] pb-[22px] pl-3.5">
           {tab === 'overview' ? <Overview {...tabProps} advanced={props.advanced} /> : null}
           {tab === 'stats' ? props.stats : null}
           {tab === 'claude' ? <ClaudeTab {...tabProps} advanced={props.advanced} /> : null}

@@ -273,7 +273,7 @@ export function Popover({ view, codex = null, auto, sync = null, feedback, busy,
   return (
     <div
       data-slot="popover"
-      className="material-pop relative flex max-h-screen w-full max-w-full flex-col overflow-hidden rounded-pop shadow-[var(--sh-pop),inset_0_0_0_.5px_var(--glass-line)] in-[.preview]:max-h-(--pop-max)"
+      className="material-pop relative flex max-h-screen w-full max-w-full flex-col overflow-hidden rounded-pop in-[.preview]:max-h-(--pop-max-h)"
       role="dialog"
       aria-label="Quota Station"
     >

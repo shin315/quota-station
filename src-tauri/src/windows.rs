@@ -3,6 +3,7 @@
 
 //! The popover under the menu bar item and the main window.
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use tauri::window::{Effect, EffectState, EffectsBuilder};
@@ -17,15 +18,15 @@ use crate::state::{AppState, Tab};
 pub const POPOVER: &str = "popover";
 pub const MAIN: &str = "main";
 /// `--pop-w` in the design tokens.
-const POPOVER_WIDTH: f64 = 348.0;
-/// `--pop-max`: never taller than a 13" MacBook Air screen allows.
+const POPOVER_WIDTH: f64 = 360.0;
+/// `--pop-max-h`: never taller than a 13" MacBook Air screen allows.
 const POPOVER_MAX_HEIGHT: f64 = 820.0;
 /// A click on the menu bar item first takes focus from an open popover,
 /// which hides it; the click that follows must not open it again.
 const REOPEN_GUARD: Duration = Duration::from_millis(300);
-/// `--win-w` and `--win-h` in the design tokens, a little taller for the
-/// title bar the page draws under.
-const MAIN_SIZE: (f64, f64) = (980.0, 660.0);
+/// `--win-w` and `--win-h` in the design tokens: the page draws under the
+/// title bar, so the window is the size the design was drawn at.
+const MAIN_SIZE: (f64, f64) = (1152.0, 864.0);
 const MAIN_MIN_SIZE: (f64, f64) = (760.0, 480.0);
 /// The traffic lights sit inside the sidebar, where the prototype draws them.
 const TRAFFIC_LIGHTS: (f64, f64) = (22.0, 26.0);
@@ -36,6 +37,46 @@ fn popover(app: &AppHandle) -> Option<WebviewWindow> {
 
 fn main_window(app: &AppHandle) -> Option<WebviewWindow> {
     app.get_webview_window(MAIN)
+}
+
+/// macOS's Reduce Transparency as the windows last heard it.
+static REDUCE_TRANSPARENCY: AtomicBool = AtomicBool::new(false);
+
+/// Whether macOS reduces transparency (System Settings › Accessibility ›
+/// Display). Its own materials then draw solid, and the page shows the
+/// solid ground instead of the glass tint.
+#[cfg(target_os = "macos")]
+pub fn reduce_transparency() -> bool {
+    use objc2::msg_send;
+    use objc2::runtime::{AnyClass, AnyObject, Bool};
+    let Some(class) = AnyClass::get(c"NSWorkspace") else { return false };
+    // SAFETY: `+[NSWorkspace sharedWorkspace]` returns the shared instance,
+    // and the property is a plain BOOL getter on it.
+    unsafe {
+        let workspace: *mut AnyObject = msg_send![class, sharedWorkspace];
+        if workspace.is_null() {
+            return false;
+        }
+        let on: Bool = msg_send![workspace, accessibilityDisplayShouldReduceTransparency];
+        let on = on.as_bool();
+        REDUCE_TRANSPARENCY.store(on, Ordering::Relaxed);
+        on
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn reduce_transparency() -> bool {
+    false
+}
+
+/// A window came forward: the owner may have changed Reduce Transparency
+/// while it was behind, so both windows hear the setting when it changed.
+fn check_material(app: &AppHandle) {
+    let before = REDUCE_TRANSPARENCY.load(Ordering::Relaxed);
+    let now = reduce_transparency();
+    if now != before {
+        let _ = app.emit("reduceTransparency", now);
+    }
 }
 
 /// Tells the schedule what is on screen, and reads when a window just opened.
@@ -88,10 +129,14 @@ pub fn hide_popover(app: &AppHandle) {
 
 /// The popover closes when it loses focus, like a system popover.
 pub fn on_popover_event(app: &AppHandle, event: &WindowEvent) {
-    if let WindowEvent::Focused(false) = event {
-        if popover(app).is_some_and(|w| w.is_visible().unwrap_or(false)) {
-            hide_popover(app);
+    match event {
+        WindowEvent::Focused(false) => {
+            if popover(app).is_some_and(|w| w.is_visible().unwrap_or(false)) {
+                hide_popover(app);
+            }
         }
+        WindowEvent::Focused(true) => check_material(app),
+        _ => {}
     }
 }
 
@@ -128,12 +173,13 @@ pub fn open_main(app: &AppHandle, tab: Tab) {
         .title_bar_style(TitleBarStyle::Overlay)
         .hidden_title(true)
         .traffic_light_position(LogicalPosition::new(TRAFFIC_LIGHTS.0, TRAFFIC_LIGHTS.1))
-        // One sheet of glass: macOS draws the popover's material behind the
-        // whole window, and the page lays the same glass tint on top.
+        // The clear glass of style Q13: macOS draws the sidebar's material
+        // behind the whole window and blurs the desktop; the page lays the
+        // measured glass tint of the sidebar and the page on top of it.
         .transparent(true)
         .effects(
             EffectsBuilder::new()
-                .effect(Effect::Popover)
+                .effect(Effect::Sidebar)
                 .state(EffectState::FollowsWindowActiveState)
                 .build(),
         )
@@ -150,6 +196,7 @@ pub fn open_main(app: &AppHandle, tab: Tab) {
                 api.prevent_close();
                 let _ = handle.emit_to(MAIN, "closeRequested", ());
             }
+            WindowEvent::Focused(true) => check_material(&handle),
             WindowEvent::Destroyed => {
                 let popover = popover(&handle).is_some_and(|w| w.is_visible().unwrap_or(false));
                 handle.state::<AppState>().lock().set_visible(popover, false);
@@ -197,5 +244,18 @@ pub fn quit(app: &AppHandle) {
     open_main(app, Tab::Rules);
     if let Some(window) = main_window(app) {
         let _ = window.emit_to(MAIN, "quitRequested", ());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The call reaches AppKit's real property, whose type objc2 checks in a
+    /// debug build, and keeps what it read for `check_material`.
+    #[test]
+    fn reads_reduce_transparency_from_macos() {
+        let on = reduce_transparency();
+        assert_eq!(REDUCE_TRANSPARENCY.load(Ordering::Relaxed), on);
     }
 }

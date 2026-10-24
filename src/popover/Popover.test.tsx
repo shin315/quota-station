@@ -142,6 +142,23 @@ describe('popover', () => {
     expect(screen.getByText('· cập nhật 41 phút trước')).toBeTruthy();
   });
 
+  it('shows the glass, and the solid ground while macOS reduces transparency', async () => {
+    const fake = fakeApi(fixtureModel('fresh'), 'overview', { reduceTransparency: true });
+    render(
+      <div className="qs app-popover" data-material="glass">
+        <PopoverApp api={fake.api} clock={clock} />
+      </div>,
+    );
+    await screen.findByRole('dialog', { name: 'Quota Station' });
+    const root = document.querySelector<HTMLElement>('.qs')!;
+    expect(document.documentElement.dataset.material).toBe('solid');
+    expect(root.dataset.material).toBe('solid');
+    // The owner turns it off in macOS's settings and comes back to the popover.
+    act(() => fake.setReduceTransparency(false));
+    expect(document.documentElement.dataset.material).toBe('glass');
+    expect(root.dataset.material).toBe('glass');
+  });
+
   it('one header button turns the look dark or light, the other opens the main window; Escape hides', async () => {
     const fake = await open(fixtureModel('fresh', { theme: 'light' }));
     expect(screen.queryByRole('button', { name: 'Cài đặt' })).toBeNull();

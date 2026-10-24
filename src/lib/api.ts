@@ -371,6 +371,10 @@ export interface Api {
   onModel(handler: (model: Model) => void): Promise<() => void>;
   /** The main window is asked to show a tab while it is open. */
   onTab(handler: (tab: Tab) => void): Promise<() => void>;
+  /** Whether macOS reduces transparency (Accessibility › Display): the windows then show the solid ground. */
+  reduceTransparency(): Promise<boolean>;
+  /** macOS's Reduce Transparency changed, as a window learns when it comes forward. */
+  onReduceTransparency(handler: (on: boolean) => void): Promise<() => void>;
 }
 
 export const tauriApi: Api = {
@@ -508,5 +512,7 @@ export const tauriApi: Api = {
   relaunch: () => invoke('relaunch'),
   onOpenSwitch: (handler) => listen<number>('openSwitch', (event) => handler(event.payload)),
   onModel: (handler) => listen<Model>('model', (event) => handler(event.payload)),
+  reduceTransparency: () => invoke<boolean>('reduce_transparency'),
+  onReduceTransparency: (handler) => listen<boolean>('reduceTransparency', (event) => handler(event.payload)),
   onTab: (handler) => listen<Tab>('tab', (event) => handler(event.payload)),
 };

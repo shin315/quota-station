@@ -116,6 +116,34 @@ export function useTheme(theme: Theme | undefined): boolean {
 }
 
 /**
+ * The clear glass, or the solid ground while macOS reduces transparency:
+ * `data-material` on the page drives the glass tokens. macOS says so itself
+ * (WebKit's media query cannot be counted on), when the window opens and
+ * whenever it comes forward after the setting changed.
+ */
+export function useMaterial(api: Api) {
+  useEffect(() => {
+    let live = true;
+    let stop: (() => void) | undefined;
+    const apply = (reduce: boolean) => {
+      if (!live) return;
+      const material = reduce ? 'solid' : 'glass';
+      document.documentElement.dataset.material = material;
+      document.querySelectorAll<HTMLElement>('.qs[data-material]').forEach((el) => (el.dataset.material = material));
+    };
+    void api.reduceTransparency().then(apply, () => {});
+    void api.onReduceTransparency(apply).then((unlisten) => {
+      if (live) stop = unlisten;
+      else unlisten();
+    });
+    return () => {
+      live = false;
+      stop?.();
+    };
+  }, [api]);
+}
+
+/**
  * The line after an action. It belongs to the tab it was asked from (`where`
  * says which tab is on screen when it is shown) and shows only there. A line
  * that only says something went well goes after six seconds; one with
@@ -460,6 +488,7 @@ const refusal = (call: Promise<unknown>): Promise<string | null> =>
 export function PopoverApp({ api, clock = systemClock }: AppProps) {
   const model = useModel(api);
   const dark = useTheme(model?.theme);
+  useMaterial(api);
   const now = useNow(clock);
   const [feedback, showFeedback] = useFeedback();
   const [keychainLater, setKeychainLater] = useState(false);
@@ -548,6 +577,7 @@ export function PopoverApp({ api, clock = systemClock }: AppProps) {
 export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   const model = useModel(api);
   useTheme(model?.theme);
+  useMaterial(api);
   const now = useNow(clock);
   const [keychainLater, setKeychainLater] = useState(false);
   const [tab, setTab] = useState<Tab | null>(null);
