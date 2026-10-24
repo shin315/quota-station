@@ -212,6 +212,29 @@ pub fn set_theme(
     Ok(state.lock().model())
 }
 
+/// The first run's last step: it does not show again, and the app opens
+/// where its owner chose, the main window or the popover under the menu bar.
+#[tauri::command]
+pub fn finish_setup(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    open: String,
+) -> Result<Model, String> {
+    {
+        let mut inner = state.lock();
+        let mut settings = inner.settings.clone();
+        settings.setup_seen = true;
+        settings.save(&inner.settings_file).map_err(|e| e.to_string())?;
+        inner.settings = settings;
+    }
+    reader::publish(&app, &state);
+    if open == "popover" {
+        windows::close_main(&app);
+        windows::show_popover(&app);
+    }
+    Ok(state.lock().model())
+}
+
 /// Sets the windows' language, or back to macOS's.
 #[tauri::command]
 pub fn set_language(

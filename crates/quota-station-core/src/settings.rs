@@ -101,6 +101,10 @@ pub struct Settings {
     pub advanced: bool,
     /// The Firstmate tab and alert 5, inside Nâng cao. Always written.
     pub firstmate: bool,
+    /// The first run's steps were gone through, or skipped: the main window
+    /// no longer opens on them. Always written, so a new install stays new
+    /// until its owner finishes them.
+    pub setup_seen: bool,
 }
 
 /// Alert 1: the account in use has `dry_at_most` percent left or less, and
@@ -358,6 +362,9 @@ struct Stored {
     advanced: Option<bool>,
     #[serde(default)]
     firstmate: Option<bool>,
+    /// Missing in a file an older version wrote: that Mac had the app, so seen.
+    #[serde(default)]
+    setup_seen: Option<bool>,
 }
 
 impl From<Stored> for Settings {
@@ -416,6 +423,7 @@ impl From<Stored> for Settings {
                 .unwrap_or_default(),
             advanced: s.advanced.unwrap_or(true),
             firstmate: s.firstmate.unwrap_or(true),
+            setup_seen: s.setup_seen.unwrap_or(true),
         }
     }
 }
@@ -492,7 +500,8 @@ impl Settings {
     /// The settings at start. The first time this version runs it settles
     /// whether the Mac is new to the app: one that already has this file, or
     /// anything else in the app's folder, had the app before and keeps it as
-    /// it was, Nâng cao and Firstmate on; a new one starts with both off.
+    /// it was, Nâng cao and Firstmate on and no first run; a new one starts
+    /// with both off and opens on the first run's steps.
     /// The answer is written at once, so what the app puts in its folder
     /// afterwards never makes a new install look like an older one.
     pub fn open(file: &Path) -> Self {
@@ -506,6 +515,7 @@ impl Settings {
         let mut settings = Settings::load(file);
         settings.advanced = had_app;
         settings.firstmate = had_app;
+        settings.setup_seen = had_app;
         // A file there that cannot be read is never written over. Unsaved,
         // the next start asks again and finds the same answer.
         if json.is_some() || !file.exists() {

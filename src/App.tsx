@@ -33,6 +33,7 @@ import { DiagDialogBody, ReleaseDialogBody } from './release/ReleaseParts';
 import { useRelease } from './release/useRelease';
 import { ClaudeDialogBody } from './claude/ClaudeDialogs';
 import { useClaudeAccounts } from './claude/useClaudeAccounts';
+import { Feedback } from './components/parts';
 import { SheetBody, type SheetState } from './components/Sheets';
 import { agyLoginOf, agySwitchErrorFeedback, agySwitchFeedback, type AppAnswer } from '@agy/agySwitch';
 import { codexErrorFeedback, codexFeedback, codexRow, codexRestartFeedback, keyFeedback, nextTarget, pluginsNeedApply } from './lib/codex';
@@ -63,6 +64,7 @@ import { useRules } from './rules/useRules';
 import { EnvListBody, useEnv } from './settings/EnvCard';
 import { Settings } from './settings/Settings';
 import { MainWindow } from './window/MainWindow';
+import { Setup } from './setup/Setup';
 
 /** Feedback lines without buttons clear themselves after this long. */
 const FEEDBACK_MS = 8000;
@@ -934,8 +936,29 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       agyAccounts={model.capabilities.agyAccounts}
       agyLogins={agyLogins}
       claude={claudeManage({ view: model.claudeAccounts, claude, advanced: model.advanced.on, onAction, authorTools: model.capabilities.authorTools })}
-      dialog={dialog}
+      // The first run waits for the browser on its own page, not in a dialog.
+      dialog={model.firstRun && claude.dialog?.kind === 'wait' ? null : dialog}
       dialogSize={dialogSize}
+      setup={
+        model.firstRun ? (
+          <Setup
+            model={model}
+            claude={claude}
+            busy={busy}
+            notice={feedback && feedback.tone === 'bad' ? <Feedback fb={feedback} onAction={onAction} /> : null}
+            onAction={onAction}
+            onLanguage={(language) => void api.setLanguage(language).catch(() => showFeedback(settingsFailedFeedback()))}
+            onAddCurrent={() => void api.claudeAddCurrent().catch(() => {})}
+            onSetAlias={(slot, alias) => void api.claudeSetAlias(slot, alias).catch(() => showFeedback(settingsFailedFeedback()))}
+            onRemove={(slot) => void api.claudeRemove(slot).catch(() => showFeedback(settingsFailedFeedback()))}
+            onLaunchAtLogin={(on) => refusal(api.setLaunchAtLogin(on))}
+            onOpenLoginItems={() => void api.openLoginItems().catch(() => showFeedback(settingsFailedFeedback()))}
+            onMenubar={(menubar) => void api.setMenubar(menubar).catch(() => showFeedback(settingsFailedFeedback()))}
+            onMenubarWindow={(window) => void api.setMenubarWindow(window).catch(() => showFeedback(settingsFailedFeedback()))}
+            onFinish={(open) => void api.finishSetup(open).catch(() => showFeedback(settingsFailedFeedback()))}
+          />
+        ) : undefined
+      }
     />
   );
 }

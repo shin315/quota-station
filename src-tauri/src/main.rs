@@ -110,8 +110,13 @@ fn main() {
             state.lock().center = Some(std::sync::Arc::new(alerting::start_center(app.handle())));
 
             let theme = state.lock().settings.theme;
+            let first_run = !state.lock().settings.setup_seen;
             windows::apply_theme(app.handle(), theme);
             tray::build(app)?;
+            // A new install opens on the first run's steps, once.
+            if first_run {
+                windows::open_main(app.handle(), Tab::Overview);
+            }
             if let Some(popover) = app.get_webview_window(windows::POPOVER) {
                 let handle = app.handle().clone();
                 popover.on_window_event(move |event| windows::on_popover_event(&handle, event));
@@ -158,6 +163,7 @@ commands![
     commands::set_show_names,
     commands::set_theme,
     commands::set_language,
+    commands::finish_setup,
     commands::reduce_transparency,
     commands::set_menubar,
     commands::set_menubar_window,
@@ -506,6 +512,7 @@ mod tests {
             "set_pool_alert",
             "claude_set_rotation",
             "set_launch_at_login",
+            "finish_setup",
         ] {
             assert!(names.contains(&command), "{command}");
         }

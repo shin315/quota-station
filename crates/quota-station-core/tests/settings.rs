@@ -38,6 +38,7 @@ fn settings_round_trip_and_default_when_missing() {
         pool_alert: PoolAlert { dry_at_most: 5, room_at_least: 20 },
         advanced: true,
         firstmate: false,
+        setup_seen: true,
     };
     s.save(&file).unwrap();
     assert_eq!(Settings::load(&file), s);
@@ -256,17 +257,24 @@ fn a_new_install_starts_without_nang_cao_and_stays_new() {
     let s = Settings::open(&file);
     assert!(!s.advanced, "Nâng cao is off on a new install");
     assert!(!s.firstmate, "and Firstmate with it");
+    assert!(!s.setup_seen, "the main window opens on the first run's steps");
     assert_eq!(s.pool_alert, PoolAlert { dry_at_most: 10, room_at_least: 15 });
     assert_eq!(s.backup_dir, None, "iCloud Drive until another folder is chosen");
     // The answer is written at once…
     let text = std::fs::read_to_string(&file).unwrap();
     assert!(text.contains("\"advanced\": false"), "{text}");
     assert!(text.contains("\"firstmate\": false"), "{text}");
+    assert!(text.contains("\"setupSeen\": false"), "{text}");
     // …so the files the app writes next never make it look like an older install.
     std::fs::create_dir_all(dir.join("alerts")).unwrap();
     std::fs::write(dir.join("alerts/alerts.json"), "{}").unwrap();
     let again = Settings::open(&file);
     assert!(!again.advanced && !again.firstmate);
+    assert!(!again.setup_seen, "until its owner finishes the steps");
+    let mut seen = again.clone();
+    seen.setup_seen = true;
+    seen.save(&file).unwrap();
+    assert!(Settings::open(&file).setup_seen);
     // Alerts 2 and 5 stay quiet while Nâng cao is off, whatever their switches say.
     let mut on = again;
     on.alerts.leaving = true;
@@ -311,6 +319,7 @@ fn a_mac_that_had_the_app_keeps_everything_as_it_was() {
     .unwrap();
     let s = Settings::open(&file);
     assert!(s.advanced && s.firstmate, "the tabs and alerts stay as they were");
+    assert!(s.setup_seen, "and no first run");
     #[cfg(feature = "author-tools")]
     {
         assert_eq!(s.alert_switches(), s.alerts);
@@ -322,6 +331,11 @@ fn a_mac_that_had_the_app_keeps_everything_as_it_was() {
     assert_eq!(s.backup_dir, None, "the packs stay in iCloud Drive");
     let text = std::fs::read_to_string(&file).unwrap();
     assert!(text.contains("\"advanced\": true") && text.contains("mac-b"), "{text}");
+    // A file the version before this one wrote, Nâng cao settled: no first run either.
+    let earlier = Settings::open(&file);
+    std::fs::write(&file, r#"{ "advanced": false, "firstmate": false }"#).unwrap();
+    assert!(Settings::open(&file).setup_seen);
+    earlier.save(&file).unwrap();
     // Turned off later in Cài đặt, it stays off.
     let mut off = s;
     off.advanced = false;

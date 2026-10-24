@@ -11,6 +11,8 @@
 // GitHub Releases: `release=avail|later|skipped|offline|none|off` (up to date by default); "Kiểm bản mới"
 // takes 1.5 s and finds 0.3.0, or `releasefinds=offline`. `build=release` is the downloaded app
 // (no author's tools, no Antigravity accounts), whose dialog offers the DMG.
+// The first run: `setup=on` (the fixture's Mac, its accounts not kept yet: the one signed in is
+// taken at the Claude step), `setup=signedout` (Claude Code signed in to none), `setup=none` (no agent).
 // Rotation rules (M5): `tab=rules` with `rotation=unreachable|newer|edited|unstamped|missing|invalid|unwritable|single`;
 // a save takes 1 s, and `unreachable` leaves Mac C behind.
 // Antigravity logins (M4a) and reads (M4b): `agy=two|relogin|verify|noclient|tooopen|invalid|broken|reading|failing|forbidden`
@@ -423,7 +425,18 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
     const peers = copy === 'none' ? [] : [peerFixture('MacBook Air', 'travel-air'), peerFixture('Studio iMac', 'studio-imac')];
     over.rotation = rotationFixture({ peers });
   }
+  const setup = params.get('setup');
+  if (setup) over.claudeAccounts = claudeAccountsFixture({ accounts: [], ready: false });
   const model = fixtureModel(SNAPSHOTS[state] ? state : 'fresh', over);
+  if (setup) {
+    model.firstRun = true;
+    if (setup === 'signedout' || setup === 'none') for (const a of model.snapshot.claude.accounts) a.active = false;
+    if (setup === 'none') {
+      model.snapshot.claude = { ...model.snapshot.claude, status: 'notSetUp', accounts: [] };
+      model.snapshot.agy = { ...model.snapshot.agy, status: 'notSetUp', accounts: [] };
+      model.codex = { ...model.codex, present: false };
+    }
+  }
   if (params.get('agyhot') === 'on') {
     for (const a of model.snapshot.agy.accounts.filter((x) => x.active)) {
       a.windows = a.windows.map((w) => (w.kind === 'claudeGptWeek' ? { ...w, percent: 14 } : w));

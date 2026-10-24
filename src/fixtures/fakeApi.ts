@@ -283,6 +283,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
   let lastCopy: CopyComparison | null = null;
   /** The pages "Tải và cài", "Mở trang Releases" and the bug form opened. */
   const released: string[] = [];
+  const finished: string[] = [];
   /** "Bỏ qua" keeps what it hid, for "Hoàn tác"; "Mở file" what it opened. */
   const envHidden = new Map<string, EnvFound>();
   const envOpened: string[] = [];
@@ -1378,6 +1379,11 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       push({ ...model, language });
       return model;
     },
+    finishSetup: async (open) => {
+      finished.push(open);
+      push({ ...model, firstRun: false });
+      return model;
+    },
     setTheme: async (theme) => {
       push({ ...model, theme });
       return model;
@@ -1433,6 +1439,8 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
     envOpened: () => envOpened,
     /** What the release buttons opened: `download`, `notes`, `releases`, `issue`. */
     released: () => released,
+    /** Where the first run's last step opened the app: `window` or `popover`. */
+    finished: () => finished,
   };
 }
 

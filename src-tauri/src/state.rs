@@ -597,6 +597,7 @@ impl Inner {
             backup: crate::backup::view(self),
             skills: crate::skills::skills_view(self),
             release: crate::release::view(self),
+            first_run: !self.settings.setup_seen,
             plugins: crate::skills::plugins_view(self),
             instructions: crate::skills::instr_view(self),
             env: crate::env::view(self),
@@ -744,6 +745,8 @@ pub struct Model {
     pub skills: crate::skills::SkillsView,
     /// A newer version on GitHub Releases.
     pub release: crate::release::ReleaseView,
+    /// A new install: the main window shows the first run's steps.
+    pub first_run: bool,
     pub plugins: crate::skills::PluginsView,
     pub instructions: crate::skills::InstrView,
     /// The variables that override a login (M14).

@@ -1126,6 +1126,8 @@ export interface Model {
   skills: SkillsView;
   /** A newer version on GitHub Releases. */
   release: ReleaseView;
+  /** A new install: the main window shows the first run's steps. */
+  firstRun: boolean;
   plugins: PluginsView;
   instructions: InstrView;
   /** The variables that override a login (M14). */
