@@ -39,7 +39,12 @@ export function AccountName(props: { name: string; sub: string; full: string; ch
       </b>
       {props.sub || props.chips?.length ? (
         <small className={cn('flex min-w-0 flex-wrap items-center gap-[5px] text-[13px] text-ink2', props.card && 'flex-nowrap overflow-hidden text-ellipsis whitespace-nowrap')}>
-          {props.sub ? <span className="min-w-0 overflow-hidden text-ellipsis">{props.sub}</span> : null}
+          {/* One line: "Cá nhân · 08–23" never breaks inside its value. */}
+          {props.sub ? (
+            <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap" title={props.sub}>
+              {props.sub}
+            </span>
+          ) : null}
           {props.chips?.map((c) => (
             <Chip key={c.t} chip={c} className={cn('flex-none overflow-hidden text-ellipsis', props.card && 'ml-auto')} />
           ))}
@@ -85,8 +90,11 @@ export function NowCard({ now }: { now: NowView }) {
   return (
     <Card className="pt-3">
       <CardTitle className="mb-2.5 text-[15px] font-semi tracking-normal">{t('Đang dùng', 'In use')}</CardTitle>
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4" role="list" aria-label={t('Đang dùng', 'In use')}>
+      {/* A tile under about 250 px goes onto its own row. */}
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-3" role="list" aria-label={t('Đang dùng', 'In use')}>
         {now.rows.map((r) => (
+          // The service, the account on a line of its own and its organization under it, the number to the
+          // right; then when it resets, the tile's whole width.
           <div
             className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 rounded-card border border-line bg-tile px-3.5 py-2.5 leading-[1.28] tabular-nums [grid-template-areas:'logo_t_big'_'line_line_line']"
             role="listitem"
@@ -94,21 +102,25 @@ export function NowCard({ now }: { now: NowView }) {
             title={r.title}
             aria-label={r.label}
           >
-            <IdMark id={r.id} className="size-[34px] [grid-area:logo]" />
+            <IdMark id={r.id} className="size-[34px] self-start [grid-area:logo]" />
             <span className="grid min-w-0 gap-px [grid-area:t]" aria-hidden="true">
               <b className="text-[15px] font-semi text-heading">{r.svc}</b>
-              <span className="overflow-hidden text-body text-ellipsis whitespace-nowrap text-ink2">
+              <span className="truncate text-body text-ink" title={r.name}>
                 {r.name}
-                {r.sub ? <small className="text-[length:inherit] text-ink3"> · {r.sub}</small> : null}
               </span>
+              {r.sub ? (
+                <small className="truncate text-[13px] text-ink3" title={r.sub}>
+                  {r.sub}
+                </small>
+              ) : null}
             </span>
             <b
-              className={cn('text-big leading-[1.1] tracking-head [grid-area:big]', r.used == null ? 'font-reg text-ink3' : 'font-bold text-heading', toneInk(r.tone))}
+              className={cn('self-start text-big leading-[1.1] tracking-head [grid-area:big]', r.used == null ? 'font-reg text-ink3' : 'font-bold text-heading', toneInk(r.tone))}
               aria-hidden="true"
             >
               {r.text}
             </b>
-            <small className="justify-self-end text-[13px] whitespace-nowrap text-ink2 [grid-area:line]" aria-hidden="true">
+            <small className="mt-1 min-w-0 text-[13px] text-ink2 [grid-area:line]" aria-hidden="true">
               {r.used == null ? r.note : r.reset ? t('Hạn mức ' + r.unit + ' · đặt lại sau ' + r.reset, r.unit + ' quota · resets in ' + r.reset) : t('Hạn mức ' + r.unit + ' · chưa dùng', r.unit + ' quota · unused')}
               {r.extra ? (
                 <>

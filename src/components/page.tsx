@@ -50,14 +50,17 @@ export function rowClass(changed = false): string {
 }
 
 /**
- * A row of an accounts table; the table (TABLE) sets its columns (--wt-cols).
+ * A row of an accounts table; the table (TABLE) sets its columns (--wt-cols)
+ * and may close up their gap (--wt-gap, TABLE_TIGHT).
  * The head row is the first, on the table's head colour.
  */
-export const TABLE_ROW = 'wt-r grid grid-cols-(--wt-cols) items-center gap-x-6 border-t border-divider px-3 py-2 text-sm first:border-t-0';
+export const TABLE_ROW = 'wt-r grid grid-cols-(--wt-cols) items-center gap-x-[var(--wt-gap,24px)] border-t border-divider px-3 py-2 text-sm first:border-t-0';
 /** The row in use: the dot and the status say it, the row is not lit. */
 export const TABLE_ROW_ON = 'on';
 /** An accounts table: a hairline box around its head and rows. */
 export const TABLE = 'grid rounded-ctl border border-line bg-card';
+/** A table beside another column (Tổng quan's rail): its columns closer together. */
+export const TABLE_TIGHT = '[--wt-gap:16px]';
 /** The table's head row: the windows' names. */
 export const TABLE_HEAD = TABLE_ROW + ' h rounded-t-[7px] bg-thead py-1.5 text-sm font-med whitespace-nowrap text-th';
 

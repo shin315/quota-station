@@ -29,6 +29,8 @@ const login = (n: number, over: Partial<AgyLogin> = {}) => agyAccount(n, { email
 
 // The fresh fixture's Antigravity row lists this app's accounts 1 and 2: their
 // logins sit in the account table; any other login is listed under it.
+/** An email anywhere in the page; the layout's own `@container` classes are not one. */
+const EMAIL = /\w@\w/;
 const table = () => screen.getByRole('list', { name: 'Antigravity' });
 const row = (name: string) =>
   within(table())
@@ -92,7 +94,7 @@ describe('Antigravity accounts logged in here', () => {
     await open(hideNames(withAgy({ accounts })));
     expect(within(row('Ultra 1')).getByRole('button', { name: 'Đăng xuất Ultra 1' })).toBeTruthy();
     expect(within(row('Ultra 2')).getByRole('button', { name: 'Đăng xuất Ultra 2' })).toBeTruthy();
-    expect(document.body.innerHTML).not.toContain('@');
+    expect(document.body.innerHTML).not.toMatch(EMAIL);
   });
 
   it('turning names off in Cài đặt hides them in the table', async () => {
@@ -105,7 +107,7 @@ describe('Antigravity accounts logged in here', () => {
     expect(fake.api.setShowNames).toHaveBeenCalledWith(false);
     fireEvent.click(screen.getByRole('button', { name: 'Antigravity' }));
     expect(within(row('Ultra 1')).getByRole('button', { name: 'Đăng xuất Ultra 1' })).toBeTruthy();
-    expect(document.body.innerHTML).not.toContain('@');
+    expect(document.body.innerHTML).not.toMatch(EMAIL);
   });
 
   it('shows the accounts that need a new login or a verification', async () => {
