@@ -175,7 +175,7 @@ pub fn switch(store: &Store, slot: u32) -> Result<Switched, SwitchError> {
             session::refresh_profile(store, f);
             super::usage::login_replaced(store, f);
         }
-        if let Some(oauth) = &live.oauth {
+        if let Some(oauth) = live.oauth.as_ref().filter(|_| live.who().is_some()) {
             if store.oauth_account(f)?.as_ref() != Some(oauth) {
                 store.set_oauth_account(f, oauth)?;
             }
@@ -198,13 +198,7 @@ pub fn switch(store: &Store, slot: u32) -> Result<Switched, SwitchError> {
         login_back() == live.credential
             && cc::restore_config(paths, config_before.as_deref()).is_ok()
     };
-    let failed = |e: std::io::Error| {
-        if put_back() {
-            SwitchError::Io(e)
-        } else {
-            SwitchError::NotConfirmed { restored: false }
-        }
-    };
+    let failed = |_: std::io::Error| SwitchError::NotConfirmed { restored: put_back() };
     cc::write_credential(paths, &store.security, &composed).map_err(failed)?;
     cc::write_oauth(paths, &target_oauth).map_err(failed)?;
 

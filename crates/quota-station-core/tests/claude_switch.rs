@@ -157,7 +157,7 @@ fn a_login_file_that_cannot_be_written_puts_the_keychain_back() {
     assert!(flag("uchg").success());
     let result = switch::switch(&mac.store, 3);
     assert!(flag("nouchg").success());
-    assert!(result.is_err());
+    assert!(matches!(result, Err(SwitchError::NotConfirmed { restored: true })), "{result:?}");
     assert_eq!(mac.live_credential(), Some(c2.clone()));
     assert_eq!(std::fs::read_to_string(&file).unwrap(), c2);
     assert_eq!(mac.live_email().as_deref(), Some("lan@team.example"));
@@ -216,4 +216,19 @@ fn the_outgoing_login_kept_by_a_switch_is_read_again() {
     switch::switch(&mac.store, 3).unwrap();
     let row = usage::load(&mac.store).row(2).cloned().unwrap();
     assert_eq!((row.relogin, row.failures, row.backoff_until), (false, 0, None));
+}
+
+#[test]
+fn an_account_left_without_its_email_keeps_its_own_account_details() {
+    let (mac, _, _) = two_accounts("switch-no-email");
+    std::fs::write(
+        mac.paths.claude_json(),
+        "{\n  \"oauthAccount\": {\n    \"accountUuid\": \"uuid-2\"\n  }\n}\n",
+    )
+    .unwrap();
+    assert_eq!(switch::switch(&mac.store, 3).unwrap().from, Some(2));
+    let kept = mac.store.oauth_account(2).unwrap().unwrap();
+    assert_eq!(kept["emailAddress"], "lan@team.example");
+    assert!(!switch::switch(&mac.store, 2).unwrap().already);
+    assert_eq!(switch::active_slot(&mac.store), Some(2));
 }
