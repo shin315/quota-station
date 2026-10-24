@@ -32,7 +32,7 @@ export interface WindowView {
   /** Đang dùng, Tổng quan's first card: the account in use on each service. */
   now: NowView;
   claude: {
-    /** `4 tài khoản claude-swap`. */
+    /** `4 tài khoản Quota Station`; `claude-swap` until Quota Station keeps the accounts. */
     count: string;
     /** In slot order, as the tables list them. */
     cards: CardView[];
@@ -60,7 +60,7 @@ export interface WindowView {
   upcoming: UpcomingView[];
   /** Automatic switching and why Claude is on its account (F07). */
   auto: AutoView;
-  /** The Claude tab's own banner: the switcher's LaunchAgent is not loaded. */
+  /** The Claude tab's own banner: the rotation's LaunchAgent is not loaded. */
   claudeBanner: BannerView | null;
   /** The Claude tab's red banner: a variable overrides Claude Code's login (M14). */
   envBanner: BannerView | null;
@@ -166,17 +166,17 @@ function switcherCard(model: Model, auto: AutoView, now: Date): WindowView['swit
   const sw = model.switcher;
   const chip = (t: string, k: ChipView['k']): ChipView => ({ t, k });
   const service = !sw.installed
-    ? chip('không có trên máy này', 'bad')
+    ? chip('chưa có tài khoản', 'bad')
     : sw.service === true
       ? chip('chạy mỗi 3 phút', 'ok')
       : sw.service === false
-        ? chip('chưa nạp', 'bad')
+        ? chip('tắt', 'bad')
         : chip('không rõ', '');
-  const autoChip = sw.autoService === true ? chip('đang nạp', 'warn') : sw.autoService === false ? chip('tắt', 'ok') : chip('không rõ', '');
+  const legacy = sw.legacy ? chip(sw.legacy + ' đang nạp', 'warn') : chip('tắt', 'ok');
   const p = pauseOf(model, now);
   const details: KeyValue[] = [
-    { key: 'LaunchAgent cswap-prefer-team', value: service.t, chip: service },
-    { key: 'com.cswap.auto', value: autoChip.t, chip: autoChip },
+    { key: 'LaunchAgent tự chuyển', value: service.t, chip: service },
+    { key: 'Bộ tự chuyển cũ', value: legacy.t, chip: legacy },
     { key: 'Tạm dừng tự chuyển', value: p ? (p.until ? 'đến ' + dayClock(p.until, now) : 'đến khi bật lại') : 'không' },
   ];
   if (sw.guard != null) {
@@ -187,21 +187,23 @@ function switcherCard(model: Model, auto: AutoView, now: Date): WindowView['swit
   if (sw.lastLog) details.push({ key: 'Nhật ký' + (sw.lastLog.at ? ' ' + dayClock(sw.lastLog.at, now) : ''), value: sw.lastLog.raw, mono: true });
   let line: string;
   let tone: WindowView['switcher']['tone'];
-  if (!sw.installed) [line, tone] = ['Không có cswap-prefer-team trên máy này', 'bad'];
-  else if (sw.service === false) [line, tone] = ['LaunchAgent chưa được nạp: không tự chuyển', 'bad'];
+  if (!sw.installed) [line, tone] = ['Quota Station chưa giữ tài khoản Claude nào', 'bad'];
+  else if (sw.legacy) [line, tone] = ['Bộ tự chuyển cũ ' + sw.legacy + ' còn chạy: Quota Station chưa tự chuyển', 'bad'];
+  else if (sw.service === false) [line, tone] = ['Tự chuyển đang tắt', 'bad'];
   else if (sw.service === true) [line, tone] = ['Chạy mỗi 3 phút' + (auto.at ? ' · kiểm lúc ' + auto.at : ''), 'ok'];
   else [line, tone] = ['Không rõ switcher có chạy không', 'muted'];
   return { line, tone, details };
 }
 
 function claudeBanner(model: Model): BannerView | null {
-  if (!model.switcher.installed || model.switcher.service !== false) return null;
+  const sw = model.switcher;
+  if (!sw.installed || sw.legacy || sw.service !== false) return null;
   return {
     tone: 'bad',
-    title: 'Switcher không chạy',
-    body: 'LaunchAgent com.cswap.prefer-team chưa được nạp, nên switcher không tự chuyển Claude. Số vẫn cập nhật khi claude-swap làm mới.',
+    title: 'Tự chuyển Claude đang tắt',
+    body: 'LaunchAgent tự chuyển của Quota Station chưa được nạp, nên không có gì tự chuyển Claude. Số vẫn cập nhật khi app đọc.',
     actions: [
-      { label: 'Hướng dẫn nạp lại', act: 'guide:switcher' },
+      { label: 'Bật tự chuyển', act: 'claude:rotation:on' },
       { label: 'Làm mới', act: 'refresh' },
     ],
   };
@@ -224,7 +226,7 @@ export function windowView(model: Model, now: Date, options: ViewOptions = {}): 
     banner: pv.banner,
     now: pv.now,
     claude: {
-      count: pv.claude.cards.length ? pv.claude.cards.length + ' tài khoản' + (swap ? ' claude-swap' : '') : '',
+      count: pv.claude.cards.length ? pv.claude.cards.length + ' tài khoản' + (swap ? (model.claudeSwitch.ready ? ' Quota Station' : ' claude-swap') : '') : '',
       cards: pv.claude.cards,
       note: pv.claude.note,
     },

@@ -8,7 +8,6 @@ mod common;
 use std::path::PathBuf;
 
 use common::{fixture, fixture_text};
-use quota_station_core::cswap;
 use quota_station_core::detail::{self, AgyDetail};
 use quota_station_core::Snapshot;
 use time::format_description::well_known::Rfc3339;
@@ -50,7 +49,7 @@ fn add_detail(snapshot: &mut Snapshot) {
         .generated_at
         .as_deref()
         .and_then(|t| OffsetDateTime::parse(t, &Rfc3339).ok());
-    let list = cswap::parse_list(&fixture_text("cswap-list-pool.json")).unwrap();
+    let list = common::claude_details("cswap-list-pool.json");
     detail::apply_claude(&mut snapshot.claude, &list, now);
     let reading = |name: &str| serde_json::from_str(&fixture_text(name)).ok();
     let details = [

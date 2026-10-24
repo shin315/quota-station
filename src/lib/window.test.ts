@@ -23,7 +23,9 @@ describe('main window view', () => {
   });
 
   it('counts the Claude accounts by what the Mac has', () => {
-    expect(view('fresh').claude.count).toBe('4 tài khoản claude-swap');
+    expect(view('fresh').claude.count).toBe('4 tài khoản Quota Station');
+    // Before Quota Station keeps the accounts, claude-swap still does.
+    expect(view('fresh', { claudeSwitch: { ready: false, busy: null } }).claude.count).toBe('4 tài khoản claude-swap');
     const unavailable = view('unavailable').claude;
     expect(unavailable).toMatchObject({ count: '', cards: [] });
     expect(unavailable.note?.text).toBe('Không đọc được danh sách tài khoản của claude-swap (usage_schema_mismatch).');
@@ -107,7 +109,7 @@ describe('main window view', () => {
     const s = view('fresh').switcher;
     expect(s.line).toMatch(/^Chạy mỗi 3 phút · kiểm lúc \d\d:\d\d$/);
     expect(s.tone).toBe('ok');
-    expect(s.details.map((d) => d.key)).toContain('LaunchAgent cswap-prefer-team');
+    expect(s.details.map((d) => d.key)).toContain('LaunchAgent tự chuyển');
     expect(s.details.find((d) => d.key.startsWith('Quyết định gần nhất'))).toMatchObject({ mono: true });
   });
 

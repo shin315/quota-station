@@ -44,7 +44,7 @@ xoay vòng", M3 "Chuyển Claude và tạm dừng", M2 "Cửa sổ chính chỉ 
 hạn mức Antigravity", and M4c, "Chuyển Antigravity không cần Cockpit", the
 steps of taking over what Cockpit Tools does. The app reads, and acts in eight
 ways, each started by the owner:
-it switches the active Claude account through claude-swap, it pauses the
+it keeps the Claude accounts and switches the active one itself, it pauses the
 automatic switcher, it edits the switcher's rotation rules and copies them to
 the owner's other Macs, it logs Antigravity accounts in and out on this Mac,
 it switches the Antigravity account that Antigravity.app and agy use, it
@@ -52,7 +52,9 @@ switches the provider Codex uses, and it turns MCP servers on and off, adds,
 edits and removes them for Claude Code, Codex and Antigravity, and it backs
 those servers, the skills, the plugins and the instruction files up,
 restores them and copies them to or from the owner's other Macs, and applies
-a set of them for the whole Mac (below). Five things it does on its own: it finishes that rotation copy (a Mac that could
+a set of them for the whole Mac (below). Six things it does on its own: it reads
+the usage of the Claude accounts it keeps and, once the owner turns it on,
+runs their rotation from its own LaunchAgent, it finishes that rotation copy (a Mac that could
 not take the saved rules is tried again in the background), it reads the
 quota of the Antigravity accounts logged in here, at Cockpit's pace or slower,
 it keeps a history of the switches on this Mac, it backs the MCP servers up
@@ -123,21 +125,23 @@ the confirmation sheet first.
   rebuild their prompt cache on their next message, which costs quota. It
   offers a hold so the switcher does not switch straight back: 30 phút,
   1 giờ (the default), until the account's next five-hour reset, or none.
-  Confirming runs `cswap switch N --json`, writes the pause flag when a hold
-  was chosen (a hold never shortens a pause that is already on for longer),
+  Confirming switches with the app's own switch ([The Claude
+  accounts](#the-claude-accounts)), writes the pause flag when a hold was
+  chosen (a hold never shortens a pause that is already on for longer),
   waits 5 seconds, reads the active account again without quota-axi's cache
-  and reports what it finds: switched, switched back by the switcher (or by
-  another switch), not yet confirmed, or claude-swap's error. When `cswap`
-  times out or stops without an answer, the app reads the account in use
-  before saying whether the switch landed. Outside the personal account's
-  hours the sheet warns that the switcher will move away from it.
+  and reports what it finds: switched, switched back by the rotation (or by
+  another switch), not yet confirmed, or why nothing changed (Claude Code
+  held its login locks, the account needs a new login, Claude Code is on a
+  login the app does not keep, or an older switcher is still loaded).
+  Outside the personal account's hours the sheet warns that the rotation
+  will move away from it.
 - **Pausing automatic switching** (F07). The switch opens a sheet to pause
   for 1 giờ, until 18:00 or until turned back on; while paused it resumes at
   once, and the banner offers `Thêm 1 giờ`. The why line shows the
-  switcher's own decision from `--dry-run` and its last log line, or
+  rotation's decision from a dry run and its last log line, or
   `Đang tạm dừng tới HH:MM: <lý do>` while the pause holds. Banners warn
-  when claude-swap's own automatic switcher (`com.cswap.auto`) is loaded
-  again, and when the switcher ignores the pause flag.
+  when an older switcher (`com.cswap.prefer-team` or `com.cswap.auto`) is
+  still loaded, and when a switcher ignores the pause flag.
 - **Short menu** (right click). `Mở cửa sổ chính` (main window), `Làm mới`
   (refresh), `Thanh menu theo` (Claude, Gemini or Codex, ticked; a service
   this Mac lacks is greyed out), `Số trên thanh menu` (`5 giờ`, `Tuần`,
@@ -158,10 +162,12 @@ the confirmation sheet first.
   - `Claude`: the accounts, with a `Chuyển` button on each account not in
     use and a `Đang dùng` status (a dot and words, nothing to press) on the
     one in use; an old reading gets a chip by the name. Below it,
-    `Tự chuyển` (the switch and the pause choices) and `Switcher` (one line;
-    whether launchd runs it, `com.cswap.auto`, the pause, whether it reads
-    the pause flag, and its last decision and log line as printed sit under
-    `Chi tiết`). A switcher that launchd does not run gets a banner.
+    `Tự chuyển` (the switch and the pause choices), `Switcher` (one line;
+    whether launchd runs the rotation, an older switcher still loaded, the
+    pause, whether it reads the pause flag, and its last decision and log
+    line as printed sit under `Chi tiết`) and `Tài khoản Quota Station giữ`
+    ([The Claude accounts](#the-claude-accounts)). A rotation that launchd
+    does not run gets a banner.
   - `Antigravity`: the accounts, with `Chuyển` and `Đăng xuất` on each one
     this app logs in and `Thêm tài khoản` in the card's header. A Mac without
     an account list or without Antigravity says so; a card for Cockpit Tools
@@ -267,7 +273,7 @@ the confirmation sheet first.
   either counts once, and the card then says what was chosen and how it
   went. Each alert has a key, so the same event never alerts twice.
   1. `Hạn mức Claude trong vòng sắp cạn` and `Claude đã có lại hạn mức`:
-     Firstmate's rule on claude-swap's numbers. The rotation's accounts that
+     Firstmate's rule on the accounts' numbers. The rotation's accounts that
      have not left it (the personal one only inside its hours) count; the
      pool is dry when the account in use has 10% or less left and no other
      has 15% or more. Without quota-axi's rotation the app uses the rotation
@@ -277,7 +283,7 @@ the confirmation sheet first.
   2. `<tài khoản> rời vòng lúc HH:MM`: 30 minutes before an account leaves
      the rotation (`expire` in the rules). For the account in use it offers
      `Ổn` and `Chuyển ngay` (the switch sheet).
-  3. `<tài khoản> cần đăng nhập lại`: claude-swap reports an error only a
+  3. `<tài khoản> cần đăng nhập lại`: the usage read reports an error only a
      new login mends (`invalid_grant`, `no_refresh_token`, a relogin), or the
      login expires within 3 days, when quota-axi gives `loginExpiresAt`
      (today it does not, so only the error fires). `Nhắc ngày mai` asks again
@@ -696,6 +702,76 @@ rotation file. Each Mac also keeps its own Antigravity logins, and nothing
 assumes another Mac has any. Each Mac installs and updates its own copy
 (below).
 
+### The Claude accounts
+
+Quota Station keeps the Claude accounts itself, the way claude-swap kept
+them, so no other app is needed to switch, read or rotate them
+([`docs/claude-accounts.md`](docs/claude-accounts.md) has the design; the
+logic that touches Claude Code's login is adapted from claude-swap, MIT,
+credited in [`THIRD_PARTY.md`](THIRD_PARTY.md)).
+
+- **Store.** Each account's login and its `oauthAccount` are in the login
+  Keychain under the app's own service, `com.shin315.quota-station.claude`
+  (`slot-N` and `slot-N.account`). `claude/accounts.json` in the app's
+  folder holds the slot numbers, aliases, which accounts are in the rotation
+  and the account ids; no email and no token is in a file.
+- **`Tài khoản Quota Station giữ`** in the `Claude` tab: `Nhập từ
+  claude-swap` (once per Mac, see the cutover below; again later only takes
+  a newer login), `Đăng nhập tài khoản mới` (`claude auth login` in a folder
+  of its own, so Claude Code's login does not change), `Thêm tài khoản đang
+  đăng nhập`, `Thêm setup token` (a `claude setup-token` token, kept as a
+  login without refresh; the field is a password field and the token is
+  never shown again), and on each account `Đổi tên`, `Xoá` (not the one in
+  use) and `Trong vòng xoay`, which holds an account out of the rotation
+  (it is never switched to, but kept by the usual rules while in use)
+  while it can still be switched to by hand.
+- **Switch.** Under Claude Code's own lock folders, the app keeps the live
+  login of the account in use, writes the target's login to Claude Code's
+  Keychain item and its `oauthAccount` to `~/.claude.json`, and reads both
+  back, putting them back when they do not match. A login the app does not
+  keep stops the switch, so it is never lost. A switch never refreshes a
+  token. It drops nothing from MCP or plugin secrets in the live login.
+- **Usage.** Each account's five-hour, weekly and Fable weekly windows come
+  from Anthropic's usage endpoint, at most every 180 seconds an account,
+  with a back-off after a failure or a 429. The account in use is read with
+  Claude Code's own token and never refreshed by the app; another account
+  whose token has under five minutes left is refreshed first. The readings
+  are `claude/usage.json`; quota-axi reads them from a copy in claude-swap's
+  layout, `claude/swap/`, with placeholder addresses
+  (`QUOTA_AXI_CLAUDE_SWAP_DIR` and `QUOTA_AXI_CLAUDE_ROTATION`, set only for
+  the quota-axi the app runs, once the app keeps an account).
+- **Rotation.** The `cswap-prefer-team` rules, ported line for line, on the
+  app's own copy of the rotation file (`claude/rotation`; the rules editor
+  and the copy to the other Macs work on it). `Tự chuyển bằng Quota Station`
+  loads the app's LaunchAgent, `com.shin315.quota-station.rotation`, which
+  runs `quota-station claude rotate` every 180 seconds whether or not the
+  app is open, and logs to `claude/rotation.log`. The pause flag is the same
+  file as before. While `com.cswap.prefer-team` or `com.cswap.auto` is
+  loaded, the rotation, the switch sheet and `quota-station claude switch`
+  write nothing, so two switchers never rotate the same refresh token.
+- **For Firstmate**, the binary inside the app answers without a window:
+
+  ```sh
+  QS="/Applications/Quota Station.app/Contents/MacOS/quota-station"
+  "$QS" claude status --json          # every account's windows and the one in use
+  "$QS" claude run 3 -- -p "…"        # claude as account 3, without switching
+  "$QS" claude session 3              # account 3's folder, for CLAUDE_CONFIG_DIR
+  ```
+
+  `status --json` prints `schemaVersion`, `generatedAt`, `activeSlot` and
+  `accounts[]` (`slot`, `alias`, `enabled`, `active`, `kind`, `status`
+  `fresh`/`stale`/`noData`/`reloginRequired`, `fetchedAt`, `ageSeconds`,
+  `windows.fiveHour|sevenDay|fable` with `usedPercent` and `resetsAt`, and
+  `error`); emails only with `--emails`, and `--refresh` reads the accounts
+  that are due first. The same object is written to `claude/state.json`
+  after every read. `run N` runs `claude` with `CLAUDE_CONFIG_DIR` set to
+  `claude/sessions/N/`, whose login is the Keychain item Claude Code keys to
+  that folder, and returns `claude`'s exit code. For the account in use it
+  runs `claude` on Claude Code's own login, as `cswap run` did;
+  `--require-session` refuses that instead. `quota-station claude help`
+  lists the rest (`switch`, `rotate [--dry-run]`, `rotation on|off`,
+  `import`, `add`, `remove`, `alias`, `enable`, `disable`).
+
 ### What it reads and runs
 
 - `quota-axi --provider claude --json --max-age 120s --no-credential-refresh`,
@@ -709,34 +785,47 @@ assumes another Mac has any. Each Mac installs and updates its own copy
   Claude reading may still be the account from before the switch.
 - The Keychain button runs
   `quota-axi --provider claude --json --allow-keychain-prompt --no-credential-refresh`
-  once. macOS shows its own prompt. The app itself never opens Claude's
-  Keychain item or any other tool's credential file; the only Keychain items
-  it opens are its own Antigravity ones (below).
-- It ignores the identity fields in quota-axi's output (emails, ids). Each
-  read also runs `cswap list --json`, which reads claude-swap's own cache
-  and asks no server, for every Claude account's three windows, its email
-  and its organization; they stay in memory, go to the windows only while
-  `Hiện email` is on, and are never written to a file or a log. Without
-  claude-swap, or when it fails, the accounts keep quota-axi's one number.
-- Switching runs `cswap switch N --json` (claude-swap holds Claude Code's
-  credential locks while it writes) and nothing else of claude-swap's. The
-  app reads only the account numbers from its answer, takes email addresses
-  out of its error messages, and looks for `cswap` in `~/.local/bin`,
-  `/opt/homebrew/bin` and `/usr/local/bin`.
+  once. macOS shows its own prompt. The app opens Claude Code's Keychain
+  item only to keep and switch the Claude accounts (above); the other
+  Keychain items it opens are its own (below), and it opens no other tool's
+  credential file.
+- It ignores the identity fields in quota-axi's output (emails, ids). Before
+  each read the app reads the Claude accounts that are due
+  (`GET https://api.anthropic.com/api/oauth/usage`, and
+  `POST https://platform.claude.com/v1/oauth/token` for an account not in
+  use whose token is about to end) and rewrites `claude/state.json` and
+  `claude/swap/`. Every Claude account's three windows come from those
+  readings; its email and organization come from the app's Keychain items,
+  stay in memory, go to the windows only while `Hiện email` is on, and are
+  never written to a file or a log. Before the app keeps an account, the
+  accounts keep quota-axi's one number.
+- Switching runs no other program: the app takes Claude Code's lock
+  folders, then `/usr/bin/security` reads and writes Claude Code's item
+  `Claude Code-credentials` and its own items, and the app rewrites
+  `oauthAccount` in `~/.claude.json`. `Đăng nhập tài khoản mới` runs
+  `claude auth login` (the first `claude` on `PATH`, else in `~/.local/bin`,
+  `/opt/homebrew/bin` or `/usr/local/bin`) with
+  `CLAUDE_CONFIG_DIR` set to `claude/adding/`; `Nhập từ claude-swap` reads
+  `~/.claude-swap-backup` and claude-swap's Keychain items once and writes
+  nothing there.
 - Live sessions are counted from `~/.claude/sessions/*.json`: only the `pid`
   and `kind` fields are read, and a session counts when its process is alive.
-- The switcher: `~/.local/bin/cswap-prefer-team --dry-run`, which switches
-  nothing, the last line of `~/Library/Logs/cswap-prefer-team.log`, and
-  `launchctl list` for `com.cswap.prefer-team` and `com.cswap.auto`. These
-  run with each read while the popover or the main window is open, and after
-  a switch or a pause; while both are hidden only the pause flag is read. The
-  app never runs the switcher for real.
-- The rotation editor's preview runs the same `--dry-run` with
-  `CSWAP_ROTATION_FILE` pointing at a draft copy in the app's folder, which
-  it deletes afterwards.
+- The rotation: a dry run of its rules in the app (no program runs and
+  nothing switches), the last line of `claude/rotation.log` (of
+  `~/Library/Logs/cswap-prefer-team.log` before the app keeps an account),
+  and `launchctl list` for `com.shin315.quota-station.rotation`,
+  `com.cswap.prefer-team` and `com.cswap.auto`. These run with each read
+  while the popover or the main window is open, and after a switch or a
+  pause; while both are hidden only the pause flag is read. `Tự chuyển bằng
+  Quota Station` runs `launchctl bootstrap` or `bootout` for the app's own
+  LaunchAgent only; the app never loads, stops or removes the older ones.
+- The rotation editor's preview runs the same dry run on the draft, in
+  memory.
 - Copying the rotation file runs `ssh -o BatchMode=yes -o ConnectTimeout=5
-  -T <alias>` with one of two fixed scripts: one prints
-  `~/.config/cswap-prefer-team/rotation`, the other takes the new file on
+  -T <alias>` with one of two fixed scripts: one prints the rotation file
+  (the app's `claude/rotation` when that Mac's app keeps accounts or has
+  its own rotation file, else `~/.config/cswap-prefer-team/rotation`), the
+  other takes the new file on
   stdin, keeps a backup, renames it into place and prints it back. Batch
   mode means SSH never asks for a password or a host key. An alias must be
   letters, digits and `. - _ @`, and cannot start with `-`. The `ssh` used
@@ -863,7 +952,10 @@ assumes another Mac has any. Each Mac installs and updates its own copy
 - It writes these files: its own settings file,
   `~/Library/Application Support/com.shin315.quota-station/settings.json`,
   with `rotation-sync.json` (where each other Mac stands) beside it; in the
-  same folder, `update/install.log` (the last update's build output),
+  same folder, `claude/` (the Claude accounts above: `accounts.json`,
+  `usage.json`, `state.json`, `swap/`, `rotation`, `rotation.log`, `prime`,
+  `prime-state/` and `sessions/`, no email and no token),
+  `update/install.log` (the last update's build output),
   `antigravity/accounts.json` (Cockpit's account index layout,
   no token), `antigravity/status.json` (accounts that need a new login or a
   verification, or that Google refused),
@@ -918,25 +1010,26 @@ what could happen and which changes would make the risk larger.
 
 ### The pause flag and the switcher
 
-The switcher decides on its own every three minutes; the app only asks it to
-wait. That needs a guard at the top of the switcher: while the flag holds,
-exit; once `until` has passed, delete the flag and go on, and print
-`paused until <until>: <reason>` (or `paused indefinitely: <reason>`) on
-`--dry-run`. The switcher script is not part of this repository. The app
-compares `until` with the local time as text, the same rule as the guard, so
-both agree on when a pause ends. When a dry run made while the flag holds
-still prints a normal decision, the app reports that the switcher ignores the
-flag and does not show Claude as paused.
+The rotation decides on its own every three minutes; a pause only asks it to
+wait. The app's own rotation has the guard built in: while the flag holds it
+switches nothing; once `until` has passed, it deletes the flag and goes on,
+and its dry run prints `paused until <until>: <reason>` (or
+`paused indefinitely: <reason>`). The older `cswap-prefer-team` script,
+which is not part of this repository, needs the same guard at its top
+while it still runs. `until` is compared with the local time as text, the
+same rule in both, so they agree on when a pause ends. When a dry run made
+while the flag holds still prints a normal decision, the app reports that
+the switcher ignores the flag and does not show Claude as paused.
 
 ### How the numbers relate to `quota-axi --tui`
 
 - **5 giờ / Tuần.** For the active account, this is the tighter of the live
   five-hour and seven-day windows. A tie shows the week. For the other
-  accounts it is claude-swap's effective percent, labelled by the window that
-  limits it.
+  accounts it is the effective percent of the app's own reading (claude-swap's
+  before the app keeps the accounts), labelled by the window that limits it.
 - **Fable tuần.** For the active account, this is the live Fable weekly
-  window. For the other accounts, quota-axi's JSON gives claude-swap's Fable
-  scope. When another window limits that account first, the scope is only a
+  window. For the other accounts, quota-axi's JSON gives the Fable scope of
+  the same reading. When another window limits that account first, the scope is only a
   lower bound, so the app shows it as `≥98%` with no reset time.
 
 ## Requirements
@@ -947,8 +1040,10 @@ flag and does not show Claude as paused.
 - quota-axi on the Mac, with JSON schema 5 or 6. The claude-swap, rotation and
   Cockpit sidecars come from the `+cswap` fork. Without them the app shows
   only the account in use.
-- For switching, claude-swap (`cswap`) with `switch --json`. For pausing, the
-  `cswap-prefer-team` switcher with the pause guard described above.
+- For logging new Claude accounts in and for `quota-station claude run`,
+  Claude Code's `claude` command. claude-swap is needed only once per Mac,
+  to import its accounts; a Mac can also start without it, by logging the
+  accounts in or adding setup tokens.
 - For the other Macs, an SSH alias to each that logs in without a prompt
   (a key, `BatchMode=yes`).
 
@@ -1024,13 +1119,19 @@ above.
 ## Uninstall
 
 1. In `Cài đặt`, turn `Mở khi đăng nhập` off (or remove Quota Station in
-   System Settings › General › Login Items).
+   System Settings › General › Login Items). In the `Claude` tab, turn
+   `Tự chuyển bằng Quota Station` off (or run
+   `quota-station claude rotation off`), and bring back the older switcher
+   first if Claude should still rotate (see the cutover's way back).
 2. `Thoát Quota Station` from its menu, then move
    `/Applications/Quota Station.app` to the Trash.
 3. Optionally, its data: `~/Library/Application Support/com.shin315.quota-station/`
-   (settings, the Antigravity index and readings, history, alerts and
-   `oauth-client.json`), and the app's own Keychain items, service
-   `com.shin315.quota-station.antigravity`, in Keychain Access. Log the
+   (settings, the Claude accounts' `claude/` folder, the Antigravity index
+   and readings, history, alerts and `oauth-client.json`), and the app's own
+   Keychain items, services `com.shin315.quota-station.claude` and
+   `com.shin315.quota-station.antigravity`, in Keychain Access. Remove the
+   Claude accounts in the app (all but the one in use) to delete their
+   items; Claude Code keeps its own login either way. Log the
    Antigravity accounts out in the app first to delete those items. Leave
    the `gemini`/`antigravity` item alone: Antigravity.app and agy use it.
 
@@ -1066,16 +1167,61 @@ time.
    Cockpit with that folder in place brings them back. Delete it after that.
    Do not delete the `gemini`/`antigravity` Keychain item: Antigravity.app
    and agy use it.
-3. **Turn off claude-swap's own menu bar**, when you decide to on this Mac:
+3. **Move the Claude accounts into Quota Station**, when you decide to on
+   this Mac. Nothing here switches the account Claude Code is on, except
+   the rotation once it is turned on (step 3.4), which switches as
+   `cswap-prefer-team` did; a switch makes the running Claude Code sessions
+   rebuild their prompt cache, so pick a quiet moment. `quota-station`
+   below is `/Applications/Quota Station.app/Contents/MacOS/quota-station`.
+
+   1. Stop the older switcher, keeping its plist so it can come back:
+
+      ```sh
+      cp ~/Library/LaunchAgents/com.cswap.prefer-team.plist \
+         ~/Library/LaunchAgents/com.cswap.prefer-team.plist.bak
+      launchctl bootout gui/$(id -u)/com.cswap.prefer-team
+      launchctl bootout gui/$(id -u)/com.cswap.auto 2>/dev/null  # if it was loaded
+      launchctl list | grep -i cswap                              # prints nothing
+      ```
+
+      Until then Quota Station switches nothing and refreshes no token, so
+      the two never rotate the same refresh token.
+   2. In the `Claude` tab, press `Nhập từ claude-swap` (or run
+      `quota-station claude import`). Every account comes over under its
+      slot number with its alias and its login, without a new login, and the
+      rotation file and the priming flag are copied to the app's folder.
+      Every account comes in the rotation: claude-swap's own `disabled` is
+      not carried over (the old switcher never read it).
+      `~/.claude-swap-backup` and claude-swap's Keychain items are only
+      read. Running it again takes only a newer login.
+   3. Check the list: every account is there, the one in use is marked
+      `đang dùng`, and after `Làm mới` each has numbers.
+      `quota-station claude status` prints the same.
+   4. Turn on `Tự chuyển bằng Quota Station` (or run
+      `quota-station claude rotation on`), then check that
+      `launchctl list | grep quota-station.rotation` prints a line and that
+      `claude/rotation.log` in the app's folder gets a decision within three
+      minutes.
+   5. Point Firstmate at `quota-station claude status --json` (in place of
+      `cswap list --json`) and `quota-station claude run N --` (in place of
+      `cswap run N --`); see [For Firstmate](#the-claude-accounts).
+
+   To go back: `quota-station claude rotation off`, then
+   `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.cswap.prefer-team.plist`.
+   claude-swap's data was never changed. An account the app refreshed in
+   the meantime has a newer refresh token than claude-swap's copy, so
+   claude-swap may ask for a new login of that account. Leave claude-swap
+   installed until every Mac has run on Quota Station for a while, and ask
+   before removing it.
+4. **Turn off claude-swap's own menu bar**, when you decide to on this Mac:
 
    ```sh
    cswap menubar --uninstall-service
    ```
 
-   Claude numbers stay fresh without it: the `cswap-prefer-team` switcher
-   runs `cswap list --json` every three minutes, which refreshes
-   claude-swap's cache that quota-axi reads.
-4. **Confirm one icon:** the menu bar shows Quota Station and neither
+   Claude numbers stay fresh without it once Quota Station keeps the
+   accounts: the app reads them itself.
+5. **Confirm one icon:** the menu bar shows Quota Station and neither
    claude-swap's item nor Cockpit's.
 
 A Mac without Antigravity (no Antigravity.app and no agy) has no Cockpit
@@ -1113,8 +1259,9 @@ error kind) and `theme` (`light` or `dark`).
 For the rotation rules: `rotation` (`unreachable`, `newer`, `edited`,
 `missing`, `invalid`, `refused` or `single`).
 For switching: `switcher` (`held`, `noguard`, `auto`, `stopped` or
-`missing`), `outcome` (`raced`, `failed`, `stopped` for a cswap timeout, or
-`unconfirmed`; a switch lands by default) and `cswap=none`. For the
+`missing`), `outcome` (`raced`, `failed`, `busy` for Claude Code's locks
+held, or `unconfirmed`; a switch lands by default) and `accounts=none` (a
+Mac where Quota Station keeps no Claude account yet). For the
 Antigravity login card: `agy` (`two`, `relogin`, `verify`, `noclient`,
 `tooopen`, `invalid`, `broken`, or for the quota reads `reading`, `failing`
 and `forbidden`), `login` (how a login ends, for example
@@ -1161,8 +1308,8 @@ seconds, and they update the fixture.
 ## Tests
 
 ```sh
-cargo test --workspace   # parsing, snapshot rules, icon, runner, schedule, switching, rotation, other Macs, Antigravity login, quota and switch, history, alerts, Firstmate's file, install.sh, update, login item, Codex switch, MCP, backup packs and restore, skills, plugins and instruction files
-npm test                 # Vitest: popover and main window views, switch and pause sheets, rules editor, login card and read states, Antigravity switch, Codex switch, history, alerts, Firstmate, MCP, Skills, Plugin, File hướng dẫn, backup and settings tabs, restore sheet
+cargo test --workspace   # parsing, snapshot rules, icon, runner, schedule, Claude accounts (store, switch, usage, rotation, sessions, import, command line), switching, rotation, other Macs, Antigravity login, quota and switch, history, alerts, Firstmate's file, install.sh, update, login item, Codex switch, MCP, backup packs and restore, skills, plugins and instruction files
+npm test                 # Vitest: popover and main window views, switch and pause sheets, Claude accounts card, rules editor, login card and read states, Antigravity switch, Codex switch, history, alerts, Firstmate, MCP, Skills, Plugin, File hướng dẫn, backup and settings tabs, restore sheet
 ```
 
 The install tests (`crates/quota-station-core/tests/install_script.rs`) run
@@ -1241,10 +1388,21 @@ out while it is prepared, the 60-second preparation and one that breaks,
 one switch at a time, a reopen that fails, and the six-hour watch on
 synthetic readings.
 
-The switching tests never touch a real account. They run a fake `cswap` (a
-shell script in a temporary HOME) that switches, fails with an error, or is
-switched back by a fake switcher writing its log; a fake quota-axi answers
-the read after the switch. Session counting runs on session files in a
+The Claude account and switching tests never touch a real account, the
+real Keychain or Anthropic. They run in a temporary HOME with a fake
+`security` that keeps items in files (and can refuse a write or drop
+one, to check that a switch puts everything back), a fake `launchctl`, a
+fake `claude` and a local fake Anthropic for the usage and token calls;
+every login is made up, and `Security::system()` and
+`Endpoints::anthropic()` refuse to run in a test build. They cover the
+switch and its locks, a login the app does not keep, the usage reads and
+their back-off, a refresh of an account not in use and never of the one in
+use, the import (claude-swap's folder and items unchanged, running it again
+changes nothing), adding and removing accounts, the session folders, the
+command line, and the rotation's decisions on the same cases as the old
+script; one ignored test runs the real `cswap-prefer-team` with
+`--dry-run` beside the port when `QUOTA_STATION_PREFER_TEAM` names it. A
+fake quota-axi answers the read after a switch. Session counting runs on session files in a
 temporary folder, and the pause flag tests write it there with an `until`
 ahead, passed, malformed or missing.
 
@@ -1406,9 +1564,13 @@ UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test stats
 
 - `crates/quota-station-core/` is plain Rust. It runs and parses quota-axi,
   turns its output into a snapshot, holds the icon rules and glyph, and
-  schedules reads. It also runs `cswap switch`, counts live sessions, reads
-  and writes the pause flag, and reads the switcher's dry run and log. It
-  reads, checks and writes the rotation file, and copies it over SSH. Its
+  schedules reads. Its `claude/` module keeps the Claude accounts: the
+  Keychain store, Claude Code's locks and login, the switch, the usage
+  reads, the rotation and its LaunchAgent, the session folders, the import
+  from claude-swap and the `quota-station claude` command line. It also
+  counts live sessions, reads and writes the pause flag, and reads the
+  rotation's dry run and log. It reads, checks and writes the rotation
+  file, and copies it over SSH. Its
   `antigravity/` module logs Antigravity accounts in and out, reads their
   quota, paces those reads, and switches the account Antigravity.app and
   agy use. `history`, `alerts` and `firstmate` keep the switch history, run
@@ -1441,7 +1603,9 @@ UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test stats
   update (`install.rs`), the Codex thread (`codex.rs`), the MCP tab's
   commands (`agents.rs`), the backup tab's (`backup.rs`), the Skills, Plugin
   and File hướng dẫn tabs' (`skills.rs`), the copy tab's and the
-  `quota-station agents …` commands another Mac runs (`copy.rs`), the check
+  `quota-station agents …` commands another Mac runs (`copy.rs`), the Claude
+  accounts' commands and the `quota-station claude …` dispatch
+  (`claude.rs`, `main.rs`), the check
   of the variables that override a login (`env.rs`), the Bộ cấu hình tab's
   commands (`sets.rs`), the Thống kê tab's read and report (`stats.rs`) and
   the other commands.
@@ -1450,7 +1614,8 @@ UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test stats
   tab and its `CheckMatrix`, which the Skills tab reuses, the Plugin and
   File hướng dẫn tabs, and the Bộ cấu hình tab (`SetsTab.tsx`), and
   `src/backup/` the backup tab, the restore sheet and the copy tab;
-  `src/settings/EnvCard.tsx` is Cài đặt's card of the variables, and
+  `src/settings/EnvCard.tsx` is Cài đặt's card of the variables,
+  `src/claude/ClaudeAccounts.tsx` the Claude tab's accounts card, and
   `src/stats/StatsTab.tsx` the Thống kê tab and its SVG chart. The
   front-end stack is below.
 

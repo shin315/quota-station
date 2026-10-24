@@ -7,15 +7,18 @@
 //! [`alerts`] sent and were answered), the switcher's pause flag, the
 //! rotation file ([`rotation`]), which it also copies to the owner's other
 //! Macs over SSH ([`peers`]), and the app's own Keychain items for the
-//! Antigravity accounts it logs in and for MCP secrets. The one command it runs that switches
-//! anything is `cswap switch N --json` ([`switching`]). The ones it runs
+//! Antigravity accounts it logs in and for MCP secrets. It keeps the Claude
+//! accounts itself ([`claude`]): their logins in its own Keychain items, a
+//! switch that writes Claude Code's login item and `~/.claude.json` under
+//! Claude Code's locks, the usage reads, the rotation and its LaunchAgent,
+//! and the session folders `quota-station claude run N` uses
+//! ([`switching`] is the manual switch from the windows). The ones it runs
 //! that write anything elsewhere are the [`peers`] script over `ssh`, which
 //! replaces the rotation file on another Mac (keeping a backup there), and
 //! `claude mcp add-json`/`remove` ([`agents`]) from the MCP tab.
-//! Everything else it runs only reads: quota-axi, `cswap list --json`
-//! (every Claude account's windows, email and organization), the switcher's
-//! `--dry-run` (which reads claude-swap's accounts and switches nothing),
-//! `ssh` reading the other Macs' rotation file, `launchctl list`,
+//! Everything else it runs only reads: quota-axi, the rotation's dry run
+//! (in process, switching nothing), `ssh` reading the other Macs' rotation
+//! file, `launchctl list`,
 //! `launchctl getenv NAME` for the variables that override a login
 //! ([`agents::env_check`], which keeps whether a value is there, never the
 //! value), and
@@ -48,8 +51,8 @@ pub mod agents;
 pub mod alerts;
 pub mod antigravity;
 pub mod axi;
+pub mod claude;
 pub mod codex;
-pub mod cswap;
 pub mod detail;
 pub mod firstmate;
 pub mod history;

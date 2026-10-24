@@ -45,7 +45,7 @@ describe('popover', () => {
     expect(within(cards[2]).queryByText('Tuần')).toBeNull();
     expect(within(cards[0]).queryByText('chưa dùng')).toBeNull();
     expect(cards[1].getAttribute('aria-disabled')).toBe('true');
-    expect(cards[1].getAttribute('title')).toBe('lan.acme1@example.com · claude-swap · tài khoản 2');
+    expect(cards[1].getAttribute('title')).toBe('lan.acme1@example.com · Quota Station · tài khoản 2');
     expect(cards[2].getAttribute('aria-label')).toMatch(/^lan\.acme2, Acme Studio\. .*\. Bấm để chuyển$/);
     expect(cards[2].getAttribute('aria-disabled')).toBeNull();
     expect(within(cards[1]).getByText('74%')).toBeTruthy();

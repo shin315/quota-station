@@ -9,6 +9,7 @@ import { comparisonFixture, copyDoneFixture, copyUndoneFixture } from './fakeCop
 import { fakeApply, fakePaste, fakePreview } from './fakeMcp';
 import { fakeSetChanges, fakeSetDrift } from './fakeSets';
 import { SKIPPED_NONE, statsReport } from './fakeStats';
+import { claudeAccountsFixture } from './models';
 import { fakeSkillApply, fakeSkillPreview, instrDiffFixture, instrShownFixture, repoFixture, SKILL_MD } from './fakeSkills';
 import type {
   Agent,
@@ -23,6 +24,10 @@ import type {
   AlertKind,
   AlertRecord,
   AlertSaid,
+  ClaudeAccountAction,
+  ClaudeAccountRow,
+  ClaudeAccountsView,
+  ClaudeActionDone,
   CodexKeyOutcome,
   CodexKeyPreview,
   CodexOutcome,
@@ -63,6 +68,10 @@ export interface FakeOptions {
   sessions?: Sessions | null;
   /** What a switch reports; by default it lands on the slot asked for. */
   outcome?: (slot: number, holdUntil: string | null) => Outcome;
+  /** The error kind a Claude account action ends with; none lands it. */
+  claudeFail?: (action: ClaudeAccountAction) => string | null;
+  /** How long a Claude account action takes; the preview waits to show it running. */
+  claudeDelayMs?: number;
   /**
    * How an Antigravity login ends when no callback is pasted and it is not cancelled; by default
    * it keeps the next account after `agyLoginDelayMs`.
@@ -178,6 +187,7 @@ export function hideNames(m: Model): Model {
     showNames: false,
     snapshot: withoutNames(m),
     antigravity: { ...m.antigravity, accounts: m.antigravity.accounts.map((a) => ({ ...a, email: null, name: null })) },
+    claudeAccounts: { ...m.claudeAccounts, accounts: m.claudeAccounts.accounts.map((a) => ({ ...a, email: null })) },
   };
 }
 
@@ -256,6 +266,46 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
   const envHidden = new Map<string, EnvFound>();
   const envOpened: string[] = [];
   let statsSkipped = structuredClone(options.statsSkipped ?? SKIPPED_NONE);
+  /** One Claude account action: running, then landed (`change`) or failed (`claudeFail`). */
+  const claudeRun = async (
+    action: ClaudeAccountAction,
+    change: (v: ClaudeAccountsView) => { view: Partial<ClaudeAccountsView>; done?: Partial<ClaudeActionDone>; model?: Partial<Model> } | string,
+  ) => {
+    push({ ...model, claudeAccounts: { ...model.claudeAccounts, working: action, last: null } });
+    if (options.claudeDelayMs) await new Promise((r) => setTimeout(r, options.claudeDelayMs));
+    const base: ClaudeActionDone = { action, ok: true, error: null, detail: null, slot: null, renewed: false, imported: null };
+    const failed = options.claudeFail?.(action) ?? null;
+    const landed = failed ? failed : change(model.claudeAccounts);
+    if (typeof landed === 'string') {
+      push({ ...model, claudeAccounts: { ...model.claudeAccounts, working: null, last: { ...base, ok: false, error: landed } } });
+    } else {
+      push({
+        ...model,
+        ...landed.model,
+        claudeAccounts: { ...model.claudeAccounts, ...landed.view, working: null, last: { ...base, ...landed.done } },
+      });
+    }
+    return model;
+  };
+  const claudeRow = (slot: number, over: Partial<ClaudeAccountRow> = {}): ClaudeAccountRow => ({
+    slot,
+    alias: null,
+    enabled: true,
+    active: false,
+    kind: 'login',
+    status: 'noData',
+    fetchedAt: null,
+    ageSeconds: null,
+    windows: { fiveHour: null, sevenDay: null, fable: null },
+    error: null,
+    email: model.showNames ? 'lan.new' + slot + '@example.com' : null,
+    ...over,
+  });
+  const nextSlot = (v: ClaudeAccountsView) => Math.max(0, ...v.accounts.map((a) => a.slot)) + 1;
+  const editRow = (slot: number, f: (r: ClaudeAccountRow) => ClaudeAccountRow) => (v: ClaudeAccountsView) =>
+    v.accounts.some((a) => a.slot === slot)
+      ? { view: { accounts: v.accounts.map((a) => (a.slot === slot ? f(a) : a)) }, done: { slot } }
+      : 'unknownSlot';
   const api: Api = {
     getModel: async () => model,
     refresh: async () => {
@@ -305,6 +355,49 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       });
       return outcome;
     },
+    claudeImport: () =>
+      claudeRun('import', () => {
+        const ready = claudeAccountsReady();
+        return {
+          view: { ready: true, accounts: ready },
+          done: {
+            imported: { added: ready.map((a) => a.slot), updated: [], unchanged: [], skipped: [], rotation: true, prime: false },
+          },
+          model: { claudeSwitch: { ...model.claudeSwitch, ready: true }, switcher: { ...model.switcher, installed: true } },
+        };
+      }),
+    claudeAddLogin: () =>
+      claudeRun('login', (v) => {
+        const slot = nextSlot(v);
+        return { view: { ready: true, accounts: [...v.accounts, claudeRow(slot)] }, done: { slot } };
+      }),
+    claudeCancelLogin: async () => {
+      if (model.claudeAccounts.working === 'login') options.claudeFail = () => 'cancelled';
+    },
+    claudeAddCurrent: () =>
+      claudeRun('current', (v) => {
+        const slot = nextSlot(v);
+        return { view: { ready: true, accounts: [...v.accounts, claudeRow(slot, { active: true })] }, done: { slot } };
+      }),
+    claudeAddToken: (token, email) =>
+      claudeRun('token', (v) => {
+        if (!token.trim() || /\s/.test(token.trim())) return 'badToken';
+        const slot = nextSlot(v);
+        const row = claudeRow(slot, { kind: 'setupToken', email: model.showNames ? email || 'setup-token-' + slot + '@token.local' : null });
+        return { view: { ready: true, accounts: [...v.accounts, row] }, done: { slot } };
+      }),
+    claudeRemove: (slot) =>
+      claudeRun('remove', (v) =>
+        v.accounts.find((a) => a.slot === slot)?.active ? 'active' : { view: { accounts: v.accounts.filter((a) => a.slot !== slot) }, done: { slot } },
+      ),
+    claudeSetAlias: (slot, alias) => claudeRun('alias', editRow(slot, (r) => ({ ...r, alias: alias.trim() || null }))),
+    claudeSetEnabled: (slot, enabled) => claudeRun('enabled', editRow(slot, (r) => ({ ...r, enabled }))),
+    claudeSetRotation: (on) =>
+      claudeRun('rotation', (v) =>
+        on && v.legacy
+          ? 'legacy'
+          : { view: { rotation: on }, model: { switcher: { ...model.switcher, service: on } } },
+      ),
     pauseSwitching: async (until) => {
       push({
         ...model,
@@ -1260,4 +1353,9 @@ export function fakeKeyPreview(c: Model['codex'], key: string, baseUrl: string |
   lines.push({ op: 'add', text: 'experimental_bearer_token = "' + hint + '"', secret: true });
   const replaces = custom.key === 'bearer';
   return { ...none, lines, replaces, undo: replaces ? null : custom.key === 'placeholder' ? 'placeholder' : 'none' };
+}
+
+/** The accounts an import brings in: the pool fixture's four. */
+function claudeAccountsReady() {
+  return claudeAccountsFixture().accounts;
 }

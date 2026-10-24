@@ -129,7 +129,7 @@ fn only_the_grant_button_allows_the_keychain_prompt() {
 
     let dir = temp_dir();
     let axi = fake(&dir, Some(&fixture_path("claude-pool-schema5.json")), 0);
-    runner::grant_keychain(&axi).unwrap();
+    runner::grant_keychain(&axi, &[]).unwrap();
     assert_eq!(
         recorded_args(&dir),
         ["--provider", "claude", "--json", "--allow-keychain-prompt", "--no-credential-refresh"]

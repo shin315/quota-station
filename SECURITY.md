@@ -7,10 +7,11 @@ changes the app should keep these rules, or say plainly which one changes.
 
 ## What the app never reads, prints or copies
 
-- claude-swap's logins: `~/.claude-swap-backup/credentials/`, `configs/` and
-  `sessions/*/.credentials.json`, and any Keychain item of claude-swap or
-  Claude Code.
-- Claude Code's `~/.claude/.credentials.json`.
+- claude-swap's logins, except once, read-only, when the owner presses
+  `Nhập từ claude-swap` (see [The Claude accounts](#the-claude-accounts)):
+  the app never writes in `~/.claude-swap-backup`, never writes or deletes
+  a Keychain item of claude-swap's, and never reads its
+  `sessions/*/.credentials.json`.
 - Cockpit Tools' files: `~/.cockpit_tools/accounts/*.json` (its encrypted
   tokens), its `*.key` files, `server.json`, `config.json`, and the same
   files in the older `~/.antigravity_cockpit`.
@@ -28,9 +29,9 @@ changes the app should keep these rules, or say plainly which one changes.
   and `auth_method` (`consumer`), and is on `security`'s command line for
   the moment it runs, the same limit as below.
 
-The app gets Claude numbers only from quota-axi's output and from
-`cswap list --json` (claude-swap's cached usage, read-only, no credential),
-and switches Claude only through `cswap switch N --json`.
+The app keeps the Claude accounts itself and runs no claude-swap command;
+what it reads and writes of Claude Code's login is in
+[The Claude accounts](#the-claude-accounts).
 
 ## What the app keeps
 
@@ -62,7 +63,7 @@ Files, under `~/Library/Application Support/com.shin315.quota-station/`:
   and the alerts (each card's words and buttons, when it was sent, what was
   pressed and how it went, and the snoozes; the newest 30 cards). Neither
   holds an email or a token: cards name accounts as the windows do
-  (`Team A`, `Ultra 2`), and claude-swap's error text never goes on a card:
+  (`Team A`, `Ultra 2`), and the usage read's error text never goes on a card:
   a login error shows only as one of the known codes (`invalid_grant`,
   `no_refresh_token`, `no-access-token`, `relogin_required`, or `relogin`
   for any other that asks for a new login).
@@ -111,8 +112,8 @@ In the owner's login Keychain, not in that folder:
   limit.
 
 Emails stay in the index and the Keychain. They go to the windows, with
-the Claude accounts' emails and organizations from `cswap list --json`
-(held in memory only), while `Hiện email` is on, which it is by default;
+the Claude accounts' emails and organizations from the app's own Keychain
+items (held in memory only), while `Hiện email` is on, which it is by default;
 turned off, the model sent to the windows carries none. The app writes no
 email or organization to a file of its own or a log. The windows
 do get each account's id, which is Cockpit's: `antigravity_` and the MD5 of
@@ -148,6 +149,74 @@ quit within 20 seconds, the shared login and the account pointers are not
 touched (a token refreshed for the switch stays in the app's own item, and
 the attempt is logged). `Chuyển`, offered while the app was not running,
 stops the same way if it runs again by then.
+
+## The Claude accounts
+
+The app keeps the Claude accounts the way claude-swap did, and the logic
+that touches Claude Code's login follows claude-swap's MIT source
+(`THIRD_PARTY.md`). [`docs/claude-accounts.md`](docs/claude-accounts.md)
+has the design.
+
+- **Keychain.** Two items per account in the login Keychain, service
+  `com.shin315.quota-station.claude`: `slot-N`, the credential exactly as
+  Claude Code stores it (a login's access and refresh token, or a setup
+  token), and `slot-N.account`, the account's `oauthAccount` object (its
+  email and organization). They are written with `security -i`, the value
+  as hex on stdin so it stays off the command line, as claude-swap writes
+  (a value too long for one line of `security -i` goes on the command line,
+  as claude-swap's does). Removing an account deletes both.
+- **Claude Code's login.** The item `Claude Code-credentials` (account
+  `$USER`) and `~/.claude.json`'s `oauthAccount` are read to tell which
+  account is in use and, for that account only, to read its usage with
+  Claude Code's own token; the app never refreshes that token. A switch,
+  started by the owner or by the rotation, writes that item (keeping the
+  live login's MCP and plugin secrets) and replaces only `oauthAccount` in
+  `~/.claude.json`, under Claude Code's lock folders
+  (`~/.claude/.oauth_refresh.lock`, `~/.claude.lock`,
+  `~/.claude.json.lock`); `~/.claude/.credentials.json` is read and
+  rewritten only when Claude Code already keeps one. It reads both back and
+  puts them back as they were when they do not match. A login the app does
+  not keep stops the switch, so no login is ever lost.
+- **Session folders.** `quota-station claude run N` and the rotation's
+  priming run `claude` with `CLAUDE_CONFIG_DIR` set to `claude/sessions/N/`;
+  the login goes to the Keychain item Claude Code keys to that folder
+  (`Claude Code-credentials-<8 hex>`), never to a file, with
+  `ANTHROPIC_API_KEY` and the other login variables taken out of the
+  environment. A login added with `Đăng nhập tài khoản mới` runs
+  `claude auth login` in the folder `claude/adding/`; the app copies the
+  login into its own items and deletes that folder and its item.
+- **Network.** `GET https://api.anthropic.com/api/oauth/usage` with the
+  account's token, at most every 180 seconds an account, and, for an
+  account not in use whose token has under five minutes left,
+  `POST https://platform.claude.com/v1/oauth/token` with Claude Code's
+  client id; the new login goes to the app's item. Nothing else.
+- **Files**, in `claude/` in the app's folder (mode 700, files mode 600):
+  `accounts.json` (slot, alias, in the rotation or not, kind, the account
+  and organization ids and a SHA-256 of the email and organization; no
+  email, no token), `usage.json` and `state.json` (each account's windows,
+  how old its reading is and its error; no email, no token), `swap/` (the
+  same in claude-swap's layout for quota-axi, with placeholder addresses
+  `slot-N@quota-station.local`), `rotation`, `rotation.log`, `prime` and
+  `prime-state/`, `sessions/` and `.lock`. Emails reach a window only while
+  `Hiện email` is on, and `quota-station claude status --json` prints them
+  only with `--emails`.
+- **Import.** `Nhập từ claude-swap` reads `~/.claude-swap-backup` once:
+  `sequence.json`, each account's config for `oauthAccount`, its login from
+  its `credentials/*.enc` file or claude-swap's Keychain item (read with
+  `find-generic-password`, nothing else), and its usage cache. It copies the
+  rotation file and the priming flag from `~/.config/cswap-prefer-team` when
+  the app has none. It writes nothing there.
+- **LaunchAgent.** `Tự chuyển bằng Quota Station` writes
+  `~/Library/LaunchAgents/com.shin315.quota-station.rotation.plist`
+  (`<the app>/Contents/MacOS/quota-station claude rotate` every 180 seconds)
+  and loads it with `launchctl bootstrap`; turning it off runs `bootout` and
+  removes the plist. While `com.cswap.prefer-team` or `com.cswap.auto` is
+  loaded, neither the rotation nor a switch from the app or the command line
+  writes a login, so two switchers never rotate the same refresh token. The
+  app never stops, loads or removes either of them.
+- A token pasted in `Thêm setup token` goes to the app's item and is never
+  shown again; the command line takes one only on stdin. Errors carry
+  `security`'s exit code and first line, never a value.
 
 ## Installing, updating and launching at login (M7)
 
@@ -755,6 +824,17 @@ only counts, never text.
   draw that very report (`src/fixtures/stats-trap.json`), its table and its
   hover cards, and find no such text. No test reads the real `~/.claude`
   or `~/.codex`.
+- The Claude account tests (`tests/claude_*.rs`, `tests/switching.rs`) run
+  in a temporary home with a fake `security` that keeps items in files and
+  records every call, a fake `launchctl`, a fake `claude` and a local fake
+  Anthropic; every login in them is made up. `Security::system()` and
+  `Endpoints::anthropic()` refuse to run in a test build, so no test can
+  reach the real Keychain, Claude Code's real login or Anthropic. The import
+  tests check that claude-swap's folder and Keychain items are byte for
+  byte as they were and that only `find-generic-password` touched
+  claude-swap's service; the switch tests check that a login the app does
+  not keep stops a switch, that a write that does not read back is put
+  back, and that nothing is written while an older switcher is loaded.
 - CI has no Keychain access and no Google account.
 - The install tests run `scripts/install.sh` in a temporary folder with fake
   `open` and `security`, and fakes of `launchctl`, `osascript` and `sfltool`

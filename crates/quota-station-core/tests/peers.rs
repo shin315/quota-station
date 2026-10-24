@@ -118,6 +118,21 @@ fn a_mac_without_the_file_gets_it_and_reads_it_back() {
 }
 
 #[test]
+fn a_mac_where_the_app_keeps_the_accounts_gets_the_apps_own_file() {
+    let net = Net::new("peer-own");
+    let home = net.dir.join("macs/mac-b");
+    let own = quota_station_core::claude::Paths::for_home(&home);
+    std::fs::create_dir_all(&own.dir).unwrap();
+    std::fs::write(own.accounts(), "{\"version\":1,\"accounts\":[]}").unwrap();
+    let (text, stamp) = mine(now());
+    let r = push(&net.ssh, "mac-b", &text, &stamp, now(), false);
+    assert!(matches!(r.state, PeerState::Synced { .. }), "{r:?}");
+    assert_eq!(std::fs::read_to_string(own.rotation()).unwrap(), text);
+    assert!(!net.file("mac-b").exists(), "the old switcher's file is left alone");
+    assert_eq!(peers::read(&net.ssh, "mac-b").unwrap().as_deref(), Some(text.as_str()));
+}
+
+#[test]
 fn an_older_copy_is_replaced_and_kept_as_a_backup_there() {
     let net = Net::new("peer-older");
     let (old, _) = mine(now() - time::Duration::hours(2));

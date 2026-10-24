@@ -1,7 +1,7 @@
 //! Every window of every account, on top of quota-axi's one number per
-//! account: Claude's from claude-swap's list (`cswap list --json`, see
-//! [`crate::cswap::list`]), Antigravity's from the app's own readings
-//! ([`crate::antigravity::export`]). Matched by account number. An account
+//! account: Claude's from the app's own readings
+//! ([`crate::claude::state::details`]), Antigravity's from the app's own
+//! readings ([`crate::antigravity::export`]). Matched by account number. An account
 //! neither one knows keeps only quota-axi's lines, and the windows show
 //! those.
 //!
@@ -11,9 +11,32 @@
 use serde_json::Value;
 use time::OffsetDateTime;
 
-use crate::cswap::{SwapAccount, Usage};
 use crate::snapshot::{Line, LineKind, Section};
 use crate::time_util::is_after;
+
+/// One window of a Claude account.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Usage {
+    /// Percent used, 0-100.
+    pub used: f64,
+    /// RFC 3339; none for a five-hour window that has not started.
+    pub resets_at: Option<String>,
+}
+
+/// One Claude account the app keeps, with its last reading.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct ClaudeDetail {
+    pub number: u32,
+    /// Only while the owner shows names; read from the Keychain, never
+    /// written to disk.
+    pub email: Option<String>,
+    pub organization: Option<String>,
+    pub five_hour: Option<Usage>,
+    /// None: no weekly window for this account (Team seats).
+    pub seven_day: Option<Usage>,
+    /// The weekly window scoped to Fable.
+    pub fable: Option<Usage>,
+}
 
 fn line(kind: LineKind, left: f64, resets_at: Option<String>, now: Option<OffsetDateTime>) -> Line {
     let passed = resets_at.as_deref().is_some_and(|at| !is_after(at, now));
@@ -30,8 +53,8 @@ fn usage_line(kind: LineKind, usage: &Usage, now: Option<OffsetDateTime>) -> Lin
     line(kind, 100.0 - usage.used, usage.resets_at.clone(), now)
 }
 
-/// The account's five-hour, weekly and Fable windows, those claude-swap has.
-pub fn claude_windows(account: &SwapAccount, now: Option<OffsetDateTime>) -> Vec<Line> {
+/// The account's five-hour, weekly and Fable windows, those it has.
+pub fn claude_windows(account: &ClaudeDetail, now: Option<OffsetDateTime>) -> Vec<Line> {
     [
         (LineKind::Session, &account.five_hour),
         (LineKind::Week, &account.seven_day),
@@ -42,10 +65,9 @@ pub fn claude_windows(account: &SwapAccount, now: Option<OffsetDateTime>) -> Vec
     .collect()
 }
 
-/// Gives each Claude account claude-swap lists its windows (unless it has
-/// them already, from quota-axi's live reading), its email and its
-/// organization.
-pub fn apply_claude(section: &mut Section, list: &[SwapAccount], now: Option<OffsetDateTime>) {
+/// Gives each Claude account the app keeps its windows (unless it has them
+/// already, from quota-axi's live reading), its email and its organization.
+pub fn apply_claude(section: &mut Section, list: &[ClaudeDetail], now: Option<OffsetDateTime>) {
     for account in &mut section.accounts {
         let Some(swap) = list.iter().find(|s| s.number == account.number) else {
             continue;

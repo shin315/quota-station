@@ -11,6 +11,11 @@ use quota_station_core::antigravity::oauth_server;
 use quota_station_core::antigravity::pace::Pace;
 use quota_station_core::antigravity::{export, index};
 use quota_station_core::axi::Response;
+use quota_station_core::claude::keychain::Security;
+use quota_station_core::claude::state::AccountOut;
+use quota_station_core::claude::store::Store;
+use quota_station_core::claude::{rotate, session};
+use quota_station_core::detail::ClaudeDetail;
 use quota_station_core::detail::{self, AgyDetail};
 use quota_station_core::firstmate::{self, Reading};
 use quota_station_core::history::Seen;
@@ -22,7 +27,7 @@ use quota_station_core::schedule::Schedule;
 use quota_station_core::settings::{Menubar, MenubarWindow, Settings, Theme};
 use quota_station_core::switcher::{Decision, DryRun, LogLine};
 use quota_station_core::switching::Tools;
-use quota_station_core::{cswap, local_time, pause, switcher, Snapshot};
+use quota_station_core::{local_time, pause, switcher, Snapshot};
 use serde::{Deserialize, Serialize};
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
@@ -122,9 +127,16 @@ pub struct Inner {
     /// and the Đang dùng block; none on a Mac without a Codex folder.
     pub codex_quota: Option<Response>,
     pub codex_quota_error: Option<RunError>,
-    /// claude-swap's list as last read: every Claude account's windows,
-    /// email and organization. Never written to disk.
-    pub claude_list: Option<Vec<cswap::SwapAccount>>,
+    /// The Claude accounts the app keeps, with their last readings, and
+    /// their emails and organizations only while names show. Read from the
+    /// Keychain into memory; never written to disk.
+    pub claude_list: Option<Vec<ClaudeDetail>>,
+    /// The same accounts as the Claude tab lists them.
+    pub claude_accounts: Vec<AccountOut>,
+    /// The Claude tab's account actions (`crate::claude`).
+    pub claude_live: crate::claude::Live,
+    /// `claude`, to log a new account in with.
+    pub claude_program: Option<PathBuf>,
     /// Bumped when a Keychain grant or a switch stores a Claude report, so a
     /// read that started before it cannot put the older report back.
     pub claude_generation: u64,
@@ -221,7 +233,7 @@ pub enum ReadState {
     },
 }
 
-/// What the app last saw of the `cswap-prefer-team` switcher.
+/// What the app last saw of the rotation.
 #[derive(Debug, Default)]
 pub struct SwitcherState {
     /// The pause flag; `None` when there is none.
@@ -232,10 +244,11 @@ pub struct SwitcherState {
     pub dry_run: Option<DryRunRecord>,
     pub dry_run_error: Option<&'static str>,
     pub last_log: Option<LogLine>,
-    /// `com.cswap.prefer-team` is loaded.
+    /// The app's rotation LaunchAgent is loaded.
     pub service: Option<bool>,
-    /// `com.cswap.auto`, claude-swap's own switcher, is loaded.
-    pub auto_service: Option<bool>,
+    /// An older switcher still loaded (`com.cswap.prefer-team` or
+    /// `com.cswap.auto`): nothing switches while it is.
+    pub legacy: Option<String>,
     pub checked_at: Option<Instant>,
 }
 
@@ -294,6 +307,7 @@ impl Inner {
         let sync_file = settings_file.with_file_name("rotation-sync.json");
         let app_dir =
             AppDir::new(settings_file.parent().map(|p| p.to_path_buf()).unwrap_or_default());
+        let claude_program = session::find_claude(&home);
         Inner {
             home,
             settings_file,
@@ -306,6 +320,9 @@ impl Inner {
             codex_quota: None,
             codex_quota_error: None,
             claude_list: None,
+            claude_accounts: Vec::new(),
+            claude_live: crate::claude::Live::default(),
+            claude_program,
             claude_generation: 0,
             agy_generation: 0,
             reading: false,
@@ -361,18 +378,35 @@ impl Inner {
         self.schedule.set_visible(popover || main, Instant::now())
     }
 
+    /// Where the Claude accounts the app keeps live on this Mac.
+    pub fn claude_paths(&self) -> quota_station_core::claude::Paths {
+        quota_station_core::claude::Paths::for_home(&self.home)
+    }
+
     /// The quota-axi to run: the user's path, else the first usual place.
     pub fn quota_axi(&self) -> Option<PathBuf> {
         self.settings.quota_axi_path.clone().or_else(|| runner::discover(&self.home))
     }
 
-    /// The programs and files a manual switch uses.
+    /// The Claude accounts the app keeps, with the Keychain.
+    pub fn claude_store(&self) -> Store {
+        Store::new(self.claude_paths(), Security::system())
+    }
+
+    /// What the rotation's dry run uses.
+    pub fn rotation_tools(&self) -> rotate::Tools {
+        rotate::Tools { claude: self.claude_program.clone(), ..rotate::Tools::system(&self.home) }
+    }
+
+    /// What a manual switch uses.
     pub fn switch_tools(&self) -> Tools {
+        let paths = self.claude_paths();
         Tools {
-            cswap: cswap::discover(&self.home),
+            env: paths.quota_axi_env(),
+            store: self.claude_store(),
+            launchctl: PathBuf::from(switcher::LAUNCHCTL),
             quota_axi: self.quota_axi(),
             pause_file: pause::path(&self.home),
-            log_file: switcher::log_file(&self.home),
         }
     }
 
@@ -406,8 +440,8 @@ impl Inner {
             .with_codex(self.codex_quota.as_ref())
     }
 
-    /// The snapshot the windows draw: every account's windows from
-    /// claude-swap's list and the app's own Antigravity readings, and the
+    /// The snapshot the windows draw: every account's windows from the
+    /// app's own Claude and Antigravity readings, and the
     /// names unless the owner hides them, in which case none is sent.
     pub fn detailed_snapshot(&self) -> Snapshot {
         let mut snapshot = self.snapshot();
@@ -494,9 +528,10 @@ impl Inner {
             granting: self.granting,
             switcher: self.switcher_view(OffsetDateTime::now_utc()),
             claude_switch: ClaudeSwitchView {
-                cswap: cswap::discover(&self.home).is_some(),
+                ready: self.claude_paths().in_use(),
                 busy: self.switching,
             },
+            claude_accounts: crate::claude::view(self),
             show_names: !self.settings.hide_names,
             theme: self.settings.theme,
             menubar: self.settings.menubar,
@@ -521,7 +556,7 @@ impl Inner {
 
     /// The rotation file as it is on disk now, and each other Mac against it.
     pub fn rotation_view(&self) -> RotationView {
-        let file = rotation::path(&self.home);
+        let file = self.claude_paths().rotation_file();
         let state = rotation::load(&file);
         let stamp = state.stamp().cloned();
         let version = state.version();
@@ -574,7 +609,7 @@ impl Inner {
         let stamp = local_time::stamp(now);
         let rfc = |t: OffsetDateTime| t.format(&Rfc3339).ok();
         SwitcherView {
-            installed: switcher::script(&self.home).is_file(),
+            installed: self.claude_paths().in_use(),
             pause: sw.pause.as_ref().map(|f| PauseView {
                 until: f.until.as_deref().and_then(local_time::instant).and_then(rfc),
                 reason: f.reason.clone(),
@@ -589,7 +624,7 @@ impl Inner {
             guard: sw.guard(),
             last_log: sw.last_log.clone(),
             service: sw.service,
-            auto_service: sw.auto_service,
+            legacy: sw.legacy.clone(),
         }
     }
 }
@@ -609,6 +644,8 @@ pub struct Model {
     pub granting: bool,
     pub switcher: SwitcherView,
     pub claude_switch: ClaudeSwitchView,
+    /// The Claude accounts the app keeps, and their actions.
+    pub claude_accounts: crate::claude::AccountsView,
     /// Account names (emails, organizations) may show.
     pub show_names: bool,
     pub theme: Theme,
@@ -648,7 +685,8 @@ pub struct Model {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RotationView {
-    /// `~/.config/cswap-prefer-team/rotation`
+    /// `~/Library/Application Support/com.shin315.quota-station/claude/rotation`
+    /// once the app keeps the accounts, else `~/.config/cswap-prefer-team/rotation`.
     pub path: String,
     /// `ok`, `missing`, `invalid` (quota-axi would refuse it) or `unreadable`.
     pub status: &'static str,
@@ -684,21 +722,23 @@ pub struct PeerView {
     pub pushing: bool,
 }
 
-/// The switcher as the windows show it (F07).
+/// The rotation as the windows show it (F07).
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SwitcherView {
-    /// `cswap-prefer-team` is on this Mac.
+    /// The app keeps the Claude accounts on this Mac, so its rotation can run.
     pub installed: bool,
     pub pause: Option<PauseView>,
     pub dry_run: Option<DryRunView>,
     pub dry_run_error: Option<&'static str>,
     /// `false`: a dry run while the flag held did not say paused, so the
-    /// switcher on this Mac does not read the pause flag yet.
+    /// rotation on this Mac does not read the pause flag.
     pub guard: Option<bool>,
     pub last_log: Option<LogLine>,
+    /// The app's rotation LaunchAgent is loaded.
     pub service: Option<bool>,
-    pub auto_service: Option<bool>,
+    /// An older switcher still loaded: its label.
+    pub legacy: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -723,8 +763,9 @@ pub struct DryRunView {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ClaudeSwitchView {
-    /// claude-swap is on this Mac; without it nothing can switch.
-    pub cswap: bool,
+    /// The app keeps the Claude accounts on this Mac; before that nothing
+    /// can switch.
+    pub ready: bool,
     /// The slot a switch is running for.
     pub busy: Option<u32>,
 }
@@ -873,7 +914,10 @@ mod tests {
         assert_eq!(view.rules, Some(Rules::defaults()));
         assert_eq!(view.stamp, Some(stamp));
         assert_eq!(view.version, Some(rotation::version(&text)));
-        assert_eq!(view.path, "~/.config/cswap-prefer-team/rotation");
+        assert_eq!(
+            view.path, "~/.config/cswap-prefer-team/rotation",
+            "before the app keeps the accounts"
+        );
         let [b, c, d] = &view.peers[..] else { panic!("three Macs") };
         assert!(b.current);
         assert_eq!(b.their_rules.as_ref().map(|r| r.full), Some(88.0));
@@ -887,10 +931,15 @@ mod tests {
         let mut inner = inner();
         let report =
             include_str!("../../crates/quota-station-core/tests/fixtures/claude-pool-schema5.json");
-        let list =
-            include_str!("../../crates/quota-station-core/tests/fixtures/cswap-list-pool.json");
         inner.claude = quota_station_core::axi::parse(report).ok();
-        inner.claude_list = cswap::parse_list(list);
+        inner.claude_list = Some(vec![ClaudeDetail {
+            number: 1,
+            email: Some("lanpham.dev@example.com".into()),
+            organization: Some("Acme Studio".into()),
+            five_hour: Some(quota_station_core::detail::Usage { used: 0.0, resets_at: None }),
+            seven_day: Some(quota_station_core::detail::Usage { used: 0.0, resets_at: None }),
+            fable: Some(quota_station_core::detail::Usage { used: 4.0, resets_at: None }),
+        }]);
         let model = inner.model();
         assert!(model.show_names);
         let first = &model.snapshot.claude.accounts[0];
@@ -903,6 +952,25 @@ mod tests {
         let json = serde_json::to_string(&model).unwrap();
         assert!(!json.contains("@example.com") && !json.contains("Acme"));
         assert_eq!(model.snapshot.claude.accounts[0].windows.len(), 3, "the numbers stay");
+        inner.claude_accounts = vec![AccountOut {
+            slot: 1,
+            alias: None,
+            enabled: true,
+            active: false,
+            kind: Default::default(),
+            status: "fresh",
+            fetched_at: None,
+            age_seconds: None,
+            windows: quota_station_core::claude::state::Windows {
+                five_hour: None,
+                seven_day: None,
+                fable: None,
+            },
+            error: None,
+            email: Some("lanpham.dev@example.com".into()),
+        }];
+        let json = serde_json::to_string(&inner.model()).unwrap();
+        assert!(!json.contains("@example.com"), "nor through the accounts' list");
     }
 
     #[test]

@@ -1,7 +1,6 @@
 mod common;
 
 use common::{fixture, fixture_text};
-use quota_station_core::cswap;
 use quota_station_core::detail::{self, AgyDetail};
 use quota_station_core::snapshot::{Line, LineKind, Snapshot};
 use time::format_description::well_known::Rfc3339;
@@ -20,11 +19,11 @@ fn reading(name: &str) -> serde_json::Value {
 }
 
 #[test]
-fn each_claude_account_gets_its_windows_email_and_organization_from_claude_swap() {
+fn each_claude_account_gets_its_windows_email_and_organization() {
     let report = fixture("claude-pool-schema5.json");
     let now = parse_ts(&report.generated_at);
     let mut s = Snapshot::build(Some(&report), None);
-    let list = cswap::parse_list(&fixture_text("cswap-list-pool.json")).unwrap();
+    let list = common::claude_details("cswap-list-pool.json");
     detail::apply_claude(&mut s.claude, &list, now);
     let a = &s.claude.accounts;
 
@@ -63,7 +62,7 @@ fn each_claude_account_gets_its_windows_email_and_organization_from_claude_swap(
 
 #[test]
 fn a_claude_window_past_its_reset_has_no_number() {
-    let list = cswap::parse_list(&fixture_text("cswap-list-pool.json")).unwrap();
+    let list = common::claude_details("cswap-list-pool.json");
     let later = parse_ts("2026-01-16T10:30:00Z");
     let lines = detail::claude_windows(&list[3], later);
     assert_eq!(lines[0].kind, LineKind::Session);
@@ -72,7 +71,7 @@ fn a_claude_window_past_its_reset_has_no_number() {
 }
 
 #[test]
-fn without_claude_swap_an_account_keeps_only_quota_axis_lines() {
+fn an_account_the_app_has_no_reading_of_keeps_only_quota_axis_lines() {
     let report = fixture("claude-pool-schema5.json");
     let mut s = Snapshot::build(Some(&report), None);
     detail::apply_claude(&mut s.claude, &[], parse_ts(&report.generated_at));

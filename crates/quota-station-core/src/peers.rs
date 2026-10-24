@@ -48,9 +48,19 @@ const NO_FILE: i32 = 3;
 /// The write script's exit when the file there is not the one read before.
 const CHANGED: i32 = 4;
 
+/// Picks the other Mac's rotation folder as [`crate::claude::Paths::rotation_file`]
+/// does: Quota Station's own once it keeps the accounts there (or has its
+/// own copy), else the old switcher's.
+const PICK_DIR: &str = concat!(
+    "a=\"$HOME/Library/Application Support/com.shin315.quota-station/claude\"; ",
+    "if [ -e \"$a/accounts.json\" ] || [ -e \"$a/rotation\" ]; then d=\"$a\"; ",
+    "else d=\"$HOME/.config/cswap-prefer-team\"; fi; f=\"$d/rotation\"; "
+);
+
 /// Prints the other Mac's rotation file, or exits 3 when it has none.
-const READ_SCRIPT: &str =
-    "f=\"$HOME/.config/cswap-prefer-team/rotation\"; [ -e \"$f\" ] || exit 3; cat \"$f\"";
+fn read_script() -> String {
+    format!("{PICK_DIR}[ -e \"$f\" ] || exit 3; cat \"$f\"")
+}
 
 /// Takes the new file on stdin. Exits 4 unless the file there is still the
 /// one read before (`expect`: its `cksum`, or `none` for no file); then writes
@@ -60,7 +70,7 @@ const READ_SCRIPT: &str =
 fn write_script(expect: &str) -> String {
     format!(
         concat!(
-            "set -e; d=\"$HOME/.config/cswap-prefer-team\"; f=\"$d/rotation\"; mkdir -p \"$d\"; ",
+            "set -e; {pick}mkdir -p \"$d\"; ",
             "c=none; if [ -e \"$f\" ]; then set -- $(cksum < \"$f\"); c=$1; fi; ",
             "if [ \"$c\" != {expect} ]; then cat > /dev/null; exit 4; fi; ",
             "t=\"$d/.rotation.tmp-qs-$$\"; cat > \"$t\"; ",
@@ -69,6 +79,7 @@ fn write_script(expect: &str) -> String {
             "rotation.bak-*) n=$((n+1)); [ \"$n\" -le 10 ] || rm -f \"$d/$b\";; esac; done; ",
             "cat \"$f\""
         ),
+        pick = PICK_DIR,
         expect = expect
     )
 }
@@ -172,7 +183,7 @@ fn failure(out: &runner::Output) -> RemoteError {
 
 /// The other Mac's rotation file; `None` when it has none.
 pub fn read(program: &Path, alias: &str) -> Result<Option<String>, RemoteError> {
-    let out = ssh(program, alias, READ_SCRIPT, None)?;
+    let out = ssh(program, alias, &read_script(), None)?;
     match out.code {
         Some(0) => Ok(Some(String::from_utf8_lossy(&out.stdout).into_owned())),
         Some(NO_FILE) => Ok(None),
@@ -382,7 +393,7 @@ mod tests {
 
     #[test]
     fn the_scripts_fit_in_single_quotes() {
-        assert!(!READ_SCRIPT.contains('\''));
+        assert!(!read_script().contains('\''));
         assert!(!write_script("none").contains('\''));
     }
 

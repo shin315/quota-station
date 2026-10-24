@@ -197,14 +197,14 @@ describe('popover view', () => {
     expect(v.banner).toEqual({
       tone: 'warn',
       title: 'Chưa cấp quyền Keychain cho quota-axi',
-      body: 'Dòng Claude của Team A lấy tạm từ claude-swap (số chưa được cập nhật). Cấp quyền một lần để đọc trực tiếp.',
+      body: 'Dòng Claude của Team A lấy tạm từ Quota Station (số chưa được cập nhật). Cấp quyền một lần để đọc trực tiếp.',
       actions: [
         { label: 'Cấp quyền một lần', act: 'keychain' },
         { label: 'Để sau', act: 'dismiss' },
       ],
     });
     const teamA = v.claude.cards.find((r) => r.name === 'Team A')!;
-    expect(teamA.chips.map((c) => c.t)).toContain('số từ claude-swap');
+    expect(teamA.chips.map((c) => c.t)).toContain('số từ Quota Station');
     expect(view('keychain', {}, { keychainLater: true }).banner).toBeNull();
   });
 
@@ -214,7 +214,7 @@ describe('popover view', () => {
     expect(v.banner).toEqual({
       tone: 'warn',
       title: 'Hạn mức Claude chưa cập nhật trong 41 phút',
-      body: 'claude-swap chưa làm mới số từ 13:39. Switcher có thể đang không chạy.',
+      body: 'Quota Station chưa làm mới số từ 13:39. Switcher có thể đang không chạy.',
       actions: [{ label: 'Làm mới', act: 'refresh' }],
     });
     expect(v.claude.cards.every((r) => r.dim)).toBe(true);
@@ -226,7 +226,7 @@ describe('popover view', () => {
     expect(v.banner).toMatchObject({
       tone: 'info',
       title: 'Team C vừa qua mốc đặt lại',
-      body: 'Đang chờ claude-swap đọc số mới. App không hiện số khi chưa có số thật.',
+      body: 'Đang chờ Quota Station đọc số mới. App không hiện số khi chưa có số thật.',
     });
     const teamC = v.claude.cards.find((c) => c.slot === 4)!;
     expect(teamC.chips).toContainEqual({ t: 'chờ số sau mốc đặt lại', k: 'info' });

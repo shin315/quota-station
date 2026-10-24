@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MainWindowApp } from '../App';
 import { fakeApi, fakeEmail, hideNames } from '../fixtures/fakeApi';
-import { agyAccount, agyFixture, failing, FIXTURE_NOW, fixtureModel, heldSwitcher, switcherFixture } from '../fixtures/models';
+import { agyAccount, agyFixture, claudeAccountsFixture, failing, FIXTURE_NOW, fixtureModel, heldSwitcher, switcherFixture } from '../fixtures/models';
 import type { Api } from '../lib/api';
 import type { Model, Tab } from '../lib/model';
 
@@ -162,10 +162,17 @@ describe('main window', () => {
 
   it('the Claude tab marks old numbers next to the name, not in a column', async () => {
     await open(fixtureModel('stale'), 'claude');
-    expect(screen.getByText('4 tài khoản claude-swap')).toBeTruthy();
+    expect(screen.getByText('4 tài khoản Quota Station')).toBeTruthy();
+    expect(screen.queryByText(/tài khoản claude-swap/)).toBeNull();
     expect(screen.queryByText('Cập nhật')).toBeNull();
     expect(screen.getAllByText('số 41 phút trước').length).toBeGreaterThan(0);
     expect(screen.getByText('Hạn mức Claude chưa cập nhật trong 41 phút')).toBeTruthy();
+  });
+
+  it('the Claude tab names claude-swap as the keeper only until Quota Station keeps the accounts', async () => {
+    await open(fixtureModel('fresh', { claudeSwitch: { ready: false, busy: null } }), 'claude');
+    expect(screen.getByText('4 tài khoản claude-swap')).toBeTruthy();
+    expect(screen.queryByText('4 tài khoản Quota Station')).toBeNull();
   });
 
   it('the Antigravity tab merges the app’s logins into its table, with no Cockpit card', async () => {
@@ -364,8 +371,8 @@ describe('switching Claude and pausing from the main window', () => {
     expect(screen.getByText('Chi tiết').tagName).toBe('SUMMARY');
     const details = kv();
     expect(details).toMatchObject({
-      'LaunchAgent cswap-prefer-team': 'chạy mỗi 3 phút',
-      'com.cswap.auto': 'tắt',
+      'LaunchAgent tự chuyển': 'chạy mỗi 3 phút',
+      'Bộ tự chuyển cũ': 'tắt',
       'Tạm dừng tự chuyển': 'đến 15:20',
       'Switcher đọc cờ tạm dừng': 'có',
       'Nhật ký 09:12': '2026-01-16 09:12:05 switch to slot 2 (ends for good at 17:45, use it first)',
@@ -374,13 +381,25 @@ describe('switching Claude and pausing from the main window', () => {
     expect(Object.entries(details).find(([k]) => k.startsWith('Quyết định gần nhất'))?.[1]).toMatch(/^paused until/);
   });
 
-  it('a switcher that is not loaded gets a banner and a guide to load it again', async () => {
-    await open(fixtureModel('fresh', { switcher: switcherFixture({ service: false }) }), 'claude');
-    expect(screen.getByText('Switcher không chạy')).toBeTruthy();
-    expect(kv()['LaunchAgent cswap-prefer-team']).toBe('chưa nạp');
-    fireEvent.click(screen.getByRole('button', { name: 'Hướng dẫn nạp lại' }));
-    const guide = screen.getByRole('dialog', { name: 'Nạp lại switcher' });
-    expect(within(guide).getByText('launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.cswap.prefer-team.plist')).toBeTruthy();
+  it('a rotation that is not loaded gets a banner that turns it on', async () => {
+    const fake = await open(
+      fixtureModel('fresh', { switcher: switcherFixture({ service: false }), claudeAccounts: claudeAccountsFixture({ rotation: false }) }),
+      'claude',
+    );
+    expect(screen.getByText('Tự chuyển Claude đang tắt')).toBeTruthy();
+    expect(kv()['LaunchAgent tự chuyển']).toBe('tắt');
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Bật tự chuyển' }));
+    });
+    expect(fake.api.claudeSetRotation).toHaveBeenCalledWith(true);
+  });
+
+  it('an older switcher still loaded is a warning with a guide to stop it', async () => {
+    await open(fixtureModel('fresh', { switcher: switcherFixture({ legacy: 'com.cswap.prefer-team' }) }), 'claude');
+    expect(kv()['Bộ tự chuyển cũ']).toBe('com.cswap.prefer-team đang nạp');
+    fireEvent.click(screen.getAllByRole('button', { name: 'Hướng dẫn tắt' })[0]);
+    const guide = screen.getByRole('dialog', { name: 'Tắt bộ tự chuyển cũ' });
+    expect(within(guide).getByText('launchctl bootout gui/$(id -u)/com.cswap.prefer-team')).toBeTruthy();
     fireEvent.click(within(guide).getByRole('button', { name: 'Đóng' }));
     expect(screen.queryByRole('dialog')).toBeNull();
   });

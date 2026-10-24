@@ -1,8 +1,8 @@
 // Browser preview for `npm run dev`: the popover or the main window on a
 // fixture, without Tauri. `?state=keychain&view=window&tab=claude&error=notFound`.
 // Switching (M3): `switcher=held|noguard|auto|stopped|missing` sets the
-// switcher, `outcome=raced|failed|stopped|unconfirmed` what a switch reports, and
-// `cswap=none` hides claude-swap. A switch takes 1.5 s, so the working sheet shows.
+// switcher, `outcome=raced|failed|busy|unconfirmed` what a switch reports, and
+// `accounts=none` shows a Mac where Quota Station keeps no Claude account yet. A switch takes 1.5 s, so the working sheet shows.
 // Rotation rules (M5): `tab=rules` with `rotation=unreachable|newer|edited|unstamped|missing|invalid|refused|single`;
 // a save takes 1 s, and `unreachable` leaves Mac C behind.
 // Antigravity logins (M4a) and reads (M4b): `agy=two|relogin|verify|noclient|tooopen|invalid|broken|reading|failing|forbidden`
@@ -76,6 +76,7 @@ import {
   rulesFixture,
   SNAPSHOTS,
   switcherFixture,
+  claudeAccountsFixture,
   alertsFixture,
   appFixture,
   codexFixture,
@@ -258,7 +259,7 @@ const ROTATIONS: Record<string, () => Model['rotation']> = {
 const SWITCHERS: Record<string, () => Model['switcher']> = {
   held: () => heldSwitcher(),
   noguard: () => heldSwitcher({ dryRun: { decision: { kind: 'stay' }, raw: 'stay', at: '2026-01-16T07:19:40.000Z' }, guard: false }),
-  auto: () => switcherFixture({ autoService: true }),
+  auto: () => switcherFixture({ legacy: 'com.cswap.prefer-team' }),
   stopped: () => switcherFixture({ service: false }),
   missing: () => switcherFixture({ installed: false, dryRun: null, lastLog: null, service: null }),
 };
@@ -297,9 +298,9 @@ const OUTCOMES: Record<string, (slot: number, holdUntil: string | null) => Outco
     bySwitcherAt: '2026-01-16T07:21:00.000Z',
     hold: holdOf(holdUntil),
   }),
-  failed: (slot) => ({ kind: 'failed', slot, error: 'refused', detail: 'ClaudeSwitchError: Account-' + slot + ' … needs /login', active: null }),
-  // cswap timed out, and the account read again is still the one before.
-  stopped: (slot) => ({ kind: 'failed', slot, error: 'timeout', detail: 'cswap did not answer within 60s', active: slot === 2 ? 3 : 2 }),
+  failed: (slot) => ({ kind: 'failed', slot, error: 'noCredential', detail: '', active: null }),
+  // Claude Code held its login locks, so nothing was written.
+  busy: (slot) => ({ kind: 'failed', slot, error: 'busy', detail: '', active: null }),
   unconfirmed: (slot, holdUntil) => ({ kind: 'unconfirmed', slot, hold: holdOf(holdUntil) }),
 };
 
@@ -337,7 +338,11 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
   const over: Partial<Model> = error ? { errors: failing(error) } : {};
   const switcher = pick(SWITCHERS, params.get('switcher'));
   if (switcher) over.switcher = switcher();
-  if (params.get('cswap') === 'none') over.claudeSwitch = { cswap: false, busy: null };
+  if (params.get('accounts') === 'none') {
+    over.claudeSwitch = { ready: false, busy: null };
+    over.claudeAccounts = claudeAccountsFixture({ ready: false, accounts: [], rotation: false });
+    over.switcher = switcherFixture({ installed: false, service: false, dryRun: null, dryRunError: 'noAccounts' });
+  }
   const rotation = params.get('rotation');
   const rules = pick(ROTATIONS, rotation);
   if (rules) over.rotation = rules();

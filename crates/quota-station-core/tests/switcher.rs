@@ -1,12 +1,12 @@
-//! The switcher's dry run, log and LaunchAgent, read from fakes: these tests
-//! never run the real `cswap-prefer-team` or `launchctl`.
+//! The rotation's decision lines, its log and launchd, read from fakes:
+//! these tests never run the real `launchctl`.
 
 mod common;
 
 use common::{script, temp_dir};
 use quota_station_core::switcher::{
-    dry_run, dry_run_with, last_log_line, parse_decision, parse_log_line, service_loaded, Decision,
-    DryRunError, LogEvent, Why,
+    decided, last_log_line, log_file, parse_decision, parse_log_line, service_loaded, Decision,
+    LogEvent, Why,
 };
 
 #[test]
@@ -42,6 +42,10 @@ fn every_decision_line_the_switcher_prints() {
             Switch { slot: 3, why: Why::Park { at: at("16:40") } },
         ),
         ("wait (no account with room)", Wait),
+        (
+            "blocked (com.cswap.prefer-team is loaded)",
+            Blocked { label: at("com.cswap.prefer-team") },
+        ),
         ("switch 3 (something new)", Switch { slot: 3, why: Why::Other }),
         ("dance", Other),
     ];
@@ -81,32 +85,20 @@ fn the_pause_guard_lines() {
 }
 
 #[test]
-fn a_dry_run_reads_the_first_line_and_skips_the_priming_note() {
-    let dir = temp_dir("dry-run");
-    let s = script(&dir.join("cswap-prefer-team"), "[ \"$1\" = --dry-run ] || exit 9\necho 'switch 4 (4.0%, ends 15:00)'\necho 'would prime slot(s) 3'\n");
-    let run = dry_run(&s).unwrap();
+fn a_decision_keeps_the_line_as_printed() {
+    let run = decided("switch 4 (4.0%, ends 15:00)\n");
     assert_eq!(run.raw, "switch 4 (4.0%, ends 15:00)");
     assert!(matches!(run.decision, Decision::Switch { slot: 4, .. }));
-
-    // The switcher prints nothing when `cswap list --json` fails.
-    let quiet = script(&dir.join("quiet"), "exit 0\n");
-    assert_eq!(dry_run(&quiet).unwrap_err(), DryRunError::NoDecision);
-    assert_eq!(dry_run(&dir.join("missing")).unwrap_err(), DryRunError::NotFound);
 }
 
 #[test]
-fn the_preview_dry_run_points_the_switcher_at_the_draft_file() {
-    let dir = temp_dir("dry-run-draft");
-    let draft = dir.join("rotation-preview");
-    std::fs::write(&draft, "full = 85\n").unwrap();
-    // A fake switcher that decides from the file it is pointed at.
-    let s = script(
-        &dir.join("cswap-prefer-team"),
-        "grep -q 'full = 85' \"$CSWAP_ROTATION_FILE\" && echo 'switch 3 (86.0%, ends 15:00)' || echo stay\n",
-    );
-    let run = dry_run_with(&s, &draft).unwrap();
-    assert_eq!(run.raw, "switch 3 (86.0%, ends 15:00)");
-    assert_eq!(dry_run(&s).unwrap().raw, "stay", "without it the variable is unset");
+fn the_log_is_the_old_switchers_until_the_app_keeps_the_accounts() {
+    let home = temp_dir("switcher-log-file");
+    assert_eq!(log_file(&home), home.join("Library/Logs/cswap-prefer-team.log"));
+    let paths = quota_station_core::claude::Paths::for_home(&home);
+    std::fs::create_dir_all(&paths.dir).unwrap();
+    std::fs::write(paths.accounts(), "{\"version\":1,\"accounts\":[]}").unwrap();
+    assert_eq!(log_file(&home), paths.log());
 }
 
 #[test]

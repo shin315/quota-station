@@ -12,6 +12,8 @@ import type {
   AgyLogin,
   AlertRecord,
   AlertsView,
+  ClaudeAccountRow,
+  ClaudeAccountsView,
   CodexView,
   ErrorView,
   FirstmateView,
@@ -54,7 +56,41 @@ export function switcherFixture(over: Partial<SwitcherView> = {}): SwitcherView 
       raw: '2026-01-16 09:12:05 switch to slot 2 (ends for good at 17:45, use it first)',
     },
     service: true,
-    autoService: false,
+    legacy: null,
+    ...over,
+  };
+}
+
+/** The four accounts of the pool fixture, kept by Quota Station; Team A (2) in use. */
+export function claudeAccountsFixture(over: Partial<ClaudeAccountsView> = {}): ClaudeAccountsView {
+  const row = (slot: number, email: string, five: number | null, over: Partial<ClaudeAccountRow> = {}): ClaudeAccountRow => ({
+    slot,
+    alias: null,
+    enabled: true,
+    active: false,
+    kind: 'login',
+    status: 'fresh',
+    fetchedAt: '2026-01-16T07:18:00Z',
+    ageSeconds: 120,
+    windows: { fiveHour: five == null ? null : { usedPercent: five, resetsAt: null }, sevenDay: null, fable: null },
+    error: null,
+    email,
+    ...over,
+  });
+  return {
+    ready: true,
+    importable: true,
+    accounts: [
+      row(1, 'lanpham.dev@example.com', 0),
+      row(2, 'lan.acme1@example.com', 73, { active: true }),
+      row(3, 'lan.acme2@example.com', 0),
+      row(4, 'lan.acme3@example.com', 2),
+    ],
+    working: null,
+    last: null,
+    rotation: true,
+    legacy: null,
+    claude: true,
     ...over,
   };
 }
@@ -523,7 +559,8 @@ export function fixtureModel(name: string, over: Partial<Model> = {}): Model {
     quotaAxi: { path: '~/.local/bin/quota-axi', custom: false, exists: true, version: '0.1.61+cswap.4', fork: true },
     granting: false,
     switcher: switcherFixture(),
-    claudeSwitch: { cswap: true, busy: null },
+    claudeSwitch: { ready: true, busy: null },
+    claudeAccounts: claudeAccountsFixture(),
     rotation: rotationFixture(),
     showNames: true,
     theme: 'auto',

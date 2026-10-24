@@ -1,13 +1,16 @@
-//! One manual switch of the Claude account, start to finish (F04): run
-//! `cswap switch N --json`, pause the switcher when the owner chose to hold
-//! the account, wait for things to settle, then read again which account is
-//! active and say what really happened.
+//! One manual switch of the Claude account, start to finish (F04): switch
+//! Claude Code's login with the app's own [`crate::claude::switch`], pause
+//! the rotation when the owner chose to hold the account, wait for things to
+//! settle, then look again at which account is active and say what really
+//! happened.
 //!
-//! The re-read matters because the switcher may run at the same moment.
-//! claude-swap's locks keep the two writes apart, so the later one wins; the
-//! switcher's log says whether it was the switcher. It skips quota-axi's
-//! cache, which may still hold the reading of the account before the switch.
+//! The second look matters because the rotation may run right after: the
+//! app's account lock keeps the two switches apart, so the later one wins;
+//! the rotation's log says whether it was the rotation. While an older
+//! switcher (`com.cswap.prefer-team`, `com.cswap.auto`) is loaded nothing is
+//! switched: it keeps its own copies of the same logins.
 
+use std::ffi::OsString;
 use std::path::PathBuf;
 use std::thread;
 use std::time::Duration;
@@ -17,46 +20,51 @@ use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
 use crate::axi::Response;
-use crate::cswap::{self, SwitchError};
+use crate::claude::locks::LockError;
+use crate::claude::store::Store;
+use crate::claude::switch::{self, SwitchError};
+use crate::claude::{agent, state};
 use crate::local_time;
 use crate::pause::{self, Flag};
 use crate::runner::{self, ProviderId};
 use crate::switcher::{self, LogEvent};
 
-/// How long after the switch the active account is read again.
+/// How long after the switch the active account is looked at again.
 pub const SETTLE: Duration = Duration::from_secs(5);
 
-/// The programs and files one switch uses.
+/// What one switch uses.
 #[derive(Debug, Clone)]
 pub struct Tools {
-    pub cswap: Option<PathBuf>,
+    pub store: Store,
+    pub launchctl: PathBuf,
     pub quota_axi: Option<PathBuf>,
+    /// The variables that point quota-axi at the app's accounts.
+    pub env: Vec<(String, OsString)>,
     pub pause_file: PathBuf,
-    pub log_file: PathBuf,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Hold {
-    /// When the switcher may switch again, RFC 3339.
+    /// When the rotation may switch again, RFC 3339.
     pub until: String,
-    /// The pause flag could not be written: the switcher is not held back.
+    /// The pause flag could not be written: the rotation is not held back.
     pub failed: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum Outcome {
-    /// The re-read shows `slot` active.
+    /// The second look shows `slot` active.
     Switched { slot: u32, hold: Option<Hold> },
-    /// claude-swap switched, but the re-read shows `active`: a later switch
-    /// won. `by_switcher_at` is set when the switcher's log has that switch.
+    /// The switch landed, but the second look shows `active`: a later switch
+    /// won. `by_switcher_at` is set when the rotation's log has that switch.
     Raced { slot: u32, active: u32, by_switcher_at: Option<String>, hold: Option<Hold> },
-    /// claude-swap switched, and the active account could not be read again.
+    /// The switch landed, and the active account could not be told after.
     Unconfirmed { slot: u32, hold: Option<Hold> },
-    /// The switch did not land. `active` is the account read again when
-    /// claude-swap stopped without an answer (timed out, or ended without
-    /// one), to show what is in use; `None` when claude-swap answered.
+    /// The switch did not land: [`SwitchError::kind`], or `legacy` while an
+    /// older switcher is loaded (its label in `detail`). `active` is the
+    /// account in use when the login could not be put back as it was.
     Failed { slot: u32, error: String, detail: String, active: Option<u32> },
 }
 
@@ -67,64 +75,61 @@ pub struct Done {
     pub report: Option<Response>,
 }
 
-/// Switches to `slot`. With `hold_until`, the switcher is paused until then
-/// after the switch, so it does not switch straight back. Blocks for
-/// `settle` before the re-read.
+/// Switches to `slot`. With `hold_until`, the rotation is paused until then
+/// after the switch, so it does not switch straight back. `settle` runs
+/// between the switch and the second look: [`settle`] waits [`SETTLE`].
 pub fn switch_claude(
     tools: &Tools,
     slot: u32,
     hold_until: Option<OffsetDateTime>,
-    settle: Duration,
+    settle: &dyn Fn(),
 ) -> Done {
-    let failed = |error: &SwitchError, active: Option<u32>, report: Option<Response>| Done {
-        outcome: Outcome::Failed {
-            slot,
-            error: error.kind().to_string(),
-            detail: match error {
-                SwitchError::NotFound => String::new(),
-                other => other.to_string(),
-            },
-            active,
-        },
-        report,
+    let failed = |error: &str, detail: String, active: Option<u32>| Done {
+        outcome: Outcome::Failed { slot, error: error.to_string(), detail, active },
+        report: None,
     };
-    let Some(cswap_path) = &tools.cswap else {
-        return failed(&SwitchError::NotFound, None, None);
-    };
-    let started = OffsetDateTime::now_utc();
-    if let Err(e) = cswap::switch(cswap_path, slot) {
-        if !matches!(e, SwitchError::Timeout | SwitchError::Exit { .. }) {
-            return failed(&e, None, None);
-        }
-        // claude-swap was stopped mid-switch, or ended without saying how it
-        // went: the switch may have landed, so look before saying it did not.
-        thread::sleep(settle);
-        let report = fresh_read(tools);
-        let active = active_slot(report.as_ref());
-        if active != Some(slot) {
-            return failed(&e, active, report);
-        }
-        let hold = hold(tools, slot, hold_until, started);
-        return Done { outcome: Outcome::Switched { slot, hold }, report };
+    if let Some(label) = agent::legacy_loaded(&tools.launchctl) {
+        return failed("legacy", label.to_string(), None);
     }
+    let started = OffsetDateTime::now_utc();
+    if let Err(e) = switch::switch(&tools.store, slot) {
+        let active = matches!(e, SwitchError::NotConfirmed { restored: false })
+            .then(|| switch::active_slot(&tools.store))
+            .flatten();
+        return failed(e.kind(), detail(&e), active);
+    }
+    let _ = state::write(&tools.store, Some(slot), OffsetDateTime::now_utc());
 
     let hold = hold(tools, slot, hold_until, started);
-    thread::sleep(settle);
-    let report = fresh_read(tools);
-    let outcome = match active_slot(report.as_ref()) {
+    settle();
+    let outcome = match switch::active_slot(&tools.store) {
         Some(a) if a == slot => Outcome::Switched { slot, hold },
         Some(active) => Outcome::Raced {
             slot,
             active,
-            by_switcher_at: switcher_switch(&tools.log_file, active, started),
+            by_switcher_at: switcher_switch(&tools.store.paths.log(), active, started),
             hold,
         },
         None => Outcome::Unconfirmed { slot, hold },
     };
-    Done { outcome, report }
+    Done { outcome, report: fresh_read(tools) }
 }
 
-/// Pauses the switcher until `until` for a manual switch to `slot` that
+/// Waits [`SETTLE`].
+pub fn settle() {
+    thread::sleep(SETTLE);
+}
+
+/// The error's words for the sheet: none for a held lock, whose message
+/// names a path on this Mac.
+fn detail(e: &SwitchError) -> String {
+    match e {
+        SwitchError::Lock(LockError::Busy(_)) => String::new(),
+        other => other.to_string(),
+    }
+}
+
+/// Pauses the rotation until `until` for a manual switch to `slot` that
 /// started at `started`. Nothing is written for a hold already over, or when
 /// a pause that lasts at least as long is on: a hold never shortens the
 /// owner's pause.
@@ -156,15 +161,14 @@ fn hold(
     })
 }
 
+/// quota-axi's Claude report after the switch, skipping its cache, which may
+/// still hold the reading of the account before.
 fn fresh_read(tools: &Tools) -> Option<Response> {
-    tools.quota_axi.as_ref().and_then(|p| runner::read_fresh(p, ProviderId::Claude).ok())
+    let path = tools.quota_axi.as_ref()?;
+    runner::read_fresh_env(path, ProviderId::Claude, &tools.env).ok()
 }
 
-fn active_slot(report: Option<&Response>) -> Option<u32> {
-    report?.primary("claude")?.claude_swap.as_ref()?.active_slot
-}
-
-/// When the switcher's last log line is its switch to `slot`, written after
+/// When the rotation's last log line is its switch to `slot`, written after
 /// `since`: the time of that switch.
 fn switcher_switch(log: &std::path::Path, slot: u32, since: OffsetDateTime) -> Option<String> {
     let line = switcher::last_log_line(log)?;

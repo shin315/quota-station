@@ -40,6 +40,16 @@ pub fn path(home: &Path) -> PathBuf {
     home.join(FILE)
 }
 
+/// The file the rotation follows: the app's own copy (`claude/rotation`)
+/// once the accounts were imported, else the old switcher's.
+pub fn resolve(own: &Path, home: &Path) -> PathBuf {
+    if own.exists() {
+        own.to_path_buf()
+    } else {
+        path(home)
+    }
+}
+
 /// The six keys, as the editor shows them.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -636,12 +646,14 @@ pub struct Applied {
 }
 
 /// Writes `text` to `file` when the file is still at `base` (its version, or
-/// `None` for no file), then has quota-axi read it. When quota-axi refuses
-/// it, or cannot run, the file before goes back: the switcher on this Mac
-/// never runs on a file quota-axi did not accept.
+/// `None` for no file), then has quota-axi read it, with `env` (which names
+/// the app's own copy to quota-axi). When quota-axi refuses it, or cannot
+/// run, the file before goes back: the rotation on this Mac never runs on a
+/// file quota-axi did not accept.
 pub fn apply(
     file: &Path,
     quota_axi: Option<&Path>,
+    env: &[(String, std::ffi::OsString)],
     text: &str,
     base: Option<&str>,
     now: OffsetDateTime,
@@ -658,7 +670,7 @@ pub fn apply(
     let backup = write(file, text, now).map_err(|e| ApplyError::Write(e.to_string()))?;
     let undo = || restore(file, backup.as_deref()).is_ok();
     let report = match quota_axi {
-        Some(path) => runner::read(path, ProviderId::Claude),
+        Some(path) => runner::read_env(path, ProviderId::Claude, env),
         None => Err(RunError::NotConfigured),
     };
     match report {

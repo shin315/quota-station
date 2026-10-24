@@ -3,8 +3,9 @@
 //! live while its pid is alive.
 //!
 //! Only `pid` and `kind` are read from a record; serde drops every other
-//! field. Sessions started with `cswap run` keep their own profile and record
-//! elsewhere, and a switch does not touch them.
+//! field. Sessions started with `quota-station claude run` (or `cswap run`)
+//! keep their own profile and record elsewhere, and a switch does not touch
+//! them.
 
 use std::io;
 use std::path::{Path, PathBuf};

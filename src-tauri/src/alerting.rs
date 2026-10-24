@@ -146,7 +146,9 @@ fn evaluate(state: &AppState) {
         .is_some_and(|p| p.rotation.is_some());
     let rules = match has_rotation {
         true => None,
-        false => match rotation::load(&rotation::path(&home)) {
+        false => match rotation::load(
+            &quota_station_core::claude::Paths::for_home(&home).rotation_file(),
+        ) {
             FileState::Ok { parsed, .. } => Some(parsed.rules),
             _ => None,
         },

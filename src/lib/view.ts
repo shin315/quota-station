@@ -25,6 +25,9 @@ export type Action =
   | 'closeFeedback'
   | 'guide:auto'
   | 'guide:switcher'
+  /** The Claude accounts' actions on banners (`ClaudeAccounts`). */
+  | 'claude:rotation:on'
+  | 'claude:import'
   /** Opens the switch sheet for a Claude slot. */
   | `switch:${number}`
   /** Opens the switch sheet for an Antigravity account (M4c). */
@@ -218,7 +221,7 @@ interface CardContext {
   keychainRequired: boolean;
   personalHours: string | null;
   /** Claude cards: what switching needs. */
-  switching: { listed: boolean; cswap: boolean; busy: number | null } | null;
+  switching: { listed: boolean; ready: boolean; busy: number | null } | null;
   /** Antigravity cards: what switching needs (M4c). */
   agy: AgyRowSwitch | null;
 }
@@ -247,9 +250,13 @@ function offReason(a: Account, ctx: CardContext): string {
   if (a.active) return '';
   if (!sw || !sw.listed || a.number === 0) return '';
   if (sw.busy != null) return 'Đang chuyển tài khoản';
-  if (!sw.cswap) return 'Chưa chuyển được: không tìm thấy cswap';
-  if (a.disabled) return 'Tài khoản đã tắt trong claude-swap';
+  if (!sw.ready) return 'Chưa chuyển được: Quota Station chưa giữ tài khoản Claude';
   return '';
+}
+
+/** Who keeps the Claude accounts' list: Quota Station once it does, claude-swap before. */
+function listName(ctx: CardContext): string {
+  return ctx.switching?.ready === false ? 'claude-swap' : 'Quota Station';
 }
 
 function cardView(a: Account, kind: 'c' | 'g', names: AccountName, ctx: CardContext): CardView {
@@ -266,14 +273,14 @@ function cardView(a: Account, kind: 'c' | 'g', names: AccountName, ctx: CardCont
     if (a.reading === 'resetPending') chips.push({ t: 'chờ số sau mốc đặt lại', k: 'info' });
     else if (a.reading === 'noData') chips.push({ t: 'chưa có số', k: '' });
     else if (a.reading === 'stale' && since != null) chips.push({ t: 'số ' + age(since) + ' trước', k: 'stale' });
-    if (kind === 'c' && a.active && a.source === 'claudeSwap' && ctx.keychainRequired) chips.push({ t: 'số từ claude-swap', k: 'info' });
+    if (kind === 'c' && a.active && a.source === 'claudeSwap' && ctx.keychainRequired) chips.push({ t: 'số từ ' + listName(ctx), k: 'info' });
   }
   const cells = kind === 'c' ? claudeCells(a, ctx.now) : agyCells(a, ctx.now);
   const where =
     a.number === 0
       ? ''
       : kind === 'c'
-        ? 'claude-swap · tài khoản ' + a.number
+        ? listName(ctx) + ' · tài khoản ' + a.number
         : (ctx.agy?.listed ? 'Quota Station' : 'Cockpit Tools') + ' · tài khoản ' + a.number;
   const off = offReason(a, ctx);
   const listed = kind === 'c' ? !!ctx.switching?.listed : !!ctx.agy?.listed;
@@ -472,7 +479,7 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
     switching: null,
     agy: null,
   });
-  const claudeSwitching = { listed: c.status === 'ok', cswap: model.claudeSwitch.cswap, busy: model.claudeSwitch.busy };
+  const claudeSwitching = { listed: c.status === 'ok', ready: model.claudeSwitch.ready, busy: model.claudeSwitch.busy };
   const claudeCards = c.accounts.map((a) => cardView(a, 'c', names.get(a.number)!, { ...ctx(!!cErr, c), switching: claudeSwitching }));
   const agySwitching: AgyRowSwitch = {
     listed: g.status === 'ok' && model.agySwitch.listed,
@@ -518,7 +525,7 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
     banner = {
       tone: 'warn',
       title: 'Hạn mức Claude chưa cập nhật trong ' + staleWords,
-      body: 'claude-swap chưa làm mới số từ ' + clock(c.newestReadingAt) + '. Switcher có thể đang không chạy.',
+      body: swapName(model) + ' chưa làm mới số từ ' + clock(c.newestReadingAt) + '. Switcher có thể đang không chạy.',
       actions: [{ label: 'Làm mới', act: 'refresh' }],
     };
   } else if (keychainRequired && !options.keychainLater) {
@@ -528,7 +535,7 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
       body:
         'Dòng Claude' +
         (activeName ? ' của ' + activeName : '') +
-        ' lấy tạm từ claude-swap (số chưa được cập nhật). Cấp quyền một lần để đọc trực tiếp.',
+        ' lấy tạm từ ' + swapName(model) + ' (số chưa được cập nhật). Cấp quyền một lần để đọc trực tiếp.',
       actions: [
         { label: 'Cấp quyền một lần', act: 'keychain' },
         { label: 'Để sau', act: 'dismiss' },
@@ -539,7 +546,7 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
     banner = {
       tone: 'info',
       title: nameOf(pendingAccount.number) + ' vừa qua mốc đặt lại',
-      body: 'Đang chờ claude-swap đọc số mới. App không hiện số khi chưa có số thật.',
+      body: 'Đang chờ ' + swapName(model) + ' đọc số mới. App không hiện số khi chưa có số thật.',
       actions: [{ label: 'Làm mới', act: 'refresh' }],
     };
   } else if (codex) banner = codex;
@@ -557,8 +564,11 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
           : 'quota-axi không báo danh sách tài khoản của claude-swap.',
     };
   else if (c.status === 'notSetUp') claudeNote = { tone: '', text: 'Máy này chưa có Claude Code' };
-  else if (!model.claudeSwitch.cswap && c.accounts.some((a) => a.number > 0))
-    claudeNote = { tone: 'warn', text: 'Không tìm thấy cswap trên máy này: chưa chuyển được tài khoản Claude.' };
+  else if (!model.claudeSwitch.ready && c.accounts.some((a) => a.number > 0))
+    claudeNote = {
+      tone: 'warn',
+      text: 'Quota Station chưa giữ tài khoản Claude nào trên máy này: nhập từ claude-swap ở tab Claude để chuyển được tài khoản.',
+    };
 
   let agyNote: NoteView | null = null;
   if (g.status === 'noSidecar') agyNote = { tone: '', text: 'Chỉ thấy tài khoản đang dùng: chưa có danh sách tài khoản' };
@@ -635,4 +645,9 @@ export function keychainFeedback(model: Model | null): FeedbackView {
         title: 'Chưa cấp được quyền Keychain',
         body: 'quota-axi vẫn chưa đọc được Keychain. Thử lại, rồi bấm "Luôn cho phép" khi macOS hỏi.',
       };
+}
+
+/** Who reads the Claude accounts' numbers: Quota Station once it keeps them, claude-swap before. */
+function swapName(model: Model): string {
+  return model.claudeSwitch.ready ? 'Quota Station' : 'claude-swap';
 }
