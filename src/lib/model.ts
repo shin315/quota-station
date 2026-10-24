@@ -369,6 +369,8 @@ export interface AgyReadError {
 
 /** One account logged in here (`src-tauri/src/antigravity.rs` `AccountView`). */
 export type Theme = 'auto' | 'light' | 'dark';
+/** The windows' language; `auto` follows macOS. */
+export type Language = 'auto' | 'vi' | 'en';
 export type Menubar = 'claude' | 'gemini' | 'codex';
 /** The window the menu bar title shows; one the service lacks falls back to five hours, then the tightest. */
 export type MenubarWindow = 'fiveHours' | 'week' | 'fableWeek' | 'tightest';
@@ -1062,6 +1064,7 @@ export interface Model {
   /** Account names (emails, organizations) may show; off, none reaches the window. */
   showNames: boolean;
   theme: Theme;
+  language: Language;
   /** The service the menu bar title follows. */
   menubar: Menubar;
   /** The window whose share used the menu bar title and Đang dùng show. */

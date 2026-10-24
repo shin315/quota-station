@@ -36,8 +36,8 @@ describe('main window view', () => {
 
   it('writes resets in the tables as the popover does, minutes only within a day', () => {
     const [personal, acme1, acme2] = view('fresh').claude.cards;
-    expect(personal.cells.map((c) => c.reset)).toEqual(['chưa dùng', '↻ 6d 7h', '↻ 6d 7h']);
-    expect(acme1.cells[0].reset).toBe('↻ 3h 8m');
+    expect(personal.cells.map((c) => c.reset)).toEqual(['chưa dùng', '6d 7h', '6d 7h']);
+    expect(acme1.cells[0].reset).toBe('3h 8m');
     expect(acme2.cells[1]).toMatchObject({ none: true, reset: 'không có' });
     expect(view('reset-pending').claude.cards[3].cells[0].reset).toBe('chờ số');
   });

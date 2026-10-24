@@ -51,6 +51,9 @@ pub struct Settings {
     /// Light, dark, or as macOS is.
     #[serde(default, skip_serializing_if = "Theme::is_auto")]
     pub theme: Theme,
+    /// Vietnamese, English, or as macOS is.
+    #[serde(default, skip_serializing_if = "Language::is_auto")]
+    pub language: Language,
     /// The service whose account and percent used the menu bar shows.
     /// Each Mac keeps its own.
     #[serde(default, skip_serializing_if = "Menubar::is_claude")]
@@ -230,6 +233,23 @@ impl Theme {
     }
 }
 
+/// The windows' language.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Language {
+    /// macOS's first preferred language the app speaks; English otherwise.
+    #[default]
+    Auto,
+    Vi,
+    En,
+}
+
+impl Language {
+    pub fn is_auto(&self) -> bool {
+        *self == Language::Auto
+    }
+}
+
 /// The service the menu bar title follows.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -296,6 +316,9 @@ struct Stored {
     /// An unknown value reads as automatic.
     #[serde(default)]
     theme: serde_json::Value,
+    /// An unknown value reads as automatic.
+    #[serde(default)]
+    language: serde_json::Value,
     /// An unknown value reads as Claude.
     #[serde(default)]
     menubar: serde_json::Value,
@@ -369,6 +392,7 @@ impl From<Stored> for Settings {
             peers,
             hide_names: s.hide_names,
             theme: serde_json::from_value(s.theme).unwrap_or_default(),
+            language: serde_json::from_value(s.language).unwrap_or_default(),
             menubar: serde_json::from_value(s.menubar).unwrap_or_default(),
             menubar_window: serde_json::from_value(s.menubar_window).unwrap_or_default(),
             alerts: s.alerts,

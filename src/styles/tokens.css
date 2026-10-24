@@ -549,10 +549,11 @@
   }
 }
 
-/* The popover's own scale: the shared names read its smaller sizes there. */
+/* The popover's own scale: the shared names read its smaller sizes there.
+   --fs-sm stays the window's 13 px: a banner's body, a sheet's lead and facts
+   read the same in both, and the popover's own small lines name --pop-fs-sm. */
 .qs.app-popover {
   --fs-body: var(--pop-fs-body);
-  --fs-sm: var(--pop-fs-sm);
   --fs-xs: var(--pop-fs-xs);
   --fs-s: var(--pop-fs-sm);
   --fs-cap: 10.5px;

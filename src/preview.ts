@@ -60,6 +60,7 @@
 // 38 Codex sessions in a format the app cannot read, `stats=fail` a report that cannot be read.
 // The glass (community edition, 24/10/2026): `rt=1` is macOS with Reduce Transparency on (the
 // solid ground), and `desk=plain` a plain desktop behind the glass instead of the made-up one.
+// `lang=vi|en` sets the language; without it the preview follows the browser's, as the app follows macOS.
 
 import type { Api } from './lib/api';
 import type { AgyAccounts, AgyApp, AgyHow, AgyOutcome, CodexOutcome, CodexTarget, McpTable, Model, Outcome, Tab, UpdateError, UpdateOutcome } from './lib/model';
@@ -366,6 +367,8 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
   }
   const theme = params.get('theme');
   if (theme === 'light' || theme === 'dark') over.theme = theme;
+  const lang = params.get('lang');
+  if (lang === 'vi' || lang === 'en') over.language = lang;
   const alerts = pick(ALERTS, params.get('alerts') ?? (tab === 'alerts' ? 'on' : null));
   if (alerts) over.alerts = alerts();
   const firstmate = pick(FIRSTMATES, params.get('firstmate'));

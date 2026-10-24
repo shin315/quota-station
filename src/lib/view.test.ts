@@ -24,8 +24,8 @@ describe('popover view', () => {
     ]);
     // The menu bar's number for each service: the account in use and its five hours, by default.
     expect(now(v.now)).toEqual([
-      ['Claude', 'lan.acme1', '74%', '5 giờ', '↻ 3h 8m', ''],
-      ['Gemini', 'lan.ultra2', '2%', '5 giờ', '↻ 1h 57m', ''],
+      ['Claude', 'lan.acme1', '74%', '5 giờ', '3h 8m', ''],
+      ['Gemini', 'lan.ultra2', '2%', '5 giờ', '1h 57m', ''],
       // Codex goes through its own provider: no number, the ChatGPT account's on hover.
       ['Codex', 'relay', '—', '', '', 'ChatGPT đã dùng 23% 5 giờ'],
     ]);
@@ -42,18 +42,18 @@ describe('popover view', () => {
     const v = view('fresh');
     const [personal, acme1, acme2] = v.claude.cards;
     expect(rows(acme1)).toEqual(cells(acme1));
-    // An idle window has no `chưa dùng`; a Team seat has no week row at all.
-    expect(rows(personal)[0]).toEqual(['5 giờ', '0%', '']);
+    // An idle window reads `chưa dùng`; a Team seat has no week row at all.
+    expect(rows(personal)[0]).toEqual(['5 giờ', '0%', 'chưa dùng']);
     expect(rows(acme2).map((r) => r[0])).toEqual(['5 giờ', 'Fable']);
     // Antigravity: Gemini and Claude/GPT, each the tighter of its two windows.
     const [ultra1, ultra2] = v.agy.cards;
     expect(rows(ultra2)).toEqual([
-      ['Gemini', '6%', '↻ 3d 23h'],
-      ['Claude/GPT', '0%', '↻ 5d 23h'],
+      ['Gemini', '6%', '3d 23h'],
+      ['Claude/GPT', '0%', '5d 23h'],
     ]);
     expect(rows(ultra1)).toEqual([
-      ['Gemini', '37%', '↻ 4d 23h'],
-      ['Claude/GPT', '18%', '↻ 5d 3h'],
+      ['Gemini', '37%', '4d 23h'],
+      ['Claude/GPT', '18%', '5d 3h'],
     ]);
     // The spoken label keeps every window.
     expect(ultra2.label).toContain('Gemini 5 giờ đã dùng 2%');
@@ -72,7 +72,7 @@ describe('popover view', () => {
 
   it('Codex on its ChatGPT login shows that account’s number, and no Codex folder no row', () => {
     const chatgpt = view('fresh', { codex: codexFixture({ current: 'chatgpt' }) });
-    expect(now(chatgpt.now)[2]).toEqual(['Codex', 'ChatGPT', '23%', '5 giờ', '↻ 2h 9m', '']);
+    expect(now(chatgpt.now)[2]).toEqual(['Codex', 'ChatGPT', '23%', '5 giờ', '2h 9m', '']);
     expect(view('fresh', { codex: codexFixture({ present: false }) }).now.rows.map((r) => r.id)).toEqual(['c', 'g']);
     // Not read yet, or ChatGPT not answering: the name and no number.
     const unread = fixtureModel('fresh', { codex: codexFixture({ current: 'chatgpt' }) });
@@ -126,9 +126,9 @@ describe('popover view', () => {
   it('every window is the share used, with its reset, and an idle five hours reads chưa dùng', () => {
     const [personal, acme1, acme2] = view('fresh').claude.cards;
     expect(cells(acme1)).toEqual([
-      ['5 giờ', '74%', '↻ 3h 8m'],
-      ['Tuần', '39%', '↻ 4d 19h'],
-      ['Fable', '87%', '↻ 1d 17h'],
+      ['5 giờ', '74%', '3h 8m'],
+      ['Tuần', '39%', '4d 19h'],
+      ['Fable', '87%', '1d 17h'],
     ]);
     expect(acme1.cells.map((c) => c.tone)).toEqual(['warn', 'ok', 'warn']);
     expect(acme1.chips).toEqual([{ t: 'rời vòng 17:45', k: 'warn' }]);
@@ -155,10 +155,10 @@ describe('popover view', () => {
     const [ultra1, ultra2] = v.agy.cards;
     expect(ultra2).toMatchObject({ name: 'lan.ultra2', active: true });
     expect(cells(ultra2)).toEqual([
-      ['Gemini 5 giờ', '2%', '↻ 1h 57m'],
-      ['Gemini tuần', '6%', '↻ 3d 23h'],
-      ['Claude/GPT 5 giờ', '0%', '↻ 4h 59m'],
-      ['Claude/GPT tuần', '0%', '↻ 5d 23h'],
+      ['Gemini 5 giờ', '2%', '1h 57m'],
+      ['Gemini tuần', '6%', '3d 23h'],
+      ['Claude/GPT 5 giờ', '0%', '4h 59m'],
+      ['Claude/GPT tuần', '0%', '5d 23h'],
     ]);
     expect(ultra1.name).toBe('lanpham.ultra');
     expect(ultra1.dim).toBe(true);
@@ -169,8 +169,8 @@ describe('popover view', () => {
   it('accounts the app has no reading of show one number per model group', () => {
     const [ultra1, ultra2] = view('stale').agy.cards;
     expect(cells(ultra1)).toEqual([
-      ['Gemini', '37%', '↻ 4d 23h'],
-      ['Claude/GPT', '18%', '↻ 5d 3h'],
+      ['Gemini', '37%', '4d 23h'],
+      ['Claude/GPT', '18%', '5d 3h'],
     ]);
     // The account in use has its four windows from the live row.
     expect(ultra2.cells).toHaveLength(4);
@@ -193,33 +193,37 @@ describe('popover view', () => {
     const v = view('single');
     expect(v.agy.cards.map((c) => c.name)).toEqual(['Tài khoản đang dùng']);
     expect(v.agy.cards[0].cells.map((c) => c.label)).toEqual(['Gemini 5 giờ', 'Gemini tuần', 'Claude/GPT 5 giờ', 'Claude/GPT tuần']);
-    expect(v.agy.note?.text).toBe('Chỉ thấy tài khoản đang dùng: chưa có danh sách tài khoản');
+    expect(v.agy.note?.text).toBe('Tài khoản đang đăng nhập trong Antigravity.');
   });
 
   it('asks for Keychain access once to read Claude Code’s login', () => {
     const v = view('keychain');
     expect(v.banner).toEqual({
       tone: 'warn',
+      icon: 'perm',
       title: 'Chưa cấp quyền Keychain cho Quota Station',
-      body: 'Dòng Claude cần đăng nhập của Claude Code trong Keychain để có số mới. Cấp quyền một lần, rồi bấm "Luôn cho phép" khi macOS hỏi.',
+      body: 'Quota Station cần đọc đăng nhập Claude trong Keychain để lấy hạn mức của từng tài khoản. Cấp quyền một lần.',
       actions: [
         { label: 'Cấp quyền một lần', act: 'keychain' },
         { label: 'Để sau', act: 'dismiss' },
       ],
     });
     expect(v.claude.cards).toEqual([]);
+    // No reading is not no account: the group does not offer to add one.
+    expect(v.claude.empty).toBe(false);
     expect(v.claude.note).toBeNull();
     expect(v.now.rows[0]).toMatchObject({ svc: 'Claude', text: '—', note: 'không đọc được số' });
     expect(view('keychain', {}, { keychainLater: true }).banner).toBeNull();
   });
 
-  it('stale numbers keep their age and say the switcher may be stopped', () => {
+  it('stale numbers keep their age and say when they last came in', () => {
     const v = view('stale');
     expect(v.fresh).toEqual({ tone: 'warn', text: 'cập nhật 41 phút trước' });
     expect(v.banner).toEqual({
       tone: 'warn',
-      title: 'Hạn mức Claude chưa cập nhật trong 41 phút',
-      body: 'Quota Station chưa làm mới số từ 13:39. Switcher có thể đang không chạy.',
+      icon: 'stale',
+      title: 'Số liệu Claude đã cũ 41 phút',
+      body: 'Cập nhật thành công lần cuối lúc 13:39.',
       actions: [{ label: 'Làm mới', act: 'refresh' }],
     });
     expect(v.claude.cards.every((r) => r.dim)).toBe(true);

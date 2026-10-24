@@ -41,7 +41,7 @@ use quota_station_core::rotation::{self, FileState, Rules, Stamp};
 #[cfg(feature = "author-tools")]
 use quota_station_core::runner;
 use quota_station_core::schedule::Schedule;
-use quota_station_core::settings::{Menubar, MenubarWindow, Settings, Theme};
+use quota_station_core::settings::{Language, Menubar, MenubarWindow, Settings, Theme};
 use quota_station_core::switcher::{Decision, DryRun, LogLine};
 use quota_station_core::switching::Tools;
 use quota_station_core::{local_time, pause, switcher, Snapshot};
@@ -575,6 +575,7 @@ impl Inner {
                 firstmate: cfg!(feature = "author-tools") && self.settings.firstmate,
             },
             theme: self.settings.theme,
+            language: self.settings.language,
             menubar: self.settings.menubar,
             menubar_window: self.settings.menubar_window,
             #[cfg(feature = "antigravity-accounts")]
@@ -705,6 +706,7 @@ pub struct Model {
     /// a build without the author's tools.
     pub advanced: AdvancedView,
     pub theme: Theme,
+    pub language: Language,
     /// The service the menu bar title follows.
     pub menubar: Menubar,
     /// The window whose share used the menu bar title shows.

@@ -37,6 +37,7 @@ import type {
   StatsReport,
   Tab,
   Theme,
+  Language,
   Menubar,
   MenubarWindow,
   Agent,
@@ -153,6 +154,8 @@ export interface Api {
   /** Shows or hides account names (emails, organizations) in both windows. */
   setShowNames(on: boolean): Promise<Model>;
   setTheme(theme: Theme): Promise<Model>;
+  /** Vietnamese, English, or back to macOS's language. */
+  setLanguage(language: Language): Promise<Model>;
   /** The service the menu bar title follows; stays on this Mac. */
   setMenubar(menubar: Menubar): Promise<Model>;
   /** The window the menu bar title shows; stays on this Mac. */
@@ -420,6 +423,7 @@ export const tauriApi: Api = {
   agyTabOpened: () => invoke('agy_tab_opened'),
   setShowNames: (on) => invoke<Model>('set_show_names', { on }),
   setTheme: (theme) => invoke<Model>('set_theme', { theme }),
+  setLanguage: (language) => invoke<Model>('set_language', { language }),
   setMenubar: (menubar) => invoke<Model>('set_menubar', { menubar }),
   setMenubarWindow: (window) => invoke<Model>('set_menubar_window', { window }),
   agyAppState: () => invoke<AgyApp>('agy_app_state'),

@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PopoverApp } from '../App';
 import { FOLD_KEY } from './Popover';
 import { fakeApi } from '../fixtures/fakeApi';
-import { FIXTURE_NOW, fixtureModel, heldSwitcher, peerFixture, rotationFixture } from '../fixtures/models';
+import { claudeAccountsFixture, codexFixture, FIXTURE_NOW, fixtureModel, heldSwitcher, peerFixture, rotationFixture } from '../fixtures/models';
 import type { Api } from '../lib/api';
 import type { Model } from '../lib/model';
 
@@ -29,24 +29,24 @@ afterEach(cleanup);
 describe('popover', () => {
   it('shows a card per account: Claude cards switch, the card in use and unlisted Antigravity ones do not', async () => {
     const fake = await open(fixtureModel('fresh'));
-    // One header line: this Mac, no title and no age while the numbers are fresh.
+    // The app's name, and under it this Mac with no age while the numbers are fresh.
     expect(screen.getByText('Mac mini')).toBeTruthy();
     expect(screen.queryByText(/cập nhật .* trước/)).toBeNull();
-    expect(screen.queryByText('Quota Station')).toBeNull();
+    expect(screen.getByText('Quota Station')).toBeTruthy();
     expect(screen.queryByText(/còn tương đương/)).toBeNull();
     expect(screen.queryByText(/n = ngày/)).toBeNull();
 
-    const claude = screen.getByRole('list', { name: 'CLAUDE' });
+    const claude = screen.getByRole('list', { name: 'Claude' });
     const cards = within(claude).getAllByRole('listitem').map((li) => within(li).getByRole('button'));
     expect(cards).toHaveLength(4);
     // The main window's order: the personal account, then the Team seats; the one in use keeps its place.
     expect(cards.map((c) => c.getAttribute('aria-label')!.split(',')[0])).toEqual(['lanpham.dev', 'lan.acme1', 'lan.acme2', 'lan.acme3']);
     // The spoken label keeps every word the screen no longer writes.
     expect(cards[1].getAttribute('aria-label')).toMatch(/^lan\.acme1, Acme Studio, đang dùng\. 5 giờ đã dùng 74%/);
-    expect(within(cards[1]).queryByText('đang dùng')).toBeNull();
+    expect(within(cards[1]).getByText('đang dùng')).toBeTruthy();
     expect(within(cards[1]).queryByText('Acme Studio')).toBeNull();
     expect(within(cards[2]).queryByText('Tuần')).toBeNull();
-    expect(within(cards[0]).queryByText('chưa dùng')).toBeNull();
+    expect(within(cards[0]).getByText('chưa dùng')).toBeTruthy();
     expect(cards[1].getAttribute('aria-disabled')).toBe('true');
     expect(cards[1].getAttribute('title')).toBe('lan.acme1@example.com · Quota Station · tài khoản 2');
     expect(cards[2].getAttribute('aria-label')).toMatch(/^lan\.acme2, Acme Studio\. .*\. Bấm để chuyển$/);
@@ -54,7 +54,7 @@ describe('popover', () => {
     expect(within(cards[1]).getByText('74%')).toBeTruthy();
     expect(screen.queryByText('2,3')).toBeNull();
 
-    const agy = within(screen.getByRole('list', { name: 'ANTIGRAVITY' })).getAllByRole('button');
+    const agy = within(screen.getByRole('list', { name: 'Antigravity' })).getAllByRole('button');
     expect(agy).toHaveLength(2);
     const ultra1 = agy.find((b) => !b.getAttribute('aria-label')!.includes('đang dùng'))!;
     expect(ultra1.getAttribute('aria-disabled')).toBe('true');
@@ -73,26 +73,26 @@ describe('popover', () => {
   it('folds a group to one line from its header, and keeps it folded the next time', async () => {
     localStorage.clear();
     await open(fixtureModel('fresh'));
-    const head = screen.getByRole('button', { name: /CLAUDE/ });
+    const head = screen.getByRole('button', { name: /^Claude/ });
     expect(head.getAttribute('aria-expanded')).toBe('true');
     fireEvent.click(head);
     expect(head.getAttribute('aria-expanded')).toBe('false');
-    expect(screen.queryByRole('list', { name: 'CLAUDE' })).toBeNull();
-    // The header is the group's name alone: Đang dùng above says whose account and how much.
-    expect(head.textContent).toBe('CLAUDE');
+    expect(screen.queryByRole('list', { name: 'Claude' })).toBeNull();
+    // The header is the group's name and its count: Đang dùng above says whose account and how much.
+    expect(head.textContent).toBe('Claude4');
     // Antigravity stays open.
-    expect(screen.getByRole('list', { name: 'ANTIGRAVITY' })).toBeTruthy();
+    expect(screen.getByRole('list', { name: 'Antigravity' })).toBeTruthy();
     expect(JSON.parse(localStorage.getItem(FOLD_KEY)!)).toEqual({ c: true, g: false });
 
     cleanup();
     await open(fixtureModel('fresh'));
-    expect(screen.getByRole('button', { name: /CLAUDE/ }).getAttribute('aria-expanded')).toBe('false');
-    const agyHead = screen.getByRole('button', { name: /ANTIGRAVITY/ });
+    expect(screen.getByRole('button', { name: /^Claude/ }).getAttribute('aria-expanded')).toBe('false');
+    const agyHead = screen.getByRole('button', { name: /^Antigravity/ });
     fireEvent.click(agyHead);
-    expect(agyHead.textContent).toBe('ANTIGRAVITY');
+    expect(agyHead.textContent).toBe('Antigravity2');
     expect(screen.getByRole('list', { name: 'Đang dùng' })).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: /CLAUDE/ }));
-    expect(screen.getByRole('list', { name: 'CLAUDE' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /^Claude/ }));
+    expect(screen.getByRole('list', { name: 'Claude' })).toBeTruthy();
     expect(JSON.parse(localStorage.getItem(FOLD_KEY)!)).toEqual({ c: false, g: true });
     localStorage.clear();
   });
@@ -105,7 +105,7 @@ describe('popover', () => {
       throw new Error('denied');
     });
     await open(fixtureModel('fresh'));
-    const head = screen.getByRole('button', { name: /CLAUDE/ });
+    const head = screen.getByRole('button', { name: /^Claude/ });
     fireEvent.click(head);
     expect(head.getAttribute('aria-expanded')).toBe('false');
     get.mockRestore();
@@ -122,7 +122,7 @@ describe('popover', () => {
     cleanup();
     // A pause is something to act on: its line shows.
     await open(fixtureModel('fresh', { switcher: heldSwitcher() }));
-    expect(screen.getByRole('switch', { name: /Tự chuyển Claude/ }).closest('.li')!.querySelector('small')).toBeTruthy();
+    expect(screen.getByRole('switch', { name: /Tự chuyển Claude/ }).parentElement!.querySelector('small')).toBeTruthy();
   });
 
   it('without Nâng cao the footer has no automatic switching', async () => {
@@ -133,7 +133,7 @@ describe('popover', () => {
   it('Đang dùng heads the popover: each service, its account, share used and reset', async () => {
     await open(fixtureModel('fresh'));
     const now = within(screen.getByRole('list', { name: 'Đang dùng' })).getAllByRole('listitem');
-    expect(now.map((r) => r.textContent)).toEqual(['Claudelan.acme174%↻ 3h 8m', 'Geminilan.ultra22%↻ 1h 57m', 'Codexrelay—']);
+    expect(now.map((r) => r.textContent)).toEqual(['Claude74%lan.acme13h 8m', 'Gemini2%lan.ultra21h 57m', 'Codex—relay']);
     expect(now[0].getAttribute('title')).toBe('Claude: lan.acme1 đã dùng 74% 5 giờ');
     expect(now[2].getAttribute('title')).toBe('Codex: relay, ChatGPT đã dùng 23% 5 giờ');
     cleanup();
@@ -259,5 +259,59 @@ describe('popover', () => {
     cleanup();
     await open(fixtureModel('fresh', { rotation: rotationFixture({ peers: [] }) }));
     expect(screen.queryByText(/^Luật xoay vòng ·/)).toBeNull();
+  });
+
+  it('no Claude account yet: an empty card whose button opens the Claude tab', async () => {
+    const m = fixtureModel('fresh');
+    m.snapshot.claude.accounts = [];
+    const fake = await open(m);
+    expect(screen.getByText('Chưa có tài khoản Claude nào')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Thêm tài khoản…' }));
+    expect(fake.api.openWindow).toHaveBeenCalledWith('claude');
+  });
+
+  it('no agent on this Mac: one empty card with Kiểm lại, and no groups', async () => {
+    const m = fixtureModel('fresh', { codex: codexFixture({ present: false }) });
+    m.snapshot.claude.status = 'notSetUp';
+    m.snapshot.agy.status = 'notSetUp';
+    const fake = await open(m);
+    expect(screen.getByText('Chưa thấy Claude Code, Codex hay Antigravity trên máy này')).toBeTruthy();
+    expect(screen.queryByRole('list', { name: 'Claude' })).toBeNull();
+    expect(screen.queryByRole('list', { name: 'Antigravity' })).toBeNull();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Kiểm lại' }));
+    });
+    expect(fake.api.refresh).toHaveBeenCalled();
+  });
+
+  it('the first read says so and draws grey bars instead of numbers', async () => {
+    const m = fixtureModel('fresh', { reading: true });
+    m.snapshot.claude.newestReadingAt = null;
+    m.snapshot.agy.newestReadingAt = null;
+    await open(m);
+    expect(screen.getByText('Đang đọc hạn mức lần đầu…')).toBeTruthy();
+    expect(screen.queryByText('74%')).toBeNull();
+    // The cards wait: none of them switches before the numbers are in.
+    const cards = within(screen.getByRole('list', { name: 'Claude' })).getAllByRole('button');
+    expect(cards.every((c) => c.getAttribute('aria-disabled') === 'true')).toBe(true);
+  });
+
+  it('a card to sign in again opens the sign-in in the Claude tab instead of switching', async () => {
+    const accounts = claudeAccountsFixture();
+    accounts.accounts[2] = { ...accounts.accounts[2], status: 'reloginRequired' };
+    const fake = await open(fixtureModel('fresh', { claudeAccounts: accounts }));
+    const card = screen.getByRole('button', { name: 'lan.acme2, cần đăng nhập lại. Bấm để đăng nhập lại' });
+    expect(within(card).getByText('cần đăng nhập lại')).toBeTruthy();
+    fireEvent.click(card);
+    expect(fake.api.claudeSessions).not.toHaveBeenCalled();
+    expect(fake.api.openWindow).toHaveBeenCalledWith('claude');
+  });
+
+  it('speaks English when the setting says so', async () => {
+    await open(fixtureModel('fresh', { language: 'en' }));
+    expect(screen.getByRole('list', { name: 'In use' })).toBeTruthy();
+    expect(screen.getByRole('switch', { name: 'Claude auto-switch' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Switch to the dark look' })).toBeTruthy();
+    expect(document.documentElement.lang).toBe('en');
   });
 });

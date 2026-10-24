@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: MIT
 
 // How one account and its quota windows are drawn, in the popover and in
-// the main window's tables: AccountName, WindowCell, WindowRow, NowStrip,
-// NowCard and InUse, from the redesign.
+// the main window's tables: AccountName, WindowCell, NowCard and InUse.
+// The popover draws its own cards (popover/Popover.tsx).
 // Every number is the share used: the bars fill as the quota goes.
 
 import { Card, CardTitle } from '@/components/ui/card';
@@ -69,63 +69,8 @@ export function WindowCell({ cell, dim, tight }: { cell: CellView; dim?: boolean
   );
 }
 
-/** One window on a popover card: its name, a bar, the share used and when it resets. */
-export function WindowRow({ cell, wide, dim }: { cell: CellView; wide?: boolean; dim?: boolean }) {
-  const tone = dim ? 'muted' : cell.tone;
-  return (
-    <span
-      className={cn(
-        'mt-1 grid items-center gap-[7px] text-xs text-ink2 tabular-nums',
-        wide ? 'grid-cols-[92px_minmax(0,1fr)_34px_60px]' : 'grid-cols-[52px_minmax(0,1fr)_34px_60px]',
-      )}
-      title={cell.title}
-    >
-      <span>{cell.label}</span>
-      <Meter percent={cell.used} tone={tone} className="m-0 h-(--meter-h-s)" />
-      <b className={cn('text-right', cell.none ? 'font-reg text-ink3' : 'font-semi text-ink', toneInk(tone))}>{cell.text}</b>
-      <span className={cn('whitespace-nowrap', cell.none && 'font-reg text-ink3')}>{cell.reset}</span>
-    </span>
-  );
-}
-
 /** The flex name in Đang dùng, as the prototype drew it. */
 const NOW_NAME = 'flex min-w-0 flex-wrap items-center gap-[5px] overflow-hidden text-ellipsis whitespace-nowrap font-semi';
-
-/**
- * Đang dùng in the popover: one line per service, the account in use, its
- * share used and when that resets. The window shows on hover.
- */
-export function NowStrip({ now }: { now: NowView }) {
-  if (!now.rows.length) return null;
-  return (
-    <div className="mx-2.5 mt-0.5 mb-1.5 grid gap-[3px] rounded-tile bg-fill px-2.5 pt-[5px] pb-1.5" role="list" aria-label="Đang dùng">
-      {now.rows.map((r) => (
-        <div
-          className="grid min-h-[19px] grid-cols-[62px_minmax(0,1fr)_34px_60px] items-center gap-[7px] text-xs text-ink2 tabular-nums"
-          role="listitem"
-          key={r.id}
-          title={r.title}
-          aria-label={r.label}
-        >
-          <span className="inline-flex items-center gap-[5px] text-ink2" aria-hidden="true">
-            <IdMark id={r.id} className="m-0" />
-            {r.svc}
-          </span>
-          <span className="flex min-w-0 items-baseline gap-1.5" aria-hidden="true">
-            <b className={cn(NOW_NAME, 'text-sm text-ink')}>{r.name}</b>
-            {r.extra ? <b className={cn('flex-none whitespace-nowrap font-semi', toneInk(r.extra.tone))}>C/GPT {r.extra.text}</b> : null}
-          </span>
-          <b className={cn('text-right', r.used == null ? 'font-reg text-ink3' : 'font-semi text-ink', toneInk(r.tone))} aria-hidden="true">
-            {r.text}
-          </b>
-          <span className="overflow-hidden text-ellipsis whitespace-nowrap text-left" aria-hidden="true">
-            {r.reset}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 /** Đang dùng on Tổng quan: a tile per service with the number large. */
 export function NowCard({ now }: { now: NowView }) {

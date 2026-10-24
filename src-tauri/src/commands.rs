@@ -14,7 +14,7 @@ use quota_station_core::quota;
 use quota_station_core::sessions::{self, Sessions};
 #[cfg(feature = "author-tools")]
 use quota_station_core::settings::Settings;
-use quota_station_core::settings::{Menubar, MenubarWindow, Theme};
+use quota_station_core::settings::{Language, Menubar, MenubarWindow, Theme};
 use quota_station_core::switching::{self, Outcome};
 use quota_station_core::{local_time, pause};
 use tauri::{AppHandle, State};
@@ -208,6 +208,24 @@ pub fn set_theme(
         inner.settings = settings;
     }
     windows::apply_theme(&app, theme);
+    reader::publish(&app, &state);
+    Ok(state.lock().model())
+}
+
+/// Sets the windows' language, or back to macOS's.
+#[tauri::command]
+pub fn set_language(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    language: Language,
+) -> Result<Model, String> {
+    {
+        let mut inner = state.lock();
+        let mut settings = inner.settings.clone();
+        settings.language = language;
+        settings.save(&inner.settings_file).map_err(|e| e.to_string())?;
+        inner.settings = settings;
+    }
     reader::publish(&app, &state);
     Ok(state.lock().model())
 }

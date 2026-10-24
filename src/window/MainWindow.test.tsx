@@ -58,8 +58,8 @@ describe('main window', () => {
     expect(screen.queryByText(/còn dùng được|tài khoản Claude/)).toBeNull();
     const tiles = within(screen.getByRole('list', { name: 'Đang dùng' })).getAllByRole('listitem');
     expect(tiles.map((t) => t.textContent)).toEqual([
-      'Claudelan.acme1Acme Studio74%đã dùng 5 giờ · ↻ 3h 8m',
-      'Geminilan.ultra2Antigravity2%đã dùng 5 giờ · ↻ 1h 57m',
+      'Claudelan.acme1Acme Studio74%đã dùng 5 giờ · 3h 8m',
+      'Geminilan.ultra2Antigravity2%đã dùng 5 giờ · 1h 57m',
       'CodexrelayCodex đi qua relay—ChatGPT đã dùng 23% 5 giờ',
     ]);
 
@@ -169,7 +169,7 @@ describe('main window', () => {
     expect(screen.queryByText(/tài khoản claude-swap/)).toBeNull();
     expect(screen.queryByText('Cập nhật')).toBeNull();
     expect(screen.getAllByText('số 41 phút trước').length).toBeGreaterThan(0);
-    expect(screen.getByText('Hạn mức Claude chưa cập nhật trong 41 phút')).toBeTruthy();
+    expect(screen.getByText('Số liệu Claude đã cũ 41 phút')).toBeTruthy();
   });
 
   it('the Claude tab names claude-swap as the keeper only until Quota Station keeps the accounts', async () => {

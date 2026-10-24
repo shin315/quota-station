@@ -37,6 +37,8 @@ export default defineConfig(({ command }) => {
       // Fixture times read like the prototype (14:20) at UTC+7.
       env: { TZ: 'Asia/Bangkok' },
       include: ['src/**/*.test.{ts,tsx}'],
+      // A Mac set to Vietnamese, as the tests were written; a test that wants English says so.
+      setupFiles: ['src/test-setup.ts'],
       // The logos' look rules are read by their test; the other styles stay out.
       css: { include: [/logos\.css/] },
     },

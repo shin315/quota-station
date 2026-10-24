@@ -6,6 +6,7 @@
 // Shared by the popover, the main window's tables and the rules editor.
 
 import { hours, minutesUntil, resetShort, resetWords } from './format';
+import { t } from './i18n';
 import type { Account, Line, LineKind } from './model';
 
 export type UsedTone = 'ok' | 'warn' | 'bad' | 'muted';
@@ -38,8 +39,12 @@ export interface CellView {
   /** `38%`, `≤4%` (only a bound is known), `—`. */
   text: string;
   tone: UsedTone;
-  /** `↻ 3h 9m`, `↻ 4d 10h`, `chưa dùng`, `chờ số`, ''. */
+  /** `3h 9m`, `4d 10h`, `chưa dùng`, `chờ số`, ''. */
   reset: string;
+  /** Not used yet: `reset` says so, with no time to wait for. */
+  unused: boolean;
+  /** Past its reset, waiting for the next number: `reset` says so. */
+  waiting: boolean;
   /** No such window for this account (a Team seat has no week). */
   none: boolean;
   /** Hover text. */
@@ -50,35 +55,65 @@ export interface CellView {
   rank: number;
 }
 
-const LABEL: Record<LineKind, [string, string, number]> = {
-  session: ['5 giờ', '5 giờ', 0],
-  week: ['Tuần', 'tuần', 1],
-  fableWeek: ['Fable', 'Fable', 1],
-  gemini: ['Gemini', 'Gemini', 0],
-  claudeGpt: ['Claude/GPT', 'Claude/GPT', 0],
-  geminiSession: ['Gemini 5 giờ', '5 giờ', 0],
-  geminiWeek: ['Gemini tuần', 'tuần', 1],
-  claudeGptSession: ['Claude/GPT 5 giờ', '5 giờ', 0],
-  claudeGptWeek: ['Claude/GPT tuần', 'tuần', 1],
-};
+/** A window's label, its unit after a number, and its rank. */
+function labelOf(kind: LineKind): [string, string, number] {
+  const five = t('5 giờ', '5-hour');
+  const week = t('tuần', 'week');
+  switch (kind) {
+    case 'session':
+      return [five, five, 0];
+    case 'week':
+      return [t('Tuần', 'Week'), week, 1];
+    case 'fableWeek':
+      return ['Fable', 'Fable', 1];
+    case 'gemini':
+      return ['Gemini', 'Gemini', 0];
+    case 'claudeGpt':
+      return ['Claude/GPT', 'Claude/GPT', 0];
+    case 'geminiSession':
+      return ['Gemini ' + five, five, 0];
+    case 'geminiWeek':
+      return ['Gemini ' + week, week, 1];
+    case 'claudeGptSession':
+      return ['Claude/GPT ' + five, five, 0];
+    case 'claudeGptWeek':
+      return ['Claude/GPT ' + week, week, 1];
+  }
+}
 
-export function cellOf(line: Line | undefined, kind: LineKind, now: Date, missing = 'không có'): CellView {
-  const [label, unit, rank] = LABEL[kind];
+export function cellOf(line: Line | undefined, kind: LineKind, now: Date, missing = t('không có', 'none')): CellView {
+  const [label, unit, rank] = labelOf(kind);
   if (!line) {
-    return { kind, label, unit, used: null, text: '—', tone: 'muted', reset: missing, none: true, title: missing, words: label + ' ' + missing, rank };
+    return {
+      kind,
+      label,
+      unit,
+      used: null,
+      text: '—',
+      tone: 'muted',
+      reset: missing,
+      unused: false,
+      waiting: false,
+      none: true,
+      title: missing,
+      words: label + ' ' + missing,
+      rank,
+    };
   }
   const used = usedOf(line);
   const mins = minutesUntil(line.resetsAt, now);
   let reset = '';
   let words = '';
-  if (line.pending || (used != null && mins != null && mins <= 0)) {
-    reset = 'chờ số';
-    words = 'đang chờ số mới';
+  const waiting = !!line.pending || (used != null && mins != null && mins <= 0);
+  const unused = !waiting && mins == null && used === 0 && !line.atLeast;
+  if (waiting) {
+    reset = t('chờ số', 'waiting');
+    words = t('đang chờ số mới', 'waiting for a new number');
   } else if (mins != null) {
-    reset = '↻ ' + resetShort(mins);
+    reset = resetShort(mins);
     words = resetWords(mins);
-  } else if (used === 0 && !line.atLeast) {
-    reset = words = 'chưa dùng';
+  } else if (unused) {
+    reset = words = t('chưa dùng', 'unused');
   }
   // The report knows only a bound for a window another one limits first.
   const bound = used != null && line.atLeast;
@@ -91,9 +126,15 @@ export function cellOf(line: Line | undefined, kind: LineKind, now: Date, missin
     text,
     tone: usedTone(used),
     reset,
+    unused,
+    waiting,
     none: false,
-    title: used == null ? label + ': chưa có số' : label + ' đã dùng ' + (bound ? 'nhiều nhất ' : '') + used + '%',
-    words: label + ' ' + (used == null ? 'chưa có số' : 'đã dùng ' + (bound ? 'nhiều nhất ' : '') + used + '%') + (words ? ', ' + words : ''),
+    title: used == null ? label + t(': chưa có số', ': no number yet') : label + t(' đã dùng ' + (bound ? 'nhiều nhất ' : ''), ' used ' + (bound ? 'at most ' : '')) + used + '%',
+    words:
+      label +
+      ' ' +
+      (used == null ? t('chưa có số', 'no number yet') : t('đã dùng ' + (bound ? 'nhiều nhất ' : ''), 'used ' + (bound ? 'at most ' : '')) + used + '%') +
+      (words ? ', ' + words : ''),
     rank,
   };
 }
@@ -109,9 +150,11 @@ export function claudeCells(a: Account, now: Date): CellView[] {
   const pick = (kind: LineKind) => (has ? a.windows.find((l) => l.kind === kind) : fromLines(a, kind));
   return [
     cellOf(pick('session'), 'session', now),
-    cellOf(pick('week'), 'week', now, has ? 'không có' : '—'),
+    cellOf(pick('week'), 'week', now, has ? t('không có', 'none') : '—'),
     cellOf(pick('fableWeek'), 'fableWeek', now),
-  ].map((c) => (c.none && c.label === 'Tuần' && has ? { ...c, title: 'claude-swap không báo hạn mức tuần cho tài khoản này' } : c));
+  ].map((c) =>
+    c.none && c.kind === 'week' && has ? { ...c, title: t('claude-swap không báo hạn mức tuần cho tài khoản này', 'claude-swap reports no weekly quota for this account') } : c,
+  );
 }
 
 export const AGY_KINDS: LineKind[] = ['geminiSession', 'geminiWeek', 'claudeGptSession', 'claudeGptWeek'];
@@ -135,10 +178,15 @@ export function tightest(cells: CellView[]): CellView | null {
   return best;
 }
 
+const GEMINI_KINDS: LineKind[] = ['gemini', 'geminiSession', 'geminiWeek'];
+
+/** Whether a cell is one of Antigravity's Gemini windows. */
+export const isGemini = (c: Pick<CellView, 'kind'>) => GEMINI_KINDS.includes(c.kind);
+
 /** Antigravity's Gemini and Claude/GPT numbers, each its tighter window. */
 export function agyGroups(cells: CellView[]): { label: string; short: string; cell: CellView | null }[] {
-  const gemini = cells.filter((c) => c.label.startsWith('Gemini'));
-  const other = cells.filter((c) => c.label.startsWith('Claude/GPT'));
+  const gemini = cells.filter((c) => GEMINI_KINDS.includes(c.kind));
+  const other = cells.filter((c) => !GEMINI_KINDS.includes(c.kind));
   return [
     { label: 'Gemini', short: 'Gemini', cell: tightest(gemini) },
     { label: 'Claude/GPT', short: 'C/GPT', cell: tightest(other) },
@@ -189,16 +237,16 @@ export function claudeNames(accounts: Account[], personalHours: string | null = 
   for (const a of accounts) {
     let name: string;
     let short: string;
-    if (a.number === 0) [name, short] = ['Tài khoản đang dùng', 'C'];
-    else if (a.role === 'personal') [name, short] = ['Cá nhân', 'CN'];
+    if (a.number === 0) [name, short] = [t('Tài khoản đang dùng', 'Account in use'), 'C'];
+    else if (a.role === 'personal') [name, short] = [t('Cá nhân', 'Personal'), t('CN', 'P')];
     else if (a.role === 'team') {
       const l = LETTERS[team.indexOf(a.number)] ?? String(a.number);
       [name, short] = ['Team ' + l, l];
-    } else [name, short] = ['Tài khoản ' + a.number, String(a.number)];
+    } else [name, short] = [t('Tài khoản ', 'Account ') + a.number, String(a.number)];
     const email = a.email ? emails.get(a.email) : undefined;
     let sub = '';
     if (email) {
-      sub = a.role === 'personal' ? 'Cá nhân' + (h ? ' · ' + h : '') : a.role === 'team' ? (a.org ?? '') : '';
+      sub = a.role === 'personal' ? t('Cá nhân', 'Personal') + (h ? ' · ' + h : '') : a.role === 'team' ? (a.org ?? '') : '';
       name = email;
     } else if (a.role === 'personal' && h) sub = h;
     out.set(a.number, { name, short, sub, full: a.email ?? '' });
@@ -214,7 +262,7 @@ export function agyNames(accounts: Pick<Account, 'number' | 'email'>[], roles = 
     const email = a.email ? emails.get(a.email) : undefined;
     const base =
       a.number === 0
-        ? { name: 'Tài khoản đang dùng', short: 'G' }
+        ? { name: t('Tài khoản đang dùng', 'Account in use'), short: 'G' }
         : roles
           ? { name: 'Ultra ' + a.number, short: 'U' + a.number }
           : { name: 'Antigravity ' + a.number, short: 'A' + a.number };
