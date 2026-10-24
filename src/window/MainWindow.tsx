@@ -33,7 +33,7 @@ import { Empty, GRID2, STACK, TABLE, TABLE_HEAD, TABLE_ROW, TABLE_ROW_ON, TabHea
 import { Banner, Button, Chip, CODE, Dot, Feedback, KVT, Toggle } from '../components/parts';
 import type { Tab } from '../lib/model';
 import { pauseOptions, type AutoView, type PauseChoice } from '../lib/switching';
-import { bannerUnder, type Action, type CardView, type ChipView, type FeedbackView, type NoteView } from '../lib/view';
+import { bannerUnder, type Action, type BannerView, type CardView, type ChipView, type FeedbackView, type NoteView } from '../lib/view';
 import type { KeyValue, WindowView } from '../lib/window';
 import { t } from '../lib/i18n';
 import { Icon, type IconName } from '../components/icons';
@@ -447,11 +447,12 @@ function Top(props: TabProps & { title: string; banner?: boolean }) {
   );
 }
 
-function Overview(props: TabProps & { advanced: boolean; agyAccounts: boolean; onTab(tab: Tab): void }) {
+function Overview(props: TabProps & { advanced: boolean; agyAccounts: boolean; release?: BannerView | null; onTab(tab: Tab): void }) {
   const v = props.view;
   return (
     <>
       <Top {...props} title={t('Tổng quan', 'Overview')} />
+
       <NowCard now={v.now} />
       <div className="grid grid-cols-[minmax(0,1fr)_240px] items-start gap-3 [@media(max-width:1000px)]:grid-cols-[minmax(0,1fr)]">
         <div className={STACK}>
@@ -499,6 +500,15 @@ function Overview(props: TabProps & { advanced: boolean; agyAccounts: boolean; o
           </Card>
         </div>
       </div>
+      {/* A newer release: a plain note held at the window's foot, under everything else (u-overview). */}
+      {props.release ? (
+        // Frosted, edge to edge, over the page's foot padding: the page scrolls by under it.
+        <div className="sticky -bottom-[22px] z-[5] mt-auto -mr-[22px] -mb-[22px] -ml-3.5 border-t border-line bg-glass-win pt-2.5 pr-[22px] pb-3.5 pl-3.5 backdrop-blur-[var(--glass-blur)] backdrop-saturate-[var(--glass-sat)]">
+          <div className="rounded-card bg-glass-solid shadow-card">
+            <Banner banner={props.release} onAction={props.onAction} busy={props.busy} />
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }
@@ -682,6 +692,8 @@ export interface MainWindowProps {
   claude?: ClaudeManage;
   /** The app's version, under its name in the sidebar. */
   version?: string | null;
+  /** A newer release on GitHub, as Tổng quan's banner. */
+  release?: BannerView | null;
   /** Cài đặt › Nâng cao is on: its tabs and switches show. */
   advanced: boolean;
   /** The Firstmate switch inside Nâng cao is on too. */
@@ -729,7 +741,7 @@ export function MainWindow(props: MainWindowProps) {
           onTab={props.onTab}
         />
         <main className="main material-main relative flex min-w-0 flex-col gap-3 overflow-y-auto pt-4 pr-[22px] pb-[22px] pl-3.5">
-          {tab === 'overview' ? <Overview {...tabProps} advanced={props.advanced} agyAccounts={props.agyAccounts} onTab={props.onTab} /> : null}
+          {tab === 'overview' ? <Overview {...tabProps} advanced={props.advanced} agyAccounts={props.agyAccounts} release={props.release} onTab={props.onTab} /> : null}
           {tab === 'stats' ? props.stats : null}
           {tab === 'claude' ? <ClaudeTab {...tabProps} advanced={props.advanced} /> : null}
           {tab === 'agy' ? <AgyTab {...tabProps} agyAccounts={props.agyAccounts} /> : null}

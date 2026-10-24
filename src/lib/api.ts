@@ -237,6 +237,17 @@ export interface Api {
   skillsOpenLink(url: string): Promise<void>;
   /** "Kiểm bản mới": one question to GitHub per repository in the lock file. */
   skillsCheck(): Promise<void>;
+  /** "Kiểm bản mới" of the app: asks GitHub Releases now. */
+  releaseCheck(): Promise<void>;
+  /** "Bỏ qua bản này" (a version), or its Hoàn tác (null). */
+  releaseSkip(version: string | null): Promise<void>;
+  /** "Để sau": the version's banner and popover line go quiet. */
+  releaseLater(version: string): Promise<void>;
+  setReleaseChecks(on: boolean): Promise<void>;
+  /** Opens the latest disk image (`download`), its page (`notes`), the Releases page, or the bug form. */
+  releaseOpen(what: 'download' | 'notes' | 'releases' | 'issue'): Promise<void>;
+  /** The diagnostic info, exactly as "Chép" copies it. */
+  releaseDiagnostics(): Promise<string>;
   /** Cài đặt › Skills. */
   skillsSetChecks(daily: boolean, notify: boolean): Promise<void>;
   /** "Kiểm lại", and Cài đặt opening: the shell files and launchd, by name (M14). */
@@ -461,6 +472,12 @@ export const tauriApi: Api = {
   skillsImport: (names) => invoke<SkillGathered>('skills_import', { names }),
   skillsOpenLink: (url) => invoke('skills_open_link', { url }),
   skillsCheck: () => invoke('skills_check'),
+  releaseCheck: () => invoke('release_check'),
+  releaseSkip: (version) => invoke('release_skip', { version }),
+  releaseLater: (version) => invoke('release_later', { version }),
+  setReleaseChecks: (on) => invoke('set_release_checks', { on }),
+  releaseOpen: (what) => invoke('release_open', { what }),
+  releaseDiagnostics: () => invoke<string>('release_diagnostics'),
   skillsSetChecks: (daily, notify) => invoke('skills_set_checks', { daily, notify }),
   envCheck: () => invoke('env_check'),
   envOpen: (id) => invoke<string | null>('env_open', { id }),

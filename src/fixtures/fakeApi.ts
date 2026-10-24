@@ -17,6 +17,7 @@ import { claudeAccountsFixture } from './models';
 import { fakeSkillApply, fakeSkillPreview, instrDiffFixture, instrShownFixture, repoFixture, SKILL_MD } from './fakeSkills';
 import type {
   Account,
+  ReleaseView,
   Agent,
   CopyComparison,
   AgyApp,
@@ -81,6 +82,10 @@ export interface FakeOptions {
   claudeDelayMs?: number;
   /** A sign-in or the account Claude Code is on turns out to be this kept account: it is renewed, not added. */
   claudeRenews?: number;
+  /** What "Kiểm bản mới" of the app finds: a release (by default the one the model has), or an error kind. */
+  releaseFinds?: ReleaseView['latest'] | 'offline';
+  /** How long that check takes. */
+  releaseDelayMs?: number;
   /**
    * How an Antigravity login ends when no callback is pasted and it is not cancelled; by default
    * it keeps the next account after `agyLoginDelayMs`.
@@ -276,6 +281,8 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
   /** Ends the waiting login: with a paste, a cancel or its own end. */
   let endLogin: ((how: 'paste' | 'cancel' | 'self') => void) | null = null;
   let lastCopy: CopyComparison | null = null;
+  /** The pages "Tải và cài", "Mở trang Releases" and the bug form opened. */
+  const released: string[] = [];
   /** "Bỏ qua" keeps what it hid, for "Hoàn tác"; "Mở file" what it opened. */
   const envHidden = new Map<string, EnvFound>();
   const envOpened: string[] = [];
@@ -887,6 +894,31 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       if (options.skillsDelayMs) await new Promise((r) => setTimeout(r, options.skillsDelayMs));
       push({ ...model, skills: { ...model.skills, updates: { ...model.skills.updates, checking: false, checkedAt: now().toISOString(), error: null } } });
     },
+    releaseCheck: async () => {
+      push({ ...model, release: { ...model.release, checking: true } });
+      if (options.releaseDelayMs) await new Promise((r) => setTimeout(r, options.releaseDelayMs));
+      const found = options.releaseFinds;
+      const checkedAt = Math.floor(now().getTime() / 1000);
+      if (found === 'offline') return push({ ...model, release: { ...model.release, checking: false, checkedAt, error: 'offline' } });
+      const latest = found === undefined ? model.release.latest : found;
+      const newer = !!latest && latest.version.localeCompare(model.app.version, undefined, { numeric: true }) > 0;
+      push({ ...model, release: { ...model.release, checking: false, checkedAt, error: null, none: !latest, latest, newer } });
+    },
+    releaseSkip: async (version) => push({ ...model, release: { ...model.release, skipped: version } }),
+    releaseLater: async (version) => push({ ...model, release: { ...model.release, later: version } }),
+    setReleaseChecks: async (on) => push({ ...model, release: { ...model.release, auto: on } }),
+    releaseOpen: async (what) => {
+      released.push(what);
+    },
+    releaseDiagnostics: async () =>
+      [
+        'Quota Station ' + model.app.version + ' (' + (model.app.commit ?? 'no commit') + ') · MIT build',
+        'macOS 26.1 · aarch64 · language auto · Advanced ' + (model.advanced.on ? 'on' : 'off'),
+        'Claude Code: found · ' + model.claudeAccounts.accounts.length + ' account(s) kept · Keychain ' + model.snapshot.keychain,
+        'Claude quota: ' + model.snapshot.claude.status + ', ' + model.snapshot.claude.accounts.length + ' account(s)',
+        'Antigravity quota: ' + model.snapshot.agy.status + ', ' + model.snapshot.agy.accounts.length + ' account(s)',
+        'Codex quota: ' + model.snapshot.codex.status + ', ' + model.snapshot.codex.accounts.length + ' account(s)',
+      ].join('\n'),
     skillsSetChecks: async (daily, notify) => {
       push({ ...model, skills: { ...model.skills, updates: { ...model.skills.updates, settings: { daily, notify } } } });
     },
@@ -1399,6 +1431,8 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
     relaunched: () => relaunched,
     /** The ids "Mở file" opened (M14). */
     envOpened: () => envOpened,
+    /** What the release buttons opened: `download`, `notes`, `releases`, `issue`. */
+    released: () => released,
   };
 }
 

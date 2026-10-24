@@ -16,6 +16,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { AlertKinds } from '../alerts/AlertsTab';
+import { DiagnosticsRows, ReleaseRows } from '../release/ReleaseParts';
 import { EnvCard } from './EnvCard';
 import { Card as Panel, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -83,6 +84,8 @@ export interface SettingsProps {
   onSetBackupFolder?(path: string): Promise<string | null>;
   /** The app's language: macOS's, Vietnamese or English. */
   onLanguage?(language: Language): void;
+  /** Cài đặt › Cập nhật: "Tự kiểm bản mới của app"; with it come the release rows and Chẩn đoán. */
+  onReleaseChecks?(on: boolean): void;
 }
 
 /** A card's rows, half the page wide: each row's name over its controls, as the design's block rows. */
@@ -971,6 +974,7 @@ export function Settings(props: SettingsProps) {
   onPoolAlert,
   onSetBackupFolder,
   onLanguage,
+  onReleaseChecks,
   } = props;
   const keychain = model.snapshot.keychain;
   // Nâng cao is one of the author's tools: a release build has no such card.
@@ -1024,7 +1028,7 @@ export function Settings(props: SettingsProps) {
             <PoolAlertRow model={model} onSet={onPoolAlert} />
           </SettingsCard>
           <SettingsCard title={t('Cập nhật', 'Updates')} icon="refresh-cw">
-            <Version app={model.app} />
+            {onReleaseChecks ? <ReleaseRows model={model} onAction={onAction} onAuto={onReleaseChecks} /> : <Version app={model.app} />}
             {onSkillChecks ? <SkillChecksRows model={model} onSet={onSkillChecks} /> : null}
           </SettingsCard>
         </div>
@@ -1077,6 +1081,11 @@ export function Settings(props: SettingsProps) {
           {onSetBackupFolder ? (
             <SettingsCard title={t('Sao lưu', 'Backup')} icon="layers">
               <BackupFolder model={model} onSet={onSetBackupFolder} />
+            </SettingsCard>
+          ) : null}
+          {onReleaseChecks ? (
+            <SettingsCard title={t('Chẩn đoán', 'Diagnostics')} icon="wrench">
+              <DiagnosticsRows onAction={onAction} />
             </SettingsCard>
           ) : null}
           {author ? <Advanced {...props} model={author} /> : null}

@@ -28,6 +28,9 @@ import { CodexCard, CodexTab } from './codex/CodexTab';
 import { useAgyLogins } from '@agy/AgyAccounts';
 import { claudeManage } from './claude/ClaudeAccounts';
 import { accountName } from './lib/claudeAccounts';
+import { releaseBanner, releaseLine } from './lib/release';
+import { DiagDialogBody, ReleaseDialogBody } from './release/ReleaseParts';
+import { useRelease } from './release/useRelease';
 import { ClaudeDialogBody } from './claude/ClaudeDialogs';
 import { useClaudeAccounts } from './claude/useClaudeAccounts';
 import { SheetBody, type SheetState } from './components/Sheets';
@@ -569,6 +572,8 @@ export function PopoverApp({ api, clock = systemClock }: AppProps) {
     if (act === 'codex:tab') return void api.openWindow('codex');
     // Signing in again happens in the main window's Claude tab.
     if (act.startsWith('claude:relogin:') || act === 'claude:add') return void api.openWindow('claude');
+    // The release's banner, with "Xem có gì mới", is on Tổng quan.
+    if (act === 'release:open') return void api.openWindow('overview');
     if (act === 'theme') return void api.setTheme(dark ? 'light' : 'dark').catch(() => showFeedback(settingsFailedFeedback()));
     if (act === 'dismiss') return setKeychainLater(true);
     if (act === 'refresh') return void refresh();
@@ -584,6 +589,7 @@ export function PopoverApp({ api, clock = systemClock }: AppProps) {
       codex={codexRow(model)}
       auto={model.advanced.on ? autoView(model, now) : null}
       sync={author && model.advanced.on ? syncSummary(author) : null}
+      release={releaseLine(model)}
       feedback={feedback}
       busy={busy}
       dark={dark}
@@ -632,9 +638,10 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   // The Claude tab's dialogs name an account as its table does.
   const claudeNames = useRef<(slot: number) => string>((slot) => t('Tài khoản ', 'Account ') + slot);
   const claude = useClaudeAccounts(api, model, showFeedback, (slot) => claudeNames.current(slot));
+  const release = useRelease(api, model, showFeedback);
   const ruleDialog = rules.leave ? 'leave' : rules.compare ? 'compare' : null;
   const sheetOpen =
-    !!switching.sheet || !!ruleDialog || !!mcp.dialog || !!backup.dialog || !!copy.dialog || !!skills.dialog || plugins.open || !!instr.dialog || env.list || !!sets.dialog || !!claude.dialog;
+    !!switching.sheet || !!ruleDialog || !!mcp.dialog || !!backup.dialog || !!copy.dialog || !!skills.dialog || plugins.open || !!instr.dialog || env.list || !!sets.dialog || !!claude.dialog || !!release.dialog;
   const closeSheet = useRef(switching.close);
   // Escape closes the sheet on show: the unsaved-changes one, then a switch, then the comparison, then an MCP dialog.
   closeSheet.current = () => {
@@ -651,6 +658,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
     else if (sets.dialog) sets.close();
     // The wait for the browser ends with its own Thôi, which stops the sign-in.
     else if (claude.dialog && claude.dialog.kind !== 'wait') claude.close();
+    else if (release.dialog) release.close();
   };
 
   useEffect(() => {
@@ -716,6 +724,11 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
     if (claude.act(act)) {
       // A sign-in or an add asked from another tab's banner opens over the Claude tab.
       if (act === 'claude:add' || act.startsWith('claude:relogin:')) rules.guardTab(tab, 'claude', setTab);
+      return;
+    }
+    if (release.act(act)) {
+      // The release's dialog opens over Tổng quan, the diagnostic info's over Cài đặt.
+      if (act === 'release:open') rules.guardTab(tab, 'overview', setTab);
       return;
     }
     if (switching.act(act)) return;
@@ -802,6 +815,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       onUpdate={() => refusal(api.updateFromSource())}
       onRelaunch={() => refusal(api.relaunch())}
       onSkillChecks={(daily, notify) => void api.skillsSetChecks(daily, notify).catch(() => showFeedback(settingsFailedFeedback()))}
+      onReleaseChecks={release.setAuto}
     />
   );
   const goTab = (next: Tab) => rules.guardTab(tab, next, setTab);
@@ -842,6 +856,10 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
         <EnvListBody model={model} env={env} />
       ) : sets.dialog ? (
         <SetDialogBody sets={sets} model={model} />
+      ) : release.dialog === 'release' ? (
+        <ReleaseDialogBody model={model} release={release} onUpdateFromSource={author && model.advanced.on ? () => void refusal(api.updateFromSource()) : undefined} />
+      ) : release.dialog === 'diag' ? (
+        <DiagDialogBody release={release} />
       ) : claude.dialog ? (
         <ClaudeDialogBody claude={claude} view={model.claudeAccounts} advanced={model.advanced.on} nameOf={nameOf} onTab={goTab} />
       ) : null))
@@ -865,13 +883,14 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
                   ? 'lg'
                   : sets.dialog
                     ? setDialogSize(sets.dialog)
-                    : claude.dialog
+                    : claude.dialog || release.dialog
                       ? 'lg'
                       : undefined;
   return (
     <MainWindow
       tab={tab}
       version={model.app.version}
+      release={releaseBanner(model)}
       view={view}
       busy={busy}
       feedback={feedback}

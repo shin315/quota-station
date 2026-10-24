@@ -351,6 +351,22 @@ function Footer({ auto, sync, onToggle }: { auto: AutoView; sync: SyncLine | nul
   );
 }
 
+/** A newer release (u-pop): a quiet line at the foot, opening Tổng quan where its banner is. */
+function ReleaseLine({ line, onAction }: { line: { title: string; body: string }; onAction(act: Action): void }) {
+  return (
+    <div className="flex items-center gap-2.5" role="status">
+      <Icon name="info" className="size-[17px] text-ink2" />
+      {/* One quiet line: no red dot, no macOS notification. */}
+      <p className="m-0 min-w-0 flex-1 text-[length:var(--pop-fs-sm)] text-ink2">
+        {line.title} · {line.body}
+      </p>
+      <LinkButton small onClick={() => onAction('release:open')}>
+        {t('Xem', 'View')}
+      </LinkButton>
+    </div>
+  );
+}
+
 /** The other Macs and the rotation file, in the footer (I09). */
 export interface SyncLine {
   tone: 'ok' | 'warn' | 'bad' | 'info' | 'muted';
@@ -365,6 +381,8 @@ export interface PopoverProps {
   auto: AutoView | null;
   /** The other Macs' copies of the rotation file; null with no other Mac. */
   sync?: SyncLine | null;
+  /** A newer release on GitHub, at the foot; null when there is none to tell. */
+  release?: { title: string; body: string } | null;
   feedback?: FeedbackView | null;
   busy?: Action | null;
   /** The look on screen now is dark: the theme button offers light. */
@@ -381,7 +399,7 @@ export interface PopoverProps {
   onHeight?(height: number): void;
 }
 
-export function Popover({ view, codex = null, auto, sync = null, feedback, busy, dark = false, onAction, onSwitch, onSwitchAgy, onToggle, sheet, onCloseSheet, onHeight }: PopoverProps) {
+export function Popover({ view, codex = null, auto, sync = null, release = null, feedback, busy, dark = false, onAction, onSwitch, onSwitchAgy, onToggle, sheet, onCloseSheet, onHeight }: PopoverProps) {
   const head = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const foot = useRef<HTMLDivElement>(null);
@@ -490,9 +508,10 @@ export function Popover({ view, codex = null, auto, sync = null, feedback, busy,
           )}
         </div>
       </div>
-      {auto ? (
+      {auto || release ? (
         <div className="grid flex-none gap-[7px] border-t border-divider px-3.5 py-[9px]" ref={foot} inert={open}>
-          <Footer auto={auto} sync={sync} onToggle={onToggle} />
+          {release ? <ReleaseLine line={release} onAction={onAction} /> : null}
+          {auto ? <Footer auto={auto} sync={sync} onToggle={onToggle} /> : null}
         </div>
       ) : null}
       <DialogOverlay
