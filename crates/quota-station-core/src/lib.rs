@@ -54,6 +54,13 @@
 //! [`stats`] (M16) reads Claude Code's and Codex's session logs on this
 //! Mac for their token counts, model, time and project folder only, and
 //! keeps those counts in its own index; no conversation text is kept.
+//!
+//! The tools made for the author's own Macs are built only with the
+//! `author-tools` feature, which a release build leaves out: `peers` and
+//! the copy of the rotation file, `agents::copy` (the agents' setup to
+//! another Mac), `update`, `firstmate`, alerts 2 and 5, and the copy of
+//! the Claude accounts in claude-swap's layout. Without it the settings
+//! keep their values, so a settings file passes through either build.
 
 pub mod agents;
 pub mod alerts;
@@ -63,12 +70,14 @@ pub mod app_dir;
 pub mod claude;
 pub mod codex;
 pub mod detail;
+#[cfg(feature = "author-tools")]
 pub mod firstmate;
 pub mod history;
 pub mod icon;
 pub mod local_time;
 pub mod login_item;
 pub mod pause;
+#[cfg(feature = "author-tools")]
 pub mod peers;
 pub mod quota;
 pub mod rotation;
@@ -81,6 +90,7 @@ pub mod stats;
 pub mod switcher;
 pub mod switching;
 mod time_util;
+#[cfg(feature = "author-tools")]
 pub mod update;
 
 pub use icon::{icon, Icon, Tone};

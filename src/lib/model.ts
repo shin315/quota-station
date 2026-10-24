@@ -612,12 +612,11 @@ export type UpdateError =
   | { kind: 'timeout'; step: UpdateStep }
   | { kind: 'spawn'; detail: string };
 
-/** The app itself (`src-tauri/src/install.rs` `AppView`, M7). */
-export interface AppView {
-  version: string;
-  /** The commit it was built from, 7 characters, `-dirty` kept; null when not built by `scripts/install.sh`. */
-  commit: string | null;
-  launchAtLogin: LaunchAtLogin;
+/**
+ * "Mã nguồn" and "Cập nhật từ mã nguồn" (`src-tauri/src/install.rs`
+ * `SourceView`): only in a build with the author's tools.
+ */
+export interface SourceView {
   /** The clone to update from, `~/…`; null when not set. */
   source: string | null;
   sourceStatus: 'notSet' | 'ok' | 'missing' | 'notSource';
@@ -628,6 +627,14 @@ export interface AppView {
   error: UpdateError | null;
   /** The last install's output, `~/…`. */
   log: string;
+}
+
+/** The app itself (`src-tauri/src/install.rs` `AppView`, M7), with the update from source in a build with the author's tools. */
+export interface AppView extends Partial<SourceView> {
+  version: string;
+  /** The commit it was built from, 7 characters, `-dirty` kept; null when not built by `scripts/install.sh`. */
+  commit: string | null;
+  launchAtLogin: LaunchAtLogin;
 }
 
 /** The main window's tabs in this build (`src-tauri/src/state.rs` `Tab`). */
@@ -1012,6 +1019,7 @@ export interface McpView {
  * tabs and switches made for the author's own Macs show (the rotation, the
  * pause and the switcher, the other Macs, the update from source); Firstmate
  * has its own switch inside. Off on a new install, on where the app was before.
+ * Always off in a build without the author's tools.
  */
 export interface AdvancedView {
   on: boolean;
@@ -1026,6 +1034,14 @@ export interface Capabilities {
    * Antigravity is the one account signed in here, read-only.
    */
   agyAccounts: boolean;
+  /**
+   * The tools made for the author's own Macs (the `author-tools` feature,
+   * which a release build leaves out): Cài đặt › Nâng cao, Luật xoay vòng
+   * and the other Macs, Chép sang Mac khác, Firstmate and the update from
+   * source. Without them the model has none of their parts and the windows
+   * show no switch, tab or setting for them.
+   */
+  authorTools: boolean;
 }
 
 export interface Model {
@@ -1041,7 +1057,8 @@ export interface Model {
   claudeSwitch: ClaudeSwitchView;
   /** The Claude accounts Quota Station keeps, and their actions. */
   claudeAccounts: ClaudeAccountsView;
-  rotation: RotationView;
+  /** The rules editor and the other Macs; only in a build with the author's tools. */
+  rotation?: RotationView;
   /** Account names (emails, organizations) may show; off, none reaches the window. */
   showNames: boolean;
   theme: Theme;
@@ -1059,8 +1076,8 @@ export interface Model {
   agySwitch?: AgySwitchView;
   /** The five alerts (M6). */
   alerts: AlertsView;
-  /** What Firstmate sees (M6). */
-  firstmate: FirstmateView;
+  /** What Firstmate sees (M6); only in a build with the author's tools. */
+  firstmate?: FirstmateView;
   /** Version, launching at login and the update from source (M7). */
   app: AppView;
   /** Switching Codex (M8). */

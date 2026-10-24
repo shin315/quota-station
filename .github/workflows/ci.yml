@@ -67,11 +67,25 @@ jobs:
       - name: Clippy with the Antigravity accounts
         run: cargo clippy --workspace --all-targets --locked --features antigravity-accounts -- -D warnings
 
+      # The tools made for the author's own Macs (Cài đặt › Nâng cao): left
+      # out of the default and release builds, built by scripts/install.sh.
+      - name: Clippy with the author's tools
+        run: cargo clippy --workspace --all-targets --locked --features author-tools -- -D warnings
+
+      - name: Clippy as scripts/install.sh builds
+        run: cargo clippy --workspace --all-targets --locked --features antigravity-accounts,author-tools -- -D warnings
+
       - name: cargo test (MIT)
         run: cargo test --workspace --locked
 
       - name: cargo test with the Antigravity accounts
         run: cargo test --workspace --locked --features antigravity-accounts
+
+      - name: cargo test with the author's tools
+        run: cargo test --workspace --locked --features author-tools
+
+      - name: cargo test as scripts/install.sh builds
+        run: cargo test --workspace --locked --features antigravity-accounts,author-tools
 
       - name: Build the app (MIT)
         run: npx tauri build --bundles app

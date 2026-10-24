@@ -1822,6 +1822,7 @@ fn undo_skills(
 /// Skills tab's "Cập nhật" does (a copy of the folder kept first), for a
 /// copy from another Mac whose skill is newer. Each is noted in `record`
 /// for the undo.
+#[cfg(feature = "author-tools")]
 pub(crate) fn update_skills(
     tools: &Tools,
     app: &AppDir,

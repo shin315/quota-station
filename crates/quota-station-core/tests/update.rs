@@ -7,6 +7,8 @@
 //! arguments, so nothing is built or installed. git runs with a temporary
 //! HOME and no global or system config.
 
+#![cfg(feature = "author-tools")]
+
 mod common;
 
 use std::ffi::OsString;

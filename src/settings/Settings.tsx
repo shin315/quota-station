@@ -11,7 +11,8 @@
 // only itself. First comes the card of the variables that override a login
 // (M14); last the Nâng cao card: its switch, and while it is on, Firstmate
 // and its state file, the other Macs the rotation file is copied to (an SSH
-// alias each), and the clone "Cập nhật từ mã nguồn" builds from.
+// alias each), and the clone "Cập nhật từ mã nguồn" builds from. Only a
+// build with the author's tools has that card (`capabilities.authorTools`).
 
 import { useState } from 'react';
 import { AlertKinds } from '../alerts/AlertsTab';
@@ -23,8 +24,9 @@ import { IdMark } from '../components/accounts';
 import { LABEL, rowClass, TabHead, TabSub, TabTitle } from '../components/page';
 import { Button, Chip, CODE, Dot, Feedback, FieldHint, LinkButton, Toggle } from '../components/parts';
 import { PERMISSION_CHIPS, UNREAD } from '../lib/alerts';
+import { authorModel, type AuthorModel } from '../lib/author';
 import type { ChipView } from '../lib/view';
-import type { AlertKind, AppView, ClientStatus, Menubar, MenubarWindow, Model, Peer, PeerTest, Theme, UpdateError } from '../lib/model';
+import type { AlertKind, AppView, ClientStatus, Menubar, MenubarWindow, Model, Peer, PeerTest, SourceView, Theme, UpdateError } from '../lib/model';
 import type { Action, FeedbackView, PopoverView } from '../lib/view';
 
 const THEMES: [Theme, string][] = [
@@ -153,7 +155,7 @@ const PEER_ERRORS: Record<string, string> = {
 };
 
 /** "Các Mac khác": a name and an SSH alias for each, saved when a field is left. */
-function OtherMacs({ model, onSet, onTest }: { model: Model; onSet: SettingsProps['onSetPeers']; onTest: SettingsProps['onTestPeer'] }) {
+function OtherMacs({ model, onSet, onTest }: { model: AuthorModel; onSet: SettingsProps['onSetPeers']; onTest: SettingsProps['onTestPeer'] }) {
   const saved = model.rotation.peers.map((p) => ({ name: p.name, alias: p.alias }));
   const key = JSON.stringify(saved);
   const [rows, setRows] = useState<Peer[]>(saved);
@@ -264,7 +266,7 @@ const FIRSTMATE_REFUSED: Record<string, string> = {
   notFound: 'Không có file ở đường dẫn này.',
 };
 
-function firstmateHint(model: Model, refused: string | null): { tone: 'ok' | 'bad' | ''; text: string } {
+function firstmateHint(model: AuthorModel, refused: string | null): { tone: 'ok' | 'bad' | ''; text: string } {
   if (refused) return { tone: 'bad', text: FIRSTMATE_REFUSED[refused] ?? 'Chưa lưu được: ' + refused };
   const f = model.firstmate;
   switch (f.status) {
@@ -280,7 +282,7 @@ function firstmateHint(model: Model, refused: string | null): { tone: 'ok' | 'ba
 }
 
 /** Firstmate's `quota-pool.last`: no path is built in, the owner sets it. */
-function FirstmateFile({ model, onSet }: { model: Model; onSet: SettingsProps['onSetFirstmate'] }) {
+function FirstmateFile({ model, onSet }: { model: AuthorModel; onSet: SettingsProps['onSetFirstmate'] }) {
   const [path, setPath] = useField(model.firstmate.file ?? '');
   const [refused, setRefused] = useState<string | null>(null);
   const commit = async () => {
@@ -420,7 +422,7 @@ const SOURCE_REFUSED: Record<string, string> = {
   notSource: 'Thư mục này không phải bản clone Quota Station: cần .git và scripts/install.sh.',
 };
 
-function sourceHint(app: AppView, refused: string | null): { tone: 'ok' | 'bad' | ''; text: string } {
+function sourceHint(app: SourceView, refused: string | null): { tone: 'ok' | 'bad' | ''; text: string } {
   if (refused) return { tone: 'bad', text: SOURCE_REFUSED[refused] ?? 'Chưa lưu được: ' + refused };
   if (app.sourceStatus === 'ok') return { tone: 'ok', text: 'Có scripts/install.sh ✓' };
   if (app.sourceStatus === 'notSet') return { tone: '', text: 'Để trống trên Mac cài bằng gói build từ Mac khác.' };
@@ -428,7 +430,7 @@ function sourceHint(app: AppView, refused: string | null): { tone: 'ok' | 'bad' 
 }
 
 /** The clone "Cập nhật từ mã nguồn" pulls and builds. */
-function SourceDir({ app, onSet }: { app: AppView; onSet: SettingsProps['onSetSource'] }) {
+function SourceDir({ app, onSet }: { app: SourceView; onSet: SettingsProps['onSetSource'] }) {
   const [path, setPath] = useField(app.source ?? '');
   const [refused, setRefused] = useState<string | null>(null);
   const commit = async () => {
@@ -505,7 +507,7 @@ function Version({ app }: { app: AppView }) {
 }
 
 /** "Cập nhật từ mã nguồn" (Nâng cao): git pull --ff-only, then scripts/install.sh. */
-function UpdateFromSource({ app, onUpdate, onRelaunch }: { app: AppView; onUpdate: SettingsProps['onUpdate']; onRelaunch: SettingsProps['onRelaunch'] }) {
+function UpdateFromSource({ app, onUpdate, onRelaunch }: { app: SourceView; onUpdate: SettingsProps['onUpdate']; onRelaunch: SettingsProps['onRelaunch'] }) {
   const [refused, setRefused] = useState<string | null>(null);
   const run = async (act: () => Promise<string | null>) => {
     setRefused(null);
@@ -655,7 +657,7 @@ function BackupFolder({ model, onSet }: { model: Model; onSet: NonNullable<Setti
  * tabs (Luật xoay vòng, Firstmate, Chép sang Mac khác), the automatic switch
  * and the pause, and alerts 2 and 5 are hidden; the rows below come with it.
  */
-function Advanced(props: SettingsProps) {
+function Advanced(props: SettingsProps & { model: AuthorModel }) {
   const { model } = props;
   const a = model.advanced;
   return (
@@ -834,6 +836,8 @@ export function Settings(props: SettingsProps) {
   onSetBackupFolder,
   } = props;
   const keychain = model.snapshot.keychain;
+  // Nâng cao is one of the author's tools: a release build has no such card.
+  const author = authorModel(model);
 
   return (
     <>
@@ -917,7 +921,7 @@ export function Settings(props: SettingsProps) {
           <Version app={model.app} />
         </div>
       </Panel>
-      <Advanced {...props} />
+      {author ? <Advanced {...props} model={author} /> : null}
     </>
   );
 }

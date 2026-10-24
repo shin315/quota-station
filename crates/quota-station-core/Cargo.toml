@@ -17,6 +17,13 @@ publish = false
 # CC BY-NC-SA 4.0 (`LICENSES/`, `NOTICE`). Off, the crate is MIT only and
 # Antigravity is the one account signed in on this Mac, read-only.
 antigravity-accounts = []
+# The tools made for the author's own Macs (`author-tools`): the rotation
+# editor and its copy to the other Macs over SSH, the copy of the agents'
+# setup to another Mac, the update from a clone of the source, the
+# Firstmate state file and alert, and the copy of the Claude accounts in
+# claude-swap's layout (`docs/claude-accounts.md`). Off by default and in a
+# release build; `scripts/install.sh` builds with it.
+author-tools = []
 # For the tests only: points the Google, Anthropic and ChatGPT endpoints at
 # a local fake, lets a fake `security` stand in for the Keychain, and
 # records every file the Antigravity module opens. The app never turns it on.

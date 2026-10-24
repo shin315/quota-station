@@ -133,7 +133,8 @@ deletes the app's item and the index line, and asks Google to revoke nothing.
 
 The history and the alerts read, besides the app's own folder, only the
 last 64 KB of the switcher's log and, at the path the owner sets in
-`Cài đặt`, Firstmate's `quota-pool.last`. No path to that file is built in.
+`Cài đặt`, Firstmate's `quota-pool.last` (only a build with the
+`author-tools` feature reads it). No path to that file is built in.
 The app takes it only when the file is called `quota-pool.last`, opens it
 without following a symlink, reads it only when it is a plain file of at
 most 16 KB, and keeps only the keys
@@ -240,8 +241,9 @@ has the design.
   and organization ids and a SHA-256 of the email and organization; no
   email, no token), `usage.json` and `state.json` (each account's windows,
   how old its reading is and its error; no email, no token), `swap/` (the
-  same in claude-swap's layout for Firstmate's quota-axi, written only while
-  `Cài đặt › Nâng cao` shows Firstmate, with placeholder addresses
+  same in claude-swap's layout for Firstmate's quota-axi, written only by a
+  build with the `author-tools` feature while `Cài đặt › Nâng cao` shows
+  Firstmate, with placeholder addresses
   `slot-N@quota-station.local`), `rotation`, `rotation.log`, `prime` and
   `prime-state/`, `sessions/` and `.lock`. Emails reach a window only while
   `Hiện email` is on, and `quota-station claude status --json` prints them

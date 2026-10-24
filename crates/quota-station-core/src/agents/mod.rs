@@ -36,10 +36,15 @@
 //! for the whole Mac, applied through the same checked batches after one
 //! preview; Codex's provider stays with the Codex switch.
 
+/// The exit code of `quota-station agents` when it refuses (`agents::copy`
+/// in a build with the `author-tools` feature; every word in one without).
+pub const COPY_REFUSED: i32 = 7;
+
 pub mod agy_mcp;
 pub mod batch;
 pub mod claude_mcp;
 pub mod codex_mcp;
+#[cfg(feature = "author-tools")]
 pub mod copy;
 pub mod def;
 pub mod env_check;

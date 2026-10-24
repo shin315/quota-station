@@ -124,7 +124,9 @@ still reads claude-swap's layout, the app also writes
 `claude/swap/sequence.json` and `claude/swap/cache/usage.json` in that layout
 (slot numbers, the account and organization ids, placeholder addresses
 `slot-N@quota-station.local`, no token), while `Cài đặt › Nâng cao` shows
-Firstmate. `QUOTA_AXI_CLAUDE_SWAP_DIR` (`claude/swap`) and
+Firstmate. Only a build with the `author-tools` feature (the one
+`scripts/install.sh` makes) writes that copy; a release build has no
+`Nâng cao` and writes `claude/state.json` alone. `QUOTA_AXI_CLAUDE_SWAP_DIR` (`claude/swap`) and
 `QUOTA_AXI_CLAUDE_ROTATION` (`claude/rotation`), set in Firstmate's
 environment, point that quota-axi at the app without a change to quota-axi
 (`Paths::firstmate_env` names both).

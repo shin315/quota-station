@@ -21,7 +21,10 @@
 #
 # A build from source comes with the Antigravity accounts (the
 # antigravity-accounts feature, CC BY-NC-SA 4.0: NOTICE);
-# QS_ANTIGRAVITY_ACCOUNTS=0 builds the MIT app without them.
+# QS_ANTIGRAVITY_ACCOUNTS=0 builds the MIT app without them. It also comes
+# with the tools made for the author's own Macs (the author-tools feature:
+# Cài đặt › Nâng cao and what it holds), so a Mac that installs from source
+# keeps them; QS_AUTHOR_TOOLS=0 leaves them out, as a release build does.
 #
 # It never adds a login item: launching at login is a switch in the app's
 # settings. It touches nothing outside the build folder and DIR/Quota Station.app.
@@ -178,7 +181,13 @@ build() {
     export QS_ANTIGRAVITY_ACCOUNTS=0
   else
     export QS_ANTIGRAVITY_ACCOUNTS=1
-    features="--features antigravity-accounts"
+    features="antigravity-accounts"
+  fi
+  if [ "${QS_AUTHOR_TOOLS:-1}" != 0 ]; then
+    features="${features:+$features,}author-tools"
+  fi
+  if [ -n "$features" ]; then
+    features="--features $features"
   fi
 
   if [ ! -f node_modules/.package-lock.json ] || [ package-lock.json -nt node_modules/.package-lock.json ]; then

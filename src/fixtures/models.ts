@@ -9,12 +9,13 @@ import { backupFixture } from './fakeBackup';
 import { instrFixture, pluginsFixture, skillsFixture } from './fakeSkills';
 import { setsFixture } from './fakeSets';
 import { statsFixture } from './fakeStats';
+import type { AuthorModel } from '../lib/author';
 import type {
   AgyAccounts,
-  AppView,
   AgyLogin,
   AlertRecord,
   AlertsView,
+  AppView,
   ClaudeAccountRow,
   ClaudeAccountsView,
   CodexView,
@@ -29,6 +30,7 @@ import type {
   RotationView,
   Rules,
   Snapshot,
+  SourceView,
   SwitcherView,
 } from '../lib/model';
 
@@ -326,7 +328,7 @@ export function historyFixture(): HistoryEntry[] {
 }
 
 /** The app's own row: an installed copy, built by `scripts/install.sh` from a made-up commit. */
-export function appFixture(over: Partial<AppView> = {}): AppView {
+export function appFixture(over: Partial<AppView> = {}): AppView & SourceView {
   return {
     version: '0.1.0',
     commit: 'a1b2c3d',
@@ -549,7 +551,20 @@ export function mcpFixture(over: Partial<McpView> = {}): McpView {
   };
 }
 
-export function fixtureModel(name: string, over: Partial<Model> = {}): Model {
+/**
+ * The same Mac on a build without the author's tools (a release build), whatever its settings
+ * file says: Nâng cao off, and no rules editor, Firstmate or update from source in the model.
+ */
+export function communityModel(m: Model): Model {
+  const app: AppView = { version: m.app.version, commit: m.app.commit, launchAtLogin: m.app.launchAtLogin };
+  const out: Model = { ...m, app, advanced: { on: false, firstmate: false }, capabilities: { ...m.capabilities, authorTools: false } };
+  delete out.rotation;
+  delete out.firstmate;
+  return out;
+}
+
+/** The author's Mac, as the fixtures were drawn: a build with the author's tools and the Antigravity accounts. */
+export function fixtureModel(name: string, over: Partial<Model> = {}): AuthorModel {
   const snapshot = SNAPSHOTS[name];
   if (!snapshot) throw new Error('no snapshot fixture ' + name);
   return {
@@ -569,7 +584,7 @@ export function fixtureModel(name: string, over: Partial<Model> = {}): Model {
     menubarWindow: 'fiveHours',
     // The author's Mac, as the fixtures were drawn: Nâng cao on, a build with the Antigravity accounts.
     advanced: { on: true, firstmate: true },
-    capabilities: { agyAccounts: true },
+    capabilities: { agyAccounts: true, authorTools: true },
     antigravity: agyFixture(),
     agySwitch: { busy: null, listed: false, overwritten: null },
     alerts: alertsFixture(),
@@ -585,6 +600,7 @@ export function fixtureModel(name: string, over: Partial<Model> = {}): Model {
     sets: setsFixture(),
     stats: statsFixture(),
     ...over,
-  };
+    // An override of the app's row comes with the update from source, as every fixture's does.
+  } as AuthorModel;
 }
 

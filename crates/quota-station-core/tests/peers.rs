@@ -7,6 +7,8 @@
 //! a real rotation file. Alias `down` cannot be reached, and `liar` writes the
 //! file but reads back something else.
 
+#![cfg(feature = "author-tools")]
+
 mod common;
 
 use std::ffi::OsString;
