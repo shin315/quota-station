@@ -10,6 +10,9 @@
 //!   `QUOTA_AXI_CLAUDE_SWAP_DIR` points at `claude/swap`. Addresses there
 //!   are placeholders (`slot-2@quota-station.local`); quota-axi only
 //!   compares the two files' with each other.
+//! - [`details`], for the app's own windows: each account's windows and,
+//!   only while the owner shows names, its email and organization, read
+//!   from its Keychain item into memory.
 
 use std::collections::BTreeMap;
 
@@ -20,6 +23,7 @@ use time::OffsetDateTime;
 
 use super::store::{Kind, List, Store};
 use super::usage::{self, Cache, Reading, Win};
+use crate::detail::{ClaudeDetail, Usage};
 
 pub const SCHEMA: u32 = 1;
 
@@ -186,4 +190,40 @@ pub fn write(store: &Store, active: Option<u32>, now: OffsetDateTime) -> std::io
     let swap = store.paths.swap();
     super::write_private(&swap.join("sequence.json"), &pretty(&sequence(&list, active, now)))?;
     super::write_private(&swap.join("cache/usage.json"), &pretty(&swap_usage(&list, &cache)))
+}
+
+/// Each account the app keeps with its last reading, for the windows. With
+/// `names`, also its email and organization, from its Keychain item: they
+/// stay in memory.
+pub fn details(store: &Store, names: bool) -> Vec<ClaudeDetail> {
+    let Ok(list) = store.load() else { return Vec::new() };
+    let cache = usage::load(store);
+    let usage = |w: Option<&Win>| w.map(|w| Usage { used: w.pct, resets_at: w.resets_at.clone() });
+    list.accounts
+        .iter()
+        .map(|a| {
+            let reading =
+                cache.row(a.slot).filter(|r| r.identity == a.identity).and_then(|r| r.last_good.as_ref());
+            let oauth = if names { store.oauth_account(a.slot).ok().flatten() } else { None };
+            let text = |key: &str| {
+                oauth
+                    .as_ref()
+                    .and_then(|o| o.get(key))
+                    .and_then(Value::as_str)
+                    .map(str::trim)
+                    .filter(|t| !t.is_empty())
+                    .map(String::from)
+            };
+            ClaudeDetail {
+                number: a.slot,
+                email: text("emailAddress"),
+                organization: text("organizationName"),
+                five_hour: usage(reading.and_then(|r| r.five_hour.as_ref())),
+                seven_day: usage(reading.and_then(|r| r.seven_day.as_ref())),
+                fable: reading
+                    .and_then(Reading::fable)
+                    .map(|f| Usage { used: f.pct, resets_at: f.resets_at.clone() }),
+            }
+        })
+        .collect()
 }

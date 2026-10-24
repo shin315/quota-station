@@ -46,3 +46,31 @@ pub fn script(path: &std::path::Path, body: &str) -> PathBuf {
     std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
     path.to_path_buf()
 }
+
+/// The Claude accounts' details the app shows, from a fixture in the shape
+/// of claude-swap's `cswap list --json`, as the fixtures were made.
+pub fn claude_details(name: &str) -> Vec<quota_station_core::detail::ClaudeDetail> {
+    use quota_station_core::detail::{ClaudeDetail, Usage};
+    use serde_json::Value;
+    let data: Value = serde_json::from_str(&fixture_text(name)).expect("fixture parses");
+    let text = |v: &Value| v.as_str().map(str::trim).filter(|t| !t.is_empty()).map(String::from);
+    let usage = |v: &Value| {
+        Some(Usage { used: v.get("pct")?.as_f64()?, resets_at: v.get("resetsAt").and_then(|r| text(r)) })
+    };
+    data["accounts"]
+        .as_array()
+        .expect("accounts")
+        .iter()
+        .map(|a| ClaudeDetail {
+            number: a["number"].as_u64().unwrap() as u32,
+            email: text(&a["email"]),
+            organization: text(&a["organizationName"]),
+            five_hour: usage(&a["usage"]["fiveHour"]),
+            seven_day: usage(&a["usage"]["sevenDay"]),
+            fable: a["usage"]["scoped"]
+                .as_array()
+                .and_then(|s| s.iter().find(|w| w["name"].as_str().is_some_and(|n| n.eq_ignore_ascii_case("fable"))))
+                .and_then(usage),
+        })
+        .collect()
+}

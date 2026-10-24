@@ -1,10 +1,11 @@
-//! The `cswap-prefer-team` switcher, the one engine that switches Claude on
-//! its own (F07): what it would do now (`--dry-run`), what it did last (its
-//! log), and whether launchd runs it.
+//! The rotation, the one engine that switches Claude on its own (F07): what
+//! it would do now, what it did last (its log), and whether launchd runs it.
+//! The rotation runs in the app ([`crate::claude::rotate`]); this module
+//! reads its decision line and its log, in the old `cswap-prefer-team`
+//! script's words, which the history and the windows already know.
 //!
-//! The app never runs the switcher for real. `--dry-run` reads claude-swap's
-//! accounts, prints the decision and exits; with the pause guard installed it
-//! prints `paused …` instead while the pause flag holds.
+//! The old script's LaunchAgent, and claude-swap's own, are only looked at
+//! to warn: two switchers must never run at once.
 
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
@@ -13,29 +14,30 @@ use std::time::Duration;
 use serde::Serialize;
 use time::format_description::well_known::Rfc3339;
 
+use crate::claude::Paths;
 use crate::local_time;
-use crate::runner::{self, RunError};
+use crate::runner;
 
-pub const SCRIPT: &str = ".local/bin/cswap-prefer-team";
+/// The old switcher's log, read until the app keeps the accounts.
 pub const LOG: &str = "Library/Logs/cswap-prefer-team.log";
-/// The switcher's LaunchAgent, every 3 minutes.
+/// The old switcher's LaunchAgent, every 3 minutes.
 pub const SERVICE: &str = "com.cswap.prefer-team";
-/// claude-swap's own automatic switcher, which must stay unloaded: two
-/// engines would switch against each other.
+/// claude-swap's own automatic switcher.
 pub const AUTO_SERVICE: &str = "com.cswap.auto";
 pub const LAUNCHCTL: &str = "/bin/launchctl";
-/// `--dry-run` reads `cswap list --json`, which may ask the usage endpoint.
-pub const DRY_RUN_TIMEOUT: Duration = Duration::from_secs(30);
 const LAUNCHCTL_TIMEOUT: Duration = Duration::from_secs(5);
 /// How much of the end of the log is read for its last line.
 const LOG_TAIL: u64 = 8 * 1024;
 
-pub fn script(home: &Path) -> PathBuf {
-    home.join(SCRIPT)
-}
-
+/// The rotation's log: the app's own once it keeps the accounts, else the
+/// old switcher's, so the history keeps its switches until the cutover.
 pub fn log_file(home: &Path) -> PathBuf {
-    home.join(LOG)
+    let paths = Paths::for_home(home);
+    if paths.in_use() {
+        paths.log()
+    } else {
+        home.join(LOG)
+    }
 }
 
 /// The switcher's decision line, in parts the UI can put into words. Times
@@ -65,6 +67,11 @@ pub enum Decision {
     Paused {
         until: Option<String>,
         reason: Option<String>,
+    },
+    /// `blocked (com.cswap.prefer-team is loaded)`: an older switcher runs,
+    /// so the app's rotation switches nothing.
+    Blocked {
+        label: String,
     },
     /// A line this build does not know; the UI shows it as written.
     Other,
@@ -117,6 +124,9 @@ pub fn parse_decision(line: &str) -> Decision {
             return paused(rest);
         }
         return Decision::Other;
+    }
+    if let Some(label) = line.strip_prefix("blocked (").and_then(|r| r.strip_suffix(" is loaded)")) {
+        return Decision::Blocked { label: label.to_string() };
     }
     let (head, detail) = match line.split_once(" (") {
         Some((head, rest)) => (head, rest.strip_suffix(')').unwrap_or(rest)),
@@ -200,53 +210,9 @@ fn paused(rest: &str) -> Decision {
     Decision::Paused { until, reason: (!reason.is_empty()).then(|| reason.to_string()) }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum DryRunError {
-    NotFound,
-    Timeout,
-    Failed(String),
-    /// Ran and printed no decision: the switcher prints nothing when
-    /// `cswap list --json` fails.
-    NoDecision,
-}
-
-impl DryRunError {
-    pub fn kind(&self) -> &'static str {
-        match self {
-            DryRunError::NotFound => "notFound",
-            DryRunError::Timeout => "timeout",
-            DryRunError::Failed(_) => "failed",
-            DryRunError::NoDecision => "noDecision",
-        }
-    }
-}
-
-/// `cswap-prefer-team --dry-run`: the decision it would act on now.
-pub fn dry_run(script: &Path) -> Result<DryRun, DryRunError> {
-    dry_run_env(script, &[])
-}
-
-/// The decision it would make with the rules in `rotation` instead of its
-/// rotation file, for the editor's preview: the switcher reads
-/// `CSWAP_ROTATION_FILE` before its default path.
-pub fn dry_run_with(script: &Path, rotation: &Path) -> Result<DryRun, DryRunError> {
-    dry_run_env(script, &[("CSWAP_ROTATION_FILE", rotation.as_os_str())])
-}
-
-fn dry_run_env(script: &Path, env: &[(&str, &std::ffi::OsStr)]) -> Result<DryRun, DryRunError> {
-    let args = ["--dry-run".to_string()];
-    let out = runner::run_with(script, &args, env, None, DRY_RUN_TIMEOUT).map_err(|e| match e {
-        RunError::NotFound(_) | RunError::NotConfigured => DryRunError::NotFound,
-        RunError::Timeout(_) => DryRunError::Timeout,
-        other => DryRunError::Failed(other.to_string()),
-    })?;
-    let text = String::from_utf8_lossy(&out.stdout);
-    let line = text.lines().map(str::trim).find(|l| !l.is_empty());
-    match line {
-        Some(line) => Ok(DryRun { decision: parse_decision(line), raw: line.to_string() }),
-        None if out.code == Some(0) => Err(DryRunError::NoDecision),
-        None => Err(DryRunError::Failed(runner::first_line(&out.stderr))),
-    }
+/// The rotation's decision line, read.
+pub fn decided(line: &str) -> DryRun {
+    DryRun { decision: parse_decision(line), raw: line.trim().to_string() }
 }
 
 /// One line of the switcher's log.

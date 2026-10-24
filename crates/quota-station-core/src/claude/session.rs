@@ -25,7 +25,7 @@ use super::switch;
 /// The owner's Claude Code files a session shares, as links.
 const SHARED: [&str; 6] = ["settings.json", "keybindings.json", "CLAUDE.md", "skills", "commands", "agents"];
 /// Variables that would make `claude` use another login than the folder's.
-const SCRUBBED: [&str; 5] = [
+pub const SCRUBBED: [&str; 5] = [
     "ANTHROPIC_API_KEY",
     "ANTHROPIC_AUTH_TOKEN",
     "CLAUDE_CODE_OAUTH_TOKEN",

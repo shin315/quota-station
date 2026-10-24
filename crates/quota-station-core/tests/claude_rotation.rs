@@ -345,3 +345,18 @@ fn a_dry_run_reads_nothing_over_the_network() {
     assert_eq!(decided.line, "stay (slot 2 usage unknown)");
     assert!(anthropic.requests().is_empty());
 }
+
+#[test]
+fn the_preview_decides_with_the_draft_rules() {
+    let (mac, anthropic, tools) = three_accounts("rotate-preview");
+    anthropic.usage("acc-1", 0.0, None, Some(5.0), None);
+    anthropic.usage("acc-2", 60.0, Some(&iso(1.0)), Some(40.0), None);
+    anthropic.usage("acc-3", 10.0, Some(&iso(2.0)), Some(20.0), None);
+    quota_station_core::claude::usage::read_due(&mac.store, &tools.endpoints, false, true);
+    let now = OffsetDateTime::now_utc();
+    assert_eq!(rotate::dry_run(&mac.store, &tools, &rules(), now).line, "stay");
+    let mut draft = rules();
+    draft.full = 50.0;
+    assert_eq!(rotate::dry_run(&mac.store, &tools, &draft, now).primes, Vec::<u32>::new());
+    assert!(rotate::dry_run(&mac.store, &tools, &draft, now).line.starts_with("switch 3 "));
+}

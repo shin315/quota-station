@@ -15,10 +15,12 @@
 
 pub mod agent;
 pub mod cc;
+pub mod cli;
 pub mod engine;
 pub mod import;
 pub mod keychain;
 pub mod locks;
+pub mod manage;
 pub mod rotate;
 pub mod session;
 pub mod state;
