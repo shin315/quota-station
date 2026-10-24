@@ -23,7 +23,7 @@ fn reading(name: &str) -> serde_json::Value {
 
 #[test]
 fn each_claude_account_gets_its_windows_email_and_organization() {
-    let report = fixture("claude-pool-schema5.json");
+    let report = fixture("claude-pool.json");
     let now = parse_ts(&report.generated_at);
     let mut s = Snapshot::build(Some(&report), None);
     let list = common::claude_details("cswap-list-pool.json");
@@ -41,7 +41,7 @@ fn each_claude_account_gets_its_windows_email_and_organization() {
     );
     assert_eq!(a[0].windows[0].resets_at, None);
     assert_eq!(a[0].email.as_deref(), Some("lanpham.dev@example.com"));
-    // The account in use keeps quota-axi's live reading of its windows.
+    // The account in use keeps the live reading of its windows.
     assert_eq!(
         windows(&a[1].windows),
         [
@@ -74,8 +74,8 @@ fn a_claude_window_past_its_reset_has_no_number() {
 }
 
 #[test]
-fn an_account_the_app_has_no_reading_of_keeps_only_quota_axis_lines() {
-    let report = fixture("claude-pool-schema5.json");
+fn an_account_the_app_has_no_reading_of_keeps_only_the_reports_lines() {
+    let report = fixture("claude-pool.json");
     let mut s = Snapshot::build(Some(&report), None);
     detail::apply_claude(&mut s.claude, &[], parse_ts(&report.generated_at));
     let a = &s.claude.accounts;
@@ -85,7 +85,7 @@ fn an_account_the_app_has_no_reading_of_keeps_only_quota_axis_lines() {
 
 #[test]
 fn each_antigravity_account_gets_its_four_windows_from_the_apps_reading() {
-    let report = fixture("agy-quota-station.json");
+    let report = fixture("agy-list.json");
     let now = parse_ts(&report.generated_at);
     let mut s = Snapshot::build(None, Some(&report));
     assert_eq!(s.agy.source.as_deref(), Some("quota-station"));
@@ -123,16 +123,17 @@ fn each_antigravity_account_gets_its_four_windows_from_the_apps_reading() {
 }
 
 #[test]
-fn antigravity_readings_are_not_used_for_cockpit_tools_accounts() {
-    let report = fixture("agy-cockpit.json");
+fn antigravity_readings_are_not_used_without_the_apps_list() {
+    let report = fixture("agy-single.json");
     let mut s = Snapshot::build(None, Some(&report));
     let details = [AgyDetail {
         number: 1,
         email: Some("lanpham.ultra@example.com".into()),
         payload: Some(reading("agy-reading-1.json")),
     }];
+    let before = s.agy.accounts.clone();
     detail::apply_agy(&mut s.agy, &details, parse_ts(&report.generated_at));
-    assert!(s.agy.accounts[0].windows.is_empty());
+    assert_eq!(s.agy.accounts, before);
     assert!(s.agy.accounts.iter().all(|a| a.email.is_none()));
 }
 

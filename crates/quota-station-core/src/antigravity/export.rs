@@ -10,13 +10,13 @@
 // mode 700 folder, written through a temporary file), a write failure is
 // returned, and the clock is passed in.
 
-//! The quota cache, in Cockpit's layout, and what quota-axi reads: one file
-//! per account at `antigravity/cache/quota_api_v1_desktop/authorized/`,
-//! named by the SHA-256 of the email (trimmed, lower case), holding Google's
+//! The quota cache, in Cockpit's layout: one file per account at
+//! `antigravity/cache/quota_api_v1_desktop/authorized/`, named by the
+//! SHA-256 of the email (trimmed, lower case), holding Google's
 //! `fetchAvailableModels` answer with the `retrieveUserQuotaSummary` answer
-//! under `quota_summary`. With the account index beside it, quota-axi
-//! reports these accounts as it reports Cockpit's, so the windows and
-//! Firstmate read the same numbers.
+//! under `quota_summary`. With the account index beside it, the Antigravity
+//! row lists these accounts ([`super::listing`]), and Firstmate's quota-axi
+//! can read them as it reads Cockpit's.
 //!
 //! The same files are the app's cache: a reading younger than 60 seconds is
 //! used instead of asking Google again.

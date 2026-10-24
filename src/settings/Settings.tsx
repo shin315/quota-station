@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-// The Cài đặt tab of the main window: where quota-axi is, Keychain access
-// for quota-axi, this Mac's name, the Antigravity OAuth client file (in a
+// The Cài đặt tab of the main window: Keychain access for Claude Code's
+// login (on a Mac whose Claude accounts the app does not keep), this Mac's name, the Antigravity OAuth client file (in a
 // build with the Antigravity accounts), whether account names show, the
 // light or dark look, Codex's folder (M8), where the backup packs go, the
 // macOS notifications with the kinds of alert (M6) and alert 1's thresholds,
@@ -39,8 +39,6 @@ export interface SettingsProps {
   feedback?: FeedbackView | null;
   /** The buttons on a feedback line, the same as on the other tabs. */
   onAction(act: Action): void;
-  onSetPath(path: string): Promise<boolean>;
-  onFind(): void;
   onGrant(): void;
   /** Resolves to false when the name could not be saved. */
   onSetMachine(name: string): Promise<boolean>;
@@ -88,19 +86,6 @@ const CLIENT_CHIPS: Record<ClientStatus, ChipView> = {
   invalid: { t: 'chưa đúng', k: 'bad' },
   unreadable: { t: 'không đọc được', k: 'bad' },
 };
-
-function pathHint(model: Model, refused: boolean): { tone: 'ok' | 'bad' | ''; text: string } {
-  const q = model.quotaAxi;
-  if (refused) return { tone: 'bad', text: 'Không có file ở đường dẫn này.' };
-  if (!q.path) return { tone: 'bad', text: 'Không tìm thấy quota-axi ở các chỗ thường cài.' };
-  if (!q.exists) return { tone: 'bad', text: 'Không có file ở đường dẫn này.' };
-  const err = model.errors.claude;
-  if (err && err.kind !== 'notFound' && err.kind !== 'notConfigured')
-    return { tone: 'bad', text: 'quota-axi không chạy được: ' + (err.detail || err.kind) };
-  if (q.fork === false) return { tone: 'bad', text: 'Bản ' + q.version + ' không có +cswap: thiếu số claude-swap và luật xoay vòng.' };
-  if (q.version) return { tone: 'ok', text: q.version + ' ✓' };
-  return { tone: '', text: '' };
-}
 
 /**
  * A text field that follows `value` when it changes on the Rust side. The
@@ -833,8 +818,6 @@ export function Settings(props: SettingsProps) {
   fresh,
   feedback,
   onAction,
-  onSetPath,
-  onFind,
   onGrant,
   onSetMachine,
   onShowNames,
@@ -850,14 +833,6 @@ export function Settings(props: SettingsProps) {
   onPoolAlert,
   onSetBackupFolder,
   } = props;
-  const [path, setPath] = useField(model.quotaAxi.path ?? '');
-  const [refused, setRefused] = useState(false);
-
-  const hint = pathHint(model, refused);
-  const commit = async () => {
-    if (path === (model.quotaAxi.path ?? '')) return;
-    setRefused(!(await onSetPath(path)));
-  };
   const keychain = model.snapshot.keychain;
 
   return (
@@ -874,35 +849,6 @@ export function Settings(props: SettingsProps) {
       <Panel>
         <div className="grid">
           <div className={rowClass()}>
-            <label className={LABEL} htmlFor="qs-axi">
-              quota-axi
-            </label>
-            <div>
-              <Input
-                id="qs-axi"
-                mono
-                invalid={hint.tone === 'bad'}
-                value={path}
-                spellCheck={false}
-                autoComplete="off"
-                onChange={(e) => {
-                  setPath(e.target.value);
-                  setRefused(false);
-                }}
-                onBlur={commit}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') void commit();
-                }}
-              />
-              {hint.text ? <FieldHint tone={hint.tone}>{hint.text}</FieldHint> : null}
-              {hint.tone === 'bad' ? (
-                <div className="mt-1.5">
-                  <Button onClick={onFind}>Tự tìm lại</Button>
-                </div>
-              ) : null}
-            </div>
-          </div>
-          <div className={rowClass()}>
             <div className={LABEL}>
               Quyền Keychain
             </div>
@@ -917,8 +863,8 @@ export function Settings(props: SettingsProps) {
                   </Button>
                   <FieldHint>
                     {model.granting
-                      ? 'macOS sẽ hỏi. Bấm "Luôn cho phép". App không đọc mục Keychain của Claude.'
-                      : 'Đến khi cấp, dòng Claude dùng số chưa được cập nhật từ claude-swap.'}
+                      ? 'macOS sẽ hỏi. Bấm "Luôn cho phép". App chỉ đọc đăng nhập của Claude Code để lấy số, không làm mới hay sửa nó.'
+                      : 'Đến khi cấp, dòng Claude chỉ hiện số đọc được lần trước.'}
                   </FieldHint>
                 </>
               ) : (

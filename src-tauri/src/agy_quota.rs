@@ -4,20 +4,19 @@
 //! The Antigravity quota thread (M4b): reads the quota of the accounts this
 //! app logs in, one at a time and never more often than Cockpit Tools reads
 //! them (`quota_station_core::antigravity::pace`), and leaves each reading
-//! where quota-axi reads it. The windows keep drawing every number from
-//! quota-axi; this thread only tells them which account it is reading and
-//! which read failed.
+//! in the app's cache, which the Antigravity row lists
+//! (`quota_station_core::antigravity::listing`); this thread also tells the
+//! windows which account it is reading and which read failed.
 
 use std::thread;
 use std::time::Duration;
 
 use quota_station_core::antigravity::cloud_code::Hosts;
-use quota_station_core::antigravity::login;
 use quota_station_core::antigravity::oauth::Endpoints;
 use quota_station_core::antigravity::quota::{self, Outcome};
 use quota_station_core::antigravity::store::Keychain;
 use quota_station_core::antigravity::version::AntigravityApp;
-use quota_station_core::runner::{self, ProviderId};
+use quota_station_core::antigravity::{listing, login};
 use tauri::AppHandle;
 use time::OffsetDateTime;
 
@@ -109,33 +108,15 @@ fn round(app: &AppHandle, state: &AppState) {
     }
 }
 
-/// Shows new readings at once: quota-axi again, for Antigravity only and
-/// reusing its last successful reading (`runner::read_again`), so the run
-/// asks no vendor anything; only its `cockpit` block, which it reads from
-/// the files, is new. Skipped unless quota-axi's last Antigravity reading
-/// worked and is young enough to reuse (`runner::reusable`), as it would
-/// otherwise ask the vendor again: the next timed read shows the new
-/// numbers instead.
+/// Shows new readings at once: the app's list is built again from its
+/// files on the last Antigravity reading. Nothing is asked of a vendor; the
+/// account agy is on is read at the next timed read.
 fn show(app: &AppHandle, state: &AppState) {
-    let (path, generation) = {
-        let inner = state.lock();
-        let now = OffsetDateTime::now_utc();
-        let reusable = inner.agy_error.is_none()
-            && inner.agy.as_ref().is_some_and(|r| runner::reusable(r, ProviderId::Agy, now));
-        if !reusable {
-            return;
-        }
-        (inner.quota_axi(), inner.agy_generation)
-    };
-    let Some(path) = path else { return };
-    if let Ok(report) = runner::read_again(&path, ProviderId::Agy) {
+    {
         let mut inner = state.lock();
-        // An Antigravity switch meanwhile has the newer word on the account in use.
-        if inner.agy_generation != generation {
-            return;
-        }
-        inner.agy = Some(report);
-        drop(inner);
-        reader::publish(app, state);
+        let dir = inner.app_dir();
+        let Some(row) = inner.agy.as_mut().and_then(|r| r.primary_mut("agy")) else { return };
+        listing::attach(row, &dir, OffsetDateTime::now_utc());
     }
+    reader::publish(app, state);
 }

@@ -4,7 +4,8 @@
 //! Quota Station: AI coding quota in the macOS menu bar.
 //!
 //! Each Mac runs its own copy and switches only its own machine. It reads
-//! through quota-axi; since M3 it also switches Claude when the owner
+//! the quota of Claude, Codex and Antigravity itself (it read them through
+//! quota-axi until it stood alone); since M3 it also switches Claude when the owner
 //! confirms, and pauses the rotation. Since the Claude accounts moved in
 //! (`docs/claude-accounts.md`) it keeps their logins itself, reads their
 //! usage, runs the rotation from its own LaunchAgent and runs a process as a
@@ -12,7 +13,7 @@
 //! Since M5 it edits the rotation file and copies it to the owner's other
 //! Macs over SSH, so every Mac's switcher follows the same rules.
 //! Since M4a it logs Antigravity accounts in itself, since M4b it reads
-//! their quota itself and leaves it where quota-axi reads it, and since M4c
+//! their quota itself and lists it on the Antigravity row, and since M4c
 //! it switches the Antigravity account without Cockpit Tools. Since M6 it
 //! keeps a history of the switches, sends five alerts as macOS cards with
 //! buttons, and shows what Firstmate sees. Since M7 it can launch at login
@@ -73,6 +74,10 @@ fn main() {
     if args.first().map(String::as_str) == Some("claude") {
         std::process::exit(claude_cli(&args[1..]));
     }
+    // The quota as the app reads it, from a terminal.
+    if args.first().map(String::as_str) == Some("quota") {
+        std::process::exit(quota_cli(&args[1..]));
+    }
     tauri::Builder::default()
         // A second launch shows this copy's main window instead of a second icon.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -114,7 +119,6 @@ fn main() {
             commands::main_tab,
             commands::hide_popover,
             commands::popover_resize,
-            commands::set_quota_axi_path,
             commands::set_machine_name,
             commands::set_show_names,
             commands::set_theme,
@@ -266,6 +270,126 @@ fn claude_cli(args: &[String]) -> i32 {
         exe: std::env::current_exe().unwrap_or_else(|_| "quota-station".into()),
     };
     cli::run(&cli, args, &mut std::io::stdout(), &mut std::io::stderr())
+}
+
+const QUOTA_USAGE: &str = "\
+usage: quota-station quota [--provider claude|agy|codex]... [--json]
+
+  Reads the quota now, as the app reads it, read-only: no login is
+  refreshed, the app's own files and caches are left as they are, and
+  nothing printed holds a token or an email.
+";
+
+/// `quota-station quota …`: one fresh read of each provider asked for (all
+/// three by default), printed as the app's rows. The readings go to a
+/// cache folder of their own, removed after, so the app's are untouched;
+/// the Claude row of a Mac where the app keeps the accounts is built from
+/// its files, without a read.
+fn quota_cli(args: &[String]) -> i32 {
+    use quota_station_core::app_dir::AppDir;
+    use quota_station_core::claude::{self, keychain::Security, store::Store, usage, Paths};
+    use quota_station_core::quota::{self, cache::Cache, ProviderId, Response};
+    use quota_station_core::settings::Settings;
+    use std::io::Write;
+
+    let mut wanted: Vec<ProviderId> = Vec::new();
+    let mut json = false;
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        match a.as_str() {
+            "--json" => json = true,
+            "--provider" => match it.next().map(String::as_str) {
+                Some("claude") => wanted.push(ProviderId::Claude),
+                Some("agy") => wanted.push(ProviderId::Agy),
+                Some("codex") => wanted.push(ProviderId::Codex),
+                _ => {
+                    eprint!("{QUOTA_USAGE}");
+                    return 2;
+                }
+            },
+            _ => {
+                eprint!("{QUOTA_USAGE}");
+                return if a == "help" || a == "--help" { 0 } else { 2 };
+            }
+        }
+    }
+    if wanted.is_empty() {
+        wanted = vec![ProviderId::Claude, ProviderId::Agy, ProviderId::Codex];
+    }
+    let Some(home) = std::env::var_os("HOME").map(std::path::PathBuf::from) else {
+        eprintln!("quota-station quota: HOME is not set");
+        return 1;
+    };
+    let app = AppDir::new(claude::app_dir(&home));
+    let scratch = std::env::temp_dir().join(format!("quota-station-quota-{}", std::process::id()));
+    if std::fs::create_dir(&scratch).is_err() {
+        eprintln!("quota-station quota: no folder for the readings");
+        return 1;
+    }
+    let own = AppDir::new(&scratch);
+    let now = time::OffsetDateTime::now_utc();
+    let mut rows = Vec::new();
+    for provider in wanted {
+        let report = match provider {
+            ProviderId::Claude => {
+                let store = Store::new(Paths::for_home(&home), Security::system());
+                quota::claude::own_now(&store, now).unwrap_or_else(|| {
+                    let live = quota::claude::Live {
+                        paths: &store.paths,
+                        security: &store.security,
+                        endpoints: &usage::Endpoints::anthropic(),
+                        app: &own,
+                    };
+                    let cache = Cache::new(&own, ProviderId::Claude);
+                    quota::claude::read(&live, quota::claude::Keychain::Quiet, &cache, 0, now)
+                })
+            }
+            ProviderId::Agy => {
+                let cache = Cache::new(&own, ProviderId::Agy);
+                #[allow(unused_mut)]
+                let mut report = quota::agy::read(&quota::agy::Tools::system(), &cache, 0, now);
+                #[cfg(feature = "antigravity-accounts")]
+                if let Some(row) = report.primary_mut("agy") {
+                    quota_station_core::antigravity::listing::attach(row, &app, now);
+                }
+                report
+            }
+            ProviderId::Codex => {
+                let settings = Settings::load(&app.path().join("settings.json"));
+                let codex_home =
+                    quota_station_core::codex::home(&home, settings.codex_home.as_deref());
+                let cache = Cache::new(&own, ProviderId::Codex);
+                let endpoints = quota::codex::Endpoints::chatgpt();
+                quota::codex::read(&codex_home, &endpoints, &cache, 0, now)
+            }
+        };
+        rows.extend(report.providers);
+    }
+    let _ = std::fs::remove_dir_all(&scratch);
+    let report = Response::new(now, rows);
+    let mut out = std::io::stdout();
+    if json {
+        let text = serde_json::to_string_pretty(&report).expect("serializes");
+        let _ = writeln!(out, "{text}");
+        return 0;
+    }
+    for row in &report.providers {
+        let at = row.state.refreshed_at.as_deref().unwrap_or("-");
+        let _ = writeln!(out, "{} {} {at}", row.provider, row.state.status);
+        if let Some(e) = &row.state.error {
+            let _ = writeln!(out, "  {e}");
+        }
+        for w in &row.windows {
+            let left = w.percent_remaining.map_or("-".to_string(), |p| format!("{p}%"));
+            let _ = writeln!(
+                out,
+                "  {:<20} {left:>5} left  {}",
+                w.id,
+                w.resets_at.as_deref().unwrap_or("-")
+            );
+        }
+    }
+    0
 }
 
 /// The name macOS shows for this Mac (System Settings › General › About).

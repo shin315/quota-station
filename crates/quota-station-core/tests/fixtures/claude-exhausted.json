@@ -1,29 +1,25 @@
 {
   "generatedAt": "2026-01-16T07:20:00.000Z",
-  "schemaVersion": 5,
   "providers": [
     {
       "provider": "claude",
+      "accountKeys": [
+        "default"
+      ],
       "windows": [
         {
           "id": "five_hour",
-          "label": "five_hour",
           "kind": "session",
           "percentRemaining": 4,
           "resetsAt": "2026-01-16T09:52:00.000Z"
         },
         {
           "id": "seven_day",
-          "label": "seven_day",
           "kind": "weekly",
           "percentRemaining": 40,
           "resetsAt": "2026-01-21T03:00:00.000Z"
         }
       ],
-      "state": {
-        "status": "fresh",
-        "stale": false
-      },
       "quotaSemantics": {
         "status": "known",
         "effectiveAvailability": [
@@ -34,14 +30,16 @@
             "boundedBy": [
               "five_hour",
               "seven_day"
-            ]
+            ],
+            "limitingWindowIds": []
           }
         ]
       },
-      "claudeSwap": {
-        "status": "ok",
+      "state": {
+        "status": "fresh"
+      },
+      "claudeAccounts": {
         "activeSlot": 2,
-        "activeBasis": "identity",
         "slots": [
           {
             "slot": 1,
@@ -92,6 +90,7 @@
             "fetchedAt": "2026-01-16T07:16:40.000Z",
             "effectivePercentRemaining": 3,
             "limitedBy": "five_hour",
+            "resetsAt": "2026-01-16T09:40:00.000Z",
             "scopes": [
               {
                 "scope": "model:fable",
@@ -100,8 +99,7 @@
                 "limitedBy": "model:fable",
                 "resetsAt": "2026-01-16T20:20:00.000Z"
               }
-            ],
-            "resetsAt": "2026-01-16T09:40:00.000Z"
+            ]
           },
           {
             "slot": 4,
@@ -123,11 +121,7 @@
               }
             ]
           }
-        ]
-      },
-      "claudePool": {
-        "status": "pool",
-        "activeSlot": 2,
+        ],
         "rotation": {
           "team": [
             2,
@@ -137,7 +131,6 @@
           "personal": 1,
           "personalHours": "8-23",
           "full": 90,
-          "fableFull": 95,
           "expire": [
             {
               "slot": 2,
@@ -145,69 +138,36 @@
             }
           ]
         },
-        "members": [
-          {
-            "slot": 2,
-            "role": "team",
-            "active": true,
-            "leavesAt": "2026-01-16T10:45:00.000Z"
-          },
-          {
-            "slot": 3,
-            "role": "team",
-            "active": false
-          },
-          {
-            "slot": 4,
-            "role": "team",
-            "active": false
-          },
-          {
-            "slot": 1,
-            "role": "personal",
-            "active": false,
-            "leavesAt": "2026-01-16T16:59:59.000Z"
-          }
-        ],
-        "excluded": [],
-        "scopes": [
-          {
-            "scope": "all_models",
-            "effectivePercentRemaining": 0,
-            "slotsOfRoom": 0,
-            "nextRefillAt": "2026-01-16T09:40:00.000Z",
-            "slots": [
-              {
-                "slot": 1,
-                "roomPercent": 0,
-                "refillAt": "2026-01-16T09:40:00.000Z"
-              },
-              {
-                "slot": 2,
-                "roomPercent": 0,
-                "refillAt": "2026-01-16T09:52:00.000Z"
-              },
-              {
-                "slot": 3,
-                "roomPercent": 0,
-                "refillAt": "2026-01-16T09:40:00.000Z"
-              },
-              {
-                "slot": 4,
-                "roomPercent": 0,
-                "refillAt": "2026-01-16T09:52:00.000Z"
-              }
-            ],
-            "activeSlot": {
-              "effectivePercentRemaining": 4,
-              "runway": "exhausted_now"
+        "pool": {
+          "scope": "all_models",
+          "members": 4,
+          "slotsOfRoom": 0,
+          "effectivePercentRemaining": 0,
+          "nextRefillAt": "2026-01-16T09:40:00.000Z",
+          "slots": [
+            {
+              "slot": 1,
+              "roomPercent": 0,
+              "refillAt": "2026-01-16T09:40:00.000Z"
+            },
+            {
+              "slot": 2,
+              "roomPercent": 0,
+              "refillAt": "2026-01-16T09:52:00.000Z"
+            },
+            {
+              "slot": 3,
+              "roomPercent": 0,
+              "refillAt": "2026-01-16T09:40:00.000Z"
+            },
+            {
+              "slot": 4,
+              "roomPercent": 0,
+              "refillAt": "2026-01-16T09:52:00.000Z"
             }
-          }
-        ]
-      },
-      "accountKeys": [
-        "default"
-      ]
+          ]
+        }
+      }
     }
   ]
 }

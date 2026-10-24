@@ -48,17 +48,15 @@ export interface WindowView {
     /** Section note for the overview card. */
     note: NoteView | null;
     /**
-     * The Antigravity tab's banner: quota-axi not running, else a switch
-     * Antigravity.app wrote back ("Chuyển Antigravity bị ghi đè"), else why
-     * quota-axi sees only the signed-in account.
+     * The Antigravity tab's banner: a switch Antigravity.app wrote back
+     * ("Chuyển Antigravity bị ghi đè"), else why only the signed-in account
+     * shows.
      */
     banner: BannerView | null;
-    /** The Antigravity tab's note: the Antigravity read failed while the Claude one did not. */
+    /** The Antigravity tab's note: the Antigravity read gave no number. */
     tabNote: NoteView | null;
-    /** quota-axi read the app's own list: the logins are the table's rows. */
+    /** The row lists the app's own accounts: the logins are the table's rows. */
     own: boolean;
-    /** Cockpit Tools, only when it is where the accounts come from. */
-    cockpit: KeyValue[] | null;
   };
   upcoming: UpcomingView[];
   /** Automatic switching and why Claude is on its account (F07). */
@@ -106,8 +104,7 @@ function upcoming(model: Model, now: Date): UpcomingView[] {
     const m = minutesUntil(iso, now);
     return m != null && m > 0 && m <= UPCOMING_HOURS * 60;
   };
-  const add = (section: Section, name: (a: Account) => string, failing: boolean) => {
-    if (failing) return;
+  const add = (section: Section, name: (a: Account) => string) => {
     for (const a of section.accounts) {
       if (a.leavesAt && within(a.leavesAt)) out.push({ at: a.leavesAt, what: name(a) + ' rời vòng', tone: 'warn' });
       for (const l of a.windows.length ? a.windows : a.lines) {
@@ -126,8 +123,8 @@ function upcoming(model: Model, now: Date): UpcomingView[] {
   // where Claude and Antigravity share one list.
   const names = claudeNames(s.claude.accounts, null, model.advanced.on);
   const gNames = agyNames(s.agy.accounts, model.advanced.on);
-  add(s.claude, (a) => (a.number === 0 ? 'Claude' : (names.get(a.number)?.name ?? 'Tài khoản ' + a.number)), !!model.errors.claude);
-  if (s.agy.status !== 'notSetUp') add(s.agy, (a) => (a.number === 0 ? 'Antigravity' : gNames.get(a.number)!.name), !!model.errors.agy);
+  add(s.claude, (a) => (a.number === 0 ? 'Claude' : (names.get(a.number)?.name ?? 'Tài khoản ' + a.number)));
+  if (s.agy.status !== 'notSetUp') add(s.agy, (a) => (a.number === 0 ? 'Antigravity' : gNames.get(a.number)!.name));
   return out
     .sort((x, y) => new Date(x.at).getTime() - new Date(y.at).getTime())
     .slice(0, UPCOMING_MAX)
@@ -137,11 +134,11 @@ function upcoming(model: Model, now: Date): UpcomingView[] {
 // ===== Antigravity =====
 
 function agyBanner(g: Section): BannerView | null {
-  if (g.status === 'noSidecar')
+  if (g.status === 'single')
     return {
       tone: 'info',
       title: 'Chỉ thấy tài khoản đang dùng',
-      body: 'quota-axi chưa có danh sách tài khoản Antigravity trên máy này. Đăng nhập tài khoản ở đây để thấy và chuyển mọi tài khoản.',
+      body: 'Chưa có danh sách tài khoản Antigravity trên máy này. Đăng nhập tài khoản ở đây để thấy và chuyển mọi tài khoản.',
       actions: [],
     };
   if (g.status === 'unavailable')
@@ -152,15 +149,6 @@ function agyBanner(g: Section): BannerView | null {
       actions: [],
     };
   return null;
-}
-
-/** Cockpit Tools: only on a Mac where the accounts come from it. */
-function cockpitRows(g: Section, failing: boolean): KeyValue[] | null {
-  if (g.source !== 'cockpit') return null;
-  const chip: ChipView = failing ? { t: 'không rõ', k: '' } : g.status === 'ok' ? { t: 'đang chạy', k: 'ok' } : { t: 'không đọc được', k: 'bad' };
-  const rows: KeyValue[] = [{ key: 'Cockpit Tools', value: chip.t, chip }];
-  if (!failing && g.status === 'ok') rows.push({ key: 'Tài khoản trong Cockpit Tools', value: String(g.accounts.length) });
-  return rows;
 }
 
 // ===== The switcher (F07) =====
@@ -219,8 +207,6 @@ export function windowView(model: Model, now: Date, options: ViewOptions = {}): 
   const c = model.snapshot.claude;
   const g = model.snapshot.agy;
   const swap = c.accounts.some((a) => a.number > 0);
-  const cErr = model.errors.claude;
-  const gErr = model.errors.agy;
   const present = g.status !== 'notSetUp';
   const auto = autoView(model, now);
   return {
@@ -237,10 +223,9 @@ export function windowView(model: Model, now: Date, options: ViewOptions = {}): 
       present,
       cards: pv.agy.cards,
       note: pv.agy.note,
-      banner: cErr ? pv.banner : (overwriteBanner(model) ?? agyBanner(g)),
-      tabNote: gErr && !cErr ? pv.agy.note : null,
+      banner: overwriteBanner(model) ?? agyBanner(g),
+      tabNote: g.status === 'single' && !g.accounts.length && g.reason ? pv.agy.note : null,
       own: g.status === 'ok' && g.source === 'quota-station',
-      cockpit: cockpitRows(g, !!gErr),
     },
     upcoming: upcoming(model, now),
     auto,

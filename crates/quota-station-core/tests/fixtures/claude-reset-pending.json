@@ -1,36 +1,31 @@
 {
   "generatedAt": "2026-01-16T07:20:00.000Z",
-  "schemaVersion": 5,
   "providers": [
     {
       "provider": "claude",
+      "accountKeys": [
+        "default"
+      ],
       "windows": [
         {
           "id": "five_hour",
-          "label": "five_hour",
           "kind": "session",
           "percentRemaining": 26,
           "resetsAt": "2026-01-16T10:29:00.000Z"
         },
         {
           "id": "seven_day",
-          "label": "seven_day",
           "kind": "weekly",
           "percentRemaining": 61,
           "resetsAt": "2026-01-21T03:00:00.000Z"
         },
         {
           "id": "model:fable",
-          "label": "model:fable",
           "kind": "model",
           "percentRemaining": 13,
           "resetsAt": "2026-01-18T01:20:00.000Z"
         }
       ],
-      "state": {
-        "status": "fresh",
-        "stale": false
-      },
       "quotaSemantics": {
         "status": "known",
         "effectiveAvailability": [
@@ -41,14 +36,16 @@
             "boundedBy": [
               "five_hour",
               "seven_day"
-            ]
+            ],
+            "limitingWindowIds": []
           }
         ]
       },
-      "claudeSwap": {
-        "status": "ok",
+      "state": {
+        "status": "fresh"
+      },
+      "claudeAccounts": {
         "activeSlot": 2,
-        "activeBasis": "identity",
         "slots": [
           {
             "slot": 1,
@@ -126,11 +123,7 @@
               }
             ]
           }
-        ]
-      },
-      "claudePool": {
-        "status": "pool",
-        "activeSlot": 2,
+        ],
         "rotation": {
           "team": [
             2,
@@ -140,7 +133,6 @@
           "personal": 1,
           "personalHours": "8-23",
           "full": 90,
-          "fableFull": 95,
           "expire": [
             {
               "slot": 2,
@@ -148,86 +140,34 @@
             }
           ]
         },
-        "members": [
-          {
-            "slot": 2,
-            "role": "team",
-            "active": true,
-            "leavesAt": "2026-01-16T10:45:00.000Z"
-          },
-          {
-            "slot": 3,
-            "role": "team",
-            "active": false
-          },
-          {
-            "slot": 4,
-            "role": "team",
-            "active": false
-          },
-          {
-            "slot": 1,
-            "role": "personal",
-            "active": false,
-            "leavesAt": "2026-01-16T16:59:59.000Z"
-          }
-        ],
-        "excluded": [],
-        "scopes": [
-          {
-            "scope": "all_models",
-            "effectivePercentRemaining": 100,
-            "slotsOfRoom": 2.27,
-            "nextRefillAt": "2026-01-16T10:09:00.000Z",
-            "slots": [
-              {
-                "slot": 2,
-                "roomPercent": 0,
-                "limitedBy": [
-                  "five_hour"
-                ],
-                "refillAt": "2026-01-16T10:29:00.000Z"
-              },
-              {
-                "slot": 3,
-                "roomPercent": 100,
-                "limitedBy": []
-              },
-              {
-                "slot": 4,
-                "roomPercent": 97.8,
-                "limitedBy": [
-                  "five_hour"
-                ],
-                "refillAt": "2026-01-16T10:09:00.000Z"
-              },
-              {
-                "slot": 1,
-                "roomPercent": 29.2,
-                "limitedBy": [
-                  "seven_day"
-                ]
-              }
-            ],
-            "activeSlot": {
-              "effectivePercentRemaining": 26,
-              "runway": "through_reset"
+        "pool": {
+          "scope": "all_models",
+          "members": 4,
+          "slotsOfRoom": 2.27,
+          "effectivePercentRemaining": 100,
+          "nextRefillAt": "2026-01-16T10:09:00.000Z",
+          "slots": [
+            {
+              "slot": 2,
+              "roomPercent": 0,
+              "refillAt": "2026-01-16T10:29:00.000Z"
+            },
+            {
+              "slot": 3,
+              "roomPercent": 100
+            },
+            {
+              "slot": 4,
+              "roomPercent": 97.8,
+              "refillAt": "2026-01-16T10:09:00.000Z"
+            },
+            {
+              "slot": 1,
+              "roomPercent": 29.2
             }
-          },
-          {
-            "scope": "model:fable",
-            "effectivePercentRemaining": 100,
-            "slotsOfRoom": 1.6,
-            "slots": [],
-            "activeSlot": {
-              "effectivePercentRemaining": 13
-            }
-          }
-        ]
-      },
-      "accountKeys": [
-        "default"
-      ]
+          ]
+        }
+      }
     }
   ]
 }

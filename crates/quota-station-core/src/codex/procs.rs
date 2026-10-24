@@ -130,9 +130,9 @@ pub fn classify(table: &str) -> Procs {
 pub fn candidates(home: &Path) -> Vec<PathBuf> {
     let mut out = vec![home.join(".local/bin/codex")];
     out.extend(
-        runner::candidates(home)
+        runner::bin_dirs(home)
             .into_iter()
-            .filter_map(|p| p.parent().map(|d| d.join("codex")))
+            .map(|d| d.join("codex"))
             .filter(|p| !p.starts_with(home.join(".local/bin"))),
     );
     out.push(PathBuf::from("/Applications/Codex.app/Contents/Resources/codex"));

@@ -3,7 +3,7 @@
 
 // The Firstmate tab (F10): whether Firstmate holds new Claude work, from the
 // line its quota-pool watch writes (`quota-pool.last`, at the path set in
-// Cài đặt), next to the pool quota-axi reports. Read only.
+// Cài đặt), next to the pool the app counts. Read only.
 
 import { Card as Panel, CardText, CardTitle } from '@/components/ui/card';
 import { TabHead, TabSub, TabTitle } from '../components/page';

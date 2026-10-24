@@ -3,13 +3,17 @@
 
 //! Fakes for the Antigravity switch tests: an Antigravity.app that is a
 //! shell process, the `plutil`, `pgrep`, `osascript` and `open` the switch
-//! asks about it, and a quota-axi that prints a chosen Antigravity report.
+//! asks about it, and an `agy` whose `/quota` prints a chosen reading.
 //! Nothing here looks at, quits or opens the real Antigravity.app.
 
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use quota_station_core::antigravity::desktop::Desktop;
+use quota_station_core::antigravity::export;
+use quota_station_core::app_dir::AppDir;
+use quota_station_core::quota::agy;
+use serde_json::{json, Value};
 
 use super::script;
 
@@ -164,35 +168,41 @@ impl Drop for FakeApp {
     }
 }
 
-/// A quota-axi that records its arguments in `dir/axi-args` and prints
-/// `dir/agy.json`, or fails when there is none.
-pub fn fake_quota_axi(dir: &Path) -> PathBuf {
+/// An `agy` that records its arguments in `dir/agy-args` and prints
+/// `dir/agy.json`, or fails when there is none, with a `ps` that lists no
+/// process: agy's own `/quota` is the only reading.
+pub fn fake_agy(dir: &Path) -> agy::Tools {
     let d = dir.display();
-    script(
-        &dir.join("bin/quota-axi"),
-        &format!(
-            "printf '%s\\n' \"$@\" > '{d}/axi-args'\n[ -f '{d}/agy.json' ] || {{ echo 'agy: not signed in' >&2; exit 2; }}\ncat '{d}/agy.json'\n"
-        ),
-    )
+    agy::Tools {
+        agy: Some(script(
+            &dir.join("bin/agy"),
+            &format!(
+                "printf '%s\\n' \"$@\" > '{d}/agy-args'\n[ -f '{d}/agy.json' ] || {{ echo 'agy: not signed in' >&2; exit 2; }}\ncat '{d}/agy.json'\n"
+            ),
+        )),
+        ps: script(&dir.join("bin/ps"), "exit 0\n"),
+        lsof: script(&dir.join("bin/lsof"), "exit 1\n"),
+    }
 }
 
-/// An Antigravity report whose `cockpit` block lists `accounts` accounts
-/// from `source`, with `active` in use as told by `basis`.
-pub fn agy_report(accounts: u32, active: Option<u32>, basis: &str, source: &str) -> String {
-    let rows: Vec<String> = (1..=accounts)
-        .map(|n| {
-            format!(
-                r#"{{"account":{n},"active":{},"status":"noData","scopes":[]}}"#,
-                Some(n) == active
-            )
-        })
-        .collect();
-    let head = match active {
-        Some(a) => format!(r#""activeAccount":{a},"activeBasis":"{basis}","#),
-        None => r#""activeUnresolved":"no_evidence","#.to_string(),
-    };
-    format!(
-        r#"{{"generatedAt":"2026-01-16T07:21:00.000Z","schemaVersion":5,"providers":[{{"provider":"agy","windows":[],"state":{{"status":"fresh","stale":false}},"cockpit":{{"status":"ok","source":"{source}",{head}"accounts":[{}]}}}}]}}"#,
-        rows.join(",")
-    )
+/// A quota summary with one Gemini five-hour bucket, `used` per cent used
+/// and resetting at `reset`.
+pub fn quota_summary(used: f64, reset: &str) -> Value {
+    json!({"groups": [{"displayName": "Gemini", "buckets": [{
+        "bucketId": "gemini-5h",
+        "remainingFraction": 1.0 - used / 100.0,
+        "resetTime": reset,
+    }]}]})
+}
+
+/// What `agy -p /quota --output-format json` prints for that summary.
+pub fn agy_quota(used: f64, reset: &str) -> String {
+    json!({"command": {"name": "/quota", "data": quota_summary(used, reset)}}).to_string()
+}
+
+/// Keeps `email`'s reading of that summary in the app's own cache, as a
+/// read of the account does.
+pub fn remember(app: &AppDir, email: &str, used: f64, reset: &str, now_ms: i64) {
+    export::write(app, email, None, json!({"quota_summary": quota_summary(used, reset)}), now_ms)
+        .unwrap();
 }

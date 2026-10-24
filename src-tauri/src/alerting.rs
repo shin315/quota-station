@@ -69,7 +69,7 @@ pub struct FirstmateView {
     pub written_at: Option<String>,
     /// Written recently enough to act on.
     pub fresh: bool,
-    /// The same dry rule, counted by the app from quota-axi's numbers.
+    /// The same dry rule, counted by the app from its own numbers.
     pub own_dry: Option<bool>,
 }
 
@@ -161,8 +161,8 @@ fn evaluate(state: &AppState) {
     let has_rotation = claude
         .as_ref()
         .and_then(|r| r.primary("claude"))
-        .and_then(|r| r.claude_pool.as_ref())
-        .is_some_and(|p| p.rotation.is_some());
+        .and_then(|r| r.claude_accounts.as_ref())
+        .is_some_and(|a| a.rotation.is_some());
     let rules = match has_rotation {
         true => None,
         false => match rotation::load(

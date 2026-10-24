@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 // A fake Rust side on fixture data, for the tests and the browser preview.
-// Never runs quota-axi, claude-swap or the switcher, never opens a browser
+// Never reads a real quota, runs claude-swap or the switcher, never opens a browser
 // or the Keychain, and writes no file.
 // Plain code: the preview bundle must not load Vitest.
 
@@ -326,11 +326,6 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
     mainTab: async () => tab,
     hidePopover: async () => {},
     resizePopover: async () => {},
-    setQuotaAxiPath: async (path) => {
-      if (path && !path.includes('quota-axi')) throw new Error('notFound');
-      push({ ...model, quotaAxi: { ...model.quotaAxi, path: path || '~/.local/bin/quota-axi', custom: !!path } });
-      return model;
-    },
     setMachineName: async (name) => {
       push({ ...model, machine: name.trim() || model.machineDefault });
       return model;

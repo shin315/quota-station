@@ -1,8 +1,8 @@
 # Third-party notices
 
-Quota Station runs quota-axi below as a separate program and reads its
-output; none of its source code is copied into this repository. The way it
-keeps the Claude accounts is adapted from claude-swap. Parts of its
+Quota Station reads the quota with code ported from quota-axi, and runs no
+quota-axi program. The way it keeps the Claude accounts is adapted from
+claude-swap. Parts of its
 Antigravity login, quota reading and account switch are adapted from
 Cockpit Tools, parts of
 its Codex switch are ported from CC Switch, and its interface components
@@ -11,10 +11,17 @@ was changed. The agents' and the services' logos come from svgl.
 
 ## quota-axi
 
-- Project: https://github.com/kunchenguid/quota-axi (the app also uses a
-  personal fork that adds claude-swap, rotation and Cockpit sidecars)
-- How it is used: the app runs the `quota-axi` command and parses its
-  `--json` report.
+- Project: https://github.com/kunchenguid/quota-axi
+- How it is used: ported code. The Codex, Antigravity and Claude Code
+  quota reads, the reading model, the cache and stale rules, and which
+  windows bound which scope are ported from quota-axi 0.1.66 into
+  `crates/quota-station-core/src/quota/` (`mod.rs`, `cache.rs`,
+  `codex.rs`, `agy.rs`, `claude.rs`, `semantics.rs`), read-only: no login is
+  refreshed or written. See [`NOTICE`](NOTICE) for the files and the
+  changes; each ported file also says so in its header. The app no longer
+  runs quota-axi; the rotation file keeps quota-axi's format, and the
+  copies the app writes for Firstmate (`docs/claude-accounts.md`) are for
+  the quota-axi Firstmate runs.
 - License: MIT
 
 ```
@@ -96,9 +103,8 @@ SOFTWARE.
   accounts (those files, the parts that join them to the app and their
   screens) are shared under the same license, apart from the rest of Quota
   Station, which is MIT. They are built only with the `antigravity-accounts`
-  feature; an app built without it holds none of this code. The app also shows the Antigravity
-  accounts that quota-axi's `cockpit` sidecar reports, and Cockpit's menu bar
-  card was a design reference for the popover.
+  feature; an app built without it holds none of this code. Cockpit's menu
+  bar card was a design reference for the popover.
 
 ## CC Switch
 

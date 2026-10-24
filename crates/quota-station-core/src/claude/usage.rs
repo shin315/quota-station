@@ -74,6 +74,11 @@ impl Endpoints {
             token: format!("{base}/v1/oauth/token"),
         }
     }
+
+    /// The usage endpoint.
+    pub fn usage(&self) -> &str {
+        &self.usage
+    }
 }
 
 /// One window: percent used and when it resets.

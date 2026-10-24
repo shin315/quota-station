@@ -22,7 +22,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
-use common::desktop::{agy_report, fake_quota_axi, FakeApp};
+use common::desktop::{agy_quota, fake_agy, FakeApp};
 use common::google::{
     token_body, FakeBrowser, FakeGoogle, Home, Script, ACCOUNT_ID, INVALID_GRANT, MODELS,
 };
@@ -32,7 +32,7 @@ use quota_station_core::antigravity::switch::{
     self, CloudCodeProbe, How, Limits, Outcome, Request,
 };
 use quota_station_core::antigravity::version::AntigravityApp;
-use quota_station_core::antigravity::{client, index, login, pace, quota, watch};
+use quota_station_core::antigravity::{client, index, listing, login, pace, quota, watch};
 use quota_station_core::app_dir as fs;
 
 const SENTINEL: &str = "SENTINEL-must-never-leave-0f3c";
@@ -148,9 +148,8 @@ fn the_antigravity_flows_never_touch_another_tools_secrets() {
     let shared_item = home.sec.join("items/gemini--antigravity");
     let app = FakeApp::new(&home.home.join("desktop"), Some("2.24.0"));
     app.start();
-    let axi = fake_quota_axi(&home.home);
-    std::fs::write(home.home.join("agy.json"), agy_report(2, Some(2), "reading", "quota-station"))
-        .unwrap();
+    let agy = fake_agy(&home.home);
+    std::fs::write(home.home.join("agy.json"), agy_quota(0.0, "2030-01-15T14:00:00Z")).unwrap();
     let desktop = app.desktop();
     let shared = SharedLogin::fake(home.sec.join("bin/security"), Duration::from_secs(5));
     let switch_deps = switch::Deps {
@@ -160,15 +159,14 @@ fn the_antigravity_flows_never_touch_another_tools_secrets() {
         probe: Arc::new(CloudCodeProbe { hosts: hosts.clone(), identity: identity.clone() }),
         shared: &shared,
         desktop: &desktop,
-        quota_axi: Some(&axi),
+        agy: &agy,
     };
     let request = Request { id: second.id.clone(), how: How::QuitFirst, from: None };
     let limits = Limits { settle: Duration::ZERO, ..Limits::default() };
     let done = switch::switch_antigravity(&switch_deps, &request, limits, &|| now() + 3600);
     assert!(matches!(done.outcome, Outcome::Switched { .. }), "{:?}", done.outcome);
-    let report =
-        quota_station_core::axi::parse(&agy_report(2, Some(1), "reading", "quota-station"));
-    let active = switch::shown_active_id(&report.unwrap(), &index::load(&home.app).unwrap());
+    let report = listing::read(&agy, &home.app, 0, time::OffsetDateTime::now_utc());
+    let active = switch::shown_active_id(&report, &index::load(&home.app).unwrap());
     watch::observe(&home.app, active.as_deref(), now() + 7200);
     watch::dismiss(&home.app).unwrap();
     let _ = switch::read_log(&home.app);
@@ -264,7 +262,7 @@ const FILE_CALLS: [&str; 11] = [
 /// module that writes it.
 #[test]
 fn only_the_folder_guard_opens_files() {
-    let sources: [(&str, &str); 21] = [
+    let sources: [(&str, &str); 22] = [
         ("client.rs", include_str!("../src/antigravity/client.rs")),
         ("cloud_code.rs", include_str!("../src/antigravity/cloud_code.rs")),
         ("credential.rs", include_str!("../src/antigravity/credential.rs")),
@@ -272,6 +270,7 @@ fn only_the_folder_guard_opens_files() {
         ("export.rs", include_str!("../src/antigravity/export.rs")),
         ("app_dir.rs", include_str!("../src/app_dir.rs")),
         ("index.rs", include_str!("../src/antigravity/index.rs")),
+        ("listing.rs", include_str!("../src/antigravity/listing.rs")),
         ("login.rs", include_str!("../src/antigravity/login.rs")),
         ("mod.rs", include_str!("../src/antigravity/mod.rs")),
         ("oauth.rs", include_str!("../src/antigravity/oauth.rs")),

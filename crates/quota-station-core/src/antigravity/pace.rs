@@ -4,7 +4,7 @@
 //! When each Antigravity account is read: never more often than Cockpit
 //! Tools reads it, one account at a time.
 //!
-//! - The account in use is read with the app's own quota-axi reads (every
+//! - The account in use is read with the app's own quota reads (every
 //!   60 seconds while a window is open, every 5 minutes while hidden, on
 //!   wake and after an action); Cockpit reads it about once a minute.
 //! - Every other account every 10 minutes, Cockpit's default, and when the
@@ -72,7 +72,7 @@ impl Pace {
         Self::default()
     }
 
-    /// The app is reading quota-axi: the account in use is due.
+    /// The app is reading the Antigravity row: the account in use is due.
     pub fn cycle(&mut self) {
         self.cycle = true;
     }
@@ -194,7 +194,7 @@ mod tests {
         let fresh = two(Some(T0));
         // Nothing asked, both read just now.
         assert!(pace.take(&fresh, Some("b"), T0 + MIN).is_empty());
-        // A quota-axi read: only the account in use.
+        // A read of the row: only the account in use.
         pace.cycle();
         assert_eq!(pace.take(&fresh, Some("b"), T0 + MIN), ["b"]);
         assert!(!pace.pending());

@@ -5,8 +5,7 @@ mod common;
 
 use common::fixture;
 use quota_station_core::icon::{
-    glyph_ascii, icon, render_glyph, reset_words, short_name, CodexUse, Context, Failing, Icon,
-    Tone,
+    glyph_ascii, icon, render_glyph, reset_words, short_name, CodexUse, Context, Icon, Tone,
 };
 use quota_station_core::settings::{Menubar, MenubarWindow};
 use quota_station_core::snapshot::{LineKind, Role, SectionStatus};
@@ -25,7 +24,7 @@ fn snap(claude: &str, agy: Option<&str>) -> Snapshot {
 
 /// Claude in rotation, Antigravity's live account, Codex on its ChatGPT login.
 fn full() -> Snapshot {
-    snap("claude-pool-schema5.json", Some("agy-no-cockpit.json"))
+    snap("claude-pool.json", Some("agy-single.json"))
         .with_codex(Some(&fixture("codex-chatgpt.json")))
 }
 
@@ -38,7 +37,6 @@ fn shows(follow: Menubar, window: MenubarWindow) -> Context {
     Context {
         follow,
         window,
-        failing: Failing::default(),
         codex: CodexUse::ChatGpt,
         now: at("2026-01-16T07:20:00Z"),
         roles: true,
@@ -168,7 +166,7 @@ fn hidden_names_give_the_account_its_place() {
         a.active = a.role == Role::Personal;
     }
     assert!(icon(Some(&personal), &cx(Menubar::Claude)).title.starts_with("Cá nhân "));
-    let mut agy = snap("claude-pool-schema5.json", Some("agy-cockpit.json"));
+    let mut agy = snap("claude-pool.json", Some("agy-list.json"));
     agy.agy.accounts.iter_mut().for_each(|a| a.email = None);
     assert!(icon(Some(&agy), &cx(Menubar::Gemini)).title.starts_with("Ultra "));
 }
@@ -180,24 +178,13 @@ fn no_number_shows_the_name_and_a_dash() {
     let unavailable = icon(Some(&snap("claude-unavailable.json", None)), &cx(Menubar::Claude));
     assert_eq!(unavailable.tone, Tone::Muted);
     assert!(unavailable.title.ends_with(" –"), "{}", unavailable.title);
-    // quota-axi failing: the name stays, never an old number.
-    let mut failing = cx(Menubar::Claude);
-    failing.failing.claude = true;
-    let i = icon(Some(&full()), &failing);
-    assert_eq!((i.title.as_str(), i.tone), ("Team A –", Tone::Muted));
-    assert!(i.label.starts_with("Quota Station. Claude: không đọc được số."));
-    assert_eq!(i.claude, None);
     // A window past its reset waits for a new reading.
     let later = Context { now: at("2026-01-18T02:00:00Z"), ..cx(Menubar::Claude) };
     assert_eq!(icon(Some(&full()), &later).title, "Team A –");
-    // Codex failing or not read yet.
-    let mut codex = cx(Menubar::Codex);
-    codex.failing.codex = true;
-    assert_eq!(icon(Some(&full()), &codex).title, "ChatGPT –");
-    let unread_codex = snap("claude-pool-schema5.json", None);
+    // Codex not read yet.
+    let unread_codex = snap("claude-pool.json", None);
     assert_eq!(icon(Some(&unread_codex), &cx(Menubar::Codex)).title, "ChatGPT –");
-    let gone =
-        snap("claude-pool-schema5.json", None).with_codex(Some(&fixture("codex-unavailable.json")));
+    let gone = snap("claude-pool.json", None).with_codex(Some(&fixture("codex-unavailable.json")));
     assert_eq!(gone.codex.status, SectionStatus::Unavailable);
     assert_eq!(icon(Some(&gone), &cx(Menubar::Codex)).title, "ChatGPT –");
 }
@@ -213,7 +200,7 @@ fn codex_through_its_own_provider_shows_the_provider_without_a_number() {
 
 #[test]
 fn a_service_this_mac_lacks_falls_back_to_claude() {
-    let air = snap("claude-pool-schema5.json", Some("agy-not-set-up.json"));
+    let air = snap("claude-pool.json", Some("agy-not-set-up.json"));
     let i = icon(Some(&air), &cx(Menubar::Gemini));
     assert_eq!(i.title, "Team A 87%");
     assert!(!i.show_agy);
@@ -225,12 +212,12 @@ fn a_service_this_mac_lacks_falls_back_to_claude() {
     assert_eq!(i.title, "Team A 87%");
     assert!(!i.label.contains("Codex"));
     let no_login =
-        snap("claude-pool-schema5.json", None).with_codex(Some(&fixture("codex-not-set-up.json")));
+        snap("claude-pool.json", None).with_codex(Some(&fixture("codex-not-set-up.json")));
     assert_eq!(icon(Some(&no_login), &cx(Menubar::Codex)).title, "Team A 87%");
 }
 
 #[test]
-fn codex_reads_its_own_login_when_quota_axi_lists_several() {
+fn codex_reads_its_own_login_when_the_report_lists_several() {
     let s = full();
     assert_eq!(s.codex.status, SectionStatus::Ok);
     let a = s.codex.active().unwrap();

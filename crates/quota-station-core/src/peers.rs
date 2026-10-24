@@ -220,7 +220,7 @@ pub enum Plan {
     /// Its copy is newer: the owner chooses.
     Newer(Stamp),
     /// Edited by hand there: this Mac's stamp with other text, no stamp at
-    /// all (`None`), or text quota-axi cannot read. The owner chooses.
+    /// all (`None`), or text that is not a rotation. The owner chooses.
     Edited(Option<Stamp>),
 }
 

@@ -8,7 +8,7 @@
 
 import { agyCells, agyGroups, agyNames, cellOf, claudeCells, claudeNames, tightest, WARN_USED, type AccountName, type CellView, type UsedTone } from './accounts';
 import { age, clock, secondsSince } from './format';
-import type { Account, AgyLogin, ErrorView, LineKind, MenubarWindow, Model, Section } from './model';
+import type { Account, AgyLogin, LineKind, MenubarWindow, Model, Section } from './model';
 import { codexBanner, currentId, shortName } from './codex';
 import { switcherBanner } from './switching';
 
@@ -219,9 +219,6 @@ export function agyName(a: Pick<Account, 'number' | 'email'>): AccountName {
 
 interface CardContext {
   now: Date;
-  /** Every number is the last one before quota-axi stopped answering. */
-  old: boolean;
-  keychainRequired: boolean;
   personalHours: string | null;
   /** Claude cards: what switching needs. */
   switching: { listed: boolean; ready: boolean; busy: number | null } | null;
@@ -230,7 +227,7 @@ interface CardContext {
 }
 
 interface AgyRowSwitch {
-  /** quota-axi numbers the app's own list. */
+  /** The row lists the app's own accounts. */
   listed: boolean;
   busy: number | null;
   /** The accounts logged in here, by number. */
@@ -239,7 +236,7 @@ interface AgyRowSwitch {
 
 function agyOffReason(a: Account, g: AgyRowSwitch): string {
   if (a.active || a.number === 0) return '';
-  if (!g.listed) return 'Chưa chuyển được: quota-axi chưa liệt kê tài khoản của Quota Station';
+  if (!g.listed) return 'Chưa chuyển được: chưa đọc được danh sách tài khoản của Quota Station';
   const login = g.logins.get(a.number);
   if (!login) return 'Chưa đăng nhập tài khoản này trong Quota Station';
   if (g.busy != null) return 'Đang chuyển tài khoản';
@@ -271,20 +268,17 @@ function cardView(a: Account, kind: 'c' | 'g', names: AccountName, ctx: CardCont
     if (a.disabled) chips.push({ t: 'đã tắt', k: '' });
   }
   // Freshness shows only when the reading is not fresh: its own age, never the app's last call.
-  if (!ctx.old) {
-    const since = secondsSince(a.fetchedAt, ctx.now);
-    if (a.reading === 'resetPending') chips.push({ t: 'chờ số sau mốc đặt lại', k: 'info' });
-    else if (a.reading === 'noData') chips.push({ t: 'chưa có số', k: '' });
-    else if (a.reading === 'stale' && since != null) chips.push({ t: 'số ' + age(since) + ' trước', k: 'stale' });
-    if (kind === 'c' && a.active && a.source === 'claudeSwap' && ctx.keychainRequired) chips.push({ t: 'số từ ' + listName(ctx), k: 'info' });
-  }
+  const since = secondsSince(a.fetchedAt, ctx.now);
+  if (a.reading === 'resetPending') chips.push({ t: 'chờ số sau mốc đặt lại', k: 'info' });
+  else if (a.reading === 'noData') chips.push({ t: 'chưa có số', k: '' });
+  else if (a.reading === 'stale' && since != null) chips.push({ t: 'số ' + age(since) + ' trước', k: 'stale' });
   const cells = kind === 'c' ? claudeCells(a, ctx.now) : agyCells(a, ctx.now);
   const where =
     a.number === 0
       ? ''
       : kind === 'c'
         ? listName(ctx) + ' · tài khoản ' + a.number
-        : (ctx.agy?.listed ? 'Quota Station' : 'Cockpit Tools') + ' · tài khoản ' + a.number;
+        : 'Quota Station · tài khoản ' + a.number;
   const off = offReason(a, ctx);
   const listed = kind === 'c' ? !!ctx.switching?.listed : !!ctx.agy?.listed;
   const switchable = listed && a.number > 0 && !a.active && !off;
@@ -296,7 +290,7 @@ function cardView(a: Account, kind: 'c' | 'g', names: AccountName, ctx: CardCont
     sub: names.sub,
     full: names.full,
     active: a.active,
-    dim: ctx.old || a.reading === 'stale',
+    dim: a.reading === 'stale',
     chips,
     cells,
     rows: shortRows(kind, cells),
@@ -397,31 +391,31 @@ function codexNow(model: Model, now: Date): NowRowView | null {
   const s = model.snapshot.codex;
   const a = s.accounts.find((x) => x.active);
   const cells = a ? (['session', 'week'] as const).map((k) => cellOf(a.windows.find((l) => l.kind === k), k, now, '')) : [];
-  const err = !!model.errors.codex;
   if (v.current !== 'chatgpt') {
     const name = shortName(v, currentId(v));
-    const t = !err ? nowNumber(cells, model.menubarWindow) : null;
+    const t = nowNumber(cells, model.menubarWindow);
     return nowRow({ id: 'x', svc: 'Codex', name, sub: 'Codex đi qua ' + name }, [], model.menubarWindow, t ? 'ChatGPT đã dùng ' + t.text + ' ' + t.unit : name + ' không báo hạn mức');
   }
   if (s.status === 'notSetUp') return null;
-  const why = err ? 'không đọc được số' : s.status === 'unread' ? 'chưa có số' : s.status === 'unavailable' ? 'không đọc được số' : null;
+  const why = s.status === 'unread' ? 'chưa có số' : s.status === 'unavailable' ? 'không đọc được số' : null;
   return nowRow({ id: 'x', svc: 'Codex', name: 'ChatGPT', sub: '' }, cells, model.menubarWindow, why);
 }
 
 function nowView(model: Model, claudeCards: CardView[], agyCards: CardView[], now: Date): NowView {
   const s = model.snapshot;
   const rows: NowRowView[] = [];
-  const failing = (e: ErrorView | null, section: Section) => (e ? 'không đọc được số' : section.status === 'unread' ? 'chưa có số' : null);
+  const failing = (section: Section) =>
+    section.status === 'unread' ? 'chưa có số' : section.status === 'single' && !section.accounts.length && section.reason ? 'không đọc được số' : null;
   if (s.claude.status !== 'notSetUp') {
     const a = claudeCards.find((c) => c.active);
     const acc = s.claude.accounts.find((x) => x.active);
-    const why = failing(model.errors.claude, s.claude) ?? (acc && (acc.reading === 'resetPending' || acc.reading === 'noData') ? 'chờ số mới' : null);
+    const why = failing(s.claude) ?? (acc && (acc.reading === 'resetPending' || acc.reading === 'noData') ? 'chờ số mới' : null);
     rows.push(nowRow({ id: 'c', svc: 'Claude', name: a?.name ?? '—', sub: a?.sub ?? '' }, a?.cells ?? [], model.menubarWindow, a ? why : (why ?? 'chưa biết tài khoản nào')));
   }
   if (s.agy.status !== 'notSetUp') {
     const a = agyCards.find((c) => c.active);
     const acc = s.agy.accounts.find((x) => x.active);
-    const why = failing(model.errors.agy, s.agy) ?? (acc && (acc.reading === 'resetPending' || acc.reading === 'noData') ? 'chờ số mới' : null);
+    const why = failing(s.agy) ?? (acc && (acc.reading === 'resetPending' || acc.reading === 'noData') ? 'chờ số mới' : null);
     const gemini = a ? a.cells.filter((c) => c.label.startsWith('Gemini')) : [];
     const cg = a && why == null ? agyGroups(a.cells)[1].cell : null;
     const extra = cg && cg.used != null && cg.used >= WARN_USED ? { text: cg.text, tone: cg.tone } : null;
@@ -434,63 +428,28 @@ function nowView(model: Model, claudeCards: CardView[], agyCards: CardView[], no
 
 // ===== Banner and summary =====
 
-function errorReason(e: ErrorView): string {
-  switch (e.kind) {
-    case 'timeout':
-      return 'quá thời gian chờ';
-    case 'parse':
-      return 'kết quả không đọc được';
-    case 'spawn':
-      return 'không khởi động được';
-    default:
-      return 'thoát với lỗi';
-  }
-}
-
-function errorBanner(e: ErrorView, lastAt: string | null): BannerView {
-  const last = lastAt ? ' Đang hiện số cuối lúc ' + lastAt + '.' : '';
-  const missing = e.kind === 'notFound' || e.kind === 'notConfigured';
-  return {
-    tone: 'bad',
-    title: 'Không chạy được quota-axi',
-    body: (missing ? 'Không tìm thấy lệnh quota-axi trên máy này.' : 'quota-axi không chạy được: ' + errorReason(e) + '.') + last,
-    actions: [
-      { label: 'Chọn đường dẫn…', act: 'settings' },
-      { label: 'Thử lại', act: 'refresh' },
-    ],
-  };
-}
-
 export function popoverView(model: Model, now: Date, options: ViewOptions = {}): PopoverView {
   const s = model.snapshot;
   const c = s.claude;
   const g = s.agy;
-  const cErr = model.errors.claude;
-  const gErr = model.errors.agy;
-  const hasClaude = c.status !== 'unread';
-  const lastClaude = cErr && hasClaude ? clock(c.generatedAt) || null : null;
-  const lastAgy = gErr && g.status !== 'unread' ? clock(g.generatedAt) || null : null;
-
   const names = claudeNames(c.accounts, c.personalHours, model.advanced.on);
   const nameOf = (n: number) => names.get(n)?.name ?? 'Tài khoản ' + n;
   const keychainRequired = s.keychain === 'required';
-  const ctx = (old: boolean, section: Section): CardContext => ({
+  const ctx = (section: Section): CardContext => ({
     now,
-    old,
-    keychainRequired,
     personalHours: section.personalHours,
     switching: null,
     agy: null,
   });
   const claudeSwitching = { listed: c.status === 'ok', ready: model.claudeSwitch.ready, busy: model.claudeSwitch.busy };
-  const claudeCards = c.accounts.map((a) => cardView(a, 'c', names.get(a.number)!, { ...ctx(!!cErr, c), switching: claudeSwitching }));
+  const claudeCards = c.accounts.map((a) => cardView(a, 'c', names.get(a.number)!, { ...ctx(c), switching: claudeSwitching }));
   const agySwitching: AgyRowSwitch = {
     listed: g.status === 'ok' && !!model.agySwitch?.listed,
     busy: model.agySwitch?.busy ?? null,
     logins: new Map((model.antigravity?.accounts ?? []).map((a) => [a.number, a])),
   };
   const gNames = agyNames(g.accounts, model.advanced.on);
-  const agyCards = g.status === 'notSetUp' ? [] : g.accounts.map((a) => cardView(a, 'g', gNames.get(a.number)!, { ...ctx(!!gErr, g), agy: agySwitching }));
+  const agyCards = g.status === 'notSetUp' ? [] : g.accounts.map((a) => cardView(a, 'g', gNames.get(a.number)!, { ...ctx(g), agy: agySwitching }));
   const active = c.accounts.find((a) => a.active);
   const activeName = active ? nameOf(active.number) : null;
 
@@ -498,7 +457,7 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
   let fresh: PopoverView['fresh'];
   const newest = c.newestReadingAt ?? g.newestReadingAt;
   const since = secondsSince(newest, now);
-  if (cErr) fresh = { tone: 'bad', text: 'không đọc được số' };
+  if (since == null && c.status === 'single' && c.reason) fresh = { tone: 'bad', text: 'không đọc được số' };
   else if (since == null) fresh = { tone: 'muted', text: model.reading ? 'đang đọc số…' : 'chưa có số' };
   else fresh = { tone: since > STALE_SECONDS ? 'warn' : 'ok', text: 'cập nhật ' + age(since) + ' trước' };
 
@@ -513,8 +472,7 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
   const codex = codexBanner(model);
   // An Antigravity switch written over comes as a macOS card with buttons (M6),
   // and stays on the main window's Antigravity tab; the popover has no banner for it.
-  if (cErr) banner = errorBanner(cErr, lastClaude);
-  else if (switcher && switcher.tone !== 'info') banner = switcher;
+  if (switcher && switcher.tone !== 'info') banner = switcher;
   else if (pool.exhausted) {
     const who = pool.refills.map(nameOf);
     const at = clock(pool.nextRefillAt);
@@ -534,11 +492,11 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
   } else if (keychainRequired && !options.keychainLater) {
     banner = {
       tone: 'warn',
-      title: 'Chưa cấp quyền Keychain cho quota-axi',
+      title: 'Chưa cấp quyền Keychain cho Quota Station',
       body:
         'Dòng Claude' +
         (activeName ? ' của ' + activeName : '') +
-        ' lấy tạm từ ' + swapName(model) + ' (số chưa được cập nhật). Cấp quyền một lần để đọc trực tiếp.',
+        ' cần đăng nhập của Claude Code trong Keychain để có số mới. Cấp quyền một lần, rồi bấm "Luôn cho phép" khi macOS hỏi.',
       actions: [
         { label: 'Cấp quyền một lần', act: 'keychain' },
         { label: 'Để sau', act: 'dismiss' },
@@ -557,15 +515,8 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
 
   // Group notes.
   let claudeNote: NoteView | null = null;
-  if (c.status === 'unavailable') claudeNote = { tone: 'warn', text: 'Không đọc được danh sách tài khoản của claude-swap (' + (c.reason ?? 'không rõ lý do') + ').' };
-  else if (c.status === 'noSidecar')
-    claudeNote = {
-      tone: 'warn',
-      text:
-        model.quotaAxi.fork === false && model.quotaAxi.version
-          ? 'Bản ' + model.quotaAxi.version + ' không có +cswap: thiếu số claude-swap và luật xoay vòng.'
-          : 'quota-axi không báo danh sách tài khoản của claude-swap.',
-    };
+  if (c.status === 'single' && !c.accounts.length && c.reason && !keychainRequired)
+    claudeNote = { tone: 'warn', text: 'Không đọc được số của Claude Code (' + c.reason + ').' };
   else if (c.status === 'notSetUp') claudeNote = { tone: '', text: 'Máy này chưa có Claude Code' };
   else if (!model.claudeSwitch.ready && c.accounts.some((a) => a.number > 0))
     claudeNote = {
@@ -574,11 +525,11 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
     };
 
   let agyNote: NoteView | null = null;
-  if (g.status === 'noSidecar') agyNote = { tone: '', text: 'Chỉ thấy tài khoản đang dùng: chưa có danh sách tài khoản' };
+  if (g.status === 'single' && !g.accounts.length && g.reason)
+    agyNote = { tone: 'warn', text: 'Không đọc được số Antigravity (' + g.reason + ').' };
+  else if (g.status === 'single') agyNote = { tone: '', text: 'Chỉ thấy tài khoản đang dùng: chưa có danh sách tài khoản' };
   else if (g.status === 'unavailable') agyNote = { tone: '', text: 'Không đọc được danh sách tài khoản: chỉ thấy tài khoản đang dùng' };
   else if (g.status === 'notSetUp') agyNote = { tone: '', text: 'Máy này chưa có Antigravity' };
-  if (gErr && !cErr && g.status !== 'unread')
-    agyNote = { tone: 'warn', text: 'Không đọc được số Antigravity mới' + (lastAgy ? '. Đang hiện số lúc ' + lastAgy + '.' : '.') };
 
   return {
     machine: model.machine,
@@ -642,11 +593,11 @@ export function settingsFailedFeedback(): FeedbackView {
 
 export function keychainFeedback(model: Model | null): FeedbackView {
   return model?.snapshot.keychain === 'granted'
-    ? { tone: '', title: 'Đã cấp quyền Keychain', body: 'Dòng Claude giờ đọc trực tiếp từ quota-axi.' }
+    ? { tone: '', title: 'Đã cấp quyền Keychain', body: 'Dòng Claude giờ có số mới của Claude Code.' }
     : {
         tone: 'bad',
         title: 'Chưa cấp được quyền Keychain',
-        body: 'quota-axi vẫn chưa đọc được Keychain. Thử lại, rồi bấm "Luôn cho phép" khi macOS hỏi.',
+        body: 'Quota Station vẫn chưa đọc được Keychain. Thử lại, rồi bấm "Luôn cho phép" khi macOS hỏi.',
       };
 }
 

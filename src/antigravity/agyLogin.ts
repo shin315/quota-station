@@ -18,7 +18,7 @@ export function agyLoginName(n: number): string {
 
 export interface AgyRowView {
   id: string;
-  /** Its place in the app's list, as quota-axi numbers it. */
+  /** Its place in the app's list, as the row numbers it. */
   number: number;
   name: string;
   /** The whole email, for hover; '' while names are hidden. */

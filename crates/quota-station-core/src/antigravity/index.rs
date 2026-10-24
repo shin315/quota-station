@@ -12,8 +12,8 @@
 //! The non-secret files in the app's `antigravity/` folder:
 //!
 //! - `accounts.json`, the account index in Cockpit's layout (version `2.0`:
-//!   id, email, name, created and last-used times, current account), so
-//!   quota-axi can read it as it reads Cockpit's;
+//!   id, email, name, created and last-used times, current account), which
+//!   the Antigravity row lists and Firstmate's quota-axi reads as Cockpit's;
 //! - `status.json`, the accounts that need the owner: a new login after
 //!   Google refused the refresh token, a verification Google asks for, or
 //!   an account the quota API refuses.

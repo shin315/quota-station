@@ -684,13 +684,6 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       fresh={view.fresh}
       feedback={feedback}
       onAction={onAction}
-      onSetPath={(path) =>
-        api.setQuotaAxiPath(path).then(
-          () => true,
-          () => false,
-        )
-      }
-      onFind={() => void api.setQuotaAxiPath('').catch(() => showFeedback(settingsFailedFeedback()))}
       onGrant={() => void grant()}
       onShowNames={(on) => void api.setShowNames(on).catch(() => showFeedback(settingsFailedFeedback()))}
       onTheme={(theme) => void api.setTheme(theme).catch(() => showFeedback(settingsFailedFeedback()))}

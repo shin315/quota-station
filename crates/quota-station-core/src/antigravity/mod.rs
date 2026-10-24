@@ -13,14 +13,14 @@
 //!   owner ([`client`]);
 //! - `antigravity/` (mode 700): `accounts.json` and `status.json`, with no
 //!   secrets ([`index`]), and each account's last quota reading under
-//!   `cache/`, in Cockpit's layout, where quota-axi reads it ([`export`]);
-//!   the binding quota-axi reads, the switch log and the six-hour watch
-//!   ([`switch`], [`watch`]);
+//!   `cache/`, in Cockpit's layout ([`export`]), which the Antigravity row
+//!   lists ([`listing`]); the binding, the switch log and the six-hour
+//!   watch ([`switch`], [`watch`]);
 //! - the tokens only in the app's own Keychain items ([`store`]).
 //!
 //! Switching the account (M4c, [`switch`]) writes the login Antigravity.app
 //! and agy share ([`credential`]), quits and reopens Antigravity.app when the
-//! owner asks ([`desktop`]), points quota-axi's binding at the new account,
+//! owner asks ([`desktop`]), points the binding at the new account,
 //! and watches six hours for the switch to be undone ([`watch`]).
 //!
 //! Parts of [`oauth`], [`oauth_server`], [`token`], [`index`],
@@ -34,6 +34,7 @@ pub mod credential;
 pub mod desktop;
 pub mod export;
 pub mod index;
+pub mod listing;
 pub mod login;
 pub mod oauth;
 pub mod oauth_server;

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 // What every window shows of one account: its name, and each of its quota
-// windows as the share USED (100 − what quota-axi calls percent left).
+// windows as the share USED (100 − what the report calls percent left).
 // Shared by the popover, the main window's tables and the rules editor.
 
 import { hours, minutesUntil, resetShort, resetWords } from './format';
@@ -80,7 +80,7 @@ export function cellOf(line: Line | undefined, kind: LineKind, now: Date, missin
   } else if (used === 0 && !line.atLeast) {
     reset = words = 'chưa dùng';
   }
-  // quota-axi knows only a bound for a window another one limits first.
+  // The report knows only a bound for a window another one limits first.
   const bound = used != null && line.atLeast;
   const text = used == null ? '—' : (bound ? '≤' : '') + used + '%';
   return {
@@ -98,7 +98,7 @@ export function cellOf(line: Line | undefined, kind: LineKind, now: Date, missin
   };
 }
 
-/** The window quota-axi's one number for the account stands for, when it has no list of windows. */
+/** The window the report's one number for the account stands for, when it has no list of windows. */
 function fromLines(a: Account, kind: LineKind): Line | undefined {
   return a.lines.find((l) => l.kind === kind);
 }
@@ -117,8 +117,8 @@ export function claudeCells(a: Account, now: Date): CellView[] {
 export const AGY_KINDS: LineKind[] = ['geminiSession', 'geminiWeek', 'claudeGptSession', 'claudeGptWeek'];
 
 /**
- * Antigravity's four windows. Without them (an account only Cockpit Tools
- * reads) quota-axi has one number per model group: those two instead.
+ * Antigravity's four windows. Without them (an account the app has no
+ * reading of) the report has one number per model group: those two instead.
  */
 export function agyCells(a: Account, now: Date): CellView[] {
   if (a.windows.length) return AGY_KINDS.map((k) => cellOf(a.windows.find((l) => l.kind === k), k, now));

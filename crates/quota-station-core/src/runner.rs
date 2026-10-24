@@ -1,15 +1,9 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-//! Finding and running quota-axi.
-//!
-//! The app only ever runs quota-axi reads. Every read passes
-//! `--no-credential-refresh` and reuses quota-axi's shared cache with
-//! `--max-age`, so a refresh adds no vendor call while the cache is young.
-//! [`read_fresh`] skips the cache, for the check right after a switch, and
-//! [`read_again`] reuses it for up to an hour, when only the report needs
-//! building again. The one exception is [`grant_keychain`], which the user
-//! starts from a button: it lets quota-axi ask macOS for Keychain access once.
+//! Running the programs the app calls: `agy`, `claude`, `codex`, `security`,
+//! `ps` and the rest. Each run has a time limit, and a program started from
+//! an app opened in Finder still finds the tools of the owner's shell.
 
 use std::ffi::OsString;
 use std::io::Read;
@@ -18,188 +12,25 @@ use std::process::{Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use time::OffsetDateTime;
-
-use crate::axi::{self, ParseError, Response};
-use crate::time_util;
-
-/// How long a read may run. The first `agy` read of a cold cache runs
-/// `agy -p /quota` and took about 6 seconds when measured.
-pub const READ_TIMEOUT: Duration = Duration::from_secs(45);
-/// The Keychain prompt waits for the user.
-pub const GRANT_TIMEOUT: Duration = Duration::from_secs(180);
-/// quota-axi's shared cache may answer while younger than this.
-pub const MAX_AGE: &str = "120s";
-/// [`read_again`] reuses quota-axi's last successful reading up to this old
-/// (quota-axi's longest `--max-age`).
-pub const REUSE_MAX_AGE: &str = "60m";
-/// [`reusable`]: [`REUSE_MAX_AGE`], less a margin for the run itself.
-pub const REUSE_WITHIN: Duration = Duration::from_secs(55 * 60);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ProviderId {
-    Claude,
-    Agy,
-    Codex,
-}
-
-impl ProviderId {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            ProviderId::Claude => "claude",
-            ProviderId::Agy => "agy",
-            ProviderId::Codex => "codex",
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RunError {
-    /// No path is set and none of the usual places has quota-axi.
-    NotConfigured,
-    /// Nothing at the configured path.
+    /// Nothing at the path.
     NotFound(PathBuf),
     Spawn(String),
     Timeout(Duration),
-    /// Exited without a report on stdout.
-    Exit {
-        code: Option<i32>,
-        stderr: String,
-    },
-    Parse(ParseError),
 }
 
 impl std::fmt::Display for RunError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            RunError::NotConfigured => write!(f, "quota-axi not found"),
             RunError::NotFound(p) => write!(f, "no file at {}", p.display()),
-            RunError::Spawn(e) => write!(f, "could not start quota-axi: {e}"),
-            RunError::Timeout(d) => write!(f, "quota-axi did not answer within {}s", d.as_secs()),
-            RunError::Exit { code, stderr } => match code {
-                Some(c) => write!(f, "quota-axi exited {c}: {stderr}"),
-                None => write!(f, "quota-axi was stopped: {stderr}"),
-            },
-            RunError::Parse(e) => e.fmt(f),
+            RunError::Spawn(e) => write!(f, "could not start it: {e}"),
+            RunError::Timeout(d) => write!(f, "it did not answer within {}s", d.as_secs()),
         }
     }
 }
 
 impl std::error::Error for RunError {}
-
-/// The read the app makes for one provider.
-pub fn read_args(provider: ProviderId) -> Vec<String> {
-    read_args_with(provider, MAX_AGE)
-}
-
-fn read_args_with(provider: ProviderId, max_age: &str) -> Vec<String> {
-    ["--provider", provider.as_str(), "--json", "--max-age", max_age, "--no-credential-refresh"]
-        .map(String::from)
-        .to_vec()
-}
-
-/// The same read without the shared cache (`--max-age 0` always asks the
-/// vendor). quota-axi names claude-swap's active slot by the identity of the
-/// Claude reading, and a reused reading taken before a switch still carries
-/// the previous account's identity, since a Keychain login is not one of the
-/// files quota-axi checks before reusing.
-pub fn fresh_read_args(provider: ProviderId) -> Vec<String> {
-    read_args_with(provider, "0")
-}
-
-/// One Claude read that may show the macOS Keychain prompt, the remedy
-/// quota-axi names for `keychain_prompt_required`.
-pub fn grant_args() -> Vec<String> {
-    ["--provider", "claude", "--json", "--allow-keychain-prompt", "--no-credential-refresh"]
-        .map(String::from)
-        .to_vec()
-}
-
-/// Variables for the quota-axi a read runs: where the app's own Claude
-/// accounts are (`QUOTA_AXI_CLAUDE_SWAP_DIR`, `QUOTA_AXI_CLAUDE_ROTATION`).
-pub type Env = [(String, OsString)];
-
-pub fn read(path: &Path, provider: ProviderId) -> Result<Response, RunError> {
-    read_env(path, provider, &[])
-}
-
-pub fn read_env(path: &Path, provider: ProviderId, env: &Env) -> Result<Response, RunError> {
-    report(path, &read_args(provider), env, READ_TIMEOUT)
-}
-
-pub fn read_fresh(path: &Path, provider: ProviderId) -> Result<Response, RunError> {
-    read_fresh_env(path, provider, &[])
-}
-
-pub fn read_fresh_env(path: &Path, provider: ProviderId, env: &Env) -> Result<Response, RunError> {
-    report(path, &fresh_read_args(provider), env, READ_TIMEOUT)
-}
-
-/// The report again without a new reading: quota-axi serves its last
-/// successful reading of the provider (up to [`REUSE_MAX_AGE`] old), so it
-/// asks the vendor nothing, and builds the rest of the report anew. The app
-/// uses it right after writing an Antigravity account's quota, which
-/// quota-axi's `cockpit` block reads from the files at every run.
-pub fn read_again(path: &Path, provider: ProviderId) -> Result<Response, RunError> {
-    report(path, &read_args_with(provider, REUSE_MAX_AGE), &[], READ_TIMEOUT)
-}
-
-/// [`read_again`] would reuse `report`'s reading of `provider` at `now`:
-/// the reading worked and was taken under [`REUSE_WITHIN`] ago. A reused
-/// reading says when it was taken; a new one was taken with the report.
-pub fn reusable(report: &Response, provider: ProviderId, now: OffsetDateTime) -> bool {
-    let Some(row) = report.primary(provider.as_str()) else {
-        return false;
-    };
-    let taken = row.state.refreshed_at.as_deref().unwrap_or(&report.generated_at);
-    row.state.error.is_none()
-        && time_util::parse_ts(taken).is_some_and(|at| {
-            let age = now - at;
-            !age.is_negative() && age < REUSE_WITHIN
-        })
-}
-
-pub fn grant_keychain(path: &Path, env: &Env) -> Result<Response, RunError> {
-    report(path, &grant_args(), env, GRANT_TIMEOUT)
-}
-
-/// `quota-axi --version`, for example `0.1.61+cswap.4`.
-pub fn version(path: &Path) -> Result<String, RunError> {
-    let out = run(path, &["--version".to_string()], Duration::from_secs(15))?;
-    let text = String::from_utf8_lossy(&out.stdout).trim().to_string();
-    if out.code == Some(0) && !text.is_empty() {
-        Ok(text)
-    } else {
-        Err(RunError::Exit { code: out.code, stderr: first_line(&out.stderr) })
-    }
-}
-
-/// The local fork adds the claude-swap slots, the rotation pool and the
-/// Cockpit accounts; upstream quota-axi has none of them.
-pub fn is_fork(version: &str) -> bool {
-    version.contains("+cswap")
-}
-
-/// A report is read from stdout whatever the exit code: quota-axi exits
-/// non-zero when a provider needs attention and still prints the report.
-fn report(
-    path: &Path,
-    args: &[String],
-    env: &Env,
-    timeout: Duration,
-) -> Result<Response, RunError> {
-    let env: Vec<(&str, &std::ffi::OsStr)> =
-        env.iter().map(|(k, v)| (k.as_str(), v.as_os_str())).collect();
-    let out = run_with(path, args, &env, None, timeout)?;
-    let text = String::from_utf8_lossy(&out.stdout);
-    match axi::parse(&text) {
-        Ok(r) => Ok(r),
-        Err(ParseError::Malformed(_)) if out.code != Some(0) => {
-            Err(RunError::Exit { code: out.code, stderr: first_line(&out.stderr) })
-        }
-        Err(e) => Err(RunError::Parse(e)),
-    }
-}
 
 pub(crate) struct Output {
     pub code: Option<i32>,
@@ -207,8 +38,7 @@ pub(crate) struct Output {
     pub stderr: Vec<u8>,
 }
 
-/// Runs `path` with `args`, stopping it at `timeout`. Also runs claude-swap
-/// and the switcher, which take the same care.
+/// Runs `path` with `args`, stopping it at `timeout`.
 pub(crate) fn run(path: &Path, args: &[String], timeout: Duration) -> Result<Output, RunError> {
     run_with(path, args, &[], None, timeout)
 }
@@ -298,10 +128,9 @@ pub(crate) fn first_line(bytes: &[u8]) -> String {
     String::from_utf8_lossy(bytes).lines().next().unwrap_or("").trim().to_string()
 }
 
-/// quota-axi is a Node script (`#!/usr/bin/env node`), and an app started
-/// from Finder gets launchd's short PATH without nvm or Homebrew. The
-/// script's own directory, and its link target's, hold the `node` it was
-/// installed with.
+/// An app started from Finder gets launchd's short PATH without nvm or
+/// Homebrew, and a Node script (`#!/usr/bin/env node`) finds the `node` it
+/// was installed with next to itself or its link target.
 pub fn child_path(path: &Path, inherited: Option<OsString>) -> OsString {
     let mut dirs: Vec<PathBuf> = Vec::new();
     let mut push = |d: Option<&Path>| {
@@ -324,9 +153,11 @@ pub fn child_path(path: &Path, inherited: Option<OsString>) -> OsString {
     std::env::join_paths(dirs).unwrap_or(inherited)
 }
 
-/// Where quota-axi is usually installed, in the order the app tries them.
-pub fn candidates(home: &Path) -> Vec<PathBuf> {
-    let mut out = vec![home.join(".local/bin/quota-axi")];
+/// The folders a command the owner installed is usually in, in the order
+/// the app tries them: `~/.local/bin`, each nvm Node's newest first, then
+/// Homebrew's.
+pub fn bin_dirs(home: &Path) -> Vec<PathBuf> {
+    let mut out = vec![home.join(".local/bin")];
     let mut nvm: Vec<(Vec<u64>, PathBuf)> = std::fs::read_dir(home.join(".nvm/versions/node"))
         .into_iter()
         .flatten()
@@ -338,19 +169,25 @@ pub fn candidates(home: &Path) -> Vec<PathBuf> {
                 .split('.')
                 .map(|p| p.parse().ok())
                 .collect::<Option<_>>()?;
-            Some((version, e.path().join("bin/quota-axi")))
+            Some((version, e.path().join("bin")))
         })
         .collect();
     nvm.sort_by(|a, b| b.0.cmp(&a.0));
     out.extend(nvm.into_iter().map(|(_, p)| p));
-    out.push(PathBuf::from("/opt/homebrew/bin/quota-axi"));
-    out.push(PathBuf::from("/usr/local/bin/quota-axi"));
+    out.push(PathBuf::from("/opt/homebrew/bin"));
+    out.push(PathBuf::from("/usr/local/bin"));
     out
 }
 
-/// The first usual place that has quota-axi.
-pub fn discover(home: &Path) -> Option<PathBuf> {
-    candidates(home).into_iter().find(|p| p.is_file())
+/// The first `name` on this process's `PATH`, then in Homebrew's folders:
+/// where a program the app runs looks for it.
+pub fn on_path(name: &str) -> Option<PathBuf> {
+    let inherited = std::env::var_os("PATH").unwrap_or_default();
+    std::env::split_paths(&inherited)
+        .chain([PathBuf::from("/opt/homebrew/bin"), PathBuf::from("/usr/local/bin")])
+        .filter(|d| d.is_absolute())
+        .map(|d| d.join(name))
+        .find(|p| p.is_file())
 }
 
 /// `~/…` for paths under `home`, so the UI never shows the user name.
@@ -362,7 +199,7 @@ pub fn display_path(path: &Path, home: &Path) -> String {
     }
 }
 
-/// Expands a leading `~/` typed in the settings field.
+/// Expands a leading `~/` typed in a settings field.
 pub fn expand_path(text: &str, home: &Path) -> PathBuf {
     let text = text.trim();
     if text == "~" {
@@ -380,15 +217,14 @@ mod tests {
     use std::os::unix::fs::PermissionsExt;
 
     #[test]
-    fn a_hung_quota_axi_is_stopped_at_the_timeout() {
+    fn a_hung_program_is_stopped_at_the_timeout() {
         let dir = std::env::temp_dir().join(format!("qs-runner-timeout-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
-        let path = dir.join("quota-axi");
+        let path = dir.join("hangs");
         std::fs::write(&path, "#!/bin/sh\nsleep 5\n").unwrap();
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
         let started = Instant::now();
-        let err = report(&path, &read_args(ProviderId::Claude), &[], Duration::from_millis(200))
-            .unwrap_err();
+        let err = run(&path, &[], Duration::from_millis(200)).err().unwrap();
         assert_eq!(err, RunError::Timeout(Duration::from_millis(200)));
         assert!(started.elapsed() < Duration::from_secs(3));
     }

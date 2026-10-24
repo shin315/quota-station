@@ -159,9 +159,9 @@ pub fn remove_line(name: &str) -> String {
 pub fn candidates(home: &Path) -> Vec<PathBuf> {
     let mut out = vec![home.join(".local/bin/claude"), home.join(".claude/local/claude")];
     out.extend(
-        runner::candidates(home)
+        runner::bin_dirs(home)
             .into_iter()
-            .filter_map(|p| p.parent().map(|d| d.join("claude")))
+            .map(|d| d.join("claude"))
             .filter(|p| !p.starts_with(home.join(".local/bin"))),
     );
     out.dedup();

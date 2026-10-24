@@ -6,13 +6,13 @@
 //! a temporary home: the calls and headers Cockpit Tools makes, the cache it
 //! writes, the 60-second TTL, one account at a time, and what 401, 403, 429,
 //! 5xx and network failures do. These tests never reach Google and never
-//! touch the Keychain. The last one runs the real quota-axi fork on the
-//! files written here, and only when asked (`--ignored`).
+//! touch the Keychain. The last one lists both accounts on the Antigravity
+//! row from the files written here, with a fake `agy`.
 #![cfg(feature = "antigravity-accounts")]
 
 mod common;
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::time::{Duration, Instant};
 
 use common::google::{
@@ -22,11 +22,13 @@ use common::google::{
 use common::{fixture_text, script, temp_dir};
 use quota_station_core::antigravity::export;
 use quota_station_core::antigravity::index::{self, Standing};
+use quota_station_core::antigravity::listing;
 use quota_station_core::antigravity::login;
 use quota_station_core::antigravity::pace::{Finish, Pace};
 use quota_station_core::antigravity::quota::{self, Outcome, ReadError};
 use quota_station_core::antigravity::token::TokenData;
 use quota_station_core::antigravity::version::{AntigravityApp, Identity};
+use quota_station_core::quota::agy;
 
 /// 2026-01-16 07:20 UTC, the fixtures' clock, and the cache fixture's `updatedAt`.
 const NOW_MS: i64 = 1_768_548_000_000;
@@ -561,7 +563,7 @@ fn accounts_are_read_one_at_a_time_the_one_in_use_first() {
     let (index, candidates) = quota::candidates(&home.app).unwrap();
     assert_eq!(quota::active_id(&index, None), Some(first.clone()), "the index's current account");
     let active = quota::active_id(&index, Some(2));
-    assert_eq!(active, Some(second.clone()), "quota-axi's activeAccount 2");
+    assert_eq!(active, Some(second.clone()), "the row's account in use, 2");
     let mut pace = Pace::new();
     pace.cycle();
     let due = pace.take(&candidates, active.as_deref(), NOW_MS);
@@ -607,13 +609,13 @@ fn logging_out_removes_the_reading() {
 }
 
 #[test]
-fn the_cache_layout_is_the_one_quota_axi_reads() {
+fn the_cache_layout_is_cockpits() {
     let home = Home::new("agy-quota-layout");
     let google = FakeGoogle::start(Script::default());
     let id = log_in(&home, &google, NOW_MS);
     assert_eq!(id, ACCOUNT_ID);
     read(&home, &google, &id, NOW_MS).unwrap();
-    // The three things quota-axi opens, under the folder it is pointed at.
+    // The index and each account's reading, as Cockpit Tools lays them out.
     let dir = home.app.path().join("antigravity");
     let index: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(dir.join("accounts.json")).unwrap()).unwrap();
@@ -633,48 +635,31 @@ fn the_cache_layout_is_the_one_quota_axi_reads() {
     assert!(record["payload"]["quota_summary"]["groups"].is_array());
 }
 
-/// Where the built quota-axi fork is (`dist/bin/quota-axi.js`), and node.
-fn quota_axi() -> (PathBuf, PathBuf) {
-    let script = std::env::var_os("QUOTA_STATION_QUOTA_AXI")
-        .map(PathBuf::from)
-        .expect("QUOTA_STATION_QUOTA_AXI names the quota-axi fork's dist/bin/quota-axi.js");
-    let node = std::env::var_os("QUOTA_STATION_NODE").map(PathBuf::from).unwrap_or_else(|| {
-        std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default())
-            .map(|dir| dir.join("node"))
-            .find(|p| p.is_file())
-            .expect("node on PATH")
-    });
-    (script, node)
-}
-
-/// A PATH with only node and fakes: an `agy` that answers `/quota` with
-/// account 1's reading, and `ps` and `lsof` that find nothing, so quota-axi
-/// never looks at this Mac's own Antigravity.
-fn fake_bin(dir: &Path, node: &Path) -> PathBuf {
+/// An `agy` that answers `/quota` with account 1's reading, and `ps` and
+/// `lsof` that find nothing, so the read never looks at this Mac's own
+/// Antigravity.
+fn agy_on_account_one(dir: &Path) -> agy::Tools {
     let bin = dir.join("bin");
-    std::fs::create_dir_all(&bin).unwrap();
-    std::os::unix::fs::symlink(node, bin.join("node")).unwrap();
     let summary: serde_json::Value =
         serde_json::from_str(&cloud_code("retrieve-user-quota-summary")).unwrap();
     let answer = serde_json::json!({ "command": { "name": "/quota", "data": summary } });
     std::fs::write(dir.join("agy-quota.json"), format!("{answer}\n")).unwrap();
-    script(
-        &bin.join("agy"),
-        &format!(
-            "[ \"$1\" = -p ] && [ \"$2\" = /quota ] || exit 2\nwhile IFS= read -r line; do printf '%s\\n' \"$line\"; done < '{}'\n",
-            dir.join("agy-quota.json").display()
-        ),
-    );
-    script(&bin.join("ps"), "echo '  PID COMMAND'\n");
-    script(&bin.join("lsof"), "exit 1\n");
-    bin
+    agy::Tools {
+        agy: Some(script(
+            &bin.join("agy"),
+            &format!(
+                "[ \"$1\" = -p ] && [ \"$2\" = /quota ] || exit 2\ncat '{}'\n",
+                dir.join("agy-quota.json").display()
+            ),
+        )),
+        ps: script(&bin.join("ps"), "echo '  PID COMMAND'\n"),
+        lsof: script(&bin.join("lsof"), "exit 1\n"),
+    }
 }
 
 #[test]
-#[ignore = "runs the quota-axi fork: set QUOTA_STATION_QUOTA_AXI to its dist/bin/quota-axi.js"]
-fn quota_axi_reads_both_accounts_from_the_apps_folder() {
-    let (quota_axi, node) = quota_axi();
-    let home = Home::new("agy-quota-axi");
+fn the_row_lists_both_accounts_from_the_apps_folder() {
+    let home = Home::new("agy-quota-list");
     let google = FakeGoogle::start(Script::default());
     let now_ms = time::OffsetDateTime::now_utc().unix_timestamp() * 1000;
     let first = log_in(&home, &google, now_ms);
@@ -687,54 +672,28 @@ fn quota_axi_reads_both_accounts_from_the_apps_folder() {
     assert_eq!(read(&home, &google, &second, now_ms), Ok(Outcome::Read));
     assert_eq!(read(&home, &google, &first, now_ms), Ok(Outcome::Read));
 
-    let bin = fake_bin(&home.home, &node);
-    let run = |dir: Option<&Path>| -> serde_json::Value {
-        let mut cmd = std::process::Command::new(&node);
-        cmd.arg(&quota_axi)
-            .args(["--provider", "agy", "--json"])
-            .env_clear()
-            .env("HOME", &home.home)
-            .env("PATH", &bin)
-            .env("TMPDIR", home.home.join("tmp"));
-        std::fs::create_dir_all(home.home.join("tmp")).unwrap();
-        if let Some(dir) = dir {
-            cmd.env("QUOTA_AXI_COCKPIT_DIR", dir);
-        }
-        let out = cmd.output().unwrap();
-        let text = String::from_utf8_lossy(&out.stdout);
-        eprintln!("quota-axi {}:\n{text}", if dir.is_some() { "(named dir)" } else { "(default)" });
-        serde_json::from_str(&text).expect("quota-axi printed JSON")
+    let tools = agy_on_account_one(&home.home);
+    let report = listing::read(&tools, &home.app, 0, time::OffsetDateTime::now_utc());
+    let row = report.primary("agy").unwrap();
+    assert_eq!(row.state.status, "fresh", "the fake agy answered");
+    let list = row.agy_accounts.as_ref().unwrap();
+    assert_eq!(list.status, "ok");
+    assert_eq!(list.active_basis.as_deref(), Some("reading"));
+    assert_eq!(list.accounts.iter().map(|a| a.active).collect::<Vec<_>>(), [true, false]);
+    let scope = |a: usize, s: &str| {
+        list.accounts[a]
+            .scopes
+            .iter()
+            .find(|x| x.scope == s)
+            .and_then(|x| x.effective_percent_remaining)
+            .unwrap()
     };
-
-    for dir in [Some(home.app.path().join("antigravity")), None] {
-        let report = run(dir.as_deref());
-        let agy = &report["providers"][0];
-        assert_eq!(agy["provider"], "agy");
-        assert_eq!(agy["state"]["status"], "fresh", "the fake agy answered");
-        let cockpit = &agy["cockpit"];
-        assert_eq!(cockpit["status"], "ok", "{cockpit}");
-        let source = if dir.is_some() { serde_json::Value::Null } else { "quota-station".into() };
-        assert_eq!(cockpit["source"], source);
-        assert_eq!(cockpit["activeAccount"], 1);
-        assert_eq!(cockpit["activeBasis"], "reading");
-        let accounts = cockpit["accounts"].as_array().unwrap();
-        assert_eq!(accounts.len(), 2);
-        let scope = |a: usize, s: &str| {
-            accounts[a]["scopes"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .find(|x| x["scope"] == s)
-                .map(|x| x["effectivePercentRemaining"].as_f64().unwrap())
-                .unwrap()
-        };
-        for (a, gemini, claude) in [(0, 82.0, 64.0), (1, 25.0, 5.0)] {
-            assert_eq!(accounts[a]["account"], a + 1);
-            assert_eq!(accounts[a]["status"], "fresh");
-            assert_eq!(scope(a, "gemini"), gemini);
-            assert_eq!(scope(a, "claude_gpt"), claude);
-        }
-        // The default report carries no email.
-        assert!(!report.to_string().contains("@example.com"));
+    for (a, gemini, claude) in [(0, 82.0, 64.0), (1, 25.0, 5.0)] {
+        assert_eq!(list.accounts[a].account, a as u32 + 1);
+        assert_eq!(list.accounts[a].status, "fresh");
+        assert_eq!(scope(a, "gemini"), gemini);
+        assert_eq!(scope(a, "claude_gpt"), claude);
     }
+    // The report carries no email.
+    assert!(!serde_json::to_string(&report).unwrap().contains("@example.com"));
 }

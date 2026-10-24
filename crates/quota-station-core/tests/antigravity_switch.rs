@@ -4,23 +4,23 @@
 //! Switching the Antigravity account end to end, in a temporary home with a
 //! local fake Google, a fake `security`, a fake Antigravity.app (a shell
 //! process) with fake `plutil`, `pgrep`, `osascript` and `open`, and a fake
-//! quota-axi. These tests never reach Google, the Keychain, the real
-//! Antigravity.app or the real quota-axi.
+//! `agy`. These tests never reach Google, the Keychain, the real
+//! Antigravity.app or the real agy.
 #![cfg(feature = "antigravity-accounts")]
 
 mod common;
 
-use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
 use base64::{engine::general_purpose::STANDARD, Engine as _};
-use common::desktop::{agy_report, fake_quota_axi, FakeApp};
+use common::desktop::{agy_quota, fake_agy, remember, FakeApp};
 use common::google::{
     token_body, FakeBrowser, FakeGoogle, Home, Script, ACCOUNT_ID, INVALID_GRANT, LOAD_CODE_ASSIST,
 };
 use quota_station_core::antigravity::credential::SharedLogin;
 use quota_station_core::antigravity::index::{self, Standing};
+use quota_station_core::antigravity::listing;
 use quota_station_core::antigravity::login;
 use quota_station_core::antigravity::switch::{
     self, switch_antigravity, CloudCodeProbe, Deps, Done, How, Limits, NoProbe, Outcome, Probe,
@@ -29,10 +29,15 @@ use quota_station_core::antigravity::switch::{
 use quota_station_core::antigravity::token::TokenData;
 use quota_station_core::antigravity::version::AntigravityApp;
 use quota_station_core::antigravity::watch;
+use quota_station_core::quota::agy;
 
 const NOW: i64 = 1_768_548_000;
 const SECOND: &str = "ultra.two@example.com";
 const OLD_LOGIN: &str = "go-keyring-base64:old-login";
+/// When each account's last reading says its Gemini five hours reset; a
+/// live reading resetting at the same time is that account's.
+const FIRST_RESET: &str = "2030-01-15T13:00:00Z";
+const SECOND_RESET: &str = "2030-01-15T14:00:00Z";
 
 /// One switch at a time in the whole app, so one at a time here too.
 fn serial() -> MutexGuard<'static, ()> {
@@ -44,15 +49,16 @@ struct Setup {
     home: Home,
     google: FakeGoogle,
     app: FakeApp,
-    axi: PathBuf,
+    agy: agy::Tools,
     shared: SharedLogin,
     /// The second account's id: the one switched to.
     second: String,
 }
 
-/// Two accounts logged in (the first is current), the shared login holding
-/// an old value, Antigravity.app `version` installed (`None`: not) and not
-/// running, and quota-axi showing the second account in use by its reading.
+/// Two accounts logged in (the first is current), each with a reading, the
+/// shared login holding an old value, Antigravity.app `version` installed
+/// (`None`: not) and not running, and agy reading what the second account's
+/// reading says.
 fn setup(tag: &str, version: Option<&str>) -> Setup {
     let home = Home::new(tag);
     let google = FakeGoogle::start(Script::default());
@@ -74,21 +80,23 @@ fn setup(tag: &str, version: Option<&str>) -> Setup {
     std::fs::write(home.sec.join("items/gemini--antigravity"), OLD_LOGIN).unwrap();
     let app = FakeApp::new(&home.home.join("desktop"), version);
     app.watch_item(&home.sec.join("items/gemini--antigravity"));
-    let axi = fake_quota_axi(&home.home);
+    remember(&home.app, common::google::EMAIL, 40.0, FIRST_RESET, NOW * 1000);
+    remember(&home.app, SECOND, 20.0, SECOND_RESET, NOW * 1000);
+    let agy = fake_agy(&home.home);
     let s = Setup {
         shared: SharedLogin::fake(home.sec.join("bin/security"), Duration::from_secs(5)),
         second: index::account_id(SECOND),
         home,
         google,
         app,
-        axi,
+        agy,
     };
-    s.report(Some(&agy_report(2, Some(2), "reading", "quota-station")));
+    s.report(Some(&agy_quota(25.0, SECOND_RESET)));
     s
 }
 
 impl Setup {
-    /// What the fake quota-axi prints; `None` makes it fail.
+    /// What the fake agy's `/quota` prints; `None` makes it fail.
     fn report(&self, json: Option<&str>) {
         let file = self.home.home.join("agy.json");
         match json {
@@ -122,7 +130,7 @@ impl Setup {
             probe,
             shared: &self.shared,
             desktop: &desktop,
-            quota_axi: Some(&self.axi),
+            agy: &self.agy,
         };
         let request = Request { id: self.second.clone(), how, from: from.map(String::from) };
         switch_antigravity(&deps, &request, limits, &|| now)
@@ -205,20 +213,17 @@ fn a_switch_writes_cockpits_exact_command_then_the_pointers_and_checks() {
         assert!(c[0] == "add-generic-password" || !c.iter().any(|a| a == "gemini"), "{c:?}");
     }
 
-    // Then the pointers quota-axi and Cockpit's layout use.
+    // Then the pointers the account in use is told by and Cockpit's layout uses.
     assert_eq!(s.current().as_deref(), Some(s.second.as_str()));
     assert_eq!(s.binding().unwrap()["defaultSettings"]["bindAccountId"], s.second.as_str());
     let index = index::load(&s.home.app).unwrap();
     assert_eq!(index.accounts[1].last_used, NOW + 60);
 
-    // Nothing asked the app to quit or open; the check skipped quota-axi's cache.
+    // Nothing asked the app to quit or open; the check asked agy afresh.
     assert!(s.app.runs_of("osascript").is_empty());
     assert!(s.app.runs_of("open").is_empty());
-    let args = std::fs::read_to_string(s.home.home.join("axi-args")).unwrap();
-    assert_eq!(
-        args.lines().collect::<Vec<_>>(),
-        ["--provider", "agy", "--json", "--max-age", "0", "--no-credential-refresh"]
-    );
+    let args = std::fs::read_to_string(s.home.home.join("agy-args")).unwrap();
+    assert_eq!(args.lines().collect::<Vec<_>>(), ["-p", "/quota", "--output-format", "json"]);
 
     // One log line, ids only; the watch starts and has seen the new account.
     let log = switch::read_log(&s.home.app);
@@ -358,7 +363,7 @@ fn immutable(path: &std::path::Path, on: bool) {
 }
 
 /// Clears the flag again, even when the test fails.
-struct Mutable(PathBuf);
+struct Mutable(std::path::PathBuf);
 
 impl Drop for Mutable {
     fn drop(&mut self) {
@@ -448,29 +453,32 @@ fn the_check_says_switched_still_old_or_cannot_tell() {
         saved: true,
     };
 
-    s.report(Some(&agy_report(2, Some(2), "cockpit", "quota-station")));
-    let done = s.run(How::Plain);
-    let Outcome::Switched { basis, .. } = done.outcome else { panic!("{:?}", done.outcome) };
-    assert_eq!(basis.as_deref(), Some("cockpit"), "only the binding answered");
+    let basis = |done: Done| match done.outcome {
+        Outcome::Switched { basis, .. } => basis,
+        other => panic!("{other:?}"),
+    };
+    assert_eq!(basis(s.run(How::Plain)).as_deref(), Some("reading"));
+    // An unused window tells no account: only the binding answers.
+    s.report(Some(&agy_quota(0.0, SECOND_RESET)));
+    assert_eq!(basis(s.run(How::Plain)).as_deref(), Some("binding"));
+    // agy fails or answers nonsense: the binding answers too.
+    s.report(None);
+    assert_eq!(basis(s.run(How::Plain)).as_deref(), Some("binding"));
+    s.report(Some("not json"));
+    assert_eq!(basis(s.run(How::Plain)).as_deref(), Some("binding"));
 
     // agy still reads the old account.
-    s.report(Some(&agy_report(2, Some(1), "reading", "quota-station")));
+    s.report(Some(&agy_quota(45.0, FIRST_RESET)));
     assert_eq!(s.run(How::Plain).outcome, unconfirmed(Some(1)));
-    // quota-axi fails, finds no evidence, or numbers Cockpit's accounts.
-    s.report(None);
-    assert_eq!(s.run(How::Plain).outcome, unconfirmed(None));
-    s.report(Some(&agy_report(2, None, "", "quota-station")));
-    assert_eq!(s.run(How::Plain).outcome, unconfirmed(None));
-    s.report(Some(&agy_report(2, Some(2), "reading", "cockpit")));
-    assert_eq!(s.run(How::Plain).outcome, unconfirmed(None));
-    s.report(Some("not json"));
+    // A reading neither account's matches contradicts the binding.
+    s.report(Some(&agy_quota(55.0, "2030-01-15T15:30:00Z")));
     assert_eq!(s.run(How::Plain).outcome, unconfirmed(None));
 
     let results: Vec<String> =
         switch::read_log(&s.home.app).into_iter().map(|l| l.result).collect();
     assert_eq!(
         results,
-        ["switched", "unconfirmed", "unconfirmed", "unconfirmed", "unconfirmed", "unconfirmed"]
+        ["switched", "switched", "switched", "switched", "unconfirmed", "unconfirmed"]
     );
 }
 
@@ -549,7 +557,7 @@ fn an_unknown_account_is_refused() {
         probe: Arc::new(NoProbe),
         shared: &s.shared,
         desktop: &desktop,
-        quota_axi: Some(&s.axi),
+        agy: &s.agy,
     };
     let request = Request { id: "antigravity_nobody".into(), how: How::Plain, from: None };
     let done = switch_antigravity(&deps, &request, limits(), &|| NOW);
@@ -730,21 +738,24 @@ fn readings_after_the_switch_feed_the_six_hour_watch() {
     let s = setup("agy-switch-watch", Some("2.24.0"));
     s.run(How::KeepRunning);
     let index = index::load(&s.home.app).unwrap();
-    let read = |json: &str, at: i64| {
-        let report = quota_station_core::axi::parse(json).unwrap();
+    let read = |quota: &str, at: i64| {
+        s.report(Some(quota));
+        let report = listing::read(&s.agy, &s.home.app, 0, time::OffsetDateTime::now_utc());
         let active = switch::shown_active_id(&report, &index);
         watch::observe(&s.home.app, active.as_deref(), at)
     };
     // Antigravity.app wrote its own login back an hour later.
-    assert!(read(&agy_report(2, Some(1), "reading", "quota-station"), NOW + 3600));
+    assert!(read(&agy_quota(45.0, FIRST_RESET), NOW + 3600));
     let w = watch::load(&s.home.app).unwrap();
     assert_eq!((w.overwrites, w.alert()), (1, Some(NOW + 3600)));
-    // A Cockpit-numbered report names no account of the app's.
-    assert!(!read(&agy_report(2, Some(2), "reading", "cockpit"), NOW + 3700));
+    // A reading neither account's matches names no account.
+    assert!(!read(&agy_quota(55.0, "2030-01-15T15:30:00Z"), NOW + 3700));
 
-    // "Thôi" hides it; switching again starts a new watch keeping the count.
+    // "Thôi" hides it; switching again starts a new watch keeping the count,
+    // and agy reads the new account.
     watch::dismiss(&s.home.app).unwrap();
     assert_eq!(watch::load(&s.home.app).unwrap().alert(), None);
+    s.report(Some(&agy_quota(25.0, SECOND_RESET)));
     s.switch(How::Plain, NOW + 3800, Arc::new(NoProbe), limits());
     let w = watch::load(&s.home.app).unwrap();
     assert_eq!((w.overwrites, w.dismissed, w.seen), (1, false, true));

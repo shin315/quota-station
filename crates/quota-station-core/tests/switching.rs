@@ -2,9 +2,8 @@
 // SPDX-License-Identifier: MIT
 
 //! A manual switch end to end, with the app's own switch against a fake
-//! Keychain and launchd in a temporary home, and a fake quota-axi: these
-//! tests never touch the Keychain, Claude Code's login or the real pause
-//! flag.
+//! Keychain and launchd in a temporary home: these tests never touch the
+//! Keychain, Claude Code's login or the real pause flag.
 
 mod common;
 
@@ -15,10 +14,8 @@ use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
 use common::accounts::{credential, in_hours, oauth, Mac};
-use common::{fixture_path, script};
 
-/// Accounts 2, 3 and 4, Claude Code on 2, and a quota-axi that writes the
-/// variables it got next to the home and prints a report.
+/// Accounts 2, 3 and 4, Claude Code on 2.
 fn mac(tag: &str) -> (Mac, Tools) {
     let mac = Mac::new(tag);
     for (slot, email) in
@@ -31,19 +28,9 @@ fn mac(tag: &str) -> (Mac, Tools) {
         &mac.store.credential(2).unwrap().unwrap(),
         &oauth("lan@team.example", "uuid-2", "org-team"),
     );
-    let axi = script(
-        &mac.dir.join("bin/quota-axi"),
-        &format!(
-            "printf '%s\\n' \"$QUOTA_AXI_CLAUDE_SWAP_DIR\" > '{}'\ncat '{}'\n",
-            mac.dir.join("axi-env").display(),
-            fixture_path("claude-pool-schema5.json").display()
-        ),
-    );
     let tools = Tools {
         store: mac.store.clone(),
         launchctl: mac.launchctl.clone(),
-        quota_axi: Some(axi),
-        env: mac.paths.quota_axi_env(),
         pause_file: pause::path(&mac.home),
     };
     (mac, tools)
@@ -70,16 +57,17 @@ fn a_confirmed_switch_with_a_hold_writes_the_pause_flag() {
     assert!(flag.holds(&local_time::stamp(OffsetDateTime::now_utc())));
     let shown = OffsetDateTime::parse(&hold.until, &Rfc3339).unwrap();
     assert_eq!(local_time::instant(&written), Some(shown));
-    // The report read after comes back to show at once, from quota-axi
-    // pointed at the app's accounts.
-    assert!(done.report.is_some());
-    let env = std::fs::read_to_string(mac.dir.join("axi-env")).unwrap();
-    assert_eq!(env.trim(), mac.paths.swap().display().to_string());
+    // The report read after comes back to show at once, from the app's
+    // own accounts.
+    let report = done.report.expect("report");
+    let accounts = report.primary("claude").unwrap().claude_accounts.as_ref().unwrap();
+    assert_eq!(accounts.active_slot, Some(3));
 }
 
 #[test]
-fn the_switch_is_in_the_files_quota_axi_and_firstmate_read() {
+fn the_switch_is_in_the_files_firstmate_reads() {
     let (mac, tools) = mac("switching-state");
+    mac.show_firstmate(true);
     switch_claude(&tools, 3, None, &quiet);
     let state: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(mac.paths.state()).unwrap()).unwrap();
@@ -89,6 +77,18 @@ fn the_switch_is_in_the_files_quota_axi_and_firstmate_read() {
     )
     .unwrap();
     assert_eq!(sequence["activeAccountNumber"], 3);
+}
+
+#[test]
+fn without_firstmate_no_copy_is_written() {
+    let (mac, tools) = mac("switching-no-firstmate");
+    mac.show_firstmate(false);
+    switch_claude(&tools, 3, None, &quiet);
+    let state: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(mac.paths.state()).unwrap()).unwrap();
+    assert_eq!(state["activeSlot"], 3);
+    assert!(!mac.paths.swap().join("sequence.json").exists());
+    assert!(mac.paths.firstmate_env().is_empty());
 }
 
 #[test]

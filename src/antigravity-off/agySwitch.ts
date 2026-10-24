@@ -3,7 +3,7 @@
 
 // Stands in for `src/antigravity/agySwitch.ts` in a build without the
 // Antigravity accounts (see `AgyAccounts.tsx` here): Antigravity is the one
-// account quota-axi reads, so there is nothing to switch to, no sheet and no
+// account signed in, so there is nothing to switch to, no sheet and no
 // overwrite to tell. Only types come from the real module.
 
 import type * as Real from '../antigravity/agySwitch';

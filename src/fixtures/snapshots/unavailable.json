@@ -1,7 +1,7 @@
 {
   "claude": {
-    "status": "unavailable",
-    "reason": "usage_schema_mismatch",
+    "status": "single",
+    "reason": "network_unreachable",
     "accounts": [],
     "pool": {
       "kind": "none",
@@ -14,17 +14,17 @@
       "nextRefillAt": null,
       "refills": [],
       "exhausted": false,
-      "reason": "claude_swap_unavailable"
+      "reason": null
     },
     "generatedAt": "2026-01-16T07:20:00.000Z",
     "newestReadingAt": null,
     "stale": false,
-    "personalHours": "8-23",
+    "personalHours": null,
     "source": null
   },
   "agy": {
     "status": "unavailable",
-    "reason": "index_version_unsupported",
+    "reason": "index_unreadable",
     "accounts": [
       {
         "number": 0,
@@ -101,7 +101,7 @@
     "newestReadingAt": "2026-01-16T07:16:00.000Z",
     "stale": false,
     "personalHours": null,
-    "source": null
+    "source": "quota-station"
   },
   "codex": {
     "status": "unavailable",

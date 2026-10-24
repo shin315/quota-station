@@ -27,7 +27,7 @@ const withAgy = (over: Partial<AgyAccounts>, model: Partial<Model> = {}) =>
 /** An account logged in here, its email sent as Rust sends it while names show. */
 const login = (n: number, over: Partial<AgyLogin> = {}) => agyAccount(n, { email: fakeEmail(n), ...over });
 
-// The fresh fixture's quota-axi lists this app's accounts 1 and 2: their
+// The fresh fixture's Antigravity row lists this app's accounts 1 and 2: their
 // logins sit in the account table; any other login is listed under it.
 const table = () => screen.getByRole('list', { name: 'Antigravity' });
 const row = (name: string) =>
@@ -51,7 +51,7 @@ describe('Antigravity accounts logged in here', () => {
     expect(addButton().disabled).toBe(false);
   });
 
-  it('a Mac without Antigravity in quota-axi still offers to add an account', async () => {
+  it('a Mac without Antigravity still offers to add an account', async () => {
     await open(fixtureModel('no-antigravity', { antigravity: agyFixture() }));
     expect(screen.getByText('Máy này chưa có Antigravity')).toBeTruthy();
     expect(addButton().disabled).toBe(false);
@@ -284,7 +284,7 @@ describe('Antigravity accounts logged in here', () => {
     expect(within(row('lanpham.ultra')).getByRole('button', { name: 'Đăng xuất lanpham.ultra' })).toBeTruthy();
   });
 
-  it('a login quota-axi does not list yet stays listed under the table', async () => {
+  it('a login the row does not list yet stays listed under the table', async () => {
     await open(withAgy({ accounts: [login(1), login(2), login(3)] }));
     const extra = within(others()).getAllByRole('listitem');
     expect(extra.map((r) => r.getAttribute('aria-label'))).toEqual(['lan.ultra3']);
@@ -344,7 +344,7 @@ describe('Antigravity quota reads', () => {
     // Why it failed and that the last numbers stay must still be there to read.
     expect(said(row('lanpham.ultra'))).toContain('đọc lỗi: không kết nối được Google. Giữ số cũ.');
     expect(said(row('lan.ultra2'))).toContain('đọc lỗi: Google báo gọi quá nhiều (429). Giữ số cũ; app đọc lại lúc 14:24.');
-    // Under the table, the logins quota-axi does not list keep the whole line.
+    // Under the table, the logins the row does not list keep the whole line.
     const extra = within(others()).getAllByRole('listitem');
     const line = (i: number) => within(extra[i]).getByRole('status');
     expect(line(0).textContent).toBe('đọc lỗi: Google từ chối (fetchAvailableModels: Google refused (400)). Giữ số cũ.');

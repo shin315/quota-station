@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-//! RFC 3339 timestamps as quota-axi writes them.
+//! RFC 3339 timestamps, as the readings write them.
 
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;

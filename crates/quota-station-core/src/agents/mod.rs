@@ -333,9 +333,7 @@ pub(crate) fn search_dirs(home: &Path) -> Vec<PathBuf> {
         home.join(".bun/bin"),
         home.join(".deno/bin"),
     ];
-    out.extend(
-        runner::candidates(home).into_iter().filter_map(|p| p.parent().map(Path::to_path_buf)),
-    );
+    out.extend(runner::bin_dirs(home));
     for d in ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"] {
         out.push(PathBuf::from(d));
     }

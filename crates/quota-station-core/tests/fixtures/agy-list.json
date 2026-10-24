@@ -1,45 +1,37 @@
 {
   "generatedAt": "2026-01-16T07:20:00.000Z",
-  "schemaVersion": 5,
   "providers": [
     {
       "provider": "agy",
+      "accountKeys": [
+        "default"
+      ],
       "windows": [
         {
           "id": "gemini_5h",
-          "label": "gemini_5h",
           "kind": "session",
           "percentRemaining": 98,
           "resetsAt": "2026-01-16T09:18:00.000Z"
         },
         {
           "id": "gemini_weekly",
-          "label": "gemini_weekly",
           "kind": "weekly",
           "percentRemaining": 94,
           "resetsAt": "2026-01-20T07:20:00.000Z"
         },
         {
           "id": "claude_gpt_5h",
-          "label": "claude_gpt_5h",
           "kind": "session",
           "percentRemaining": 100,
           "resetsAt": "2026-01-16T12:20:00.000Z"
         },
         {
           "id": "claude_gpt_weekly",
-          "label": "claude_gpt_weekly",
           "kind": "weekly",
           "percentRemaining": 100,
           "resetsAt": "2026-01-22T07:20:00.000Z"
         }
       ],
-      "state": {
-        "status": "fresh",
-        "stale": false,
-        "refreshedAt": "2026-01-16T07:16:00.000Z",
-        "reused": true
-      },
       "quotaSemantics": {
         "status": "known",
         "effectiveAvailability": [
@@ -70,12 +62,12 @@
           }
         ]
       },
-      "accountKeys": [
-        "default"
-      ],
-      "cockpit": {
+      "state": {
+        "status": "fresh",
+        "refreshedAt": "2026-01-16T07:16:00.000Z"
+      },
+      "agyAccounts": {
         "status": "ok",
-        "activeAccount": 2,
         "activeBasis": "reading",
         "accounts": [
           {
@@ -121,54 +113,6 @@
                 "limitedBy": "claude_gpt_5h"
               }
             ]
-          }
-        ]
-      },
-      "agyPool": {
-        "status": "pool",
-        "activeAccount": 2,
-        "rotation": {
-          "accounts": "all",
-          "scope": "gemini",
-          "full": 90,
-          "freshMinutes": 30
-        },
-        "members": [
-          {
-            "account": 2,
-            "active": true
-          },
-          {
-            "account": 1,
-            "active": false
-          }
-        ],
-        "scopes": [
-          {
-            "scope": "gemini",
-            "effectivePercentRemaining": 100,
-            "accountsOfRoom": 1.2,
-            "nextRefillAt": "2026-01-16T07:50:00.000Z",
-            "accounts": [
-              {
-                "account": 2,
-                "roomPercent": 52.2,
-                "limitedBy": [
-                  "gemini_5h"
-                ],
-                "refillAt": "2026-01-16T07:50:00.000Z"
-              },
-              {
-                "account": 1,
-                "roomPercent": 70,
-                "limitedBy": [
-                  "gemini_weekly"
-                ]
-              }
-            ],
-            "activeAccount": {
-              "effectivePercentRemaining": 57
-            }
           }
         ]
       }

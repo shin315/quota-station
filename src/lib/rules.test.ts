@@ -35,7 +35,7 @@ describe('rules view', () => {
     expect(hoursText(0, 6)).toBe('00:00–07:00');
   });
 
-  it("names quota-axi's reasons by key", () => {
+  it("names the rules' reasons by key", () => {
     expect(keyWords('rotation_bad_value:personal_hours')).toBe('khoá personal_hours sai');
     expect(keyWords('rotation_missing_key:full')).toBe('thiếu khoá full');
     expect(keyWords('rotation_malformed_line')).toBe('có dòng không đọc được');
@@ -167,12 +167,12 @@ describe('rules view', () => {
     });
   });
 
-  it('a refused save says which key and that the file before is back', () => {
-    const b = rulesErrorBanner({ kind: 'refused', detail: 'rotation_bad_value:personal_hours', restored: true }, { at: '2026-01-16T14:02:00+07:00', machine: 'Mac mini' });
-    expect(b.title).toBe('quota-axi từ chối luật vừa lưu');
-    expect(b.body).toBe('Khoá personal_hours sai. Đã khôi phục bản 14:02 trên máy này. Chưa gửi sang Mac khác.');
-    const u = rulesErrorBanner({ kind: 'unchecked', detail: 'quota-axi not found', restored: true }, null);
-    expect(u.body).toBe('quota-axi không chạy được (quota-axi not found). Đã khôi phục bản trước trên máy này. Chưa gửi sang Mac khác.');
+  it('a save the rules refuse says which key, and nothing was written', () => {
+    const b = rulesErrorBanner({ kind: 'invalid', detail: 'rotation_bad_value:personal_hours', restored: false });
+    expect(b.title).toBe('Luật chưa hợp lệ');
+    expect(b.body).toBe('Khoá personal_hours sai. Chưa ghi gì.');
+    const w = rulesErrorBanner({ kind: 'write', detail: 'Permission denied', restored: false });
+    expect(w).toMatchObject({ title: 'Không ghi được file luật', body: 'Permission denied. Máy này giữ nguyên.' });
   });
 
   it('the feedback after a save names the Macs left behind', () => {
@@ -180,13 +180,13 @@ describe('rules view', () => {
     expect(saveFeedback(fixtureModel('fresh', { rotation: now }))).toEqual({
       tone: '',
       title: 'Đã lưu luật cho cả ba Mac lúc 14:21',
-      body: 'quota-axi đọc lại: đã kiểm tra đủ 6 mục của luật ✓',
+      body: 'Đã kiểm tra đủ 6 mục của luật ✓',
     });
     const down = { ...now, peers: [peerFixture('Mac B', 'mac-b'), peerFixture('Mac C', 'mac-c', { state: { kind: 'unreachable', error: 'x', retryAt: RETRY } })] } as Model['rotation'];
     expect(saveFeedback(fixtureModel('fresh', { rotation: down }))).toEqual({
       tone: 'warn',
       title: 'Đã lưu luật trên máy này lúc 14:21',
-      body: 'quota-axi đã kiểm tra đủ 6 mục ✓. Mac C: chưa tới được, sẽ thử lại.',
+      body: 'Đã kiểm tra đủ 6 mục ✓. Mac C: chưa tới được, sẽ thử lại.',
     });
     expect(saveFeedback(fixtureModel('fresh', { rotation: { ...now, peers: [] } })).title).toBe('Đã lưu luật cho máy này lúc 14:21');
   });

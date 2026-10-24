@@ -14,8 +14,8 @@ import type { Api } from '../lib/api';
 import type { AgyOverwrite, AgyStatus, Model } from '../lib/model';
 
 /**
- * The fresh fixture with lanpham.ultra and lan.ultra2 logged in here and listed by
- * quota-axi; lan.ultra2 is in use.
+ * The fresh fixture with lanpham.ultra and lan.ultra2 logged in here and listed on
+ * the Antigravity row; lan.ultra2 is in use.
  */
 function listed(over: { status?: AgyStatus; overwritten?: AgyOverwrite } = {}): Model {
   return fixtureModel('fresh', {

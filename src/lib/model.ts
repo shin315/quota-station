@@ -29,11 +29,12 @@ export interface Line {
 
 export type Reading = 'fresh' | 'stale' | 'resetPending' | 'noData';
 export type Role = 'team' | 'personal' | 'unknown';
-export type Source = 'live' | 'claudeSwap' | 'cockpit';
+/** `live`: the one login read; `list`: the accounts the app keeps. */
+export type Source = 'live' | 'list';
 export type Membership = 'in' | 'out' | 'ended' | 'unknown';
 
 export interface Account {
-  /** claude-swap slot or Cockpit account number; 0 for the only account a row reads. */
+  /** The account's number in the app's list; 0 for the only account a row reads. */
   number: number;
   role: Role;
   active: boolean;
@@ -43,9 +44,9 @@ export interface Account {
   source: Source;
   membership: Membership;
   leavesAt: string | null;
-  /** quota-axi's numbers: the tighter window only, when it reports one. */
+  /** The row's numbers: the tighter window only, when there is one. */
   lines: Line[];
-  /** Every window on its own, from claude-swap's list (Claude) or the app's own reading (Antigravity); empty when neither has it. */
+  /** Every window on its own, from the app's own reading of the account; empty when it has none. */
   windows: Line[];
   /** Only while the owner shows names. */
   email?: string;
@@ -76,20 +77,22 @@ export interface Pool {
   reason: string | null;
 }
 
-export type SectionStatus = 'ok' | 'noSidecar' | 'unavailable' | 'notSetUp' | 'unread';
+/** `single`: only the login signed in on this Mac, without the app's list. */
+export type SectionStatus = 'ok' | 'single' | 'unavailable' | 'notSetUp' | 'unread';
 
 export interface Section {
   status: SectionStatus;
+  /** Why the list could not be read (`unavailable`), or why the one login read gave no number (`single`). */
   reason: string | null;
   accounts: Account[];
   pool: Pool;
-  /** When quota-axi wrote the report behind this section. */
+  /** When the app made the report behind this section. */
   generatedAt: string | null;
   newestReadingAt: string | null;
   stale: boolean;
   /** `8-23` */
   personalHours: string | null;
-  /** Who read the Antigravity accounts quota-axi lists: `quota-station` (this app) or Cockpit Tools. */
+  /** `quota-station` when the section lists the Antigravity accounts this app logs in. */
   source: string | null;
 }
 
@@ -98,25 +101,9 @@ export type Keychain = 'granted' | 'required' | 'unknown';
 export interface Snapshot {
   claude: Section;
   agy: Section;
-  /** Codex's own ChatGPT login (`quota-axi --provider codex`): one account, five hours and a week. */
+  /** Codex's own ChatGPT login: one account, five hours and a week. */
   codex: Section;
   keychain: Keychain;
-}
-
-export type ErrorKind = 'notConfigured' | 'notFound' | 'spawn' | 'timeout' | 'exit' | 'parse';
-
-export interface ErrorView {
-  kind: ErrorKind;
-  detail: string;
-}
-
-export interface QuotaAxi {
-  /** `~/…` for paths under home. */
-  path: string | null;
-  custom: boolean;
-  exists: boolean;
-  version: string | null;
-  fork: boolean | null;
 }
 
 // ===== The switcher and manual switching (M3) =====
@@ -327,7 +314,7 @@ export interface RotationView {
   path: string;
   status: 'ok' | 'missing' | 'invalid' | 'unreadable';
   rules: Rules | null;
-  /** quota-axi's reason for an invalid file (`rotation_bad_value:full`), or the read error. */
+  /** The rule's reason for an invalid file (`rotation_bad_value:full`), or the read error. */
   reason: string | null;
   /** Sent back with a save, so a file changed meanwhile is not overwritten. */
   version: string | null;
@@ -342,7 +329,7 @@ export interface RotationView {
 
 /** Why a rotation command did nothing, or put the file back. */
 export interface RulesError {
-  kind: 'busy' | 'changed' | 'invalid' | 'write' | 'refused' | 'unchecked' | 'unreachable' | 'noFile' | 'unknownMac';
+  kind: 'busy' | 'changed' | 'invalid' | 'write' | 'unreachable' | 'noFile' | 'unknownMac';
   detail: string | null;
   /** The file before is back on disk. */
   restored: boolean;
@@ -388,7 +375,7 @@ export type MenubarWindow = 'fiveHours' | 'week' | 'fableWeek' | 'tightest';
 
 export interface AgyLogin {
   id: string;
-  /** Its place in the app's list, from 1, as quota-axi numbers it. */
+  /** Its place in the app's list, from 1. */
   number: number;
   /** Only when the owner turned emails on. */
   email: string | null;
@@ -398,7 +385,7 @@ export interface AgyLogin {
   verify: boolean;
   /** The app is reading its quota now. */
   reading: boolean;
-  /** The app's last read failed; quota-axi keeps the last numbers, with their age. */
+  /** The app's last read failed; the row keeps the last numbers, with their age. */
   readError: AgyReadError | null;
 }
 
@@ -443,9 +430,9 @@ export interface AgyApp {
 /** What an Antigravity switch did (`quota-station-core::antigravity::switch::Outcome`). */
 export type AgyOutcome =
   /**
-   * `basis`: quota-axi's `identity` when agy's login named the account,
-   * `reading` when agy's own numbers showed it, `cockpit` when only the
-   * binding the switch wrote answered.
+   * `basis`: `identity` when agy's login named the account, `reading` when
+   * agy's own numbers showed it, `binding` when only the binding the switch
+   * wrote answered.
    */
   | { kind: 'switched'; number: number; how: AgyHow; basis: string | null; reopened: boolean | null; saved: boolean }
   /** The login was written; the check showed `active` in use, or could not tell (null). */
@@ -466,7 +453,7 @@ export interface AgyOverwrite {
 export interface AgySwitchView {
   /** The account number a switch is running for. */
   busy: number | null;
-  /** quota-axi lists this app's accounts, so a row's number is the account's number here. */
+  /** The row lists this app's accounts, so a row's number is the account's number here. */
   listed: boolean;
   overwritten: AgyOverwrite | null;
 }
@@ -600,7 +587,7 @@ export interface FirstmateView {
   writtenAt: string | null;
   /** Written within 30 minutes: Firstmate is running. */
   fresh: boolean;
-  /** The same dry rule, counted by the app from quota-axi's numbers. */
+  /** The same dry rule, counted by the app from its own numbers. */
   ownDry: boolean | null;
 }
 
@@ -1036,21 +1023,19 @@ export interface Capabilities {
   /**
    * The Antigravity accounts the app logs in, reads and switches itself (the
    * `antigravity-accounts` feature, CC BY-NC-SA 4.0). Without them
-   * Antigravity is the one account quota-axi reads, read-only.
+   * Antigravity is the one account signed in here, read-only.
    */
   agyAccounts: boolean;
 }
 
 export interface Model {
   snapshot: Snapshot;
-  errors: { claude: ErrorView | null; agy: ErrorView | null; codex: ErrorView | null };
   reading: boolean;
   reads: number;
   /** The name shown for this Mac: set in settings, else the one macOS gives. */
   machine: string;
   /** The name macOS gives this Mac. */
   machineDefault: string;
-  quotaAxi: QuotaAxi;
   granting: boolean;
   switcher: SwitcherView;
   claudeSwitch: ClaudeSwitchView;

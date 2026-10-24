@@ -1,9 +1,10 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-//! Quota Station's core: reads quota-axi, builds the snapshot the menu bar
-//! and the popover show, paces the reads, and switches Claude when the owner
-//! asks. No UI and no AppKit, so all of it is tested with `cargo test`.
+//! Quota Station's core: reads the quota of Claude, Codex and Antigravity
+//! itself ([`quota`]), builds the snapshot the menu bar and the popover
+//! show, paces the reads, and switches Claude when the owner asks. No UI and
+//! no AppKit, so all of it is tested with `cargo test`.
 //!
 //! It writes the app's own files (settings, through [`app_dir`]; the
 //! Antigravity index and quota readings in `antigravity`, which only the
@@ -20,7 +21,10 @@
 //! that write anything elsewhere are the [`peers`] script over `ssh`, which
 //! replaces the rotation file on another Mac (keeping a backup there), and
 //! `claude mcp add-json`/`remove` ([`agents`]) from the MCP tab.
-//! Everything else it runs only reads: quota-axi, the rotation's dry run
+//! Everything else it runs only reads: `agy -p /quota`, `ps` and `lsof` for
+//! the running Antigravity ([`quota::agy`]), `security` for Claude Code's
+//! login on a Mac where the app keeps no Claude account ([`quota::claude`]),
+//! the rotation's dry run
 //! (in process, switching nothing), `ssh` reading the other Macs' rotation
 //! file, `launchctl list`,
 //! `launchctl getenv NAME` for the variables that override a login
@@ -56,7 +60,6 @@ pub mod alerts;
 #[cfg(feature = "antigravity-accounts")]
 pub mod antigravity;
 pub mod app_dir;
-pub mod axi;
 pub mod claude;
 pub mod codex;
 pub mod detail;
@@ -67,6 +70,7 @@ pub mod local_time;
 pub mod login_item;
 pub mod pause;
 pub mod peers;
+pub mod quota;
 pub mod rotation;
 pub mod runner;
 pub mod schedule;

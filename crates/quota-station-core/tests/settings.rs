@@ -17,7 +17,6 @@ fn settings_round_trip_and_default_when_missing() {
     assert_eq!(Settings::load(&file), Settings::default());
 
     let s = Settings {
-        quota_axi_path: Some(PathBuf::from("/opt/tools/bin/quota-axi")),
         machine_name: Some("Mac phòng khách".into()),
         peers: vec![peer("Mac B", "mac-b"), peer("Mac C", "mac-c")],
         hide_names: true,
@@ -39,7 +38,6 @@ fn settings_round_trip_and_default_when_missing() {
     s.save(&file).unwrap();
     assert_eq!(Settings::load(&file), s);
     let text = std::fs::read_to_string(&file).unwrap();
-    assert!(text.contains("quotaAxiPath"));
     assert!(text.contains("machineName"));
     assert!(text.contains(r#""alias": "mac-c""#));
     assert!(text.contains("\"hideNames\": true"));
@@ -68,7 +66,7 @@ fn a_settings_file_from_m1_still_loads() {
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(&file, r#"{ "quotaAxiPath": "/opt/tools/bin/quota-axi" }"#).unwrap();
     let s = Settings::load(&file);
-    assert_eq!(s.quota_axi_path, Some(PathBuf::from("/opt/tools/bin/quota-axi")));
+    // The quota-axi path of versions that ran it is left behind.
     assert_eq!(s.machine_name, None);
     assert!(!s.hide_names, "names show");
     assert_eq!(s.theme, Theme::Auto);

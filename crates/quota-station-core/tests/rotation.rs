@@ -1,18 +1,17 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-//! The rotation file in temporary folders, checked by a fake quota-axi that
-//! prints a fixture: these tests never touch the real rotation file and never
-//! run the real quota-axi.
+//! The rotation file in temporary folders: these tests never touch the real
+//! rotation file.
 
 mod common;
 
 use std::path::{Path, PathBuf};
 
-use common::{fixture, fixture_path, script, temp_dir};
+use common::temp_dir;
 use quota_station_core::rotation::{
-    self, adopt, apply, backups, load, parse, render, verdict, ApplyError, Expire, FileState,
-    Rules, Stamp, Verdict, BACKUPS_KEPT,
+    self, adopt, apply, backups, load, parse, render, ApplyError, Expire, FileState, Rules, Stamp,
+    BACKUPS_KEPT,
 };
 use time::OffsetDateTime;
 
@@ -156,29 +155,16 @@ fn a_stamp_written_later_is_newer() {
     assert_eq!(later.instant(), Some(now()));
 }
 
-/// A rotation file in a temporary home, and a fake quota-axi that refuses
-/// any file holding a `refuse_me` line and accepts the rest.
+/// A rotation file in a temporary home.
 struct Setup {
     dir: PathBuf,
     file: PathBuf,
-    quota_axi: PathBuf,
 }
 
 fn setup(tag: &str) -> Setup {
     let dir = temp_dir(tag);
     let file = rotation::path(&dir.join("home"));
-    let accepted = fixture_path("claude-pool-schema5.json");
-    let refused = fixture_path("claude-rotation-refused.json");
-    let quota_axi = script(
-        &dir.join("bin/quota-axi"),
-        &format!(
-            "if grep -q '^refuse_me' '{}'; then cat '{}'; else cat '{}'; fi\n",
-            file.display(),
-            refused.display(),
-            accepted.display()
-        ),
-    );
-    Setup { dir, file, quota_axi }
+    Setup { dir, file }
 }
 
 fn base(file: &Path) -> Option<String> {
@@ -186,7 +172,7 @@ fn base(file: &Path) -> Option<String> {
 }
 
 #[test]
-fn a_save_is_written_whole_kept_as_a_backup_and_checked() {
+fn a_save_is_written_whole_and_kept_as_a_backup() {
     let s = setup("rot-save");
     std::fs::create_dir_all(s.file.parent().unwrap()).unwrap();
     std::fs::write(&s.file, FILE).unwrap();
@@ -194,8 +180,7 @@ fn a_save_is_written_whole_kept_as_a_backup_and_checked() {
     rules.full = 85.0;
     let text = render(&rules, &stamp("Mac A"), Some(FILE));
 
-    let applied =
-        apply(&s.file, Some(&s.quota_axi), &[], &text, base(&s.file).as_deref(), now()).unwrap();
+    let applied = apply(&s.file, &text, base(&s.file).as_deref(), now()).unwrap();
     assert_eq!(std::fs::read_to_string(&s.file).unwrap(), text);
     assert_eq!(applied.parsed.rules, rules);
     let backup = applied.backup.unwrap();
@@ -208,59 +193,6 @@ fn a_save_is_written_whole_kept_as_a_backup_and_checked() {
         .filter(|e| e.file_name().to_string_lossy().contains(".tmp"))
         .collect();
     assert!(leftovers.is_empty(), "no temporary file is left");
-    assert_eq!(verdict(&applied.report), Verdict::Accepted);
-    let _ = std::fs::remove_dir_all(&s.dir);
-}
-
-#[test]
-fn a_file_quota_axi_refuses_is_rolled_back_to_the_backup() {
-    let s = setup("rot-refused");
-    std::fs::create_dir_all(s.file.parent().unwrap()).unwrap();
-    std::fs::write(&s.file, FILE).unwrap();
-    // A key this app does not know and keeps; this quota-axi refuses it.
-    let text = format!(
-        "{}refuse_me = 1\n",
-        render(&parse(FILE).unwrap().rules, &stamp("Mac A"), Some(FILE))
-    );
-
-    let err = apply(&s.file, Some(&s.quota_axi), &[], &text, base(&s.file).as_deref(), now())
-        .unwrap_err();
-    assert_eq!(
-        err,
-        ApplyError::Refused { reason: "rotation_bad_value:personal_hours".into(), restored: true }
-    );
-    assert_eq!(std::fs::read_to_string(&s.file).unwrap(), FILE, "the file before is back");
-    assert_eq!(backups(s.file.parent().unwrap()).len(), 1, "and its backup is kept");
-
-    // With no file before, a refused file is removed again.
-    std::fs::remove_file(&s.file).unwrap();
-    let err = apply(&s.file, Some(&s.quota_axi), &[], &text, None, now()).unwrap_err();
-    assert_eq!(err.kind(), "refused");
-    assert_eq!(load(&s.file), FileState::Missing);
-    let _ = std::fs::remove_dir_all(&s.dir);
-}
-
-#[test]
-fn a_file_quota_axi_cannot_check_is_rolled_back_too() {
-    let s = setup("rot-unchecked");
-    std::fs::create_dir_all(s.file.parent().unwrap()).unwrap();
-    std::fs::write(&s.file, FILE).unwrap();
-    let text = render(&parse(FILE).unwrap().rules, &stamp("Mac A"), Some(FILE));
-
-    // No quota-axi at all.
-    let err = apply(&s.file, None, &[], &text, base(&s.file).as_deref(), now()).unwrap_err();
-    assert!(matches!(err, ApplyError::Unchecked { restored: true, .. }), "{err:?}");
-    assert_eq!(std::fs::read_to_string(&s.file).unwrap(), FILE);
-
-    // A quota-axi without the rotation block (not the +cswap fork).
-    let plain = script(
-        &s.dir.join("bin/plain-quota-axi"),
-        &format!("cat '{}'\n", fixture_path("claude-no-rotation.json").display()),
-    );
-    let err =
-        apply(&s.file, Some(&plain), &[], &text, base(&s.file).as_deref(), now()).unwrap_err();
-    assert!(matches!(err, ApplyError::Unchecked { restored: true, .. }), "{err:?}");
-    assert_eq!(std::fs::read_to_string(&s.file).unwrap(), FILE);
     let _ = std::fs::remove_dir_all(&s.dir);
 }
 
@@ -275,15 +207,12 @@ fn a_file_changed_since_the_editor_read_it_is_not_overwritten() {
     std::fs::write(&s.file, &theirs).unwrap();
 
     let mine = render(&common::sample_rules(), &stamp("Mac A"), Some(FILE));
-    let err =
-        apply(&s.file, Some(&s.quota_axi), &[], &mine, started.as_deref(), now()).unwrap_err();
+    let err = apply(&s.file, &mine, started.as_deref(), now()).unwrap_err();
     assert_eq!(err, ApplyError::Changed);
     assert_eq!(std::fs::read_to_string(&s.file).unwrap(), theirs);
 
-    // Text quota-axi would refuse is never written.
-    let err =
-        apply(&s.file, Some(&s.quota_axi), &[], "team = 2\n", base(&s.file).as_deref(), now())
-            .unwrap_err();
+    // Text the rules refuse is never written.
+    let err = apply(&s.file, "team = 2\n", base(&s.file).as_deref(), now()).unwrap_err();
     assert_eq!(err, ApplyError::Invalid("rotation_missing_key:personal".into()));
     assert!(backups(s.file.parent().unwrap()).is_empty());
     let _ = std::fs::remove_dir_all(&s.dir);
@@ -308,17 +237,7 @@ fn only_the_newest_backups_stay() {
 }
 
 #[test]
-fn quota_axis_verdict_on_a_report() {
-    assert_eq!(verdict(&fixture("claude-pool-schema5.json")), Verdict::Accepted);
-    assert_eq!(
-        verdict(&fixture("claude-rotation-refused.json")),
-        Verdict::Refused("rotation_bad_value:personal_hours".into())
-    );
-    assert_eq!(verdict(&fixture("claude-no-rotation.json")), Verdict::NotRead);
-}
-
-#[test]
-fn a_rewrite_drops_lines_quota_axi_cannot_read_and_the_backup_keeps_them() {
+fn a_rewrite_drops_lines_the_rules_cannot_read_and_the_backup_keeps_them() {
     let s = setup("rot-drop");
     let before = format!("{FILE}not a key line\nTeam = 2\nnote = kept\n");
     assert_eq!(parse(&before).unwrap_err(), "rotation_malformed_line");
@@ -327,8 +246,7 @@ fn a_rewrite_drops_lines_quota_axi_cannot_read_and_the_backup_keeps_them() {
     assert!(text.contains("note = kept\n"));
     std::fs::create_dir_all(s.file.parent().unwrap()).unwrap();
     std::fs::write(&s.file, &before).unwrap();
-    let applied =
-        apply(&s.file, Some(&s.quota_axi), &[], &text, base(&s.file).as_deref(), now()).unwrap();
+    let applied = apply(&s.file, &text, base(&s.file).as_deref(), now()).unwrap();
     assert_eq!(std::fs::read_to_string(applied.backup.unwrap()).unwrap(), before);
     let _ = std::fs::remove_dir_all(&s.dir);
 }
@@ -344,8 +262,7 @@ fn a_personal_slot_that_is_also_team_is_never_written_and_reads_as_invalid() {
         matches!(load(&s.file), FileState::Invalid { ref reason, .. } if reason == "rotation_personal_in_team")
     );
     // A copy taken from another Mac with the same overlap is refused before writing.
-    let err = apply(&s.file, Some(&s.quota_axi), &[], &overlap, base(&s.file).as_deref(), now())
-        .unwrap_err();
+    let err = apply(&s.file, &overlap, base(&s.file).as_deref(), now()).unwrap_err();
     assert_eq!(err, ApplyError::Invalid("rotation_personal_in_team".into()));
     let _ = std::fs::remove_dir_all(&s.dir);
 }

@@ -6,7 +6,7 @@
 //! (`fetch_quota_with_fresh_token` in `src-tauri/src/modules/account.rs` and
 //! `fetch_quota_with_context` in `src-tauri/src/modules/quota.rs`, 1.3.70):
 //! a token refreshed when it is due, `fetchAvailableModels`,
-//! `retrieveUserQuotaSummary`, then the reading in the cache quota-axi reads.
+//! `retrieveUserQuotaSummary`, then the reading in the app's cache ([`super::export`]).
 //! Cockpit's account handling decides what a refusal means: a refused
 //! refresh token needs a new login, a 403 stops the reads, and a request for
 //! verification is shown to the owner.
@@ -153,11 +153,10 @@ pub fn candidates(app: &AppDir) -> Result<(AccountIndex, Vec<Candidate>), IndexE
     Ok((index, list))
 }
 
-/// The account in use: quota-axi's `activeAccount` (its place in the
-/// index, from 1) when quota-axi read this app's folder, else the index's
-/// current account.
-pub fn active_id(index: &AccountIndex, quota_axi_number: Option<usize>) -> Option<String> {
-    quota_axi_number
+/// The account in use: the one the Antigravity row shows (its place in the
+/// index, from 1), else the index's current account.
+pub fn active_id(index: &AccountIndex, shown: Option<usize>) -> Option<String> {
+    shown
         .and_then(|n| n.checked_sub(1))
         .and_then(|i| index.accounts.get(i))
         .map(|a| a.id.clone())
@@ -190,7 +189,7 @@ pub fn read_in_turn(
 
 /// Reads one account's quota into the cache, unless the cache already has
 /// a reading younger than a minute. `now_ms` is the clock in Unix
-/// milliseconds. A failure leaves the last reading as it was, so quota-axi
+/// milliseconds. A failure leaves the last reading as it was, so the list
 /// keeps showing it with its age.
 pub fn read_account(deps: &Deps, id: &str, now_ms: i64) -> ReadResult {
     let app = deps.login.app;

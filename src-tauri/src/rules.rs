@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: MIT
 
 //! The rotation editor's commands (F06) and the thread that keeps the other
-//! Macs' copies in step. A save writes this Mac's rotation file, has
-//! quota-axi check it (the file before goes back when it refuses), then
-//! copies it to every other Mac in settings over SSH. A Mac that could not
+//! Macs' copies in step. A save checks the rules in quota-axi's format,
+//! writes this Mac's rotation file, then copies it to every other Mac in
+//! settings over SSH. A Mac that could not
 //! take it is tried again every 5 minutes; one holding a newer copy waits
 //! for the owner to choose.
 
@@ -13,6 +13,7 @@ use std::time::Duration;
 
 use quota_station_core::claude::rotate;
 use quota_station_core::peers::{self, PeerRecord, PeerState, RemoteError, RETRY_MINUTES};
+use quota_station_core::quota;
 use quota_station_core::rotation::{self, ApplyError, FileState, Rules, Stamp};
 use quota_station_core::settings::{self, Peer};
 use quota_station_core::switcher;
@@ -53,7 +54,7 @@ pub fn spawn(app: AppHandle, state: AppState) {
 /// (the owner kept this Mac's copy), a Mac holding a newer or hand-edited
 /// copy is written too. Does nothing before the app has saved the file once
 /// (no `updated` stamp: nothing of the app's to copy), or while the file is
-/// one quota-axi would refuse.
+/// one quota-axi's format refuses.
 pub fn push_peers(app: &AppHandle, state: &AppState, now_all: bool, force_conflicts: bool) {
     let _one_at_a_time = state.push_lock.lock().unwrap_or_else(|e| e.into_inner());
     let (file, peers) = {
@@ -131,10 +132,10 @@ fn retry_at(now: OffsetDateTime) -> String {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RulesError {
-    /// `busy`, `changed`, `invalid`, `write`, `refused`, `unchecked`,
-    /// `unreachable`, `noFile` or `notNewer`.
+    /// `busy`, `changed`, `invalid`, `write`, `unreachable`, `noFile` or
+    /// `notNewer`.
     pub kind: &'static str,
-    /// quota-axi's reason (`rotation_bad_value:personal_hours`) or the error.
+    /// The rule's reason (`rotation_bad_value:personal_hours`) or the error.
     pub detail: Option<String>,
     /// The file before is back on disk.
     pub restored: bool,
@@ -149,18 +150,16 @@ impl RulesError {
 impl From<ApplyError> for RulesError {
     fn from(e: ApplyError) -> RulesError {
         let kind = e.kind();
-        let (detail, restored) = match e {
-            ApplyError::Changed => (None, false),
-            ApplyError::Invalid(r) | ApplyError::Write(r) => (Some(r), false),
-            ApplyError::Refused { reason, restored } => (Some(reason), restored),
-            ApplyError::Unchecked { error, restored } => (Some(error), restored),
+        let detail = match e {
+            ApplyError::Changed => None,
+            ApplyError::Invalid(r) | ApplyError::Write(r) => Some(r),
         };
-        RulesError { kind, detail, restored }
+        RulesError { kind, detail, restored: false }
     }
 }
 
-/// Writes `text` here when the file is still at `base`, has quota-axi check
-/// it, then copies it to the other Macs. `text` gets the file on disk first.
+/// Writes `text` here when the file is still at `base` and its rules hold,
+/// then copies it to the other Macs. `text` gets the file on disk first.
 async fn write_here(
     app: &AppHandle,
     state: &AppState,
@@ -168,21 +167,21 @@ async fn write_here(
     force_conflicts: bool,
     text: impl FnOnce(&FileState, &str) -> Result<String, RulesError> + Send + 'static,
 ) -> Result<Model, RulesError> {
-    let (file, quota_axi, env, machine) = {
+    let (file, store, machine) = {
         let mut inner = state.lock();
         if inner.rotation_saving {
             return Err(RulesError::new("busy"));
         }
         inner.rotation_saving = true;
-        let paths = inner.claude_paths();
-        (paths.rotation_file(), inner.quota_axi(), paths.quota_axi_env(), inner.machine())
+        (inner.claude_paths().rotation_file(), inner.claude_store(), inner.machine())
     };
     reader::publish(app, state);
     let done = tauri::async_runtime::spawn_blocking(move || {
         let now = OffsetDateTime::now_utc();
         let text = text(&rotation::load(&file), &machine)?;
-        rotation::apply(&file, quota_axi.as_deref(), &env, &text, base.as_deref(), now)
-            .map_err(RulesError::from)
+        rotation::apply(&file, &text, base.as_deref(), now).map_err(RulesError::from)?;
+        // The Claude row shows the new rules at once.
+        Ok(quota::claude::own_now(&store, now))
     })
     .await
     .unwrap_or_else(|e| {
@@ -192,8 +191,10 @@ async fn write_here(
         let mut inner = state.lock();
         inner.rotation_saving = false;
         match done {
-            Ok(applied) => {
-                inner.store_claude(applied.report);
+            Ok(report) => {
+                if let Some(report) = report {
+                    inner.store_claude(report);
+                }
                 Ok(())
             }
             Err(e) => Err(e),

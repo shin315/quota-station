@@ -48,9 +48,9 @@ use crate::antigravity::switch::{How, Outcome as AgyOutcome};
 #[cfg(feature = "antigravity-accounts")]
 use crate::antigravity::watch;
 use crate::app_dir::AppDir;
-use crate::axi::{Response, SwapSlot};
 use crate::firstmate;
 use crate::local_time;
+use crate::quota::{Response, Slot};
 use crate::rotation::Rules;
 use crate::settings::PoolAlert;
 use crate::snapshot::{Role, Snapshot};
@@ -312,8 +312,7 @@ pub struct Facts<'a> {
     /// hours.
     pub offset: UtcOffset,
     pub claude: Option<&'a Response>,
-    /// The rotation file's rules, for a report without quota-axi's rotation
-    /// block.
+    /// The rotation file's rules, for a report without the rotation's keys.
     pub rules: Option<&'a Rules>,
     #[cfg(feature = "antigravity-accounts")]
     pub agy: Vec<AgyLogin>,
@@ -364,7 +363,7 @@ pub fn overwrite(app: &AppDir, running: Option<bool>) -> Option<Overwrite> {
     })
 }
 
-/// The pool rule on claude-swap's numbers, as Firstmate's watch counts.
+/// The pool rule on the accounts' numbers, as Firstmate's watch counts.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PoolCheck {
     pub dry: bool,
@@ -396,7 +395,7 @@ fn hours_of(text: &str) -> Option<(u8, u8)> {
     Some((from.trim().parse().ok()?, to.trim().parse().ok()?))
 }
 
-/// An `expire` time: RFC 3339 from quota-axi, local `2026-10-16T17:45`
+/// An `expire` time: RFC 3339 from the report, local `2026-10-16T17:45`
 /// from the rotation file.
 fn instant(text: &str) -> Option<OffsetDateTime> {
     parse_ts(text).or_else(|| local_time::instant(text))
@@ -416,8 +415,8 @@ pub fn pool_check(
     offset: UtcOffset,
 ) -> Option<PoolCheck> {
     let row = report.primary("claude")?;
-    let swap = row.claude_swap.as_ref().filter(|s| s.status == "ok")?;
-    let rotation = match row.claude_pool.as_ref().and_then(|p| p.rotation.as_ref()) {
+    let swap = row.claude_accounts.as_ref()?;
+    let rotation = match swap.rotation.as_ref() {
         Some(r) => Some((
             r.team.clone(),
             r.personal,
@@ -453,7 +452,7 @@ pub fn pool_check(
     };
     let (dry_at_most, room_at_least) =
         (f64::from(limits.dry_at_most), f64::from(limits.room_at_least));
-    let left = |s: &SwapSlot| {
+    let left = |s: &Slot| {
         if s.status == "reset_pending" {
             100.0
         } else {
@@ -461,7 +460,7 @@ pub fn pool_check(
         }
     };
     let active = swap.active_slot;
-    let usable: Vec<&SwapSlot> =
+    let usable: Vec<&Slot> =
         swap.slots.iter().filter(|s| !s.disabled && allowed.contains(&s.slot)).collect();
     let others: Vec<(u32, f64)> =
         usable.iter().filter(|s| Some(s.slot) != active).map(|s| (s.slot, left(s))).collect();
@@ -659,11 +658,11 @@ fn leaving_alerts(
     f: &Facts,
 ) -> Vec<Alert> {
     let now = f.now.unix_timestamp();
-    // quota-axi's rotation, else the rotation file this Mac reads, as for the pool.
+    // The report's rotation, else the rotation file this Mac reads, as for the pool.
     let expire: Vec<(u32, &str)> = match report
         .primary("claude")
-        .and_then(|r| r.claude_pool.as_ref())
-        .and_then(|p| p.rotation.as_ref())
+        .and_then(|r| r.claude_accounts.as_ref())
+        .and_then(|a| a.rotation.as_ref())
     {
         Some(r) => r.expire.iter().map(|e| (e.slot, e.at.as_str())).collect(),
         None => f
@@ -725,43 +724,14 @@ const CLAUDE_RELOGIN: &str = "Đăng nhập lại bằng claude-swap trong Termi
 
 fn login_alerts(report: &Response, names: &BTreeMap<u32, String>, f: &Facts) -> Vec<Alert> {
     let now = f.now.unix_timestamp();
-    let Some(swap) = report.primary("claude").and_then(|r| r.claude_swap.as_ref()) else {
+    let Some(list) = report.primary("claude").and_then(|r| r.claude_accounts.as_ref()) else {
         return Vec::new();
     };
-    if swap.status != "ok" {
-        return Vec::new();
-    }
     let mut out = Vec::new();
-    for slot in &swap.slots {
+    for slot in &list.slots {
         let name = name_of(names, slot.slot);
         let actions = vec![act("snooze", "Nhắc ngày mai"), act("dismiss", "Đã biết")];
-        let ends = slot.login_expires_at.as_deref().and_then(|t| parse_ts(t).map(|p| (t, p)));
-        if let Some((text, at)) = ends.filter(|(_, at)| at.unix_timestamp() - now <= LOGIN_WITHIN) {
-            let at = at.unix_timestamp();
-            let body = if at > now {
-                format!(
-                    "Đăng nhập hết hạn sau {} ({}). {CLAUDE_RELOGIN}",
-                    span(at - now),
-                    day(at, f.offset)
-                )
-            } else {
-                format!(
-                    "Đăng nhập đã hết hạn lúc {} {}. {CLAUDE_RELOGIN}",
-                    clock(at, f.offset),
-                    day(at, f.offset)
-                )
-            };
-            out.push(Alert {
-                key: format!("login:claude:{}:expires:{text}", slot.slot),
-                kind: Kind::Login,
-                tone: Tone::Warn,
-                title: format!("{name} cần đăng nhập lại"),
-                body,
-                actions,
-                at: now,
-                test: false,
-            });
-        } else if let Some(error) = slot.error.as_deref().and_then(relogin_code) {
+        if let Some(error) = slot.error.as_deref().and_then(relogin_code) {
             out.push(Alert {
                 key: format!("login:claude:{}:error:{error}", slot.slot),
                 kind: Kind::Login,
@@ -928,11 +898,8 @@ pub fn evaluate(memory: &mut Memory, facts: &Facts, switches: &Switches) -> Vec<
     let holding: BTreeSet<String> = found.iter().map(|a| a.key.clone()).collect();
     // A dead login whose error went away (logged in again) may come back
     // later under the same key; forget it, but only while the accounts are read.
-    let claude_read = facts
-        .claude
-        .and_then(|r| r.primary("claude"))
-        .and_then(|r| r.claude_swap.as_ref())
-        .is_some_and(|s| s.status == "ok");
+    let claude_read =
+        facts.claude.and_then(|r| r.primary("claude")).is_some_and(|r| r.claude_accounts.is_some());
     if claude_read {
         memory.sent.retain(|k, _| {
             !(k.starts_with("login:claude:") && k.contains(":error:")) || holding.contains(k)

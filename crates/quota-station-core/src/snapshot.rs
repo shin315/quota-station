@@ -5,17 +5,17 @@
 //! account on this Mac, Codex's ChatGPT account, the whole-rotation numbers,
 //! and how fresh they are.
 //!
-//! Built only from quota-axi's report. Numbers are never guessed: a window
-//! past its reset stays empty (`pending`) until the owner measures again.
+//! Built only from the app's own readings ([`crate::quota`]). Numbers are
+//! never guessed: a window past its reset stays empty (`pending`) until the
+//! owner measures again.
 
 use serde::Serialize;
 use time::OffsetDateTime;
 
-use crate::axi::{self, Provider, Response, Scope, SwapSlot, Window};
+use crate::quota::{AgyAccounts, Provider, Response, RoomPool, Scope, Slot, Window};
 use crate::time_util::{is_after, latest, parse_ts};
 
-/// A reading older than this is stale, as quota-axi, claude-swap and the
-/// `cswap-prefer-team` switcher all count it.
+/// A reading older than this is stale, as the rotation counts it.
 pub const STALE_AFTER_SECONDS: i64 = 900;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -43,8 +43,8 @@ pub struct Line {
     /// The window passed its reset after the reading: no number until the
     /// next reading, never an assumed 100 %.
     pub pending: bool,
-    /// `percent` is a lower bound: another window limits first, and quota-axi
-    /// reports only the tighter number for this account.
+    /// `percent` is a lower bound: another window limits first, and only the
+    /// tighter number is known for this account.
     pub at_least: bool,
 }
 
@@ -69,10 +69,10 @@ pub enum Role {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Source {
-    /// quota-axi's own live reading of the signed-in account.
+    /// The live reading of the signed-in account.
     Live,
-    ClaudeSwap,
-    Cockpit,
+    /// The app's own list of the accounts it keeps.
+    List,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -88,8 +88,8 @@ pub enum Membership {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Account {
-    /// claude-swap slot or Cockpit account number; 0 for the one account a
-    /// provider row reads when no sidecar lists the others.
+    /// The account's number in the app's list; 0 for the one account a
+    /// provider row reads when the app lists no others.
     pub number: u32,
     pub role: Role,
     pub active: bool,
@@ -100,10 +100,11 @@ pub struct Account {
     pub membership: Membership,
     /// A rotation end still ahead.
     pub leaves_at: Option<String>,
-    /// quota-axi's numbers: the tighter window only, when it reports one.
+    /// The effective numbers: the tighter window only, when that is all
+    /// the list knows.
     pub lines: Vec<Line>,
-    /// Every window on its own, from claude-swap's list (Claude) or the
-    /// app's own reading (Antigravity); empty when neither has the account.
+    /// Every window on its own, from the app's own readings; empty when it
+    /// has none of the account.
     /// Filled after the build (`detail`).
     pub windows: Vec<Line>,
     /// The account's email; filled only while the owner shows names, and
@@ -118,7 +119,7 @@ pub struct Account {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum PoolKind {
-    /// quota-axi counted the whole rotation.
+    /// The whole rotation was counted.
     Rotation,
     /// Only the signed-in account's own number.
     Active,
@@ -144,7 +145,7 @@ pub struct Pool {
     /// Accounts whose room comes back at `next_refill_at`.
     pub refills: Vec<u32>,
     pub exhausted: bool,
-    /// Why quota-axi kept the active account's numbers, when it said.
+    /// Why the active account's numbers stand for the rotation, when known.
     pub reason: Option<String>,
 }
 
@@ -177,11 +178,11 @@ impl Pool {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum SectionStatus {
-    /// The claude-swap or Cockpit account list was read.
+    /// The app's account list was read.
     Ok,
-    /// The provider row has no account list (no Cockpit on this Mac, or a
-    /// quota-axi without the `+cswap` fork): only the signed-in account.
-    NoSidecar,
+    /// The app lists no accounts of the provider here: only the signed-in
+    /// account.
+    Single,
     /// The account list could not be read; `reason` says why.
     Unavailable,
     /// The provider is not set up on this Mac.
@@ -194,10 +195,12 @@ pub enum SectionStatus {
 #[serde(rename_all = "camelCase")]
 pub struct Section {
     pub status: SectionStatus,
+    /// Why the list could not be read (`unavailable`), or why the one login
+    /// read gave no number (`single`).
     pub reason: Option<String>,
     pub accounts: Vec<Account>,
     pub pool: Pool,
-    /// When quota-axi wrote the report behind this section.
+    /// When the report behind this section was built.
     pub generated_at: Option<String>,
     /// The newest reading behind the accounts.
     pub newest_reading_at: Option<String>,
@@ -205,8 +208,8 @@ pub struct Section {
     pub stale: bool,
     /// The rotation's personal hours, `8-23`.
     pub personal_hours: Option<String>,
-    /// Who read the Antigravity accounts quota-axi lists: `quota-station`
-    /// (this app) or Cockpit Tools; none without that list.
+    /// `quota-station` when the Antigravity accounts are the app's own list;
+    /// none without that list.
     pub source: Option<String>,
 }
 
@@ -230,7 +233,7 @@ impl Section {
     }
 }
 
-/// Whether quota-axi may read Claude Code's Keychain item.
+/// Whether the app may read Claude Code's Keychain item.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Keychain {
@@ -251,8 +254,8 @@ pub struct Snapshot {
 }
 
 impl Snapshot {
-    /// Builds the snapshot from the last `--provider claude` and
-    /// `--provider agy` reports; either may be missing.
+    /// Builds the snapshot from the last Claude and Antigravity reports;
+    /// either may be missing.
     pub fn build(claude: Option<&Response>, agy: Option<&Response>) -> Self {
         let stamp = |mut section: Section, report: &Response| {
             section.generated_at = Some(report.generated_at.clone());
@@ -276,7 +279,7 @@ impl Snapshot {
         }
     }
 
-    /// Adds the last `--provider codex` report, when there is one.
+    /// Adds the last Codex report, when there is one.
     pub fn with_codex(mut self, report: Option<&Response>) -> Self {
         if let Some(report) = report {
             self.codex = codex_section(report);
@@ -297,8 +300,8 @@ fn reading(status: &str) -> Reading {
 
 fn keychain(row: &Provider) -> Keychain {
     let state = &row.state;
-    if state.reason.as_deref() == Some("keychain_access_required")
-        || state.error.as_deref() == Some("keychain_prompt_required")
+    if state.reason.as_deref() == Some(crate::quota::claude::ACCESS_REQUIRED)
+        || state.error.as_deref() == Some(crate::quota::claude::PROMPT_REQUIRED)
     {
         Keychain::Required
     } else if state.status == "fresh" {
@@ -316,55 +319,55 @@ fn claude_section(report: &Response) -> (Section, Keychain) {
     let now = parse_ts(&report.generated_at);
     let live = live_claude_lines(row);
     let live_at = row.state.refreshed_at.clone().unwrap_or_else(|| report.generated_at.clone());
-    let pool = row.claude_pool.as_ref();
-    let rotation = pool.and_then(|p| p.rotation.as_ref());
+    let accounts = row.claude_accounts.as_ref();
+    let rotation = accounts.and_then(|a| a.rotation.as_ref());
 
-    let mut section = match &row.claude_swap {
-        Some(swap) if swap.status == "ok" => {
+    let mut section = match accounts {
+        Some(list) => {
             let mut s = Section::empty(SectionStatus::Ok);
-            s.accounts = swap
+            s.accounts = list
                 .slots
                 .iter()
-                .map(|slot| swap_account(slot, rotation, live.as_ref(), &live_at, now))
+                .map(|slot| list_account(slot, rotation, live.as_ref(), &live_at, now))
                 .collect();
             s.accounts.sort_by_key(|a| a.number);
             s
         }
-        Some(swap) => {
-            let mut s = Section::empty(SectionStatus::Unavailable);
-            s.reason = swap.reason.clone();
-            s.accounts.extend(live_only_account(live.as_ref(), &live_at));
-            s
-        }
         None if row.not_set_up => Section::empty(SectionStatus::NotSetUp),
         None => {
-            let mut s = Section::empty(SectionStatus::NoSidecar);
-            s.accounts.extend(live_only_account(live.as_ref(), &live_at));
+            // The one login read: its last numbers, stale ones marked so.
+            let mut s = Section::empty(SectionStatus::Single);
+            s.accounts.extend(live_only_account(row, &live_at));
+            if s.accounts.is_empty() {
+                s.reason = row.state.error.clone();
+            }
             s
         }
     };
-    // The account quota-axi reads live has its windows from that reading.
+    // The account read live has its windows from that reading.
     for account in section.accounts.iter_mut().filter(|a| a.source == Source::Live) {
         account.windows = live_claude_windows(row);
     }
     section.personal_hours = rotation.and_then(|r| r.personal_hours.clone());
-    section.pool = match pool {
-        Some(p) if p.status == "pool" => rotation_pool(
-            p.scopes.iter().find(|s| s.scope == "all_models").or(p.scopes.first()),
-            p.members.len(),
-        ),
-        _ => active_pool(&section, pool.and_then(|p| p.reason.clone())),
+    section.pool = match accounts.and_then(|a| a.pool.as_ref()) {
+        Some(pool) => room_pool(pool),
+        None => active_pool(&section, accounts.and_then(|a| a.pool_reason.clone())),
     };
     finish(&mut section, now);
     (section, keychain)
 }
 
-/// The active slot's lines from quota-axi's own live reading, which is
-/// fresher than claude-swap's, as `quota-axi --tui` draws it.
+/// The active account's lines from the row's own reading: the tighter of
+/// the five-hour and weekly windows, and the Fable week on its own.
 fn live_claude_lines(row: &Provider) -> Option<Vec<Line>> {
     if row.state.status != "fresh" {
         return None;
     }
+    claude_lines(row)
+}
+
+/// The row's lines, however old its reading.
+fn claude_lines(row: &Provider) -> Option<Vec<Line>> {
     let find = |id: &str| row.windows.iter().find(|w| w.id == id && w.percent_remaining.is_some());
     let five = find("five_hour")?;
     let account: Vec<&Window> = [Some(five), find("seven_day")].into_iter().flatten().collect();
@@ -375,7 +378,7 @@ fn live_claude_lines(row: &Provider) -> Option<Vec<Line>> {
             LineKind::Session
         }
     })];
-    // The weekly Fable window itself, as the `--tui` fable column shows it.
+    // The weekly Fable window itself.
     if let Some(fable) = find("model:fable") {
         lines.push(Line {
             kind: LineKind::FableWeek,
@@ -430,9 +433,9 @@ fn tightest(windows: &[&Window], kind_of: impl Fn(&Window) -> LineKind) -> Line 
     }
 }
 
-fn swap_account(
-    slot: &SwapSlot,
-    rotation: Option<&axi::Rotation>,
+fn list_account(
+    slot: &Slot,
+    rotation: Option<&crate::quota::Rotation>,
     live: Option<&Vec<Line>>,
     live_at: &str,
     now: Option<OffsetDateTime>,
@@ -454,7 +457,7 @@ fn swap_account(
     let live = live.filter(|_| slot.active);
     let lines = match live {
         Some(lines) => lines.clone(),
-        None => swap_lines(slot),
+        None => slot_lines(slot),
     };
     Account {
         number: slot.slot,
@@ -467,7 +470,7 @@ fn swap_account(
         } else {
             slot.fetched_at.clone()
         },
-        source: if live.is_some() { Source::Live } else { Source::ClaudeSwap },
+        source: if live.is_some() { Source::Live } else { Source::List },
         membership,
         leaves_at,
         windows: Vec::new(),
@@ -477,7 +480,7 @@ fn swap_account(
     }
 }
 
-fn swap_lines(slot: &SwapSlot) -> Vec<Line> {
+fn slot_lines(slot: &Slot) -> Vec<Line> {
     let week = limited_by(slot.limited_by.as_deref(), "seven_day");
     let mut lines = vec![Line {
         kind: if week { LineKind::Week } else { LineKind::Session },
@@ -488,8 +491,8 @@ fn swap_lines(slot: &SwapSlot) -> Vec<Line> {
     }];
     if let Some(fable) = slot.scopes.iter().find(|s| s.scope == "model:fable") {
         let mut line = scope_line(fable, LineKind::FableWeek);
-        // claude-swap's scope is the effective number: bounded by the account
-        // windows too. When the Fable window is not among the limits, its own
+        // The scope is the effective number: bounded by the account windows
+        // too. When the Fable window is not among the limits, its own
         // percent is only known to be at least that, and its reset is unknown.
         let fable_limits = limited_by(fable.limited_by.as_deref(), "model:fable");
         if line.percent.is_some() && !line.pending && !fable_limits {
@@ -515,15 +518,15 @@ fn scope_line(scope: &Scope, kind: LineKind) -> Line {
     }
 }
 
-/// The one account a provider row measures, when no sidecar lists accounts.
-fn live_only_account(lines: Option<&Vec<Line>>, live_at: &str) -> Option<Account> {
-    let lines = lines?.clone();
+/// The one account a provider row measures, when the app lists no others.
+fn live_only_account(row: &Provider, live_at: &str) -> Option<Account> {
+    let lines = claude_lines(row)?;
     Some(Account {
         number: 0,
         role: Role::Unknown,
         active: true,
         disabled: false,
-        reading: Reading::Fresh,
+        reading: reading(&row.state.status),
         fetched_at: Some(live_at.to_string()),
         source: Source::Live,
         membership: Membership::Unknown,
@@ -540,77 +543,66 @@ fn agy_section(report: &Response) -> Section {
         return Section::empty(SectionStatus::NotSetUp);
     };
     let now = parse_ts(&report.generated_at);
-    let mut section = match &row.cockpit {
-        Some(cockpit) if cockpit.status == "ok" => {
-            let mut s = Section::empty(SectionStatus::Ok);
-            s.accounts = cockpit
-                .accounts
-                .iter()
-                .map(|a| Account {
-                    number: a.account,
-                    role: Role::Unknown,
-                    active: a.active,
-                    disabled: false,
-                    reading: reading(&a.status),
-                    fetched_at: a.fetched_at.clone(),
-                    source: Source::Cockpit,
-                    membership: Membership::Unknown,
-                    leaves_at: None,
-                    windows: Vec::new(),
-                    email: None,
-                    org: None,
-                    lines: [("gemini", LineKind::Gemini), ("claude_gpt", LineKind::ClaudeGpt)]
-                        .into_iter()
-                        .filter_map(|(id, kind)| {
-                            a.scopes.iter().find(|s| s.scope == id).map(|s| scope_line(s, kind))
-                        })
-                        .collect(),
-                })
-                .collect();
-            s.accounts.sort_by_key(|a| a.number);
-            // The account in use has its four windows from the live row.
-            for account in s.accounts.iter_mut().filter(|a| a.active) {
-                account.windows = agy_live_windows(row);
-            }
-            s.source = cockpit.source.clone();
-            s
-        }
-        Some(cockpit) => {
+    let mut section = match &row.agy_accounts {
+        Some(list) if list.status == "ok" => listed_agy(row, list),
+        Some(list) => {
             let mut s = Section::empty(SectionStatus::Unavailable);
-            s.reason = cockpit.reason.clone();
-            s.source = cockpit.source.clone();
+            s.reason = list.reason.clone();
+            s.source = Some(LIST_SOURCE.into());
             s.accounts.extend(live_agy_account(row, &report.generated_at));
             s
         }
         None if row.not_set_up => Section::empty(SectionStatus::NotSetUp),
         None => {
-            let mut s = Section::empty(SectionStatus::NoSidecar);
+            let mut s = Section::empty(SectionStatus::Single);
             s.accounts.extend(live_agy_account(row, &report.generated_at));
+            if s.accounts.is_empty() {
+                s.reason = row.state.error.clone();
+            }
             s
         }
     };
-    section.pool = match &row.agy_pool {
-        Some(p) if p.status == "pool" => {
-            let scope = p.rotation.as_ref().map(|r| r.scope.as_str());
-            let found =
-                p.scopes.iter().find(|s| Some(s.scope.as_str()) == scope).or(p.scopes.first());
-            let mut pool = Pool::none();
-            if let Some(s) = found {
-                pool = room_pool(
-                    &s.scope,
-                    s.accounts_of_room,
-                    s.effective_percent_remaining,
-                    p.members.len(),
-                    s.next_refill_at.clone(),
-                    &s.accounts,
-                );
-            }
-            pool
-        }
-        other => agy_active_pool(row, &section, other.as_ref().and_then(|p| p.reason.clone())),
-    };
+    section.pool = agy_active_pool(row, &section, None);
     finish(&mut section, now);
     section
+}
+
+/// [`Section::source`] of the app's own Antigravity list.
+pub const LIST_SOURCE: &str = "quota-station";
+
+fn listed_agy(row: &Provider, list: &AgyAccounts) -> Section {
+    let mut s = Section::empty(SectionStatus::Ok);
+    s.accounts = list
+        .accounts
+        .iter()
+        .map(|a| Account {
+            number: a.account,
+            role: Role::Unknown,
+            active: a.active,
+            disabled: false,
+            reading: reading(&a.status),
+            fetched_at: a.fetched_at.clone(),
+            source: Source::List,
+            membership: Membership::Unknown,
+            leaves_at: None,
+            windows: Vec::new(),
+            email: None,
+            org: None,
+            lines: [("gemini", LineKind::Gemini), ("claude_gpt", LineKind::ClaudeGpt)]
+                .into_iter()
+                .filter_map(|(id, kind)| {
+                    a.scopes.iter().find(|s| s.scope == id).map(|s| scope_line(s, kind))
+                })
+                .collect(),
+        })
+        .collect();
+    s.accounts.sort_by_key(|a| a.number);
+    // The account in use has its four windows from the live row.
+    for account in s.accounts.iter_mut().filter(|a| a.active) {
+        account.windows = agy_live_windows(row);
+    }
+    s.source = Some(LIST_SOURCE.into());
+    s
 }
 
 /// The live `agy` row's four windows, each on its own.
@@ -669,8 +661,8 @@ fn live_agy_account(row: &Provider, generated_at: &str) -> Option<Account> {
     })
 }
 
-/// Codex's own login (`codex-home`) when quota-axi reads several: the one
-/// Codex itself signs in with. Its five-hour and weekly windows.
+/// Codex's own login (`codex-home`): the one Codex itself signs in with.
+/// Its five-hour and weekly windows.
 fn codex_section(report: &Response) -> Section {
     let mut rows = report.providers.iter().filter(|p| p.provider == "codex");
     let first = rows.clone().next();
@@ -725,47 +717,34 @@ fn codex_section(report: &Response) -> Section {
     section
 }
 
-fn rotation_pool(scope: Option<&axi::ClaudePoolScope>, members: usize) -> Pool {
-    let Some(s) = scope else { return Pool::none() };
-    room_pool(
-        &s.scope,
-        s.slots_of_room,
-        s.effective_percent_remaining,
-        members,
-        s.next_refill_at.clone(),
-        &s.slots,
-    )
-}
-
-fn room_pool(
-    scope: &str,
-    room: f64,
-    effective: f64,
-    members: usize,
-    next_refill_at: Option<String>,
-    counted: &[axi::RoomSlot],
-) -> Pool {
-    let members = u32::try_from(members).unwrap_or(u32::MAX);
+fn room_pool(pool: &RoomPool) -> Pool {
+    let members = pool.members;
+    let room = pool.slots_of_room;
     let percent =
         if members == 0 { 0.0 } else { (room / f64::from(members) * 100.0).clamp(0.0, 100.0) };
-    let mut refills: Vec<u32> = counted
+    let next_refill_at = pool.next_refill_at.clone();
+    let mut refills: Vec<u32> = pool
+        .slots
         .iter()
         .filter(|r| next_refill_at.is_some() && r.refill_at == next_refill_at)
         .map(|r| r.slot)
         .collect();
     refills.sort_unstable();
-    let rooms = counted.iter().map(|r| Room { number: r.slot, percent: r.room_percent }).collect();
     Pool {
         kind: PoolKind::Rotation,
         room: Some(room),
         percent: Some(percent),
         line: None,
-        scope: Some(scope.to_string()),
+        scope: Some(pool.scope.clone()),
         members,
-        rooms,
+        rooms: pool
+            .slots
+            .iter()
+            .map(|r| Room { number: r.slot, percent: r.room_percent })
+            .collect(),
         next_refill_at,
         refills,
-        exhausted: effective <= 0.0,
+        exhausted: pool.effective_percent_remaining <= 0.0,
         reason: None,
     }
 }
@@ -788,8 +767,7 @@ fn active_pool(section: &Section, reason: Option<String>) -> Pool {
     }
 }
 
-/// Antigravity's signed-in account: quota-axi's effective Gemini number, the
-/// scope the agy switcher keeps room in by default.
+/// Antigravity's signed-in account: its effective Gemini number.
 fn agy_active_pool(row: &Provider, section: &Section, reason: Option<String>) -> Pool {
     let gemini = row
         .quota_semantics

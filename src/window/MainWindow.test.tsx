@@ -5,7 +5,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MainWindowApp } from '../App';
 import { fakeApi, fakeEmail, hideNames } from '../fixtures/fakeApi';
-import { agyAccount, agyFixture, claudeAccountsFixture, failing, FIXTURE_NOW, fixtureModel, heldSwitcher, switcherFixture } from '../fixtures/models';
+import { agyAccount, agyFixture, claudeAccountsFixture, FIXTURE_NOW, fixtureModel, heldSwitcher, switcherFixture } from '../fixtures/models';
 import type { Api } from '../lib/api';
 import type { Model, Tab } from '../lib/model';
 
@@ -81,13 +81,13 @@ describe('main window', () => {
     expect(screen.getByText('Sắp tới')).toBeTruthy();
     expect(screen.getByText('lan.acme1 rời vòng')).toBeTruthy();
 
-    // Every Claude account but the active one switches; Antigravity only once quota-axi lists the app's accounts.
+    // Every Claude account but the active one switches; Antigravity only once the app's account list is read.
     for (const name of ['lanpham.dev', 'lan.acme2', 'lan.acme3']) {
       expect((screen.getByRole('button', { name: 'Chuyển sang ' + name }) as HTMLButtonElement).disabled).toBe(false);
     }
     const ultra = screen.getByRole('button', { name: 'Chuyển sang lanpham.ultra' }) as HTMLButtonElement;
     expect(ultra.disabled).toBe(true);
-    expect(ultra.title).toBe('Chưa chuyển được: quota-axi chưa liệt kê tài khoản của Quota Station');
+    expect(ultra.title).toBe('Chưa chuyển được: chưa đọc được danh sách tài khoản của Quota Station');
     expect(screen.queryByRole('button', { name: 'Chuyển sang lan.acme1' })).toBeNull();
   });
 
@@ -178,7 +178,7 @@ describe('main window', () => {
     expect(screen.queryByText('4 tài khoản Quota Station')).toBeNull();
   });
 
-  it('the Antigravity tab merges the app’s logins into its table, with no Cockpit card', async () => {
+  it('the Antigravity tab merges the app’s logins into its table', async () => {
     const logins = agyFixture({ accounts: [1, 2].map((n) => agyAccount(n, { email: fakeEmail(n) })) });
     const model = fixtureModel('fresh', { antigravity: logins, agySwitch: { busy: null, listed: true, overwritten: null } });
     const fake = await open(model, 'agy');
@@ -206,18 +206,14 @@ describe('main window', () => {
     expect(fake.api.agyLogout).toHaveBeenCalledTimes(1);
   });
 
-  it('a Cockpit Tools Mac keeps its Cockpit card and a short list of the app’s logins', async () => {
-    const model = fixtureModel('cockpit', { antigravity: agyFixture({ accounts: [agyAccount(1), agyAccount(2)] }) });
-    model.snapshot.agy.source = 'cockpit';
-    await open(model, 'agy');
-    expect(screen.getByText('Cockpit Tools', { selector: 'h4' })).toBeTruthy();
-    expect(screen.getByText('đang chạy')).toBeTruthy();
-    // Logins quota-axi does not list stay under the table.
+  it('while the app’s account list is not read, its logins stay in a short list under the table', async () => {
+    await open(fixtureModel('unavailable', { antigravity: agyFixture({ accounts: [agyAccount(1), agyAccount(2)] }) }), 'agy');
+    expect(screen.getByText('Không đọc được danh sách tài khoản')).toBeTruthy();
     expect(within(screen.getByRole('list', { name: 'Tài khoản đăng nhập trong app' })).getAllByRole('listitem')).toHaveLength(2);
   });
 
   it('a Mac without an account list or without Antigravity says so on the Antigravity tab', async () => {
-    await open(fixtureModel('no-cockpit'), 'agy');
+    await open(fixtureModel('single'), 'agy');
     expect(screen.getByText('Chỉ thấy tài khoản đang dùng')).toBeTruthy();
     expect(within(screen.getByRole('list', { name: 'Antigravity' })).getAllByRole('listitem')).toHaveLength(1);
     cleanup();
@@ -253,23 +249,6 @@ describe('main window', () => {
     act(() => vi.advanceTimersByTime(200));
     expect(screen.queryByText('Đã làm mới')).toBeNull();
     vi.useRealTimers();
-  });
-
-  it('quota-axi missing points to the settings tab and keeps the last numbers', async () => {
-    const fake = await open(fixtureModel('fresh', { errors: failing('notFound') }));
-    expect(screen.getByText('Mac mini · không đọc được số')).toBeTruthy();
-    // Đang dùng shows no old number as a new one.
-    expect(screen.getAllByText('không đọc được số').length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByRole('button', { name: 'Chọn đường dẫn…' }));
-    expect(heading()).toBe('Cài đặt');
-    expect(fake.api.openWindow).not.toHaveBeenCalled();
-  });
-
-  it('the Antigravity tab says quota-axi is not running', async () => {
-    await open(fixtureModel('fresh', { errors: failing('notFound') }), 'agy');
-    expect(screen.getByText('Không chạy được quota-axi')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Chọn đường dẫn…' }));
-    expect(heading()).toBe('Cài đặt');
   });
 
   it('follows the reader like the popover does', async () => {
@@ -443,7 +422,7 @@ describe('switching Claude and pausing from the main window', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('Antigravity rows do not switch while quota-axi does not list the app\'s accounts', async () => {
+  it('Antigravity rows do not switch while the app\'s account list is not read', async () => {
     await open(fixtureModel('fresh'), 'agy');
     for (const b of screen.getAllByRole('button', { name: /^Chuyển sang / })) {
       expect((b as HTMLButtonElement).disabled).toBe(true);
