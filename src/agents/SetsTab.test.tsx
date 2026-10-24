@@ -41,7 +41,7 @@ afterEach(cleanup);
 describe('the Bộ cấu hình tab', () => {
   it('lists the sets, the one in use and how far it drifted, with the title row dragging the window', async () => {
     const fake = await openTab();
-    const nav = screen.getByRole('navigation', { name: 'Mục' });
+    const nav = screen.getByRole('navigation', { name: 'Các tab' });
     expect(within(nav).getByRole('button', { name: 'Bộ cấu hình' }).getAttribute('aria-current')).toBe('page');
     expect(screen.getByRole('heading', { level: 2 }).parentElement!.getAttribute('data-tauri-drag-region')).toBe('deep');
     // Opening the tab reads the tables the editor lists and the drift needs.

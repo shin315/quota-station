@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { Empty, LABEL, rowClass, TabHead, TabSub, TabTitle } from '../components/page';
 import { Banner, Button, Chip, Dot, Facts, Feedback, FieldHint, KVT, LinkButton, Spinner } from '../components/parts';
 import { clock, pad } from '../lib/format';
+import { t } from '../lib/i18n';
 import type { AuthorModel } from '../lib/author';
 import type { Rules } from '../lib/model';
 import { compareRows, localLine, macsWord, markLeft, peerLine, rotationBanner, ruleEmails, rulesProblem, slotsOf } from '../lib/rules';
@@ -47,7 +48,7 @@ function defaultEnd(now: Date): string {
 }
 
 function Changed({ on }: { on: boolean }) {
-  return on ? <span className="font-semi text-accent-ink"> · đã đổi</span> : null;
+  return on ? <span className="font-semi text-accent-ink">{t(' · đã đổi', ' · changed')}</span> : null;
 }
 
 /** An account to pick: a chip with its place in the round, blue once picked. */
@@ -125,7 +126,7 @@ function Editor({ model, rules: st, now }: { model: AuthorModel; rules: RulesSta
     <div className="form grid">
       <div className={rowClass(teamChanged)}>
         <div className={LABEL} id="qs-r-team">
-          Team trong vòng
+          {t('Team trong vòng', 'Team in rotation')}
           <Changed on={teamChanged} />
         </div>
         <div>
@@ -140,7 +141,7 @@ function Editor({ model, rules: st, now }: { model: AuthorModel; rules: RulesSta
                     type="button"
                     className={PICK}
                     aria-pressed={i >= 0}
-                    title={emailOf(n) || 'tài khoản ' + n}
+                    title={emailOf(n) || t('tài khoản ', 'account ') + n}
                     disabled={disabled}
                     onClick={() => st.edit((d) => (d.team = i >= 0 ? d.team.filter((x) => x !== n) : [...d.team, n]))}
                   >
@@ -148,18 +149,18 @@ function Editor({ model, rules: st, now }: { model: AuthorModel; rules: RulesSta
                       {i >= 0 ? i + 1 : ''}
                     </span>
                     {nameOf(n)}
-                    {i >= 0 ? <span className="sr-only">, thứ tự {i + 1}</span> : null}
+                    {i >= 0 ? <span className="sr-only">{t(', thứ tự ', ', priority ') + (i + 1)}</span> : null}
                   </button>
                 );
               })}
           </div>
-          {!r.team.length ? <FieldHint tone="bad">Chọn ít nhất một tài khoản Team.</FieldHint> : null}
+          {!r.team.length ? <FieldHint tone="bad">{t('Chọn ít nhất một tài khoản Team.', 'Pick at least one Team account.')}</FieldHint> : null}
         </div>
       </div>
 
       <div className={rowClass(persChanged)}>
         <div className={LABEL} id="qs-r-pers">
-          Cá nhân
+          {t('Cá nhân', 'Personal')}
           <Changed on={persChanged} />
         </div>
         <div>
@@ -175,7 +176,7 @@ function Editor({ model, rules: st, now }: { model: AuthorModel; rules: RulesSta
                     type="button"
                     className={PICK}
                     aria-pressed={on}
-                    title={emailOf(n) || 'tài khoản ' + n}
+                    title={emailOf(n) || t('tài khoản ', 'account ') + n}
                     disabled={disabled}
                     onClick={() => st.edit((d) => (d.personal = on ? null : n))}
                   >
@@ -183,65 +184,65 @@ function Editor({ model, rules: st, now }: { model: AuthorModel; rules: RulesSta
                       {on ? '✓' : ''}
                     </span>
                     {nameOf(n)}
-                    {on ? <span className="sr-only">, trong vòng</span> : null}
+                    {on ? <span className="sr-only">{t(', trong vòng', ', in rotation')}</span> : null}
                   </button>
                 );
               })}
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-            <span>Từ</span>
+            <span>{t('Từ', 'From')}</span>
             <HourSelect
               value={r.personalFrom}
               from={0}
               to={23}
-              label="Giờ bắt đầu dùng tài khoản cá nhân"
+              label={t('Giờ bắt đầu dùng tài khoản cá nhân', 'Personal account start hour')}
               disabled={disabled}
               onChange={(v) => st.edit((d) => (d.personalFrom = v))}
             />
-            <span>đến</span>
+            <span>{t('đến', 'to')}</span>
             <HourSelect
               value={endHour}
               from={1}
               to={24}
-              label="Giờ kết thúc dùng tài khoản cá nhân"
+              label={t('Giờ kết thúc dùng tài khoản cá nhân', 'Personal account end hour')}
               disabled={disabled}
               onChange={(v) => st.edit((d) => (d.personalTo = v - 1))}
             />
-            <span className="text-ink2">mỗi ngày</span>
+            <span className="text-ink2">{t('mỗi ngày', 'every day')}</span>
           </div>
           <div className="relative mt-2 h-2 rounded-[4px] bg-track" aria-hidden="true">
             <i className="absolute inset-y-0 rounded-[4px] bg-accent" style={{ left: ((r.personalFrom / 24) * 100).toFixed(1) + '%', width: ((Math.max(endHour - r.personalFrom, 0) / 24) * 100).toFixed(1) + '%' }} />
             <em className="absolute -top-0.5 h-3 w-0.5 rounded-[1px] bg-ink" style={{ left: ((nowMin / 1440) * 100).toFixed(1) + '%' }} />
           </div>
           <div className="mt-[3px] flex justify-between text-cap text-ink3 tabular-nums" aria-hidden="true">
-            {[0, 6, 12, 18, 24].map((t) => (
-              <span key={t}>{t}</span>
+            {[0, 6, 12, 18, 24].map((h) => (
+              <span key={h}>{h}</span>
             ))}
           </div>
-          {hoursBad ? <FieldHint tone="bad">Giờ kết thúc phải sau giờ bắt đầu.</FieldHint> : null}
-          {!r.personal ? <FieldHint>Không có tài khoản cá nhân: switcher chỉ dùng các tài khoản Team.</FieldHint> : null}
+          {hoursBad ? <FieldHint tone="bad">{t('Giờ kết thúc phải sau giờ bắt đầu.', 'The end hour must come after the start hour.')}</FieldHint> : null}
+          {!r.personal ? <FieldHint>{t('Không có tài khoản cá nhân: switcher chỉ dùng các tài khoản Team.', 'No personal account: the switcher uses only Team accounts.')}</FieldHint> : null}
         </div>
       </div>
 
       <div className={rowClass(r.full !== sv.full)}>
         <div className={LABEL}>
-          Chuyển khi 5 giờ đã dùng
+          {t('Chuyển khi 5 giờ đã dùng', 'Switch when 5-hour use reaches')}
           <Changed on={r.full !== sv.full} />
         </div>
-        <Slider id="full" disabled={disabled} value={r.full} label="Ngưỡng tự chuyển, phần trăm hạn mức 5 giờ đã dùng" onChange={(v) => st.edit((d) => (d.full = v))} />
+        <Slider id="full" disabled={disabled} value={r.full} label={t('Ngưỡng tự chuyển, phần trăm hạn mức 5 giờ đã dùng', 'Auto-switch threshold, percent of the 5-hour quota used')} onChange={(v) => st.edit((d) => (d.full = v))} />
       </div>
 
       <div className={rowClass(r.fableFull !== sv.fableFull)}>
         <div className={LABEL}>
-          Bỏ qua khi Fable tuần đã dùng
+          {t('Bỏ qua khi Fable tuần đã dùng', 'Skip when Fable week use reaches')}
           <Changed on={r.fableFull !== sv.fableFull} />
         </div>
-        <Slider id="fable" disabled={disabled} value={r.fableFull} label="Ngưỡng Fable tuần, phần trăm đã dùng" onChange={(v) => st.edit((d) => (d.fableFull = v))} />
+        <Slider id="fable" disabled={disabled} value={r.fableFull} label={t('Ngưỡng Fable tuần, phần trăm đã dùng', 'Fable week threshold, percent used')} onChange={(v) => st.edit((d) => (d.fableFull = v))} />
       </div>
 
       <div className={rowClass(expChanged)}>
         <div className={LABEL}>
-          Giờ rời vòng
+          {t('Giờ rời vòng', 'Leaves rotation at')}
           <Changed on={expChanged} />
         </div>
         <div>
@@ -257,7 +258,7 @@ function Editor({ model, rules: st, now }: { model: AuthorModel; rules: RulesSta
                         type="datetime-local"
                         className="w-[196px]"
                         value={localInput(e.at)}
-                        aria-label={'Giờ rời vòng của ' + nameOf(n)}
+                        aria-label={t('Giờ rời vòng của ' + nameOf(n), 'When ' + nameOf(n) + ' leaves rotation')}
                         disabled={disabled}
                         onChange={(ev) => {
                           const v = ev.target.value;
@@ -265,18 +266,18 @@ function Editor({ model, rules: st, now }: { model: AuthorModel; rules: RulesSta
                         }}
                       />{' '}
                       <LinkButton disabled={disabled} onClick={() => st.edit((d) => (d.expire = d.expire.filter((x) => x.slot !== n)))}>
-                        Bỏ
+                        {t('Bỏ', 'Clear')}
                       </LinkButton>
                     </>
                   ) : (
                     <>
-                      <span className="text-ink2">Chưa đặt giờ rời vòng</span>{' '}
+                      <span className="text-ink2">{t('Chưa đặt giờ rời vòng', 'No leave time set')}</span>{' '}
                       <LinkButton
-                        aria-label={'Đặt giờ rời vòng cho ' + nameOf(n)}
+                        aria-label={t('Đặt giờ rời vòng cho ' + nameOf(n), 'Set when ' + nameOf(n) + ' leaves rotation')}
                         disabled={disabled}
                         onClick={() => st.edit((d) => (d.expire = [...d.expire, { slot: n, at: defaultEnd(now) }].sort((a, b) => a.slot - b.slot)))}
                       >
-                        Đặt giờ
+                        {t('Đặt giờ', 'Set time')}
                       </LinkButton>
                     </>
                   )}
@@ -288,21 +289,23 @@ function Editor({ model, rules: st, now }: { model: AuthorModel; rules: RulesSta
       </div>
 
       <div className={rowClass(false)}>
-        <div className={LABEL}>Xem trước</div>
+        <div className={LABEL}>{t('Xem trước', 'Preview')}</div>
         <div className="preview rounded-[8px] bg-fill px-2.5 py-2 text-sm [&_b]:font-semi" aria-live="polite" title={st.preview?.kind === 'ok' ? st.preview.raw : undefined}>
           {st.preview?.kind === 'ok' ? (
             <b>{st.preview.text}</b>
           ) : st.preview?.kind === 'error' ? (
             <span>{st.preview.text}</span>
           ) : st.preview?.kind === 'loading' ? (
-            <span>Đang hỏi switcher…</span>
+            <span>{t('Đang hỏi switcher…', 'Asking the switcher…')}</span>
           ) : (
-            <span>{rulesProblem(r) ? 'Sửa luật cho hợp lệ để xem trước.' : '—'}</span>
+            <span>{rulesProblem(r) ? t('Sửa luật cho hợp lệ để xem trước.', 'Fix the rules to see a preview.') : '—'}</span>
           )}
         </div>
       </div>
       {model.rotation.ignoredKeys.length ? (
-        <CardText className="mt-2 mb-0">Giữ nguyên các khoá khác trong file: {model.rotation.ignoredKeys.join(', ')}.</CardText>
+        <CardText className="mt-2 mb-0">
+          {t('Giữ nguyên các khoá khác trong file: ', 'Other keys in the file stay as they are: ') + model.rotation.ignoredKeys.join(', ') + '.'}
+        </CardText>
       ) : null}
     </div>
   );
@@ -315,7 +318,7 @@ function SaveBar({ model, rules: st }: { model: AuthorModel; rules: RulesState }
   const canSave = !!st.current && !problem && (st.dirty || model.rotation.status === 'invalid') && !st.stale;
   return (
     <div className="flex flex-wrap items-center gap-2.5 border-t-[.5px] border-card-line pt-2.5">
-      <div className="grid gap-1.5" aria-label="Các Mac">
+      <div className="grid gap-1.5" aria-label={t('Các Mac', 'Macs')}>
         {macs.map((m) => (
           <div className="flex items-center gap-2 text-sm" key={m.name} title={m.title || undefined}>
             <Dot tone={m.tone} />
@@ -324,21 +327,21 @@ function SaveBar({ model, rules: st }: { model: AuthorModel; rules: RulesState }
         ))}
       </div>
       <span className="min-w-[160px] flex-1 text-sm text-ink2" aria-live="polite">
-        {st.dirty ? 'Có ' + st.changes.length + ' thay đổi chưa lưu.' : ''}
+        {st.dirty ? t('Có ' + st.changes.length + ' thay đổi chưa lưu.', st.changes.length === 1 ? '1 unsaved change.' : st.changes.length + ' unsaved changes.') : ''}
       </span>
       {st.dirty ? (
         <Button large disabled={st.working != null} onClick={st.revert}>
-          Huỷ thay đổi
+          {t('Huỷ thay đổi', 'Discard changes')}
         </Button>
       ) : null}
       {st.working === 'save' ? (
         <span className={cn(buttonVariants({ variant: 'primary', size: 'lg' }), 'inline-flex items-center gap-1.5')} role="status">
           <Spinner className="border-t-white" />
-          Đang lưu…
+          {t('Đang lưu…', 'Saving…')}
         </span>
       ) : (
         <Button large primary disabled={!canSave || st.working != null} onClick={st.save}>
-          {'Lưu cho ' + macsWord(1 + peers.length)}
+          {t('Lưu cho ' + macsWord(1 + peers.length), 'Save for ' + macsWord(1 + peers.length))}
         </Button>
       )}
     </div>
@@ -350,7 +353,7 @@ export function RulesTab({ model, fresh, rules: st, feedback, now, onAction }: R
   return (
     <>
       <TabHead>
-        <TabTitle>Luật xoay vòng</TabTitle>
+        <TabTitle>{t('Luật xoay vòng', 'Rotation rules')}</TabTitle>
         <TabSub>
           <Dot tone={fresh.tone} />
           {model.machine} · {fresh.text}
@@ -363,7 +366,8 @@ export function RulesTab({ model, fresh, rules: st, feedback, now, onAction }: R
           <Editor model={model} rules={st} now={now} />
         ) : (
           <Empty>
-            <b>Chưa có luật để sửa</b>Tạo file từ mặc định của switcher rồi sửa và lưu cho các Mac.
+            <b>{t('Chưa có luật để sửa', 'No rules to edit yet')}</b>
+            {t('Tạo file từ mặc định của switcher rồi sửa và lưu cho các Mac.', 'Create the file from the switcher’s defaults, then edit it and save it for your Macs.')}
           </Empty>
         )}
         <SaveBar model={model} rules={st} />
@@ -384,20 +388,23 @@ export function CompareDialog({ model, rules: st, now }: { model: AuthorModel; r
   if (!peer || !mine || !peer.theirRules) {
     return (
       <>
-        <DialogTitle>So sánh hai bản luật</DialogTitle>
+        <DialogTitle>{t('So sánh hai bản luật', 'Compare the two copies of the rules')}</DialogTitle>
         <DialogLead>
           {peer && mine && conflict
-            ? 'App không đọc được bản trên ' + peer.name + ' nên không so sánh được. Giữ bản máy này để ghi đè nó (bản kia được sao lưu trên ' + peer.name + ').'
-            : 'Chưa có bản của Mac kia để so sánh. Bấm Thử lại rồi mở lại.'}
+            ? t(
+                'App không đọc được bản trên ' + peer.name + ' nên không so sánh được. Giữ bản máy này để ghi đè nó (bản kia được sao lưu trên ' + peer.name + ').',
+                'The app cannot read the copy on ' + peer.name + ', so it cannot compare them. Keep this Mac’s copy to overwrite it (that copy is backed up on ' + peer.name + ').',
+              )
+            : t('Chưa có bản của Mac kia để so sánh. Bấm Thử lại rồi mở lại.', 'There is no copy from the other Mac to compare yet. Press Try again, then open this again.')}
         </DialogLead>
         <DialogButtons>
           {peer && mine && conflict ? (
             <Button large onClick={() => void st.keep(peer.alias)}>
-              Giữ bản máy này
+              {t('Giữ bản máy này', 'Keep this Mac’s copy')}
             </Button>
           ) : null}
           <Button large primary onClick={st.closeCompare}>
-            Đóng
+            {t('Đóng', 'Close')}
           </Button>
         </DialogButtons>
       </>
@@ -405,17 +412,21 @@ export function CompareDialog({ model, rules: st, now }: { model: AuthorModel; r
   }
   const their = peer.state && (peer.state.kind === 'newer' || peer.state.kind === 'edited') ? peer.state.their : null;
   const rows = compareRows(mine, peer.theirRules, st.nameOf, now);
+  const savedAt = model.rotation.stamp ? clock(model.rotation.stamp.at) : '—';
   return (
     <>
-      <DialogTitle>So sánh hai bản luật</DialogTitle>
+      <DialogTitle>{t('So sánh hai bản luật', 'Compare the two copies of the rules')}</DialogTitle>
       <DialogLead>
-        Máy này lưu lúc {model.rotation.stamp ? clock(model.rotation.stamp.at) : '—'}. {their ? peer.name + ' lưu lúc ' + clock(their.at) + '.' : 'Bản trên ' + peer.name + ' không có dòng updated của app.'} App không tự gộp hai bản.
+        {t(
+          'Máy này lưu lúc ' + savedAt + '. ' + (their ? peer.name + ' lưu lúc ' + clock(their.at) + '.' : 'Bản trên ' + peer.name + ' không có dòng updated của app.') + ' App không tự gộp hai bản.',
+          'This Mac saved at ' + savedAt + '. ' + (their ? peer.name + ' saved at ' + clock(their.at) + '.' : 'The copy on ' + peer.name + ' has no updated line from the app.') + ' The app does not merge the two copies.',
+        )}
       </DialogLead>
       <table className="mt-0 mb-3 w-full border-collapse text-sm">
         <thead>
           <tr>
-            <th className={TH}>Mục</th>
-            <th className={TH}>Máy này</th>
+            <th className={TH}>{t('Mục', 'Item')}</th>
+            <th className={TH}>{t('Máy này', 'This Mac')}</th>
             <th className={TH}>{peer.name}</th>
           </tr>
         </thead>
@@ -427,7 +438,7 @@ export function CompareDialog({ model, rules: st, now }: { model: AuthorModel; r
                 {row.diff ? (
                   <>
                     {' '}
-                    <Chip chip={{ t: 'khác', k: 'warn' }} />
+                    <Chip chip={{ t: t('khác', 'differs'), k: 'warn' }} />
                   </>
                 ) : null}
               </td>
@@ -439,38 +450,38 @@ export function CompareDialog({ model, rules: st, now }: { model: AuthorModel; r
       </table>
       <DialogButtons>
         <Button large onClick={() => void st.keep(peer.alias)}>
-          Giữ bản máy này
+          {t('Giữ bản máy này', 'Keep this Mac’s copy')}
         </Button>
         <Button large primary onClick={() => void st.adopt(peer.alias)}>
-          {'Dùng bản trên ' + peer.name}
+          {t('Dùng bản trên ' + peer.name, 'Use the copy on ' + peer.name)}
         </Button>
       </DialogButtons>
     </>
   );
 }
 
-const LEAVE_TITLES = {
-  tab: 'Lưu thay đổi luật trước khi rời trang này?',
-  close: 'Lưu thay đổi luật trước khi đóng cửa sổ?',
-  quit: 'Lưu thay đổi luật trước khi thoát Quota Station?',
-} as const;
+function leaveTitle(kind: 'tab' | 'close' | 'quit'): string {
+  if (kind === 'close') return t('Lưu thay đổi luật trước khi đóng cửa sổ?', 'Save the rule changes before closing the window?');
+  if (kind === 'quit') return t('Lưu thay đổi luật trước khi thoát Quota Station?', 'Save the rule changes before quitting Quota Station?');
+  return t('Lưu thay đổi luật trước khi rời trang này?', 'Save the rule changes before leaving this page?');
+}
 
 /** Unsaved changes when leaving the tab, closing the window or quitting. */
 export function LeaveDialog({ rules: st, onAnswer }: { rules: RulesState; onAnswer(a: 'discard' | 'cancel' | 'save'): void }) {
   return (
     <>
-      <DialogTitle>{LEAVE_TITLES[st.leave?.kind ?? 'tab']}</DialogTitle>
+      <DialogTitle>{leaveTitle(st.leave?.kind ?? 'tab')}</DialogTitle>
       <Facts items={st.changes.map((c) => ({ k: '', text: c }))} />
-      <p className="mt-0 mb-3 text-sm text-ink2">Chưa lưu trên máy nào.</p>
+      <p className="mt-0 mb-3 text-sm text-ink2">{t('Chưa lưu trên máy nào.', 'Not saved on any Mac yet.')}</p>
       <DialogButtons>
         <Button large onClick={() => onAnswer('discard')}>
-          Bỏ thay đổi
+          {t('Bỏ thay đổi', 'Discard changes')}
         </Button>
         <Button large onClick={() => onAnswer('cancel')}>
-          Huỷ
+          {t('Huỷ', 'Cancel')}
         </Button>
         <Button large primary disabled={!!(st.current && rulesProblem(st.current))} onClick={() => onAnswer('save')}>
-          Lưu
+          {t('Lưu', 'Save')}
         </Button>
       </DialogButtons>
     </>

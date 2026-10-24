@@ -9,6 +9,7 @@
 // prototype (round 2: no folder paths, no "Keychain", no commands).
 
 import { clock } from './format';
+import { t } from './i18n';
 import { AGENT_NAME, AGENTS } from './mcp';
 import type {
   Agent,
@@ -29,44 +30,50 @@ import type { FeedbackView } from './view';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
+/** "3 keys", "1 key": a count with its English noun. */
+export const plural = (n: number, one: string, many: string): string => n + ' ' + (n === 1 ? one : many);
+
 /** "Hôm nay 14:30", "Hôm qua 22:05", "17/10 21:48". */
 export function packWhen(at: number | null, now: Date): string {
-  if (at == null) return 'Không rõ giờ';
+  if (at == null) return t('Không rõ giờ', 'Unknown time');
   const d = new Date(at * 1000);
   const iso = d.toISOString();
   const yesterday = new Date(now);
   yesterday.setDate(now.getDate() - 1);
-  if (d.toDateString() === now.toDateString()) return 'Hôm nay ' + clock(iso);
-  if (d.toDateString() === yesterday.toDateString()) return 'Hôm qua ' + clock(iso);
+  if (d.toDateString() === now.toDateString()) return t('Hôm nay ', 'Today ') + clock(iso);
+  if (d.toDateString() === yesterday.toDateString()) return t('Hôm qua ', 'Yesterday ') + clock(iso);
   return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + ' ' + clock(iso);
 }
 
 /** The same, inside a sentence: "gói hôm nay 14:30". */
 export const packWhenLower = (at: number | null, now: Date): string => {
-  const t = packWhen(at, now);
-  return t.charAt(0).toLowerCase() + t.slice(1);
+  const w = packWhen(at, now);
+  return w.charAt(0).toLowerCase() + w.slice(1);
 };
 
 /** What a pack holds, in one line. */
 export const packLine = (p: PackInfo): string => p.mcp + ' MCP';
 
-export const macOf = (p: PackInfo, here: string): string => p.mac ?? (p.mine ? here : 'Mac khác');
+export const macOf = (p: PackInfo, here: string): string => p.mac ?? (p.mine ? here : t('Mac khác', 'Another Mac'));
 
 /** A pack that can be opened and restored. */
 export const usable = (p: PackInfo): boolean => p.state === 'ok' && !p.newer;
 
 export function packNote(p: PackInfo): string | null {
-  if (p.state === 'cloud') return 'chưa tải về máy';
-  if (p.state === 'broken') return 'gói hỏng, không đọc được';
-  if (p.newer) return 'của bản app mới hơn';
+  if (p.state === 'cloud') return t('chưa tải về máy', 'not downloaded yet');
+  if (p.state === 'broken') return t('gói hỏng, không đọc được', 'damaged pack, cannot be read');
+  if (p.newer) return t('của bản app mới hơn', 'from a newer app version');
   return null;
 }
 
-export const keysLine = (n: number): string => (n ? 'Không chứa khoá. Khi khôi phục, app hỏi lại ' + n + ' khoá.' : 'Không chứa khoá. Gói này không cần dán khoá.');
+export const keysLine = (n: number): string =>
+  n
+    ? t('Không chứa khoá. Khi khôi phục, app hỏi lại ' + n + ' khoá.', 'No keys inside. On restore, the app asks for ' + plural(n, 'key', 'keys') + ' again.')
+    : t('Không chứa khoá. Gói này không cần dán khoá.', 'No keys inside. This pack needs no keys pasted.');
 
 function agentsText(agents: Agent[]): string {
   const sorted = AGENTS.filter((a) => agents.includes(a));
-  if (sorted.length === 3) return 'cả ba agent';
+  if (sorted.length === 3) return t('cả ba agent', 'all three agents');
   return sorted.map((a) => AGENT_NAME[a]).join(', ');
 }
 
@@ -74,14 +81,14 @@ export const itemKey = (i: { name: string; kind: string }): string => i.name + '
 
 /** The line under a server in the restore preview. */
 export function itemLine(i: RestoreItem): string {
-  if (i.kind === 'replace') return 'Máy này đã có, khác gói. Bỏ chọn là giữ bản trên máy.';
-  if (i.missingCommand) return 'Máy này chưa cài ' + i.missingCommand + ': thêm nhưng để tắt';
-  const parts = ['Thêm cho ' + agentsText(i.agents)];
-  if (i.off.length === i.agents.length) parts.push('để tắt như trong gói');
-  else if (i.off.length) parts.push('tắt ở ' + agentsText(i.off) + ' như trong gói');
-  if (i.keys.length) parts.push('cần dán khoá');
-  if (i.moved) parts.push('app tự chỉnh cho hợp máy này');
-  if (i.login) parts.push('sau đó đăng nhập lại trong agent nếu được hỏi');
+  if (i.kind === 'replace') return t('Máy này đã có, khác gói. Bỏ chọn là giữ bản trên máy.', 'This Mac has it, different from the pack. Untick to keep this Mac’s version.');
+  if (i.missingCommand) return t('Máy này chưa cài ' + i.missingCommand + ': thêm nhưng để tắt', i.missingCommand + ' is not installed on this Mac: added but left off');
+  const parts = [t('Thêm cho ' + agentsText(i.agents), 'Added for ' + agentsText(i.agents))];
+  if (i.off.length === i.agents.length) parts.push(t('để tắt như trong gói', 'left off as in the pack'));
+  else if (i.off.length) parts.push(t('tắt ở ' + agentsText(i.off) + ' như trong gói', 'off in ' + agentsText(i.off) + ' as in the pack'));
+  if (i.keys.length) parts.push(t('cần dán khoá', 'needs a key'));
+  if (i.moved) parts.push(t('app tự chỉnh cho hợp máy này', 'the app adjusts it for this Mac'));
+  if (i.login) parts.push(t('sau đó đăng nhập lại trong agent nếu được hỏi', 'then sign in again in the agent if asked'));
   return parts.join(' · ');
 }
 
@@ -89,11 +96,15 @@ export function itemLine(i: RestoreItem): string {
 export function skippedLines(plan: RestorePlan): string[] {
   const out: string[] = [];
   for (const a of AGENTS) {
-    if (plan.skipped.some((s) => s.agent === a && s.reason === 'absent')) out.push('Máy này chưa cài ' + AGENT_NAME[a] + ': bỏ qua phần của ' + AGENT_NAME[a] + '.');
-    if (plan.skipped.some((s) => s.agent === a && s.reason === 'readOnly')) out.push('Chưa ghi được vào ' + AGENT_NAME[a] + ' lúc này: bỏ qua phần của ' + AGENT_NAME[a] + '. Xem tab MCP.');
+    const name = AGENT_NAME[a];
+    if (plan.skipped.some((s) => s.agent === a && s.reason === 'absent'))
+      out.push(t('Máy này chưa cài ' + name + ': bỏ qua phần của ' + name + '.', name + ' is not installed on this Mac: skipping its part.'));
+    if (plan.skipped.some((s) => s.agent === a && s.reason === 'readOnly'))
+      out.push(t('Chưa ghi được vào ' + name + ' lúc này: bỏ qua phần của ' + name + '. Xem tab MCP.', 'Cannot write to ' + name + ' right now: skipping its part. See the MCP tab.'));
   }
   const sse = plan.skipped.filter((s) => s.reason === 'sse' && s.name).map((s) => s.name as string);
-  if (sse.length) out.push('Codex không chạy MCP kiểu SSE: ' + sse.join(', ') + ' chỉ khôi phục cho agent khác.');
+  if (sse.length)
+    out.push(t('Codex không chạy MCP kiểu SSE: ' + sse.join(', ') + ' chỉ khôi phục cho agent khác.', 'Codex does not run SSE MCP servers: ' + sse.join(', ') + ' is restored for the other agents only.'));
   return out;
 }
 
@@ -128,15 +139,15 @@ export function pluginGroups(plan: RestorePlan): { main: RestorePluginItem[]; of
 }
 
 export function initialTicks(plan: RestorePlan): Ticks {
-  const t: Ticks = Object.fromEntries(plan.items.map((i) => [itemKey(i), i.checked]));
+  const out: Ticks = Object.fromEntries(plan.items.map((i) => [itemKey(i), i.checked]));
   const sk = skillGroups(plan);
-  if (sk.github.length) t[SKILLS_GITHUB] = true;
-  if (sk.hand.length) t[SKILLS_HAND] = true;
+  if (sk.github.length) out[SKILLS_GITHUB] = true;
+  if (sk.hand.length) out[SKILLS_HAND] = true;
   const pl = pluginGroups(plan);
-  if (pl.main.length) t[PLUGINS] = true;
-  for (const p of pl.off) t[pluginKey(p)] = false;
-  for (const f of plan.files?.items ?? []) t[fileKey(f.path)] = f.checked;
-  return t;
+  if (pl.main.length) out[PLUGINS] = true;
+  for (const p of pl.off) out[pluginKey(p)] = false;
+  for (const f of plan.files?.items ?? []) out[fileKey(f.path)] = f.checked;
+  return out;
 }
 
 /** What the ticks ask of the skills, plugins and instruction files. */
@@ -160,7 +171,9 @@ export function anyTicked(plan: RestorePlan, ticks: Ticks): boolean {
 /** A few names, then how many more. */
 export function names(list: string[], max = 4): string {
   if (list.length <= max) return list.join(', ');
-  return list.slice(0, max - 1).join(', ') + ' và ' + (list.length - max + 1) + ' khác';
+  const head = list.slice(0, max - 1).join(', ');
+  const more = list.length - max + 1;
+  return t(head + ' và ' + more + ' khác', head + ' and ' + more + ' more');
 }
 
 const fileName = (path: string): string => path.split('/').pop() ?? path;
@@ -170,53 +183,76 @@ export function fileLabel(path: string, agent: Agent | null): string {
   const name = fileName(path);
   if (!agent) return name;
   const rule = agent === 'claude' && path.includes('/rules/');
-  return (rule ? 'quy tắc ' : '') + name + ' của ' + AGENT_NAME[agent];
+  return t((rule ? 'quy tắc ' : '') + name + ' của ' + AGENT_NAME[agent], (rule ? 'rule ' : '') + name + ' for ' + AGENT_NAME[agent]);
 }
 
-export const SKILL_TITLE = { github: (n: number) => n + ' skill từ GitHub', hand: (n: number) => n + ' skill cài tay' };
+export const SKILL_TITLE = {
+  github: (n: number) => t(n + ' skill từ GitHub', plural(n, 'skill', 'skills') + ' from GitHub'),
+  hand: (n: number) => t(n + ' skill cài tay', plural(n, 'skill', 'skills') + ' installed by hand'),
+};
 export const skillLine = (kind: 'github' | 'hand', items: RestoreSkillItem[]): string =>
-  (kind === 'github' ? 'Cài lại từ GitHub, bản mới nhất' : 'Chép từ gói') + ' · ' + names(items.map((i) => i.name));
+  (kind === 'github' ? t('Cài lại từ GitHub, bản mới nhất', 'Reinstalled from GitHub, latest version') : t('Chép từ gói', 'Copied from the pack')) +
+  ' · ' +
+  names(items.map((i) => i.name));
 
 /** Who installs the plugins: "Cài bằng chính Claude Code và Codex". */
 export function pluginLine(items: RestorePluginItem[]): string {
   const agents = AGENTS.filter((a) => items.some((i) => i.agent === a)).map((a) => AGENT_NAME[a]);
-  return 'Cài bằng chính ' + agents.join(' và ') + ' · ' + names(items.map((i) => i.id.split('@')[0]));
+  const list = names(items.map((i) => i.id.split('@')[0]));
+  return t('Cài bằng chính ' + agents.join(' và ') + ' · ' + list, 'Installed by ' + agents.join(' and ') + ' itself · ' + list);
 }
 
 export function fileLine(f: RestoreFileItem): string {
-  return f.kind === 'add' ? 'Máy này chưa có' : 'Khác ' + f.changed + ' dòng. Bỏ chọn là giữ bản trên máy.';
+  return f.kind === 'add'
+    ? t('Máy này chưa có', 'Not on this Mac yet')
+    : t('Khác ' + f.changed + ' dòng. Bỏ chọn là giữ bản trên máy.', plural(f.changed, 'line differs', 'lines differ') + '. Untick to keep this Mac’s version.');
 }
 
-const LEFT_OUT: Record<string, string> = {
-  key: 'có dòng giống khoá nên không có trong gói',
-  link: 'có liên kết tới chỗ khác nên không chép vào gói',
-  large: 'lớn quá nên không chép vào gói',
-  unreadable: 'không đọc được lúc sao lưu',
-  old: 'gói này cũ, chưa chép skill cài tay',
-};
+/** Why a skill copied by hand is not in the pack, by reason. */
+const leftOut = (): Record<string, string> => ({
+  key: t('có dòng giống khoá nên không có trong gói', 'a line looks like a key, so it is not in the pack'),
+  link: t('có liên kết tới chỗ khác nên không chép vào gói', 'links elsewhere, so it was not copied into the pack'),
+  large: t('lớn quá nên không chép vào gói', 'too large, so it was not copied into the pack'),
+  unreadable: t('không đọc được lúc sao lưu', 'could not be read during the backup'),
+  old: t('gói này cũ, chưa chép skill cài tay', 'this pack is older and has no skills installed by hand'),
+});
 
 /** What the skills, plugins and files of the preview leave out, said once each. */
 export function partNotes(plan: RestorePlan): string[] {
   const out: string[] = [];
   const sk = skillGroups(plan);
   const noNpx = sk.blocked.filter((i) => i.blocked === 'noNpx').map((i) => i.name);
-  if (noNpx.length) out.push('Máy này chưa có Node: chưa cài lại được ' + names(noNpx) + '. Cài Node rồi khôi phục lại.');
+  if (noNpx.length)
+    out.push(t('Máy này chưa có Node: chưa cài lại được ' + names(noNpx) + '. Cài Node rồi khôi phục lại.', 'Node is not installed on this Mac: cannot reinstall ' + names(noNpx) + '. Install Node, then restore again.'));
   const cloud = sk.blocked.filter((i) => i.blocked === 'cloud').map((i) => i.name);
-  if (cloud.length) out.push('iCloud Drive chưa tải về ' + names(cloud) + '. Mở thư mục gói trong Finder để tải.');
-  for (const [why, text] of Object.entries(LEFT_OUT)) {
+  if (cloud.length)
+    out.push(t('iCloud Drive chưa tải về ' + names(cloud) + '. Mở thư mục gói trong Finder để tải.', 'iCloud Drive has not downloaded ' + names(cloud) + ' yet. Open the pack folder in Finder to download.'));
+  for (const [why, text] of Object.entries(leftOut())) {
     const list = (plan.skills?.leftOut ?? []).filter((l) => l.why === why).map((l) => l.name);
-    if (list.length) out.push('Skill ' + names(list) + ' ' + text + '.');
+    if (list.length) out.push(t('Skill ' + names(list) + ' ' + text + '.', (list.length === 1 ? 'Skill ' : 'Skills ') + names(list) + ': ' + text + '.'));
   }
   for (const s of plan.plugins?.skipped ?? []) {
-    out.push(s.reason === 'noCli' ? 'Máy này chưa cài ' + AGENT_NAME[s.agent] + ': bỏ qua plugin của ' + AGENT_NAME[s.agent] + '.' : 'Chưa đọc được plugin của ' + AGENT_NAME[s.agent] + ' lúc này: bỏ qua.');
+    const name = AGENT_NAME[s.agent];
+    out.push(
+      s.reason === 'noCli'
+        ? t('Máy này chưa cài ' + name + ': bỏ qua plugin của ' + name + '.', name + ' is not installed on this Mac: skipping its plugins.')
+        : t('Chưa đọc được plugin của ' + name + ' lúc này: bỏ qua.', 'Cannot read ' + name + '’s plugins right now: skipped.'),
+    );
   }
   const noSource = pluginGroups(plan).blocked.map((p) => p.id);
-  if (noSource.length) out.push('Plugin ' + names(noSource) + ' lấy từ thư mục trên Mac kia: cài tay nếu cần.');
+  if (noSource.length)
+    out.push(
+      t(
+        'Plugin ' + names(noSource) + ' lấy từ thư mục trên Mac kia: cài tay nếu cần.',
+        (noSource.length === 1 ? 'Plugin ' : 'Plugins ') + names(noSource) + ' came from a folder on the other Mac: install by hand if needed.',
+      ),
+    );
   for (const k of plan.files?.kept ?? []) {
     const label = fileLabel(k.path, k.agent);
-    if (k.why === 'key') out.push(label + ' trên máy có dòng giống khoá nên app giữ nguyên.');
-    else if (k.why === 'absent' && k.agent) out.push('Máy này chưa cài ' + AGENT_NAME[k.agent] + ': bỏ qua ' + label + '.');
-    else out.push('Bỏ qua ' + label + '.');
+    if (k.why === 'key') out.push(t(label + ' trên máy có dòng giống khoá nên app giữ nguyên.', label + ' on this Mac has a line that looks like a key, so the app leaves it as is.'));
+    else if (k.why === 'absent' && k.agent)
+      out.push(t('Máy này chưa cài ' + AGENT_NAME[k.agent] + ': bỏ qua ' + label + '.', AGENT_NAME[k.agent] + ' is not installed on this Mac: skipping ' + label + '.'));
+    else out.push(t('Bỏ qua ' + label + '.', 'Skipping ' + label + '.'));
   }
   return out;
 }
@@ -234,35 +270,50 @@ export function keysFor(plan: RestorePlan, ticks: Ticks): RestorePlan['keys'] {
 /** One line of the result, with its tone: `''` done, `w` added off, `x` not written. */
 export function resultLine(r: RestoreItemResult): [string, string, string] {
   const n = r.done.length + r.kept.length;
+  const mcp = 'MCP ' + r.name;
+  const notWritten = t('chưa ghi được', 'not written');
+  const noKey = t('chưa có khoá', 'no key yet');
   if (r.kind === 'replace') {
-    if (r.done.length) return ['', 'MCP ' + r.name + ' · thay bằng bản trong gói', ''];
-    if (r.skipped) return ['w', 'MCP ' + r.name + ' · giữ bản trên máy', r.skipped === 'noKey' ? 'chưa có khoá' : 'máy chưa cài lệnh của nó'];
-    return ['x', 'MCP ' + r.name, 'chưa ghi được'];
+    if (r.done.length) return ['', t(mcp + ' · thay bằng bản trong gói', mcp + ' · replaced with the pack’s version'), ''];
+    if (r.skipped)
+      return ['w', t(mcp + ' · giữ bản trên máy', mcp + ' · kept this Mac’s version'), r.skipped === 'noKey' ? noKey : t('máy chưa cài lệnh của nó', 'its command is not installed')];
+    return ['x', mcp, notWritten];
   }
-  if (r.failed.length && !n) return ['x', 'MCP ' + r.name, 'chưa ghi được'];
+  if (r.failed.length && !n) return ['x', mcp, notWritten];
   if (r.kept.length && !r.done.length)
-    return ['w', 'MCP ' + r.name + ' · thêm nhưng tắt', r.why === 'noCommand' ? 'máy chưa cài ' + (r.command ?? 'lệnh của nó') : r.why === 'noKey' ? 'chưa có khoá' : 'tắt như trong gói'];
+    return [
+      'w',
+      t(mcp + ' · thêm nhưng tắt', mcp + ' · added but off'),
+      r.why === 'noCommand'
+        ? t('máy chưa cài ' + (r.command ?? 'lệnh của nó'), r.command ? r.command + ' is not installed' : 'its command is not installed')
+        : r.why === 'noKey'
+          ? noKey
+          : t('tắt như trong gói', 'off as in the pack'),
+    ];
   const sub = [
-    r.kept.length ? 'tắt ở ' + agentsText(r.kept) + (r.why === 'noKey' ? ', chưa có khoá' : r.why === 'noCommand' ? ', chưa có lệnh' : '') : '',
-    r.failed.length ? 'chưa ghi được ở ' + agentsText(r.failed) : '',
-    r.login ? 'có thể cần đăng nhập lại trong agent' : '',
+    r.kept.length
+      ? t('tắt ở ', 'off in ') + agentsText(r.kept) + (r.why === 'noKey' ? t(', chưa có khoá', ', no key yet') : r.why === 'noCommand' ? t(', chưa có lệnh', ', no command yet') : '')
+      : '',
+    r.failed.length ? t('chưa ghi được ở ', 'not written in ') + agentsText(r.failed) : '',
+    r.login ? t('có thể cần đăng nhập lại trong agent', 'may need to sign in again in the agent') : '',
   ].filter(Boolean);
-  return [r.failed.length ? 'w' : '', 'MCP ' + r.name + ' · ' + n + ' agent', sub.join(' · ')];
+  return [r.failed.length ? 'w' : '', mcp + ' · ' + t(n + ' agent', plural(n, 'agent', 'agents')), sub.join(' · ')];
 }
 
-const WHY: Record<string, string> = {
-  noNpx: 'máy chưa có Node',
-  npx: 'chưa cài được từ GitHub',
-  cloud: 'iCloud Drive chưa tải về',
-  damaged: 'bản trong gói bị hỏng',
-  taken: 'máy đã có skill cùng tên',
-  links: 'chưa bật được cho agent',
-  noCli: 'máy chưa cài agent này',
-  login: 'cần đăng nhập',
-  command: 'lệnh cài của agent chưa chạy được',
-  changed: 'file vừa đổi trên máy',
-  io: 'chưa ghi được',
-};
+/** Why a part of the restore failed, by reason. */
+const whyText = (): Record<string, string> => ({
+  noNpx: t('máy chưa có Node', 'Node is not installed'),
+  npx: t('chưa cài được từ GitHub', 'could not install from GitHub'),
+  cloud: t('iCloud Drive chưa tải về', 'iCloud Drive has not downloaded it'),
+  damaged: t('bản trong gói bị hỏng', 'the pack’s copy is damaged'),
+  taken: t('máy đã có skill cùng tên', 'a skill with this name is already here'),
+  links: t('chưa bật được cho agent', 'could not turn it on for the agents'),
+  noCli: t('máy chưa cài agent này', 'this agent is not installed'),
+  login: t('cần đăng nhập', 'needs sign-in'),
+  command: t('lệnh cài của agent chưa chạy được', 'the agent’s install command did not run'),
+  changed: t('file vừa đổi trên máy', 'the file just changed on this Mac'),
+  io: t('chưa ghi được', 'not written'),
+});
 
 /** A part's name in the result: "Skill pdf-tools", "Plugin formatter", "CLAUDE.md của Claude Code". */
 export function partName(r: RestorePartResult): string {
@@ -280,17 +331,20 @@ export interface PartLine {
   retry: RestorePartResult | null;
 }
 
-export function partLines(parts: RestorePartResult[]): PartLine[] {
+/** `from`: what a replaced file was replaced with, the pack's copy (a restore) or the sending Mac's (a copy). */
+export function partLines(parts: RestorePartResult[], from: 'pack' | 'sender' = 'pack'): PartLine[] {
   const out: PartLine[] = [];
+  const why = whyText();
+  const replaced = from === 'sender' ? t(' · thay bằng bản của máy gửi', ' · replaced with the sending Mac’s version') : t(' · thay bằng bản trong gói', ' · replaced with the pack’s version');
   const ok = (part: string, kind?: string) => parts.filter((r) => r.ok && r.part === part && (!kind || r.kind === kind));
   const gh = ok('skill', 'github');
   if (gh.length) out.push({ tone: '', title: SKILL_TITLE.github(gh.length), sub: names(gh.map((r) => r.id)), retry: null });
   const hand = ok('skill', 'hand');
   if (hand.length) out.push({ tone: '', title: SKILL_TITLE.hand(hand.length), sub: names(hand.map((r) => r.id)), retry: null });
   const pl = ok('plugin');
-  if (pl.length) out.push({ tone: '', title: pl.length + ' plugin', sub: names(pl.map((r) => r.id.split('@')[0])), retry: null });
-  for (const f of ok('file')) out.push({ tone: '', title: partName(f) + (f.kind === 'replace' ? ' · thay bằng bản trong gói' : ''), sub: '', retry: null });
-  for (const r of parts.filter((x) => !x.ok)) out.push({ tone: 'x', title: partName(r), sub: WHY[r.why ?? 'io'] ?? WHY.io, retry: r.retry ? r : null });
+  if (pl.length) out.push({ tone: '', title: t(pl.length + ' plugin', plural(pl.length, 'plugin', 'plugins')), sub: names(pl.map((r) => r.id.split('@')[0])), retry: null });
+  for (const f of ok('file')) out.push({ tone: '', title: partName(f) + (f.kind === 'replace' ? replaced : ''), sub: '', retry: null });
+  for (const r of parts.filter((x) => !x.ok)) out.push({ tone: 'x', title: partName(r), sub: why[r.why ?? 'io'] ?? why.io, retry: r.retry ? r : null });
   return out;
 }
 
@@ -298,24 +352,38 @@ export function partLines(parts: RestorePartResult[]): PartLine[] {
 export function todoLines(done: RestoreDone): string[] {
   const out: string[] = [];
   for (const r of done.items) {
-    if (r.why === 'noKey' || r.skipped === 'noKey') out.push('Dán khoá cho ' + r.name + ' ở tab MCP, rồi bật ' + r.name + '.');
-    else if (r.why === 'noCommand' || r.skipped === 'noCommand') out.push('Cài ' + (r.command ?? 'lệnh của ' + r.name) + ' rồi bật ' + r.name + ' ở tab MCP.');
-    if (r.login && r.done.length) out.push('Nếu agent hỏi, đăng nhập lại ' + r.name + ' trong ' + agentsText(r.done) + '.');
+    if (r.why === 'noKey' || r.skipped === 'noKey') out.push(t('Dán khoá cho ' + r.name + ' ở tab MCP, rồi bật ' + r.name + '.', 'Paste the key for ' + r.name + ' in the MCP tab, then turn ' + r.name + ' on.'));
+    else if (r.why === 'noCommand' || r.skipped === 'noCommand')
+      out.push(
+        t(
+          'Cài ' + (r.command ?? 'lệnh của ' + r.name) + ' rồi bật ' + r.name + ' ở tab MCP.',
+          'Install ' + (r.command ?? r.name + '’s command') + ', then turn ' + r.name + ' on in the MCP tab.',
+        ),
+      );
+    if (r.login && r.done.length) out.push(t('Nếu agent hỏi, đăng nhập lại ' + r.name + ' trong ' + agentsText(r.done) + '.', 'If asked, sign in to ' + r.name + ' again in ' + agentsText(r.done) + '.'));
   }
-  if (done.failed) out.push('Một phần chưa ghi được. Mở tab MCP, bấm Đọc lại rồi khôi phục lại phần còn thiếu.');
+  if (done.failed)
+    out.push(t('Một phần chưa ghi được. Mở tab MCP, bấm Đọc lại rồi khôi phục lại phần còn thiếu.', 'Part of it was not written. Open the MCP tab, press Read again, then restore what is missing.'));
   const parts = done.parts ?? [];
   for (const r of parts.filter((x) => !x.ok)) {
-    if (r.why === 'login') out.push('Đăng nhập trong ' + (r.agent ? AGENT_NAME[r.agent] : 'agent') + ' rồi bấm Thử lại ở ' + partName(r).toLowerCase() + '.');
-    else if (r.why === 'noNpx') out.push('Cài Node rồi khôi phục lại ' + partName(r).toLowerCase() + '.');
-    else if (r.why === 'cloud') out.push('Mở thư mục gói trong Finder để iCloud Drive tải về, rồi bấm Thử lại.');
-    else if (r.why === 'changed') out.push(partName(r) + ' vừa đổi trên máy: mở Khôi phục lần nữa để xem trước lại.');
+    const name = partName(r);
+    if (r.why === 'login')
+      out.push(
+        t(
+          'Đăng nhập trong ' + (r.agent ? AGENT_NAME[r.agent] : 'agent') + ' rồi bấm Thử lại ở ' + name.toLowerCase() + '.',
+          'Sign in to ' + (r.agent ? AGENT_NAME[r.agent] : 'the agent') + ', then press Try again on ' + name + '.',
+        ),
+      );
+    else if (r.why === 'noNpx') out.push(t('Cài Node rồi khôi phục lại ' + name.toLowerCase() + '.', 'Install Node, then restore ' + name + ' again.'));
+    else if (r.why === 'cloud') out.push(t('Mở thư mục gói trong Finder để iCloud Drive tải về, rồi bấm Thử lại.', 'Open the pack folder in Finder so iCloud Drive downloads it, then press Try again.'));
+    else if (r.why === 'changed') out.push(t(name + ' vừa đổi trên máy: mở Khôi phục lần nữa để xem trước lại.', name + ' just changed on this Mac: open Restore again to preview it anew.'));
   }
   const used = [
     done.written.length || done.items.some((r) => r.done.length) ? 'MCP' : '',
-    parts.some((r) => r.ok && r.part === 'skill') ? 'skill' : '',
-    parts.some((r) => r.ok && r.part === 'plugin') ? 'plugin' : '',
+    parts.some((r) => r.ok && r.part === 'skill') ? t('skill', 'skills') : '',
+    parts.some((r) => r.ok && r.part === 'plugin') ? t('plugin', 'plugins') : '',
   ].filter(Boolean);
-  if (used.length) out.push('Mở lại agent để dùng ' + used.join(', ') + ' vừa khôi phục.');
+  if (used.length) out.push(t('Mở lại agent để dùng ' + used.join(', ') + ' vừa khôi phục.', 'Reopen the agents to use the restored ' + used.join(', ') + '.'));
   return [...new Set(out)];
 }
 
@@ -329,34 +397,65 @@ const agentList = (code: string): string =>
 /** Why a step of the restore did not run, in words. */
 export function restoreError(e: unknown): FeedbackView {
   const s = String(e);
-  if (s === 'busy') return { tone: 'warn', title: 'Chưa khôi phục', body: 'Một lần ghi khác hoặc lần chuyển Codex đang chạy. Đợi xong rồi thử lại.' };
-  if (s.startsWith('changed:')) return { tone: 'warn', title: 'Chưa khôi phục: file của ' + agentList(s.slice(8)) + ' vừa đổi', body: 'Chưa ghi gì. Quay lại bước xem trước để đọc lại.' };
-  if (s === 'keychain') return { tone: 'bad', title: 'Chưa lưu được khoá', body: 'Keychain không nhận khoá lúc này. Chưa ghi gì.' };
-  if (s === 'cloud') return { tone: 'warn', title: 'Gói chưa tải về máy', body: 'iCloud Drive mới có tên file. Mở thư mục trong Finder để tải, hoặc chờ.' };
-  if (s === 'newer') return { tone: 'warn', title: 'Gói của bản app mới hơn', body: 'Cập nhật Quota Station trên máy này rồi thử lại.' };
-  if (s === 'missing') return { tone: 'warn', title: 'Không còn gói này', body: 'Gói vừa bị xoá hoặc đổi tên. Bấm Kiểm lại.' };
-  if (s.startsWith('invalid')) return { tone: 'bad', title: 'Gói hỏng, không đọc được', body: 'Chọn một gói khác.' };
-  return { tone: 'bad', title: 'Chưa khôi phục', body: 'App không chạy được bước này. Các file không đổi.' };
+  if (s === 'busy')
+    return {
+      tone: 'warn',
+      title: t('Chưa khôi phục', 'Not restored'),
+      body: t('Một lần ghi khác hoặc lần chuyển Codex đang chạy. Đợi xong rồi thử lại.', 'Another write or a Codex switch is running. Wait for it to finish, then try again.'),
+    };
+  if (s.startsWith('changed:'))
+    return {
+      tone: 'warn',
+      title: t('Chưa khôi phục: file của ' + agentList(s.slice(8)) + ' vừa đổi', 'Not restored: ' + agentList(s.slice(8)) + ' files just changed'),
+      body: t('Chưa ghi gì. Quay lại bước xem trước để đọc lại.', 'Nothing was written. Go back to the preview to read again.'),
+    };
+  if (s === 'keychain')
+    return { tone: 'bad', title: t('Chưa lưu được khoá', 'Could not save the key'), body: t('Keychain không nhận khoá lúc này. Chưa ghi gì.', 'Keychain is not accepting keys right now. Nothing was written.') };
+  if (s === 'cloud')
+    return {
+      tone: 'warn',
+      title: t('Gói chưa tải về máy', 'Pack not downloaded yet'),
+      body: t('iCloud Drive mới có tên file. Mở thư mục trong Finder để tải, hoặc chờ.', 'iCloud Drive only has the file name so far. Open the folder in Finder to download it, or wait.'),
+    };
+  if (s === 'newer')
+    return { tone: 'warn', title: t('Gói của bản app mới hơn', 'Pack from a newer app version'), body: t('Cập nhật Quota Station trên máy này rồi thử lại.', 'Update Quota Station on this Mac, then try again.') };
+  if (s === 'missing')
+    return { tone: 'warn', title: t('Không còn gói này', 'This pack is gone'), body: t('Gói vừa bị xoá hoặc đổi tên. Bấm Kiểm lại.', 'The pack was just deleted or renamed. Press Check again.') };
+  if (s.startsWith('invalid')) return { tone: 'bad', title: t('Gói hỏng, không đọc được', 'Damaged pack, cannot be read'), body: t('Chọn một gói khác.', 'Choose another pack.') };
+  return { tone: 'bad', title: t('Chưa khôi phục', 'Not restored'), body: t('App không chạy được bước này. Các file không đổi.', 'The app could not run this step. No files changed.') };
 }
 
 export function backupNowError(e: unknown): FeedbackView {
   const s = String(e);
-  if (s === 'busy') return { tone: 'warn', title: 'Đang sao lưu', body: 'Một lần sao lưu đang chạy. Đợi xong rồi thử lại.' };
-  if (s === 'noICloud') return { tone: 'bad', title: 'Chưa sao lưu: iCloud Drive đang tắt', body: 'Bật iCloud Drive trong Cài đặt hệ thống › Apple ID › iCloud rồi thử lại.' };
-  if (s === 'secret') return { tone: 'bad', title: 'Chưa sao lưu', body: 'Gói có chỗ trông giống khoá nên app không ghi. Không có gì rời khỏi máy.' };
-  return { tone: 'bad', title: 'Chưa sao lưu', body: 'Không ghi được vào iCloud Drive' + (s.startsWith('io:') ? ': ' + s.slice(3) : '') + '.' };
+  if (s === 'busy') return { tone: 'warn', title: t('Đang sao lưu', 'Backing up'), body: t('Một lần sao lưu đang chạy. Đợi xong rồi thử lại.', 'A backup is running. Wait for it to finish, then try again.') };
+  if (s === 'noICloud')
+    return {
+      tone: 'bad',
+      title: t('Chưa sao lưu: iCloud Drive đang tắt', 'Not backed up: iCloud Drive is off'),
+      body: t('Bật iCloud Drive trong Cài đặt hệ thống › Apple ID › iCloud rồi thử lại.', 'Turn on iCloud Drive in System Settings › Apple ID › iCloud, then try again.'),
+    };
+  if (s === 'secret')
+    return {
+      tone: 'bad',
+      title: t('Chưa sao lưu', 'Not backed up'),
+      body: t('Gói có chỗ trông giống khoá nên app không ghi. Không có gì rời khỏi máy.', 'Part of the pack looks like a key, so the app did not write it. Nothing left this Mac.'),
+    };
+  const detail = s.startsWith('io:') ? ': ' + s.slice(3) : '';
+  return { tone: 'bad', title: t('Chưa sao lưu', 'Not backed up'), body: t('Không ghi được vào iCloud Drive' + detail + '.', 'Could not write to iCloud Drive' + detail + '.') };
 }
 
 export function packedFeedback(at: Date): FeedbackView {
-  return { tone: 'info', title: 'Đã sao lưu lúc ' + clock(at.toISOString()) + '.', body: 'Không có khoá trong gói.' };
+  const time = clock(at.toISOString());
+  return { tone: 'info', title: t('Đã sao lưu lúc ' + time + '.', 'Backed up at ' + time + '.'), body: t('Không có khoá trong gói.', 'No keys in the pack.') };
 }
 
 /** A pack made on its own that did not go, said above the packs. */
 export function autoErrorText(v: BackupView): string | null {
   if (!v.autoError) return null;
-  if (v.autoError.kind === 'noICloud') return 'Tự sao lưu chưa chạy được: iCloud Drive đang tắt.';
-  if (v.autoError.kind === 'secret') return 'Tự sao lưu dừng lại: gói có chỗ trông giống khoá nên app không ghi.';
-  return 'Tự sao lưu chưa ghi được vào iCloud Drive.';
+  if (v.autoError.kind === 'noICloud') return t('Tự sao lưu chưa chạy được: iCloud Drive đang tắt.', 'Automatic backup could not run: iCloud Drive is off.');
+  if (v.autoError.kind === 'secret')
+    return t('Tự sao lưu dừng lại: gói có chỗ trông giống khoá nên app không ghi.', 'Automatic backup stopped: part of the pack looks like a key, so the app did not write it.');
+  return t('Tự sao lưu chưa ghi được vào iCloud Drive.', 'Automatic backup could not write to iCloud Drive.');
 }
 
 /** What "Hoàn tác lần khôi phục" will do, in words; `done` says what the restore did, when known. */
@@ -364,36 +463,40 @@ export function undoLines(done?: RestoreDone | null): [string, string][] {
   const parts = done?.parts?.filter((r) => r.ok) ?? null;
   const has = (part: string) => parts == null || parts.some((r) => r.part === part);
   const out: [string, string][] = [
-    ['', 'Bỏ các MCP vừa thêm và trả các mục vừa thay về như trước khi khôi phục.'],
-    ['', 'Bỏ các MCP app đang giữ tắt vì thiếu khoá hoặc lệnh.'],
-    ['', 'Xoá các khoá vừa dán.'],
+    ['', t('Bỏ các MCP vừa thêm và trả các mục vừa thay về như trước khi khôi phục.', 'Removes the MCP servers just added and puts back what was replaced, as before the restore.')],
+    ['', t('Bỏ các MCP app đang giữ tắt vì thiếu khoá hoặc lệnh.', 'Removes the MCP servers the app keeps off for a missing key or command.')],
+    ['', t('Xoá các khoá vừa dán.', 'Deletes the keys just pasted.')],
   ];
-  if (has('skill') || has('plugin')) out.push(['', 'Gỡ các skill và plugin vừa cài, bằng lệnh của agent.']);
-  if (has('file')) out.push(['', 'Trả file hướng dẫn vừa ghi về như trước.']);
-  out.push(['ok', 'File bạn sửa sau lần khôi phục thì hỏi trước, không ghi đè.']);
+  if (has('skill') || has('plugin')) out.push(['', t('Gỡ các skill và plugin vừa cài, bằng lệnh của agent.', 'Uninstalls the skills and plugins just installed, with the agent’s own commands.')]);
+  if (has('file')) out.push(['', t('Trả file hướng dẫn vừa ghi về như trước.', 'Puts the instruction files just written back as they were.')]);
+  out.push(['ok', t('File bạn sửa sau lần khôi phục thì hỏi trước, không ghi đè.', 'Files you edited after the restore are asked about first, never overwritten.')]);
   return out;
 }
 
 export function undoneFeedback(u: RestoreUndone): FeedbackView {
-  const n = u.outcome ? u.outcome.done.reduce((t, d) => t + d.changes, 0) : 0;
+  const n = u.outcome ? u.outcome.done.reduce((sum, d) => sum + d.changes, 0) : 0;
   const parts = [
-    n ? 'Trả ' + n + ' mục về như trước' : '',
-    u.kept ? 'bỏ ' + u.kept + ' MCP đang giữ tắt' : '',
-    u.keys ? 'xoá ' + u.keys + ' khoá vừa dán' : '',
-    u.skills ? 'gỡ ' + u.skills + ' skill' : '',
-    u.plugins ? 'gỡ ' + u.plugins + ' plugin' : '',
-    u.files ? 'trả ' + u.files + ' file hướng dẫn về như trước' : '',
+    n ? t('Trả ' + n + ' mục về như trước', 'put back ' + plural(n, 'item', 'items')) : '',
+    u.kept ? t('bỏ ' + u.kept + ' MCP đang giữ tắt', 'removed ' + u.kept + ' MCP kept off') : '',
+    u.keys ? t('xoá ' + u.keys + ' khoá vừa dán', 'deleted ' + plural(u.keys, 'key', 'keys') + ' just pasted') : '',
+    u.skills ? t('gỡ ' + u.skills + ' skill', 'uninstalled ' + plural(u.skills, 'skill', 'skills')) : '',
+    u.plugins ? t('gỡ ' + u.plugins + ' plugin', 'uninstalled ' + plural(u.plugins, 'plugin', 'plugins')) : '',
+    u.files ? t('trả ' + u.files + ' file hướng dẫn về như trước', 'put back ' + plural(u.files, 'instruction file', 'instruction files')) : '',
   ].filter(Boolean);
   const said = parts.join(', ');
-  const left = u.left ? 'Giữ nguyên ' + u.left + ' mục bạn đã sửa hoặc chưa gỡ được. ' : '';
-  return { tone: 'info', title: 'Đã hoàn tác lần khôi phục.', body: (said ? said.charAt(0).toUpperCase() + said.slice(1) + '. ' : '') + left + 'Mở lại agent để dùng.' };
+  const left = u.left ? t('Giữ nguyên ' + u.left + ' mục bạn đã sửa hoặc chưa gỡ được. ', 'Kept ' + plural(u.left, 'item', 'items') + ' you edited or that could not be removed. ') : '';
+  return {
+    tone: 'info',
+    title: t('Đã hoàn tác lần khôi phục.', 'Restore undone.'),
+    body: (said ? said.charAt(0).toUpperCase() + said.slice(1) + '. ' : '') + left + t('Mở lại agent để dùng.', 'Reopen the agents to use it.'),
+  };
 }
 
 export function undoError(e: unknown): FeedbackView {
   const s = String(e);
-  if (s === 'nothing') return { tone: 'warn', title: 'Không còn gì để hoàn tác', body: 'Lần khôi phục đã được hoàn tác rồi.' };
-  if (s === 'busy') return { tone: 'warn', title: 'Chưa hoàn tác', body: 'Một lần ghi khác đang chạy. Đợi xong rồi thử lại.' };
-  return { tone: 'bad', title: 'Chưa hoàn tác', body: 'App không trả được file về như trước. Mở tab MCP để xem.' };
+  if (s === 'nothing') return { tone: 'warn', title: t('Không còn gì để hoàn tác', 'Nothing left to undo'), body: t('Lần khôi phục đã được hoàn tác rồi.', 'The restore was already undone.') };
+  if (s === 'busy') return { tone: 'warn', title: t('Chưa hoàn tác', 'Not undone'), body: t('Một lần ghi khác đang chạy. Đợi xong rồi thử lại.', 'Another write is running. Wait for it to finish, then try again.') };
+  return { tone: 'bad', title: t('Chưa hoàn tác', 'Not undone'), body: t('App không trả được file về như trước. Mở tab MCP để xem.', 'The app could not put the files back. Open the MCP tab to check.') };
 }
 
 /** "File của Codex đã sửa sau lần khôi phục": the agents in a `changed:` refusal. */
@@ -402,20 +505,23 @@ export const changedAgents = (e: unknown): string | null => {
   return s.startsWith('changed:') ? agentList(s.slice(8).split('\n')[0]) || null : null;
 };
 
-/** Each thing the undo found changed since the restore, in words. */
-export function changedLines(e: unknown): string[] {
+/** Each thing the undo found changed since the restore (or, for `copy`, since the copy), in words. */
+export function changedLines(e: unknown, since: 'restore' | 'copy' = 'restore'): string[] {
   const s = String(e);
   if (!s.startsWith('changed:')) return [];
   const [agents, ...rest] = s.slice(8).split('\n');
   const out: string[] = [];
   const who = agentList(agents);
-  if (who) out.push('File của ' + who + ' đã sửa sau lần khôi phục.');
+  const vi = since === 'copy' ? ' đã sửa sau lần chép.' : ' đã sửa sau lần khôi phục.';
+  const en = since === 'copy' ? ' after the copy.' : ' after the restore.';
+  if (who) out.push(t('File của ' + who + vi, who + ' files were edited' + en));
   for (const r of rest) {
     if (r.startsWith('file:')) {
       const path = r.slice(5);
       const agent: Agent | null = path.startsWith('~/.claude/') ? 'claude' : path.startsWith('~/.codex/') ? 'codex' : path.startsWith('~/.gemini/') ? 'agy' : null;
-      out.push(fileLabel(path, agent) + ' đã sửa sau lần khôi phục.');
-    } else if (r.startsWith('skill:')) out.push('Skill ' + r.slice(6) + ' đã sửa sau lần khôi phục.');
+      const label = fileLabel(path, agent);
+      out.push(t(label + vi, label + ' was edited' + en));
+    } else if (r.startsWith('skill:')) out.push(t('Skill ' + r.slice(6) + vi, 'Skill ' + r.slice(6) + ' was edited' + en));
   }
   return out;
 }

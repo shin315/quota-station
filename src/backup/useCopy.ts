@@ -10,6 +10,7 @@
 import { useState } from 'react';
 import type { Api } from '../lib/api';
 import { copyError, initialTicks, macState, picked, selectionOf, undoneFeedback, type CopyTicks } from '../lib/copy';
+import { t } from '../lib/i18n';
 import type { CopyComparison, Model, RestoreDone } from '../lib/model';
 import type { FeedbackView } from '../lib/view';
 
@@ -38,8 +39,8 @@ export function useCopy(api: Api, model: Model | null, showFeedback: (fb: Feedba
   const mac = alias && peers.some((p) => p.alias === alias) ? alias : (peers[0]?.alias ?? null);
   const peer = peers.find((p) => p.alias === mac) ?? null;
   /** The other Mac's name: its own once read, else the one in settings. */
-  const other = (cmp?.alias === mac ? cmp?.mac : null) || peer?.name || mac || 'Mac kia';
-  const here = model?.machine ?? 'Máy này';
+  const other = (cmp?.alias === mac ? cmp?.mac : null) || peer?.name || mac || t('Mac kia', 'the other Mac');
+  const here = model?.machine ?? t('Máy này', 'This Mac');
 
   const choose = (a: string) => {
     if (a === mac) return;
@@ -123,8 +124,11 @@ export function useCopy(api: Api, model: Model | null, showFeedback: (fb: Feedba
       const dest = push ? other : here;
       showFeedback({
         tone: 'info',
-        title: push ? 'Đã chép sang ' + other + '.' : 'Đã chép về máy này.',
-        body: 'Quota Station trên ' + dest + ' đã sao lưu trước khi ghi. Bấm So sánh lại để xem hai máy bây giờ.',
+        title: push ? t('Đã chép sang ' + other + '.', 'Copied to ' + other + '.') : t('Đã chép về máy này.', 'Copied to this Mac.'),
+        body: t(
+          'Quota Station trên ' + dest + ' đã sao lưu trước khi ghi. Bấm So sánh lại để xem hai máy bây giờ.',
+          'Quota Station on ' + dest + ' backed up before writing. Press Compare again to see both Macs as they are now.',
+        ),
       });
       setPhase('idle');
       setCmp(null);
@@ -160,7 +164,7 @@ export function useCopy(api: Api, model: Model | null, showFeedback: (fb: Feedba
     choose,
     way,
     compare: () => void compare(),
-    tick: (key: string, on: boolean) => setTicks((t) => ({ ...t, [key]: on })),
+    tick: (key: string, on: boolean) => setTicks((x) => ({ ...x, [key]: on })),
     setKeys,
     setShowSame,
     openItem: (key: string) => setDialog({ kind: 'item', key }),

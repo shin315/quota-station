@@ -14,25 +14,27 @@
 // alias each), and the clone "Cập nhật từ mã nguồn" builds from. Only a
 // build with the author's tools has that card (`capabilities.authorTools`).
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { AlertKinds } from '../alerts/AlertsTab';
 import { EnvCard } from './EnvCard';
 import { Card as Panel, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Segment, Segmented } from '@/components/ui/segmented';
 import { IdMark } from '../components/accounts';
-import { LABEL, rowClass, TabHead, TabSub, TabTitle } from '../components/page';
+import { LABEL, rowClass, STACK, TabHead, TabSub, TabTitle } from '../components/page';
 import { Button, Chip, CODE, Dot, Feedback, FieldHint, LinkButton, Toggle } from '../components/parts';
-import { PERMISSION_CHIPS, UNREAD } from '../lib/alerts';
+import { permissionChip, unreadText } from '../lib/alerts';
 import { authorModel, type AuthorModel } from '../lib/author';
 import type { ChipView } from '../lib/view';
-import type { AlertKind, AppView, ClientStatus, Menubar, MenubarWindow, Model, Peer, PeerTest, SourceView, Theme, UpdateError } from '../lib/model';
+import type { AlertKind, AppView, ClientStatus, Language, Menubar, MenubarWindow, Model, Peer, PeerTest, SourceView, Theme, UpdateError } from '../lib/model';
+import { t } from '../lib/i18n';
+import { Icon, type IconName } from '../components/icons';
 import type { Action, FeedbackView, PopoverView } from '../lib/view';
 
-const THEMES: [Theme, string][] = [
-  ['auto', 'Theo macOS'],
-  ['light', 'Sáng'],
-  ['dark', 'Tối'],
+const themes = (): [Theme, string][] => [
+  ['auto', t('Theo macOS', 'Match macOS')],
+  ['light', t('Sáng', 'Light')],
+  ['dark', t('Tối', 'Dark')],
 ];
 
 export interface SettingsProps {
@@ -79,15 +81,59 @@ export interface SettingsProps {
   onPoolAlert(dryAtMost: number, roomAtLeast: number): Promise<string | null>;
   /** Where the backup packs go; empty is iCloud Drive. Resolves to the refusal (`notFound`), or null. */
   onSetBackupFolder?(path: string): Promise<string | null>;
+  /** The app's language: macOS's, Vietnamese or English. */
+  onLanguage?(language: Language): void;
 }
 
-const CLIENT_CHIPS: Record<ClientStatus, ChipView> = {
-  ok: { t: 'có, dùng được', k: 'ok' },
-  missing: { t: 'chưa có', k: 'warn' },
-  tooOpen: { t: 'cần quyền 600', k: 'bad' },
-  invalid: { t: 'chưa đúng', k: 'bad' },
-  unreadable: { t: 'không đọc được', k: 'bad' },
-};
+/** A card's rows, half the page wide: each row's name over its controls, as the design's block rows. */
+const CARD_ROWS = 'grid [&>*]:grid-cols-[minmax(0,1fr)] [&>*]:gap-y-1.5';
+
+/** A card of settings: its icon and name, then its rows. */
+function SettingsCard(props: { title: string; icon: IconName; children: ReactNode }) {
+  return (
+    <Panel>
+      <CardTitle>
+        <Icon name={props.icon} />
+        {props.title}
+      </CardTitle>
+      <div className={CARD_ROWS}>{props.children}</div>
+    </Panel>
+  );
+}
+
+/** "Ngôn ngữ": macOS's preferred language until one is picked here. */
+function LanguageRow({ model, onPick }: { model: Model; onPick(language: Language): void }) {
+  const options: [Language, string][] = [
+    ['auto', t('Theo macOS', 'Match macOS')],
+    ['vi', 'Tiếng Việt'],
+    ['en', 'English'],
+  ];
+  return (
+    <div className={rowClass()}>
+      <div className={LABEL} id="qs-lang-l">
+        {t('Ngôn ngữ', 'Language')}
+      </div>
+      <div>
+        <Segmented variant="inline" className="justify-self-start" aria-labelledby="qs-lang-l">
+          {options.map(([v, label]) => (
+            <Segment key={v} className="px-3.5" pressed={model.language === v} onClick={() => onPick(v)}>
+              {label}
+            </Segment>
+          ))}
+        </Segmented>
+        <FieldHint>{t('Theo ngôn ngữ ưu tiên của macOS cho tới khi bạn chọn.', 'Follows macOS’s preferred language until you pick one.')}</FieldHint>
+      </div>
+    </div>
+  );
+}
+
+const clientChips = (): Record<ClientStatus, ChipView> => ({
+  ok: { t: t('có, dùng được', 'present, usable'), k: 'ok' },
+  missing: { t: t('chưa có', 'missing'), k: 'warn' },
+  tooOpen: { t: t('cần quyền 600', 'needs mode 600'), k: 'bad' },
+  invalid: { t: t('chưa đúng', 'invalid'), k: 'bad' },
+  unreadable: { t: t('không đọc được', 'unreadable'), k: 'bad' },
+});
 
 /**
  * A text field that follows `value` when it changes on the Rust side. The
@@ -112,7 +158,7 @@ function MachineName({ model, onSet }: { model: Model; onSet(name: string): Prom
   return (
     <div className={rowClass()}>
       <label className={LABEL} htmlFor="qs-name">
-        Tên máy này
+        {t('Tên máy này', 'This Mac’s name')}
       </label>
       <div>
         <Input
@@ -128,7 +174,9 @@ function MachineName({ model, onSet }: { model: Model; onSet(name: string): Prom
             if (e.key === 'Enter') void commit();
           }}
         />
-        <FieldHint>Để trống để dùng tên trong macOS: {model.machineDefault}.</FieldHint>
+        <FieldHint>
+          {t('Để trống để dùng tên trong macOS: ' + model.machineDefault + '.', 'Leave empty to use the macOS name: ' + model.machineDefault + '.')}
+        </FieldHint>
       </div>
     </div>
   );
@@ -136,23 +184,30 @@ function MachineName({ model, onSet }: { model: Model; onSet(name: string): Prom
 
 type SshTest = { kind: 'testing' } | { kind: 'ok'; hasFile: boolean } | { kind: 'fail'; error: string | null };
 
-function testText(t: SshTest | undefined, alias: string): { tone: string; text: string } {
-  if (!alias.trim()) return { tone: 'bad', text: 'Nhập tên kết nối SSH' };
-  if (!t) return { tone: 'muted', text: 'Chưa thử' };
-  if (t.kind === 'testing') return { tone: 'muted', text: 'Đang thử…' };
-  if (t.kind === 'ok') return { tone: 'ok', text: t.hasFile ? 'SSH ổn' : 'SSH ổn · máy đó chưa có file luật' };
-  if (t.error === 'badAlias') return { tone: 'bad', text: PEER_ERRORS.badAlias };
+function testText(test: SshTest | undefined, alias: string): { tone: string; text: string } {
+  if (!alias.trim()) return { tone: 'bad', text: t('Nhập tên kết nối SSH', 'Enter an SSH name') };
+  if (!test) return { tone: 'muted', text: t('Chưa thử', 'Not tested') };
+  if (test.kind === 'testing') return { tone: 'muted', text: t('Đang thử…', 'Testing…') };
+  if (test.kind === 'ok')
+    return { tone: 'ok', text: test.hasFile ? t('SSH ổn', 'SSH OK') : t('SSH ổn · máy đó chưa có file luật', 'SSH OK · that Mac has no rules file yet') };
+  if (test.error === 'badAlias') return { tone: 'bad', text: peerErrors().badAlias };
   return {
     tone: 'bad',
-    text: t.error === 'timeout' || !t.error ? 'SSH hết giờ chờ. Kiểm tên kết nối hoặc bật máy đó.' : 'SSH không tới được: ' + t.error,
+    text:
+      test.error === 'timeout' || !test.error
+        ? t('SSH hết giờ chờ. Kiểm tên kết nối hoặc bật máy đó.', 'SSH timed out. Check the SSH name or turn that Mac on.')
+        : t('SSH không tới được: ' + test.error, 'SSH could not connect: ' + test.error),
   };
 }
 
-const PEER_ERRORS: Record<string, string> = {
-  badAlias: 'Tên kết nối chỉ gồm chữ, số và . - _ @, không bắt đầu bằng dấu gạch.',
-  sameAlias: 'Tên kết nối này đã có ở dòng trên.',
-  tooMany: 'Tối đa 8 Mac.',
-};
+const peerErrors = (): Record<string, string> => ({
+  badAlias: t(
+    'Tên kết nối chỉ gồm chữ, số và . - _ @, không bắt đầu bằng dấu gạch.',
+    'An SSH name has only letters, digits and . - _ @, and does not start with a hyphen.',
+  ),
+  sameAlias: t('Tên kết nối này đã có ở dòng trên.', 'This SSH name is already on a row above.'),
+  tooMany: t('Tối đa 8 Mac.', 'Up to 8 Macs.'),
+});
 
 /** "Các Mac khác": a name and an SSH alias for each, saved when a field is left. */
 function OtherMacs({ model, onSet, onTest }: { model: AuthorModel; onSet: SettingsProps['onSetPeers']; onTest: SettingsProps['onTestPeer'] }) {
@@ -175,7 +230,7 @@ function OtherMacs({ model, onSet, onTest }: { model: AuthorModel; onSet: Settin
     const refused = await onSet(complete);
     if (!refused) return setError(null);
     const [code, at] = refused.split(':');
-    setError({ row: at === undefined ? -1 : (rowOf[Number(at)] ?? -1), text: PEER_ERRORS[code] ?? 'Chưa lưu được: ' + refused });
+    setError({ row: at === undefined ? -1 : (rowOf[Number(at)] ?? -1), text: peerErrors()[code] ?? t('Chưa lưu được: ' + refused, 'Could not save: ' + refused) });
   };
   const set = (i: number, field: keyof Peer, value: string) => setRows(rows.map((r, j) => (j === i ? { ...r, [field]: value } : r)));
   const onKey = (e: { key: string }) => {
@@ -187,73 +242,73 @@ function OtherMacs({ model, onSet, onTest }: { model: AuthorModel; onSet: Settin
     await Promise.all(
       aliases.map(async (a) => {
         const r = await onTest(a).catch((e: unknown) => ({ reached: false, error: String(e), hasFile: false, stamp: null }) as PeerTest);
-        const t: SshTest = r.reached ? { kind: 'ok', hasFile: r.hasFile } : { kind: 'fail', error: r.error };
-        setTests((cur) => ({ ...cur, [a]: t }));
+        const res: SshTest = r.reached ? { kind: 'ok', hasFile: r.hasFile } : { kind: 'fail', error: r.error };
+        setTests((cur) => ({ ...cur, [a]: res }));
       }),
     );
   };
   return (
     <div className={rowClass()}>
       <div className={LABEL}>
-        Các Mac khác
+        {t('Các Mac khác', 'Other Macs')}
       </div>
       <div className="grid gap-1.5">
         {rows.map((r, i) => {
-          const t = testText(tests[r.alias.trim()], r.alias);
-          const label = r.name.trim() || 'Mac mới';
+          const st = testText(tests[r.alias.trim()], r.alias);
+          const label = r.name.trim() || t('Mac mới', 'New Mac');
           return (
             <div className="flex items-center gap-2 text-sm" key={i}>
-              <Dot tone={t.tone} />
+              <Dot tone={st.tone} />
               <Input
                 className="w-[150px]"
                 value={r.name}
-                placeholder="Tên Mac"
+                placeholder={t('Tên Mac', 'Mac name')}
                 maxLength={40}
                 spellCheck={false}
                 autoComplete="off"
-                aria-label={'Tên của ' + label}
+                aria-label={t('Tên của ' + label, 'Name of ' + label)}
                 onChange={(e) => set(i, 'name', e.target.value)}
                 onBlur={() => void commit(rows)}
                 onKeyDown={onKey}
               />
-              <span className="whitespace-nowrap text-xs text-ink2">tên kết nối</span>
+              <span className="whitespace-nowrap text-xs text-ink2">{t('tên kết nối', 'SSH name')}</span>
               <Input
                 mono
                 invalid={error?.row === i}
                 className="w-[150px]"
                 value={r.alias}
-                placeholder="vd. mac-b"
+                placeholder={t('vd. mac-b', 'e.g. mac-b')}
                 maxLength={64}
                 spellCheck={false}
                 autoComplete="off"
-                aria-label={'Tên kết nối SSH của ' + label}
+                aria-label={t('Tên kết nối SSH của ' + label, 'SSH name of ' + label)}
                 onChange={(e) => set(i, 'alias', e.target.value)}
                 onBlur={() => void commit(rows)}
                 onKeyDown={onKey}
               />
-              <small className="text-ink2">{t.text}</small>
+              <small className="text-ink2">{st.text}</small>
               <LinkButton
-                aria-label={'Bỏ ' + label}
+                aria-label={t('Bỏ ' + label, 'Remove ' + label)}
                 onClick={() => {
                   const next = rows.filter((_, j) => j !== i);
                   setRows(next);
                   void commit(next);
                 }}
               >
-                Bỏ
+                {t('Bỏ', 'Remove')}
               </LinkButton>
             </div>
           );
         })}
         {error ? <FieldHint tone="bad">{error.text}</FieldHint> : null}
-        {!rows.length ? <FieldHint>Chưa có Mac nào. Luật xoay vòng chỉ lưu trên máy này.</FieldHint> : null}
-        {!model.rotation.ssh ? <FieldHint tone="bad">Không thấy ssh trên máy này.</FieldHint> : null}
+        {!rows.length ? <FieldHint>{t('Chưa có Mac nào. Luật xoay vòng chỉ lưu trên máy này.', 'No other Macs yet. Rotation rules stay on this Mac.')}</FieldHint> : null}
+        {!model.rotation.ssh ? <FieldHint tone="bad">{t('Không thấy ssh trên máy này.', 'ssh was not found on this Mac.')}</FieldHint> : null}
         <div>
           <Button disabled={rows.length >= 8} onClick={() => setRows([...rows, { name: '', alias: '' }])}>
-            Thêm Mac
+            {t('Thêm Mac', 'Add Mac')}
           </Button>{' '}
           <Button disabled={!rows.some((r) => r.alias.trim())} onClick={() => void test()}>
-            Thử SSH
+            {t('Thử SSH', 'Test SSH')}
           </Button>
         </div>
       </div>
@@ -261,23 +316,29 @@ function OtherMacs({ model, onSet, onTest }: { model: AuthorModel; onSet: Settin
   );
 }
 
-const FIRSTMATE_REFUSED: Record<string, string> = {
-  notPoolFile: UNREAD.notPoolFile,
-  notFound: 'Không có file ở đường dẫn này.',
-};
+const noFileText = () => t('Không có file ở đường dẫn này.', 'No file at this path.');
+const noFolderText = () => t('Không có thư mục ở đường dẫn này.', 'No folder at this path.');
+const notSavedText = (refused: string) => t('Chưa lưu được: ' + refused, 'Could not save: ' + refused);
+
+const firstmateRefused = (): Record<string, string> => ({
+  notPoolFile: unreadText('notPoolFile'),
+  notFound: noFileText(),
+});
 
 function firstmateHint(model: AuthorModel, refused: string | null): { tone: 'ok' | 'bad' | ''; text: string } {
-  if (refused) return { tone: 'bad', text: FIRSTMATE_REFUSED[refused] ?? 'Chưa lưu được: ' + refused };
+  if (refused) return { tone: 'bad', text: firstmateRefused()[refused] ?? notSavedText(refused) };
   const f = model.firstmate;
   switch (f.status) {
     case 'notSet':
-      return { tone: '', text: 'Để trống nếu máy này không có firstmate.' };
+      return { tone: '', text: t('Để trống nếu máy này không có firstmate.', 'Leave empty if this Mac has no firstmate.') };
     case 'ok':
-      return f.fresh ? { tone: 'ok', text: 'Đọc được ✓' } : { tone: '', text: 'Đọc được, nhưng firstmate chưa ghi lại file trong 30 phút qua.' };
+      return f.fresh
+        ? { tone: 'ok', text: t('Đọc được ✓', 'Readable ✓') }
+        : { tone: '', text: t('Đọc được, nhưng firstmate chưa ghi lại file trong 30 phút qua.', 'Readable, but firstmate has not written the file in the last 30 minutes.') };
     case 'missing':
-      return { tone: 'bad', text: 'Không có file ở đường dẫn này.' };
+      return { tone: 'bad', text: noFileText() };
     default:
-      return { tone: 'bad', text: UNREAD[f.status] ?? UNREAD.unreadable };
+      return { tone: 'bad', text: unreadText(f.status) };
   }
 }
 
@@ -293,7 +354,7 @@ function FirstmateFile({ model, onSet }: { model: AuthorModel; onSet: SettingsPr
   return (
     <div className={rowClass()}>
       <label className={LABEL} htmlFor="qs-fm">
-        File của firstmate
+        {t('File của firstmate', 'Firstmate file')}
       </label>
       <div>
         <Input
@@ -301,7 +362,7 @@ function FirstmateFile({ model, onSet }: { model: AuthorModel; onSet: SettingsPr
           mono
           invalid={hint.tone === 'bad'}
           value={path}
-          placeholder="đường dẫn tới quota-pool.last"
+          placeholder={t('đường dẫn tới quota-pool.last', 'path to quota-pool.last')}
           spellCheck={false}
           autoComplete="off"
           onChange={(e) => {
@@ -331,14 +392,16 @@ function CodexHome({ model, onSet }: { model: Model; onSet: NonNullable<Settings
   const bad = refused != null;
   const hint = bad
     ? refused === 'notFound'
-      ? 'Không có thư mục ở đường dẫn này.'
-      : 'Chưa lưu được: ' + refused
+      ? noFolderText()
+      : notSavedText(refused)
     : !model.codex.present
-      ? 'Không thấy thư mục Codex ở ' + model.codex.home + '.'
-      : 'Đọc được ✓ · app chỉ sửa config.toml ở đây khi bạn chuyển Codex.';
+      ? t('Không thấy thư mục Codex ở ' + model.codex.home + '.', 'No Codex folder at ' + model.codex.home + '.')
+      : t('Đọc được ✓ · app chỉ sửa config.toml ở đây khi bạn chuyển Codex.', 'Readable ✓ · the app only edits config.toml here when you switch Codex.');
   return (
     <div className={rowClass()}>
-      <label className={LABEL} htmlFor="qs-codex">Thư mục Codex</label>
+      <label className={LABEL} htmlFor="qs-codex">
+        {t('Thư mục Codex', 'Codex folder')}
+      </label>
       <div>
         <Input
           id="qs-codex"
@@ -368,12 +431,21 @@ function Notifications(props: { model: Model; onAction: SettingsProps['onAction'
   return (
     <div className={rowClass()}>
       <div className={LABEL}>
-        Thông báo
+        {t('Thông báo', 'Notifications')}
       </div>
       <div>
-        <Chip chip={PERMISSION_CHIPS[a.permission]} />{' '}
-        {a.permission === 'denied' ? <Button onClick={() => props.onAction('notify:settings')}>Mở Cài đặt hệ thống</Button> : null}
-        {a.permission === 'unbundled' ? <FieldHint>Chỉ app đã đóng gói mới gửi được thẻ macOS. Cảnh báo vẫn có ở tab Cảnh báo.</FieldHint> : null}
+        <Chip chip={permissionChip(a.permission)} />{' '}
+        {a.permission === 'denied' ? (
+          <Button onClick={() => props.onAction('notify:settings')}>{t('Mở Cài đặt hệ thống', 'Open System Settings')}</Button>
+        ) : null}
+        {a.permission === 'unbundled' ? (
+          <FieldHint>
+            {t(
+              'Chỉ app đã đóng gói mới gửi được thẻ macOS. Cảnh báo vẫn có ở tab Cảnh báo.',
+              'Only the packaged app can send macOS notifications. Alerts still show in the Alerts tab.',
+            )}
+          </FieldHint>
+        ) : null}
         <div className="mt-1.5">
           <AlertKinds model={props.model} switches={a.switches} testOff={a.permission === 'denied'} onTest={props.onTest} onSwitch={props.onSwitch} />
         </div>
@@ -396,37 +468,48 @@ function LaunchAtLogin({ app, onSet, onOpen }: { app: AppView; onSet: SettingsPr
   return (
     <div className={rowClass()}>
       <div className={LABEL}>
-        Mở khi đăng nhập
+        {t('Mở khi đăng nhập', 'Open at login')}
       </div>
       <div>
-        <Toggle on={on} label="Mở khi đăng nhập" disabled={busy || state === 'unavailable'} onClick={() => void toggle()} />
+        <Toggle on={on} label={t('Mở khi đăng nhập', 'Open at login')} disabled={busy || state === 'unavailable'} onClick={() => void toggle()} />
         {state === 'needsApproval' ? (
           <>
             {' '}
-            <Chip chip={{ t: 'chờ duyệt', k: 'warn' }} />{' '}
-            <Button label="Mở Cài đặt hệ thống: Mục đăng nhập" onClick={onOpen}>
-              Mở Cài đặt hệ thống
+            <Chip chip={{ t: t('chờ duyệt', 'awaiting approval'), k: 'warn' }} />{' '}
+            <Button label={t('Mở Cài đặt hệ thống: Mục đăng nhập', 'Open System Settings: Login Items')} onClick={onOpen}>
+              {t('Mở Cài đặt hệ thống', 'Open System Settings')}
             </Button>
-            <FieldHint>macOS cần bạn bật Quota Station trong Cài đặt hệ thống › Cài đặt chung › Mục đăng nhập.</FieldHint>
+            <FieldHint>
+              {t(
+                'macOS cần bạn bật Quota Station trong Cài đặt hệ thống › Cài đặt chung › Mục đăng nhập.',
+                'macOS needs you to turn on Quota Station in System Settings › General › Login Items.',
+              )}
+            </FieldHint>
           </>
         ) : null}
-        {state === 'unavailable' ? <FieldHint>Chỉ bản .app đã cài mới mở khi đăng nhập được.</FieldHint> : null}
-        {refused && refused !== 'unavailable' ? <FieldHint tone="bad">Chưa đổi được: {refused}</FieldHint> : null}
+        {state === 'unavailable' ? <FieldHint>{t('Chỉ bản .app đã cài mới mở khi đăng nhập được.', 'Only the installed .app can open at login.')}</FieldHint> : null}
+        {refused && refused !== 'unavailable' ? (
+          <FieldHint tone="bad">{t('Chưa đổi được: ' + refused, 'Could not change: ' + refused)}</FieldHint>
+        ) : null}
       </div>
     </div>
   );
 }
 
-const SOURCE_REFUSED: Record<string, string> = {
-  missing: 'Không có thư mục ở đường dẫn này.',
-  notSource: 'Thư mục này không phải bản clone Quota Station: cần .git và scripts/install.sh.',
-};
+const sourceRefused = (): Record<string, string> => ({
+  missing: noFolderText(),
+  notSource: t(
+    'Thư mục này không phải bản clone Quota Station: cần .git và scripts/install.sh.',
+    'This folder is not a Quota Station clone: it needs .git and scripts/install.sh.',
+  ),
+});
 
 function sourceHint(app: SourceView, refused: string | null): { tone: 'ok' | 'bad' | ''; text: string } {
-  if (refused) return { tone: 'bad', text: SOURCE_REFUSED[refused] ?? 'Chưa lưu được: ' + refused };
-  if (app.sourceStatus === 'ok') return { tone: 'ok', text: 'Có scripts/install.sh ✓' };
-  if (app.sourceStatus === 'notSet') return { tone: '', text: 'Để trống trên Mac cài bằng gói build từ Mac khác.' };
-  return { tone: 'bad', text: SOURCE_REFUSED[app.sourceStatus] };
+  if (refused) return { tone: 'bad', text: sourceRefused()[refused] ?? notSavedText(refused) };
+  if (app.sourceStatus === 'ok') return { tone: 'ok', text: t('Có scripts/install.sh ✓', 'Has scripts/install.sh ✓') };
+  if (app.sourceStatus === 'notSet')
+    return { tone: '', text: t('Để trống trên Mac cài bằng gói build từ Mac khác.', 'Leave empty on a Mac installed from a build made on another Mac.') };
+  return { tone: 'bad', text: sourceRefused()[app.sourceStatus] };
 }
 
 /** The clone "Cập nhật từ mã nguồn" pulls and builds. */
@@ -441,7 +524,7 @@ function SourceDir({ app, onSet }: { app: SourceView; onSet: SettingsProps['onSe
   return (
     <div className={rowClass()}>
       <label className={LABEL} htmlFor="qs-src">
-        Mã nguồn
+        {t('Mã nguồn', 'Source code')}
       </label>
       <div>
         <Input
@@ -449,7 +532,7 @@ function SourceDir({ app, onSet }: { app: SourceView; onSet: SettingsProps['onSe
           mono
           invalid={hint.tone === 'bad'}
           value={path}
-          placeholder="vd. ~/Code/quota-station"
+          placeholder={t('vd. ~/Code/quota-station', 'e.g. ~/Code/quota-station')}
           spellCheck={false}
           autoComplete="off"
           disabled={!!app.updating}
@@ -471,31 +554,36 @@ function SourceDir({ app, onSet }: { app: SourceView; onSet: SettingsProps['onSe
 function errorText(e: UpdateError, log: string): string {
   switch (e.kind) {
     case 'source':
-      return SOURCE_REFUSED[e.reason];
+      return sourceRefused()[e.reason];
     case 'pull':
-      return 'git pull không chạy được: ' + e.detail;
+      return t('git pull không chạy được: ' + e.detail, 'git pull failed: ' + e.detail);
     case 'install':
-      return 'Build hoặc cài lỗi: ' + e.detail + '. Log đầy đủ: ' + log;
+      return t('Build hoặc cài lỗi: ' + e.detail + '. Log đầy đủ: ' + log, 'Build or install failed: ' + e.detail + '. Full log: ' + log);
     case 'timeout':
-      return e.step === 'pulling' ? 'git pull hết giờ chờ. Kiểm mạng rồi thử lại.' : 'Build quá 30 phút nên đã dừng. Log: ' + log;
+      return e.step === 'pulling'
+        ? t('git pull hết giờ chờ. Kiểm mạng rồi thử lại.', 'git pull timed out. Check the network and try again.')
+        : t('Build quá 30 phút nên đã dừng. Log: ' + log, 'The build took over 30 minutes and was stopped. Log: ' + log);
     case 'spawn':
-      return 'Không chạy được: ' + e.detail;
+      return t('Không chạy được: ' + e.detail, 'Could not run: ' + e.detail);
   }
 }
 
-const UPDATE_REFUSED: Record<string, string> = {
-  busy: 'Đang cập nhật.',
-  noSource: 'Đặt thư mục mã nguồn ở trên để cập nhật.',
-  unbundled: 'Bản đang chạy không phải .app đã cài, nên không có gì để cập nhật.',
-  rulesDirty: 'Luật xoay vòng còn thay đổi chưa lưu. Lưu hoặc bỏ trước khi mở lại.',
-  notInstalled: 'Chưa có bản mới để mở.',
-};
+const updateRefused = (): Record<string, string> => ({
+  busy: t('Đang cập nhật.', 'Already updating.'),
+  noSource: t('Đặt thư mục mã nguồn ở trên để cập nhật.', 'Set the source folder above to update.'),
+  unbundled: t('Bản đang chạy không phải .app đã cài, nên không có gì để cập nhật.', 'This copy is not the installed .app, so there is nothing to update.'),
+  rulesDirty: t(
+    'Luật xoay vòng còn thay đổi chưa lưu. Lưu hoặc bỏ trước khi mở lại.',
+    'The rotation rules have unsaved changes. Save or discard them before restarting.',
+  ),
+  notInstalled: t('Chưa có bản mới để mở.', 'No new version to open yet.'),
+});
 
 /** The version this copy is. */
 function Version({ app }: { app: AppView }) {
   return (
     <div className={rowClass()}>
-      <div className={LABEL}>Phiên bản</div>
+      <div className={LABEL}>{t('Phiên bản', 'Version')}</div>
       <div>
         <span className={CODE}>
           {app.version}
@@ -515,44 +603,56 @@ function UpdateFromSource({ app, onUpdate, onRelaunch }: { app: SourceView; onUp
   };
   const short = (commit: string) => commit.slice(0, 7);
   let line: { tone: 'ok' | 'bad' | ''; text: string } | null = null;
-  if (app.updating === 'pulling') line = { tone: '', text: 'Đang lấy mã mới (git pull --ff-only)…' };
-  else if (app.updating === 'installing') line = { tone: '', text: 'Đang build và cài. Mất vài phút; app vẫn chạy như thường.' };
+  if (app.updating === 'pulling') line = { tone: '', text: t('Đang lấy mã mới (git pull --ff-only)…', 'Fetching new code (git pull --ff-only)…') };
+  else if (app.updating === 'installing')
+    line = {
+      tone: '',
+      text: t('Đang build và cài. Mất vài phút; app vẫn chạy như thường.', 'Building and installing. This takes a few minutes; the app keeps running as usual.'),
+    };
   else if (app.error) line = { tone: 'bad', text: errorText(app.error, app.log) };
-  else if (app.outcome?.kind === 'upToDate') line = { tone: 'ok', text: 'Đã là bản mới nhất (' + short(app.outcome.commit) + ').' };
-  else if (app.outcome?.kind === 'installed')
+  else if (app.outcome?.kind === 'upToDate') {
+    const c = short(app.outcome.commit);
+    line = { tone: 'ok', text: t('Đã là bản mới nhất (' + c + ').', 'Already up to date (' + c + ').') };
+  } else if (app.outcome?.kind === 'installed') {
+    const c = short(app.outcome.commit);
     line = {
       tone: 'ok',
-      text: 'Đã cài ' + (app.outcome.version ?? 'bản mới') + ' (' + short(app.outcome.commit) + '). Mở lại để dùng bản mới.',
+      text: t(
+        'Đã cài ' + (app.outcome.version ?? 'bản mới') + ' (' + c + '). Mở lại để dùng bản mới.',
+        'Installed ' + (app.outcome.version ?? 'the new version') + ' (' + c + '). Restart to use it.',
+      ),
     };
-  else if (!app.bundled) line = { tone: '', text: UPDATE_REFUSED.unbundled };
-  else if (app.sourceStatus === 'notSet') line = { tone: '', text: UPDATE_REFUSED.noSource };
+  } else if (!app.bundled) line = { tone: '', text: updateRefused().unbundled };
+  else if (app.sourceStatus === 'notSet') line = { tone: '', text: updateRefused().noSource };
   const ready = app.bundled && app.sourceStatus === 'ok' && !app.updating;
   return (
     <div className={rowClass()}>
-      <div className={LABEL}>Cập nhật</div>
+      <div className={LABEL}>{t('Cập nhật', 'Update')}</div>
       <div>
         <div>
           <Button primary disabled={!ready} onClick={() => void run(onUpdate)}>
-            {app.updating ? 'Đang cập nhật…' : 'Cập nhật từ mã nguồn'}
+            {app.updating ? t('Đang cập nhật…', 'Updating…') : t('Cập nhật từ mã nguồn', 'Update from source')}
           </Button>
           {app.outcome?.kind === 'installed' && !app.updating ? (
             <>
               {' '}
-              <Button onClick={() => void run(onRelaunch)}>Mở lại</Button>
+              <Button onClick={() => void run(onRelaunch)}>{t('Mở lại', 'Restart')}</Button>
             </>
           ) : null}
         </div>
         {line ? <FieldHint tone={line.tone}>{line.text}</FieldHint> : null}
-        {refused ? <FieldHint tone="bad">{UPDATE_REFUSED[refused] ?? 'Chưa chạy được: ' + refused}</FieldHint> : null}
+        {refused ? (
+          <FieldHint tone="bad">{updateRefused()[refused] ?? t('Chưa chạy được: ' + refused, 'Could not run: ' + refused)}</FieldHint>
+        ) : null}
       </div>
     </div>
   );
 }
 
-const POOL_REFUSED: Record<string, string> = {
-  range: 'Mỗi ngưỡng từ 1 tới 99%.',
-  order: 'Ngưỡng của tài khoản khác phải lớn hơn ngưỡng cạn.',
-};
+const poolRefused = (): Record<string, string> => ({
+  range: t('Mỗi ngưỡng từ 1 tới 99%.', 'Each threshold is from 1 to 99%.'),
+  order: t('Ngưỡng của tài khoản khác phải lớn hơn ngưỡng cạn.', 'The threshold for other accounts must be higher than the running-out one.'),
+});
 
 /** Alert 1: the account in use at this share left or less, and no other with that much. */
 function PoolAlertRow({ model, onSet }: { model: Model; onSet: SettingsProps['onPoolAlert'] }) {
@@ -587,19 +687,24 @@ function PoolAlertRow({ model, onSet }: { model: Model; onSet: SettingsProps['on
   );
   return (
     <div className={rowClass()}>
-      <div className={LABEL}>Hạn mức sắp cạn</div>
+      <div className={LABEL}>{t('Hạn mức sắp cạn', 'Quota running out')}</div>
       <div>
         <div className="flex flex-wrap items-center gap-1.5 text-sm">
-          <span>Tài khoản đang dùng còn ≤</span>
-          {field('qs-pool-dry', dry, setDry, 'Còn bao nhiêu phần trăm thì coi là sắp cạn')}
-          <span>% và không tài khoản nào còn ≥</span>
-          {field('qs-pool-room', room, setRoom, 'Tài khoản khác còn bao nhiêu phần trăm thì coi là còn hạn mức')}
+          <span>{t('Tài khoản đang dùng còn ≤', 'The account in use has ≤')}</span>
+          {field('qs-pool-dry', dry, setDry, t('Còn bao nhiêu phần trăm thì coi là sắp cạn', 'Percent left that counts as running out'))}
+          <span>{t('% và không tài khoản nào còn ≥', '% left and no account has ≥')}</span>
+          {field(
+            'qs-pool-room',
+            room,
+            setRoom,
+            t('Tài khoản khác còn bao nhiêu phần trăm thì coi là còn hạn mức', 'Percent left on another account that counts as having quota'),
+          )}
           <span>%</span>
         </div>
         {refused ? (
-          <FieldHint tone="bad">{POOL_REFUSED[refused] ?? 'Chưa lưu được: ' + refused}</FieldHint>
+          <FieldHint tone="bad">{poolRefused()[refused] ?? notSavedText(refused)}</FieldHint>
         ) : (
-          <FieldHint>Cảnh báo 1 dùng hai ngưỡng này.</FieldHint>
+          <FieldHint>{t('Cảnh báo 1 dùng hai ngưỡng này.', 'Alert 1 uses these two thresholds.')}</FieldHint>
         )}
       </div>
     </div>
@@ -618,15 +723,15 @@ function BackupFolder({ model, onSet }: { model: Model; onSet: NonNullable<Setti
   };
   const hint = refused
     ? refused === 'notFound'
-      ? 'Không có thư mục ở đường dẫn này.'
-      : 'Chưa lưu được: ' + refused
+      ? noFolderText()
+      : notSavedText(refused)
     : b.customFolder
-      ? 'Gói mới vào thư mục này. Gói cũ vẫn ở chỗ cũ.'
-      : 'Để trống để dùng iCloud Drive › Quota Station Agents.';
+      ? t('Gói mới vào thư mục này. Gói cũ vẫn ở chỗ cũ.', 'New packs go to this folder. Old packs stay where they are.')
+      : t('Để trống để dùng iCloud Drive › Quota Station Agents.', 'Leave empty to use iCloud Drive › Quota Station Agents.');
   return (
     <div className={rowClass()}>
       <label className={LABEL} htmlFor="qs-backup">
-        Thư mục sao lưu
+        {t('Thư mục sao lưu', 'Backup folder')}
       </label>
       <div>
         <Input
@@ -662,13 +767,21 @@ function Advanced(props: SettingsProps & { model: AuthorModel }) {
   const a = model.advanced;
   return (
     <Panel>
-      <CardTitle>Nâng cao</CardTitle>
-      <div className="grid">
+      <CardTitle>
+        <Icon name="sliders-horizontal" />
+        {t('Nâng cao', 'Advanced')}
+      </CardTitle>
+      <div className={CARD_ROWS}>
         <div className={rowClass()}>
-          <div className={LABEL}>Hiện phần nâng cao</div>
+          <div className={LABEL}>{t('Hiện phần nâng cao', 'Show advanced features')}</div>
           <div>
-            <Toggle on={a.on} label="Hiện phần nâng cao" onClick={() => props.onAdvanced(!a.on)} />
-            <FieldHint>Tự chuyển Claude theo luật xoay vòng, tạm dừng, các Mac khác, cập nhật từ mã nguồn và Firstmate.</FieldHint>
+            <Toggle on={a.on} label={t('Hiện phần nâng cao', 'Show advanced features')} onClick={() => props.onAdvanced(!a.on)} />
+            <FieldHint>
+              {t(
+                'Tự chuyển Claude theo luật xoay vòng, tạm dừng, các Mac khác, cập nhật từ mã nguồn và Firstmate.',
+                'Automatic Claude switching by rotation rules, pausing, other Macs, updating from source, and Firstmate.',
+              )}
+            </FieldHint>
           </div>
         </div>
         {a.on ? (
@@ -677,7 +790,9 @@ function Advanced(props: SettingsProps & { model: AuthorModel }) {
               <div className={LABEL}>Firstmate</div>
               <div>
                 <Toggle on={a.firstmate} label="Firstmate" onClick={() => props.onFirstmate(!a.firstmate)} />
-                <FieldHint>Tab Firstmate và cảnh báo khi Firstmate chờ hạn mức Claude.</FieldHint>
+                <FieldHint>
+                  {t('Tab Firstmate và cảnh báo khi Firstmate chờ hạn mức Claude.', 'The Firstmate tab and an alert when Firstmate is waiting for Claude quota.')}
+                </FieldHint>
               </div>
             </div>
             {a.firstmate ? <FirstmateFile model={model} onSet={props.onSetFirstmate} /> : null}
@@ -703,10 +818,11 @@ const MENUBARS: [Menubar, string, 'c' | 'g' | 'x'][] = [
  * a ChatGPT login or a provider of its own. '' when it can.
  */
 export function menubarOff(model: Model, menubar: Menubar): string {
-  if (menubar === 'gemini' && model.snapshot.agy.status === 'notSetUp') return 'Máy này chưa có Antigravity.';
+  if (menubar === 'gemini' && model.snapshot.agy.status === 'notSetUp') return t('Máy này chưa có Antigravity.', 'This Mac has no Antigravity.');
   if (menubar === 'codex') {
-    if (!model.codex.present) return 'Máy này chưa có Codex.';
-    if (model.codex.current === 'chatgpt' && model.snapshot.codex.status === 'notSetUp') return 'Codex chưa đăng nhập ChatGPT.';
+    if (!model.codex.present) return t('Máy này chưa có Codex.', 'This Mac has no Codex.');
+    if (model.codex.current === 'chatgpt' && model.snapshot.codex.status === 'notSetUp')
+      return t('Codex chưa đăng nhập ChatGPT.', 'Codex is not signed in to ChatGPT.');
   }
   return '';
 }
@@ -719,25 +835,34 @@ function SkillChecksRows({ model, onSet }: { model: Model; onSet: NonNullable<Se
     <>
       <div className={rowClass()}>
         <div className={LABEL} id="qs-skcheck-l">
-          Kiểm bản mới
+          {t('Kiểm bản mới', 'Check for skill updates')}
         </div>
         <div>
           <Segmented variant="inline" aria-labelledby="qs-skcheck-l">
             <Segment pressed={c.daily} onClick={() => onSet(true, c.notify)}>
-              Mỗi ngày
+              {t('Mỗi ngày', 'Daily')}
             </Segment>
             <Segment pressed={!c.daily} onClick={() => onSet(false, c.notify)}>
-              Tắt
+              {t('Tắt', 'Off')}
             </Segment>
           </Segmented>
-          <FieldHint>Hỏi GitHub một lần cho mỗi repo có skill đã cài. App không tự cập nhật skill.</FieldHint>
+          <FieldHint>
+            {t(
+              'Hỏi GitHub một lần cho mỗi repo có skill đã cài. App không tự cập nhật skill.',
+              'Asks GitHub once for each repo with an installed skill. The app never updates skills itself.',
+            )}
+          </FieldHint>
         </div>
       </div>
       <div className={rowClass()}>
-        <div className={LABEL}>Báo bằng thông báo macOS</div>
+        <div className={LABEL}>{t('Báo bằng thông báo macOS', 'Show a macOS notification')}</div>
         <div>
-          <Toggle on={c.notify} label="Báo skill có bản mới bằng thông báo macOS" onClick={() => onSet(c.daily, !c.notify)} />
-          <FieldHint>Tắt thì chỉ báo trong tab Cảnh báo.</FieldHint>
+          <Toggle
+            on={c.notify}
+            label={t('Báo skill có bản mới bằng thông báo macOS', 'Show a macOS notification when a skill has an update')}
+            onClick={() => onSet(c.daily, !c.notify)}
+          />
+          <FieldHint>{t('Tắt thì chỉ báo trong tab Cảnh báo.', 'When off, updates show only in the Alerts tab.')}</FieldHint>
         </div>
       </div>
     </>
@@ -750,32 +875,38 @@ function MenubarRow({ model, onPick }: { model: Model; onPick(menubar: Menubar):
   return (
     <div className={rowClass()}>
       <div className={LABEL} id="qs-menubar-l">
-        Thanh menu
+        {t('Thanh menu', 'Menu bar')}
       </div>
       <div>
         <Segmented variant="menubar" aria-labelledby="qs-menubar-l">
-          {MENUBARS.map(([v, t, id]) => {
+          {MENUBARS.map(([v, name, id]) => {
             const off = menubarOff(model, v);
             return (
               <Segment key={v} pressed={model.menubar === v} disabled={!!off} title={off || undefined} onClick={() => onPick(v)}>
                 <IdMark id={id} />
-                {t}
+                {name}
               </Segment>
             );
           })}
         </Segmented>
-        <FieldHint>Tên và phần trăm đã dùng của tài khoản đang dùng.</FieldHint>
-        {offs.length ? <FieldHint tone="off">{picked ? picked.replace(/\.$/, '') + ': thanh menu theo Claude.' : offs.join(' ')}</FieldHint> : null}
+        <FieldHint>{t('Tên và phần trăm đã dùng của tài khoản đang dùng.', 'Name and percent used of the account in use.')}</FieldHint>
+        {offs.length ? (
+          <FieldHint tone="off">
+            {picked
+              ? t(picked.replace(/\.$/, '') + ': thanh menu theo Claude.', picked.replace(/\.$/, '') + ': the menu bar follows Claude.')
+              : offs.join(' ')}
+          </FieldHint>
+        ) : null}
       </div>
     </div>
   );
 }
 
-const MENUBAR_WINDOWS: [MenubarWindow, string][] = [
-  ['fiveHours', '5 giờ'],
-  ['week', 'Tuần'],
-  ['fableWeek', 'Fable tuần'],
-  ['tightest', 'Chặt nhất'],
+const menubarWindows = (): [MenubarWindow, string][] => [
+  ['fiveHours', t('5 giờ', '5-hour')],
+  ['week', t('Tuần', 'Week')],
+  ['fableWeek', t('Fable tuần', 'Fable week')],
+  ['tightest', t('Chặt nhất', 'Highest usage')],
 ];
 
 /**
@@ -785,7 +916,8 @@ const MENUBAR_WINDOWS: [MenubarWindow, string][] = [
 export function menubarWindowOff(model: Model, window: MenubarWindow): string {
   const follows = menubarOff(model, model.menubar) ? 'claude' : model.menubar;
   if (window !== 'fableWeek' || follows === 'claude') return '';
-  return (follows === 'gemini' ? 'Gemini' : 'Codex') + ' không có Fable tuần.';
+  const name = follows === 'gemini' ? 'Gemini' : 'Codex';
+  return t(name + ' không có Fable tuần.', name + ' has no Fable week.');
 }
 
 /** Số trên thanh menu: which window's share used the menu bar shows. */
@@ -794,21 +926,25 @@ function MenubarWindowRow({ model, onPick }: { model: Model; onPick(window: Menu
   return (
     <div className={rowClass()}>
       <div className={LABEL} id="qs-mbwindow-l">
-        Số trên thanh menu
+        {t('Số trên thanh menu', 'Number in the menu bar')}
       </div>
       <div>
         <Segmented variant="inline" aria-labelledby="qs-mbwindow-l">
-          {MENUBAR_WINDOWS.map(([v, t]) => {
+          {menubarWindows().map(([v, label]) => {
             const off = menubarWindowOff(model, v);
             return (
               <Segment key={v} pressed={model.menubarWindow === v} disabled={!!off} title={off || undefined} onClick={() => onPick(v)}>
-                {t}
+                {label}
               </Segment>
             );
           })}
         </Segmented>
-        <FieldHint>Chặt nhất: hạn mức đã dùng nhiều nhất.</FieldHint>
-        {picked ? <FieldHint tone="off">{picked.replace(/\.$/, '') + ': thanh menu hiện 5 giờ.'}</FieldHint> : null}
+        <FieldHint>{t('Chặt nhất: hạn mức đã dùng nhiều nhất.', 'Highest usage: whichever quota is most used.')}</FieldHint>
+        {picked ? (
+          <FieldHint tone="off">
+            {t(picked.replace(/\.$/, '') + ': thanh menu hiện 5 giờ.', picked.replace(/\.$/, '') + ': the menu bar shows the 5-hour window.')}
+          </FieldHint>
+        ) : null}
       </div>
     </div>
   );
@@ -834,6 +970,7 @@ export function Settings(props: SettingsProps) {
   onSkillChecks,
   onPoolAlert,
   onSetBackupFolder,
+  onLanguage,
   } = props;
   const keychain = model.snapshot.keychain;
   // Nâng cao is one of the author's tools: a release build has no such card.
@@ -842,86 +979,109 @@ export function Settings(props: SettingsProps) {
   return (
     <>
       <TabHead>
-        <TabTitle>Cài đặt</TabTitle>
+        <TabTitle>{t('Cài đặt', 'Settings')}</TabTitle>
         <TabSub>
           <Dot tone={fresh.tone} />
           {model.machine} · {fresh.text}
         </TabSub>
       </TabHead>
       {feedback ? <Feedback fb={feedback} onAction={onAction} /> : null}
-      <EnvCard model={model} onAction={onAction} />
-      <Panel>
-        <div className="grid">
-          <div className={rowClass()}>
-            <div className={LABEL}>
-              Quyền Keychain
-            </div>
-            <div>
-              {keychain === 'granted' ? (
-                <Chip chip={{ t: 'đã cấp', k: 'ok' }} />
-              ) : keychain === 'required' ? (
-                <>
-                  <Chip chip={{ t: 'chưa cấp', k: 'warn' }} />{' '}
-                  <Button primary disabled={model.granting} onClick={onGrant}>
-                    Cấp quyền một lần
-                  </Button>
-                  <FieldHint>
-                    {model.granting
-                      ? 'macOS sẽ hỏi. Bấm "Luôn cho phép". App chỉ đọc đăng nhập của Claude Code để lấy số, không làm mới hay sửa nó.'
-                      : 'Đến khi cấp, dòng Claude chỉ hiện số đọc được lần trước.'}
-                  </FieldHint>
-                </>
-              ) : (
-                <Chip chip={{ t: 'chưa rõ', k: '' }} />
-              )}
-            </div>
-          </div>
-          <MachineName model={model} onSet={onSetMachine} />
-          {model.capabilities.agyAccounts && model.antigravity ? (
+      {/* A variable overriding a login is something to act on: its card comes first. */}
+      {model.env.found.length ? <EnvCard model={model} onAction={onAction} /> : null}
+      <div className="grid grid-cols-2 items-start gap-3 [@media(max-width:1000px)]:grid-cols-1">
+        <div className={STACK}>
+          <SettingsCard title={t('Chung', 'General')} icon="settings">
+            {onLanguage ? <LanguageRow model={model} onPick={onLanguage} /> : null}
+            <MachineName model={model} onSet={onSetMachine} />
+            <LaunchAtLogin app={model.app} onSet={onLaunchAtLogin} onOpen={onOpenLoginItems} />
+          </SettingsCard>
+          <SettingsCard title={t('Hiển thị', 'Display')} icon="monitor">
             <div className={rowClass()}>
-              <div className={LABEL}>
-                OAuth client Antigravity
+              <div className={LABEL} id="qs-theme-l">
+                {t('Giao diện', 'Appearance')}
+              </div>
+              <Segmented variant="inline" className="justify-self-start" aria-labelledby="qs-theme-l">
+                {themes().map(([v, label]) => (
+                  <Segment key={v} className="px-3.5" pressed={model.theme === v} onClick={() => onTheme(v)}>
+                    {label}
+                  </Segment>
+                ))}
+              </Segmented>
+            </div>
+            <div className={rowClass()}>
+              <div className={LABEL} id="qs-email-l">
+                {t('Hiện email', 'Show emails')}
               </div>
               <div>
-                <Chip chip={CLIENT_CHIPS[model.antigravity.client]} />
-                <FieldHint>
-                  <span className={CODE}>{model.antigravity.clientPath}</span>, quyền 600, chỉ có trên Mac này. README ghi định dạng.
-                </FieldHint>
+                <Toggle on={model.showNames} label={t('Hiện email', 'Show emails')} onClick={() => onShowNames(!model.showNames)} />
               </div>
             </div>
-          ) : null}
-          <div className={rowClass()}>
-            <div className={LABEL} id="qs-email-l">
-              Hiện email
-            </div>
-            <div>
-              <Toggle on={model.showNames} label="Hiện email" onClick={() => onShowNames(!model.showNames)} />
-            </div>
-          </div>
-          <div className={rowClass()}>
-            <div className={LABEL} id="qs-theme-l">
-              Giao diện
-            </div>
-            <Segmented variant="inline" className="justify-self-start" aria-labelledby="qs-theme-l">
-              {THEMES.map(([v, t]) => (
-                <Segment key={v} className="px-3.5" pressed={model.theme === v} onClick={() => onTheme(v)}>
-                  {t}
-                </Segment>
-              ))}
-            </Segmented>
-          </div>
-          <MenubarRow model={model} onPick={onMenubar} />
-          <MenubarWindowRow model={model} onPick={onMenubarWindow} />
-          {onSetCodexHome ? <CodexHome model={model} onSet={onSetCodexHome} /> : null}
-          {onSetBackupFolder ? <BackupFolder model={model} onSet={onSetBackupFolder} /> : null}
-          <Notifications model={model} onAction={onAction} onTest={onTestAlert} onSwitch={onAlertSwitch} />
-          <PoolAlertRow model={model} onSet={onPoolAlert} />
-          {onSkillChecks ? <SkillChecksRows model={model} onSet={onSkillChecks} /> : null}
-          <LaunchAtLogin app={model.app} onSet={onLaunchAtLogin} onOpen={onOpenLoginItems} />
-          <Version app={model.app} />
+            <MenubarRow model={model} onPick={onMenubar} />
+            <MenubarWindowRow model={model} onPick={onMenubarWindow} />
+          </SettingsCard>
+          <SettingsCard title={t('Thông báo', 'Notifications')} icon="bell">
+            <Notifications model={model} onAction={onAction} onTest={onTestAlert} onSwitch={onAlertSwitch} />
+            <PoolAlertRow model={model} onSet={onPoolAlert} />
+          </SettingsCard>
+          <SettingsCard title={t('Cập nhật', 'Updates')} icon="refresh-cw">
+            <Version app={model.app} />
+            {onSkillChecks ? <SkillChecksRows model={model} onSet={onSkillChecks} /> : null}
+          </SettingsCard>
         </div>
-      </Panel>
-      {author ? <Advanced {...props} model={author} /> : null}
+        <div className={STACK}>
+          <SettingsCard title={t('Dịch vụ và nguồn số', 'Services and data')} icon="database">
+            <div className={rowClass()}>
+              <div className={LABEL}>
+                {t('Quyền Keychain', 'Keychain access')}
+              </div>
+              <div>
+                {keychain === 'granted' ? (
+                  <Chip chip={{ t: t('đã cấp', 'granted'), k: 'ok' }} />
+                ) : keychain === 'required' ? (
+                  <>
+                    <Chip chip={{ t: t('chưa cấp', 'not granted'), k: 'warn' }} />{' '}
+                    <Button primary disabled={model.granting} onClick={onGrant}>
+                      {t('Cấp quyền một lần', 'Grant once')}
+                    </Button>
+                    <FieldHint>
+                      {model.granting
+                        ? t(
+                            'macOS sẽ hỏi. Bấm "Luôn cho phép". App chỉ đọc đăng nhập của Claude Code để lấy số, không làm mới hay sửa nó.',
+                            'macOS will ask. Click "Always Allow". The app only reads Claude Code’s sign-in to get the numbers; it never refreshes or changes it.',
+                          )
+                        : t('Đến khi cấp, dòng Claude chỉ hiện số đọc được lần trước.', 'Until you grant it, the Claude row shows only the numbers read last time.')}
+                    </FieldHint>
+                  </>
+                ) : (
+                  <Chip chip={{ t: t('chưa rõ', 'unknown'), k: '' }} />
+                )}
+              </div>
+            </div>
+            {onSetCodexHome ? <CodexHome model={model} onSet={onSetCodexHome} /> : null}
+            {model.capabilities.agyAccounts && model.antigravity ? (
+              <div className={rowClass()}>
+                <div className={LABEL}>
+                  {t('OAuth client Antigravity', 'Antigravity OAuth client')}
+                </div>
+                <div>
+                  <Chip chip={clientChips()[model.antigravity.client]} />
+                  <FieldHint>
+                    <span className={CODE}>{model.antigravity.clientPath}</span>
+                    {t(', quyền 600, chỉ có trên Mac này. README ghi định dạng.', ', mode 600, on this Mac only. The README describes the format.')}
+                  </FieldHint>
+                </div>
+              </div>
+            ) : null}
+          </SettingsCard>
+          {model.env.found.length ? null : <EnvCard model={model} onAction={onAction} />}
+          {onSetBackupFolder ? (
+            <SettingsCard title={t('Sao lưu', 'Backup')} icon="layers">
+              <BackupFolder model={model} onSet={onSetBackupFolder} />
+            </SettingsCard>
+          ) : null}
+          {author ? <Advanced {...props} model={author} /> : null}
+        </div>
+      </div>
     </>
   );
 }

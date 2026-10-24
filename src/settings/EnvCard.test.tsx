@@ -23,7 +23,7 @@ async function openTab(tab: Tab, model: Model) {
       <MainWindowApp api={fake.api} clock={() => FIXTURE_NOW} />
     </div>,
   );
-  await screen.findByRole('navigation', { name: 'Mục' });
+  await screen.findByRole('navigation', { name: 'Các tab' });
   return fake;
 }
 

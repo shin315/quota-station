@@ -18,6 +18,7 @@ import { COUNT, Empty, TabHead, TabSub, TabTitle } from '../components/page';
 import { DialogButtons, DialogLead, DialogTitle } from '@/components/ui/dialog';
 import type { Api } from '../lib/api';
 import { clock } from '../lib/format';
+import { t } from '../lib/i18n';
 import { AGENT_NAME } from '../lib/mcp';
 import type { InstrFile, InstrShown, McpLine, Model } from '../lib/model';
 import { dayClock } from '../lib/switching';
@@ -29,14 +30,22 @@ export type InstrDialog =
   | { kind: 'diff'; path: string; lines: McpLine[] | null; error: string | null }
   | { kind: 'add'; path: string; error: string | null };
 
-const ADD_ERROR: Record<string, string> = {
-  outside: 'File phải nằm trong thư mục nhà, ngoài thư mục của app.',
-  type: 'Chỉ nhận file .md hoặc .txt.',
-  missing: 'Không thấy file này.',
-  large: 'File lớn hơn 1 MB.',
-};
+/** Why a file was not added, from the Rust side's code; null for a code it does not know. */
+function addError(code: string): string | null {
+  if (code === 'outside') return t('File phải nằm trong thư mục nhà, ngoài thư mục của app.', 'The file must be in your home folder, outside the app’s folder.');
+  if (code === 'type') return t('Chỉ nhận file .md hoặc .txt.', 'Only .md or .txt files.');
+  if (code === 'missing') return t('Không thấy file này.', 'This file was not found.');
+  if (code === 'large') return t('File lớn hơn 1 MB.', 'The file is larger than 1 MB.');
+  return null;
+}
 
-const SHOW_ERROR: Record<string, string> = { missing: 'Không còn file này. Bấm Đọc lại.', noPack: 'Chưa có gói sao lưu nào để so.', notInPack: 'Gói mới nhất không có file này.' };
+/** Why a file could not be shown or compared; null for a code it does not know. */
+function showError(code: string): string | null {
+  if (code === 'missing') return t('Không còn file này. Bấm Đọc lại.', 'This file is gone. Press Read again.');
+  if (code === 'noPack') return t('Chưa có gói sao lưu nào để so.', 'There is no backup pack to compare with yet.');
+  if (code === 'notInPack') return t('Gói mới nhất không có file này.', 'The latest pack does not have this file.');
+  return null;
+}
 
 export function useInstr(api: Api, model: Model | null, showFeedback: (fb: FeedbackView | null) => void) {
   const [dialog, setDialog] = useState<InstrDialog | null>(null);
@@ -49,7 +58,7 @@ export function useInstr(api: Api, model: Model | null, showFeedback: (fb: Feedb
       const shown = await api.instrShow(path);
       setDialog((d) => (d?.kind === 'view' && d.path === path ? { ...d, shown } : d));
     } catch (e) {
-      setDialog((d) => (d?.kind === 'view' && d.path === path ? { ...d, error: SHOW_ERROR[String(e)] ?? 'Không đọc được file: ' + String(e) } : d));
+      setDialog((d) => (d?.kind === 'view' && d.path === path ? { ...d, error: showError(String(e)) ?? t('Không đọc được file: ', 'Could not read the file: ') + String(e) } : d));
     }
   };
 
@@ -59,7 +68,7 @@ export function useInstr(api: Api, model: Model | null, showFeedback: (fb: Feedb
       const lines = await api.instrCompare(path);
       setDialog((d) => (d?.kind === 'diff' && d.path === path ? { ...d, lines } : d));
     } catch (e) {
-      setDialog((d) => (d?.kind === 'diff' && d.path === path ? { ...d, error: SHOW_ERROR[String(e)] ?? 'Chưa so được: ' + String(e) } : d));
+      setDialog((d) => (d?.kind === 'diff' && d.path === path ? { ...d, error: showError(String(e)) ?? t('Chưa so được: ', 'Could not compare: ') + String(e) } : d));
     }
   };
 
@@ -69,10 +78,14 @@ export function useInstr(api: Api, model: Model | null, showFeedback: (fb: Feedb
     setWorking(true);
     try {
       await api.instrNotKey(path, line);
-      showFeedback({ tone: '', title: 'Đã đánh dấu dòng ' + line + ' không phải khoá', body: 'Chỉ dòng này, đúng nội dung này. Sửa dòng thì app kiểm lại.' });
+      showFeedback({
+        tone: '',
+        title: t('Đã đánh dấu dòng ' + line + ' không phải khoá', 'Marked line ' + line + ' as not a key'),
+        body: t('Chỉ dòng này, đúng nội dung này. Sửa dòng thì app kiểm lại.', 'Only this line, with exactly this content. If the line changes, the app checks it again.'),
+      });
       await show(path);
     } catch {
-      showFeedback({ tone: 'bad', title: 'Chưa đánh dấu được', body: 'File vừa đổi. Bấm Đọc lại rồi thử lại.' });
+      showFeedback({ tone: 'bad', title: t('Chưa đánh dấu được', 'Could not mark it'), body: t('File vừa đổi. Bấm Đọc lại rồi thử lại.', 'The file just changed. Press Read again, then try again.') });
       setDialog(null);
     } finally {
       setWorking(false);
@@ -84,9 +97,13 @@ export function useInstr(api: Api, model: Model | null, showFeedback: (fb: Feedb
     try {
       const shown = await api.instrAdd(d.path);
       setDialog(null);
-      showFeedback({ tone: '', title: 'Đã thêm ' + shown, body: 'File vào gói sao lưu ở lần sao lưu tới, nếu không có dòng dạng khoá.' });
+      showFeedback({
+        tone: '',
+        title: t('Đã thêm ' + shown, 'Added ' + shown),
+        body: t('File vào gói sao lưu ở lần sao lưu tới, nếu không có dòng dạng khoá.', 'The file goes into the backup pack at the next backup, if no line looks like a key.'),
+      });
     } catch (e) {
-      setDialog({ ...d, error: ADD_ERROR[String(e)] ?? String(e) });
+      setDialog({ ...d, error: addError(String(e)) ?? String(e) });
     } finally {
       setWorking(false);
     }
@@ -102,10 +119,14 @@ export function useInstr(api: Api, model: Model | null, showFeedback: (fb: Feedb
     try {
       await api.backupNow();
       setDialog(null);
-      showFeedback({ tone: 'info', title: 'Đã sao lưu', body: 'Gói mới có bản file hướng dẫn trên máy lúc này.' });
+      showFeedback({ tone: 'info', title: t('Đã sao lưu', 'Backed up'), body: t('Gói mới có bản file hướng dẫn trên máy lúc này.', 'The new pack has the instruction files as they are on this Mac now.') });
       reread();
     } catch (e) {
-      showFeedback({ tone: 'bad', title: 'Chưa sao lưu được', body: String(e) === 'noICloud' ? 'iCloud Drive chưa bật trên máy này.' : 'Xem tab Sao lưu để biết thêm.' });
+      showFeedback({
+        tone: 'bad',
+        title: t('Chưa sao lưu được', 'Could not back up'),
+        body: String(e) === 'noICloud' ? t('iCloud Drive chưa bật trên máy này.', 'iCloud Drive is not turned on on this Mac.') : t('Xem tab Sao lưu để biết thêm.', 'See the Backup tab for more.'),
+      });
       setDialog(null);
     } finally {
       setWorking(false);
@@ -130,7 +151,10 @@ export function useInstr(api: Api, model: Model | null, showFeedback: (fb: Feedb
     reread,
     show: (path: string) => void show(path),
     compare: (path: string) => void compare(path),
-    include: (path: string, on: boolean) => void api.instrInclude(path, on).catch(() => showFeedback({ tone: 'bad', title: 'Chưa lưu được', body: 'App không ghi được lựa chọn này. Thử lại.' })),
+    include: (path: string, on: boolean) =>
+      void api
+        .instrInclude(path, on)
+        .catch(() => showFeedback({ tone: 'bad', title: t('Chưa lưu được', 'Could not save'), body: t('App không ghi được lựa chọn này. Thử lại.', 'The app could not save this choice. Try again.') })),
     notKey: (path: string, line: number) => void notKey(path, line),
     add: (d: Extract<InstrDialog, { kind: 'add' }>) => void add(d),
     forget: (path: string) => void forget(path),
@@ -145,23 +169,31 @@ const file = (path: string) => path.split('/').pop() ?? path;
 
 function statusChip(f: InstrFile, packAt: number | null): ChipView {
   const at = packAt ? clock(new Date(packAt * 1000).toISOString()) : '';
-  if (f.keyLines.length) return { t: 'có dạng khoá · dòng ' + f.keyLines.join(', '), k: 'bad', title: 'Gói không bao giờ chứa khoá.' };
-  if (f.error) return { t: 'không đọc được', k: 'warn', title: f.error };
-  if (f.vsPack === 'same') return { t: 'giống gói ' + at, k: 'ok' };
-  if (f.vsPack === 'changed') return { t: 'đã đổi sau gói ' + at, k: 'info' };
-  if (f.vsPack === 'new') return { t: 'chưa có trong gói', k: '' };
-  return { t: 'chưa có gói', k: '' };
+  if (f.keyLines.length)
+    return {
+      t: t('có dạng khoá · dòng ' + f.keyLines.join(', '), 'looks like a key · ' + (f.keyLines.length === 1 ? 'line ' : 'lines ') + f.keyLines.join(', ')),
+      k: 'bad',
+      title: t('Gói không bao giờ chứa khoá.', 'A pack never holds keys.'),
+    };
+  if (f.error) return { t: t('không đọc được', 'unreadable'), k: 'warn', title: f.error };
+  if (f.vsPack === 'same') return { t: t('giống gói ' + at, 'same as pack ' + at), k: 'ok' };
+  if (f.vsPack === 'changed') return { t: t('đã đổi sau gói ' + at, 'changed after pack ' + at), k: 'info' };
+  if (f.vsPack === 'new') return { t: t('chưa có trong gói', 'not in the pack yet'), k: '' };
+  return { t: t('chưa có gói', 'no pack yet'), k: '' };
 }
 
 function keyBanner(f: InstrFile): BannerView {
   const n = f.keyLines[0];
   return {
     tone: 'bad',
-    title: file(f.path) + ' chưa vào gói sao lưu',
-    body: 'Dòng ' + f.keyLines.join(', ') + ' có dạng khoá. Gói không bao giờ chứa khoá.',
+    title: t(file(f.path) + ' chưa vào gói sao lưu', file(f.path) + ' is not in the backup pack'),
+    body: t(
+      'Dòng ' + f.keyLines.join(', ') + ' có dạng khoá. Gói không bao giờ chứa khoá.',
+      (f.keyLines.length === 1 ? 'Line ' + n + ' looks' : 'Lines ' + f.keyLines.join(', ') + ' look') + ' like a key. A pack never holds keys.',
+    ),
     actions: [
-      { label: 'Xem dòng ' + n, act: `instr:key:${f.path}` },
-      { label: 'Đọc lại', act: 'instr:reread' },
+      { label: t('Xem dòng ' + n, 'View line ' + n), act: `instr:key:${f.path}` },
+      { label: t('Đọc lại', 'Read again'), act: 'instr:reread' },
     ],
   };
 }
@@ -181,17 +213,17 @@ const FILE_ROW = 'grid grid-cols-[minmax(0,1.6fr)_90px_104px_minmax(0,1.1fr)_62p
 export function InstrTab({ model, fresh, feedback, now, instr, onAction }: InstrTabProps) {
   const v = model.instructions;
   const view = v.view;
-  const sub = v.readAt ? 'đọc lúc ' + clock(v.readAt) : fresh.text;
+  const sub = v.readAt ? t('đọc lúc ' + clock(v.readAt), 'read at ' + clock(v.readAt)) : fresh.text;
   return (
     <>
       <TabHead>
-        <TabTitle>File hướng dẫn</TabTitle>
+        <TabTitle>{t('File hướng dẫn', 'Instruction files')}</TabTitle>
         <TabSub>
           <Dot tone="ok" />
           {model.machine} · {sub}
         </TabSub>
-        <Button onClick={() => instr.setDialog({ kind: 'add', path: '', error: null })}>Thêm file…</Button>
-        <Button onClick={instr.reread}>Đọc lại</Button>
+        <Button onClick={() => instr.setDialog({ kind: 'add', path: '', error: null })}>{t('Thêm file…', 'Add file…')}</Button>
+        <Button onClick={instr.reread}>{t('Đọc lại', 'Read again')}</Button>
       </TabHead>
       {feedback ? <Feedback fb={feedback} onAction={onAction} /> : null}
       {(view?.files ?? [])
@@ -202,23 +234,23 @@ export function InstrTab({ model, fresh, feedback, now, instr, onAction }: Instr
       {!view ? (
         <Panel>
           <Empty>
-            <b>Đang đọc file hướng dẫn…</b>
-            CLAUDE.md, AGENTS.md, GEMINI.md và các file luật, trên máy này.
+            <b>{t('Đang đọc file hướng dẫn…', 'Reading the instruction files…')}</b>
+            {t('CLAUDE.md, AGENTS.md, GEMINI.md và các file luật, trên máy này.', 'CLAUDE.md, AGENTS.md, GEMINI.md and the rule files on this Mac.')}
           </Empty>
         </Panel>
       ) : (
         <Panel>
           <CardTitle>
-            Trong máy này <span className={COUNT}>{view.files.length}</span>
+            {t('Trong máy này', 'On this Mac')} <span className={COUNT}>{view.files.length}</span>
           </CardTitle>
           {view.files.length ? (
-            <div role="list" aria-label="File hướng dẫn">
+            <div role="list" aria-label={t('File hướng dẫn', 'Instruction files')}>
               <div className={cn(FILE_ROW, 'border-t-0 pt-0 text-xs text-ink3')} aria-hidden="true">
                 <span>File</span>
                 <span>Agent</span>
-                <span>Sửa lúc</span>
-                <span>So với gói</span>
-                <span>Trong gói</span>
+                <span>{t('Sửa lúc', 'Modified')}</span>
+                <span>{t('So với gói', 'Versus the pack')}</span>
+                <span>{t('Trong gói', 'In the pack')}</span>
                 <span />
               </div>
               {view.files.map((f) => {
@@ -227,17 +259,21 @@ export function InstrTab({ model, fresh, feedback, now, instr, onAction }: Instr
                 return (
                   <div key={f.path} className={FILE_ROW} role="listitem" aria-label={f.path}>
                     <span className="[font:11.5px_var(--mono)] [overflow-wrap:anywhere]">{f.path}</span>
-                    <span>{f.agent ? AGENT_NAME[f.agent] : 'thêm tay'}</span>
+                    <span>{f.agent ? AGENT_NAME[f.agent] : t('thêm tay', 'added by hand')}</span>
                     <span className="text-ink2 tabular-nums">{f.modifiedAt ? dayClock(f.modifiedAt, now) : '—'}</span>
                     <span>
                       <Chip chip={statusChip(f, view.packAt)} />
                     </span>
                     <span>
-                      <Toggle on={f.include && !key && !f.error} disabled={key || !!f.error} label={'Đưa ' + f.path + ' vào gói'} onClick={() => instr.include(f.path, !f.include)} />
+                      <Toggle on={f.include && !key && !f.error} disabled={key || !!f.error} label={t('Đưa ' + f.path + ' vào gói', 'Put ' + f.path + ' in the pack')} onClick={() => instr.include(f.path, !f.include)} />
                     </span>
                     <span>
-                      <LinkButton small aria-label={(diff ? 'So sánh ' : 'Xem ') + f.path} onClick={() => (diff ? instr.compare(f.path) : instr.show(f.path))}>
-                        {diff ? 'So sánh' : 'Xem'}
+                      <LinkButton
+                        small
+                        aria-label={diff ? t('So sánh ' + f.path, 'Compare ' + f.path) : t('Xem ' + f.path, 'View ' + f.path)}
+                        onClick={() => (diff ? instr.compare(f.path) : instr.show(f.path))}
+                      >
+                        {diff ? t('So sánh', 'Compare') : t('Xem', 'View')}
                       </LinkButton>
                     </span>
                   </div>
@@ -245,15 +281,15 @@ export function InstrTab({ model, fresh, feedback, now, instr, onAction }: Instr
               })}
             </div>
           ) : (
-            <CardText className="mt-2 mb-0">Không thấy file hướng dẫn nào. Thêm file bằng nút Thêm file….</CardText>
+            <CardText className="mt-2 mb-0">{t('Không thấy file hướng dẫn nào. Thêm file bằng nút Thêm file….', 'No instruction files found. Add one with the Add file… button.')}</CardText>
           )}
         </Panel>
       )}
       <Panel>
         <Facts
           items={[
-            ['', 'App không sửa các file này. Khôi phục chỉ ghi file bạn chọn, sau khi xem so sánh từng dòng.'],
-            ['', 'Bản trên máy khác gói thì mặc định giữ bản trên máy.'],
+            ['', t('App không sửa các file này. Khôi phục chỉ ghi file bạn chọn, sau khi xem so sánh từng dòng.', 'The app does not edit these files. A restore only writes the files you pick, after a line-by-line comparison.')],
+            ['', t('Bản trên máy khác gói thì mặc định giữ bản trên máy.', 'When the copy on this Mac differs from the pack, the one on this Mac is kept by default.')],
           ]}
         />
       </Panel>
@@ -267,7 +303,7 @@ function Numbered({ shown }: { shown: InstrShown }) {
       {shown.lines.map((l, i) => (
         <DiffLine key={i} n={i + 1} op={l.key ? undefined : 'ctx'} lit={l.key}>
           {l.text || ' '}
-          {l.key ? <KeyMasked>dạng khoá, đã che</KeyMasked> : null}
+          {l.key ? <KeyMasked>{t('dạng khoá, đã che', 'looks like a key, masked')}</KeyMasked> : null}
         </DiffLine>
       ))}
     </DiffView>
@@ -277,34 +313,47 @@ function Numbered({ shown }: { shown: InstrShown }) {
 function ViewBody({ d, instr, now }: { d: Extract<InstrDialog, { kind: 'view' }>; instr: Instr; now: Date }) {
   const f = instr.files.find((x) => x.path === d.path);
   const keys = d.shown ? d.shown.lines.flatMap((l, i) => (l.key ? [i + 1] : [])) : [];
-  const meta = f ? (f.size < 1024 ? f.size + ' B' : Math.round(f.size / 1024) + ' KB') + (f.modifiedAt ? ' · sửa ' + dayClock(f.modifiedAt, now) : '') : '';
+  const meta = f ? (f.size < 1024 ? f.size + ' B' : Math.round(f.size / 1024) + ' KB') + (f.modifiedAt ? t(' · sửa ' + dayClock(f.modifiedAt, now), ' · modified ' + dayClock(f.modifiedAt, now)) : '') : '';
   return (
     <>
       <DialogTitle>{d.path}</DialogTitle>
-      <DialogLead>{keys.length ? 'Dòng ' + keys.join(', ') + ' có dạng khoá. Giá trị đã được che.' : meta + ' · chỉ xem'}</DialogLead>
-      {d.error ? <p>{d.error}</p> : d.shown ? <Numbered shown={d.shown} /> : <p>Đang đọc…</p>}
+      <DialogLead>
+        {keys.length
+          ? t(
+              'Dòng ' + keys.join(', ') + ' có dạng khoá. Giá trị đã được che.',
+              (keys.length === 1 ? 'Line ' + keys[0] + ' looks like a key. Its value is' : 'Lines ' + keys.join(', ') + ' look like keys. Their values are') + ' masked.',
+            )
+          : meta + t(' · chỉ xem', ' · view only')}
+      </DialogLead>
+      {d.error ? <p>{d.error}</p> : d.shown ? <Numbered shown={d.shown} /> : <p>{t('Đang đọc…', 'Reading…')}</p>}
       {keys.length ? (
         <Facts
           items={[
-            ['x', 'Chưa vào gói sao lưu.'],
-            ['', 'Bỏ khoá khỏi file (cất ở trình quản lý mật khẩu) rồi Đọc lại. Hoặc đánh dấu dòng này không phải khoá.'],
+            ['x', t('Chưa vào gói sao lưu.', 'Not in the backup pack.')],
+            [
+              '',
+              t(
+                'Bỏ khoá khỏi file (cất ở trình quản lý mật khẩu) rồi Đọc lại. Hoặc đánh dấu dòng này không phải khoá.',
+                'Take the key out of the file (keep it in a password manager), then Read again. Or mark this line as not a key.',
+              ),
+            ],
           ]}
         />
       ) : null}
       <DialogButtons>
         {keys.length ? (
           <Button large disabled={instr.working} onClick={() => instr.notKey(d.path, keys[0])}>
-            Dòng {keys[0]} không phải khoá
+            {t('Dòng ' + keys[0] + ' không phải khoá', 'Line ' + keys[0] + ' is not a key')}
           </Button>
         ) : null}
         {f?.extra ? (
           <Button large onClick={() => instr.forget(d.path)}>
-            Bỏ khỏi danh sách
+            {t('Bỏ khỏi danh sách', 'Remove from the list')}
           </Button>
         ) : null}
         <span className="flex-1" />
         <Button large onClick={() => instr.open(d.path)}>
-          Mở trong trình soạn thảo
+          {t('Mở trong trình soạn thảo', 'Open in editor')}
         </Button>
         {keys.length ? (
           <Button
@@ -315,11 +364,11 @@ function ViewBody({ d, instr, now }: { d: Extract<InstrDialog, { kind: 'view' }>
               instr.setDialog(null);
             }}
           >
-            Đọc lại
+            {t('Đọc lại', 'Read again')}
           </Button>
         ) : (
           <Button large primary onClick={instr.close}>
-            Đóng
+            {t('Đóng', 'Close')}
           </Button>
         )}
       </DialogButtons>
@@ -333,12 +382,12 @@ function DiffBody({ d, instr, model }: { d: Extract<InstrDialog, { kind: 'diff' 
   return (
     <>
       <DialogTitle>
-        {d.path} · so với gói {at ? clock(new Date(at * 1000).toISOString()) : ''}
+        {t(d.path + ' · so với gói ' + (at ? clock(new Date(at * 1000).toISOString()) : ''), d.path + ' · versus pack ' + (at ? clock(new Date(at * 1000).toISOString()) : ''))}
       </DialogTitle>
       {d.error ? (
         <p>{d.error}</p>
       ) : d.lines ? (
-        <DiffView head={<DiffFile>{file(d.path)}</DiffFile>} right={changed + ' dòng khác'}>
+        <DiffView head={<DiffFile>{file(d.path)}</DiffFile>} right={t(changed + ' dòng khác', changed + (changed === 1 ? ' line differs' : ' lines differ'))}>
           {d.lines.map((l, i) => (
             <DiffLine key={i} op={l.op}>
               {l.op === 'gap' ? '…' : l.text || ' '}
@@ -347,15 +396,15 @@ function DiffBody({ d, instr, model }: { d: Extract<InstrDialog, { kind: 'diff' 
           ))}
         </DiffView>
       ) : (
-        <p>Đang so…</p>
+        <p>{t('Đang so…', 'Comparing…')}</p>
       )}
-      <p className={TECH}>Gói tự sao lưu sẽ lấy bản trên máy ở lần tới.</p>
+      <p className={TECH}>{t('Gói tự sao lưu sẽ lấy bản trên máy ở lần tới.', 'The next automatic backup takes the copy on this Mac.')}</p>
       <DialogButtons>
         <Button large disabled={instr.working} onClick={instr.backupNow}>
-          {instr.working ? 'Đang sao lưu…' : 'Sao lưu bây giờ'}
+          {instr.working ? t('Đang sao lưu…', 'Backing up…') : t('Sao lưu bây giờ', 'Back up now')}
         </Button>
         <Button large primary onClick={instr.close}>
-          Đóng
+          {t('Đóng', 'Close')}
         </Button>
       </DialogButtons>
     </>
@@ -366,9 +415,9 @@ function AddBody({ d, instr }: { d: Extract<InstrDialog, { kind: 'add' }>; instr
   const go = () => d.path.trim() && instr.add(d);
   return (
     <>
-      <DialogTitle>Thêm file hướng dẫn</DialogTitle>
+      <DialogTitle>{t('Thêm file hướng dẫn', 'Add an instruction file')}</DialogTitle>
       <label className="text-s font-semi" htmlFor="in-add">
-        Đường dẫn file .md hoặc .txt trong thư mục nhà
+        {t('Đường dẫn file .md hoặc .txt trong thư mục nhà', 'Path to a .md or .txt file in your home folder')}
       </label>
       <Input
         id="in-add"
@@ -385,14 +434,14 @@ function AddBody({ d, instr }: { d: Extract<InstrDialog, { kind: 'add' }>; instr
       />
       {d.error ? <FieldHint tone="bad">{d.error}</FieldHint> : null}
       <div className="mt-2.5">
-        <Facts items={[['ok', 'App chỉ đọc file này để đưa vào gói sao lưu, không sửa.']]} />
+        <Facts items={[['ok', t('App chỉ đọc file này để đưa vào gói sao lưu, không sửa.', 'The app only reads this file to put it in the backup pack; it never edits it.')]]} />
       </div>
       <DialogButtons>
         <Button large onClick={instr.close}>
-          Huỷ
+          {t('Huỷ', 'Cancel')}
         </Button>
         <Button large primary disabled={!d.path.trim() || instr.working} onClick={go}>
-          Thêm
+          {t('Thêm', 'Add')}
         </Button>
       </DialogButtons>
     </>

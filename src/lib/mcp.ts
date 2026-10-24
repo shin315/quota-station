@@ -8,6 +8,7 @@
 // uses them too.
 
 import { clock } from './format';
+import { t } from './i18n';
 import type { Agent, McpCell, McpChange, McpDef, McpFailure, McpLock, McpOutcome, McpPreview, McpRefusal, McpRow, McpTable } from './model';
 import type { ChipView, FeedbackView } from './view';
 
@@ -84,8 +85,11 @@ export function pendingList(pending: Pending, rows: BoxRow[]): PendingItem[] {
   return out;
 }
 
-export const pendingText = (p: PendingItem): string =>
-  p.name + ': ' + (p.on ? (p.adds ? 'thêm cho ' : 'bật cho ') : 'tắt cho ') + AGENT_NAME[p.agent];
+export const pendingText = (p: PendingItem): string => {
+  const a = AGENT_NAME[p.agent];
+  if (!p.on) return t(p.name + ': tắt cho ' + a, p.name + ': turn off for ' + a);
+  return p.adds ? t(p.name + ': thêm cho ' + a, p.name + ': add to ' + a) : t(p.name + ': bật cho ' + a, p.name + ': turn on for ' + a);
+};
 
 export function changesOf(pending: Pending, rows: McpRow[]): McpChange[] {
   return pendingList(pending, rows).map((p) => ({ name: p.name, agent: p.agent, to: { kind: p.on ? 'on' : 'off' } }));
@@ -114,34 +118,48 @@ export function columnOpen(table: McpTable, agent: Agent): boolean {
 
 /** Under the name: runs on this Mac, and what; or over the network, and where. */
 export function whereLine(row: { kind: McpRow['kind']; program: string | null; host: string | null }): string {
-  if (row.kind === 'stdio') return 'trên máy · ' + (row.program ?? 'lệnh');
-  if (row.kind === 'http' || row.kind === 'sse') return 'qua mạng · ' + (row.host ?? 'địa chỉ') + (row.kind === 'sse' ? ' · SSE' : '');
-  return 'kiểu app chưa đọc được';
+  if (row.kind === 'stdio') return t('trên máy · ', 'on this Mac · ') + (row.program ?? t('lệnh', 'command'));
+  if (row.kind === 'http' || row.kind === 'sse') return t('qua mạng · ', 'over the network · ') + (row.host ?? t('địa chỉ', 'address')) + (row.kind === 'sse' ? ' · SSE' : '');
+  return t('kiểu app chưa đọc được', 'a kind the app cannot read yet');
 }
 
 /** Chips only when something is the matter. */
 export function rowChips(row: McpRow): ChipView[] {
   const out: ChipView[] = [];
-  if (row.secrets.some((s) => !s.have)) out.push({ t: 'thiếu khoá', k: 'bad', title: 'Không thấy khoá trong file của agent nào hay trong Keychain. Dán khoá để bật.' });
+  if (row.secrets.some((s) => !s.have))
+    out.push({
+      t: t('thiếu khoá', 'key missing'),
+      k: 'bad',
+      title: t('Không thấy khoá trong file của agent nào hay trong Keychain. Dán khoá để bật.', 'No key in any agent’s file or in the Keychain. Paste the key to turn it on.'),
+    });
   const m = row.missingCommand;
-  if (m?.path) out.push({ t: 'lệnh chưa cài', k: 'bad', title: m.command + ' không có trên máy này.' });
-  else if (m) out.push({ t: 'không thấy lệnh', k: 'warn', title: 'Không thấy ' + m.command + ' ở các thư mục thường gặp. Agent vẫn có thể tìm thấy trong PATH của nó.' });
-  if (row.differs) out.push({ t: 'khác giữa các agent', k: 'warn', title: 'Cùng tên mà cấu hình khác nhau. Bấm Sửa để so.' });
+  if (m?.path) out.push({ t: t('lệnh chưa cài', 'command not installed'), k: 'bad', title: t(m.command + ' không có trên máy này.', m.command + ' is not on this Mac.') });
+  else if (m)
+    out.push({
+      t: t('không thấy lệnh', 'command not found'),
+      k: 'warn',
+      title: t(
+        'Không thấy ' + m.command + ' ở các thư mục thường gặp. Agent vẫn có thể tìm thấy trong PATH của nó.',
+        m.command + ' is not in the usual folders. The agent may still find it on its PATH.',
+      ),
+    });
+  if (row.differs)
+    out.push({ t: t('khác giữa các agent', 'differs between agents'), k: 'warn', title: t('Cùng tên mà cấu hình khác nhau. Bấm Sửa để so.', 'Same name, different settings. Press Edit to compare.') });
   return out;
 }
 
 export function lockText(lock: McpLock): string {
   switch (lock) {
     case 'readOnly':
-      return 'cột này chỉ xem';
+      return t('cột này chỉ xem', 'this column is view only');
     case 'shape':
-      return 'mục viết kiểu app không sửa';
+      return t('mục viết kiểu app không sửa', 'written in a form the app does not edit');
     case 'missingKey':
-      return 'thiếu khoá';
+      return t('thiếu khoá', 'key missing');
     case 'noCommand':
-      return 'lệnh chưa cài';
+      return t('lệnh chưa cài', 'command not installed');
     case 'sse':
-      return 'Codex không chạy MCP kiểu SSE';
+      return t('Codex không chạy MCP kiểu SSE', 'Codex does not run SSE MCP servers');
   }
 }
 
@@ -149,69 +167,80 @@ export function lockText(lock: McpLock): string {
 export function cellTitle(row: McpRow, agent: Agent): string {
   const c = row.cells[agent];
   if (c.lock) return row.name + ': ' + lockText(c.lock);
-  if (c.parked) return 'Đang tắt: app giữ cấu hình để bật lại cho ' + AGENT_NAME[agent] + '.';
-  if (c.state === 'absent') return 'Chưa có ở ' + AGENT_NAME[agent] + '. Tick để thêm.';
+  if (c.parked)
+    return t('Đang tắt: app giữ cấu hình để bật lại cho ' + AGENT_NAME[agent] + '.', 'Off: the app keeps its settings to turn it back on for ' + AGENT_NAME[agent] + '.');
+  if (c.state === 'absent') return t('Chưa có ở ' + AGENT_NAME[agent] + '. Tick để thêm.', 'Not in ' + AGENT_NAME[agent] + ' yet. Tick to add it.');
   return '';
 }
 
 export function refusalText(reason: McpRefusal): string {
   switch (reason) {
     case 'readOnly':
-      return 'file của agent này chỉ xem';
+      return t('file của agent này chỉ xem', 'this agent’s file is view only');
     case 'shape':
-      return 'mục viết kiểu app không sửa';
+      return t('mục viết kiểu app không sửa', 'written in a form the app does not edit');
     case 'owned':
-      return 'MCP có sẵn của agent, app để yên';
+      return t('MCP có sẵn của agent, app để yên', 'the agent’s built-in MCP, left alone');
     case 'missingKey':
-      return 'thiếu khoá';
+      return t('thiếu khoá', 'key missing');
     case 'noCommand':
-      return 'lệnh chưa cài';
+      return t('lệnh chưa cài', 'command not installed');
     case 'sse':
-      return 'Codex không chạy MCP kiểu SSE';
+      return t('Codex không chạy MCP kiểu SSE', 'Codex does not run SSE MCP servers');
     case 'badName':
-      return 'tên chỉ được có chữ, số, dấu - _ .';
+      return t('tên chỉ được có chữ, số, dấu - _ .', 'names may only have letters, digits, - _ .');
     case 'unknown':
-      return 'không có cấu hình để chép';
+      return t('không có cấu hình để chép', 'no settings to copy');
     case 'nothing':
-      return 'đã như vậy rồi';
+      return t('đã như vậy rồi', 'already that way');
   }
 }
 
 /** What restarting each agent takes, after a write. */
-export const RESTART: Record<Agent, string> = {
-  claude: 'Phiên Claude Code đang chạy thấy thay đổi ở phiên mở sau.',
-  codex: 'Codex App và phiên codex đang mở dùng danh sách cũ đến khi mở lại.',
-  agy: 'Antigravity đọc lại khi mở lại.',
-};
+export function restartText(agent: Agent): string {
+  if (agent === 'claude') return t('Phiên Claude Code đang chạy thấy thay đổi ở phiên mở sau.', 'Running Claude Code sessions: the change shows in the next session you open.');
+  if (agent === 'codex') return t('Codex App và phiên codex đang mở dùng danh sách cũ đến khi mở lại.', 'Codex App and open codex sessions use the old list until reopened.');
+  return t('Antigravity đọc lại khi mở lại.', 'Antigravity reads it again when reopened.');
+}
 
 export function fileName(agent: Agent): string {
-  return agent === 'claude' ? 'danh sách MCP của Claude Code' : agent === 'codex' ? 'config.toml' : 'mcp_config.json';
+  return agent === 'claude' ? t('danh sách MCP của Claude Code', 'Claude Code’s MCP list') : agent === 'codex' ? 'config.toml' : 'mcp_config.json';
 }
 
 function names(list: string[]): string {
-  return list.length <= 1 ? list.join('') : list.slice(0, -1).join(', ') + ' và ' + list[list.length - 1];
+  return list.length <= 1 ? list.join('') : list.slice(0, -1).join(', ') + t(' và ', ' and ') + list[list.length - 1];
+}
+
+/** "N thay đổi", with English's plural. */
+export function changesWord(n: number): string {
+  return t(n + ' thay đổi', n + (n === 1 ? ' change' : ' changes'));
+}
+
+/** " Đã sao lưu … lúc …." after a write, or nothing. */
+function backedUp(kept: string, at: string): string {
+  return kept ? t('Đã sao lưu ' + kept + ' lúc ' + at + '.', 'Backed up ' + kept + ' at ' + at + '.') : '';
 }
 
 /** The line after a write: what was written, its backups, and the undo. */
 export function writtenFeedback(out: McpOutcome, undo: boolean): FeedbackView {
-  const n = out.done.reduce((t, d) => t + d.changes, 0);
+  const n = out.done.reduce((sum, d) => sum + d.changes, 0);
   const at = clock(new Date(out.at * 1000).toISOString());
-  const kept = names(out.done.filter((d) => d.backup).map((d) => fileName(d.agent)));
+  const kept = backedUp(names(out.done.filter((d) => d.backup).map((d) => fileName(d.agent))), at);
   const failed = out.failed ? failureText(out.failed.error, out.failed.agent) : null;
-  const actions = [...(undo && out.undo ? [{ label: 'Hoàn tác', act: 'mcp:undo' as const }] : []), { label: 'Bản lưu', act: 'mcp:backups' as const }];
+  const actions = [...(undo && out.undo ? [{ label: t('Hoàn tác', 'Undo'), act: 'mcp:undo' as const }] : []), { label: t('Bản lưu', 'Backups'), act: 'mcp:backups' as const }];
   if (failed && !n)
-    return { tone: 'bad', title: failed.title, body: failed.body, actions: failed.reread ? [{ label: 'Đọc lại', act: 'mcp:reread' }] : undefined };
+    return { tone: 'bad', title: failed.title, body: failed.body, actions: failed.reread ? [{ label: t('Đọc lại', 'Read again'), act: 'mcp:reread' }] : undefined };
   if (failed)
     return {
       tone: 'warn',
-      title: 'Đã ghi ' + n + ' thay đổi, phần còn lại chưa ghi.',
-      body: failed.title + ' ' + failed.body + (kept ? ' Đã sao lưu ' + kept + ' lúc ' + at + '.' : ''),
+      title: t('Đã ghi ' + changesWord(n) + ', phần còn lại chưa ghi.', 'Wrote ' + changesWord(n) + '; the rest were not written.'),
+      body: failed.title + ' ' + failed.body + (kept ? ' ' + kept : ''),
       actions,
     };
   return {
     tone: 'info',
-    title: 'Đã ghi ' + n + ' thay đổi.',
-    body: (kept ? 'Đã sao lưu ' + kept + ' lúc ' + at + '. ' : '') + 'Mở lại agent để dùng.',
+    title: t('Đã ghi ' + changesWord(n) + '.', 'Wrote ' + changesWord(n) + '.'),
+    body: (kept ? kept + ' ' : '') + t('Mở lại agent để dùng.', 'Reopen the agent to use it.'),
     actions,
   };
 }
@@ -219,57 +248,103 @@ export function writtenFeedback(out: McpOutcome, undo: boolean): FeedbackView {
 export function undoneFeedback(out: McpOutcome): FeedbackView {
   if (out.failed && !out.done.length) {
     const f = failureText(out.failed.error, out.failed.agent);
-    return { tone: 'bad', title: 'Chưa hoàn tác: ' + f.title.replace(/^Chưa đổi gì: /, ''), body: f.body };
+    return { tone: 'bad', title: t('Chưa hoàn tác: ', 'Not undone: ') + f.cause, body: f.body };
   }
-  return { tone: 'info', title: 'Đã hoàn tác lần ghi vừa rồi.', body: 'Các file trở về như trước lần ghi, có bản lưu của lúc trước khi hoàn tác.' };
+  return {
+    tone: 'info',
+    title: t('Đã hoàn tác lần ghi vừa rồi.', 'Undid the last write.'),
+    body: t('Các file trở về như trước lần ghi, có bản lưu của lúc trước khi hoàn tác.', 'The files are back as they were before the write, with a backup from just before the undo.'),
+  };
 }
 
-export function failureText(f: McpFailure, agent: Agent): { title: string; body: string; reread: boolean } {
+/** "Chưa đổi gì: …", the title of a write that changed nothing. */
+const nothingChanged = (cause: string): string => t('Chưa đổi gì: ', 'Nothing changed: ') + cause;
+
+/** Why a write failed; `cause` is the title without "Chưa đổi gì: ", for the undo's line. */
+export function failureText(f: McpFailure, agent: Agent): { title: string; body: string; reread: boolean; cause: string } {
   const file = fileName(agent);
+  const plain = (title: string, body: string, reread: boolean) => ({ title, body, reread, cause: title });
   switch (f.kind) {
-    case 'changed':
+    case 'changed': {
+      const cause = t(file + ' vừa bị chương trình khác ghi.', 'another program just wrote ' + file + '.');
       return {
-        title: 'Chưa đổi gì: ' + file + ' vừa bị chương trình khác ghi.',
-        body: (agent === 'codex' ? 'Có thể Codex App vừa cập nhật file. ' : '') + 'Đọc lại rồi thử lại.',
+        title: nothingChanged(cause),
+        cause,
+        body: (agent === 'codex' ? t('Có thể Codex App vừa cập nhật file. ', 'Codex App may have just updated the file. ') : '') + t('Đọc lại rồi thử lại.', 'Read again, then try again.'),
         reread: true,
       };
-    case 'refused':
+    }
+    case 'refused': {
+      const cause = t('danh sách đã khác lúc xem trước.', 'the list changed since the preview.');
       return {
-        title: 'Chưa đổi gì: danh sách đã khác lúc xem trước.',
-        body: f.refused.map((r) => r.name + ' cho ' + AGENT_NAME[r.agent] + ': ' + refusalText(r.reason)).join(' · ') + '. Đọc lại rồi xem trước lần nữa.',
+        title: nothingChanged(cause),
+        cause,
+        body:
+          f.refused.map((r) => t(r.name + ' cho ' + AGENT_NAME[r.agent] + ': ', r.name + ' for ' + AGENT_NAME[r.agent] + ': ') + refusalText(r.reason)).join(' · ') +
+          t('. Đọc lại rồi xem trước lần nữa.', '. Read again, then preview again.'),
         reread: true,
       };
+    }
     case 'edit':
-      return { title: 'Chưa ghi ' + file + '.', body: 'App không sửa được đúng mục đó, nên không ghi gì vào file.', reread: true };
+      return plain(
+        t('Chưa ghi ' + file + '.', file + ' was not written.'),
+        t('App không sửa được đúng mục đó, nên không ghi gì vào file.', 'The app could not edit that exact entry, so nothing was written to the file.'),
+        true,
+      );
     case 'write':
-      return {
-        title: 'Chưa ghi ' + file + '.',
-        body: f.error.kind === 'io' ? 'Lỗi khi ghi: ' + f.error.detail + '. File đang dùng không đổi.' : 'File đọc lại không đúng bản vừa ghi.',
-        reread: true,
-      };
+      return plain(
+        t('Chưa ghi ' + file + '.', file + ' was not written.'),
+        f.error.kind === 'io'
+          ? t('Lỗi khi ghi: ' + f.error.detail + '. File đang dùng không đổi.', 'Write error: ' + f.error.detail + '. The file in use is unchanged.')
+          : t('File đọc lại không đúng bản vừa ghi.', 'The file read back does not match what was written.'),
+        true,
+      );
     case 'cli':
-      return { title: 'Lệnh claude chưa chạy xong.', body: f.detail, reread: true };
+      return plain(t('Lệnh claude chưa chạy xong.', 'The claude command did not finish.'), f.detail, true);
     case 'keychain':
-      return { title: 'Chưa lưu được khoá vào Keychain.', body: f.detail + '. Chưa đổi gì ở ' + AGENT_NAME[agent] + '.', reread: false };
+      return plain(
+        t('Chưa lưu được khoá vào Keychain.', 'Could not save the key to the Keychain.'),
+        t(f.detail + '. Chưa đổi gì ở ' + AGENT_NAME[agent] + '.', f.detail + '. Nothing changed in ' + AGENT_NAME[agent] + '.'),
+        false,
+      );
     case 'verify':
-      return { title: 'Danh sách của ' + AGENT_NAME[agent] + ' chưa đúng như xem trước.', body: 'Đọc lại để xem bây giờ thế nào.', reread: true };
+      return plain(
+        t('Danh sách của ' + AGENT_NAME[agent] + ' chưa đúng như xem trước.', AGENT_NAME[agent] + '’s list does not match the preview.'),
+        t('Đọc lại để xem bây giờ thế nào.', 'Read again to see how it is now.'),
+        true,
+      );
+  }
+}
+
+type LeadVerb = 'add' | 'on' | 'off' | 'remove' | 'edit';
+
+function leadHead(name: string, verb: LeadVerb, agents: string): string {
+  switch (verb) {
+    case 'add':
+      return t(name + ': thêm cho ' + agents, name + ': add to ' + agents);
+    case 'on':
+      return t(name + ': bật cho ' + agents, name + ': turn on for ' + agents);
+    case 'off':
+      return t(name + ': tắt cho ' + agents, name + ': turn off for ' + agents);
+    case 'remove':
+      return t(name + ': bỏ khỏi ' + agents, name + ': remove from ' + agents);
+    case 'edit':
+      return t(name + ': sửa ở ' + agents, name + ': edit in ' + agents);
   }
 }
 
 /** The lead line of the batch preview: each change in words, one server's like changes together. */
 export function previewLead(p: McpPreview, rows: McpRow[]): string {
-  const said: { head: string; agents: Agent[] }[] = [];
+  const said: { name: string; verb: LeadVerb; agents: Agent[] }[] = [];
   for (const c of p.changes) {
     const row = rows.find((r) => r.name === c.name);
     const adds = row ? row.cells[c.agent].state === 'absent' : true;
-    const verb =
-      c.to.kind === 'on' ? (adds ? 'thêm cho ' : 'bật cho ') : c.to.kind === 'off' ? 'tắt cho ' : c.to.kind === 'absent' ? 'bỏ khỏi ' : adds ? 'thêm cho ' : 'sửa ở ';
-    const head = c.name + ': ' + verb;
-    const same = said.find((x) => x.head === head);
+    const verb: LeadVerb = c.to.kind === 'on' ? (adds ? 'add' : 'on') : c.to.kind === 'off' ? 'off' : c.to.kind === 'absent' ? 'remove' : adds ? 'add' : 'edit';
+    const same = said.find((x) => x.name === c.name && x.verb === verb);
     if (same) same.agents.push(c.agent);
-    else said.push({ head, agents: [c.agent] });
+    else said.push({ name: c.name, verb, agents: [c.agent] });
   }
-  return said.map((x) => x.head + AGENTS.filter((a) => x.agents.includes(a)).map((a) => AGENT_NAME[a]).join(', ')).join(' · ');
+  return said.map((x) => leadHead(x.name, x.verb, AGENTS.filter((a) => x.agents.includes(a)).map((a) => AGENT_NAME[a]).join(', '))).join(' · ');
 }
 
 // ===== The add and edit forms =====
@@ -399,13 +474,14 @@ export function formOf(name: string, def: McpDef, slots: string[], agents: Recor
 }
 
 export function formError(f: McpForm, taken: string[]): string | null {
-  if (!/^[A-Za-z0-9_][A-Za-z0-9_.-]{0,63}$/.test(f.name)) return 'Tên chỉ có chữ, số, dấu - _ . và không bắt đầu bằng - hay .';
-  if (!f.edit && taken.includes(f.name)) return 'Đã có MCP tên này.';
-  if (f.kind === 'stdio' && !splitCommand(f.line).length) return 'Điền lệnh để chạy.';
-  if (f.kind === 'http' && !/^https?:\/\/\S+$/.test(f.line.trim())) return 'Địa chỉ bắt đầu bằng http:// hoặc https://.';
-  if (f.pairs.some((p) => !p.name.trim())) return 'Mỗi dòng cần có tên.';
-  if (f.pairs.some((p) => p.secret && !p.kept && !p.value)) return 'Điền giá trị khoá, hoặc bỏ dòng đó.';
-  if (!AGENTS.some((a) => f.agents[a])) return 'Chọn ít nhất một agent.';
+  if (!/^[A-Za-z0-9_][A-Za-z0-9_.-]{0,63}$/.test(f.name))
+    return t('Tên chỉ có chữ, số, dấu - _ . và không bắt đầu bằng - hay .', 'Names may only have letters, digits, - _ . and cannot start with - or .');
+  if (!f.edit && taken.includes(f.name)) return t('Đã có MCP tên này.', 'There is already an MCP with this name.');
+  if (f.kind === 'stdio' && !splitCommand(f.line).length) return t('Điền lệnh để chạy.', 'Enter the command to run.');
+  if (f.kind === 'http' && !/^https?:\/\/\S+$/.test(f.line.trim())) return t('Địa chỉ bắt đầu bằng http:// hoặc https://.', 'The address starts with http:// or https://.');
+  if (f.pairs.some((p) => !p.name.trim())) return t('Mỗi dòng cần có tên.', 'Each line needs a name.');
+  if (f.pairs.some((p) => p.secret && !p.kept && !p.value)) return t('Điền giá trị khoá, hoặc bỏ dòng đó.', 'Enter the key’s value, or remove that line.');
+  if (!AGENTS.some((a) => f.agents[a])) return t('Chọn ít nhất một agent.', 'Pick at least one agent.');
   return null;
 }
 

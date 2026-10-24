@@ -9,6 +9,7 @@
 
 import { useState } from 'react';
 import type { Api } from '../lib/api';
+import { t } from '../lib/i18n';
 import type { CodexTarget, ConfigSet, Model, SetPreview } from '../lib/model';
 import { appliedFeedback, codexStep, emptySet, fromCurrent, sentOf, setErrorText, undoneFeedback } from '../lib/sets';
 import type { Action, FeedbackView } from '../lib/view';
@@ -37,7 +38,7 @@ export function useSets(api: Api, model: Model | null, showFeedback: (fb: Feedba
     try {
       const saved = await api.setsSave(d.draft);
       setDialog(null);
-      showFeedback({ tone: 'info', title: 'Đã lưu bộ ' + saved.name + '.', body: 'Chưa áp. Bấm Áp… khi cần.' });
+      showFeedback({ tone: 'info', title: t('Đã lưu bộ ' + saved.name + '.', 'Saved the set ' + saved.name + '.'), body: t('Chưa áp. Bấm Áp… khi cần.', 'Not applied yet. Press Apply… when you need it.') });
     } catch (e) {
       setDialog({ ...d, error: setErrorText(e) });
     } finally {
@@ -48,9 +49,14 @@ export function useSets(api: Api, model: Model | null, showFeedback: (fb: Feedba
   const remove = async (set: ConfigSet) => {
     try {
       await api.setsDelete(set.id);
-      showFeedback({ tone: '', title: 'Đã xoá bộ ' + set.name + '.', body: 'Không đổi gì trong file của agent.', actions: [{ label: 'Hoàn tác', act: 'sets:undelete' }] });
+      showFeedback({
+        tone: '',
+        title: t('Đã xoá bộ ' + set.name + '.', 'Deleted the set ' + set.name + '.'),
+        body: t('Không đổi gì trong file của agent.', 'Nothing changed in the agents’ files.'),
+        actions: [{ label: t('Hoàn tác', 'Undo'), act: 'sets:undelete' }],
+      });
     } catch (e) {
-      showFeedback({ tone: 'bad', title: 'Chưa xoá được bộ ' + set.name, body: setErrorText(e) });
+      showFeedback({ tone: 'bad', title: t('Chưa xoá được bộ ' + set.name, 'Could not delete the set ' + set.name), body: setErrorText(e) });
     }
   };
 
@@ -59,7 +65,11 @@ export function useSets(api: Api, model: Model | null, showFeedback: (fb: Feedba
       await api.setsUndelete();
       showFeedback(null);
     } catch (e) {
-      showFeedback({ tone: 'warn', title: 'Không đưa bộ lại được', body: String(e) === 'nothing' ? 'Không còn bộ nào vừa xoá.' : setErrorText(e) });
+      showFeedback({
+        tone: 'warn',
+        title: t('Không đưa bộ lại được', 'Could not bring the set back'),
+        body: String(e) === 'nothing' ? t('Không còn bộ nào vừa xoá.', 'No recently deleted set is left.') : setErrorText(e),
+      });
     }
   };
 
@@ -108,8 +118,8 @@ export function useSets(api: Api, model: Model | null, showFeedback: (fb: Feedba
     } catch (e) {
       showFeedback(
         String(e) === 'nothing'
-          ? { tone: 'warn', title: 'Không còn gì để hoàn tác', body: 'Bộ vừa áp đã được hoàn tác.' }
-          : { tone: 'warn', title: 'Chưa hoàn tác', body: setErrorText(e) },
+          ? { tone: 'warn', title: t('Không còn gì để hoàn tác', 'Nothing left to undo'), body: t('Bộ vừa áp đã được hoàn tác.', 'The set just applied was already undone.') }
+          : { tone: 'warn', title: t('Chưa hoàn tác', 'Not undone'), body: setErrorText(e) },
       );
     }
   };

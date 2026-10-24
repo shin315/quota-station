@@ -8,6 +8,7 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
+import { t } from '../lib/i18n';
 import { CODE } from './parts';
 
 /** The small print under a preview: what happens around it. */
@@ -72,8 +73,8 @@ export function DiffLine({ op, n, lit, children }: { op?: LineOp; n?: number; li
 }
 
 /** A diff line's tag that a key was there and is hidden. */
-export function KeyMasked({ children = 'khoá, đã che' }: { children?: ReactNode }) {
-  return <span className="ml-1.5 whitespace-nowrap rounded-chip bg-accent/14 px-1.5 font-sans text-cap text-info-ink">{children}</span>;
+export function KeyMasked({ children }: { children?: ReactNode }) {
+  return <span className="ml-1.5 whitespace-nowrap rounded-chip bg-accent/14 px-1.5 font-sans text-cap text-info-ink">{children ?? t('khoá, đã che', 'key, hidden')}</span>;
 }
 
 /** A command the app runs, after a `$`. */
@@ -91,7 +92,7 @@ export function Command({ children }: { children: ReactNode }) {
 /** The steps of a flow, the one at hand lit, those done ticked. */
 export function Steps({ names, at }: { names: string[]; at: number }) {
   return (
-    <ol className="mt-0 mb-3 flex list-none flex-wrap gap-1 p-0 text-xs text-ink2" aria-label="Các bước">
+    <ol className="mt-0 mb-3 flex list-none flex-wrap gap-1 p-0 text-xs text-ink2" aria-label={t('Các bước', 'Steps')}>
       {names.map((t, i) => (
         <li
           key={t}

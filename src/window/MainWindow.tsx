@@ -29,62 +29,80 @@ import { Segment, Segmented } from '@/components/ui/segmented';
 import { cn } from '@/lib/utils';
 import { AddAccount, LoginActions, LoginNotes, LogoutConfirm, loginChips, type AgyLogins } from '@agy/AgyAccounts';
 import { AccountName, IdMark, InUse, NowCard, WindowCell } from '../components/accounts';
-import { Empty, GRID2, STACK, TABLE_ROW, TABLE_ROW_ON, TabHead, TabSub, TabTitle } from '../components/page';
+import { Empty, GRID2, STACK, TABLE, TABLE_HEAD, TABLE_ROW, TABLE_ROW_ON, TabHead, TabSub, TabTitle } from '../components/page';
 import { Banner, Button, Chip, CODE, Dot, Feedback, KVT, Toggle } from '../components/parts';
 import type { Tab } from '../lib/model';
 import { pauseOptions, type AutoView, type PauseChoice } from '../lib/switching';
 import { bannerUnder, type Action, type CardView, type ChipView, type FeedbackView, type NoteView } from '../lib/view';
 import type { KeyValue, WindowView } from '../lib/window';
+import { t } from '../lib/i18n';
+import { Icon, type IconName } from '../components/icons';
 import { NAV_ICONS } from './icons';
 
 type NavId = keyof typeof NAV_ICONS;
 
-/** The prototype's sidebar. */
-const NAVS: (['-', string] | [NavId, string])[] = [
-  ['overview', 'Tổng quan'],
-  ['stats', 'Thống kê'],
-  ['-', 'Tài khoản'],
-  ['claude', 'Claude'],
-  ['agy', 'Antigravity'],
-  ['codex', 'Codex'],
-  ['-', 'Tự động'],
-  ['rules', 'Luật xoay vòng'],
-  ['history', 'Lịch sử'],
-  ['alerts', 'Cảnh báo'],
-  ['firstmate', 'Firstmate'],
-  ['-', 'Agent'],
-  ['mcp', 'MCP'],
-  ['skills', 'Skills'],
-  ['plugins', 'Plugin'],
-  ['instr', 'File hướng dẫn'],
-  ['sets', 'Bộ cấu hình'],
-  ['-', 'Sao lưu'],
-  ['backup', 'Sao lưu'],
-  ['copy', 'Chép sang Mac khác'],
-];
+/** The sidebar, by group. `adv`: a tab Nâng cao holds, marked as such. */
+function navs(advanced: boolean): (['-', string] | [NavId, string, 'adv'?])[] {
+  return [
+    ['overview', t('Tổng quan', 'Overview')],
+    ['stats', t('Thống kê', 'Stats')],
+    ['-', t('Tài khoản', 'Accounts')],
+    ['claude', 'Claude'],
+    ['agy', 'Antigravity'],
+    ['codex', 'Codex'],
+    // Without automatic switching the group only watches.
+    ['-', advanced ? t('Tự động', 'Automation') : t('Theo dõi', 'Activity')],
+    ['rules', t('Luật xoay vòng', 'Rotation rules'), 'adv'],
+    ['history', t('Lịch sử', 'History')],
+    ['alerts', t('Cảnh báo', 'Alerts')],
+    ['firstmate', 'Firstmate', 'adv'],
+    ['-', 'Agent'],
+    ['mcp', 'MCP'],
+    ['skills', 'Skills'],
+    ['plugins', t('Plugin', 'Plugins')],
+    ['instr', t('File hướng dẫn', 'Instruction files')],
+    ['sets', t('Bộ cấu hình', 'Config sets')],
+    ['-', t('Sao lưu', 'Backup')],
+    ['backup', t('Sao lưu', 'Backup')],
+    ['copy', t('Chép sang Mac khác', 'Copy to another Mac'), 'adv'],
+  ];
+}
 
-function NavButton(props: { id: NavId; label: string; tab: Tab; badge?: number; onTab(tab: Tab): void }) {
+/** The small tag on what Nâng cao holds. */
+export function AdvancedTag({ className, hidden }: { className?: string; hidden?: boolean }) {
+  return (
+    <span aria-hidden={hidden || undefined} className={cn('inline-flex h-[18px] items-center rounded-chip bg-tag px-1.5 text-[10.5px] font-semi whitespace-nowrap text-tag-ink', className)}>
+      {t('Nâng cao', 'Advanced')}
+    </span>
+  );
+}
+
+function NavButton(props: { id: NavId; label: string; tab: Tab; badge?: number; adv?: boolean; go?: boolean; onTab(tab: Tab): void }) {
   const on = props.id === props.tab;
   return (
     <button
       type="button"
       className={cn(
-        'flex w-full cursor-pointer items-center gap-[9px] rounded-lg border-0 px-2 py-[5px] text-left text-base [&>svg]:flex-[0_0_auto] [&>svg]:text-accent-ink',
-        on ? 'bg-fill2 font-semi' : 'bg-transparent hover:bg-fill',
+        'flex min-h-(--nav-h) w-full cursor-pointer items-center gap-3 rounded-nav border-0 px-2.5 text-left text-body font-med text-nav [&>svg]:size-[18px] [&>svg]:flex-none',
+        on ? 'bg-nav-sel text-nav-sel-ink [&>svg]:text-nav-sel-ink' : 'bg-transparent hover:bg-[color-mix(in_srgb,var(--text-1)_6%,transparent)] [&>svg]:text-ink2',
+        props.adv && 'py-1',
       )}
       aria-current={on ? 'page' : undefined}
       onClick={() => props.onTab(props.id as Tab)}
     >
       {NAV_ICONS[props.id]}
-      {props.label}
+      <span className={cn('min-w-0 flex-1 truncate', props.adv && 'leading-tight whitespace-normal')}>{props.label}</span>
+      {/* The tab keeps its plain name for the screen reader. */}
+      {props.adv ? <AdvancedTag hidden className="-ml-1 h-4 px-[5px] text-[10px]" /> : null}
       {props.badge ? (
         <>
-          <span className="ml-auto rounded-full bg-bad-fill px-1.5 text-cap leading-4 font-heavy text-white" aria-hidden="true">
+          <span className="inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-chip bg-accent px-1.5 text-xs font-semi text-white" aria-hidden="true">
             {props.badge}
           </span>
-          <span className="sr-only">, {props.badge} cảnh báo mới</span>
+          <span className="sr-only">{t(', ' + props.badge + ' cảnh báo mới', ', ' + props.badge + ' new alerts')}</span>
         </>
       ) : null}
+      {props.go ? <Icon name="chevron-right" className="size-[15px]! text-ink3" /> : null}
     </button>
   );
 }
@@ -97,39 +115,69 @@ function hiddenTabs(advanced: boolean, firstmate: boolean): Set<NavId> {
   return hidden;
 }
 
-function Sidebar(props: { tab: Tab; machine: string; note: string | null; alerts: number; hidden: Set<NavId>; advanced: boolean; onTab(tab: Tab): void }) {
-  const { tab, machine, note, onTab } = props;
-  // Without automatic switching the group only watches.
-  const navs = NAVS.filter((n) => n[0] === '-' || !props.hidden.has(n[0])).map((n): (typeof NAVS)[number] =>
-    n[0] === '-' && n[1] === 'Tự động' && !props.advanced ? ['-', 'Theo dõi'] : n,
-  );
+/** The app's mark at the head of the sidebar. */
+function AppMark() {
   return (
-    <nav className="material-side m-0 flex min-h-0 flex-col gap-px rounded-none border-r border-line px-2.5 pt-5 pb-2.5" aria-label="Mục" data-tauri-drag-region>
+    <span className="grid size-9 flex-none place-items-center rounded-lg bg-accent text-white shadow-[inset_0_1px_0_rgba(255,255,255,.25)]" aria-hidden="true">
+      <Icon name="chart-column" className="size-[22px]" strokeWidth={2.6} />
+    </span>
+  );
+}
+
+function Sidebar(props: {
+  tab: Tab;
+  machine: string;
+  version: string | null;
+  note: string | null;
+  alerts: number;
+  hidden: Set<NavId>;
+  advanced: boolean;
+  onTab(tab: Tab): void;
+}) {
+  const { tab, machine, note, onTab } = props;
+  const items = navs(props.advanced).filter((n) => n[0] === '-' || !props.hidden.has(n[0]));
+  return (
+    <nav
+      className="material-side m-0 flex min-h-0 flex-col overflow-hidden rounded-none border-r border-line px-2.5 pt-3.5 pb-2.5"
+      aria-label={t('Các tab', 'Tabs')}
+      data-tauri-drag-region
+    >
       {/* macOS draws the window's traffic lights here; the browser preview draws the prototype's. */}
-      <div className="flex min-h-3.5 items-center gap-[7px] px-3 pb-3.5" data-tauri-drag-region aria-hidden="true">
-        <i className={LIGHT + ' bg-[#ff5f57]'} />
-        <i className={LIGHT + ' bg-[#febc2e]'} />
-        <i className={LIGHT + ' bg-[#28c840]'} />
+      <div className="flex flex-none gap-2 pr-1.5 pl-1" data-tauri-drag-region aria-hidden="true">
+        <i className={LIGHT} />
+        <i className={LIGHT} />
+        <i className={LIGHT} />
       </div>
-      {navs.map((n) =>
-        n[0] === '-' ? (
-          <div className="px-2 pt-2 pb-0.5 text-cap font-semi tracking-[.02em] text-ink2" key={n[1]}>
-            {n[1]}
-          </div>
-        ) : (
-          <NavButton
-            key={n[0]}
-            id={n[0]}
-            label={n[1]}
-            badge={n[0] === 'alerts' ? props.alerts : undefined}
-            tab={tab}
-            onTab={onTab}
-          />
-        ),
-      )}
-      <div className="flex-1" data-tauri-drag-region />
-      <NavButton id="settings" label="Cài đặt" tab={tab} onTab={onTab} />
-      <div className="px-2 py-1.5 text-s text-ink2">
+      <div className="flex flex-none items-center gap-2.5 px-1.5 pt-2.5 pb-3" data-tauri-drag-region>
+        <AppMark />
+        <span className="grid leading-tight">
+          <b className="text-[15px] font-heading tracking-head text-heading">Quota Station</b>
+          {props.version ? <small className="text-[12.5px] text-ink2">v{props.version}</small> : null}
+        </span>
+      </div>
+      <div className="-mx-1 flex min-h-0 flex-auto flex-col gap-px overflow-y-auto px-1">
+        {items.map((n) =>
+          n[0] === '-' ? (
+            <div className="px-2.5 pt-[9px] pb-[3px] text-sm text-ink3" key={n[1]}>
+              {n[1]}
+            </div>
+          ) : (
+            <NavButton
+              key={n[0]}
+              id={n[0]}
+              label={n[1]}
+              adv={n[2] === 'adv'}
+              badge={n[0] === 'alerts' ? props.alerts : undefined}
+              tab={tab}
+              onTab={onTab}
+            />
+          ),
+        )}
+      </div>
+      <div className="mt-2.5 flex-none border-t border-divider pt-2.5">
+        <NavButton id="settings" label={t('Cài đặt', 'Settings')} tab={tab} go onTab={onTab} />
+      </div>
+      <div className="flex-none px-2.5 pt-1.5 pb-0.5 text-[12.5px] text-ink3">
         <span>{machine}</span>
         {note ? ' · ' + note : null}
       </div>
@@ -145,22 +193,25 @@ function TitleBar(props: { title: string; view: WindowView; busy: boolean; onRef
         <Dot tone={props.view.fresh.tone} />
         {props.view.machine} · {props.view.fresh.text}
       </TabSub>
-      <Button disabled={props.busy} onClick={props.onRefresh}>
-        Làm mới
+      <Button lead="refresh-cw" className="min-h-[42px] px-5 text-[15px]" disabled={props.busy} onClick={props.onRefresh}>
+        {t('Làm mới', 'Refresh')}
       </Button>
     </TabHead>
   );
 }
 
 /** The traffic lights the browser preview draws; macOS draws its own in the app. */
-const LIGHT = 'size-3 rounded-full [body:not(.preview)_&]:invisible';
+const LIGHT = 'size-3 rounded-full bg-traffic shadow-[inset_0_0_0_.5px_var(--line-2)] [body:not(.preview)_&]:invisible';
 
-function Card(props: { title: ReactNode; kind?: 'c' | 'g'; children: ReactNode }) {
+/** A card: a service's (`kind`) has its logo and a large name. */
+function Card(props: { title: ReactNode; kind?: 'c' | 'g'; icon?: IconName; tag?: ReactNode; end?: ReactNode; children: ReactNode }) {
   return (
     <Panel>
-      <CardTitle>
-        {props.kind ? <IdMark id={props.kind} /> : null}
+      <CardTitle big={!!props.kind}>
+        {props.kind ? <IdMark id={props.kind} className="size-[26px]" /> : props.icon ? <Icon name={props.icon} /> : null}
         {props.title}
+        {props.tag}
+        {props.end ? <span className="ml-auto flex items-center gap-2.5 text-body font-reg tracking-normal">{props.end}</span> : null}
       </CardTitle>
       {props.children}
     </Panel>
@@ -172,8 +223,8 @@ function SwitchCell({ card, onSwitch }: { card: CardView; onSwitch(slot: number)
   if (card.active) return <InUse />;
   if (card.slot === 0) return null;
   return (
-    <Button primary disabled={!card.switchable} label={'Chuyển sang ' + card.name} title={card.off || undefined} onClick={() => onSwitch(card.slot)}>
-      Chuyển
+    <Button small disabled={!card.switchable} label={t('Chuyển sang ' + card.name, 'Switch to ' + card.name)} title={card.off || undefined} onClick={() => onSwitch(card.slot)}>
+      {t('Chuyển', 'Switch')}
     </Button>
   );
 }
@@ -181,21 +232,16 @@ function SwitchCell({ card, onSwitch }: { card: CardView; onSwitch(slot: number)
 /** A row of a window table (see TABLE_ROW). */
 const ROW = TABLE_ROW;
 /** The table's head rows: the windows' names. */
-const HEAD = ROW + ' h pt-0 pb-1 text-xs text-ink3';
+const HEAD = TABLE_HEAD;
 
 /** One account in a window table: its name, a fixed column per window, and its buttons. */
 function TableRow(props: { card: CardView; extra?: ReactNode; chips?: ChipView[]; tight?: boolean; onSwitch(slot: number): void }) {
   const c = props.card;
   return (
-    <div
-      className={cn(ROW, c.active && TABLE_ROW_ON)}
-      role="listitem"
-      aria-label={c.label}
-      title={c.title || undefined}
-    >
-      <AccountName name={c.name} sub={c.sub} full={c.full} chips={[...c.chips, ...(props.chips ?? [])]} />
+    <div className={cn(ROW, c.active && TABLE_ROW_ON)} role="listitem" aria-label={c.label} title={c.title || undefined}>
+      <AccountName name={c.name} sub={c.sub} full={c.full} dot={c.active ? 'on' : 'off'} chips={[...c.chips, ...(props.chips ?? [])]} />
       {c.cells.map((cell) => (
-        <WindowCell key={cell.label} cell={cell} dim={c.dim} tight={props.tight} />
+        <WindowCell key={cell.label} cell={cell} dim={c.dim} />
       ))}
       <span className="flex items-center justify-end gap-1.5">
         <SwitchCell card={c} onSwitch={props.onSwitch} />
@@ -205,16 +251,16 @@ function TableRow(props: { card: CardView; extra?: ReactNode; chips?: ChipView[]
   );
 }
 
-/** Claude: 5 giờ · Tuần · Fable tuần, the same columns for every account. `tight`: on Tổng quan. */
+/** Claude: 5 giờ · Tuần · Fable tuần, the same columns for every account. */
 function ClaudeTable(props: { cards: CardView[]; tight?: boolean; onSwitch(slot: number): void }) {
   if (!props.cards.length) return null;
   return (
-    <div className="grid [--wt-cols:minmax(96px,1.25fr)_repeat(3,minmax(0,1fr))_76px]" role="list" aria-label="Claude Code">
+    <div className={cn(TABLE, '[--wt-cols:minmax(120px,1.4fr)_repeat(3,minmax(72px,1fr))_112px]')} role="list" aria-label="Claude Code">
       <div className={HEAD} aria-hidden="true">
-        <span>đã dùng</span>
-        <span>5 giờ</span>
-        <span>Tuần</span>
-        <span>Fable tuần</span>
+        <span>{t('Tài khoản', 'Account')}</span>
+        <span>{t('5 giờ', '5-hour')}</span>
+        <span>{t('Tuần', 'Week')}</span>
+        <span>{t('Fable tuần', 'Fable week')}</span>
         <span />
       </div>
       {props.cards.map((c) => (
@@ -232,39 +278,36 @@ function AgyTable(props: { cards: CardView[]; logins?: AgyLogins; tight?: boolea
   if (!props.cards.length) return null;
   const four = props.cards.every((c) => c.cells.length === 4);
   const logins = props.logins;
-  const cols = props.tight
-    ? four
-      ? '[--wt-cols:minmax(96px,1fr)_repeat(4,minmax(0,.82fr))_70px]'
-      : '[--wt-cols:minmax(96px,1fr)_repeat(2,minmax(0,1fr))_70px]'
-    : four
-      ? logins
-        ? '[--wt-cols:minmax(0,1.1fr)_repeat(4,minmax(0,.8fr))_180px]'
-        : '[--wt-cols:minmax(104px,1.25fr)_repeat(4,minmax(0,.8fr))_76px]'
-      : logins
-        ? '[--wt-cols:minmax(0,1.2fr)_repeat(2,minmax(0,1fr))_180px]'
-        : '[--wt-cols:minmax(104px,1.25fr)_repeat(2,minmax(0,1fr))_76px]';
+  // Whole class names, so Tailwind finds them.
+  const cols = four
+    ? logins
+      ? '[--wt-cols:minmax(120px,1.3fr)_repeat(4,minmax(62px,1fr))_190px]'
+      : '[--wt-cols:minmax(120px,1.3fr)_repeat(4,minmax(62px,1fr))_112px]'
+    : logins
+      ? '[--wt-cols:minmax(120px,1.3fr)_repeat(2,minmax(72px,1fr))_190px]'
+      : '[--wt-cols:minmax(120px,1.3fr)_repeat(2,minmax(72px,1fr))_112px]';
   return (
-    <div className={cn('grid', cols)} role="list" aria-label="Antigravity">
+    <div className={cn(TABLE, cols)} role="list" aria-label="Antigravity">
       {four ? (
         <>
-          <div className={HEAD} aria-hidden="true">
+          <div className={cn(HEAD, 'pb-0 text-ink2')} aria-hidden="true">
             <span />
             <span className={GROUP}>Gemini</span>
             <span className={GROUP}>Claude/GPT</span>
             <span />
           </div>
-          <div className={cn(HEAD, 'border-t-0')} aria-hidden="true">
-            <span>đã dùng</span>
-            <span>5 giờ</span>
-            <span>Tuần</span>
-            <span>5 giờ</span>
-            <span>Tuần</span>
+          <div className={cn(HEAD, 'rounded-none pt-px')} aria-hidden="true">
+            <span>{t('Tài khoản', 'Account')}</span>
+            <span>{t('5 giờ', '5-hour')}</span>
+            <span>{t('Tuần', 'Week')}</span>
+            <span>{t('5 giờ', '5-hour')}</span>
+            <span>{t('Tuần', 'Week')}</span>
             <span />
           </div>
         </>
       ) : (
         <div className={HEAD} aria-hidden="true">
-          <span>đã dùng</span>
+          <span>{t('Tài khoản', 'Account')}</span>
           <span>Gemini</span>
           <span>Claude/GPT</span>
           <span />
@@ -290,7 +333,7 @@ function AgyTable(props: { cards: CardView[]; logins?: AgyLogins; tight?: boolea
 }
 
 /** Two head cells over a service's windows. */
-const GROUP = 'col-span-2 border-b-[.5px] border-card-line pb-0.5';
+const GROUP = 'col-span-2';
 
 function Note({ note }: { note: NoteView | null }) {
   return note ? (
@@ -311,19 +354,31 @@ function KeyValues({ rows }: { rows: KeyValue[] }) {
   );
 }
 
-/** Automatic switching on one line: what it does now, and its switch. */
+/** Automatic switching: on or paused, why Claude is on its account, and its switch. */
 function AutoCard({ auto, onToggle, children }: { auto: AutoView; onToggle(): void; children?: ReactNode }) {
   return (
-    <Panel>
-      <div className="flex items-center justify-between gap-2.5">
-        <div className="min-w-0">
-          <b className="block text-body font-semi">{auto.title}</b>
-          <small className="block text-xs text-ink2">{auto.line}</small>
+    <Card title={t('Tự chuyển Claude', 'Claude auto-switch')} icon="shuffle">
+      <div className="flex items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <b className="block text-body font-med text-heading">{auto.paused ? auto.title : t('Đang bật', 'On')}</b>
+          <small className="mt-px block text-[13px] text-ink2">{auto.line}</small>
         </div>
         <Toggle on={auto.toggle.on} label={auto.toggle.label} disabled={auto.toggle.disabled} onClick={onToggle} />
       </div>
       {children}
-    </Panel>
+    </Card>
+  );
+}
+
+/** A card with nothing in it yet: a dashed box, a bold line, a word, and its button. */
+function EmptyBox(props: { icon?: ReactNode; title: string; body?: string; children?: ReactNode }) {
+  return (
+    <div className="grid justify-items-center gap-1.5 rounded-card border border-dashed border-line-2 bg-card px-4 py-[22px] text-center">
+      {props.icon}
+      <b className="text-body font-semi text-heading">{props.title}</b>
+      {props.body ? <small className="max-w-[420px] text-sm text-ink2">{props.body}</small> : null}
+      {props.children ? <div className="mt-1.5 flex flex-wrap justify-center gap-2">{props.children}</div> : null}
+    </div>
   );
 }
 
@@ -359,20 +414,30 @@ function Top(props: TabProps & { title: string; banner?: boolean }) {
   );
 }
 
-function Overview(props: TabProps & { advanced: boolean }) {
+function Overview(props: TabProps & { advanced: boolean; agyAccounts: boolean; onTab(tab: Tab): void }) {
   const v = props.view;
   return (
     <>
-      <Top {...props} title="Tổng quan" />
-      <div className="grid grid-cols-[minmax(0,2.6fr)_minmax(0,1fr)] items-start gap-3 [@media(max-width:1000px)]:grid-cols-[minmax(0,1fr)]">
+      <Top {...props} title={t('Tổng quan', 'Overview')} />
+      <NowCard now={v.now} />
+      <div className="grid grid-cols-[minmax(0,1fr)_240px] items-start gap-3 [@media(max-width:1000px)]:grid-cols-[minmax(0,1fr)]">
         <div className={STACK}>
-          <NowCard now={v.now} />
-          <Card title="Claude" kind="c">
-            <ClaudeTable cards={v.claude.cards} tight onSwitch={props.onSwitch} />
-            <Note note={v.claude.note} />
-          </Card>
+          {v.claude.present ? (
+            <Card title="Claude" kind="c">
+              {v.claude.empty ? (
+                <EmptyBox title={t('Chưa có tài khoản Claude nào', 'No Claude accounts yet')}>
+                  <Button small primary onClick={() => props.onTab('claude')}>
+                    {t('Thêm tài khoản…', 'Add account…')}
+                  </Button>
+                </EmptyBox>
+              ) : (
+                <ClaudeTable cards={v.claude.cards} tight onSwitch={props.onSwitch} />
+              )}
+              <Note note={v.claude.note} />
+            </Card>
+          ) : null}
           {v.agy.present ? (
-            <Card title="Antigravity" kind="g">
+            <Card title="Antigravity" kind="g" tag={props.agyAccounts ? null : <Chip chip={{ t: t('chỉ đọc', 'read-only'), k: 'tag' }} />}>
               <AgyTable cards={v.agy.cards} tight onSwitch={props.onSwitchAgy} />
               <Note note={v.agy.note} />
             </Card>
@@ -380,22 +445,23 @@ function Overview(props: TabProps & { advanced: boolean }) {
           {props.codexCard}
         </div>
         <div className={STACK}>
-          {props.advanced ? <AutoCard auto={v.auto} onToggle={props.onToggle} /> : null}
-          <Card title="Sắp tới">
+          {props.advanced && v.claude.cards.length > 1 ? <AutoCard auto={v.auto} onToggle={props.onToggle} /> : null}
+          <Card title={t('Sắp tới', 'Coming up')} icon="clock">
             {v.upcoming.length ? (
-              <div className="grid gap-2 text-sm">
+              <ul className="m-0 grid list-none p-0">
                 {v.upcoming.map((u) => (
-                  <div key={u.key} className="grid grid-cols-[54px_minmax(0,1fr)] gap-2">
-                    <time className="text-ink2 tabular-nums">{u.at}</time>
-                    <span>
-                      {u.tone ? <Dot tone={u.tone} className="mr-1.5" /> : null}
-                      {u.what}
-                    </span>
-                  </div>
+                  <li
+                    key={u.key}
+                    className="grid grid-cols-[8px_minmax(0,1fr)_auto] items-center gap-3 border-t border-divider py-3 text-sm first:border-t-0 first:pt-0.5"
+                  >
+                    <Dot tone={u.tone || 'off'} />
+                    <span>{u.what}</span>
+                    <time className="text-body font-semi text-heading tabular-nums">{u.at}</time>
+                  </li>
                 ))}
-              </div>
+              </ul>
             ) : (
-              <CardText>Không có mốc đặt lại nào trong 24 giờ tới.</CardText>
+              <CardText className="mb-0">{t('Không có mốc đặt lại nào trong 24 giờ tới.', 'No resets in the next 24 hours.')}</CardText>
             )}
           </Card>
         </div>
@@ -408,12 +474,19 @@ function ClaudeTab(props: TabProps & { advanced: boolean }) {
   const v = props.view;
   const a = v.auto;
   const sw = v.switcher;
+  if (!v.claude.present && !v.claude.cards.length)
+    return (
+      <>
+        <Top {...props} title="Claude" />
+        <EmptyBox icon={<IdMark id="c" className="size-[34px]" />} title={t('Máy này chưa có Claude Code', 'This Mac has no Claude Code')} body={t('Cài Claude Code rồi mở lại tab này. Quota Station đọc ~/.claude.', 'Install Claude Code, then open this tab again. Quota Station reads ~/.claude.')} />
+      </>
+    );
   return (
     <>
       <Top {...props} title="Claude" />
       {v.envBanner ? <Banner banner={v.envBanner} onAction={props.onAction} busy={props.busy} /> : null}
       {v.claudeBanner ? <Banner banner={v.claudeBanner} onAction={props.onAction} busy={props.busy} /> : null}
-      <Card title={<>Tài khoản{v.claude.count ? <span className="ml-auto font-reg">{v.claude.count}</span> : null}</>} kind="c">
+      <Card title={t('Tài khoản', 'Accounts')} kind="c" end={v.claude.count ? <span className="text-ink2">{v.claude.count}</span> : null}>
         <ClaudeTable cards={v.claude.cards} onSwitch={props.onSwitch} />
         <Note note={v.claude.note} />
       </Card>
@@ -422,7 +495,7 @@ function ClaudeTab(props: TabProps & { advanced: boolean }) {
         <div className={GRID2}>
           <AutoCard auto={a} onToggle={props.onToggle}>
             <CardText style={{ margin: '12px 0 4px' }} id="qs-qp">
-              Tạm dừng
+              {t('Tạm dừng', 'Pause')}
             </CardText>
             <Segmented aria-labelledby="qs-qp">
               {pauseOptions(props.now).map((o) => (
@@ -438,7 +511,7 @@ function ClaudeTab(props: TabProps & { advanced: boolean }) {
               {sw.line}
             </div>
             <details className="mt-2 text-sm text-ink2">
-              <summary className="cursor-pointer list-none text-accent-ink [&::-webkit-details-marker]:hidden">Chi tiết</summary>
+              <summary className="cursor-pointer list-none text-accent-ink [&::-webkit-details-marker]:hidden">{t('Chi tiết', 'Details')}</summary>
               <div className="mt-2">
                 <KeyValues rows={sw.details} />
               </div>
@@ -457,21 +530,34 @@ function AgyTab(props: TabProps & { agyAccounts: boolean }) {
     <>
       <Top {...props} title="Antigravity" banner={false} />
       {a.banner ? <Banner banner={a.banner} onAction={props.onAction} busy={props.busy} /> : null}
-      <Card title={<>Tài khoản{logins ? <span className="ml-auto font-reg">{<AddAccount logins={logins} />}</span> : null}</>} kind="g">
+      <Card title={props.agyAccounts ? t('Tài khoản', 'Accounts') : t('Tài khoản', 'Account')} kind="g" end={logins ? <AddAccount logins={logins} /> : null}>
         {a.present ? <AgyTable cards={a.cards} logins={a.own ? logins : undefined} onSwitch={props.onSwitchAgy} /> : null}
         {!a.present ? (
           <Empty>
-            <b>Máy này chưa có Antigravity</b>
+            <b>{t('Máy này chưa có Antigravity', 'This Mac has no Antigravity')}</b>
           </Empty>
         ) : null}
         <Note note={a.tabNote} />
         {logins ? <LoginNotes logins={logins} listed={a.own ? a.cards.map((c) => c.slot) : []} /> : null}
         {!props.agyAccounts && a.present ? (
           <CardText className="mt-2 mb-0">
-            Bản này đọc tài khoản Antigravity đang đăng nhập. Đăng nhập và chuyển nhiều tài khoản chỉ có ở bản build từ mã nguồn kèm phần Antigravity (giấy phép CC BY-NC-SA 4.0).
+            {t(
+              'Đổi tài khoản trong chính Antigravity; Quota Station đọc lại ở lần đọc sau.',
+              'Change the account inside Antigravity itself; Quota Station picks it up on its next read.',
+            )}
           </CardText>
         ) : null}
       </Card>
+      {!props.agyAccounts && a.present ? (
+        <Card title={t('Nhiều tài khoản Antigravity', 'Several Antigravity accounts')}>
+          <CardText className="mb-0">
+            {t(
+              'Bản này chỉ đọc tài khoản đang đăng nhập. Thêm, đăng nhập và chuyển nhiều tài khoản có ở bản build từ mã nguồn với phần Antigravity, theo giấy phép CC BY-NC-SA 4.0 của phần đó.',
+              'This build only reads the signed-in account. Adding, signing in and switching several accounts comes with a build from source that includes the Antigravity part, under that part’s CC BY-NC-SA 4.0 licence.',
+            )}
+          </CardText>
+        </Card>
+      ) : null}
     </>
   );
 }
@@ -522,6 +608,8 @@ export interface MainWindowProps {
   agyLogins?: AgyLogins;
   /** The Claude accounts Quota Station keeps, in the Claude tab. */
   claudeAccounts?: ReactNode;
+  /** The app's version, under its name in the sidebar. */
+  version?: string | null;
   /** Cài đặt › Nâng cao is on: its tabs and switches show. */
   advanced: boolean;
   /** The Firstmate switch inside Nâng cao is on too. */
@@ -561,6 +649,7 @@ export function MainWindow(props: MainWindowProps) {
         <Sidebar
           tab={tab}
           machine={props.view.machine}
+          version={props.version ?? null}
           note={props.advanced ? (props.syncNote ?? null) : null}
           alerts={props.unanswered ?? 0}
           hidden={hidden}
@@ -568,7 +657,7 @@ export function MainWindow(props: MainWindowProps) {
           onTab={props.onTab}
         />
         <main className="main material-main relative flex min-w-0 flex-col gap-3 overflow-y-auto pt-4 pr-[22px] pb-[22px] pl-3.5">
-          {tab === 'overview' ? <Overview {...tabProps} advanced={props.advanced} /> : null}
+          {tab === 'overview' ? <Overview {...tabProps} advanced={props.advanced} agyAccounts={props.agyAccounts} onTab={props.onTab} /> : null}
           {tab === 'stats' ? props.stats : null}
           {tab === 'claude' ? <ClaudeTab {...tabProps} advanced={props.advanced} /> : null}
           {tab === 'agy' ? <AgyTab {...tabProps} agyAccounts={props.agyAccounts} /> : null}
@@ -587,11 +676,12 @@ export function MainWindow(props: MainWindowProps) {
           {tab === 'settings' ? props.settings : null}
         </main>
       </div>
-      {/* The dialog layer covers the whole window, sidebar included. */}
+      {/* The dialog layer covers the whole window, sidebar included; the
+          dialog stands on the page beside the sidebar, near the top, as drawn. */}
       <Dialog open={open}>
         {open ? (
-          <DialogOverlay className="z-30 grid place-items-center rounded-[inherit]">
-            <DialogContent size={props.dialogSize ?? 'wide'}>{props.dialog}</DialogContent>
+          <DialogOverlay className="z-30 grid content-start justify-items-center rounded-[inherit] pt-[84px] pl-(--side-w)">
+            <DialogContent size={props.dialogSize ?? 'wide'} className="max-h-[calc(100%-120px)]">{props.dialog}</DialogContent>
           </DialogOverlay>
         ) : null}
       </Dialog>

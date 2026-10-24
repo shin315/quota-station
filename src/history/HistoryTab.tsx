@@ -13,7 +13,8 @@ import { Card as Panel } from '@/components/ui/card';
 import { Segment, Segmented } from '@/components/ui/segmented';
 import { Empty, TabHead, TabSub, TabTitle } from '../components/page';
 import { Dot } from '../components/parts';
-import { HISTORY_FILTERS, historyDays, type HistoryFilter } from '../lib/history';
+import { historyDays, historyFilters, type HistoryFilter } from '../lib/history';
+import { t } from '../lib/i18n';
 import type { HistoryEntry, Model } from '../lib/model';
 import type { PopoverView } from '../lib/view';
 
@@ -48,16 +49,18 @@ export function HistoryTab({ model, fresh, now, load }: HistoryTabProps) {
   }, [load, reads, switching, loaded]);
 
   const days = Array.isArray(entries) ? historyDays(entries, filter, model, now) : [];
+  const filters = historyFilters();
+  const filterName = filters.find((f) => f.v === filter)?.t;
   return (
     <>
       <TabHead>
-        <TabTitle>Lịch sử</TabTitle>
+        <TabTitle>{t('Lịch sử', 'History')}</TabTitle>
         <TabSub>
           <Dot tone={fresh.tone} />
           {model.machine} · {fresh.text}
         </TabSub>
-        <Segmented variant="inline" aria-label="Lọc lịch sử">
-          {HISTORY_FILTERS.map((f) => (
+        <Segmented variant="inline" aria-label={t('Lọc lịch sử', 'Filter history')}>
+          {filters.map((f) => (
             <Segment key={f.v} pressed={filter === f.v} onClick={() => setFilter(f.v)}>
               {f.t}
             </Segment>
@@ -67,16 +70,21 @@ export function HistoryTab({ model, fresh, now, load }: HistoryTabProps) {
       <Panel>
         {entries === null ? null : entries === 'failed' ? (
           <Empty>
-            <b>Chưa đọc được lịch sử</b>App thử lại sau lần đọc số tới.
+            <b>{t('Chưa đọc được lịch sử', 'Could not read the history')}</b>
+            {t('App thử lại sau lần đọc số tới.', 'The app tries again after its next read.')}
           </Empty>
         ) : !entries.length ? (
           <Empty>
-            <b>Chưa có lần chuyển nào</b>Lịch sử của máy này bắt đầu từ khi cài app. Mỗi lần chuyển tay, switcher chuyển, hay app thấy tài khoản
-            đổi sẽ hiện ở đây.
+            <b>{t('Chưa có lần chuyển nào', 'No switches yet')}</b>
+            {t(
+              'Lịch sử của máy này bắt đầu từ khi cài app. Mỗi lần chuyển tay, switcher chuyển, hay app thấy tài khoản đổi sẽ hiện ở đây.',
+              'This Mac’s history starts when the app is installed. Every manual switch, switcher switch, or account change the app notices shows up here.',
+            )}
           </Empty>
         ) : !days.length ? (
           <Empty>
-            <b>Chưa có lần chuyển {HISTORY_FILTERS.find((f) => f.v === filter)?.t} nào</b>Chọn Tất cả để xem các lần chuyển khác.
+            <b>{t('Chưa có lần chuyển ' + filterName + ' nào', 'No ' + filterName + ' switches yet')}</b>
+            {t('Chọn Tất cả để xem các lần chuyển khác.', 'Pick All to see the other switches.')}
           </Empty>
         ) : (
           <>
@@ -100,7 +108,7 @@ export function HistoryTab({ model, fresh, now, load }: HistoryTabProps) {
                         {r.from ? (
                           <>
                             <span className="rounded-md bg-fill px-1.5 py-px text-s">{r.from}</span>
-                            <span className="text-ink3" role="img" aria-label="sang">
+                            <span className="text-ink3" role="img" aria-label={t('sang', 'to')}>
                               →
                             </span>
                           </>

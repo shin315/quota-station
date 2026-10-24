@@ -9,6 +9,7 @@
 
 import { claudeNames } from './accounts';
 import { clock, pad } from './format';
+import { t } from './i18n';
 import type { AuthorModel } from './author';
 import type { Model, PeerView, Rules, RulesError, Stamp } from './model';
 import { dayClock, type NameOf } from './switching';
@@ -29,7 +30,9 @@ export function sameRules(a: Rules, b: Rules): boolean {
 
 /** `cả ba Mac`: this Mac and the others. */
 export function macsWord(n: number): string {
-  return ({ 1: 'máy này', 2: 'cả hai Mac', 3: 'cả ba Mac', 4: 'cả bốn Mac' } as Record<number, string>)[n] ?? n + ' Mac';
+  const vi = ({ 1: 'máy này', 2: 'cả hai Mac', 3: 'cả ba Mac', 4: 'cả bốn Mac' } as Record<number, string>)[n] ?? n + ' Mac';
+  const en = ({ 1: 'this Mac', 2: 'both Macs', 3: 'all three Macs', 4: 'all four Macs' } as Record<number, string>)[n] ?? 'all ' + n + ' Macs';
+  return t(vi, en);
 }
 
 /** `08:00–24:00`: the file's `8-23` takes hour 23 in, so it ends at 24:00. */
@@ -39,12 +42,12 @@ export function hoursText(from: number, to: number): string {
 
 /** `rotation_bad_value:personal_hours` → `khoá personal_hours sai`. */
 export function keyWords(reason: string | null): string {
-  if (!reason) return 'file không đọc được';
+  if (!reason) return t('file không đọc được', 'the file cannot be read');
   const [what, key] = reason.split(':');
-  if (what === 'rotation_bad_value') return 'khoá ' + key + ' sai';
-  if (what === 'rotation_missing_key') return 'thiếu khoá ' + key;
-  if (what === 'rotation_malformed_line') return 'có dòng không đọc được';
-  if (what === 'rotation_personal_in_team') return 'tài khoản cá nhân cũng nằm trong vòng Team';
+  if (what === 'rotation_bad_value') return t('khoá ' + key + ' sai', 'key ' + key + ' has a bad value');
+  if (what === 'rotation_missing_key') return t('thiếu khoá ' + key, 'key ' + key + ' is missing');
+  if (what === 'rotation_malformed_line') return t('có dòng không đọc được', 'a line cannot be read');
+  if (what === 'rotation_personal_in_team') return t('tài khoản cá nhân cũng nằm trong vòng Team', 'the personal account is also in the Team rotation');
   return reason;
 }
 
@@ -74,7 +77,7 @@ export function slotsOf(model: Model, ...rules: (Rules | null)[]): number[] {
  */
 export function ruleNames(model: Model): NameOf {
   const names = claudeNames(model.snapshot.claude.accounts, model.snapshot.claude.personalHours, model.advanced.on);
-  return (n) => names.get(n)?.name ?? 'Tài khoản ' + n;
+  return (n) => names.get(n)?.name ?? t('Tài khoản ', 'Account ') + n;
 }
 
 /** The whole email of each slot, for hover; '' while names are hidden. */
@@ -91,28 +94,30 @@ export function markLeft(value: number, min: number, max: number): number {
 /** What changed from `a` (saved) to `b` (the editor), one line each. */
 export function ruleChanges(a: Rules, b: Rules, nameOf: NameOf, now: Date): string[] {
   const out: string[] = [];
-  const list = (r: Rules) => r.team.map(nameOf).join(', ') || 'không có';
-  if (a.team.join() !== b.team.join()) out.push('Tài khoản Team được xoay vòng: ' + list(a) + ' → ' + list(b));
-  const pers = (r: Rules) => (r.personal ? nameOf(r.personal) : 'không có');
-  if (a.personal !== b.personal) out.push('Tài khoản cá nhân: ' + pers(a) + ' → ' + pers(b));
+  const list = (r: Rules) => r.team.map(nameOf).join(', ') || t('không có', 'none');
+  if (a.team.join() !== b.team.join()) out.push(t('Tài khoản Team được xoay vòng: ', 'Team accounts in rotation: ') + list(a) + ' → ' + list(b));
+  const pers = (r: Rules) => (r.personal ? nameOf(r.personal) : t('không có', 'none'));
+  if (a.personal !== b.personal) out.push(t('Tài khoản cá nhân: ', 'Personal account: ') + pers(a) + ' → ' + pers(b));
   if (a.personalFrom !== b.personalFrom || a.personalTo !== b.personalTo)
-    out.push('Giờ dùng tài khoản cá nhân: ' + hoursText(a.personalFrom, a.personalTo) + ' → ' + hoursText(b.personalFrom, b.personalTo));
-  if (a.full !== b.full) out.push('Ngưỡng tự chuyển: ' + a.full + '% → ' + b.full + '%');
-  if (a.fableFull !== b.fableFull) out.push('Ngưỡng Fable tuần: ' + a.fableFull + '% → ' + b.fableFull + '%');
+    out.push(t('Giờ dùng tài khoản cá nhân: ', 'Personal account hours: ') + hoursText(a.personalFrom, a.personalTo) + ' → ' + hoursText(b.personalFrom, b.personalTo));
+  if (a.full !== b.full) out.push(t('Ngưỡng tự chuyển: ', 'Auto-switch threshold: ') + a.full + '% → ' + b.full + '%');
+  if (a.fableFull !== b.fableFull) out.push(t('Ngưỡng Fable tuần: ', 'Fable week threshold: ') + a.fableFull + '% → ' + b.fableFull + '%');
   const slots = [...new Set([...a.expire, ...b.expire].map((e) => e.slot))].sort((x, y) => x - y);
   for (const s of slots) {
     const x = a.expire.find((e) => e.slot === s)?.at;
     const y = b.expire.find((e) => e.slot === s)?.at;
-    if (x !== y) out.push('Giờ rời vòng của ' + nameOf(s) + ': ' + (x ? endText(x, now) : 'chưa đặt') + ' → ' + (y ? endText(y, now) : 'chưa đặt'));
+    const notSet = t('chưa đặt', 'not set');
+    if (x !== y)
+      out.push(t('Giờ rời vòng của ' + nameOf(s) + ': ', nameOf(s) + ' leaves rotation at: ') + (x ? endText(x, now) : notSet) + ' → ' + (y ? endText(y, now) : notSet));
   }
   return out;
 }
 
 /** Why the rules in the editor cannot be saved yet; null when they can. */
 export function rulesProblem(r: Rules): string | null {
-  if (!r.team.length) return 'Chọn ít nhất một tài khoản Team.';
-  if (r.personalTo < r.personalFrom) return 'Giờ kết thúc phải sau giờ bắt đầu.';
-  if (r.personal !== null && r.team.includes(r.personal)) return 'Tài khoản cá nhân không được nằm trong vòng Team.';
+  if (!r.team.length) return t('Chọn ít nhất một tài khoản Team.', 'Pick at least one Team account.');
+  if (r.personalTo < r.personalFrom) return t('Giờ kết thúc phải sau giờ bắt đầu.', 'The end hour must come after the start hour.');
+  if (r.personal !== null && r.team.includes(r.personal)) return t('Tài khoản cá nhân không được nằm trong vòng Team.', 'The personal account cannot be in the Team rotation.');
   return null;
 }
 
@@ -145,35 +150,41 @@ function failing(p: PeerView): boolean {
 export function peerLine(p: PeerView): MacLine {
   const line = (tone: MacTone, text: string, short: string, title = ''): MacLine => ({ name: p.name, tone, text, short: p.name + ': ' + short, title });
   const s = p.state;
-  if (p.pushing) return line('muted', 'đang gửi…', 'đang gửi…');
-  if (!s) return line('muted', 'chưa gửi lần nào', 'chưa gửi lần nào');
+  if (p.pushing) return line('muted', t('đang gửi…', 'sending…'), t('đang gửi…', 'sending…'));
+  if (!s) return line('muted', t('chưa gửi lần nào', 'never sent'), t('chưa gửi lần nào', 'never sent'));
   switch (s.kind) {
     case 'synced':
-      return p.current ? line('ok', 'đã nhận ' + clock(s.at), clock(s.at)) : line('warn', 'chưa nhận bản mới', 'chưa nhận bản mới, sẽ gửi');
+      return p.current
+        ? line('ok', t('đã nhận ' + clock(s.at), 'received ' + clock(s.at)), clock(s.at))
+        : line('warn', t('chưa nhận bản mới', 'new rules not received yet'), t('chưa nhận bản mới, sẽ gửi', 'new rules not received yet, will send'));
     case 'unreachable':
-      return line('warn', 'chưa tới được · thử lại ' + clock(s.retryAt), 'chưa tới được, sẽ thử lại', s.error);
+      return line('warn', t('chưa tới được · thử lại ' + clock(s.retryAt), 'unreachable · retrying at ' + clock(s.retryAt)), t('chưa tới được, sẽ thử lại', 'unreachable, will retry'), s.error);
     case 'mismatch':
-      return line('warn', 'đọc lại không khớp · thử lại ' + clock(s.retryAt), 'đọc lại không khớp, sẽ thử lại');
+      return line(
+        'warn',
+        t('đọc lại không khớp · thử lại ' + clock(s.retryAt), 'read-back did not match · retrying at ' + clock(s.retryAt)),
+        t('đọc lại không khớp, sẽ thử lại', 'read-back did not match, will retry'),
+      );
     case 'failed':
-      return line('bad', 'không ghi được · thử lại ' + clock(s.retryAt), 'không ghi được, sẽ thử lại', s.error);
+      return line('bad', t('không ghi được · thử lại ' + clock(s.retryAt), 'could not write · retrying at ' + clock(s.retryAt)), t('không ghi được, sẽ thử lại', 'could not write, will retry'), s.error);
     case 'newer':
-      return line('info', 'có bản mới hơn ' + clock(s.their.at), 'có bản mới hơn');
+      return line('info', t('có bản mới hơn ' + clock(s.their.at), 'has a newer copy from ' + clock(s.their.at)), t('có bản mới hơn', 'has a newer copy'));
     case 'edited':
-      return line('info', 'bản đã bị sửa tay', 'bản đã bị sửa tay');
+      return line('info', t('bản đã bị sửa tay', 'copy edited by hand'), t('bản đã bị sửa tay', 'copy edited by hand'));
   }
 }
 
 /** This Mac in the save bar. */
 export function localLine(model: AuthorModel, dirty: boolean, restored: boolean): MacLine {
   const r = model.rotation;
-  const name = model.machine + ' (máy này)';
+  const name = model.machine + t(' (máy này)', ' (this Mac)');
   const line = (tone: MacTone, text: string): MacLine => ({ name, tone, text, short: model.machine + ': ' + text, title: '' });
-  if (restored) return line('bad', r.stamp ? 'đã khôi phục bản ' + clock(r.stamp.at) : 'đã khôi phục bản trước');
-  if (dirty) return line('warn', 'chưa lưu');
-  if (r.status === 'missing') return line('muted', 'chưa có file');
-  if (r.status === 'unreadable') return line('bad', 'không đọc được file');
-  if (r.status !== 'ok') return line('bad', 'file không hợp lệ');
-  return line('ok', r.stamp ? 'lưu ' + clock(r.stamp.at) : 'chưa lưu bằng app');
+  if (restored) return line('bad', r.stamp ? t('đã khôi phục bản ' + clock(r.stamp.at), 'restored the ' + clock(r.stamp.at) + ' copy') : t('đã khôi phục bản trước', 'restored the previous copy'));
+  if (dirty) return line('warn', t('chưa lưu', 'not saved'));
+  if (r.status === 'missing') return line('muted', t('chưa có file', 'no file yet'));
+  if (r.status === 'unreadable') return line('bad', t('không đọc được file', 'cannot read the file'));
+  if (r.status !== 'ok') return line('bad', t('file không hợp lệ', 'invalid file'));
+  return line('ok', r.stamp ? t('lưu ' + clock(r.stamp.at), 'saved ' + clock(r.stamp.at)) : t('chưa lưu bằng app', 'not saved by the app yet'));
 }
 
 /** `Mac B: 14:30 · Mac C: chưa tới được, sẽ thử lại`, with the worst Mac's tone; null with no other Mac. */
@@ -189,8 +200,15 @@ export function sidebarLine(model: AuthorModel): string | null {
   const peers = model.rotation.peers;
   if (!peers.length || !model.rotation.stamp) return null;
   const behind = peers.filter((p) => !(p.current && p.state?.kind === 'synced'));
-  if (!behind.length) return 'luật đã gửi tới ' + peers.length + ' Mac khác lúc ' + clock(model.rotation.stamp.at);
-  return behind.length + ' Mac chưa nhận luật mới';
+  if (!behind.length)
+    return t(
+      'luật đã gửi tới ' + peers.length + ' Mac khác lúc ' + clock(model.rotation.stamp.at),
+      'rules sent to ' + peers.length + (peers.length === 1 ? ' other Mac' : ' other Macs') + ' at ' + clock(model.rotation.stamp.at),
+    );
+  return t(
+    behind.length + ' Mac chưa nhận luật mới',
+    behind.length + (behind.length === 1 ? ' Mac has' : ' Macs have') + ' not received the new rules',
+  );
 }
 
 // ===== Banners about the file and the other Macs =====
@@ -201,19 +219,25 @@ export function rotationBanner(model: AuthorModel): BannerView | null {
   if (r.status === 'missing')
     return {
       tone: 'info',
-      title: 'Chưa có file luật trên máy này',
-      body: 'Switcher đang chạy theo mặc định của nó. Tạo file từ mặc định để sửa được.',
-      actions: [{ label: 'Tạo từ mặc định', act: 'rules:create' }],
+      title: t('Chưa có file luật trên máy này', 'No rules file on this Mac yet'),
+      body: t(
+        'Switcher đang chạy theo mặc định của nó. Tạo file từ mặc định để sửa được.',
+        'The switcher runs on its own defaults. Create the file from those defaults to edit it.',
+      ),
+      actions: [{ label: t('Tạo từ mặc định', 'Create from defaults'), act: 'rules:create' }],
     };
   if (r.status === 'unreadable')
-    return { tone: 'bad', title: 'Không đọc được file luật trên máy này', body: r.reason ?? '', actions: [] };
+    return { tone: 'bad', title: t('Không đọc được file luật trên máy này', 'Cannot read the rules file on this Mac'), body: r.reason ?? '', actions: [] };
   if (r.status === 'invalid')
     return {
       tone: 'bad',
-      title: 'File luật trên máy này không hợp lệ',
+      title: t('File luật trên máy này không hợp lệ', 'The rules file on this Mac is not valid'),
       body:
         cap(keyWords(r.reason)) +
-        '. App đang tính theo tài khoản đang dùng. Bộ sửa hiện mặc định của switcher: lưu để ghi đè, bản cũ được sao lưu.',
+        t(
+          '. App đang tính theo tài khoản đang dùng. Bộ sửa hiện mặc định của switcher: lưu để ghi đè, bản cũ được sao lưu.',
+          '. The app goes by the account in use. The editor shows the switcher’s defaults: save to overwrite; the old copy is backed up.',
+        ),
       actions: [],
     };
   const at = r.stamp ? clock(r.stamp.at) : '';
@@ -222,18 +246,25 @@ export function rotationBanner(model: AuthorModel): BannerView | null {
     const newer = other.state.kind === 'newer' ? other.state.their : null;
     return {
       tone: 'info',
-      title: newer ? 'Bản trên ' + other.name + ' mới hơn (' + clock(newer.at) + ')' : 'Bản trên ' + other.name + ' đã bị sửa tay',
+      title: newer
+        ? t('Bản trên ' + other.name + ' mới hơn (' + clock(newer.at) + ')', 'The copy on ' + other.name + ' is newer (' + clock(newer.at) + ')')
+        : t('Bản trên ' + other.name + ' đã bị sửa tay', 'The copy on ' + other.name + ' was edited by hand'),
       body:
         (newer
-          ? 'Có người sửa luật trên ' + other.name + ' sau bản ' + at + ' của máy này.'
+          ? t('Có người sửa luật trên ' + other.name + ' sau bản ' + at + ' của máy này.', 'Someone edited the rules on ' + other.name + ' after this Mac’s ' + at + ' copy.')
           : other.state.their
-            ? 'File luật trên ' + other.name + ' khác bản ' + at + ' của máy này dù cùng dấu thời gian.'
-            : 'File luật trên ' + other.name + ' không có dòng updated của app, hoặc app không đọc được nó; có thể đã được sửa tay. App không ghi đè.') +
-          ' App không tự gộp hai bản. Tải bản đó về?',
+            ? t(
+                'File luật trên ' + other.name + ' khác bản ' + at + ' của máy này dù cùng dấu thời gian.',
+                'The rules file on ' + other.name + ' differs from this Mac’s ' + at + ' copy, though both have the same timestamp.',
+              )
+            : t(
+                'File luật trên ' + other.name + ' không có dòng updated của app, hoặc app không đọc được nó; có thể đã được sửa tay. App không ghi đè.',
+                'The rules file on ' + other.name + ' has no updated line from the app, or the app cannot read it; it may have been edited by hand. The app does not overwrite it.',
+              )) + t(' App không tự gộp hai bản. Tải bản đó về?', ' The app does not merge the two copies. Fetch that copy?'),
       actions: [
         // A copy the app cannot read cannot be taken; the compare sheet still offers keeping this one.
-        ...(other.theirRules ? [{ label: 'Dùng bản trên ' + other.name, act: `rules:adopt:${other.alias}` as const }] : []),
-        { label: 'So sánh', act: `rules:compare:${other.alias}` },
+        ...(other.theirRules ? [{ label: t('Dùng bản trên ' + other.name, 'Use the copy on ' + other.name), act: `rules:adopt:${other.alias}` as const }] : []),
+        { label: t('So sánh', 'Compare'), act: `rules:compare:${other.alias}` },
       ],
     };
   }
@@ -242,9 +273,12 @@ export function rotationBanner(model: AuthorModel): BannerView | null {
     const fine = r.peers.filter((p) => p.current && p.state?.kind === 'synced');
     return {
       tone: 'warn',
-      title: 'Chưa gửi được luật tới ' + behind.map((p) => p.name).join(', '),
-      body: 'Đã lưu trên máy này' + (fine.length ? ' và ' + fine.map((p) => p.name).join(', ') : '') + ' lúc ' + at + '. App thử lại mỗi 5 phút.',
-      actions: [{ label: 'Thử lại', act: 'rules:retry' }],
+      title: t('Chưa gửi được luật tới ', 'Could not send the rules to ') + behind.map((p) => p.name).join(', '),
+      body: t(
+        'Đã lưu trên máy này' + (fine.length ? ' và ' + fine.map((p) => p.name).join(', ') : '') + ' lúc ' + at + '. App thử lại mỗi 5 phút.',
+        'Saved on this Mac' + (fine.length ? ' and ' + fine.map((p) => p.name).join(', ') : '') + ' at ' + at + '. The app tries again every 5 minutes.',
+      ),
+      actions: [{ label: t('Thử lại', 'Try again'), act: 'rules:retry' }],
     };
   }
   return null;
@@ -256,41 +290,50 @@ export function changedBanner(model: AuthorModel): BannerView {
   const by = s && s.machine !== model.machine ? s.machine : null;
   return {
     tone: 'info',
-    title: by ? 'Bản trên ' + by + ' mới hơn, tải lại?' : 'File luật vừa đổi trên máy này',
-    body:
+    title: by ? t('Bản trên ' + by + ' mới hơn, tải lại?', 'The copy on ' + by + ' is newer. Reload?') : t('File luật vừa đổi trên máy này', 'The rules file just changed on this Mac'),
+    body: t(
       'Trong lúc bạn sửa, file luật được ghi lại' +
-      (s ? ' lúc ' + clock(s.at) : '') +
-      (by ? ' bằng bản của ' + by : '') +
-      '. App không tự gộp hai bản: tải lại để xem bản đó, hoặc giữ bản đang sửa.',
+        (s ? ' lúc ' + clock(s.at) : '') +
+        (by ? ' bằng bản của ' + by : '') +
+        '. App không tự gộp hai bản: tải lại để xem bản đó, hoặc giữ bản đang sửa.',
+      'While you were editing, the rules file was written again' +
+        (s ? ' at ' + clock(s.at) : '') +
+        (by ? ' with the copy from ' + by : '') +
+        '. The app does not merge the two copies: reload to see that copy, or keep the one you are editing.',
+    ),
     actions: [
-      { label: 'Tải lại', act: 'rules:reload' },
-      { label: 'Giữ bản đang sửa', act: 'rules:overwrite' },
+      { label: t('Tải lại', 'Reload'), act: 'rules:reload' },
+      { label: t('Giữ bản đang sửa', 'Keep my edits'), act: 'rules:overwrite' },
     ],
   };
 }
 
 /** What a failed save, adopt or keep says. */
 export function rulesErrorBanner(e: RulesError, peer?: string): BannerView {
-  const dismiss = [{ label: 'Sửa lại', act: 'rules:dismiss' as const }];
+  const dismiss = [{ label: t('Sửa lại', 'Edit'), act: 'rules:dismiss' as const }];
+  const unchanged = t('. Máy này giữ nguyên.', '. This Mac is unchanged.');
   switch (e.kind) {
     case 'invalid':
-      return { tone: 'bad', title: 'Luật chưa hợp lệ', body: cap(keyWords(e.detail)) + '. Chưa ghi gì.', actions: dismiss };
+      return { tone: 'bad', title: t('Luật chưa hợp lệ', 'The rules are not valid'), body: cap(keyWords(e.detail)) + t('. Chưa ghi gì.', '. Nothing was written.'), actions: dismiss };
     case 'unreachable':
     case 'noFile':
     case 'unknownMac':
       return {
         tone: 'warn',
-        title: 'Chưa tải được bản trên ' + (peer ?? 'Mac kia'),
+        title: t('Chưa tải được bản trên ', 'Could not fetch the copy on ') + (peer ?? t('Mac kia', 'the other Mac')),
         body:
           e.kind === 'noFile'
-            ? 'Máy đó không có file luật.'
+            ? t('Máy đó không có file luật.', 'That Mac has no rules file.')
             : e.kind === 'unknownMac'
-              ? 'Mac này không còn trong Cài đặt › Các Mac khác. Thêm lại rồi thử. Máy này giữ nguyên.'
-              : 'SSH không tới được' + (e.detail ? ': ' + e.detail : '') + '. Máy này giữ nguyên.',
+              ? t(
+                  'Mac này không còn trong Cài đặt › Các Mac khác. Thêm lại rồi thử. Máy này giữ nguyên.',
+                  'That Mac is no longer in Settings › Other Macs. Add it back, then try again. This Mac is unchanged.',
+                )
+              : t('SSH không tới được', 'SSH could not reach it') + (e.detail ? ': ' + e.detail : '') + unchanged,
         actions: [],
       };
     default:
-      return { tone: 'bad', title: 'Không ghi được file luật', body: (e.detail ?? e.kind) + '. Máy này giữ nguyên.', actions: dismiss };
+      return { tone: 'bad', title: t('Không ghi được file luật', 'Could not write the rules file'), body: (e.detail ?? e.kind) + unchanged, actions: dismiss };
   }
 }
 
@@ -304,21 +347,21 @@ export function saveFeedback(model: AuthorModel): FeedbackView {
   if (!behind.length)
     return {
       tone: '',
-      title: 'Đã lưu luật cho ' + macsWord(1 + peers.length) + ' lúc ' + at,
-      body: 'Đã kiểm tra đủ 6 mục của luật ✓',
+      title: t('Đã lưu luật cho ' + macsWord(1 + peers.length) + ' lúc ' + at, 'Saved the rules for ' + macsWord(1 + peers.length) + ' at ' + at),
+      body: t('Đã kiểm tra đủ 6 mục của luật ✓', 'Checked all 6 rule items ✓'),
     };
   return {
     tone: 'warn',
-    title: 'Đã lưu luật trên máy này lúc ' + at,
-    body: 'Đã kiểm tra đủ 6 mục ✓. ' + behind.map((p) => peerLine(p).short).join(' · ') + '.',
+    title: t('Đã lưu luật trên máy này lúc ', 'Saved the rules on this Mac at ') + at,
+    body: t('Đã kiểm tra đủ 6 mục ✓. ', 'Checked all 6 items ✓. ') + behind.map((p) => peerLine(p).short).join(' · ') + '.',
   };
 }
 
 export function adoptFeedback(peer: string, their: Stamp | null, now: Date): FeedbackView {
   return {
     tone: '',
-    title: 'Đã dùng bản luật của ' + peer + (their ? ' (' + clock(their.at) + ')' : ''),
-    body: 'Đã ghi lên máy này và gửi tới các Mac còn lại lúc ' + clock(now.toISOString()) + '.',
+    title: t('Đã dùng bản luật của ', 'Now using the rules from ') + peer + (their ? ' (' + clock(their.at) + ')' : ''),
+    body: t('Đã ghi lên máy này và gửi tới các Mac còn lại lúc ', 'Written to this Mac and sent to the other Macs at ') + clock(now.toISOString()) + '.',
   };
 }
 
@@ -326,8 +369,11 @@ export function keepFeedback(model: AuthorModel, peer: string): FeedbackView {
   const at = model.rotation.stamp ? clock(model.rotation.stamp.at) : '';
   return {
     tone: '',
-    title: 'Đã giữ bản của máy này',
-    body: 'Đã gửi bản ' + at + ' tới ' + peer + '. Bản của ' + peer + ' được sao lưu trên máy đó.',
+    title: t('Đã giữ bản của máy này', 'Kept this Mac’s copy'),
+    body: t(
+      'Đã gửi bản ' + at + ' tới ' + peer + '. Bản của ' + peer + ' được sao lưu trên máy đó.',
+      'Sent the ' + at + ' copy to ' + peer + '. ' + peer + '’s copy is backed up on that Mac.',
+    ),
   };
 }
 
@@ -336,10 +382,17 @@ export function retryFeedback(model: AuthorModel, now: Date): FeedbackView {
   if (!behind.length)
     return {
       tone: '',
-      title: 'Đã gửi luật tới các Mac khác lúc ' + clock(now.toISOString()),
-      body: macsWord(1 + model.rotation.peers.length) + ' giờ dùng cùng một bản luật.',
+      title: t('Đã gửi luật tới các Mac khác lúc ', 'Sent the rules to the other Macs at ') + clock(now.toISOString()),
+      body: t(
+        macsWord(1 + model.rotation.peers.length) + ' giờ dùng cùng một bản luật.',
+        model.rotation.peers.length ? cap(macsWord(1 + model.rotation.peers.length)) + ' now use the same rules.' : 'This Mac now uses the same rules.',
+      ),
     };
-  return { tone: 'warn', title: 'Vẫn chưa gửi được', body: behind.map((p) => peerLine(p).short).join(' · ') + '. App thử lại mỗi 5 phút.' };
+  return {
+    tone: 'warn',
+    title: t('Vẫn chưa gửi được', 'Still not sent'),
+    body: behind.map((p) => peerLine(p).short).join(' · ') + t('. App thử lại mỗi 5 phút.', '. The app tries again every 5 minutes.'),
+  };
 }
 
 // ===== Two copies side by side =====
@@ -352,20 +405,20 @@ export interface CompareRow {
 }
 
 export function compareRows(mine: Rules, theirs: Rules, nameOf: NameOf, now: Date): CompareRow[] {
-  const team = (r: Rules) => r.team.map(nameOf).join(', ') || 'không có';
-  const pers = (r: Rules) => (r.personal ? nameOf(r.personal) : 'không có');
+  const team = (r: Rules) => r.team.map(nameOf).join(', ') || t('không có', 'none');
+  const pers = (r: Rules) => (r.personal ? nameOf(r.personal) : t('không có', 'none'));
   const ends = (r: Rules) =>
     [...r.expire]
       .sort((a, b) => a.slot - b.slot)
       .map((e) => nameOf(e.slot) + ' ' + endText(e.at, now))
-      .join(', ') || 'chưa đặt';
+      .join(', ') || t('chưa đặt', 'not set');
   const rows: [string, (r: Rules) => string][] = [
-    ['Tài khoản Team được xoay vòng', team],
-    ['Tài khoản cá nhân', pers],
-    ['Giờ dùng tài khoản cá nhân', (r) => hoursText(r.personalFrom, r.personalTo)],
-    ['Ngưỡng tự chuyển', (r) => r.full + '%'],
-    ['Ngưỡng Fable tuần', (r) => r.fableFull + '%'],
-    ['Giờ rời vòng', ends],
+    [t('Tài khoản Team được xoay vòng', 'Team accounts in rotation'), team],
+    [t('Tài khoản cá nhân', 'Personal account'), pers],
+    [t('Giờ dùng tài khoản cá nhân', 'Personal account hours'), (r) => hoursText(r.personalFrom, r.personalTo)],
+    [t('Ngưỡng tự chuyển', 'Auto-switch threshold'), (r) => r.full + '%'],
+    [t('Ngưỡng Fable tuần', 'Fable week threshold'), (r) => r.fableFull + '%'],
+    [t('Giờ rời vòng', 'Leaves rotation at'), ends],
   ];
   return rows.map(([label, f]) => ({ label, mine: f(mine), theirs: f(theirs), diff: f(mine) !== f(theirs) }));
 }

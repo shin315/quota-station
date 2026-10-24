@@ -49,6 +49,8 @@ export function Button(props: {
   small?: boolean;
   /** Only an icon: give it a `label`. */
   icon?: boolean;
+  /** An icon before the words. */
+  lead?: IconName;
   disabled?: boolean;
   label?: string;
   title?: string;
@@ -65,6 +67,7 @@ export function Button(props: {
       title={props.title ?? (props.icon ? props.label : undefined)}
       onClick={props.onClick}
     >
+      {props.lead ? <Icon name={props.lead} /> : null}
       {props.children}
     </UiButton>
   );

@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { Empty, GRID2, LIST_ROW, STACK, TabHead, TabSub, TabTitle } from '../components/page';
 import { Banner, Button, Dot, Feedback, FeedbackLine, FeedbackText, Spinner, Toggle } from '../components/parts';
 import { alertCard, alertKinds, permissionBanner, type AlertCardView } from '../lib/alerts';
+import { t } from '../lib/i18n';
 import type { AlertKind, AlertSwitches, Model } from '../lib/model';
 import type { Action, FeedbackView, PopoverView } from '../lib/view';
 
@@ -32,8 +33,8 @@ export function AlertKinds(props: {
             <b className="font-semi">{k.title}</b>
             <small className="block text-xs text-ink2">{k.text}</small>
           </div>
-          <Button disabled={props.testOff} label={'Gửi thử: ' + k.title} onClick={() => props.onTest(k.kind)}>
-            Gửi thử
+          <Button disabled={props.testOff} label={t('Gửi thử: ', 'Send a test: ') + k.title} onClick={() => props.onTest(k.kind)}>
+            {t('Gửi thử', 'Send a test')}
           </Button>
           <Toggle on={props.switches[k.kind]} label={k.title} onClick={() => props.onSwitch(k.kind, !props.switches[k.kind])} />
         </div>
@@ -58,7 +59,7 @@ function AlertCard({ card, pressing, onPress }: { card: AlertCardView; pressing:
         'in-[.app-window]:bg-fill in-[.app-window]:shadow-none',
       )}
       role="group"
-      aria-label={'Cảnh báo: ' + card.title}
+      aria-label={t('Cảnh báo: ', 'Alert: ') + card.title}
     >
       <span className={cn('grid size-[30px] place-items-center rounded-[8px] font-black', MARK[card.icon.k] ?? 'bg-warn/22 text-warn-ink')} aria-hidden="true">
         {card.icon.mark}
@@ -82,7 +83,7 @@ function AlertCard({ card, pressing, onPress }: { card: AlertCardView; pressing:
               <FeedbackLine tone="info" style={{ margin: '6px 0 0' }}>
                 <Spinner />
                 <div>
-                  <FeedbackText title={r.working} body="Chờ tối đa 60 giây." />
+                  <FeedbackText title={r.working} body={t('Chờ tối đa 60 giây.', 'Waits up to 60 seconds.')} />
                 </div>
               </FeedbackLine>
             ) : r ? (
@@ -124,7 +125,7 @@ export function AlertsTab(props: AlertsTabProps) {
   return (
     <>
       <TabHead>
-        <TabTitle>Cảnh báo</TabTitle>
+        <TabTitle>{t('Cảnh báo', 'Alerts')}</TabTitle>
         <TabSub>
           <Dot tone={fresh.tone} />
           {model.machine} · {fresh.text}
@@ -135,7 +136,7 @@ export function AlertsTab(props: AlertsTabProps) {
       <div className={GRID2}>
         <div className={STACK}>
           <Panel bare={a.recent.length > 0}>
-            <CardTitle bare={a.recent.length > 0}>Gần đây</CardTitle>
+            <CardTitle bare={a.recent.length > 0}>{t('Gần đây', 'Recent')}</CardTitle>
             {a.recent.length ? (
               <div className={STACK}>
                 {a.recent.map((r) => (
@@ -144,15 +145,21 @@ export function AlertsTab(props: AlertsTabProps) {
               </div>
             ) : (
               <Empty>
-                <b>Chưa có cảnh báo</b>Khi có, thẻ hiện ở đây với cùng nút như thông báo macOS.
+                <b>{t('Chưa có cảnh báo', 'No alerts yet')}</b>
+                {t('Khi có, thẻ hiện ở đây với cùng nút như thông báo macOS.', 'When one comes, its card shows here with the same buttons as the macOS notification.')}
               </Empty>
             )}
           </Panel>
         </div>
         <Panel>
-          <CardTitle>Loại cảnh báo</CardTitle>
+          <CardTitle>{t('Loại cảnh báo', 'Alert types')}</CardTitle>
           <AlertKinds model={model} switches={a.switches} testOff={a.permission === 'denied'} onTest={props.onTest} onSwitch={props.onSwitch} />
-          <CardText className="mt-2.5 mb-0">Không lặp lại cảnh báo cho cùng một sự kiện. Thông báo không có email, không có nút chỉ để mở app.</CardText>
+          <CardText className="mt-2.5 mb-0">
+            {t(
+              'Không lặp lại cảnh báo cho cùng một sự kiện. Thông báo không có email, không có nút chỉ để mở app.',
+              'The same event is never alerted twice. Notifications carry no email and no button that only opens the app.',
+            )}
+          </CardText>
         </Panel>
       </div>
     </>

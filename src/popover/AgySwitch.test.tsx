@@ -357,7 +357,7 @@ describe('the overwrite banner', () => {
         <MainWindowApp api={fake.api} clock={() => FIXTURE_NOW} />
       </div>,
     );
-    await screen.findByRole('navigation', { name: 'Mục' });
+    await screen.findByRole('navigation', { name: 'Các tab' });
     const banner = screen.getByText('Chuyển Antigravity bị ghi đè').closest('.banner') as HTMLElement;
     expect(
       within(banner).getByText(
@@ -379,7 +379,7 @@ describe('the overwrite banner', () => {
         <MainWindowApp api={fake.api} clock={() => FIXTURE_NOW} />
       </div>,
     );
-    await screen.findByRole('navigation', { name: 'Mục' });
+    await screen.findByRole('navigation', { name: 'Các tab' });
     expect(screen.getByText(/Đây là lần thứ 2\./)).toBeTruthy();
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Thôi' }));
@@ -396,7 +396,7 @@ describe('the overwrite banner', () => {
         <MainWindowApp api={fake.api} clock={() => FIXTURE_NOW} />
       </div>,
     );
-    await screen.findByRole('navigation', { name: 'Mục' });
+    await screen.findByRole('navigation', { name: 'Các tab' });
     expect(screen.getByText('Chuyển Antigravity bị ghi đè')).toBeTruthy();
     const button = screen.getByRole('button', { name: 'Chuyển sang lanpham.ultra' }) as HTMLButtonElement;
     expect(button.disabled).toBe(false);

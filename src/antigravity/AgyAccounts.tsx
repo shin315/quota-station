@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { LIST_ROW } from '../components/page';
 import { BannerBox, Button, Chip, FeedbackLine, FieldHint, Spinner } from '../components/parts';
 import type { Api } from '../lib/api';
+import { t } from '../lib/i18n';
 import {
   agyLoginErrorFeedback,
   agyLoginFeedback,
@@ -47,13 +48,15 @@ function Waiting({ api }: { api: Api }) {
     <FeedbackLine tone="info" style={{ margin: '8px 0 0' }}>
       <Spinner />
       <div style={{ minWidth: 0, flex: 1 }}>
-        <b className="block font-semi">Đang chờ đăng nhập trong trình duyệt…</b>
+        <b className="block font-semi">{t('Đang chờ đăng nhập trong trình duyệt…', 'Waiting for sign-in in the browser…')}</b>
         <small className="block text-xs text-ink2">
-          Trang của Google mở trong trình duyệt mặc định. Màn hình đồng ý ghi tên ứng dụng của Antigravity, không phải Quota Station: app
-          đăng nhập bằng client của Antigravity, như Cockpit. Chờ tối đa 10 phút.
+          {t(
+            'Trang của Google mở trong trình duyệt mặc định. Màn hình đồng ý ghi tên ứng dụng của Antigravity, không phải Quota Station: app đăng nhập bằng client của Antigravity, như Cockpit. Chờ tối đa 10 phút.',
+            'Google’s page opens in the default browser. The consent screen names Antigravity’s app, not Quota Station: the app signs in with Antigravity’s client, as Cockpit does. Waits up to 10 minutes.',
+          )}
         </small>
         <label htmlFor="qs-agy-cb" className="mt-1 text-xs text-ink2" style={{ display: 'block', marginTop: 8 }}>
-          Trình duyệt không quay lại được app? Dán URL trên thanh địa chỉ vào đây.
+          {t('Trình duyệt không quay lại được app? Dán URL trên thanh địa chỉ vào đây.', 'The browser did not come back to the app? Paste the URL from its address bar here.')}
         </label>
         <div className="flex items-center justify-between gap-2.5" style={{ marginTop: 4 }}>
           <Input
@@ -73,9 +76,9 @@ function Waiting({ api }: { api: Api }) {
             }}
           />
           <Button disabled={!url.trim()} onClick={() => void send()}>
-            Gửi
+            {t('Gửi', 'Send')}
           </Button>
-          <Button onClick={() => void api.agyLoginCancel()}>Huỷ</Button>
+          <Button onClick={() => void api.agyLoginCancel()}>{t('Huỷ', 'Cancel')}</Button>
         </div>
         {hint ? <FieldHint tone="bad">{hint}</FieldHint> : null}
       </div>
@@ -149,7 +152,7 @@ export function loginChips(row: AgyRowView | undefined): ChipView[] {
   if (row.chip.k !== 'ok') chips.push({ ...row.chip, title: row.sub || undefined });
   if (row.read)
     chips.push({
-      t: row.read.tone === 'info' ? row.read.text : 'đọc lỗi',
+      t: row.read.tone === 'info' ? row.read.text : t('đọc lỗi', 'read failed'),
       k: row.read.tone === 'bad' ? 'bad' : row.read.tone === 'warn' ? 'warn' : 'info',
       title: row.read.text,
     });
@@ -159,7 +162,7 @@ export function loginChips(row: AgyRowView | undefined): ChipView[] {
 export function AddAccount({ logins }: { logins: AgyLogins }) {
   return (
     <Button primary className="text-s" disabled={!!logins.notice || logins.view.indexError || logins.busy} onClick={logins.login}>
-      Thêm tài khoản
+      {t('Thêm tài khoản', 'Add account')}
     </Button>
   );
 }
@@ -170,16 +173,16 @@ export function LoginActions({ logins, row }: { logins: AgyLogins; row: AgyRowVi
     <>
       {row.relogin ? (
         <Button primary disabled={logins.busy} onClick={logins.login}>
-          Đăng nhập lại
+          {t('Đăng nhập lại', 'Sign in again')}
         </Button>
       ) : null}
       {row.verify ? (
         <Button primary onClick={() => logins.verify(row)}>
-          Mở trang xác minh
+          {t('Mở trang xác minh', 'Open the verification page')}
         </Button>
       ) : null}
-      <Button label={'Đăng xuất ' + row.name} disabled={logins.busy} onClick={() => logins.ask(row.id)}>
-        Đăng xuất
+      <Button label={t('Đăng xuất ', 'Sign out ') + row.name} disabled={logins.busy} onClick={() => logins.ask(row.id)}>
+        {t('Đăng xuất', 'Sign out')}
       </Button>
     </>
   );
@@ -188,14 +191,14 @@ export function LoginActions({ logins, row }: { logins: AgyLogins; row: AgyRowVi
 /** Under the row whose logout is asked: what it does, and the two answers. */
 export function LogoutConfirm({ logins, row, inTable }: { logins: AgyLogins; row: AgyRowView; inTable?: boolean }) {
   return (
-    <div className={cn(LIST_ROW, inTable && 'mt-0 mb-1.5')} role="group" aria-label={'Đăng xuất ' + row.name}>
+    <div className={cn(LIST_ROW, inTable && 'mt-0 mb-1.5')} role="group" aria-label={t('Đăng xuất ', 'Sign out ') + row.name}>
       <div>
-        <b>Đăng xuất {row.name} khỏi Quota Station?</b>
-        <small className="block text-xs text-ink2">Antigravity.app và agy vẫn đăng nhập như cũ.</small>
+        <b>{t('Đăng xuất ' + row.name + ' khỏi Quota Station?', 'Sign ' + row.name + ' out of Quota Station?')}</b>
+        <small className="block text-xs text-ink2">{t('Antigravity.app và agy vẫn đăng nhập như cũ.', 'Antigravity.app and agy stay signed in as before.')}</small>
       </div>
-      <Button onClick={() => logins.ask(null)}>Thôi</Button>
+      <Button onClick={() => logins.ask(null)}>{t('Thôi', 'Cancel')}</Button>
       <Button primary disabled={logins.busy} onClick={() => logins.logout(row)}>
-        Đăng xuất
+        {t('Đăng xuất', 'Sign out')}
       </Button>
     </div>
   );
@@ -216,13 +219,16 @@ export function LoginNotes({ logins, listed }: { logins: AgyLogins; listed: numb
       {view.indexError ? (
         <BannerBox
           tone="bad"
-          title="Không đọc được danh sách tài khoản"
-          body="File accounts.json trong thư mục antigravity của app bị hỏng. App để nguyên file, không ghi đè."
+          title={t('Không đọc được danh sách tài khoản', 'Cannot read the account list')}
+          body={t(
+            'File accounts.json trong thư mục antigravity của app bị hỏng. App để nguyên file, không ghi đè.',
+            'The accounts.json file in the app’s antigravity folder is damaged. The app leaves it as it is and does not overwrite it.',
+          )}
           style={{ margin: '8px 0' }}
         />
       ) : null}
       {extra.length ? (
-        <div role="list" aria-label="Tài khoản đăng nhập trong app">
+        <div role="list" aria-label={t('Tài khoản đăng nhập trong app', 'Accounts signed in to the app')}>
           {extra.map((r) =>
             logins.confirm === r.id ? (
               <LogoutConfirm key={r.id} logins={logins} row={r} />
@@ -253,7 +259,7 @@ export function LoginNotes({ logins, listed }: { logins: AgyLogins; listed: numb
           )}
         </div>
       ) : null}
-      {!logins.rows.length && !view.indexError ? <p className="mt-2 mb-0 text-sm text-ink2">Chưa có tài khoản nào đăng nhập trong app.</p> : null}
+      {!logins.rows.length && !view.indexError ? <p className="mt-2 mb-0 text-sm text-ink2">{t('Chưa có tài khoản nào đăng nhập trong app.', 'No accounts signed in to the app yet.')}</p> : null}
       {view.loggingIn ? <Waiting api={logins.api} /> : null}
     </>
   );
