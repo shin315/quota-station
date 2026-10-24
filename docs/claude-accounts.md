@@ -29,8 +29,9 @@ Code's login is learned from claude-swap's MIT source and credited in
 - `Nhập từ claude-swap` reads `~/.claude-swap-backup` once (its
   `sequence.json`, each slot's config for `oauthAccount`, each credential
   from its `.enc` file or Keychain item, its usage cache) and carries every
-  account over under the same slot number, without a new login. It never
-  writes there. Running it again changes nothing, except that a credential
+  account over under the same slot number, without a new login, each in the
+  rotation (claude-swap's own `disabled` is not carried over: the old
+  switcher never read it). It never writes there. Running it again changes nothing, except that a credential
   claude-swap holds a newer copy of (a later `expiresAt`) replaces the app's.
   It also copies the rotation file and the `prime` flag when the app has none.
 
@@ -46,15 +47,16 @@ Claude Code uses: `mkdir`, stale after 60, 60 and 10 seconds, touched every
 1. reads the live login (the Keychain item `Claude Code-credentials`,
    account `$USER`) and `oauthAccount` in `~/.claude.json`; when that
    account is one of the app's, it keeps the live credential in that slot
-   (never an empty or wiped one); a login the app does not know stops the
-   switch, so it is never lost;
+   (never an empty or wiped one); with no `oauthAccount` to tell whose it
+   is, the live login is the app's account whose refresh token it holds; a
+   login the app does not know stops the switch, so it is never lost;
 2. writes the target's credential to Claude Code's item (`-U`), keeping the
    live credential's MCP and plugin secrets, as claude-swap does, and
    rewrites `~/.claude/.credentials.json` only when it already exists;
 3. replaces only `oauthAccount` in `~/.claude.json` (temporary file, rename,
    mode 600, every other key kept);
-4. reads both back; when either is not what it wrote, it puts the login and
-   the file back as they were and reports the failure.
+4. reads both back; when a write fails or either is not what it wrote, it
+   puts the login and the file back as they were and reports the failure.
 
 A switch never refreshes a token and makes no network call.
 
@@ -68,7 +70,11 @@ the app never refreshes it, Claude Code does. Another account whose token has
 under five minutes left is refreshed first (`POST
 https://platform.claude.com/v1/oauth/token`, Claude Code's client id), under
 the app's lock, after reading the stored credential again, and the new one is
-stored in the app's item. An account is read at most every 180 seconds, with
+stored in the app's item. A login a running Claude Code holds, in the
+account's session folder or as Claude Code's own login (the same refresh
+token), is never refreshed by the app: it reads with that copy's token while
+it lasts. A login that needs a new sign-in is not read again until another
+copy of it is stored; the account in use is read all the same. An account is read at most every 180 seconds, with
 claude-swap's back-off after a failure or a 429. The readings go to
 `claude/usage.json` (no email, no token). Emails stay in memory and reach the
 windows only while `Hiện email` is on, as before.
@@ -88,9 +94,10 @@ rotate`, so it keeps going when the windows are closed or the app is quit.
 `Tự chuyển bằng Quota Station` in the Claude tab installs it (`launchctl
 bootstrap`) or removes it (`bootout`). Each run, and the app before showing a
 decision, checks `com.cswap.prefer-team` and `com.cswap.auto`: while either is
-loaded the run switches nothing and the window says so, so two switchers never
+loaded, or `launchctl` cannot tell, the run switches nothing and the window says so, so two switchers never
 run at once. The decisions and switches go to `claude/rotation.log`, in the
-script's log format.
+script's log format. An account held out of the rotation is never switched
+to; the account in use is kept or left by the script's rules, held out or not.
 
 ## Session folders
 

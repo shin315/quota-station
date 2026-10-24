@@ -45,7 +45,7 @@ pub fn live(dir: &Path) -> bool {
     crate::sessions::count(&dir.join("sessions")).map(|s| s.live + s.unreadable > 0).unwrap_or(true)
 }
 
-fn profile_credential(dir: &Path, store: &Store) -> Option<String> {
+pub(crate) fn profile_credential(dir: &Path, store: &Store) -> Option<String> {
     let service = cc::profile_service(dir)?;
     store.security.get(&service, &user_account()).ok().flatten()
 }
@@ -65,8 +65,8 @@ pub fn adopt_newer(store: &Store, slot: u32) {
         Some(ours) if ours == theirs => false,
         Some(ours) => cc::expires_at(&theirs).unwrap_or(0) > cc::expires_at(ours).unwrap_or(0),
     };
-    if newer {
-        let _ = store.set_credential(slot, &theirs);
+    if newer && store.set_credential(slot, &theirs).is_ok() {
+        super::usage::login_replaced(store, slot);
     }
 }
 

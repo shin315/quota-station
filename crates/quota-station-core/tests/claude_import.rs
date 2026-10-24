@@ -132,6 +132,21 @@ fn claude_swaps_own_data_is_left_as_it_was() {
 }
 
 #[test]
+fn every_account_comes_in_the_rotation_whatever_claude_swap_held_out() {
+    let mac = Mac::new("import-in-rotation");
+    let dir = claude_swap(&mac);
+    let file = dir.join("sequence.json");
+    let mut sequence: Value =
+        serde_json::from_str(&std::fs::read_to_string(&file).unwrap()).unwrap();
+    sequence["accounts"]["2"]["disabled"] = Value::Bool(true);
+    std::fs::write(&file, sequence.to_string()).unwrap();
+    import::import(&mac.store, &dir).unwrap();
+    let list = mac.store.load().unwrap();
+    assert!(list.accounts.iter().all(|a| !a.disabled));
+    assert_eq!(list.accounts.len(), 3);
+}
+
+#[test]
 fn importing_again_changes_nothing_the_owner_set() {
     let mac = Mac::new("import-again");
     let dir = claude_swap(&mac);

@@ -41,8 +41,9 @@ pub enum SwitchError {
     Keychain(KeychainError),
     Store(StoreError),
     Io(std::io::Error),
-    /// The login or the config read back is not what was written; both were
-    /// put back. `restored` is false when putting them back failed too.
+    /// The login or the config read back is not what was written, or a
+    /// write failed and they could not be put back; `restored` is false
+    /// when putting them back failed too.
     NotConfirmed {
         restored: bool,
     },
@@ -141,14 +142,29 @@ pub fn switch(store: &Store, slot: u32) -> Result<Switched, SwitchError> {
     let _config = locks::config(paths)?;
     let live = cc::read_live(paths, &store.security)?;
     let live_cred = live.credential.clone().filter(|c| cc::usable(c));
-    let from = match live.who() {
-        Some(who) => match list.find(&who.identity()) {
+    let from = match (live.who(), live_cred.as_deref()) {
+        (Some(who), _) => match list.find(&who.identity()) {
             Some(a) => Some(a.slot),
             // An unknown login with a token in it would be lost.
             None if live_cred.is_some() => return Err(SwitchError::Unmanaged),
             None => None,
         },
-        None => None,
+        // No `oauthAccount` to tell whose it is: the login is one of the
+        // app's only when its refresh token is.
+        (None, Some(cred)) => {
+            let token = cc::refresh_token(cred).ok_or(SwitchError::Unmanaged)?;
+            let mut owner = None;
+            for a in &list.accounts {
+                if store.credential(a.slot)?.as_deref().and_then(cc::refresh_token).as_ref()
+                    == Some(&token)
+                {
+                    owner = Some(a.slot);
+                    break;
+                }
+            }
+            Some(owner.ok_or(SwitchError::Unmanaged)?)
+        }
+        (None, None) => None,
     };
 
     // Keep the outgoing login: Claude Code may have refreshed it since the
@@ -157,6 +173,7 @@ pub fn switch(store: &Store, slot: u32) -> Result<Switched, SwitchError> {
         if store.credential(f)?.as_deref() != Some(cred) {
             store.set_credential(f, cred)?;
             session::refresh_profile(store, f);
+            super::usage::login_replaced(store, f);
         }
         if let Some(oauth) = &live.oauth {
             if store.oauth_account(f)?.as_ref() != Some(oauth) {
@@ -170,22 +187,29 @@ pub fn switch(store: &Store, slot: u32) -> Result<Switched, SwitchError> {
 
     let config_before = super::read_optional(&paths.claude_json())?;
     let composed = cc::merge_shared(&target_cred, live.credential.as_deref());
-    cc::write_credential(paths, &store.security, &composed)?;
+    let login_back = || cc::read_credential(paths, &store.security).ok().flatten();
     let put_back = || -> bool {
-        let login = match live.credential.as_deref() {
-            Some(c) => cc::write_credential(paths, &store.security, c).is_ok(),
-            None => store.security.delete(cc::ACTIVE_SERVICE, &user_account()).is_ok(),
-        };
-        login && cc::restore_config(paths, config_before.as_deref()).is_ok()
+        if login_back() != live.credential {
+            let _ = match live.credential.as_deref() {
+                Some(c) => cc::write_credential(paths, &store.security, c).is_ok(),
+                None => store.security.delete(cc::ACTIVE_SERVICE, &user_account()).is_ok(),
+            };
+        }
+        login_back() == live.credential
+            && cc::restore_config(paths, config_before.as_deref()).is_ok()
     };
-    if let Err(e) = cc::write_oauth(paths, &target_oauth) {
-        put_back();
-        return Err(SwitchError::Io(e));
-    }
+    let failed = |e: std::io::Error| {
+        if put_back() {
+            SwitchError::Io(e)
+        } else {
+            SwitchError::NotConfirmed { restored: false }
+        }
+    };
+    cc::write_credential(paths, &store.security, &composed).map_err(failed)?;
+    cc::write_oauth(paths, &target_oauth).map_err(failed)?;
 
-    let login_back = cc::read_credential(paths, &store.security).ok().flatten();
     let who_back = cc::read_oauth(paths).map(|o| Who::of(&o).identity());
-    if login_back.as_deref() != Some(composed.as_str())
+    if login_back().as_deref() != Some(composed.as_str())
         || who_back.as_deref() != Some(target.identity.as_str())
     {
         return Err(SwitchError::NotConfirmed { restored: put_back() });

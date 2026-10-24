@@ -183,6 +183,14 @@ impl Row {
             && !self.relogin
             && self.age(now).is_some_and(|a| a <= super::engine::FRESH_SECONDS as f64)
     }
+
+    /// Another copy of the login was stored: it is read again at once, not
+    /// held back for a new sign-in or a back-off.
+    pub fn new_login(&mut self) {
+        self.relogin = false;
+        self.backoff_until = None;
+        self.failures = 0;
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
@@ -207,6 +215,16 @@ pub fn load(store: &Store) -> Cache {
         .and_then(|t| serde_json::from_str::<Cache>(&t).ok())
         .filter(|c| c.version == VERSION)
         .unwrap_or(Cache { version: VERSION, accounts: BTreeMap::new() })
+}
+
+/// [`Row::new_login`] for `slot`'s row, after its stored credential was
+/// replaced. The caller holds the app's lock.
+pub fn login_replaced(store: &Store, slot: u32) {
+    let mut cache = load(store);
+    if let Some(row) = cache.accounts.get_mut(&slot.to_string()) {
+        row.new_login();
+        let _ = save(store, &cache);
+    }
 }
 
 pub fn save(store: &Store, cache: &Cache) -> std::io::Result<()> {
@@ -345,9 +363,11 @@ pub struct Pass {
 
 /// Reads every account whose reading is due: older than
 /// [`REUSE_SECONDS`], not backing off, not already being read by another
-/// process, and not waiting for a new login. With `force`, the age and the
-/// back-off do not hold an account back (the owner pressed Làm mới, or a
-/// switch needs the numbers now); a login that needs a new sign-in still is.
+/// process, and not waiting for a new login (the account in use never
+/// waits: it is read with Claude Code's own login). With `force`, the age
+/// and the back-off do not hold an account back (the owner pressed Làm mới,
+/// or a switch needs the numbers now); a login that needs a new sign-in
+/// still is.
 /// Without `may_refresh` no token is refreshed: an account whose token
 /// expired waits. The rotation passes that while an older switcher still
 /// runs, which keeps its own copies of the same logins.
@@ -369,7 +389,8 @@ pub fn read_due(store: &Store, endpoints: &Endpoints, force: bool, may_refresh: 
             let claimed = row.claim_until.is_some_and(|c| c > now);
             let young = row.age(now).is_some_and(|a| a < REUSE_SECONDS);
             let waiting = row.backoff_until.is_some_and(|b| b > now);
-            if claimed || row.relogin || (!force && (young || waiting)) {
+            let relogin = row.relogin && Some(account.slot) != active;
+            if claimed || relogin || (!force && (young || waiting)) {
                 continue;
             }
             row.claim_until = Some(now + CLAIM_SECONDS);
@@ -488,7 +509,10 @@ fn read_stored(
 
 /// Refreshes the app's copy of `slot`'s login under the app's lock. When the
 /// stored copy is no longer `seen` (another process refreshed it), that copy
-/// is used instead: a refresh token is never sent twice.
+/// is used instead: a refresh token is never sent twice. A login a running
+/// Claude Code holds (a session in the account's folder, or Claude Code's
+/// own login) is left for that Claude Code to refresh: its copy is used
+/// while its token lasts.
 fn refresh_stored(
     store: &Store,
     endpoints: &Endpoints,
@@ -504,6 +528,22 @@ fn refresh_stored(
     let now_ms = (OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000) as i64;
     if cc::refresh_token(&current) != cc::refresh_token(seen) && !expired(&current, now_ms) {
         return Ok(current);
+    }
+    let dir = session::folder(store, slot);
+    let held = if dir.is_dir() && session::live(&dir) {
+        Some(session::profile_credential(&dir, store))
+    } else {
+        let live = cc::read_credential(&store.paths, &store.security)
+            .map_err(|_| Failure { kind: "keychain_unavailable".into(), retry_after: None })?;
+        let token = cc::refresh_token(&current);
+        let same = token.is_some() && live.as_deref().and_then(cc::refresh_token) == token;
+        (same || switch::active_slot(store) == Some(slot)).then_some(live)
+    };
+    if let Some(theirs) = held {
+        return theirs
+            .filter(|c| access_token(c).is_some())
+            .filter(|c| !cc::expires_at(c).is_some_and(|e| now_ms >= e))
+            .ok_or(Failure { kind: "token_expired".into(), retry_after: None });
     }
     let fresh = refresh(endpoints, &current, now_ms)?;
     store

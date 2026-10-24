@@ -21,8 +21,9 @@
 //!   started gets one tiny message, so its window starts now, at most every
 //!   30 minutes per account, and only where the owner turned priming on.
 //!
-//! An account the owner disabled for rotation is never chosen, as
-//! claude-swap's `disable` holds an account out of its own rotation.
+//! An account the owner held out of the rotation is never switched to, as
+//! claude-swap's `disable` holds an account out of its own rotation; the
+//! account in use is kept or left by the rules above, held out or not.
 //!
 //! The decision is the script's line, word for word (`switch 3 (4.0%, ends
 //! 15:00)`), so [`crate::switcher::parse_decision`] and the log reader read
@@ -201,27 +202,24 @@ pub fn decide(input: &Input) -> Plan {
         }
     }
     let gone = |n: u32| expire.get(&n).is_some_and(|t| now >= *t);
-    let held = |n: u32| accts.get(&n).is_some_and(|a| a.disabled);
-    let team: Vec<u32> = rules
-        .team
-        .iter()
-        .copied()
-        .filter(|n| accts.contains_key(n) && !gone(*n) && !held(*n))
-        .collect();
-    let personal = rules.personal.filter(|p| !gone(*p) && !held(*p));
+    let team: Vec<u32> =
+        rules.team.iter().copied().filter(|n| accts.contains_key(n) && !gone(*n)).collect();
+    let personal = rules.personal.filter(|p| !gone(*p));
     let day = rules.personal_from <= input.hour && input.hour <= rules.personal_to;
     let v = View { accts, rules, now };
+    let held = |n: u32| v.accts.get(&n).is_some_and(|a| a.disabled);
     let active = input.active;
     let has = |n: Option<u32>| n.is_some_and(|n| v.accts.contains_key(&n));
 
     let urgent: Vec<u32> =
         team.iter().copied().filter(|n| expire.contains_key(n) && v.room(*n)).collect();
+    let urgent_targets: Vec<u32> = urgent.iter().copied().filter(|n| !held(*n)).collect();
     let decision = if let Some(a) =
         active.filter(|a| has(Some(*a)) && !gone(*a) && v.used(*a).is_none())
     {
         format!("stay (slot {a} usage unknown)")
-    } else if !urgent.is_empty() && !active.is_some_and(|a| urgent.contains(&a)) {
-        let n = first_min(&urgent, |n| expire[&n]).unwrap_or(urgent[0]);
+    } else if !urgent_targets.is_empty() && !active.is_some_and(|a| urgent.contains(&a)) {
+        let n = first_min(&urgent_targets, |n| expire[&n]).unwrap_or(urgent_targets[0]);
         format!("switch {n} (ends for good at {}, use it first)", hm(expire[&n]))
     } else if let Some(a) = active.filter(|a| team.contains(a) && v.room(*a)) {
         let mut early = None;
@@ -229,6 +227,7 @@ pub fn decide(input: &Input) -> Plan {
             let Some(e) = v.ends(o) else { continue };
             let five = v.five_used(o);
             if o == a
+                || held(o)
                 || !v.room(o)
                 || e - now > EARLY_SECONDS
                 || e >= v.key(a)
@@ -243,8 +242,11 @@ pub fn decide(input: &Input) -> Plan {
         }
         early.unwrap_or_else(|| "stay".to_string())
     } else {
-        let mut cands: Vec<u32> =
-            team.iter().copied().filter(|n| Some(*n) != active && v.room(*n)).collect();
+        let mut cands: Vec<u32> = team
+            .iter()
+            .copied()
+            .filter(|n| Some(*n) != active && !held(*n) && v.room(*n))
+            .collect();
         // Python's sort is stable: equal keys keep the rotation's order.
         cands.sort_by(|x, y| {
             let kx = (v.fable_out(*x), v.key(*x), v.used(*x).unwrap_or(0.0));
@@ -257,7 +259,9 @@ pub fn decide(input: &Input) -> Plan {
                 None => "window not started".to_string(),
             };
             format!("switch {n} ({}%, {why})", py_float(v.used(n).unwrap_or(0.0)))
-        } else if let Some(p) = personal.filter(|p| has(Some(*p)) && day && v.room(*p)) {
+        } else if let Some(p) = personal
+            .filter(|p| has(Some(*p)) && day && v.room(*p) && (active == Some(*p) || !held(*p)))
+        {
             if active == Some(p) {
                 "stay".to_string()
             } else {
@@ -267,7 +271,11 @@ pub fn decide(input: &Input) -> Plan {
                 )
             }
         } else {
-            let started: Vec<u32> = team.iter().copied().filter(|n| v.ends(*n).is_some()).collect();
+            let started: Vec<u32> = team
+                .iter()
+                .copied()
+                .filter(|n| v.ends(*n).is_some() && (Some(*n) == active || !held(*n)))
+                .collect();
             let last = active.filter(|a| has(Some(*a))).and_then(|a| v.used(a));
             let keeps = active.is_some_and(|a| team.contains(&a) || (Some(a) == personal && day));
             match (last, active) {
@@ -296,7 +304,12 @@ pub fn decide(input: &Input) -> Plan {
         let target = plan.target().or(active);
         for &n in &team {
             let fresh = v.accts.get(&n).is_some_and(|a| a.fresh);
-            if Some(n) == target || Some(n) == active || !fresh || v.ends(n).is_some() || !v.room(n)
+            if Some(n) == target
+                || Some(n) == active
+                || held(n)
+                || !fresh
+                || v.ends(n).is_some()
+                || !v.room(n)
             {
                 continue;
             }

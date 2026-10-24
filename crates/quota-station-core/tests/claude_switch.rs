@@ -5,8 +5,8 @@ mod common;
 
 use std::process::Command;
 
-use quota_station_core::claude::cc;
 use quota_station_core::claude::switch::{self, SwitchError};
+use quota_station_core::claude::{cc, usage};
 use serde_json::Value;
 
 use common::accounts::{credential, in_hours, oauth, Mac};
@@ -145,4 +145,75 @@ fn switching_to_the_account_in_use_writes_nothing() {
     assert!(!mac.security_calls().lines().any(
         |l| l.starts_with("add-generic-password") && l.ends_with("-s Claude Code-credentials")
     ));
+}
+
+#[test]
+fn a_login_file_that_cannot_be_written_puts_the_keychain_back() {
+    let (mac, c2, _) = two_accounts("switch-file-refused");
+    let file = mac.home.join(".claude/.credentials.json");
+    std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+    std::fs::write(&file, &c2).unwrap();
+    let flag = |f: &str| Command::new("/usr/bin/chflags").arg(f).arg(&file).status().unwrap();
+    assert!(flag("uchg").success());
+    let result = switch::switch(&mac.store, 3);
+    assert!(flag("nouchg").success());
+    assert!(result.is_err());
+    assert_eq!(mac.live_credential(), Some(c2.clone()));
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), c2);
+    assert_eq!(mac.live_email().as_deref(), Some("lan@team.example"));
+    assert_eq!(switch::active_slot(&mac.store), Some(2));
+}
+
+/// `~/.claude.json` without `oauthAccount`, as after a reset.
+fn forget_who(mac: &Mac) {
+    std::fs::write(mac.paths.claude_json(), "{\n  \"numStartups\": 3\n}\n").unwrap();
+}
+
+#[test]
+fn a_live_login_without_its_account_is_told_by_its_refresh_token() {
+    let (mac, _, _) = two_accounts("switch-no-who");
+    forget_who(&mac);
+    let refreshed = credential("acc-2b", "ref-2", in_hours(8.0));
+    mac.put_item("Claude Code-credentials", &mac.user(), &refreshed);
+    let done = switch::switch(&mac.store, 3).unwrap();
+    assert_eq!(done.from, Some(2));
+    assert_eq!(mac.store.credential(2).unwrap(), Some(refreshed));
+    assert_eq!(access(&mac.live_credential().unwrap()), "acc-3");
+}
+
+#[test]
+fn a_live_login_without_its_account_the_app_does_not_keep_is_never_overwritten() {
+    let (mac, _, _) = two_accounts("switch-no-who-unknown");
+    forget_who(&mac);
+    let theirs = credential("acc-x", "ref-x", in_hours(5.0));
+    mac.put_item("Claude Code-credentials", &mac.user(), &theirs);
+    let err = switch::switch(&mac.store, 3).unwrap_err();
+    assert!(matches!(err, SwitchError::Unmanaged), "{err:?}");
+    assert_eq!(mac.live_credential(), Some(theirs));
+}
+
+#[test]
+fn the_outgoing_login_kept_by_a_switch_is_read_again() {
+    let (mac, _, _) = two_accounts("switch-relogin");
+    let identity = mac.store.load().unwrap().get(2).unwrap().identity.clone();
+    let mut cache = usage::load(&mac.store);
+    cache.accounts.insert(
+        "2".into(),
+        usage::Row {
+            identity,
+            relogin: true,
+            failures: 3,
+            backoff_until: Some(4_000_000_000.0),
+            ..usage::Row::default()
+        },
+    );
+    usage::save(&mac.store, &cache).unwrap();
+    mac.put_item(
+        "Claude Code-credentials",
+        &mac.user(),
+        &credential("acc-2b", "ref-2b", in_hours(8.0)),
+    );
+    switch::switch(&mac.store, 3).unwrap();
+    let row = usage::load(&mac.store).row(2).cloned().unwrap();
+    assert_eq!((row.relogin, row.failures, row.backoff_until), (false, 0, None));
 }

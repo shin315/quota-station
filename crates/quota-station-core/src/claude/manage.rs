@@ -132,7 +132,7 @@ fn put(store: &Store, credential: &str, oauth: &Value, kind: Kind) -> Result<Add
         store.set_credential(slot, credential)?;
         store.set_oauth_account(slot, oauth)?;
         session::refresh_profile(store, slot);
-        forget_reading(store, slot, false);
+        usage::login_replaced(store, slot);
         return Ok(Added { slot, new: false });
     }
     let slot = list.next_slot();
@@ -155,19 +155,10 @@ fn put(store: &Store, credential: &str, oauth: &Value, kind: Kind) -> Result<Add
     Ok(Added { slot, new: true })
 }
 
-/// Drops the account's reading, or only its wait for a new sign-in
-/// (`all` false): a new login reads again at once. The caller holds the
-/// app's lock.
-fn forget_reading(store: &Store, slot: u32, all: bool) {
+/// Drops the account's reading. The caller holds the app's lock.
+fn forget_reading(store: &Store, slot: u32) {
     let mut cache = usage::load(store);
-    let key = slot.to_string();
-    if all {
-        cache.accounts.remove(&key);
-    } else if let Some(row) = cache.accounts.get_mut(&key) {
-        row.relogin = false;
-        row.backoff_until = None;
-        row.failures = 0;
-    }
+    cache.accounts.remove(&slot.to_string());
     let _ = usage::save(store, &cache);
 }
 
@@ -308,7 +299,7 @@ pub fn remove(store: &Store, slot: u32) -> Result<(), ManageError> {
         let _ = store.security.delete(&service, &user_account());
     }
     let _ = std::fs::remove_dir_all(&folder);
-    forget_reading(store, slot, true);
+    forget_reading(store, slot);
     Ok(())
 }
 

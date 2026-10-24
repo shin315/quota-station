@@ -6,8 +6,10 @@
 // `claude-swap` / `account-N-<email>`.
 
 //! `Nhập từ claude-swap`: carries every claude-swap account over to the app,
-//! under the same slot number, without a new login. It only reads
-//! claude-swap's folder and Keychain items, never writes them.
+//! under the same slot number, without a new login, each in the rotation:
+//! claude-swap's own `disabled` is not carried over, as the old switcher
+//! never read it. It only reads claude-swap's folder and Keychain items,
+//! never writes them.
 //!
 //! Running it again changes nothing, except that a credential claude-swap
 //! holds a newer copy of (a later `expiresAt`) replaces the app's: an
@@ -244,7 +246,7 @@ pub fn import(store: &Store, dir: &Path) -> Result<Imported, ImportError> {
                 list.put(Account {
                     slot: f.slot,
                     alias,
-                    disabled: f.record.get("disabled").and_then(Value::as_bool).unwrap_or(false),
+                    disabled: false,
                     kind: if token { Kind::SetupToken } else { Kind::Login },
                     account_uuid: text(&oauth, "accountUuid").to_string(),
                     organization_uuid: org,
@@ -283,8 +285,7 @@ fn seed_usage(
         let key = slot.to_string();
         if updated.contains(slot) {
             if let Some(row) = cache.accounts.get_mut(&key) {
-                row.relogin = false;
-                row.backoff_until = None;
+                row.new_login();
             }
         }
         if cache

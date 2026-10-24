@@ -114,6 +114,78 @@ fn a_login_anthropic_no_longer_takes_waits_for_a_new_sign_in() {
     assert_eq!(anthropic.to("/v1/oauth/token").len(), calls);
 }
 
+/// Marks `slot`'s row as waiting for a new sign-in, its back-off over.
+fn mark_relogin(mac: &Mac, slot: u32) {
+    let identity = mac.store.load().unwrap().get(slot).unwrap().identity.clone();
+    let mut cache = usage::load(&mac.store);
+    cache.accounts.insert(
+        slot.to_string(),
+        usage::Row {
+            identity,
+            relogin: true,
+            failures: 2,
+            last_error: Some("invalid_grant".into()),
+            backoff_until: Some(1.0),
+            ..usage::Row::default()
+        },
+    );
+    usage::save(&mac.store, &cache).unwrap();
+}
+
+#[test]
+fn the_account_in_use_is_read_even_after_its_stored_login_was_refused() {
+    let (mac, anthropic) = mac("usage-relogin-active");
+    mark_relogin(&mac, 2);
+    anthropic.usage("acc-2", 30.0, None, None, None);
+    anthropic.usage("acc-3", 5.0, None, None, None);
+    assert_eq!(read(&mac, &anthropic, false).read, vec![2, 3]);
+    assert!(!row(&mac, 2).relogin);
+}
+
+/// A Claude Code session running in `slot`'s folder, as this test process.
+fn hold_session(mac: &Mac, slot: u32) {
+    let sessions = session::folder(&mac.store, slot).join("sessions");
+    std::fs::create_dir_all(&sessions).unwrap();
+    let record = format!("{{\"pid\": {}}}", std::process::id());
+    std::fs::write(sessions.join("1.json"), record).unwrap();
+}
+
+#[test]
+fn a_login_a_running_session_holds_is_not_refreshed_by_the_app() {
+    let (mac, anthropic) = mac("usage-session-holds");
+    let folder = session::prepare(&mac.store, 3).unwrap();
+    let service = cc::profile_service(&folder).unwrap();
+    mac.put_item(&service, &mac.user(), &credential("acc-3w", "ref-3", in_hours(1.0)));
+    let expired = credential("acc-3", "ref-3", in_hours(-1.0));
+    mac.store.set_credential(3, &expired).unwrap();
+    hold_session(&mac, 3);
+    anthropic.refreshes("ref-3", "acc-3b", "ref-3b");
+    anthropic.usage("acc-2", 30.0, None, None, None);
+    anthropic.usage("acc-3w", 5.0, None, None, None);
+    assert_eq!(read(&mac, &anthropic, false).read, vec![2, 3]);
+    assert!(anthropic.to("/v1/oauth/token").is_empty());
+    assert_eq!(mac.store.credential(3).unwrap(), Some(expired));
+}
+
+#[test]
+fn a_login_claude_code_holds_is_not_refreshed_by_the_app() {
+    let (mac, anthropic) = mac("usage-live-holds");
+    let expired = credential("acc-3", "ref-3", in_hours(-1.0));
+    mac.store.set_credential(3, &expired).unwrap();
+    // Claude Code was switched to 3 while `~/.claude.json` still names 2.
+    mac.put_item(
+        "Claude Code-credentials",
+        &mac.user(),
+        &credential("acc-3l", "ref-3", in_hours(1.0)),
+    );
+    anthropic.refreshes("ref-3", "acc-3b", "ref-3b");
+    anthropic.usage("acc-3l", 5.0, None, None, None);
+    let pass = read(&mac, &anthropic, false);
+    assert!(pass.read.contains(&3), "{pass:?}");
+    assert!(anthropic.to("/v1/oauth/token").is_empty());
+    assert_eq!(mac.store.credential(3).unwrap(), Some(expired));
+}
+
 #[test]
 fn a_rate_limit_backs_off() {
     let (mac, anthropic) = mac("usage-429");
@@ -248,4 +320,14 @@ fn a_login_claude_code_refreshed_in_the_folder_comes_back_to_the_app() {
     let claude = fake_claude(&mac, Some(&newer));
     session::run(&mac.store, &claude, 3, true, &[]).unwrap();
     assert_eq!(mac.store.credential(3).unwrap(), Some(newer));
+}
+
+#[test]
+fn a_login_that_comes_back_from_the_folder_is_read_again() {
+    let (mac, _) = mac("session-adopt-relogin");
+    mark_relogin(&mac, 3);
+    let claude = fake_claude(&mac, Some(&credential("acc-3b", "ref-3b", in_hours(9.0))));
+    session::run(&mac.store, &claude, 3, true, &[]).unwrap();
+    let three = row(&mac, 3);
+    assert_eq!((three.relogin, three.failures, three.backoff_until), (false, 0, None));
 }

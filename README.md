@@ -723,6 +723,7 @@ credited in [`THIRD_PARTY.md`](THIRD_PARTY.md)).
   login without refresh; the field is a password field and the token is
   never shown again), and on each account `Đổi tên`, `Xoá` (not the one in
   use) and `Trong vòng xoay`, which holds an account out of the rotation
+  (it is never switched to, but kept by the usual rules while in use)
   while it can still be switched to by hand.
 - **Switch.** Under Claude Code's own lock folders, the app keeps the live
   login of the account in use, writes the target's login to Claude Code's
@@ -1189,6 +1190,8 @@ time.
       `quota-station claude import`). Every account comes over under its
       slot number with its alias and its login, without a new login, and the
       rotation file and the priming flag are copied to the app's folder.
+      Every account comes in the rotation: claude-swap's own `disabled` is
+      not carried over (the old switcher never read it).
       `~/.claude-swap-backup` and claude-swap's Keychain items are only
       read. Running it again takes only a newer login.
    3. Check the list: every account is there, the one in use is marked

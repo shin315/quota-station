@@ -194,6 +194,22 @@ fn an_account_held_out_by_the_owner_is_never_chosen() {
 }
 
 #[test]
+fn an_account_held_out_by_the_owner_is_kept_while_in_use_by_the_usual_rules() {
+    let mut held = acct(2, 60.0, Some(60));
+    held.disabled = true;
+    let accounts = [held, acct(3, 0.0, Some(30))];
+    assert_eq!(decide(&rules(), &accounts, Some(2), 12).decision, "stay");
+    let mut full = acct(2, 95.0, Some(60));
+    full.disabled = true;
+    let accounts = [full, acct(3, 0.0, Some(30))];
+    assert_eq!(decide(&rules(), &accounts, Some(2), 12).target(), Some(3));
+    let mut personal = acct(1, 20.0, None);
+    personal.disabled = true;
+    let no_team_room = [personal, acct(2, 95.0, Some(60)), acct(3, 99.0, Some(30))];
+    assert_eq!(decide(&rules(), &no_team_room, Some(1), 12).decision, "stay");
+}
+
+#[test]
 fn the_threshold_comes_from_the_rules() {
     let mut low = rules();
     low.full = 50.0;
@@ -370,6 +386,22 @@ fn a_run_while_the_old_switcher_is_loaded_neither_switches_nor_refreshes() {
     assert!(anthropic.to("/v1/oauth/token").is_empty());
     assert_eq!(mac.store.credential(3).unwrap(), Some(expired));
     assert!(!log(&mac).contains("switch to slot"));
+}
+
+#[test]
+fn a_run_when_launchctl_cannot_tell_neither_switches_nor_refreshes() {
+    let (mac, anthropic, mut tools) = three_accounts("rotate-launchctl-unknown");
+    tools.launchctl = common::script(&mac.dir.join("bin/launchctl-unknown"), "exit 1\n");
+    let expired = credential("acc-3", "ref-3", in_hours(-1.0));
+    mac.store.set_credential(3, &expired).unwrap();
+    anthropic.refreshes("ref-3", "acc-3b", "ref-3b");
+    anthropic.usage("acc-2", 96.0, Some(&iso(1.0)), Some(40.0), None);
+    anthropic.usage("acc-3b", 10.0, Some(&iso(2.0)), Some(20.0), None);
+    let decided = rotate::run(&mac.store, &tools);
+    assert!(decided.line.starts_with("blocked ("), "{}", decided.line);
+    assert_eq!(switch::active_slot(&mac.store), Some(2));
+    assert!(anthropic.to("/v1/oauth/token").is_empty());
+    assert_eq!(mac.store.credential(3).unwrap(), Some(expired));
 }
 
 #[test]

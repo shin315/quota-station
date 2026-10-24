@@ -83,9 +83,11 @@ impl std::fmt::Display for AgentError {
 
 impl std::error::Error for AgentError {}
 
-/// The older switcher still loaded, if any: the first of [`LEGACY`].
+/// The older switcher still loaded, if any: the first of [`LEGACY`] that
+/// launchd has loaded, or of which it cannot tell, so nothing switches or
+/// refreshes beside a switcher that may run.
 pub fn legacy_loaded(launchctl: &Path) -> Option<&'static str> {
-    LEGACY.into_iter().find(|label| switcher::service_loaded(launchctl, label) == Some(true))
+    LEGACY.into_iter().find(|label| switcher::service_loaded(launchctl, label) != Some(false))
 }
 
 /// Whether launchd has the agent loaded; `None` when that cannot be told.

@@ -244,6 +244,15 @@ fn nothing_is_switched_or_turned_on_while_the_old_switcher_is_loaded() {
 }
 
 #[test]
+fn nothing_is_switched_when_launchctl_cannot_tell() {
+    let mac = mac("cli-launchctl-unknown");
+    let mut cli = cli(&mac, None);
+    cli.tools.launchctl = common::script(&mac.dir.join("bin/launchctl-unknown"), "exit 1\n");
+    assert_eq!(call(&cli, &["switch", "3"]).0, 1);
+    assert_eq!(switch::active_slot(&mac.store), Some(2));
+}
+
+#[test]
 fn the_rotation_agent_is_loaded_and_unloaded() {
     let mac = mac("cli-agent");
     let cli = cli(&mac, None);
