@@ -69,14 +69,6 @@ pub enum CodexUse {
     Provider(String),
 }
 
-/// quota-axi could not be read just now, per service.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct Failing {
-    pub claude: bool,
-    pub agy: bool,
-    pub codex: bool,
-}
-
 /// What the icon needs beside the snapshot.
 #[derive(Debug, Clone)]
 pub struct Context {
@@ -84,7 +76,6 @@ pub struct Context {
     pub follow: Menubar,
     /// The window the title shows, from settings.
     pub window: MenubarWindow,
-    pub failing: Failing,
     pub codex: CodexUse,
     pub now: OffsetDateTime,
     /// Accounts without a name shown go by their place in the rotation and
@@ -115,7 +106,7 @@ const LETTERS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 /// A Claude account's name, uncut, as the windows write it: its email, else its
 /// place (Cá nhân, Team A, Tài khoản N) with `roles`, else `Tài khoản N`, else
-/// "Claude" for the one account quota-axi reads without the app's list.
+/// "Claude" for the one account read without the app's list.
 pub fn claude_name(section: &Section, a: &Account, roles: bool) -> String {
     if let Some(email) = &a.email {
         return local_part(email).to_string();
@@ -191,7 +182,7 @@ fn tightest<'a>(lines: &[&'a Line], now: OffsetDateTime) -> Option<(&'a Line, f6
     best
 }
 
-/// An account's windows, or quota-axi's own lines when no list has them.
+/// An account's windows, or its effective lines when no list has them.
 fn lines_of(a: &Account) -> &[Line] {
     if a.windows.is_empty() {
         &a.lines
@@ -284,7 +275,7 @@ struct Now<'a> {
     tight: Option<(&'a Line, f64)>,
     /// The tightest window's share used: the bar fills with it.
     bar: Option<f64>,
-    /// The number is old: quota-axi's last reading is stale.
+    /// The number is old: the last reading is stale.
     stale: bool,
     /// Codex goes through a provider that reports no quota: no number is
     /// the normal state, not a missing reading.
@@ -335,7 +326,7 @@ fn claude_now<'a>(s: &'a Snapshot, cx: &Context) -> Now<'a> {
             no_quota: false,
         };
     };
-    let lines = if !cx.failing.claude && readable(a) { pick(a, CLAUDE) } else { Vec::new() };
+    let lines = if readable(a) { pick(a, CLAUDE) } else { Vec::new() };
     Now {
         name: claude_name(section, a, cx.roles),
         tight: chosen(&lines, cx.window, cx.now),
@@ -356,7 +347,7 @@ fn agy_now<'a>(s: &'a Snapshot, cx: &Context, kinds: &[LineKind]) -> Now<'a> {
             no_quota: false,
         };
     };
-    let lines = if !cx.failing.agy && readable(a) { pick(a, kinds) } else { Vec::new() };
+    let lines = if readable(a) { pick(a, kinds) } else { Vec::new() };
     Now {
         name: agy_name(a, cx.roles),
         tight: chosen(&lines, cx.window, cx.now),
@@ -373,7 +364,7 @@ fn codex_now<'a>(s: &'a Snapshot, cx: &Context) -> Now<'a> {
     let section = &s.codex;
     let tight = section
         .active()
-        .filter(|a| !cx.failing.codex && readable(a))
+        .filter(|a| readable(a))
         .and_then(|a| chosen(&pick(a, &[LineKind::Session, LineKind::Week]), cx.window, cx.now));
     let name = if section.status == SectionStatus::Unread && cx.codex == CodexUse::Missing {
         "Codex"
@@ -419,7 +410,7 @@ pub fn icon(snapshot: Option<&Snapshot>, cx: &Context) -> Icon {
         Menubar::Gemini => &gemini,
         Menubar::Codex => &codex,
     };
-    let exhausted = snapshot.is_some() && !cx.failing.claude && s.claude.pool.exhausted;
+    let exhausted = snapshot.is_some() && s.claude.pool.exhausted;
     let tone = if exhausted {
         Tone::Bad
     } else if shown.tight.is_none() && !shown.no_quota {
@@ -431,20 +422,12 @@ pub fn icon(snapshot: Option<&Snapshot>, cx: &Context) -> Icon {
     };
 
     let mut label = String::from("Quota Station. Claude: ");
-    label.push_str(&if cx.failing.claude {
-        "không đọc được số".to_string()
-    } else {
-        claude.words(false, cx.now)
-    });
+    label.push_str(&claude.words(false, cx.now));
     if show_agy && s.agy.status != SectionStatus::Unread {
         label.push_str(". Antigravity: ");
-        if cx.failing.agy {
-            label.push_str("không đọc được số");
-        } else {
-            label.push_str(&gemini.words(true, cx.now));
-            if let Some((line, u)) = claude_gpt.tight {
-                label.push_str(&format!(", {} {}%", window_words(line.kind, false), u as i64));
-            }
+        label.push_str(&gemini.words(true, cx.now));
+        if let Some((line, u)) = claude_gpt.tight {
+            label.push_str(&format!(", {} {}%", window_words(line.kind, false), u as i64));
         }
     }
     match &cx.codex {
@@ -453,11 +436,7 @@ pub fn icon(snapshot: Option<&Snapshot>, cx: &Context) -> Icon {
         CodexUse::ChatGpt if s.codex.status == SectionStatus::NotSetUp => {}
         CodexUse::ChatGpt => {
             label.push_str(". Codex: ");
-            label.push_str(&if cx.failing.codex {
-                "không đọc được số".to_string()
-            } else {
-                codex.words(false, cx.now)
-            });
+            label.push_str(&codex.words(false, cx.now));
         }
     }
     match tone {

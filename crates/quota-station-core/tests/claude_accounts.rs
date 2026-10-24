@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-//! The Claude accounts' readings, the data file Firstmate and quota-axi
-//! read, and running `claude` as one account, against a fake Keychain and a
+//! The Claude accounts' readings, the data file Firstmate reads and the
+//! copy its quota-axi reads, and running `claude` as one account, against a fake Keychain and a
 //! fake Anthropic in a temporary home. Every login is made up.
 
 mod common;
@@ -206,6 +206,7 @@ fn a_rate_limit_backs_off() {
 #[test]
 fn the_data_file_has_every_account_and_no_secret_or_email() {
     let (mac, anthropic) = mac("state");
+    mac.show_firstmate(true);
     let mut list = mac.store.load().unwrap();
     list.get_mut(3).unwrap().disabled = true;
     mac.store.save(&list).unwrap();
@@ -239,8 +240,9 @@ fn the_data_file_has_every_account_and_no_secret_or_email() {
 }
 
 #[test]
-fn the_copy_for_quota_axi_pairs_each_reading_with_its_account() {
+fn the_copy_for_firstmate_pairs_each_reading_with_its_account() {
     let (mac, anthropic) = mac("state-swap");
+    mac.show_firstmate(true);
     anthropic.usage("acc-2", 30.0, None, None, None);
     anthropic.usage("acc-3", 5.0, None, None, None);
     read(&mac, &anthropic, false);

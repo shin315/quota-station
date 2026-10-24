@@ -8,7 +8,8 @@
 //! stay in the app's own Keychain items; the windows only ever get each
 //! account's id (Cockpit's MD5 of its email), its number, its status, how
 //! the app's read of it stands and, when the owner turns them on, the
-//! emails. The numbers themselves come from quota-axi.
+//! emails. The numbers themselves come from the Antigravity row's list
+//! (`quota_station_core::antigravity::listing`).
 
 use quota_station_core::antigravity::client::{self, ClientStatus};
 use quota_station_core::antigravity::index::{self, Standing};
@@ -47,7 +48,7 @@ pub struct AccountView {
     /// Cockpit's id: `antigravity_` and the MD5 of the email. Not the email,
     /// but a guessed address can be checked against it (SECURITY.md).
     pub id: String,
-    /// Its place in the index, from 1, as quota-axi numbers it.
+    /// Its place in the index, from 1, as the Antigravity row numbers it.
     pub number: usize,
     /// Only when the owner turned emails on.
     pub email: Option<String>,

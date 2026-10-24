@@ -212,7 +212,7 @@ export function rotationBanner(model: Model): BannerView | null {
       title: 'File luật trên máy này không hợp lệ',
       body:
         cap(keyWords(r.reason)) +
-        '. quota-axi đang tính theo tài khoản đang dùng. Bộ sửa hiện mặc định của switcher: lưu để ghi đè, bản cũ được sao lưu.',
+        '. App đang tính theo tài khoản đang dùng. Bộ sửa hiện mặc định của switcher: lưu để ghi đè, bản cũ được sao lưu.',
       actions: [],
     };
   const at = r.stamp ? clock(r.stamp.at) : '';
@@ -268,20 +268,10 @@ export function changedBanner(model: Model): BannerView {
   };
 }
 
-/** What a failed save, adopt or keep says. `before` is the stamp of the file before. */
-export function rulesErrorBanner(e: RulesError, before: Stamp | null, peer?: string): BannerView {
-  const back = e.restored ? 'Đã khôi phục bản ' + (before ? clock(before.at) : 'trước') + ' trên máy này.' : 'Chưa khôi phục được bản trước, xem file trên máy này.';
+/** What a failed save, adopt or keep says. */
+export function rulesErrorBanner(e: RulesError, peer?: string): BannerView {
   const dismiss = [{ label: 'Sửa lại', act: 'rules:dismiss' as const }];
   switch (e.kind) {
-    case 'refused':
-      return { tone: 'bad', title: 'quota-axi từ chối luật vừa lưu', body: cap(keyWords(e.detail)) + '. ' + back + ' Chưa gửi sang Mac khác.', actions: dismiss };
-    case 'unchecked':
-      return {
-        tone: 'bad',
-        title: 'Chưa kiểm được luật vừa lưu',
-        body: 'quota-axi không chạy được' + (e.detail ? ' (' + e.detail + ')' : '') + '. ' + back + ' Chưa gửi sang Mac khác.',
-        actions: dismiss,
-      };
     case 'invalid':
       return { tone: 'bad', title: 'Luật chưa hợp lệ', body: cap(keyWords(e.detail)) + '. Chưa ghi gì.', actions: dismiss };
     case 'unreachable':
@@ -314,12 +304,12 @@ export function saveFeedback(model: Model): FeedbackView {
     return {
       tone: '',
       title: 'Đã lưu luật cho ' + macsWord(1 + peers.length) + ' lúc ' + at,
-      body: 'quota-axi đọc lại: đã kiểm tra đủ 6 mục của luật ✓',
+      body: 'Đã kiểm tra đủ 6 mục của luật ✓',
     };
   return {
     tone: 'warn',
     title: 'Đã lưu luật trên máy này lúc ' + at,
-    body: 'quota-axi đã kiểm tra đủ 6 mục ✓. ' + behind.map((p) => peerLine(p).short).join(' · ') + '.',
+    body: 'Đã kiểm tra đủ 6 mục ✓. ' + behind.map((p) => peerLine(p).short).join(' · ') + '.',
   };
 }
 

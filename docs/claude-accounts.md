@@ -118,13 +118,16 @@ copy when Claude Code refreshed it there. No credential is written to a file.
 alias, whether it is in the rotation, its three windows (share used and
 reset), how old its reading is and its error, and the account in use; no
 email, no token. `quota-station claude status --json` prints the same, and
-with `--emails` adds the emails. For quota-axi, which still reads claude-swap's
-layout, the app also writes `claude/swap/sequence.json` and
-`claude/swap/cache/usage.json` in that layout (slot numbers, the account and
-organization ids, placeholder addresses `slot-N@quota-station.local`, no
-token), so `QUOTA_AXI_CLAUDE_SWAP_DIR` and `QUOTA_AXI_CLAUDE_ROTATION` point
-quota-axi at the app without a change to quota-axi. The app sets both for the
-quota-axi it runs.
+with `--emails` adds the emails. The app's Claude row is built from the same
+readings; the app runs no quota-axi. For the quota-axi Firstmate runs, which
+still reads claude-swap's layout, the app also writes
+`claude/swap/sequence.json` and `claude/swap/cache/usage.json` in that layout
+(slot numbers, the account and organization ids, placeholder addresses
+`slot-N@quota-station.local`, no token), while `Cài đặt › Nâng cao` shows
+Firstmate. `QUOTA_AXI_CLAUDE_SWAP_DIR` (`claude/swap`) and
+`QUOTA_AXI_CLAUDE_ROTATION` (`claude/rotation`), set in Firstmate's
+environment, point that quota-axi at the app without a change to quota-axi
+(`Paths::firstmate_env` names both).
 
 ## Cutover
 

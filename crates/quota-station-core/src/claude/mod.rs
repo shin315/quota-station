@@ -7,7 +7,7 @@
 //! Code's own locks ([`switch`]), each account's usage ([`usage`]), the
 //! rotation's decision ([`engine`]) and its run ([`rotate`]), running one
 //! process as a chosen account ([`session`]), the data file for Firstmate
-//! and quota-axi ([`state`]), the one-time import from claude-swap
+//! and the copy its quota-axi reads ([`state`]), the one-time import from claude-swap
 //! ([`import`]) and the app's own LaunchAgent ([`agent`]).
 //!
 //! What touches Claude Code's login is learned from claude-swap's source
@@ -81,7 +81,7 @@ impl Paths {
         self.dir.join("state.json")
     }
 
-    /// The copy in claude-swap's layout that quota-axi reads.
+    /// The copy in claude-swap's layout that Firstmate's quota-axi reads.
     pub fn swap(&self) -> PathBuf {
         self.dir.join("swap")
     }
@@ -132,11 +132,24 @@ impl Paths {
         }
     }
 
-    /// The variables that point quota-axi at the app's copy of the accounts
-    /// and its rotation file instead of claude-swap's; none until the app
-    /// keeps the accounts.
-    pub fn quota_axi_env(&self) -> Vec<(String, std::ffi::OsString)> {
-        if !self.in_use() {
+    /// The app's `settings.json`, beside this folder.
+    pub fn settings_file(&self) -> PathBuf {
+        self.dir
+            .parent()
+            .map_or_else(|| self.dir.join("settings.json"), |d| d.join("settings.json"))
+    }
+
+    /// The copy for Firstmate is written: the app keeps the accounts, and
+    /// Cài đặt › Nâng cao shows Firstmate.
+    pub fn firstmate_copy(&self) -> bool {
+        self.in_use() && crate::settings::Settings::load(&self.settings_file()).firstmate_shown()
+    }
+
+    /// The variables that point Firstmate's quota-axi at the app's copy of
+    /// the accounts and its rotation file instead of claude-swap's
+    /// (`docs/claude-accounts.md`); none while no copy is written.
+    pub fn firstmate_env(&self) -> Vec<(String, std::ffi::OsString)> {
+        if !self.firstmate_copy() {
             return Vec::new();
         }
         vec![

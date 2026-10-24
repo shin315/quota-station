@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 //! The app's own settings file, `settings.json` in its Application Support
-//! folder: the quota-axi path, the name this Mac goes by, the other Macs
+//! folder: the name this Mac goes by, the other Macs
 //! the rotation file is copied to, whether account names show, the light or
 //! dark look, which service the menu bar follows and which of its windows
 //! the title shows, which alerts are on,
@@ -29,9 +29,6 @@ use crate::peers;
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", from = "Stored")]
 pub struct Settings {
-    /// Set by the user; `None` means find quota-axi in the usual places.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub quota_axi_path: Option<PathBuf>,
     /// Set by the user; `None` means the name macOS gives this Mac.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub machine_name: Option<String>,
@@ -275,13 +272,12 @@ pub struct Peer {
 }
 
 /// The file as written by any version: the plan's single `sshAlias` for the
-/// one other Mac became the list of [`Peer`]s. The list is read loosely: an
+/// one other Mac became the list of [`Peer`]s, and the quota-axi path of
+/// versions that ran it (`quotaAxiPath`) is left behind. The list is read loosely: an
 /// entry that is not a Mac with a usable alias is dropped, not the file.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Stored {
-    #[serde(default)]
-    quota_axi_path: Option<PathBuf>,
     #[serde(default)]
     machine_name: Option<String>,
     #[serde(default)]
@@ -354,7 +350,6 @@ impl From<Stored> for Settings {
             }
         }
         Settings {
-            quota_axi_path: s.quota_axi_path,
             machine_name: s.machine_name,
             peers,
             hide_names: s.hide_names,

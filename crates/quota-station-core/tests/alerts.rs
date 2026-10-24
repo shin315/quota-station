@@ -23,8 +23,8 @@ use quota_station_core::antigravity::switch::How;
 #[cfg(feature = "antigravity-accounts")]
 use quota_station_core::antigravity::watch;
 use quota_station_core::app_dir::AppDir;
-use quota_station_core::axi::{self, Response};
 use quota_station_core::firstmate;
+use quota_station_core::quota::Response;
 use quota_station_core::rotation::{Expire, Rules};
 use quota_station_core::settings::PoolAlert;
 use serde_json::{json, Value};
@@ -47,7 +47,7 @@ fn rfc(t: i64) -> String {
     at(t).format(&time::format_description::well_known::Rfc3339).unwrap()
 }
 
-/// One slot of claude-swap's list as quota-axi reports it.
+/// One of the app's Claude accounts as its report gives it.
 fn slot(n: u32, left: f64, active: bool) -> Value {
     json!({
         "slot": n, "active": active, "disabled": false, "status": "fresh",
@@ -57,41 +57,39 @@ fn slot(n: u32, left: f64, active: bool) -> Value {
     })
 }
 
-/// A `--provider claude` report with claude-swap's slots and the rotation
-/// Team 2 3 4, Cá nhân 1 from 8 to 23, and `expire` entries.
+/// A Claude report with the app's accounts and the rotation Team 2 3 4,
+/// Cá nhân 1 from 8 to 23, and `expire` entries.
 fn report(slots: Vec<Value>, expire: Vec<(u32, i64)>, room: f64) -> Response {
-    axi::parse(&report_value(slots, expire, room).to_string()).expect("synthetic report parses")
+    serde_json::from_value(report_value(slots, expire, room)).expect("synthetic report parses")
 }
 
 fn report_value(slots: Vec<Value>, expire: Vec<(u32, i64)>, room: f64) -> Value {
     let active = slots.iter().find(|s| s["active"] == true).and_then(|s| s["slot"].as_u64());
     json!({
         "generatedAt": "2026-01-16T07:20:00.000Z",
-        "schemaVersion": 6,
         "providers": [{
             "provider": "claude",
             "windows": [],
             "state": { "status": "fresh" },
-            "claudeSwap": { "status": "ok", "activeSlot": active, "slots": slots },
-            "claudePool": {
-                "status": "pool",
+            "claudeAccounts": {
+                "activeSlot": active,
+                "slots": slots,
                 "rotation": {
                     "team": [2, 3, 4], "personal": 1, "personalHours": "8-23",
                     "expire": expire.iter().map(|(s, t)| json!({ "slot": s, "at": rfc(*t) })).collect::<Vec<_>>()
                 },
-                "members": [], "excluded": [],
-                "scopes": [{ "scope": "all_models", "effectivePercentRemaining": room * 25.0, "slotsOfRoom": room, "slots": [] }]
+                "pool": { "scope": "all_models", "members": 4, "effectivePercentRemaining": room * 25.0, "slotsOfRoom": room, "slots": [] }
             }
         }]
     })
 }
 
-/// The same report from a quota-axi that does not give the rotation: the
-/// app then reads the rotation file itself.
+/// The same report without the rotation: the app then reads the rotation
+/// file itself.
 fn report_without_rotation(slots: Vec<Value>) -> Response {
     let mut text = report_value(slots, vec![], 2.0);
-    text["providers"][0]["claudePool"]["rotation"] = Value::Null;
-    axi::parse(&text.to_string()).expect("synthetic report parses")
+    text["providers"][0]["claudeAccounts"]["rotation"] = Value::Null;
+    serde_json::from_value(text).expect("synthetic report parses")
 }
 
 fn facts<'a>(now: i64, claude: Option<&'a Response>) -> Facts<'a> {
@@ -279,7 +277,7 @@ fn an_account_leaving_the_rotation_is_told_thirty_minutes_before() {
 }
 
 #[test]
-fn without_quota_axi_s_rotation_the_rotation_file_says_who_leaves() {
+fn without_the_reports_rotation_the_rotation_file_says_who_leaves() {
     let center = FakeCenter::default();
     let mut memory = Memory::default();
     let ends = T0 + HOUR;
@@ -290,36 +288,36 @@ fn without_quota_axi_s_rotation_the_rotation_file_says_who_leaves() {
     run(&mut memory, &f, &center);
     let card = center.last();
     assert_eq!(card.kind, Kind::Leaving);
-    // Named as the windows name it without quota-axi's rotation.
+    // Named as the windows name it without the report's rotation.
     assert_eq!(card.title, "Tài khoản 2 rời vòng lúc 15:20");
     assert_eq!(labels(&card.actions), ["Ổn", "Chuyển ngay"]);
 }
 
 #[test]
-fn a_claude_login_ending_within_three_days_or_refused_asks_for_a_new_login() {
+fn a_claude_login_refused_asks_for_a_new_login() {
     let center = FakeCenter::default();
     let mut memory = Memory::default();
-    let mut b = slot(3, 80.0, false);
-    b["loginExpiresAt"] = json!(rfc(T0 + 3 * 86400 + HOUR));
-    let r = report(vec![slot(2, 60.0, true), b.clone()], vec![], 2.0);
-    // Three days and an hour: not yet.
-    assert!(run(&mut memory, &facts(T0, Some(&r)), &center).is_empty());
-    run(&mut memory, &facts(T0 + 2 * HOUR, Some(&r)), &center);
+    // A refresh token Anthropic refused.
+    let mut c = slot(4, 0.0, false);
+    c["error"] = json!("invalid_grant");
+    let mut d = slot(1, 50.0, false);
+    d["error"] = json!("http-429");
+    let r = report(vec![slot(2, 60.0, true), slot(3, 80.0, false), c, d], vec![], 2.0);
+    run(&mut memory, &facts(T0, Some(&r)), &center);
     let card = center.last();
     assert_eq!(card.kind, Kind::Login);
-    assert_eq!(card.title, "Team B cần đăng nhập lại");
-    assert_eq!(
-        card.body,
-        "Đăng nhập hết hạn sau 2 ngày (Thứ Hai 19/01). Đăng nhập lại bằng claude-swap trong Terminal."
-    );
+    assert_eq!(card.title, "Team C cần đăng nhập lại");
+    assert!(card.body.contains("(invalid_grant)"), "{}", card.body);
     assert_eq!(labels(&card.actions), ["Nhắc ngày mai", "Đã biết"]);
+    // A passing 429 is not a login to renew.
+    assert!(!center.titles().iter().any(|t| t.starts_with("Cá nhân")));
 
     // "Nhắc ngày mai": nothing until 09:00 tomorrow, then once more.
-    assert_eq!(center.press(&mut memory, &card, "Nhắc ngày mai", T0 + 2 * HOUR), Effect::None);
+    assert_eq!(center.press(&mut memory, &card, "Nhắc ngày mai", T0 + MIN), Effect::None);
     let answer = memory.record(&card.id).unwrap().answer.clone().unwrap();
     assert_eq!(answer.result.unwrap().title, "Sẽ nhắc lại lúc 09:00 ngày mai");
-    assert!(run(&mut memory, &facts(T0 + 4 * HOUR, Some(&r)), &center).is_empty());
-    let nine = alerts::remind_at(T0 + 2 * HOUR, offset());
+    assert!(run(&mut memory, &facts(T0 + 2 * HOUR, Some(&r)), &center).is_empty());
+    let nine = alerts::remind_at(T0 + MIN, offset());
     assert_eq!(alerts::clock(nine, offset()), "09:00");
     assert_eq!(run(&mut memory, &facts(nine, Some(&r)), &center).len(), 1);
     let again = center.last();
@@ -328,19 +326,6 @@ fn a_claude_login_ending_within_three_days_or_refused_asks_for_a_new_login() {
     // "Đã biết" on the reminder: no more.
     center.press(&mut memory, &again, "Đã biết", nine + MIN);
     assert!(run(&mut memory, &facts(nine + 2 * 86400, Some(&r)), &center).is_empty());
-
-    // A refresh token Anthropic refused: the same card, for the error.
-    let mut c = slot(4, 0.0, false);
-    c["error"] = json!("invalid_grant");
-    let mut d = slot(1, 50.0, false);
-    d["error"] = json!("http-429");
-    let r = report(vec![slot(2, 60.0, true), slot(3, 80.0, false), c, d], vec![], 2.0);
-    run(&mut memory, &facts(T0, Some(&r)), &center);
-    let card = center.last();
-    assert_eq!(card.title, "Team C cần đăng nhập lại");
-    assert!(card.body.contains("(invalid_grant)"), "{}", card.body);
-    // A passing 429 is not a login to renew.
-    assert!(!center.titles().iter().any(|t| t.starts_with("Cá nhân")));
 
     // Any other error that asks for a new login goes on the card as a code,
     // never as claude-swap's own words.

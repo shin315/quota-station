@@ -9,10 +9,12 @@
 //!   token. `quota-station claude status --json` prints the same, and only
 //!   with `--emails` adds the emails.
 //! - `claude/swap/sequence.json` and `claude/swap/cache/usage.json`, the
-//!   same numbers in claude-swap's layout, which quota-axi reads when
-//!   `QUOTA_AXI_CLAUDE_SWAP_DIR` points at `claude/swap`. Addresses there
-//!   are placeholders (`slot-2@quota-station.local`); quota-axi only
-//!   compares the two files' with each other.
+//!   same numbers in claude-swap's layout, which the quota-axi Firstmate
+//!   runs reads when `QUOTA_AXI_CLAUDE_SWAP_DIR` points at `claude/swap`.
+//!   Written only while Cài đặt › Nâng cao shows Firstmate
+//!   ([`super::Paths::firstmate_copy`]). Addresses there are placeholders
+//!   (`slot-2@quota-station.local`); quota-axi only compares the two
+//!   files' with each other.
 //! - [`details`], for the app's own windows: each account's windows and,
 //!   only while the owner shows names, its email and organization, read
 //!   from its Keychain item into memory.
@@ -129,7 +131,7 @@ pub fn build(list: &List, cache: &Cache, active: Option<u32>, now: OffsetDateTim
     }
 }
 
-/// The placeholder address the copy for quota-axi gives an account.
+/// The placeholder address the copy for Firstmate gives an account.
 pub fn placeholder(slot: u32) -> String {
     format!("slot-{slot}@quota-station.local")
 }
@@ -182,7 +184,7 @@ pub fn swap_usage(list: &List, cache: &Cache) -> Value {
     json!({ "schemaVersion": 2, "accounts": accounts })
 }
 
-/// Writes the data file and the copy for quota-axi.
+/// Writes the data file, and the copy for Firstmate while it shows.
 pub fn write(store: &Store, active: Option<u32>, now: OffsetDateTime) -> std::io::Result<()> {
     let list = store.load().map_err(|e| std::io::Error::other(e.to_string()))?;
     let cache = usage::load(store);
@@ -192,6 +194,9 @@ pub fn write(store: &Store, active: Option<u32>, now: OffsetDateTime) -> std::io
         &store.paths.state(),
         &(serde_json::to_string_pretty(&state).expect("serializes") + "\n"),
     )?;
+    if !store.paths.firstmate_copy() {
+        return Ok(());
+    }
     let swap = store.paths.swap();
     super::write_private(&swap.join("sequence.json"), &pretty(&sequence(&list, active, now)))?;
     super::write_private(&swap.join("cache/usage.json"), &pretty(&swap_usage(&list, &cache)))

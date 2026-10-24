@@ -13,7 +13,6 @@
 //! switcher (`com.cswap.prefer-team`, `com.cswap.auto`) is loaded nothing is
 //! switched: it keeps its own copies of the same logins.
 
-use std::ffi::OsString;
 use std::path::PathBuf;
 use std::thread;
 use std::time::Duration;
@@ -22,14 +21,13 @@ use serde::Serialize;
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
-use crate::axi::Response;
 use crate::claude::locks::LockError;
 use crate::claude::store::Store;
 use crate::claude::switch::{self, SwitchError};
 use crate::claude::{agent, state};
 use crate::local_time;
 use crate::pause::{self, Flag};
-use crate::runner::{self, ProviderId};
+use crate::quota::{claude as quota_claude, Response};
 use crate::switcher::{self, LogEvent};
 
 /// How long after the switch the active account is looked at again.
@@ -40,9 +38,6 @@ pub const SETTLE: Duration = Duration::from_secs(5);
 pub struct Tools {
     pub store: Store,
     pub launchctl: PathBuf,
-    pub quota_axi: Option<PathBuf>,
-    /// The variables that point quota-axi at the app's accounts.
-    pub env: Vec<(String, OsString)>,
     pub pause_file: PathBuf,
 }
 
@@ -74,7 +69,8 @@ pub enum Outcome {
 #[derive(Debug, Clone)]
 pub struct Done {
     pub outcome: Outcome,
-    /// The Claude report read after settling, to show at once.
+    /// The Claude report after settling, from the app's own readings, to
+    /// show at once.
     pub report: Option<Response>,
 }
 
@@ -115,7 +111,7 @@ pub fn switch_claude(
         },
         None => Outcome::Unconfirmed { slot, hold },
     };
-    Done { outcome, report: fresh_read(tools) }
+    Done { outcome, report: quota_claude::own_now(&tools.store, OffsetDateTime::now_utc()) }
 }
 
 /// Waits [`SETTLE`].
@@ -162,13 +158,6 @@ fn hold(
         until: local_time::instant(&minute).unwrap_or(until).format(&Rfc3339).unwrap_or_default(),
         failed: pause::write(&tools.pause_file, &flag).is_err(),
     })
-}
-
-/// quota-axi's Claude report after the switch, skipping its cache, which may
-/// still hold the reading of the account before.
-fn fresh_read(tools: &Tools) -> Option<Response> {
-    let path = tools.quota_axi.as_ref()?;
-    runner::read_fresh_env(path, ProviderId::Claude, &tools.env).ok()
 }
 
 /// When the rotation's last log line is its switch to `slot`, written after

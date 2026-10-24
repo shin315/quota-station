@@ -173,7 +173,7 @@ const ON_OFF = (v: boolean | null, yes: ChipView, no: ChipView): { value: string
 export function firstmateTab(model: Model, now: Date): FirstmateTabView {
   const f = model.firstmate;
   const nameOf = namesOf(model);
-  const fallback = 'Luật "cạn" vẫn tự tính từ số quota-axi để báo.';
+  const fallback = 'Luật "cạn" vẫn tự tính từ số của app để báo.';
   if (f.status === 'notSet')
     return {
       tone: 'muted',
@@ -227,7 +227,7 @@ export function firstmateTab(model: Model, now: Date): FirstmateTabView {
     { key: 'Tài khoản đang dùng', value: line.active != null ? nameOf(line.active) : '—' },
     { key: 'Đã dùng từng tài khoản', value: slots(f, nameOf) },
     { key: 'Có lại lúc', value: line.nextReset ? dayClock(line.nextReset, now) : '—' },
-    { key: 'quota-axi có +cswap', ...ON_OFF(line.fork, { t: 'có', k: 'ok' }, { t: 'không', k: 'bad' }) },
+    { key: 'quota-axi của firstmate có +cswap', ...ON_OFF(line.fork, { t: 'có', k: 'ok' }, { t: 'không', k: 'bad' }) },
     { key: 'Đọc được claude-swap', ...ON_OFF(line.claudeSwap, { t: 'được', k: 'ok' }, { t: 'không', k: 'bad' }) },
     { key: 'Cập nhật', value: written },
   ];
@@ -238,10 +238,10 @@ export function firstmateTab(model: Model, now: Date): FirstmateTabView {
     ...head,
     rows,
     note: differs
-      ? 'App tính từ số quota-axi ' + (read ? 'lúc ' + read : 'gần nhất') + ' thì hạn mức trong vòng ' + (own ? 'đã cạn' : 'chưa cạn') +
+      ? 'App tính từ số của nó ' + (read ? 'lúc ' + read : 'gần nhất') + ' thì hạn mức trong vòng ' + (own ? 'đã cạn' : 'chưa cạn') +
         '. Hai bên đọc ở hai lúc khác nhau; lần kiểm sau của firstmate sẽ khớp lại.'
-      : 'Firstmate ghi file này sau mỗi lần kiểm' + (read ? '; app đọc quota-axi lúc ' + read : '') +
-        '. Hai giờ cập nhật có thể lệch nhau, số vẫn cùng nguồn quota-axi.',
+      : 'Firstmate ghi file này sau mỗi lần kiểm' + (read ? '; app đọc số lúc ' + read : '') +
+        '. Hai giờ cập nhật có thể lệch nhau; firstmate đọc cùng các tài khoản qua bản sao của app.',
     setUp: false,
   };
 }

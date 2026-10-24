@@ -7,7 +7,7 @@
 // "Mở trang xác minh" on the accounts that need them, and whether the app is
 // reading each account's quota or its last read failed (M4b). While a login
 // waits for the browser, the card offers to paste the callback URL and to
-// cancel. Logins quota-axi does not list yet stay in a short list under the
+// cancel. Logins the row does not list yet stay in a short list under the
 // table.
 
 import { useState } from 'react';
@@ -203,7 +203,7 @@ export function LogoutConfirm({ logins, row, inTable }: { logins: AgyLogins; row
 
 /**
  * What the table cannot say: a missing OAuth client, an unreadable list,
- * the logins quota-axi does not list yet, and a login waiting for the browser.
+ * the logins the row does not list yet, and a login waiting for the browser.
  */
 export function LoginNotes({ logins, listed }: { logins: AgyLogins; listed: number[] }) {
   const { notice, view } = logins;

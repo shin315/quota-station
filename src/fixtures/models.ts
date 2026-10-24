@@ -18,7 +18,6 @@ import type {
   ClaudeAccountRow,
   ClaudeAccountsView,
   CodexView,
-  ErrorView,
   FirstmateView,
   HistoryEntry,
   McpDef,
@@ -555,12 +554,10 @@ export function fixtureModel(name: string, over: Partial<Model> = {}): Model {
   if (!snapshot) throw new Error('no snapshot fixture ' + name);
   return {
     snapshot: structuredClone(snapshot),
-    errors: { claude: null, agy: null, codex: null },
     reading: false,
     reads: 1,
     machine: 'Mac mini',
     machineDefault: 'Mac mini',
-    quotaAxi: { path: '~/.local/bin/quota-axi', custom: false, exists: true, version: '0.1.61+cswap.4', fork: true },
     granting: false,
     switcher: switcherFixture(),
     claudeSwitch: { ready: true, busy: null },
@@ -591,6 +588,3 @@ export function fixtureModel(name: string, over: Partial<Model> = {}): Model {
   };
 }
 
-export function failing(kind: ErrorView['kind'], detail = ''): Model['errors'] {
-  return { claude: { kind, detail }, agy: { kind, detail }, codex: { kind, detail } };
-}

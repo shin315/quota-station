@@ -23,7 +23,7 @@ use quota_station_core::antigravity::switch::{
 };
 use quota_station_core::antigravity::version::AntigravityApp;
 use quota_station_core::antigravity::watch;
-use quota_station_core::axi::Response;
+use quota_station_core::quota::{agy, Response};
 use serde::Serialize;
 use tauri::{AppHandle, State};
 use time::format_description::well_known::Rfc3339;
@@ -38,8 +38,8 @@ use crate::state::{AppState, Inner, Model};
 pub struct SwitchView {
     /// The account number a switch is running for.
     pub busy: Option<usize>,
-    /// quota-axi lists this app's accounts, so a row's number is the
-    /// account's number here and its row can switch.
+    /// The Antigravity row lists this app's accounts, so a row's number is
+    /// the account's number here and its row can switch.
     pub listed: bool,
     /// A switch was undone and the owner has not answered yet.
     pub overwritten: Option<OverwriteView>,
@@ -77,13 +77,12 @@ pub fn view(inner: &Inner) -> SwitchView {
     }
 }
 
-/// The report numbers its accounts as the app's own list does.
+/// The report lists the accounts as the app's own list does now.
 fn lists(report: &Response, index: &index::AccountIndex) -> bool {
-    report.primary("agy").and_then(|row| row.cockpit.as_ref()).is_some_and(|c| {
-        c.status == "ok"
-            && c.source.as_deref() == Some("quota-station")
-            && c.accounts.len() == index.accounts.len()
-    })
+    report
+        .primary("agy")
+        .and_then(|row| row.agy_accounts.as_ref())
+        .is_some_and(|l| l.status == "ok" && l.accounts.len() == index.accounts.len())
 }
 
 /// Feeds the newest Antigravity reading to the six-hour watch.
@@ -173,7 +172,7 @@ pub async fn switch(
     id: String,
     how: How,
 ) -> Result<Outcome, String> {
-    let (dir, quota_axi, from) = {
+    let (dir, from) = {
         let mut inner = shared.lock();
         if let Some(why) = inner.agy_switch_refusal() {
             return Err(why.into());
@@ -184,7 +183,7 @@ pub async fn switch(
         let from = inner.agy.as_ref().and_then(|r| switch::shown_active_id(r, &index));
         inner.agy_switching = Some(number);
         inner.agy_generation += 1;
-        (dir, inner.quota_axi(), from)
+        (dir, from)
     };
     reader::publish(app, &shared);
     let done = tauri::async_runtime::spawn_blocking(move || {
@@ -192,6 +191,7 @@ pub async fn switch(
         let keychain = Keychain::system();
         let shared_login = SharedLogin::system();
         let desktop = Desktop::system();
+        let tools = agy::Tools::system();
         let deps = Deps {
             app: &dir,
             endpoints: &endpoints,
@@ -202,7 +202,7 @@ pub async fn switch(
             }),
             shared: &shared_login,
             desktop: &desktop,
-            quota_axi: quota_axi.as_deref(),
+            agy: &tools,
         };
         let request = Request { id, how, from };
         switch::switch_antigravity(&deps, &request, Limits::default(), &unix_now)
@@ -215,7 +215,6 @@ pub async fn switch(
         inner.agy_generation += 1;
         if let Ok(Some(report)) = done.as_ref().map(|d| d.report.clone()) {
             inner.agy = Some(report);
-            inner.agy_error = None;
         }
     }
     // The switch log has its line: the change it made is not seen as one of its own.

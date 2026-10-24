@@ -12,11 +12,12 @@ pub mod claude;
 pub mod desktop;
 #[cfg(feature = "antigravity-accounts")]
 pub mod google;
+pub mod http;
 pub mod keychain;
 
 use std::path::PathBuf;
 
-use quota_station_core::axi::{self, Response};
+use quota_station_core::quota::Response;
 use quota_station_core::rotation::Rules;
 
 pub fn fixture_path(name: &str) -> PathBuf {
@@ -28,7 +29,7 @@ pub fn fixture_text(name: &str) -> String {
 }
 
 pub fn fixture(name: &str) -> Response {
-    axi::parse(&fixture_text(name)).expect("fixture parses")
+    serde_json::from_str(&fixture_text(name)).expect("fixture parses")
 }
 
 static NEXT_DIR: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);

@@ -10,7 +10,7 @@
         "disabled": false,
         "reading": "fresh",
         "fetchedAt": "2026-01-16T07:18:00.000Z",
-        "source": "claudeSwap",
+        "source": "list",
         "membership": "unknown",
         "leavesAt": null,
         "lines": [
@@ -88,7 +88,7 @@
         "disabled": false,
         "reading": "fresh",
         "fetchedAt": "2026-01-16T07:16:40.000Z",
-        "source": "claudeSwap",
+        "source": "list",
         "membership": "unknown",
         "leavesAt": null,
         "lines": [
@@ -116,7 +116,7 @@
         "disabled": false,
         "reading": "fresh",
         "fetchedAt": "2026-01-16T07:15:00.000Z",
-        "source": "claudeSwap",
+        "source": "list",
         "membership": "unknown",
         "leavesAt": null,
         "lines": [
@@ -158,7 +158,7 @@
     "source": null
   },
   "agy": {
-    "status": "noSidecar",
+    "status": "single",
     "reason": null,
     "accounts": [
       {

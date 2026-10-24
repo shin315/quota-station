@@ -1,14 +1,12 @@
 {
   "generatedAt": "2026-01-16T07:20:00.000Z",
-  "schemaVersion": 5,
   "providers": [
     {
       "provider": "claude",
+      "accountKeys": [
+        "default"
+      ],
       "windows": [],
-      "state": {
-        "status": "stale",
-        "stale": true
-      },
       "quotaSemantics": {
         "status": "known",
         "effectiveAvailability": [
@@ -19,14 +17,16 @@
             "boundedBy": [
               "five_hour",
               "seven_day"
-            ]
+            ],
+            "limitingWindowIds": []
           }
         ]
       },
-      "claudeSwap": {
-        "status": "ok",
+      "state": {
+        "status": "stale"
+      },
+      "claudeAccounts": {
         "activeSlot": 2,
-        "activeBasis": "claude-swap",
         "slots": [
           {
             "slot": 1,
@@ -107,11 +107,7 @@
               }
             ]
           }
-        ]
-      },
-      "claudePool": {
-        "status": "active_slot",
-        "reason": "claude_row_not_fresh",
+        ],
         "rotation": {
           "team": [
             2,
@@ -121,18 +117,15 @@
           "personal": 1,
           "personalHours": "8-23",
           "full": 90,
-          "fableFull": 95,
           "expire": [
             {
               "slot": 2,
               "at": "2026-01-16T10:45:00.000Z"
             }
           ]
-        }
-      },
-      "accountKeys": [
-        "default"
-      ]
+        },
+        "poolReason": "claude_row_not_fresh"
+      }
     }
   ]
 }

@@ -14,7 +14,7 @@
 // Antigravity.app 2.0 or later only (the SQLite login of older versions and
 // the instance management are not ported); the app is quit with
 // `osascript` and opened with `open -b` (`desktop`), never killed; the
-// result is checked with quota-axi five seconds later; a log line and the
+// result is checked with a fresh read five seconds later; a log line and the
 // six-hour watch (`watch`) are the app's own; no WebSocket broadcast.
 
 //! One manual switch of the Antigravity account, start to finish, after the
@@ -33,16 +33,16 @@
 //!    running, so one that runs again by then stops the switch;
 //! 5. the account must still be logged in here, and the shared login is
 //!    written (`credential`); a failure leaves the old one as it was;
-//! 6. only then the index's current account and the binding quota-axi reads
-//!    are written, both or neither, the six-hour watch starts, and the app
+//! 6. only then the index's current account and the binding are written,
+//!    both or neither, the six-hour watch starts, and the app
 //!    is opened again if it was quit (a failure to open is reported apart:
 //!    the switch stands);
-//! 7. five seconds later quota-axi reads Antigravity again, skipping its
-//!    cache, to say which account agy is really on.
+//! 7. five seconds later Antigravity is read again, skipping the cache, to
+//!    say which account agy is really on ([`super::listing`]).
 //!
 //! Each switch adds one line to `antigravity/switch-log.jsonl`.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::Arc;
@@ -62,10 +62,10 @@ use super::token::TokenData;
 use super::version::Identity;
 use super::watch;
 use crate::app_dir::AppDir;
-use crate::axi::Response;
-use crate::runner::{self, ProviderId};
+use crate::quota::{agy, Response};
 
-/// quota-axi reads the binding from this file, as it does in Cockpit's folder.
+/// The binding: the account the app's last switch put on, in this file, as
+/// in Cockpit's folder.
 pub const BINDING_FILE: &str = "antigravity_legacy_instances.json";
 pub const LOG_FILE: &str = "switch-log.jsonl";
 /// The log keeps this many switches (Cockpit keeps 200 too).
@@ -78,7 +78,7 @@ pub struct Limits {
     pub prepare: Duration,
     /// For Antigravity.app to quit.
     pub quit: Duration,
-    /// Before the check with quota-axi.
+    /// Before the check of the account in use.
     pub settle: Duration,
 }
 
@@ -157,7 +157,8 @@ pub struct Deps<'a> {
     pub probe: Arc<dyn Probe>,
     pub shared: &'a SharedLogin,
     pub desktop: &'a Desktop,
-    pub quota_axi: Option<&'a Path>,
+    /// What the check after the switch runs.
+    pub agy: &'a agy::Tools,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -173,14 +174,15 @@ pub struct Request {
 /// What a switch did. `reopened` is `None` when Antigravity.app was not quit
 /// for the switch, else whether it opened again. `saved` is false when the
 /// index and the binding could not both be written, so both still name the
-/// account from before: the switch itself stands, but quota-axi may name
-/// the account in use wrongly until the next switch.
+/// account from before: the switch itself stands, but the account in use
+/// may be named wrongly until the next switch.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum Outcome {
-    /// The check shows `number` in use. `basis` is quota-axi's: `reading`
-    /// when agy's own numbers matched, `cockpit` when only the binding the
-    /// switch wrote answered.
+    /// The check shows `number` in use. `basis` says how it told:
+    /// `identity` when agy named the account, `reading` when agy's own
+    /// numbers matched, `binding` when only the binding the switch wrote
+    /// answered.
     Switched { number: usize, how: How, basis: Option<String>, reopened: Option<bool>, saved: bool },
     /// The login was written, and the check did not show `number` in use:
     /// it shows `active`, or could not tell (`None`).
@@ -374,7 +376,7 @@ pub fn switch_antigravity(
     let reopened = reopen();
 
     thread::sleep(limits.settle);
-    let report = deps.quota_axi.and_then(|p| runner::read_fresh(p, ProviderId::Agy).ok());
+    let report = Some(super::listing::read(deps.agy, deps.app, 0, time::OffsetDateTime::now_utc()));
     let shown = report.as_ref().and_then(|r| shown_active(r, &index));
     if let Some((active, _)) = &shown {
         let id = index.accounts.get(*active as usize - 1).map(|a| a.id.as_str());
@@ -468,8 +470,8 @@ fn prepare(
 /// Points the index and the binding at the new account, after the login is
 /// written (Cockpit's order). Both or neither: each file is replaced whole
 /// (`write_private`), the index first; if the binding then fails, the index
-/// is put back as it was, so the app and quota-axi never name different
-/// accounts, and `saved: false` says the pointers still name the old one.
+/// is put back as it was, so the two never name different accounts, and
+/// `saved: false` says the pointers still name the old one.
 /// An account logged out meanwhile gets no pointer.
 fn commit(app: &AppDir, id: &str, now: i64) -> Result<(), String> {
     let index_path = index::index_path(app);
@@ -511,17 +513,16 @@ fn write_binding(app: &AppDir, id: &str) -> Result<(), String> {
     app.write_private(&path, &text).map_err(|e| e.to_string())
 }
 
-/// The account quota-axi shows in use, by its number in this app's list,
-/// and how it told. Only a report read from this app's folder numbers the
-/// accounts as the app does.
+/// The account a report shows in use, by its number in this app's list,
+/// and how it told.
 pub fn shown_active(report: &Response, index: &AccountIndex) -> Option<(u32, Option<String>)> {
-    let cockpit = report.primary("agy")?.cockpit.as_ref()?;
-    if cockpit.status != "ok" || cockpit.source.as_deref() != Some("quota-station") {
+    let list = report.primary("agy")?.agy_accounts.as_ref()?;
+    if list.status != "ok" {
         return None;
     }
-    let active = cockpit.accounts.iter().find(|a| a.active)?.account;
+    let active = list.accounts.iter().find(|a| a.active)?.account;
     (active >= 1 && (active as usize) <= index.accounts.len())
-        .then(|| (active, cockpit.active_basis.clone()))
+        .then(|| (active, list.active_basis.clone()))
 }
 
 /// The app's id of the account the report shows in use.

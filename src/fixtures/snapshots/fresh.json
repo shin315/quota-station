@@ -10,7 +10,7 @@
         "disabled": false,
         "reading": "fresh",
         "fetchedAt": "2026-01-16T07:18:00.000Z",
-        "source": "claudeSwap",
+        "source": "list",
         "membership": "in",
         "leavesAt": null,
         "lines": [
@@ -114,7 +114,7 @@
         "disabled": false,
         "reading": "fresh",
         "fetchedAt": "2026-01-16T07:16:40.000Z",
-        "source": "claudeSwap",
+        "source": "list",
         "membership": "in",
         "leavesAt": null,
         "lines": [
@@ -159,7 +159,7 @@
         "disabled": false,
         "reading": "fresh",
         "fetchedAt": "2026-01-16T07:15:00.000Z",
-        "source": "claudeSwap",
+        "source": "list",
         "membership": "in",
         "leavesAt": null,
         "lines": [
@@ -247,7 +247,7 @@
         "disabled": false,
         "reading": "stale",
         "fetchedAt": "2026-01-16T06:55:00.000Z",
-        "source": "cockpit",
+        "source": "list",
         "membership": "unknown",
         "leavesAt": null,
         "lines": [
@@ -305,7 +305,7 @@
         "disabled": false,
         "reading": "fresh",
         "fetchedAt": "2026-01-16T07:19:10.000Z",
-        "source": "cockpit",
+        "source": "list",
         "membership": "unknown",
         "leavesAt": null,
         "lines": [

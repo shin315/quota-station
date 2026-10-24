@@ -6,17 +6,17 @@
 //! hours, the two thresholds and when a slot leaves the rotation.
 //!
 //! `key = value` lines, `#` comments, the last value of a key wins. The
-//! switcher reads it on every run and quota-axi on every read, so a change
-//! needs no restart. quota-axi wants all six keys and refuses the file
-//! otherwise; [`parse`] applies its rules, so the editor can say what is wrong
-//! before anything is written.
+//! rotation reads it on every run, and so does the quota-axi Firstmate runs
+//! (`QUOTA_AXI_CLAUDE_ROTATION`), so a change needs no restart. quota-axi
+//! wants all six keys and refuses the file otherwise; [`parse`] applies its
+//! rules, so the editor can say what is wrong before anything is written,
+//! and the app saves no file they refuse.
 //!
 //! The app edits the file in place: it rewrites the six keys, keeps every
 //! other line, and puts one `# updated = <time> by <machine>` line at the
 //! top, which quota-axi and the switcher skip as a comment. That line is how
 //! two Macs tell which copy is newer. A write goes through a temporary file
-//! and a rename, keeps a `rotation.bak-<time>` copy of the file before, and
-//! is checked by quota-axi; when quota-axi refuses it the copy goes back.
+//! and a rename, and keeps a `rotation.bak-<time>` copy of the file before.
 
 use std::io;
 use std::path::{Path, PathBuf};
@@ -25,9 +25,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
-use crate::axi::Response;
 use crate::local_time;
-use crate::runner::{self, ProviderId, RunError};
 use crate::time_util::parse_ts;
 
 /// Under the home folder, next to the pause flag.
@@ -104,9 +102,9 @@ impl Rules {
         }
     }
 
-    /// The same checks quota-axi makes, plus one of the app's own: the
-    /// personal slot is not also a Team slot (`rotation_personal_in_team`).
-    /// Otherwise `Err` is quota-axi's reason, `rotation_bad_value:<key>`.
+    /// The file's rules, plus one of the app's own: the personal slot is
+    /// not also a Team slot (`rotation_personal_in_team`). Otherwise `Err`
+    /// is the rule's reason, `rotation_bad_value:<key>`.
     pub fn check(&self) -> Result<(), String> {
         let bad = |key: &str| Err(format!("rotation_bad_value:{key}"));
         let mut seen = Vec::new();
@@ -465,7 +463,7 @@ pub fn render(rules: &Rules, stamp: &Stamp, previous: Option<&str>) -> String {
 pub enum FileState {
     Missing,
     Unreadable(String),
-    /// quota-axi would refuse it, for `reason`.
+    /// The file's rules refuse it, for `reason`.
     Invalid {
         text: String,
         reason: String,
@@ -590,49 +588,13 @@ pub fn restore(file: &Path, backup: Option<&Path>) -> io::Result<()> {
     }
 }
 
-/// What quota-axi made of the file it just read.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Verdict {
-    Accepted,
-    /// quota-axi's reason, `rotation_bad_value:personal_hours`.
-    Refused(String),
-    /// The report has no rotation block: this quota-axi does not read the file.
-    NotRead,
-}
-
-/// quota-axi restates the Claude row from the rotation file on every read,
-/// a reused one too. A file it refuses leaves `claudePool` on `active_slot`
-/// with a `rotation_…` reason; any other state means it read the file.
-pub fn verdict(report: &Response) -> Verdict {
-    let pool = report.primary("claude").and_then(|row| row.claude_pool.as_ref());
-    match pool {
-        None => Verdict::NotRead,
-        Some(p) => match p.reason.as_deref() {
-            Some(r) if p.status == "active_slot" && r.starts_with("rotation_") => {
-                Verdict::Refused(r.to_string())
-            }
-            _ => Verdict::Accepted,
-        },
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ApplyError {
     /// The file is not the one the editor started from.
     Changed,
-    /// The text breaks one of quota-axi's rules; nothing was written.
+    /// The text breaks one of the file's rules; nothing was written.
     Invalid(String),
     Write(String),
-    /// quota-axi read the new file and refused it.
-    Refused {
-        reason: String,
-        restored: bool,
-    },
-    /// quota-axi could not check the new file.
-    Unchecked {
-        error: String,
-        restored: bool,
-    },
 }
 
 impl ApplyError {
@@ -641,31 +603,22 @@ impl ApplyError {
             ApplyError::Changed => "changed",
             ApplyError::Invalid(_) => "invalid",
             ApplyError::Write(_) => "write",
-            ApplyError::Refused { .. } => "refused",
-            ApplyError::Unchecked { .. } => "unchecked",
         }
     }
 }
 
-/// A file written and accepted by quota-axi.
+/// A file written.
 #[derive(Debug, Clone)]
 pub struct Applied {
     pub text: String,
     pub parsed: Parsed,
     pub backup: Option<PathBuf>,
-    /// The quota-axi report that accepted it.
-    pub report: Response,
 }
 
-/// Writes `text` to `file` when the file is still at `base` (its version, or
-/// `None` for no file), then has quota-axi read it, with `env` (which names
-/// the app's own copy to quota-axi). When quota-axi refuses it, or cannot
-/// run, the file before goes back: the rotation on this Mac never runs on a
-/// file quota-axi did not accept.
+/// Writes `text` to `file` when it keeps quota-axi's rules and the file is
+/// still at `base` (its version, or `None` for no file).
 pub fn apply(
     file: &Path,
-    quota_axi: Option<&Path>,
-    env: &[(String, std::ffi::OsString)],
     text: &str,
     base: Option<&str>,
     now: OffsetDateTime,
@@ -680,22 +633,7 @@ pub fn apply(
         return Err(ApplyError::Changed);
     }
     let backup = write(file, text, now).map_err(|e| ApplyError::Write(e.to_string()))?;
-    let undo = || restore(file, backup.as_deref()).is_ok();
-    let report = match quota_axi {
-        Some(path) => runner::read_env(path, ProviderId::Claude, env),
-        None => Err(RunError::NotConfigured),
-    };
-    match report {
-        Ok(report) => match verdict(&report) {
-            Verdict::Accepted => Ok(Applied { text: text.to_string(), parsed, backup, report }),
-            Verdict::Refused(reason) => Err(ApplyError::Refused { reason, restored: undo() }),
-            Verdict::NotRead => Err(ApplyError::Unchecked {
-                error: "quota-axi không đọc file luật".into(),
-                restored: undo(),
-            }),
-        },
-        Err(e) => Err(ApplyError::Unchecked { error: e.to_string(), restored: undo() }),
-    }
+    Ok(Applied { text: text.to_string(), parsed, backup })
 }
 
 #[cfg(test)]

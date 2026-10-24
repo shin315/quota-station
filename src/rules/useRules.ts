@@ -95,7 +95,6 @@ export function useRules(api: Api, model: Model | null, clock: () => Date, showF
 
   const run = async (what: Working, call: () => Promise<Model>, feedback: (m: Model) => FeedbackView, peer?: string) => {
     if (working) return false;
-    const before = model?.rotation.stamp ?? null;
     setWorking(what);
     try {
       const m = await call();
@@ -106,8 +105,8 @@ export function useRules(api: Api, model: Model | null, clock: () => Date, showF
       return true;
     } catch (e) {
       // `changed` shows as the "newer copy" banner once the model has the new file.
-      if (isRulesError(e) && e.kind !== 'changed' && e.kind !== 'busy') setError({ banner: rulesErrorBanner(e, before, peer), restored: e.restored });
-      else if (!isRulesError(e)) setError({ banner: rulesErrorBanner({ kind: 'write', detail: String(e), restored: false }, before), restored: false });
+      if (isRulesError(e) && e.kind !== 'changed' && e.kind !== 'busy') setError({ banner: rulesErrorBanner(e, peer), restored: e.restored });
+      else if (!isRulesError(e)) setError({ banner: rulesErrorBanner({ kind: 'write', detail: String(e), restored: false }), restored: false });
       return false;
     } finally {
       setWorking(null);

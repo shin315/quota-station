@@ -1,30 +1,33 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-//! The reader thread: runs quota-axi on the schedule and pushes each result
-//! to the menu bar and the windows. It also looks at the switcher: the pause
-//! flag on every read, and the dry run, log and launchd while a window is
-//! open or after the owner acted. Before quota-axi's Claude read it reads
-//! the Claude accounts the app keeps (each account's windows, and its name
-//! from the Keychain while names show) and writes the files quota-axi and
-//! Firstmate read; beside it runs quota-axi's Codex read where this Mac has
-//! a Codex folder. Each read also wakes the Antigravity
-//! quota thread for the account in use, and each Antigravity reading goes
-//! to the six-hour watch after an Antigravity switch. After each read the
-//! history and the alerts look at the new numbers (`alerting`).
+//! The reader thread: reads the quota on the schedule ([`quota`]) and pushes
+//! each result to the menu bar and the windows. It also looks at the
+//! switcher: the pause flag on every read, and the dry run, log and launchd
+//! while a window is open or after the owner acted. Where the app keeps the
+//! Claude accounts it reads them (each account's windows, and its name from
+//! the Keychain while names show), writes the files Firstmate reads, and
+//! builds the Claude row from them; elsewhere it reads Claude Code's own
+//! login. Antigravity is read beside it, and Codex where this Mac has a
+//! Codex folder. A reading younger than two minutes is reused without
+//! asking the vendor. Each read also wakes the Antigravity quota thread for
+//! the account in use, and each Antigravity reading goes to the six-hour
+//! watch after an Antigravity switch. After each read the history and the
+//! alerts look at the new numbers (`alerting`).
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::thread;
 use std::time::{Duration, Instant, SystemTime};
 
-use quota_station_core::axi::Response;
+use quota_station_core::app_dir::AppDir;
 use quota_station_core::claude::keychain::Security;
 use quota_station_core::claude::state::AccountOut;
 use quota_station_core::claude::store::Store;
 use quota_station_core::claude::usage::{self, Endpoints};
 use quota_station_core::claude::{agent, rotate, state, switch, Paths};
 use quota_station_core::detail::ClaudeDetail;
-use quota_station_core::runner::{self, Env, ProviderId, RunError};
+use quota_station_core::quota::cache::{Cache, MAX_AGE_SECONDS};
+use quota_station_core::quota::{self, ProviderId, Response};
 use quota_station_core::settings::Menubar;
 use quota_station_core::switcher;
 use quota_station_core::{icon, local_time, pause, schedule};
@@ -80,29 +83,22 @@ fn run(app: &AppHandle, state: &AppState) {
         inner.switcher_now = false;
         inner.read_now = false;
         inner.reading = true;
-        let path = inner.quota_axi();
         let accounts = inner.claude_store();
+        let app_dir = inner.app_dir();
         let names = !inner.settings.hide_names;
-        let env = inner.claude_paths().quota_axi_env();
         let generation = inner.claude_generation;
         let agy_generation = inner.agy_generation;
-        let check_version =
-            path.is_some() && inner.version.as_ref().map(|(p, _)| p) != path.as_ref();
-        let codex_path = path.clone().filter(|_| inner.codex_home().is_dir());
+        let codex_home = Some(inner.codex_home()).filter(|h| h.is_dir());
         drop(inner);
         publish(app, state);
 
         // The switcher check runs beside the read, and the numbers are shown
         // as soon as they are in: a slow dry run never holds them back.
         let switcher = thread::spawn(move || check_switcher(&home, full, pause_generation));
-        let codex = thread::spawn(move || codex_path.map(|p| runner::read(&p, ProviderId::Codex)));
-        let (claude, agy, own) = read_all(path.clone(), &accounts, names, &env);
-        let codex =
-            codex.join().unwrap_or_else(|_| Some(Err(RunError::Spawn("reader panicked".into()))));
-        let version = path.filter(|_| check_version).map(|p| {
-            let v = runner::version(&p).map_err(|e| e.to_string());
-            (p, v)
-        });
+        let codex_app = app_dir.clone();
+        let codex = thread::spawn(move || codex_home.map(|h| read_codex(&h, &codex_app)));
+        let (claude, agy, own) = read_all(&accounts, &app_dir, names);
+        let codex = codex.join().ok().flatten();
 
         let mut inner = state.lock();
         let stored = store(&mut inner, (generation, agy_generation), claude, agy);
@@ -112,16 +108,13 @@ fn run(app: &AppHandle, state: &AppState) {
         }
         #[cfg(not(feature = "antigravity-accounts"))]
         let _ = stored;
-        if let Some(v) = version {
-            inner.version = Some(v);
-        }
         store_own(&mut inner, own);
         store_codex(&mut inner, codex);
         inner.reading = false;
         inner.reads += 1;
         inner.schedule.mark_read(Instant::now());
-        // The Antigravity account in use is read with every quota-axi read,
-        // once this one has said which account that is.
+        // The Antigravity account in use is read with every read, once this
+        // one has said which account that is.
         #[cfg(feature = "antigravity-accounts")]
         inner.agy_pace.cycle();
         drop(inner);
@@ -213,33 +206,73 @@ impl SwitcherCheck {
 
 /// The Claude accounts as the app read them: the tab's rows and the
 /// windows' details. `None` before the app keeps any.
-type Own = Option<(Vec<AccountOut>, Vec<ClaudeDetail>)>;
+pub type Own = Option<(Vec<AccountOut>, Vec<ClaudeDetail>)>;
 
-/// Claude and Antigravity read in parallel: the first `agy` read of a cold
-/// cache takes seconds and should not hold the Claude numbers back. The
-/// app's own Claude accounts are read first, so quota-axi finds their
-/// numbers and the account in use as they are now.
-fn read_all(
-    path: Option<PathBuf>,
-    store: &Store,
-    names: bool,
-    env: &Env,
-) -> (Result<Response, RunError>, Result<Response, RunError>, Own) {
-    let agy = path.clone().map(|p| thread::spawn(move || runner::read(&p, ProviderId::Agy)));
-    let own = read_own(store, names);
-    let claude = match &path {
-        Some(p) => runner::read_env(p, ProviderId::Claude, env),
-        None => Err(RunError::NotConfigured),
-    };
-    let agy = match agy {
-        Some(t) => t.join().unwrap_or_else(|_| Err(RunError::Spawn("reader panicked".into()))),
-        None => Err(RunError::NotConfigured),
-    };
+/// Claude and Antigravity read in parallel: an `agy -p /quota` read takes
+/// seconds and should not hold the Claude numbers back.
+fn read_all(store: &Store, app: &AppDir, names: bool) -> (Response, Response, Own) {
+    let agy_app = app.clone();
+    let agy = thread::spawn(move || read_agy(&agy_app, MAX_AGE_SECONDS));
+    let (claude, own) = read_claude(store, app, names, quota::claude::Keychain::Quiet);
+    let agy = agy.join().unwrap_or_else(|_| {
+        Response::new(
+            OffsetDateTime::now_utc(),
+            vec![quota::Provider::failed(ProviderId::Agy, "error", "Antigravity read failed")],
+        )
+    });
     (claude, agy, own)
 }
 
-/// Reads each account whose reading is due and writes the files quota-axi
-/// and Firstmate read. No token is refreshed while an older switcher runs.
+/// The Claude row: from the accounts the app keeps, read first, where it
+/// keeps them; else Claude Code's own login, read-only, the Keychain item
+/// read as `mode` allows.
+pub fn read_claude(
+    store: &Store,
+    app: &AppDir,
+    names: bool,
+    mode: quota::claude::Keychain,
+) -> (Response, Own) {
+    let now = OffsetDateTime::now_utc();
+    if let Some(own) = read_own(store, names) {
+        if let Some(report) = quota::claude::own_now(store, now) {
+            return (report, Some(own));
+        }
+    }
+    let live = quota::claude::Live {
+        paths: &store.paths,
+        security: &store.security,
+        endpoints: &Endpoints::anthropic(),
+        app,
+    };
+    let max_age = if mode == quota::claude::Keychain::Grant { 0 } else { MAX_AGE_SECONDS };
+    let cache = Cache::new(app, ProviderId::Claude);
+    (quota::claude::read(&live, mode, &cache, max_age, now), None)
+}
+
+/// The Antigravity row: the account agy is on, with the app's own list of
+/// the accounts it logs in, in a build with them.
+pub fn read_agy(app: &AppDir, max_age: i64) -> Response {
+    let tools = quota::agy::Tools::system();
+    let now = OffsetDateTime::now_utc();
+    #[cfg(feature = "antigravity-accounts")]
+    return quota_station_core::antigravity::listing::read(&tools, app, max_age, now);
+    #[cfg(not(feature = "antigravity-accounts"))]
+    quota::agy::read(&tools, &Cache::new(app, ProviderId::Agy), max_age, now)
+}
+
+/// Codex's ChatGPT login in `codex_home`.
+fn read_codex(codex_home: &Path, app: &AppDir) -> Response {
+    quota::codex::read(
+        codex_home,
+        &quota::codex::Endpoints::chatgpt(),
+        &Cache::new(app, ProviderId::Codex),
+        MAX_AGE_SECONDS,
+        OffsetDateTime::now_utc(),
+    )
+}
+
+/// Reads each account whose reading is due and writes the files Firstmate
+/// reads. No token is refreshed while an older switcher runs.
 fn read_own(store: &Store, names: bool) -> Own {
     if !store.paths.in_use() {
         return None;
@@ -250,41 +283,22 @@ fn read_own(store: &Store, names: bool) -> Own {
     Some(crate::claude::load(store, names))
 }
 
-/// A failed read keeps the last good report, so the popover can show the
-/// last numbers with their age next to the error. A Claude result from a
-/// read that started before a Keychain grant, and an Antigravity one from a
-/// read that started before or during a switch (`generations` behind), are
-/// dropped. Returns whether the Antigravity report was kept.
-pub fn store(
-    inner: &mut Inner,
-    generations: (u64, u64),
-    claude: Result<Response, RunError>,
-    agy: Result<Response, RunError>,
-) -> bool {
+/// Keeps the new reports. A failed read is a report too: its row says
+/// why, and shows the last numbers as stale while they stand. A Claude
+/// result from a read that started before a Keychain grant, and an
+/// Antigravity one from a read that started before or during a switch
+/// (`generations` behind), are dropped. Returns whether the Antigravity
+/// report was kept.
+pub fn store(inner: &mut Inner, generations: (u64, u64), claude: Response, agy: Response) -> bool {
     let (generation, agy_generation) = generations;
     if inner.claude_generation == generation {
-        match claude {
-            Ok(r) => {
-                inner.claude = Some(r);
-                inner.claude_error = None;
-            }
-            Err(e) => inner.claude_error = Some(e),
-        }
+        inner.claude = Some(claude);
     }
     if inner.agy_generation != agy_generation {
         return false;
     }
-    match agy {
-        Ok(r) => {
-            inner.agy = Some(r);
-            inner.agy_error = None;
-            true
-        }
-        Err(e) => {
-            inner.agy_error = Some(e);
-            false
-        }
-    }
+    inner.agy = Some(agy);
+    true
 }
 
 /// The app's own Claude accounts as just read; none before it keeps any.
@@ -301,20 +315,9 @@ fn store_own(inner: &mut Inner, own: Own) {
     }
 }
 
-/// quota-axi's Codex read: a failed read keeps the last report beside the
-/// error, as for Claude; no Codex folder, nothing.
-fn store_codex(inner: &mut Inner, codex: Option<Result<Response, RunError>>) {
-    match codex {
-        Some(Ok(r)) => {
-            inner.codex_quota = Some(r);
-            inner.codex_quota_error = None;
-        }
-        Some(Err(e)) => inner.codex_quota_error = Some(e),
-        None => {
-            inner.codex_quota = None;
-            inner.codex_quota_error = None;
-        }
-    }
+/// The Codex read; no Codex folder, nothing.
+fn store_codex(inner: &mut Inner, codex: Option<Response>) {
+    inner.codex_quota = codex;
 }
 
 /// Pushes the current state to the menu bar icon and to every window.
@@ -340,38 +343,65 @@ pub fn publish(app: &AppHandle, state: &AppState) {
 
 #[cfg(test)]
 mod tests {
-    use quota_station_core::axi;
+    use std::path::PathBuf;
+
+    use quota_station_core::quota::{Provider, State, Window};
     use quota_station_core::snapshot::Keychain;
 
     use super::*;
-
-    fn report(text: &str) -> Response {
-        axi::parse(text).expect("fixture parses")
-    }
 
     fn inner() -> Inner {
         Inner::new(PathBuf::new(), PathBuf::from("/nonexistent/settings.json"), "Mac".into())
     }
 
-    const REQUIRED: &str = include_str!(
-        "../../crates/quota-station-core/tests/fixtures/claude-keychain-required.json"
-    );
-    const GRANTED: &str =
-        include_str!("../../crates/quota-station-core/tests/fixtures/claude-pool-schema5.json");
-    const AGY: &str =
-        include_str!("../../crates/quota-station-core/tests/fixtures/agy-cockpit.json");
+    fn at() -> OffsetDateTime {
+        OffsetDateTime::from_unix_timestamp(1_768_548_000).unwrap()
+    }
+
+    fn claude(reason: Option<&str>) -> Response {
+        let row = match reason {
+            Some(r) => Provider {
+                provider: "claude".into(),
+                state: State {
+                    status: "auth_required".into(),
+                    error: Some("keychain_prompt_required".into()),
+                    reason: Some(r.into()),
+                    ..State::default()
+                },
+                ..Provider::default()
+            },
+            None => Provider::fresh(
+                ProviderId::Claude,
+                vec![Window::used("five_hour", "session", 20.0, None)],
+                at(),
+            ),
+        };
+        Response::new(at(), vec![row])
+    }
+
+    fn agy() -> Response {
+        Response::new(
+            at(),
+            vec![Provider::fresh(
+                ProviderId::Agy,
+                vec![Window::used("gemini_5h", "session", 10.0, None)],
+                at(),
+            )],
+        )
+    }
 
     #[test]
     fn a_read_started_before_a_keychain_grant_keeps_the_granted_report() {
+        let required = || claude(Some(quota::claude::ACCESS_REQUIRED));
         let mut inner = inner();
         let started = inner.claude_generation;
-        inner.store_claude(report(GRANTED));
-        store(&mut inner, (started, 0), Ok(report(REQUIRED)), Ok(report(AGY)));
+        inner.store_claude(claude(None));
+        store(&mut inner, (started, 0), required(), agy());
         assert_eq!(inner.snapshot().keychain, Keychain::Granted);
         assert!(inner.agy.is_some());
 
         let next = inner.claude_generation;
-        store(&mut inner, (next, 0), Ok(report(REQUIRED)), Ok(report(AGY)));
+        store(&mut inner, (next, 0), required(), agy());
         assert_eq!(inner.snapshot().keychain, Keychain::Required);
     }
 
@@ -381,20 +411,13 @@ mod tests {
         let started = inner.agy_generation;
         // A switch starts and stores its own reading meanwhile.
         inner.agy_generation += 2;
-        let claude = inner.claude_generation;
-        assert!(!store(&mut inner, (claude, started), Ok(report(GRANTED)), Ok(report(AGY))));
+        let generation = inner.claude_generation;
+        assert!(!store(&mut inner, (generation, started), claude(None), agy()));
         assert!(inner.agy.is_none());
         assert!(inner.claude.is_some(), "the Claude half is kept");
-        assert!(!store(
-            &mut inner,
-            (claude, started),
-            Ok(report(GRANTED)),
-            Err(RunError::NotConfigured)
-        ));
-        assert!(inner.agy_error.is_none());
 
         let now = inner.agy_generation;
-        assert!(store(&mut inner, (claude, now), Ok(report(GRANTED)), Ok(report(AGY))));
+        assert!(store(&mut inner, (generation, now), claude(None), agy()));
         assert!(inner.agy.is_some());
     }
 
@@ -408,19 +431,14 @@ mod tests {
         assert!(inner.claude_list.is_none());
     }
 
-    const CODEX: &str =
-        include_str!("../../crates/quota-station-core/tests/fixtures/codex-chatgpt.json");
-
     #[test]
-    fn a_failed_codex_read_keeps_the_last_report_and_no_codex_folder_clears_it() {
+    fn no_codex_folder_clears_the_codex_report() {
         let mut inner = inner();
-        store_codex(&mut inner, Some(Ok(report(CODEX))));
+        let codex = Response::new(at(), vec![Provider::failed(ProviderId::Codex, "error", "x")]);
+        store_codex(&mut inner, Some(codex));
         assert!(inner.codex_quota.is_some());
-        store_codex(&mut inner, Some(Err(RunError::Timeout(Duration::from_secs(45)))));
-        assert!(inner.codex_quota.is_some(), "the last numbers stay, with the error");
-        assert!(inner.codex_quota_error.is_some());
         store_codex(&mut inner, None);
-        assert!(inner.codex_quota.is_none() && inner.codex_quota_error.is_none());
+        assert!(inner.codex_quota.is_none());
     }
 
     #[test]

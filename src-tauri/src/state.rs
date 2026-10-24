@@ -18,7 +18,6 @@ use quota_station_core::antigravity::pace::Pace;
 #[cfg(feature = "antigravity-accounts")]
 use quota_station_core::antigravity::{export, index};
 use quota_station_core::app_dir::AppDir;
-use quota_station_core::axi::Response;
 use quota_station_core::claude::keychain::Security;
 use quota_station_core::claude::state::AccountOut;
 use quota_station_core::claude::store::Store;
@@ -29,10 +28,11 @@ use quota_station_core::detail::AgyDetail;
 use quota_station_core::detail::ClaudeDetail;
 use quota_station_core::firstmate::{self, Reading};
 use quota_station_core::history::Seen;
-use quota_station_core::icon::{self, Context, Failing, Icon};
+use quota_station_core::icon::{self, Context, Icon};
 use quota_station_core::peers::{self, PeerState, SyncLog};
+use quota_station_core::quota::Response;
 use quota_station_core::rotation::{self, FileState, Rules, Stamp};
-use quota_station_core::runner::{self, RunError};
+use quota_station_core::runner;
 use quota_station_core::schedule::Schedule;
 use quota_station_core::settings::{Menubar, MenubarWindow, Settings, Theme};
 use quota_station_core::switcher::{Decision, DryRun, LogLine};
@@ -135,12 +135,9 @@ pub struct Inner {
     pub system_machine: String,
     pub claude: Option<Response>,
     pub agy: Option<Response>,
-    pub claude_error: Option<RunError>,
-    pub agy_error: Option<RunError>,
-    /// The last `--provider codex` report and read error, for the menu bar
-    /// and the Đang dùng block; none on a Mac without a Codex folder.
+    /// The last Codex report, for the menu bar and the Đang dùng block;
+    /// none on a Mac without a Codex folder.
     pub codex_quota: Option<Response>,
-    pub codex_quota_error: Option<RunError>,
     /// The Claude accounts the app keeps, with their last readings, and
     /// their emails and organizations only while names show. Read from the
     /// Keychain into memory; never written to disk.
@@ -163,8 +160,7 @@ pub struct Inner {
     pub reads: u64,
     pub read_now: bool,
     pub schedule: Schedule,
-    /// `--version` of the quota-axi in use, checked once per path.
-    pub version: Option<(PathBuf, Result<String, String>)>,
+    /// The owner's read of Claude Code's Keychain item runs.
     pub granting: bool,
     /// When the popover last hid itself on losing focus.
     pub popover_hidden_at: Option<Instant>,
@@ -216,7 +212,7 @@ pub struct Inner {
     /// Firstmate's state file as last read (at start, then after each read);
     /// `None` with no path set.
     pub firstmate: Option<Result<Reading, firstmate::ReadError>>,
-    /// Firstmate's dry rule on the newest quota-axi numbers, counted by the
+    /// Firstmate's dry rule on the newest numbers, counted by the
     /// app with the same rotation the alerts use.
     pub own_dry: Option<bool>,
     /// macOS's notification center; `None` until the app has started it.
@@ -336,10 +332,7 @@ impl Inner {
             system_machine,
             claude: None,
             agy: None,
-            claude_error: None,
-            agy_error: None,
             codex_quota: None,
-            codex_quota_error: None,
             claude_list: None,
             claude_accounts: Vec::new(),
             claude_live: crate::claude::Live::default(),
@@ -350,7 +343,6 @@ impl Inner {
             reads: 0,
             read_now: true,
             schedule: Schedule::new(),
-            version: None,
             granting: false,
             popover_hidden_at: None,
             main_tab: Tab::Overview,
@@ -423,11 +415,6 @@ impl Inner {
         quota_station_core::claude::Paths::for_home(&self.home)
     }
 
-    /// The quota-axi to run: the user's path, else the first usual place.
-    pub fn quota_axi(&self) -> Option<PathBuf> {
-        self.settings.quota_axi_path.clone().or_else(|| runner::discover(&self.home))
-    }
-
     /// The Claude accounts the app keeps, with the Keychain.
     pub fn claude_store(&self) -> Store {
         Store::new(self.claude_paths(), Security::system())
@@ -440,12 +427,9 @@ impl Inner {
 
     /// What a manual switch uses.
     pub fn switch_tools(&self) -> Tools {
-        let paths = self.claude_paths();
         Tools {
-            env: paths.quota_axi_env(),
             store: self.claude_store(),
             launchctl: PathBuf::from(switcher::LAUNCHCTL),
-            quota_axi: self.quota_axi(),
             pause_file: pause::path(&self.home),
         }
     }
@@ -461,19 +445,18 @@ impl Inner {
     /// grant, the re-read after a switch), ahead of any read in flight.
     pub fn store_claude(&mut self, report: Response) {
         self.claude = Some(report);
-        self.claude_error = None;
         self.claude_generation += 1;
     }
 
-    /// quota-axi's account in use, by its place in this app's Antigravity
-    /// index, when quota-axi read this app's folder.
+    /// The Antigravity account the last reading shows in use, by its place
+    /// in this app's index.
     #[cfg(feature = "antigravity-accounts")]
     pub fn agy_active_number(&self) -> Option<usize> {
-        let cockpit = self.agy.as_ref()?.primary("agy")?.cockpit.as_ref()?;
-        if cockpit.status != "ok" || cockpit.source.as_deref() != Some("quota-station") {
+        let list = self.agy.as_ref()?.primary("agy")?.agy_accounts.as_ref()?;
+        if list.status != "ok" {
             return None;
         }
-        cockpit.accounts.iter().find(|a| a.active).map(|a| a.account as usize)
+        list.accounts.iter().find(|a| a.active).map(|a| a.account as usize)
     }
 
     pub fn snapshot(&self) -> Snapshot {
@@ -491,7 +474,7 @@ impl Inner {
             detail::apply_claude(&mut snapshot.claude, list, now);
         }
         #[cfg(feature = "antigravity-accounts")]
-        if snapshot.agy.source.as_deref() == Some("quota-station") {
+        if snapshot.agy.source.as_deref() == Some(quota_station_core::snapshot::LIST_SOURCE) {
             detail::apply_agy(&mut snapshot.agy, &self.agy_details(), now);
         }
         if self.settings.hide_names {
@@ -529,11 +512,6 @@ impl Inner {
         let cx = Context {
             follow: self.settings.menubar,
             window: self.settings.menubar_window,
-            failing: Failing {
-                claude: self.claude_error.is_some(),
-                agy: self.agy_error.is_some(),
-                codex: self.codex_quota_error.is_some(),
-            },
             codex: self.codex_use(),
             now,
             roles: self.settings.advanced,
@@ -545,30 +523,12 @@ impl Inner {
     /// The model for `snapshot`: [`Inner::detailed_snapshot`] reads the
     /// app's Antigravity files, so a caller that has one passes it in.
     pub fn model_with(&self, snapshot: Snapshot) -> Model {
-        let path = self.quota_axi();
-        let version = self
-            .version
-            .as_ref()
-            .filter(|(p, _)| Some(p) == path.as_ref())
-            .and_then(|(_, v)| v.as_ref().ok().cloned());
         Model {
             snapshot,
-            errors: Errors {
-                claude: self.claude_error.as_ref().map(ErrorView::from),
-                agy: self.agy_error.as_ref().map(ErrorView::from),
-                codex: self.codex_quota_error.as_ref().map(ErrorView::from),
-            },
             reading: self.reading,
             reads: self.reads,
             machine: self.machine(),
             machine_default: self.system_machine.clone(),
-            quota_axi: QuotaAxi {
-                exists: path.as_ref().is_some_and(|p| p.is_file()),
-                path: path.as_ref().map(|p| runner::display_path(p, &self.home)),
-                custom: self.settings.quota_axi_path.is_some(),
-                fork: version.as_deref().map(runner::is_fork),
-                version,
-            },
             granting: self.granting,
             switcher: self.switcher_view(OffsetDateTime::now_utc()),
             claude_switch: ClaudeSwitchView {
@@ -692,13 +652,12 @@ impl Inner {
 #[serde(rename_all = "camelCase")]
 pub struct Model {
     pub snapshot: Snapshot,
-    pub errors: Errors,
     pub reading: bool,
     pub reads: u64,
     pub machine: String,
     /// The name macOS gives this Mac, for the setting's placeholder.
     pub machine_default: String,
-    pub quota_axi: QuotaAxi,
+    /// The owner's read of Claude Code's Keychain item runs.
     pub granting: bool,
     pub switcher: SwitcherView,
     pub claude_switch: ClaudeSwitchView,
@@ -761,7 +720,7 @@ pub struct AdvancedView {
 pub struct Capabilities {
     /// The Antigravity accounts the app logs in, reads and switches itself
     /// (the `antigravity-accounts` feature, CC BY-NC-SA 4.0). Without them
-    /// Antigravity is the one account quota-axi reads, read-only.
+    /// Antigravity is the one account signed in on this Mac, read-only.
     pub agy_accounts: bool,
 }
 
@@ -777,10 +736,10 @@ pub struct RotationView {
     /// `~/Library/Application Support/com.shin315.quota-station/claude/rotation`
     /// once the app keeps the accounts, else `~/.config/cswap-prefer-team/rotation`.
     pub path: String,
-    /// `ok`, `missing`, `invalid` (quota-axi would refuse it) or `unreadable`.
+    /// `ok`, `missing`, `invalid` (the file's rules refuse it) or `unreadable`.
     pub status: &'static str,
     pub rules: Option<Rules>,
-    /// quota-axi's reason for an invalid file, or the read error.
+    /// Why the file is invalid, in the rule's words, or the read error.
     pub reason: Option<String>,
     /// Sent back with a save, so a file changed meanwhile is not overwritten.
     pub version: Option<String>,
@@ -858,50 +817,6 @@ pub struct ClaudeSwitchView {
     pub ready: bool,
     /// The slot a switch is running for.
     pub busy: Option<u32>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct Errors {
-    pub claude: Option<ErrorView>,
-    pub agy: Option<ErrorView>,
-    pub codex: Option<ErrorView>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct QuotaAxi {
-    /// `~/…` for paths under home.
-    pub path: Option<String>,
-    /// Set by the user rather than found.
-    pub custom: bool,
-    pub exists: bool,
-    pub version: Option<String>,
-    pub fork: Option<bool>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct ErrorView {
-    pub kind: &'static str,
-    pub detail: String,
-}
-
-impl From<&RunError> for ErrorView {
-    fn from(e: &RunError) -> Self {
-        let kind = match e {
-            RunError::NotConfigured => "notConfigured",
-            RunError::NotFound(_) => "notFound",
-            RunError::Spawn(_) => "spawn",
-            RunError::Timeout(_) => "timeout",
-            RunError::Exit { .. } => "exit",
-            RunError::Parse(_) => "parse",
-        };
-        let detail = match e {
-            // Never echo an absolute path from this Mac into the UI.
-            RunError::NotFound(_) | RunError::NotConfigured => String::new(),
-            other => other.to_string(),
-        };
-        ErrorView { kind, detail }
-    }
 }
 
 #[cfg(test)]
@@ -1024,8 +939,8 @@ mod tests {
     fn hidden_names_never_reach_the_windows() {
         let mut inner = inner();
         let report =
-            include_str!("../../crates/quota-station-core/tests/fixtures/claude-pool-schema5.json");
-        inner.claude = quota_station_core::axi::parse(report).ok();
+            include_str!("../../crates/quota-station-core/tests/fixtures/claude-pool.json");
+        inner.claude = serde_json::from_str(report).ok();
         inner.claude_list = Some(vec![ClaudeDetail {
             number: 1,
             email: Some("lanpham.dev@example.com".into()),

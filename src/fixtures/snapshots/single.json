@@ -10,7 +10,7 @@
         "disabled": false,
         "reading": "fresh",
         "fetchedAt": "2026-01-16T07:18:00.000Z",
-        "source": "claudeSwap",
+        "source": "list",
         "membership": "in",
         "leavesAt": null,
         "lines": [
@@ -88,7 +88,7 @@
         "disabled": false,
         "reading": "fresh",
         "fetchedAt": "2026-01-16T07:16:40.000Z",
-        "source": "claudeSwap",
+        "source": "list",
         "membership": "in",
         "leavesAt": null,
         "lines": [
@@ -116,7 +116,7 @@
         "disabled": false,
         "reading": "fresh",
         "fetchedAt": "2026-01-16T07:15:00.000Z",
-        "source": "claudeSwap",
+        "source": "list",
         "membership": "in",
         "leavesAt": null,
         "lines": [
@@ -177,60 +177,32 @@
     "source": null
   },
   "agy": {
-    "status": "ok",
+    "status": "single",
     "reason": null,
     "accounts": [
       {
-        "number": 1,
-        "role": "unknown",
-        "active": false,
-        "disabled": false,
-        "reading": "stale",
-        "fetchedAt": "2026-01-16T06:55:00.000Z",
-        "source": "cockpit",
-        "membership": "unknown",
-        "leavesAt": null,
-        "lines": [
-          {
-            "kind": "gemini",
-            "percent": 63.0,
-            "resetsAt": "2026-01-21T07:20:00.000Z",
-            "pending": false,
-            "atLeast": false
-          },
-          {
-            "kind": "claudeGpt",
-            "percent": 82.0,
-            "resetsAt": "2026-01-21T11:20:00.000Z",
-            "pending": false,
-            "atLeast": false
-          }
-        ],
-        "windows": []
-      },
-      {
-        "number": 2,
+        "number": 0,
         "role": "unknown",
         "active": true,
         "disabled": false,
         "reading": "fresh",
-        "fetchedAt": "2026-01-16T07:19:10.000Z",
-        "source": "cockpit",
+        "fetchedAt": "2026-01-16T07:16:00.000Z",
+        "source": "live",
         "membership": "unknown",
         "leavesAt": null,
         "lines": [
           {
-            "kind": "gemini",
-            "percent": 94.0,
-            "resetsAt": "2026-01-20T07:20:00.000Z",
+            "kind": "session",
+            "percent": 98.0,
+            "resetsAt": "2026-01-16T09:18:00.000Z",
             "pending": false,
             "atLeast": false
           },
           {
-            "kind": "claudeGpt",
-            "percent": null,
-            "resetsAt": null,
-            "pending": true,
+            "kind": "week",
+            "percent": 94.0,
+            "resetsAt": "2026-01-20T07:20:00.000Z",
+            "pending": false,
             "atLeast": false
           }
         ],
@@ -267,31 +239,20 @@
       }
     ],
     "pool": {
-      "kind": "rotation",
-      "room": 1.2,
-      "percent": 60.0,
-      "line": null,
+      "kind": "active",
+      "room": null,
+      "percent": 94.0,
+      "line": "week",
       "scope": "gemini",
-      "members": 2,
-      "rooms": [
-        {
-          "number": 2,
-          "percent": 52.2
-        },
-        {
-          "number": 1,
-          "percent": 70.0
-        }
-      ],
-      "nextRefillAt": "2026-01-16T07:50:00.000Z",
-      "refills": [
-        2
-      ],
+      "members": 0,
+      "rooms": [],
+      "nextRefillAt": null,
+      "refills": [],
       "exhausted": false,
       "reason": null
     },
     "generatedAt": "2026-01-16T07:20:00.000Z",
-    "newestReadingAt": "2026-01-16T07:19:10.000Z",
+    "newestReadingAt": "2026-01-16T07:16:00.000Z",
     "stale": false,
     "personalHours": null,
     "source": null

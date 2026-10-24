@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: MIT
 
 // Browser preview for `npm run dev`: the popover or the main window on a
-// fixture, without Tauri. `?state=keychain&view=window&tab=claude&error=notFound`.
+// fixture, without Tauri. `?state=keychain&view=window&tab=claude`.
 // Switching (M3): `switcher=held|noguard|auto|stopped|missing` sets the
 // switcher, `outcome=raced|failed|busy|unconfirmed` what a switch reports, and
 // `accounts=none` shows a Mac where Quota Station keeps no Claude account yet. A switch takes 1.5 s, so the working sheet shows.
-// Rotation rules (M5): `tab=rules` with `rotation=unreachable|newer|edited|unstamped|missing|invalid|refused|single`;
+// Rotation rules (M5): `tab=rules` with `rotation=unreachable|newer|edited|unstamped|missing|invalid|unwritable|single`;
 // a save takes 1 s, and `unreachable` leaves Mac C behind.
 // Antigravity logins (M4a) and reads (M4b): `agy=two|relogin|verify|noclient|tooopen|invalid|broken|reading|failing|forbidden`
 // sets the login card, `login=timeout|noRefreshToken|keychain|…` how a login ends
@@ -60,7 +60,7 @@
 // 38 Codex sessions in a format the app cannot read, `stats=fail` a report that cannot be read.
 
 import type { Api } from './lib/api';
-import type { AgyAccounts, AgyApp, AgyHow, AgyOutcome, CodexOutcome, CodexTarget, ErrorView, McpTable, Model, Outcome, Tab, UpdateError, UpdateOutcome } from './lib/model';
+import type { AgyAccounts, AgyApp, AgyHow, AgyOutcome, CodexOutcome, CodexTarget, McpTable, Model, Outcome, Tab, UpdateError, UpdateOutcome } from './lib/model';
 import { fakeApi, fakeEmail, hideNames } from './fixtures/fakeApi';
 import { backupFixture, packsFixture } from './fixtures/fakeBackup';
 import { API_KEY, BASE_URL, CLAUDE_BASE, envAlert, envFixture, LAUNCHD_GEMINI } from './fixtures/fakeEnv';
@@ -70,7 +70,6 @@ import { instrFixture, pluginsBrandsFixture, pluginsFixture, skillsFixture, skil
 import {
   agyAccount,
   agyFixture,
-  failing,
   FIXTURE_NOW,
   fixtureModel,
   heldSwitcher,
@@ -335,10 +334,9 @@ function pick<T>(table: Record<string, T>, key: string | null): T | undefined {
 
 export function previewSetup(params: URLSearchParams): { api: Api; view: 'popover' | 'window'; clock: () => Date } {
   const state = params.get('state') ?? 'fresh';
-  const error = params.get('error') as ErrorView['kind'] | null;
   const tab = TABS.find((t) => t === params.get('tab')) ?? 'overview';
   const view = params.get('view') === 'window' ? 'window' : 'popover';
-  const over: Partial<Model> = error ? { errors: failing(error) } : {};
+  const over: Partial<Model> = {};
   const switcher = pick(SWITCHERS, params.get('switcher'));
   if (switcher) over.switcher = switcher();
   if (params.get('accounts') === 'none') {
@@ -414,7 +412,7 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
     saveDelayMs: 1000,
     clock: () => FIXTURE_NOW,
     unreachable: rotation === 'unreachable' ? ['mac-c'] : [],
-    rulesError: rotation === 'refused' ? { kind: 'refused', detail: 'rotation_bad_value:personal_hours', restored: true } : undefined,
+    rulesError: rotation === 'unwritable' ? { kind: 'write', detail: 'Permission denied', restored: true } : undefined,
     agyLoginDelayMs: 3000,
     agyLogin: ends ? () => ({ kind: ends, detail: '' }) : undefined,
     agyApp: agyApp !== null && Object.hasOwn(AGY_APPS, agyApp) ? AGY_APPS[agyApp] : undefined,

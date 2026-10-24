@@ -1,36 +1,31 @@
 {
   "generatedAt": "2026-01-16T07:20:00.000Z",
-  "schemaVersion": 5,
   "providers": [
     {
       "provider": "claude",
+      "accountKeys": [
+        "default"
+      ],
       "windows": [
         {
           "id": "five_hour",
-          "label": "five_hour",
           "kind": "session",
           "percentRemaining": 26,
           "resetsAt": "2026-01-16T10:29:00.000Z"
         },
         {
           "id": "seven_day",
-          "label": "seven_day",
           "kind": "weekly",
           "percentRemaining": 61,
           "resetsAt": "2026-01-21T03:00:00.000Z"
         },
         {
           "id": "model:fable",
-          "label": "model:fable",
           "kind": "model",
           "percentRemaining": 13,
           "resetsAt": "2026-01-18T01:20:00.000Z"
         }
       ],
-      "state": {
-        "status": "fresh",
-        "stale": false
-      },
       "quotaSemantics": {
         "status": "known",
         "effectiveAvailability": [
@@ -41,14 +36,16 @@
             "boundedBy": [
               "five_hour",
               "seven_day"
-            ]
+            ],
+            "limitingWindowIds": []
           }
         ]
       },
-      "claudeSwap": {
-        "status": "ok",
+      "state": {
+        "status": "fresh"
+      },
+      "claudeAccounts": {
         "activeSlot": 2,
-        "activeBasis": "identity",
         "slots": [
           {
             "slot": 1,
@@ -130,10 +127,7 @@
             ]
           }
         ]
-      },
-      "accountKeys": [
-        "default"
-      ]
+      }
     }
   ]
 }

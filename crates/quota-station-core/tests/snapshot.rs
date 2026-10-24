@@ -3,10 +3,10 @@
 
 mod common;
 
-use common::{fixture, fixture_text};
-use quota_station_core::axi::{self, ParseError};
+use common::fixture;
 use quota_station_core::snapshot::{
     Keychain, LineKind, Membership, PoolKind, Reading, Role, SectionStatus, Snapshot, Source,
+    LIST_SOURCE,
 };
 
 fn claude(name: &str) -> Snapshot {
@@ -18,8 +18,8 @@ fn agy(name: &str) -> Snapshot {
 }
 
 #[test]
-fn schema_5_counts_the_whole_rotation() {
-    let s = claude("claude-pool-schema5.json");
+fn the_room_pool_counts_the_whole_rotation() {
+    let s = claude("claude-pool.json");
     assert_eq!(s.keychain, Keychain::Granted);
     let c = &s.claude;
     assert_eq!(c.status, SectionStatus::Ok);
@@ -40,8 +40,8 @@ fn schema_5_counts_the_whole_rotation() {
 }
 
 #[test]
-fn the_active_slot_reads_the_live_row_and_others_read_claude_swap() {
-    let s = claude("claude-pool-schema5.json");
+fn the_active_slot_reads_the_live_row_and_others_read_the_list() {
+    let s = claude("claude-pool.json");
     let active = s.claude.active().expect("active slot");
     assert_eq!(active.number, 2);
     assert_eq!(active.source, Source::Live);
@@ -57,7 +57,7 @@ fn the_active_slot_reads_the_live_row_and_others_read_claude_swap() {
 
     let personal = &s.claude.accounts[0];
     assert_eq!(personal.role, Role::Personal);
-    assert_eq!(personal.source, Source::ClaudeSwap);
+    assert_eq!(personal.source, Source::List);
     // Bound by both account windows: named by the week, which resets last.
     assert_eq!(personal.lines[0].kind, LineKind::Week);
     assert_eq!(personal.lines[0].percent, Some(100.0));
@@ -78,26 +78,45 @@ fn the_active_slot_reads_the_live_row_and_others_read_claude_swap() {
 }
 
 #[test]
-fn schema_6_reads_the_lane_that_carries_the_slot_report() {
-    let text = fixture_text("claude-pool-schema6.json");
-    let report = axi::parse(&text).unwrap();
-    assert_eq!(report.schema_version, 6);
-    let s = Snapshot::build(Some(&report), None);
-    assert_eq!(s.claude.accounts.len(), 4);
-    assert_eq!(s.claude.pool.room, Some(2.27));
-    // Identity fields in the report never reach the snapshot.
-    let json = serde_json::to_string(&s).unwrap();
-    assert!(text.contains("redacted-sample"));
-    assert!(!json.contains("redacted-sample"));
-    assert!(!json.contains("email"));
+fn keychain_not_granted_asks_for_it_and_shows_no_number() {
+    // A Mac whose accounts the app does not keep reads Claude Code's own
+    // login, which the Keychain holds back until the owner grants it.
+    let s = claude("claude-keychain-required.json");
+    assert_eq!(s.keychain, Keychain::Required);
+    assert_eq!(s.claude.status, SectionStatus::Single);
+    assert!(s.claude.accounts.is_empty());
+    assert_eq!(s.claude.reason.as_deref(), Some("keychain_prompt_required"));
+    assert_eq!(s.claude.pool.kind, PoolKind::None);
 }
 
 #[test]
-fn keychain_not_granted_keeps_claude_swap_numbers_and_the_active_slot() {
-    let s = claude("claude-keychain-required.json");
-    assert_eq!(s.keychain, Keychain::Required);
+fn the_one_login_read_keeps_its_last_numbers_marked_stale() {
+    let report = serde_json::from_value(serde_json::json!({
+        "generatedAt": "2026-01-16T07:20:00.000Z",
+        "providers": [{
+            "provider": "claude",
+            "windows": [
+                { "id": "five_hour", "kind": "session", "percentUsed": 30, "percentRemaining": 70, "resetsAt": "2026-01-16T09:00:00.000Z" },
+                { "id": "seven_day", "kind": "weekly", "percentUsed": 12, "percentRemaining": 88, "resetsAt": "2026-01-19T14:00:00.000Z" }
+            ],
+            "state": { "status": "stale", "refreshedAt": "2026-01-16T06:50:00.000Z", "error": "Claude quota unavailable" }
+        }]
+    }))
+    .unwrap();
+    let s = Snapshot::build(Some(&report), None);
+    assert_eq!(s.claude.status, SectionStatus::Single);
+    let a = s.claude.active().unwrap();
+    assert_eq!((a.reading, a.lines[0].percent), (Reading::Stale, Some(70.0)));
+    assert_eq!(a.fetched_at.as_deref(), Some("2026-01-16T06:50:00.000Z"));
+    assert!(s.claude.stale);
+    assert_eq!(s.claude.reason, None);
+}
+
+#[test]
+fn a_stale_active_account_falls_back_to_its_list_numbers() {
+    let s = claude("claude-stale.json");
     let active = s.claude.active().unwrap();
-    assert_eq!(active.source, Source::ClaudeSwap);
+    assert_eq!(active.source, Source::List);
     assert_eq!(active.lines[0].percent, Some(27.0));
     let pool = &s.claude.pool;
     assert_eq!(pool.kind, PoolKind::Active);
@@ -139,13 +158,12 @@ fn no_rotation_file_shows_the_active_slot_only() {
 }
 
 #[test]
-fn unavailable_claude_swap_says_why_and_shows_no_number() {
+fn an_unread_login_shows_no_number_and_says_why() {
     let s = claude("claude-unavailable.json");
-    assert_eq!(s.claude.status, SectionStatus::Unavailable);
-    assert_eq!(s.claude.reason.as_deref(), Some("usage_schema_mismatch"));
+    assert_eq!(s.claude.status, SectionStatus::Single);
     assert!(s.claude.accounts.is_empty());
+    assert_eq!(s.claude.reason.as_deref(), Some("network_unreachable"));
     assert_eq!(s.claude.pool.kind, PoolKind::None);
-    assert_eq!(s.claude.pool.reason.as_deref(), Some("claude_swap_unavailable"));
     assert_eq!(s.keychain, Keychain::Unknown);
 }
 
@@ -160,10 +178,11 @@ fn exhausted_rotation_names_who_refills_first() {
 }
 
 #[test]
-fn cockpit_lists_every_antigravity_account() {
-    let s = agy("agy-cockpit.json");
+fn the_list_shows_every_antigravity_account() {
+    let s = agy("agy-list.json");
     let a = &s.agy;
     assert_eq!(a.status, SectionStatus::Ok);
+    assert_eq!(a.source.as_deref(), Some(LIST_SOURCE));
     assert_eq!(a.accounts.len(), 2);
     assert_eq!(a.accounts[0].reading, Reading::Stale);
     assert_eq!(a.accounts[0].lines[0].kind, LineKind::Gemini);
@@ -173,17 +192,17 @@ fn cockpit_lists_every_antigravity_account() {
     assert_eq!(active.number, 2);
     assert!(active.lines[1].pending);
     assert!(!a.stale);
-    // No agy rotation file: the signed-in account's own Gemini number.
+    // The signed-in account's own Gemini number.
     assert_eq!(a.pool.kind, PoolKind::Active);
     assert_eq!(a.pool.percent, Some(94.0));
     assert_eq!(a.pool.line, Some(LineKind::Week));
 }
 
 #[test]
-fn a_mac_without_cockpit_sees_only_the_signed_in_account() {
-    let s = agy("agy-no-cockpit.json");
+fn a_mac_without_the_list_sees_only_the_signed_in_account() {
+    let s = agy("agy-single.json");
     let a = &s.agy;
-    assert_eq!(a.status, SectionStatus::NoSidecar);
+    assert_eq!(a.status, SectionStatus::Single);
     assert_eq!(a.accounts.len(), 1);
     let only = &a.accounts[0];
     assert!(only.active);
@@ -197,10 +216,10 @@ fn a_mac_without_cockpit_sees_only_the_signed_in_account() {
 }
 
 #[test]
-fn unavailable_cockpit_keeps_the_signed_in_account() {
-    let s = agy("agy-cockpit-unavailable.json");
+fn an_unreadable_list_keeps_the_signed_in_account() {
+    let s = agy("agy-list-unavailable.json");
     assert_eq!(s.agy.status, SectionStatus::Unavailable);
-    assert_eq!(s.agy.reason.as_deref(), Some("index_version_unsupported"));
+    assert_eq!(s.agy.reason.as_deref(), Some("index_unreadable"));
     assert_eq!(s.agy.accounts.len(), 1);
 }
 
@@ -210,28 +229,6 @@ fn a_mac_without_antigravity_has_no_section() {
     assert_eq!(s.agy.status, SectionStatus::NotSetUp);
     assert!(s.agy.accounts.is_empty());
     assert_eq!(s.agy.pool.kind, PoolKind::None);
-}
-
-#[test]
-fn agy_rotation_counts_room_in_accounts() {
-    let s = agy("agy-pool.json");
-    let pool = &s.agy.pool;
-    assert_eq!(pool.kind, PoolKind::Rotation);
-    assert_eq!(pool.room, Some(1.2));
-    assert_eq!(pool.scope.as_deref(), Some("gemini"));
-    assert!((pool.percent.unwrap() - 60.0).abs() < 1e-9);
-    assert_eq!(pool.refills, [2]);
-}
-
-#[test]
-fn unsupported_schema_is_refused() {
-    let err = axi::parse(&fixture_text("schema-unsupported.json")).unwrap_err();
-    assert_eq!(err, ParseError::UnsupportedSchema(7));
-}
-
-#[test]
-fn garbage_is_malformed() {
-    assert!(matches!(axi::parse("not json"), Err(ParseError::Malformed(_))));
 }
 
 #[test]
@@ -245,8 +242,8 @@ fn nothing_read_yet_is_unread() {
 
 #[test]
 fn each_section_keeps_the_time_of_its_own_report() {
-    let claude = fixture("claude-pool-schema5.json");
-    let mut agy = fixture("agy-cockpit.json");
+    let claude = fixture("claude-pool.json");
+    let mut agy = fixture("agy-list.json");
     agy.generated_at = "2026-01-16T06:50:00.000Z".into();
     let s = Snapshot::build(Some(&claude), Some(&agy));
     assert_eq!(s.claude.generated_at.as_deref(), Some("2026-01-16T07:20:00.000Z"));
@@ -255,14 +252,11 @@ fn each_section_keeps_the_time_of_its_own_report() {
 
 #[test]
 fn snapshot_serializes_in_camel_case_for_the_ui() {
-    let s = Snapshot::build(
-        Some(&fixture("claude-pool-schema5.json")),
-        Some(&fixture("agy-no-cockpit.json")),
-    );
+    let s = Snapshot::build(Some(&fixture("claude-pool.json")), Some(&fixture("agy-single.json")));
     let v: serde_json::Value = serde_json::to_value(&s).unwrap();
     assert_eq!(v["claude"]["pool"]["kind"], "rotation");
     assert_eq!(v["claude"]["accounts"][1]["lines"][1]["kind"], "fableWeek");
-    assert_eq!(v["agy"]["status"], "noSidecar");
+    assert_eq!(v["agy"]["status"], "single");
     assert_eq!(v["keychain"], "granted");
     assert_eq!(v["claude"]["generatedAt"], "2026-01-16T07:20:00.000Z");
     assert_eq!(v["agy"]["generatedAt"], "2026-01-16T07:20:00.000Z");

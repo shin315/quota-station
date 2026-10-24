@@ -72,11 +72,9 @@ export interface Api {
   mainTab(): Promise<Tab>;
   hidePopover(): Promise<void>;
   resizePopover(height: number): Promise<void>;
-  /** Empty goes back to finding quota-axi in the usual places. Rejects with `notFound`. */
-  setQuotaAxiPath(path: string): Promise<Model>;
   /** Empty goes back to the name macOS gives this Mac. */
   setMachineName(name: string): Promise<Model>;
-  /** Lets quota-axi ask macOS for Keychain access once. */
+  /** Reads Claude Code's login once, waiting while macOS asks the owner for Keychain access. */
   grantKeychain(): Promise<Model>;
   /** Live Claude Code sessions on this Mac; null when they cannot be counted. */
   claudeSessions(): Promise<Sessions | null>;
@@ -106,7 +104,7 @@ export interface Api {
   extendPause(minutes: number): Promise<Model>;
   resumeSwitching(): Promise<Model>;
   /**
-   * Writes the rules on this Mac, has quota-axi check them and copies them to the other Macs.
+   * Writes the rules on this Mac once they keep the file's rules, and copies them to the other Macs.
    * `base` is the file version the editor started from. Rejects with a `RulesError`.
    */
   saveRotation(rules: Rules, base: string | null): Promise<Model>;
@@ -121,7 +119,7 @@ export interface Api {
   /** Reads the other Mac's rotation file over SSH; changes nothing. */
   testPeer(alias: string): Promise<PeerTest>;
   /**
-   * The switcher's `--dry-run` with these rules. Rejects with a quota-axi reason
+   * The switcher's `--dry-run` with these rules. Rejects with the rules' reason
    * (`rotation_bad_value:<key>`, `rotation_personal_in_team`) for rules that
    * cannot be written, or with the dry run's error kind (`notFound`, `timeout`, …).
    */
@@ -162,7 +160,7 @@ export interface Api {
   /** Is Antigravity.app installed, which version, does it run; asked when the switch sheet opens. */
   agyAppState(): Promise<AgyApp>;
   /**
-   * Switches Antigravity to the account `id` the way `how` says, and reports what quota-axi shows
+   * Switches Antigravity to the account `id` the way `how` says, and reports what agy shows
    * five seconds later. Rejects with `busy` (a switch is running), `loggingOut`, `loggingIn`,
    * `unknownAccount` or `index`.
    */
@@ -382,7 +380,6 @@ export const tauriApi: Api = {
   mainTab: () => invoke<Tab>('main_tab'),
   hidePopover: () => invoke('hide_popover'),
   resizePopover: (height) => invoke('popover_resize', { height }),
-  setQuotaAxiPath: (path) => invoke<Model>('set_quota_axi_path', { path }),
   setMachineName: (name) => invoke<Model>('set_machine_name', { name }),
   grantKeychain: () => invoke<Model>('grant_keychain'),
   claudeSessions: () => invoke<Sessions | null>('claude_sessions'),

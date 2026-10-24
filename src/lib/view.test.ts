@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { hideNames } from '../fixtures/fakeApi';
-import { codexFixture, failing, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
+import { codexFixture, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
 import { popoverView, type CardView, type NowView } from './view';
 
 const view = (name: string, over = {}, options = {}) => popoverView(fixtureModel(name, over), FIXTURE_NOW, options);
@@ -74,12 +74,13 @@ describe('popover view', () => {
     const chatgpt = view('fresh', { codex: codexFixture({ current: 'chatgpt' }) });
     expect(now(chatgpt.now)[2]).toEqual(['Codex', 'ChatGPT', '23%', '5 giờ', '↻ 2h 9m', '']);
     expect(view('fresh', { codex: codexFixture({ present: false }) }).now.rows.map((r) => r.id)).toEqual(['c', 'g']);
-    // Not read yet, or quota-axi failing for Codex: the name and no number.
+    // Not read yet, or ChatGPT not answering: the name and no number.
     const unread = fixtureModel('fresh', { codex: codexFixture({ current: 'chatgpt' }) });
     unread.snapshot.codex = { ...unread.snapshot.codex, status: 'unread', accounts: [] };
     expect(now(popoverView(unread, FIXTURE_NOW).now)[2]).toEqual(['Codex', 'ChatGPT', '—', '', '', 'chưa có số']);
-    const err = view('fresh', { codex: codexFixture({ current: 'chatgpt' }), errors: { claude: null, agy: null, codex: { kind: 'timeout', detail: '' } } });
-    expect(err.now.rows[2]).toMatchObject({ text: '—', note: 'không đọc được số' });
+    const down = fixtureModel('fresh', { codex: codexFixture({ current: 'chatgpt' }) });
+    down.snapshot.codex = { ...down.snapshot.codex, status: 'unavailable', accounts: [] };
+    expect(popoverView(down, FIXTURE_NOW).now.rows[2]).toMatchObject({ text: '—', note: 'không đọc được số' });
     // No ChatGPT login on a Mac whose Codex uses it: no row.
     const nologin = view('no-antigravity', { codex: codexFixture({ current: 'chatgpt' }) });
     expect(nologin.now.rows.map((r) => r.id)).toEqual(['c']);
@@ -165,8 +166,8 @@ describe('popover view', () => {
 
   });
 
-  it('accounts only Cockpit Tools reads show its one number per model group', () => {
-    const [ultra1, ultra2] = view('cockpit').agy.cards;
+  it('accounts the app has no reading of show one number per model group', () => {
+    const [ultra1, ultra2] = view('stale').agy.cards;
     expect(cells(ultra1)).toEqual([
       ['Gemini', '37%', '↻ 4d 23h'],
       ['Claude/GPT', '18%', '↻ 5d 3h'],
@@ -189,25 +190,26 @@ describe('popover view', () => {
   });
 
   it('a Mac without an account list sees only the signed-in Antigravity account', () => {
-    const v = view('no-cockpit');
+    const v = view('single');
     expect(v.agy.cards.map((c) => c.name)).toEqual(['Tài khoản đang dùng']);
     expect(v.agy.cards[0].cells.map((c) => c.label)).toEqual(['Gemini 5 giờ', 'Gemini tuần', 'Claude/GPT 5 giờ', 'Claude/GPT tuần']);
     expect(v.agy.note?.text).toBe('Chỉ thấy tài khoản đang dùng: chưa có danh sách tài khoản');
   });
 
-  it('asks for Keychain access once and says where the numbers come from', () => {
+  it('asks for Keychain access once to read Claude Code’s login', () => {
     const v = view('keychain');
     expect(v.banner).toEqual({
       tone: 'warn',
-      title: 'Chưa cấp quyền Keychain cho quota-axi',
-      body: 'Dòng Claude của Team A lấy tạm từ Quota Station (số chưa được cập nhật). Cấp quyền một lần để đọc trực tiếp.',
+      title: 'Chưa cấp quyền Keychain cho Quota Station',
+      body: 'Dòng Claude cần đăng nhập của Claude Code trong Keychain để có số mới. Cấp quyền một lần, rồi bấm "Luôn cho phép" khi macOS hỏi.',
       actions: [
         { label: 'Cấp quyền một lần', act: 'keychain' },
         { label: 'Để sau', act: 'dismiss' },
       ],
     });
-    const teamA = v.claude.cards.find((r) => r.name === 'Team A')!;
-    expect(teamA.chips.map((c) => c.t)).toContain('số từ Quota Station');
+    expect(v.claude.cards).toEqual([]);
+    expect(v.claude.note).toBeNull();
+    expect(v.now.rows[0]).toMatchObject({ svc: 'Claude', text: '—', note: 'không đọc được số' });
     expect(view('keychain', {}, { keychainLater: true }).banner).toBeNull();
   });
 
@@ -255,10 +257,11 @@ describe('popover view', () => {
     expect(v.claude.cards.map((r) => r.name).sort()).toEqual(['Tài khoản 1', 'Tài khoản 2', 'Tài khoản 3', 'Tài khoản 4']);
   });
 
-  it('an unreadable claude-swap and account list say why without guessing numbers', () => {
+  it('an unread login and an unreadable account list say why without guessing numbers', () => {
     const v = view('unavailable');
     expect(v.claude.cards).toEqual([]);
-    expect(v.claude.note?.text).toBe('Không đọc được danh sách tài khoản của claude-swap (usage_schema_mismatch).');
+    expect(v.claude.note?.text).toBe('Không đọc được số của Claude Code (network_unreachable).');
+    expect(v.now.rows[0]).toMatchObject({ svc: 'Claude', text: '—', note: 'không đọc được số' });
     expect(v.agy.note?.text).toBe('Không đọc được danh sách tài khoản: chỉ thấy tài khoản đang dùng');
   });
 
@@ -269,47 +272,12 @@ describe('popover view', () => {
     expect(v.agy.note?.text).toBe('Máy này chưa có Antigravity');
   });
 
-  it('an Antigravity rotation still shows the account in use, not its room', () => {
-    const v = view('agy-pool');
-    expect(v.now.rows[1]).toMatchObject({ svc: 'Gemini' });
-    expect(JSON.stringify(v)).not.toContain('tài khoản Antigravity');
-  });
-
-  it('quota-axi missing keeps the last numbers, marked old', () => {
-    const v = view('fresh', { errors: failing('notFound') });
-    expect(v.fresh).toEqual({ tone: 'bad', text: 'không đọc được số' });
-    expect(v.banner).toEqual({
-      tone: 'bad',
-      title: 'Không chạy được quota-axi',
-      body: 'Không tìm thấy lệnh quota-axi trên máy này. Đang hiện số cuối lúc 14:20.',
-      actions: [
-        { label: 'Chọn đường dẫn…', act: 'settings' },
-        { label: 'Thử lại', act: 'refresh' },
-      ],
-    });
-    // Đang dùng never shows an old number as a new one.
-    expect(v.now.rows[0]).toMatchObject({ name: 'lan.acme1', text: '—', note: 'không đọc được số' });
-    expect(v.claude.cards.every((r) => r.dim)).toBe(true);
-  });
-
-  it('other quota-axi failures name the reason', () => {
-    const v = view('fresh', { errors: failing('timeout', 'quota-axi did not answer within 45s') });
-    expect(v.banner?.body).toBe('quota-axi không chạy được: quá thời gian chờ. Đang hiện số cuối lúc 14:20.');
-  });
-
-  it('a provider that stopped answering keeps the time of its own last numbers', () => {
-    const agyOld = fixtureModel('fresh', { errors: { claude: null, agy: { kind: 'timeout', detail: '' }, codex: null } });
-    agyOld.snapshot.agy.generatedAt = '2026-01-16T06:50:00.000Z';
-    const a = popoverView(agyOld, FIXTURE_NOW);
-    expect(a.agy.note).toEqual({ tone: 'warn', text: 'Không đọc được số Antigravity mới. Đang hiện số lúc 13:50.' });
-    expect(a.agy.cards.every((c) => c.dim)).toBe(true);
-
-    const claudeOld = fixtureModel('fresh', { errors: { claude: { kind: 'timeout', detail: '' }, agy: null, codex: null } });
-    claudeOld.snapshot.claude.generatedAt = '2026-01-16T06:50:00.000Z';
-    const c = popoverView(claudeOld, FIXTURE_NOW);
-    expect(c.banner?.body).toBe('quota-axi không chạy được: quá thời gian chờ. Đang hiện số cuối lúc 13:50.');
-    expect(c.now.rows[0].note).toBe('không đọc được số');
-    expect(a.now.rows[1].note).toBe('không đọc được số');
+  it('an Antigravity login read that failed says so instead of a number', () => {
+    const m = fixtureModel('single');
+    m.snapshot.agy = { ...m.snapshot.agy, accounts: [], reason: 'Antigravity sign-in required' };
+    const v = popoverView(m, FIXTURE_NOW);
+    expect(v.agy.note).toEqual({ tone: 'warn', text: 'Không đọc được số Antigravity (Antigravity sign-in required).' });
+    expect(v.now.rows[1]).toMatchObject({ svc: 'Gemini', text: '—', note: 'không đọc được số' });
   });
 
   it('before the first read says it is reading', () => {

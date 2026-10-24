@@ -15,7 +15,7 @@ const account = (number: number, over: Partial<Account> = {}): Account => ({
   disabled: false,
   reading: 'fresh',
   fetchedAt: null,
-  source: 'claudeSwap',
+  source: 'list',
   membership: 'in',
   leavesAt: null,
   lines: [],

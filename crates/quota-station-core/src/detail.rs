@@ -1,11 +1,11 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-//! Every window of every account, on top of quota-axi's one number per
-//! account: Claude's from the app's own readings
+//! Every window of every account, on top of the one effective number per
+//! account the list gives: Claude's from the app's own readings
 //! ([`crate::claude::state::details`]), Antigravity's from the app's own
 //! readings ([`crate::antigravity::export`]). Matched by account number. An account
-//! neither one knows keeps only quota-axi's lines, and the windows show
+//! neither one knows keeps only its effective lines, and the windows show
 //! those.
 //!
 //! A window whose reset passed after its reading has no number
@@ -69,7 +69,7 @@ pub fn claude_windows(account: &ClaudeDetail, now: Option<OffsetDateTime>) -> Ve
 }
 
 /// Gives each Claude account the app keeps its windows (unless it has them
-/// already, from quota-axi's live reading), its email and its organization.
+/// already, from the live reading), its email and its organization.
 pub fn apply_claude(section: &mut Section, list: &[ClaudeDetail], now: Option<OffsetDateTime>) {
     for account in &mut section.accounts {
         let Some(swap) = list.iter().find(|s| s.number == account.number) else {
@@ -133,9 +133,9 @@ pub struct AgyDetail {
 }
 
 /// Gives each Antigravity account the app reads its four windows and
-/// email. Only for accounts quota-axi numbered from this app's own list.
+/// email. Only for accounts numbered from this app's own list.
 pub fn apply_agy(section: &mut Section, details: &[AgyDetail], now: Option<OffsetDateTime>) {
-    if section.source.as_deref() != Some("quota-station") {
+    if section.source.as_deref() != Some(crate::snapshot::LIST_SOURCE) {
         return;
     }
     for account in &mut section.accounts {

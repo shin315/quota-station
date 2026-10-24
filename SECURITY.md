@@ -48,12 +48,19 @@ Files, under `~/Library/Application Support/com.shin315.quota-station/`:
   `cache/quota_api_v1_desktop/authorized/<SHA-256 of the email>.json`, each
   account's last quota reading in Cockpit's cache layout (the email, the
   Cloud Code project, the time, and Google's quota answers; no token).
-  quota-axi reads the index and the readings, as it reads Cockpit's. After
-  a switch also `antigravity_legacy_instances.json` (only the account id
-  bound to Antigravity.app, which quota-axi reads), `switch-log.jsonl`
+  The Antigravity row lists the accounts from the index and the readings,
+  and Firstmate's quota-axi reads them as it reads Cockpit's. After a
+  switch also `antigravity_legacy_instances.json` (only the account id
+  bound to Antigravity.app, which the row and Firstmate's quota-axi read),
+  `switch-log.jsonl`
   (time, account ids, the button pressed and the result of the last 200
   switches) and `watch.json` (the six-hour watch of the last switch). The
   files are mode 600; logging out removes the account's reading.
+- `quota/<provider>.json` (mode 600): each quota reader's last good
+  reading (below): windows, resets, error words and the first 16 hex
+  digits of a SHA-256 of the login it was read with; no token, header or
+  email. `quota/claude-keychain-hold` marks that macOS held Claude Code's
+  Keychain item back.
 - `update/install.log` (M7, mode 600): the output of the last
   `Cập nhật từ mã nguồn` build, which names folders on this Mac and nothing
   secret; each update replaces it.
@@ -150,6 +157,44 @@ touched (a token refreshed for the switch stays in the app's own item, and
 the attempt is logged). `Chuyển`, offered while the app was not running,
 stops the same way if it runs again by then.
 
+## Reading the quota
+
+The app reads the quota itself (`crates/quota-station-core/src/quota/`,
+ported from quota-axi's MIT source, `THIRD_PARTY.md`); no other program
+reads it for the app. A reader takes a login only to send its one usage
+request and never refreshes, rotates or writes it: an expired login shows
+as stale or as a sign-in to do, until the tool that owns it renews it. No
+token, header or email from a read reaches a file, a log or a window.
+
+- **Codex.** `auth.json` in the Codex folder (`~/.codex`, or the one set
+  in `Cài đặt`) is read into memory for the access token and the account
+  id, which go only to `https://chatgpt.com/backend-api/wham/usage` (then
+  `…/codex/usage`), and are dropped. The file is never written and Codex's `app-server` is never
+  started.
+- **Antigravity.** The app reads no Antigravity credential, and not the
+  shared `gemini`/`antigravity` item. `agy -p /quota --output-format json`
+  answers with agy's own login; stand-ins for `open` and `xdg-open`, which
+  only fail, go first on its `PATH`, so it cannot open a browser. A running
+  agy or Antigravity.app is asked on 127.0.0.1 only, with the CSRF token
+  its language server has on its command line (read with `ps`); that token
+  goes to that one request and is not kept. The account's email in an
+  answer is compared by a hash and never kept.
+- **Claude Code**, on a Mac where the app keeps no Claude account: the item
+  `Claude Code-credentials` is read with `security find-generic-password`,
+  waiting 5 seconds at most; when macOS holds it back (a prompt not
+  answered, or refused) the app stops reading its value and only asks
+  whether it is there, so no prompt comes back by itself, until the owner
+  presses `Cấp quyền một lần` (then it waits 60 seconds for the answer).
+  Without the item it reads `~/.claude/.credentials.json`. The access token
+  goes only to `https://api.anthropic.com/api/oauth/usage`. A 401 is shown
+  as a sign-in, or as an expired token Claude Code will renew, never
+  refreshed by the app.
+
+The tests (`tests/quota_readers.rs`) read made-up logins against local
+fakes and check that the login file and the Keychain item are unchanged
+after every read, that no token request is ever sent, and that `agy` never
+reaches a browser.
+
 ## The Claude accounts
 
 The app keeps the Claude accounts the way claude-swap did, and the logic
@@ -195,7 +240,8 @@ has the design.
   and organization ids and a SHA-256 of the email and organization; no
   email, no token), `usage.json` and `state.json` (each account's windows,
   how old its reading is and its error; no email, no token), `swap/` (the
-  same in claude-swap's layout for quota-axi, with placeholder addresses
+  same in claude-swap's layout for Firstmate's quota-axi, written only while
+  `Cài đặt › Nâng cao` shows Firstmate, with placeholder addresses
   `slot-N@quota-station.local`), `rotation`, `rotation.log`, `prime` and
   `prime-state/`, `sessions/` and `.lock`. Emails reach a window only while
   `Hiện email` is on, and `quota-station claude status --json` prints them

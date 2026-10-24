@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 //! The popover's Vitest fixtures are snapshots this crate builds from the
-//! quota-axi fixtures, so the UI is tested against what Rust really sends.
+//! report fixtures, so the UI is tested against what Rust really sends.
 //! `UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test ui_fixtures`
 //! rewrites them after a change to the snapshot shape.
 
@@ -18,27 +18,20 @@ use time::OffsetDateTime;
 
 /// (UI fixture, claude report, agy report, codex report)
 const SCENARIOS: &[(&str, &str, &str, Option<&str>)] = &[
-    ("fresh", "claude-pool-schema5.json", "agy-quota-station.json", Some("codex-chatgpt.json")),
-    ("cockpit", "claude-pool-schema5.json", "agy-cockpit.json", Some("codex-chatgpt.json")),
-    ("no-cockpit", "claude-pool-schema5.json", "agy-no-cockpit.json", None),
-    ("keychain", "claude-keychain-required.json", "agy-no-cockpit.json", None),
-    ("stale", "claude-stale.json", "agy-cockpit.json", None),
-    ("reset-pending", "claude-reset-pending.json", "agy-cockpit.json", None),
-    ("exhausted", "claude-exhausted.json", "agy-cockpit.json", None),
-    ("no-rotation", "claude-no-rotation.json", "agy-no-cockpit.json", None),
+    ("fresh", "claude-pool.json", "agy-list.json", Some("codex-chatgpt.json")),
+    ("single", "claude-pool.json", "agy-single.json", None),
+    ("keychain", "claude-keychain-required.json", "agy-single.json", None),
+    ("stale", "claude-stale.json", "agy-list.json", None),
+    ("reset-pending", "claude-reset-pending.json", "agy-list.json", None),
+    ("exhausted", "claude-exhausted.json", "agy-list.json", None),
+    ("no-rotation", "claude-no-rotation.json", "agy-single.json", None),
     (
         "unavailable",
         "claude-unavailable.json",
-        "agy-cockpit-unavailable.json",
+        "agy-list-unavailable.json",
         Some("codex-unavailable.json"),
     ),
-    (
-        "no-antigravity",
-        "claude-pool-schema5.json",
-        "agy-not-set-up.json",
-        Some("codex-not-set-up.json"),
-    ),
-    ("agy-pool", "claude-pool-schema5.json", "agy-pool.json", None),
+    ("no-antigravity", "claude-pool.json", "agy-not-set-up.json", Some("codex-not-set-up.json")),
 ];
 
 fn ui_dir() -> PathBuf {

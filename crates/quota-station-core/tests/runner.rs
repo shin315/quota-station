@@ -1,157 +1,19 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-//! quota-axi is replaced by a fake shell script: these tests never run the
-//! real quota-axi, never touch the Keychain, and never read real quota.
+//! Where the programs the app runs are looked for, and the PATH they get.
+//! Nothing here runs a real program.
 
 mod common;
 
-use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU32, Ordering};
 
-use common::{fixture, fixture_path};
-use quota_station_core::runner::{
-    self, candidates, child_path, discover, display_path, expand_path, ProviderId, RunError,
-};
-
-static NEXT: AtomicU32 = AtomicU32::new(0);
-
-/// A fresh, empty directory for one test.
-fn temp_dir() -> PathBuf {
-    let dir = std::env::temp_dir().join(format!(
-        "qs-runner-{}-{}",
-        std::process::id(),
-        NEXT.fetch_add(1, Ordering::SeqCst)
-    ));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
-    dir
-}
-
-/// A fake quota-axi that records its arguments next to itself, prints
-/// `stdout_file`, and exits with `code`.
-fn fake(dir: &Path, stdout_file: Option<&Path>, code: i32) -> PathBuf {
-    let path = dir.join("quota-axi");
-    let print = stdout_file.map_or(String::new(), |f| format!("cat '{}'\n", f.display()));
-    let script = format!(
-        "#!/bin/sh\nprintf '%s\\n' \"$@\" > '{}'\nif [ \"$1\" = --version ]; then echo 0.1.61+cswap.4; exit 0; fi\n{print}echo 'something went wrong' >&2\nexit {code}\n",
-        dir.join("args").display()
-    );
-    std::fs::write(&path, script).unwrap();
-    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
-    path
-}
-
-fn recorded_args(dir: &Path) -> Vec<String> {
-    std::fs::read_to_string(dir.join("args")).unwrap().lines().map(String::from).collect()
-}
+use common::{script, temp_dir};
+use quota_station_core::runner::{bin_dirs, child_path, display_path, expand_path, on_path};
 
 #[test]
-fn a_read_reuses_the_cache_and_never_refreshes_credentials() {
-    let dir = temp_dir();
-    let axi = fake(&dir, Some(&fixture_path("claude-pool-schema5.json")), 0);
-    let report = runner::read(&axi, ProviderId::Claude).unwrap();
-    assert_eq!(report.schema_version, 5);
-    assert_eq!(
-        recorded_args(&dir),
-        ["--provider", "claude", "--json", "--max-age", "120s", "--no-credential-refresh"]
-    );
-}
-
-#[test]
-fn a_report_on_a_failing_exit_still_counts() {
-    // quota-axi exits 1 when a provider needs attention (Keychain) and still prints the report.
-    let dir = temp_dir();
-    let axi = fake(&dir, Some(&fixture_path("claude-keychain-required.json")), 1);
-    assert!(runner::read(&axi, ProviderId::Claude).is_ok());
-}
-
-#[test]
-fn an_exit_without_a_report_is_an_error_with_stderr() {
-    let dir = temp_dir();
-    let axi = fake(&dir, None, 2);
-    let err = runner::read(&axi, ProviderId::Agy).unwrap_err();
-    assert_eq!(err, RunError::Exit { code: Some(2), stderr: "something went wrong".to_string() });
-}
-
-#[test]
-fn a_missing_binary_is_not_found() {
-    let dir = temp_dir();
-    let err = runner::read(&dir.join("nope"), ProviderId::Claude).unwrap_err();
-    assert!(matches!(err, RunError::NotFound(_)));
-}
-
-#[test]
-fn an_unsupported_schema_is_a_parse_error() {
-    let dir = temp_dir();
-    let axi = fake(&dir, Some(&fixture_path("schema-unsupported.json")), 0);
-    let err = runner::read(&axi, ProviderId::Claude).unwrap_err();
-    assert!(matches!(err, RunError::Parse(_)));
-}
-
-#[test]
-fn reading_again_reuses_quota_axis_last_reading() {
-    let dir = temp_dir();
-    let axi = fake(&dir, Some(&fixture_path("agy-cockpit.json")), 0);
-    runner::read_again(&axi, ProviderId::Agy).unwrap();
-    assert_eq!(
-        recorded_args(&dir),
-        ["--provider", "agy", "--json", "--max-age", "60m", "--no-credential-refresh"]
-    );
-}
-
-#[test]
-fn a_reading_is_reused_only_while_young_and_working() {
-    use time::format_description::well_known::Rfc3339;
-    let datetime = |at: &str| time::OffsetDateTime::parse(at, &Rfc3339).unwrap();
-    // Reused at 07:16, reported at 07:20.
-    let report = fixture("agy-cockpit.json");
-    let at = |t| runner::reusable(&report, ProviderId::Agy, t);
-    assert!(at(datetime("2026-01-16T07:20:00Z")));
-    assert!(at(datetime("2026-01-16T08:10:00Z")), "54 minutes old");
-    assert!(!at(datetime("2026-01-16T08:11:00Z")), "55 minutes old");
-    assert!(!at(datetime("2026-01-16T07:15:00Z")), "taken after now");
-    assert!(!runner::reusable(&report, ProviderId::Claude, datetime("2026-01-16T07:20:00Z")));
-
-    // A new reading was taken with the report.
-    let mut fresh = report.clone();
-    fresh.providers.iter_mut().for_each(|p| p.state.refreshed_at = None);
-    assert!(runner::reusable(&fresh, ProviderId::Agy, datetime("2026-01-16T08:14:00Z")));
-    assert!(!runner::reusable(&fresh, ProviderId::Agy, datetime("2026-01-16T08:15:00Z")));
-
-    let mut failed = report;
-    failed.providers.iter_mut().for_each(|p| p.state.error = Some("network".into()));
-    assert!(!runner::reusable(&failed, ProviderId::Agy, datetime("2026-01-16T07:20:00Z")));
-}
-
-#[test]
-fn only_the_grant_button_allows_the_keychain_prompt() {
-    assert!(!runner::read_args(ProviderId::Claude).contains(&"--allow-keychain-prompt".to_string()));
-    assert!(!runner::read_args(ProviderId::Agy).contains(&"--allow-keychain-prompt".to_string()));
-
-    let dir = temp_dir();
-    let axi = fake(&dir, Some(&fixture_path("claude-pool-schema5.json")), 0);
-    runner::grant_keychain(&axi, &[]).unwrap();
-    assert_eq!(
-        recorded_args(&dir),
-        ["--provider", "claude", "--json", "--allow-keychain-prompt", "--no-credential-refresh"]
-    );
-}
-
-#[test]
-fn version_names_the_fork() {
-    let dir = temp_dir();
-    let axi = fake(&dir, None, 0);
-    let v = runner::version(&axi).unwrap();
-    assert_eq!(v, "0.1.61+cswap.4");
-    assert!(runner::is_fork(&v));
-    assert!(!runner::is_fork("0.1.61"));
-}
-
-#[test]
-fn the_child_finds_node_next_to_quota_axi() {
-    let p = child_path(Path::new("/opt/tools/bin/quota-axi"), Some("/usr/bin:/bin".into()));
+fn the_child_finds_node_next_to_the_program() {
+    let p = child_path(Path::new("/opt/tools/bin/codex"), Some("/usr/bin:/bin".into()));
     let dirs: Vec<PathBuf> = std::env::split_paths(&p).collect();
     assert_eq!(dirs[0], PathBuf::from("/opt/tools/bin"));
     assert!(dirs.contains(&PathBuf::from("/opt/homebrew/bin")));
@@ -159,27 +21,37 @@ fn the_child_finds_node_next_to_quota_axi() {
 }
 
 #[test]
-fn discovery_prefers_local_bin_then_the_newest_nvm_node() {
-    let home = temp_dir();
-    for v in ["v20.1.0", "v24.18.0", "v24.9.0"] {
-        let bin = home.join(".nvm/versions/node").join(v).join("bin");
-        std::fs::create_dir_all(&bin).unwrap();
-        fake(&bin, None, 0);
+fn installed_commands_are_looked_for_in_local_bin_then_the_newest_nvm_node() {
+    let home = temp_dir("runner-bins");
+    for v in ["v20.1.0", "v24.18.0", "v24.9.0", "system"] {
+        script(&home.join(".nvm/versions/node").join(v).join("bin/claude"), "exit 0\n");
     }
-    let list = candidates(&home);
-    assert_eq!(list[0], home.join(".local/bin/quota-axi"));
-    assert_eq!(list[1], home.join(".nvm/versions/node/v24.18.0/bin/quota-axi"));
-    assert_eq!(list[2], home.join(".nvm/versions/node/v24.9.0/bin/quota-axi"));
-    assert_eq!(discover(&home), Some(home.join(".nvm/versions/node/v24.18.0/bin/quota-axi")));
+    let dirs = bin_dirs(&home);
+    assert_eq!(
+        dirs,
+        [
+            home.join(".local/bin"),
+            home.join(".nvm/versions/node/v24.18.0/bin"),
+            home.join(".nvm/versions/node/v24.9.0/bin"),
+            home.join(".nvm/versions/node/v20.1.0/bin"),
+            PathBuf::from("/opt/homebrew/bin"),
+            PathBuf::from("/usr/local/bin"),
+        ]
+    );
+}
+
+#[test]
+fn a_program_nowhere_on_the_path_is_not_found() {
+    assert_eq!(on_path("quota-station-test-no-such-program"), None);
 }
 
 #[test]
 fn paths_show_home_as_a_tilde() {
     let home = Path::new("/home/someone");
-    assert_eq!(display_path(&home.join(".local/bin/quota-axi"), home), "~/.local/bin/quota-axi");
-    assert_eq!(
-        display_path(Path::new("/opt/homebrew/bin/quota-axi"), home),
-        "/opt/homebrew/bin/quota-axi"
-    );
-    assert_eq!(expand_path(" ~/.local/bin/quota-axi ", home), home.join(".local/bin/quota-axi"));
+    assert_eq!(display_path(&home.join(".codex"), home), "~/.codex");
+    assert_eq!(display_path(home, home), "~");
+    assert_eq!(display_path(Path::new("/opt/homebrew/bin/agy"), home), "/opt/homebrew/bin/agy");
+    assert_eq!(expand_path(" ~/.codex ", home), home.join(".codex"));
+    assert_eq!(expand_path("~", home), home.to_path_buf());
+    assert_eq!(expand_path("/srv/codex", home), PathBuf::from("/srv/codex"));
 }

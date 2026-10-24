@@ -272,7 +272,7 @@ pub fn logout(deps: &Deps, id: &str) -> Result<(), LogoutError> {
     }
     index::save(deps.app, &index).map_err(LogoutError::Index)?;
     let _ = index::set_standing(deps.app, id, None);
-    // quota-axi reads only listed accounts; the reading goes for tidiness.
+    // The row lists only listed accounts; the reading goes for tidiness.
     let _ = export::remove(deps.app, &email);
     Ok(())
 }

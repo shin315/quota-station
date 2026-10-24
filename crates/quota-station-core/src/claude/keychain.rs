@@ -42,9 +42,7 @@ pub enum KeychainError {
 impl std::fmt::Display for KeychainError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            KeychainError::Timeout => {
-                write!(f, "security did not answer within {}s", TIMEOUT.as_secs())
-            }
+            KeychainError::Timeout => write!(f, "security did not answer in time"),
             KeychainError::Spawn(e) => write!(f, "could not run security: {e}"),
             KeychainError::Failed { code: Some(c), message } => {
                 write!(f, "security exited {c}: {message}")
@@ -82,8 +80,17 @@ impl Security {
     }
 
     fn run(&self, args: &[&str], input: Option<&str>) -> Result<runner::Output, KeychainError> {
+        self.run_within(args, input, TIMEOUT)
+    }
+
+    fn run_within(
+        &self,
+        args: &[&str],
+        input: Option<&str>,
+        timeout: Duration,
+    ) -> Result<runner::Output, KeychainError> {
         let args: Vec<String> = args.iter().map(|a| a.to_string()).collect();
-        runner::run_with(&self.program, &args, &[], input, TIMEOUT).map_err(|e| match e {
+        runner::run_with(&self.program, &args, &[], input, timeout).map_err(|e| match e {
             RunError::Timeout(_) => KeychainError::Timeout,
             other => KeychainError::Spawn(other.to_string()),
         })
@@ -95,7 +102,22 @@ impl Security {
 
     /// The item's value, or `None` when there is no such item.
     pub fn get(&self, service: &str, account: &str) -> Result<Option<String>, KeychainError> {
-        let out = self.run(&["find-generic-password", "-a", account, "-w", "-s", service], None)?;
+        self.get_within(service, account, TIMEOUT)
+    }
+
+    /// [`Security::get`], waiting up to `timeout`: a read macOS asks the
+    /// owner about waits for the answer.
+    pub fn get_within(
+        &self,
+        service: &str,
+        account: &str,
+        timeout: Duration,
+    ) -> Result<Option<String>, KeychainError> {
+        let out = self.run_within(
+            &["find-generic-password", "-a", account, "-w", "-s", service],
+            None,
+            timeout,
+        )?;
         match out.code {
             Some(0) => {
                 let text = String::from_utf8(out.stdout).map_err(|_| KeychainError::Failed {

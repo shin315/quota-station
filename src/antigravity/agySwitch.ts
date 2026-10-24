@@ -12,7 +12,7 @@ import type { FactView, NameOf } from '../lib/switching';
 import { agyCells, agyGroups } from '../lib/accounts';
 import { agyName, agyNames, type Action, type BannerView, type FeedbackView } from '../lib/view';
 
-/** `Ultra 2`, by the number quota-axi and the app's list share. */
+/** `Ultra 2`, by the number the row and the app's list share. */
 export const agyNameOf: NameOf = (n) => agyName({ number: n }).name;
 
 /** Names by the model's accounts: their email while names show, else Ultra N. */
@@ -22,7 +22,7 @@ export function agyNamesOf(model: Model | null | undefined): NameOf {
   return (n) => names.get(n)?.name ?? agyNameOf(n);
 }
 
-/** The account logged in here with that number, when quota-axi numbers the app's own list. */
+/** The account logged in here with that number, when the row lists the app's own accounts. */
 export function agyLoginOf(model: Model, number: number): AgyLogin | null {
   if (!model.agySwitch?.listed) return null;
   return model.antigravity?.accounts.find((a) => a.number === number) ?? null;
@@ -129,7 +129,7 @@ function tails(o: { how: AgyHow; reopened: boolean | null; saved: boolean }): { 
     warn = true;
   }
   if (!o.saved) {
-    text += ' Chưa ghi được danh sách tài khoản của app, nên quota-axi có thể chưa nhận ra tài khoản mới.';
+    text += ' Chưa ghi được danh sách tài khoản của app, nên app có thể chưa nhận ra tài khoản mới.';
     warn = true;
   }
   return { text, warn };
@@ -190,7 +190,7 @@ export function agySwitchFeedback(outcome: AgyOutcome, model?: Model | null): Fe
   switch (outcome.kind) {
     case 'switched': {
       const tail = tails(outcome);
-      const by = outcome.basis === 'cockpit' ? ' (theo tài khoản app vừa ghi; agy chưa có số để đối chiếu)' : '';
+      const by = outcome.basis === 'binding' ? ' (theo tài khoản app vừa ghi; agy chưa có số để đối chiếu)' : '';
       return {
         // Antigravity.app kept running may write the old account back: say so, not as a passing toast.
         tone: tail.warn ? 'warn' : outcome.how === 'keepRunning' ? 'info' : '',

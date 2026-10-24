@@ -3,7 +3,7 @@
 
 [package]
 name = "quota-station-core"
-description = "Reads quota-axi, turns its JSON into the Quota Station snapshot, paces refreshes, switches Claude through claude-swap, keeps the rotation file in step across Macs, and logs in, reads the quota of and switches Antigravity accounts."
+description = "Reads the quota of Claude, Codex and Antigravity itself, turns it into the Quota Station snapshot, paces refreshes, keeps and switches the Claude accounts, keeps the rotation file in step across Macs, and logs in, reads the quota of and switches Antigravity accounts."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -15,11 +15,11 @@ publish = false
 # The Antigravity accounts the app logs in, reads and switches itself
 # (`src/antigravity/`), adapted from Cockpit Tools and so under
 # CC BY-NC-SA 4.0 (`LICENSES/`, `NOTICE`). Off, the crate is MIT only and
-# Antigravity is the account quota-axi reads, read-only.
+# Antigravity is the one account signed in on this Mac, read-only.
 antigravity-accounts = []
-# For the tests only: points the Google endpoints at a local fake, lets a
-# fake `security` stand in for the Keychain, and records every file the
-# Antigravity module opens. The app never turns it on.
+# For the tests only: points the Google, Anthropic and ChatGPT endpoints at
+# a local fake, lets a fake `security` stand in for the Keychain, and
+# records every file the Antigravity module opens. The app never turns it on.
 test-support = []
 
 [dependencies]

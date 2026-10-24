@@ -1,45 +1,37 @@
 {
   "generatedAt": "2026-01-16T07:20:00.000Z",
-  "schemaVersion": 5,
   "providers": [
     {
       "provider": "agy",
+      "accountKeys": [
+        "default"
+      ],
       "windows": [
         {
           "id": "gemini_5h",
-          "label": "gemini_5h",
           "kind": "session",
           "percentRemaining": 98,
           "resetsAt": "2026-01-16T09:18:00.000Z"
         },
         {
           "id": "gemini_weekly",
-          "label": "gemini_weekly",
           "kind": "weekly",
           "percentRemaining": 94,
           "resetsAt": "2026-01-20T07:20:00.000Z"
         },
         {
           "id": "claude_gpt_5h",
-          "label": "claude_gpt_5h",
           "kind": "session",
           "percentRemaining": 100,
           "resetsAt": "2026-01-16T12:20:00.000Z"
         },
         {
           "id": "claude_gpt_weekly",
-          "label": "claude_gpt_weekly",
           "kind": "weekly",
           "percentRemaining": 100,
           "resetsAt": "2026-01-22T07:20:00.000Z"
         }
       ],
-      "state": {
-        "status": "fresh",
-        "stale": false,
-        "refreshedAt": "2026-01-16T07:16:00.000Z",
-        "reused": true
-      },
       "quotaSemantics": {
         "status": "known",
         "effectiveAvailability": [
@@ -70,9 +62,15 @@
           }
         ]
       },
-      "accountKeys": [
-        "default"
-      ]
+      "state": {
+        "status": "fresh",
+        "refreshedAt": "2026-01-16T07:16:00.000Z"
+      },
+      "agyAccounts": {
+        "status": "unavailable",
+        "reason": "index_unreadable",
+        "accounts": []
+      }
     }
   ]
 }

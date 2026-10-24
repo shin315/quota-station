@@ -97,9 +97,9 @@ describe('rules editor', () => {
       rulesFixture({ full: 85, expire: [{ slot: 2, at: '2026-01-16T17:45' }, { slot: 3, at: '2026-01-16T18:00' }] }),
       'v1',
     );
-    // A save that went well is a toast; what quota-axi said is on hover.
+    // A save that went well is a toast; the check is on hover.
     const toast = screen.getByText('Đã lưu luật cho cả ba Mac lúc 14:20').closest('.toast')!;
-    expect(toast.getAttribute('title')).toContain('quota-axi đọc lại: đã kiểm tra đủ 6 mục của luật ✓');
+    expect(toast.getAttribute('title')).toContain('Đã kiểm tra đủ 6 mục của luật ✓');
     expect(screen.queryByText(/thay đổi chưa lưu/)).toBeNull();
     expect(macs().getByText('Mac C').textContent).toBe('Mac C · đã nhận 14:20');
   });
@@ -146,13 +146,12 @@ describe('rules editor', () => {
     expect(screen.getByText(/^Tài khoản cá nhân cũng nằm trong vòng Team\./)).toBeTruthy();
   });
 
-  it('a save quota-axi refuses shows the key and that the file before is back', async () => {
-    await open(fixtureModel('fresh'), { rulesError: { kind: 'refused', detail: 'rotation_bad_value:personal_hours', restored: true } });
+  it('a save the rules refuse shows the key and writes nothing', async () => {
+    await open(fixtureModel('fresh'), { rulesError: { kind: 'invalid', detail: 'rotation_bad_value:personal_hours', restored: false } });
     fireEvent.change(screen.getByLabelText('Ngưỡng tự chuyển, phần trăm hạn mức 5 giờ đã dùng'), { target: { value: '85' } });
     await press(saveButton()!);
-    expect(screen.getByText('quota-axi từ chối luật vừa lưu')).toBeTruthy();
-    expect(screen.getByText('Khoá personal_hours sai. Đã khôi phục bản 14:02 trên máy này. Chưa gửi sang Mac khác.')).toBeTruthy();
-    expect(macs().getByText('Mac mini (máy này)').textContent).toBe('Mac mini (máy này) · đã khôi phục bản 14:02');
+    expect(screen.getByText('Luật chưa hợp lệ')).toBeTruthy();
+    expect(screen.getByText('Khoá personal_hours sai. Chưa ghi gì.')).toBeTruthy();
     // The draft stays, to fix and save again.
     expect(screen.getByText('Có 1 thay đổi chưa lưu.')).toBeTruthy();
   });

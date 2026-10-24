@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PopoverApp } from '../App';
 import { FOLD_KEY } from './Popover';
 import { fakeApi } from '../fixtures/fakeApi';
-import { failing, FIXTURE_NOW, fixtureModel, heldSwitcher, peerFixture, rotationFixture } from '../fixtures/models';
+import { FIXTURE_NOW, fixtureModel, heldSwitcher, peerFixture, rotationFixture } from '../fixtures/models';
 import type { Api } from '../lib/api';
 import type { Model } from '../lib/model';
 
@@ -59,7 +59,7 @@ describe('popover', () => {
     const ultra1 = agy.find((b) => !b.getAttribute('aria-label')!.includes('đang dùng'))!;
     expect(ultra1.getAttribute('aria-disabled')).toBe('true');
     expect(ultra1.getAttribute('title')).toBe(
-      'lanpham.ultra@example.com · Cockpit Tools · tài khoản 1 · Chưa chuyển được: quota-axi chưa liệt kê tài khoản của Quota Station',
+      'lanpham.ultra@example.com · Quota Station · tài khoản 1 · Chưa chuyển được: chưa đọc được danh sách tài khoản của Quota Station',
     );
     fireEvent.click(ultra1);
     fireEvent.click(cards[1]);
@@ -192,7 +192,7 @@ describe('popover', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Cấp quyền một lần' }));
     });
     expect(fake.api.grantKeychain).toHaveBeenCalledTimes(1);
-    expect(screen.getByText('Đã cấp quyền Keychain').closest('.toast')?.getAttribute('title')).toBe('Dòng Claude giờ đọc trực tiếp từ quota-axi.');
+    expect(screen.getByText('Đã cấp quyền Keychain').closest('.toast')?.getAttribute('title')).toBe('Dòng Claude giờ có số mới của Claude Code.');
   });
 
   it('a refused Keychain prompt says so', async () => {
@@ -208,7 +208,7 @@ describe('popover', () => {
   it('"Để sau" hides the Keychain banner', async () => {
     await open(fixtureModel('keychain'));
     fireEvent.click(screen.getByRole('button', { name: 'Để sau' }));
-    expect(screen.queryByText('Chưa cấp quyền Keychain cho quota-axi')).toBeNull();
+    expect(screen.queryByText('Chưa cấp quyền Keychain cho Quota Station')).toBeNull();
   });
 
   it('"Làm mới" reports once the read it asked for is done', async () => {
@@ -221,14 +221,6 @@ describe('popover', () => {
     act(() => fake.push(fixtureModel('fresh', { reads: 4 })));
     // A short line that goes by itself, with the time on hover.
     expect(screen.getByText('Đã làm mới').closest('.toast')?.getAttribute('title')).toBe('Đọc lại số lúc 14:20.');
-  });
-
-  it('quota-axi missing offers the settings and keeps the last numbers', async () => {
-    const fake = await open(fixtureModel('fresh', { errors: failing('notFound') }));
-    expect(screen.getByText('Không chạy được quota-axi')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Chọn đường dẫn…' }));
-    expect(fake.api.openWindow).toHaveBeenCalledWith('settings');
-    expect(screen.getAllByRole('listitem').length).toBeGreaterThan(0);
   });
 
   it('updates when the reader pushes a new model', async () => {

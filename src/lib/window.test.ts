@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import { describe, expect, it } from 'vitest';
-import { failing, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
+import { FIXTURE_NOW, fixtureModel } from '../fixtures/models';
 import { popoverView } from './view';
 import { windowView } from './window';
 
@@ -31,7 +31,7 @@ describe('main window view', () => {
     expect(view('fresh', { claudeSwitch: { ready: false, busy: null } }).claude.count).toBe('4 tài khoản claude-swap');
     const unavailable = view('unavailable').claude;
     expect(unavailable).toMatchObject({ count: '', cards: [] });
-    expect(unavailable.note?.text).toBe('Không đọc được danh sách tài khoản của claude-swap (usage_schema_mismatch).');
+    expect(unavailable.note?.text).toBe('Không đọc được số của Claude Code (network_unreachable).');
   });
 
   it('writes resets in the tables as the popover does, minutes only within a day', () => {
@@ -55,57 +55,37 @@ describe('main window view', () => {
     expect(exhausted).toHaveLength(5);
     expect(exhausted).toContainEqual(expect.objectContaining({ at: '16:40', what: 'Cá nhân có lại hạn mức 5 giờ' }));
     // The one account a provider row reads goes by the provider's name.
-    expect(view('no-cockpit').upcoming[0]).toMatchObject({ at: '16:18', what: 'Antigravity có lại hạn mức Gemini 5 giờ' });
-    // Numbers from before quota-axi stopped answering give no times.
-    expect(view('fresh', { errors: failing('notFound') }).upcoming).toEqual([]);
-  });
-
-  it('shows the Cockpit Tools card only where the accounts come from Cockpit Tools', () => {
-    const own = view('fresh').agy;
-    expect(own).toMatchObject({ present: true, banner: null, own: true, cockpit: null });
-    const m = fixtureModel('cockpit');
-    m.snapshot.agy.source = 'cockpit';
-    const cockpit = windowView(m, FIXTURE_NOW).agy;
-    expect(cockpit.own).toBe(false);
-    expect(cockpit.cockpit).toEqual([
-      { key: 'Cockpit Tools', value: 'đang chạy', chip: { t: 'đang chạy', k: 'ok' } },
-      { key: 'Tài khoản trong Cockpit Tools', value: '2' },
-    ]);
-    // quota-axi from before it said whose files it read: no card either.
-    expect(view('cockpit').agy.cockpit).toBeNull();
+    expect(view('single').upcoming[0]).toMatchObject({ at: '16:18', what: 'Antigravity có lại hạn mức Gemini 5 giờ' });
   });
 
   it('a Mac without an account list sees why only one Antigravity account shows', () => {
-    const a = view('no-cockpit').agy;
+    const a = view('single').agy;
     expect(a.banner).toEqual({
       tone: 'info',
       title: 'Chỉ thấy tài khoản đang dùng',
-      body: 'quota-axi chưa có danh sách tài khoản Antigravity trên máy này. Đăng nhập tài khoản ở đây để thấy và chuyển mọi tài khoản.',
+      body: 'Chưa có danh sách tài khoản Antigravity trên máy này. Đăng nhập tài khoản ở đây để thấy và chuyển mọi tài khoản.',
       actions: [],
     });
-    expect(a.cockpit).toBeNull();
+    expect(a.own).toBe(false);
+    expect(view('fresh').agy).toMatchObject({ present: true, banner: null, own: true });
     expect(view('unavailable').agy.banner).toMatchObject({ tone: 'warn', title: 'Không đọc được danh sách tài khoản' });
   });
 
-  it('the Antigravity tab says when quota-axi fails', () => {
-    const both = view('fresh', { errors: failing('notFound') });
-    expect(both.agy.banner).toEqual(both.banner);
-    expect(both.agy.banner).toMatchObject({ tone: 'bad', title: 'Không chạy được quota-axi' });
-    expect(view('no-antigravity', { errors: failing('notFound') }).agy.banner).toMatchObject({ title: 'Không chạy được quota-axi' });
-
-    const agyOnly = view('no-cockpit', { errors: { claude: null, agy: { kind: 'timeout', detail: '' } } }).agy;
-    expect(agyOnly.banner).toMatchObject({ title: 'Chỉ thấy tài khoản đang dùng' });
-    expect(agyOnly.tabNote).toEqual({ tone: 'warn', text: 'Không đọc được số Antigravity mới. Đang hiện số lúc 14:20.' });
+  it('the Antigravity tab says when the one login read gave no number', () => {
+    const m = fixtureModel('single');
+    m.snapshot.agy = { ...m.snapshot.agy, accounts: [], reason: 'Antigravity sign-in required' };
+    const agy = windowView(m, FIXTURE_NOW).agy;
+    expect(agy.banner).toMatchObject({ title: 'Chỉ thấy tài khoản đang dùng' });
+    expect(agy.tabNote).toEqual({ tone: 'warn', text: 'Không đọc được số Antigravity (Antigravity sign-in required).' });
+    expect(view('single').agy.tabNote).toBeNull();
     expect(view('fresh').agy.tabNote).toBeNull();
   });
 
-  it("an undone Antigravity switch takes the tab's banner, after a quota-axi failure", () => {
+  it("an undone Antigravity switch takes the tab's banner", () => {
     const overwritten = { busy: null, listed: true, overwritten: { to: 1, from: 2, at: '2026-01-16T07:10:00.000Z', overwrites: 1 } };
-    for (const name of ['no-cockpit', 'unavailable']) {
+    for (const name of ['single', 'unavailable']) {
       expect(view(name, { agySwitch: overwritten }).agy.banner).toMatchObject({ tone: 'warn', title: 'Chuyển Antigravity bị ghi đè' });
     }
-    const failed = view('no-cockpit', { agySwitch: overwritten, errors: failing('notFound') });
-    expect(failed.agy.banner).toMatchObject({ title: 'Không chạy được quota-axi' });
   });
 
   it('the switcher card is one line, the rest folded', () => {

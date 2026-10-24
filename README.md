@@ -1,8 +1,9 @@
 # Quota Station
 
 A macOS menu bar app that shows how much Claude Code, Antigravity and Codex
-quota is used on this Mac, as reported by [quota-axi](https://github.com/kunchenguid/quota-axi).
-The interface is in Vietnamese.
+quota is used on this Mac. It reads the quota itself, with readers ported
+from [quota-axi](https://github.com/kunchenguid/quota-axi) (MIT), and needs
+no other program for the numbers. The interface is in Vietnamese.
 
 MIT licensed, except the Antigravity accounts (logging in and switching
 several Antigravity accounts), which are adapted from
@@ -78,7 +79,7 @@ the confirmation sheet first.
   `…`, or the account's place (`Team A`, `Ultra 1`) while names are hidden.
   Codex shows `ChatGPT` and that account's number on its ChatGPT login, and
   only the provider's name when it goes through a provider of its own,
-  which reports no quota. Without a number (no read yet, quota-axi failing,
+  which reports no quota. Without a number (no read yet, a read that failed,
   a window waiting for its number after a reset) the title is the name and
   `–`; only the window shown needs a number, except for `Chặt nhất`, which
   needs every window. A Mac without Antigravity, or without Codex, follows
@@ -102,10 +103,10 @@ the confirmation sheet first.
   time the popover opens. Every window, the organization and the hours stay
   in the cards' spoken labels and in the main window. It also has banners for
   stale numbers, an unavailable source, numbers waiting after a reset, an
-  exhausted rotation, missing Keychain permission and a failing quota-axi.
+  exhausted rotation and missing Keychain permission.
   Every Claude account other than the one in use is a button that opens the
   switch sheet (below), and so is every Antigravity account logged in here
-  once quota-axi lists the app's own accounts. The footer has the
+  once the Antigravity row lists the app's own accounts. The footer has the
   `Tự chuyển Claude` switch; the line that says why Claude is on its account
   shows only when there is something to act on (a pause or hold, waiting for
   quota, a switch coming, the switcher missing or failing), and the other
@@ -127,7 +128,7 @@ the confirmation sheet first.
   Confirming switches with the app's own switch ([The Claude
   accounts](#the-claude-accounts)), writes the pause flag when a hold was
   chosen (a hold never shortens a pause that is already on for longer),
-  waits 5 seconds, reads the active account again without quota-axi's cache
+  waits 5 seconds, reads the active account again without the app's cache
   and reports what it finds: switched, switched back by the rotation (or by
   another switch), not yet confirmed, or why nothing changed (Claude Code
   held its login locks, the account needs a new login, Claude Code is on a
@@ -169,16 +170,16 @@ the confirmation sheet first.
     does not run gets a banner.
   - `Antigravity`: the accounts, with `Chuyển` and `Đăng xuất` on each one
     this app logs in and `Thêm tài khoản` in the card's header. A Mac without
-    an account list or without Antigravity says so; a card for Cockpit Tools
-    shows only where the accounts come from Cockpit Tools. The accounts
-    this app logs in that quota-axi does not list yet stay in a short list
-    under the table. Each account the app logs in shows `đang đọc…` while
+    an account list or without Antigravity says so. The accounts this app
+    logs in that the row does not list yet stay in a short list under the
+    table. Each account the app logs in shows `đang đọc…` while
     the app reads its quota and `đọc lỗi` (the reason on hover) when that
     read failed (below). Opening the tab reads every account.
   - `Luật xoay vòng`: the rotation editor (below).
   - `Lịch sử`, `Cảnh báo` and `Firstmate` (M6, below).
-  - `Cài đặt`: the quota-axi path, either found automatically or set by hand,
-    a one-time button that lets quota-axi ask macOS for Keychain access, the
+  - `Cài đặt`: a one-time button that lets the app ask macOS for access to
+    Claude Code's Keychain item (on a Mac where the app keeps no Claude
+    account), the
     name shown for this Mac (empty uses the name macOS gives it),
     `Các Mac khác`: a name and an SSH alias for each other Mac, with
     `Thêm Mac`, `Bỏ` and `Thử SSH` (reads that Mac's rotation file and
@@ -224,13 +225,14 @@ the confirmation sheet first.
   switcher would decide with the edited rules (its `--dry-run` pointed at a
   draft copy), and saves with one button named for the Macs it reaches
   (`Lưu cho cả ba Mac` with two other Macs set, `Lưu cho máy này` with none).
-  A save rewrites the six keys in place and keeps every other readable line
-  (a line quota-axi cannot read stays only in the backup), puts a
+  A save first checks the rules as quota-axi reads the file (all six keys,
+  each in its form; a `rotation_…` reason otherwise, and nothing is written
+  or sent), since Firstmate's quota-axi reads the same file. It rewrites the
+  six keys in place and keeps every other readable line (a line quota-axi
+  cannot read stays only in the backup), puts a
   `# updated = <time> by <machine>` comment at the top, writes through a
   temporary file and a rename, and keeps the file before as
-  `rotation.bak-<time>` (the newest 10 stay). quota-axi then reads the file;
-  when it refuses it (a `rotation_…` reason) or cannot run, the file before
-  goes back and nothing is sent. Then the file goes to each other Mac over
+  `rotation.bak-<time>` (the newest 10 stay). Then the file goes to each other Mac over
   SSH, the same way, and is read back to compare. The save bar has one line
   per Mac: `đã nhận 14:30`, `chưa tới được · thử lại 14:35`, `có bản mới hơn`.
   A Mac that could not take it is tried again every 5 minutes, also after a
@@ -256,8 +258,8 @@ the confirmation sheet first.
   seconds when asked (an app that does not quit stops the switch before the
   shared login is touched; `Chuyển` stops if the app runs again by then),
   writes the login Antigravity.app and agy share with Cockpit's own
-  `security` command, then points quota-axi's binding at the new account
-  and opens the app again. Five seconds later it reads Antigravity again and
+  `security` command, then points the app's account index and binding at
+  the new account and opens the app again. Five seconds later it reads Antigravity again and
   says `Đã chuyển`, that agy still uses the old account or could not be
   read, or why it did not switch. Antigravity.app older than 2.0 is named
   and refused, and one whose version cannot be read stops the switch
@@ -290,17 +292,17 @@ the confirmation sheet first.
      have not left it (the personal one only inside its hours) count; the
      pool is dry when the account in use has 10% or less left and no other
      has 15% or more (both set in `Cài đặt`; without `Nâng cao` every
-     account counts and the title is `Hạn mức Claude sắp cạn`). Without quota-axi's rotation the app uses the rotation
-     file, for this alert and the next. The card names the account in use
+     account counts and the title is `Hạn mức Claude sắp cạn`). Where the
+     app keeps no Claude account it reads the rotation file, for this alert
+     and the next. The card names the account in use
      and its share used, and when an account resets, and offers
      `Sang <tài khoản> (còn N%)`, which opens the switch sheet, and `Thôi`.
   2. `<tài khoản> rời vòng lúc HH:MM`: 30 minutes before an account leaves
      the rotation (`expire` in the rules). For the account in use it offers
      `Ổn` and `Chuyển ngay` (the switch sheet).
   3. `<tài khoản> cần đăng nhập lại`: the usage read reports an error only a
-     new login mends (`invalid_grant`, `no_refresh_token`, a relogin), or the
-     login expires within 3 days, when quota-axi gives `loginExpiresAt`
-     (today it does not, so only the error fires). `Nhắc ngày mai` asks again
+     new login mends (`invalid_grant`, `no_refresh_token`, a relogin).
+     `Nhắc ngày mai` asks again
      at 09:00 the next day. Antigravity accounts that need a new login or a
      verification get their own card, with `Đăng nhập lại` (the
      `Antigravity` tab) or `Mở trang xác minh`.
@@ -322,8 +324,9 @@ the confirmation sheet first.
 - **Firstmate** (F10). Whether Firstmate holds new Claude work, from the
   line its quota-pool watch writes, `quota-pool.last`, at the path set in
   `Cài đặt`: the account in use, what
-  each account has left, the next reset, whether quota-axi has `+cswap` and
-  whether Firstmate could read claude-swap, and when the file was written.
+  each account has left, the next reset, whether Firstmate's quota-axi has
+  `+cswap` and whether it could read claude-swap, and when the file was
+  written.
   A file older than 30 minutes says Firstmate may not be running, and a Mac
   without the file says so. Only the keys Firstmate writes are read.
 - **Switching Codex** (M8). Codex can go through the official ChatGPT login
@@ -676,7 +679,7 @@ the confirmation sheet first.
   loopback callback on a random port, a fresh `state`, a 10-minute wait, the
   code exchange, then userinfo for the email. A browser that cannot reach
   the app can paste the callback URL instead. The card lists the accounts by
-  number (`Ultra 1`, `Ultra 2`, the order quota-axi will use) with
+  number (`Ultra 1`, `Ultra 2`, the order the Antigravity row uses) with
   `đã đăng nhập`, `cần đăng nhập lại` (Google refused the refresh token) or
   `cần xác minh` (Google asks for a verification), `Đăng nhập lại`, and
   `Đăng xuất` with a confirmation in the row. Logging out forgets the account
@@ -695,11 +698,11 @@ the confirmation sheet first.
   account off); a GCP ToS account with a project is read from
   `cloudcode-pa.googleapis.com`, every other from
   `daily-cloudcode-pa.googleapis.com`. Each reading goes, in Cockpit's cache
-  layout, to the app's `antigravity/` folder, which quota-axi (`+cswap.5`)
-  reads before Cockpit's, so the windows and Firstmate see every account
-  without Cockpit. The windows still draw every number from quota-axi.
-  The pace is never denser than Cockpit's: the account in use with each
-  quota-axi read, the others every 10 minutes and when the `Antigravity` tab
+  layout, to the app's `antigravity/` folder; the Antigravity row lists
+  every account from there, beside the live read of the account in use
+  (below), and Firstmate's quota-axi (`+cswap.5`) reads the same folder
+  before Cockpit's. The pace is never denser than Cockpit's: the account in
+  use with each of the app's reads, the others every 10 minutes and when the `Antigravity` tab
   opens, one account at a time, and no account twice within a minute (a
   reading younger than that is used as it is). A network error on
   `fetchAvailableModels` is tried three times, a second apart, as Cockpit
@@ -750,10 +753,11 @@ credited in [`THIRD_PARTY.md`](THIRD_PARTY.md)).
   with a back-off after a failure or a 429. The account in use is read with
   Claude Code's own token and never refreshed by the app; another account
   whose token has under five minutes left is refreshed first. The readings
-  are `claude/usage.json`; quota-axi reads them from a copy in claude-swap's
-  layout, `claude/swap/`, with placeholder addresses
-  (`QUOTA_AXI_CLAUDE_SWAP_DIR` and `QUOTA_AXI_CLAUDE_ROTATION`, set only for
-  the quota-axi the app runs, once the app keeps an account).
+  are `claude/usage.json`, and the Claude row is built from them. While
+  `Cài đặt › Nâng cao` shows Firstmate, the app also writes a copy in
+  claude-swap's layout, `claude/swap/`, with placeholder addresses, for
+  Firstmate's quota-axi (`QUOTA_AXI_CLAUDE_SWAP_DIR` and
+  `QUOTA_AXI_CLAUDE_ROTATION`, [`docs/claude-accounts.md`](docs/claude-accounts.md)).
 - **Rotation.** The `cswap-prefer-team` rules, ported line for line, on the
   app's own copy of the rotation file (`claude/rotation`; the rules editor
   and the copy to the other Macs work on it). `Tự chuyển bằng Quota Station`
@@ -788,22 +792,44 @@ credited in [`THIRD_PARTY.md`](THIRD_PARTY.md)).
 
 ### What it reads and runs
 
-- `quota-axi --provider claude --json --max-age 120s --no-credential-refresh`,
-  and the same for `--provider agy`, and for `--provider codex` on a Mac with
-  a Codex folder (its ChatGPT login's five-hour and weekly windows, for the
-  menu bar and `Đang dùng`; when quota-axi has no stored login it may ask
-  Codex's own read-only `app-server`, as quota-axi documents). The app reads every 60 seconds while the
-  popover or the main window is open and every 5 minutes while both are
-  hidden. It also reads when either opens, after the Mac wakes and on
-  `Làm mới`. The check after a switch passes `--max-age 0` instead: a cached
-  Claude reading may still be the account from before the switch.
-- The Keychain button runs
-  `quota-axi --provider claude --json --allow-keychain-prompt --no-credential-refresh`
-  once. macOS shows its own prompt. The app opens Claude Code's Keychain
-  item only to keep and switch the Claude accounts (above); the other
-  Keychain items it opens are its own (below), and it opens no other tool's
-  credential file.
-- It ignores the identity fields in quota-axi's output (emails, ids). Before
+- The quota, read by the app itself with readers ported from quota-axi
+  (`crates/quota-station-core/src/quota/`). None of them refreshes,
+  rotates or writes a login: an expired login shows as stale or as a sign-in
+  to do, and the vendor's own tool renews it when it next runs.
+  - Codex, on a Mac with a Codex folder: the access token and account id
+    from `~/.codex/auth.json` (read only), then
+    `GET https://chatgpt.com/backend-api/wham/usage`, or
+    `…/api/codex/usage` when that one does not answer, for the ChatGPT
+    login's five-hour and weekly windows. Codex's `app-server` is never
+    started.
+  - Antigravity: `agy -p /quota --output-format json` (the first `agy` on
+    the app's `PATH`, else in `/opt/homebrew/bin` or `/usr/local/bin`, as
+    quota-axi looked for it), with stand-ins for `open` and `xdg-open` first
+    on its `PATH` so it cannot open a browser; when that
+    gives no numbers, the language server of a running agy or
+    Antigravity.app, found with `ps` and `lsof`, asked on 127.0.0.1 for its
+    quota summary with the CSRF token from its command line. The account's
+    email is compared by a hash and never kept.
+  - Claude Code, on a Mac where the app keeps no Claude account: its login
+    from the Keychain item `Claude Code-credentials` (read with
+    `/usr/bin/security find-generic-password` once the owner allowed it,
+    otherwise only checked for), then `~/.claude/.credentials.json`, and
+    `GET https://api.anthropic.com/api/oauth/usage`.
+
+  The app reads every 60 seconds while the popover or the main window is
+  open and every 5 minutes while both are hidden. It also reads when either
+  opens, after the Mac wakes and on `Làm mới`. A reading younger than two
+  minutes for the same login is used without asking again
+  (`quota/<provider>.json` in the app's folder: windows, times and a hash of
+  the login only), and a read that fails shows the last numbers as stale.
+  The check after a switch asks again at once: a cached Claude reading may
+  still be the account from before the switch.
+- The Keychain button reads Claude Code's Keychain item once with
+  `/usr/bin/security`, so macOS shows its own prompt; after `Luôn cho phép`
+  the quiet reads go on by themselves. The app opens Claude Code's Keychain
+  item only to read the quota, and to keep and switch the Claude accounts
+  (above); the other Keychain items it opens are its own (below).
+- No email or account id from a read is kept or shown. Before
   each read the app reads the Claude accounts that are due
   (`GET https://api.anthropic.com/api/oauth/usage`, and
   `POST https://platform.claude.com/v1/oauth/token` for an account not in
@@ -811,8 +837,8 @@ credited in [`THIRD_PARTY.md`](THIRD_PARTY.md)).
   `claude/swap/`. Every Claude account's three windows come from those
   readings; its email and organization come from the app's Keychain items,
   stay in memory, go to the windows only while `Hiện email` is on, and are
-  never written to a file or a log. Before the app keeps an account, the
-  accounts keep quota-axi's one number.
+  never written to a file or a log. Before the app keeps an account, the row
+  has the one login Claude Code is on.
 - Switching runs no other program: the app takes Claude Code's lock
   folders, then `/usr/bin/security` reads and writes Claude Code's item
   `Claude Code-credentials` and its own items, and the app rewrites
@@ -868,10 +894,10 @@ credited in [`THIRD_PARTY.md`](THIRD_PARTY.md)).
   `…/v1internal:loadCodeAssist` while the token lacks a project or the GCP
   ToS mark,
   `security add-generic-password -U -s gemini -a antigravity -w go-keyring-base64:<…> -A`,
-  and then `quota-axi --provider agy --json --max-age 0 --no-credential-refresh`.
+  and then the Antigravity quota read above, without the cache.
   Opening the sheet runs only the `plutil` and `pgrep` questions.
 - History and alerts (M6) read, after each read: the last 64 KB of the
-  switcher's log, the rotation file (when quota-axi gives no rotation),
+  switcher's log, the rotation file (where the app keeps no Claude account),
   the app's own Antigravity files, Firstmate's `quota-pool.last` at the path
   set in `Cài đặt` (at most 16 KB, a plain file of that name only), and,
   while an overwrite card waits for an answer, `pgrep` for Antigravity.app.
@@ -977,7 +1003,8 @@ credited in [`THIRD_PARTY.md`](THIRD_PARTY.md)).
   (each account's last quota reading in Cockpit's cache layout, no token),
   and after an Antigravity switch
   `antigravity/antigravity_legacy_instances.json` (the account bound to
-  Antigravity.app, read by quota-axi), `antigravity/switch-log.jsonl` and
+  Antigravity.app, read by the Antigravity row and Firstmate's quota-axi),
+  `antigravity/switch-log.jsonl` and
   `antigravity/watch.json`; `history/history.jsonl` and
   `alerts/alerts.json` (M6, no email or token); `codex/state.json` (the
   hash of the app's last write, to tell a change made outside the app),
@@ -1037,13 +1064,18 @@ the switcher ignores the flag and does not show Claude as paused.
 
 ### How the numbers relate to `quota-axi --tui`
 
+The readers are ported from quota-axi, so on the same Mac the app and
+`quota-axi --provider codex|agy --json` give the same percentages and
+resets.
+
+
 - **5 giờ / Tuần.** For the active account, this is the tighter of the live
   five-hour and seven-day windows. A tie shows the week. For the other
   accounts it is the effective percent of the app's own reading (claude-swap's
   before the app keeps the accounts), labelled by the window that limits it.
 - **Fable tuần.** For the active account, this is the live Fable weekly
-  window. For the other accounts, quota-axi's JSON gives the Fable scope of
-  the same reading. When another window limits that account first, the scope is only a
+  window. For the other accounts, it is the Fable scope of the same
+  reading. When another window limits that account first, the scope is only a
   lower bound, so the app shows it as `≥98%` with no reset time.
 
 ## Requirements
@@ -1051,9 +1083,8 @@ the switcher ignores the flag and does not show Claude as paused.
 - macOS 13 or later
 - To build: Rust stable (1.85 or later) and Node.js 20 or later (CI uses
   24). A Mac without them installs a copy built on another Mac.
-- quota-axi on the Mac, with JSON schema 5 or 6. The claude-swap, rotation and
-  Cockpit sidecars come from the `+cswap` fork. Without them the app shows
-  only the account in use.
+- Nothing else for the numbers: Codex, `agy` or Antigravity.app, and
+  Claude Code each need only to be logged in. quota-axi is not needed.
 - For logging new Claude accounts in and for `quota-station claude run`,
   Claude Code's `claude` command. claude-swap is needed only once per Mac,
   to import its accounts; a Mac can also start without it, by logging the
@@ -1061,9 +1092,9 @@ the switcher ignores the flag and does not show Claude as paused.
 - For the other Macs, an SSH alias to each that logs in without a prompt
   (a key, `BatchMode=yes`).
 
-The app looks for quota-axi in these places: `~/.local/bin`, nvm's Node
-versions (newest first), `/opt/homebrew/bin` and `/usr/local/bin`. You can
-also set the path in settings.
+The app looks for `agy` on its `PATH`, then in `/opt/homebrew/bin` and
+`/usr/local/bin`. An app opened from Finder has launchd's short `PATH`; an
+`agy` elsewhere is then read through the running agy or Antigravity.app.
 
 ## Install
 
@@ -1169,10 +1200,9 @@ time.
    ```
 
    and look for Cockpit in System Settings › General › Login Items. Before
-   relying on the app alone, also check that
-   `quota-axi --provider agy --json` reports `cockpit.status` `ok` with
-   `source` `quota-station`, and that one Antigravity switch from the app,
-   and one back, both say `Đã chuyển`.
+   relying on the app alone, also check that the `Antigravity` tab lists
+   every account with its numbers, and that one Antigravity switch from the
+   app, and one back, both say `Đã chuyển`.
 
    If Cockpit is found: quit it, remove it from Login Items (it starts
    itself through its autostart setting), and move
@@ -1268,10 +1298,10 @@ itself; `scripts/install.sh` installs it.
 the fake Rust side the tests use. Query parameters: `state` (a file name in
 `src/fixtures/snapshots/`), `view=window` with `tab` (`overview`, `claude`,
 `agy`, `codex`, `rules`, `history`, `alerts`, `firstmate`, `mcp`, `skills`,
-`plugins`, `instr`, `backup`, `copy` or `settings`), `error` (an
-error kind) and `theme` (`light` or `dark`).
+`plugins`, `instr`, `backup`, `copy` or `settings`) and `theme` (`light`
+or `dark`).
 For the rotation rules: `rotation` (`unreachable`, `newer`, `edited`,
-`missing`, `invalid`, `refused` or `single`).
+`unstamped`, `missing`, `invalid`, `unwritable` or `single`).
 For switching: `switcher` (`held`, `noguard`, `auto`, `stopped` or
 `missing`), `outcome` (`raced`, `failed`, `busy` for Claude Code's locks
 held, or `unconfirmed`; a switch lands by default) and `accounts=none` (a
@@ -1380,28 +1410,19 @@ Antigravity bundle on disk; check that the cache file is the record Cockpit
 writes, byte for byte; and cover the 60-second reuse, one account at a time
 with the one in use first, a refresh that is due, `invalid_grant`, 401, 403,
 429 and 5xx, network failures, and a verification request. One more test
-runs the real quota-axi fork on the files they write, with a temporary
-`HOME`, a `PATH` holding only node and a fake `agy`, `ps` and `lsof`, and
-`QUOTA_AXI_COCKPIT_DIR` pointed at the folder, then without it, and expects
-`cockpit.status` `ok` with both accounts. It needs a built fork, so it runs
-only when asked:
-
-```sh
-QUOTA_STATION_QUOTA_AXI=/path/to/quota-axi/dist/bin/quota-axi.js \
-  cargo test -p quota-station-core --test antigravity_quota -- --ignored
-```
+reads the Antigravity row from the files they write, with a fake `agy`, and
+expects both accounts listed with the one in use told by its reading.
 
 The Antigravity switch tests never touch the Keychain, Antigravity.app or
-quota-axi. A fake `security` checks that the shared login is written with
+the real `agy`. A fake `security` checks that the shared login is written with
 Cockpit's exact arguments, keeps the old item when the write fails and is
 stopped when it hangs (the two tests ported from Cockpit). Antigravity.app
 is a shell process behind fake `plutil`, `pgrep`, `osascript` and `open`:
 one that quits, one that stays (the shared login is not touched and it keeps
 running), one opened again before a plain `Chuyển`, one whose plist cannot
 be read, one older than 2.0 and none at all; the fake `open` also records
-that the new login was in place before the app came back. A fake quota-axi
-answers the check with the new account, the old one, no answer, or Cockpit's
-numbering. The project lookup before a switch is the quota read's
+that the new login was in place before the app came back. A fake `agy`
+answers the check with the new account, the old one, or no answer. The project lookup before a switch is the quota read's
 `loadCodeAssist`, against the same fake Google. They also cover a token
 refreshed before the write, an account that needs a new login or is logged
 out while it is prepared, the 60-second preparation and one that breaks,
@@ -1421,14 +1442,13 @@ use, the import (claude-swap's folder and items unchanged, running it again
 changes nothing), adding and removing accounts, the session folders, the
 command line, and the rotation's decisions on the same cases as the old
 script; one ignored test runs the real `cswap-prefer-team` with
-`--dry-run` beside the port when `QUOTA_STATION_PREFER_TEAM` names it. A
-fake quota-axi answers the read after a switch. Session counting runs on session files in a
+`--dry-run` beside the port when `QUOTA_STATION_PREFER_TEAM` names it. The
+read after a switch is the app's own reading of the accounts. Session counting runs on session files in a
 temporary folder, and the pause flag tests write it there with an `until`
 ahead, passed, malformed or missing.
 
-The rotation tests write rotation files in temporary folders and check them
-with a fake quota-axi that prints a fixture: one that accepts, one that
-refuses a key (the backup comes back), and one without the rotation block.
+The rotation tests write rotation files in temporary folders: one the
+rules accept, and ones they refuse, which leave the file as it was.
 The other-Mac tests put a fake `ssh` first on `PATH`; it runs the fixed
 scripts in a temporary home per alias, and has an alias that cannot be
 reached and one that reads back something else. They cover a Mac with no
@@ -1437,12 +1457,12 @@ already there, the 5-minute retry, a newer copy that wins, and a copy edited
 by hand.
 
 The history and alert tests (`crates/quota-station-core/tests/history.rs`
-and `tests/alerts.rs`) run on synthetic quota-axi reports, switcher logs and
+and `tests/alerts.rs`) run on synthetic reports, switcher logs and
 app folders in temporary directories, with a fake notification center that
 records each card, its buttons and what was withdrawn, and presses a button.
 They step through readings: the pool going dry and coming back, an account
 leaving the rotation in 30 minutes (and not for an account that left
-already), a login expiring in 3 days and a claude-swap login error,
+already), a refused Claude login,
 Antigravity accounts that need a new login or a verification, an overwrite
 within 6 hours (offering to switch back twice, then only saying so), and
 Firstmate's `pool=dry`, fresh and stale. They check that each event alerts
@@ -1452,7 +1472,18 @@ either card. The history tests merge the app's journal, its Antigravity
 switch log and the switcher's log, and keep a change nothing explains as
 `quan sát` only once. Nothing posts a real notification.
 
-The quota-axi fixtures in `crates/quota-station-core/tests/fixtures/` are
+The quota readers' tests (`crates/quota-station-core/tests/quota_readers.rs`)
+never use a real login: Codex, Antigravity and Claude Code each run against
+a local fake server, a fake `agy`, `ps` and `lsof`, and a fake `security`,
+with made-up tokens. For each reader they cover a fresh reading, the last
+one shown as stale when the next read fails, an expired or refused login
+(never refreshed: the login file and the Keychain item stay as they were)
+and a Mac without the tool; for Claude also a Keychain that holds back
+until the owner presses the button, and for Antigravity that `agy` never
+opens a browser. One test runs with only `/usr/bin:/bin:/usr/sbin:/sbin` on
+`PATH`, so no quota-axi can be found, and still reads every service.
+
+The report fixtures in `crates/quota-station-core/tests/fixtures/` are
 synthetic, with made-up ids and values. The popover and window tests use JSON snapshots
 in `src/fixtures/snapshots/`, which the Rust side builds from those fixtures.
 After changing the snapshot rules, regenerate them with this command:
@@ -1582,9 +1613,9 @@ UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test stats
 
 ## Layout
 
-- `crates/quota-station-core/` is plain Rust. It runs and parses quota-axi,
-  turns its output into a snapshot, holds the icon rules and glyph, and
-  schedules reads. Its `claude/` module keeps the Claude accounts: the
+- `crates/quota-station-core/` is plain Rust. It reads the quota (`quota/`,
+  ported from quota-axi), turns the readings into a snapshot, holds the
+  icon rules and glyph, and schedules reads. Its `claude/` module keeps the Claude accounts: the
   Keychain store, Claude Code's locks and login, the switch, the usage
   reads, the rotation and its LaunchAgent, the session folders, the import
   from claude-swap and the `quota-station claude` command line. It also
@@ -1700,9 +1731,10 @@ and bundled into the interface only with `QS_ANTIGRAVITY_ACCOUNTS=1`.
 `--features antigravity-accounts` (with `QS_ANTIGRAVITY_ACCOUNTS=1` for a
 release build's interface). An app
 built without them is MIT only: it reads the Antigravity account signed in
-through quota-axi and does not log in or switch accounts.
+and does not log in or switch accounts.
 
-Code adapted from Cockpit Tools, code ported from CC Switch (MIT) and code
-adapted from claude-swap (MIT) and shadcn/ui (MIT) are credited in
+Code adapted from Cockpit Tools, code ported from quota-axi (MIT) and CC
+Switch (MIT) and code adapted from claude-swap (MIT) and shadcn/ui (MIT) are
+credited in
 [`NOTICE`](NOTICE). The tools it talks
 to are listed in [`THIRD_PARTY.md`](THIRD_PARTY.md).

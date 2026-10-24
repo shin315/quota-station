@@ -6,7 +6,7 @@
 // tables (F04), Tổng quan and Claude show automatic switching and why Claude
 // is on its account (F07), Luật xoay vòng edits the rotation for every Mac
 // (F06), and Antigravity also shows the accounts the app logs in (M4a) and
-// switches from its tables once quota-axi lists them (M4c). Lịch sử, Cảnh
+// switches from its tables once its row lists them (M4c). Lịch sử, Cảnh
 // báo and Firstmate come from M6, and Cảnh báo counts the alerts nobody
 // answered yet. Codex (M8) has its own tab and a compact card on Tổng quan.
 // The Agent group starts with MCP (M9): every agent's MCP servers in one table,
@@ -20,7 +20,7 @@
 // sidebar has no Luật xoay vòng, Firstmate or Chép sang Mac khác (Firstmate
 // also has its own switch), and Tổng quan and Claude show no automatic
 // switching, pause or switcher. A build without the Antigravity accounts
-// shows the one account quota-axi reads, with no login or switch.
+// shows the one account signed in, with no login or switch.
 
 import { Fragment, type ReactNode } from 'react';
 import { Card as Panel, CardText, CardTitle } from '@/components/ui/card';
@@ -226,7 +226,7 @@ function ClaudeTable(props: { cards: CardView[]; tight?: boolean; onSwitch(slot:
 
 /**
  * Antigravity: Gemini and Claude/GPT, five hours and a week each. An
- * account only Cockpit Tools reads has one number per group instead.
+ * account the app has no reading of has one number per group instead.
  */
 function AgyTable(props: { cards: CardView[]; logins?: AgyLogins; tight?: boolean; onSwitch(slot: number): void }) {
   if (!props.cards.length) return null;
@@ -450,7 +450,7 @@ function ClaudeTab(props: TabProps & { advanced: boolean }) {
   );
 }
 
-function AgyTab(props: TabProps & { advanced: boolean; agyAccounts: boolean }) {
+function AgyTab(props: TabProps & { agyAccounts: boolean }) {
   const a = props.view.agy;
   const logins = props.agyLogins;
   return (
@@ -468,17 +468,10 @@ function AgyTab(props: TabProps & { advanced: boolean; agyAccounts: boolean }) {
         {logins ? <LoginNotes logins={logins} listed={a.own ? a.cards.map((c) => c.slot) : []} /> : null}
         {!props.agyAccounts && a.present ? (
           <CardText className="mt-2 mb-0">
-            Bản này đọc tài khoản Antigravity đang đăng nhập, qua quota-axi. Đăng nhập và chuyển nhiều tài khoản chỉ có ở bản build từ mã nguồn kèm phần Antigravity (giấy phép CC BY-NC-SA 4.0).
+            Bản này đọc tài khoản Antigravity đang đăng nhập. Đăng nhập và chuyển nhiều tài khoản chỉ có ở bản build từ mã nguồn kèm phần Antigravity (giấy phép CC BY-NC-SA 4.0).
           </CardText>
         ) : null}
       </Card>
-      {a.cockpit && props.advanced ? (
-        <div className={GRID2}>
-          <Card title="Cockpit Tools">
-            <KeyValues rows={a.cockpit} />
-          </Card>
-        </div>
-      ) : null}
     </>
   );
 }
@@ -578,7 +571,7 @@ export function MainWindow(props: MainWindowProps) {
           {tab === 'overview' ? <Overview {...tabProps} advanced={props.advanced} /> : null}
           {tab === 'stats' ? props.stats : null}
           {tab === 'claude' ? <ClaudeTab {...tabProps} advanced={props.advanced} /> : null}
-          {tab === 'agy' ? <AgyTab {...tabProps} advanced={props.advanced} agyAccounts={props.agyAccounts} /> : null}
+          {tab === 'agy' ? <AgyTab {...tabProps} agyAccounts={props.agyAccounts} /> : null}
           {tab === 'codex' ? props.codex : null}
           {tab === 'rules' ? props.rules : null}
           {tab === 'history' ? props.history : null}

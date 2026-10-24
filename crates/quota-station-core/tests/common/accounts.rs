@@ -380,4 +380,15 @@ impl Mac {
     pub fn loaded(&self, label: &str) -> bool {
         self.dir.join("loaded").join(label).exists()
     }
+
+    /// Cài đặt › Nâng cao shows Firstmate, or does not: the copy for
+    /// Firstmate's quota-axi is written only while it does.
+    pub fn show_firstmate(&self, shown: bool) {
+        let settings = quota_station_core::settings::Settings {
+            advanced: true,
+            firstmate: shown,
+            ..Default::default()
+        };
+        settings.save(&self.paths.settings_file()).unwrap();
+    }
 }

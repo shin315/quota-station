@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 // The Firstmate tab (M6) on fixture data: what Firstmate's quota-pool.last
-// says, next to quota-axi's pool. The file itself is read on the Rust side.
+// says, next to the app's own pool. The file itself is read on the Rust side.
 
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -45,7 +45,7 @@ describe('the Firstmate tab', () => {
       'Tài khoản đang dùng: lan.acme1',
       'Đã dùng từng tài khoản: lanpham.dev đã dùng 71% · lan.acme1 đã dùng 100% · lan.acme2 đã dùng 0% · lan.acme3 đã dùng 2%',
       'Có lại lúc: —',
-      'quota-axi có +cswap: có',
+      'quota-axi của firstmate có +cswap: có',
       'Đọc được claude-swap: được',
       'Cập nhật: 14:19 · 1 phút trước',
     ]);
@@ -67,7 +67,7 @@ describe('the Firstmate tab', () => {
 
   it('when the app and Firstmate disagree, it says why', async () => {
     await open(firstmateFixture({ ownDry: true }));
-    expect(screen.getByText(/^App tính từ số quota-axi lúc 14:20 thì hạn mức trong vòng đã cạn\./)).toBeTruthy();
+    expect(screen.getByText(/^App tính từ số của nó lúc 14:20 thì hạn mức trong vòng đã cạn\./)).toBeTruthy();
   });
 
   it('without a file set, it points to Cài đặt', async () => {
@@ -83,6 +83,6 @@ describe('the Firstmate tab', () => {
   it('a file that is not there', async () => {
     await open(firstmateFixture({ status: 'missing', line: null, writtenAt: null, fresh: false }));
     expect(screen.getByText('Không thấy firstmate trên máy này')).toBeTruthy();
-    expect(screen.getByText('Không có file ~/example/quota-pool.last. Luật "cạn" vẫn tự tính từ số quota-axi để báo.')).toBeTruthy();
+    expect(screen.getByText('Không có file ~/example/quota-pool.last. Luật "cạn" vẫn tự tính từ số của app để báo.')).toBeTruthy();
   });
 });
