@@ -162,10 +162,17 @@ describe('main window', () => {
 
   it('the Claude tab marks old numbers next to the name, not in a column', async () => {
     await open(fixtureModel('stale'), 'claude');
-    expect(screen.getByText('4 tài khoản claude-swap')).toBeTruthy();
+    expect(screen.getByText('4 tài khoản Quota Station')).toBeTruthy();
+    expect(screen.queryByText(/tài khoản claude-swap/)).toBeNull();
     expect(screen.queryByText('Cập nhật')).toBeNull();
     expect(screen.getAllByText('số 41 phút trước').length).toBeGreaterThan(0);
     expect(screen.getByText('Hạn mức Claude chưa cập nhật trong 41 phút')).toBeTruthy();
+  });
+
+  it('the Claude tab names claude-swap as the keeper only until Quota Station keeps the accounts', async () => {
+    await open(fixtureModel('fresh', { claudeSwitch: { ready: false, busy: null } }), 'claude');
+    expect(screen.getByText('4 tài khoản claude-swap')).toBeTruthy();
+    expect(screen.queryByText('4 tài khoản Quota Station')).toBeNull();
   });
 
   it('the Antigravity tab merges the app’s logins into its table, with no Cockpit card', async () => {

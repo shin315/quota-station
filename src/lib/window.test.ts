@@ -23,7 +23,9 @@ describe('main window view', () => {
   });
 
   it('counts the Claude accounts by what the Mac has', () => {
-    expect(view('fresh').claude.count).toBe('4 tài khoản claude-swap');
+    expect(view('fresh').claude.count).toBe('4 tài khoản Quota Station');
+    // Before Quota Station keeps the accounts, claude-swap still does.
+    expect(view('fresh', { claudeSwitch: { ready: false, busy: null } }).claude.count).toBe('4 tài khoản claude-swap');
     const unavailable = view('unavailable').claude;
     expect(unavailable).toMatchObject({ count: '', cards: [] });
     expect(unavailable.note?.text).toBe('Không đọc được danh sách tài khoản của claude-swap (usage_schema_mismatch).');

@@ -32,7 +32,7 @@ export interface WindowView {
   /** Đang dùng, Tổng quan's first card: the account in use on each service. */
   now: NowView;
   claude: {
-    /** `4 tài khoản claude-swap`. */
+    /** `4 tài khoản Quota Station`; `claude-swap` until Quota Station keeps the accounts. */
     count: string;
     /** In slot order, as the tables list them. */
     cards: CardView[];
@@ -226,7 +226,7 @@ export function windowView(model: Model, now: Date, options: ViewOptions = {}): 
     banner: pv.banner,
     now: pv.now,
     claude: {
-      count: pv.claude.cards.length ? pv.claude.cards.length + ' tài khoản' + (swap ? ' claude-swap' : '') : '',
+      count: pv.claude.cards.length ? pv.claude.cards.length + ' tài khoản' + (swap ? (model.claudeSwitch.ready ? ' Quota Station' : ' claude-swap') : '') : '',
       cards: pv.claude.cards,
       note: pv.claude.note,
     },
