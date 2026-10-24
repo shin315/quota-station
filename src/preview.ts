@@ -8,6 +8,9 @@
 // `accounts=none` shows a Mac where Quota Station keeps no Claude account yet. A switch takes 1.5 s, so the working sheet shows.
 // Claude accounts: `claude=relogin` has account 3 to sign in again, `claude=renew` makes a sign-in land on
 // account 1 (already here), `claude=fail` ends a sign-in without one; an action takes 3 s.
+// GitHub Releases: `release=avail|later|skipped|offline|none|off` (up to date by default); "Kiểm bản mới"
+// takes 1.5 s and finds 0.3.0, or `releasefinds=offline`. `build=release` is the downloaded app
+// (no author's tools, no Antigravity accounts), whose dialog offers the DMG.
 // Rotation rules (M5): `tab=rules` with `rotation=unreachable|newer|edited|unstamped|missing|invalid|unwritable|single`;
 // a save takes 1 s, and `unreachable` leaves Mac C behind.
 // Antigravity logins (M4a) and reads (M4b): `agy=two|relogin|verify|noclient|tooopen|invalid|broken|reading|failing|forbidden`
@@ -84,6 +87,9 @@ import {
   SNAPSHOTS,
   switcherFixture,
   claudeAccountsFixture,
+  releaseAvailable,
+  releaseFixture,
+  communityModel,
   alertsFixture,
   appFixture,
   codexFixture,
@@ -349,6 +355,11 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
     over.claudeAccounts = claudeAccountsFixture({ ready: false, accounts: [], rotation: false });
     over.switcher = switcherFixture({ installed: false, service: false, dryRun: null, dryRunError: 'noAccounts' });
   }
+  const rel = params.get('release');
+  if (rel === 'avail' || rel === 'later' || rel === 'skipped') over.release = releaseAvailable(rel === 'later' ? { later: '0.3.0' } : rel === 'skipped' ? { skipped: '0.3.0' } : {});
+  else if (rel === 'offline') over.release = releaseFixture({ error: 'offline' });
+  else if (rel === 'none') over.release = releaseFixture({ none: true, latest: null });
+  else if (rel === 'off') over.release = releaseFixture({ auto: false });
   const claude = params.get('claude');
   if (claude === 'relogin')
     over.claudeAccounts = claudeAccountsFixture({
@@ -418,9 +429,12 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
       a.windows = a.windows.map((w) => (w.kind === 'claudeGptWeek' ? { ...w, percent: 14 } : w));
     }
   }
-  const { api } = fakeApi(params.get('email') === 'off' ? hideNames(model) : model, tab, {
+  const built: Model = params.get('build') === 'release' ? { ...communityModel(model), capabilities: { agyAccounts: false, authorTools: false } } : model;
+  const { api } = fakeApi(params.get('email') === 'off' ? hideNames(built) : built, tab, {
     switchDelayMs: 1500,
     claudeDelayMs: 3000,
+    releaseDelayMs: 1500,
+    releaseFinds: params.get('releasefinds') === 'offline' ? 'offline' : releaseAvailable().latest,
     claudeRenews: claude === 'renew' ? 1 : undefined,
     claudeFail: claude === 'fail' ? (action) => (action === 'login' ? 'login' : null) : undefined,
     outcome: pick(OUTCOMES, params.get('outcome')),

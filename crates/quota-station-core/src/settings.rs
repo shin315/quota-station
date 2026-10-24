@@ -85,6 +85,10 @@ pub struct Settings {
     /// Looking for newer versions of the skills (M11).
     #[serde(default, skip_serializing_if = "SkillChecks::is_default")]
     pub skill_checks: SkillChecks,
+    /// "Tự kiểm bản mới của app" turned off: GitHub Releases is asked only
+    /// on "Kiểm bản mới". On by default.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub release_checks_off: bool,
     /// Where the backup packs go; `None` is iCloud Drive's
     /// `Quota Station Agents`, as before there was a choice.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -343,6 +347,8 @@ struct Stored {
     #[serde(default)]
     skill_checks: serde_json::Value,
     #[serde(default)]
+    release_checks_off: bool,
+    #[serde(default)]
     backup_dir: Option<PathBuf>,
     /// An unknown or refused value reads as 10 and 15.
     #[serde(default)]
@@ -402,6 +408,7 @@ impl From<Stored> for Settings {
             codex: serde_json::from_value(s.codex).unwrap_or_default(),
             auto_backup: serde_json::from_value(s.auto_backup).unwrap_or_default(),
             skill_checks: serde_json::from_value(s.skill_checks).unwrap_or_default(),
+            release_checks_off: s.release_checks_off,
             backup_dir: s.backup_dir,
             pool_alert: serde_json::from_value::<PoolAlert>(s.pool_alert)
                 .ok()

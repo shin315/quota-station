@@ -49,6 +49,7 @@ mod install;
 mod login_item;
 mod notify;
 mod reader;
+mod release;
 #[cfg(feature = "author-tools")]
 mod rules;
 mod sets;
@@ -245,6 +246,12 @@ commands![
     skills::skills_remove,
     skills::skills_import,
     skills::skills_open_link,
+    release::release_check,
+    release::release_skip,
+    release::release_later,
+    release::set_release_checks,
+    release::release_open,
+    release::release_diagnostics,
     skills::skills_check,
     skills::skills_set_checks,
     env::env_check,

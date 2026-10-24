@@ -12,6 +12,7 @@ import { statsFixture } from './fakeStats';
 import type { AuthorModel } from '../lib/author';
 import type {
   AgyAccounts,
+  ReleaseView,
   AgyLogin,
   AlertRecord,
   AlertsView,
@@ -328,6 +329,45 @@ export function historyFixture(): HistoryEntry[] {
 }
 
 /** The app's own row: an installed copy, built by `scripts/install.sh` from a made-up commit. */
+/** GitHub Releases checked at 09:14 (UTC+7) this morning; 0.3.0 is out when `newer`. */
+export function releaseFixture(over: Partial<ReleaseView> = {}): ReleaseView {
+  return {
+    auto: true,
+    checking: false,
+    checkedAt: Date.parse('2026-01-16T02:14:00Z') / 1000,
+    error: null,
+    none: false,
+    latest: {
+      version: '0.1.0',
+      publishedAt: '2026-01-02T08:00:00Z',
+      notes: ['Bản cộng đồng đầu tiên'],
+      url: 'https://github.com/shin315/quota-station/releases/tag/v0.1.0',
+      dmg: 'https://github.com/shin315/quota-station/releases/download/v0.1.0/Quota.Station_0.1.0_aarch64.dmg',
+      size: 13_800_000,
+    },
+    newer: false,
+    skipped: null,
+    later: null,
+    ...over,
+  };
+}
+
+/** 0.3.0 on GitHub, newer than the fixture's 0.1.0. */
+export function releaseAvailable(over: Partial<ReleaseView> = {}): ReleaseView {
+  return releaseFixture({
+    latest: {
+      version: '0.3.0',
+      publishedAt: '2026-01-15T08:00:00Z',
+      notes: ['Tab Claude quản lý tài khoản: thêm, đặt tên gọi, cho nghỉ, xoá', 'Giao diện bằng tiếng Anh', 'Đọc hạn mức nhanh hơn khi mở popover'],
+      url: 'https://github.com/shin315/quota-station/releases/tag/v0.3.0',
+      dmg: 'https://github.com/shin315/quota-station/releases/download/v0.3.0/Quota.Station_0.3.0_aarch64.dmg',
+      size: 14_200_000,
+    },
+    newer: true,
+    ...over,
+  });
+}
+
 export function appFixture(over: Partial<AppView> = {}): AppView & SourceView {
   return {
     version: '0.1.0',
@@ -595,6 +635,7 @@ export function fixtureModel(name: string, over: Partial<Model> = {}): AuthorMod
     mcp: mcpFixture(),
     backup: backupFixture(),
     skills: skillsFixture(),
+    release: releaseFixture(),
     plugins: pluginsFixture(),
     instructions: instrFixture(),
     env: envFixture(),

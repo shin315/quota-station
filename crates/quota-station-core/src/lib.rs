@@ -80,6 +80,7 @@ pub mod pause;
 #[cfg(feature = "author-tools")]
 pub mod peers;
 pub mod quota;
+pub mod release;
 pub mod rotation;
 pub mod runner;
 pub mod schedule;
