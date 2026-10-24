@@ -23,6 +23,7 @@ import {
   sameRules,
   saveFeedback,
 } from '../lib/rules';
+import { t } from '../lib/i18n';
 import { decisionText, namesOf } from '../lib/switching';
 import type { Action, BannerView, FeedbackView } from '../lib/view';
 
@@ -49,11 +50,14 @@ function isRulesError(e: unknown): e is RulesError {
   return typeof e === 'object' && e !== null && 'kind' in e;
 }
 
-const PREVIEW_ERRORS: Record<string, string> = {
-  notFound: 'Không có switcher trên máy này.',
-  timeout: 'Switcher không trả lời kịp.',
-  noDecision: 'Switcher không in quyết định (claude-swap không trả số).',
-};
+function previewError(e: string): string {
+  const known: Record<string, string> = {
+    notFound: t('Không có switcher trên máy này.', 'No switcher on this Mac.'),
+    timeout: t('Switcher không trả lời kịp.', 'The switcher did not answer in time.'),
+    noDecision: t('Switcher không in quyết định (claude-swap không trả số).', 'The switcher printed no decision (claude-swap returned no numbers).'),
+  };
+  return known[e] ?? t('Chưa xem trước được: ', 'Could not preview: ') + e;
+}
 
 export function useRules(api: Api, model: Model | null, clock: () => Date, showFeedback: (fb: FeedbackView | null) => void, tab: Tab | null) {
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -72,11 +76,11 @@ export function useRules(api: Api, model: Model | null, clock: () => Date, showF
   const base = draft ? draft.base : (r?.version ?? null);
   const dirty = !!draft;
   const stale = !!draft && !!r && draft.base !== r.version;
-  const nameOf = model ? ruleNames(model) : (n: number) => 'Tài khoản ' + n;
+  const nameOf = model ? ruleNames(model) : (n: number) => t('Tài khoản ', 'Account ') + n;
   const changes =
     model && current
       ? [
-          ...(draft?.fresh ? ['Tạo file luật mới từ mặc định'] : r?.status === 'invalid' ? ['Ghi đè file luật không hợp lệ'] : []),
+          ...(draft?.fresh ? [t('Tạo file luật mới từ mặc định', 'Create a new rules file from the defaults')] : r?.status === 'invalid' ? [t('Ghi đè file luật không hợp lệ', 'Overwrite the invalid rules file')] : []),
           ...ruleChanges(saved ?? r?.defaults ?? current, current, nameOf, clock()),
         ]
       : [];
@@ -168,7 +172,7 @@ export function useRules(api: Api, model: Model | null, clock: () => Date, showF
           setPreview({ kind: 'ok', text: decisionText(d.decision, d.raw, active ? names(active.number) : null, names), raw: d.raw });
         },
         (e) => {
-          if (live) setPreview({ kind: 'error', text: PREVIEW_ERRORS[String(e)] ?? 'Chưa xem trước được: ' + String(e) });
+          if (live) setPreview({ kind: 'error', text: previewError(String(e)) });
         },
       );
     }, PREVIEW_MS);

@@ -26,6 +26,7 @@ import {
   whereLine,
 } from '../lib/mcp';
 import type { Agent, McpRow, McpTable, Model } from '../lib/model';
+import { t } from '../lib/i18n';
 import { dayClock } from '../lib/switching';
 import type { Action, BannerView, FeedbackView, PopoverView } from '../lib/view';
 import { ARCHIVE_ICON, LOCK_ICON, NAV_ICONS, PLUG_BIG, PUZZLE_ICON } from '../window/icons';
@@ -37,21 +38,34 @@ function columnBanners(table: McpTable): BannerView[] {
   const out: BannerView[] = [];
   for (const c of table.columns) {
     const name = AGENT_NAME[c.agent];
-    if (c.state === 'invalid' || c.state === 'unreadable')
+    if (c.state === 'invalid' || c.state === 'unreadable') {
+      const file = c.file.split('/').pop();
+      const reason = c.reason ?? t('Không rõ lý do', 'Unknown reason');
       out.push({
         tone: 'bad',
-        title: 'Không đọc được ' + c.file.split('/').pop() + ' của ' + name,
-        body: (c.reason ?? 'Không rõ lý do') + '. Cột ' + name + ' chỉ xem cho đến khi file đọc được; app không ghi vào file lỗi.',
-        actions: [{ label: 'Đọc lại', act: 'mcp:reread' }],
+        title: t('Không đọc được ' + file + ' của ' + name, 'Cannot read ' + name + '’s ' + file),
+        body: t(
+          reason + '. Cột ' + name + ' chỉ xem cho đến khi file đọc được; app không ghi vào file lỗi.',
+          reason + '. The ' + name + ' column is view only until the file can be read; the app does not write to a broken file.',
+        ),
+        actions: [{ label: t('Đọc lại', 'Read again'), act: 'mcp:reread' }],
       });
-    else if (c.state === 'absent')
-      out.push({ tone: 'info', title: name + ' chưa cài trên máy này', body: 'Cột ' + name + ' để trống.', actions: [] });
+    } else if (c.state === 'absent')
+      out.push({
+        tone: 'info',
+        title: t(name + ' chưa cài trên máy này', name + ' is not installed on this Mac'),
+        body: t('Cột ' + name + ' để trống.', 'The ' + name + ' column stays empty.'),
+        actions: [],
+      });
     else if (c.state === 'noCli')
       out.push({
         tone: 'warn',
-        title: 'Không tìm thấy lệnh claude',
-        body: 'Claude Code tự ghi danh sách MCP qua lệnh claude mcp, nên cột Claude Code chỉ xem. Cài Claude Code rồi bấm Đọc lại.',
-        actions: [{ label: 'Đọc lại', act: 'mcp:reread' }],
+        title: t('Không tìm thấy lệnh claude', 'The claude command was not found'),
+        body: t(
+          'Claude Code tự ghi danh sách MCP qua lệnh claude mcp, nên cột Claude Code chỉ xem. Cài Claude Code rồi bấm Đọc lại.',
+          'Claude Code writes its MCP list itself through claude mcp, so the Claude Code column is view only. Install Claude Code, then press Read again.',
+        ),
+        actions: [{ label: t('Đọc lại', 'Read again'), act: 'mcp:reread' }],
       });
   }
   return out;
@@ -66,21 +80,27 @@ function rowBanners(rows: McpRow[], later: string[]): BannerView[] {
     if (missing.length)
       out.push({
         tone: 'warn',
-        title: r.name + ' thiếu khoá trên máy này',
-        body: 'Ô tick bị khoá ở agent chưa có ' + r.name + ', đến khi có ' + missing.map((s) => s.label).join(', ') + '.',
+        title: t(r.name + ' thiếu khoá trên máy này', r.name + ' is missing a key on this Mac'),
+        body: t(
+          'Ô tick bị khoá ở agent chưa có ' + r.name + ', đến khi có ' + missing.map((s) => s.label).join(', ') + '.',
+          'The boxes are locked for agents that do not have ' + r.name + ' yet, until ' + missing.map((s) => s.label).join(', ') + ' is here.',
+        ),
         actions: [
-          { label: 'Dán khoá', act: `mcp:key:${r.name}` },
-          { label: 'Để sau', act: `mcp:later:${r.name}` },
+          { label: t('Dán khoá', 'Paste key'), act: `mcp:key:${r.name}` },
+          { label: t('Để sau', 'Later'), act: `mcp:later:${r.name}` },
         ],
       });
     else if (r.missingCommand?.path)
       out.push({
         tone: 'warn',
-        title: 'Lệnh của ' + r.name + ' chưa có trên máy này',
-        body: r.missingCommand.command + ' không có, nên ' + r.name + ' chỉ tắt được, chưa bật được. Cài lệnh rồi bấm Đọc lại.',
+        title: t('Lệnh của ' + r.name + ' chưa có trên máy này', r.name + '’s command is not on this Mac'),
+        body: t(
+          r.missingCommand.command + ' không có, nên ' + r.name + ' chỉ tắt được, chưa bật được. Cài lệnh rồi bấm Đọc lại.',
+          r.missingCommand.command + ' is missing, so ' + r.name + ' can only be turned off, not on. Install the command, then press Read again.',
+        ),
         actions: [
-          { label: 'Cách cài', act: `mcp:howcmd:${r.name}` },
-          { label: 'Đọc lại', act: 'mcp:reread' },
+          { label: t('Cách cài', 'How to install'), act: `mcp:howcmd:${r.name}` },
+          { label: t('Đọc lại', 'Read again'), act: 'mcp:reread' },
         ],
       });
   }
@@ -91,15 +111,22 @@ function columns(table: McpTable): MatrixColumn[] {
   return table.columns.map((c) => ({
     agent: c.agent,
     open: c.writable && table.rows.some((r) => !r.cells[c.agent].lock),
-    note: c.state === 'absent' ? 'chưa cài trên máy này' : c.state === 'invalid' || c.state === 'unreadable' ? 'file lỗi, chỉ xem' : c.state === 'noCli' ? 'không có lệnh claude' : undefined,
+    note:
+      c.state === 'absent'
+        ? t('chưa cài trên máy này', 'not installed on this Mac')
+        : c.state === 'invalid' || c.state === 'unreadable'
+          ? t('file lỗi, chỉ xem', 'broken file, view only')
+          : c.state === 'noCli'
+            ? t('không có lệnh claude', 'no claude command')
+            : undefined,
   }));
 }
 
 function cellOf(table: McpTable, mcp: Mcp, row: McpRow, agent: Agent): MatrixCell {
   const col = table.columns.find((c) => c.agent === agent);
-  if (col?.state === 'absent') return { checked: null, mark: '—', pending: false, disabled: true, title: AGENT_NAME[agent] + ' chưa cài trên máy này' };
+  if (col?.state === 'absent') return { checked: null, mark: '—', pending: false, disabled: true, title: t(AGENT_NAME[agent] + ' chưa cài trên máy này', AGENT_NAME[agent] + ' is not installed on this Mac') };
   if (col?.state === 'invalid' || col?.state === 'unreadable')
-    return { checked: null, mark: '?', pending: false, disabled: true, title: 'Không đọc được ' + col.file.split('/').pop() };
+    return { checked: null, mark: '?', pending: false, disabled: true, title: t('Không đọc được ' + col.file.split('/').pop(), 'Cannot read ' + col.file.split('/').pop()) };
   const cell = row.cells[agent];
   const p = mcp.pending[row.name + '|' + agent];
   return { checked: shown(mcp.pending, row, agent), pending: p !== undefined, disabled: cell.lock != null, title: cellTitle(row, agent) };
@@ -113,7 +140,12 @@ function Name({ row }: { row: McpRow }) {
         <ServiceIcon service={serviceOf(row.name, row.program, row.host)} />
         <b>{row.name}</b>
         {locked ? (
-          <span className={LOCK} role="img" aria-label="có khoá, giữ ngoài giao diện" title="Có khoá. App không hiện, không ghi vào bản lưu hay log.">
+          <span
+            className={LOCK}
+            role="img"
+            aria-label={t('có khoá, giữ ngoài giao diện', 'has a key, kept out of the window')}
+            title={t('Có khoá. App không hiện, không ghi vào bản lưu hay log.', 'Has a key. The app does not show it or write it to backups or logs.')}
+          >
             {LOCK_ICON}
           </span>
         ) : null}
@@ -128,7 +160,7 @@ function Name({ row }: { row: McpRow }) {
 
 function owners(table: McpTable): string {
   const names = [...new Set(table.owned.map((o) => o.owner))];
-  return names.length ? names.join(', ') : 'agent';
+  return names.length ? names.join(', ') : t('agent', 'the agents');
 }
 
 export interface McpTabProps {
@@ -144,7 +176,7 @@ export function McpTab({ model, fresh, feedback, now, mcp, onAction }: McpTabPro
   const v = model.mcp;
   const table = v.table;
   const busy = v.busy != null || mcp.working;
-  const sub = v.busy === 'reading' ? 'đang đọc…' : v.readAt ? 'đọc lúc ' + clock(v.readAt) : fresh.text;
+  const sub = v.busy === 'reading' ? t('đang đọc…', 'reading…') : v.readAt ? t('đọc lúc ' + clock(v.readAt), 'read at ' + clock(v.readAt)) : fresh.text;
   const top = (
     <TabHead>
       <TabTitle>MCP</TabTitle>
@@ -153,10 +185,10 @@ export function McpTab({ model, fresh, feedback, now, mcp, onAction }: McpTabPro
         {model.machine} · {sub}
       </TabSub>
       <Button primary disabled={!table || busy} onClick={mcp.add}>
-        Thêm MCP
+        {t('Thêm MCP', 'Add MCP')}
       </Button>
       <Button disabled={busy} onClick={mcp.reread}>
-        Đọc lại
+        {t('Đọc lại', 'Read again')}
       </Button>
     </TabHead>
   );
@@ -166,8 +198,8 @@ export function McpTab({ model, fresh, feedback, now, mcp, onAction }: McpTabPro
         {top}
         <Panel>
           <Empty>
-            <b>Đang đọc danh sách MCP…</b>
-            Claude Code, Codex và Antigravity, trên máy này.
+            <b>{t('Đang đọc danh sách MCP…', 'Reading the MCP lists…')}</b>
+            {t('Claude Code, Codex và Antigravity, trên máy này.', 'Claude Code, Codex and Antigravity, on this Mac.')}
           </Empty>
         </Panel>
       </>
@@ -184,7 +216,7 @@ export function McpTab({ model, fresh, feedback, now, mcp, onAction }: McpTabPro
       {table.rows.length ? (
         <Panel>
           <CardTitle>
-            MCP của bạn <span className={COUNT}>{table.rows.length}</span>
+            {t('MCP của bạn', 'Your MCP')} <span className={COUNT}>{table.rows.length}</span>
           </CardTitle>
           <CheckMatrix
             noun="MCP"
@@ -195,20 +227,20 @@ export function McpTab({ model, fresh, feedback, now, mcp, onAction }: McpTabPro
             actions={(r) => (
               <>
                 {rowCanAll(mcp.pending, r) ? (
-                  <LinkButton small className={MATRIX_HOVER} aria-label={'Bật ' + r.name + ' cho cả ba agent'} onClick={() => mcp.rowAll(r)}>
-                    Bật cả ba
+                  <LinkButton small className={MATRIX_HOVER} aria-label={t('Bật ' + r.name + ' cho cả ba agent', 'Turn on ' + r.name + ' for all three agents')} onClick={() => mcp.rowAll(r)}>
+                    {t('Bật cả ba', 'All three')}
                   </LinkButton>
                 ) : null}
-                <LinkButton small aria-label={'Sửa ' + r.name} disabled={!editable(r).length || busy} onClick={() => mcp.edit(r)}>
-                  Sửa
+                <LinkButton small aria-label={t('Sửa ' + r.name, 'Edit ' + r.name)} disabled={!editable(r).length || busy} onClick={() => mcp.edit(r)}>
+                  {t('Sửa', 'Edit')}
                 </LinkButton>
                 <LinkButton
                   small
-                  aria-label={'Xoá ' + r.name}
+                  aria-label={t('Xoá ' + r.name, 'Delete ' + r.name)}
                   disabled={busy || !Object.values(r.cells).some((c) => c.state !== 'absent' && c.lock !== 'readOnly' && c.lock !== 'shape')}
                   onClick={() => mcp.setDialog({ kind: 'del', name: r.name, mode: 'kho', keys: true })}
                 >
-                  Xoá
+                  {t('Xoá', 'Delete')}
                 </LinkButton>
               </>
             )}
@@ -225,11 +257,11 @@ export function McpTab({ model, fresh, feedback, now, mcp, onAction }: McpTabPro
         <Panel>
           <Empty>
             <EmptyIcon>{PLUG_BIG}</EmptyIcon>
-            <b>Chưa có MCP nào trên máy này</b>
-            <CardText className="mt-2 mb-0">Thêm một MCP một lần cho cả ba agent.</CardText>
+            <b>{t('Chưa có MCP nào trên máy này', 'No MCP on this Mac yet')}</b>
+            <CardText className="mt-2 mb-0">{t('Thêm một MCP một lần cho cả ba agent.', 'Add an MCP once for all three agents.')}</CardText>
             <div className="mt-2.5 flex flex-wrap justify-center gap-2">
               <Button primary disabled={busy} onClick={mcp.add}>
-                Thêm MCP
+                {t('Thêm MCP', 'Add MCP')}
               </Button>
             </div>
           </Empty>
@@ -244,15 +276,19 @@ export function McpTab({ model, fresh, feedback, now, mcp, onAction }: McpTabPro
               actions={
                 <>
                   <Button disabled={busy} onClick={() => mcp.setDialog({ kind: 'kho', name: k.name, agents: khoAgents(table, k.agents) })}>
-                    Bật lại…
+                    {t('Bật lại…', 'Turn back on…')}
                   </Button>
                   <LinkButton small disabled={busy} onClick={() => mcp.setDialog({ kind: 'forget', name: k.name, keys: true })}>
-                    Xoá hẳn
+                    {t('Xoá hẳn', 'Delete for good')}
                   </LinkButton>
                 </>
               }
             >
-              <b>{k.name}</b> đang cất: tắt ở mọi agent từ {dayClock(new Date(k.at * 1000).toISOString(), now)}.
+              <b>{k.name}</b>
+              {t(
+                ' đang cất: tắt ở mọi agent từ ' + dayClock(new Date(k.at * 1000).toISOString(), now) + '.',
+                ' is put away: off for every agent since ' + dayClock(new Date(k.at * 1000).toISOString(), now) + '.',
+              )}
             </InfoLine>
           ))}
           {table.owned.length ? (
@@ -260,22 +296,28 @@ export function McpTab({ model, fresh, feedback, now, mcp, onAction }: McpTabPro
               icon={PUZZLE_ICON}
               actions={
                 <LinkButton small onClick={() => mcp.setDialog({ kind: 'owned' })}>
-                  Xem
+                  {t('Xem', 'View')}
                 </LinkButton>
               }
             >
-              {table.owned.length} MCP có sẵn trong {owners(table)}. App để yên, không sửa.
+              {t(
+                table.owned.length + ' MCP có sẵn trong ' + owners(table) + '. App để yên, không sửa.',
+                table.owned.length + ' MCP built into ' + owners(table) + '. The app leaves them alone.',
+              )}
             </InfoLine>
           ) : null}
           <InfoLine
             icon={NAV_ICONS.history}
             actions={
               <LinkButton small onClick={() => mcp.setDialog({ kind: 'backups' })}>
-                Bản đã lưu
+                {t('Bản đã lưu', 'Backups')}
               </LinkButton>
             }
           >
-            Trước mỗi lần ghi, app lưu lại bản cũ để lấy lại được. Bản lưu không chứa khoá.
+            {t(
+              'Trước mỗi lần ghi, app lưu lại bản cũ để lấy lại được. Bản lưu không chứa khoá.',
+              'Before each write, the app keeps the old version so it can be restored. Backups hold no keys.',
+            )}
           </InfoLine>
         </div>
       </Panel>

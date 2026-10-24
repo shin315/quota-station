@@ -22,7 +22,7 @@ async function openTab(tab: Tab, model: Model = fixtureModel('fresh'), options: 
       <MainWindowApp api={fake.api} clock={() => FIXTURE_NOW} />
     </div>,
   );
-  await screen.findByRole('navigation', { name: 'Mục' });
+  await screen.findByRole('navigation', { name: 'Các tab' });
   return fake;
 }
 
@@ -56,7 +56,7 @@ describe('the Skills tab', () => {
   it('is under Agent, reads when it opens, and draws a box per agent', async () => {
     const fake = await openTab('skills');
     expect(fake.api.skillsRead).toHaveBeenCalled();
-    const nav = screen.getByRole('navigation', { name: 'Mục' });
+    const nav = screen.getByRole('navigation', { name: 'Các tab' });
     expect(within(nav).getAllByRole('button').map((b) => b.textContent)).toEqual(expect.arrayContaining(['MCP', 'Skills', 'Plugin', 'File hướng dẫn']));
     expect(screen.getByRole('heading', { level: 2, name: 'Skills' })).toBeTruthy();
     expect(screen.getByText('GitHub · uikit-lab/ui-skills')).toBeTruthy();

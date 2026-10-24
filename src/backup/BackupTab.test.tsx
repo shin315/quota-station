@@ -50,7 +50,7 @@ describe('the Sao lưu tab', () => {
     const fake = await openTab();
     expect(fake.api.backupRead).toHaveBeenCalled();
     expect(fake.api.mcpRead).toHaveBeenCalled();
-    const nav = screen.getByRole('navigation', { name: 'Mục' });
+    const nav = screen.getByRole('navigation', { name: 'Các tab' });
     expect(within(nav).getByRole('button', { name: 'Sao lưu' }).getAttribute('aria-current')).toBe('page');
     expect(screen.getByRole('heading', { level: 4, name: 'Gói gần nhất' })).toBeTruthy();
     expect(screen.getByText('Không chứa khoá. Khi khôi phục, app hỏi lại 2 khoá.')).toBeTruthy();

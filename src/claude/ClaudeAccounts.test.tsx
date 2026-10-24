@@ -17,7 +17,7 @@ async function open(model: Model, options: FakeOptions = {}) {
       <MainWindowApp api={fake.api} clock={() => FIXTURE_NOW} />
     </div>,
   );
-  await screen.findByRole('navigation', { name: 'Mục' });
+  await screen.findByRole('navigation', { name: 'Các tab' });
   return fake;
 }
 

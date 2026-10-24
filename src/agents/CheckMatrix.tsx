@@ -20,7 +20,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { AGENT_NAME, AGENTS, type ColumnMenu } from '../lib/mcp';
+import { t } from '../lib/i18n';
+import { AGENT_NAME, AGENTS, changesWord, type ColumnMenu } from '../lib/mcp';
 import type { Agent } from '../lib/model';
 import { AgentIcon } from '../components/logos';
 import { Button } from '../components/parts';
@@ -88,16 +89,16 @@ function ColumnHead(props: {
 
   if (!props.column.open)
     return (
-      <span className={HEAD_OFF} title={name + ': ' + (props.column.note ?? 'chỉ xem')}>
+      <span className={HEAD_OFF} title={name + ': ' + (props.column.note ?? t('chỉ xem', 'view only'))}>
         <AgentLogo agent={agent} />
-        <span className="sr-only">{name}, chỉ xem</span>
+        <span className="sr-only">{t(name + ', chỉ xem', name + ', view only')}</span>
       </span>
     );
   return (
     <DropdownMenu open={props.open} onOpenChange={props.onOpen} modal={false}>
       <DropdownMenuTrigger
         className={cn(HEAD_BUTTON, 'cursor-pointer hover:bg-fill focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent data-[state=open]:bg-fill')}
-        aria-label={name + ': tuỳ chọn cột'}
+        aria-label={t(name + ': tuỳ chọn cột', name + ': column options')}
         title={name}
       >
         <AgentLogo agent={agent} />
@@ -123,24 +124,24 @@ function ColumnHead(props: {
         <DropdownMenuLabel aria-hidden="true">
           <b className="block text-sm font-semi text-ink">{name}</b>
           <small className="text-xs text-ink2">
-            {m.ticked}/{m.total} {props.noun} đang tick
+            {t(m.ticked + '/' + m.total + ' ' + props.noun + ' đang tick', m.ticked + ' of ' + m.total + ' ticked')}
           </small>
         </DropdownMenuLabel>
         <DropdownMenuItem asChild disabled={m.ticked === m.total} onSelect={() => props.onSet(true)}>
           <button type="button" disabled={m.ticked === m.total}>
-            Bật tất cả
+            {t('Bật tất cả', 'Turn all on')}
           </button>
         </DropdownMenuItem>
         <DropdownMenuItem asChild disabled={m.ticked === 0} onSelect={() => props.onSet(false)}>
           <button type="button" disabled={m.ticked === 0}>
-            Tắt tất cả
+            {t('Tắt tất cả', 'Turn all off')}
           </button>
         </DropdownMenuItem>
         {m.pending ? (
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild onSelect={props.onClear}>
-              <button type="button">Bỏ {m.pending} thay đổi chưa ghi</button>
+              <button type="button">{t('Bỏ ' + changesWord(m.pending) + ' chưa ghi', 'Discard ' + changesWord(m.pending) + ' not written yet')}</button>
             </DropdownMenuItem>
           </>
         ) : null}
@@ -160,7 +161,7 @@ function CheckCell({ cell, label, onToggle }: { cell: MatrixCell; label: string;
         className={cell.mark === '?' || cell.mark === '!' ? 'font-bold text-warn-ink' : 'text-ink3'}
         title={cell.title || undefined}
         role="img"
-        aria-label={label + ': ' + (cell.title || 'không có')}
+        aria-label={label + ': ' + (cell.title || t('không có', 'none'))}
       >
         {cell.mark ?? '—'}
       </span>
@@ -179,7 +180,7 @@ function CheckCell({ cell, label, onToggle }: { cell: MatrixCell; label: string;
       )}
       checked={cell.checked}
       aria-disabled={cell.disabled || undefined}
-      aria-label={label + (cell.pending ? ', chưa ghi' : '')}
+      aria-label={label + (cell.pending ? t(', chưa ghi', ', not written yet') : '')}
       title={cell.title || undefined}
       onCheckedChange={toggle}
       onKeyDown={(e) => {
@@ -219,7 +220,7 @@ export function CheckMatrix<R>(props: CheckMatrixProps<R>) {
   return (
     <div className="grid">
       <div className={cn(MATRIX_ROW, MATRIX_HEAD)}>
-        <span>Tên</span>
+        <span>{t('Tên', 'Name')}</span>
         {columns.map((c) => (
           <span key={c.agent} className="relative justify-center">
             <ColumnHead
@@ -252,7 +253,7 @@ export function CheckMatrix<R>(props: CheckMatrixProps<R>) {
             <div className={MATRIX_NAME}>{props.name(r)}</div>
             {AGENTS.map((a) => (
               <span key={a} className={MATRIX_CELL}>
-                <CheckCell cell={props.cell(r, a)} label={key + ' cho ' + AGENT_NAME[a]} onToggle={() => props.onToggle(r, a)} />
+                <CheckCell cell={props.cell(r, a)} label={t(key + ' cho ' + AGENT_NAME[a], key + ' for ' + AGENT_NAME[a])} onToggle={() => props.onToggle(r, a)} />
               </span>
             ))}
             <span className="flex items-center justify-end gap-2.5">{props.actions?.(r)}</span>
@@ -271,12 +272,12 @@ export function PendingBar(props: { lines: string[]; busy?: boolean; onClear(): 
     <div className="pendbar mt-2 flex items-center gap-2.5 rounded-[10px] bg-[color-mix(in_srgb,var(--warn)_10%,var(--fill))] px-2.5 py-2" role="status">
       <span className="size-1.5 flex-[0_0_6px] rounded-full bg-warn" aria-hidden="true" />
       <span className="min-w-0 flex-auto text-sm">
-        <b>{n} thay đổi chưa ghi</b>
+        <b>{t(changesWord(n) + ' chưa ghi', changesWord(n) + ' not written yet')}</b>
         <small className="block overflow-hidden text-ellipsis whitespace-nowrap text-xs text-ink2" title={props.lines.join(' · ')}>{props.lines.slice(0, 3).join(' · ') + (n > 3 ? ' · …' : '')}</small>
       </span>
-      <Button onClick={props.onClear}>Bỏ</Button>
+      <Button onClick={props.onClear}>{t('Bỏ', 'Discard')}</Button>
       <Button primary disabled={props.busy} onClick={props.onPreview}>
-        Xem trước và ghi…
+        {t('Xem trước và ghi…', 'Preview and write…')}
       </Button>
     </div>
   );

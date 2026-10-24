@@ -44,7 +44,7 @@ afterEach(cleanup);
 describe('the Thống kê tab', () => {
   it('follows Tổng quan in the sidebar and reads the logs when it opens', async () => {
     const fake = await openTab();
-    const nav = screen.getByRole('navigation', { name: 'Mục' });
+    const nav = screen.getByRole('navigation', { name: 'Các tab' });
     const items = within(nav).getAllByRole('button').map((b) => b.textContent);
     expect(items.slice(0, 2)).toEqual(['Tổng quan', 'Thống kê']);
     expect(within(nav).getByRole('button', { name: 'Thống kê' }).getAttribute('aria-current')).toBe('page');

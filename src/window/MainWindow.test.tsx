@@ -17,12 +17,12 @@ async function open(model: Model, tab: Tab = 'overview') {
       <MainWindowApp api={fake.api} clock={() => FIXTURE_NOW} />
     </div>,
   );
-  await screen.findByRole('navigation', { name: 'Mục' });
+  await screen.findByRole('navigation', { name: 'Các tab' });
   return fake;
 }
 
 const heading = () => screen.getByRole('heading', { level: 2 }).textContent;
-const nav = (name: string) => within(screen.getByRole('navigation', { name: 'Mục' })).getByRole('button', { name });
+const nav = (name: string) => within(screen.getByRole('navigation', { name: 'Các tab' })).getByRole('button', { name });
 
 afterEach(cleanup);
 
@@ -42,7 +42,7 @@ describe('main window', () => {
     expect(bar.getAttribute('data-tauri-drag-region')).toBe('deep');
     const refresh = within(bar).getByRole('button', { name: 'Làm mới' });
     expect(refresh.hasAttribute('data-tauri-drag-region')).toBe(false);
-    expect(screen.getByRole('navigation', { name: 'Mục' }).hasAttribute('data-tauri-drag-region')).toBe(true);
+    expect(screen.getByRole('navigation', { name: 'Các tab' }).hasAttribute('data-tauri-drag-region')).toBe(true);
     for (const tab of ['rules', 'history', 'alerts', 'firstmate', 'settings', 'codex', 'mcp', 'skills', 'plugins', 'instr'] as Tab[]) {
       cleanup();
       await open(fixtureModel('fresh'), tab);
@@ -58,9 +58,9 @@ describe('main window', () => {
     expect(screen.queryByText(/còn dùng được|tài khoản Claude/)).toBeNull();
     const tiles = within(screen.getByRole('list', { name: 'Đang dùng' })).getAllByRole('listitem');
     expect(tiles.map((t) => t.textContent)).toEqual([
-      'Claudelan.acme1Acme Studio74%đã dùng 5 giờ · 3h 8m',
-      'Geminilan.ultra2Antigravity2%đã dùng 5 giờ · 1h 57m',
-      'CodexrelayCodex đi qua relay—ChatGPT đã dùng 23% 5 giờ',
+      'Claudelan.acme1 · Acme Studio74%Hạn mức 5 giờ · đặt lại sau 3h 8m',
+      'Geminilan.ultra2 · Antigravity2%Hạn mức 5 giờ · đặt lại sau 1h 57m',
+      'Codexrelay · Codex đi qua relay—ChatGPT đã dùng 23% 5 giờ',
     ]);
 
     const claude = screen.getByRole('list', { name: 'Claude Code' });
@@ -70,7 +70,7 @@ describe('main window', () => {
     expect(within(rows[1]).queryByRole('button')).toBeNull();
     // Fixed columns: 5 giờ · Tuần · Fable tuần, whatever window is tightest.
     const header = claude.querySelector('.wt-r.h')!;
-    expect(Array.from(header.children).map((c) => c.textContent)).toEqual(['đã dùng', '5 giờ', 'Tuần', 'Fable tuần', '']);
+    expect(Array.from(header.children).map((c) => c.textContent)).toEqual(['Tài khoản', '5 giờ', 'Tuần', 'Fable tuần', '']);
     expect(Array.from(rows[0].querySelectorAll('.wc b')).map((b) => b.textContent)).toEqual(['0%', '0%', '4%']);
     expect(within(screen.getByRole('list', { name: 'Antigravity' })).getAllByRole('listitem')).toHaveLength(2);
 
@@ -99,7 +99,8 @@ describe('main window', () => {
     expect(inUse.tagName).toBe('SPAN');
     expect(inUse.querySelector('[data-tone=ok]')).toBeTruthy();
     const press = within(rows[2]).getByRole('button', { name: 'Chuyển sang lan.acme2' });
-    expect(press.getAttribute('data-variant')).toBe('primary');
+    // A plain button, as drawn: the table is not a row of blue.
+    expect(press.getAttribute('data-variant')).toBe('default');
     expect(press.textContent).toBe('Chuyển');
   });
 
@@ -189,7 +190,7 @@ describe('main window', () => {
     const header = Array.from(table.querySelectorAll('.wt-r.h')).map((h) => Array.from(h.children).map((c) => c.textContent));
     expect(header).toEqual([
       ['', 'Gemini', 'Claude/GPT', ''],
-      ['đã dùng', '5 giờ', 'Tuần', '5 giờ', 'Tuần', ''],
+      ['Tài khoản', '5 giờ', 'Tuần', '5 giờ', 'Tuần', ''],
     ]);
     const [u1, u2] = within(table).getAllByRole('listitem');
     expect(within(u1).getByRole('button', { name: 'Chuyển sang lanpham.ultra' })).toBeTruthy();
@@ -265,7 +266,7 @@ describe('with Nâng cao off', () => {
   it('the sidebar has no Luật xoay vòng, Firstmate or Chép sang Mac khác, and a hidden tab gives way to Tổng quan', async () => {
     await open(plain(fixtureModel('fresh')), 'rules');
     expect(heading()).toBe('Tổng quan');
-    const sidebar = screen.getByRole('navigation', { name: 'Mục' });
+    const sidebar = screen.getByRole('navigation', { name: 'Các tab' });
     for (const name of ['Luật xoay vòng', 'Firstmate', 'Chép sang Mac khác']) expect(within(sidebar).queryByRole('button', { name })).toBeNull();
     expect(nav('Claude')).toBeTruthy();
     expect(nav('Sao lưu')).toBeTruthy();
@@ -283,7 +284,7 @@ describe('with Nâng cao off', () => {
 
   it('the Firstmate switch hides only the Firstmate tab', async () => {
     await open({ ...fixtureModel('fresh'), advanced: { on: true, firstmate: false } });
-    const sidebar = screen.getByRole('navigation', { name: 'Mục' });
+    const sidebar = screen.getByRole('navigation', { name: 'Các tab' });
     expect(within(sidebar).queryByRole('button', { name: 'Firstmate' })).toBeNull();
     expect(nav('Luật xoay vòng')).toBeTruthy();
   });
@@ -291,7 +292,8 @@ describe('with Nâng cao off', () => {
   it('a build without the Antigravity accounts reads Antigravity without logging in', async () => {
     await open({ ...fixtureModel('fresh'), capabilities: { agyAccounts: false, authorTools: true } }, 'agy');
     expect(screen.queryByRole('button', { name: 'Thêm tài khoản' })).toBeNull();
-    expect(screen.getByText(/Bản này đọc tài khoản Antigravity đang đăng nhập/)).toBeTruthy();
+    expect(screen.getByText(/Bản này chỉ đọc tài khoản đang đăng nhập/)).toBeTruthy();
+    expect(screen.getByText('Đổi tài khoản trong chính Antigravity; Quota Station đọc lại ở lần đọc sau.')).toBeTruthy();
   });
 });
 
@@ -299,7 +301,7 @@ describe('a build without the author\'s tools', () => {
   it('has none of their tabs, and no automatic switching, pause or Firstmate line', async () => {
     await open(communityModel(fixtureModel('fresh')), 'rules');
     expect(heading()).toBe('Tổng quan');
-    const sidebar = screen.getByRole('navigation', { name: 'Mục' });
+    const sidebar = screen.getByRole('navigation', { name: 'Các tab' });
     for (const name of ['Luật xoay vòng', 'Firstmate', 'Chép sang Mac khác']) expect(within(sidebar).queryByRole('button', { name })).toBeNull();
     expect(nav('Claude')).toBeTruthy();
     expect(nav('Sao lưu')).toBeTruthy();

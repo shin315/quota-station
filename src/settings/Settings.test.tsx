@@ -580,7 +580,7 @@ describe('settings: Nâng cao, alert 1 and the backup folder', () => {
     expect(screen.queryByLabelText(/^Mã nguồn/)).toBeNull();
     expect(screen.queryByText('Các Mac khác')).toBeNull();
     expect(screen.queryByRole('switch', { name: 'Firstmate' })).toBeNull();
-    const sidebar = screen.getByRole('navigation', { name: 'Mục' });
+    const sidebar = screen.getByRole('navigation', { name: 'Các tab' });
     expect(within(sidebar).queryByRole('button', { name: 'Luật xoay vòng' })).toBeNull();
     // The version stays where everyone sees it.
     expect(screen.getByText('0.1.0 · a1b2c3d')).toBeTruthy();

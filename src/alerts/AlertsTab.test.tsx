@@ -35,7 +35,7 @@ async function open(model: Model, options: FakeOptions = {}) {
 }
 
 const card = (title: string) => screen.getByRole('group', { name: 'Cảnh báo: ' + title });
-const nav = (name: RegExp) => within(screen.getByRole('navigation', { name: 'Mục' })).getByRole('button', { name });
+const nav = (name: RegExp) => within(screen.getByRole('navigation', { name: 'Các tab' })).getByRole('button', { name });
 
 afterEach(cleanup);
 

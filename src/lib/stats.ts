@@ -8,19 +8,25 @@
 // like `view.ts`. Copy follows the prototype's `tabStats`.
 
 import { clock, pad } from './format';
+import { lang, t } from './i18n';
 import type { Agent, Model, StatsPeriod, StatsPoint, StatsReport, StatsView } from './model';
 import { namesOf } from './switching';
 
-export const PERIODS: { v: StatsPeriod; t: string; per: string }[] = [
-  { v: 'today', t: 'Hôm nay', per: 'hôm nay' },
-  { v: 'week', t: '7 ngày', per: '7 ngày' },
-  { v: 'month', t: '30 ngày', per: '30 ngày' },
-];
+/** `per` after a label (`Tổng · 7 ngày`), `within` at the end of a sentence (`… in 7 days`). */
+export function periods(): { v: StatsPeriod; t: string; per: string; within: string }[] {
+  return [
+    { v: 'today', t: t('Hôm nay', 'Today'), per: t('hôm nay', 'today'), within: t('hôm nay', 'today') },
+    { v: 'week', t: t('7 ngày', '7 days'), per: t('7 ngày', '7 days'), within: t('7 ngày', 'in 7 days') },
+    { v: 'month', t: t('30 ngày', '30 days'), per: t('30 ngày', '30 days'), within: t('30 ngày', 'in 30 days') },
+  ];
+}
 
 export const AGENT_NAME: Record<Agent, string> = { claude: 'Claude Code', codex: 'Codex', agy: 'Antigravity' };
 
 /** Antigravity keeps no token log on the Mac that the app can read. */
-export const AGY_NONE = 'chưa có log token trên máy';
+export function agyNone(): string {
+  return t('chưa có log token trên máy', 'no token log on this Mac');
+}
 
 /** The unit numbers are shown in: `long` after a big number, `short` on an axis. */
 export interface Unit {
@@ -29,27 +35,35 @@ export interface Unit {
   short: string;
 }
 
-const UNITS: Unit[] = [
-  { div: 1e9, long: 'tỷ', short: 'tỷ' },
-  { div: 1e6, long: 'triệu', short: 'tr' },
-  { div: 1e3, long: 'nghìn', short: 'k' },
-];
+function units(): Unit[] {
+  return [
+    { div: 1e9, long: t('tỷ', 'billion'), short: t('tỷ', 'B') },
+    { div: 1e6, long: t('triệu', 'million'), short: t('tr', 'M') },
+    { div: 1e3, long: t('nghìn', 'thousand'), short: 'k' },
+  ];
+}
 
 /** The unit for numbers up to `max`. */
 export function unitOf(max: number): Unit {
-  return UNITS.find((u) => max >= u.div) ?? { div: 1, long: '', short: '' };
+  return units().find((u) => max >= u.div) ?? { div: 1, long: '', short: '' };
 }
 
-const FORMATS = new Map<number, Intl.NumberFormat>();
+const FORMATS = new Map<string, Intl.NumberFormat>();
 
-/** `1234.56` → `1.234,6` with one decimal. */
+/** `1234.56` → `1.234,6` with one decimal (`1,234.6` in English). */
 export function num(x: number, digits = 1): string {
-  let f = FORMATS.get(digits);
+  const locale = lang() === 'en' ? 'en-US' : 'vi-VN';
+  let f = FORMATS.get(locale + digits);
   if (!f) {
-    f = new Intl.NumberFormat('vi-VN', { minimumFractionDigits: digits, maximumFractionDigits: digits });
-    FORMATS.set(digits, f);
+    f = new Intl.NumberFormat(locale, { minimumFractionDigits: digits, maximumFractionDigits: digits });
+    FORMATS.set(locale + digits, f);
   }
   return f.format(x);
+}
+
+/** `token` after a count: English says `tokens` unless it is one. */
+function tokenWord(n: number, u: Unit): string {
+  return t(u.long ? u.long + ' token' : 'token', (u.long ? u.long + ' ' : '') + (n === 1 ? 'token' : 'tokens'));
 }
 
 /** A count in `unit`: one decimal, none for whole tokens. */
@@ -66,13 +80,13 @@ function alone(n: number, u: Unit): string {
 /** A count in its own unit: `45,5 triệu token`, `820 token`. */
 export function tokensText(n: number): string {
   const u = unitOf(n);
-  return alone(n, u) + ' ' + (u.long ? u.long + ' token' : 'token');
+  return alone(n, u) + ' ' + tokenWord(n, u);
 }
 
 /** A big number and its unit, for the tiles: `{ value: '45,5', unit: 'triệu token' }`. */
 export function bigTokens(n: number): { value: string; unit: string } {
   const u = unitOf(n);
-  return { value: alone(n, u), unit: u.long ? u.long + ' token' : 'token' };
+  return { value: alone(n, u), unit: tokenWord(n, u) };
 }
 
 /** `$412`, `$61`, `$3,45`, `$0,08`. */
@@ -85,22 +99,26 @@ export function share(part: number, total: number): string {
   return total > 0 ? Math.round((part / total) * 100) + '%' : '0%';
 }
 
-/** `2026-10-19` → `19/10/2026`. */
+const MONTHS_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** `2026-10-19` → `19/10/2026` (`19 Oct 2026`). */
 export function day(iso: string): string {
   const [y, m, d] = iso.split('-');
-  return d && m && y ? d + '/' + m + '/' + y : iso;
+  if (!(d && m && y)) return iso;
+  const month = MONTHS_EN[Number(m) - 1];
+  return t(d + '/' + m + '/' + y, month ? Number(d) + ' ' + month + ' ' + y : d + '/' + m + '/' + y);
 }
 
-/** Unix seconds → `17/10` on this Mac's clock. */
+/** Unix seconds → `17/10` (`17 Oct`) on this Mac's clock. */
 export function dayMonth(secs: number): string {
   const d = new Date(secs * 1000);
-  return pad(d.getDate()) + '/' + pad(d.getMonth() + 1);
+  return t(pad(d.getDate()) + '/' + pad(d.getMonth() + 1), d.getDate() + ' ' + MONTHS_EN[d.getMonth()]);
 }
 
 /** The line next to the title: `đọc log lúc 14:30`. */
 export function readLine(stats: StatsView): string {
-  if (stats.reading) return 'đang đọc log…';
-  return stats.readAt ? 'đọc log lúc ' + clock(stats.readAt) : 'chưa đọc log';
+  if (stats.reading) return t('đang đọc log…', 'reading logs…');
+  return stats.readAt ? t('đọc log lúc ', 'logs read at ') + clock(stats.readAt) : t('chưa đọc log', 'logs not read yet');
 }
 
 export interface SkippedNotice {
@@ -117,11 +135,17 @@ export function skippedNotices(report: StatsReport | null): SkippedNotice[] {
     .map((s) => {
       const name = AGENT_NAME[s.agent];
       const versions = s.versions.length ? ' ' + s.versions.join(', ') : '';
-      const since = s.since != null ? ' từ ' + dayMonth(s.since) : '';
+      const since = s.since != null ? t(' từ ', ' since ') + dayMonth(s.since) : '';
       return {
         agent: s.agent,
-        title: 'Bỏ qua ' + num(s.sessions, 0) + ' phiên ' + name,
-        body: 'Log của ' + name + versions + ' có dạng app chưa đọc được. Số ' + name + since + ' thiếu các phiên này.',
+        title: t(
+          'Bỏ qua ' + num(s.sessions, 0) + ' phiên ' + name,
+          'Skipped ' + num(s.sessions, 0) + ' ' + name + (s.sessions === 1 ? ' session' : ' sessions'),
+        ),
+        body: t(
+          'Log của ' + name + versions + ' có dạng app chưa đọc được. Số ' + name + since + ' thiếu các phiên này.',
+          name + versions + ' logs are in a format the app cannot read yet. The ' + name + ' numbers' + since + ' leave these sessions out.',
+        ),
       };
     });
 }
@@ -133,10 +157,10 @@ export function progressLines(stats: StatsView): { lines: [string, string][]; pe
     const name = AGENT_NAME[agent];
     if (!p) return ['wait', name];
     if (p.done >= p.total && stats.progress[stats.progress.length - 1]?.agent !== agent)
-      return ['', name + ' · ' + num(p.total, 0) + ' file log'];
-    return ['run', name + ' · ' + num(p.done, 0) + '/' + num(p.total, 0) + ' file'];
+      return ['', name + ' · ' + num(p.total, 0) + t(' file log', p.total === 1 ? ' log file' : ' log files')];
+    return ['run', name + ' · ' + num(p.done, 0) + '/' + num(p.total, 0) + t(' file', p.total === 1 ? ' file' : ' files')];
   });
-  lines.push(['wait', AGENT_NAME.agy + ' · ' + AGY_NONE]);
+  lines.push(['wait', AGENT_NAME.agy + ' · ' + agyNone()]);
   const done = stats.progress.reduce((a, p) => a + p.done, 0);
   const total = stats.progress.reduce((a, p) => a + p.total, 0);
   return { lines, percent: total ? Math.round((done / total) * 100) : 0 };
@@ -149,12 +173,12 @@ export function pointTotal(p: StatsPoint): number {
 
 /** What a column says, for its label and the hover card. */
 export function pointWords(p: StatsPoint, period: StatsPeriod): string {
-  return (period === 'today' ? 'Giờ ' : 'Ngày ') + p.label + ': ' + tokensText(pointTotal(p));
+  return (period === 'today' ? t('Giờ ', 'Hour ') : t('Ngày ', 'Day ')) + p.label + ': ' + tokensText(pointTotal(p));
 }
 
 /** The chart's title: `Token mỗi giờ` for Hôm nay. */
 export function chartTitle(period: StatsPeriod): string {
-  return period === 'today' ? 'Token mỗi giờ' : 'Token mỗi ngày';
+  return period === 'today' ? t('Token mỗi giờ', 'Tokens per hour') : t('Token mỗi ngày', 'Tokens per day');
 }
 
 /** Axis labels every `n` columns: each hour of 24 would crowd the axis. */
@@ -165,18 +189,18 @@ export function labelEvery(count: number): number {
 /** The Claude accounts by the window's names; one the history cannot place is "Chưa rõ". */
 export function accountRows(model: Model, report: StatsReport): { name: string; tokens: number }[] {
   const nameOf = namesOf(model);
-  return report.accounts.map((a) => ({ name: a.slot == null ? 'Chưa rõ tài khoản' : nameOf(a.slot), tokens: a.tokens }));
+  return report.accounts.map((a) => ({ name: a.slot == null ? t('Chưa rõ tài khoản', 'Unknown account') : nameOf(a.slot), tokens: a.tokens }));
 }
 
 /** The projects shown: the biggest seven, the rest in one row. */
 export function projectRows(report: StatsReport): { name: string; path: string; tokens: number }[] {
-  const rows = report.projects.map((p) => ({ name: p.name || 'Không rõ thư mục', path: p.path, tokens: p.tokens }));
+  const rows = report.projects.map((p) => ({ name: p.name || t('Không rõ thư mục', 'Unknown folder'), path: p.path, tokens: p.tokens }));
   if (rows.length <= 8) return rows;
   const rest = rows.slice(7).reduce((a, r) => a + r.tokens, 0);
-  return [...rows.slice(0, 7), { name: 'Các dự án khác', path: '', tokens: rest }];
+  return [...rows.slice(0, 7), { name: t('Các dự án khác', 'Other projects'), path: '', tokens: rest }];
 }
 
 /** A model row's name: the id, or a word when the log does not say. */
 export function modelName(model: string): string {
-  return model || 'Không rõ model';
+  return model || t('Không rõ model', 'Unknown model');
 }

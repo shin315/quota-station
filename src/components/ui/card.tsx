@@ -21,11 +21,21 @@ function Card({ className, bare, ...props }: React.ComponentProps<'div'> & { bar
   );
 }
 
-function CardTitle({ className, bare, ...props }: React.ComponentProps<'h4'> & { bare?: boolean }) {
+/**
+ * A card's head: its icon or the service's logo, then its name. `big`: a
+ * service's card, its name at the size of a section. `bare`: over a group of
+ * cards, small.
+ */
+function CardTitle({ className, bare, big, ...props }: React.ComponentProps<'h4'> & { bare?: boolean; big?: boolean }) {
   return (
     <h4
       data-slot="card-title"
-      className={cn('mt-0 mb-1.5 flex items-center gap-1.5 text-sm font-bold text-ink2', bare && 'mx-0.5 mb-2', className)}
+      className={cn(
+        'mt-0 mb-3 flex min-w-0 items-center gap-2.5 font-heading tracking-head text-heading [&>svg]:size-[26px] [&>svg]:flex-none [&>svg]:stroke-[1.7]',
+        big ? 'text-h2' : 'text-h3',
+        bare && 'mx-0.5 mb-2.5 text-[15px] font-semi tracking-normal',
+        className,
+      )}
       {...props}
     />
   );

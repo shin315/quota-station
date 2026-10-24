@@ -6,6 +6,7 @@
 // "Kiểm lại". The app knows names and places only, never a value.
 
 import { clock } from './format';
+import { t } from './i18n';
 import { AGENT_NAME } from './mcp';
 import type { EnvFound, EnvPlace, EnvView, Model } from './model';
 import type { BannerView, ChipView, FeedbackView } from './view';
@@ -18,6 +19,9 @@ const FILES: Record<Exclude<EnvPlace, 'launchctl'>, string> = {
   profile: '~/.profile',
 };
 
+/** "3 variables", "1 place": a count with its English noun. */
+const plural = (n: number, one: string, many: string): string => n + ' ' + (n === 1 ? one : many);
+
 /** `~/.zshrc`, or `launchctl`. */
 export function placeLabel(p: EnvPlace): string {
   return p === 'launchctl' ? 'launchctl' : FILES[p];
@@ -25,13 +29,13 @@ export function placeLabel(p: EnvPlace): string {
 
 /** Under the name: `~/.zshrc · dòng 42`, or where launchd's variables go. */
 export function whereLine(f: EnvFound): string {
-  if (f.place === 'launchctl') return 'launchctl · app mở từ Dock';
-  return placeLabel(f.place) + (f.line != null ? ' · dòng ' + f.line : '');
+  if (f.place === 'launchctl') return t('launchctl · app mở từ Dock', 'launchctl · apps opened from the Dock');
+  return placeLabel(f.place) + (f.line != null ? t(' · dòng ', ' · line ') + f.line : '');
 }
 
 /** In a sentence: `~/.zshrc dòng 42`. */
 function at(f: EnvFound): string {
-  return placeLabel(f.place) + (f.line != null ? ' dòng ' + f.line : '');
+  return placeLabel(f.place) + (f.line != null ? t(' dòng ', ' line ') + f.line : '');
 }
 
 export function agentChip(f: EnvFound): ChipView {
@@ -41,20 +45,33 @@ export function agentChip(f: EnvFound): ChipView {
 /** "Mở ~/.zshrc ở dòng 42": only for a file. */
 export function openLabel(f: EnvFound): string | null {
   if (f.place === 'launchctl') return null;
-  return 'Mở ' + placeLabel(f.place) + (f.line != null ? ' ở dòng ' + f.line : '');
+  return t('Mở ', 'Open ') + placeLabel(f.place) + (f.line != null ? t(' ở dòng ', ' at line ') + f.line : '');
 }
 
 /** Under the rows: when, how much was looked at, that values are not read, and what "Bỏ qua" hides. */
 export function checkedLine(env: EnvView): string {
+  const time = !env.checking && env.checkedAt ? clock(env.checkedAt) : '';
+  const vars = plural(env.vars.length, 'variable', 'variables');
+  const places = plural(env.places.length, 'place', 'places');
+  const hidden = env.ignored ? t(' Đã bỏ qua ' + env.ignored + ' chỗ.', ' Ignored ' + plural(env.ignored, 'place', 'places') + '.') : '';
   const when = env.checking ? 'Đang kiểm' : env.checkedAt ? 'Đã kiểm' : 'Chưa kiểm';
-  const time = !env.checking && env.checkedAt ? ' lúc ' + clock(env.checkedAt) : '';
-  const hidden = env.ignored ? ' Đã bỏ qua ' + env.ignored + ' chỗ.' : '';
-  return when + ' ' + env.vars.length + ' biến ở ' + env.places.length + ' chỗ' + time + '. Chỉ biết biến có đặt hay không, không đọc giá trị.' + hidden;
+  const what = env.checking
+    ? 'Checking ' + vars + ' in ' + places + '.'
+    : env.checkedAt
+      ? 'Checked ' + vars + ' in ' + places + ' at ' + time + '.'
+      : vars + ' in ' + places + ', not checked yet.';
+  return (
+    t(
+      when + ' ' + env.vars.length + ' biến ở ' + env.places.length + ' chỗ' + (time ? ' lúc ' + time : '') + '. Chỉ biết biến có đặt hay không, không đọc giá trị.',
+      what + ' The app only knows whether each is set, never its value.',
+    ) + hidden
+  );
 }
 
 /** Places that could not be looked at. */
 export function unreadNote(env: EnvView): string | null {
-  return env.unread.length ? 'Không đọc được ' + env.unread.map(placeLabel).join(', ') + '.' : null;
+  const list = env.unread.map(placeLabel).join(', ');
+  return env.unread.length ? t('Không đọc được ' + list + '.', 'Could not read ' + list + '.') : null;
 }
 
 /** The Claude tab's red banner while a variable overrides Claude Code's login. */
@@ -66,44 +83,48 @@ export function envBanner(model: Model): BannerView | null {
     const open = openLabel(f);
     return {
       tone: 'bad',
-      title: f.name + ' đang đè đăng nhập Claude',
-      body: 'Đặt ở ' + at(f) + '. ' + f.effect,
+      title: t(f.name + ' đang đè đăng nhập Claude', f.name + ' is overriding the Claude sign-in'),
+      body: t('Đặt ở ' + at(f) + '. ', 'Set in ' + at(f) + '. ') + f.effect,
       actions: [
         ...(open ? [{ label: open, act: `env:open:${f.id}` as const }] : []),
-        { label: 'Bỏ qua', act: `env:ignore:${f.id}` },
-        { label: 'Kiểm lại', act: 'env:check' },
+        { label: t('Bỏ qua', 'Ignore'), act: `env:ignore:${f.id}` },
+        { label: t('Kiểm lại', 'Check again'), act: 'env:check' },
       ],
     };
   }
   return {
     tone: 'bad',
-    title: claude.length + ' biến đang đè đăng nhập Claude',
-    body: claude.map((f) => f.name + ' ở ' + at(f)).join(', ') + '. Claude Code có thể không dùng tài khoản claude-swap đang chọn.',
+    title: t(claude.length + ' biến đang đè đăng nhập Claude', claude.length + ' variables are overriding the Claude sign-in'),
+    body: t(
+      claude.map((f) => f.name + ' ở ' + at(f)).join(', ') + '. Claude Code có thể không dùng tài khoản claude-swap đang chọn.',
+      claude.map((f) => f.name + ' in ' + at(f)).join(', ') + '. Claude Code may not use the account chosen in claude-swap.',
+    ),
     actions: [
-      { label: 'Xem trong Cài đặt', act: 'env:settings' },
-      { label: 'Kiểm lại', act: 'env:check' },
+      { label: t('Xem trong Cài đặt', 'See in Settings'), act: 'env:settings' },
+      { label: t('Kiểm lại', 'Check again'), act: 'env:check' },
     ],
   };
 }
 
 /** After "Mở file": the editor went to the line, or the default one opened the file. */
 export function openedFeedback(f: EnvFound, editor: string | null): FeedbackView {
-  if (editor) return { tone: '', title: 'Đã mở ' + at(f) + ' trong ' + editor, body: 'App không sửa file shell.' };
+  const noEdit = t('App không sửa file shell.', 'The app does not edit shell files.');
+  if (editor) return { tone: '', title: t('Đã mở ' + at(f) + ' trong ' + editor, 'Opened ' + at(f) + ' in ' + editor), body: noEdit };
   return {
     tone: '',
-    title: 'Đã mở ' + placeLabel(f.place),
-    body: (f.line != null ? f.name + ' ở dòng ' + f.line + '. ' : '') + 'App không sửa file shell.',
+    title: t('Đã mở ', 'Opened ') + placeLabel(f.place),
+    body: (f.line != null ? t(f.name + ' ở dòng ' + f.line + '. ', f.name + ' is on line ' + f.line + '. ') : '') + noEdit,
   };
 }
 
 export function openFailedFeedback(f: EnvFound | undefined): FeedbackView {
   return {
     tone: 'warn',
-    title: 'Chưa mở được ' + (f ? placeLabel(f.place) : 'file'),
-    body: 'Bấm Kiểm lại rồi thử lần nữa.',
+    title: f ? t('Chưa mở được ', 'Could not open ') + placeLabel(f.place) : t('Chưa mở được file', 'Could not open the file'),
+    body: t('Bấm Kiểm lại rồi thử lần nữa.', 'Press Check again, then try once more.'),
     actions: [
-      { label: 'Kiểm lại', act: 'env:check' },
-      { label: 'Đóng', act: 'closeFeedback' },
+      { label: t('Kiểm lại', 'Check again'), act: 'env:check' },
+      { label: t('Đóng', 'Close'), act: 'closeFeedback' },
     ],
   };
 }
@@ -112,26 +133,32 @@ export function openFailedFeedback(f: EnvFound | undefined): FeedbackView {
 export function ignoredFeedback(f: EnvFound): FeedbackView {
   return {
     tone: 'info',
-    title: 'Đã bỏ qua ' + f.name + ' ở ' + placeLabel(f.place),
-    body: 'Báo lại nếu biến được đặt ở chỗ khác.',
-    actions: [{ label: 'Hoàn tác', act: `env:back:${f.id}` }],
+    title: t('Đã bỏ qua ' + f.name + ' ở ' + placeLabel(f.place), 'Ignoring ' + f.name + ' in ' + placeLabel(f.place)),
+    body: t('Báo lại nếu biến được đặt ở chỗ khác.', 'You will hear again if it is set somewhere else.'),
+    actions: [{ label: t('Hoàn tác', 'Undo'), act: `env:back:${f.id}` }],
   };
 }
 
 /** After "Kiểm lại". */
 export function checkedFeedback(env: EnvView): FeedbackView {
   const n = env.found.length;
-  const time = env.checkedAt ? ' lúc ' + clock(env.checkedAt) : '';
+  const time = env.checkedAt ? clock(env.checkedAt) : '';
+  const vi = 'Đã kiểm' + (time ? ' lúc ' + time : '');
+  const en = 'Checked' + (time ? ' at ' + time : '');
   return n
-    ? { tone: 'warn', title: 'Đã kiểm' + time + ': ' + n + ' chỗ đặt biến đè đăng nhập', body: 'App không sửa file shell và không tự bỏ biến.' }
-    : { tone: '', title: 'Đã kiểm' + time + ': không có biến nào đè đăng nhập', body: '' };
+    ? {
+        tone: 'warn',
+        title: t(vi + ': ' + n + ' chỗ đặt biến đè đăng nhập', en + ': ' + plural(n, 'place sets', 'places set') + ' a variable that overrides sign-in'),
+        body: t('App không sửa file shell và không tự bỏ biến.', 'The app does not edit shell files or unset variables.'),
+      }
+    : { tone: '', title: t(vi + ': không có biến nào đè đăng nhập', en + ': no variable overrides a sign-in'), body: '' };
 }
 
 export function envFailedFeedback(): FeedbackView {
   return {
     tone: 'warn',
-    title: 'Chưa làm được',
-    body: 'Không có gì thay đổi.',
-    actions: [{ label: 'Đóng', act: 'closeFeedback' }],
+    title: t('Chưa làm được', 'Could not do that'),
+    body: t('Không có gì thay đổi.', 'Nothing changed.'),
+    actions: [{ label: t('Đóng', 'Close'), act: 'closeFeedback' }],
   };
 }

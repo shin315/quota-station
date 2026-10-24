@@ -45,7 +45,7 @@ afterEach(cleanup);
 describe('the Chép sang Mac khác tab', () => {
   it('reads the other Mac only when asked, and ticks what this Mac alone has', async () => {
     const fake = await openTab();
-    const nav = screen.getByRole('navigation', { name: 'Mục' });
+    const nav = screen.getByRole('navigation', { name: 'Các tab' });
     expect(within(nav).getByRole('button', { name: 'Chép sang Mac khác' }).getAttribute('aria-current')).toBe('page');
     expect(fake.api.copyCompare).not.toHaveBeenCalled();
     expect(screen.getByRole('radio', { name: /Mac B/ }).getAttribute('aria-checked')).toBe('true');

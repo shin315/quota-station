@@ -33,6 +33,7 @@ import {
   partLines,
   partNotes,
   picked,
+  plural,
   PLUGINS,
   pluginGroups,
   pluginKey,
@@ -49,6 +50,7 @@ import {
   usable,
   type Ticks,
 } from '../lib/backup';
+import { t } from '../lib/i18n';
 import { AGENT_NAME, joinCommand } from '../lib/mcp';
 import type { McpDef, Model, RestoreFileItem, RestoreItem, RestorePlan } from '../lib/model';
 import { NAV_ICONS } from '../window/icons';
@@ -58,10 +60,10 @@ export function backupDialogSize(d: BackupDialog): 'lg' | 'xl' | 'wide' {
   return d.kind === 'restore' ? 'xl' : 'lg';
 }
 
-const STEPS = ['Chọn gói', 'Xem trước', 'Dán khoá', 'Khôi phục'];
+const steps = () => [t('Chọn gói', 'Choose pack'), t('Xem trước', 'Preview'), t('Dán khoá', 'Paste keys'), t('Khôi phục', 'Restore')];
 
 function Steps({ at }: { at: number }) {
-  return <StepList names={STEPS} at={at} />;
+  return <StepList names={steps()} at={at} />;
 }
 
 export function Facts({ items }: { items: [string, string][] }) {
@@ -81,48 +83,53 @@ function ViewBody({ d, backup, now }: { d: Extract<BackupDialog, { kind: 'view' 
   const s = d.summary;
   return (
     <>
-      <DialogTitle>{s ? 'Gói ' + packWhenLower(s.at, now) + ' · ' + s.mac : 'Gói sao lưu'}</DialogTitle>
+      <DialogTitle>{s ? t('Gói ', 'Pack ') + packWhenLower(s.at, now) + ' · ' + s.mac : t('Gói sao lưu', 'Backup pack')}</DialogTitle>
       <Error d={d} />
       {s ? (
         <>
-          <DialogSection>Trong gói</DialogSection>
+          <DialogSection>{t('Trong gói', 'In the pack')}</DialogSection>
           <FactList
             items={[
-              { k: 'ok', key: 'mcp', text: s.servers.length + ' MCP, và agent nào đang bật' },
+              { k: 'ok', key: 'mcp', text: t(s.servers.length + ' MCP, và agent nào đang bật', s.servers.length + ' MCP, and which agents have them on') },
               ...(s.skills?.length
-                ? [{ k: 'ok', key: 'skills', text: <span title={s.skills.join(', ')}>{s.skills.length} skill: skill từ GitHub ghi nguồn, skill cài tay ghi tên</span> }]
+                ? [{ k: 'ok', key: 'skills', text: <span title={s.skills.join(', ')}>
+                        {t(
+                          s.skills.length + ' skill: skill từ GitHub ghi nguồn, skill cài tay ghi tên',
+                          plural(s.skills.length, 'skill', 'skills') + ': from GitHub by source, installed by hand by name',
+                        )}
+                      </span> }]
                 : []),
-              ...(s.plugins?.length ? [{ k: 'ok', key: 'plugins', text: <span title={s.plugins.join(', ')}>{s.plugins.length} plugin, và bật hay tắt</span> }] : []),
+              ...(s.plugins?.length ? [{ k: 'ok', key: 'plugins', text: <span title={s.plugins.join(', ')}>{t(s.plugins.length + ' plugin, và bật hay tắt', plural(s.plugins.length, 'plugin', 'plugins') + ', and whether each is on')}</span> }] : []),
               ...(s.instructions?.length
-                ? [{ k: 'ok', key: 'instr', text: <span title={s.instructions.join(', ')}>{s.instructions.length} file hướng dẫn</span> }]
+                ? [{ k: 'ok', key: 'instr', text: <span title={s.instructions.join(', ')}>{t(s.instructions.length + ' file hướng dẫn', plural(s.instructions.length, 'instruction file', 'instruction files'))}</span> }]
                 : []),
             ]}
           />
-          <DialogSection>Khoá cần dán khi khôi phục</DialogSection>
+          <DialogSection>{t('Khoá cần dán khi khôi phục', 'Keys to paste on restore')}</DialogSection>
           {s.keys.length ? (
-            <Facts items={s.keys.map((k) => ['', k.mcp + (k.bitwarden ? ' · lưu ở ' + k.bitwarden : '')])} />
+            <Facts items={s.keys.map((k) => ['', k.mcp + (k.bitwarden ? t(' · lưu ở ', ' · stored in ') + k.bitwarden : '')])} />
           ) : (
-            <Facts items={[['', 'Không có']]} />
+            <Facts items={[['', t('Không có', 'None')]]} />
           )}
-          <DialogSection>Không có trong gói</DialogSection>
+          <DialogSection>{t('Không có trong gói', 'Not in the pack')}</DialogSection>
           <Facts
             items={[
-              ['', 'Khoá, đăng nhập và tài khoản'],
-              ['', 'Nhà cung cấp Codex'],
-              ['', 'MCP và skill có sẵn của agent, của plugin'],
-              ['', 'File hướng dẫn có dòng dạng khoá'],
+              ['', t('Khoá, đăng nhập và tài khoản', 'Keys, sign-ins and accounts')],
+              ['', t('Nhà cung cấp Codex', 'Codex provider')],
+              ['', t('MCP và skill có sẵn của agent, của plugin', 'MCP and skills built into agents or plugins')],
+              ['', t('File hướng dẫn có dòng dạng khoá', 'Instruction files with lines that look like keys')],
             ]}
           />
         </>
       ) : !d.error ? (
-        <p>Đang đọc gói…</p>
+        <p>{t('Đang đọc gói…', 'Reading the pack…')}</p>
       ) : null}
       <DialogButtons>
         <Button large disabled={!s} onClick={() => backup.openRestore(d.id)}>
-          Khôi phục gói này…
+          {t('Khôi phục gói này…', 'Restore this pack…')}
         </Button>
         <Button large primary onClick={backup.close}>
-          Đóng
+          {t('Đóng', 'Close')}
         </Button>
       </DialogButtons>
     </>
@@ -145,12 +152,12 @@ function Compare({ item }: { item: RestoreItem }) {
         <div key={c.agent} className="grid grid-cols-[90px_minmax(0,1fr)_minmax(0,1fr)] gap-2 text-xs [&_code]:block [&_code]:[font:11px_var(--mono)] [&_code]:text-ink [&_code]:[overflow-wrap:anywhere] [&_small]:block [&_small]:text-ink3">
           <b>{AGENT_NAME[c.agent]}</b>
           <span>
-            <small>Trên máy</small>
+            <small>{t('Trên máy', 'On this Mac')}</small>
             <code>{defLine(c.here.def)}</code>
             {pairs(c.here.def) ? <code>{pairs(c.here.def)}</code> : null}
           </span>
           <span>
-            <small>Trong gói</small>
+            <small>{t('Trong gói', 'In the pack')}</small>
             <code>{defLine(c.pack.def)}</code>
             {pairs(c.pack.def) ? <code>{pairs(c.pack.def)}</code> : null}
           </span>
@@ -164,12 +171,12 @@ function PickStep({ d, backup, model, now }: { d: RestoreDialog; backup: Backup;
   const packs = model.backup.packs ?? [];
   return (
     <>
-      <DialogTitle>Khôi phục</DialogTitle>
+      <DialogTitle>{t('Khôi phục', 'Restore')}</DialogTitle>
       <Steps at={0} />
-      <DialogLead>Các gói trong iCloud Drive.</DialogLead>
+      <DialogLead>{t('Các gói trong iCloud Drive.', 'Packs in iCloud Drive.')}</DialogLead>
       <RadioGroup
         className="mb-2 grid-cols-[minmax(0,1fr)]"
-        aria-label="Gói để khôi phục"
+        aria-label={t('Gói để khôi phục', 'Pack to restore')}
         value={d.pack ?? ''}
         onValueChange={(pack) => backup.update((x) => ({ ...x, pack, error: null }))}
       >
@@ -186,10 +193,10 @@ function PickStep({ d, backup, model, now }: { d: RestoreDialog; backup: Backup;
       <Error d={d} />
       <DialogButtons>
         <Button large onClick={backup.close}>
-          Huỷ
+          {t('Huỷ', 'Cancel')}
         </Button>
         <Button large primary disabled={!d.pack || backup.working} onClick={() => backup.next(d)}>
-          Tiếp
+          {t('Tiếp', 'Next')}
         </Button>
       </DialogButtons>
     </>
@@ -213,14 +220,14 @@ function CompareButton({ k, d, backup, label }: { k: string; d: RestoreDialog; b
   return (
     <LinkButton
       small
-      aria-label={'So sánh ' + label}
+      aria-label={t('So sánh ', 'Compare ') + label}
       aria-expanded={d.compare === k}
       onClick={(e) => {
         e.preventDefault();
         backup.update((x) => ({ ...x, compare: x.compare === k ? null : k }));
       }}
     >
-      So sánh
+      {t('So sánh', 'Compare')}
     </LinkButton>
   );
 }
@@ -228,7 +235,7 @@ function CompareButton({ k, d, backup, label }: { k: string; d: RestoreDialog; b
 /** "So sánh" of an instruction file: this Mac's lines against the pack's, keys masked. */
 function FileCompare({ f }: { f: RestoreFileItem }) {
   return (
-    <DiffView flat head={<span>Trên máy → trong gói</span>} right={f.changed + ' dòng khác'}>
+    <DiffView flat head={<span>{t('Trên máy → trong gói', 'On this Mac → in the pack')}</span>} right={t(f.changed + ' dòng khác', plural(f.changed, 'line differs', 'lines differ'))}>
       {f.diff.map((l, i) => (
         <DiffLine key={i} op={l.op}>
           {l.op === 'gap' ? '…' : l.text || ' '}
@@ -263,8 +270,8 @@ function MoreGroups({ d, backup, plan }: { d: RestoreDialog; backup: Backup; pla
           <div className={GROUP_PANEL}>
             {sk.github.length ? <Tick k={SKILLS_GITHUB} d={d} backup={backup} title={SKILL_TITLE.github(sk.github.length)} line={skillLine('github', sk.github)} /> : null}
             {sk.hand.length ? <Tick k={SKILLS_HAND} d={d} backup={backup} title={SKILL_TITLE.hand(sk.hand.length)} line={skillLine('hand', sk.hand)} /> : null}
-            {!sk.github.length && !sk.hand.length ? <Note>Không có skill nào để khôi phục.</Note> : null}
-            {skills.same.length ? <Note>Giống trên máy: {skills.same.join(', ')}.</Note> : null}
+            {!sk.github.length && !sk.hand.length ? <Note>{t('Không có skill nào để khôi phục.', 'No skills to restore.')}</Note> : null}
+            {skills.same.length ? <Note>{t('Giống trên máy: ' + skills.same.join(', ') + '.', 'Same as on this Mac: ' + skills.same.join(', ') + '.')}</Note> : null}
           </div>
         </>
       ) : null}
@@ -272,15 +279,15 @@ function MoreGroups({ d, backup, plan }: { d: RestoreDialog; backup: Backup; pla
         <>
           <DialogSection>
             {NAV_ICONS.plugins}
-            Plugin
+            {t('Plugin', 'Plugins')}
           </DialogSection>
           <div className={GROUP_PANEL}>
-            {pl.main.length ? <Tick k={PLUGINS} d={d} backup={backup} title={pl.main.length + ' plugin'} line={pluginLine(pl.main)} /> : null}
+            {pl.main.length ? <Tick k={PLUGINS} d={d} backup={backup} title={t(pl.main.length + ' plugin', plural(pl.main.length, 'plugin', 'plugins'))} line={pluginLine(pl.main)} /> : null}
             {pl.off.map((p) => (
-              <Tick key={pluginKey(p)} k={pluginKey(p)} d={d} backup={backup} title={'Plugin ' + p.id.split('@')[0]} line="Codex · tắt trong gói. Cài lại thì sẽ bật." />
+              <Tick key={pluginKey(p)} k={pluginKey(p)} d={d} backup={backup} title={'Plugin ' + p.id.split('@')[0]} line={t('Codex · tắt trong gói. Cài lại thì sẽ bật.', 'Codex · off in the pack. Reinstalling turns it on.')} />
             ))}
-            {!pl.main.length && !pl.off.length ? <Note>Không có plugin nào để cài.</Note> : null}
-            {plugins.same.length ? <Note>Giống trên máy: {plugins.same.length} plugin.</Note> : null}
+            {!pl.main.length && !pl.off.length ? <Note>{t('Không có plugin nào để cài.', 'No plugins to install.')}</Note> : null}
+            {plugins.same.length ? <Note>{t('Giống trên máy: ' + plugins.same.length + ' plugin.', 'Same as on this Mac: ' + plural(plugins.same.length, 'plugin', 'plugins') + '.')}</Note> : null}
           </div>
         </>
       ) : null}
@@ -288,7 +295,7 @@ function MoreGroups({ d, backup, plan }: { d: RestoreDialog; backup: Backup; pla
         <>
           <DialogSection>
             {NAV_ICONS.instr}
-            File hướng dẫn
+            {t('File hướng dẫn', 'Instruction files')}
           </DialogSection>
           <div className={GROUP_PANEL}>
             {files.items.map((f) => {
@@ -300,8 +307,8 @@ function MoreGroups({ d, backup, plan }: { d: RestoreDialog; backup: Backup; pla
                 </div>
               );
             })}
-            {!files.items.length ? <Note>Không có file nào để ghi.</Note> : null}
-            {files.same.length ? <Note>Giống trên máy: {files.same.length} file.</Note> : null}
+            {!files.items.length ? <Note>{t('Không có file nào để ghi.', 'No files to write.')}</Note> : null}
+            {files.same.length ? <Note>{t('Giống trên máy: ' + files.same.length + ' file.', 'Same as on this Mac: ' + plural(files.same.length, 'file', 'files') + '.')}</Note> : null}
           </div>
         </>
       ) : null}
@@ -317,7 +324,7 @@ function PreviewStep({ d, backup, now }: { d: RestoreDialog; backup: Backup; now
   const any = anyTicked(plan, d.ticks as Ticks);
   return (
     <>
-      <DialogTitle>Xem trước: gói {packWhenLower(plan.at, now)}</DialogTitle>
+      <DialogTitle>{t('Xem trước: gói ', 'Preview: pack from ') + packWhenLower(plan.at, now)}</DialogTitle>
       <Steps at={1} />
       <DialogSection>
         {NAV_ICONS.mcp}
@@ -336,7 +343,7 @@ function PreviewStep({ d, backup, now }: { d: RestoreDialog; backup: Backup; now
                 line={itemLine(i)}
                 right={
                   <>
-                    {i.missingCommand ? <Chip chip={{ t: 'chưa cài', k: 'warn' }} /> : null}
+                    {i.missingCommand ? <Chip chip={{ t: t('chưa cài', 'not installed'), k: 'warn' }} /> : null}
                     {i.kind === 'replace' ? <CompareButton k={k} d={d} backup={backup} label={i.name} /> : null}
                   </>
                 }
@@ -345,33 +352,33 @@ function PreviewStep({ d, backup, now }: { d: RestoreDialog; backup: Backup; now
             </div>
           );
         })}
-        {!plan.items.length ? <Note>Máy này đã có đủ các MCP trong gói.</Note> : null}
-        {plan.same.length ? <Note>Giống trên máy: {plan.same.join(', ')}.</Note> : null}
+        {!plan.items.length ? <Note>{t('Máy này đã có đủ các MCP trong gói.', 'This Mac already has every MCP in the pack.')}</Note> : null}
+        {plan.same.length ? <Note>{t('Giống trên máy: ' + plan.same.join(', ') + '.', 'Same as on this Mac: ' + plan.same.join(', ') + '.')}</Note> : null}
       </div>
       <MoreGroups d={d} backup={backup} plan={plan} />
-      {skipped.length ? <Facts items={skipped.map((t) => ['w', t])} /> : null}
+      {skipped.length ? <Facts items={skipped.map((line) => ['w', line])} /> : null}
       <Facts
         items={[
-          ['ok', 'Không đổi đăng nhập, tài khoản hay nhà cung cấp Codex.'],
-          ['ok', 'Lưu lại bản cũ trước khi ghi. Hoàn tác được cả lần khôi phục.'],
+          ['ok', t('Không đổi đăng nhập, tài khoản hay nhà cung cấp Codex.', 'Does not change sign-ins, accounts or the Codex provider.')],
+          ['ok', t('Lưu lại bản cũ trước khi ghi. Hoàn tác được cả lần khôi phục.', 'Saves the old versions before writing. The whole restore can be undone.')],
         ]}
       />
       <Error d={d} />
       <DialogButtons>
         <Button large onClick={() => backup.back(d)}>
-          Quay lại
+          {t('Quay lại', 'Back')}
         </Button>
         <span className="flex-1" />
         <Button large onClick={backup.close}>
-          Huỷ
+          {t('Huỷ', 'Cancel')}
         </Button>
         {d.error ? (
           <Button large onClick={() => backup.toPreview(d)}>
-            Đọc lại
+            {t('Đọc lại', 'Read again')}
           </Button>
         ) : null}
         <Button large primary disabled={!any || backup.working} onClick={() => backup.next(d)}>
-          {keys.length ? 'Tiếp: dán khoá' : 'Khôi phục'}
+          {keys.length ? t('Tiếp: dán khoá', 'Next: paste keys') : t('Khôi phục', 'Restore')}
         </Button>
       </DialogButtons>
     </>
@@ -384,24 +391,29 @@ function KeysStep({ d, backup }: { d: RestoreDialog; backup: Backup }) {
   const keys = keysFor(plan, d.ticks);
   return (
     <>
-      <DialogTitle>Dán khoá</DialogTitle>
+      <DialogTitle>{t('Dán khoá', 'Paste keys')}</DialogTitle>
       <Steps at={2} />
-      <DialogLead>{keys.length} khoá, lấy từ nơi bạn cất chúng. App giữ trên máy này và không hiện lại.</DialogLead>
+      <DialogLead>
+        {t(
+          keys.length + ' khoá, lấy từ nơi bạn cất chúng. App giữ trên máy này và không hiện lại.',
+          plural(keys.length, 'key', 'keys') + ', from wherever you keep them. The app keeps them on this Mac and never shows them again.',
+        )}
+      </DialogLead>
       {keys.map((k) => {
         const id = keySlot(k);
         return (
           <div key={id} className={SECRET_ROW}>
             <span>
               <b>{k.mcp}</b>
-              <small>{k.bitwarden ? 'Lưu ở: ' + k.bitwarden : k.label}</small>
+              <small>{k.bitwarden ? t('Lưu ở: ', 'Stored in: ') + k.bitwarden : k.label}</small>
             </span>
             <span className="flex items-center gap-1.5">
               <Input
                 className="font-mono tracking-[.12em]"
                 type="password"
                 autoComplete="off"
-                aria-label={'Khoá của ' + k.mcp}
-                placeholder="dán vào đây"
+                aria-label={t('Khoá của ', 'Key for ') + k.mcp}
+                placeholder={t('dán vào đây', 'paste here')}
                 value={d.keys[id] ?? ''}
                 onChange={(e) => backup.update((x) => ({ ...x, keys: { ...x.keys, [id]: e.target.value } }))}
               />
@@ -409,17 +421,17 @@ function KeysStep({ d, backup }: { d: RestoreDialog; backup: Backup }) {
           </div>
         );
       })}
-      <Facts items={[['', 'Để trống cũng được: MCP vẫn được thêm nhưng tắt, dán khoá sau ở tab MCP.']]} />
+      <Facts items={[['', t('Để trống cũng được: MCP vẫn được thêm nhưng tắt, dán khoá sau ở tab MCP.', 'You can leave it empty: the MCP is still added, but off. Paste the key later in the MCP tab.')]]} />
       <DialogButtons>
         <Button large onClick={() => backup.back(d)}>
-          Quay lại
+          {t('Quay lại', 'Back')}
         </Button>
         <span className="flex-1" />
         <Button large onClick={backup.close}>
-          Huỷ
+          {t('Huỷ', 'Cancel')}
         </Button>
         <Button large primary disabled={backup.working} onClick={() => backup.next(d)}>
-          Khôi phục
+          {t('Khôi phục', 'Restore')}
         </Button>
       </DialogButtons>
     </>
@@ -436,7 +448,7 @@ function runningLines(d: RestoreDialog): string[] {
   if (d.ticks[SKILLS_HAND] && sk.hand.length) out.push(SKILL_TITLE.hand(sk.hand.length));
   const pl = pluginGroups(plan);
   const plugins = (d.ticks[PLUGINS] ? pl.main.length : 0) + pl.off.filter((p) => d.ticks[pluginKey(p)]).length;
-  if (plugins) out.push(plugins + ' plugin');
+  if (plugins) out.push(t(plugins + ' plugin', plural(plugins, 'plugin', 'plugins')));
   for (const f of plan.files?.items ?? []) if (d.ticks[fileKey(f.path)]) out.push(fileLabel(f.path, f.agent));
   return out;
 }
@@ -445,9 +457,9 @@ function RunStep({ d, backup }: { d: RestoreDialog; backup: Backup }) {
   if (d.step === 'run' || !d.done) {
     return (
       <>
-        <DialogTitle>Đang khôi phục…</DialogTitle>
+        <DialogTitle>{t('Đang khôi phục…', 'Restoring…')}</DialogTitle>
         <Steps at={3} />
-        <ProgressList busy lines={runningLines(d).map((t): [string, string, string] => ['wait', t, ''])} />
+        <ProgressList busy lines={runningLines(d).map((line): [string, string, string] => ['wait', line, ''])} />
       </>
     );
   }
@@ -464,38 +476,38 @@ function RunStep({ d, backup }: { d: RestoreDialog; backup: Backup }) {
       l.retry ? (
         <LinkButton
           small
-          aria-label={'Thử lại ' + l.title}
+          aria-label={t('Thử lại ', 'Try again: ') + l.title}
           disabled={backup.working}
           onClick={() => l.retry && backup.retry(d, l.retry)}
         >
-          {d.retrying === partKey(l.retry) ? 'Đang thử…' : 'Thử lại'}
+          {d.retrying === partKey(l.retry) ? t('Đang thử…', 'Trying…') : t('Thử lại', 'Try again')}
         </LinkButton>
       ) : undefined,
     ]),
   ];
   return (
     <>
-      <DialogTitle>{partly ? 'Đã khôi phục một phần' : 'Đã khôi phục'}</DialogTitle>
+      <DialogTitle>{partly ? t('Đã khôi phục một phần', 'Partly restored') : t('Đã khôi phục', 'Restored')}</DialogTitle>
       <Steps at={4} />
       <ProgressList lines={lines} />
       {todo.length ? (
         <>
-          <DialogSection>Còn lại bạn làm</DialogSection>
-          <Facts items={todo.map((t) => ['', t])} />
+          <DialogSection>{t('Còn lại bạn làm', 'Left for you to do')}</DialogSection>
+          <Facts items={todo.map((line) => ['', line])} />
         </>
       ) : null}
       <DialogButtons>
         {done.canUndo ? (
           <Button large onClick={() => backup.setDialog({ kind: 'undo', changed: null, from: d })}>
-            Hoàn tác lần khôi phục…
+            {t('Hoàn tác lần khôi phục…', 'Undo the restore…')}
           </Button>
         ) : null}
         <span className="flex-1" />
         <Button large onClick={backup.toMcp}>
-          Xem tab MCP
+          {t('Xem tab MCP', 'See the MCP tab')}
         </Button>
         <Button large primary onClick={backup.close}>
-          Xong
+          {t('Xong', 'Done')}
         </Button>
       </DialogButtons>
     </>
@@ -508,12 +520,12 @@ function UndoBody({ d, backup, model, now }: { d: Extract<BackupDialog, { kind: 
   const changed = d.changed ? changedLines('changed:' + d.changed) : null;
   return (
     <>
-      <DialogTitle>{at ? 'Hoàn tác lần khôi phục ' + packWhenLower(r?.at ?? null, now) + '?' : 'Hoàn tác lần khôi phục?'}</DialogTitle>
+      <DialogTitle>{at ? t('Hoàn tác lần khôi phục ' + packWhenLower(r?.at ?? null, now) + '?', 'Undo the restore from ' + packWhenLower(r?.at ?? null, now) + '?') : t('Hoàn tác lần khôi phục?', 'Undo the restore?')}</DialogTitle>
       {changed ? (
         <Facts
           items={[
-            ...changed.map((t): [string, string] => ['w', t]),
-            ['', 'Hoàn tác vẫn chỉ bỏ những gì lần khôi phục đã thêm hay thay; phần bạn sửa thêm vẫn giữ.'],
+            ...changed.map((line): [string, string] => ['w', line]),
+            ['', t('Hoàn tác vẫn chỉ bỏ những gì lần khôi phục đã thêm hay thay; phần bạn sửa thêm vẫn giữ.', 'Undo still removes only what the restore added or replaced; your later edits stay.')],
           ]}
         />
       ) : (
@@ -521,10 +533,10 @@ function UndoBody({ d, backup, model, now }: { d: Extract<BackupDialog, { kind: 
       )}
       <DialogButtons>
         <Button large onClick={() => (d.from ? backup.setDialog(d.from) : backup.close())}>
-          Huỷ
+          {t('Huỷ', 'Cancel')}
         </Button>
         <Button large danger disabled={backup.working} onClick={() => backup.undo(!!changed, d.from)}>
-          {changed ? 'Vẫn hoàn tác' : 'Hoàn tác'}
+          {changed ? t('Vẫn hoàn tác', 'Undo anyway') : t('Hoàn tác', 'Undo')}
         </Button>
       </DialogButtons>
     </>
@@ -535,23 +547,23 @@ function KeyBody({ d, backup }: { d: Extract<BackupDialog, { kind: 'key' }>; bac
   const [value, setValue] = useState('');
   return (
     <>
-      <DialogTitle>Thay khoá</DialogTitle>
+      <DialogTitle>{t('Thay khoá', 'Replace key')}</DialogTitle>
       <div className={SECRET_ROW}>
         <span>
           <b>{d.key.mcp}</b>
-          <small>{d.key.bitwarden ? 'Lưu ở: ' + d.key.bitwarden : d.key.label}</small>
+          <small>{d.key.bitwarden ? t('Lưu ở: ', 'Stored in: ') + d.key.bitwarden : d.key.label}</small>
         </span>
         <span className="flex items-center gap-1.5">
-          <Input className="font-mono tracking-[.12em]" type="password" autoComplete="off" aria-label="Khoá mới" placeholder="dán khoá mới" value={value} onChange={(e) => setValue(e.target.value)} />
+          <Input className="font-mono tracking-[.12em]" type="password" autoComplete="off" aria-label={t('Khoá mới', 'New key')} placeholder={t('dán khoá mới', 'paste the new key')} value={value} onChange={(e) => setValue(e.target.value)} />
         </span>
       </div>
-      <Facts items={[['ok', 'App đưa khoá mới vào các agent đang dùng MCP này, có xem trước và lưu bản cũ.']]} />
+      <Facts items={[['ok', t('App đưa khoá mới vào các agent đang dùng MCP này, có xem trước và lưu bản cũ.', 'The app puts the new key into the agents using this MCP, with a preview, and saves the old one.')]]} />
       <DialogButtons>
         <Button large onClick={backup.close}>
-          Huỷ
+          {t('Huỷ', 'Cancel')}
         </Button>
         <Button large primary disabled={backup.working || !value.trim()} onClick={() => backup.replaceKey(d.key, value)}>
-          Lưu
+          {t('Lưu', 'Save')}
         </Button>
       </DialogButtons>
     </>
@@ -561,19 +573,19 @@ function KeyBody({ d, backup }: { d: Extract<BackupDialog, { kind: 'key' }>; bac
 function DelKeyBody({ d, backup }: { d: Extract<BackupDialog, { kind: 'delKey' }>; backup: Backup }) {
   return (
     <>
-      <DialogTitle>Xoá khoá {d.key.mcp}?</DialogTitle>
+      <DialogTitle>{t('Xoá khoá ' + d.key.mcp + '?', 'Delete the key for ' + d.key.mcp + '?')}</DialogTitle>
       <Facts
         items={[
-          ['', 'Khoá chỉ bị xoá khỏi máy này. Agent đang dùng ' + d.key.mcp + ' vẫn giữ bản của nó.'],
-          ['', 'Lần khôi phục sau trên máy này, app sẽ hỏi lại khoá này.'],
+          ['', t('Khoá chỉ bị xoá khỏi máy này. Agent đang dùng ' + d.key.mcp + ' vẫn giữ bản của nó.', 'The key is deleted from this Mac only. Agents using ' + d.key.mcp + ' keep their own copy.')],
+          ['', t('Lần khôi phục sau trên máy này, app sẽ hỏi lại khoá này.', 'On the next restore on this Mac, the app asks for this key again.')],
         ]}
       />
       <DialogButtons>
         <Button large onClick={backup.close}>
-          Huỷ
+          {t('Huỷ', 'Cancel')}
         </Button>
         <Button large danger disabled={backup.working} onClick={() => backup.deleteKey(d.key)}>
-          Xoá khoá
+          {t('Xoá khoá', 'Delete key')}
         </Button>
       </DialogButtons>
     </>

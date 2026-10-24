@@ -8,35 +8,50 @@
 // `tabFirstmate`.
 
 import { age, clock, percent, secondsSince } from './format';
+import { t } from './i18n';
 import type { AuthorModel } from './author';
 import type { AlertRecord, AlertTone, FirstmateView, Model, NotifyPermission, SwitchKind } from './model';
 import { dayClock, namesOf } from './switching';
 import type { BannerView, ChipView, FeedbackView, Tone } from './view';
 
-/** The five kinds, in the prototype's order and words. */
-export const ALERT_KINDS: { kind: SwitchKind; title: string; text: string }[] = [
-  {
-    kind: 'pool',
-    title: 'Hạn mức Claude trong vòng sắp cạn / có lại',
-    text: 'Khi hạn mức trong vòng đã dùng từ 90% trở lên và khi có lại. Cùng luật với firstmate.',
-  },
-  { kind: 'leaving', title: 'Tài khoản sắp rời vòng', text: '30 phút trước giờ rời vòng trong file luật.' },
-  {
-    kind: 'login',
-    title: 'Tài khoản cần đăng nhập lại',
-    text: '3 ngày trước khi hết hạn, hoặc khi claude-swap báo lỗi đăng nhập. Cả tài khoản Antigravity cần đăng nhập lại hay xác minh.',
-  },
-  {
-    kind: 'overwrite',
-    title: 'Antigravity đổi về tài khoản cũ',
-    text: 'Trong 6 giờ sau khi chuyển. Thôi đề nghị chuyển lại sau 2 lần.',
-  },
-  {
-    kind: 'firstmate',
-    title: 'Firstmate đang chờ hạn mức Claude',
-    text: 'Khi firstmate báo hạn mức trong vòng đã cạn. Chỉ trên máy có firstmate.',
-  },
-];
+/**
+ * The five kinds, in the prototype's order and words. `agy`: this build
+ * switches Antigravity, so the sign-in alert covers its accounts too.
+ */
+export function alertKindList(agy = true): { kind: SwitchKind; title: string; text: string }[] {
+  return [
+    {
+      kind: 'pool',
+      title: t('Hạn mức Claude trong vòng sắp cạn / có lại', 'Claude quota in rotation running out / back'),
+      text: t(
+        'Khi hạn mức trong vòng đã dùng từ 90% trở lên và khi có lại. Cùng luật với firstmate.',
+        'When the quota in rotation is 90% used or more, and when it is back. Same rule as firstmate.',
+      ),
+    },
+    {
+      kind: 'leaving',
+      title: t('Tài khoản sắp rời vòng', 'An account is about to leave rotation'),
+      text: t('30 phút trước giờ rời vòng trong file luật.', '30 minutes before its leave time in the rules file.'),
+    },
+    {
+      kind: 'login',
+      title: t('Tài khoản cần đăng nhập lại', 'An account needs to sign in again'),
+      text:
+        t('3 ngày trước khi hết hạn, hoặc khi claude-swap báo lỗi đăng nhập.', '3 days before the sign-in expires, or when claude-swap reports a sign-in error.') +
+        (agy ? t(' Cả tài khoản Antigravity cần đăng nhập lại hay xác minh.', ' Also Antigravity accounts that need to sign in again or verify.') : ''),
+    },
+    {
+      kind: 'overwrite',
+      title: t('Antigravity đổi về tài khoản cũ', 'Antigravity went back to the old account'),
+      text: t('Trong 6 giờ sau khi chuyển. Thôi đề nghị chuyển lại sau 2 lần.', 'Within 6 hours of a switch. Stops offering to switch back after 2 times.'),
+    },
+    {
+      kind: 'firstmate',
+      title: t('Firstmate đang chờ hạn mức Claude', 'Firstmate is waiting for Claude quota'),
+      text: t('Khi firstmate báo hạn mức trong vòng đã cạn. Chỉ trên máy có firstmate.', 'When firstmate reports the quota in rotation is used up. Only on a Mac with firstmate.'),
+    },
+  ];
+}
 
 /**
  * The kinds this Mac can turn on, in that order: the rotation's (2) and
@@ -49,18 +64,22 @@ export function alertKinds(model: Model): { kind: SwitchKind; title: string; tex
   const fm = adv && model.advanced.firstmate;
   const agy = model.capabilities.agyAccounts;
   const p = model.alerts.poolAlert;
-  return ALERT_KINDS.filter((k) => (k.kind !== 'leaving' || adv) && (k.kind !== 'firstmate' || fm) && (k.kind !== 'overwrite' || agy)).map((k) => {
-    if (k.kind === 'pool')
-      return {
-        ...k,
-        title: adv ? k.title : 'Hạn mức Claude sắp cạn / có lại',
-        text:
-          'Khi tài khoản đang dùng còn ' + p.dryAtMost + '% trở xuống và không tài khoản' + (adv ? ' nào trong vòng' : ' nào') +
-          ' còn ' + p.roomAtLeast + '%, và khi có lại.' + (fm ? ' Cùng luật với firstmate.' : ''),
-      };
-    if (k.kind === 'login' && !agy) return { ...k, text: k.text.replace(/ Cả tài khoản Antigravity.*$/, '') };
-    return k;
-  });
+  return alertKindList(agy)
+    .filter((k) => (k.kind !== 'leaving' || adv) && (k.kind !== 'firstmate' || fm) && (k.kind !== 'overwrite' || agy))
+    .map((k) => {
+      if (k.kind === 'pool')
+        return {
+          ...k,
+          title: adv ? k.title : t('Hạn mức Claude sắp cạn / có lại', 'Claude quota running out / back'),
+          text: t(
+            'Khi tài khoản đang dùng còn ' + p.dryAtMost + '% trở xuống và không tài khoản' + (adv ? ' nào trong vòng' : ' nào') +
+              ' còn ' + p.roomAtLeast + '%, và khi có lại.' + (fm ? ' Cùng luật với firstmate.' : ''),
+            'When the account in use has ' + p.dryAtMost + '% or less left and no account' + (adv ? ' in rotation' : '') +
+              ' still has ' + p.roomAtLeast + '%, and when it is back.' + (fm ? ' Same rule as firstmate.' : ''),
+          ),
+        };
+      return k;
+    });
 }
 
 const FB_TONE: Record<AlertTone, FeedbackView['tone']> = { ok: '', warn: 'warn', bad: 'bad', info: 'info' };
@@ -86,8 +105,8 @@ function iso(unix: number): string {
 
 function working(action: string): string {
   return action.startsWith('agy:quitFirst:')
-    ? 'Đang thoát Antigravity.app và chuyển tài khoản…'
-    : 'Đang chuyển tài khoản Antigravity…';
+    ? t('Đang thoát Antigravity.app và chuyển tài khoản…', 'Quitting Antigravity.app and switching accounts…')
+    : t('Đang chuyển tài khoản Antigravity…', 'Switching the Antigravity account…');
 }
 
 export function alertCard(r: AlertRecord, now: Date): AlertCardView {
@@ -95,15 +114,15 @@ export function alertCard(r: AlertRecord, now: Date): AlertCardView {
   const answer = r.answer;
   const icon = a.tone === 'warn' ? '' : a.tone;
   const meta = [dayClock(iso(a.at), now)];
-  if (a.test) meta.push('thông báo thử');
-  meta.push(r.notified ? 'đã gửi thông báo macOS' : 'chỉ có trong app');
+  if (a.test) meta.push(t('thông báo thử', 'test notification'));
+  meta.push(r.notified ? t('đã gửi thông báo macOS', 'sent as a macOS notification') : t('chỉ có trong app', 'in the app only'));
   return {
     id: r.id,
     icon: { k: icon, mark: a.tone === 'ok' ? '✓' : '!' },
     title: a.title,
     body: a.body,
     actions: answer ? [] : a.actions,
-    chose: answer ? 'Bạn đã chọn “' + answer.label + '”.' : null,
+    chose: answer ? t('Bạn đã chọn “' + answer.label + '”.', 'You chose “' + answer.label + '”.') : null,
     result: !answer
       ? null
       : answer.result
@@ -118,27 +137,30 @@ export function permissionBanner(p: NotifyPermission): BannerView | null {
   if (p === 'denied')
     return {
       tone: 'warn',
-      title: 'Thông báo của Quota Station đang tắt',
-      body: 'macOS không hiện thẻ nào. Các cảnh báo vẫn nằm ở đây, kèm nút như trên thẻ.',
-      actions: [{ label: 'Mở Cài đặt hệ thống', act: 'notify:settings' }],
+      title: t('Thông báo của Quota Station đang tắt', 'Quota Station notifications are off'),
+      body: t('macOS không hiện thẻ nào. Các cảnh báo vẫn nằm ở đây, kèm nút như trên thẻ.', 'macOS shows no cards. Alerts still show up here, with the same buttons as the cards.'),
+      actions: [{ label: t('Mở Cài đặt hệ thống', 'Open System Settings'), act: 'notify:settings' }],
     };
   if (p === 'unbundled')
     return {
       tone: 'info',
-      title: 'Bản chạy thử không gửi thông báo macOS',
-      body: 'Chỉ app đã đóng gói mới có thẻ thông báo. Các cảnh báo vẫn nằm ở đây, kèm nút như trên thẻ.',
+      title: t('Bản chạy thử không gửi thông báo macOS', 'A dev build sends no macOS notifications'),
+      body: t(
+        'Chỉ app đã đóng gói mới có thẻ thông báo. Các cảnh báo vẫn nằm ở đây, kèm nút như trên thẻ.',
+        'Only the packaged app gets notification cards. Alerts still show up here, with the same buttons as the cards.',
+      ),
       actions: [],
     };
   return null;
 }
 
 /** The Thông báo row of Cài đặt. */
-export const PERMISSION_CHIPS: Record<NotifyPermission, ChipView> = {
-  allowed: { t: 'đang bật', k: 'ok' },
-  denied: { t: 'đang tắt', k: 'warn' },
-  unknown: { t: 'chưa rõ', k: '' },
-  unbundled: { t: 'bản chạy thử', k: '' },
-};
+export function permissionChip(p: NotifyPermission): ChipView {
+  if (p === 'allowed') return { t: t('đang bật', 'on'), k: 'ok' };
+  if (p === 'denied') return { t: t('đang tắt', 'off'), k: 'warn' };
+  if (p === 'unbundled') return { t: t('bản chạy thử', 'dev build'), k: '' };
+  return { t: t('chưa rõ', 'unknown'), k: '' };
+}
 
 // ===== Firstmate =====
 
@@ -154,17 +176,18 @@ export interface FirstmateTabView {
 }
 
 /** Why Firstmate's file could not be read, by `FirstmateView.status`. */
-export const UNREAD: Record<string, string> = {
-  notPlain: 'Đường dẫn không phải một file thường, hoặc file lớn hơn file của firstmate.',
-  notPoolFile: 'File phải tên là quota-pool.last.',
-  unreadable: 'Không mở được file.',
-};
+export function unreadText(status: string): string {
+  if (status === 'notPlain')
+    return t('Đường dẫn không phải một file thường, hoặc file lớn hơn file của firstmate.', 'The path is not a regular file, or the file is larger than firstmate’s file.');
+  if (status === 'notPoolFile') return t('File phải tên là quota-pool.last.', 'The file must be named quota-pool.last.');
+  return t('Không mở được file.', 'Cannot open the file.');
+}
 
 function slots(f: FirstmateView, nameOf: (n: number) => string): string {
   const line = f.line!;
   if (!line.slots.length) return '—';
   return line.slots
-    .map((s) => nameOf(s.slot) + ' ' + (s.reset ? 'vừa đặt lại' : s.percent == null ? '?' : 'đã dùng ' + percent(100 - s.percent)))
+    .map((s) => nameOf(s.slot) + ' ' + (s.reset ? t('vừa đặt lại', 'just reset') : s.percent == null ? '?' : t('đã dùng ', 'used ') + percent(100 - s.percent)))
     .join(' · ');
 }
 
@@ -174,12 +197,12 @@ const ON_OFF = (v: boolean | null, yes: ChipView, no: ChipView): { value: string
 export function firstmateTab(model: AuthorModel, now: Date): FirstmateTabView {
   const f = model.firstmate;
   const nameOf = namesOf(model);
-  const fallback = 'Luật "cạn" vẫn tự tính từ số của app để báo.';
+  const fallback = t('Luật "cạn" vẫn tự tính từ số của app để báo.', 'The "used up" alert still works from the app’s own numbers.');
   if (f.status === 'notSet')
     return {
       tone: 'muted',
-      title: 'Chưa nối với firstmate',
-      body: 'Đặt đường dẫn file quota-pool.last của firstmate trong Cài đặt. ' + fallback,
+      title: t('Chưa nối với firstmate', 'Not connected to firstmate'),
+      body: t('Đặt đường dẫn file quota-pool.last của firstmate trong Cài đặt. ', 'Set the path to firstmate’s quota-pool.last file in Settings. ') + fallback,
       rows: [],
       note: null,
       setUp: true,
@@ -187,8 +210,8 @@ export function firstmateTab(model: AuthorModel, now: Date): FirstmateTabView {
   if (f.status === 'missing')
     return {
       tone: 'muted',
-      title: 'Không thấy firstmate trên máy này',
-      body: 'Không có file ' + (f.file ?? '') + '. ' + fallback,
+      title: t('Không thấy firstmate trên máy này', 'No firstmate on this Mac'),
+      body: t('Không có file ' + (f.file ?? '') + '. ', 'No file at ' + (f.file ?? '') + '. ') + fallback,
       rows: [],
       note: null,
       setUp: true,
@@ -196,41 +219,51 @@ export function firstmateTab(model: AuthorModel, now: Date): FirstmateTabView {
   if (f.status !== 'ok' || !f.line)
     return {
       tone: 'bad',
-      title: 'Không đọc được file của firstmate',
-      body: (UNREAD[f.status] ?? UNREAD.unreadable) + ' ' + fallback,
+      title: t('Không đọc được file của firstmate', 'Cannot read firstmate’s file'),
+      body: unreadText(f.status) + ' ' + fallback,
       rows: [],
       note: null,
       setUp: true,
     };
   const line = f.line;
   const ago = secondsSince(f.writtenAt, now);
-  const written = f.writtenAt ? dayClock(f.writtenAt, now) + (ago != null ? ' · ' + age(ago) + ' trước' : '') : '—';
+  const written = f.writtenAt ? dayClock(f.writtenAt, now) + (ago != null ? ' · ' + t(age(ago) + ' trước', age(ago) + ' ago') : '') : '—';
   let head: Pick<FirstmateTabView, 'tone' | 'title' | 'body'>;
   if (!f.fresh)
     head = {
       tone: 'warn',
-      title: 'Thông tin firstmate chưa cập nhật trong ' + (ago != null ? age(ago) : 'một lúc'),
-      body: 'File của firstmate chưa được ghi lại từ ' + (f.writtenAt ? clock(f.writtenAt) : '—') + '. Firstmate có thể không chạy.',
+      title: t('Thông tin firstmate chưa cập nhật trong ', 'Firstmate’s info has not updated in ') + (ago != null ? age(ago) : t('một lúc', 'a while')),
+      body: t(
+        'File của firstmate chưa được ghi lại từ ' + (f.writtenAt ? clock(f.writtenAt) : '—') + '. Firstmate có thể không chạy.',
+        'Firstmate’s file has not been written since ' + (f.writtenAt ? clock(f.writtenAt) : '—') + '. Firstmate may not be running.',
+      ),
     };
   else if (line.dry)
     head = {
       tone: 'bad',
-      title: 'Firstmate đang chờ hạn mức Claude',
+      title: t('Firstmate đang chờ hạn mức Claude', 'Firstmate is waiting for Claude quota'),
       body:
-        'Hạn mức trong vòng đã cạn: firstmate giữ việc Claude mới đến khi có lại.' +
-        (line.nextReset ? ' Có lại lúc ' + dayClock(line.nextReset, now) + '.' : ''),
+        t('Hạn mức trong vòng đã cạn: firstmate giữ việc Claude mới đến khi có lại.', 'The quota in rotation is used up: firstmate holds new Claude work until it is back.') +
+        (line.nextReset ? t(' Có lại lúc ', ' Back at ') + dayClock(line.nextReset, now) + '.' : ''),
     };
-  else if (line.dry === false) head = { tone: 'ok', title: 'Firstmate thấy đủ hạn mức Claude', body: 'Không chờ hạn mức.' };
-  else head = { tone: 'muted', title: 'Firstmate chưa tính được hạn mức Claude', body: 'File không ghi hạn mức đã cạn hay chưa.' };
+  else if (line.dry === false)
+    head = { tone: 'ok', title: t('Firstmate thấy đủ hạn mức Claude', 'Firstmate sees enough Claude quota'), body: t('Không chờ hạn mức.', 'Not waiting for quota.') };
+  else
+    head = {
+      tone: 'muted',
+      title: t('Firstmate chưa tính được hạn mức Claude', 'Firstmate has not worked out the Claude quota'),
+      body: t('File không ghi hạn mức đã cạn hay chưa.', 'The file does not say whether the quota is used up.'),
+    };
 
+  const no = t('không', 'no');
   const rows: FirstmateTabView['rows'] = [
-    { key: 'Chờ hạn mức Claude', ...ON_OFF(line.dry, { t: 'đang chờ', k: 'bad' }, { t: 'không', k: 'ok' }) },
-    { key: 'Tài khoản đang dùng', value: line.active != null ? nameOf(line.active) : '—' },
-    { key: 'Đã dùng từng tài khoản', value: slots(f, nameOf) },
-    { key: 'Có lại lúc', value: line.nextReset ? dayClock(line.nextReset, now) : '—' },
-    { key: 'quota-axi của firstmate có +cswap', ...ON_OFF(line.fork, { t: 'có', k: 'ok' }, { t: 'không', k: 'bad' }) },
-    { key: 'Đọc được claude-swap', ...ON_OFF(line.claudeSwap, { t: 'được', k: 'ok' }, { t: 'không', k: 'bad' }) },
-    { key: 'Cập nhật', value: written },
+    { key: t('Chờ hạn mức Claude', 'Waiting for Claude quota'), ...ON_OFF(line.dry, { t: t('đang chờ', 'waiting'), k: 'bad' }, { t: no, k: 'ok' }) },
+    { key: t('Tài khoản đang dùng', 'Account in use'), value: line.active != null ? nameOf(line.active) : '—' },
+    { key: t('Đã dùng từng tài khoản', 'Used per account'), value: slots(f, nameOf) },
+    { key: t('Có lại lúc', 'Back at'), value: line.nextReset ? dayClock(line.nextReset, now) : '—' },
+    { key: t('quota-axi của firstmate có +cswap', 'firstmate’s quota-axi has +cswap'), ...ON_OFF(line.fork, { t: t('có', 'yes'), k: 'ok' }, { t: no, k: 'bad' }) },
+    { key: t('Đọc được claude-swap', 'Reads claude-swap'), ...ON_OFF(line.claudeSwap, { t: t('được', 'yes'), k: 'ok' }, { t: no, k: 'bad' }) },
+    { key: t('Cập nhật', 'Updated'), value: written },
   ];
   const own = f.ownDry;
   const differs = f.fresh && own != null && line.dry != null && own !== line.dry;
@@ -239,31 +272,45 @@ export function firstmateTab(model: AuthorModel, now: Date): FirstmateTabView {
     ...head,
     rows,
     note: differs
-      ? 'App tính từ số của nó ' + (read ? 'lúc ' + read : 'gần nhất') + ' thì hạn mức trong vòng ' + (own ? 'đã cạn' : 'chưa cạn') +
-        '. Hai bên đọc ở hai lúc khác nhau; lần kiểm sau của firstmate sẽ khớp lại.'
-      : 'Firstmate ghi file này sau mỗi lần kiểm' + (read ? '; app đọc số lúc ' + read : '') +
-        '. Hai giờ cập nhật có thể lệch nhau; firstmate đọc cùng các tài khoản qua bản sao của app.',
+      ? t(
+          'App tính từ số của nó ' + (read ? 'lúc ' + read : 'gần nhất') + ' thì hạn mức trong vòng ' + (own ? 'đã cạn' : 'chưa cạn') +
+            '. Hai bên đọc ở hai lúc khác nhau; lần kiểm sau của firstmate sẽ khớp lại.',
+          'By the app’s own numbers ' + (read ? 'from ' + read : 'from its latest read') + ', the quota in rotation ' + (own ? 'is used up' : 'is not used up') +
+            '. The two read at different times; firstmate’s next check will match again.',
+        )
+      : t(
+          'Firstmate ghi file này sau mỗi lần kiểm' + (read ? '; app đọc số lúc ' + read : '') +
+            '. Hai giờ cập nhật có thể lệch nhau; firstmate đọc cùng các tài khoản qua bản sao của app.',
+          'Firstmate writes this file after every check' + (read ? '; the app read its numbers at ' + read : '') +
+            '. The two update times can differ; firstmate reads the same accounts through the app’s copy.',
+        ),
     setUp: false,
   };
 }
 
-const PRESS_REFUSED: Record<string, string> = {
-  answered: 'Cảnh báo này đã có câu trả lời, có thể từ thẻ macOS.',
-  unknown: 'App không còn giữ cảnh báo này.',
-  noSuchAction: 'Thẻ này không có nút đó.',
-  noPage: 'Google chưa gửi trang xác minh cho tài khoản này. Đăng nhập lại trong tab Antigravity.',
-  notFound: 'Tài khoản này không còn đăng nhập trong app.',
-  browser: 'Không mở được trình duyệt.',
-};
+function pressRefused(code: string): string {
+  const known: Record<string, string> = {
+    answered: t('Cảnh báo này đã có câu trả lời, có thể từ thẻ macOS.', 'This alert already has an answer, possibly from the macOS card.'),
+    unknown: t('App không còn giữ cảnh báo này.', 'The app no longer keeps this alert.'),
+    noSuchAction: t('Thẻ này không có nút đó.', 'This card has no such button.'),
+    noPage: t(
+      'Google chưa gửi trang xác minh cho tài khoản này. Đăng nhập lại trong tab Antigravity.',
+      'Google has not sent a verification page for this account. Sign in again in the Antigravity tab.',
+    ),
+    notFound: t('Tài khoản này không còn đăng nhập trong app.', 'This account is no longer signed in to the app.'),
+    browser: t('Không mở được trình duyệt.', 'Could not open the browser.'),
+  };
+  return known[code] ?? t('Lý do: ', 'Reason: ') + code + '.';
+}
 
 /** A button on a card that the Rust side refused, or that broke. */
 export function alertFailedFeedback(error: unknown): FeedbackView {
   const code = String(error);
   return {
     tone: 'warn',
-    title: 'Chưa làm được',
-    body: PRESS_REFUSED[code] ?? 'Lý do: ' + code + '.',
-    actions: [{ label: 'Đóng', act: 'closeFeedback' }],
+    title: t('Chưa làm được', 'Could not do that'),
+    body: pressRefused(code),
+    actions: [{ label: t('Đóng', 'Close'), act: 'closeFeedback' }],
   };
 }
 
@@ -271,8 +318,8 @@ export function alertFailedFeedback(error: unknown): FeedbackView {
 export function testFailedFeedback(error: unknown): FeedbackView {
   return {
     tone: 'warn',
-    title: 'Chưa gửi được thông báo thử',
-    body: 'Lý do: ' + String(error) + '. Không có gì thay đổi.',
-    actions: [{ label: 'Đóng', act: 'closeFeedback' }],
+    title: t('Chưa gửi được thông báo thử', 'Could not send the test notification'),
+    body: t('Lý do: ' + String(error) + '. Không có gì thay đổi.', 'Reason: ' + String(error) + '. Nothing changed.'),
+    actions: [{ label: t('Đóng', 'Close'), act: 'closeFeedback' }],
   };
 }

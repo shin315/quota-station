@@ -60,7 +60,7 @@ describe('the MCP tab', () => {
   it('is in the sidebar under Agent and reads every agent\'s list when it opens', async () => {
     const fake = await openTab();
     expect(fake.api.mcpRead).toHaveBeenCalled();
-    const nav = screen.getByRole('navigation', { name: 'Mục' });
+    const nav = screen.getByRole('navigation', { name: 'Các tab' });
     expect(within(nav).getByText('Agent')).toBeTruthy();
     expect(within(nav).getByRole('button', { name: 'MCP' }).getAttribute('aria-current')).toBe('page');
     expect(screen.getByRole('heading', { level: 4, name: /MCP của bạn/ })).toBeTruthy();

@@ -17,6 +17,7 @@ import { ROW_ACTIONS, SETTING_ROW } from '../components/blocks';
 import { COUNT, Empty, EmptyIcon, TabHead, TabSub, TabTitle } from '../components/page';
 import { Button, ChoiceGroup, Chip, Dot, Feedback, LinkButton } from '../components/parts';
 import { DialogButtons, DialogLead, DialogSection, DialogTitle } from '@/components/ui/dialog';
+import { t } from '../lib/i18n';
 import { AGENT_NAME } from '../lib/mcp';
 import type { CodexTarget, ConfigSet, Model, SetPreview, SetWant } from '../lib/model';
 import {
@@ -50,27 +51,29 @@ function InUse({ model, sets, now }: { model: Model; sets: Sets; now: Date }) {
   if (!a || !st)
     return (
       <Panel>
-        <CardTitle>Đang dùng</CardTitle>
-        <CardText className="m-0">Chưa áp bộ nào.</CardText>
+        <CardTitle>{t('Đang dùng', 'In use')}</CardTitle>
+        <CardText className="m-0">{t('Chưa áp bộ nào.', 'No set applied yet.')}</CardText>
       </Panel>
     );
   const chip = st.lines ? driftChip(st.lines.length) : null;
+  const since = st.lines?.length ? st.lines.join(' · ') : '';
   return (
     <Panel>
-      <CardTitle>Đang dùng</CardTitle>
+      <CardTitle>{t('Đang dùng', 'In use')}</CardTitle>
       <div className="flex items-center justify-between gap-2.5">
         <div>
           <b className="text-title">{a.name}</b>
           <small className="block text-xs text-ink2 [overflow-wrap:anywhere]">
-            áp lúc {dayClock(a.at, now)}
-            {st.lines?.length ? ' · sau đó ' + st.lines.join(' · ') : ''}
+            {since
+              ? t('áp lúc ' + dayClock(a.at, now) + ' · sau đó ' + since, 'applied at ' + dayClock(a.at, now) + ' · since then ' + since)
+              : t('áp lúc ' + dayClock(a.at, now), 'applied at ' + dayClock(a.at, now))}
           </small>
         </div>
         <span className={ROW_ACTIONS}>
           {chip ? <Chip chip={chip} /> : null}
           {a.canUndo ? (
             <LinkButton small disabled={sets.working} onClick={sets.undo}>
-              Hoàn tác bộ
+              {t('Hoàn tác bộ', 'Undo the set')}
             </LinkButton>
           ) : null}
         </span>
@@ -85,19 +88,19 @@ function SetRow({ set, model, sets }: { set: ConfigSet; model: Model; sets: Sets
     <div className={SETTING_ROW}>
       <div>
         <b>
-          {set.name} {inUse ? <Chip chip={{ t: 'đang dùng', k: 'info' }} /> : null}
+          {set.name} {inUse ? <Chip chip={{ t: t('đang dùng', 'in use'), k: 'info' }} /> : null}
         </b>
         <small>{setSummary(set, model.codex)}</small>
       </div>
       <div className={ROW_ACTIONS}>
-        <Button primary={!inUse} disabled={sets.working} label={'Áp bộ ' + set.name} onClick={() => sets.openApply(set)}>
-          Áp…
+        <Button primary={!inUse} disabled={sets.working} label={t('Áp bộ ' + set.name, 'Apply the set ' + set.name)} onClick={() => sets.openApply(set)}>
+          {t('Áp…', 'Apply…')}
         </Button>
-        <LinkButton small aria-label={'Sửa bộ ' + set.name} disabled={sets.working} onClick={() => sets.openEdit(set)}>
-          Sửa
+        <LinkButton small aria-label={t('Sửa bộ ' + set.name, 'Edit the set ' + set.name)} disabled={sets.working} onClick={() => sets.openEdit(set)}>
+          {t('Sửa', 'Edit')}
         </LinkButton>
-        <LinkButton small aria-label={'Xoá bộ ' + set.name} disabled={sets.working} onClick={() => sets.remove(set)}>
-          Xoá
+        <LinkButton small aria-label={t('Xoá bộ ' + set.name, 'Delete the set ' + set.name)} disabled={sets.working} onClick={() => sets.remove(set)}>
+          {t('Xoá', 'Delete')}
         </LinkButton>
       </div>
     </div>
@@ -118,13 +121,13 @@ export function SetsTab({ model, fresh, feedback, now, sets, onAction }: SetsTab
   return (
     <>
       <TabHead>
-        <TabTitle>Bộ cấu hình</TabTitle>
+        <TabTitle>{t('Bộ cấu hình', 'Config sets')}</TabTitle>
         <TabSub>
           <Dot tone={fresh.tone} />
-          {model.machine} · áp cho cả máy
+          {model.machine + t(' · áp cho cả máy', ' · applies to the whole Mac')}
         </TabSub>
         <Button primary disabled={sets.working} onClick={() => sets.openNew(!list.length)}>
-          Tạo bộ
+          {t('Tạo bộ', 'New set')}
         </Button>
       </TabHead>
       {feedback ? <Feedback fb={feedback} onAction={onAction} /> : null}
@@ -132,11 +135,16 @@ export function SetsTab({ model, fresh, feedback, now, sets, onAction }: SetsTab
         <Panel>
           <Empty>
             <EmptyIcon>{STACK_BIG}</EmptyIcon>
-            <b>Chưa có bộ nào</b>
-            <CardText className="mt-2 mb-0">Một bộ ghi MCP và skills nào bật, nào tắt, để đổi cả loạt khi chuyển sang dự án khác.</CardText>
+            <b>{t('Chưa có bộ nào', 'No sets yet')}</b>
+            <CardText className="mt-2 mb-0">
+              {t(
+                'Một bộ ghi MCP và skills nào bật, nào tắt, để đổi cả loạt khi chuyển sang dự án khác.',
+                'A set records which MCP and skills are on or off, so you can change them all at once for another project.',
+              )}
+            </CardText>
             <div className="mt-2.5 flex flex-wrap justify-center gap-2">
               <Button primary disabled={sets.working} onClick={() => sets.openNew(true)}>
-                Tạo bộ từ cấu hình hiện tại
+                {t('Tạo bộ từ cấu hình hiện tại', 'Create a set from the current setup')}
               </Button>
             </div>
           </Empty>
@@ -146,7 +154,7 @@ export function SetsTab({ model, fresh, feedback, now, sets, onAction }: SetsTab
           <InUse model={model} sets={sets} now={now} />
           <Panel>
             <CardTitle>
-              Các bộ <span className={COUNT}>{list.length}</span>
+              {t('Các bộ', 'Sets')} <span className={COUNT}>{list.length}</span>
             </CardTitle>
             {list.map((s) => (
               <SetRow key={s.id} set={s} model={model} sets={sets} />
@@ -155,8 +163,20 @@ export function SetsTab({ model, fresh, feedback, now, sets, onAction }: SetsTab
           <Panel>
             <Facts
               items={[
-                ['', 'Áp cho cả máy: mọi dự án, mọi phiên mở sau đó. Phiên đang chạy giữ cấu hình cũ.'],
-                ['', 'Bộ chỉ bật, tắt MCP và skills đã có. Codex đổi qua tấm chuyển Codex như bình thường.'],
+                [
+                  '',
+                  t(
+                    'Áp cho cả máy: mọi dự án, mọi phiên mở sau đó. Phiên đang chạy giữ cấu hình cũ.',
+                    'Applies to the whole Mac: every project, every session opened afterwards. Running sessions keep the old setup.',
+                  ),
+                ],
+                [
+                  '',
+                  t(
+                    'Bộ chỉ bật, tắt MCP và skills đã có. Codex đổi qua tấm chuyển Codex như bình thường.',
+                    'A set only turns MCP and skills that are already here on or off. Codex changes through the Codex switch sheet as usual.',
+                  ),
+                ],
               ]}
             />
           </Panel>
@@ -168,17 +188,17 @@ export function SetsTab({ model, fresh, feedback, now, sets, onAction }: SetsTab
 
 // ===== The dialogs =====
 
-const WANTS: { v: SetWant | 'keep'; t: string }[] = [
-  { v: 'on', t: 'Bật' },
-  { v: 'off', t: 'Tắt' },
-  { v: 'keep', t: 'Không đổi' },
+const wants = (): { v: SetWant | 'keep'; t: string }[] => [
+  { v: 'on', t: t('Bật', 'On') },
+  { v: 'off', t: t('Tắt', 'Off') },
+  { v: 'keep', t: t('Không đổi', 'No change') },
 ];
 
 function WantSeg({ name, value, onChange }: { name: string; value: SetWant | undefined; onChange(v: SetWant | undefined): void }) {
   const cur = value ?? 'keep';
   return (
     <Segmented variant="inline" className="w-[232px]" aria-label={name}>
-      {WANTS.map((w) => (
+      {wants().map((w) => (
         <Segment key={w.v} className="px-1.5 py-[3px]" pressed={cur === w.v} onClick={() => onChange(w.v === 'keep' ? undefined : w.v)}>
           {w.t}
         </Segment>
@@ -194,7 +214,7 @@ function Entries(props: { names: string[]; here: Set<string>; entries: Record<st
         <div key={n} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 border-t-[.5px] border-card-line py-1 text-sm first:border-t-0">
           <span className="[overflow-wrap:anywhere]">
             {n}
-            {props.here.has(n) ? null : <small className="block text-xs text-ink3">máy này không có</small>}
+            {props.here.has(n) ? null : <small className="block text-xs text-ink3">{t('máy này không có', 'not on this Mac')}</small>}
           </span>
           <WantSeg
             name={n}
@@ -225,39 +245,43 @@ function EditBody({ d, sets, model }: { d: Extract<SetDialog, { kind: 'edit' }>;
   const sk = names(model.skills.table?.rows.map((r) => r.name) ?? [], s.skills);
   const cx = model.codex;
   const options: { v: CodexTarget | 'keep'; t: string; s: string; until: null }[] = [
-    { v: 'keep', t: 'Giữ nguyên', s: 'không đổi nhà cung cấp', until: null },
-    { v: 'chatGpt', t: 'Tài khoản ChatGPT', s: 'qua tấm chuyển Codex', until: null },
-    ...(cx.custom ? [{ v: 'custom' as const, t: cx.custom.name, s: 'qua tấm chuyển Codex', until: null }] : []),
+    { v: 'keep', t: t('Giữ nguyên', 'Keep as is'), s: t('không đổi nhà cung cấp', 'provider unchanged'), until: null },
+    { v: 'chatGpt', t: t('Tài khoản ChatGPT', 'ChatGPT account'), s: t('qua tấm chuyển Codex', 'through the Codex switch sheet'), until: null },
+    ...(cx.custom ? [{ v: 'custom' as const, t: cx.custom.name, s: t('qua tấm chuyển Codex', 'through the Codex switch sheet'), until: null }] : []),
   ];
   return (
     <>
-      <DialogTitle>{isNew ? 'Tạo bộ' : 'Sửa bộ ' + s.name}</DialogTitle>
+      <DialogTitle>{isNew ? t('Tạo bộ', 'New set') : t('Sửa bộ ' + s.name, 'Edit the set ' + s.name)}</DialogTitle>
       <div className="mb-2.5 flex items-center justify-between gap-2.5">
         <Input
           className="max-w-[260px]"
-          aria-label="Tên bộ"
-          placeholder="Tên dự án, ví dụ Web app"
+          aria-label={t('Tên bộ', 'Set name')}
+          placeholder={t('Tên dự án, ví dụ Web app', 'Project name, e.g. Web app')}
           value={s.name}
           maxLength={60}
           onChange={(e) => sets.setDraft({ ...s, name: e.target.value })}
         />
         <LinkButton small disabled={!model.mcp.table && !model.skills.table} onClick={sets.takeCurrent}>
-          Lấy từ cấu hình hiện tại
+          {t('Lấy từ cấu hình hiện tại', 'Take from the current setup')}
         </LinkButton>
       </div>
       <DialogSection>
-        {NAV_ICONS.mcp}MCP · áp cho mọi agent đang có MCP đó
+        {NAV_ICONS.mcp}
+        {t('MCP · áp cho mọi agent đang có MCP đó', 'MCP · applies to every agent that has that MCP')}
       </DialogSection>
       {mcp.names.length ? (
         <Entries names={mcp.names} here={mcp.here} entries={s.mcp} onChange={(e) => sets.setDraft({ ...s, mcp: e })} />
       ) : (
-        <DialogLead>{model.mcp.table ? 'Máy này chưa có MCP nào.' : 'Đang đọc danh sách MCP…'}</DialogLead>
+        <DialogLead>{model.mcp.table ? t('Máy này chưa có MCP nào.', 'This Mac has no MCP yet.') : t('Đang đọc danh sách MCP…', 'Reading the MCP list…')}</DialogLead>
       )}
-      <DialogSection>{NAV_ICONS.skills}Skills · áp cho mọi agent bật được</DialogSection>
+      <DialogSection>
+        {NAV_ICONS.skills}
+        {t('Skills · áp cho mọi agent bật được', 'Skills · applies to every agent that can turn them on')}
+      </DialogSection>
       {sk.names.length ? (
         <Entries names={sk.names} here={sk.here} entries={s.skills} onChange={(e) => sets.setDraft({ ...s, skills: e })} />
       ) : (
-        <DialogLead>{model.skills.table ? 'Máy này chưa có skill nào.' : 'Đang đọc danh sách skills…'}</DialogLead>
+        <DialogLead>{model.skills.table ? t('Máy này chưa có skill nào.', 'This Mac has no skills yet.') : t('Đang đọc danh sách skills…', 'Reading the skills list…')}</DialogLead>
       )}
       {cx.present ? (
         <div>
@@ -270,10 +294,10 @@ function EditBody({ d, sets, model }: { d: Extract<SetDialog, { kind: 'edit' }>;
       {d.error ? <p>{d.error}</p> : null}
       <DialogButtons>
         <Button large disabled={sets.working} onClick={sets.close}>
-          Huỷ
+          {t('Huỷ', 'Cancel')}
         </Button>
         <Button large primary disabled={sets.working} onClick={sets.save}>
-          {sets.working ? 'Đang lưu…' : 'Lưu bộ'}
+          {sets.working ? t('Đang lưu…', 'Saving…') : t('Lưu bộ', 'Save set')}
         </Button>
       </DialogButtons>
     </>
@@ -284,9 +308,9 @@ function Details({ p }: { p: SetPreview }) {
   if (!p.mcp.groups.length && !p.skills.groups.length) return null;
   return (
     <details className="mt-2 text-sm text-ink2">
-      <summary className="cursor-pointer list-none text-accent-ink [&::-webkit-details-marker]:hidden">Xem từng dòng sẽ ghi</summary>
+      <summary className="cursor-pointer list-none text-accent-ink [&::-webkit-details-marker]:hidden">{t('Xem từng dòng sẽ ghi', 'See each line to be written')}</summary>
       {p.mcp.groups.map((g) => (
-        <section key={'m' + g.agent} aria-label={'MCP của ' + AGENT_NAME[g.agent]}>
+        <section key={'m' + g.agent} aria-label={t('MCP của ' + AGENT_NAME[g.agent], AGENT_NAME[g.agent] + '’s MCP')}>
           <DialogSection>
             <AgentLogo agent={g.agent} />
             MCP · {AGENT_NAME[g.agent]}
@@ -297,12 +321,16 @@ function Details({ p }: { p: SetPreview }) {
         </section>
       ))}
       {p.skills.groups.map((g) => (
-        <section key={'s' + g.agent} aria-label={'Skills của ' + AGENT_NAME[g.agent]}>
+        <section key={'s' + g.agent} aria-label={t('Skills của ' + AGENT_NAME[g.agent], AGENT_NAME[g.agent] + '’s skills')}>
           <DialogSection>
             <AgentLogo agent={g.agent} />
             Skills · {AGENT_NAME[g.agent]}
           </DialogSection>
-          <Lines head={g.file} right={g.agent === 'codex' ? g.count + ' skill' : g.count + ' liên kết'} lines={g.lines} />
+          <Lines head={g.file} right={
+              g.agent === 'codex'
+                ? t(g.count + ' skill', g.count + (g.count === 1 ? ' skill' : ' skills'))
+                : t(g.count + ' liên kết', g.count + (g.count === 1 ? ' link' : ' links'))
+            } lines={g.lines} />
         </section>
       ))}
     </details>
@@ -321,8 +349,8 @@ function ApplyBody({ d, sets, model }: { d: Extract<SetDialog, { kind: 'apply' }
   const skipped = p ? [...p.skipped.map(skippedLine), ...refusedLines(p)] : [];
   return (
     <>
-      <DialogTitle>Áp bộ {d.set.name}?</DialogTitle>
-      {!p && !d.error ? <DialogLead>Đang đọc file của các agent…</DialogLead> : null}
+      <DialogTitle>{t('Áp bộ ' + d.set.name + '?', 'Apply the set ' + d.set.name + '?')}</DialogTitle>
+      {!p && !d.error ? <DialogLead>{t('Đang đọc file của các agent…', 'Reading the agents’ files…')}</DialogLead> : null}
       {p ? (
         <div className="mt-0 mb-1 grid">
           {byAgent(p).map((r) => (
@@ -341,12 +369,12 @@ function ApplyBody({ d, sets, model }: { d: Extract<SetDialog, { kind: 'apply' }
             <div className={APPLY_ROW}>
               <span className={APPLY_AGENT}>
                 <AgentLogo agent="codex" />
-                Nhà cung cấp
+                {t('Nhà cung cấp', 'Provider')}
               </span>
-              <span>Bước 2: mở tấm chuyển Codex về {sideName(step, model.codex)}</span>
+              <span>{t('Bước 2: mở tấm chuyển Codex về ' + sideName(step, model.codex), 'Step 2: open the Codex switch sheet for ' + sideName(step, model.codex))}</span>
             </div>
           ) : null}
-          {!n && !step ? <p className="m-0">Máy đang đúng như bộ này. Không có gì để ghi.</p> : null}
+          {!n && !step ? <p className="m-0">{t('Máy đang đúng như bộ này. Không có gì để ghi.', 'This Mac already matches this set. Nothing to write.')}</p> : null}
         </div>
       ) : null}
       {p ? <Details p={p} /> : null}
@@ -354,11 +382,21 @@ function ApplyBody({ d, sets, model }: { d: Extract<SetDialog, { kind: 'apply' }
         <div className="mt-2.5">
           <Facts
             items={[
-              ...skipped.map((t): [string, string] => ['x', t]),
+              ...skipped.map((line): [string, string] => ['x', line]),
               ['w', sessionsLine(d.sessions, model.codex)],
-              ['w', 'Áp cho cả máy, mọi dự án.'],
-              ...(n ? [['ok', 'Sao lưu file của agent trước khi ghi. Chỉ sửa đúng các mục của bộ. Hoàn tác được cả bộ.'] as [string, string]] : []),
-              ...(step ? [['', 'Codex chỉ đổi nhà cung cấp qua tấm chuyển Codex, ở bước 2.'] as [string, string]] : []),
+              ['w', t('Áp cho cả máy, mọi dự án.', 'Applies to the whole Mac, every project.')],
+              ...(n
+                ? [
+                    [
+                      'ok',
+                      t(
+                        'Sao lưu file của agent trước khi ghi. Chỉ sửa đúng các mục của bộ. Hoàn tác được cả bộ.',
+                        'Backs up the agents’ files before writing. Only edits the set’s own entries. The whole set can be undone.',
+                      ),
+                    ] as [string, string],
+                  ]
+                : []),
+              ...(step ? [['', t('Codex chỉ đổi nhà cung cấp qua tấm chuyển Codex, ở bước 2.', 'Codex only changes provider through the Codex switch sheet, in step 2.')] as [string, string]] : []),
             ]}
           />
         </div>
@@ -366,10 +404,10 @@ function ApplyBody({ d, sets, model }: { d: Extract<SetDialog, { kind: 'apply' }
       {d.error ? <p>{d.error}</p> : null}
       <DialogButtons>
         <Button large disabled={sets.working && !!p} onClick={sets.close}>
-          Huỷ
+          {t('Huỷ', 'Cancel')}
         </Button>
         <Button large primary disabled={sets.working || !p || (!n && !step)} onClick={sets.apply}>
-          {sets.working && p ? 'Đang ghi…' : !n && step ? 'Tiếp: chuyển Codex' : 'Áp bộ'}
+          {sets.working && p ? t('Đang ghi…', 'Writing…') : !n && step ? t('Tiếp: chuyển Codex', 'Next: switch Codex') : t('Áp bộ', 'Apply set')}
         </Button>
       </DialogButtons>
     </>

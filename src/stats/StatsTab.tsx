@@ -31,14 +31,14 @@ import type { Agent, Model, StatsPeriod, StatsPoint, StatsReport } from '../lib/
 import {
   accountRows,
   AGENT_NAME,
-  AGY_NONE,
+  agyNone,
   bigTokens,
   chartTitle,
   day,
   inUnit,
   labelEvery,
   modelName,
-  PERIODS,
+  periods,
   pointTotal,
   pointWords,
   progressLines,
@@ -51,6 +51,7 @@ import {
   usd,
   type Unit,
 } from '../lib/stats';
+import { t } from '../lib/i18n';
 import type { PopoverView } from '../lib/view';
 
 const MARK: Record<Agent, string> = { claude: 'c', codex: 'x', agy: 'g' };
@@ -89,7 +90,7 @@ export function useStats(api: Api, model: Model | null, open: boolean): Stats {
   }, [api, period, generation, open]);
   const reread = useCallback(() => void api.statsRead().catch(() => {}), [api]);
   const ack = useCallback(() => void api.statsAck().catch(() => {}), [api]);
-  return { period, table, report, setPeriod, toggleTable: () => setTable((t) => !t), reread, ack };
+  return { period, table, report, setPeriod, toggleTable: () => setTable((on) => !on), reread, ack };
 }
 
 /** A step for the axis: 1, 2, 2,5 or 5 times a power of ten, four lines at most. */
@@ -166,14 +167,14 @@ export function ColumnChart({ points, period }: { points: StatsPoint[]; period: 
         ))}
         {points.map((p, i) => {
           const cx = PAD_L + band * i + band / 2;
-          const t = totals[i];
-          const by = y(t);
+          const total = totals[i];
+          const by = y(total);
           return (
             <g key={p.label}>
-              {t > 0 ? <path d={barPath(cx - bw / 2, bw, by, PAD_T + ih)} className={cn('fill-series-1', shown === i && 'brightness-110')} aria-hidden="true" /> : null}
+              {total > 0 ? <path d={barPath(cx - bw / 2, bw, by, PAD_T + ih)} className={cn('fill-series-1', shown === i && 'brightness-110')} aria-hidden="true" /> : null}
               {i === tallest ? (
                 <text x={cx} y={by - 5} textAnchor="middle" className="fill-ink text-[10.5px] font-semi tabular-nums" aria-hidden="true">
-                  {inUnit(t, unit) + (unit.short ? ' ' + unit.short : '')}
+                  {inUnit(total, unit) + (unit.short ? ' ' + unit.short : '')}
                 </text>
               ) : null}
               {i % every === 0 ? (
@@ -214,7 +215,7 @@ export function ColumnChart({ points, period }: { points: StatsPoint[]; period: 
           aria-hidden="true"
           data-testid="chart-tip"
         >
-          <div className="text-ink2">{(period === 'today' ? 'Giờ ' : 'Ngày ') + tip.label}</div>
+          <div className="text-ink2">{(period === 'today' ? t('Giờ ', 'Hour ') : t('Ngày ', 'Day ')) + tip.label}</div>
           <b className="block text-body tabular-nums">{tokensText(pointTotal(tip))}</b>
           {(['claude', 'codex'] as const).map((a) => (
             <span key={a} className="flex items-center justify-between gap-3 text-ink2 tabular-nums">
@@ -243,10 +244,10 @@ export function PointTable({ report }: { report: StatsReport }) {
         <caption className="sr-only">{chartTitle(report.period)}</caption>
         <thead>
           <tr>
-            <th scope="col">{report.period === 'today' ? 'Giờ' : 'Ngày'}</th>
+            <th scope="col">{report.period === 'today' ? t('Giờ', 'Hour') : t('Ngày', 'Day')}</th>
             <th scope="col">Claude Code</th>
             <th scope="col">Codex</th>
-            <th scope="col">Tổng</th>
+            <th scope="col">{t('Tổng', 'Total')}</th>
           </tr>
         </thead>
         <tbody>
@@ -259,20 +260,23 @@ export function PointTable({ report }: { report: StatsReport }) {
             </tr>
           ))}
           <tr className="font-semi">
-            <td>Cộng</td>
+            <td>{t('Cộng', 'Sum')}</td>
             <td>{inUnit(report.claude, unit)}</td>
             <td>{inUnit(report.codex, unit)}</td>
             <td>{inUnit(report.total, unit)}</td>
           </tr>
         </tbody>
       </table>
-      <p className="mt-1.5 mb-0 text-xs text-ink2">{unitWords(unit)}{rows.length < report.points.length ? ' · giờ, ngày không có token không ghi' : ''}</p>
+      <p className="mt-1.5 mb-0 text-xs text-ink2">
+        {unitWords(unit)}
+        {rows.length < report.points.length ? t(' · giờ, ngày không có token không ghi', ' · hours and days with no tokens are left out') : ''}
+      </p>
     </>
   );
 }
 
 function unitWords(unit: Unit): string {
-  return unit.long ? unit.long + ' token' : 'token';
+  return t(unit.long ? unit.long + ' token' : 'token', unit.long ? unit.long + ' tokens' : 'tokens');
 }
 
 interface BarRow {
@@ -326,15 +330,15 @@ function ModelTable({ report }: { report: StatsReport }) {
   return (
     <>
       <table className={cn(TABLE, '[&_td:nth-child(2)]:text-left [&_td:nth-child(2)]:text-ink2 [&_th:nth-child(2)]:text-left')}>
-        <caption className="sr-only">Theo model</caption>
+        <caption className="sr-only">{t('Theo model', 'By model')}</caption>
         <thead>
           <tr>
             <th scope="col">Model</th>
             <th scope="col">Agent</th>
-            <th scope="col">Vào</th>
-            <th scope="col">Ra</th>
-            <th scope="col">Đọc cache</th>
-            <th scope="col">Giá tương đương</th>
+            <th scope="col">{t('Vào', 'In')}</th>
+            <th scope="col">{t('Ra', 'Out')}</th>
+            <th scope="col">{t('Đọc cache', 'Cache read')}</th>
+            <th scope="col">{t('Giá tương đương', 'Equivalent price')}</th>
           </tr>
         </thead>
         <tbody>
@@ -345,14 +349,15 @@ function ModelTable({ report }: { report: StatsReport }) {
               <td>{inUnit(m.input, unit)}</td>
               <td>{inUnit(m.output, unit)}</td>
               <td>{inUnit(m.cacheRead, unit)}</td>
-              <td>{m.usd == null ? <span className="text-ink2">chưa có giá</span> : usd(m.usd)}</td>
+              <td>{m.usd == null ? <span className="text-ink2">{t('chưa có giá', 'no price yet')}</span> : usd(m.usd)}</td>
             </tr>
           ))}
         </tbody>
       </table>
       <p className="mt-1.5 mb-0 text-xs text-ink2">
-        {unitWords(unit)} · bảng giá API ngày {day(report.pricesAsOf)}, cập nhật theo bản app
-        {report.unpriced.length ? ' · model chưa có giá không tính vào giá tương đương' : ''}
+        {unitWords(unit) +
+          t(' · bảng giá API ngày ' + day(report.pricesAsOf) + ', cập nhật theo bản app', ' · API prices as of ' + day(report.pricesAsOf) + ', updated with each app version')}
+        {report.unpriced.length ? t(' · model chưa có giá không tính vào giá tương đương', ' · models with no price are left out of the equivalent price') : ''}
       </p>
     </>
   );
@@ -387,24 +392,25 @@ export interface StatsTabProps {
 export function StatsTab({ model, fresh, stats }: StatsTabProps) {
   const v = model.stats;
   const report = stats.report === 'failed' ? null : stats.report;
-  const per = PERIODS.find((p) => p.v === stats.period)!;
+  const all = periods();
+  const per = all.find((p) => p.v === stats.period)!;
   const notices = skippedNotices(report);
   const head = (
     <TabHead>
-      <TabTitle>Thống kê</TabTitle>
+      <TabTitle>{t('Thống kê', 'Stats')}</TabTitle>
       <TabSub>
         <Dot tone={v.reading ? 'muted' : fresh.tone} />
         {model.machine} · {readLine(v)}
       </TabSub>
-      <Segmented variant="inline" aria-label="Khoảng thời gian">
-        {PERIODS.map((p) => (
+      <Segmented variant="inline" aria-label={t('Khoảng thời gian', 'Time range')}>
+        {all.map((p) => (
           <Segment key={p.v} pressed={stats.period === p.v} onClick={() => stats.setPeriod(p.v)}>
             {p.t}
           </Segment>
         ))}
       </Segmented>
       <Button disabled={v.reading} onClick={stats.reread}>
-        Đọc lại
+        {t('Đọc lại', 'Read again')}
       </Button>
     </TabHead>
   );
@@ -414,10 +420,10 @@ export function StatsTab({ model, fresh, stats }: StatsTabProps) {
     return (
       <>
         {head}
-        <Panel aria-label="Đọc log lần đầu">
+        <Panel aria-label={t('Đọc log lần đầu', 'Reading the logs for the first time')}>
           <Progress lines={prog.lines.map(([tone, words]) => [tone, words, null])} busy />
           <Meter percent={prog.percent} tone="" className="[&>i]:bg-accent" />
-          <p className="mt-1.5 mb-0 text-xs text-ink2">Đọc lần đầu mất vài phút. Lần sau chỉ đọc phần mới.</p>
+          <p className="mt-1.5 mb-0 text-xs text-ink2">{t('Đọc lần đầu mất vài phút. Lần sau chỉ đọc phần mới.', 'The first read takes a few minutes. Later reads only take what is new.')}</p>
         </Panel>
         <div className="pointer-events-none opacity-50" aria-hidden="true">
           <Panel>
@@ -430,13 +436,18 @@ export function StatsTab({ model, fresh, stats }: StatsTabProps) {
   }
 
   const failedRead = v.failed ? (
-    <BannerBox tone="warn" title="Chưa lưu được chỉ mục thống kê" body="Số dưới đây đúng cho lần đọc này; lần sau app đọc lại log từ đầu." style={{ margin: 0 }} />
+    <BannerBox
+      tone="warn"
+      title={t('Chưa lưu được chỉ mục thống kê', 'Could not save the stats index')}
+      body={t('Số dưới đây đúng cho lần đọc này; lần sau app đọc lại log từ đầu.', 'The numbers below are right for this read; next time the app reads the logs from the start.')}
+      style={{ margin: 0 }}
+    />
   ) : null;
   const noticeBoxes = notices.map((n, i) => (
     <BannerBox key={n.agent} tone="warn" title={n.title} body={n.body} style={{ margin: 0 }}>
       {i === notices.length - 1 ? (
         <div className="flex gap-1.5">
-          <Button onClick={stats.ack}>Đã biết</Button>
+          <Button onClick={stats.ack}>{t('Đã biết', 'Got it')}</Button>
         </div>
       ) : null}
     </BannerBox>
@@ -449,7 +460,8 @@ export function StatsTab({ model, fresh, stats }: StatsTabProps) {
         <Panel>
           {stats.report === 'failed' ? (
             <Empty>
-              <b>Chưa đọc được số</b>Bấm Đọc lại để thử lần nữa.
+              <b>{t('Chưa đọc được số', 'Could not read the numbers')}</b>
+              {t('Bấm Đọc lại để thử lần nữa.', 'Press Read again to try once more.')}
             </Empty>
           ) : null}
         </Panel>
@@ -460,7 +472,7 @@ export function StatsTab({ model, fresh, stats }: StatsTabProps) {
   const agentRows: BarRow[] = [
     { key: 'claude', name: AGENT_NAME.claude, mark: <AgentMark agent="claude" />, tokens: report.claude },
     { key: 'codex', name: AGENT_NAME.codex, mark: <AgentMark agent="codex" />, tokens: report.codex },
-    { key: 'agy', name: AGENT_NAME.agy, mark: <AgentMark agent="agy" />, tokens: null, none: AGY_NONE },
+    { key: 'agy', name: AGENT_NAME.agy, mark: <AgentMark agent="agy" />, tokens: null, none: agyNone() },
   ];
   const accounts = accountRows(model, report);
   const projects = projectRows(report);
@@ -469,9 +481,11 @@ export function StatsTab({ model, fresh, stats }: StatsTabProps) {
       {head}
       {failedRead}
       {noticeBoxes}
-      <p className="m-0 text-xs text-ink2">Đếm token từ log phiên trên máy này. Không đọc nội dung, không gửi đi.</p>
+      <p className="m-0 text-xs text-ink2">
+        {t('Đếm token từ log phiên trên máy này. Không đọc nội dung, không gửi đi.', 'Counts tokens from session logs on this Mac. Session content is not read or sent.')}
+      </p>
       <div className="grid grid-cols-4 gap-2.5">
-        <Tile label={'Tổng · ' + per.per}>
+        <Tile label={t('Tổng · ', 'Total · ') + per.per}>
           <Big n={report.total} />
         </Tile>
         <Tile
@@ -496,7 +510,7 @@ export function StatsTab({ model, fresh, stats }: StatsTabProps) {
         >
           <Big n={report.codex} />
         </Tile>
-        <Tile label="Giá API tương đương" sub="gói thuê bao: chỉ để so sánh">
+        <Tile label={t('Giá API tương đương', 'Equivalent API price')} sub={t('gói thuê bao: chỉ để so sánh', 'on a subscription: for comparison only')}>
           {usd(report.usd)}
         </Tile>
       </div>
@@ -505,13 +519,17 @@ export function StatsTab({ model, fresh, stats }: StatsTabProps) {
           {chartTitle(stats.period)}
           <span className="ml-auto font-reg">
             <LinkButton small onClick={stats.toggleTable}>
-              {stats.table ? 'Xem biểu đồ' : 'Xem bảng'}
+              {stats.table ? t('Xem biểu đồ', 'Show chart') : t('Xem bảng', 'Show table')}
             </LinkButton>
           </span>
         </CardTitle>
         {report.total === 0 ? (
           <Empty>
-            <b>Chưa có token nào {per.per}</b>Log phiên của Claude Code và Codex trên máy này chưa có số trong khoảng này.
+            <b>{t('Chưa có token nào ' + per.within, 'No tokens ' + per.within)}</b>
+            {t(
+              'Log phiên của Claude Code và Codex trên máy này chưa có số trong khoảng này.',
+              'The Claude Code and Codex session logs on this Mac have no numbers for this range.',
+            )}
           </Empty>
         ) : stats.table ? (
           <PointTable report={report} />
@@ -521,30 +539,30 @@ export function StatsTab({ model, fresh, stats }: StatsTabProps) {
       </Panel>
       <div className={GRID2}>
         <Panel>
-          <CardTitle>Theo agent</CardTitle>
-          <BarTable caption="Theo agent" rows={agentRows} />
+          <CardTitle>{t('Theo agent', 'By agent')}</CardTitle>
+          <BarTable caption={t('Theo agent', 'By agent')} rows={agentRows} />
         </Panel>
         <Panel>
-          <CardTitle>Theo tài khoản Claude</CardTitle>
+          <CardTitle>{t('Theo tài khoản Claude', 'By Claude account')}</CardTitle>
           {accounts.length ? (
-            <BarTable caption="Theo tài khoản Claude" rows={accounts.map((a) => ({ key: a.name, name: a.name, tokens: a.tokens }))} />
+            <BarTable caption={t('Theo tài khoản Claude', 'By Claude account')} rows={accounts.map((a) => ({ key: a.name, name: a.name, tokens: a.tokens }))} />
           ) : (
-            <p className="m-0 text-sm text-ink2">Chưa có token Claude Code {per.per}.</p>
+            <p className="m-0 text-sm text-ink2">{t('Chưa có token Claude Code ' + per.within + '.', 'No Claude Code tokens ' + per.within + '.')}</p>
           )}
-          <p className="mt-1.5 mb-0 text-xs text-ink2">Gần đúng: ghép giờ của phiên với lịch sử chuyển tài khoản.</p>
+          <p className="mt-1.5 mb-0 text-xs text-ink2">{t('Gần đúng: ghép giờ của phiên với lịch sử chuyển tài khoản.', 'Approximate: matches session times with the account-switch history.')}</p>
         </Panel>
       </div>
       <div className={GRID}>
         <Panel>
-          <CardTitle>Theo model</CardTitle>
-          {report.models.length ? <ModelTable report={report} /> : <p className="m-0 text-sm text-ink2">Chưa có model nào {per.per}.</p>}
+          <CardTitle>{t('Theo model', 'By model')}</CardTitle>
+          {report.models.length ? <ModelTable report={report} /> : <p className="m-0 text-sm text-ink2">{t('Chưa có model nào ' + per.within + '.', 'No models ' + per.within + '.')}</p>}
         </Panel>
         <Panel>
-          <CardTitle>Theo dự án</CardTitle>
+          <CardTitle>{t('Theo dự án', 'By project')}</CardTitle>
           {projects.length ? (
-            <BarTable caption="Theo dự án" rows={projects.map((p) => ({ key: p.path || p.name, name: p.name, title: p.path || undefined, tokens: p.tokens }))} />
+            <BarTable caption={t('Theo dự án', 'By project')} rows={projects.map((p) => ({ key: p.path || p.name, name: p.name, title: p.path || undefined, tokens: p.tokens }))} />
           ) : (
-            <p className="m-0 text-sm text-ink2">Chưa có dự án nào {per.per}.</p>
+            <p className="m-0 text-sm text-ink2">{t('Chưa có dự án nào ' + per.within + '.', 'No projects ' + per.within + '.')}</p>
           )}
         </Panel>
       </div>

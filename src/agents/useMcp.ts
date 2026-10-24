@@ -9,10 +9,12 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { Api } from '../lib/api';
+import { t } from '../lib/i18n';
 import {
   AGENTS,
   AGENT_NAME,
   changesOf,
+  changesWord,
   clearColumn,
   emptyForm,
   formDef,
@@ -76,14 +78,14 @@ export type McpDialog =
   | { kind: 'owned' }
   | { kind: 'backups' };
 
-const failedPreview: FeedbackView = {
+const failedPreview = (): FeedbackView => ({
   tone: 'bad',
-  title: 'Chưa xem trước được',
-  body: 'App không đọc được file của agent lúc này. Bấm Đọc lại rồi thử lại.',
-};
+  title: t('Chưa xem trước được', 'Could not preview'),
+  body: t('App không đọc được file của agent lúc này. Bấm Đọc lại rồi thử lại.', 'The app cannot read the agents’ files right now. Press Read again, then try again.'),
+});
 
 function refusalsLine(p: McpPreview): string {
-  return p.refused.map((r) => r.name + ' cho ' + AGENT_NAME[r.agent] + ': ' + refusalText(r.reason)).join(' · ');
+  return p.refused.map((r) => t(r.name + ' cho ' + AGENT_NAME[r.agent] + ': ', r.name + ' for ' + AGENT_NAME[r.agent] + ': ') + refusalText(r.reason)).join(' · ');
 }
 
 /** The agents a server is in, in a way the edit form can write: Claude Code's kept one waits until it is on again. */
@@ -129,26 +131,26 @@ export function useMcp(api: Api, model: Model | null, showFeedback: (fb: Feedbac
     try {
       const p = await api.mcpPreview(changes);
       if (!p.changes.length) {
-        const why = p.refused.length ? refusalsLine(p) + '.' : 'Các file đã như vậy rồi.';
-        if (opts.back?.kind === 'form') setDialog({ ...opts.back, error: 'Không có gì để ghi: ' + why });
+        const why = p.refused.length ? refusalsLine(p) + '.' : t('Các file đã như vậy rồi.', 'The files are already that way.');
+        if (opts.back?.kind === 'form') setDialog({ ...opts.back, error: t('Không có gì để ghi: ', 'Nothing to write: ') + why });
         else {
           setDialog(opts.back ?? null);
-          showFeedback({ tone: 'warn', title: 'Không có gì để ghi', body: why });
+          showFeedback({ tone: 'warn', title: t('Không có gì để ghi', 'Nothing to write'), body: why });
         }
         return;
       }
       setDialog({
         kind: 'batch',
         preview: p,
-        title: opts.title ?? 'Ghi ' + p.changes.length + ' thay đổi?',
+        title: opts.title ?? t('Ghi ' + changesWord(p.changes.length) + '?', 'Write ' + changesWord(p.changes.length) + '?'),
         steps: !!opts.steps,
         back: opts.back ?? null,
         ticks: !!opts.ticks,
         forget: opts.forget,
       });
     } catch {
-      if (opts.back?.kind === 'form') setDialog({ ...opts.back, error: failedPreview.body });
-      else showFeedback(failedPreview);
+      if (opts.back?.kind === 'form') setDialog({ ...opts.back, error: failedPreview().body });
+      else showFeedback(failedPreview());
     } finally {
       setWorking(false);
     }
@@ -173,8 +175,12 @@ export function useMcp(api: Api, model: Model | null, showFeedback: (fb: Feedbac
     } catch (e) {
       showFeedback(
         String(e) === 'busy'
-          ? { tone: 'warn', title: 'Chưa ghi', body: 'Một lần ghi khác hoặc lần chuyển Codex đang chạy. Đợi xong rồi thử lại.' }
-          : { tone: 'bad', title: 'Chưa ghi', body: 'App không chạy được lần ghi này. Các file không đổi.' },
+          ? {
+              tone: 'warn',
+              title: t('Chưa ghi', 'Not written'),
+              body: t('Một lần ghi khác hoặc lần chuyển Codex đang chạy. Đợi xong rồi thử lại.', 'Another write or Codex switch is running. Wait for it to finish, then try again.'),
+            }
+          : { tone: 'bad', title: t('Chưa ghi', 'Not written'), body: t('App không chạy được lần ghi này. Các file không đổi.', 'The app could not run this write. The files are unchanged.') },
       );
     } finally {
       setWorking(false);
@@ -189,8 +195,12 @@ export function useMcp(api: Api, model: Model | null, showFeedback: (fb: Feedbac
     } catch (e) {
       showFeedback(
         String(e) === 'nothing'
-          ? { tone: 'warn', title: 'Không còn gì để hoàn tác', body: 'Lần ghi vừa rồi đã được hoàn tác, hoặc app vừa mở lại.' }
-          : { tone: 'warn', title: 'Chưa hoàn tác', body: 'Một lần ghi khác đang chạy. Đợi xong rồi thử lại.' },
+          ? {
+              tone: 'warn',
+              title: t('Không còn gì để hoàn tác', 'Nothing left to undo'),
+              body: t('Lần ghi vừa rồi đã được hoàn tác, hoặc app vừa mở lại.', 'The last write was already undone, or the app was just reopened.'),
+            }
+          : { tone: 'warn', title: t('Chưa hoàn tác', 'Not undone'), body: t('Một lần ghi khác đang chạy. Đợi xong rồi thử lại.', 'Another write is running. Wait for it to finish, then try again.') },
       );
     }
   };
@@ -213,14 +223,14 @@ export function useMcp(api: Api, model: Model | null, showFeedback: (fb: Feedbac
     const f = d.form;
     const bitwarden = f.bitwarden.trim() || null;
     const agents = AGENTS.filter((a) => f.agents[a]);
-    if (!agents.length) return setDialog({ ...d, error: 'Chọn ít nhất một agent.' });
+    if (!agents.length) return setDialog({ ...d, error: t('Chọn ít nhất một agent.', 'Pick at least one agent.') });
     if (d.mode === 'paste') {
       let saved = d.saved;
       if (!saved) {
         setWorking(true);
         const res = await api.mcpPaste(d.text, true, bitwarden).catch(() => null);
         setWorking(false);
-        if (!res || res.error || !res.servers.length) return setDialog({ ...d, found: res, error: res ? null : 'Không đọc được đoạn đã dán.' });
+        if (!res || res.error || !res.servers.length) return setDialog({ ...d, found: res, error: res ? null : t('Không đọc được đoạn đã dán.', 'Could not read the pasted text.') });
         saved = res;
       }
       // The text, secrets and all, leaves the window: the Keychain has them now.
@@ -228,7 +238,10 @@ export function useMcp(api: Api, model: Model | null, showFeedback: (fb: Feedbac
       const changes: McpChange[] = saved.servers.flatMap((s) =>
         agents.map((agent) => ({ name: s.name, agent, to: { kind: 'def' as const, def: s.def, from: null, keychain: s.slots.map((x) => x.id), off: false } })),
       );
-      const title = saved.servers.length === 1 ? 'Thêm ' + saved.servers[0].name + '?' : 'Thêm ' + saved.servers.length + ' MCP?';
+      const title =
+        saved.servers.length === 1
+          ? t('Thêm ' + saved.servers[0].name + '?', 'Add ' + saved.servers[0].name + '?')
+          : t('Thêm ' + saved.servers.length + ' MCP?', 'Add ' + saved.servers.length + ' MCP servers?');
       return preview(changes, { title, back, steps: true });
     }
     const taken = rows.map((r) => r.name);
@@ -239,7 +252,7 @@ export function useMcp(api: Api, model: Model | null, showFeedback: (fb: Feedbac
       for (const p of f.pairs.filter((x) => x.secret && x.value)) await api.mcpSaveSecret(f.name, pairSlot(f, p), p.value, bitwarden);
     } catch {
       setWorking(false);
-      return setDialog({ ...d, error: 'Chưa lưu được khoá vào Keychain. Chưa ghi gì.' });
+      return setDialog({ ...d, error: t('Chưa lưu được khoá vào Keychain. Chưa ghi gì.', 'Could not save the key to the Keychain. Nothing was written.') });
     }
     setWorking(false);
     const typed = [...new Set([...d.typed, ...typedSlots(f)])];
@@ -248,7 +261,7 @@ export function useMcp(api: Api, model: Model | null, showFeedback: (fb: Feedbac
     const def = formDef(form);
     const changes: McpChange[] = agents.map((agent) => ({ name: form.name, agent, to: { kind: 'def', def, from: d.from, keychain: typed, off: false } }));
     return preview(changes, {
-      title: form.edit ? 'Lưu thay đổi của ' + form.name + '?' : 'Thêm ' + form.name + '?',
+      title: form.edit ? t('Lưu thay đổi của ' + form.name + '?', 'Save the changes to ' + form.name + '?') : t('Thêm ' + form.name + '?', 'Add ' + form.name + '?'),
       back: { ...d, form, typed, error: null },
       steps: !form.edit,
     });
@@ -262,7 +275,8 @@ export function useMcp(api: Api, model: Model | null, showFeedback: (fb: Feedbac
     const others = editable(row).filter((a) => a !== pick);
     const changes: McpChange[] = others.map((agent) => ({ name, agent, to: { kind: 'def', def: view.def, from: pick, keychain: [], off: false } }));
     const back = dialog;
-    return preview(changes, { title: 'Dùng bản của ' + AGENT_NAME[pick] + ' cho ' + others.map((a) => AGENT_NAME[a]).join(', ') + '?', back });
+    const to = others.map((a) => AGENT_NAME[a]).join(', ');
+    return preview(changes, { title: t('Dùng bản của ' + AGENT_NAME[pick] + ' cho ' + to + '?', 'Use ' + AGENT_NAME[pick] + '’s version for ' + to + '?'), back });
   };
 
   const remove = (d: { name: string; mode: 'kho' | 'hard'; keys: boolean }) => {
@@ -270,12 +284,16 @@ export function useMcp(api: Api, model: Model | null, showFeedback: (fb: Feedbac
     if (!row) return;
     const changes: McpChange[] = AGENTS.filter((a) => row.cells[a].state !== 'absent').map((agent) => ({ name: d.name, agent, to: { kind: 'absent', store: d.mode === 'kho' } }));
     const forget = d.mode === 'hard' && d.keys && row.secrets.length ? { name: d.name, slots: row.secrets.map((s) => s.id) } : undefined;
-    return preview(changes, { title: d.mode === 'kho' ? 'Cất ' + d.name + ' vào kho?' : 'Xoá hẳn ' + d.name + '?', back: dialog, forget });
+    return preview(changes, {
+      title: d.mode === 'kho' ? t('Cất ' + d.name + ' vào kho?', 'Put ' + d.name + ' away in the store?') : t('Xoá hẳn ' + d.name + '?', 'Delete ' + d.name + ' for good?'),
+      back: dialog,
+      forget,
+    });
   };
 
   const unstore = (name: string, agents: Record<Agent, boolean>) => {
     const changes: McpChange[] = AGENTS.filter((a) => agents[a]).map((agent) => ({ name, agent, to: { kind: 'on' } }));
-    return preview(changes, { title: 'Bật lại ' + name + '?', back: dialog });
+    return preview(changes, { title: t('Bật lại ' + name + '?', 'Turn ' + name + ' back on?'), back: dialog });
   };
 
   const forget = async (name: string, keys: boolean) => {
@@ -283,9 +301,13 @@ export function useMcp(api: Api, model: Model | null, showFeedback: (fb: Feedbac
     setWorking(true);
     try {
       await api.mcpForget(name, kept?.def.slots ?? [], keys);
-      showFeedback({ tone: '', title: 'Đã xoá ' + name + ' khỏi kho', body: keys ? 'Khoá của nó trong Keychain cũng đã xoá.' : 'Khoá của nó vẫn trong Keychain.' });
+      showFeedback({
+        tone: '',
+        title: t('Đã xoá ' + name + ' khỏi kho', 'Deleted ' + name + ' from the store'),
+        body: keys ? t('Khoá của nó trong Keychain cũng đã xoá.', 'Its keys in the Keychain were deleted too.') : t('Khoá của nó vẫn trong Keychain.', 'Its keys are still in the Keychain.'),
+      });
     } catch {
-      showFeedback({ tone: 'bad', title: 'Chưa xoá được ' + name, body: 'App không ghi được kho hoặc Keychain. Thử lại.' });
+      showFeedback({ tone: 'bad', title: t('Chưa xoá được ' + name, 'Could not delete ' + name), body: t('App không ghi được kho hoặc Keychain. Thử lại.', 'The app could not write the store or the Keychain. Try again.') });
     } finally {
       setWorking(false);
       setDialog(null);
@@ -296,10 +318,14 @@ export function useMcp(api: Api, model: Model | null, showFeedback: (fb: Feedbac
     setWorking(true);
     try {
       for (const [slot, value] of Object.entries(values)) if (value) await api.mcpSaveSecret(name, slot, value, bitwarden.trim() || null);
-      showFeedback({ tone: 'info', title: 'Đã lưu khoá cho ' + name, body: 'Khoá ở Keychain của Quota Station. Giờ tick ' + name + ' cho agent cần dùng.' });
+      showFeedback({
+        tone: 'info',
+        title: t('Đã lưu khoá cho ' + name, 'Saved the key for ' + name),
+        body: t('Khoá ở Keychain của Quota Station. Giờ tick ' + name + ' cho agent cần dùng.', 'The key is in Quota Station’s Keychain. Now tick ' + name + ' for the agents that need it.'),
+      });
       setDialog(null);
     } catch {
-      showFeedback({ tone: 'bad', title: 'Chưa lưu được khoá', body: 'Keychain không nhận khoá lúc này. Thử lại.' });
+      showFeedback({ tone: 'bad', title: t('Chưa lưu được khoá', 'Could not save the key'), body: t('Keychain không nhận khoá lúc này. Thử lại.', 'The Keychain is not taking the key right now. Try again.') });
     } finally {
       setWorking(false);
     }
@@ -320,7 +346,8 @@ export function useMcp(api: Api, model: Model | null, showFeedback: (fb: Feedbac
       return v ? [{ name, agent, to: { kind: 'def' as const, def: v.def, from: agent, keychain: [slot], off: false } }] : [];
     });
     if (!changes.length) return false;
-    void preview(changes, { title: 'Đưa khoá mới của ' + name + ' vào ' + agents.map((a) => AGENT_NAME[a]).join(', ') + '?' });
+    const into = agents.map((a) => AGENT_NAME[a]).join(', ');
+    void preview(changes, { title: t('Đưa khoá mới của ' + name + ' vào ' + into + '?', 'Put the new key for ' + name + ' into ' + into + '?') });
     return true;
   };
 

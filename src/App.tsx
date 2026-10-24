@@ -750,6 +750,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       onGrant={() => void grant()}
       onShowNames={(on) => void api.setShowNames(on).catch(() => showFeedback(settingsFailedFeedback()))}
       onTheme={(theme) => void api.setTheme(theme).catch(() => showFeedback(settingsFailedFeedback()))}
+      onLanguage={(language) => void api.setLanguage(language).catch(() => showFeedback(settingsFailedFeedback()))}
       onMenubar={(menubar) => void api.setMenubar(menubar).catch(() => showFeedback(settingsFailedFeedback()))}
       onMenubarWindow={(window) => void api.setMenubarWindow(window).catch(() => showFeedback(settingsFailedFeedback()))}
       onSetMachine={(name) =>
@@ -849,6 +850,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   return (
     <MainWindow
       tab={tab}
+      version={model.app.version}
       view={view}
       busy={busy}
       feedback={feedback}

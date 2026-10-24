@@ -32,6 +32,7 @@ import {
   shortName,
   undoLabel,
 } from '../lib/codex';
+import { t } from '../lib/i18n';
 import type { CodexView, Model } from '../lib/model';
 import { dayClock } from '../lib/switching';
 import type { Action, BannerView, ChipView, FeedbackView, PopoverView } from '../lib/view';
@@ -65,36 +66,40 @@ function Rows({ rows }: { rows: { key: ReactNode; value: ReactNode; id: string }
 function loginChip(v: CodexView): ChipView {
   switch (v.login) {
     case 'chatGpt':
-      return { t: 'còn trong máy', k: 'ok' };
+      return { t: t('còn trong máy', 'still on this Mac'), k: 'ok' };
     case 'keychain':
-      return { t: 'trong Keychain', k: 'info', title: 'Codex giữ đăng nhập trong Keychain; app không mở Keychain để kiểm.' };
+      return {
+        t: t('trong Keychain', 'in the Keychain'),
+        k: 'info',
+        title: t('Codex giữ đăng nhập trong Keychain; app không mở Keychain để kiểm.', 'Codex keeps the sign-in in the Keychain; the app does not open the Keychain to check.'),
+      };
     case 'other':
-      return { t: 'đăng nhập khác', k: 'warn' };
+      return { t: t('đăng nhập khác', 'another sign-in'), k: 'warn' };
     case 'apiKey':
-      return { t: 'chỉ có khoá API', k: 'warn' };
+      return { t: t('chỉ có khoá API', 'API key only'), k: 'warn' };
     case 'unreadable':
-      return { t: 'không đọc được', k: 'bad' };
+      return { t: t('không đọc được', 'unreadable'), k: 'bad' };
     case 'ephemeral':
-      return { t: 'không lưu', k: 'warn' };
+      return { t: t('không lưu', 'not stored'), k: 'warn' };
     default:
-      return { t: 'chưa có', k: 'warn' };
+      return { t: t('chưa có', 'none'), k: 'warn' };
   }
 }
 
 function keyChip(v: CodexView): ChipView {
   const c = v.custom;
-  if (!c) return { t: 'không có bảng', k: 'bad' };
+  if (!c) return { t: t('không có bảng', 'no table'), k: 'bad' };
   switch (c.key) {
     case 'bearer':
-      return { t: 'có · experimental_bearer_token', k: 'ok' };
+      return { t: t('có · experimental_bearer_token', 'yes · experimental_bearer_token'), k: 'ok' };
     case 'envKey':
-      return { t: 'có · biến ' + (c.envKey ?? ''), k: 'ok' };
+      return { t: t('có · biến ', 'yes · variable ') + (c.envKey ?? ''), k: 'ok' };
     case 'headers':
-      return { t: 'có · header', k: 'ok' };
+      return { t: t('có · header', 'yes · header'), k: 'ok' };
     case 'placeholder':
-      return { t: 'chỉ khoá giữ chỗ của CC Switch', k: 'bad' };
+      return { t: t('chỉ khoá giữ chỗ của CC Switch', 'only CC Switch’s placeholder key'), k: 'bad' };
     default:
-      return { t: 'thiếu', k: 'bad' };
+      return { t: t('thiếu', 'missing'), k: 'bad' };
   }
 }
 
@@ -103,15 +108,15 @@ function customChips(v: CodexView): ChipView[] {
   const c = v.custom;
   if (!c) return [];
   const chips: ChipView[] = [];
-  if (c.key === 'placeholder') chips.push({ t: 'chỉ khoá giữ chỗ', k: 'bad' });
-  if (c.key === 'none') chips.push({ t: 'chưa có khoá', k: 'bad' });
-  if (c.proxy) chips.push({ t: 'qua proxy CC Switch', k: 'warn' });
-  if (v.reach.state === 'down') chips.push({ t: 'không trả lời', k: 'bad' });
+  if (c.key === 'placeholder') chips.push({ t: t('chỉ khoá giữ chỗ', 'placeholder key only'), k: 'bad' });
+  if (c.key === 'none') chips.push({ t: t('chưa có khoá', 'no key yet'), k: 'bad' });
+  if (c.proxy) chips.push({ t: t('qua proxy CC Switch', 'through the CC Switch proxy'), k: 'warn' });
+  if (v.reach.state === 'down') chips.push({ t: t('không trả lời', 'not answering'), k: 'bad' });
   return chips;
 }
 
 function host(url: string | null): string {
-  if (!url) return 'không có base_url';
+  if (!url) return t('không có base_url', 'no base_url');
   try {
     return new URL(url).host;
   } catch {
@@ -120,9 +125,9 @@ function host(url: string | null): string {
 }
 
 function reachText(v: CodexView, now: Date): string {
-  if (v.reach.state === 'up') return 'trả lời ' + v.reach.ms + ' ms';
-  if (v.reach.state === 'down') return 'không trả lời từ ' + (v.reach.since ? dayClock(v.reach.since, now) : '?');
-  return v.custom?.baseUrl ? 'đang kiểm…' : '';
+  if (v.reach.state === 'up') return t('trả lời ' + v.reach.ms + ' ms', 'answers in ' + v.reach.ms + ' ms');
+  if (v.reach.state === 'down') return t('không trả lời từ ', 'not answering since ') + (v.reach.since ? dayClock(v.reach.since, now) : '?');
+  return v.custom?.baseUrl ? t('đang kiểm…', 'checking…') : '';
 }
 
 /** "Chuyển" is a button to press; the side in use gets a status in its place. */
@@ -130,7 +135,7 @@ function SideCell({ on, off, label, title, act, onAction }: { on: boolean; off: 
   if (on) return <InUse />;
   return (
     <Button primary disabled={off} label={label} title={title} onClick={() => onAction(act)}>
-      Chuyển
+      {t('Chuyển', 'Switch')}
     </Button>
   );
 }
@@ -140,17 +145,18 @@ function Providers({ v, now, onAction, onPlugins }: { v: CodexView; now: Date; o
   const busy = v.busy != null;
   const refusal = v.current === 'custom' ? v.backRefusal : v.refusal;
   const mode = keyMode(v);
-  const loginSub = hasLogin(v) ? 'đăng nhập còn trong máy' : '';
+  const loginSub = hasLogin(v) ? t('đăng nhập còn trong máy', 'sign-in kept on this Mac') : '';
+  const chatGpt = t('Tài khoản ChatGPT', 'ChatGPT account');
   return (
-    <Card title="Nhà cung cấp" x>
-      <div className="grid [--wt-cols:minmax(0,1fr)_auto]" role="list" aria-label="Nhà cung cấp Codex">
-        <div className={cn(TABLE_ROW, v.current === 'chatgpt' && TABLE_ROW_ON)} role="listitem" aria-label="Tài khoản ChatGPT">
-          <AccountName name="Tài khoản ChatGPT" sub={loginSub} full="" chips={hasLogin(v) ? [] : [{ t: 'chưa đăng nhập', k: 'warn' }]} />
+    <Card title={t('Nhà cung cấp', 'Providers')} x>
+      <div className="grid [--wt-cols:minmax(0,1fr)_auto]" role="list" aria-label={t('Nhà cung cấp Codex', 'Codex providers')}>
+        <div className={cn(TABLE_ROW, v.current === 'chatgpt' && TABLE_ROW_ON)} role="listitem" aria-label={chatGpt}>
+          <AccountName name={chatGpt} sub={loginSub} full="" chips={hasLogin(v) ? [] : [{ t: t('chưa đăng nhập', 'not signed in'), k: 'warn' }]} />
           <span className="flex items-center justify-end gap-2.5">
             <SideCell
               on={v.current === 'chatgpt'}
               off={!!v.backRefusal || busy}
-              label="Chuyển sang tài khoản ChatGPT"
+              label={t('Chuyển sang tài khoản ChatGPT', 'Switch to the ChatGPT account')}
               title={v.backRefusal ? refusalText(v, v.backRefusal) : undefined}
               act="codex:switch:chatGpt"
               onAction={onAction}
@@ -163,13 +169,13 @@ function Providers({ v, now, onAction, onPlugins }: { v: CodexView; now: Date; o
             <span className="flex items-center justify-end gap-2.5">
               {mode ? (
                 <LinkButton disabled={busy} onClick={() => onAction('codex:key')}>
-                  {mode === 'replace' ? 'Đổi khoá…' : mode === 'env' ? 'Cách đặt khoá…' : 'Dán khoá…'}
+                  {mode === 'replace' ? t('Đổi khoá…', 'Change key…') : mode === 'env' ? t('Cách đặt khoá…', 'How to set the key…') : t('Dán khoá…', 'Paste key…')}
                 </LinkButton>
               ) : null}
               <SideCell
                 on={v.current === 'custom'}
                 off={!!v.refusal || busy}
-                label={'Chuyển sang ' + c.name}
+                label={t('Chuyển sang ', 'Switch to ') + c.name}
                 title={v.refusal ? refusalText(v, v.refusal) : undefined}
                 act="codex:switch:custom"
                 onAction={onAction}
@@ -178,9 +184,9 @@ function Providers({ v, now, onAction, onPlugins }: { v: CodexView; now: Date; o
           </div>
         ) : null}
       </div>
-      {v.current === 'other' ? <Note tone="warn">Codex đang dùng nhà cung cấp "{v.other}". Chọn một bên để chuyển.</Note> : null}
+      {v.current === 'other' ? <Note tone="warn">{t('Codex đang dùng nhà cung cấp "' + v.other + '". Chọn một bên để chuyển.', 'Codex is using the provider "' + v.other + '". Pick a side to switch.')}</Note> : null}
       {refusal ? <Note tone={refusal.kind === 'noCustom' ? '' : 'bad'}>{refusalText(v, refusal)}</Note> : null}
-      {v.openaiBaseUrl ? <Note tone="warn">config.toml có openai_base_url: tài khoản ChatGPT đang được gửi tới địa chỉ khác.</Note> : null}
+      {v.openaiBaseUrl ? <Note tone="warn">{t('config.toml có openai_base_url: tài khoản ChatGPT đang được gửi tới địa chỉ khác.', 'config.toml has openai_base_url: the ChatGPT account is being sent to another address.')}</Note> : null}
       {c ? (
         <CheckLine className="mt-2.5 mb-0" checked={v.plugins} disabled={busy} onChange={onPlugins}>
           <span>
@@ -191,15 +197,15 @@ function Providers({ v, now, onAction, onPlugins }: { v: CodexView; now: Date; o
       ) : null}
       {pluginsNeedApply(v, v.plugins) ? (
         <div className={cn(ROW2, 'mt-1.5 text-sm text-warn-ink')}>
-          <span>config.toml chưa theo lựa chọn này.</span>
+          <span>{t('config.toml chưa theo lựa chọn này.', 'config.toml does not follow this choice yet.')}</span>
           <LinkButton disabled={busy} onClick={() => onAction('codex:plugins:apply')}>
-            Áp dụng ngay…
+            {t('Áp dụng ngay…', 'Apply now…')}
           </LinkButton>
         </div>
       ) : null}
       {v.keyUndo ? (
         <div className={cn(ROW2, 'mt-2 text-sm text-ink2')}>
-          <span>Đã dán khoá{v.keyUndo.at ? ' lúc ' + dayClock(v.keyUndo.at, now) : ''}.</span>
+          <span>{t('Đã dán khoá', 'Pasted a key') + (v.keyUndo.at ? t(' lúc ', ' at ') + dayClock(v.keyUndo.at, now) : '') + '.'}</span>
           <LinkButton disabled={busy} onClick={() => onAction('codex:undoKey')}>
             {undoLabel(v.keyUndo)}
           </LinkButton>
@@ -214,55 +220,61 @@ function Providers({ v, now, onAction, onPlugins }: { v: CodexView; now: Date; o
 function Details({ v, now, onAction }: { v: CodexView; now: Date; onAction(a: Action): void }) {
   const c = v.custom;
   const w = v.lastWrite;
-  const requires = c?.requiresOpenaiAuth == null ? 'chưa có' : String(c.requiresOpenaiAuth);
-  const wants = v.wantsRequires != null && v.wantsRequires !== c?.requiresOpenaiAuth ? ' → ' + v.wantsRequires + ' khi chuyển' : '';
+  const requires = c?.requiresOpenaiAuth == null ? t('chưa có', 'not set') : String(c.requiresOpenaiAuth);
+  const wants = v.wantsRequires != null && v.wantsRequires !== c?.requiresOpenaiAuth ? ' → ' + v.wantsRequires + t(' khi chuyển', ' on switch') : '';
   const r = v.resume;
   return (
     <details className={DETAILS}>
-      <summary className={SUMMARY}>Chi tiết</summary>
+      <summary className={SUMMARY}>{t('Chi tiết', 'Details')}</summary>
       <div className="mt-2 grid gap-3">
         <Rows
           rows={[
-            { id: 'login', key: 'Đăng nhập ChatGPT (auth.json)', value: <Chip chip={loginChip(v)} /> },
+            { id: 'login', key: t('Đăng nhập ChatGPT (auth.json)', 'ChatGPT sign-in (auth.json)'), value: <Chip chip={loginChip(v)} /> },
             ...(c
               ? [
-                  { id: 'url', key: 'Địa chỉ ' + c.name, value: c.baseUrl ? <span className={CODE}>{c.baseUrl}</span> : 'không có' },
-                  { id: 'key', key: 'Khoá API riêng', value: <Chip chip={keyChip(v)} /> },
+                  { id: 'url', key: t('Địa chỉ ' + c.name, c.name + ' address'), value: c.baseUrl ? <span className={CODE}>{c.baseUrl}</span> : t('không có', 'none') },
+                  { id: 'key', key: t('Khoá API riêng', 'Own API key'), value: <Chip chip={keyChip(v)} /> },
                   { id: 'req', key: 'requires_openai_auth', value: <span className={CODE}>{requires + wants}</span> },
                 ]
               : []),
-            { id: 'w', key: 'File app ghi', value: <span className={CODE}>{v.home}/config.toml</span> },
-            { id: 'n', key: 'Không ghi', value: <span className={CODE}>auth.json · [mcp_servers]</span> },
+            { id: 'w', key: t('File app ghi', 'File the app writes'), value: <span className={CODE}>{v.home}/config.toml</span> },
+            { id: 'n', key: t('Không ghi', 'Never written'), value: <span className={CODE}>auth.json · [mcp_servers]</span> },
             {
               id: 'b',
-              key: 'Sao lưu',
+              key: t('Sao lưu', 'Backups'),
               value: (
                 <>
-                  {v.backups.length} bản · không chứa khoá <LinkButton onClick={() => onAction('codex:backup')}>Xem</LinkButton>
+                  {t(v.backups.length + ' bản · không chứa khoá', v.backups.length + (v.backups.length === 1 ? ' copy' : ' copies') + ' · no keys inside')}{' '}
+                  <LinkButton onClick={() => onAction('codex:backup')}>{t('Xem', 'View')}</LinkButton>
                 </>
               ),
             },
             {
               id: 'l',
-              key: 'App ghi lần cuối',
+              key: t('App ghi lần cuối', 'Last written by the app'),
               value: w ? (
                 <>
                   {(w.at ? dayClock(w.at, now) + ' · ' : '') + shortName(v, w.provider) + ' '}
-                  <Chip chip={w.matches ? { t: 'mã băm khớp', k: 'ok' } : { t: 'file đã khác', k: 'warn' }} />
+                  <Chip chip={w.matches ? { t: t('mã băm khớp', 'hash matches'), k: 'ok' } : { t: t('file đã khác', 'file has changed'), k: 'warn' }} />
                 </>
               ) : (
-                'chưa ghi lần nào'
+                t('chưa ghi lần nào', 'never written')
               ),
             },
             {
               id: 'r',
-              key: 'Phiên tiếp tục được',
-              value: r ? 'ChatGPT ' + (r[CHATGPT_ID] ?? 0) + (c ? ' · ' + c.name + ' ' + (r[c.id] ?? 0) : '') + ' (codex resume tách theo nhà cung cấp)' : '…',
+              key: t('Phiên tiếp tục được', 'Resumable sessions'),
+              value: r
+                ? 'ChatGPT ' +
+                  (r[CHATGPT_ID] ?? 0) +
+                  (c ? ' · ' + c.name + ' ' + (r[c.id] ?? 0) : '') +
+                  t(' (codex resume tách theo nhà cung cấp)', ' (codex resume keeps them per provider)')
+                : '…',
             },
           ]}
         />
         <div>
-          <b className="mb-1 block text-xs font-semi text-ink2">Lần chuyển gần đây</b>
+          <b className="mb-1 block text-xs font-semi text-ink2">{t('Lần chuyển gần đây', 'Recent switches')}</b>
           {v.recent.length ? (
             <div className="grid gap-1">
               {v.recent.map((e) => (
@@ -273,7 +285,7 @@ function Details({ v, now, onAction }: { v: CodexView; now: Date; onAction(a: Ac
               ))}
             </div>
           ) : (
-            'Chưa có lần chuyển nào trên máy này.'
+            t('Chưa có lần chuyển nào trên máy này.', 'No switches on this Mac yet.')
           )}
         </div>
       </div>
@@ -285,26 +297,26 @@ function OnThisMac({ v, onAction }: { v: CodexView; onAction(a: Action): void })
   const p = v.procs;
   const on = v.mcp.filter((m) => m.enabled).length;
   const line = [
-    'CLI ' + (v.version ?? 'không tìm thấy'),
-    p ? p.sessions + ' phiên Terminal' : null,
-    p ? 'Codex App ' + (p.app ? 'đang mở' : 'không mở') : null,
+    'CLI ' + (v.version ?? t('không tìm thấy', 'not found')),
+    p ? t(p.sessions + ' phiên Terminal', p.sessions + (p.sessions === 1 ? ' Terminal session' : ' Terminal sessions')) : null,
+    p ? (p.app ? t('Codex App đang mở', 'Codex App is open') : t('Codex App không mở', 'Codex App is not open')) : null,
   ]
     .filter(Boolean)
     .join(' · ');
   return (
-    <Card title="Codex trên máy này">
+    <Card title={t('Codex trên máy này', 'Codex on this Mac')}>
       <div className="text-sm text-ink2">
         <Dot tone={p?.daemon ? 'ok' : 'muted'} className="mr-1.5" />
         {line}
       </div>
       <div className={cn(ROW2, 'mt-1.5 text-sm text-ink2')}>
-        <span>{v.mcp.length ? v.mcp.length + ' MCP · ' + on + ' đang bật' : 'Chưa có MCP'}</span>
-        <LinkButton onClick={() => onAction('mcp:tab')}>Mở tab MCP</LinkButton>
+        <span>{v.mcp.length ? v.mcp.length + ' MCP · ' + on + t(' đang bật', ' on') : t('Chưa có MCP', 'No MCP yet')}</span>
+        <LinkButton onClick={() => onAction('mcp:tab')}>{t('Mở tab MCP', 'Open the MCP tab')}</LinkButton>
       </div>
       <div className={cn(ROW2, 'mt-2.5')}>
-        <small className="text-xs text-ink2">Đổi xong: ⌘Q Codex App rồi mở lại.</small>
+        <small className="text-xs text-ink2">{t('Đổi xong: ⌘Q Codex App rồi mở lại.', 'After a switch: ⌘Q Codex App and open it again.')}</small>
         <Button disabled={v.busy != null} onClick={() => onAction('codex:daemon')}>
-          Khởi động lại tiến trình nền…
+          {t('Khởi động lại tiến trình nền…', 'Restart background process…')}
         </Button>
       </div>
     </Card>
@@ -331,7 +343,7 @@ export function CodexTab({ model, fresh, feedback, now, onAction, onPlugins }: C
         {model.machine} · {fresh.text}
       </TabSub>
       <Button disabled={v.busy != null} onClick={() => onAction('codex:check')}>
-        Kiểm lại
+        {t('Kiểm lại', 'Check again')}
       </Button>
     </TabHead>
   );
@@ -341,8 +353,11 @@ export function CodexTab({ model, fresh, feedback, now, onAction, onPlugins }: C
         {top}
         <Panel>
           <Empty>
-            <b>Máy này chưa có Codex</b>
-            Không thấy thư mục {v.home}. Nếu Codex dùng thư mục khác, đặt nó ở Cài đặt › Thư mục Codex.
+            <b>{t('Máy này chưa có Codex', 'This Mac has no Codex')}</b>
+            {t(
+              'Không thấy thư mục ' + v.home + '. Nếu Codex dùng thư mục khác, đặt nó ở Cài đặt › Thư mục Codex.',
+              'No ' + v.home + ' folder found. If Codex uses another folder, set it in Settings › Codex folder.',
+            )}
           </Empty>
         </Panel>
       </>
@@ -350,12 +365,17 @@ export function CodexTab({ model, fresh, feedback, now, onAction, onPlugins }: C
   const banners: BannerView[] = [];
   const main = codexBanner(model);
   if (main) banners.push(main);
-  if (v.external && main?.title !== externalBanner(v)?.title) banners.push(externalBanner(v)!);
+  // The main banner is the external one when it carries its action.
+  const mainIsExternal = !!main?.actions.some((a) => a.act === 'codex:external');
+  if (v.external && !mainIsExternal) banners.push(externalBanner(v)!);
   if (ccSwitchManages(v))
     banners.push({
       tone: 'warn',
-      title: 'CC Switch đang chạy và cũng đổi Codex',
-      body: 'Chỉ chuyển Codex ở một nơi: lần chuyển sau của CC Switch ghi đè lựa chọn ở đây.',
+      title: t('CC Switch đang chạy và cũng đổi Codex', 'CC Switch is running and also switches Codex'),
+      body: t(
+        'Chỉ chuyển Codex ở một nơi: lần chuyển sau của CC Switch ghi đè lựa chọn ở đây.',
+        'Switch Codex in one place only: CC Switch’s next switch overwrites the choice made here.',
+      ),
       actions: [],
     });
   return (
@@ -368,8 +388,8 @@ export function CodexTab({ model, fresh, feedback, now, onAction, onPlugins }: C
       {v.config === 'invalid' || v.config === 'unreadable' ? (
         <BannerBox
           tone="bad"
-          title="Không đọc được config.toml của Codex"
-          body={(v.reason ?? 'Không rõ lý do') + '. App không sửa file này cho tới khi Codex đọc được nó.'}
+          title={t('Không đọc được config.toml của Codex', 'Cannot read Codex’s config.toml')}
+          body={(v.reason ?? t('Không rõ lý do', 'Unknown reason')) + t('. App không sửa file này cho tới khi Codex đọc được nó.', '. The app does not edit this file until Codex can read it.')}
         />
       ) : null}
       <Providers v={v} now={now} onAction={onAction} onPlugins={onPlugins} />
@@ -391,23 +411,30 @@ export function CodexCard({ model, onAction }: { model: Model; onAction(act: Act
   const sub =
     (v.current === 'custom'
       ? v.reach.state === 'down'
-        ? v.custom!.name + ' không trả lời'
+        ? v.custom!.name + t(' không trả lời', ' is not answering')
         : v.reach.state === 'up'
-          ? 'trả lời ' + v.reach.ms + ' ms'
+          ? t('trả lời ' + v.reach.ms + ' ms', 'answers in ' + v.reach.ms + ' ms')
           : v.custom!.name
       : v.current === 'other'
-        ? 'nhà cung cấp ' + cur
-        : 'đăng nhập chính thức') + (hasLogin(v) ? ' · giữ đăng nhập ChatGPT' : ' · chưa đăng nhập ChatGPT');
+        ? t('nhà cung cấp ', 'provider ') + cur
+        : t('đăng nhập chính thức', 'official sign-in')) +
+    (hasLogin(v) ? t(' · giữ đăng nhập ChatGPT', ' · keeps the ChatGPT sign-in') : t(' · chưa đăng nhập ChatGPT', ' · not signed in to ChatGPT'));
   return (
     <Panel>
       <CardTitle>
         <IdMark id="x" />
         Codex
-        <span className="ml-auto font-reg">{v.procs?.app ? 'Codex App đang mở' : ''}</span>
+        <span className="ml-auto font-reg">{v.procs?.app ? t('Codex App đang mở', 'Codex App is open') : ''}</span>
       </CardTitle>
       <div className={ROW2}>
         <div>
-          <b className={line.tone === 'bad' ? 'text-bad-ink!' : undefined}>{v.current === 'custom' ? 'Qua ' + v.custom!.name : v.current === 'other' ? 'Nhà cung cấp ' + cur : 'Tài khoản ChatGPT'}</b>
+          <b className={line.tone === 'bad' ? 'text-bad-ink!' : undefined}>
+            {v.current === 'custom'
+              ? t('Qua ', 'Through ') + v.custom!.name
+              : v.current === 'other'
+                ? t('Nhà cung cấp ', 'Provider ') + cur
+                : t('Tài khoản ChatGPT', 'ChatGPT account')}
+          </b>
           <small style={{ display: 'block', color: 'var(--ink2)', fontSize: 'var(--fs-xs)' }}>{sub}</small>
         </div>
         {v.custom || v.current !== 'chatgpt' ? (
@@ -416,7 +443,7 @@ export function CodexCard({ model, onAction }: { model: Model; onAction(act: Act
             title={refusal ? refusalText(v, refusal) : undefined}
             onClick={() => onAction(toCustom ? 'codex:switch:custom' : 'codex:switch:chatGpt')}
           >
-            {toCustom ? 'Sang ' + (v.custom?.name ?? '…') : 'Về ChatGPT'}
+            {toCustom ? t('Sang ', 'To ') + (v.custom?.name ?? '…') : t('Về ChatGPT', 'Back to ChatGPT')}
           </Button>
         ) : null}
       </div>

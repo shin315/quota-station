@@ -7,18 +7,31 @@
 import type { ComponentProps, ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
-/** The title row: the tab's name, how fresh it is, its buttons. */
+/**
+ * The title row: the tab's name, and under it this Mac and how fresh the
+ * numbers are; its buttons stand to the right of both.
+ */
 export function TabHead({ className, ...props }: ComponentProps<'div'>) {
-  return <div className={cn('flex flex-wrap items-center gap-2.5', className)} data-tauri-drag-region="deep" {...props} />;
+  return (
+    <div
+      className={cn(
+        'grid grid-flow-col grid-cols-[minmax(0,1fr)] items-start gap-x-2 gap-y-1 pb-1 auto-cols-max',
+        '[&>*:not(h2,small)]:row-span-2 [&>*:not(h2,small)]:row-start-1',
+        className,
+      )}
+      data-tauri-drag-region="deep"
+      {...props}
+    />
+  );
 }
 
 export function TabTitle({ className, ...props }: ComponentProps<'h2'>) {
-  return <h2 className={cn('m-0 flex-1 text-h2 tracking-[-.01em]', className)} {...props} />;
+  return <h2 className={cn('col-start-1 row-start-1 m-0 text-page leading-[1.1] font-bold tracking-page text-heading', className)} {...props} />;
 }
 
-/** The line next to the title: this Mac and how fresh the numbers are. */
+/** The line under the title: this Mac and how fresh the numbers are. */
 export function TabSub({ className, ...props }: ComponentProps<'small'>) {
-  return <small className={cn('flex items-center gap-1.5 text-sm text-ink2', className)} {...props} />;
+  return <small className={cn('col-start-1 row-start-2 flex items-center gap-1.5 text-body text-ink2', className)} {...props} />;
 }
 
 /** Two columns of cards, the left one wider. */
@@ -37,13 +50,16 @@ export function rowClass(changed = false): string {
 }
 
 /**
- * A row of an accounts table; the table sets its columns (--wt-cols). The
- * row in use is lit, and the hairlines around it give way.
+ * A row of an accounts table; the table (TABLE) sets its columns (--wt-cols).
+ * The head row is the first, on the table's head colour.
  */
-export const TABLE_ROW =
-  'wt-r grid grid-cols-(--wt-cols) items-center gap-2.5 border-t-[.5px] border-card-line px-1.5 py-2 text-sm first:border-t-0 [.on+&]:border-t-transparent';
-/** The lit row of an accounts table: the one in use. */
-export const TABLE_ROW_ON = 'on rounded-lg border-t-transparent bg-[color-mix(in_srgb,var(--sel)_70%,transparent)]';
+export const TABLE_ROW = 'wt-r grid grid-cols-(--wt-cols) items-center gap-x-6 border-t border-divider px-3 py-2 text-sm first:border-t-0';
+/** The row in use: the dot and the status say it, the row is not lit. */
+export const TABLE_ROW_ON = 'on';
+/** An accounts table: a hairline box around its head and rows. */
+export const TABLE = 'grid rounded-ctl border border-line bg-card';
+/** The table's head row: the windows' names. */
+export const TABLE_HEAD = TABLE_ROW + ' h rounded-t-[7px] bg-thead py-1.5 text-sm font-med whitespace-nowrap text-th';
 
 /** A form row's name. */
 export const LABEL = 'fl pt-[3px] text-sm font-semi';
