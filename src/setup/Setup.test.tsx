@@ -133,7 +133,7 @@ describe('the first run', () => {
       newMac((m) => {
         for (const a of m.snapshot.claude.accounts) a.active = false;
       }),
-      { claudeDelayMs: 50 },
+      { claudeDelayMs: 400 },
     );
     await press(button('Tiếp tục'));
     expect(screen.getByText(/đã cài, chưa đăng nhập tài khoản nào/)).toBeTruthy();
@@ -161,7 +161,7 @@ describe('the first run', () => {
       newMac((m) => {
         for (const a of m.snapshot.claude.accounts) a.active = false;
       }),
-      { claudeDelayMs: 50 },
+      { claudeDelayMs: 400 },
     );
     await press(button('Tiếp tục'));
     await press(button('Tiếp tục'));
