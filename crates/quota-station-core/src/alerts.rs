@@ -18,6 +18,9 @@
 //!    (M4c) saw the old account back in use.
 //! 5. Firstmate holding new Claude work: `pool=dry` in its state file.
 //!
+//! Alerts 2 and 5 are built only with the `author-tools` feature; without
+//! it their kinds and switches are still read and kept, never raised.
+//!
 //! And one more of its own (M11, G), not among the five: skills with a newer
 //! version on GitHub ([`skill_alert`]). It shows in the app; a macOS card
 //! only when the owner turned that on in Cài đặt.
@@ -48,6 +51,7 @@ use crate::antigravity::switch::{How, Outcome as AgyOutcome};
 #[cfg(feature = "antigravity-accounts")]
 use crate::antigravity::watch;
 use crate::app_dir::AppDir;
+#[cfg(feature = "author-tools")]
 use crate::firstmate;
 use crate::local_time;
 use crate::quota::{Response, Slot};
@@ -104,6 +108,13 @@ impl Kind {
             Kind::Skill => 6,
             Kind::Env => 7,
         }
+    }
+
+    /// Alerts 2 and 5 are the author's tools': a build without the
+    /// `author-tools` feature never raises them, sends their test card or
+    /// turns their switch.
+    pub fn built(self) -> bool {
+        cfg!(feature = "author-tools") || !matches!(self, Kind::Leaving | Kind::Firstmate)
     }
 }
 
@@ -318,6 +329,7 @@ pub struct Facts<'a> {
     pub agy: Vec<AgyLogin>,
     #[cfg(feature = "antigravity-accounts")]
     pub overwrite: Option<Overwrite>,
+    #[cfg(feature = "author-tools")]
     pub firstmate: Option<&'a firstmate::Reading>,
     /// Alert 1's thresholds, from settings.
     pub pool: PoolAlert,
@@ -549,6 +561,7 @@ pub fn day(at: i64, offset: UtcOffset) -> String {
 }
 
 /// `2 ngày`, `5 giờ`, `40 phút`.
+#[cfg(feature = "author-tools")]
 fn span(secs: i64) -> String {
     if secs >= 86400 {
         format!("{} ngày", secs / 86400)
@@ -651,6 +664,7 @@ fn pool_alerts(
     None
 }
 
+#[cfg(feature = "author-tools")]
 fn leaving_alerts(
     report: &Response,
     check: Option<&PoolCheck>,
@@ -838,6 +852,7 @@ fn overwrite_alert(o: &Overwrite, f: &Facts) -> Alert {
     }
 }
 
+#[cfg(feature = "author-tools")]
 fn firstmate_alert(reading: &firstmate::Reading, f: &Facts) -> Alert {
     let now = f.now.unix_timestamp();
     let mut body =
@@ -860,7 +875,6 @@ fn firstmate_alert(reading: &firstmate::Reading, f: &Facts) -> Alert {
 /// Every alert whose event holds now. Alerts 1 and 5 come only on their
 /// edges, which `memory` keeps.
 fn found(memory: &mut Memory, f: &Facts) -> Vec<Alert> {
-    let now = f.now.unix_timestamp();
     let names = claude_names(f.claude, f.advanced);
     let check = f.claude.and_then(|r| pool_check(r, f.rules, f.pool, f.now, f.offset));
     let mut out = Vec::new();
@@ -869,16 +883,18 @@ fn found(memory: &mut Memory, f: &Facts) -> Vec<Alert> {
         memory.pool_dry = Some(c.dry);
     }
     if let Some(report) = f.claude {
+        #[cfg(feature = "author-tools")]
         out.extend(leaving_alerts(report, check.as_ref(), &names, f));
         out.extend(login_alerts(report, &names, f));
     }
     #[cfg(feature = "antigravity-accounts")]
     {
-        out.extend(agy_login_alerts(&f.agy, now, f.advanced));
+        out.extend(agy_login_alerts(&f.agy, f.now.unix_timestamp(), f.advanced));
         out.extend(f.overwrite.as_ref().map(|o| overwrite_alert(o, f)));
     }
+    #[cfg(feature = "author-tools")]
     if let Some(reading) = f.firstmate {
-        if let Some(dry) = reading.holding(now) {
+        if let Some(dry) = reading.holding(f.now.unix_timestamp()) {
             if dry && !memory.firstmate_dry.unwrap_or(false) {
                 out.push(firstmate_alert(reading, f));
             }

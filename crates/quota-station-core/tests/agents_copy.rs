@@ -15,6 +15,8 @@
 //! The keys are traps: never in what is read, never on a command line, and
 //! on stdin only when "Gửi cả khoá qua SSH" is ticked.
 
+#![cfg(feature = "author-tools")]
+
 mod common;
 
 use std::collections::BTreeMap;

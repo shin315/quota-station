@@ -5,9 +5,11 @@ use std::path::PathBuf;
 
 use quota_station_core::alerts::{Kind, Switches};
 use quota_station_core::settings::{
-    machine_name, peers, AutoBackup, CodexOptions, Menubar, MenubarWindow, Peer, PeersError,
-    PoolAlert, Settings, SkillChecks, Theme, MACHINE_NAME_MAX, PEERS_MAX,
+    machine_name, AutoBackup, CodexOptions, Menubar, MenubarWindow, Peer, PoolAlert, Settings,
+    SkillChecks, Theme, MACHINE_NAME_MAX,
 };
+#[cfg(feature = "author-tools")]
+use quota_station_core::settings::{peers, PeersError, PEERS_MAX};
 
 #[test]
 fn settings_round_trip_and_default_when_missing() {
@@ -158,6 +160,7 @@ fn peer(name: &str, alias: &str) -> Peer {
     Peer { name: name.into(), alias: alias.into() }
 }
 
+#[cfg(feature = "author-tools")]
 #[test]
 fn the_single_ssh_alias_moves_into_the_list_of_other_macs() {
     let dir = std::env::temp_dir().join(format!("qs-settings-alias-{}", std::process::id()));
@@ -199,6 +202,7 @@ fn the_single_ssh_alias_moves_into_the_list_of_other_macs() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+#[cfg(feature = "author-tools")]
 #[test]
 fn other_macs_typed_in_settings_are_tidied_and_checked() {
     let got = peers(&[peer("  Mac B ", " mac-b "), peer("", "mac-c")]).unwrap();
@@ -268,10 +272,22 @@ fn a_new_install_starts_without_nang_cao_and_stays_new() {
     assert!(!on.firstmate_shown());
     // Turned on in Cài đặt, both run; Firstmate's has its own switch inside.
     on.advanced = true;
-    assert!(on.alert_switches().leaving);
-    assert!(!on.alert_switches().firstmate);
-    on.firstmate = true;
-    assert!(on.alert_switches().firstmate && on.firstmate_shown());
+    #[cfg(feature = "author-tools")]
+    {
+        assert!(on.alert_switches().leaving);
+        assert!(!on.alert_switches().firstmate);
+        on.firstmate = true;
+        assert!(on.alert_switches().firstmate && on.firstmate_shown());
+    }
+    // A build without the author's tools has no Nâng cao: on in the file
+    // or not, alerts 2 and 5 never run.
+    #[cfg(not(feature = "author-tools"))]
+    {
+        on.firstmate = true;
+        assert!(!on.advanced_shown() && !on.firstmate_shown());
+        let run = on.alert_switches();
+        assert!(!run.leaving && !run.firstmate);
+    }
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -290,8 +306,11 @@ fn a_mac_that_had_the_app_keeps_everything_as_it_was() {
     .unwrap();
     let s = Settings::open(&file);
     assert!(s.advanced && s.firstmate, "the tabs and alerts stay as they were");
-    assert_eq!(s.alert_switches(), s.alerts);
-    assert!(s.firstmate_shown());
+    #[cfg(feature = "author-tools")]
+    {
+        assert_eq!(s.alert_switches(), s.alerts);
+        assert!(s.firstmate_shown());
+    }
     assert_eq!(s.peers, vec![peer("Mac B", "mac-b")]);
     assert_eq!(s.firstmate_file, Some(PathBuf::from("/srv/example/quota-pool.last")));
     assert_eq!(s.pool_alert, PoolAlert::default(), "alert 1 keeps 10 % and 15 %");
@@ -348,4 +367,60 @@ fn alert_one_s_thresholds_are_read_loosely() {
     assert_eq!(PoolAlert { dry_at_most: 15, room_at_least: 15 }.check(), Err("order"));
     assert_eq!(PoolAlert { dry_at_most: 10, room_at_least: 100 }.check(), Err("range"));
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A settings file written by a build with the author's tools (Nâng cao and
+/// Firstmate on, the other Macs, the clone, Firstmate's file, alerts 2 and
+/// 5) loads in a build without them and is written back unchanged, so the
+/// first build finds it as it left it; the second only counts it all as off.
+#[test]
+fn a_settings_file_passes_through_a_build_with_or_without_the_author_tools() {
+    let dir = fresh_dir("either-build");
+    let file = dir.join("settings.json");
+    std::fs::create_dir_all(&dir).unwrap();
+    let written = r#"{
+  "machineName": "Mac A",
+  "peers": [{ "name": "Mac B", "alias": "mac-b" }, { "name": "Mac C", "alias": "mac-c" }],
+  "alerts": { "leaving": true, "firstmate": true },
+  "firstmateFile": "/srv/example/quota-pool.last",
+  "sourceDir": "/srv/example/quota-station",
+  "advanced": true,
+  "firstmate": true
+}"#;
+    std::fs::write(&file, written).unwrap();
+    let s = Settings::open(&file);
+    assert!(s.advanced && s.firstmate);
+    assert_eq!(s.peers, vec![peer("Mac B", "mac-b"), peer("Mac C", "mac-c")]);
+    assert_eq!(s.firstmate_file, Some(PathBuf::from("/srv/example/quota-pool.last")));
+    assert_eq!(s.source_dir, Some(PathBuf::from("/srv/example/quota-station")));
+    assert!(s.alerts.leaving && s.alerts.firstmate);
+    let tools = cfg!(feature = "author-tools");
+    assert_eq!(s.advanced_shown(), tools);
+    assert_eq!(s.firstmate_shown(), tools);
+    let run = s.alert_switches();
+    assert_eq!((run.leaving, run.firstmate), (tools, tools));
+    assert!(run.pool && run.login && run.overwrite);
+
+    // A change made in this build (the theme) keeps every key the other wrote.
+    let changed = Settings { theme: Theme::Dark, ..s.clone() };
+    changed.save(&file).unwrap();
+    let back = Settings::open(&file);
+    assert_eq!(back, changed);
+    let text = std::fs::read_to_string(&file).unwrap();
+    for key in [r#""alias": "mac-c""#, "firstmateFile", "sourceDir", r#""advanced": true"#] {
+        assert!(text.contains(key), "{key} in {text}");
+    }
+
+    // The other way: a new install of either build writes Nâng cao off, and
+    // a build with the tools reads it so, with everything else as it was.
+    let dir = fresh_dir("either-build-new");
+    let file = dir.join("settings.json");
+    let new = Settings::open(&file);
+    assert!(!new.advanced && !new.firstmate && !new.advanced_shown());
+    Settings { machine_name: Some("Mac D".into()), ..new }.save(&file).unwrap();
+    let again = Settings::open(&file);
+    assert_eq!(again.machine_name.as_deref(), Some("Mac D"));
+    assert!(!again.advanced && !again.firstmate);
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = std::fs::remove_dir_all(fresh_dir("either-build"));
 }

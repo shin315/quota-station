@@ -17,6 +17,12 @@
 //! the update from source, and Firstmate (its own switch inside). A new
 //! install starts with it off; a Mac that already had the app keeps it on, so
 //! nothing there changes ([`Settings::open`]).
+//!
+//! Only a build with the `author-tools` feature has Nâng cao. Without it
+//! the values it holds (the switches, the other Macs, the clone, Firstmate's
+//! file) are still read and written back as they were, so a settings file
+//! passes through a build with or without the feature unchanged, but they
+//! count as off ([`Settings::advanced_shown`]).
 
 use std::io;
 use std::path::{Path, PathBuf};
@@ -24,6 +30,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::alerts::Switches;
+#[cfg(feature = "author-tools")]
 use crate::peers;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -338,17 +345,25 @@ impl From<Stored> for Settings {
             found.extend(s.ssh_alias.map(|alias| Peer { name: String::new(), alias }));
         }
         // The same tidying as settings typed in the app, one entry at a time.
-        let mut peers: Vec<Peer> = Vec::new();
-        for p in found {
-            if peers.len() == PEERS_MAX {
-                break;
-            }
-            if let Ok(one) = self::peers(&[p]) {
-                if !peers.iter().any(|q| q.alias.eq_ignore_ascii_case(&one[0].alias)) {
-                    peers.extend(one);
+        #[cfg(feature = "author-tools")]
+        let peers = {
+            let mut peers: Vec<Peer> = Vec::new();
+            for p in found {
+                if peers.len() == PEERS_MAX {
+                    break;
+                }
+                if let Ok(one) = self::peers(&[p]) {
+                    if !peers.iter().any(|q| q.alias.eq_ignore_ascii_case(&one[0].alias)) {
+                        peers.extend(one);
+                    }
                 }
             }
-        }
+            peers
+        };
+        // Without the author's tools nothing reaches the other Macs: the
+        // list is only kept, as it was, for a build with them.
+        #[cfg(not(feature = "author-tools"))]
+        let peers = found;
         Settings {
             machine_name: s.machine_name,
             peers,
@@ -386,6 +401,7 @@ fn has_files(dir: &Path, file: &Path) -> bool {
 /// freshness text at the top of the popover.
 pub const MACHINE_NAME_MAX: usize = 40;
 /// The most other Macs the settings take.
+#[cfg(feature = "author-tools")]
 pub const PEERS_MAX: usize = 8;
 
 /// Tidies a machine name typed by the user: trimmed, cut to
@@ -397,6 +413,7 @@ pub fn machine_name(input: &str) -> Option<String> {
 }
 
 /// Why a list of other Macs typed in settings is refused.
+#[cfg(feature = "author-tools")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PeersError {
     TooMany,
@@ -406,6 +423,7 @@ pub enum PeersError {
     SameAlias(usize),
 }
 
+#[cfg(feature = "author-tools")]
 impl PeersError {
     pub fn code(&self) -> String {
         match self {
@@ -419,6 +437,7 @@ impl PeersError {
 /// Tidies the other Macs typed in settings: names trimmed like
 /// [`machine_name`] (an empty name takes the alias), aliases trimmed and
 /// checked, no alias twice.
+#[cfg(feature = "author-tools")]
 pub fn peers(input: &[Peer]) -> Result<Vec<Peer>, PeersError> {
     if input.len() > PEERS_MAX {
         return Err(PeersError::TooMany);
@@ -468,14 +487,20 @@ impl Settings {
     /// it is off (2, the rotation's; 5, Firstmate's, also behind its own switch).
     pub fn alert_switches(&self) -> Switches {
         let mut on = self.alerts;
-        on.leaving &= self.advanced;
-        on.firstmate &= self.advanced && self.firstmate;
+        on.leaving &= self.advanced_shown();
+        on.firstmate &= self.firstmate_shown();
         on
+    }
+
+    /// Nâng cao is on, in a build that has it (`author-tools`); a build
+    /// without it keeps the switch in the file but never counts it.
+    pub fn advanced_shown(&self) -> bool {
+        cfg!(feature = "author-tools") && self.advanced
     }
 
     /// The Firstmate tab and alert 5 show.
     pub fn firstmate_shown(&self) -> bool {
-        self.advanced && self.firstmate
+        self.advanced_shown() && self.firstmate
     }
 
     /// A missing or unreadable file gives the defaults: the app still runs.

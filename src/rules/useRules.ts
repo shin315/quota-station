@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Api } from '../lib/api';
+import { authorModel, type AuthorModel } from '../lib/author';
 import type { Model, Rules, RulesError, Tab } from '../lib/model';
 import {
   adoptFeedback,
@@ -62,7 +63,9 @@ export function useRules(api: Api, model: Model | null, clock: () => Date, showF
   const [leave, setLeave] = useState<Leave | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
 
-  const r = model?.rotation;
+  // Only a build with the author's tools has the rules editor; without them the state stays empty.
+  const author = model ? authorModel(model) : null;
+  const r = author?.rotation;
   const saved = r?.status === 'ok' ? r.rules : null;
   // A broken file is edited from the switcher's defaults; a missing one waits for "Tạo từ mặc định".
   const current = draft?.rules ?? saved ?? (r?.status === 'invalid' ? r.defaults : null);
@@ -93,15 +96,15 @@ export function useRules(api: Api, model: Model | null, clock: () => Date, showF
     else setDraft({ rules: next, base: draft ? draft.base : r.version, fresh });
   };
 
-  const run = async (what: Working, call: () => Promise<Model>, feedback: (m: Model) => FeedbackView, peer?: string) => {
+  const run = async (what: Working, call: () => Promise<Model>, feedback: (m: AuthorModel) => FeedbackView, peer?: string) => {
     if (working) return false;
     setWorking(what);
     try {
-      const m = await call();
+      const m = authorModel(await call());
       // Retrying leaves this Mac's file alone, so the edits stay.
       if (what !== 'retry') setDraft(null);
       setError(null);
-      showFeedback(feedback(m));
+      if (m) showFeedback(feedback(m));
       return true;
     } catch (e) {
       // `changed` shows as the "newer copy" banner once the model has the new file.
@@ -250,7 +253,7 @@ export function useRules(api: Api, model: Model | null, clock: () => Date, showF
     preview,
     compare,
     leave,
-    banner: stale && model ? changedBanner(model) : null,
+    banner: stale && author ? changedBanner(author) : null,
     edit,
     save: () => void save(),
     revert: () => {

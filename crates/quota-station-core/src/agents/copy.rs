@@ -61,7 +61,7 @@ pub const PLIST_KEY: &str = "QuotaStationAgents";
 /// Where the other Mac's app is looked for, in this order.
 pub const APP_FOLDERS: [&str; 2] = ["/Applications", "$HOME/Applications"];
 /// The app's own refusal: its stdout says why, as `{"error": "…"}`.
-pub const REFUSED: i32 = 7;
+pub const REFUSED: i32 = super::COPY_REFUSED;
 /// The script's exits: no app in the folders, or one of version 1.
 const NO_APP: i32 = 5;
 const OLD: i32 = 6;

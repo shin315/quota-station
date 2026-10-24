@@ -21,6 +21,8 @@ interface Props {
   view: ClaudeAccountsView;
   api: Api;
   onAction(act: Action): void;
+  /** A build with the author's tools: the line on what Firstmate runs shows. */
+  authorTools?: boolean;
 }
 
 /** The calls reject only when another action runs; the model says the rest. */
@@ -131,7 +133,7 @@ function TokenForm({ api, busy, onDone }: { api: Api; busy: boolean; onDone(): v
   );
 }
 
-export function ClaudeAccounts({ view, api, onAction }: Props) {
+export function ClaudeAccounts({ view, api, onAction, authorTools = false }: Props) {
   const [tokenOpen, setTokenOpen] = useState(false);
   const busy = view.working != null;
   const setup = setupText(view);
@@ -196,9 +198,11 @@ export function ClaudeAccounts({ view, api, onAction }: Props) {
           <LinkButton onClick={() => onAction('guide:auto')}>Hướng dẫn tắt</LinkButton>
         </BannerBox>
       ) : null}
-      <CardText className="mt-2 mb-0 text-xs text-ink2">
-        Firstmate đọc `quota-station claude status --json` và chạy `quota-station claude run N -- …`.
-      </CardText>
+      {authorTools ? (
+        <CardText className="mt-2 mb-0 text-xs text-ink2">
+          Firstmate đọc `quota-station claude status --json` và chạy `quota-station claude run N -- …`.
+        </CardText>
+      ) : null}
     </Panel>
   );
 }

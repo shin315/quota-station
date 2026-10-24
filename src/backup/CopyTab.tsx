@@ -16,7 +16,8 @@ import { CheckRow, Progress, SETTING_ROW } from '../components/blocks';
 import { COUNT, Empty, EmptyIcon, GRID, STACK, TabHead, TabSub, TabTitle } from '../components/page';
 import { Banner, Button, Chip, Dot, Feedback, LinkButton, Toggle } from '../components/parts';
 import { GROUPS, hasView, itemKey, itemName, itemNote, macChip, readAt, sameLine, selectable, stateChip, wrongWay } from '../lib/copy';
-import type { CopyItem, Model } from '../lib/model';
+import type { AuthorModel } from '../lib/author';
+import type { CopyItem } from '../lib/model';
 import type { Action, FeedbackView } from '../lib/view';
 import { NAV_ICONS, SYNC_BIG } from '../window/icons';
 import type { Copy } from './useCopy';
@@ -114,7 +115,7 @@ function DiffList({ copy }: { copy: Copy }) {
 }
 
 export interface CopyTabProps {
-  model: Model;
+  model: AuthorModel;
   feedback: FeedbackView | null;
   copy: Copy;
   onAction(act: Action): void;

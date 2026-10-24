@@ -15,13 +15,14 @@ import { cn } from '@/lib/utils';
 import { Empty, LABEL, rowClass, TabHead, TabSub, TabTitle } from '../components/page';
 import { Banner, Button, Chip, Dot, Facts, Feedback, FieldHint, KVT, LinkButton, Spinner } from '../components/parts';
 import { clock, pad } from '../lib/format';
-import type { Model, Rules } from '../lib/model';
+import type { AuthorModel } from '../lib/author';
+import type { Rules } from '../lib/model';
 import { compareRows, localLine, macsWord, markLeft, peerLine, rotationBanner, ruleEmails, rulesProblem, slotsOf } from '../lib/rules';
 import type { Action, FeedbackView, PopoverView } from '../lib/view';
 import type { RulesState } from './useRules';
 
 export interface RulesTabProps {
-  model: Model;
+  model: AuthorModel;
   fresh: PopoverView['fresh'];
   rules: RulesState;
   feedback: FeedbackView | null;
@@ -104,7 +105,7 @@ function HourSelect(props: { value: number; from: number; to: number; label: str
   );
 }
 
-function Editor({ model, rules: st, now }: { model: Model; rules: RulesState; now: Date }) {
+function Editor({ model, rules: st, now }: { model: AuthorModel; rules: RulesState; now: Date }) {
   const r = st.current as Rules;
   const sv = st.saved ?? model.rotation.defaults;
   const nameOf = st.nameOf;
@@ -307,7 +308,7 @@ function Editor({ model, rules: st, now }: { model: Model; rules: RulesState; no
   );
 }
 
-function SaveBar({ model, rules: st }: { model: Model; rules: RulesState }) {
+function SaveBar({ model, rules: st }: { model: AuthorModel; rules: RulesState }) {
   const peers = model.rotation.peers;
   const macs = [localLine(model, st.dirty, !!st.error?.restored), ...peers.map(peerLine)];
   const problem = st.current ? rulesProblem(st.current) : 'no rules';
@@ -375,7 +376,7 @@ const TH = 'px-1.5 py-1 text-left text-xs font-semi text-ink2';
 const TD = 'border-t-[.5px] border-card-line px-1.5 py-[5px] align-top tabular-nums';
 
 /** "So sánh hai bản luật": this Mac's copy beside another Mac's. */
-export function CompareDialog({ model, rules: st, now }: { model: Model; rules: RulesState; now: Date }) {
+export function CompareDialog({ model, rules: st, now }: { model: AuthorModel; rules: RulesState; now: Date }) {
   const peer = model.rotation.peers.find((p) => p.alias === st.compare);
   const mine = model.rotation.rules;
   // As the banner sees it: a conflict about this Mac's file as it is now.

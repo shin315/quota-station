@@ -9,6 +9,7 @@
 
 import { claudeNames } from './accounts';
 import { clock, pad } from './format';
+import type { AuthorModel } from './author';
 import type { Model, PeerView, Rules, RulesError, Stamp } from './model';
 import { dayClock, type NameOf } from './switching';
 import type { BannerView, FeedbackView } from './view';
@@ -163,7 +164,7 @@ export function peerLine(p: PeerView): MacLine {
 }
 
 /** This Mac in the save bar. */
-export function localLine(model: Model, dirty: boolean, restored: boolean): MacLine {
+export function localLine(model: AuthorModel, dirty: boolean, restored: boolean): MacLine {
   const r = model.rotation;
   const name = model.machine + ' (máy này)';
   const line = (tone: MacTone, text: string): MacLine => ({ name, tone, text, short: model.machine + ': ' + text, title: '' });
@@ -176,7 +177,7 @@ export function localLine(model: Model, dirty: boolean, restored: boolean): MacL
 }
 
 /** `Mac B: 14:30 · Mac C: chưa tới được, sẽ thử lại`, with the worst Mac's tone; null with no other Mac. */
-export function syncSummary(model: Model): { tone: MacTone; text: string } | null {
+export function syncSummary(model: AuthorModel): { tone: MacTone; text: string } | null {
   const lines = model.rotation.peers.map(peerLine);
   if (!lines.length) return null;
   const tone = (['bad', 'warn', 'info', 'muted'] as const).find((t) => lines.some((l) => l.tone === t)) ?? 'ok';
@@ -184,7 +185,7 @@ export function syncSummary(model: Model): { tone: MacTone; text: string } | nul
 }
 
 /** The sidebar's line under the machine name. */
-export function sidebarLine(model: Model): string | null {
+export function sidebarLine(model: AuthorModel): string | null {
   const peers = model.rotation.peers;
   if (!peers.length || !model.rotation.stamp) return null;
   const behind = peers.filter((p) => !(p.current && p.state?.kind === 'synced'));
@@ -195,7 +196,7 @@ export function sidebarLine(model: Model): string | null {
 // ===== Banners about the file and the other Macs =====
 
 /** The banner the file on disk or another Mac calls for; null when all is in step. */
-export function rotationBanner(model: Model): BannerView | null {
+export function rotationBanner(model: AuthorModel): BannerView | null {
   const r = model.rotation;
   if (r.status === 'missing')
     return {
@@ -250,7 +251,7 @@ export function rotationBanner(model: Model): BannerView | null {
 }
 
 /** The file changed on disk while the editor held changes (two Macs editing at once). */
-export function changedBanner(model: Model): BannerView {
+export function changedBanner(model: AuthorModel): BannerView {
   const s = model.rotation.stamp;
   const by = s && s.machine !== model.machine ? s.machine : null;
   return {
@@ -295,7 +296,7 @@ export function rulesErrorBanner(e: RulesError, peer?: string): BannerView {
 
 // ===== Feedback after an action =====
 
-export function saveFeedback(model: Model): FeedbackView {
+export function saveFeedback(model: AuthorModel): FeedbackView {
   const r = model.rotation;
   const at = r.stamp ? clock(r.stamp.at) : '';
   const peers = r.peers;
@@ -321,7 +322,7 @@ export function adoptFeedback(peer: string, their: Stamp | null, now: Date): Fee
   };
 }
 
-export function keepFeedback(model: Model, peer: string): FeedbackView {
+export function keepFeedback(model: AuthorModel, peer: string): FeedbackView {
   const at = model.rotation.stamp ? clock(model.rotation.stamp.at) : '';
   return {
     tone: '',
@@ -330,7 +331,7 @@ export function keepFeedback(model: Model, peer: string): FeedbackView {
   };
 }
 
-export function retryFeedback(model: Model, now: Date): FeedbackView {
+export function retryFeedback(model: AuthorModel, now: Date): FeedbackView {
   const behind = model.rotation.peers.filter((p) => !(p.current && p.state?.kind === 'synced'));
   if (!behind.length)
     return {

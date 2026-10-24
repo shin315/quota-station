@@ -9,11 +9,11 @@ import { Card as Panel, CardText, CardTitle } from '@/components/ui/card';
 import { TabHead, TabSub, TabTitle } from '../components/page';
 import { Button, Chip, Dot, KVT } from '../components/parts';
 import { firstmateTab } from '../lib/alerts';
-import type { Model } from '../lib/model';
+import type { AuthorModel } from '../lib/author';
 import type { Action, PopoverView } from '../lib/view';
 
 export interface FirstmateTabProps {
-  model: Model;
+  model: AuthorModel;
   fresh: PopoverView['fresh'];
   now: Date;
   onAction(act: Action): void;

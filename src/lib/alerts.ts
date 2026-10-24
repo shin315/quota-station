@@ -8,6 +8,7 @@
 // `tabFirstmate`.
 
 import { age, clock, percent, secondsSince } from './format';
+import type { AuthorModel } from './author';
 import type { AlertRecord, AlertTone, FirstmateView, Model, NotifyPermission, SwitchKind } from './model';
 import { dayClock, namesOf } from './switching';
 import type { BannerView, ChipView, FeedbackView, Tone } from './view';
@@ -170,7 +171,7 @@ function slots(f: FirstmateView, nameOf: (n: number) => string): string {
 const ON_OFF = (v: boolean | null, yes: ChipView, no: ChipView): { value: string; chip?: ChipView } =>
   v == null ? { value: '—' } : { value: '', chip: v ? yes : no };
 
-export function firstmateTab(model: Model, now: Date): FirstmateTabView {
+export function firstmateTab(model: AuthorModel, now: Date): FirstmateTabView {
   const f = model.firstmate;
   const nameOf = namesOf(model);
   const fallback = 'Luật "cạn" vẫn tự tính từ số của app để báo.';

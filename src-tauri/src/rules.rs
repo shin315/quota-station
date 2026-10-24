@@ -23,7 +23,6 @@ use time::OffsetDateTime;
 
 use crate::reader;
 use crate::state::{AppState, DryRunView, Model};
-use crate::windows;
 
 /// How often the sync thread looks for a Mac whose wait is over.
 const LOOK_EVERY: Duration = Duration::from_secs(60);
@@ -393,33 +392,4 @@ pub async fn preview_rotation(
     })
     .await
     .map_err(|e| e.to_string())?
-}
-
-/// The editor has changes not saved: closing the main window asks first.
-#[tauri::command]
-pub fn rules_dirty(state: State<'_, AppState>, dirty: bool) {
-    state.lock().rules_dirty = dirty;
-}
-
-/// Takes a pending `Thoát Quota Station` request: true once per request, for
-/// the page to ask about unsaved rules (or quit when there are none).
-#[tauri::command]
-pub fn take_quit(state: State<'_, AppState>) -> bool {
-    std::mem::take(&mut state.lock().quit_pending)
-}
-
-/// Closes the main window after the owner answered the unsaved-changes
-/// dialog, or quits the app when the dialog came from `Thoát Quota Station`.
-#[tauri::command]
-pub fn close_main(app: AppHandle, state: State<'_, AppState>, quit: bool) {
-    {
-        let mut inner = state.lock();
-        inner.rules_dirty = false;
-        inner.quit_pending = false;
-    }
-    if quit {
-        app.exit(0);
-    } else {
-        windows::close_main(&app);
-    }
 }

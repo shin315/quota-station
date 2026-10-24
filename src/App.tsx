@@ -31,6 +31,7 @@ import { SheetBody, type SheetState } from './components/Sheets';
 import { agyLoginOf, agySwitchErrorFeedback, agySwitchFeedback, type AppAnswer } from '@agy/agySwitch';
 import { codexErrorFeedback, codexFeedback, codexRow, codexRestartFeedback, keyFeedback, nextTarget, pluginsNeedApply } from './lib/codex';
 import type { Api } from './lib/api';
+import { authorModel } from './lib/author';
 import { alertFailedFeedback, testFailedFeedback } from './lib/alerts';
 import type { AgyHow, AlertKind, CodexOutcome, CodexTarget, Model, Sessions, Tab, Theme } from './lib/model';
 import {
@@ -516,12 +517,13 @@ export function PopoverApp({ api, clock = systemClock }: AppProps) {
 
   if (!model) return null;
   const view = popoverView(model, now, { keychainLater });
+  const author = authorModel(model);
   return (
     <Popover
       view={view}
       codex={codexRow(model)}
       auto={model.advanced.on ? autoView(model, now) : null}
-      sync={model.advanced.on ? syncSummary(model) : null}
+      sync={author && model.advanced.on ? syncSummary(author) : null}
       feedback={feedback}
       busy={busy}
       dark={dark}
@@ -678,6 +680,8 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
 
   if (!model || !tab) return null;
   const view = windowView(model, now, { keychainLater });
+  // The rules editor, the copy to another Mac and Firstmate: only from a build with the author's tools.
+  const author = authorModel(model);
   const settings = (
     <Settings
       model={model}
@@ -743,8 +747,8 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
           goTab('codex');
         },
       ) ??
-      (ruleDialog === 'compare' ? (
-        <CompareDialog model={model} rules={rules} now={now} />
+      (ruleDialog === 'compare' && author ? (
+        <CompareDialog model={author} rules={rules} now={now} />
       ) : mcp.dialog ? (
         <McpDialogBody mcp={mcp} model={model} now={now} />
       ) : backup.dialog ? (
@@ -797,8 +801,8 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       onToggle={switching.toggle}
       onPause={switching.openPause}
       settings={settings}
-      syncNote={sidebarLine(model)}
-      rules={<RulesTab model={model} fresh={view.fresh} rules={rules} feedback={feedback} now={now} onAction={onAction} />}
+      syncNote={author ? sidebarLine(author) : null}
+      rules={author ? <RulesTab model={author} fresh={view.fresh} rules={rules} feedback={feedback} now={now} onAction={onAction} /> : null}
       codex={<CodexTab model={model} fresh={view.fresh} feedback={feedback} now={now} onAction={onAction} onPlugins={switching.setCodexPlugins} />}
       codexCard={<CodexCard model={model} onAction={onAction} />}
       mcp={<McpTab model={model} fresh={view.fresh} feedback={feedback} now={now} mcp={mcp} onAction={onAction} />}
@@ -808,7 +812,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       sets={<SetsTab model={model} fresh={view.fresh} feedback={feedback} now={now} sets={sets} onAction={onAction} />}
       instr={<InstrTab model={model} fresh={view.fresh} feedback={feedback} now={now} instr={instr} onAction={onAction} />}
       backup={<BackupTab model={model} fresh={view.fresh} feedback={feedback} now={now} backup={backup} onAction={onAction} />}
-      copy={<CopyTab model={model} feedback={feedback} copy={copy} onAction={onAction} />}
+      copy={author ? <CopyTab model={author} feedback={feedback} copy={copy} onAction={onAction} /> : null}
       history={<HistoryTab model={model} fresh={view.fresh} now={now} load={api.getHistory} />}
       alerts={
         <AlertsTab
@@ -822,13 +826,13 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
           onSwitch={alertSwitch}
         />
       }
-      firstmate={<FirstmateTab model={model} fresh={view.fresh} now={now} onAction={onAction} />}
+      firstmate={author ? <FirstmateTab model={author} fresh={view.fresh} now={now} onAction={onAction} /> : null}
       unanswered={model.alerts.unanswered}
       advanced={model.advanced.on}
       firstmateTab={model.advanced.on && model.advanced.firstmate}
       agyAccounts={model.capabilities.agyAccounts}
       agyLogins={agyLogins}
-      claudeAccounts={<ClaudeAccounts view={model.claudeAccounts} api={api} onAction={onAction} />}
+      claudeAccounts={<ClaudeAccounts view={model.claudeAccounts} api={api} onAction={onAction} authorTools={model.capabilities.authorTools} />}
       dialog={dialog}
       dialogSize={dialogSize}
     />

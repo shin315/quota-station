@@ -227,11 +227,15 @@ fn the_data_file_has_every_account_and_no_secret_or_email() {
     assert_eq!(accounts[0]["status"], "fresh");
     assert_eq!(accounts[0]["windows"]["fiveHour"]["usedPercent"], 30.0);
     assert_eq!(accounts[0]["windows"]["fiveHour"]["resetsAt"], "2030-01-16T09:00:00Z");
-    for file in [
+    #[cfg(feature = "author-tools")]
+    let files = [
         mac.paths.state(),
         mac.paths.swap().join("sequence.json"),
         mac.paths.swap().join("cache/usage.json"),
-    ] {
+    ];
+    #[cfg(not(feature = "author-tools"))]
+    let files = [mac.paths.state()];
+    for file in files {
         let text = std::fs::read_to_string(&file).unwrap();
         for secret in ["acc-2", "acc-3", "ref-2", "ref-3", "@team.example"] {
             assert!(!text.contains(secret), "{} holds {secret}", file.display());
@@ -239,6 +243,7 @@ fn the_data_file_has_every_account_and_no_secret_or_email() {
     }
 }
 
+#[cfg(feature = "author-tools")]
 #[test]
 fn the_copy_for_firstmate_pairs_each_reading_with_its_account() {
     let (mac, anthropic) = mac("state-swap");

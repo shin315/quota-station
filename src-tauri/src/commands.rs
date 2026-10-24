@@ -12,7 +12,9 @@
 use quota_station_core::history;
 use quota_station_core::quota;
 use quota_station_core::sessions::{self, Sessions};
-use quota_station_core::settings::{Menubar, MenubarWindow, Settings, Theme};
+#[cfg(feature = "author-tools")]
+use quota_station_core::settings::Settings;
+use quota_station_core::settings::{Menubar, MenubarWindow, Theme};
 use quota_station_core::switching::{self, Outcome};
 use quota_station_core::{local_time, pause};
 use tauri::{AppHandle, State};
@@ -103,7 +105,9 @@ pub fn set_show_names(
 /// Cài đặt › Nâng cao: shows or hides what was made for the author's own
 /// Macs (the rotation, the pause and the switcher, the other Macs, the update
 /// from source, Firstmate). Hiding changes no file but the settings: a
-/// rotation already running keeps running.
+/// rotation already running keeps running. Only in a build with the
+/// `author-tools` feature.
+#[cfg(feature = "author-tools")]
 #[tauri::command]
 pub fn set_advanced(app: AppHandle, state: State<'_, AppState>, on: bool) -> Result<Model, String> {
     save_settings(&state, |s| s.advanced = on)?;
@@ -112,6 +116,7 @@ pub fn set_advanced(app: AppHandle, state: State<'_, AppState>, on: bool) -> Res
 }
 
 /// The Firstmate switch inside Nâng cao: its tab and alert 5.
+#[cfg(feature = "author-tools")]
 #[tauri::command]
 pub fn set_firstmate(
     app: AppHandle,
@@ -123,6 +128,7 @@ pub fn set_firstmate(
     Ok(state.lock().model())
 }
 
+#[cfg(feature = "author-tools")]
 fn save_settings(state: &AppState, change: impl FnOnce(&mut Settings)) -> Result<(), String> {
     let mut inner = state.lock();
     let mut settings = inner.settings.clone();
@@ -373,4 +379,33 @@ fn write_flag(
     state.request_switcher();
     reader::publish(app, state);
     Ok(state.lock().model())
+}
+
+/// The editor has changes not saved: closing the main window asks first.
+#[tauri::command]
+pub fn rules_dirty(state: State<'_, AppState>, dirty: bool) {
+    state.lock().rules_dirty = dirty;
+}
+
+/// Takes a pending `Thoát Quota Station` request: true once per request, for
+/// the page to ask about unsaved rules (or quit when there are none).
+#[tauri::command]
+pub fn take_quit(state: State<'_, AppState>) -> bool {
+    std::mem::take(&mut state.lock().quit_pending)
+}
+
+/// Closes the main window after the owner answered the unsaved-changes
+/// dialog, or quits the app when the dialog came from `Thoát Quota Station`.
+#[tauri::command]
+pub fn close_main(app: AppHandle, state: State<'_, AppState>, quit: bool) {
+    {
+        let mut inner = state.lock();
+        inner.rules_dirty = false;
+        inner.quit_pending = false;
+    }
+    if quit {
+        app.exit(0);
+    } else {
+        windows::close_main(&app);
+    }
 }

@@ -5,7 +5,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MainWindowApp } from '../App';
 import { fakeApi, type FakeOptions } from '../fixtures/fakeApi';
-import { agyFixture, alertsFixture, appFixture, codexFixture, firstmateFixture, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
+import { agyFixture, alertsFixture, appFixture, codexFixture, communityModel, firstmateFixture, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
 import type { Api } from '../lib/api';
 import type { Model } from '../lib/model';
 
@@ -584,6 +584,24 @@ describe('settings: Nâng cao, alert 1 and the backup folder', () => {
     expect(within(sidebar).queryByRole('button', { name: 'Luật xoay vòng' })).toBeNull();
     // The version stays where everyone sees it.
     expect(screen.getByText('0.1.0 · a1b2c3d')).toBeTruthy();
+  });
+
+  it('a build without the author\'s tools has no Nâng cao card, switch or row', async () => {
+    await open(communityModel(fixtureModel('fresh')));
+    const titles = Array.from(document.querySelectorAll('[data-slot="card-title"]')).map((h) => h.textContent);
+    expect(titles).not.toContain('Nâng cao');
+    expect(screen.queryByRole('switch', { name: 'Hiện phần nâng cao' })).toBeNull();
+    expect(screen.queryByRole('switch', { name: 'Firstmate' })).toBeNull();
+    expect(screen.queryByText('Các Mac khác')).toBeNull();
+    expect(screen.queryByLabelText(/^Mã nguồn/)).toBeNull();
+    expect(screen.queryByLabelText(/^File của firstmate/)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Cập nhật từ mã nguồn' })).toBeNull();
+    // Alerts 2 and 5 are theirs too.
+    expect(screen.queryByText('Tài khoản sắp rời vòng')).toBeNull();
+    expect(screen.queryByText('Firstmate đang chờ hạn mức Claude')).toBeNull();
+    // What every build has stays.
+    expect(screen.getByText('0.1.0 · a1b2c3d')).toBeTruthy();
+    expect(screen.getByLabelText('Thư mục sao lưu')).toBeTruthy();
   });
 
   it('alert 1 takes its two thresholds here, and says why one is refused', async () => {

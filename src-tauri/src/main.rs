@@ -42,12 +42,14 @@ mod backup;
 mod claude;
 mod codex;
 mod commands;
+#[cfg(feature = "author-tools")]
 mod copy;
 mod env;
 mod install;
 mod login_item;
 mod notify;
 mod reader;
+#[cfg(feature = "author-tools")]
 mod rules;
 mod sets;
 mod skills;
@@ -65,9 +67,17 @@ use crate::state::{Inner, Shared, Tab};
 fn main() {
     // Another Mac's Quota Station runs `quota-station agents <word>` here
     // over SSH (M13): answered without a window, and nothing else starts.
+    // Only a build with the author's tools copies; any other refuses as
+    // a copy of another version would, and never opens a window.
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args.first().map(String::as_str) == Some("agents") {
+        #[cfg(feature = "author-tools")]
         std::process::exit(copy::cli(&args[1..]));
+        #[cfg(not(feature = "author-tools"))]
+        {
+            println!("{}", serde_json::json!({ "error": "protocol" }));
+            std::process::exit(quota_station_core::agents::COPY_REFUSED);
+        }
     }
     // The Claude accounts from a terminal, Firstmate and the rotation's
     // LaunchAgent: answered without a window.
@@ -108,154 +118,191 @@ fn main() {
             reader::spawn(app.handle().clone(), state.clone());
             #[cfg(feature = "antigravity-accounts")]
             agy_quota::spawn(app.handle().clone(), state.clone());
-            codex::spawn(app.handle().clone(), state.clone());
-            rules::spawn(app.handle().clone(), state);
+            #[cfg(feature = "author-tools")]
+            rules::spawn(app.handle().clone(), state.clone());
+            codex::spawn(app.handle().clone(), state);
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![
-            commands::get_model,
-            commands::refresh,
-            commands::open_window,
-            commands::main_tab,
-            commands::hide_popover,
-            commands::popover_resize,
-            commands::set_machine_name,
-            commands::set_show_names,
-            commands::set_theme,
-            commands::set_menubar,
-            commands::set_menubar_window,
-            commands::set_advanced,
-            commands::set_firstmate,
-            commands::grant_keychain,
-            commands::claude_sessions,
-            commands::switch_claude,
-            commands::pause_switching,
-            commands::extend_pause,
-            commands::resume_switching,
-            claude::claude_import,
-            claude::claude_add_login,
-            claude::claude_cancel_login,
-            claude::claude_add_current,
-            claude::claude_add_token,
-            claude::claude_remove,
-            claude::claude_set_alias,
-            claude::claude_set_enabled,
-            claude::claude_set_rotation,
-            rules::save_rotation,
-            rules::adopt_rotation,
-            rules::keep_rotation,
-            rules::retry_rotation,
-            rules::set_peers,
-            rules::test_peer,
-            rules::preview_rotation,
-            rules::rules_dirty,
-            rules::take_quit,
-            rules::close_main,
-            #[cfg(feature = "antigravity-accounts")]
-            antigravity::agy_login,
-            #[cfg(feature = "antigravity-accounts")]
-            antigravity::agy_login_callback,
-            #[cfg(feature = "antigravity-accounts")]
-            antigravity::agy_login_cancel,
-            #[cfg(feature = "antigravity-accounts")]
-            antigravity::agy_logout,
-            #[cfg(feature = "antigravity-accounts")]
-            antigravity::agy_open_verification,
-            #[cfg(feature = "antigravity-accounts")]
-            antigravity::agy_tab_opened,
-            #[cfg(feature = "antigravity-accounts")]
-            agy_switch::agy_app_state,
-            #[cfg(feature = "antigravity-accounts")]
-            agy_switch::switch_agy,
-            #[cfg(feature = "antigravity-accounts")]
-            agy_switch::agy_dismiss_overwrite,
-            codex::codex_switch,
-            codex::codex_key_preview,
-            codex::codex_set_key,
-            codex::codex_undo_key,
-            codex::set_codex_plugins,
-            codex::codex_restart,
-            codex::codex_keep,
-            codex::codex_check,
-            codex::set_codex_home,
-            agents::mcp_read,
-            agents::mcp_preview,
-            agents::mcp_write,
-            agents::mcp_undo,
-            agents::mcp_save_secret,
-            agents::mcp_paste,
-            agents::mcp_forget,
-            agents::mcp_open_backups,
-            skills::skills_read,
-            skills::skills_preview,
-            skills::skills_write,
-            skills::skills_undo,
-            skills::skills_drop_link,
-            skills::skills_list_repo,
-            skills::skills_read_md,
-            skills::skills_install,
-            skills::skills_update,
-            skills::skills_update_many,
-            skills::skills_skip,
-            skills::skills_remove,
-            skills::skills_import,
-            skills::skills_open_link,
-            skills::skills_check,
-            skills::skills_set_checks,
-            env::env_check,
-            env::env_open,
-            env::env_ignore,
-            env::env_unignore,
-            sets::sets_save,
-            sets::sets_delete,
-            sets::sets_undelete,
-            sets::sets_preview,
-            sets::sets_apply,
-            sets::sets_undo,
-            stats::stats_read,
-            stats::stats_report,
-            stats::stats_ack,
-            skills::plugins_read,
-            skills::instr_read,
-            skills::instr_show,
-            skills::instr_compare,
-            skills::instr_include,
-            skills::instr_not_key,
-            skills::instr_add,
-            skills::instr_forget,
-            skills::instr_open,
-            backup::backup_read,
-            backup::backup_now,
-            backup::backup_set_auto,
-            backup::backup_set_folder,
-            backup::backup_open_folder,
-            backup::backup_delete_key,
-            backup::pack_summary,
-            backup::restore_plan,
-            backup::restore_run,
-            backup::restore_retry,
-            backup::restore_undo,
-            copy::copy_compare,
-            copy::copy_run,
-            copy::copy_undo,
-            alerting::alert_action,
-            alerting::test_alert,
-            alerting::set_alert_switch,
-            alerting::set_pool_alert,
-            alerting::set_firstmate_file,
-            alerting::get_history,
-            alerting::notify_refresh,
-            alerting::open_notification_settings,
-            install::settings_opened,
-            install::set_launch_at_login,
-            install::open_login_items,
-            install::set_source_dir,
-            install::update_from_source,
-            install::relaunch,
-        ])
+        .invoke_handler(handler())
         .run(tauri::generate_context!())
         .expect("Quota Station failed to start");
 }
+
+/// Every command the windows can call: [`handler`] for Tauri, and their
+/// names for the tests. An entry with a `cfg` is built only with that
+/// feature, so a build without it has no such command at all.
+macro_rules! commands {
+    ($( $(#[cfg($c:meta)])? $module:ident :: $name:ident ),* $(,)?) => {
+        fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static {
+            tauri::generate_handler![$( $(#[cfg($c)])? $module::$name ),*]
+        }
+
+        #[cfg(test)]
+        fn command_names() -> Vec<&'static str> {
+            let mut names = Vec::new();
+            $( $(#[cfg($c)])? names.push(stringify!($name)); )*
+            names
+        }
+    };
+}
+
+commands![
+    commands::get_model,
+    commands::refresh,
+    commands::open_window,
+    commands::main_tab,
+    commands::hide_popover,
+    commands::popover_resize,
+    commands::set_machine_name,
+    commands::set_show_names,
+    commands::set_theme,
+    commands::set_menubar,
+    commands::set_menubar_window,
+    #[cfg(feature = "author-tools")]
+    commands::set_advanced,
+    #[cfg(feature = "author-tools")]
+    commands::set_firstmate,
+    commands::grant_keychain,
+    commands::claude_sessions,
+    commands::switch_claude,
+    commands::pause_switching,
+    commands::extend_pause,
+    commands::resume_switching,
+    claude::claude_import,
+    claude::claude_add_login,
+    claude::claude_cancel_login,
+    claude::claude_add_current,
+    claude::claude_add_token,
+    claude::claude_remove,
+    claude::claude_set_alias,
+    claude::claude_set_enabled,
+    claude::claude_set_rotation,
+    #[cfg(feature = "author-tools")]
+    rules::save_rotation,
+    #[cfg(feature = "author-tools")]
+    rules::adopt_rotation,
+    #[cfg(feature = "author-tools")]
+    rules::keep_rotation,
+    #[cfg(feature = "author-tools")]
+    rules::retry_rotation,
+    #[cfg(feature = "author-tools")]
+    rules::set_peers,
+    #[cfg(feature = "author-tools")]
+    rules::test_peer,
+    #[cfg(feature = "author-tools")]
+    rules::preview_rotation,
+    commands::rules_dirty,
+    commands::take_quit,
+    commands::close_main,
+    #[cfg(feature = "antigravity-accounts")]
+    antigravity::agy_login,
+    #[cfg(feature = "antigravity-accounts")]
+    antigravity::agy_login_callback,
+    #[cfg(feature = "antigravity-accounts")]
+    antigravity::agy_login_cancel,
+    #[cfg(feature = "antigravity-accounts")]
+    antigravity::agy_logout,
+    #[cfg(feature = "antigravity-accounts")]
+    antigravity::agy_open_verification,
+    #[cfg(feature = "antigravity-accounts")]
+    antigravity::agy_tab_opened,
+    #[cfg(feature = "antigravity-accounts")]
+    agy_switch::agy_app_state,
+    #[cfg(feature = "antigravity-accounts")]
+    agy_switch::switch_agy,
+    #[cfg(feature = "antigravity-accounts")]
+    agy_switch::agy_dismiss_overwrite,
+    codex::codex_switch,
+    codex::codex_key_preview,
+    codex::codex_set_key,
+    codex::codex_undo_key,
+    codex::set_codex_plugins,
+    codex::codex_restart,
+    codex::codex_keep,
+    codex::codex_check,
+    codex::set_codex_home,
+    agents::mcp_read,
+    agents::mcp_preview,
+    agents::mcp_write,
+    agents::mcp_undo,
+    agents::mcp_save_secret,
+    agents::mcp_paste,
+    agents::mcp_forget,
+    agents::mcp_open_backups,
+    skills::skills_read,
+    skills::skills_preview,
+    skills::skills_write,
+    skills::skills_undo,
+    skills::skills_drop_link,
+    skills::skills_list_repo,
+    skills::skills_read_md,
+    skills::skills_install,
+    skills::skills_update,
+    skills::skills_update_many,
+    skills::skills_skip,
+    skills::skills_remove,
+    skills::skills_import,
+    skills::skills_open_link,
+    skills::skills_check,
+    skills::skills_set_checks,
+    env::env_check,
+    env::env_open,
+    env::env_ignore,
+    env::env_unignore,
+    sets::sets_save,
+    sets::sets_delete,
+    sets::sets_undelete,
+    sets::sets_preview,
+    sets::sets_apply,
+    sets::sets_undo,
+    stats::stats_read,
+    stats::stats_report,
+    stats::stats_ack,
+    skills::plugins_read,
+    skills::instr_read,
+    skills::instr_show,
+    skills::instr_compare,
+    skills::instr_include,
+    skills::instr_not_key,
+    skills::instr_add,
+    skills::instr_forget,
+    skills::instr_open,
+    backup::backup_read,
+    backup::backup_now,
+    backup::backup_set_auto,
+    backup::backup_set_folder,
+    backup::backup_open_folder,
+    backup::backup_delete_key,
+    backup::pack_summary,
+    backup::restore_plan,
+    backup::restore_run,
+    backup::restore_retry,
+    backup::restore_undo,
+    #[cfg(feature = "author-tools")]
+    copy::copy_compare,
+    #[cfg(feature = "author-tools")]
+    copy::copy_run,
+    #[cfg(feature = "author-tools")]
+    copy::copy_undo,
+    alerting::alert_action,
+    alerting::test_alert,
+    alerting::set_alert_switch,
+    alerting::set_pool_alert,
+    #[cfg(feature = "author-tools")]
+    alerting::set_firstmate_file,
+    alerting::get_history,
+    alerting::notify_refresh,
+    alerting::open_notification_settings,
+    install::settings_opened,
+    install::set_launch_at_login,
+    install::open_login_items,
+    #[cfg(feature = "author-tools")]
+    install::set_source_dir,
+    #[cfg(feature = "author-tools")]
+    install::update_from_source,
+    #[cfg(feature = "author-tools")]
+    install::relaunch,
+];
 
 /// `quota-station claude …`, with the owner's home and the Keychain.
 fn claude_cli(args: &[String]) -> i32 {
@@ -402,4 +449,56 @@ pub(crate) fn machine_name() -> String {
         .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
         .filter(|name| !name.is_empty())
         .unwrap_or_else(|| "Mac này".to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::command_names;
+
+    /// The commands of the author's tools: Nâng cao and its Firstmate
+    /// switch, the rules editor and the other Macs, the copy to another
+    /// Mac, Firstmate's state file, and the update from source.
+    const AUTHOR_COMMANDS: [&str; 16] = [
+        "set_advanced",
+        "set_firstmate",
+        "save_rotation",
+        "adopt_rotation",
+        "keep_rotation",
+        "retry_rotation",
+        "set_peers",
+        "test_peer",
+        "preview_rotation",
+        "copy_compare",
+        "copy_run",
+        "copy_undo",
+        "set_firstmate_file",
+        "set_source_dir",
+        "update_from_source",
+        "relaunch",
+    ];
+
+    #[test]
+    fn the_author_tools_commands_come_only_with_the_feature() {
+        let names = command_names();
+        let tools = cfg!(feature = "author-tools");
+        for command in AUTHOR_COMMANDS {
+            assert_eq!(names.contains(&command), tools, "{command}");
+        }
+        // Every build keeps the rest: the quit guard, the pause, the alerts,
+        // the Claude accounts' own rotation switch.
+        for command in [
+            "get_model",
+            "rules_dirty",
+            "take_quit",
+            "close_main",
+            "pause_switching",
+            "resume_switching",
+            "set_alert_switch",
+            "set_pool_alert",
+            "claude_set_rotation",
+            "set_launch_at_login",
+        ] {
+            assert!(names.contains(&command), "{command}");
+        }
+    }
 }

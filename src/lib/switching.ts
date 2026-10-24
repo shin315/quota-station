@@ -595,9 +595,10 @@ export interface GuideView {
 
 /**
  * `auto`: stop the older switchers (step 1 of the cutover); `switcher`: the whole cutover from
- * claude-swap, as the README's checklist has it.
+ * claude-swap, as the README's checklist has it. The step for Firstmate comes only in a build
+ * with the author's tools (`authorTools`).
  */
-export function guide(id: 'auto' | 'switcher'): GuideView {
+export function guide(id: 'auto' | 'switcher', authorTools = true): GuideView {
   return id === 'auto'
     ? {
         title: 'Tắt bộ tự chuyển cũ',
@@ -618,7 +619,11 @@ export function guide(id: 'auto' | 'switcher'): GuideView {
           'Tắt bộ tự chuyển cũ: giữ bản sao plist rồi `launchctl bootout gui/$(id -u)/com.cswap.prefer-team`.',
           'Ở tab Claude, bấm **Nhập từ claude-swap**. Chạy lại lần nữa cũng không sao: chỉ đăng nhập mới hơn được lấy thêm.',
           'Kiểm tra danh sách tài khoản, rồi bật **Tự chuyển bằng Quota Station**.',
-          'Firstmate đọc số từ `quota-station claude status --json` thay cho `cswap list --json`, và chạy `quota-station claude run N --` thay cho `cswap run N --`.',
+          ...(authorTools
+            ? [
+                'Firstmate đọc số từ `quota-station claude status --json` thay cho `cswap list --json`, và chạy `quota-station claude run N --` thay cho `cswap run N --`.',
+              ]
+            : []),
           'Chỉ gỡ claude-swap khi đã hỏi và mọi Mac đã chạy ổn.',
         ],
       };

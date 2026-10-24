@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { hideNames } from '../fixtures/fakeApi';
 import { FIXTURE_NOW, fixtureModel, peerFixture, rotationFixture, rulesFixture } from '../fixtures/models';
+import type { AuthorModel } from './author';
 import type { Model, PeerView } from './model';
 import {
   changedBanner,
@@ -25,7 +26,7 @@ import {
 
 const RETRY = '2026-01-16T07:25:40.000Z'; // 14:25 at UTC+7
 
-function withPeers(...peers: PeerView[]): Model {
+function withPeers(...peers: PeerView[]): AuthorModel {
   return fixtureModel('fresh', { rotation: rotationFixture({ peers }) });
 }
 

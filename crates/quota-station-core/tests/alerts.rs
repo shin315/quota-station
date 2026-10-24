@@ -23,8 +23,10 @@ use quota_station_core::antigravity::switch::How;
 #[cfg(feature = "antigravity-accounts")]
 use quota_station_core::antigravity::watch;
 use quota_station_core::app_dir::AppDir;
+#[cfg(feature = "author-tools")]
 use quota_station_core::firstmate;
 use quota_station_core::quota::Response;
+#[cfg(feature = "author-tools")]
 use quota_station_core::rotation::{Expire, Rules};
 use quota_station_core::settings::PoolAlert;
 use serde_json::{json, Value};
@@ -102,6 +104,7 @@ fn facts<'a>(now: i64, claude: Option<&'a Response>) -> Facts<'a> {
         agy: Vec::new(),
         #[cfg(feature = "antigravity-accounts")]
         overwrite: None,
+        #[cfg(feature = "author-tools")]
         firstmate: None,
         pool: PoolAlert::default(),
         advanced: true,
@@ -234,6 +237,7 @@ fn the_dry_rule_is_firstmates() {
     assert!(!check(vec![slot(2, 5.0, true), pending], vec![], T0).dry);
 }
 
+#[cfg(feature = "author-tools")]
 #[test]
 fn an_account_leaving_the_rotation_is_told_thirty_minutes_before() {
     let center = FakeCenter::default();
@@ -276,6 +280,7 @@ fn an_account_leaving_the_rotation_is_told_thirty_minutes_before() {
     assert_eq!(labels(&card.actions), ["Ổn"]);
 }
 
+#[cfg(feature = "author-tools")]
 #[test]
 fn without_the_reports_rotation_the_rotation_file_says_who_leaves() {
     let center = FakeCenter::default();
@@ -496,6 +501,7 @@ fn an_overwrite_within_six_hours_offers_to_switch_back() {
     assert_eq!(center.press(&mut memory, &card, "Thôi", T0 + 4 * HOUR), Effect::DismissOverwrite);
 }
 
+#[cfg(feature = "author-tools")]
 #[test]
 fn firstmate_holding_claude_work_is_told_once_per_hold() {
     let center = FakeCenter::default();
@@ -532,6 +538,25 @@ fn firstmate_holding_claude_work_is_told_once_per_hold() {
     assert!(run(&mut memory, &f, &center).is_empty());
 }
 
+/// Alerts 2 and 5 are the author's tools': a build without them never
+/// raises them, every switch on.
+#[cfg(not(feature = "author-tools"))]
+#[test]
+fn without_the_author_tools_no_account_is_told_it_leaves_the_rotation() {
+    let center = FakeCenter::default();
+    let mut memory = Memory::default();
+    let ends = T0 + HOUR;
+    let r = report(vec![slot(2, 60.0, true), slot(3, 90.0, false)], vec![(2, ends)], 2.0);
+    let all = Switches { firstmate: true, ..Switches::default() };
+    for now in [ends - 30 * MIN, ends - 10 * MIN] {
+        let ids = alerts::evaluate(&mut memory, &facts(now, Some(&r)), &all);
+        alerts::deliver(&mut memory, &ids, &center);
+    }
+    assert!(center.titles().is_empty(), "{:?}", center.titles());
+    assert!(memory.recent.iter().all(|r| r.alert.kind != Kind::Leaving));
+}
+
+#[cfg(feature = "author-tools")]
 #[test]
 fn kinds_turned_off_send_nothing_and_cards_macos_refused_stay_in_the_app() {
     let center = FakeCenter { refuse: true, ..FakeCenter::default() };
@@ -549,6 +574,8 @@ fn kinds_turned_off_send_nothing_and_cards_macos_refused_stay_in_the_app() {
     assert_eq!(memory.unanswered(), 1);
 }
 
+// Its cards are alert 2's, which only a build with the author's tools raises.
+#[cfg(feature = "author-tools")]
 #[test]
 fn a_card_takes_one_answer_whichever_card_was_pressed() {
     let center = FakeCenter::default();

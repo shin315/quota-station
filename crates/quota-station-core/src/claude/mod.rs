@@ -82,6 +82,7 @@ impl Paths {
     }
 
     /// The copy in claude-swap's layout that Firstmate's quota-axi reads.
+    #[cfg(feature = "author-tools")]
     pub fn swap(&self) -> PathBuf {
         self.dir.join("swap")
     }
@@ -140,7 +141,9 @@ impl Paths {
     }
 
     /// The copy for Firstmate is written: the app keeps the accounts, and
-    /// Cài đặt › Nâng cao shows Firstmate.
+    /// Cài đặt › Nâng cao shows Firstmate. Only a build with the
+    /// `author-tools` feature writes it.
+    #[cfg(feature = "author-tools")]
     pub fn firstmate_copy(&self) -> bool {
         self.in_use() && crate::settings::Settings::load(&self.settings_file()).firstmate_shown()
     }
@@ -148,6 +151,7 @@ impl Paths {
     /// The variables that point Firstmate's quota-axi at the app's copy of
     /// the accounts and its rotation file instead of claude-swap's
     /// (`docs/claude-accounts.md`); none while no copy is written.
+    #[cfg(feature = "author-tools")]
     pub fn firstmate_env(&self) -> Vec<(String, std::ffi::OsString)> {
         if !self.firstmate_copy() {
             return Vec::new();

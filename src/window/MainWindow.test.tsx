@@ -5,7 +5,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MainWindowApp } from '../App';
 import { fakeApi, fakeEmail, hideNames } from '../fixtures/fakeApi';
-import { agyAccount, agyFixture, claudeAccountsFixture, FIXTURE_NOW, fixtureModel, heldSwitcher, switcherFixture } from '../fixtures/models';
+import { agyAccount, agyFixture, claudeAccountsFixture, communityModel, FIXTURE_NOW, fixtureModel, heldSwitcher, switcherFixture } from '../fixtures/models';
 import type { Api } from '../lib/api';
 import type { Model, Tab } from '../lib/model';
 
@@ -289,9 +289,32 @@ describe('with Nâng cao off', () => {
   });
 
   it('a build without the Antigravity accounts reads Antigravity without logging in', async () => {
-    await open({ ...fixtureModel('fresh'), capabilities: { agyAccounts: false } }, 'agy');
+    await open({ ...fixtureModel('fresh'), capabilities: { agyAccounts: false, authorTools: true } }, 'agy');
     expect(screen.queryByRole('button', { name: 'Thêm tài khoản' })).toBeNull();
     expect(screen.getByText(/Bản này đọc tài khoản Antigravity đang đăng nhập/)).toBeTruthy();
+  });
+});
+
+describe('a build without the author\'s tools', () => {
+  it('has none of their tabs, and no automatic switching, pause or Firstmate line', async () => {
+    await open(communityModel(fixtureModel('fresh')), 'rules');
+    expect(heading()).toBe('Tổng quan');
+    const sidebar = screen.getByRole('navigation', { name: 'Mục' });
+    for (const name of ['Luật xoay vòng', 'Firstmate', 'Chép sang Mac khác']) expect(within(sidebar).queryByRole('button', { name })).toBeNull();
+    expect(nav('Claude')).toBeTruthy();
+    expect(nav('Sao lưu')).toBeTruthy();
+    cleanup();
+    await open(communityModel(fixtureModel('fresh')), 'claude');
+    expect(screen.queryByRole('group', { name: 'Tạm dừng' })).toBeNull();
+    expect(screen.queryByText(/Firstmate/)).toBeNull();
+    // The Claude accounts' own rotation switch stays: it is not one of the author's tools.
+    expect(screen.getByRole('switch', { name: 'Tự chuyển bằng Quota Station' })).toBeTruthy();
+  });
+
+  it('the same Mac on a build with them keeps the tabs and the Firstmate line', async () => {
+    await open(fixtureModel('fresh'), 'claude');
+    for (const name of ['Luật xoay vòng', 'Firstmate', 'Chép sang Mac khác']) expect(nav(name)).toBeTruthy();
+    expect(screen.getByText(/Firstmate đọc `quota-station claude status --json`/)).toBeTruthy();
   });
 });
 

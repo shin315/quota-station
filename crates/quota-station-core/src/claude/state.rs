@@ -12,17 +12,21 @@
 //!   same numbers in claude-swap's layout, which the quota-axi Firstmate
 //!   runs reads when `QUOTA_AXI_CLAUDE_SWAP_DIR` points at `claude/swap`.
 //!   Written only while Cài đặt › Nâng cao shows Firstmate
-//!   ([`super::Paths::firstmate_copy`]). Addresses there are placeholders
+//!   (`Paths::firstmate_copy`), and only by a build with the `author-tools`
+//!   feature. Addresses there are placeholders
 //!   (`slot-2@quota-station.local`); quota-axi only compares the two
 //!   files' with each other.
 //! - [`details`], for the app's own windows: each account's windows and,
 //!   only while the owner shows names, its email and organization, read
 //!   from its Keychain item into memory.
 
+#[cfg(feature = "author-tools")]
 use std::collections::BTreeMap;
 
 use serde::Serialize;
-use serde_json::{json, Value};
+#[cfg(feature = "author-tools")]
+use serde_json::json;
+use serde_json::Value;
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
@@ -132,11 +136,13 @@ pub fn build(list: &List, cache: &Cache, active: Option<u32>, now: OffsetDateTim
 }
 
 /// The placeholder address the copy for Firstmate gives an account.
+#[cfg(feature = "author-tools")]
 pub fn placeholder(slot: u32) -> String {
     format!("slot-{slot}@quota-station.local")
 }
 
 /// `sequence.json` in claude-swap's layout.
+#[cfg(feature = "author-tools")]
 pub fn sequence(list: &List, active: Option<u32>, now: OffsetDateTime) -> Value {
     let accounts: BTreeMap<String, Value> = list
         .accounts
@@ -163,6 +169,7 @@ pub fn sequence(list: &List, active: Option<u32>, now: OffsetDateTime) -> Value 
 }
 
 /// `cache/usage.json` in claude-swap's layout (its schema 2).
+#[cfg(feature = "author-tools")]
 pub fn swap_usage(list: &List, cache: &Cache) -> Value {
     let accounts: BTreeMap<String, Value> = list
         .accounts
@@ -189,17 +196,18 @@ pub fn write(store: &Store, active: Option<u32>, now: OffsetDateTime) -> std::io
     let list = store.load().map_err(|e| std::io::Error::other(e.to_string()))?;
     let cache = usage::load(store);
     let state = build(&list, &cache, active, now);
-    let pretty = |v: &Value| serde_json::to_string_pretty(v).expect("serializes") + "\n";
     super::write_private(
         &store.paths.state(),
         &(serde_json::to_string_pretty(&state).expect("serializes") + "\n"),
     )?;
-    if !store.paths.firstmate_copy() {
-        return Ok(());
+    #[cfg(feature = "author-tools")]
+    if store.paths.firstmate_copy() {
+        let pretty = |v: &Value| serde_json::to_string_pretty(v).expect("serializes") + "\n";
+        let swap = store.paths.swap();
+        super::write_private(&swap.join("sequence.json"), &pretty(&sequence(&list, active, now)))?;
+        super::write_private(&swap.join("cache/usage.json"), &pretty(&swap_usage(&list, &cache)))?;
     }
-    let swap = store.paths.swap();
-    super::write_private(&swap.join("sequence.json"), &pretty(&sequence(&list, active, now)))?;
-    super::write_private(&swap.join("cache/usage.json"), &pretty(&swap_usage(&list, &cache)))
+    Ok(())
 }
 
 /// Each account the app keeps with its last reading, for the windows. With

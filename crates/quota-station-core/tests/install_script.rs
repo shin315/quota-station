@@ -211,8 +211,9 @@ fn builds_signs_ad_hoc_installs_and_opens() {
     let calls = s.calls();
     let build =
         calls.iter().find(|c| c.starts_with("cargo tauri build --bundles app")).expect("a build");
-    // A build from source keeps the Antigravity accounts, in Rust and in the frontend.
-    assert!(build.contains("--features antigravity-accounts"), "{build}");
+    // A build from source keeps the Antigravity accounts, in Rust and in the
+    // frontend, and the tools made for the author's own Macs.
+    assert!(build.contains("--features antigravity-accounts,author-tools "), "{build}");
     assert!(build.contains(" QS_ANTIGRAVITY_ACCOUNTS=1 "), "{build}");
     assert!(calls.iter().any(|c| c == "security find-identity -v -p codesigning"));
     assert!(!calls.iter().any(|c| c.starts_with("npm")), "node_modules is up to date: {calls:?}");
@@ -281,9 +282,31 @@ fn qs_antigravity_accounts_0_builds_without_the_antigravity_accounts() {
     ok(&s.run_with(&["--dest", &s.dest(), "--no-open"], &[("QS_ANTIGRAVITY_ACCOUNTS", "0")]));
     let calls = s.calls();
     let build = calls.iter().find(|c| c.starts_with("cargo tauri build")).expect("a build");
-    assert!(!build.contains("--features"), "{build}");
+    assert!(!build.contains("antigravity-accounts"), "{build}");
+    assert!(build.contains("--features author-tools "), "{build}");
     assert!(build.contains(" QS_ANTIGRAVITY_ACCOUNTS=0 "), "{build}");
     assert!(verifies(&s.installed()));
+}
+
+#[test]
+fn qs_author_tools_0_builds_without_the_author_tools_as_a_release_build_does() {
+    let s = Sandbox::new("install-no-author");
+    ok(&s.run_with(&["--dest", &s.dest(), "--no-open"], &[("QS_AUTHOR_TOOLS", "0")]));
+    let build =
+        s.calls().into_iter().find(|c| c.starts_with("cargo tauri build")).expect("a build");
+    assert!(!build.contains("author-tools"), "{build}");
+    assert!(build.contains("--features antigravity-accounts "), "{build}");
+    assert!(verifies(&s.installed()));
+
+    // Both left out: the build takes no feature at all.
+    let s = Sandbox::new("install-plain");
+    ok(&s.run_with(
+        &["--dest", &s.dest(), "--no-open"],
+        &[("QS_AUTHOR_TOOLS", "0"), ("QS_ANTIGRAVITY_ACCOUNTS", "0")],
+    ));
+    let build =
+        s.calls().into_iter().find(|c| c.starts_with("cargo tauri build")).expect("a build");
+    assert!(!build.contains("--features"), "{build}");
 }
 
 #[test]

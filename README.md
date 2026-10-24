@@ -12,6 +12,10 @@ trên Cockpit Tools) and stay under CC BY-NC-SA 4.0, personal and
 non-commercial. They are built only with the `antigravity-accounts` feature.
 See [License](#license) and [`NOTICE`](NOTICE).
 
+The tools made for the author's own Macs (`Cài đặt › Nâng cao` and what it
+holds) are built only with the `author-tools` feature, which a release build
+leaves out; see [The author's tools](#the-authors-tools-author-tools).
+
 <img src="docs/popover.png" width="380" alt="The popover on fixture data: Đang dùng for Claude, Gemini and Codex, then four Claude Code accounts and two Antigravity accounts with their share used and reset times, and the Codex row">
 
 ![The menu bar item for five fixture cases (following Claude, Gemini, Codex on ChatGPT, Codex through a provider, an exhausted rotation), in light and dark menu bars](docs/menubar.png)
@@ -211,7 +215,8 @@ the confirmation sheet first.
     install starts with `Nâng cao` off, no rotation rules and accounts named
     `Tài khoản N`; a Mac that already had the app (a settings file or any
     file in the app's folder) gets it on, with `Firstmate`, so nothing
-    changes there.
+    changes there. Only a build with the `author-tools` feature has
+    `Nâng cao` ([The author's tools](#the-authors-tools-author-tools)).
 
   - `Codex` (M8, below).
 
@@ -754,7 +759,8 @@ credited in [`THIRD_PARTY.md`](THIRD_PARTY.md)).
   Claude Code's own token and never refreshed by the app; another account
   whose token has under five minutes left is refreshed first. The readings
   are `claude/usage.json`, and the Claude row is built from them. While
-  `Cài đặt › Nâng cao` shows Firstmate, the app also writes a copy in
+  `Cài đặt › Nâng cao` shows Firstmate (in a build with the `author-tools`
+  feature), the app also writes a copy in
   claude-swap's layout, `claude/swap/`, with placeholder addresses, for
   Firstmate's quota-axi (`QUOTA_AXI_CLAUDE_SWAP_DIR` and
   `QUOTA_AXI_CLAUDE_ROTATION`, [`docs/claude-accounts.md`](docs/claude-accounts.md)).
@@ -1292,6 +1298,33 @@ is ad-hoc signed and is not installed anywhere. Open it from there to try it.
 A copy run this way or with `npm run app` cannot launch at login or update
 itself; `scripts/install.sh` installs it.
 
+### The author's tools (`author-tools`)
+
+`Cài đặt › Nâng cao` and what it holds were made for the author's own Macs:
+the `Luật xoay vòng` editor and the copy of the rotation file to the other
+Macs, `Chép sang Mac khác`, `Mã nguồn` and `Cập nhật từ mã nguồn`, the
+`Firstmate` tab with its file and alert 5, alert 2, and the copy of the Claude
+accounts in claude-swap's layout (`claude/swap/`). They are built only with
+the Cargo feature `author-tools`:
+
+- A build without it (`cargo tauri build`, `npm run app`, a release build)
+  compiles none of that code and has none of its commands;
+  `quota-station agents` refuses there as a copy of another version would.
+  `Nâng cao` counts as off whatever the settings file says, so the windows
+  show no `Nâng cao` card and none of the tabs, cards, switches or names it
+  holds (automatic switching with its pause and the Switcher card, the
+  Cá nhân/Team and Ultra names). The model says which build it is
+  (`capabilities.authorTools`).
+- `scripts/install.sh` builds with it (`QS_AUTHOR_TOOLS=0 scripts/install.sh`
+  leaves it out). By hand: `cargo tauri build --features author-tools`, or
+  `npm run app -- --features author-tools`.
+
+The settings file is the same in both: a build without the feature reads the
+values `Nâng cao` holds (its two switches, the other Macs, the clone,
+Firstmate's file, the switches of alerts 2 and 5) and writes them back as
+they were, so a settings file written by either build loads unchanged in the
+other.
+
 ### Browser preview
 
 `npm run dev` serves the popover at http://localhost:1420/ on the fixtures and
@@ -1360,7 +1393,13 @@ The Antigravity accounts' tests (login, quota, switch, spy) build only with
 their feature: CI runs `cargo test --workspace` both without it and with
 `--features antigravity-accounts`, builds the interface with and without
 `QS_ANTIGRAVITY_ACCOUNTS=1` (a build without it stops if it would bundle a
-file from `src/antigravity/`), and runs `reuse lint`.
+file from `src/antigravity/`), and runs `reuse lint`. It runs clippy and
+`cargo test --workspace` with `--features author-tools` and with both
+features too, as `scripts/install.sh` builds: the tests of the other Macs,
+the copy to another Mac and the update from source build only with
+`author-tools`, and the tests of the settings file, the alerts, the Claude
+accounts' copy, the model and the list of commands check each build's side
+(`npm test` checks the windows of both).
 
 The install tests (`crates/quota-station-core/tests/install_script.rs`) run
 `scripts/install.sh` with macOS's `/bin/bash` on a clean temporary folder: a

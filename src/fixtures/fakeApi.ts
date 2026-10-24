@@ -6,6 +6,7 @@
 // or the Keychain, and writes no file.
 // Plain code: the preview bundle must not load Vitest.
 
+import type { AuthorModel } from '../lib/author';
 import type { Api } from '../lib/api';
 import { fakeParts, fakeRestore, planFixture, summaryFixture } from './fakeBackup';
 import { comparisonFixture, copyDoneFixture, copyUndoneFixture } from './fakeCopy';
@@ -212,7 +213,7 @@ function stampAt(d: Date): string {
 }
 
 /** The model of a build with the Antigravity accounts, as the fixtures are. */
-type Full = Model & Required<Pick<Model, 'antigravity' | 'agySwitch'>>;
+type Full = AuthorModel & Required<Pick<Model, 'antigravity' | 'agySwitch'>>;
 
 export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: FakeOptions = {}) {
   let model = initial as Full;

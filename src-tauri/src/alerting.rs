@@ -25,14 +25,18 @@ use quota_station_core::antigravity::switch::{self as agy};
 use quota_station_core::antigravity::{index, watch};
 #[cfg(feature = "antigravity-accounts")]
 use quota_station_core::app_dir::AppDir;
+#[cfg(feature = "author-tools")]
 use quota_station_core::firstmate::{self, PoolLine};
 use quota_station_core::history::{self, Entry};
 use quota_station_core::rotation::{self, FileState};
+#[cfg(feature = "author-tools")]
+use quota_station_core::runner;
 use quota_station_core::settings::PoolAlert;
 use quota_station_core::snapshot::SectionStatus;
-use quota_station_core::{local_time, runner, switcher};
+use quota_station_core::{local_time, switcher};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
+#[cfg(feature = "author-tools")]
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
@@ -57,6 +61,7 @@ pub struct AlertsView {
 }
 
 /// The Firstmate tab (F10).
+#[cfg(feature = "author-tools")]
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FirstmateView {
@@ -73,6 +78,7 @@ pub struct FirstmateView {
     pub own_dry: Option<bool>,
 }
 
+#[cfg(feature = "author-tools")]
 fn rfc(at: i64) -> Option<String> {
     OffsetDateTime::from_unix_timestamp(at).ok().and_then(|t| t.format(&Rfc3339).ok())
 }
@@ -87,6 +93,7 @@ pub fn alerts_view(inner: &Inner) -> AlertsView {
     }
 }
 
+#[cfg(feature = "author-tools")]
 pub fn firstmate_view(inner: &Inner) -> FirstmateView {
     let now = OffsetDateTime::now_utc();
     let file = inner.settings.firstmate_file.as_ref();
@@ -146,17 +153,19 @@ pub fn track_history(state: &AppState) {
 /// The rules of the five alerts on the newest readings; new alerts go out.
 fn evaluate(state: &AppState) {
     let now = OffsetDateTime::now_utc();
-    let (dir, home, claude, file, pool, advanced) = {
+    let (dir, home, claude, pool, advanced) = {
         let inner = state.lock();
         (
             inner.app_dir(),
             inner.home.clone(),
             inner.claude.clone(),
-            inner.settings.firstmate_file.clone(),
             inner.settings.pool_alert,
-            inner.settings.advanced,
+            inner.settings.advanced_shown(),
         )
     };
+    #[cfg(feature = "author-tools")]
+    let file = state.lock().settings.firstmate_file.clone();
+    #[cfg(feature = "author-tools")]
     let reading = file.as_deref().map(firstmate::read);
     let has_rotation = claude
         .as_ref()
@@ -185,6 +194,7 @@ fn evaluate(state: &AppState) {
         agy: alerts::agy_logins(&dir),
         #[cfg(feature = "antigravity-accounts")]
         overwrite: alerts::overwrite(&dir, running),
+        #[cfg(feature = "author-tools")]
         firstmate: reading.as_ref().and_then(|r| r.as_ref().ok()),
         pool,
         advanced,
@@ -193,17 +203,23 @@ fn evaluate(state: &AppState) {
     let before = inner.alerts.clone();
     let switches = inner.settings.alert_switches();
     let ids = alerts::evaluate(&mut inner.alerts, &facts, &switches);
-    inner.own_dry = claude
-        .as_ref()
-        .and_then(|r| alerts::pool_check(r, rules.as_ref(), pool, now, facts.offset))
-        .map(|c| c.dry);
+    #[cfg(feature = "author-tools")]
+    {
+        inner.own_dry = claude
+            .as_ref()
+            .and_then(|r| alerts::pool_check(r, rules.as_ref(), pool, now, facts.offset))
+            .map(|c| c.dry);
+    }
     if let Some(center) = inner.center.clone() {
         alerts::deliver(&mut inner.alerts, &ids, &*center);
     }
     if inner.alerts != before {
         let _ = alerts::save(&dir, &inner.alerts);
     }
-    inner.firstmate = reading;
+    #[cfg(feature = "author-tools")]
+    {
+        inner.firstmate = reading;
+    }
 }
 
 /// What the window that pressed a button does next.
@@ -310,7 +326,7 @@ pub async fn press(
         }
         #[cfg(feature = "antigravity-accounts")]
         Effect::SwitchAgy { number, how } => {
-            let roles = shared.lock().settings.advanced;
+            let roles = shared.lock().settings.advanced_shown();
             let said = match account_id(&dir, number) {
                 None => alerts::agy_refused(number, refusal("unknownAccount"), roles),
                 Some(account) => {
@@ -332,13 +348,13 @@ pub async fn press(
 }
 
 /// "Gửi thử": a sample card of `kind` with its real buttons, which change
-/// nothing.
+/// nothing. None for a kind this build does not have ([`Kind::built`]).
 #[tauri::command]
 pub fn test_alert(app: AppHandle, state: State<'_, AppState>, kind: Kind) -> Model {
     let now = OffsetDateTime::now_utc();
-    {
+    if kind.built() {
         let mut inner = state.lock();
-        let roles = inner.settings.advanced;
+        let roles = inner.settings.advanced_shown();
         let alert = alerts::sample(kind, now.unix_timestamp(), local_time::offset_at(now), roles);
         let id = alerts::keep_test(&mut inner.alerts, alert);
         if let Some(center) = inner.center.clone() {
@@ -350,7 +366,8 @@ pub fn test_alert(app: AppHandle, state: State<'_, AppState>, kind: Kind) -> Mod
     state.lock().model()
 }
 
-/// Turns one kind of alert on or off.
+/// Turns one kind of alert on or off; refuses (`notBuilt`) a kind this
+/// build does not have ([`Kind::built`]).
 #[tauri::command]
 pub fn set_alert_switch(
     app: AppHandle,
@@ -358,6 +375,9 @@ pub fn set_alert_switch(
     kind: Kind,
     on: bool,
 ) -> Result<Model, String> {
+    if !kind.built() {
+        return Err("notBuilt".into());
+    }
     {
         let mut inner = state.lock();
         let mut settings = inner.settings.clone();
@@ -395,6 +415,7 @@ pub fn set_pool_alert(
 /// Sets Firstmate's `quota-pool.last`; empty forgets it. Refuses a file not
 /// called `quota-pool.last` (`notPoolFile`) and a path with no file
 /// (`notFound`), and keeps the one before.
+#[cfg(feature = "author-tools")]
 #[tauri::command]
 pub fn set_firstmate_file(
     app: AppHandle,

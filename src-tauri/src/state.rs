@@ -5,6 +5,7 @@
 
 #[cfg(feature = "antigravity-accounts")]
 use std::collections::BTreeMap;
+#[cfg(feature = "author-tools")]
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
@@ -19,19 +20,25 @@ use quota_station_core::antigravity::pace::Pace;
 use quota_station_core::antigravity::{export, index};
 use quota_station_core::app_dir::AppDir;
 use quota_station_core::claude::keychain::Security;
+#[cfg(feature = "author-tools")]
+use quota_station_core::claude::rotate;
+use quota_station_core::claude::session;
 use quota_station_core::claude::state::AccountOut;
 use quota_station_core::claude::store::Store;
-use quota_station_core::claude::{rotate, session};
 use quota_station_core::detail;
 #[cfg(feature = "antigravity-accounts")]
 use quota_station_core::detail::AgyDetail;
 use quota_station_core::detail::ClaudeDetail;
+#[cfg(feature = "author-tools")]
 use quota_station_core::firstmate::{self, Reading};
 use quota_station_core::history::Seen;
 use quota_station_core::icon::{self, Context, Icon};
+#[cfg(feature = "author-tools")]
 use quota_station_core::peers::{self, PeerState, SyncLog};
 use quota_station_core::quota::Response;
+#[cfg(feature = "author-tools")]
 use quota_station_core::rotation::{self, FileState, Rules, Stamp};
+#[cfg(feature = "author-tools")]
 use quota_station_core::runner;
 use quota_station_core::schedule::Schedule;
 use quota_station_core::settings::{Menubar, MenubarWindow, Settings, Theme};
@@ -45,7 +52,9 @@ use time::OffsetDateTime;
 use crate::agents::{self, McpView};
 #[cfg(feature = "antigravity-accounts")]
 use crate::agy_switch::{self, SwitchView};
-use crate::alerting::{self, AlertsView, FirstmateView};
+#[cfg(feature = "author-tools")]
+use crate::alerting::FirstmateView;
+use crate::alerting::{self, AlertsView};
 #[cfg(feature = "antigravity-accounts")]
 use crate::antigravity::{self, AccountsView};
 use crate::codex::{self, CodexView};
@@ -59,9 +68,11 @@ pub struct Shared {
     /// Wakes the reader thread early: a read was asked for, or settings changed.
     pub wake: Condvar,
     /// Wakes the rotation sync thread: a save, or the list of Macs changed.
+    #[cfg(feature = "author-tools")]
     pub sync_wake: Condvar,
     /// Held while copying the rotation file to the other Macs, so two copies
     /// to the same Mac never run at once.
+    #[cfg(feature = "author-tools")]
     pub push_lock: Mutex<()>,
     /// Wakes the Antigravity quota thread: a read, the tab, a login.
     pub agy_wake: Condvar,
@@ -82,7 +93,9 @@ impl Shared {
         Arc::new(Shared {
             inner: Mutex::new(inner),
             wake: Condvar::new(),
+            #[cfg(feature = "author-tools")]
             sync_wake: Condvar::new(),
+            #[cfg(feature = "author-tools")]
             push_lock: Mutex::new(()),
             agy_wake: Condvar::new(),
             #[cfg(feature = "antigravity-accounts")]
@@ -93,6 +106,7 @@ impl Shared {
     }
 
     /// Asks the sync thread to look at the other Macs now.
+    #[cfg(feature = "author-tools")]
     pub fn request_sync(&self) {
         self.lock().sync_now = true;
         self.sync_wake.notify_all();
@@ -171,12 +185,17 @@ pub struct Inner {
     /// The slot a manual switch is running for.
     pub switching: Option<u32>,
     /// Where each other Mac stands with this Mac's rotation file.
+    #[cfg(feature = "author-tools")]
     pub sync: SyncLog,
+    #[cfg(feature = "author-tools")]
     pub sync_file: PathBuf,
+    #[cfg(feature = "author-tools")]
     pub sync_now: bool,
     /// Aliases of the Macs a copy is going to now.
+    #[cfg(feature = "author-tools")]
     pub pushing: BTreeSet<String>,
     /// A rotation save is running.
+    #[cfg(feature = "author-tools")]
     pub rotation_saving: bool,
     /// The rules editor holds changes not saved yet: closing the main window asks first.
     pub rules_dirty: bool,
@@ -211,9 +230,11 @@ pub struct Inner {
     pub seen: Seen,
     /// Firstmate's state file as last read (at start, then after each read);
     /// `None` with no path set.
+    #[cfg(feature = "author-tools")]
     pub firstmate: Option<Result<Reading, firstmate::ReadError>>,
     /// Firstmate's dry rule on the newest numbers, counted by the
     /// app with the same rotation the alerts use.
+    #[cfg(feature = "author-tools")]
     pub own_dry: Option<bool>,
     /// macOS's notification center; `None` until the app has started it.
     pub center: Option<Arc<notify::Center>>,
@@ -229,6 +250,7 @@ pub struct Inner {
     pub backup: crate::backup::Live,
     /// The skills table, the plugins, the instruction files (M11).
     pub skills: crate::skills::Live,
+    #[cfg(feature = "author-tools")]
     pub copy: crate::copy::Live,
     /// The variables that override a login (M14).
     pub env: crate::env::Live,
@@ -320,7 +342,9 @@ pub enum Tab {
 impl Inner {
     pub fn new(home: PathBuf, settings_file: PathBuf, system_machine: String) -> Self {
         let settings = Settings::open(&settings_file);
+        #[cfg(feature = "author-tools")]
         let firstmate = settings.firstmate_file.as_deref().map(firstmate::read);
+        #[cfg(feature = "author-tools")]
         let sync_file = settings_file.with_file_name("rotation-sync.json");
         let app_dir =
             AppDir::new(settings_file.parent().map(|p| p.to_path_buf()).unwrap_or_default());
@@ -349,10 +373,15 @@ impl Inner {
             switcher: SwitcherState::default(),
             switcher_now: true,
             switching: None,
+            #[cfg(feature = "author-tools")]
             sync: SyncLog::load(&sync_file),
+            #[cfg(feature = "author-tools")]
             sync_file,
+            #[cfg(feature = "author-tools")]
             sync_now: true,
+            #[cfg(feature = "author-tools")]
             pushing: BTreeSet::new(),
+            #[cfg(feature = "author-tools")]
             rotation_saving: false,
             rules_dirty: false,
             quit_pending: false,
@@ -370,7 +399,9 @@ impl Inner {
             agy_logging_out: false,
             alerts: alerts::load(&app_dir),
             seen: Seen::default(),
+            #[cfg(feature = "author-tools")]
             firstmate,
+            #[cfg(feature = "author-tools")]
             own_dry: None,
             center: None,
             app_version: String::new(),
@@ -382,6 +413,7 @@ impl Inner {
             env: crate::env::Live::default(),
             sets: crate::sets::Live::default(),
             stats: crate::stats::Live::default(),
+            #[cfg(feature = "author-tools")]
             copy: crate::copy::Live::default(),
         }
     }
@@ -421,6 +453,7 @@ impl Inner {
     }
 
     /// What the rotation's dry run uses.
+    #[cfg(feature = "author-tools")]
     pub fn rotation_tools(&self) -> rotate::Tools {
         rotate::Tools { claude: self.claude_program.clone(), ..rotate::Tools::system(&self.home) }
     }
@@ -514,7 +547,7 @@ impl Inner {
             window: self.settings.menubar_window,
             codex: self.codex_use(),
             now,
-            roles: self.settings.advanced,
+            roles: self.settings.advanced_shown(),
         };
         icon::icon(self.claude.is_some().then_some(snapshot), &cx)
             .with_pause(self.switcher.paused(now))
@@ -538,8 +571,8 @@ impl Inner {
             claude_accounts: crate::claude::view(self),
             show_names: !self.settings.hide_names,
             advanced: AdvancedView {
-                on: self.settings.advanced,
-                firstmate: self.settings.firstmate,
+                on: self.settings.advanced_shown(),
+                firstmate: cfg!(feature = "author-tools") && self.settings.firstmate,
             },
             theme: self.settings.theme,
             menubar: self.settings.menubar,
@@ -549,8 +582,10 @@ impl Inner {
             #[cfg(feature = "antigravity-accounts")]
             agy_switch: agy_switch::view(self),
             capabilities: Capabilities::BUILT,
+            #[cfg(feature = "author-tools")]
             rotation: self.rotation_view(),
             alerts: alerting::alerts_view(self),
+            #[cfg(feature = "author-tools")]
             firstmate: alerting::firstmate_view(self),
             app: install::view(self),
             codex: codex::view(self),
@@ -566,6 +601,7 @@ impl Inner {
     }
 
     /// The rotation file as it is on disk now, and each other Mac against it.
+    #[cfg(feature = "author-tools")]
     pub fn rotation_view(&self) -> RotationView {
         let file = self.claude_paths().rotation_file();
         let state = rotation::load(&file);
@@ -665,7 +701,8 @@ pub struct Model {
     pub claude_accounts: crate::claude::AccountsView,
     /// Account names (emails, organizations) may show.
     pub show_names: bool,
-    /// Cài đặt › Nâng cao and the Firstmate switch inside it.
+    /// Cài đặt › Nâng cao and the Firstmate switch inside it; both off in
+    /// a build without the author's tools.
     pub advanced: AdvancedView,
     pub theme: Theme,
     /// The service the menu bar title follows.
@@ -681,10 +718,14 @@ pub struct Model {
     pub agy_switch: SwitchView,
     /// What this build has.
     pub capabilities: Capabilities,
+    /// The rules editor and the other Macs; only in a build with the
+    /// author's tools.
+    #[cfg(feature = "author-tools")]
     pub rotation: RotationView,
     /// The five alerts (M6).
     pub alerts: AlertsView,
-    /// What Firstmate sees (M6).
+    /// What Firstmate sees (M6); only in a build with the author's tools.
+    #[cfg(feature = "author-tools")]
     pub firstmate: FirstmateView,
     /// The app itself: version, launching at login, the update (M7).
     pub app: AppView,
@@ -722,14 +763,23 @@ pub struct Capabilities {
     /// (the `antigravity-accounts` feature, CC BY-NC-SA 4.0). Without them
     /// Antigravity is the one account signed in on this Mac, read-only.
     pub agy_accounts: bool,
+    /// The tools made for the author's own Macs (the `author-tools`
+    /// feature, which a release build leaves out): Cài đặt › Nâng cao, the
+    /// rules editor and the other Macs, the copy to another Mac, the update
+    /// from source and Firstmate. Without them none of their commands is
+    /// built and the windows show no switch, tab or setting for them.
+    pub author_tools: bool,
 }
 
 impl Capabilities {
-    pub const BUILT: Capabilities =
-        Capabilities { agy_accounts: cfg!(feature = "antigravity-accounts") };
+    pub const BUILT: Capabilities = Capabilities {
+        agy_accounts: cfg!(feature = "antigravity-accounts"),
+        author_tools: cfg!(feature = "author-tools"),
+    };
 }
 
 /// The rotation file and the other Macs (F06).
+#[cfg(feature = "author-tools")]
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RotationView {
@@ -756,6 +806,7 @@ pub struct RotationView {
     pub ssh: bool,
 }
 
+#[cfg(feature = "author-tools")]
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PeerView {
@@ -827,6 +878,7 @@ mod tests {
         Inner::new(PathBuf::new(), PathBuf::from("/nonexistent/settings.json"), "Mac mini".into())
     }
 
+    #[cfg(feature = "author-tools")]
     fn sample() -> Rules {
         Rules { team: vec![2, 3, 4], personal: Some(1), ..Rules::starter(&[]) }
     }
@@ -880,6 +932,7 @@ mod tests {
         assert!(!inner.model().switcher.pause.unwrap().holds);
     }
 
+    #[cfg(feature = "author-tools")]
     #[test]
     fn each_other_mac_is_shown_against_the_file_on_disk_now() {
         use quota_station_core::peers::PeerRecord;
@@ -932,6 +985,32 @@ mod tests {
         assert_eq!(b.their_rules.as_ref().map(|r| r.full), Some(88.0));
         assert!(!c.current, "Mac C has an older file of this Mac");
         assert!(d.state.is_none() && !d.current, "Mac D was never sent anything");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A settings file with Nâng cao and Firstmate on, as a build with the
+    /// author's tools writes it: only such a build sends them to the
+    /// windows, with the rules editor, Firstmate and the update from
+    /// source; the other keeps the switches in the file and sends none.
+    #[test]
+    fn the_model_carries_the_author_tools_only_in_a_build_with_them() {
+        let dir = std::env::temp_dir().join(format!("qs-state-author-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let file = dir.join("app/settings.json");
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(&file, r#"{ "advanced": true, "firstmate": true, "sourceDir": "/srv/x" }"#)
+            .unwrap();
+        let inner = Inner::new(dir.clone(), file, "Mac A".into());
+        let json = serde_json::to_value(inner.model()).unwrap();
+        let tools = cfg!(feature = "author-tools");
+        assert_eq!(json["capabilities"]["authorTools"], tools);
+        assert_eq!(json["advanced"]["on"], tools);
+        assert_eq!(json["advanced"]["firstmate"], tools);
+        assert_eq!(json.get("rotation").is_some(), tools);
+        assert_eq!(json.get("firstmate").is_some(), tools);
+        assert_eq!(json["app"].get("sourceStatus").is_some(), tools);
+        assert!(json["app"].get("version").is_some());
+        assert!(inner.settings.advanced && inner.settings.firstmate, "the file keeps them");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

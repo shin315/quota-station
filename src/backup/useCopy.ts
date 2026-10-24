@@ -20,7 +20,7 @@ export type CopyDialog =
   | { kind: 'go'; step: 'prev' | 'run' | 'done' | 'undo' | 'undoing'; done: RestoreDone | null; error: FeedbackView | null; changed: string | null };
 
 export function useCopy(api: Api, model: Model | null, showFeedback: (fb: FeedbackView | null) => void) {
-  const peers = model?.rotation.peers ?? [];
+  const peers = model?.rotation?.peers ?? [];
   const [alias, setAlias] = useState<string | null>(null);
   const [push, setPush] = useState(true);
   const [phase, setPhase] = useState<CopyPhase>('idle');
