@@ -112,12 +112,24 @@ pub fn grant_args() -> Vec<String> {
         .to_vec()
 }
 
+/// Variables for the quota-axi a read runs: where the app's own Claude
+/// accounts are (`QUOTA_AXI_CLAUDE_SWAP_DIR`, `QUOTA_AXI_CLAUDE_ROTATION`).
+pub type Env = [(String, OsString)];
+
 pub fn read(path: &Path, provider: ProviderId) -> Result<Response, RunError> {
-    report(path, &read_args(provider), READ_TIMEOUT)
+    read_env(path, provider, &[])
+}
+
+pub fn read_env(path: &Path, provider: ProviderId, env: &Env) -> Result<Response, RunError> {
+    report(path, &read_args(provider), env, READ_TIMEOUT)
 }
 
 pub fn read_fresh(path: &Path, provider: ProviderId) -> Result<Response, RunError> {
-    report(path, &fresh_read_args(provider), READ_TIMEOUT)
+    read_fresh_env(path, provider, &[])
+}
+
+pub fn read_fresh_env(path: &Path, provider: ProviderId, env: &Env) -> Result<Response, RunError> {
+    report(path, &fresh_read_args(provider), env, READ_TIMEOUT)
 }
 
 /// The report again without a new reading: quota-axi serves its last
@@ -126,7 +138,7 @@ pub fn read_fresh(path: &Path, provider: ProviderId) -> Result<Response, RunErro
 /// uses it right after writing an Antigravity account's quota, which
 /// quota-axi's `cockpit` block reads from the files at every run.
 pub fn read_again(path: &Path, provider: ProviderId) -> Result<Response, RunError> {
-    report(path, &read_args_with(provider, REUSE_MAX_AGE), READ_TIMEOUT)
+    report(path, &read_args_with(provider, REUSE_MAX_AGE), &[], READ_TIMEOUT)
 }
 
 /// [`read_again`] would reuse `report`'s reading of `provider` at `now`:
@@ -144,8 +156,8 @@ pub fn reusable(report: &Response, provider: ProviderId, now: OffsetDateTime) ->
         })
 }
 
-pub fn grant_keychain(path: &Path) -> Result<Response, RunError> {
-    report(path, &grant_args(), GRANT_TIMEOUT)
+pub fn grant_keychain(path: &Path, env: &Env) -> Result<Response, RunError> {
+    report(path, &grant_args(), env, GRANT_TIMEOUT)
 }
 
 /// `quota-axi --version`, for example `0.1.61+cswap.4`.
@@ -167,8 +179,9 @@ pub fn is_fork(version: &str) -> bool {
 
 /// A report is read from stdout whatever the exit code: quota-axi exits
 /// non-zero when a provider needs attention and still prints the report.
-fn report(path: &Path, args: &[String], timeout: Duration) -> Result<Response, RunError> {
-    let out = run(path, args, timeout)?;
+fn report(path: &Path, args: &[String], env: &Env, timeout: Duration) -> Result<Response, RunError> {
+    let env: Vec<(&str, &std::ffi::OsStr)> = env.iter().map(|(k, v)| (k.as_str(), v.as_os_str())).collect();
+    let out = run_with(path, args, &env, None, timeout)?;
     let text = String::from_utf8_lossy(&out.stdout);
     match axi::parse(&text) {
         Ok(r) => Ok(r),
@@ -366,7 +379,7 @@ mod tests {
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
         let started = Instant::now();
         let err =
-            report(&path, &read_args(ProviderId::Claude), Duration::from_millis(200)).unwrap_err();
+            report(&path, &read_args(ProviderId::Claude), &[], Duration::from_millis(200)).unwrap_err();
         assert_eq!(err, RunError::Timeout(Duration::from_millis(200)));
         assert!(started.elapsed() < Duration::from_secs(3));
     }

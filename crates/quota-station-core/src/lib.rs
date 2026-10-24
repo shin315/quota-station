@@ -48,6 +48,7 @@ pub mod agents;
 pub mod alerts;
 pub mod antigravity;
 pub mod axi;
+pub mod claude;
 pub mod codex;
 pub mod cswap;
 pub mod detail;

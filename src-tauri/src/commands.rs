@@ -206,12 +206,12 @@ pub async fn grant_keychain(app: AppHandle, state: State<'_, AppState>) -> Resul
             return Err("busy".into());
         }
         inner.granting = true;
-        inner.quota_axi()
+        (inner.quota_axi(), inner.claude_paths().quota_axi_env())
     };
     reader::publish(&app, &shared);
     let result = tauri::async_runtime::spawn_blocking(move || match path {
-        Some(p) => runner::grant_keychain(&p),
-        None => Err(RunError::NotConfigured),
+        (Some(p), env) => runner::grant_keychain(&p, &env),
+        (None, _) => Err(RunError::NotConfigured),
     })
     .await
     .unwrap_or_else(|e| Err(RunError::Spawn(e.to_string())));

@@ -361,6 +361,11 @@ impl Inner {
         self.schedule.set_visible(popover || main, Instant::now())
     }
 
+    /// Where the Claude accounts the app keeps live on this Mac.
+    pub fn claude_paths(&self) -> quota_station_core::claude::Paths {
+        quota_station_core::claude::Paths::for_home(&self.home)
+    }
+
     /// The quota-axi to run: the user's path, else the first usual place.
     pub fn quota_axi(&self) -> Option<PathBuf> {
         self.settings.quota_axi_path.clone().or_else(|| runner::discover(&self.home))

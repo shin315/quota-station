@@ -3,6 +3,7 @@
 //! times, generated at 2026-01-16 07:20 UTC.
 #![allow(dead_code)]
 
+pub mod accounts;
 pub mod claude;
 pub mod desktop;
 pub mod google;

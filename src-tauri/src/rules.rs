@@ -166,19 +166,20 @@ async fn write_here(
     force_conflicts: bool,
     text: impl FnOnce(&FileState, &str) -> Result<String, RulesError> + Send + 'static,
 ) -> Result<Model, RulesError> {
-    let (file, quota_axi, machine) = {
+    let (file, quota_axi, env, machine) = {
         let mut inner = state.lock();
         if inner.rotation_saving {
             return Err(RulesError::new("busy"));
         }
         inner.rotation_saving = true;
-        (rotation::path(&inner.home), inner.quota_axi(), inner.machine())
+        let paths = inner.claude_paths();
+        (paths.rotation_file(), inner.quota_axi(), paths.quota_axi_env(), inner.machine())
     };
     reader::publish(app, state);
     let done = tauri::async_runtime::spawn_blocking(move || {
         let now = OffsetDateTime::now_utc();
         let text = text(&rotation::load(&file), &machine)?;
-        rotation::apply(&file, quota_axi.as_deref(), &text, base.as_deref(), now)
+        rotation::apply(&file, quota_axi.as_deref(), &env, &text, base.as_deref(), now)
             .map_err(RulesError::from)
     })
     .await
