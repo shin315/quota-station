@@ -26,7 +26,7 @@ async function open(model: Model, options: FakeOptions = {}, clock = () => FIXTU
 
 /** Opens the switch sheet from a Claude row and waits for the session count. */
 async function sheetFor(name: string) {
-  const row = within(screen.getByRole('list', { name: 'CLAUDE' }))
+  const row = within(screen.getByRole('list', { name: 'Claude' }))
     .getAllByRole('button')
     .find((b) => /^[,.]/.test(b.getAttribute('aria-label')!.slice(name.length)) && b.getAttribute('aria-label')!.startsWith(name))!;
   await act(async () => {
@@ -82,7 +82,7 @@ describe('the Claude switch sheet', () => {
     expect(screen.getByText('Đã chuyển sang lan.acme2. Giữ tài khoản này đến 15:20.')).toBeTruthy();
     expect(screen.getByText('Đọc lại sau 5 giây: lan.acme2 đang dùng ✓. Tự chuyển Claude tạm dừng tới lúc đó.')).toBeTruthy();
     // The model the fake pushed: lan.acme2 is active and the switcher is held.
-    expect(document.querySelector('.acard2.on')!.getAttribute('aria-label')).toMatch(/^lan\.acme2,/);
+    expect(document.querySelector('[data-active]')!.getAttribute('aria-label')).toMatch(/^lan\.acme2,/);
     expect(screen.getByRole('switch', { name: 'Tự chuyển Claude, đang tạm dừng' }).getAttribute('aria-checked')).toBe('false');
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Đóng' }));
@@ -141,7 +141,7 @@ describe('the Claude switch sheet', () => {
       fireEvent.click(within(sheet).getByRole('button', { name: 'Chuyển sang lan.acme2' }));
     });
     const working = screen.getByRole('dialog', { name: 'Đang chuyển sang lan.acme2…' });
-    expect(within(working).getByText('Đang chuyển Claude Code sang tài khoản 3')).toBeTruthy();
+    expect(within(working).getByText('Đang đổi đăng nhập Claude Code sang lan.acme2')).toBeTruthy();
     // Escape does not leave a running switch.
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.getByRole('dialog', { name: 'Đang chuyển sang lan.acme2…' })).toBeTruthy();
@@ -196,7 +196,7 @@ describe('the Claude switch sheet', () => {
     expect(screen.getByText('Claude Code đang giữ khoá đăng nhập (đang làm mới hoặc ghi đăng nhập). Thử lại sau vài giây. Chưa đổi gì.')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Thử lại' })).toBeTruthy();
     // Nothing changed: lan.acme1 is still the one in use.
-    expect(document.querySelector('.acard2.on')!.getAttribute('aria-label')).toMatch(/^lan\.acme1, Acme Studio, đang dùng\./);
+    expect(document.querySelector('[data-active]')!.getAttribute('aria-label')).toMatch(/^lan\.acme1, Acme Studio, đang dùng\./);
   });
 
   it('an unconfirmed switch asks for a refresh', async () => {
@@ -249,7 +249,7 @@ describe('the Claude switch sheet', () => {
 
   it('before Quota Station keeps any account nothing can switch', async () => {
     await open(fixtureModel('fresh', { claudeSwitch: { ready: false, busy: null } }));
-    const rows = within(screen.getByRole('list', { name: 'CLAUDE' })).getAllByRole('button');
+    const rows = within(screen.getByRole('list', { name: 'Claude' })).getAllByRole('button');
     expect(rows.every((r) => r.getAttribute('aria-disabled') === 'true')).toBe(true);
     expect(rows[2].getAttribute('aria-label')).toMatch(/\. Chưa chuyển được: Quota Station chưa giữ tài khoản Claude$/);
     expect(screen.getByText('Quota Station chưa giữ tài khoản Claude nào trên máy này: nhập từ claude-swap ở tab Claude để chuyển được tài khoản.')).toBeTruthy();
@@ -269,7 +269,7 @@ describe('the Claude switch sheet', () => {
 
   it('while a switch runs from another window, rows wait', async () => {
     await open(fixtureModel('fresh', { claudeSwitch: { ready: true, busy: 3 } }));
-    const rows = within(screen.getByRole('list', { name: 'CLAUDE' })).getAllByRole('button');
+    const rows = within(screen.getByRole('list', { name: 'Claude' })).getAllByRole('button');
     expect(rows[3].getAttribute('aria-label')).toMatch(/\. Đang chuyển tài khoản$/);
   });
 });

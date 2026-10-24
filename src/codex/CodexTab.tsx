@@ -24,9 +24,9 @@ import {
   externalBanner,
   hasLogin,
   keyMode,
-  PLUGINS_HINT,
+  pluginsHint,
   pluginsNeedApply,
-  PLUGINS_LABEL,
+  pluginsLabel,
   recentText,
   refusalText,
   shortName,
@@ -184,8 +184,8 @@ function Providers({ v, now, onAction, onPlugins }: { v: CodexView; now: Date; o
       {c ? (
         <CheckLine className="mt-2.5 mb-0" checked={v.plugins} disabled={busy} onChange={onPlugins}>
           <span>
-            {PLUGINS_LABEL}
-            <small>{PLUGINS_HINT}</small>
+            {pluginsLabel()}
+            <small>{pluginsHint()}</small>
           </span>
         </CheckLine>
       ) : null}

@@ -36,7 +36,7 @@ async function openPopover(model: Model, options: FakeOptions = {}) {
   return fake;
 }
 
-const agyRows = () => within(screen.getByRole('list', { name: 'ANTIGRAVITY' })).getAllByRole('button');
+const agyRows = () => within(screen.getByRole('list', { name: 'Antigravity' })).getAllByRole('button');
 const ultra1 = () => agyRows().find((b) => /^lanpham\.ultra[,.]/.test(b.getAttribute('aria-label')!))!;
 const ultra2 = () => agyRows().find((b) => /^lan\.ultra2[,.]/.test(b.getAttribute('aria-label')!))!;
 

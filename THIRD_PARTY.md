@@ -230,6 +230,17 @@ SOFTWARE.
 - License: SIL Open Font License 1.1, `LICENSES/OFL-1.1.txt`,
   Copyright 2020 The Inter Project Authors.
 
+## Lucide
+
+- Project: https://github.com/lucide-icons/lucide (https://lucide.dev)
+- How it is used: the interface's icons. 45 icons of Lucide 0.460.0
+  (lucide-static), the set the approved prototype draws with, are part of
+  the app in `src/components/icons.tsx`, unchanged; nothing is fetched while
+  it runs.
+- License: ISC, `LICENSES/ISC.txt`. Copyright (c) for portions of Lucide
+  are held by Cole Bemis 2013-2022 as part of Feather (MIT). All other
+  copyright (c) for Lucide are held by Lucide Contributors 2022.
+
 ## Libraries
 
 The Rust crates and npm packages this app builds with, such as Tauri, serde,

@@ -5,8 +5,8 @@ use std::path::PathBuf;
 
 use quota_station_core::alerts::{Kind, Switches};
 use quota_station_core::settings::{
-    machine_name, AutoBackup, CodexOptions, Menubar, MenubarWindow, Peer, PoolAlert, Settings,
-    SkillChecks, Theme, MACHINE_NAME_MAX,
+    machine_name, AutoBackup, CodexOptions, Language, Menubar, MenubarWindow, Peer, PoolAlert,
+    Settings, SkillChecks, Theme, MACHINE_NAME_MAX,
 };
 #[cfg(feature = "author-tools")]
 use quota_station_core::settings::{peers, PeersError, PEERS_MAX};
@@ -23,6 +23,7 @@ fn settings_round_trip_and_default_when_missing() {
         peers: vec![peer("Mac B", "mac-b"), peer("Mac C", "mac-c")],
         hide_names: true,
         theme: Theme::Dark,
+        language: Language::En,
         menubar: Menubar::Codex,
         menubar_window: MenubarWindow::FableWeek,
         alerts: Switches { leaving: false, firstmate: true, ..Switches::default() },
@@ -44,6 +45,7 @@ fn settings_round_trip_and_default_when_missing() {
     assert!(text.contains(r#""alias": "mac-c""#));
     assert!(text.contains("\"hideNames\": true"));
     assert!(text.contains("\"theme\": \"dark\""));
+    assert!(text.contains("\"language\": \"en\""));
     assert!(text.contains("\"menubar\": \"codex\""));
     assert!(text.contains("\"menubarWindow\": \"fableWeek\""));
     assert!(text.contains("\"leaving\": false"));
@@ -90,11 +92,12 @@ fn names_show_by_default_even_where_emails_were_turned_on_or_left_off() {
     let dir = std::env::temp_dir().join(format!("qs-settings-names-{}", std::process::id()));
     let file = dir.join("settings.json");
     std::fs::create_dir_all(&dir).unwrap();
-    for text in [r#"{ "showEmail": true }"#, "{}", r#"{ "theme": "sepia" }"#] {
+    for text in [r#"{ "showEmail": true }"#, "{}", r#"{ "theme": "sepia", "language": "fr" }"#] {
         std::fs::write(&file, text).unwrap();
         let s = Settings::load(&file);
         assert!(!s.hide_names, "{text}");
         assert_eq!(s.theme, Theme::Auto, "{text}");
+        assert_eq!(s.language, Language::Auto, "{text}");
     }
     let _ = std::fs::remove_dir_all(&dir);
 }

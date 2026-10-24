@@ -580,6 +580,7 @@ export function fixtureModel(name: string, over: Partial<Model> = {}): AuthorMod
     rotation: rotationFixture(),
     showNames: true,
     theme: 'auto',
+    language: 'auto',
     menubar: 'claude',
     menubarWindow: 'fiveHours',
     // The author's Mac, as the fixtures were drawn: Nâng cao on, a build with the Antigravity accounts.

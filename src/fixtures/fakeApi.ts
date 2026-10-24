@@ -1312,6 +1312,10 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       push({ ...model, showNames: on, snapshot, antigravity: agy({ accounts: accounts(model.antigravity.accounts, on) }) });
       return model;
     },
+    setLanguage: async (language) => {
+      push({ ...model, language });
+      return model;
+    },
     setTheme: async (theme) => {
       push({ ...model, theme });
       return model;

@@ -13,16 +13,17 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import type { ChoiceView } from '../lib/switching';
 import { isQuiet, type Action, type BannerView, type ChipView, type FeedbackView } from '../lib/view';
+import { Icon, type IconName } from './icons';
 
-/** A bar's fill by tone: green by default, the service's colour for `c` and `g`. */
-const METER_FILL: Record<string, string> = { warn: 'bg-warn', bad: 'bg-bad', muted: 'bg-ink3', c: 'bg-id-claude', g: 'bg-id-agy' };
+/** A bar's fill by tone (D01): grey under 70 %, amber from 70, red from 90; the service's colour for `c` and `g`. */
+const METER_FILL: Record<string, string> = { warn: 'bg-warn', bad: 'bg-bad', muted: 'bg-dot-off', c: 'bg-id-claude', g: 'bg-id-agy' };
 
 export function Meter({ percent, tone, className }: { percent: number | null; tone: string; className?: string }) {
-  const width = percent == null ? 0 : Math.max(percent, 1);
+  const width = percent == null ? 0 : Math.max(percent, 2);
   // The number always sits next to the bar, so screen readers skip the bar.
   return (
-    <span className={cn('mt-[5px] mb-1 block h-(--meter-h) overflow-hidden rounded-[2px] bg-track', className)} aria-hidden="true">
-      <i className={cn('block h-full rounded-[2px]', METER_FILL[tone] ?? 'bg-ok')} style={{ width: width + '%' }} />
+    <span className={cn('relative block h-(--bar-h) min-w-10 overflow-hidden rounded-chip bg-bar-track', className)} aria-hidden="true">
+      <i className={cn('absolute inset-y-0 left-0 block rounded-[inherit]', METER_FILL[tone] ?? 'bg-bar-fill')} style={{ width: width + '%' }} />
     </span>
   );
 }
@@ -40,8 +41,14 @@ export function Button(props: {
   primary?: boolean;
   /** Removes or puts back something: red. */
   danger?: boolean;
+  /** The first action of a neutral banner: blue-tinted (D07). */
+  tint?: boolean;
+  /** Only text until hovered. */
+  quiet?: boolean;
   large?: boolean;
   small?: boolean;
+  /** Only an icon: give it a `label`. */
+  icon?: boolean;
   disabled?: boolean;
   label?: string;
   title?: string;
@@ -50,12 +57,12 @@ export function Button(props: {
 }) {
   return (
     <UiButton
-      variant={props.primary ? 'primary' : props.danger ? 'danger' : 'default'}
-      size={props.large ? 'lg' : props.small ? 'sm' : 'default'}
+      variant={props.primary ? 'primary' : props.danger ? 'danger' : props.tint ? 'tint' : props.quiet ? 'quiet' : 'default'}
+      size={props.icon ? 'icon' : props.large ? 'lg' : props.small ? 'sm' : 'default'}
       className={props.className}
       disabled={props.disabled}
       aria-label={props.label}
-      title={props.title}
+      title={props.title ?? (props.icon ? props.label : undefined)}
       onClick={props.onClick}
     >
       {props.children}
@@ -73,37 +80,72 @@ export function LinkButton({
   return <UiButton variant={bad ? 'linkBad' : 'link'} size={small ? 'linkSm' : 'link'} className={className} {...props} />;
 }
 
-const BANNER_FILL: Record<string, string> = { warn: 'bg-warn/16', bad: 'bg-bad/14', info: 'bg-accent/13' };
-const BANNER_INK: Record<string, string> = { warn: 'text-warn-ink', bad: 'text-bad-ink', info: 'text-info-ink' };
+/**
+ * A banner's icon (D07, D08): red for an error or a quota nearly gone; any
+ * other note is neutral, its icon saying what it is about (old numbers, a
+ * permission, anything else). Amber is only for the quota's bars and numbers.
+ */
+const BANNER_ICON: Record<string, IconName> = { bad: 'circle-alert', stale: 'clock', perm: 'key-round', note: 'info' };
 
-/** A banner's tinted box, its title and its line; `children` go under them. */
-export function BannerBox(props: { tone: string; title: ReactNode; body?: ReactNode; style?: CSSProperties; children?: ReactNode }) {
+/**
+ * A banner: an icon, its title and its line, then `children` (its buttons).
+ * In the main window the buttons sit to the right; in the popover and in
+ * a narrow card they go under the text.
+ */
+export function BannerBox(props: {
+  tone: string;
+  icon?: BannerView['icon'];
+  title: ReactNode;
+  body?: ReactNode;
+  style?: CSSProperties;
+  className?: string;
+  children?: ReactNode;
+}) {
+  const bad = props.tone === 'bad';
   return (
     <div
-      className={cn('banner mx-2.5 mb-2 rounded-tile px-[11px] py-[9px]', BANNER_FILL[props.tone] ?? 'bg-fill')}
+      className={cn(
+        'banner grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-2.5 gap-y-1 rounded-card border px-3 py-2.5',
+        'in-data-[slot=popover]:grid-cols-[auto_minmax(0,1fr)] in-data-[narrow]:grid-cols-[auto_minmax(0,1fr)]',
+        bad ? 'border-bn-bad-line bg-bn-bad' : 'border-line-2 bg-card-2',
+        props.className,
+      )}
       data-tone={props.tone || undefined}
-      role="status"
+      role={bad ? 'alert' : 'status'}
       style={props.style}
     >
-      <b className={cn('block text-body font-bold', BANNER_INK[props.tone])}>{props.title}</b>
-      {props.body ? <p className="mt-0.5 mb-[7px] text-sm text-ink2">{props.body}</p> : null}
+      <Icon name={BANNER_ICON[bad ? 'bad' : (props.icon ?? 'note')]} className={cn('mt-px size-[18px]', bad ? 'text-bad' : 'text-ink2')} />
+      <div className="grid min-w-0 gap-0.5">
+        <b className="text-sm font-semi text-heading">{props.title}</b>
+        {props.body ? <span className="text-[12.5px] text-ink2">{props.body}</span> : null}
+      </div>
       {props.children}
+    </div>
+  );
+}
+
+/** A banner's buttons: to its right, or under its text where it is narrow. */
+export function BannerButtons({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-center justify-end gap-2 self-center in-data-[slot=popover]:col-start-2 in-data-[slot=popover]:justify-start in-data-[narrow]:col-start-2 in-data-[narrow]:justify-start">
+      {children}
     </div>
   );
 }
 
 export function Banner(props: { banner: BannerView; onAction: (act: Action) => void; busy?: Action | null }) {
   const b = props.banner;
+  const neutral = b.tone !== 'bad';
   return (
-    <BannerBox tone={b.tone} title={b.title} body={b.body}>
+    <BannerBox tone={b.tone} icon={b.icon} title={b.title} body={b.body ? <Rich text={b.body} /> : null}>
       {b.actions.length ? (
-        <div className="flex flex-wrap gap-1.5">
+        <BannerButtons>
           {b.actions.map((a, i) => (
-            <Button key={a.act} primary={i === 0} disabled={props.busy === a.act} onClick={() => props.onAction(a.act)}>
+            <Button key={a.act} small tint={neutral && i === 0} disabled={props.busy === a.act} onClick={() => props.onAction(a.act)}>
               {a.label}
             </Button>
           ))}
-        </div>
+        </BannerButtons>
       ) : null}
     </BannerBox>
   );
@@ -128,29 +170,39 @@ export function FieldHint({ tone, className, ...props }: ComponentProps<'div'> &
 export function Toast({ fb }: { fb: FeedbackView }) {
   return (
     <div
-      className="toast absolute bottom-4 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full bg-glass-solid px-3.5 py-[7px] text-sm font-med text-ink shadow-[var(--sh-sheet),inset_0_0_0_.5px_var(--glass-line)] in-data-[slot=popover]:bottom-16"
+      className="toast material-dlg absolute bottom-4 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-chip px-3.5 py-[7px] text-sm font-med text-ink shadow-dlg in-data-[slot=popover]:bottom-16"
       role="status"
       title={fb.body || undefined}
     >
-      <span className="font-black text-ok-ink" aria-hidden="true">
-        ✓
-      </span>
+      <Icon name="circle-check" className="text-ok" />
       {fb.title.replace(/\.$/, '')}
     </div>
   );
 }
 
-const FEEDBACK_FILL: Record<string, string> = { info: 'bg-accent/12', warn: 'bg-warn/15', bad: 'bg-bad/13' };
+/** A feedback line's icon (D08): a check when it went well, a circle with `!` when it did not, `i` for a note. */
+const FEEDBACK_ICON: Record<string, [IconName, string]> = {
+  '': ['circle-check', 'text-ok'],
+  bad: ['circle-alert', 'text-bad'],
+  warn: ['triangle-alert', 'text-ink2'],
+  info: ['info', 'text-accent-ink'],
+};
 
-/** A line after an action: tinted by its tone, its buttons under it. */
+/** A line after an action: an icon, the text, its buttons. */
 export function FeedbackLine({ tone, className, style, children }: { tone: string; className?: string; style?: CSSProperties; children: ReactNode }) {
+  const [icon, ink] = FEEDBACK_ICON[tone] ?? FEEDBACK_ICON[''];
   return (
     <div
       style={style}
       data-tone={tone || undefined}
-      className={cn('mx-2.5 mb-2 flex items-start gap-2 rounded-tile px-[11px] py-2 text-sm in-[.app-window]:m-0', FEEDBACK_FILL[tone] ?? 'bg-ok/14', className)}
-      role="status"
+      className={cn(
+        'flex items-start gap-2.5 rounded-card border px-3 py-2.5 text-sm',
+        tone === 'bad' ? 'border-bn-bad-line bg-bn-bad' : 'border-line bg-card',
+        className,
+      )}
+      role={tone === 'bad' ? 'alert' : 'status'}
     >
+      <Icon name={icon} className={cn('mt-px size-5', ink)} />
       {children}
     </div>
   );
@@ -160,18 +212,28 @@ export function FeedbackLine({ tone, className, style, children }: { tone: strin
 export function FeedbackText({ title, body }: { title: ReactNode; body: ReactNode }) {
   return (
     <>
-      <b className="block font-semi">{title}</b>
-      <small className="block text-xs text-ink2">{body}</small>
+      <b className="block font-semi text-heading">{title}</b>
+      <small className="block text-[12.5px] text-ink2">{body}</small>
     </>
   );
 }
 
-/** The working sheet's spinner. */
+/** The spinner while something runs. */
 export function Spinner({ className }: { className?: string }) {
   return (
     <span
+      className={cn('mt-px size-[18px] flex-[0_0_auto] animate-qs-spin rounded-full border-2 border-line-2 border-t-accent motion-reduce:animate-none', className)}
+      aria-hidden="true"
+    />
+  );
+}
+
+/** A grey bar that shimmers where a number will come (the first read). */
+export function Skeleton({ className }: { className?: string }) {
+  return (
+    <span
       className={cn(
-        'mt-px size-3.5 flex-[0_0_auto] animate-qs-spin rounded-full border-2 border-fill2 border-t-accent',
+        'inline-block h-2.5 animate-qs-shimmer rounded bg-[linear-gradient(90deg,var(--bar-track),color-mix(in_srgb,var(--bar-track)_55%,var(--text-3)),var(--bar-track))] bg-size-[200%_100%] motion-reduce:animate-none',
         className,
       )}
       aria-hidden="true"
@@ -188,9 +250,9 @@ export function Feedback(props: { fb: FeedbackView; inline?: boolean; onAction: 
       <div style={{ minWidth: 0, flex: 1 }}>
         <FeedbackText title={fb.title} body={fb.body} />
         {fb.actions?.length ? (
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {fb.actions.map((a, i) => (
-              <Button key={a.act} primary={i === 0 && fb.tone !== ''} onClick={() => onAction(a.act)}>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {fb.actions.map((a) => (
+              <Button key={a.act} small onClick={() => onAction(a.act)}>
                 {a.label}
               </Button>
             ))}
@@ -222,7 +284,8 @@ export function ChoiceGroup<V extends string>(props: {
   labelClassName?: string;
   options: ChoiceView<V>[];
   value: V;
-  columns?: 3;
+  /** Two columns by default; the pause's choices stack in one. */
+  columns?: 1 | 3;
   onChange(v: V): void;
 }) {
   return (
@@ -231,7 +294,7 @@ export function ChoiceGroup<V extends string>(props: {
         {props.label}
       </ChoiceLabel>
       <RadioGroup
-        className={props.columns ? 'grid-cols-[repeat(3,minmax(0,1fr))]' : undefined}
+        className={props.columns === 3 ? 'grid-cols-[repeat(3,minmax(0,1fr))]' : props.columns === 1 ? 'grid-cols-1' : undefined}
         aria-labelledby={props.id + '-l'}
         value={props.value}
         onValueChange={(v) => props.onChange(v as V)}
@@ -248,7 +311,7 @@ export function ChoiceGroup<V extends string>(props: {
 }
 
 /** Code in a line of text: monospaced on a light fill. */
-export const CODE = 'rounded-sm bg-fill px-1 [font:11px_var(--mono)] text-ink [overflow-wrap:anywhere]';
+export const CODE = 'rounded-[5px] border border-line bg-card-2 px-[5px] py-px font-mono text-[.92em] text-ink [overflow-wrap:anywhere]';
 
 /** Key and value pairs: the key grey, the value to the right. */
 export const KVT =
@@ -276,28 +339,26 @@ export function Rich({ text }: { text: string }) {
   );
 }
 
-/** A fact's mark: a blue dot, or `!`, `×`, `✓` for a warning, a refusal, a check. */
-const FACT_MARK: Record<string, string> = {
-  w: "before:content-['!'] before:font-black before:text-warn-ink",
-  x: "before:content-['×'] before:font-black before:text-bad-ink",
-  ok: "before:content-['✓'] before:font-black before:text-ok-ink",
+/** A fact's icon: a warning, a refusal, a check, or a note. */
+const FACT_ICON: Record<string, [IconName, string]> = {
+  w: ['triangle-alert', 'text-ink2'],
+  x: ['circle-alert', 'text-bad'],
+  ok: ['circle-check', 'text-ok'],
 };
 
-/** The facts on a sheet: one line each, a mark before it. */
+/** The facts on a sheet: one line each, an icon before it. */
 export function Facts({ items, className }: { items: { k: string; text: ReactNode; key?: string }[]; className?: string }) {
   return (
-    <ul className={cn('m-0 mb-2.5 grid list-none gap-1.5 p-0 text-sm text-ink2 [&_b]:font-semi [&_b]:text-ink', className)}>
-      {items.map((f, i) => (
-        <li
-          key={f.key ?? (typeof f.text === 'string' ? f.text : i)}
-          className={cn(
-            'grid grid-cols-[16px_minmax(0,1fr)] gap-1.5 before:text-center',
-            FACT_MARK[f.k] ?? "before:content-['•'] before:text-accent-ink",
-          )}
-        >
-          <span>{f.text}</span>
-        </li>
-      ))}
+    <ul className={cn('m-0 grid list-none gap-2 p-0 text-sm text-ink [&_b]:font-semi', className)}>
+      {items.map((f, i) => {
+        const [icon, ink] = FACT_ICON[f.k] ?? ['info', 'text-ink3'];
+        return (
+          <li key={f.key ?? (typeof f.text === 'string' ? f.text : i)} className="grid grid-cols-[16px_minmax(0,1fr)] items-start gap-2">
+            <Icon name={icon} className={cn('mt-0.5', ink)} />
+            <span>{f.text}</span>
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -311,9 +372,9 @@ export function Hint({ tone, className, children, ...props }: ComponentProps<'di
   );
 }
 
-/** A dot by tone: green by default. */
-const DOT_FILL: Record<string, string> = { warn: 'bg-warn', bad: 'bg-bad', muted: 'bg-ink3', info: 'bg-accent', ok: 'bg-ok' };
+/** A dot by tone: green by default; grey for an account not in use. */
+const DOT_FILL: Record<string, string> = { warn: 'bg-warn', bad: 'bg-bad', muted: 'bg-dot-off', off: 'bg-dot-off', info: 'bg-accent', ok: 'bg-ok' };
 
 export function Dot({ tone, className }: { tone: string; className?: string }) {
-  return <span data-tone={tone} className={cn('inline-block size-[7px] flex-[0_0_auto] rounded-full', DOT_FILL[tone] ?? 'bg-ok', className)} aria-hidden="true" />;
+  return <span data-tone={tone} className={cn('inline-block size-2 flex-[0_0_auto] rounded-full', DOT_FILL[tone] ?? 'bg-ok', className)} aria-hidden="true" />;
 }

@@ -33,7 +33,8 @@ import { codexErrorFeedback, codexFeedback, codexRow, codexRestartFeedback, keyF
 import type { Api } from './lib/api';
 import { authorModel } from './lib/author';
 import { alertFailedFeedback, testFailedFeedback } from './lib/alerts';
-import type { AgyHow, AlertKind, CodexOutcome, CodexTarget, Model, Sessions, Tab, Theme } from './lib/model';
+import type { AgyHow, AlertKind, CodexOutcome, CodexTarget, Language, Model, Sessions, Tab, Theme } from './lib/model';
+import { resolveLang, setLang, systemLanguages, t, type Lang } from './lib/i18n';
 import {
   autoView,
   extendedFeedback,
@@ -113,6 +114,20 @@ export function useTheme(theme: Theme | undefined): boolean {
     document.querySelectorAll<HTMLElement>('.qs[data-theme]').forEach((el) => (el.dataset.theme = theme));
   }, [theme]);
   return theme === 'dark' || (theme !== 'light' && systemDark);
+}
+
+/**
+ * Sets the language every string below the root is written in: the owner's
+ * choice, or macOS's. It is set during the root's render, before any child
+ * builds its text, and `<html lang>` follows for VoiceOver.
+ */
+export function useLang(language: Language | undefined): Lang {
+  const next = resolveLang(language, systemLanguages());
+  setLang(next);
+  useEffect(() => {
+    document.documentElement.lang = next;
+  }, [next]);
+  return next;
 }
 
 /**
@@ -309,7 +324,12 @@ function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeed
       const out = await api.codexSetKey(key, baseUrl, base);
       if (latest.current) showFeedback(keyFeedback(out, latest.current, undo));
     } catch (e) {
-      showFeedback({ tone: 'bad', title: 'Chưa ghi khoá', body: String(e) === 'busy' ? 'Một lần chuyển hoặc ghi khác đang chạy. Chờ xong rồi thử lại.' : 'Không gọi được lệnh ghi khoá. Chưa đổi gì.', actions: [{ label: 'Đóng', act: 'closeFeedback' }] });
+      showFeedback({
+        tone: 'bad',
+        title: t('Chưa ghi khoá', 'The key is not written'),
+        body: String(e) === 'busy' ? t('Một lần chuyển hoặc ghi khác đang chạy. Chờ xong rồi thử lại.', 'Another switch or write is running. Wait for it, then try again.') : t('Không gọi được lệnh ghi khoá. Chưa đổi gì.', 'Could not run the key write. Nothing changed.'),
+        actions: [{ label: t('Đóng', 'Close'), act: 'closeFeedback' }],
+      });
     } finally {
       setWorking(false);
       setSheet(null);
@@ -322,7 +342,12 @@ function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeed
       const out = await api.codexUndoKey(base);
       if (latest.current) showFeedback(keyFeedback(out, latest.current));
     } catch (e) {
-      showFeedback({ tone: 'bad', title: 'Chưa hoàn tác', body: String(e) === 'busy' ? 'Một lần chuyển hoặc ghi khác đang chạy. Chờ xong rồi thử lại.' : 'Không gọi được lệnh. Chưa đổi gì.', actions: [{ label: 'Đóng', act: 'closeFeedback' }] });
+      showFeedback({
+        tone: 'bad',
+        title: t('Chưa hoàn tác', 'Not undone'),
+        body: String(e) === 'busy' ? t('Một lần chuyển hoặc ghi khác đang chạy. Chờ xong rồi thử lại.', 'Another switch or write is running. Wait for it, then try again.') : t('Không gọi được lệnh. Chưa đổi gì.', 'Could not run the command. Nothing changed.'),
+        actions: [{ label: t('Đóng', 'Close'), act: 'closeFeedback' }],
+      });
     }
   };
   /** The plugins box: kept at once; on the custom provider in use, "Áp dụng ngay?" follows. */
@@ -488,6 +513,7 @@ const refusal = (call: Promise<unknown>): Promise<string | null> =>
 export function PopoverApp({ api, clock = systemClock }: AppProps) {
   const model = useModel(api);
   const dark = useTheme(model?.theme);
+  useLang(model?.language);
   useMaterial(api);
   const now = useNow(clock);
   const [feedback, showFeedback] = useFeedback();
@@ -538,6 +564,8 @@ export function PopoverApp({ api, clock = systemClock }: AppProps) {
     if (act === 'settings') return void api.openWindow('settings');
     if (act === 'window') return void api.openWindow('overview');
     if (act === 'codex:tab') return void api.openWindow('codex');
+    // Signing in again happens in the main window's Claude tab.
+    if (act.startsWith('claude:relogin:') || act === 'claude:add') return void api.openWindow('claude');
     if (act === 'theme') return void api.setTheme(dark ? 'light' : 'dark').catch(() => showFeedback(settingsFailedFeedback()));
     if (act === 'dismiss') return setKeychainLater(true);
     if (act === 'refresh') return void refresh();
@@ -577,6 +605,7 @@ export function PopoverApp({ api, clock = systemClock }: AppProps) {
 export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   const model = useModel(api);
   useTheme(model?.theme);
+  useLang(model?.language);
   useMaterial(api);
   const now = useNow(clock);
   const [keychainLater, setKeychainLater] = useState(false);

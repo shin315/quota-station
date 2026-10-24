@@ -22,12 +22,13 @@ import {
   keyMode,
   keyRefusalText,
   longName,
-  PLUGINS_HINT,
-  PLUGINS_LABEL,
+  pluginsHint,
+  pluginsLabel,
   pluginsSheet,
   targetId,
 } from '../lib/codex';
 import { dayClock } from '../lib/switching';
+import { t } from '../lib/i18n';
 import type { AgyHow, CodexKeyPreview, CodexTarget, CodexView, Model, Sessions } from '../lib/model';
 import {
   claudeSheet,
@@ -39,6 +40,10 @@ import {
 } from '../lib/switching';
 import { CheckLine, Command, DiffFile, DiffLine, DiffView, KeyMasked } from './blocks';
 import { Button, ChoiceGroup, CODE, Facts as FactList, FeedbackLine, FeedbackText, FieldHint, Hint, KVT, LinkButton, Rich, Spinner } from './parts';
+
+/** What a write of config.toml goes through. */
+const WRITE_STEPS = () =>
+  t('Sao lưu bản cũ → ghi file tạm → kiểm mã băm → thay file → đọc lại.', 'Back up the old file → write a temporary file → check its hash → replace the file → read it again.');
 
 /** A numbered how-to list. */
 const HOWTO = 'm-0 mb-3 grid gap-1.5 pl-5 text-sm';
@@ -100,11 +105,16 @@ function ClaudeBody(props: SheetBodyProps & { slot: number }) {
   if (!v) {
     return (
       <>
-        <DialogTitle>Không còn tài khoản này</DialogTitle>
-        <DialogLead>claude-swap không còn liệt kê tài khoản {props.slot}. Bấm Làm mới rồi thử lại.</DialogLead>
+        <DialogTitle>{t('Không còn tài khoản này', 'This account is gone')}</DialogTitle>
+        <DialogLead>
+          {t(
+            'claude-swap không còn liệt kê tài khoản ' + props.slot + '. Bấm Làm mới rồi thử lại.',
+            'claude-swap no longer lists account ' + props.slot + '. Press Refresh and try again.',
+          )}
+        </DialogLead>
         <DialogButtons>
           <Button large primary onClick={props.onClose}>
-            Đóng
+            {t('Đóng', 'Close')}
           </Button>
         </DialogButtons>
       </>
@@ -113,11 +123,14 @@ function ClaudeBody(props: SheetBodyProps & { slot: number }) {
   if (props.working) {
     return (
       <>
-        <DialogTitle>{v.confirm.replace('Chuyển sang', 'Đang chuyển sang')}…</DialogTitle>
+        <DialogTitle>{t('Đang chuyển sang ' + v.name + '…', 'Switching to ' + v.name + '…')}</DialogTitle>
         <FeedbackLine tone="info" style={{ margin: '8px 0 0' }}>
           <Spinner />
           <div>
-            <FeedbackText title={'Đang chuyển Claude Code sang tài khoản ' + props.slot} body="Sau đó app đợi 5 giây rồi xem lại tài khoản đang dùng để kiểm." />
+            <FeedbackText
+              title={t('Đang đổi đăng nhập Claude Code sang ' + v.name, 'Switching the Claude Code sign-in to ' + v.name)}
+              body={t('Sau đó app đợi 5 giây rồi đọc lại tài khoản đang dùng để kiểm.', 'Then the app waits 5 seconds and reads the account in use again to check.')}
+            />
           </div>
         </FeedbackLine>
       </>
@@ -131,7 +144,7 @@ function ClaudeBody(props: SheetBodyProps & { slot: number }) {
       <Facts facts={v.facts} />
       {v.options.length ? (
         <>
-          <ChoiceGroup<HoldChoice> id="qs-hold" label="Giữ tài khoản này" options={v.options} value={choice} onChange={setChoice} />
+          <ChoiceGroup<HoldChoice> id="qs-hold" label={t('Giữ tài khoản này', 'Keep this account')} options={v.options} value={choice} onChange={setChoice} />
           <Hint tone={v.hint.tone} aria-live="polite">
             {v.hint.text}
           </Hint>
@@ -140,11 +153,11 @@ function ClaudeBody(props: SheetBodyProps & { slot: number }) {
       <DialogButtons>
         {v.blocked ? (
           <LinkButton style={{ marginRight: 'auto' }} onClick={props.onSettings}>
-            Mở cài đặt
+            {t('Mở cài đặt', 'Open Settings')}
           </LinkButton>
         ) : null}
         <Button large onClick={props.onClose}>
-          Thôi
+          {t('Thôi', 'Cancel')}
         </Button>
         <Button large primary disabled={v.blocked} onClick={confirm}>
           {v.confirm}
@@ -159,11 +172,16 @@ function AgyBody(props: SheetBodyProps & { number: number }) {
   if (!v) {
     return (
       <>
-        <DialogTitle>Không còn tài khoản này</DialogTitle>
-        <DialogLead>Tài khoản Antigravity {props.number} không còn trong danh sách đăng nhập của app. Bấm Làm mới rồi thử lại.</DialogLead>
+        <DialogTitle>{t('Không còn tài khoản này', 'This account is gone')}</DialogTitle>
+        <DialogLead>
+          {t(
+            'Tài khoản Antigravity ' + props.number + ' không còn trong danh sách đăng nhập của app. Bấm Làm mới rồi thử lại.',
+            'Antigravity account ' + props.number + ' is no longer in the app’s sign-in list. Press Refresh and try again.',
+          )}
+        </DialogLead>
         <DialogButtons>
           <Button large primary onClick={props.onClose}>
-            Đóng
+            {t('Đóng', 'Close')}
           </Button>
         </DialogButtons>
       </>
@@ -172,11 +190,11 @@ function AgyBody(props: SheetBodyProps & { number: number }) {
   if (props.working) {
     return (
       <>
-        <DialogTitle>{v.title.replace('Chuyển', 'Đang chuyển').replace('?', '…')}</DialogTitle>
+        <DialogTitle>{v.working}</DialogTitle>
         <FeedbackLine tone="info" style={{ margin: '8px 0 0' }}>
           <Spinner />
           <div>
-            <FeedbackText title="Đang chuyển tài khoản Antigravity" body={agyWorking(props.agyHow)} />
+            <FeedbackText title={t('Đang chuyển tài khoản Antigravity', 'Switching the Antigravity account')} body={agyWorking(props.agyHow)} />
           </div>
         </FeedbackLine>
       </>
@@ -188,7 +206,7 @@ function AgyBody(props: SheetBodyProps & { number: number }) {
       <Facts facts={v.facts} />
       <DialogButtons>
         <Button large onClick={props.onClose}>
-          Thôi
+          {t('Thôi', 'Cancel')}
         </Button>
         {v.buttons.map((b) => (
           <Button key={b.how} large primary={b.primary} disabled={v.waiting} onClick={() => props.onSwitchAgy(props.number, b.how)}>
@@ -220,14 +238,14 @@ function PauseBody(props: SheetBodyProps & { preset: PauseChoice }) {
     <>
       <DialogTitle>{v.title}</DialogTitle>
       <DialogLead>{v.lead}</DialogLead>
-      <ChoiceGroup<PauseChoice> id="qs-pause" label="Trong bao lâu" options={v.options} value={value} columns={3} onChange={setChoice} />
+      <ChoiceGroup<PauseChoice> id="qs-pause" label={t('Trong bao lâu', 'For how long')} options={v.options} value={value} columns={1} onChange={setChoice} />
       <Hint aria-live="polite">{v.hint}</Hint>
       <DialogButtons>
         <Button large onClick={props.onClose}>
-          Thôi
+          {t('Thôi', 'Cancel')}
         </Button>
         <Button large primary onClick={confirm}>
-          Tạm dừng
+          {t('Tạm dừng', 'Pause')}
         </Button>
       </DialogButtons>
     </>
@@ -249,7 +267,7 @@ function GuideBody(props: SheetBodyProps & { id: 'auto' | 'switcher' }) {
       </ol>
       <DialogButtons>
         <Button large primary onClick={props.onClose}>
-          Đóng
+          {t('Đóng', 'Close')}
         </Button>
       </DialogButtons>
     </>
@@ -284,9 +302,9 @@ function CodexBody(props: SheetBodyProps & { target: CodexTarget }) {
   if (props.working)
     return (
       <Working
-        title={'Đang chuyển Codex sang ' + to + '…'}
-        line="Đang ghi config.toml"
-        detail="Sao lưu bản cũ → ghi file tạm → kiểm mã băm → thay file → đọc lại."
+        title={t('Đang chuyển Codex sang ' + to + '…', 'Switching Codex to ' + to + '…')}
+        line={t('Đang ghi config.toml', 'Writing config.toml')}
+        detail={WRITE_STEPS()}
       />
     );
   return (
@@ -297,28 +315,31 @@ function CodexBody(props: SheetBodyProps & { target: CodexTarget }) {
       {props.target === 'custom' && props.onCodexPlugins ? (
         <CheckLine checked={props.model.codex.plugins} disabled={v.blocked} onChange={props.onCodexPlugins}>
           <span>
-            {PLUGINS_LABEL}
-            <small>{PLUGINS_HINT}</small>
+            {pluginsLabel()}
+            <small>{pluginsHint()}</small>
           </span>
         </CheckLine>
       ) : null}
       <label className="mb-2.5 flex cursor-pointer items-start gap-2 text-sm">
         <Checkbox checked={restart} disabled={v.blocked} onCheckedChange={(on) => setRestart(on === true)} />
         <span>
-          Khởi động lại tiến trình nền Codex sau khi chuyển
+          {t('Khởi động lại tiến trình nền Codex sau khi chuyển', 'Restart the Codex background process after switching')}
           <small className="block text-xs text-ink2">
-            Việc đang chạy trong Terminal sẽ bị ngắt. App hỏi lại một lần trước khi làm. Codex App vẫn phải tự thoát và mở lại.
+            {t(
+              'Việc đang chạy trong Terminal sẽ bị ngắt. App hỏi lại một lần trước khi làm. Codex App vẫn phải tự thoát và mở lại.',
+              'Work running in Terminal will stop. The app asks once more first. Codex App still has to quit and reopen on its own.',
+            )}
           </small>
         </span>
       </label>
       <DialogButtons>
         {v.ccSwitch && props.onCodexGuide ? (
           <LinkButton style={{ marginRight: 'auto' }} onClick={props.onCodexGuide}>
-            Hướng dẫn ngừng dùng CC Switch
+            {t('Hướng dẫn ngừng dùng CC Switch', 'How to stop using CC Switch')}
           </LinkButton>
         ) : null}
         <Button large onClick={props.onClose}>
-          Thôi
+          {t('Thôi', 'Cancel')}
         </Button>
         <Button large primary disabled={v.blocked} onClick={() => props.onCodexSwitch?.(props.target, restart)}>
           {v.confirm}
@@ -331,30 +352,39 @@ function CodexBody(props: SheetBodyProps & { target: CodexTarget }) {
 function DaemonBody(props: SheetBodyProps & { after: boolean }) {
   const v = props.model.codex;
   if (props.working)
-    return <Working title="Đang khởi động lại tiến trình nền Codex…" line="codex app-server daemon restart" detail="Tiến trình nền làm xong việc đang chạy (tối đa 60 giây) rồi chạy lại." />;
+    return (
+      <Working
+        title={t('Đang khởi động lại tiến trình nền Codex…', 'Restarting the Codex background process…')}
+        line="codex app-server daemon restart"
+        detail={t('Tiến trình nền làm xong việc đang chạy (tối đa 60 giây) rồi chạy lại.', 'The background process finishes running work (up to 60 seconds), then starts again.')}
+      />
+    );
   const name = longName(v, v.current === 'custom' && v.custom ? v.custom.id : 'openai');
   return (
     <>
-      <DialogTitle>Khởi động lại tiến trình nền Codex?</DialogTitle>
+      <DialogTitle>{t('Khởi động lại tiến trình nền Codex?', 'Restart the Codex background process?')}</DialogTitle>
       {props.after ? (
         <DialogLead>
-          Đã chuyển Codex sang {name}. Bạn đã chọn khởi động lại tiến trình nền sau khi chuyển; app hỏi lại vì việc này ngắt việc đang chạy.
+          {t(
+            'Đã chuyển Codex sang ' + name + '. Bạn đã chọn khởi động lại tiến trình nền sau khi chuyển; app hỏi lại vì việc này ngắt việc đang chạy.',
+            'Switched Codex to ' + name + '. You chose to restart the background process after switching; the app asks again because this stops running work.',
+          )}
         </DialogLead>
       ) : null}
-      {v.procs && !v.procs.daemon ? <DialogLead>Tiến trình nền Codex đang không chạy: không có gì để khởi động lại.</DialogLead> : null}
+      {v.procs && !v.procs.daemon ? <DialogLead>{t('Tiến trình nền Codex đang không chạy: không có gì để khởi động lại.', 'The Codex background process is not running: there is nothing to restart.')}</DialogLead> : null}
       <Facts facts={daemonFacts()} />
       <DialogButtons>
         {props.after ? (
           <Button large onClick={props.onCodexSkipRestart}>
-            Không khởi động lại
+            {t('Không khởi động lại', 'Do not restart')}
           </Button>
         ) : (
           <Button large onClick={props.onClose}>
-            Thôi
+            {t('Thôi', 'Cancel')}
           </Button>
         )}
         <Button large primary disabled={v.busy != null} onClick={() => props.onCodexRestart?.(props.after)}>
-          Khởi động lại
+          {t('Khởi động lại', 'Restart')}
         </Button>
       </DialogButtons>
     </>
@@ -366,18 +396,18 @@ function ExternalBody(props: SheetBodyProps) {
   if (!v)
     return (
       <>
-        <DialogTitle>Cấu hình Codex không còn khác</DialogTitle>
-        <DialogLead>config.toml đang là bản app ghi lần cuối, hoặc bạn đã giữ bản này.</DialogLead>
+        <DialogTitle>{t('Cấu hình Codex không còn khác', 'The Codex settings no longer differ')}</DialogTitle>
+        <DialogLead>{t('config.toml đang là bản app ghi lần cuối, hoặc bạn đã giữ bản này.', 'config.toml is the copy the app last wrote, or you kept this one.')}</DialogLead>
         <DialogButtons>
           <Button large primary onClick={props.onClose}>
-            Đóng
+            {t('Đóng', 'Close')}
           </Button>
         </DialogButtons>
       </>
     );
   return (
     <>
-      <DialogTitle>Cấu hình Codex đã đổi ngoài app</DialogTitle>
+      <DialogTitle>{t('Cấu hình Codex đã đổi ngoài app', 'The Codex settings changed outside the app')}</DialogTitle>
       <DialogLead>{v.lead}</DialogLead>
       <dl className="m-0 mb-2.5 grid grid-cols-[auto_1fr] gap-x-2.5 gap-y-[3px] text-sm">
         {v.rows.map((r) => [
@@ -389,7 +419,7 @@ function ExternalBody(props: SheetBodyProps) {
           </dd>,
         ])}
       </dl>
-      <Facts facts={[{ k: '', text: 'Bản trước khi đổi vẫn còn trong thư mục sao lưu của app.' }]} />
+      <Facts facts={[{ k: '', text: t('Bản trước khi đổi vẫn còn trong thư mục sao lưu của app.', 'The copy from before the change is still in the app’s backup folder.') }]} />
       <DialogButtons>
         {v.back ? (
           <Button large onClick={() => props.onCodexOpen?.({ kind: 'codex', target: v.back!.target })}>
@@ -397,7 +427,7 @@ function ExternalBody(props: SheetBodyProps) {
           </Button>
         ) : null}
         <Button large primary onClick={props.onCodexKeep}>
-          Giữ như bây giờ
+          {t('Giữ như bây giờ', 'Keep it as it is')}
         </Button>
       </DialogButtons>
     </>
@@ -408,25 +438,25 @@ function CodexInfoBody(props: SheetBodyProps & { id: 'login' | 'backup' }) {
   const v = props.model.codex;
   const close = (
     <Button large primary onClick={props.onClose}>
-      Đóng
+      {t('Đóng', 'Close')}
     </Button>
   );
   if (props.id === 'login')
     return (
       <>
-        <DialogTitle>Đăng nhập ChatGPT cho Codex</DialogTitle>
-        <DialogLead>Quota Station không đăng nhập hộ và không đọc nội dung đăng nhập.</DialogLead>
+        <DialogTitle>{t('Đăng nhập ChatGPT cho Codex', 'Sign in to ChatGPT for Codex')}</DialogTitle>
+        <DialogLead>{t('Quota Station không đăng nhập hộ và không đọc nội dung đăng nhập.', 'Quota Station does not sign in for you and does not read the sign-in.')}</DialogLead>
         <ol className={HOWTO}>
-          <li>Mở Codex App.</li>
-          <li>Chọn đăng nhập bằng ChatGPT và làm theo trang đăng nhập.</li>
-          <li>Quay lại tab Codex, bấm Kiểm lại.</li>
+          <li>{t('Mở Codex App.', 'Open Codex App.')}</li>
+          <li>{t('Chọn đăng nhập bằng ChatGPT và làm theo trang đăng nhập.', 'Choose to sign in with ChatGPT and follow the sign-in page.')}</li>
+          <li>{t('Quay lại tab Codex, bấm Kiểm lại.', 'Come back to the Codex tab and press Check again.')}</li>
         </ol>
         <DialogButtons>{close}</DialogButtons>
       </>
     );
   return (
     <>
-      <DialogTitle>Thư mục sao lưu Codex</DialogTitle>
+      <DialogTitle>{t('Thư mục sao lưu Codex', 'Codex backup folder')}</DialogTitle>
       <DialogLead>
         <span className={CODE}>{v.backupDir}</span>
       </DialogLead>
@@ -434,15 +464,16 @@ function CodexInfoBody(props: SheetBodyProps & { id: 'login' | 'backup' }) {
         {v.backups.length ? (
           v.backups.map((b, i) => [
             <span key={b + ':k'}>config.toml · {dayClock(b, props.now)}</span>,
-            <span key={b + ':v'}>{i === 0 ? 'mới nhất' : ''}</span>,
+            <span key={b + ':v'}>{i === 0 ? t('mới nhất', 'newest') : ''}</span>,
           ])
         ) : (
-          <span>Chưa có bản sao lưu nào: app chưa ghi config.toml lần nào.</span>
+          <span>{t('Chưa có bản sao lưu nào: app chưa ghi config.toml lần nào.', 'No backups yet: the app has not written config.toml.')}</span>
         )}
       </div>
       <DialogLead>
-        Giữ 10 bản gần nhất. Bản lưu không chứa khoá: app thay giá trị của khoá bằng <span className={CODE}>&lt;redacted&gt;</span>. Lần ghi lỗi
-        không đổi file đang dùng, nên chưa cần khôi phục.
+        {t('Giữ 10 bản gần nhất. Bản lưu không chứa khoá: app thay giá trị của khoá bằng ', 'Keeps the 10 newest. Backups hold no key: the app replaces the key’s value with ')}
+        <span className={CODE}>&lt;redacted&gt;</span>
+        {t('. Lần ghi lỗi không đổi file đang dùng, nên chưa cần khôi phục.', '. A failed write does not change the file in use, so there is nothing to restore.')}
       </DialogLead>
       <DialogButtons>{close}</DialogButtons>
     </>
@@ -458,36 +489,50 @@ function CodexKeyBody(props: SheetBodyProps) {
   const [preview, setPreview] = useState<CodexKeyPreview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
-  const name = v.custom?.name ?? 'nhà cung cấp riêng';
-  const close = (label = 'Thôi') => (
+  const name = v.custom?.name ?? t('nhà cung cấp riêng', 'the custom provider');
+  const close = (label = t('Thôi', 'Cancel')) => (
     <Button large onClick={props.onClose}>
       {label}
     </Button>
   );
   if (props.working)
-    return <Working title={'Đang ghi khoá cho ' + name + '…'} line="Đang ghi config.toml" detail="Sao lưu bản cũ (không chứa khoá) → ghi file tạm → kiểm mã băm → thay file → đọc lại." />;
+    return (
+      <Working
+        title={t('Đang ghi khoá cho ' + name + '…', 'Writing the key for ' + name + '…')}
+        line={t('Đang ghi config.toml', 'Writing config.toml')}
+        detail={t(
+          'Sao lưu bản cũ (không chứa khoá) → ghi file tạm → kiểm mã băm → thay file → đọc lại.',
+          'Back up the old file (without the key) → write a temporary file → check its hash → replace the file → read it again.',
+        )}
+      />
+    );
   if (mode === 'env')
     return (
       <>
-        <DialogTitle>{name} đọc khoá từ biến {v.custom?.envKey}</DialogTitle>
-        <DialogLead>App không ghi gì: đặt biến này rồi mở lại Codex.</DialogLead>
+        <DialogTitle>{t(name + ' đọc khoá từ biến ' + v.custom?.envKey, name + ' reads its key from the variable ' + v.custom?.envKey)}</DialogTitle>
+        <DialogLead>{t('App không ghi gì: đặt biến này rồi mở lại Codex.', 'The app writes nothing: set this variable, then reopen Codex.')}</DialogLead>
         <ol className={HOWTO}>
           <li>
-            Thêm vào <span className={CODE}>~/.zshrc</span>:
-            <Command>export {v.custom?.envKey}=&lt;khoá của bạn&gt;</Command>
+            {t('Thêm vào ', 'Add to ')}
+            <span className={CODE}>~/.zshrc</span>:<Command>export {v.custom?.envKey}=&lt;{t('khoá của bạn', 'your key')}&gt;</Command>
           </li>
-          <li>Mở Terminal mới rồi chạy codex.</li>
-          <li>Codex App mở từ Dock có thể không thấy biến trong ~/.zshrc. Khi đó dùng codex trong Terminal.</li>
+          <li>{t('Mở Terminal mới rồi chạy codex.', 'Open a new Terminal and run codex.')}</li>
+          <li>
+            {t(
+              'Codex App mở từ Dock có thể không thấy biến trong ~/.zshrc. Khi đó dùng codex trong Terminal.',
+              'Codex App opened from the Dock may not see the variable in ~/.zshrc. Then use codex in Terminal.',
+            )}
+          </li>
         </ol>
-        <DialogButtons>{close('Đóng')}</DialogButtons>
+        <DialogButtons>{close(t('Đóng', 'Close'))}</DialogButtons>
       </>
     );
   if (!mode)
     return (
       <>
-        <DialogTitle>Chưa ghi khoá được</DialogTitle>
+        <DialogTitle>{t('Chưa ghi khoá được', 'Could not write the key')}</DialogTitle>
         <DialogLead>{v.custom?.key === 'headers' ? keyRefusalText(v, { kind: 'headers' }) : keyRefusalText(v, { kind: v.custom ? 'shape' : 'noCustom' })}</DialogLead>
-        <DialogButtons>{close('Đóng')}</DialogButtons>
+        <DialogButtons>{close(t('Đóng', 'Close'))}</DialogButtons>
       </>
     );
   const catalog = v.ccSwitch.traces.some((t) => t.startsWith('model_catalog_json'));
@@ -498,10 +543,10 @@ function CodexKeyBody(props: SheetBodyProps) {
     try {
       const p = await props.onCodexKeyPreview(key, url.trim() || null);
       if (p.refusal) setError(keyRefusalText(v, p.refusal));
-      else if (p.detail || !p.hash) setError('Không đọc được config.toml (' + (p.detail ?? 'không rõ lý do') + ').');
+      else if (p.detail || !p.hash) setError(t('Không đọc được config.toml (' + (p.detail ?? 'không rõ lý do') + ').', 'Could not read config.toml (' + (p.detail ?? 'unknown reason') + ').'));
       else setPreview(p);
     } catch {
-      setError('Không gọi được lệnh xem trước. Chưa đổi gì.');
+      setError(t('Không gọi được lệnh xem trước. Chưa đổi gì.', 'Could not run the preview. Nothing changed.'));
     } finally {
       setChecking(false);
     }
@@ -509,7 +554,7 @@ function CodexKeyBody(props: SheetBodyProps) {
   if (preview)
     return (
       <>
-        <DialogTitle>Ghi khoá cho {name}?</DialogTitle>
+        <DialogTitle>{t('Ghi khoá cho ' + name + '?', 'Write the key for ' + name + '?')}</DialogTitle>
         <DiffView head={<DiffFile>{v.home}/config.toml</DiffFile>}>
           {preview.lines.map((l, i) => (
             <DiffLine key={i} op={l.op}>
@@ -521,7 +566,7 @@ function CodexKeyBody(props: SheetBodyProps) {
         <Facts facts={keyFacts(v, preview)} />
         <DialogButtons>
           <Button large onClick={() => setPreview(null)}>
-            Sửa lại
+            {t('Sửa lại', 'Edit')}
           </Button>
           <Button
             large
@@ -531,24 +576,29 @@ function CodexKeyBody(props: SheetBodyProps) {
               props.onCodexSetKey?.(key, url.trim() || null, preview.hash!, preview.undo ? { at: null, token: preview.undo, baseUrl: !!url.trim() } : null)
             }
           >
-            Ghi khoá
+            {t('Ghi khoá', 'Write key')}
           </Button>
         </DialogButtons>
       </>
     );
   return (
     <>
-      <DialogTitle>{mode === 'replace' ? 'Đổi khoá API của ' + name : 'Dán khoá API cho ' + name}</DialogTitle>
-      <DialogLead>Khoá ghi vào bảng {name} trong config.toml, như CC Switch. App không hiện lại khoá, không ghi nó vào log hay bản sao lưu.</DialogLead>
+      <DialogTitle>{mode === 'replace' ? t('Đổi khoá API của ' + name, 'Change ' + name + '’s API key') : t('Dán khoá API cho ' + name, 'Paste the API key for ' + name)}</DialogTitle>
+      <DialogLead>
+        {t(
+          'Khoá ghi vào bảng ' + name + ' trong config.toml, như CC Switch. App không hiện lại khoá, không ghi nó vào log hay bản sao lưu.',
+          'The key goes into the ' + name + ' table in config.toml, as CC Switch does. The app never shows the key again or writes it to a log or backup.',
+        )}
+      </DialogLead>
       <label className="mb-2 block text-sm">
-        <span className="mb-1 block font-semi">Khoá API</span>
+        <span className="mb-1 block font-semi">{t('Khoá API', 'API key')}</span>
         <Input
           type="password"
           mono
           autoComplete="off"
           spellCheck={false}
           autoFocus
-          aria-label={'Khoá API của ' + name}
+          aria-label={t('Khoá API của ' + name, name + '’s API key')}
           placeholder="sk-…"
           value={key}
           onChange={(e) => setKey(e.target.value)}
@@ -559,12 +609,22 @@ function CodexKeyBody(props: SheetBodyProps) {
       </label>
       {v.custom?.proxy ? (
         <label className="mb-2 block text-sm">
-          <span className="mb-1 block font-semi">Địa chỉ thật của {name}</span>
-          <Input mono spellCheck={false} aria-label={'Địa chỉ thật của ' + name} placeholder="https://…/v1" value={url} onChange={(e) => setUrl(e.target.value)} />
-          <FieldHint>Đang trỏ tới proxy của CC Switch (127.0.0.1:15721), chỉ chạy khi CC Switch mở. Để trống thì giữ nguyên.</FieldHint>
+          <span className="mb-1 block font-semi">{t('Địa chỉ thật của ' + name, name + '’s real address')}</span>
+          <Input mono spellCheck={false} aria-label={t('Địa chỉ thật của ' + name, name + '’s real address')} placeholder="https://…/v1" value={url} onChange={(e) => setUrl(e.target.value)} />
+          <FieldHint>
+            {t(
+              'Đang trỏ tới proxy của CC Switch (127.0.0.1:15721), chỉ chạy khi CC Switch mở. Để trống thì giữ nguyên.',
+              'Points to CC Switch’s proxy (127.0.0.1:15721), which only runs while CC Switch is open. Leave it empty to keep it.',
+            )}
+          </FieldHint>
         </label>
       ) : null}
-      {catalog ? <FieldHint className="mb-2">config.toml còn model_catalog_json của CC Switch: giữ file danh mục đó, đừng xoá. App không sửa dòng này.</FieldHint> : null}
+      {catalog ? <FieldHint className="mb-2">
+          {t(
+            'config.toml còn model_catalog_json của CC Switch: giữ file danh mục đó, đừng xoá. App không sửa dòng này.',
+            'config.toml still has CC Switch’s model_catalog_json: keep that catalog file, do not delete it. The app does not change this line.',
+          )}
+        </FieldHint> : null}
       {error ? (
         <Hint tone="bad" aria-live="polite">
           {error}
@@ -573,7 +633,7 @@ function CodexKeyBody(props: SheetBodyProps) {
       <DialogButtons>
         {close()}
         <Button large primary disabled={!key.trim() || checking} onClick={() => void look()}>
-          Xem trước
+          {t('Xem trước', 'Preview')}
         </Button>
       </DialogButtons>
     </>
@@ -582,18 +642,23 @@ function CodexKeyBody(props: SheetBodyProps) {
 
 function CodexPluginsBody(props: SheetBodyProps & { on: boolean }) {
   const v = pluginsSheet(props.model, props.on);
-  if (props.working) return <Working title="Đang ghi config.toml…" line="Đổi requires_openai_auth" detail="Sao lưu bản cũ → ghi file tạm → kiểm mã băm → thay file → đọc lại." />;
+  if (props.working) return <Working title={t('Đang ghi config.toml…', 'Writing config.toml…')} line={t('Đổi requires_openai_auth', 'Changing requires_openai_auth')} detail={WRITE_STEPS()} />;
   return (
     <>
       <DialogTitle>{v.title}</DialogTitle>
-      <DialogLead>Đã lưu lựa chọn cho lần chuyển sau. Codex đang dùng {props.model.codex.custom?.name}: áp dụng ngay thì app sửa config.toml.</DialogLead>
+      <DialogLead>
+        {t(
+          'Đã lưu lựa chọn cho lần chuyển sau. Codex đang dùng ' + props.model.codex.custom?.name + ': áp dụng ngay thì app sửa config.toml.',
+          'Saved for the next switch. Codex uses ' + props.model.codex.custom?.name + ': applying it now makes the app edit config.toml.',
+        )}
+      </DialogLead>
       <Facts facts={v.facts} />
       <DialogButtons>
         <Button large onClick={props.onClose}>
-          Để lần chuyển sau
+          {t('Để lần chuyển sau', 'At the next switch')}
         </Button>
         <Button large primary disabled={props.model.codex.busy != null} onClick={() => props.onCodexSwitch?.('custom', false)}>
-          Áp dụng ngay
+          {t('Áp dụng ngay', 'Apply now')}
         </Button>
       </DialogButtons>
     </>
