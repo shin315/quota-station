@@ -16,7 +16,7 @@
         "label": "popover",
         "title": "Quota Station",
         "url": "index.html",
-        "width": 348,
+        "width": 360,
         "height": 560,
         "decorations": false,
         "transparent": true,
@@ -30,7 +30,7 @@
         "windowEffects": {
           "effects": ["popover"],
           "state": "active",
-          "radius": 16
+          "radius": 12
         }
       }
     ],

@@ -58,6 +58,8 @@
 // Thống kê (M16): `tab=stats` with made-up counts for made-up projects; `stats=first` shows the
 // first read halfway, `stats=new` starts one that runs (a step every 0.4 s), `stats=skip` has
 // 38 Codex sessions in a format the app cannot read, `stats=fail` a report that cannot be read.
+// The glass (community edition, 24/10/2026): `rt=1` is macOS with Reduce Transparency on (the
+// solid ground), and `desk=plain` a plain desktop behind the glass instead of the made-up one.
 
 import type { Api } from './lib/api';
 import type { AgyAccounts, AgyApp, AgyHow, AgyOutcome, CodexOutcome, CodexTarget, McpTable, Model, Outcome, Tab, UpdateError, UpdateOutcome } from './lib/model';
@@ -445,6 +447,7 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
     statsSkipped: stats === 'skip' ? SKIPPED_CODEX : undefined,
     statsStepMs: stats === 'new' ? 400 : undefined,
     statsFails: stats === 'fail',
+    reduceTransparency: params.get('rt') === '1',
   });
   // The window opens on the same fixture and switcher states as the popover.
   const openWindow = async (next: Tab) => {

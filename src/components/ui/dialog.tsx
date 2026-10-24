@@ -26,13 +26,13 @@ function DialogOverlay({ className, ...props }: React.ComponentProps<'div'>) {
   return <div data-slot="dialog-overlay" className={cn('absolute inset-0 bg-scrim', className)} {...props} />;
 }
 
-const dialogContentVariants = cva('overflow-y-auto bg-card shadow-[var(--sh-sheet),inset_0_0_0_.5px_var(--glass-line)]', {
+const dialogContentVariants = cva('material-dlg overflow-y-auto shadow-dlg', {
   variants: {
     kind: {
       /** In the popover: slid up from its bottom edge. */
-      sheet: 'absolute right-2 bottom-2 left-2 z-[21] max-h-[calc(100%-16px)] rounded-sheet p-3.5',
+      sheet: 'absolute right-2 bottom-2 left-2 z-[21] max-h-[calc(100%-16px)] rounded-dlg p-4',
       /** In the main window: in the middle. */
-      dialog: 'max-h-[calc(100%-32px)] rounded-sheet p-4',
+      dialog: 'max-h-[calc(100%-32px)] rounded-dlg px-5 pt-5 pb-[18px]',
     },
     size: {
       narrow: 'w-[380px]',

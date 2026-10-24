@@ -57,6 +57,8 @@ import type {
 } from '../lib/model';
 
 export interface FakeOptions {
+  /** macOS reduces transparency: the windows show the solid ground. */
+  reduceTransparency?: boolean;
   /** Aliases SSH cannot reach: a save leaves them behind, and "Thử SSH" fails. */
   unreachable?: string[];
   /** What a save, adopt or keep rejects with, instead of writing. */
@@ -227,6 +229,8 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
   const closeListeners = new Set<() => void>();
   const openSwitchListeners = new Set<(slot: number) => void>();
   const quitListeners = new Set<() => void>();
+  const materialListeners = new Set<(on: boolean) => void>();
+  let reduceTransparency = options.reduceTransparency ?? false;
   /** What the last `closeMain` did: the tests check a quit really quits. */
   let closed: 'window' | 'app' | null = null;
   let quitPending = options.quitPending ?? false;
@@ -1328,6 +1332,11 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       tabListeners.add(handler);
       return () => tabListeners.delete(handler);
     },
+    reduceTransparency: async () => reduceTransparency,
+    onReduceTransparency: async (handler) => {
+      materialListeners.add(handler);
+      return () => materialListeners.delete(handler);
+    },
   };
   /** The window's close button, as macOS would press it with unsaved rules. */
   const requestClose = () => closeListeners.forEach((l) => l());
@@ -1335,6 +1344,11 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
   const requestQuit = () => {
     quitPending = true;
     quitListeners.forEach((l) => l());
+  };
+  /** The owner turns Reduce Transparency on or off in macOS's settings. */
+  const setReduceTransparency = (on: boolean) => {
+    reduceTransparency = on;
+    materialListeners.forEach((l) => l(on));
   };
   /** A button on a macOS card that opens the popover's switch sheet. */
   const cardOpensSwitch = (slot: number) => openSwitchListeners.forEach((l) => l(slot));
@@ -1346,6 +1360,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
     requestQuit,
     closed: () => closed,
     cardOpensSwitch,
+    setReduceTransparency,
     /** How many times "Mở lại" quit the app. */
     relaunched: () => relaunched,
     /** The ids "Mở file" opened (M14). */

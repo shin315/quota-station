@@ -25,9 +25,11 @@
   }
 
   body {
-    font: var(--fs-base) / var(--lh) var(--font);
-    color: var(--ink);
+    font: var(--fs-body) / var(--lh-body) var(--font);
+    color: var(--text-1);
+    font-optical-sizing: auto;
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
     -webkit-user-select: none;
     user-select: none;
     cursor: default;
@@ -41,9 +43,14 @@
   }
 
   .qs {
-    font: var(--fs-base) / var(--lh) var(--font);
-    color: var(--ink);
+    font: var(--fs-body) / var(--lh-body) var(--font);
+    color: var(--text-1);
+    font-optical-sizing: auto;
     -webkit-font-smoothing: antialiased;
+  }
+  .qs b,
+  .qs strong {
+    font-weight: var(--fw-semibold);
   }
   .qs *,
   .qs *::before,
@@ -56,22 +63,54 @@
   }
   /* The keyboard's focus ring. A dialog that takes focus by script (tabindex=-1) draws none. */
   .qs :focus-visible {
-    outline: 2px solid var(--accent-ink);
+    outline: 2px solid var(--focus);
     outline-offset: 2px;
   }
   .qs [tabindex="-1"]:focus {
     outline: none;
   }
 
-  /* Browser preview (npm run dev, outside Tauri): the popover on a desktop,
-     and the main window filling it. */
+  /* Browser preview (npm run dev, outside Tauri): the popover and the main
+     window on a made-up desktop, so the glass has something to show
+     through. In the app the desktop is macOS's own. */
   body.preview {
-    background: var(--desk);
+    background: var(--preview-desk);
+    background-attachment: fixed;
     padding: 24px;
     box-sizing: border-box;
     min-height: 100%;
   }
   body.preview.main-window {
     padding: 0;
+  }
+  /* ?desk=plain: a plain desktop, where the glass shows only its tint. */
+  body.preview.desk-plain {
+    background: var(--desk);
+  }
+}
+
+/* The preview's made-up desktop: night aurora when dark, dawn when light. */
+:root,
+[data-theme="light"] {
+  --preview-desk:
+    radial-gradient(60% 40% at 30% 30%, rgba(255, 186, 140, 0.75), transparent 70%),
+    radial-gradient(50% 35% at 75% 20%, rgba(150, 190, 255, 0.8), transparent 70%),
+    radial-gradient(70% 45% at 55% 95%, rgba(120, 110, 170, 0.85), transparent 70%),
+    linear-gradient(180deg, #9fc0ea 0%, #f2c9b4 55%, #6d6a9a 100%);
+}
+[data-theme="dark"] {
+  --preview-desk:
+    radial-gradient(55% 22% at 45% 22%, rgba(40, 210, 150, 0.55), transparent 70%),
+    radial-gradient(40% 25% at 80% 35%, rgba(120, 80, 220, 0.5), transparent 70%),
+    radial-gradient(70% 40% at 50% 100%, rgba(60, 40, 110, 0.9), transparent 70%),
+    linear-gradient(180deg, #07102a 0%, #141a44 60%, #241a40 100%);
+}
+@media (prefers-color-scheme: dark) {
+  [data-theme="auto"] {
+    --preview-desk:
+      radial-gradient(55% 22% at 45% 22%, rgba(40, 210, 150, 0.55), transparent 70%),
+      radial-gradient(40% 25% at 80% 35%, rgba(120, 80, 220, 0.5), transparent 70%),
+      radial-gradient(70% 40% at 50% 100%, rgba(60, 40, 110, 0.9), transparent 70%),
+      linear-gradient(180deg, #07102a 0%, #141a44 60%, #241a40 100%);
   }
 }

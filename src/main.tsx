@@ -31,16 +31,20 @@ async function start() {
     preview = true;
   }
 
-  const theme = preview ? new URLSearchParams(location.search).get('theme') : null;
+  const params = preview ? new URLSearchParams(location.search) : null;
+  const theme = params?.get('theme');
   document.documentElement.dataset.theme = theme === 'light' || theme === 'dark' ? theme : 'auto';
+  // Glass until macOS says it reduces transparency (useMaterial).
+  document.documentElement.dataset.material = 'glass';
   document.body.classList.add(view === 'window' ? 'main-window' : 'popover-window');
   if (preview) document.body.classList.add('preview');
+  if (params?.get('desk') === 'plain') document.body.classList.add('desk-plain');
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
       <div
         className={'qs app-' + view + (view === 'window' ? ' h-full w-full' : ' in-[.preview]:ml-auto in-[.preview]:w-(--pop-w)')}
         data-theme={document.documentElement.dataset.theme}
-        data-material="glass"
+        data-material={document.documentElement.dataset.material}
       >
         {view === 'window' ? <MainWindowApp api={api} clock={clock} /> : <PopoverApp api={api} clock={clock} />}
       </div>

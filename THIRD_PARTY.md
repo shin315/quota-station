@@ -217,6 +217,19 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+## Inter
+
+- Project: https://github.com/rsms/inter (https://rsms.me/inter)
+- How it is used: the interface's font. Inter 4.001's variable font
+  (`opsz` 14-32, `wght` 100-900) is bundled in
+  `src/assets/fonts/InterVariable-vi.woff2`, cut with `pyftsubset` to
+  Latin, Latin Extended-A/B, Vietnamese, the combining marks and the arrows
+  and signs the app writes, keeping every OpenType feature. It is part of
+  the app, so no font is fetched while it runs; the page names it
+  "Inter QS". Nothing else in it is changed.
+- License: SIL Open Font License 1.1, `LICENSES/OFL-1.1.txt`,
+  Copyright 2020 The Inter Project Authors.
+
 ## Libraries
 
 The Rust crates and npm packages this app builds with, such as Tauri, serde,
