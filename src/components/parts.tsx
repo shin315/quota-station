@@ -324,9 +324,13 @@ export function ChoiceGroup<V extends string>(props: {
 /** Code in a line of text: monospaced on a light fill. */
 export const CODE = 'rounded-[5px] border border-line bg-card-2 px-[5px] py-px font-mono text-[.92em] text-ink [overflow-wrap:anywhere]';
 
-/** Key and value pairs: the key grey, the value to the right. */
+/**
+ * Key and value pairs: the key grey, the value to the right. The key takes
+ * its line up to 45 % of the width before it wraps, the value the rest; where
+ * the pairs have under 17rem, the key goes over its value.
+ */
 export const KVT =
-  'kvt grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 text-sm [&>span:nth-child(even)]:text-right [&>span:nth-child(even)]:tabular-nums [&>span:nth-child(odd)]:text-ink2';
+  'kvt @container grid grid-cols-[fit-content(45%)_minmax(0,1fr)] items-center gap-x-3 gap-y-1.5 text-sm [&>span:nth-child(even)]:text-right [&>span:nth-child(even)]:tabular-nums [&>span:nth-child(odd)]:text-ink2 @max-[17rem]:[&>span]:col-span-2 @max-[17rem]:[&>span:nth-child(even)]:mb-1 @max-[17rem]:[&>span:nth-child(even)]:text-left';
 
 /** Text with `**bold**` and `` `code` `` runs, as the sheets write their facts. */
 export function Rich({ text }: { text: string }) {

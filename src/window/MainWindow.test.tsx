@@ -57,10 +57,11 @@ describe('main window', () => {
     // Đang dùng replaces the room in accounts: a tile per service.
     expect(screen.queryByText(/còn dùng được|tài khoản Claude/)).toBeNull();
     const tiles = within(screen.getByRole('list', { name: 'Đang dùng' })).getAllByRole('listitem');
+    // The account on a line of its own, its organization under it.
     expect(tiles.map((t) => t.textContent)).toEqual([
-      'Claudelan.acme1 · Acme Studio74%Hạn mức 5 giờ · đặt lại sau 3h 8m',
-      'Geminilan.ultra2 · Antigravity2%Hạn mức 5 giờ · đặt lại sau 1h 57m',
-      'Codexrelay · Codex đi qua relay—ChatGPT đã dùng 23% 5 giờ',
+      'Claudelan.acme1Acme Studio74%Hạn mức 5 giờ · đặt lại sau 3h 8m',
+      'Geminilan.ultra2Antigravity2%Hạn mức 5 giờ · đặt lại sau 1h 57m',
+      'CodexrelayCodex đi qua relay—ChatGPT đã dùng 23% 5 giờ',
     ]);
 
     const claude = screen.getByRole('list', { name: 'Claude Code' });

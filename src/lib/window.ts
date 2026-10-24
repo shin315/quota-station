@@ -17,7 +17,11 @@ import { agyNames, claudeNames, popoverView, type BannerView, type CardView, typ
 
 export interface UpcomingView {
   key: string;
+  /** `17:29`, or `ngày mai 03:20`: the clock and its day, which the row draws apart. */
   at: string;
+  clock: string;
+  /** `ngày mai`; empty today. */
+  day: string;
   what: string;
   tone: '' | 'ok' | 'warn';
 }
@@ -95,12 +99,11 @@ const upcomingLabel = (): Record<LineKind, string> => ({
 
 const WEEKLY = new Set<LineKind>(['week', 'fableWeek', 'geminiWeek', 'claudeGptWeek']);
 
-/** `17:29` today, `ngày mai 03:20` tomorrow. */
-function whenWords(iso: string, now: Date): string {
-  const d = new Date(iso);
+/** `ngày mai` tomorrow, nothing today. */
+function dayWord(iso: string, now: Date): string {
   const tomorrow = new Date(now);
   tomorrow.setDate(now.getDate() + 1);
-  return d.toDateString() === tomorrow.toDateString() ? t('ngày mai ', 'tomorrow ') + clock(iso) : clock(iso);
+  return new Date(iso).toDateString() === tomorrow.toDateString() ? t('ngày mai', 'tomorrow') : '';
 }
 
 function upcoming(model: Model, now: Date): UpcomingView[] {
@@ -134,7 +137,11 @@ function upcoming(model: Model, now: Date): UpcomingView[] {
   return out
     .sort((x, y) => new Date(x.at).getTime() - new Date(y.at).getTime())
     .slice(0, UPCOMING_MAX)
-    .map((u, i) => ({ key: u.at + i, at: whenWords(u.at, now), what: u.what, tone: u.tone }));
+    .map((u, i) => {
+      const day = dayWord(u.at, now);
+      // `17:29` today, `ngày mai 03:20` tomorrow.
+      return { key: u.at + i, at: day ? day + ' ' + clock(u.at) : clock(u.at), clock: clock(u.at), day, what: u.what, tone: u.tone };
+    });
 }
 
 // ===== Antigravity =====

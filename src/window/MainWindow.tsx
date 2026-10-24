@@ -29,7 +29,7 @@ import { Segment, Segmented } from '@/components/ui/segmented';
 import { cn } from '@/lib/utils';
 import { AddAccount, LoginActions, LoginNotes, LogoutConfirm, loginChips, type AgyLogins } from '@agy/AgyAccounts';
 import { AccountName, IdMark, InUse, NowCard, WindowCell } from '../components/accounts';
-import { Empty, GRID2, STACK, TABLE, TABLE_HEAD, TABLE_ROW, TABLE_ROW_ON, TabHead, TabSub, TabTitle } from '../components/page';
+import { Empty, GRID2, STACK, TABLE, TABLE_HEAD, TABLE_ROW, TABLE_ROW_ON, TABLE_TIGHT, TabHead, TabSub, TabTitle } from '../components/page';
 import { Banner, Button, Chip, CODE, Dot, Feedback, KVT, Toggle } from '../components/parts';
 import type { Tab } from '../lib/model';
 import { pauseOptions, type AutoView, type PauseChoice } from '../lib/switching';
@@ -77,23 +77,34 @@ export function AdvancedTag({ className, hidden }: { className?: string; hidden?
   );
 }
 
+/**
+ * The sidebar's mark on what Nâng cao holds: the Nâng cao card's icon on the
+ * tag's fill, its name on hover, so the tab's own name keeps its one line.
+ */
+function AdvancedMark() {
+  return (
+    <span className="-ml-0.5 inline-grid size-4 flex-none place-items-center rounded-chip bg-tag text-tag-ink" title={t('Nâng cao', 'Advanced')} aria-hidden="true">
+      <Icon name="sliders-horizontal" className="size-[11px]" strokeWidth={2.4} />
+    </span>
+  );
+}
+
 function NavButton(props: { id: NavId; label: string; tab: Tab; badge?: number; adv?: boolean; go?: boolean; onTab(tab: Tab): void }) {
   const on = props.id === props.tab;
   return (
     <button
       type="button"
       className={cn(
-        'flex min-h-(--nav-h) w-full cursor-pointer items-center gap-3 rounded-nav border-0 px-2.5 text-left text-body font-med text-nav [&>svg]:size-[18px] [&>svg]:flex-none',
+        'flex min-h-(--nav-h) w-full cursor-pointer items-center gap-2.5 rounded-nav border-0 px-2.5 text-left text-body font-med whitespace-nowrap text-nav [&>svg]:size-[18px] [&>svg]:flex-none',
         on ? 'bg-nav-sel text-nav-sel-ink [&>svg]:text-nav-sel-ink' : 'bg-transparent hover:bg-[color-mix(in_srgb,var(--text-1)_6%,transparent)] [&>svg]:text-ink2',
-        props.adv && 'py-1',
       )}
       aria-current={on ? 'page' : undefined}
       onClick={() => props.onTab(props.id as Tab)}
     >
       {NAV_ICONS[props.id]}
-      <span className={cn('min-w-0 flex-1 truncate', props.adv && 'leading-tight whitespace-normal')}>{props.label}</span>
+      <span className="min-w-0 flex-1 truncate">{props.label}</span>
       {/* The tab keeps its plain name for the screen reader. */}
-      {props.adv ? <AdvancedTag hidden className="-ml-1 h-4 px-[5px] text-[10px]" /> : null}
+      {props.adv ? <AdvancedMark /> : null}
       {props.badge ? (
         <>
           <span className="inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-chip bg-accent px-1.5 text-xs font-semi text-white" aria-hidden="true">
@@ -148,7 +159,7 @@ function Sidebar(props: {
         <i className={LIGHT} />
         <i className={LIGHT} />
       </div>
-      <div className="flex flex-none items-center gap-2.5 px-1.5 pt-2.5 pb-3" data-tauri-drag-region>
+      <div className="flex flex-none items-center gap-2.5 px-1.5 pt-2 pb-2" data-tauri-drag-region>
         <AppMark />
         <span className="grid leading-tight">
           <b className="text-[15px] font-heading tracking-head text-heading">Quota Station</b>
@@ -158,7 +169,7 @@ function Sidebar(props: {
       <div className="-mx-1 flex min-h-0 flex-auto flex-col gap-px overflow-y-auto px-1">
         {items.map((n) =>
           n[0] === '-' ? (
-            <div className="px-2.5 pt-[9px] pb-[3px] text-sm text-ink3" key={n[1]}>
+            <div className="px-2.5 pt-2 pb-0.5 text-sm leading-4 text-ink3" key={n[1]}>
               {n[1]}
             </div>
           ) : (
@@ -174,10 +185,11 @@ function Sidebar(props: {
           ),
         )}
       </div>
-      <div className="mt-2.5 flex-none border-t border-divider pt-2.5">
+      <div className="mt-2 flex-none border-t border-divider pt-2">
         <NavButton id="settings" label={t('Cài đặt', 'Settings')} tab={tab} go onTab={onTab} />
       </div>
-      <div className="flex-none px-2.5 pt-1.5 pb-0.5 text-[12.5px] text-ink3">
+      {/* One line; the whole of it on hover. */}
+      <div className="flex-none truncate px-2.5 pt-1.5 pb-0.5 text-[12.5px] text-ink3" title={note ? machine + ' · ' + note : machine}>
         <span>{machine}</span>
         {note ? ' · ' + note : null}
       </div>
@@ -272,7 +284,7 @@ function ClaudeTable(props: { cards: CardView[]; tight?: boolean; menu?(card: Ca
     ? '[--wt-cols:minmax(120px,1.4fr)_repeat(3,minmax(72px,1fr))_112px_28px]'
     : '[--wt-cols:minmax(120px,1.4fr)_repeat(3,minmax(72px,1fr))_112px]';
   return (
-    <div className={cn(TABLE, cols)} role="list" aria-label="Claude Code">
+    <div className={cn(TABLE, cols, props.tight && TABLE_TIGHT)} role="list" aria-label="Claude Code">
       <div className={HEAD} aria-hidden="true">
         <span>{t('Tài khoản', 'Account')}</span>
         <span>{t('5 giờ', '5-hour')}</span>
@@ -299,13 +311,13 @@ function AgyTable(props: { cards: CardView[]; logins?: AgyLogins; tight?: boolea
   // Whole class names, so Tailwind finds them.
   const cols = four
     ? logins
-      ? '[--wt-cols:minmax(120px,1.3fr)_repeat(4,minmax(62px,1fr))_190px]'
-      : '[--wt-cols:minmax(120px,1.3fr)_repeat(4,minmax(62px,1fr))_112px]'
+      ? '[--wt-cols:minmax(120px,1.6fr)_repeat(4,minmax(62px,1fr))_190px]'
+      : '[--wt-cols:minmax(120px,1.6fr)_repeat(4,minmax(62px,1fr))_112px]'
     : logins
       ? '[--wt-cols:minmax(120px,1.3fr)_repeat(2,minmax(72px,1fr))_190px]'
       : '[--wt-cols:minmax(120px,1.3fr)_repeat(2,minmax(72px,1fr))_112px]';
   return (
-    <div className={cn(TABLE, cols)} role="list" aria-label="Antigravity">
+    <div className={cn(TABLE, cols, props.tight && TABLE_TIGHT)} role="list" aria-label="Antigravity">
       {four ? (
         <>
           <div className={cn(HEAD, 'pb-0 text-ink2')} aria-hidden="true">
@@ -372,17 +384,17 @@ function KeyValues({ rows }: { rows: KeyValue[] }) {
   );
 }
 
-/** Automatic switching: on or paused, why Claude is on its account, and its switch. */
+/** Automatic switching: its switch in the title row, then on or paused and why Claude is on its account, the card's whole width. */
 function AutoCard({ auto, tag, onToggle, children }: { auto: AutoView; tag?: ReactNode; onToggle(): void; children?: ReactNode }) {
   return (
-    <Card title={t('Tự chuyển Claude', 'Claude auto-switch')} icon="shuffle" tag={tag}>
-      <div className="flex items-center gap-3">
-        <div className="min-w-0 flex-1">
-          <b className="block text-body font-med text-heading">{auto.paused ? auto.title : t('Đang bật', 'On')}</b>
-          <small className="mt-px block text-[13px] text-ink2">{auto.line}</small>
-        </div>
-        <Toggle on={auto.toggle.on} label={auto.toggle.label} disabled={auto.toggle.disabled} onClick={onToggle} />
-      </div>
+    <Card
+      title={t('Tự chuyển Claude', 'Claude auto-switch')}
+      icon="shuffle"
+      tag={tag}
+      end={<Toggle on={auto.toggle.on} label={auto.toggle.label} disabled={auto.toggle.disabled} onClick={onToggle} />}
+    >
+      <b className="block text-body font-med text-heading">{auto.paused ? auto.title : t('Đang bật', 'On')}</b>
+      <small className="mt-px block text-[13px] text-ink2">{auto.line}</small>
       {children}
     </Card>
   );
@@ -454,7 +466,9 @@ function Overview(props: TabProps & { advanced: boolean; agyAccounts: boolean; r
       <Top {...props} title={t('Tổng quan', 'Overview')} />
 
       <NowCard now={v.now} />
-      <div className="grid grid-cols-[minmax(0,1fr)_240px] items-start gap-3 [@media(max-width:1000px)]:grid-cols-[minmax(0,1fr)]">
+      {/* The rail takes its share of the page, as the old 2.6fr/1fr did, and goes
+          under the accounts where the page (not the window) is too narrow for both. */}
+      <div className="grid grid-cols-[minmax(0,2.6fr)_minmax(252px,1fr)] items-start gap-3 @max-[960px]/main:grid-cols-[minmax(0,1fr)]">
         <div className={STACK}>
           {v.claude.present ? (
             <Card title="Claude" kind="c">
@@ -478,19 +492,22 @@ function Overview(props: TabProps & { advanced: boolean; agyAccounts: boolean; r
           ) : null}
           {props.codexCard}
         </div>
-        <div className={STACK}>
+        <div className={cn(STACK, '@max-[960px]/main:grid-cols-[repeat(auto-fit,minmax(260px,1fr))] @max-[960px]/main:items-start')}>
           {props.advanced && v.claude.cards.length > 1 ? <AutoCard auto={v.auto} onToggle={props.onToggle} /> : null}
           <Card title={t('Sắp tới', 'Coming up')} icon="clock">
             {v.upcoming.length ? (
               <ul className="m-0 grid list-none p-0">
                 {v.upcoming.map((u) => (
-                  <li
-                    key={u.key}
-                    className="grid grid-cols-[8px_minmax(0,1fr)_auto] items-center gap-3 border-t border-divider py-3 text-sm first:border-t-0 first:pt-0.5"
-                  >
-                    <Dot tone={u.tone || 'off'} />
-                    <span>{u.what}</span>
-                    <time className="text-body font-semi text-heading tabular-nums">{u.at}</time>
+                  // The time first, in its own column (tomorrow under it), the event the rest of the width.
+                  <li key={u.key} className="grid grid-cols-[3.75rem_minmax(0,1fr)] items-start gap-x-2.5 border-t border-divider py-2.5 text-sm first:border-t-0 first:pt-0.5">
+                    <time className="grid tabular-nums">
+                      <span className="flex items-center gap-1.5">
+                        <Dot tone={u.tone || 'off'} />
+                        <b className="text-body font-semi text-heading">{u.clock}</b>
+                      </span>
+                      {u.day ? <small className="pl-3.5 text-xs text-ink3">{u.day}</small> : null}
+                    </time>
+                    <span className="pt-px">{u.what}</span>
                   </li>
                 ))}
               </ul>
@@ -747,7 +764,8 @@ export function MainWindow(props: MainWindowProps) {
             advanced={props.advanced}
             onTab={props.onTab}
           />
-          <main className="main material-main relative flex min-w-0 flex-col gap-3 overflow-y-auto pt-4 pr-[22px] pb-[22px] pl-3.5">
+          {/* The page is the container its layouts measure: the window less the sidebar. */}
+          <main className="main material-main @container/main relative flex min-w-0 flex-col gap-3 overflow-y-auto pt-4 pr-[22px] pb-[22px] pl-3.5">
             {tab === 'overview' ? <Overview {...tabProps} advanced={props.advanced} agyAccounts={props.agyAccounts} release={props.release} onTab={props.onTab} /> : null}
             {tab === 'stats' ? props.stats : null}
             {tab === 'claude' ? <ClaudeTab {...tabProps} advanced={props.advanced} /> : null}

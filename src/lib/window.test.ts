@@ -50,6 +50,8 @@ describe('main window view', () => {
       ['17:29', 'lan.acme1 có lại hạn mức 5 giờ', 'ok'],
       ['17:45', 'lan.acme1 rời vòng', 'warn'],
     ]);
+    // The row draws the clock apart from its day, which today has none.
+    expect(view('fresh').upcoming[0]).toMatchObject({ clock: '16:18', day: '' });
     // Windows nothing was used of are left out, and a list is cut at five.
     const exhausted = view('exhausted').upcoming;
     expect(exhausted).toHaveLength(5);
