@@ -7,7 +7,7 @@
 
 import { hours, minutesUntil, resetShort, resetWords } from './format';
 import { t } from './i18n';
-import type { Account, Line, LineKind } from './model';
+import type { Account, Line, LineKind, Model } from './model';
 
 export type UsedTone = 'ok' | 'warn' | 'bad' | 'muted';
 
@@ -220,14 +220,24 @@ export function emailNames(emails: (string | undefined)[]): Map<string, string> 
   return out;
 }
 
+/** The nicknames the owner gave the Claude accounts Quota Station keeps, by slot. */
+export function claudeAliases(model: Pick<Model, 'claudeAccounts'>): Map<number, string> {
+  return new Map(model.claudeAccounts.accounts.filter((a) => a.alias).map((a) => [a.slot, a.alias!]));
+}
+
 /**
- * Claude accounts: their email when the owner shows names, else with
- * `roles` (Cài đặt › Nâng cao) Cá nhân, Team A, Team B… by slot order, and
- * `Tài khoản N` without a rotation file or without `roles`. The sub-line is
- * the organization of a Team seat, and with `roles` the hours of the
- * personal account.
+ * Claude accounts: the nickname the owner gave one, else their email when
+ * the owner shows names, else with `roles` (Cài đặt › Nâng cao) Cá nhân,
+ * Team A, Team B… by slot order, and `Tài khoản N` without a rotation file
+ * or without `roles`. The sub-line is the organization of a Team seat, and
+ * with `roles` the hours of the personal account.
  */
-export function claudeNames(accounts: Account[], personalHours: string | null = null, roles = true): Map<number, AccountName> {
+export function claudeNames(
+  accounts: Account[],
+  personalHours: string | null = null,
+  roles = true,
+  aliases: ReadonlyMap<number, string> = new Map(),
+): Map<number, AccountName> {
   const out = new Map<number, AccountName>();
   // The roles come from the rotation file, which is Nâng cao's.
   if (!roles) accounts = accounts.map((a) => ({ ...a, role: 'unknown' as const }));
@@ -249,6 +259,7 @@ export function claudeNames(accounts: Account[], personalHours: string | null = 
       sub = a.role === 'personal' ? t('Cá nhân', 'Personal') + (h ? ' · ' + h : '') : a.role === 'team' ? (a.org ?? '') : '';
       name = email;
     } else if (a.role === 'personal' && h) sub = h;
+    name = aliases.get(a.number) ?? name;
     out.set(a.number, { name, short, sub, full: a.email ?? '' });
   }
   return out;

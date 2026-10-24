@@ -10,7 +10,7 @@
 import { clock, pad, percent } from './format';
 import { t } from './i18n';
 import type { Account, Decision, Hold, LogLine, Model, Outcome, Sessions, Why } from './model';
-import { BAD_USED, claudeCells, tightest } from './accounts';
+import { BAD_USED, claudeAliases, claudeCells, tightest } from './accounts';
 import { claudeNames, type Action, type BannerView, type FeedbackView } from './view';
 
 /** The switcher's LaunchAgent runs every 180 seconds. */
@@ -20,7 +20,7 @@ const switcherEvery = () => t('trong vòng 3 phút', 'within 3 minutes');
 export type NameOf = (slot: number) => string;
 
 export function namesOf(model: Model): NameOf {
-  const names = claudeNames(model.snapshot.claude.accounts, null, model.advanced.on);
+  const names = claudeNames(model.snapshot.claude.accounts, null, model.advanced.on, claudeAliases(model));
   return (n) => names.get(n)?.name ?? t('tài khoản ' + n, 'account ' + n);
 }
 

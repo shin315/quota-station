@@ -203,14 +203,26 @@ function TitleBar(props: { title: string; view: WindowView; busy: boolean; onRef
 /** The traffic lights the browser preview draws; macOS draws its own in the app. */
 const LIGHT = 'size-3 rounded-full bg-traffic shadow-[inset_0_0_0_.5px_var(--line-2)] [body:not(.preview)_&]:invisible';
 
-/** A card: a service's (`kind`) has its logo and a large name. */
-function Card(props: { title: ReactNode; kind?: 'c' | 'g'; icon?: IconName; tag?: ReactNode; end?: ReactNode; children: ReactNode }) {
+/** A card: a service's (`kind`) has its logo and a large name; `under`: a line under the name. */
+function Card(props: { title: ReactNode; kind?: 'c' | 'g'; big?: boolean; icon?: IconName; tag?: ReactNode; under?: ReactNode; end?: ReactNode; children: ReactNode }) {
+  const title = (
+    <>
+      {props.kind ? <IdMark id={props.kind} className="size-[26px]" /> : props.icon ? <Icon name={props.icon} /> : null}
+      {props.title}
+      {props.tag}
+    </>
+  );
   return (
     <Panel>
-      <CardTitle big={!!props.kind}>
-        {props.kind ? <IdMark id={props.kind} className="size-[26px]" /> : props.icon ? <Icon name={props.icon} /> : null}
-        {props.title}
-        {props.tag}
+      <CardTitle big={!!props.kind || props.big}>
+        {props.under ? (
+          <span className="grid min-w-0 gap-0.5">
+            <span className="flex items-center gap-2.5">{title}</span>
+            <small className="text-sm font-reg tracking-normal text-ink2 tabular-nums">{props.under}</small>
+          </span>
+        ) : (
+          title
+        )}
         {props.end ? <span className="ml-auto flex items-center gap-2.5 text-body font-reg tracking-normal">{props.end}</span> : null}
       </CardTitle>
       {props.children}
@@ -235,11 +247,11 @@ const ROW = TABLE_ROW;
 const HEAD = TABLE_HEAD;
 
 /** One account in a window table: its name, a fixed column per window, and its buttons. */
-function TableRow(props: { card: CardView; extra?: ReactNode; chips?: ChipView[]; tight?: boolean; onSwitch(slot: number): void }) {
+function TableRow(props: { card: CardView; extra?: ReactNode; menu?: ReactNode; chips?: ChipView[]; tight?: boolean; onSwitch(slot: number): void }) {
   const c = props.card;
   return (
-    <div className={cn(ROW, c.active && TABLE_ROW_ON)} role="listitem" aria-label={c.label} title={c.title || undefined}>
-      <AccountName name={c.name} sub={c.sub} full={c.full} dot={c.active ? 'on' : 'off'} chips={[...c.chips, ...(props.chips ?? [])]} />
+    <div className={cn(ROW, c.active && TABLE_ROW_ON, c.resting && 'bg-card-2')} role="listitem" aria-label={c.label} title={c.title || undefined}>
+      <AccountName name={c.name} sub={c.sub} full={c.full} dot={c.active ? 'on' : c.resting ? 'rest' : 'off'} chips={[...c.chips, ...(props.chips ?? [])]} />
       {c.cells.map((cell) => (
         <WindowCell key={cell.label} cell={cell} dim={c.dim} />
       ))}
@@ -247,24 +259,30 @@ function TableRow(props: { card: CardView; extra?: ReactNode; chips?: ChipView[]
         <SwitchCell card={c} onSwitch={props.onSwitch} />
         {props.extra}
       </span>
+      {props.menu !== undefined ? <span className="flex justify-end">{props.menu}</span> : null}
     </div>
   );
 }
 
 /** Claude: 5 giờ · Tuần · Fable tuần, the same columns for every account. */
-function ClaudeTable(props: { cards: CardView[]; tight?: boolean; onSwitch(slot: number): void }) {
+function ClaudeTable(props: { cards: CardView[]; tight?: boolean; menu?(card: CardView): ReactNode; onSwitch(slot: number): void }) {
   if (!props.cards.length) return null;
+  // Whole class names, so Tailwind finds them; the Claude tab adds the ⋯ column.
+  const cols = props.menu
+    ? '[--wt-cols:minmax(120px,1.4fr)_repeat(3,minmax(72px,1fr))_112px_28px]'
+    : '[--wt-cols:minmax(120px,1.4fr)_repeat(3,minmax(72px,1fr))_112px]';
   return (
-    <div className={cn(TABLE, '[--wt-cols:minmax(120px,1.4fr)_repeat(3,minmax(72px,1fr))_112px]')} role="list" aria-label="Claude Code">
+    <div className={cn(TABLE, cols)} role="list" aria-label="Claude Code">
       <div className={HEAD} aria-hidden="true">
         <span>{t('Tài khoản', 'Account')}</span>
         <span>{t('5 giờ', '5-hour')}</span>
         <span>{t('Tuần', 'Week')}</span>
         <span>{t('Fable tuần', 'Fable week')}</span>
         <span />
+        {props.menu ? <span /> : null}
       </div>
       {props.cards.map((c) => (
-        <TableRow key={c.key} card={c} tight={props.tight} onSwitch={props.onSwitch} />
+        <TableRow key={c.key} card={c} tight={props.tight} menu={props.menu ? props.menu(c) : undefined} onSwitch={props.onSwitch} />
       ))}
     </div>
   );
@@ -355,9 +373,9 @@ function KeyValues({ rows }: { rows: KeyValue[] }) {
 }
 
 /** Automatic switching: on or paused, why Claude is on its account, and its switch. */
-function AutoCard({ auto, onToggle, children }: { auto: AutoView; onToggle(): void; children?: ReactNode }) {
+function AutoCard({ auto, tag, onToggle, children }: { auto: AutoView; tag?: ReactNode; onToggle(): void; children?: ReactNode }) {
   return (
-    <Card title={t('Tự chuyển Claude', 'Claude auto-switch')} icon="shuffle">
+    <Card title={t('Tự chuyển Claude', 'Claude auto-switch')} icon="shuffle" tag={tag}>
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
           <b className="block text-body font-med text-heading">{auto.paused ? auto.title : t('Đang bật', 'On')}</b>
@@ -400,7 +418,22 @@ interface TabProps {
   /** Codex's card on Tổng quan (M8). */
   codexCard?: ReactNode;
   /** The Claude accounts Quota Station keeps, in the Claude tab. */
-  claudeAccounts?: ReactNode;
+  claude?: ClaudeManage;
+}
+
+/** The Claude tab's accounts, from `ClaudeAccounts`: the ⋯ menus, the add button, the rotation. */
+export interface ClaudeManage {
+  /** The ⋯ menu of an account Quota Station keeps; null for one it does not. */
+  menu(card: CardView): ReactNode;
+  onAdd(): void;
+  /** No account yet: the empty box's other way in (claude-swap's import). */
+  emptyExtra?: ReactNode;
+  /** Before Quota Station keeps the accounts claude-swap lists: the banner to bring them in. */
+  setup?: ReactNode;
+  /** The rotation's LaunchAgent: its switch, the old switcher's warning. In the Switcher card with Nâng cao. */
+  rotation: ReactNode;
+  /** Without Nâng cao, a card of its own: only while the rotation runs or the old switcher is loaded. */
+  rotationAlone: boolean;
 }
 
 function Top(props: TabProps & { title: string; banner?: boolean }) {
@@ -474,7 +507,9 @@ function ClaudeTab(props: TabProps & { advanced: boolean }) {
   const v = props.view;
   const a = v.auto;
   const sw = v.switcher;
-  if (!v.claude.present && !v.claude.cards.length)
+  const m = props.claude;
+  const cards = v.claude.cards;
+  if (!v.claude.present && !cards.length)
     return (
       <>
         <Top {...props} title="Claude" />
@@ -486,14 +521,46 @@ function ClaudeTab(props: TabProps & { advanced: boolean }) {
       <Top {...props} title="Claude" />
       {v.envBanner ? <Banner banner={v.envBanner} onAction={props.onAction} busy={props.busy} /> : null}
       {v.claudeBanner ? <Banner banner={v.claudeBanner} onAction={props.onAction} busy={props.busy} /> : null}
-      <Card title={t('Tài khoản', 'Accounts')} kind="c" end={v.claude.count ? <span className="text-ink2">{v.claude.count}</span> : null}>
-        <ClaudeTable cards={v.claude.cards} onSwitch={props.onSwitch} />
+      <Card
+        title={t('Tài khoản', 'Accounts')}
+        big
+        under={v.claude.count || null}
+        end={
+          m ? (
+            <Button primary lead="plus" onClick={m.onAdd}>
+              {t('Thêm tài khoản', 'Add account')}
+            </Button>
+          ) : null
+        }
+      >
+        {cards.length && m?.setup ? <div className="mb-3">{m.setup}</div> : null}
+        {cards.length ? (
+          <ClaudeTable cards={cards} menu={m?.menu} onSwitch={props.onSwitch} />
+        ) : (
+          <EmptyBox
+            icon={<IdMark id="c" className="size-[34px]" />}
+            title={t('Chưa có tài khoản Claude nào', 'No Claude accounts yet')}
+            body={t(
+              'Quota Station giữ đăng nhập của từng tài khoản trong Keychain của máy này, để bạn chuyển Claude Code giữa các tài khoản.',
+              'Quota Station keeps each account’s sign-in in this Mac’s Keychain so you can switch Claude Code between them.',
+            )}
+          >
+            {m ? (
+              <Button small primary onClick={m.onAdd}>
+                {t('Thêm tài khoản…', 'Add account…')}
+              </Button>
+            ) : null}
+            {m?.emptyExtra}
+          </EmptyBox>
+        )}
+        {cards.length === 1 ? (
+          <CardText className="mt-2.5 mb-0 text-sm text-ink2">{t('Thêm tài khoản thứ hai để chuyển nhanh từ popover.', 'Add a second account to switch quickly from the popover.')}</CardText>
+        ) : null}
         <Note note={v.claude.note} />
       </Card>
-      {props.claudeAccounts}
       {props.advanced ? (
         <div className={GRID2}>
-          <AutoCard auto={a} onToggle={props.onToggle}>
+          <AutoCard auto={a} tag={<AdvancedTag />} onToggle={props.onToggle}>
             <CardText style={{ margin: '12px 0 4px' }} id="qs-qp">
               {t('Tạm dừng', 'Pause')}
             </CardText>
@@ -505,7 +572,7 @@ function ClaudeTab(props: TabProps & { advanced: boolean }) {
               ))}
             </Segmented>
           </AutoCard>
-          <Card title="Switcher">
+          <Card title="Switcher" tag={<AdvancedTag />}>
             <div className="text-sm text-ink2">
               <Dot tone={sw.tone} className="mr-1.5" />
               {sw.line}
@@ -516,8 +583,13 @@ function ClaudeTab(props: TabProps & { advanced: boolean }) {
                 <KeyValues rows={sw.details} />
               </div>
             </details>
+            {m?.rotation}
           </Card>
         </div>
+      ) : m?.rotationAlone ? (
+        <Card title={t('Tự chuyển bằng Quota Station', 'Auto-switch with Quota Station')} icon="shuffle">
+          {m.rotation}
+        </Card>
       ) : null}
     </>
   );
@@ -607,7 +679,7 @@ export interface MainWindowProps {
   /** The accounts the app logs in, merged into the Antigravity table. */
   agyLogins?: AgyLogins;
   /** The Claude accounts Quota Station keeps, in the Claude tab. */
-  claudeAccounts?: ReactNode;
+  claude?: ClaudeManage;
   /** The app's version, under its name in the sidebar. */
   version?: string | null;
   /** Cài đặt › Nâng cao is on: its tabs and switches show. */
@@ -635,7 +707,7 @@ export function MainWindow(props: MainWindowProps) {
     now: props.now,
     agyLogins: props.agyAccounts ? props.agyLogins : undefined,
     codexCard: props.codexCard,
-    claudeAccounts: props.claudeAccounts,
+    claude: props.claude,
   };
   const open = !!props.dialog;
   const hidden = hiddenTabs(props.advanced, props.firstmateTab);

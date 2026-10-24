@@ -6,7 +6,7 @@
 // like `view.ts`. Copy follows the prototype's `tabHistory`: accounts by
 // the window's names, a short reason, and the switcher's own line on hover.
 
-import { agyNames, claudeNames } from './accounts';
+import { agyNames, claudeAliases, claudeNames } from './accounts';
 import { shortName } from './codex';
 import { clock, pad } from './format';
 import { t } from './i18n';
@@ -155,7 +155,7 @@ function pill(e: HistoryEntry): HistoryRowView['pill'] {
  */
 export function historyNames(model: Model): { claude: NameOf; agy: NameOf } {
   const roles = model.advanced.on;
-  const c = claudeNames(model.snapshot.claude.accounts, model.snapshot.claude.personalHours, roles);
+  const c = claudeNames(model.snapshot.claude.accounts, model.snapshot.claude.personalHours, roles, claudeAliases(model));
   const g = agyNames(model.snapshot.agy.accounts, roles);
   return {
     claude: (n) => c.get(n)?.name ?? t('Tài khoản ', 'Account ') + n,

@@ -6,6 +6,8 @@
 // Switching (M3): `switcher=held|noguard|auto|stopped|missing` sets the
 // switcher, `outcome=raced|failed|busy|unconfirmed` what a switch reports, and
 // `accounts=none` shows a Mac where Quota Station keeps no Claude account yet. A switch takes 1.5 s, so the working sheet shows.
+// Claude accounts: `claude=relogin` has account 3 to sign in again, `claude=renew` makes a sign-in land on
+// account 1 (already here), `claude=fail` ends a sign-in without one; an action takes 3 s.
 // Rotation rules (M5): `tab=rules` with `rotation=unreachable|newer|edited|unstamped|missing|invalid|unwritable|single`;
 // a save takes 1 s, and `unreachable` leaves Mac C behind.
 // Antigravity logins (M4a) and reads (M4b): `agy=two|relogin|verify|noclient|tooopen|invalid|broken|reading|failing|forbidden`
@@ -347,6 +349,11 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
     over.claudeAccounts = claudeAccountsFixture({ ready: false, accounts: [], rotation: false });
     over.switcher = switcherFixture({ installed: false, service: false, dryRun: null, dryRunError: 'noAccounts' });
   }
+  const claude = params.get('claude');
+  if (claude === 'relogin')
+    over.claudeAccounts = claudeAccountsFixture({
+      accounts: claudeAccountsFixture().accounts.map((a) => (a.slot === 3 ? { ...a, status: 'reloginRequired' as const } : a)),
+    });
   const rotation = params.get('rotation');
   const rules = pick(ROTATIONS, rotation);
   if (rules) over.rotation = rules();
@@ -413,6 +420,9 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
   }
   const { api } = fakeApi(params.get('email') === 'off' ? hideNames(model) : model, tab, {
     switchDelayMs: 1500,
+    claudeDelayMs: 3000,
+    claudeRenews: claude === 'renew' ? 1 : undefined,
+    claudeFail: claude === 'fail' ? (action) => (action === 'login' ? 'login' : null) : undefined,
     outcome: pick(OUTCOMES, params.get('outcome')),
     saveDelayMs: 1000,
     clock: () => FIXTURE_NOW,

@@ -7,6 +7,7 @@
 // and banners. Pure, like `view.ts`.
 
 import { overwriteBanner } from '@agy/agySwitch';
+import { claudeAliases } from './accounts';
 import { envBanner } from './env';
 import { clock, minutesUntil } from './format';
 import { t } from './i18n';
@@ -126,7 +127,7 @@ function upcoming(model: Model, now: Date): UpcomingView[] {
   };
   // The one account a provider row reads goes by the provider's name here,
   // where Claude and Antigravity share one list.
-  const names = claudeNames(s.claude.accounts, null, model.advanced.on);
+  const names = claudeNames(s.claude.accounts, null, model.advanced.on, claudeAliases(model));
   const gNames = agyNames(s.agy.accounts, model.advanced.on);
   add(s.claude, (a) => (a.number === 0 ? 'Claude' : (names.get(a.number)?.name ?? t('Tài khoản ' + a.number, 'Account ' + a.number))));
   if (s.agy.status !== 'notSetUp') add(s.agy, (a) => (a.number === 0 ? 'Antigravity' : gNames.get(a.number)!.name));

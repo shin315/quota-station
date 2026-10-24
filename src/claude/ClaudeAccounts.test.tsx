@@ -21,177 +21,263 @@ async function open(model: Model, options: FakeOptions = {}) {
   return fake;
 }
 
-function withAccounts(over: Partial<ClaudeAccountsView>): Model {
-  return fixtureModel('fresh', { claudeAccounts: claudeAccountsFixture(over) });
+function withAccounts(over: Partial<ClaudeAccountsView>, model: Partial<Model> = {}): Model {
+  return fixtureModel('fresh', { ...model, claudeAccounts: claudeAccountsFixture(over) });
 }
 
-const card = () => screen.getByRole('region', { name: 'Tài khoản Quota Station giữ' });
-const rows = () => within(within(card()).getByRole('list', { name: 'Tài khoản Claude' })).getAllByRole('listitem');
-const row = (name: string) => within(card()).getByRole('listitem', { name });
-const button = (name: string) => within(card()).getByRole('button', { name }) as HTMLButtonElement;
+const table = () => screen.getByRole('list', { name: 'Claude Code' });
+const names = () => within(table()).getAllByRole('listitem').map((r) => r.querySelector('b')!.textContent);
+const dialog = () => screen.getByRole('dialog');
+const inDialog = (name: string | RegExp) => within(dialog()).getByRole('button', { name }) as HTMLButtonElement;
+
+async function press(el: HTMLElement) {
+  await act(async () => {
+    fireEvent.click(el);
+  });
+}
+
+/** Opens an account's ⋯ menu as a pointer does: Radix opens a menu on pointerdown. */
+async function menu(name: string) {
+  await act(async () => {
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Thêm thao tác cho ' + name }), { button: 0, ctrlKey: false });
+  });
+  return screen.getByRole('menu');
+}
+
+async function choose(account: string, item: string) {
+  await menu(account);
+  await press(screen.getByRole('menuitem', { name: item }));
+}
 
 afterEach(cleanup);
 
 describe('the Claude accounts Quota Station keeps', () => {
-  it('before any account is kept, importing from claude-swap brings them over', async () => {
-    const fake = await open(withAccounts({ ready: false, accounts: [], rotation: false }));
-    expect(within(card()).queryByRole('list')).toBeNull();
-    // Nothing to rotate yet.
-    expect((within(card()).getByRole('switch', { name: 'Tự chuyển bằng Quota Station' }) as HTMLButtonElement).disabled).toBe(true);
-    await act(async () => {
-      fireEvent.click(button('Nhập từ claude-swap'));
-    });
-    expect(fake.api.claudeImport).toHaveBeenCalledTimes(1);
-    expect(rows().map((r) => r.getAttribute('aria-label'))).toEqual(['Tài khoản 1', 'Tài khoản 2', 'Tài khoản 3', 'Tài khoản 4']);
-    // Running it again stays offered.
-    expect(button('Nhập lại từ claude-swap')).toBeTruthy();
+  it('each account has a ⋯ menu: details, out of the rotation, sign in again, remove', async () => {
+    await open(withAccounts({}));
+    expect(names()).toEqual(['lanpham.dev', 'lan.acme1', 'lan.acme2', 'lan.acme3']);
+    const items = within(await menu('lan.acme2')).getAllByRole('menuitem');
+    expect(items.map((i) => i.textContent)).toEqual(['Chi tiết và tên gọi…', 'Cho nghỉ khỏi tự chuyển…', 'Đăng nhập lại…', 'Xoá khỏi máy này…']);
   });
 
-  it('a Mac without claude-swap offers only the other ways in', async () => {
-    await open(withAccounts({ ready: false, importable: false, accounts: [] }));
-    expect(within(card()).queryByRole('button', { name: /^Nhập/ })).toBeNull();
-    expect(button('Đăng nhập tài khoản mới').disabled).toBe(false);
-    expect(button('Thêm tài khoản đang đăng nhập').disabled).toBe(false);
+  it('without the rotation and without Nâng cao, the menu has nothing to hold out of it', async () => {
+    await open(withAccounts({ rotation: false }, { advanced: { on: false, firstmate: false } }));
+    const items = within(await menu('lan.acme2')).getAllByRole('menuitem');
+    expect(items.map((i) => i.textContent)).toEqual(['Chi tiết và tên gọi…', 'Đăng nhập lại…', 'Xoá khỏi máy này…']);
+    // Nor a card for a rotation that does not run.
+    expect(screen.queryByRole('switch', { name: 'Tự chuyển bằng Quota Station' })).toBeNull();
+  });
+
+  it('before any account is kept, importing from claude-swap brings them over', async () => {
+    const fake = await open(withAccounts({ ready: false, accounts: [], rotation: false }));
+    expect(screen.getByText('Đưa các tài khoản Claude vào Quota Station')).toBeTruthy();
+    // Nothing to rotate yet.
+    expect((screen.getByRole('switch', { name: 'Tự chuyển bằng Quota Station' }) as HTMLButtonElement).disabled).toBe(true);
+    await press(screen.getByRole('button', { name: 'Nhập từ claude-swap' }));
+    expect(fake.api.claudeImport).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(/^Đã nhập từ claude-swap: 4 tài khoản mới/)).toBeTruthy();
+    expect(screen.queryByText('Đưa các tài khoản Claude vào Quota Station')).toBeNull();
+    // Importing again stays among the ways in.
+    await press(screen.getByRole('button', { name: 'Thêm tài khoản' }));
+    expect(within(dialog()).getByRole('radio', { name: /^Nhập lại từ claude-swap/ })).toBeTruthy();
+  });
+
+  it('with no account and no claude-swap, the card is empty and offers the ways in', async () => {
+    const empty = withAccounts({ ready: false, importable: false, accounts: [] });
+    await open({ ...empty, snapshot: { ...empty.snapshot, claude: { ...empty.snapshot.claude, accounts: [] } } });
+    expect(screen.getByText('Chưa có tài khoản Claude nào')).toBeTruthy();
+    await press(screen.getByRole('button', { name: 'Thêm tài khoản…' }));
+    expect(within(dialog()).getAllByRole('radio').map((r) => r.querySelector('b')!.textContent)).toEqual([
+      'Đăng nhập trong trình duyệt',
+      'Lấy tài khoản Claude Code đang đăng nhập',
+      'Dán setup-token',
+    ]);
   });
 
   it('the account in use cannot be removed; another one goes after asking', async () => {
     const fake = await open(withAccounts({}));
-    expect(button('Xoá Tài khoản 2').disabled).toBe(true);
-    fireEvent.click(button('Xoá Tài khoản 3'));
-    const ask = within(card()).getByRole('group', { name: 'Xoá Tài khoản 3' });
-    fireEvent.click(within(ask).getByRole('button', { name: 'Thôi' }));
+    await choose('lan.acme1', 'Xoá khỏi máy này…');
+    expect(within(dialog()).getByRole('heading', { name: 'Chưa xoá được lan.acme1' })).toBeTruthy();
+    await press(inDialog('Đóng'));
+    await choose('lan.acme2', 'Xoá khỏi máy này…');
+    expect(within(dialog()).getByText(/Tài khoản Claude vẫn còn nguyên/)).toBeTruthy();
+    await press(inDialog('Thôi'));
     expect(fake.api.claudeRemove).not.toHaveBeenCalled();
-    fireEvent.click(button('Xoá Tài khoản 3'));
-    await act(async () => {
-      fireEvent.click(within(within(card()).getByRole('group', { name: 'Xoá Tài khoản 3' })).getByRole('button', { name: 'Xoá' }));
-    });
+    await choose('lan.acme2', 'Xoá khỏi máy này…');
+    await press(inDialog('Xoá khỏi máy này'));
     expect(fake.api.claudeRemove).toHaveBeenCalledWith(3);
-    expect(rows().map((r) => r.getAttribute('aria-label'))).toEqual(['Tài khoản 1', 'Tài khoản 2', 'Tài khoản 4']);
+    expect(names()).toEqual(['lanpham.dev', 'lan.acme1', 'lan.acme3']);
+    // Said once, as a toast that goes by itself.
+    expect(screen.getByRole('status').textContent).toBe('Đã xoá lan.acme2 khỏi máy này');
   });
 
-  it('an account gets a name, and clearing it brings back its number', async () => {
+  it('the details give an account a nickname the tables use, and clearing it brings back the email', async () => {
     const fake = await open(withAccounts({}));
-    fireEvent.click(within(row('Tài khoản 3')).getByRole('button', { name: 'Đổi tên' }));
-    const name = within(card()).getByRole('textbox', { name: 'Tên mới' });
-    expect((name as HTMLInputElement).value).toBe('');
-    fireEvent.change(name, { target: { value: 'Team phụ' } });
-    await act(async () => {
-      fireEvent.keyDown(name, { key: 'Enter' });
-    });
+    await choose('lan.acme2', 'Chi tiết và tên gọi…');
+    const d = within(dialog());
+    expect(d.getByRole('heading', { name: 'lan.acme2' })).toBeTruthy();
+    expect(d.getByText('lan.acme2@example.com')).toBeTruthy();
+    const nick = d.getByRole('textbox', { name: 'Tên gọi' }) as HTMLInputElement;
+    expect(nick.value).toBe('');
+    expect(nick.placeholder).toBe('lan.acme2');
+    fireEvent.change(nick, { target: { value: 'Team phụ' } });
+    await press(inDialog('Lưu'));
     expect(fake.api.claudeSetAlias).toHaveBeenCalledWith(3, 'Team phụ');
-    fireEvent.click(within(row('Team phụ')).getByRole('button', { name: 'Đổi tên' }));
-    const again = within(card()).getByRole('textbox', { name: 'Tên mới' });
-    expect((again as HTMLInputElement).value).toBe('Team phụ');
-    fireEvent.change(again, { target: { value: '' } });
-    await act(async () => {
-      fireEvent.click(button('Lưu'));
-    });
-    expect(row('Tài khoản 3')).toBeTruthy();
+    expect(names()).toEqual(['lanpham.dev', 'lan.acme1', 'Team phụ', 'lan.acme3']);
+    expect(screen.getByRole('status').textContent).toBe('Đã lưu tên gọi Team phụ');
+    await choose('Team phụ', 'Chi tiết và tên gọi…');
+    fireEvent.change(within(dialog()).getByRole('textbox', { name: 'Tên gọi' }), { target: { value: '' } });
+    await press(inDialog('Lưu'));
+    expect(fake.api.claudeSetAlias).toHaveBeenLastCalledWith(3, '');
+    expect(names()).toContain('lan.acme2');
   });
 
-  it('an account leaves the rotation and comes back', async () => {
+  it('an account leaves the rotation after asking, and Hoàn tác puts it back', async () => {
     const fake = await open(withAccounts({}));
-    const toggle = () => within(card()).getByRole('switch', { name: 'Trong vòng xoay: Tài khoản 4' });
-    expect(toggle().getAttribute('aria-checked')).toBe('true');
-    await act(async () => {
-      fireEvent.click(toggle());
-    });
+    await choose('lan.acme3', 'Cho nghỉ khỏi tự chuyển…');
+    expect(within(dialog()).getByRole('heading', { name: 'Cho lan.acme3 nghỉ khỏi tự chuyển?' })).toBeTruthy();
+    await press(inDialog('Cho nghỉ'));
     expect(fake.api.claudeSetEnabled).toHaveBeenCalledWith(4, false);
-    expect(toggle().getAttribute('aria-checked')).toBe('false');
-    await act(async () => {
-      fireEvent.click(toggle());
-    });
+    const rested = within(table()).getAllByRole('listitem')[3];
+    expect(within(rested).getByText('nghỉ tự chuyển')).toBeTruthy();
+    expect(screen.getByText('Đã cho lan.acme3 nghỉ khỏi tự chuyển.')).toBeTruthy();
+    await press(screen.getByRole('button', { name: 'Hoàn tác' }));
     expect(fake.api.claudeSetEnabled).toHaveBeenLastCalledWith(4, true);
-    expect(toggle().getAttribute('aria-checked')).toBe('true');
+    expect(within(within(table()).getAllByRole('listitem')[3]).queryByText('nghỉ tự chuyển')).toBeNull();
   });
 
-  it('a setup token goes to the app once and is never shown', async () => {
+  it('a setup token goes to the app once and is never shown; the added account takes a nickname', async () => {
     const fake = await open(withAccounts({}));
-    fireEvent.click(button('Thêm setup token'));
-    const form = within(card()).getByRole('group', { name: 'Thêm setup token' });
-    const add = within(form).getByRole('button', { name: 'Thêm token' }) as HTMLButtonElement;
-    expect(add.disabled).toBe(true);
-    const token = within(form).getByLabelText('Setup token') as HTMLInputElement;
+    await press(screen.getByRole('button', { name: 'Thêm tài khoản' }));
+    await press(within(dialog()).getByRole('radio', { name: /^Dán setup-token/ }));
+    await press(inDialog('Tiếp tục'));
+    const token = within(dialog()).getByLabelText('Token') as HTMLInputElement;
     expect(token.type).toBe('password');
+    expect(inDialog('Thêm').disabled).toBe(true);
     fireEvent.change(token, { target: { value: 'sk-ant-oat01-made-up' } });
-    fireEvent.change(within(form).getByRole('textbox', { name: 'Email của tài khoản (không bắt buộc)' }), { target: { value: ' ci@team.example ' } });
-    await act(async () => {
-      fireEvent.click(add);
-    });
+    fireEvent.change(within(dialog()).getByLabelText('Email của tài khoản (không bắt buộc)'), { target: { value: 'ci@team.example' } });
+    await press(inDialog('Thêm'));
     expect(fake.api.claudeAddToken).toHaveBeenCalledWith('sk-ant-oat01-made-up', 'ci@team.example');
-    expect(within(card()).queryByRole('group', { name: 'Thêm setup token' })).toBeNull();
-    expect(rows()).toHaveLength(5);
+    expect(within(dialog()).getByRole('heading', { name: 'Đã thêm ci' })).toBeTruthy();
     expect(document.body.innerHTML).not.toContain('sk-ant-oat01-made-up');
+    fireEvent.change(within(dialog()).getByRole('textbox', { name: 'Tên gọi' }), { target: { value: 'CI' } });
+    await press(inDialog('Xong'));
+    expect(fake.api.claudeSetAlias).toHaveBeenCalledWith(5, 'CI');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(names()).toContain('CI');
   });
 
   it('a token with no email is sent without one', async () => {
     const fake = await open(withAccounts({}));
-    fireEvent.click(button('Thêm setup token'));
-    const form = within(card()).getByRole('group', { name: 'Thêm setup token' });
-    fireEvent.change(within(form).getByLabelText('Setup token'), { target: { value: 'sk-ant-oat01-made-up' } });
-    await act(async () => {
-      fireEvent.click(within(form).getByRole('button', { name: 'Thêm token' }));
-    });
+    await press(screen.getByRole('button', { name: 'Thêm tài khoản' }));
+    await press(within(dialog()).getByRole('radio', { name: /^Dán setup-token/ }));
+    await press(inDialog('Tiếp tục'));
+    fireEvent.change(within(dialog()).getByLabelText('Token'), { target: { value: 'sk-ant-oat01-made-up' } });
+    await press(inDialog('Thêm'));
     expect(fake.api.claudeAddToken).toHaveBeenCalledWith('sk-ant-oat01-made-up', null);
   });
 
-  it('while a login waits every other action waits, and the login can be cancelled', async () => {
-    const fake = await open(withAccounts({ working: 'login' }));
-    for (const name of ['Nhập lại từ claude-swap', 'Đăng nhập tài khoản mới', 'Thêm tài khoản đang đăng nhập', 'Thêm setup token', 'Xoá Tài khoản 3'])
-      expect(button(name).disabled, name).toBe(true);
-    expect((within(card()).getByRole('switch', { name: 'Tự chuyển bằng Quota Station' }) as HTMLButtonElement).disabled).toBe(true);
-    await act(async () => {
-      fireEvent.click(button('Huỷ'));
-    });
-    expect(fake.api.claudeCancelLogin).toHaveBeenCalledTimes(1);
-  });
-
-  it('a login comes in as the next account', async () => {
-    const fake = await open(withAccounts({}));
-    await act(async () => {
-      fireEvent.click(button('Đăng nhập tài khoản mới'));
-    });
+  it('a sign-in waits for the browser with its countdown, and Thôi stops it', async () => {
+    const fake = await open(withAccounts({}), { claudeDelayMs: 20 });
+    await press(screen.getByRole('button', { name: 'Thêm tài khoản' }));
+    await press(inDialog('Tiếp tục'));
     expect(fake.api.claudeAddLogin).toHaveBeenCalledTimes(1);
-    expect(rows().at(-1)!.getAttribute('aria-label')).toBe('Tài khoản 5');
+    expect(within(dialog()).getByRole('heading', { name: 'Đang chờ trình duyệt…' })).toBeTruthy();
+    expect(within(dialog()).getByText(/^Chờ tối đa 10 phút · còn \d+:\d\d$/)).toBeTruthy();
+    await press(inDialog('Thôi'));
+    expect(fake.api.claudeCancelLogin).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 40));
+    });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(names()).toHaveLength(4);
   });
 
-  it('without the claude command there is no new login', async () => {
+  it('a sign-in comes in as the next account', async () => {
+    const fake = await open(withAccounts({}));
+    await press(screen.getByRole('button', { name: 'Thêm tài khoản' }));
+    await press(inDialog('Tiếp tục'));
+    expect(fake.api.claudeAddLogin).toHaveBeenCalledTimes(1);
+    expect(within(dialog()).getByRole('heading', { name: 'Đã thêm lan.new5' })).toBeTruthy();
+    await press(inDialog('Xong'));
+    expect(fake.api.claudeSetAlias).not.toHaveBeenCalled();
+    expect(names().at(-1)).toBe('lan.new5');
+  });
+
+  it('a sign-in into an account already here renews it instead of adding it twice', async () => {
+    await open(withAccounts({}), { claudeRenews: 1 });
+    await press(screen.getByRole('button', { name: 'Thêm tài khoản' }));
+    await press(within(dialog()).getByRole('radio', { name: /^Lấy tài khoản Claude Code/ }));
+    await press(inDialog('Tiếp tục'));
+    expect(within(dialog()).getByRole('heading', { name: 'Tài khoản này đã có' })).toBeTruthy();
+    expect(within(dialog()).getByText('Đăng nhập của lanpham.dev được làm mới bằng lần đăng nhập này.')).toBeTruthy();
+    await press(inDialog('Đóng'));
+    expect(names()).toHaveLength(4);
+  });
+
+  it('a sign-in that does not finish saves nothing and can be tried again', async () => {
+    const fake = await open(withAccounts({}), { claudeFail: (a) => (a === 'login' ? 'login' : null) });
+    await press(screen.getByRole('button', { name: 'Thêm tài khoản' }));
+    await press(inDialog('Tiếp tục'));
+    expect(within(dialog()).getByRole('heading', { name: 'Chưa đăng nhập được' })).toBeTruthy();
+    expect(within(dialog()).getByText(/Không có gì được lưu\.$/)).toBeTruthy();
+    await press(inDialog('Thử lại'));
+    expect(fake.api.claudeAddLogin).toHaveBeenCalledTimes(2);
+  });
+
+  it('an account to sign in again: the banner opens its dialog, and the sign-in renews it', async () => {
+    const relogin = claudeAccountsFixture().accounts.map((a) => (a.slot === 3 ? { ...a, status: 'reloginRequired' as const } : a));
+    const fake = await open(withAccounts({ accounts: relogin }), { claudeRenews: 3 });
+    await press(screen.getByRole('button', { name: 'Đăng nhập lại…' }));
+    expect(within(dialog()).getByRole('heading', { name: 'Đăng nhập lại lan.acme2?' })).toBeTruthy();
+    expect(within(dialog()).getByText('lan.acme2@example.com')).toBeTruthy();
+    await press(inDialog('Mở trang đăng nhập'));
+    expect(fake.api.claudeAddLogin).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByText('lan.acme2 đã đăng nhập lại')).toBeTruthy();
+  });
+
+  it('without the claude command there is no sign-in with the browser', async () => {
     await open(withAccounts({ claude: false }));
-    expect(button('Đăng nhập tài khoản mới').disabled).toBe(true);
-    expect(button('Thêm setup token').disabled).toBe(false);
+    await press(screen.getByRole('button', { name: 'Thêm tài khoản' }));
+    // The account Claude Code is on comes first then.
+    expect(within(dialog()).getByRole('radio', { name: /^Lấy tài khoản Claude Code/ }).getAttribute('aria-checked')).toBe('true');
+    await press(within(dialog()).getByRole('radio', { name: /^Đăng nhập trong trình duyệt/ }));
+    expect(inDialog('Tiếp tục').disabled).toBe(true);
+    expect(within(dialog()).getByText('Không thấy lệnh claude trên máy này.')).toBeTruthy();
   });
 
   it('an action that fails is reported and changes nothing', async () => {
     await open(withAccounts({}), { claudeFail: (a) => (a === 'enabled' ? 'busy' : null) });
-    await act(async () => {
-      fireEvent.click(within(card()).getByRole('switch', { name: 'Trong vòng xoay: Tài khoản 4' }));
-    });
-    expect(within(card()).getByRole('switch', { name: 'Trong vòng xoay: Tài khoản 4' }).getAttribute('aria-checked')).toBe('true');
-    expect(card().querySelector('[data-tone="bad"]')).not.toBeNull();
+    await choose('lan.acme3', 'Cho nghỉ khỏi tự chuyển…');
+    await press(inDialog('Cho nghỉ'));
+    expect(within(within(table()).getAllByRole('listitem')[3]).queryByText('nghỉ tự chuyển')).toBeNull();
+    expect(screen.getByText('Một thao tác khác đang giữ tài khoản. Thử lại sau vài giây.')).toBeTruthy();
   });
 
-  it('the rotation turns on from the card', async () => {
+  it('the rotation turns on from the Switcher card', async () => {
     const fake = await open(withAccounts({ rotation: false }));
-    const toggle = () => within(card()).getByRole('switch', { name: 'Tự chuyển bằng Quota Station' });
+    const toggle = () => screen.getByRole('switch', { name: 'Tự chuyển bằng Quota Station' });
     expect(toggle().getAttribute('aria-checked')).toBe('false');
-    await act(async () => {
-      fireEvent.click(toggle());
-    });
+    await press(toggle());
     expect(fake.api.claudeSetRotation).toHaveBeenCalledWith(true);
     expect(toggle().getAttribute('aria-checked')).toBe('true');
+    expect(screen.getByText('Đã bật tự chuyển bằng Quota Station')).toBeTruthy();
   });
 
   it('while the old switcher is loaded the rotation cannot turn on, and the guide says how to stop it', async () => {
-    await open(withAccounts({ rotation: false, legacy: 'com.cswap.prefer-team' }));
-    expect((within(card()).getByRole('switch', { name: 'Tự chuyển bằng Quota Station' }) as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.click(within(card()).getByRole('button', { name: 'Hướng dẫn tắt' }));
+    await open(withAccounts({ rotation: false, legacy: 'com.cswap.prefer-team' }, { advanced: { on: false, firstmate: false } }));
+    expect((screen.getByRole('switch', { name: 'Tự chuyển bằng Quota Station' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Hướng dẫn tắt' }));
     const guide = screen.getByRole('dialog', { name: 'Tắt bộ tự chuyển cũ' });
     expect(within(guide).getByText('launchctl bootout gui/$(id -u)/com.cswap.prefer-team')).toBeTruthy();
   });
 
-  it('with names hidden no email shows', async () => {
+  it('with names hidden no email shows, in the table or the details', async () => {
     await open(hideNames(withAccounts({})));
-    expect(rows()).toHaveLength(4);
-    expect(card().textContent).not.toMatch(/@/);
+    expect(names()).toHaveLength(4);
+    await choose('Team B', 'Chi tiết và tên gọi…');
+    expect(dialog().textContent).not.toMatch(/\w@\w/);
+    await press(inDialog('Thôi'));
+    expect(table().textContent).not.toMatch(/@/);
   });
 });
