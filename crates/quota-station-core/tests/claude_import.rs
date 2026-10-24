@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! `Nhập từ claude-swap` against a made-up claude-swap folder and a fake
 //! Keychain in a temporary home: what is carried over, that running it
 //! again changes nothing, and that claude-swap's own data is never touched.

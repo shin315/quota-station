@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Bộ cấu hình tab and its dialogs (M15) on the fake Rust side: nothing
 // here reads an agent's file, runs `claude` or `npx`, or touches the
 // Keychain. Every set, project and server name is made up.

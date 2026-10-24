@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: CC-BY-NC-SA-4.0
+
 //! When each Antigravity account is read: never more often than Cockpit
 //! Tools reads it, one account at a time.
 //!

@@ -1,17 +1,22 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Cài đặt tab of the main window: where quota-axi is, Keychain access
-// for quota-axi, this Mac's name, the other Macs the rotation file is
-// copied to (an SSH alias each), the Antigravity OAuth client file,
-// whether account names show, the light or dark look, Firstmate's state
-// file, Codex's folder (M8), the macOS notifications with the five kinds of alert (M6), and the
-// app itself (M7): launching at login, the clone it updates from, its
-// version and "Cập nhật từ mã nguồn". Rows speak for themselves: no line of
-// explanation under them. Each Mac runs its own copy and switches only itself.
-// First comes the card of the variables that override a login (M14).
+// for quota-axi, this Mac's name, the Antigravity OAuth client file (in a
+// build with the Antigravity accounts), whether account names show, the
+// light or dark look, Codex's folder (M8), where the backup packs go, the
+// macOS notifications with the kinds of alert (M6) and alert 1's thresholds,
+// launching at login and the version (M7). Rows speak for themselves: no
+// line of explanation under them. Each Mac runs its own copy and switches
+// only itself. First comes the card of the variables that override a login
+// (M14); last the Nâng cao card: its switch, and while it is on, Firstmate
+// and its state file, the other Macs the rotation file is copied to (an SSH
+// alias each), and the clone "Cập nhật từ mã nguồn" builds from.
 
 import { useState } from 'react';
 import { AlertKinds } from '../alerts/AlertsTab';
 import { EnvCard } from './EnvCard';
-import { Card as Panel } from '@/components/ui/card';
+import { Card as Panel, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Segment, Segmented } from '@/components/ui/segmented';
 import { IdMark } from '../components/accounts';
@@ -66,6 +71,14 @@ export interface SettingsProps {
   onRelaunch(): Promise<string | null>;
   /** Skills (M11): "Kiểm bản mới" once a day or never, and whether a macOS card says so too. */
   onSkillChecks?(daily: boolean, notify: boolean): void;
+  /** Nâng cao on or off. */
+  onAdvanced(on: boolean): void;
+  /** The Firstmate switch inside Nâng cao. */
+  onFirstmate(on: boolean): void;
+  /** Alert 1's thresholds; resolves to null once saved, else the refusal (`range`, `order`). */
+  onPoolAlert(dryAtMost: number, roomAtLeast: number): Promise<string | null>;
+  /** Where the backup packs go; empty is iCloud Drive. Resolves to the refusal (`notFound`), or null. */
+  onSetBackupFolder?(path: string): Promise<string | null>;
 }
 
 const CLIENT_CHIPS: Record<ClientStatus, ChipView> = {
@@ -375,7 +388,7 @@ function Notifications(props: { model: Model; onAction: SettingsProps['onAction'
         {a.permission === 'denied' ? <Button onClick={() => props.onAction('notify:settings')}>Mở Cài đặt hệ thống</Button> : null}
         {a.permission === 'unbundled' ? <FieldHint>Chỉ app đã đóng gói mới gửi được thẻ macOS. Cảnh báo vẫn có ở tab Cảnh báo.</FieldHint> : null}
         <div className="mt-1.5">
-          <AlertKinds switches={a.switches} testOff={a.permission === 'denied'} onTest={props.onTest} onSwitch={props.onSwitch} />
+          <AlertKinds model={props.model} switches={a.switches} testOff={a.permission === 'denied'} onTest={props.onTest} onSwitch={props.onSwitch} />
         </div>
       </div>
     </div>
@@ -491,8 +504,23 @@ const UPDATE_REFUSED: Record<string, string> = {
   notInstalled: 'Chưa có bản mới để mở.',
 };
 
-/** The version and "Cập nhật từ mã nguồn": git pull --ff-only, then scripts/install.sh. */
-function Version({ app, onUpdate, onRelaunch }: { app: AppView; onUpdate: SettingsProps['onUpdate']; onRelaunch: SettingsProps['onRelaunch'] }) {
+/** The version this copy is. */
+function Version({ app }: { app: AppView }) {
+  return (
+    <div className={rowClass()}>
+      <div className={LABEL}>Phiên bản</div>
+      <div>
+        <span className={CODE}>
+          {app.version}
+          {app.commit ? ' · ' + app.commit : ''}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/** "Cập nhật từ mã nguồn" (Nâng cao): git pull --ff-only, then scripts/install.sh. */
+function UpdateFromSource({ app, onUpdate, onRelaunch }: { app: AppView; onUpdate: SettingsProps['onUpdate']; onRelaunch: SettingsProps['onRelaunch'] }) {
   const [refused, setRefused] = useState<string | null>(null);
   const run = async (act: () => Promise<string | null>) => {
     setRefused(null);
@@ -514,15 +542,9 @@ function Version({ app, onUpdate, onRelaunch }: { app: AppView; onUpdate: Settin
   const ready = app.bundled && app.sourceStatus === 'ok' && !app.updating;
   return (
     <div className={rowClass()}>
-      <div className={LABEL}>
-        Phiên bản
-      </div>
+      <div className={LABEL}>Cập nhật</div>
       <div>
-        <span className={CODE}>
-          {app.version}
-          {app.commit ? ' · ' + app.commit : ''}
-        </span>
-        <div className="mt-1.5">
+        <div>
           <Button primary disabled={!ready} onClick={() => void run(onUpdate)}>
             {app.updating ? 'Đang cập nhật…' : 'Cập nhật từ mã nguồn'}
           </Button>
@@ -537,6 +559,148 @@ function Version({ app, onUpdate, onRelaunch }: { app: AppView; onUpdate: Settin
         {refused ? <FieldHint tone="bad">{UPDATE_REFUSED[refused] ?? 'Chưa chạy được: ' + refused}</FieldHint> : null}
       </div>
     </div>
+  );
+}
+
+const POOL_REFUSED: Record<string, string> = {
+  range: 'Mỗi ngưỡng từ 1 tới 99%.',
+  order: 'Ngưỡng của tài khoản khác phải lớn hơn ngưỡng cạn.',
+};
+
+/** Alert 1: the account in use at this share left or less, and no other with that much. */
+function PoolAlertRow({ model, onSet }: { model: Model; onSet: SettingsProps['onPoolAlert'] }) {
+  const p = model.alerts.poolAlert;
+  const [dry, setDry] = useField(String(p.dryAtMost));
+  const [room, setRoom] = useField(String(p.roomAtLeast));
+  const [refused, setRefused] = useState<string | null>(null);
+  const commit = async () => {
+    const d = Number(dry);
+    const r = Number(room);
+    if (d === p.dryAtMost && r === p.roomAtLeast) return setRefused(null);
+    if (!Number.isInteger(d) || !Number.isInteger(r)) return setRefused('range');
+    setRefused(await onSet(d, r));
+  };
+  const field = (id: string, value: string, set: (v: string) => void, label: string) => (
+    <Input
+      id={id}
+      className="w-[56px] text-right tabular-nums"
+      inputMode="numeric"
+      invalid={refused != null}
+      value={value}
+      aria-label={label}
+      onChange={(e) => {
+        set(e.target.value.replace(/[^0-9]/g, '').slice(0, 2));
+        setRefused(null);
+      }}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') void commit();
+      }}
+    />
+  );
+  return (
+    <div className={rowClass()}>
+      <div className={LABEL}>Hạn mức sắp cạn</div>
+      <div>
+        <div className="flex flex-wrap items-center gap-1.5 text-sm">
+          <span>Tài khoản đang dùng còn ≤</span>
+          {field('qs-pool-dry', dry, setDry, 'Còn bao nhiêu phần trăm thì coi là sắp cạn')}
+          <span>% và không tài khoản nào còn ≥</span>
+          {field('qs-pool-room', room, setRoom, 'Tài khoản khác còn bao nhiêu phần trăm thì coi là còn hạn mức')}
+          <span>%</span>
+        </div>
+        {refused ? (
+          <FieldHint tone="bad">{POOL_REFUSED[refused] ?? 'Chưa lưu được: ' + refused}</FieldHint>
+        ) : (
+          <FieldHint>Cảnh báo 1 dùng hai ngưỡng này.</FieldHint>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Where the backup packs go: iCloud Drive's folder unless another is chosen. */
+function BackupFolder({ model, onSet }: { model: Model; onSet: NonNullable<SettingsProps['onSetBackupFolder']> }) {
+  const b = model.backup;
+  const shown = b.customFolder ? b.folder : '';
+  const [path, setPath] = useField(shown);
+  const [refused, setRefused] = useState<string | null>(null);
+  const commit = async () => {
+    if (path.trim() === shown) return setRefused(null);
+    setRefused(await onSet(path.trim()));
+  };
+  const hint = refused
+    ? refused === 'notFound'
+      ? 'Không có thư mục ở đường dẫn này.'
+      : 'Chưa lưu được: ' + refused
+    : b.customFolder
+      ? 'Gói mới vào thư mục này. Gói cũ vẫn ở chỗ cũ.'
+      : 'Để trống để dùng iCloud Drive › Quota Station Agents.';
+  return (
+    <div className={rowClass()}>
+      <label className={LABEL} htmlFor="qs-backup">
+        Thư mục sao lưu
+      </label>
+      <div>
+        <Input
+          id="qs-backup"
+          mono
+          invalid={refused != null}
+          value={path}
+          placeholder="iCloud Drive › Quota Station Agents"
+          spellCheck={false}
+          autoComplete="off"
+          onChange={(e) => {
+            setPath(e.target.value);
+            setRefused(null);
+          }}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void commit();
+          }}
+        />
+        <FieldHint tone={refused ? 'bad' : ''}>{hint}</FieldHint>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Nâng cao, the last card: what was made for the author's own Macs. Off, its
+ * tabs (Luật xoay vòng, Firstmate, Chép sang Mac khác), the automatic switch
+ * and the pause, and alerts 2 and 5 are hidden; the rows below come with it.
+ */
+function Advanced(props: SettingsProps) {
+  const { model } = props;
+  const a = model.advanced;
+  return (
+    <Panel>
+      <CardTitle>Nâng cao</CardTitle>
+      <div className="grid">
+        <div className={rowClass()}>
+          <div className={LABEL}>Hiện phần nâng cao</div>
+          <div>
+            <Toggle on={a.on} label="Hiện phần nâng cao" onClick={() => props.onAdvanced(!a.on)} />
+            <FieldHint>Tự chuyển Claude theo luật xoay vòng, tạm dừng, các Mac khác, cập nhật từ mã nguồn và Firstmate.</FieldHint>
+          </div>
+        </div>
+        {a.on ? (
+          <>
+            <div className={rowClass()}>
+              <div className={LABEL}>Firstmate</div>
+              <div>
+                <Toggle on={a.firstmate} label="Firstmate" onClick={() => props.onFirstmate(!a.firstmate)} />
+                <FieldHint>Tab Firstmate và cảnh báo khi Firstmate chờ hạn mức Claude.</FieldHint>
+              </div>
+            </div>
+            {a.firstmate ? <FirstmateFile model={model} onSet={props.onSetFirstmate} /> : null}
+            <OtherMacs model={model} onSet={props.onSetPeers} onTest={props.onTestPeer} />
+            <SourceDir app={model.app} onSet={props.onSetSource} />
+            <UpdateFromSource app={model.app} onUpdate={props.onUpdate} onRelaunch={props.onRelaunch} />
+          </>
+        ) : null}
+      </div>
+    </Panel>
   );
 }
 
@@ -663,7 +827,8 @@ function MenubarWindowRow({ model, onPick }: { model: Model; onPick(window: Menu
   );
 }
 
-export function Settings({
+export function Settings(props: SettingsProps) {
+  const {
   model,
   fresh,
   feedback,
@@ -672,23 +837,19 @@ export function Settings({
   onFind,
   onGrant,
   onSetMachine,
-  onSetPeers,
-  onTestPeer,
   onShowNames,
   onTheme,
   onMenubar,
   onMenubarWindow,
-  onSetFirstmate,
   onSetCodexHome,
   onTestAlert,
   onAlertSwitch,
   onLaunchAtLogin,
   onOpenLoginItems,
-  onSetSource,
-  onUpdate,
-  onRelaunch,
   onSkillChecks,
-}: SettingsProps) {
+  onPoolAlert,
+  onSetBackupFolder,
+  } = props;
   const [path, setPath] = useField(model.quotaAxi.path ?? '');
   const [refused, setRefused] = useState(false);
 
@@ -766,18 +927,19 @@ export function Settings({
             </div>
           </div>
           <MachineName model={model} onSet={onSetMachine} />
-          <OtherMacs model={model} onSet={onSetPeers} onTest={onTestPeer} />
-          <div className={rowClass()}>
-            <div className={LABEL}>
-              OAuth client Antigravity
+          {model.capabilities.agyAccounts && model.antigravity ? (
+            <div className={rowClass()}>
+              <div className={LABEL}>
+                OAuth client Antigravity
+              </div>
+              <div>
+                <Chip chip={CLIENT_CHIPS[model.antigravity.client]} />
+                <FieldHint>
+                  <span className={CODE}>{model.antigravity.clientPath}</span>, quyền 600, chỉ có trên Mac này. README ghi định dạng.
+                </FieldHint>
+              </div>
             </div>
-            <div>
-              <Chip chip={CLIENT_CHIPS[model.antigravity.client]} />
-              <FieldHint>
-                <span className={CODE}>{model.antigravity.clientPath}</span>, quyền 600, chỉ có trên Mac này. README ghi định dạng.
-              </FieldHint>
-            </div>
-          </div>
+          ) : null}
           <div className={rowClass()}>
             <div className={LABEL} id="qs-email-l">
               Hiện email
@@ -800,15 +962,16 @@ export function Settings({
           </div>
           <MenubarRow model={model} onPick={onMenubar} />
           <MenubarWindowRow model={model} onPick={onMenubarWindow} />
-          <FirstmateFile model={model} onSet={onSetFirstmate} />
           {onSetCodexHome ? <CodexHome model={model} onSet={onSetCodexHome} /> : null}
+          {onSetBackupFolder ? <BackupFolder model={model} onSet={onSetBackupFolder} /> : null}
           <Notifications model={model} onAction={onAction} onTest={onTestAlert} onSwitch={onAlertSwitch} />
+          <PoolAlertRow model={model} onSet={onPoolAlert} />
           {onSkillChecks ? <SkillChecksRows model={model} onSet={onSkillChecks} /> : null}
           <LaunchAtLogin app={model.app} onSet={onLaunchAtLogin} onOpen={onOpenLoginItems} />
-          <SourceDir app={model.app} onSet={onSetSource} />
-          <Version app={model.app} onUpdate={onUpdate} onRelaunch={onRelaunch} />
+          <Version app={model.app} />
         </div>
       </Panel>
+      <Advanced {...props} />
     </>
   );
 }

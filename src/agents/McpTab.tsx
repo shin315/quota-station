@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The MCP tab of the main window (M9): every MCP server of Claude Code,
 // Codex and Antigravity in one matrix, a checkbox per agent. Ticks wait on
 // the pending bar until one preview writes them all; a server for a known

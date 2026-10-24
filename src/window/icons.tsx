@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // Sidebar and header icons, drawn as in the prototype sketch (`ui.js` `IC`),
 // SF Symbols-like. The three agents show their own logos (components/logos.tsx).
 

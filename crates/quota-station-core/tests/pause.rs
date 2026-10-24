@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The pause flag in a temporary folder: never the real one.
 
 mod common;

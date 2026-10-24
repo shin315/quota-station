@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Shin315
+# SPDX-License-Identifier: MIT
+
 [package]
 name = "quota-station"
 description = "Quota Station: AI coding quota in the macOS menu bar"
@@ -7,6 +10,12 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 publish = false
+
+[features]
+# The Antigravity accounts tab: log in, read and switch accounts
+# (CC BY-NC-SA 4.0, see `NOTICE`). `scripts/install.sh` builds with it; a
+# build without it is MIT only.
+antigravity-accounts = ["quota-station-core/antigravity-accounts"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

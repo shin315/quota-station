@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The rotation's decision lines, its log and launchd, read from fakes:
 //! these tests never run the real `launchctl`.
 

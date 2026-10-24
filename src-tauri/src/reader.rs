@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The reader thread: runs quota-axi on the schedule and pushes each result
 //! to the menu bar and the windows. It also looks at the switcher: the pause
 //! flag on every read, and the dry run, log and launchd while a window is
@@ -102,9 +105,13 @@ fn run(app: &AppHandle, state: &AppState) {
         });
 
         let mut inner = state.lock();
-        if store(&mut inner, (generation, agy_generation), claude, agy) {
+        let stored = store(&mut inner, (generation, agy_generation), claude, agy);
+        #[cfg(feature = "antigravity-accounts")]
+        if stored {
             crate::agy_switch::observe(&inner);
         }
+        #[cfg(not(feature = "antigravity-accounts"))]
+        let _ = stored;
         if let Some(v) = version {
             inner.version = Some(v);
         }
@@ -115,6 +122,7 @@ fn run(app: &AppHandle, state: &AppState) {
         inner.schedule.mark_read(Instant::now());
         // The Antigravity account in use is read with every quota-axi read,
         // once this one has said which account that is.
+        #[cfg(feature = "antigravity-accounts")]
         inner.agy_pace.cycle();
         drop(inner);
         state.wake_agy();
@@ -157,8 +165,12 @@ fn check_switcher(home: &Path, full: bool, pause_generation: u64) -> SwitcherChe
         let paths = Paths::for_home(home);
         let dry_run = if paths.in_use() {
             let store = Store::new(paths, Security::system());
-            let decided =
-                rotate::dry_run(&store, &rotate::Tools::system(home), &rotate::rules(&store), at);
+            let decided = rotate::dry_run(
+                &store,
+                &rotate::Tools::system(home),
+                rotate::rules(&store).as_ref(),
+                at,
+            );
             Ok(DryRunRecord { run: switcher::decided(&decided.line), at, flag_held })
         } else {
             Err("noAccounts")

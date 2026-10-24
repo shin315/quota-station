@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! Backup packs and restores (M10) between two temporary homes: the Mac
 //! the pack comes from, with servers in Codex's `config.toml`, Antigravity's
 //! `mcp_config.json` and a fake `claude`'s list, and a Mac set up again
@@ -16,7 +19,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use common::claude::fake_claude;
-use common::google::fake_security;
+use common::keychain::fake_security;
 use common::{script, temp_dir};
 use quota_station_core::agents::batch::{self, Change, To};
 use quota_station_core::agents::def::Def;
@@ -27,7 +30,7 @@ use quota_station_core::agents::restore::{
 use quota_station_core::agents::secrets::Secrets;
 use quota_station_core::agents::skills::SkillPlaces;
 use quota_station_core::agents::{self, kho, Agent, Places};
-use quota_station_core::antigravity::fs::AppDir;
+use quota_station_core::app_dir::AppDir;
 use time::OffsetDateTime;
 
 const TRAPS: &[&str] =

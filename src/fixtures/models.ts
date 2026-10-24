@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // Models built from the snapshot fixtures that Rust generates
 // (`crates/quota-station-core/tests/ui_fixtures.rs`). Synthetic data only.
 
@@ -179,6 +182,7 @@ export function alertsFixture(over: Partial<AlertsView> = {}): AlertsView {
   return {
     recent: [],
     switches: { pool: true, leaving: true, login: true, overwrite: true, firstmate: false },
+    poolAlert: { dryAtMost: 10, roomAtLeast: 15 },
     unanswered: 0,
     permission: 'allowed',
     ...over,
@@ -566,6 +570,9 @@ export function fixtureModel(name: string, over: Partial<Model> = {}): Model {
     theme: 'auto',
     menubar: 'claude',
     menubarWindow: 'fiveHours',
+    // The author's Mac, as the fixtures were drawn: Nâng cao on, a build with the Antigravity accounts.
+    advanced: { on: true, firstmate: true },
+    capabilities: { agyAccounts: true },
     antigravity: agyFixture(),
     agySwitch: { busy: null, listed: false, overwritten: null },
     alerts: alertsFixture(),

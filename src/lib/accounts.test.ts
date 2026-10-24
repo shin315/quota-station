@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 import { describe, expect, it } from 'vitest';
 import { FIXTURE_NOW } from '../fixtures/models';
 import { agyNames, cellOf, claudeNames, emailNames, tightest, usedOf, usedTone } from './accounts';

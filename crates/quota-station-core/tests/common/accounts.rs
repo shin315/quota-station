@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! Fakes for the Claude account tests: a temporary home with a made-up
 //! Claude Code login, a `security` that keeps generic passwords as files
 //! (and reads `security -i` lines from stdin, as the app writes them), a

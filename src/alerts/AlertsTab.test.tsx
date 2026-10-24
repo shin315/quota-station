@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Cảnh báo tab (M6) on the fake Rust side: the cards and their buttons,
 // "Gửi thử" and the switches, and the count on the sidebar. Nothing here
 // posts a macOS notification or switches an account.

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! JSON read with the place of every value, so an edit replaces only the
 //! bytes of one member and the rest of the file stays as its owner wrote
 //! it. `serde_json` checks the text first and gives the error a person

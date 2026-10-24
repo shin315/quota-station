@@ -92,8 +92,11 @@ SOFTWARE.
   shared Keychain login it writes, the Antigravity.app version rule and the
   order of a switch) are adapted from Cockpit Tools 1.3.70, commit 244b957.
   See [`NOTICE`](NOTICE) for the files and the changes; each
-  adapted file also says so in its header. This is why Quota Station is
-  shared under the same license. The app also shows the Antigravity
+  adapted file also says so in its header. This is why the Antigravity
+  accounts (those files, the parts that join them to the app and their
+  screens) are shared under the same license, apart from the rest of Quota
+  Station, which is MIT. They are built only with the `antigravity-accounts`
+  feature; an app built without it holds none of this code. The app also shows the Antigravity
   accounts that quota-axi's `cockpit` sidecar reports, and Cockpit's menu bar
   card was a design reference for the popover.
 

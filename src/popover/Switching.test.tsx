@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The switch sheet (F04) and the pause control (F07) in the popover, on the
 // fake Rust side: nothing here runs claude-swap or writes a pause flag.
 

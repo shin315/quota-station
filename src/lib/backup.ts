@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Sao lưu tab's logic (M10, M12), pure so Vitest covers it without a
 // window: how a pack and its time read, what each line of the restore
 // preview says (servers, then skills, plugins and instruction files in

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Shin315
+# SPDX-License-Identifier: MIT
+
 [workspace]
 resolver = "2"
 members = ["crates/quota-station-core", "src-tauri"]
@@ -5,7 +8,9 @@ members = ["crates/quota-station-core", "src-tauri"]
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-license = "CC-BY-NC-SA-4.0"
+# The source: MIT, and CC BY-NC-SA 4.0 for the Antigravity accounts behind
+# the `antigravity-accounts` feature (NOTICE). A build without it is MIT.
+license = "MIT AND CC-BY-NC-SA-4.0"
 repository = "https://github.com/shin315/quota-station"
 rust-version = "1.85"
 

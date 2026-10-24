@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The calls the windows make to the Rust side. Components take an `Api`
 // so tests can pass a fake one instead of Tauri's IPC.
 
@@ -284,6 +287,8 @@ export interface Api {
   backupNow(): Promise<string>;
   /** "Tự sao lưu": after each change in the app, and once a day when an agent changed. */
   backupSetAuto(afterChange: boolean, daily: boolean): Promise<void>;
+  /** Where the packs go from now on; empty is iCloud Drive. Rejects with `notFound`. */
+  backupSetFolder(path: string): Promise<void>;
   /** The packs' folder in Finder. Rejects with `missing`. */
   backupOpenFolder(): Promise<void>;
   /** "Xoá khoá": the Keychain item goes; the agents keep their own copy. */
@@ -334,6 +339,12 @@ export interface Api {
   /** "Gửi thử": a sample card of this kind, with buttons that change nothing. */
   testAlert(kind: AlertKind): Promise<Model>;
   setAlertSwitch(kind: AlertKind, on: boolean): Promise<Model>;
+  /** Alert 1's thresholds in percent left; rejects with `range` or `order`. */
+  setPoolAlert(dryAtMost: number, roomAtLeast: number): Promise<Model>;
+  /** Cài đặt › Nâng cao on or off. */
+  setAdvanced(on: boolean): Promise<Model>;
+  /** The Firstmate switch inside Nâng cao. */
+  setFirstmate(on: boolean): Promise<Model>;
   /** Firstmate's `quota-pool.last`; empty forgets it. Rejects with `notPoolFile` or `notFound`. */
   setFirstmateFile(path: string): Promise<Model>;
   /** The History tab's lines, newest first. */
@@ -471,6 +482,7 @@ export const tauriApi: Api = {
   backupRead: () => invoke('backup_read'),
   backupNow: () => invoke<string>('backup_now'),
   backupSetAuto: (afterChange, daily) => invoke('backup_set_auto', { afterChange, daily }),
+  backupSetFolder: (path) => invoke('backup_set_folder', { path }),
   backupOpenFolder: () => invoke('backup_open_folder'),
   backupDeleteKey: (mcp, slot) => invoke('backup_delete_key', { mcp, slot }),
   packSummary: (id) => invoke<PackSummary>('pack_summary', { id }),
@@ -484,6 +496,9 @@ export const tauriApi: Api = {
   alertAction: (id, action) => invoke('alert_action', { id, action }),
   testAlert: (kind) => invoke<Model>('test_alert', { kind }),
   setAlertSwitch: (kind, on) => invoke<Model>('set_alert_switch', { kind, on }),
+  setPoolAlert: (dryAtMost, roomAtLeast) => invoke<Model>('set_pool_alert', { dryAtMost, roomAtLeast }),
+  setAdvanced: (on) => invoke<Model>('set_advanced', { on }),
+  setFirstmate: (on) => invoke<Model>('set_firstmate', { on }),
   setFirstmateFile: (path) => invoke<Model>('set_firstmate_file', { path }),
   getHistory: () => invoke<HistoryEntry[]>('get_history'),
   notifyRefresh: () => invoke('notify_refresh'),

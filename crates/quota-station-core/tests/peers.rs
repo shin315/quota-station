@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! Copying the rotation file to the other Macs, through a fake `ssh` found on
 //! a `PATH` that puts it first. The fake runs the command in a temporary
 //! "home" per alias, so these tests never reach a real host and never touch
@@ -13,7 +16,7 @@ use common::{script, temp_dir};
 use quota_station_core::peers::{
     self, due, find_ssh, plan, push, PeerRecord, PeerState, Plan, SyncLog, RETRY_MINUTES,
 };
-use quota_station_core::rotation::{self, parse, render, Rules, Stamp};
+use quota_station_core::rotation::{self, parse, render, Stamp};
 use time::OffsetDateTime;
 
 fn now() -> OffsetDateTime {
@@ -96,7 +99,7 @@ impl Drop for Net {
 
 fn mine(at: OffsetDateTime) -> (String, Stamp) {
     let stamp = Stamp::new(at, "Mac A");
-    (render(&Rules::defaults(), &stamp, None), stamp)
+    (render(&common::sample_rules(), &stamp, None), stamp)
 }
 
 fn backups(f: &Path) -> usize {
@@ -205,7 +208,7 @@ fn the_newer_updated_wins_and_nothing_is_overwritten() {
     let net = Net::new("peer-newer");
     let (text, stamp) = mine(now());
     // Mac B saved ten minutes after this Mac's copy.
-    let mut rules = Rules::defaults();
+    let mut rules = common::sample_rules();
     rules.full = 88.0;
     let theirs_stamp = Stamp::new(now() + time::Duration::minutes(10), "Mac B");
     let theirs = render(&rules, &theirs_stamp, None);
@@ -233,7 +236,7 @@ fn which_copy_wins() {
     let (text, stamp) = mine(now());
     let later = Stamp::new(now() + time::Duration::minutes(1), "Mac B");
     let earlier = Stamp::new(now() - time::Duration::minutes(1), "Mac B");
-    let with = |s: &Stamp| render(&Rules::defaults(), s, None);
+    let with = |s: &Stamp| render(&common::sample_rules(), s, None);
     assert_eq!(plan(&text, &stamp, None), Plan::Write);
     assert_eq!(plan(&text, &stamp, Some(&text)), Plan::Same);
     assert_eq!(plan(&text, &stamp, Some(&with(&later))), Plan::Newer(later));
@@ -318,8 +321,11 @@ fn a_copy_saved_there_after_the_read_is_not_overwritten() {
     let (old, _) = mine(now() - time::Duration::hours(1));
     let (text, _) = mine(now());
     // Read `old`, but the other Mac saved a newer copy before the write.
-    let theirs =
-        render(&Rules::defaults(), &Stamp::new(now() + time::Duration::minutes(1), "Mac B"), None);
+    let theirs = render(
+        &common::sample_rules(),
+        &Stamp::new(now() + time::Duration::minutes(1), "Mac B"),
+        None,
+    );
     net.put("mac-b", &theirs);
     assert_eq!(
         peers::write(&net.ssh, "mac-b", &text, Some(&old)),
@@ -338,13 +344,13 @@ fn a_copy_saved_there_after_the_read_is_not_overwritten() {
 fn two_saves_in_one_second_are_two_copies_to_send() {
     let net = Net::new("peer-twice");
     let first = Stamp::new(now(), "Mac A");
-    let one = render(&Rules::defaults(), &first, None);
+    let one = render(&common::sample_rules(), &first, None);
     let r = push(&net.ssh, "mac-b", &one, &first, now(), false);
     assert!(matches!(r.state, PeerState::Synced { .. }));
     // The next stamp is always later, even within the same second.
     let second = Stamp::next(now(), "Mac A", Some(&first));
     assert!(second.newer_than(Some(&first)));
-    let mut rules = Rules::defaults();
+    let mut rules = common::sample_rules();
     rules.full = 85.0;
     let two = render(&rules, &second, None);
     assert!(due(Some(&r), &rotation::version(&two), now()), "the second copy is due");

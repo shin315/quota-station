@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! Whether the custom provider answers: a `GET <base_url>/models` with no
 //! key and no login, so nothing secret leaves the Mac. Any HTTP answer, a
 //! 401 included, counts as answering; only no answer within five seconds,

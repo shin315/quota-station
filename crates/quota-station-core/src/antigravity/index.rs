@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-FileCopyrightText: jlcodes (Cockpit Tools)
+// SPDX-License-Identifier: CC-BY-NC-SA-4.0
+
 // `AccountIndex`, `AccountSummary` and `account_id` are ported from Cockpit
 // Tools `src-tauri/src/models/account.rs` and `modules/account.rs`
 // (`build_account_storage_id`) (1.3.70, commit 244b957, CC BY-NC-SA 4.0);
@@ -19,7 +23,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use super::fs::AppDir;
+use crate::app_dir::AppDir;
 
 pub const DIR: &str = "antigravity";
 pub const INDEX_FILE: &str = "accounts.json";

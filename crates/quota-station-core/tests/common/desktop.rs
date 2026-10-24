@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: CC-BY-NC-SA-4.0
+
 //! Fakes for the Antigravity switch tests: an Antigravity.app that is a
 //! shell process, the `plutil`, `pgrep`, `osascript` and `open` the switch
 //! asks about it, and a quota-axi that prints a chosen Antigravity report.

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! What the Thống kê tab shows for a period: the totals, a column per hour
 //! (Hôm nay) or per day (7 ngày, 30 ngày) on this Mac's clock, and the
 //! counts by agent, model, Claude account and project, with what they would

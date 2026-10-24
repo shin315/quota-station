@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Cảnh báo tab (F09): the recent alerts as the prototype's `.acard`,
 // each with the buttons of its macOS card, then the five kinds with "Gửi
 // thử" and a switch each. A button pressed here or on the macOS card counts
@@ -8,12 +11,13 @@ import { Card as Panel, CardText, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { Empty, GRID2, LIST_ROW, STACK, TabHead, TabSub, TabTitle } from '../components/page';
 import { Banner, Button, Dot, Feedback, FeedbackLine, FeedbackText, Spinner, Toggle } from '../components/parts';
-import { ALERT_KINDS, alertCard, permissionBanner, type AlertCardView } from '../lib/alerts';
+import { alertCard, alertKinds, permissionBanner, type AlertCardView } from '../lib/alerts';
 import type { AlertKind, AlertSwitches, Model } from '../lib/model';
 import type { Action, FeedbackView, PopoverView } from '../lib/view';
 
 /** The five kinds: what each is, "Gửi thử" and its switch. Also in Cài đặt. */
 export function AlertKinds(props: {
+  model: Model;
   switches: AlertSwitches;
   /** macOS shows no card: nothing to send a test to. */
   testOff: boolean;
@@ -22,7 +26,7 @@ export function AlertKinds(props: {
 }) {
   return (
     <div>
-      {ALERT_KINDS.map((k) => (
+      {alertKinds(props.model).map((k) => (
         <div className={LIST_ROW} key={k.kind}>
           <div>
             <b className="font-semi">{k.title}</b>
@@ -147,7 +151,7 @@ export function AlertsTab(props: AlertsTabProps) {
         </div>
         <Panel>
           <CardTitle>Loại cảnh báo</CardTitle>
-          <AlertKinds switches={a.switches} testOff={a.permission === 'denied'} onTest={props.onTest} onSwitch={props.onSwitch} />
+          <AlertKinds model={model} switches={a.switches} testOff={a.permission === 'denied'} onTest={props.onTest} onSwitch={props.onSwitch} />
           <CardText className="mt-2.5 mb-0">Không lặp lại cảnh báo cho cùng một sự kiện. Thông báo không có email, không có nút chỉ để mở app.</CardText>
         </Panel>
       </div>

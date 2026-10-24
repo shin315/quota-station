@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! Adding, removing and changing the app's Claude accounts, and the
 //! `quota-station claude` command line, against a fake Keychain, launchd
 //! and `claude` in a temporary home. Every login is made up.

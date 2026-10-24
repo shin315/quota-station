@@ -43,8 +43,8 @@
     "targets": ["app"],
     "category": "Utility",
     "shortDescription": "AI coding quota in the menu bar",
-    "copyright": "CC BY-NC-SA 4.0. Personal, non-commercial.",
-    "license": "CC-BY-NC-SA-4.0",
+    "copyright": "© 2026 Shin315. MIT; the Antigravity accounts, when built in, CC BY-NC-SA 4.0.",
+    "license": "MIT",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

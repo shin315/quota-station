@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: CC-BY-NC-SA-4.0
+
 // The Antigravity accounts this app logs in on this Mac (M4a), merged into
 // the Antigravity tab's account table: "Thêm tài khoản" in the card's
 // header, "Đăng xuất" with a confirmation under the row, "Đăng nhập lại" and
@@ -23,7 +26,7 @@ import {
   clientNotice,
   pasteHint,
   type AgyRowView,
-} from '../lib/agyLogin';
+} from './agyLogin';
 import type { AgyAccounts as AgyAccountsModel } from '../lib/model';
 import type { ChipView, FeedbackView } from '../lib/view';
 

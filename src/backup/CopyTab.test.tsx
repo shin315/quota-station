@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Chép sang Mac khác tab and its dialogs (M13) on the fake Rust side:
 // nothing here opens ssh, reads an agent's file or touches the Keychain.
 // Every Mac, item and key is made up.

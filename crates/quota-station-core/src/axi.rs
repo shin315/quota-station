@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The part of quota-axi's `--json` report Quota Station reads.
 //!
 //! Only the fields the app uses are declared. Serde drops every other field,

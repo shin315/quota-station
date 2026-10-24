@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-FileCopyrightText: 2026 Onur Cetinkol (claude-swap)
+// SPDX-License-Identifier: MIT
+
 // The usage and token calls are claude-swap's (`oauth.py`, `usage_store.py`,
 // `poll_policy.py`, MIT, https://github.com/realiti4/claude-swap): the same
 // endpoints, beta header, client id and request bodies, the same reading of

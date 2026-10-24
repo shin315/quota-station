@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: CC-BY-NC-SA-4.0
+
 // Switching Antigravity from the popover and the main window (M4c), on the
 // fake Rust side: nothing here writes a Keychain item or touches
 // Antigravity.app.

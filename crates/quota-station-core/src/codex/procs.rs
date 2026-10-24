@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-FileCopyrightText: 2025 Jason Young (CC Switch)
+// SPDX-License-Identifier: MIT
+
 //! Codex on this Mac as the process table shows it: `codex` sessions in a
 //! terminal, Codex App, the shared background process (`codex app-server
 //! --managed-daemon`), and whether CC Switch runs. Only `ps` is read. The

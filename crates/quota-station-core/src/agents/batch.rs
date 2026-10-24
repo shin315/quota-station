@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! A batch: the boxes ticked in the MCP table, the add and edit forms, a
 //! delete, an undo. [`preview`] reads every agent's file now and shows what
 //! each would become, secrets masked; [`write`] makes exactly that, and
@@ -23,7 +26,7 @@ use super::{
     agy_mcp, claude_mcp, codex_mcp, missing_command, redact, valid_name, writable, write, Agent,
     EditError, Have, Places, Reading,
 };
-use crate::antigravity::fs::AppDir;
+use crate::app_dir::AppDir;
 use crate::codex::files as codex_files;
 use crate::runner;
 

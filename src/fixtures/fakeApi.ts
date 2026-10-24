@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // A fake Rust side on fixture data, for the tests and the browser preview.
 // Never runs quota-axi, claude-swap or the switcher, never opens a browser
 // or the Keychain, and writes no file.
@@ -186,7 +189,7 @@ export function hideNames(m: Model): Model {
     ...m,
     showNames: false,
     snapshot: withoutNames(m),
-    antigravity: { ...m.antigravity, accounts: m.antigravity.accounts.map((a) => ({ ...a, email: null, name: null })) },
+    antigravity: m.antigravity && { ...m.antigravity, accounts: m.antigravity.accounts.map((a) => ({ ...a, email: null, name: null })) },
     claudeAccounts: { ...m.claudeAccounts, accounts: m.claudeAccounts.accounts.map((a) => ({ ...a, email: null })) },
   };
 }
@@ -208,8 +211,11 @@ function stampAt(d: Date): string {
   );
 }
 
+/** The model of a build with the Antigravity accounts, as the fixtures are. */
+type Full = Model & Required<Pick<Model, 'antigravity' | 'agySwitch'>>;
+
 export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: FakeOptions = {}) {
-  let model = initial;
+  let model = initial as Full;
   // The names Rust would send again when the owner shows them.
   const named = initial.snapshot;
   let tab = initialTab;
@@ -252,7 +258,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
     return model;
   };
   const push = (next: Model) => {
-    model = next;
+    model = next as Full;
     listeners.forEach((l) => l(model));
   };
   /** The accounts renumbered from 1, emails filled in or hidden as the switch says. */
@@ -1065,6 +1071,12 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
     backupSetAuto: async (afterChange, daily) => {
       push({ ...model, backup: { ...model.backup, auto: { afterChange, daily } } });
     },
+    backupSetFolder: async (path) => {
+      const folder = path.trim();
+      if (folder && !folder.startsWith('/') && !folder.startsWith('~')) throw 'notFound';
+      const icloud = '~/Library/Mobile Documents/com~apple~CloudDocs/Quota Station Agents';
+      push({ ...model, backup: { ...model.backup, folder: folder || icloud, customFolder: !!folder, packs: null } });
+    },
     backupOpenFolder: async () => {},
     backupDeleteKey: async (mcp, slot) => {
       push({ ...model, backup: { ...model.backup, keys: (model.backup.keys ?? []).filter((k) => !(k.mcp === mcp && k.slot === slot)) } });
@@ -1218,6 +1230,21 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
     },
     setAlertSwitch: async (kind, on) => {
       push({ ...model, alerts: { ...model.alerts, switches: { ...model.alerts.switches, [kind]: on } } });
+      return model;
+    },
+    setPoolAlert: async (dryAtMost, roomAtLeast) => {
+      const ok = (v: number) => Number.isInteger(v) && v >= 1 && v <= 99;
+      if (!ok(dryAtMost) || !ok(roomAtLeast)) throw 'range';
+      if (roomAtLeast <= dryAtMost) throw 'order';
+      push({ ...model, alerts: { ...model.alerts, poolAlert: { dryAtMost, roomAtLeast } } });
+      return model;
+    },
+    setAdvanced: async (on) => {
+      push({ ...model, advanced: { ...model.advanced, on } });
+      return model;
+    },
+    setFirstmate: async (firstmate) => {
+      push({ ...model, advanced: { ...model.advanced, firstmate } });
       return model;
     },
     setFirstmateFile: async (path) => {

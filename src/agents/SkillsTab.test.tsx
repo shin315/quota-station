@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Skills, Plugin and File hướng dẫn tabs (M11) on the fake Rust side:
 // nothing here reads or writes a skill folder, runs `npx`, `claude` or
 // `codex`, or reaches GitHub. Every skill, plugin and file is made up.

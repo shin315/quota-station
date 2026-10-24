@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! Quota Station's own LaunchAgent, which runs the rotation every three
 //! minutes whether or not the app is open, as `com.cswap.prefer-team` ran
 //! the old switcher, and the check that the two older switchers are not

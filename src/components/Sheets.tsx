@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The confirmation sheets (ConfirmSheet `.sheet` in the popover, LeaveDialog
 // `.dlg` in the main window): switch Claude (F04), switch Antigravity (M4c),
 // pause automatic switching (F07), the two rotation guides, and Codex (M8):
@@ -10,7 +13,7 @@ import { useState } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DialogButtons, DialogLead, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { agySheet, agyWorking, type AppAnswer } from '../lib/agySwitch';
+import { agySheet, agyWorking, type AppAnswer } from '@agy/agySwitch';
 import {
   codexSheet,
   daemonFacts,
@@ -126,10 +129,14 @@ function ClaudeBody(props: SheetBodyProps & { slot: number }) {
     <>
       <DialogTitle>{v.title}</DialogTitle>
       <Facts facts={v.facts} />
-      <ChoiceGroup<HoldChoice> id="qs-hold" label="Giữ tài khoản này" options={v.options} value={choice} onChange={setChoice} />
-      <Hint tone={v.hint.tone} aria-live="polite">
-        {v.hint.text}
-      </Hint>
+      {v.options.length ? (
+        <>
+          <ChoiceGroup<HoldChoice> id="qs-hold" label="Giữ tài khoản này" options={v.options} value={choice} onChange={setChoice} />
+          <Hint tone={v.hint.tone} aria-live="polite">
+            {v.hint.text}
+          </Hint>
+        </>
+      ) : null}
       <DialogButtons>
         {v.blocked ? (
           <LinkButton style={{ marginRight: 'auto' }} onClick={props.onSettings}>

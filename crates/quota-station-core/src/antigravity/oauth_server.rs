@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-FileCopyrightText: jlcodes (Cockpit Tools)
+// SPDX-License-Identifier: CC-BY-NC-SA-4.0
+
 // Ported from Cockpit Tools `src-tauri/src/modules/oauth_server.rs` (1.3.70,
 // commit 244b957, CC BY-NC-SA 4.0); changes: a thread and a channel instead
 // of tokio and Tauri events; the flow is a value held by its caller instead

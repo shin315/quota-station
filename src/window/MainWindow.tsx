@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The main window: the prototype's window with the tabs Tổng quan, Claude,
 // Antigravity, Luật xoay vòng and Cài đặt. Claude accounts switch from the
 // tables (F04), Tổng quan and Claude show automatic switching and why Claude
@@ -13,13 +16,18 @@
 // The Claude tab has a red banner while a variable overrides Claude Code's login (M14).
 // Bộ cấu hình (M15) closes the Agent group: named sets applied for the whole Mac.
 // Thống kê (M16) follows Tổng quan: the tokens counted from this Mac's session logs.
+// Cài đặt › Nâng cao holds what was made for the author's own Macs: off, the
+// sidebar has no Luật xoay vòng, Firstmate or Chép sang Mac khác (Firstmate
+// also has its own switch), and Tổng quan and Claude show no automatic
+// switching, pause or switcher. A build without the Antigravity accounts
+// shows the one account quota-axi reads, with no login or switch.
 
 import { Fragment, type ReactNode } from 'react';
 import { Card as Panel, CardText, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogOverlay } from '@/components/ui/dialog';
 import { Segment, Segmented } from '@/components/ui/segmented';
 import { cn } from '@/lib/utils';
-import { AddAccount, LoginActions, LoginNotes, LogoutConfirm, loginChips, type AgyLogins } from '../antigravity/AgyAccounts';
+import { AddAccount, LoginActions, LoginNotes, LogoutConfirm, loginChips, type AgyLogins } from '@agy/AgyAccounts';
 import { AccountName, IdMark, InUse, NowCard, WindowCell } from '../components/accounts';
 import { Empty, GRID2, STACK, TABLE_ROW, TABLE_ROW_ON, TabHead, TabSub, TabTitle } from '../components/page';
 import { Banner, Button, Chip, CODE, Dot, Feedback, KVT, Toggle } from '../components/parts';
@@ -81,8 +89,20 @@ function NavButton(props: { id: NavId; label: string; tab: Tab; badge?: number; 
   );
 }
 
-function Sidebar(props: { tab: Tab; machine: string; note: string | null; alerts: number; onTab(tab: Tab): void }) {
+/** The tabs Nâng cao holds, and the one behind the Firstmate switch. */
+function hiddenTabs(advanced: boolean, firstmate: boolean): Set<NavId> {
+  const hidden = new Set<NavId>();
+  if (!advanced) ['rules', 'copy'].forEach((t) => hidden.add(t as NavId));
+  if (!advanced || !firstmate) hidden.add('firstmate');
+  return hidden;
+}
+
+function Sidebar(props: { tab: Tab; machine: string; note: string | null; alerts: number; hidden: Set<NavId>; advanced: boolean; onTab(tab: Tab): void }) {
   const { tab, machine, note, onTab } = props;
+  // Without automatic switching the group only watches.
+  const navs = NAVS.filter((n) => n[0] === '-' || !props.hidden.has(n[0])).map((n): (typeof NAVS)[number] =>
+    n[0] === '-' && n[1] === 'Tự động' && !props.advanced ? ['-', 'Theo dõi'] : n,
+  );
   return (
     <nav className="m-0 flex min-h-0 flex-col gap-px rounded-none bg-transparent px-2.5 pt-5 pb-2.5" aria-label="Mục" data-tauri-drag-region>
       {/* macOS draws the window's traffic lights here; the browser preview draws the prototype's. */}
@@ -91,7 +111,7 @@ function Sidebar(props: { tab: Tab; machine: string; note: string | null; alerts
         <i className={LIGHT + ' bg-[#febc2e]'} />
         <i className={LIGHT + ' bg-[#28c840]'} />
       </div>
-      {NAVS.map((n) =>
+      {navs.map((n) =>
         n[0] === '-' ? (
           <div className="px-2 pt-2 pb-0.5 text-cap font-semi tracking-[.02em] text-ink2" key={n[1]}>
             {n[1]}
@@ -339,7 +359,7 @@ function Top(props: TabProps & { title: string; banner?: boolean }) {
   );
 }
 
-function Overview(props: TabProps) {
+function Overview(props: TabProps & { advanced: boolean }) {
   const v = props.view;
   return (
     <>
@@ -360,7 +380,7 @@ function Overview(props: TabProps) {
           {props.codexCard}
         </div>
         <div className={STACK}>
-          <AutoCard auto={v.auto} onToggle={props.onToggle} />
+          {props.advanced ? <AutoCard auto={v.auto} onToggle={props.onToggle} /> : null}
           <Card title="Sắp tới">
             {v.upcoming.length ? (
               <div className="grid gap-2 text-sm">
@@ -384,7 +404,7 @@ function Overview(props: TabProps) {
   );
 }
 
-function ClaudeTab(props: TabProps) {
+function ClaudeTab(props: TabProps & { advanced: boolean }) {
   const v = props.view;
   const a = v.auto;
   const sw = v.switcher;
@@ -398,37 +418,39 @@ function ClaudeTab(props: TabProps) {
         <Note note={v.claude.note} />
       </Card>
       {props.claudeAccounts}
-      <div className={GRID2}>
-        <AutoCard auto={a} onToggle={props.onToggle}>
-          <CardText style={{ margin: '12px 0 4px' }} id="qs-qp">
-            Tạm dừng
-          </CardText>
-          <Segmented aria-labelledby="qs-qp">
-            {pauseOptions(props.now).map((o) => (
-              <Segment key={o.v} disabled={a.toggle.disabled} onClick={() => props.onPause(o.v)}>
-                {o.t}
-              </Segment>
-            ))}
-          </Segmented>
-        </AutoCard>
-        <Card title="Switcher">
-          <div className="text-sm text-ink2">
-            <Dot tone={sw.tone} className="mr-1.5" />
-            {sw.line}
-          </div>
-          <details className="mt-2 text-sm text-ink2">
-            <summary className="cursor-pointer list-none text-accent-ink [&::-webkit-details-marker]:hidden">Chi tiết</summary>
-            <div className="mt-2">
-              <KeyValues rows={sw.details} />
+      {props.advanced ? (
+        <div className={GRID2}>
+          <AutoCard auto={a} onToggle={props.onToggle}>
+            <CardText style={{ margin: '12px 0 4px' }} id="qs-qp">
+              Tạm dừng
+            </CardText>
+            <Segmented aria-labelledby="qs-qp">
+              {pauseOptions(props.now).map((o) => (
+                <Segment key={o.v} disabled={a.toggle.disabled} onClick={() => props.onPause(o.v)}>
+                  {o.t}
+                </Segment>
+              ))}
+            </Segmented>
+          </AutoCard>
+          <Card title="Switcher">
+            <div className="text-sm text-ink2">
+              <Dot tone={sw.tone} className="mr-1.5" />
+              {sw.line}
             </div>
-          </details>
-        </Card>
-      </div>
+            <details className="mt-2 text-sm text-ink2">
+              <summary className="cursor-pointer list-none text-accent-ink [&::-webkit-details-marker]:hidden">Chi tiết</summary>
+              <div className="mt-2">
+                <KeyValues rows={sw.details} />
+              </div>
+            </details>
+          </Card>
+        </div>
+      ) : null}
     </>
   );
 }
 
-function AgyTab(props: TabProps) {
+function AgyTab(props: TabProps & { advanced: boolean; agyAccounts: boolean }) {
   const a = props.view.agy;
   const logins = props.agyLogins;
   return (
@@ -444,8 +466,13 @@ function AgyTab(props: TabProps) {
         ) : null}
         <Note note={a.tabNote} />
         {logins ? <LoginNotes logins={logins} listed={a.own ? a.cards.map((c) => c.slot) : []} /> : null}
+        {!props.agyAccounts && a.present ? (
+          <CardText className="mt-2 mb-0">
+            Bản này đọc tài khoản Antigravity đang đăng nhập, qua quota-axi. Đăng nhập và chuyển nhiều tài khoản chỉ có ở bản build từ mã nguồn kèm phần Antigravity (giấy phép CC BY-NC-SA 4.0).
+          </CardText>
+        ) : null}
       </Card>
-      {a.cockpit ? (
+      {a.cockpit && props.advanced ? (
         <div className={GRID2}>
           <Card title="Cockpit Tools">
             <KeyValues rows={a.cockpit} />
@@ -502,6 +529,12 @@ export interface MainWindowProps {
   agyLogins?: AgyLogins;
   /** The Claude accounts Quota Station keeps, in the Claude tab. */
   claudeAccounts?: ReactNode;
+  /** Cài đặt › Nâng cao is on: its tabs and switches show. */
+  advanced: boolean;
+  /** The Firstmate switch inside Nâng cao is on too. */
+  firstmateTab: boolean;
+  /** This build logs Antigravity accounts in and switches them. */
+  agyAccounts: boolean;
   /** The open dialog's body; null when none is open. */
   dialog?: ReactNode;
   /** Its width: the MCP preview and form need more room than a confirmation. */
@@ -519,41 +552,46 @@ export function MainWindow(props: MainWindowProps) {
     onToggle: props.onToggle,
     onPause: props.onPause,
     now: props.now,
-    agyLogins: props.agyLogins,
+    agyLogins: props.agyAccounts ? props.agyLogins : undefined,
     codexCard: props.codexCard,
     claudeAccounts: props.claudeAccounts,
   };
   const open = !!props.dialog;
+  const hidden = hiddenTabs(props.advanced, props.firstmateTab);
+  // A tab Nâng cao took away while it was open gives way to Tổng quan.
+  const tab: Tab = hidden.has(props.tab as NavId) ? 'overview' : props.tab;
   return (
     <div className="win-o material-window relative grid h-full w-full grid-cols-[var(--side-w)_minmax(0,1fr)] overflow-hidden">
       {/* The window's top edge drags it, over the sidebar and the page alike, as a title bar would. */}
       <div className="dragbar absolute top-0 right-0 left-0 z-10 h-4" data-tauri-drag-region aria-hidden="true" />
       <div style={{ display: 'contents' }} inert={open}>
         <Sidebar
-          tab={props.tab}
+          tab={tab}
           machine={props.view.machine}
-          note={props.syncNote ?? null}
+          note={props.advanced ? (props.syncNote ?? null) : null}
           alerts={props.unanswered ?? 0}
+          hidden={hidden}
+          advanced={props.advanced}
           onTab={props.onTab}
         />
         <main className="main relative flex min-w-0 flex-col gap-3 overflow-y-auto pt-4 pr-[22px] pb-[22px] pl-3.5">
-          {props.tab === 'overview' ? <Overview {...tabProps} /> : null}
-          {props.tab === 'stats' ? props.stats : null}
-          {props.tab === 'claude' ? <ClaudeTab {...tabProps} /> : null}
-          {props.tab === 'agy' ? <AgyTab {...tabProps} /> : null}
-          {props.tab === 'codex' ? props.codex : null}
-          {props.tab === 'rules' ? props.rules : null}
-          {props.tab === 'history' ? props.history : null}
-          {props.tab === 'alerts' ? props.alerts : null}
-          {props.tab === 'firstmate' ? props.firstmate : null}
-          {props.tab === 'mcp' ? props.mcp : null}
-          {props.tab === 'skills' ? props.skills : null}
-          {props.tab === 'plugins' ? props.plugins : null}
-          {props.tab === 'instr' ? props.instr : null}
-          {props.tab === 'sets' ? props.sets : null}
-          {props.tab === 'backup' ? props.backup : null}
-          {props.tab === 'copy' ? props.copy : null}
-          {props.tab === 'settings' ? props.settings : null}
+          {tab === 'overview' ? <Overview {...tabProps} advanced={props.advanced} /> : null}
+          {tab === 'stats' ? props.stats : null}
+          {tab === 'claude' ? <ClaudeTab {...tabProps} advanced={props.advanced} /> : null}
+          {tab === 'agy' ? <AgyTab {...tabProps} advanced={props.advanced} agyAccounts={props.agyAccounts} /> : null}
+          {tab === 'codex' ? props.codex : null}
+          {tab === 'rules' ? props.rules : null}
+          {tab === 'history' ? props.history : null}
+          {tab === 'alerts' ? props.alerts : null}
+          {tab === 'firstmate' ? props.firstmate : null}
+          {tab === 'mcp' ? props.mcp : null}
+          {tab === 'skills' ? props.skills : null}
+          {tab === 'plugins' ? props.plugins : null}
+          {tab === 'instr' ? props.instr : null}
+          {tab === 'sets' ? props.sets : null}
+          {tab === 'backup' ? props.backup : null}
+          {tab === 'copy' ? props.copy : null}
+          {tab === 'settings' ? props.settings : null}
         </main>
       </div>
       {/* The dialog layer covers the whole window, sidebar included. */}

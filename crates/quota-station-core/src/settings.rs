@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The app's own settings file, `settings.json` in its Application Support
 //! folder: the quota-axi path, the name this Mac goes by, the other Macs
 //! the rotation file is copied to, whether account names show, the light or
@@ -5,8 +8,15 @@
 //! the title shows, which alerts are on,
 //! where Firstmate's state file is, the clone "Cập nhật từ mã nguồn"
 //! builds from, Codex's folder and whether Codex keeps the ChatGPT login
-//! for plugins under a custom API, when the agents' backup packs are made and
-//! how the app looks for newer versions of the skills.
+//! for plugins under a custom API, when the agents' backup packs are made,
+//! where they go, how the app looks for newer versions of the skills, the
+//! two thresholds of alert 1, and the switches of Cài đặt › Nâng cao.
+//!
+//! Nâng cao (`advanced`) holds what was made for the author's own Macs: the
+//! rotation, the pause and the switcher, the other Macs and the copy to them,
+//! the update from source, and Firstmate (its own switch inside). A new
+//! install starts with it off; a Mac that already had the app keeps it on, so
+//! nothing there changes ([`Settings::open`]).
 
 use std::io;
 use std::path::{Path, PathBuf};
@@ -68,6 +78,63 @@ pub struct Settings {
     /// Looking for newer versions of the skills (M11).
     #[serde(default, skip_serializing_if = "SkillChecks::is_default")]
     pub skill_checks: SkillChecks,
+    /// Where the backup packs go; `None` is iCloud Drive's
+    /// `Quota Station Agents`, as before there was a choice.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backup_dir: Option<PathBuf>,
+    /// Alert 1's two thresholds.
+    #[serde(default, skip_serializing_if = "PoolAlert::is_default")]
+    pub pool_alert: PoolAlert,
+    /// Cài đặt › Nâng cao: the tabs and switches made for the author's own
+    /// Macs show. Always written, so a new install stays new.
+    pub advanced: bool,
+    /// The Firstmate tab and alert 5, inside Nâng cao. Always written.
+    pub firstmate: bool,
+}
+
+/// Alert 1: the account in use has `dry_at_most` percent left or less, and
+/// no other account has `room_at_least` percent or more. 10 and 15 by
+/// default, Firstmate's own rule.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PoolAlert {
+    #[serde(default = "dry_at_most")]
+    pub dry_at_most: u8,
+    #[serde(default = "room_at_least")]
+    pub room_at_least: u8,
+}
+
+fn dry_at_most() -> u8 {
+    10
+}
+
+fn room_at_least() -> u8 {
+    15
+}
+
+impl Default for PoolAlert {
+    fn default() -> Self {
+        PoolAlert { dry_at_most: dry_at_most(), room_at_least: room_at_least() }
+    }
+}
+
+impl PoolAlert {
+    pub fn is_default(&self) -> bool {
+        *self == PoolAlert::default()
+    }
+
+    /// Both percents, 1 to 99; the room asked of another account is more
+    /// than what counts as dry.
+    pub fn check(&self) -> Result<(), &'static str> {
+        let ok = |v: u8| (1..=99).contains(&v);
+        if !ok(self.dry_at_most) || !ok(self.room_at_least) {
+            return Err("range");
+        }
+        if self.room_at_least <= self.dry_at_most {
+            return Err("order");
+        }
+        Ok(())
+    }
 }
 
 /// "Dùng plugin khi chạy Custom API (giữ đăng nhập ChatGPT)": on by
@@ -249,6 +316,16 @@ struct Stored {
     /// An unknown value reads as daily, no macOS card.
     #[serde(default)]
     skill_checks: serde_json::Value,
+    #[serde(default)]
+    backup_dir: Option<PathBuf>,
+    /// An unknown or refused value reads as 10 and 15.
+    #[serde(default)]
+    pool_alert: serde_json::Value,
+    /// Missing in a file an older version wrote: that Mac had the app, so on.
+    #[serde(default)]
+    advanced: Option<bool>,
+    #[serde(default)]
+    firstmate: Option<bool>,
 }
 
 impl From<Stored> for Settings {
@@ -291,8 +368,23 @@ impl From<Stored> for Settings {
             codex: serde_json::from_value(s.codex).unwrap_or_default(),
             auto_backup: serde_json::from_value(s.auto_backup).unwrap_or_default(),
             skill_checks: serde_json::from_value(s.skill_checks).unwrap_or_default(),
+            backup_dir: s.backup_dir,
+            pool_alert: serde_json::from_value::<PoolAlert>(s.pool_alert)
+                .ok()
+                .filter(|p| p.check().is_ok())
+                .unwrap_or_default(),
+            advanced: s.advanced.unwrap_or(true),
+            firstmate: s.firstmate.unwrap_or(true),
         }
     }
+}
+
+/// Anything but hidden files in `dir`, `file` aside.
+fn has_files(dir: &Path, file: &Path) -> bool {
+    std::fs::read_dir(dir).into_iter().flatten().flatten().any(|e| {
+        let name = e.file_name();
+        e.path() != file && !name.to_string_lossy().starts_with('.')
+    })
 }
 
 /// The longest machine name kept, in characters: it shares a line with the
@@ -352,6 +444,45 @@ pub fn peers(input: &[Peer]) -> Result<Vec<Peer>, PeersError> {
 }
 
 impl Settings {
+    /// The settings at start. The first time this version runs it settles
+    /// whether the Mac is new to the app: one that already has this file, or
+    /// anything else in the app's folder, had the app before and keeps it as
+    /// it was, Nâng cao and Firstmate on; a new one starts with both off.
+    /// The answer is written at once, so what the app puts in its folder
+    /// afterwards never makes a new install look like an older one.
+    pub fn open(file: &Path) -> Self {
+        let json = std::fs::read_to_string(file)
+            .ok()
+            .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok());
+        if json.as_ref().is_some_and(|v| v.get("advanced").is_some_and(|a| a.is_boolean())) {
+            return Settings::load(file);
+        }
+        let had_app = file.exists() || file.parent().is_some_and(|dir| has_files(dir, file));
+        let mut settings = Settings::load(file);
+        settings.advanced = had_app;
+        settings.firstmate = had_app;
+        // A file there that cannot be read is never written over. Unsaved,
+        // the next start asks again and finds the same answer.
+        if json.is_some() || !file.exists() {
+            let _ = settings.save(file);
+        }
+        settings
+    }
+
+    /// Which alerts run: the switches, less the ones Nâng cao holds while
+    /// it is off (2, the rotation's; 5, Firstmate's, also behind its own switch).
+    pub fn alert_switches(&self) -> Switches {
+        let mut on = self.alerts;
+        on.leaving &= self.advanced;
+        on.firstmate &= self.advanced && self.firstmate;
+        on
+    }
+
+    /// The Firstmate tab and alert 5 show.
+    pub fn firstmate_shown(&self) -> bool {
+        self.advanced && self.firstmate
+    }
+
     /// A missing or unreadable file gives the defaults: the app still runs.
     pub fn load(file: &Path) -> Self {
         std::fs::read_to_string(file)

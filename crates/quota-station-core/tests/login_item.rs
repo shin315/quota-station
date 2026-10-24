@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! "Mở khi đăng nhập" through a fake login-item backend that keeps the
 //! state macOS would and records every call. No test registers a real
 //! login item.

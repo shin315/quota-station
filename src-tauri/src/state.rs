@@ -1,22 +1,32 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! What the app holds between reads, and the model every window draws.
 
-use std::collections::{BTreeMap, BTreeSet};
+#[cfg(feature = "antigravity-accounts")]
+use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use std::path::PathBuf;
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::Instant;
 
 use quota_station_core::alerts::{self, Memory};
-use quota_station_core::antigravity::fs::AppDir;
+#[cfg(feature = "antigravity-accounts")]
 use quota_station_core::antigravity::oauth_server;
+#[cfg(feature = "antigravity-accounts")]
 use quota_station_core::antigravity::pace::Pace;
+#[cfg(feature = "antigravity-accounts")]
 use quota_station_core::antigravity::{export, index};
+use quota_station_core::app_dir::AppDir;
 use quota_station_core::axi::Response;
 use quota_station_core::claude::keychain::Security;
 use quota_station_core::claude::state::AccountOut;
 use quota_station_core::claude::store::Store;
 use quota_station_core::claude::{rotate, session};
+use quota_station_core::detail;
+#[cfg(feature = "antigravity-accounts")]
+use quota_station_core::detail::AgyDetail;
 use quota_station_core::detail::ClaudeDetail;
-use quota_station_core::detail::{self, AgyDetail};
 use quota_station_core::firstmate::{self, Reading};
 use quota_station_core::history::Seen;
 use quota_station_core::icon::{self, Context, Failing, Icon};
@@ -33,8 +43,10 @@ use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
 use crate::agents::{self, McpView};
+#[cfg(feature = "antigravity-accounts")]
 use crate::agy_switch::{self, SwitchView};
 use crate::alerting::{self, AlertsView, FirstmateView};
+#[cfg(feature = "antigravity-accounts")]
 use crate::antigravity::{self, AccountsView};
 use crate::codex::{self, CodexView};
 use crate::install::{self, AppView, InstallState};
@@ -56,6 +68,7 @@ pub struct Shared {
     /// Held while Antigravity accounts are read and while one logs out, so
     /// a read never writes an account's token or reading back after its
     /// logout removed them.
+    #[cfg(feature = "antigravity-accounts")]
     pub agy_accounts: Mutex<()>,
     /// Held while the history compares the newest readings, so a read and a
     /// switch never keep the same change twice.
@@ -72,6 +85,7 @@ impl Shared {
             sync_wake: Condvar::new(),
             push_lock: Mutex::new(()),
             agy_wake: Condvar::new(),
+            #[cfg(feature = "antigravity-accounts")]
             agy_accounts: Mutex::new(()),
             history: Mutex::new(()),
             codex_wake: Condvar::new(),
@@ -175,19 +189,25 @@ pub struct Inner {
     /// for it may not listen yet; the page takes it with `take_quit`.
     pub quit_pending: bool,
     /// An Antigravity login is running.
+    #[cfg(feature = "antigravity-accounts")]
     pub agy_logging_in: bool,
     /// The running login while it waits for the browser: takes a pasted
     /// callback or a cancel.
+    #[cfg(feature = "antigravity-accounts")]
     pub agy_login: Option<oauth_server::Handle>,
     /// When each Antigravity account is read next (M4b).
+    #[cfg(feature = "antigravity-accounts")]
     pub agy_pace: Pace,
     /// The Antigravity accounts being read now, or whose last read failed,
     /// by id. An account not here was read, or has nothing to report.
+    #[cfg(feature = "antigravity-accounts")]
     pub agy_reads: BTreeMap<String, ReadState>,
     /// The Antigravity account number a manual switch is running for.
+    #[cfg(feature = "antigravity-accounts")]
     pub agy_switching: Option<usize>,
     /// A logout runs: a switch, or another logout, is refused meanwhile, as
     /// a logout is while a switch runs.
+    #[cfg(feature = "antigravity-accounts")]
     pub agy_logging_out: bool,
     /// The alerts sent and answered, kept in `alerts/alerts.json` (M6).
     pub alerts: Memory,
@@ -223,6 +243,7 @@ pub struct Inner {
 }
 
 /// How the app's own read of an Antigravity account stands.
+#[cfg(feature = "antigravity-accounts")]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ReadState {
     Reading,
@@ -302,7 +323,7 @@ pub enum Tab {
 
 impl Inner {
     pub fn new(home: PathBuf, settings_file: PathBuf, system_machine: String) -> Self {
-        let settings = Settings::load(&settings_file);
+        let settings = Settings::open(&settings_file);
         let firstmate = settings.firstmate_file.as_deref().map(firstmate::read);
         let sync_file = settings_file.with_file_name("rotation-sync.json");
         let app_dir =
@@ -343,11 +364,17 @@ impl Inner {
             rotation_saving: false,
             rules_dirty: false,
             quit_pending: false,
+            #[cfg(feature = "antigravity-accounts")]
             agy_logging_in: false,
+            #[cfg(feature = "antigravity-accounts")]
             agy_login: None,
+            #[cfg(feature = "antigravity-accounts")]
             agy_pace: Pace::new(),
+            #[cfg(feature = "antigravity-accounts")]
             agy_reads: BTreeMap::new(),
+            #[cfg(feature = "antigravity-accounts")]
             agy_switching: None,
+            #[cfg(feature = "antigravity-accounts")]
             agy_logging_out: false,
             alerts: alerts::load(&app_dir),
             seen: Seen::default(),
@@ -365,6 +392,19 @@ impl Inner {
             stats: crate::stats::Live::default(),
             copy: crate::copy::Live::default(),
         }
+    }
+
+    /// An Antigravity switch runs; never in a build without the accounts.
+    pub fn agy_switching(&self) -> bool {
+        #[cfg(feature = "antigravity-accounts")]
+        return self.agy_switching.is_some();
+        #[cfg(not(feature = "antigravity-accounts"))]
+        false
+    }
+
+    /// The app's Application Support folder, where `settings.json` is.
+    pub fn app_dir(&self) -> AppDir {
+        AppDir::new(self.settings_file.parent().map(|p| p.to_path_buf()).unwrap_or_default())
     }
 
     /// The name shown for this Mac: the user's, else the one macOS gives.
@@ -427,6 +467,7 @@ impl Inner {
 
     /// quota-axi's account in use, by its place in this app's Antigravity
     /// index, when quota-axi read this app's folder.
+    #[cfg(feature = "antigravity-accounts")]
     pub fn agy_active_number(&self) -> Option<usize> {
         let cockpit = self.agy.as_ref()?.primary("agy")?.cockpit.as_ref()?;
         if cockpit.status != "ok" || cockpit.source.as_deref() != Some("quota-station") {
@@ -449,6 +490,7 @@ impl Inner {
         if let Some(list) = &self.claude_list {
             detail::apply_claude(&mut snapshot.claude, list, now);
         }
+        #[cfg(feature = "antigravity-accounts")]
         if snapshot.agy.source.as_deref() == Some("quota-station") {
             detail::apply_agy(&mut snapshot.agy, &self.agy_details(), now);
         }
@@ -461,6 +503,7 @@ impl Inner {
 
     /// Each Antigravity account this app logs in, by its number, with its
     /// last reading.
+    #[cfg(feature = "antigravity-accounts")]
     fn agy_details(&self) -> Vec<AgyDetail> {
         let app = self.app_dir();
         let Ok(index) = index::load(&app) else { return Vec::new() };
@@ -493,6 +536,7 @@ impl Inner {
             },
             codex: self.codex_use(),
             now,
+            roles: self.settings.advanced,
         };
         icon::icon(self.claude.is_some().then_some(snapshot), &cx)
             .with_pause(self.switcher.paused(now))
@@ -533,11 +577,18 @@ impl Inner {
             },
             claude_accounts: crate::claude::view(self),
             show_names: !self.settings.hide_names,
+            advanced: AdvancedView {
+                on: self.settings.advanced,
+                firstmate: self.settings.firstmate,
+            },
             theme: self.settings.theme,
             menubar: self.settings.menubar,
             menubar_window: self.settings.menubar_window,
+            #[cfg(feature = "antigravity-accounts")]
             antigravity: antigravity::view(self),
+            #[cfg(feature = "antigravity-accounts")]
             agy_switch: agy_switch::view(self),
+            capabilities: Capabilities::BUILT,
             rotation: self.rotation_view(),
             alerts: alerting::alerts_view(self),
             firstmate: alerting::firstmate_view(self),
@@ -597,7 +648,14 @@ impl Inner {
             version,
             stamp,
             ignored_keys,
-            defaults: Rules::defaults(),
+            defaults: Rules::starter(
+                &self
+                    .claude_accounts
+                    .iter()
+                    .filter(|a| a.enabled)
+                    .map(|a| a.slot)
+                    .collect::<Vec<_>>(),
+            ),
             saving: self.rotation_saving,
             peers,
             ssh: peers::find_ssh(std::env::var_os("PATH").as_deref()).is_some(),
@@ -648,15 +706,22 @@ pub struct Model {
     pub claude_accounts: crate::claude::AccountsView,
     /// Account names (emails, organizations) may show.
     pub show_names: bool,
+    /// Cài đặt › Nâng cao and the Firstmate switch inside it.
+    pub advanced: AdvancedView,
     pub theme: Theme,
     /// The service the menu bar title follows.
     pub menubar: Menubar,
     /// The window whose share used the menu bar title shows.
     pub menubar_window: MenubarWindow,
-    /// The Antigravity accounts this app logs in itself.
+    /// The Antigravity accounts this app logs in itself; only in a build
+    /// with them.
+    #[cfg(feature = "antigravity-accounts")]
     pub antigravity: AccountsView,
     /// Switching them (M4c).
+    #[cfg(feature = "antigravity-accounts")]
     pub agy_switch: SwitchView,
+    /// What this build has.
+    pub capabilities: Capabilities,
     pub rotation: RotationView,
     /// The five alerts (M6).
     pub alerts: AlertsView,
@@ -681,6 +746,30 @@ pub struct Model {
     pub stats: crate::stats::StatsView,
 }
 
+/// Cài đặt › Nâng cao: on, the tabs and switches made for the author's own
+/// Macs show; `firstmate` is its own switch inside.
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AdvancedView {
+    pub on: bool,
+    pub firstmate: bool,
+}
+
+/// The parts a build may leave out, so the windows draw only what it has.
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Capabilities {
+    /// The Antigravity accounts the app logs in, reads and switches itself
+    /// (the `antigravity-accounts` feature, CC BY-NC-SA 4.0). Without them
+    /// Antigravity is the one account quota-axi reads, read-only.
+    pub agy_accounts: bool,
+}
+
+impl Capabilities {
+    pub const BUILT: Capabilities =
+        Capabilities { agy_accounts: cfg!(feature = "antigravity-accounts") };
+}
+
 /// The rotation file and the other Macs (F06).
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -699,7 +788,8 @@ pub struct RotationView {
     /// never saved, and for a missing or invalid one.
     pub stamp: Option<Stamp>,
     pub ignored_keys: Vec<String>,
-    /// What "Tạo từ mặc định" writes: the switcher's built-in values.
+    /// What "Tạo từ mặc định" starts from ([`Rules::starter`]): the accounts
+    /// in the rotation, each in turn. There is no built-in rotation.
     pub defaults: Rules,
     pub saving: bool,
     pub peers: Vec<PeerView>,
@@ -822,6 +912,10 @@ mod tests {
         Inner::new(PathBuf::new(), PathBuf::from("/nonexistent/settings.json"), "Mac mini".into())
     }
 
+    fn sample() -> Rules {
+        Rules { team: vec![2, 3, 4], personal: Some(1), ..Rules::starter(&[]) }
+    }
+
     #[test]
     fn the_machine_name_set_by_the_user_wins_over_the_one_macos_gives() {
         let mut inner = inner();
@@ -882,7 +976,7 @@ mod tests {
 
         let at = OffsetDateTime::from_unix_timestamp(1_768_548_000).unwrap();
         let stamp = Stamp::new(at, "Mac A");
-        let text = rotation::render(&Rules::defaults(), &stamp, None);
+        let text = rotation::render(&sample(), &stamp, None);
         let file = rotation::path(&dir);
         std::fs::create_dir_all(file.parent().unwrap()).unwrap();
         std::fs::write(&file, &text).unwrap();
@@ -890,7 +984,7 @@ mod tests {
         inner.settings.peers =
             vec![peer("Mac B", "mac-b"), peer("Mac C", "mac-c"), peer("Mac D", "mac-d")];
         let newer = Stamp::new(at + time::Duration::minutes(9), "Mac B");
-        let mut theirs = Rules::defaults();
+        let mut theirs = sample();
         theirs.full = 88.0;
         inner.sync.peers.insert(
             "mac-b".into(),
@@ -911,7 +1005,7 @@ mod tests {
 
         let view = inner.rotation_view();
         assert_eq!(view.status, "ok");
-        assert_eq!(view.rules, Some(Rules::defaults()));
+        assert_eq!(view.rules, Some(sample()));
         assert_eq!(view.stamp, Some(stamp));
         assert_eq!(view.version, Some(rotation::version(&text)));
         assert_eq!(

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The variables that override a login (M14, I): Cài đặt's card, the Claude
 //! tab's banner and one alert per variable, from
 //! `quota_station_core::agents::env_check`.

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // shadcn/ui's `cn`: joins class names and lets a later Tailwind class win
 // over an earlier one. tailwind-merge learns the theme's own names (theme.css),
 // so `text-body` stays a size and `text-ink2` a colour.

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! When to read quota-axi again.
 //!
 //! Every 60 seconds while the popover is open, every 300 seconds (the

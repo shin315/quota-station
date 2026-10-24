@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! Restoring a pack on this Mac (M10 for the MCP servers, M12 for the
 //! skills, plugins and instruction files), in the steps the Khôi phục sheet
 //! shows: [`plan`] (what each would become, read now; nothing written),
@@ -61,7 +64,7 @@ use super::secrets::Secrets;
 use super::skills::{self, SkillPlaces};
 use super::{def_view, kept_view, missing_command, writable, Agent, DefView, Have, Places};
 use super::{instructions, skill_ops, skill_updates, write};
-use crate::antigravity::fs::AppDir;
+use crate::app_dir::AppDir;
 use crate::runner;
 
 /// The last restore, in the app's folder.

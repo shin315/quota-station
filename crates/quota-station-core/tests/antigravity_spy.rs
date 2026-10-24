@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: CC-BY-NC-SA-4.0
+
 //! The spy test of SECURITY.md: every Antigravity flow runs in a temporary
 //! home that has a decoy, holding a sentinel secret, at every path the app
 //! must never touch, and a decoy for the `gemini`/`antigravity` Keychain item
@@ -11,6 +14,7 @@
 //!
 //! In a file of its own: the list of opened files is global to the test
 //! binary, so no other test that opens files may run beside it.
+#![cfg(feature = "antigravity-accounts")]
 
 mod common;
 
@@ -28,7 +32,8 @@ use quota_station_core::antigravity::switch::{
     self, CloudCodeProbe, How, Limits, Outcome, Request,
 };
 use quota_station_core::antigravity::version::AntigravityApp;
-use quota_station_core::antigravity::{client, fs, index, login, pace, quota, watch};
+use quota_station_core::antigravity::{client, index, login, pace, quota, watch};
+use quota_station_core::app_dir as fs;
 
 const SENTINEL: &str = "SENTINEL-must-never-leave-0f3c";
 
@@ -265,7 +270,7 @@ fn only_the_folder_guard_opens_files() {
         ("credential.rs", include_str!("../src/antigravity/credential.rs")),
         ("desktop.rs", include_str!("../src/antigravity/desktop.rs")),
         ("export.rs", include_str!("../src/antigravity/export.rs")),
-        ("fs.rs", include_str!("../src/antigravity/fs.rs")),
+        ("app_dir.rs", include_str!("../src/app_dir.rs")),
         ("index.rs", include_str!("../src/antigravity/index.rs")),
         ("login.rs", include_str!("../src/antigravity/login.rs")),
         ("mod.rs", include_str!("../src/antigravity/mod.rs")),
@@ -296,13 +301,11 @@ fn only_the_folder_guard_opens_files() {
             if code.starts_with("//") {
                 continue;
             }
-            if file != "fs.rs" {
+            if file != "app_dir.rs" {
                 // The guard's own module and the trait for a file's mode are
                 // the only `fs` paths allowed; any other names the filesystem.
-                let code = code
-                    .replace("super::fs::", "")
-                    .replace("antigravity::fs::", "")
-                    .replace("unix::fs::PermissionsExt", "");
+                let code =
+                    code.replace("crate::app_dir::", "").replace("unix::fs::PermissionsExt", "");
                 for call in FILE_CALLS {
                     assert!(!code.contains(call), "{file}:{}: {line}", n + 1);
                 }

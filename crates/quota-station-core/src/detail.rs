@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! Every window of every account, on top of quota-axi's one number per
 //! account: Claude's from the app's own readings
 //! ([`crate::claude::state::details`]), Antigravity's from the app's own

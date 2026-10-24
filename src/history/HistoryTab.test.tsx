@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Lịch sử tab (M6) on the fake Rust side: synthetic lines from the
 // app's journal, the switcher's log and the readings, a day at a time.
 

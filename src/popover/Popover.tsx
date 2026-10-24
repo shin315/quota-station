@@ -1,9 +1,12 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The popover (F01, F03, F04, F07), at the approved "Gọn hơn" level: one
 // header line with this Mac's name, Đang dùng on top (the account in use on
 // each service, its share used and when it resets), then a card per
 // account in the main window's order, the one in use framed. Each group (Claude, Antigravity) folds to
 // its header alone, and stays folded the next time the popover opens. A card opens its switch sheet; the footer holds the
-// automatic switching toggle. The header's two buttons switch between the
+// automatic switching toggle while Cài đặt › Nâng cao is on. The header's two buttons switch between the
 // light and dark look and open the main window. Under the groups, Codex is
 // one row (M8): the provider in use and where a switch would go; pressing it
 // opens the confirmation sheet, never a one-tap switch.
@@ -216,7 +219,8 @@ export interface PopoverProps {
   view: PopoverView;
   /** The Codex row (M8); null on a Mac without Codex. */
   codex?: CodexRowView | null;
-  auto: AutoView;
+  /** Automatic switching, in the footer; null while Cài đặt › Nâng cao is off. */
+  auto: AutoView | null;
   /** The other Macs' copies of the rotation file; null with no other Mac. */
   sync?: SyncLine | null;
   feedback?: FeedbackView | null;
@@ -299,9 +303,11 @@ export function Popover({ view, codex = null, auto, sync = null, feedback, busy,
           {codex ? <CodexSection row={codex} onOpen={() => onAction('codex:open')} onAction={onAction} /> : null}
         </div>
       </div>
-      <div className="grid flex-none gap-[7px] border-t-[.5px] border-glass-line px-3.5 pt-2 pb-2.5" ref={foot} inert={open}>
-        <Footer auto={auto} sync={sync} onToggle={onToggle} />
-      </div>
+      {auto ? (
+        <div className="grid flex-none gap-[7px] border-t-[.5px] border-glass-line px-3.5 pt-2 pb-2.5" ref={foot} inert={open}>
+          <Footer auto={auto} sync={sync} onToggle={onToggle} />
+        </div>
+      ) : null}
       <DialogOverlay
         className={cn('z-20 transition-opacity duration-(--dur-2) ease-qs', open ? 'opacity-100' : 'pointer-events-none opacity-0')}
         aria-hidden="true"

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // Turns the model into what the popover shows; the main window builds on
 // the same view (`window.ts`). Pure: the same model and
 // clock give the same view, so Vitest covers every state without a window.
@@ -468,7 +471,7 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
   const lastClaude = cErr && hasClaude ? clock(c.generatedAt) || null : null;
   const lastAgy = gErr && g.status !== 'unread' ? clock(g.generatedAt) || null : null;
 
-  const names = claudeNames(c.accounts, c.personalHours);
+  const names = claudeNames(c.accounts, c.personalHours, model.advanced.on);
   const nameOf = (n: number) => names.get(n)?.name ?? 'Tài khoản ' + n;
   const keychainRequired = s.keychain === 'required';
   const ctx = (old: boolean, section: Section): CardContext => ({
@@ -482,11 +485,11 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
   const claudeSwitching = { listed: c.status === 'ok', ready: model.claudeSwitch.ready, busy: model.claudeSwitch.busy };
   const claudeCards = c.accounts.map((a) => cardView(a, 'c', names.get(a.number)!, { ...ctx(!!cErr, c), switching: claudeSwitching }));
   const agySwitching: AgyRowSwitch = {
-    listed: g.status === 'ok' && model.agySwitch.listed,
-    busy: model.agySwitch.busy,
-    logins: new Map(model.antigravity.accounts.map((a) => [a.number, a])),
+    listed: g.status === 'ok' && !!model.agySwitch?.listed,
+    busy: model.agySwitch?.busy ?? null,
+    logins: new Map((model.antigravity?.accounts ?? []).map((a) => [a.number, a])),
   };
-  const gNames = agyNames(g.accounts);
+  const gNames = agyNames(g.accounts, model.advanced.on);
   const agyCards = g.status === 'notSetUp' ? [] : g.accounts.map((a) => cardView(a, 'g', gNames.get(a.number)!, { ...ctx(!!gErr, g), agy: agySwitching }));
   const active = c.accounts.find((a) => a.active);
   const activeName = active ? nameOf(active.number) : null;

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // Made-up variables for the M14 card, banner and alerts: names and places
 // only, as the Rust side sends them. No value is anywhere here.
 

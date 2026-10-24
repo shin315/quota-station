@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The Skills, Plugin and File hướng dẫn tabs (M11): what the windows draw,
 //! and the commands their boxes, dialogs and buttons use.
 //!
@@ -23,7 +26,7 @@ use quota_station_core::agents::skills::{
 };
 use quota_station_core::agents::{self, batch, claude_mcp, Agent};
 use quota_station_core::alerts;
-use quota_station_core::antigravity::fs::AppDir;
+use quota_station_core::app_dir::AppDir;
 use quota_station_core::codex::procs;
 use quota_station_core::runner;
 use quota_station_core::settings::SkillChecks;

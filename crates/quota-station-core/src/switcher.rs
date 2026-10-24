@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The rotation, the one engine that switches Claude on its own (F07): what
 //! it would do now, what it did last (its log), and whether launchd runs it.
 //! The rotation runs in the app ([`crate::claude::rotate`]); this module

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The variables that override a login (M14) on the fake Rust side: Cài
 // đặt's card, the Claude tab's banner and the alerts. Nothing here reads a
 // shell file or launchd; every variable is made up, and none has a value.

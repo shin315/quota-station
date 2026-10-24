@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Skills, Plugin and File hướng dẫn tabs' words (M11), pure so Vitest
 // covers them without a window: the filters, the line under each name, the
 // chips, why a box is locked, the batch's lead line, and the lines after a

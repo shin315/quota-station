@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! Shared helpers for the fixture tests; each test file uses a subset.
 //! Every fixture is synthetic: made-up slot numbers, percentages and
 //! times, generated at 2026-01-16 07:20 UTC.
@@ -5,12 +8,16 @@
 
 pub mod accounts;
 pub mod claude;
+#[cfg(feature = "antigravity-accounts")]
 pub mod desktop;
+#[cfg(feature = "antigravity-accounts")]
 pub mod google;
+pub mod keychain;
 
 use std::path::PathBuf;
 
 use quota_station_core::axi::{self, Response};
+use quota_station_core::rotation::Rules;
 
 pub fn fixture_path(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures").join(name)
@@ -77,4 +84,19 @@ pub fn claude_details(name: &str) -> Vec<quota_station_core::detail::ClaudeDetai
                 .and_then(usage),
         })
         .collect()
+}
+
+/// A rotation with every key set: Team 2 3 4, personal 1 from 8 to 23, full
+/// at 90 %, Fable full at 95 %, no end times. The app has no built-in
+/// rotation; this is one a test writes.
+pub fn sample_rules() -> Rules {
+    Rules {
+        team: vec![2, 3, 4],
+        personal: Some(1),
+        personal_from: 8,
+        personal_to: 23,
+        full: 90.0,
+        fable_full: 95.0,
+        expire: Vec::new(),
+    }
 }

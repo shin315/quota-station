@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: CC-BY-NC-SA-4.0
+
 //! The Antigravity quota thread (M4b): reads the quota of the accounts this
 //! app logs in, one at a time and never more often than Cockpit Tools reads
 //! them (`quota_station_core::antigravity::pace`), and leaves each reading

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MainWindowApp } from '../App';
@@ -575,5 +578,71 @@ describe('settings for M7: the app itself', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Mở lại' }));
     });
     expect(screen.getByText('Luật xoay vòng còn thay đổi chưa lưu. Lưu hoặc bỏ trước khi mở lại.')).toBeTruthy();
+  });
+});
+
+describe('settings: Nâng cao, alert 1 and the backup folder', () => {
+  it('Nâng cao is the last card; off, it hides its rows and its tabs', async () => {
+    const fake = await open(fixtureModel('fresh'));
+    const titles = Array.from(document.querySelectorAll('[data-slot="card-title"]')).map((h) => h.textContent);
+    expect(titles.at(-1)).toBe('Nâng cao');
+    expect(screen.getByLabelText(/^Mã nguồn/)).toBeTruthy();
+    expect(screen.getByText('Các Mac khác')).toBeTruthy();
+    expect(screen.getByLabelText(/^File của firstmate/)).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('switch', { name: 'Firstmate' }));
+    });
+    expect(fake.api.setFirstmate).toHaveBeenCalledWith(false);
+    expect(screen.queryByLabelText(/^File của firstmate/)).toBeNull();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('switch', { name: 'Hiện phần nâng cao' }));
+    });
+    expect(fake.api.setAdvanced).toHaveBeenCalledWith(false);
+    expect(screen.queryByLabelText(/^Mã nguồn/)).toBeNull();
+    expect(screen.queryByText('Các Mac khác')).toBeNull();
+    expect(screen.queryByRole('switch', { name: 'Firstmate' })).toBeNull();
+    const sidebar = screen.getByRole('navigation', { name: 'Mục' });
+    expect(within(sidebar).queryByRole('button', { name: 'Luật xoay vòng' })).toBeNull();
+    // The version stays where everyone sees it.
+    expect(screen.getByText('0.1.0 · a1b2c3d')).toBeTruthy();
+  });
+
+  it('alert 1 takes its two thresholds here, and says why one is refused', async () => {
+    const fake = await open(fixtureModel('fresh'));
+    const dry = screen.getByLabelText('Còn bao nhiêu phần trăm thì coi là sắp cạn') as HTMLInputElement;
+    const room = screen.getByLabelText('Tài khoản khác còn bao nhiêu phần trăm thì coi là còn hạn mức') as HTMLInputElement;
+    expect([dry.value, room.value]).toEqual(['10', '15']);
+    fireEvent.change(dry, { target: { value: '20' } });
+    await act(async () => {
+      fireEvent.blur(dry);
+    });
+    expect(fake.api.setPoolAlert).toHaveBeenCalledWith(20, 15);
+    expect(screen.getByText('Ngưỡng của tài khoản khác phải lớn hơn ngưỡng cạn.')).toBeTruthy();
+    fireEvent.change(room, { target: { value: '30' } });
+    await act(async () => {
+      fireEvent.blur(room);
+    });
+    expect(fake.api.setPoolAlert).toHaveBeenLastCalledWith(20, 30);
+    expect(screen.getByText('Cảnh báo 1 dùng hai ngưỡng này.')).toBeTruthy();
+  });
+
+  it('the backup folder is iCloud Drive’s until another is chosen', async () => {
+    const fake = await open(fixtureModel('fresh'));
+    const input = screen.getByLabelText('Thư mục sao lưu') as HTMLInputElement;
+    expect(input.value).toBe('');
+    expect(screen.getByText('Để trống để dùng iCloud Drive › Quota Station Agents.')).toBeTruthy();
+    fireEvent.change(input, { target: { value: 'Backups' } });
+    await act(async () => {
+      fireEvent.blur(input);
+    });
+    expect(screen.getByText('Không có thư mục ở đường dẫn này.')).toBeTruthy();
+    fireEvent.change(input, { target: { value: '/Volumes/Backup/QS' } });
+    await act(async () => {
+      fireEvent.blur(input);
+    });
+    expect(fake.api.backupSetFolder).toHaveBeenLastCalledWith('/Volumes/Backup/QS');
+    expect(screen.getByText('Gói mới vào thư mục này. Gói cũ vẫn ở chỗ cũ.')).toBeTruthy();
   });
 });

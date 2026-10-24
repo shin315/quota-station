@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! Live Claude Code sessions counted from a temporary folder of records.
 
 mod common;

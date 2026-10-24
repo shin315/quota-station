@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Chép sang Mac khác tab's state (M13): the Mac and the way chosen, "So
 // sánh" and what it found, the items ticked, "Gửi cả khoá qua SSH" (off to
 // begin with, and off again for each new comparison), and the dialogs: one

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The five alerts on synthetic sequences of readings, de-duplication, and
 //! the buttons through a fake notification center that records every card
 //! it shows and every button pressed. Nothing here reads a real account,
@@ -9,15 +12,21 @@ use std::sync::Mutex;
 
 use common::temp_dir;
 use quota_station_core::alerts::{
-    self, Act, Card, Effect, Facts, Kind, Memory, Notifier, Overwrite, Switches, Tone,
+    self, Act, Card, Effect, Facts, Kind, Memory, Notifier, Switches,
 };
-use quota_station_core::antigravity::fs::AppDir;
+#[cfg(feature = "antigravity-accounts")]
+use quota_station_core::alerts::{Overwrite, Tone};
+#[cfg(feature = "antigravity-accounts")]
 use quota_station_core::antigravity::index::{self, AccountIndex, AccountSummary, Standing};
+#[cfg(feature = "antigravity-accounts")]
 use quota_station_core::antigravity::switch::How;
+#[cfg(feature = "antigravity-accounts")]
 use quota_station_core::antigravity::watch;
+use quota_station_core::app_dir::AppDir;
 use quota_station_core::axi::{self, Response};
 use quota_station_core::firstmate;
 use quota_station_core::rotation::{Expire, Rules};
+use quota_station_core::settings::PoolAlert;
 use serde_json::{json, Value};
 use time::{OffsetDateTime, UtcOffset};
 
@@ -91,9 +100,13 @@ fn facts<'a>(now: i64, claude: Option<&'a Response>) -> Facts<'a> {
         offset: offset(),
         claude,
         rules: None,
+        #[cfg(feature = "antigravity-accounts")]
         agy: Vec::new(),
+        #[cfg(feature = "antigravity-accounts")]
         overwrite: None,
         firstmate: None,
+        pool: PoolAlert::default(),
+        advanced: true,
     }
 }
 
@@ -202,7 +215,7 @@ fn the_pool_running_dry_and_coming_back_are_two_cards() {
 fn the_dry_rule_is_firstmates() {
     let check = |slots: Vec<Value>, expire: Vec<(u32, i64)>, now: i64| {
         let r = report(slots, expire, 0.0);
-        alerts::pool_check(&r, None, at(now), offset()).unwrap()
+        alerts::pool_check(&r, None, PoolAlert::default(), at(now), offset()).unwrap()
     };
     // 10 % or less in use and nothing else at 15 %: dry.
     assert!(check(vec![slot(2, 10.0, true), slot(3, 14.0, false)], vec![], T0).dry);
@@ -271,7 +284,7 @@ fn without_quota_axi_s_rotation_the_rotation_file_says_who_leaves() {
     let mut memory = Memory::default();
     let ends = T0 + HOUR;
     let r = report_without_rotation(vec![slot(2, 60.0, true), slot(3, 90.0, false)]);
-    let rules = Rules { expire: vec![Expire { slot: 2, at: rfc(ends) }], ..Rules::defaults() };
+    let rules = Rules { expire: vec![Expire { slot: 2, at: rfc(ends) }], ..common::sample_rules() };
     let mut f = facts(ends - 30 * MIN, Some(&r));
     f.rules = Some(&rules);
     run(&mut memory, &f, &center);
@@ -359,6 +372,7 @@ fn a_refused_login_that_was_mended_can_come_back_later() {
     assert_eq!(center.titles().len(), 2);
 }
 
+#[cfg(feature = "antigravity-accounts")]
 fn app_with_accounts(n: usize) -> AppDir {
     let app = AppDir::new(temp_dir("alerts-agy"));
     let mut idx = AccountIndex::new();
@@ -376,6 +390,7 @@ fn app_with_accounts(n: usize) -> AppDir {
     app
 }
 
+#[cfg(feature = "antigravity-accounts")]
 #[test]
 fn antigravity_accounts_that_need_a_login_or_a_verification_are_told() {
     let center = FakeCenter::default();
@@ -416,6 +431,7 @@ fn antigravity_accounts_that_need_a_login_or_a_verification_are_told() {
     assert_eq!(run(&mut memory, &f, &center).len(), 1);
 }
 
+#[cfg(feature = "antigravity-accounts")]
 #[test]
 fn an_overwrite_within_six_hours_offers_to_switch_back() {
     let center = FakeCenter::default();
@@ -466,7 +482,7 @@ fn an_overwrite_within_six_hours_offers_to_switch_back() {
         reopened: None,
         saved: true,
     };
-    alerts::settle(&mut memory, &card.id, alerts::agy_result(&outcome));
+    alerts::settle(&mut memory, &card.id, alerts::agy_result(&outcome, true));
     let said = memory.record(&card.id).unwrap().answer.clone().unwrap().result.unwrap();
     assert_eq!((said.tone, said.title.as_str()), (Tone::Ok, "Đã chuyển lại sang Ultra 2"));
 
@@ -589,7 +605,7 @@ fn a_test_card_shows_the_real_buttons_and_changes_nothing() {
     let center = FakeCenter::default();
     let mut memory = Memory::default();
     for kind in Kind::ALL {
-        let alert = alerts::sample(kind, T0, offset());
+        let alert = alerts::sample(kind, T0, offset(), true);
         assert!(alert.test);
         assert!(alert.body.starts_with("Thử:"), "{}", alert.body);
         assert!(!alert.body.contains("tương đương"), "{}", alert.body);
@@ -618,4 +634,39 @@ fn memory_survives_the_file_and_an_unreadable_file_starts_afresh() {
     assert_eq!(alerts::load(&app), memory);
     std::fs::write(alerts::path(&app), "{ not json").unwrap();
     assert_eq!(alerts::load(&app), Memory::default());
+}
+
+#[test]
+fn without_nang_cao_the_cards_go_by_number_and_every_account_counts() {
+    let center = FakeCenter::default();
+    let mut memory = Memory::default();
+    let plain = |now, r| Facts { advanced: false, ..facts(now, r) };
+    // No rotation anywhere: account 5, in no rotation, still has room.
+    let room = report_without_rotation(vec![slot(1, 5.0, true), slot(5, 50.0, false)]);
+    assert!(run(&mut memory, &plain(T0, Some(&room)), &center).is_empty());
+    let dry = report_without_rotation(vec![slot(1, 5.0, true), slot(5, 12.0, false)]);
+    run(&mut memory, &plain(T0 + MIN, Some(&dry)), &center);
+    let card = center.last();
+    assert_eq!(card.title, "Hạn mức Claude sắp cạn");
+    assert_eq!(card.body, "Tài khoản 1 đã dùng 95%. Tài khoản 1 có lại hạn mức lúc 17:29.");
+    assert_eq!(labels(&card.actions), ["Sang Tài khoản 5 (đã dùng 88%)", "Thôi"]);
+    // "Gửi thử" speaks the same way.
+    let sample = alerts::sample(Kind::Pool, T0, offset(), false);
+    assert_eq!(sample.title, "Hạn mức Claude sắp cạn");
+    assert!(
+        sample.body.contains("Tài khoản 1") && !sample.body.contains("Team"),
+        "{}",
+        sample.body
+    );
+    let overwrite = alerts::sample(Kind::Overwrite, T0, offset(), false);
+    assert!(overwrite.body.contains("Antigravity 1") && !overwrite.body.contains("Ultra"));
+}
+
+#[test]
+fn alert_one_uses_the_thresholds_from_settings() {
+    let r = report(vec![slot(2, 18.0, true), slot(3, 25.0, false)], vec![], 0.0);
+    let check = |limits| alerts::pool_check(&r, None, limits, at(T0), offset()).unwrap().dry;
+    assert!(!check(PoolAlert::default()), "18 % left is not dry at 10 %");
+    assert!(check(PoolAlert { dry_at_most: 20, room_at_least: 30 }));
+    assert!(!check(PoolAlert { dry_at_most: 20, room_at_least: 25 }), "25 % elsewhere is room");
 }

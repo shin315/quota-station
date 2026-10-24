@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The skills of Claude Code, Codex and Antigravity in one table (M11, B),
 //! as the MCP tab has their servers: each skill a row, each agent a column
 //! of checkboxes, ticked quickly and written in one batch after one preview.
@@ -32,7 +35,7 @@ use toml_edit::{ArrayOfTables, DocumentMut, Item, Table};
 
 use super::batch::{self, Line};
 use super::{redact, skill_updates, write, Agent, FileState};
-use crate::antigravity::fs::AppDir;
+use crate::app_dir::AppDir;
 use crate::codex::files as codex_files;
 use crate::{local_time, runner};
 

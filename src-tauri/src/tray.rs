@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The menu bar item: template glyph, the account in use and its share used
 //! as its title, a left click for the popover and a right click for a short
 //! menu, where "Thanh menu theo" picks the service the title follows and

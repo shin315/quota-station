@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 mod common;
 
 use common::fixture;
@@ -38,6 +41,7 @@ fn shows(follow: Menubar, window: MenubarWindow) -> Context {
         failing: Failing::default(),
         codex: CodexUse::ChatGpt,
         now: at("2026-01-16T07:20:00Z"),
+        roles: true,
     }
 }
 
@@ -364,4 +368,15 @@ fn a_paused_switcher_adds_a_pause_sign_and_says_so() {
     assert!(!empty.label.contains("tạm dừng"));
     assert!(!icon(None, &cx(Menubar::Claude)).with_pause(true).paused);
     assert!(!icon(Some(&full()), &cx(Menubar::Claude)).with_pause(false).paused);
+}
+
+#[test]
+fn without_nang_cao_an_account_without_a_name_goes_by_number() {
+    let s = full();
+    let plain = |follow| Context { roles: false, ..cx(follow) };
+    assert_eq!(icon(Some(&s), &cx(Menubar::Claude)).title, "Team A 87%");
+    assert_eq!(icon(Some(&s), &plain(Menubar::Claude)).title, "Tài khoản 2 87%");
+    assert!(!icon(Some(&s), &plain(Menubar::Gemini)).title.contains("Ultra"));
+    // A name shown wins either way.
+    assert_eq!(icon(Some(&named(full())), &plain(Menubar::Claude)).title, "lan.acme2 87%");
 }

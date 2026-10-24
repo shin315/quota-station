@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // What the Thống kê tab shows (M16, J), from the report the Rust side
 // counts: numbers in Vietnamese (a comma before the decimals) and in one
 // unit per chart or table, the notices of skipped logs, the first read's

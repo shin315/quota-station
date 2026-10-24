@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! `npx skills`, the tool that installs skills from GitHub into the shared
 //! folder and records them in the lock file (M11, B and G). The app runs it
 //! for "Cài từ GitHub", "Đọc SKILL.md", "Cập nhật" and "Gỡ hẳn", so the

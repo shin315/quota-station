@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Thống kê tab's fake Rust side (M16), for the tests and the browser
 // preview: made-up counts for made-up projects and the fixture's Claude
 // accounts, shaped like `stats::report::Report`, on the fixtures' clock

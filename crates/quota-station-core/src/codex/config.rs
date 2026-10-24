@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-FileCopyrightText: 2025 Jason Young (CC Switch)
+// SPDX-License-Identifier: MIT
+
 //! Codex's `config.toml`: which provider it uses, the custom provider table
 //! a switch goes to, its own key, the MCP list (read here; only the MCP tab
 //! edits it, [`crate::agents::codex_mcp`]) and what CC Switch left behind;

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! What Firstmate sees (F10): the one line its quota-pool watch writes
 //! after every sweep, `quota-pool.last`:
 //!

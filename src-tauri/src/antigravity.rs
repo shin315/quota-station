@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: CC-BY-NC-SA-4.0
+
 //! The Antigravity accounts this app logs in (M4a) and reads (M4b): what the
 //! windows show of them, and the commands to add one through Google's
 //! consent screen, take a pasted callback, cancel, log out, open Google's
@@ -8,7 +11,6 @@
 //! emails. The numbers themselves come from quota-axi.
 
 use quota_station_core::antigravity::client::{self, ClientStatus};
-use quota_station_core::antigravity::fs::AppDir;
 use quota_station_core::antigravity::index::{self, Standing};
 use quota_station_core::antigravity::login::{
     self, Browser, Deps, LoginError, LogoutError, SystemBrowser,
@@ -16,6 +18,7 @@ use quota_station_core::antigravity::login::{
 use quota_station_core::antigravity::oauth::Endpoints;
 use quota_station_core::antigravity::oauth_server::{CallbackError, LOGIN_TIMEOUT};
 use quota_station_core::antigravity::store::Keychain;
+use quota_station_core::app_dir::AppDir;
 use quota_station_core::runner;
 use serde::Serialize;
 use tauri::{AppHandle, State};
@@ -362,11 +365,6 @@ impl Inner {
         } else {
             None
         }
-    }
-
-    /// The app's Application Support folder, where `settings.json` is.
-    pub fn app_dir(&self) -> AppDir {
-        AppDir::new(self.settings_file.parent().map(|p| p.to_path_buf()).unwrap_or_default())
     }
 }
 

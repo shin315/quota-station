@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Thống kê tab (M16) on the fake Rust side: no session log is read.
 // Every project, account and number is made up; `stats-trap.json` is what
 // the Rust side counted from fixture logs whose conversation carries a

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! Environment variables that override an agent's login (M14, I): an
 //! `ANTHROPIC_API_KEY` in `~/.zshrc` makes Claude Code in Terminal use that
 //! key instead of the claude-swap account in use, whatever the app switches.
@@ -26,7 +29,7 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 
 use super::Agent;
-use crate::antigravity::fs::AppDir;
+use crate::app_dir::AppDir;
 use crate::runner::{self, RunError};
 
 /// launchd's own command.

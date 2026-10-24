@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The rotation editor's commands (F06) and the thread that keeps the other
 //! Macs' copies in step. A save writes this Mac's rotation file, has
 //! quota-axi check it (the file before goes back when it refuses), then
@@ -383,7 +386,7 @@ pub async fn preview_rotation(
     };
     tauri::async_runtime::spawn_blocking(move || {
         let now = OffsetDateTime::now_utc();
-        let decided = rotate::dry_run(&store, &tools, &rules, now);
+        let decided = rotate::dry_run(&store, &tools, Some(&rules), now);
         let run = switcher::decided(&decided.line);
         Ok(DryRunView { decision: run.decision, raw: run.raw, at: String::new() })
     })

@@ -1,7 +1,32 @@
 Quota Station
 Copyright © 2026 Shin315
-Licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0
-International License (CC BY-NC-SA 4.0). See LICENSE.
+
+Quota Station is licensed under the MIT License (LICENSE), except the
+Antigravity accounts, which are licensed under the Creative Commons
+Attribution-NonCommercial-ShareAlike 4.0 International License
+(CC BY-NC-SA 4.0, LICENSES/CC-BY-NC-SA-4.0.txt) because they are adapted
+from Cockpit Tools. Each file names its license in an SPDX-License-Identifier
+line, or in REUSE.toml for the files that cannot carry one
+(https://reuse.software).
+
+The Antigravity accounts are, besides the adapted files listed below, every
+file joined to them, drawn wide on purpose:
+
+- crates/quota-station-core/src/antigravity/
+- src-tauri/src/antigravity.rs, agy_quota.rs and agy_switch.rs
+- src/antigravity/
+- their tests: crates/quota-station-core/tests/antigravity_*.rs,
+  tests/common/google.rs and desktop.rs, tests/fixtures/cloud-code/, and
+  src/popover/AgySwitch.test.tsx
+
+They are compiled only with the Cargo feature antigravity-accounts, and
+bundled into the interface only when it is built with
+QS_ANTIGRAVITY_ACCOUNTS=1; scripts/install.sh turns both on for a build
+from source. Without them src/antigravity-off/ (MIT) stands in, and the app
+holds no CC BY-NC-SA code: it reads the Antigravity account signed in
+through quota-axi, and does not log in or switch accounts.
+
+----------------------------------------------------------------------------
 
 This work contains code adapted from Cockpit Tools
 (https://github.com/jlcodes99/cockpit-tools), © jlcodes, licensed under

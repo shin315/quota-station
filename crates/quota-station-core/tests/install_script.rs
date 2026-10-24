@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! `scripts/install.sh` (M7) on a clean temporary folder: a source tree
 //! holding only the script and the files it checks, a fake `cargo` whose
 //! `tauri build` writes a small real bundle (a copy of `/usr/bin/true`), and
@@ -93,7 +96,7 @@ impl Sandbox {
         let plist = INFO_PLIST.replace("BUNDLE_ID", "com.shin315.quota-station");
         let plist = plist.replace("VERSION", "0.1.0");
         let body = format!(
-            r#"echo "cargo $* QS_COMMIT=$QS_COMMIT" >> "$FAKE_LOG"
+            r#"echo "cargo $* QS_ANTIGRAVITY_ACCOUNTS=$QS_ANTIGRAVITY_ACCOUNTS QS_COMMIT=$QS_COMMIT" >> "$FAKE_LOG"
 if [ "$1 $2" = "tauri --version" ]; then echo "tauri-cli 2.0.0"; exit 0; fi
 if [ "$1 $2" = "tauri build" ]; then
   app="{bundle}"
@@ -109,6 +112,10 @@ fi
     }
 
     fn run(&self, args: &[&str]) -> Output {
+        self.run_with(args, &[])
+    }
+
+    fn run_with(&self, args: &[&str], env: &[(&str, &str)]) -> Output {
         let path = format!("{}:/usr/bin:/bin:/usr/sbin:/sbin", self.bin.display());
         Command::new("/bin/bash")
             .arg(self.src.join("scripts/install.sh"))
@@ -120,6 +127,7 @@ fi
             .env("PATH", path)
             .env("FAKE_LOG", &self.log)
             .env("CARGO_TARGET_DIR", &self.target)
+            .envs(env.iter().copied())
             .output()
             .unwrap()
     }
@@ -201,7 +209,11 @@ fn builds_signs_ad_hoc_installs_and_opens() {
     ok(&out);
 
     let calls = s.calls();
-    assert!(calls.iter().any(|c| c.starts_with("cargo tauri build --bundles app")), "{calls:?}");
+    let build =
+        calls.iter().find(|c| c.starts_with("cargo tauri build --bundles app")).expect("a build");
+    // A build from source keeps the Antigravity accounts, in Rust and in the frontend.
+    assert!(build.contains("--features antigravity-accounts"), "{build}");
+    assert!(build.contains(" QS_ANTIGRAVITY_ACCOUNTS=1 "), "{build}");
     assert!(calls.iter().any(|c| c == "security find-identity -v -p codesigning"));
     assert!(!calls.iter().any(|c| c.starts_with("npm")), "node_modules is up to date: {calls:?}");
 
@@ -261,6 +273,17 @@ fn an_identity_given_wins_and_dash_is_ad_hoc() {
     ok(&s.run(&["--dest", &s.dest(), "--no-open", "--identity", "-"]));
     assert!(!s.calls().iter().any(|c| c.starts_with("security")), "{:?}", s.calls());
     assert!(signature(&s.installed()).contains("Signature=adhoc"));
+}
+
+#[test]
+fn qs_antigravity_accounts_0_builds_without_the_antigravity_accounts() {
+    let s = Sandbox::new("install-mit");
+    ok(&s.run_with(&["--dest", &s.dest(), "--no-open"], &[("QS_ANTIGRAVITY_ACCOUNTS", "0")]));
+    let calls = s.calls();
+    let build = calls.iter().find(|c| c.starts_with("cargo tauri build")).expect("a build");
+    assert!(!build.contains("--features"), "{build}");
+    assert!(build.contains(" QS_ANTIGRAVITY_ACCOUNTS=0 "), "{build}");
+    assert!(verifies(&s.installed()));
 }
 
 #[test]

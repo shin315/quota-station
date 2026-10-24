@@ -1,9 +1,12 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Codex tab of the main window (M8) and Codex's compact card on Tổng
 // quan. The tab reads like the Claude and Antigravity tabs: one table with
 // the two sides (each "Chuyển" opens the confirmation sheet), "Dán khoá…"
 // for the custom provider and the plugins box under it, the technical
-// detail behind "Chi tiết"; then Codex on this Mac and the folded guide to
-// stop using CC Switch.
+// detail behind "Chi tiết"; then Codex on this Mac. CC Switch shows only as
+// the banner that warns when it also switches Codex.
 
 import type { ReactNode } from 'react';
 import { Card as Panel, CardText, CardTitle } from '@/components/ui/card';
@@ -32,9 +35,6 @@ import {
 import type { CodexView, Model } from '../lib/model';
 import { dayClock } from '../lib/switching';
 import type { Action, BannerView, ChipView, FeedbackView, PopoverView } from '../lib/view';
-
-/** Days of running the switch here before the CC Switch guide's next steps open. */
-export const STEADY_DAYS = 3;
 
 function Card(props: { title: ReactNode; id?: string; x?: boolean; children: ReactNode }) {
   return (
@@ -311,89 +311,6 @@ function OnThisMac({ v, onAction }: { v: CodexView; onAction(a: Action): void })
   );
 }
 
-/** Whole days since `iso`. */
-function daysSince(iso: string | null, now: Date): number {
-  return iso ? Math.max(0, Math.floor((now.getTime() - new Date(iso).getTime()) / 86400000)) : 0;
-}
-
-function CcSwitchGuide({ v, macs, now }: { v: CodexView; macs: number; now: Date }) {
-  const cc = v.ccSwitch;
-  const days = daysSince(v.firstSwitchAt, now);
-  const steady = days >= STEADY_DAYS;
-  const where = macs > 1 ? 'cả ' + macs + ' Mac' : 'máy này';
-  const chip: ChipView = cc.running ? { t: 'đang chạy', k: 'warn' } : cc.installed ? { t: 'đã cài · đang tắt', k: '' } : { t: 'đã gỡ', k: 'ok' };
-  const step = (done: boolean, open: boolean) => (done ? 'done' : open ? '' : 'lock');
-  const items: { text: string; small?: string; cls: string }[] = [
-    {
-      text: 'Chuyển Codex bằng Quota Station ổn vài ngày trên ' + where,
-      small:
-        'Máy này: ' +
-        Math.min(days, STEADY_DAYS) +
-        '/' +
-        STEADY_DAYS +
-        ' ngày' +
-        (v.firstSwitchAt ? ' từ lần chuyển đầu (' + dayClock(v.firstSwitchAt, now) + ')' : ', chưa chuyển lần nào') +
-        '.' +
-        (macs > 1 ? ' Các Mac khác: xem trên từng máy.' : ''),
-      cls: step(steady, true),
-    },
-    { text: 'Xuất bản sao lưu SQL của CC Switch', small: 'CC Switch › Cài đặt › Import/Export › Export SQL Backup', cls: step(false, steady) },
-    { text: 'So danh sách ở tab MCP với MCP trong CC Switch', small: 'MCP đang tắt chỉ có trong dữ liệu CC Switch: thêm lại ở tab MCP', cls: step(false, steady) },
-    { text: 'Chuyển Codex một lần bằng Quota Station', cls: step(!!v.firstSwitchAt, steady) },
-    {
-      text: 'Dọn dấu vết CC Switch trong config.toml',
-      small: cc.traces.length ? 'Còn: ' + cc.traces.join(' · ') + '. Sửa tay; app không sửa các dòng này.' : 'Không còn dấu vết nào.',
-      cls: step(!cc.traces.length, steady),
-    },
-    { text: 'Tắt CC Switch khi đăng nhập, rồi thoát CC Switch', cls: step(!cc.running, steady) },
-    {
-      text: 'Kiểm skill của Codex trong ~/.codex/skills',
-      small: 'Skill nào là liên kết vào thư mục skills của CC Switch thì thay bằng bản sao thật hoặc cài lại skill, trước khi xoá dữ liệu CC Switch',
-      cls: step(false, steady),
-    },
-    { text: 'Sau một ngày ổn: bỏ CC Switch.app vào Thùng rác', small: 'Giữ thư mục ~/.cc-switch thêm 2 tuần', cls: step(!cc.installed, steady) },
-  ];
-  const done = items.filter((i) => i.cls === 'done').length;
-  return (
-    <Card
-      id="cc-card"
-      title={
-        <>
-          {'Ngừng dùng CC Switch · ' + done + '/' + items.length}
-          <span className="ml-auto font-reg">
-            <Chip chip={chip} />
-          </span>
-        </>
-      }
-    >
-      <CardText className="mb-0">Giữ CC Switch tới khi Quota Station chuyển Codex ổn vài ngày.</CardText>
-      <details className={DETAILS}>
-        <summary className={SUMMARY}>Xem các bước</summary>
-        <ol className="m-0 mt-2 grid list-none gap-[7px] p-0 text-sm text-ink [counter-reset:st]">
-          {items.map((i) => (
-            <li
-              key={i.text}
-              className={cn(
-                'grid grid-cols-[20px_minmax(0,1fr)] items-start gap-2 before:grid before:size-[18px] before:place-items-center before:rounded-full before:text-[10px] before:font-heavy before:[counter-increment:st]',
-                i.cls === 'done'
-                  ? "before:bg-ok/20 before:text-ok-ink before:content-['✓']"
-                  : 'before:bg-fill2 before:text-ink2 before:content-[counter(st)]',
-                i.cls === 'lock' &&
-                  "grid-cols-[20px_minmax(0,1fr)_auto] text-ink2 after:whitespace-nowrap after:rounded-chip after:bg-fill2 after:px-1.5 after:text-cap after:leading-4 after:text-ink2 after:content-['chờ_bước_trước']",
-              )}
-            >
-              <span>
-                {i.text}
-                {i.small ? <small className="block text-xs text-ink2">{i.small}</small> : null}
-              </span>
-            </li>
-          ))}
-        </ol>
-      </details>
-    </Card>
-  );
-}
-
 export interface CodexTabProps {
   model: Model;
   fresh: PopoverView['fresh'];
@@ -458,7 +375,6 @@ export function CodexTab({ model, fresh, feedback, now, onAction, onPlugins }: C
       <Providers v={v} now={now} onAction={onAction} onPlugins={onPlugins} />
       <div className={GRID2}>
         <OnThisMac v={v} onAction={onAction} />
-        <CcSwitchGuide v={v} macs={1 + model.rotation.peers.length} now={now} />
       </div>
     </>
   );

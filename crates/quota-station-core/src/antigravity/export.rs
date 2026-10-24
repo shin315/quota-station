@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-FileCopyrightText: jlcodes (Cockpit Tools)
+// SPDX-License-Identifier: CC-BY-NC-SA-4.0
+
 // Ported from Cockpit Tools `src-tauri/src/modules/quota.rs` (1.3.70,
 // commit 244b957, CC BY-NC-SA 4.0): `QuotaApiCacheRecord`, `hash_email`,
 // `api_cache_path`, `read_api_cache`, `is_api_cache_valid`,
@@ -22,8 +26,8 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use super::fs::AppDir;
 use super::index;
+use crate::app_dir::AppDir;
 
 /// Under the app's `antigravity/` folder, as under Cockpit's data folder.
 pub const CACHE_DIR: [&str; 3] = ["cache", "quota_api_v1_desktop", "authorized"];

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 import { describe, expect, it } from 'vitest';
 import { firstReadFixture, SKIPPED_CODEX, statsFixture, statsReport } from '../fixtures/fakeStats';
 import { bigTokens, num, progressLines, projectRows, readLine, share, skippedNotices, tokensText, unitOf, usd } from './stats';

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The agents' shared instruction files (M11, F): `~/.claude/CLAUDE.md`,
 //! `~/.claude/rules/*.md`, Codex's `AGENTS.md`, `~/.gemini/GEMINI.md`, and
 //! any other file the owner adds. Shown with where each is, when it was
@@ -19,7 +22,7 @@ use time::OffsetDateTime;
 
 use super::def::{self, MASK};
 use super::{skills, write, Agent};
-use crate::antigravity::fs::AppDir;
+use crate::app_dir::AppDir;
 use crate::runner;
 
 /// The owner's choices, in the app's folder: the files added, the ones

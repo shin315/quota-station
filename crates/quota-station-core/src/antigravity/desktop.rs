@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-FileCopyrightText: jlcodes (Cockpit Tools)
+// SPDX-License-Identifier: CC-BY-NC-SA-4.0
+
 // The version rule is adapted from Cockpit Tools
 // `src-tauri/src/commands/account.rs` (`compare_versions`,
 // `resolve_antigravity_desktop_auth_mode_from_info`) and
@@ -32,7 +36,7 @@ use std::time::{Duration, Instant};
 
 use serde::Serialize;
 
-use super::fs::Bundle;
+use crate::app_dir::Bundle;
 use crate::runner;
 
 pub const BUNDLE_ID: &str = "com.google.antigravity";

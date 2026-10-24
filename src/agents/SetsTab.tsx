@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Bộ cấu hình tab of the main window (M15, N), as the approved
 // prototype's `set` screens: the set in use and how far the Mac has drifted
 // from it, the sets with Áp…, Sửa and Xoá, and their dialogs. A set says,

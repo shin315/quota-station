@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-FileCopyrightText: jlcodes (Cockpit Tools)
+// SPDX-License-Identifier: CC-BY-NC-SA-4.0
+
 //! Reading one Antigravity account's quota, in Cockpit Tools' order
 //! (`fetch_quota_with_fresh_token` in `src-tauri/src/modules/account.rs` and
 //! `fetch_quota_with_context` in `src-tauri/src/modules/quota.rs`, 1.3.70):
@@ -19,13 +23,13 @@
 use super::client::ClientStatus;
 use super::cloud_code::{self, CloudCode, CloudCodeError, Context, Hosts};
 use super::export;
-use super::fs::AppDir;
 use super::index::{self, AccountIndex, IndexError, Standing};
 use super::login::{self, UseError};
 use super::oauth::OAuthError;
 use super::pace::{Candidate, Finish};
 use super::store::StoreError;
 use super::version::Identity;
+use crate::app_dir::AppDir;
 
 /// Where a read keeps things and whom it talks to.
 pub struct Deps<'a> {

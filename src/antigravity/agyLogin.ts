@@ -1,13 +1,16 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: CC-BY-NC-SA-4.0
+
 // The words of the Antigravity login card (M4a): the accounts this app logs
 // in, what is missing before it can, what each login or logout did, and how
 // the app's own read of each account's quota stands (M4b). Accounts go by
 // their email, as on the quota rows, or by number ("Ultra 1") when the
 // owner hides names in Cài đặt.
 
-import { agyNames } from './accounts';
-import { clock } from './format';
-import type { AgyAccounts, AgyLogin, AgyLoginDone, AgyReadError, ClientStatus } from './model';
-import type { ChipView, FeedbackView } from './view';
+import { agyNames } from '../lib/accounts';
+import { clock } from '../lib/format';
+import type { AgyAccounts, AgyLogin, AgyLoginDone, AgyReadError, ClientStatus } from '../lib/model';
+import type { ChipView, FeedbackView } from '../lib/view';
 
 export function agyLoginName(n: number): string {
   return 'Ultra ' + n;

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The Codex switch (M8) on a temporary Codex home built from the fixtures
 //! in `fixtures/codex/`: every name, URL and key in them is made up, and no
 //! test reads or writes the real `~/.codex`, Codex's login or CC Switch.
@@ -19,7 +22,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use common::{fixture_text, temp_dir};
-use quota_station_core::antigravity::fs::AppDir;
+use quota_station_core::app_dir::AppDir;
 use quota_station_core::codex::config::{self, Current, KeyKind, KeyRefusal, Refusal, Target};
 use quota_station_core::codex::files::{self, Record, WriteError};
 use quota_station_core::codex::login::{self, Login};

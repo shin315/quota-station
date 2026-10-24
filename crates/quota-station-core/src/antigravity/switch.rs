@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-FileCopyrightText: jlcodes (Cockpit Tools)
+// SPDX-License-Identifier: CC-BY-NC-SA-4.0
+
 // The order of a switch is ported from Cockpit Tools
 // `src-tauri/src/commands/account_desktop_switch.rs` (the single-switch gate,
 // the 60-second preparation, quitting before and opening after, writing the
@@ -50,7 +54,6 @@ use serde::{Deserialize, Serialize};
 use super::cloud_code::{self, CloudCode, Context, Hosts};
 use super::credential::{CredentialError, SharedLogin};
 use super::desktop::{Desktop, Installed, QuitError};
-use super::fs::AppDir;
 use super::index::{self, AccountIndex, Standing};
 use super::login::{self, UseError};
 use super::oauth::Endpoints;
@@ -58,6 +61,7 @@ use super::store::Keychain;
 use super::token::TokenData;
 use super::version::Identity;
 use super::watch;
+use crate::app_dir::AppDir;
 use crate::axi::Response;
 use crate::runner::{self, ProviderId};
 

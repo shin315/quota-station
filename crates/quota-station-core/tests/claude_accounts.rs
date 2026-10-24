@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The Claude accounts' readings, the data file Firstmate and quota-axi
 //! read, and running `claude` as one account, against a fake Keychain and a
 //! fake Anthropic in a temporary home. Every login is made up.

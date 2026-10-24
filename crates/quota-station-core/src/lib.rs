@@ -1,9 +1,13 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! Quota Station's core: reads quota-axi, builds the snapshot the menu bar
 //! and the popover show, paces the reads, and switches Claude when the owner
 //! asks. No UI and no AppKit, so all of it is tested with `cargo test`.
 //!
-//! It writes the app's own files (settings, the Antigravity index and quota
-//! readings in [`antigravity`], the switch [`history`] and what the
+//! It writes the app's own files (settings, through [`app_dir`]; the
+//! Antigravity index and quota readings in `antigravity`, which only the
+//! `antigravity-accounts` feature builds, CC BY-NC-SA 4.0: `NOTICE`; the switch [`history`] and what the
 //! [`alerts`] sent and were answered), the switcher's pause flag, the
 //! rotation file ([`rotation`]), which it also copies to the owner's other
 //! Macs over SSH ([`peers`]), and the app's own Keychain items for the
@@ -49,7 +53,9 @@
 
 pub mod agents;
 pub mod alerts;
+#[cfg(feature = "antigravity-accounts")]
 pub mod antigravity;
+pub mod app_dir;
 pub mod axi;
 pub mod claude;
 pub mod codex;

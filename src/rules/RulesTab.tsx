@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Luật xoay vòng tab (F06): the prototype's rules editor (mockup B's
 // chips and sliders), the preview from the switcher's dry run in one
 // sentence, the save bar with one line per Mac, and the two dialogs: compare

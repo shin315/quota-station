@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-FileCopyrightText: jlcodes (Cockpit Tools)
+// SPDX-License-Identifier: CC-BY-NC-SA-4.0
+
 // Adapted from Cockpit Tools `src-tauri/src/modules/oauth.rs` (1.3.70,
 // commit 244b957, CC BY-NC-SA 4.0): the client's key name and the one
 // client it logs in with; changes: the id and the secret come from
@@ -22,7 +26,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use super::fs::AppDir;
+use crate::app_dir::AppDir;
 
 pub const FILE: &str = "oauth-client.json";
 /// Cockpit's name for this client, kept with every token it gets

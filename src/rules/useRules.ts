@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The rotation editor's state (M5): what the owner changed and not saved
 // yet, the action running, the banner a failed save leaves, the preview,
 // and the dialogs (compare two copies, unsaved changes). The draft lives in

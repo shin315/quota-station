@@ -1,0 +1,37 @@
+# SPDX-FileCopyrightText: 2026 Shin315
+# SPDX-License-Identifier: MIT
+
+# The licence of each file that cannot carry an SPDX header of its own
+# (https://reuse.software). Every other file names its licence in its first
+# lines. The last annotation that matches a file wins.
+version = 1
+
+[[annotations]]
+path = [
+  ".claude/**",
+  ".mcp.json",
+  "**/*.md",
+  "NOTICE",
+  "Cargo.lock",
+  "package.json",
+  "package-lock.json",
+  "components.json",
+  "tsconfig.json",
+  "assets/**",
+  "docs/**",
+  "src-tauri/Info.plist",
+  "src-tauri/tauri.conf.json",
+  "src-tauri/capabilities/**",
+  "src-tauri/icons/**",
+  "src/fixtures/**.json",
+  "crates/quota-station-core/tests/fixtures/**",
+]
+SPDX-FileCopyrightText = "2026 Shin315"
+SPDX-License-Identifier = "MIT"
+
+# Google's answers in the format Cockpit Tools caches them: part of the
+# Antigravity accounts (NOTICE).
+[[annotations]]
+path = "crates/quota-station-core/tests/fixtures/cloud-code/**"
+SPDX-FileCopyrightText = "2026 Shin315"
+SPDX-License-Identifier = "CC-BY-NC-SA-4.0"

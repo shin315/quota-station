@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Bộ cấu hình tab's words and the plain rules behind them (M15): a set's
 // one-line summary, "Lấy từ cấu hình hiện tại", how far the applied set has
 // drifted, the preview by agent, and the lines after a write and an undo.

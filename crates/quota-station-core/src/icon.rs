@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The menu bar icon (F02): a monochrome template glyph with one bar per
 //! service, and the title beside it: the account in use and its share used
 //! for the service and the window the owner picked (Claude, Gemini or Codex;
@@ -84,6 +87,9 @@ pub struct Context {
     pub failing: Failing,
     pub codex: CodexUse,
     pub now: OffsetDateTime,
+    /// Accounts without a name shown go by their place in the rotation and
+    /// as Ultra N (Cài đặt › Nâng cao on); otherwise by number.
+    pub roles: bool,
 }
 
 /// The longest name the title keeps, in characters.
@@ -108,14 +114,17 @@ fn local_part(name: &str) -> &str {
 const LETTERS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 /// A Claude account's name, uncut, as the windows write it: its email, else its
-/// place (Cá nhân, Team A, Tài khoản N), else "Claude" for the one account
-/// quota-axi reads without claude-swap's list.
-pub fn claude_name(section: &Section, a: &Account) -> String {
+/// place (Cá nhân, Team A, Tài khoản N) with `roles`, else `Tài khoản N`, else
+/// "Claude" for the one account quota-axi reads without the app's list.
+pub fn claude_name(section: &Section, a: &Account, roles: bool) -> String {
     if let Some(email) = &a.email {
         return local_part(email).to_string();
     }
     if a.number == 0 {
         return "Claude".into();
+    }
+    if !roles {
+        return format!("Tài khoản {}", a.number);
     }
     match a.role {
         Role::Personal => "Cá nhân".into(),
@@ -137,12 +146,14 @@ pub fn claude_name(section: &Section, a: &Account) -> String {
     }
 }
 
-/// An Antigravity account's name, uncut: its email, else Ultra N, else "Gemini".
-pub fn agy_name(a: &Account) -> String {
+/// An Antigravity account's name, uncut: its email, else Ultra N with
+/// `roles` or Antigravity N, else "Gemini".
+pub fn agy_name(a: &Account, roles: bool) -> String {
     match (&a.email, a.number) {
         (Some(email), _) => local_part(email).to_string(),
         (None, 0) => "Gemini".into(),
-        (None, n) => format!("Ultra {n}"),
+        (None, n) if roles => format!("Ultra {n}"),
+        (None, n) => format!("Antigravity {n}"),
     }
 }
 
@@ -326,7 +337,7 @@ fn claude_now<'a>(s: &'a Snapshot, cx: &Context) -> Now<'a> {
     };
     let lines = if !cx.failing.claude && readable(a) { pick(a, CLAUDE) } else { Vec::new() };
     Now {
-        name: claude_name(section, a),
+        name: claude_name(section, a, cx.roles),
         tight: chosen(&lines, cx.window, cx.now),
         bar: tightest(&lines, cx.now).map(|(_, u)| u),
         stale: section.stale,
@@ -347,7 +358,7 @@ fn agy_now<'a>(s: &'a Snapshot, cx: &Context, kinds: &[LineKind]) -> Now<'a> {
     };
     let lines = if !cx.failing.agy && readable(a) { pick(a, kinds) } else { Vec::new() };
     Now {
-        name: agy_name(a),
+        name: agy_name(a, cx.roles),
         tight: chosen(&lines, cx.window, cx.now),
         bar: tightest(&lines, cx.now).map(|(_, u)| u),
         stale: section.stale,

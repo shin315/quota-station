@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! macOS notification cards with buttons (F09), through the system's
 //! `UNUserNotificationCenter`. Each set of buttons is a notification
 //! category of its own, registered before the card is posted; a press comes

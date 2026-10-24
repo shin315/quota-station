@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! What the windows can ask for. Only [`switch_claude`] acts outside the
 //! app here: it switches Claude Code's login on this Mac to one of the
 //! app's accounts when the owner confirms (switching Antigravity is in
@@ -9,7 +12,7 @@
 use quota_station_core::history;
 use quota_station_core::runner::{self, RunError};
 use quota_station_core::sessions::{self, Sessions};
-use quota_station_core::settings::{Menubar, MenubarWindow, Theme};
+use quota_station_core::settings::{Menubar, MenubarWindow, Settings, Theme};
 use quota_station_core::switching::{self, Outcome};
 use quota_station_core::{local_time, pause};
 use tauri::{AppHandle, State};
@@ -124,6 +127,38 @@ pub fn set_show_names(
     }
     reader::publish(&app, &state);
     Ok(state.lock().model())
+}
+
+/// Cài đặt › Nâng cao: shows or hides what was made for the author's own
+/// Macs (the rotation, the pause and the switcher, the other Macs, the update
+/// from source, Firstmate). Hiding changes no file but the settings: a
+/// rotation already running keeps running.
+#[tauri::command]
+pub fn set_advanced(app: AppHandle, state: State<'_, AppState>, on: bool) -> Result<Model, String> {
+    save_settings(&state, |s| s.advanced = on)?;
+    reader::publish(&app, &state);
+    Ok(state.lock().model())
+}
+
+/// The Firstmate switch inside Nâng cao: its tab and alert 5.
+#[tauri::command]
+pub fn set_firstmate(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    on: bool,
+) -> Result<Model, String> {
+    save_settings(&state, |s| s.firstmate = on)?;
+    reader::publish(&app, &state);
+    Ok(state.lock().model())
+}
+
+fn save_settings(state: &AppState, change: impl FnOnce(&mut Settings)) -> Result<(), String> {
+    let mut inner = state.lock();
+    let mut settings = inner.settings.clone();
+    change(&mut settings);
+    settings.save(&inner.settings_file).map_err(|e| e.to_string())?;
+    inner.settings = settings;
+    Ok(())
 }
 
 /// Sets the service the menu bar title follows. Stays on this Mac.

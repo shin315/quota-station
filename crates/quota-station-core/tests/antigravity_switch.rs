@@ -1,8 +1,12 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: CC-BY-NC-SA-4.0
+
 //! Switching the Antigravity account end to end, in a temporary home with a
 //! local fake Google, a fake `security`, a fake Antigravity.app (a shell
 //! process) with fake `plutil`, `pgrep`, `osascript` and `open`, and a fake
 //! quota-axi. These tests never reach Google, the Keychain, the real
 //! Antigravity.app or the real quota-axi.
+#![cfg(feature = "antigravity-accounts")]
 
 mod common;
 
@@ -632,7 +636,7 @@ fn a_load_code_assist_that_fails_does_not_stop_the_switch() {
 /// Logs the account out of the app while its token is being prepared, as
 /// a logout from the other window would.
 struct LogoutProbe {
-    app: quota_station_core::antigravity::fs::AppDir,
+    app: quota_station_core::app_dir::AppDir,
     endpoints: quota_station_core::antigravity::oauth::Endpoints,
     keychain: quota_station_core::antigravity::store::Keychain,
     id: String,

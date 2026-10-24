@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-FileCopyrightText: 2026 Onur Cetinkol (claude-swap)
+// SPDX-License-Identifier: MIT
+
 // Logging a new account in through `claude auth login` in a folder of its
 // own, and keeping a setup token as a credential with only an access token,
 // follow claude-swap (`cswap add`, `cswap add --token`, MIT,

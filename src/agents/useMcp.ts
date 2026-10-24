@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The MCP tab's state (M9): the boxes ticked and not written yet, the open
 // dialog, and the one path every write takes: changes, then the batch
 // preview the Rust side reads from the files now, then the write of what

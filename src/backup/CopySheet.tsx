@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Chép sang Mac khác tab's dialogs (M13), as the prototype's `cp-item`,
 // `cp-go` and `cp-done`: one item on both Macs side by side (a command's
 // path is not shown: another Mac keeps it elsewhere), the copy's preview,

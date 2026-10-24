@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The popover's Vitest fixtures are snapshots this crate builds from the
 //! quota-axi fixtures, so the UI is tested against what Rust really sends.
 //! `UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test ui_fixtures`

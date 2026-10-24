@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-FileCopyrightText: 2026 Onur Cetinkol (claude-swap)
+// SPDX-License-Identifier: MIT
+
 // The switch follows claude-swap's `_perform_switch` (`switcher.py`, MIT,
 // https://github.com/realiti4/claude-swap): the same four locks in the same
 // order, the outgoing account's live credential kept first (never an empty

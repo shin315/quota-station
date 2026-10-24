@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Agent tabs' matrix (M9, reused by Skills in M11): a row per item, a
 // column per agent, a macOS checkbox in every cell. The whole cell is what
 // is pressed; a tick is not written yet (light fill, amber dot) until the

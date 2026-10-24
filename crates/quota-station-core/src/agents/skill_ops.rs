@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! What the Skills tab does through `npx skills` (M11, B and G): install
 //! from GitHub, update, remove for good. Each keeps the agents' boxes as
 //! the owner set them: the tool writes the shared folder and Claude Code's
@@ -15,7 +18,7 @@ use time::OffsetDateTime;
 use super::npx::{Npx, NpxError};
 use super::skills::{self, Change, Entry, Look, Outcome, SkillPlaces};
 use super::Agent;
-use crate::antigravity::fs::AppDir;
+use crate::app_dir::AppDir;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

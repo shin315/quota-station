@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! One run of the rotation, as one run of the old `cswap-prefer-team`
 //! script, in the same order: the pause guard, the readings, the decision
 //! ([`super::engine`]), the switch, then priming. The decisions and
@@ -51,14 +54,18 @@ impl Tools {
     }
 }
 
-/// The rules the rotation follows: the app's rotation file, the old one on a
-/// Mac that has not imported yet, or the script's built-in values.
-pub fn rules(store: &Store) -> Rules {
+/// The rules the rotation follows: the app's rotation file, or the old one
+/// on a Mac that has not imported yet. `None` without a valid file: then
+/// there is no rotation and a run switches nothing.
+pub fn rules(store: &Store) -> Option<Rules> {
     match rotation::load(&store.paths.rotation_file()) {
-        FileState::Ok { parsed, .. } => parsed.rules,
-        _ => Rules::defaults(),
+        FileState::Ok { parsed, .. } => Some(parsed.rules),
+        _ => None,
     }
 }
+
+/// The decision of a run without rotation rules.
+pub const NO_RULES: &str = "stay (no rotation rules)";
 
 /// The readings as the decision takes them.
 pub fn readings(store: &Store, now: OffsetDateTime) -> Vec<engine::Reading> {
@@ -181,7 +188,12 @@ pub fn blocked_line(label: &str) -> String {
 /// What the rotation would do now, reading nothing over the network: the
 /// window's "why" line and the rules editor's preview (`rules` there is
 /// the draft).
-pub fn dry_run(store: &Store, tools: &Tools, rules: &Rules, now: OffsetDateTime) -> Decided {
+pub fn dry_run(
+    store: &Store,
+    tools: &Tools,
+    rules: Option<&Rules>,
+    now: OffsetDateTime,
+) -> Decided {
     match guard(&tools.pause_file, now) {
         Guard::Paused(line) => return Decided { line, primes: Vec::new() },
         Guard::None | Guard::Ended { .. } => {}
@@ -189,6 +201,7 @@ pub fn dry_run(store: &Store, tools: &Tools, rules: &Rules, now: OffsetDateTime)
     if let Some(label) = agent::legacy_loaded(&tools.launchctl) {
         return Decided { line: blocked_line(label), primes: Vec::new() };
     }
+    let Some(rules) = rules else { return Decided { line: NO_RULES.into(), primes: Vec::new() } };
     let plan = plan(store, rules, now);
     Decided { line: plan.decision, primes: plan.primes }
 }
@@ -236,7 +249,10 @@ pub fn run(store: &Store, tools: &Tools) -> Decided {
     if let Some(label) = legacy {
         return Decided { line: blocked_line(label), primes: Vec::new() };
     }
-    let plan = plan(store, &rules(store), now);
+    let Some(rules) = rules(store) else {
+        return Decided { line: NO_RULES.into(), primes: Vec::new() };
+    };
+    let plan = plan(store, &rules, now);
     if let Some(slot) = plan.target() {
         let rest = plan.decision.splitn(3, ' ').nth(2).unwrap_or("");
         match switch::switch(store, slot) {

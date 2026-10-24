@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! Quota Station: AI coding quota in the macOS menu bar.
 //!
 //! Each Mac runs its own copy and switches only its own machine. It reads
@@ -27,9 +30,12 @@
 //! keeping the counts only.
 
 mod agents;
+#[cfg(feature = "antigravity-accounts")]
 mod agy_quota;
+#[cfg(feature = "antigravity-accounts")]
 mod agy_switch;
 mod alerting;
+#[cfg(feature = "antigravity-accounts")]
 mod antigravity;
 mod backup;
 mod claude;
@@ -95,6 +101,7 @@ fn main() {
                 popover.on_window_event(move |event| windows::on_popover_event(&handle, event));
             }
             reader::spawn(app.handle().clone(), state.clone());
+            #[cfg(feature = "antigravity-accounts")]
             agy_quota::spawn(app.handle().clone(), state.clone());
             codex::spawn(app.handle().clone(), state.clone());
             rules::spawn(app.handle().clone(), state);
@@ -113,6 +120,8 @@ fn main() {
             commands::set_theme,
             commands::set_menubar,
             commands::set_menubar_window,
+            commands::set_advanced,
+            commands::set_firstmate,
             commands::grant_keychain,
             commands::claude_sessions,
             commands::switch_claude,
@@ -138,14 +147,23 @@ fn main() {
             rules::rules_dirty,
             rules::take_quit,
             rules::close_main,
+            #[cfg(feature = "antigravity-accounts")]
             antigravity::agy_login,
+            #[cfg(feature = "antigravity-accounts")]
             antigravity::agy_login_callback,
+            #[cfg(feature = "antigravity-accounts")]
             antigravity::agy_login_cancel,
+            #[cfg(feature = "antigravity-accounts")]
             antigravity::agy_logout,
+            #[cfg(feature = "antigravity-accounts")]
             antigravity::agy_open_verification,
+            #[cfg(feature = "antigravity-accounts")]
             antigravity::agy_tab_opened,
+            #[cfg(feature = "antigravity-accounts")]
             agy_switch::agy_app_state,
+            #[cfg(feature = "antigravity-accounts")]
             agy_switch::switch_agy,
+            #[cfg(feature = "antigravity-accounts")]
             agy_switch::agy_dismiss_overwrite,
             codex::codex_switch,
             codex::codex_key_preview,
@@ -205,6 +223,7 @@ fn main() {
             backup::backup_read,
             backup::backup_now,
             backup::backup_set_auto,
+            backup::backup_set_folder,
             backup::backup_open_folder,
             backup::backup_delete_key,
             backup::pack_summary,
@@ -218,6 +237,7 @@ fn main() {
             alerting::alert_action,
             alerting::test_alert,
             alerting::set_alert_switch,
+            alerting::set_pool_alert,
             alerting::set_firstmate_file,
             alerting::get_history,
             alerting::notify_refresh,

@@ -1,4 +1,8 @@
-//! The Sao lưu tab (M10 and M12, C): the backup packs in iCloud Drive,
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
+//! The Sao lưu tab (M10 and M12, C): the backup packs in iCloud Drive (or
+//! the folder chosen in Cài đặt),
 //! "Sao lưu bây giờ", the packs made on their own, the keys the app keeps,
 //! and the Khôi phục sheet's steps for the MCP servers, skills, plugins and
 //! instruction files.
@@ -19,7 +23,7 @@ use quota_station_core::agents::restore::{
 };
 use quota_station_core::agents::secrets::Secrets;
 use quota_station_core::agents::{self, kho, Agent, Places};
-use quota_station_core::antigravity::fs::AppDir;
+use quota_station_core::app_dir::AppDir;
 use quota_station_core::settings::AutoBackup;
 use serde::Serialize;
 use tauri::{AppHandle, State};
@@ -70,6 +74,10 @@ pub struct RestoreView {
 pub struct BackupView {
     /// iCloud Drive is on on this Mac.
     pub icloud: bool,
+    /// Where the packs go, `~/…`.
+    pub folder: String,
+    /// The owner chose that folder; otherwise it is iCloud Drive's.
+    pub custom_folder: bool,
     pub packs: Option<Vec<Info>>,
     pub keys: Option<Vec<KeyView>>,
     pub read_at: Option<String>,
@@ -80,9 +88,10 @@ pub struct BackupView {
 }
 
 impl Inner {
-    /// Where the packs are: `iCloud Drive › Quota Station Agents`.
+    /// Where the packs are: the folder chosen in settings, else
+    /// `iCloud Drive › Quota Station Agents`.
     pub fn pack_root(&self) -> PathBuf {
-        pack::default_root(&self.home)
+        self.settings.backup_dir.clone().unwrap_or_else(|| pack::default_root(&self.home))
     }
 }
 
@@ -90,6 +99,8 @@ pub fn view(inner: &Inner) -> BackupView {
     let live = &inner.backup;
     BackupView {
         icloud: pack::icloud_drive(&inner.home).is_dir(),
+        folder: quota_station_core::runner::display_path(&inner.pack_root(), &inner.home),
+        custom_folder: inner.settings.backup_dir.is_some(),
         packs: live.packs.clone(),
         keys: live.keys.clone(),
         read_at: live.read_at.clone(),
@@ -300,6 +311,36 @@ pub fn backup_set_auto(
         settings.auto_backup = AutoBackup { after_change, daily };
         settings.save(&inner.settings_file).map_err(|e| e.to_string())?;
         inner.settings = settings;
+    }
+    reader::publish(&app, &state);
+    Ok(())
+}
+
+/// "Thư mục sao lưu": a folder that exists, where the packs go from now on;
+/// empty goes back to iCloud Drive. The packs already made stay where they are.
+#[tauri::command]
+pub fn backup_set_folder(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    path: String,
+) -> Result<(), String> {
+    {
+        let mut inner = state.lock();
+        let chosen = if path.trim().is_empty() {
+            None
+        } else {
+            let p = quota_station_core::runner::expand_path(&path, &inner.home);
+            if !p.is_absolute() || !p.is_dir() {
+                return Err("notFound".into());
+            }
+            Some(p)
+        };
+        let mut settings = inner.settings.clone();
+        settings.backup_dir = chosen;
+        settings.save(&inner.settings_file).map_err(|e| e.to_string())?;
+        inner.settings = settings;
+        // The list was of the other folder.
+        inner.backup.packs = None;
     }
     reader::publish(&app, &state);
     Ok(())

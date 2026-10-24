@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! Thống kê (M16, J): the tokens Claude Code and Codex used on this Mac,
 //! counted from their own session logs.
 //!

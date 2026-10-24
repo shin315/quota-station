@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Shin315
+# SPDX-License-Identifier: MIT
+
 [package]
 name = "quota-station-core"
 description = "Reads quota-axi, turns its JSON into the Quota Station snapshot, paces refreshes, switches Claude through claude-swap, keeps the rotation file in step across Macs, and logs in, reads the quota of and switches Antigravity accounts."
@@ -9,6 +12,11 @@ rust-version.workspace = true
 publish = false
 
 [features]
+# The Antigravity accounts the app logs in, reads and switches itself
+# (`src/antigravity/`), adapted from Cockpit Tools and so under
+# CC BY-NC-SA 4.0 (`LICENSES/`, `NOTICE`). Off, the crate is MIT only and
+# Antigravity is the account quota-axi reads, read-only.
+antigravity-accounts = []
 # For the tests only: points the Google endpoints at a local fake, lets a
 # fake `security` stand in for the Keychain, and records every file the
 # Antigravity module opens. The app never turns it on.

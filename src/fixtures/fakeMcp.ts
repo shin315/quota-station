@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The MCP tab's fake Rust side (M9), for the tests and the browser preview:
 // a preview that looks like `agents::batch::preview`'s, a write that changes
 // the fixture table, and a paste read in the page. No file, no Keychain, no

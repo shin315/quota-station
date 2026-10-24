@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // "Cập nhật tất cả" and "Cập nhật cả bộ" (M11): the sets by repository, the
 // skills ticked when the preview opens, and the line after the run, on the
 // fixture table. Every skill and repository is made up.

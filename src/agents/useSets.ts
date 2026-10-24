@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Bộ cấu hình tab's state (M15): the open dialog (the editor, or the
 // apply preview), and the one path every apply takes: the preview the Rust
 // side reads from the files now, then the write of what it showed, then

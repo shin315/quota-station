@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! How many Claude Code sessions run on this Mac (F04), counted as
 //! claude-swap counts them: one record per session in `~/.claude/sessions`,
 //! live while its pid is alive.

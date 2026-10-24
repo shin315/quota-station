@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The Bộ cấu hình tab (M15, N): the sets the windows draw, how far the
 //! applied one has drifted, and the commands its buttons and dialogs use.
 //!

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // Pieces the agent and backup dialogs share: the lines a write changes (a
 // diff), a command the app runs, the steps of a flow, the small print under
 // them, and the lists to tick.

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The Claude accounts the app keeps (see `docs/claude-accounts.md`): what
 //! the Claude tab shows of them, and its actions: import from claude-swap,
 //! log a new account in, add the login Claude Code is on or a setup token,

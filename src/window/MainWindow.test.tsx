@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MainWindowApp } from '../App';
@@ -274,6 +277,42 @@ describe('main window', () => {
     act(() => fake.push(fixtureModel('exhausted')));
     expect(screen.getByText('Hạn mức Claude trong vòng đã cạn')).toBeTruthy();
     expect(screen.getAllByText('96%').length).toBeGreaterThan(0);
+  });
+});
+
+describe('with Nâng cao off', () => {
+  const plain = (m: Model): Model => ({ ...m, advanced: { on: false, firstmate: true } });
+
+  it('the sidebar has no Luật xoay vòng, Firstmate or Chép sang Mac khác, and a hidden tab gives way to Tổng quan', async () => {
+    await open(plain(fixtureModel('fresh')), 'rules');
+    expect(heading()).toBe('Tổng quan');
+    const sidebar = screen.getByRole('navigation', { name: 'Mục' });
+    for (const name of ['Luật xoay vòng', 'Firstmate', 'Chép sang Mac khác']) expect(within(sidebar).queryByRole('button', { name })).toBeNull();
+    expect(nav('Claude')).toBeTruthy();
+    expect(nav('Sao lưu')).toBeTruthy();
+  });
+
+  it('the Claude tab has no Tự chuyển card or pause, and accounts go by number', async () => {
+    await open(hideNames(plain(fixtureModel('fresh'))), 'claude');
+    expect(screen.queryByRole('group', { name: 'Tạm dừng' })).toBeNull();
+    expect(screen.queryByText(/chưa tới ngưỡng tự chuyển/)).toBeNull();
+    const rows = within(screen.getByRole('list', { name: 'Claude Code' })).getAllByRole('listitem');
+    const names = rows.map((r) => r.querySelector('.an b')!.textContent);
+    expect(names.every((n) => /^Tài khoản \d+$/.test(n ?? ''))).toBe(true);
+    expect(document.body.textContent).not.toMatch(/Team A|Cá nhân/);
+  });
+
+  it('the Firstmate switch hides only the Firstmate tab', async () => {
+    await open({ ...fixtureModel('fresh'), advanced: { on: true, firstmate: false } });
+    const sidebar = screen.getByRole('navigation', { name: 'Mục' });
+    expect(within(sidebar).queryByRole('button', { name: 'Firstmate' })).toBeNull();
+    expect(nav('Luật xoay vòng')).toBeTruthy();
+  });
+
+  it('a build without the Antigravity accounts reads Antigravity without logging in', async () => {
+    await open({ ...fixtureModel('fresh'), capabilities: { agyAccounts: false } }, 'agy');
+    expect(screen.queryByRole('button', { name: 'Thêm tài khoản' })).toBeNull();
+    expect(screen.getByText(/Bản này đọc tài khoản Antigravity đang đăng nhập/)).toBeTruthy();
   });
 });
 

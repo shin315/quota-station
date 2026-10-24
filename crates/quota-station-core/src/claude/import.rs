@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-FileCopyrightText: 2026 Onur Cetinkol (claude-swap)
+// SPDX-License-Identifier: MIT
+
 // Where claude-swap keeps each account is read as claude-swap reads it
 // (`switcher.py`, `credentials.py`, MIT, https://github.com/realiti4/claude-swap):
 // `sequence.json` for the slots, `configs/.claude-config-N-<email>.json` for

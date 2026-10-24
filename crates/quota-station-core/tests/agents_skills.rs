@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The Skills, Plugin and File hướng dẫn tabs (M11) on a temporary home:
 //! a shared folder of skills with its lock file, Claude Code's and
 //! Antigravity's folders of links, Codex's `config.toml`, a fake `npx` and
@@ -28,7 +31,7 @@ use quota_station_core::agents::skill_updates::{self, GitHub, Updates};
 use quota_station_core::agents::skills::{self, Change, Entry, SkillPlaces};
 use quota_station_core::agents::{self, Agent};
 use quota_station_core::alerts::{self, Effect, Memory};
-use quota_station_core::antigravity::fs::AppDir;
+use quota_station_core::app_dir::AppDir;
 use time::{OffsetDateTime, UtcOffset};
 
 const PROVIDER_TRAP: &str = "trap-provider-key-1234";

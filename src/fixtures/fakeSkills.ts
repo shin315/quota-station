@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Skills, Plugin and File hướng dẫn tabs' fake Rust side (M11), for the
 // tests and the browser preview: a table shaped like `agents::skills::view`'s,
 // a batch preview and write like `skills::preview` and `skills::write`, a

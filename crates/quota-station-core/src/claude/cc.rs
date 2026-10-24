@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-FileCopyrightText: 2026 Onur Cetinkol (claude-swap)
+// SPDX-License-Identifier: MIT
+
 // Which item and file hold Claude Code's login, and how a switch writes
 // them, follow claude-swap (`credentials.py`, `session.py`, `switcher.py`,
 // MIT, https://github.com/realiti4/claude-swap): the Keychain item

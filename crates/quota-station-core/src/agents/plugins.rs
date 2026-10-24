@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The plugins of Claude Code and Codex (M11, E), read only: what each has
 //! installed for the user, whether it is on, which marketplace it came
 //! from, and what it brings (MCP servers, skills, commands, hooks, agents).

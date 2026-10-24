@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The MCP tab's dialogs (M9): the batch preview every write goes through,
 // the add and edit form (typed, or pasted as JSON or TOML), the comparison
 // of a server that differs between agents, delete, turning a stored server
@@ -286,7 +289,7 @@ function FormBody({ d, mcp, model }: { d: FormDialog; mcp: Mcp; model: Model }) 
           <div className="mt-2 grid">
             {pasteSecrets ? (
               <div className={rowClass()}>
-                <label className={LABEL} htmlFor="mcp-bw">Tên trong Bitwarden</label>
+                <label className={LABEL} htmlFor="mcp-bw">Lưu ở đâu (gợi ý)</label>
                 <div>
                   <Input id="mcp-bw" value={f.bitwarden} onChange={(e) => set({ bitwarden: e.target.value })} />
                   <FieldHint>Chỉ là gợi ý để biết khoá nằm ở mục nào khi phải dán lại.</FieldHint>
@@ -372,7 +375,7 @@ function FormBody({ d, mcp, model }: { d: FormDialog; mcp: Mcp; model: Model }) 
                   <FieldHint>Tên có dạng khoá: giá trị vào Keychain, không hiện lại, không vào bản lưu.</FieldHint>
                   <div className="flex items-center gap-2">
                     <label htmlFor="mcp-bw" className="m-0 whitespace-nowrap text-xs text-ink2">
-                      Tên trong Bitwarden
+                      Lưu ở đâu (gợi ý)
                     </label>
                     <Input id="mcp-bw" value={f.bitwarden} onChange={(e) => set({ bitwarden: e.target.value })} />
                   </div>
@@ -660,7 +663,7 @@ function KeyBody({ d, mcp }: { d: Extract<McpDialog, { kind: 'key' }>; mcp: Mcp 
         <div key={s.id} className={SECRET_ROW}>
           <span>
             <b>{s.label}</b>
-            <small>{s.bitwarden ? 'Bitwarden: ' + s.bitwarden : 'Khoá này chưa có trên máy này'}</small>
+            <small>{s.bitwarden ? 'Lưu ở: ' + s.bitwarden : 'Khoá này chưa có trên máy này'}</small>
           </span>
           <span className="flex items-center gap-1.5">
             <Input
@@ -677,7 +680,7 @@ function KeyBody({ d, mcp }: { d: Extract<McpDialog, { kind: 'key' }>; mcp: Mcp 
       ))}
       <div className="mt-1 mb-2 grid">
         <div className={rowClass()}>
-          <label className={LABEL} htmlFor="mcp-key-bw">Tên trong Bitwarden</label>
+          <label className={LABEL} htmlFor="mcp-key-bw">Lưu ở đâu (gợi ý)</label>
           <div>
             <Input id="mcp-key-bw" value={bitwarden} placeholder={secrets[0]?.bitwarden ?? ''} onChange={(e) => setBitwarden(e.target.value)} />
           </div>
