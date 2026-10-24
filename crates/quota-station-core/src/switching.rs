@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! One manual switch of the Claude account, start to finish (F04): switch
 //! Claude Code's login with the app's own [`crate::claude::switch`], pause
 //! the rotation when the owner chose to hold the account, wait for things to

@@ -1,4 +1,7 @@
 #!/bin/bash
+# SPDX-FileCopyrightText: 2026 Shin315
+# SPDX-License-Identifier: MIT
+
 # Builds Quota Station from this clone and installs it in an Applications
 # folder, or installs a copy built on another Mac (README, "Install").
 #
@@ -15,6 +18,10 @@
 #   scripts/install.sh --identity ID    sign with ID ("-" is ad-hoc); without it
 #                                       the first "Apple Development" identity,
 #                                       else ad-hoc
+#
+# A build from source comes with the Antigravity accounts (the
+# antigravity-accounts feature, CC BY-NC-SA 4.0: NOTICE);
+# QS_ANTIGRAVITY_ACCOUNTS=0 builds the MIT app without them.
 #
 # It never adds a login item: launching at login is a switch in the app's
 # settings. It touches nothing outside the build folder and DIR/Quota Station.app.
@@ -40,7 +47,8 @@ fail() {
   printf 'install.sh: error: %s\n' "$*" >&2
   exit 1
 }
-usage() { sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'; }
+# The comment block under the licence lines, up to its first empty line.
+usage() { awk 'NR > 4 && /^$/ { exit } NR > 4' "$0" | sed 's/^# \{0,1\}//'; }
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -164,6 +172,14 @@ build() {
     QS_COMMIT="$QS_COMMIT-dirty"
   fi
   export QS_COMMIT
+  # `npm run build`, which Tauri runs first, reads the same variable.
+  local features=""
+  if [ "${QS_ANTIGRAVITY_ACCOUNTS:-1}" = 0 ]; then
+    export QS_ANTIGRAVITY_ACCOUNTS=0
+  else
+    export QS_ANTIGRAVITY_ACCOUNTS=1
+    features="--features antigravity-accounts"
+  fi
 
   if [ ! -f node_modules/.package-lock.json ] || [ package-lock.json -nt node_modules/.package-lock.json ]; then
     say "Installing npm packages (npm ci)"
@@ -172,9 +188,9 @@ build() {
   rm -rf "$built"
   say "Building the release app (a few minutes)"
   if cargo tauri --version >/dev/null 2>&1; then
-    cargo tauri build --bundles app || fail "cargo tauri build failed"
+    cargo tauri build --bundles app $features || fail "cargo tauri build failed"
   else
-    npx --no-install tauri build --bundles app || fail "tauri build failed"
+    npx --no-install tauri build --bundles app $features || fail "tauri build failed"
   fi
   [ -d "$built" ] || fail "the build did not write $built"
   sign "$built" "$(pick_identity)"

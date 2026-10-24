@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! Switching Codex from the app (M8): a thread that looks at Codex's files,
 //! the process table and whether the custom provider answers, the model the
 //! windows draw from it, and the commands the Codex row, sheet and tab use.
@@ -13,7 +16,7 @@ use std::path::PathBuf;
 use std::thread;
 use std::time::Duration;
 
-use quota_station_core::antigravity::fs::AppDir;
+use quota_station_core::app_dir::AppDir;
 use quota_station_core::codex::config::{self, Current, Custom, Mcp, Refusal, Target};
 use quota_station_core::codex::files::{self, Record};
 use quota_station_core::codex::login::Login;

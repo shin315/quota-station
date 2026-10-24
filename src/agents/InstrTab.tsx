@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The File hướng dẫn tab of the main window (M11, F): the agents'
 // instruction files (CLAUDE.md, rules, AGENTS.md, GEMINI.md and any added by
 // hand), when each changed and how it stands against the newest backup
@@ -284,7 +287,7 @@ function ViewBody({ d, instr, now }: { d: Extract<InstrDialog, { kind: 'view' }>
         <Facts
           items={[
             ['x', 'Chưa vào gói sao lưu.'],
-            ['', 'Bỏ khoá khỏi file (để trong Bitwarden) rồi Đọc lại. Hoặc đánh dấu dòng này không phải khoá.'],
+            ['', 'Bỏ khoá khỏi file (cất ở trình quản lý mật khẩu) rồi Đọc lại. Hoặc đánh dấu dòng này không phải khoá.'],
           ]}
         />
       ) : null}

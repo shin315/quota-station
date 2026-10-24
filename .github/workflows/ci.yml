@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Shin315
+# SPDX-License-Identifier: MIT
+
 name: CI
 
 on:
@@ -13,6 +16,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  reuse:
+    name: Licenses (REUSE)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: reuse lint
+        uses: fsfe/reuse-action@v5
+
   build:
     name: Build and test (macOS)
     runs-on: macos-latest
@@ -36,17 +48,30 @@ jobs:
       - name: Vitest
         run: npm test
 
-      - name: Type check and build the frontend
+      # Without QS_ANTIGRAVITY_ACCOUNTS the build stops if it would bundle a
+      # file from src/antigravity/ (CC BY-NC-SA 4.0).
+      - name: Type check and build the frontend (MIT)
         run: npm run build
+
+      - name: Build the frontend with the Antigravity accounts
+        run: npx vite build
+        env:
+          QS_ANTIGRAVITY_ACCOUNTS: "1"
 
       - name: rustfmt
         run: cargo fmt --all --check
 
-      - name: Clippy
+      - name: Clippy (MIT)
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
-      - name: cargo test
+      - name: Clippy with the Antigravity accounts
+        run: cargo clippy --workspace --all-targets --locked --features antigravity-accounts -- -D warnings
+
+      - name: cargo test (MIT)
         run: cargo test --workspace --locked
 
-      - name: Build the app
+      - name: cargo test with the Antigravity accounts
+        run: cargo test --workspace --locked --features antigravity-accounts
+
+      - name: Build the app (MIT)
         run: npx tauri build --bundles app

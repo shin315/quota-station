@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Sao lưu tab's dialogs (M10, M12): "Xem trong gói", the Khôi phục
 // sheet in four steps (pick, preview, keys, restore), the undo of a whole
 // restore, and replacing or deleting a key the app keeps. The preview has
@@ -97,7 +100,7 @@ function ViewBody({ d, backup, now }: { d: Extract<BackupDialog, { kind: 'view' 
           />
           <DialogSection>Khoá cần dán khi khôi phục</DialogSection>
           {s.keys.length ? (
-            <Facts items={s.keys.map((k) => ['', k.mcp + (k.bitwarden ? ' · ' + k.bitwarden + ' (tên trong Bitwarden)' : '')])} />
+            <Facts items={s.keys.map((k) => ['', k.mcp + (k.bitwarden ? ' · lưu ở ' + k.bitwarden : '')])} />
           ) : (
             <Facts items={[['', 'Không có']]} />
           )}
@@ -381,16 +384,16 @@ function KeysStep({ d, backup }: { d: RestoreDialog; backup: Backup }) {
   const keys = keysFor(plan, d.ticks);
   return (
     <>
-      <DialogTitle>Dán khoá từ Bitwarden</DialogTitle>
+      <DialogTitle>Dán khoá</DialogTitle>
       <Steps at={2} />
-      <DialogLead>{keys.length} khoá, lấy từ Bitwarden. App giữ trên máy này và không hiện lại.</DialogLead>
+      <DialogLead>{keys.length} khoá, lấy từ nơi bạn cất chúng. App giữ trên máy này và không hiện lại.</DialogLead>
       {keys.map((k) => {
         const id = keySlot(k);
         return (
           <div key={id} className={SECRET_ROW}>
             <span>
               <b>{k.mcp}</b>
-              <small>{k.bitwarden ? 'Trong Bitwarden: ' + k.bitwarden : k.label}</small>
+              <small>{k.bitwarden ? 'Lưu ở: ' + k.bitwarden : k.label}</small>
             </span>
             <span className="flex items-center gap-1.5">
               <Input
@@ -536,7 +539,7 @@ function KeyBody({ d, backup }: { d: Extract<BackupDialog, { kind: 'key' }>; bac
       <div className={SECRET_ROW}>
         <span>
           <b>{d.key.mcp}</b>
-          <small>{d.key.bitwarden ? 'Trong Bitwarden: ' + d.key.bitwarden : d.key.label}</small>
+          <small>{d.key.bitwarden ? 'Lưu ở: ' + d.key.bitwarden : d.key.label}</small>
         </span>
         <span className="flex items-center gap-1.5">
           <Input className="font-mono tracking-[.12em]" type="password" autoComplete="off" aria-label="Khoá mới" placeholder="dán khoá mới" value={value} onChange={(e) => setValue(e.target.value)} />

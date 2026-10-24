@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The variables that override a login (M14, I), in words: Cài đặt's card,
 // the Claude tab's banner and the lines after "Mở file", "Bỏ qua" and
 // "Kiểm lại". The app knows names and places only, never a value.

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The model the Rust side sends (`src-tauri/src/state.rs`, `quota-station-core::snapshot`).
 // Field names are serde's camelCase; `Option` arrives as null.
 
@@ -559,10 +562,18 @@ export type AlertSwitches = Record<SwitchKind, boolean>;
 /** `unbundled`: the app does not run as a packaged `.app`, so macOS shows no cards. */
 export type NotifyPermission = 'unknown' | 'allowed' | 'denied' | 'unbundled';
 
+/** Alert 1: the account in use at `dryAtMost` % left or less, and no other with `roomAtLeast` %. */
+export interface PoolAlert {
+  dryAtMost: number;
+  roomAtLeast: number;
+}
+
 export interface AlertsView {
   /** Newest first. */
   recent: AlertRecord[];
   switches: AlertSwitches;
+  /** Alert 1's thresholds, in percent left. */
+  poolAlert: PoolAlert;
   /** Cards with buttons nobody pressed yet. */
   unanswered: number;
   permission: NotifyPermission;
@@ -1009,6 +1020,27 @@ export interface McpView {
   backups: McpBackup[];
 }
 
+/**
+ * Cài đặt › Nâng cao (`src-tauri/src/state.rs` `AdvancedView`): on, the
+ * tabs and switches made for the author's own Macs show (the rotation, the
+ * pause and the switcher, the other Macs, the update from source); Firstmate
+ * has its own switch inside. Off on a new install, on where the app was before.
+ */
+export interface AdvancedView {
+  on: boolean;
+  firstmate: boolean;
+}
+
+/** The parts a build may leave out. */
+export interface Capabilities {
+  /**
+   * The Antigravity accounts the app logs in, reads and switches itself (the
+   * `antigravity-accounts` feature, CC BY-NC-SA 4.0). Without them
+   * Antigravity is the one account quota-axi reads, read-only.
+   */
+  agyAccounts: boolean;
+}
+
 export interface Model {
   snapshot: Snapshot;
   errors: { claude: ErrorView | null; agy: ErrorView | null; codex: ErrorView | null };
@@ -1032,8 +1064,14 @@ export interface Model {
   menubar: Menubar;
   /** The window whose share used the menu bar title and Đang dùng show. */
   menubarWindow: MenubarWindow;
-  antigravity: AgyAccounts;
-  agySwitch: AgySwitchView;
+  /** Cài đặt › Nâng cao, and the Firstmate switch inside it. */
+  advanced: AdvancedView;
+  /** What this build has (`src-tauri/src/state.rs` `Capabilities`). */
+  capabilities: Capabilities;
+  /** The Antigravity accounts the app logs in; only in a build with them. */
+  antigravity?: AgyAccounts;
+  /** Switching them; only in a build with them. */
+  agySwitch?: AgySwitchView;
   /** The five alerts (M6). */
   alerts: AlertsView;
   /** What Firstmate sees (M6). */
@@ -1214,6 +1252,10 @@ export interface BackupKey {
 export interface BackupView {
   /** iCloud Drive is on on this Mac. */
   icloud: boolean;
+  /** Where the packs go, `~/…`. */
+  folder: string;
+  /** Chosen in Cài đặt; otherwise iCloud Drive's `Quota Station Agents`. */
+  customFolder: boolean;
   /** `null` until the tab first reads. */
   packs: PackInfo[] | null;
   keys: BackupKey[] | null;

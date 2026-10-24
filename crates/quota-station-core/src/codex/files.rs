@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! Writing `config.toml` safely, its backups, and the app's record of its
 //! own last write.
 //!
@@ -17,7 +20,7 @@ use time::OffsetDateTime;
 
 pub use crate::agents::write::{sha256, WriteError, BACKUPS_KEPT};
 use crate::agents::{redact, write};
-use crate::antigravity::fs::AppDir;
+use crate::app_dir::AppDir;
 
 /// In the app's folder.
 pub const BACKUP_DIR: &str = "backups/codex";

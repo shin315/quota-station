@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // Which service an MCP server, a plugin or a connector is for, so its row
 // can show that service's logo (components/logos.tsx). A small explicit list:
 // a name, a package or a host names a service only when one of its words is

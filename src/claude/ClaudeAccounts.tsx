@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Claude accounts Quota Station keeps, in the Claude tab: import from
 // claude-swap, log a new account in, add the login Claude Code is on or a
 // setup token, give an account a name, hold it out of the rotation, remove

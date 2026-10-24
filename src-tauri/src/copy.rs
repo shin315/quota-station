@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The Chép sang Mac khác tab (M13, D), and `quota-station agents <word>`:
 //! what another Mac's Quota Station runs here over SSH.
 //!

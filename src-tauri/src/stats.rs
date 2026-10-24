@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The Thống kê tab (M16, J): reads Claude Code's and Codex's session logs
 //! on this Mac into the app's index (`quota_station_core::stats`), off the
 //! UI thread, with each agent's progress in the model, and answers the

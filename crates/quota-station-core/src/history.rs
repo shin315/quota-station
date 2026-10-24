@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The switch history (F08), Claude and Antigravity, each line with its
 //! reason and where it comes from:
 //!
@@ -22,9 +25,11 @@ use serde::{Deserialize, Serialize};
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
-use crate::antigravity::fs::AppDir;
+#[cfg(feature = "antigravity-accounts")]
 use crate::antigravity::switch::{self as agy_switch, How};
+#[cfg(feature = "antigravity-accounts")]
 use crate::antigravity::{index, watch};
+use crate::app_dir::AppDir;
 use crate::codex::log as codex_log;
 use crate::switcher::{self, LogEvent, Why};
 
@@ -126,6 +131,7 @@ pub enum Cause {
     },
     Observed,
     /// A switch from this app (M4c): `switched` or `unconfirmed`.
+    #[cfg(feature = "antigravity-accounts")]
     AgySwitch {
         how: How,
         result: String,
@@ -249,17 +255,34 @@ fn switch_why(raw: &str) -> Why {
     }
 }
 
+/// An Antigravity account's number in the app's list, by its id. Without
+/// the Antigravity accounts the app keeps no list, so no id has a number.
+fn agy_numbers(app: &AppDir) -> impl Fn(&str) -> Option<u32> {
+    #[cfg(feature = "antigravity-accounts")]
+    let accounts = index::load(app).unwrap_or_default().accounts;
+    #[cfg(not(feature = "antigravity-accounts"))]
+    let _ = app;
+    move |id: &str| {
+        #[cfg(feature = "antigravity-accounts")]
+        return accounts.iter().position(|a| a.id == id).map(|i| i as u32 + 1);
+        #[cfg(not(feature = "antigravity-accounts"))]
+        {
+            let _ = id;
+            None
+        }
+    }
+}
+
 /// Every line, newest first, at most `limit`.
 pub fn collect(app: &AppDir, switcher_log: &Path, limit: usize) -> Vec<Entry> {
-    let accounts = index::load(app).unwrap_or_default().accounts;
-    let number = |id: &str| accounts.iter().position(|a| a.id == id).map(|i| i as u32 + 1);
+    let number = agy_numbers(app);
     let slot = |s: &str| s.parse::<u32>().ok();
     let mut out: Vec<(i64, Entry)> = Vec::new();
 
     for line in read(app) {
         let (from, to) = match line.app {
             App::Claude => (line.from.as_deref().and_then(slot), slot(&line.to)),
-            App::Antigravity => (line.from.as_deref().and_then(number), number(&line.to)),
+            App::Antigravity => (line.from.as_deref().and_then(&number), number(&line.to)),
             // The Codex log keeps its own lines.
             App::Codex => continue,
         };
@@ -278,6 +301,7 @@ pub fn collect(app: &AppDir, switcher_log: &Path, limit: usize) -> Vec<Entry> {
         out.push((line.at, Entry { at: rfc(line.at), app: line.app, source, from, to, cause }));
     }
 
+    #[cfg(feature = "antigravity-accounts")]
     for line in agy_switch::read_log(app) {
         if line.result != "switched" && line.result != "unconfirmed" {
             continue;
@@ -288,7 +312,7 @@ pub fn collect(app: &AppDir, switcher_log: &Path, limit: usize) -> Vec<Entry> {
                 at: rfc(line.at),
                 app: App::Antigravity,
                 source: Source::App,
-                from: line.from.as_deref().and_then(number),
+                from: line.from.as_deref().and_then(&number),
                 to: number(&line.to),
                 cause: Cause::AgySwitch {
                     how: line.how,
@@ -366,6 +390,7 @@ pub fn track(
     agy: Option<&str>,
     now: i64,
 ) {
+    #[cfg(feature = "antigravity-accounts")]
     if let Some(w) = watch::load(app) {
         if let Some(at) = w.alert() {
             let kept = read(app).iter().any(|l| {
@@ -398,8 +423,7 @@ pub fn track(
     };
     if claude_change.is_some() || agy_change.is_some() {
         let recent = collect(app, switcher_log, usize::MAX);
-        let accounts = index::load(app).unwrap_or_default().accounts;
-        let number = |id: &str| accounts.iter().position(|a| a.id == id).map(|i| i as u32 + 1);
+        let number = agy_numbers(app);
         // A switch to that account (by the owner, the switcher or the
         // overwrite just kept) shortly before: not a change of its own.
         let explained = |which: App, to: Option<u32>| {

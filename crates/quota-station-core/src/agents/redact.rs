@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! An agent file with its secrets left out, for the backups the app keeps
 //! before every write and for the preview. Every string is looked at where
 //! it sits: under a secret's name ([`def::secret_value`]), an address that

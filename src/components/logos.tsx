@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The agents' and the services' logos. They come from svgl
 // (https://svgl.app, see THIRD_PARTY.md) through its shadcn registry into
 // `ui/svgs/`, so nothing is fetched while the app runs. Each logo is its

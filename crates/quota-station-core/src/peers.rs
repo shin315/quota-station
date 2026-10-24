@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The owner's other Macs (F06). Each Mac keeps its own rotation file, read
 //! by its own switcher and quota-axi, and each switches only itself. After a
 //! save here the app copies this Mac's file to every other Mac over SSH, so

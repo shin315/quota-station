@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! "Dán JSON hoặc TOML" in the add form (M9): the MCP servers in a snippet
 //! the owner pastes, read the way each agent reads its own file:
 //! `{"mcpServers": {…}}` (Claude Code, Antigravity and most READMEs),

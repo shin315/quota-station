@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The switcher's pause flag, `~/.config/cswap-prefer-team/pause` (F07).
 //!
 //! Plain `key = value` lines, like the rotation file: `until = 2026-10-16T18:30`

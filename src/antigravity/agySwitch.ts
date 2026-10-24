@@ -1,13 +1,16 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: CC-BY-NC-SA-4.0
+
 // What switching Antigravity shows (M4c): the confirmation sheet with the
 // plan's three buttons, the feedback after a switch, and the banner when a
 // running Antigravity.app wrote its old login back within six hours. Pure,
 // like `switching.ts`: the same model and answers give the same words.
 
-import { clock } from './format';
-import type { AgyApp, AgyHow, AgyLogin, AgyOutcome, Model } from './model';
-import type { FactView, NameOf } from './switching';
-import { agyCells, agyGroups } from './accounts';
-import { agyName, agyNames, type Action, type BannerView, type FeedbackView } from './view';
+import { clock } from '../lib/format';
+import type { AgyApp, AgyHow, AgyLogin, AgyOutcome, Model } from '../lib/model';
+import type { FactView, NameOf } from '../lib/switching';
+import { agyCells, agyGroups } from '../lib/accounts';
+import { agyName, agyNames, type Action, type BannerView, type FeedbackView } from '../lib/view';
 
 /** `Ultra 2`, by the number quota-axi and the app's list share. */
 export const agyNameOf: NameOf = (n) => agyName({ number: n }).name;
@@ -15,14 +18,14 @@ export const agyNameOf: NameOf = (n) => agyName({ number: n }).name;
 /** Names by the model's accounts: their email while names show, else Ultra N. */
 export function agyNamesOf(model: Model | null | undefined): NameOf {
   if (!model) return agyNameOf;
-  const names = agyNames(model.snapshot.agy.accounts);
+  const names = agyNames(model.snapshot.agy.accounts, model.advanced.on);
   return (n) => names.get(n)?.name ?? agyNameOf(n);
 }
 
 /** The account logged in here with that number, when quota-axi numbers the app's own list. */
 export function agyLoginOf(model: Model, number: number): AgyLogin | null {
-  if (!model.agySwitch.listed) return null;
-  return model.antigravity.accounts.find((a) => a.number === number) ?? null;
+  if (!model.agySwitch?.listed) return null;
+  return model.antigravity?.accounts.find((a) => a.number === number) ?? null;
 }
 
 /** What the sheet knows about Antigravity.app: still asking, could not ask, or the answer. */
@@ -232,7 +235,7 @@ export function agySwitchErrorFeedback(number: number, error: unknown, model?: M
 
 /** "Chuyển Antigravity bị ghi đè": the old account came back within six hours of a switch. */
 export function overwriteBanner(model: Model): BannerView | null {
-  const o = model.agySwitch.overwritten;
+  const o = model.agySwitch?.overwritten;
   if (!o) return null;
   const nameOf = agyNamesOf(model);
   const to = nameOf(o.to);

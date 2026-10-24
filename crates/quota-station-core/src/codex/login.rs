@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-FileCopyrightText: 2025 Jason Young (CC Switch)
+// SPDX-License-Identifier: MIT
+
 //! Whether Codex has a ChatGPT login: the shape of `auth.json`, never its
 //! values. The file is read into memory, looked at and dropped; nothing in
 //! it is kept, printed or sent anywhere, and it is never written.

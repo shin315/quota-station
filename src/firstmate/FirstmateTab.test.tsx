@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Firstmate tab (M6) on fixture data: what Firstmate's quota-pool.last
 // says, next to quota-axi's pool. The file itself is read on the Rust side.
 

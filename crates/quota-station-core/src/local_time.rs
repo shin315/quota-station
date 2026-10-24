@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! This Mac's wall clock, written the way the switcher's pause flag and log
 //! write it: `2026-10-16T18:30`, no offset.
 //!

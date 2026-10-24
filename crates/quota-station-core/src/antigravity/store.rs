@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: CC-BY-NC-SA-4.0
+
 //! The app's own Keychain items for Antigravity tokens: one generic password
 //! per account, service [`SERVICE`], account the app's account id, value
 //! the account's [`TokenData`] as JSON. Kept with macOS's `security` tool,
@@ -10,51 +13,14 @@
 //! claude-swap's or Claude Code's.
 
 use std::path::PathBuf;
-use std::time::Duration;
 
 use super::token::TokenData;
+pub use crate::agents::secrets::{StoreError, TIMEOUT};
 use crate::runner::{self, RunError};
 
 pub const SERVICE: &str = "com.shin315.quota-station.antigravity";
-/// Each `security` call; the tool can hang while the Keychain is locked.
-pub const TIMEOUT: Duration = Duration::from_secs(15);
 /// `security`'s exit code for "the specified item could not be found".
 const NOT_FOUND: i32 = 44;
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum StoreError {
-    NotFound,
-    Timeout,
-    Spawn(String),
-    /// `security` failed: its exit code and first stderr line.
-    Failed {
-        code: Option<i32>,
-        message: String,
-    },
-    /// The item holds something that is not a token.
-    Corrupt,
-}
-
-impl std::fmt::Display for StoreError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            StoreError::NotFound => write!(f, "no Keychain item for this account"),
-            StoreError::Timeout => {
-                write!(f, "security did not answer within {}s", TIMEOUT.as_secs())
-            }
-            StoreError::Spawn(e) => write!(f, "could not run security: {e}"),
-            StoreError::Failed { code: Some(c), message } => {
-                write!(f, "security exited {c}: {message}")
-            }
-            StoreError::Failed { code: None, message } => {
-                write!(f, "security was stopped: {message}")
-            }
-            StoreError::Corrupt => write!(f, "the Keychain item does not hold a token"),
-        }
-    }
-}
-
-impl std::error::Error for StoreError {}
 
 #[derive(Debug, Clone)]
 pub struct Keychain {

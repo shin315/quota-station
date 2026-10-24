@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Sao lưu tab's fake Rust side (M10, M12), for the tests and the browser
 // preview: packs of three made-up Macs, one not downloaded from iCloud yet,
 // a restore plan shaped like `agents::restore::plan`'s (servers, skills,
@@ -49,6 +52,8 @@ export function packsFixture(): PackInfo[] {
 export function backupFixture(over: Partial<BackupView> = {}): BackupView {
   return {
     icloud: true,
+    folder: '~/Library/Mobile Documents/com~apple~CloudDocs/Quota Station Agents',
+    customFolder: false,
     packs: packsFixture().map((p) => (p.state === 'cloud' ? { ...p, state: 'ok', mac: 'Travel Air' } : p)),
     keys: [
       { mcp: 'docs-search', slot: 'header:Authorization', label: 'Authorization', bitwarden: 'Docs Search API' },

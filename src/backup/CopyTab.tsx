@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Chép sang Mac khác tab of the main window (M13, D), as the approved
 // prototype's `cp` screens: pick one of Cài đặt › Các Mac khác and the way
 // (from this Mac, or to it), "So sánh", then the items that differ by group,

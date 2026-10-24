@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! Quota Station's own list of Claude accounts and their secrets.
 //!
 //! `claude/accounts.json` (mode 600) holds each account's slot number,

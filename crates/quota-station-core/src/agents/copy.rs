@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! Copying the agents' setup to or from another Mac over SSH (M13, D): the
 //! MCP servers, skills, plugins and instruction files, item by item, after
 //! a comparison of the two Macs.
@@ -47,7 +50,7 @@ use super::pack::{self, InstructionList, McpList, Pack, PluginList, SecretsNeede
 use super::restore::{self, More, Pasted, Pick, PluginRef, Record, Tools};
 use super::secrets::Secrets;
 use super::{instructions, skills, write, Agent, Have, Places, Reading};
-use crate::antigravity::fs::AppDir;
+use crate::app_dir::AppDir;
 use crate::peers;
 use crate::runner;
 

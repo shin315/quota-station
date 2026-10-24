@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: CC-BY-NC-SA-4.0
+
 //! Fakes for the Antigravity tests: a local Google (the consent page,
 //! `/token`, `/userinfo`, and Cloud Code's `loadCodeAssist`,
 //! `fetchAvailableModels` and `retrieveUserQuotaSummary` under `/daily` and
@@ -8,19 +11,20 @@
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
 use quota_station_core::antigravity::cloud_code::Hosts;
-use quota_station_core::antigravity::fs::AppDir;
 use quota_station_core::antigravity::login::{Browser, Deps};
 use quota_station_core::antigravity::oauth::Endpoints;
 use quota_station_core::antigravity::store::Keychain;
+use quota_station_core::app_dir::AppDir;
 
-use super::{script, temp_dir};
+pub use super::keychain::fake_security;
+use super::temp_dir;
 
 pub const CLIENT_ID: &str = "000000000000-quotastationtest.apps.googleusercontent.com";
 pub const CLIENT_SECRET: &str = "test-secret-not-real";
@@ -436,44 +440,4 @@ impl Home {
     pub fn fail_security(&self, command: &str) {
         std::fs::write(self.sec.join(format!("fail-{command}")), "").unwrap();
     }
-}
-
-/// A `security` that keeps generic passwords as files in `dir/items`, exits
-/// 44 for a missing one as macOS's does, and records every run.
-pub fn fake_security(dir: &Path) -> PathBuf {
-    std::fs::create_dir_all(dir.join("items")).unwrap();
-    let d = dir.display();
-    script(
-        &dir.join("bin/security"),
-        &format!(
-            r#"for a in "$@"; do printf '%s\037' "$a" >> '{d}/calls'; done
-printf '\n' >> '{d}/calls'
-cmd="$1"; shift
-svc=""; acct=""; value=""
-while [ $# -gt 0 ]; do
-  case "$1" in
-    -s) svc="$2"; shift 2 ;;
-    -a) acct="$2"; shift 2 ;;
-    -w) if [ $# -ge 2 ]; then value="$2"; shift 2; else shift; fi ;;
-    *) shift ;;
-  esac
-done
-item='{d}/items/'"$svc--$acct"
-missing() {{ echo "security: SecKeychainSearchCopyNext: The specified item could not be found in the keychain." >&2; exit 44; }}
-case "$cmd" in
-  add-generic-password)
-    [ -e '{d}/fail-add' ] && {{ echo "security: SecKeychainItemCreateFromContent: User interaction is not allowed." >&2; exit 36; }}
-    printf '%s' "$value" > "$item" ;;
-  find-generic-password)
-    [ -f "$item" ] || missing
-    cat "$item"; echo ;;
-  delete-generic-password)
-    [ -e '{d}/fail-delete' ] && {{ echo "security: SecKeychainItemDelete: User interaction is not allowed." >&2; exit 36; }}
-    [ -f "$item" ] || missing
-    rm "$item" ;;
-  *) exit 2 ;;
-esac
-"#
-        ),
-    )
 }

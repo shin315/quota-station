@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // Chép sang Mac khác (M13) for the browser preview and the tests: what "So
 // sánh" finds between this Mac and a made-up other one, and what a copy and
 // its undo report. Every name, path and Mac is made up.

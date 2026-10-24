@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Chép sang Mac khác lines and choices (M13) as plain functions. Every
 // Mac, item and key is made up.
 

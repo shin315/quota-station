@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! Switching Claude Code's login to another account the app keeps, against
 //! a fake Keychain in a temporary home. Every login is made up.
 

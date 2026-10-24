@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Chép sang Mac khác tab (M13, D), as plain functions: which items can go
 // which way, which are ticked to begin with, what is sent, and every line the
 // tab and its dialogs say. Plain words, as the approved prototype's `cp`

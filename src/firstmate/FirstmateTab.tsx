@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Firstmate tab (F10): whether Firstmate holds new Claude work, from the
 // line its quota-pool watch writes (`quota-pool.last`, at the path set in
 // Cài đặt), next to the pool quota-axi reports. Read only.

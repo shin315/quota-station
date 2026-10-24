@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! Copying the agents' setup to another Mac (M13) between two temporary
 //! homes: "Studio mini" with servers, skills, plugins and instruction files,
 //! and "Travel air" with fewer. The other Mac is reached through a fake
@@ -30,7 +33,7 @@ use quota_station_core::agents::restore::{self, PluginRef, RunError, Tools};
 use quota_station_core::agents::secrets::Secrets;
 use quota_station_core::agents::skills::{self, SkillPlaces};
 use quota_station_core::agents::{self, kho, Agent, Places};
-use quota_station_core::antigravity::fs::AppDir;
+use quota_station_core::app_dir::AppDir;
 use quota_station_core::peers;
 use time::OffsetDateTime;
 
@@ -177,7 +180,7 @@ fn mac(tag: &str, name: &'static str, codex: &str) -> Mac {
     Mac {
         places: Places::new(&home, &home.join(".codex"), None),
         skills: SkillPlaces::new(&home, &home.join(".codex"), Some(npx.program.clone())),
-        secrets: Secrets::fake(common::google::fake_security(&root.join("keychain"))),
+        secrets: Secrets::fake(common::keychain::fake_security(&root.join("keychain"))),
         app: AppDir::new(root.join("app")),
         root,
         home,

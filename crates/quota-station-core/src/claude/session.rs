@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-FileCopyrightText: 2026 Onur Cetinkol (claude-swap)
+// SPDX-License-Identifier: MIT
+
 // The session folder follows claude-swap's `cswap run` (`session.py`, MIT,
 // https://github.com/realiti4/claude-swap): a `CLAUDE_CONFIG_DIR` per
 // account with its `oauthAccount` and links to the owner's settings, the

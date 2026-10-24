@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! Thống kê (M16, J), on fake homes holding synthetic session logs
 //! (`tests/fixtures/stats/`): Claude Code 1.0 and 2.0, Codex before and
 //! after its token events, and versions in a format the app does not know.
@@ -12,7 +15,7 @@ mod common;
 use std::path::{Path, PathBuf};
 
 use common::temp_dir;
-use quota_station_core::antigravity::fs::AppDir;
+use quota_station_core::app_dir::AppDir;
 use quota_station_core::history::{App, Cause, Entry, Source};
 use quota_station_core::stats::index::{self, Index, Progress, Roots};
 use quota_station_core::stats::report::{self, Period, Timeline};

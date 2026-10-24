@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! What the app tells other programs about the Claude accounts:
 //!
 //! - `claude/state.json`, for Firstmate and anyone else: each account's

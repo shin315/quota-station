@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2026 Shin315
+ * SPDX-License-Identifier: MIT
+ */
+
 /* Quota Station design tokens, from the approved prototype (step 0.7,
    18/10/2026). The one source of every colour, size and shadow: theme.css
    maps them to Tailwind's theme and to shadcn/ui's variables. A few names

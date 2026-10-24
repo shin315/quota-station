@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The agents' and the services' logos: the drawing for the look in use, and
 // a row with no known service left as it was.
 

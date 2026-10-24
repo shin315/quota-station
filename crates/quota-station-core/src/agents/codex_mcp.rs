@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! Codex's MCP list: the `[mcp_servers.<name>]` tables of `config.toml`.
 //!
 //! An edit touches one server's lines only: `enabled = false` written or

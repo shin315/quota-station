@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: CC-BY-NC-SA-4.0
+
 //! Reading Antigravity accounts' quota end to end, against a local fake
 //! Google and Cloud Code, a fake `security` and a fake Antigravity bundle in
 //! a temporary home: the calls and headers Cockpit Tools makes, the cache it
@@ -5,6 +8,7 @@
 //! 5xx and network failures do. These tests never reach Google and never
 //! touch the Keychain. The last one runs the real quota-axi fork on the
 //! files written here, and only when asked (`--ignored`).
+#![cfg(feature = "antigravity-accounts")]
 
 mod common;
 

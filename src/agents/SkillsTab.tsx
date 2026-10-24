@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Skills tab of the main window (M11, B and G): every skill of Claude
 // Code, Codex and Antigravity in the MCP tab's matrix, a checkbox per agent.
 // Ticks wait on the pending bar until one preview writes them all. Above

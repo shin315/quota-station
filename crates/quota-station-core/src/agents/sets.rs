@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! Configuration sets (M15, N): a named list of which MCP servers and
 //! skills are on or off, and which side the Codex switch is on, applied to
 //! this whole Mac in one go after one preview. Sets are named after
@@ -37,7 +40,7 @@ use super::batch::{self, To};
 use super::secrets::Secrets;
 use super::skills::{self, SkillPlaces};
 use super::{Agent, Places, View};
-use crate::antigravity::fs::AppDir;
+use crate::app_dir::AppDir;
 
 /// The sets and the last apply, in the app's folder.
 pub const FILE: &str = "agents/sets.json";

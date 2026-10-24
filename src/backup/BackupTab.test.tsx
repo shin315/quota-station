@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Sao lưu tab and the Khôi phục sheet (M10, M12) on the fake Rust side:
 // nothing here reads or writes an agent's file, iCloud Drive or the
 // Keychain. Every pack, Mac and key is made up.
@@ -52,7 +55,7 @@ describe('the Sao lưu tab', () => {
     expect(screen.getByRole('heading', { level: 4, name: 'Gói gần nhất' })).toBeTruthy();
     expect(screen.getByText('Không chứa khoá. Khi khôi phục, app hỏi lại 2 khoá.')).toBeTruthy();
     expect(screen.getByRole('heading', { level: 4, name: /Các gói/ })).toBeTruthy();
-    expect(screen.getByText('Trong Bitwarden: Docs Search API')).toBeTruthy();
+    expect(screen.getByText('Lưu ở: Docs Search API')).toBeTruthy();
     const text = document.body.textContent ?? '';
     expect(text).not.toMatch(/Keychain|Mobile Documents|~\/|\.json|security/);
   });

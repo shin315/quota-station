@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2026 Shin315
+ * SPDX-License-Identifier: MIT
+ */
+
 /* The tokens (tokens.css) as Tailwind's theme and as shadcn/ui's variables.
    tokens.css stays the one source: every value here reads a token, so the
    light, dark and "auto" looks and the stronger text on glass (glass.css)

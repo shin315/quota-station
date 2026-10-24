@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! Switching Codex between the ChatGPT login and a custom API provider (M8),
 //! which CC Switch did before, while keeping the ChatGPT login so Codex App's
 //! plugins and remote control keep working through the custom provider.
@@ -31,7 +34,7 @@ use time::OffsetDateTime;
 
 use crate::agents::batch::Line as PreviewLine;
 use crate::agents::def::MASK;
-use crate::antigravity::fs::AppDir;
+use crate::app_dir::AppDir;
 use config::{KeyKind, KeyPlan, KeyRefusal, Parsed, Refusal, Target};
 use files::{KeyUndo, Record, WriteError};
 use login::Login;

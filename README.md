@@ -4,13 +4,12 @@ A macOS menu bar app that shows how much Claude Code, Antigravity and Codex
 quota is used on this Mac, as reported by [quota-axi](https://github.com/kunchenguid/quota-axi).
 The interface is in Vietnamese.
 
-**Personal, non-commercial project (cá nhân, phi thương mại).** It is shared
-under CC BY-NC-SA 4.0. See [License](#license).
-
-Based in part on [Cockpit Tools](https://github.com/jlcodes99/cockpit-tools)
-(dựa một phần trên Cockpit Tools): its Antigravity login, quota reading and
-account switch
-are adapted from Cockpit's code. See [`NOTICE`](NOTICE).
+MIT licensed, except the Antigravity accounts (logging in and switching
+several Antigravity accounts), which are adapted from
+[Cockpit Tools](https://github.com/jlcodes99/cockpit-tools) (dựa một phần
+trên Cockpit Tools) and stay under CC BY-NC-SA 4.0, personal and
+non-commercial. They are built only with the `antigravity-accounts` feature.
+See [License](#license) and [`NOTICE`](NOTICE).
 
 <img src="docs/popover.png" width="380" alt="The popover on fixture data: Đang dùng for Claude, Gemini and Codex, then four Claude Code accounts and two Antigravity accounts with their share used and reset times, and the Codex row">
 
@@ -199,6 +198,20 @@ the confirmation sheet first.
     [Update](#update)). A settings file from before M5 with a single
     `sshAlias` moves into the list of other Macs.
 
+    `Hạn mức sắp cạn` sets alert 1's two thresholds (10% and 15% by
+    default), and `Thư mục sao lưu` the folder the backup packs go to
+    (empty is iCloud Drive's `Quota Station Agents`). `Nâng cao`, the last
+    card, holds what was made for the author's own Macs: `Hiện phần nâng
+    cao` shows the `Luật xoay vòng`, `Firstmate` and `Chép sang Mac khác`
+    tabs, automatic switching with its pause (`Đến 18:00` among them), the
+    Switcher card, alerts 2 and 5, the Cá nhân/Team and Ultra names, and
+    the rows `Các Mac khác`, `Mã nguồn` and `Cập nhật từ mã nguồn`; its
+    `Firstmate` switch shows the Firstmate tab, its file and alert 5. A new
+    install starts with `Nâng cao` off, no rotation rules and accounts named
+    `Tài khoản N`; a Mac that already had the app (a settings file or any
+    file in the app's folder) gets it on, with `Firstmate`, so nothing
+    changes there.
+
   - `Codex` (M8, below).
 
   `Tổng quan` also has a small Codex card: the provider in use, whether the
@@ -276,7 +289,8 @@ the confirmation sheet first.
      Firstmate's rule on the accounts' numbers. The rotation's accounts that
      have not left it (the personal one only inside its hours) count; the
      pool is dry when the account in use has 10% or less left and no other
-     has 15% or more. Without quota-axi's rotation the app uses the rotation
+     has 15% or more (both set in `Cài đặt`; without `Nâng cao` every
+     account counts and the title is `Hạn mức Claude sắp cạn`). Without quota-axi's rotation the app uses the rotation
      file, for this alert and the next. The card names the account in use
      and its share used, and when an account resets, and offers
      `Sang <tài khoản> (còn N%)`, which opens the switch sheet, and `Thôi`.
@@ -370,8 +384,7 @@ the confirmation sheet first.
   and its backups, the sessions that can be resumed by provider, the recent
   switches) behind `Chi tiết`. Below, Codex on this Mac in a line (CLI,
   terminal sessions, Codex App, the MCP count, `Khởi động lại tiến trình
-  nền…`) and the guide to stop using CC Switch folded to its progress
-  (`Ngừng dùng CC Switch · 3/8`). While CC Switch still runs and manages
+  nền…`). While CC Switch still runs and manages
   Codex, a banner says to switch Codex in one place only: CC Switch's next
   switch overwrites the provider choice. A change made to `config.toml`
   outside the app shows as a banner with `Xem thay đổi` and `Đã hiểu`; the
@@ -425,7 +438,8 @@ the confirmation sheet first.
   and plugins bring themselves (shown, never edited), and the backups.
 
   Keys never show. A key typed or pasted goes to the app's own Keychain
-  items, with the Bitwarden item it is in; the preview masks every key; a
+  items, with a note of where the owner keeps it (a password manager's
+  item, say); the preview masks every key; a
   server short of its key keeps its boxes locked until `Dán khoá`. Codex is
   written in its `[mcp_servers.<name>]` tables (`enabled = false` turns one
   off), Antigravity in `~/.gemini/config/mcp_config.json`
@@ -493,7 +507,7 @@ the confirmation sheet first.
   pack, every Mac's packs (a pack iCloud has not downloaded yet says so and
   cannot be picked until it is), the two switches of `Tự sao lưu` (after
   each change in the app, and daily when something changed) and the keys
-  the app keeps on this Mac, by name and Bitwarden item, to replace or
+  the app keeps on this Mac, by name and where each is kept, to replace or
   delete; it keeps the newest 10 packs of each Mac. `Xem trong gói` says
   what a pack holds in plain words. A pack never holds a key, and paths in
   it are written from the home folder, so they change to the Mac that
@@ -503,7 +517,7 @@ the confirmation sheet first.
   what changes on this Mac. Servers to add are ticked; one that differs from
   the pack is not, and `So sánh` shows the two side by side; the ones
   already the same are listed in one line. Next the keys the pack needs are
-  asked for in password fields, with the Bitwarden item each is in. A server
+  asked for in password fields, with where each is kept. A server
   left without its key, or whose command is not installed here, is added
   turned off, and the result says what is left to do. The write is the MCP
   tab's checked write, so a file changed after the preview stops it, and a
@@ -531,7 +545,7 @@ the confirmation sheet first.
 
   <img src="docs/restore-partial.png" width="760" alt="A restore done in part: the servers, eight skills, six plugins and CLAUDE.md done, the formatter plugin needing a login with Thử lại, and what is left to do">
 
-  <img src="docs/restore-keys.png" width="372" alt="The restore sheet asking for the key one server needs, in a password field, with its Bitwarden item">
+  <img src="docs/restore-keys.png" width="372" alt="The restore sheet asking for the key one server needs, in a password field, with where it is kept">
 
 - **Chép sang Mac khác** (M13). The tab copies MCP servers, skills,
   plugins and instruction files between this Mac and one of `Cài đặt › Các
@@ -1312,6 +1326,12 @@ cargo test --workspace   # parsing, snapshot rules, icon, runner, schedule, Clau
 npm test                 # Vitest: popover and main window views, switch and pause sheets, Claude accounts card, rules editor, login card and read states, Antigravity switch, Codex switch, history, alerts, Firstmate, MCP, Skills, Plugin, File hướng dẫn, backup and settings tabs, restore sheet
 ```
 
+The Antigravity accounts' tests (login, quota, switch, spy) build only with
+their feature: CI runs `cargo test --workspace` both without it and with
+`--features antigravity-accounts`, builds the interface with and without
+`QS_ANTIGRAVITY_ACCOUNTS=1` (a build without it stops if it would bundle a
+file from `src/antigravity/`), and runs `reuse lint`.
+
 The install tests (`crates/quota-station-core/tests/install_script.rs`) run
 `scripts/install.sh` with macOS's `/bin/bash` on a clean temporary folder: a
 source tree holding only the script and the files it checks, a fake `cargo`
@@ -1662,9 +1682,27 @@ style. A test reads a control's state from its ARIA attribute
 
 Copyright © 2026 Shin315.
 
-This work is licensed under the
-[Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License](https://creativecommons.org/licenses/by-nc-sa/4.0/).
-The full text is in [`LICENSE`](LICENSE). Code adapted from Cockpit Tools,
-also CC BY-NC-SA 4.0, and code ported from CC Switch (MIT) are credited in
+Quota Station is licensed under the [MIT License](LICENSE), except the
+Antigravity accounts, which are licensed under the
+[Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+([`LICENSES/CC-BY-NC-SA-4.0.txt`](LICENSES/CC-BY-NC-SA-4.0.txt)) because
+they are adapted from Cockpit Tools: `crates/quota-station-core/src/antigravity/`,
+`src-tauri/src/{antigravity,agy_quota,agy_switch}.rs`, `src/antigravity/`
+and their tests. Every file names its license in an
+`SPDX-License-Identifier` line or in [`REUSE.toml`](REUSE.toml), and
+`reuse lint` checks it in CI.
+
+Those parts are compiled only with the Cargo feature `antigravity-accounts`
+and bundled into the interface only with `QS_ANTIGRAVITY_ACCOUNTS=1`.
+`scripts/install.sh` turns both on for a build from source
+(`QS_ANTIGRAVITY_ACCOUNTS=0 scripts/install.sh` leaves them out);
+`cargo tauri build` and `npm run app` leave them out unless given
+`--features antigravity-accounts` (with `QS_ANTIGRAVITY_ACCOUNTS=1` for a
+release build's interface). An app
+built without them is MIT only: it reads the Antigravity account signed in
+through quota-axi and does not log in or switch accounts.
+
+Code adapted from Cockpit Tools, code ported from CC Switch (MIT) and code
+adapted from claude-swap (MIT) and shadcn/ui (MIT) are credited in
 [`NOTICE`](NOTICE). The tools it talks
 to are listed in [`THIRD_PARTY.md`](THIRD_PARTY.md).

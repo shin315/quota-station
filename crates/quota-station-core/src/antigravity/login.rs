@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-FileCopyrightText: jlcodes (Cockpit Tools)
+// SPDX-License-Identifier: CC-BY-NC-SA-4.0
+
 //! Logging an Antigravity account in and out, and getting its token right
 //! before a use. The login runs in Cockpit Tools' order
 //! (`start_oauth_login` in `src-tauri/src/commands/oauth.rs`, 1.3.70): open
@@ -11,12 +15,12 @@ use std::time::Duration;
 
 use super::client::{self, ClientStatus, OAuthClient};
 use super::export;
-use super::fs::AppDir;
 use super::index::{self, AccountSummary, IndexError, Standing};
 use super::oauth::{self, Endpoints, OAuthError};
 use super::oauth_server::{self, Flow, FlowError};
 use super::store::{Keychain, StoreError};
 use super::token::TokenData;
+use crate::app_dir::AppDir;
 use crate::runner;
 
 /// Opens the consent screen.

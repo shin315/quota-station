@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // Which service a server, a plugin or a connector is for. The names are made up
 // or public package names; nothing here reads an agent's configuration.
 

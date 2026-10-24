@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // Window roots: the popover and the main window share one model, pushed by
 // the Rust reader after every read, so both always show the same snapshot.
 // Each window opens its own sheets; a switch running from one shows in both.
@@ -22,10 +25,10 @@ import { useCopy } from './backup/useCopy';
 import { useBackup } from './backup/useBackup';
 import { AlertsTab } from './alerts/AlertsTab';
 import { CodexCard, CodexTab } from './codex/CodexTab';
-import { useAgyLogins } from './antigravity/AgyAccounts';
+import { useAgyLogins } from '@agy/AgyAccounts';
 import { ClaudeAccounts } from './claude/ClaudeAccounts';
 import { SheetBody, type SheetState } from './components/Sheets';
-import { agyLoginOf, agySwitchErrorFeedback, agySwitchFeedback, type AppAnswer } from './lib/agySwitch';
+import { agyLoginOf, agySwitchErrorFeedback, agySwitchFeedback, type AppAnswer } from '@agy/agySwitch';
 import { codexErrorFeedback, codexFeedback, codexRow, codexRestartFeedback, keyFeedback, nextTarget, pluginsNeedApply } from './lib/codex';
 import type { Api } from './lib/api';
 import { alertFailedFeedback, testFailedFeedback } from './lib/alerts';
@@ -204,7 +207,7 @@ function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeed
       : sheet?.kind === 'agy'
         ? model?.snapshot.agy.accounts.find((a) => a.number === sheet.number)
         : undefined;
-  const landed = !!target?.active && model?.claudeSwitch.busy == null && model?.agySwitch.busy == null && !working;
+  const landed = !!target?.active && model?.claudeSwitch.busy == null && model?.agySwitch?.busy == null && !working;
   useEffect(() => {
     if (landed) setSheet(null);
   }, [landed]);
@@ -401,7 +404,7 @@ function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeed
         working={
           working ||
           (sheet.kind === 'claude' && model.claudeSwitch.busy === sheet.slot) ||
-          (sheet.kind === 'agy' && model.agySwitch.busy === sheet.number) ||
+          (sheet.kind === 'agy' && model.agySwitch?.busy === sheet.number) ||
           ((sheet.kind === 'codex' || sheet.kind === 'codexKey' || sheet.kind === 'codexPlugins') && model.codex.busy === 'switching') ||
           (sheet.kind === 'daemon' && model.codex.busy === 'restarting')
         }
@@ -444,7 +447,7 @@ export interface AppProps {
 const systemClock = () => new Date();
 
 /** Before the first model: no account logged in yet. */
-const NO_LOGINS: Model['antigravity'] = { client: 'ok', clientPath: '', accounts: [], indexError: false, loggingIn: false };
+const NO_LOGINS: NonNullable<Model['antigravity']> = { client: 'ok', clientPath: '', accounts: [], indexError: false, loggingIn: false };
 
 /** Null once a call went through, else what it was refused with. */
 const refusal = (call: Promise<unknown>): Promise<string | null> =>
@@ -517,8 +520,8 @@ export function PopoverApp({ api, clock = systemClock }: AppProps) {
     <Popover
       view={view}
       codex={codexRow(model)}
-      auto={autoView(model, now)}
-      sync={syncSummary(model)}
+      auto={model.advanced.on ? autoView(model, now) : null}
+      sync={model.advanced.on ? syncSummary(model) : null}
       feedback={feedback}
       busy={busy}
       dark={dark}
@@ -716,6 +719,10 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
         )
       }
       onSetCodexHome={(path) => refusal(api.setCodexHome(path))}
+      onSetBackupFolder={(path) => refusal(api.backupSetFolder(path))}
+      onPoolAlert={(dry, room) => refusal(api.setPoolAlert(dry, room))}
+      onAdvanced={(on) => void api.setAdvanced(on).catch(() => showFeedback(settingsFailedFeedback()))}
+      onFirstmate={(on) => void api.setFirstmate(on).catch(() => showFeedback(settingsFailedFeedback()))}
       onTestAlert={testAlert}
       onAlertSwitch={alertSwitch}
       onLaunchAtLogin={(on) => refusal(api.setLaunchAtLogin(on))}
@@ -824,6 +831,9 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       }
       firstmate={<FirstmateTab model={model} fresh={view.fresh} now={now} onAction={onAction} />}
       unanswered={model.alerts.unanswered}
+      advanced={model.advanced.on}
+      firstmateTab={model.advanced.on && model.advanced.firstmate}
+      agyAccounts={model.capabilities.agyAccounts}
       agyLogins={agyLogins}
       claudeAccounts={<ClaudeAccounts view={model.claudeAccounts} api={api} onAction={onAction} />}
       dialog={dialog}

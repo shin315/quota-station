@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: CC-BY-NC-SA-4.0
+
 //! Switching the Antigravity account from the app (M4c): what the sheet
 //! asks about Antigravity.app before it offers its buttons, the switch
 //! itself after the owner confirms, and the six-hour watch that tells the

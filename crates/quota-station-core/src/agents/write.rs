@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! Writing an agent's file safely, and the backups kept before each write.
 //! The Codex switch (M8) and the MCP tab (M9) both write through here.
 //!

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! One MCP server as the app carries it between agents: how it runs (a
 //! command on this Mac, or an address) and its environment or headers, with
 //! the agent's own spelling left to [`super::claude_mcp`],

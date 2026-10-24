@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! Antigravity's MCP list: `mcpServers` in `~/.gemini/config/mcp_config.json`,
 //! which Antigravity.app, its IDE and `agy` read. A server is a `command`
 //! with `args` and `env`, or a `serverUrl` with `headers`; `"disabled": true`

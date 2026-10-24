@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: CC-BY-NC-SA-4.0
+
 //! Antigravity accounts the app logs in itself (M4a), whose quota it reads
 //! (M4b) and which it switches to (M4c), taking over what Cockpit Tools
 //! does. The app talks to Google as Cockpit does: the same OAuth client,
@@ -30,7 +33,6 @@ pub mod cloud_code;
 pub mod credential;
 pub mod desktop;
 pub mod export;
-pub mod fs;
 pub mod index;
 pub mod login;
 pub mod oauth;

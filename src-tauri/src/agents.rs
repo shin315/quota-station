@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The MCP tab (M9): the table of every agent's MCP servers the windows
 //! draw, and the commands its boxes, forms and preview use.
 //!
@@ -11,7 +14,7 @@ use quota_station_core::agents::batch::{self, Change, Outcome, Preview, Undo};
 use quota_station_core::agents::paste::{self, Paste};
 use quota_station_core::agents::secrets::Secrets;
 use quota_station_core::agents::{self, claude_mcp, kho, Agent, Places, View};
-use quota_station_core::antigravity::fs::AppDir;
+use quota_station_core::app_dir::AppDir;
 use serde::Serialize;
 use tauri::{AppHandle, State};
 use time::format_description::well_known::Rfc3339;

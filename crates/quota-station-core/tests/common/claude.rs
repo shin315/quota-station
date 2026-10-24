@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! A fake `claude` for the MCP tests: it keeps Claude Code's list as one
 //! file per server and writes `~/.claude.json` from them, with keys of its
 //! own around `mcpServers` (one of them a sentinel the app must never read).

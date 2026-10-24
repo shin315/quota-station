@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Sao lưu tab of the main window (M10), as the approved prototype's
 // `bk` screen after round 2: the newest pack, every Mac's packs in iCloud
 // Drive, the packs made on their own, and the keys the app keeps (name and
@@ -184,7 +187,7 @@ export function BackupTab({ model, feedback, now, backup, onAction }: BackupTabP
                 <div key={k.mcp + '|' + k.slot} className={SETTING_ROW}>
                   <div>
                     <b>{k.mcp}</b>
-                    <small>{k.bitwarden ? 'Trong Bitwarden: ' + k.bitwarden : k.label}</small>
+                    <small>{k.bitwarden ? 'Lưu ở: ' + k.bitwarden : k.label}</small>
                   </div>
                   <div className={ROW_ACTIONS}>
                     <LinkButton small aria-label={'Thay khoá ' + k.mcp} disabled={busy} onClick={() => backup.setDialog({ kind: 'key', key: k })}>

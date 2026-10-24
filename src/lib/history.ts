@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // What the Lịch sử tab shows (F08): the app's own switches, the switcher's
 // log and the changes the app saw, a day at a time, newest first. Pure,
 // like `view.ts`. Copy follows the prototype's `tabHistory`: accounts by
@@ -122,15 +125,17 @@ function pill(e: HistoryEntry): HistoryRowView['pill'] {
 
 /**
  * The window's names for each app's accounts, built from the snapshot now:
- * the email's part before `@` while names show, else Team A, Ultra 1. A slot
+ * the email's part before `@` while names show, else Team A, Ultra 1 (with
+ * Nâng cao) or Tài khoản 1, Antigravity 1. A slot
  * the snapshot no longer lists goes by its place.
  */
 export function historyNames(model: Model): { claude: NameOf; agy: NameOf } {
-  const c = claudeNames(model.snapshot.claude.accounts, model.snapshot.claude.personalHours);
-  const g = agyNames(model.snapshot.agy.accounts);
+  const roles = model.advanced.on;
+  const c = claudeNames(model.snapshot.claude.accounts, model.snapshot.claude.personalHours, roles);
+  const g = agyNames(model.snapshot.agy.accounts, roles);
   return {
     claude: (n) => c.get(n)?.name ?? 'Tài khoản ' + n,
-    agy: (n) => g.get(n)?.name ?? 'Ultra ' + n,
+    agy: (n) => g.get(n)?.name ?? (roles ? 'Ultra ' : 'Antigravity ') + n,
   };
 }
 

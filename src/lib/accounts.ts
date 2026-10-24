@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // What every window shows of one account: its name, and each of its quota
 // windows as the share USED (100 − what quota-axi calls percent left).
 // Shared by the popover, the main window's tables and the rules editor.
@@ -170,13 +173,16 @@ export function emailNames(emails: (string | undefined)[]): Map<string, string> 
 }
 
 /**
- * Claude accounts: their email when the owner shows names, else Cá nhân,
- * Team A, Team B… by slot order; `Tài khoản N` without a rotation file.
- * The sub-line is the organization of a Team seat, and the hours of the
+ * Claude accounts: their email when the owner shows names, else with
+ * `roles` (Cài đặt › Nâng cao) Cá nhân, Team A, Team B… by slot order, and
+ * `Tài khoản N` without a rotation file or without `roles`. The sub-line is
+ * the organization of a Team seat, and with `roles` the hours of the
  * personal account.
  */
-export function claudeNames(accounts: Account[], personalHours: string | null = null): Map<number, AccountName> {
+export function claudeNames(accounts: Account[], personalHours: string | null = null, roles = true): Map<number, AccountName> {
   const out = new Map<number, AccountName>();
+  // The roles come from the rotation file, which is Nâng cao's.
+  if (!roles) accounts = accounts.map((a) => ({ ...a, role: 'unknown' as const }));
   const team = accounts.filter((a) => a.role === 'team').map((a) => a.number).sort((x, y) => x - y);
   const emails = emailNames(accounts.map((a) => a.email));
   const h = hours(personalHours);
@@ -200,13 +206,18 @@ export function claudeNames(accounts: Account[], personalHours: string | null = 
   return out;
 }
 
-/** Antigravity accounts: their email when shown, else Ultra 1, Ultra 2. */
-export function agyNames(accounts: Pick<Account, 'number' | 'email'>[]): Map<number, AccountName> {
+/** Antigravity accounts: their email when shown, else Ultra 1, Ultra 2 with `roles`, Antigravity 1, 2 without. */
+export function agyNames(accounts: Pick<Account, 'number' | 'email'>[], roles = true): Map<number, AccountName> {
   const emails = emailNames(accounts.map((a) => a.email));
   const out = new Map<number, AccountName>();
   for (const a of accounts) {
     const email = a.email ? emails.get(a.email) : undefined;
-    const base = a.number === 0 ? { name: 'Tài khoản đang dùng', short: 'G' } : { name: 'Ultra ' + a.number, short: 'U' + a.number };
+    const base =
+      a.number === 0
+        ? { name: 'Tài khoản đang dùng', short: 'G' }
+        : roles
+          ? { name: 'Ultra ' + a.number, short: 'U' + a.number }
+          : { name: 'Antigravity ' + a.number, short: 'A' + a.number };
     out.set(a.number, { ...base, name: email ?? base.name, sub: '', full: a.email ?? '' });
   }
   return out;

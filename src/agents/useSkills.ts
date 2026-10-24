@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Skills tab's state (M11): the boxes ticked and not written yet, the
 // filter, the open dialog, and the paths every change takes. Boxes go
 // through the batch preview the Rust side reads from the folders now, then

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 import { describe, expect, it } from 'vitest';
 import { hideNames } from '../fixtures/fakeApi';
 import { codexFixture, failing, FIXTURE_NOW, fixtureModel } from '../fixtures/models';

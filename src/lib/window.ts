@@ -1,9 +1,12 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // Turns the model into what the main window shows (M2, read only): the
 // Tổng quan, Claude and Antigravity tabs. Built on the popover's view, so the
 // window and the popover show the same snapshot with the same names, numbers
 // and banners. Pure, like `view.ts`.
 
-import { overwriteBanner } from './agySwitch';
+import { overwriteBanner } from '@agy/agySwitch';
 import { envBanner } from './env';
 import { clock, minutesUntil } from './format';
 import type { Account, LineKind, Model, Section } from './model';
@@ -121,8 +124,8 @@ function upcoming(model: Model, now: Date): UpcomingView[] {
   };
   // The one account a provider row reads goes by the provider's name here,
   // where Claude and Antigravity share one list.
-  const names = claudeNames(s.claude.accounts);
-  const gNames = agyNames(s.agy.accounts);
+  const names = claudeNames(s.claude.accounts, null, model.advanced.on);
+  const gNames = agyNames(s.agy.accounts, model.advanced.on);
   add(s.claude, (a) => (a.number === 0 ? 'Claude' : (names.get(a.number)?.name ?? 'Tài khoản ' + a.number)), !!model.errors.claude);
   if (s.agy.status !== 'notSetUp') add(s.agy, (a) => (a.number === 0 ? 'Antigravity' : gNames.get(a.number)!.name), !!model.errors.agy);
   return out

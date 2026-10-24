@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Plugin tab of the main window (M11, E): the plugins Claude Code and
 // Codex list themselves (a plugin for a known service with its logo), what
 // each brings, and their marketplaces. Read

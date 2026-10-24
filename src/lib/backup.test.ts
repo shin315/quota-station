@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Sao lưu tab's words and the keys a restore asks for (M10).
 
 import { describe, expect, it } from 'vitest';

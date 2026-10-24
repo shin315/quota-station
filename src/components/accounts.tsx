@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // How one account and its quota windows are drawn, in the popover and in
 // the main window's tables: AccountName, WindowCell, WindowRow, NowStrip,
 // NowCard and InUse, from the redesign.

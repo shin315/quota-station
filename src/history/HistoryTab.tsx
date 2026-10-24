@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Lịch sử tab (F08): every switch on this Mac, newest first, a day at a
 // time, from the app's journal, the switcher's log and what the readings
 // showed. The list is read from the Rust side when the tab opens and again
@@ -29,7 +32,7 @@ export function HistoryTab({ model, fresh, now, load }: HistoryTabProps) {
   const [entries, setEntries] = useState<HistoryEntry[] | 'failed' | null>(null);
   // A new read or a switch may have added a line.
   const reads = model.reads;
-  const switching = model.claudeSwitch.busy != null || model.agySwitch.busy != null || model.codex.busy != null;
+  const switching = model.claudeSwitch.busy != null || model.agySwitch?.busy != null || model.codex.busy != null;
   const loaded = entries !== null;
   useEffect(() => {
     // Read once on opening; after that, not while a switch is half done.

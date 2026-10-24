@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-FileCopyrightText: 2026 Onur Cetinkol (claude-swap)
+// SPDX-License-Identifier: MIT
+
 // The `security` commands are claude-swap's (`macos_keychain.py`, MIT,
 // https://github.com/realiti4/claude-swap): the read with `-w` and exit 44
 // for a missing item, the write piped to `security -i` with the value as hex

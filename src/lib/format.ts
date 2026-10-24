@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // Numbers, times and durations as the prototype writes them.
 
 export function pad(n: number): string {

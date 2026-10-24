@@ -1,6 +1,10 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: CC-BY-NC-SA-4.0
+
 //! Logging Antigravity accounts in and out end to end, against a local fake
 //! Google, a fake browser and a fake `security` in a temporary home. These
 //! tests never reach Google and never touch the Keychain.
+#![cfg(feature = "antigravity-accounts")]
 
 mod common;
 

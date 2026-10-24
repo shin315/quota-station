@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // What switching Codex shows (M8): the popover's Codex row and its banner,
 // the confirmation sheet's five facts and the sheets around it, the
 // feedback after a switch or a restart, and the Codex tab. Pure, like

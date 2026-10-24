@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The popover under the menu bar item and the main window.
 
 use std::time::{Duration, Instant};

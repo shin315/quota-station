@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // Cài đặt's card "Biến môi trường đè đăng nhập" (M14, I): each variable set
 // in a shell file or launchd, the agent it overrides and how, with "Mở file"
 // at its line and "Bỏ qua"; a green line when there is none. "Xem danh

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! A manual switch end to end, with the app's own switch against a fake
 //! Keychain and launchd in a temporary home, and a fake quota-axi: these
 //! tests never touch the Keychain, Claude Code's login or the real pause

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! Backup packs (M10, the MCP part of C): a folder per backup, by default
 //! in iCloud Drive's `Quota Station Agents`, so a Mac set up again (or
 //! another Mac) can take its MCP servers back. A pack holds no secret:

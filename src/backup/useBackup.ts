@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Sao lưu tab's state (M10, M12): the open dialog, "Sao lưu bây giờ",
 // and the Khôi phục sheet's four steps: pick a pack, the preview the Rust
 // side reads now (servers, skills, plugins, instruction files), the keys to

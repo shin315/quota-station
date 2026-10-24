@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The MCP tab (M9) on a temporary home: Codex's `config.toml` and
 //! Antigravity's `mcp_config.json` from the fixtures below, Claude Code's
 //! `~/.claude.json` kept by a fake `claude` that records its arguments, and
@@ -16,13 +19,13 @@ mod common;
 use std::path::{Path, PathBuf};
 
 use common::claude::fake_claude;
-use common::google::fake_security;
+use common::keychain::fake_security;
 use common::temp_dir;
 use quota_station_core::agents::batch::{self, Change, Outcome, Preview, To};
 use quota_station_core::agents::def::{Def, Pair, MASK};
 use quota_station_core::agents::secrets::{self, Secrets};
 use quota_station_core::agents::{self, kho, redact, Agent, Places};
-use quota_station_core::antigravity::fs::AppDir;
+use quota_station_core::app_dir::AppDir;
 use quota_station_core::codex::files as codex_files;
 use time::OffsetDateTime;
 

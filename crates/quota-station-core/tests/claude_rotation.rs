@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The rotation inside the app: the decisions the old `cswap-prefer-team`
 //! script made, with the same rules, and one run of it against a fake
 //! Keychain, launchd and Anthropic. Every account is made up, and the
@@ -12,7 +15,7 @@ use quota_station_core::claude::engine::{self, Input, Plan, Reading, Window};
 use quota_station_core::claude::rotate::{self, Tools};
 use quota_station_core::claude::switch;
 use quota_station_core::local_time;
-use quota_station_core::rotation::{Expire, Rules};
+use quota_station_core::rotation::{self, Expire, Rules};
 use serde_json::json;
 use time::{Duration, OffsetDateTime};
 
@@ -43,10 +46,10 @@ fn acct(number: u32, five: f64, ends: Option<i64>) -> Reading {
     }
 }
 
-/// The script's built-in rules: Team 2 3 4, personal 1 from 8 to 23,
-/// full at 90%, Fable full at 95%.
+/// The rules the tests' rotation file holds: Team 2 3 4, personal 1 from 8
+/// to 23, full at 90%, Fable full at 95%.
 fn rules() -> Rules {
-    Rules::defaults()
+    common::sample_rules()
 }
 
 fn decide(rules: &Rules, accounts: &[Reading], active: Option<u32>, hour: u8) -> Plan {
@@ -300,7 +303,8 @@ fn iso(hours: f64) -> String {
     t.format(&time::format_description::well_known::Rfc3339).unwrap()
 }
 
-/// Team 2 and 3 with logins in the app, Claude Code on 2.
+/// Team 2 and 3 with logins in the app, Claude Code on 2, and a rotation
+/// file with [`rules`].
 fn three_accounts(tag: &str) -> (Mac, FakeAnthropic, Tools) {
     let mac = Mac::new(tag);
     let anthropic = FakeAnthropic::start();
@@ -311,6 +315,10 @@ fn three_accounts(tag: &str) -> (Mac, FakeAnthropic, Tools) {
         &credential("acc-2", "ref-2", in_hours(5.0)),
         &common::accounts::oauth("lan@team.example", "uuid-2", "org-team"),
     );
+    let file = mac.paths.rotation_file();
+    std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+    let stamp = rotation::Stamp::new(OffsetDateTime::now_utc(), "Mac A");
+    std::fs::write(&file, rotation::render(&rules(), &stamp, None)).unwrap();
     let tools = Tools {
         launchctl: mac.launchctl.clone(),
         claude: None,
@@ -339,6 +347,23 @@ fn a_run_moves_claude_code_off_a_full_account_and_logs_it() {
         "{}",
         log(&mac)
     );
+}
+
+#[test]
+fn a_run_without_a_rotation_file_switches_nothing() {
+    // The app has no built-in rotation: a Mac that never saved one has none.
+    let (mac, anthropic, tools) = three_accounts("rotate-no-rules");
+    std::fs::remove_file(mac.paths.rotation_file()).unwrap();
+    anthropic.usage("acc-1", 0.0, None, Some(5.0), None);
+    anthropic.usage("acc-2", 96.0, Some(&iso(1.0)), Some(40.0), None);
+    anthropic.usage("acc-3", 10.0, Some(&iso(2.0)), Some(20.0), None);
+    let decided = rotate::run(&mac.store, &tools);
+    assert_eq!(decided.line, rotate::NO_RULES);
+    assert_eq!(switch::active_slot(&mac.store), Some(2));
+    assert!(!log(&mac).contains("switch to slot"));
+    assert_eq!(rotate::rules(&mac.store), None);
+    let now = OffsetDateTime::now_utc();
+    assert_eq!(rotate::dry_run(&mac.store, &tools, None, now).line, rotate::NO_RULES);
 }
 
 #[test]
@@ -407,7 +432,7 @@ fn a_run_when_launchctl_cannot_tell_neither_switches_nor_refreshes() {
 #[test]
 fn a_dry_run_reads_nothing_over_the_network() {
     let (mac, anthropic, tools) = three_accounts("rotate-dry");
-    let decided = rotate::dry_run(&mac.store, &tools, &rules(), OffsetDateTime::now_utc());
+    let decided = rotate::dry_run(&mac.store, &tools, Some(&rules()), OffsetDateTime::now_utc());
     // No readings yet: the account in use is unknown, so the rotation holds.
     assert_eq!(decided.line, "stay (slot 2 usage unknown)");
     assert!(anthropic.requests().is_empty());
@@ -421,9 +446,9 @@ fn the_preview_decides_with_the_draft_rules() {
     anthropic.usage("acc-3", 10.0, Some(&iso(2.0)), Some(20.0), None);
     quota_station_core::claude::usage::read_due(&mac.store, &tools.endpoints, false, true);
     let now = OffsetDateTime::now_utc();
-    assert_eq!(rotate::dry_run(&mac.store, &tools, &rules(), now).line, "stay");
+    assert_eq!(rotate::dry_run(&mac.store, &tools, Some(&rules()), now).line, "stay");
     let mut draft = rules();
     draft.full = 50.0;
-    assert_eq!(rotate::dry_run(&mac.store, &tools, &draft, now).primes, Vec::<u32>::new());
-    assert!(rotate::dry_run(&mac.store, &tools, &draft, now).line.starts_with("switch 3 "));
+    assert_eq!(rotate::dry_run(&mac.store, &tools, Some(&draft), now).primes, Vec::<u32>::new());
+    assert!(rotate::dry_run(&mac.store, &tools, Some(&draft), now).line.starts_with("switch 3 "));
 }

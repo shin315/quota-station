@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // What the Luật xoay vòng tab shows (M5, F06): the changes in the editor,
 // the line for each Mac, the banners about the file on disk and the other
 // Macs, the feedback after each action, and the table that compares two
@@ -69,7 +72,7 @@ export function slotsOf(model: Model, ...rules: (Rules | null)[]): number[] {
  * are hidden), `Tài khoản 5` for a slot it does not list.
  */
 export function ruleNames(model: Model): NameOf {
-  const names = claudeNames(model.snapshot.claude.accounts, model.snapshot.claude.personalHours);
+  const names = claudeNames(model.snapshot.claude.accounts, model.snapshot.claude.personalHours, model.advanced.on);
   return (n) => names.get(n)?.name ?? 'Tài khoản ' + n;
 }
 

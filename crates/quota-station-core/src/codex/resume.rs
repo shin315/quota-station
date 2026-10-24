@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The sessions `codex resume` can continue, counted by the provider each
 //! was made with. Codex files each session under the provider id in its
 //! first line (`session_meta`), and `codex resume` lists only the ones of

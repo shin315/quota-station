@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The Claude accounts, kept by Quota Station itself (see
 //! `docs/claude-accounts.md`): the account list and its Keychain items
 //! ([`store`]), the switch of Claude Code's active login under Claude

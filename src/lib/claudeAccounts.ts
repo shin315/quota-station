@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Claude accounts Quota Station keeps, in words for the Claude tab: each
 // account's row, the card before any account is kept, the rotation's
 // LaunchAgent, and what the last action did.

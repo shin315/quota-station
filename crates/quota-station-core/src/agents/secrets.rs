@@ -1,8 +1,11 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The app's Keychain items for MCP secrets (M9): one generic password per
 //! secret, service [`SERVICE`], account `<MCP name>:<slot>` (the slot as
 //! [`super::def::Slot`] names it: `env:GITHUB_TOKEN`, `header:Authorization`),
 //! value the secret. Kept with macOS's `security`, as the Antigravity items
-//! are ([`crate::antigravity::store`]), and added without `-A`, so another
+//! are (`antigravity::store`, which shares [`StoreError`]), and added without `-A`, so another
 //! program needs the owner's consent to read one.
 //!
 //! An item is written when a secret would otherwise exist nowhere on this
@@ -12,13 +15,50 @@
 //! one agent to another reads the secret from the first agent's file.
 
 use std::path::PathBuf;
+use std::time::Duration;
 
-pub use crate::antigravity::store::{StoreError, TIMEOUT};
 use crate::runner::{self, RunError};
 
 pub const SERVICE: &str = "com.shin315.quota-station.mcp-secret";
 /// `security`'s exit code for "the specified item could not be found".
 const NOT_FOUND: i32 = 44;
+/// Each `security` call; the tool can hang while the Keychain is locked.
+pub const TIMEOUT: Duration = Duration::from_secs(15);
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StoreError {
+    NotFound,
+    Timeout,
+    Spawn(String),
+    /// `security` failed: its exit code and first stderr line.
+    Failed {
+        code: Option<i32>,
+        message: String,
+    },
+    /// The item holds something that is not a token.
+    Corrupt,
+}
+
+impl std::fmt::Display for StoreError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            StoreError::NotFound => write!(f, "no Keychain item for this account"),
+            StoreError::Timeout => {
+                write!(f, "security did not answer within {}s", TIMEOUT.as_secs())
+            }
+            StoreError::Spawn(e) => write!(f, "could not run security: {e}"),
+            StoreError::Failed { code: Some(c), message } => {
+                write!(f, "security exited {c}: {message}")
+            }
+            StoreError::Failed { code: None, message } => {
+                write!(f, "security was stopped: {message}")
+            }
+            StoreError::Corrupt => write!(f, "the Keychain item does not hold a token"),
+        }
+    }
+}
+
+impl std::error::Error for StoreError {}
 
 /// The item's account for one secret of one MCP.
 pub fn account(mcp: &str, slot: &str) -> String {

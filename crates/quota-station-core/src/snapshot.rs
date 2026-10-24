@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The snapshot the tray and the popover draw: every Claude and Antigravity
 //! account on this Mac, Codex's ChatGPT account, the whole-rotation numbers,
 //! and how fresh they are.

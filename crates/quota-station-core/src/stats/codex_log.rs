@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! Codex's session logs ("rollouts"): one JSON object per line in
 //! `sessions/YYYY/MM/DD/rollout-<time>-<id>.jsonl` in the Codex folder, and
 //! in `archived_sessions/` once a session is archived (moved, so the index

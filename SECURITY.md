@@ -690,7 +690,7 @@ only counts, never text.
 ## How the tests hold the app to this
 
 - Every file the Antigravity code opens goes through one guard
-  (`crates/quota-station-core/src/antigravity/fs.rs`). It refuses any path
+  (`crates/quota-station-core/src/app_dir.rs`). It refuses any path
   outside the app's folder, and any path through a folder in it that is a
   symlink, before opening it; its tests check both. The symlink check runs
   just before the file is opened, so it guards against mistakes in the

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: CC-BY-NC-SA-4.0
+
 //! The six-hour watch after an Antigravity switch (the rule of the
 //! `agy-prefer-room` switcher draft). A running Antigravity.app writes its
 //! own refreshed token back to the shared login about once an hour, which
@@ -16,8 +19,8 @@ use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 
-use super::fs::AppDir;
 use super::index;
+use crate::app_dir::AppDir;
 
 pub const FILE: &str = "watch.json";
 /// How long after a switch an overwrite is looked for.

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // What the switching parts show (M3): the Claude switch sheet (F04), the
 // pause sheet and the switcher's "why" line (F07), and the feedback after
 // each action. Pure, like `view.ts`: the same model and clock give the same
@@ -16,7 +19,7 @@ const SWITCHER_EVERY = 'trong vòng 3 phút';
 export type NameOf = (slot: number) => string;
 
 export function namesOf(model: Model): NameOf {
-  const names = claudeNames(model.snapshot.claude.accounts);
+  const names = claudeNames(model.snapshot.claude.accounts, null, model.advanced.on);
   return (n) => names.get(n)?.name ?? 'tài khoản ' + n;
 }
 
@@ -177,7 +180,9 @@ export function claudeSheet(
   if (parts.length) facts.push({ k: '', text: name + ' đã dùng ' + parts.join(', ') + '.' });
   facts.push(sessionsFact(sessions));
 
-  const personalOut = target.role === 'personal' && inHours(c.personalHours, now) === false;
+  // The rotation and its hold are Nâng cao's: without it the sheet only switches.
+  const auto = model.advanced.on;
+  const personalOut = auto && target.role === 'personal' && inHours(c.personalHours, now) === false;
   if (personalOut) {
     const m = /^(\d{1,2})-(\d{1,2})$/.exec(c.personalHours ?? '')!;
     facts.push({
@@ -186,7 +191,7 @@ export function claudeSheet(
         'Bây giờ là ' + clock(now.toISOString()) + ', ngoài giờ ' + pad(Number(m[1])) + '–' + pad(Number(m[2])) +
         ' của tài khoản Cá nhân. Nếu để tự chuyển, switcher sẽ đổi sang tài khoản khác ' + SWITCHER_EVERY + '.',
     });
-  } else if (target.membership === 'out' || target.membership === 'ended') {
+  } else if (auto && (target.membership === 'out' || target.membership === 'ended')) {
     facts.push({ k: 'w', text: name + ' không còn trong vòng xoay. Nếu để tự chuyển, switcher sẽ đổi sang tài khoản trong vòng.' });
   }
   const tight = tightest(cells);
@@ -198,6 +203,9 @@ export function claudeSheet(
   else if (legacy)
     facts.push({ k: 'x', text: 'Bộ tự chuyển cũ `' + legacy + '` còn chạy. Tắt nó trước (hướng dẫn ở tab Claude), để hai bên không chuyển chồng nhau.' });
 
+  const title = 'Chuyển Claude sang ' + name + '?';
+  const confirm = 'Chuyển sang ' + name;
+  if (!auto) return { title, facts, options: [], hint: { tone: '', text: '' }, confirm, blocked };
   const options = holdOptions(target, now);
   const cur = options.find((o) => o.v === choice) ?? options[1];
   const paused = pauseOf(model, now);
@@ -216,7 +224,7 @@ export function claudeSheet(
   } else {
     hint = { tone: '', text: 'Tự chuyển vẫn bật. Switcher có thể đổi sang tài khoản khác ở lần kiểm sau (' + SWITCHER_EVERY + ').' };
   }
-  return { title: 'Chuyển Claude sang ' + name + '?', facts, options, hint, confirm: 'Chuyển sang ' + name, blocked };
+  return { title, facts, options, hint, confirm, blocked };
 }
 
 /** The pause runs past a hold ending at `until`, which is written to the minute. */

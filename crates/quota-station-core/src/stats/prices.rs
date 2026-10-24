@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! "Giá API tương đương": what the tokens would cost at the providers' API
 //! prices, only to compare with the subscriptions the owner pays for. This
 //! is the one table of prices in the app; nothing fetches them, they change

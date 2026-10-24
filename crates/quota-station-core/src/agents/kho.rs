@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The app's store of MCP servers that are in no agent's file: those turned
 //! off in Claude Code (which has no off, so the app removed them), those
 //! put away from every agent ("Tắt ở mọi agent, giữ trong kho"), and those
@@ -16,7 +19,7 @@ use serde_json::{Map, Value as Json};
 
 use super::def::Def;
 use super::{redact, Agent};
-use crate::antigravity::fs::AppDir;
+use crate::app_dir::AppDir;
 
 /// In the app's folder.
 pub const FILE: &str = "agents/mcp-store.json";

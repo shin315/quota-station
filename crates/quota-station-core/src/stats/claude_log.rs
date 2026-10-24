@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! Claude Code's session logs: one JSON object per line in
 //! `~/.claude/projects/<folder>/<session>.jsonl` (and the subagents' logs
 //! under a session's folder).

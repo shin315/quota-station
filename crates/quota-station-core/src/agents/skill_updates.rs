@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! Newer versions of the skills installed from GitHub (M11, G).
 //!
 //! Once a day (or on "Kiểm bản mới") the app asks GitHub one thing per
@@ -23,7 +26,7 @@ use serde::{Deserialize, Serialize};
 use sha1::{Digest, Sha1};
 
 use super::skills::{self, Locked};
-use crate::antigravity::fs::AppDir;
+use crate::app_dir::AppDir;
 
 /// In the app's folder.
 pub const FILE: &str = "agents/skill-updates.json";

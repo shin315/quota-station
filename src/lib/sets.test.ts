@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Bộ cấu hình tab's words and rules (M15) on the made-up fixtures.
 
 import { describe, expect, it } from 'vitest';

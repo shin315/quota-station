@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The rotation file, `~/.config/cswap-prefer-team/rotation` (F06): which
 //! claude-swap slots the switcher moves through, the personal slot and its
 //! hours, the two thresholds and when a slot leaves the rotation.
@@ -78,12 +81,21 @@ pub struct Expire {
 }
 
 impl Rules {
-    /// The switcher's built-in values for a Mac with no rotation file, with
-    /// no end times.
-    pub fn defaults() -> Rules {
+    /// Where the editor starts a new rotation file: every account in
+    /// `slots` (account 1 when there is none) in turn, no personal account,
+    /// moving on at 90 % used and passing over at 95 % of the Fable week, no
+    /// end times. A Mac without a file has no rotation: nothing switches on
+    /// its own until one is saved.
+    pub fn starter(slots: &[u32]) -> Rules {
+        let mut team: Vec<u32> = slots.iter().copied().filter(|s| *s > 0).collect();
+        team.sort_unstable();
+        team.dedup();
+        if team.is_empty() {
+            team.push(1);
+        }
         Rules {
-            team: vec![2, 3, 4],
-            personal: Some(1),
+            team,
+            personal: None,
             personal_from: 8,
             personal_to: 23,
             full: 90.0,
@@ -498,8 +510,8 @@ pub fn version(text: &str) -> String {
 }
 
 /// A file that breaks [`Rules::check`] (a personal slot that is also a Team
-/// slot) counts as invalid too, so the editor starts it from the defaults
-/// instead of from rules it could never save.
+/// slot) counts as invalid too, so the editor starts it from
+/// [`Rules::starter`] instead of from rules it could never save.
 pub fn load(file: &Path) -> FileState {
     match std::fs::read_to_string(file) {
         Ok(text) => match parse(&text).and_then(|p| p.rules.check().map(|()| p)) {

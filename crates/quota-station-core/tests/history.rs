@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The switch history: the app's journal, the switcher's log and the app's
 //! Antigravity switch log in one list, and the changes of the account in use
 //! the journal keeps, on synthetic files in temporary folders.
@@ -7,12 +10,16 @@ mod common;
 use std::path::{Path, PathBuf};
 
 use common::temp_dir;
-use quota_station_core::antigravity::fs::AppDir;
+#[cfg(feature = "antigravity-accounts")]
 use quota_station_core::antigravity::index::{self, AccountIndex, AccountSummary};
+#[cfg(feature = "antigravity-accounts")]
 use quota_station_core::antigravity::switch::{self, How, LogLine};
+#[cfg(feature = "antigravity-accounts")]
 use quota_station_core::antigravity::watch;
+use quota_station_core::app_dir::AppDir;
 use quota_station_core::history::{self, App, Cause, Seen, Source};
 use quota_station_core::local_time;
+#[cfg(feature = "antigravity-accounts")]
 use quota_station_core::switcher::Why;
 use time::OffsetDateTime;
 
@@ -20,6 +27,7 @@ const T0: i64 = 1_768_548_000;
 const MIN: i64 = 60;
 
 /// An app folder with `n` Antigravity accounts, and where the switcher's log goes.
+#[cfg(feature = "antigravity-accounts")]
 fn setup(n: usize) -> (AppDir, PathBuf, Vec<String>) {
     let root = temp_dir("history");
     let app = AppDir::new(root.join("app"));
@@ -39,6 +47,15 @@ fn setup(n: usize) -> (AppDir, PathBuf, Vec<String>) {
     (app, root.join("cswap-prefer-team.log"), ids)
 }
 
+/// An app folder and where the switcher's log goes; without the
+/// Antigravity accounts there is no list to put accounts in.
+#[cfg(not(feature = "antigravity-accounts"))]
+fn setup(n: usize) -> (AppDir, PathBuf, Vec<String>) {
+    assert_eq!(n, 0);
+    let root = temp_dir("history");
+    (AppDir::new(root.join("app")), root.join("cswap-prefer-team.log"), Vec::new())
+}
+
 /// A line of the switcher's log at `t`, in this Mac's time as it writes them.
 fn log_line(t: i64, text: &str) -> String {
     let stamp =
@@ -50,11 +67,13 @@ fn write_log(file: &Path, lines: &[String]) {
     std::fs::write(file, lines.concat()).unwrap();
 }
 
+#[cfg(feature = "antigravity-accounts")]
 fn agy_log(app: &AppDir, lines: &[LogLine]) {
     let text: String = lines.iter().map(|l| serde_json::to_string(l).unwrap() + "\n").collect();
     app.write_private(&switch::log_path(app), &text).unwrap();
 }
 
+#[cfg(feature = "antigravity-accounts")]
 #[test]
 fn the_three_sources_make_one_list_newest_first() {
     let (app, log, ids) = setup(2);
@@ -154,6 +173,7 @@ fn a_change_the_switcher_or_the_owner_made_is_not_kept_twice() {
     assert_eq!(observed.len(), 1);
 }
 
+#[cfg(feature = "antigravity-accounts")]
 #[test]
 fn an_overwrite_is_kept_once_and_explains_the_change_it_made() {
     let (app, log, ids) = setup(2);

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // What the Cảnh báo and Firstmate tabs show (F09, F10). The cards carry the
 // words and buttons the Rust side wrote for the macOS card, so both say the
 // same; this file adds when, what was pressed and how it went. Pure, like
@@ -33,6 +36,31 @@ export const ALERT_KINDS: { kind: SwitchKind; title: string; text: string }[] = 
     text: 'Khi firstmate báo hạn mức trong vòng đã cạn. Chỉ trên máy có firstmate.',
   },
 ];
+
+/**
+ * The kinds this Mac can turn on, in that order: the rotation's (2) and
+ * Firstmate's (5) only with Cài đặt › Nâng cao (Firstmate's behind its own
+ * switch too), the overwritten Antigravity switch (4) only in a build that
+ * switches Antigravity. Alert 1 says its thresholds.
+ */
+export function alertKinds(model: Model): { kind: SwitchKind; title: string; text: string }[] {
+  const adv = model.advanced.on;
+  const fm = adv && model.advanced.firstmate;
+  const agy = model.capabilities.agyAccounts;
+  const p = model.alerts.poolAlert;
+  return ALERT_KINDS.filter((k) => (k.kind !== 'leaving' || adv) && (k.kind !== 'firstmate' || fm) && (k.kind !== 'overwrite' || agy)).map((k) => {
+    if (k.kind === 'pool')
+      return {
+        ...k,
+        title: adv ? k.title : 'Hạn mức Claude sắp cạn / có lại',
+        text:
+          'Khi tài khoản đang dùng còn ' + p.dryAtMost + '% trở xuống và không tài khoản' + (adv ? ' nào trong vòng' : ' nào') +
+          ' còn ' + p.roomAtLeast + '%, và khi có lại.' + (fm ? ' Cùng luật với firstmate.' : ''),
+      };
+    if (k.kind === 'login' && !agy) return { ...k, text: k.text.replace(/ Cả tài khoản Antigravity.*$/, '') };
+    return k;
+  });
+}
 
 const FB_TONE: Record<AlertTone, FeedbackView['tone']> = { ok: '', warn: 'warn', bad: 'bad', info: 'info' };
 

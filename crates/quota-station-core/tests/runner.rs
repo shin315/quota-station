@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! quota-axi is replaced by a fake shell script: these tests never run the
 //! real quota-axi, never touch the Keychain, and never read real quota.
 

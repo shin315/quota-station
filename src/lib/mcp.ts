@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The MCP tab's logic (M9), pure so Vitest covers it without a window: the
 // boxes ticked and not written yet, the column menus, the batch they become,
 // and the words around them. Copy follows the approved phase 2 prototype.

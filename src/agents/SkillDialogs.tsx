@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Skills tab's dialogs (M11): the batch preview every box goes through,
 // installing from GitHub in three steps (the repository, the skills with
 // their SKILL.md to read first, the preview), gathering the skills installed

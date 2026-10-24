@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-FileCopyrightText: jlcodes (Cockpit Tools)
+// SPDX-License-Identifier: CC-BY-NC-SA-4.0
+
 // Ported from Cockpit Tools `src-tauri/src/modules/antigravity_credential.rs`
 // (1.3.70, commit 244b957, CC BY-NC-SA 4.0); its two tests are ported in
 // `tests/antigravity_credential.rs`; changes: macOS only (the Windows Credential Manager and

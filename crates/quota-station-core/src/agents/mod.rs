@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The MCP servers of Claude Code, Codex and Antigravity in one table (M9):
 //! each server a row, each agent a column of checkboxes, ticked quickly and
 //! written in one batch after one preview ([`batch`]).
@@ -62,7 +65,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value as Json};
 
-use crate::antigravity::fs::AppDir;
+use crate::app_dir::AppDir;
 use crate::codex::files as codex_files;
 use crate::runner;
 use def::{Def, Place, MASK};

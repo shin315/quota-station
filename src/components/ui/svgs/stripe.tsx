@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-FileCopyrightText: 2022 Pablo Hdez (svgl)
+// SPDX-License-Identifier: MIT
+
 import type { SVGProps } from "react";
 
 const Stripe = (props: SVGProps<SVGSVGElement>) => (

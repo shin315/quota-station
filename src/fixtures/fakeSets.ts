@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Bộ cấu hình tab's fake Rust side (M15), for the tests and the browser
 // preview: three made-up sets named after made-up projects, what a set
 // changes in the fixture MCP and Skills tables as `agents::sets::changes`

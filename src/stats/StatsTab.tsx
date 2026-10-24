@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The Thống kê tab of the main window (M16, J), as the approved prototype's
 // `st` screens: the tokens counted from this Mac's own session logs for
 // Hôm nay (by hour), 7 ngày or 30 ngày; the totals, a column per hour or

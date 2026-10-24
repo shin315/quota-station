@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The history, the five alerts and what Firstmate sees (M6), after every
 //! read: the history keeps a change of the account in use that nothing
 //! explains, the alert rules run on the newest readings and each new alert
@@ -14,13 +17,18 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use quota_station_core::alerts::{self, Effect, Facts, Kind, Record, Switches};
+#[cfg(feature = "antigravity-accounts")]
 use quota_station_core::antigravity::desktop::Desktop;
-use quota_station_core::antigravity::fs::AppDir;
+#[cfg(feature = "antigravity-accounts")]
 use quota_station_core::antigravity::switch::{self as agy};
+#[cfg(feature = "antigravity-accounts")]
 use quota_station_core::antigravity::{index, watch};
+#[cfg(feature = "antigravity-accounts")]
+use quota_station_core::app_dir::AppDir;
 use quota_station_core::firstmate::{self, PoolLine};
 use quota_station_core::history::{self, Entry};
 use quota_station_core::rotation::{self, FileState};
+use quota_station_core::settings::PoolAlert;
 use quota_station_core::snapshot::SectionStatus;
 use quota_station_core::{local_time, runner, switcher};
 use serde::Serialize;
@@ -28,9 +36,11 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
+#[cfg(feature = "antigravity-accounts")]
+use crate::agy_switch;
 use crate::notify::{self, Permission};
 use crate::state::{AppState, Inner, Model, Tab};
-use crate::{agy_switch, reader, windows};
+use crate::{reader, windows};
 
 /// The Cảnh báo tab and the sidebar's count.
 #[derive(Debug, Clone, Serialize)]
@@ -39,6 +49,8 @@ pub struct AlertsView {
     /// Newest first.
     pub recent: Vec<Record>,
     pub switches: Switches,
+    /// Alert 1's thresholds.
+    pub pool_alert: PoolAlert,
     /// Cards with buttons nobody pressed yet.
     pub unanswered: usize,
     pub permission: Permission,
@@ -69,6 +81,7 @@ pub fn alerts_view(inner: &Inner) -> AlertsView {
     AlertsView {
         recent: inner.alerts.recent.clone(),
         switches: inner.settings.alerts,
+        pool_alert: inner.settings.pool_alert,
         unanswered: inner.alerts.unanswered(),
         permission: inner.center.as_ref().map_or(Permission::Unbundled, |c| c.permission()),
     }
@@ -106,7 +119,7 @@ pub fn track_history(state: &AppState) {
         let inner = state.lock();
         // A switch keeps its own line when it ends, then looks again; a
         // reading taken meanwhile is not compared.
-        if inner.switching.is_some() || inner.agy_switching.is_some() {
+        if inner.switching.is_some() || inner.agy_switching() {
             return;
         }
         let snapshot = inner.snapshot();
@@ -115,10 +128,14 @@ pub fn track_history(state: &AppState) {
             .flatten()
             .filter(|n| *n > 0);
         let dir = inner.app_dir();
+        // Only the accounts the app keeps have an id to follow.
+        #[cfg(feature = "antigravity-accounts")]
         let agy = inner
             .agy
             .as_ref()
             .and_then(|r| index::load(&dir).ok().and_then(|idx| agy::shown_active_id(r, &idx)));
+        #[cfg(not(feature = "antigravity-accounts"))]
+        let agy: Option<String> = None;
         (dir, switcher::log_file(&inner.home), inner.seen.clone(), claude, agy)
     };
     let now = OffsetDateTime::now_utc().unix_timestamp();
@@ -129,13 +146,15 @@ pub fn track_history(state: &AppState) {
 /// The rules of the five alerts on the newest readings; new alerts go out.
 fn evaluate(state: &AppState) {
     let now = OffsetDateTime::now_utc();
-    let (dir, home, claude, file) = {
+    let (dir, home, claude, file, pool, advanced) = {
         let inner = state.lock();
         (
             inner.app_dir(),
             inner.home.clone(),
             inner.claude.clone(),
             inner.settings.firstmate_file.clone(),
+            inner.settings.pool_alert,
+            inner.settings.advanced,
         )
     };
     let reading = file.as_deref().map(firstmate::read);
@@ -153,24 +172,30 @@ fn evaluate(state: &AppState) {
             _ => None,
         },
     };
+    #[cfg(feature = "antigravity-accounts")]
     let pending = watch::load(&dir).and_then(|w| w.alert()).is_some();
+    #[cfg(feature = "antigravity-accounts")]
     let running = if pending { Desktop::system().running().ok() } else { None };
     let facts = Facts {
         now,
         offset: local_time::offset_at(now),
         claude: claude.as_ref(),
         rules: rules.as_ref(),
+        #[cfg(feature = "antigravity-accounts")]
         agy: alerts::agy_logins(&dir),
+        #[cfg(feature = "antigravity-accounts")]
         overwrite: alerts::overwrite(&dir, running),
         firstmate: reading.as_ref().and_then(|r| r.as_ref().ok()),
+        pool,
+        advanced,
     };
     let mut inner = state.lock();
     let before = inner.alerts.clone();
-    let switches = inner.settings.alerts;
+    let switches = inner.settings.alert_switches();
     let ids = alerts::evaluate(&mut inner.alerts, &facts, &switches);
     inner.own_dry = claude
         .as_ref()
-        .and_then(|r| alerts::pool_check(r, rules.as_ref(), now, facts.offset))
+        .and_then(|r| alerts::pool_check(r, rules.as_ref(), pool, now, facts.offset))
         .map(|c| c.dry);
     if let Some(center) = inner.center.clone() {
         alerts::deliver(&mut inner.alerts, &ids, &*center);
@@ -214,6 +239,7 @@ pub fn on_card(app: &AppHandle, id: String, action: Option<String>) {
     });
 }
 
+#[cfg(feature = "antigravity-accounts")]
 fn refusal(code: &str) -> &'static str {
     match code {
         "busy" => "đang có một lần chuyển khác",
@@ -224,6 +250,7 @@ fn refusal(code: &str) -> &'static str {
     }
 }
 
+#[cfg(feature = "antigravity-accounts")]
 fn account_id(dir: &AppDir, number: u32) -> Option<String> {
     let i = (number as usize).checked_sub(1)?;
     index::load(dir).ok()?.accounts.get(i).map(|a| a.id.clone())
@@ -261,6 +288,7 @@ pub async fn press(
             let _ = app.emit_to(windows::POPOVER, "openSwitch", slot);
         }
         Effect::OpenClaudeSwitch { slot } => return Ok(Pressed { open_switch: Some(slot) }),
+        #[cfg(feature = "antigravity-accounts")]
         Effect::DismissOverwrite => {
             watch::dismiss(&dir).map_err(|e| e.to_string())?;
             reader::publish(app, &shared);
@@ -269,17 +297,26 @@ pub async fn press(
         Effect::OpenSkills => windows::open_main(app, Tab::Skills),
         Effect::OpenSettings => windows::open_main(app, Tab::Settings),
         Effect::IgnoreEnv { name } => crate::env::ignore_name(app, &shared, &name)?,
+        #[cfg(feature = "antigravity-accounts")]
         Effect::OpenVerification { number } => {
             let id = account_id(&dir, number).ok_or("notFound")?;
             crate::antigravity::open_verification(&dir, &id)?;
         }
+        // Only the Antigravity cards offer these, and a build without the
+        // Antigravity accounts sends none.
+        #[cfg(not(feature = "antigravity-accounts"))]
+        Effect::DismissOverwrite | Effect::OpenVerification { .. } => {
+            let _ = &dir;
+        }
+        #[cfg(feature = "antigravity-accounts")]
         Effect::SwitchAgy { number, how } => {
+            let roles = shared.lock().settings.advanced;
             let said = match account_id(&dir, number) {
-                None => alerts::agy_refused(number, refusal("unknownAccount")),
+                None => alerts::agy_refused(number, refusal("unknownAccount"), roles),
                 Some(account) => {
                     match agy_switch::switch(app, shared.clone(), account, how).await {
-                        Ok(outcome) => alerts::agy_result(&outcome),
-                        Err(e) => alerts::agy_refused(number, refusal(&e)),
+                        Ok(outcome) => alerts::agy_result(&outcome, roles),
+                        Err(e) => alerts::agy_refused(number, refusal(&e), roles),
                     }
                 }
             };
@@ -301,7 +338,8 @@ pub fn test_alert(app: AppHandle, state: State<'_, AppState>, kind: Kind) -> Mod
     let now = OffsetDateTime::now_utc();
     {
         let mut inner = state.lock();
-        let alert = alerts::sample(kind, now.unix_timestamp(), local_time::offset_at(now));
+        let roles = inner.settings.advanced;
+        let alert = alerts::sample(kind, now.unix_timestamp(), local_time::offset_at(now), roles);
         let id = alerts::keep_test(&mut inner.alerts, alert);
         if let Some(center) = inner.center.clone() {
             alerts::deliver(&mut inner.alerts, &[id], &*center);
@@ -324,6 +362,29 @@ pub fn set_alert_switch(
         let mut inner = state.lock();
         let mut settings = inner.settings.clone();
         settings.alerts.set(kind, on);
+        settings.save(&inner.settings_file).map_err(|e| e.to_string())?;
+        inner.settings = settings;
+    }
+    reader::publish(&app, &state);
+    Ok(state.lock().model())
+}
+
+/// Sets alert 1's two thresholds, in percent left: refused (`range`,
+/// `order`) unless each is 1 to 99 and the room asked of another account is
+/// more than what counts as dry.
+#[tauri::command]
+pub fn set_pool_alert(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    dry_at_most: u8,
+    room_at_least: u8,
+) -> Result<Model, String> {
+    let pool = PoolAlert { dry_at_most, room_at_least };
+    pool.check().map_err(str::to_string)?;
+    {
+        let mut inner = state.lock();
+        let mut settings = inner.settings.clone();
+        settings.pool_alert = pool;
         settings.save(&inner.settings_file).map_err(|e| e.to_string())?;
         inner.settings = settings;
     }

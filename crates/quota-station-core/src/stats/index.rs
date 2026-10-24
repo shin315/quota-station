@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The index, `stats/index.json` in the app's folder: how far each log was
 //! read, what each log told so far (its version, Codex's running totals),
 //! the counts per quarter hour, agent, model and project, and the keys of
@@ -24,7 +27,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use super::{claude_log, codex_log, Agent, Line, Tokens, Usage};
-use crate::antigravity::fs::AppDir;
+use crate::app_dir::AppDir;
 
 pub const FILE: &str = "stats/index.json";
 /// Bumped when the index changes shape: an index of another version is

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The MCP tab's pending list and column menus (M9), on the fixture table.
 
 import { describe, expect, it } from 'vitest';

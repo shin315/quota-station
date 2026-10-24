@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // A tab of the main window: its title row (which drags the window, as a
 // title bar would), the grids its cards sit in, and the list rows they share.
 

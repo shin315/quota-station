@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The rotation file in temporary folders, checked by a fake quota-axi that
 //! prints a fixture: these tests never touch the real rotation file and never
 //! run the real quota-axi.
@@ -95,17 +98,17 @@ fn every_reason_quota_axi_gives() {
 
 #[test]
 fn rules_are_checked_before_writing() {
-    assert_eq!(Rules::defaults().check(), Ok(()));
-    let mut r = Rules::defaults();
+    assert_eq!(common::sample_rules().check(), Ok(()));
+    let mut r = common::sample_rules();
     r.personal = Some(3);
     assert_eq!(r.check().unwrap_err(), "rotation_personal_in_team");
-    let mut r = Rules::defaults();
+    let mut r = common::sample_rules();
     r.personal_to = 24;
     assert_eq!(r.check().unwrap_err(), "rotation_bad_value:personal_hours");
-    let mut r = Rules::defaults();
+    let mut r = common::sample_rules();
     r.expire = vec![Expire { slot: 2, at: "2026-01-16 17:45".into() }];
     assert_eq!(r.check().unwrap_err(), "rotation_bad_value:expire");
-    let mut r = Rules::defaults();
+    let mut r = common::sample_rules();
     r.team.clear();
     assert_eq!(r.check().unwrap_err(), "rotation_bad_value:team");
 }
@@ -133,8 +136,8 @@ fn a_rewrite_keeps_every_other_line_and_one_stamp_at_the_top() {
     assert_eq!(back.ignored_keys, vec!["note".to_string()]);
 
     // A new file holds the six keys.
-    let fresh = render(&Rules::defaults(), &stamp("Mac A"), None);
-    assert_eq!(parse(&fresh).unwrap().rules, Rules::defaults());
+    let fresh = render(&common::sample_rules(), &stamp("Mac A"), None);
+    assert_eq!(parse(&fresh).unwrap().rules, common::sample_rules());
     assert!(fresh.contains("personal_hours = 8-23\nfull = 90\nfable_full = 95\nexpire = \n"));
 }
 
@@ -271,7 +274,7 @@ fn a_file_changed_since_the_editor_read_it_is_not_overwritten() {
     let theirs = render(&parse(FILE).unwrap().rules, &stamp("Mac B"), Some(FILE));
     std::fs::write(&s.file, &theirs).unwrap();
 
-    let mine = render(&Rules::defaults(), &stamp("Mac A"), Some(FILE));
+    let mine = render(&common::sample_rules(), &stamp("Mac A"), Some(FILE));
     let err =
         apply(&s.file, Some(&s.quota_axi), &[], &mine, started.as_deref(), now()).unwrap_err();
     assert_eq!(err, ApplyError::Changed);
@@ -319,7 +322,7 @@ fn a_rewrite_drops_lines_quota_axi_cannot_read_and_the_backup_keeps_them() {
     let s = setup("rot-drop");
     let before = format!("{FILE}not a key line\nTeam = 2\nnote = kept\n");
     assert_eq!(parse(&before).unwrap_err(), "rotation_malformed_line");
-    let text = render(&Rules::defaults(), &stamp("Mac A"), Some(&before));
+    let text = render(&common::sample_rules(), &stamp("Mac A"), Some(&before));
     assert!(!text.contains("not a key line") && !text.contains("Team = 2"), "{text}");
     assert!(text.contains("note = kept\n"));
     std::fs::create_dir_all(s.file.parent().unwrap()).unwrap();

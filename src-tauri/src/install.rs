@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The app itself (M7): its version, launching at login, and
 //! "Cập nhật từ mã nguồn", which pulls the clone set in settings and runs
 //! its `scripts/install.sh` over the running copy, then opens the new copy

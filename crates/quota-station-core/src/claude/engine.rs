@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The rotation's decision, ported from the owner's `cswap-prefer-team`
 //! script (its Python block), so Quota Station keeps Claude on the same
 //! accounts the script did, with the same rules:

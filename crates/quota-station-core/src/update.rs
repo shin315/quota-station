@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! "Cập nhật từ mã nguồn" (M7): `git pull --ff-only` in the clone set in
 //! settings, then that clone's `scripts/install.sh`, which builds the app and
 //! puts it where the running copy is. Nothing runs unless the owner presses

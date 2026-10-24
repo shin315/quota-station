@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! `quota-station claude …`: the accounts from the command line, for
 //! Firstmate, the rotation's LaunchAgent and the owner in a terminal. No
 //! command prints a token; only `status --emails` prints emails.
@@ -127,7 +130,12 @@ pub fn run(cli: &Cli, args: &[String], out: &mut dyn Write, err: &mut dyn Write)
         }
         "rotate" => {
             let decided = if has("--dry-run") {
-                rotate::dry_run(store, &cli.tools, &rotate::rules(store), OffsetDateTime::now_utc())
+                rotate::dry_run(
+                    store,
+                    &cli.tools,
+                    rotate::rules(store).as_ref(),
+                    OffsetDateTime::now_utc(),
+                )
             } else {
                 rotate::run(store, &cli.tools)
             };

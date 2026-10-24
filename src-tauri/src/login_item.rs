@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The app as a login item through macOS's `SMAppService.mainApp`: the
 //! entry in System Settings › General › Login Items, with no plist of our
 //! own. Only the switch in settings calls [`MainApp::register`]; nothing

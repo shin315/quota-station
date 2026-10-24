@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! "Cập nhật từ mã nguồn" against temporary git repositories: a bare
 //! `origin`, the clone the app updates from, and a second clone that pushes
 //! new commits. The clone's `scripts/install.sh` is a fake that records its

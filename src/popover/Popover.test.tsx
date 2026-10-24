@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PopoverApp } from '../App';
@@ -120,6 +123,11 @@ describe('popover', () => {
     // A pause is something to act on: its line shows.
     await open(fixtureModel('fresh', { switcher: heldSwitcher() }));
     expect(screen.getByRole('switch', { name: /Tự chuyển Claude/ }).closest('.li')!.querySelector('small')).toBeTruthy();
+  });
+
+  it('without Nâng cao the footer has no automatic switching', async () => {
+    await open({ ...fixtureModel('fresh'), advanced: { on: false, firstmate: true } });
+    expect(screen.queryByRole('switch', { name: /Tự chuyển Claude/ })).toBeNull();
   });
 
   it('Đang dùng heads the popover: each service, its account, share used and reset', async () => {

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! "Mở khi đăng nhập" (M7): the app as a login item, through macOS's own
 //! mechanism (`SMAppService.mainApp` in the app). Off until the owner turns
 //! it on in settings; nothing registers it on install or at start, and

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // Browser preview for `npm run dev`: the popover or the main window on a
 // fixture, without Tauri. `?state=keychain&view=window&tab=claude&error=notFound`.
 // Switching (M3): `switcher=held|noguard|auto|stopped|missing` sets the

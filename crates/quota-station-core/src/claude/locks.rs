@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-FileCopyrightText: 2026 Onur Cetinkol (claude-swap)
+// SPDX-License-Identifier: MIT
+
 // Claude Code's lock folders and their order are claude-swap's
 // (`claude_locks.py`, MIT, https://github.com/realiti4/claude-swap), which
 // follows Claude Code's own: the `proper-lockfile` protocol, a folder made

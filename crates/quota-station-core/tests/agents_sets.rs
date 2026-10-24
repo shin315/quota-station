@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! Configuration sets (M15) on a temporary home: Codex's `config.toml`
 //! with MCP servers, a custom provider and a `[[skills.config]]` entry,
 //! Antigravity's `mcp_config.json`, Claude Code's list kept by a fake
@@ -18,14 +21,14 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use common::claude::fake_claude;
-use common::google::fake_security;
+use common::keychain::fake_security;
 use common::{script, temp_dir};
 use quota_station_core::agents::batch::{self, Change, To};
 use quota_station_core::agents::secrets::Secrets;
 use quota_station_core::agents::sets::{self, ApplyError, Provider, Sent, Set, SetError, Want};
 use quota_station_core::agents::skills::{self, SkillPlaces};
 use quota_station_core::agents::{self, Agent, Places};
-use quota_station_core::antigravity::fs::AppDir;
+use quota_station_core::app_dir::AppDir;
 use time::OffsetDateTime;
 
 const TRAPS: &[&str] = &[

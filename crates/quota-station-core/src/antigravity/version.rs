@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-FileCopyrightText: jlcodes (Cockpit Tools)
+// SPDX-License-Identifier: CC-BY-NC-SA-4.0
+
 // Ported from Cockpit Tools `src-tauri/src/modules/wakeup_gateway.rs`
 // (`official_antigravity_root_for_version`, `official_antigravity_app_version`,
 // the product.json and Info.plist lookups, `parse_version_from_plutil_output`)
@@ -16,7 +20,7 @@
 use std::path::Path;
 use std::time::Duration;
 
-use super::fs::Bundle;
+use crate::app_dir::Bundle;
 use crate::runner;
 
 /// Where Cockpit looks for Antigravity when no app path is set.

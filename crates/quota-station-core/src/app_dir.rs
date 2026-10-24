@@ -1,8 +1,13 @@
-//! Every file the Antigravity module reads or writes goes through here, and
-//! only paths inside the app's Application Support folder are allowed: a
-//! path anywhere else, or one that passes through a symlinked folder, is
-//! refused before it is opened. So no bug in this module can reach another
-//! tool's login files (SECURITY.md lists them). The one other place read is
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
+//! Every file of the app's own the core reads or writes in its Application
+//! Support folder goes through here (it lived in the Antigravity module
+//! until that became the `antigravity-accounts` feature), and only paths
+//! inside that folder are allowed: a path anywhere else, or one that passes
+//! through a symlinked folder, is refused before it is opened. So no bug in
+//! the Antigravity accounts can reach another tool's login files
+//! (SECURITY.md lists them). The one other place read is
 //! an installed app's bundle ([`Bundle`]), only for its version, and never
 //! written.
 //!

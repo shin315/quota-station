@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The variables that override a login (M14, I), on fake home folders with
 //! fake shell files and a fake `launchctl` that records its words. Nothing
 //! here reads the real home, its shell files or launchd's environment.
@@ -16,7 +19,7 @@ use common::{script, temp_dir};
 use quota_station_core::agents::env_check::{self, Check, Found, Place, Weight, VARS};
 use quota_station_core::agents::Agent;
 use quota_station_core::alerts::{self, Effect, Kind, Memory, Tone};
-use quota_station_core::antigravity::fs::AppDir;
+use quota_station_core::app_dir::AppDir;
 use time::UtcOffset;
 
 /// Planted as every value: none of it may come out.

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! Claude Code's MCP list for every project: the top-level `mcpServers` of
 //! `~/.claude.json`. The app reads that key only (the rest of the file,
 //! which Claude Code rewrites all the time, is skipped as it is parsed and

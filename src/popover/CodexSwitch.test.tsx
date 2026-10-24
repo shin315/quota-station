@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // Switching Codex from the popover and the main window (M8), on the fake
 // Rust side: nothing here reads or writes Codex's files, restarts anything
 // or opens CC Switch. The custom provider is the made-up `relay`.
@@ -208,7 +211,7 @@ async function openTab(model: Model) {
 }
 
 describe('the Codex tab', () => {
-  it('reads like the Claude tab: the two sides in one table, the detail behind Chi tiết, the CC Switch guide folded', async () => {
+  it('reads like the Claude tab: the two sides in one table, the detail behind Chi tiết, no CC Switch guide', async () => {
     const fake = await openTab(withCodex());
     expect(fake.api.codexCheck).toHaveBeenCalled();
     const sides = within(screen.getByRole('list', { name: 'Nhà cung cấp Codex' })).getAllByRole('listitem');
@@ -224,11 +227,9 @@ describe('the Codex tab', () => {
     const more = details.parentElement!;
     for (const t of ['có · experimental_bearer_token', 'auth.json · [mcp_servers]', 'mã băm khớp', 'ChatGPT 128 · relay 54 (codex resume tách theo nhà cung cấp)', 'ChatGPT → relay · đã khởi động lại tiến trình nền'])
       expect(within(more).getByText(t)).toBeTruthy();
-    const guide = document.getElementById('cc-card')!;
-    expect(within(guide).getByText('Ngừng dùng CC Switch · 3/8')).toBeTruthy();
-    expect(within(guide).getByText('Xem các bước').tagName).toBe('SUMMARY');
-    expect(within(guide).getAllByRole('listitem')).toHaveLength(8);
-    expect(within(guide).getByText(/Máy này: 1\/3 ngày từ lần chuyển đầu/)).toBeTruthy();
+    // The author's own guide to leave CC Switch is not part of the app.
+    expect(document.getElementById('cc-card')).toBeNull();
+    expect(screen.queryByText(/Ngừng dùng CC Switch/)).toBeNull();
 
     await press(within(sides[0]).getByRole('button', { name: 'Chuyển sang tài khoản ChatGPT' }));
     expect(screen.getByRole('dialog', { name: 'Chuyển Codex về tài khoản ChatGPT?' })).toBeTruthy();

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // The MCP tab (M9) on the fake Rust side: nothing here reads or writes an
 // agent's file, runs `claude` or opens the Keychain. The servers are made up.
 
@@ -282,7 +285,7 @@ describe('the MCP tab', () => {
     const fake = await openTab();
     await press(screen.getByRole('button', { name: 'Dán khoá' }));
     const d = screen.getByRole('dialog', { name: 'Dán khoá cho ticket-desk' });
-    expect(within(d).getByText('Bitwarden: Ticket Desk')).toBeTruthy();
+    expect(within(d).getByText('Lưu ở: Ticket Desk')).toBeTruthy();
     fireEvent.change(within(d).getByLabelText('TICKET_DESK_KEY'), { target: { value: 'not-a-real-key' } });
     await press(within(d).getByRole('button', { name: 'Lưu vào Keychain' }));
     expect(fake.api.mcpSaveSecret).toHaveBeenCalledWith('ticket-desk', 'env:TICKET_DESK_KEY', 'not-a-real-key', null);

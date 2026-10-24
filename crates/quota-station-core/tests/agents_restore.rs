@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! Restoring a pack's skills, plugins and instruction files (M12) between
 //! two temporary homes: the Mac the pack comes from, with a shared folder
 //! of skills, skills installed by hand, plugins listed by a fake `claude`
@@ -28,7 +31,7 @@ use quota_station_core::agents::secrets::Secrets;
 use quota_station_core::agents::skill_updates;
 use quota_station_core::agents::skills::{self, SkillPlaces};
 use quota_station_core::agents::{self, kho, Agent, Places};
-use quota_station_core::antigravity::fs::AppDir;
+use quota_station_core::app_dir::AppDir;
 use time::OffsetDateTime;
 
 const PROVIDER_TRAP: &str = "trap-provider-key-1234";
@@ -233,7 +236,7 @@ fn mac(tag: &str, codex: &str) -> Mac {
     Mac {
         places: Places::new(&home, &home.join(".codex"), None),
         skills: SkillPlaces::new(&home, &home.join(".codex"), Some(npx.program.clone())),
-        secrets: Secrets::fake(common::google::fake_security(&keychain)),
+        secrets: Secrets::fake(common::keychain::fake_security(&keychain)),
         app: AppDir::new(root.join("app")),
         root,
         home,

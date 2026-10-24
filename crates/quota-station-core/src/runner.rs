@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! Finding and running quota-axi.
 //!
 //! The app only ever runs quota-axi reads. Every read passes

@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2026 Shin315
+ * SPDX-License-Identifier: MIT
+ */
+
 /* The glass: what Tailwind's utilities cannot say well on their own. Each
    material keeps its fallbacks with it: the solid ground when macOS reduces
    transparency, when a window asks for it (data-material="solid"), and when

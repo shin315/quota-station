@@ -1,10 +1,13 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 //! The app's Codex switch log, `codex/switch-log.jsonl` in its folder: each
 //! switch made here, and each change of provider the app saw that it did
 //! not make. Providers are kept by id (`openai` for the ChatGPT login).
 
 use serde::{Deserialize, Serialize};
 
-use crate::antigravity::fs::AppDir;
+use crate::app_dir::AppDir;
 
 pub const FILE: &str = "codex/switch-log.jsonl";
 const KEEP: usize = 200;

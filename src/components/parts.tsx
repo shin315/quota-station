@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
 // Small components named after the design system: Meter, Chip, Button,
 // Banner, Feedback, Toast, Toggle and ChoiceGroup, drawn with Tailwind on the
 // tokens and with shadcn/ui's Button, Badge, Switch and RadioGroup.

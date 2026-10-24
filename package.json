@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "license": "CC-BY-NC-SA-4.0",
+  "license": "MIT AND CC-BY-NC-SA-4.0",
   "description": "Quota Station: AI coding quota in the macOS menu bar",
   "scripts": {
     "dev": "vite",
