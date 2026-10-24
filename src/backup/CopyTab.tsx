@@ -183,7 +183,7 @@ export function CopyTab({ model, feedback, copy, onAction }: CopyTabProps) {
               {t('Lấy từ ' + copy.other + ' về', 'Bring from ' + copy.other)}
             </Segment>
           </Segmented>
-          <Button primary className="ml-auto" disabled={!ssh || reading || copy.working || !copy.mac} onClick={copy.compare}>
+          <Button primary disabled={!ssh || reading || copy.working || !copy.mac} onClick={copy.compare}>
             {copy.phase === 'idle' ? t('So sánh', 'Compare') : t('So sánh lại', 'Compare again')}
           </Button>
         </div>

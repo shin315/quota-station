@@ -370,14 +370,19 @@ function AccStep(props: SetupProps & { back(): void; next(): void }) {
       >
         {t('Tài khoản Claude', 'Claude accounts')}
       </Title>
-      <section className="material-card grid rounded-card px-4 pt-3.5 pb-4" aria-label={t('Tài khoản Claude', 'Claude accounts')}>
-        <div className="flex items-baseline gap-2.5 pb-2">
+      {/* One grid for the head and the rows: "Tên gọi" stands over the nicknames, and every
+          nickname lines up whether or not its row has "Bỏ". */}
+      <section
+        className="material-card grid grid-cols-[minmax(0,1fr)_150px_auto] gap-x-3 rounded-card px-4 pt-3.5 pb-4"
+        aria-label={t('Tài khoản Claude', 'Claude accounts')}
+      >
+        <div className="col-span-full grid grid-cols-subgrid items-baseline pb-2">
           <b className="text-[17px] font-semi text-heading">{t(list.length + ' tài khoản', list.length + (list.length === 1 ? ' account' : ' accounts'))}</b>
           <span className="text-sm text-ink2">{t('Tên gọi', 'Nickname')}</span>
         </div>
-        <ul className="m-0 grid list-none gap-2 p-0">
+        <ul className="col-span-full m-0 grid list-none grid-cols-subgrid gap-y-2 p-0">
           {list.map((row) => (
-            <li key={row.slot} className="flex items-center gap-3">
+            <li key={row.slot} className="col-span-full grid grid-cols-subgrid items-center">
               <div className="grid min-w-0 flex-1 gap-0.5">
                 <b className="truncate text-sm font-med text-heading">{row.email ?? accountName(row)}</b>
                 <small className="text-[13px] text-ink2">
@@ -387,7 +392,7 @@ function AccStep(props: SetupProps & { back(): void; next(): void }) {
               </div>
               <Nickname row={row} onSave={(alias) => props.onSetAlias(row.slot, alias)} />
               {/* The account Claude Code is signed in to stays: switching needs it. */}
-              {row.active ? null : (
+              {row.active ? <span /> : (
                 <LinkButton small disabled={busy} onClick={() => props.onRemove(row.slot)} aria-label={t('Bỏ ', 'Remove ') + (row.email ?? accountName(row))}>
                   {t('Bỏ', 'Remove')}
                 </LinkButton>

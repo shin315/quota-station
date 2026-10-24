@@ -253,33 +253,36 @@ export function PointTable({ report }: { report: StatsReport }) {
   const rows = report.points.filter((p) => pointTotal(p) > 0);
   return (
     <>
-      <table className={TABLE}>
-        <caption className="sr-only">{chartTitle(report.period)}</caption>
-        <thead>
-          <tr>
-            <th scope="col">{report.period === 'today' ? t('Giờ', 'Hour') : t('Ngày', 'Day')}</th>
-            <th scope="col">Claude Code</th>
-            <th scope="col">Codex</th>
-            <th scope="col">{t('Tổng', 'Total')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((p) => (
-            <tr key={p.label}>
-              <td>{p.label}</td>
-              <td>{inUnit(p.claude, unit)}</td>
-              <td>{inUnit(p.codex, unit)}</td>
-              <td>{inUnit(pointTotal(p), unit)}</td>
+      {/* Thirty days or twenty-four hours scroll inside the card, under their head row. */}
+      <div className="max-h-[360px] overflow-y-auto overscroll-contain [&_thead_th]:sticky [&_thead_th]:top-0 [&_thead_th]:bg-card">
+        <table className={TABLE}>
+          <caption className="sr-only">{chartTitle(report.period)}</caption>
+          <thead>
+            <tr>
+              <th scope="col">{report.period === 'today' ? t('Giờ', 'Hour') : t('Ngày', 'Day')}</th>
+              <th scope="col">Claude Code</th>
+              <th scope="col">Codex</th>
+              <th scope="col">{t('Tổng', 'Total')}</th>
             </tr>
-          ))}
-          <tr className="font-semi">
-            <td>{t('Cộng', 'Sum')}</td>
-            <td>{inUnit(report.claude, unit)}</td>
-            <td>{inUnit(report.codex, unit)}</td>
-            <td>{inUnit(report.total, unit)}</td>
-          </tr>
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((p) => (
+              <tr key={p.label}>
+                <td>{p.label}</td>
+                <td>{inUnit(p.claude, unit)}</td>
+                <td>{inUnit(p.codex, unit)}</td>
+                <td>{inUnit(pointTotal(p), unit)}</td>
+              </tr>
+            ))}
+            <tr className="font-semi">
+              <td>{t('Cộng', 'Sum')}</td>
+              <td>{inUnit(report.claude, unit)}</td>
+              <td>{inUnit(report.codex, unit)}</td>
+              <td>{inUnit(report.total, unit)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
       <p className="mt-1.5 mb-0 text-xs text-ink2">
         {unitWords(unit)}
         {rows.length < report.points.length ? t(' · giờ, ngày không có token không ghi', ' · hours and days with no tokens are left out') : ''}

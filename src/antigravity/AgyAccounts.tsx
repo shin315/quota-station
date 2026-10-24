@@ -161,7 +161,7 @@ export function loginChips(row: AgyRowView | undefined): ChipView[] {
 
 export function AddAccount({ logins }: { logins: AgyLogins }) {
   return (
-    <Button primary className="text-s" disabled={!!logins.notice || logins.view.indexError || logins.busy} onClick={logins.login}>
+    <Button primary lead="plus" disabled={!!logins.notice || logins.view.indexError || logins.busy} onClick={logins.login}>
       {t('Thêm tài khoản', 'Add account')}
     </Button>
   );

@@ -94,7 +94,7 @@ function SetRow({ set, model, sets }: { set: ConfigSet; model: Model; sets: Sets
       </div>
       <div className={ROW_ACTIONS}>
         <Button primary={!inUse} disabled={sets.working} label={t('Áp bộ ' + set.name, 'Apply the set ' + set.name)} onClick={() => sets.openApply(set)}>
-          {t('Áp…', 'Apply…')}
+          {t('Áp dụng…', 'Apply…')}
         </Button>
         <LinkButton small aria-label={t('Sửa bộ ' + set.name, 'Edit the set ' + set.name)} disabled={sets.working} onClick={() => sets.openEdit(set)}>
           {t('Sửa', 'Edit')}
