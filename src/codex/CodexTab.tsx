@@ -276,9 +276,10 @@ function Details({ v, now, onAction }: { v: CodexView; now: Date; onAction(a: Ac
         <div>
           <b className="mb-1 block text-xs font-semi text-ink2">{t('Lần chuyển gần đây', 'Recent switches')}</b>
           {v.recent.length ? (
-            <div className="grid gap-1">
+            // One grid: the time column as wide as its longest time ("hôm qua 22:47" on one line).
+            <div className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-2 gap-y-1">
               {v.recent.map((e) => (
-                <div key={e.at + e.to + e.result} className="grid grid-cols-[64px_minmax(0,1fr)] gap-2">
+                <div key={e.at + e.to + e.result} className="col-span-full grid grid-cols-subgrid">
                   <time className="tabular-nums">{dayClock(e.at, now)}</time>
                   <span className="text-ink">{recentText(v, e)}</span>
                 </div>
