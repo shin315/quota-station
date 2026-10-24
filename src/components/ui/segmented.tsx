@@ -7,7 +7,8 @@ import { Toggle as TogglePrimitive } from 'radix-ui';
 
 import { cn } from '@/lib/utils';
 
-// macOS's segmented control: a grey track, the chosen segment raised on it.
+// macOS's segmented control: a grey track, the chosen segment filled with
+// the accent (--seg-on) in white, as the design draws it.
 // Each segment is a toggle button (aria-pressed) in a group, so every
 // segment stays in the Tab order as before.
 const segmentedVariants = cva('gap-0.5 rounded-lg bg-fill2 p-0.5', {
@@ -25,13 +26,12 @@ const segmentedVariants = cva('gap-0.5 rounded-lg bg-fill2 p-0.5', {
 });
 
 const segmentVariants = cva(
-  'cursor-pointer whitespace-nowrap rounded-md border-0 bg-transparent data-[state=on]:bg-card',
+  'cursor-pointer whitespace-nowrap rounded-md border-0 bg-transparent data-[state=on]:bg-seg-on data-[state=on]:text-white',
   {
     variants: {
       variant: {
-        fill: 'px-1 py-1 text-s data-[state=on]:font-semi data-[state=on]:shadow-[0_1px_3px_rgba(0,0,0,.18)] dark:data-[state=on]:bg-[#5a5a5f]',
-        inline:
-          'px-1 py-1 text-s data-[state=on]:cursor-default data-[state=on]:font-semi data-[state=on]:shadow-[0_1px_3px_rgba(0,0,0,.18)] dark:data-[state=on]:bg-[#5a5a5f]',
+        fill: 'px-1 py-1 text-s data-[state=on]:font-semi data-[state=on]:shadow-[0_1px_3px_rgba(0,0,0,.18)]',
+        inline: 'px-1 py-1 text-s data-[state=on]:cursor-default data-[state=on]:font-semi data-[state=on]:shadow-[0_1px_3px_rgba(0,0,0,.18)]',
         menubar:
           'inline-flex items-center gap-1.5 px-3 py-1 text-[12.5px] text-ink [font-family:inherit] disabled:text-ink3 data-[state=on]:cursor-default data-[state=on]:font-semi data-[state=on]:shadow-[0_1px_3px_rgba(0,0,0,.2)]',
       },

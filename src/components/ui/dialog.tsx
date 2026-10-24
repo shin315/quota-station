@@ -31,8 +31,8 @@ const dialogContentVariants = cva('material-dlg overflow-y-auto shadow-dlg', {
     kind: {
       /** In the popover: slid up from its bottom edge. */
       sheet: 'absolute right-2 bottom-2 left-2 z-[21] max-h-[calc(100%-16px)] rounded-dlg p-4',
-      /** In the main window: in the middle. */
-      dialog: 'max-h-[calc(100%-32px)] rounded-dlg px-5 pt-5 pb-[18px]',
+      /** In the main window: in the middle, never wider than the window less a margin. */
+      dialog: 'max-h-[calc(100%-32px)] max-w-[calc(100%-32px)] rounded-dlg px-5 pt-5 pb-[18px]',
     },
     size: {
       narrow: 'w-[380px]',
@@ -101,9 +101,24 @@ function DialogLead({ className, ...props }: React.ComponentProps<'p'>) {
   return <p data-slot="dialog-lead" className={cn('mt-0 mb-2 text-sm text-ink2', className)} {...props} />;
 }
 
-/** The buttons at the end, to the right. */
+/**
+ * The buttons at the end, to the right. In a dialog that scrolls they stay at
+ * its foot, on the dialog's own glass, over what scrolls by under them.
+ */
 function DialogButtons({ className, ...props }: React.ComponentProps<'div'>) {
-  return <div data-slot="dialog-buttons" className={cn('flex flex-wrap justify-end gap-2', className)} {...props} />;
+  const kind = React.useContext(DialogKindContext);
+  return (
+    <div
+      data-slot="dialog-buttons"
+      className={cn(
+        'flex flex-wrap justify-end gap-2',
+        kind === 'dialog' &&
+          'sticky bottom-0 z-[1] -mx-5 -mb-[18px] bg-glass-dlg px-5 pt-2.5 pb-[18px] backdrop-blur-[var(--glass-blur)] backdrop-saturate-[var(--glass-sat)]',
+        className,
+      )}
+      {...props}
+    />
+  );
 }
 
 /** A heading inside a dialog or a sheet: small, bold and grey, with its icon. */

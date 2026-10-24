@@ -103,8 +103,11 @@ function niceStep(max: number): number {
   return 10 * pow;
 }
 
-const W = 640;
+/** The chart's width until its box is measured; then it is drawn at the box's own width, so its words keep their size. */
+const W_FIRST = 640;
 const H = 210;
+/** The least room a day's or an hour's label needs under its column. */
+const LABEL_ROOM = 36;
 const PAD_L = 40;
 const PAD_B = 22;
 const PAD_T = 18;
@@ -117,6 +120,15 @@ function barPath(x: number, w: number, top: number, base: number): string {
 
 /** The column chart: the total of each hour or day, one colour. */
 export function ColumnChart({ points, period }: { points: StatsPoint[]; period: StatsPeriod }) {
+  const box = useRef<HTMLDivElement | null>(null);
+  const [W, setW] = useState(W_FIRST);
+  useEffect(() => {
+    const el = box.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => setW(Math.max(280, Math.round(el.clientWidth))));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const n = points.length;
   const totals = points.map(pointTotal);
   const max = Math.max(0, ...totals);
@@ -128,7 +140,8 @@ export function ColumnChart({ points, period }: { points: StatsPoint[]; period: 
   const bw = Math.min(24, band * 0.62);
   const y = (v: number) => PAD_T + ih - (v / unit.div / top) * ih;
   const tallest = max > 0 ? totals.indexOf(max) : -1;
-  const every = labelEvery(n);
+  // Fewer labels where the columns are narrow, so they never run into each other.
+  const every = Math.max(labelEvery(n), Math.ceil(LABEL_ROOM / band));
   const ticks: number[] = [];
   for (let v = 0; v <= top + 1e-9; v += step) ticks.push(v);
 
@@ -155,7 +168,7 @@ export function ColumnChart({ points, period }: { points: StatsPoint[]; period: 
   const tip = shown != null ? points[shown] : null;
   const tipX = shown != null ? ((PAD_L + band * shown + band / 2) / W) * 100 : 0;
   return (
-    <div className="relative">
+    <div className="relative" ref={box}>
       <svg viewBox={`0 0 ${W} ${H}`} className="block h-auto w-full overflow-visible" role="group" aria-label={label}>
         {ticks.map((v) => (
           <g key={v} aria-hidden="true">
@@ -484,7 +497,8 @@ export function StatsTab({ model, fresh, stats }: StatsTabProps) {
       <p className="m-0 text-xs text-ink2">
         {t('Đếm token từ log phiên trên máy này. Không đọc nội dung, không gửi đi.', 'Counts tokens from session logs on this Mac. Session content is not read or sent.')}
       </p>
-      <div className="grid grid-cols-4 gap-2.5">
+      {/* Two by two where the page is narrow, so a number keeps its unit beside it. */}
+      <div className="grid grid-cols-4 gap-2.5 @max-[720px]/main:grid-cols-2">
         <Tile label={t('Tổng · ', 'Total · ') + per.per}>
           <Big n={report.total} />
         </Tile>

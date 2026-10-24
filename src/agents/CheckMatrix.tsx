@@ -32,11 +32,12 @@ export function AgentLogo({ agent }: { agent: Agent }) {
 }
 
 /**
- * A row of the matrix: the name, a column per agent (`--mx-cell` wide), the
- * row's links. In a dialog the columns are narrower.
+ * A row of the matrix: the name (never under 9rem), a column per agent
+ * (`--mx-cell` wide), the row's links. In a dialog the columns are narrower,
+ * and so they are where the page has under 640 px.
  */
 export const MATRIX_ROW =
-  'grid grid-cols-[minmax(0,1.7fr)_repeat(3,var(--mx-cell,96px))_132px] items-center gap-2 border-t-[.5px] border-card-line px-1.5 py-2 text-sm first:border-t-0 in-data-[kind=dialog]:grid-cols-[minmax(0,1fr)_repeat(3,64px)]';
+  'grid grid-cols-[minmax(9rem,1.7fr)_repeat(3,var(--mx-cell,96px))_132px] items-center gap-2 border-t-[.5px] border-card-line px-1.5 py-2 text-sm first:border-t-0 @max-[640px]/main:grid-cols-[minmax(0,1fr)_repeat(3,48px)_96px] in-data-[kind=dialog]:grid-cols-[minmax(0,1fr)_repeat(3,64px)]';
 /** The head row: the column logos, and the names small and grey. */
 export const MATRIX_HEAD = 'pt-0 pb-1 text-xs text-ink3 [&>span]:flex [&>span]:items-center [&>span]:gap-[5px]';
 /** The name cell: the name in bold, the line under it cut short. */

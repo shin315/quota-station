@@ -225,5 +225,14 @@
   --ring: var(--focus);
 }
 
-/* An explicit dark look (data-theme="dark"); "auto" follows macOS through the tokens. */
-@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+/* The dark look: chosen (data-theme="dark"), or "Theo macOS" while macOS is dark. */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where([data-theme="auto"], [data-theme="auto"] *) {
+      @slot;
+    }
+  }
+}

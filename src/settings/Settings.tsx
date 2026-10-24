@@ -22,7 +22,7 @@ import { Card as Panel, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Segment, Segmented } from '@/components/ui/segmented';
 import { IdMark } from '../components/accounts';
-import { LABEL, rowClass, STACK, TabHead, TabSub, TabTitle } from '../components/page';
+import { LABEL, rowClass, STACK, STACKED_ROWS, TabHead, TabSub, TabTitle } from '../components/page';
 import { Button, Chip, CODE, Dot, Feedback, FieldHint, LinkButton, Toggle } from '../components/parts';
 import { permissionChip, unreadText } from '../lib/alerts';
 import { authorModel, type AuthorModel } from '../lib/author';
@@ -88,8 +88,8 @@ export interface SettingsProps {
   onReleaseChecks?(on: boolean): void;
 }
 
-/** A card's rows, half the page wide: each row's name over its controls, as the design's block rows. */
-const CARD_ROWS = 'grid [&>*]:grid-cols-[minmax(0,1fr)] [&>*]:gap-y-1.5';
+/** A card's rows, half the page wide: each row's name over its controls, as the design's block rows; a switch or a status to the right of its name. */
+const CARD_ROWS = STACKED_ROWS;
 
 /** A card of settings: its icon and name, then its rows. */
 function SettingsCard(props: { title: string; icon: IconName; children: ReactNode }) {
@@ -260,7 +260,8 @@ function OtherMacs({ model, onSet, onTest }: { model: AuthorModel; onSet: Settin
           const st = testText(tests[r.alias.trim()], r.alias);
           const label = r.name.trim() || t('Mac mới', 'New Mac');
           return (
-            <div className="flex items-center gap-2 text-sm" key={i}>
+            // What does not fit (the test's result, Bỏ) goes on the next line instead of past the card.
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm" key={i}>
               <Dot tone={st.tone} />
               <Input
                 className="w-[150px]"
@@ -289,7 +290,7 @@ function OtherMacs({ model, onSet, onTest }: { model: AuthorModel; onSet: Settin
                 onBlur={() => void commit(rows)}
                 onKeyDown={onKey}
               />
-              <small className="text-ink2">{st.text}</small>
+              <small className="whitespace-nowrap text-ink2">{st.text}</small>
               <LinkButton
                 aria-label={t('Bỏ ' + label, 'Remove ' + label)}
                 onClick={() => {
@@ -432,7 +433,7 @@ function CodexHome({ model, onSet }: { model: Model; onSet: NonNullable<Settings
 function Notifications(props: { model: Model; onAction: SettingsProps['onAction']; onTest: SettingsProps['onTestAlert']; onSwitch: SettingsProps['onAlertSwitch'] }) {
   const a = props.model.alerts;
   return (
-    <div className={rowClass()}>
+    <div className={rowClass(false, true)}>
       <div className={LABEL}>
         {t('Thông báo', 'Notifications')}
       </div>
@@ -469,7 +470,7 @@ export function LaunchAtLogin({ app, onSet, onOpen }: { app: AppView; onSet: Set
     setBusy(false);
   };
   return (
-    <div className={rowClass()}>
+    <div className={rowClass(false, true)}>
       <div className={LABEL}>
         {t('Mở khi đăng nhập', 'Open at login')}
       </div>
@@ -585,7 +586,7 @@ const updateRefused = (): Record<string, string> => ({
 /** The version this copy is. */
 function Version({ app }: { app: AppView }) {
   return (
-    <div className={rowClass()}>
+    <div className={rowClass(false, true)}>
       <div className={LABEL}>{t('Phiên bản', 'Version')}</div>
       <div>
         <span className={CODE}>
@@ -775,7 +776,7 @@ function Advanced(props: SettingsProps & { model: AuthorModel }) {
         {t('Nâng cao', 'Advanced')}
       </CardTitle>
       <div className={CARD_ROWS}>
-        <div className={rowClass()}>
+        <div className={rowClass(false, true)}>
           <div className={LABEL}>{t('Hiện phần nâng cao', 'Show advanced features')}</div>
           <div>
             <Toggle on={a.on} label={t('Hiện phần nâng cao', 'Show advanced features')} onClick={() => props.onAdvanced(!a.on)} />
@@ -789,7 +790,7 @@ function Advanced(props: SettingsProps & { model: AuthorModel }) {
         </div>
         {a.on ? (
           <>
-            <div className={rowClass()}>
+            <div className={rowClass(false, true)}>
               <div className={LABEL}>Firstmate</div>
               <div>
                 <Toggle on={a.firstmate} label="Firstmate" onClick={() => props.onFirstmate(!a.firstmate)} />
@@ -857,7 +858,7 @@ function SkillChecksRows({ model, onSet }: { model: Model; onSet: NonNullable<Se
           </FieldHint>
         </div>
       </div>
-      <div className={rowClass()}>
+      <div className={rowClass(false, true)}>
         <div className={LABEL}>{t('Báo bằng thông báo macOS', 'Show a macOS notification')}</div>
         <div>
           <Toggle
@@ -1012,7 +1013,7 @@ export function Settings(props: SettingsProps) {
                 ))}
               </Segmented>
             </div>
-            <div className={rowClass()}>
+            <div className={rowClass(false, true)}>
               <div className={LABEL} id="qs-email-l">
                 {t('Hiện email', 'Show emails')}
               </div>
@@ -1034,7 +1035,7 @@ export function Settings(props: SettingsProps) {
         </div>
         <div className={STACK}>
           <SettingsCard title={t('Dịch vụ và nguồn số', 'Services and data')} icon="database">
-            <div className={rowClass()}>
+            <div className={rowClass(false, true)}>
               <div className={LABEL}>
                 {t('Quyền Keychain', 'Keychain access')}
               </div>
@@ -1063,7 +1064,7 @@ export function Settings(props: SettingsProps) {
             </div>
             {onSetCodexHome ? <CodexHome model={model} onSet={onSetCodexHome} /> : null}
             {model.capabilities.agyAccounts && model.antigravity ? (
-              <div className={rowClass()}>
+              <div className={rowClass(false, true)}>
                 <div className={LABEL}>
                   {t('OAuth client Antigravity', 'Antigravity OAuth client')}
                 </div>

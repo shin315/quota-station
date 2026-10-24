@@ -191,7 +191,7 @@ export function LoginActions({ logins, row }: { logins: AgyLogins; row: AgyRowVi
 /** Under the row whose logout is asked: what it does, and the two answers. */
 export function LogoutConfirm({ logins, row, inTable }: { logins: AgyLogins; row: AgyRowView; inTable?: boolean }) {
   return (
-    <div className={cn(LIST_ROW, inTable && 'mt-0 mb-1.5')} role="group" aria-label={t('Đăng xuất ', 'Sign out ') + row.name}>
+    <div className={cn(LIST_ROW, inTable && 'col-span-full mt-0 mb-1.5 px-3')} role="group" aria-label={t('Đăng xuất ', 'Sign out ') + row.name}>
       <div>
         <b>{t('Đăng xuất ' + row.name + ' khỏi Quota Station?', 'Sign ' + row.name + ' out of Quota Station?')}</b>
         <small className="block text-xs text-ink2">{t('Antigravity.app và agy vẫn đăng nhập như cũ.', 'Antigravity.app and agy stay signed in as before.')}</small>

@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { Icon } from '../components/icons';
 import { BannerBox, Button, Chip, ChoiceGroup, LinkButton, Rich, Spinner } from '../components/parts';
+import { STACKED_ROWS } from '../components/page';
 import { LOGIN_WAIT_MS, minutes } from '../claude/ClaudeDialogs';
 import type { ClaudeAccountsState } from '../claude/useClaudeAccounts';
 import { permissionChip } from '../lib/alerts';
@@ -454,7 +455,8 @@ function PermStep(props: SetupProps) {
             </Button>
           )}
         </Row>
-        <div className="[&>div]:border-t-0 [&>div]:py-[7px]">
+        {/* The switch at the right, as Keychain and Thông báo above; the menu bar's choices under their names. */}
+        <div className={cn(STACKED_ROWS, '[&>div]:border-t-0 [&>div]:py-[7px]')}>
           <LaunchAtLogin app={model.app} onSet={props.onLaunchAtLogin} onOpen={props.onOpenLoginItems} />
           <MenubarRow model={model} onPick={props.onMenubar} />
           <MenubarWindowRow model={model} onPick={props.onMenubarWindow} />

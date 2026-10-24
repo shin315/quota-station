@@ -208,7 +208,13 @@ export interface InstrTabProps {
 }
 
 /** An instruction file: its path, agent, when it changed, against the pack, in the pack, a link. */
-const FILE_ROW = 'grid grid-cols-[minmax(0,1.6fr)_90px_104px_minmax(0,1.1fr)_62px_56px] items-center gap-2.5 border-t-[.5px] border-card-line px-1.5 py-[7px] text-sm';
+/**
+ * A file's row: path, agent, when it changed, against the pack, in the pack,
+ * its link. Where the page has under 720 px: the path on a line of its own,
+ * then the agent, the time, the switch and the link, then the comparison.
+ */
+const FILE_ROW =
+  'grid grid-cols-[minmax(0,1.6fr)_90px_104px_minmax(0,1.1fr)_62px_56px] items-center gap-2.5 border-t-[.5px] border-card-line px-1.5 py-[7px] text-sm @max-[720px]/main:grid-cols-[auto_minmax(0,1fr)_auto_auto] @max-[720px]/main:gap-y-1.5 @max-[720px]/main:[&>:nth-child(1)]:col-span-full @max-[720px]/main:[&>:nth-child(4)]:col-span-full @max-[720px]/main:[&>:nth-child(4)]:row-start-3 @max-[720px]/main:[&>:nth-child(5)]:col-start-3 @max-[720px]/main:[&>:nth-child(5)]:row-start-2 @max-[720px]/main:[&>:nth-child(6)]:col-start-4 @max-[720px]/main:[&>:nth-child(6)]:row-start-2';
 
 export function InstrTab({ model, fresh, feedback, now, instr, onAction }: InstrTabProps) {
   const v = model.instructions;
@@ -245,7 +251,7 @@ export function InstrTab({ model, fresh, feedback, now, instr, onAction }: Instr
           </CardTitle>
           {view.files.length ? (
             <div role="list" aria-label={t('File hướng dẫn', 'Instruction files')}>
-              <div className={cn(FILE_ROW, 'border-t-0 pt-0 text-xs text-ink3')} aria-hidden="true">
+              <div className={cn(FILE_ROW, 'border-t-0 pt-0 text-xs text-ink3 @max-[720px]/main:hidden')} aria-hidden="true">
                 <span>File</span>
                 <span>Agent</span>
                 <span>{t('Sửa lúc', 'Modified')}</span>

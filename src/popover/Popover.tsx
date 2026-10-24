@@ -126,18 +126,29 @@ function WindowRow({ cell, dim, loading }: { cell: CellView; dim?: boolean; load
 }
 
 /** A card's head: a dot (green for the account in use), its name, its chips, and › when pressing it does something. */
+/**
+ * A card's head: the dot and the name on the left, "đang dùng" and the
+ * chevron on the right, and between them the chips (leaves rotation, old
+ * numbers), which wrap onto more lines rather than lose their words.
+ */
 function CardHead({ card, go, single }: { card: CardView; go: boolean; single: boolean }) {
   return (
-    <span className="flex min-w-0 items-center gap-2">
-      <Dot tone={card.active ? 'ok' : 'off'} className={card.resting ? 'bg-transparent shadow-[inset_0_0_0_1.5px_var(--dot-off)]' : undefined} />
-      <span className="max-w-[60%] shrink-0 overflow-hidden text-[14px] font-heading text-ellipsis whitespace-nowrap text-heading" title={card.full || undefined}>
-        {card.name}
+    <span className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-2">
+      <span className="flex min-h-[22px] min-w-0 items-center gap-2">
+        <Dot tone={card.active ? 'ok' : 'off'} className={card.resting ? 'bg-transparent shadow-[inset_0_0_0_1.5px_var(--dot-off)]' : undefined} />
+        <span className="max-w-[9.5rem] overflow-hidden text-[14px] font-heading text-ellipsis whitespace-nowrap text-heading" title={card.full || undefined}>
+          {card.name}
+        </span>
       </span>
-      {card.chips.map((c) => (
-        <Chip key={c.t} chip={c} className="ml-0.5 min-w-0 shrink overflow-hidden text-ellipsis whitespace-nowrap" />
-      ))}
-      {card.active && !single ? <Chip chip={{ t: t('đang dùng', 'in use'), k: 'on' }} className="ml-auto shrink-0" /> : null}
-      {go ? <Icon name="chevron-right" className={cn('size-[15px] text-ink3', card.active && !single ? 'ml-1' : 'ml-auto')} /> : null}
+      <span className="flex min-h-[22px] min-w-0 flex-wrap items-center gap-1">
+        {card.chips.map((c) => (
+          <Chip key={c.t} chip={c} className="max-w-full overflow-hidden text-ellipsis whitespace-nowrap" />
+        ))}
+      </span>
+      <span className="flex min-h-[22px] items-center gap-1">
+        {card.active && !single ? <Chip chip={{ t: t('đang dùng', 'in use'), k: 'on' }} className="shrink-0" /> : null}
+        {go ? <Icon name="chevron-right" className="size-[15px] text-ink3" /> : null}
+      </span>
     </span>
   );
 }

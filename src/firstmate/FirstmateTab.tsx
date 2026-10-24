@@ -10,6 +10,7 @@ import { TabHead, TabSub, TabTitle } from '../components/page';
 import { Button, Chip, Dot, KVT } from '../components/parts';
 import { firstmateTab } from '../lib/alerts';
 import type { AuthorModel } from '../lib/author';
+import { t } from '../lib/i18n';
 import type { Action, PopoverView } from '../lib/view';
 
 export interface FirstmateTabProps {
@@ -39,12 +40,12 @@ export function FirstmateTab({ model, fresh, now, onAction }: FirstmateTabProps)
             </b>
             <CardText className="mt-1 mb-0">{v.body}</CardText>
           </div>
-          {v.setUp ? <Button onClick={() => onAction('settings')}>Mở Cài đặt</Button> : null}
+          {v.setUp ? <Button onClick={() => onAction('settings')}>{t('Mở Cài đặt', 'Open Settings')}</Button> : null}
         </div>
       </Panel>
       {v.rows.length ? (
         <Panel>
-          <CardTitle>Firstmate đang thấy</CardTitle>
+          <CardTitle>{t('Firstmate đang thấy', 'What Firstmate sees')}</CardTitle>
           <div className={KVT}>
             {v.rows.map((r) => [
               <span key={r.key + ':k'}>{r.key}</span>,

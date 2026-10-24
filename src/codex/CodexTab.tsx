@@ -149,7 +149,7 @@ function Providers({ v, now, onAction, onPlugins }: { v: CodexView; now: Date; o
   const chatGpt = t('Tài khoản ChatGPT', 'ChatGPT account');
   return (
     <Card title={t('Nhà cung cấp', 'Providers')} x>
-      <div className="grid [--wt-cols:minmax(0,1fr)_auto]" role="list" aria-label={t('Nhà cung cấp Codex', 'Codex providers')}>
+      <div className="grid grid-cols-(--wt-cols) gap-x-6 [--wt-cols:minmax(0,1fr)_auto]" role="list" aria-label={t('Nhà cung cấp Codex', 'Codex providers')}>
         <div className={cn(TABLE_ROW, v.current === 'chatgpt' && TABLE_ROW_ON)} role="listitem" aria-label={chatGpt}>
           <AccountName name={chatGpt} sub={loginSub} full="" chips={hasLogin(v) ? [] : [{ t: t('chưa đăng nhập', 'not signed in'), k: 'warn' }]} />
           <span className="flex items-center justify-end gap-2.5">

@@ -9,7 +9,8 @@ import { cn } from '@/lib/utils';
 
 /**
  * The title row: the tab's name, and under it this Mac and how fresh the
- * numbers are; its buttons stand to the right of both.
+ * numbers are; its buttons stand to the right of both. Where the page has
+ * under 640 px, the buttons go on a row of their own under the line.
  */
 export function TabHead({ className, ...props }: ComponentProps<'div'>) {
   return (
@@ -17,6 +18,7 @@ export function TabHead({ className, ...props }: ComponentProps<'div'>) {
       className={cn(
         'grid grid-flow-col grid-cols-[minmax(0,1fr)] items-start gap-x-2 gap-y-1 pb-1 auto-cols-max',
         '[&>*:not(h2,small)]:row-span-2 [&>*:not(h2,small)]:row-start-1',
+        '@max-[640px]/main:flex @max-[640px]/main:flex-wrap @max-[640px]/main:items-center @max-[640px]/main:[&>:is(h2,small)]:basis-full @max-[640px]/main:[&>small]:mb-1',
         className,
       )}
       data-tauri-drag-region="deep"
@@ -34,35 +36,69 @@ export function TabSub({ className, ...props }: ComponentProps<'small'>) {
   return <small className={cn('col-start-1 row-start-2 flex items-center gap-1.5 text-body text-ink2', className)} {...props} />;
 }
 
-/** Two columns of cards, the left one wider. */
-export const GRID = 'grid grid-cols-[minmax(0,1.85fr)_minmax(0,1fr)] items-start gap-3';
-/** Two equal columns of cards. */
-export const GRID2 = 'grid grid-cols-[1fr_1fr] items-start gap-3';
+/** Two columns of cards, the left one wider; one column where the page is narrow. */
+export const GRID = 'grid grid-cols-[minmax(0,1.85fr)_minmax(0,1fr)] items-start gap-3 @max-[600px]/main:grid-cols-[minmax(0,1fr)]';
+/**
+ * Two equal columns of cards; one column where the page has under 680 px
+ * (the window less the sidebar), and a card alone takes the whole row.
+ */
+export const GRID2 =
+  'grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start gap-3 @max-[680px]/main:grid-cols-[minmax(0,1fr)] [&>:only-child]:col-span-full';
 /** Cards one under another in a column. */
 export const STACK = 'grid min-w-0 content-start gap-3';
 
-/** One row of a form: its name on the left, the controls on the right, a blue edge once changed. */
-export function rowClass(changed = false): string {
+/**
+ * One row of a form: its name on the left (up to 15rem, so "Chuyển khi 5 giờ
+ * dùng tới" keeps one line), the controls on the right, a blue edge once
+ * changed. The name goes over its controls where the page has under 600 px;
+ * in a dialog the name keeps 190 px.
+ * `inline`: a row whose control is a switch, a status or a short value: it
+ * stands at the row's right edge, beside the name, and what follows it (a
+ * hint, a button) runs the row's width under both, as the design draws it.
+ */
+export function rowClass(changed = false, inline = false): string {
   return cn(
-    'grid grid-cols-[190px_minmax(0,1fr)] items-start gap-3.5 border-t-[.5px] border-card-line py-2.5 first:border-t-0 first:pt-0.5',
+    'grid grid-cols-[minmax(190px,15rem)_minmax(0,1fr)] items-start gap-3.5 border-t-[.5px] border-card-line py-2.5 first:border-t-0 first:pt-0.5 @max-[600px]/main:grid-cols-[minmax(0,1fr)] @max-[600px]/main:gap-y-1.5 in-data-[slot=dialog-content]:grid-cols-[190px_minmax(0,1fr)]',
+    inline && ROW_INLINE,
     changed && '-ml-2 pl-2 shadow-[inset_3px_0_0_var(--accent)]',
   );
 }
 
+/** See rowClass's `inline`; `row-inline` marks it for STACKED_ROWS. */
+const ROW_INLINE =
+  'row-inline grid-cols-[minmax(0,1fr)_auto] gap-y-1 @max-[600px]/main:grid-cols-[minmax(0,1fr)_auto] [&>:last-child]:contents [&>:last-child>:first-child]:col-start-2 [&>:last-child>:first-child]:row-start-1 [&>:last-child>:first-child]:self-center [&>:last-child>:first-child]:justify-self-end [&>:last-child>:not(:first-child)]:col-span-full';
+
+/** Rows (rowClass) each with its name over its controls, the inline ones (a switch, a status) apart. */
+export const STACKED_ROWS = 'grid [&>*:not(.row-inline)]:grid-cols-[minmax(0,1fr)] [&>*:not(.row-inline)]:gap-y-1.5';
+
 /**
- * A row of an accounts table; the table (TABLE) sets its columns (--wt-cols)
- * and may close up their gap (--wt-gap, TABLE_TIGHT).
- * The head row is the first, on the table's head colour.
+ * A row of an accounts table: it takes the table's columns (TABLE, --wt-cols),
+ * so a column sized to its content (`auto`, the buttons) is as wide as the
+ * widest row's. The head row is the first, on the table's head colour.
+ * Where the page has under 640 px a row is a card of its own: the name and
+ * the buttons on top, the windows under them (TABLE_CELLS), each with its name.
  */
-export const TABLE_ROW = 'wt-r grid grid-cols-(--wt-cols) items-center gap-x-[var(--wt-gap,24px)] border-t border-divider px-3 py-2 text-sm first:border-t-0';
+export const TABLE_ROW =
+  'wt-r col-span-full grid grid-cols-subgrid items-center border-t border-divider px-3 py-2 text-sm first:border-t-0 @max-[640px]/main:grid-cols-[minmax(9rem,1fr)_auto_auto] @max-[640px]/main:gap-x-2.5 @max-[640px]/main:gap-y-2 @max-[640px]/main:[&>:first-child]:col-start-1 @max-[640px]/main:[&>:first-child]:row-start-1';
+/** A row's windows: columns of the table, or the card's second line where the page is narrow. */
+export const TABLE_CELLS =
+  'contents @max-[640px]/main:col-span-full @max-[640px]/main:row-start-2 @max-[640px]/main:grid @max-[640px]/main:auto-cols-[minmax(0,1fr)] @max-[640px]/main:grid-flow-col @max-[640px]/main:gap-3';
+/** A row's buttons and its ⋯, on the card's top line where the page is narrow. */
+export const TABLE_END = '@max-[640px]/main:row-start-1';
 /** The row in use: the dot and the status say it, the row is not lit. */
 export const TABLE_ROW_ON = 'on';
-/** An accounts table: a hairline box around its head and rows. */
-export const TABLE = 'grid rounded-ctl border border-line bg-card';
+/**
+ * An accounts table: its columns (--wt-cols) and their gap (--wt-gap); it is
+ * never narrower than its columns' least widths add up to. One column of
+ * cards where the page is narrow.
+ */
+export const TABLE = 'grid min-w-min grid-cols-(--wt-cols) gap-x-[var(--wt-gap,24px)] @max-[640px]/main:min-w-0 @max-[640px]/main:grid-cols-[minmax(0,1fr)]';
+/** The hairline box around a table; a table that still does not fit scrolls sideways inside it. */
+export const TABLE_BOX = 'overflow-x-auto overscroll-x-contain rounded-ctl border border-line bg-card';
 /** A table beside another column (Tổng quan's rail): its columns closer together. */
 export const TABLE_TIGHT = '[--wt-gap:16px]';
 /** The table's head row: the windows' names. */
-export const TABLE_HEAD = TABLE_ROW + ' h rounded-t-[7px] bg-thead py-1.5 text-sm font-med whitespace-nowrap text-th';
+export const TABLE_HEAD = TABLE_ROW + ' h rounded-t-[7px] bg-thead py-1.5 text-sm font-med whitespace-nowrap text-th @max-[640px]/main:hidden';
 
 /** A form row's name. */
 export const LABEL = 'fl pt-[3px] text-sm font-semi';
