@@ -37,7 +37,7 @@ import { useClaudeAccounts } from './claude/useClaudeAccounts';
 import { Feedback } from './components/parts';
 import { SheetBody, type SheetState } from './components/Sheets';
 import { agyLoginOf, agySwitchErrorFeedback, agySwitchFeedback, type AppAnswer } from '@agy/agySwitch';
-import { codexErrorFeedback, codexFeedback, codexRow, codexRestartFeedback, keyFeedback, nextTarget, pluginsNeedApply } from './lib/codex';
+import { codexErrorFeedback, codexFeedback, codexPopover, codexRestartFeedback, keyFeedback, nextTarget, pluginsNeedApply } from './lib/codex';
 import type { Api } from './lib/api';
 import { authorModel } from './lib/author';
 import { alertFailedFeedback, testFailedFeedback } from './lib/alerts';
@@ -591,7 +591,7 @@ export function PopoverApp({ api, clock = systemClock }: AppProps) {
   return (
     <Popover
       view={view}
-      codex={codexRow(model)}
+      codex={codexPopover(model, now)}
       auto={model.advanced.on ? autoView(model, now) : null}
       sync={author && model.advanced.on ? syncSummary(author) : null}
       release={releaseLine(model)}

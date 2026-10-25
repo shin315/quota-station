@@ -12,10 +12,10 @@
 
 import type { Icon as PhosphorIcon } from '@phosphor-icons/react';
 import { AnchorIcon } from '@phosphor-icons/react/dist/csr/Anchor';
+import { AppWindowIcon } from '@phosphor-icons/react/dist/csr/AppWindow';
 import { ArchiveIcon } from '@phosphor-icons/react/dist/csr/Archive';
 import { ArrowCircleUpIcon } from '@phosphor-icons/react/dist/csr/ArrowCircleUp';
 import { ArrowRightIcon } from '@phosphor-icons/react/dist/csr/ArrowRight';
-import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/csr/ArrowSquareOut';
 import { ArrowsClockwiseIcon } from '@phosphor-icons/react/dist/csr/ArrowsClockwise';
 import { BellIcon } from '@phosphor-icons/react/dist/csr/Bell';
 import { CaretRightIcon } from '@phosphor-icons/react/dist/csr/CaretRight';
@@ -51,10 +51,10 @@ import { cn } from '@/lib/utils';
 /** The Phosphor glyphs the app draws, by Phosphor's own names. */
 export const GLYPHS = {
   'anchor': AnchorIcon,
+  'app-window': AppWindowIcon,
   'archive': ArchiveIcon,
   'arrow-circle-up': ArrowCircleUpIcon,
   'arrow-right': ArrowRightIcon,
-  'arrow-square-out': ArrowSquareOutIcon,
   'arrows-clockwise': ArrowsClockwiseIcon,
   'bell': BellIcon,
   'caret-right': CaretRightIcon,

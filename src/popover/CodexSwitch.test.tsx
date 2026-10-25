@@ -6,8 +6,9 @@
 // or opens CC Switch. The custom provider is the made-up `relay`.
 
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MainWindowApp, PopoverApp } from '../App';
+import { MORE_KEY } from './Popover';
 import { fakeApi, type FakeOptions } from '../fixtures/fakeApi';
 import { codexFixture, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
 import type { Api } from '../lib/api';
@@ -28,8 +29,13 @@ async function openPopover(model: Model, options: FakeOptions = {}) {
 }
 
 const codexSection = () => screen.getByRole('region', { name: 'Codex' });
-/** The row under the Codex header: the provider in use and where a switch goes. */
-const codexRow = () => within(codexSection()).getAllByRole('button')[0];
+/** What opens the Codex sheet: the ChatGPT account while Codex goes through relay, the Custom API entry while it is on ChatGPT. */
+const codexRow = () =>
+  within(codexSection())
+    .getAllByRole('button')
+    .find((b) => /Codex (đang dùng|uses) /.test(b.getAttribute('aria-label') ?? ''))!;
+/** What Codex uses now: a status tile, whose hover holds the notes the popover does not write. */
+const inUse = () => within(codexSection()).getByRole('group');
 const facts = (sheet: HTMLElement) => within(sheet).getAllByRole('listitem').map((li) => li.textContent);
 
 async function press(el: HTMLElement) {
@@ -38,18 +44,26 @@ async function press(el: HTMLElement) {
   });
 }
 
-afterEach(cleanup);
+// Every section shows its other accounts, as the owner opens them.
+beforeEach(() => localStorage.setItem(MORE_KEY, JSON.stringify({ c: true, g: true, x: true })));
+afterEach(() => {
+  cleanup();
+  localStorage.removeItem(MORE_KEY);
+});
 
 describe('the Codex row', () => {
-  it('shows the provider in use and where a switch goes, and opens the sheet instead of switching', async () => {
+  it('shows the provider in use, the ChatGPT account under it, and opens the sheet instead of switching', async () => {
     const fake = await openPopover(withCodex());
     const section = screen.getByRole('region', { name: 'Codex' });
-    // One line at the Gọn hơn level; what it leaves out is in the spoken label and the Codex tab.
+    // relay in use, as a status; the ChatGPT account under "1 tài khoản khác" opens the sheet.
     expect(within(section).queryByText('Codex App đang mở')).toBeNull();
-    expect(codexRow().textContent).toBe('Codexrelay→ ChatGPT');
+    expect(inUse().textContent).toBe('relayĐang dùngCustom API · không báo hạn mức');
+    expect(codexRow().textContent).toBe('ChatGPT5 giờ23%2h 9mTuần41%4d 5h');
     expect(codexRow().getAttribute('aria-label')).toBe(
-      'Codex đang dùng relay. Bấm để chuyển sang tài khoản ChatGPT. Trả lời 180 ms · giữ đăng nhập ChatGPT. Codex App đang mở',
+      'ChatGPT, đăng nhập còn trong máy. 5 giờ đã dùng 23%, đặt lại sau 2 giờ 09 phút. Tuần đã dùng 41%, đặt lại sau 4 ngày 5 giờ 39 phút. Codex đang dùng relay. Bấm để chuyển sang tài khoản ChatGPT',
     );
+    expect(inUse().getAttribute('aria-label')).toBe('relay, Custom API · không báo hạn mức, đang dùng. Codex App đang mở');
+    expect(inUse().getAttribute('title')).toBe('Trả lời 180 ms · giữ đăng nhập ChatGPT');
     await press(codexRow());
     expect(fake.api.codexSwitch).not.toHaveBeenCalled();
     const sheet = screen.getByRole('dialog', { name: 'Chuyển Codex về tài khoản ChatGPT?' });
@@ -66,7 +80,7 @@ describe('the Codex row', () => {
 
   it('switches on confirm with the file hash the sheet showed, and says to restart Codex', async () => {
     const fake = await openPopover(withCodex({ current: 'chatgpt' }));
-    expect(codexRow().textContent).toContain('→ relay');
+    expect(codexRow().textContent).toBe('Custom APIrelay');
     await press(codexRow());
     const sheet = screen.getByRole('dialog', { name: 'Chuyển Codex sang relay?' });
     expect(facts(sheet)[1]).toBe(
@@ -78,7 +92,8 @@ describe('the Codex row', () => {
     expect(screen.queryByRole('dialog', { name: /Chuyển Codex/ })).toBeNull();
     expect(screen.getByText('Đã chuyển Codex sang relay')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Khởi động lại tiến trình nền Codex…' })).toBeTruthy();
-    expect(codexRow().textContent).toContain('→ ChatGPT');
+    expect(inUse().textContent).toMatch(/^relayĐang dùng/);
+    expect(codexRow().textContent).toMatch(/^ChatGPT5 giờ/);
   });
 
   it('with the box ticked, asks once more before restarting the background process', async () => {
@@ -107,14 +122,16 @@ describe('the Codex row', () => {
     expect(screen.getByText('Đã chuyển Codex sang tài khoản ChatGPT')).toBeTruthy();
   });
 
-  it('CC Switch also managing Codex: a yellow chip, a note, and "Vẫn chuyển" with the guide on the sheet', async () => {
+  it('CC Switch also managing Codex: a note, the hover of what is in use, and "Vẫn chuyển" with the guide on the sheet', async () => {
     await openPopover(
       withCodex({
         ccSwitch: { installed: true, running: true, data: true, traces: [] },
         procs: { sessions: 3, app: true, daemon: true, ccSwitch: true },
       }),
     );
-    expect(codexSection().textContent).toContain('CC Switch cũng quản lý');
+    // No chip: the note says it, and the hover of what is in use.
+    expect(codexSection().textContent).not.toContain('CC Switch cũng quản lý');
+    expect(inUse().getAttribute('title')).toContain('CC Switch cũng quản lý');
     expect(screen.getByText('CC Switch cũng đang quản lý Codex. Lần chuyển sau của CC Switch sẽ ghi đè lựa chọn ở đây.')).toBeTruthy();
     await press(codexRow());
     const sheet = screen.getByRole('dialog', { name: 'Chuyển Codex về tài khoản ChatGPT?' });
@@ -123,10 +140,11 @@ describe('the Codex row', () => {
     expect(within(sheet).getByRole('button', { name: 'Hướng dẫn ngừng dùng CC Switch' })).toBeTruthy();
   });
 
-  it('the provider in use not answering: a red chip and a banner that offers the ChatGPT login', async () => {
+  it('the provider in use not answering: its hover and a banner that offers the ChatGPT login', async () => {
     const down = { state: 'down' as const, ms: null, since: '2026-01-16T07:12:00Z', checkedAt: '2026-01-16T07:20:00Z' };
     const fake = await openPopover(withCodex({ reach: down }));
-    expect(codexSection().textContent).toContain('không trả lời');
+    expect(within(codexSection()).queryByText(/không trả lời/)).toBeNull();
+    expect(inUse().getAttribute('title')).toContain('không trả lời');
     expect(screen.getByText('relay không trả lời từ 14:12')).toBeTruthy();
     await press(screen.getByRole('button', { name: 'Chuyển về ChatGPT' }));
     const sheet = screen.getByRole('dialog', { name: 'Chuyển Codex về tài khoản ChatGPT?' });
@@ -138,14 +156,15 @@ describe('the Codex row', () => {
   it('going to a provider that does not answer warns that Codex will fail at once', async () => {
     const down = { state: 'down' as const, ms: null, since: '2026-01-16T07:12:00Z', checkedAt: null };
     await openPopover(withCodex({ current: 'chatgpt', reach: down }));
-    expect(codexSection().textContent).toContain('relay không trả lời');
+    expect(codexSection().textContent).not.toContain('không trả lời');
+    expect(codexRow().getAttribute('title')).toBe('relay không trả lời');
     await press(codexRow());
     const sheet = screen.getByRole('dialog', { name: 'Chuyển Codex sang relay?' });
     expect(facts(sheet)[0]).toBe('relay đang không trả lời. Codex sẽ lỗi ngay sau khi chuyển.');
     expect(within(sheet).getByRole('button', { name: 'Vẫn chuyển' })).toBeTruthy();
   });
 
-  it('a change made outside the app: a blue banner, and the row opens what changed', async () => {
+  it('a change made outside the app: a blue banner, and the entry opens what changed', async () => {
     const fake = await openPopover(
       withCodex({
         current: 'chatgpt',
@@ -153,7 +172,8 @@ describe('the Codex row', () => {
       }),
     );
     expect(screen.getByText('Cấu hình Codex vừa đổi ngoài app')).toBeTruthy();
-    expect(codexSection().textContent).toContain('đổi ngoài app');
+    expect(codexSection().textContent).not.toContain('đổi ngoài app');
+    expect(inUse().getAttribute('title')).toContain('đổi ngoài app');
     await press(codexRow());
     const sheet = screen.getByRole('dialog', { name: 'Cấu hình Codex đã đổi ngoài app' });
     expect(within(sheet).getByText('4 máy chủ MCP. Danh sách đã thay đổi từ 13:40.')).toBeTruthy();
@@ -168,7 +188,8 @@ describe('the Codex row', () => {
   it('no ChatGPT login: a banner, and the app does not log in', async () => {
     await openPopover(withCodex({ current: 'chatgpt', login: 'missing', wantsRequires: false }));
     expect(screen.getByText('Codex chưa có đăng nhập ChatGPT')).toBeTruthy();
-    expect(codexSection().textContent).toContain('chưa đăng nhập');
+    expect(codexSection().textContent).not.toContain('chưa đăng nhập');
+    expect(inUse().getAttribute('title')).toContain('chưa đăng nhập');
     await press(screen.getByRole('button', { name: 'Hướng dẫn' }));
     expect(screen.getByRole('dialog', { name: 'Đăng nhập ChatGPT cho Codex' })).toBeTruthy();
   });

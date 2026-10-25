@@ -10,17 +10,17 @@ import { AgentIcon } from '../components/logos';
 
 /** The popover's theme button in a light look: switch to dark. */
 export function MoonIcon() {
-  return <Glyph name="moon" className="size-[15px]" />;
+  return <Glyph name="moon" tint="indigo" className="size-[15px]" />;
 }
 
 /** The same in a dark look: switch to light. */
 export function SunIcon() {
-  return <Glyph name="sun" className="size-[15px]" />;
+  return <Glyph name="sun" tint="yellow" className="size-[15px]" />;
 }
 
-/** Opens the main window: a box with an arrow out of it. */
+/** Opens the main window: the app's window. */
 export function OpenIcon() {
-  return <Glyph name="arrow-square-out" className="size-[15px]" />;
+  return <Glyph name="app-window" tint="blue" className="size-[15px]" />;
 }
 
 /** A group's fold: a caret, turned down while the group is open. */

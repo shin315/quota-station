@@ -16,7 +16,7 @@ The tools made for the author's own Macs (`Cài đặt › Nâng cao` and what i
 holds) are built only with the `author-tools` feature, which a release build
 leaves out; see [The author's tools](#the-authors-tools-author-tools).
 
-<img src="docs/popover.png" width="380" alt="The popover on fixture data: Đang dùng for Claude, Gemini and Codex, then four Claude Code accounts and two Antigravity accounts with their share used and reset times, and the Codex row">
+<img src="docs/popover.png" width="380" alt="The popover on fixture data: a section each for Claude, Antigravity and Codex, each opening on its account in use with its share used and reset times, Claude's three other accounts listed under 3 tài khoản khác, and Tự chuyển Claude at the foot">
 
 ![The menu bar item for five fixture cases (following Claude, Gemini, Codex on ChatGPT, Codex through a provider, an exhausted rotation), in light and dark menu bars](docs/menubar.png)
 
@@ -92,25 +92,31 @@ the confirmation sheet first.
   the window shown and its reset included. While automatic switching is paused, two small pause bars
   follow the glyph; an exhausted Claude rotation draws a warning triangle.
 - **Popover** (left click). One header line with this Mac's name; how old
-  the numbers are shows only when they are not fresh. On top, `Đang dùng`:
-  one line per service (Claude, Gemini, Codex) with the account in use, its
-  share used and when that resets, the window named on hover; Antigravity's
-  Claude/GPT models join the Gemini line from 70 % used. Then a card per
-  account, in the main window's order (the one in use keeps its place, its
-  frame marks it): every Claude Code
-  account with its `5 giờ`, `Tuần` and `Fable` windows (a Team seat with no
-  week has no `Tuần` line), every Antigravity account with a `Gemini` and a
-  `Claude/GPT` line, each the tighter of that group's two windows, each as
-  the share **used** (the bar fills as the quota goes; amber from 70 %, red
-  from 90 %) with when it resets. The `CLAUDE` and `ANTIGRAVITY` headers fold
-  their group to the header alone, and a folded group stays folded the next
-  time the popover opens. Every window, the organization and the hours stay
-  in the cards' spoken labels and in the main window. It also has banners for
-  stale numbers, an unavailable source, numbers waiting after a reset, an
-  exhausted rotation and missing Keychain permission.
-  Every Claude account other than the one in use is a button that opens the
-  switch sheet (below), and so is every Antigravity account logged in here
-  once the Antigravity row lists the app's own accounts. The footer has the
+  the numbers are shows only when they are not fresh. Then a section per
+  service, `CLAUDE`, `ANTIGRAVITY` and `CODEX`, each opening on its account
+  in use, marked `Đang dùng`, with every window: a Claude Code account's
+  `5 giờ`, `Tuần` and `Fable` (a Team seat with no week has no `Tuần`
+  line), an Antigravity account's `Gemini` and `Claude/GPT` columns with
+  their five hours and week, each as the share **used** (the bar fills as
+  the quota goes; amber from 70 %, red from 90 %) with when it resets.
+  Right under it, one line (`3 tài khoản khác`) opens the other accounts, in
+  the main window's order, each with its shorter lines (Antigravity's
+  `Gemini` and `Claude/GPT`, each the tighter of that group's two windows).
+  A section's header folds it to the header alone, which then says the
+  account in use and its number; folds and open lists stay as they were the
+  next time the popover opens, and every line is a button with
+  `aria-expanded`. The popover writes no notes on the accounts: an old
+  number is drawn grey with its age on hover, and the rotation's notes stay
+  in the main window. Only an account that must sign in again says so, in
+  one short line (and on the closed line, `· 1 cần đăng nhập lại`). Every
+  window, the organization and the hours stay in the accounts' spoken labels
+  and in the main window. It also has banners for stale numbers, an
+  unavailable source, numbers waiting after a reset, an exhausted rotation
+  and missing Keychain permission.
+  Every other Claude account is a button that opens the switch sheet
+  (below), and so is every other Antigravity account logged in here once the
+  Antigravity row lists the app's own accounts. The footer, outside the
+  scrolling part, has the
   `Tự chuyển Claude` switch; the line that says why Claude is on its account
   shows only when there is something to act on (a pause or hold, waiting for
   quota, a switch coming, the switcher missing or failing), and the other
@@ -118,8 +124,8 @@ the confirmation sheet first.
   (`Mac B: 14:30 · Mac C: chưa tới được, sẽ thử lại`). Its header has
   three buttons: the bell, with the red count of notifications not read
   yet, opens the main window with its `Thông báo` panel open; the moon (or
-  sun) turns the look dark (or light) for both windows; and the box with an
-  arrow opens the main window on `Tổng quan`.
+  sun) turns the look dark (or light) for both windows; and the app window
+  (`Mở Quota Station`) opens the main window on `Tổng quan`.
 - **Names.** Accounts go by the part of their email before `@` when every
   account shares one domain (the whole email otherwise, and always on hover),
   with the organization of a Team seat or `Cá nhân · 08–23` under it.
@@ -368,10 +374,13 @@ the confirmation sheet first.
   (a `[model_providers.<id>]` table with its own key). The app switches
   between the two and keeps the ChatGPT login in place, so Codex App's
   plugins and remote control keep working while Codex goes through the
-  custom provider. The popover has a one-line `CODEX` row: the provider in use, its
-  state as chips (the custom provider not answering, CC Switch also
-  managing Codex, a change made outside the app, no ChatGPT login) and the
-  way it would switch (`→ ChatGPT`). Pressing the row never switches: it
+  custom provider. The popover's `CODEX` section is laid out as Claude's: what
+  Codex uses now (the ChatGPT account with its `5 giờ` and `Tuần`, or the
+  custom provider), the ChatGPT accounts under `n tài khoản khác`, and the
+  custom provider's own `Custom API` line. Its state (the custom provider
+  not answering, CC Switch also managing Codex, a change made outside the
+  app, no ChatGPT login) is on hover and in the note or banner under it, not
+  in chips. Pressing the account or the line it would switch to never switches: it
   opens a sheet with five facts (what changes, the sessions already running,
   the background process, the ChatGPT login, the one file written and its
   backup), plus any risk of the moment, and a `Khởi động lại tiến trình nền
@@ -444,7 +453,7 @@ the confirmation sheet first.
   result. The Codex folder is `~/.codex` unless `Cài đặt › Thư mục Codex`
   says otherwise.
 
-  <img src="docs/codex-row.png" width="300" alt="The popover's Codex row on fixture data: the custom provider in use, a CC Switch chip and the way back to ChatGPT"> <img src="docs/codex-sheet.png" width="300" alt="The Codex confirmation sheet: the facts of the switch and the restart box, off">
+  <img src="docs/codex-row.png" width="300" alt="The popover's Codex section on fixture data: the custom provider relay in use, the ChatGPT account under 1 tài khoản khác, and the note that CC Switch also manages Codex"> <img src="docs/codex-sheet.png" width="300" alt="The Codex confirmation sheet: the facts of the switch and the restart box, off">
 
   <img src="docs/codex-tab.png" width="760" alt="The Codex tab on fixture data: the two sides with relay in use, Đổi khoá and the plugins box ticked, Chi tiết folded, Codex on this Mac in a line and the CC Switch guide at 3 of 8"> <img src="docs/codex-key.png" width="372" alt="The key preview: base_url from CC Switch's proxy to the provider's address, PROXY_MANAGED replaced by the key shown as sk-…wxyz, and the undo it offers">
 

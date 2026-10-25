@@ -36,7 +36,8 @@
 // Codex (M8): `codex=chatgpt|ccswitch|down|external|nologin|nokey|placeholder|header|envkey|noplugins|broken|none`
 // sets the six states of the design and more (Codex goes through the made-up `relay` by
 // default), and `codexoutcome=changed|refused` what a switch reports. A switch or a
-// restart takes 1.5 s; `tab=codex` opens the Codex tab.
+// restart takes 1.5 s; `tab=codex` opens the Codex tab. `chatgpts=3` lists three made-up
+// ChatGPT accounts (Codex keeps one sign-in today).
 // The menu bar's service (19/10/2026): `menubar=claude|gemini|codex` on `tab=settings`,
 // `mbwindow=fiveHours|week|fableWeek|tightest` the window its title shows,
 // and `agyhot=on` puts the Antigravity account in use at 86 % of its Claude/GPT week,
@@ -452,6 +453,26 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
     for (const a of model.snapshot.agy.accounts.filter((x) => x.active)) {
       a.windows = a.windows.map((w) => (w.kind === 'claudeGptWeek' ? { ...w, percent: 14 } : w));
     }
+  }
+  // Codex keeps one ChatGPT sign-in today; `chatgpts=3` adds made-up accounts, to show the popover's list of them.
+  const chatgpts = Math.min(Number(params.get('chatgpts')) || 0, 5);
+  const codexSnap = model.snapshot.codex;
+  if (chatgpts > 1 && codexSnap.accounts.length) {
+    const first = codexSnap.accounts[0];
+    const made = [
+      [62, 78, '2026-01-16T08:40:00.000Z', '2026-01-18T10:20:00.000Z'],
+      [4, 12, '2026-01-16T11:55:00.000Z', '2026-01-22T08:20:00.000Z'],
+      [30, 45, '2026-01-16T10:00:00.000Z', '2026-01-19T09:00:00.000Z'],
+      [91, 66, '2026-01-16T07:50:00.000Z', '2026-01-17T07:00:00.000Z'],
+    ] as const;
+    const extra = made.slice(0, chatgpts - 1).map(([five, week, fiveAt, weekAt], i) => {
+      const lines = [
+        { kind: 'session' as const, percent: five, resetsAt: fiveAt, pending: false, atLeast: false },
+        { kind: 'week' as const, percent: week, resetsAt: weekAt, pending: false, atLeast: false },
+      ];
+      return { ...first, number: i + 2, active: false, email: 'lan.chatgpt' + (i + 2) + '@example.com', lines, windows: lines };
+    });
+    model.snapshot.codex = { ...codexSnap, accounts: [{ ...first, number: 1, email: 'lan.chatgpt1@example.com' }, ...extra] };
   }
   const built: Model = params.get('build') === 'release' ? { ...communityModel(model), capabilities: { agyAccounts: false, authorTools: false } } : model;
   const { api } = fakeApi(params.get('email') === 'off' ? hideNames(built) : built, tab, {

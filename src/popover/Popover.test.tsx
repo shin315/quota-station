@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: MIT
 
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PopoverApp } from '../App';
-import { FOLD_KEY } from './Popover';
+import { FOLD_KEY, MORE_KEY } from './Popover';
 import { fakeApi } from '../fixtures/fakeApi';
 import { claudeAccountsFixture, codexFixture, FIXTURE_NOW, fixtureModel, heldSwitcher, peerFixture, rotationFixture } from '../fixtures/models';
 import type { Api } from '../lib/api';
@@ -24,10 +24,25 @@ async function open(model: Model) {
   return fake;
 }
 
-afterEach(cleanup);
+/** A section by its service's name. */
+const section = (name: string) => screen.getByRole('region', { name });
+/** A section's account in use: a status tile, not a button. */
+const inUse = (name: string) => within(section(name)).getByRole('group');
+/** The line under it that shows the other accounts. */
+const disclosure = (name: string) => within(section(name)).getByRole('button', { name: /tài khoản|accounts?$/ });
+/** The other accounts' buttons, once the line is open. */
+const others = (name: string) => within(screen.getByRole('list', { name })).getAllByRole('button');
+/** Every section opens on its other accounts, as the owner leaves them. */
+const showOthers = () => localStorage.setItem(MORE_KEY, JSON.stringify({ c: true, g: true, x: true }));
+
+beforeEach(() => localStorage.clear());
+afterEach(() => {
+  cleanup();
+  localStorage.clear();
+});
 
 describe('popover', () => {
-  it('shows a card per account: Claude cards switch, the card in use and unlisted Antigravity ones do not', async () => {
+  it('shows each service’s account in use, the others behind one line: Claude rows switch, unlisted Antigravity ones do not', async () => {
     const fake = await open(fixtureModel('fresh'));
     // One header line: this Mac, with no age while the numbers are fresh.
     expect(screen.getByText('Mac mini')).toBeTruthy();
@@ -35,66 +50,94 @@ describe('popover', () => {
     expect(screen.queryByText(/còn tương đương/)).toBeNull();
     expect(screen.queryByText(/n = ngày/)).toBeNull();
 
-    const claude = screen.getByRole('list', { name: 'Claude' });
-    const cards = within(claude).getAllByRole('listitem').map((li) => within(li).getByRole('button'));
-    expect(cards).toHaveLength(4);
-    // The main window's order: the personal account, then the Team seats; the one in use keeps its place.
-    expect(cards.map((c) => c.getAttribute('aria-label')!.split(',')[0])).toEqual(['lanpham.dev', 'lan.acme1', 'lan.acme2', 'lan.acme3']);
-    // The spoken label keeps every word the screen no longer writes.
-    expect(cards[1].getAttribute('aria-label')).toMatch(/^lan\.acme1, Acme Studio, đang dùng\. 5 giờ đã dùng 74%/);
-    // The card's frame says it is in use.
-    expect(cards[1].getAttribute('data-active')).toBe('true');
-    expect(within(cards[1]).queryByText('Acme Studio')).toBeNull();
-    expect(within(cards[2]).queryByText('Tuần')).toBeNull();
-    expect(within(cards[0]).getByText('chưa dùng')).toBeTruthy();
-    expect(cards[1].getAttribute('aria-disabled')).toBe('true');
-    expect(cards[1].getAttribute('title')).toBe('lan.acme1@example.com · Quota Station · tài khoản 2');
-    expect(cards[2].getAttribute('aria-label')).toMatch(/^lan\.acme2, Acme Studio\. .*\. Bấm để chuyển$/);
-    expect(cards[2].getAttribute('aria-disabled')).toBeNull();
-    expect(within(cards[1]).getByText('74%')).toBeTruthy();
-    expect(screen.queryByText('2,3')).toBeNull();
+    // The account in use first, a status with every window; the spoken label keeps every word the screen no longer writes.
+    const acme1 = inUse('Claude');
+    expect(acme1.getAttribute('aria-label')).toMatch(/^lan\.acme1, Acme Studio, đang dùng\. 5 giờ đã dùng 74%/);
+    expect(acme1.getAttribute('data-active')).toBe('true');
+    // Its rotation note is no chip here: the hover has it, and the main window.
+    expect(acme1.getAttribute('title')).toBe('lan.acme1@example.com · Quota Station · tài khoản 2 · rời vòng 17:45');
+    expect(screen.queryByText(/rời vòng/)).toBeNull();
+    expect(within(acme1).getByText('Đang dùng')).toBeTruthy();
+    expect(within(acme1).getByText('74%')).toBeTruthy();
+    expect(within(acme1).queryByText('Acme Studio')).toBeNull();
+    expect(acme1.textContent).toBe('lan.acme1Đang dùng5 giờ74%3h 8mTuần39%4d 19hFable87%1d 17h');
 
-    const agy = within(screen.getByRole('list', { name: 'Antigravity' })).getAllByRole('button');
-    expect(agy).toHaveLength(2);
-    const ultra1 = agy.find((b) => !b.getAttribute('aria-label')!.includes('đang dùng'))!;
-    expect(ultra1.getAttribute('aria-disabled')).toBe('true');
-    expect(ultra1.getAttribute('title')).toBe(
-      'lanpham.ultra@example.com · Quota Station · tài khoản 1 · Chưa chuyển được: chưa đọc được danh sách tài khoản của Quota Station',
+    // The other accounts wait behind one line, closed until the owner opens it.
+    const more = disclosure('Claude');
+    expect(more.textContent).toBe('3 tài khoản khác');
+    expect(more.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByRole('list', { name: 'Claude' })).toBeNull();
+    fireEvent.click(more);
+    expect(more.getAttribute('aria-expanded')).toBe('true');
+    const list = screen.getByRole('list', { name: 'Claude' });
+    expect(more.getAttribute('aria-controls')).toBe(list.id);
+    const cards = others('Claude');
+    // The main window's order, without the one in use: the personal account, then the Team seats.
+    expect(cards.map((c) => c.getAttribute('aria-label')!.split(/,|\. /)[0])).toEqual(['lanpham.dev', 'lan.acme2', 'lan.acme3']);
+    expect(within(cards[0]).getByText('chưa dùng')).toBeTruthy();
+    expect(within(cards[1]).queryByText('Tuần')).toBeNull();
+    expect(cards[1].getAttribute('aria-label')).toMatch(/^lan\.acme2, Acme Studio\. .*\. Bấm để chuyển$/);
+    expect(cards[1].getAttribute('aria-disabled')).toBeNull();
+    expect(screen.queryByText('2,3')).toBeNull();
+    expect(JSON.parse(localStorage.getItem(MORE_KEY)!)).toEqual({ c: true, g: false, x: false });
+
+    // Antigravity: lan.ultra2 in use, lanpham.ultra under the line, grey while the list is not read.
+    expect(inUse('Antigravity').getAttribute('aria-label')).toMatch(/^lan\.ultra2/);
+    fireEvent.click(disclosure('Antigravity'));
+    const agy = others('Antigravity');
+    expect(agy).toHaveLength(1);
+    expect(agy[0].getAttribute('aria-disabled')).toBe('true');
+    expect(agy[0].getAttribute('title')).toBe(
+      'lanpham.ultra@example.com · Quota Station · tài khoản 1 · Chưa chuyển được: chưa đọc được danh sách tài khoản của Quota Station · số 25 phút trước',
     );
-    fireEvent.click(ultra1);
-    fireEvent.click(cards[1]);
+    // Its numbers are 25 minutes old: drawn dim, the age on hover, no chip.
+    expect(agy[0].getAttribute('data-stale')).toBe('true');
+    expect(screen.queryByText(/phút trước/)).toBeNull();
+    fireEvent.click(agy[0]);
+    fireEvent.click(acme1);
     expect(screen.queryByRole('dialog', { name: /Chuyển/ })).toBeNull();
     expect(fake.api.claudeSessions).not.toHaveBeenCalled();
-    fireEvent.click(cards[2]);
+    fireEvent.click(cards[1]);
     expect(fake.api.claudeSessions).toHaveBeenCalledTimes(1);
     expect(fake.api.resizePopover).toHaveBeenCalled();
   });
 
-  it('folds a group to one line from its header, and keeps it folded the next time', async () => {
-    localStorage.clear();
+  it('every disclosure is a button the keyboard reaches, and says whether it is open', async () => {
+    await open(fixtureModel('fresh'));
+    const lines = ['Claude', 'Antigravity', 'Codex'].flatMap((name) => within(section(name)).getAllByRole('button').filter((b) => b.hasAttribute('aria-expanded')));
+    expect(lines.map((b) => b.textContent)).toEqual(['Claude', '3 tài khoản khác', 'Antigravity', '1 tài khoản khác', 'Codex', '1 tài khoản khác']);
+    for (const b of lines) {
+      expect(b.tagName).toBe('BUTTON');
+      expect(b.tabIndex).toBe(0);
+      expect(b.getAttribute('aria-expanded')).toMatch(/^(true|false)$/);
+    }
+    lines[1].focus();
+    expect(document.activeElement).toBe(lines[1]);
+  });
+
+  it('folds a section to one line from its header, and keeps it folded the next time', async () => {
     await open(fixtureModel('fresh'));
     const head = screen.getByRole('button', { name: /^Claude/ });
     expect(head.getAttribute('aria-expanded')).toBe('true');
+    expect(head.textContent).toBe('Claude');
     fireEvent.click(head);
     expect(head.getAttribute('aria-expanded')).toBe('false');
-    expect(screen.queryByRole('list', { name: 'Claude' })).toBeNull();
-    // The header is the group's name alone: Đang dùng above says whose account and how much.
-    expect(head.textContent).toBe('Claude');
+    expect(within(section('Claude')).queryByRole('group')).toBeNull();
+    // Folded, the header says whose account is in use and how much of it.
+    expect(head.textContent).toBe('Claudelan.acme174%');
     // Antigravity stays open.
-    expect(screen.getByRole('list', { name: 'Antigravity' })).toBeTruthy();
-    expect(JSON.parse(localStorage.getItem(FOLD_KEY)!)).toEqual({ c: true, g: false });
+    expect(inUse('Antigravity')).toBeTruthy();
+    expect(JSON.parse(localStorage.getItem(FOLD_KEY)!)).toEqual({ c: true, g: false, x: false });
 
     cleanup();
     await open(fixtureModel('fresh'));
     expect(screen.getByRole('button', { name: /^Claude/ }).getAttribute('aria-expanded')).toBe('false');
     const agyHead = screen.getByRole('button', { name: /^Antigravity/ });
     fireEvent.click(agyHead);
-    expect(agyHead.textContent).toBe('Antigravity');
-    expect(screen.getByRole('list', { name: 'Đang dùng' })).toBeTruthy();
+    expect(agyHead.textContent).toBe('Antigravitylan.ultra22%');
     fireEvent.click(screen.getByRole('button', { name: /^Claude/ }));
-    expect(screen.getByRole('list', { name: 'Claude' })).toBeTruthy();
-    expect(JSON.parse(localStorage.getItem(FOLD_KEY)!)).toEqual({ c: false, g: true });
-    localStorage.clear();
+    expect(inUse('Claude')).toBeTruthy();
+    expect(JSON.parse(localStorage.getItem(FOLD_KEY)!)).toEqual({ c: false, g: true, x: false });
   });
 
   it('a fold that cannot be kept still works', async () => {
@@ -130,16 +173,33 @@ describe('popover', () => {
     expect(screen.queryByRole('switch', { name: /Tự chuyển Claude/ })).toBeNull();
   });
 
-  it('Đang dùng heads the popover: each service, its account, share used and reset', async () => {
+  it('each section opens on its account in use, with its share used and reset', async () => {
     await open(fixtureModel('fresh'));
-    const now = within(screen.getByRole('list', { name: 'Đang dùng' })).getAllByRole('listitem');
-    expect(now.map((r) => r.textContent)).toEqual(['Claudelan.acme174%3h 8m', 'Geminilan.ultra22%1h 57m', 'Codexrelay—']);
-    expect(now[0].getAttribute('title')).toBe('Claude: lan.acme1 đã dùng 74% 5 giờ');
-    expect(now[2].getAttribute('title')).toBe('Codex: relay, ChatGPT đã dùng 23% 5 giờ');
+    expect(['Claude', 'Antigravity', 'Codex'].map((name) => inUse(name).textContent)).toEqual(['lan.acme1Đang dùng5 giờ74%3h 8mTuần39%4d 19hFable87%1d 17h', 'lan.ultra2Đang dùngGemini5 giờ2%1h 57mTuần6%3d 23hClaude/GPT5 giờ0%4h 59mTuần0%5d 23h', 'relayĐang dùngCustom API · không báo hạn mức']);
     cleanup();
     // Old numbers: the age comes back in the header.
     await open(fixtureModel('stale'));
     expect(screen.getByText('· cập nhật 41 phút trước')).toBeTruthy();
+  });
+
+  it('writes no notes on the accounts: an old number is dim with its age on hover, the rotation stays in the main window', async () => {
+    const m = fixtureModel('fresh');
+    const accounts = m.snapshot.claude.accounts;
+    const old = new Date(FIXTURE_NOW.getTime() - 25 * 60_000).toISOString();
+    accounts[2] = { ...accounts[2], reading: 'stale', fetchedAt: old };
+    accounts[3] = { ...accounts[3], membership: 'ended' };
+    showOthers();
+    await open(m);
+    const [, acme2, acme3] = others('Claude');
+    expect(acme2.getAttribute('data-stale')).toBe('true');
+    expect(acme2.getAttribute('title')).toBe('lan.acme2@example.com · Quota Station · tài khoản 3 · số 25 phút trước');
+    // The bars and numbers go grey, not red or orange.
+    const numbers = within(acme2).getAllByText(/%$/);
+    expect(numbers.length).toBeGreaterThan(0);
+    for (const n of numbers) expect(n.className).toContain('text-ink3');
+    expect(acme3.getAttribute('title')).toBe('lan.acme3@example.com · Quota Station · tài khoản 4 · đã rời vòng');
+    expect(acme3.getAttribute('data-stale')).toBeNull();
+    for (const note of [/phút trước/, /rời vòng/, /ngoài vòng/, /nghỉ tự chuyển/]) expect(screen.queryByText(note)).toBeNull();
   });
 
   it('shows the glass, and the solid ground while macOS reduces transparency', async () => {
@@ -291,17 +351,20 @@ describe('popover', () => {
     await open(m);
     expect(screen.getByText('Đang đọc hạn mức lần đầu…')).toBeTruthy();
     expect(screen.queryByText('74%')).toBeNull();
-    // The cards wait: none of them switches before the numbers are in.
-    const cards = within(screen.getByRole('list', { name: 'Claude' })).getAllByRole('button');
-    expect(cards.every((c) => c.getAttribute('aria-disabled') === 'true')).toBe(true);
+    // The other accounts wait: none of them switches before the numbers are in.
+    fireEvent.click(disclosure('Claude'));
+    expect(others('Claude').every((c) => c.getAttribute('aria-disabled') === 'true')).toBe(true);
   });
 
   it('a card to sign in again opens the sign-in in the Claude tab instead of switching', async () => {
     const accounts = claudeAccountsFixture();
     accounts.accounts[2] = { ...accounts.accounts[2], status: 'reloginRequired' };
     const fake = await open(fixtureModel('fresh', { claudeAccounts: accounts }));
+    // Closed, the line still says one must sign in again: something to act on.
+    expect(disclosure('Claude').textContent).toBe('3 tài khoản khác· 1 cần đăng nhập lại');
+    fireEvent.click(disclosure('Claude'));
     const card = screen.getByRole('button', { name: 'lan.acme2, cần đăng nhập lại. Bấm để đăng nhập lại' });
-    expect(within(card).getByText('cần đăng nhập lại')).toBeTruthy();
+    expect(within(card).getByText('Cần đăng nhập lại')).toBeTruthy();
     fireEvent.click(card);
     expect(fake.api.claudeSessions).not.toHaveBeenCalled();
     expect(fake.api.openWindow).toHaveBeenCalledWith('claude');
@@ -309,7 +372,8 @@ describe('popover', () => {
 
   it('speaks English when the setting says so', async () => {
     await open(fixtureModel('fresh', { language: 'en' }));
-    expect(screen.getByRole('list', { name: 'In use' })).toBeTruthy();
+    expect(within(inUse('Claude')).getByText('In use')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '3 other accounts' })).toBeTruthy();
     expect(screen.getByRole('switch', { name: 'Claude auto-switch' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Switch to the dark look' })).toBeTruthy();
     expect(document.documentElement.lang).toBe('en');
