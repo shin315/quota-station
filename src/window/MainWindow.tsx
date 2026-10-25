@@ -6,9 +6,10 @@
 // tables (F04), Tổng quan and Claude show automatic switching and why Claude
 // is on its account (F07), Luật xoay vòng edits the rotation for every Mac
 // (F06), and Antigravity also shows the accounts the app logs in (M4a) and
-// switches from its tables once its row lists them (M4c). Lịch sử, Cảnh
-// báo and Firstmate come from M6, and Cảnh báo counts the alerts nobody
-// answered yet. Codex (M8) has its own tab and a compact card on Tổng quan.
+// switches from its tables once its row lists them (M4c). Lịch sử and
+// Firstmate come from M6, and Thông báo, the bell at the right of every
+// page's title row, with its red count of the notifications not read yet.
+// Codex (M8) has its own tab and a compact card on Tổng quan.
 // The Agent group starts with MCP (M9): every agent's MCP servers in one table,
 // then Skills, Plugin and File hướng dẫn (M11).
 // The Sao lưu group has the backup packs and the restore (M10), and the copy
@@ -29,7 +30,7 @@ import { Segment, Segmented } from '@/components/ui/segmented';
 import { cn } from '@/lib/utils';
 import { AddAccount, LoginActions, LoginNotes, LogoutConfirm, loginChips, type AgyLogins } from '@agy/AgyAccounts';
 import { AccountName, IdMark, InUse, WindowCell } from '../components/accounts';
-import { Empty, OV_COLS, TABLE, TABLE_BOX, TABLE_CELLS, TABLE_END, TABLE_HEAD, TABLE_ROW, TABLE_ROW_ON, TabHead, TabNote, TabSub, TabTitle } from '../components/page';
+import { Empty, HeadEnd, OV_COLS, TABLE, TABLE_BOX, TABLE_CELLS, TABLE_END, TABLE_HEAD, TABLE_ROW, TABLE_ROW_ON, TabHead, TabNote, TabSub, TabTitle } from '../components/page';
 import { Banner, Button, Chip, CODE, Dot, Feedback, KVT, More, Toggle } from '../components/parts';
 import type { Tab } from '../lib/model';
 import { pauseOptions, type AutoView, type PauseChoice } from '../lib/switching';
@@ -54,7 +55,6 @@ function navs(advanced: boolean): (['-', string] | [NavId, string])[] {
     ['-', advanced ? t('Tự động', 'Automation') : t('Theo dõi', 'Activity')],
     ['rules', t('Luật xoay vòng', 'Rotation rules')],
     ['history', t('Lịch sử', 'History')],
-    ['alerts', t('Cảnh báo', 'Alerts')],
     ['firstmate', 'Firstmate'],
     ['-', 'Agent'],
     ['mcp', 'MCP'],
@@ -77,7 +77,7 @@ export function AdvancedTag({ className, hidden }: { className?: string; hidden?
   );
 }
 
-function NavButton(props: { id: NavId; label: string; tab: Tab; badge?: number; onTab(tab: Tab): void }) {
+function NavButton(props: { id: NavId; label: string; tab: Tab; onTab(tab: Tab): void }) {
   const on = props.id === props.tab;
   return (
     <button
@@ -91,14 +91,6 @@ function NavButton(props: { id: NavId; label: string; tab: Tab; badge?: number; 
     >
       {NAV_ICONS[props.id]}
       <span className="min-w-0 truncate">{props.label}</span>
-      {props.badge ? (
-        <>
-          <span className="ml-auto rounded-full bg-bad-fill px-1.5 text-cap leading-4 font-heavy text-white" aria-hidden="true">
-            {props.badge}
-          </span>
-          <span className="sr-only">{t(', ' + props.badge + ' cảnh báo mới', ', ' + props.badge + ' new alerts')}</span>
-        </>
-      ) : null}
     </button>
   );
 }
@@ -111,7 +103,7 @@ function hiddenTabs(advanced: boolean, firstmate: boolean): Set<NavId> {
   return hidden;
 }
 
-function Sidebar(props: { tab: Tab; machine: string; note: string | null; alerts: number; hidden: Set<NavId>; advanced: boolean; onTab(tab: Tab): void }) {
+function Sidebar(props: { tab: Tab; machine: string; note: string | null; hidden: Set<NavId>; advanced: boolean; onTab(tab: Tab): void }) {
   const { tab, machine, note, onTab } = props;
   const items = navs(props.advanced).filter((n) => n[0] === '-' || !props.hidden.has(n[0]));
   return (
@@ -128,7 +120,7 @@ function Sidebar(props: { tab: Tab; machine: string; note: string | null; alerts
             {n[1]}
           </div>
         ) : (
-          <NavButton key={n[0]} id={n[0]} label={n[1]} badge={n[0] === 'alerts' ? props.alerts : undefined} tab={tab} onTab={onTab} />
+          <NavButton key={n[0]} id={n[0]} label={n[1]} tab={tab} onTab={onTab} />
         ),
       )}
       <div className="flex-1" data-tauri-drag-region />
@@ -705,12 +697,11 @@ export interface MainWindowProps {
   backup?: ReactNode;
   /** The Chép sang Mac khác tab (M13). */
   copy?: ReactNode;
-  /** The Lịch sử, Cảnh báo and Firstmate tabs (M6). */
+  /** The Lịch sử and Firstmate tabs (M6). */
   history?: ReactNode;
-  alerts?: ReactNode;
   firstmate?: ReactNode;
-  /** Alerts with buttons nobody pressed yet, on the sidebar. */
-  unanswered?: number;
+  /** The bell (Thông báo), at the right of every page's title row. */
+  bell?: ReactNode;
   /** Under the machine name in the sidebar: whether the other Macs have the rules. */
   syncNote?: string | null;
   /** The accounts the app logs in, merged into the Antigravity table. */
@@ -750,8 +741,9 @@ export function MainWindow(props: MainWindowProps) {
   };
   const open = !!props.dialog;
   const hidden = hiddenTabs(props.advanced, props.firstmateTab);
-  // A tab Nâng cao took away while it was open gives way to Tổng quan.
-  const tab: Tab = hidden.has(props.tab as NavId) ? 'overview' : props.tab;
+  // A tab Nâng cao took away while it was open gives way to Tổng quan, and
+  // so does `alerts`, which asks for the bell's panel, not a page.
+  const tab: Tab = hidden.has(props.tab as NavId) || props.tab === 'alerts' ? 'overview' : props.tab;
   return (
     <div className={cn('win-o material-window relative grid h-full w-full overflow-hidden', props.setup ? 'grid-cols-[minmax(0,1fr)]' : 'grid-cols-[var(--side-w)_minmax(0,1fr)]')}>
       {/* The window's top edge drags it, over the sidebar and the page alike, as a title bar would. */}
@@ -766,30 +758,30 @@ export function MainWindow(props: MainWindowProps) {
             tab={tab}
             machine={props.view.machine}
             note={props.advanced ? (props.syncNote ?? null) : null}
-            alerts={props.unanswered ?? 0}
             hidden={hidden}
             advanced={props.advanced}
             onTab={props.onTab}
           />
           {/* The page is the container its layouts measure: the window less the sidebar. */}
           <main className="main material-main @container/main relative flex min-w-0 flex-col gap-3 overflow-y-auto pt-4 pr-[22px] pb-[22px] pl-3.5">
-            {tab === 'overview' ? <Overview {...tabProps} advanced={props.advanced} agyAccounts={props.agyAccounts} release={props.release} onTab={props.onTab} /> : null}
-            {tab === 'stats' ? props.stats : null}
-            {tab === 'claude' ? <ClaudeTab {...tabProps} advanced={props.advanced} /> : null}
-            {tab === 'agy' ? <AgyTab {...tabProps} agyAccounts={props.agyAccounts} /> : null}
-            {tab === 'codex' ? props.codex : null}
-            {tab === 'rules' ? props.rules : null}
-            {tab === 'history' ? props.history : null}
-            {tab === 'alerts' ? props.alerts : null}
-            {tab === 'firstmate' ? props.firstmate : null}
-            {tab === 'mcp' ? props.mcp : null}
-            {tab === 'skills' ? props.skills : null}
-            {tab === 'plugins' ? props.plugins : null}
-            {tab === 'instr' ? props.instr : null}
-            {tab === 'sets' ? props.sets : null}
-            {tab === 'backup' ? props.backup : null}
-            {tab === 'copy' ? props.copy : null}
-            {tab === 'settings' ? props.settings : null}
+            <HeadEnd.Provider value={props.bell ?? null}>
+              {tab === 'overview' ? <Overview {...tabProps} advanced={props.advanced} agyAccounts={props.agyAccounts} release={props.release} onTab={props.onTab} /> : null}
+              {tab === 'stats' ? props.stats : null}
+              {tab === 'claude' ? <ClaudeTab {...tabProps} advanced={props.advanced} /> : null}
+              {tab === 'agy' ? <AgyTab {...tabProps} agyAccounts={props.agyAccounts} /> : null}
+              {tab === 'codex' ? props.codex : null}
+              {tab === 'rules' ? props.rules : null}
+              {tab === 'history' ? props.history : null}
+              {tab === 'firstmate' ? props.firstmate : null}
+              {tab === 'mcp' ? props.mcp : null}
+              {tab === 'skills' ? props.skills : null}
+              {tab === 'plugins' ? props.plugins : null}
+              {tab === 'instr' ? props.instr : null}
+              {tab === 'sets' ? props.sets : null}
+              {tab === 'backup' ? props.backup : null}
+              {tab === 'copy' ? props.copy : null}
+              {tab === 'settings' ? props.settings : null}
+            </HeadEnd.Provider>
           </main>
         </div>
       )}

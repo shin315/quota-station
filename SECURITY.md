@@ -496,7 +496,7 @@ hướng dẫn tabs only read.
   is tried again after an hour. What it found (names, hashes, times, the
   versions skipped with `Bỏ qua bản này`) is `agents/skill-updates.json`.
   The app never updates a skill on its own. It shows `skill có bản mới` in
-  the Cảnh báo tab once per set of versions, and as a macOS card only when
+  the Thông báo panel (the bell) once per set of versions, and as a macOS card only when
   `Báo bằng thông báo macOS` is on in Cài đặt (off by default);
   `Kiểm bản mới` there can be turned off.
 - The Plugin tab runs `claude plugin list --json` and `claude plugin
@@ -846,7 +846,7 @@ only counts, never text.
   and the trap: a value planted in every file and in `launchctl`'s answer
   is not in the result, the alerts, any file in the app's folder or what
   the window is sent. The window's tests draw that very model
-  (`src/fixtures/env-trap.json`) on Cài đặt, the Claude tab and Cảnh báo
+  (`src/fixtures/env-trap.json`) on Cài đặt, the Claude tab and the Thông báo panel
   and find no value there. No test reads the real home, its shell files or
   launchd.
 - `tests/agents_sets.rs` (M15) applies sets on a temporary home with

@@ -329,6 +329,7 @@ pub enum Tab {
     Codex,
     Rules,
     History,
+    /// Not a page: the bell's panel (Thông báo), open over the page in view.
     Alerts,
     Firstmate,
     Mcp,

@@ -129,8 +129,8 @@ export function Glyph({ name, tint, bold, className }: { name: GlyphName; tint?:
 }
 
 /**
- * Each place of the app (a sidebar item, and the popover that names the same
- * places) with its glyph and its own tint, as Clean Station's sidebar does:
+ * Each place of the app (a sidebar item, Thông báo's bell, and the popover
+ * that names the same places) with its glyph and its own tint, as Clean Station's sidebar does:
  * neighbours in the sidebar's order take different hues. Claude, Antigravity
  * and Codex show their logos.
  */

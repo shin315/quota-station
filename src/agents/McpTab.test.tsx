@@ -73,7 +73,7 @@ describe('the MCP tab', () => {
   it('has "Thêm MCP" at the table\'s head, the agents named over their columns, and the lines under it on the glass', async () => {
     await openTab();
     const head = screen.getByRole('heading', { level: 2, name: 'MCP' }).parentElement!;
-    expect(within(head).getAllByRole('button').map((b) => b.textContent)).toEqual(['Đọc lại']);
+    expect(within(head).getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['Đọc lại', 'Thông báo']);
     const title = screen.getByRole('heading', { level: 4, name: /MCP của bạn/ });
     expect(within(title).getByRole('button', { name: 'Thêm MCP' })).toBeTruthy();
     expect(['Claude Code', 'Codex', 'Antigravity'].map((a) => screen.getByRole('button', { name: a + ': tuỳ chọn cột' }).textContent)).toEqual(['Claude Code', 'Codex', 'Antigravity']);

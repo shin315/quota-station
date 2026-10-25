@@ -146,19 +146,20 @@ describe('the Claude tab', () => {
   });
 });
 
-describe('the alerts', () => {
-  it('one card per variable, in the app only; "Bỏ qua" hides it and "Xem" opens Cài đặt', async () => {
+describe('the notifications', () => {
+  it('one card per variable under the bell, in the app only; "Bỏ qua" hides it and "Xem" opens Cài đặt', async () => {
     const recent = [envAlert(API_KEY), envAlert(BASE_URL, 1768547640)];
     const fake = await openTab('alerts', withEnv([API_KEY, BASE_URL], { alerts: alertsFixture({ recent, unanswered: 2 }) }));
-    const key = screen.getByRole('group', { name: 'Cảnh báo: ANTHROPIC_API_KEY đang đè đăng nhập Claude Code' });
+    const key = screen.getByRole('group', { name: 'Thông báo: ANTHROPIC_API_KEY đang đè đăng nhập Claude Code' });
     expect(within(key).getByText(/chỉ có trong app/)).toBeTruthy();
     await press(within(key).getByRole('button', { name: 'Bỏ qua' }));
     expect(fake.api.alertAction).toHaveBeenCalledWith(recent[0].id, 'env:ignore:ANTHROPIC_API_KEY');
     expect(within(key).getByText('Đã bỏ qua ANTHROPIC_API_KEY')).toBeTruthy();
     expect(fake.current().env.found.map((f) => f.id)).toEqual(['OPENAI_BASE_URL@zprofile']);
-    const base = screen.getByRole('group', { name: 'Cảnh báo: OPENAI_BASE_URL đang đè đăng nhập Codex' });
+    const base = screen.getByRole('group', { name: 'Thông báo: OPENAI_BASE_URL đang đè đăng nhập Codex' });
     await press(within(base).getByRole('button', { name: 'Xem' }));
     expect(screen.getByRole('heading', { level: 2, name: 'Cài đặt' })).toBeTruthy();
+    expect(screen.queryByRole('dialog', { name: 'Thông báo' })).toBeNull();
   });
 });
 
@@ -181,8 +182,10 @@ describe('a planted value', () => {
   });
 
   for (const tab of ['settings', 'claude', 'alerts'] as Tab[]) {
-    it('never reaches the ' + tab + ' tab', async () => {
+    it('never reaches ' + (tab === 'alerts' ? 'the bell’s panel' : 'the ' + tab + ' tab'), async () => {
       await openTab(tab, fromRust());
+      // Every notification drawn, not only the newest.
+      if (tab === 'alerts') await press(screen.getByRole('button', { name: /^Xem tất cả/ }));
       expect(document.body.textContent).toContain('ANTHROPIC_API_KEY');
       if (tab === 'settings') await press(within(card()).getByRole('button', { name: 'Xem danh sách' }));
       expect(document.body.innerHTML).not.toContain(TRAP);

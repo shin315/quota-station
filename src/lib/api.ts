@@ -67,7 +67,7 @@ export interface Api {
   getModel(): Promise<Model>;
   /** Asks for a read now; resolves to the count of finished reads at the time of asking. */
   refresh(): Promise<number>;
-  /** Opens the main window on a tab, or brings it forward. */
+  /** Opens the main window on a tab, or brings it forward; `alerts` opens the bell's panel over the page. */
   openWindow(tab: Tab): Promise<void>;
   /** The tab the main window was opened for. */
   mainTab(): Promise<Tab>;
@@ -345,11 +345,13 @@ export interface Api {
   /** "Hoàn tác" of the copy that ran at `at`, on the Mac it was written to. Rejects with `gone`, `changed:…`, … */
   copyUndo(alias: string, push: boolean, at: number, force: boolean): Promise<RestoreUndone>;
   /**
-   * A button on an alert card in the Cảnh báo tab, the same as on the macOS card. A switch back
+   * A button on a card in the bell's panel (Thông báo), the same as on the macOS card. A switch back
    * runs on the Rust side and its result comes in the model; `openSwitch` asks this window to open
    * its switch sheet. Rejects with `answered`, `unknown` or `noSuchAction`.
    */
   alertAction(id: string, action: string): Promise<{ openSwitch: number | null }>;
+  /** The bell's panel opened: every card in it is read, and the count goes. */
+  alertsRead(): Promise<void>;
   /** "Gửi thử": a sample card of this kind, with buttons that change nothing. */
   testAlert(kind: AlertKind): Promise<Model>;
   setAlertSwitch(kind: AlertKind, on: boolean): Promise<Model>;
@@ -385,7 +387,7 @@ export interface Api {
   /** A button on a macOS card asks the popover to open its switch sheet for a Claude account. */
   onOpenSwitch(handler: (slot: number) => void): Promise<() => void>;
   onModel(handler: (model: Model) => void): Promise<() => void>;
-  /** The main window is asked to show a tab while it is open. */
+  /** The main window is asked to show a tab while it is open (`alerts`: the bell's panel). */
   onTab(handler: (tab: Tab) => void): Promise<() => void>;
   /** Whether macOS reduces transparency (Accessibility › Display): the windows then show the solid ground. */
   reduceTransparency(): Promise<boolean>;
@@ -519,6 +521,7 @@ export const tauriApi: Api = {
   copyRun: (alias, push, selection, keys) => invoke<RestoreDone>('copy_run', { alias, push, selection, keys }),
   copyUndo: (alias, push, at, force) => invoke<RestoreUndone>('copy_undo', { alias, push, at, force }),
   alertAction: (id, action) => invoke('alert_action', { id, action }),
+  alertsRead: () => invoke('alerts_read'),
   testAlert: (kind) => invoke<Model>('test_alert', { kind }),
   setAlertSwitch: (kind, on) => invoke<Model>('set_alert_switch', { kind, on }),
   setPoolAlert: (dryAtMost, roomAtLeast) => invoke<Model>('set_pool_alert', { dryAtMost, roomAtLeast }),

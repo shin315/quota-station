@@ -300,6 +300,7 @@ commands![
     #[cfg(feature = "author-tools")]
     copy::copy_undo,
     alerting::alert_action,
+    alerting::alerts_read,
     alerting::test_alert,
     alerting::set_alert_switch,
     alerting::set_pool_alert,

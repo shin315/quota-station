@@ -544,6 +544,8 @@ export interface AlertRecord {
   /** macOS took the card. */
   notified: boolean;
   answer: AlertAnswer | null;
+  /** The bell's panel was opened since it came. */
+  read: boolean;
 }
 
 export type AlertSwitches = Record<SwitchKind, boolean>;
@@ -565,6 +567,8 @@ export interface AlertsView {
   poolAlert: PoolAlert;
   /** Cards with buttons nobody pressed yet. */
   unanswered: number;
+  /** Cards that came since the bell's panel was last opened: its count. */
+  unread: number;
   permission: NotifyPermission;
 }
 
@@ -681,6 +685,7 @@ export type Tab =
   | 'codex'
   | 'rules'
   | 'history'
+  /** Not a page: the bell's panel (Thông báo), open over the page in view. */
   | 'alerts'
   | 'firstmate'
   | 'mcp'

@@ -186,6 +186,8 @@ export function alertsFixture(over: Partial<AlertsView> = {}): AlertsView {
     switches: { pool: true, leaving: true, login: true, overwrite: true, firstmate: false },
     poolAlert: { dryAtMost: 10, roomAtLeast: 15 },
     unanswered: 0,
+    // The bell counts the cards not read yet unless told otherwise.
+    unread: (over.recent ?? []).filter((r) => !r.read).length,
     permission: 'allowed',
     ...over,
   };
@@ -212,6 +214,7 @@ export function leavingAlert(over: Partial<AlertRecord> = {}): AlertRecord {
     },
     notified: true,
     answer: null,
+    read: false,
     ...over,
   };
 }
@@ -235,6 +238,7 @@ export function overwriteAlert(over: Partial<AlertRecord> = {}): AlertRecord {
     },
     notified: true,
     answer: null,
+    read: false,
     ...over,
   };
 }

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 //! The five alerts (F09), each sent once for its event, as a macOS card with
-//! buttons and as the same card in the Cảnh báo tab:
+//! buttons and as the same card under the bell (Thông báo) in the main window:
 //!
 //! 1. The whole Claude pool about to run dry, and back: Firstmate's
 //!    quota-pool rule on the accounts' numbers. Dry: the account in use has
@@ -97,7 +97,7 @@ impl Kind {
     pub const ALL: [Kind; 5] =
         [Kind::Pool, Kind::Leaving, Kind::Login, Kind::Overwrite, Kind::Firstmate];
 
-    /// Its number in the plan and the Cảnh báo tab, 1 to 5.
+    /// Its number in the plan and in Cài đặt › Thông báo, 1 to 5.
     pub fn number(self) -> u8 {
         match self {
             Kind::Pool => 1,
@@ -227,7 +227,7 @@ pub struct Answer {
     pub result: Option<Said>,
 }
 
-/// One alert as sent: a macOS card and a card in the Cảnh báo tab.
+/// One alert as sent: a macOS card and a line in the bell's panel.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Record {
@@ -238,6 +238,14 @@ pub struct Record {
     /// be shown.
     pub notified: bool,
     pub answer: Option<Answer>,
+    /// The bell's panel was opened since it came. A card kept before the
+    /// bell counted reads counts as read, so the bell starts at nothing.
+    #[serde(default = "kept_read")]
+    pub read: bool,
+}
+
+fn kept_read() -> bool {
+    true
 }
 
 /// What the app keeps between reads and restarts, in `alerts/alerts.json`.
@@ -267,6 +275,21 @@ impl Memory {
             .iter()
             .filter(|r| !r.alert.test && r.answer.is_none() && !r.alert.actions.is_empty())
             .count()
+    }
+
+    /// Cards that came since the bell's panel was last opened: its count.
+    pub fn unread(&self) -> usize {
+        self.recent.iter().filter(|r| !r.read).count()
+    }
+
+    /// The bell's panel opened: every card in it is read. Whether any was not.
+    pub fn mark_read(&mut self) -> bool {
+        let mut changed = false;
+        for r in self.recent.iter_mut().filter(|r| !r.read) {
+            r.read = true;
+            changed = true;
+        }
+        changed
     }
 }
 
@@ -934,7 +957,7 @@ pub fn evaluate(memory: &mut Memory, facts: &Facts, switches: &Switches) -> Vec<
         memory.sent.entry(alert.key.clone()).or_insert(now);
         let id = format!("{}@{now}", alert.key);
         memory.recent.retain(|r| r.id != id);
-        memory.recent.insert(0, Record { id: id.clone(), alert, notified: false, answer: None });
+        memory.recent.insert(0, Record::new(id.clone(), alert));
         shown.push(id);
     }
     memory.snoozed.retain(|k, _| holding.contains(k));
@@ -956,6 +979,11 @@ pub struct Card {
 }
 
 impl Record {
+    /// A card just sent: not yet on macOS, answered or read.
+    fn new(id: String, alert: Alert) -> Record {
+        Record { id, alert, notified: false, answer: None, read: false }
+    }
+
     pub fn card(&self) -> Card {
         Card {
             id: self.id.clone(),
@@ -1080,7 +1108,7 @@ pub fn answer(
         let said = match a.kind {
             Kind::Pool => said(
                 Tone::Info,
-                "Đã bỏ qua cảnh báo này",
+                "Đã bỏ qua thông báo này",
                 "Không lặp lại cho cùng sự kiện. Quota Station báo lại khi hạn mức trong vòng có lại.",
             ),
             Kind::Leaving => {
@@ -1336,7 +1364,7 @@ pub fn skill_alert(memory: &mut Memory, found: &[(String, String)], now: i64) ->
     memory.sent.insert(key.clone(), now);
     let id = format!("{key}@{now}");
     memory.recent.retain(|r| r.id != id);
-    memory.recent.insert(0, Record { id: id.clone(), alert, notified: false, answer: None });
+    memory.recent.insert(0, Record::new(id.clone(), alert));
     memory.recent.truncate(RECENT_KEEP);
     Some(id)
 }
@@ -1375,7 +1403,7 @@ pub fn env_alerts(memory: &mut Memory, found: &[env_check::Found], now: i64) -> 
         memory.sent.insert(key.clone(), now);
         let id = format!("{key}@{now}");
         memory.recent.retain(|r| r.id != id);
-        memory.recent.insert(0, Record { id: id.clone(), alert, notified: false, answer: None });
+        memory.recent.insert(0, Record::new(id.clone(), alert));
         ids.push(id);
     }
     memory.recent.truncate(RECENT_KEEP);
@@ -1412,7 +1440,7 @@ pub fn env_ignored(memory: &mut Memory, name: &str, now: i64, offset: UtcOffset)
 pub fn keep_test(memory: &mut Memory, alert: Alert) -> String {
     let id = format!("{}@{}", alert.key, alert.at);
     memory.recent.retain(|r| r.id != id);
-    memory.recent.insert(0, Record { id: id.clone(), alert, notified: false, answer: None });
+    memory.recent.insert(0, Record::new(id.clone(), alert));
     memory.recent.truncate(RECENT_KEEP);
     id
 }

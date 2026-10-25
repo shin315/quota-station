@@ -42,12 +42,24 @@ describe('main window', () => {
     expect(bar.getAttribute('data-tauri-drag-region')).toBe('deep');
     const refresh = within(bar).getByRole('button', { name: 'Làm mới' });
     expect(refresh.hasAttribute('data-tauri-drag-region')).toBe(false);
+    expect(within(bar).getByRole('button', { name: 'Thông báo' }).hasAttribute('data-tauri-drag-region')).toBe(false);
     expect(screen.getByRole('navigation', { name: 'Các tab' }).hasAttribute('data-tauri-drag-region')).toBe(true);
-    for (const tab of ['rules', 'history', 'alerts', 'firstmate', 'settings', 'codex', 'mcp', 'skills', 'plugins', 'instr'] as Tab[]) {
+    for (const tab of ['rules', 'history', 'firstmate', 'settings', 'codex', 'mcp', 'skills', 'plugins', 'instr'] as Tab[]) {
       cleanup();
       await open(fixtureModel('fresh'), tab);
-      expect(screen.getByRole('heading', { level: 2 }).parentElement!.getAttribute('data-tauri-drag-region')).toBe('deep');
+      const row = screen.getByRole('heading', { level: 2 }).parentElement!;
+      expect(row.getAttribute('data-tauri-drag-region')).toBe('deep');
+      // The bell ends every page's title row.
+      expect(within(row).getAllByRole('button').at(-1)!.getAttribute('aria-label')).toBe('Thông báo');
     }
+  });
+
+  it('the notifications are a bell in the title row, not a tab: asked for, they open over Tổng quan', async () => {
+    await open(fixtureModel('fresh'), 'alerts');
+    expect(within(screen.getByRole('navigation', { name: 'Các tab' })).queryByRole('button', { name: /Thông báo|Cảnh báo/ })).toBeNull();
+    expect(heading()).toBe('Tổng quan');
+    expect(nav('Tổng quan').getAttribute('aria-current')).toBe('page');
+    expect(screen.getByRole('dialog', { name: 'Thông báo' })).toBeTruthy();
   });
 
   it('Tổng quan is one section per service, every account by its windows, automatic switching in the Claude head', async () => {

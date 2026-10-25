@@ -54,6 +54,8 @@ export type Action =
   | 'agy:keep'
   /** System Settings › Notifications (M6). */
   | 'notify:settings'
+  /** The popover's bell: the main window with the bell's panel open. */
+  | 'notifications'
   /** Codex (M8): the row, a switch sheet, the restart sheet, the change made outside, guides and the tab. */
   | CodexAction
   /** The rotation editor's banners and feedback (M5). */

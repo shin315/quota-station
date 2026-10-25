@@ -24,9 +24,11 @@
 // `overwritten`), `agyapp=closed|missing|old|unreadable|unknown` is what the sheet learns
 // about Antigravity.app (it runs by default), and
 // `agyoutcome=unconfirmed|notquit|write` what a switch reports. A switch takes 1.5 s.
-// History, alerts and Firstmate (M6): `tab=history|alerts|firstmate`, with
-// `history=empty`, `alerts=on|off|unbundled|empty` (two cards by default on
-// `tab=alerts`; `off` is macOS refusing the cards) and
+// History, notifications and Firstmate (M6): `tab=history|firstmate`, and
+// `tab=alerts`, Tổng quan with the bell's panel open (as a macOS card opens
+// it), with `history=empty`, `alerts=on|off|unbundled|empty|many` (two cards
+// by default on `tab=alerts`; `off` is macOS refusing the cards; `many`,
+// twelve not read yet, `9+` on the bell) and
 // `firstmate=ok|holding|stale|missing|unset` (unset by default).
 // The app itself (M7), on `tab=settings`: `app=on|approval|unavailable|nosource|unbundled`
 // sets the login switch and the clone, and `update=uptodate|pull|install|timeout` how
@@ -214,6 +216,16 @@ const ALERTS: Record<string, () => Model['alerts']> = {
   off: () => alertsFixture({ recent: [overwriteAlert(), leavingAlert()], unanswered: 2, permission: 'denied' }),
   unbundled: () => alertsFixture({ recent: [overwriteAlert(), leavingAlert()], unanswered: 2, permission: 'unbundled' }),
   empty: () => alertsFixture(),
+  many: () =>
+    alertsFixture({
+      recent: Array.from({ length: 12 }, (_, i) => {
+        const at = 1768547700 - i * 2400;
+        const hm = new Date((at + 7 * 3600) * 1000).toISOString().slice(11, 16);
+        const base = i % 2 ? overwriteAlert() : leavingAlert();
+        return { ...base, id: base.alert.key + ':' + i + '@' + at, alert: { ...base.alert, key: base.alert.key + ':' + i, title: i % 2 ? base.alert.title : 'Team A rời vòng lúc ' + hm, at } };
+      }),
+      unanswered: 12,
+    }),
   env: () => alertsFixture({ recent: [envAlert(API_KEY), envAlert(BASE_URL, 1768547640)], unanswered: 2 }),
 };
 
