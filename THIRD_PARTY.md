@@ -220,7 +220,8 @@ SOFTWARE.
 ## Inter
 
 - Project: https://github.com/rsms/inter (https://rsms.me/inter)
-- How it is used: the interface's font. Inter 4.001's variable font
+- How it is used: a font a theme can choose (the interface itself draws in
+  macOS's system font). Inter 4.001's variable font
   (`opsz` 14-32, `wght` 100-900) is bundled in
   `src/assets/fonts/InterVariable-vi.woff2`, cut with `pyftsubset` to
   Latin, Latin Extended-A/B, Vietnamese, the combining marks and the arrows

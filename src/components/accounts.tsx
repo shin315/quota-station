@@ -28,17 +28,16 @@ function toneInk(tone: UsedTone | string): string | undefined {
 
 /**
  * Where an account's name is shown: its name, a sub-line, and chips.
- * `card`: on a popover card, where the chips go to the right. `dot`: a
- * table's row, with the dot that is green on the account in use.
+ * `card`: on a popover card, where the chips go to the right.
  */
-export function AccountName(props: { name: string; sub: string; full: string; chips?: ChipView[]; card?: boolean; dot?: 'on' | 'off' | 'rest' }) {
-  const name = (
+export function AccountName(props: { name: string; sub: string; full: string; chips?: ChipView[]; card?: boolean }) {
+  return (
     <span className="an grid min-w-0 gap-px">
-      <b className="overflow-hidden text-[15px] font-semi text-ellipsis whitespace-nowrap text-heading" title={props.full || undefined}>
+      <b className="overflow-hidden text-body font-semi text-ellipsis whitespace-nowrap" title={props.full || undefined}>
         {props.name}
       </b>
       {props.sub || props.chips?.length ? (
-        <small className={cn('flex min-w-0 flex-wrap items-center gap-[5px] text-[13px] text-ink2', props.card && 'flex-nowrap overflow-hidden text-ellipsis whitespace-nowrap')}>
+        <small className={cn('flex min-w-0 items-center gap-[5px] overflow-hidden whitespace-nowrap text-xs text-ink2 @max-[640px]/main:flex-wrap', props.card && 'text-ellipsis')}>
           {/* One line: "Cá nhân · 08–23" never breaks inside its value. */}
           {props.sub ? (
             <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap" title={props.sub}>
@@ -52,17 +51,6 @@ export function AccountName(props: { name: string; sub: string; full: string; ch
       ) : null}
     </span>
   );
-  if (!props.dot) return name;
-  return (
-    <span className="flex min-w-0 items-start gap-2.5">
-      {/* Out of the rotation: a ring instead of a dot. */}
-      <Dot
-        tone={props.dot === 'on' ? 'ok' : 'off'}
-        className={cn('mt-1.5 size-2.5 flex-none', props.dot === 'rest' && 'bg-transparent shadow-[inset_0_0_0_1.5px_var(--dot-off)]')}
-      />
-      {name}
-    </span>
-  );
 }
 
 /** A window's name over its number, only where the table's head row is gone (a narrow page). */
@@ -74,64 +62,63 @@ function CellName({ label }: { label: string }) {
   );
 }
 
-/** One window in a table cell: the share used, a bar under it, and when it resets. */
-export function WindowCell({ cell, dim }: { cell: CellView; dim?: boolean; tight?: boolean }) {
+/**
+ * One window in a table cell: the share used, a bar, and when it resets.
+ * `tight`: Tổng quan's narrower columns, where the reset time is smaller.
+ */
+export function WindowCell({ cell, dim, tight }: { cell: CellView; dim?: boolean; tight?: boolean }) {
   if (cell.none) {
     return (
-      <span className="wc min-w-0 tabular-nums" title={cell.title}>
+      <span className="wc min-w-0 leading-[1.15] tabular-nums" title={cell.title}>
         <CellName label={cell.label} />
-        <b className="block text-body font-reg text-ink3">—</b>
+        <b className="block text-sm font-reg text-ink3">—</b>
       </span>
     );
   }
   const tone = dim ? 'muted' : cell.tone;
   return (
-    <span className="wc grid min-w-0 content-center gap-1 tabular-nums" title={cell.title}>
+    <span className="wc min-w-0 leading-[1.15] tabular-nums" title={cell.title}>
       <CellName label={cell.label} />
-      <b className={cn('block text-body font-semi', tone === 'warn' ? 'text-warn-ink' : tone === 'bad' ? 'text-bad-ink' : 'text-ink')}>{cell.text}</b>
-      <Meter percent={cell.used} tone={tone} className="max-w-[132px]" />
-      <small className="block overflow-hidden text-[13px] text-ellipsis whitespace-nowrap text-ink2">{cell.reset}</small>
+      <b className={cn('block text-sm font-semi', tone === 'warn' ? 'text-warn-ink' : tone === 'bad' ? 'text-bad-ink' : 'text-ink')}>{cell.text}</b>
+      <Meter percent={cell.used} tone={tone} className="mt-[3px] mb-0.5 h-(--meter-h-s)" />
+      <small className={cn('block overflow-hidden text-ellipsis whitespace-nowrap text-ink2', tight ? 'text-cap' : 'text-xs')}>{cell.reset}</small>
     </span>
   );
 }
 
-/** Đang dùng on Tổng quan: a tile per service, its logo, account and number. */
+/** The flex name in Đang dùng, as the prototype drew it. */
+const NOW_NAME = 'flex min-w-0 flex-wrap items-center gap-[5px] overflow-hidden text-ellipsis whitespace-nowrap font-semi';
+
+/**
+ * Đang dùng on Tổng quan: a tile per service, the service, the account on a
+ * line of its own, its number large and when it resets. A tile under about
+ * 200 px goes onto its own row.
+ */
 export function NowCard({ now }: { now: NowView }) {
   if (!now.rows.length) return null;
   return (
-    <Card className="pt-3">
-      <CardTitle className="mb-2.5 text-[15px] font-semi tracking-normal">{t('Đang dùng', 'In use')}</CardTitle>
-      {/* A tile under about 250 px goes onto its own row. */}
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-3" role="list" aria-label={t('Đang dùng', 'In use')}>
+    <Card bare>
+      <CardTitle bare>{t('Đang dùng', 'In use')}</CardTitle>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-2.5" role="list" aria-label={t('Đang dùng', 'In use')}>
         {now.rows.map((r) => (
-          // The service, the account on a line of its own and its organization under it, the number to the
-          // right; then when it resets, the tile's whole width.
-          <div
-            className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 rounded-card border border-line bg-tile px-3.5 py-2.5 leading-[1.28] tabular-nums [grid-template-areas:'logo_t_big'_'line_line_line']"
-            role="listitem"
-            key={r.id}
-            title={r.title}
-            aria-label={r.label}
-          >
-            <IdMark id={r.id} className="size-[34px] self-start [grid-area:logo]" />
-            <span className="grid min-w-0 gap-px [grid-area:t]" aria-hidden="true">
-              <b className="text-[15px] font-semi text-heading">{r.svc}</b>
-              <span className="truncate text-body text-ink" title={r.name}>
+          <div className="grid min-w-0 content-start gap-0.5 rounded-tile bg-fill px-3 py-2.5 tabular-nums" role="listitem" key={r.id} title={r.title} aria-label={r.label}>
+            <small className="inline-flex items-center gap-1.5 text-xs text-ink2" aria-hidden="true">
+              <IdMark id={r.id} className="m-0" />
+              {r.svc}
+            </small>
+            <b className={cn(NOW_NAME, 'mt-1')} aria-hidden="true">
+              <span className="truncate" title={r.name}>
                 {r.name}
               </span>
-              {r.sub ? (
-                <small className="truncate text-[13px] text-ink3" title={r.sub}>
-                  {r.sub}
-                </small>
-              ) : null}
-            </span>
-            <b
-              className={cn('self-start text-big leading-[1.1] tracking-head [grid-area:big]', r.used == null ? 'font-reg text-ink3' : 'font-bold text-heading', toneInk(r.tone))}
-              aria-hidden="true"
-            >
+            </b>
+            <small className="truncate text-cap text-ink2" title={r.sub || undefined} aria-hidden="true">
+              {r.sub || ' '}
+            </small>
+            <b className={cn('mt-1.5 text-big leading-[1.1]', r.used == null ? 'font-reg text-ink3' : 'font-bold', toneInk(r.tone))} aria-hidden="true">
               {r.text}
             </b>
-            <small className="mt-1 min-w-0 text-[13px] text-ink2 [grid-area:line]" aria-hidden="true">
+            <Meter percent={r.used} tone={r.tone} className="mt-[3px] mb-0.5" />
+            <small className="text-cap text-ink2" aria-hidden="true">
               {r.used == null ? r.note : r.reset ? t('Hạn mức ' + r.unit + ' · đặt lại sau ' + r.reset, r.unit + ' quota · resets in ' + r.reset) : t('Hạn mức ' + r.unit + ' · chưa dùng', r.unit + ' quota · unused')}
               {r.extra ? (
                 <>
@@ -147,10 +134,10 @@ export function NowCard({ now }: { now: NowView }) {
   );
 }
 
-/** "Đang dùng": a status, not a button. A green dot and words on a quiet pill, nothing to press. */
+/** "Đang dùng": a status, not a button. A dot and words, no fill, no border, nothing to press. */
 export function InUse() {
   return (
-    <span className="inline-flex cursor-default items-center gap-[7px] rounded-chip bg-passive px-3 py-1.5 text-sm font-med whitespace-nowrap text-passive-ink">
+    <span className="inline-flex cursor-default items-center gap-1.5 whitespace-nowrap px-0.5 py-1 text-sm font-semi text-ok-ink">
       <Dot tone="ok" />
       {t('Đang dùng', 'In use')}
     </span>

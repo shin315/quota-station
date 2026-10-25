@@ -12,8 +12,8 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { Icon } from '../components/icons';
-import { BannerBox, Button, Chip, ChoiceGroup, LinkButton, Rich, Spinner } from '../components/parts';
-import { STACKED_ROWS } from '../components/page';
+import { BannerBox, Button, Chip, ChoiceGroup, FieldHint, LinkButton, Rich, Spinner } from '../components/parts';
+import { LABEL, rowClass } from '../components/page';
 import { LOGIN_WAIT_MS, minutes } from '../claude/ClaudeDialogs';
 import type { ClaudeAccountsState } from '../claude/useClaudeAccounts';
 import { permissionChip } from '../lib/alerts';
@@ -74,8 +74,8 @@ function Steps({ list, at }: { list: [SetupStep, string][]; at: number }) {
           key={id}
           aria-current={i === at ? 'step' : undefined}
           className={cn(
-            'rounded-chip border px-2.5 py-1 text-[12.5px] font-med',
-            i === at ? 'border-transparent bg-accent text-white' : 'border-line bg-card',
+            'rounded-chip px-2 py-0.5 text-xs font-med',
+            i === at ? 'bg-accent text-on-accent' : 'bg-fill',
             i < at ? 'text-ok' : i > at ? 'text-ink2' : undefined,
           )}
         >
@@ -89,7 +89,7 @@ function Steps({ list, at }: { list: [SetupStep, string][]; at: number }) {
 function Title({ children, lead }: { children: ReactNode; lead?: string }) {
   return (
     <>
-      <h1 className="m-0 text-[28px] font-bold tracking-page text-heading">{children}</h1>
+      <h1 className="m-0 text-h2 tracking-[-.01em]">{children}</h1>
       {lead ? <p className="m-0 text-sm text-ink2">{lead}</p> : null}
     </>
   );
@@ -147,14 +147,14 @@ type Mark = 'ok' | 'none' | 'note';
 
 function Found({ mark, title, line, children }: { mark: Mark; title: string; line: string; children?: ReactNode }) {
   return (
-    <li className="grid grid-cols-[22px_minmax(0,1fr)] items-start gap-x-3 gap-y-1 border-t border-divider px-3.5 py-3 first:border-t-0">
-      <span className={cn('mt-px grid size-5 place-items-center', mark === 'ok' ? 'text-ok' : 'text-ink2')}>
+    <li className="grid grid-cols-[16px_minmax(0,1fr)] items-start gap-x-2.5 gap-y-1 border-t-[.5px] border-card-line py-2 first:border-t-0">
+      <span className={cn('mt-px grid size-4 place-items-center', mark === 'ok' ? 'text-ok' : 'text-ink2')}>
         <span className="sr-only">{mark === 'ok' ? t('có', 'found') : mark === 'note' ? t('lưu ý', 'note') : t('không có', 'not found')}</span>
-        {mark === 'none' ? <i className="h-0.5 w-2.5 rounded-[1px] bg-ink3" aria-hidden="true" /> : <Icon name={mark === 'ok' ? 'circle-check' : 'circle-alert'} className="size-[18px]" />}
+        {mark === 'none' ? <i className="h-0.5 w-2.5 rounded-[1px] bg-ink3" aria-hidden="true" /> : <Icon name={mark === 'ok' ? 'circle-check' : 'circle-alert'} className="size-3.5" />}
       </span>
       <div className="grid gap-0.5">
-        <b className="text-sm font-semi text-heading">{title}</b>
-        <small className="text-[13px] text-ink2">
+        <b className="text-body font-semi">{title}</b>
+        <small className="text-xs text-ink2">
           <Rich text={line} />
         </small>
         {children}
@@ -189,7 +189,7 @@ function DetectStep({ model }: { model: Model }) {
           )}
         />
       ) : null}
-      <ul className="m-0 grid list-none overflow-hidden rounded-card border border-line bg-card p-0" aria-label={t('Máy này có gì', 'What this Mac has')}>
+      <ul className="m-0 grid list-none rounded-tile bg-fill px-3 py-1" aria-label={t('Máy này có gì', 'What this Mac has')}>
         {has.claude ? (
           s.claude.status === 'unavailable' ? (
             <Found mark="note" title="Claude Code" line={'`~/.claude` · ' + readNote(s.claude.reason)} />
@@ -279,11 +279,11 @@ function WaitLine({ started, onCancel }: { started: number; onCancel(): void }) 
   const left = minutes(LOGIN_WAIT_MS - (now - started));
   return (
     <>
-      <div className="flex items-start gap-2.5 rounded-card border border-line bg-card-2 px-3 py-2.5 text-sm" role="status">
+      <div className="flex items-start gap-2.5 rounded-tile bg-fill px-[11px] py-2 text-sm" role="status">
         <Spinner />
         <div className="grid gap-0.5">
           <b className="font-semi text-heading">{t('Đang chờ trình duyệt…', 'Waiting for the browser…')}</b>
-          <small className="text-[12.5px] text-ink2 tabular-nums">
+          <small className="text-xs text-ink2 tabular-nums">
             {t('Đăng nhập Claude trong tab vừa mở. Chờ tối đa 10 phút · còn ' + left, 'Sign in to Claude in the tab that opened. Waits up to 10 minutes · ' + left + ' left')}
           </small>
         </div>
@@ -373,19 +373,19 @@ function AccStep(props: SetupProps & { back(): void; next(): void }) {
       {/* One grid for the head and the rows: "Tên gọi" stands over the nicknames, and every
           nickname lines up whether or not its row has "Bỏ". */}
       <section
-        className="material-card grid grid-cols-[minmax(0,1fr)_150px_auto] gap-x-3 rounded-card px-4 pt-3.5 pb-4"
+        className="material-card grid grid-cols-[minmax(0,1fr)_150px_auto] gap-x-3 rounded-card px-3.5 py-3"
         aria-label={t('Tài khoản Claude', 'Claude accounts')}
       >
         <div className="col-span-full grid grid-cols-subgrid items-baseline pb-2">
-          <b className="text-[17px] font-semi text-heading">{t(list.length + ' tài khoản', list.length + (list.length === 1 ? ' account' : ' accounts'))}</b>
-          <span className="text-sm text-ink2">{t('Tên gọi', 'Nickname')}</span>
+          <b className="text-sm font-bold text-ink2">{t(list.length + ' tài khoản', list.length + (list.length === 1 ? ' account' : ' accounts'))}</b>
+          <span className="text-xs text-ink3">{t('Tên gọi', 'Nickname')}</span>
         </div>
         <ul className="col-span-full m-0 grid list-none grid-cols-subgrid gap-y-2 p-0">
           {list.map((row) => (
             <li key={row.slot} className="col-span-full grid grid-cols-subgrid items-center">
               <div className="grid min-w-0 flex-1 gap-0.5">
-                <b className="truncate text-sm font-med text-heading">{row.email ?? accountName(row)}</b>
-                <small className="text-[13px] text-ink2">
+                <b className="truncate text-body font-semi">{row.email ?? accountName(row)}</b>
+                <small className="text-xs text-ink2">
                   {row.kind === 'setupToken' ? t('Setup-token', 'Setup token') : t('Đăng nhập bằng trình duyệt', 'Browser sign-in')}
                   {row.active ? t(' · Claude Code đang đăng nhập', ' · Claude Code is signed in to it') : ''}
                 </small>
@@ -422,12 +422,12 @@ function AccStep(props: SetupProps & { back(): void; next(): void }) {
 
 function Row({ title, line, children }: { title: string; line?: string; children: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-[7px]">
-      <div className="grid min-w-[200px] flex-1 gap-0.5">
-        <b className="text-sm font-med text-heading">{title}</b>
-        {line ? <small className="text-[13px] text-ink2">{line}</small> : null}
+    <div className={rowClass()}>
+      <div className={LABEL}>{title}</div>
+      <div>
+        <div className="flex items-center gap-2">{children}</div>
+        {line ? <FieldHint>{line}</FieldHint> : null}
       </div>
-      <div className="flex items-center gap-2">{children}</div>
     </div>
   );
 }
@@ -439,7 +439,7 @@ function PermStep(props: SetupProps) {
   return (
     <>
       <Title>{t('Quyền và thanh menu', 'Permissions and menu bar')}</Title>
-      <section className="material-card grid rounded-card px-4 pt-2 pb-3" aria-label={t('Quyền và thanh menu', 'Permissions and menu bar')}>
+      <section className="material-card grid rounded-card px-3.5 py-3" aria-label={t('Quyền và thanh menu', 'Permissions and menu bar')}>
         <Row title={t('Quyền Keychain', 'Keychain access')} line={t('Để đọc hạn mức của từng tài khoản Claude. macOS hỏi một lần.', 'To read each Claude account’s quota. macOS asks once.')}>
           {keychain === 'granted' ? (
             <Chip chip={{ t: t('đã cấp', 'granted'), k: 'ok' }} />
@@ -460,12 +460,10 @@ function PermStep(props: SetupProps) {
             </Button>
           )}
         </Row>
-        {/* The switch at the right, as Keychain and Thông báo above; the menu bar's choices under their names. */}
-        <div className={cn(STACKED_ROWS, '[&>div]:border-t-0 [&>div]:py-[7px]')}>
-          <LaunchAtLogin app={model.app} onSet={props.onLaunchAtLogin} onOpen={props.onOpenLoginItems} />
-          <MenubarRow model={model} onPick={props.onMenubar} />
-          <MenubarWindowRow model={model} onPick={props.onMenubarWindow} />
-        </div>
+        {/* Every row as Cài đặt draws it: its name on the left, its control on the right. */}
+        <LaunchAtLogin app={model.app} onSet={props.onLaunchAtLogin} onOpen={props.onOpenLoginItems} />
+        <MenubarRow model={model} onPick={props.onMenubar} />
+        <MenubarWindowRow model={model} onPick={props.onMenubarWindow} />
       </section>
     </>
   );
@@ -517,7 +515,7 @@ export function Setup(props: SetupProps) {
   }, [claude]);
   const has = detected(model);
   return (
-    <div className="mx-auto grid w-full max-w-[700px] content-start gap-3.5 px-7 pt-[58px] pb-8">
+    <div className="mx-auto grid w-full max-w-[680px] content-start gap-3 px-6 pt-11 pb-6">
       <Steps list={list} at={at} />
       {props.notice}
       {current === 'lang' ? (

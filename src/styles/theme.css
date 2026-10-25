@@ -7,9 +7,9 @@
    tokens.css stays the one source: every value here reads a token, so the
    light, dark and "auto" looks, the glass and the solid ground follow it.
    `inline`: a utility reads the token where it is used, so a token a window
-   redefines is the one it gets. The names under "not rebuilt yet" are the
-   ones the screens used before the community edition's look; they read
-   the new tokens and go once every screen is rebuilt. */
+   redefines is the one it gets. Both the prototype's names and the ones the
+   community edition's screens use are here; tokens.css maps the second
+   onto the first. */
 
 @theme {
   /* Only the theme's own names: no colours, sizes or shadows of Tailwind's palette. */
@@ -57,7 +57,7 @@
   --text-2xs: var(--fs-2xs);
   --text-pop-title: var(--pop-fs-title);
   --text-pop-h: var(--pop-fs-h);
-  /* Not rebuilt yet. */
+  /* The prototype's names. */
   --text-cap: var(--fs-cap);
   --text-s: var(--fs-s);
   --text-base: var(--fs-base);
@@ -82,7 +82,7 @@
   --radius-nav: var(--r-nav);
   --radius-dlg: var(--r-dlg);
   --radius-chip: var(--r-chip);
-  /* Not rebuilt yet. */
+  /* The prototype's names. */
   --radius-sheet: var(--r-sheet);
   --radius-tile: var(--r-tile);
   --radius-row: var(--r-row);
@@ -135,7 +135,6 @@
   --color-destr-ink: var(--destr-text);
   --color-menu: var(--menu);
   --color-chart: var(--chart-fill);
-  --color-traffic: var(--traffic);
   --color-win: var(--win);
   --color-side: var(--side);
   --color-card: var(--card);
@@ -158,7 +157,7 @@
   --color-pop-card: var(--pop-card);
   --color-pop-now: var(--pop-now);
   --color-scrim: var(--scrim);
-  /* Not rebuilt yet. */
+  /* The prototype's names. */
   --color-fill: var(--fill);
   --color-fill2: var(--fill2);
   --color-sel: var(--sel);

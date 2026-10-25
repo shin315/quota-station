@@ -28,7 +28,7 @@ async function openPopover(model: Model, options: FakeOptions = {}) {
 }
 
 const codexSection = () => screen.getByRole('region', { name: 'Codex' });
-/** The full-width button under the Codex header: where a switch goes. */
+/** The row under the Codex header: the provider in use and where a switch goes. */
 const codexRow = () => within(codexSection()).getAllByRole('button')[0];
 const facts = (sheet: HTMLElement) => within(sheet).getAllByRole('listitem').map((li) => li.textContent);
 
@@ -46,8 +46,7 @@ describe('the Codex row', () => {
     const section = screen.getByRole('region', { name: 'Codex' });
     // One line at the Gọn hơn level; what it leaves out is in the spoken label and the Codex tab.
     expect(within(section).queryByText('Codex App đang mở')).toBeNull();
-    expect(codexSection().textContent).toBe('CodexrelayChatGPT');
-    expect(codexRow().textContent).toBe('ChatGPT');
+    expect(codexRow().textContent).toBe('Codexrelay→ ChatGPT');
     expect(codexRow().getAttribute('aria-label')).toBe(
       'Codex đang dùng relay. Bấm để chuyển sang tài khoản ChatGPT. Trả lời 180 ms · giữ đăng nhập ChatGPT. Codex App đang mở',
     );
@@ -67,7 +66,7 @@ describe('the Codex row', () => {
 
   it('switches on confirm with the file hash the sheet showed, and says to restart Codex', async () => {
     const fake = await openPopover(withCodex({ current: 'chatgpt' }));
-    expect(codexRow().textContent).toBe('relay');
+    expect(codexRow().textContent).toContain('→ relay');
     await press(codexRow());
     const sheet = screen.getByRole('dialog', { name: 'Chuyển Codex sang relay?' });
     expect(facts(sheet)[1]).toBe(
@@ -79,7 +78,7 @@ describe('the Codex row', () => {
     expect(screen.queryByRole('dialog', { name: /Chuyển Codex/ })).toBeNull();
     expect(screen.getByText('Đã chuyển Codex sang relay')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Khởi động lại tiến trình nền Codex…' })).toBeTruthy();
-    expect(codexRow().textContent).toBe('ChatGPT');
+    expect(codexRow().textContent).toContain('→ ChatGPT');
   });
 
   it('with the box ticked, asks once more before restarting the background process', async () => {

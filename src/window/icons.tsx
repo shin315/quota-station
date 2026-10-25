@@ -4,7 +4,6 @@
 // Sidebar and header icons, drawn as in the prototype sketch (`ui.js` `IC`),
 // SF Symbols-like. The three agents show their own logos (components/logos.tsx).
 
-import { Icon } from '../components/icons';
 import { AgentIcon } from '../components/logos';
 
 const P = { width: 15, height: 15, viewBox: '0 0 16 16', 'aria-hidden': true } as const;
@@ -52,25 +51,98 @@ export function ChevronIcon() {
   );
 }
 
-/** The sidebar's icons (Lucide, as the prototype draws them); the three agents show their own logos. */
+/** The sidebar's icons, drawn as the prototype draws them; the three agents show their own logos. */
 export const NAV_ICONS = {
-  overview: <Icon name="layout-dashboard" />,
-  stats: <Icon name="chart-column" />,
-  claude: <AgentIcon agent="claude" className="size-[18px]" />,
-  agy: <AgentIcon agent="agy" className="size-[18px]" />,
-  codex: <AgentIcon agent="codex" className="size-[18px]" />,
-  rules: <Icon name="shuffle" />,
-  history: <Icon name="clock" />,
-  alerts: <Icon name="bell" />,
-  firstmate: <Icon name="anchor" />,
-  mcp: <Icon name="box" />,
-  skills: <Icon name="sparkles" />,
-  plugins: <Icon name="puzzle" />,
-  instr: <Icon name="file-text" />,
-  sets: <Icon name="layers" />,
-  backup: <Icon name="database" />,
-  copy: <Icon name="laptop" />,
-  settings: <Icon name="settings" />,
+  overview: (
+    <svg {...P}>
+      <rect x="2" y="2" width="5" height="5" rx="1.3" fill="currentColor" />
+      <rect x="9" y="2" width="5" height="5" rx="1.3" fill="currentColor" opacity=".55" />
+      <rect x="2" y="9" width="5" height="5" rx="1.3" fill="currentColor" opacity=".55" />
+      <rect x="9" y="9" width="5" height="5" rx="1.3" fill="currentColor" />
+    </svg>
+  ),
+  stats: (
+    <svg {...P}>
+      <path d="M3 13.5V8.5M8 13.5V3M13 13.5V6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+    </svg>
+  ),
+  claude: <AgentIcon agent="claude" className="size-[15px]" />,
+  agy: <AgentIcon agent="agy" className="size-[15px]" />,
+  codex: <AgentIcon agent="codex" className="size-[15px]" />,
+  rules: (
+    <svg {...P}>
+      <path d="M3 5h8M3 11h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <circle cx="12" cy="5" r="1.8" fill="currentColor" />
+      <circle cx="5" cy="11" r="1.8" fill="currentColor" />
+    </svg>
+  ),
+  history: (
+    <svg {...P}>
+      <circle cx="8" cy="8" r="6" {...S} />
+      <path d="M8 4.5V8l2.4 1.6" {...S} strokeLinecap="round" />
+    </svg>
+  ),
+  alerts: (
+    <svg {...P}>
+      <path d="M4 11V7.5a4 4 0 018 0V11l1.2 1.3H2.8z" fill="currentColor" />
+      <circle cx="8" cy="14" r="1.3" fill="currentColor" />
+    </svg>
+  ),
+  firstmate: (
+    <svg {...P}>
+      <circle cx="8" cy="3.6" r="1.6" {...S} strokeWidth="1.3" />
+      <path d="M8 5.2v8.3M5 8h6M2.8 10.5a5.2 5.2 0 0010.4 0" {...S} strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  ),
+  mcp: (
+    <svg {...P}>
+      <path d="M5.5 1.8v3M10.5 1.8v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M3.5 4.8h9v2.6a4.5 4.5 0 01-9 0z" fill="currentColor" />
+      <path d="M8 11.9v2.4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  ),
+  skills: (
+    <svg {...P}>
+      <path d="M9.2 1.6L3.6 9h3.8l-.9 5.4L12.4 7H8.6z" fill="currentColor" />
+    </svg>
+  ),
+  plugins: (
+    <svg {...P}>
+      <path d="M3 4.5h3a1.6 1.6 0 113.2 0h2.8v2.8a1.6 1.6 0 110 3.2V13.5H3V10.5a1.6 1.6 0 100-3.2z" fill="currentColor" />
+    </svg>
+  ),
+  instr: (
+    <svg {...P}>
+      <path d="M4 1.8h5.5L12.5 5v9.2H4z" {...S} strokeLinejoin="round" />
+      <path d="M6 8h4.5M6 10.6h4.5" {...S} strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  ),
+  sets: (
+    <svg {...P}>
+      <path d="M8 2l6 3-6 3-6-3z" fill="currentColor" />
+      <path d="M2 8l6 3 6-3M2 11l6 3 6-3" {...S} strokeLinejoin="round" />
+    </svg>
+  ),
+  backup: (
+    <svg {...P}>
+      <rect x="1.8" y="2.5" width="12.4" height="3.4" rx="1" fill="currentColor" />
+      <path d="M2.8 6.5h10.4v6.2a1 1 0 01-1 1H3.8a1 1 0 01-1-1z" {...S} />
+      <path d="M6.4 9h3.2" {...S} strokeLinecap="round" />
+    </svg>
+  ),
+  copy: (
+    <svg {...P}>
+      <rect x="1.5" y="3" width="5.5" height="4" rx=".8" {...S} strokeWidth="1.3" />
+      <rect x="9" y="9" width="5.5" height="4" rx=".8" {...S} strokeWidth="1.3" />
+      <path d="M9.5 4.2h2.6a1.4 1.4 0 011.4 1.4v1.6M6.5 11.8H3.9a1.4 1.4 0 01-1.4-1.4V8.8" {...S} strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  ),
+  settings: (
+    <svg {...P}>
+      <circle cx="8" cy="8" r="2.3" {...S} />
+      <path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2" {...S} strokeLinecap="round" />
+    </svg>
+  ),
 };
 
 export const ARCHIVE_ICON = (

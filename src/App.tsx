@@ -891,7 +891,6 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   return (
     <MainWindow
       tab={tab}
-      version={model.app.version}
       release={releaseBanner(model)}
       view={view}
       busy={busy}

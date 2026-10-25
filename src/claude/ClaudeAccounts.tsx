@@ -38,7 +38,7 @@ function AccountMenu({ card, view, claude, advanced }: { card: CardView } & Pick
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="grid size-7 cursor-pointer place-items-center rounded-ctl border border-line-2 bg-ctl text-ink hover:bg-ctl-hover data-[state=open]:bg-ctl-hover [&>svg]:size-4"
+          className="grid size-6 cursor-pointer place-items-center rounded-ctl border-0 bg-fill2 text-ink hover:brightness-[.97] data-[state=open]:brightness-[.94] [&>svg]:size-3.5"
           aria-label={t('Thêm thao tác cho ', 'More actions for ') + card.name}
           title={t('Thêm thao tác cho ', 'More actions for ') + card.name}
         >
@@ -79,8 +79,8 @@ function Rotation({ view, claude, onAction, authorTools }: Props) {
     <div className="mt-3 grid gap-2 border-t border-divider pt-3 first:mt-0 first:border-t-0 first:pt-0">
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
-          <b className="block text-body font-med text-heading">{t('Tự chuyển bằng Quota Station', 'Auto-switch with Quota Station')}</b>
-          <small className="block text-[13px] text-ink2">{rotation.line}</small>
+          <b className="block text-body font-semi">{t('Tự chuyển bằng Quota Station', 'Auto-switch with Quota Station')}</b>
+          <small className="block text-xs text-ink2">{rotation.line}</small>
         </div>
         <Toggle
           on={rotation.on}

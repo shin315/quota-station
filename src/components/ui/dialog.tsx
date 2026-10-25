@@ -26,13 +26,13 @@ function DialogOverlay({ className, ...props }: React.ComponentProps<'div'>) {
   return <div data-slot="dialog-overlay" className={cn('absolute inset-0 bg-scrim', className)} {...props} />;
 }
 
-const dialogContentVariants = cva('material-dlg overflow-y-auto shadow-dlg', {
+const dialogContentVariants = cva('material-dlg overflow-y-auto', {
   variants: {
     kind: {
       /** In the popover: slid up from its bottom edge. */
-      sheet: 'absolute right-2 bottom-2 left-2 z-[21] max-h-[calc(100%-16px)] rounded-dlg p-4',
+      sheet: 'absolute right-2 bottom-2 left-2 z-[21] max-h-[calc(100%-16px)] rounded-sheet p-3.5',
       /** In the main window: in the middle, never wider than the window less a margin. */
-      dialog: 'max-h-[calc(100%-32px)] max-w-[calc(100%-32px)] rounded-dlg px-5 pt-5 pb-[18px]',
+      dialog: 'max-h-[calc(100%-32px)] max-w-[calc(100%-32px)] rounded-sheet p-4',
     },
     size: {
       narrow: 'w-[380px]',
@@ -103,7 +103,7 @@ function DialogLead({ className, ...props }: React.ComponentProps<'p'>) {
 
 /**
  * The buttons at the end, to the right. In a dialog that scrolls they stay at
- * its foot, on the dialog's own glass, over what scrolls by under them.
+ * its foot, on the dialog's own ground, over what scrolls by under them.
  */
 function DialogButtons({ className, ...props }: React.ComponentProps<'div'>) {
   const kind = React.useContext(DialogKindContext);
@@ -113,7 +113,7 @@ function DialogButtons({ className, ...props }: React.ComponentProps<'div'>) {
       className={cn(
         'flex flex-wrap justify-end gap-2',
         kind === 'dialog' &&
-          'sticky bottom-0 z-[1] -mx-5 -mb-[18px] bg-glass-dlg px-5 pt-2.5 pb-[18px] backdrop-blur-[var(--glass-blur)] backdrop-saturate-[var(--glass-sat)]',
+          'sticky bottom-0 z-[1] -mx-4 -mb-4 bg-card px-4 pt-2.5 pb-4',
         className,
       )}
       {...props}

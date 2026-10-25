@@ -9,23 +9,20 @@ import { cn } from '@/lib/utils';
 
 // The design system's chips (round, on rows and names) and pills (square, in
 // the history): a short word on a light fill of its tone.
-// The prototype's chips (D01, D03): a passive label, never a button: no
-// edge, no shadow, nothing on hover. "đang dùng" is the passive chip with a
-// green dot, a read-only tag is blue, a state worth a look is tinted.
-const badgeVariants = cva('inline-flex items-center gap-[5px] whitespace-nowrap align-middle font-semi tabular-nums', {
+const badgeVariants = cva('whitespace-nowrap text-cap', {
   variants: {
     shape: {
-      chip: 'h-5 rounded-chip px-2 text-[11.5px] leading-none',
-      pill: 'h-[18px] rounded-chip px-1.5 text-[10.5px] leading-none',
+      chip: 'rounded-chip px-1.5 leading-4 tabular-nums',
+      pill: 'inline-block rounded-md px-1.5 py-px font-semi',
     },
     tone: {
-      default: 'bg-card-2 text-ink2',
-      on: "bg-passive text-passive-ink before:size-1.5 before:rounded-full before:bg-ok before:content-['']",
-      ok: "bg-passive text-passive-ink before:size-1.5 before:rounded-full before:bg-ok before:content-['']",
-      warn: 'bg-warn/15 text-warn-ink',
-      bad: 'bg-bn-bad text-bad-ink',
-      info: 'bg-tint text-tint-ink',
-      tag: 'bg-tag text-tag-ink',
+      default: 'bg-fill2 text-ink2',
+      on: 'bg-accent text-on-accent',
+      ok: 'bg-ok/18 text-ok-ink',
+      warn: 'bg-warn/20 text-warn-ink',
+      bad: 'bg-bad/15 text-bad-ink',
+      info: 'bg-accent/14 text-info-ink',
+      tag: 'bg-accent/14 text-info-ink',
       c: 'bg-id-claude-tint text-id-claude-ink',
       g: 'bg-id-agy-tint text-id-agy-ink',
       x: 'bg-id-codex-tint text-id-codex-ink',

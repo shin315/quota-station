@@ -22,7 +22,7 @@ import { Card as Panel, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Segment, Segmented } from '@/components/ui/segmented';
 import { IdMark } from '../components/accounts';
-import { LABEL, rowClass, STACK, STACKED_ROWS, TabHead, TabSub, TabTitle } from '../components/page';
+import { LABEL, rowClass, STACK, TabHead, TabSub, TabTitle } from '../components/page';
 import { Button, Chip, CODE, Dot, Feedback, FieldHint, LinkButton, Toggle } from '../components/parts';
 import { permissionChip, unreadText } from '../lib/alerts';
 import { authorModel, type AuthorModel } from '../lib/author';
@@ -88,8 +88,8 @@ export interface SettingsProps {
   onReleaseChecks?(on: boolean): void;
 }
 
-/** A card's rows, half the page wide: each row's name over its controls, as the design's block rows; a switch or a status to the right of its name. */
-const CARD_ROWS = STACKED_ROWS;
+/** A card's rows: each row's name on the left, its controls on the right. */
+const CARD_ROWS = 'grid';
 
 /** A card of settings: its icon and name, then its rows. */
 function SettingsCard(props: { title: string; icon: IconName; children: ReactNode }) {
@@ -993,104 +993,100 @@ export function Settings(props: SettingsProps) {
       {feedback ? <Feedback fb={feedback} onAction={onAction} /> : null}
       {/* A variable overriding a login is something to act on: its card comes first. */}
       {model.env.found.length ? <EnvCard model={model} onAction={onAction} /> : null}
-      <div className="grid grid-cols-2 items-start gap-3 [@media(max-width:1000px)]:grid-cols-1">
-        <div className={STACK}>
-          <SettingsCard title={t('Chung', 'General')} icon="settings">
-            {onLanguage ? <LanguageRow model={model} onPick={onLanguage} /> : null}
-            <MachineName model={model} onSet={onSetMachine} />
-            <LaunchAtLogin app={model.app} onSet={onLaunchAtLogin} onOpen={onOpenLoginItems} />
-          </SettingsCard>
-          <SettingsCard title={t('Hiển thị', 'Display')} icon="monitor">
-            <div className={rowClass()}>
-              <div className={LABEL} id="qs-theme-l">
-                {t('Giao diện', 'Appearance')}
-              </div>
-              <Segmented variant="inline" className="justify-self-start" aria-labelledby="qs-theme-l">
-                {themes().map(([v, label]) => (
-                  <Segment key={v} className="px-3.5" pressed={model.theme === v} onClick={() => onTheme(v)}>
-                    {label}
-                  </Segment>
-                ))}
-              </Segmented>
+      <div className={STACK}>
+        <SettingsCard title={t('Chung', 'General')} icon="settings">
+          {onLanguage ? <LanguageRow model={model} onPick={onLanguage} /> : null}
+          <MachineName model={model} onSet={onSetMachine} />
+          <LaunchAtLogin app={model.app} onSet={onLaunchAtLogin} onOpen={onOpenLoginItems} />
+        </SettingsCard>
+        <SettingsCard title={t('Hiển thị', 'Display')} icon="monitor">
+          <div className={rowClass()}>
+            <div className={LABEL} id="qs-theme-l">
+              {t('Giao diện', 'Appearance')}
             </div>
-            <div className={rowClass(false, true)}>
-              <div className={LABEL} id="qs-email-l">
-                {t('Hiện email', 'Show emails')}
-              </div>
-              <div>
-                <Toggle on={model.showNames} label={t('Hiện email', 'Show emails')} onClick={() => onShowNames(!model.showNames)} />
-              </div>
+            <Segmented variant="inline" className="justify-self-start" aria-labelledby="qs-theme-l">
+              {themes().map(([v, label]) => (
+                <Segment key={v} className="px-3.5" pressed={model.theme === v} onClick={() => onTheme(v)}>
+                  {label}
+                </Segment>
+              ))}
+            </Segmented>
+          </div>
+          <div className={rowClass(false, true)}>
+            <div className={LABEL} id="qs-email-l">
+              {t('Hiện email', 'Show emails')}
             </div>
-            <MenubarRow model={model} onPick={onMenubar} />
-            <MenubarWindowRow model={model} onPick={onMenubarWindow} />
-          </SettingsCard>
-          <SettingsCard title={t('Thông báo', 'Notifications')} icon="bell">
-            <Notifications model={model} onAction={onAction} onTest={onTestAlert} onSwitch={onAlertSwitch} />
-            <PoolAlertRow model={model} onSet={onPoolAlert} />
-          </SettingsCard>
-          <SettingsCard title={t('Cập nhật', 'Updates')} icon="refresh-cw">
-            {onReleaseChecks ? <ReleaseRows model={model} onAction={onAction} onAuto={onReleaseChecks} /> : <Version app={model.app} />}
-            {onSkillChecks ? <SkillChecksRows model={model} onSet={onSkillChecks} /> : null}
-          </SettingsCard>
-        </div>
-        <div className={STACK}>
-          <SettingsCard title={t('Dịch vụ và nguồn số', 'Services and data')} icon="database">
+            <div>
+              <Toggle on={model.showNames} label={t('Hiện email', 'Show emails')} onClick={() => onShowNames(!model.showNames)} />
+            </div>
+          </div>
+          <MenubarRow model={model} onPick={onMenubar} />
+          <MenubarWindowRow model={model} onPick={onMenubarWindow} />
+        </SettingsCard>
+        <SettingsCard title={t('Thông báo', 'Notifications')} icon="bell">
+          <Notifications model={model} onAction={onAction} onTest={onTestAlert} onSwitch={onAlertSwitch} />
+          <PoolAlertRow model={model} onSet={onPoolAlert} />
+        </SettingsCard>
+        <SettingsCard title={t('Cập nhật', 'Updates')} icon="refresh-cw">
+          {onReleaseChecks ? <ReleaseRows model={model} onAction={onAction} onAuto={onReleaseChecks} /> : <Version app={model.app} />}
+          {onSkillChecks ? <SkillChecksRows model={model} onSet={onSkillChecks} /> : null}
+        </SettingsCard>
+        <SettingsCard title={t('Dịch vụ và nguồn số', 'Services and data')} icon="database">
+          <div className={rowClass(false, true)}>
+            <div className={LABEL}>
+              {t('Quyền Keychain', 'Keychain access')}
+            </div>
+            <div>
+              {keychain === 'granted' ? (
+                <Chip chip={{ t: t('đã cấp', 'granted'), k: 'ok' }} />
+              ) : keychain === 'required' ? (
+                <>
+                  <Chip chip={{ t: t('chưa cấp', 'not granted'), k: 'warn' }} />{' '}
+                  <Button primary disabled={model.granting} onClick={onGrant}>
+                    {t('Cấp quyền một lần', 'Grant once')}
+                  </Button>
+                  <FieldHint>
+                    {model.granting
+                      ? t(
+                          'macOS sẽ hỏi. Bấm "Luôn cho phép". App chỉ đọc đăng nhập của Claude Code để lấy số, không làm mới hay sửa nó.',
+                          'macOS will ask. Click "Always Allow". The app only reads Claude Code’s sign-in to get the numbers; it never refreshes or changes it.',
+                        )
+                      : t('Đến khi cấp, dòng Claude chỉ hiện số đọc được lần trước.', 'Until you grant it, the Claude row shows only the numbers read last time.')}
+                  </FieldHint>
+                </>
+              ) : (
+                <Chip chip={{ t: t('chưa rõ', 'unknown'), k: '' }} />
+              )}
+            </div>
+          </div>
+          {onSetCodexHome ? <CodexHome model={model} onSet={onSetCodexHome} /> : null}
+          {model.capabilities.agyAccounts && model.antigravity ? (
             <div className={rowClass(false, true)}>
               <div className={LABEL}>
-                {t('Quyền Keychain', 'Keychain access')}
+                {t('OAuth client Antigravity', 'Antigravity OAuth client')}
               </div>
               <div>
-                {keychain === 'granted' ? (
-                  <Chip chip={{ t: t('đã cấp', 'granted'), k: 'ok' }} />
-                ) : keychain === 'required' ? (
-                  <>
-                    <Chip chip={{ t: t('chưa cấp', 'not granted'), k: 'warn' }} />{' '}
-                    <Button primary disabled={model.granting} onClick={onGrant}>
-                      {t('Cấp quyền một lần', 'Grant once')}
-                    </Button>
-                    <FieldHint>
-                      {model.granting
-                        ? t(
-                            'macOS sẽ hỏi. Bấm "Luôn cho phép". App chỉ đọc đăng nhập của Claude Code để lấy số, không làm mới hay sửa nó.',
-                            'macOS will ask. Click "Always Allow". The app only reads Claude Code’s sign-in to get the numbers; it never refreshes or changes it.',
-                          )
-                        : t('Đến khi cấp, dòng Claude chỉ hiện số đọc được lần trước.', 'Until you grant it, the Claude row shows only the numbers read last time.')}
-                    </FieldHint>
-                  </>
-                ) : (
-                  <Chip chip={{ t: t('chưa rõ', 'unknown'), k: '' }} />
-                )}
+                <Chip chip={clientChips()[model.antigravity.client]} />
+                <FieldHint>
+                  <span className={CODE}>{model.antigravity.clientPath}</span>
+                  {t(', quyền 600, chỉ có trên Mac này. README ghi định dạng.', ', mode 600, on this Mac only. The README describes the format.')}
+                </FieldHint>
               </div>
             </div>
-            {onSetCodexHome ? <CodexHome model={model} onSet={onSetCodexHome} /> : null}
-            {model.capabilities.agyAccounts && model.antigravity ? (
-              <div className={rowClass(false, true)}>
-                <div className={LABEL}>
-                  {t('OAuth client Antigravity', 'Antigravity OAuth client')}
-                </div>
-                <div>
-                  <Chip chip={clientChips()[model.antigravity.client]} />
-                  <FieldHint>
-                    <span className={CODE}>{model.antigravity.clientPath}</span>
-                    {t(', quyền 600, chỉ có trên Mac này. README ghi định dạng.', ', mode 600, on this Mac only. The README describes the format.')}
-                  </FieldHint>
-                </div>
-              </div>
-            ) : null}
+          ) : null}
+        </SettingsCard>
+        {model.env.found.length ? null : <EnvCard model={model} onAction={onAction} />}
+        {onSetBackupFolder ? (
+          <SettingsCard title={t('Sao lưu', 'Backup')} icon="layers">
+            <BackupFolder model={model} onSet={onSetBackupFolder} />
           </SettingsCard>
-          {model.env.found.length ? null : <EnvCard model={model} onAction={onAction} />}
-          {onSetBackupFolder ? (
-            <SettingsCard title={t('Sao lưu', 'Backup')} icon="layers">
-              <BackupFolder model={model} onSet={onSetBackupFolder} />
-            </SettingsCard>
-          ) : null}
-          {onReleaseChecks ? (
-            <SettingsCard title={t('Chẩn đoán', 'Diagnostics')} icon="wrench">
-              <DiagnosticsRows onAction={onAction} />
-            </SettingsCard>
-          ) : null}
-          {author ? <Advanced {...props} model={author} /> : null}
-        </div>
+        ) : null}
+        {onReleaseChecks ? (
+          <SettingsCard title={t('Chẩn đoán', 'Diagnostics')} icon="wrench">
+            <DiagnosticsRows onAction={onAction} />
+          </SettingsCard>
+        ) : null}
+        {author ? <Advanced {...props} model={author} /> : null}
       </div>
     </>
   );

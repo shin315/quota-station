@@ -3,80 +3,114 @@
  * SPDX-License-Identifier: MIT
  */
 
-/* The glass of style Q13: what Tailwind's utilities cannot say well on
-   their own. In the app, macOS draws its material behind each transparent
-   window (windows.rs: the popover's material under the popover, the
-   sidebar's under the main window) and blurs the desktop; the page only
-   lays the measured tint (--glass-*) over it. The browser preview has no
-   macOS material, so there the window's glass blurs the page's desktop
-   itself. A dialog, a sheet and a menu lie over the page, so they blur
-   what is under them in the page. With Reduce Transparency the tokens are
-   the solid ground (data-material="solid"), and the blur is 0. */
+/* The glass: what Tailwind's utilities cannot say well on their own. Each
+   material keeps its fallbacks with it: the solid ground when macOS reduces
+   transparency (data-material="solid", which useMaterial sets from macOS's
+   own flag), and when the WebView has no backdrop-filter. */
 
-/* The popover's own ground, with the light 1 px edge on top of everything in it. */
+/* The popover's glass and the column menus': tint and blur. */
 @utility material-pop {
-  background: var(--glass-pop);
-  &::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: 40;
-    border-radius: inherit;
-    box-shadow: inset 0 0 0 1px var(--glass-edge);
-    pointer-events: none;
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(var(--bl-pop)) saturate(var(--sat));
+  backdrop-filter: blur(var(--bl-pop)) saturate(var(--sat));
+  &:where([data-material="solid"], [data-material="solid"] *) {
+    background: var(--glass-solid);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
-  &:where(body.preview *) {
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
-    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
-    box-shadow: var(--sh-pop);
+  @media (prefers-reduced-transparency: reduce) {
+    background: var(--glass-solid);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    background: var(--glass-solid);
   }
 }
 
-/* The main window: the sidebar and the page are two panes of one glass,
-   split by a line. The window itself stays clear so each pane shows the
-   material behind it; macOS draws the window's corners, edge and shadow. */
+/* The main window: one sheet of glass, like the popover (10/2026). The window
+   is transparent and macOS draws its material behind all of it
+   (windows.rs); the page lays the popover's glass tint on top, and macOS
+   draws the corners, the border and the shadow. */
 @utility material-window {
-  background: transparent;
+  background: var(--glass);
+  &:where([data-material="solid"], [data-material="solid"] *) {
+    background: var(--glass-solid);
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    background: var(--glass-solid);
+  }
+  /* The browser preview has no macOS material: the glass blurs the desktop instead. */
   &:where(body.preview *) {
-    border-radius: var(--r-win);
-    box-shadow: var(--sh-win), inset 0 0 0 1px var(--glass-edge);
+    -webkit-backdrop-filter: blur(var(--bl-pop)) saturate(var(--sat));
+    backdrop-filter: blur(var(--bl-pop)) saturate(var(--sat));
   }
 }
+
+/* The sidebar and the page lie on the window's one sheet of glass. */
 @utility material-side {
-  background: var(--glass-side);
-  &:where(body.preview *) {
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
-    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
-  }
+  background: transparent;
 }
 @utility material-main {
-  background: var(--glass-win);
-  &:where(body.preview *) {
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
-    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
-  }
+  background: transparent;
 }
 
-/* A dialog in the window and a sheet in the popover. */
+/* A dialog in the window and a sheet in the popover: solid, over the scrim. */
 @utility material-dlg {
-  background: var(--glass-dlg);
-  border: 1px solid var(--line-2);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
-  &:where([data-material="glass"] *) {
-    border-color: var(--glass-edge);
+  background: var(--card);
+  box-shadow: var(--sh-sheet), inset 0 0 0 0.5px var(--glass-line);
+}
+
+/* A menu: the popover's glass. */
+@utility material-menu {
+  background: var(--glass);
+  box-shadow: var(--sh-pop), inset 0 0 0 0.5px var(--glass-line);
+  -webkit-backdrop-filter: blur(var(--bl-pop)) saturate(var(--sat));
+  backdrop-filter: blur(var(--bl-pop)) saturate(var(--sat));
+  &:where([data-material="solid"], [data-material="solid"] *) {
+    background: var(--glass-solid);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    background: var(--glass-solid);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    background: var(--glass-solid);
   }
 }
 
-/* A menu: solid, so its items read over any table (D04). */
-@utility material-menu {
-  background: var(--menu);
-  border: 1px solid var(--line-2);
-}
-
-/* A card: the second, more opaque layer of glass (--card), with the light top edge. */
+/* A group in the main window: a frosted panel on the window's glass, with no
+   border or shadow. */
 @utility material-card {
-  background: var(--card);
-  border: 1px solid var(--line);
-  box-shadow: inset 0 1px 0 var(--hi), var(--sh-card);
+  background: var(--fill);
+}
+/* Text on glass. tokens.css promises 4.5:1 for --ink3 and --accent-ink on
+   solid surfaces; on the glass of the popover and the main window, its
+   frosted panels and the rows and tiles in use, they are a step stronger. */
+.qs.app-window[data-theme="light"],
+.qs.app-popover[data-theme="light"] {
+  --ink3: #5e5e63;
+  --accent-ink: #005cc0;
+}
+.qs.app-window[data-theme="dark"],
+.qs.app-popover[data-theme="dark"] {
+  --ink3: #aaaaaf;
+  --accent-ink: #6dadff;
+}
+@media not (prefers-color-scheme: dark) {
+  .qs.app-window[data-theme="auto"],
+  .qs.app-popover[data-theme="auto"] {
+    --ink3: #5e5e63;
+    --accent-ink: #005cc0;
+  }
+}
+@media (prefers-color-scheme: dark) {
+  .qs.app-window[data-theme="auto"],
+  .qs.app-popover[data-theme="auto"] {
+    --ink3: #aaaaaf;
+    --accent-ink: #6dadff;
+  }
 }

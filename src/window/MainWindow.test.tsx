@@ -100,8 +100,8 @@ describe('main window', () => {
     expect(inUse.tagName).toBe('SPAN');
     expect(inUse.querySelector('[data-tone=ok]')).toBeTruthy();
     const press = within(rows[2]).getByRole('button', { name: 'Chuyển sang lan.acme2' });
-    // A plain button, as drawn: the table is not a row of blue.
-    expect(press.getAttribute('data-variant')).toBe('default');
+    // The blue button that goes ahead.
+    expect(press.getAttribute('data-variant')).toBe('primary');
     expect(press.textContent).toBe('Chuyển');
   });
 

@@ -34,7 +34,7 @@ function DropdownMenuContent({
       sideOffset={sideOffset}
       {...({ onOpenAutoFocus } as object)}
       className={cn(
-        'material-menu z-20 min-w-[220px] rounded-[10px] p-1.5 text-left shadow-dlg',
+        'material-menu z-20 min-w-[196px] rounded-[10px] p-[5px] text-left',
         className,
       )}
       {...props}

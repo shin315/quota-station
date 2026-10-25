@@ -3,24 +3,20 @@
  * SPDX-License-Identifier: MIT
  */
 
-/* Quota Station design tokens, from the community edition's approved
-   prototype (24/10/2026; `proto/tokens.css` and DESIGN.md of the design
-   hand-off record each value, the picture it was measured on and how).
-   The one source of every colour, size and shadow: theme.css maps them to
-   Tailwind's theme and to shadcn/ui's variables. Names follow the
-   prototype, except where they meet Tailwind's own namespaces: the
-   prototype's --font-ui is --font, --font-mono is --mono, --shadow-* is
-   --sh-*.
-
-   The look: data-theme="light" | "dark" | "auto" (follows macOS) on the
-   window's root and on <html>. The material: data-material="glass" is the
-   clear glass of style Q13 over macOS's own material (windows.rs);
-   "solid" is the solid ground macOS asks for when Reduce Transparency is on.
-   Every element that sets either attribute gets the tokens again, so a
-   token that reads another (the old names at the end) follows it. */
+/* Quota Station design tokens: the look of the approved prototype (step 0.7,
+   18/10/2026), which the app wore until the community edition and wears
+   again since the captain chose it back on 25/10/2026: system type at 13 px,
+   tight rows, frosted glass. The one source of every colour, size and
+   shadow: theme.css maps them to Tailwind's theme and to shadcn/ui's
+   variables, and a theme pack later sits on these names. A few names changed
+   where they met Tailwind's own namespaces: --font-mono is --mono, --blur-*
+   is --bl-*, --shadow-* is --sh-*. The screens drawn for the community
+   edition read their own names, which the last section maps onto these.
+   The prototype header follows. */
 
 /* Inter 4.001 (rsms/inter), SIL OFL 1.1 (LICENSES/OFL-1.1.txt), cut to Latin,
-   Latin extended and Vietnamese, with its opsz 14-32 and wght 100-900 axes. */
+   Latin extended and Vietnamese: the community edition's type, kept for a
+   theme that chooses it. This look draws in the system's own type (--font). */
 @font-face {
   font-family: "Inter QS";
   src: url("../assets/fonts/InterVariable-vi.woff2") format("woff2");
@@ -29,533 +25,245 @@
   font-display: block;
 }
 
-/* ---------- Type, spacing, sizes, radii ---------- */
-:root,
-[data-theme] {
-  --font: "Inter QS", -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
-  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+/* Quota Station · design tokens · Hướng 1 · Kính macOS · bước 0.5 (Phác thảo), sửa sau kiểm Codex 0.6.
+   Một nguồn cho prototype và cho React sau này: mỗi giá trị là một biến CSS.
+   Giao diện: data-theme="light" | "dark" | "auto" (theo hệ thống) đặt trên một phần tử bao.
+   Chất liệu: data-material="glass" (kính) | "solid" (nền đặc thay thế).
+   Tương phản: mọi token chữ (--ink, --ink2, --ink3, các token -ink, --on-accent trên --accent) đạt ít nhất 4,5:1
+   trên nền đặc, trên kính phủ nền máy, trên ô --fill2, và trên nền nhạt của chip (kể cả khi chip nằm trong dòng đang dùng). Riêng --ink3 sáng chỉ dùng trên nền đặc (thẻ, nền cửa sổ),
+   không dùng trên kính của thanh bên. design-system.html tính lại các tỉ lệ này từ token khi mở trang. */
 
-  /* The main window. */
-  --fs-page: 32px; /* page title, 700, --track-page */
-  --fs-h2: 22px; /* a service's card */
-  --fs-h3: 17px; /* a settings card, Sắp tới */
-  --fs-big: 26px; /* the number in an Đang dùng tile */
-  --fs-body: 14px;
-  --fs-sm: 13px;
-  --fs-xs: 12px;
-  --fs-2xs: 11px;
-  /* The popover, at 360 wide. */
-  --pop-fs-title: 16px;
-  --pop-fs-h: 15px;
-  --pop-fs-body: 13px;
-  --pop-fs-sm: 12px;
-  --pop-fs-xs: 11px;
-
-  --fw-regular: 400;
-  --fw-medium: 500;
-  --fw-semibold: 600;
-  --fw-heading: 650;
-  --fw-bold: 700;
-  --track-page: -0.02em;
-  --track-head: -0.01em;
-  --lh-tight: 1.2;
-  /* Inter's highest stacked Vietnamese mark reaches 1.10 em: two lines need 1.35 or more. */
-  --lh-body: 1.42;
-
-  /* The 4/8 grid. */
-  --sp-1: 4px;
-  --sp-2: 8px;
-  --sp-3: 12px;
-  --sp-4: 16px;
-  --sp-5: 20px;
-  --sp-6: 24px;
-  --sp-8: 32px;
-  --win-w: 1152px;
-  --win-h: 864px;
-  --side-w: 236px;
-  --content-pad: 20px;
-  --gap: 12px;
-  --card-pad: 16px;
-  --nav-h: 34px;
-  --row-h: 64px;
-  --pop-w: 360px;
-  --pop-max-h: 820px;
-  --pop-pad: 12px;
-  --pop-card-pad: 12px;
-  --pop-gap: 8px;
-  --pop-row: 22px;
-
-  --r-win: 12px;
-  --r-pop: 12px;
-  --r-card: 10px;
-  --r-ctl: 8px;
-  --r-seg: 7px;
-  --r-nav: 8px;
-  --r-dlg: 14px;
-  --r-chip: 999px;
-  --bar-h: 6px;
-  --pop-bar-h: 7px;
-
-  /* Motion: short, no bounce; none when macOS reduces motion. */
-  --dur-1: 120ms;
-  --dur-2: 180ms;
-  --dur-3: 240ms;
-  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-/* ---------- Colours: light (porcelain), the solid ground ---------- */
 :root,
 [data-theme="light"] {
   color-scheme: light;
-  --desk: #e9eef5;
-  --win: #f5f8fc;
-  --side: #eff5fb;
-  --card: #f9fbfd;
-  --card-2: #f1f4fb;
-  --thead: #f1f4fb;
-  --tile: #fbfcfe;
-  --field: #f5f8fb;
-  --ctl: #f7fafe;
-  --ctl-hover: #edf2f9;
-  --line: #e4eaf2;
-  --line-2: #d7dfe9;
-  --divider: #ebeff6;
-  --hi: rgba(255, 255, 255, 0.7);
-  --text-title: #020619;
-  --text-1: #0b1226;
-  --text-nav: #213053;
-  --text-2: #5e6b86;
-  --text-3: #5f6d87;
-  --text-th: #52607f;
-  --accent: #0b6bfe;
-  --accent-hover: #0a62ea;
-  --accent-press: #0858d4;
-  --on-accent: #ffffff;
-  --accent-text: #0e56e6;
-  --nav-sel: #d5e5fd;
-  --nav-sel-text: #0245de;
-  --tint: #e4f0fe;
-  --tint-text: #0745d8;
-  --tag: #e1eafb;
-  --tag-text: #0743ce;
-  --passive: #e8eef6;
-  --passive-text: #425278;
-  --focus: #2f7bff;
-  --ok: #24c94c;
-  --ok-text: #13652b;
-  --dot-off: #b3bdd1;
-  --warn: #fea004;
-  --warn-text: #b35c00;
-  --bad: #fd4b50;
-  --bad-text: #d7262e;
-  --bar-track: #dbe0e8;
-  --bar-fill: #78869d;
-  --toggle-on: #0a74fe;
-  --toggle-off: #c0c8d2;
-  --knob: #ffffff;
-  --seg: #f0f4f8;
-  --seg-on: #0b66f0;
-  --bn-bad: #fce7ed;
-  --bn-bad-line: #f6cbd6;
-  --destr: #fee8e9;
-  --destr-text: #c8232c;
-  --menu: #ffffff;
-  --chart-fill: #4c8fea;
-  --traffic: #b9c1cc;
-  --pop-panel: #f8fafd;
-  --pop-card: #fcfdfe;
-  --pop-now: #f4f7fb;
-  --sh-card: 0 1px 2px rgba(20, 35, 60, 0.04);
-  --sh-pop: 0 16px 44px rgba(22, 38, 66, 0.18), 0 0 0 1px rgba(22, 38, 66, 0.08);
-  --sh-win: 0 22px 56px rgba(22, 38, 66, 0.16), 0 0 0 1px rgba(22, 38, 66, 0.09);
-  --sh-dlg: 0 18px 44px rgba(22, 38, 66, 0.2);
-  --scrim: rgba(20, 32, 52, 0.22);
-  /* The solid ground is its own glass. */
-  --glass-win: var(--win);
-  --glass-side: var(--side);
-  --glass-pop: var(--pop-panel);
-  --glass-dlg: var(--card);
-  --glass-edge: transparent;
-  --glass-blur: 0px;
-  --glass-sat: 1;
+
+  /* Chữ: chữ hệ thống, không tải font. Chữ số luôn thẳng cột (I08). */
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --fs-cap: 10.5px;   /* chip, nhãn thanh */
+  --fs-xs: 11px;      /* phụ đề, nhãn mục */
+  --fs-s: 11.5px;     /* dòng phụ */
+  --fs-sm: 12px;      /* nút, nội dung phụ */
+  --fs-body: 12.5px;  /* tên dòng, tiêu đề băng báo */
+  --fs-base: 13px;    /* chữ thường */
+  --fs-title: 13.5px; /* tiêu đề popover */
+  --fs-sheet: 14px;   /* tiêu đề tấm xác nhận */
+  --fs-num: 19px;     /* số ô trong vòng */
+  --fs-h2: 20px;      /* tiêu đề cửa sổ */
+  --fs-big: 24px;     /* số lớn trong cửa sổ */
+  --fw-reg: 400; --fw-med: 550; --fw-semi: 600; --fw-bold: 650;
+  --lh: 1.35;
+  --num: tabular-nums;
+
+  /* Khoảng cách: bậc 2px, dùng chủ yếu 4/8/12. */
+  --sp-1: 2px; --sp-2: 4px; --sp-3: 6px; --sp-4: 8px; --sp-5: 10px; --sp-6: 12px;
+  --sp-7: 14px; --sp-8: 16px; --sp-10: 20px; --sp-12: 24px;
+
+  /* Bo góc */
+  --r-pop: 16px; --r-win: 14px; --r-sheet: 13px; --r-card: 12px; --r-tile: 11px;
+  --r-row: 9px; --r-ctl: 7px; --r-chip: 999px;
+
+  /* Kích thước. --pop-max: popover không cao quá vùng màn hình dùng được (màn MacBook Air 13" trừ thanh menu và lề). */
+  --pop-w: 360px; --pop-max: 820px; --av: 26px; --tog-w: 32px; --tog-h: 19px; --meter-h: 4px; --meter-h-s: 3px;
+  --win-w: 980px; --win-h: 640px; --side-w: 212px;
+
+  /* Chuyển động: ngắn, không nảy. Tắt khi người dùng giảm chuyển động. */
+  --dur-1: 120ms; --dur-2: 180ms; --dur-3: 240ms; --ease: cubic-bezier(.2, .8, .2, 1);
+
+  /* Nền máy (chỉ để dựng cảnh) */
+  --desk: linear-gradient(135deg, #bcd3ee 0%, #e7dcf0 48%, #f4e1cf 100%);
+  --bar: rgba(255, 255, 255, .52); --bar-solid: #ececee; --bar-ink: #1d1d1f;
+
+  /* Kính và nền đặc thay thế (cùng màu, khác độ trong) */
+  --glass: rgba(250, 250, 252, .74); --glass-solid: #f5f5f7; --glass-line: rgba(0, 0, 0, .10);
+  --side: rgba(232, 232, 238, .78); --side-solid: #e9e9ee;
+  --bl-pop: 34px; --bl-side: 20px; --bl-bar: 24px; --sat: 1.8;
+
+  /* Chữ và nền */
+  --ink: #1d1d1f; --ink2: #5b5b60; --ink3: #6a6a6f;
+  --fill: rgba(0, 0, 0, .045); --fill2: rgba(0, 0, 0, .08); --sel: rgba(0, 122, 255, .11);
+  --card: #ffffff; --card-line: rgba(0, 0, 0, .07); --winbg: #f3f3f6; --scrim: rgba(0, 0, 0, .18);
+  --track: rgba(0, 0, 0, .09);
+
+  /* Hành động: xanh dương, tối hơn xanh hệ thống một chút để chữ trắng trên nút đạt 4,5:1.
+     --accent là nền nút và dấu chọn; --accent-ink là chữ, link và icon màu xanh. */
+  --accent: #0062cc; --accent-ink: #0062cc; --on-accent: #ffffff; --info-ink: #004fb0;
+
+  /* Trạng thái: chỉ để báo còn / sắp hết / cạn. --bad-fill là nền đỏ đặc có chữ trắng (huy hiệu số). */
+  --ok: #34c759; --ok-ink: #13652b;
+  --warn: #ff9f0a; --warn-ink: #874300;
+  --bad: #ff3b30; --bad-ink: #a8001a; --bad-fill: #d70015;
+
+  /* Nhận diện (I13): chỉ ở avatar, dấu mục và thanh ô trong vòng, không dùng cho trạng thái.
+     Bản -ink dùng cho chữ trên nền nhạt -tint. */
+  --id-claude: #c4613f; --id-claude-ink: #8a3c20; --id-claude-tint: rgba(196, 97, 63, .14);
+  --id-agy: #5856d6; --id-agy-ink: #4341b8; --id-agy-tint: rgba(88, 86, 214, .13);
+  --id-codex: #3a3a3c; --id-codex-ink: #3a3a3c; --id-codex-tint: rgba(58, 58, 60, .10);
+
+  /* Biểu đồ (Thống kê, M16): một chuỗi số một màu (slot 1), đường lưới nhạt.
+     Bảng màu đã chạy qua bộ kiểm của skill dataviz ở bước thiết kế. */
+  --series-1: #2a78d6; --grid: rgba(0, 0, 0, .08);
+
+  /* Bóng */
+  --sh-pop: 0 18px 50px rgba(30, 40, 70, .22);
+  --sh-sheet: 0 10px 40px rgba(0, 0, 0, .28);
+  --sh-card: 0 1px 2px rgba(0, 0, 0, .05);
+  --sh-win: 0 24px 70px rgba(30, 40, 70, .28);
 }
 
-/* ---------- Colours: dark (charcoal), the solid ground ---------- */
 [data-theme="dark"] {
   color-scheme: dark;
-  --desk: #0b141d;
-  --win: #0f1a24;
-  --side: #13212e;
-  --card: #121e29;
-  --card-2: #16232e;
-  --thead: #16232e;
-  --tile: #16222e;
-  --field: #1b2a36;
-  --ctl: #1d2834;
-  --ctl-hover: #243241;
-  --line: #212e3a;
-  --line-2: #2c3a48;
-  --divider: #1a2632;
-  --hi: rgba(255, 255, 255, 0.035);
-  --text-title: #ffffff;
-  --text-1: #f5f8fd;
-  --text-nav: #ccd4e6;
-  --text-2: #a2b3c8;
-  --text-3: #8194a7;
-  --text-th: #b0c1d5;
-  --accent: #1a6af0;
-  --accent-hover: #1a64e6;
-  --accent-press: #1559cf;
-  --on-accent: #ffffff;
-  --accent-text: #6cb3f7;
-  --nav-sel: #1b4286;
-  --nav-sel-text: #ffffff;
-  --tint: #1e314a;
-  --tint-text: #9ccdfe;
-  --tag: #26334a;
-  --tag-text: #e6ecfa;
-  --passive: #2a3b4f;
-  --passive-text: #c9d6e6;
-  --focus: #4c95ff;
-  --ok: #34d354;
-  --ok-text: #4fe07a;
-  --dot-off: #8f9ab2;
-  --warn: #f5a32e;
-  --warn-text: #ffb23f;
-  --bad: #fd4b50;
-  --bad-text: #fd6060;
-  --bar-track: #232f3b;
-  --bar-fill: #9aa4bb;
-  --toggle-on: #0b6cf1;
-  --toggle-off: #3a4a5d;
-  --knob: #fefefe;
-  --seg: #1c2937;
-  --seg-on: #0a5ccb;
-  --bn-bad: #33212c;
-  --bn-bad-line: #4a2733;
-  --destr: #462026;
-  --destr-text: #ffd9d9;
-  --menu: #1f2934;
-  --chart-fill: #8ca4cc;
-  --traffic: #55606e;
-  --pop-panel: #14202d;
-  --pop-card: #18222d;
-  --pop-now: #1c2836;
-  --sh-card: 0 1px 0 rgba(0, 0, 0, 0.25);
-  --sh-pop: 0 18px 50px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.06);
-  --sh-win: 0 24px 60px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.07);
-  --sh-dlg: 0 20px 48px rgba(0, 0, 0, 0.5);
-  --scrim: rgba(4, 9, 15, 0.55);
-  --glass-win: var(--win);
-  --glass-side: var(--side);
-  --glass-pop: var(--pop-panel);
-  --glass-dlg: var(--card);
-  --glass-edge: transparent;
-  --glass-blur: 0px;
-  --glass-sat: 1;
+  --desk: linear-gradient(135deg, #0f1d33 0%, #241a36 50%, #2c1f17 100%);
+  --bar: rgba(28, 28, 30, .55); --bar-solid: #232325; --bar-ink: #f5f5f7;
+  --glass: rgba(38, 38, 42, .74); --glass-solid: #2a2a2d; --glass-line: rgba(255, 255, 255, .12);
+  --side: rgba(46, 46, 50, .72); --side-solid: #2c2c30;
+  --ink: #f5f5f7; --ink2: #b4b4b9; --ink3: #a1a1a6;
+  --fill: rgba(255, 255, 255, .06); --fill2: rgba(255, 255, 255, .10); --sel: rgba(10, 132, 255, .24);
+  --card: #2a2a2d; --card-line: rgba(255, 255, 255, .07); --winbg: #1c1c1e; --scrim: rgba(0, 0, 0, .35);
+  --track: rgba(255, 255, 255, .13);
+  --accent: #0a66f0; --accent-ink: #64a8ff; --on-accent: #ffffff; --info-ink: #7db7ff;
+  --ok: #30d158; --ok-ink: #4fe07a;
+  --warn: #ff9f0a; --warn-ink: #ffc266;
+  --bad: #ff453a; --bad-ink: #ff9a92; --bad-fill: #d70015;
+  --id-claude: #e3825f; --id-claude-ink: #f5b394; --id-claude-tint: rgba(227, 130, 95, .20);
+  --id-agy: #8583ff; --id-agy-ink: #c4c2ff; --id-agy-tint: rgba(133, 131, 255, .22);
+  --id-codex: #d1d1d6; --id-codex-ink: #d1d1d6; --id-codex-tint: rgba(209, 209, 214, .14);
+  --series-1: #3987e5; --grid: rgba(255, 255, 255, .09);
+  --sh-pop: 0 18px 50px rgba(0, 0, 0, .55);
+  --sh-sheet: 0 10px 40px rgba(0, 0, 0, .6);
+  --sh-card: 0 1px 2px rgba(0, 0, 0, .3);
+  --sh-win: 0 24px 70px rgba(0, 0, 0, .6);
 }
 
-/* "auto" follows macOS: the dark block again. */
+/* data-theme="auto": theo giao diện hệ thống (bản app dùng đúng cách này). */
 @media (prefers-color-scheme: dark) {
   [data-theme="auto"] {
     color-scheme: dark;
-    --desk: #0b141d;
-    --win: #0f1a24;
-    --side: #13212e;
-    --card: #121e29;
-    --card-2: #16232e;
-    --thead: #16232e;
-    --tile: #16222e;
-    --field: #1b2a36;
-    --ctl: #1d2834;
-    --ctl-hover: #243241;
-    --line: #212e3a;
-    --line-2: #2c3a48;
-    --divider: #1a2632;
-    --hi: rgba(255, 255, 255, 0.035);
-    --text-title: #ffffff;
-    --text-1: #f5f8fd;
-    --text-nav: #ccd4e6;
-    --text-2: #a2b3c8;
-    --text-3: #8194a7;
-    --text-th: #b0c1d5;
-    --accent: #1a6af0;
-    --accent-hover: #1a64e6;
-    --accent-press: #1559cf;
-    --on-accent: #ffffff;
-    --accent-text: #6cb3f7;
-    --nav-sel: #1b4286;
-    --nav-sel-text: #ffffff;
-    --tint: #1e314a;
-    --tint-text: #9ccdfe;
-    --tag: #26334a;
-    --tag-text: #e6ecfa;
-    --passive: #2a3b4f;
-    --passive-text: #c9d6e6;
-    --focus: #4c95ff;
-    --ok: #34d354;
-    --ok-text: #4fe07a;
-    --dot-off: #8f9ab2;
-    --warn: #f5a32e;
-    --warn-text: #ffb23f;
-    --bad: #fd4b50;
-    --bad-text: #fd6060;
-    --bar-track: #232f3b;
-    --bar-fill: #9aa4bb;
-    --toggle-on: #0b6cf1;
-    --toggle-off: #3a4a5d;
-    --knob: #fefefe;
-    --seg: #1c2937;
-    --seg-on: #0a5ccb;
-    --bn-bad: #33212c;
-    --bn-bad-line: #4a2733;
-    --destr: #462026;
-    --destr-text: #ffd9d9;
-    --menu: #1f2934;
-    --chart-fill: #8ca4cc;
-    --traffic: #55606e;
-    --pop-panel: #14202d;
-    --pop-card: #18222d;
-    --pop-now: #1c2836;
-    --sh-card: 0 1px 0 rgba(0, 0, 0, 0.25);
-    --sh-pop: 0 18px 50px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.06);
-    --sh-win: 0 24px 60px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.07);
-    --sh-dlg: 0 20px 48px rgba(0, 0, 0, 0.5);
-    --scrim: rgba(4, 9, 15, 0.55);
-    --glass-win: var(--win);
-    --glass-side: var(--side);
-    --glass-pop: var(--pop-panel);
-    --glass-dlg: var(--card);
-    --glass-edge: transparent;
-    --glass-blur: 0px;
-    --glass-sat: 1;
+    --desk: linear-gradient(135deg, #0f1d33 0%, #241a36 50%, #2c1f17 100%);
+    --bar: rgba(28, 28, 30, .55); --bar-solid: #232325; --bar-ink: #f5f5f7;
+    --glass: rgba(38, 38, 42, .74); --glass-solid: #2a2a2d; --glass-line: rgba(255, 255, 255, .12);
+    --side: rgba(46, 46, 50, .72); --side-solid: #2c2c30;
+    --ink: #f5f5f7; --ink2: #b4b4b9; --ink3: #a1a1a6;
+    --fill: rgba(255, 255, 255, .06); --fill2: rgba(255, 255, 255, .10); --sel: rgba(10, 132, 255, .24);
+    --card: #2a2a2d; --card-line: rgba(255, 255, 255, .07); --winbg: #1c1c1e; --scrim: rgba(0, 0, 0, .35);
+    --track: rgba(255, 255, 255, .13);
+    --accent: #0a66f0; --accent-ink: #64a8ff; --on-accent: #ffffff; --info-ink: #7db7ff;
+    --ok: #30d158; --ok-ink: #4fe07a;
+    --warn: #ff9f0a; --warn-ink: #ffc266;
+    --bad: #ff453a; --bad-ink: #ff9a92; --bad-fill: #d70015;
+    --id-claude: #e3825f; --id-claude-ink: #f5b394; --id-claude-tint: rgba(227, 130, 95, .20);
+    --id-agy: #8583ff; --id-agy-ink: #c4c2ff; --id-agy-tint: rgba(133, 131, 255, .22);
+    --id-codex: #d1d1d6; --id-codex-ink: #d1d1d6; --id-codex-tint: rgba(209, 209, 214, .14);
+    --series-1: #3987e5; --grid: rgba(255, 255, 255, .09);
+    --sh-pop: 0 18px 50px rgba(0, 0, 0, .55);
+    --sh-sheet: 0 10px 40px rgba(0, 0, 0, .6);
+    --sh-card: 0 1px 2px rgba(0, 0, 0, .3);
+    --sh-win: 0 24px 70px rgba(0, 0, 0, .6);
   }
 }
-
-/* ---------- The clear glass of style Q13 ----------
-   Captain, 24/10/2026: "Kinh rõ nhuq Q13 nhé bro", then "Duyệt kính (kính
-   trong như Q13)." The window, its sidebar, the popover and the dialogs
-   are glass to look through: a tint, partly transparent, over macOS's
-   material, which blurs the desktop behind the window; a light 1 px edge;
-   the cards one step more opaque than the window's glass. Measured on Q13
-   (dark only); light keeps the same opacity over the porcelain colours.
-   Two text colours each way are a step stronger than on the solid ground,
-   so text keeps 4.5:1 where the desktop behind is worst. */
-[data-material="glass"][data-theme="dark"] {
-  --glass-blur: 16px;
-  --glass-sat: 1.2;
-  --glass-win: rgba(26, 37, 71, 0.8);
-  --glass-side: rgba(26, 37, 71, 0.8);
-  --glass-pop: rgba(26, 37, 71, 0.8);
-  --glass-dlg: rgba(35, 37, 45, 0.78);
-  --glass-edge: rgba(255, 255, 255, 0.32);
-  --card: rgba(50, 63, 80, 0.6);
-  --pop-card: rgba(21, 32, 47, 0.6);
-  --pop-now: rgba(255, 255, 255, 0.05);
-  --tile: rgba(255, 255, 255, 0.04);
-  --card-2: rgba(255, 255, 255, 0.04);
-  --thead: rgba(255, 255, 255, 0.04);
-  --ctl: rgba(255, 255, 255, 0.1);
-  --ctl-hover: rgba(255, 255, 255, 0.15);
-  --field: rgba(255, 255, 255, 0.06);
-  --seg: rgba(255, 255, 255, 0.06);
-  --bar-track: rgba(255, 255, 255, 0.18);
-  --line: rgba(255, 255, 255, 0.05);
-  --line-2: rgba(255, 255, 255, 0.1);
-  --divider: rgba(255, 255, 255, 0.05);
-  --text-3: #9eb2c5;
-  --bad-text: #ff7f7c;
-}
-[data-material="glass"][data-theme="light"] {
-  --glass-blur: 16px;
-  --glass-sat: 1.2;
-  --glass-win: rgba(245, 248, 252, 0.8);
-  --glass-side: rgba(239, 245, 251, 0.8);
-  --glass-pop: rgba(248, 250, 253, 0.8);
-  --glass-dlg: rgba(249, 251, 253, 0.78);
-  --glass-edge: rgba(255, 255, 255, 0.6);
-  --card: rgba(249, 251, 253, 0.6);
-  --pop-card: rgba(252, 253, 254, 0.6);
-  --pop-now: rgba(20, 40, 80, 0.035);
-  --tile: rgba(255, 255, 255, 0.45);
-  --card-2: rgba(20, 40, 80, 0.04);
-  --thead: rgba(20, 40, 80, 0.04);
-  --ctl: rgba(255, 255, 255, 0.6);
-  --ctl-hover: rgba(255, 255, 255, 0.85);
-  --field: rgba(255, 255, 255, 0.55);
-  --seg: rgba(20, 40, 80, 0.05);
-  --bar-track: rgba(20, 40, 80, 0.12);
-  --line: rgba(20, 40, 80, 0.09);
-  --line-2: rgba(20, 40, 80, 0.16);
-  --divider: rgba(20, 40, 80, 0.07);
-  --text-2: #515d78;
-  --text-3: #515e77;
-  --accent-text: #0952e2;
-  --warn-text: #994400;
-  --bad-text: #d11e29;
-}
-@media (prefers-color-scheme: dark) {
-  [data-material="glass"][data-theme="auto"] {
-    --glass-blur: 16px;
-    --glass-sat: 1.2;
-    --glass-win: rgba(26, 37, 71, 0.8);
-    --glass-side: rgba(26, 37, 71, 0.8);
-    --glass-pop: rgba(26, 37, 71, 0.8);
-    --glass-dlg: rgba(35, 37, 45, 0.78);
-    --glass-edge: rgba(255, 255, 255, 0.32);
-    --card: rgba(50, 63, 80, 0.6);
-    --pop-card: rgba(21, 32, 47, 0.6);
-    --pop-now: rgba(255, 255, 255, 0.05);
-    --tile: rgba(255, 255, 255, 0.04);
-    --card-2: rgba(255, 255, 255, 0.04);
-    --thead: rgba(255, 255, 255, 0.04);
-    --ctl: rgba(255, 255, 255, 0.1);
-    --ctl-hover: rgba(255, 255, 255, 0.15);
-    --field: rgba(255, 255, 255, 0.06);
-    --seg: rgba(255, 255, 255, 0.06);
-    --bar-track: rgba(255, 255, 255, 0.18);
-    --line: rgba(255, 255, 255, 0.05);
-    --line-2: rgba(255, 255, 255, 0.1);
-    --divider: rgba(255, 255, 255, 0.05);
-    --text-3: #9eb2c5;
-    --bad-text: #ff7f7c;
-  }
-}
-@media not (prefers-color-scheme: dark) {
-  [data-material="glass"][data-theme="auto"] {
-    --glass-blur: 16px;
-    --glass-sat: 1.2;
-    --glass-win: rgba(245, 248, 252, 0.8);
-    --glass-side: rgba(239, 245, 251, 0.8);
-    --glass-pop: rgba(248, 250, 253, 0.8);
-    --glass-dlg: rgba(249, 251, 253, 0.78);
-    --glass-edge: rgba(255, 255, 255, 0.6);
-    --card: rgba(249, 251, 253, 0.6);
-    --pop-card: rgba(252, 253, 254, 0.6);
-    --pop-now: rgba(20, 40, 80, 0.035);
-    --tile: rgba(255, 255, 255, 0.45);
-    --card-2: rgba(20, 40, 80, 0.04);
-    --thead: rgba(20, 40, 80, 0.04);
-    --ctl: rgba(255, 255, 255, 0.6);
-    --ctl-hover: rgba(255, 255, 255, 0.85);
-    --field: rgba(255, 255, 255, 0.55);
-    --seg: rgba(20, 40, 80, 0.05);
-    --bar-track: rgba(20, 40, 80, 0.12);
-    --line: rgba(20, 40, 80, 0.09);
-    --line-2: rgba(20, 40, 80, 0.16);
-    --divider: rgba(20, 40, 80, 0.07);
-    --text-2: #515d78;
-    --text-3: #515e77;
-    --accent-text: #0952e2;
-    --warn-text: #994400;
-    --bad-text: #d11e29;
-  }
-}
-
-/* With Reduce Transparency on, macOS draws its material solid and the app
-   puts data-material="solid" on the windows (useMaterial, from macOS's own
-   flag: WebKit's prefers-reduced-transparency cannot be counted on), so
-   none of the glass above applies and the solid ground shows. */
 
 @media (prefers-reduced-motion: reduce) {
-  :root,
-  [data-theme] {
-    --dur-1: 0ms;
-    --dur-2: 0ms;
-    --dur-3: 0ms;
-  }
+  :root, [data-theme] { --dur-1: 0ms; --dur-2: 0ms; --dur-3: 0ms; }
 }
 
-/* ---------- The screens not rebuilt yet ----------
-   The names the screens used before the community edition's look, read
-   from the tokens above so they follow it. They go once every screen is
-   rebuilt on the names above. */
+/* ---------- The names of the community edition's screens ----------
+   The screens drawn for the community edition (24/10/2026) name their
+   colours and sizes differently; each name reads the token above that
+   draws the same thing in this look. They sit on every element that sets a
+   look or a material, so each follows the tokens that element redefines
+   (the stronger text on glass in glass.css among them). */
 :root,
 [data-theme],
 [data-material] {
-  --ink: var(--text-1);
-  --ink2: var(--text-2);
-  --ink3: var(--text-3);
-  --fill: var(--card-2);
-  --fill2: var(--ctl);
-  --sel: var(--nav-sel);
-  --card-line: var(--line);
-  --winbg: var(--win);
-  --track: var(--bar-track);
-  --glass: var(--glass-pop);
-  --glass-solid: var(--pop-panel);
-  --glass-line: var(--line-2);
-  --accent-ink: var(--accent-text);
-  --info-ink: var(--accent-text);
-  --ok-ink: var(--ok-text);
-  --warn-ink: var(--warn-text);
-  --bad-ink: var(--bad-text);
-  --bad-fill: var(--bad);
-  --series-1: var(--chart-fill);
-  --grid: var(--line);
-  --sh-sheet: var(--sh-dlg);
-  --r-sheet: var(--r-dlg);
-  --r-tile: var(--r-card);
-  --r-row: var(--r-ctl);
-  --pop-max: var(--pop-max-h);
-  --fs-cap: 11px;
-  --fs-s: 12px;
-  --fs-base: var(--fs-body);
-  --fs-title: 15px;
-  --fs-sheet: 16px;
-  --fs-num: 20px;
-  --fw-reg: var(--fw-regular);
-  --fw-med: var(--fw-medium);
-  --fw-semi: var(--fw-semibold);
-  --lh: var(--lh-body);
-  --av: 26px;
-  --tog-w: 32px;
-  --tog-h: 19px;
-  --meter-h: var(--bar-h);
-  --meter-h-s: 4px;
-  /* The marks beside an account (I13): kept until the logos replace them. */
-  --id-claude: #c4613f;
-  --id-claude-ink: #8a3c20;
-  --id-claude-tint: rgba(196, 97, 63, 0.14);
-  --id-agy: #5856d6;
-  --id-agy-ink: #4341b8;
-  --id-agy-tint: rgba(88, 86, 214, 0.13);
-  --id-codex: #3a3a3c;
-  --id-codex-ink: #3a3a3c;
-  --id-codex-tint: rgba(58, 58, 60, 0.1);
-}
-[data-theme="dark"] {
-  --id-claude: #e3825f;
-  --id-claude-ink: #f5b394;
-  --id-claude-tint: rgba(227, 130, 95, 0.2);
-  --id-agy: #8583ff;
-  --id-agy-ink: #c4c2ff;
-  --id-agy-tint: rgba(133, 131, 255, 0.22);
-  --id-codex: #d1d1d6;
-  --id-codex-ink: #d1d1d6;
-  --id-codex-tint: rgba(209, 209, 214, 0.14);
-}
-@media (prefers-color-scheme: dark) {
-  [data-theme="auto"] {
-    --id-claude: #e3825f;
-    --id-claude-ink: #f5b394;
-    --id-claude-tint: rgba(227, 130, 95, 0.2);
-    --id-agy: #8583ff;
-    --id-agy-ink: #c4c2ff;
-    --id-agy-tint: rgba(133, 131, 255, 0.22);
-    --id-codex: #d1d1d6;
-    --id-codex-ink: #d1d1d6;
-    --id-codex-tint: rgba(209, 209, 214, 0.14);
-  }
-}
+  /* Type. */
+  --fs-page: var(--fs-h2);
+  --fs-h3: var(--fs-title);
+  --fs-2xs: var(--fs-cap);
+  --pop-fs-title: var(--fs-title);
+  --pop-fs-h: var(--fs-base);
+  --pop-fs-body: var(--fs-body);
+  --pop-fs-sm: var(--fs-s);
+  --pop-fs-xs: var(--fs-xs);
+  --fw-regular: var(--fw-reg);
+  --fw-medium: var(--fw-med);
+  --fw-semibold: var(--fw-semi);
+  --fw-heading: var(--fw-bold);
+  --track-page: normal;
+  --track-head: normal;
+  --lh-tight: 1.2;
+  --lh-body: var(--lh);
 
-/* The popover's own scale: the shared names read its smaller sizes there.
-   --fs-sm stays the window's 13 px: a banner's body, a sheet's lead and facts
-   read the same in both, and the popover's own small lines name --pop-fs-sm. */
-.qs.app-popover {
-  --fs-body: var(--pop-fs-body);
-  --fs-xs: var(--pop-fs-xs);
-  --fs-s: var(--pop-fs-sm);
-  --fs-cap: 10.5px;
-  --fs-title: var(--pop-fs-title);
+  /* Sizes and radii. */
+  --pop-max-h: var(--pop-max);
+  --nav-h: 28px;
+  --bar-h: var(--meter-h);
+  --pop-bar-h: var(--meter-h);
+  --r-seg: var(--r-ctl);
+  --r-nav: var(--r-ctl);
+  --r-dlg: var(--r-sheet);
+
+  /* Grounds and lines. */
+  --win: var(--winbg);
+  --card-2: var(--fill);
+  --thead: transparent;
+  --tile: var(--fill);
+  --field: var(--fill);
+  --ctl: var(--fill2);
+  --ctl-hover: var(--fill2);
+  --line: var(--card-line);
+  --line-2: var(--glass-line);
+  --divider: var(--card-line);
+  --hi: transparent;
+  --menu: var(--glass);
+  --pop-panel: var(--glass-solid);
+  --pop-card: var(--fill);
+  --pop-now: var(--fill);
+
+  /* Text. */
+  --text-title: var(--ink);
+  --text-1: var(--ink);
+  --text-nav: var(--ink);
+  --text-2: var(--ink2);
+  --text-3: var(--ink3);
+  --text-th: var(--ink3);
+
+  /* Actions, chips and states. */
+  --accent-hover: var(--accent);
+  --accent-press: var(--accent);
+  --accent-text: var(--accent-ink);
+  --nav-sel: var(--sel);
+  --nav-sel-text: var(--ink);
+  --tint: color-mix(in srgb, var(--accent) 14%, transparent);
+  --tint-text: var(--info-ink);
+  --tag: color-mix(in srgb, var(--accent) 14%, transparent);
+  --tag-text: var(--info-ink);
+  --passive: var(--fill2);
+  --passive-text: var(--ink2);
+  --focus: var(--accent-ink);
+  --ok-text: var(--ok-ink);
+  --warn-text: var(--warn-ink);
+  --bad-text: var(--bad-ink);
+  --dot-off: var(--ink3);
+  --bar-track: var(--track);
+  --bar-fill: var(--ink3);
+  --toggle-on: var(--ok);
+  --toggle-off: var(--fill2);
+  --knob: #ffffff;
+  --seg: var(--fill2);
+  --seg-on: var(--accent);
+  --bn-bad: color-mix(in srgb, var(--bad) 15%, transparent);
+  --bn-bad-line: transparent;
+  --destr: color-mix(in srgb, var(--bad) 14%, transparent);
+  --destr-text: var(--bad-ink);
+  --chart-fill: var(--series-1);
+  --sh-dlg: var(--sh-sheet);
+
+  /* The glass of each surface: the popover's tint everywhere, as above. */
+  --glass-win: var(--glass);
+  --glass-side: transparent;
+  --glass-pop: var(--glass);
+  --glass-dlg: var(--card);
+  --glass-edge: transparent;
+  --glass-blur: var(--bl-pop);
+  --glass-sat: var(--sat);
 }

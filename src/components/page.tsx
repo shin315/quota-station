@@ -7,33 +7,18 @@
 import type { ComponentProps, ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
-/**
- * The title row: the tab's name, and under it this Mac and how fresh the
- * numbers are; its buttons stand to the right of both. Where the page has
- * under 640 px, the buttons go on a row of their own under the line.
- */
+/** The title row: the tab's name, how fresh it is, its buttons; they wrap under the name where the page is narrow. */
 export function TabHead({ className, ...props }: ComponentProps<'div'>) {
-  return (
-    <div
-      className={cn(
-        'grid grid-flow-col grid-cols-[minmax(0,1fr)] items-start gap-x-2 gap-y-1 pb-1 auto-cols-max',
-        '[&>*:not(h2,small)]:row-span-2 [&>*:not(h2,small)]:row-start-1',
-        '@max-[640px]/main:flex @max-[640px]/main:flex-wrap @max-[640px]/main:items-center @max-[640px]/main:[&>:is(h2,small)]:basis-full @max-[640px]/main:[&>small]:mb-1',
-        className,
-      )}
-      data-tauri-drag-region="deep"
-      {...props}
-    />
-  );
+  return <div className={cn('flex flex-wrap items-center gap-2.5', className)} data-tauri-drag-region="deep" {...props} />;
 }
 
 export function TabTitle({ className, ...props }: ComponentProps<'h2'>) {
-  return <h2 className={cn('col-start-1 row-start-1 m-0 text-page leading-[1.1] font-bold tracking-page text-heading', className)} {...props} />;
+  return <h2 className={cn('m-0 flex-1 text-page tracking-[-.01em]', className)} {...props} />;
 }
 
-/** The line under the title: this Mac and how fresh the numbers are. */
+/** The line next to the title: this Mac and how fresh the numbers are. */
 export function TabSub({ className, ...props }: ComponentProps<'small'>) {
-  return <small className={cn('col-start-1 row-start-2 flex items-center gap-1.5 text-body text-ink2', className)} {...props} />;
+  return <small className={cn('flex items-center gap-1.5 text-sm text-ink2', className)} {...props} />;
 }
 
 /** Two columns of cards, the left one wider; one column where the page is narrow. */
@@ -52,53 +37,50 @@ export const STACK = 'grid min-w-0 content-start gap-3';
  * dùng tới" keeps one line), the controls on the right, a blue edge once
  * changed. The name goes over its controls where the page has under 600 px;
  * in a dialog the name keeps 190 px.
- * `inline`: a row whose control is a switch, a status or a short value: it
- * stands at the row's right edge, beside the name, and what follows it (a
- * hint, a button) runs the row's width under both, as the design draws it.
+ * `inline`: a row whose control is a switch, a status or a short value:
+ * where the page is narrow it stays at the row's right edge, beside the
+ * name, and what follows it (a hint, a button) runs the row's width under both.
  */
 export function rowClass(changed = false, inline = false): string {
   return cn(
-    'grid grid-cols-[minmax(190px,15rem)_minmax(0,1fr)] items-start gap-3.5 border-t-[.5px] border-card-line py-2.5 first:border-t-0 first:pt-0.5 @max-[600px]/main:grid-cols-[minmax(0,1fr)] @max-[600px]/main:gap-y-1.5 in-data-[slot=dialog-content]:grid-cols-[190px_minmax(0,1fr)]',
+    'grid grid-cols-[190px_minmax(0,1fr)] items-start gap-3.5 border-t-[.5px] border-card-line py-2.5 first:border-t-0 first:pt-0.5 @max-[600px]/main:grid-cols-[minmax(0,1fr)] @max-[600px]/main:gap-y-1.5 in-data-[slot=dialog-content]:grid-cols-[190px_minmax(0,1fr)]',
     inline && ROW_INLINE,
     changed && '-ml-2 pl-2 shadow-[inset_3px_0_0_var(--accent)]',
   );
 }
 
-/** See rowClass's `inline`; `row-inline` marks it for STACKED_ROWS. */
+/** See rowClass's `inline`. */
 const ROW_INLINE =
-  'row-inline grid-cols-[minmax(0,1fr)_auto] gap-y-1 @max-[600px]/main:grid-cols-[minmax(0,1fr)_auto] [&>:last-child]:contents [&>:last-child>:first-child]:col-start-2 [&>:last-child>:first-child]:row-start-1 [&>:last-child>:first-child]:self-center [&>:last-child>:first-child]:justify-self-end [&>:last-child>:not(:first-child)]:col-span-full';
-
-/** Rows (rowClass) each with its name over its controls, the inline ones (a switch, a status) apart. */
-export const STACKED_ROWS = 'grid [&>*:not(.row-inline)]:grid-cols-[minmax(0,1fr)] [&>*:not(.row-inline)]:gap-y-1.5';
+  '@max-[600px]/main:grid-cols-[minmax(0,1fr)_auto] @max-[600px]/main:gap-y-1 @max-[600px]/main:[&>:last-child]:contents @max-[600px]/main:[&>:last-child>:first-child]:col-start-2 @max-[600px]/main:[&>:last-child>:first-child]:row-start-1 @max-[600px]/main:[&>:last-child>:first-child]:self-center @max-[600px]/main:[&>:last-child>:first-child]:justify-self-end @max-[600px]/main:[&>:last-child>:not(:first-child)]:col-span-full';
 
 /**
  * A row of an accounts table: it takes the table's columns (TABLE, --wt-cols),
  * so a column sized to its content (`auto`, the buttons) is as wide as the
- * widest row's. The head row is the first, on the table's head colour.
+ * widest row's. The row in use is lit, and the hairlines around it give way.
  * Where the page has under 640 px a row is a card of its own: the name and
  * the buttons on top, the windows under them (TABLE_CELLS), each with its name.
  */
 export const TABLE_ROW =
-  'wt-r col-span-full grid grid-cols-subgrid items-center border-t border-divider px-3 py-2 text-sm first:border-t-0 @max-[640px]/main:grid-cols-[minmax(9rem,1fr)_auto_auto] @max-[640px]/main:gap-x-2.5 @max-[640px]/main:gap-y-2 @max-[640px]/main:[&>:first-child]:col-start-1 @max-[640px]/main:[&>:first-child]:row-start-1';
+  'wt-r col-span-full grid grid-cols-subgrid items-center border-t-[.5px] border-card-line px-1.5 py-2 text-sm first:border-t-0 [.on+&]:border-t-transparent @max-[640px]/main:grid-cols-[minmax(9rem,1fr)_auto_auto] @max-[640px]/main:gap-x-2.5 @max-[640px]/main:gap-y-2 @max-[640px]/main:[&>:first-child]:col-start-1 @max-[640px]/main:[&>:first-child]:row-start-1';
 /** A row's windows: columns of the table, or the card's second line where the page is narrow. */
 export const TABLE_CELLS =
   'contents @max-[640px]/main:col-span-full @max-[640px]/main:row-start-2 @max-[640px]/main:grid @max-[640px]/main:auto-cols-[minmax(0,1fr)] @max-[640px]/main:grid-flow-col @max-[640px]/main:gap-3';
 /** A row's buttons and its ⋯, on the card's top line where the page is narrow. */
 export const TABLE_END = '@max-[640px]/main:row-start-1';
-/** The row in use: the dot and the status say it, the row is not lit. */
-export const TABLE_ROW_ON = 'on';
+/** The lit row of an accounts table: the one in use. */
+export const TABLE_ROW_ON = 'on rounded-lg border-t-transparent bg-[color-mix(in_srgb,var(--sel)_70%,transparent)]';
 /**
  * An accounts table: its columns (--wt-cols) and their gap (--wt-gap); it is
  * never narrower than its columns' least widths add up to. One column of
  * cards where the page is narrow.
  */
-export const TABLE = 'grid min-w-min grid-cols-(--wt-cols) gap-x-[var(--wt-gap,24px)] @max-[640px]/main:min-w-0 @max-[640px]/main:grid-cols-[minmax(0,1fr)]';
-/** The hairline box around a table; a table that still does not fit scrolls sideways inside it. */
-export const TABLE_BOX = 'overflow-x-auto overscroll-x-contain rounded-ctl border border-line bg-card';
-/** A table beside another column (Tổng quan's rail): its columns closer together. */
-export const TABLE_TIGHT = '[--wt-gap:16px]';
+export const TABLE = 'grid min-w-min grid-cols-(--wt-cols) gap-x-[var(--wt-gap,10px)] @max-[640px]/main:min-w-0 @max-[640px]/main:grid-cols-[minmax(0,1fr)]';
+/** Around a table: one that still does not fit scrolls sideways inside it. */
+export const TABLE_BOX = 'overflow-x-auto overscroll-x-contain';
+/** A table beside another column (Tổng quan's rail). */
+export const TABLE_TIGHT = '[--wt-gap:10px]';
 /** The table's head row: the windows' names. */
-export const TABLE_HEAD = TABLE_ROW + ' h rounded-t-[7px] bg-thead py-1.5 text-sm font-med whitespace-nowrap text-th @max-[640px]/main:hidden';
+export const TABLE_HEAD = TABLE_ROW + ' h pt-0 pb-1 text-xs whitespace-nowrap text-ink3 @max-[640px]/main:hidden';
 
 /** A form row's name. */
 export const LABEL = 'fl pt-[3px] text-sm font-semi';
