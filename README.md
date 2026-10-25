@@ -766,7 +766,16 @@ credited in [`THIRD_PARTY.md`](THIRD_PARTY.md)).
   `QUOTA_AXI_CLAUDE_ROTATION`, [`docs/claude-accounts.md`](docs/claude-accounts.md)).
 - **Rotation.** The `cswap-prefer-team` rules, ported line for line, on the
   app's own copy of the rotation file (`claude/rotation`; the rules editor
-  and the copy to the other Macs work on it). `Tự chuyển bằng Quota Station`
+  and the copy to the other Macs work on it), with one change: the early
+  switch is on. While the Team account in use has room, the rotation moves
+  to another Team account whose five-hour window has started and ends
+  sooner, when that account has room, at least 20 minutes of that window
+  left and at least 10 points of it before the threshold (and Fable left
+  if the account in use has Fable); of several, the window that ends first.
+  So a window is used before it resets unused, for about one switch back
+  (each switch makes every running session read its context again). With
+  no such account the one in use is kept until a window reaches the
+  threshold, as in the script. `Tự chuyển bằng Quota Station`
   loads the app's LaunchAgent, `com.shin315.quota-station.rotation`, which
   runs `quota-station claude rotate` every 180 seconds whether or not the
   app is open, and logs to `claude/rotation.log`. The pause flag is the same

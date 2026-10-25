@@ -82,7 +82,11 @@ windows only while `Hiện email` is on, as before.
 ## Rotation host
 
 The rotation is the `cswap-prefer-team` script's rules, ported line for line
-(`claude/engine.rs`, the same decision text), reading the app's own copy of
+(`claude/engine.rs`, the same decision text) except that the early switch is
+on: while the Team account in use has room, the Team account whose five-hour
+window has started and ends sooner is taken, with room, at least 20 minutes
+and 10 points before `full` left of that window (the module doc has the
+whole rule). It reads the app's own copy of
 the rotation file, `claude/rotation` (same format; the editor and the copy to
 the other Macs work on it, and on a Mac that has not imported yet they still
 work on `~/.config/cswap-prefer-team/rotation`). The pause flag stays where it

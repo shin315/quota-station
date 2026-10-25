@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 //! The rotation inside the app: the decisions the old `cswap-prefer-team`
-//! script made, with the same rules, and one run of it against a fake
+//! script made, with the same rules but the early switch, and one run of it against a fake
 //! Keychain, launchd and Anthropic. Every account is made up, and the
 //! clock is an argument, never waited on.
 
