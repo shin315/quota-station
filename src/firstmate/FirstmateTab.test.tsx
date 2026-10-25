@@ -95,6 +95,9 @@ describe('the Firstmate tab', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Mở Cài đặt' }));
     });
     expect(screen.getByRole('heading', { name: 'Cài đặt' })).toBeTruthy();
+    // On Nâng cao, where Firstmate's file is set.
+    expect(screen.getByRole('tab', { name: 'Nâng cao' }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByLabelText(/^File của firstmate/)).toBeTruthy();
   });
 
   it('a file that is not there', async () => {

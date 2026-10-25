@@ -62,7 +62,7 @@ export function FirstmateTab({ model, fresh, now, onAction }: FirstmateTabProps)
             </b>
             <CardText className="mt-1 mb-0">{v.body}</CardText>
           </div>
-          {v.setUp ? <Button onClick={() => onAction('settings')}>{t('Mở Cài đặt', 'Open Settings')}</Button> : null}
+          {v.setUp ? <Button onClick={() => onAction('settings:advanced')}>{t('Mở Cài đặt', 'Open Settings')}</Button> : null}
         </div>
       </Panel>
       {v.seen.length ? (

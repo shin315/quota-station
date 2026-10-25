@@ -48,6 +48,13 @@ async function press(el: HTMLElement) {
   await tick();
 }
 
+/** Shows one of Cài đặt's tabs, as a press on it does. */
+async function showGroup(name: string) {
+  await act(async () => {
+    fireEvent.mouseDown(screen.getByRole('tab', { name }));
+  });
+}
+
 const box = (name: string) => screen.getByRole('checkbox', { name: new RegExp('^' + name) });
 const dialog = () => screen.getByRole('dialog');
 
@@ -323,6 +330,7 @@ describe('the Skills tab', () => {
 describe('Cài đặt › Skills', () => {
   it('has "Kiểm bản mới" daily or off, and the macOS card off by default', async () => {
     const fake = await openTab('settings');
+    await showGroup('Cập nhật');
     const seg = screen.getByRole('group', { name: 'Kiểm bản mới của skill' });
     expect(within(seg).getByRole('button', { name: 'Mỗi ngày' }).getAttribute('aria-pressed')).toBe('true');
     const notify = screen.getByRole('switch', { name: 'Báo skill có bản mới bằng thông báo macOS' });

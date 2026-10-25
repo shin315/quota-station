@@ -17,6 +17,8 @@ export type Tone = 'ok' | 'warn' | 'bad' | 'muted' | 'info';
 export type Action =
   | 'refresh'
   | 'settings'
+  /** Cài đặt on its Nâng cao tab: Firstmate's file and the other Macs are there. */
+  | 'settings:advanced'
   | 'window'
   /** The popover's theme button: light ↔ dark. */
   | 'theme'

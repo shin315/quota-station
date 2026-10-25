@@ -157,6 +157,8 @@ commands![
     commands::refresh,
     commands::open_window,
     commands::main_tab,
+    commands::settings_group,
+    commands::set_settings_group,
     commands::hide_popover,
     commands::popover_resize,
     commands::set_machine_name,

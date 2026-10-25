@@ -53,6 +53,7 @@ import type {
   RotationView,
   RulesError,
   Sessions,
+  SettingsGroup,
   Tab,
   UpdateError,
   UpdateOutcome,
@@ -232,6 +233,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
   // The names Rust would send again when the owner shows them.
   const named = initial.snapshot;
   let tab = initialTab;
+  let settingsGroup: SettingsGroup = 'general';
   let version = 1;
   const now = options.clock ?? (() => new Date());
   const listeners = new Set<(m: Model) => void>();
@@ -367,6 +369,10 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       tabListeners.forEach((l) => l(tab));
     },
     mainTab: async () => tab,
+    settingsGroup: async () => settingsGroup,
+    setSettingsGroup: async (group) => {
+      settingsGroup = group;
+    },
     hidePopover: async () => {},
     resizePopover: async () => {},
     setMachineName: async (name) => {
@@ -1232,7 +1238,9 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
         tabListeners.forEach((l) => l('agy'));
       }
       else if (action === 'env:settings') {
-        result = said('Đã mở Cài đặt', 'Thẻ Biến môi trường đè đăng nhập ở đầu trang. App không sửa file shell.');
+        result = said('Đã mở Cài đặt', 'Ở tab Biến môi trường. App không sửa file shell.');
+        // The Rust side opens the main window on Cài đặt's Biến môi trường.
+        settingsGroup = 'env';
         tab = 'settings';
         tabListeners.forEach((l) => l('settings'));
       } else if (action.startsWith('env:ignore:')) {

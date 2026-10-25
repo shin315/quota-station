@@ -208,6 +208,12 @@ pub fn open_main(app: &AppHandle, tab: Tab) {
     }
 }
 
+/// Opens the main window on Cài đặt's `group` (as the page names it).
+pub fn open_settings(app: &AppHandle, group: &str) {
+    app.state::<AppState>().lock().settings_group = group.into();
+    open_main(app, Tab::Settings);
+}
+
 /// Closes the main window without asking again.
 /// The owner's look for macOS's own parts of the windows (the popover's
 /// material, the title bar): `None` follows macOS.

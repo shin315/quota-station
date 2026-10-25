@@ -177,33 +177,24 @@ describe('the bell', () => {
     expect(screen.queryByRole('dialog', { name: 'Thông báo' })).toBeNull();
   });
 
-  it('"Cài đặt thông báo" opens Cài đặt at its Thông báo group and closes the panel', async () => {
-    const scrolled: string[] = [];
-    const scrollIntoView = vi.fn(function (this: Element) {
-      scrolled.push(this.id);
-    });
-    Object.defineProperty(Element.prototype, 'scrollIntoView', { value: scrollIntoView, configurable: true });
-    try {
-      await open(withAlerts());
-      await press(within(panel()).getByRole('button', { name: 'Cài đặt thông báo' }));
-      expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('Cài đặt');
-      expect(screen.queryByRole('dialog', { name: 'Thông báo' })).toBeNull();
-      const group = screen.getByRole('region', { name: 'Thông báo' });
-      expect(scrolled).toEqual([group.id]);
-      const contents = screen.getByRole('navigation', { name: 'Mục lục cài đặt' });
-      expect(within(contents).getByRole('button', { name: 'Thông báo' }).getAttribute('aria-current')).toBe('location');
-      // The kinds, "Gửi thử" and their switches are there.
-      expect(within(group).getAllByRole('button', { name: /^Gửi thử: / })).toHaveLength(5);
-      // Asked again from another page, it opens again.
-      await press(within(screen.getByRole('navigation', { name: 'Các tab' })).getByRole('button', { name: 'Tổng quan' }));
-      await press(bell());
-      await press(within(panel()).getByRole('button', { name: 'Cài đặt thông báo' }));
-      expect(scrolled).toEqual([group.id, screen.getByRole('region', { name: 'Thông báo' }).id]);
-    } finally {
-      delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
-    }
+  it('"Cài đặt thông báo" opens Cài đặt at its Thông báo tab and closes the panel', async () => {
+    const fake = await open(withAlerts());
+    await press(within(panel()).getByRole('button', { name: 'Cài đặt thông báo' }));
+    expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('Cài đặt');
+    expect(screen.queryByRole('dialog', { name: 'Thông báo' })).toBeNull();
+    expect(screen.getByRole('tab', { name: 'Thông báo' }).getAttribute('aria-selected')).toBe('true');
+    expect(fake.api.setSettingsGroup).toHaveBeenLastCalledWith('notify');
+    // The kinds, "Gửi thử" and their switches are there.
+    const group = screen.getByRole('region', { name: 'Thông báo' });
+    expect(within(group).getAllByRole('button', { name: /^Gửi thử: / })).toHaveLength(5);
+    // Asked again from another page after another tab was picked, it opens Thông báo again.
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Chung' }));
+    await press(within(screen.getByRole('navigation', { name: 'Các tab' })).getByRole('button', { name: 'Tổng quan' }));
+    await press(bell());
+    await press(within(panel()).getByRole('button', { name: 'Cài đặt thông báo' }));
+    expect(screen.getByRole('tab', { name: 'Thông báo' }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByRole('region', { name: 'Thông báo' })).toBeTruthy();
   });
-
   it('a press on the macOS card opens the panel over the page in view', async () => {
     const fake = await open(withAlerts(), 'history');
     expect(screen.queryByRole('dialog', { name: 'Thông báo' })).toBeNull();
@@ -287,6 +278,7 @@ describe('a notification’s buttons in the panel', () => {
 
   it('"Gửi thử" in Cài đặt sends a test that lands under the bell, its buttons changing nothing', async () => {
     const fake = await open(withAlerts({ recent: [] }), 'settings');
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Thông báo' }));
     expect(count()).toBe('');
     await press(screen.getByRole('button', { name: 'Gửi thử: Tài khoản sắp rời vòng' }));
     expect(fake.api.testAlert).toHaveBeenCalledWith('leaving');

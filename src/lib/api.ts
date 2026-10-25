@@ -33,6 +33,7 @@ import type {
   PeerTest,
   Rules,
   Sessions,
+  SettingsGroup,
   StatsPeriod,
   StatsReport,
   Tab,
@@ -71,6 +72,9 @@ export interface Api {
   openWindow(tab: Tab): Promise<void>;
   /** The tab the main window was opened for. */
   mainTab(): Promise<Tab>;
+  /** The group Cài đặt shows: the last one picked while the app runs, or the one a link opened it on. */
+  settingsGroup(): Promise<SettingsGroup>;
+  setSettingsGroup(group: SettingsGroup): Promise<void>;
   hidePopover(): Promise<void>;
   resizePopover(height: number): Promise<void>;
   /** Empty goes back to the name macOS gives this Mac. */
@@ -400,6 +404,8 @@ export const tauriApi: Api = {
   refresh: () => invoke<number>('refresh'),
   openWindow: (tab) => invoke('open_window', { tab }),
   mainTab: () => invoke<Tab>('main_tab'),
+  settingsGroup: () => invoke<SettingsGroup>('settings_group'),
+  setSettingsGroup: (group) => invoke('set_settings_group', { group }),
   hidePopover: () => invoke('hide_popover'),
   resizePopover: (height) => invoke('popover_resize', { height }),
   setMachineName: (name) => invoke<Model>('set_machine_name', { name }),

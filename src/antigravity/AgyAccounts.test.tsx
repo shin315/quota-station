@@ -101,6 +101,7 @@ describe('Antigravity accounts logged in here', () => {
     const fake = await open(withAgy({ accounts: [login(1)] }));
     expect(row('lanpham.ultra')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Cài đặt' }));
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Hiển thị' }));
     await act(async () => {
       fireEvent.click(screen.getByRole('switch', { name: 'Hiện email' }));
     });

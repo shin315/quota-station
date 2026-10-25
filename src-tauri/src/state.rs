@@ -180,6 +180,10 @@ pub struct Inner {
     pub popover_hidden_at: Option<Instant>,
     /// The tab the main window shows next: set when something opens it.
     pub main_tab: Tab,
+    /// The group Cài đặt shows (`general`, `env`, …, as the page names
+    /// them): the last one picked while the app runs, or the one an alert
+    /// opened it on.
+    pub settings_group: String,
     pub switcher: SwitcherState,
     pub switcher_now: bool,
     /// The slot a manual switch is running for.
@@ -373,6 +377,7 @@ impl Inner {
             granting: false,
             popover_hidden_at: None,
             main_tab: Tab::Overview,
+            settings_group: "general".into(),
             switcher: SwitcherState::default(),
             switcher_now: true,
             switching: None,

@@ -197,7 +197,7 @@ export function CopyTab({ model, feedback, copy, onAction }: CopyTabProps) {
             <b>{t('Chưa có Mac nào để chép', 'No Macs to copy with yet')}</b>
             <CardText className="mt-2 mb-0">{t('Thêm Mac trong Cài đặt › Các Mac khác, bằng tên kết nối SSH của nó.', 'Add a Mac in Settings › Other Macs, by its SSH name.')}</CardText>
             <div className="mt-2.5 flex flex-wrap justify-center gap-2">
-              <Button primary onClick={() => onAction('settings')}>
+              <Button primary onClick={() => onAction('settings:advanced')}>
                 {t('Mở Cài đặt', 'Open Settings')}
               </Button>
             </div>
@@ -252,7 +252,7 @@ export function CopyTab({ model, feedback, copy, onAction }: CopyTabProps) {
             actions: unreach
               ? [
                   { label: t('Thử lại', 'Try again'), act: 'copy:compare' },
-                  { label: t('Mở Cài đặt', 'Open Settings'), act: 'settings' },
+                  { label: t('Mở Cài đặt', 'Open Settings'), act: 'settings:advanced' },
                 ]
               : [{ label: t('So sánh lại', 'Compare again'), act: 'copy:compare' }],
           }}

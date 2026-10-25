@@ -41,7 +41,7 @@ import { codexErrorFeedback, codexFeedback, codexRow, codexRestartFeedback, keyF
 import type { Api } from './lib/api';
 import { authorModel } from './lib/author';
 import { alertFailedFeedback, testFailedFeedback } from './lib/alerts';
-import type { AgyHow, AlertKind, CodexOutcome, CodexTarget, Language, Model, Sessions, Tab, Theme } from './lib/model';
+import type { AgyHow, AlertKind, CodexOutcome, CodexTarget, Language, Model, Sessions, SettingsGroup, Tab, Theme } from './lib/model';
 import { resolveLang, setLang, systemLanguages, t, type Lang } from './lib/i18n';
 import {
   autoView,
@@ -63,7 +63,7 @@ import { HistoryTab } from './history/HistoryTab';
 import { CompareDialog, LeaveDialog, RulesTab } from './rules/RulesTab';
 import { useRules } from './rules/useRules';
 import { EnvListBody, useEnv } from './settings/EnvCard';
-import { Settings, type SettingsGroup } from './settings/Settings';
+import { Settings } from './settings/Settings';
 import { MainWindow } from './window/MainWindow';
 import { Setup } from './setup/Setup';
 
@@ -627,8 +627,12 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   const [tab, setTab] = useState<Tab | null>(null);
   // The bell's panel (Thông báo), over whichever page is in view.
   const [bell, setBell] = useState(false);
-  // A group of Cài đặt to open once it shows ("Cài đặt thông báo").
-  const [settingsAt, setSettingsAt] = useState<{ group: SettingsGroup } | null>(null);
+  // Cài đặt's tab: the app keeps it while it runs, so the window opens on it again.
+  const [settingsGroup, setSettingsGroup] = useState<SettingsGroup>('general');
+  const showGroup = (group: SettingsGroup) => {
+    setSettingsGroup(group);
+    void api.setSettingsGroup(group).catch(() => {});
+  };
   const [feedback, showFeedback] = useFeedback(tab);
   const agyLogins = useAgyLogins(model?.antigravity ?? NO_LOGINS, api, showFeedback);
   const { busy, refresh, grant } = useActions(api, model, clock, showFeedback);
@@ -685,9 +689,15 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   // The tab the window was opened for, then any tab asked for while it is open.
   // `alerts` (a macOS card, the popover's bell) opens the bell's panel over the
   // page in view; any other tab closes it, as following a link from it does.
+  // Cài đặt opens on the group the app keeps: the last one, or the one an alert's "Xem" asked for.
   useEffect(() => {
     let live = true;
     let stop: (() => void) | undefined;
+    const group = () =>
+      api.settingsGroup().then(
+        (g) => live && setSettingsGroup(g),
+        () => {},
+      );
     const arrive = (t: Tab, first: boolean) => {
       if (!live) return;
       if (t === 'alerts') {
@@ -699,11 +709,18 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
         setTab(t);
       }
     };
-    void api.onTab((t) => arrive(t, false)).then((unlisten) => {
-      if (live) stop = unlisten;
-      else unlisten();
-    });
-    void api.mainTab().then((t) => arrive(t, true));
+    void api
+      .onTab((t) => {
+        if (t === 'settings') void group().then(() => arrive(t, false));
+        else arrive(t, false);
+      })
+      .then((unlisten) => {
+        if (live) stop = unlisten;
+        else unlisten();
+      });
+    void group()
+      .then(() => api.mainTab())
+      .then((t) => arrive(t, true));
     return () => {
       live = false;
       stop?.();
@@ -764,7 +781,14 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
     if (instr.act(act)) return;
     if (env.act(act)) return;
     if (sets.act(act)) return;
-    if (act === 'env:settings') return rules.guardTab(tab, 'settings', setTab);
+    if (act === 'env:settings') {
+      showGroup('env');
+      return rules.guardTab(tab, 'settings', setTab);
+    }
+    if (act === 'settings:advanced') {
+      showGroup('advanced');
+      return rules.guardTab(tab, 'settings', setTab);
+    }
     if (act === 'plugins:reread') return void api.pluginsRead().catch(() => {});
     if (act === 'mcp:tab') return rules.guardTab(tab, 'mcp', setTab);
     if (act === 'notify:settings') return void api.openNotificationSettings().catch(() => showFeedback(settingsFailedFeedback()));
@@ -847,7 +871,8 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       onRelaunch={() => refusal(api.relaunch())}
       onSkillChecks={(daily, notify) => void api.skillsSetChecks(daily, notify).catch(() => showFeedback(settingsFailedFeedback()))}
       onReleaseChecks={release.setAuto}
-      open={settingsAt}
+      group={settingsGroup}
+      onGroup={showGroup}
     />
   );
   const goTab = (next: Tab) => {
@@ -858,7 +883,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   const notifySettings = () => {
     setBell(false);
     rules.guardTab(tab, 'settings', (t) => {
-      setSettingsAt({ group: 'notify' });
+      showGroup('notify');
       setTab(t);
     });
   };
