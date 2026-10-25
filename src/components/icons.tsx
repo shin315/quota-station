@@ -3,13 +3,94 @@
 // SPDX-FileCopyrightText: 2013-2022 Cole Bemis
 // SPDX-License-Identifier: MIT AND ISC
 
-// The interface's icons: Lucide 0.460.0 (lucide-static, ISC,
-// LICENSES/ISC.txt), the set the approved prototype draws with, part of the
-// app so nothing is fetched. The services' own logos are svgl's
-// (`logos.tsx`), not these.
+// The interface's icons. `Glyph`: Phosphor's Duotone glyphs
+// (@phosphor-icons/react, MIT), each tinted its own colour as Clean Station
+// tints its SF Symbols; the sidebar and Tổng quan, Thống kê and Claude draw
+// with them. `Icon`: Lucide 0.460.0 (lucide-static, ISC, LICENSES/ISC.txt),
+// the set the approved prototype draws with, still on the other pages. Both
+// are part of the app so nothing is fetched. The services' own logos are
+// svgl's (`logos.tsx`), not these.
 
 import type { ReactNode } from 'react';
+import type { Icon as PhosphorIcon } from '@phosphor-icons/react';
+import { AnchorIcon } from '@phosphor-icons/react/dist/csr/Anchor';
+import { ArchiveIcon } from '@phosphor-icons/react/dist/csr/Archive';
+import { BellIcon } from '@phosphor-icons/react/dist/csr/Bell';
+import { ChartBarIcon } from '@phosphor-icons/react/dist/csr/ChartBar';
+import { ClockCounterClockwiseIcon } from '@phosphor-icons/react/dist/csr/ClockCounterClockwise';
+import { DotsThreeIcon } from '@phosphor-icons/react/dist/csr/DotsThree';
+import { FileTextIcon } from '@phosphor-icons/react/dist/csr/FileText';
+import { GearSixIcon } from '@phosphor-icons/react/dist/csr/GearSix';
+import { LightningIcon } from '@phosphor-icons/react/dist/csr/Lightning';
+import { PlugIcon } from '@phosphor-icons/react/dist/csr/Plug';
+import { PlusIcon } from '@phosphor-icons/react/dist/csr/Plus';
+import { PuzzlePieceIcon } from '@phosphor-icons/react/dist/csr/PuzzlePiece';
+import { RepeatIcon } from '@phosphor-icons/react/dist/csr/Repeat';
+import { SquaresFourIcon } from '@phosphor-icons/react/dist/csr/SquaresFour';
+import { StackIcon } from '@phosphor-icons/react/dist/csr/Stack';
+import { SwapIcon } from '@phosphor-icons/react/dist/csr/Swap';
 import { cn } from '@/lib/utils';
+
+/** The Phosphor glyphs the app draws, by Phosphor's own names. */
+export const GLYPHS = {
+  'anchor': AnchorIcon,
+  'archive': ArchiveIcon,
+  'bell': BellIcon,
+  'chart-bar': ChartBarIcon,
+  'clock-counter-clockwise': ClockCounterClockwiseIcon,
+  'dots-three': DotsThreeIcon,
+  'file-text': FileTextIcon,
+  'gear-six': GearSixIcon,
+  'lightning': LightningIcon,
+  'plug': PlugIcon,
+  'plus': PlusIcon,
+  'puzzle-piece': PuzzlePieceIcon,
+  'repeat': RepeatIcon,
+  'squares-four': SquaresFourIcon,
+  'stack': StackIcon,
+  'swap': SwapIcon,
+} satisfies Record<string, PhosphorIcon>;
+
+export type GlyphName = keyof typeof GLYPHS;
+
+/** The tints a glyph takes (tokens.css `--glyph-*`), each readable on the sidebar and the cards in both looks. */
+const TINTS = {
+  blue: 'text-glyph-blue',
+  green: 'text-glyph-green',
+  orange: 'text-glyph-orange',
+  indigo: 'text-glyph-indigo',
+  red: 'text-glyph-red',
+  teal: 'text-glyph-teal',
+  purple: 'text-glyph-purple',
+  yellow: 'text-glyph-yellow',
+  mint: 'text-glyph-mint',
+  slate: 'text-glyph-slate',
+  pink: 'text-glyph-pink',
+  brown: 'text-glyph-brown',
+  cyan: 'text-glyph-cyan',
+  gray: 'text-glyph-gray',
+};
+
+export type GlyphTint = keyof typeof TINTS;
+
+/**
+ * A Phosphor glyph in its Duotone weight, 16 px by default: the outline in
+ * `tint` (or the text's colour) and its back layer in the same colour at
+ * `--glyph-back`. `bold`: a control's glyph (a button's plus, a menu's
+ * dots), in Phosphor's Bold with no back layer, as the stroke it replaced.
+ * `className` sizes it.
+ */
+export function Glyph({ name, tint, bold, className }: { name: GlyphName; tint?: GlyphTint; bold?: boolean; className?: string }) {
+  const Drawing = GLYPHS[name];
+  return (
+    <Drawing
+      weight={bold ? 'bold' : 'duotone'}
+      className={cn('glyph size-4 flex-none', tint && TINTS[tint], className)}
+      aria-hidden="true"
+      focusable="false"
+    />
+  );
+}
 
 const PATHS = {
   'anchor': (

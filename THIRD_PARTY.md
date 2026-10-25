@@ -7,7 +7,8 @@ Antigravity login, quota reading and account switch are adapted from
 Cockpit Tools, parts of
 its Codex switch are ported from CC Switch, and its interface components
 are adapted from shadcn/ui; [`NOTICE`](NOTICE) lists those files and what
-was changed. The agents' and the services' logos come from svgl.
+was changed. The agents' and the services' logos come from svgl, and the
+interface's icons from Phosphor and Lucide.
 
 ## quota-axi
 
@@ -231,13 +232,48 @@ SOFTWARE.
 - License: SIL Open Font License 1.1, `LICENSES/OFL-1.1.txt`,
   Copyright 2020 The Inter Project Authors.
 
+## Phosphor Icons
+
+- Project: https://github.com/phosphor-icons/react (https://phosphoricons.com)
+- How it is used: the interface's icons, in their Duotone weight (and Bold
+  for a control's plus or dots), each tinted its own colour. The
+  `@phosphor-icons/react` package (2.1) is a dependency in `package.json`;
+  `src/components/icons.tsx` imports only the glyphs it draws, which the
+  build bundles into the app unchanged, so nothing is fetched while it runs.
+  The sidebar and Tổng quan, Thống kê and Claude draw with them.
+- License: MIT
+
+```
+MIT License
+
+Copyright (c) 2020 Phosphor Icons
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
 ## Lucide
 
 - Project: https://github.com/lucide-icons/lucide (https://lucide.dev)
-- How it is used: the interface's icons. 45 icons of Lucide 0.460.0
-  (lucide-static), the set the approved prototype draws with, are part of
-  the app in `src/components/icons.tsx`, unchanged; nothing is fetched while
-  it runs.
+- How it is used: the icons of the pages not yet moved to Phosphor. 45
+  icons of Lucide 0.460.0 (lucide-static), the set the approved prototype
+  draws with, are part of the app in `src/components/icons.tsx`, unchanged;
+  nothing is fetched while it runs.
 - License: ISC, `LICENSES/ISC.txt`. Copyright (c) for portions of Lucide
   are held by Cole Bemis 2013-2022 as part of Feather (MIT). All other
   copyright (c) for Lucide are held by Lucide Contributors 2022.

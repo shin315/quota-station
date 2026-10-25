@@ -83,7 +83,7 @@ function NavButton(props: { id: NavId; label: string; tab: Tab; badge?: number; 
     <button
       type="button"
       className={cn(
-        'flex w-full cursor-pointer items-center gap-[9px] rounded-lg border-0 px-2 py-[5px] text-left text-base whitespace-nowrap [&>svg]:flex-[0_0_auto] [&>svg]:text-accent-ink',
+        'flex w-full cursor-pointer items-center gap-[9px] rounded-lg border-0 px-2 py-[5px] text-left text-base whitespace-nowrap [&>svg]:flex-[0_0_auto]',
         on ? 'bg-fill2 font-semi' : 'bg-transparent hover:bg-fill',
       )}
       aria-current={on ? 'page' : undefined}

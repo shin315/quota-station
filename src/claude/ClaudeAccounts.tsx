@@ -10,7 +10,7 @@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { CardText } from '@/components/ui/card';
 import { BannerBox, BannerButtons, Button, LinkButton, Rich, Toggle } from '../components/parts';
-import { Icon } from '../components/icons';
+import { Glyph } from '../components/icons';
 import { t } from '../lib/i18n';
 import { rotationMatters, rotationRow, setupText } from '../lib/claudeAccounts';
 import type { ClaudeAccountsView } from '../lib/model';
@@ -42,7 +42,7 @@ function AccountMenu({ card, view, claude, advanced }: { card: CardView } & Pick
           aria-label={t('Thêm thao tác cho ', 'More actions for ') + card.name}
           title={t('Thêm thao tác cho ', 'More actions for ') + card.name}
         >
-          <Icon name="ellipsis" />
+          <Glyph name="dots-three" bold />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
