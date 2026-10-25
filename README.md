@@ -116,8 +116,10 @@ the confirmation sheet first.
   quota, a switch coming, the switcher missing or failing), and the other
   Macs' line only when one of them is behind
   (`Mac B: 14:30 · Mac C: chưa tới được, sẽ thử lại`). Its header has
-  two buttons: the moon (or sun) turns the look dark (or light) for both
-  windows, and the box with an arrow opens the main window on `Tổng quan`.
+  three buttons: the bell, with the red count of notifications not read
+  yet, opens the main window with its `Thông báo` panel open; the moon (or
+  sun) turns the look dark (or light) for both windows; and the box with an
+  arrow opens the main window on `Tổng quan`.
 - **Names.** Accounts go by the part of their email before `@` when every
   account shares one domain (the whole email otherwise, and always on hover),
   with the organization of a Team seat or `Cá nhân · 08–23` under it.
@@ -155,7 +157,9 @@ the confirmation sheet first.
 - **Main window.** One sheet of glass, like the popover: macOS draws the
   popover's material behind the whole window, the sidebar sits on it with no
   panel of its own, and each group is a frosted panel (solid when Reduce
-  transparency is on). The same numbers as the popover, from the same read, in
+  transparency is on). Every page's title row ends with the bell
+  (`Thông báo`, below), beside the Mac's name, how fresh the numbers are and
+  `Làm mới`. The same numbers as the popover, from the same read, in
   these tabs:
   - `Tổng quan`: `Đang dùng`, a tile per service with the account in use,
     its share used large, the window and its reset, every Claude Code and Antigravity account in a table with fixed columns
@@ -180,7 +184,7 @@ the confirmation sheet first.
     the app reads its quota and `đọc lỗi` (the reason on hover) when that
     read failed (below). Opening the tab reads every account.
   - `Luật xoay vòng`: the rotation editor (below).
-  - `Lịch sử`, `Cảnh báo` and `Firstmate` (M6, below).
+  - `Lịch sử` and `Firstmate` (M6, below).
   - `Cài đặt`: a one-time button that lets the app ask macOS for access to
     Claude Code's Keychain item (on a Mac where the app keeps no Claude
     account), the
@@ -196,7 +200,7 @@ the confirmation sheet first.
     greyed out unless the title follows Claude), `File của firstmate` (the path to
     Firstmate's `quota-pool.last`; nothing is built in, and only a file of
     that name is taken), `Thông báo` (whether macOS lets the cards show,
-    `Gửi thử` and a switch for each kind of alert), and the app itself (M7):
+    `Gửi thử` and a switch for each kind of notification), and the app itself (M7):
     `Mở khi đăng nhập` (off by default; see [Install](#install)), `Mã nguồn`
     (the clone this Mac updates from) and `Phiên bản` (the version and the
     commit it was built from, with `Cập nhật từ mã nguồn`; see
@@ -221,8 +225,8 @@ the confirmation sheet first.
   - `Codex` (M8, below).
 
   `Tổng quan` also has a small Codex card: the provider in use, whether the
-  ChatGPT login is kept, and a button that opens the same sheet. `Cảnh báo` carries the number of cards nobody has answered yet. Under the
-  machine name it says whether the other Macs have the rules.
+  ChatGPT login is kept, and a button that opens the same sheet. Under the
+  machine name in the sidebar it says whether the other Macs have the rules.
 - **Rotation rules** (F06). The editor shows the rotation file's six keys:
   the Team accounts in the rotation (chips; the number is the order), the
   personal account and its hours, the two thresholds (sliders), and when an
@@ -287,11 +291,23 @@ the confirmation sheet first.
   wrote the old login back). The app keeps its own lines, at most 500, in
   `history/history.jsonl`; the Antigravity switches come from its own
   `antigravity/switch-log.jsonl`, never from Cockpit's switch history.
-- **Alerts** (F09, `Cảnh báo`). After every read the app checks five rules
-  and sends each new alert once, as a macOS card with buttons; the same card
-  stays in the `Cảnh báo` tab, with the same buttons. A button pressed on
-  either counts once, and the card then says what was chosen and how it
-  went. Each alert has a key, so the same event never alerts twice.
+- **Notifications** (F09, `Thông báo`). After every read the app checks five rules
+  and sends each new notification once, as a macOS card with buttons; the
+  same card stays under the bell at the right of every page's title row,
+  with the same buttons. The bell carries a red count of the notifications
+  that came since its panel was last opened (none at zero, `9+` past nine),
+  and opening the panel reads them. The panel lists the recent ones a day at
+  a time, the newest five first and the rest behind `Xem tất cả`, and ends
+  with `Cài đặt thông báo`, which opens `Cài đặt` at its `Thông báo` group;
+  Esc or a click outside closes it. A macOS card pressed on itself, and the
+  popover's bell, open the main window with the panel open. A button pressed
+  on either counts once, and the card then says what was chosen and how it
+  went. Each notification has a key, so the same event never comes twice.
+  The files keep their names (`alerts/alerts.json`), so what was sent and
+  set before stays.
+
+  <img src="docs/notifications.png" width="760" alt="The bell's panel open over Tổng quan on fixture data: two notifications of today, Antigravity đổi về tài khoản cũ and Team A rời vòng lúc 14:45, each new with a blue dot and the buttons of its macOS card, and Cài đặt thông báo at the foot">
+
   1. `Hạn mức Claude trong vòng sắp cạn` and `Claude đã có lại hạn mức`:
      Firstmate's rule on the accounts' numbers. The rotation's accounts that
      have not left it (the personal one only inside its hours) count; the
@@ -321,9 +337,9 @@ the confirmation sheet first.
 
   `Gửi thử` sends a sample of each kind, marked as a test, whose buttons
   change nothing. A Mac where notifications are off for the app says so,
-  with `Mở Cài đặt hệ thống`; the alerts still come to the tab. macOS asks
+  with `Mở Cài đặt hệ thống`; the notifications still come to the bell. macOS asks
   once for leave to show cards, the first time the app runs. Only the
-  packaged `.app` can post cards: `tauri dev` keeps the alerts in the tab.
+  packaged `.app` can post cards: `tauri dev` keeps the notifications under the bell.
   The cards name accounts as the app does, never by email. What was sent,
   answered and snoozed is kept in `alerts/alerts.json` (the newest 30 cards).
 - **Firstmate** (F10). Whether Firstmate holds new Claude work, from the
@@ -478,7 +494,7 @@ the confirmation sheet first.
   into the shared folder with `Gom về…`; skills Codex or a plugin brings are
   listed and left alone. Once a day the app asks GitHub, one question per
   repository in the skill lock file, whether a skill has a newer version,
-  and says so above the table and in the Cảnh báo tab (a macOS card only if
+  and says so above the table and under the Thông báo bell (a macOS card only if
   turned on in Cài đặt); it never updates on its own. `Cập nhật` shows what
   changed, warns when the skill was edited on this Mac, keeps a copy and
   keeps every agent's box; `Bỏ qua bản này` waits for the next version.
@@ -597,7 +613,7 @@ the confirmation sheet first.
   and `Bỏ qua`, which has `Hoàn tác`; with none, one green line.
   `Xem danh sách` lists the names and the places. A variable that overrides
   Claude Code also puts a red banner at the top of the `Claude` tab, and
-  each variable gets one card in `Cảnh báo`, in the app only, sent again
+  each variable gets one card under the `Thông báo` bell, in the app only, sent again
   only when it is set somewhere new. The app checks at most every 10
   minutes after a read, when `Cài đặt` opens and on `Kiểm lại`; it never
   edits a shell file and never unsets anything.
@@ -1612,7 +1628,7 @@ file it cannot read is said, and a shell file with commands in it is never
 run. Their trap plants a value in every file and in `launchctl`'s answer
 and finds it nowhere: not in the result, the alerts, the app's folder or
 what the window is sent. That model is `src/fixtures/env-trap.json`, which
-the Vitest tests draw on Cài đặt, the Claude tab and Cảnh báo, again
+the Vitest tests draw on Cài đặt, the Claude tab and the Thông báo panel, again
 finding no value; they also walk `Mở file`, `Bỏ qua` and its `Hoàn tác`,
 `Kiểm lại`, `Xem danh sách`, the banner and the alert cards.
 

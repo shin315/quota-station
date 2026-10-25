@@ -91,6 +91,11 @@ export interface SettingsProps {
   onLanguage?(language: Language): void;
   /** Cài đặt › Cập nhật: "Tự kiểm bản mới của app"; with it come the release rows and Chẩn đoán. */
   onReleaseChecks?(on: boolean): void;
+  /**
+   * Opens a group, as a pick in the table of contents does ("Cài đặt thông
+   * báo" under the bell). A new object each time, so the same group opens again.
+   */
+  open?: { group: SettingsGroup } | null;
 }
 
 /** A card's rows: each row's name on the left, its controls on the right. */
@@ -467,7 +472,7 @@ function NotifyRows(props: { model: Model; onAction: SettingsProps['onAction']; 
         inline
         hint={
           a.permission === 'unbundled'
-            ? t('Chỉ app đã đóng gói mới gửi được thẻ macOS. Cảnh báo vẫn có ở tab Cảnh báo.', 'Only the packaged app can send macOS notifications. Alerts still show in the Alerts tab.')
+            ? t('Chỉ app đã đóng gói mới gửi được thẻ macOS. Thông báo vẫn có ở chuông trên đầu trang.', 'Only the packaged app can send macOS notifications. Notifications still show under the bell at the top of the page.')
             : null
         }
       >
@@ -742,7 +747,7 @@ function PoolAlertRow({ model, onSet }: { model: Model; onSet: SettingsProps['on
   return (
     <SetRow
       label={t('Hạn mức sắp cạn', 'Quota running out')}
-      hint={t('Cảnh báo 1 dùng hai ngưỡng này.', 'Alert 1 uses these two thresholds.')}
+      hint={t('Thông báo 1 dùng hai ngưỡng này.', 'Notification 1 uses these two thresholds.')}
       under={refused ? <FieldHint tone="bad">{poolRefused()[refused] ?? notSavedText(refused)}</FieldHint> : null}
     >
       <div className="flex flex-wrap items-center gap-1.5 text-sm">
@@ -837,7 +842,7 @@ function Advanced(props: SettingsProps & { model: AuthorModel; id: string }) {
           <SetRow
             label="Firstmate"
             inline
-            hint={t('Tab Firstmate và cảnh báo khi Firstmate chờ hạn mức Claude.', 'The Firstmate tab and an alert when Firstmate is waiting for Claude quota.')}
+            hint={t('Tab Firstmate và thông báo khi Firstmate chờ hạn mức Claude.', 'The Firstmate tab and a notification when Firstmate is waiting for Claude quota.')}
           >
             <Toggle on={a.firstmate} label="Firstmate" onClick={() => props.onFirstmate(!a.firstmate)} />
           </SetRow>
@@ -905,7 +910,7 @@ function SkillChecksRows({ model, onSet }: { model: Model; onSet: NonNullable<Se
           </Segment>
         </Segmented>
       </SetRow>
-      <SetRow label={t('Báo bằng thông báo macOS', 'Show a macOS notification')} inline hint={t('Tắt thì chỉ báo trong tab Cảnh báo.', 'When off, updates show only in the Alerts tab.')}>
+      <SetRow label={t('Báo bằng thông báo macOS', 'Show a macOS notification')} inline hint={t('Tắt thì chỉ báo ở chuông Thông báo.', 'When off, updates show only under the Notifications bell.')}>
         <Toggle
           on={c.notify}
           label={t('Báo skill có bản mới bằng thông báo macOS', 'Show a macOS notification when a skill has an update')}
@@ -1047,6 +1052,7 @@ export function MenubarWindowRow({ model, onPick, layout = 'form' }: { model: Mo
 }
 
 /** Where the table of contents takes the page: each group's card. */
+export type SettingsGroup = keyof typeof GROUPS;
 const GROUPS = {
   env: 'qs-set-env',
   general: 'qs-set-general',
@@ -1313,6 +1319,12 @@ export function Settings(props: SettingsProps) {
     ...(author ? [{ id: GROUPS.advanced, title: t('Nâng cao', 'Advanced'), card: <Advanced {...props} model={author} id={GROUPS.advanced} /> }] : []),
   ];
   const at = useCurrentGroup(groups.map((g) => g.id));
+  const pick = useRef(at.pick);
+  pick.current = at.pick;
+  // Asked from elsewhere in the window: the same as a pick in the table of contents.
+  useEffect(() => {
+    if (props.open) pick.current(GROUPS[props.open.group]);
+  }, [props.open]);
 
   return (
     <>

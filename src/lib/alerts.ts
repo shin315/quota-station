@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-// What the Cảnh báo and Firstmate tabs show (F09, F10). The cards carry the
+// What the bell's panel (Thông báo) and the Firstmate tab show (F09, F10). The cards carry the
 // words and buttons the Rust side wrote for the macOS card, so both say the
 // same; this file adds when, what was pressed and how it went. Pure, like
 // `view.ts`. Copy follows the prototype's `tabAlerts`, `alertCard` and
@@ -143,7 +143,7 @@ export function permissionBanner(p: NotifyPermission): BannerView | null {
     return {
       tone: 'warn',
       title: t('Thông báo của Quota Station đang tắt', 'Quota Station notifications are off'),
-      body: t('macOS không hiện thẻ nào. Các cảnh báo vẫn nằm ở đây, kèm nút như trên thẻ.', 'macOS shows no cards. Alerts still show up here, with the same buttons as the cards.'),
+      body: t('macOS không hiện thẻ nào. Các thông báo vẫn nằm ở đây, kèm nút như trên thẻ.', 'macOS shows no cards. Notifications still show up here, with the same buttons as the cards.'),
       actions: [{ label: t('Mở Cài đặt hệ thống', 'Open System Settings'), act: 'notify:settings' }],
     };
   if (p === 'unbundled')
@@ -151,8 +151,8 @@ export function permissionBanner(p: NotifyPermission): BannerView | null {
       tone: 'info',
       title: t('Bản chạy thử không gửi thông báo macOS', 'A dev build sends no macOS notifications'),
       body: t(
-        'Chỉ app đã đóng gói mới có thẻ thông báo. Các cảnh báo vẫn nằm ở đây, kèm nút như trên thẻ.',
-        'Only the packaged app gets notification cards. Alerts still show up here, with the same buttons as the cards.',
+        'Chỉ app đã đóng gói mới có thẻ thông báo. Các thông báo vẫn nằm ở đây, kèm nút như trên thẻ.',
+        'Only the packaged app gets notification cards. Notifications still show up here, with the same buttons as the cards.',
       ),
       actions: [],
     };
@@ -218,7 +218,7 @@ const ON_OFF = (v: boolean | null, yes: ChipView, no: ChipView): { value: string
 export function firstmateTab(model: AuthorModel, now: Date): FirstmateTabView {
   const f = model.firstmate;
   const nameOf = namesOf(model);
-  const fallback = t('Luật "cạn" vẫn tự tính từ số của app để báo.', 'The "used up" alert still works from the app’s own numbers.');
+  const fallback = t('Luật "cạn" vẫn tự tính từ số của app để báo.', 'The "used up" notification still works from the app’s own numbers.');
   if (f.status === 'notSet')
     return {
       tone: 'muted',
@@ -320,8 +320,8 @@ export function firstmateTab(model: AuthorModel, now: Date): FirstmateTabView {
 
 function pressRefused(code: string): string {
   const known: Record<string, string> = {
-    answered: t('Cảnh báo này đã có câu trả lời, có thể từ thẻ macOS.', 'This alert already has an answer, possibly from the macOS card.'),
-    unknown: t('App không còn giữ cảnh báo này.', 'The app no longer keeps this alert.'),
+    answered: t('Thông báo này đã có câu trả lời, có thể từ thẻ macOS.', 'This notification already has an answer, possibly from the macOS card.'),
+    unknown: t('App không còn giữ thông báo này.', 'The app no longer keeps this notification.'),
     noSuchAction: t('Thẻ này không có nút đó.', 'This card has no such button.'),
     noPage: t(
       'Google chưa gửi trang xác minh cho tài khoản này. Đăng nhập lại trong tab Antigravity.',

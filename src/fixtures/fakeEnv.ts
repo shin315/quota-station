@@ -92,5 +92,6 @@ export function envAlert(f: EnvFound, at = 1768547700): AlertRecord {
     },
     notified: false,
     answer: null,
+    read: false,
   };
 }

@@ -9,15 +9,18 @@
 // time the popover opens. A card opens its switch sheet; one whose login
 // expired opens the sign-in again. The footer holds the automatic switching
 // toggle while Cài đặt › Nâng cao is on, and a quiet line when a newer
-// release is out. The header's two buttons switch between the light and
-// dark look and open the main window. Under the groups, Codex is one row
-// (M8): the provider in use and where a switch would go; pressing it opens
-// the confirmation sheet, never a one-tap switch.
+// release is out. The header's buttons open the notifications (a bell with
+// the red count of those not read yet: the main window with its bell's panel
+// open), switch between the light and dark look, and open the main window.
+// Under the groups, Codex is one row (M8): the provider in use and where a
+// switch would go; pressing it opens the confirmation sheet, never a one-tap
+// switch.
 
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Dialog, DialogContent, DialogOverlay } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { AccountName, IdMark } from '../components/accounts';
+import { PlaceGlyph } from '../components/icons';
 import { AgentIcon } from '../components/logos';
 import { Banner, Button, Chip, Dot, Feedback, LinkButton, Meter, Skeleton, Spinner, Toggle } from '../components/parts';
 import { t } from '../lib/i18n';
@@ -25,6 +28,7 @@ import type { AutoView } from '../lib/switching';
 import type { CodexRowView } from '../lib/codex';
 import { bannerUnder, type Action, type CardView, type CellView, type FeedbackView, type GroupView, type NowView, type PopoverView, type UsedTone } from '../lib/view';
 import { ChevronIcon, MoonIcon, OpenIcon, SunIcon } from '../window/icons';
+import { bellCount } from '../alerts/Notifications';
 
 /** Which groups are folded, kept in this window's storage so it outlives the app. */
 export const FOLD_KEY = 'quota-station.popover.folded';
@@ -373,6 +377,8 @@ export interface PopoverProps {
   sync?: SyncLine | null;
   /** A newer release on GitHub, at the foot; null when there is none to tell. */
   release?: { title: string; body: string } | null;
+  /** Notifications not read yet: the bell's count. */
+  unread?: number;
   feedback?: FeedbackView | null;
   busy?: Action | null;
   /** The look on screen now is dark: the theme button offers light. */
@@ -389,7 +395,7 @@ export interface PopoverProps {
   onHeight?(height: number): void;
 }
 
-export function Popover({ view, codex = null, auto, sync = null, release = null, feedback, busy, dark = false, onAction, onSwitch, onSwitchAgy, onToggle, sheet, onCloseSheet, onHeight }: PopoverProps) {
+export function Popover({ view, codex = null, auto, sync = null, release = null, unread = 0, feedback, busy, dark = false, onAction, onSwitch, onSwitchAgy, onToggle, sheet, onCloseSheet, onHeight }: PopoverProps) {
   const head = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const foot = useRef<HTMLDivElement>(null);
@@ -404,6 +410,8 @@ export function Popover({ view, codex = null, auto, sync = null, release = null,
       return next;
     });
   const theme = dark ? t('Chuyển sang giao diện sáng', 'Switch to the light look') : t('Chuyển sang giao diện tối', 'Switch to the dark look');
+  const count = bellCount(unread);
+  const bell = count ? t('Thông báo, ' + unread + ' chưa đọc', 'Notifications, ' + unread + ' unread') : t('Thông báo', 'Notifications');
   const relogin = (slot: number) => onAction(`claude:relogin:${slot}`);
 
   useLayoutEffect(() => {
@@ -437,6 +445,14 @@ export function Popover({ view, codex = null, auto, sync = null, release = null,
             {view.fresh.tone === 'ok' ? null : <small className="overflow-hidden text-ellipsis text-s font-reg text-ink2">· {view.fresh.text}</small>}
           </b>
         </div>
+        <button type="button" className={cn(ICON_BUTTON, 'relative')} aria-label={bell} title={t('Thông báo', 'Notifications')} onClick={() => onAction('notifications')}>
+          <PlaceGlyph place="alerts" className="size-[15px]" />
+          {count ? (
+            <span className="absolute -top-0.5 -right-0.5 min-w-3.5 rounded-full bg-bad-fill px-[3px] text-center text-[9px] leading-3.5 font-heavy text-white tabular-nums" aria-hidden="true">
+              {count}
+            </span>
+          ) : null}
+        </button>
         <button type="button" className={ICON_BUTTON} aria-label={theme} title={theme} onClick={() => onAction('theme')}>
           {dark ? <SunIcon /> : <MoonIcon />}
         </button>

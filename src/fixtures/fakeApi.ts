@@ -179,6 +179,8 @@ function sample(kind: AlertKind, at: number): Alert {
 }
 
 const unanswered = (recent: AlertRecord[]) => recent.filter((r) => !r.alert.test && !r.answer && r.alert.actions.length).length;
+/** The bell's count: the cards that came since its panel was last opened. */
+const unread = (recent: AlertRecord[]) => recent.filter((r) => !r.read).length;
 
 /** The made-up email of a fake account. */
 export function fakeEmail(number: number): string {
@@ -975,7 +977,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       push({
         ...model,
         env: { ...model.env, found: model.env.found.filter((x) => x.id !== id), ignored: model.env.ignored + 1 },
-        alerts: { ...model.alerts, recent, unanswered: unanswered(recent) },
+        alerts: { ...model.alerts, recent, unanswered: unanswered(recent), unread: unread(recent) },
       });
     },
     envUnignore: async (id) => {
@@ -1219,7 +1221,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       else if (action === 'dismiss')
         result =
           record.alert.kind === 'pool'
-            ? said('Đã bỏ qua cảnh báo này', 'Không lặp lại cho cùng sự kiện. Quota Station báo lại khi hạn mức trong vòng có lại.')
+            ? said('Đã bỏ qua thông báo này', 'Không lặp lại cho cùng sự kiện. Quota Station báo lại khi hạn mức trong vòng có lại.')
             : said('Đã ghi nhận', record.alert.kind === 'leaving' ? 'Không nhắc lại cho lần rời vòng này.' : 'Không nhắc lại cho lần này.');
       else if (action === 'snooze') result = said('Sẽ nhắc lại lúc 09:00 ngày mai', 'Thứ Bảy 17/01.');
       else if (action === 'agy:keep') result = said('Đã bỏ qua', 'Antigravity giữ tài khoản đang dùng. App thôi canh lần chuyển này.');
@@ -1257,7 +1259,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
         );
         push({
           ...model,
-          alerts: { ...model.alerts, recent, unanswered: unanswered(recent) },
+          alerts: { ...model.alerts, recent, unanswered: unanswered(recent), unread: unread(recent) },
           agySwitch: action === 'agy:keep' ? { ...model.agySwitch, overwritten: null } : model.agySwitch,
         });
       };
@@ -1284,11 +1286,16 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       }
       return { openSwitch };
     },
+    alertsRead: async () => {
+      if (!model.alerts.unread) return;
+      const recent = model.alerts.recent.map((r) => (r.read ? r : { ...r, read: true }));
+      push({ ...model, alerts: { ...model.alerts, recent, unread: 0 } });
+    },
     testAlert: async (kind) => {
       const alert = sample(kind, Math.floor(now().getTime() / 1000));
-      const record: AlertRecord = { id: alert.key + '@' + alert.at, alert, notified: model.alerts.permission === 'allowed', answer: null };
+      const record: AlertRecord = { id: alert.key + '@' + alert.at, alert, notified: model.alerts.permission === 'allowed', answer: null, read: false };
       const recent = [record, ...model.alerts.recent.filter((r) => r.id !== record.id)].slice(0, 30);
-      push({ ...model, alerts: { ...model.alerts, recent, unanswered: unanswered(recent) } });
+      push({ ...model, alerts: { ...model.alerts, recent, unanswered: unanswered(recent), unread: unread(recent) } });
       return model;
     },
     setAlertSwitch: async (kind, on) => {
@@ -1424,6 +1431,11 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
   };
   /** A button on a macOS card that opens the popover's switch sheet. */
   const cardOpensSwitch = (slot: number) => openSwitchListeners.forEach((l) => l(slot));
+  /** The macOS card itself pressed: the Rust side opens the main window with the bell's panel open. */
+  const cardOpened = () => {
+    tab = 'alerts';
+    tabListeners.forEach((l) => l('alerts'));
+  };
   return {
     api,
     push,
@@ -1432,6 +1444,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
     requestQuit,
     closed: () => closed,
     cardOpensSwitch,
+    cardOpened,
     setReduceTransparency,
     /** How many times "Mở lại" quit the app. */
     relaunched: () => relaunched,

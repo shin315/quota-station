@@ -42,7 +42,6 @@ export const NAV_ICONS = {
   codex: <AgentIcon agent="codex" className="size-[15px]" />,
   rules: nav('rules'),
   history: nav('history'),
-  alerts: nav('alerts'),
   firstmate: nav('firstmate'),
   mcp: nav('mcp'),
   skills: nav('skills'),

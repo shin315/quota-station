@@ -21,7 +21,8 @@
       },
       "answer": null,
       "id": "env:GOOGLE_CLOUD_PROJECT:zshenv,zprofile,zshrc,bashProfile,profile,launchctl@1768547700",
-      "notified": false
+      "notified": false,
+      "read": false
     },
     {
       "alert": {
@@ -44,7 +45,8 @@
       },
       "answer": null,
       "id": "env:GOOGLE_API_KEY:zshenv,zprofile,zshrc,bashProfile,profile,launchctl@1768547700",
-      "notified": false
+      "notified": false,
+      "read": false
     },
     {
       "alert": {
@@ -67,7 +69,8 @@
       },
       "answer": null,
       "id": "env:GEMINI_API_KEY:zshenv,zprofile,zshrc,bashProfile,profile,launchctl@1768547700",
-      "notified": false
+      "notified": false,
+      "read": false
     },
     {
       "alert": {
@@ -90,7 +93,8 @@
       },
       "answer": null,
       "id": "env:CODEX_HOME:zshenv,zprofile,zshrc,bashProfile,profile,launchctl@1768547700",
-      "notified": false
+      "notified": false,
+      "read": false
     },
     {
       "alert": {
@@ -113,7 +117,8 @@
       },
       "answer": null,
       "id": "env:OPENAI_BASE_URL:zshenv,zprofile,zshrc,bashProfile,profile,launchctl@1768547700",
-      "notified": false
+      "notified": false,
+      "read": false
     },
     {
       "alert": {
@@ -145,7 +150,8 @@
         }
       },
       "id": "env:OPENAI_API_KEY:zshenv,zprofile,zshrc,bashProfile,profile,launchctl@1768547700",
-      "notified": false
+      "notified": false,
+      "read": false
     },
     {
       "alert": {
@@ -168,7 +174,8 @@
       },
       "answer": null,
       "id": "env:CLAUDE_CONFIG_DIR:zshenv,zprofile,zshrc,bashProfile,profile,launchctl@1768547700",
-      "notified": false
+      "notified": false,
+      "read": false
     },
     {
       "alert": {
@@ -191,7 +198,8 @@
       },
       "answer": null,
       "id": "env:CLAUDE_CODE_OAUTH_TOKEN:zshenv,zprofile,zshrc,bashProfile,profile,launchctl@1768547700",
-      "notified": false
+      "notified": false,
+      "read": false
     },
     {
       "alert": {
@@ -214,7 +222,8 @@
       },
       "answer": null,
       "id": "env:ANTHROPIC_BASE_URL:zshenv,zprofile,zshrc,bashProfile,profile,launchctl@1768547700",
-      "notified": false
+      "notified": false,
+      "read": false
     },
     {
       "alert": {
@@ -237,7 +246,8 @@
       },
       "answer": null,
       "id": "env:ANTHROPIC_AUTH_TOKEN:zshenv,zprofile,zshrc,bashProfile,profile,launchctl@1768547700",
-      "notified": false
+      "notified": false,
+      "read": false
     },
     {
       "alert": {
@@ -260,7 +270,8 @@
       },
       "answer": null,
       "id": "env:ANTHROPIC_API_KEY:zshenv,zprofile,bashProfile,profile,launchctl@1768547700",
-      "notified": false
+      "notified": false,
+      "read": false
     }
   ],
   "found": [

@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 
 // A group in the main window: a frosted panel on the window's glass, like the
 // popover's tiles, with no border or shadow and never a panel inside a panel.
-// `bare`: a group of cards (Đang dùng's tiles, Cảnh báo's recent alerts)
+// `bare`: a group of cards (Đang dùng's tiles)
 // drops its own panel so the cards stand on the glass.
 
 function Card({ className, bare, ...props }: React.ComponentProps<'div'> & { bare?: boolean }) {

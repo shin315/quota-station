@@ -4,12 +4,24 @@
 // A tab of the main window: its title row (which drags the window, as a
 // title bar would), the grids its cards sit in, and the list rows they share.
 
-import type { ComponentProps, ReactNode } from 'react';
+import { createContext, useContext, type ComponentProps, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
-/** The title row: the tab's name, how fresh it is, its buttons; they wrap under the name where the page is narrow. */
-export function TabHead({ className, ...props }: ComponentProps<'div'>) {
-  return <div className={cn('flex flex-wrap items-center gap-2.5', className)} data-tauri-drag-region="deep" {...props} />;
+/** What the window puts at the right end of every page's title row: the bell (Thông báo). */
+export const HeadEnd = createContext<ReactNode>(null);
+
+/**
+ * The title row: the tab's name, how fresh it is, its buttons, then the
+ * window's own (HeadEnd); they wrap under the name where the page is narrow.
+ */
+export function TabHead({ className, children, ...props }: ComponentProps<'div'>) {
+  const end = useContext(HeadEnd);
+  return (
+    <div className={cn('flex flex-wrap items-center gap-2.5', className)} data-tauri-drag-region="deep" {...props}>
+      {children}
+      {end}
+    </div>
+  );
 }
 
 export function TabTitle({ className, ...props }: ComponentProps<'h2'>) {

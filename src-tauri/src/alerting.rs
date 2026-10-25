@@ -5,8 +5,8 @@
 //! read: the history keeps a change of the account in use that nothing
 //! explains, the alert rules run on the newest readings and each new alert
 //! goes out as a macOS card with buttons, and Firstmate's state file is read
-//! again. The buttons, on the macOS card or the same card in the Cảnh báo
-//! tab, come back through [`press`].
+//! again. The buttons, on the macOS card or the same card in the bell's
+//! panel (Thông báo), come back through [`press`].
 //!
 //! Reads only: the app's own files, the switcher's log, the rotation file,
 //! Firstmate's `quota-pool.last` at the path set in settings, and, while an
@@ -46,7 +46,7 @@ use crate::notify::{self, Permission};
 use crate::state::{AppState, Inner, Model, Tab};
 use crate::{reader, windows};
 
-/// The Cảnh báo tab and the sidebar's count.
+/// The bell's panel (Thông báo) and its count.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AlertsView {
@@ -57,6 +57,8 @@ pub struct AlertsView {
     pub pool_alert: PoolAlert,
     /// Cards with buttons nobody pressed yet.
     pub unanswered: usize,
+    /// Cards that came since the panel was last opened: the bell's count.
+    pub unread: usize,
     pub permission: Permission,
 }
 
@@ -89,6 +91,7 @@ pub fn alerts_view(inner: &Inner) -> AlertsView {
         switches: inner.settings.alerts,
         pool_alert: inner.settings.pool_alert,
         unanswered: inner.alerts.unanswered(),
+        unread: inner.alerts.unread(),
         permission: inner.center.as_ref().map_or(Permission::Unbundled, |c| c.permission()),
     }
 }
@@ -230,7 +233,21 @@ pub struct Pressed {
     pub open_switch: Option<u32>,
 }
 
-/// A button on a card in the Cảnh báo tab.
+/// The bell's panel opened, in the main window: every card in it is read.
+#[tauri::command]
+pub fn alerts_read(app: AppHandle, state: State<'_, AppState>) {
+    let shared = state.inner().clone();
+    {
+        let mut inner = shared.lock();
+        if !inner.alerts.mark_read() {
+            return;
+        }
+        let _ = alerts::save(&inner.app_dir(), &inner.alerts);
+    }
+    reader::publish(&app, &shared);
+}
+
+/// A button on a card in the bell's panel.
 #[tauri::command]
 pub async fn alert_action(
     app: AppHandle,
@@ -242,7 +259,8 @@ pub async fn alert_action(
 }
 
 /// A press on a macOS card: a button, or the card itself (`None`), which
-/// opens the Cảnh báo tab. Comes on the notification center's thread.
+/// opens the main window with the bell's panel open (`Tab::Alerts` asks for
+/// the panel, not a page). Comes on the notification center's thread.
 pub fn on_card(app: &AppHandle, id: String, action: Option<String>) {
     let Some(action) = action else {
         windows::open_main(app, Tab::Alerts);

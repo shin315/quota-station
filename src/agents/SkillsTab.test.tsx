@@ -278,7 +278,7 @@ describe('the Skills tab', () => {
     const card = screen.getByRole('region', { name: '2 skill có bản mới' });
     // The tab's head keeps only "Kiểm bản mới"; installing sits at the table's head.
     const head = screen.getByRole('heading', { level: 2, name: 'Skills' }).parentElement!;
-    expect(within(head).getAllByRole('button').map((b) => b.textContent)).toEqual(['Kiểm bản mới']);
+    expect(within(head).getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['Kiểm bản mới', 'Thông báo']);
     expect(within(card).getByRole('button', { name: 'Cập nhật tất cả (2)' })).toBeTruthy();
     expect(Array.from(card.querySelectorAll('.grid > div')).map((r) => r.textContent)).toEqual([
       'dataworks/skills · 1 skill có bản mới: sql-helperXem sql-helperCập nhật cả bộ',
@@ -311,9 +311,10 @@ describe('the Skills tab', () => {
       alert: { key: 'skills:abc', kind: 'skill' as const, tone: 'info' as const, title: '2 skill có bản mới', body: 'sql-helper, ui-polish. App không tự cập nhật.', actions: [{ id: 'skills:open', label: 'Xem' }, { id: 'dismiss', label: 'Để sau' }], at: 1768540000 },
       notified: false,
       answer: null,
+      read: false,
     };
     await openTab('alerts', fixtureModel('fresh', { alerts: { ...alertsFixture(), recent: [alert], unanswered: 1 } }));
-    const card = screen.getByRole('group', { name: 'Cảnh báo: 2 skill có bản mới' });
+    const card = screen.getByRole('group', { name: 'Thông báo: 2 skill có bản mới' });
     await press(within(card).getByRole('button', { name: 'Xem' }));
     expect(await screen.findByRole('heading', { level: 2, name: 'Skills' })).toBeTruthy();
   });

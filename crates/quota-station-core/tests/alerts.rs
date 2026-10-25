@@ -635,6 +635,41 @@ fn a_test_card_shows_the_real_buttons_and_changes_nothing() {
 }
 
 #[test]
+fn the_bell_counts_the_cards_since_its_panel_was_opened() {
+    let center = FakeCenter::default();
+    let mut memory = Memory::default();
+    for kind in [Kind::Pool, Kind::Login] {
+        let id = alerts::keep_test(&mut memory, alerts::sample(kind, T0, offset(), true));
+        alerts::deliver(&mut memory, std::slice::from_ref(&id), &center);
+    }
+    // Test cards are notifications like any other: they count until read.
+    assert_eq!(memory.unread(), 2);
+    assert!(memory.mark_read());
+    assert_eq!(memory.unread(), 0);
+    assert!(!memory.mark_read(), "nothing left to mark");
+    // A card sent after the panel was opened counts again.
+    let id =
+        alerts::keep_test(&mut memory, alerts::sample(Kind::Overwrite, T0 + MIN, offset(), true));
+    assert_eq!(memory.unread(), 1);
+    assert!(!memory.record(&id).unwrap().read);
+}
+
+#[test]
+fn cards_kept_before_the_bell_count_as_read() {
+    let app = AppDir::new(temp_dir("alerts-read"));
+    let mut memory = Memory::default();
+    alerts::keep_test(&mut memory, alerts::sample(Kind::Pool, T0, offset(), true));
+    let mut kept = serde_json::to_value(&memory).unwrap();
+    // The file as the app wrote it before: no `read` on its cards.
+    kept["recent"][0].as_object_mut().unwrap().remove("read");
+    std::fs::create_dir_all(alerts::path(&app).parent().unwrap()).unwrap();
+    std::fs::write(alerts::path(&app), kept.to_string()).unwrap();
+    let loaded = alerts::load(&app);
+    assert_eq!(loaded.recent.len(), 1);
+    assert_eq!(loaded.unread(), 0);
+}
+
+#[test]
 fn memory_survives_the_file_and_an_unreadable_file_starts_afresh() {
     let app = AppDir::new(temp_dir("alerts-memory"));
     assert_eq!(alerts::load(&app), Memory::default());

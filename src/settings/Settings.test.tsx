@@ -400,7 +400,7 @@ describe('settings for M6', () => {
   it('a run outside the packaged app says macOS shows no cards', async () => {
     await openWith(fixtureModel('fresh', { alerts: alertsFixture({ permission: 'unbundled' }) }));
     expect(screen.getByText('bản chạy thử')).toBeTruthy();
-    expect(screen.getByText('Chỉ app đã đóng gói mới gửi được thẻ macOS. Cảnh báo vẫn có ở tab Cảnh báo.')).toBeTruthy();
+    expect(screen.getByText('Chỉ app đã đóng gói mới gửi được thẻ macOS. Thông báo vẫn có ở chuông trên đầu trang.')).toBeTruthy();
   });
 });
 
@@ -629,7 +629,7 @@ describe('settings: Nâng cao, alert 1 and the backup folder', () => {
       fireEvent.blur(room);
     });
     expect(fake.api.setPoolAlert).toHaveBeenLastCalledWith(20, 30);
-    expect(screen.getByText('Cảnh báo 1 dùng hai ngưỡng này.')).toBeTruthy();
+    expect(screen.getByText('Thông báo 1 dùng hai ngưỡng này.')).toBeTruthy();
   });
 
   it('the backup folder is iCloud Drive’s until another is chosen', async () => {

@@ -23,7 +23,7 @@ import { CopyTab } from './backup/CopyTab';
 import { CopyDialogBody, copyDialogSize } from './backup/CopySheet';
 import { useCopy } from './backup/useCopy';
 import { useBackup } from './backup/useBackup';
-import { AlertsTab } from './alerts/AlertsTab';
+import { NotificationBell } from './alerts/Notifications';
 import { CodexCard, CodexTab } from './codex/CodexTab';
 import { OV_COLS } from './components/page';
 import { useAgyLogins } from '@agy/AgyAccounts';
@@ -63,7 +63,7 @@ import { HistoryTab } from './history/HistoryTab';
 import { CompareDialog, LeaveDialog, RulesTab } from './rules/RulesTab';
 import { useRules } from './rules/useRules';
 import { EnvListBody, useEnv } from './settings/EnvCard';
-import { Settings } from './settings/Settings';
+import { Settings, type SettingsGroup } from './settings/Settings';
 import { MainWindow } from './window/MainWindow';
 import { Setup } from './setup/Setup';
 
@@ -572,6 +572,8 @@ export function PopoverApp({ api, clock = systemClock }: AppProps) {
     if (switching.act(act)) return;
     if (act === 'settings') return void api.openWindow('settings');
     if (act === 'window') return void api.openWindow('overview');
+    // The bell: the main window with its panel open.
+    if (act === 'notifications') return void api.openWindow('alerts');
     if (act === 'codex:tab') return void api.openWindow('codex');
     // Signing in again happens in the main window's Claude tab.
     if (act.startsWith('claude:relogin:') || act === 'claude:add') return void api.openWindow('claude');
@@ -593,6 +595,7 @@ export function PopoverApp({ api, clock = systemClock }: AppProps) {
       auto={model.advanced.on ? autoView(model, now) : null}
       sync={author && model.advanced.on ? syncSummary(author) : null}
       release={releaseLine(model)}
+      unread={model.alerts.unread}
       feedback={feedback}
       busy={busy}
       dark={dark}
@@ -622,6 +625,10 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   const now = useNow(clock);
   const [keychainLater, setKeychainLater] = useState(false);
   const [tab, setTab] = useState<Tab | null>(null);
+  // The bell's panel (Thông báo), over whichever page is in view.
+  const [bell, setBell] = useState(false);
+  // A group of Cài đặt to open once it shows ("Cài đặt thông báo").
+  const [settingsAt, setSettingsAt] = useState<{ group: SettingsGroup } | null>(null);
   const [feedback, showFeedback] = useFeedback(tab);
   const agyLogins = useAgyLogins(model?.antigravity ?? NO_LOGINS, api, showFeedback);
   const { busy, refresh, grant } = useActions(api, model, clock, showFeedback);
@@ -666,6 +673,8 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
 
   useEffect(() => {
     if (!sheetOpen) return;
+    // A dialog takes the window: the bell's panel gives way.
+    setBell(false);
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') closeSheet.current();
     };
@@ -674,14 +683,27 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   }, [sheetOpen]);
 
   // The tab the window was opened for, then any tab asked for while it is open.
+  // `alerts` (a macOS card, the popover's bell) opens the bell's panel over the
+  // page in view; any other tab closes it, as following a link from it does.
   useEffect(() => {
     let live = true;
     let stop: (() => void) | undefined;
-    void api.onTab((t) => live && setTab(t)).then((unlisten) => {
+    const arrive = (t: Tab, first: boolean) => {
+      if (!live) return;
+      if (t === 'alerts') {
+        setBell(true);
+        setTab((cur) => cur ?? 'overview');
+      } else if (first) setTab((cur) => cur ?? t);
+      else {
+        setBell(false);
+        setTab(t);
+      }
+    };
+    void api.onTab((t) => arrive(t, false)).then((unlisten) => {
       if (live) stop = unlisten;
       else unlisten();
     });
-    void api.mainTab().then((t) => live && setTab((cur) => cur ?? t));
+    void api.mainTab().then((t) => arrive(t, true));
     return () => {
       live = false;
       stop?.();
@@ -696,7 +718,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
     // Opening the Codex tab looks at Codex now and counts the resumable sessions.
     if (tab === 'codex') void api.codexCheck().catch(() => {});
     // Whether macOS shows the cards may have changed in System Settings.
-    if (tab === 'alerts' || tab === 'settings') void api.notifyRefresh().catch(() => {});
+    if (tab === 'settings') void api.notifyRefresh().catch(() => {});
     // So may launching at login, and the shell files: the variables are looked at again.
     if (tab === 'settings') {
       void api.settingsOpened().catch(() => {});
@@ -754,14 +776,20 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   };
   onActionRef.current = onAction;
 
-  /** A button on a card in the Cảnh báo tab; "Sang …" opens this window's switch sheet. */
+  /** A button on a card under the bell; "Sang …" opens this window's switch sheet. What went wrong shows in the panel. */
   const pressAlert = async (id: string, action: string) => {
     try {
       const pressed = await api.alertAction(id, action);
       if (pressed.openSwitch != null) switching.openSwitch(pressed.openSwitch);
+      return null;
     } catch (e) {
-      showFeedback(alertFailedFeedback(e));
+      return alertFailedFeedback(e);
     }
+  };
+  const openBell = (open: boolean) => {
+    setBell(open);
+    // Whether macOS shows the cards may have changed in System Settings.
+    if (open) void api.notifyRefresh().catch(() => {});
   };
   const testAlert = (kind: AlertKind) => void api.testAlert(kind).catch((e: unknown) => showFeedback(testFailedFeedback(e)));
   const alertSwitch = (kind: AlertKind, on: boolean) =>
@@ -819,9 +847,21 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       onRelaunch={() => refusal(api.relaunch())}
       onSkillChecks={(daily, notify) => void api.skillsSetChecks(daily, notify).catch(() => showFeedback(settingsFailedFeedback()))}
       onReleaseChecks={release.setAuto}
+      open={settingsAt}
     />
   );
-  const goTab = (next: Tab) => rules.guardTab(tab, next, setTab);
+  const goTab = (next: Tab) => {
+    setBell(false);
+    rules.guardTab(tab, next, setTab);
+  };
+  /** "Cài đặt thông báo" under the bell: Cài đặt, at its Thông báo group. */
+  const notifySettings = () => {
+    setBell(false);
+    rules.guardTab(tab, 'settings', (t) => {
+      setSettingsAt({ group: 'notify' });
+      setTab(t);
+    });
+  };
   toTab.current = goTab;
   const shownNames = new Map(view.claude.cards.map((c) => [c.slot, c.name]));
   const nameOf = (slot: number) => shownNames.get(slot) ?? accountName(model.claudeAccounts.accounts.find((a) => a.slot === slot) ?? { slot, alias: null });
@@ -917,20 +957,19 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       backup={<BackupTab model={model} fresh={view.fresh} feedback={feedback} now={now} backup={backup} onAction={onAction} />}
       copy={author ? <CopyTab model={author} feedback={feedback} copy={copy} onAction={onAction} /> : null}
       history={<HistoryTab model={model} fresh={view.fresh} now={now} load={api.getHistory} />}
-      alerts={
-        <AlertsTab
+      firstmate={author ? <FirstmateTab model={author} fresh={view.fresh} now={now} onAction={onAction} /> : null}
+      bell={
+        <NotificationBell
           model={model}
-          fresh={view.fresh}
-          feedback={feedback}
           now={now}
-          onAction={onAction}
+          open={bell}
+          onOpenChange={openBell}
+          onRead={() => void api.alertsRead().catch(() => {})}
           onPress={pressAlert}
-          onTest={testAlert}
-          onSwitch={alertSwitch}
+          onAction={onAction}
+          onSettings={notifySettings}
         />
       }
-      firstmate={author ? <FirstmateTab model={author} fresh={view.fresh} now={now} onAction={onAction} /> : null}
-      unanswered={model.alerts.unanswered}
       advanced={model.advanced.on}
       firstmateTab={model.advanced.on && model.advanced.firstmate}
       agyAccounts={model.capabilities.agyAccounts}
