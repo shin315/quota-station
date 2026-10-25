@@ -5,7 +5,7 @@ mod common;
 
 use common::fixture;
 use quota_station_core::icon::{
-    glyph_ascii, icon, render_glyph, reset_words, short_name, CodexUse, Context, Icon, Tone,
+    icon, render_glyph, reset_words, short_name, CodexUse, Context, Icon, Tone,
 };
 use quota_station_core::settings::{Menubar, MenubarWindow};
 use quota_station_core::snapshot::{LineKind, Role, SectionStatus};
@@ -259,6 +259,7 @@ fn sample(tone: Tone, show_agy: bool) -> Icon {
     Icon {
         title: String::new(),
         tone,
+        used: Some(45.0),
         claude: Some(56.75),
         agy: Some(94.0),
         show_agy,
@@ -277,63 +278,41 @@ fn glyph_is_an_18pt_template_image() {
 }
 
 #[test]
-fn glyph_snapshot_two_bars() {
-    let expected = "\
-..................
-..................
-....++++++++++....
-..##############..
-.#++++++++.....+#.
-.#+#######.....+#.
-.#++++++++.....+#.
-..##############..
-....++++++++++....
-....++++++++++....
-..##############..
-.#++++++++++++.+#.
-.#+###########++#.
-.#++++++++++++.+#.
-..##############..
-....++++++++++....
-..................
-..................
-";
-    assert_eq!(glyph_ascii(&sample(Tone::Ok, true), 1), expected);
+fn reservoir_tracks_the_selected_service_and_window() {
+    let s = full();
+    for (service, window, expected) in [
+        (Menubar::Claude, MenubarWindow::FiveHours, 74.0),
+        (Menubar::Claude, MenubarWindow::Week, 39.0),
+        (Menubar::Gemini, MenubarWindow::Week, 6.0),
+        (Menubar::Codex, MenubarWindow::Week, 41.0),
+    ] {
+        let i = icon(Some(&s), &shows(service, window));
+        assert_eq!(i.used, Some(expected));
+    }
+    assert_eq!(icon(None, &cx(Menubar::Claude)).used, None);
+    let provider = Context { codex: CodexUse::Provider("local".into()), ..cx(Menubar::Codex) };
+    assert_eq!(icon(Some(&s), &provider).used, None);
 }
 
 #[test]
-fn glyph_snapshot_claude_only_and_empty() {
-    let air = glyph_ascii(&sample(Tone::Ok, false), 1);
-    assert_eq!(air.lines().nth(9), Some(".#+######+.....+#."));
-    assert_eq!(air.lines().filter(|l| l.contains('#')).count(), 4);
-    // A bar without a number is an empty capsule.
-    let muted = glyph_ascii(&Icon { claude: None, agy: None, ..sample(Tone::Muted, true) }, 1);
-    assert_eq!(muted.lines().nth(5), Some(".#+............+#."));
+fn reservoir_fills_monotonically_without_changing_the_rim() {
+    let mut last = 0;
+    for used in [None, Some(0.0), Some(1.0), Some(45.0), Some(90.0), Some(100.0)] {
+        let (rgba, w, _) = render_glyph(&Icon { used, ..sample(Tone::Ok, true) }, 4);
+        let alpha: u32 = rgba.chunks(4).map(|p| u32::from(p[3])).sum();
+        assert!(alpha >= last);
+        last = alpha;
+        // Clear channel between the reservoir and lower rim.
+        assert_eq!(rgba[((59 * w + 9 * 4) * 4 + 3) as usize], 0);
+    }
+    let empty = render_glyph(&Icon { used: None, ..sample(Tone::Muted, true) }, 2);
+    let zero = render_glyph(&Icon { used: Some(0.0), ..sample(Tone::Ok, true) }, 2);
+    assert_eq!(empty, zero);
 }
 
 #[test]
-fn glyph_snapshot_exhausted_triangle() {
-    let expected = "\
-..................
-........++........
-........##........
-.......+##+.......
-.......#++#.......
-......+#..#+......
-.....+#+##+#+.....
-.....##.##.##.....
-....+#+.##.+#+....
-....#+..##..+#....
-...+#...##...#+...
-...#+...++...+#...
-..+#....##....#+..
-.+#+....##....+#+.
-.##............##.
-+################+
-.++++++++++++++++.
-..................
-";
-    assert_eq!(glyph_ascii(&sample(Tone::Bad, true), 1), expected);
+fn exhausted_rotation_keeps_the_warning_instead_of_a_quota_gauge() {
+    assert_ne!(render_glyph(&sample(Tone::Bad, true), 2), render_glyph(&sample(Tone::Ok, true), 2));
 }
 
 #[test]
@@ -342,11 +321,17 @@ fn a_paused_switcher_adds_a_pause_sign_and_says_so() {
     assert!(paused.paused);
     assert!(paused.label.ends_with(". Tự chuyển đang tạm dừng"));
     let (_, w, h) = render_glyph(&paused, 2);
-    assert_eq!((w, h), (52, 36));
-    let rows = glyph_ascii(&paused, 1);
-    // Team A's Fable at 87 % used: the Claude bar nearly full.
-    assert_eq!(rows.lines().nth(5), Some(".#+##########+.+#..##+.##+"));
-    assert_eq!(rows.lines().nth(8), Some("....++++++++++.....##+.##+"));
+    assert_eq!((w, h), (36, 36));
+    for used in [0.0, 45.0, 100.0] {
+        let normal = Icon { used: Some(used), ..sample(Tone::Ok, true) };
+        let paused = Icon { paused: true, ..normal.clone() };
+        let (rgba, w, _) = render_glyph(&paused, 4);
+        let alpha = |x: u32, y: u32| rgba[((y * w + x) * 4 + 3) as usize];
+        assert_eq!(alpha(30, 26), 255, "left pause bar remains visible");
+        assert_eq!(alpha(40, 26), 255, "right pause bar remains visible");
+        assert_eq!(alpha(35, 26), 0, "pause bars stay separate even at full quota");
+        assert_ne!(render_glyph(&normal, 4).0, rgba);
+    }
 
     // An empty rotation or no number keeps its own glyph.
     let empty =

@@ -67,9 +67,9 @@ notification card with buttons for five kinds of alert (below). A button on a
 card does what the same button in the app does: a Claude switch still opens
 the confirmation sheet first.
 
-- **Menu bar item.** A template glyph with one bar for Claude and one for
-  Antigravity, each filling as its account in use is used. Next to it is the
-  account in use and its share used for one service, `lan.acme1 38%`, the way
+- **Menu bar item.** The C04 circular template gauge with a rim bead
+  and liquid fill. Next to it is the account in use and its share used for
+  one service, `lan.acme1 38%`, the way
   claude-swap's own menu bar named it. The service is Claude by default;
   `Thanh menu` in `Cài đặt` and `Thanh menu theo` in the right-click menu
   pick Gemini (Antigravity's Gemini models) or Codex instead, on each Mac.
@@ -87,10 +87,11 @@ the confirmation sheet first.
   a window waiting for its number after a reset) the title is the name and
   `–`; only the window shown needs a number, except for `Chặt nhất`, which
   needs every window. A Mac without Antigravity, or without Codex, follows
-  Claude. The glyph's bars still fill with each account's window used the
-  most. The tooltip and the VoiceOver label give every service in words,
-  the window shown and its reset included. While automatic switching is paused, two small pause bars
-  follow the glyph; an exhausted Claude rotation draws a warning triangle.
+  Claude. The gauge fills with the same service and window as the title;
+  without a number its reservoir is empty. The tooltip and the VoiceOver
+  label give every service in words, the window shown and its reset included.
+  While automatic switching is paused, two small pause bars sit inside the
+  gauge; an exhausted Claude rotation draws a warning triangle.
 - **Popover** (left click). One header line with this Mac's name; how old
   the numbers are shows only when they are not fresh. Then a section per
   service, `CLAUDE`, `ANTIGRAVITY` and `CODEX`, each opening on its account

@@ -1,15 +1,9 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-//! The menu bar icon (F02): a monochrome template glyph with one bar per
-//! service, and the title beside it: the account in use and its share used
-//! for the service and the window the owner picked (Claude, Gemini or Codex;
-//! 5 giờ, tuần, Fable tuần or the tightest), the way claude-swap's own menu
-//! bar named the account in use.
-//!
-//! The glyph follows the approved sketch `qs-tray-*.svg` on an 18 pt frame;
-//! each bar fills as its account's tightest window is used. The title is
-//! the tray title, never drawn into the image.
+//! The C04 menu bar identity: a circular gauge, rim bead and liquid fill.
+//! The title and fill follow the same account and quota window. The title
+//! stays outside the 18 pt template image; macOS supplies its tint.
 
 use serde::Serialize;
 use time::OffsetDateTime;
@@ -34,19 +28,21 @@ pub enum Tone {
 pub struct Icon {
     pub title: String,
     pub tone: Tone,
-    /// Bar fill, the share used 0-100; `None` draws an empty bar.
+    /// C04 reservoir level, the share used in the title; `None` leaves it empty.
+    pub used: Option<f64>,
+    /// Legacy per-service tightest readings, retained in the serialized model.
     pub claude: Option<f64>,
     pub agy: Option<f64>,
-    /// Draw the Antigravity bar: false where this Mac has no Antigravity.
+    /// Legacy service presence: false where this Mac has no Antigravity.
     pub show_agy: bool,
-    /// Automatic switching is paused: two upright bars after the glyph.
+    /// Automatic switching is paused: two upright bars inside the gauge.
     pub paused: bool,
     /// What VoiceOver reads and the tooltip shows.
     pub label: String,
 }
 
 impl Icon {
-    /// Marks automatic switching as paused, as `qs-tray-paused.svg` draws
+    /// Marks automatic switching as paused, as the C04 template draws
     /// it. An empty rotation or no number keeps its own glyph: that matters
     /// more than the pause.
     pub fn with_pause(mut self, paused: bool) -> Icon {
@@ -447,6 +443,7 @@ pub fn icon(snapshot: Option<&Snapshot>, cx: &Context) -> Icon {
     Icon {
         title: shown.title(),
         tone,
+        used: shown.tight.map(|(_, used)| used),
         claude: claude.bar,
         agy: if show_agy { gemini.bar } else { None },
         show_agy,
@@ -455,76 +452,73 @@ pub fn icon(snapshot: Option<&Snapshot>, cx: &Context) -> Icon {
     }
 }
 
-/// Frame of the glyph in points: the sketch's 18 pt template frame.
+/// Both C04 states share an 18 pt frame: pausing never shifts the title.
 pub const GLYPH_POINTS: u32 = 18;
-/// Width of the paused glyph, `qs-tray-paused.svg`: the bars and a pause sign.
-pub const PAUSED_POINTS: u32 = 26;
+pub const PAUSED_POINTS: u32 = GLYPH_POINTS;
 
-/// Renders the glyph as a template image: black, with coverage in alpha.
-/// Returns RGBA rows, `18 * scale` pixels high and as wide, or 26 points
-/// wide while paused, with the width and height.
+/// Renders black RGBA pixels with coverage in alpha, ready for AppKit tinting.
+/// Geometry is traced from the approved C04 templates (`assets/menubar`).
 pub fn render_glyph(icon: &Icon, scale: u32) -> (Vec<u8>, u32, u32) {
     let height = GLYPH_POINTS * scale;
-    let width = if icon.paused { PAUSED_POINTS } else { GLYPH_POINTS } * scale;
+    let width = height;
     let s = f64::from(scale);
     let mut rgba = vec![0u8; (width * height * 4) as usize];
     for py in 0..height {
         for px in 0..width {
-            // Sample at the pixel centre, in points.
-            let x = (f64::from(px) + 0.5) / s;
-            let y = (f64::from(py) + 0.5) / s;
-            let a = coverage(icon, x, y, s);
-            let i = ((py * width + px) * 4) as usize;
-            rgba[i + 3] = (a * 255.0).round() as u8;
+            // Supersampling keeps the small ring, bead and wave smooth on
+            // both 1x and Retina displays, without a bitmap dependency.
+            let mut hits = 0;
+            for sy in 0..4 {
+                for sx in 0..4 {
+                    let x = (f64::from(px) + (f64::from(sx) + 0.5) / 4.0) / s;
+                    let y = (f64::from(py) + (f64::from(sy) + 0.5) / 4.0) / s;
+                    hits += u32::from(inside(icon, x, y));
+                }
+            }
+            rgba[((py * width + px) * 4 + 3) as usize] = (hits * 255 / 16) as u8;
         }
     }
     (rgba, width, height)
 }
 
-/// Bar geometry from `qs-tray-base.svg`: an outlined capsule and a fill
-/// inset by 1.1 pt. A full fill is 12.5 pt long.
-const BAR_X: f64 = 1.65;
-const BAR_W: f64 = 14.7;
-const BAR_H: f64 = 4.2;
-const BAR_STROKE: f64 = 1.3;
-const FILL_INSET: f64 = 1.1;
-const FILL_H: f64 = 2.0;
-const FILL_MAX: f64 = BAR_W - 2.0 * FILL_INSET;
-
-fn coverage(icon: &Icon, x: f64, y: f64, scale: f64) -> f64 {
-    let aa = |d: f64| (0.5 - d * scale).clamp(0.0, 1.0);
+fn inside(icon: &Icon, x: f64, y: f64) -> bool {
     if icon.tone == Tone::Bad {
-        // qs-tray-empty.svg: a warning triangle.
+        // Preserve the existing exhausted-rotation warning.
         let (a, b, c) = ((9.0, 2.2), (16.6, 15.6), (1.4, 15.6));
         let edge = seg_dist(x, y, a, b).min(seg_dist(x, y, b, c)).min(seg_dist(x, y, c, a));
-        let mark = seg_dist(x, y, (9.0, 6.6), (9.0, 10.6)) - 0.8;
-        let dot = ((x - 9.0).powi(2) + (y - 13.0).powi(2)).sqrt() - 1.0;
-        return aa(edge - 0.75).max(aa(mark)).max(aa(dot));
+        return edge <= 0.75
+            || seg_dist(x, y, (9.0, 6.6), (9.0, 10.6)) <= 0.8
+            || (x - 9.0).hypot(y - 13.0) <= 1.0;
     }
-    let tops: &[(f64, Option<f64>)] = if icon.show_agy {
-        &[(3.4, icon.claude), (10.4, icon.agy)]
-    } else {
-        // qs-tray-air.svg: Claude only, centred.
-        &[(6.9, icon.claude)]
+    let (dx, dy) = (x - 9.0, y - 9.0);
+    let radius = dx.hypot(dy);
+    // Almost-closed ring: rounded ends at -90 and 254 degrees.
+    let angle = dy.atan2(dx).to_degrees().rem_euclid(360.0);
+    let ring = ((radius - 6.85).abs() <= 0.72 && !(254.0..270.0).contains(&angle))
+        || (x - 9.0).hypot(y - 2.15) <= 0.72
+        || (x - 7.112).hypot(y - 2.415) <= 0.72;
+    let bead_distance = (x - 14.05).hypot(y - 3.8);
+    if bead_distance <= 1.42 || (ring && bead_distance >= 1.87) {
+        return true;
+    }
+    // Pause bars have a transparent halo so they survive a high reservoir.
+    let pause = [7.05, 9.55].map(|left| round_rect(x, y, left, 4.8, 1.4, 3.7, 0.7));
+    if icon.paused && pause.iter().any(|d| *d <= 0.0) {
+        return true;
+    }
+    if icon.paused && pause.iter().any(|d| *d <= 0.55) {
+        return false;
+    }
+    let Some(used) = icon.used.filter(|p| p.is_finite() && *p > 0.0) else {
+        return false;
     };
-    let mut cover: f64 = 0.0;
-    if icon.paused {
-        // qs-tray-paused.svg: two 2.2 × 9 pt bars right of the glyph.
-        for x0 in [19.2, 23.1] {
-            cover = cover.max(aa(round_rect(x, y, x0, 4.5, 2.2, 9.0, 1.0)));
-        }
-    }
-    for &(top, percent) in tops {
-        let ring = round_rect(x, y, BAR_X, top, BAR_W, BAR_H, BAR_H / 2.0).abs() - BAR_STROKE / 2.0;
-        cover = cover.max(aa(ring));
-        if let Some(p) = percent.filter(|p| *p > 0.0) {
-            let w = (FILL_MAX * p.min(100.0) / 100.0).max(FILL_H);
-            let fill =
-                round_rect(x, y, BAR_X + FILL_INSET, top + FILL_INSET, w, FILL_H, FILL_H / 2.0);
-            cover = cover.max(aa(fill));
-        }
-    }
-    cover
+    // Linear liquid height. At 45% the wave matches the approved master;
+    // the exact percentage stays in the title, as for the former bar glyph.
+    let p = used.clamp(0.0, 100.0) / 100.0;
+    let wave = 9.0
+        + 5.6 * (1.0 - 2.0 * p)
+        + 0.55 * (dx * std::f64::consts::PI / 5.6).sin() * (4.0 * p * (1.0 - p));
+    radius <= 5.6 && y >= wave
 }
 
 /// Signed distance to a rounded rectangle, negative inside.

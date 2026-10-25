@@ -108,6 +108,7 @@ pub fn build(app: &App) -> tauri::Result<()> {
     let blank = Icon {
         title: "–".into(),
         tone: quota_station_core::Tone::Muted,
+        used: None,
         claude: None,
         agy: None,
         show_agy: true,
