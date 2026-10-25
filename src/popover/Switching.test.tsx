@@ -5,8 +5,9 @@
 // fake Rust side: nothing here runs claude-swap or writes a pause flag.
 
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PopoverApp } from '../App';
+import { MORE_KEY } from './Popover';
 import { fakeApi, type FakeOptions } from '../fixtures/fakeApi';
 import { FIXTURE_NOW, fixtureModel, heldSwitcher, switcherFixture } from '../fixtures/models';
 import type { Api } from '../lib/api';
@@ -41,7 +42,12 @@ const radios = (sheet: HTMLElement) =>
     .getAllByRole('radio')
     .map((r) => (r.getAttribute('aria-checked') === 'true' ? '● ' : '○ ') + r.textContent);
 
-afterEach(cleanup);
+// Every section shows its other accounts, as the owner opens them.
+beforeEach(() => localStorage.setItem(MORE_KEY, JSON.stringify({ c: true, g: true, x: true })));
+afterEach(() => {
+  cleanup();
+  localStorage.removeItem(MORE_KEY);
+});
 
 describe('the Claude switch sheet', () => {
   it('names the target, counts the live sessions and offers the four holds, one hour by default', async () => {
@@ -270,7 +276,7 @@ describe('the Claude switch sheet', () => {
   it('while a switch runs from another window, rows wait', async () => {
     await open(fixtureModel('fresh', { claudeSwitch: { ready: true, busy: 3 } }));
     const rows = within(screen.getByRole('list', { name: 'Claude' })).getAllByRole('button');
-    expect(rows[3].getAttribute('aria-label')).toMatch(/\. Đang chuyển tài khoản$/);
+    expect(rows[2].getAttribute('aria-label')).toMatch(/\. Đang chuyển tài khoản$/);
   });
 });
 

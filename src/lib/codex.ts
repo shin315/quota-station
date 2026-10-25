@@ -271,11 +271,62 @@ export function chatGptNote(model: Model): NoteView | null {
 }
 
 /**
+ * Codex in the popover, a service like Claude and Antigravity: the ChatGPT
+ * accounts, the provider Codex goes through instead of one of them, and the
+ * custom API as its own entry. `row` keeps the switch's words, its refusal
+ * and its note; pressing an account or the entry opens the same
+ * confirmation sheet, which goes to `nextTarget`.
+ */
+export interface CodexPopView {
+  row: CodexRowView;
+  accounts: ChatGptRowView[];
+  /** Codex goes through a provider, not a ChatGPT account: its name and line; null on ChatGPT. */
+  using: { name: string; sub: string } | null;
+  /** The custom API to switch to, under the accounts; null without one, or while it is in use. `title`: it does not answer. */
+  custom: { name: string; label: string; title: string } | null;
+  /** The row's chips the popover does not write (`không trả lời`, `đổi ngoài app`…), for the hover of what is in use. */
+  notes: string;
+  /** The sheet would switch to ChatGPT: the accounts open it, the entry does not. */
+  toChatGpt: boolean;
+  note: NoteView | null;
+}
+
+/** Null on a Mac without a Codex folder. */
+export function codexPopover(model: Model, now: Date): CodexPopView | null {
+  const row = codexRow(model);
+  if (!row) return null;
+  const v = model.codex;
+  const via = v.current === 'custom' && v.custom ? v.custom.name : v.current === 'other' ? currentId(v) : null;
+  return {
+    row,
+    accounts: chatGptRows(model, now),
+    using: via
+      ? { name: via, sub: v.current === 'other' ? t('Nhà cung cấp khác trong config.toml', 'Another provider in config.toml') : t('Custom API · không báo hạn mức', 'Custom API · reports no quota') }
+      : null,
+    custom:
+      v.custom && v.current !== 'custom'
+        ? {
+            name: v.custom.name,
+            label: nextTarget(v) === 'custom' ? row.label : 'Custom API ' + v.custom.name,
+            title: down(v) ? t(v.custom.name + ' không trả lời', v.custom.name + ' not answering') : '',
+          }
+        : null,
+    notes: row.chips
+      .slice(1)
+      .map((c) => c.t)
+      .join(' · '),
+    toChatGpt: nextTarget(v) === 'chatGpt',
+    note: chatGptNote(model),
+  };
+}
+
+/**
  * The popover's banner for Codex, when one is due: the custom provider in
  * use stopped answering (warn), no ChatGPT login (warn), or the file changed
- * outside the app (info).
+ * outside the app (info). `short`: the popover's, where the change made
+ * outside says only what it did; its time and file wait behind "Xem thay đổi".
  */
-export function codexBanner(model: Model): BannerView | null {
+export function codexBanner(model: Model, short = false): BannerView | null {
   const v = model.codex;
   if (!v.present) return null;
   if (down(v) && v.current === 'custom') {
@@ -304,27 +355,32 @@ export function codexBanner(model: Model): BannerView | null {
       actions: [{ label: t('Hướng dẫn', 'Guide'), act: 'codex:guide:login' }],
     };
   }
-  if (v.external) return externalBanner(v);
+  if (v.external) return externalBanner(v, short);
   return null;
 }
 
-export function externalBanner(v: CodexView): BannerView | null {
+export function externalBanner(v: CodexView, short = false): BannerView | null {
   const e = v.external;
   if (!e) return null;
   const via = shortName(v, e.now);
   return {
     tone: 'info',
     title: t('Cấu hình Codex vừa đổi ngoài app', 'Codex settings changed outside the app'),
-    body: t(
-      (e.at ? 'Lúc ' + clock(e.at) + ' file' : 'File') +
-        ' config.toml của Codex được sửa. Codex giờ ' +
-        (e.now === CHATGPT_ID ? 'dùng tài khoản ChatGPT' : 'đi qua ' + via) +
-        '. App không tự sửa lại.',
-      (e.at ? 'At ' + clock(e.at) + ', ' : '') +
-        'Codex’s config.toml was edited. Codex now ' +
-        (e.now === CHATGPT_ID ? 'uses the ChatGPT account' : 'goes through ' + via) +
-        '. The app does not change it back.',
-    ),
+    body: short
+      ? t(
+          'Codex ' + (e.now === CHATGPT_ID ? 'đang dùng ChatGPT' : 'đang đi qua ' + via) + '. App không tự sửa lại.',
+          'Codex ' + (e.now === CHATGPT_ID ? 'uses ChatGPT' : 'goes through ' + via) + ' now. The app does not change it back.',
+        )
+      : t(
+          (e.at ? 'Lúc ' + clock(e.at) + ' file' : 'File') +
+            ' config.toml của Codex được sửa. Codex giờ ' +
+            (e.now === CHATGPT_ID ? 'dùng tài khoản ChatGPT' : 'đi qua ' + via) +
+            '. App không tự sửa lại.',
+          (e.at ? 'At ' + clock(e.at) + ', ' : '') +
+            'Codex’s config.toml was edited. Codex now ' +
+            (e.now === CHATGPT_ID ? 'uses the ChatGPT account' : 'goes through ' + via) +
+            '. The app does not change it back.',
+        ),
     actions: [
       { label: t('Xem thay đổi', 'See changes'), act: 'codex:external' },
       { label: t('Đã hiểu', 'Got it'), act: 'codex:keep' },

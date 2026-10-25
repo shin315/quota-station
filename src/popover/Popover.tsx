@@ -1,55 +1,76 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-// The popover (F01, F03, F04, F07), at the approved "Gọn hơn" level: one
-// header line with this Mac's name, Đang dùng on top (the account in use on
-// each service, its share used and when it resets), then a card per
-// account in the main window's order, the one in use framed. Each group
-// (Claude, Antigravity) folds to its header alone, and stays folded the next
-// time the popover opens. A card opens its switch sheet; one whose login
-// expired opens the sign-in again. The footer holds the automatic switching
-// toggle while Cài đặt › Nâng cao is on, and a quiet line when a newer
-// release is out. The header's buttons open the notifications (a bell with
-// the red count of those not read yet: the main window with its bell's panel
-// open), switch between the light and dark look, and open the main window.
-// Under the groups, Codex is one row (M8): the provider in use and where a
-// switch would go; pressing it opens the confirmation sheet, never a one-tap
-// switch.
+// The popover (F01, F03, F04, F07), as the approved direction C, "Đang dùng
+// trước": one header line with this Mac's name, then a section per service
+// (Claude, Antigravity, Codex), each its account in use with every window's
+// bar, the share used and when it resets, and its other accounts behind one
+// "n tài khoản khác" right under it. A section folds to its header (which
+// then says the account in use and its number), and the folds and the
+// disclosures stay as they were the next time the popover opens. Another
+// account opens its switch sheet; one whose login expired opens the sign-in
+// again. Codex's ChatGPT accounts sit as Claude's do, and its custom API keeps
+// its own entry; both open the confirmation sheet, never a one-tap switch.
+// The popover writes no per-account notes (the rotation, a number's age):
+// those stay in the main window, an old number is drawn dim with its age on
+// hover, and only what the owner must do (sign in again) keeps a short line.
+// The header's buttons switch between the light and dark look, open the
+// notifications (a bell with the red count of those not read yet: the main
+// window with its bell's panel open) and open the main window. The footer
+// holds the automatic switching toggle while Cài đặt › Nâng cao is on, a
+// quiet line when a newer release is out, and what the numbers mean behind
+// Chi tiết.
 
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Dialog, DialogContent, DialogOverlay } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { AccountName, IdMark } from '../components/accounts';
-import { PlaceGlyph } from '../components/icons';
-import { AgentIcon } from '../components/logos';
-import { Banner, Button, Chip, Dot, Feedback, LinkButton, Meter, Skeleton, Spinner, Toggle } from '../components/parts';
+import { IdMark, InUse } from '../components/accounts';
+import { Glyph, PlaceGlyph } from '../components/icons';
+import { Banner, Button, Dot, Feedback, LinkButton, Meter, More, Skeleton, Spinner, Toggle } from '../components/parts';
+import { isGemini } from '../lib/accounts';
 import { t } from '../lib/i18n';
 import type { AutoView } from '../lib/switching';
-import type { CodexRowView } from '../lib/codex';
-import { bannerUnder, type Action, type CardView, type CellView, type FeedbackView, type GroupView, type NowView, type PopoverView, type UsedTone } from '../lib/view';
+import type { ChatGptRowView, CodexPopView } from '../lib/codex';
+import { bannerUnder, type Action, type CardView, type CellView, type ChipView, type FeedbackView, type GroupView, type NoteView, type NowRowView, type PopoverView, type UsedTone } from '../lib/view';
 import { ChevronIcon, MoonIcon, OpenIcon, SunIcon } from '../window/icons';
 import { bellCount } from '../alerts/Notifications';
 
-/** Which groups are folded, kept in this window's storage so it outlives the app. */
+type Service = 'c' | 'g' | 'x';
+
+/** Which sections are folded, kept in this window's storage so it outlives the app. */
 export const FOLD_KEY = 'quota-station.popover.folded';
+/** Which sections show their other accounts, kept the same way. */
+export const MORE_KEY = 'quota-station.popover.more';
 
-export type Folded = { c: boolean; g: boolean };
+export type Flags = Record<Service, boolean>;
 
-export function loadFolded(): Folded {
+function loadFlags(key: string): Flags {
   try {
-    const saved = JSON.parse(localStorage.getItem(FOLD_KEY) ?? '{}') as Partial<Folded>;
-    return { c: saved.c === true, g: saved.g === true };
+    const saved = JSON.parse(localStorage.getItem(key) ?? '{}') as Partial<Flags>;
+    return { c: saved.c === true, g: saved.g === true, x: saved.x === true };
   } catch {
-    return { c: false, g: false };
+    return { c: false, g: false, x: false };
   }
 }
 
-function saveFolded(folded: Folded) {
+function saveFlags(key: string, flags: Flags) {
   try {
-    localStorage.setItem(FOLD_KEY, JSON.stringify(folded));
+    localStorage.setItem(key, JSON.stringify(flags));
   } catch {
     // Storage off: the fold lasts while the app runs.
   }
+}
+
+/** A section's flags, flipped one at a time and kept. */
+function useFlags(key: string): [Flags, (id: Service) => void] {
+  const [flags, setFlags] = useState(() => loadFlags(key));
+  const flip = (id: Service) =>
+    setFlags((cur) => {
+      const next = { ...cur, [id]: !cur[id] };
+      saveFlags(key, next);
+      return next;
+    });
+  return [flags, flip];
 }
 
 /** A number's colour when its quota runs short. */
@@ -57,61 +78,27 @@ function toneInk(tone: UsedTone | string): string | undefined {
   return tone === 'warn' ? 'text-warn-ink!' : tone === 'bad' ? 'text-bad-ink!' : undefined;
 }
 
-/** The flex name in Đang dùng, as the prototype drew it. */
-const NOW_NAME = 'flex min-w-0 flex-wrap items-center gap-[5px] overflow-hidden text-ellipsis whitespace-nowrap font-semi';
-
 /**
- * Đang dùng: one line per service, the account in use, its share used and
- * when that resets. The window shows on hover.
+ * An account's hover: its email and where its numbers come from, then the
+ * notes the popover no longer writes (an old number's age, the rotation).
  */
-function NowStrip({ now, loading }: { now: NowView; loading: boolean }) {
-  if (!now.rows.length) return null;
-  return (
-    <div className="mx-2.5 mt-0.5 mb-1.5 grid gap-[3px] rounded-tile bg-fill px-2.5 pt-[5px] pb-1.5" role="list" aria-label={t('Đang dùng', 'In use')}>
-      {now.rows.map((r) => (
-        <div
-          className="grid min-h-[19px] grid-cols-[62px_minmax(0,1fr)_34px_60px] items-center gap-[7px] text-xs text-ink2 tabular-nums"
-          role="listitem"
-          key={r.id}
-          title={r.title}
-          aria-label={r.label}
-        >
-          <span className="inline-flex items-center gap-[5px] text-ink2" aria-hidden="true">
-            <IdMark id={r.id} className="m-0" />
-            {r.svc}
-          </span>
-          <span className="flex min-w-0 items-baseline gap-1.5" aria-hidden="true">
-            <b className={cn(NOW_NAME, 'text-sm text-ink')}>{r.name}</b>
-            {r.extra ? <b className={cn('flex-none whitespace-nowrap font-semi', toneInk(r.extra.tone))}>C/GPT {r.extra.text}</b> : null}
-          </span>
-          {loading ? (
-            <Skeleton className="w-full" />
-          ) : (
-            <b className={cn('text-right', r.used == null ? 'font-reg text-ink3' : 'font-semi text-ink', toneInk(r.tone))} aria-hidden="true">
-              {r.text}
-            </b>
-          )}
-          <span className="overflow-hidden text-ellipsis whitespace-nowrap text-left" aria-hidden="true">
-            {loading ? null : r.reset}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
+function hoverOf(title: string, chips: ChipView[]): string | undefined {
+  return [title, ...chips.map((c) => c.t)].filter(Boolean).join(' · ') || undefined;
 }
 
-/** One window on a card: its name, a bar, the share used and when it resets. */
-function WindowRow({ cell, wide, dim, loading }: { cell: CellView; wide?: boolean; dim?: boolean; loading?: boolean }) {
+/** The columns of a window's line: its name, a bar, the share used, when it resets. */
+const ROW_COLS = {
+  wide: 'grid-cols-[92px_minmax(0,1fr)_34px_60px]',
+  base: 'grid-cols-[52px_minmax(0,1fr)_34px_60px]',
+  half: 'grid-cols-[28px_minmax(0,1fr)_30px_42px] gap-[5px]',
+};
+
+/** One window: its name, a bar, the share used and when it resets. An old number is drawn dim. */
+function WindowRow({ cell, label, cols = 'base', dim, loading }: { cell: CellView; label?: string; cols?: keyof typeof ROW_COLS; dim?: boolean; loading?: boolean }) {
   const tone = dim ? 'muted' : cell.tone;
   return (
-    <span
-      className={cn(
-        'mt-1 grid items-center gap-[7px] text-xs text-ink2 tabular-nums',
-        wide ? 'grid-cols-[92px_minmax(0,1fr)_34px_60px]' : 'grid-cols-[52px_minmax(0,1fr)_34px_60px]',
-      )}
-      title={cell.title}
-    >
-      <span>{cell.label}</span>
+    <span className={cn('mt-1 grid items-center gap-[7px] text-xs text-ink2 tabular-nums', ROW_COLS[cols])} title={cell.title}>
+      <span className="truncate">{label ?? cell.label}</span>
       {loading ? (
         <>
           <Skeleton className="h-(--meter-h-s) w-full" />
@@ -121,61 +108,105 @@ function WindowRow({ cell, wide, dim, loading }: { cell: CellView; wide?: boolea
       ) : (
         <>
           <Meter percent={cell.used} tone={tone} className="m-0 h-(--meter-h-s)" />
-          <b className={cn('text-right', cell.used == null ? 'font-reg text-ink3' : 'font-semi text-ink', toneInk(tone))}>{cell.text}</b>
-          <span className={cn('whitespace-nowrap', cell.used == null && 'font-reg text-ink3')}>{cell.used == null ? '' : cell.reset}</span>
+          <b className={cn('text-right', cell.used == null ? 'font-reg text-ink3' : 'font-semi text-ink', toneInk(tone), dim && 'text-ink3')}>{cell.text}</b>
+          <span className={cn('truncate', (cell.used == null || dim) && 'text-ink3')}>{cell.used == null ? '' : cell.reset}</span>
         </>
       )}
     </span>
   );
 }
 
-/** A round icon button in the popover's header. */
-const ICON_BUTTON = 'grid size-[26px] cursor-pointer place-items-center rounded-ctl border-0 bg-transparent text-ink2 hover:bg-fill [&_svg]:block';
-
-/** A group's header line: Claude and Antigravity fold; Codex's does not. */
-const GROUP_HEAD = 'mx-1.5 mt-1 mb-0.5 flex w-[calc(100%-12px)] items-center gap-1.5 rounded-row border-0 bg-transparent px-2 py-[5px] text-left text-xs text-ink2';
-
-const NOTE_TONE: Record<string, string> = { warn: 'bg-warn/14 text-warn-ink', bad: 'bg-bad/12 text-bad-ink' };
-
-/** A note under a group: what is the matter with its accounts. */
-function GroupNote({ note }: { note: { tone: string; text: string } }) {
-  return <div className={cn('mx-3.5 mt-0.5 mb-1 rounded-lg px-2 py-1.5 text-s', NOTE_TONE[note.tone] ?? 'bg-fill text-ink2')}>{note.text}</div>;
+/** Antigravity's four windows in two columns, Gemini and Claude/GPT, each with its five hours and its week. */
+function AgyColumns({ cells, dim, loading }: { cells: CellView[]; dim: boolean; loading: boolean }) {
+  const cols = [
+    { name: 'Gemini', cells: cells.filter(isGemini) },
+    { name: 'Claude/GPT', cells: cells.filter((c) => !isGemini(c)) },
+  ];
+  return (
+    <span className="mt-1 grid grid-cols-2 gap-x-3">
+      {cols.map((col, i) => (
+        <span key={col.name} className={cn('min-w-0', i > 0 && 'border-l-[.5px] border-glass-line pl-3')}>
+          <small className="block text-xs text-ink2">{col.name}</small>
+          {col.cells.map((c) => (
+            <WindowRow key={c.kind} cell={c} label={c.kind.endsWith('Week') ? t('Tuần', 'Week') : t('5 giờ', '5-hour')} cols="half" dim={dim} loading={loading} />
+          ))}
+        </span>
+      ))}
+    </span>
+  );
 }
 
-function CardBody({ card, loading }: { card: CardView; loading: boolean }) {
+/** Antigravity's four windows are there to draw in two columns (an account with no reading has two numbers). */
+const fourWindows = (card: CardView) => card.kind === 'g' && card.cells.length === 4 && card.cells.some(isGemini);
+
+/** What the owner must do: sign in again. One short line, no chip. */
+function ReloginLine() {
+  return <small className="block text-xs text-warn-ink">{t('Cần đăng nhập lại', 'Needs to sign in again')}</small>;
+}
+
+/** The tile the account in use sits in. */
+const TILE = 'mx-2.5 block rounded-tile bg-fill px-[11px] pt-2 pb-[9px]';
+
+/** The account in use: its name, "Đang dùng", and every window. A status, not a button. */
+function InUseCard({ card, loading, onRelogin }: { card: CardView; loading: boolean; onRelogin(slot: number): void }) {
+  return (
+    <div className={TILE} role="group" aria-label={card.label} title={hoverOf(card.title, card.chips)} data-active="true" data-stale={card.dim || undefined}>
+      <span className="flex min-w-0 items-center gap-2">
+        <b className="min-w-0 truncate text-body font-semi">{card.name}</b>
+        <InUse />
+      </span>
+      {card.relogin ? (
+        <span className="flex items-center gap-2">
+          <ReloginLine />
+          <LinkButton small onClick={() => onRelogin(card.slot)}>
+            {t('Đăng nhập lại…', 'Sign in again…')}
+          </LinkButton>
+        </span>
+      ) : null}
+      {fourWindows(card) ? (
+        <AgyColumns cells={card.cells} dim={card.dim} loading={loading} />
+      ) : (
+        card.rows.map((c) => <WindowRow key={c.kind} cell={c} cols={card.kind === 'g' ? 'wide' : 'base'} dim={card.dim} loading={loading} />)
+      )}
+    </div>
+  );
+}
+
+/** A row of another account's quiet list: its name, then its windows' short lines. */
+function OtherBody({ name, relogin, children }: { name: string; relogin?: boolean; children: ReactNode }) {
   return (
     <>
-      {/* The card's frame says it is in use; the main window keeps the organization and the hours. */}
-      <span className="flex min-w-0 items-baseline gap-1.5">
-        <AccountName name={card.name} sub="" full={card.full} chips={card.chips} card />
-      </span>
-      {card.rows.map((c) => (
-        <WindowRow key={c.kind} cell={c} wide={card.kind === 'g'} dim={card.dim} loading={loading} />
-      ))}
+      <b className="block truncate text-body font-semi">{name}</b>
+      {relogin ? <ReloginLine /> : null}
+      {children}
     </>
   );
 }
 
+const OTHER_ROW = 'block w-full border-0 bg-transparent px-[11px] pt-[7px] pb-2 text-left';
+const OTHER_PRESS = 'cursor-pointer aria-disabled:cursor-default not-aria-disabled:hover:bg-sel';
+
 /**
- * A card the owner can press opens the switch sheet (or the sign-in
- * again). The active card and the ones that cannot switch stay buttons with
- * `aria-disabled`, so they keep focus and screen readers read them (G10).
- * The one account a provider row reads without an account list has nothing
- * to switch to and is not a button. An account out of the rotation has a
- * dashed edge.
+ * Another account: pressing it opens the switch sheet (or the sign-in
+ * again). One that cannot switch stays a button with `aria-disabled`, so it
+ * keeps focus and screen readers read it (G10). The one account a provider
+ * row reads without an account list is not a button.
  */
-function AccountCard(props: { card: CardView; loading: boolean; onSwitch(slot: number): void; onRelogin(slot: number): void }) {
+function OtherCard(props: { card: CardView; loading: boolean; onSwitch(slot: number): void; onRelogin(slot: number): void }) {
   const { card } = props;
   const can = !props.loading && (card.relogin || card.switchable);
-  const cls = cn(
-    'acard2 block w-full rounded-tile border-0 bg-fill px-[11px] pt-2 pb-[9px] text-left',
-    card.active ? 'on cursor-default bg-sel shadow-[inset_0_0_0_1.5px_var(--accent)]' : 'cursor-pointer aria-disabled:cursor-default not-aria-disabled:hover:bg-sel',
-    card.resting && !card.active && 'bg-transparent outline-1 -outline-offset-1 outline-glass-line outline-dashed',
+  const body = (
+    <OtherBody name={card.name} relogin={card.relogin}>
+      {card.rows.map((c) => (
+        <WindowRow key={c.kind} cell={c} cols={card.kind === 'g' ? 'wide' : 'base'} dim={card.dim} loading={props.loading} />
+      ))}
+    </OtherBody>
   );
+  const hover = hoverOf(card.title, card.chips);
   if (card.slot === 0) {
     return (
-      <div className={cn(cls, 'cursor-default')} role="listitem" aria-label={card.label} title={card.title || undefined} data-active={card.active || undefined}>
-        <CardBody card={card} loading={props.loading} />
+      <div className={OTHER_ROW} role="listitem" aria-label={card.label} title={hover} data-stale={card.dim || undefined}>
+        {body}
       </div>
     );
   }
@@ -183,24 +214,106 @@ function AccountCard(props: { card: CardView; loading: boolean; onSwitch(slot: n
     <div role="listitem">
       <button
         type="button"
-        className={cls}
+        className={cn(OTHER_ROW, OTHER_PRESS)}
         aria-label={card.relogin ? card.name + t(', cần đăng nhập lại. Bấm để đăng nhập lại', ', needs to sign in again. Press to sign in again') : card.label}
         aria-disabled={can ? undefined : true}
-        title={card.title || undefined}
-        data-active={card.active || undefined}
+        title={hover}
+        data-stale={card.dim || undefined}
         onClick={can ? () => (card.relogin ? props.onRelogin(card.slot) : props.onSwitch(card.slot)) : undefined}
       >
-        <CardBody card={card} loading={props.loading} />
+        {body}
       </button>
     </div>
   );
 }
 
+/** A disclosure's caret, turned down while it is open. */
+function Caret({ open }: { open: boolean }) {
+  return (
+    <span className={cn('inline-grid place-items-center transition-transform duration-(--dur-1) ease-qs', open && 'rotate-90')} aria-hidden="true">
+      <ChevronIcon />
+    </span>
+  );
+}
+
+function othersText(n: number, all: boolean): string {
+  if (all) return t(n + ' tài khoản', n + (n === 1 ? ' account' : ' accounts'));
+  return t(n + ' tài khoản khác', n + (n === 1 ? ' other account' : ' other accounts'));
+}
+
+/**
+ * The other accounts of a section, behind one line right under the account
+ * in use. Closed, the line still says how many must sign in again.
+ */
+function Others(props: { label: string; count: number; all: boolean; relogin: number; open: boolean; onOpen(): void; children: ReactNode }) {
+  const list = useId();
+  return (
+    <>
+      <button
+        type="button"
+        className="mx-2.5 mt-1 flex w-[calc(100%-20px)] cursor-pointer items-center gap-2 rounded-row border-0 bg-transparent px-[11px] py-[5px] text-left text-sm text-ink2 hover:bg-fill"
+        aria-expanded={props.open}
+        aria-controls={props.open ? list : undefined}
+        onClick={props.onOpen}
+      >
+        <Caret open={props.open} />
+        <span className="font-med">{othersText(props.count, props.all)}</span>
+        {props.relogin && !props.open ? (
+          <span className="truncate text-xs text-warn-ink">· {t(props.relogin + ' cần đăng nhập lại', props.relogin + ' to sign in again')}</span>
+        ) : null}
+      </button>
+      {props.open ? (
+        <div id={list} className="mx-2.5 mt-0.5 grid divide-y-[.5px] divide-glass-line overflow-hidden rounded-tile bg-fill" role="list" aria-label={props.label}>
+          {props.children}
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+/** A round icon button in the popover's header. */
+const ICON_BUTTON = 'grid size-[26px] cursor-pointer place-items-center rounded-ctl border-0 bg-transparent text-ink2 hover:bg-fill [&_svg]:block';
+
+/** A section's header line, which folds it. */
+const SECTION_HEAD = 'mx-1.5 mt-1 mb-1 flex w-[calc(100%-12px)] cursor-pointer items-center gap-1.5 rounded-row border-0 bg-transparent px-2 py-[5px] text-left text-xs text-ink2 hover:bg-fill';
+
+/**
+ * A section's header: its fold, the service's logo and name. Folded, it
+ * says whose account is in use and its number, so folding hides nothing
+ * that matters.
+ */
+function SectionHead({ id, title, folded, now, onFold }: { id: Service; title: string; folded: boolean; now?: NowRowView; onFold(): void }) {
+  return (
+    <button type="button" className={SECTION_HEAD} aria-expanded={!folded} onClick={onFold}>
+      <Caret open={!folded} />
+      <IdMark id={id} className="size-3.5" />
+      <span className="font-bold tracking-[.02em] uppercase">{title}</span>
+      {folded && now ? (
+        <span className="ml-auto flex min-w-0 items-baseline gap-1.5 text-xs tabular-nums" title={now.title}>
+          <span className="truncate text-ink2">{now.name}</span>
+          <b className={cn('font-semi', now.used == null ? 'text-ink3' : 'text-ink', toneInk(now.tone))}>{now.text}</b>
+          {now.extra ? <b className={cn('whitespace-nowrap font-semi', toneInk(now.extra.tone))}>C/GPT {now.extra.text}</b> : null}
+        </span>
+      ) : null}
+    </button>
+  );
+}
+
+const NOTE_TONE: Record<string, string> = { warn: 'bg-warn/14 text-warn-ink', bad: 'bg-bad/12 text-bad-ink' };
+
+/** A note under a section: what is the matter with its accounts. */
+function SectionNote({ note }: { note: NoteView }) {
+  return <div className={cn('mx-2.5 mt-1 rounded-lg px-2.5 py-1.5 text-s', NOTE_TONE[note.tone] ?? 'bg-fill text-ink2')}>{note.text}</div>;
+}
+
 function Group(props: {
   group: GroupView;
+  now?: NowRowView;
   loading: boolean;
   folded: boolean;
+  more: boolean;
   onFold(): void;
+  onMore(): void;
   onSwitch(slot: number): void;
   onRelogin(slot: number): void;
   onAction(act: Action): void;
@@ -208,18 +321,11 @@ function Group(props: {
   empty?: boolean;
 }) {
   const g = props.group;
-  const single = g.cards.length === 1;
+  const active = g.cards.find((c) => c.active);
+  const others = g.cards.filter((c) => c !== active);
   return (
-    <section aria-label={g.title}>
-      {/* Đang dùng already says whose account and how much: the header is the group's name alone. */}
-      <button type="button" className={cn(GROUP_HEAD, 'cursor-pointer hover:bg-fill')} aria-expanded={!props.folded} onClick={props.onFold}>
-        <span className={cn('inline-grid place-items-center transition-transform duration-(--dur-1) ease-qs', props.folded ? '' : 'rotate-90')}>
-          <ChevronIcon />
-        </span>
-        <IdMark id={g.id} />
-        <span className="font-bold tracking-[.02em] uppercase">{g.title}</span>
-        {g.readOnly ? <Chip chip={{ t: t('chỉ đọc', 'read-only'), k: 'tag' }} /> : null}
-      </button>
+    <section className="pb-2" aria-label={g.title}>
+      <SectionHead id={g.id} title={g.title} folded={props.folded} now={props.now} onFold={props.onFold} />
       {props.folded ? null : (
         <>
           {g.readOnly && g.note ? <p className="mx-3.5 mt-0 mb-1 text-xs text-ink2">{g.note.text}</p> : null}
@@ -233,15 +339,16 @@ function Group(props: {
               </Button>
             </EmptyCard>
           ) : null}
-          {g.cards.length ? (
-            <div className="grid gap-1.5 px-2.5 pb-1" role="list" aria-label={g.title}>
-              {g.cards.map((c) => (
-                <AccountCard key={c.key} card={c} loading={props.loading} onSwitch={props.onSwitch} onRelogin={props.onRelogin} />
+          {active ? <InUseCard card={active} loading={props.loading} onRelogin={props.onRelogin} /> : null}
+          {others.length ? (
+            <Others label={g.title} count={others.length} all={!active} relogin={others.filter((c) => c.relogin).length} open={props.more} onOpen={props.onMore}>
+              {others.map((c) => (
+                <OtherCard key={c.key} card={c} loading={props.loading} onSwitch={props.onSwitch} onRelogin={props.onRelogin} />
               ))}
-            </div>
+            </Others>
           ) : null}
-          {g.id === 'c' && single && g.cards[0].slot > 0 ? (
-            <p className="mx-3.5 mt-0 mb-1 text-xs text-ink2">
+          {g.id === 'c' && g.cards.length === 1 && g.cards[0].slot > 0 ? (
+            <p className="mx-3.5 mt-1 mb-0 text-xs text-ink2">
               {t('Chỉ có một tài khoản. ', 'Only one account. ')}
               <LinkButton small onClick={() => props.onAction('claude:add')}>
                 {t('Thêm tài khoản', 'Add an account')}
@@ -249,7 +356,7 @@ function Group(props: {
               {t(' để chuyển nhanh ở đây.', ' to switch here.')}
             </p>
           ) : null}
-          {g.note && !g.readOnly ? <GroupNote note={g.note} /> : null}
+          {g.note && !g.readOnly ? <SectionNote note={g.note} /> : null}
         </>
       )}
     </section>
@@ -267,50 +374,104 @@ function EmptyCard(props: { title: string; body: string; children?: ReactNode })
   );
 }
 
-/**
- * CodexRow = `.row.cx`, one line: the provider in use, any state chip, and
- * `→` where a switch goes. The sub-line and Codex App's state stay in the
- * Codex tab and the row's spoken label.
- */
-function CodexSection({ row, onOpen, onAction }: { row: CodexRowView; onOpen(): void; onAction(act: Action): void }) {
+/** A ChatGPT account's windows: its five hours and its week. */
+function ChatGptRows({ row }: { row: ChatGptRowView }) {
   return (
-    <section aria-label="Codex">
-      <div className={cn(GROUP_HEAD, 'cursor-default')}>
-        <IdMark id="x" />
-        <span className="font-bold tracking-[.02em]">CODEX</span>
-      </div>
-      <div className="px-1.5">
-        <button
-          type="button"
-          className="group grid w-full cursor-pointer grid-cols-[var(--av)_minmax(0,1fr)_auto] items-center gap-[9px] rounded-row border-0 bg-transparent px-2 py-[5px] text-left focus-visible:-outline-offset-2 aria-disabled:cursor-default not-aria-disabled:hover:bg-fill"
-          aria-disabled={row.off ? true : undefined}
-          aria-label={row.label + '. ' + row.sub + (row.head ? '. ' + row.head : '')}
-          onClick={row.off ? undefined : onOpen}
-        >
-          <span className="grid size-(--av) place-items-center" aria-hidden="true">
-            <AgentIcon agent="codex" />
-          </span>
-          <span className="min-w-0">
-            <span className="flex min-w-0 flex-wrap items-center gap-[5px]">
-              <b className="text-body font-semi">Codex</b>
-              {row.chips.map((c) => (
-                <Chip key={c.t} chip={c} className="font-med" />
-              ))}
-            </span>
-          </span>
-          <span className="whitespace-nowrap text-sm font-med text-accent-ink group-aria-disabled:text-ink2 group-aria-disabled:line-through" aria-hidden="true">
-            {row.go}
-          </span>
-        </button>
-      </div>
-      {row.note ? <GroupNote note={row.note} /> : null}
-      {row.fix ? (
-        <div className="mx-3.5 mb-1.5">
-          <LinkButton small onClick={() => onAction(row.fix!.act)}>
-            {row.fix.label}
-          </LinkButton>
-        </div>
-      ) : null}
+    <>
+      {row.cells.map((c) => (
+        <WindowRow key={c.kind} cell={c} dim={row.dim} />
+      ))}
+    </>
+  );
+}
+
+/**
+ * Codex, a section like Claude's: the ChatGPT account in use (or the
+ * provider Codex goes through instead), the other ChatGPT accounts behind
+ * one line, then the custom API's own entry. An account or the entry opens
+ * the confirmation sheet when the sheet would go there; `row.off` says the
+ * switch is refused, and its note says why.
+ */
+function CodexSection(props: { pop: CodexPopView; now?: NowRowView; folded: boolean; more: boolean; onFold(): void; onMore(): void; onOpen(): void; onAction(act: Action): void }) {
+  const { pop } = props;
+  const active = pop.accounts.find((a) => a.active);
+  const others = pop.accounts.filter((a) => a !== active);
+  const accounts = t('Tài khoản ChatGPT', 'ChatGPT accounts');
+  const toCustom = !pop.toChatGpt && !pop.row.off;
+  return (
+    <section className="pb-2" aria-label="Codex">
+      <SectionHead id="x" title="Codex" folded={props.folded} now={props.now} onFold={props.onFold} />
+      {props.folded ? null : (
+        <>
+          {active ? (
+            <div className={TILE} role="group" aria-label={active.label + (pop.row.head ? '. ' + pop.row.head : '')} title={hoverOf([active.full, pop.notes].filter(Boolean).join(' · '), active.chips)} data-active="true" data-stale={active.dim || undefined}>
+              <span className="flex min-w-0 items-center gap-2">
+                <b className="min-w-0 truncate text-body font-semi">{active.name}</b>
+                <InUse />
+              </span>
+              <ChatGptRows row={active} />
+            </div>
+          ) : pop.using ? (
+            <div className={TILE} role="group" aria-label={pop.using.name + ', ' + pop.using.sub + t(', đang dùng', ', in use') + (pop.row.head ? '. ' + pop.row.head : '')}
+              title={[pop.row.sub, pop.notes].filter(Boolean).join(' · ')}
+              data-active="true"
+            >
+              <span className="flex min-w-0 items-center gap-2">
+                <b className="min-w-0 truncate text-body font-semi">{pop.using.name}</b>
+                <InUse />
+              </span>
+              <small className="block text-xs text-ink2">{pop.using.sub}</small>
+            </div>
+          ) : null}
+          {others.length ? (
+            <Others label={accounts} count={others.length} all={!active && !pop.using} relogin={0} open={props.more} onOpen={props.onMore}>
+              {others.map((r) => {
+                const can = pop.toChatGpt && !pop.row.off && !r.off;
+                return (
+                  <div role="listitem" key={r.key}>
+                    <button
+                      type="button"
+                      className={cn(OTHER_ROW, OTHER_PRESS)}
+                      aria-label={r.label + (pop.toChatGpt ? '. ' + pop.row.label : '')}
+                      aria-disabled={can ? undefined : true}
+                      title={hoverOf(r.full, r.chips)}
+                      data-stale={r.dim || undefined}
+                      onClick={can ? props.onOpen : undefined}
+                    >
+                      <OtherBody name={r.name}>
+                        <ChatGptRows row={r} />
+                      </OtherBody>
+                    </button>
+                  </div>
+                );
+              })}
+            </Others>
+          ) : null}
+          {pop.custom ? (
+            <button
+              type="button"
+              className="group mx-2.5 mt-1 flex w-[calc(100%-20px)] cursor-pointer items-center gap-2 rounded-row border-0 bg-transparent px-[11px] py-[5px] text-left text-sm aria-disabled:cursor-default not-aria-disabled:hover:bg-fill"
+              aria-label={pop.custom.label}
+              title={pop.custom.title || undefined}
+              aria-disabled={toCustom ? undefined : true}
+              onClick={toCustom ? props.onOpen : undefined}
+            >
+              <span className="font-med text-ink2">Custom API</span>
+              <span className="min-w-0 flex-1 truncate font-med text-accent-ink group-aria-disabled:text-ink3">{pop.custom.name}</span>
+              <Glyph name="caret-right" bold className="size-[11px] text-ink3" />
+            </button>
+          ) : null}
+          {pop.note ? <SectionNote note={pop.note} /> : null}
+          {pop.row.note ? <SectionNote note={pop.row.note} /> : null}
+          {pop.row.fix ? (
+            <div className="mx-3.5 mt-1">
+              <LinkButton small onClick={() => props.onAction(pop.row.fix!.act)}>
+                {pop.row.fix.label}
+              </LinkButton>
+            </div>
+          ) : null}
+        </>
+      )}
     </section>
   );
 }
@@ -325,6 +486,7 @@ function Footer({ auto, sync, onToggle }: { auto: AutoView; sync: SyncLine | nul
   return (
     <>
       <div className="li flex items-center gap-2 text-sm">
+        <PlaceGlyph place="rules" className="size-[15px]" />
         <div className="min-w-0 flex-1">
           <b>{auto.title}</b>
           {auto.popLine ? <small className="block text-xs text-ink2">{auto.popLine}</small> : null}
@@ -343,6 +505,23 @@ function Footer({ auto, sync, onToggle }: { auto: AutoView; sync: SyncLine | nul
         </div>
       ) : null}
     </>
+  );
+}
+
+/** What the numbers mean, in one line; the rest behind Chi tiết. */
+function Legend() {
+  const line = t('% đã dùng · thời gian đặt lại', '% used · time until reset');
+  return (
+    <div className="flex items-center gap-2 text-xs text-ink2">
+      <span className="min-w-0 flex-1 truncate">{line}</span>
+      <More small about={line}>
+        <p>{t('Số % là phần đã dùng của từng cửa sổ (5 giờ, tuần, Fable); thanh đầy dần khi dùng. Các dịch vụ không cộng chung.', 'The % is the share used of each window (5-hour, week, Fable); the bar fills as it is used. Services are never added up.')}</p>
+        <p>{t('Thời gian bên cạnh là còn bao lâu nữa cửa sổ đó đặt lại.', 'The time beside it is how long until that window resets.')}</p>
+        <p>{t('“—” là chưa có số, hoặc tài khoản không có cửa sổ đó; không phải 0%.', '“—” means no number yet, or no such window for the account; not 0%.')}</p>
+        <p>{t('Số mờ là số cũ: rê chuột lên tài khoản để xem số đọc từ bao giờ. Ghi chú về vòng xoay nằm ở cửa sổ chính.', 'A dim number is an old one: hover the account to see how old. Notes about the rotation are in the main window.')}</p>
+        <p>{t('Bấm một tài khoản khác để mở tấm xác nhận chuyển; không chuyển ngay.', 'Press another account to open the switch confirmation; nothing switches at once.')}</p>
+      </More>
+    </div>
   );
 }
 
@@ -369,8 +548,8 @@ export interface SyncLine {
 
 export interface PopoverProps {
   view: PopoverView;
-  /** The Codex row (M8); null on a Mac without Codex. */
-  codex?: CodexRowView | null;
+  /** Codex (M8): its ChatGPT accounts and custom API; null on a Mac without Codex. */
+  codex?: CodexPopView | null;
   /** Automatic switching, in the footer; null while Cài đặt › Nâng cao is off. */
   auto: AutoView | null;
   /** The other Macs' copies of the rotation file; null with no other Mac. */
@@ -402,17 +581,13 @@ export function Popover({ view, codex = null, auto, sync = null, release = null,
   const open = !!sheet;
   const sheetRef = useRef<HTMLDivElement>(null);
   const banner = bannerUnder(view.banner, feedback);
-  const [folded, setFolded] = useState(loadFolded);
-  const fold = (id: 'c' | 'g') =>
-    setFolded((cur) => {
-      const next = { ...cur, [id]: !cur[id] };
-      saveFolded(next);
-      return next;
-    });
+  const [folded, fold] = useFlags(FOLD_KEY);
+  const [more, showMore] = useFlags(MORE_KEY);
   const theme = dark ? t('Chuyển sang giao diện sáng', 'Switch to the light look') : t('Chuyển sang giao diện tối', 'Switch to the dark look');
   const count = bellCount(unread);
   const bell = count ? t('Thông báo, ' + unread + ' chưa đọc', 'Notifications, ' + unread + ' unread') : t('Thông báo', 'Notifications');
   const relogin = (slot: number) => onAction(`claude:relogin:${slot}`);
+  const nowOf = (id: Service) => view.now.rows.find((r) => r.id === id);
 
   useLayoutEffect(() => {
     if (!onHeight || !head.current || !content.current) return;
@@ -427,7 +602,7 @@ export function Popover({ view, codex = null, auto, sync = null, release = null,
     const ro = new ResizeObserver(measure);
     for (const el of [head.current, content.current, foot.current, sheetRef.current]) if (el) ro.observe(el);
     return () => ro.disconnect();
-  }, [onHeight, open, folded]);
+  }, [onHeight, open, folded, more]);
 
   return (
     <div
@@ -445,6 +620,9 @@ export function Popover({ view, codex = null, auto, sync = null, release = null,
             {view.fresh.tone === 'ok' ? null : <small className="overflow-hidden text-ellipsis text-s font-reg text-ink2">· {view.fresh.text}</small>}
           </b>
         </div>
+        <button type="button" className={ICON_BUTTON} aria-label={theme} title={theme} onClick={() => onAction('theme')}>
+          {dark ? <SunIcon /> : <MoonIcon />}
+        </button>
         <button type="button" className={cn(ICON_BUTTON, 'relative')} aria-label={bell} title={t('Thông báo', 'Notifications')} onClick={() => onAction('notifications')}>
           <PlaceGlyph place="alerts" className="size-[15px]" />
           {count ? (
@@ -452,9 +630,6 @@ export function Popover({ view, codex = null, auto, sync = null, release = null,
               {count}
             </span>
           ) : null}
-        </button>
-        <button type="button" className={ICON_BUTTON} aria-label={theme} title={theme} onClick={() => onAction('theme')}>
-          {dark ? <SunIcon /> : <MoonIcon />}
         </button>
         <button type="button" className={ICON_BUTTON} aria-label={t('Mở Quota Station', 'Open Quota Station')} title={t('Mở Quota Station', 'Open Quota Station')} onClick={() => onAction('window')}>
           <OpenIcon />
@@ -481,14 +656,16 @@ export function Popover({ view, codex = null, auto, sync = null, release = null,
             </EmptyCard>
           ) : (
             <>
-              <NowStrip now={view.now} loading={view.loading} />
               {view.claude.shown ? (
                 <Group
                   group={view.claude}
+                  now={nowOf('c')}
                   loading={view.loading}
                   empty={view.claude.empty}
                   folded={folded.c}
+                  more={more.c}
                   onFold={() => fold('c')}
+                  onMore={() => showMore('c')}
                   onSwitch={onSwitch}
                   onRelogin={relogin}
                   onAction={onAction}
@@ -497,23 +674,38 @@ export function Popover({ view, codex = null, auto, sync = null, release = null,
               {view.agy.shown ? (
                 <Group
                   group={view.agy}
+                  now={nowOf('g')}
                   loading={view.loading}
                   folded={folded.g}
+                  more={more.g}
                   onFold={() => fold('g')}
+                  onMore={() => showMore('g')}
                   onSwitch={onSwitchAgy ?? (() => {})}
                   onRelogin={() => onAction('window')}
                   onAction={onAction}
                 />
               ) : null}
-              {codex ? <CodexSection row={codex} onOpen={() => onAction('codex:open')} onAction={onAction} /> : null}
+              {codex ? (
+                <CodexSection
+                  pop={codex}
+                  now={nowOf('x')}
+                  folded={folded.x}
+                  more={more.x}
+                  onFold={() => fold('x')}
+                  onMore={() => showMore('x')}
+                  onOpen={() => onAction('codex:open')}
+                  onAction={onAction}
+                />
+              ) : null}
             </>
           )}
         </div>
       </div>
-      {auto || release ? (
+      {auto || release || !view.none ? (
         <div className="grid flex-none gap-[7px] border-t-[.5px] border-glass-line px-3.5 pt-2 pb-2.5" ref={foot} inert={open}>
           {release ? <ReleaseLine line={release} onAction={onAction} /> : null}
           {auto ? <Footer auto={auto} sync={sync} onToggle={onToggle} /> : null}
+          {view.none ? null : <Legend />}
         </div>
       ) : null}
       <DialogOverlay

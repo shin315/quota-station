@@ -524,7 +524,7 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
   let dry: BannerView | null;
   const pendingAccount = c.accounts.find((a) => a.reading === 'resetPending');
   const switcher = switcherBanner(model, now);
-  const codex = codexBanner(model);
+  const codex = codexBanner(model, true);
   // An Antigravity switch written over comes as a macOS card with buttons (M6),
   // and stays on the main window's Antigravity tab; the popover has no banner for it.
   if (switcher && switcher.tone !== 'info') banner = switcher;

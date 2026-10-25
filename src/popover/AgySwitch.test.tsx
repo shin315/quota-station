@@ -6,8 +6,9 @@
 // Antigravity.app.
 
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MainWindowApp, PopoverApp } from '../App';
+import { MORE_KEY } from './Popover';
 import { fakeApi, type FakeOptions } from '../fixtures/fakeApi';
 import { agyAccount, agyFixture, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
 import type { Api } from '../lib/api';
@@ -36,7 +37,8 @@ async function openPopover(model: Model, options: FakeOptions = {}) {
   return fake;
 }
 
-const agyRows = () => within(screen.getByRole('list', { name: 'Antigravity' })).getAllByRole('button');
+/** The Antigravity accounts: the one in use (a status), then the rows under "tài khoản khác" (buttons). */
+const agyRows = () => [...screen.getByRole('region', { name: 'Antigravity' }).querySelectorAll<HTMLElement>('[data-active], [role=list] button')];
 const ultra1 = () => agyRows().find((b) => /^lanpham\.ultra[,.]/.test(b.getAttribute('aria-label')!))!;
 const ultra2 = () => agyRows().find((b) => /^lan\.ultra2[,.]/.test(b.getAttribute('aria-label')!))!;
 
@@ -50,14 +52,19 @@ async function sheetForUltra1() {
 const facts = (sheet: HTMLElement) => within(sheet).getAllByRole('listitem').map((li) => li.textContent);
 const buttons = (sheet: HTMLElement) => within(sheet).getAllByRole('button').map((b) => b.textContent);
 
-afterEach(cleanup);
+// Every section shows its other accounts, as the owner opens them.
+beforeEach(() => localStorage.setItem(MORE_KEY, JSON.stringify({ c: true, g: true, x: true })));
+afterEach(() => {
+  cleanup();
+  localStorage.removeItem(MORE_KEY);
+});
 
 describe('the Antigravity switch sheet', () => {
   it('a row of an account logged in here opens it, with the three buttons while Antigravity.app runs', async () => {
     const fake = await openPopover(listed());
     expect(ultra1().getAttribute('aria-disabled')).toBeNull();
     expect(ultra1().getAttribute('aria-label')).toMatch(/^lanpham\.ultra\. Gemini 5 giờ đã dùng .*\. Bấm để chuyển$/);
-    expect(ultra1().getAttribute('title')).toBe('lanpham.ultra@example.com · Quota Station · tài khoản 1');
+    expect(ultra1().getAttribute('title')).toBe('lanpham.ultra@example.com · Quota Station · tài khoản 1 · số 25 phút trước');
     const sheet = await sheetForUltra1();
     expect(fake.api.agyAppState).toHaveBeenCalledTimes(1);
     expect(facts(sheet)).toEqual([
@@ -323,7 +330,7 @@ describe('the Antigravity switch sheet', () => {
   it('an account that needs a new login does not switch', async () => {
     const fake = await openPopover(listed({ status: 'needsLogin' }));
     expect(ultra1().getAttribute('aria-disabled')).toBe('true');
-    expect(ultra1().getAttribute('title')).toBe('lanpham.ultra@example.com · Quota Station · tài khoản 1 · Cần đăng nhập lại trong tab Antigravity');
+    expect(ultra1().getAttribute('title')).toBe('lanpham.ultra@example.com · Quota Station · tài khoản 1 · Cần đăng nhập lại trong tab Antigravity · số 25 phút trước');
     fireEvent.click(ultra1());
     expect(screen.queryByRole('dialog', { name: /Chuyển Antigravity/ })).toBeNull();
     expect(fake.api.agyAppState).not.toHaveBeenCalled();
@@ -337,7 +344,7 @@ describe('the Antigravity switch sheet', () => {
       }),
     );
     expect(ultra1().getAttribute('aria-disabled')).toBe('true');
-    expect(ultra1().getAttribute('title')).toBe('lanpham.ultra@example.com · Quota Station · tài khoản 1 · Chưa đăng nhập tài khoản này trong Quota Station');
+    expect(ultra1().getAttribute('title')).toBe('lanpham.ultra@example.com · Quota Station · tài khoản 1 · Chưa đăng nhập tài khoản này trong Quota Station · số 25 phút trước');
   });
 });
 
