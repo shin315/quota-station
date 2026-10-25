@@ -30,7 +30,8 @@ import type { Agent, McpRow, McpTable, Model } from '../lib/model';
 import { t } from '../lib/i18n';
 import { dayClock } from '../lib/switching';
 import type { Action, BannerView, FeedbackView, PopoverView } from '../lib/view';
-import { ARCHIVE_ICON, LOCK_ICON, NAV_ICONS, PLUG_BIG, PUZZLE_ICON } from '../window/icons';
+import { NoteGlyph } from '../components/icons';
+import { LOCK_ICON, PLUG_BIG } from '../window/icons';
 import { CheckMatrix, LOCK, MATRIX_HOVER, MATRIX_TITLE, PendingBar, type MatrixCell, type MatrixColumn } from './CheckMatrix';
 import { editable, type Mcp } from './useMcp';
 
@@ -275,7 +276,7 @@ export function McpTab({ model, fresh, feedback, now, mcp, onAction }: McpTabPro
         {table.stored.map((k) => (
           <InfoLine
             key={k.name}
-            icon={ARCHIVE_ICON}
+            icon={<NoteGlyph note="putAway" />}
             actions={
               <>
                 <Button disabled={busy} onClick={() => mcp.setDialog({ kind: 'kho', name: k.name, agents: khoAgents(table, k.agents) })}>
@@ -296,7 +297,7 @@ export function McpTab({ model, fresh, feedback, now, mcp, onAction }: McpTabPro
         ))}
         {table.owned.length ? (
           <InfoLine
-            icon={PUZZLE_ICON}
+            icon={<NoteGlyph note="builtIn" />}
             actions={
               <LinkButton small onClick={() => mcp.setDialog({ kind: 'owned' })}>
                 {t('Xem', 'View')}
@@ -310,7 +311,7 @@ export function McpTab({ model, fresh, feedback, now, mcp, onAction }: McpTabPro
           </InfoLine>
         ) : null}
         <InfoLine
-          icon={NAV_ICONS.history}
+          icon={<NoteGlyph note="backups" />}
           actions={
             <LinkButton small onClick={() => mcp.setDialog({ kind: 'backups' })}>
               {t('Bản đã lưu', 'Backups')}

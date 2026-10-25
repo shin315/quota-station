@@ -15,7 +15,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Segment, Segmented } from '@/components/ui/segmented';
 import { cn } from '@/lib/utils';
 import { CheckRow, Progress } from '../components/blocks';
-import { Icon } from '../components/icons';
+import { Glyph } from '../components/icons';
 import { COUNT, Empty, EmptyIcon, GROUP_HEAD, TabHead, TabSub, TabTitle } from '../components/page';
 import { Banner, Button, Chip, Dot, Feedback, LinkButton, Toggle } from '../components/parts';
 import { groups, hasView, itemKey, itemName, itemNote, macChip, readAt, sameLine, selectable, stateChip, wrongWay } from '../lib/copy';
@@ -227,7 +227,7 @@ export function CopyTab({ model, feedback, copy, onAction }: CopyTabProps) {
         <span className="flex flex-none items-center gap-2 text-body font-semi whitespace-nowrap">
           {copy.here}
           <span className="font-reg text-ink2">{t('(máy này)', '(this Mac)')}</span>
-          <Icon name="arrow-right" className={cn('size-3.5 text-ink2', !copy.push && 'rotate-180')} />
+          <Glyph name="arrow-right" bold className={cn('size-3.5 text-ink2', !copy.push && 'rotate-180')} />
         </span>
         <Segmented variant="inline" className="flex-none" aria-label={t('Chiều chép', 'Copy direction')}>
           <Segment className="px-3" pressed={copy.push} disabled={copy.working || reading} onClick={() => copy.way(true)}>

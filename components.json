@@ -17,7 +17,7 @@
     "lib": "@/lib",
     "hooks": "@/hooks"
   },
-  "iconLibrary": "lucide",
+  "iconLibrary": "phosphor",
   "registries": {
     "@svgl": "https://svgl.app/r/{name}.json"
   }

@@ -11,7 +11,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { Icon } from '../components/icons';
+import { Glyph } from '../components/icons';
 import { BannerBox, Button, Chip, ChoiceGroup, FieldHint, LinkButton, Rich, Spinner } from '../components/parts';
 import { LABEL, rowClass } from '../components/page';
 import { LOGIN_WAIT_MS, minutes } from '../claude/ClaudeDialogs';
@@ -150,7 +150,7 @@ function Found({ mark, title, line, children }: { mark: Mark; title: string; lin
     <li className="grid grid-cols-[16px_minmax(0,1fr)] items-start gap-x-2.5 gap-y-1 border-t-[.5px] border-card-line py-2 first:border-t-0">
       <span className={cn('mt-px grid size-4 place-items-center', mark === 'ok' ? 'text-ok' : 'text-ink2')}>
         <span className="sr-only">{mark === 'ok' ? t('có', 'found') : mark === 'note' ? t('lưu ý', 'note') : t('không có', 'not found')}</span>
-        {mark === 'none' ? <i className="h-0.5 w-2.5 rounded-[1px] bg-ink3" aria-hidden="true" /> : <Icon name={mark === 'ok' ? 'circle-check' : 'circle-alert'} className="size-3.5" />}
+        {mark === 'none' ? <i className="h-0.5 w-2.5 rounded-[1px] bg-ink3" aria-hidden="true" /> : <Glyph name={mark === 'ok' ? 'check-circle' : 'warning-circle'} className="size-3.5" />}
       </span>
       <div className="grid gap-0.5">
         <b className="text-body font-semi">{title}</b>

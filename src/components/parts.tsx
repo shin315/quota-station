@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils';
 import type { ChoiceView } from '../lib/switching';
 import { isQuiet, type Action, type BannerView, type ChipView, type FeedbackView } from '../lib/view';
 import { t } from '../lib/i18n';
-import { Icon, type IconName } from './icons';
+import { Glyph, type GlyphName } from './icons';
 
 /** A bar's fill by tone: green by default, the service's colour for `c` and `g`. */
 const METER_FILL: Record<string, string> = { warn: 'bg-warn', bad: 'bg-bad', muted: 'bg-ink3', c: 'bg-id-claude', g: 'bg-id-agy' };
@@ -51,8 +51,8 @@ export function Button(props: {
   small?: boolean;
   /** Only an icon: give it a `label`. */
   icon?: boolean;
-  /** An icon before the words. */
-  lead?: IconName;
+  /** An icon before the words, in the button's colour. */
+  lead?: GlyphName;
   disabled?: boolean;
   label?: string;
   title?: string;
@@ -69,7 +69,7 @@ export function Button(props: {
       title={props.title ?? (props.icon ? props.label : undefined)}
       onClick={props.onClick}
     >
-      {props.lead ? <Icon name={props.lead} /> : null}
+      {props.lead ? <Glyph name={props.lead} bold /> : null}
       {props.children}
     </UiButton>
   );
