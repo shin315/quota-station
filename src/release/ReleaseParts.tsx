@@ -4,21 +4,22 @@
 // A newer release and the diagnostic info, as the prototype draws them
 // (u-dialog, u-source, u-set…, u-diag): the dialog with what is new and
 // "Tải và cài", the build from source pointed at its clone, Cài đặt ›
-// Cập nhật's rows, and the Chẩn đoán card with its dialog.
+// Cập nhật's rows, and the Chẩn đoán card with its dialog. The rows are laid
+// out as the rest of Cài đặt (SetRow): the name and its line on the left,
+// the button or the switch on the right.
 
 import { useState } from 'react';
 import { DialogButtons, DialogLead, DialogTitle } from '@/components/ui/dialog';
 import { Command } from '../components/blocks';
-import { rowClass } from '../components/page';
 import { Icon } from '../components/icons';
-import { Button, Facts, FieldHint, LinkButton, Rich, Spinner, Toggle } from '../components/parts';
+import { Button, Facts, LinkButton, More, Rich, Spinner, Toggle } from '../components/parts';
+import { SetRow } from '../settings/SetRow';
 import { t } from '../lib/i18n';
 import type { Model } from '../lib/model';
 import { fromSource, megabytes, newerRelease, releaseDate, versionRow } from '../lib/release';
 import type { Action } from '../lib/view';
 import type { ReleaseState } from './useRelease';
 
-const LABEL = 'fl pt-[3px] text-sm font-semi';
 const PULL = 'git pull --ff-only && scripts/install.sh';
 
 /** The clone's command and "Chép lệnh", which says "Đã chép" once it has. */
@@ -208,10 +209,11 @@ export function ReleaseRows({ model, onAction, onAuto }: { model: Model; onActio
   const label = source ? t('Báo khi có bản mới', 'Tell me about new versions') : t('Tự kiểm bản mới của app', 'Check for app updates');
   return (
     <>
-      <div className={rowClass()}>
-        <div className={LABEL}>{t('Phiên bản', 'Version')}</div>
-        <div className="flex items-start gap-3">
-          <div className="grid min-w-0 flex-1 gap-0.5 text-xs text-ink2">
+      <SetRow
+        label={t('Phiên bản', 'Version')}
+        inline
+        hint={
+          <>
             <span>{row.build}</span>
             <span role="status">
               {row.status}{' '}
@@ -221,31 +223,41 @@ export function ReleaseRows({ model, onAction, onAuto }: { model: Model; onActio
                 </LinkButton>
               ) : null}
             </span>
-          </div>
-          {row.button ? (
-            <Button small primary={row.button.primary} disabled={row.button.disabled} onClick={() => onAction(row.button!.act)}>
-              {row.button.label}
-            </Button>
-          ) : null}
-        </div>
-      </div>
-      <div className={rowClass()}>
-        <div className={LABEL}>{label}</div>
-        <div>
-          <Toggle on={model.release.auto} label={label} onClick={() => onAuto(!model.release.auto)} />
-          <FieldHint>
+          </>
+        }
+      >
+        {row.button ? (
+          <Button small primary={row.button.primary} disabled={row.button.disabled} onClick={() => onAction(row.button!.act)}>
+            {row.button.label}
+          </Button>
+        ) : null}
+      </SetRow>
+      <SetRow
+        label={label}
+        inline
+        hint={
+          <span>
             {source
-              ? t(
-                  'Mỗi ngày một lần qua GitHub Releases. Bản build từ mã nguồn không cài bản tải về: chỉ báo.',
-                  'Once a day through GitHub Releases. A build from source never installs the download: it only tells you.',
-                )
-              : t(
-                  'Mỗi ngày một lần qua GitHub Releases, không token, không gửi gì về máy này. Tắt thì chỉ kiểm khi bạn bấm.',
-                  'Once a day through GitHub Releases, no token, nothing about this Mac sent. Off means it only checks when you press.',
-                )}
-          </FieldHint>
-        </div>
-      </div>
+              ? t('Kiểm GitHub mỗi ngày; bản build từ mã nguồn chỉ báo.', 'Checks GitHub daily; a build from source only tells you.')
+              : t('Mỗi ngày một lần qua GitHub Releases.', 'Once a day through GitHub Releases.')}{' '}
+            <More small about={label}>
+              <p>
+                {source
+                  ? t(
+                      'Mỗi ngày một lần qua GitHub Releases. Bản build từ mã nguồn không cài bản tải về: chỉ báo.',
+                      'Once a day through GitHub Releases. A build from source never installs the download: it only tells you.',
+                    )
+                  : t(
+                      'Mỗi ngày một lần qua GitHub Releases, không token, không gửi gì về máy này. Tắt thì chỉ kiểm khi bạn bấm.',
+                      'Once a day through GitHub Releases, no token, nothing about this Mac sent. Off means it only checks when you press.',
+                    )}
+              </p>
+            </More>
+          </span>
+        }
+      >
+        <Toggle on={model.release.auto} label={label} onClick={() => onAuto(!model.release.auto)} />
+      </SetRow>
     </>
   );
 }
@@ -253,18 +265,25 @@ export function ReleaseRows({ model, onAction, onAuto }: { model: Model; onActio
 /** Cài đặt › Chẩn đoán: copy the diagnostic info, open the bug form. */
 export function DiagnosticsRows({ onAction }: { onAction(act: Action): void }) {
   return (
-    <div className="grid gap-2.5">
-      <p className="m-0 text-sm text-ink2">
-        {t('Không gửi gì đi đâu. Khi báo lỗi, dán phần đã chép vào issue trên GitHub.', 'Nothing is sent anywhere. When reporting a bug, paste what you copied into a GitHub issue.')}
-      </p>
-      <div className="flex flex-wrap items-center gap-3">
-        <Button small onClick={() => onAction('diag:open')}>
-          {t('Chép thông tin chẩn đoán…', 'Copy diagnostic info…')}
-        </Button>
-        <LinkButton small onClick={() => onAction('release:issue')}>
-          {t('Mở trang báo lỗi trên GitHub', 'Open the GitHub bug form')}
-        </LinkButton>
-      </div>
-    </div>
+    <SetRow
+      label={t('Thông tin chẩn đoán', 'Diagnostic info')}
+      inline
+      hint={
+        <>
+          <span>
+            {t('Không gửi gì đi đâu. Khi báo lỗi, dán phần đã chép vào issue trên GitHub.', 'Nothing is sent anywhere. When reporting a bug, paste what you copied into a GitHub issue.')}
+          </span>
+          <span>
+            <LinkButton small onClick={() => onAction('release:issue')}>
+              {t('Mở trang báo lỗi trên GitHub', 'Open the GitHub bug form')}
+            </LinkButton>
+          </span>
+        </>
+      }
+    >
+      <Button small onClick={() => onAction('diag:open')}>
+        {t('Chép thông tin chẩn đoán…', 'Copy diagnostic info…')}
+      </Button>
+    </SetRow>
   );
 }

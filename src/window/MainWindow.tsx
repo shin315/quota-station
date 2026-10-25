@@ -28,9 +28,9 @@ import { Dialog, DialogContent, DialogOverlay } from '@/components/ui/dialog';
 import { Segment, Segmented } from '@/components/ui/segmented';
 import { cn } from '@/lib/utils';
 import { AddAccount, LoginActions, LoginNotes, LogoutConfirm, loginChips, type AgyLogins } from '@agy/AgyAccounts';
-import { AccountName, IdMark, InUse, NowCard, WindowCell } from '../components/accounts';
-import { Empty, GRID2, STACK, TABLE, TABLE_BOX, TABLE_CELLS, TABLE_END, TABLE_HEAD, TABLE_ROW, TABLE_ROW_ON, TABLE_TIGHT, TabHead, TabSub, TabTitle } from '../components/page';
-import { Banner, Button, Chip, CODE, Dot, Feedback, KVT, Toggle } from '../components/parts';
+import { AccountName, IdMark, InUse, WindowCell } from '../components/accounts';
+import { Empty, OV_COLS, TABLE, TABLE_BOX, TABLE_CELLS, TABLE_END, TABLE_HEAD, TABLE_ROW, TABLE_ROW_ON, TabHead, TabNote, TabSub, TabTitle } from '../components/page';
+import { Banner, Button, Chip, CODE, Dot, Feedback, KVT, More, Toggle } from '../components/parts';
 import type { Tab } from '../lib/model';
 import { pauseOptions, type AutoView, type PauseChoice } from '../lib/switching';
 import { bannerUnder, type Action, type BannerView, type CardView, type ChipView, type FeedbackView, type NoteView } from '../lib/view';
@@ -160,16 +160,21 @@ function TitleBar(props: { title: string; view: WindowView; busy: boolean; onRef
 /** The traffic lights the browser preview draws; macOS draws its own in the app. */
 const LIGHT = 'size-3 rounded-full [body:not(.preview)_&]:invisible';
 
-/** A card: a service's (`kind`) has its mark; `under`: a line under the name; `end`: at the title's right. */
-function Card(props: { title: ReactNode; kind?: 'c' | 'g'; icon?: IconName; tag?: ReactNode; under?: ReactNode; end?: ReactNode; children: ReactNode }) {
+/**
+ * A card: a service's (`kind`) has its mark; `under`: a line under the name;
+ * `end`: at the title's right; `head`: a wider part of the head (Tổng quan's
+ * automatic switching), which goes under the title where the page is narrow.
+ */
+function Card(props: { title: ReactNode; kind?: 'c' | 'g'; icon?: IconName; tag?: ReactNode; under?: ReactNode; end?: ReactNode; head?: ReactNode; children: ReactNode }) {
   return (
     <Panel>
-      <CardTitle>
+      <CardTitle className={props.head ? 'flex-wrap gap-y-1' : undefined}>
         {props.kind ? <IdMark id={props.kind} /> : props.icon ? <Icon name={props.icon} /> : null}
         {props.title}
         {props.tag}
         {props.under ? <span className="font-reg text-ink3">{props.under}</span> : null}
         {props.end ? <span className="ml-auto flex items-center gap-2 font-reg">{props.end}</span> : null}
+        {props.head}
       </CardTitle>
       {props.children}
     </Panel>
@@ -212,16 +217,22 @@ function TableRow(props: { card: CardView; extra?: ReactNode; menu?: ReactNode; 
   );
 }
 
-/** Claude: 5 giờ · Tuần · Fable tuần, the same columns for every account. */
+/**
+ * Claude: 5 giờ · Tuần · Fable tuần, the same columns for every account.
+ * `tight`: Tổng quan's table, whose name and buttons columns the other
+ * sections share (OV_COLS).
+ */
 function ClaudeTable(props: { cards: CardView[]; tight?: boolean; menu?(card: CardView): ReactNode; onSwitch(slot: number): void }) {
   if (!props.cards.length) return null;
   // Whole class names, so Tailwind finds them; the Claude tab adds the ⋯ column.
   // The buttons' column is as wide as the widest row's buttons.
-  const cols = props.menu
-    ? '[--wt-cols:minmax(96px,1.25fr)_repeat(3,minmax(64px,1fr))_minmax(66px,auto)_28px]'
-    : '[--wt-cols:minmax(96px,1.25fr)_repeat(3,minmax(64px,1fr))_minmax(66px,auto)]';
+  const cols = props.tight
+    ? OV_COLS.claude
+    : props.menu
+      ? '[--wt-cols:minmax(96px,1.25fr)_repeat(3,minmax(64px,1fr))_minmax(66px,auto)_28px]'
+      : '[--wt-cols:minmax(96px,1.25fr)_repeat(3,minmax(64px,1fr))_minmax(66px,auto)]';
   return (
-    <div className={cn(TABLE_BOX, props.tight && TABLE_TIGHT)}>
+    <div className={TABLE_BOX}>
       <div className={cn(TABLE, cols)} role="list" aria-label="Claude Code">
         <div className={HEAD} aria-hidden="true">
           <span>{t('Tài khoản', 'Account')}</span>
@@ -249,11 +260,15 @@ function AgyTable(props: { cards: CardView[]; logins?: AgyLogins; tight?: boolea
   const logins = props.logins;
   // Whole class names, so Tailwind finds them. The buttons' column (Chuyển, and
   // with the logins the verification page and Đăng xuất) is as wide as the widest row's.
-  const cols = four
-    ? '[--wt-cols:minmax(96px,1.25fr)_repeat(4,minmax(56px,.82fr))_minmax(66px,auto)]'
-    : '[--wt-cols:minmax(96px,1.25fr)_repeat(2,minmax(64px,1fr))_minmax(66px,auto)]';
+  const cols = props.tight
+    ? four
+      ? OV_COLS.agy4
+      : OV_COLS.agy2
+    : four
+      ? '[--wt-cols:minmax(96px,1.25fr)_repeat(4,minmax(56px,.82fr))_minmax(66px,auto)]'
+      : '[--wt-cols:minmax(96px,1.25fr)_repeat(2,minmax(64px,1fr))_minmax(66px,auto)]';
   return (
-    <div className={cn(TABLE_BOX, props.tight && TABLE_TIGHT)}>
+    <div className={TABLE_BOX}>
       <div className={cn(TABLE, cols)} role="list" aria-label="Antigravity">
         {four ? (
           <>
@@ -322,25 +337,6 @@ function KeyValues({ rows }: { rows: KeyValue[] }) {
   );
 }
 
-/** Automatic switching on one line: what it does now, and its switch. */
-function AutoCard({ auto, tag, onToggle, children }: { auto: AutoView; tag?: ReactNode; onToggle(): void; children?: ReactNode }) {
-  return (
-    <Panel>
-      <div className="flex items-center justify-between gap-2.5">
-        <div className="min-w-0">
-          <b className="flex items-center gap-1.5 text-body font-semi">
-            {auto.title}
-            {tag}
-          </b>
-          <small className="block text-xs text-ink2">{auto.line}</small>
-        </div>
-        <Toggle on={auto.toggle.on} label={auto.toggle.label} disabled={auto.toggle.disabled} onClick={onToggle} />
-      </div>
-      {children}
-    </Panel>
-  );
-}
-
 /** A card with nothing in it yet: a dashed box, a bold line, a word, and its button. */
 export function EmptyBox(props: { icon?: ReactNode; title: string; body?: string; children?: ReactNode }) {
   return (
@@ -383,8 +379,8 @@ export interface ClaudeManage {
   emptyExtra?: ReactNode;
   /** Before Quota Station keeps the accounts claude-swap lists: the banner to bring them in. */
   setup?: ReactNode;
-  /** The rotation's LaunchAgent: its switch, the old switcher's warning. In the Switcher card with Nâng cao. */
-  rotation: ReactNode;
+  /** The rotation's LaunchAgent, in the Claude tab's "Chạy nền": its switch, its line, the old switcher's warning, what Firstmate runs. */
+  rotation: { toggle: ReactNode; line: string; warning: ReactNode; firstmate: ReactNode };
   /** Without Nâng cao, a card of its own: only while the rotation runs or the old switcher is loaded. */
   rotationAlone: boolean;
 }
@@ -400,64 +396,83 @@ function Top(props: TabProps & { title: string; banner?: boolean }) {
   );
 }
 
+/** Automatic switching in the Claude section's head on Tổng quan: its switch and why Claude is on its account. */
+function AutoHead({ auto, onToggle }: { auto: AutoView; onToggle(): void }) {
+  return (
+    <span className="ml-auto flex min-w-0 items-center gap-2 font-reg">
+      <b className="font-semi whitespace-nowrap text-ink">{auto.title}</b>
+      <AdvancedTag />
+      <Toggle on={auto.toggle.on} label={auto.toggle.label} disabled={auto.toggle.disabled} onClick={onToggle} />
+      <small className="min-w-0 truncate text-xs text-ink2" title={auto.line}>
+        {auto.line}
+      </small>
+    </span>
+  );
+}
+
+/** What the numbers on Tổng quan are, said once for the whole page. */
+function OverviewNote() {
+  return (
+    <TabNote>
+      {t('% đã dùng của từng hạn mức', 'Share used of each quota')}
+      {' · '}
+      <More about={t('% đã dùng của từng hạn mức', 'Share used of each quota')}>
+        <p>
+          {t(
+            'Mỗi số là phần đã dùng của một hạn mức, theo mẫu số riêng của dịch vụ và cửa sổ đó, nên không cộng được giữa các cột hay các dịch vụ.',
+            'Each number is the share used of one quota, out of that service’s and window’s own total, so the columns and services do not add up.',
+          )}
+        </p>
+        <p>
+          {t(
+            'Dòng dưới thanh là thời gian còn tới lúc hạn mức đặt lại. Dấu — là chưa có số, không phải 0. Thanh vàng từ 70%, đỏ từ 90%.',
+            'The line under a bar is the time left until the quota resets. A dash means no number yet, not 0. Bars turn amber from 70 % and red from 90 %.',
+          )}
+        </p>
+        <p>
+          {t(
+            'Chip “số … trước” cho biết số của tài khoản đó đọc cách đây bao lâu.',
+            'A “numbers … old” chip says how long ago that account was read.',
+          )}
+        </p>
+      </More>
+    </TabNote>
+  );
+}
+
+/**
+ * Tổng quan: one section per service, each the whole width (Claude,
+ * Antigravity, Codex), every account with its windows, the names and the
+ * buttons on the same columns in all three. Automatic switching sits in
+ * the Claude section's head.
+ */
 function Overview(props: TabProps & { advanced: boolean; agyAccounts: boolean; release?: BannerView | null; onTab(tab: Tab): void }) {
   const v = props.view;
   return (
     <>
       <Top {...props} title={t('Tổng quan', 'Overview')} />
-
-      {/* The rail takes its share of the page, and goes under the accounts where
-          the window is under 1000 px (the page, the window less the sidebar, under 788). */}
-      <div className="grid grid-cols-[minmax(0,2.6fr)_minmax(0,1fr)] items-start gap-3 @max-[788px]/main:grid-cols-[minmax(0,1fr)]">
-        <div className={STACK}>
-          <NowCard now={v.now} />
-          {v.claude.present ? (
-            <Card title="Claude" kind="c">
-              {v.claude.empty ? (
-                <EmptyBox title={t('Chưa có tài khoản Claude nào', 'No Claude accounts yet')}>
-                  <Button small primary onClick={() => props.onTab('claude')}>
-                    {t('Thêm tài khoản…', 'Add account…')}
-                  </Button>
-                </EmptyBox>
-              ) : (
-                <ClaudeTable cards={v.claude.cards} tight onSwitch={props.onSwitch} />
-              )}
-              <Note note={v.claude.note} />
-            </Card>
-          ) : null}
-          {v.agy.present ? (
-            <Card title="Antigravity" kind="g" tag={props.agyAccounts ? null : <Chip chip={{ t: t('chỉ đọc', 'read-only'), k: 'tag' }} />}>
-              <AgyTable cards={v.agy.cards} tight onSwitch={props.onSwitchAgy} />
-              <Note note={v.agy.note} />
-            </Card>
-          ) : null}
-          {props.codexCard}
-        </div>
-        <div className={cn(STACK, '@max-[788px]/main:grid-cols-[repeat(auto-fit,minmax(240px,1fr))] @max-[788px]/main:items-start')}>
-          {props.advanced && v.claude.cards.length > 1 ? <AutoCard auto={v.auto} onToggle={props.onToggle} /> : null}
-          <Card title={t('Sắp tới', 'Coming up')}>
-            {v.upcoming.length ? (
-              <div className="grid gap-2 text-sm">
-                {v.upcoming.map((u) => (
-                  // The time in its own column (tomorrow under it), the event the rest of the width.
-                  <div key={u.key} className="grid grid-cols-[54px_minmax(0,1fr)] gap-2">
-                    <time className="grid text-ink2 tabular-nums">
-                      {u.clock}
-                      {u.day ? <small className="text-cap text-ink3">{u.day}</small> : null}
-                    </time>
-                    <span>
-                      {u.tone ? <Dot tone={u.tone} className="mr-1.5" /> : null}
-                      {u.what}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <CardText>{t('Không có mốc đặt lại nào trong 24 giờ tới.', 'No resets in the next 24 hours.')}</CardText>
-            )}
-          </Card>
-        </div>
-      </div>
+      <OverviewNote />
+      {v.claude.present ? (
+        <Card title="Claude" kind="c" head={props.advanced && v.claude.cards.length > 1 ? <AutoHead auto={v.auto} onToggle={props.onToggle} /> : null}>
+          {v.claude.empty ? (
+            <EmptyBox title={t('Chưa có tài khoản Claude nào', 'No Claude accounts yet')}>
+              <Button small primary onClick={() => props.onTab('claude')}>
+                {t('Thêm tài khoản…', 'Add account…')}
+              </Button>
+            </EmptyBox>
+          ) : (
+            <ClaudeTable cards={v.claude.cards} tight onSwitch={props.onSwitch} />
+          )}
+          <Note note={v.claude.note} />
+        </Card>
+      ) : null}
+      {v.agy.present ? (
+        <Card title="Antigravity" kind="g" tag={props.agyAccounts ? null : <Chip chip={{ t: t('chỉ đọc', 'read-only'), k: 'tag' }} />}>
+          <AgyTable cards={v.agy.cards} tight onSwitch={props.onSwitchAgy} />
+          <Note note={v.agy.note} />
+        </Card>
+      ) : null}
+      {props.codexCard}
       {/* A newer release: a plain note held at the window's foot, under everything else (u-overview). */}
       {props.release ? (
         // Frosted, edge to edge, over the page's foot padding: the page scrolls by under it.
@@ -465,6 +480,61 @@ function Overview(props: TabProps & { advanced: boolean; agyAccounts: boolean; r
           <div className="rounded-card bg-glass-solid shadow-card">
             <Banner banner={props.release} onAction={props.onAction} busy={props.busy} />
           </div>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+/** A half of the Claude tab's automatic switching card. */
+const HALF = 'min-w-0 px-3.5 py-3';
+
+/**
+ * What runs the rotation: the LaunchAgent's switch, how it last ran (with
+ * Nâng cao, from the switcher), and the rest behind "Chi tiết".
+ */
+function RunHalf(props: { title: string; tag?: ReactNode; rotation?: ClaudeManage['rotation']; switcher?: WindowView['switcher'] }) {
+  const { rotation, switcher } = props;
+  return (
+    <>
+      <div className="flex items-center justify-between gap-2.5">
+        <b className="flex items-center gap-1.5 text-body font-semi" id="qs-run-h">
+          {props.title}
+          {props.tag}
+        </b>
+        {rotation?.toggle}
+      </div>
+      {switcher ? (
+        <div className="mt-0.5 text-sm text-ink2">
+          <Dot tone={switcher.tone} className="mr-1.5" />
+          {switcher.line}
+        </div>
+      ) : null}
+      {rotation ? <small className="mt-0.5 block text-xs text-ink2">{rotation.line}</small> : null}
+      {rotation?.warning}
+      {switcher || rotation?.firstmate ? (
+        <div className="mt-2 text-xs text-ink2">
+          {rotation?.firstmate ? t('Firstmate dùng cùng bộ luật. ', 'Firstmate uses the same rules. ') : null}
+          <More small about={props.title}>
+            <p>
+              {t(
+                'LaunchAgent com.shin315.quota-station.rotation chạy luật xoay vòng mỗi 3 phút, kể cả khi đã đóng app. Khi bộ tự chuyển cũ (com.cswap.prefer-team hoặc com.cswap.auto) còn được nạp, nó không chuyển gì.',
+                'The LaunchAgent com.shin315.quota-station.rotation runs the rotation rules every 3 minutes, even with the app closed. While the old auto-switcher (com.cswap.prefer-team or com.cswap.auto) is loaded, it switches nothing.',
+              )}
+            </p>
+            {rotation?.firstmate ? (
+              <>
+                {rotation.firstmate}
+                <p>
+                  {t(
+                    'quota-axi của Firstmate, khi được trỏ vào app, đọc cùng file luật claude/rotation; giờ nó đọc có thể khác giờ app hiện.',
+                    'Firstmate’s quota-axi, once pointed at the app, reads the same rules file, claude/rotation; it may read it at another time than the app shows.',
+                  )}
+                </p>
+              </>
+            ) : null}
+            {switcher ? <KeyValues rows={switcher.details} /> : null}
+          </More>
         </div>
       ) : null}
     </>
@@ -527,9 +597,18 @@ function ClaudeTab(props: TabProps & { advanced: boolean }) {
         <Note note={v.claude.note} />
       </Card>
       {props.advanced ? (
-        <div className={GRID2}>
-          <AutoCard auto={a} tag={<AdvancedTag />} onToggle={props.onToggle}>
-            <CardText style={{ margin: '12px 0 4px' }} id="qs-qp">
+        // One card in two halves that end on one line: switching itself, and what runs it.
+        <Panel className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] p-0 @max-[680px]/main:grid-cols-[minmax(0,1fr)]">
+          <section className={HALF} aria-labelledby="qs-auto-h">
+            <div className="flex items-center justify-between gap-2.5">
+              <b className="flex items-center gap-1.5 text-body font-semi" id="qs-auto-h">
+                {a.title}
+                <AdvancedTag />
+              </b>
+              <Toggle on={a.toggle.on} label={a.toggle.label} disabled={a.toggle.disabled} onClick={props.onToggle} />
+            </div>
+            <small className="block text-xs text-ink2">{a.line}</small>
+            <CardText className="mt-3 mb-1" id="qs-qp">
               {t('Tạm dừng', 'Pause')}
             </CardText>
             <Segmented aria-labelledby="qs-qp">
@@ -539,25 +618,15 @@ function ClaudeTab(props: TabProps & { advanced: boolean }) {
                 </Segment>
               ))}
             </Segmented>
-          </AutoCard>
-          <Card title="Switcher" tag={<AdvancedTag />}>
-            <div className="text-sm text-ink2">
-              <Dot tone={sw.tone} className="mr-1.5" />
-              {sw.line}
-            </div>
-            <details className="mt-2 text-sm text-ink2">
-              <summary className="cursor-pointer list-none text-accent-ink [&::-webkit-details-marker]:hidden">{t('Chi tiết', 'Details')}</summary>
-              <div className="mt-2">
-                <KeyValues rows={sw.details} />
-              </div>
-            </details>
-            {m?.rotation}
-          </Card>
-        </div>
+          </section>
+          <section className={cn(HALF, 'border-l-[.5px] border-card-line @max-[680px]/main:border-t-[.5px] @max-[680px]/main:border-l-0')} aria-labelledby="qs-run-h">
+            <RunHalf title={t('Chạy nền', 'Background run')} tag={<AdvancedTag />} rotation={m?.rotation} switcher={sw} />
+          </section>
+        </Panel>
       ) : m?.rotationAlone ? (
-        <Card title={t('Tự chuyển bằng Quota Station', 'Auto-switch with Quota Station')} icon="shuffle">
-          {m.rotation}
-        </Card>
+        <Panel aria-labelledby="qs-run-h">
+          <RunHalf title={t('Tự chuyển bằng Quota Station', 'Auto-switch with Quota Station')} rotation={m.rotation} />
+        </Panel>
       ) : null}
     </>
   );

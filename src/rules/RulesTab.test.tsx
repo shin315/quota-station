@@ -340,6 +340,43 @@ describe('rules editor', () => {
     ]);
   });
 
+  it('the hours’ rail and both sliders share one width, so they start and end on the same lines', async () => {
+    await open();
+    const rail = (el: Element) => el.closest('[class*="max-w-[560px]"]');
+    const full = rail(screen.getByLabelText('Ngưỡng tự chuyển, phần trăm hạn mức 5 giờ đã dùng'))!;
+    const fable = rail(screen.getByLabelText('Ngưỡng Fable tuần, phần trăm đã dùng'))!;
+    const hours = rail(screen.getByText('Giờ trên Mac này · kết thúc lúc 24:00', { exact: false }))!;
+    expect(new Set([full, fable, hours]).size).toBe(3);
+    expect(new Set([full.className, fable.className, hours.className]).size).toBe(1);
+  });
+
+  it('a line of meaning under each slider and the hours, the longer words behind “Chi tiết”', async () => {
+    await open();
+    expect(screen.getByText(/^Tài khoản đang dùng đạt 90% thì xét chuyển sang tài khoản còn dưới 90%\./)).toBeTruthy();
+    expect(screen.getByText(/^Tài khoản có Fable tuần từ 95% được xếp sau cùng/)).toBeTruthy();
+    expect(screen.getByText(/^Giờ trên Mac này · kết thúc lúc 24:00/)).toBeTruthy();
+    // The line follows the slider.
+    fireEvent.change(screen.getByLabelText('Ngưỡng tự chuyển, phần trăm hạn mức 5 giờ đã dùng'), { target: { value: '85' } });
+    expect(screen.getByText(/^Tài khoản đang dùng đạt 85% thì xét chuyển sang tài khoản còn dưới 85%\./)).toBeTruthy();
+    expect(screen.queryByText(/Số được xét là số cao hơn/)).toBeNull();
+    await press(screen.getByRole('button', { name: 'Chi tiết: ngưỡng tự chuyển' }));
+    expect(screen.getByText('Số được xét là số cao hơn giữa hạn mức 5 giờ và tuần của tài khoản.')).toBeTruthy();
+    expect(screen.getByText(/Lưu luật chỉ ghi file luật, không bật hay tắt việc tự chuyển\./)).toBeTruthy();
+  });
+
+  it('the card’s foot is one row: the preview, a line per Mac and the save button', async () => {
+    await open();
+    const line = await screen.findByText('Vẫn dùng lan.acme1: chưa tới ngưỡng tự chuyển.', {}, { timeout: 2000 });
+    const preview = line.closest('.preview')!;
+    expect(preview.getAttribute('aria-labelledby')).toBe('qs-r-prev');
+    const foot = macs().getByText('Mac B').closest('[role=group]')!.parentElement!;
+    expect(foot.contains(preview)).toBe(true);
+    expect(foot.contains(saveButton())).toBe(true);
+    // The foot closes the card, under the form.
+    expect(foot.parentElement!.lastElementChild).toBe(foot);
+    expect(document.querySelector('.form')!.contains(preview)).toBe(false);
+  });
+
   it('the preview is one sentence, with the switcher’s line on hover', async () => {
     await open();
     const line = await screen.findByText('Vẫn dùng lan.acme1: chưa tới ngưỡng tự chuyển.', {}, { timeout: 2000 });

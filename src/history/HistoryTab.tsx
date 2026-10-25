@@ -4,14 +4,17 @@
 // The Lịch sử tab (F08): every switch on this Mac, newest first, a day at a
 // time, from the app's journal, the switcher's log and what the readings
 // showed. The list is read from the Rust side when the tab opens and again
-// after each read while it is open. Each row: time, tag, the accounts and a
-// short reason, and where it came from; the switcher's own line on hover.
+// after each read while it is open. One card: the app filter at its top,
+// then a line per switch in fixed columns: time, tag, the accounts, a short
+// reason on one line (all of it on hover, and on focus once it is cut), and
+// where it came from; the switcher's own line on hover.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Badge, badgeTone } from '@/components/ui/badge';
 import { Card as Panel } from '@/components/ui/card';
 import { Segment, Segmented } from '@/components/ui/segmented';
-import { Empty, TabHead, TabSub, TabTitle } from '../components/page';
+import { cn } from '@/lib/utils';
+import { Empty, GROUP_HEAD, TabHead, TabSub, TabTitle } from '../components/page';
 import { Dot } from '../components/parts';
 import { historyDays, historyFilters, type HistoryFilter } from '../lib/history';
 import { t } from '../lib/i18n';
@@ -27,6 +30,46 @@ export interface HistoryTabProps {
 
 /** The history's tags by kind: a switch is blue, a warning amber, a service its colour. */
 const PILL_TONE: Record<string, 'info' | 'warn'> = { sw: 'info', w: 'warn' };
+
+/**
+ * A line of a day: time, tag, accounts, reason, source, in the columns every
+ * line shares. Where the page is narrow the reason goes under the rest.
+ */
+const ROW =
+  'hrow grid grid-cols-[44px_96px_26%_minmax(0,1fr)_72px] items-center gap-3 border-t-[.5px] border-card-line py-[7px] text-sm @max-[640px]/main:grid-cols-[44px_auto_minmax(0,1fr)_auto] @max-[640px]/main:gap-x-2.5 @max-[640px]/main:gap-y-0.5';
+const NARROW_WHY = '@max-[640px]/main:col-span-3 @max-[640px]/main:col-start-2 @max-[640px]/main:row-start-2';
+const NARROW_SOURCE = '@max-[640px]/main:col-start-4 @max-[640px]/main:row-start-1';
+
+/**
+ * The reason, on one line: the whole of it on hover, and when the line cuts
+ * it, the keyboard can reach it and it opens in full while focused.
+ */
+function Reason({ text, className }: { text: string; className?: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [cut, setCut] = useState(false);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const check = () => setCut(el.scrollWidth > el.clientWidth + 1);
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [text]);
+  return (
+    <span
+      ref={ref}
+      className={cn(
+        'min-w-0 truncate rounded-sm text-ink2 focus-visible:whitespace-normal focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent-ink @max-[640px]/main:whitespace-normal',
+        className,
+      )}
+      title={text}
+      tabIndex={cut ? 0 : undefined}
+    >
+      {text}
+    </span>
+  );
+}
 
 export function HistoryTab({ model, fresh, now, load }: HistoryTabProps) {
   const [filter, setFilter] = useState<HistoryFilter>('all');
@@ -59,15 +102,15 @@ export function HistoryTab({ model, fresh, now, load }: HistoryTabProps) {
           <Dot tone={fresh.tone} />
           {model.machine} · {fresh.text}
         </TabSub>
-        <Segmented variant="inline" aria-label={t('Lọc lịch sử', 'Filter history')}>
+      </TabHead>
+      <Panel>
+        <Segmented variant="inline" className="mb-1.5" aria-label={t('Lọc lịch sử', 'Filter history')}>
           {filters.map((f) => (
-            <Segment key={f.v} pressed={filter === f.v} onClick={() => setFilter(f.v)}>
+            <Segment key={f.v} className="px-3" pressed={filter === f.v} onClick={() => setFilter(f.v)}>
               {f.t}
             </Segment>
           ))}
         </Segmented>
-      </TabHead>
-      <Panel>
         {entries === null ? null : entries === 'failed' ? (
           <Empty>
             <b>{t('Chưa đọc được lịch sử', 'Could not read the history')}</b>
@@ -89,35 +132,33 @@ export function HistoryTab({ model, fresh, now, load }: HistoryTabProps) {
         ) : (
           <>
             {days.map((d) => (
-              <section key={d.label} aria-label={d.label}>
-                <div className="pt-2.5 pb-1 text-xs font-bold text-ink2">{d.label}</div>
+              <section key={d.label} aria-label={d.label} className="mt-1.5">
+                <div className={GROUP_HEAD}>{d.label}</div>
                 {d.rows.map((r) => (
-                  <div
-                    className="hrow grid grid-cols-[48px_92px_minmax(0,1fr)_auto] items-start gap-2.5 border-t-[.5px] border-card-line py-2 text-sm"
-                    key={r.key}
-                    title={r.raw ?? undefined}
-                  >
-                    <time className="pt-px text-ink2 tabular-nums">{r.time}</time>
+                  <div className={ROW} key={r.key} title={r.raw ?? undefined}>
+                    <time className="text-ink2 tabular-nums">{r.time}</time>
                     <span>
                       <Badge shape="pill" tone={PILL_TONE[r.pill.k] ?? badgeTone(r.pill.k)}>
                         {r.pill.t}
                       </Badge>
                     </span>
-                    <div>
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        {r.from ? (
-                          <>
-                            <span className="rounded-md bg-fill px-1.5 py-px text-s">{r.from}</span>
-                            <span className="text-ink3" role="img" aria-label={t('sang', 'to')}>
-                              →
-                            </span>
-                          </>
-                        ) : null}
-                        <span className="rounded-md bg-ok/15 px-1.5 py-px text-s font-semi text-ok-ink">{r.to}</span>
-                      </div>
-                      <small className="mt-0.5 block text-ink2">{r.why}</small>
-                    </div>
-                    <span className="whitespace-nowrap pt-0.5 text-cap text-ink3">{r.source.t}</span>
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      {r.from ? (
+                        <>
+                          <span className="min-w-0 truncate rounded-md bg-fill px-1.5 py-px text-s" title={r.from}>
+                            {r.from}
+                          </span>
+                          <span className="flex-none text-ink3" role="img" aria-label={t('sang', 'to')}>
+                            →
+                          </span>
+                        </>
+                      ) : null}
+                      <span className="min-w-0 truncate rounded-md bg-ok/15 px-1.5 py-px text-s font-semi text-ok-ink" title={r.to}>
+                        {r.to}
+                      </span>
+                    </span>
+                    <Reason text={r.why} className={NARROW_WHY} />
+                    <span className={cn('justify-self-end whitespace-nowrap text-xs text-ink3', NARROW_SOURCE)}>{r.source.t}</span>
                   </div>
                 ))}
               </section>

@@ -13,13 +13,34 @@ export function TabHead({ className, ...props }: ComponentProps<'div'>) {
 }
 
 export function TabTitle({ className, ...props }: ComponentProps<'h2'>) {
-  return <h2 className={cn('m-0 flex-1 text-page tracking-[-.01em]', className)} {...props} />;
+  return <h2 className={cn('m-0 flex-1 text-page tracking-[-.01em] whitespace-nowrap', className)} {...props} />;
 }
 
 /** The line next to the title: this Mac and how fresh the numbers are. */
 export function TabSub({ className, ...props }: ComponentProps<'small'>) {
   return <small className={cn('flex items-center gap-1.5 text-sm text-ink2', className)} {...props} />;
 }
+
+/**
+ * One short line under the title: what the page is, its longer words behind
+ * a "Chi tiết" (More) at the end of the line.
+ */
+export function TabNote({ className, ...props }: ComponentProps<'div'>) {
+  return <div className={cn('-mt-1.5 text-sm text-ink2', className)} {...props} />;
+}
+
+/** A card's own buttons at the right of its title. */
+export const CARD_END = 'ml-auto flex items-center gap-2 font-reg';
+
+/**
+ * A group's head inside a card's list (a day, an agent): its name, bold, and
+ * a light count; a hairline above it unless it is the first.
+ */
+export const GROUP_HEAD = 'col-span-full flex items-center gap-1.5 border-t-[.5px] border-card-line pt-2.5 pb-1 text-sm font-semi text-ink first:border-t-0 first:pt-0.5 [&_svg]:size-3.5';
+
+/** Three cards side by side, the same height; one column where the page is narrow. */
+export const GRID3 =
+  'grid grid-cols-[repeat(3,minmax(0,1fr))] items-stretch gap-3 @max-[760px]/main:grid-cols-[minmax(0,1fr)] [&>[data-slot=card]]:flex [&>[data-slot=card]]:flex-col';
 
 /** Two columns of cards, the left one wider; one column where the page is narrow. */
 export const GRID = 'grid grid-cols-[minmax(0,1.85fr)_minmax(0,1fr)] items-start gap-3 @max-[600px]/main:grid-cols-[minmax(0,1fr)]';
@@ -29,6 +50,9 @@ export const GRID = 'grid grid-cols-[minmax(0,1.85fr)_minmax(0,1fr)] items-start
  */
 export const GRID2 =
   'grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start gap-3 @max-[680px]/main:grid-cols-[minmax(0,1fr)] [&>:only-child]:col-span-full';
+/** GRID2 whose two cards end on the same line: one bottom edge for the row. */
+export const GRID2_EVEN =
+  'grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-stretch gap-3 @max-[680px]/main:grid-cols-[minmax(0,1fr)] [&>:only-child]:col-span-full';
 /** Cards one under another in a column. */
 export const STACK = 'grid min-w-0 content-start gap-3';
 
@@ -79,6 +103,17 @@ export const TABLE = 'grid min-w-min grid-cols-(--wt-cols) gap-x-[var(--wt-gap,1
 export const TABLE_BOX = 'overflow-x-auto overscroll-x-contain';
 /** A table beside another column (Tổng quan's rail). */
 export const TABLE_TIGHT = '[--wt-gap:10px]';
+/**
+ * Tổng quan's accounts tables (Claude, Antigravity, Codex) share their first
+ * and last columns, so in every section the names start, the numbers start
+ * and the buttons end on the same lines.
+ */
+export const OV_COLS = {
+  claude: '[--wt-cols:minmax(120px,22%)_repeat(3,minmax(64px,1fr))_96px]',
+  agy4: '[--wt-cols:minmax(120px,22%)_repeat(4,minmax(56px,1fr))_96px]',
+  agy2: '[--wt-cols:minmax(120px,22%)_repeat(2,minmax(64px,1fr))_96px]',
+  codex: '[--wt-cols:minmax(120px,22%)_repeat(2,minmax(64px,1fr))_96px]',
+} as const;
 /** The table's head row: the windows' names. */
 export const TABLE_HEAD = TABLE_ROW + ' h pt-0 pb-1 text-xs whitespace-nowrap text-ink3 @max-[640px]/main:hidden';
 

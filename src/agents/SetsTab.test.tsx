@@ -55,6 +55,37 @@ describe('the Bộ cấu hình tab', () => {
     expect(fake.api.setsApply).not.toHaveBeenCalled();
   });
 
+  it('lays the sets out as cards of one size under the strip in use, Tạo bộ beside Các bộ', async () => {
+    await openTab();
+    // Tạo bộ left the title row for the sets' own head.
+    const title = screen.getByRole('heading', { level: 2 }).parentElement!;
+    expect(within(title).queryByRole('button', { name: 'Tạo bộ' })).toBeNull();
+    const head = screen.getByRole('heading', { level: 4, name: 'Các bộ 3' });
+    expect(within(head.parentElement!).getByRole('button', { name: 'Tạo bộ' })).toBeTruthy();
+    // The strip in use comes first, then the sets' head, then the cards.
+    const strip = screen.getByRole('heading', { level: 4, name: 'Đang dùng' }).closest('[data-slot=card]')!;
+    expect(strip.compareDocumentPosition(head) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const cards = within(screen.getByRole('list', { name: 'Các bộ' })).getAllByRole('listitem');
+    expect(cards.map((c) => c.getAttribute('aria-label'))).toEqual(['Web app', 'Viết tài liệu', 'Tối giản']);
+    // Each card: its name, what it does, and its three actions on one line at its foot.
+    for (const c of cards) {
+      expect(c.getAttribute('data-slot')).toBe('card');
+      const foot = within(c).getByRole('button', { name: /^Áp bộ / }).parentElement!;
+      expect(within(foot).getAllByRole('button').map((b) => b.textContent)).toEqual(['Áp dụng…', 'Sửa', 'Xoá']);
+    }
+    expect(within(cards[0]).getByText('đang dùng')).toBeTruthy();
+    // The notes stand on the glass, in no card.
+    expect(screen.getByText(/^Áp cho cả máy: mọi dự án/).closest('[data-slot=card]')).toBeNull();
+  });
+
+  it('with no set yet, offers only the first set from the configuration', async () => {
+    await openTab(fixtureModel('fresh', { sets: setsFixture({ sets: [], applied: null }) }));
+    expect(screen.getByText('Chưa có bộ nào')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Tạo bộ' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Tạo bộ từ cấu hình hiện tại' })).toBeTruthy();
+    expect(screen.queryByRole('list', { name: 'Các bộ' })).toBeNull();
+  });
+
   it('says a set as applied when nothing drifted', async () => {
     await openTab(fixtureModel('fresh', { sets: setsFixture({ applied: { ...setsFixture().applied!, drift: [] } }) }));
     expect(screen.getByText('đúng như bộ')).toBeTruthy();

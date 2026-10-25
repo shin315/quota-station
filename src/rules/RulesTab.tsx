@@ -2,10 +2,13 @@
 // SPDX-License-Identifier: MIT
 
 // The Luật xoay vòng tab (F06): the prototype's rules editor (mockup B's
-// chips and sliders), the preview from the switcher's dry run in one
-// sentence, the save bar with one line per Mac, and the two dialogs: compare
-// two copies, and unsaved changes. Rows carry short names and no line of
-// explanation; accounts go by the window's names. The state is in `useRules`.
+// chips and sliders) as one form, and at the card's foot one row with the
+// preview from the switcher's dry run in one sentence, a line per Mac and
+// the save button; then the two dialogs: compare two copies, and unsaved
+// changes. Rows carry short names; a slider and the hours have one line of
+// meaning under them, the rest behind "Chi tiết". The hours' rail and the
+// sliders share one width. Accounts go by the window's names. The state is
+// in `useRules`.
 
 import { buttonVariants } from '@/components/ui/button';
 import { Card as Panel, CardText } from '@/components/ui/card';
@@ -13,7 +16,7 @@ import { DialogButtons, DialogLead, DialogTitle } from '@/components/ui/dialog';
 import { inputVariants, Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { Empty, LABEL, rowClass, TabHead, TabSub, TabTitle } from '../components/page';
-import { Banner, Button, Chip, Dot, Facts, Feedback, FieldHint, KVT, LinkButton, Spinner } from '../components/parts';
+import { Banner, Button, Chip, Dot, Facts, Feedback, FieldHint, KVT, LinkButton, More, Spinner } from '../components/parts';
 import { clock, pad } from '../lib/format';
 import { t } from '../lib/i18n';
 import type { AuthorModel } from '../lib/author';
@@ -59,12 +62,15 @@ const PICK_MARK =
 /** The marks under a threshold slider. */
 const MARKS = [80, 85, 90, 95, 98];
 
+/** The width the hours' rail and the two sliders share, so they start and end on the same lines. */
+const RAIL = 'w-full max-w-[560px]';
+
 /** A threshold slider; each mark sits where its value is on the track. */
 export function Slider(props: { id: string; value: number; label: string; disabled: boolean; onChange(v: number): void }) {
   const min = Math.min(80, Math.floor(props.value));
   const max = Math.max(98, Math.ceil(props.value));
   return (
-    <div className="slider relative max-w-[420px] pt-[18px]">
+    <div className="slider relative pt-[18px]">
       <span className="absolute top-0 right-0 text-sm font-semi tabular-nums">{props.value}%</span>
       <input
         className="mx-0 mt-1 mb-0.5 w-full accent-accent"
@@ -210,14 +216,35 @@ function Editor({ model, rules: st, now }: { model: AuthorModel; rules: RulesSta
             />
             <span className="text-ink2">{t('mỗi ngày', 'every day')}</span>
           </div>
-          <div className="relative mt-2 h-2 rounded-[4px] bg-track" aria-hidden="true">
-            <i className="absolute inset-y-0 rounded-[4px] bg-accent" style={{ left: ((r.personalFrom / 24) * 100).toFixed(1) + '%', width: ((Math.max(endHour - r.personalFrom, 0) / 24) * 100).toFixed(1) + '%' }} />
-            <em className="absolute -top-0.5 h-3 w-0.5 rounded-[1px] bg-ink" style={{ left: ((nowMin / 1440) * 100).toFixed(1) + '%' }} />
-          </div>
-          <div className="mt-[3px] flex justify-between text-cap text-ink3 tabular-nums" aria-hidden="true">
-            {[0, 6, 12, 18, 24].map((h) => (
-              <span key={h}>{h}</span>
-            ))}
+          <div className={RAIL}>
+            <div className="relative mt-2.5 h-2 rounded-[4px] bg-track" aria-hidden="true">
+              <i className="absolute inset-y-0 rounded-[4px] bg-accent" style={{ left: ((r.personalFrom / 24) * 100).toFixed(1) + '%', width: ((Math.max(endHour - r.personalFrom, 0) / 24) * 100).toFixed(1) + '%' }} />
+              <em className="absolute -top-0.5 h-3 w-0.5 rounded-[1px] bg-ink" style={{ left: ((nowMin / 1440) * 100).toFixed(1) + '%' }} />
+            </div>
+            <div className="mt-[3px] flex justify-between text-cap text-ink3 tabular-nums" aria-hidden="true">
+              {[0, 6, 12, 18, 24].map((h) => (
+                <span key={h}>{h}</span>
+              ))}
+            </div>
+            {!hoursBad ? (
+              <FieldHint className="mt-1">
+                {t('Giờ trên Mac này · kết thúc lúc ' + pad(endHour) + ':00', 'This Mac’s clock · ends at ' + pad(endHour) + ':00')}{' '}
+                <More small about={t('giờ dùng tài khoản cá nhân', 'personal account hours')}>
+                  <p>
+                    {t(
+                      'Tài khoản cá nhân chỉ được dùng trong giờ này, khi không tài khoản Team nào còn hạn mức.',
+                      'The personal account is used only in these hours, when no Team account has quota left.',
+                    )}
+                  </p>
+                  <p>
+                    {t(
+                      'File luật ghi ' + r.personalFrom + '–' + r.personalTo + ': giờ ' + r.personalTo + ' vẫn tính, nên kết thúc lúc ' + pad(endHour) + ':00.',
+                      'The rules file says ' + r.personalFrom + '–' + r.personalTo + ': hour ' + r.personalTo + ' still counts, so it ends at ' + pad(endHour) + ':00.',
+                    )}
+                  </p>
+                </More>
+              </FieldHint>
+            ) : null}
           </div>
           {hoursBad ? <FieldHint tone="bad">{t('Giờ kết thúc phải sau giờ bắt đầu.', 'The end hour must come after the start hour.')}</FieldHint> : null}
           {!r.personal ? <FieldHint>{t('Không có tài khoản cá nhân: switcher chỉ dùng các tài khoản Team.', 'No personal account: the switcher uses only Team accounts.')}</FieldHint> : null}
@@ -229,7 +256,30 @@ function Editor({ model, rules: st, now }: { model: AuthorModel; rules: RulesSta
           {t('Chuyển khi 5 giờ đã dùng', 'Switch when 5-hour use reaches')}
           <Changed on={r.full !== sv.full} />
         </div>
-        <Slider id="full" disabled={disabled} value={r.full} label={t('Ngưỡng tự chuyển, phần trăm hạn mức 5 giờ đã dùng', 'Auto-switch threshold, percent of the 5-hour quota used')} onChange={(v) => st.edit((d) => (d.full = v))} />
+        <div className={RAIL}>
+          <Slider id="full" disabled={disabled} value={r.full} label={t('Ngưỡng tự chuyển, phần trăm hạn mức 5 giờ đã dùng', 'Auto-switch threshold, percent of the 5-hour quota used')} onChange={(v) => st.edit((d) => (d.full = v))} />
+          <FieldHint className="mt-1">
+            {t(
+              'Tài khoản đang dùng đạt ' + r.full + '% thì xét chuyển sang tài khoản còn dưới ' + r.full + '%.',
+              'At ' + r.full + '% used, a switch to an account still under ' + r.full + '% is considered.',
+            )}{' '}
+            <More small about={t('ngưỡng tự chuyển', 'the auto-switch threshold')}>
+              <p>{t('Số được xét là số cao hơn giữa hạn mức 5 giờ và tuần của tài khoản.', 'The number checked is the higher of the account’s 5-hour and week windows.')}</p>
+              <p>
+                {t(
+                  'Khi chuyển, switcher ưu tiên tài khoản sắp rời vòng, rồi tài khoản Team có cửa sổ 5 giờ kết thúc sớm nhất; bằng nhau thì theo thứ tự ở Team trong vòng.',
+                  'When it switches, the switcher goes first to an account about to leave the rotation, then to the Team account whose 5-hour window ends first; on a tie, the order in Team in rotation.',
+                )}
+              </p>
+              <p>
+                {t(
+                  'Việc tự chuyển xét lại mỗi 3 phút, nên lần chuyển có thể đến vài phút sau khi chạm ngưỡng. Lưu luật chỉ ghi file luật, không bật hay tắt việc tự chuyển.',
+                  'Automatic switching checks again every 3 minutes, so a switch can come a few minutes after the threshold. Saving only writes the rules file; it does not turn automatic switching on or off.',
+                )}
+              </p>
+            </More>
+          </FieldHint>
+        </div>
       </div>
 
       <div className={rowClass(r.fableFull !== sv.fableFull)}>
@@ -237,7 +287,23 @@ function Editor({ model, rules: st, now }: { model: AuthorModel; rules: RulesSta
           {t('Bỏ qua khi Fable tuần đã dùng', 'Skip when Fable week use reaches')}
           <Changed on={r.fableFull !== sv.fableFull} />
         </div>
-        <Slider id="fable" disabled={disabled} value={r.fableFull} label={t('Ngưỡng Fable tuần, phần trăm đã dùng', 'Fable week threshold, percent used')} onChange={(v) => st.edit((d) => (d.fableFull = v))} />
+        <div className={RAIL}>
+          <Slider id="fable" disabled={disabled} value={r.fableFull} label={t('Ngưỡng Fable tuần, phần trăm đã dùng', 'Fable week threshold, percent used')} onChange={(v) => st.edit((d) => (d.fableFull = v))} />
+          <FieldHint className="mt-1">
+            {t(
+              'Tài khoản có Fable tuần từ ' + r.fableFull + '% được xếp sau cùng khi chọn tài khoản để chuyển.',
+              'Accounts at ' + r.fableFull + '% of the Fable week or more go last when picking an account to switch to.',
+            )}{' '}
+            <More small about={t('ngưỡng Fable tuần', 'the Fable week threshold')}>
+              <p>
+                {t(
+                  'Tài khoản đó vẫn được chọn khi không còn tài khoản nào khác còn hạn mức. Chỉ tính khi số Fable tuần của nó đọc được và còn mới.',
+                  'Such an account is still picked when no other account has quota left. It only counts while its Fable week number was read and is fresh.',
+                )}
+              </p>
+            </More>
+          </FieldHint>
+        </div>
       </div>
 
       <div className={rowClass(expChanged)}>
@@ -246,7 +312,7 @@ function Editor({ model, rules: st, now }: { model: AuthorModel; rules: RulesSta
           <Changed on={expChanged} />
         </div>
         <div>
-          <div className={cn(KVT, 'max-w-[480px]')}>
+          <div className={cn(KVT, RAIL)}>
             {expireSlots.map((n) => {
               const e = r.expire.find((x) => x.slot === n);
               return [
@@ -288,20 +354,6 @@ function Editor({ model, rules: st, now }: { model: AuthorModel; rules: RulesSta
         </div>
       </div>
 
-      <div className={rowClass(false)}>
-        <div className={LABEL}>{t('Xem trước', 'Preview')}</div>
-        <div className="preview rounded-[8px] bg-fill px-2.5 py-2 text-sm [&_b]:font-semi" aria-live="polite" title={st.preview?.kind === 'ok' ? st.preview.raw : undefined}>
-          {st.preview?.kind === 'ok' ? (
-            <b>{st.preview.text}</b>
-          ) : st.preview?.kind === 'error' ? (
-            <span>{st.preview.text}</span>
-          ) : st.preview?.kind === 'loading' ? (
-            <span>{t('Đang hỏi switcher…', 'Asking the switcher…')}</span>
-          ) : (
-            <span>{rulesProblem(r) ? t('Sửa luật cho hợp lệ để xem trước.', 'Fix the rules to see a preview.') : '—'}</span>
-          )}
-        </div>
-      </div>
       {model.rotation.ignoredKeys.length ? (
         <CardText className="mt-2 mb-0">
           {t('Giữ nguyên các khoá khác trong file: ', 'Other keys in the file stay as they are: ') + model.rotation.ignoredKeys.join(', ') + '.'}
@@ -311,39 +363,79 @@ function Editor({ model, rules: st, now }: { model: AuthorModel; rules: RulesSta
   );
 }
 
+/** The switcher's answer for the draft, in one sentence; its own line on hover. */
+function Preview({ rules: st }: { rules: RulesState }) {
+  const r = st.current;
+  return (
+    <div
+      className="preview min-w-0 flex-1 rounded-[8px] bg-fill px-2.5 py-[5px] text-sm [&_b]:font-semi"
+      aria-live="polite"
+      aria-labelledby="qs-r-prev"
+      title={st.preview?.kind === 'ok' ? st.preview.raw : undefined}
+    >
+      {st.preview?.kind === 'ok' ? (
+        <b>{st.preview.text}</b>
+      ) : st.preview?.kind === 'error' ? (
+        <span>{st.preview.text}</span>
+      ) : st.preview?.kind === 'loading' ? (
+        <span>{t('Đang hỏi switcher…', 'Asking the switcher…')}</span>
+      ) : (
+        <span>{r && rulesProblem(r) ? t('Sửa luật cho hợp lệ để xem trước.', 'Fix the rules to see a preview.') : '—'}</span>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The card's foot, one row: the preview, a line per Mac and the save
+ * button, with what is unsaved and "Huỷ thay đổi" before it. It wraps where
+ * the page is narrow.
+ */
 function SaveBar({ model, rules: st }: { model: AuthorModel; rules: RulesState }) {
   const peers = model.rotation.peers;
   const macs = [localLine(model, st.dirty, !!st.error?.restored), ...peers.map(peerLine)];
   const problem = st.current ? rulesProblem(st.current) : 'no rules';
   const canSave = !!st.current && !problem && (st.dirty || model.rotation.status === 'invalid') && !st.stale;
   return (
-    <div className="flex flex-wrap items-center gap-2.5 border-t-[.5px] border-card-line pt-2.5">
-      <div className="grid gap-1.5" aria-label={t('Các Mac', 'Macs')}>
+    <div className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-2.5 border-t-[.5px] border-card-line pt-3">
+      {st.current ? (
+        <div className="flex min-w-[260px] flex-[1_1_300px] items-center gap-3">
+          <span className={cn(LABEL, 'pt-0')} id="qs-r-prev">
+            {t('Xem trước', 'Preview')}
+          </span>
+          <Preview rules={st} />
+        </div>
+      ) : null}
+      <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1" role="group" aria-label={t('Các Mac', 'Macs')}>
         {macs.map((m) => (
-          <div className="flex items-center gap-2 text-sm" key={m.name} title={m.title || undefined}>
+          <div className="flex items-center gap-1.5 text-sm whitespace-nowrap" key={m.name} title={m.title || undefined}>
             <Dot tone={m.tone} />
-            {m.name} <small className="text-ink2">· {m.text}</small>
+            {m.name} <small className="text-xs text-ink2">· {m.text}</small>
           </div>
         ))}
       </div>
-      <span className="min-w-[160px] flex-1 text-sm text-ink2" aria-live="polite">
-        {st.dirty ? t('Có ' + st.changes.length + ' thay đổi chưa lưu.', st.changes.length === 1 ? '1 unsaved change.' : st.changes.length + ' unsaved changes.') : ''}
-      </span>
-      {st.dirty ? (
-        <Button large disabled={st.working != null} onClick={st.revert}>
-          {t('Huỷ thay đổi', 'Discard changes')}
-        </Button>
-      ) : null}
-      {st.working === 'save' ? (
-        <span className={cn(buttonVariants({ variant: 'primary', size: 'lg' }), 'inline-flex items-center gap-1.5')} role="status">
-          <Spinner className="border-t-white" />
-          {t('Đang lưu…', 'Saving…')}
-        </span>
-      ) : (
-        <Button large primary disabled={!canSave || st.working != null} onClick={st.save}>
-          {t('Lưu cho ' + macsWord(1 + peers.length), 'Save for ' + macsWord(1 + peers.length))}
-        </Button>
-      )}
+      <div className="ml-auto flex flex-wrap items-center justify-end gap-2.5">
+        {st.dirty ? (
+          <>
+            <span className="text-sm text-ink2" aria-live="polite">
+              {t('Có ' + st.changes.length + ' thay đổi chưa lưu.', st.changes.length === 1 ? '1 unsaved change.' : st.changes.length + ' unsaved changes.')}
+            </span>
+            <Button large disabled={st.working != null} onClick={st.revert}>
+              {t('Huỷ thay đổi', 'Discard changes')}
+            </Button>
+          </>
+        ) : null}
+        {st.working === 'save' ? (
+          <span className={cn(buttonVariants({ variant: 'primary', size: 'lg' }), 'inline-flex items-center gap-1.5')} role="status">
+            <Spinner className="border-t-white" />
+            {t('Đang lưu…', 'Saving…')}
+          </span>
+        ) : (
+          <Button large primary disabled={!canSave || st.working != null} onClick={st.save}>
+            {t('Lưu cho ' + macsWord(1 + peers.length), 'Save for ' + macsWord(1 + peers.length))}
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
@@ -361,7 +453,8 @@ export function RulesTab({ model, fresh, rules: st, feedback, now, onAction }: R
       </TabHead>
       {feedback ? <Feedback fb={feedback} onAction={onAction} /> : null}
       {banner ? <Banner banner={banner} onAction={onAction} busy={null} /> : null}
-      <Panel>
+      {/* With rules to edit the card takes the rest of the page, so its foot stays at the bottom. */}
+      <Panel className={cn('flex flex-col gap-3', st.current && 'flex-1')}>
         {st.current ? (
           <Editor model={model} rules={st} now={now} />
         ) : (

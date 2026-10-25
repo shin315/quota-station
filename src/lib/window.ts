@@ -7,24 +7,11 @@
 // and banners. Pure, like `view.ts`.
 
 import { overwriteBanner } from '@agy/agySwitch';
-import { claudeAliases } from './accounts';
 import { envBanner } from './env';
-import { clock, minutesUntil } from './format';
 import { t } from './i18n';
-import type { Account, LineKind, Model, Section } from './model';
+import type { Model, Section } from './model';
 import { autoView, dayClock, pauseOf, type AutoView } from './switching';
-import { agyNames, claudeNames, popoverView, type BannerView, type CardView, type ChipView, type NoteView, type NowView, type PopoverView, type ViewOptions } from './view';
-
-export interface UpcomingView {
-  key: string;
-  /** `17:29`, or `ngày mai 03:20`: the clock and its day, which the row draws apart. */
-  at: string;
-  clock: string;
-  /** `ngày mai`; empty today. */
-  day: string;
-  what: string;
-  tone: '' | 'ok' | 'warn';
-}
+import { popoverView, type BannerView, type CardView, type ChipView, type NoteView, type PopoverView, type ViewOptions } from './view';
 
 export interface KeyValue {
   key: string;
@@ -38,8 +25,6 @@ export interface WindowView {
   machine: string;
   fresh: PopoverView['fresh'];
   banner: BannerView | null;
-  /** Đang dùng, Tổng quan's first card: the account in use on each service. */
-  now: NowView;
   claude: {
     /** False on a Mac without Claude Code: the card is left out. */
     present: boolean;
@@ -68,7 +53,6 @@ export interface WindowView {
     /** The row lists the app's own accounts: the logins are the table's rows. */
     own: boolean;
   };
-  upcoming: UpcomingView[];
   /** Automatic switching and why Claude is on its account (F07). */
   auto: AutoView;
   /** The Claude tab's own banner: the rotation's LaunchAgent is not loaded. */
@@ -77,71 +61,6 @@ export interface WindowView {
   envBanner: BannerView | null;
   /** The Claude tab's Switcher card: one line, the rest folded. */
   switcher: { line: string; tone: 'ok' | 'warn' | 'bad' | 'muted'; details: KeyValue[] };
-}
-
-/** How far ahead Sắp tới looks. */
-const UPCOMING_HOURS = 24;
-const UPCOMING_MAX = 5;
-
-// ===== Sắp tới (I15): only times already in the readings, never a forecast =====
-
-const upcomingLabel = (): Record<LineKind, string> => ({
-  session: t('5 giờ', '5-hour'),
-  week: t('tuần', 'week'),
-  fableWeek: t('Fable tuần', 'Fable week'),
-  gemini: 'Gemini',
-  claudeGpt: 'Claude/GPT',
-  geminiSession: t('Gemini 5 giờ', 'Gemini 5-hour'),
-  geminiWeek: t('Gemini tuần', 'Gemini week'),
-  claudeGptSession: t('Claude/GPT 5 giờ', 'Claude/GPT 5-hour'),
-  claudeGptWeek: t('Claude/GPT tuần', 'Claude/GPT week'),
-});
-
-const WEEKLY = new Set<LineKind>(['week', 'fableWeek', 'geminiWeek', 'claudeGptWeek']);
-
-/** `ngày mai` tomorrow, nothing today. */
-function dayWord(iso: string, now: Date): string {
-  const tomorrow = new Date(now);
-  tomorrow.setDate(now.getDate() + 1);
-  return new Date(iso).toDateString() === tomorrow.toDateString() ? t('ngày mai', 'tomorrow') : '';
-}
-
-function upcoming(model: Model, now: Date): UpcomingView[] {
-  const s = model.snapshot;
-  const out: { at: string; what: string; tone: UpcomingView['tone'] }[] = [];
-  const within = (iso: string | null): iso is string => {
-    const m = minutesUntil(iso, now);
-    return m != null && m > 0 && m <= UPCOMING_HOURS * 60;
-  };
-  const add = (section: Section, name: (a: Account) => string) => {
-    for (const a of section.accounts) {
-      if (a.leavesAt && within(a.leavesAt)) out.push({ at: a.leavesAt, what: t(name(a) + ' rời vòng', name(a) + ' leaves rotation'), tone: 'warn' });
-      for (const l of a.windows.length ? a.windows : a.lines) {
-        // A window nothing was used of coming back is no news.
-        if (!within(l.resetsAt) || (l.percent === 100 && !l.pending)) continue;
-        const label = upcomingLabel()[l.kind];
-        out.push(
-          WEEKLY.has(l.kind)
-            ? { at: l.resetsAt, what: t('Hạn mức ' + label + ' của ' + name(a) + ' đặt lại', name(a) + '’s ' + label + ' quota resets'), tone: '' }
-            : { at: l.resetsAt, what: t(name(a) + ' có lại hạn mức ' + label, name(a) + ' gets its ' + label + ' quota back'), tone: 'ok' },
-        );
-      }
-    }
-  };
-  // The one account a provider row reads goes by the provider's name here,
-  // where Claude and Antigravity share one list.
-  const names = claudeNames(s.claude.accounts, null, model.advanced.on, claudeAliases(model));
-  const gNames = agyNames(s.agy.accounts, model.advanced.on);
-  add(s.claude, (a) => (a.number === 0 ? 'Claude' : (names.get(a.number)?.name ?? t('Tài khoản ' + a.number, 'Account ' + a.number))));
-  if (s.agy.status !== 'notSetUp') add(s.agy, (a) => (a.number === 0 ? 'Antigravity' : gNames.get(a.number)!.name));
-  return out
-    .sort((x, y) => new Date(x.at).getTime() - new Date(y.at).getTime())
-    .slice(0, UPCOMING_MAX)
-    .map((u, i) => {
-      const day = dayWord(u.at, now);
-      // `17:29` today, `ngày mai 03:20` tomorrow.
-      return { key: u.at + i, at: day ? day + ' ' + clock(u.at) : clock(u.at), clock: clock(u.at), day, what: u.what, tone: u.tone };
-    });
 }
 
 // ===== Antigravity =====
@@ -201,7 +120,7 @@ function switcherCard(model: Model, auto: AutoView, now: Date): WindowView['swit
   else if (sw.legacy)
     [line, tone] = [t('Bộ tự chuyển cũ ' + sw.legacy + ' còn chạy: Quota Station chưa tự chuyển', 'The old auto-switcher ' + sw.legacy + ' still runs: Quota Station does not switch yet'), 'bad'];
   else if (sw.service === false) [line, tone] = [t('Tự chuyển đang tắt', 'Auto-switch is off'), 'bad'];
-  else if (sw.service === true) [line, tone] = [t('Chạy mỗi 3 phút', 'Runs every 3 minutes') + (auto.at ? t(' · kiểm lúc ', ' · checked at ') + auto.at : ''), 'ok'];
+  else if (sw.service === true) [line, tone] = [auto.at ? t('Kiểm lúc ' + auto.at, 'Checked at ' + auto.at) : t('Đang chạy', 'Running'), 'ok'];
   else [line, tone] = [t('Không rõ switcher có chạy không', 'Not sure the switcher runs'), 'muted'];
   return { line, tone, details };
 }
@@ -244,7 +163,6 @@ export function windowView(model: Model, now: Date, options: ViewOptions = {}): 
     machine: pv.machine,
     fresh: pv.fresh,
     banner: pv.banner,
-    now: pv.now,
     claude: {
       present: pv.claude.shown,
       empty: pv.claude.empty,
@@ -260,7 +178,6 @@ export function windowView(model: Model, now: Date, options: ViewOptions = {}): 
       tabNote: g.status === 'single' && !g.accounts.length && g.reason ? pv.agy.note : null,
       own: g.status === 'ok' && g.source === 'quota-station',
     },
-    upcoming: upcoming(model, now),
     auto,
     claudeBanner: claudeBanner(model),
     envBanner: envBanner(model),

@@ -8,14 +8,17 @@
 // Giữ nguyên or a side of the Codex switch; it is applied for the whole Mac
 // after one preview by agent, and Codex changes only through the Codex
 // switch of version 1, opened as step 2. Frosted panels on the window's
-// glass, no panel inside one.
+// glass, no panel inside one. As the approved redraw (sets-A, 25/10/2026)
+// lays it out: the set in use as a strip on top, then the sets as cards of
+// one size, each with its actions on its bottom line, and the two notes on
+// the glass under them.
 
 import { Card as Panel, CardText, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Segment, Segmented } from '@/components/ui/segmented';
-import { ROW_ACTIONS, SETTING_ROW } from '../components/blocks';
+import { ROW_ACTIONS } from '../components/blocks';
 import { COUNT, Empty, EmptyIcon, TabHead, TabSub, TabTitle } from '../components/page';
-import { Button, ChoiceGroup, Chip, Dot, Feedback, LinkButton } from '../components/parts';
+import { Button, ChoiceGroup, Chip, Dot, Facts as FactList, Feedback, LinkButton } from '../components/parts';
 import { DialogButtons, DialogLead, DialogSection, DialogTitle } from '@/components/ui/dialog';
 import { t } from '../lib/i18n';
 import { AGENT_NAME } from '../lib/mcp';
@@ -82,28 +85,33 @@ function InUse({ model, sets, now }: { model: Model; sets: Sets; now: Date }) {
   );
 }
 
-function SetRow({ set, model, sets }: { set: ConfigSet; model: Model; sets: Sets }) {
+/** The sets: three cards a row, two where the page has under 640 px, one under 420. */
+const SET_GRID =
+  'grid grid-cols-[repeat(3,minmax(0,1fr))] items-stretch gap-3 @max-[640px]/main:grid-cols-[repeat(2,minmax(0,1fr))] @max-[420px]/main:grid-cols-[minmax(0,1fr)]';
+
+/** A set: its name, what it does, and its actions on the card's bottom line. */
+function SetCard({ set, model, sets }: { set: ConfigSet; model: Model; sets: Sets }) {
   const inUse = model.sets.applied?.id === set.id;
   return (
-    <div className={SETTING_ROW}>
-      <div>
-        <b>
-          {set.name} {inUse ? <Chip chip={{ t: t('đang dùng', 'in use'), k: 'info' }} /> : null}
-        </b>
-        <small>{setSummary(set, model.codex)}</small>
-      </div>
-      <div className={ROW_ACTIONS}>
+    <Panel className="flex flex-col" role="listitem" aria-label={set.name}>
+      <b className="flex flex-wrap items-center gap-1.5 text-body font-semi">
+        {set.name} {inUse ? <Chip chip={{ t: t('đang dùng', 'in use'), k: 'info' }} /> : null}
+      </b>
+      <CardText className="mt-1 mb-2.5">{setSummary(set, model.codex)}</CardText>
+      <div className="mt-auto flex items-center gap-2.5 border-t-[.5px] border-card-line pt-2.5">
         <Button primary={!inUse} disabled={sets.working} label={t('Áp bộ ' + set.name, 'Apply the set ' + set.name)} onClick={() => sets.openApply(set)}>
           {t('Áp dụng…', 'Apply…')}
         </Button>
-        <LinkButton small aria-label={t('Sửa bộ ' + set.name, 'Edit the set ' + set.name)} disabled={sets.working} onClick={() => sets.openEdit(set)}>
-          {t('Sửa', 'Edit')}
-        </LinkButton>
-        <LinkButton small aria-label={t('Xoá bộ ' + set.name, 'Delete the set ' + set.name)} disabled={sets.working} onClick={() => sets.remove(set)}>
-          {t('Xoá', 'Delete')}
-        </LinkButton>
+        <span className={'ml-auto ' + ROW_ACTIONS}>
+          <LinkButton small aria-label={t('Sửa bộ ' + set.name, 'Edit the set ' + set.name)} disabled={sets.working} onClick={() => sets.openEdit(set)}>
+            {t('Sửa', 'Edit')}
+          </LinkButton>
+          <LinkButton small aria-label={t('Xoá bộ ' + set.name, 'Delete the set ' + set.name)} disabled={sets.working} onClick={() => sets.remove(set)}>
+            {t('Xoá', 'Delete')}
+          </LinkButton>
+        </span>
       </div>
-    </div>
+    </Panel>
   );
 }
 
@@ -126,9 +134,6 @@ export function SetsTab({ model, fresh, feedback, now, sets, onAction }: SetsTab
           <Dot tone={fresh.tone} />
           {model.machine + t(' · áp cho cả máy', ' · applies to the whole Mac')}
         </TabSub>
-        <Button primary disabled={sets.working} onClick={() => sets.openNew(!list.length)}>
-          {t('Tạo bộ', 'New set')}
-        </Button>
       </TabHead>
       {feedback ? <Feedback fb={feedback} onAction={onAction} /> : null}
       {!list.length ? (
@@ -152,34 +157,40 @@ export function SetsTab({ model, fresh, feedback, now, sets, onAction }: SetsTab
       ) : (
         <>
           <InUse model={model} sets={sets} now={now} />
-          <Panel>
-            <CardTitle>
+          <div className="flex items-center gap-2.5">
+            <CardTitle bare className="m-0">
               {t('Các bộ', 'Sets')} <span className={COUNT}>{list.length}</span>
             </CardTitle>
+            <Button primary className="ml-auto" disabled={sets.working} onClick={() => sets.openNew(false)}>
+              {t('Tạo bộ', 'New set')}
+            </Button>
+          </div>
+          <div className={SET_GRID} role="list" aria-label={t('Các bộ', 'Sets')}>
             {list.map((s) => (
-              <SetRow key={s.id} set={s} model={model} sets={sets} />
+              <SetCard key={s.id} set={s} model={model} sets={sets} />
             ))}
-          </Panel>
-          <Panel>
-            <Facts
+          </div>
+          <div className="px-3.5">
+            <FactList
+              className="mb-0"
               items={[
-                [
-                  '',
-                  t(
+                {
+                  k: '',
+                  text: t(
                     'Áp cho cả máy: mọi dự án, mọi phiên mở sau đó. Phiên đang chạy giữ cấu hình cũ.',
                     'Applies to the whole Mac: every project, every session opened afterwards. Running sessions keep the old setup.',
                   ),
-                ],
-                [
-                  '',
-                  t(
+                },
+                {
+                  k: '',
+                  text: t(
                     'Bộ chỉ bật, tắt MCP và skills đã có. Codex đổi qua tấm chuyển Codex như bình thường.',
                     'A set only turns MCP and skills that are already here on or off. Codex changes through the Codex switch sheet as usual.',
                   ),
-                ],
+                },
               ]}
             />
-          </Panel>
+          </div>
         </>
       )}
     </>

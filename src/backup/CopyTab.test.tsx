@@ -162,6 +162,33 @@ describe('the Chép sang Mac khác tab', () => {
     expect(fake.api.copyRun).not.toHaveBeenCalled();
   });
 
+  it('keeps this Mac, the way, the other Mac and the comparison in one bar', async () => {
+    await openTab();
+    const bar = screen.getByRole('group', { name: 'Chép với Mac nào' });
+    expect(bar.textContent).toMatch(/^Mac mini\(máy này\)/);
+    expect(within(bar).getByRole('group', { name: 'Chiều chép' })).toBeTruthy();
+    expect(within(bar).getAllByRole('radio').map((r) => r.textContent)).toEqual(['Mac B tên kết nối mac-b', 'Mac C tên kết nối mac-c']);
+    expect(within(bar).getByRole('button', { name: 'So sánh' })).toBeTruthy();
+  });
+
+  it('lists the differences by kind, and ends with the keys beside the copy', async () => {
+    await openTab();
+    await compare();
+    const card = screen.getByRole('heading', { level: 4, name: /^Khác nhau · Mac mini → Mac B/ }).parentElement!;
+    const kinds = within(card).getAllByRole('group').filter((g) => g.getAttribute('aria-label') !== 'Chép');
+    expect(kinds.map((g) => g.getAttribute('aria-label'))).toEqual(['MCP', 'Skills', 'Plugin', 'File hướng dẫn']);
+    expect(within(kinds[0]).getAllByRole('checkbox')).toHaveLength(3);
+    // The keys and the copy are the card's last part, one bar.
+    const foot = within(card).getByRole('group', { name: 'Chép' });
+    expect(card.lastElementChild).toBe(foot);
+    expect(within(foot).getByText('Khoá')).toBeTruthy();
+    expect(within(foot).getByRole('switch', { name: 'Gửi cả khoá qua SSH' })).toBeTruthy();
+    expect(within(foot).getByRole('button', { name: 'Chép 3 mục sang Mac B…' })).toBeTruthy();
+    // Bringing items here turns the arrow round.
+    await press(button('Lấy từ Mac B về'));
+    expect(screen.getByRole('heading', { level: 4, name: /^Khác nhau · Mac mini ← Mac B/ })).toBeTruthy();
+  });
+
   it('points to Cài đặt when there is no other Mac', async () => {
     const model = fixtureModel('fresh');
     await openTab({ ...model, rotation: { ...model.rotation, peers: [] } });

@@ -16,8 +16,6 @@ describe('main window view', () => {
     expect(w.machine).toBe('Mac mini');
     expect(w.fresh).toEqual(p.fresh);
     expect(w.banner).toEqual(p.banner);
-    // Đang dùng on Tổng quan is the popover's, with the same numbers.
-    expect(w.now).toEqual(p.now);
     expect(w.claude.cards.map((c) => c.slot)).toEqual([1, 2, 3, 4]);
     // The popover lists the accounts in the same order, the one in use in its place.
     expect(w.claude.cards).toEqual(p.claude.cards);
@@ -40,24 +38,6 @@ describe('main window view', () => {
     expect(acme1.cells[0].reset).toBe('3h 8m');
     expect(acme2.cells[1]).toMatchObject({ none: true, reset: 'không có' });
     expect(view('reset-pending').claude.cards[3].cells[0].reset).toBe('chờ số');
-  });
-
-  it('lists what comes next from the readings only', () => {
-    expect(view('fresh').upcoming.map((u) => [u.at, u.what, u.tone])).toEqual([
-      ['16:18', 'lan.ultra2 có lại hạn mức Gemini 5 giờ', 'ok'],
-      ['17:00', 'lanpham.ultra có lại hạn mức Claude/GPT 5 giờ', 'ok'],
-      ['17:09', 'lan.acme3 có lại hạn mức 5 giờ', 'ok'],
-      ['17:29', 'lan.acme1 có lại hạn mức 5 giờ', 'ok'],
-      ['17:45', 'lan.acme1 rời vòng', 'warn'],
-    ]);
-    // The row draws the clock apart from its day, which today has none.
-    expect(view('fresh').upcoming[0]).toMatchObject({ clock: '16:18', day: '' });
-    // Windows nothing was used of are left out, and a list is cut at five.
-    const exhausted = view('exhausted').upcoming;
-    expect(exhausted).toHaveLength(5);
-    expect(exhausted).toContainEqual(expect.objectContaining({ at: '16:40', what: 'Cá nhân có lại hạn mức 5 giờ' }));
-    // The one account a provider row reads goes by the provider's name.
-    expect(view('single').upcoming[0]).toMatchObject({ at: '16:18', what: 'Antigravity có lại hạn mức Gemini 5 giờ' });
   });
 
   it('a Mac without an account list sees why only one Antigravity account shows', () => {
@@ -92,7 +72,8 @@ describe('main window view', () => {
 
   it('the switcher card is one line, the rest folded', () => {
     const s = view('fresh').switcher;
-    expect(s.line).toMatch(/^Chạy mỗi 3 phút · kiểm lúc \d\d:\d\d$/);
+    // How often it runs is the LaunchAgent's own line beside it; this one says when it last checked.
+    expect(s.line).toMatch(/^Kiểm lúc \d\d:\d\d$/);
     expect(s.tone).toBe('ok');
     expect(s.details.map((d) => d.key)).toContain('LaunchAgent tự chuyển');
     expect(s.details.find((d) => d.key.startsWith('Quyết định gần nhất'))).toMatchObject({ mono: true });

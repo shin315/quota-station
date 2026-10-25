@@ -225,7 +225,10 @@ export function checkedLine(v: SkillsView): string {
   return u.checkedAt ? t('kiểm bản mới lúc ' + clock(u.checkedAt), 'checked for updates at ' + clock(u.checkedAt)) : t('chưa kiểm bản mới', 'not checked for updates yet');
 }
 
-/** The banners above the table: npx missing, newer versions, a check that failed, the lock file, a column. */
+/**
+ * The banners above the table: npx missing, a check that failed, the lock
+ * file, a column. The newer versions have their own card (SkillsTab).
+ */
 export function skillBanners(v: SkillsView, table: SkillTable): BannerView[] {
   const out: BannerView[] = [];
   if (!v.npx)
@@ -237,14 +240,6 @@ export function skillBanners(v: SkillsView, table: SkillTable): BannerView[] {
         'Skills from GitHub cannot be installed or updated for now. Turning skills on and off and gathering them still work.',
       ),
       actions: [{ label: t('Cách cài Node', 'How to install Node'), act: 'skills:npx' }],
-    });
-  const upd = table.rows.filter((r) => r.update);
-  if (upd.length && v.npx)
-    out.push({
-      tone: 'info',
-      title: t(upd.length + ' skill có bản mới', upd.length === 1 ? '1 skill has an update' : upd.length + ' skills have updates'),
-      body: upd.map((r) => r.name).join(', ') + t('. App không tự cập nhật: bạn xem trước rồi mới cập nhật.', '. The app does not update on its own: you preview first, then update.'),
-      actions: upd.slice(0, 2).map((r) => ({ label: t('Xem ' + r.name, 'View ' + r.name), act: `skills:update:${r.name}` as const })),
     });
   const u = v.updates;
   if (u.error)

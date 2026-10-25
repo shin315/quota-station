@@ -7,20 +7,23 @@
 // pack, and whether it goes into the pack. The app never edits one. A file
 // with a line shaped like a key stays out of every pack; its value is
 // masked wherever the window shows it.
+// As the approved redraw (instr-A, 25/10/2026) lays it out: one table, its
+// files by agent under their group heads, "Thêm file…" at the table's head
+// and the two notes at its foot.
 
 import { useState } from 'react';
-import { Banner, Button, Chip, Dot, Feedback, Toggle, FieldHint, LinkButton } from '../components/parts';
+import { Banner, Button, Chip, Dot, Facts as FactList, Feedback, Toggle, FieldHint, LinkButton } from '../components/parts';
 import { Card as Panel, CardText, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { DiffFile, DiffLine, DiffView, KeyMasked, TECH } from '../components/blocks';
-import { COUNT, Empty, TabHead, TabSub, TabTitle } from '../components/page';
+import { CARD_END, COUNT, Empty, GROUP_HEAD, TabHead, TabSub, TabTitle } from '../components/page';
 import { DialogButtons, DialogLead, DialogTitle } from '@/components/ui/dialog';
 import type { Api } from '../lib/api';
 import { clock } from '../lib/format';
 import { t } from '../lib/i18n';
-import { AGENT_NAME } from '../lib/mcp';
-import type { InstrFile, InstrShown, McpLine, Model } from '../lib/model';
+import { AGENT_NAME, AGENTS } from '../lib/mcp';
+import type { Agent, InstrFile, InstrShown, McpLine, Model } from '../lib/model';
 import { dayClock } from '../lib/switching';
 import type { Action, BannerView, ChipView, FeedbackView, PopoverView } from '../lib/view';
 import { Facts } from './McpDialogs';
@@ -207,14 +210,45 @@ export interface InstrTabProps {
   onAction(act: Action): void;
 }
 
-/** An instruction file: its path, agent, when it changed, against the pack, in the pack, a link. */
 /**
- * A file's row: path, agent, when it changed, against the pack, in the pack,
- * its link. Where the page has under 720 px: the path on a line of its own,
- * then the agent, the time, the switch and the link, then the comparison.
+ * A file's row: path, when it changed, against the pack, in the pack, its
+ * link; its agent is the group head above it. Where the page has under
+ * 720 px: the path on a line of its own, the rest on the line under it.
  */
 const FILE_ROW =
-  'grid grid-cols-[minmax(0,1.6fr)_90px_104px_minmax(0,1.1fr)_62px_56px] items-center gap-2.5 border-t-[.5px] border-card-line px-1.5 py-[7px] text-sm @max-[720px]/main:grid-cols-[auto_minmax(0,1fr)_auto_auto] @max-[720px]/main:gap-y-1.5 @max-[720px]/main:[&>:nth-child(1)]:col-span-full @max-[720px]/main:[&>:nth-child(4)]:col-span-full @max-[720px]/main:[&>:nth-child(4)]:row-start-3 @max-[720px]/main:[&>:nth-child(5)]:col-start-3 @max-[720px]/main:[&>:nth-child(5)]:row-start-2 @max-[720px]/main:[&>:nth-child(6)]:col-start-4 @max-[720px]/main:[&>:nth-child(6)]:row-start-2';
+  'grid grid-cols-[minmax(0,1.7fr)_104px_minmax(0,1.1fr)_62px_64px] items-center gap-2.5 border-t-[.5px] border-card-line px-1.5 py-[7px] text-sm @max-[720px]/main:grid-cols-[auto_minmax(0,1fr)_auto_auto] @max-[720px]/main:gap-y-1 @max-[720px]/main:[&>:nth-child(1)]:col-span-full';
+
+/** The files by agent, in the agents' order; those added by hand last. */
+function byAgent(files: InstrFile[]): { agent: Agent | null; files: InstrFile[] }[] {
+  const groups = [...AGENTS, null].map((agent) => ({ agent, files: files.filter((f) => f.agent === agent) }));
+  return groups.filter((g) => g.files.length);
+}
+
+function FileRow({ f, packAt, now, instr }: { f: InstrFile; packAt: number | null; now: Date; instr: Instr }) {
+  const key = f.keyLines.length > 0;
+  const diff = f.vsPack === 'changed' && !key;
+  return (
+    <div className={FILE_ROW} role="listitem" aria-label={f.path}>
+      <span className="[font:11.5px_var(--mono)] [overflow-wrap:anywhere]">{f.path}</span>
+      <span className="text-ink2 tabular-nums">{f.modifiedAt ? dayClock(f.modifiedAt, now) : '—'}</span>
+      <span>
+        <Chip chip={statusChip(f, packAt)} />
+      </span>
+      <span>
+        <Toggle on={f.include && !key && !f.error} disabled={key || !!f.error} label={t('Đưa ' + f.path + ' vào gói', 'Put ' + f.path + ' in the pack')} onClick={() => instr.include(f.path, !f.include)} />
+      </span>
+      <span className="text-right">
+        <LinkButton
+          small
+          aria-label={diff ? t('So sánh ' + f.path, 'Compare ' + f.path) : t('Xem ' + f.path, 'View ' + f.path)}
+          onClick={() => (diff ? instr.compare(f.path) : instr.show(f.path))}
+        >
+          {diff ? t('So sánh', 'Compare') : t('Xem', 'View')}
+        </LinkButton>
+      </span>
+    </div>
+  );
+}
 
 export function InstrTab({ model, fresh, feedback, now, instr, onAction }: InstrTabProps) {
   const v = model.instructions;
@@ -228,7 +262,6 @@ export function InstrTab({ model, fresh, feedback, now, instr, onAction }: Instr
           <Dot tone="ok" />
           {model.machine} · {sub}
         </TabSub>
-        <Button onClick={() => instr.setDialog({ kind: 'add', path: '', error: null })}>{t('Thêm file…', 'Add file…')}</Button>
         <Button onClick={instr.reread}>{t('Đọc lại', 'Read again')}</Button>
       </TabHead>
       {feedback ? <Feedback fb={feedback} onAction={onAction} /> : null}
@@ -237,67 +270,58 @@ export function InstrTab({ model, fresh, feedback, now, instr, onAction }: Instr
         .map((f) => (
           <Banner key={f.path} banner={keyBanner(f)} onAction={onAction} />
         ))}
-      {!view ? (
-        <Panel>
+      <Panel>
+        <CardTitle>
+          {t('Trong máy này', 'On this Mac')} {view ? <span className={COUNT}>{view.files.length}</span> : null}
+          <span className={CARD_END}>
+            <Button small onClick={() => instr.setDialog({ kind: 'add', path: '', error: null })}>
+              {t('Thêm file…', 'Add file…')}
+            </Button>
+          </span>
+        </CardTitle>
+        {!view ? (
           <Empty>
             <b>{t('Đang đọc file hướng dẫn…', 'Reading the instruction files…')}</b>
             {t('CLAUDE.md, AGENTS.md, GEMINI.md và các file luật, trên máy này.', 'CLAUDE.md, AGENTS.md, GEMINI.md and the rule files on this Mac.')}
           </Empty>
-        </Panel>
-      ) : (
-        <Panel>
-          <CardTitle>
-            {t('Trong máy này', 'On this Mac')} <span className={COUNT}>{view.files.length}</span>
-          </CardTitle>
-          {view.files.length ? (
-            <div role="list" aria-label={t('File hướng dẫn', 'Instruction files')}>
-              <div className={cn(FILE_ROW, 'border-t-0 pt-0 text-xs text-ink3 @max-[720px]/main:hidden')} aria-hidden="true">
-                <span>File</span>
-                <span>Agent</span>
-                <span>{t('Sửa lúc', 'Modified')}</span>
-                <span>{t('So với gói', 'Versus the pack')}</span>
-                <span>{t('Trong gói', 'In the pack')}</span>
-                <span />
-              </div>
-              {view.files.map((f) => {
-                const key = f.keyLines.length > 0;
-                const diff = f.vsPack === 'changed' && !key;
-                return (
-                  <div key={f.path} className={FILE_ROW} role="listitem" aria-label={f.path}>
-                    <span className="[font:11.5px_var(--mono)] [overflow-wrap:anywhere]">{f.path}</span>
-                    <span>{f.agent ? AGENT_NAME[f.agent] : t('thêm tay', 'added by hand')}</span>
-                    <span className="text-ink2 tabular-nums">{f.modifiedAt ? dayClock(f.modifiedAt, now) : '—'}</span>
-                    <span>
-                      <Chip chip={statusChip(f, view.packAt)} />
-                    </span>
-                    <span>
-                      <Toggle on={f.include && !key && !f.error} disabled={key || !!f.error} label={t('Đưa ' + f.path + ' vào gói', 'Put ' + f.path + ' in the pack')} onClick={() => instr.include(f.path, !f.include)} />
-                    </span>
-                    <span>
-                      <LinkButton
-                        small
-                        aria-label={diff ? t('So sánh ' + f.path, 'Compare ' + f.path) : t('Xem ' + f.path, 'View ' + f.path)}
-                        onClick={() => (diff ? instr.compare(f.path) : instr.show(f.path))}
-                      >
-                        {diff ? t('So sánh', 'Compare') : t('Xem', 'View')}
-                      </LinkButton>
-                    </span>
-                  </div>
-                );
-              })}
+        ) : view.files.length ? (
+          <div role="group" aria-label={t('File hướng dẫn', 'Instruction files')}>
+            <div className={cn(FILE_ROW, 'border-t-0 pt-0 text-xs text-ink3 @max-[720px]/main:hidden')} aria-hidden="true">
+              <span>File</span>
+              <span>{t('Sửa lúc', 'Modified')}</span>
+              <span>{t('So với gói', 'Versus the pack')}</span>
+              <span>{t('Trong gói', 'In the pack')}</span>
+              <span />
             </div>
-          ) : (
-            <CardText className="mt-2 mb-0">{t('Không thấy file hướng dẫn nào. Thêm file bằng nút Thêm file….', 'No instruction files found. Add one with the Add file… button.')}</CardText>
-          )}
-        </Panel>
-      )}
-      <Panel>
-        <Facts
-          items={[
-            ['', t('App không sửa các file này. Khôi phục chỉ ghi file bạn chọn, sau khi xem so sánh từng dòng.', 'The app does not edit these files. A restore only writes the files you pick, after a line-by-line comparison.')],
-            ['', t('Bản trên máy khác gói thì mặc định giữ bản trên máy.', 'When the copy on this Mac differs from the pack, the one on this Mac is kept by default.')],
-          ]}
-        />
+            {byAgent(view.files).map((g) => {
+              const name = g.agent ? AGENT_NAME[g.agent] : t('Thêm tay', 'Added by hand');
+              return (
+                <section key={g.agent ?? 'hand'} aria-label={name}>
+                  {/* Every group head has its hairline, the first one too: it parts the head row from the files. */}
+                  <h5 className={cn(GROUP_HEAD, 'm-0 px-1.5 first:border-t-[.5px] first:pt-2.5')}>
+                    {name} <span className={COUNT}>· {g.files.length}</span>
+                  </h5>
+                  <div role="list" aria-label={t('File của ' + name, name + ' files')}>
+                    {g.files.map((f) => (
+                      <FileRow key={f.path} f={f} packAt={view.packAt} now={now} instr={instr} />
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
+        ) : (
+          <CardText className="mt-2 mb-0">{t('Không thấy file hướng dẫn nào. Thêm file bằng nút Thêm file….', 'No instruction files found. Add one with the Add file… button.')}</CardText>
+        )}
+        <div className="mt-1 border-t-[.5px] border-card-line px-1.5 pt-2.5">
+          <FactList
+            className="mb-0"
+            items={[
+              { k: '', text: t('App không sửa các file này. Khôi phục chỉ ghi file bạn chọn, sau khi xem so sánh từng dòng.', 'The app does not edit these files. A restore only writes the files you pick, after a line-by-line comparison.') },
+              { k: '', text: t('Bản trên máy khác gói thì mặc định giữ bản trên máy.', 'When the copy on this Mac differs from the pack, the one on this Mac is kept by default.') },
+            ]}
+          />
+        </div>
       </Panel>
     </>
   );

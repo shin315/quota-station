@@ -8,7 +8,8 @@
 // approved prototype (report section 5): the custom provider goes by the
 // name its table in config.toml gives it, never a name built in here.
 
-import { clock } from './format';
+import { cellOf, emailNames, type CellView } from './accounts';
+import { age, clock, secondsSince } from './format';
 import { t } from './i18n';
 import type { CodexKeyOutcome, CodexKeyPreview, CodexKeyRefusal, CodexOutcome, CodexRefusal, CodexRestart, CodexTarget, CodexView, Model } from './model';
 import type { FactView } from './switching';
@@ -189,6 +190,84 @@ export function codexRow(model: Model): CodexRowView | null {
     note,
     fix: refusal && (refusal.kind === 'noKey' || refusal.kind === 'placeholder') && v.takesKey ? { label: t('Dán khoá…', 'Paste key…'), act: 'codex:key' } : null,
   };
+}
+
+// ===== The ChatGPT accounts (Tổng quan, the Codex tab) =====
+
+/** A ChatGPT account in a table, drawn as the Claude and Antigravity accounts are. */
+export interface ChatGptRowView {
+  key: string;
+  /** The email's name while names show and the report has one; else `ChatGPT`. */
+  name: string;
+  sub: string;
+  /** The whole email, for hover; '' without one. */
+  full: string;
+  chips: ChipView[];
+  /** 5 giờ · Tuần. */
+  cells: CellView[];
+  /** Codex goes through this account now. */
+  active: boolean;
+  /** Old numbers: drawn muted. */
+  dim: boolean;
+  /** Why "Chuyển" cannot run now; '' when it can. */
+  off: string;
+  label: string;
+}
+
+/**
+ * The ChatGPT accounts Codex can go through, each with its five hours and
+ * its week. Codex keeps one sign-in (`auth.json`), so today the list holds
+ * that one account; the layout is a list so more can join it.
+ */
+export function chatGptRows(model: Model, now: Date): ChatGptRowView[] {
+  const v = model.codex;
+  if (!v.present) return [];
+  const s = model.snapshot.codex;
+  // Codex is here even before its first reading: the account's row still shows, without numbers.
+  const accounts = s.accounts.length ? s.accounts : [null];
+  const names = emailNames(accounts.map((a) => a?.email));
+  return accounts.map((a, i) => {
+    const pick = (kind: 'session' | 'week') => a?.windows.find((l) => l.kind === kind) ?? a?.lines.find((l) => l.kind === kind);
+    const cells = (['session', 'week'] as const).map((k) => cellOf(pick(k), k, now, '—'));
+    const chips: ChipView[] = [];
+    if (!hasLogin(v)) chips.push({ t: t('chưa đăng nhập', 'not signed in'), k: 'warn' });
+    const since = secondsSince(a?.fetchedAt ?? null, now);
+    if (a?.reading === 'resetPending') chips.push({ t: t('chờ số sau mốc đặt lại', 'waiting for the number after its reset'), k: 'info' });
+    else if (a?.reading === 'noData') chips.push({ t: t('chưa có số', 'no number yet'), k: '' });
+    else if (a?.reading === 'stale' && since != null) chips.push({ t: t('số ' + age(since) + ' trước', 'numbers ' + age(since) + ' old'), k: 'stale' });
+    const active = v.current === 'chatgpt' && (a?.active ?? true);
+    const off = active ? '' : v.backRefusal ? refusalText(v, v.backRefusal) : v.busy ? t('Codex đang chuyển', 'Codex is switching') : '';
+    const email = a?.email ?? '';
+    const name = (email && names.get(email)) || 'ChatGPT';
+    const sub = v.login === 'keychain' ? t('đăng nhập trong Keychain', 'sign-in in the Keychain') : hasLogin(v) ? t('đăng nhập còn trong máy', 'sign-in kept on this Mac') : '';
+    return {
+      key: 'x' + (a?.number ?? 0) + ':' + i,
+      name,
+      sub,
+      full: email,
+      chips,
+      cells,
+      active,
+      dim: a?.reading === 'stale',
+      off,
+      label:
+        name +
+        (sub ? ', ' + sub : '') +
+        (active ? t(', đang dùng', ', in use') : '') +
+        '. ' +
+        cells.map((c) => c.words).join('. ') +
+        (chips.length ? '. ' + chips.map((c) => c.t).join(', ') : '') +
+        (off ? '. ' + off : ''),
+    };
+  });
+}
+
+/** Why the ChatGPT numbers are missing, under the accounts; null while they read. */
+export function chatGptNote(model: Model): NoteView | null {
+  const s = model.snapshot.codex;
+  if (s.status === 'unavailable') return { tone: 'warn', text: t('Không đọc được hạn mức ChatGPT', 'Cannot read the ChatGPT quota') + (s.reason ? ' (' + s.reason + ')' : '') + '.' };
+  if (s.status === 'single' && !s.accounts.length && s.reason) return { tone: 'warn', text: t('Không đọc được hạn mức ChatGPT', 'Cannot read the ChatGPT quota') + ' (' + s.reason + ').' };
+  return null;
 }
 
 /**

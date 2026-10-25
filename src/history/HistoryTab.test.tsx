@@ -42,14 +42,14 @@ describe('the Lịch sử tab', () => {
     await screen.findByText('Hôm nay');
     expect(fake.api.getHistory).toHaveBeenCalled();
     expect(rows('Hôm nay')).toEqual([
-      '14:12 | Chuyển | lan.acme2→lan.acme1Bạn chuyển tay · giữ đến 15:20 | app',
-      '13:50 | Codex | ChatGPT→relayBạn chuyển trong app · giữ đăng nhập ChatGPT · đã khởi động lại tiến trình nền | app',
-      '13:40 | Cảnh báo | lan.ultra2→lanpham.ultraAntigravity.app đổi về tài khoản cũ (lần 1/2) | quan sát',
-      '13:20 | Antigravity | lanpham.ultra→lan.ultra2Bạn chuyển trong app · thoát app rồi chuyển | app',
-      '09:12 | Chuyển | lan.acme25 giờ đã dùng 4% · đặt lại 15:00 | switcher',
-      '08:01 | Mồi | lan.acme2Bắt đầu tính 5 giờ sớm | switcher',
+      '14:12 | Chuyển | lan.acme2→lan.acme1 | Bạn chuyển tay · giữ đến 15:20 | app',
+      '13:50 | Codex | ChatGPT→relay | Bạn chuyển trong app · giữ đăng nhập ChatGPT · đã khởi động lại tiến trình nền | app',
+      '13:40 | Cảnh báo | lan.ultra2→lanpham.ultra | Antigravity.app đổi về tài khoản cũ (lần 1/2) | quan sát',
+      '13:20 | Antigravity | lanpham.ultra→lan.ultra2 | Bạn chuyển trong app · thoát app rồi chuyển | app',
+      '09:12 | Chuyển | lan.acme2 | 5 giờ đã dùng 4% · đặt lại 15:00 | switcher',
+      '08:01 | Mồi | lan.acme2 | Bắt đầu tính 5 giờ sớm | switcher',
     ]);
-    expect(rows('Hôm qua')).toEqual(['22:47 | Chuyển | lan.acme1→lanpham.devĐổi giữa hai lần đọc, không do app hay switcher | quan sát']);
+    expect(rows('Hôm qua')).toEqual(['22:47 | Chuyển | lan.acme1→lanpham.dev | Đổi giữa hai lần đọc, không do app hay switcher | quan sát']);
     // No line of explanation, no exit code; the switcher's own line is on hover only.
     expect(screen.queryByText(/^Lịch sử của/)).toBeNull();
     expect(screen.queryByText(/exit 0/)).toBeNull();
@@ -58,10 +58,27 @@ describe('the Lịch sử tab', () => {
     expect(primed.classList.contains('hrow')).toBe(true);
   });
 
+  it('one card: the filter at its top, then a line per switch in the same five columns', async () => {
+    await open(ENTRIES);
+    await screen.findByText('Hôm nay');
+    const filter = screen.getByRole('group', { name: 'Lọc lịch sử' });
+    // In the list's card, not in the title row.
+    expect(filter.closest('[data-slot=card]')).toBe(screen.getByRole('region', { name: 'Hôm nay' }).closest('[data-slot=card]'));
+    expect(filter.closest('[data-tauri-drag-region]')).toBeNull();
+    const lines = Array.from(document.querySelectorAll('.hrow'));
+    expect(lines.every((r) => r.children.length === 5)).toBe(true);
+    // Every line takes the same columns.
+    expect(new Set(lines.map((r) => r.className)).size).toBe(1);
+    // The reason on one line, all of it on hover.
+    const codex = lines[1].children[3];
+    expect(codex.getAttribute('title')).toBe('Bạn chuyển trong app · giữ đăng nhập ChatGPT · đã khởi động lại tiến trình nền');
+    expect(codex.className).toMatch(/truncate/);
+  });
+
   it('goes by place when names are hidden', async () => {
     await open(ENTRIES, false);
     await screen.findByText('Hôm nay');
-    expect(rows('Hôm nay')[0]).toBe('14:12 | Chuyển | Team B→Team ABạn chuyển tay · giữ đến 15:20 | app');
+    expect(rows('Hôm nay')[0]).toBe('14:12 | Chuyển | Team B→Team A | Bạn chuyển tay · giữ đến 15:20 | app');
     expect(rows('Hôm nay')[2]).toMatch(/^13:40 \| Cảnh báo \| Ultra 2→Ultra 1/);
     expect(document.body.textContent).not.toMatch(/@|lan\.|Acme/);
   });
@@ -79,7 +96,7 @@ describe('the Lịch sử tab', () => {
     expect(rows('Hôm qua')).toHaveLength(1);
     fireEvent.click(within(filter).getByRole('button', { name: 'Codex' }));
     expect(rows('Hôm nay')).toEqual([
-      '13:50 | Codex | ChatGPT→relayBạn chuyển trong app · giữ đăng nhập ChatGPT · đã khởi động lại tiến trình nền | app',
+      '13:50 | Codex | ChatGPT→relay | Bạn chuyển trong app · giữ đăng nhập ChatGPT · đã khởi động lại tiến trình nền | app',
     ]);
   });
 

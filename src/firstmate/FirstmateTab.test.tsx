@@ -4,7 +4,7 @@
 // The Firstmate tab (M6) on fixture data: what Firstmate's quota-pool.last
 // says, next to the app's own pool. The file itself is read on the Rust side.
 
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MainWindowApp } from '../App';
 import { fakeApi } from '../fixtures/fakeApi';
@@ -25,13 +25,16 @@ async function open(firstmate?: FirstmateView, language: Model['language'] = 'au
   return fake;
 }
 
-/** The "Firstmate đang thấy" rows as `key: value`. */
-function seen(): string[] {
-  const kvt = document.querySelector('.kvt');
-  if (!kvt) return [];
-  const cells = Array.from(kvt.children).map((c) => c.textContent);
-  return cells.flatMap((c, i) => (i % 2 ? [] : [c + ': ' + cells[i + 1]]));
+/** A Firstmate card's lines as `key: value`; none while the card is not there. */
+function lines(card: string): string[] {
+  const list = screen.queryByRole('list', { name: card });
+  if (!list) return [];
+  return within(list)
+    .getAllByRole('listitem')
+    .map((r) => r.children[0].textContent + ': ' + r.children[1].textContent);
 }
+
+const seen = () => lines('Firstmate đang thấy');
 
 afterEach(cleanup);
 
@@ -43,12 +46,26 @@ describe('the Firstmate tab', () => {
     expect(seen()).toEqual([
       'Chờ hạn mức Claude: không',
       'Tài khoản đang dùng: lan.acme1',
-      'Đã dùng từng tài khoản: lanpham.dev đã dùng 71% · lan.acme1 đã dùng 100% · lan.acme2 đã dùng 0% · lan.acme3 đã dùng 2%',
       'Có lại lúc: —',
-      'quota-axi của firstmate có +cswap: có',
-      'Đọc được claude-swap: được',
       'Cập nhật: 14:19 · 1 phút trước',
     ]);
+    expect(lines('Đã dùng từng tài khoản')).toEqual(['lanpham.dev: 71%', 'lan.acme1: 100%', 'lan.acme2: 0%', 'lan.acme3: 2%']);
+    expect(lines('Kết nối')).toEqual(['quota-axi của firstmate có +cswap: có', 'Đọc được claude-swap: được']);
+  });
+
+  it('three cards side by side, one question each, and the note under them on the glass', async () => {
+    await open(firstmateFixture());
+    const cards = ['Firstmate đang thấy', 'Đã dùng từng tài khoản', 'Kết nối'].map((n) => screen.getByRole('list', { name: n }).closest('[data-slot=card]')!);
+    // One row of three: the same grid holds all of them.
+    expect(new Set(cards.map((c) => c.parentElement)).size).toBe(1);
+    expect(cards[0].parentElement!.children).toHaveLength(3);
+    // An account used up reads red; the others stay plain.
+    const used = within(screen.getByRole('list', { name: 'Đã dùng từng tài khoản' })).getAllByRole('listitem');
+    expect(used[1].children[1].className).toMatch(/text-bad-ink/);
+    expect(used[0].children[1].className).not.toMatch(/text-bad-ink/);
+    // The note is not in a card.
+    const note = screen.getByText(/^Firstmate ghi file này sau mỗi lần kiểm/);
+    expect(note.closest('[data-slot=card]')).toBeNull();
   });
 
   it('pool=dry: Firstmate holds new Claude work until the pool has room', async () => {

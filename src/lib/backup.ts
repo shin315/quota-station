@@ -33,16 +33,24 @@ const pad = (n: number) => String(n).padStart(2, '0');
 /** "3 keys", "1 key": a count with its English noun. */
 export const plural = (n: number, one: string, many: string): string => n + ' ' + (n === 1 ? one : many);
 
-/** "Hôm nay 14:30", "Hôm qua 22:05", "17/10 21:48". */
-export function packWhen(at: number | null, now: Date): string {
+/** The day a pack was made, its group in the list: "Hôm nay", "Hôm qua", "17/10". */
+export function packDay(at: number | null, now: Date): string {
   if (at == null) return t('Không rõ giờ', 'Unknown time');
   const d = new Date(at * 1000);
-  const iso = d.toISOString();
   const yesterday = new Date(now);
   yesterday.setDate(now.getDate() - 1);
-  if (d.toDateString() === now.toDateString()) return t('Hôm nay ', 'Today ') + clock(iso);
-  if (d.toDateString() === yesterday.toDateString()) return t('Hôm qua ', 'Yesterday ') + clock(iso);
-  return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + ' ' + clock(iso);
+  if (d.toDateString() === now.toDateString()) return t('Hôm nay', 'Today');
+  if (d.toDateString() === yesterday.toDateString()) return t('Hôm qua', 'Yesterday');
+  return pad(d.getDate()) + '/' + pad(d.getMonth() + 1);
+}
+
+/** The time of day a pack was made, "14:30"; nothing when it is not known. */
+export const packClock = (at: number | null): string => (at == null ? '' : clock(new Date(at * 1000).toISOString()));
+
+/** "Hôm nay 14:30", "Hôm qua 22:05", "17/10 21:48". */
+export function packWhen(at: number | null, now: Date): string {
+  if (at == null) return packDay(at, now);
+  return packDay(at, now) + ' ' + packClock(at);
 }
 
 /** The same, inside a sentence: "gói hôm nay 14:30". */

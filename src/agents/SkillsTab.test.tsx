@@ -1,7 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-// The Skills, Plugin and File hướng dẫn tabs (M11) on the fake Rust side:
+// The Skills tab (M11) on the fake Rust side (the Plugin and File hướng dẫn
+// tabs have their own tests, PluginTab.test.tsx and InstrTab.test.tsx):
 // nothing here reads or writes a skill folder, runs `npx`, `claude` or
 // `codex`, or reaches GitHub. Every skill, plugin and file is made up.
 
@@ -9,7 +10,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MainWindowApp } from '../App';
 import { fakeApi, type FakeOptions } from '../fixtures/fakeApi';
-import { pluginsBrandsFixture, pluginsFixture, skillsFixture, skillTableFixture } from '../fixtures/fakeSkills';
+import { skillsFixture, skillTableFixture } from '../fixtures/fakeSkills';
 import { alertsFixture, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
 import type { Api } from '../lib/api';
 import type { Model, Tab } from '../lib/model';
@@ -71,7 +72,7 @@ describe('the Skills tab', () => {
   it('says which skills have a newer version, and never updates on its own', async () => {
     const fake = await openTab('skills');
     expect(screen.getByText('2 skill có bản mới')).toBeTruthy();
-    expect(screen.getByText('sql-helper, ui-polish. App không tự cập nhật: bạn xem trước rồi mới cập nhật.')).toBeTruthy();
+    expect(screen.getByText(/^Chỉ cập nhật sau khi bạn xem trước\./)).toBeTruthy();
     expect(fake.api.skillsUpdate).not.toHaveBeenCalled();
     await press(screen.getByRole('button', { name: 'Xem sql-helper' }));
     const d = dialog();
@@ -120,7 +121,7 @@ describe('the Skills tab', () => {
     const rows = skillTableFixture().rows.map((r) => (r.name === 'pdf-tools' || r.name === 'release-notes' ? { ...r, update: newer } : r));
     const fake = await openTab('skills', fixtureModel('fresh', { skills: skillsFixture({ table: skillTableFixture({ rows }) }) }), { skillsDelayMs: 200, skillsUpdateFail: ['release-notes'] });
     await waitFor(() => expect(screen.queryByText(/đang đọc…/)).toBeNull());
-    expect(screen.getByText('Bản mới theo bộ')).toBeTruthy();
+    expect(screen.getByRole('region', { name: '4 skill có bản mới' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Cập nhật cả bộ dataworks/skills' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Cập nhật cả bộ uikit-lab/ui-skills' })).toBeTruthy();
     await press(screen.getByRole('button', { name: 'Cập nhật cả bộ acme/agent-skills' }));
@@ -272,6 +273,38 @@ describe('the Skills tab', () => {
     expect(fake.api.skillsDropLink).toHaveBeenCalledWith('agy', 'old-linter');
   });
 
+  it('keeps the newer versions in one card above the table: Cập nhật tất cả, a line per repository, the details behind Chi tiết', async () => {
+    await openTab('skills');
+    const card = screen.getByRole('region', { name: '2 skill có bản mới' });
+    // The tab's head keeps only "Kiểm bản mới"; installing sits at the table's head.
+    const head = screen.getByRole('heading', { level: 2, name: 'Skills' }).parentElement!;
+    expect(within(head).getAllByRole('button').map((b) => b.textContent)).toEqual(['Kiểm bản mới']);
+    expect(within(card).getByRole('button', { name: 'Cập nhật tất cả (2)' })).toBeTruthy();
+    expect(Array.from(card.querySelectorAll('.grid > div')).map((r) => r.textContent)).toEqual([
+      'dataworks/skills · 1 skill có bản mới: sql-helperXem sql-helperCập nhật cả bộ',
+      'uikit-lab/ui-skills · 1 skill có bản mới: ui-polishXem ui-polishCập nhật cả bộ',
+    ]);
+    await press(within(card).getByRole('button', { name: 'Chi tiết: cập nhật skill' }));
+    expect(screen.getByText(/Skill bạn đã sửa trên máy để chưa tick/)).toBeTruthy();
+    const table = screen.getByRole('heading', { name: /^Skills của bạn/ });
+    expect(within(table).getByRole('button', { name: 'Cài từ GitHub' })).toBeTruthy();
+    // Each column names its agent next to its logo; a box an agent cannot change says why.
+    expect(screen.getByRole('button', { name: 'Claude Code: tuỳ chọn cột' }).textContent).toBe('Claude Code');
+    expect(box('deploy-check cho Claude Code').getAttribute('aria-label')).toMatch(/, khoá: deploy-check: /);
+  });
+
+  it('has no update card while nothing is newer, nor without npx', async () => {
+    await openTab('skills', fixtureModel('fresh', { skills: skillsFixture({ table: skillTableFixture({ rows: skillTableFixture().rows.map((r) => ({ ...r, update: null })) }) }) }));
+    await screen.findByRole('heading', { name: /^Skills của bạn/ });
+    expect(screen.queryByText(/skill có bản mới/)).toBeNull();
+    expect(screen.queryByRole('button', { name: /Cập nhật tất cả/ })).toBeNull();
+    cleanup();
+    await openTab('skills', fixtureModel('fresh', { skills: skillsFixture({ npx: false }) }));
+    await screen.findByRole('heading', { name: /^Skills của bạn/ });
+    expect(screen.queryByRole('region', { name: /skill có bản mới/ })).toBeNull();
+    expect((within(screen.getByRole('heading', { name: /^Skills của bạn/ })).getByRole('button', { name: 'Cài từ GitHub' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
   it('the alert for newer versions opens this tab', async () => {
     const alert = {
       id: 'skills:abc@1',
@@ -289,7 +322,7 @@ describe('the Skills tab', () => {
 describe('Cài đặt › Skills', () => {
   it('has "Kiểm bản mới" daily or off, and the macOS card off by default', async () => {
     const fake = await openTab('settings');
-    const seg = screen.getByRole('group', { name: 'Kiểm bản mới' });
+    const seg = screen.getByRole('group', { name: 'Kiểm bản mới của skill' });
     expect(within(seg).getByRole('button', { name: 'Mỗi ngày' }).getAttribute('aria-pressed')).toBe('true');
     const notify = screen.getByRole('switch', { name: 'Báo skill có bản mới bằng thông báo macOS' });
     expect(notify.getAttribute('aria-checked')).toBe('false');
@@ -297,83 +330,5 @@ describe('Cài đặt › Skills', () => {
     expect(fake.api.skillsSetChecks).toHaveBeenCalledWith(false, false);
     await press(notify);
     expect(fake.api.skillsSetChecks).toHaveBeenLastCalledWith(false, true);
-  });
-});
-
-describe('the Plugin tab', () => {
-  it('lists each agent\'s plugins and marketplaces, read only', async () => {
-    const fake = await openTab('plugins');
-    expect(fake.api.pluginsRead).toHaveBeenCalled();
-    const claude = screen.getByRole('list', { name: 'Plugin của Claude Code' });
-    expect(within(claude).getAllByRole('listitem').map((r) => r.getAttribute('aria-label'))).toEqual([
-      'issue-hub@acme-plugins, bật',
-      'formatter@tools-market, bật',
-      'docs-pack@acme-plugins, bật',
-      'review-kit@tools-market, tắt',
-    ]);
-    expect(within(claude).getByText('1 MCP, 1 skill, 3 lệnh')).toBeTruthy();
-    expect(screen.getByText(/Chỉ xem. App không cài, gỡ, bật hay tắt plugin/)).toBeTruthy();
-    // No box, no switch: nothing here changes a plugin.
-    expect(screen.queryByRole('checkbox')).toBeNull();
-    expect(screen.queryByRole('switch')).toBeNull();
-    await press(screen.getByRole('button', { name: 'Lệnh cài lại' }));
-    expect(within(dialog()).getByText('claude plugin install issue-hub@acme-plugins')).toBeTruthy();
-    expect(within(dialog()).getByText('codex plugin add sheets@codex-market')).toBeTruthy();
-  });
-
-  it("shows a known service's logo before a plugin, never from its marketplace's name", async () => {
-    await openTab('plugins', fixtureModel('fresh', { plugins: pluginsBrandsFixture() }));
-    const row = (name: string) => screen.getByRole('listitem', { name: name + ', bật' });
-    expect(row('github@acme-plugins').querySelector('.logo')).not.toBeNull();
-    expect(row('google-calendar@codex-market').querySelector('.logo')).not.toBeNull();
-    expect(row('formatter@tools-market').querySelector('.logo')).toBeNull();
-  });
-
-  it('without claude: says the pack keeps the old list', async () => {
-    const p = pluginsFixture();
-    const sides = p.sides!.map((s) => (s.agent === 'claude' ? { ...s, state: 'noCli' as const, plugins: [], marketplaces: [] } : s));
-    await openTab('plugins', fixtureModel('fresh', { plugins: { ...p, sides } }));
-    expect(screen.getByText('Không đọc được plugin của Claude Code')).toBeTruthy();
-    expect(screen.getByText(/Gói sao lưu giữ danh sách cũ của Claude Code/)).toBeTruthy();
-  });
-});
-
-describe('the File hướng dẫn tab', () => {
-  it('lists the files, keeps one with a key out of the pack, and shows the key masked', async () => {
-    const fake = await openTab('instr');
-    expect(fake.api.instrRead).toHaveBeenCalled();
-    const rows = within(screen.getByRole('list', { name: 'File hướng dẫn' })).getAllByRole('listitem');
-    expect(rows.map((r) => r.getAttribute('aria-label'))).toEqual(['~/.claude/CLAUDE.md', '~/.claude/rules/deploy.md', '~/.claude/rules/style.md', '~/.codex/AGENTS.md', '~/.gemini/GEMINI.md']);
-    expect(screen.getByText('deploy.md chưa vào gói sao lưu')).toBeTruthy();
-    const deploy = screen.getByRole('switch', { name: 'Đưa ~/.claude/rules/deploy.md vào gói' }) as HTMLButtonElement;
-    expect(deploy.disabled).toBe(true);
-    expect(deploy.getAttribute('aria-checked')).toBe('false');
-    await press(screen.getByRole('button', { name: 'Xem dòng 12' }));
-    expect(within(dialog()).getByText('DEPLOY_TOKEN=••••••')).toBeTruthy();
-    await press(within(dialog()).getByRole('button', { name: 'Dòng 12 không phải khoá' }));
-    expect(fake.api.instrNotKey).toHaveBeenCalledWith('~/.claude/rules/deploy.md', 12);
-  });
-
-  it('compares a changed file with the pack, and "Trong gói" is the only thing it changes', async () => {
-    const fake = await openTab('instr');
-    await press(screen.getByRole('button', { name: 'So sánh ~/.claude/rules/style.md' }));
-    expect(fake.api.instrCompare).toHaveBeenCalledWith('~/.claude/rules/style.md');
-    expect(within(dialog()).getByText('- No comments when the code is clear.')).toBeTruthy();
-    await press(within(dialog()).getByRole('button', { name: 'Đóng' }));
-    await press(screen.getByRole('switch', { name: 'Đưa ~/.gemini/GEMINI.md vào gói' }));
-    expect(fake.api.instrInclude).toHaveBeenCalledWith('~/.gemini/GEMINI.md', true);
-  });
-
-  it('"Thêm file…" takes a file in the home folder only', async () => {
-    const fake = await openTab('instr');
-    await press(screen.getByRole('button', { name: 'Thêm file…' }));
-    const input = within(dialog()).getByRole('textbox');
-    fireEvent.change(input, { target: { value: '/etc/hosts.md' } });
-    await press(within(dialog()).getByRole('button', { name: 'Thêm' }));
-    expect(within(dialog()).getByText('File phải nằm trong thư mục nhà, ngoài thư mục của app.')).toBeTruthy();
-    fireEvent.change(input, { target: { value: '~/notes/team.md' } });
-    await press(within(dialog()).getByRole('button', { name: 'Thêm' }));
-    expect(fake.api.instrAdd).toHaveBeenLastCalledWith('~/notes/team.md');
-    expect(screen.getByRole('listitem', { name: '~/notes/team.md' })).toBeTruthy();
   });
 });
