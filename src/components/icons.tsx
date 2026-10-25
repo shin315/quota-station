@@ -74,6 +74,37 @@ const TINTS = {
 export type GlyphTint = keyof typeof TINTS;
 
 /**
+ * Each place of the app (a sidebar item, and the popover that names the same
+ * places) with its glyph and its own tint, as Clean Station's sidebar does:
+ * neighbours in the sidebar's order take different hues. The one mapping
+ * every surface draws from; Claude, Antigravity and Codex show their logos.
+ */
+export const PLACE_GLYPHS = {
+  overview: { glyph: 'squares-four', tint: 'blue' },
+  stats: { glyph: 'chart-bar', tint: 'green' },
+  rules: { glyph: 'repeat', tint: 'orange' },
+  history: { glyph: 'clock-counter-clockwise', tint: 'indigo' },
+  alerts: { glyph: 'bell', tint: 'red' },
+  firstmate: { glyph: 'anchor', tint: 'teal' },
+  mcp: { glyph: 'plug', tint: 'purple' },
+  skills: { glyph: 'lightning', tint: 'yellow' },
+  plugins: { glyph: 'puzzle-piece', tint: 'mint' },
+  instr: { glyph: 'file-text', tint: 'slate' },
+  sets: { glyph: 'stack', tint: 'pink' },
+  backup: { glyph: 'archive', tint: 'brown' },
+  copy: { glyph: 'swap', tint: 'cyan' },
+  settings: { glyph: 'gear-six', tint: 'gray' },
+} satisfies Record<string, { glyph: GlyphName; tint: GlyphTint }>;
+
+export type Place = keyof typeof PLACE_GLYPHS;
+
+/** A place's glyph in its tint; `className` sizes it. */
+export function PlaceGlyph({ place, className }: { place: Place; className?: string }) {
+  const { glyph, tint } = PLACE_GLYPHS[place];
+  return <Glyph name={glyph} tint={tint} className={className} />;
+}
+
+/**
  * A Phosphor glyph in its Duotone weight, 16 px by default: the outline in
  * `tint` (or the text's colour) and its back layer in the same colour at
  * `--glyph-back`. `bold`: a control's glyph (a button's plus, a menu's

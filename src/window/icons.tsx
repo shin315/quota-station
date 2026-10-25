@@ -6,7 +6,7 @@
 // sketch (`ui.js` `IC`), SF Symbols-like. The three agents show their own
 // logos (components/logos.tsx).
 
-import { Glyph, type GlyphName, type GlyphTint } from '../components/icons';
+import { PlaceGlyph, type Place } from '../components/icons';
 import { AgentIcon } from '../components/logos';
 
 const P = { width: 15, height: 15, viewBox: '0 0 16 16', 'aria-hidden': true } as const;
@@ -54,34 +54,30 @@ export function ChevronIcon() {
   );
 }
 
-/** A sidebar icon: a Phosphor Duotone glyph in the item's own tint, 15 px as the drawings it replaced. */
-function nav(name: GlyphName, tint: GlyphTint) {
-  return <Glyph name={name} tint={tint} className="size-[15px]" />;
+/** A sidebar icon: its place's Phosphor Duotone glyph and tint (components/icons.tsx), 15 px as the drawings it replaced. */
+function nav(place: Place) {
+  return <PlaceGlyph place={place} className="size-[15px]" />;
 }
 
-/**
- * The sidebar's icons: each item its own glyph and tint, as Clean Station's
- * sidebar does, with neighbours in different hues; the three agents show
- * their own logos.
- */
+/** The sidebar's icons; the three agents show their own logos. */
 export const NAV_ICONS = {
-  overview: nav('squares-four', 'blue'),
-  stats: nav('chart-bar', 'green'),
+  overview: nav('overview'),
+  stats: nav('stats'),
   claude: <AgentIcon agent="claude" className="size-[15px]" />,
   agy: <AgentIcon agent="agy" className="size-[15px]" />,
   codex: <AgentIcon agent="codex" className="size-[15px]" />,
-  rules: nav('repeat', 'orange'),
-  history: nav('clock-counter-clockwise', 'indigo'),
-  alerts: nav('bell', 'red'),
-  firstmate: nav('anchor', 'teal'),
-  mcp: nav('plug', 'purple'),
-  skills: nav('lightning', 'yellow'),
-  plugins: nav('puzzle-piece', 'mint'),
-  instr: nav('file-text', 'slate'),
-  sets: nav('stack', 'pink'),
-  backup: nav('archive', 'brown'),
-  copy: nav('swap', 'cyan'),
-  settings: nav('gear-six', 'gray'),
+  rules: nav('rules'),
+  history: nav('history'),
+  alerts: nav('alerts'),
+  firstmate: nav('firstmate'),
+  mcp: nav('mcp'),
+  skills: nav('skills'),
+  plugins: nav('plugins'),
+  instr: nav('instr'),
+  sets: nav('sets'),
+  backup: nav('backup'),
+  copy: nav('copy'),
+  settings: nav('settings'),
 };
 
 export const ARCHIVE_ICON = (
