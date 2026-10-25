@@ -13,25 +13,27 @@
 // and its state file, the other Macs the rotation file is copied to (an SSH
 // alias each), and the clone "Cập nhật từ mã nguồn" builds from. Only a
 // build with the author's tools has that card (`capabilities.authorTools`).
-// The layout is settings-R2 (25/10/2026): a table of contents on the left
-// that stays while the page scrolls, the cards in one column beside it, and
-// in each card a row's name and one line on the left, its control on the
-// right (SetRow). A longer description waits behind its "Chi tiết".
+// The layout is settings-R2 (25/10/2026) with its groups as tabs: a bar of
+// tabs under the title that stays while the page scrolls, and under it the
+// one group picked (Chung at first), its card the page's whole width; in
+// each card a row's name and one line on the left, its control on the right
+// (SetRow). A longer description waits behind its "Chi tiết".
 
-import { Fragment, useEffect, useRef, useState, type ReactNode, type Ref } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Tabs as TabsPrimitive } from 'radix-ui';
 import { DiagnosticsRows, ReleaseRows } from '../release/ReleaseParts';
 import { EnvCard } from './EnvCard';
 import { SET_CTL, SetRow } from './SetRow';
 import { Card as Panel, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Segment, Segmented } from '@/components/ui/segmented';
+import { Segment, Segmented, segmentedVariants, segmentVariants } from '@/components/ui/segmented';
 import { IdMark } from '../components/accounts';
 import { LABEL, rowClass, STACK, TabHead, TabSub, TabTitle } from '../components/page';
 import { Button, Chip, CODE, Dot, Feedback, FieldHint, LinkButton, More, Toggle } from '../components/parts';
 import { alertKinds, permissionChip, unreadText } from '../lib/alerts';
 import { authorModel, type AuthorModel } from '../lib/author';
 import type { ChipView } from '../lib/view';
-import type { AlertKind, AppView, ClientStatus, Language, Menubar, MenubarWindow, Model, Peer, PeerTest, SourceView, Theme, UpdateError } from '../lib/model';
+import type { AlertKind, AppView, ClientStatus, Language, Menubar, MenubarWindow, Model, Peer, PeerTest, SettingsGroup, SourceView, Theme, UpdateError } from '../lib/model';
 import { t } from '../lib/i18n';
 import { SectionGlyph, type Section } from '../components/icons';
 import type { Action, FeedbackView, PopoverView } from '../lib/view';
@@ -91,23 +93,18 @@ export interface SettingsProps {
   onLanguage?(language: Language): void;
   /** Cài đặt › Cập nhật: "Tự kiểm bản mới của app"; with it come the release rows and Chẩn đoán. */
   onReleaseChecks?(on: boolean): void;
-  /**
-   * Opens a group, as a pick in the table of contents does ("Cài đặt thông
-   * báo" under the bell). A new object each time, so the same group opens again.
-   */
-  open?: { group: SettingsGroup } | null;
+  /** The group shown, kept by the window while it is open; Chung when it is not one this build has. */
+  group?: SettingsGroup;
+  onGroup?(group: SettingsGroup): void;
 }
 
 /** A card's rows: each row's name on the left, its controls on the right. */
 const CARD_ROWS = 'grid';
 
-/**
- * A card of settings: its icon and name, then its rows. `id`: where the table
- * of contents takes the page; the card is a region named by its title.
- */
+/** A card of settings: its icon and name, then its rows; a region named by its title. */
 function SettingsCard(props: { id: string; title: string; icon: Section; children: ReactNode }) {
   return (
-    <Panel id={props.id} role="region" aria-labelledby={props.id + '-t'} className="scroll-mt-4">
+    <Panel id={props.id} role="region" aria-labelledby={props.id + '-t'}>
       <CardTitle id={props.id + '-t'}>
         <SectionGlyph section={props.icon} />
         {props.title}
@@ -1051,9 +1048,8 @@ export function MenubarWindowRow({ model, onPick, layout = 'form' }: { model: Mo
   );
 }
 
-/** Where the table of contents takes the page: each group's card. */
-export type SettingsGroup = keyof typeof GROUPS;
-const GROUPS = {
+/** Each group's card: its id; the group's tab shows it. */
+const GROUPS: Record<SettingsGroup, string> = {
   env: 'qs-set-env',
   general: 'qs-set-general',
   display: 'qs-set-display',
@@ -1065,87 +1061,81 @@ const GROUPS = {
   advanced: 'qs-set-advanced',
 };
 
+/** How far the bar fades out at an end with more tabs past it. */
+const FADE = 24;
+
 /**
- * The group the page is at: the last card whose top has passed the page's
- * top, the first while the page is at its top. A group picked in the table of contents stays the one marked while it
- * is in view, until the owner scrolls by hand (the last cards are short and
- * may never reach the top).
+ * The bar of tabs under the title, one per group, the shown one lit as the
+ * segmented controls light theirs. Where the page is too narrow for all of
+ * them it scrolls sideways, an end with more past it faded out; it never
+ * wraps or cuts a name short. It stays at the page's top while the page
+ * scrolls, frosted once the cards pass under it. The arrows, Home and End
+ * move between the tabs (Radix Tabs).
  */
-function useCurrentGroup(ids: string[]) {
-  const ref = useRef<HTMLElement>(null);
-  const [current, setCurrent] = useState<string | null>(null);
-  const picked = useRef<string | null>(null);
-  const key = ids.join(' ');
+function GroupBar(props: { groups: { key: SettingsGroup; title: string }[]; current: SettingsGroup }) {
+  const bar = useRef<HTMLDivElement>(null);
+  const strip = useRef<HTMLDivElement>(null);
+  const [stuck, setStuck] = useState(false);
+  const [fade, setFade] = useState({ start: 0, end: 0 });
   useEffect(() => {
-    const page = ref.current?.closest('main');
-    if (!page) return;
-    const list = key.split(' ');
+    const page = bar.current?.closest('main');
+    const el = strip.current;
+    if (!page || !el) return;
     const read = () => {
-      const top = page.getBoundingClientRect().top;
-      const want = picked.current ? document.getElementById(picked.current) : null;
-      if (want) {
-        const r = want.getBoundingClientRect();
-        if (r.bottom > top && r.top < top + page.clientHeight) return setCurrent(picked.current);
-      }
-      let at = list[0];
-      // At the top of the page the first group is the one, however tall the window.
-      if (page.scrollTop > 0)
-        for (const id of list) {
-          const el = document.getElementById(id);
-          if (el && el.getBoundingClientRect().top - top <= 48) at = id;
-        }
-      setCurrent(at);
-    };
-    const byHand = () => {
-      picked.current = null;
+      setStuck(bar.current!.getBoundingClientRect().top <= page.getBoundingClientRect().top + 0.5 && page.scrollTop > 0);
+      const room = el.scrollWidth - el.clientWidth;
+      setFade({ start: Math.min(FADE, el.scrollLeft), end: Math.min(FADE, Math.max(0, room - el.scrollLeft)) });
     };
     read();
     page.addEventListener('scroll', read, { passive: true });
-    page.addEventListener('wheel', byHand, { passive: true });
-    page.addEventListener('touchmove', byHand, { passive: true });
-    page.addEventListener('keydown', byHand);
+    el.addEventListener('scroll', read, { passive: true });
+    const sized = typeof ResizeObserver === 'function' ? new ResizeObserver(read) : null;
+    sized?.observe(el);
+    sized?.observe(page);
     return () => {
       page.removeEventListener('scroll', read);
-      page.removeEventListener('wheel', byHand);
-      page.removeEventListener('touchmove', byHand);
-      page.removeEventListener('keydown', byHand);
+      el.removeEventListener('scroll', read);
+      sized?.disconnect();
     };
-  }, [key]);
-  const pick = (id: string) => {
-    picked.current = id;
-    setCurrent(id);
-    const still = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    document.getElementById(id)?.scrollIntoView?.({ block: 'start', behavior: still ? 'auto' : 'smooth' });
-  };
-  return { ref, current: current && ids.includes(current) ? current : ids[0], pick };
-}
-
-/**
- * The table of contents: one line per card, the one the page is at marked.
- * It stays at the top while the page scrolls; where the page has under
- * 600 px it gives its room to the cards.
- */
-function Contents(props: { groups: { id: string; title: string }[]; current: string; onPick(id: string): void; navRef: Ref<HTMLElement> }) {
+  }, []);
+  // Another group starts at its top, and its tab in sight: one opened from elsewhere may be past the bar's end.
+  useEffect(() => {
+    const page = bar.current?.closest('main');
+    if (page) page.scrollTop = 0;
+    const el = strip.current;
+    const tab = el?.querySelector<HTMLElement>('[data-state=active]');
+    if (!el || !tab) return;
+    const left = tab.offsetLeft - FADE;
+    const right = tab.offsetLeft + tab.offsetWidth + FADE - el.clientWidth;
+    if (el.scrollLeft > left) el.scrollLeft = left;
+    else if (el.scrollLeft < right) el.scrollLeft = right;
+  }, [props.current]);
   return (
-    <nav ref={props.navRef} className="sticky top-0 grid content-start gap-px self-start @max-[600px]/main:hidden" aria-label={t('Mục lục cài đặt', 'Settings contents')}>
-      {props.groups.map((g) => {
-        const on = g.id === props.current;
-        return (
-          <button
-            key={g.id}
-            type="button"
-            className={cn(
-              'w-full cursor-pointer truncate rounded-lg border-0 px-2.5 py-[5px] text-left text-sm',
-              on ? 'bg-fill2 font-semi text-ink' : 'bg-transparent text-ink2 hover:bg-fill hover:text-ink',
-            )}
-            aria-current={on ? 'location' : undefined}
-            onClick={() => props.onPick(g.id)}
-          >
-            {g.title}
-          </button>
-        );
-      })}
-    </nav>
+    // Edge to edge over the page's side padding, as the window's foot is; over the drag strip at the window's top.
+    <div
+      ref={bar}
+      data-tauri-drag-region
+      className={cn(
+        'sticky -top-4 z-[11] -mt-2.5 -mr-[22px] -mb-2 -ml-3.5 border-b-[.5px] pt-2.5 pr-[22px] pb-2 pl-3.5',
+        stuck ? 'border-line bg-glass-win backdrop-blur-[var(--glass-blur)] backdrop-saturate-[var(--glass-sat)]' : 'border-transparent',
+      )}
+    >
+      <div
+        ref={strip}
+        className="-m-1 overflow-x-auto overscroll-x-contain p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        style={{
+          maskImage: `linear-gradient(to right, transparent, #000 ${fade.start}px, #000 calc(100% - ${fade.end}px), transparent)`,
+        }}
+      >
+        <TabsPrimitive.List className={segmentedVariants({ variant: 'tab' })} aria-label={t('Các mục cài đặt', 'Settings sections')}>
+          {props.groups.map((g) => (
+            <TabsPrimitive.Trigger key={g.key} value={g.key} className={segmentVariants({ variant: 'tab' })}>
+              {g.title}
+            </TabsPrimitive.Trigger>
+          ))}
+        </TabsPrimitive.List>
+      </div>
+    </div>
   );
 }
 
@@ -1177,12 +1167,12 @@ export function Settings(props: SettingsProps) {
   const author = authorModel(model);
   const env = <EnvCard id={GROUPS.env} model={model} onAction={onAction} />;
 
-  // The cards in their order; the table of contents lists the same.
-  const groups: { id: string; title: string; card: ReactNode }[] = [
+  // The cards in their order; the bar has a tab for each, in the same order.
+  const groups: { key: SettingsGroup; title: string; card: ReactNode }[] = [
     // A variable overriding a login is something to act on: its card comes first.
-    ...(model.env.found.length ? [{ id: GROUPS.env, title: t('Biến môi trường', 'Environment variables'), card: env }] : []),
+    ...(model.env.found.length ? [{ key: 'env' as const, title: t('Biến môi trường', 'Environment variables'), card: env }] : []),
     {
-      id: GROUPS.general,
+      key: 'general',
       title: t('Chung', 'General'),
       card: (
         <SettingsCard id={GROUPS.general} title={t('Chung', 'General')} icon="general">
@@ -1193,7 +1183,7 @@ export function Settings(props: SettingsProps) {
       ),
     },
     {
-      id: GROUPS.display,
+      key: 'display',
       title: t('Hiển thị', 'Display'),
       card: (
         <SettingsCard id={GROUPS.display} title={t('Hiển thị', 'Display')} icon="display">
@@ -1215,7 +1205,7 @@ export function Settings(props: SettingsProps) {
       ),
     },
     {
-      id: GROUPS.notify,
+      key: 'notify',
       title: t('Thông báo', 'Notifications'),
       card: (
         <SettingsCard id={GROUPS.notify} title={t('Thông báo', 'Notifications')} icon="notify">
@@ -1225,7 +1215,7 @@ export function Settings(props: SettingsProps) {
       ),
     },
     {
-      id: GROUPS.updates,
+      key: 'updates',
       title: t('Cập nhật', 'Updates'),
       card: (
         <SettingsCard id={GROUPS.updates} title={t('Cập nhật', 'Updates')} icon="updates">
@@ -1235,7 +1225,7 @@ export function Settings(props: SettingsProps) {
       ),
     },
     {
-      id: GROUPS.services,
+      key: 'services',
       title: t('Dịch vụ và nguồn số', 'Services and data'),
       card: (
         <SettingsCard id={GROUPS.services} title={t('Dịch vụ và nguồn số', 'Services and data')} icon="services">
@@ -1289,11 +1279,11 @@ export function Settings(props: SettingsProps) {
         </SettingsCard>
       ),
     },
-    ...(model.env.found.length ? [] : [{ id: GROUPS.env, title: t('Biến môi trường', 'Environment variables'), card: env }]),
+    ...(model.env.found.length ? [] : [{ key: 'env' as const, title: t('Biến môi trường', 'Environment variables'), card: env }]),
     ...(onSetBackupFolder
       ? [
           {
-            id: GROUPS.backup,
+            key: 'backup' as const,
             title: t('Sao lưu', 'Backup'),
             card: (
               <SettingsCard id={GROUPS.backup} title={t('Sao lưu', 'Backup')} icon="backup">
@@ -1306,7 +1296,7 @@ export function Settings(props: SettingsProps) {
     ...(onReleaseChecks
       ? [
           {
-            id: GROUPS.diag,
+            key: 'diag' as const,
             title: t('Chẩn đoán', 'Diagnostics'),
             card: (
               <SettingsCard id={GROUPS.diag} title={t('Chẩn đoán', 'Diagnostics')} icon="diag">
@@ -1316,15 +1306,16 @@ export function Settings(props: SettingsProps) {
           },
         ]
       : []),
-    ...(author ? [{ id: GROUPS.advanced, title: t('Nâng cao', 'Advanced'), card: <Advanced {...props} model={author} id={GROUPS.advanced} /> }] : []),
+    ...(author ? [{ key: 'advanced' as const, title: t('Nâng cao', 'Advanced'), card: <Advanced {...props} model={author} id={GROUPS.advanced} /> }] : []),
   ];
-  const at = useCurrentGroup(groups.map((g) => g.id));
-  const pick = useRef(at.pick);
-  pick.current = at.pick;
-  // Asked from elsewhere in the window: the same as a pick in the table of contents.
-  useEffect(() => {
-    if (props.open) pick.current(GROUPS[props.open.group]);
-  }, [props.open]);
+  // Chung unless another tab was picked, or asked for by a link from elsewhere.
+  const [own, setOwn] = useState<SettingsGroup>('general');
+  const asked = props.group ?? own;
+  const current = groups.some((g) => g.key === asked) ? asked : 'general';
+  const pick = (key: string) => {
+    setOwn(key as SettingsGroup);
+    props.onGroup?.(key as SettingsGroup);
+  };
 
   return (
     <>
@@ -1336,14 +1327,15 @@ export function Settings(props: SettingsProps) {
         </TabSub>
       </TabHead>
       {feedback ? <Feedback fb={feedback} onAction={onAction} /> : null}
-      <div className="grid grid-cols-[148px_minmax(0,1fr)] items-start gap-3 @max-[600px]/main:grid-cols-[minmax(0,1fr)]">
-        <Contents groups={groups} current={at.current} onPick={at.pick} navRef={at.ref} />
-        <div className={STACK}>
-          {groups.map((g) => (
-            <Fragment key={g.id}>{g.card}</Fragment>
-          ))}
-        </div>
-      </div>
+      <TabsPrimitive.Root value={current} onValueChange={pick} className="contents">
+        <GroupBar groups={groups} current={current} />
+        {groups.map((g) => (
+          // Radix keeps an empty panel for each tab not shown: it takes no room in the page's gaps.
+          <TabsPrimitive.Content key={g.key} value={g.key} className={cn(STACK, 'data-[state=inactive]:hidden')}>
+            {g.card}
+          </TabsPrimitive.Content>
+        ))}
+      </TabsPrimitive.Root>
     </>
   );
 }

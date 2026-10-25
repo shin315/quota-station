@@ -50,6 +50,18 @@ pub fn main_tab(state: State<'_, AppState>) -> Tab {
     state.lock().main_tab
 }
 
+/// The group Cài đặt shows.
+#[tauri::command]
+pub fn settings_group(state: State<'_, AppState>) -> String {
+    state.lock().settings_group.clone()
+}
+
+/// The group picked in Cài đặt, kept while the app runs.
+#[tauri::command]
+pub fn set_settings_group(state: State<'_, AppState>, group: String) {
+    state.lock().settings_group = group;
+}
+
 #[tauri::command]
 pub fn hide_popover(app: AppHandle) {
     windows::hide_popover(&app);

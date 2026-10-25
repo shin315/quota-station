@@ -10,7 +10,8 @@ import { cn } from '@/lib/utils';
 // macOS's segmented control: a grey track, the chosen segment filled with
 // the accent (--seg-on) in white, as the design draws it.
 // Each segment is a toggle button (aria-pressed) in a group, so every
-// segment stays in the Tab order as before.
+// segment stays in the Tab order as before. The `tab` variant dresses a bar
+// of tabs the same way (segmentedVariants on the list, segmentVariants on each tab).
 const segmentedVariants = cva('gap-0.5 rounded-lg bg-fill2 p-0.5', {
   variants: {
     variant: {
@@ -20,6 +21,8 @@ const segmentedVariants = cva('gap-0.5 rounded-lg bg-fill2 p-0.5', {
       inline: 'inline-grid auto-cols-[minmax(0,1fr)] grid-flow-col',
       /** The menu bar's service picker: each segment with its mark. */
       menubar: 'inline-flex',
+      /** A bar of tabs (Cài đặt's groups): as wide as its words, one row. */
+      tab: 'inline-flex w-max',
     },
   },
   defaultVariants: { variant: 'fill' },
@@ -34,6 +37,8 @@ const segmentVariants = cva(
         inline: 'px-1 py-1 text-s data-[state=on]:cursor-default data-[state=on]:font-semi data-[state=on]:shadow-[0_1px_3px_rgba(0,0,0,.18)]',
         menubar:
           'inline-flex items-center gap-1.5 px-3 py-1 text-[12.5px] text-ink [font-family:inherit] disabled:text-ink3 data-[state=on]:cursor-default data-[state=on]:font-semi data-[state=on]:shadow-[0_1px_3px_rgba(0,0,0,.2)]',
+        /** A tab (Radix Tabs' trigger): lit while its panel shows (data-state=active). */
+        tab: 'px-3 py-1 text-s text-ink [font-family:inherit] data-[state=active]:cursor-default data-[state=active]:bg-seg-on data-[state=active]:font-semi data-[state=active]:text-white data-[state=active]:shadow-[0_1px_3px_rgba(0,0,0,.18)]',
       },
     },
     defaultVariants: { variant: 'fill' },
@@ -67,4 +72,4 @@ function Segment({
   return <TogglePrimitive.Root data-slot="segment" className={cls} pressed={pressed} onPressedChange={() => onClick?.()} {...props} />;
 }
 
-export { Segment, Segmented, segmentedVariants };
+export { Segment, Segmented, segmentedVariants, segmentVariants };

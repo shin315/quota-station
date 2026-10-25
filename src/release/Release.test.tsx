@@ -38,6 +38,13 @@ async function press(el: HTMLElement) {
   });
 }
 
+/** Shows one of Cài đặt's tabs, as a press on it does. */
+async function showGroup(name: string) {
+  await act(async () => {
+    fireEvent.mouseDown(screen.getByRole('tab', { name }));
+  });
+}
+
 afterEach(cleanup);
 
 describe('a newer release on GitHub', () => {
@@ -70,6 +77,7 @@ describe('a newer release on GitHub', () => {
     expect(fake.api.releaseSkip).toHaveBeenCalledWith('0.3.0');
     expect(screen.queryByText('Có bản mới: Quota Station 0.3.0')).toBeNull();
     await press(screen.getByRole('button', { name: 'Cài đặt' }));
+    await showGroup('Cập nhật');
     expect(screen.getByText(/Đã bỏ qua 0\.3\.0\. Báo lại khi có bản sau\./)).toBeTruthy();
     await press(screen.getByRole('button', { name: 'Hoàn tác' }));
     expect(fake.api.releaseSkip).toHaveBeenLastCalledWith(null);
@@ -117,6 +125,7 @@ describe('a newer release on GitHub', () => {
 describe('Cài đặt › Cập nhật', () => {
   it('Kiểm bản mới asks GitHub and shows what it found', async () => {
     const fake = await open(downloaded(releaseFixture()), 'settings', { releaseFinds: releaseAvailable().latest });
+    await showGroup('Cập nhật');
     expect(screen.getByText('0.1.0 (a1b2c3d) · bản tải về (MIT)')).toBeTruthy();
     expect(screen.getByText('Đang dùng bản mới nhất · kiểm lúc 09:14')).toBeTruthy();
     await press(screen.getByRole('button', { name: 'Kiểm bản mới' }));
@@ -128,6 +137,7 @@ describe('Cài đặt › Cập nhật', () => {
 
   it('GitHub out of reach: the line says so and Thử lại checks again', async () => {
     const fake = await open(downloaded(releaseFixture()), 'settings', { releaseFinds: 'offline' });
+    await showGroup('Cập nhật');
     await press(screen.getByRole('button', { name: 'Kiểm bản mới' }));
     expect(screen.getByText('Chưa kiểm được: không kết nối được GitHub. Tự thử lại sau 1 giờ.')).toBeTruthy();
     await press(screen.getByRole('button', { name: 'Thử lại' }));
@@ -136,6 +146,7 @@ describe('Cài đặt › Cập nhật', () => {
 
   it('the daily check turns off', async () => {
     const fake = await open(downloaded(releaseFixture()), 'settings');
+    await showGroup('Cập nhật');
     const toggle = screen.getByRole('switch', { name: 'Tự kiểm bản mới của app' });
     expect(toggle.getAttribute('aria-checked')).toBe('true');
     await press(toggle);
@@ -147,6 +158,7 @@ describe('Cài đặt › Cập nhật', () => {
 describe('Cài đặt › Chẩn đoán', () => {
   it('shows exactly what it copies, then offers the bug form', async () => {
     const fake = await open(downloaded(releaseFixture()), 'settings');
+    await showGroup('Chẩn đoán');
     const writeText = vi.fn(async () => {});
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
     await press(screen.getByRole('button', { name: 'Chép thông tin chẩn đoán…' }));
@@ -164,6 +176,7 @@ describe('Cài đặt › Chẩn đoán', () => {
 
   it('a clipboard that refuses leaves nothing copied', async () => {
     await open(downloaded(releaseFixture()), 'settings');
+    await showGroup('Chẩn đoán');
     Object.defineProperty(navigator, 'clipboard', { value: { writeText: vi.fn(async () => Promise.reject(new Error('denied'))) }, configurable: true });
     await press(screen.getByRole('button', { name: 'Chép thông tin chẩn đoán…' }));
     await within(dialog()).findByLabelText('Thông tin sẽ chép');

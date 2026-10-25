@@ -51,20 +51,32 @@ function renderSettings(model: Model) {
 afterEach(cleanup);
 
 describe('settings tab in English', () => {
-  it('names its cards and rows in English', () => {
+  it('names its tabs, cards and rows in English', () => {
     setLang('en');
     renderSettings(fixtureModel('fresh'));
     expect(screen.getByRole('heading', { name: 'Settings' })).toBeTruthy();
-    const titles = Array.from(document.querySelectorAll('[data-slot="card-title"]')).map((h) => h.textContent);
-    expect(titles).toEqual(expect.arrayContaining(['General', 'Display', 'Notifications', 'Updates', 'Services and data', 'Backup', 'Advanced']));
-    expect(titles.at(-1)).toBe('Advanced');
+    // The bar of tabs names the same cards.
+    const bar = screen.getByRole('tablist', { name: 'Settings sections' });
+    const tabs = within(bar).getAllByRole('tab').map((b) => b.textContent!);
+    expect(tabs).toEqual(['General', 'Display', 'Notifications', 'Updates', 'Services and data', 'Environment variables', 'Backup', 'Advanced']);
+    const show = (name: string) => fireEvent.mouseDown(within(bar).getByRole('tab', { name }));
+    const titles = tabs.map((name) => {
+      show(name);
+      return document.querySelector('[data-slot="card-title"]')!.textContent;
+    });
+    expect(titles).toEqual(['General', 'Display', 'Notifications', 'Updates', 'Services and data', 'Environment variables that override sign-in', 'Backup', 'Advanced']);
 
+    show('General');
     expect(screen.getByText('This Mac’s name')).toBeTruthy();
     expect(screen.getByText('Open at login')).toBeTruthy();
+    // No Vietnamese left in the cards' own names.
+    expect(screen.queryByText('Cài đặt')).toBeNull();
+    expect(screen.queryByText('Chung')).toBeNull();
+    show('Services and data');
     expect(screen.getByText('Keychain access')).toBeTruthy();
     expect(screen.getByText('Codex folder')).toBeTruthy();
+    show('Display');
     expect(screen.getByRole('switch', { name: 'Show emails' })).toBeTruthy();
-    expect(screen.getByRole('switch', { name: 'Show advanced features' })).toBeTruthy();
     expect(within(screen.getByRole('group', { name: 'Appearance' })).getAllByRole('button').map((b) => b.textContent)).toEqual([
       'Match macOS',
       'Light',
@@ -77,23 +89,11 @@ describe('settings tab in English', () => {
       'Highest usage',
     ]);
     expect(screen.getByRole('group', { name: 'Menu bar' })).toBeTruthy();
+    show('Advanced');
+    expect(screen.getByRole('switch', { name: 'Show advanced features' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Add Mac' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Update from source' })).toBeTruthy();
-    // No Vietnamese left in the cards' own names.
-    expect(screen.queryByText('Cài đặt')).toBeNull();
-    expect(screen.queryByText('Chung')).toBeNull();
-    // The table of contents names the same cards.
-    const contents = screen.getByRole('navigation', { name: 'Settings contents' });
-    expect(within(contents).getAllByRole('button').map((b) => b.textContent)).toEqual([
-      'General',
-      'Display',
-      'Notifications',
-      'Updates',
-      'Services and data',
-      'Environment variables',
-      'Backup',
-      'Advanced',
-    ]);
+    show('Updates');
     expect(screen.getByRole('button', { name: 'Details: Check for skill updates' })).toBeTruthy();
   });
 

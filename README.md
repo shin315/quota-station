@@ -207,10 +207,23 @@ the confirmation sheet first.
     [Update](#update)). A settings file from before M5 with a single
     `sshAlias` moves into the list of other Macs.
 
+    The page is in tabs, one per group, in a bar under its title that
+    stays at the top while the page scrolls: `Chung`, `Hiển thị`, `Thông
+    báo`, `Cập nhật`, `Dịch vụ và nguồn số`, `Biến môi trường`, `Sao lưu`,
+    `Chẩn đoán` and `Nâng cao` (the last two only in builds that have
+    them). Only the group picked shows, `Chung` at first; the app keeps the
+    one picked last while it runs, and a link from elsewhere opens the one
+    it is about (`Mở Cài đặt` in `Firstmate` and `Chép sang Mac khác` opens
+    `Nâng cao`, a variable's banner or notification opens `Biến môi trường`,
+    and `Cài đặt thông báo` under the bell opens `Thông báo`). The
+    arrow keys, Home and End move along the bar; where the window is too
+    narrow for every tab, the bar scrolls sideways, faded at the end with
+    more past it.
+
     `Hạn mức sắp cạn` sets alert 1's two thresholds (10% and 15% by
     default), and `Thư mục sao lưu` the folder the backup packs go to
     (empty is iCloud Drive's `Quota Station Agents`). `Nâng cao`, the last
-    card, holds what was made for the author's own Macs: `Hiện phần nâng
+    tab, holds what was made for the author's own Macs: `Hiện phần nâng
     cao` shows the `Luật xoay vòng`, `Firstmate` and `Chép sang Mac khác`
     tabs, automatic switching with its pause (`Đến 18:00` among them), the
     Switcher card, alerts 2 and 5, the Cá nhân/Team and Ultra names, and
@@ -606,8 +619,9 @@ the confirmation sheet first.
   `GOOGLE_CLOUD_PROJECT`) in six places: `~/.zshenv`, `~/.zprofile`,
   `~/.zshrc`, `~/.bash_profile`, `~/.profile` and launchd (what apps opened
   from the Dock get). It learns only whether each is set, in which file and
-  on which line, never its value, and never runs a shell file. The first
-  card of `Cài đặt` names each variable, the agent it overrides, the file
+  on which line, never its value, and never runs a shell file. The
+  `Biến môi trường` tab of `Cài đặt` (its first tab while a variable is
+  set) names each variable, the agent it overrides, the file
   and line and what it does, with `Mở file` (in Visual Studio Code, Cursor
   or Zed at the line when one is installed, else the default text editor)
   and `Bỏ qua`, which has `Hoàn tác`; with none, one green line.
@@ -618,7 +632,7 @@ the confirmation sheet first.
   minutes after a read, when `Cài đặt` opens and on `Kiểm lại`; it never
   edits a shell file and never unsets anything.
 
-  <img src="docs/env-card.png" width="760" alt="Cài đặt on fixture data: the card Biến môi trường đè đăng nhập with ANTHROPIC_API_KEY in ~/.zshrc on line 42 for Claude Code and OPENAI_BASE_URL in ~/.zprofile on line 7 for Codex, each with Mở file and Bỏ qua">
+  <img src="docs/env-card.png" width="760" alt="Cài đặt on fixture data, on its Biến môi trường tab: the card Biến môi trường đè đăng nhập with ANTHROPIC_API_KEY in ~/.zshrc on line 42 for Claude Code and OPENAI_BASE_URL in ~/.zprofile on line 7 for Codex, each with Mở file and Bỏ qua">
 
   <img src="docs/env-claude.png" width="760" alt="The Claude tab with the red banner: ANTHROPIC_API_KEY đang đè đăng nhập Claude, with Mở ~/.zshrc ở dòng 42, Bỏ qua and Kiểm lại">
 

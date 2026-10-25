@@ -697,6 +697,9 @@ export type Tab =
   | 'copy'
   | 'settings';
 
+/** A group of Cài đặt, each its own tab there. */
+export type SettingsGroup = 'env' | 'general' | 'display' | 'notify' | 'updates' | 'services' | 'backup' | 'diag' | 'advanced';
+
 // ===== Codex (M8) =====
 
 /** Where the custom provider's credentials come from (`codex::config::KeyKind`); never the key itself. */
