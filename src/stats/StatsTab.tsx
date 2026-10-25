@@ -7,13 +7,14 @@
 // day, and the counts by agent, Claude account, model and project, with
 // "Giá API tương đương" only to compare with the subscriptions.
 //
-// The chart follows the design's rules: one series colour for every bar,
-// the agents told apart by a mark beside their name, 4px rounded tops,
-// bars at most 24px wide, a number only on the tallest, and each value on
-// hover and from the keyboard (one stop in the Tab order, the arrows move
-// along it). "Xem bảng" has every number of the chart; the bar lists are
-// tables already. Drawn as SVG on the tokens: no chart library, nothing the
-// app's CSP would have to allow.
+// The chart stacks each column by agent (redraw of 25/10/2026): the total
+// and who made it in one mark, the agents in their fixed series colours with
+// a 2px gap between them and a legend that names each with its total, so a
+// colour never stands alone. 4px rounded tops, bars at most 24px wide, a
+// number only on the tallest, and each value on hover and from the keyboard
+// (one stop in the Tab order, the arrows move along it). "Xem bảng" has
+// every number of the chart; the bar lists are tables already. Drawn as SVG
+// on the tokens: no chart library, nothing the app's CSP would have to allow.
 //
 // The first read shows each agent's progress; a log in a format the app
 // does not know is a notice with the sessions skipped, never a guess.
@@ -24,8 +25,8 @@ import { Segment, Segmented } from '@/components/ui/segmented';
 import { cn } from '@/lib/utils';
 import { IdMark } from '../components/accounts';
 import { Progress } from '../components/blocks';
-import { Empty, GRID, GRID2, TabHead, TabSub, TabTitle } from '../components/page';
-import { BannerBox, Button, Dot, LinkButton, Meter } from '../components/parts';
+import { CARD_END, Empty, GRID2_EVEN, TabHead, TabNote, TabSub, TabTitle } from '../components/page';
+import { BannerBox, Button, Dot, LinkButton, Meter, More } from '../components/parts';
 import type { Api } from '../lib/api';
 import type { Agent, Model, StatsPeriod, StatsPoint, StatsReport } from '../lib/model';
 import {
@@ -112,13 +113,28 @@ const PAD_L = 40;
 const PAD_B = 22;
 const PAD_T = 18;
 
-/** A bar from the baseline up to `top`, its two top corners rounded by 4px. */
-function barPath(x: number, w: number, top: number, base: number): string {
+/** A bar from the baseline up to `top`, its two top corners rounded by 4px (`round`) or square. */
+function barPath(x: number, w: number, top: number, base: number, round = true): string {
+  if (!round) return `M${x},${base}V${top}H${x + w}V${base}Z`;
   const r = Math.min(4, base - top, w / 2);
   return `M${x},${base}V${top + r}Q${x},${top} ${x + r},${top}H${x + w - r}Q${x + w},${top} ${x + w},${top + r}V${base}Z`;
 }
 
-/** The column chart: the total of each hour or day, one colour. */
+/** The agents a column stacks, bottom up, each in its fixed series colour. */
+const STACK_AGENTS = [
+  { agent: 'claude', fill: 'fill-series-1', swatch: 'bg-series-1' },
+  { agent: 'codex', fill: 'fill-series-2', swatch: 'bg-series-2' },
+] as const;
+
+/** The space between two agents' parts of a column: the card shows through. */
+const SEG_GAP = 2;
+
+/** An agent's colour where it is named: a small square, the same as its part of the columns. */
+function Swatch({ agent }: { agent: 'claude' | 'codex' }) {
+  return <i className={cn('inline-block size-2.5 shrink-0 rounded-[3px]', STACK_AGENTS.find((a) => a.agent === agent)!.swatch)} aria-hidden="true" />;
+}
+
+/** The column chart: each hour's or day's total, stacked by agent. */
 export function ColumnChart({ points, period }: { points: StatsPoint[]; period: StatsPeriod }) {
   const box = useRef<HTMLDivElement | null>(null);
   const [W, setW] = useState(W_FIRST);
@@ -184,7 +200,7 @@ export function ColumnChart({ points, period }: { points: StatsPoint[]; period: 
           const by = y(total);
           return (
             <g key={p.label}>
-              {total > 0 ? <path d={barPath(cx - bw / 2, bw, by, PAD_T + ih)} className={cn('fill-series-1', shown === i && 'brightness-110')} aria-hidden="true" /> : null}
+              {total > 0 ? <Stack point={p} x={cx - bw / 2} w={bw} y={y} base={PAD_T + ih} lit={shown === i} /> : null}
               {i === tallest ? (
                 <text x={cx} y={by - 5} textAnchor="middle" className="fill-ink text-[10.5px] font-semi tabular-nums" aria-hidden="true">
                   {inUnit(total, unit) + (unit.short ? ' ' + unit.short : '')}
@@ -233,7 +249,7 @@ export function ColumnChart({ points, period }: { points: StatsPoint[]; period: 
           {(['claude', 'codex'] as const).map((a) => (
             <span key={a} className="flex items-center justify-between gap-3 text-ink2 tabular-nums">
               <span className="flex items-center gap-1.5">
-                <AgentMark agent={a} />
+                <Swatch agent={a} />
                 {AGENT_NAME[a]}
               </span>
               {tokensText(tip[a])}
@@ -242,6 +258,46 @@ export function ColumnChart({ points, period }: { points: StatsPoint[]; period: 
         </div>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * One column's parts, Claude Code at the bottom: each part its agent's
+ * height, a 2px gap between parts, only the top part rounded.
+ */
+function Stack({ point, x, w, y, base, lit }: { point: StatsPoint; x: number; w: number; y(v: number): number; base: number; lit: boolean }) {
+  const parts = STACK_AGENTS.filter((a) => point[a.agent] > 0);
+  let sum = 0;
+  return (
+    <g className={cn(lit && 'brightness-110')} aria-hidden="true">
+      {parts.map((a, i) => {
+        const from = y(sum);
+        sum += point[a.agent];
+        const last = i === parts.length - 1;
+        // The part below gives up the gap; a part too thin for it is drawn without.
+        const bottom = i > 0 && from - y(sum) > SEG_GAP + 1 ? from - SEG_GAP : from;
+        return <path key={a.agent} d={barPath(x, w, Math.min(y(sum), bottom - 1), i === 0 ? base : bottom, last)} className={a.fill} />;
+      })}
+    </g>
+  );
+}
+
+/** Under the chart: each agent with its colour, its total and its share; Antigravity, which has no token log. */
+function Legend({ report }: { report: StatsReport }) {
+  return (
+    <ul className="m-0 mt-1.5 flex list-none flex-wrap items-center gap-x-4 gap-y-1 p-0 text-xs text-ink2 tabular-nums" aria-label={t('Chú thích', 'Legend')}>
+      {(['claude', 'codex'] as const).map((a) => (
+        <li key={a} className="flex items-center gap-1.5">
+          <Swatch agent={a} />
+          <span className="text-ink">{AGENT_NAME[a]}</span>
+          {' · ' + tokensText(report[a]) + ' (' + share(report[a], report.total) + ')'}
+        </li>
+      ))}
+      <li className="flex items-center gap-1.5">
+        <AgentMark agent="agy" />
+        {AGENT_NAME.agy + ': ' + agyNone()}
+      </li>
+    </ul>
   );
 }
 
@@ -351,10 +407,14 @@ function ModelTable({ report }: { report: StatsReport }) {
           <tr>
             <th scope="col">Model</th>
             <th scope="col">Agent</th>
-            <th scope="col">{t('Vào', 'In')}</th>
+            <th scope="col">
+              {t('Vào', 'In')}
+              <sup aria-hidden="true">1</sup>
+              <span className="sr-only">{t(', gồm ghi cache', ', cache writes included')}</span>
+            </th>
             <th scope="col">{t('Ra', 'Out')}</th>
             <th scope="col">{t('Đọc cache', 'Cache read')}</th>
-            <th scope="col">{t('Giá tương đương', 'Equivalent price')}</th>
+            <th scope="col">{t('Giá API tương đương', 'Equivalent API price')}</th>
           </tr>
         </thead>
         <tbody>
@@ -370,32 +430,50 @@ function ModelTable({ report }: { report: StatsReport }) {
           ))}
         </tbody>
       </table>
-      <p className="mt-1.5 mb-0 text-xs text-ink2">
-        {unitWords(unit) +
-          t(' · bảng giá API ngày ' + day(report.pricesAsOf) + ', cập nhật theo bản app', ' · API prices as of ' + day(report.pricesAsOf) + ', updated with each app version')}
+      <div className="mt-1.5 text-xs text-ink2">
+        {capital(unitWords(unit)) + t(' · ¹ gồm ghi cache · giá API ' + day(report.pricesAsOf), ' · ¹ cache writes included · API prices of ' + day(report.pricesAsOf))}
         {report.unpriced.length ? t(' · model chưa có giá không tính vào giá tương đương', ' · models with no price are left out of the equivalent price') : ''}
-      </p>
+        {' · '}
+        <More small about={t('Theo model', 'By model')}>
+          <p>
+            {t(
+              'Vào gồm token vào và token ghi cache; Ra gồm cả token suy luận; Đọc cache là token đọc lại từ cache. Tổng của trang cộng cả bốn loại.',
+              'In counts input and cache-write tokens; Out includes reasoning tokens; Cache read is tokens read back from the cache. The page’s total adds all four.',
+            )}
+          </p>
+          <p>{priceWords(report)}</p>
+        </More>
+      </div>
     </>
   );
 }
 
-function Tile({ label, children, sub }: { label: ReactNode; children: ReactNode; sub?: ReactNode }) {
-  return (
-    <Panel className="px-3 py-2.5">
-      <small className="flex items-center gap-1.5 text-xs text-ink2">{label}</small>
-      <b className="mt-0.5 block text-big font-bold tracking-[-.02em] tabular-nums">{children}</b>
-      {sub ? <em className="block text-xs text-ink2 not-italic">{sub}</em> : null}
-    </Panel>
+/** `triệu token` → `Triệu token`, at the start of a line. */
+function capital(words: string): string {
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/** How "Giá API tương đương" is worked out, behind its "Chi tiết". */
+function priceWords(report: StatsReport): string {
+  return t(
+    'Giá nhân số token từng loại (vào, ghi cache, đọc cache, ra) với bảng giá API ngày ' +
+      day(report.pricesAsOf) +
+      ' có trong bản app. Đây không phải số tiền đã trả và không quy đổi phí thuê bao; model chưa có giá không tính vào.',
+    'Each kind of token (input, cache write, cache read, output) is multiplied by the API prices of ' +
+      day(report.pricesAsOf) +
+      ' that come with the app. It is not what was paid and does not convert a subscription fee; models with no price are left out.',
   );
 }
 
-function Big({ n }: { n: number }) {
-  const b = bigTokens(n);
+/** One of the totals over the chart: its name, the number large, and its words. */
+function Total({ label, value, unit, children }: { label: string; value: string; unit?: string; children?: ReactNode }) {
   return (
-    <>
-      {b.value}
-      <i className="ml-[3px] text-sm font-med text-ink2 not-italic">{b.unit}</i>
-    </>
+    <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+      <span className="text-sm text-ink2">{label}</span>
+      <b className="text-big leading-[1.1] font-bold tracking-[-.02em] tabular-nums">{value}</b>
+      {unit ? <span className="text-sm font-med text-ink2">{unit}</span> : null}
+      {children ? <span className="text-sm text-ink2">{children}</span> : null}
+    </div>
   );
 }
 
@@ -429,6 +507,28 @@ export function StatsTab({ model, fresh, stats }: StatsTabProps) {
         {t('Đọc lại', 'Read again')}
       </Button>
     </TabHead>
+  );
+
+  const note = (
+    <TabNote>
+      {t('Token từ log trên máy · không lưu nội dung hội thoại', 'Tokens from this Mac’s logs · no conversation is kept')}
+      {' · '}
+      <More about={t('Thống kê', 'Stats')}>
+        <p>
+          {t(
+            'App chỉ lấy số token, model, thời gian và thư mục dự án từ log phiên của Claude Code và Codex trên máy này. Nội dung hội thoại không được lưu, ghi lại hay hiện ra, và không có gì được gửi đi.',
+            'The app takes only the token counts, the model, the time and the project folder from Claude Code’s and Codex’s session logs on this Mac. No conversation is kept, logged or shown, and nothing is sent anywhere.',
+          )}
+        </p>
+        <p>
+          {t(
+            'Lần đọc sau chỉ đọc phần log mới. Dòng log ở dạng app chưa biết thì bỏ qua và báo, không đoán. Antigravity chưa có log token mà app đọc được, nên không có số, không phải 0.',
+            'Later reads take only what is new. A log line in a format the app does not know is skipped and reported, never guessed. Antigravity keeps no token log the app can read, so it has no number, not 0.',
+          )}
+        </p>
+        <p>{t('Số đã làm tròn nên cộng lại có thể lệch 0,1.', 'Numbers are rounded, so their sum may be off by 0.1.')}</p>
+      </More>
+    </TabNote>
   );
 
   if (v.reading && v.first) {
@@ -485,56 +585,31 @@ export function StatsTab({ model, fresh, stats }: StatsTabProps) {
     );
   }
 
-  const agentRows: BarRow[] = [
-    { key: 'claude', name: AGENT_NAME.claude, mark: <AgentMark agent="claude" />, tokens: report.claude },
-    { key: 'codex', name: AGENT_NAME.codex, mark: <AgentMark agent="codex" />, tokens: report.codex },
-    { key: 'agy', name: AGENT_NAME.agy, mark: <AgentMark agent="agy" />, tokens: null, none: agyNone() },
-  ];
   const accounts = accountRows(model, report);
   const projects = projectRows(report);
+  const big = bigTokens(report.total);
   return (
     <>
       {head}
+      {note}
       {failedRead}
       {noticeBoxes}
-      <p className="m-0 text-xs text-ink2">
-        {t('Đếm token từ log phiên trên máy này. Không đọc nội dung, không gửi đi.', 'Counts tokens from session logs on this Mac. Session content is not read or sent.')}
-      </p>
-      {/* Two by two where the page is narrow, so a number keeps its unit beside it. */}
-      <div className="grid grid-cols-4 gap-2.5 @max-[720px]/main:grid-cols-2">
-        <Tile label={t('Tổng · ', 'Total · ') + per.per}>
-          <Big n={report.total} />
-        </Tile>
-        <Tile
-          label={
-            <>
-              <AgentMark agent="claude" />
-              Claude Code
-            </>
-          }
-          sub={share(report.claude, report.total)}
-        >
-          <Big n={report.claude} />
-        </Tile>
-        <Tile
-          label={
-            <>
-              <AgentMark agent="codex" />
-              Codex
-            </>
-          }
-          sub={share(report.codex, report.total)}
-        >
-          <Big n={report.codex} />
-        </Tile>
-        <Tile label={t('Giá API tương đương', 'Equivalent API price')} sub={t('gói thuê bao: chỉ để so sánh', 'on a subscription: for comparison only')}>
-          {usd(report.usd)}
-        </Tile>
+      {/* The two totals in one line: the tokens, and what they would cost at API prices. */}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 px-0.5" role="group" aria-label={t('Tổng', 'Totals')}>
+        <Total label={t('Tổng · ', 'Total · ') + per.per} value={big.value} unit={big.unit} />
+        <span className="h-6 w-px bg-card-line @max-[640px]/main:hidden" aria-hidden="true" />
+        <Total label={t('Giá API tương đương', 'Equivalent API price')} value={usd(report.usd)}>
+          {t('không phải số tiền đã trả', 'not what was paid')}
+          {' · '}
+          <More about={t('Giá API tương đương', 'Equivalent API price')}>
+            <p>{priceWords(report)}</p>
+          </More>
+        </Total>
       </div>
       <Panel>
         <CardTitle>
-          {chartTitle(stats.period)}
-          <span className="ml-auto font-reg">
+          {chartTitle(stats.period) + t(' · theo agent', ' · by agent')}
+          <span className={CARD_END}>
             <LinkButton small onClick={stats.toggleTable}>
               {stats.table ? t('Xem biểu đồ', 'Show chart') : t('Xem bảng', 'Show table')}
             </LinkButton>
@@ -551,30 +626,41 @@ export function StatsTab({ model, fresh, stats }: StatsTabProps) {
         ) : stats.table ? (
           <PointTable report={report} />
         ) : (
-          <ColumnChart key={stats.period} points={report.points} period={stats.period} />
+          <>
+            <ColumnChart key={stats.period} points={report.points} period={stats.period} />
+            <Legend report={report} />
+          </>
         )}
       </Panel>
-      <div className={GRID2}>
-        <Panel>
-          <CardTitle>{t('Theo agent', 'By agent')}</CardTitle>
-          <BarTable caption={t('Theo agent', 'By agent')} rows={agentRows} />
-        </Panel>
-        <Panel>
+      {/* The two rankings side by side, the same size, ending on one line. */}
+      <div className={GRID2_EVEN}>
+        <Panel className="flex flex-col">
           <CardTitle>{t('Theo tài khoản Claude', 'By Claude account')}</CardTitle>
           {accounts.length ? (
             <BarTable caption={t('Theo tài khoản Claude', 'By Claude account')} rows={accounts.map((a) => ({ key: a.name, name: a.name, tokens: a.tokens }))} />
           ) : (
             <p className="m-0 text-sm text-ink2">{t('Chưa có token Claude Code ' + per.within + '.', 'No Claude Code tokens ' + per.within + '.')}</p>
           )}
-          <p className="mt-1.5 mb-0 text-xs text-ink2">{t('Gần đúng: ghép giờ của phiên với lịch sử chuyển tài khoản.', 'Approximate: matches session times with the account-switch history.')}</p>
+          <div className="mt-auto pt-1.5 text-xs text-ink2">
+            {t('Ước tính theo lịch sử chuyển', 'Estimated from the switch history')}
+            {' · '}
+            <More small about={t('Theo tài khoản Claude', 'By Claude account')}>
+              <p>
+                {t(
+                  'Log được gom theo lát 15 phút. Token của mỗi lát tính cho tài khoản đang dùng ở giữa lát theo lịch sử chuyển; thiếu mốc thì vào “Chưa rõ tài khoản”.',
+                  'The logs are counted in quarter hours. Each quarter hour’s tokens go to the account in use at its middle by the switch history; with no switch to go by, they go to “Unknown account”.',
+                )}
+              </p>
+              <p>
+                {t(
+                  'Nhiều phiên chạy cùng lúc trên các tài khoản khác nhau, hoặc đăng nhập đổi ngoài app, có thể bị tính nhầm tài khoản.',
+                  'Sessions running at once on different accounts, or a sign-in changed outside the app, may be counted to the wrong account.',
+                )}
+              </p>
+            </More>
+          </div>
         </Panel>
-      </div>
-      <div className={GRID}>
-        <Panel>
-          <CardTitle>{t('Theo model', 'By model')}</CardTitle>
-          {report.models.length ? <ModelTable report={report} /> : <p className="m-0 text-sm text-ink2">{t('Chưa có model nào ' + per.within + '.', 'No models ' + per.within + '.')}</p>}
-        </Panel>
-        <Panel>
+        <Panel className="flex flex-col">
           <CardTitle>{t('Theo dự án', 'By project')}</CardTitle>
           {projects.length ? (
             <BarTable caption={t('Theo dự án', 'By project')} rows={projects.map((p) => ({ key: p.path || p.name, name: p.name, title: p.path || undefined, tokens: p.tokens }))} />
@@ -583,6 +669,10 @@ export function StatsTab({ model, fresh, stats }: StatsTabProps) {
           )}
         </Panel>
       </div>
+      <Panel>
+        <CardTitle>{t('Theo model', 'By model')}</CardTitle>
+        {report.models.length ? <ModelTable report={report} /> : <p className="m-0 text-sm text-ink2">{t('Chưa có model nào ' + per.within + '.', 'No models ' + per.within + '.')}</p>}
+      </Panel>
     </>
   );
 }

@@ -89,7 +89,10 @@ describe('the tabs in English', () => {
       <CodexTab model={fixtureModel('fresh')} fresh={{ tone: 'ok', text: 'now' }} feedback={null} now={FIXTURE_NOW} onAction={() => {}} onPlugins={() => {}} />,
     );
     expect(screen.getByRole('button', { name: 'Check again' })).toBeTruthy();
-    expect(screen.getByRole('list', { name: 'Codex providers' })).toBeTruthy();
+    expect(screen.getByRole('list', { name: 'ChatGPT accounts' })).toBeTruthy();
+    expect(screen.getByRole('list', { name: 'Custom API' })).toBeTruthy();
+    expect(screen.getAllByText('5-hour').length).toBeGreaterThan(0);
+    expect(screen.getByRole('listitem', { name: /^ChatGPT, sign-in kept on this Mac\. 5-hour used 23%/ })).toBeTruthy();
     expect(screen.getByText('Codex on this Mac')).toBeTruthy();
   });
 });

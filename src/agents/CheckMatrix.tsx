@@ -4,9 +4,11 @@
 // The Agent tabs' matrix (M9, reused by Skills in M11): a row per item, a
 // column per agent, a macOS checkbox in every cell. The whole cell is what
 // is pressed; a tick is not written yet (light fill, amber dot) until the
-// pending bar's preview. Each column head is the agent's own logo and opens
-// the column's menu: Bật tất cả, Tắt tất cả, Bỏ N thay đổi chưa ghi. A
-// column that is read only has its logo dimmed and no menu.
+// pending bar's preview. Each column head is the agent's own logo and name
+// (the logo alone where the page is narrow) and opens the column's menu:
+// Bật tất cả, Tắt tất cả, Bỏ N thay đổi chưa ghi. A column that is read only
+// has its head dimmed and no menu. A locked box keeps its state, dimmed, with
+// a small lock beside it; why it is locked is on hover and in its name.
 
 import { useRef, useState, type ReactNode } from 'react';
 import { Checkbox as CheckboxPrimitive } from 'radix-ui';
@@ -25,6 +27,7 @@ import { AGENT_NAME, AGENTS, changesWord, type ColumnMenu } from '../lib/mcp';
 import type { Agent } from '../lib/model';
 import { AgentIcon } from '../components/logos';
 import { Button } from '../components/parts';
+import { LOCK_ICON } from '../window/icons';
 
 /** An agent's logo, 16 px (a dialog's heading makes it smaller through `.agl`). */
 export function AgentLogo({ agent }: { agent: Agent }) {
@@ -51,6 +54,13 @@ export const MATRIX_HOVER = 'opacity-0 group-focus-within/row:opacity-100 group-
 export const LOCK = 'inline-flex text-ink3';
 /** A cell: its box in the middle. */
 export const MATRIX_CELL = 'flex min-h-[22px] items-center justify-center';
+/**
+ * The matrix's column width: room for an agent's logo, name and menu arrow;
+ * narrower where the page has under 820 px, and the names go.
+ */
+const MATRIX_WIDTH = '[--mx-cell:124px] @max-[820px]/main:[--mx-cell:96px]';
+/** An agent's name in its column head; only the logo where the page is narrow. */
+const HEAD_NAME = 'whitespace-nowrap @max-[820px]/main:hidden';
 
 export interface MatrixCell {
   /** `null`: nothing to tick here (`—`), the file is unreadable (`?`), or a skill's link points to nothing (`!`). */
@@ -92,6 +102,9 @@ function ColumnHead(props: {
     return (
       <span className={HEAD_OFF} title={name + ': ' + (props.column.note ?? t('chỉ xem', 'view only'))}>
         <AgentLogo agent={agent} />
+        <span className={HEAD_NAME} aria-hidden="true">
+          {name}
+        </span>
         <span className="sr-only">{t(name + ', chỉ xem', name + ', view only')}</span>
       </span>
     );
@@ -103,7 +116,8 @@ function ColumnHead(props: {
         title={name}
       >
         <AgentLogo agent={agent} />
-        <span className="size-0 border-x-[3.5px] border-t-4 border-x-transparent border-t-ink3" aria-hidden="true" />
+        <span className={HEAD_NAME}>{name}</span>
+        <span className="ml-0.5 size-0 border-x-[3.5px] border-t-4 border-x-transparent border-t-ink3" aria-hidden="true" />
       </DropdownMenuTrigger>
       <DropdownMenuContent
         ref={list}
@@ -181,7 +195,7 @@ function CheckCell({ cell, label, onToggle }: { cell: MatrixCell; label: string;
       )}
       checked={cell.checked}
       aria-disabled={cell.disabled || undefined}
-      aria-label={label + (cell.pending ? t(', chưa ghi', ', not written yet') : '')}
+      aria-label={label + (cell.pending ? t(', chưa ghi', ', not written yet') : '') + (cell.disabled && cell.title ? t(', khoá: ', ', locked: ') + cell.title : '')}
       title={cell.title || undefined}
       onCheckedChange={toggle}
       onKeyDown={(e) => {
@@ -192,6 +206,11 @@ function CheckCell({ cell, label, onToggle }: { cell: MatrixCell; label: string;
       }}
     >
       <CheckboxBox />
+      {cell.disabled ? (
+        <span className="absolute top-1/2 left-[calc(50%+12px)] inline-flex -translate-y-1/2 text-ink3 [&_svg]:size-2.5" aria-hidden="true">
+          {LOCK_ICON}
+        </span>
+      ) : null}
     </CheckboxPrimitive.Root>
   );
 }
@@ -219,7 +238,7 @@ export function CheckMatrix<R>(props: CheckMatrixProps<R>) {
   const [menu, setMenu] = useState<Agent | null>(null);
   const columns = AGENTS.map((a) => props.columns.find((c) => c.agent === a) ?? { agent: a, open: false });
   return (
-    <div className="grid">
+    <div className={cn('grid', MATRIX_WIDTH)}>
       <div className={cn(MATRIX_ROW, MATRIX_HEAD)}>
         <span>{t('Tên', 'Name')}</span>
         {columns.map((c) => (

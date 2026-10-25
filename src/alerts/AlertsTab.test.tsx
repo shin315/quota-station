@@ -35,6 +35,12 @@ async function open(model: Model, options: FakeOptions = {}) {
 }
 
 const card = (title: string) => screen.getByRole('group', { name: 'Cảnh báo: ' + title });
+/** The title row's switch between the two views. */
+const show = async (view: 'Gần đây' | 'Loại cảnh báo') => {
+  await act(async () => {
+    fireEvent.click(within(screen.getByRole('group', { name: 'Xem cảnh báo' })).getByRole('button', { name: view }));
+  });
+};
 const nav = (name: RegExp) => within(screen.getByRole('navigation', { name: 'Các tab' })).getByRole('button', { name });
 
 afterEach(cleanup);
@@ -52,6 +58,48 @@ describe('the Cảnh báo tab', () => {
     expect(within(o).getAllByRole('button').map((b) => b.textContent)).toEqual(['Thoát app rồi chuyển lại', 'Chuyển lại', 'Thôi']);
     expect(within(o).getByText('14:10 · đã gửi thông báo macOS')).toBeTruthy();
     expect(within(card('Team A rời vòng lúc 14:45')).getAllByRole('button').map((b) => b.textContent)).toEqual(['Ổn', 'Chuyển ngay']);
+  });
+
+  it('two views from the title row: Gần đây a day at a time, a line per alert with its buttons on the right; Loại cảnh báo apart', async () => {
+    const yesterday = leavingAlert({
+      id: 'leaving:2:2026-01-15T14:45@1768461300',
+      alert: { ...leavingAlert().alert, key: 'leaving:2:2026-01-15T14:45', title: 'Team A rời vòng lúc 14:45 hôm qua', at: 1768461300 },
+      answer: { action: 'dismiss', label: 'Ổn', at: 1768461400, result: null },
+    });
+    await open(withAlerts({ recent: [overwriteAlert(), leavingAlert(), yesterday] }));
+    const views = within(screen.getByRole('group', { name: 'Xem cảnh báo' }));
+    // In the title row, Gần đây first.
+    expect(screen.getByRole('group', { name: 'Xem cảnh báo' }).closest('[data-tauri-drag-region]')).toBeTruthy();
+    expect(views.getByRole('button', { name: 'Gần đây' }).getAttribute('aria-pressed')).toBe('true');
+    const recent = screen.getByRole('region', { name: 'Gần đây' });
+    // One card: the days as heads, the alerts under each.
+    expect(Array.from(recent.children).map((c) => (c.getAttribute('role') === 'group' ? '· ' + c.getAttribute('aria-label') : c.textContent))).toEqual([
+      'Hôm nay',
+      '· Cảnh báo: Antigravity đổi về tài khoản cũ',
+      '· Cảnh báo: Team A rời vòng lúc 14:45',
+      'Hôm qua',
+      '· Cảnh báo: Team A rời vòng lúc 14:45 hôm qua',
+    ]);
+    // A line: its mark, its words and when, and its buttons on the right; the day is the head, the line keeps the time.
+    const line = card('Team A rời vòng lúc 14:45');
+    expect(line.children).toHaveLength(3);
+    expect(within(line.children[2] as HTMLElement).getAllByRole('button').map((b) => b.textContent)).toEqual(['Ổn', 'Chuyển ngay']);
+    expect(within(card('Team A rời vòng lúc 14:45 hôm qua')).getByText('14:15 · đã gửi thông báo macOS')).toBeTruthy();
+    // The kinds are the other view.
+    expect(screen.queryByRole('switch')).toBeNull();
+    await show('Loại cảnh báo');
+    expect(screen.queryByRole('region', { name: 'Gần đây' })).toBeNull();
+    expect(screen.getAllByRole('button', { name: /^Gửi thử: / })).toHaveLength(5);
+    expect(views.getByRole('button', { name: 'Loại cảnh báo' }).getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('with no alert yet, Gần đây says so and leads to the kinds', async () => {
+    await open(withAlerts({ recent: [] }));
+    expect(screen.getByText('Chưa có cảnh báo')).toBeTruthy();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Xem các loại cảnh báo' }));
+    });
+    expect(screen.getAllByRole('switch')).toHaveLength(5);
   });
 
   it('the sidebar counts the cards nobody answered, and a press counts once', async () => {
@@ -110,6 +158,7 @@ describe('the Cảnh báo tab', () => {
   it('"Gửi thử" sends a test card whose buttons change nothing', async () => {
     const fake = await open(withAlerts({ recent: [] }));
     expect(screen.getByText('Chưa có cảnh báo')).toBeTruthy();
+    await show('Loại cảnh báo');
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Gửi thử: Tài khoản sắp rời vòng' }));
     });
@@ -127,6 +176,7 @@ describe('the Cảnh báo tab', () => {
   it('a test card that does not go out says so, not that settings were not saved', async () => {
     const fake = await open(withAlerts());
     vi.mocked(fake.api.testAlert).mockRejectedValueOnce('io');
+    await show('Loại cảnh báo');
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Gửi thử: Tài khoản sắp rời vòng' }));
     });
@@ -158,6 +208,7 @@ describe('the Cảnh báo tab', () => {
 
   it('each kind has its switch, and Firstmate starts off', async () => {
     const fake = await open(withAlerts());
+    await show('Loại cảnh báo');
     const states = [
       'Hạn mức Claude trong vòng sắp cạn / có lại',
       'Tài khoản sắp rời vòng',
@@ -178,8 +229,10 @@ describe('the Cảnh báo tab', () => {
   it('with notifications off in macOS, the cards stay here and System Settings is one press away', async () => {
     const fake = await open(withAlerts({ permission: 'denied' }));
     expect(screen.getByText('Thông báo của Quota Station đang tắt')).toBeTruthy();
-    expect((screen.getByRole('button', { name: 'Gửi thử: Tài khoản sắp rời vòng' }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getAllByRole('group', { name: /^Cảnh báo: / })).toHaveLength(2);
+    await show('Loại cảnh báo');
+    expect(screen.getByText('Thông báo của Quota Station đang tắt')).toBeTruthy();
+    expect((screen.getByRole('button', { name: 'Gửi thử: Tài khoản sắp rời vòng' }) as HTMLButtonElement).disabled).toBe(true);
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Mở Cài đặt hệ thống' }));
     });

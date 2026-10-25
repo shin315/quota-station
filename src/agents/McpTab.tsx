@@ -2,14 +2,15 @@
 // SPDX-License-Identifier: MIT
 
 // The MCP tab of the main window (M9): every MCP server of Claude Code,
-// Codex and Antigravity in one matrix, a checkbox per agent. Ticks wait on
-// the pending bar until one preview writes them all; a server for a known
-// service shows that service's logo before its name; under the table, one
-// short line each for the servers kept in the app's store, the ones agents
-// and plugins bring themselves (read only), and the backups.
+// Codex and Antigravity in one matrix, a checkbox per agent, "Thêm MCP" at
+// the table's head (mcp-R2, 25/10/2026). Ticks wait on the pending bar until
+// one preview writes them all; a server for a known service shows that
+// service's logo before its name; under the table, on the window's glass,
+// one short line each for the servers kept in the app's store, the ones
+// agents and plugins bring themselves (read only), and the backups.
 
 import { Card as Panel, CardText, CardTitle } from '@/components/ui/card';
-import { COUNT, Empty, EmptyIcon, InfoLine, TabHead, TabSub, TabTitle } from '../components/page';
+import { CARD_END, COUNT, Empty, EmptyIcon, InfoLine, TabHead, TabSub, TabTitle } from '../components/page';
 import { ServiceIcon } from '../components/logos';
 import { Banner, Button, Chip, Dot, Feedback, LinkButton } from '../components/parts';
 import { serviceOf } from '../lib/brands';
@@ -82,8 +83,8 @@ function rowBanners(rows: McpRow[], later: string[]): BannerView[] {
         tone: 'warn',
         title: t(r.name + ' thiếu khoá trên máy này', r.name + ' is missing a key on this Mac'),
         body: t(
-          'Ô tick bị khoá ở agent chưa có ' + r.name + ', đến khi có ' + missing.map((s) => s.label).join(', ') + '.',
-          'The boxes are locked for agents that do not have ' + r.name + ' yet, until ' + missing.map((s) => s.label).join(', ') + ' is here.',
+          'Thiếu ' + missing.map((s) => s.label).join(', ') + ': chưa bật được ' + r.name + ' ở agent chưa có nó.',
+          'Missing ' + missing.map((s) => s.label).join(', ') + ': ' + r.name + ' cannot be turned on for agents that do not have it yet.',
         ),
         actions: [
           { label: t('Dán khoá', 'Paste key'), act: `mcp:key:${r.name}` },
@@ -184,9 +185,6 @@ export function McpTab({ model, fresh, feedback, now, mcp, onAction }: McpTabPro
         <Dot tone={v.busy === 'reading' ? 'stale' : 'ok'} />
         {model.machine} · {sub}
       </TabSub>
-      <Button primary disabled={!table || busy} onClick={mcp.add}>
-        {t('Thêm MCP', 'Add MCP')}
-      </Button>
       <Button disabled={busy} onClick={mcp.reread}>
         {t('Đọc lại', 'Read again')}
       </Button>
@@ -217,6 +215,11 @@ export function McpTab({ model, fresh, feedback, now, mcp, onAction }: McpTabPro
         <Panel>
           <CardTitle>
             {t('MCP của bạn', 'Your MCP')} <span className={COUNT}>{table.rows.length}</span>
+            <span className={CARD_END}>
+              <Button primary small disabled={busy} onClick={mcp.add}>
+                {t('Thêm MCP', 'Add MCP')}
+              </Button>
+            </span>
           </CardTitle>
           <CheckMatrix
             noun="MCP"
@@ -267,60 +270,59 @@ export function McpTab({ model, fresh, feedback, now, mcp, onAction }: McpTabPro
           </Empty>
         </Panel>
       )}
-      <Panel>
-        <div className="grid">
-          {table.stored.map((k) => (
-            <InfoLine
-              key={k.name}
-              icon={ARCHIVE_ICON}
-              actions={
-                <>
-                  <Button disabled={busy} onClick={() => mcp.setDialog({ kind: 'kho', name: k.name, agents: khoAgents(table, k.agents) })}>
-                    {t('Bật lại…', 'Turn back on…')}
-                  </Button>
-                  <LinkButton small disabled={busy} onClick={() => mcp.setDialog({ kind: 'forget', name: k.name, keys: true })}>
-                    {t('Xoá hẳn', 'Delete for good')}
-                  </LinkButton>
-                </>
-              }
-            >
-              <b>{k.name}</b>
-              {t(
-                ' đang cất: tắt ở mọi agent từ ' + dayClock(new Date(k.at * 1000).toISOString(), now) + '.',
-                ' is put away: off for every agent since ' + dayClock(new Date(k.at * 1000).toISOString(), now) + '.',
-              )}
-            </InfoLine>
-          ))}
-          {table.owned.length ? (
-            <InfoLine
-              icon={PUZZLE_ICON}
-              actions={
-                <LinkButton small onClick={() => mcp.setDialog({ kind: 'owned' })}>
-                  {t('Xem', 'View')}
-                </LinkButton>
-              }
-            >
-              {t(
-                table.owned.length + ' MCP có sẵn trong ' + owners(table) + '. App để yên, không sửa.',
-                table.owned.length + ' MCP built into ' + owners(table) + '. The app leaves them alone.',
-              )}
-            </InfoLine>
-          ) : null}
+      {/* On the window's glass, under the table: no card of their own. */}
+      <div className="grid px-3.5">
+        {table.stored.map((k) => (
           <InfoLine
-            icon={NAV_ICONS.history}
+            key={k.name}
+            icon={ARCHIVE_ICON}
             actions={
-              <LinkButton small onClick={() => mcp.setDialog({ kind: 'backups' })}>
-                {t('Bản đã lưu', 'Backups')}
+              <>
+                <Button disabled={busy} onClick={() => mcp.setDialog({ kind: 'kho', name: k.name, agents: khoAgents(table, k.agents) })}>
+                  {t('Bật lại…', 'Turn back on…')}
+                </Button>
+                <LinkButton small disabled={busy} onClick={() => mcp.setDialog({ kind: 'forget', name: k.name, keys: true })}>
+                  {t('Xoá hẳn', 'Delete for good')}
+                </LinkButton>
+              </>
+            }
+          >
+            <b>{k.name}</b>
+            {t(
+              ' đang cất: tắt ở mọi agent từ ' + dayClock(new Date(k.at * 1000).toISOString(), now) + '.',
+              ' is put away: off for every agent since ' + dayClock(new Date(k.at * 1000).toISOString(), now) + '.',
+            )}
+          </InfoLine>
+        ))}
+        {table.owned.length ? (
+          <InfoLine
+            icon={PUZZLE_ICON}
+            actions={
+              <LinkButton small onClick={() => mcp.setDialog({ kind: 'owned' })}>
+                {t('Xem', 'View')}
               </LinkButton>
             }
           >
             {t(
-              'Trước mỗi lần ghi, app lưu lại bản cũ để lấy lại được. Bản lưu không chứa khoá.',
-              'Before each write, the app keeps the old version so it can be restored. Backups hold no keys.',
+              table.owned.length + ' MCP có sẵn trong ' + owners(table) + '. App để yên, không sửa.',
+              table.owned.length + ' MCP built into ' + owners(table) + '. The app leaves them alone.',
             )}
           </InfoLine>
-        </div>
-      </Panel>
+        ) : null}
+        <InfoLine
+          icon={NAV_ICONS.history}
+          actions={
+            <LinkButton small onClick={() => mcp.setDialog({ kind: 'backups' })}>
+              {t('Bản đã lưu', 'Backups')}
+            </LinkButton>
+          }
+        >
+          {t(
+            'Trước mỗi lần ghi, app lưu lại bản cũ để lấy lại được. Bản lưu không chứa khoá.',
+            'Before each write, the app keeps the old version so it can be restored. Backups hold no keys.',
+          )}
+        </InfoLine>
+      </div>
     </>
   );
 }

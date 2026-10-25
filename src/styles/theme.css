@@ -179,6 +179,7 @@
   --color-id-codex-ink: var(--id-codex-ink);
   --color-id-codex-tint: var(--id-codex-tint);
   --color-series-1: var(--series-1);
+  --color-series-2: var(--series-2);
   --color-grid: var(--grid);
 
   /* shadcn/ui's names, for its components. */

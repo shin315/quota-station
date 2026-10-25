@@ -6,6 +6,10 @@
 // each brings, and their marketplaces. Read
 // only: the app never installs, removes, turns on or off a plugin. "Lệnh cài
 // lại" shows the agents' own commands a restore would run.
+// As the approved redraw (plugins-R2, 25/10/2026) lays it out: one line
+// under the title with the rest behind "Chi tiết", one table of every
+// agent's plugins under one head row, then Marketplace and what the pack
+// keeps side by side, ending on one line.
 
 import { useState } from 'react';
 import { Card as Panel, CardText, CardTitle } from '@/components/ui/card';
@@ -13,8 +17,8 @@ import { DialogButtons, DialogLead, DialogSection, DialogTitle } from '@/compone
 import { cn } from '@/lib/utils';
 import { Command } from '../components/blocks';
 import { ServiceIcon } from '../components/logos';
-import { COUNT, Empty, GRID2, TabHead, TabSub, TabTitle } from '../components/page';
-import { Banner, Button, Chip, CODE, Dot, KVT } from '../components/parts';
+import { COUNT, Empty, GRID2_EVEN, GROUP_HEAD, TabHead, TabNote, TabSub, TabTitle } from '../components/page';
+import { Banner, Button, Chip, CODE, Dot, More } from '../components/parts';
 import { pluginName, serviceOf } from '../lib/brands';
 import { clock } from '../lib/format';
 import { t } from '../lib/i18n';
@@ -51,19 +55,31 @@ function sideBanner(s: PluginSide): BannerView | null {
   return null;
 }
 
-/** A plugin: its id, what it brings, on or off. */
-const PLUGIN_ROW = 'grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_70px] items-center gap-2.5 border-t-[.5px] border-card-line py-[7px] text-sm';
+/** A plugin: its id, what it brings, on or off at the row's end; the first under its band has no hairline. */
+const PLUGIN_ROW =
+  'grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_70px] items-center gap-2.5 border-t-[.5px] border-card-line px-1.5 py-[7px] text-sm first:border-t-0 [&>:last-child]:justify-self-end';
+
+/** One agent's plugins under its group head: its logo, its name and how many. */
+function Group({ side }: { side: PluginSide }) {
+  const name = AGENT_NAME[side.agent];
+  return (
+    <section aria-label={name} className="mt-1.5 first-of-type:mt-0">
+      {/* A band across the table, so each agent's plugins read as one block. */}
+      <h5 className={cn(GROUP_HEAD, 'm-0 rounded-lg border-t-0 bg-fill px-1.5 py-1 first:border-t-0 first:pt-1')}>
+        <AgentLogo agent={side.agent} />
+        {name}
+        <span className={COUNT}>· {side.state === 'ok' ? side.plugins.length : '?'}</span>
+      </h5>
+      <Rows side={side} />
+    </section>
+  );
+}
 
 function Rows({ side }: { side: PluginSide }) {
-  if (side.state !== 'ok') return <CardText className="mt-2 mb-0">{t('Chưa đọc được.', 'Not read yet.')}</CardText>;
-  if (!side.plugins.length) return <CardText className="mt-2 mb-0">{t('Chưa cài plugin nào.', 'No plugins installed.')}</CardText>;
+  if (side.state !== 'ok') return <CardText className="mb-1 px-1.5">{t('Chưa đọc được.', 'Not read yet.')}</CardText>;
+  if (!side.plugins.length) return <CardText className="mb-1 px-1.5">{t('Chưa cài plugin nào.', 'No plugins installed.')}</CardText>;
   return (
     <div role="list" aria-label={t('Plugin của ' + AGENT_NAME[side.agent], AGENT_NAME[side.agent] + ' plugins')}>
-      <div className={cn(PLUGIN_ROW, 'border-t-0 pt-0 text-xs text-ink3')} aria-hidden="true">
-        <span>Plugin</span>
-        <span>{t('Mang theo', 'Brings')}</span>
-        <span>{t('Trạng thái', 'State')}</span>
-      </div>
       {side.plugins.map((p) => (
         <div key={p.id} className={PLUGIN_ROW} role="listitem" aria-label={p.id + (p.enabled ? t(', bật', ', on') : t(', tắt', ', off'))}>
           <span className="flex min-w-0 items-center gap-1.5">
@@ -81,6 +97,9 @@ function Rows({ side }: { side: PluginSide }) {
     </div>
   );
 }
+
+/** A row of the two cards under the table: its words on the left, its value at the right. */
+const SIDE_ROW = 'grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3 border-t-[.5px] border-card-line py-[7px] text-sm first:border-t-0';
 
 function marketSource(m: Marketplace): string {
   if (m.kind === 'builtin') return t('có sẵn', 'built in');
@@ -122,16 +141,33 @@ export function PluginTab({ model, fresh, plugins, onAction }: PluginTabProps) {
           {t('Đọc lại', 'Read again')}
         </Button>
       </TabHead>
+      <TabNote>
+        {t('Chỉ xem plugin · Khôi phục qua lệnh của agent. ', 'Plugins are view only · restored through the agent’s own command. ')}
+        <More about={t('Plugin', 'Plugins')}>
+          <p>
+            {t(
+              'App không cài, gỡ, bật hay tắt plugin ở đây: agent tự quản plugin của nó.',
+              'The app does not install, remove, enable or disable plugins here: each agent manages its own.',
+            )}
+          </p>
+          <p>
+            {t(
+              'Gói sao lưu chỉ ghi tên@marketplace, nguồn marketplace và bật hay tắt; không chứa nội dung plugin, cũng không chứa MCP hay skill plugin mang theo.',
+              'A backup pack only records name@marketplace, the marketplace’s source and on or off; it holds neither the plugin’s contents nor the MCP and skills it brings.',
+            )}
+          </p>
+          <p>
+            {t(
+              'Khi khôi phục, app chạy lệnh cài của chính agent sau khi bạn xem trước (nút Lệnh cài lại), nên agent phải cài lại được plugin từ marketplace. Plugin có sẵn của agent không cần cài lại.',
+              'On restore, the app runs the agent’s own install command after you preview it (the Reinstall commands button), so the agent has to be able to install the plugin from its marketplace again. An agent’s built-in plugins need no reinstall.',
+            )}
+          </p>
+        </More>
+      </TabNote>
       {(sides ?? []).map((s) => {
         const b = sideBanner(s);
         return b ? <Banner key={s.agent} banner={b} onAction={onAction} /> : null;
       })}
-      <p className="m-0">
-        {t(
-          'Chỉ xem. App không cài, gỡ, bật hay tắt plugin ở đây; khi khôi phục, app chạy lệnh cài của chính agent.',
-          'View only. The app does not install, remove, enable or disable plugins here; on restore it runs the agent’s own install command.',
-        )}
-      </p>
       {!sides ? (
         <Panel>
           <Empty>
@@ -141,42 +177,49 @@ export function PluginTab({ model, fresh, plugins, onAction }: PluginTabProps) {
         </Panel>
       ) : (
         <>
-          <div className={GRID2}>
-            {sides.map((s) => (
-              <Panel key={s.agent}>
-                <CardTitle>
-                  <AgentLogo agent={s.agent} /> {AGENT_NAME[s.agent]} <span className={COUNT}>{s.state === 'ok' ? s.plugins.length : '?'}</span>
-                </CardTitle>
-                <Rows side={s} />
-              </Panel>
-            ))}
-          </div>
           <Panel>
-            <CardTitle>
-              Marketplace <span className={COUNT}>{markets.length}</span>
-            </CardTitle>
-            {markets.length ? (
-              <div className={KVT}>
-                {markets.flatMap((m) => [
-                  <span key={m.agent + m.name + ':k'}>
-                    <span className={CODE}>{m.name}</span> · {marketSource(m)}
-                  </span>,
-                  <span key={m.agent + m.name + ':v'}>{AGENT_NAME[m.agent]}</span>,
-                ])}
-              </div>
-            ) : (
-              <CardText className="mt-2 mb-0">{t('Chưa thêm marketplace nào.', 'No marketplaces added.')}</CardText>
-            )}
-          </Panel>
-          <Panel>
-            <CardTitle>{t('Trong gói sao lưu', 'In the backup pack')}</CardTitle>
-            <div className={KVT}>
-              <span>{t('Ghi', 'Kept')}</span>
-              <span>{t('tên@marketplace, nguồn marketplace, bật hay tắt', 'name@marketplace, marketplace source, on or off')}</span>
-              <span>{t('Không ghi', 'Not kept')}</span>
-              <span>{t('nội dung plugin, MCP và skill plugin mang theo', 'the plugin’s contents, and the MCP and skills it brings')}</span>
+            <CardTitle>{t('Plugin đã cài', 'Installed plugins')}</CardTitle>
+            <div className={cn(PLUGIN_ROW, 'border-t-0 pt-0 text-xs text-ink3')} aria-hidden="true">
+              <span>Plugin</span>
+              <span>{t('Mang theo', 'Brings')}</span>
+              <span>{t('Trạng thái', 'State')}</span>
             </div>
+            {sides.map((s) => (
+              <Group key={s.agent} side={s} />
+            ))}
           </Panel>
+          <div className={GRID2_EVEN}>
+            <Panel>
+              <CardTitle>
+                Marketplace <span className={COUNT}>{markets.length}</span>
+              </CardTitle>
+              {markets.length ? (
+                <div role="list" aria-label="Marketplace">
+                  {markets.map((m) => (
+                    <div key={m.agent + m.name} className={SIDE_ROW} role="listitem">
+                      <span className="min-w-0 text-ink2 [overflow-wrap:anywhere]">
+                        <span className={CODE}>{m.name}</span> · {marketSource(m)}
+                      </span>
+                      <span>{AGENT_NAME[m.agent]}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <CardText className="mb-0">{t('Chưa thêm marketplace nào.', 'No marketplaces added.')}</CardText>
+              )}
+            </Panel>
+            <Panel>
+              <CardTitle>{t('Trong gói sao lưu', 'In the backup pack')}</CardTitle>
+              <div className={SIDE_ROW}>
+                <span className="text-ink2">{t('Ghi', 'Kept')}</span>
+                <span className="text-right">{t('tên@marketplace, nguồn marketplace, bật hay tắt', 'name@marketplace, marketplace source, on or off')}</span>
+              </div>
+              <div className={SIDE_ROW}>
+                <span className="text-ink2">{t('Không ghi', 'Not kept')}</span>
+                <span className="text-right">{t('nội dung plugin, MCP và skill plugin mang theo', 'the plugin’s contents, and the MCP and skills it brings')}</span>
+              </div>
+            </Panel>
+          </div>
         </>
       )}
     </>

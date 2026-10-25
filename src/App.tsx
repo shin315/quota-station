@@ -25,6 +25,7 @@ import { useCopy } from './backup/useCopy';
 import { useBackup } from './backup/useBackup';
 import { AlertsTab } from './alerts/AlertsTab';
 import { CodexCard, CodexTab } from './codex/CodexTab';
+import { OV_COLS } from './components/page';
 import { useAgyLogins } from '@agy/AgyAccounts';
 import { claudeManage } from './claude/ClaudeAccounts';
 import { accountName } from './lib/claudeAccounts';
@@ -906,7 +907,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       syncNote={author ? sidebarLine(author) : null}
       rules={author ? <RulesTab model={author} fresh={view.fresh} rules={rules} feedback={feedback} now={now} onAction={onAction} /> : null}
       codex={<CodexTab model={model} fresh={view.fresh} feedback={feedback} now={now} onAction={onAction} onPlugins={switching.setCodexPlugins} />}
-      codexCard={<CodexCard model={model} onAction={onAction} />}
+      codexCard={<CodexCard model={model} now={now} cols={OV_COLS.codex} onAction={onAction} />}
       mcp={<McpTab model={model} fresh={view.fresh} feedback={feedback} now={now} mcp={mcp} onAction={onAction} />}
       skills={<SkillsTab model={model} fresh={view.fresh} feedback={feedback} skills={skills} onAction={onAction} />}
       plugins={<PluginTab model={model} fresh={view.fresh} plugins={plugins} onAction={onAction} />}

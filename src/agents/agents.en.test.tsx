@@ -79,13 +79,19 @@ describe('the Agent tabs in English', () => {
     await open('plugins', english());
     await screen.findByRole('heading', { level: 2, name: 'Plugins' });
     expect(button('Reinstall commands')).toBeTruthy();
+    expect(screen.getByText(/^Plugins are view only · restored through the agent’s own command\./)).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 4, name: 'Installed plugins' })).toBeTruthy();
+    expect(screen.getByRole('list', { name: 'Claude Code plugins' })).toBeTruthy();
+    await press(button('Details: Plugins'));
+    expect(screen.getByText(/A backup pack only records name@marketplace/)).toBeTruthy();
   });
 
   it('draws the Instruction files tab and its key line in English', async () => {
     await open('instr', english());
     await screen.findByRole('heading', { level: 2, name: 'Instruction files' });
     expect(button('Add file…')).toBeTruthy();
-    expect(screen.getByRole('list', { name: 'Instruction files' })).toBeTruthy();
+    expect(screen.getByRole('group', { name: 'Instruction files' })).toBeTruthy();
+    expect(screen.getByRole('list', { name: 'Claude Code files' })).toBeTruthy();
     expect(screen.getByText('deploy.md is not in the backup pack')).toBeTruthy();
     expect(screen.getByRole('switch', { name: 'Put ~/.claude/rules/deploy.md in the pack' })).toBeTruthy();
     await press(button('View line 12'));
@@ -98,6 +104,8 @@ describe('the Agent tabs in English', () => {
     expect(screen.getByText('1 entry differs')).toBeTruthy();
     expect(screen.getByText(/since then browser is off in Antigravity/)).toBeTruthy();
     expect(screen.getByText('3 MCP on, 1 off · 2 skills on · Codex unchanged')).toBeTruthy();
+    expect(within(screen.getByRole('list', { name: 'Sets' })).getAllByRole('listitem')).toHaveLength(3);
+    expect(button('New set')).toBeTruthy();
     await press(button('Apply the set Tối giản'));
     const d = within(dialog());
     await d.findByText('Claude Code');

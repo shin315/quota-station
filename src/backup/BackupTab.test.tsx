@@ -96,6 +96,45 @@ describe('the Sao lưu tab', () => {
   });
 });
 
+describe('the Sao lưu layout', () => {
+  it('puts the latest pack, the packs made on their own and the keys side by side, then the packs', async () => {
+    await openTab();
+    const latest = screen.getByRole('heading', { level: 4, name: 'Gói gần nhất' }).parentElement!;
+    const auto = screen.getByRole('heading', { level: 4, name: 'Tự sao lưu' }).parentElement!;
+    const keys = screen.getByRole('heading', { level: 4, name: /^Khoá đã lưu/ }).parentElement!;
+    // One row of three cards.
+    expect(auto.parentElement).toBe(latest.parentElement);
+    expect(keys.parentElement).toBe(latest.parentElement);
+    expect(Array.from(latest.parentElement!.children)).toEqual([latest, auto, keys]);
+    expect(within(latest).getByRole('button', { name: 'Xem trong gói' })).toBeTruthy();
+    expect(within(keys).getByText('Khoá chỉ nằm trên máy này, không vào gói.')).toBeTruthy();
+    // The packs under them, the whole width.
+    const packs = screen.getByRole('heading', { level: 4, name: /^Các gói/ }).parentElement!;
+    expect(packs.parentElement).not.toBe(latest.parentElement);
+    expect(latest.parentElement!.compareDocumentPosition(packs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('lists the packs a day at a time, with their time, Mac, contents and status as columns', async () => {
+    await openTab(fixtureModel('fresh', { backup: backupFixture({ packs: packsFixture() }) }));
+    const packs = screen.getByRole('heading', { level: 4, name: /^Các gói/ }).parentElement!;
+    for (const head of ['Giờ', 'Mac', 'Nội dung', 'Trạng thái']) expect(within(packs).getByText(head)).toBeTruthy();
+    const cells = (day: string) =>
+      within(screen.getByRole('list', { name: day }))
+        .getAllByRole('listitem')
+        .map((r) =>
+          Array.from(r.children)
+            .slice(0, 4)
+            .map((c) => c.textContent)
+            .join(' | '),
+        );
+    expect(cells('Hôm nay')).toEqual(['14:10 | Mac mini | 6 MCP | ', '09:12 | Mac mini | 6 MCP | ', '04:55 | Mac khác | — | chưa tải về máy']);
+    expect(cells('Hôm qua')).toEqual(['21:40 | Desk mini | 5 MCP | ', '05:00 | Mac mini | 5 MCP | ']);
+    // A pack iCloud Drive has not downloaded cannot be opened or restored.
+    const cloud = within(screen.getByRole('list', { name: 'Hôm nay' })).getAllByRole('listitem')[2];
+    for (const b of within(cloud).getAllByRole('button')) expect((b as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
 describe('the Khôi phục sheet', () => {
   it('previews adds ticked and a different server unticked, with a side by side', async () => {
     await toPreviewOn();

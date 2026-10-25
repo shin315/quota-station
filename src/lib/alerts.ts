@@ -11,6 +11,7 @@ import { age, clock, percent, secondsSince } from './format';
 import { t } from './i18n';
 import type { AuthorModel } from './author';
 import type { AlertRecord, AlertTone, FirstmateView, Model, NotifyPermission, SwitchKind } from './model';
+import { dayLabel } from './history';
 import { dayClock, namesOf } from './switching';
 import type { BannerView, ChipView, FeedbackView, Tone } from './view';
 
@@ -94,6 +95,8 @@ export interface AlertCardView {
   actions: { id: string; label: string }[];
   /** `Bạn đã chọn “Ổn”.` */
   chose: string | null;
+  /** The day it came, as Lịch sử names days: `Hôm nay`, `Hôm qua`, `Thứ Hai 12/01`. */
+  day: string;
   /** How it went; `working` while a switch back runs. */
   result: FeedbackView | { working: string } | null;
   meta: string;
@@ -113,7 +116,8 @@ export function alertCard(r: AlertRecord, now: Date): AlertCardView {
   const a = r.alert;
   const answer = r.answer;
   const icon = a.tone === 'warn' ? '' : a.tone;
-  const meta = [dayClock(iso(a.at), now)];
+  // The day is the group's head; the line keeps the time.
+  const meta = [clock(iso(a.at))];
   if (a.test) meta.push(t('thông báo thử', 'test notification'));
   meta.push(r.notified ? t('đã gửi thông báo macOS', 'sent as a macOS notification') : t('chỉ có trong app', 'in the app only'));
   return {
@@ -123,6 +127,7 @@ export function alertCard(r: AlertRecord, now: Date): AlertCardView {
     body: a.body,
     actions: answer ? [] : a.actions,
     chose: answer ? t('Bạn đã chọn “' + answer.label + '”.', 'You chose “' + answer.label + '”.') : null,
+    day: dayLabel(iso(a.at), now),
     result: !answer
       ? null
       : answer.result
@@ -169,10 +174,22 @@ export interface FirstmateTabView {
   title: string;
   body: string;
   /** "Firstmate đang thấy": empty when there is no line to show. */
-  rows: { key: string; value: string; chip?: ChipView }[];
+  seen: FirstmateRow[];
+  /** "Đã dùng từng tài khoản": each account Firstmate's line names, with its share used. */
+  used: FirstmateRow[];
+  /** "Kết nối": what Firstmate's quota-axi can read. */
+  links: FirstmateRow[];
   note: string | null;
   /** The file is not set or not found: the button to Cài đặt. */
   setUp: boolean;
+}
+
+/** A line of a Firstmate card: its name and its value, a chip, or a value in a tone. */
+export interface FirstmateRow {
+  key: string;
+  value: string;
+  chip?: ChipView;
+  tone?: Tone;
 }
 
 /** Why Firstmate's file could not be read, by `FirstmateView.status`. */
@@ -183,12 +200,16 @@ export function unreadText(status: string): string {
   return t('Không mở được file.', 'Cannot open the file.');
 }
 
-function slots(f: FirstmateView, nameOf: (n: number) => string): string {
-  const line = f.line!;
-  if (!line.slots.length) return '—';
-  return line.slots
-    .map((s) => nameOf(s.slot) + ' ' + (s.reset ? t('vừa đặt lại', 'just reset') : s.percent == null ? '?' : t('đã dùng ', 'used ') + percent(100 - s.percent)))
-    .join(' · ');
+/** One line per account Firstmate's line names: used up shows red. */
+function slotRows(f: FirstmateView, nameOf: (n: number) => string): FirstmateRow[] {
+  return f.line!.slots.map((s) => {
+    const used = s.percent == null ? null : 100 - s.percent;
+    return {
+      key: nameOf(s.slot),
+      value: s.reset ? t('vừa đặt lại', 'just reset') : used == null ? '?' : percent(used),
+      tone: !s.reset && used != null && used >= 100 ? 'bad' : undefined,
+    };
+  });
 }
 
 const ON_OFF = (v: boolean | null, yes: ChipView, no: ChipView): { value: string; chip?: ChipView } =>
@@ -203,7 +224,9 @@ export function firstmateTab(model: AuthorModel, now: Date): FirstmateTabView {
       tone: 'muted',
       title: t('Chưa nối với firstmate', 'Not connected to firstmate'),
       body: t('Đặt đường dẫn file quota-pool.last của firstmate trong Cài đặt. ', 'Set the path to firstmate’s quota-pool.last file in Settings. ') + fallback,
-      rows: [],
+      seen: [],
+      used: [],
+      links: [],
       note: null,
       setUp: true,
     };
@@ -212,7 +235,9 @@ export function firstmateTab(model: AuthorModel, now: Date): FirstmateTabView {
       tone: 'muted',
       title: t('Không thấy firstmate trên máy này', 'No firstmate on this Mac'),
       body: t('Không có file ' + (f.file ?? '') + '. ', 'No file at ' + (f.file ?? '') + '. ') + fallback,
-      rows: [],
+      seen: [],
+      used: [],
+      links: [],
       note: null,
       setUp: true,
     };
@@ -221,7 +246,9 @@ export function firstmateTab(model: AuthorModel, now: Date): FirstmateTabView {
       tone: 'bad',
       title: t('Không đọc được file của firstmate', 'Cannot read firstmate’s file'),
       body: unreadText(f.status) + ' ' + fallback,
-      rows: [],
+      seen: [],
+      used: [],
+      links: [],
       note: null,
       setUp: true,
     };
@@ -256,21 +283,24 @@ export function firstmateTab(model: AuthorModel, now: Date): FirstmateTabView {
     };
 
   const no = t('không', 'no');
-  const rows: FirstmateTabView['rows'] = [
+  const seen: FirstmateRow[] = [
     { key: t('Chờ hạn mức Claude', 'Waiting for Claude quota'), ...ON_OFF(line.dry, { t: t('đang chờ', 'waiting'), k: 'bad' }, { t: no, k: 'ok' }) },
     { key: t('Tài khoản đang dùng', 'Account in use'), value: line.active != null ? nameOf(line.active) : '—' },
-    { key: t('Đã dùng từng tài khoản', 'Used per account'), value: slots(f, nameOf) },
     { key: t('Có lại lúc', 'Back at'), value: line.nextReset ? dayClock(line.nextReset, now) : '—' },
+    { key: t('Cập nhật', 'Updated'), value: written },
+  ];
+  const links: FirstmateRow[] = [
     { key: t('quota-axi của firstmate có +cswap', 'firstmate’s quota-axi has +cswap'), ...ON_OFF(line.fork, { t: t('có', 'yes'), k: 'ok' }, { t: no, k: 'bad' }) },
     { key: t('Đọc được claude-swap', 'Reads claude-swap'), ...ON_OFF(line.claudeSwap, { t: t('được', 'yes'), k: 'ok' }, { t: no, k: 'bad' }) },
-    { key: t('Cập nhật', 'Updated'), value: written },
   ];
   const own = f.ownDry;
   const differs = f.fresh && own != null && line.dry != null && own !== line.dry;
   const read = model.snapshot.claude.generatedAt ? clock(model.snapshot.claude.generatedAt) : null;
   return {
     ...head,
-    rows,
+    seen,
+    used: slotRows(f, nameOf),
+    links,
     note: differs
       ? t(
           'App tính từ số của nó ' + (read ? 'lúc ' + read : 'gần nhất') + ' thì hạn mức trong vòng ' + (own ? 'đã cạn' : 'chưa cạn') +

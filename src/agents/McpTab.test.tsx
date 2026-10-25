@@ -70,6 +70,25 @@ describe('the MCP tab', () => {
     expect(screen.getByText('2 MCP có sẵn trong Codex. App để yên, không sửa.')).toBeTruthy();
   });
 
+  it('has "Thêm MCP" at the table\'s head, the agents named over their columns, and the lines under it on the glass', async () => {
+    await openTab();
+    const head = screen.getByRole('heading', { level: 2, name: 'MCP' }).parentElement!;
+    expect(within(head).getAllByRole('button').map((b) => b.textContent)).toEqual(['Đọc lại']);
+    const title = screen.getByRole('heading', { level: 4, name: /MCP của bạn/ });
+    expect(within(title).getByRole('button', { name: 'Thêm MCP' })).toBeTruthy();
+    expect(['Claude Code', 'Codex', 'Antigravity'].map((a) => screen.getByRole('button', { name: a + ': tuỳ chọn cột' }).textContent)).toEqual(['Claude Code', 'Codex', 'Antigravity']);
+    // The key banner says what is missing and what waits for it, in one line.
+    expect(screen.getByText('Thiếu TICKET_DESK_KEY: chưa bật được ticket-desk ở agent chưa có nó.')).toBeTruthy();
+    // A box locked for a missing key stays empty and says why.
+    const locked = box('ticket-desk cho Claude Code');
+    expect(locked.getAttribute('aria-checked')).toBe('false');
+    expect(locked.getAttribute('aria-label')).toBe('ticket-desk cho Claude Code, khoá: ticket-desk: thiếu khoá');
+    // Stored servers, built-ins and backups: lines on the glass, outside any card.
+    const backups = screen.getByText(/^Trước mỗi lần ghi, app lưu lại bản cũ/);
+    expect(backups.closest('[data-slot=card]')).toBeNull();
+    expect(screen.getByText(/đang cất: tắt ở mọi agent/).closest('[data-slot=card]')).toBeNull();
+  });
+
   it('draws a checkbox per agent that the keyboard can tick, and a locked one stays reachable', async () => {
     await openTab();
     const cell = box('browser cho Antigravity');

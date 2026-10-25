@@ -72,41 +72,40 @@ function AccountMenu({ card, view, claude, advanced }: { card: CardView } & Pick
   );
 }
 
-/** The rotation's LaunchAgent: its switch, and the warning while the old switcher is loaded. */
-function Rotation({ view, claude, onAction, authorTools }: Props) {
+/**
+ * The rotation's LaunchAgent, in parts the Claude tab lays out: its switch,
+ * its line, the warning while the old switcher is loaded, and what Firstmate
+ * runs (a build with the author's tools).
+ */
+function rotationParts({ view, claude, onAction, authorTools }: Props): ClaudeManage['rotation'] {
   const rotation = rotationRow(view);
-  return (
-    <div className="mt-3 grid gap-2 border-t border-divider pt-3 first:mt-0 first:border-t-0 first:pt-0">
-      <div className="flex items-center gap-3">
-        <div className="min-w-0 flex-1">
-          <b className="block text-body font-semi">{t('Tự chuyển bằng Quota Station', 'Auto-switch with Quota Station')}</b>
-          <small className="block text-xs text-ink2">{rotation.line}</small>
-        </div>
-        <Toggle
-          on={rotation.on}
-          label={t('Tự chuyển bằng Quota Station', 'Auto-switch with Quota Station')}
-          disabled={rotation.disabled}
-          onClick={() => claude.setRotation(!rotation.on)}
+  return {
+    toggle: (
+      <Toggle
+        on={rotation.on}
+        label={t('Tự chuyển bằng Quota Station', 'Auto-switch with Quota Station')}
+        disabled={rotation.disabled}
+        onClick={() => claude.setRotation(!rotation.on)}
+      />
+    ),
+    line: rotation.line,
+    warning: rotation.legacy ? (
+      <BannerBox tone="warn" title={t('Bộ tự chuyển cũ còn chạy', 'The old auto-switcher is still running')} body={rotation.legacy} className="mx-0 mt-2 mb-0">
+        <LinkButton onClick={() => onAction('guide:auto')}>{t('Hướng dẫn tắt', 'How to turn it off')}</LinkButton>
+      </BannerBox>
+    ) : null,
+    firstmate: authorTools ? (
+      <CardText className="mb-0 text-xs text-ink2">
+        {/* The commands as code, not between backticks. */}
+        <Rich
+          text={t(
+            'Firstmate đọc `quota-station claude status --json` và chạy `quota-station claude run N -- …`.',
+            'Firstmate reads `quota-station claude status --json` and runs `quota-station claude run N -- …`.',
+          )}
         />
-      </div>
-      {rotation.legacy ? (
-        <BannerBox tone="warn" title={t('Bộ tự chuyển cũ còn chạy', 'The old auto-switcher is still running')} body={rotation.legacy}>
-          <LinkButton onClick={() => onAction('guide:auto')}>{t('Hướng dẫn tắt', 'How to turn it off')}</LinkButton>
-        </BannerBox>
-      ) : null}
-      {authorTools ? (
-        <CardText className="mb-0 text-xs text-ink2">
-          {/* The commands as code, not between backticks. */}
-          <Rich
-            text={t(
-              'Firstmate đọc `quota-station claude status --json` và chạy `quota-station claude run N -- …`.',
-              'Firstmate reads `quota-station claude status --json` and runs `quota-station claude run N -- …`.',
-            )}
-          />
-        </CardText>
-      ) : null}
-    </div>
-  );
+      </CardText>
+    ) : null,
+  };
 }
 
 /** What the Claude tab's table and cards take from the accounts Quota Station keeps. */
@@ -139,7 +138,7 @@ export function claudeManage(props: Props): ClaudeManage {
         </LinkButton>
       </>
     ) : null,
-    rotation: <Rotation {...props} />,
+    rotation: rotationParts(props),
     rotationAlone: view.rotation === true || !!view.legacy,
   };
 }

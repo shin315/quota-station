@@ -11,19 +11,20 @@
 import type { ReactNode } from 'react';
 import { Card as Panel, CardText, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { AccountName, IdMark, InUse } from '../components/accounts';
+import { AccountName, IdMark, InUse, WindowCell } from '../components/accounts';
 import { CheckLine } from '../components/blocks';
-import { Empty, GRID2, TABLE_ROW, TABLE_ROW_ON, TabHead, TabSub, TabTitle } from '../components/page';
-import { Banner, BannerBox, Button, Chip, CODE, Dot, Feedback, KVT, LinkButton } from '../components/parts';
+import { CARD_END, COUNT, Empty, GRID2_EVEN, TABLE, TABLE_BOX, TABLE_CELLS, TABLE_END, TABLE_HEAD, TABLE_ROW, TABLE_ROW_ON, TabHead, TabSub, TabTitle } from '../components/page';
+import { Banner, BannerBox, Button, Chip, CODE, Dot, Feedback, KVT, LinkButton, More, Rich } from '../components/parts';
 import {
   CHATGPT_ID,
   ccSwitchManages,
+  chatGptNote,
+  chatGptRows,
   codexBanner,
-  codexLine,
   currentId,
   externalBanner,
-  hasLogin,
   keyMode,
+  type ChatGptRowView,
   pluginsHint,
   pluginsNeedApply,
   pluginsLabel,
@@ -140,30 +141,149 @@ function SideCell({ on, off, label, title, act, onAction }: { on: boolean; off: 
   );
 }
 
-function Providers({ v, now, onAction, onPlugins }: { v: CodexView; now: Date; onAction(a: Action): void; onPlugins(on: boolean): void }) {
+/** The ChatGPT accounts' table: the name, 5 giờ and Tuần, the button. */
+const CHATGPT_COLS = '[--wt-cols:minmax(96px,1.25fr)_repeat(2,minmax(64px,1fr))_minmax(66px,auto)]';
+
+/** One ChatGPT account, a row as the Claude and Antigravity accounts are. */
+function ChatGptRow({ row, tight, onAction }: { row: ChatGptRowView; tight?: boolean; onAction(a: Action): void }) {
+  return (
+    <div className={cn(TABLE_ROW, row.active && TABLE_ROW_ON)} role="listitem" aria-label={row.label} title={row.full || undefined}>
+      <AccountName name={row.name} sub={row.sub} full={row.full} chips={row.chips} />
+      <span className={TABLE_CELLS}>
+        {row.cells.map((c) => (
+          <WindowCell key={c.kind} cell={c} dim={row.dim} tight={tight} />
+        ))}
+      </span>
+      <span className={cn('flex flex-wrap items-center justify-end gap-1.5', TABLE_END)}>
+        <SideCell
+          on={row.active}
+          off={!!row.off}
+          label={t('Chuyển sang tài khoản ChatGPT', 'Switch to the ChatGPT account')}
+          title={row.off || undefined}
+          act="codex:switch:chatGpt"
+          onAction={onAction}
+        />
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Tổng quan's row for the provider Codex goes through instead of ChatGPT: a
+ * custom API reports no quota, so its windows' columns say so once.
+ */
+function ProviderRow({ v, now, onAction }: { v: CodexView; now: Date; onAction(a: Action): void }) {
+  const c = v.custom;
+  const other = v.current === 'other';
+  if (!c && !other) return null;
+  const name = other ? currentId(v) : c!.name;
+  const sub = other ? t('nhà cung cấp khác trong config.toml', 'another provider in config.toml') : ['Custom API', reachText(v, now)].filter(Boolean).join(' · ');
+  const active = other || v.current === 'custom';
+  const refusal = v.refusal;
+  return (
+    <div className={cn(TABLE_ROW, active && TABLE_ROW_ON)} role="listitem" aria-label={name + ', ' + sub + (active ? t(', đang dùng', ', in use') : '')}>
+      <AccountName name={name} sub={sub} full={other ? '' : (c!.baseUrl ?? '')} chips={other ? [] : customChips(v)} />
+      <span className={TABLE_CELLS}>
+        <span className="col-span-2 self-center text-sm text-ink3">{t('Không báo hạn mức', 'Reports no quota')}</span>
+      </span>
+      <span className={cn('flex flex-wrap items-center justify-end gap-1.5', TABLE_END)}>
+        {other ? (
+          <InUse />
+        ) : (
+          <SideCell
+            on={v.current === 'custom'}
+            off={!!refusal || v.busy != null}
+            label={t('Chuyển sang ', 'Switch to ') + c!.name}
+            title={refusal ? refusalText(v, refusal) : undefined}
+            act="codex:switch:custom"
+            onAction={onAction}
+          />
+        )}
+      </span>
+    </div>
+  );
+}
+
+/** The table's head: the windows' names over their columns. */
+function ChatGptHead() {
+  return (
+    <div className={TABLE_HEAD} aria-hidden="true">
+      <span>{t('Tài khoản', 'Account')}</span>
+      <span>{t('5 giờ', '5-hour')}</span>
+      <span>{t('Tuần', 'Week')}</span>
+      <span />
+    </div>
+  );
+}
+
+/** The ChatGPT accounts Codex can use, a list as Claude's and Antigravity's are. */
+function ChatGptCard({ model, now, onAction }: { model: Model; now: Date; onAction(a: Action): void }) {
+  const v = model.codex;
+  const rows = chatGptRows(model, now);
+  const note = chatGptNote(model);
+  return (
+    <Panel>
+      <CardTitle>
+        <IdMark id="x" />
+        {t('Tài khoản ChatGPT', 'ChatGPT accounts')}
+        <span className={COUNT}>{rows.length}</span>
+      </CardTitle>
+      <div className={TABLE_BOX}>
+        <div className={cn(TABLE, CHATGPT_COLS)} role="list" aria-label={t('Tài khoản ChatGPT', 'ChatGPT accounts')}>
+          <ChatGptHead />
+          {rows.map((r) => (
+            <ChatGptRow key={r.key} row={r} onAction={onAction} />
+          ))}
+        </div>
+      </div>
+      {note ? <Note tone={note.tone}>{note.text}</Note> : null}
+      {v.current === 'other' ? <Note tone="warn">{t('Codex đang dùng nhà cung cấp "' + v.other + '". Chọn một bên để chuyển.', 'Codex is using the provider "' + v.other + '". Pick a side to switch.')}</Note> : null}
+      {v.current === 'custom' && v.backRefusal ? <Note tone="bad">{refusalText(v, v.backRefusal)}</Note> : null}
+      {v.openaiBaseUrl ? <Note tone="warn">{t('config.toml có openai_base_url: tài khoản ChatGPT đang được gửi tới địa chỉ khác.', 'config.toml has openai_base_url: the ChatGPT account is being sent to another address.')}</Note> : null}
+    </Panel>
+  );
+}
+
+/** What "Dùng plugin khi chạy Custom API" does, said in full behind "Chi tiết". */
+function PluginsMore() {
+  return (
+    <More about={pluginsLabel()}>
+      <p>{pluginsHint()}</p>
+      <p>
+        {t(
+          'Giữ đăng nhập ChatGPT không có nghĩa token của mô hình được tính vào gói ChatGPT: khi chạy Custom API, mô hình vẫn chạy qua nhà cung cấp đó.',
+          'Keeping the ChatGPT sign-in does not bill the model’s tokens to ChatGPT: on a Custom API the model still runs through that provider.',
+        )}
+      </p>
+      <p>
+        <Rich
+          text={t(
+            'Với khoá riêng dạng bearer hoặc biến môi trường, ô này quyết định `requires_openai_auth` app ghi khi chuyển. Khoá dạng header luôn ghi `requires_openai_auth = false`: plugin và điều khiển từ xa cần ChatGPT có thể không chạy.',
+            'With a bearer key or an environment variable, this box decides the `requires_openai_auth` the app writes on a switch. A header key always writes `requires_openai_auth = false`: plugins and remote control that need ChatGPT may not run.',
+          )}
+        />
+      </p>
+      <p>
+        {t(
+          'Bỏ chọn không xoá auth.json. Lựa chọn được lưu cho lần chuyển sau; muốn áp dụng ngay khi đang chạy Custom API thì app hỏi xác nhận trước. Chuyển nhà cung cấp chỉ sửa config.toml, sao lưu trước khi ghi, và không đụng tới MCP.',
+          'Unticking does not delete auth.json. The choice is kept for the next switch; to apply it now while on a Custom API, the app asks first. Switching providers edits only config.toml, backs it up before writing, and leaves the MCP servers alone.',
+        )}
+      </p>
+    </More>
+  );
+}
+
+/** The custom provider from config.toml: its row, its key, and the plugins box. */
+function CustomCard({ v, now, onAction, onPlugins }: { v: CodexView; now: Date; onAction(a: Action): void; onPlugins(on: boolean): void }) {
   const c = v.custom;
   const busy = v.busy != null;
-  const refusal = v.current === 'custom' ? v.backRefusal : v.refusal;
   const mode = keyMode(v);
-  const loginSub = hasLogin(v) ? t('đăng nhập còn trong máy', 'sign-in kept on this Mac') : '';
-  const chatGpt = t('Tài khoản ChatGPT', 'ChatGPT account');
+  const refusal = v.current === 'custom' ? null : v.refusal;
   return (
-    <Card title={t('Nhà cung cấp', 'Providers')} x>
-      <div className="grid grid-cols-(--wt-cols) gap-x-6 [--wt-cols:minmax(0,1fr)_auto]" role="list" aria-label={t('Nhà cung cấp Codex', 'Codex providers')}>
-        <div className={cn(TABLE_ROW, v.current === 'chatgpt' && TABLE_ROW_ON)} role="listitem" aria-label={chatGpt}>
-          <AccountName name={chatGpt} sub={loginSub} full="" chips={hasLogin(v) ? [] : [{ t: t('chưa đăng nhập', 'not signed in'), k: 'warn' }]} />
-          <span className="flex items-center justify-end gap-2.5">
-            <SideCell
-              on={v.current === 'chatgpt'}
-              off={!!v.backRefusal || busy}
-              label={t('Chuyển sang tài khoản ChatGPT', 'Switch to the ChatGPT account')}
-              title={v.backRefusal ? refusalText(v, v.backRefusal) : undefined}
-              act="codex:switch:chatGpt"
-              onAction={onAction}
-            />
-          </span>
-        </div>
-        {c ? (
+    <Panel>
+      <CardTitle>Custom API</CardTitle>
+      {c ? (
+        <div className="grid grid-cols-(--wt-cols) gap-x-6 [--wt-cols:minmax(0,1fr)_auto]" role="list" aria-label="Custom API">
           <div className={cn(TABLE_ROW, v.current === 'custom' && TABLE_ROW_ON)} role="listitem" aria-label={c.name}>
             <AccountName name={c.name} sub={[host(c.baseUrl), reachText(v, now)].filter(Boolean).join(' · ')} full={c.baseUrl ?? ''} chips={customChips(v)} />
             <span className="flex items-center justify-end gap-2.5">
@@ -182,16 +302,16 @@ function Providers({ v, now, onAction, onPlugins }: { v: CodexView; now: Date; o
               />
             </span>
           </div>
-        ) : null}
-      </div>
-      {v.current === 'other' ? <Note tone="warn">{t('Codex đang dùng nhà cung cấp "' + v.other + '". Chọn một bên để chuyển.', 'Codex is using the provider "' + v.other + '". Pick a side to switch.')}</Note> : null}
+        </div>
+      ) : null}
       {refusal ? <Note tone={refusal.kind === 'noCustom' ? '' : 'bad'}>{refusalText(v, refusal)}</Note> : null}
-      {v.openaiBaseUrl ? <Note tone="warn">{t('config.toml có openai_base_url: tài khoản ChatGPT đang được gửi tới địa chỉ khác.', 'config.toml has openai_base_url: the ChatGPT account is being sent to another address.')}</Note> : null}
       {c ? (
         <CheckLine className="mt-2.5 mb-0" checked={v.plugins} disabled={busy} onChange={onPlugins}>
           <span>
             {pluginsLabel()}
-            <small>{pluginsHint()}</small>
+            <small>
+              {t('Bỏ tick: plugin cần đăng nhập ChatGPT sẽ tắt.', 'Unticked: plugins that need the ChatGPT sign-in turn off.')} <PluginsMore />
+            </small>
           </span>
         </CheckLine>
       ) : null}
@@ -211,8 +331,7 @@ function Providers({ v, now, onAction, onPlugins }: { v: CodexView; now: Date; o
           </LinkButton>
         </div>
       ) : null}
-      <Details v={v} now={now} onAction={onAction} />
-    </Card>
+    </Panel>
   );
 }
 
@@ -294,7 +413,7 @@ function Details({ v, now, onAction }: { v: CodexView; now: Date; onAction(a: Ac
   );
 }
 
-function OnThisMac({ v, onAction }: { v: CodexView; onAction(a: Action): void }) {
+function OnThisMac({ v, now, onAction }: { v: CodexView; now: Date; onAction(a: Action): void }) {
   const p = v.procs;
   const on = v.mcp.filter((m) => m.enabled).length;
   const line = [
@@ -320,6 +439,7 @@ function OnThisMac({ v, onAction }: { v: CodexView; onAction(a: Action): void })
           {t('Khởi động lại tiến trình nền…', 'Restart background process…')}
         </Button>
       </div>
+      <Details v={v} now={now} onAction={onAction} />
     </Card>
   );
 }
@@ -393,61 +513,43 @@ export function CodexTab({ model, fresh, feedback, now, onAction, onPlugins }: C
           body={(v.reason ?? t('Không rõ lý do', 'Unknown reason')) + t('. App không sửa file này cho tới khi Codex đọc được nó.', '. The app does not edit this file until Codex can read it.')}
         />
       ) : null}
-      <Providers v={v} now={now} onAction={onAction} onPlugins={onPlugins} />
-      <div className={GRID2}>
-        <OnThisMac v={v} onAction={onAction} />
+      <ChatGptCard model={model} now={now} onAction={onAction} />
+      <div className={GRID2_EVEN}>
+        <CustomCard v={v} now={now} onAction={onAction} onPlugins={onPlugins} />
+        <OnThisMac v={v} now={now} onAction={onAction} />
       </div>
     </>
   );
 }
 
-/** Codex on Tổng quan: the provider in use, one line, and the switch to the other side. */
-export function CodexCard({ model, onAction }: { model: Model; onAction(act: Action): void }) {
+/**
+ * Codex on Tổng quan, a section like Claude's and Antigravity's: the ChatGPT
+ * accounts with their five hours and week, and the custom provider Codex can
+ * go through instead, each with its "Chuyển". `cols`: the columns Tổng
+ * quan's tables share.
+ */
+export function CodexCard({ model, now, cols, onAction }: { model: Model; now: Date; cols: string; onAction(act: Action): void }) {
   const v = model.codex;
   if (!v.present) return null;
-  const cur = currentId(v);
-  const line = codexLine(v);
-  const toCustom = v.current !== 'custom';
-  const refusal = toCustom ? v.refusal : v.backRefusal;
-  const sub =
-    (v.current === 'custom'
-      ? v.reach.state === 'down'
-        ? v.custom!.name + t(' không trả lời', ' is not answering')
-        : v.reach.state === 'up'
-          ? t('trả lời ' + v.reach.ms + ' ms', 'answers in ' + v.reach.ms + ' ms')
-          : v.custom!.name
-      : v.current === 'other'
-        ? t('nhà cung cấp ', 'provider ') + cur
-        : t('đăng nhập chính thức', 'official sign-in')) +
-    (hasLogin(v) ? t(' · giữ đăng nhập ChatGPT', ' · keeps the ChatGPT sign-in') : t(' · chưa đăng nhập ChatGPT', ' · not signed in to ChatGPT'));
+  const rows = chatGptRows(model, now);
+  const note = chatGptNote(model);
   return (
     <Panel>
       <CardTitle>
         <IdMark id="x" />
         Codex
-        <span className="ml-auto font-reg">{v.procs?.app ? t('Codex App đang mở', 'Codex App is open') : ''}</span>
+        <span className={CARD_END}>{v.procs?.app ? t('Codex App đang mở', 'Codex App is open') : ''}</span>
       </CardTitle>
-      <div className={ROW2}>
-        <div>
-          <b className={line.tone === 'bad' ? 'text-bad-ink!' : undefined}>
-            {v.current === 'custom'
-              ? t('Qua ', 'Through ') + v.custom!.name
-              : v.current === 'other'
-                ? t('Nhà cung cấp ', 'Provider ') + cur
-                : t('Tài khoản ChatGPT', 'ChatGPT account')}
-          </b>
-          <small style={{ display: 'block', color: 'var(--ink2)', fontSize: 'var(--fs-xs)' }}>{sub}</small>
+      <div className={TABLE_BOX}>
+        <div className={cn(TABLE, cols)} role="list" aria-label="Codex">
+          <ChatGptHead />
+          {rows.map((r) => (
+            <ChatGptRow key={r.key} row={r} tight onAction={onAction} />
+          ))}
+          <ProviderRow v={v} now={now} onAction={onAction} />
         </div>
-        {v.custom || v.current !== 'chatgpt' ? (
-          <Button
-            disabled={!!refusal || v.busy != null}
-            title={refusal ? refusalText(v, refusal) : undefined}
-            onClick={() => onAction(toCustom ? 'codex:switch:custom' : 'codex:switch:chatGpt')}
-          >
-            {toCustom ? t('Sang ', 'To ') + (v.custom?.name ?? '…') : t('Về ChatGPT', 'Back to ChatGPT')}
-          </Button>
-        ) : null}
       </div>
+      {note ? <Note tone={note.tone}>{note.text}</Note> : null}
     </Panel>
   );
 }

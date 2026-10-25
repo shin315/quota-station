@@ -82,6 +82,19 @@ describe('settings tab in English', () => {
     // No Vietnamese left in the cards' own names.
     expect(screen.queryByText('Cài đặt')).toBeNull();
     expect(screen.queryByText('Chung')).toBeNull();
+    // The table of contents names the same cards.
+    const contents = screen.getByRole('navigation', { name: 'Settings contents' });
+    expect(within(contents).getAllByRole('button').map((b) => b.textContent)).toEqual([
+      'General',
+      'Display',
+      'Notifications',
+      'Updates',
+      'Services and data',
+      'Environment variables',
+      'Backup',
+      'Advanced',
+    ]);
+    expect(screen.getByRole('button', { name: 'Details: Check for skill updates' })).toBeTruthy();
   });
 
   it('the Language row offers macOS’s language, Vietnamese and English', () => {

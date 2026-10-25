@@ -213,27 +213,35 @@ async function openTab(model: Model) {
 }
 
 describe('the Codex tab', () => {
-  it('reads like the Claude tab: the two sides in one table, the detail behind Chi tiết, no CC Switch guide', async () => {
+  it('lists the ChatGPT accounts as Claude lists its own, the custom API beside Codex on this Mac, the detail behind Chi tiết', async () => {
     const fake = await openTab(withCodex());
     expect(fake.api.codexCheck).toHaveBeenCalled();
-    const sides = within(screen.getByRole('list', { name: 'Nhà cung cấp Codex' })).getAllByRole('listitem');
-    expect(sides.map((r) => r.getAttribute('aria-label'))).toEqual(['Tài khoản ChatGPT', 'relay']);
-    expect(within(sides[1]).getByText('Đang dùng')).toBeTruthy();
-    expect(within(sides[1]).getByText('relay.example.com · trả lời 180 ms')).toBeTruthy();
-    expect(within(sides[1]).getByRole('button', { name: 'Đổi khoá…' })).toBeTruthy();
+    // The ChatGPT accounts are a list, as Claude's and Antigravity's are: today the one sign-in, with its two windows.
+    const accounts = within(screen.getByRole('list', { name: 'Tài khoản ChatGPT' })).getAllByRole('listitem');
+    expect(accounts).toHaveLength(1);
+    expect(accounts[0].getAttribute('aria-label')).toMatch(/^ChatGPT, đăng nhập còn trong máy\. 5 giờ đã dùng 23%.*Tuần đã dùng 41%/);
+    expect(within(accounts[0]).getByText('23%')).toBeTruthy();
+    // The custom provider has a card of its own.
+    const custom = within(screen.getByRole('list', { name: 'Custom API' })).getAllByRole('listitem');
+    expect(custom.map((r) => r.getAttribute('aria-label'))).toEqual(['relay']);
+    expect(within(custom[0]).getByText('Đang dùng')).toBeTruthy();
+    expect(within(custom[0]).getByText('relay.example.com · trả lời 180 ms')).toBeTruthy();
+    expect(within(custom[0]).getByRole('button', { name: 'Đổi khoá…' })).toBeTruthy();
     expect(screen.getByText('CLI 0.163.0 · 3 phiên Terminal · Codex App đang mở')).toBeTruthy();
     expect(screen.getByText('4 MCP · 3 đang bật')).toBeTruthy();
-    // The technical words wait behind one Chi tiết.
-    const details = screen.getByText('Chi tiết');
-    expect(details.tagName).toBe('SUMMARY');
+    // The technical words wait behind one Chi tiết, at the foot of Codex on this Mac.
+    const details = screen.getAllByText('Chi tiết').find((e) => e.tagName === 'SUMMARY')!;
     const more = details.parentElement!;
     for (const t of ['có · experimental_bearer_token', 'auth.json · [mcp_servers]', 'mã băm khớp', 'ChatGPT 128 · relay 54 (codex resume tách theo nhà cung cấp)', 'ChatGPT → relay · đã khởi động lại tiến trình nền'])
       expect(within(more).getByText(t)).toBeTruthy();
+    // The plugins box keeps one short line; the rest is in its own Chi tiết.
+    await press(screen.getByRole('button', { name: 'Chi tiết: Dùng plugin khi chạy Custom API (giữ đăng nhập ChatGPT)' }));
+    expect(screen.getByText(/Bỏ chọn không xoá auth\.json/)).toBeTruthy();
     // The author's own guide to leave CC Switch is not part of the app.
     expect(document.getElementById('cc-card')).toBeNull();
     expect(screen.queryByText(/Ngừng dùng CC Switch/)).toBeNull();
 
-    await press(within(sides[0]).getByRole('button', { name: 'Chuyển sang tài khoản ChatGPT' }));
+    await press(within(accounts[0]).getByRole('button', { name: 'Chuyển sang tài khoản ChatGPT' }));
     expect(screen.getByRole('dialog', { name: 'Chuyển Codex về tài khoản ChatGPT?' })).toBeTruthy();
   });
 

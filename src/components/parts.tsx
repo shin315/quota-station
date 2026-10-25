@@ -8,11 +8,13 @@
 import { Fragment, type ComponentProps, type CSSProperties, type ReactNode } from 'react';
 import { Badge, badgeTone } from '@/components/ui/badge';
 import { Button as UiButton } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import type { ChoiceView } from '../lib/switching';
 import { isQuiet, type Action, type BannerView, type ChipView, type FeedbackView } from '../lib/view';
+import { t } from '../lib/i18n';
 import { Icon, type IconName } from './icons';
 
 /** A bar's fill by tone: green by default, the service's colour for `c` and `g`. */
@@ -81,6 +83,24 @@ export function LinkButton({
   ...props
 }: Omit<ComponentProps<'button'>, 'type'> & { small?: boolean; bad?: boolean }) {
   return <UiButton variant={bad ? 'linkBad' : 'link'} size={small ? 'linkSm' : 'link'} className={className} {...props} />;
+}
+
+/**
+ * "Chi tiết": the longer explanation behind a short line, in a popover beside
+ * it, so the page keeps one line and nothing is lost. `about` names what it
+ * explains for VoiceOver; `text` replaces the link's words.
+ */
+export function More({ children, about, text, small, className }: { children: ReactNode; about?: string; text?: string; small?: boolean; className?: string }) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <LinkButton small={small} className={className} aria-label={about ? t('Chi tiết: ', 'Details: ') + about : undefined}>
+          {text ?? t('Chi tiết', 'Details')}
+        </LinkButton>
+      </PopoverTrigger>
+      <PopoverContent className="grid gap-1.5 [&_b]:font-semi [&_b]:text-ink [&_p]:m-0">{children}</PopoverContent>
+    </Popover>
+  );
 }
 
 const BANNER_FILL: Record<string, string> = { warn: 'bg-warn/16', bad: 'bg-bad/14', info: 'bg-accent/13' };

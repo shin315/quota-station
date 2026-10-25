@@ -100,9 +100,11 @@
   --id-agy: #5856d6; --id-agy-ink: #4341b8; --id-agy-tint: rgba(88, 86, 214, .13);
   --id-codex: #3a3a3c; --id-codex-ink: #3a3a3c; --id-codex-tint: rgba(58, 58, 60, .10);
 
-  /* Biểu đồ (Thống kê, M16): một chuỗi số một màu (slot 1), đường lưới nhạt.
-     Bảng màu đã chạy qua bộ kiểm của skill dataviz ở bước thiết kế. */
-  --series-1: #2a78d6; --grid: rgba(0, 0, 0, .08);
+  /* Biểu đồ (Thống kê, M16): mỗi agent một màu theo thứ tự cố định (slot 1 xanh
+     dương: Claude Code, slot 2 cam: Codex), đường lưới nhạt. Bảng màu đã chạy qua
+     bộ kiểm của skill dataviz (25/10/2026: cặp liền kề đạt CVD và mắt thường ở cả
+     hai giao diện; cam dưới 3:1 trên nền sáng nên luôn có chú thích kèm số và bảng). */
+  --series-1: #2a78d6; --series-2: #eb6834; --grid: rgba(0, 0, 0, .08);
 
   /* Bóng */
   --sh-pop: 0 18px 50px rgba(30, 40, 70, .22);
@@ -128,7 +130,7 @@
   --id-claude: #e3825f; --id-claude-ink: #f5b394; --id-claude-tint: rgba(227, 130, 95, .20);
   --id-agy: #8583ff; --id-agy-ink: #c4c2ff; --id-agy-tint: rgba(133, 131, 255, .22);
   --id-codex: #d1d1d6; --id-codex-ink: #d1d1d6; --id-codex-tint: rgba(209, 209, 214, .14);
-  --series-1: #3987e5; --grid: rgba(255, 255, 255, .09);
+  --series-1: #3987e5; --series-2: #d95926; --grid: rgba(255, 255, 255, .09);
   --sh-pop: 0 18px 50px rgba(0, 0, 0, .55);
   --sh-sheet: 0 10px 40px rgba(0, 0, 0, .6);
   --sh-card: 0 1px 2px rgba(0, 0, 0, .3);
@@ -154,7 +156,7 @@
     --id-claude: #e3825f; --id-claude-ink: #f5b394; --id-claude-tint: rgba(227, 130, 95, .20);
     --id-agy: #8583ff; --id-agy-ink: #c4c2ff; --id-agy-tint: rgba(133, 131, 255, .22);
     --id-codex: #d1d1d6; --id-codex-ink: #d1d1d6; --id-codex-tint: rgba(209, 209, 214, .14);
-    --series-1: #3987e5; --grid: rgba(255, 255, 255, .09);
+    --series-1: #3987e5; --series-2: #d95926; --grid: rgba(255, 255, 255, .09);
     --sh-pop: 0 18px 50px rgba(0, 0, 0, .55);
     --sh-sheet: 0 10px 40px rgba(0, 0, 0, .6);
     --sh-card: 0 1px 2px rgba(0, 0, 0, .3);

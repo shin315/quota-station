@@ -80,11 +80,12 @@ export function useEnv(api: Api, model: Model | null, showFeedback: (fb: Feedbac
 
 export type EnvState = ReturnType<typeof useEnv>;
 
-export function EnvCard({ model, onAction }: { model: Model; onAction(act: Action): void }) {
+/** `id`: where Cài đặt's table of contents takes the page; the card is a region named by its title. */
+export function EnvCard({ model, onAction, id }: { model: Model; onAction(act: Action): void; id?: string }) {
   const env = model.env;
   return (
-    <Panel className="env-card">
-      <CardTitle>
+    <Panel className="env-card scroll-mt-4" id={id} role={id ? 'region' : undefined} aria-labelledby={id ? id + '-t' : undefined}>
+      <CardTitle id={id ? id + '-t' : undefined}>
         <Icon name="terminal" />
         {t('Biến môi trường đè đăng nhập', 'Environment variables that override sign-in')}
       </CardTitle>

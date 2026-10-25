@@ -5,6 +5,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MainWindowApp } from '../App';
 import { fakeApi, type FakeOptions } from '../fixtures/fakeApi';
+import { API_KEY, envFixture } from '../fixtures/fakeEnv';
 import { agyFixture, alertsFixture, appFixture, codexFixture, communityModel, firstmateFixture, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
 import type { Api } from '../lib/api';
 import type { Model } from '../lib/model';
@@ -115,7 +116,15 @@ describe('settings tab', () => {
   it('says whether oauth-client.json is in place and where it goes', async () => {
     await open(fixtureModel('fresh'));
     expect(screen.getByText('có, dùng được')).toBeTruthy();
-    expect(screen.getByText('~/Library/Application Support/com.shin315.quota-station/oauth-client.json')).toBeTruthy();
+    expect(screen.getByText('Quyền 600, chỉ có trên Mac này.')).toBeTruthy();
+    // The path waits behind "Chi tiết".
+    expect(screen.queryByText('~/Library/Application Support/com.shin315.quota-station/oauth-client.json')).toBeNull();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Chi tiết: OAuth client Antigravity' }));
+    });
+    const more = screen.getByRole('dialog');
+    expect(within(more).getByText('~/Library/Application Support/com.shin315.quota-station/oauth-client.json')).toBeTruthy();
+    expect(more.textContent).toMatch(/quyền 600, chỉ có trên Mac này\. README ghi định dạng\.$/);
     cleanup();
     await open(fixtureModel('fresh', { antigravity: agyFixture({ client: 'tooOpen' }) }));
     expect(screen.getByText('cần quyền 600')).toBeTruthy();
@@ -639,5 +648,97 @@ describe('settings: Nâng cao, alert 1 and the backup folder', () => {
     });
     expect(fake.api.backupSetFolder).toHaveBeenLastCalledWith('/Volumes/Backup/QS');
     expect(screen.getByText('Gói mới vào thư mục này. Gói cũ vẫn ở chỗ cũ.')).toBeTruthy();
+  });
+});
+
+describe('settings: the layout of settings-R2', () => {
+  const contents = () => screen.getByRole('navigation', { name: 'Mục lục cài đặt' });
+  const entries = () => within(contents()).getAllByRole('button');
+
+  it('lists every card in a table of contents, in the cards’ order, the first one marked', async () => {
+    await open(fixtureModel('fresh'));
+    expect(entries().map((b) => b.textContent)).toEqual([
+      'Chung',
+      'Hiển thị',
+      'Thông báo',
+      'Cập nhật',
+      'Dịch vụ và nguồn số',
+      'Biến môi trường',
+      'Sao lưu',
+      'Chẩn đoán',
+      'Nâng cao',
+    ]);
+    expect(entries().map((b) => b.getAttribute('aria-current'))).toEqual(['location', null, null, null, null, null, null, null, null]);
+    // Each entry has its card, a region named by the card's title, in the same order.
+    const regions = screen.getAllByRole('region').filter((r) => r.closest('main'));
+    expect(regions.map((r) => r.getAttribute('aria-label') ?? document.getElementById(r.getAttribute('aria-labelledby')!)!.textContent)).toEqual([
+      'Chung',
+      'Hiển thị',
+      'Thông báo',
+      'Cập nhật',
+      'Dịch vụ và nguồn số',
+      'Biến môi trường đè đăng nhập',
+      'Sao lưu',
+      'Chẩn đoán',
+      'Nâng cao',
+    ]);
+  });
+
+  it('an entry takes the page to its card and marks it', async () => {
+    const scrolled: string[] = [];
+    const scrollIntoView = vi.fn(function (this: Element) {
+      scrolled.push(this.id);
+    });
+    Object.defineProperty(Element.prototype, 'scrollIntoView', { value: scrollIntoView, configurable: true });
+    try {
+      await open(fixtureModel('fresh'));
+      await act(async () => {
+        fireEvent.click(within(contents()).getByRole('button', { name: 'Dịch vụ và nguồn số' }));
+      });
+      expect(scrolled).toEqual([screen.getByRole('region', { name: 'Dịch vụ và nguồn số' }).id]);
+      expect(within(contents()).getByRole('button', { name: 'Dịch vụ và nguồn số' }).getAttribute('aria-current')).toBe('location');
+      expect(within(contents()).getByRole('button', { name: 'Chung' }).getAttribute('aria-current')).toBeNull();
+    } finally {
+      delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+    }
+  });
+
+  it('a variable overriding a login puts its card, and its entry, first; a release build has no Nâng cao', async () => {
+    await open(fixtureModel('fresh', { env: envFixture({ found: [API_KEY] }) }));
+    expect(entries()[0].textContent).toBe('Biến môi trường');
+    expect(entries().filter((b) => b.textContent === 'Biến môi trường')).toHaveLength(1);
+    cleanup();
+    await open(communityModel(fixtureModel('fresh')));
+    expect(entries().map((b) => b.textContent)).not.toContain('Nâng cao');
+  });
+
+  it('a row has its name and its line on the left, and its switch at the right end', async () => {
+    await open(fixtureModel('fresh'));
+    for (const sw of screen.getAllByRole('switch')) {
+      const row = sw.closest('.srow')!;
+      const [name, control] = Array.from(row.children);
+      // The name comes first; the switch is the last thing in the control's cell.
+      expect(name.contains(sw)).toBe(false);
+      expect(control.lastElementChild).toBe(sw);
+    }
+    const kinds = screen.getByRole('region', { name: 'Thông báo' });
+    const login = within(kinds).getByRole('switch', { name: 'Tài khoản cần đăng nhập lại' }).closest('.srow')!;
+    expect(login.children[0].textContent).toBe('Tài khoản cần đăng nhập lạiSắp hết hạn hoặc lỗi đăng nhập. Chi tiết');
+  });
+
+  it('a long rule waits behind its "Chi tiết", whole', async () => {
+    await open(fixtureModel('fresh'));
+    expect(screen.getByText('Đang dùng còn ≤ 10%, mọi tài khoản trong vòng còn < 15%.')).toBeTruthy();
+    expect(screen.queryByText(/^Khi tài khoản đang dùng còn 10% trở xuống/)).toBeNull();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Chi tiết: Hạn mức Claude trong vòng sắp cạn / có lại' }));
+    });
+    expect(within(screen.getByRole('dialog')).getByText(/^Khi tài khoản đang dùng còn 10% trở xuống và không tài khoản nào trong vòng còn 15%, và khi có lại\./)).toBeTruthy();
+    cleanup();
+    await open(fixtureModel('fresh'));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Chi tiết: Báo khi có bản mới' }));
+    });
+    expect(within(screen.getByRole('dialog')).getByText('Mỗi ngày một lần qua GitHub Releases. Bản build từ mã nguồn không cài bản tải về: chỉ báo.')).toBeTruthy();
   });
 });

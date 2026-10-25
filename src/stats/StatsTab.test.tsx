@@ -50,42 +50,72 @@ describe('the Thống kê tab', () => {
     expect(within(nav).getByRole('button', { name: 'Thống kê' }).getAttribute('aria-current')).toBe('page');
     expect(fake.api.statsRead).toHaveBeenCalled();
     expect(fake.api.statsReport).toHaveBeenCalledWith('week');
-    expect(screen.getByText('Đếm token từ log phiên trên máy này. Không đọc nội dung, không gửi đi.')).toBeTruthy();
+    // One short line under the title; what is read and what is never kept are behind its Chi tiết.
+    expect(screen.getByText(/^Token từ log trên máy · không lưu nội dung hội thoại/)).toBeTruthy();
+    await press(screen.getByRole('button', { name: 'Chi tiết: Thống kê' }));
+    expect(screen.getByText(/Nội dung hội thoại không được lưu, ghi lại hay hiện ra, và không có gì được gửi đi\./)).toBeTruthy();
   });
 
-  it('shows the totals, the agents and the API price for comparison only', async () => {
+  it('shows the two totals in one line, the agents in the legend, the rankings side by side and the models under them', async () => {
     await openTab();
     const r = statsReport('week');
-    expect(screen.getByText('Tổng · 7 ngày')).toBeTruthy();
-    expect(screen.getByText('Giá API tương đương')).toBeTruthy();
-    expect(screen.getByText('gói thuê bao: chỉ để so sánh')).toBeTruthy();
-    expect(screen.getByText(usd(r.usd))).toBeTruthy();
-    // Antigravity has no row of numbers.
-    expect(screen.getByText('chưa có log token trên máy')).toBeTruthy();
-    // The accounts by the window's names, approximate.
-    expect(screen.getByText(/Gần đúng: ghép giờ của phiên/)).toBeTruthy();
+    const totals = screen.getByRole('group', { name: 'Tổng' });
+    expect(within(totals).getByText('Tổng · 7 ngày')).toBeTruthy();
+    expect(within(totals).getByText('Giá API tương đương')).toBeTruthy();
+    expect(within(totals).getByText(usd(r.usd))).toBeTruthy();
+    expect(within(totals).getByText(/không phải số tiền đã trả/)).toBeTruthy();
+    // No tile per agent and no "Theo agent" card: the agents and their totals are the chart's legend.
+    expect(screen.queryByText('Theo agent')).toBeNull();
+    const legend = screen.getByRole('list', { name: 'Chú thích' });
+    expect(within(legend).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+      'Claude Code · ' + tokensText(r.claude) + ' (68%)',
+      'Codex · ' + tokensText(r.codex) + ' (32%)',
+      'Antigravity: chưa có log token trên máy',
+    ]);
+    // The accounts by the window's names, estimated; the rule behind Chi tiết.
+    expect(screen.getByText(/^Ước tính theo lịch sử chuyển/)).toBeTruthy();
     const accounts = screen.getByRole('table', { name: 'Theo tài khoản Claude' });
     expect(within(accounts).getAllByRole('row')).toHaveLength(3);
-    // Projects and models.
-    expect(within(screen.getByRole('table', { name: 'Theo dự án' })).getByText('web-shop').closest('th')!.getAttribute('title')).toBe('~/Projects/web-shop');
-    expect(within(screen.getByRole('table', { name: 'Theo model' })).getByText('claude-opus-5-5')).toBeTruthy();
-    expect(screen.getByText(/bảng giá API ngày 19\/10\/2026/)).toBeTruthy();
+    await press(screen.getByRole('button', { name: 'Chi tiết: Theo tài khoản Claude' }));
+    expect(screen.getByText(/Log được gom theo lát 15 phút/)).toBeTruthy();
+    // Accounts and projects share a row; the models take the whole width under them.
+    const projects = screen.getByRole('table', { name: 'Theo dự án' });
+    expect(accounts.closest('[data-slot=card]')!.parentElement).toBe(projects.closest('[data-slot=card]')!.parentElement);
+    expect(within(projects).getByText('web-shop').closest('th')!.getAttribute('title')).toBe('~/Projects/web-shop');
+    const models = screen.getByRole('table', { name: 'Theo model' });
+    expect(models.closest('[data-slot=card]')!.parentElement).not.toBe(accounts.closest('[data-slot=card]')!.parentElement);
+    expect(within(models).getByText('claude-opus-5-5')).toBeTruthy();
+    expect(within(models).getByText('Giá API tương đương')).toBeTruthy();
+    expect(screen.getByText(/¹ gồm ghi cache · giá API 19\/10\/2026/)).toBeTruthy();
   });
 
-  it('draws one bar a day in one colour, with a number on the tallest only', async () => {
+  it('stacks each day by agent, Claude Code under Codex, with a number on the tallest only', async () => {
     await openTab();
     expect(bars()).toHaveLength(7);
-    const paths = chart().querySelectorAll('path');
-    expect(paths).toHaveLength(7);
-    for (const p of paths) expect(p.getAttribute('class')).toContain('fill-series-1');
-    // Bars at most 24 wide, the top corners rounded by 4.
-    for (const p of paths) {
+    const r = statsReport('week');
+    const columns = [...chart().querySelectorAll('g > g[aria-hidden]')].filter((g) => g.querySelector('path'));
+    expect(columns).toHaveLength(7);
+    columns.forEach((g, i) => {
+      const parts = [...g.querySelectorAll('path')];
+      // One part per agent with tokens that day, in the agents' fixed colours.
+      expect(parts.map((p) => p.getAttribute('class'))).toEqual([
+        ...(r.points[i].claude > 0 ? ['fill-series-1'] : []),
+        ...(r.points[i].codex > 0 ? ['fill-series-2'] : []),
+      ]);
+      // Only the top part is rounded, and the parts never touch.
+      expect(parts.map((p) => /Q/.test(p.getAttribute('d')!))).toEqual(parts.map((_, j) => j === parts.length - 1));
+      if (parts.length === 2) {
+        const top0 = Number(parts[0].getAttribute('d')!.match(/V([\d.]+)/)![1]);
+        const base1 = Number(parts[1].getAttribute('d')!.match(/^M[\d.]+,([\d.]+)/)![1]);
+        expect(top0 - base1).toBeGreaterThanOrEqual(2 - 1e-9);
+      }
+    });
+    // Bars at most 24 wide.
+    for (const p of chart().querySelectorAll('path')) {
       const d = p.getAttribute('d')!;
       const xs = [...d.matchAll(/[MH]([\d.]+)/g)].map((m) => Number(m[1]));
-      expect(Math.max(...xs) - Math.min(...xs) + 4).toBeLessThanOrEqual(24.001);
-      expect(d).toMatch(/Q/);
+      expect(Math.max(...xs) - Math.min(...xs)).toBeLessThanOrEqual(24.001);
     }
-    const r = statsReport('week');
     const max = Math.max(...r.points.map((p) => p.claude + p.codex));
     const u = unitOf(max);
     const labels = [...chart().querySelectorAll('text')].map((t) => t.textContent);
