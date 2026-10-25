@@ -29,14 +29,14 @@ interface BodyProps {
   onTab(tab: Tab): void;
 }
 
-const LABEL = 'mb-1.5 block text-[12.5px] font-semi text-ink2';
+const LABEL = 'mb-1 block text-xs font-semi text-ink2';
 
 /** The dialog's head: a small line over the title, the title, the line under it. */
 function Head({ title, lead, cap }: { title: string; lead?: string; cap?: string }) {
   return (
     <div className="grid gap-1">
-      {cap ? <span className="text-[12.5px] font-semi text-ink3">{cap}</span> : null}
-      <DialogTitle className="mb-0 text-[19px] font-bold tracking-head text-heading">{title}</DialogTitle>
+      {cap ? <span className="text-xs font-semi text-ink3">{cap}</span> : null}
+      <DialogTitle className="mb-0">{title}</DialogTitle>
       {lead ? (
         <DialogLead className="mb-0">
           <Rich text={lead} />
@@ -163,11 +163,11 @@ function WaitBody({ d, view, claude, nameOf }: { d: Extract<ClaudeDialog, { kind
           lead={t('Đăng nhập Claude trong tab vừa mở. Cửa sổ này tự cập nhật khi xong.', 'Sign in to Claude in the tab that opened. This window updates by itself when you are done.')}
         />
       )}
-      <div className="flex items-start gap-2.5 rounded-card border border-line bg-card-2 px-3 py-2.5 text-sm" role="status">
+      <div className="flex items-start gap-2.5 rounded-tile bg-fill px-[11px] py-2 text-sm" role="status">
         <Spinner />
         <div className="grid gap-0.5">
           <b className="font-semi text-heading">{t('Chờ đăng nhập', 'Waiting for sign-in')}</b>
-          <small className="text-[12.5px] text-ink2 tabular-nums">
+          <small className="text-xs text-ink2 tabular-nums">
             {t('Chờ tối đa 10 phút · còn ' + minutes(LOGIN_WAIT_MS - (now - d.started)), 'Waits up to 10 minutes · ' + minutes(LOGIN_WAIT_MS - (now - d.started)) + ' left')}
           </small>
         </div>
@@ -341,8 +341,8 @@ function DetailBody({ d, view, claude, advanced, nameOf }: { d: Extract<ClaudeDi
       {rotationMatters(view, advanced) ? (
         <div className="flex items-center gap-3">
           <div className="min-w-0 flex-1">
-            <b className="block text-body font-med text-heading">{t('Cho tự chuyển dùng tài khoản này', 'Let auto-switch use this account')}</b>
-            <small className="block text-[12.5px] text-ink2">
+            <b className="block text-body font-semi">{t('Cho tự chuyển dùng tài khoản này', 'Let auto-switch use this account')}</b>
+            <small className="block text-xs text-ink2">
               {t('Tắt để tự chuyển trên máy này bỏ qua ' + who + '. Bạn vẫn chuyển tay được.', 'Turn off so auto-switch on this Mac skips ' + who + '. You can still switch by hand.')}
             </small>
           </div>

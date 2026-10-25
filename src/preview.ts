@@ -65,8 +65,7 @@
 // Thống kê (M16): `tab=stats` with made-up counts for made-up projects; `stats=first` shows the
 // first read halfway, `stats=new` starts one that runs (a step every 0.4 s), `stats=skip` has
 // 38 Codex sessions in a format the app cannot read, `stats=fail` a report that cannot be read.
-// The glass (community edition, 24/10/2026): `rt=1` is macOS with Reduce Transparency on (the
-// solid ground), and `desk=plain` a plain desktop behind the glass instead of the made-up one.
+// The glass: `rt=1` is macOS with Reduce Transparency on (the solid ground).
 // `lang=vi|en` sets the language; without it the preview follows the browser's, as the app follows macOS.
 
 import type { Api } from './lib/api';

@@ -46,8 +46,8 @@ function PullCommand() {
 function Head({ title, lead, cap }: { title: string; lead?: string; cap?: string }) {
   return (
     <div className="grid gap-1">
-      {cap ? <span className="text-[12.5px] font-semi text-ink3">{cap}</span> : null}
-      <DialogTitle className="mb-0 text-[19px] font-bold tracking-head text-heading">{title}</DialogTitle>
+      {cap ? <span className="text-xs font-semi text-ink3">{cap}</span> : null}
+      <DialogTitle className="mb-0">{title}</DialogTitle>
       {lead ? (
         <DialogLead className="mb-0">
           <Rich text={lead} />
@@ -75,13 +75,13 @@ export function ReleaseDialogBody({ model, release, onUpdateFromSource }: { mode
   const source = fromSource(model);
   const notes = (
     <div>
-      <div className="mb-1.5 text-[12.5px] font-semi text-ink2">{t('Có gì mới', 'What’s new')}</div>
+      <div className="mb-1.5 text-xs font-bold text-ink2">{t('Có gì mới', 'What’s new')}</div>
       <ul className="m-0 grid list-disc gap-2 pl-3.5 text-sm text-ink marker:text-ink3">
         {l.notes.map((n) => (
           <li key={n}>{n}</li>
         ))}
       </ul>
-      <div className="mt-2 text-[12.5px]">
+      <div className="mt-2 text-sm">
         <LinkButton small onClick={() => release.open('notes')}>
           {t('Ghi chú đầy đủ trên GitHub', 'Full notes on GitHub')}
         </LinkButton>
@@ -183,7 +183,7 @@ export function DiagDialogBody({ release }: { release: ReleaseState }) {
         </div>
       ) : (
         <pre
-          className="m-0 max-h-[240px] overflow-auto rounded-ctl border border-line bg-card-2 px-3 py-2.5 font-mono text-[12px]/[1.55] whitespace-pre-wrap text-ink"
+          className="m-0 max-h-[240px] overflow-auto rounded-tile bg-fill px-[11px] py-2 font-mono text-[11px]/[1.5] whitespace-pre-wrap text-ink"
           tabIndex={0}
           aria-label={t('Thông tin sẽ chép', 'What gets copied')}
         >
@@ -211,7 +211,7 @@ export function ReleaseRows({ model, onAction, onAuto }: { model: Model; onActio
       <div className={rowClass()}>
         <div className={LABEL}>{t('Phiên bản', 'Version')}</div>
         <div className="flex items-start gap-3">
-          <div className="grid min-w-0 flex-1 gap-0.5 text-[12.5px] text-ink2">
+          <div className="grid min-w-0 flex-1 gap-0.5 text-xs text-ink2">
             <span>{row.build}</span>
             <span role="status">
               {row.status}{' '}

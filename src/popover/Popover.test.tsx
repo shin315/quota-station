@@ -29,10 +29,9 @@ afterEach(cleanup);
 describe('popover', () => {
   it('shows a card per account: Claude cards switch, the card in use and unlisted Antigravity ones do not', async () => {
     const fake = await open(fixtureModel('fresh'));
-    // The app's name, and under it this Mac with no age while the numbers are fresh.
+    // One header line: this Mac, with no age while the numbers are fresh.
     expect(screen.getByText('Mac mini')).toBeTruthy();
     expect(screen.queryByText(/cập nhật .* trước/)).toBeNull();
-    expect(screen.getByText('Quota Station')).toBeTruthy();
     expect(screen.queryByText(/còn tương đương/)).toBeNull();
     expect(screen.queryByText(/n = ngày/)).toBeNull();
 
@@ -43,7 +42,8 @@ describe('popover', () => {
     expect(cards.map((c) => c.getAttribute('aria-label')!.split(',')[0])).toEqual(['lanpham.dev', 'lan.acme1', 'lan.acme2', 'lan.acme3']);
     // The spoken label keeps every word the screen no longer writes.
     expect(cards[1].getAttribute('aria-label')).toMatch(/^lan\.acme1, Acme Studio, đang dùng\. 5 giờ đã dùng 74%/);
-    expect(within(cards[1]).getByText('đang dùng')).toBeTruthy();
+    // The card's frame says it is in use.
+    expect(cards[1].getAttribute('data-active')).toBe('true');
     expect(within(cards[1]).queryByText('Acme Studio')).toBeNull();
     expect(within(cards[2]).queryByText('Tuần')).toBeNull();
     expect(within(cards[0]).getByText('chưa dùng')).toBeTruthy();
@@ -78,8 +78,8 @@ describe('popover', () => {
     fireEvent.click(head);
     expect(head.getAttribute('aria-expanded')).toBe('false');
     expect(screen.queryByRole('list', { name: 'Claude' })).toBeNull();
-    // The header is the group's name and its count: Đang dùng above says whose account and how much.
-    expect(head.textContent).toBe('Claude4');
+    // The header is the group's name alone: Đang dùng above says whose account and how much.
+    expect(head.textContent).toBe('Claude');
     // Antigravity stays open.
     expect(screen.getByRole('list', { name: 'Antigravity' })).toBeTruthy();
     expect(JSON.parse(localStorage.getItem(FOLD_KEY)!)).toEqual({ c: true, g: false });
@@ -89,7 +89,7 @@ describe('popover', () => {
     expect(screen.getByRole('button', { name: /^Claude/ }).getAttribute('aria-expanded')).toBe('false');
     const agyHead = screen.getByRole('button', { name: /^Antigravity/ });
     fireEvent.click(agyHead);
-    expect(agyHead.textContent).toBe('Antigravity2');
+    expect(agyHead.textContent).toBe('Antigravity');
     expect(screen.getByRole('list', { name: 'Đang dùng' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /^Claude/ }));
     expect(screen.getByRole('list', { name: 'Claude' })).toBeTruthy();
@@ -133,7 +133,7 @@ describe('popover', () => {
   it('Đang dùng heads the popover: each service, its account, share used and reset', async () => {
     await open(fixtureModel('fresh'));
     const now = within(screen.getByRole('list', { name: 'Đang dùng' })).getAllByRole('listitem');
-    expect(now.map((r) => r.textContent)).toEqual(['Claude74%lan.acme13h 8m', 'Gemini2%lan.ultra21h 57m', 'Codex—relay']);
+    expect(now.map((r) => r.textContent)).toEqual(['Claudelan.acme174%3h 8m', 'Geminilan.ultra22%1h 57m', 'Codexrelay—']);
     expect(now[0].getAttribute('title')).toBe('Claude: lan.acme1 đã dùng 74% 5 giờ');
     expect(now[2].getAttribute('title')).toBe('Codex: relay, ChatGPT đã dùng 23% 5 giờ');
     cleanup();

@@ -38,7 +38,6 @@ async function start() {
   document.documentElement.dataset.material = 'glass';
   document.body.classList.add(view === 'window' ? 'main-window' : 'popover-window');
   if (preview) document.body.classList.add('preview');
-  if (params?.get('desk') === 'plain') document.body.classList.add('desk-plain');
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
       <div

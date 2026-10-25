@@ -1,29 +1,30 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-// The popover, rebuilt from the community edition's approved prototype
-// (24/10/2026; RP-A, D02, D03, D07, D08): the app's name with this Mac and
-// how fresh the numbers are, then Đang dùng (the account in use on each
-// service, its share used and when it resets), then a group per service:
-// Claude's and Antigravity's accounts as cards in the main window's order,
-// the one in use with a green dot and a passive "đang dùng" chip, and
-// Codex as one switch button. Each group folds to its header and stays
-// folded the next time the popover opens. A card opens its switch sheet;
-// one whose login expired opens the sign-in again. The footer holds the
-// automatic switching toggle while Cài đặt › Nâng cao is on. The header's
-// two buttons switch the light and dark look and open the main window.
+// The popover (F01, F03, F04, F07), at the approved "Gọn hơn" level: one
+// header line with this Mac's name, Đang dùng on top (the account in use on
+// each service, its share used and when it resets), then a card per
+// account in the main window's order, the one in use framed. Each group
+// (Claude, Antigravity) folds to its header alone, and stays folded the next
+// time the popover opens. A card opens its switch sheet; one whose login
+// expired opens the sign-in again. The footer holds the automatic switching
+// toggle while Cài đặt › Nâng cao is on, and a quiet line when a newer
+// release is out. The header's two buttons switch between the light and
+// dark look and open the main window. Under the groups, Codex is one row
+// (M8): the provider in use and where a switch would go; pressing it opens
+// the confirmation sheet, never a one-tap switch.
 
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Dialog, DialogContent, DialogOverlay } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { Icon } from '../components/icons';
+import { AccountName, IdMark } from '../components/accounts';
 import { AgentIcon } from '../components/logos';
 import { Banner, Button, Chip, Dot, Feedback, LinkButton, Meter, Skeleton, Spinner, Toggle } from '../components/parts';
 import { t } from '../lib/i18n';
-import type { Agent } from '../lib/model';
 import type { AutoView } from '../lib/switching';
 import type { CodexRowView } from '../lib/codex';
 import { bannerUnder, type Action, type CardView, type CellView, type FeedbackView, type GroupView, type NowView, type PopoverView, type UsedTone } from '../lib/view';
+import { ChevronIcon, MoonIcon, OpenIcon, SunIcon } from '../window/icons';
 
 /** Which groups are folded, kept in this window's storage so it outlives the app. */
 export const FOLD_KEY = 'quota-station.popover.folded';
@@ -48,137 +49,129 @@ function saveFolded(folded: Folded) {
 }
 
 /** A number's colour when its quota runs short. */
-function toneInk(tone: UsedTone | string): string {
-  return tone === 'warn' ? 'text-warn-ink' : tone === 'bad' ? 'text-bad-ink' : '';
+function toneInk(tone: UsedTone | string): string | undefined {
+  return tone === 'warn' ? 'text-warn-ink!' : tone === 'bad' ? 'text-bad-ink!' : undefined;
 }
 
-const SVC_AGENT: Record<string, Agent> = { c: 'claude', g: 'agy', x: 'codex' };
+/** The flex name in Đang dùng, as the prototype drew it. */
+const NOW_NAME = 'flex min-w-0 flex-wrap items-center gap-[5px] overflow-hidden text-ellipsis whitespace-nowrap font-semi';
 
 /**
- * Đang dùng: a column per service, two lines each (the service and its
- * share used; the account and when it resets), since four blocks per
- * service do not fit 360 points with 13-point text.
+ * Đang dùng: one line per service, the account in use, its share used and
+ * when that resets. The window shows on hover.
  */
 function NowStrip({ now, loading }: { now: NowView; loading: boolean }) {
   if (!now.rows.length) return null;
-  const cols = now.rows.length === 1 ? 'grid-cols-1' : now.rows.length === 2 ? 'grid-cols-2' : 'grid-cols-3';
   return (
-    <div className="grid gap-2 rounded-card border border-line bg-pop-now px-3 pt-2.5 pb-3 shadow-[inset_0_1px_0_var(--hi)]">
-      <span className="text-xs font-semi text-ink2">{t('Đang dùng', 'In use')}</span>
-      <div className={cn('grid', cols)} role="list" aria-label={t('Đang dùng', 'In use')}>
-        {now.rows.map((r) => (
-          <div
-            className="grid grid-cols-[16px_minmax(0,1fr)] items-center gap-x-1.5 border-l border-line px-[7px] first:border-l-0 first:pl-0 last:pr-0"
-            role="listitem"
-            key={r.id}
-            title={r.title}
-            aria-label={r.label}
-          >
-            <AgentIcon agent={SVC_AGENT[r.id]} className="size-4" />
-            <span className="grid min-w-0 leading-[1.35]" aria-hidden="true">
-              <span className="flex min-w-0 items-baseline justify-between gap-1">
-                <span className="text-xs font-semi text-heading">{r.svc}</span>
-                {loading ? (
-                  <Skeleton className="w-8" />
-                ) : (
-                  <span className={cn('text-xs font-semi tabular-nums', r.used == null ? 'text-ink3' : toneInk(r.tone))}>{r.text}</span>
-                )}
-              </span>
-              <span className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-1">
-                <span className="min-w-0 flex-[0_1_auto] overflow-hidden text-ellipsis whitespace-nowrap text-2xs text-ink2">{r.name}</span>
-                {r.extra ? (
-                  <span className={cn('whitespace-nowrap text-2xs font-semi', toneInk(r.extra.tone))}>C/GPT {r.extra.text}</span>
-                ) : r.reset ? (
-                  <span className="whitespace-nowrap text-2xs text-ink2 tabular-nums">{r.reset}</span>
-                ) : null}
-              </span>
-            </span>
-          </div>
-        ))}
-      </div>
+    <div className="mx-2.5 mt-0.5 mb-1.5 grid gap-[3px] rounded-tile bg-fill px-2.5 pt-[5px] pb-1.5" role="list" aria-label={t('Đang dùng', 'In use')}>
+      {now.rows.map((r) => (
+        <div
+          className="grid min-h-[19px] grid-cols-[62px_minmax(0,1fr)_34px_60px] items-center gap-[7px] text-xs text-ink2 tabular-nums"
+          role="listitem"
+          key={r.id}
+          title={r.title}
+          aria-label={r.label}
+        >
+          <span className="inline-flex items-center gap-[5px] text-ink2" aria-hidden="true">
+            <IdMark id={r.id} className="m-0" />
+            {r.svc}
+          </span>
+          <span className="flex min-w-0 items-baseline gap-1.5" aria-hidden="true">
+            <b className={cn(NOW_NAME, 'text-sm text-ink')}>{r.name}</b>
+            {r.extra ? <b className={cn('flex-none whitespace-nowrap font-semi', toneInk(r.extra.tone))}>C/GPT {r.extra.text}</b> : null}
+          </span>
+          {loading ? (
+            <Skeleton className="w-full" />
+          ) : (
+            <b className={cn('text-right', r.used == null ? 'font-reg text-ink3' : 'font-semi text-ink', toneInk(r.tone))} aria-hidden="true">
+              {r.text}
+            </b>
+          )}
+          <span className="overflow-hidden text-ellipsis whitespace-nowrap text-left" aria-hidden="true">
+            {loading ? null : r.reset}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }
 
-/** One window on a card: its name, a 7-point bar, the share used and when it resets. */
-function WindowRow({ cell, dim, loading }: { cell: CellView; dim?: boolean; loading?: boolean }) {
+/** One window on a card: its name, a bar, the share used and when it resets. */
+function WindowRow({ cell, wide, dim, loading }: { cell: CellView; wide?: boolean; dim?: boolean; loading?: boolean }) {
   const tone = dim ? 'muted' : cell.tone;
-  if (loading) {
-    return (
-      <>
-        <span className="whitespace-nowrap">{cell.label}</span>
-        <Skeleton className="h-(--pop-bar-h) w-full rounded-chip" />
-        <span />
-        <span />
-      </>
-    );
-  }
+  return (
+    <span
+      className={cn(
+        'mt-1 grid items-center gap-[7px] text-xs text-ink2 tabular-nums',
+        wide ? 'grid-cols-[92px_minmax(0,1fr)_34px_60px]' : 'grid-cols-[52px_minmax(0,1fr)_34px_60px]',
+      )}
+      title={cell.title}
+    >
+      <span>{cell.label}</span>
+      {loading ? (
+        <>
+          <Skeleton className="h-(--meter-h-s) w-full" />
+          <span />
+          <span />
+        </>
+      ) : (
+        <>
+          <Meter percent={cell.used} tone={tone} className="m-0 h-(--meter-h-s)" />
+          <b className={cn('text-right', cell.used == null ? 'font-reg text-ink3' : 'font-semi text-ink', toneInk(tone))}>{cell.text}</b>
+          <span className={cn('whitespace-nowrap', cell.used == null && 'font-reg text-ink3')}>{cell.used == null ? '' : cell.reset}</span>
+        </>
+      )}
+    </span>
+  );
+}
+
+/** A round icon button in the popover's header. */
+const ICON_BUTTON = 'grid size-[26px] cursor-pointer place-items-center rounded-ctl border-0 bg-transparent text-ink2 hover:bg-fill [&_svg]:block';
+
+/** A group's header line: Claude and Antigravity fold; Codex's does not. */
+const GROUP_HEAD = 'mx-1.5 mt-1 mb-0.5 flex w-[calc(100%-12px)] items-center gap-1.5 rounded-row border-0 bg-transparent px-2 py-[5px] text-left text-xs text-ink2';
+
+const NOTE_TONE: Record<string, string> = { warn: 'bg-warn/14 text-warn-ink', bad: 'bg-bad/12 text-bad-ink' };
+
+/** A note under a group: what is the matter with its accounts. */
+function GroupNote({ note }: { note: { tone: string; text: string } }) {
+  return <div className={cn('mx-3.5 mt-0.5 mb-1 rounded-lg px-2 py-1.5 text-s', NOTE_TONE[note.tone] ?? 'bg-fill text-ink2')}>{note.text}</div>;
+}
+
+function CardBody({ card, loading }: { card: CardView; loading: boolean }) {
   return (
     <>
-      <span className="whitespace-nowrap" title={cell.title}>
-        {cell.label}
+      {/* The card's frame says it is in use; the main window keeps the organization and the hours. */}
+      <span className="flex min-w-0 items-baseline gap-1.5">
+        <AccountName name={card.name} sub="" full={card.full} chips={card.chips} card />
       </span>
-      <Meter percent={cell.used} tone={tone} className="h-(--pop-bar-h)" />
-      <span className={cn('text-right font-med tabular-nums', cell.used == null ? 'text-ink3' : toneInk(tone))}>{cell.text}</span>
-      <span className="text-right text-[12.5px] whitespace-nowrap text-ink2 tabular-nums">{cell.used == null ? '' : cell.reset}</span>
+      {card.rows.map((c) => (
+        <WindowRow key={c.kind} cell={c} wide={card.kind === 'g'} dim={card.dim} loading={loading} />
+      ))}
     </>
   );
 }
 
-/** A card's head: a dot (green for the account in use), its name, its chips, and › when pressing it does something. */
-/**
- * A card's head: the dot and the name on the left, "đang dùng" and the
- * chevron on the right, and between them the chips (leaves rotation, old
- * numbers), which wrap onto more lines rather than lose their words.
- */
-function CardHead({ card, go, single }: { card: CardView; go: boolean; single: boolean }) {
-  return (
-    <span className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-2">
-      <span className="flex min-h-[22px] min-w-0 items-center gap-2">
-        <Dot tone={card.active ? 'ok' : 'off'} className={card.resting ? 'bg-transparent shadow-[inset_0_0_0_1.5px_var(--dot-off)]' : undefined} />
-        <span className="max-w-[9.5rem] overflow-hidden text-[14px] font-heading text-ellipsis whitespace-nowrap text-heading" title={card.full || undefined}>
-          {card.name}
-        </span>
-      </span>
-      <span className="flex min-h-[22px] min-w-0 flex-wrap items-center gap-1">
-        {card.chips.map((c) => (
-          <Chip key={c.t} chip={c} className="max-w-full overflow-hidden text-ellipsis whitespace-nowrap" />
-        ))}
-      </span>
-      <span className="flex min-h-[22px] items-center gap-1">
-        {card.active && !single ? <Chip chip={{ t: t('đang dùng', 'in use'), k: 'on' }} className="shrink-0" /> : null}
-        {go ? <Icon name="chevron-right" className="size-[15px] text-ink3" /> : null}
-      </span>
-    </span>
-  );
-}
-
-const CARD =
-  'grid w-full gap-[7px] rounded-card border border-line bg-pop-card px-3 pt-2.5 pb-[11px] text-left text-body text-ink shadow-[inset_0_1px_0_var(--hi),var(--sh-card)]';
-
 /**
  * A card the owner can press opens the switch sheet (or the sign-in
- * again). The card in use and the ones that cannot switch stay buttons with
+ * again). The active card and the ones that cannot switch stay buttons with
  * `aria-disabled`, so they keep focus and screen readers read them (G10).
- * The one account a row reads without a list has nothing to switch to and
- * is not a button.
+ * The one account a provider row reads without an account list has nothing
+ * to switch to and is not a button. An account out of the rotation has a
+ * dashed edge.
  */
-function AccountCard(props: { card: CardView; single: boolean; loading: boolean; onSwitch(slot: number): void; onRelogin(slot: number): void }) {
+function AccountCard(props: { card: CardView; loading: boolean; onSwitch(slot: number): void; onRelogin(slot: number): void }) {
   const { card } = props;
   const can = !props.loading && (card.relogin || card.switchable);
-  const cls = cn(CARD, card.resting && 'border-dashed bg-transparent shadow-none');
-  const rows = (
-    <span className="grid grid-cols-[minmax(48px,max-content)_minmax(0,1fr)_36px_minmax(50px,max-content)] items-center gap-x-2.5 gap-y-1">
-      {card.rows.map((c) => (
-        <WindowRow key={c.kind} cell={c} dim={card.dim} loading={props.loading} />
-      ))}
-    </span>
+  const cls = cn(
+    'acard2 block w-full rounded-tile border-0 bg-fill px-[11px] pt-2 pb-[9px] text-left',
+    card.active ? 'on cursor-default bg-sel shadow-[inset_0_0_0_1.5px_var(--accent)]' : 'cursor-pointer aria-disabled:cursor-default not-aria-disabled:hover:bg-sel',
+    card.resting && !card.active && 'bg-transparent outline-1 -outline-offset-1 outline-glass-line outline-dashed',
   );
   if (card.slot === 0) {
     return (
-      <div className={cls} role="listitem" aria-label={card.label} title={card.title || undefined} data-active={card.active || undefined}>
-        <CardHead card={card} go={false} single={props.single} />
-        {rows}
+      <div className={cn(cls, 'cursor-default')} role="listitem" aria-label={card.label} title={card.title || undefined} data-active={card.active || undefined}>
+        <CardBody card={card} loading={props.loading} />
       </div>
     );
   }
@@ -186,40 +179,21 @@ function AccountCard(props: { card: CardView; single: boolean; loading: boolean;
     <div role="listitem">
       <button
         type="button"
-        className={cn(cls, can ? 'cursor-pointer transition-colors hover:border-line-2' : 'cursor-default')}
+        className={cls}
         aria-label={card.relogin ? card.name + t(', cần đăng nhập lại. Bấm để đăng nhập lại', ', needs to sign in again. Press to sign in again') : card.label}
         aria-disabled={can ? undefined : true}
         title={card.title || undefined}
         data-active={card.active || undefined}
         onClick={can ? () => (card.relogin ? props.onRelogin(card.slot) : props.onSwitch(card.slot)) : undefined}
       >
-        <CardHead card={card} go={can} single={props.single} />
-        {rows}
+        <CardBody card={card} loading={props.loading} />
       </button>
     </div>
   );
 }
 
-/** A group's header: the service's logo and name, its account count or a read-only tag, and the fold arrow. */
-function GroupHead(props: { agent: Agent; title: string; tail: ReactNode; folded: boolean; onFold(): void }) {
-  return (
-    <button
-      type="button"
-      className="flex w-full cursor-pointer items-center gap-2 rounded-md border-0 bg-transparent px-0.5 py-0.5 text-left text-heading hover:[&>svg:last-child]:text-ink2"
-      aria-expanded={!props.folded}
-      onClick={props.onFold}
-    >
-      <AgentIcon agent={props.agent} className="size-5" />
-      <span className="text-pop-h font-heading tracking-head">{props.title}</span>
-      {props.tail}
-      <Icon name={props.folded ? 'chevron-right' : 'chevron-down'} className="ml-auto size-3.5 text-ink3" />
-    </button>
-  );
-}
-
 function Group(props: {
   group: GroupView;
-  agent: Agent;
   loading: boolean;
   folded: boolean;
   onFold(): void;
@@ -230,21 +204,23 @@ function Group(props: {
   empty?: boolean;
 }) {
   const g = props.group;
-  const tail = g.readOnly ? (
-    <Chip chip={{ t: t('chỉ đọc', 'read-only'), k: 'tag' }} />
-  ) : g.cards.length ? (
-    <span className="text-xs text-ink2 tabular-nums">{g.cards.length}</span>
-  ) : null;
   const single = g.cards.length === 1;
   return (
-    <section className="grid gap-2" aria-label={g.title}>
-      <GroupHead agent={props.agent} title={g.title} tail={tail} folded={props.folded} onFold={props.onFold} />
+    <section aria-label={g.title}>
+      {/* Đang dùng already says whose account and how much: the header is the group's name alone. */}
+      <button type="button" className={cn(GROUP_HEAD, 'cursor-pointer hover:bg-fill')} aria-expanded={!props.folded} onClick={props.onFold}>
+        <span className={cn('inline-grid place-items-center transition-transform duration-(--dur-1) ease-qs', props.folded ? '' : 'rotate-90')}>
+          <ChevronIcon />
+        </span>
+        <IdMark id={g.id} />
+        <span className="font-bold tracking-[.02em] uppercase">{g.title}</span>
+        {g.readOnly ? <Chip chip={{ t: t('chỉ đọc', 'read-only'), k: 'tag' }} /> : null}
+      </button>
       {props.folded ? null : (
         <>
-          {g.readOnly && g.note ? <p className="-mt-1 pl-[30px] text-xs text-ink2">{g.note.text}</p> : null}
+          {g.readOnly && g.note ? <p className="mx-3.5 mt-0 mb-1 text-xs text-ink2">{g.note.text}</p> : null}
           {props.empty ? (
             <EmptyCard
-              agent={props.agent}
               title={t('Chưa có tài khoản Claude nào', 'No Claude accounts yet')}
               body={t('Đăng nhập một tài khoản để xem hạn mức và chuyển nhanh ở đây.', 'Sign in to an account to see its quota and switch here.')}
             >
@@ -254,14 +230,14 @@ function Group(props: {
             </EmptyCard>
           ) : null}
           {g.cards.length ? (
-            <div className="grid gap-2" role="list" aria-label={g.title}>
+            <div className="grid gap-1.5 px-2.5 pb-1" role="list" aria-label={g.title}>
               {g.cards.map((c) => (
-                <AccountCard key={c.key} card={c} single={single} loading={props.loading} onSwitch={props.onSwitch} onRelogin={props.onRelogin} />
+                <AccountCard key={c.key} card={c} loading={props.loading} onSwitch={props.onSwitch} onRelogin={props.onRelogin} />
               ))}
             </div>
           ) : null}
-          {props.agent === 'claude' && single && g.cards[0].slot > 0 ? (
-            <p className="text-xs text-ink2">
+          {g.id === 'c' && single && g.cards[0].slot > 0 ? (
+            <p className="mx-3.5 mt-0 mb-1 text-xs text-ink2">
               {t('Chỉ có một tài khoản. ', 'Only one account. ')}
               <LinkButton small onClick={() => props.onAction('claude:add')}>
                 {t('Thêm tài khoản', 'Add an account')}
@@ -276,53 +252,56 @@ function Group(props: {
   );
 }
 
-/** A note under a group: what is the matter with its accounts. */
-function GroupNote({ note }: { note: { tone: string; text: string } }) {
-  return <p className={cn('text-xs', note.tone === 'bad' ? 'text-bad-ink' : 'text-ink2')}>{note.text}</p>;
-}
-
-/** An empty card with a dashed edge: what is missing and how to get it. */
-function EmptyCard(props: { agent?: Agent; title: string; body: string; children?: ReactNode }) {
+/** An empty card: what is missing and how to get it. */
+function EmptyCard(props: { title: string; body: string; children?: ReactNode }) {
   return (
-    <div className="grid justify-items-center gap-1.5 rounded-card border border-dashed border-line-2 bg-pop-card px-4 py-[22px] text-center">
-      {props.agent ? <AgentIcon agent={props.agent} className="size-[30px] text-ink2" /> : <Icon name="info" className="size-[26px] text-ink3" />}
-      <b className="text-body font-semi text-heading">{props.title}</b>
-      <small className="max-w-[420px] text-sm text-ink2">{props.body}</small>
-      {props.children ? <div className="mt-1.5 flex flex-wrap justify-center gap-2">{props.children}</div> : null}
+    <div className="mx-2.5 mb-1.5 grid justify-items-center gap-1 rounded-tile bg-fill px-3 py-3 text-center">
+      <b className="text-body font-semi">{props.title}</b>
+      <small className="text-xs text-ink2">{props.body}</small>
+      {props.children ? <div className="mt-1 flex flex-wrap justify-center gap-1.5">{props.children}</div> : null}
     </div>
   );
 }
 
 /**
- * Codex: no account cards, one switch button (M8). The header names the
- * provider in use; the button names where a switch goes and opens the
- * confirmation sheet, never a one-tap switch.
+ * CodexRow = `.row.cx`, one line: the provider in use, any state chip, and
+ * `→` where a switch goes. The sub-line and Codex App's state stay in the
+ * Codex tab and the row's spoken label.
  */
 function CodexSection({ row, onOpen, onAction }: { row: CodexRowView; onOpen(): void; onAction(act: Action): void }) {
-  const [current, ...states] = row.chips;
   return (
-    <section className="grid gap-2" aria-label="Codex">
-      <div className="flex items-center gap-2 px-0.5 py-0.5 text-heading">
-        <AgentIcon agent="codex" className="size-5" />
-        <span className="text-pop-h font-heading tracking-head">Codex</span>
-        {current ? <Chip chip={{ ...current, k: 'info' }} /> : null}
-        {states.map((c) => (
-          <Chip key={c.t} chip={c} />
-        ))}
+    <section aria-label="Codex">
+      <div className={cn(GROUP_HEAD, 'cursor-default')}>
+        <IdMark id="x" />
+        <span className="font-bold tracking-[.02em]">CODEX</span>
       </div>
-      <button
-        type="button"
-        className="flex min-h-[34px] w-full cursor-pointer items-center justify-center gap-2 rounded-ctl border border-tint-ink/22 bg-tint px-3 text-[14px] font-semi text-tint-ink hover:brightness-[.97] aria-disabled:cursor-default aria-disabled:opacity-55"
-        aria-disabled={row.off ? true : undefined}
-        aria-label={row.label + '. ' + row.sub + (row.head ? '. ' + row.head : '')}
-        onClick={row.off ? undefined : onOpen}
-      >
-        <Icon name="arrow-right" className="size-[17px]" />
-        <span aria-hidden="true">{row.go.replace(/^→\s*/, '')}</span>
-      </button>
+      <div className="px-1.5">
+        <button
+          type="button"
+          className="group grid w-full cursor-pointer grid-cols-[var(--av)_minmax(0,1fr)_auto] items-center gap-[9px] rounded-row border-0 bg-transparent px-2 py-[5px] text-left focus-visible:-outline-offset-2 aria-disabled:cursor-default not-aria-disabled:hover:bg-fill"
+          aria-disabled={row.off ? true : undefined}
+          aria-label={row.label + '. ' + row.sub + (row.head ? '. ' + row.head : '')}
+          onClick={row.off ? undefined : onOpen}
+        >
+          <span className="grid size-(--av) place-items-center" aria-hidden="true">
+            <AgentIcon agent="codex" />
+          </span>
+          <span className="min-w-0">
+            <span className="flex min-w-0 flex-wrap items-center gap-[5px]">
+              <b className="text-body font-semi">Codex</b>
+              {row.chips.map((c) => (
+                <Chip key={c.t} chip={c} className="font-med" />
+              ))}
+            </span>
+          </span>
+          <span className="whitespace-nowrap text-sm font-med text-accent-ink group-aria-disabled:text-ink2 group-aria-disabled:line-through" aria-hidden="true">
+            {row.go}
+          </span>
+        </button>
+      </div>
       {row.note ? <GroupNote note={row.note} /> : null}
       {row.fix ? (
-        <div>
+        <div className="mx-3.5 mb-1.5">
           <LinkButton small onClick={() => onAction(row.fix!.act)}>
             {row.fix.label}
           </LinkButton>
@@ -341,21 +320,22 @@ function CodexSection({ row, onOpen, onAction }: { row: CodexRowView; onOpen(): 
 function Footer({ auto, sync, onToggle }: { auto: AutoView; sync: SyncLine | null; onToggle(): void }) {
   return (
     <>
-      <div className="flex items-center gap-2.5">
-        <Icon name={auto.toggle.on ? 'shuffle' : 'pause'} className="size-[17px] text-ink2" />
-        <div className="grid min-w-0 flex-1">
-          <b className="text-body font-semi text-heading">{auto.title}</b>
-          {auto.popLine ? <small className="text-2xs text-ink2">{auto.popLine}</small> : null}
+      <div className="li flex items-center gap-2 text-sm">
+        <div className="min-w-0 flex-1">
+          <b>{auto.title}</b>
+          {auto.popLine ? <small className="block text-xs text-ink2">{auto.popLine}</small> : null}
         </div>
         <Toggle on={auto.toggle.on} label={auto.toggle.label} disabled={auto.toggle.disabled} onClick={onToggle} />
       </div>
       {sync && sync.tone !== 'ok' ? (
-        <div className="flex items-center gap-2 text-xs text-ink2">
+        <div className="li flex items-center gap-2 text-sm">
           <Dot tone={sync.tone} />
-          <small className="min-w-0 flex-1 text-xs">
-            {t('Luật xoay vòng · ', 'Rotation rules · ')}
-            {sync.text}
-          </small>
+          <div className="min-w-0 flex-1">
+            <small className="block text-xs text-ink2">
+              {t('Luật xoay vòng · ', 'Rotation rules · ')}
+              {sync.text}
+            </small>
+          </div>
         </div>
       ) : null}
     </>
@@ -365,12 +345,11 @@ function Footer({ auto, sync, onToggle }: { auto: AutoView; sync: SyncLine | nul
 /** A newer release (u-pop): a quiet line at the foot, opening Tổng quan where its banner is. */
 function ReleaseLine({ line, onAction }: { line: { title: string; body: string }; onAction(act: Action): void }) {
   return (
-    <div className="flex items-center gap-2.5" role="status">
-      <Icon name="info" className="size-[17px] text-ink2" />
+    <div className="li flex items-center gap-2 text-sm" role="status">
       {/* One quiet line: no red dot, no macOS notification. */}
-      <p className="m-0 min-w-0 flex-1 text-[length:var(--pop-fs-sm)] text-ink2">
+      <small className="min-w-0 flex-1 text-xs text-ink2">
         {line.title} · {line.body}
-      </p>
+      </small>
       <LinkButton small onClick={() => onAction('release:open')}>
         {t('Xem', 'View')}
       </LinkButton>
@@ -425,7 +404,6 @@ export function Popover({ view, codex = null, auto, sync = null, release = null,
       return next;
     });
   const theme = dark ? t('Chuyển sang giao diện sáng', 'Switch to the light look') : t('Chuyển sang giao diện tối', 'Switch to the dark look');
-  const fresh = view.fresh.tone === 'ok';
   const relogin = (slot: number) => onAction(`claude:relogin:${slot}`);
 
   useLayoutEffect(() => {
@@ -446,31 +424,30 @@ export function Popover({ view, codex = null, auto, sync = null, release = null,
   return (
     <div
       data-slot="popover"
-      className="material-pop relative flex max-h-screen w-full max-w-full flex-col overflow-hidden rounded-pop in-[.preview]:max-h-(--pop-max-h)"
+      className="material-pop relative flex max-h-screen w-full max-w-full flex-col overflow-hidden rounded-pop shadow-[var(--sh-pop),inset_0_0_0_.5px_var(--glass-line)] in-[.preview]:max-h-(--pop-max)"
       role="dialog"
       aria-label="Quota Station"
     >
-      {/* The app's name; under it this Mac, and how old the numbers are when they are not fresh. */}
-      <div className="flex flex-none items-center gap-0.5 pt-3.5 pr-2.5 pb-2.5 pl-4" ref={head} inert={open}>
-        <div className="mr-auto grid min-w-0 gap-px">
-          <b className="text-pop-title leading-tight font-heavy tracking-head text-heading">Quota Station</b>
-          <span className="flex min-w-0 items-center gap-1.5 whitespace-nowrap text-xs text-ink2">
-            <Dot tone={fresh ? 'ok' : view.fresh.tone === 'bad' ? 'bad' : 'off'} />
+      <div className="flex flex-none items-center gap-1 pt-2.5 pr-2.5 pb-1.5 pl-3.5" ref={head} inert={open}>
+        {/* One line: this Mac, and how old the numbers are only when they are not fresh. */}
+        <div className="min-w-0 flex-1">
+          <b className="flex min-w-0 items-center gap-1.5 whitespace-nowrap text-body font-semi">
+            <Dot tone={view.fresh.tone} />
             {view.machine}
-            {fresh ? null : <small className="overflow-hidden text-xs text-ellipsis">· {view.fresh.text}</small>}
-          </span>
+            {view.fresh.tone === 'ok' ? null : <small className="overflow-hidden text-ellipsis text-s font-reg text-ink2">· {view.fresh.text}</small>}
+          </b>
         </div>
-        <Button quiet icon label={theme} onClick={() => onAction('theme')}>
-          <Icon name={dark ? 'moon' : 'sun'} />
-        </Button>
-        <Button quiet icon label={t('Mở Quota Station', 'Open Quota Station')} onClick={() => onAction('window')}>
-          <Icon name="square-arrow-out-up-right" />
-        </Button>
+        <button type="button" className={ICON_BUTTON} aria-label={theme} title={theme} onClick={() => onAction('theme')}>
+          {dark ? <SunIcon /> : <MoonIcon />}
+        </button>
+        <button type="button" className={ICON_BUTTON} aria-label={t('Mở Quota Station', 'Open Quota Station')} title={t('Mở Quota Station', 'Open Quota Station')} onClick={() => onAction('window')}>
+          <OpenIcon />
+        </button>
       </div>
-      <div className="body min-h-0 flex-[1_1_auto] overflow-y-auto overscroll-contain" inert={open}>
-        <div className="grid content-start gap-3 px-3 pb-3" ref={content}>
+      <div className="body min-h-0 flex-[1_1_auto] overflow-y-auto overscroll-contain pb-1" inert={open}>
+        <div ref={content}>
           {view.loading ? (
-            <p className="flex items-center gap-2 text-xs text-ink2">
+            <p className="mx-3.5 mt-0 mb-1.5 flex items-center gap-2 text-xs text-ink2">
               <Spinner className="size-3 border-[1.5px]" />
               {t('Đang đọc hạn mức lần đầu…', 'Reading quota for the first time…')}
             </p>
@@ -492,7 +469,6 @@ export function Popover({ view, codex = null, auto, sync = null, release = null,
               {view.claude.shown ? (
                 <Group
                   group={view.claude}
-                  agent="claude"
                   loading={view.loading}
                   empty={view.claude.empty}
                   folded={folded.c}
@@ -505,7 +481,6 @@ export function Popover({ view, codex = null, auto, sync = null, release = null,
               {view.agy.shown ? (
                 <Group
                   group={view.agy}
-                  agent="agy"
                   loading={view.loading}
                   folded={folded.g}
                   onFold={() => fold('g')}
@@ -520,7 +495,7 @@ export function Popover({ view, codex = null, auto, sync = null, release = null,
         </div>
       </div>
       {auto || release ? (
-        <div className="grid flex-none gap-[7px] border-t border-divider px-3.5 py-[9px]" ref={foot} inert={open}>
+        <div className="grid flex-none gap-[7px] border-t-[.5px] border-glass-line px-3.5 pt-2 pb-2.5" ref={foot} inert={open}>
           {release ? <ReleaseLine line={release} onAction={onAction} /> : null}
           {auto ? <Footer auto={auto} sync={sync} onToggle={onToggle} /> : null}
         </div>
