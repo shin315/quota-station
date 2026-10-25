@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 //! The rotation inside the app: the decisions the old `cswap-prefer-team`
-//! script made, with the same rules, and one run of it against a fake
+//! script made, with the same rules but the early switch, and one run of it against a fake
 //! Keychain, launchd and Anthropic. Every account is made up, and the
 //! clock is an argument, never waited on.
 
@@ -69,7 +69,7 @@ fn decide_primed(accounts: &[Reading], active: Option<u32>, last: &BTreeMap<u32,
 
 #[test]
 fn keeps_the_team_account_in_use_until_it_is_full() {
-    let accounts = [acct(1, 0.0, None), acct(2, 89.0, Some(60)), acct(3, 0.0, Some(30))];
+    let accounts = [acct(1, 0.0, None), acct(2, 89.0, Some(60)), acct(3, 0.0, Some(200))];
     assert_eq!(decide(&rules(), &accounts, Some(2), 12).decision, "stay");
 }
 
@@ -200,7 +200,7 @@ fn an_account_held_out_by_the_owner_is_never_chosen() {
 fn an_account_held_out_by_the_owner_is_kept_while_in_use_by_the_usual_rules() {
     let mut held = acct(2, 60.0, Some(60));
     held.disabled = true;
-    let accounts = [held, acct(3, 0.0, Some(30))];
+    let accounts = [held, acct(3, 0.0, Some(200))];
     assert_eq!(decide(&rules(), &accounts, Some(2), 12).decision, "stay");
     let mut full = acct(2, 95.0, Some(60));
     full.disabled = true;
@@ -221,6 +221,97 @@ fn the_threshold_comes_from_the_rules() {
     assert_eq!(decide(&rules(), &accounts, Some(2), 12).decision, "stay");
 }
 
+// The early switch: while the Team account in use has room, the Team
+// account whose five-hour window ends first is used before that window
+// is thrown away.
+
+/// 2026-10-25 10:46: slot 2 in use at 3 % until 15:40, slot 3 unused with
+/// its window ending at 12:00.
+#[test]
+fn an_unused_window_that_ends_first_is_taken_before_full() {
+    let accounts = [acct(1, 0.0, None), acct(2, 3.0, Some(294)), acct(3, 0.0, Some(74))];
+    assert_eq!(
+        decide(&rules(), &accounts, Some(2), 12).decision,
+        format!("switch 3 (ends {} with 100% left, before slot 2)", hm(at(74)))
+    );
+}
+
+#[test]
+fn a_window_with_under_twenty_minutes_left_is_not_worth_a_switch() {
+    let accounts = [acct(2, 3.0, Some(294)), acct(3, 0.0, Some(15))];
+    assert_eq!(decide(&rules(), &accounts, Some(2), 12).decision, "stay");
+    let twenty = [acct(2, 3.0, Some(294)), acct(3, 0.0, Some(20))];
+    assert_eq!(decide(&rules(), &twenty, Some(2), 12).target(), Some(3));
+}
+
+#[test]
+fn a_window_within_ten_points_of_full_is_not_worth_a_switch() {
+    let accounts = [acct(2, 3.0, Some(294)), acct(3, 85.0, Some(74))];
+    assert_eq!(decide(&rules(), &accounts, Some(2), 12).decision, "stay");
+    let ten = [acct(2, 3.0, Some(294)), acct(3, 80.0, Some(74))];
+    assert_eq!(
+        decide(&rules(), &ten, Some(2), 12).decision,
+        format!("switch 3 (ends {} with 20% left, before slot 2)", hm(at(74)))
+    );
+    let mut low = rules();
+    low.full = 50.0;
+    let under_low = [acct(2, 3.0, Some(294)), acct(3, 45.0, Some(74))];
+    assert_eq!(decide(&low, &under_low, Some(2), 12).decision, "stay");
+}
+
+#[test]
+fn a_window_not_started_never_pulls_an_early_switch() {
+    let accounts = [acct(2, 3.0, Some(294)), acct(3, 0.0, None)];
+    assert_eq!(decide(&rules(), &accounts, Some(2), 12).decision, "stay");
+}
+
+#[test]
+fn after_the_reset_and_priming_the_rotation_goes_back() {
+    // 12:00: slot 3 reset and was primed, so its window ends at 17:00, after
+    // slot 2's at 15:40.
+    let accounts = [acct(2, 45.0, Some(220)), acct(3, 1.0, Some(300))];
+    assert_eq!(
+        decide(&rules(), &accounts, Some(3), 12).decision,
+        format!("switch 2 (ends {} with 55% left, before slot 3)", hm(at(220)))
+    );
+    // Back on slot 2, slot 3's window ends later: no switch again.
+    assert_eq!(decide(&rules(), &accounts, Some(2), 12).decision, "stay");
+}
+
+#[test]
+fn of_several_early_windows_the_one_that_ends_first_is_taken() {
+    let accounts = [acct(2, 3.0, Some(294)), acct(3, 0.0, Some(120)), acct(4, 20.0, Some(60))];
+    assert_eq!(
+        decide(&rules(), &accounts, Some(2), 12).decision,
+        format!("switch 4 (ends {} with 80% left, before slot 2)", hm(at(60)))
+    );
+}
+
+#[test]
+fn a_held_out_or_stale_account_never_pulls_an_early_switch() {
+    let mut held = acct(3, 0.0, Some(74));
+    held.disabled = true;
+    let accounts = [acct(2, 3.0, Some(294)), held];
+    assert_eq!(decide(&rules(), &accounts, Some(2), 12).decision, "stay");
+    let mut stale = acct(3, 0.0, Some(74));
+    stale.fresh = false;
+    let accounts = [acct(2, 3.0, Some(294)), stale];
+    assert_eq!(decide(&rules(), &accounts, Some(2), 12).decision, "stay");
+}
+
+#[test]
+fn an_account_out_of_fable_never_pulls_an_early_switch_off_one_with_fable() {
+    let fable_out = |mut a: Reading| {
+        a.fable = Window { used: Some(96.0), resets_at: Some(at(2000)) };
+        a
+    };
+    let accounts = [acct(2, 3.0, Some(294)), fable_out(acct(3, 0.0, Some(74)))];
+    assert_eq!(decide(&rules(), &accounts, Some(2), 12).decision, "stay");
+    // With both out of Fable, the window that ends first is taken.
+    let both = [fable_out(acct(2, 3.0, Some(294))), fable_out(acct(3, 0.0, Some(74)))];
+    assert_eq!(decide(&rules(), &both, Some(2), 12).target(), Some(3));
+}
+
 #[test]
 fn priming_starts_idle_windows_at_most_every_half_hour() {
     let accounts = [acct(2, 20.0, Some(60)), acct(3, 0.0, None), acct(4, 0.0, None)];
@@ -237,11 +328,14 @@ fn priming_starts_idle_windows_at_most_every_half_hour() {
 }
 
 /// The old script on the same cases, when `QUOTA_STATION_PREFER_TEAM` names
-/// it: `cargo test --test claude_rotation -- --ignored`.
+/// it: `cargo test --test claude_rotation -- --ignored`. A case with a
+/// decision of its own is one the early switch changed: the script still
+/// stays there, and the app takes the window that ends first.
 #[test]
 #[ignore]
 fn decisions_match_the_old_script() {
     let Some(script) = std::env::var_os("QUOTA_STATION_PREFER_TEAM") else { return };
+    let early = format!("switch 3 (ends {} with 100% left, before slot 2)", hm(at(30)));
     let cases: Vec<(Vec<Reading>, Option<u32>, u8)> = vec![
         (vec![acct(2, 89.0, Some(60)), acct(3, 0.0, Some(30))], Some(2), 12),
         (
@@ -260,7 +354,8 @@ fn decisions_match_the_old_script() {
         ),
         (vec![acct(2, 100.0, None), acct(3, 100.0, None)], Some(2), 12),
     ];
-    for (accounts, active, hour) in cases {
+    let changed: BTreeMap<usize, &str> = BTreeMap::from([(0, early.as_str())]);
+    for (i, (accounts, active, hour)) in cases.into_iter().enumerate() {
         let home = common::temp_dir("prefer-team");
         let input = home.join("list.json");
         let list: Vec<_> = accounts
@@ -292,7 +387,14 @@ fn decisions_match_the_old_script() {
             .output()
             .unwrap();
         let theirs = String::from_utf8_lossy(&out.stdout).lines().next().unwrap_or("").to_string();
-        assert_eq!(decide(&rules(), &accounts, active, hour).decision, theirs);
+        let ours = decide(&rules(), &accounts, active, hour).decision;
+        match changed.get(&i) {
+            Some(&now_decided) => {
+                assert_eq!(theirs, "stay");
+                assert_eq!(ours, now_decided);
+            }
+            None => assert_eq!(ours, theirs),
+        }
     }
 }
 

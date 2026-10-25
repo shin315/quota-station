@@ -3,10 +3,21 @@
 
 //! The rotation's decision, ported from the owner's `cswap-prefer-team`
 //! script (its Python block), so Quota Station keeps Claude on the same
-//! accounts the script did, with the same rules:
+//! accounts the script did, with the same rules but one: the early switch,
+//! which the script has off, is on here.
 //!
-//! - The Team accounts are equal. The one in use is kept until any of its
-//!   windows reaches `full` percent.
+//! - The Team accounts are equal. While the one in use has room, the
+//!   rotation moves to another Team account whose five-hour window has
+//!   started and ends sooner, so that window is used before it resets
+//!   unused: the account must have room, at least [`EARLY_MIN_SECONDS`] left
+//!   of that window and at least [`EARLY_MIN_POINTS`] points of it before
+//!   `full`, and must not be out of Fable while the account in use is not.
+//!   Of several, the one whose window ends soonest is taken. When its
+//!   window resets and is primed, the other account's ends sooner, so the
+//!   rotation goes back the same way. Each switch costs every running
+//!   session one re-read of its context.
+//! - With no such account, the one in use is kept until any of its windows
+//!   reaches `full` percent.
 //! - Then the Team account with room whose five-hour window ends soonest is
 //!   taken; a window not started yet counts as ending last. An account whose
 //!   weekly Fable window is at or above `fable_full` is taken only when no
@@ -18,8 +29,6 @@
 //!   soonest and wait for that reset.
 //! - A Team account with an end time (`expire`) is used first while it has
 //!   room, and from that time on it is out of every choice.
-//! - Early switching is off (the script's `EARLY_MIN=0`); the code path is
-//!   kept so the decision reads like the script's.
 //! - Priming: a Team account not in use whose five-hour window has not
 //!   started gets one tiny message, so its window starts now, at most every
 //!   30 minutes per account, and only where the owner turned priming on.
@@ -42,11 +51,12 @@ use crate::rotation::Rules;
 
 /// The age at which a reading stops counting, as the script counts it.
 pub const FRESH_SECONDS: i64 = 900;
-/// Early switching is off: a window ending within this many seconds of
-/// now never pulls the rotation onto another account.
-pub const EARLY_SECONDS: f64 = 0.0;
-/// What an early switch would need left of the other account's window.
-pub const EARLY_LEFT: f64 = 30.0;
+/// What an early switch needs left of the other account's five-hour window:
+/// less is not worth the switch.
+pub const EARLY_MIN_SECONDS: f64 = 20.0 * 60.0;
+/// The points an early switch needs left of the other account's five-hour
+/// window before `full`, so it is worth more than the switch back.
+pub const EARLY_MIN_POINTS: f64 = 10.0;
 /// The shortest time between two primings of one account.
 pub const PRIME_GAP_SECONDS: f64 = 30.0 * 60.0;
 
@@ -225,25 +235,27 @@ pub fn decide(input: &Input) -> Plan {
         let n = first_min(&urgent_targets, |n| expire[&n]).unwrap_or(urgent_targets[0]);
         format!("switch {n} (ends for good at {}, use it first)", hm(expire[&n]))
     } else if let Some(a) = active.filter(|a| team.contains(a) && v.room(*a)) {
-        let mut early = None;
-        for &o in &team {
-            let Some(e) = v.ends(o) else { continue };
-            let five = v.five_used(o);
-            if o == a
-                || held(o)
-                || !v.room(o)
-                || e - now > EARLY_SECONDS
-                || e >= v.key(a)
-                || five.is_none_or(|f| 100.0 - f < EARLY_LEFT)
-                || (v.fable_out(o) && !v.fable_out(a))
-            {
-                continue;
+        let early: Vec<u32> = team
+            .iter()
+            .copied()
+            .filter(|&o| {
+                let Some(e) = v.ends(o) else { return false };
+                o != a
+                    && !held(o)
+                    && v.room(o)
+                    && e < v.key(a)
+                    && e - now >= EARLY_MIN_SECONDS
+                    && v.five_used(o).is_some_and(|f| rules.full - f >= EARLY_MIN_POINTS)
+                    && !(v.fable_out(o) && !v.fable_out(a))
+            })
+            .collect();
+        match first_min(&early, |o| v.key(o)) {
+            Some(o) => {
+                let left = (100.0 - v.five_used(o).unwrap_or(0.0)) as i64;
+                format!("switch {o} (ends {} with {left}% left, before slot {a})", hm(v.key(o)))
             }
-            let left = (100.0 - five.unwrap_or(0.0)) as i64;
-            early = Some(format!("switch {o} (ends {} with {left}% left, before slot {a})", hm(e)));
-            break;
+            None => "stay".to_string(),
         }
-        early.unwrap_or_else(|| "stay".to_string())
     } else {
         let mut cands: Vec<u32> = team
             .iter()
