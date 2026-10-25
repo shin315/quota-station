@@ -20,7 +20,8 @@ import { AGENT_NAME, columnMenu, pendingList, shown } from '../lib/mcp';
 import type { Agent, Model, SkillRow, SkillTable } from '../lib/model';
 import { checkedLine, FILTERS, filterCounts, filterWord, filterRows, pendingSkillText, skillBanners, skillCellTitle, skillChips, sourceLine, updateGroups, type SkillFilter } from '../lib/skills';
 import type { Action, FeedbackView, PopoverView } from '../lib/view';
-import { PUZZLE_ICON, SPARK_BIG, STACK_ICON } from '../window/icons';
+import { NoteGlyph } from '../components/icons';
+import { SPARK_BIG } from '../window/icons';
 import { CheckMatrix, MATRIX_TITLE, PendingBar, type MatrixCell, type MatrixColumn } from './CheckMatrix';
 import type { Skills } from './useSkills';
 
@@ -136,7 +137,7 @@ function UpdateCard({ rows, skills, progress }: { rows: SkillRow[]; skills: Skil
         {sets.map((g) => (
           <InfoLine
             key={g.repo}
-            icon={NEWER_ICON}
+            icon={<NoteGlyph note="newer" />}
             actions={
               <>
                 {g.names.slice(0, 2).map(view)}
@@ -151,7 +152,7 @@ function UpdateCard({ rows, skills, progress }: { rows: SkillRow[]; skills: Skil
           </InfoLine>
         ))}
         {loose.map((r) => (
-          <InfoLine key={r.name} icon={NEWER_ICON} actions={view(r.name)}>
+          <InfoLine key={r.name} icon={<NoteGlyph note="newer" />} actions={view(r.name)}>
             <b>{r.name}</b> · {t('có bản mới, không rõ repo', 'has an update, repository unknown')}
           </InfoLine>
         ))}
@@ -278,7 +279,7 @@ export function SkillsTab({ model, fresh, feedback, skills, onAction }: SkillsTa
         <div className="grid px-3.5">
           {showHand ? (
             <InfoLine
-              icon={STACK_ICON}
+              icon={<NoteGlyph note="gather" />}
               actions={
                 <Button disabled={busy} onClick={() => skills.setDialog({ kind: 'import', picked: hand.map((r) => r.name) })}>
                   {t('Gom về…', 'Gather…')}
@@ -296,7 +297,7 @@ export function SkillsTab({ model, fresh, feedback, skills, onAction }: SkillsTa
           {table.broken.map((b) => (
             <InfoLine
               key={b.agent + b.name}
-              icon={NAV_LINK}
+              icon={<NoteGlyph note="deadLink" />}
               actions={
                 <LinkButton small disabled={busy} onClick={() => skills.setDialog({ kind: 'broken', agent: b.agent, name: b.name })}>
                   {t('Sửa liên kết', 'Fix link')}
@@ -308,7 +309,7 @@ export function SkillsTab({ model, fresh, feedback, skills, onAction }: SkillsTa
           ))}
           {owned ? (
             <InfoLine
-              icon={PUZZLE_ICON}
+              icon={<NoteGlyph note="builtIn" />}
               actions={
                 <LinkButton small onClick={() => skills.setDialog({ kind: 'owned' })}>
                   {t('Xem', 'View')}
@@ -326,17 +327,3 @@ export function SkillsTab({ model, fresh, feedback, skills, onAction }: SkillsTa
     </>
   );
 }
-
-/** A newer version: an arrow up. */
-const NEWER_ICON = (
-  <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
-    <path d="M8 12.5v-9M4.5 7L8 3.5 11.5 7" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-/** A link to nothing. */
-const NAV_LINK = (
-  <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
-    <path d="M6.5 9.5l3-3M7 4.5l1-1a2.5 2.5 0 013.5 3.5l-1 1M9 11.5l-1 1A2.5 2.5 0 014.5 9l1-1" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-  </svg>
-);

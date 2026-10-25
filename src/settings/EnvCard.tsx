@@ -11,7 +11,7 @@ import { useRef, useState } from 'react';
 import { Facts } from '../agents/McpDialogs';
 import { Card as Panel, CardText, CardTitle } from '@/components/ui/card';
 import { DialogButtons, DialogSection, DialogTitle } from '@/components/ui/dialog';
-import { Icon } from '../components/icons';
+import { SectionGlyph } from '../components/icons';
 import { Button, Chip, LinkButton } from '../components/parts';
 import type { Api } from '../lib/api';
 import {
@@ -86,7 +86,7 @@ export function EnvCard({ model, onAction, id }: { model: Model; onAction(act: A
   return (
     <Panel className="env-card scroll-mt-4" id={id} role={id ? 'region' : undefined} aria-labelledby={id ? id + '-t' : undefined}>
       <CardTitle id={id ? id + '-t' : undefined}>
-        <Icon name="terminal" />
+        <SectionGlyph section="env" />
         {t('Biến môi trường đè đăng nhập', 'Environment variables that override sign-in')}
       </CardTitle>
       {env.found.length ? (

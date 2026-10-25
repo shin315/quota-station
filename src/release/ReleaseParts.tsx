@@ -11,7 +11,7 @@
 import { useState } from 'react';
 import { DialogButtons, DialogLead, DialogTitle } from '@/components/ui/dialog';
 import { Command } from '../components/blocks';
-import { Icon } from '../components/icons';
+import { Glyph } from '../components/icons';
 import { Button, Facts, LinkButton, More, Rich, Spinner, Toggle } from '../components/parts';
 import { SetRow } from '../settings/SetRow';
 import { t } from '../lib/i18n';
@@ -37,7 +37,7 @@ function PullCommand() {
           )
         }
       >
-        <Icon name={copied ? 'check' : 'copy'} />
+        <Glyph name={copied ? 'check' : 'copy'} bold />
         {copied ? t('Đã chép', 'Copied') : t('Chép lệnh', 'Copy command')}
       </Button>
     </div>

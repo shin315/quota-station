@@ -39,8 +39,8 @@ export default defineConfig(({ command }) => {
       include: ['src/**/*.test.{ts,tsx}'],
       // A Mac set to Vietnamese, as the tests were written; a test that wants English says so.
       setupFiles: ['src/test-setup.ts'],
-      // The logos' look rules are read by their test; the other styles stay out.
-      css: { include: [/logos\.css/] },
+      // The logos' look rules and the icons' tint tokens are read by their tests; the other styles stay out.
+      css: { include: [/logos\.css/, /tokens\.css/] },
     },
   };
 });

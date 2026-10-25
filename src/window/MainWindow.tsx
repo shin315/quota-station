@@ -36,7 +36,7 @@ import { pauseOptions, type AutoView, type PauseChoice } from '../lib/switching'
 import { bannerUnder, type Action, type BannerView, type CardView, type ChipView, type FeedbackView, type NoteView } from '../lib/view';
 import type { KeyValue, WindowView } from '../lib/window';
 import { t } from '../lib/i18n';
-import { Icon, type IconName } from '../components/icons';
+import { Glyph, type GlyphName } from '../components/icons';
 import { NAV_ICONS } from './icons';
 
 type NavId = keyof typeof NAV_ICONS;
@@ -165,11 +165,11 @@ const LIGHT = 'size-3 rounded-full [body:not(.preview)_&]:invisible';
  * `end`: at the title's right; `head`: a wider part of the head (Tổng quan's
  * automatic switching), which goes under the title where the page is narrow.
  */
-function Card(props: { title: ReactNode; kind?: 'c' | 'g'; icon?: IconName; tag?: ReactNode; under?: ReactNode; end?: ReactNode; head?: ReactNode; children: ReactNode }) {
+function Card(props: { title: ReactNode; kind?: 'c' | 'g'; icon?: GlyphName; tag?: ReactNode; under?: ReactNode; end?: ReactNode; head?: ReactNode; children: ReactNode }) {
   return (
     <Panel>
       <CardTitle className={props.head ? 'flex-wrap gap-y-1' : undefined}>
-        {props.kind ? <IdMark id={props.kind} /> : props.icon ? <Icon name={props.icon} /> : null}
+        {props.kind ? <IdMark id={props.kind} /> : props.icon ? <Glyph name={props.icon} /> : null}
         {props.title}
         {props.tag}
         {props.under ? <span className="font-reg text-ink3">{props.under}</span> : null}

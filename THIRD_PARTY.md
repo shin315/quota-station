@@ -8,7 +8,7 @@ Cockpit Tools, parts of
 its Codex switch are ported from CC Switch, and its interface components
 are adapted from shadcn/ui; [`NOTICE`](NOTICE) lists those files and what
 was changed. The agents' and the services' logos come from svgl, and the
-interface's icons from Phosphor and Lucide.
+interface's icons from Phosphor.
 
 ## quota-axi
 
@@ -235,12 +235,12 @@ SOFTWARE.
 ## Phosphor Icons
 
 - Project: https://github.com/phosphor-icons/react (https://phosphoricons.com)
-- How it is used: the interface's icons, in their Duotone weight (and Bold
-  for a control's plus or dots), each tinted its own colour. The
+- How it is used: the interface's icons, in the window, its dialogs and
+  the popover: their Duotone weight, each tinted its own colour, and their
+  Bold for a control's plus, dots, caret or arrow. The
   `@phosphor-icons/react` package (2.1) is a dependency in `package.json`;
   `src/components/icons.tsx` imports only the glyphs it draws, which the
   build bundles into the app unchanged, so nothing is fetched while it runs.
-  The sidebar and Tổng quan, Thống kê and Claude draw with them.
 - License: MIT
 
 ```
@@ -266,17 +266,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
-
-## Lucide
-
-- Project: https://github.com/lucide-icons/lucide (https://lucide.dev)
-- How it is used: the icons of the pages not yet moved to Phosphor. 45
-  icons of Lucide 0.460.0 (lucide-static), the set the approved prototype
-  draws with, are part of the app in `src/components/icons.tsx`, unchanged;
-  nothing is fetched while it runs.
-- License: ISC, `LICENSES/ISC.txt`. Copyright (c) for portions of Lucide
-  are held by Cole Bemis 2013-2022 as part of Feather (MIT). All other
-  copyright (c) for Lucide are held by Lucide Contributors 2022.
 
 ## Libraries
 

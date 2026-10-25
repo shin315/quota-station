@@ -33,7 +33,7 @@ import { authorModel, type AuthorModel } from '../lib/author';
 import type { ChipView } from '../lib/view';
 import type { AlertKind, AppView, ClientStatus, Language, Menubar, MenubarWindow, Model, Peer, PeerTest, SourceView, Theme, UpdateError } from '../lib/model';
 import { t } from '../lib/i18n';
-import { Icon, type IconName } from '../components/icons';
+import { SectionGlyph, type Section } from '../components/icons';
 import type { Action, FeedbackView, PopoverView } from '../lib/view';
 import { cn } from '@/lib/utils';
 
@@ -100,11 +100,11 @@ const CARD_ROWS = 'grid';
  * A card of settings: its icon and name, then its rows. `id`: where the table
  * of contents takes the page; the card is a region named by its title.
  */
-function SettingsCard(props: { id: string; title: string; icon: IconName; children: ReactNode }) {
+function SettingsCard(props: { id: string; title: string; icon: Section; children: ReactNode }) {
   return (
     <Panel id={props.id} role="region" aria-labelledby={props.id + '-t'} className="scroll-mt-4">
       <CardTitle id={props.id + '-t'}>
-        <Icon name={props.icon} />
+        <SectionGlyph section={props.icon} />
         {props.title}
       </CardTitle>
       <div className={CARD_ROWS}>{props.children}</div>
@@ -812,7 +812,7 @@ function Advanced(props: SettingsProps & { model: AuthorModel; id: string }) {
   const { model } = props;
   const a = model.advanced;
   return (
-    <SettingsCard id={props.id} title={t('Nâng cao', 'Advanced')} icon="sliders-horizontal">
+    <SettingsCard id={props.id} title={t('Nâng cao', 'Advanced')} icon="advanced">
       <SetRow
         label={t('Hiện phần nâng cao', 'Show advanced features')}
         inline
@@ -1179,7 +1179,7 @@ export function Settings(props: SettingsProps) {
       id: GROUPS.general,
       title: t('Chung', 'General'),
       card: (
-        <SettingsCard id={GROUPS.general} title={t('Chung', 'General')} icon="settings">
+        <SettingsCard id={GROUPS.general} title={t('Chung', 'General')} icon="general">
           {onLanguage ? <LanguageRow model={model} onPick={onLanguage} /> : null}
           <MachineName model={model} onSet={onSetMachine} />
           <LaunchAtLogin layout="set" app={model.app} onSet={onLaunchAtLogin} onOpen={onOpenLoginItems} />
@@ -1190,7 +1190,7 @@ export function Settings(props: SettingsProps) {
       id: GROUPS.display,
       title: t('Hiển thị', 'Display'),
       card: (
-        <SettingsCard id={GROUPS.display} title={t('Hiển thị', 'Display')} icon="monitor">
+        <SettingsCard id={GROUPS.display} title={t('Hiển thị', 'Display')} icon="display">
           <SetRow label={t('Giao diện', 'Appearance')} labelId="qs-theme-l">
             <Segmented className={SET_CTL} aria-labelledby="qs-theme-l">
               {themes().map(([v, label]) => (
@@ -1212,7 +1212,7 @@ export function Settings(props: SettingsProps) {
       id: GROUPS.notify,
       title: t('Thông báo', 'Notifications'),
       card: (
-        <SettingsCard id={GROUPS.notify} title={t('Thông báo', 'Notifications')} icon="bell">
+        <SettingsCard id={GROUPS.notify} title={t('Thông báo', 'Notifications')} icon="notify">
           <NotifyRows model={model} onAction={onAction} onTest={onTestAlert} onSwitch={onAlertSwitch} />
           <PoolAlertRow model={model} onSet={onPoolAlert} />
         </SettingsCard>
@@ -1222,7 +1222,7 @@ export function Settings(props: SettingsProps) {
       id: GROUPS.updates,
       title: t('Cập nhật', 'Updates'),
       card: (
-        <SettingsCard id={GROUPS.updates} title={t('Cập nhật', 'Updates')} icon="refresh-cw">
+        <SettingsCard id={GROUPS.updates} title={t('Cập nhật', 'Updates')} icon="updates">
           {onReleaseChecks ? <ReleaseRows model={model} onAction={onAction} onAuto={onReleaseChecks} /> : <Version app={model.app} />}
           {onSkillChecks ? <SkillChecksRows model={model} onSet={onSkillChecks} /> : null}
         </SettingsCard>
@@ -1232,7 +1232,7 @@ export function Settings(props: SettingsProps) {
       id: GROUPS.services,
       title: t('Dịch vụ và nguồn số', 'Services and data'),
       card: (
-        <SettingsCard id={GROUPS.services} title={t('Dịch vụ và nguồn số', 'Services and data')} icon="database">
+        <SettingsCard id={GROUPS.services} title={t('Dịch vụ và nguồn số', 'Services and data')} icon="services">
           <SetRow
             label={t('Quyền Keychain', 'Keychain access')}
             inline
@@ -1290,7 +1290,7 @@ export function Settings(props: SettingsProps) {
             id: GROUPS.backup,
             title: t('Sao lưu', 'Backup'),
             card: (
-              <SettingsCard id={GROUPS.backup} title={t('Sao lưu', 'Backup')} icon="layers">
+              <SettingsCard id={GROUPS.backup} title={t('Sao lưu', 'Backup')} icon="backup">
                 <BackupFolder model={model} onSet={onSetBackupFolder} />
               </SettingsCard>
             ),
@@ -1303,7 +1303,7 @@ export function Settings(props: SettingsProps) {
             id: GROUPS.diag,
             title: t('Chẩn đoán', 'Diagnostics'),
             card: (
-              <SettingsCard id={GROUPS.diag} title={t('Chẩn đoán', 'Diagnostics')} icon="wrench">
+              <SettingsCard id={GROUPS.diag} title={t('Chẩn đoán', 'Diagnostics')} icon="diag">
                 <DiagnosticsRows onAction={onAction} />
               </SettingsCard>
             ),
