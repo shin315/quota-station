@@ -21,6 +21,7 @@ use base64::Engine;
 use common::{fixture_text, temp_dir};
 use quota_station_core::app_dir::AppDir;
 use quota_station_core::codex::accounts::{self, Added, Moved, Place, Refusal, Store};
+use quota_station_core::codex::import::{self, Fate, Format, Kind};
 use quota_station_core::codex::config;
 use quota_station_core::codex::platform::{Platform, Unix};
 use quota_station_core::codex::{self, files, ProviderOutcome};
@@ -636,4 +637,179 @@ fn using_an_account_moves_nothing_when_config_changed_or_codex_keeps_its_sign_in
     );
     assert!(matches!(out, codex::Outcome::Account { refusal: Refusal::Keychain, .. }), "{out:?}");
     assert_eq!(mac.home_auth().as_deref(), Some(ann.as_str()), "nothing moved");
+}
+
+// ===== Sign-ins brought in from a file =====
+
+/// The fields a CLIProxyAPI `codex-*.json` keeps, flat, for `user`.
+fn cliproxy(user: &str, ws: &str, last_refresh: &str) -> serde_json::Value {
+    let codex: serde_json::Value = serde_json::from_str(&sign_in(user, ws, "pro")).unwrap();
+    let tokens = &codex["tokens"];
+    serde_json::json!({
+        "type": "codex",
+        "id_token": tokens["id_token"],
+        "access_token": tokens["access_token"],
+        "refresh_token": tokens["refresh_token"],
+        "account_id": ws,
+        "email": format!("{user}@example.com"),
+        "last_refresh": last_refresh,
+        "expired": "2026-10-30T07:00:00Z"
+    })
+}
+
+#[test]
+fn codex_and_cliproxy_sign_in_files_are_read_for_who_they_are() {
+    let one = import::read(sign_in("ann", "ws-ann", "plus").as_bytes());
+    assert_eq!(one.len(), 1);
+    assert_eq!(one[0].format, Some(Format::Codex));
+    assert_eq!(one[0].kind, Kind::Login);
+    let who = one[0].who.as_ref().unwrap();
+    assert_eq!(who.email.as_deref(), Some("ann@example.com"));
+    assert_eq!(who.plan.as_deref(), Some("plus"));
+    assert_eq!(who.identity.account.as_deref(), Some("ws-ann"));
+
+    let cpa = import::read(cliproxy("bob", "ws-bob", "2026-10-21T07:00:00Z").to_string().as_bytes());
+    assert_eq!(cpa.len(), 1);
+    assert_eq!(cpa[0].format, Some(Format::CliProxy));
+    assert_eq!(cpa[0].kind, Kind::Login);
+    assert_eq!(cpa[0].who.as_ref().unwrap().email.as_deref(), Some("bob@example.com"));
+    assert_eq!(cpa[0].last_refresh, Some(1_792_566_000), "2026-10-21T07:00:00Z");
+
+    // Several in one file: an array, or one object a line.
+    let array = serde_json::json!([
+        cliproxy("carl", "ws-carl", "2026-10-21T07:00:00Z"),
+        cliproxy("dave", "ws-dave", "2026-10-21T07:00:00Z")
+    ]);
+    assert_eq!(import::read(array.to_string().as_bytes()).len(), 2);
+    let lines = format!(
+        "{}\n{}\n",
+        cliproxy("carl", "ws-carl", "2026-10-21T07:00:00Z"),
+        sign_in("ann", "ws-ann", "plus")
+    );
+    let read = import::read(lines.as_bytes());
+    assert_eq!(read.iter().map(|f| f.format).collect::<Vec<_>>(), [Some(Format::CliProxy), Some(Format::Codex)]);
+}
+
+#[test]
+fn a_refresh_token_alone_an_api_key_or_another_file_is_never_taken_as_a_sign_in() {
+    let mut refresh_only = cliproxy("ann", "ws-ann", "2026-10-21T07:00:00Z");
+    refresh_only.as_object_mut().unwrap().retain(|k, _| k == "refresh_token" || k == "type" || k == "email");
+    assert_eq!(import::read(refresh_only.to_string().as_bytes())[0].kind, Kind::RefreshOnly);
+
+    let codex_refresh_only = serde_json::json!({"tokens": {"refresh_token": "test-refresh-not-real"}});
+    assert_eq!(import::read(codex_refresh_only.to_string().as_bytes())[0].kind, Kind::RefreshOnly);
+
+    let key = serde_json::json!({"OPENAI_API_KEY": "sk-test-not-real"});
+    let read = import::read(key.to_string().as_bytes());
+    assert_eq!((read[0].kind, read[0].format), (Kind::ApiKey, Some(Format::Codex)));
+
+    let claude = serde_json::json!({"type": "claude", "access_token": "x", "refresh_token": "y"});
+    assert_eq!(import::read(claude.to_string().as_bytes())[0].kind, Kind::Broken);
+    assert_eq!(import::read(b"not json at all")[0].kind, Kind::Broken);
+    assert_eq!(import::read(b"{\"notes\": [1, 2]}")[0].kind, Kind::Broken);
+    // Tokens whose owner cannot be told: no account to keep them under.
+    let nobody = serde_json::json!({"id_token": "a.b.c", "access_token": "x", "refresh_token": "y"});
+    assert_eq!(import::read(nobody.to_string().as_bytes())[0].kind, Kind::Broken);
+}
+
+#[test]
+fn the_plan_adds_new_ones_renews_one_that_must_sign_in_again_and_skips_the_rest() {
+    let mac = Mac::new("config-chatgpt.toml", Some(&sign_in("ann", "ws-ann", "plus")));
+    mac.store().list(at(0)).unwrap();
+    let bob = mac.codex_login("bob", "ws-bob");
+    mac.store().finish_login(&bob, None, at(10)).unwrap();
+    let carl = mac.codex_login("carl", "ws-carl");
+    mac.store().finish_login(&carl, None, at(20)).unwrap();
+    // carl's sign-in is gone (ChatGPT refused it, or it was removed by hand).
+    std::fs::remove_file(mac.store().folder(3).join(codex::AUTH)).unwrap();
+    let list = mac.store().list(at(30)).unwrap();
+
+    let mut found = Vec::new();
+    found.extend(import::read(cliproxy("dave", "ws-dave", "2026-10-21T07:00:00Z").to_string().as_bytes()));
+    found.extend(import::read(cliproxy("carl", "ws-carl", "2026-10-21T07:00:00Z").to_string().as_bytes()));
+    found.extend(import::read(sign_in("ann", "ws-ann", "plus").as_bytes()));
+    found.extend(import::read(sign_in("bob", "ws-bob", "plus").as_bytes()));
+    // dave twice: the newer sign-in is the one kept.
+    found.extend(import::read(cliproxy("dave", "ws-dave", "2026-10-25T07:00:00Z").to_string().as_bytes()));
+    found.extend(import::read(b"{\"tokens\": {\"refresh_token\": \"x\"}}"));
+    let relogin = |n: u32| n == 3;
+    let fates = import::plan(&found, &list, &relogin);
+    assert_eq!(
+        fates,
+        [
+            Fate::Dup { number: None },
+            Fate::Renew { number: 3 },
+            Fate::Dup { number: Some(1) },
+            Fate::Dup { number: Some(2) },
+            Fate::New,
+            Fate::Left,
+        ]
+    );
+    // Planning moved and wrote nothing.
+    assert_eq!(mac.every_sign_in().len(), 2);
+}
+
+#[test]
+fn importing_puts_the_sign_in_in_its_own_folder_as_codex_writes_it() {
+    let ann = sign_in("ann", "ws-ann", "plus");
+    let mac = Mac::new("config-chatgpt.toml", Some(&ann));
+    mac.store().list(at(0)).unwrap();
+    let file = cliproxy("bob", "ws-bob", "2026-10-21T07:00:00Z");
+    let found = import::read(file.to_string().as_bytes());
+    assert_eq!(mac.store().import(&found[0], None, at(10)).unwrap(), Added::Added { number: 2 });
+    let folder = mac.store().folder(2);
+    assert_eq!(mode(&folder), 0o700);
+    assert_eq!(mode(&folder.join(codex::AUTH)), 0o600);
+    // Codex's own shape, with the tokens as they were and nothing renewed.
+    let written: serde_json::Value = serde_json::from_str(&mac.folder_auth(2).unwrap()).unwrap();
+    assert_eq!(written["tokens"]["access_token"], file["access_token"]);
+    assert_eq!(written["tokens"]["refresh_token"], file["refresh_token"]);
+    assert_eq!(written["tokens"]["id_token"], file["id_token"]);
+    assert_eq!(written["tokens"]["account_id"], "ws-bob");
+    assert_eq!(written["last_refresh"], "2026-10-21T07:00:00Z");
+    assert!(written.get("type").is_none() && written.get("expired").is_none());
+    // Codex in that folder keeps it in the file, not the Keychain.
+    let config = std::fs::read_to_string(folder.join(codex::CONFIG)).unwrap();
+    assert!(config.contains("cli_auth_credentials_store = \"file\""));
+    assert_eq!(mac.home_auth().as_deref(), Some(ann.as_str()), "Codex keeps its sign-in");
+    let list = mac.store().list(at(20)).unwrap();
+    let bob = list.iter().find(|a| a.entry.number == 2).unwrap();
+    assert_eq!((bob.place, bob.entry.added_at), (Place::Folder, Some(T0 + 10)));
+    assert_eq!(bob.entry.email.as_deref(), Some("bob@example.com"));
+    // A Codex auth.json goes in as it was.
+    let carl = sign_in("carl", "ws-carl", "team");
+    let found = import::read(carl.as_bytes());
+    assert_eq!(mac.store().import(&found[0], None, at(30)).unwrap(), Added::Added { number: 3 });
+    let written: serde_json::Value = serde_json::from_str(&mac.folder_auth(3).unwrap()).unwrap();
+    assert_eq!(written, serde_json::from_str::<serde_json::Value>(&carl).unwrap());
+    // No temporary folder left behind.
+    let left: Vec<_> = std::fs::read_dir(mac.app.path().join(accounts::DIR))
+        .unwrap()
+        .flatten()
+        .filter(|e| e.file_name().to_string_lossy().starts_with("pending-"))
+        .collect();
+    assert!(left.is_empty());
+}
+
+#[test]
+fn importing_an_account_here_renews_it_only_when_asked_and_never_adds_a_second() {
+    let ann = sign_in("ann", "ws-ann", "plus");
+    let mac = Mac::new("config-chatgpt.toml", Some(&ann));
+    mac.store().list(at(0)).unwrap();
+    let bob = mac.codex_login("bob", "ws-bob");
+    mac.store().finish_login(&bob, None, at(10)).unwrap();
+    let before = mac.folder_auth(2).unwrap();
+    let newer = cliproxy("bob", "ws-bob", "2026-10-25T07:00:00Z");
+    let found = import::read(newer.to_string().as_bytes());
+    assert_eq!(mac.store().import(&found[0], None, at(20)).unwrap(), Added::Dup { number: 2 });
+    assert_eq!(mac.folder_auth(2).unwrap(), before, "the sign-in kept stays");
+    assert_eq!(mac.store().import(&found[0], Some(2), at(30)).unwrap(), Added::Renewed { number: 2 });
+    let written: serde_json::Value = serde_json::from_str(&mac.folder_auth(2).unwrap()).unwrap();
+    assert_eq!(written["last_refresh"], "2026-10-25T07:00:00Z");
+    assert_eq!(mac.store().list(at(40)).unwrap().len(), 2);
+    assert_eq!(mac.every_sign_in().len(), 2);
+    // Something that is not a sign-in adds nothing.
+    let key = import::read(b"{\"OPENAI_API_KEY\": \"sk-test-not-real\"}");
+    assert_eq!(mac.store().import(&key[0], None, at(50)).unwrap(), Added::NoLogin);
+    assert_eq!(mac.store().list(at(60)).unwrap().len(), 2);
 }

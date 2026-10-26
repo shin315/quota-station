@@ -437,6 +437,19 @@ impl<'a> Store<'a> {
         }
     }
 
+    /// A sign-in read from a file ([`super::import`]), as if `codex login`
+    /// had written it: a new account, one already listed (nothing written),
+    /// or `again` taking it in place of its own.
+    pub fn import(
+        &self,
+        found: &super::import::Found,
+        again: Option<u32>,
+        now: OffsetDateTime,
+    ) -> io::Result<Added> {
+        let _ = (found, again, now);
+        todo!()
+    }
+
     /// A sign-in that did not finish: its folder goes.
     pub fn discard(&self, pending: &Path) {
         let _held = guard();

@@ -24,12 +24,14 @@
 pub mod accounts;
 pub mod config;
 pub mod files;
+pub mod import;
 pub mod log;
 pub mod login;
 pub mod platform;
 pub mod probe;
 pub mod procs;
 pub mod resume;
+pub mod wake;
 
 use std::path::{Path, PathBuf};
 
