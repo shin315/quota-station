@@ -2,25 +2,24 @@
 // SPDX-License-Identifier: MIT
 
 // The icons the window and the popover share: Phosphor glyphs, their names
-// and tints from components/icons.tsx, at the sizes the prototype's drawings
-// had. The three agents show their own logos (components/logos.tsx).
+// from components/icons.tsx, at the sizes the prototype's drawings had. The three agents show their own logos (components/logos.tsx).
 
 import { Glyph, PlaceGlyph, type Place } from '../components/icons';
 import { AgentIcon } from '../components/logos';
 
 /** The popover's theme button in a light look: switch to dark. */
 export function MoonIcon() {
-  return <Glyph name="moon" tint="indigo" className="size-[15px]" />;
+  return <Glyph name="moon" className="size-[15px]" />;
 }
 
 /** The same in a dark look: switch to light. */
 export function SunIcon() {
-  return <Glyph name="sun" tint="yellow" className="size-[15px]" />;
+  return <Glyph name="sun" className="size-[15px]" />;
 }
 
 /** Opens the main window: the app's window. */
 export function OpenIcon() {
-  return <Glyph name="app-window" tint="blue" className="size-[15px]" />;
+  return <Glyph name="app-window" className="size-[15px]" />;
 }
 
 /** A group's fold: a caret, turned down while the group is open. */
@@ -28,7 +27,7 @@ export function ChevronIcon() {
   return <Glyph name="caret-right" bold className="size-[11px]" />;
 }
 
-/** A sidebar icon: its place's Phosphor Duotone glyph and tint (components/icons.tsx), 15 px as the drawings it replaced. */
+/** A sidebar icon: its place's Phosphor glyph (components/icons.tsx), 15 px as the drawings it replaced. */
 function nav(place: Place) {
   return <PlaceGlyph place={place} className="size-[15px]" />;
 }
@@ -56,7 +55,7 @@ export const NAV_ICONS = {
 /** The small lock beside a server that has a secret, in the line's colour. */
 export const LOCK_ICON = <Glyph name="lock" className="size-[11px]" />;
 
-/** An empty table's large glyph: its place's, in its tint. */
+/** An empty table's large glyph: its place's. */
 function big(place: Place) {
   return <PlaceGlyph place={place} className="size-[22px]" />;
 }

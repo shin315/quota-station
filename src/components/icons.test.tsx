@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-// Every icon the app draws is a Phosphor glyph from components/icons.tsx or a
-// service's logo: no drawing of its own and no other icon set, in the source
-// and on every page and the popover as they render.
+// Every icon the app draws is a Phosphor glyph from components/icons.tsx, in
+// one colour, or a service's logo: no drawing of its own and no other icon
+// set, in the source and on every page and the popover as they render.
 
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -13,7 +13,7 @@ import { fakeApi } from '../fixtures/fakeApi';
 import { FIXTURE_NOW, fixtureModel } from '../fixtures/models';
 import type { Api } from '../lib/api';
 import type { Tab } from '../lib/model';
-import { Glyph, GLYPHS, NOTE_GLYPHS, PLACE_GLYPHS, SECTION_GLYPHS, type GlyphName } from './icons';
+import { Glyph, GLYPHS, PLACE_GLYPHS, type GlyphName } from './icons';
 
 /** The app's source, test files aside. */
 const SOURCES = Object.entries(import.meta.glob<string>(['../**/*.tsx', '!../**/*.test.tsx'], { query: '?raw', import: 'default', eager: true }));
@@ -52,29 +52,29 @@ describe('the icons', () => {
     expect(phosphor.filter(([path]) => !ICONS.test(path))).toEqual([]);
   });
 
-  it('name each Phosphor glyph by its own name, and draw it in Duotone with its back layer', () => {
+  it('name each Phosphor glyph by its own name, and draw it in one colour, the text’s, with no back layer', () => {
     for (const [name, Drawing] of Object.entries(GLYPHS)) {
       const pascal = name.replace(/(^|-)([a-z0-9])/g, (_, __, c: string) => c.toUpperCase());
       expect(Drawing.displayName).toBe(pascal + 'Icon');
-      const { container } = render(<Glyph name={name as GlyphName} tint="blue" />);
+      const { container } = render(<Glyph name={name as GlyphName} />);
       const svg = container.querySelector('svg')!;
       expect(svg.getAttribute('viewBox')).toBe('0 0 256 256');
-      expect(svg.classList.contains('text-glyph-blue')).toBe(true);
+      expect(svg.getAttribute('fill')).toBe('currentColor');
+      expect([...svg.classList].filter((c) => c.startsWith('text-'))).toEqual([]);
       expect(svg.getAttribute('aria-hidden')).toBe('true');
-      expect(svg.querySelector('[opacity]')).not.toBeNull();
+      expect(svg.querySelector('[opacity]')).toBeNull();
       cleanup();
     }
   });
 
-  it('take a tint the tokens define for the light look, the dark look and macOS’s dark', () => {
-    const tints = new Set([...Object.values(PLACE_GLYPHS), ...Object.values(SECTION_GLYPHS), ...Object.values(NOTE_GLYPHS)].map((r) => r.tint));
-    for (const tint of tints) expect(tokens.match(new RegExp('--glyph-' + tint + ': #[0-9a-f]{6};', 'g'))?.length, tint).toBe(3);
+  it('take no colour of their own', () => {
+    expect(tokens).not.toMatch(/--glyph-/);
+    for (const [path, code] of SOURCES) expect(code, path).not.toMatch(/text-glyph-|['"]duotone['"]/);
   });
 
-  it('give each sidebar item its own glyph and tint', () => {
+  it('give each sidebar item its own glyph', () => {
     const places = Object.values(PLACE_GLYPHS);
-    expect(new Set(places.map((p) => p.glyph)).size).toBe(places.length);
-    expect(new Set(places.map((p) => p.tint)).size).toBe(places.length);
+    expect(new Set(places).size).toBe(places.length);
   });
 
   it('on every page and in the popover, are glyphs, logos or the chart', async () => {
