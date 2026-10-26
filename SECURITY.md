@@ -314,6 +314,29 @@ has the design.
   nicknames, no token), so a switch cut short is put back. Removing an
   account deletes its folder, after `codex logout` in it when the owner
   ticks it.
+- "Nhập file đăng nhập (JSON)" reads Codex's `auth.json` or CLIProxyAPI's
+  `codex-*.json` from files the owner picks in the system's file picker
+  (called from Rust only: the windows have no file-dialog permission), or
+  from JSON pasted in the window, which then passes through the clipboard
+  and the window. The window gets back who each sign-in is and what
+  importing it would do, never a token. The sign-ins wait in memory ten
+  minutes at most, then go into an account's own folder as `codex login`
+  writes one (mode 600, `cli_auth_credentials_store = "file"`). Nothing is
+  sent to OpenAI and nothing is renewed; a refresh token alone is never
+  taken, since using it would sign out the place it came from. The picked
+  files are deleted only when the owner ticks it (off by default), and only
+  a file whose every sign-in is now kept.
+- "Tự đánh thức tài khoản ChatGPT", off until the owner turns it on, runs
+  Codex itself: `codex exec --ephemeral --ignore-user-config --ignore-rules
+  --sandbox read-only --json "hi"` with an account's own folder (or the
+  Codex folder, for the account in use) as `CODEX_HOME`. Codex reads and
+  renews the sign-in; the app holds no token and sends nothing of its own.
+  It runs one account at a time, never during a switch or a sign-in, at
+  most once in five hours and five times a day per account, failed runs
+  included. `codex/wake.json` keeps the settings and the runs (time,
+  account, why, result, an error without links), never the model's answer;
+  what Codex leaves in an account's folder besides its sign-in is deleted
+  after the run.
 - A new custom provider is one table added at the end of `config.toml`
   (`name`, `base_url`, `wire_api`, `experimental_bearer_token`); removing
   one takes out that table only, never the one in use. "Kiểm tra" sends

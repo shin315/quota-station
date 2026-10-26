@@ -422,7 +422,17 @@ the confirmation sheet first.
   Codex already has joins the list as it is. An account whose token ran out
   while it waited shows its last numbers, `số … trước`, until it is used.
   Nicknames are the app's own; removing a ChatGPT account deletes its
-  folder, after `codex logout` in it when ticked.
+  folder, after `codex logout` in it when ticked. `Thêm tài khoản › Nhập
+  file đăng nhập (JSON)` takes Codex's `auth.json` or CLIProxyAPI's
+  `codex-*.json`, picked in the system's file picker or pasted, shows who
+  each sign-in is and what importing it does (new, renews an account that
+  must sign in again, already here, refresh token only), and never renews
+  or sends one. `Tự đánh thức tài khoản ChatGPT` (off until turned on) runs
+  `codex exec "hi"` in each chosen account's folder, each day at a time or
+  as a five-hour window resets, so the window starts early; it can also
+  wake an account whose token ran out while it waited, so Codex renews it.
+  OpenAI says nothing of requests sent on a schedule: use it on your own
+  accounts only.
 
   `Dán khoá…` (or `Đổi khoá…`) puts the owner's key in the custom
   provider's table as `experimental_bearer_token`, the way CC Switch's
