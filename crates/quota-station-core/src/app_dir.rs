@@ -55,6 +55,12 @@ impl AppDir {
         Ok(())
     }
 
+    /// `path` is inside the folder, through no symlinked folder: for the
+    /// callers that open it themselves (the Codex accounts' folders).
+    pub fn inside(&self, path: &Path) -> io::Result<()> {
+        self.check(path)
+    }
+
     /// The file's own metadata: a symlink is not followed.
     pub fn metadata(&self, path: &Path) -> io::Result<std::fs::Metadata> {
         self.check(path)?;

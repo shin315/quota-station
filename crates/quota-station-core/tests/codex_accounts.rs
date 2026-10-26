@@ -48,6 +48,9 @@ impl Platform for Spy {
     fn move_file(&self, from: &Path, to: &Path) -> std::io::Result<()> {
         Unix::default().move_file(from, to)
     }
+    fn replace_file(&self, from: &Path, to: &Path) -> std::io::Result<()> {
+        Unix::default().replace_file(from, to)
+    }
     fn exclude_from_backup(&self, dir: &Path) {
         self.excluded.lock().unwrap().push(dir.to_path_buf());
     }
@@ -173,7 +176,9 @@ fn a_new_sign_in_gets_its_own_private_folder_and_codex_is_not_touched() {
     assert_eq!(added, Added::Added { number: 2 });
     assert!(!pending.exists(), "the sign-in's temporary folder is gone");
     let folder = mac.store().folder(2);
-    assert!(mac.folder_auth(2).unwrap().contains("bob@example.com") || mac.folder_auth(2).is_some());
+    assert!(
+        mac.folder_auth(2).unwrap().contains("bob@example.com") || mac.folder_auth(2).is_some()
+    );
     assert_eq!(mode(&folder), 0o700);
     assert_eq!(mode(&folder.join(codex::AUTH)), 0o600);
     assert_eq!(mac.home_auth().as_deref(), Some(ann.as_str()), "Codex keeps its sign-in");
@@ -238,7 +243,10 @@ fn switching_moves_the_two_sign_ins_and_copies_none() {
     assert_eq!((place(1), place(2)), (Place::Folder, Place::Home));
 
     // And back.
-    assert_eq!(mac.store().switch(1, true, at(40)).unwrap(), Moved::Moved { out: Some(2), into: 1 });
+    assert_eq!(
+        mac.store().switch(1, true, at(40)).unwrap(),
+        Moved::Moved { out: Some(2), into: 1 }
+    );
     assert_eq!(mac.home_auth().as_deref(), Some(ann.as_str()));
     assert_eq!(mac.folder_auth(2).as_deref(), Some(bob.as_str()));
 }
@@ -309,7 +317,10 @@ fn a_sign_in_codex_got_on_its_own_is_kept_before_a_switch() {
     let cat = sign_in("cat", "ws-cat", "team");
     std::fs::write(mac.home.join(codex::AUTH), &cat).unwrap();
 
-    assert_eq!(mac.store().switch(2, true, at(20)).unwrap(), Moved::Moved { out: Some(3), into: 2 });
+    assert_eq!(
+        mac.store().switch(2, true, at(20)).unwrap(),
+        Moved::Moved { out: Some(3), into: 2 }
+    );
     let list = mac.store().list(at(30)).unwrap();
     let find = |n: u32| list.iter().find(|a| a.entry.number == n).unwrap();
     assert_eq!(find(3).entry.email.as_deref(), Some("cat@example.com"));
@@ -400,8 +411,13 @@ fn every_provider_table_is_listed() {
 fn adding_a_provider_appends_one_table_and_changes_no_other_line() {
     let mac = Mac::new("config-chatgpt.toml", None);
     let before = config_text(&mac.home);
-    let preview =
-        codex::provider_preview(&mac.home, &mac.app, "Relay 2", "https://two.example.com/v1", "sk-test-0000000000abcd");
+    let preview = codex::provider_preview(
+        &mac.home,
+        &mac.app,
+        "Relay 2",
+        "https://two.example.com/v1",
+        "sk-test-0000000000abcd",
+    );
     assert_eq!(preview.id.as_deref(), Some("relay-2"));
     let shown: String = preview.lines.iter().map(|l| l.text.clone()).collect::<Vec<_>>().join("\n");
     assert!(!shown.contains("sk-test-0000000000abcd"), "the preview shows only the key's hint");
@@ -433,11 +449,22 @@ fn adding_a_provider_appends_one_table_and_changes_no_other_line() {
 fn a_provider_name_that_cannot_be_a_table_is_refused() {
     let mac = Mac::new("config-chatgpt.toml", None);
     let base = hash(&mac.home);
-    let add = |name: &str, url: &str, key: &str| codex::add_provider(&mac.home, &mac.app, name, url, key, &base, at(0));
+    let add = |name: &str, url: &str, key: &str| {
+        codex::add_provider(&mac.home, &mac.app, name, url, key, &base, at(0))
+    };
     for name in ["", "openai", "ollama", "   "] {
-        assert!(matches!(add(name, "https://x.example.com/v1", "sk-test-0000000000abcd"), ProviderOutcome::Refused { .. }), "{name}");
+        assert!(
+            matches!(
+                add(name, "https://x.example.com/v1", "sk-test-0000000000abcd"),
+                ProviderOutcome::Refused { .. }
+            ),
+            "{name}"
+        );
     }
-    assert!(matches!(add("x", "ftp://x.example.com", "sk-test-0000000000abcd"), ProviderOutcome::Refused { .. }));
+    assert!(matches!(
+        add("x", "ftp://x.example.com", "sk-test-0000000000abcd"),
+        ProviderOutcome::Refused { .. }
+    ));
     assert!(matches!(add("x", "https://x.example.com/v1", ""), ProviderOutcome::Refused { .. }));
     // A name already taken gets the next free id.
     let out = add("custom", "https://x.example.com/v1", "sk-test-0000000000abcd");
@@ -449,14 +476,40 @@ fn a_provider_name_that_cannot_be_a_table_is_refused() {
 fn switching_goes_to_the_provider_asked_for_among_several() {
     let mac = Mac::new("config-chatgpt.toml", Some(&sign_in("ann", "ws-ann", "plus")));
     let base = hash(&mac.home);
-    codex::add_provider(&mac.home, &mac.app, "relay-eu", "https://eu.example.com/v1", "sk-test-0000000000abcd", &base, at(0));
-    let out = codex::switch_provider(&mac.home, &mac.app, "relay-eu", Some(&hash(&mac.home)), true, at(10));
+    codex::add_provider(
+        &mac.home,
+        &mac.app,
+        "relay-eu",
+        "https://eu.example.com/v1",
+        "sk-test-0000000000abcd",
+        &base,
+        at(0),
+    );
+    let out = codex::switch_provider(
+        &mac.home,
+        &mac.app,
+        "relay-eu",
+        Some(&hash(&mac.home)),
+        true,
+        at(10),
+    );
     assert!(matches!(out, codex::Outcome::Switched { ref to, .. } if to == "relay-eu"), "{out:?}");
     let parsed = config::parse(&config_text(&mac.home), None).unwrap();
     assert_eq!(parsed.selected.as_deref(), Some("relay-eu"));
-    let out = codex::switch_provider(&mac.home, &mac.app, "custom", Some(&hash(&mac.home)), true, at(20));
-    assert!(matches!(out, codex::Outcome::Switched { ref from, ref to, .. } if from == "relay-eu" && to == "custom"), "{out:?}");
-    let out = codex::switch_provider(&mac.home, &mac.app, "nowhere", Some(&hash(&mac.home)), true, at(30));
+    let out =
+        codex::switch_provider(&mac.home, &mac.app, "custom", Some(&hash(&mac.home)), true, at(20));
+    assert!(
+        matches!(out, codex::Outcome::Switched { ref from, ref to, .. } if from == "relay-eu" && to == "custom"),
+        "{out:?}"
+    );
+    let out = codex::switch_provider(
+        &mac.home,
+        &mac.app,
+        "nowhere",
+        Some(&hash(&mac.home)),
+        true,
+        at(30),
+    );
     assert!(matches!(out, codex::Outcome::Refused { .. }), "{out:?}");
 }
 
@@ -465,7 +518,15 @@ fn removing_a_provider_takes_out_its_table_only_and_never_the_one_in_use() {
     let mac = Mac::new("config-chatgpt.toml", None);
     let base = hash(&mac.home);
     let before = config_text(&mac.home);
-    codex::add_provider(&mac.home, &mac.app, "relay-eu", "https://eu.example.com/v1", "sk-test-0000000000abcd", &base, at(0));
+    codex::add_provider(
+        &mac.home,
+        &mac.app,
+        "relay-eu",
+        "https://eu.example.com/v1",
+        "sk-test-0000000000abcd",
+        &base,
+        at(0),
+    );
     let out = codex::remove_provider(&mac.home, &mac.app, "relay-eu", &hash(&mac.home), at(10));
     assert!(matches!(out, ProviderOutcome::Removed { .. }), "{out:?}");
     assert_eq!(config_text(&mac.home), before, "back to the bytes before the add");

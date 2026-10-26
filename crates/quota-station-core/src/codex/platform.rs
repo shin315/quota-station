@@ -28,6 +28,9 @@ pub trait Platform: Send + Sync {
     /// Moves `from` to `to`, refusing when something is at `to` already.
     /// Afterwards there is one copy, at `to`.
     fn move_file(&self, from: &Path, to: &Path) -> io::Result<()>;
+    /// Moves `from` to `to`, replacing what is there in one step: a sign-in
+    /// renewed over its old one.
+    fn replace_file(&self, from: &Path, to: &Path) -> io::Result<()>;
     /// Asks the system's backup to leave `dir` out. Best effort: a failure
     /// is not a reason to stop.
     fn exclude_from_backup(&self, dir: &Path);
@@ -63,6 +66,18 @@ impl Platform for Unix {
     fn move_file(&self, from: &Path, to: &Path) -> io::Result<()> {
         match rename_no_replace(from, to) {
             Err(e) if e.raw_os_error() == Some(libc::EXDEV) => copy_then_remove(from, to),
+            other => other,
+        }
+    }
+
+    fn replace_file(&self, from: &Path, to: &Path) -> io::Result<()> {
+        match std::fs::rename(from, to) {
+            Err(e) if e.raw_os_error() == Some(libc::EXDEV) => {
+                // Across disks: in next to `to` first, then over it.
+                let near = to.with_extension(format!("json.{}.tmp", std::process::id()));
+                copy_then_remove(from, &near)?;
+                std::fs::rename(&near, to)
+            }
             other => other,
         }
     }
@@ -114,15 +129,13 @@ fn copy_then_remove(from: &Path, to: &Path) -> io::Result<()> {
     use std::io::Write;
     use std::os::unix::fs::OpenOptionsExt;
     let mut bytes = std::fs::read(from)?;
-    let written = std::fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .mode(0o600)
-        .open(to)
-        .and_then(|mut f| {
-            f.write_all(&bytes)?;
-            f.sync_all()
-        });
+    let written =
+        std::fs::OpenOptions::new().write(true).create_new(true).mode(0o600).open(to).and_then(
+            |mut f| {
+                f.write_all(&bytes)?;
+                f.sync_all()
+            },
+        );
     // A sign-in: the bytes go no further than this function.
     bytes.iter_mut().for_each(|b| *b = 0);
     if let Err(e) = written {
