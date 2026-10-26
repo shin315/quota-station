@@ -427,7 +427,7 @@ function SaveBar({ model, rules: st }: { model: AuthorModel; rules: RulesState }
         ) : null}
         {st.working === 'save' ? (
           <span className={cn(buttonVariants({ variant: 'primary', size: 'lg' }), 'inline-flex items-center gap-1.5')} role="status">
-            <Spinner className="border-t-white" />
+            <Spinner className="border-t-on-accent" />
             {t('Đang lưu…', 'Saving…')}
           </span>
         ) : (

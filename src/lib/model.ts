@@ -369,6 +369,9 @@ export interface AgyReadError {
 
 /** One account logged in here (`src-tauri/src/antigravity.rs` `AccountView`). */
 export type Theme = 'auto' | 'light' | 'dark';
+/** The theme pack every window is drawn in (`src/styles/tokens.css`). */
+export type ThemePack = 'default' | 'kinhNhip' | 'daiSangTinh' | 'motNhipNhin' | 'banDieuKhien' | 'chieuLang';
+export const THEME_PACKS: readonly ThemePack[] = ['default', 'kinhNhip', 'daiSangTinh', 'motNhipNhin', 'banDieuKhien', 'chieuLang'];
 /** The windows' language; `auto` follows macOS. */
 export type Language = 'auto' | 'vi' | 'en';
 export type Menubar = 'claude' | 'gemini' | 'codex';
@@ -1105,6 +1108,8 @@ export interface Model {
   /** Account names (emails, organizations) may show; off, none reaches the window. */
   showNames: boolean;
   theme: Theme;
+  /** The theme pack: colours, glass and type, never what is shown. */
+  themePack: ThemePack;
   language: Language;
   /** The service the menu bar title follows. */
   menubar: Menubar;

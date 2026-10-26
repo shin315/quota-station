@@ -164,9 +164,11 @@ commands![
     commands::set_machine_name,
     commands::set_show_names,
     commands::set_theme,
+    commands::set_theme_pack,
     commands::set_language,
     commands::finish_setup,
     commands::reduce_transparency,
+    commands::increase_contrast,
     commands::set_menubar,
     commands::set_menubar_window,
     #[cfg(feature = "author-tools")]

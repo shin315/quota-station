@@ -8,7 +8,8 @@
    again since the captain chose it back on 25/10/2026: system type at 13 px,
    tight rows, frosted glass. The one source of every colour, size and
    shadow: theme.css maps them to Tailwind's theme and to shadcn/ui's
-   variables, and a theme pack later sits on these names. A few names changed
+   variables. The theme packs at the end (Cài đặt › Hiển thị › Chủ đề)
+   redefine these names, one block each. A few names changed
    where they met Tailwind's own namespaces: --font-mono is --mono, --blur-*
    is --bl-*, --shadow-* is --sh-*. The screens drawn for the community
    edition read their own names, which the last section maps onto these.
@@ -33,8 +34,12 @@
    trên nền đặc, trên kính phủ nền máy, trên ô --fill2, và trên nền nhạt của chip (kể cả khi chip nằm trong dòng đang dùng). Riêng --ink3 sáng chỉ dùng trên nền đặc (thẻ, nền cửa sổ),
    không dùng trên kính của thanh bên. design-system.html tính lại các tỉ lệ này từ token khi mở trang. */
 
+/* "auto" and the default pack start from here too, so a theme pack's preview
+   (an element with its own data-pack and data-theme) gets this look whole. */
 :root,
-[data-theme="light"] {
+[data-theme="light"],
+[data-theme="auto"],
+[data-pack="default"] {
   color-scheme: light;
 
   /* Chữ: chữ hệ thống, không tải font. Chữ số luôn thẳng cột (I08). */
@@ -81,9 +86,13 @@
 
   /* Chữ và nền */
   --ink: #1d1d1f; --ink2: #5b5b60; --ink3: #6a6a6f;
+  /* --ink3 and --accent-ink on the glass of the popover and the main window (glass.css). */
+  --ink3-glass: #5e5e63; --accent-ink-glass: #005cc0;
   --fill: rgba(0, 0, 0, .045); --fill2: rgba(0, 0, 0, .08); --sel: rgba(0, 122, 255, .11);
   --card: #ffffff; --card-line: rgba(0, 0, 0, .07); --winbg: #f3f3f6; --scrim: rgba(0, 0, 0, .18);
   --track: rgba(0, 0, 0, .09);
+  /* Viền khi macOS bật Increase Contrast. */
+  --rim-more: rgba(0, 0, 0, .42);
 
   /* Hành động: xanh dương, tối hơn xanh hệ thống một chút để chữ trắng trên nút đạt 4,5:1.
      --accent là nền nút và dấu chọn; --accent-ink là chữ, link và icon màu xanh. */
@@ -120,9 +129,10 @@
   --glass: rgba(38, 38, 42, .74); --glass-solid: #2a2a2d; --glass-line: rgba(255, 255, 255, .12);
   --side: rgba(46, 46, 50, .72); --side-solid: #2c2c30;
   --ink: #f5f5f7; --ink2: #b4b4b9; --ink3: #a1a1a6;
+  --ink3-glass: #aaaaaf; --accent-ink-glass: #6dadff;
   --fill: rgba(255, 255, 255, .06); --fill2: rgba(255, 255, 255, .10); --sel: rgba(10, 132, 255, .24);
   --card: #2a2a2d; --card-line: rgba(255, 255, 255, .07); --winbg: #1c1c1e; --scrim: rgba(0, 0, 0, .35);
-  --track: rgba(255, 255, 255, .13);
+  --track: rgba(255, 255, 255, .13); --rim-more: rgba(255, 255, 255, .5);
   --accent: #0a66f0; --accent-ink: #64a8ff; --on-accent: #ffffff; --info-ink: #7db7ff;
   --ok: #30d158; --ok-ink: #4fe07a;
   --warn: #ff9f0a; --warn-ink: #ffc266;
@@ -146,9 +156,10 @@
     --glass: rgba(38, 38, 42, .74); --glass-solid: #2a2a2d; --glass-line: rgba(255, 255, 255, .12);
     --side: rgba(46, 46, 50, .72); --side-solid: #2c2c30;
     --ink: #f5f5f7; --ink2: #b4b4b9; --ink3: #a1a1a6;
+    --ink3-glass: #aaaaaf; --accent-ink-glass: #6dadff;
     --fill: rgba(255, 255, 255, .06); --fill2: rgba(255, 255, 255, .10); --sel: rgba(10, 132, 255, .24);
     --card: #2a2a2d; --card-line: rgba(255, 255, 255, .07); --winbg: #1c1c1e; --scrim: rgba(0, 0, 0, .35);
-    --track: rgba(255, 255, 255, .13);
+    --track: rgba(255, 255, 255, .13); --rim-more: rgba(255, 255, 255, .5);
     --accent: #0a66f0; --accent-ink: #64a8ff; --on-accent: #ffffff; --info-ink: #7db7ff;
     --ok: #30d158; --ok-ink: #4fe07a;
     --warn: #ff9f0a; --warn-ink: #ffc266;
@@ -176,7 +187,8 @@
    (the stronger text on glass in glass.css among them). */
 :root,
 [data-theme],
-[data-material] {
+[data-material],
+[data-pack] {
   /* Type. */
   --fs-page: var(--fs-h2);
   --fs-h3: var(--fs-title);
@@ -268,4 +280,800 @@
   --glass-edge: transparent;
   --glass-blur: var(--bl-pop);
   --glass-sat: var(--sat);
+
+  /* What a theme pack draws its own way; here, as this look draws it. A
+     quota bar that is not short (--meter-ok), a group's panel and its edge
+     in the main window, the sidebar's tint, a haze over the main window's
+     glass, and OpenType features for all text. */
+  --meter-ok: var(--ok);
+  --panel: var(--fill);
+  --panel-line: transparent;
+  --side-glass: transparent;
+  --win-mist: none;
+  --font-features: normal;
+}
+
+/* ========== Theme packs ========== */
+/* Cài đặt › Hiển thị › Chủ đề. A pack redefines only how things are drawn:
+   grounds and surfaces, the glass (tint, opacity, blur, saturation, rim),
+   the accent, the text, the quota colours, the type and its figures, the
+   corners, the shadows, and a haze on the main window. Never sizes, spacing,
+   copy or what is shown; icons keep the text's colour. data-pack sits on
+   <html> and on each window's root beside data-theme, and on each preview
+   swatch in the picker. "default" has no block: it is the look above. Each
+   pack sets the same names in both modes, so a swatch never shows another
+   pack's value, and its dark block is repeated for "auto" as above. Where a
+   picture showed only dark, light is derived and says so. docs/themes.md
+   records every value, the picture and the box it was measured on, and
+   tokens.test.ts checks the contrast of each pack in both modes. */
+
+/* ---------- Kính Nhịp ----------
+   Redraw A (qs-ce-look/redraw/assets/R{O,P,C,S}-A-{light,dark}.png) and the
+   design-system sheets D01-D10: porcelain and charcoal, frosted glass thick
+   enough not to see through, a mist on the main window, Inter, soft round
+   controls (D01: controls 8, cards 12, windows 16). Colours as the community
+   edition measured them on the same images (qs-ce-ui-build/design/DESIGN.md),
+   checked again here; values and boxes in docs/themes.md. */
+[data-pack="kinhNhip"] {
+  --font: "Inter QS", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  --font-features: normal;
+  --r-pop: 16px;
+  --r-win: 16px;
+  --r-sheet: 16px;
+  --r-card: 12px;
+  --r-tile: 12px;
+  --r-row: 10px;
+  --r-ctl: 8px;
+  --desk: linear-gradient(160deg, #dfe8f4 0%, #eef1f8 50%, #f3eef6 100%);
+  --glass: rgba(245, 248, 252, .86);
+  --glass-solid: #f5f8fc;
+  --glass-line: rgba(20, 40, 80, .12);
+  --side: #eff5fb;
+  --side-solid: #eff5fb;
+  --side-glass: rgba(232, 240, 250, .5);
+  --bl-pop: 40px;
+  --sat: 1.6;
+  --ink: #0b1226;
+  --ink2: #536079;
+  --ink3: #56637c;
+  --ink3-glass: #515e77;
+  --fill: rgba(20, 40, 80, .045);
+  --fill2: rgba(20, 40, 80, .08);
+  --sel: rgba(11, 107, 254, .10);
+  --panel: rgba(255, 255, 255, .62);
+  --panel-line: rgba(20, 40, 80, .09);
+  --card: #f9fbfd;
+  --card-line: rgba(20, 40, 80, .09);
+  --winbg: #f5f8fc;
+  --scrim: rgba(20, 32, 52, .22);
+  --track: rgba(20, 40, 80, .12);
+  --accent: #0a62ea;
+  --accent-ink: #0e56e6;
+  --accent-ink-glass: #0952e2;
+  --on-accent: #ffffff;
+  --info-ink: #0745d8;
+  --ok: #24c94c;
+  --ok-ink: #13652b;
+  --warn: #fea004;
+  --warn-ink: #994400;
+  --bad: #fd4b50;
+  --bad-ink: #c01722;
+  --bad-fill: #d11e29;
+  --meter-ok: #78869d;
+  --toggle-on: #0a74fe;
+  --win-mist: radial-gradient(120% 85% at 0% 0%, rgba(213, 229, 253, .7), transparent 58%), radial-gradient(100% 75% at 100% 100%, rgba(236, 229, 250, .6), transparent 62%);
+  --sh-pop: 0 16px 44px rgba(22, 38, 66, .18);
+  --sh-sheet: 0 18px 44px rgba(22, 38, 66, .2);
+  --sh-card: 0 1px 2px rgba(20, 35, 60, .04);
+  --sh-win: 0 22px 56px rgba(22, 38, 66, .16);
+}
+[data-pack="kinhNhip"][data-theme="dark"] {
+  --desk: linear-gradient(160deg, #0d1a2a 0%, #101826 50%, #1a1626 100%);
+  --glass: rgba(15, 26, 36, .86);
+  --glass-solid: #0f1a24;
+  --glass-line: rgba(255, 255, 255, .09);
+  --side: #13212e;
+  --side-solid: #13212e;
+  --side-glass: rgba(22, 37, 52, .45);
+  --bl-pop: 40px;
+  --sat: 1.6;
+  --ink: #f5f8fd;
+  --ink2: #a2b3c8;
+  --ink3: #96a8bb;
+  --ink3-glass: #9eb2c5;
+  --fill: rgba(255, 255, 255, .045);
+  --fill2: rgba(255, 255, 255, .085);
+  --sel: rgba(26, 106, 240, .32);
+  --panel: rgba(22, 35, 47, .66);
+  --panel-line: rgba(255, 255, 255, .06);
+  --card: #121e29;
+  --card-line: rgba(255, 255, 255, .07);
+  --winbg: #0f1a24;
+  --scrim: rgba(4, 9, 15, .55);
+  --track: rgba(255, 255, 255, .12);
+  --accent: #1a64e6;
+  --accent-ink: #6cb3f7;
+  --accent-ink-glass: #7cbcf9;
+  --on-accent: #ffffff;
+  --info-ink: #9ccdfe;
+  --ok: #34d354;
+  --ok-ink: #4fe07a;
+  --warn: #f5a32e;
+  --warn-ink: #ffb23f;
+  --bad: #fd4b50;
+  --bad-ink: #ff7f7c;
+  --bad-fill: #c8232c;
+  --meter-ok: #9aa4bb;
+  --toggle-on: #0b6cf1;
+  --win-mist: radial-gradient(120% 85% at 0% 0%, rgba(40, 78, 140, .32), transparent 58%), radial-gradient(100% 75% at 100% 100%, rgba(70, 52, 120, .24), transparent 62%);
+  --sh-pop: 0 18px 50px rgba(0, 0, 0, .55);
+  --sh-sheet: 0 20px 48px rgba(0, 0, 0, .5);
+  --sh-card: 0 1px 0 rgba(0, 0, 0, .25);
+  --sh-win: 0 24px 60px rgba(0, 0, 0, .5);
+}
+@media (prefers-color-scheme: dark) {
+  [data-pack="kinhNhip"][data-theme="auto"] {
+    --desk: linear-gradient(160deg, #0d1a2a 0%, #101826 50%, #1a1626 100%);
+    --glass: rgba(15, 26, 36, .86);
+    --glass-solid: #0f1a24;
+    --glass-line: rgba(255, 255, 255, .09);
+    --side: #13212e;
+    --side-solid: #13212e;
+    --side-glass: rgba(22, 37, 52, .45);
+    --bl-pop: 40px;
+    --sat: 1.6;
+    --ink: #f5f8fd;
+    --ink2: #a2b3c8;
+    --ink3: #96a8bb;
+    --ink3-glass: #9eb2c5;
+    --fill: rgba(255, 255, 255, .045);
+    --fill2: rgba(255, 255, 255, .085);
+    --sel: rgba(26, 106, 240, .32);
+    --panel: rgba(22, 35, 47, .66);
+    --panel-line: rgba(255, 255, 255, .06);
+    --card: #121e29;
+    --card-line: rgba(255, 255, 255, .07);
+    --winbg: #0f1a24;
+    --scrim: rgba(4, 9, 15, .55);
+    --track: rgba(255, 255, 255, .12);
+    --accent: #1a64e6;
+    --accent-ink: #6cb3f7;
+    --accent-ink-glass: #7cbcf9;
+    --on-accent: #ffffff;
+    --info-ink: #9ccdfe;
+    --ok: #34d354;
+    --ok-ink: #4fe07a;
+    --warn: #f5a32e;
+    --warn-ink: #ffb23f;
+    --bad: #fd4b50;
+    --bad-ink: #ff7f7c;
+    --bad-fill: #c8232c;
+    --meter-ok: #9aa4bb;
+    --toggle-on: #0b6cf1;
+    --win-mist: radial-gradient(120% 85% at 0% 0%, rgba(40, 78, 140, .32), transparent 58%), radial-gradient(100% 75% at 100% 100%, rgba(70, 52, 120, .24), transparent 62%);
+    --sh-pop: 0 18px 50px rgba(0, 0, 0, .55);
+    --sh-sheet: 0 20px 48px rgba(0, 0, 0, .5);
+    --sh-card: 0 1px 0 rgba(0, 0, 0, .25);
+    --sh-win: 0 24px 60px rgba(0, 0, 0, .5);
+  }
+}
+
+/* ---------- Dải sáng tĩnh ----------
+   Style Q03 (qs-ce-look/assets/Q03.png, dark only): a compact list on
+   dense navy glass, a blue band for the row in use, grey bars and an amber
+   one when short, tighter corners. Light is derived: the same dense glass
+   in a cool pale tone. */
+[data-pack="daiSangTinh"] {
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  --font-features: normal;
+  --r-pop: 12px;
+  --r-win: 12px;
+  --r-sheet: 12px;
+  --r-card: 10px;
+  --r-tile: 9px;
+  --r-row: 8px;
+  --r-ctl: 6px;
+  --desk: linear-gradient(165deg, #c9d6e6 0%, #dfe6ef 55%, #e9e4ee 100%);
+  --glass: rgba(239, 243, 248, .93);
+  --glass-solid: #eef2f7;
+  --glass-line: rgba(17, 29, 44, .14);
+  --side: #e5ebf2;
+  --side-solid: #e5ebf2;
+  --side-glass: rgba(17, 29, 44, .035);
+  --bl-pop: 30px;
+  --sat: 1.5;
+  --ink: #0f1a2a;
+  --ink2: #4a5668;
+  --ink3: #4f5b6c;
+  --ink3-glass: #4f5b6d;
+  --fill: rgba(17, 29, 44, .05);
+  --fill2: rgba(17, 29, 44, .09);
+  --sel: rgba(46, 79, 141, .15);
+  --panel: rgba(255, 255, 255, .55);
+  --panel-line: rgba(17, 29, 44, .08);
+  --card: #f6f8fb;
+  --card-line: rgba(17, 29, 44, .09);
+  --winbg: #eef2f7;
+  --scrim: rgba(17, 29, 44, .22);
+  --track: rgba(17, 29, 44, .11);
+  --accent: #2f5fc4;
+  --accent-ink: #2a56b5;
+  --accent-ink-glass: #2650a9;
+  --on-accent: #ffffff;
+  --info-ink: #244f9e;
+  --ok: #2fa84a;
+  --ok-ink: #176b2c;
+  --warn: #ec930f;
+  --warn-ink: #8a4b00;
+  --bad: #e5483f;
+  --bad-ink: #b3261e;
+  --bad-fill: #c62b22;
+  --meter-ok: #7d889c;
+  --toggle-on: #2f5fc4;
+  --win-mist: linear-gradient(180deg, rgba(255, 255, 255, .5), transparent 140px);
+  --sh-pop: 0 14px 40px rgba(17, 29, 44, .22);
+  --sh-sheet: 0 10px 36px rgba(17, 29, 44, .26);
+  --sh-card: 0 1px 2px rgba(17, 29, 44, .05);
+  --sh-win: 0 22px 60px rgba(17, 29, 44, .26);
+}
+[data-pack="daiSangTinh"][data-theme="dark"] {
+  --desk: linear-gradient(170deg, #0c1a2b 0%, #12304a 45%, #1d4a52 70%, #0b1622 100%);
+  --glass: rgba(17, 29, 44, .93);
+  --glass-solid: #111d2c;
+  --glass-line: rgba(255, 255, 255, .10);
+  --side: #182432;
+  --side-solid: #182432;
+  --side-glass: rgba(255, 255, 255, .025);
+  --bl-pop: 30px;
+  --sat: 1.5;
+  --ink: #f4f7f9;
+  --ink2: #b8c1cd;
+  --ink3: #a3afbf;
+  --ink3-glass: #a7b3c2;
+  --fill: rgba(255, 255, 255, .05);
+  --fill2: rgba(255, 255, 255, .09);
+  --sel: rgba(65, 112, 206, .34);
+  --panel: rgba(255, 255, 255, .035);
+  --panel-line: rgba(255, 255, 255, .06);
+  --card: #172433;
+  --card-line: rgba(255, 255, 255, .07);
+  --winbg: #111d2c;
+  --scrim: rgba(3, 8, 14, .5);
+  --track: rgba(255, 255, 255, .10);
+  --accent: #2f62c9;
+  --accent-ink: #9dbdf2;
+  --accent-ink-glass: #a4c2f3;
+  --on-accent: #ffffff;
+  --info-ink: #b0c9f2;
+  --ok: #48cb5e;
+  --ok-ink: #6fdc82;
+  --warn: #f7a73d;
+  --warn-ink: #ffbe6b;
+  --bad: #ff5a52;
+  --bad-ink: #ffaaa3;
+  --bad-fill: #c62b22;
+  --meter-ok: #808ca3;
+  --toggle-on: #3d6fd8;
+  --win-mist: linear-gradient(180deg, rgba(255, 255, 255, .035), transparent 140px);
+  --sh-pop: 0 18px 50px rgba(0, 0, 0, .55);
+  --sh-sheet: 0 10px 40px rgba(0, 0, 0, .6);
+  --sh-card: 0 1px 2px rgba(0, 0, 0, .3);
+  --sh-win: 0 24px 70px rgba(0, 0, 0, .6);
+}
+@media (prefers-color-scheme: dark) {
+  [data-pack="daiSangTinh"][data-theme="auto"] {
+    --desk: linear-gradient(170deg, #0c1a2b 0%, #12304a 45%, #1d4a52 70%, #0b1622 100%);
+    --glass: rgba(17, 29, 44, .93);
+    --glass-solid: #111d2c;
+    --glass-line: rgba(255, 255, 255, .10);
+    --side: #182432;
+    --side-solid: #182432;
+    --side-glass: rgba(255, 255, 255, .025);
+    --bl-pop: 30px;
+    --sat: 1.5;
+    --ink: #f4f7f9;
+    --ink2: #b8c1cd;
+    --ink3: #a3afbf;
+    --ink3-glass: #a7b3c2;
+    --fill: rgba(255, 255, 255, .05);
+    --fill2: rgba(255, 255, 255, .09);
+    --sel: rgba(65, 112, 206, .34);
+    --panel: rgba(255, 255, 255, .035);
+    --panel-line: rgba(255, 255, 255, .06);
+    --card: #172433;
+    --card-line: rgba(255, 255, 255, .07);
+    --winbg: #111d2c;
+    --scrim: rgba(3, 8, 14, .5);
+    --track: rgba(255, 255, 255, .10);
+    --accent: #2f62c9;
+    --accent-ink: #9dbdf2;
+    --accent-ink-glass: #a4c2f3;
+    --on-accent: #ffffff;
+    --info-ink: #b0c9f2;
+    --ok: #48cb5e;
+    --ok-ink: #6fdc82;
+    --warn: #f7a73d;
+    --warn-ink: #ffbe6b;
+    --bad: #ff5a52;
+    --bad-ink: #ffaaa3;
+    --bad-fill: #c62b22;
+    --meter-ok: #808ca3;
+    --toggle-on: #3d6fd8;
+    --win-mist: linear-gradient(180deg, rgba(255, 255, 255, .035), transparent 140px);
+    --sh-pop: 0 18px 50px rgba(0, 0, 0, .55);
+    --sh-sheet: 0 10px 40px rgba(0, 0, 0, .6);
+    --sh-card: 0 1px 2px rgba(0, 0, 0, .3);
+    --sh-win: 0 24px 70px rgba(0, 0, 0, .6);
+  }
+}
+
+/* ---------- Một nhịp nhìn ----------
+   Style Q06 (qs-ce-look/assets/Q06.png, dark only): flat charcoal with no
+   glass and no picture behind, bright numbers, a yellow bar when short, a
+   blue for what is chosen. The glass tint is opaque, so the windows read as
+   one flat surface. Light is derived: the same flatness on off-white. */
+[data-pack="motNhipNhin"] {
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  --font-features: "tnum" 1;
+  --r-pop: 12px;
+  --r-win: 12px;
+  --r-sheet: 12px;
+  --r-card: 10px;
+  --r-tile: 10px;
+  --r-row: 8px;
+  --r-ctl: 6px;
+  --desk: #e4e5e8;
+  --glass: #f6f6f7;
+  --glass-solid: #f6f6f7;
+  --glass-line: rgba(0, 0, 0, .12);
+  --side: #efeff1;
+  --side-solid: #efeff1;
+  --side-glass: rgba(0, 0, 0, .025);
+  --bl-pop: 0px;
+  --sat: 1;
+  --ink: #17191c;
+  --ink2: #52565d;
+  --ink3: #5d6168;
+  --ink3-glass: #5d6168;
+  --fill: rgba(0, 0, 0, .04);
+  --fill2: rgba(0, 0, 0, .075);
+  --sel: rgba(31, 99, 201, .12);
+  --panel: #ffffff;
+  --panel-line: rgba(0, 0, 0, .08);
+  --card: #ffffff;
+  --card-line: rgba(0, 0, 0, .08);
+  --winbg: #f6f6f7;
+  --scrim: rgba(0, 0, 0, .2);
+  --track: rgba(0, 0, 0, .1);
+  --accent: #1f63c9;
+  --accent-ink: #1d5bbf;
+  --accent-ink-glass: #1d5bbf;
+  --on-accent: #ffffff;
+  --info-ink: #1a52ad;
+  --ok: #28a745;
+  --ok-ink: #1d6b30;
+  --warn: #e6ac00;
+  --warn-ink: #755600;
+  --bad: #e0362c;
+  --bad-ink: #b3261e;
+  --bad-fill: #c62b22;
+  --meter-ok: #8a8e95;
+  --toggle-on: #1f63c9;
+  --win-mist: none;
+  --sh-pop: 0 12px 32px rgba(0, 0, 0, .18);
+  --sh-sheet: 0 10px 32px rgba(0, 0, 0, .22);
+  --sh-card: none;
+  --sh-win: 0 20px 56px rgba(0, 0, 0, .22);
+}
+[data-pack="motNhipNhin"][data-theme="dark"] {
+  --desk: #141920;
+  --glass: #1a1e23;
+  --glass-solid: #1a1e23;
+  --glass-line: rgba(255, 255, 255, .08);
+  --side: #191d21;
+  --side-solid: #191d21;
+  --side-glass: rgba(0, 0, 0, .04);
+  --bl-pop: 0px;
+  --sat: 1;
+  --ink: #f4f5f6;
+  --ink2: #a9adb5;
+  --ink3: #a0a4ac;
+  --ink3-glass: #a0a4ac;
+  --fill: rgba(255, 255, 255, .045);
+  --fill2: rgba(255, 255, 255, .085);
+  --sel: rgba(38, 110, 220, .34);
+  --panel: #1f2328;
+  --panel-line: rgba(255, 255, 255, .06);
+  --card: #1f2328;
+  --card-line: rgba(255, 255, 255, .07);
+  --winbg: #1a1e23;
+  --scrim: rgba(0, 0, 0, .5);
+  --track: rgba(255, 255, 255, .11);
+  --accent: #1f63c9;
+  --accent-ink: #6aa8f5;
+  --accent-ink-glass: #6aa8f5;
+  --on-accent: #ffffff;
+  --info-ink: #8bbaf5;
+  --ok: #30d158;
+  --ok-ink: #4fe07a;
+  --warn: #f8c331;
+  --warn-ink: #f8c331;
+  --bad: #ff5a4f;
+  --bad-ink: #ff8a80;
+  --bad-fill: #c62b22;
+  --meter-ok: #9599a0;
+  --toggle-on: #2686f7;
+  --win-mist: none;
+  --sh-pop: 0 14px 40px rgba(0, 0, 0, .6);
+  --sh-sheet: 0 10px 40px rgba(0, 0, 0, .6);
+  --sh-card: none;
+  --sh-win: 0 24px 70px rgba(0, 0, 0, .6);
+}
+@media (prefers-color-scheme: dark) {
+  [data-pack="motNhipNhin"][data-theme="auto"] {
+    --desk: #141920;
+    --glass: #1a1e23;
+    --glass-solid: #1a1e23;
+    --glass-line: rgba(255, 255, 255, .08);
+    --side: #191d21;
+    --side-solid: #191d21;
+    --side-glass: rgba(0, 0, 0, .04);
+    --bl-pop: 0px;
+    --sat: 1;
+    --ink: #f4f5f6;
+    --ink2: #a9adb5;
+    --ink3: #a0a4ac;
+    --ink3-glass: #a0a4ac;
+    --fill: rgba(255, 255, 255, .045);
+    --fill2: rgba(255, 255, 255, .085);
+    --sel: rgba(38, 110, 220, .34);
+    --panel: #1f2328;
+    --panel-line: rgba(255, 255, 255, .06);
+    --card: #1f2328;
+    --card-line: rgba(255, 255, 255, .07);
+    --winbg: #1a1e23;
+    --scrim: rgba(0, 0, 0, .5);
+    --track: rgba(255, 255, 255, .11);
+    --accent: #1f63c9;
+    --accent-ink: #6aa8f5;
+    --accent-ink-glass: #6aa8f5;
+    --on-accent: #ffffff;
+    --info-ink: #8bbaf5;
+    --ok: #30d158;
+    --ok-ink: #4fe07a;
+    --warn: #f8c331;
+    --warn-ink: #f8c331;
+    --bad: #ff5a4f;
+    --bad-ink: #ff8a80;
+    --bad-fill: #c62b22;
+    --meter-ok: #9599a0;
+    --toggle-on: #2686f7;
+    --win-mist: none;
+    --sh-pop: 0 14px 40px rgba(0, 0, 0, .6);
+    --sh-sheet: 0 10px 40px rgba(0, 0, 0, .6);
+    --sh-card: none;
+    --sh-win: 0 24px 70px rgba(0, 0, 0, .6);
+  }
+}
+
+/* ---------- Bàn điều khiển ----------
+   Style Q11 (qs-ce-look/assets/Q11.png, dark only): a console. Even-width
+   type everywhere, near-opaque slate, hairline frames round each group,
+   a blue-framed row in use, bluish bar tracks, small corners. Light is
+   derived: the same console on paper. */
+[data-pack="banDieuKhien"] {
+  --font: ui-monospace, "SF Mono", Menlo, monospace;
+  --font-features: normal;
+  --r-pop: 8px;
+  --r-win: 8px;
+  --r-sheet: 8px;
+  --r-card: 6px;
+  --r-tile: 6px;
+  --r-row: 5px;
+  --r-ctl: 4px;
+  --desk: linear-gradient(170deg, #cfd7e2 0%, #dde3ea 100%);
+  --glass: rgba(246, 247, 248, .96);
+  --glass-solid: #f6f7f8;
+  --glass-line: rgba(20, 30, 45, .16);
+  --side: #eef0f3;
+  --side-solid: #eef0f3;
+  --side-glass: rgba(20, 30, 45, .03);
+  --bl-pop: 20px;
+  --sat: 1.2;
+  --ink: #15191e;
+  --ink2: #4b5562;
+  --ink3: #59636f;
+  --ink3-glass: #55606c;
+  --fill: rgba(20, 30, 45, .045);
+  --fill2: rgba(20, 30, 45, .085);
+  --sel: rgba(27, 98, 208, .12);
+  --panel: rgba(255, 255, 255, .5);
+  --panel-line: rgba(20, 30, 45, .16);
+  --card: #fbfbfc;
+  --card-line: rgba(20, 30, 45, .11);
+  --winbg: #f6f7f8;
+  --scrim: rgba(10, 15, 22, .24);
+  --track: rgba(30, 60, 110, .14);
+  --accent: #1b62d0;
+  --accent-ink: #1a5bc2;
+  --accent-ink-glass: #1a5bc2;
+  --on-accent: #ffffff;
+  --info-ink: #1a55b5;
+  --ok: #2a9d43;
+  --ok-ink: #1a6b2e;
+  --warn: #dc9b10;
+  --warn-ink: #7d5200;
+  --bad: #d93a32;
+  --bad-ink: #b3261e;
+  --bad-fill: #c62b22;
+  --meter-ok: #6f7d90;
+  --toggle-on: #1b62d0;
+  --win-mist: none;
+  --sh-pop: 0 10px 28px rgba(10, 15, 22, .2);
+  --sh-sheet: 0 10px 32px rgba(10, 15, 22, .24);
+  --sh-card: none;
+  --sh-win: 0 18px 50px rgba(10, 15, 22, .24);
+}
+[data-pack="banDieuKhien"][data-theme="dark"] {
+  --desk: linear-gradient(170deg, #1a2436 0%, #141c2a 60%, #10161f 100%);
+  --glass: rgba(19, 23, 28, .96);
+  --glass-solid: #13171c;
+  --glass-line: rgba(255, 255, 255, .12);
+  --side: #171c22;
+  --side-solid: #171c22;
+  --side-glass: rgba(255, 255, 255, .02);
+  --bl-pop: 20px;
+  --sat: 1.2;
+  --ink: #f5f6f7;
+  --ink2: #abb6c1;
+  --ink3: #8f9db0;
+  --ink3-glass: #95a2b4;
+  --fill: rgba(255, 255, 255, .045);
+  --fill2: rgba(255, 255, 255, .085);
+  --sel: rgba(30, 112, 243, .3);
+  --panel: rgba(255, 255, 255, .015);
+  --panel-line: rgba(255, 255, 255, .11);
+  --card: #161b21;
+  --card-line: rgba(255, 255, 255, .08);
+  --winbg: #13171c;
+  --scrim: rgba(0, 0, 0, .5);
+  --track: rgba(96, 128, 170, .3);
+  --accent: #1b6fe0;
+  --accent-ink: #7fb0f0;
+  --accent-ink-glass: #84b4f2;
+  --on-accent: #ffffff;
+  --info-ink: #93bdf3;
+  --ok: #3fb950;
+  --ok-ink: #56d364;
+  --warn: #eeaf2e;
+  --warn-ink: #f2c055;
+  --bad: #f85149;
+  --bad-ink: #ff8a80;
+  --bad-fill: #c62b22;
+  --meter-ok: #a0aec1;
+  --toggle-on: #1f84f3;
+  --win-mist: none;
+  --sh-pop: 0 10px 30px rgba(0, 0, 0, .6);
+  --sh-sheet: 0 10px 36px rgba(0, 0, 0, .6);
+  --sh-card: none;
+  --sh-win: 0 20px 60px rgba(0, 0, 0, .6);
+}
+@media (prefers-color-scheme: dark) {
+  [data-pack="banDieuKhien"][data-theme="auto"] {
+    --desk: linear-gradient(170deg, #1a2436 0%, #141c2a 60%, #10161f 100%);
+    --glass: rgba(19, 23, 28, .96);
+    --glass-solid: #13171c;
+    --glass-line: rgba(255, 255, 255, .12);
+    --side: #171c22;
+    --side-solid: #171c22;
+    --side-glass: rgba(255, 255, 255, .02);
+    --bl-pop: 20px;
+    --sat: 1.2;
+    --ink: #f5f6f7;
+    --ink2: #abb6c1;
+    --ink3: #8f9db0;
+    --ink3-glass: #95a2b4;
+    --fill: rgba(255, 255, 255, .045);
+    --fill2: rgba(255, 255, 255, .085);
+    --sel: rgba(30, 112, 243, .3);
+    --panel: rgba(255, 255, 255, .015);
+    --panel-line: rgba(255, 255, 255, .11);
+    --card: #161b21;
+    --card-line: rgba(255, 255, 255, .08);
+    --winbg: #13171c;
+    --scrim: rgba(0, 0, 0, .5);
+    --track: rgba(96, 128, 170, .3);
+    --accent: #1b6fe0;
+    --accent-ink: #7fb0f0;
+    --accent-ink-glass: #84b4f2;
+    --on-accent: #ffffff;
+    --info-ink: #93bdf3;
+    --ok: #3fb950;
+    --ok-ink: #56d364;
+    --warn: #eeaf2e;
+    --warn-ink: #f2c055;
+    --bad: #f85149;
+    --bad-ink: #ff8a80;
+    --bad-fill: #c62b22;
+    --meter-ok: #a0aec1;
+    --toggle-on: #1f84f3;
+    --win-mist: none;
+    --sh-pop: 0 10px 30px rgba(0, 0, 0, .6);
+    --sh-sheet: 0 10px 36px rgba(0, 0, 0, .6);
+    --sh-card: none;
+    --sh-win: 0 20px 60px rgba(0, 0, 0, .6);
+  }
+}
+
+/* ---------- Chiều lặng ----------
+   Style Q13 (qs-ce-look/assets/Q13.png, dark only): clear glass to look
+   through, tinted blue-violet, a light rim, groups one step more opaque than
+   the window, a soft periwinkle for what is chosen and for buttons (dark
+   text on them), a warm orange when short. The glass as the community
+   edition measured it on Q13 (16 blur, 1.2 saturation, tint #1a2547 at
+   0.80). Light is derived: a lavender dusk with the same clarity. */
+[data-pack="chieuLang"] {
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  --font-features: normal;
+  --r-pop: 16px;
+  --r-win: 14px;
+  --r-sheet: 14px;
+  --r-card: 12px;
+  --r-tile: 12px;
+  --r-row: 10px;
+  --r-ctl: 8px;
+  --desk: linear-gradient(160deg, #c9c6ea 0%, #e3d7ee 45%, #f2dfe0 100%);
+  --glass: rgba(244, 243, 252, .78);
+  --glass-solid: #f1f0fa;
+  --glass-line: rgba(255, 255, 255, .7);
+  --side: #ebe9f7;
+  --side-solid: #ebe9f7;
+  --side-glass: rgba(255, 255, 255, .18);
+  --bl-pop: 16px;
+  --sat: 1.2;
+  --ink: #1b1a33;
+  --ink2: #56556f;
+  --ink3: #5b5a76;
+  --ink3-glass: #4f4e69;
+  --fill: rgba(60, 50, 130, .05);
+  --fill2: rgba(60, 50, 130, .09);
+  --sel: rgba(91, 95, 214, .14);
+  --panel: rgba(255, 255, 255, .5);
+  --panel-line: rgba(60, 50, 130, .10);
+  --card: #f8f7fd;
+  --card-line: rgba(60, 50, 130, .10);
+  --winbg: #f1f0fa;
+  --scrim: rgba(27, 26, 51, .22);
+  --track: rgba(60, 50, 130, .13);
+  --accent: #5357d4;
+  --accent-ink: #474bc4;
+  --accent-ink-glass: #4144b8;
+  --on-accent: #ffffff;
+  --info-ink: #3f42b0;
+  --ok: #2bb673;
+  --ok-ink: #145f3c;
+  --warn: #ec8a33;
+  --warn-ink: #8f4a00;
+  --bad: #e04848;
+  --bad-ink: #a32424;
+  --bad-fill: #c62b2b;
+  --meter-ok: #8a8ca3;
+  --toggle-on: #5f6ff0;
+  --win-mist: radial-gradient(110% 80% at 100% 0%, rgba(176, 160, 240, .26), transparent 60%), radial-gradient(100% 70% at 0% 100%, rgba(150, 190, 235, .22), transparent 60%);
+  --sh-pop: 0 16px 44px rgba(40, 30, 90, .2);
+  --sh-sheet: 0 18px 44px rgba(40, 30, 90, .22);
+  --sh-card: 0 1px 2px rgba(40, 30, 90, .05);
+  --sh-win: 0 22px 56px rgba(40, 30, 90, .18);
+}
+[data-pack="chieuLang"][data-theme="dark"] {
+  --desk: linear-gradient(165deg, #1b1f3d 0%, #2b2650 40%, #3a2d4f 65%, #141a2c 100%);
+  --glass: rgba(26, 37, 71, .80);
+  --glass-solid: #1b2433;
+  --glass-line: rgba(255, 255, 255, .28);
+  --side: #232c40;
+  --side-solid: #202838;
+  --side-glass: rgba(255, 255, 255, .025);
+  --bl-pop: 16px;
+  --sat: 1.2;
+  --ink: #f8fafb;
+  --ink2: #bcc1d2;
+  --ink3: #b0b5c7;
+  --ink3-glass: #babfd0;
+  --fill: rgba(255, 255, 255, .06);
+  --fill2: rgba(255, 255, 255, .1);
+  --sel: rgba(140, 150, 255, .2);
+  --panel: rgba(50, 63, 80, .6);
+  --panel-line: rgba(255, 255, 255, .06);
+  --card: #232a3a;
+  --card-line: rgba(255, 255, 255, .07);
+  --winbg: #1b2433;
+  --scrim: rgba(8, 10, 24, .5);
+  --track: rgba(255, 255, 255, .16);
+  --accent: #7e8bfa;
+  --accent-ink: #aeb6ff;
+  --accent-ink-glass: #b4bbff;
+  --on-accent: #15133b;
+  --info-ink: #bcc2ff;
+  --ok: #3ccf86;
+  --ok-ink: #6fe0a6;
+  --warn: #efa058;
+  --warn-ink: #f0bf6f;
+  --bad: #ff6b6b;
+  --bad-ink: #ffb0b0;
+  --bad-fill: #c62b2b;
+  --meter-ok: #a0a3b0;
+  --toggle-on: #7185f8;
+  --win-mist: radial-gradient(110% 80% at 100% 0%, rgba(140, 120, 220, .18), transparent 60%), radial-gradient(100% 70% at 0% 100%, rgba(70, 110, 170, .14), transparent 60%);
+  --sh-pop: 0 18px 50px rgba(5, 6, 20, .55);
+  --sh-sheet: 0 20px 48px rgba(5, 6, 20, .55);
+  --sh-card: 0 1px 2px rgba(0, 0, 0, .25);
+  --sh-win: 0 24px 60px rgba(5, 6, 20, .5);
+}
+@media (prefers-color-scheme: dark) {
+  [data-pack="chieuLang"][data-theme="auto"] {
+    --desk: linear-gradient(165deg, #1b1f3d 0%, #2b2650 40%, #3a2d4f 65%, #141a2c 100%);
+    --glass: rgba(26, 37, 71, .80);
+    --glass-solid: #1b2433;
+    --glass-line: rgba(255, 255, 255, .28);
+    --side: #232c40;
+    --side-solid: #202838;
+    --side-glass: rgba(255, 255, 255, .025);
+    --bl-pop: 16px;
+    --sat: 1.2;
+    --ink: #f8fafb;
+    --ink2: #bcc1d2;
+    --ink3: #b0b5c7;
+    --ink3-glass: #babfd0;
+    --fill: rgba(255, 255, 255, .06);
+    --fill2: rgba(255, 255, 255, .1);
+    --sel: rgba(140, 150, 255, .2);
+    --panel: rgba(50, 63, 80, .6);
+    --panel-line: rgba(255, 255, 255, .06);
+    --card: #232a3a;
+    --card-line: rgba(255, 255, 255, .07);
+    --winbg: #1b2433;
+    --scrim: rgba(8, 10, 24, .5);
+    --track: rgba(255, 255, 255, .16);
+    --accent: #7e8bfa;
+    --accent-ink: #aeb6ff;
+    --accent-ink-glass: #b4bbff;
+    --on-accent: #15133b;
+    --info-ink: #bcc2ff;
+    --ok: #3ccf86;
+    --ok-ink: #6fe0a6;
+    --warn: #efa058;
+    --warn-ink: #f0bf6f;
+    --bad: #ff6b6b;
+    --bad-ink: #ffb0b0;
+    --bad-fill: #c62b2b;
+    --meter-ok: #a0a3b0;
+    --toggle-on: #7185f8;
+    --win-mist: radial-gradient(110% 80% at 100% 0%, rgba(140, 120, 220, .18), transparent 60%), radial-gradient(100% 70% at 0% 100%, rgba(70, 110, 170, .14), transparent 60%);
+    --sh-pop: 0 18px 50px rgba(5, 6, 20, .55);
+    --sh-sheet: 0 20px 48px rgba(5, 6, 20, .55);
+    --sh-card: 0 1px 2px rgba(0, 0, 0, .25);
+    --sh-win: 0 24px 60px rgba(5, 6, 20, .5);
+  }
+}
+
+/* ========== Increase Contrast ==========
+   macOS's Increase Contrast (data-contrast="more", which useMaterial sets
+   from macOS's own flag, or the media query where WebKit reports it): the
+   rims of the glass, the panels' edges and the lines between rows are drawn
+   in --rim-more, in every pack. Last, so it wins over each pack's block. */
+:root[data-contrast="more"],
+.qs[data-contrast="more"],
+[data-pack][data-contrast="more"] {
+  --glass-line: var(--rim-more);
+  --card-line: var(--rim-more);
+  --panel-line: var(--rim-more);
+}
+@media (prefers-contrast: more) {
+  :root[data-theme],
+  .qs[data-theme],
+  [data-pack][data-theme] {
+    --glass-line: var(--rim-more);
+    --card-line: var(--rim-more);
+    --panel-line: var(--rim-more);
+  }
 }

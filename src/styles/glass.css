@@ -30,15 +30,16 @@
 
 /* The main window: one sheet of glass, like the popover (10/2026). The window
    is transparent and macOS draws its material behind all of it
-   (windows.rs); the page lays the popover's glass tint on top, and macOS
-   draws the corners, the border and the shadow. */
+   (windows.rs); the page lays the popover's glass tint on top, with the
+   theme pack's haze over it (--win-mist, none in the default look), and
+   macOS draws the corners, the border and the shadow. */
 @utility material-window {
-  background: var(--glass);
+  background: var(--win-mist), var(--glass);
   &:where([data-material="solid"], [data-material="solid"] *) {
-    background: var(--glass-solid);
+    background: var(--win-mist), var(--glass-solid);
   }
   @media (prefers-reduced-transparency: reduce) {
-    background: var(--glass-solid);
+    background: var(--win-mist), var(--glass-solid);
   }
   /* The browser preview has no macOS material: the glass blurs the desktop instead. */
   &:where(body.preview *) {
@@ -47,9 +48,10 @@
   }
 }
 
-/* The sidebar and the page lie on the window's one sheet of glass. */
+/* The sidebar and the page lie on the window's one sheet of glass; a theme
+   pack may tint the sidebar (--side-glass, transparent by default). */
 @utility material-side {
-  background: transparent;
+  background: var(--side-glass);
 }
 @utility material-main {
   background: transparent;
@@ -82,35 +84,19 @@
   }
 }
 
-/* A group in the main window: a frosted panel on the window's glass, with no
-   border or shadow. */
+/* A group in the main window: a frosted panel on the window's glass. The
+   default look draws no edge; a theme pack may (--panel-line). */
 @utility material-card {
-  background: var(--fill);
+  background: var(--panel);
+  box-shadow: inset 0 0 0 0.5px var(--panel-line);
 }
 /* Text on glass. tokens.css promises 4.5:1 for --ink3 and --accent-ink on
    solid surfaces; on the glass of the popover and the main window, its
-   frosted panels and the rows and tiles in use, they are a step stronger. */
-.qs.app-window[data-theme="light"],
-.qs.app-popover[data-theme="light"] {
-  --ink3: #5e5e63;
-  --accent-ink: #005cc0;
-}
-.qs.app-window[data-theme="dark"],
-.qs.app-popover[data-theme="dark"] {
-  --ink3: #aaaaaf;
-  --accent-ink: #6dadff;
-}
-@media not (prefers-color-scheme: dark) {
-  .qs.app-window[data-theme="auto"],
-  .qs.app-popover[data-theme="auto"] {
-    --ink3: #5e5e63;
-    --accent-ink: #005cc0;
-  }
-}
-@media (prefers-color-scheme: dark) {
-  .qs.app-window[data-theme="auto"],
-  .qs.app-popover[data-theme="auto"] {
-    --ink3: #aaaaaf;
-    --accent-ink: #6dadff;
-  }
+   frosted panels and the rows and tiles in use, they are a step stronger:
+   each look and each theme pack sets the stronger pair (--ink3-glass,
+   --accent-ink-glass). */
+.qs.app-window,
+.qs.app-popover {
+  --ink3: var(--ink3-glass);
+  --accent-ink: var(--accent-ink-glass);
 }

@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use quota_station_core::alerts::{Kind, Switches};
 use quota_station_core::settings::{
     machine_name, AutoBackup, CodexOptions, Language, Menubar, MenubarWindow, Peer, PoolAlert,
-    Settings, SkillChecks, Theme, MACHINE_NAME_MAX,
+    Settings, SkillChecks, Theme, ThemePack, MACHINE_NAME_MAX,
 };
 #[cfg(feature = "author-tools")]
 use quota_station_core::settings::{peers, PeersError, PEERS_MAX};
@@ -23,6 +23,7 @@ fn settings_round_trip_and_default_when_missing() {
         peers: vec![peer("Mac B", "mac-b"), peer("Mac C", "mac-c")],
         hide_names: true,
         theme: Theme::Dark,
+        theme_pack: ThemePack::ChieuLang,
         language: Language::En,
         menubar: Menubar::Codex,
         menubar_window: MenubarWindow::FableWeek,
@@ -102,6 +103,30 @@ fn names_show_by_default_even_where_emails_were_turned_on_or_left_off() {
         assert_eq!(s.theme, Theme::Auto, "{text}");
         assert_eq!(s.language, Language::Auto, "{text}");
     }
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn the_theme_pack_is_the_default_unless_chosen_and_an_unknown_one_reads_as_the_default() {
+    let dir = std::env::temp_dir().join(format!("qs-settings-pack-{}", std::process::id()));
+    let file = dir.join("settings.json");
+    std::fs::create_dir_all(&dir).unwrap();
+    for (text, pack) in [
+        ("{}", ThemePack::Default),
+        (r#"{ "themePack": "kinhNhip" }"#, ThemePack::KinhNhip),
+        (r#"{ "themePack": "banDieuKhien" }"#, ThemePack::BanDieuKhien),
+        (r#"{ "themePack": "aurora" }"#, ThemePack::Default),
+        (r#"{ "themePack": 3 }"#, ThemePack::Default),
+    ] {
+        std::fs::write(&file, text).unwrap();
+        assert_eq!(Settings::load(&file).theme_pack, pack, "{text}");
+    }
+    // The default is not written, so a file stays as an older version wrote it.
+    Settings::default().save(&file).unwrap();
+    assert!(!std::fs::read_to_string(&file).unwrap().contains("themePack"));
+    let s = Settings { theme_pack: ThemePack::DaiSangTinh, ..Settings::default() };
+    s.save(&file).unwrap();
+    assert!(std::fs::read_to_string(&file).unwrap().contains(r#""themePack": "daiSangTinh""#));
     let _ = std::fs::remove_dir_all(&dir);
 }
 
