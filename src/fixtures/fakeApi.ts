@@ -1242,9 +1242,9 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
         tabListeners.forEach((l) => l('agy'));
       }
       else if (action === 'env:settings') {
-        result = said('Đã mở Cài đặt', 'Ở tab Biến môi trường. App không sửa file shell.');
-        // The Rust side opens the main window on Cài đặt's Biến môi trường.
-        settingsGroup = 'env';
+        result = said('Đã mở Cài đặt', 'Ở tab Dịch vụ. App không sửa file shell.');
+        // The Rust side opens the main window on Cài đặt's Dịch vụ, the variables' card first.
+        settingsGroup = 'services';
         tab = 'settings';
         tabListeners.forEach((l) => l('settings'));
       } else if (action.startsWith('env:ignore:')) {

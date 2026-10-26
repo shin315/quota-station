@@ -653,7 +653,7 @@ Station, which does every write there.
 
 ## Variables that override a login (M14)
 
-`Cài đặt › Biến môi trường đè đăng nhập`, the Claude tab's red banner and
+`Cài đặt › Dịch vụ › Biến môi trường đè đăng nhập`, the Claude tab's red banner and
 one alert per variable say when one of eleven environment variables
 (`ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL`,
 `CLAUDE_CODE_OAUTH_TOKEN`, `CLAUDE_CONFIG_DIR`, `OPENAI_API_KEY`,

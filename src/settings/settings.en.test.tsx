@@ -58,13 +58,13 @@ describe('settings tab in English', () => {
     // The bar of tabs names the same cards.
     const bar = screen.getByRole('tablist', { name: 'Settings sections' });
     const tabs = within(bar).getAllByRole('tab').map((b) => b.textContent!);
-    expect(tabs).toEqual(['General', 'Display', 'Notifications', 'Updates', 'Services and data', 'Environment variables', 'Backup', 'Advanced']);
+    expect(tabs).toEqual(['General', 'Display', 'Notifications', 'Services', 'Advanced']);
     const show = (name: string) => fireEvent.mouseDown(within(bar).getByRole('tab', { name }));
     const titles = tabs.map((name) => {
       show(name);
-      return document.querySelector('[data-slot="card-title"]')!.textContent;
+      return Array.from(document.querySelectorAll('[data-slot="card-title"]'), (h) => h.textContent);
     });
-    expect(titles).toEqual(['General', 'Display', 'Notifications', 'Updates', 'Services and data', 'Environment variables that override sign-in', 'Backup', 'Advanced']);
+    expect(titles).toEqual([['General', 'Updates'], ['Display'], ['Notifications'], ['Services', 'Environment variables that override sign-in'], ['Advanced']]);
 
     show('General');
     expect(screen.getByText('This Mac’s name')).toBeTruthy();
@@ -72,7 +72,7 @@ describe('settings tab in English', () => {
     // No Vietnamese left in the cards' own names.
     expect(screen.queryByText('Cài đặt')).toBeNull();
     expect(screen.queryByText('Chung')).toBeNull();
-    show('Services and data');
+    show('Services');
     expect(screen.getByText('Keychain access')).toBeTruthy();
     expect(screen.getByText('Codex folder')).toBeTruthy();
     show('Display');
@@ -86,15 +86,18 @@ describe('settings tab in English', () => {
       '5-hour',
       'Week',
       'Fable week',
-      'Highest usage',
+      'Highest',
     ]);
-    expect(screen.getByRole('group', { name: 'Menu bar' })).toBeTruthy();
+    expect(screen.getByRole('group', { name: 'Service in the menu bar' })).toBeTruthy();
     show('Advanced');
     expect(screen.getByRole('switch', { name: 'Show advanced features' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Add Mac' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Update from source' })).toBeTruthy();
-    show('Updates');
+    show('General');
     expect(screen.getByRole('button', { name: 'Details: Check for skill updates' })).toBeTruthy();
+    expect(screen.getByText('Show skill updates as macOS notifications')).toBeTruthy();
+    show('Notifications');
+    expect(screen.getByText('Running-out thresholds')).toBeTruthy();
   });
 
   it('the Language row offers macOS’s language, Vietnamese and English', () => {

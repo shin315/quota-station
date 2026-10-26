@@ -15,14 +15,18 @@
 // build with the author's tools has that card (`capabilities.authorTools`).
 // The layout is settings-R2 (25/10/2026) with its groups as tabs: a bar of
 // tabs under the title that stays while the page scrolls, and under it the
-// one group picked (Chung at first), its card the page's whole width; in
+// one group picked (Chung at first), its cards the page's whole width; in
 // each card a row's name and one line on the left, its control on the right
-// (SetRow). A longer description waits behind its "Chi tiết".
+// (SetRow). A longer description waits behind its "Chi tiết". Five tabs
+// (26/10/2026): Chung (with the backup folder, and the Cập nhật card: new
+// versions and Chẩn đoán), Hiển thị, Thông báo, Dịch vụ (with the
+// variables' card) and Nâng cao.
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { RadioGroup as RadioGroupPrimitive, Tabs as TabsPrimitive } from 'radix-ui';
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Tabs as TabsPrimitive } from 'radix-ui';
 import { DiagnosticsRows, ReleaseRows } from '../release/ReleaseParts';
 import { EnvCard } from './EnvCard';
+import { ThemePicker } from './ThemePicker';
 import { SET_CTL, SetRow } from './SetRow';
 import { Card as Panel, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -33,7 +37,7 @@ import { Button, Chip, CODE, Dot, Feedback, FieldHint, LinkButton, More, Toggle 
 import { alertKinds, permissionChip, unreadText } from '../lib/alerts';
 import { authorModel, type AuthorModel } from '../lib/author';
 import type { ChipView } from '../lib/view';
-import { THEME_PACKS, type AlertKind, type AppView, type ClientStatus, type Language, type Menubar, type MenubarWindow, type Model, type Peer, type PeerTest, type SettingsGroup, type SourceView, type Theme, type ThemePack, type UpdateError } from '../lib/model';
+import type { AlertKind, AppView, ClientStatus, Language, Menubar, MenubarWindow, Model, Peer, PeerTest, SettingsGroup, SourceView, Theme, ThemePack, UpdateError } from '../lib/model';
 import { t } from '../lib/i18n';
 import { SectionGlyph, type Section } from '../components/icons';
 import type { Action, FeedbackView, PopoverView } from '../lib/view';
@@ -44,73 +48,6 @@ const themes = (): [Theme, string][] => [
   ['light', t('Sáng', 'Light')],
   ['dark', t('Tối', 'Dark')],
 ];
-
-/** The theme packs by the names the owner gave their styles; the same in both languages. */
-export const PACK_NAMES: Record<ThemePack, string> = {
-  default: 'Mặc định',
-  kinhNhip: 'Kính Nhịp',
-  daiSangTinh: 'Dải sáng tĩnh',
-  motNhipNhin: 'Một nhịp nhìn',
-  banDieuKhien: 'Bàn điều khiển',
-  chieuLang: 'Chiều lặng',
-};
-
-/**
- * Chủ đề: the theme packs, each a tile with a small picture of it drawn in
- * its own tokens (the tile carries data-pack and the look on screen), and
- * its name. Choosing one redraws every window at once.
- */
-function ThemePackRow({ model, onPick }: { model: Model; onPick(pack: ThemePack): void }) {
-  return (
-    <SetRow label={t('Chủ đề', 'Theme')} labelId="qs-pack-l" hint={t('Màu, kính và kiểu chữ của mọi cửa sổ.', 'Colours, glass and type of every window.')}>
-      <RadioGroupPrimitive.Root
-        className={cn(SET_CTL, 'grid grid-cols-3 gap-1.5')}
-        aria-labelledby="qs-pack-l"
-        value={model.themePack}
-        loop
-        onValueChange={(v) => onPick(v as ThemePack)}
-      >
-        {THEME_PACKS.map((pack) => (
-          <RadioGroupPrimitive.Item
-            key={pack}
-            value={pack}
-            className="group/pack grid cursor-pointer gap-1 rounded-lg border-0 bg-transparent p-1 text-center text-xs text-ink2 focus-visible:-outline-offset-2 data-[state=checked]:bg-sel data-[state=checked]:font-semi data-[state=checked]:text-ink"
-          >
-            <PackSwatch pack={pack} theme={model.theme} />
-            <span className="truncate">{PACK_NAMES[pack]}</span>
-          </RadioGroupPrimitive.Item>
-        ))}
-      </RadioGroupPrimitive.Root>
-    </SetRow>
-  );
-}
-
-/** A pack in small: its window ground and haze, a panel with "Aa" in its type and its accent, a bar not short and one short. */
-function PackSwatch({ pack, theme }: { pack: ThemePack; theme: Theme }) {
-  return (
-    <span
-      data-pack={pack}
-      data-theme={theme}
-      aria-hidden="true"
-      className="relative block h-[50px] overflow-hidden rounded-[7px] text-left [background:var(--win-mist),var(--glass-solid)] shadow-[inset_0_0_0_.5px_var(--glass-line)] group-data-[state=checked]/pack:shadow-[inset_0_0_0_1.5px_var(--accent)]"
-    >
-      <span className="absolute inset-1.5 grid content-between rounded-[5px] bg-(--panel) px-1.5 py-1 shadow-[inset_0_0_0_.5px_var(--panel-line)]">
-        <span className="flex items-center justify-between">
-          <span className="text-[13px]/none font-semi text-ink">Aa</span>
-          <span className="size-[7px] rounded-full bg-accent" />
-        </span>
-        <span className="grid gap-[3px]">
-          <span className="block h-[3px] overflow-hidden rounded-full bg-track">
-            <span className="block h-full w-1/2 rounded-full bg-meter-ok" />
-          </span>
-          <span className="block h-[3px] overflow-hidden rounded-full bg-track">
-            <span className="block h-full w-4/5 rounded-full bg-warn" />
-          </span>
-        </span>
-      </span>
-    </span>
-  );
-}
 
 export interface SettingsProps {
   model: Model;
@@ -194,7 +131,7 @@ function LanguageRow({ model, onPick }: { model: Model; onPick(language: Languag
     ['en', 'English'],
   ];
   return (
-    <SetRow label={t('Ngôn ngữ', 'Language')} labelId="qs-lang-l" hint={t('Theo ngôn ngữ ưu tiên của macOS cho tới khi bạn chọn.', 'Follows macOS’s preferred language until you pick one.')}>
+    <SetRow label={t('Ngôn ngữ', 'Language')} labelId="qs-lang-l">
       <Segmented className={SET_CTL} aria-labelledby="qs-lang-l">
         {options.map(([v, label]) => (
           <Segment key={v} pressed={model.language === v} onClick={() => onPick(v)}>
@@ -235,11 +172,7 @@ function MachineName({ model, onSet }: { model: Model; onSet(name: string): Prom
     if (name.trim() !== model.machine && !(await onSet(name))) setName(model.machine);
   };
   return (
-    <SetRow
-      label={t('Tên máy này', 'This Mac’s name')}
-      htmlFor="qs-name"
-      hint={t('Để trống để dùng tên trong macOS: ' + model.machineDefault + '.', 'Leave empty to use the macOS name: ' + model.machineDefault + '.')}
-    >
+    <SetRow label={t('Tên máy này', 'This Mac’s name')} htmlFor="qs-name">
       <Input
         id="qs-name"
         className={SET_CTL}
@@ -527,9 +460,16 @@ function kindHint(model: Model, kind: { kind: string; title: string; text: strin
 
 /**
  * Thông báo: whether macOS shows the cards (its own permission, apart from
- * the kinds), then each kind with "Gửi thử" and its switch.
+ * the kinds), then each kind with "Gửi thử" and its switch; alert 1's
+ * thresholds right under it.
  */
-function NotifyRows(props: { model: Model; onAction: SettingsProps['onAction']; onTest: SettingsProps['onTestAlert']; onSwitch: SettingsProps['onAlertSwitch'] }) {
+function NotifyRows(props: {
+  model: Model;
+  onAction: SettingsProps['onAction'];
+  onTest: SettingsProps['onTestAlert'];
+  onSwitch: SettingsProps['onAlertSwitch'];
+  onPool: SettingsProps['onPoolAlert'];
+}) {
   const a = props.model.alerts;
   return (
     <>
@@ -548,12 +488,15 @@ function NotifyRows(props: { model: Model; onAction: SettingsProps['onAction']; 
         <Chip chip={permissionChip(a.permission)} />
       </SetRow>
       {alertKinds(props.model).map((k) => (
-        <SetRow key={k.kind} label={k.title} hint={kindHint(props.model, k)} inline>
-          <Button disabled={a.permission === 'denied'} label={t('Gửi thử: ', 'Send a test: ') + k.title} onClick={() => props.onTest(k.kind)}>
-            {t('Gửi thử', 'Send a test')}
-          </Button>
-          <Toggle on={a.switches[k.kind]} label={k.title} onClick={() => props.onSwitch(k.kind, !a.switches[k.kind])} />
-        </SetRow>
+        <Fragment key={k.kind}>
+          <SetRow label={k.title} hint={kindHint(props.model, k)} inline>
+            <Button disabled={a.permission === 'denied'} label={t('Gửi thử: ', 'Send a test: ') + k.title} onClick={() => props.onTest(k.kind)}>
+              {t('Gửi thử', 'Send a test')}
+            </Button>
+            <Toggle on={a.switches[k.kind]} label={k.title} onClick={() => props.onSwitch(k.kind, !a.switches[k.kind])} />
+          </SetRow>
+          {k.kind === 'pool' ? <PoolAlertRow model={props.model} onSet={props.onPool} /> : null}
+        </Fragment>
       ))}
     </>
   );
@@ -812,8 +755,7 @@ function PoolAlertRow({ model, onSet }: { model: Model; onSet: SettingsProps['on
   );
   return (
     <SetRow
-      label={t('Hạn mức sắp cạn', 'Quota running out')}
-      hint={t('Thông báo 1 dùng hai ngưỡng này.', 'Notification 1 uses these two thresholds.')}
+      label={t('Ngưỡng sắp cạn', 'Running-out thresholds')}
       under={refused ? <FieldHint tone="bad">{poolRefused()[refused] ?? notSavedText(refused)}</FieldHint> : null}
     >
       <div className="flex flex-wrap items-center gap-1.5 text-sm">
@@ -842,9 +784,7 @@ function BackupFolder({ model, onSet }: { model: Model; onSet: NonNullable<Setti
     if (path.trim() === shown) return setRefused(null);
     setRefused(await onSet(path.trim()));
   };
-  const note = b.customFolder
-    ? t('Gói mới vào thư mục này. Gói cũ vẫn ở chỗ cũ.', 'New packs go to this folder. Old packs stay where they are.')
-    : t('Để trống để dùng iCloud Drive › Quota Station Agents.', 'Leave empty to use iCloud Drive › Quota Station Agents.');
+  const note = b.customFolder ? t('Gói mới vào thư mục này. Gói cũ vẫn ở chỗ cũ.', 'New packs go to this folder. Old packs stay where they are.') : null;
   return (
     <SetRow
       label={t('Thư mục sao lưu', 'Backup folder')}
@@ -976,7 +916,11 @@ function SkillChecksRows({ model, onSet }: { model: Model; onSet: NonNullable<Se
           </Segment>
         </Segmented>
       </SetRow>
-      <SetRow label={t('Báo bằng thông báo macOS', 'Show a macOS notification')} inline hint={t('Tắt thì chỉ báo ở chuông Thông báo.', 'When off, updates show only under the Notifications bell.')}>
+      <SetRow
+        label={t('Báo skill mới bằng thông báo macOS', 'Show skill updates as macOS notifications')}
+        inline
+        hint={t('Tắt thì chỉ báo ở chuông Thông báo.', 'When off, updates show only under the Notifications bell.')}
+      >
         <Toggle
           on={c.notify}
           label={t('Báo skill có bản mới bằng thông báo macOS', 'Show a macOS notification when a skill has an update')}
@@ -1011,7 +955,6 @@ export function MenubarRow({ model, onPick, layout = 'form' }: { model: Model; o
       })}
     </Segmented>
   );
-  const hint = <FieldHint className={cn(set && 'mt-0')}>{t('Tên và phần trăm đã dùng của tài khoản đang dùng.', 'Name and percent used of the account in use.')}</FieldHint>;
   const off = offs.length ? (
     <FieldHint tone="off">
       {picked
@@ -1021,16 +964,7 @@ export function MenubarRow({ model, onPick, layout = 'form' }: { model: Model; o
   ) : null;
   if (set)
     return (
-      <SetRow
-        label={t('Thanh menu', 'Menu bar')}
-        labelId="qs-menubar-l"
-        hint={
-          <>
-            {hint}
-            {off}
-          </>
-        }
-      >
+      <SetRow label={t('Dịch vụ trên thanh menu', 'Service in the menu bar')} labelId="qs-menubar-l" hint={off}>
         {control}
       </SetRow>
     );
@@ -1041,7 +975,7 @@ export function MenubarRow({ model, onPick, layout = 'form' }: { model: Model; o
       </div>
       <div>
         {control}
-        {hint}
+        <FieldHint>{t('Tên và phần trăm đã dùng của tài khoản đang dùng.', 'Name and percent used of the account in use.')}</FieldHint>
         {off}
       </div>
     </div>
@@ -1052,7 +986,7 @@ const menubarWindows = (): [MenubarWindow, string][] => [
   ['fiveHours', t('5 giờ', '5-hour')],
   ['week', t('Tuần', 'Week')],
   ['fableWeek', t('Fable tuần', 'Fable week')],
-  ['tightest', t('Chặt nhất', 'Highest usage')],
+  ['tightest', t('Cao nhất', 'Highest')],
 ];
 
 /**
@@ -1082,7 +1016,6 @@ export function MenubarWindowRow({ model, onPick, layout = 'form' }: { model: Mo
       })}
     </Segmented>
   );
-  const hint = <FieldHint className={cn(set && 'mt-0')}>{t('Chặt nhất: hạn mức đã dùng nhiều nhất.', 'Highest usage: whichever quota is most used.')}</FieldHint>;
   const off = picked ? (
     <FieldHint tone="off">
       {t(picked.replace(/\.$/, '') + ': thanh menu hiện 5 giờ.', picked.replace(/\.$/, '') + ': the menu bar shows the 5-hour window.')}
@@ -1090,16 +1023,7 @@ export function MenubarWindowRow({ model, onPick, layout = 'form' }: { model: Mo
   ) : null;
   if (set)
     return (
-      <SetRow
-        label={t('Số trên thanh menu', 'Number in the menu bar')}
-        labelId="qs-mbwindow-l"
-        hint={
-          <>
-            {hint}
-            {off}
-          </>
-        }
-      >
+      <SetRow label={t('Số trên thanh menu', 'Number in the menu bar')} labelId="qs-mbwindow-l" hint={off}>
         {control}
       </SetRow>
     );
@@ -1110,23 +1034,21 @@ export function MenubarWindowRow({ model, onPick, layout = 'form' }: { model: Mo
       </div>
       <div>
         {control}
-        {hint}
+        <FieldHint>{t('Cao nhất: hạn mức đã dùng nhiều nhất.', 'Highest: whichever quota is most used.')}</FieldHint>
         {off}
       </div>
     </div>
   );
 }
 
-/** Each group's card: its id; the group's tab shows it. */
-const GROUPS: Record<SettingsGroup, string> = {
-  env: 'qs-set-env',
+/** Each card's id. */
+const CARDS = {
   general: 'qs-set-general',
+  updates: 'qs-set-updates',
   display: 'qs-set-display',
   notify: 'qs-set-notify',
-  updates: 'qs-set-updates',
   services: 'qs-set-services',
-  backup: 'qs-set-backup',
-  diag: 'qs-set-diag',
+  env: 'qs-set-env',
   advanced: 'qs-set-advanced',
 };
 
@@ -1235,71 +1157,16 @@ export function Settings(props: SettingsProps) {
   const keychain = model.snapshot.keychain;
   // Nâng cao is one of the author's tools: a release build has no such card.
   const author = authorModel(model);
-  const env = <EnvCard id={GROUPS.env} model={model} onAction={onAction} />;
-
-  // The cards in their order; the bar has a tab for each, in the same order.
-  const groups: { key: SettingsGroup; title: string; card: ReactNode }[] = [
-    // A variable overriding a login is something to act on: its card comes first.
-    ...(model.env.found.length ? [{ key: 'env' as const, title: t('Biến môi trường', 'Environment variables'), card: env }] : []),
-    {
-      key: 'general',
-      title: t('Chung', 'General'),
-      card: (
-        <SettingsCard id={GROUPS.general} title={t('Chung', 'General')} icon="general">
-          {onLanguage ? <LanguageRow model={model} onPick={onLanguage} /> : null}
-          <MachineName model={model} onSet={onSetMachine} />
-          <LaunchAtLogin layout="set" app={model.app} onSet={onLaunchAtLogin} onOpen={onOpenLoginItems} />
-        </SettingsCard>
-      ),
-    },
-    {
-      key: 'display',
-      title: t('Hiển thị', 'Display'),
-      card: (
-        <SettingsCard id={GROUPS.display} title={t('Hiển thị', 'Display')} icon="display">
-          <SetRow label={t('Giao diện', 'Appearance')} labelId="qs-theme-l">
-            <Segmented className={SET_CTL} aria-labelledby="qs-theme-l">
-              {themes().map(([v, label]) => (
-                <Segment key={v} pressed={model.theme === v} onClick={() => onTheme(v)}>
-                  {label}
-                </Segment>
-              ))}
-            </Segmented>
-          </SetRow>
-          {onThemePack ? <ThemePackRow model={model} onPick={onThemePack} /> : null}
-          <SetRow label={t('Hiện email', 'Show emails')} labelId="qs-email-l" inline>
-            <Toggle on={model.showNames} label={t('Hiện email', 'Show emails')} onClick={() => onShowNames(!model.showNames)} />
-          </SetRow>
-          <MenubarRow layout="set" model={model} onPick={onMenubar} />
-          <MenubarWindowRow layout="set" model={model} onPick={onMenubarWindow} />
-        </SettingsCard>
-      ),
-    },
-    {
-      key: 'notify',
-      title: t('Thông báo', 'Notifications'),
-      card: (
-        <SettingsCard id={GROUPS.notify} title={t('Thông báo', 'Notifications')} icon="notify">
-          <NotifyRows model={model} onAction={onAction} onTest={onTestAlert} onSwitch={onAlertSwitch} />
-          <PoolAlertRow model={model} onSet={onPoolAlert} />
-        </SettingsCard>
-      ),
-    },
-    {
-      key: 'updates',
-      title: t('Cập nhật', 'Updates'),
-      card: (
-        <SettingsCard id={GROUPS.updates} title={t('Cập nhật', 'Updates')} icon="updates">
-          {onReleaseChecks ? <ReleaseRows model={model} onAction={onAction} onAuto={onReleaseChecks} /> : <Version app={model.app} />}
-          {onSkillChecks ? <SkillChecksRows model={model} onSet={onSkillChecks} /> : null}
-        </SettingsCard>
-      ),
-    },
-    {
-      key: 'services',
-      title: t('Dịch vụ và nguồn số', 'Services and data'),
-      card: (
-        <SettingsCard id={GROUPS.services} title={t('Dịch vụ và nguồn số', 'Services and data')} icon="services">
+  const env = <EnvCard id={CARDS.env} model={model} onAction={onAction} />;
+  // A variable overriding a login is something to act on: while one does, its card leads Dịch vụ and Dịch vụ leads the bar.
+  const envFound = model.env.found.length > 0;
+  const services = {
+    key: 'services' as const,
+    title: t('Dịch vụ', 'Services'),
+    card: (
+      <>
+        {envFound ? env : null}
+        <SettingsCard id={CARDS.services} title={t('Dịch vụ', 'Services')} icon="services">
           <SetRow
             label={t('Quyền Keychain', 'Keychain access')}
             inline
@@ -1348,36 +1215,67 @@ export function Settings(props: SettingsProps) {
             </SetRow>
           ) : null}
         </SettingsCard>
+        {envFound ? null : env}
+      </>
+    ),
+  };
+
+  // The tabs in their order, each with its cards.
+  const groups: { key: SettingsGroup; title: string; card: ReactNode }[] = [
+    ...(envFound ? [services] : []),
+    {
+      key: 'general',
+      title: t('Chung', 'General'),
+      card: (
+        <>
+          <SettingsCard id={CARDS.general} title={t('Chung', 'General')} icon="general">
+            {onLanguage ? <LanguageRow model={model} onPick={onLanguage} /> : null}
+            <MachineName model={model} onSet={onSetMachine} />
+            <LaunchAtLogin layout="set" app={model.app} onSet={onLaunchAtLogin} onOpen={onOpenLoginItems} />
+            {onSetBackupFolder ? <BackupFolder model={model} onSet={onSetBackupFolder} /> : null}
+          </SettingsCard>
+          <SettingsCard id={CARDS.updates} title={t('Cập nhật', 'Updates')} icon="updates">
+            {onReleaseChecks ? <ReleaseRows model={model} onAction={onAction} onAuto={onReleaseChecks} /> : <Version app={model.app} />}
+            {onSkillChecks ? <SkillChecksRows model={model} onSet={onSkillChecks} /> : null}
+            {onReleaseChecks ? <DiagnosticsRows onAction={onAction} /> : null}
+          </SettingsCard>
+        </>
       ),
     },
-    ...(model.env.found.length ? [] : [{ key: 'env' as const, title: t('Biến môi trường', 'Environment variables'), card: env }]),
-    ...(onSetBackupFolder
-      ? [
-          {
-            key: 'backup' as const,
-            title: t('Sao lưu', 'Backup'),
-            card: (
-              <SettingsCard id={GROUPS.backup} title={t('Sao lưu', 'Backup')} icon="backup">
-                <BackupFolder model={model} onSet={onSetBackupFolder} />
-              </SettingsCard>
-            ),
-          },
-        ]
-      : []),
-    ...(onReleaseChecks
-      ? [
-          {
-            key: 'diag' as const,
-            title: t('Chẩn đoán', 'Diagnostics'),
-            card: (
-              <SettingsCard id={GROUPS.diag} title={t('Chẩn đoán', 'Diagnostics')} icon="diag">
-                <DiagnosticsRows onAction={onAction} />
-              </SettingsCard>
-            ),
-          },
-        ]
-      : []),
-    ...(author ? [{ key: 'advanced' as const, title: t('Nâng cao', 'Advanced'), card: <Advanced {...props} model={author} id={GROUPS.advanced} /> }] : []),
+    {
+      key: 'display',
+      title: t('Hiển thị', 'Display'),
+      card: (
+        <SettingsCard id={CARDS.display} title={t('Hiển thị', 'Display')} icon="display">
+          <SetRow label={t('Giao diện', 'Appearance')} labelId="qs-theme-l">
+            <Segmented className={SET_CTL} aria-labelledby="qs-theme-l">
+              {themes().map(([v, label]) => (
+                <Segment key={v} pressed={model.theme === v} onClick={() => onTheme(v)}>
+                  {label}
+                </Segment>
+              ))}
+            </Segmented>
+          </SetRow>
+          {onThemePack ? <ThemePicker value={model.themePack} theme={model.theme} onPick={onThemePack} /> : null}
+          <SetRow label={t('Hiện email', 'Show emails')} labelId="qs-email-l" inline>
+            <Toggle on={model.showNames} label={t('Hiện email', 'Show emails')} onClick={() => onShowNames(!model.showNames)} />
+          </SetRow>
+          <MenubarRow layout="set" model={model} onPick={onMenubar} />
+          <MenubarWindowRow layout="set" model={model} onPick={onMenubarWindow} />
+        </SettingsCard>
+      ),
+    },
+    {
+      key: 'notify',
+      title: t('Thông báo', 'Notifications'),
+      card: (
+        <SettingsCard id={CARDS.notify} title={t('Thông báo', 'Notifications')} icon="notify">
+          <NotifyRows model={model} onAction={onAction} onTest={onTestAlert} onSwitch={onAlertSwitch} onPool={onPoolAlert} />
+        </SettingsCard>
+      ),
+    },
+    ...(envFound ? [] : [services]),
+    ...(author ? [{ key: 'advanced' as const, title: t('Nâng cao', 'Advanced'), card: <Advanced {...props} model={author} id={CARDS.advanced} /> }] : []),
   ];
   // Chung unless another tab was picked, or asked for by a link from elsewhere.
   const [own, setOwn] = useState<SettingsGroup>('general');

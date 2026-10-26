@@ -1035,7 +1035,7 @@ pub enum Effect {
     },
     /// The Skills tab, where the new versions are.
     OpenSkills,
-    /// Cài đặt's Biến môi trường tab, where the variables' card is.
+    /// Cài đặt's Dịch vụ tab, where the variables' card is.
     OpenSettings,
     /// "Bỏ qua" on a variable: every place the card named.
     IgnoreEnv {
@@ -1141,8 +1141,7 @@ pub fn answer(
         );
         (Effect::OpenSkills, Some(said))
     } else if action == "env:settings" {
-        let said =
-            said(Tone::Info, "Đã mở Cài đặt", "Ở tab Biến môi trường. App không sửa file shell.");
+        let said = said(Tone::Info, "Đã mở Cài đặt", "Ở tab Dịch vụ. App không sửa file shell.");
         (Effect::OpenSettings, Some(said))
     } else if let Some(name) = action.strip_prefix("env:ignore:") {
         let said = said(

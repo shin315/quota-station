@@ -801,7 +801,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
     if (env.act(act)) return;
     if (sets.act(act)) return;
     if (act === 'env:settings') {
-      showGroup('env');
+      showGroup('services');
       return rules.guardTab(tab, 'settings', setTab);
     }
     if (act === 'settings:advanced') {

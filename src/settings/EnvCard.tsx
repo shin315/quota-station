@@ -80,7 +80,7 @@ export function useEnv(api: Api, model: Model | null, showFeedback: (fb: Feedbac
 
 export type EnvState = ReturnType<typeof useEnv>;
 
-/** `id`: in Cài đặt, the card is a region named by its title (the Biến môi trường tab's). */
+/** `id`: in Cài đặt, the card is a region named by its title (in the Dịch vụ tab). */
 export function EnvCard({ model, onAction, id }: { model: Model; onAction(act: Action): void; id?: string }) {
   const env = model.env;
   return (
