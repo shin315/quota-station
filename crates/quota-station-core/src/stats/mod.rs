@@ -21,6 +21,8 @@
 //!   without counting a line twice.
 //! - [`report`] adds the counts up for Hôm nay, 7 ngày or 30 ngày, with an
 //!   approximate split by Claude account from the switch history.
+//! - [`project`] puts the folders of one repository (its worktrees, its
+//!   clones, its subfolders) in one row of Theo dự án.
 //! - [`prices`] is the one table of API prices, for "Giá API tương đương".
 //!
 //! A line or a file in a format the app does not know is skipped and
@@ -31,6 +33,7 @@ pub mod claude_log;
 pub mod codex_log;
 pub mod index;
 pub mod prices;
+pub mod project;
 pub mod report;
 
 use serde::{Deserialize, Serialize};
