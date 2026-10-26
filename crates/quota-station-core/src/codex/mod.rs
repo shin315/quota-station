@@ -11,21 +11,27 @@
 //! owner pastes one ("Dán khoá", [`set_key`]), the provider's own key and
 //! the `base_url` that pointed at CC Switch's proxy. It backs the file
 //! up first, with the keys left out of the backup, and checks it was not
-//! changed meanwhile ([`files`]). It never writes `auth.json` (only its
-//! shape is looked at, [`login`]); the switch never writes the
+//! changed meanwhile ([`files`]). It never writes into `auth.json` (only
+//! its shape is looked at, [`login`]): a switch between ChatGPT accounts
+//! moves whole `auth.json` files between the Codex folder and each
+//! account's own folder ([`accounts`]); the switch never writes the
 //! `[mcp_servers]` list, which only the MCP tab edits
 //! ([`crate::agents::codex_mcp`]); and the custom provider's settings come
 //! from the file itself: no host, URL or key is built in. It runs `ps` and, when the
 //! owner confirms, `codex app-server daemon restart` ([`procs`]); it asks the
 //! provider's `/models` with no key to see that it answers ([`probe`]).
 
+pub mod accounts;
 pub mod config;
 pub mod files;
+pub mod import;
 pub mod log;
 pub mod login;
+pub mod platform;
 pub mod probe;
 pub mod procs;
 pub mod resume;
+pub mod wake;
 
 use std::path::{Path, PathBuf};
 
@@ -153,6 +159,11 @@ pub enum Outcome {
         target: Target,
         error: WriteError,
     },
+    /// A ChatGPT account's sign-in could not be moved: nothing changed.
+    Account {
+        target: Target,
+        refusal: accounts::Refusal,
+    },
 }
 
 /// Switches to `target`, when `config.toml` still hashes to `base_hash`
@@ -164,6 +175,100 @@ pub fn switch(
     codex_home: &Path,
     app: &AppDir,
     target: Target,
+    base_hash: Option<&str>,
+    plugins: bool,
+    now: OffsetDateTime,
+) -> Outcome {
+    switch_to(codex_home, app, target, None, None, base_hash, plugins, now)
+}
+
+/// Switches Codex to one account of the list: a ChatGPT sign-in the app
+/// keeps (`chatgpt:<n>`: its `auth.json` moves into the Codex folder, the
+/// one there back to its own folder, and `model_provider` goes when Codex
+/// went through a custom provider), or a custom provider's table id.
+/// `base_hash` is `config.toml` as the sheet showed it: when it changed
+/// since, nothing moves. Should `config.toml` fail to write after the move,
+/// the account stays signed in and Codex stays on its provider.
+pub fn use_account(
+    codex_home: &Path,
+    app: &AppDir,
+    platform: &dyn platform::Platform,
+    id: &str,
+    base_hash: Option<&str>,
+    plugins: bool,
+    now: OffsetDateTime,
+) -> Outcome {
+    let Some(number) = id.strip_prefix(accounts::CHATGPT_ID) else {
+        return switch_provider(codex_home, app, id, base_hash, plugins, now);
+    };
+    let target = Target::ChatGpt;
+    let refused = |refusal| Outcome::Account { target, refusal };
+    let Ok(number) = number.parse::<u32>() else { return refused(accounts::Refusal::Unknown) };
+    if number == 0 {
+        // Codex's own sign-in, which the app could not list (the Keychain
+        // keeps it): only the provider changes.
+        return switch(codex_home, app, target, base_hash, plugins, now);
+    }
+    let (on_provider, kept_in) = match read_bytes(&codex_home.join(CONFIG)) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => (false, config::AuthStore::File),
+        Err(e) => return Outcome::Invalid { target, detail: e.to_string() },
+        Ok(bytes) => {
+            if base_hash.is_some_and(|b| b != files::sha256(&bytes)) {
+                return Outcome::Failed { target, error: WriteError::Changed };
+            }
+            let Ok(text) = std::str::from_utf8(&bytes) else {
+                return Outcome::Invalid { target, detail: "not UTF-8".into() };
+            };
+            match config::parse(text, files::load(app).last_custom.as_deref()) {
+                Ok(p) => (p.current() != config::Current::ChatGpt, p.store),
+                Err(detail) => return Outcome::Invalid { target, detail },
+            }
+        }
+    };
+    let store = accounts::Store::new(app, codex_home, platform);
+    let before = store
+        .list(now)
+        .ok()
+        .and_then(|l| l.into_iter().find(|a| a.place == accounts::Place::Home))
+        .map(|a| format!("{}{}", accounts::CHATGPT_ID, a.entry.number));
+    let moved = match store.switch(number, kept_in == config::AuthStore::File, now) {
+        Ok(m) => m,
+        Err(r) => return refused(r),
+    };
+    if on_provider {
+        // Back to the ChatGPT login, which is this account's now.
+        return switch_to(codex_home, app, target, None, Some(id), base_hash, plugins, now);
+    }
+    match moved {
+        accounts::Moved::Already => Outcome::Already { target },
+        accounts::Moved::Moved { .. } => {
+            let from = before.unwrap_or_else(|| provider_id(None));
+            let _ = log::append(
+                app,
+                &log::Line {
+                    at: now.unix_timestamp(),
+                    from: from.clone(),
+                    to: id.to_string(),
+                    result: "switched".into(),
+                    restarted: None,
+                    requires: None,
+                },
+            );
+            Outcome::Switched { target, from, to: id.to_string(), backup: String::new() }
+        }
+    }
+}
+
+/// [`switch`], to the provider table `provider` when given, else to the
+/// one the file and the record choose. `account`: the ChatGPT account the
+/// switch lands on, named in the log and the outcome instead of `openai`.
+#[allow(clippy::too_many_arguments)]
+fn switch_to(
+    codex_home: &Path,
+    app: &AppDir,
+    target: Target,
+    provider: Option<&str>,
+    account: Option<&str>,
     base_hash: Option<&str>,
     plugins: bool,
     now: OffsetDateTime,
@@ -187,10 +292,13 @@ pub fn switch(
         return Outcome::Invalid { target, detail: "not UTF-8".into() };
     };
     let mut record = files::load(app);
-    let parsed = match config::parse(text, record.last_custom.as_deref()) {
+    let mut parsed = match config::parse(text, record.last_custom.as_deref()) {
         Ok(p) => p,
         Err(detail) => return Outcome::Invalid { target, detail },
     };
+    if let Some(id) = provider {
+        parsed.custom = parsed.providers.iter().find(|c| c.id == id).cloned();
+    }
     let store = parsed.store;
     let login = login::check(codex_home, store);
     let plan = match config::plan(&parsed, target, login.on_disk(), plugins) {
@@ -205,7 +313,7 @@ pub fn switch(
         }
     };
     let from = provider_id(parsed.selected.as_deref());
-    let to = provider_id(plan.selector.as_deref());
+    let to = account.map(str::to_string).unwrap_or_else(|| provider_id(plan.selector.as_deref()));
     if new_text == text {
         return Outcome::Already { target };
     }
@@ -572,4 +680,228 @@ pub fn takes_key(parsed: &Parsed) -> bool {
     parsed.custom.as_ref().is_some_and(|c| {
         c.plain && matches!(c.key, KeyKind::Bearer | KeyKind::Placeholder | KeyKind::None)
     })
+}
+
+// ===== Several custom providers =====
+
+/// What "Xem trước…" of a new provider shows. Holds no key: only its hint.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderPreview {
+    /// Sent back with the add, so a file changed since is not overwritten.
+    pub hash: Option<String>,
+    /// The table's id: the name, made fit for one.
+    pub id: Option<String>,
+    /// The lines the add appends.
+    pub lines: Vec<PreviewLine>,
+    pub refusal: Option<KeyRefusal>,
+    pub detail: Option<String>,
+}
+
+/// What adding or removing a provider did. Holds no key.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
+pub enum ProviderOutcome {
+    Added { id: String, backup: String },
+    Removed { id: String, backup: String },
+    Refused { refusal: KeyRefusal },
+    Invalid { detail: String },
+    Failed { error: WriteError },
+}
+
+/// A new provider's id, its table's lines (each with whether it holds the
+/// key) and the text with it.
+type ProviderEdit = (String, Vec<(String, bool)>, String);
+
+/// The new provider's table and the text with it, or why not.
+fn provider_edit(
+    loaded: &Loaded,
+    name: &str,
+    base_url: &str,
+    key: &str,
+) -> Result<ProviderEdit, KeyOutcome> {
+    let refused = |refusal| KeyOutcome::Refused { refusal };
+    let id = config::new_provider_id(&loaded.parsed, name).map_err(refused)?;
+    let url = config::clean_url(base_url).map_err(refused)?;
+    let key = config::clean_key(key).map_err(refused)?;
+    let lines = config::provider_lines(&id, name, &url, &key);
+    let text = config::apply_add(loaded.text(), &id, &lines).map_err(|e| match e {
+        config::PatchError::Parse(detail) => KeyOutcome::Invalid { detail },
+        config::PatchError::Check(what) => KeyOutcome::Invalid { detail: format!("check: {what}") },
+    })?;
+    Ok((id, lines, text))
+}
+
+/// `config.toml` for an edit that may start a file of its own: a missing
+/// file reads as empty.
+fn load_or_empty(codex_home: &Path, record: &Record) -> Result<Loaded, KeyOutcome> {
+    match load(codex_home, record) {
+        Err(KeyOutcome::Refused { refusal: KeyRefusal::NoCustom })
+            if !codex_home.join(CONFIG).exists() =>
+        {
+            Ok(Loaded {
+                hash: files::sha256(b""),
+                parsed: config::parse("", None).map_err(|detail| KeyOutcome::Invalid { detail })?,
+                bytes: Vec::new(),
+            })
+        }
+        other => other,
+    }
+}
+
+fn provider_outcome(out: KeyOutcome) -> ProviderOutcome {
+    match out {
+        KeyOutcome::Refused { refusal } => ProviderOutcome::Refused { refusal },
+        KeyOutcome::Invalid { detail } => ProviderOutcome::Invalid { detail },
+        KeyOutcome::Failed { error } => ProviderOutcome::Failed { error },
+        _ => ProviderOutcome::Invalid { detail: "unexpected".into() },
+    }
+}
+
+/// The table a new provider `name` at `base_url` with `key` would add,
+/// the key shown only as its hint. Writes nothing.
+pub fn provider_preview(
+    codex_home: &Path,
+    app: &AppDir,
+    name: &str,
+    base_url: &str,
+    key: &str,
+) -> ProviderPreview {
+    let record = files::load(app);
+    let loaded = match load_or_empty(codex_home, &record) {
+        Ok(l) => l,
+        Err(out) => {
+            let p = preview_refused(None, out);
+            return ProviderPreview {
+                refusal: p.refusal,
+                detail: p.detail,
+                ..ProviderPreview::default()
+            };
+        }
+    };
+    let hash = Some(loaded.hash.clone());
+    match provider_edit(&loaded, name, base_url, key) {
+        Ok((id, lines, _)) => {
+            let hint = config::hint(&config::clean_key(key).unwrap_or_default());
+            let lines = lines
+                .into_iter()
+                .map(|(text, secret)| PreviewLine {
+                    op: "add",
+                    text: if secret {
+                        format!(
+                            "{} = {}",
+                            config::BEARER_KEY,
+                            toml_edit::Value::from(hint.as_str())
+                        )
+                    } else {
+                        text
+                    },
+                    secret,
+                })
+                .collect();
+            ProviderPreview { hash, id: Some(id), lines, refusal: None, detail: None }
+        }
+        Err(out) => {
+            let p = preview_refused(hash, out);
+            ProviderPreview {
+                hash: p.hash,
+                refusal: p.refusal,
+                detail: p.detail,
+                ..ProviderPreview::default()
+            }
+        }
+    }
+}
+
+/// Adds the provider as a new table at the end of `config.toml`, when the
+/// file still hashes to `base_hash` (the one the preview showed). Codex is
+/// not switched to it. Backed up first with its keys left out; logged by id.
+pub fn add_provider(
+    codex_home: &Path,
+    app: &AppDir,
+    name: &str,
+    base_url: &str,
+    key: &str,
+    base_hash: &str,
+    now: OffsetDateTime,
+) -> ProviderOutcome {
+    let mut record = files::load(app);
+    let loaded = match load_or_empty(codex_home, &record) {
+        Ok(l) => l,
+        Err(out) => return provider_outcome(out),
+    };
+    if loaded.hash != base_hash {
+        return ProviderOutcome::Failed { error: WriteError::Changed };
+    }
+    let (id, _, new_text) = match provider_edit(&loaded, name, base_url, key) {
+        Ok(e) => e,
+        Err(out) => return provider_outcome(out),
+    };
+    match write_key(codex_home, app, &mut record, &loaded, &new_text, &id, "added", now) {
+        Ok(backup) => {
+            let _ = files::save(app, &record);
+            ProviderOutcome::Added { id, backup }
+        }
+        Err(error) => ProviderOutcome::Failed { error },
+    }
+}
+
+/// Removes the provider table `id`; never the one Codex uses.
+pub fn remove_provider(
+    codex_home: &Path,
+    app: &AppDir,
+    id: &str,
+    base_hash: &str,
+    now: OffsetDateTime,
+) -> ProviderOutcome {
+    let mut record = files::load(app);
+    let loaded = match load(codex_home, &record) {
+        Ok(l) => l,
+        Err(out) => return provider_outcome(out),
+    };
+    if loaded.hash != base_hash {
+        return ProviderOutcome::Failed { error: WriteError::Changed };
+    }
+    let Some(table) = loaded.parsed.providers.iter().find(|c| c.id == id) else {
+        return ProviderOutcome::Refused { refusal: KeyRefusal::Unknown };
+    };
+    if loaded.parsed.selected.as_deref() == Some(id) {
+        return ProviderOutcome::Refused { refusal: KeyRefusal::InUse };
+    }
+    if !table.plain {
+        return ProviderOutcome::Refused { refusal: KeyRefusal::Shape };
+    }
+    let new_text = match config::apply_remove(loaded.text(), id) {
+        Ok(t) => t,
+        Err(config::PatchError::Parse(detail)) => return ProviderOutcome::Invalid { detail },
+        Err(config::PatchError::Check(what)) => {
+            return ProviderOutcome::Invalid { detail: format!("check: {what}") }
+        }
+    };
+    match write_key(codex_home, app, &mut record, &loaded, &new_text, id, "removed", now) {
+        Ok(backup) => {
+            if record.last_custom.as_deref() == Some(id) {
+                record.last_custom = None;
+            }
+            if record.key_undo.as_ref().is_some_and(|u| u.provider == id) {
+                record.key_undo = None;
+            }
+            let _ = files::save(app, &record);
+            ProviderOutcome::Removed { id: id.to_string(), backup }
+        }
+        Err(error) => ProviderOutcome::Failed { error },
+    }
+}
+
+/// Switches Codex to the provider table `id`, as [`switch`] does to the
+/// custom provider.
+pub fn switch_provider(
+    codex_home: &Path,
+    app: &AppDir,
+    id: &str,
+    base_hash: Option<&str>,
+    plugins: bool,
+    now: OffsetDateTime,
+) -> Outcome {
+    switch_to(codex_home, app, Target::Custom, Some(id), None, base_hash, plugins, now)
 }

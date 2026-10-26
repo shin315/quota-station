@@ -25,12 +25,12 @@ import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Dialog, DialogContent, DialogOverlay } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { IdMark, InUse } from '../components/accounts';
-import { Glyph, PlaceGlyph } from '../components/icons';
+import { PlaceGlyph } from '../components/icons';
 import { Banner, Button, Dot, Feedback, LinkButton, Meter, More, Skeleton, Spinner, Toggle } from '../components/parts';
 import { isGemini } from '../lib/accounts';
 import { t } from '../lib/i18n';
 import type { AutoView } from '../lib/switching';
-import type { ChatGptRowView, CodexPopView } from '../lib/codex';
+import type { CodexPopView } from '../lib/codex';
 import { bannerUnder, type Action, type CardView, type CellView, type ChipView, type FeedbackView, type GroupView, type NoteView, type NowRowView, type PopoverView, type UsedTone } from '../lib/view';
 import { ChevronIcon, MoonIcon, OpenIcon, SunIcon } from '../window/icons';
 import { bellCount } from '../alerts/Notifications';
@@ -374,30 +374,21 @@ function EmptyCard(props: { title: string; body: string; children?: ReactNode })
   );
 }
 
-/** A ChatGPT account's windows: its five hours and its week. */
-function ChatGptRows({ row }: { row: ChatGptRowView }) {
-  return (
-    <>
-      {row.cells.map((c) => (
-        <WindowRow key={c.kind} cell={c} dim={row.dim} />
-      ))}
-    </>
-  );
+/** A provider's line in place of windows: it reports no quota. */
+function ProviderLine({ sub }: { sub: string }) {
+  return <small className="block truncate text-xs text-ink2">{sub}</small>;
 }
 
 /**
- * Codex, a section like Claude's: the ChatGPT account in use (or the
- * provider Codex goes through instead), the other ChatGPT accounts behind
- * one line, then the custom API's own entry. An account or the entry opens
- * the confirmation sheet when the sheet would go there; `row.off` says the
- * switch is refused, and its note says why.
+ * Codex, a section like Claude's: the account in use (a ChatGPT sign-in with
+ * its windows, or the provider Codex goes through), then every other
+ * account, ChatGPT and custom alike, behind one line. Pressing one opens its
+ * switch sheet; one that must sign in again opens the Codex tab.
  */
 function CodexSection(props: { pop: CodexPopView; now?: NowRowView; folded: boolean; more: boolean; onFold(): void; onMore(): void; onOpen(): void; onAction(act: Action): void }) {
   const { pop } = props;
-  const active = pop.accounts.find((a) => a.active);
-  const others = pop.accounts.filter((a) => a !== active);
-  const accounts = t('Tài khoản ChatGPT', 'ChatGPT accounts');
-  const toCustom = !pop.toChatGpt && !pop.row.off;
+  const active = pop.rows.find((r) => r.active);
+  const others = pop.rows.filter((r) => r !== active);
   return (
     <section className="pb-2" aria-label="Codex">
       <SectionHead id="x" title="Codex" folded={props.folded} now={props.now} onFold={props.onFold} />
@@ -409,57 +400,33 @@ function CodexSection(props: { pop: CodexPopView; now?: NowRowView; folded: bool
                 <b className="min-w-0 truncate text-body font-semi">{active.name}</b>
                 <InUse />
               </span>
-              <ChatGptRows row={active} />
-            </div>
-          ) : pop.using ? (
-            <div className={TILE} role="group" aria-label={pop.using.name + ', ' + pop.using.sub + t(', đang dùng', ', in use') + (pop.row.head ? '. ' + pop.row.head : '')}
-              title={[pop.row.sub, pop.notes].filter(Boolean).join(' · ')}
-              data-active="true"
-            >
-              <span className="flex min-w-0 items-center gap-2">
-                <b className="min-w-0 truncate text-body font-semi">{pop.using.name}</b>
-                <InUse />
-              </span>
-              <small className="block text-xs text-ink2">{pop.using.sub}</small>
+              {active.cells ? active.cells.map((c) => <WindowRow key={c.kind} cell={c} dim={active.dim} />) : <ProviderLine sub={t('Custom API · không báo hạn mức', 'Custom API · reports no quota')} />}
             </div>
           ) : null}
           {others.length ? (
-            <Others label={accounts} count={others.length} all={!active && !pop.using} relogin={0} open={props.more} onOpen={props.onMore}>
+            <Others label="Codex" count={others.length} all={!active} relogin={others.filter((r) => r.relogin).length} open={props.more} onOpen={props.onMore}>
               {others.map((r) => {
-                const can = pop.toChatGpt && !pop.row.off && !r.off;
+                const can = r.relogin || !r.off;
+                const act: Action = r.relogin ? 'codex:tab' : `codex:use:${r.id}`;
                 return (
                   <div role="listitem" key={r.key}>
                     <button
                       type="button"
                       className={cn(OTHER_ROW, OTHER_PRESS)}
-                      aria-label={r.label + (pop.toChatGpt ? '. ' + pop.row.label : '')}
+                      aria-label={r.label}
                       aria-disabled={can ? undefined : true}
                       title={hoverOf(r.full, r.chips)}
                       data-stale={r.dim || undefined}
-                      onClick={can ? props.onOpen : undefined}
+                      onClick={can ? () => props.onAction(act) : undefined}
                     >
-                      <OtherBody name={r.name}>
-                        <ChatGptRows row={r} />
+                      <OtherBody name={r.name} relogin={r.relogin}>
+                        {r.relogin ? null : r.cells ? r.cells.map((c) => <WindowRow key={c.kind} cell={c} dim={r.dim} />) : <ProviderLine sub={r.sub} />}
                       </OtherBody>
                     </button>
                   </div>
                 );
               })}
             </Others>
-          ) : null}
-          {pop.custom ? (
-            <button
-              type="button"
-              className="group mx-2.5 mt-1 flex w-[calc(100%-20px)] cursor-pointer items-center gap-2 rounded-row border-0 bg-transparent px-[11px] py-[5px] text-left text-sm aria-disabled:cursor-default not-aria-disabled:hover:bg-fill"
-              aria-label={pop.custom.label}
-              title={pop.custom.title || undefined}
-              aria-disabled={toCustom ? undefined : true}
-              onClick={toCustom ? props.onOpen : undefined}
-            >
-              <span className="font-med text-ink2">Custom API</span>
-              <span className="min-w-0 flex-1 truncate font-med text-accent-ink group-aria-disabled:text-ink3">{pop.custom.name}</span>
-              <Glyph name="caret-right" bold className="size-[11px] text-ink3" />
-            </button>
           ) : null}
           {pop.note ? <SectionNote note={pop.note} /> : null}
           {pop.row.note ? <SectionNote note={pop.row.note} /> : null}

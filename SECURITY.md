@@ -168,10 +168,12 @@ as stale or as a sign-in to do, until the tool that owns it renews it. No
 token, header or email from a read reaches a file, a log or a window.
 
 - **Codex.** `auth.json` in the Codex folder (`~/.codex`, or the one set
-  in `Cài đặt`) is read into memory for the access token and the account
+  in `Cài đặt`), and the one in each ChatGPT account's own folder the app
+  keeps (below), is read into memory for the access token and the account
   id, which go only to `https://chatgpt.com/backend-api/wham/usage` (then
-  `…/codex/usage`), and are dropped. The file is never written and Codex's `app-server` is never
-  started.
+  `…/codex/usage`), and are dropped. An account waiting in its own folder
+  whose token's time has run out is not asked at all. No file's content is
+  ever rewritten and Codex's `app-server` is never started.
 - **Antigravity.** The app reads no Antigravity credential, and not the
   shared `gemini`/`antigravity` item. `agy -p /quota --output-format json`
   answers with agy's own login; stand-ins for `open` and `xdg-open`, which
@@ -292,10 +294,55 @@ has the design.
   switch. In it only `model_provider` and the custom provider table's
   `requires_openai_auth` change; the edit is checked before it is written,
   and any other change refuses the write.
-- It never writes `auth.json`. It reads the file into memory only to tell
-  which kind of login it holds (the names of its fields, never their
-  values), zeroes the bytes and keeps nothing. A login kept in the Keychain
-  (`cli_auth_credentials_store = "keyring"` or `"auto"`) is not looked at.
+- It never writes into `auth.json`. It reads the file into memory only to
+  tell which kind of login it holds (the names of its fields, never their
+  values) and, for a ChatGPT sign-in, who it is (the user id, workspace id,
+  email and plan in the `id_token`'s claims); it zeroes the bytes and keeps
+  nothing else. A login kept in the Keychain
+  (`cli_auth_credentials_store = "keyring"` or `"auto"`) is not looked at,
+  and then no account is switched.
+- Several ChatGPT accounts: each one the app keeps has its own folder,
+  `codex/accounts/<n>/` in the app's folder (mode 700, its `auth.json` mode
+  600, the folder kept out of Time Machine; never in a backup pack or a
+  copy to another Mac). `codex login` writes the sign-in there itself, run
+  with that new, empty folder as `CODEX_HOME`, so the Codex in use is not
+  signed out. A switch moves two whole files, the `auth.json` in the Codex
+  folder to its account's folder and the chosen one in, never over another
+  file and never as a copy: a sign-in lives in one place only, since two
+  copies would log each other out at their next renewal. The move under
+  way is noted first in `codex/accounts.json` (numbers, those ids,
+  nicknames, no token), so a switch cut short is put back. Removing an
+  account deletes its folder, after `codex logout` in it when the owner
+  ticks it.
+- "Nhập file đăng nhập (JSON)" reads Codex's `auth.json` or CLIProxyAPI's
+  `codex-*.json` from files the owner picks in the system's file picker
+  (called from Rust only: the windows have no file-dialog permission), or
+  from JSON pasted in the window, which then passes through the clipboard
+  and the window. The window gets back who each sign-in is and what
+  importing it would do, never a token. The sign-ins wait in memory ten
+  minutes at most, then go into an account's own folder as `codex login`
+  writes one (mode 600, `cli_auth_credentials_store = "file"`). Nothing is
+  sent to OpenAI and nothing is renewed; a refresh token alone is never
+  taken, since using it would sign out the place it came from. The picked
+  files are deleted only when the owner ticks it (off by default), and only
+  a file whose every sign-in is now kept.
+- "Tự đánh thức tài khoản ChatGPT", off until the owner turns it on, runs
+  Codex itself: `codex exec --ephemeral --ignore-user-config --ignore-rules
+  --sandbox read-only --json "hi"` with an account's own folder (or the
+  Codex folder, for the account in use) as `CODEX_HOME`. Codex reads and
+  renews the sign-in; the app holds no token and sends nothing of its own.
+  It runs one account at a time, never during a switch or a sign-in, at
+  most once in five hours and five times a day per account, failed runs
+  included. `codex/wake.json` keeps the settings and the runs (time,
+  account, why, result, an error without links), never the model's answer;
+  what Codex leaves in an account's folder besides its sign-in is deleted
+  after the run.
+- A new custom provider is one table added at the end of `config.toml`
+  (`name`, `base_url`, `wire_api`, `experimental_bearer_token`); removing
+  one takes out that table only, never the one in use. "Kiểm tra" sends
+  `GET <base_url>/models` without the key and then with it, to that address
+  only, following no redirect. The key typed in the window goes one way to
+  the core and comes back only as `sk-…abcd`.
 - A switch never writes `[mcp_servers]`; only the MCP tab does (M9, below).
   The switch is still the one path that changes the Codex provider: nothing
   in the MCP tab writes `model_provider` or a provider table.
@@ -319,9 +366,10 @@ has the design.
 - It never runs or opens CC Switch or reads its data: it only checks whether
   `/Applications/CC Switch.app` and `~/.cc-switch` exist.
 - The Codex tests use a temporary Codex folder filled from fixtures with
-  fake keys and fake logins, a fake `codex` that records its arguments and
-  a local server for the reachability check, which asserts it got no
-  `Authorization` header. No test reads the real Codex folder.
+  fake keys and fake logins (made-up `id_token` claims for the accounts), a
+  fake `codex` that records its arguments and a local server for the
+  reachability check, which asserts it got no `Authorization` header. No
+  test reads, switches or signs out the real Codex folder.
 
 ## The MCP tab (M9)
 

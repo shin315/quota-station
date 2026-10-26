@@ -38,20 +38,29 @@ struct Stored {
     row: Provider,
 }
 
-/// The cache of one provider in the app's folder.
+/// The cache of one provider in the app's folder, or of one of its
+/// accounts.
 #[derive(Debug, Clone)]
 pub struct Cache {
     app: AppDir,
     provider: ProviderId,
+    /// `codex-2`: one Codex account's own file.
+    name: Option<String>,
 }
 
 impl Cache {
     pub fn new(app: &AppDir, provider: ProviderId) -> Cache {
-        Cache { app: app.clone(), provider }
+        Cache { app: app.clone(), provider, name: None }
+    }
+
+    /// One account's cache, `<provider>-<account>.json`.
+    pub fn account(app: &AppDir, provider: ProviderId, account: u32) -> Cache {
+        Cache { app: app.clone(), provider, name: Some(format!("{}-{account}", provider.as_str())) }
     }
 
     fn path(&self) -> std::path::PathBuf {
-        self.app.path().join(DIR).join(format!("{}.json", self.provider.as_str()))
+        let name = self.name.as_deref().unwrap_or(self.provider.as_str());
+        self.app.path().join(DIR).join(format!("{name}.json"))
     }
 
     fn stored(&self) -> Option<Stored> {

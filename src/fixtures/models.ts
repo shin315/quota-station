@@ -19,7 +19,13 @@ import type {
   AppView,
   ClaudeAccountRow,
   ClaudeAccountsView,
+  Account,
+  CodexAccount,
+  CodexCustom,
+  CodexReach,
+  CodexTrigger,
   CodexView,
+  Line,
   FirstmateView,
   HistoryEntry,
   McpDef,
@@ -393,7 +399,7 @@ export function appFixture(over: Partial<AppView> = {}): AppView & SourceView {
  * keeps the ChatGPT login, and the app wrote the file last. No real host, key or path.
  */
 export function codexFixture(over: Partial<CodexView> = {}): CodexView {
-  return {
+  const v: CodexView = {
     home: '~/.codex',
     customHome: false,
     present: true,
@@ -442,7 +448,132 @@ export function codexFixture(over: Partial<CodexView> = {}): CodexView {
     firstSwitchAt: '2026-01-14T11:22:00Z',
     busy: null,
     openaiBaseUrl: false,
+    accounts: [],
+    accountsDir: '~/Library/Application Support/com.shin315.quota-station/codex/accounts',
+    trigger: { on: false, mode: 'daily', at: '06:00', keepAlive: true, ids: [], next: null, running: null, runs: [] },
     ...over,
+  };
+  return over.accounts ? v : { ...v, accounts: codexAccountsOf(v) };
+}
+
+/** Codex's accounts as the app lists them before any was added: the sign-in in the Codex folder and the custom table. */
+export function codexAccountsOf(v: CodexView): CodexAccount[] {
+  const out: CodexAccount[] = [];
+  if (v.login === 'chatGpt' || v.login === 'keychain')
+    out.push({ id: 'chatgpt:0', kind: 'chatgpt', name: 'ChatGPT', nickname: false, number: 0, email: null, plan: null, active: v.current === 'chatgpt', signedIn: true, login: 'ok', custom: null, reach: null, refusal: null, addedAt: null });
+  if (v.custom)
+    out.push({ id: v.custom.id, kind: 'custom', name: v.custom.name, nickname: false, number: null, email: null, plan: null, active: v.current === 'custom', signedIn: false, login: 'ok', custom: v.custom, reach: v.reach, refusal: v.refusal, addedAt: null });
+  return out;
+}
+
+const relayEu: CodexCustom = { id: 'relay_eu', name: 'relay-eu', baseUrl: 'https://eu.relay.example.com/v1', key: 'bearer', envKey: null, requiresOpenaiAuth: true, plain: true, proxy: false };
+const backupApi: CodexCustom = { id: 'backup_api', name: 'backup-api', baseUrl: 'https://api.backup.example.net/v1', key: 'bearer', envKey: null, requiresOpenaiAuth: false, plain: true, proxy: false };
+
+/** One made-up ChatGPT account's quota, as the snapshot's Codex section holds it (percent left). */
+function codexQuota(number: number, email: string, left: [number, number], resets: [string, string], fetchedAt: string, reading: Account['reading'] = 'fresh'): Account {
+  const lines: Line[] = [
+    { kind: 'session', percent: left[0], resetsAt: resets[0], pending: false, atLeast: false },
+    { kind: 'week', percent: left[1], resetsAt: resets[1], pending: false, atLeast: false },
+  ];
+  return { number, role: 'unknown', active: false, disabled: false, reading, fetchedAt, source: 'list', membership: 'unknown', leavesAt: null, lines, windows: lines, email };
+}
+
+/**
+ * Several Codex accounts on made-up data: four ChatGPT sign-ins (one in the
+ * Codex folder kept for plugins, one idle with its last reading, one that
+ * must sign in again) and three custom providers (relay in use, relay-eu,
+ * backup-api not answering).
+ */
+export function codexMany(model: Model): Model {
+  const c = model.codex;
+  const first = model.snapshot.codex.accounts[0];
+  const quota = [
+    { ...(first ?? codexQuota(1, '', [77, 59], ['2026-01-16T09:30:00.000Z', '2026-01-20T13:00:00.000Z'], '2026-01-16T07:19:00.000Z')), number: 1, email: 'lan.chatgpt1@example.com', source: 'list' as const },
+    codexQuota(2, 'lan.chatgpt2@example.com', [62, 78], ['2026-01-16T08:40:00.000Z', '2026-01-18T10:20:00.000Z'], '2026-01-16T07:17:00.000Z'),
+    codexQuota(3, 'lan.team@example.com', [4, 12], ['2026-01-14T11:55:00.000Z', '2026-01-19T08:20:00.000Z'], '2026-01-14T09:10:00.000Z', 'stale'),
+    { ...codexQuota(4, 'lan.side@example.com', [0, 0], ['', ''], '2026-01-09T09:00:00.000Z', 'noData'), lines: [], windows: [] },
+  ];
+  const reach = (ms: number) => ({ state: 'up' as const, ms, since: null, checkedAt: '2026-01-16T07:19:00Z' });
+  const on = (id: string) => (c.current === 'custom' ? c.custom?.id === id : id === 'chatgpt:1' && c.current === 'chatgpt');
+  const gpt = (n: number, email: string, plan: string, login: CodexAccount['login'], extra: Partial<CodexAccount> = {}): CodexAccount => ({
+    id: 'chatgpt:' + n,
+    kind: 'chatgpt',
+    name: email.slice(0, email.indexOf('@')),
+    nickname: false,
+    number: n,
+    email,
+    plan,
+    active: on('chatgpt:' + n),
+    signedIn: n === 1,
+    login,
+    custom: null,
+    reach: null,
+    refusal: null,
+    addedAt: n === 1 ? null : '2026-01-1' + n + 'T08:00:00Z',
+    ...extra,
+  });
+  const custom = (cu: CodexCustom, r: CodexReach, refusal: CodexView['refusal'] = null): CodexAccount => ({
+    id: cu.id,
+    kind: 'custom',
+    name: cu.name,
+    nickname: false,
+    number: null,
+    email: null,
+    plan: null,
+    active: on(cu.id),
+    signedIn: false,
+    login: 'ok',
+    custom: cu,
+    reach: r,
+    refusal,
+    addedAt: cu.id === 'custom' ? null : '2026-01-15T10:00:00Z',
+  });
+  const accounts: CodexAccount[] = [
+    gpt(1, 'lan.chatgpt1@example.com', 'Plus', 'ok'),
+    gpt(2, 'lan.chatgpt2@example.com', 'Pro', 'ok'),
+    gpt(3, 'lan.team@example.com', 'Team', 'idle'),
+    gpt(4, 'lan.side@example.com', 'Plus', 'relogin', { name: 'Tài khoản phụ', nickname: true }),
+    ...(c.custom ? [custom(c.custom, c.reach, c.refusal)] : []),
+    custom(relayEu, reach(240)),
+    custom(backupApi, { state: 'down', ms: null, since: '2026-01-16T06:52:00Z', checkedAt: '2026-01-16T07:19:00Z' }),
+  ];
+  return {
+    ...model,
+    snapshot: { ...model.snapshot, codex: { ...model.snapshot.codex, accounts: quota.map((q) => ({ ...q, active: on('chatgpt:' + q.number) })) } },
+    codex: { ...c, accounts },
+  };
+}
+
+/**
+ * "Tự đánh thức tài khoản ChatGPT" on `codexMany`'s accounts: each day at
+ * 06:00 (the Mac's time, here UTC+7), the three that sign in; this morning
+ * one opened its window, one had it open already, one opened it after a
+ * keep-alive; yesterday the side account was refused and left out since.
+ */
+export function codexTriggerFixture(on: boolean): CodexTrigger {
+  return {
+    on,
+    mode: 'daily',
+    at: '06:00',
+    keepAlive: true,
+    ids: ['chatgpt:1', 'chatgpt:2', 'chatgpt:3'],
+    next: on ? '2026-01-16T23:00:00Z' : null,
+    running: null,
+    runs: [
+      { at: '2026-01-15T23:01:10Z', id: 'chatgpt:3', why: 'daily', result: 'started', resetsAt: '2026-01-16T04:01:10Z', detail: null },
+      { at: '2026-01-15T23:00:40Z', id: 'chatgpt:2', why: 'daily', result: 'open', resetsAt: null, detail: null },
+      { at: '2026-01-15T23:00:05Z', id: 'chatgpt:1', why: 'daily', result: 'started', resetsAt: '2026-01-16T04:00:05Z', detail: null },
+      { at: '2026-01-14T23:00:30Z', id: 'chatgpt:4', why: 'daily', result: 'relogin', resetsAt: null, detail: null },
+    ],
+  };
+}
+
+/** A Codex folder with nothing in it yet: no sign-in, no provider. */
+export function codexEmpty(model: Model): Model {
+  return {
+    ...model,
+    snapshot: { ...model.snapshot, codex: { ...model.snapshot.codex, status: 'single', reason: null, accounts: [] } },
+    codex: { ...model.codex, current: 'chatgpt', custom: null, login: 'missing', config: 'missing', hash: null, refusal: { kind: 'noCustom' }, accounts: [], resume: {}, recent: [], lastWrite: null, backups: [] },
   };
 }
 

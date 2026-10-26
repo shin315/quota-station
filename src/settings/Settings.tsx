@@ -404,7 +404,7 @@ function CodexHome({ model, onSet }: { model: Model; onSet: NonNullable<Settings
       : notSavedText(refused)
     : !model.codex.present
       ? t('Không thấy thư mục Codex ở ' + model.codex.home + '.', 'No Codex folder at ' + model.codex.home + '.')
-      : t('Đọc được ✓ · app chỉ sửa config.toml ở đây khi bạn chuyển Codex.', 'Readable ✓ · the app only edits config.toml here when you switch Codex.');
+      : t('Đọc được ✓ · app chỉ sửa config.toml và dời auth.json ở đây khi bạn chuyển Codex.', 'Readable ✓ · the app only edits config.toml and moves auth.json here when you switch Codex.');
   return (
     <SetRow
       label={t('Thư mục Codex', 'Codex folder')}
@@ -429,6 +429,34 @@ function CodexHome({ model, onSet }: { model: Model; onSet: NonNullable<Settings
           if (e.key === 'Enter') void commit();
         }}
       />
+    </SetRow>
+  );
+}
+
+/** Where the Codex accounts the app keeps are, and the way to the tab that manages them. */
+function CodexAccountsRow({ model, onAction }: { model: Model; onAction: SettingsProps['onAction'] }) {
+  const all = model.codex.accounts;
+  const gpts = all.filter((a) => a.kind === 'chatgpt').length;
+  return (
+    <SetRow
+      label={t('Tài khoản Codex', 'Codex accounts')}
+      inline
+      hint={
+        <span>
+          {t(gpts + ' ChatGPT · ' + (all.length - gpts) + ' Custom API. Đăng nhập ChatGPT đang chờ nằm trong thư mục của app, chỉ bạn đọc được.', gpts + ' ChatGPT · ' + (all.length - gpts) + ' Custom API. ChatGPT sign-ins not in use stay in the app’s folder, readable only by you.')}{' '}
+          <More small about={t('Tài khoản Codex', 'Codex accounts')}>
+            <p>
+              <span className={CODE}>{model.codex.accountsDir}</span>
+              {t(
+                ': mỗi tài khoản ChatGPT một thư mục (quyền 700, file 600). Tài khoản đang đăng nhập nằm ở ' + model.codex.home + '/auth.json. Khoá Custom API nằm trong config.toml của Codex.',
+                ': one folder per ChatGPT account (mode 700, files 600). The account signed in is at ' + model.codex.home + '/auth.json. Custom API keys are in Codex’s config.toml.',
+              )}
+            </p>
+          </More>
+        </span>
+      }
+    >
+      <Button onClick={() => onAction('codex:tab')}>{t('Mở tab Codex', 'Open the Codex tab')}</Button>
     </SetRow>
   );
 }
@@ -1195,6 +1223,7 @@ export function Settings(props: SettingsProps) {
             )}
           </SetRow>
           {onSetCodexHome ? <CodexHome model={model} onSet={onSetCodexHome} /> : null}
+          {model.codex.present ? <CodexAccountsRow model={model} onAction={onAction} /> : null}
           {model.capabilities.agyAccounts && model.antigravity ? (
             <SetRow
               label={t('OAuth client Antigravity', 'Antigravity OAuth client')}

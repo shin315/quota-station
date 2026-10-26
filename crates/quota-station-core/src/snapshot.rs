@@ -664,15 +664,42 @@ fn live_agy_account(row: &Provider, generated_at: &str) -> Option<Account> {
 /// Codex's own login (`codex-home`): the one Codex itself signs in with.
 /// Its five-hour and weekly windows.
 fn codex_section(report: &Response) -> Section {
-    let mut rows = report.providers.iter().filter(|p| p.provider == "codex");
-    let first = rows.clone().next();
-    let Some(row) = rows.find(|p| p.account_keys.iter().any(|k| k == "codex-home")).or(first)
-    else {
+    let rows: Vec<&Provider> = report.providers.iter().filter(|p| p.provider == "codex").collect();
+    let is_home = |p: &Provider| p.account_keys.iter().any(|k| k == "codex-home");
+    let Some(home) = rows.iter().copied().find(|p| is_home(p)).or(rows.first().copied()) else {
         return Section::empty(SectionStatus::NotSetUp);
     };
-    if row.not_set_up {
+    if home.not_set_up && rows.len() == 1 {
         return Section::empty(SectionStatus::NotSetUp);
     }
+    // One account per ChatGPT sign-in the app keeps (`codex:<n>`); Codex's
+    // own login alone, before the app keeps any, is number 0. The one in
+    // the Codex folder is the active one.
+    // Another login's row (quota-axi reads Pi's too) is not Codex's.
+    let mut accounts: Vec<Account> = rows
+        .iter()
+        .filter_map(|row| {
+            let at_home = std::ptr::eq(*row, home);
+            let kept = row.account_keys.iter().any(|k| k.starts_with("codex:"));
+            (at_home || kept).then(|| codex_account(row, report, at_home))?
+        })
+        .collect();
+    accounts.sort_by_key(|a| a.number);
+    let mut section = if accounts.is_empty() {
+        let mut s = Section::empty(SectionStatus::Unavailable);
+        s.reason = home.state.error.clone().or_else(|| home.state.reason.clone());
+        s
+    } else {
+        let mut s = Section::empty(SectionStatus::Ok);
+        s.accounts = accounts;
+        s
+    };
+    finish(&mut section, parse_ts(&report.generated_at));
+    section
+}
+
+/// One Codex row's account, when it has the five hours or the week.
+fn codex_account(row: &Provider, report: &Response, home: bool) -> Option<Account> {
     let lines: Vec<Line> = [("five_hour", LineKind::Session), ("weekly", LineKind::Week)]
         .into_iter()
         .filter_map(|(id, kind)| {
@@ -686,35 +713,29 @@ fn codex_section(report: &Response) -> Section {
             })
         })
         .collect();
-    let mut section = if lines.is_empty() {
-        let mut s = Section::empty(SectionStatus::Unavailable);
-        s.reason = row.state.error.clone().or_else(|| row.state.reason.clone());
-        s
-    } else {
-        let mut s = Section::empty(SectionStatus::Ok);
-        s.accounts.push(Account {
-            number: 0,
-            role: Role::Unknown,
-            active: true,
-            disabled: false,
-            reading: reading(&row.state.status),
-            fetched_at: row
-                .state
-                .refreshed_at
-                .clone()
-                .or_else(|| Some(report.generated_at.clone())),
-            source: Source::Live,
-            membership: Membership::Unknown,
-            leaves_at: None,
-            windows: lines.clone(),
-            email: None,
-            org: None,
-            lines,
-        });
-        s
-    };
-    finish(&mut section, parse_ts(&report.generated_at));
-    section
+    if lines.is_empty() {
+        return None;
+    }
+    let number = row
+        .account_keys
+        .iter()
+        .find_map(|k| k.strip_prefix("codex:")?.parse::<u32>().ok())
+        .unwrap_or(0);
+    Some(Account {
+        number,
+        role: Role::Unknown,
+        active: home,
+        disabled: false,
+        reading: reading(&row.state.status),
+        fetched_at: row.state.refreshed_at.clone().or_else(|| Some(report.generated_at.clone())),
+        source: Source::Live,
+        membership: Membership::Unknown,
+        leaves_at: None,
+        windows: lines.clone(),
+        email: None,
+        org: None,
+        lines,
+    })
 }
 
 fn room_pool(pool: &RoomPool) -> Pool {

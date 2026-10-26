@@ -143,6 +143,8 @@ pub struct Parsed {
     /// `model_provider` at the top; `None` uses the ChatGPT login.
     pub selected: Option<String>,
     pub custom: Option<Custom>,
+    /// Every provider table that is not one of Codex's own, in the file's order.
+    pub providers: Vec<Custom>,
     /// Every provider table id, in the file's order.
     pub tables: Vec<String>,
     /// The active `profile`, when it sets any of the keys that pick a provider.
@@ -296,30 +298,31 @@ pub fn parse(text: &str, remembered: Option<&str>) -> Result<Parsed, String> {
         }
     }
 
-    let custom = chosen.and_then(|id| {
-        let providers = providers?;
-        let item = providers.get(&id)?;
+    let plain_root = matches!(doc.get("model_providers"), Some(Item::Table(_)));
+    let table_of = |id: &str| -> Option<Custom> {
+        let item = providers?.get(id)?;
         let table = item.as_table_like()?;
-        let key = key_kind(table);
-        if key == KeyKind::Placeholder {
-            traces.push(format!(
-                "[model_providers.{id}] experimental_bearer_token = \"{PROXY_TOKEN_PLACEHOLDER}\""
-            ));
-        }
-        let plain = matches!(doc.get("model_providers"), Some(Item::Table(_)))
-            && matches!(item, Item::Table(t) if !t.is_dotted());
         let base_url = non_empty_str(table.get("base_url"));
         Some(Custom {
-            name: non_empty_str(table.get("name")).unwrap_or_else(|| id.clone()),
+            name: non_empty_str(table.get("name")).unwrap_or_else(|| id.to_string()),
             proxy: base_url.as_deref().is_some_and(cc_switch_proxy),
             base_url,
-            key,
+            key: key_kind(table),
             env_key: non_empty_str(table.get("env_key")),
             requires_openai_auth: table_bool(table, "requires_openai_auth"),
-            plain,
-            id,
+            plain: plain_root && matches!(item, Item::Table(t) if !t.is_dotted()),
+            id: id.to_string(),
         })
-    });
+    };
+    let all: Vec<Custom> =
+        tables.iter().filter(|id| !is_built_in(id)).filter_map(|id| table_of(id)).collect();
+    let custom = chosen.and_then(|id| all.iter().find(|c| c.id == id).cloned());
+    if let Some(c) = custom.as_ref().filter(|c| c.key == KeyKind::Placeholder) {
+        traces.push(format!(
+            "[model_providers.{}] experimental_bearer_token = \"{PROXY_TOKEN_PLACEHOLDER}\"",
+            c.id
+        ));
+    }
 
     let mcp = doc
         .get("mcp_servers")
@@ -350,6 +353,7 @@ pub fn parse(text: &str, remembered: Option<&str>) -> Result<Parsed, String> {
         profile: profile(&doc),
         selected,
         custom,
+        providers: all,
         tables,
         store: store(&doc),
         mcp,
@@ -604,6 +608,13 @@ pub enum KeyRefusal {
     BadUrl,
     /// Nothing the app wrote to undo, or the file changed since.
     NoUndo,
+    /// A provider's name that cannot become a table id: empty, or one of
+    /// Codex's own.
+    Name,
+    /// The provider Codex uses now: switch away first.
+    InUse,
+    /// No provider table by that id.
+    Unknown,
 }
 
 /// The owner's paste, tidied: a key copied with the line it sat on
@@ -836,4 +847,137 @@ fn check_key(before: &str, after: &str, plan: &KeyPlan) -> Result<(), PatchError
         return Err(PatchError::Check("section"));
     }
     Ok(())
+}
+
+// ===== Several custom providers: adding and removing a table =====
+
+/// The longest provider name taken.
+const NAME_MAX: usize = 64;
+
+/// The table id for a new provider called `name`: lower case letters,
+/// digits, `-` and `_`, never one of Codex's own, and the next free one
+/// (`relay-2`) when the file has it already.
+pub fn new_provider_id(parsed: &Parsed, name: &str) -> Result<String, KeyRefusal> {
+    let name = name.trim();
+    if name.is_empty() || name.chars().count() > NAME_MAX || name.chars().any(char::is_control) {
+        return Err(KeyRefusal::Name);
+    }
+    let mut id = String::new();
+    for c in name.chars() {
+        let c = c.to_ascii_lowercase();
+        if c.is_ascii_alphanumeric() || c == '_' {
+            id.push(c);
+        } else if !id.ends_with('-') {
+            id.push('-');
+        }
+    }
+    let id = id.trim_matches('-').to_string();
+    if id.is_empty() || is_built_in(&id) || RESERVED_TABLE_IDS.contains(&id.as_str()) {
+        return Err(KeyRefusal::Name);
+    }
+    let taken = |c: &str| parsed.tables.iter().any(|t| t.eq_ignore_ascii_case(c));
+    if !taken(&id) {
+        return Ok(id);
+    }
+    (2..1000).map(|n| format!("{id}-{n}")).find(|c| !taken(c)).ok_or(KeyRefusal::Name)
+}
+
+/// The lines of a new provider's table. `key` is written as it is: the
+/// caller shows only its [`hint`].
+pub fn provider_lines(id: &str, name: &str, base_url: &str, key: &str) -> Vec<(String, bool)> {
+    vec![
+        (format!("[model_providers.{id}]"), false),
+        (format!("name = {}", quoted(name.trim())), false),
+        (format!("base_url = {}", quoted(base_url)), false),
+        ("wire_api = \"responses\"".to_string(), false),
+        (format!("{BEARER_KEY} = {}", quoted(key)), true),
+    ]
+}
+
+/// The text with the new table appended after a blank line. Every byte
+/// before stays; the result is checked.
+pub fn apply_add(text: &str, id: &str, lines: &[(String, bool)]) -> Result<String, PatchError> {
+    let mut out = text.to_string();
+    if !out.is_empty() && !out.ends_with('\n') {
+        out.push('\n');
+    }
+    if !out.is_empty() {
+        out.push('\n');
+    }
+    for (line, _) in lines {
+        out.push_str(line);
+        out.push('\n');
+    }
+    let before: DocumentMut = text
+        .parse()
+        .map_err(|e: toml_edit::TomlError| PatchError::Parse(e.message().to_string()))?;
+    let mut after: DocumentMut = out.parse().map_err(|_| PatchError::Check("parse"))?;
+    let added = after
+        .get_mut("model_providers")
+        .and_then(Item::as_table_like_mut)
+        .and_then(|p| p.remove(id))
+        .ok_or(PatchError::Check("table"))?;
+    if !added.is_table() {
+        return Err(PatchError::Check("table"));
+    }
+    if before.get("model_providers").is_none() {
+        after.remove("model_providers");
+    }
+    if before.to_string() != after.to_string() {
+        return Err(PatchError::Check("section"));
+    }
+    Ok(out)
+}
+
+/// The text without the provider table `id`: its header, its lines and the
+/// blank line before it. Only a plain table is taken out; the result is
+/// checked to differ from the original in that table alone.
+pub fn apply_remove(text: &str, id: &str) -> Result<String, PatchError> {
+    let doc = Document::parse(text).map_err(|e| PatchError::Parse(e.message().to_string()))?;
+    let table = doc
+        .as_table()
+        .get("model_providers")
+        .and_then(Item::as_table)
+        .and_then(|p| p.get(id))
+        .and_then(Item::as_table)
+        .ok_or(PatchError::Check("table"))?;
+    if table.is_dotted()
+        || table.iter().any(|(_, item)| item.is_table() || item.is_array_of_tables())
+    {
+        return Err(PatchError::Check("shape"));
+    }
+    let header = table.span().ok_or(PatchError::Check("span"))?;
+    let mut start = line_start(text, header.start);
+    let mut end = line_end(text, header.end.saturating_sub(1).max(header.start));
+    for (key, item) in table.iter() {
+        let (k, _) = table.get_key_value(key).ok_or(PatchError::Check("span"))?;
+        k.span().ok_or(PatchError::Check("span"))?;
+        end = end.max(line_end(text, item.span().ok_or(PatchError::Check("span"))?.end));
+    }
+    if text[..start].ends_with("\n\n") {
+        start -= 1;
+    } else if start == 0 && text[end..].starts_with('\n') {
+        end += 1;
+    }
+    let mut out = text.to_string();
+    out.replace_range(start..end, "");
+    let mut before: DocumentMut = text.parse().map_err(|_| PatchError::Check("parse"))?;
+    let after: DocumentMut = out.parse().map_err(|_| PatchError::Check("parse"))?;
+    if after.get("model_providers").and_then(|p| p.get(id)).is_some() {
+        return Err(PatchError::Check("table"));
+    }
+    if let Some(p) = before.get_mut("model_providers").and_then(Item::as_table_like_mut) {
+        p.remove(id);
+    }
+    let rest = |d: &DocumentMut| {
+        let mut d = d.clone();
+        if d.get("model_providers").and_then(Item::as_table_like).is_some_and(|p| p.is_empty()) {
+            d.remove("model_providers");
+        }
+        d.to_string().split_whitespace().collect::<String>()
+    };
+    if rest(&before) != rest(&after) {
+        return Err(PatchError::Check("section"));
+    }
+    Ok(out)
 }

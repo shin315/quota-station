@@ -34,11 +34,20 @@ import type {
   ClaudeAccountRow,
   ClaudeAccountsView,
   ClaudeActionDone,
+  CodexAccount,
+  CodexAccountDone,
+  CodexCustom,
+  CodexImportItem,
+  CodexImportPreview,
   CodexKeyOutcome,
   CodexKeyPreview,
+  CodexLoginFail,
   CodexOutcome,
+  CodexProviderCheck,
   CodexRestart,
   CodexTarget,
+  CodexTriggerRun,
+  Line,
   EnvFound,
   StatsSkipped,
   FirstmateView,
@@ -108,6 +117,15 @@ export interface FakeOptions {
   codexRestart?: CodexRestart;
   /** How long a Codex switch or restart takes; the preview waits to show the working sheet. */
   codexDelayMs?: number;
+  /** How a ChatGPT sign-in for a Codex account ends: `dup` signs in to an account already listed; by default it adds one. */
+  codexLoginEnd?: CodexLoginFail | 'dup';
+  /** How long a ChatGPT sign-in waits for the browser before it lands. */
+  codexLoginDelayMs?: number;
+  /** "Kiểm tra" on a new provider: no answer, or the key refused (also an address with `down` in it, a key starting `sk-bad`). */
+  codexProviderDown?: boolean;
+  codexKeyRejected?: boolean;
+  /** "Nhập file đăng nhập (JSON)": the owner closes the picker without a file. */
+  codexImportNone?: boolean;
   /** The History tab's lines; none by default. */
   history?: HistoryEntry[];
   /** What a `quota-pool.last` set in Cài đặt reads as; without it a path finds no file. */
@@ -288,6 +306,8 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
   const agy = (over: Partial<Model['antigravity']>) => ({ ...model.antigravity, ...over });
   /** Ends the waiting login: with a paste, a cancel or its own end. */
   let endLogin: ((how: 'paste' | 'cancel' | 'self') => void) | null = null;
+  /** Ends the waiting Codex sign-in: its own end, or "Thôi". */
+  let codexLoginEnd: ((how: 'self' | 'cancel') => void) | null = null;
   let lastCopy: CopyComparison | null = null;
   /** The pages "Tải và cài", "Mở trang Releases" and the bug form opened. */
   const released: string[] = [];
@@ -717,6 +737,236 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
         },
       });
       return { kind: 'undone', provider: id, backup: 'config.toml.20260116-142100' } satisfies CodexKeyOutcome;
+    },
+    codexUse: async (id, base) => {
+      const c = model.codex;
+      if (c.busy) throw 'busy';
+      const to = c.accounts.find((a) => a.id === id);
+      const target: CodexTarget = to?.kind === 'custom' ? 'custom' : 'chatGpt';
+      push({ ...model, codex: { ...c, busy: 'switching' } });
+      if (options.codexDelayMs) await new Promise((r) => setTimeout(r, options.codexDelayMs));
+      const from = c.accounts.find((a) => a.active)?.id ?? 'openai';
+      const outcome: CodexOutcome =
+        options.codexOutcome?.(target) ??
+        (!to
+          ? { kind: 'refused', target, refusal: { kind: 'noCustom' } }
+          : base !== c.hash
+            ? { kind: 'failed', target, error: { kind: 'changed' } }
+            : { kind: 'switched', target, from, to: id, backup: 'config.toml.20260116-142040' });
+      if (outcome.kind !== 'switched' || !to) {
+        push({ ...model, codex: { ...c, busy: null } });
+        return outcome;
+      }
+      const at = now().toISOString();
+      const accounts = c.accounts.map((a) => ({ ...a, active: a.id === id, signedIn: to.kind === 'chatgpt' ? a.id === id : a.signedIn }));
+      const s = model.snapshot.codex;
+      push({
+        ...model,
+        snapshot: { ...model.snapshot, codex: { ...s, accounts: s.accounts.map((q) => ({ ...q, active: to.kind === 'chatgpt' && q.number === to.number })) } },
+        codex: {
+          ...c,
+          busy: null,
+          accounts,
+          current: to.kind === 'custom' ? 'custom' : 'chatgpt',
+          custom: to.kind === 'custom' ? to.custom : c.custom,
+          reach: to.kind === 'custom' && to.reach ? to.reach : c.reach,
+          refusal: to.kind === 'custom' ? to.refusal : c.refusal,
+          login: 'chatGpt',
+          hash: c.hash + "'",
+          external: null,
+          lastWrite: { at, provider: to.kind === 'custom' ? id : 'openai', matches: true },
+          recent: [{ at, from, to: id, result: 'switched', restarted: null }, ...c.recent].slice(0, 5),
+        },
+      });
+      return outcome;
+    },
+    codexLogin: async (id, device) => {
+      const c = model.codex;
+      if (c.busy || codexLoginEnd) return { kind: 'refused', reason: 'busy' } satisfies CodexAccountDone;
+      // A device code shows while it waits, as `codex login --device-auth` prints one.
+      if (device) push({ ...model, codex: { ...model.codex, loginCode: { url: 'https://auth.openai.com/codex/device', code: 'QSFX-27K4D' } } });
+      const ended = await new Promise<'self' | 'cancel'>((resolve) => {
+        codexLoginEnd = resolve;
+        setTimeout(() => resolve('self'), options.codexLoginDelayMs ?? 0);
+      });
+      codexLoginEnd = null;
+      if (device) push({ ...model, codex: { ...model.codex, loginCode: null } });
+      if (ended === 'cancel') return { kind: 'failed', reason: 'cancelled', detail: null } satisfies CodexAccountDone;
+      const end = options.codexLoginEnd;
+      if (end === 'dup') return { kind: 'dup', id: c.accounts.find((a) => a.kind === 'chatgpt' && !a.signedIn)?.id ?? 'chatgpt:1' } satisfies CodexAccountDone;
+      if (end) return { kind: 'failed', reason: end, detail: end === 'other' ? 'exit 1: Error logging in: unexpected response' : null } satisfies CodexAccountDone;
+      const at = now().toISOString();
+      const s = model.snapshot.codex;
+      const fresh = (n: number, email: string, left: [number, number]) => {
+        const lines: Line[] = [
+          { kind: 'session', percent: left[0], resetsAt: new Date(now().getTime() + 4.5 * 3600e3).toISOString(), pending: false, atLeast: false },
+          { kind: 'week', percent: left[1], resetsAt: new Date(now().getTime() + 6 * 86400e3).toISOString(), pending: false, atLeast: false },
+        ];
+        return { number: n, role: 'unknown' as const, active: false, disabled: false, reading: 'fresh' as const, fetchedAt: at, source: 'list' as const, membership: 'unknown' as const, leavesAt: null, lines, windows: lines, email };
+      };
+      if (id) {
+        const a = c.accounts.find((x) => x.id === id);
+        if (!a) return { kind: 'failed', reason: 'other', detail: null } satisfies CodexAccountDone;
+        push({
+          ...model,
+          snapshot: { ...model.snapshot, codex: { ...s, accounts: [...s.accounts.filter((q) => q.number !== a.number), fresh(a.number ?? 0, a.email ?? '', [100, 91])] } },
+          codex: { ...c, accounts: c.accounts.map((x) => (x.id === id ? { ...x, login: 'ok' } : x)) },
+        });
+        return { kind: 'renewed', id } satisfies CodexAccountDone;
+      }
+      const n = Math.max(0, ...c.accounts.map((a) => a.number ?? 0)) + 1;
+      const email = 'lan.chatgpt' + n + '@example.com';
+      const added: CodexAccount = { id: 'chatgpt:' + n, kind: 'chatgpt', name: email.slice(0, email.indexOf('@')), nickname: false, number: n, email, plan: 'Plus', active: false, signedIn: !c.accounts.some((a) => a.signedIn), login: 'ok', custom: null, reach: null, refusal: null, addedAt: at };
+      const gpts = c.accounts.filter((a) => a.kind === 'chatgpt');
+      const rest = c.accounts.filter((a) => a.kind !== 'chatgpt');
+      push({
+        ...model,
+        snapshot: { ...model.snapshot, codex: { ...s, status: 'ok', accounts: [...s.accounts, fresh(n, email, [100, 96])] } },
+        codex: { ...c, login: 'chatGpt', accounts: [...gpts, added, ...rest] },
+      });
+      return { kind: 'added', id: added.id } satisfies CodexAccountDone;
+    },
+    codexCancelLogin: async () => {
+      codexLoginEnd?.('cancel');
+    },
+    codexReopenLogin: async () => {},
+    codexCheckProvider: async (baseUrl, key) => {
+      if (options.codexDelayMs) await new Promise((r) => setTimeout(r, 900));
+      if (!/^https?:\/\/[^\s@]+$/.test(baseUrl.trim())) return { reach: 'badUrl', ms: null, key: 'unknown', status: null } satisfies CodexProviderCheck;
+      if (options.codexProviderDown || /down/i.test(baseUrl)) return { reach: 'down', ms: null, key: 'unknown', status: null } satisfies CodexProviderCheck;
+      if (options.codexKeyRejected || key.trim().startsWith('sk-bad')) return { reach: 'up', ms: 230, key: 'rejected', status: 401 } satisfies CodexProviderCheck;
+      return { reach: 'up', ms: 210, key: 'accepted', status: 200 } satisfies CodexProviderCheck;
+    },
+    codexProviderPreview: async (name, baseUrl, key) => {
+      if (options.codexDelayMs) await new Promise((r) => setTimeout(r, 300));
+      return fakeProviderPreview(model.codex, name, baseUrl, key);
+    },
+    codexAddProvider: async (name, baseUrl, key, base) => {
+      const c = model.codex;
+      if (c.busy) return { kind: 'refused', reason: 'busy' } satisfies CodexAccountDone;
+      const p = fakeProviderPreview(c, name, baseUrl, key);
+      if (p.refusal) return { kind: 'refused', reason: p.refusal.kind === 'name' ? 'name' : p.refusal.kind === 'badUrl' ? 'badUrl' : p.refusal.kind === 'empty' ? 'empty' : 'key' } satisfies CodexAccountDone;
+      push({ ...model, codex: { ...c, busy: 'switching' } });
+      if (options.codexDelayMs) await new Promise((r) => setTimeout(r, options.codexDelayMs));
+      if (base !== c.hash) {
+        push({ ...model, codex: { ...c, busy: null } });
+        return { kind: 'refused', reason: 'changed' } satisfies CodexAccountDone;
+      }
+      const at = now().toISOString();
+      const id = providerId(name);
+      const custom: CodexCustom = { id, name: name.trim(), baseUrl: baseUrl.trim(), key: 'bearer', envKey: null, requiresOpenaiAuth: null, plain: true, proxy: false };
+      const added: CodexAccount = { id, kind: 'custom', name: name.trim(), nickname: false, number: null, email: null, plan: null, active: false, signedIn: false, login: 'ok', custom, reach: { state: 'up', ms: 210, since: null, checkedAt: at }, refusal: null, addedAt: at };
+      push({
+        ...model,
+        codex: {
+          ...c,
+          busy: null,
+          config: 'ok',
+          hash: (c.hash ?? 'h') + 'p',
+          custom: c.custom ?? custom,
+          refusal: c.custom ? c.refusal : null,
+          accounts: [...c.accounts, added],
+          backups: [at, ...c.backups].slice(0, 10),
+          recent: [{ at, from: id, to: id, result: 'added', restarted: null }, ...c.recent].slice(0, 5),
+        },
+      });
+      return { kind: 'added', id } satisfies CodexAccountDone;
+    },
+    codexRename: async (id, name) => {
+      const c = model.codex;
+      const a = c.accounts.find((x) => x.id === id);
+      if (!a) return { kind: 'refused', reason: 'changed' } satisfies CodexAccountDone;
+      const own = a.kind === 'custom' ? (a.custom?.name ?? a.id) : a.email ? a.email.slice(0, a.email.indexOf('@')) : 'ChatGPT ' + (a.number ?? '');
+      const next = name.trim();
+      push({ ...model, codex: { ...c, accounts: c.accounts.map((x) => (x.id === id ? { ...x, name: next || own, nickname: !!next } : x)) } });
+      return { kind: 'renamed', id } satisfies CodexAccountDone;
+    },
+    codexRemove: async (id, logout, base) => {
+      const c = model.codex;
+      const a = c.accounts.find((x) => x.id === id);
+      if (!a) return { kind: 'refused', reason: 'changed' } satisfies CodexAccountDone;
+      if (a.active) return { kind: 'refused', reason: 'inUse' } satisfies CodexAccountDone;
+      if (a.signedIn) return { kind: 'refused', reason: 'signedIn' } satisfies CodexAccountDone;
+      if (a.kind === 'custom' && base !== c.hash) return { kind: 'refused', reason: 'changed' } satisfies CodexAccountDone;
+      if (options.codexDelayMs) await new Promise((r) => setTimeout(r, 600));
+      const s = model.snapshot.codex;
+      const at = now().toISOString();
+      const accounts = c.accounts.filter((x) => x.id !== id);
+      const nextCustom = a.kind === 'custom' && c.custom?.id === id ? (accounts.find((x) => x.kind === 'custom')?.custom ?? null) : c.custom;
+      push({
+        ...model,
+        snapshot: a.kind === 'chatgpt' ? { ...model.snapshot, codex: { ...s, accounts: s.accounts.filter((q) => q.number !== a.number) } } : model.snapshot,
+        codex: {
+          ...c,
+          accounts,
+          custom: nextCustom,
+          hash: a.kind === 'custom' ? c.hash + 'r' : c.hash,
+          backups: a.kind === 'custom' ? [at, ...c.backups].slice(0, 10) : c.backups,
+        },
+      });
+      return { kind: 'removed', id, name: a.name, loggedOut: a.kind === 'chatgpt' && logout } satisfies CodexAccountDone;
+    },
+    codexImportPick: async () => {
+      if (options.codexImportNone) return null;
+      if (options.codexDelayMs) await new Promise((r) => setTimeout(r, 400));
+      return fakeImportPreview(model.codex);
+    },
+    codexImportText: async (text) => {
+      if (text.length > 1024 * 1024) throw 'large';
+      if (options.codexDelayMs) await new Promise((r) => setTimeout(r, 400));
+      return fakePastePreview(model.codex);
+    },
+    codexImport: async (token, removeSource) => {
+      const c = model.codex;
+      if (c.busy) return { kind: 'refused', reason: 'busy' } satisfies CodexAccountDone;
+      if (token !== IMPORT_TOKEN && token !== PASTE_TOKEN) return { kind: 'refused', reason: 'expired' } satisfies CodexAccountDone;
+      if (options.codexDelayMs) await new Promise((r) => setTimeout(r, 900));
+      const at = now().toISOString();
+      const pasted = token === PASTE_TOKEN;
+      const items = (pasted ? fakePastePreview(c) : fakeImportPreview(c)).items;
+      const s = model.snapshot.codex;
+      let n = Math.max(0, ...c.accounts.map((a) => a.number ?? 0));
+      const added: CodexAccount[] = items
+        .filter((i) => i.state === 'new')
+        .map((i) => {
+          n += 1;
+          const email = i.email ?? '';
+          return { id: 'chatgpt:' + n, kind: 'chatgpt', name: email.slice(0, email.indexOf('@')), nickname: false, number: n, email, plan: i.plan, active: false, signedIn: false, login: 'idle', custom: null, reach: null, refusal: null, addedAt: at };
+        });
+      const renewed = items.filter((i) => i.state === 'renew').map((i) => i.id ?? '');
+      const gpts = c.accounts.filter((a) => a.kind === 'chatgpt').map((a) => (renewed.includes(a.id) ? { ...a, login: 'idle' as const } : a));
+      const rest = c.accounts.filter((a) => a.kind !== 'chatgpt');
+      push({
+        ...model,
+        snapshot: { ...model.snapshot, codex: { ...s, accounts: [...s.accounts, ...added.map((a) => ({ number: a.number ?? 0, role: 'unknown' as const, active: false, disabled: false, reading: 'noData' as const, fetchedAt: at, source: 'list' as const, membership: 'unknown' as const, leavesAt: null, lines: [], windows: [], email: a.email ?? '' }))] } },
+        codex: { ...c, accounts: [...gpts, ...added, ...rest] },
+      });
+      return { kind: 'imported', ids: [...added.map((a) => a.id), ...renewed], removed: removeSource && !pasted, pasted } satisfies CodexAccountDone;
+    },
+    codexTriggerSet: async (next) => {
+      const c = model.codex;
+      if (!c.trigger) return;
+      const due = new Date(now().getTime() + 86400e3);
+      const [h, m] = next.at.split(':').map(Number);
+      due.setHours(h || 0, m || 0, 0, 0);
+      push({ ...model, codex: { ...c, trigger: { ...c.trigger, ...next, next: next.on ? (next.mode === 'daily' ? due.toISOString() : null) : null } } });
+    },
+    codexTriggerNow: async () => {
+      const first = model.codex.trigger;
+      if (!first || first.running) return;
+      for (const id of first.ids) {
+        const tr = model.codex.trigger!;
+        push({ ...model, codex: { ...model.codex, trigger: { ...tr, running: id } } });
+        await new Promise((r) => setTimeout(r, options.codexDelayMs ? 1200 : 0));
+        const a = model.codex.accounts.find((x) => x.id === id);
+        const at = now().toISOString();
+        const run: CodexTriggerRun =
+          a?.login === 'relogin'
+            ? { at, id, why: 'now', result: 'relogin', resetsAt: null, detail: null }
+            : { at, id, why: 'now', result: 'started', resetsAt: new Date(now().getTime() + 5 * 3600e3).toISOString(), detail: null };
+        const t2 = model.codex.trigger!;
+        push({ ...model, codex: { ...model.codex, trigger: { ...t2, running: null, runs: [run, ...t2.runs].slice(0, 8) } } });
+      }
     },
     setCodexPlugins: async (on) => {
       const c = model.codex;
@@ -1485,6 +1735,68 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
 }
 
 /** What the Rust side shows for "Dán khoá", on a fixture: the key only as its hint. */
+/** A provider's table id from the name the owner typed: `relay-eu` → `relay_eu`. */
+function providerId(name: string): string {
+  return name.trim().toLowerCase().replace(/[^a-z0-9_]+/g, '_').replace(/^_+|_+$/g, '') || 'provider';
+}
+
+/** The lines a new provider adds to `config.toml`, the key only as its hint. */
+const IMPORT_TOKEN = 'import-1';
+const PASTE_TOKEN = 'paste-1';
+
+/**
+ * The files "Nhập file đăng nhập (JSON)" finds on made-up data: a new
+ * CLIProxyAPI account, Codex's own auth.json for the account that must sign
+ * in again, one already here, a refresh token alone, and a file that is not
+ * a sign-in.
+ */
+export function fakeImportPreview(c: Model['codex']): CodexImportPreview {
+  const by = (email: string) => c.accounts.find((a) => a.email === email);
+  const side = c.accounts.find((a) => a.kind === 'chatgpt' && a.login === 'relogin');
+  const here = c.accounts.find((a) => a.kind === 'chatgpt' && a.login === 'ok' && a.email);
+  const items: CodexImportItem[] = [
+    by('lan.work@example.com')
+      ? { file: 'codex-lan.work@example.com-plus.json', format: 'cliproxy', email: 'lan.work@example.com', plan: 'Plus', state: 'dup', id: by('lan.work@example.com')!.id }
+      : { file: 'codex-lan.work@example.com-plus.json', format: 'cliproxy', email: 'lan.work@example.com', plan: 'Plus', state: 'new', id: null },
+    ...(side ? [{ file: 'auth.json', format: 'codex', email: side.email, plan: side.plan, state: 'renew', id: side.id } satisfies CodexImportItem] : []),
+    ...(here ? [{ file: 'codex-' + here.email + '-' + (here.plan ?? '').toLowerCase() + '.json', format: 'cliproxy', email: here.email, plan: here.plan, state: 'dup', id: here.id } satisfies CodexImportItem] : []),
+    { file: 'codex-old.team@example.com.json', format: 'cliproxy', email: 'old.team@example.com', plan: null, state: 'refreshOnly', id: null },
+    { file: 'notes.json', format: null, email: null, plan: null, state: 'broken', id: null },
+  ];
+  return { token: IMPORT_TOKEN, items };
+}
+
+/** JSON pasted in "Nhập file đăng nhập (JSON)" on made-up data: two CLIProxyAPI sign-ins, one a line. */
+export function fakePastePreview(c: Model['codex']): CodexImportPreview {
+  const files = fakeImportPreview(c).items;
+  const items = [files[0], files[3]].map((i) => ({ ...i, file: null }));
+  return { token: PASTE_TOKEN, items };
+}
+
+export function fakeProviderPreview(c: Model['codex'], name: string, baseUrl: string, key: string): CodexKeyPreview {
+  const none: CodexKeyPreview = { hash: c.hash, lines: [], refusal: null, detail: null, replaces: false, undo: null };
+  const k = key.trim().replace(/^Bearer /, '');
+  const id = providerId(name);
+  if (!name.trim() || !baseUrl.trim() || !k) return { ...none, refusal: { kind: 'empty' } };
+  if (['openai', 'ollama', 'lmstudio'].includes(id) || c.accounts.some((a) => a.id === id)) return { ...none, refusal: { kind: 'name' } };
+  if (!/^https?:\/\/[^\s@]+$/.test(baseUrl.trim())) return { ...none, refusal: { kind: 'badUrl' } };
+  if (/\s/.test(k)) return { ...none, refusal: { kind: 'notAKey' } };
+  const hint = k.length < 16 ? '••••••' : k.slice(0, 3) + '…' + k.slice(-4);
+  const requires = c.plugins && (c.login === 'chatGpt' || c.login === 'keychain');
+  return {
+    ...none,
+    lines: [
+      { op: 'gap', text: '', secret: false },
+      { op: 'add', text: '[model_providers.' + id + ']', secret: false },
+      { op: 'add', text: 'name = "' + name.trim() + '"', secret: false },
+      { op: 'add', text: 'base_url = "' + baseUrl.trim() + '"', secret: false },
+      { op: 'add', text: 'wire_api = "responses"', secret: false },
+      { op: 'add', text: 'experimental_bearer_token = "' + hint + '"', secret: true },
+      { op: 'add', text: 'requires_openai_auth = ' + requires, secret: false },
+    ],
+  };
+}
+
 export function fakeKeyPreview(c: Model['codex'], key: string, baseUrl: string | null): CodexKeyPreview {
   const none: CodexKeyPreview = { hash: c.hash, lines: [], refusal: null, detail: null, replaces: false, undo: null };
   const k = key.trim().replace(/^Bearer /, '');

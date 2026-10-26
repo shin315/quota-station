@@ -113,6 +113,68 @@ fn codex_reads_fresh_then_shows_the_last_reading_as_stale() {
     assert_eq!(std::fs::read(home.join("auth.json")).unwrap(), auth);
 }
 
+/// A made-up ChatGPT sign-in of `user`: an `id_token` naming them, an
+/// access token whose own time ends at `exp`.
+fn signed_in(user: &str, exp: i64) -> String {
+    let b64 = |v: serde_json::Value| {
+        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(v.to_string())
+    };
+    let id = format!(
+        "h.{}.s",
+        b64(json!({ "email": format!("{user}@example.com"),
+            "https://api.openai.com/auth": { "chatgpt_user_id": format!("user-{user}"), "chatgpt_account_id": format!("ws-{user}") } }))
+    );
+    let access = format!("h.{}.s", b64(json!({ "exp": exp, "who": user })));
+    json!({ "tokens": { "id_token": id, "access_token": access, "refresh_token": "fake-refresh", "account_id": format!("ws-{user}") } })
+        .to_string()
+}
+
+#[test]
+fn every_kept_codex_account_is_read_in_its_own_folder_and_a_waiting_expired_one_is_not_asked() {
+    use quota_station_core::codex::accounts::Store;
+    use quota_station_core::codex::platform::Unix;
+    let dir = temp_dir("readers-codex-accounts");
+    let app = AppDir::new(dir.join("app"));
+    let home = dir.join(".codex");
+    std::fs::create_dir_all(&home).unwrap();
+    let soon = now().unix_timestamp() + 3600;
+    std::fs::write(home.join("auth.json"), signed_in("ann", soon)).unwrap();
+    let platform = Unix::default();
+    let store = Store::new(&app, &home, &platform);
+    store.list(now()).unwrap();
+    for (user, exp) in [("bob", now().unix_timestamp() - 60), ("cat", soon)] {
+        let pending = store.begin_login().unwrap();
+        std::fs::write(pending.join("auth.json"), signed_in(user, exp)).unwrap();
+        store.finish_login(&pending, None, now()).unwrap();
+    }
+    let server = chatgpt();
+
+    let report = codex::read_accounts(
+        &app,
+        &home,
+        &platform,
+        &codex::Endpoints::fake(&server.base),
+        0,
+        now(),
+    );
+    let keys: Vec<Vec<String>> = report.providers.iter().map(|p| p.account_keys.clone()).collect();
+    assert_eq!(keys, [vec!["codex-home", "codex:1"], vec!["codex:2"], vec!["codex:3"]]);
+    let status: Vec<&str> = report.providers.iter().map(|p| p.state.status.as_str()).collect();
+    assert_eq!(status, ["fresh", "unavailable", "fresh"]);
+    assert_eq!(report.providers[1].state.error.as_deref(), Some(codex::TOKEN_EXPIRED));
+    // Two requests, one per account asked; bob's ran-out token was not sent.
+    let sent: Vec<String> =
+        server.requests().iter().filter_map(|r| r.header("chatgpt-account-id")).collect();
+    assert_eq!(sent.len(), 2);
+    assert!(!sent.contains(&"ws-bob".to_string()), "{sent:?}");
+
+    let snapshot = Snapshot::build(None, None).with_codex(Some(&report));
+    let numbers: Vec<(u32, bool)> =
+        snapshot.codex.accounts.iter().map(|a| (a.number, a.active)).collect();
+    assert_eq!(numbers, [(1, true), (3, false)]);
+    assert_eq!(snapshot.codex.status, SectionStatus::Ok);
+}
+
 #[test]
 fn an_expired_or_refused_codex_login_is_never_refreshed() {
     let dir = temp_dir("readers-codex-expired");

@@ -9,9 +9,10 @@
 // name its table in config.toml gives it, never a name built in here.
 
 import { cellOf, emailNames, type CellView } from './accounts';
+import { accountRows, type CodexAccountRowView } from './codexAccounts';
 import { age, clock, secondsSince } from './format';
 import { t } from './i18n';
-import type { CodexKeyOutcome, CodexKeyPreview, CodexKeyRefusal, CodexOutcome, CodexRefusal, CodexRestart, CodexTarget, CodexView, Model } from './model';
+import type { CodexAccountRefusal, CodexKeyOutcome, CodexKeyPreview, CodexKeyRefusal, CodexOutcome, CodexRefusal, CodexRestart, CodexTarget, CodexView, Model } from './model';
 import type { FactView } from './switching';
 import type { Action, BannerView, ChipView, FeedbackView, NoteView } from './view';
 
@@ -21,6 +22,8 @@ export const CHATGPT_ID = 'openai';
 /** Short, for chips and arrows: `ChatGPT`, or the provider's name. */
 export function shortName(v: CodexView, id: string): string {
   if (id === CHATGPT_ID) return 'ChatGPT';
+  const account = v.accounts?.find((a) => a.id === id);
+  if (account) return account.name;
   if (v.custom && id === v.custom.id) return v.custom.name;
   return id || t('không rõ', 'unknown');
 }
@@ -279,6 +282,8 @@ export function chatGptNote(model: Model): NoteView | null {
  */
 export interface CodexPopView {
   row: CodexRowView;
+  /** Every Codex account: the one in use opens the section, the others sit behind one line. */
+  rows: CodexAccountRowView[];
   accounts: ChatGptRowView[];
   /** Codex goes through a provider, not a ChatGPT account: its name and line; null on ChatGPT. */
   using: { name: string; sub: string } | null;
@@ -299,6 +304,7 @@ export function codexPopover(model: Model, now: Date): CodexPopView | null {
   const via = v.current === 'custom' && v.custom ? v.custom.name : v.current === 'other' ? currentId(v) : null;
   return {
     row,
+    rows: accountRows(model, now),
     accounts: chatGptRows(model, now),
     using: via
       ? { name: via, sub: v.current === 'other' ? t('Nhà cung cấp khác trong config.toml', 'Another provider in config.toml') : t('Custom API · không báo hạn mức', 'Custom API · reports no quota') }
@@ -348,11 +354,16 @@ export function codexBanner(model: Model, short = false): BannerView | null {
     return {
       tone: 'warn',
       title: t('Codex chưa có đăng nhập ChatGPT', 'Codex has no ChatGPT sign-in'),
-      body: t(
-        'Plugin và điều khiển từ xa của Codex App cần đăng nhập. Mở Codex App để đăng nhập; app này không đăng nhập hộ.',
-        'Codex App’s plugins and remote control need a sign-in. Open Codex App to sign in; this app does not sign in for you.',
-      ),
-      actions: [{ label: t('Hướng dẫn', 'Guide'), act: 'codex:guide:login' }],
+      body: v.accounts?.some((a) => a.kind === 'chatgpt' && a.login !== 'relogin')
+        ? t(
+            'Plugin và điều khiển từ xa của Codex App cần đăng nhập ChatGPT. Chuyển sang một tài khoản ChatGPT trong danh sách để có lại.',
+            'Codex App’s plugins and remote control need a ChatGPT sign-in. Switch to a ChatGPT account in the list to get them back.',
+          )
+        : t(
+            'Plugin và điều khiển từ xa của Codex App cần đăng nhập ChatGPT. Đăng nhập ở đây; đăng nhập nằm trong thư mục riêng cho tới khi bạn chuyển.',
+            'Codex App’s plugins and remote control need a ChatGPT sign-in. Sign in here; it stays in its own folder until you switch to it.',
+          ),
+      actions: [{ label: t('Đăng nhập ChatGPT…', 'Sign in to ChatGPT…'), act: 'codex:add' }],
     };
   }
   if (v.external) return externalBanner(v, short);
@@ -623,7 +634,9 @@ function restartLine(v: CodexView, name: string): string {
 /** After a switch. `restartNext`: the owner ticked the restart box, and the restart sheet comes next. */
 export function codexFeedback(outcome: CodexOutcome, model: Model): FeedbackView {
   const v = model.codex;
-  const to = longName(v, targetId(v, outcome.target));
+  // A ChatGPT account of the list goes by its own name.
+  const account = outcome.kind === 'switched' && v.accounts?.some((a) => a.id === outcome.to) ? shortName(v, outcome.to) : null;
+  const to = account ?? longName(v, targetId(v, outcome.target));
   const restartDaemon = () => ({ label: t('Khởi động lại tiến trình nền Codex…', 'Restart the Codex background process…'), act: 'codex:daemon' as Action });
   switch (outcome.kind) {
     case 'switched':
@@ -637,15 +650,25 @@ export function codexFeedback(outcome: CodexOutcome, model: Model): FeedbackView
       return {
         tone: '',
         title: t('Đã chuyển Codex sang ' + to, 'Switched Codex to ' + to),
-        body:
-          (hasLogin(v)
-            ? outcome.target === 'custom' && !v.plugins
-              ? t('Không dùng đăng nhập ChatGPT (plugin tắt). ', 'Not using the ChatGPT sign-in (plugins off). ')
-              : t('Vẫn giữ đăng nhập ChatGPT. ', 'The ChatGPT sign-in is kept. ')
-            : '') +
-          restartLine(v, to) +
-          t(' Bản cũ của config.toml nằm trong thư mục sao lưu.', ' The old config.toml is in the backup folder.'),
+        body: outcome.backup
+          ? (hasLogin(v)
+              ? outcome.target === 'custom' && !v.plugins
+                ? t('Không dùng đăng nhập ChatGPT (plugin tắt). ', 'Not using the ChatGPT sign-in (plugins off). ')
+                : t('Vẫn giữ đăng nhập ChatGPT. ', 'The ChatGPT sign-in is kept. ')
+              : '') +
+            restartLine(v, to) +
+            t(' Bản cũ của config.toml nằm trong thư mục sao lưu.', ' The old config.toml is in the backup folder.')
+          : // Only the two sign-ins moved: config.toml was not written.
+            t('Đăng nhập của ' + to + ' đã vào ' + v.home + ', đăng nhập trước về thư mục riêng của nó. ', to + '’s sign-in is in ' + v.home + ' now, the one before is back in its own folder. ') +
+            restartLine(v, to),
         actions: [restartDaemon(), done()],
+      };
+    case 'account':
+      return {
+        tone: 'bad',
+        title: t('Chưa chuyển Codex sang ' + to, 'Could not switch Codex to ' + to),
+        body: accountRefusalText(v, outcome.refusal) + t(NOTHING_VI, NOTHING_EN),
+        actions: [close()],
       };
     case 'already':
       return {
@@ -688,6 +711,29 @@ export function codexFeedback(outcome: CodexOutcome, model: Model): FeedbackView
           { label: t('Xem thư mục sao lưu', 'Show backup folder'), act: 'codex:backup' },
         ],
       };
+  }
+}
+
+/** Why a ChatGPT account's sign-in did not move. */
+function accountRefusalText(v: CodexView, r: CodexAccountRefusal): string {
+  switch (r.kind) {
+    case 'unknown':
+      return t('Tài khoản này không còn trong danh sách.', 'This account is no longer in the list.');
+    case 'noLogin':
+      return t('Đăng nhập của tài khoản này không còn trên máy: đăng nhập lại trước.', 'This account’s sign-in is gone from this Mac: sign it in again first.');
+    case 'inUse':
+      return t('Tài khoản này đang dùng.', 'This account is in use.');
+    case 'conflict':
+      return t('Đã có một auth.json ở chỗ đăng nhập sẽ dời tới (có thể là khoá API). App không ghi đè.', 'There is already an auth.json where the sign-in would go (maybe an API key). The app does not overwrite it.');
+    case 'keychain':
+      return t(
+        'Codex giữ đăng nhập trong Keychain (cli_auth_credentials_store trong ' + v.home + '/config.toml), nên không có file nào để dời.',
+        'Codex keeps its sign-in in the Keychain (cli_auth_credentials_store in ' + v.home + '/config.toml), so there is no file to move.',
+      );
+    case 'name':
+      return t('Tên gọi quá dài.', 'The nickname is too long.');
+    case 'io':
+      return t('Lỗi khi dời file (' + r.detail + ').', 'Moving the file failed (' + r.detail + ').');
   }
 }
 
@@ -870,6 +916,8 @@ export function keyRefusalText(v: CodexView, r: CodexKeyRefusal): string {
       );
     case 'noUndo':
       return t('Không còn gì để hoàn tác.', 'Nothing left to undo.');
+    case 'name':
+      return t('Tên này đã có, hoặc trùng tên Codex giữ riêng (openai, ollama, lmstudio).', 'This name is taken, or is one Codex reserves (openai, ollama, lmstudio).');
   }
 }
 

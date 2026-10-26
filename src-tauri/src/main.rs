@@ -41,6 +41,9 @@ mod antigravity;
 mod backup;
 mod claude;
 mod codex;
+mod codex_accounts;
+mod codex_import;
+mod codex_wake;
 mod commands;
 #[cfg(feature = "author-tools")]
 mod copy;
@@ -95,6 +98,7 @@ fn main() {
             windows::open_main(app, Tab::Overview);
         }))
         .plugin(tauri_plugin_positioner::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
@@ -126,6 +130,7 @@ fn main() {
             agy_quota::spawn(app.handle().clone(), state.clone());
             #[cfg(feature = "author-tools")]
             rules::spawn(app.handle().clone(), state.clone());
+            codex_wake::spawn(app.handle().clone(), state.clone());
             codex::spawn(app.handle().clone(), state);
             Ok(())
         })
@@ -234,6 +239,20 @@ commands![
     codex::codex_keep,
     codex::codex_check,
     codex::set_codex_home,
+    codex_accounts::codex_use,
+    codex_accounts::codex_login,
+    codex_accounts::codex_cancel_login,
+    codex_accounts::codex_reopen_login,
+    codex_accounts::codex_check_provider,
+    codex_accounts::codex_provider_preview,
+    codex_accounts::codex_add_provider,
+    codex_accounts::codex_rename,
+    codex_accounts::codex_remove,
+    codex_import::codex_import_pick,
+    codex_import::codex_import_text,
+    codex_import::codex_import,
+    codex_wake::codex_trigger_set,
+    codex_wake::codex_trigger_now,
     agents::mcp_read,
     agents::mcp_preview,
     agents::mcp_write,

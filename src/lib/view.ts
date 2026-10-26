@@ -106,7 +106,11 @@ export type CodexAction =
   | 'codex:key'
   | 'codex:undoKey'
   | 'codex:plugins:apply'
-  | 'codex:backup';
+  | 'codex:backup'
+  /** "Thêm tài khoản" for Codex, a switch to one account, a sign-in again. */
+  | 'codex:add'
+  | `codex:use:${string}`
+  | `codex:relogin:${string}`;
 
 export type RulesAction =
   | 'rules:create'

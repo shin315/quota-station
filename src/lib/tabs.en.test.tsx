@@ -8,6 +8,8 @@ import { agyLoginErrorFeedback } from '../antigravity/agyLogin';
 import { ClaudeDialogBody } from '../claude/ClaudeDialogs';
 import type { ClaudeAccountsState } from '../claude/useClaudeAccounts';
 import { CodexTab } from '../codex/CodexTab';
+import { useCodexAccounts } from '../codex/useCodexAccounts';
+import { fakeApi } from '../fixtures/fakeApi';
 import { claudeAccountsFixture, FIXTURE_NOW, fixtureModel, historyFixture, peerFixture, rotationFixture, rulesFixture } from '../fixtures/models';
 import { alertKinds, permissionChip } from './alerts';
 import { quotaLine, resultFeedback, signInChip } from './claudeAccounts';
@@ -85,14 +87,20 @@ describe('the tabs in English', () => {
   });
 
   it('the Codex tab', () => {
-    render(
-      <CodexTab model={fixtureModel('fresh')} fresh={{ tone: 'ok', text: 'now' }} feedback={null} now={FIXTURE_NOW} onAction={() => {}} onPlugins={() => {}} />,
-    );
+    const model = fixtureModel('fresh');
+    const api = fakeApi(model, 'codex').api;
+    // The tab's dialogs and ⋯ menus, as the main window gives them.
+    function Tab() {
+      const accounts = useCodexAccounts(api, model, () => {});
+      return <CodexTab model={model} fresh={{ tone: 'ok', text: 'now' }} feedback={null} now={FIXTURE_NOW} onAction={() => {}} onPlugins={() => {}} accounts={accounts} />;
+    }
+    render(<Tab />);
     expect(screen.getByRole('button', { name: 'Check again' })).toBeTruthy();
-    expect(screen.getByRole('list', { name: 'ChatGPT accounts' })).toBeTruthy();
-    expect(screen.getByRole('list', { name: 'Custom API' })).toBeTruthy();
+    expect(screen.getByRole('list', { name: 'Codex accounts' })).toBeTruthy();
     expect(screen.getAllByText('5-hour').length).toBeGreaterThan(0);
-    expect(screen.getByRole('listitem', { name: /^ChatGPT, sign-in kept on this Mac\. 5-hour used 23%/ })).toBeTruthy();
+    expect(screen.getByRole('listitem', { name: /^ChatGPT, ChatGPT · plugins use this sign-in\. 5-hour used 23%/ })).toBeTruthy();
+    expect(screen.getByRole('listitem', { name: 'relay, Custom API · relay.example.com · answers in 180 ms, in use. Reports no quota' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Add account' })).toBeTruthy();
     expect(screen.getByText('Codex on this Mac')).toBeTruthy();
   });
 });

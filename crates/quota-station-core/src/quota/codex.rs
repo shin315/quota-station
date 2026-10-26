@@ -27,6 +27,9 @@ use time::OffsetDateTime;
 
 use super::cache::{fingerprint, Cache};
 use super::{epoch_or_iso, number, text, Provider, ProviderId, Response, Window};
+use crate::app_dir::AppDir;
+use crate::codex::accounts::{Place, Store};
+use crate::codex::platform::Platform;
 
 pub const ENDPOINTS: [&str; 2] =
     ["https://chatgpt.com/backend-api/wham/usage", "https://chatgpt.com/backend-api/codex/usage"];
@@ -183,6 +186,15 @@ fn fetch(endpoints: &Endpoints, login: &Login) -> Result<Vec<Window>, Failure> {
     }
 }
 
+/// One login, taken into memory for one read.
+pub struct Held(Credential);
+
+/// Takes the login in `folder` (the Codex folder, or an account's own)
+/// into memory.
+pub fn hold(folder: &Path, now: OffsetDateTime) -> Held {
+    Held(read_login(folder, now))
+}
+
 /// Reads Codex's ChatGPT login in `codex_home`. A reading of the same login
 /// younger than `max_age` seconds answers without a request; a failed read
 /// shows the last reading as stale, unless the login is gone.
@@ -193,11 +205,76 @@ pub fn read(
     max_age: i64,
     now: OffsetDateTime,
 ) -> Response {
-    let row = |mut row: Provider| {
-        row.account_keys = vec![ACCOUNT_KEY.to_string()];
-        Response::new(now, vec![row])
+    let mut row = read_held(hold(codex_home, now), endpoints, cache, max_age, now, false);
+    row.account_keys = vec![ACCOUNT_KEY.to_string()];
+    Response::new(now, vec![row])
+}
+
+/// The key of a ChatGPT account the app keeps: `codex:<n>`.
+pub const KEPT_KEY: &str = "codex:";
+
+/// Every ChatGPT account the app keeps for `codex_home`: the one in the
+/// Codex folder (keyed `codex-home` as [`read`] has it, and `codex:<n>`),
+/// then each in its own folder (`codex:<n>`), one row each, read side by
+/// side. The sign-ins are taken into memory while nothing moves them; an
+/// account whose token ran out in its own folder is not asked (Codex renews
+/// it only when it runs there): its last reading shows as stale.
+pub fn read_accounts(
+    app: &AppDir,
+    codex_home: &Path,
+    platform: &dyn Platform,
+    endpoints: &Endpoints,
+    max_age: i64,
+    now: OffsetDateTime,
+) -> Response {
+    let store = Store::new(app, codex_home, platform);
+    let held = store.with_list(now, |list| {
+        let home = list.iter().find(|a| a.place == Place::Home).map(|a| a.entry.number);
+        let mut out = vec![(home, true, hold(codex_home, now))];
+        out.extend(list.iter().filter(|a| a.place == Place::Folder).map(|a| {
+            let n = a.entry.number;
+            (Some(n), false, hold(&store.folder(n), now))
+        }));
+        out
+    });
+    let Ok(held) = held else {
+        return read(codex_home, endpoints, &Cache::new(app, ProviderId::Codex), max_age, now);
     };
-    let login = match read_login(codex_home, now) {
+    let rows = std::thread::scope(|scope| {
+        let reads: Vec<_> = held
+            .into_iter()
+            .map(|(number, home, login)| {
+                scope.spawn(move || {
+                    let cache = match number {
+                        Some(n) => Cache::account(app, ProviderId::Codex, n),
+                        None => Cache::new(app, ProviderId::Codex),
+                    };
+                    let mut row = read_held(login, endpoints, &cache, max_age, now, !home);
+                    row.account_keys = home
+                        .then(|| ACCOUNT_KEY.to_string())
+                        .into_iter()
+                        .chain(number.map(|n| format!("{KEPT_KEY}{n}")))
+                        .collect();
+                    row
+                })
+            })
+            .collect();
+        reads.into_iter().filter_map(|r| r.join().ok()).collect()
+    });
+    Response::new(now, rows)
+}
+
+/// One login's row. `waiting`: the login waits in its own folder, so a
+/// token whose time ran out is not sent.
+fn read_held(
+    held: Held,
+    endpoints: &Endpoints,
+    cache: &Cache,
+    max_age: i64,
+    now: OffsetDateTime,
+    waiting: bool,
+) -> Provider {
+    let login = match held.0 {
         Credential::Found(login) => login,
         missing => {
             // No login to read: the last reading belongs to one that is gone.
@@ -205,21 +282,26 @@ pub fn read(
             let mut failed = Provider::failed(ProviderId::Codex, "auth_required", SIGN_IN_REQUIRED);
             // No `auth.json` at all: Codex is not set up on this Mac.
             failed.not_set_up = matches!(missing, Credential::Missing);
-            return row(failed);
+            return failed;
         }
     };
+    if waiting && login.expired {
+        return cache
+            .stale(TOKEN_EXPIRED, now)
+            .unwrap_or_else(|| Provider::failed(ProviderId::Codex, "unavailable", TOKEN_EXPIRED));
+    }
     if let Some(reused) = cache.reusable(Some(&login.fingerprint), max_age, now) {
-        return row(reused);
+        return reused;
     }
     match fetch(endpoints, &login) {
         Ok(windows) => {
             let fresh = Provider::fresh(ProviderId::Codex, windows, now);
             cache.save(&fresh, Some(&login.fingerprint));
-            row(fresh)
+            fresh
         }
         Err(Failure::Rejected) if !login.expired || !login.refreshable => {
             cache.retire();
-            row(Provider::failed(ProviderId::Codex, "auth_required", SIGN_IN_REQUIRED))
+            Provider::failed(ProviderId::Codex, "auth_required", SIGN_IN_REQUIRED)
         }
         Err(failure) => {
             let (status, error) = match failure {
@@ -230,10 +312,9 @@ pub fn read(
                 }
                 Failure::Transient(words) => ("error", words),
             };
-            match cache.stale(&error, now) {
-                Some(stale) => row(stale),
-                None => row(Provider::failed(ProviderId::Codex, status, &error)),
-            }
+            cache
+                .stale(&error, now)
+                .unwrap_or_else(|| Provider::failed(ProviderId::Codex, status, &error))
         }
     }
 }
