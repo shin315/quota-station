@@ -3,8 +3,8 @@
 
 //! What the Thống kê tab shows for a period: the totals, a column per hour
 //! (Hôm nay) or per day (7 ngày, 30 ngày) on this Mac's clock, and the
-//! counts by agent, model, Claude account and project, with what they would
-//! cost at the API prices ([`super::prices`]).
+//! counts by agent, model, Claude account and project ([`super::project`]),
+//! with what they would cost at the API prices ([`super::prices`]).
 //!
 //! The Claude account is approximate: each quarter hour goes to the account
 //! the switch history says was in use at its middle ([`Timeline`]).
@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use time::{Date, Duration, OffsetDateTime, Time, UtcOffset};
 
 use super::index::{self, Index, Skipped, BUCKET};
-use super::{prices, Agent, Tokens};
+use super::{prices, project, Agent, Tokens};
 use crate::history::{App, Cause, Entry};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -67,9 +67,10 @@ pub struct ModelRow {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectRow {
-    /// The folder's own name; empty when the logs do not say.
+    /// The repository's folder name, or the folder's own; empty when the
+    /// logs do not say.
     pub name: String,
-    /// The whole path, `~` for the home.
+    /// The whole path, `~` for the home: the repository's main checkout.
     pub path: String,
     pub tokens: u64,
 }
@@ -153,15 +154,6 @@ fn midnight(date: Date, offset: &dyn Fn(OffsetDateTime) -> UtcOffset) -> OffsetD
     naive.assume_offset(offset(naive.assume_offset(first)))
 }
 
-/// `/Users/x/Projects/web` → `~/Projects/web` for a home of `/Users/x`.
-fn show_path(path: &str, home: &Path) -> String {
-    match Path::new(path).strip_prefix(home) {
-        Ok(rest) if rest.as_os_str().is_empty() => "~".to_string(),
-        Ok(rest) => format!("~/{}", rest.display()),
-        Err(_) => path.to_string(),
-    }
-}
-
 /// The report for `period` ending `now`; `offset` is this Mac's offset at
 /// an instant ([`crate::local_time::offset_at`]).
 pub fn report(
@@ -242,17 +234,7 @@ pub fn report(
         })
         .collect();
     model_rows.sort_by(|a, b| b.total.cmp(&a.total).then_with(|| a.model.cmp(&b.model)));
-    let mut project_rows: Vec<ProjectRow> = projects
-        .into_iter()
-        .map(|(path, tokens)| ProjectRow {
-            name: Path::new(&path)
-                .file_name()
-                .map(|n| n.to_string_lossy().into_owned())
-                .unwrap_or_default(),
-            path: if path.is_empty() { String::new() } else { show_path(&path, home) },
-            tokens,
-        })
-        .collect();
+    let mut project_rows = project::rows(projects, home);
     project_rows.sort_by(|a, b| b.tokens.cmp(&a.tokens).then_with(|| a.path.cmp(&b.path)));
     let mut account_rows: Vec<AccountRow> =
         slots.into_iter().map(|(slot, tokens)| AccountRow { slot, tokens }).collect();

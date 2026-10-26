@@ -18,6 +18,7 @@ use common::temp_dir;
 use quota_station_core::app_dir::AppDir;
 use quota_station_core::history::{App, Cause, Entry, Source};
 use quota_station_core::stats::index::{self, Index, Progress, Roots};
+use quota_station_core::stats::project;
 use quota_station_core::stats::report::{self, Period, Timeline};
 use quota_station_core::stats::{claude_log, codex_log, prices, Agent, Line, Tokens};
 
@@ -515,4 +516,101 @@ fn prices_by_model_id() {
     assert!(prices::price("claude-opus-6").is_none());
     assert!(prices::price("claude-opus-4-9-20270101").is_none());
     assert!(prices::price("").is_none());
+}
+
+/// A repository's main checkout at `root`, laid out as `git init` and
+/// `git remote add origin` leave it.
+fn git_repo(root: &Path, remote: Option<&str>) {
+    std::fs::create_dir_all(root.join(".git/objects")).unwrap();
+    let mut config = "[core]\n\tbare = false\n".to_string();
+    if let Some(url) = remote {
+        config += &format!(
+            "[remote \"origin\"]\n\turl = {url}\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n"
+        );
+    }
+    std::fs::write(root.join(".git/config"), config).unwrap();
+    std::fs::write(root.join(".git/HEAD"), "ref: refs/heads/main\n").unwrap();
+}
+
+/// A worktree of the repository at `main`, as `git worktree add` leaves it:
+/// `<wt>/.git` names `.git/worktrees/<name>`, which leads back by
+/// `commondir` and lists the worktree in `gitdir`.
+fn git_worktree(main: &Path, wt: &Path, name: &str) {
+    let meta = main.join(".git/worktrees").join(name);
+    std::fs::create_dir_all(&meta).unwrap();
+    std::fs::write(meta.join("commondir"), "../..\n").unwrap();
+    std::fs::write(meta.join("gitdir"), format!("{}\n", wt.join(".git").display())).unwrap();
+    std::fs::write(meta.join("HEAD"), "0000000000000000000000000000000000000000\n").unwrap();
+    std::fs::create_dir_all(wt).unwrap();
+    std::fs::write(wt.join(".git"), format!("gitdir: {}\n", meta.display())).unwrap();
+}
+
+#[test]
+fn one_row_per_repository_however_many_folders_it_was_worked_in() {
+    let home = temp_dir("stats-projects").join("home");
+    let h = |p: &str| home.join(p);
+    // web-shop: the main checkout, a worktree (and a subfolder of it), a
+    // worktree removed after its session that git still lists, one removed
+    // and pruned, a second clone of the same remote written another way,
+    // and a worktree whose repository is gone.
+    git_repo(&h("Projects/web-shop"), Some("git@github.com:demo/web-shop.git"));
+    git_worktree(&h("Projects/web-shop"), &h(".treehouse/web-shop-1a2b3c/1/web-shop"), "web-shop");
+    std::fs::create_dir_all(h(".treehouse/web-shop-1a2b3c/1/web-shop/src")).unwrap();
+    git_worktree(&h("Projects/web-shop"), &h(".treehouse/web-shop-1a2b3c/2/wt-two"), "wt-two");
+    std::fs::remove_dir_all(h(".treehouse/web-shop-1a2b3c/2/wt-two")).unwrap();
+    git_repo(&h("Projects/fleet/projects/web-shop"), Some("https://github.com/Demo/web-shop"));
+    std::fs::create_dir_all(h("Old/web-shop")).unwrap();
+    std::fs::write(
+        h("Old/web-shop/.git"),
+        format!("gitdir: {}\n", h("Old/repo/.git/worktrees/x").display()),
+    )
+    .unwrap();
+    // notes-app: two repositories of one name, each its own row; a pruned
+    // worktree of that name cannot tell which it was.
+    git_repo(&h("Projects/notes-app"), Some("git@github.com:demo/notes-app.git"));
+    git_repo(&h("Clients/acme/notes-app"), Some("git@github.com:acme/notes-app.git"));
+    // infra: no remote, so its folder; with a worktree.
+    git_repo(&h("Projects/infra"), None);
+    git_worktree(&h("Projects/infra"), &h(".treehouse/infra-0a0b0c/1/infra"), "infra");
+    // A folder that is not git, inside a home that is.
+    std::fs::create_dir_all(h(".git")).unwrap();
+    std::fs::create_dir_all(h("Downloads/sketch")).unwrap();
+
+    let p = |s: &str| h(s).display().to_string();
+    let projects: std::collections::BTreeMap<String, u64> = [
+        (p("Projects/web-shop"), 300),
+        (p(".treehouse/web-shop-1a2b3c/1/web-shop"), 200),
+        (p(".treehouse/web-shop-1a2b3c/1/web-shop/src"), 20),
+        (p(".treehouse/web-shop-1a2b3c/2/wt-two"), 90),
+        (p(".treehouse/web-shop-1a2b3c/3/web-shop"), 60),
+        (p("Projects/fleet/projects/web-shop"), 180),
+        (p("Old/web-shop"), 5),
+        (p("Projects/notes-app"), 260),
+        (p("Clients/acme/notes-app"), 140),
+        (p(".treehouse/notes-app-9f8e7d/4/notes-app"), 30),
+        (p("Projects/infra"), 70),
+        (p(".treehouse/infra-0a0b0c/1/infra"), 45),
+        (p("Downloads/sketch"), 8),
+        (String::new(), 4),
+    ]
+    .into_iter()
+    .collect();
+    let total: u64 = projects.values().sum();
+    let mut rows = project::rows(projects, &home);
+    rows.sort_by(|a, b| b.tokens.cmp(&a.tokens).then_with(|| a.path.cmp(&b.path)));
+    let got: Vec<(&str, &str, u64)> =
+        rows.iter().map(|r| (r.name.as_str(), r.path.as_str(), r.tokens)).collect();
+    assert_eq!(
+        got,
+        [
+            ("web-shop", "~/Projects/web-shop", 300 + 200 + 20 + 90 + 60 + 180 + 5),
+            ("notes-app", "~/Projects/notes-app", 260),
+            ("notes-app", "~/Clients/acme/notes-app", 140),
+            ("infra", "~/Projects/infra", 70 + 45),
+            ("notes-app", "~/.treehouse/notes-app-9f8e7d/4/notes-app", 30),
+            ("sketch", "~/Downloads/sketch", 8),
+            ("", "", 4),
+        ]
+    );
+    assert_eq!(rows.iter().map(|r| r.tokens).sum::<u64>(), total);
 }
