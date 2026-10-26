@@ -57,7 +57,7 @@ pub struct Live {
     pub reach: Reach,
     /// Resumable sessions by provider, counted when the Codex tab opens.
     pub resume: Option<BTreeMap<String, u32>>,
-    /// `switching` or `restarting` while one runs.
+    /// `switching`, `restarting`, `importing` or `waking` while one runs.
     pub busy: Option<&'static str>,
     /// The provider id the last look saw, to notice a change made outside.
     pub seen: Option<String>,
@@ -75,6 +75,11 @@ pub struct Live {
     pub reaches: BTreeMap<String, Reach>,
     /// A ChatGPT sign-in waiting for the browser.
     pub signing: Option<Arc<Signing>>,
+    /// Sign-ins read from files or pasted, waiting for "Nhập".
+    pub import: Option<crate::codex_import::Held>,
+    /// "Tự đánh thức": its settings and runs, and the account it wakes now.
+    pub wake: quota_station_core::codex::wake::Book,
+    pub waking: Option<String>,
 }
 
 /// A ChatGPT sign-in under way (`codex login` in a folder of its own).
@@ -196,6 +201,8 @@ pub struct CodexView {
     pub accounts_dir: String,
     /// A sign-in with a device code: the page and the code to type there.
     pub login_code: Option<LoginCode>,
+    /// "Tự đánh thức tài khoản ChatGPT".
+    pub trigger: crate::codex_wake::TriggerView,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -398,6 +405,7 @@ pub fn view(inner: &Inner) -> CodexView {
             let lock = |m: &Mutex<Option<String>>| m.lock().ok().and_then(|v| v.clone());
             Some(LoginCode { url: lock(&s.link)?, code: lock(&s.code)? })
         }),
+        trigger: crate::codex_wake::view(inner),
     }
 }
 

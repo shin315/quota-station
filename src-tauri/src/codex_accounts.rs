@@ -73,13 +73,13 @@ pub struct AccountView {
 }
 
 /// `plus` → `Plus`.
-fn plan_name(plan: &str) -> String {
+pub(crate) fn plan_name(plan: &str) -> String {
     let mut c = plan.chars();
     c.next().map(|f| f.to_uppercase().chain(c).collect()).unwrap_or_default()
 }
 
 /// How a kept account's last quota read went.
-fn login_of(inner: &Inner, number: u32, place: Place) -> &'static str {
+pub(crate) fn login_of(inner: &Inner, number: u32, place: Place) -> &'static str {
     if place == Place::Missing {
         return "relogin";
     }
@@ -207,26 +207,35 @@ pub enum AccountDone {
         reason: &'static str,
         detail: Option<String>,
     },
-    /// `busy`, `inUse`, `signedIn`, `changed`, `badUrl`, `name`, `empty` or `key`.
+    /// "Nhập file đăng nhập (JSON)": the accounts added or renewed;
+    /// `removed`: every file they came from was deleted, as asked; `pasted`:
+    /// they came from text pasted in the window.
+    Imported {
+        ids: Vec<String>,
+        removed: bool,
+        pasted: bool,
+    },
+    /// `busy`, `inUse`, `signedIn`, `changed`, `badUrl`, `name`, `empty`,
+    /// `key` or `expired` (files read too long ago, or read again since).
     Refused {
         reason: &'static str,
     },
 }
 
-fn refused(reason: &'static str) -> AccountDone {
+pub(crate) fn refused(reason: &'static str) -> AccountDone {
     AccountDone::Refused { reason }
 }
 
-fn failed(reason: &'static str, detail: Option<String>) -> AccountDone {
+pub(crate) fn failed(reason: &'static str, detail: Option<String>) -> AccountDone {
     AccountDone::Failed { reason, detail }
 }
 
-fn chatgpt_number(id: &str) -> Option<u32> {
+pub(crate) fn chatgpt_number(id: &str) -> Option<u32> {
     id.strip_prefix(CHATGPT_ID)?.parse().ok()
 }
 
 /// The list read again and shown, and a quota read asked for.
-fn relist(app: &AppHandle, state: &AppState) {
+pub(crate) fn relist(app: &AppHandle, state: &AppState) {
     let (home, dir) = {
         let inner = state.lock();
         (inner.codex_home(), inner.app_dir())
@@ -393,8 +402,7 @@ fn run_login(
 ) -> Result<bool, &'static str> {
     // Codex keeps this sign-in in the folder's `auth.json`, whatever the
     // Mac's own config says.
-    std::fs::write(folder.join(codex::CONFIG), "cli_auth_credentials_store = \"file\"\n")
-        .map_err(|_| "other")?;
+    std::fs::write(folder.join(codex::CONFIG), accounts::FILE_STORE).map_err(|_| "other")?;
     let printed = File::create(folder.join(LOGIN_LOG)).map_err(|_| "other")?;
     let printed_err = printed.try_clone().map_err(|_| "other")?;
     let mut child = Command::new(codex_cli)

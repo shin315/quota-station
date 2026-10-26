@@ -147,7 +147,6 @@ impl Default for Settings {
     }
 }
 
-
 impl Book {
     /// The book kept; off and empty when there is none or it cannot be read.
     pub fn load(app: &AppDir) -> Book {

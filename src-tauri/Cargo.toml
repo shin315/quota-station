@@ -33,6 +33,8 @@ time.workspace = true
 # its own popover material behind it (window effects need transparency).
 tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
 tauri-plugin-positioner = { version = "2", features = ["tray-icon"] }
+# "Nhập file đăng nhập (JSON)": the system's own file picker, on macOS and Windows alike.
+tauri-plugin-dialog = "2"
 tauri-plugin-single-instance = "2"
 url = "2.5"
 
