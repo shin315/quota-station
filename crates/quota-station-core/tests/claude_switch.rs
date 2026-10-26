@@ -125,7 +125,7 @@ fn a_login_that_does_not_read_back_is_put_back() {
     let (mac, c2, _) = two_accounts("switch-unconfirmed");
     std::fs::write(mac.dir.join("drop-add"), "Claude Code-credentials").unwrap();
     let err = switch::switch(&mac.store, 3).unwrap_err();
-    assert!(matches!(err, SwitchError::NotConfirmed { restored: true }), "{err:?}");
+    assert!(matches!(err, SwitchError::NotConfirmed { restored: true, .. }), "{err:?}");
     assert_eq!(mac.live_credential(), Some(c2));
     assert_eq!(mac.live_email().as_deref(), Some("lan@team.example"));
 }
@@ -160,7 +160,7 @@ fn a_login_file_that_cannot_be_written_puts_the_keychain_back() {
     assert!(flag("uchg").success());
     let result = switch::switch(&mac.store, 3);
     assert!(flag("nouchg").success());
-    assert!(matches!(result, Err(SwitchError::NotConfirmed { restored: true })), "{result:?}");
+    assert!(matches!(result, Err(SwitchError::NotConfirmed { restored: true, .. })), "{result:?}");
     assert_eq!(mac.live_credential(), Some(c2.clone()));
     assert_eq!(std::fs::read_to_string(&file).unwrap(), c2);
     assert_eq!(mac.live_email().as_deref(), Some("lan@team.example"));

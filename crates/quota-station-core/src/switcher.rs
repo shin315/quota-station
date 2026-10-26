@@ -236,7 +236,7 @@ pub enum LogEvent {
     Switch {
         slot: u32,
     },
-    /// `switch to slot N failed`
+    /// `switch to slot N failed: <kind>: <cause>`
     SwitchFailed {
         slot: u32,
     },
@@ -260,7 +260,7 @@ pub fn parse_log_line(line: &str) -> LogLine {
             .and_then(|n| n.parse::<u32>().ok())
     };
     let event = if let Some(slot) = slot_after("switch to slot ") {
-        if text.ends_with(" failed") {
+        if text.starts_with(&format!("switch to slot {slot} failed")) {
             LogEvent::SwitchFailed { slot }
         } else {
             LogEvent::Switch { slot }

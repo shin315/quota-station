@@ -47,9 +47,11 @@ pub enum SwitchError {
     Io(std::io::Error),
     /// The login or the config read back is not what was written, or a
     /// write failed and they could not be put back; `restored` is false
-    /// when putting them back failed too.
+    /// when putting them back failed too. `detail` says which step, never
+    /// with a value of the login.
     NotConfirmed {
         restored: bool,
+        detail: String,
     },
 }
 
@@ -74,7 +76,9 @@ impl std::fmt::Display for SwitchError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             SwitchError::UnknownSlot => write!(f, "no such account"),
-            SwitchError::NoCredential => write!(f, "the account has no stored login"),
+            SwitchError::NoCredential => {
+                write!(f, "the account has no usable stored login (none, or expired)")
+            }
             SwitchError::Unmanaged => {
                 write!(f, "Claude Code is logged in to an account Quota Station does not keep")
             }
@@ -82,14 +86,11 @@ impl std::fmt::Display for SwitchError {
             SwitchError::Keychain(e) => write!(f, "{e}"),
             SwitchError::Store(e) => write!(f, "{e}"),
             SwitchError::Io(e) => write!(f, "{e}"),
-            SwitchError::NotConfirmed { restored: true } => {
-                write!(f, "the login did not read back as written; the old one is back")
+            SwitchError::NotConfirmed { restored: true, detail } => {
+                write!(f, "{detail}; the old login is back")
             }
-            SwitchError::NotConfirmed { restored: false } => {
-                write!(
-                    f,
-                    "the login did not read back as written, and putting the old one back failed"
-                )
+            SwitchError::NotConfirmed { restored: false, detail } => {
+                write!(f, "{detail}, and putting the old login back failed")
             }
         }
     }
@@ -202,15 +203,26 @@ pub fn switch(store: &Store, slot: u32) -> Result<Switched, SwitchError> {
         login_back() == live.credential
             && cc::restore_config(paths, config_before.as_deref()).is_ok()
     };
-    let failed = |_: std::io::Error| SwitchError::NotConfirmed { restored: put_back() };
-    cc::write_credential(paths, &store.security, &composed).map_err(failed)?;
-    cc::write_oauth(paths, &target_oauth).map_err(failed)?;
+    let failed = |step: &str| {
+        let step = step.to_string();
+        move |e: std::io::Error| SwitchError::NotConfirmed {
+            restored: put_back(),
+            detail: format!("{step} failed ({e})"),
+        }
+    };
+    cc::write_credential(paths, &store.security, &composed).map_err(failed("writing the login"))?;
+    cc::write_oauth(paths, &target_oauth).map_err(failed("writing the account to .claude.json"))?;
 
     let who_back = cc::read_oauth(paths).map(|o| Who::of(&o).identity());
-    if login_back().as_deref() != Some(composed.as_str())
-        || who_back.as_deref() != Some(target.identity.as_str())
-    {
-        return Err(SwitchError::NotConfirmed { restored: put_back() });
+    let login_kept = login_back().as_deref() == Some(composed.as_str());
+    let who_kept = who_back.as_deref() == Some(target.identity.as_str());
+    if !login_kept || !who_kept {
+        let detail = match (login_kept, who_kept) {
+            (false, true) => "the login read back from the Keychain is not the one written",
+            (true, false) => "the account read back from .claude.json is not the target's",
+            _ => "neither the login nor the account read back as written",
+        };
+        return Err(SwitchError::NotConfirmed { restored: put_back(), detail: detail.into() });
     }
     Ok(Switched { from, to: slot, already: false })
 }

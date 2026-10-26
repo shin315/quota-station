@@ -218,6 +218,21 @@ pub fn log(store: &Store, text: &str, now: OffsetDateTime) {
     }
 }
 
+/// The longest cause a log line keeps.
+const REASON_MAX: usize = 200;
+
+/// `kind: text` as one short line for the log: the error's own words, with
+/// line breaks folded. The errors carry slot numbers, paths and `security`'s
+/// first stderr line, never a token or a Keychain value.
+pub fn reason(kind: &str, error: &dyn std::fmt::Display) -> String {
+    let text = error.to_string().split_whitespace().collect::<Vec<_>>().join(" ");
+    let line = format!("{kind}: {text}");
+    match line.char_indices().nth(REASON_MAX) {
+        Some((end, _)) => format!("{}…", &line[..end]),
+        None => line,
+    }
+}
+
 /// One real run, launchd's every three minutes.
 pub fn run(store: &Store, tools: &Tools) -> Decided {
     let now = OffsetDateTime::now_utc();
@@ -259,9 +274,11 @@ pub fn run(store: &Store, tools: &Tools) -> Decided {
             Ok(_) => {
                 log(store, &format!("switch to slot {slot} {rest}"), OffsetDateTime::now_utc())
             }
-            Err(_) => {
-                log(store, &format!("switch to slot {slot} failed"), OffsetDateTime::now_utc())
-            }
+            Err(e) => log(
+                store,
+                &format!("switch to slot {slot} failed: {}", reason(e.kind(), &e)),
+                OffsetDateTime::now_utc(),
+            ),
         }
         let _ = super::state::write(store, switch::active_slot(store), OffsetDateTime::now_utc());
     }
@@ -277,7 +294,12 @@ pub fn run(store: &Store, tools: &Tools) -> Decided {
 /// five-hour window starts now. Never as Claude Code's default login.
 fn prime(store: &Store, claude: &Path, slot: u32) {
     let dir = store.paths.prime_state();
-    if super::private_dir(&dir).is_err() {
+    if let Err(e) = super::private_dir(&dir) {
+        log(
+            store,
+            &format!("prime of slot {slot} failed: {}", reason("write", &e)),
+            OffsetDateTime::now_utc(),
+        );
         return;
     }
     let now = OffsetDateTime::now_utc();
@@ -295,8 +317,11 @@ fn prime(store: &Store, claude: &Path, slot: u32) {
     ]
     .map(String::from)
     .to_vec();
-    let code = session::run_in(store, claude, slot, true, &args, Some(&dir), Some(PRIME_TIMEOUT))
-        .map(|c| c.to_string())
-        .unwrap_or_else(|_| "refused".to_string());
-    log(store, &format!("primed slot {slot} (exit {code})"), OffsetDateTime::now_utc());
+    let line =
+        match session::run_in(store, claude, slot, true, &args, Some(&dir), Some(PRIME_TIMEOUT)) {
+            Ok(124) => format!("primed slot {slot} (exit 124, stopped after the timeout)"),
+            Ok(code) => format!("primed slot {slot} (exit {code})"),
+            Err(e) => format!("prime of slot {slot} failed: {}", reason("session", &e)),
+        };
+    log(store, &line, OffsetDateTime::now_utc());
 }

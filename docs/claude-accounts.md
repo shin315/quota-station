@@ -100,7 +100,14 @@ bootstrap`) or removes it (`bootout`). Each run, and the app before showing a
 decision, checks `com.cswap.prefer-team` and `com.cswap.auto`: while either is
 loaded, or `launchctl` cannot tell, the run switches nothing and the window says so, so two switchers never
 run at once. The decisions and switches go to `claude/rotation.log`, in the
-script's log format. An account held out of the rotation is never switched
+script's log format. A switch that fails is logged with its cause on the same
+line, `switch to slot 3 failed: <kind>: <reason>` (`busy`, a lock another
+process holds; `unconfirmed`, a login or account that did not read back as
+written, with the old login put back; `keychain`; `noCredential`, the account
+has no usable login; `unmanaged`, Claude Code is on a login the app does not
+keep; `store`; `write`), and a prime that could not start as
+`prime of slot 3 failed: <kind>: <reason>`. The reason is one line of at most
+200 characters, with no token or Keychain value. An account held out of the rotation is never switched
 to; the account in use is kept or left by the script's rules, held out or not.
 
 ## Session folders

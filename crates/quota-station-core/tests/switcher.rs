@@ -119,6 +119,15 @@ fn log_lines() {
         LogEvent::SwitchFailed { slot: 4 }
     );
     assert_eq!(
+        parse_log_line("2026-10-16 12:54:44 switch to slot 4 failed: busy: .claude.lock is held by another process").event,
+        LogEvent::SwitchFailed { slot: 4 }
+    );
+    assert_eq!(
+        parse_log_line("2026-10-16 12:54:44 prime of slot 4 failed: session: no such account")
+            .event,
+        LogEvent::Other
+    );
+    assert_eq!(
         parse_log_line("2026-10-16 12:55:01 primed slot 3 (exit 0)").event,
         LogEvent::Primed { slot: 3 }
     );

@@ -818,7 +818,9 @@ credited in [`THIRD_PARTY.md`](THIRD_PARTY.md)).
   threshold, as in the script. `Tự chuyển bằng Quota Station`
   loads the app's LaunchAgent, `com.shin315.quota-station.rotation`, which
   runs `quota-station claude rotate` every 180 seconds whether or not the
-  app is open, and logs to `claude/rotation.log`. The pause flag is the same
+  app is open, and logs to `claude/rotation.log`; a failed switch is
+  logged as `switch to slot N failed: <kind>: <reason>`, the cause on the same
+  line, never a token. The pause flag is the same
   file as before. While `com.cswap.prefer-team` or `com.cswap.auto` is
   loaded, the rotation, the switch sheet and `quota-station claude switch`
   write nothing, so two switchers never rotate the same refresh token.
