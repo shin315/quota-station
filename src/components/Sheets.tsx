@@ -341,6 +341,11 @@ function CodexAccountBody(props: SheetBodyProps & { account: string }) {
         </span>
       </label>
       <DialogButtons>
+        {v.ccSwitch && props.onCodexGuide ? (
+          <LinkButton style={{ marginRight: 'auto' }} onClick={props.onCodexGuide}>
+            {t('Hướng dẫn ngừng dùng CC Switch', 'How to stop using CC Switch')}
+          </LinkButton>
+        ) : null}
         <Button large onClick={props.onClose}>
           {t('Thôi', 'Cancel')}
         </Button>

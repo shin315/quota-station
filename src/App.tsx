@@ -603,6 +603,8 @@ export function PopoverApp({ api, clock = systemClock }: AppProps) {
     if (act === 'codex:tab') return void api.openWindow('codex');
     // Signing in again happens in the main window's Claude tab.
     if (act.startsWith('claude:relogin:') || act === 'claude:add') return void api.openWindow('claude');
+    // So is adding a Codex account.
+    if (act === 'codex:add') return void api.openWindow('codex');
     // The release's banner, with "Xem có gì mới", is on Tổng quan.
     if (act === 'release:open') return void api.openWindow('overview');
     if (act === 'theme') return void api.setTheme(dark ? 'light' : 'dark').catch(() => showFeedback(settingsFailedFeedback()));

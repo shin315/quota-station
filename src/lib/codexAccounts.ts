@@ -7,6 +7,7 @@
 // or a removal. Pure: the same model gives the same words.
 
 import { cellOf, emailNames, type CellView } from './accounts';
+import { ccSwitchManages } from './codex';
 import { age, clock, secondsSince } from './format';
 import { t } from './i18n';
 import type { CodexAccount, CodexAccountDone, CodexLoginFail, CodexProviderCheck, CodexView, Model } from './model';
@@ -178,6 +179,8 @@ export interface AccountSheetView {
   facts: FactView[];
   confirm: string;
   blocked: boolean;
+  /** CC Switch also switches Codex: the guide to stop using it goes on the sheet. */
+  ccSwitch: boolean;
 }
 
 /**
@@ -195,6 +198,15 @@ export function accountSheet(model: Model, id: string): AccountSheetView | null 
   const inFolder = signedInAccount(v);
   const inName = inFolder ? accountName(model, inFolder) : null;
   const facts: FactView[] = [];
+  const cc = ccSwitchManages(v);
+  if (cc)
+    facts.push({
+      k: 'w',
+      text: t(
+        '**CC Switch vẫn đang quản lý Codex** trên máy này. Lần chuyển sau của CC Switch sẽ ghi đè tài khoản chọn ở đây. Chỉ chuyển Codex ở một nơi.',
+        '**CC Switch still manages Codex** on this Mac. Its next switch will overwrite the account chosen here. Switch Codex in one place only.',
+      ),
+    });
   if (to.login === 'relogin')
     facts.push({ k: 'x', text: t('ChatGPT đã từ chối đăng nhập của ' + toName + '. Đăng nhập lại trước khi chuyển.', 'ChatGPT refused ' + toName + '’s sign-in. Sign in again before switching.') });
   const here = inFolder?.id === to.id;
@@ -240,8 +252,9 @@ export function accountSheet(model: Model, id: string): AccountSheetView | null 
       'Codex uses the ChatGPT account ' + toName + (to.plan ? ' (' + to.plan + ')' : '') + ' instead of ' + curName + '.',
     ),
     facts,
-    confirm: t('Chuyển sang ' + toName, 'Switch to ' + toName),
+    confirm: cc ? t('Vẫn chuyển', 'Switch anyway') : t('Chuyển sang ' + toName, 'Switch to ' + toName),
     blocked,
+    ccSwitch: cc,
   };
 }
 

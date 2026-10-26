@@ -143,17 +143,18 @@ describe('main window', () => {
     // The ChatGPT accounts by their windows, as Claude's are, then the provider Codex goes through.
     const codex = within(screen.getByRole('list', { name: 'Codex' })).getAllByRole('listitem');
     expect(codex.map((r) => r.getAttribute('aria-label'))).toEqual([
-      'ChatGPT, đăng nhập còn trong máy. 5 giờ đã dùng 23%, đặt lại sau 2 giờ 09 phút. Tuần đã dùng 41%, đặt lại sau 4 ngày 5 giờ 39 phút',
-      'relay, Custom API · trả lời 180 ms, đang dùng',
+      'ChatGPT, ChatGPT · plugin dùng đăng nhập này. 5 giờ đã dùng 23%, đặt lại sau 2 giờ 09 phút. Tuần đã dùng 41%, đặt lại sau 4 ngày 5 giờ 39 phút',
+      'relay, Custom API · relay.example.com · trả lời 180 ms, đang dùng. Không báo hạn mức',
     ]);
     expect(within(codex[1]).getByText('Không báo hạn mức')).toBeTruthy();
     expect(within(codex[1]).getByText('Đang dùng')).toBeTruthy();
     await act(async () => {
-      fireEvent.click(within(codex[0]).getByRole('button', { name: 'Chuyển sang tài khoản ChatGPT' }));
+      fireEvent.click(within(codex[0]).getByRole('button', { name: 'Chuyển sang ChatGPT' }));
     });
     // The same sheet as the Codex tab's, before anything changes.
-    expect(screen.getByRole('dialog', { name: 'Chuyển Codex về tài khoản ChatGPT?' })).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: 'Chuyển Codex sang ChatGPT?' })).toBeTruthy();
     expect(fake.api.codexSwitch).not.toHaveBeenCalled();
+    expect(fake.api.codexUse).not.toHaveBeenCalled();
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Thôi' }));
     fireEvent.click(nav('Codex'));
     expect(heading()).toBe('Codex');
