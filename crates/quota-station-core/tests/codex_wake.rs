@@ -104,7 +104,8 @@ fn a_daily_wake_up_runs_once_a_day_at_its_time_or_soon_after_a_mac_that_slept() 
 #[test]
 fn an_open_window_a_week_used_up_or_a_refused_sign_in_is_recorded_instead_of_run() {
     let s = settings(Mode::Daily, &["chatgpt:1", "chatgpt:2", "chatgpt:3", "chatgpt:4"]);
-    let open = Seen { five_used: Some(12.0), five_resets: Some(local(0, 8, 0)), ..idle("chatgpt:1") };
+    let open =
+        Seen { five_used: Some(12.0), five_resets: Some(local(0, 8, 0)), ..idle("chatgpt:1") };
     let week = Seen { week_left: Some(0.0), ..idle("chatgpt:2") };
     let refused = Seen { login: Login::Relogin, ..idle("chatgpt:3") };
     let seen = [open, week, refused, idle("chatgpt:4")];
@@ -146,7 +147,8 @@ fn the_reset_mode_wakes_once_a_window_at_most_and_never_loops_even_when_every_wa
         assert!(pair[0].at - pair[1].at >= 5 * 3600, "five hours apart at least");
     }
     // A window open (read from the quota) or a week used up: not woken.
-    let open = [Seen { five_used: Some(3.0), five_resets: Some(local(0, 9, 0)), ..idle("chatgpt:1") }];
+    let open =
+        [Seen { five_used: Some(3.0), five_resets: Some(local(0, 9, 0)), ..idle("chatgpt:1") }];
     assert!(wake::due(&s, &[], &open, local(0, 7, 0), hcm()).is_empty());
     let spent = [Seen { week_left: Some(0.0), ..idle("chatgpt:1") }];
     assert!(wake::due(&s, &[], &spent, local(0, 7, 0), hcm()).is_empty());
@@ -174,7 +176,8 @@ fn keep_alive_wakes_a_waiting_account_whose_sign_in_ran_out_twice_a_day_at_most(
 #[test]
 fn run_now_wakes_every_chosen_account_but_one_it_cannot_help() {
     let s = settings(Mode::Daily, &["chatgpt:1", "chatgpt:2", "chatgpt:3"]);
-    let open = Seen { five_used: Some(12.0), five_resets: Some(local(0, 8, 0)), ..idle("chatgpt:2") };
+    let open =
+        Seen { five_used: Some(12.0), five_resets: Some(local(0, 8, 0)), ..idle("chatgpt:2") };
     let seen = [idle("chatgpt:1"), open, idle("chatgpt:3")];
     let plans = wake::now(&s, &[], &seen, local(0, 7, 0));
     assert_eq!(
@@ -207,7 +210,8 @@ fn what_a_wake_up_ended_as_is_read_from_codex_and_its_answer_is_not_kept() {
     assert_eq!(result, Outcome::Failed);
     assert_eq!(detail.as_deref(), Some("stream disconnected before completion"));
 
-    let (result, detail) = wake::outcome(false, "", "Error: something broke at https://example.com/x\n");
+    let (result, detail) =
+        wake::outcome(false, "", "Error: something broke at https://example.com/x\n");
     assert_eq!(result, Outcome::Failed);
     assert_eq!(detail.as_deref(), Some("Error: something broke at"));
     for (_, d) in [wake::outcome(true, ok, ""), wake::outcome(false, ok, "")] {
@@ -225,7 +229,11 @@ fn the_settings_and_the_newest_runs_are_kept_in_the_app_folder() {
         book.record(ran(local(0, 0, i as i64), "chatgpt:1", Why::Reset, Outcome::Started));
     }
     assert_eq!(book.runs.len(), wake::KEPT);
-    assert_eq!(book.runs[0].at, local(0, 0, (wake::KEPT + 4) as i64).unix_timestamp(), "newest first");
+    assert_eq!(
+        book.runs[0].at,
+        local(0, 0, (wake::KEPT + 4) as i64).unix_timestamp(),
+        "newest first"
+    );
     book.save(&app).unwrap();
     assert_eq!(Book::load(&app), book);
     // Times that are not a clock, ids that are not a ChatGPT account: refused.

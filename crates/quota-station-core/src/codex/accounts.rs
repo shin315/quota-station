@@ -38,6 +38,9 @@ pub const REGISTRY: &str = "codex/accounts.json";
 const VERSION: u32 = 1;
 /// A sign-in under way lives in `pending-<uuid>` until it is known.
 const PENDING: &str = "pending-";
+/// The `config.toml` of an account's folder: Codex there keeps the sign-in
+/// in `auth.json`, whatever the Mac's own config says.
+pub const FILE_STORE: &str = "cli_auth_credentials_store = \"file\"\n";
 
 /// One look at, or move in, the account folders at a time, across the
 /// app's threads.
@@ -366,6 +369,10 @@ impl<'a> Store<'a> {
     /// A new, empty folder for `codex login` to sign in to.
     pub fn begin_login(&self) -> io::Result<PathBuf> {
         let _held = guard();
+        self.pending_folder()
+    }
+
+    fn pending_folder(&self) -> io::Result<PathBuf> {
         let root = self.ensure_root()?;
         let dir = root.join(format!("{PENDING}{}", uuid::Uuid::new_v4().simple()));
         self.app.inside(&dir)?;
@@ -394,6 +401,10 @@ impl<'a> Store<'a> {
         now: OffsetDateTime,
     ) -> io::Result<Added> {
         let _held = guard();
+        self.finish(pending, again, now)
+    }
+
+    fn finish(&self, pending: &Path, again: Option<u32>, now: OffsetDateTime) -> io::Result<Added> {
         self.check_pending(pending)?;
         let file = pending.join(super::AUTH);
         let Some(w) = who(&file) else {
@@ -446,8 +457,22 @@ impl<'a> Store<'a> {
         again: Option<u32>,
         now: OffsetDateTime,
     ) -> io::Result<Added> {
-        let _ = (found, again, now);
-        todo!()
+        if found.kind != super::import::Kind::Login || found.who.is_none() {
+            return Ok(Added::NoLogin);
+        }
+        let _held = guard();
+        let pending = self.pending_folder()?;
+        let written = (|| {
+            let file = pending.join(super::AUTH);
+            std::fs::write(&file, found.auth())?;
+            self.platform.private_file(&file)?;
+            std::fs::write(pending.join(super::CONFIG), FILE_STORE)
+        })();
+        if let Err(e) = written {
+            self.drop_pending(&pending);
+            return Err(e);
+        }
+        self.finish(&pending, again, now)
     }
 
     /// A sign-in that did not finish: its folder goes.
@@ -594,7 +619,7 @@ const NICKNAME_MAX: usize = 40;
 /// `auth.json` is a few kilobytes; anything far larger is not Codex's.
 const MAX_AUTH: u64 = 1024 * 1024;
 
-fn text(v: Option<&serde_json::Value>) -> Option<String> {
+pub(crate) fn text(v: Option<&serde_json::Value>) -> Option<String> {
     v.and_then(serde_json::Value::as_str)
         .map(str::trim)
         .filter(|t| !t.is_empty())
@@ -615,27 +640,30 @@ pub fn who(auth: &Path) -> Option<Who> {
     use std::io::Read;
     let mut bytes = Vec::new();
     std::fs::File::open(auth).ok()?.take(MAX_AUTH).read_to_end(&mut bytes).ok()?;
-    let found = serde_json::from_slice::<serde_json::Value>(&bytes).ok().and_then(|data| {
-        let tokens = data.get("tokens").filter(|t| t.is_object())?;
-        let has = |k: &str| text(tokens.get(k)).is_some();
-        if !(has("id_token") || has("access_token") || has("refresh_token")) {
-            return None;
-        }
-        let claims = text(tokens.get("id_token")).as_deref().and_then(claims).unwrap_or_default();
-        let auth = claims.get("https://api.openai.com/auth");
-        let from_auth = |k: &str| text(auth.and_then(|a| a.get(k)));
-        Some(Who {
-            identity: Identity {
-                user: from_auth("chatgpt_user_id")
-                    .or_else(|| from_auth("user_id"))
-                    .or_else(|| text(claims.get("sub"))),
-                account: text(tokens.get("account_id")).or_else(|| from_auth("chatgpt_account_id")),
-            },
-            email: text(claims.get("email")),
-            plan: from_auth("chatgpt_plan_type"),
-        })
-    });
+    let found = serde_json::from_slice::<serde_json::Value>(&bytes).ok().as_ref().and_then(who_of);
     // The values go no further than this function.
     bytes.iter_mut().for_each(|b| *b = 0);
     found
+}
+
+/// Who the sign-in in `auth.json`'s data is, when it is a ChatGPT sign-in.
+pub(crate) fn who_of(data: &serde_json::Value) -> Option<Who> {
+    let tokens = data.get("tokens").filter(|t| t.is_object())?;
+    let has = |k: &str| text(tokens.get(k)).is_some();
+    if !(has("id_token") || has("access_token") || has("refresh_token")) {
+        return None;
+    }
+    let claims = text(tokens.get("id_token")).as_deref().and_then(claims).unwrap_or_default();
+    let auth = claims.get("https://api.openai.com/auth");
+    let from_auth = |k: &str| text(auth.and_then(|a| a.get(k)));
+    Some(Who {
+        identity: Identity {
+            user: from_auth("chatgpt_user_id")
+                .or_else(|| from_auth("user_id"))
+                .or_else(|| text(claims.get("sub"))),
+            account: text(tokens.get("account_id")).or_else(|| from_auth("chatgpt_account_id")),
+        },
+        email: text(claims.get("email")),
+        plan: from_auth("chatgpt_plan_type"),
+    })
 }
