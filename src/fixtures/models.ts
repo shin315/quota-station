@@ -23,6 +23,7 @@ import type {
   CodexAccount,
   CodexCustom,
   CodexReach,
+  CodexTrigger,
   CodexView,
   Line,
   FirstmateView,
@@ -539,6 +540,30 @@ export function codexMany(model: Model): Model {
     ...model,
     snapshot: { ...model.snapshot, codex: { ...model.snapshot.codex, accounts: quota.map((q) => ({ ...q, active: on('chatgpt:' + q.number) })) } },
     codex: { ...c, accounts },
+  };
+}
+
+/**
+ * "Tự đánh thức tài khoản ChatGPT" on `codexMany`'s accounts: each day at
+ * 06:00 (the Mac's time, here UTC+7), the three that sign in; this morning
+ * one opened its window, one had it open already, one opened it after a
+ * keep-alive; yesterday the side account was refused and left out since.
+ */
+export function codexTriggerFixture(on: boolean): CodexTrigger {
+  return {
+    on,
+    mode: 'daily',
+    at: '06:00',
+    keepAlive: true,
+    ids: ['chatgpt:1', 'chatgpt:2', 'chatgpt:3'],
+    next: on ? '2026-01-16T23:00:00Z' : null,
+    running: null,
+    runs: [
+      { at: '2026-01-15T23:01:10Z', id: 'chatgpt:3', why: 'daily', result: 'started', resetsAt: '2026-01-16T04:01:10Z', detail: null },
+      { at: '2026-01-15T23:00:40Z', id: 'chatgpt:2', why: 'daily', result: 'open', resetsAt: null, detail: null },
+      { at: '2026-01-15T23:00:05Z', id: 'chatgpt:1', why: 'daily', result: 'started', resetsAt: '2026-01-16T04:00:05Z', detail: null },
+      { at: '2026-01-14T23:00:30Z', id: 'chatgpt:4', why: 'daily', result: 'relogin', resetsAt: null, detail: null },
+    ],
   };
 }
 

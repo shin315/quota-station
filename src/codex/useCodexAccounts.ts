@@ -3,19 +3,20 @@
 
 // The Codex tab's accounts: the open dialog and what each action does once
 // the app answers. "Thêm tài khoản" offers a ChatGPT sign-in (the wait for
-// the browser, then added, already here, or not signed in) or a custom
-// provider (its form, "Kiểm tra", the preview of the lines it adds); the ⋯
+// the browser, then added, already here, or not signed in), a custom
+// provider (its form, "Kiểm tra", the preview of the lines it adds) or
+// sign-in files (the app's file picker, what each file holds); the ⋯
 // menu opens the details and nickname, a new sign-in and the removal. A
 // switch goes through the switch sheet, as the popover's does.
 
 import { useCallback, useState } from 'react';
 import type { Api } from '../lib/api';
 import { accountFeedback, refusedText } from '../lib/codexAccounts';
-import type { CodexAccountDone, CodexLoginFail, Model } from '../lib/model';
+import type { CodexAccountDone, CodexImportPreview, CodexLoginFail, Model } from '../lib/model';
 import type { Action, FeedbackView } from '../lib/view';
 
 /** The ways in "Thêm tài khoản" offers. */
-export type CodexAddHow = 'chatgpt' | 'custom';
+export type CodexAddHow = 'chatgpt' | 'custom' | 'json';
 
 export type CodexDialog =
   | { kind: 'add'; how: CodexAddHow; error: string | null }
@@ -26,6 +27,9 @@ export type CodexDialog =
   | { kind: 'fail'; reason: CodexLoginFail; detail: string | null; id: string | null }
   | { kind: 'provider' }
   | { kind: 'providerDone'; id: string }
+  /** The files picked, read: what importing each would do. */
+  | { kind: 'import'; preview: CodexImportPreview }
+  | { kind: 'imported'; ids: string[]; removed: boolean }
   | { kind: 'detail'; id: string }
   | { kind: 'remove'; id: string }
   | { kind: 'relogin'; id: string };
@@ -60,9 +64,30 @@ export function useCodexAccounts(api: Api, model: Model | null, showFeedback: (f
     if (d.kind === 'added' || d.kind === 'dup') from('wait', { kind: d.kind === 'added' ? 'done' : 'dup', id: d.id });
   };
 
+  /** The app's file picker; nothing picked leaves "Thêm tài khoản" open. */
+  const pick = async () => {
+    setPending(true);
+    const p = await api.codexImportPick().catch(() => undefined);
+    setPending(false);
+    if (p === undefined) return from('add', { kind: 'add', how: 'json', error: refusedText('busy') });
+    if (p) setDialog({ kind: 'import', preview: p });
+  };
+
+  /** Imports what the preview showed. */
+  const importFiles = async (token: string, removeSource: boolean, latest: () => Model | null) => {
+    setPending(true);
+    const d = await call(api.codexImport(token, removeSource));
+    setPending(false);
+    if (d.kind === 'imported') return from('import', { kind: 'imported', ids: d.ids, removed: d.removed });
+    from('import', null);
+    const m = latest();
+    if (m) showFeedback(accountFeedback(d, m));
+  };
+
   /** "Thêm tài khoản"'s Tiếp tục. */
   const add = (how: CodexAddHow) => {
     if (how === 'chatgpt') return void login(null);
+    if (how === 'json') return void pick();
     setDialog({ kind: 'provider' });
   };
 
@@ -93,7 +118,7 @@ export function useCodexAccounts(api: Api, model: Model | null, showFeedback: (f
     return true;
   };
 
-  return { api, dialog, open: setDialog, close, pending, setPending, act, add, login, cancelLogin, rename, remove };
+  return { api, dialog, open: setDialog, close, pending, setPending, act, add, login, cancelLogin, rename, remove, pick, importFiles };
 }
 
 export type CodexAccountsState = ReturnType<typeof useCodexAccounts>;

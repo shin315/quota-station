@@ -6,22 +6,24 @@
 // (the ChatGPT sign-ins the app keeps, then the custom providers in
 // config.toml), each "Chuyển" opening the confirmation sheet and each ⋯ its
 // details, a new sign-in and its removal, "Thêm tài khoản" over it; the
-// plugins box and "Dán khoá…" for the provider in use under it; then Codex
-// on this Mac with the technical detail behind "Chi tiết". CC Switch shows
-// only as the banner that warns when it also switches Codex.
+// plugins box and "Dán khoá…" for the provider in use under it; in a build
+// with the author's tools, "Tự đánh thức tài khoản ChatGPT"; then Codex on
+// this Mac with the technical detail behind "Chi tiết". CC Switch shows only
+// as the banner that warns when it also switches Codex.
 
 import type { ReactNode } from 'react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Card as Panel, CardText, CardTitle } from '@/components/ui/card';
 import { Glyph } from '../components/icons';
-import { accountRows, type CodexAccountRowView } from '../lib/codexAccounts';
+import { accountName, accountOf, accountRows, type CodexAccountRowView } from '../lib/codexAccounts';
 import type { CodexAccountsState } from './useCodexAccounts';
 import { EmptyBox } from '../window/MainWindow';
 import { cn } from '@/lib/utils';
 import { AccountName, IdMark, InUse, WindowCell } from '../components/accounts';
-import { CheckLine } from '../components/blocks';
+import { CheckLine, CheckRow, GROUP_PANEL } from '../components/blocks';
 import { CARD_END, COUNT, Empty, TABLE, TABLE_BOX, TABLE_CELLS, TABLE_END, TABLE_HEAD, TABLE_ROW, TABLE_ROW_ON, TabHead, TabSub, TabTitle } from '../components/page';
-import { Banner, BannerBox, Button, Chip, CODE, Dot, Feedback, KVT, LinkButton, More, Rich } from '../components/parts';
+import { Input } from '@/components/ui/input';
+import { Banner, BannerBox, Button, Chip, ChoiceGroup, ChoiceLabel, CODE, Dot, Facts, Feedback, KVT, LinkButton, More, Rich, Spinner, Toggle } from '../components/parts';
 import {
   CHATGPT_ID,
   ccSwitchManages,
@@ -37,7 +39,7 @@ import {
   undoLabel,
 } from '../lib/codex';
 import { t } from '../lib/i18n';
-import type { CodexView, Model } from '../lib/model';
+import type { CodexTrigger, CodexTriggerRun, CodexView, Model } from '../lib/model';
 import { dayClock } from '../lib/switching';
 import type { Action, BannerView, ChipView, FeedbackView, PopoverView } from '../lib/view';
 
@@ -283,6 +285,147 @@ function AccountsCard({ model, now, accounts, onAction, onPlugins }: { model: Mo
   );
 }
 
+/** `06:00` five hours on: when a window opened then resets. */
+function plusFive(at: string): string {
+  const [h, m] = at.split(':').map(Number);
+  return String(((h || 0) + 5) % 24).padStart(2, '0') + ':' + String(m || 0).padStart(2, '0');
+}
+
+/** One wake-up, as the account's line under its name says it. */
+function runText(r: CodexTriggerRun, now: Date): string {
+  const when = dayClock(r.at, now) + ' · ';
+  switch (r.result) {
+    case 'started':
+      return when + t('khung 5 giờ mở', '5-hour window opened') + (r.resetsAt ? t(', đặt lại ', ', resets ') + dayClock(r.resetsAt, now) : '');
+    case 'open':
+      return when + t('khung 5 giờ đang mở, không gửi gì', '5-hour window already open, nothing sent');
+    case 'relogin':
+      return when + t('ChatGPT từ chối đăng nhập', 'ChatGPT refused the sign-in');
+    case 'limited':
+      return when + t('hết hạn mức tuần, không gửi', 'no quota left this week, nothing sent');
+    default:
+      return when + t('Codex báo lỗi', 'Codex reported an error') + (r.detail ? ': ' + r.detail : '');
+  }
+}
+
+/**
+ * "Tự đánh thức tài khoản ChatGPT", in a build with the author's tools: a
+ * short message sent with Codex in each chosen account's own folder, daily
+ * or as a window resets, and to sign-ins left unused for six days.
+ */
+function TriggerCard({ model, now, tr, accounts }: { model: Model; now: Date; tr: CodexTrigger; accounts: CodexAccountsState }) {
+  const v = model.codex;
+  const set = (p: Partial<Pick<CodexTrigger, 'on' | 'mode' | 'at' | 'keepAlive' | 'ids'>>) =>
+    void accounts.api.codexTriggerSet({ on: tr.on, mode: tr.mode, at: tr.at, keepAlive: tr.keepAlive, ids: tr.ids, ...p }).catch(() => {});
+  const gpts = v.accounts.filter((a) => a.kind === 'chatgpt');
+  const last = (id: string) => tr.runs.find((r) => r.id === id);
+  const runner = tr.running ? accountOf(v, tr.running) : undefined;
+  return (
+    <Panel>
+      <CardTitle>
+        {t('Tự đánh thức tài khoản ChatGPT', 'Wake ChatGPT accounts')}
+        <Chip chip={{ t: t('bản cá nhân', 'personal build'), k: 'tag', title: t('Chỉ có trong bản build kèm công cụ của tác giả; bản cộng đồng không có mục này.', 'Only in a build with the author’s tools; the community edition has no such card.') }} />
+        <span className={CARD_END}>
+          <Toggle on={tr.on} label={t('Tự đánh thức', 'Wake accounts')} disabled={v.version == null} onClick={() => set({ on: !tr.on })} />
+        </span>
+      </CardTitle>
+      <CardText className="mt-0 mb-2.5">
+        {t(
+          'Gửi một câu ngắn bằng Codex cho từng tài khoản đã chọn: khung 5 giờ mở từ sớm nên đặt lại sớm, và đăng nhập không hết hạn khi lâu không dùng.',
+          'Sends a short message with Codex for each chosen account: its 5-hour window opens early so it resets early, and its sign-in does not run out while unused.',
+        )}
+      </CardText>
+      <ChoiceGroup
+        id="qs-cx-trig-mode"
+        label={t('Khi nào', 'When')}
+        options={[
+          { v: 'daily', t: t('Mỗi ngày lúc ' + tr.at, 'Each day at ' + tr.at), s: t('Khung 5 giờ mở lúc ' + tr.at + ', đặt lại lúc ' + plusFive(tr.at) + '.', 'The 5-hour window opens at ' + tr.at + ' and resets at ' + plusFive(tr.at) + '.') },
+          {
+            v: 'reset',
+            t: t('Ngay khi khung 5 giờ đặt lại', 'As soon as a 5-hour window resets'),
+            s: t('Mỗi khung tối đa một lần; không gửi khi khung đang mở hay hết hạn mức tuần.', 'At most once per window; nothing sent while one is open or the week is used up.'),
+          },
+        ]}
+        value={tr.mode}
+        onChange={(mode) => set({ mode })}
+      />
+      {tr.mode === 'daily' ? (
+        <div className="mt-2.5 flex items-center gap-2 text-sm">
+          <label htmlFor="qs-cx-trig-at" className="text-ink2">
+            {t('Giờ chạy', 'Time')}
+          </label>
+          <Input id="qs-cx-trig-at" type="time" className="w-[110px]" value={tr.at} onChange={(e) => e.target.value && set({ at: e.target.value })} />
+        </div>
+      ) : null}
+      <CheckLine className="mt-2.5" checked={tr.keepAlive} onChange={(keepAlive) => set({ keepAlive })}>
+        <span>
+          {t('Giữ đăng nhập không hết hạn', 'Keep sign-ins from running out')}
+          <small>{t('Cũng đánh thức tài khoản lâu không dùng khi đăng nhập sắp hết hạn, để Codex làm mới nó và hạn mức đọc tiếp được.', 'Also wakes an account left unused when its sign-in is about to run out, so Codex renews it and its quota can still be read.')}</small>
+        </span>
+      </CheckLine>
+      <ChoiceLabel>{t('Tài khoản', 'Accounts')}</ChoiceLabel>
+      <div className={GROUP_PANEL} role="list" aria-label={t('Tài khoản được đánh thức', 'Accounts woken')}>
+        {gpts.map((a) => {
+          const r = last(a.id);
+          const refused = a.login === 'relogin';
+          return (
+            <CheckRow
+              key={a.id}
+              checked={tr.ids.includes(a.id) && !refused}
+              disabled={refused}
+              off={refused}
+              onChange={(on) => set({ ids: on ? [...tr.ids, a.id] : tr.ids.filter((x) => x !== a.id) })}
+            >
+              <span className="min-w-0">
+                <b>{accountName(model, a)}</b>
+                <small className="tabular-nums">{r ? runText(r, now) : t('chưa đánh thức lần nào', 'not woken yet')}</small>
+              </span>
+              {tr.running === a.id ? <Spinner /> : refused ? <Chip chip={{ t: t('cần đăng nhập lại', 'must sign in again'), k: 'bad' }} /> : <span />}
+            </CheckRow>
+          );
+        })}
+      </div>
+      <Facts
+        className="mt-2"
+        items={[
+          {
+            k: '',
+            text: (
+              <Rich
+                text={t(
+                  'Mỗi lần chạy `codex exec` với một câu "hi" trong thư mục của tài khoản đó: Codex tự dùng và làm mới đăng nhập, app không cầm token. Mỗi lần tốn một tin nhắn ngắn của hạn mức.',
+                  'Each run is `codex exec` with a "hi" in that account’s folder: Codex uses and renews the sign-in itself, the app holds no token. Each run spends one short message of quota.',
+                )}
+              />
+            ),
+          },
+          {
+            k: 'w',
+            text: t(
+              'OpenAI không nói tới việc tự gửi yêu cầu theo lịch: có thể trái điều khoản sử dụng. Chỉ dùng cho tài khoản của chính bạn.',
+              'OpenAI does not cover sending requests on a schedule: it may break the terms of use. Use it only on your own accounts.',
+            ),
+          },
+        ]}
+      />
+      <div className={cn(ROW2, 'mt-2.5')}>
+        <small className="text-xs text-ink2 tabular-nums">
+          {runner
+            ? t('Đang đánh thức ' + accountName(model, runner) + '…', 'Waking ' + accountName(model, runner) + '…')
+            : !tr.on
+              ? t('Đang tắt.', 'Off.')
+              : tr.next
+                ? t('Lần tới: ', 'Next: ') + dayClock(tr.next, now)
+                : t('Chạy khi một khung 5 giờ đặt lại.', 'Runs when a 5-hour window resets.')}
+        </small>
+        <Button disabled={!tr.ids.length || !!tr.running || v.version == null} onClick={() => void accounts.api.codexTriggerNow().catch(() => {})}>
+          {t('Chạy ngay', 'Run now')}
+        </Button>
+      </div>
+    </Panel>
+  );
+}
+
 /** What "Dùng plugin khi chạy Custom API" does, said in full behind "Chi tiết". */
 function PluginsMore() {
   return (
@@ -493,6 +636,7 @@ export function CodexTab({ model, fresh, feedback, now, onAction, onPlugins, acc
         />
       ) : null}
       <AccountsCard model={model} now={now} accounts={accounts} onAction={onAction} onPlugins={onPlugins} />
+      {v.trigger ? <TriggerCard model={model} now={now} tr={v.trigger} accounts={accounts} /> : null}
       <OnThisMac v={v} now={now} onAction={onAction} />
     </>
   );

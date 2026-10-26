@@ -42,7 +42,9 @@
 // `codexaccounts=empty` neither. A sign-in waits 3 s and adds an account, or ends with
 // `codexlogin=dup|timeout|port|noCodex|denied|other`; "Kiểm tra" on a new provider finds
 // it answering with the key accepted, or `codexprovider=down|rejected` (also an address
-// with `down` in it, a key starting `sk-bad`).
+// with `down` in it, a key starting `sk-bad`). "Nhập file đăng nhập (JSON)" finds five made-up
+// files, or none with `codeximport=none`; `codextrigger=on|off` shows "Tự đánh thức tài khoản
+// ChatGPT" as a build with the author's tools has it (on, or set up and off).
 // The menu bar's service (19/10/2026): `menubar=claude|gemini|codex` on `tab=settings`,
 // `mbwindow=fiveHours|week|fableWeek|tightest` the window its title shows,
 // and `agyhot=on` puts the Antigravity account in use at 86 % of its Claude/GPT week,
@@ -104,6 +106,7 @@ import {
   codexFixture,
   codexEmpty,
   codexMany,
+  codexTriggerFixture,
   firstmateFixture,
   mcpBrandsFixture,
   mcpFixture,
@@ -471,6 +474,8 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
   const codexAccounts = params.get('codexaccounts');
   const withCodex = codexAccounts === 'one' || params.get('codex') === 'none' ? model : codexAccounts === 'empty' ? codexEmpty(model) : codexMany(model);
   Object.assign(model, withCodex);
+  const trigger = params.get('codextrigger');
+  if (trigger === 'on' || trigger === 'off') model.codex = { ...model.codex, trigger: codexTriggerFixture(trigger === 'on') };
   // `chatgpts=3` adds made-up accounts to the one ChatGPT sign-in, to show the popover's list of them.
   const chatgpts = codexAccounts === 'one' ? Math.min(Number(params.get('chatgpts')) || 0, 5) : 0;
   const codexSnap = model.snapshot.codex;
@@ -520,6 +525,7 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
     codexLoginEnd: CODEX_LOGIN_ENDS.find((k) => k === params.get('codexlogin')),
     codexProviderDown: params.get('codexprovider') === 'down',
     codexKeyRejected: params.get('codexprovider') === 'rejected',
+    codexImportNone: params.get('codeximport') === 'none',
     mcpChanged: params.get('mcpoutcome') === 'changed',
     mcpDelayMs: 600,
     restoreChanged: params.get('restoreoutcome') === 'changed',

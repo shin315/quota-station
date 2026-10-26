@@ -820,6 +820,76 @@ export interface CodexView {
   accounts: CodexAccount[];
   /** Where the ChatGPT sign-ins not in the Codex folder wait, each in its own folder. */
   accountsDir: string;
+  /** "Tự đánh thức tài khoản ChatGPT": only in a build with the author's tools, else null. */
+  trigger?: CodexTrigger | null;
+}
+
+/**
+ * One file picked in "Nhập file đăng nhập (JSON)", as the app read it. The
+ * file stays with the app: the window gets its name, whose sign-in it is and
+ * what importing it would do, never a token.
+ */
+export interface CodexImportItem {
+  /** The file's name, as picked. */
+  file: string;
+  /** `codex`: Codex's own `auth.json`; `cliproxy`: a CLIProxyAPI `codex-*.json`. */
+  format: 'codex' | 'cliproxy' | null;
+  email: string | null;
+  plan: string | null;
+  /**
+   * `new`: added as a new account; `renew`: an account here that must sign in
+   * again takes this sign-in; `dup`: already here and signed in, left out;
+   * `refreshOnly`: only a refresh token, left out (using it would sign the
+   * other copy out); `apiKey`: an API key, not a ChatGPT sign-in; `broken`:
+   * not a sign-in the app can read.
+   */
+  state: 'new' | 'renew' | 'dup' | 'refreshOnly' | 'apiKey' | 'broken';
+  /** `renew`, `dup`: the account here. */
+  id: string | null;
+}
+
+/** The files picked, read; `token` names them when the owner presses Nhập. */
+export interface CodexImportPreview {
+  token: string;
+  items: CodexImportItem[];
+}
+
+/**
+ * "Tự đánh thức tài khoản ChatGPT": a short message sent with Codex in each
+ * chosen account's own folder, so its five-hour window starts early and its
+ * sign-in does not run out. Codex reads and renews the sign-in itself.
+ */
+export interface CodexTrigger {
+  on: boolean;
+  /** `daily`: each day at `at`; `reset`: once a five-hour window has reset, at most once per window. */
+  mode: 'daily' | 'reset';
+  /** `06:00`, the Mac's time. */
+  at: string;
+  /** Also wake an unused account whose sign-in is about to run out, so Codex renews it. */
+  keepAlive: boolean;
+  /** The accounts it wakes. */
+  ids: string[];
+  /** When the next run is due; null while off. */
+  next: string | null;
+  /** The account being woken now. */
+  running: string | null;
+  /** Newest first. */
+  runs: CodexTriggerRun[];
+}
+
+export interface CodexTriggerRun {
+  at: string;
+  id: string;
+  why: 'daily' | 'reset' | 'keepAlive' | 'now';
+  /**
+   * `started`: a five-hour window opened; `open`: one was open already, so
+   * it ran nothing; `relogin`: ChatGPT refused the sign-in; `limited`: no
+   * quota left this week; `failed`: Codex ended with an error.
+   */
+  result: 'started' | 'open' | 'relogin' | 'limited' | 'failed';
+  /** `started`: when the window it opened resets. */
+  resetsAt: string | null;
+  detail: string | null;
 }
 
 /**
@@ -863,6 +933,8 @@ export type CodexAccountDone =
   | { kind: 'dup'; id: string }
   | { kind: 'renewed'; id: string }
   | { kind: 'renamed'; id: string }
+  /** "Nhập file đăng nhập (JSON)": the accounts added or renewed; `removed`: the picked files were deleted. */
+  | { kind: 'imported'; ids: string[]; removed: boolean }
   | { kind: 'removed'; id: string; name: string; loggedOut: boolean }
   | { kind: 'failed'; reason: CodexLoginFail; detail: string | null }
   | { kind: 'refused'; reason: 'busy' | 'inUse' | 'signedIn' | 'changed' | 'badUrl' | 'name' | 'empty' | 'key' };

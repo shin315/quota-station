@@ -4,22 +4,24 @@
 // The Codex tab's account dialogs, laid out as the Claude tab's are: the
 // ways to add an account, the wait for the browser, added with its
 // nickname, already here, not signed in; a custom provider's form with
-// "Kiểm tra" and the preview of the lines it adds; an account's details and
-// nickname; removing it; signing it in again. A key typed here lives only
-// in its dialog, goes one way to the app and comes back only as its hint.
+// "Kiểm tra" and the preview of the lines it adds; the sign-in files picked
+// and what importing each would do; an account's details and nickname;
+// removing it; signing it in again. A key typed here lives only in its
+// dialog, goes one way to the app and comes back only as its hint; a
+// picked file never comes here at all.
 
 import { useEffect, useState, type ReactNode } from 'react';
 import { DialogButtons, DialogLead, DialogTitle } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
-import { DiffFile, DiffLine, DiffView, KeyMasked } from '../components/blocks';
+import { DiffFile, DiffLine, DiffView, GROUP_PANEL, KeyMasked } from '../components/blocks';
 import { Button, Chip, ChoiceGroup, Facts, FeedbackLine, Hint, LinkButton, Rich, Spinner } from '../components/parts';
 import { t } from '../lib/i18n';
 import { accountName, accountOf, accountRows, checkText, loginFailText, refusedText } from '../lib/codexAccounts';
 import { keyRefusalText } from '../lib/codex';
 import { dayClock } from '../lib/switching';
-import type { CodexAccount, CodexKeyPreview, CodexProviderCheck, Model } from '../lib/model';
-import type { Action } from '../lib/view';
+import type { CodexAccount, CodexImportItem, CodexKeyPreview, CodexProviderCheck, Model } from '../lib/model';
+import type { Action, ChipView } from '../lib/view';
 import type { CodexAccountsState, CodexAddHow, CodexDialog } from './useCodexAccounts';
 
 /** Facts whose `code` and **bold** read as such. */
@@ -115,6 +117,14 @@ function AddBody({ d, codex, model }: { d: Extract<CodexDialog, { kind: 'add' }>
       t: t('Nhà cung cấp API riêng (Custom API)', 'Your own API provider (Custom API)'),
       s: t('Tên, địa chỉ và khoá API. Khoá được ghi vào config.toml của Codex và không hiện lại.', 'A name, an address and an API key. The key goes into Codex’s config.toml and is never shown again.'),
     },
+    {
+      v: 'json',
+      t: t('Nhập file đăng nhập (JSON)', 'Import a sign-in file (JSON)'),
+      s: t(
+        '`auth.json` của Codex hoặc file `codex-*.json` của CLIProxyAPI, chọn trong hộp chọn file của macOS. Token không đi qua cửa sổ này.',
+        'Codex’s `auth.json` or a CLIProxyAPI `codex-*.json`, picked in macOS’s file picker. No token passes through this window.',
+      ),
+    },
   ];
   const blocked = (d.how === 'chatgpt' && !cli) || codex.pending || v.busy != null;
   return (
@@ -133,7 +143,7 @@ function AddBody({ d, codex, model }: { d: Extract<CodexDialog, { kind: 'add' }>
       <DialogButtons>
         <Button onClick={codex.close}>{t('Thôi', 'Cancel')}</Button>
         <Button primary disabled={blocked} onClick={() => codex.add(d.how)}>
-          {t('Tiếp tục', 'Continue')}
+          {d.how === 'json' ? t('Chọn file…', 'Choose files…') : t('Tiếp tục', 'Continue')}
         </Button>
       </DialogButtons>
     </Stack>
@@ -403,6 +413,129 @@ function ProviderBody({ codex, model, latest }: BodyProps) {
   );
 }
 
+/** What importing one file would do, as a chip. */
+function importChip(i: CodexImportItem, model: Model): ChipView {
+  const a = i.id ? accountOf(model.codex, i.id) : undefined;
+  const who = a ? accountName(model, a) : '';
+  switch (i.state) {
+    case 'new':
+      return { t: t('thêm mới', 'new'), k: 'ok' };
+    case 'renew':
+      return { t: t('thay đăng nhập của ' + who, 'renews ' + who), k: 'info', title: t(who + ' cần đăng nhập lại; đăng nhập trong file thế chỗ.', who + ' must sign in again; the sign-in in the file takes its place.') };
+    case 'dup':
+      return { t: t('đã có · bỏ qua', 'already here · skipped'), k: '', title: t('Trùng ' + who + ', đang đăng nhập bình thường.', 'Same as ' + who + ', signed in as usual.') };
+    case 'refreshOnly':
+      return { t: t('chỉ có refresh token · bỏ qua', 'refresh token only · skipped'), k: 'warn' };
+    case 'apiKey':
+      return { t: t('khoá API · dùng Custom API', 'API key · use Custom API'), k: 'warn' };
+    default:
+      return { t: t('không phải file đăng nhập', 'not a sign-in file'), k: 'bad' };
+  }
+}
+
+const FORMAT: Record<string, string> = { codex: 'Codex auth.json', cliproxy: 'CLIProxyAPI' };
+
+/** The files picked: whose sign-in each holds and what importing it would do. */
+function ImportBody({ d, codex, model, latest }: { d: Extract<CodexDialog, { kind: 'import' }> } & BodyProps) {
+  const [removeSource, setRemoveSource] = useState(true);
+  const items = d.preview.items;
+  const takes = items.filter((i) => i.state === 'new' || i.state === 'renew').length;
+  const refreshOnly = items.some((i) => i.state === 'refreshOnly');
+  return (
+    <Stack>
+      <Head
+        title={takes ? t('Nhập ' + takes + ' tài khoản?', 'Import ' + takes + (takes === 1 ? ' account?' : ' accounts?')) : t('Không có tài khoản nào để nhập', 'Nothing to import')}
+        lead={t('Đã đọc ' + items.length + ' file. Codex đang chạy giữ nguyên; app không gửi gì cho OpenAI khi nhập.', 'Read ' + items.length + (items.length === 1 ? ' file' : ' files') + '. The Codex that runs is not touched; the app sends nothing to OpenAI to import.')}
+      />
+      <div className={GROUP_PANEL} role="list" aria-label={t('File đã chọn', 'Files picked')}>
+        {items.map((i) => (
+          <div key={i.file} role="listitem" className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-t-[.5px] border-card-line py-1.5 text-sm first:border-t-0">
+            <span className="min-w-0">
+              <b className="block truncate font-semi">{i.email ?? i.file}</b>
+              <small className="block truncate text-xs text-ink2">{[i.file, i.format ? FORMAT[i.format] : null, i.plan].filter(Boolean).join(' · ')}</small>
+            </span>
+            <Chip chip={importChip(i, model)} />
+          </div>
+        ))}
+      </div>
+      <RichFacts
+        items={[
+          { k: 'ok', text: t('Mỗi đăng nhập vào thư mục riêng của nó trong app, chỉ bạn đọc được, như khi đăng nhập bằng trình duyệt.', 'Each sign-in goes into its own folder in the app, readable only by you, as a browser sign-in does.') },
+          {
+            k: 'w',
+            text: t(
+              'Đăng nhập trong file vẫn sống ở nơi tạo ra nó (máy khác, CLIProxyAPI…). Hai nơi cùng dùng một đăng nhập thì lần làm mới token ở nơi này **đăng xuất nơi kia**. Nhập xong, thôi dùng nó ở nơi cũ.',
+              'The sign-in in the file is still live where it was made (another Mac, CLIProxyAPI…). When two places use one sign-in, a token refresh in one **signs the other out**. Once imported, stop using it there.',
+            ),
+          },
+          ...(refreshOnly
+            ? [
+                {
+                  k: '',
+                  text: t(
+                    'File chỉ có refresh token phải đổi token ngay mới dùng được, việc đó đăng xuất nơi đang giữ nó, nên app không nhập. Đăng nhập tài khoản đó bằng trình duyệt.',
+                    'A file with only a refresh token must trade it at once to be used, which signs out wherever it lives, so the app does not import it. Sign that account in with the browser.',
+                  ),
+                },
+              ]
+            : []),
+        ]}
+      />
+      {takes ? (
+        <label className="flex cursor-pointer items-start gap-2 text-sm">
+          <Checkbox checked={removeSource} onCheckedChange={(on) => setRemoveSource(on === true)} />
+          <span>
+            {t('Xoá file gốc sau khi nhập', 'Delete the original files once imported')}
+            <small className="block text-xs text-ink2">
+              {t('Chỉ xoá các file đã nhập. Để lại thì đăng nhập có thêm một bản đọc được trên máy này.', 'Only the files imported. Kept, the sign-in has one more readable copy on this Mac.')}
+            </small>
+          </span>
+        </label>
+      ) : null}
+      <DialogButtons>
+        <Button onClick={() => void codex.pick()}>{t('Chọn file khác…', 'Choose other files…')}</Button>
+        <Button onClick={codex.close}>{t('Thôi', 'Cancel')}</Button>
+        <Button primary disabled={!takes || codex.pending || model.codex.busy != null} onClick={() => void codex.importFiles(d.preview.token, removeSource, latest)}>
+          {codex.pending ? t('Đang nhập…', 'Importing…') : takes ? t('Nhập ' + takes + ' tài khoản', 'Import ' + takes) : t('Nhập', 'Import')}
+        </Button>
+      </DialogButtons>
+    </Stack>
+  );
+}
+
+function ImportedBody({ d, codex, model }: { d: Extract<CodexDialog, { kind: 'imported' }> } & BodyProps) {
+  const names = d.ids.map((id) => {
+    const a = accountOf(model.codex, id);
+    return a ? accountName(model, a) : id;
+  });
+  const using = model.codex.accounts.find((x) => x.active);
+  return (
+    <Stack>
+      <Head title={t('Đã nhập ' + d.ids.length + ' tài khoản', 'Imported ' + d.ids.length + (d.ids.length === 1 ? ' account' : ' accounts'))} lead={names.join(' · ')} />
+      <RichFacts
+        items={[
+          d.removed
+            ? { k: 'ok', text: t('Đã xoá các file gốc vừa nhập.', 'The files imported were deleted.') }
+            : { k: 'w', text: t('File gốc vẫn còn. Xoá chúng khi chắc không dùng nữa.', 'The original files are still there. Delete them once you are sure.') },
+          { k: '', text: t('Hạn mức hiện sau lần cập nhật tới nếu đăng nhập trong file còn hạn; nếu không, ở lần đầu Codex dùng tài khoản.', 'Quota shows on the next read if the sign-in in the file is still valid; else the first time Codex uses the account.') },
+          {
+            k: '',
+            text: t(
+              'Codex chưa đổi: vẫn dùng ' + (using ? accountName(model, using) : 'tài khoản hiện tại') + '. Bấm Chuyển khi muốn dùng tài khoản mới.',
+              'Codex has not changed: it still uses ' + (using ? accountName(model, using) : 'the current account') + '. Press Switch when you want a new one.',
+            ),
+          },
+        ]}
+      />
+      <DialogButtons>
+        <Button primary onClick={codex.close}>
+          {t('Xong', 'Done')}
+        </Button>
+      </DialogButtons>
+    </Stack>
+  );
+}
+
 function DetailBody({ d, codex, model, now, latest }: { d: Extract<CodexDialog, { kind: 'detail' }> } & BodyProps) {
   const a = accountOf(model.codex, d.id);
   const [alias, setAlias] = useState(a?.nickname ? a.name : '');
@@ -580,6 +713,10 @@ export function CodexDialogBody(props: BodyProps) {
       return <FailBody d={d} {...props} />;
     case 'provider':
       return <ProviderBody {...props} />;
+    case 'import':
+      return <ImportBody key={d.preview.token} d={d} {...props} />;
+    case 'imported':
+      return <ImportedBody d={d} {...props} />;
     case 'detail':
       return <DetailBody key={d.id} d={d} {...props} />;
     case 'remove':

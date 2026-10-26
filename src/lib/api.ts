@@ -16,12 +16,14 @@ import type {
   RestorePlan,
   RestoreUndone,
   CodexAccountDone,
+  CodexImportPreview,
   CodexKeyOutcome,
   CodexKeyPreview,
   CodexOutcome,
   CodexProviderCheck,
   CodexRestart,
   CodexTarget,
+  CodexTrigger,
   AgyApp,
   AgyHow,
   AgyLoginDone,
@@ -222,6 +224,14 @@ export interface Api {
   codexRename(id: string, name: string): Promise<CodexAccountDone>;
   /** Removes an account not in use; `logout` signs a ChatGPT one out first. */
   codexRemove(id: string, logout: boolean, base: string | null): Promise<CodexAccountDone>;
+  /** "Nhập file đăng nhập (JSON)": the app's own file picker, then what the files hold; null when the owner picked none. */
+  codexImportPick(): Promise<CodexImportPreview | null>;
+  /** Imports the files the preview read; `removeSource` deletes them once their sign-ins are in the app. */
+  codexImport(token: string, removeSource: boolean): Promise<CodexAccountDone>;
+  /** "Tự đánh thức": its settings, kept by the app. */
+  codexTriggerSet(t: Pick<CodexTrigger, 'on' | 'mode' | 'at' | 'keepAlive' | 'ids'>): Promise<void>;
+  /** "Chạy ngay": wakes the chosen accounts now, one after another. */
+  codexTriggerNow(): Promise<void>;
   /** The MCP tab opened, or "Đọc lại": every agent's list read again; the table comes in the model. */
   mcpRead(): Promise<void>;
   /** What `changes` would write, read from the files now, secrets masked. */
@@ -498,6 +508,10 @@ export const tauriApi: Api = {
   codexAddProvider: (name, baseUrl, key, base) => invoke<CodexAccountDone>('codex_add_provider', { name, baseUrl, key, base }),
   codexRename: (id, name) => invoke<CodexAccountDone>('codex_rename', { id, name }),
   codexRemove: (id, logout, base) => invoke<CodexAccountDone>('codex_remove', { id, logout, base }),
+  codexImportPick: () => invoke<CodexImportPreview | null>('codex_import_pick'),
+  codexImport: (token, removeSource) => invoke<CodexAccountDone>('codex_import', { token, removeSource }),
+  codexTriggerSet: (t) => invoke('codex_trigger_set', { trigger: t }),
+  codexTriggerNow: () => invoke('codex_trigger_now'),
   mcpRead: () => invoke('mcp_read'),
   mcpPreview: (changes) => invoke<McpPreview>('mcp_preview', { changes }),
   mcpWrite: (changes, bases) => invoke<McpOutcome>('mcp_write', { changes, bases }),

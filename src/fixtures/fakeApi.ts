@@ -37,6 +37,8 @@ import type {
   CodexAccount,
   CodexAccountDone,
   CodexCustom,
+  CodexImportItem,
+  CodexImportPreview,
   CodexKeyOutcome,
   CodexKeyPreview,
   CodexLoginFail,
@@ -44,6 +46,7 @@ import type {
   CodexProviderCheck,
   CodexRestart,
   CodexTarget,
+  CodexTriggerRun,
   Line,
   EnvFound,
   StatsSkipped,
@@ -121,6 +124,8 @@ export interface FakeOptions {
   /** "Kiểm tra" on a new provider: no answer, or the key refused (also an address with `down` in it, a key starting `sk-bad`). */
   codexProviderDown?: boolean;
   codexKeyRejected?: boolean;
+  /** "Nhập file đăng nhập (JSON)": the owner closes the picker without a file. */
+  codexImportNone?: boolean;
   /** The History tab's lines; none by default. */
   history?: HistoryEntry[];
   /** What a `quota-pool.last` set in Cài đặt reads as; without it a path finds no file. */
@@ -897,6 +902,61 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       });
       return { kind: 'removed', id, name: a.name, loggedOut: a.kind === 'chatgpt' && logout } satisfies CodexAccountDone;
     },
+    codexImportPick: async () => {
+      if (options.codexImportNone) return null;
+      if (options.codexDelayMs) await new Promise((r) => setTimeout(r, 400));
+      return fakeImportPreview(model.codex);
+    },
+    codexImport: async (token, removeSource) => {
+      const c = model.codex;
+      if (c.busy || token !== IMPORT_TOKEN) return { kind: 'refused', reason: 'busy' } satisfies CodexAccountDone;
+      if (options.codexDelayMs) await new Promise((r) => setTimeout(r, 900));
+      const at = now().toISOString();
+      const items = fakeImportPreview(c).items;
+      const s = model.snapshot.codex;
+      let n = Math.max(0, ...c.accounts.map((a) => a.number ?? 0));
+      const added: CodexAccount[] = items
+        .filter((i) => i.state === 'new')
+        .map((i) => {
+          n += 1;
+          const email = i.email ?? '';
+          return { id: 'chatgpt:' + n, kind: 'chatgpt', name: email.slice(0, email.indexOf('@')), nickname: false, number: n, email, plan: i.plan, active: false, signedIn: false, login: 'idle', custom: null, reach: null, refusal: null, addedAt: at };
+        });
+      const renewed = items.filter((i) => i.state === 'renew').map((i) => i.id ?? '');
+      const gpts = c.accounts.filter((a) => a.kind === 'chatgpt').map((a) => (renewed.includes(a.id) ? { ...a, login: 'idle' as const } : a));
+      const rest = c.accounts.filter((a) => a.kind !== 'chatgpt');
+      push({
+        ...model,
+        snapshot: { ...model.snapshot, codex: { ...s, accounts: [...s.accounts, ...added.map((a) => ({ number: a.number ?? 0, role: 'unknown' as const, active: false, disabled: false, reading: 'noData' as const, fetchedAt: at, source: 'list' as const, membership: 'unknown' as const, leavesAt: null, lines: [], windows: [], email: a.email ?? '' }))] } },
+        codex: { ...c, accounts: [...gpts, ...added, ...rest] },
+      });
+      return { kind: 'imported', ids: [...added.map((a) => a.id), ...renewed], removed: removeSource } satisfies CodexAccountDone;
+    },
+    codexTriggerSet: async (next) => {
+      const c = model.codex;
+      if (!c.trigger) return;
+      const due = new Date(now().getTime() + 86400e3);
+      const [h, m] = next.at.split(':').map(Number);
+      due.setHours(h || 0, m || 0, 0, 0);
+      push({ ...model, codex: { ...c, trigger: { ...c.trigger, ...next, next: next.on ? (next.mode === 'daily' ? due.toISOString() : null) : null } } });
+    },
+    codexTriggerNow: async () => {
+      const first = model.codex.trigger;
+      if (!first || first.running) return;
+      for (const id of first.ids) {
+        const tr = model.codex.trigger!;
+        push({ ...model, codex: { ...model.codex, trigger: { ...tr, running: id } } });
+        await new Promise((r) => setTimeout(r, options.codexDelayMs ? 1200 : 0));
+        const a = model.codex.accounts.find((x) => x.id === id);
+        const at = now().toISOString();
+        const run: CodexTriggerRun =
+          a?.login === 'relogin'
+            ? { at, id, why: 'now', result: 'relogin', resetsAt: null, detail: null }
+            : { at, id, why: 'now', result: 'started', resetsAt: new Date(now().getTime() + 5 * 3600e3).toISOString(), detail: null };
+        const t2 = model.codex.trigger!;
+        push({ ...model, codex: { ...model.codex, trigger: { ...t2, running: null, runs: [run, ...t2.runs].slice(0, 8) } } });
+      }
+    },
     setCodexPlugins: async (on) => {
       const c = model.codex;
       const own = c.custom?.key === 'bearer' || c.custom?.key === 'envKey';
@@ -1670,6 +1730,30 @@ function providerId(name: string): string {
 }
 
 /** The lines a new provider adds to `config.toml`, the key only as its hint. */
+const IMPORT_TOKEN = 'import-1';
+
+/**
+ * The files "Nhập file đăng nhập (JSON)" finds on made-up data: a new
+ * CLIProxyAPI account, Codex's own auth.json for the account that must sign
+ * in again, one already here, a refresh token alone, and a file that is not
+ * a sign-in.
+ */
+export function fakeImportPreview(c: Model['codex']): CodexImportPreview {
+  const by = (email: string) => c.accounts.find((a) => a.email === email);
+  const side = c.accounts.find((a) => a.kind === 'chatgpt' && a.login === 'relogin');
+  const here = c.accounts.find((a) => a.kind === 'chatgpt' && a.login === 'ok' && a.email);
+  const items: CodexImportItem[] = [
+    by('lan.work@example.com')
+      ? { file: 'codex-lan.work@example.com-plus.json', format: 'cliproxy', email: 'lan.work@example.com', plan: 'Plus', state: 'dup', id: by('lan.work@example.com')!.id }
+      : { file: 'codex-lan.work@example.com-plus.json', format: 'cliproxy', email: 'lan.work@example.com', plan: 'Plus', state: 'new', id: null },
+    ...(side ? [{ file: 'auth.json', format: 'codex', email: side.email, plan: side.plan, state: 'renew', id: side.id } satisfies CodexImportItem] : []),
+    ...(here ? [{ file: 'codex-' + here.email + '-' + (here.plan ?? '').toLowerCase() + '.json', format: 'cliproxy', email: here.email, plan: here.plan, state: 'dup', id: here.id } satisfies CodexImportItem] : []),
+    { file: 'codex-old.team@example.com.json', format: 'cliproxy', email: 'old.team@example.com', plan: null, state: 'refreshOnly', id: null },
+    { file: 'notes.json', format: null, email: null, plan: null, state: 'broken', id: null },
+  ];
+  return { token: IMPORT_TOKEN, items };
+}
+
 export function fakeProviderPreview(c: Model['codex'], name: string, baseUrl: string, key: string): CodexKeyPreview {
   const none: CodexKeyPreview = { hash: c.hash, lines: [], refusal: null, detail: null, replaces: false, undo: null };
   const k = key.trim().replace(/^Bearer /, '');
