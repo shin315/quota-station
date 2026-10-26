@@ -22,6 +22,11 @@ import type { CodexAccount, CodexKeyPreview, CodexProviderCheck, Model } from '.
 import type { Action } from '../lib/view';
 import type { CodexAccountsState, CodexAddHow, CodexDialog } from './useCodexAccounts';
 
+/** Facts whose `code` and **bold** read as such. */
+function RichFacts({ items }: { items: { k: string; text: string }[] }) {
+  return <Facts items={items.map((f) => ({ k: f.k, key: f.text, text: <Rich text={f.text} /> }))} />;
+}
+
 /** How long `codex login` waits for the browser (the app's own limit). */
 export const LOGIN_WAIT_MS = 10 * 60 * 1000;
 
@@ -100,7 +105,7 @@ function AddBody({ d, codex, model }: { d: Extract<CodexDialog, { kind: 'add' }>
       t: t('Đăng nhập ChatGPT trong trình duyệt', 'Sign in to ChatGPT in the browser'),
       s: cli
         ? t(
-            'Mở trang đăng nhập của ChatGPT. Đăng nhập nằm trong thư mục riêng của tài khoản này; Codex đang chạy không bị đụng tới.',
+            'Mở trang đăng nhập của ChatGPT. Đăng nhập nằm trong thư mục riêng của tài khoản này; Codex đang chạy giữ nguyên.',
             'Opens ChatGPT’s sign-in page. The sign-in goes into this account’s own folder; the Codex that runs is not touched.',
           )
         : t('Không thấy lệnh codex trên máy này.', 'The codex command was not found on this Mac.'),
@@ -196,13 +201,13 @@ function DoneBody({ d, codex, model, onAction, latest }: { d: Extract<CodexDialo
         title={t('Đã thêm ' + own, 'Added ' + own)}
         lead={a.kind === 'chatgpt' ? 'ChatGPT' + (a.plan ? ' ' + a.plan : '') + t(' · đăng nhập lưu trên Mac này.', ' · sign-in stored on this Mac.') : 'Custom API · ' + (a.custom?.baseUrl ?? '')}
       />
-      <Facts
+      <RichFacts
         items={[
           a.kind === 'chatgpt'
             ? {
                 k: 'ok',
                 text: t(
-                  'Đăng nhập nằm trong thư mục riêng của tài khoản này trong app, chỉ bạn đọc được. Hạn mức có ngay ở lần đọc tới.',
+                  'Đăng nhập nằm trong thư mục riêng của tài khoản này trong app, chỉ bạn đọc được. Hạn mức hiện sau lần cập nhật tới.',
                   'The sign-in is in this account’s own folder in the app, readable only by you. Its quota shows on the next read.',
                 ),
               }
@@ -221,7 +226,7 @@ function DoneBody({ d, codex, model, onAction, latest }: { d: Extract<CodexDialo
       />
       <Nickname id="qs-cx-al-new" account={a} value={alias} onChange={setAlias} />
       <DialogButtons>
-        <Button onClick={() => finish('codex:use:' + a.id)}>{t('Chuyển sang ' + (alias.trim() || own) + '…', 'Switch to ' + (alias.trim() || own) + '…')}</Button>
+        <Button onClick={() => finish(`codex:use:${a.id}`)}>{t('Chuyển sang ' + (alias.trim() || own) + '…', 'Switch to ' + (alias.trim() || own) + '…')}</Button>
         <Button primary onClick={() => finish()}>
           {t('Xong', 'Done')}
         </Button>
@@ -236,7 +241,7 @@ function DupBody({ d, codex, model }: { d: Extract<CodexDialog, { kind: 'dup' }>
   return (
     <Stack>
       <Head title={t('Tài khoản này đã có', 'This account is already here')} lead={t('Đăng nhập vừa xong là ' + who + '. Không thêm lần nữa.', 'The sign-in you just finished is ' + who + '. It is not added twice.')} />
-      <Facts items={[{ k: 'ok', text: t('Đăng nhập vừa tạo đã được đăng xuất; đăng nhập cũ của ' + who + ' giữ nguyên.', 'The new sign-in was signed out; ' + who + '’s own sign-in stays as it was.') }]} />
+      <RichFacts items={[{ k: 'ok', text: t('Đăng nhập vừa tạo đã được xoá khỏi máy, không đăng xuất; đăng nhập cũ của ' + who + ' giữ nguyên.', 'The new sign-in was deleted from this Mac, not signed out; ' + who + '’s own sign-in stays as it was.') }]} />
       <DialogButtons>
         <Button onClick={() => void codex.login(null)}>{t('Đăng nhập tài khoản khác', 'Sign in to another account')}</Button>
         <Button primary onClick={codex.close}>
@@ -337,7 +342,7 @@ function ProviderBody({ codex, model, latest }: BodyProps) {
             </DiffLine>
           ))}
         </DiffView>
-        <Facts
+        <RichFacts
           items={[
             { k: 'ok', text: t('Thêm một bảng mới ở cuối file; mọi dòng khác giữ nguyên. Sao lưu bản cũ (không chứa khoá) trước khi ghi.', 'Adds one new table at the end of the file; every other line stays. Backs up the old file (without keys) first.') },
             { k: '', text: t('Codex chưa chuyển sang ' + name.trim() + ': bấm Chuyển khi muốn dùng.', 'Codex does not switch to ' + name.trim() + ' yet: press Switch when you want it.') },
@@ -462,13 +467,13 @@ function RemoveBody({ d, codex, model, latest }: { d: Extract<CodexDialog, { kin
   const cannot = a.active
     ? t(who + ' đang dùng. Chuyển sang tài khoản khác trước khi xoá.', who + ' is in use. Switch to another account before removing it.')
     : a.signedIn
-      ? t('Đăng nhập của ' + who + ' đang nằm trong Codex (giữ cho plugin). Chuyển sang tài khoản ChatGPT khác trước khi xoá.', who + '’s sign-in sits in Codex (kept for plugins). Switch to another ChatGPT account before removing it.')
+      ? t('Đăng nhập của ' + who + ' đang nằm trong Codex (plugin dùng nó). Chuyển sang tài khoản ChatGPT khác trước khi xoá.', who + '’s sign-in sits in Codex (kept for plugins). Switch to another ChatGPT account before removing it.')
       : null;
   if (cannot)
     return (
       <Stack>
         <Head title={t('Chưa xoá được ' + who, 'Cannot remove ' + who + ' yet')} />
-        <Facts items={[{ k: 'x', text: cannot }]} />
+        <RichFacts items={[{ k: 'x', text: cannot }]} />
         <DialogButtons>
           <Button primary onClick={codex.close}>
             {t('Đóng', 'Close')}
@@ -482,7 +487,7 @@ function RemoveBody({ d, codex, model, latest }: { d: Extract<CodexDialog, { kin
       <Head title={a.kind === 'chatgpt' ? t('Xoá ' + who + ' khỏi máy này?', 'Remove ' + who + ' from this Mac?') : t('Xoá ' + who + ' khỏi config.toml?', 'Remove ' + who + ' from config.toml?')} />
       {a.kind === 'chatgpt' ? (
         <>
-          <Facts
+          <RichFacts
             items={[
               { k: '', text: t('Quota Station xoá thư mục đăng nhập của ' + who + ' trong app. Codex và tài khoản ChatGPT vẫn còn nguyên.', 'Quota Station deletes ' + who + '’s sign-in folder in the app. Codex and the ChatGPT account stay as they are.') },
               { k: '', text: t('Lịch sử giữ các lần chuyển cũ. Muốn dùng lại: Thêm tài khoản rồi đăng nhập.', 'History keeps the past switches. To use it again: Add account and sign in.') },
@@ -492,15 +497,15 @@ function RemoveBody({ d, codex, model, latest }: { d: Extract<CodexDialog, { kin
             <Checkbox checked={logout} onCheckedChange={(on) => setLogout(on === true)} />
             <span>
               {t('Đăng xuất ' + who + ' trước', 'Sign ' + who + ' out first')}
-              <small className="block text-xs text-ink2">{t('Thu hồi đăng nhập này ở OpenAI (`codex logout` trong thư mục của nó).', 'Revokes this sign-in at OpenAI (`codex logout` in its folder).')}</small>
+              <small className="block text-xs text-ink2">{t('Thu hồi đăng nhập này ở OpenAI, như lệnh codex logout trong thư mục của nó.', 'Revokes this sign-in at OpenAI, as codex logout in its folder does.')}</small>
             </span>
           </label>
         </>
       ) : (
-        <Facts
+        <RichFacts
           items={[
             { k: '', text: t('Bỏ bảng `[model_providers.' + a.id + ']` khỏi config.toml. Sao lưu bản cũ (không chứa khoá) trước khi ghi.', 'Removes the `[model_providers.' + a.id + ']` table from config.toml. Backs up the old file (without keys) first.') },
-            { k: 'w', text: t('Khoá của ' + who + ' đi theo bảng. App không giữ khoá, nên muốn dùng lại phải dán lại.', who + '’s key goes with the table. The app keeps no key, so using it again means pasting it again.') },
+            { k: 'w', text: t('Khoá của ' + who + ' bị xoá cùng bảng. App không giữ bản nào; muốn dùng lại thì dán lại khoá.', who + '’s key goes with the table. The app keeps no key, so using it again means pasting it again.') },
             {
               k: '',
               text: t(

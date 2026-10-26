@@ -93,7 +93,7 @@ export function useCodexAccounts(api: Api, model: Model | null, showFeedback: (f
     return true;
   };
 
-  return { dialog, open: setDialog, close, pending, setPending, act, add, login, cancelLogin, rename, remove };
+  return { api, dialog, open: setDialog, close, pending, setPending, act, add, login, cancelLogin, rename, remove };
 }
 
 export type CodexAccountsState = ReturnType<typeof useCodexAccounts>;

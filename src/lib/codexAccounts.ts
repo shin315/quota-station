@@ -110,7 +110,7 @@ export function accountRows(model: Model, now: Date): CodexAccountRowView[] {
       if (a.login === 'relogin') chips.push({ t: t('cần đăng nhập lại', 'sign in again'), k: 'bad', title: t('ChatGPT từ chối đăng nhập này. Đăng nhập lại để đọc hạn mức và chuyển sang.', 'ChatGPT refused this sign-in. Sign in again to read its quota and switch to it.') });
       else if (a.login === 'idle')
         chips.push({
-          t: t('số lần đọc cuối', 'last reading'),
+          t: since != null ? t('số ' + age(since) + ' trước', 'numbers ' + age(since) + ' old') : t('số cũ', 'old numbers'),
           k: 'stale',
           title: t(
             'Đăng nhập của tài khoản này đã quá hạn đọc khi không dùng. Codex làm mới nó khi bạn chuyển sang; số hiện là lần đọc cuối.',
@@ -121,7 +121,7 @@ export function accountRows(model: Model, now: Date): CodexAccountRowView[] {
       else if (q?.reading === 'stale' && since != null) chips.push({ t: t('số ' + age(since) + ' trước', 'numbers ' + age(since) + ' old'), k: 'stale' });
       dim = a.login !== 'ok' || q?.reading === 'stale';
       const plan = a.plan ? 'ChatGPT ' + a.plan : 'ChatGPT';
-      sub = kept ? plan + t(' · giữ cho plugin', ' · kept for plugins') : plan;
+      sub = kept ? plan + t(' · plugin dùng đăng nhập này', ' · plugins use this sign-in') : plan;
       full = a.email ?? '';
     } else {
       chips.push(...customChips(a));
@@ -205,32 +205,41 @@ export function accountSheet(model: Model, id: string): AccountSheetView | null 
         '**Codex is signed in to an account that is not in the list.** Add it first (Add account › Use Codex’s current sign-in) so that sign-in is not lost.',
       ),
     });
+  const here = inFolder?.id === to.id;
   facts.push({
     k: 'ok',
-    text: inName
-      ? t(
-          'Đăng nhập của ' + inName + ' về lại thư mục riêng của nó, đăng nhập của ' + toName + ' vào `' + v.home + '`. App chỉ dời hai file `auth.json`, không đọc hay chép token.',
-          inName + '’s sign-in goes back to its own folder and ' + toName + '’s goes into `' + v.home + '`. The app only moves two `auth.json` files; it never reads or copies a token.',
-        )
-      : t('Đăng nhập của ' + toName + ' vào `' + v.home + '`. App chỉ dời file `auth.json`, không đọc hay chép token.', toName + '’s sign-in goes into `' + v.home + '`. The app only moves the `auth.json` file; it never reads or copies a token.'),
+    text: here
+      ? t('Đăng nhập của ' + toName + ' đã nằm trong `' + v.home + '`: không dời file nào.', toName + '’s sign-in is already in `' + v.home + '`: no file moves.')
+      : inName
+        ? t(
+            'App dời hai file `auth.json`: của ' + inName + ' về thư mục riêng, của ' + toName + ' vào `' + v.home + '`. Không đọc hay chép token.',
+            'The app moves two `auth.json` files: ' + inName + '’s back to its own folder, ' + toName + '’s into `' + v.home + '`. No token is read or copied.',
+          )
+        : t('App dời file `auth.json` của ' + toName + ' vào `' + v.home + '`. Không đọc hay chép token.', 'The app moves ' + toName + '’s `auth.json` into `' + v.home + '`. No token is read or copied.'),
   });
-  if (v.current === 'custom' && cur)
+  const viaCustom = v.current === 'custom' && cur != null;
+  if (viaCustom)
     facts.push({
       k: '',
       text: t(
-        'Codex thôi đi qua ' + curName + ': app bỏ dòng `model_provider` trong `config.toml` (sao lưu trước). Bảng ' + curName + ' vẫn nằm trong file.',
-        'Codex stops going through ' + curName + ': the app removes the `model_provider` line from `config.toml` (backed up first). The ' + curName + ' table stays in the file.',
+        'Bỏ dòng `model_provider` trong `config.toml` (sao lưu trước); bảng ' + curName + ' vẫn giữ.',
+        'The `model_provider` line goes from `config.toml` (backed up first); the ' + curName + ' table stays.',
       ),
     });
   const s = sessions(v.procs?.sessions);
+  const reopen = t(
+    ' Thoát hẳn Codex App (⌘Q) rồi mở lại; ' + s.vi + ' trong Terminal mở lại bằng `codex resume`.',
+    ' Quit Codex App (⌘Q) and open it again; reopen ' + s.en + ' in Terminal with `codex resume`.',
+  );
   facts.push({
     k: 'w',
-    text: t(
-      'Phiên đang chạy vẫn dùng ' + (inName ?? curName) + ' cho tới khi mở lại, và báo đăng nhập lại ở lần làm mới đăng nhập kế tiếp. Thoát hẳn Codex App (⌘Q) rồi mở lại; ' + s.vi + ' trong Terminal cần mở lại (`codex resume` mở tiếp được trên ' + toName + ').',
-      'Running sessions keep ' + (inName ?? curName) + ' until reopened, and ask to sign in again at their next sign-in renewal. Quit Codex App (⌘Q) and open it again; ' + s.en + ' in Terminal ' + (v.procs?.sessions === 1 ? 'needs' : 'need') + ' reopening (`codex resume` continues them on ' + toName + ').',
-    ),
+    text: viaCustom
+      ? t('Phiên đang chạy vẫn đi qua ' + curName + ' tới khi mở lại.', 'Running sessions keep going through ' + curName + ' until reopened.') + reopen
+      : t(
+          'Phiên đang chạy vẫn dùng ' + (inName ?? curName) + ' tới khi mở lại, và đòi đăng nhập lại ở lần làm mới đăng nhập kế tiếp.',
+          'Running sessions keep ' + (inName ?? curName) + ' until reopened, and ask to sign in again at their next sign-in renewal.',
+        ) + reopen,
   });
-  facts.push({ k: '', text: t('Hạn mức tính vào ' + toName + ' từ yêu cầu đầu tiên sau khi mở lại.', 'Quota counts against ' + toName + ' from the first request after reopening.') });
   const blocked = to.login === 'relogin' || (!inFolder && v.login === 'chatGpt') || v.busy != null;
   return {
     title: t('Chuyển Codex sang ' + toName + '?', 'Switch Codex to ' + toName + '?'),
@@ -297,7 +306,7 @@ export function refusedText(reason: Extract<CodexAccountDone, { kind: 'refused' 
     case 'inUse':
       return t('Tài khoản đang dùng: chuyển sang tài khoản khác trước.', 'The account is in use: switch to another one first.');
     case 'signedIn':
-      return t('Đăng nhập này đang nằm trong Codex (giữ cho plugin): chuyển sang tài khoản ChatGPT khác trước.', 'This sign-in sits in Codex (kept for plugins): switch to another ChatGPT account first.');
+      return t('Đăng nhập này đang nằm trong Codex (plugin dùng nó): chuyển sang tài khoản ChatGPT khác trước.', 'This sign-in sits in Codex (kept for plugins): switch to another ChatGPT account first.');
     case 'changed':
       return t('config.toml vừa đổi ngoài app; mở lại để xem bản mới.', 'config.toml just changed outside the app; open it again to see the new one.');
     case 'badUrl':
@@ -315,9 +324,9 @@ export function refusedText(reason: Extract<CodexAccountDone, { kind: 'refused' 
 export function checkText(c: CodexProviderCheck): { tone: '' | 'ok' | 'bad' | 'warn'; text: string } {
   if (c.reach === 'badUrl') return { tone: 'bad', text: t('Địa chỉ không hợp lệ.', 'The address is not valid.') };
   if (c.reach === 'down')
-    return { tone: 'bad', text: t('Không trả lời sau 3 lần thử (5 giây mỗi lần). Kiểm địa chỉ, hoặc nhà cung cấp đang ngừng.', 'No answer after 3 tries (5 seconds each). Check the address, or the provider is down.') };
+    return { tone: 'bad', text: t('Không trả lời sau 3 lần thử (5 giây mỗi lần). Kiểm lại địa chỉ, hoặc nhà cung cấp đang ngừng.', 'No answer after 3 tries (5 seconds each). Check the address, or the provider is down.') };
   if (c.key === 'rejected')
     return { tone: 'bad', text: t('Địa chỉ trả lời ' + c.ms + ' ms nhưng khoá bị từ chối (' + c.status + '). Kiểm lại khoá.', 'The address answers in ' + c.ms + ' ms but the key was refused (' + c.status + '). Check the key.') };
-  if (c.key === 'accepted') return { tone: 'ok', text: t('Trả lời ' + c.ms + ' ms · khoá được nhận.', 'Answers in ' + c.ms + ' ms · the key was accepted.') };
+  if (c.key === 'accepted') return { tone: 'ok', text: t('Trả lời sau ' + c.ms + ' ms · khoá dùng được.', 'Answers in ' + c.ms + ' ms · the key was accepted.') };
   return { tone: 'warn', text: t('Trả lời ' + c.ms + ' ms · chưa biết khoá có đúng không (nhà cung cấp không báo).', 'Answers in ' + c.ms + ' ms · cannot tell whether the key is right (the provider does not say).') };
 }

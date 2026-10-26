@@ -34,6 +34,8 @@ import { DiagDialogBody, ReleaseDialogBody } from './release/ReleaseParts';
 import { useRelease } from './release/useRelease';
 import { ClaudeDialogBody } from './claude/ClaudeDialogs';
 import { useClaudeAccounts } from './claude/useClaudeAccounts';
+import { CodexDialogBody } from './codex/CodexDialogs';
+import { useCodexAccounts } from './codex/useCodexAccounts';
 import { Feedback } from './components/parts';
 import { SheetBody, type SheetState } from './components/Sheets';
 import { agyLoginOf, agySwitchErrorFeedback, agySwitchFeedback, type AppAnswer } from '@agy/agySwitch';
@@ -309,11 +311,12 @@ function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeed
       setSheet(null);
     }
   };
-  const doCodexSwitch = async (target: CodexTarget, restart: boolean) => {
+  const doCodexSwitch = async (target: CodexTarget, restart: boolean, account?: string) => {
     setWorking(true);
     let next: SheetState | null = null;
     try {
-      const outcome = await api.codexSwitch(target, latest.current?.codex.hash ?? null);
+      const base = latest.current?.codex.hash ?? null;
+      const outcome = account ? await api.codexUse(account, base) : await api.codexSwitch(target, base);
       if (outcome.kind === 'switched' && restart) {
         // G14: the box asks once more before anything is interrupted.
         codexDone.current = outcome;
@@ -463,7 +466,12 @@ function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeed
       showFeedback(null);
       open({ kind: 'codexInfo', id: 'backup' });
     }
-    else if (a.startsWith('agy:switch:')) {
+    else if (a.startsWith('codex:use:') && model) {
+      showFeedback(null);
+      const id = a.slice('codex:use:'.length);
+      const to = model.codex.accounts.find((x) => x.id === id);
+      open({ kind: 'codex', target: to?.kind === 'custom' ? 'custom' : 'chatGpt', account: id });
+    } else if (a.startsWith('agy:switch:')) {
       showFeedback(null);
       open({ kind: 'agy', number: Number(a.slice('agy:switch:'.length)) });
     } else if (a.startsWith('switch:')) {
@@ -494,7 +502,7 @@ function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeed
         onSwitchAgy={(number, how) => void doSwitchAgy(number, how)}
         onPause={(until) => void pause(until)}
         onSettings={onSettings}
-        onCodexSwitch={(target, restart) => void doCodexSwitch(target, restart)}
+        onCodexSwitch={(target, restart, account) => void doCodexSwitch(target, restart, account)}
         onCodexRestart={(after) => void doCodexRestart(after)}
         onCodexSkipRestart={skipCodexRestart}
         onCodexKeep={() => void keepCodex()}
@@ -671,10 +679,13 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   // The Claude tab's dialogs name an account as its table does.
   const claudeNames = useRef<(slot: number) => string>((slot) => t('Tài khoản ', 'Account ') + slot);
   const claude = useClaudeAccounts(api, model, showFeedback, (slot) => claudeNames.current(slot));
+  const codexAccounts = useCodexAccounts(api, model, showFeedback);
+  const latestModel = useRef(model);
+  latestModel.current = model;
   const release = useRelease(api, model, showFeedback);
   const ruleDialog = rules.leave ? 'leave' : rules.compare ? 'compare' : null;
   const sheetOpen =
-    !!switching.sheet || !!ruleDialog || !!mcp.dialog || !!backup.dialog || !!copy.dialog || !!skills.dialog || plugins.open || !!instr.dialog || env.list || !!sets.dialog || !!claude.dialog || !!release.dialog;
+    !!switching.sheet || !!ruleDialog || !!mcp.dialog || !!backup.dialog || !!copy.dialog || !!skills.dialog || plugins.open || !!instr.dialog || env.list || !!sets.dialog || !!claude.dialog || !!codexAccounts.dialog || !!release.dialog;
   const closeSheet = useRef(switching.close);
   // Escape closes the sheet on show: the unsaved-changes one, then a switch, then the comparison, then an MCP dialog.
   closeSheet.current = () => {
@@ -691,6 +702,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
     else if (sets.dialog) sets.close();
     // The wait for the browser ends with its own Thôi, which stops the sign-in.
     else if (claude.dialog && claude.dialog.kind !== 'wait') claude.close();
+    else if (codexAccounts.dialog && codexAccounts.dialog.kind !== 'wait') codexAccounts.close();
     else if (release.dialog) release.close();
   };
 
@@ -785,6 +797,11 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
     if (claude.act(act)) {
       // A sign-in or an add asked from another tab's banner opens over the Claude tab.
       if (act === 'claude:add' || act.startsWith('claude:relogin:')) rules.guardTab(tab, 'claude', setTab);
+      return;
+    }
+    // The Codex accounts' dialogs open over the Codex tab.
+    if (codexAccounts.act(act)) {
+      rules.guardTab(tab, 'codex', setTab);
       return;
     }
     if (release.act(act)) {
@@ -950,6 +967,8 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
         <DiagDialogBody release={release} />
       ) : claude.dialog ? (
         <ClaudeDialogBody claude={claude} view={model.claudeAccounts} advanced={model.advanced.on} nameOf={nameOf} onTab={goTab} />
+      ) : codexAccounts.dialog ? (
+        <CodexDialogBody codex={codexAccounts} model={model} now={now} onAction={onAction} latest={() => latestModel.current} />
       ) : null))
     );
   const dialogSize =
@@ -971,7 +990,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
                   ? 'lg'
                   : sets.dialog
                     ? setDialogSize(sets.dialog)
-                    : claude.dialog || release.dialog
+                    : claude.dialog || codexAccounts.dialog || release.dialog
                       ? 'lg'
                       : undefined;
   return (
@@ -991,7 +1010,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       settings={settings}
       syncNote={author ? sidebarLine(author) : null}
       rules={author ? <RulesTab model={author} fresh={view.fresh} rules={rules} feedback={feedback} now={now} onAction={onAction} /> : null}
-      codex={<CodexTab model={model} fresh={view.fresh} feedback={feedback} now={now} onAction={onAction} onPlugins={switching.setCodexPlugins} />}
+      codex={<CodexTab model={model} fresh={view.fresh} feedback={feedback} now={now} onAction={onAction} onPlugins={switching.setCodexPlugins} accounts={codexAccounts} />}
       codexCard={<CodexCard model={model} now={now} cols={OV_COLS.codex} onAction={onAction} />}
       mcp={<McpTab model={model} fresh={view.fresh} feedback={feedback} now={now} mcp={mcp} onAction={onAction} />}
       skills={<SkillsTab model={model} fresh={view.fresh} feedback={feedback} skills={skills} onAction={onAction} />}

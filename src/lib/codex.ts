@@ -9,6 +9,7 @@
 // name its table in config.toml gives it, never a name built in here.
 
 import { cellOf, emailNames, type CellView } from './accounts';
+import { accountRows, type CodexAccountRowView } from './codexAccounts';
 import { age, clock, secondsSince } from './format';
 import { t } from './i18n';
 import type { CodexKeyOutcome, CodexKeyPreview, CodexKeyRefusal, CodexOutcome, CodexRefusal, CodexRestart, CodexTarget, CodexView, Model } from './model';
@@ -281,6 +282,8 @@ export function chatGptNote(model: Model): NoteView | null {
  */
 export interface CodexPopView {
   row: CodexRowView;
+  /** Every Codex account: the one in use opens the section, the others sit behind one line. */
+  rows: CodexAccountRowView[];
   accounts: ChatGptRowView[];
   /** Codex goes through a provider, not a ChatGPT account: its name and line; null on ChatGPT. */
   using: { name: string; sub: string } | null;
@@ -301,6 +304,7 @@ export function codexPopover(model: Model, now: Date): CodexPopView | null {
   const via = v.current === 'custom' && v.custom ? v.custom.name : v.current === 'other' ? currentId(v) : null;
   return {
     row,
+    rows: accountRows(model, now),
     accounts: chatGptRows(model, now),
     using: via
       ? { name: via, sub: v.current === 'other' ? t('Nhà cung cấp khác trong config.toml', 'Another provider in config.toml') : t('Custom API · không báo hạn mức', 'Custom API · reports no quota') }
@@ -350,11 +354,16 @@ export function codexBanner(model: Model, short = false): BannerView | null {
     return {
       tone: 'warn',
       title: t('Codex chưa có đăng nhập ChatGPT', 'Codex has no ChatGPT sign-in'),
-      body: t(
-        'Plugin và điều khiển từ xa của Codex App cần đăng nhập. Mở Codex App để đăng nhập; app này không đăng nhập hộ.',
-        'Codex App’s plugins and remote control need a sign-in. Open Codex App to sign in; this app does not sign in for you.',
-      ),
-      actions: [{ label: t('Hướng dẫn', 'Guide'), act: 'codex:guide:login' }],
+      body: v.accounts?.some((a) => a.kind === 'chatgpt' && a.login !== 'relogin')
+        ? t(
+            'Plugin và điều khiển từ xa của Codex App cần đăng nhập ChatGPT. Chuyển sang một tài khoản ChatGPT trong danh sách để có lại.',
+            'Codex App’s plugins and remote control need a ChatGPT sign-in. Switch to a ChatGPT account in the list to get them back.',
+          )
+        : t(
+            'Plugin và điều khiển từ xa của Codex App cần đăng nhập ChatGPT. Đăng nhập ở đây; đăng nhập nằm trong thư mục riêng cho tới khi bạn chuyển.',
+            'Codex App’s plugins and remote control need a ChatGPT sign-in. Sign in here; it stays in its own folder until you switch to it.',
+          ),
+      actions: [{ label: t('Đăng nhập ChatGPT…', 'Sign in to ChatGPT…'), act: 'codex:add' }],
     };
   }
   if (v.external) return externalBanner(v, short);

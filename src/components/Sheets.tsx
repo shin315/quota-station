@@ -28,6 +28,7 @@ import {
   targetId,
 } from '../lib/codex';
 import { dayClock } from '../lib/switching';
+import { accountSheet } from '../lib/codexAccounts';
 import { t } from '../lib/i18n';
 import type { AgyHow, CodexKeyPreview, CodexTarget, CodexView, Model, Sessions } from '../lib/model';
 import {
@@ -53,7 +54,8 @@ export type SheetState =
   | { kind: 'agy'; number: number }
   | { kind: 'pause'; preset: PauseChoice }
   | { kind: 'guide'; id: 'auto' | 'switcher' }
-  | { kind: 'codex'; target: CodexTarget }
+  /** `account`: the Codex account to switch to (a ChatGPT sign-in or a custom provider); without it, the other side. */
+  | { kind: 'codex'; target: CodexTarget; account?: string }
   /** Restart Codex's background process; `after` straight after a switch whose box was ticked. */
   | { kind: 'daemon'; after: boolean }
   | { kind: 'codexExternal' }
@@ -82,7 +84,7 @@ export interface SheetBodyProps {
   onPause(until: Date | null): void;
   onSettings(): void;
   /** Codex (M8): switch, with the restart sheet after it when `restart`. */
-  onCodexSwitch?(target: CodexTarget, restart: boolean): void;
+  onCodexSwitch?(target: CodexTarget, restart: boolean, account?: string): void;
   onCodexRestart?(after: boolean): void;
   /** "Không khởi động lại" after a switch. */
   onCodexSkipRestart?(): void;
@@ -294,7 +296,63 @@ function Working({ title, line, detail }: { title: string; line: string; detail:
   );
 }
 
-function CodexBody(props: SheetBodyProps & { target: CodexTarget }) {
+/** The model as the provider sheet reads it, with `account`'s table as the custom provider. */
+function withCustom(model: Model, account: string | undefined): Model {
+  const a = account ? model.codex.accounts.find((x) => x.id === account && x.kind === 'custom') : undefined;
+  if (!a?.custom) return model;
+  return { ...model, codex: { ...model.codex, custom: a.custom, reach: a.reach ?? model.codex.reach, refusal: a.refusal } };
+}
+
+function CodexBody(props: SheetBodyProps & { target: CodexTarget; account?: string }) {
+  const toAccount = props.account ? props.model.codex.accounts.find((a) => a.id === props.account) : undefined;
+  if (toAccount?.kind === 'chatgpt') return <CodexAccountBody {...props} account={toAccount.id} />;
+  return <CodexProviderBody {...props} model={withCustom(props.model, props.account)} />;
+}
+
+/** A switch to another ChatGPT account: two `auth.json` files move, and Codex must restart to use it. */
+function CodexAccountBody(props: SheetBodyProps & { account: string }) {
+  // The running sessions keep the old sign-in until they restart: ticked by default here.
+  const [restart, setRestart] = useState(true);
+  const v = accountSheet(props.model, props.account);
+  if (!v) return null;
+  if (props.working)
+    return (
+      <Working
+        title={t('Đang chuyển Codex…', 'Switching Codex…')}
+        line={t('Đang dời đăng nhập ChatGPT', 'Moving the ChatGPT sign-in')}
+        detail={t('Cất auth.json đang dùng về thư mục của nó → đưa auth.json mới vào ~/.codex → đọc lại.', 'Put the auth.json in use back in its folder → move the new auth.json into ~/.codex → read it again.')}
+      />
+    );
+  return (
+    <>
+      <DialogTitle>{v.title}</DialogTitle>
+      <DialogLead>{v.lead}</DialogLead>
+      <Facts facts={v.facts} />
+      <label className="mb-2.5 flex cursor-pointer items-start gap-2 text-sm">
+        <Checkbox checked={restart} disabled={v.blocked} onCheckedChange={(on) => setRestart(on === true)} />
+        <span>
+          {t('Khởi động lại tiến trình nền Codex sau khi chuyển', 'Restart the Codex background process after switching')}
+          <small className="block text-xs text-ink2">
+            {t(
+              'Việc đang chạy trong Terminal sẽ bị ngắt. App hỏi lại một lần trước khi làm. Codex App vẫn phải tự thoát và mở lại.',
+              'Work running in Terminal will stop. The app asks once more first. Codex App still has to quit and reopen on its own.',
+            )}
+          </small>
+        </span>
+      </label>
+      <DialogButtons>
+        <Button large onClick={props.onClose}>
+          {t('Thôi', 'Cancel')}
+        </Button>
+        <Button large primary disabled={v.blocked} onClick={() => props.onCodexSwitch?.('chatGpt', restart, props.account)}>
+          {v.confirm}
+        </Button>
+      </DialogButtons>
+    </>
+  );
+}
+
+function CodexProviderBody(props: SheetBodyProps & { target: CodexTarget; account?: string }) {
   // G14: off by default; ticked, the restart sheet asks once more after the switch.
   const [restart, setRestart] = useState(false);
   const v = codexSheet(props.model, props.target);
@@ -341,7 +399,7 @@ function CodexBody(props: SheetBodyProps & { target: CodexTarget }) {
         <Button large onClick={props.onClose}>
           {t('Thôi', 'Cancel')}
         </Button>
-        <Button large primary disabled={v.blocked} onClick={() => props.onCodexSwitch?.(props.target, restart)}>
+        <Button large primary disabled={v.blocked} onClick={() => props.onCodexSwitch?.(props.target, restart, props.account)}>
           {v.confirm}
         </Button>
       </DialogButtons>
@@ -669,7 +727,7 @@ export function SheetBody(props: SheetBodyProps) {
   const s = props.sheet;
   if (s.kind === 'codexKey') return <CodexKeyBody {...props} />;
   if (s.kind === 'codexPlugins') return <CodexPluginsBody key={'pl' + s.on} {...props} on={s.on} />;
-  if (s.kind === 'codex') return <CodexBody key={'x' + s.target} {...props} target={s.target} />;
+  if (s.kind === 'codex') return <CodexBody key={'x' + s.target + (s.account ?? '')} {...props} target={s.target} account={s.account} />;
   if (s.kind === 'daemon') return <DaemonBody {...props} after={s.after} />;
   if (s.kind === 'codexExternal') return <ExternalBody {...props} />;
   if (s.kind === 'codexInfo') return <CodexInfoBody {...props} id={s.id} />;

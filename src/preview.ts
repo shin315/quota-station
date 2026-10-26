@@ -36,8 +36,13 @@
 // Codex (M8): `codex=chatgpt|ccswitch|down|external|nologin|nokey|placeholder|header|envkey|noplugins|broken|none`
 // sets the six states of the design and more (Codex goes through the made-up `relay` by
 // default), and `codexoutcome=changed|refused` what a switch reports. A switch or a
-// restart takes 1.5 s; `tab=codex` opens the Codex tab. `chatgpts=3` lists three made-up
-// ChatGPT accounts (Codex keeps one sign-in today).
+// restart takes 1.5 s; `tab=codex` opens the Codex tab.
+// Codex accounts: four made-up ChatGPT sign-ins and three custom providers by default;
+// `codexaccounts=one` is one of each (`chatgpts=3` then lists three ChatGPT accounts),
+// `codexaccounts=empty` neither. A sign-in waits 3 s and adds an account, or ends with
+// `codexlogin=dup|timeout|port|noCodex|denied|other`; "Kiểm tra" on a new provider finds
+// it answering with the key accepted, or `codexprovider=down|rejected` (also an address
+// with `down` in it, a key starting `sk-bad`).
 // The menu bar's service (19/10/2026): `menubar=claude|gemini|codex` on `tab=settings`,
 // `mbwindow=fiveHours|week|fableWeek|tightest` the window its title shows,
 // and `agyhot=on` puts the Antigravity account in use at 86 % of its Claude/GPT week,
@@ -97,6 +102,8 @@ import {
   alertsFixture,
   appFixture,
   codexFixture,
+  codexEmpty,
+  codexMany,
   firstmateFixture,
   mcpBrandsFixture,
   mcpFixture,
@@ -174,6 +181,9 @@ const BACKUP: Record<string, () => Model['backup']> = {
   restored: () => backupFixture({ restore: { at: 1768547700, pack: 'agents-20260116-141000-studio-mini', mac: 'Mac mini' } }),
   unread: () => backupFixture({ packs: null, keys: null, readAt: null }),
 };
+
+/** How a ChatGPT sign-in for Codex ends (`codexlogin=`); by default it adds an account after 3 s. */
+const CODEX_LOGIN_ENDS = ['dup', 'timeout', 'port', 'noCodex', 'denied', 'other'] as const;
 
 const RELAY = codexFixture().custom!;
 const CODEX: Record<string, () => Model['codex']> = {
@@ -456,8 +466,13 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
       a.windows = a.windows.map((w) => (w.kind === 'claudeGptWeek' ? { ...w, percent: 14 } : w));
     }
   }
-  // Codex keeps one ChatGPT sign-in today; `chatgpts=3` adds made-up accounts, to show the popover's list of them.
-  const chatgpts = Math.min(Number(params.get('chatgpts')) || 0, 5);
+  // Several Codex accounts by default (four ChatGPT sign-ins, three custom providers);
+  // `codexaccounts=one` is one of each, as before, `empty` a Codex folder with neither.
+  const codexAccounts = params.get('codexaccounts');
+  const withCodex = codexAccounts === 'one' || params.get('codex') === 'none' ? model : codexAccounts === 'empty' ? codexEmpty(model) : codexMany(model);
+  Object.assign(model, withCodex);
+  // `chatgpts=3` adds made-up accounts to the one ChatGPT sign-in, to show the popover's list of them.
+  const chatgpts = codexAccounts === 'one' ? Math.min(Number(params.get('chatgpts')) || 0, 5) : 0;
   const codexSnap = model.snapshot.codex;
   if (chatgpts > 1 && codexSnap.accounts.length) {
     const first = codexSnap.accounts[0];
@@ -501,6 +516,10 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
     updateDelayMs: 1500,
     codexOutcome: pick(CODEX_OUTCOMES, params.get('codexoutcome')),
     codexDelayMs: 1500,
+    codexLoginDelayMs: 3000,
+    codexLoginEnd: CODEX_LOGIN_ENDS.find((k) => k === params.get('codexlogin')),
+    codexProviderDown: params.get('codexprovider') === 'down',
+    codexKeyRejected: params.get('codexprovider') === 'rejected',
     mcpChanged: params.get('mcpoutcome') === 'changed',
     mcpDelayMs: 600,
     restoreChanged: params.get('restoreoutcome') === 'changed',
