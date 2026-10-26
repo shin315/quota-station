@@ -450,6 +450,7 @@ export function codexFixture(over: Partial<CodexView> = {}): CodexView {
     openaiBaseUrl: false,
     accounts: [],
     accountsDir: '~/Library/Application Support/com.shin315.quota-station/codex/accounts',
+    trigger: { on: false, mode: 'daily', at: '06:00', keepAlive: true, ids: [], next: null, running: null, runs: [] },
     ...over,
   };
   return over.accounts ? v : { ...v, accounts: codexAccountsOf(v) };

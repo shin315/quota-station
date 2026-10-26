@@ -229,9 +229,11 @@ export interface Api {
   codexRename(id: string, name: string): Promise<CodexAccountDone>;
   /** Removes an account not in use; `logout` signs a ChatGPT one out first. */
   codexRemove(id: string, logout: boolean, base: string | null): Promise<CodexAccountDone>;
-  /** "Nhập file đăng nhập (JSON)": the app's own file picker, then what the files hold; null when the owner picked none. */
+  /** "Nhập file đăng nhập (JSON)": the system's file picker, then what the files hold; null when the owner picked none. */
   codexImportPick(): Promise<CodexImportPreview | null>;
-  /** Imports the files the preview read; `removeSource` deletes them once their sign-ins are in the app. */
+  /** "Dán JSON": what JSON pasted in the window holds. Rejects with `large` over 1 MB. */
+  codexImportText(text: string): Promise<CodexImportPreview>;
+  /** Imports what the preview read; `removeSource` deletes the files picked once their sign-ins are in the app. */
   codexImport(token: string, removeSource: boolean): Promise<CodexAccountDone>;
   /** "Tự đánh thức": its settings, kept by the app. */
   codexTriggerSet(t: Pick<CodexTrigger, 'on' | 'mode' | 'at' | 'keepAlive' | 'ids'>): Promise<void>;
@@ -515,6 +517,7 @@ export const tauriApi: Api = {
   codexRename: (id, name) => invoke<CodexAccountDone>('codex_rename', { id, name }),
   codexRemove: (id, logout, base) => invoke<CodexAccountDone>('codex_remove', { id, logout, base }),
   codexImportPick: () => invoke<CodexImportPreview | null>('codex_import_pick'),
+  codexImportText: (text) => invoke<CodexImportPreview>('codex_import_text', { text }),
   codexImport: (token, removeSource) => invoke<CodexAccountDone>('codex_import', { token, removeSource }),
   codexTriggerSet: (t) => invoke('codex_trigger_set', { trigger: t }),
   codexTriggerNow: () => invoke('codex_trigger_now'),

@@ -43,8 +43,9 @@
 // `codexlogin=dup|timeout|port|noCodex|denied|other`; "Kiểm tra" on a new provider finds
 // it answering with the key accepted, or `codexprovider=down|rejected` (also an address
 // with `down` in it, a key starting `sk-bad`). "Nhập file đăng nhập (JSON)" finds five made-up
-// files, or none with `codeximport=none`; `codextrigger=on|off` shows "Tự đánh thức tài khoản
-// ChatGPT" as a build with the author's tools has it (on, or set up and off).
+// files, or none with `codeximport=none`, and any JSON pasted reads as two made-up sign-ins;
+// `codextrigger=on|off` shows "Tự đánh thức tài khoản ChatGPT" set up (on, or off) instead of
+// as it starts, off with no account chosen.
 // The menu bar's service (19/10/2026): `menubar=claude|gemini|codex` on `tab=settings`,
 // `mbwindow=fiveHours|week|fableWeek|tightest` the window its title shows,
 // and `agyhot=on` puts the Antigravity account in use at 86 % of its Claude/GPT week,
@@ -474,8 +475,6 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
   const codexAccounts = params.get('codexaccounts');
   const withCodex = codexAccounts === 'one' || params.get('codex') === 'none' ? model : codexAccounts === 'empty' ? codexEmpty(model) : codexMany(model);
   Object.assign(model, withCodex);
-  // "Nhập file đăng nhập (JSON)" is offered in the prototype only, until it is built.
-  if (codexAccounts !== 'one') model.codex = { ...model.codex, imports: true };
   const trigger = params.get('codextrigger');
   if (trigger === 'on' || trigger === 'off') model.codex = { ...model.codex, trigger: codexTriggerFixture(trigger === 'on') };
   // `chatgpts=3` adds made-up accounts to the one ChatGPT sign-in, to show the popover's list of them.

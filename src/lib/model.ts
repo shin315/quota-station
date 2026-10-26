@@ -814,7 +814,8 @@ export interface CodexView {
   backupDir: string;
   recent: CodexRecent[];
   firstSwitchAt: string | null;
-  busy: 'switching' | 'restarting' | null;
+  /** `importing`: sign-ins read from files go in; `waking`: "Tự đánh thức" runs Codex for one account. */
+  busy: 'switching' | 'restarting' | 'importing' | 'waking' | null;
   openaiBaseUrl: boolean;
   /** Every Codex account the app lists: the ChatGPT sign-ins it keeps, then the provider tables in `config.toml`. */
   accounts: CodexAccount[];
@@ -822,20 +823,18 @@ export interface CodexView {
   accountsDir: string;
   /** A sign-in with a device code: the page and the code to type there. */
   loginCode?: { url: string; code: string } | null;
-  /** "Nhập file đăng nhập (JSON)" is offered (the prototype only, until it is built). */
-  imports?: boolean;
-  /** "Tự đánh thức tài khoản ChatGPT": only in a build with the author's tools, else null. */
-  trigger?: CodexTrigger | null;
+  /** "Tự đánh thức tài khoản ChatGPT", off until the owner turns it on. */
+  trigger: CodexTrigger;
 }
 
 /**
- * One file picked in "Nhập file đăng nhập (JSON)", as the app read it. The
- * file stays with the app: the window gets its name, whose sign-in it is and
+ * One sign-in read in "Nhập file đăng nhập (JSON)", from a file picked or
+ * from JSON pasted. The window gets the file's name, whose sign-in it is and
  * what importing it would do, never a token.
  */
 export interface CodexImportItem {
-  /** The file's name, as picked. */
-  file: string;
+  /** The file's name, as picked; null for JSON pasted. */
+  file: string | null;
   /** `codex`: Codex's own `auth.json`; `cliproxy`: a CLIProxyAPI `codex-*.json`. */
   format: 'codex' | 'cliproxy' | null;
   email: string | null;
@@ -937,11 +936,16 @@ export type CodexAccountDone =
   | { kind: 'dup'; id: string }
   | { kind: 'renewed'; id: string }
   | { kind: 'renamed'; id: string }
-  /** "Nhập file đăng nhập (JSON)": the accounts added or renewed; `removed`: the picked files were deleted. */
-  | { kind: 'imported'; ids: string[]; removed: boolean }
+  /**
+   * "Nhập file đăng nhập (JSON)": the accounts added or renewed; `removed`:
+   * every file they came from was deleted, as asked; `pasted`: they came from
+   * JSON pasted in the window.
+   */
+  | { kind: 'imported'; ids: string[]; removed: boolean; pasted: boolean }
   | { kind: 'removed'; id: string; name: string; loggedOut: boolean }
   | { kind: 'failed'; reason: CodexLoginFail; detail: string | null }
-  | { kind: 'refused'; reason: 'busy' | 'inUse' | 'signedIn' | 'changed' | 'badUrl' | 'name' | 'empty' | 'key' };
+  /** `expired`: "Nhập" came more than ten minutes after the files were read, or after another read. */
+  | { kind: 'refused'; reason: 'busy' | 'inUse' | 'signedIn' | 'changed' | 'badUrl' | 'name' | 'empty' | 'key' | 'expired' };
 
 /** Why a ChatGPT sign-in ended without an account. */
 export type CodexLoginFail = 'cancelled' | 'timeout' | 'port' | 'noCodex' | 'denied' | 'other';

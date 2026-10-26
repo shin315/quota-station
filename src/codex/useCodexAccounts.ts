@@ -12,6 +12,7 @@
 import { useCallback, useState } from 'react';
 import type { Api } from '../lib/api';
 import { accountFeedback, refusedText } from '../lib/codexAccounts';
+import { t } from '../lib/i18n';
 import type { CodexAccountDone, CodexImportPreview, CodexLoginFail, Model } from '../lib/model';
 import type { Action, FeedbackView } from '../lib/view';
 
@@ -27,9 +28,9 @@ export type CodexDialog =
   | { kind: 'fail'; reason: CodexLoginFail; detail: string | null; id: string | null }
   | { kind: 'provider' }
   | { kind: 'providerDone'; id: string }
-  /** The files picked, read: what importing each would do. */
+  /** The files picked or the JSON pasted, read: what importing each sign-in would do. */
   | { kind: 'import'; preview: CodexImportPreview }
-  | { kind: 'imported'; ids: string[]; removed: boolean }
+  | { kind: 'imported'; ids: string[]; removed: boolean; pasted: boolean }
   | { kind: 'detail'; id: string }
   | { kind: 'remove'; id: string }
   | { kind: 'relogin'; id: string };
@@ -73,12 +74,22 @@ export function useCodexAccounts(api: Api, model: Model | null, showFeedback: (f
     if (p) setDialog({ kind: 'import', preview: p });
   };
 
+  /** "Đọc JSON đã dán": the same preview, of the JSON pasted; a refusal stays on "Thêm tài khoản". */
+  const readText = async (text: string) => {
+    setPending(true);
+    const p = await api.codexImportText(text).catch((e: unknown) => (e === 'large' ? ('large' as const) : undefined));
+    setPending(false);
+    if (p === 'large') return from('add', { kind: 'add', how: 'json', error: t('JSON dài quá 1 MB.', 'The JSON is over 1 MB.') });
+    if (!p) return from('add', { kind: 'add', how: 'json', error: refusedText('busy') });
+    from('add', { kind: 'import', preview: p });
+  };
+
   /** Imports what the preview showed. */
   const importFiles = async (token: string, removeSource: boolean, latest: () => Model | null) => {
     setPending(true);
     const d = await call(api.codexImport(token, removeSource));
     setPending(false);
-    if (d.kind === 'imported') return from('import', { kind: 'imported', ids: d.ids, removed: d.removed });
+    if (d.kind === 'imported') return from('import', { kind: 'imported', ids: d.ids, removed: d.removed, pasted: d.pasted });
     from('import', null);
     const m = latest();
     if (m) showFeedback(accountFeedback(d, m));
@@ -119,7 +130,7 @@ export function useCodexAccounts(api: Api, model: Model | null, showFeedback: (f
     return true;
   };
 
-  return { api, dialog, open: setDialog, close, pending, setPending, act, add, login, cancelLogin, reopenLogin, rename, remove, pick, importFiles };
+  return { api, dialog, open: setDialog, close, pending, setPending, act, add, login, cancelLogin, reopenLogin, rename, remove, pick, readText, importFiles };
 }
 
 export type CodexAccountsState = ReturnType<typeof useCodexAccounts>;

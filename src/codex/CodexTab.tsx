@@ -6,8 +6,8 @@
 // (the ChatGPT sign-ins the app keeps, then the custom providers in
 // config.toml), each "Chuyển" opening the confirmation sheet and each ⋯ its
 // details, a new sign-in and its removal, "Thêm tài khoản" over it; the
-// plugins box and "Dán khoá…" for the provider in use under it; in a build
-// with the author's tools, "Tự đánh thức tài khoản ChatGPT"; then Codex on
+// plugins box and "Dán khoá…" for the provider in use under it; "Tự đánh
+// thức tài khoản ChatGPT" once the app keeps a ChatGPT account; then Codex on
 // this Mac with the technical detail behind "Chi tiết". CC Switch shows only
 // as the banner that warns when it also switches Codex.
 
@@ -309,22 +309,21 @@ function runText(r: CodexTriggerRun, now: Date): string {
 }
 
 /**
- * "Tự đánh thức tài khoản ChatGPT", in a build with the author's tools: a
- * short message sent with Codex in each chosen account's own folder, daily
- * or as a window resets, and to sign-ins left unused for six days.
+ * "Tự đánh thức tài khoản ChatGPT", off until turned on: a short message
+ * sent with Codex in each chosen account's own folder, daily or as a window
+ * resets, and to an account whose sign-in ran out while it waited.
  */
 function TriggerCard({ model, now, tr, accounts }: { model: Model; now: Date; tr: CodexTrigger; accounts: CodexAccountsState }) {
   const v = model.codex;
   const set = (p: Partial<Pick<CodexTrigger, 'on' | 'mode' | 'at' | 'keepAlive' | 'ids'>>) =>
     void accounts.api.codexTriggerSet({ on: tr.on, mode: tr.mode, at: tr.at, keepAlive: tr.keepAlive, ids: tr.ids, ...p }).catch(() => {});
-  const gpts = v.accounts.filter((a) => a.kind === 'chatgpt');
+  const gpts = v.accounts.filter((a) => a.kind === 'chatgpt' && (a.number ?? 0) > 0);
   const last = (id: string) => tr.runs.find((r) => r.id === id);
   const runner = tr.running ? accountOf(v, tr.running) : undefined;
   return (
     <Panel>
       <CardTitle>
         {t('Tự đánh thức tài khoản ChatGPT', 'Wake ChatGPT accounts')}
-        <Chip chip={{ t: t('bản cá nhân', 'personal build'), k: 'tag', title: t('Chỉ có trong bản build kèm công cụ của tác giả; bản cộng đồng không có mục này.', 'Only in a build with the author’s tools; the community edition has no such card.') }} />
         <span className={CARD_END}>
           <Toggle on={tr.on} label={t('Tự đánh thức', 'Wake accounts')} disabled={v.version == null} onClick={() => set({ on: !tr.on })} />
         </span>
@@ -339,11 +338,21 @@ function TriggerCard({ model, now, tr, accounts }: { model: Model; now: Date; tr
         id="qs-cx-trig-mode"
         label={t('Khi nào', 'When')}
         options={[
-          { v: 'daily', t: t('Mỗi ngày lúc ' + tr.at, 'Each day at ' + tr.at), s: t('Khung 5 giờ mở lúc ' + tr.at + ', đặt lại lúc ' + plusFive(tr.at) + '.', 'The 5-hour window opens at ' + tr.at + ' and resets at ' + plusFive(tr.at) + '.') },
+          {
+            v: 'daily',
+            t: t('Mỗi ngày lúc ' + tr.at, 'Each day at ' + tr.at),
+            s: t(
+              'Khung 5 giờ mở lúc ' + tr.at + ', đặt lại lúc ' + plusFive(tr.at) + '. Mac ngủ lúc đó thì chạy khi thức, trễ tối đa 3 giờ.',
+              'The 5-hour window opens at ' + tr.at + ' and resets at ' + plusFive(tr.at) + '. A Mac asleep then runs it on waking, up to 3 hours late.',
+            ),
+          },
           {
             v: 'reset',
             t: t('Ngay khi khung 5 giờ đặt lại', 'As soon as a 5-hour window resets'),
-            s: t('Mỗi khung tối đa một lần; không gửi khi khung đang mở hay hết hạn mức tuần.', 'At most once per window; nothing sent while one is open or the week is used up.'),
+            s: t(
+              'Mỗi tài khoản cách nhau ít nhất 5 giờ, tối đa 5 lần một ngày, kể cả khi lỗi; không gửi khi khung đang mở hay hết hạn mức tuần.',
+              'Each account at least 5 hours apart, at most 5 times a day, failed runs included; nothing sent while a window is open or the week is used up.',
+            ),
           },
         ]}
         value={tr.mode}
@@ -360,7 +369,12 @@ function TriggerCard({ model, now, tr, accounts }: { model: Model; now: Date; tr
       <CheckLine className="mt-2.5" checked={tr.keepAlive} onChange={(keepAlive) => set({ keepAlive })}>
         <span>
           {t('Giữ đăng nhập không hết hạn', 'Keep sign-ins from running out')}
-          <small>{t('Cũng đánh thức tài khoản lâu không dùng khi đăng nhập sắp hết hạn, để Codex làm mới nó và hạn mức đọc tiếp được.', 'Also wakes an account left unused when its sign-in is about to run out, so Codex renews it and its quota can still be read.')}</small>
+          <small>
+            {t(
+              'Cũng đánh thức tài khoản đang chờ trong thư mục riêng khi token của nó đã hết hạn (app không đọc được hạn mức), để Codex làm mới; tối đa 2 lần một ngày.',
+              'Also wakes an account waiting in its own folder once its token has run out (the app cannot read its quota then), so Codex renews it; at most twice a day.',
+            )}
+          </small>
         </span>
       </CheckLine>
       <ChoiceLabel>{t('Tài khoản', 'Accounts')}</ChoiceLabel>
@@ -393,8 +407,8 @@ function TriggerCard({ model, now, tr, accounts }: { model: Model; now: Date; tr
             text: (
               <Rich
                 text={t(
-                  'Mỗi lần chạy `codex exec` với một câu "hi" trong thư mục của tài khoản đó: Codex tự dùng và làm mới đăng nhập, app không cầm token. Mỗi lần tốn một tin nhắn ngắn của hạn mức.',
-                  'Each run is `codex exec` with a "hi" in that account’s folder: Codex uses and renews the sign-in itself, the app holds no token. Each run spends one short message of quota.',
+                  'Mỗi lần chạy `codex exec` với một câu "hi" trong thư mục của tài khoản đó, không dùng config, MCP hay plugin của bạn: Codex tự dùng và làm mới đăng nhập, app không cầm token. Mỗi lần tốn một tin nhắn ngắn của hạn mức. Không chạy cùng lúc với Chuyển hay đăng nhập.',
+                  'Each run is `codex exec` with a "hi" in that account’s folder, without your config, MCP servers or plugins: Codex uses and renews the sign-in itself, the app holds no token. Each run spends one short message of quota. It never runs during a switch or a sign-in.',
                 )}
               />
             ),
@@ -636,7 +650,7 @@ export function CodexTab({ model, fresh, feedback, now, onAction, onPlugins, acc
         />
       ) : null}
       <AccountsCard model={model} now={now} accounts={accounts} onAction={onAction} onPlugins={onPlugins} />
-      {v.trigger ? <TriggerCard model={model} now={now} tr={v.trigger} accounts={accounts} /> : null}
+      {v.accounts.some((a) => a.kind === 'chatgpt' && (a.number ?? 0) > 0) ? <TriggerCard model={model} now={now} tr={v.trigger} accounts={accounts} /> : null}
       <OnThisMac v={v} now={now} onAction={onAction} />
     </>
   );

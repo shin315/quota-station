@@ -13,7 +13,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { DialogButtons, DialogLead, DialogTitle } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
+import { Input, Textarea } from '@/components/ui/input';
 import { DiffFile, DiffLine, DiffView, GROUP_PANEL, KeyMasked } from '../components/blocks';
 import { Button, Chip, ChoiceGroup, Facts, FeedbackLine, Hint, LinkButton, Rich, Spinner } from '../components/parts';
 import { t } from '../lib/i18n';
@@ -117,21 +117,18 @@ function AddBody({ d, codex, model }: { d: Extract<CodexDialog, { kind: 'add' }>
       t: t('Nhà cung cấp API riêng (Custom API)', 'Your own API provider (Custom API)'),
       s: t('Tên, địa chỉ và khoá API. Khoá được ghi vào config.toml của Codex và không hiện lại.', 'A name, an address and an API key. The key goes into Codex’s config.toml and is never shown again.'),
     },
-    // Offered in the prototype only, until it is built.
-    ...(v.imports
-      ? [
-          {
-            v: 'json' as const,
-            t: t('Nhập file đăng nhập (JSON)', 'Import a sign-in file (JSON)'),
-            s: t(
-              '`auth.json` của Codex hoặc file `codex-*.json` của CLIProxyAPI, chọn trong hộp chọn file của macOS. Token không đi qua cửa sổ này.',
-              'Codex’s `auth.json` or a CLIProxyAPI `codex-*.json`, picked in macOS’s file picker. No token passes through this window.',
-            ),
-          },
-        ]
-      : []),
+    {
+      v: 'json',
+      t: t('Nhập file đăng nhập (JSON)', 'Import a sign-in file (JSON)'),
+      s: t(
+        '`auth.json` của Codex hoặc file `codex-*.json` của CLIProxyAPI: chọn file (token đi thẳng từ file vào app), hoặc dán JSON.',
+        'Codex’s `auth.json` or a CLIProxyAPI `codex-*.json`: pick the files (the tokens go straight from the file into the app), or paste the JSON.',
+      ),
+    },
   ];
+  const [pasted, setPasted] = useState('');
   const blocked = (d.how === 'chatgpt' && !cli) || codex.pending || v.busy != null;
+  const paste = d.how === 'json' && pasted.trim() !== '';
   return (
     <Stack>
       <Head title={t('Thêm tài khoản Codex', 'Add a Codex account')} lead={t('Chỉ lưu trên Mac này.', 'Stored on this Mac only.')} />
@@ -144,10 +141,39 @@ function AddBody({ d, codex, model }: { d: Extract<CodexDialog, { kind: 'add' }>
         value={d.how}
         onChange={(how) => codex.open({ kind: 'add', how, error: null })}
       />
+      {d.how === 'json' ? (
+        <div>
+          <label className={LABEL} htmlFor="qs-codex-paste">
+            {t('Hoặc dán JSON', 'Or paste the JSON')}
+          </label>
+          <Textarea
+            id="qs-codex-paste"
+            mono
+            rows={4}
+            spellCheck={false}
+            autoComplete="off"
+            className="resize-none"
+            placeholder={'{"type": "codex", "id_token": "…", "access_token": "…", "refresh_token": "…"}'}
+            value={pasted}
+            onChange={(e) => setPasted(e.target.value)}
+          />
+          <Hint className="mb-0">
+            {t(
+              'Một hoặc nhiều đăng nhập (mảng, hoặc mỗi dòng một). Dán thì token đi qua clipboard và cửa sổ này; chọn file thì không.',
+              'One sign-in or several (an array, or one a line). Pasted, the tokens pass through the clipboard and this window; picked from a file, they do not.',
+            )}
+          </Hint>
+        </div>
+      ) : null}
       <ErrorLine text={d.error} />
       <DialogButtons>
         <Button onClick={codex.close}>{t('Thôi', 'Cancel')}</Button>
-        <Button primary disabled={blocked} onClick={() => codex.add(d.how)}>
+        {d.how === 'json' ? (
+          <Button primary={paste} disabled={!paste || blocked} onClick={() => void codex.readText(pasted)}>
+            {t('Đọc JSON đã dán', 'Read the pasted JSON')}
+          </Button>
+        ) : null}
+        <Button primary={!paste} disabled={blocked} onClick={() => codex.add(d.how)}>
           {d.how === 'json' ? t('Chọn file…', 'Choose files…') : t('Tiếp tục', 'Continue')}
         </Button>
       </DialogButtons>
@@ -465,22 +491,30 @@ const FORMAT: Record<string, string> = { codex: 'Codex auth.json', cliproxy: 'CL
 
 /** The files picked: whose sign-in each holds and what importing it would do. */
 function ImportBody({ d, codex, model, latest }: { d: Extract<CodexDialog, { kind: 'import' }> } & BodyProps) {
-  const [removeSource, setRemoveSource] = useState(true);
+  // Off unless ticked: the owner deletes the files once sure (the board's answer).
+  const [removeSource, setRemoveSource] = useState(false);
   const items = d.preview.items;
+  const pasted = items.every((i) => i.file == null);
   const takes = items.filter((i) => i.state === 'new' || i.state === 'renew').length;
   const refreshOnly = items.some((i) => i.state === 'refreshOnly');
+  const files = new Set(items.map((i) => i.file)).size;
+  const source = (i: CodexImportItem, k: number) => i.file ?? t('JSON đã dán', 'Pasted JSON') + (items.length > 1 ? ' #' + (k + 1) : '');
   return (
     <Stack>
       <Head
         title={takes ? t('Nhập ' + takes + ' tài khoản?', 'Import ' + takes + (takes === 1 ? ' account?' : ' accounts?')) : t('Không có tài khoản nào để nhập', 'Nothing to import')}
-        lead={t('Đã đọc ' + items.length + ' file. Codex đang chạy giữ nguyên; app không gửi gì cho OpenAI khi nhập.', 'Read ' + items.length + (items.length === 1 ? ' file' : ' files') + '. The Codex that runs is not touched; the app sends nothing to OpenAI to import.')}
+        lead={
+          pasted
+            ? t('Đã đọc ' + items.length + ' đăng nhập từ JSON đã dán. Codex đang chạy giữ nguyên; app không gửi gì cho OpenAI khi nhập.', 'Read ' + items.length + (items.length === 1 ? ' sign-in' : ' sign-ins') + ' from the pasted JSON. The Codex that runs is not touched; the app sends nothing to OpenAI to import.')
+            : t('Đã đọc ' + files + ' file. Codex đang chạy giữ nguyên; app không gửi gì cho OpenAI khi nhập.', 'Read ' + files + (files === 1 ? ' file' : ' files') + '. The Codex that runs is not touched; the app sends nothing to OpenAI to import.')
+        }
       />
-      <div className={GROUP_PANEL} role="list" aria-label={t('File đã chọn', 'Files picked')}>
-        {items.map((i) => (
-          <div key={i.file} role="listitem" className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-t-[.5px] border-card-line py-1.5 text-sm first:border-t-0">
+      <div className={GROUP_PANEL} role="list" aria-label={pasted ? t('Đăng nhập đã dán', 'Sign-ins pasted') : t('File đã chọn', 'Files picked')}>
+        {items.map((i, k) => (
+          <div key={k} role="listitem" className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-t-[.5px] border-card-line py-1.5 text-sm first:border-t-0">
             <span className="min-w-0">
-              <b className="block truncate font-semi">{i.email ?? i.file}</b>
-              <small className="block truncate text-xs text-ink2">{[i.file, i.format ? FORMAT[i.format] : null, i.plan].filter(Boolean).join(' · ')}</small>
+              <b className="block truncate font-semi">{i.email ?? source(i, k)}</b>
+              <small className="block truncate text-xs text-ink2">{[source(i, k), i.format ? FORMAT[i.format] : null, i.plan].filter(Boolean).join(' · ')}</small>
             </span>
             <Chip chip={importChip(i, model)} />
           </div>
@@ -507,9 +541,20 @@ function ImportBody({ d, codex, model, latest }: { d: Extract<CodexDialog, { kin
                 },
               ]
             : []),
+          ...(pasted
+            ? [
+                {
+                  k: 'w',
+                  text: t(
+                    'JSON vừa dán vẫn nằm trong clipboard (và lịch sử clipboard, nếu có app giữ nó). Nhập xong, chép một thứ khác đè lên.',
+                    'The pasted JSON is still on the clipboard (and in its history, if an app keeps one). Once imported, copy something else over it.',
+                  ),
+                },
+              ]
+            : []),
         ]}
       />
-      {takes ? (
+      {takes && !pasted ? (
         <label className="flex cursor-pointer items-start gap-2 text-sm">
           <Checkbox checked={removeSource} onCheckedChange={(on) => setRemoveSource(on === true)} />
           <span>
@@ -521,7 +566,11 @@ function ImportBody({ d, codex, model, latest }: { d: Extract<CodexDialog, { kin
         </label>
       ) : null}
       <DialogButtons>
-        <Button onClick={() => void codex.pick()}>{t('Chọn file khác…', 'Choose other files…')}</Button>
+        {pasted ? (
+          <Button onClick={() => codex.open({ kind: 'add', how: 'json', error: null })}>{t('Dán lại…', 'Paste again…')}</Button>
+        ) : (
+          <Button onClick={() => void codex.pick()}>{t('Chọn file khác…', 'Choose other files…')}</Button>
+        )}
         <Button onClick={codex.close}>{t('Thôi', 'Cancel')}</Button>
         <Button primary disabled={!takes || codex.pending || model.codex.busy != null} onClick={() => void codex.importFiles(d.preview.token, removeSource, latest)}>
           {codex.pending ? t('Đang nhập…', 'Importing…') : takes ? t('Nhập ' + takes + ' tài khoản', 'Import ' + takes) : t('Nhập', 'Import')}
@@ -542,9 +591,11 @@ function ImportedBody({ d, codex, model }: { d: Extract<CodexDialog, { kind: 'im
       <Head title={t('Đã nhập ' + d.ids.length + ' tài khoản', 'Imported ' + d.ids.length + (d.ids.length === 1 ? ' account' : ' accounts'))} lead={names.join(' · ')} />
       <RichFacts
         items={[
-          d.removed
-            ? { k: 'ok', text: t('Đã xoá các file gốc vừa nhập.', 'The files imported were deleted.') }
-            : { k: 'w', text: t('File gốc vẫn còn. Xoá chúng khi chắc không dùng nữa.', 'The original files are still there. Delete them once you are sure.') },
+          d.pasted
+            ? { k: 'w', text: t('JSON đã dán có thể còn trong clipboard. Chép một thứ khác đè lên.', 'The pasted JSON may still be on the clipboard. Copy something else over it.') }
+            : d.removed
+              ? { k: 'ok', text: t('Đã xoá các file gốc vừa nhập.', 'The files imported were deleted.') }
+              : { k: 'w', text: t('File gốc vẫn còn: đăng nhập có thêm một bản đọc được trên máy này. Xoá chúng khi chắc không dùng nữa.', 'The original files are still there: the sign-in has one more readable copy on this Mac. Delete them once you are sure.') },
           { k: '', text: t('Hạn mức hiện sau lần cập nhật tới nếu đăng nhập trong file còn hạn; nếu không, ở lần đầu Codex dùng tài khoản.', 'Quota shows on the next read if the sign-in in the file is still valid; else the first time Codex uses the account.') },
           {
             k: '',

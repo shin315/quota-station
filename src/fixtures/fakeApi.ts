@@ -911,12 +911,19 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       if (options.codexDelayMs) await new Promise((r) => setTimeout(r, 400));
       return fakeImportPreview(model.codex);
     },
+    codexImportText: async (text) => {
+      if (text.length > 1024 * 1024) throw 'large';
+      if (options.codexDelayMs) await new Promise((r) => setTimeout(r, 400));
+      return fakePastePreview(model.codex);
+    },
     codexImport: async (token, removeSource) => {
       const c = model.codex;
-      if (c.busy || token !== IMPORT_TOKEN) return { kind: 'refused', reason: 'busy' } satisfies CodexAccountDone;
+      if (c.busy) return { kind: 'refused', reason: 'busy' } satisfies CodexAccountDone;
+      if (token !== IMPORT_TOKEN && token !== PASTE_TOKEN) return { kind: 'refused', reason: 'expired' } satisfies CodexAccountDone;
       if (options.codexDelayMs) await new Promise((r) => setTimeout(r, 900));
       const at = now().toISOString();
-      const items = fakeImportPreview(c).items;
+      const pasted = token === PASTE_TOKEN;
+      const items = (pasted ? fakePastePreview(c) : fakeImportPreview(c)).items;
       const s = model.snapshot.codex;
       let n = Math.max(0, ...c.accounts.map((a) => a.number ?? 0));
       const added: CodexAccount[] = items
@@ -934,7 +941,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
         snapshot: { ...model.snapshot, codex: { ...s, accounts: [...s.accounts, ...added.map((a) => ({ number: a.number ?? 0, role: 'unknown' as const, active: false, disabled: false, reading: 'noData' as const, fetchedAt: at, source: 'list' as const, membership: 'unknown' as const, leavesAt: null, lines: [], windows: [], email: a.email ?? '' }))] } },
         codex: { ...c, accounts: [...gpts, ...added, ...rest] },
       });
-      return { kind: 'imported', ids: [...added.map((a) => a.id), ...renewed], removed: removeSource } satisfies CodexAccountDone;
+      return { kind: 'imported', ids: [...added.map((a) => a.id), ...renewed], removed: removeSource && !pasted, pasted } satisfies CodexAccountDone;
     },
     codexTriggerSet: async (next) => {
       const c = model.codex;
@@ -1735,6 +1742,7 @@ function providerId(name: string): string {
 
 /** The lines a new provider adds to `config.toml`, the key only as its hint. */
 const IMPORT_TOKEN = 'import-1';
+const PASTE_TOKEN = 'paste-1';
 
 /**
  * The files "Nhập file đăng nhập (JSON)" finds on made-up data: a new
@@ -1756,6 +1764,13 @@ export function fakeImportPreview(c: Model['codex']): CodexImportPreview {
     { file: 'notes.json', format: null, email: null, plan: null, state: 'broken', id: null },
   ];
   return { token: IMPORT_TOKEN, items };
+}
+
+/** JSON pasted in "Nhập file đăng nhập (JSON)" on made-up data: two CLIProxyAPI sign-ins, one a line. */
+export function fakePastePreview(c: Model['codex']): CodexImportPreview {
+  const files = fakeImportPreview(c).items;
+  const items = [files[0], files[3]].map((i) => ({ ...i, file: null }));
+  return { token: PASTE_TOKEN, items };
 }
 
 export function fakeProviderPreview(c: Model['codex'], name: string, baseUrl: string, key: string): CodexKeyPreview {

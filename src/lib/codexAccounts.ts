@@ -322,6 +322,8 @@ export function refusedText(reason: Extract<CodexAccountDone, { kind: 'refused' 
       return t('Cần tên, địa chỉ và khoá.', 'A name, an address and a key are needed.');
     case 'key':
       return t('Khoá này không dùng được (trống, có khoảng trắng, hoặc quá dài).', 'This key cannot be used (empty, with spaces, or too long).');
+    case 'expired':
+      return t('Đã quá 10 phút từ lúc đọc file. Chọn file hoặc dán lại rồi nhập.', 'More than 10 minutes passed since the files were read. Pick or paste them again, then import.');
   }
 }
 
