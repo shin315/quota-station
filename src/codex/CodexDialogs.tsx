@@ -149,7 +149,7 @@ function AddBody({ d, codex, model }: { d: Extract<CodexDialog, { kind: 'add' }>
           <Textarea
             id="qs-codex-paste"
             mono
-            rows={4}
+            rows={3}
             spellCheck={false}
             autoComplete="off"
             className="resize-none"
@@ -158,10 +158,7 @@ function AddBody({ d, codex, model }: { d: Extract<CodexDialog, { kind: 'add' }>
             onChange={(e) => setPasted(e.target.value)}
           />
           <Hint className="mb-0">
-            {t(
-              'Một hoặc nhiều đăng nhập (mảng, hoặc mỗi dòng một). Dán thì token đi qua clipboard và cửa sổ này; chọn file thì không.',
-              'One sign-in or several (an array, or one a line). Pasted, the tokens pass through the clipboard and this window; picked from a file, they do not.',
-            )}
+            {t('Một hay nhiều đăng nhập. Dán thì token đi qua clipboard; chọn file thì không.', 'One sign-in or several. Pasted, the tokens pass through the clipboard; picked, they do not.')}
           </Hint>
         </div>
       ) : null}
