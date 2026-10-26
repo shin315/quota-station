@@ -143,6 +143,8 @@ pub struct Parsed {
     /// `model_provider` at the top; `None` uses the ChatGPT login.
     pub selected: Option<String>,
     pub custom: Option<Custom>,
+    /// Every provider table that is not one of Codex's own, in the file's order.
+    pub providers: Vec<Custom>,
     /// Every provider table id, in the file's order.
     pub tables: Vec<String>,
     /// The active `profile`, when it sets any of the keys that pick a provider.
@@ -350,6 +352,7 @@ pub fn parse(text: &str, remembered: Option<&str>) -> Result<Parsed, String> {
         profile: profile(&doc),
         selected,
         custom,
+        providers: Vec::new(),
         tables,
         store: store(&doc),
         mcp,

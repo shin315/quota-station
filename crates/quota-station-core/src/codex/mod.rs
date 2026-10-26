@@ -19,10 +19,12 @@
 //! owner confirms, `codex app-server daemon restart` ([`procs`]); it asks the
 //! provider's `/models` with no key to see that it answers ([`probe`]).
 
+pub mod accounts;
 pub mod config;
 pub mod files;
 pub mod log;
 pub mod login;
+pub mod platform;
 pub mod probe;
 pub mod procs;
 pub mod resume;
@@ -572,4 +574,66 @@ pub fn takes_key(parsed: &Parsed) -> bool {
     parsed.custom.as_ref().is_some_and(|c| {
         c.plain && matches!(c.key, KeyKind::Bearer | KeyKind::Placeholder | KeyKind::None)
     })
+}
+
+// ===== Several custom providers =====
+
+/// What "Xem trước…" of a new provider shows. Holds no key: only its hint.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderPreview {
+    /// Sent back with the add, so a file changed since is not overwritten.
+    pub hash: Option<String>,
+    /// The table's id: the name, made fit for one.
+    pub id: Option<String>,
+    /// The lines the add appends.
+    pub lines: Vec<PreviewLine>,
+    pub refusal: Option<KeyRefusal>,
+    pub detail: Option<String>,
+}
+
+/// What adding or removing a provider did. Holds no key.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
+pub enum ProviderOutcome {
+    Added { id: String, backup: String },
+    Removed { id: String, backup: String },
+    Refused { refusal: KeyRefusal },
+    Invalid { detail: String },
+    Failed { error: WriteError },
+}
+
+/// The table a new provider `name` at `base_url` with `key` would add.
+pub fn provider_preview(codex_home: &Path, app: &AppDir, name: &str, base_url: &str, key: &str) -> ProviderPreview {
+    todo!("{codex_home:?} {app:?} {name} {base_url} {}", key.len())
+}
+
+/// Adds the provider, when `config.toml` still hashes to `base_hash`.
+pub fn add_provider(
+    codex_home: &Path,
+    app: &AppDir,
+    name: &str,
+    base_url: &str,
+    key: &str,
+    base_hash: &str,
+    now: OffsetDateTime,
+) -> ProviderOutcome {
+    todo!("{codex_home:?} {app:?} {name} {base_url} {} {base_hash} {now}", key.len())
+}
+
+/// Removes the provider table `id`; never the one Codex uses.
+pub fn remove_provider(codex_home: &Path, app: &AppDir, id: &str, base_hash: &str, now: OffsetDateTime) -> ProviderOutcome {
+    todo!("{codex_home:?} {app:?} {id} {base_hash} {now}")
+}
+
+/// Switches Codex to the provider table `id`.
+pub fn switch_provider(
+    codex_home: &Path,
+    app: &AppDir,
+    id: &str,
+    base_hash: Option<&str>,
+    plugins: bool,
+    now: OffsetDateTime,
+) -> Outcome {
+    todo!("{codex_home:?} {app:?} {id} {base_hash:?} {plugins} {now}")
 }
