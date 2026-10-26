@@ -554,3 +554,89 @@ fn the_preview_decides_with_the_draft_rules() {
     assert_eq!(rotate::dry_run(&mac.store, &tools, Some(&draft), now).primes, Vec::<u32>::new());
     assert!(rotate::dry_run(&mac.store, &tools, Some(&draft), now).line.starts_with("switch 3 "));
 }
+
+// A failed switch says why, in the same line.
+
+/// One run that wants to move Claude Code from 2 to 3, after `setup`; the
+/// switch's line in the log.
+fn failed_switch_line(tag: &str, setup: impl FnOnce(&Mac)) -> String {
+    let (mac, anthropic, tools) = three_accounts(tag);
+    anthropic.usage("acc-1", 0.0, None, Some(5.0), None);
+    anthropic.usage("acc-2", 96.0, Some(&iso(1.0)), Some(40.0), None);
+    anthropic.usage("acc-3", 10.0, Some(&iso(2.0)), Some(20.0), None);
+    setup(&mac);
+    rotate::run(&mac.store, &tools);
+    assert_ne!(switch::active_slot(&mac.store), Some(3));
+    let log = log(&mac);
+    let line = log.lines().find(|l| l.contains(" switch to slot 3 ")).unwrap_or_default();
+    assert_eq!(log.lines().count(), 1, "{log}");
+    line.to_string()
+}
+
+#[test]
+fn a_switch_that_finds_a_lock_busy_logs_which() {
+    let line = failed_switch_line("rotate-fail-busy", |mac| {
+        std::fs::create_dir(mac.home.join(".claude.lock")).unwrap();
+    });
+    assert!(line.contains(" switch to slot 3 failed: busy: "), "{line}");
+    assert!(line.ends_with("is held by another process"), "{line}");
+}
+
+#[test]
+fn a_switch_whose_login_does_not_read_back_logs_it() {
+    let line = failed_switch_line("rotate-fail-readback", |mac| {
+        std::fs::write(mac.dir.join("drop-add"), "Claude Code-credentials").unwrap();
+    });
+    assert!(
+        line.ends_with(
+            " switch to slot 3 failed: unconfirmed: the login read back from the Keychain \
+             is not the one written; the old login is back"
+        ),
+        "{line}"
+    );
+}
+
+#[test]
+fn a_switch_the_keychain_refuses_logs_its_words() {
+    let line = failed_switch_line("rotate-fail-keychain", |mac| {
+        std::fs::write(mac.dir.join("fail-add"), "").unwrap();
+    });
+    assert!(line.contains(" switch to slot 3 failed: "), "{line}");
+    assert!(line.contains("User interaction is not allowed"), "{line}");
+    assert!(!line.contains("acc-"), "{line}");
+}
+
+#[test]
+fn a_switch_over_a_login_the_app_does_not_keep_logs_it() {
+    let line = failed_switch_line("rotate-fail-unmanaged", |mac| {
+        mac.log_in(
+            &credential("acc-x", "ref-x", in_hours(5.0)),
+            &common::accounts::oauth("someone@else.example", "uuid-x", "org-x"),
+        );
+    });
+    assert!(
+        line.ends_with(
+            " switch to slot 3 failed: unmanaged: Claude Code is logged in to an account \
+             Quota Station does not keep"
+        ),
+        "{line}"
+    );
+}
+
+#[test]
+fn a_switch_to_an_account_without_a_usable_login_logs_it() {
+    let line = rotate::reason(
+        switch::SwitchError::NoCredential.kind(),
+        &switch::SwitchError::NoCredential,
+    );
+    assert_eq!(line, "noCredential: the account has no usable stored login (none, or expired)");
+}
+
+#[test]
+fn a_failure_line_is_one_short_line() {
+    let line = rotate::reason("keychain", &"first\nsecond   line".to_string());
+    assert_eq!(line, "keychain: first second line");
+    let long = rotate::reason("write", &"é".repeat(500));
+    assert_eq!(long.chars().count(), 201);
+    assert!(long.ends_with('…'));
+}

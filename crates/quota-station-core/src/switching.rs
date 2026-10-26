@@ -92,7 +92,7 @@ pub fn switch_claude(
     }
     let started = OffsetDateTime::now_utc();
     if let Err(e) = switch::switch(&tools.store, slot) {
-        let active = matches!(e, SwitchError::NotConfirmed { restored: false })
+        let active = matches!(e, SwitchError::NotConfirmed { restored: false, .. })
             .then(|| switch::active_slot(&tools.store))
             .flatten();
         return failed(e.kind(), detail(&e), active);
