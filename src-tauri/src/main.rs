@@ -238,6 +238,7 @@ commands![
     codex_accounts::codex_use,
     codex_accounts::codex_login,
     codex_accounts::codex_cancel_login,
+    codex_accounts::codex_reopen_login,
     codex_accounts::codex_check_provider,
     codex_accounts::codex_provider_preview,
     codex_accounts::codex_add_provider,

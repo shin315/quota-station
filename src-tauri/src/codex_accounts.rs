@@ -14,7 +14,7 @@
 use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -23,7 +23,7 @@ use quota_station_core::codex::accounts::{self, Added, Place, Store, CHATGPT_ID}
 use quota_station_core::codex::config::{self, Custom, KeyRefusal, Parsed, Refusal, Target};
 use quota_station_core::codex::files::WriteError;
 use quota_station_core::codex::login::Login;
-use quota_station_core::codex::platform::Unix;
+use quota_station_core::codex::platform::{Platform, Unix};
 use quota_station_core::codex::probe::{self, KeyCheck};
 use quota_station_core::codex::{self, procs, Outcome, ProviderOutcome, ProviderPreview};
 use quota_station_core::quota::cache::Cache;
@@ -32,7 +32,7 @@ use serde::Serialize;
 use tauri::{AppHandle, State};
 use time::OffsetDateTime;
 
-use crate::codex::{list, rfc, write, Reach};
+use crate::codex::{list, rfc, write, Reach, Signing};
 use crate::reader;
 use crate::state::{AppState, Inner};
 
@@ -271,11 +271,14 @@ pub async fn codex_use(
 /// Signs a new ChatGPT account in, or `id` again: `codex login` with a new,
 /// empty folder of its own as `CODEX_HOME`, so the Codex in use and its
 /// sign-in stay as they are. Waits up to ten minutes for the browser.
+/// `device`: with a code typed on ChatGPT's page instead of the browser
+/// coming back to this Mac (when the port it listens on is taken).
 #[tauri::command]
 pub async fn codex_login(
     app: AppHandle,
     state: State<'_, AppState>,
     id: Option<String>,
+    device: Option<bool>,
 ) -> Result<AccountDone, String> {
     let again = match id.as_deref() {
         None => None,
@@ -285,17 +288,21 @@ pub async fn codex_login(
         },
     };
     let shared = state.inner().clone();
-    let (home, dir, user_home, cancel) = {
+    let (home, dir, user_home, signing) = {
         let mut inner = shared.lock();
         if inner.codex.signing.is_some() || inner.codex.busy.is_some() {
             return Ok(refused("busy"));
         }
-        let cancel = Arc::new(AtomicBool::new(false));
-        inner.codex.signing = Some(cancel.clone());
-        (inner.codex_home(), inner.app_dir(), inner.home.clone(), cancel)
+        let signing = Arc::new(Signing::default());
+        inner.codex.signing = Some(signing.clone());
+        (inner.codex_home(), inner.app_dir(), inner.home.clone(), signing)
     };
+    let (shown, showing) = (app.clone(), shared.clone());
     let done = tauri::async_runtime::spawn_blocking(move || {
-        sign_in(&home, &dir, &user_home, again, &cancel)
+        let how = How { device: device.unwrap_or(false), signing: &signing };
+        sign_in(&home, &dir, &user_home, &Unix::system(), again, &how, &|| {
+            reader::publish(&shown, &showing)
+        })
     })
     .await
     .unwrap_or_else(|_| failed("other", None));
@@ -307,26 +314,47 @@ pub async fn codex_login(
 /// Stops the sign-in that waits for the browser.
 #[tauri::command]
 pub fn codex_cancel_login(state: State<'_, AppState>) {
-    if let Some(cancel) = &state.lock().codex.signing {
-        cancel.store(true, Ordering::SeqCst);
+    if let Some(signing) = &state.lock().codex.signing {
+        signing.cancel.store(true, Ordering::SeqCst);
     }
+}
+
+/// "Mở lại trang đăng nhập": the page `codex login` printed, in the browser.
+#[tauri::command]
+pub fn codex_reopen_login(state: State<'_, AppState>) -> Result<(), String> {
+    let link = state
+        .lock()
+        .codex
+        .signing
+        .as_ref()
+        .and_then(|s| s.link.lock().ok().and_then(|l| l.clone()))
+        .ok_or("none")?;
+    Command::new("/usr/bin/open").arg(&link).status().map_err(|_| "open".to_string())?;
+    Ok(())
+}
+
+/// How a sign-in runs, and where it says what it printed.
+struct How<'a> {
+    device: bool,
+    signing: &'a Signing,
 }
 
 fn sign_in(
     home: &Path,
     dir: &AppDir,
     user_home: &Path,
+    platform: &dyn Platform,
     again: Option<u32>,
-    cancel: &AtomicBool,
+    how: &How,
+    shown: &dyn Fn(),
 ) -> AccountDone {
     let Some(codex_cli) = procs::discover(user_home) else { return failed("noCodex", None) };
-    let platform = Unix::system();
-    let store = Store::new(dir, home, &platform);
+    let store = Store::new(dir, home, platform);
     let pending = match store.begin_login() {
         Ok(p) => p,
         Err(e) => return failed("other", Some(e.to_string())),
     };
-    let ended = run_login(&codex_cli, &pending, cancel);
+    let ended = run_login(&codex_cli, &pending, how, shown);
     let printed = std::fs::read_to_string(pending.join(LOGIN_LOG)).unwrap_or_default();
     let _ = std::fs::remove_file(pending.join(LOGIN_LOG));
     match ended {
@@ -355,8 +383,14 @@ fn sign_in(
 }
 
 /// Runs `codex login` in `folder` until it ends: `Ok(succeeded)`, or
-/// `Err(cancelled | timeout | other)` after stopping it.
-fn run_login(codex_cli: &Path, folder: &Path, cancel: &AtomicBool) -> Result<bool, &'static str> {
+/// `Err(cancelled | timeout | other)` after stopping it. The page it prints
+/// (and with a device code, the code) go to `how.signing`, then `shown`.
+fn run_login(
+    codex_cli: &Path,
+    folder: &Path,
+    how: &How,
+    shown: &dyn Fn(),
+) -> Result<bool, &'static str> {
     // Codex keeps this sign-in in the folder's `auth.json`, whatever the
     // Mac's own config says.
     std::fs::write(folder.join(codex::CONFIG), "cli_auth_credentials_store = \"file\"\n")
@@ -365,6 +399,7 @@ fn run_login(codex_cli: &Path, folder: &Path, cancel: &AtomicBool) -> Result<boo
     let printed_err = printed.try_clone().map_err(|_| "other")?;
     let mut child = Command::new(codex_cli)
         .arg("login")
+        .args(how.device.then_some("--device-auth"))
         .env("CODEX_HOME", folder)
         .stdin(Stdio::null())
         .stdout(printed)
@@ -372,13 +407,27 @@ fn run_login(codex_cli: &Path, folder: &Path, cancel: &AtomicBool) -> Result<boo
         .spawn()
         .map_err(|_| "noCodex")?;
     let started = Instant::now();
+    let mut seen = (None, None);
     loop {
         match child.try_wait() {
             Ok(Some(status)) => return Ok(status.success()),
             Ok(None) => {}
             Err(_) => return Err("other"),
         }
-        let stop = if cancel.load(Ordering::SeqCst) {
+        let printed = std::fs::read_to_string(folder.join(LOGIN_LOG)).unwrap_or_default();
+        let now = (link_of(&printed), how.device.then(|| code_of(&printed)).flatten());
+        if now != seen {
+            let put = |m: &std::sync::Mutex<Option<String>>, v: &Option<String>| {
+                if let Ok(mut slot) = m.lock() {
+                    slot.clone_from(v);
+                }
+            };
+            put(&how.signing.link, &now.0);
+            put(&how.signing.code, &now.1);
+            seen = now;
+            shown();
+        }
+        let stop = if how.signing.cancel.load(Ordering::SeqCst) {
             Some("cancelled")
         } else if started.elapsed() > LOGIN_WAIT {
             Some("timeout")
@@ -392,6 +441,44 @@ fn run_login(codex_cli: &Path, folder: &Path, cancel: &AtomicBool) -> Result<boo
         }
         std::thread::sleep(Duration::from_millis(250));
     }
+}
+
+/// `codex login`'s words without their colours.
+fn plain(printed: &str) -> String {
+    let mut out = String::with_capacity(printed.len());
+    let mut chars = printed.chars();
+    while let Some(c) = chars.next() {
+        if c == '\u{1b}' {
+            // `ESC [ … letter`
+            for d in chars.by_ref() {
+                if d.is_ascii_alphabetic() {
+                    break;
+                }
+            }
+        } else {
+            out.push(c);
+        }
+    }
+    out
+}
+
+/// The first `https://` page `codex login` printed.
+fn link_of(printed: &str) -> Option<String> {
+    plain(printed)
+        .split_whitespace()
+        .find(|w| w.starts_with("https://"))
+        .map(|w| w.trim_end_matches(['.', ',', ')']).to_string())
+}
+
+/// A device code as `codex login --device-auth` prints it: `ABCD-12345`.
+fn code_of(printed: &str) -> Option<String> {
+    plain(printed).split_whitespace().find_map(|w| {
+        let (a, b) = w.split_once('-')?;
+        let part = |p: &str| {
+            p.len() >= 4 && p.chars().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit())
+        };
+        (part(a) && part(b)).then(|| w.to_string())
+    })
 }
 
 /// Why `codex login` ended without a sign-in, from what it printed. The
@@ -639,6 +726,36 @@ mod tests {
             .to_string()
     }
 
+    fn browser(signing: &Signing) -> How<'_> {
+        How { device: false, signing }
+    }
+
+    #[test]
+    fn a_device_code_sign_in_shows_the_page_and_the_code_while_it_waits() {
+        let home = fake_codex(
+            "device",
+            "echo \"$@\" > \"$CODEX_HOME/../../args\"; printf '\\033[1mOpen this link\\033[0m\\n   https://auth.openai.com/codex/device\\n   Enter this code\\n   \\033[94mABCD-12345\\033[0m\\n'; sleep 30",
+        );
+        let dir = AppDir::new(home.join("app"));
+        let signing = Signing::default();
+        let how = How { device: true, signing: &signing };
+        // Stopped once the code shows, as the owner would after typing it.
+        let done =
+            sign_in(&home.join(".codex"), &dir, &home, &Unix::default(), None, &how, &|| {
+                if signing.code.lock().unwrap().is_some() {
+                    signing.cancel.store(true, Ordering::SeqCst);
+                }
+            });
+        assert!(matches!(done, AccountDone::Failed { reason: "cancelled", .. }), "{done:?}");
+        assert_eq!(signing.code.lock().unwrap().as_deref(), Some("ABCD-12345"));
+        assert_eq!(
+            signing.link.lock().unwrap().as_deref(),
+            Some("https://auth.openai.com/codex/device")
+        );
+        let args = std::fs::read_to_string(dir.path().join("codex/args")).unwrap();
+        assert_eq!(args.trim(), "login --device-auth");
+    }
+
     #[test]
     fn a_sign_in_runs_codex_login_in_a_folder_of_its_own_and_adds_the_account() {
         let auth = made_up("ann").replace('"', "\\\"");
@@ -649,7 +766,15 @@ mod tests {
         let codex_home = home.join(".codex");
         std::fs::create_dir_all(&codex_home).unwrap();
         let dir = AppDir::new(home.join("app"));
-        let done = sign_in(&codex_home, &dir, &home, None, &AtomicBool::new(false));
+        let done = sign_in(
+            &codex_home,
+            &dir,
+            &home,
+            &Unix::default(),
+            None,
+            &browser(&Signing::default()),
+            &|| {},
+        );
         assert!(matches!(done, AccountDone::Added { ref id } if id == "chatgpt:1"), "{done:?}");
         let folder = dir.path().join(accounts::DIR).join("1");
         assert_eq!(std::fs::read_to_string(folder.join("args")).unwrap().trim(), "login");
@@ -665,12 +790,30 @@ mod tests {
             fake_codex("port", "echo 'Error: Address already in use (os error 48)' >&2; exit 1");
         let codex_home = home.join(".codex");
         let dir = AppDir::new(home.join("app"));
-        let done = sign_in(&codex_home, &dir, &home, None, &AtomicBool::new(false));
+        let done = sign_in(
+            &codex_home,
+            &dir,
+            &home,
+            &Unix::default(),
+            None,
+            &browser(&Signing::default()),
+            &|| {},
+        );
         assert!(matches!(done, AccountDone::Failed { reason: "port", .. }), "{done:?}");
 
         let home = fake_codex("wait", "sleep 30");
         let dir = AppDir::new(home.join("app"));
-        let done = sign_in(&home.join(".codex"), &dir, &home, None, &AtomicBool::new(true));
+        let stopped = Signing::default();
+        stopped.cancel.store(true, Ordering::SeqCst);
+        let done = sign_in(
+            &home.join(".codex"),
+            &dir,
+            &home,
+            &Unix::default(),
+            None,
+            &browser(&stopped),
+            &|| {},
+        );
         assert!(matches!(done, AccountDone::Failed { reason: "cancelled", .. }), "{done:?}");
         let left: Vec<_> = std::fs::read_dir(dir.path().join(accounts::DIR))
             .unwrap()

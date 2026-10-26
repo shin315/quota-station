@@ -15,7 +15,7 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
@@ -73,8 +73,19 @@ pub struct Live {
     pub nicknames: BTreeMap<String, String>,
     /// Whether each custom provider answers, by table id.
     pub reaches: BTreeMap<String, Reach>,
-    /// A ChatGPT sign-in waits for the browser: set to stop it.
-    pub signing: Option<Arc<AtomicBool>>,
+    /// A ChatGPT sign-in waiting for the browser.
+    pub signing: Option<Arc<Signing>>,
+}
+
+/// A ChatGPT sign-in under way (`codex login` in a folder of its own).
+#[derive(Debug, Default)]
+pub struct Signing {
+    /// Set to stop it.
+    pub cancel: AtomicBool,
+    /// The page `codex login` printed, for "Mở lại trang đăng nhập".
+    pub link: Mutex<Option<String>>,
+    /// With a device code: the code to type on that page.
+    pub code: Mutex<Option<String>>,
 }
 
 /// Whether the custom provider answers.
@@ -183,6 +194,15 @@ pub struct CodexView {
     pub accounts: Vec<AccountView>,
     /// Where the ChatGPT sign-ins not in the Codex folder wait.
     pub accounts_dir: String,
+    /// A sign-in with a device code: the page and the code to type there.
+    pub login_code: Option<LoginCode>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoginCode {
+    pub url: String,
+    pub code: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -374,6 +394,10 @@ pub fn view(inner: &Inner) -> CodexView {
         openai_base_url: parsed.is_some_and(|p| p.openai_base_url),
         accounts: codex_accounts::view(inner, parsed, login, current),
         accounts_dir: runner::display_path(&app.path().join(accounts::DIR), &inner.home),
+        login_code: live.signing.as_ref().and_then(|s| {
+            let lock = |m: &Mutex<Option<String>>| m.lock().ok().and_then(|v| v.clone());
+            Some(LoginCode { url: lock(&s.link)?, code: lock(&s.code)? })
+        }),
     }
 }
 
