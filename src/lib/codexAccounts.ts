@@ -197,14 +197,6 @@ export function accountSheet(model: Model, id: string): AccountSheetView | null 
   const facts: FactView[] = [];
   if (to.login === 'relogin')
     facts.push({ k: 'x', text: t('ChatGPT đã từ chối đăng nhập của ' + toName + '. Đăng nhập lại trước khi chuyển.', 'ChatGPT refused ' + toName + '’s sign-in. Sign in again before switching.') });
-  if (!inFolder && v.login === 'chatGpt')
-    facts.push({
-      k: 'x',
-      text: t(
-        '**Codex đang đăng nhập một tài khoản chưa có trong danh sách.** Thêm nó trước (Thêm tài khoản › Lấy đăng nhập Codex đang dùng), kẻo mất đăng nhập đó.',
-        '**Codex is signed in to an account that is not in the list.** Add it first (Add account › Use Codex’s current sign-in) so that sign-in is not lost.',
-      ),
-    });
   const here = inFolder?.id === to.id;
   facts.push({
     k: 'ok',
@@ -240,7 +232,7 @@ export function accountSheet(model: Model, id: string): AccountSheetView | null 
           'Running sessions keep ' + (inName ?? curName) + ' until reopened, and ask to sign in again at their next sign-in renewal.',
         ) + reopen,
   });
-  const blocked = to.login === 'relogin' || (!inFolder && v.login === 'chatGpt') || v.busy != null;
+  const blocked = to.login === 'relogin' || v.busy != null;
   return {
     title: t('Chuyển Codex sang ' + toName + '?', 'Switch Codex to ' + toName + '?'),
     lead: t(
