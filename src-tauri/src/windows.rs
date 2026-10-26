@@ -39,28 +39,51 @@ fn main_window(app: &AppHandle) -> Option<WebviewWindow> {
     app.get_webview_window(MAIN)
 }
 
-/// macOS's Reduce Transparency as the windows last heard it.
+/// macOS's Reduce Transparency and Increase Contrast as the windows last
+/// heard them.
 static REDUCE_TRANSPARENCY: AtomicBool = AtomicBool::new(false);
+static INCREASE_CONTRAST: AtomicBool = AtomicBool::new(false);
 
 /// Whether macOS reduces transparency (System Settings › Accessibility ›
 /// Display). Its own materials then draw solid, and the page shows the
 /// solid ground instead of the glass tint.
 #[cfg(target_os = "macos")]
 pub fn reduce_transparency() -> bool {
+    use objc2::{msg_send, runtime::Bool};
+    let on = workspace().is_some_and(|w| {
+        // SAFETY: a plain BOOL getter on the shared NSWorkspace.
+        let on: Bool = unsafe { msg_send![w, accessibilityDisplayShouldReduceTransparency] };
+        on.as_bool()
+    });
+    REDUCE_TRANSPARENCY.store(on, Ordering::Relaxed);
+    on
+}
+
+/// Whether macOS increases contrast (the same pane): the page draws the
+/// edges of its glass and its panels stronger.
+#[cfg(target_os = "macos")]
+pub fn increase_contrast() -> bool {
+    use objc2::{msg_send, runtime::Bool};
+    let on = workspace().is_some_and(|w| {
+        // SAFETY: a plain BOOL getter on the shared NSWorkspace.
+        let on: Bool = unsafe { msg_send![w, accessibilityDisplayShouldIncreaseContrast] };
+        on.as_bool()
+    });
+    INCREASE_CONTRAST.store(on, Ordering::Relaxed);
+    on
+}
+
+/// The shared NSWorkspace.
+#[cfg(target_os = "macos")]
+fn workspace() -> Option<&'static objc2::runtime::AnyObject> {
     use objc2::msg_send;
-    use objc2::runtime::{AnyClass, AnyObject, Bool};
-    let Some(class) = AnyClass::get(c"NSWorkspace") else { return false };
+    use objc2::runtime::{AnyClass, AnyObject};
+    let class = AnyClass::get(c"NSWorkspace")?;
     // SAFETY: `+[NSWorkspace sharedWorkspace]` returns the shared instance,
-    // and the property is a plain BOOL getter on it.
+    // which lives as long as the app; null is checked.
     unsafe {
         let workspace: *mut AnyObject = msg_send![class, sharedWorkspace];
-        if workspace.is_null() {
-            return false;
-        }
-        let on: Bool = msg_send![workspace, accessibilityDisplayShouldReduceTransparency];
-        let on = on.as_bool();
-        REDUCE_TRANSPARENCY.store(on, Ordering::Relaxed);
-        on
+        workspace.as_ref()
     }
 }
 
@@ -69,13 +92,24 @@ pub fn reduce_transparency() -> bool {
     false
 }
 
-/// A window came forward: the owner may have changed Reduce Transparency
-/// while it was behind, so both windows hear the setting when it changed.
+#[cfg(not(target_os = "macos"))]
+pub fn increase_contrast() -> bool {
+    false
+}
+
+/// A window came forward: the owner may have changed Reduce Transparency or
+/// Increase Contrast while it was behind, so both windows hear a setting
+/// that changed.
 fn check_material(app: &AppHandle) {
     let before = REDUCE_TRANSPARENCY.load(Ordering::Relaxed);
     let now = reduce_transparency();
     if now != before {
         let _ = app.emit("reduceTransparency", now);
+    }
+    let before = INCREASE_CONTRAST.load(Ordering::Relaxed);
+    let now = increase_contrast();
+    if now != before {
+        let _ = app.emit("increaseContrast", now);
     }
 }
 
@@ -263,5 +297,11 @@ mod tests {
     fn reads_reduce_transparency_from_macos() {
         let on = reduce_transparency();
         assert_eq!(REDUCE_TRANSPARENCY.load(Ordering::Relaxed), on);
+    }
+
+    #[test]
+    fn reads_increase_contrast_from_macos() {
+        let on = increase_contrast();
+        assert_eq!(INCREASE_CONTRAST.load(Ordering::Relaxed), on);
     }
 }

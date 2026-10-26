@@ -41,7 +41,7 @@ import { codexErrorFeedback, codexFeedback, codexPopover, codexRestartFeedback, 
 import type { Api } from './lib/api';
 import { authorModel } from './lib/author';
 import { alertFailedFeedback, testFailedFeedback } from './lib/alerts';
-import type { AgyHow, AlertKind, CodexOutcome, CodexTarget, Language, Model, Sessions, SettingsGroup, Tab, Theme } from './lib/model';
+import type { AgyHow, AlertKind, CodexOutcome, CodexTarget, Language, Model, Sessions, SettingsGroup, Tab, Theme, ThemePack } from './lib/model';
 import { resolveLang, setLang, systemLanguages, t, type Lang } from './lib/i18n';
 import {
   autoView,
@@ -126,6 +126,18 @@ export function useTheme(theme: Theme | undefined): boolean {
 }
 
 /**
+ * Puts the owner's theme pack on the page: `data-pack` beside `data-theme`
+ * redefines the tokens (tokens.css), in this window as in every other.
+ */
+export function useThemePack(pack: ThemePack | undefined) {
+  useEffect(() => {
+    if (!pack) return;
+    document.documentElement.dataset.pack = pack;
+    document.querySelectorAll<HTMLElement>('.qs[data-pack]').forEach((el) => (el.dataset.pack = pack));
+  }, [pack]);
+}
+
+/**
  * Sets the language every string below the root is written in: the owner's
  * choice, or macOS's. It is set during the root's render, before any child
  * builds its text, and `<html lang>` follows for VoiceOver.
@@ -141,28 +153,33 @@ export function useLang(language: Language | undefined): Lang {
 
 /**
  * The clear glass, or the solid ground while macOS reduces transparency:
- * `data-material` on the page drives the glass tokens. macOS says so itself
- * (WebKit's media query cannot be counted on), when the window opens and
- * whenever it comes forward after the setting changed.
+ * `data-material` on the page drives the glass tokens. The stronger edges
+ * while macOS increases contrast: `data-contrast`. macOS says so itself
+ * (WebKit's media queries cannot be counted on), when the window opens and
+ * whenever it comes forward after a setting changed.
  */
 export function useMaterial(api: Api) {
   useEffect(() => {
     let live = true;
-    let stop: (() => void) | undefined;
-    const apply = (reduce: boolean) => {
+    const stops: (() => void)[] = [];
+    const set = (key: 'material' | 'contrast', value: string) => {
       if (!live) return;
-      const material = reduce ? 'solid' : 'glass';
-      document.documentElement.dataset.material = material;
-      document.querySelectorAll<HTMLElement>('.qs[data-material]').forEach((el) => (el.dataset.material = material));
+      document.documentElement.dataset[key] = value;
+      document.querySelectorAll<HTMLElement>(`.qs[data-${key}]`).forEach((el) => (el.dataset[key] = value));
     };
-    void api.reduceTransparency().then(apply, () => {});
-    void api.onReduceTransparency(apply).then((unlisten) => {
-      if (live) stop = unlisten;
+    const material = (reduce: boolean) => set('material', reduce ? 'solid' : 'glass');
+    const contrast = (more: boolean) => set('contrast', more ? 'more' : 'normal');
+    const keep = (unlisten: () => void) => {
+      if (live) stops.push(unlisten);
       else unlisten();
-    });
+    };
+    void api.reduceTransparency().then(material, () => {});
+    void api.onReduceTransparency(material).then(keep);
+    void api.increaseContrast().then(contrast, () => {});
+    void api.onIncreaseContrast(contrast).then(keep);
     return () => {
       live = false;
-      stop?.();
+      stops.forEach((stop) => stop());
     };
   }, [api]);
 }
@@ -522,6 +539,7 @@ const refusal = (call: Promise<unknown>): Promise<string | null> =>
 export function PopoverApp({ api, clock = systemClock }: AppProps) {
   const model = useModel(api);
   const dark = useTheme(model?.theme);
+  useThemePack(model?.themePack);
   useLang(model?.language);
   useMaterial(api);
   const now = useNow(clock);
@@ -620,6 +638,7 @@ export function PopoverApp({ api, clock = systemClock }: AppProps) {
 export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   const model = useModel(api);
   useTheme(model?.theme);
+  useThemePack(model?.themePack);
   useLang(model?.language);
   useMaterial(api);
   const now = useNow(clock);
@@ -832,6 +851,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       onGrant={() => void grant()}
       onShowNames={(on) => void api.setShowNames(on).catch(() => showFeedback(settingsFailedFeedback()))}
       onTheme={(theme) => void api.setTheme(theme).catch(() => showFeedback(settingsFailedFeedback()))}
+      onThemePack={(pack) => void api.setThemePack(pack).catch(() => showFeedback(settingsFailedFeedback()))}
       onLanguage={(language) => void api.setLanguage(language).catch(() => showFeedback(settingsFailedFeedback()))}
       onMenubar={(menubar) => void api.setMenubar(menubar).catch(() => showFeedback(settingsFailedFeedback()))}
       onMenubarWindow={(window) => void api.setMenubarWindow(window).catch(() => showFeedback(settingsFailedFeedback()))}

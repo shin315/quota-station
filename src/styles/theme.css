@@ -117,6 +117,8 @@
   --color-focus: var(--focus);
   --color-ok: var(--ok);
   --color-ok-ink: var(--ok-text);
+  /* A quota bar that is not short: green here, a theme pack's own grey. */
+  --color-meter-ok: var(--meter-ok);
   --color-dot-off: var(--dot-off);
   --color-warn: var(--warn);
   --color-warn-ink: var(--warn-text);

@@ -62,6 +62,8 @@ import type {
 export interface FakeOptions {
   /** macOS reduces transparency: the windows show the solid ground. */
   reduceTransparency?: boolean;
+  /** macOS increases contrast: the edges are drawn stronger. */
+  increaseContrast?: boolean;
   /** Aliases SSH cannot reach: a save leaves them behind, and "Thử SSH" fails. */
   unreachable?: string[];
   /** What a save, adopt or keep rejects with, instead of writing. */
@@ -243,6 +245,8 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
   const quitListeners = new Set<() => void>();
   const materialListeners = new Set<(on: boolean) => void>();
   let reduceTransparency = options.reduceTransparency ?? false;
+  const contrastListeners = new Set<(on: boolean) => void>();
+  let increaseContrast = options.increaseContrast ?? false;
   /** What the last `closeMain` did: the tests check a quit really quits. */
   let closed: 'window' | 'app' | null = null;
   let quitPending = options.quitPending ?? false;
@@ -1403,6 +1407,10 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       push({ ...model, theme });
       return model;
     },
+    setThemePack: async (themePack) => {
+      push({ ...model, themePack });
+      return model;
+    },
     setMenubar: async (menubar) => {
       push({ ...model, menubar });
       return model;
@@ -1424,6 +1432,11 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       materialListeners.add(handler);
       return () => materialListeners.delete(handler);
     },
+    increaseContrast: async () => increaseContrast,
+    onIncreaseContrast: async (handler) => {
+      contrastListeners.add(handler);
+      return () => contrastListeners.delete(handler);
+    },
   };
   /** The window's close button, as macOS would press it with unsaved rules. */
   const requestClose = () => closeListeners.forEach((l) => l());
@@ -1436,6 +1449,11 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
   const setReduceTransparency = (on: boolean) => {
     reduceTransparency = on;
     materialListeners.forEach((l) => l(on));
+  };
+  /** The owner turns Increase Contrast on or off in macOS's settings. */
+  const setIncreaseContrast = (on: boolean) => {
+    increaseContrast = on;
+    contrastListeners.forEach((l) => l(on));
   };
   /** A button on a macOS card that opens the popover's switch sheet. */
   const cardOpensSwitch = (slot: number) => openSwitchListeners.forEach((l) => l(slot));
@@ -1454,6 +1472,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
     cardOpensSwitch,
     cardOpened,
     setReduceTransparency,
+    setIncreaseContrast,
     /** How many times "Mở lại" quit the app. */
     relaunched: () => relaunched,
     /** The ids "Mở file" opened (M14). */

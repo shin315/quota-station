@@ -4,7 +4,7 @@
 //! The app's own settings file, `settings.json` in its Application Support
 //! folder: the name this Mac goes by, the other Macs
 //! the rotation file is copied to, whether account names show, the light or
-//! dark look, which service the menu bar follows and which of its windows
+//! dark look and the theme pack drawn in it, which service the menu bar follows and which of its windows
 //! the title shows, which alerts are on,
 //! where Firstmate's state file is, the clone "Cập nhật từ mã nguồn"
 //! builds from, Codex's folder and whether Codex keeps the ChatGPT login
@@ -51,6 +51,10 @@ pub struct Settings {
     /// Light, dark, or as macOS is.
     #[serde(default, skip_serializing_if = "Theme::is_auto")]
     pub theme: Theme,
+    /// The theme pack: the colours, glass and type every window is drawn
+    /// in, light or dark as `theme` says.
+    #[serde(default, skip_serializing_if = "ThemePack::is_default")]
+    pub theme_pack: ThemePack,
     /// Vietnamese, English, or as macOS is.
     #[serde(default, skip_serializing_if = "Language::is_auto")]
     pub language: Language,
@@ -241,6 +245,33 @@ impl Theme {
     }
 }
 
+/// The theme packs (Cài đặt › Hiển thị › Chủ đề), made from the styles the
+/// owner chose in October 2026. A pack changes only how the windows are
+/// drawn (`src/styles/tokens.css`), never what they show.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ThemePack {
+    /// The look the app has worn since 25/10/2026.
+    #[default]
+    Default,
+    /// Frosted glass after redraw A and the design-system sheets D01-D10.
+    KinhNhip,
+    /// Style Q03: a compact list on dense glass.
+    DaiSangTinh,
+    /// Style Q06: flat and dark, no glass.
+    MotNhipNhin,
+    /// Style Q11: a console in even-width type.
+    BanDieuKhien,
+    /// Style Q13: clear glass with a soft violet.
+    ChieuLang,
+}
+
+impl ThemePack {
+    pub fn is_default(&self) -> bool {
+        *self == ThemePack::Default
+    }
+}
+
 /// The windows' language.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -324,6 +355,9 @@ struct Stored {
     /// An unknown value reads as automatic.
     #[serde(default)]
     theme: serde_json::Value,
+    /// An unknown value (a pack a later version added) reads as the default.
+    #[serde(default)]
+    theme_pack: serde_json::Value,
     /// An unknown value reads as automatic.
     #[serde(default)]
     language: serde_json::Value,
@@ -405,6 +439,7 @@ impl From<Stored> for Settings {
             peers,
             hide_names: s.hide_names,
             theme: serde_json::from_value(s.theme).unwrap_or_default(),
+            theme_pack: serde_json::from_value(s.theme_pack).unwrap_or_default(),
             language: serde_json::from_value(s.language).unwrap_or_default(),
             menubar: serde_json::from_value(s.menubar).unwrap_or_default(),
             menubar_window: serde_json::from_value(s.menubar_window).unwrap_or_default(),

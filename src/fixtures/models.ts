@@ -624,6 +624,7 @@ export function fixtureModel(name: string, over: Partial<Model> = {}): AuthorMod
     rotation: rotationFixture(),
     showNames: true,
     theme: 'auto',
+    themePack: 'default',
     language: 'auto',
     menubar: 'claude',
     menubarWindow: 'fiveHours',

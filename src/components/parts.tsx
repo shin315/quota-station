@@ -17,7 +17,7 @@ import { isQuiet, type Action, type BannerView, type ChipView, type FeedbackView
 import { t } from '../lib/i18n';
 import { Glyph, type GlyphName } from './icons';
 
-/** A bar's fill by tone: green by default, the service's colour for `c` and `g`. */
+/** A bar's fill by tone: green by default (a theme pack's own grey), the service's colour for `c` and `g`. */
 const METER_FILL: Record<string, string> = { warn: 'bg-warn', bad: 'bg-bad', muted: 'bg-ink3', c: 'bg-id-claude', g: 'bg-id-agy' };
 
 export function Meter({ percent, tone, className }: { percent: number | null; tone: string; className?: string }) {
@@ -25,7 +25,7 @@ export function Meter({ percent, tone, className }: { percent: number | null; to
   // The number always sits next to the bar, so screen readers skip the bar.
   return (
     <span className={cn('mt-[5px] mb-1 block h-(--meter-h) overflow-hidden rounded-[2px] bg-track', className)} aria-hidden="true">
-      <i className={cn('block h-full rounded-[2px]', METER_FILL[tone] ?? 'bg-ok')} style={{ width: width + '%' }} />
+      <i className={cn('block h-full rounded-[2px]', METER_FILL[tone] ?? 'bg-meter-ok')} style={{ width: width + '%' }} />
     </span>
   );
 }

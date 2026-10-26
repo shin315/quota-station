@@ -19,7 +19,7 @@ function CheckboxBox({ className }: { className?: string }) {
         className,
       )}
     >
-      <CheckboxPrimitive.Indicator className="h-1 w-2 -translate-y-px -rotate-45 border-b-2 border-l-2 border-white" />
+      <CheckboxPrimitive.Indicator className="h-1 w-2 -translate-y-px -rotate-45 border-b-2 border-l-2 border-on-accent" />
     </span>
   );
 }

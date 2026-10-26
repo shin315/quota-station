@@ -38,6 +38,7 @@ import type {
   StatsReport,
   Tab,
   Theme,
+  ThemePack,
   Language,
   Menubar,
   MenubarWindow,
@@ -158,6 +159,8 @@ export interface Api {
   /** Shows or hides account names (emails, organizations) in both windows. */
   setShowNames(on: boolean): Promise<Model>;
   setTheme(theme: Theme): Promise<Model>;
+  /** The theme pack of every window. */
+  setThemePack(pack: ThemePack): Promise<Model>;
   /** Vietnamese, English, or back to macOS's language. */
   setLanguage(language: Language): Promise<Model>;
   /** The first run's last step: it does not show again; `popover` closes the window and opens the popover. */
@@ -397,6 +400,10 @@ export interface Api {
   reduceTransparency(): Promise<boolean>;
   /** macOS's Reduce Transparency changed, as a window learns when it comes forward. */
   onReduceTransparency(handler: (on: boolean) => void): Promise<() => void>;
+  /** macOS increases contrast (Accessibility › Display): the edges are drawn stronger. */
+  increaseContrast(): Promise<boolean>;
+  /** macOS's Increase Contrast changed, as a window learns when it comes forward. */
+  onIncreaseContrast(handler: (on: boolean) => void): Promise<() => void>;
 }
 
 export const tauriApi: Api = {
@@ -444,6 +451,7 @@ export const tauriApi: Api = {
   agyTabOpened: () => invoke('agy_tab_opened'),
   setShowNames: (on) => invoke<Model>('set_show_names', { on }),
   setTheme: (theme) => invoke<Model>('set_theme', { theme }),
+  setThemePack: (pack) => invoke<Model>('set_theme_pack', { pack }),
   setLanguage: (language) => invoke<Model>('set_language', { language }),
   finishSetup: (open) => invoke<Model>('finish_setup', { open }),
   setMenubar: (menubar) => invoke<Model>('set_menubar', { menubar }),
@@ -547,5 +555,7 @@ export const tauriApi: Api = {
   onModel: (handler) => listen<Model>('model', (event) => handler(event.payload)),
   reduceTransparency: () => invoke<boolean>('reduce_transparency'),
   onReduceTransparency: (handler) => listen<boolean>('reduceTransparency', (event) => handler(event.payload)),
+  increaseContrast: () => invoke<boolean>('increase_contrast'),
+  onIncreaseContrast: (handler) => listen<boolean>('increaseContrast', (event) => handler(event.payload)),
   onTab: (handler) => listen<Tab>('tab', (event) => handler(event.payload)),
 };

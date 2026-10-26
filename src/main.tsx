@@ -5,6 +5,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MainWindowApp, PopoverApp } from './App';
 import { tauriApi, type Api } from './lib/api';
+import { THEME_PACKS } from './lib/model';
 import './styles/globals.css';
 
 type View = 'popover' | 'window';
@@ -34,8 +35,11 @@ async function start() {
   const params = preview ? new URLSearchParams(location.search) : null;
   const theme = params?.get('theme');
   document.documentElement.dataset.theme = theme === 'light' || theme === 'dark' ? theme : 'auto';
-  // Glass until macOS says it reduces transparency (useMaterial).
+  const pack = params?.get('pack');
+  document.documentElement.dataset.pack = THEME_PACKS.find((p) => p === pack) ?? 'default';
+  // Glass and plain edges until macOS says otherwise (useMaterial).
   document.documentElement.dataset.material = 'glass';
+  document.documentElement.dataset.contrast = 'normal';
   document.body.classList.add(view === 'window' ? 'main-window' : 'popover-window');
   if (preview) document.body.classList.add('preview');
   createRoot(document.getElementById('root')!).render(
@@ -44,6 +48,8 @@ async function start() {
         className={'qs app-' + view + (view === 'window' ? ' h-full w-full' : ' in-[.preview]:ml-auto in-[.preview]:w-(--pop-w)')}
         data-theme={document.documentElement.dataset.theme}
         data-material={document.documentElement.dataset.material}
+        data-pack={document.documentElement.dataset.pack}
+        data-contrast={document.documentElement.dataset.contrast}
       >
         {view === 'window' ? <MainWindowApp api={api} clock={clock} /> : <PopoverApp api={api} clock={clock} />}
       </div>

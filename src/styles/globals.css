@@ -26,6 +26,7 @@
 
   body {
     font: var(--fs-base) / var(--lh) var(--font);
+    font-feature-settings: var(--font-features);
     color: var(--ink);
     -webkit-font-smoothing: antialiased;
     -webkit-user-select: none;
@@ -42,6 +43,7 @@
 
   .qs {
     font: var(--fs-base) / var(--lh) var(--font);
+    font-feature-settings: var(--font-features);
     color: var(--ink);
     -webkit-font-smoothing: antialiased;
   }

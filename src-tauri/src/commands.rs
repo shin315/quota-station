@@ -14,7 +14,7 @@ use quota_station_core::quota;
 use quota_station_core::sessions::{self, Sessions};
 #[cfg(feature = "author-tools")]
 use quota_station_core::settings::Settings;
-use quota_station_core::settings::{Language, Menubar, MenubarWindow, Theme};
+use quota_station_core::settings::{Language, Menubar, MenubarWindow, Theme, ThemePack};
 use quota_station_core::switching::{self, Outcome};
 use quota_station_core::{local_time, pause};
 use tauri::{AppHandle, State};
@@ -224,6 +224,24 @@ pub fn set_theme(
     Ok(state.lock().model())
 }
 
+/// Sets the theme pack every window is drawn in.
+#[tauri::command]
+pub fn set_theme_pack(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    pack: ThemePack,
+) -> Result<Model, String> {
+    {
+        let mut inner = state.lock();
+        let mut settings = inner.settings.clone();
+        settings.theme_pack = pack;
+        settings.save(&inner.settings_file).map_err(|e| e.to_string())?;
+        inner.settings = settings;
+    }
+    reader::publish(&app, &state);
+    Ok(state.lock().model())
+}
+
 /// The first run's last step: it does not show again, and the app opens
 /// where its owner chose, the main window or the popover under the menu bar.
 #[tauri::command]
@@ -269,6 +287,12 @@ pub fn set_language(
 #[tauri::command]
 pub fn reduce_transparency() -> bool {
     windows::reduce_transparency()
+}
+
+/// Whether macOS increases contrast: the page draws stronger edges.
+#[tauri::command]
+pub fn increase_contrast() -> bool {
+    windows::increase_contrast()
 }
 
 /// Reads Claude Code's Keychain item once with the owner at hand: macOS may

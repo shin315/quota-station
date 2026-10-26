@@ -219,6 +219,30 @@ describe('popover', () => {
     expect(root.dataset.material).toBe('glass');
   });
 
+  it('draws stronger edges while macOS increases contrast, and the theme pack the owner chose', async () => {
+    const fake = fakeApi(fixtureModel('fresh', { themePack: 'banDieuKhien' }), 'overview', { increaseContrast: true });
+    render(
+      <div className="qs app-popover" data-contrast="normal" data-pack="default">
+        <PopoverApp api={fake.api} clock={clock} />
+      </div>,
+    );
+    await screen.findByRole('dialog', { name: 'Quota Station' });
+    const root = document.querySelector<HTMLElement>('.qs')!;
+    expect(document.documentElement.dataset.contrast).toBe('more');
+    expect(root.dataset.contrast).toBe('more');
+    expect(document.documentElement.dataset.pack).toBe('banDieuKhien');
+    expect(root.dataset.pack).toBe('banDieuKhien');
+    // The owner turns it off in macOS's settings, and picks another pack in the main window.
+    act(() => fake.setIncreaseContrast(false));
+    expect(root.dataset.contrast).toBe('normal');
+    await act(async () => {
+      await fake.api.setThemePack('kinhNhip');
+    });
+    expect(root.dataset.pack).toBe('kinhNhip');
+    document.documentElement.dataset.pack = 'default';
+    document.documentElement.dataset.contrast = 'normal';
+  });
+
   it('one header button turns the look dark or light, the other opens the main window; Escape hides', async () => {
     const fake = await open(fixtureModel('fresh', { theme: 'light' }));
     expect(screen.queryByRole('button', { name: 'Cài đặt' })).toBeNull();

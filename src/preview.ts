@@ -72,7 +72,7 @@
 // `lang=vi|en` sets the language; without it the preview follows the browser's, as the app follows macOS.
 
 import type { Api } from './lib/api';
-import type { AgyAccounts, AgyApp, AgyHow, AgyOutcome, CodexOutcome, CodexTarget, McpTable, Model, Outcome, Tab, UpdateError, UpdateOutcome } from './lib/model';
+import { THEME_PACKS, type AgyAccounts, type AgyApp, type AgyHow, type AgyOutcome, type CodexOutcome, type CodexTarget, type McpTable, type Model, type Outcome, type Tab, type UpdateError, type UpdateOutcome } from './lib/model';
 import { fakeApi, fakeEmail, hideNames } from './fixtures/fakeApi';
 import { backupFixture, packsFixture } from './fixtures/fakeBackup';
 import { API_KEY, BASE_URL, CLAUDE_BASE, envAlert, envFixture, LAUNCHD_GEMINI } from './fixtures/fakeEnv';
@@ -399,6 +399,8 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
   }
   const theme = params.get('theme');
   if (theme === 'light' || theme === 'dark') over.theme = theme;
+  const pack = THEME_PACKS.find((p) => p === params.get('pack'));
+  if (pack) over.themePack = pack;
   const lang = params.get('lang');
   if (lang === 'vi' || lang === 'en') over.language = lang;
   const alerts = pick(ALERTS, params.get('alerts') ?? (tab === 'alerts' ? 'on' : null));

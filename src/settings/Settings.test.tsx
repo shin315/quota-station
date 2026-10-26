@@ -182,6 +182,27 @@ describe('settings tab', () => {
     document.documentElement.dataset.theme = 'auto';
   });
 
+  it('Chủ đề shows each theme pack drawn in its own tokens, and the one chosen redraws the window', async () => {
+    const fake = await open(fixtureModel('fresh', { theme: 'dark' }));
+    await showGroup('Hiển thị');
+    const group = screen.getByRole('radiogroup', { name: 'Chủ đề' });
+    const radios = within(group).getAllByRole('radio');
+    expect(radios.map((r) => r.lastElementChild!.textContent)).toEqual(['Mặc định', 'Kính Nhịp', 'Dải sáng tĩnh', 'Một nhịp nhìn', 'Bàn điều khiển', 'Chiều lặng']);
+    expect(radios.map((r) => r.getAttribute('aria-checked'))).toEqual(['true', 'false', 'false', 'false', 'false', 'false']);
+    // Each picture is drawn by its own pack, in the look on screen.
+    const swatches = radios.map((r) => r.querySelector<HTMLElement>('[data-pack]')!);
+    expect(swatches.map((s) => s.dataset.pack)).toEqual(['default', 'kinhNhip', 'daiSangTinh', 'motNhipNhin', 'banDieuKhien', 'chieuLang']);
+    expect(swatches.every((s) => s.dataset.theme === 'dark')).toBe(true);
+    await act(async () => {
+      fireEvent.click(within(group).getByRole('radio', { name: 'Chiều lặng' }));
+    });
+    expect(fake.api.setThemePack).toHaveBeenCalledWith('chieuLang');
+    expect(within(group).getByRole('radio', { name: 'Chiều lặng' }).getAttribute('aria-checked')).toBe('true');
+    expect(document.documentElement.dataset.pack).toBe('chieuLang');
+    document.documentElement.dataset.pack = 'default';
+    document.documentElement.dataset.theme = 'auto';
+  });
+
   it('names this Mac and goes back to the name macOS gives when emptied', async () => {
     const fake = await open(fixtureModel('fresh'));
     const input = screen.getByLabelText(/Tên máy này/) as HTMLInputElement;

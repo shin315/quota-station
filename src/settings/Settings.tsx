@@ -20,7 +20,7 @@
 // (SetRow). A longer description waits behind its "Chi tiết".
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Tabs as TabsPrimitive } from 'radix-ui';
+import { RadioGroup as RadioGroupPrimitive, Tabs as TabsPrimitive } from 'radix-ui';
 import { DiagnosticsRows, ReleaseRows } from '../release/ReleaseParts';
 import { EnvCard } from './EnvCard';
 import { SET_CTL, SetRow } from './SetRow';
@@ -33,7 +33,7 @@ import { Button, Chip, CODE, Dot, Feedback, FieldHint, LinkButton, More, Toggle 
 import { alertKinds, permissionChip, unreadText } from '../lib/alerts';
 import { authorModel, type AuthorModel } from '../lib/author';
 import type { ChipView } from '../lib/view';
-import type { AlertKind, AppView, ClientStatus, Language, Menubar, MenubarWindow, Model, Peer, PeerTest, SettingsGroup, SourceView, Theme, UpdateError } from '../lib/model';
+import { THEME_PACKS, type AlertKind, type AppView, type ClientStatus, type Language, type Menubar, type MenubarWindow, type Model, type Peer, type PeerTest, type SettingsGroup, type SourceView, type Theme, type ThemePack, type UpdateError } from '../lib/model';
 import { t } from '../lib/i18n';
 import { SectionGlyph, type Section } from '../components/icons';
 import type { Action, FeedbackView, PopoverView } from '../lib/view';
@@ -44,6 +44,73 @@ const themes = (): [Theme, string][] => [
   ['light', t('Sáng', 'Light')],
   ['dark', t('Tối', 'Dark')],
 ];
+
+/** The theme packs by the names the owner gave their styles; the same in both languages. */
+export const PACK_NAMES: Record<ThemePack, string> = {
+  default: 'Mặc định',
+  kinhNhip: 'Kính Nhịp',
+  daiSangTinh: 'Dải sáng tĩnh',
+  motNhipNhin: 'Một nhịp nhìn',
+  banDieuKhien: 'Bàn điều khiển',
+  chieuLang: 'Chiều lặng',
+};
+
+/**
+ * Chủ đề: the theme packs, each a tile with a small picture of it drawn in
+ * its own tokens (the tile carries data-pack and the look on screen), and
+ * its name. Choosing one redraws every window at once.
+ */
+function ThemePackRow({ model, onPick }: { model: Model; onPick(pack: ThemePack): void }) {
+  return (
+    <SetRow label={t('Chủ đề', 'Theme')} labelId="qs-pack-l" hint={t('Màu, kính và kiểu chữ của mọi cửa sổ.', 'Colours, glass and type of every window.')}>
+      <RadioGroupPrimitive.Root
+        className={cn(SET_CTL, 'grid grid-cols-3 gap-1.5')}
+        aria-labelledby="qs-pack-l"
+        value={model.themePack}
+        loop
+        onValueChange={(v) => onPick(v as ThemePack)}
+      >
+        {THEME_PACKS.map((pack) => (
+          <RadioGroupPrimitive.Item
+            key={pack}
+            value={pack}
+            className="group/pack grid cursor-pointer gap-1 rounded-lg border-0 bg-transparent p-1 text-center text-xs text-ink2 focus-visible:-outline-offset-2 data-[state=checked]:bg-sel data-[state=checked]:font-semi data-[state=checked]:text-ink"
+          >
+            <PackSwatch pack={pack} theme={model.theme} />
+            <span className="truncate">{PACK_NAMES[pack]}</span>
+          </RadioGroupPrimitive.Item>
+        ))}
+      </RadioGroupPrimitive.Root>
+    </SetRow>
+  );
+}
+
+/** A pack in small: its window ground and haze, a panel with "Aa" in its type and its accent, a bar not short and one short. */
+function PackSwatch({ pack, theme }: { pack: ThemePack; theme: Theme }) {
+  return (
+    <span
+      data-pack={pack}
+      data-theme={theme}
+      aria-hidden="true"
+      className="relative block h-[50px] overflow-hidden rounded-[7px] text-left [background:var(--win-mist),var(--glass-solid)] shadow-[inset_0_0_0_.5px_var(--glass-line)] group-data-[state=checked]/pack:shadow-[inset_0_0_0_1.5px_var(--accent)]"
+    >
+      <span className="absolute inset-1.5 grid content-between rounded-[5px] bg-(--panel) px-1.5 py-1 shadow-[inset_0_0_0_.5px_var(--panel-line)]">
+        <span className="flex items-center justify-between">
+          <span className="text-[13px]/none font-semi text-ink">Aa</span>
+          <span className="size-[7px] rounded-full bg-accent" />
+        </span>
+        <span className="grid gap-[3px]">
+          <span className="block h-[3px] overflow-hidden rounded-full bg-track">
+            <span className="block h-full w-1/2 rounded-full bg-meter-ok" />
+          </span>
+          <span className="block h-[3px] overflow-hidden rounded-full bg-track">
+            <span className="block h-full w-4/5 rounded-full bg-warn" />
+          </span>
+        </span>
+      </span>
+    </span>
+  );
+}
 
 export interface SettingsProps {
   model: Model;
@@ -60,6 +127,8 @@ export interface SettingsProps {
   /** Names (emails, organizations) on or off, in both windows. */
   onShowNames(on: boolean): void;
   onTheme(theme: Theme): void;
+  /** The theme pack of every window. */
+  onThemePack?(pack: ThemePack): void;
   /** The service the menu bar title follows. */
   onMenubar(menubar: Menubar): void;
   /** The window the menu bar title shows. */
@@ -1149,6 +1218,7 @@ export function Settings(props: SettingsProps) {
   onSetMachine,
   onShowNames,
   onTheme,
+  onThemePack,
   onMenubar,
   onMenubarWindow,
   onSetCodexHome,
@@ -1196,6 +1266,7 @@ export function Settings(props: SettingsProps) {
               ))}
             </Segmented>
           </SetRow>
+          {onThemePack ? <ThemePackRow model={model} onPick={onThemePack} /> : null}
           <SetRow label={t('Hiện email', 'Show emails')} labelId="qs-email-l" inline>
             <Toggle on={model.showNames} label={t('Hiện email', 'Show emails')} onClick={() => onShowNames(!model.showNames)} />
           </SetRow>

@@ -200,7 +200,11 @@ the confirmation sheet first.
     `Thêm Mac`, `Bỏ` and `Thử SSH` (reads that Mac's rotation file and
     changes nothing), whether `oauth-client.json` is in place and usable,
     `Hiện email` (on by default; off names accounts by place), `Giao diện`
-    (`Theo macOS`, `Sáng` or `Tối`), `Thanh menu` (the service the menu bar
+    (`Theo macOS`, `Sáng` or `Tối`), `Chủ đề` (the theme pack every window
+    is drawn in, each with a small picture of it: `Mặc định`, `Kính Nhịp`,
+    `Dải sáng tĩnh`, `Một nhịp nhìn`, `Bàn điều khiển` or `Chiều lặng`; a
+    pack changes colours, glass, type and corners, never what is shown; see
+    [docs/themes.md](docs/themes.md)), `Thanh menu` (the service the menu bar
     title follows: Claude, Gemini or Codex; one this Mac lacks is greyed out
     with the reason), `Số trên thanh menu` (the window the title shows:
     `5 giờ` by default, `Tuần`, `Fable tuần` or `Chặt nhất`; `Fable tuần` is
@@ -1382,8 +1386,9 @@ other.
 the fake Rust side the tests use. Query parameters: `state` (a file name in
 `src/fixtures/snapshots/`), `view=window` with `tab` (`overview`, `claude`,
 `agy`, `codex`, `rules`, `history`, `alerts`, `firstmate`, `mcp`, `skills`,
-`plugins`, `instr`, `backup`, `copy` or `settings`) and `theme` (`light`
-or `dark`).
+`plugins`, `instr`, `backup`, `copy` or `settings`), `theme` (`light`
+or `dark`) and `pack` (a theme pack: `kinhNhip`, `daiSangTinh`,
+`motNhipNhin`, `banDieuKhien` or `chieuLang`).
 For the rotation rules: `rotation` (`unreachable`, `newer`, `edited`,
 `unstamped`, `missing`, `invalid`, `unwritable` or `single`).
 For switching: `switcher` (`held`, `noguard`, `auto`, `stopped` or
@@ -1767,8 +1772,12 @@ Tailwind CSS v4 (through `@tailwindcss/vite`, with no config file) and its
 interactive parts are shadcn/ui components on Radix primitives.
 
 - `src/styles/tokens.css` holds every colour, size, radius, shadow and blur
-  of the approved prototype, for light and dark and for Reduce transparency.
+  of the approved prototype, for light and dark and for Reduce transparency,
+  then one block per theme pack (`data-pack`) and the stronger edges of
+  Increase Contrast (`data-contrast`).
   It is the one place to change a colour: nothing else names one.
+  `src/styles/tokens.test.ts` checks every pack's text against WCAG AA and
+  its quota bars apart, in light and dark.
 - `src/styles/theme.css` maps those tokens to Tailwind's theme
   (`@theme inline`: `text-ink2`, `bg-fill`, `rounded-tile`, `shadow-sheet`
   and the rest) and to shadcn/ui's variables. Tailwind's own colours, text
