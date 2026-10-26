@@ -12,7 +12,7 @@ import { cellOf, emailNames, type CellView } from './accounts';
 import { accountRows, type CodexAccountRowView } from './codexAccounts';
 import { age, clock, secondsSince } from './format';
 import { t } from './i18n';
-import type { CodexKeyOutcome, CodexKeyPreview, CodexKeyRefusal, CodexOutcome, CodexRefusal, CodexRestart, CodexTarget, CodexView, Model } from './model';
+import type { CodexAccountRefusal, CodexKeyOutcome, CodexKeyPreview, CodexKeyRefusal, CodexOutcome, CodexRefusal, CodexRestart, CodexTarget, CodexView, Model } from './model';
 import type { FactView } from './switching';
 import type { Action, BannerView, ChipView, FeedbackView, NoteView } from './view';
 
@@ -634,7 +634,9 @@ function restartLine(v: CodexView, name: string): string {
 /** After a switch. `restartNext`: the owner ticked the restart box, and the restart sheet comes next. */
 export function codexFeedback(outcome: CodexOutcome, model: Model): FeedbackView {
   const v = model.codex;
-  const to = longName(v, targetId(v, outcome.target));
+  // A ChatGPT account of the list goes by its own name.
+  const account = outcome.kind === 'switched' && v.accounts?.some((a) => a.id === outcome.to) ? shortName(v, outcome.to) : null;
+  const to = account ?? longName(v, targetId(v, outcome.target));
   const restartDaemon = () => ({ label: t('Khởi động lại tiến trình nền Codex…', 'Restart the Codex background process…'), act: 'codex:daemon' as Action });
   switch (outcome.kind) {
     case 'switched':
@@ -648,15 +650,25 @@ export function codexFeedback(outcome: CodexOutcome, model: Model): FeedbackView
       return {
         tone: '',
         title: t('Đã chuyển Codex sang ' + to, 'Switched Codex to ' + to),
-        body:
-          (hasLogin(v)
-            ? outcome.target === 'custom' && !v.plugins
-              ? t('Không dùng đăng nhập ChatGPT (plugin tắt). ', 'Not using the ChatGPT sign-in (plugins off). ')
-              : t('Vẫn giữ đăng nhập ChatGPT. ', 'The ChatGPT sign-in is kept. ')
-            : '') +
-          restartLine(v, to) +
-          t(' Bản cũ của config.toml nằm trong thư mục sao lưu.', ' The old config.toml is in the backup folder.'),
+        body: outcome.backup
+          ? (hasLogin(v)
+              ? outcome.target === 'custom' && !v.plugins
+                ? t('Không dùng đăng nhập ChatGPT (plugin tắt). ', 'Not using the ChatGPT sign-in (plugins off). ')
+                : t('Vẫn giữ đăng nhập ChatGPT. ', 'The ChatGPT sign-in is kept. ')
+              : '') +
+            restartLine(v, to) +
+            t(' Bản cũ của config.toml nằm trong thư mục sao lưu.', ' The old config.toml is in the backup folder.')
+          : // Only the two sign-ins moved: config.toml was not written.
+            t('Đăng nhập của ' + to + ' đã vào ' + v.home + ', đăng nhập trước về thư mục riêng của nó. ', to + '’s sign-in is in ' + v.home + ' now, the one before is back in its own folder. ') +
+            restartLine(v, to),
         actions: [restartDaemon(), done()],
+      };
+    case 'account':
+      return {
+        tone: 'bad',
+        title: t('Chưa chuyển Codex sang ' + to, 'Could not switch Codex to ' + to),
+        body: accountRefusalText(v, outcome.refusal) + t(NOTHING_VI, NOTHING_EN),
+        actions: [close()],
       };
     case 'already':
       return {
@@ -699,6 +711,29 @@ export function codexFeedback(outcome: CodexOutcome, model: Model): FeedbackView
           { label: t('Xem thư mục sao lưu', 'Show backup folder'), act: 'codex:backup' },
         ],
       };
+  }
+}
+
+/** Why a ChatGPT account's sign-in did not move. */
+function accountRefusalText(v: CodexView, r: CodexAccountRefusal): string {
+  switch (r.kind) {
+    case 'unknown':
+      return t('Tài khoản này không còn trong danh sách.', 'This account is no longer in the list.');
+    case 'noLogin':
+      return t('Đăng nhập của tài khoản này không còn trên máy: đăng nhập lại trước.', 'This account’s sign-in is gone from this Mac: sign it in again first.');
+    case 'inUse':
+      return t('Tài khoản này đang dùng.', 'This account is in use.');
+    case 'conflict':
+      return t('Đã có một auth.json ở chỗ đăng nhập sẽ dời tới (có thể là khoá API). App không ghi đè.', 'There is already an auth.json where the sign-in would go (maybe an API key). The app does not overwrite it.');
+    case 'keychain':
+      return t(
+        'Codex giữ đăng nhập trong Keychain (cli_auth_credentials_store trong ' + v.home + '/config.toml), nên không có file nào để dời.',
+        'Codex keeps its sign-in in the Keychain (cli_auth_credentials_store in ' + v.home + '/config.toml), so there is no file to move.',
+      );
+    case 'name':
+      return t('Tên gọi quá dài.', 'The nickname is too long.');
+    case 'io':
+      return t('Lỗi khi dời file (' + r.detail + ').', 'Moving the file failed (' + r.detail + ').');
   }
 }
 

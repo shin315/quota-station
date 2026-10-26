@@ -117,14 +117,19 @@ function AddBody({ d, codex, model }: { d: Extract<CodexDialog, { kind: 'add' }>
       t: t('Nhà cung cấp API riêng (Custom API)', 'Your own API provider (Custom API)'),
       s: t('Tên, địa chỉ và khoá API. Khoá được ghi vào config.toml của Codex và không hiện lại.', 'A name, an address and an API key. The key goes into Codex’s config.toml and is never shown again.'),
     },
-    {
-      v: 'json',
-      t: t('Nhập file đăng nhập (JSON)', 'Import a sign-in file (JSON)'),
-      s: t(
-        '`auth.json` của Codex hoặc file `codex-*.json` của CLIProxyAPI, chọn trong hộp chọn file của macOS. Token không đi qua cửa sổ này.',
-        'Codex’s `auth.json` or a CLIProxyAPI `codex-*.json`, picked in macOS’s file picker. No token passes through this window.',
-      ),
-    },
+    // Offered in the prototype only, until it is built.
+    ...(v.imports
+      ? [
+          {
+            v: 'json' as const,
+            t: t('Nhập file đăng nhập (JSON)', 'Import a sign-in file (JSON)'),
+            s: t(
+              '`auth.json` của Codex hoặc file `codex-*.json` của CLIProxyAPI, chọn trong hộp chọn file của macOS. Token không đi qua cửa sổ này.',
+              'Codex’s `auth.json` or a CLIProxyAPI `codex-*.json`, picked in macOS’s file picker. No token passes through this window.',
+            ),
+          },
+        ]
+      : []),
   ];
   const blocked = (d.how === 'chatgpt' && !cli) || codex.pending || v.busy != null;
   return (

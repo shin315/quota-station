@@ -820,6 +820,8 @@ export interface CodexView {
   accounts: CodexAccount[];
   /** Where the ChatGPT sign-ins not in the Codex folder wait, each in its own folder. */
   accountsDir: string;
+  /** "Nhập file đăng nhập (JSON)" is offered (the prototype only, until it is built). */
+  imports?: boolean;
   /** "Tự đánh thức tài khoản ChatGPT": only in a build with the author's tools, else null. */
   trigger?: CodexTrigger | null;
 }
@@ -961,7 +963,19 @@ export type CodexOutcome =
   | { kind: 'already'; target: CodexTarget }
   | { kind: 'refused'; target: CodexTarget; refusal: CodexRefusal }
   | { kind: 'invalid'; target: CodexTarget; detail: string }
-  | { kind: 'failed'; target: CodexTarget; error: CodexWriteError };
+  | { kind: 'failed'; target: CodexTarget; error: CodexWriteError }
+  /** A ChatGPT account's sign-in could not be moved: nothing changed. */
+  | { kind: 'account'; target: CodexTarget; refusal: CodexAccountRefusal };
+
+/** Why a ChatGPT account's sign-in cannot move (`codex::accounts::Refusal`). */
+export type CodexAccountRefusal =
+  | { kind: 'unknown' }
+  | { kind: 'noLogin' }
+  | { kind: 'inUse' }
+  | { kind: 'conflict' }
+  | { kind: 'keychain' }
+  | { kind: 'name' }
+  | { kind: 'io'; detail: string };
 
 /** Why a pasted key is not written (`codex::config::KeyRefusal`). */
 export type CodexKeyRefusal =

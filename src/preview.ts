@@ -474,6 +474,8 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
   const codexAccounts = params.get('codexaccounts');
   const withCodex = codexAccounts === 'one' || params.get('codex') === 'none' ? model : codexAccounts === 'empty' ? codexEmpty(model) : codexMany(model);
   Object.assign(model, withCodex);
+  // "Nhập file đăng nhập (JSON)" is offered in the prototype only, until it is built.
+  if (codexAccounts !== 'one') model.codex = { ...model.codex, imports: true };
   const trigger = params.get('codextrigger');
   if (trigger === 'on' || trigger === 'off') model.codex = { ...model.codex, trigger: codexTriggerFixture(trigger === 'on') };
   // `chatgpts=3` adds made-up accounts to the one ChatGPT sign-in, to show the popover's list of them.

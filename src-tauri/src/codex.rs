@@ -9,17 +9,22 @@
 //! the keys `quota_station_core::codex::config` names. The windows never get
 //! a key: only what kind of key the provider has. A key the owner pastes
 //! ("Dán khoá") goes one way, from the window to the core, and comes back
-//! only as its hint.
+//! only as its hint. The accounts' own commands are in
+//! [`crate::codex_accounts`].
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
 use quota_station_core::app_dir::AppDir;
+use quota_station_core::codex::accounts::{self, Account, Store};
 use quota_station_core::codex::config::{self, Current, Custom, Mcp, Refusal, Target};
 use quota_station_core::codex::files::{self, Record};
 use quota_station_core::codex::login::Login;
+use quota_station_core::codex::platform::Unix;
 use quota_station_core::codex::probe::{self, Answer};
 use quota_station_core::codex::procs::{self, Procs, Restart};
 use quota_station_core::codex::{
@@ -32,6 +37,7 @@ use tauri::{AppHandle, State};
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
+use crate::codex_accounts::{self, AccountView};
 use crate::reader;
 use crate::state::{AppState, Inner, Model};
 
@@ -61,6 +67,14 @@ pub struct Live {
     /// Bumped when a switch writes the file, so a look that read it before
     /// cannot put the old reading back or count the switch as made outside.
     pub generation: u64,
+    /// The ChatGPT accounts the app keeps, as last listed.
+    pub accounts: Vec<Account>,
+    /// The owner's nicknames of the custom providers, by table id.
+    pub nicknames: BTreeMap<String, String>,
+    /// Whether each custom provider answers, by table id.
+    pub reaches: BTreeMap<String, Reach>,
+    /// A ChatGPT sign-in waits for the browser: set to stop it.
+    pub signing: Option<Arc<AtomicBool>>,
 }
 
 /// Whether the custom provider answers.
@@ -78,7 +92,7 @@ pub struct Reach {
     pub url: Option<String>,
 }
 
-fn rfc(at: i64) -> Option<String> {
+pub(crate) fn rfc(at: i64) -> Option<String> {
     OffsetDateTime::from_unix_timestamp(at).ok()?.format(&Rfc3339).ok()
 }
 
@@ -164,6 +178,11 @@ pub struct CodexView {
     pub busy: Option<&'static str>,
     /// A top-level `openai_base_url` sends the ChatGPT login elsewhere.
     pub openai_base_url: bool,
+    /// Every Codex account: the ChatGPT sign-ins the app keeps, then the
+    /// provider tables of `config.toml`.
+    pub accounts: Vec<AccountView>,
+    /// Where the ChatGPT sign-ins not in the Codex folder wait.
+    pub accounts_dir: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -353,6 +372,8 @@ pub fn view(inner: &Inner) -> CodexView {
         first_switch_at,
         busy: live.busy,
         openai_base_url: parsed.is_some_and(|p| p.openai_base_url),
+        accounts: codex_accounts::view(inner, parsed, login, current),
+        accounts_dir: runner::display_path(&app.path().join(accounts::DIR), &inner.home),
     }
 }
 
@@ -390,8 +411,8 @@ pub fn request(state: &AppState, resume: bool) {
     state.codex_wake.notify_all();
 }
 
-/// Reads the files and the process table, notes a change of provider made
-/// outside the app, then asks the custom provider.
+/// Reads the files, the accounts and the process table, notes a change of
+/// provider made outside the app, then asks every custom provider.
 fn look(app: &AppHandle, state: &AppState) {
     let (home, dir, count, user_home, generation) = {
         let mut inner = state.lock();
@@ -401,10 +422,17 @@ fn look(app: &AppHandle, state: &AppState) {
     };
     let record = files::load(&dir);
     let reading = codex::read(&home, &record);
+    let listed = list(&home, &dir);
     let procs = procs::read();
     let resume = count.then(|| resume::count(&home));
     let found = procs::discover(&user_home);
-    let base = reading.parsed().and_then(|p| p.custom.as_ref()).and_then(|c| c.base_url.clone());
+    let targets: Vec<(String, String)> = reading
+        .parsed()
+        .map(|p| {
+            p.providers.iter().filter_map(|c| Some((c.id.clone(), c.base_url.clone()?))).collect()
+        })
+        .unwrap_or_default();
+    let chosen = reading.parsed().and_then(|p| p.custom.as_ref()).map(|c| c.id.clone());
     {
         let mut inner = state.lock();
         if inner.codex.generation != generation || inner.codex.busy == Some("switching") {
@@ -420,45 +448,75 @@ fn look(app: &AppHandle, state: &AppState) {
             });
         }
         inner.codex.reading = Some(reading);
+        if let Some((accounts, nicknames)) = listed {
+            inner.codex.accounts = accounts;
+            inner.codex.nicknames = nicknames;
+        }
         inner.codex.procs = procs.or(inner.codex.procs.take());
         if resume.is_some() {
             inner.codex.resume = resume;
         }
-        if base.is_none() {
+        inner.codex.reaches.retain(|id, _| targets.iter().any(|(t, _)| t == id));
+        if chosen.as_ref().is_none_or(|id| !inner.codex.reaches.contains_key(id)) {
             inner.codex.reach = Reach { state: "unknown", ..Reach::default() };
         }
     }
     reader::publish(app, state);
-    if let Some(url) = base {
-        let answer = probe::check(&url);
-        let mut inner = state.lock();
-        let reach = &mut inner.codex.reach;
-        let at = now_rfc();
-        match answer {
-            Answer::Up { ms } => {
-                *reach = Reach {
-                    state: "up",
-                    ms: Some(ms),
-                    since: None,
-                    checked_at: Some(at),
-                    url: Some(url),
-                }
-            }
-            Answer::Down { .. } | Answer::BadUrl => {
-                let since = reach.since.clone().filter(|_| {
-                    reach.state == "down" && reach.url.as_deref() == Some(url.as_str())
-                });
-                *reach = Reach {
-                    state: "down",
-                    ms: None,
-                    since: since.or(Some(at.clone())),
-                    checked_at: Some(at),
-                    url: Some(url),
-                };
+    if targets.is_empty() {
+        return;
+    }
+    let answers: Vec<(String, String, Answer)> = thread::scope(|scope| {
+        let asks: Vec<_> = targets
+            .iter()
+            .map(|(id, url)| scope.spawn(move || (id.clone(), url.clone(), probe::check(url))))
+            .collect();
+        asks.into_iter().filter_map(|a| a.join().ok()).collect()
+    });
+    let mut inner = state.lock();
+    let live = &mut inner.codex;
+    for (id, url, answer) in answers {
+        let before = live.reaches.get(&id).cloned().unwrap_or_default();
+        live.reaches.insert(id, reach_of(&before, url, answer));
+    }
+    if let Some(r) = chosen.and_then(|id| live.reaches.get(&id).cloned()) {
+        live.reach = r;
+    }
+    drop(inner);
+    reader::publish(app, state);
+}
+
+/// The ChatGPT accounts the app keeps and the providers' nicknames; a
+/// switch cut short is put back on the way.
+pub fn list(
+    home: &std::path::Path,
+    dir: &AppDir,
+) -> Option<(Vec<Account>, BTreeMap<String, String>)> {
+    let platform = Unix::system();
+    let store = Store::new(dir, home, &platform);
+    let accounts = store.list(OffsetDateTime::now_utc()).ok()?;
+    Some((accounts, store.registry().nicknames))
+}
+
+/// A provider's answer, keeping since when it has been down at `url`.
+fn reach_of(before: &Reach, url: String, answer: Answer) -> Reach {
+    let at = now_rfc();
+    match answer {
+        Answer::Up { ms } => {
+            Reach { state: "up", ms: Some(ms), since: None, checked_at: Some(at), url: Some(url) }
+        }
+        Answer::Down { .. } | Answer::BadUrl => {
+            let since = before
+                .since
+                .clone()
+                .filter(|_| before.state == "down" && before.url.as_deref() == Some(url.as_str()));
+            Reach {
+                state: "down",
+                ms: None,
+                since: since.or(Some(at.clone())),
+                checked_at: Some(at),
+                url: Some(url),
             }
         }
-        drop(inner);
-        reader::publish(app, state);
     }
 }
 
@@ -511,7 +569,7 @@ pub async fn codex_switch(
 /// Runs one write of `config.toml` (a switch, a key, its undo) with the
 /// Codex thread held off, then reads the file again. Rejects with `busy`
 /// while another switch, restart or MCP write runs.
-async fn write<T: Send + 'static>(
+pub(crate) async fn write<T: Send + 'static>(
     app: &AppHandle,
     shared: &AppState,
     run: impl FnOnce(&std::path::Path, &AppDir) -> T + Send + 'static,
@@ -530,23 +588,27 @@ async fn write<T: Send + 'static>(
         let out = run(&home, &dir);
         let record = files::load(&dir);
         let reading = codex::read(&home, &record);
-        (out, reading)
+        (out, reading, list(&home, &dir))
     })
     .await;
     {
         let mut inner = shared.lock();
         inner.codex.busy = None;
         inner.codex.generation += 1;
-        if let Ok((_, reading)) = &done {
+        if let Ok((_, reading, listed)) = &done {
             if let Some(p) = reading.parsed() {
                 inner.codex.seen = Some(codex::provider_id(p.selected.as_deref()));
             }
             inner.codex.reading = Some(reading.clone());
+            if let Some((accounts, nicknames)) = listed {
+                inner.codex.accounts = accounts.clone();
+                inner.codex.nicknames = nicknames.clone();
+            }
         }
     }
     request(shared, false);
     reader::publish(app, shared);
-    done.map(|(out, _)| out).map_err(|e| e.to_string())
+    done.map(|(out, _, _)| out).map_err(|e| e.to_string())
 }
 
 /// The key sheet's preview: the lines "Dán khoá" would change, the key

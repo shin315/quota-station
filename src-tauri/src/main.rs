@@ -41,6 +41,7 @@ mod antigravity;
 mod backup;
 mod claude;
 mod codex;
+mod codex_accounts;
 mod commands;
 #[cfg(feature = "author-tools")]
 mod copy;
@@ -234,6 +235,14 @@ commands![
     codex::codex_keep,
     codex::codex_check,
     codex::set_codex_home,
+    codex_accounts::codex_use,
+    codex_accounts::codex_login,
+    codex_accounts::codex_cancel_login,
+    codex_accounts::codex_check_provider,
+    codex_accounts::codex_provider_preview,
+    codex_accounts::codex_add_provider,
+    codex_accounts::codex_rename,
+    codex_accounts::codex_remove,
     agents::mcp_read,
     agents::mcp_preview,
     agents::mcp_write,

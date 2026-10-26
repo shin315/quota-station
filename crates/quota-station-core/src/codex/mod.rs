@@ -202,6 +202,11 @@ pub fn use_account(
     let target = Target::ChatGpt;
     let refused = |refusal| Outcome::Account { target, refusal };
     let Ok(number) = number.parse::<u32>() else { return refused(accounts::Refusal::Unknown) };
+    if number == 0 {
+        // Codex's own sign-in, which the app could not list (the Keychain
+        // keeps it): only the provider changes.
+        return switch(codex_home, app, target, base_hash, plugins, now);
+    }
     let (on_provider, kept_in) = match read_bytes(&codex_home.join(CONFIG)) {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => (false, config::AuthStore::File),
         Err(e) => return Outcome::Invalid { target, detail: e.to_string() },

@@ -406,6 +406,24 @@ the confirmation sheet first.
   the key sheet. The custom provider's name and address come from the file,
   and its key from the file or from the owner's paste; nothing is built in.
 
+  Several Codex accounts: the Codex tab's `Tài khoản` card lists every
+  ChatGPT account the app keeps, then every provider table of
+  `config.toml`, each with its `5 giờ` and `Tuần` (a provider has no quota:
+  its answer time instead), `Chuyển` and a `⋯` menu (`Chi tiết và tên
+  gọi…`, `Đăng nhập lại…`, `Xoá khỏi máy này…`). `Thêm tài khoản` signs a
+  ChatGPT account in with the browser (`codex login` run with a new folder
+  of its own as `CODEX_HOME`, so the Codex in use stays signed in; it waits
+  up to 10 minutes) or adds a custom provider (name, address, key,
+  `Kiểm tra`, then a preview of the table it appends). Each ChatGPT account
+  waits in its own folder in the app's folder (`codex/accounts/<n>/`, owner
+  only, out of Time Machine); `Chuyển` moves its `auth.json` into the Codex
+  folder and the one there back to its own folder, never copying one, and
+  drops `model_provider` when Codex went through a provider. The sign-in
+  Codex already has joins the list as it is. An account whose token ran out
+  while it waited shows its last numbers, `số … trước`, until it is used.
+  Nicknames are the app's own; removing a ChatGPT account deletes its
+  folder, after `codex logout` in it when ticked.
+
   `Dán khoá…` (or `Đổi khoá…`) puts the owner's key in the custom
   provider's table as `experimental_bearer_token`, the way CC Switch's
   direct switch keeps it. The key goes in a password field; a paste with

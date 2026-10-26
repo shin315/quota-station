@@ -25,6 +25,7 @@ use quota_station_core::claude::state::AccountOut;
 use quota_station_core::claude::store::Store;
 use quota_station_core::claude::usage::{self, Endpoints};
 use quota_station_core::claude::{agent, rotate, state, switch, Paths};
+use quota_station_core::codex::platform::Unix;
 use quota_station_core::detail::ClaudeDetail;
 use quota_station_core::quota::cache::{Cache, MAX_AGE_SECONDS};
 use quota_station_core::quota::{self, ProviderId, Response};
@@ -261,12 +262,14 @@ pub fn read_agy(app: &AppDir, max_age: i64) -> Response {
     quota::agy::read(&tools, &Cache::new(app, ProviderId::Agy), max_age, now)
 }
 
-/// Codex's ChatGPT login in `codex_home`.
+/// Every ChatGPT account of `codex_home`: the one in it and those the app
+/// keeps in their own folders.
 fn read_codex(codex_home: &Path, app: &AppDir) -> Response {
-    quota::codex::read(
+    quota::codex::read_accounts(
+        app,
         codex_home,
+        &Unix::system(),
         &quota::codex::Endpoints::chatgpt(),
-        &Cache::new(app, ProviderId::Codex),
         MAX_AGE_SECONDS,
         OffsetDateTime::now_utc(),
     )
