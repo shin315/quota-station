@@ -4,7 +4,7 @@
 // A newer release and the diagnostic info, as the prototype draws them
 // (u-dialog, u-source, u-set…, u-diag): the dialog with what is new and
 // "Tải và cài", the build from source pointed at its clone, Cài đặt ›
-// Cập nhật's rows, and the Chẩn đoán card with its dialog. The rows are laid
+// Cập nhật's rows, and Chẩn đoán's row with its dialog. The rows are laid
 // out as the rest of Cài đặt (SetRow): the name and its line on the left,
 // the button or the switch on the right.
 
@@ -64,7 +64,7 @@ export function ReleaseDialogBody({ model, release, onUpdateFromSource }: { mode
   if (!l)
     return (
       <div className="grid gap-3.5">
-        <Head title={t('Không còn bản mới', 'No newer version')} lead={t('Kiểm lại trong Cài đặt › Cập nhật.', 'Check again in Settings › Updates.')} />
+        <Head title={t('Không còn bản mới', 'No newer version')} lead={t('Kiểm lại trong Cài đặt › Chung › Cập nhật.', 'Check again in Settings › General › Updates.')} />
         <DialogButtons>
           <Button primary onClick={release.close}>
             {t('Đóng', 'Close')}
@@ -262,23 +262,18 @@ export function ReleaseRows({ model, onAction, onAuto }: { model: Model; onActio
   );
 }
 
-/** Cài đặt › Chẩn đoán: copy the diagnostic info, open the bug form. */
+/** Cài đặt › Chung › Cập nhật, its last row: copy the diagnostic info, open the bug form. */
 export function DiagnosticsRows({ onAction }: { onAction(act: Action): void }) {
   return (
     <SetRow
       label={t('Thông tin chẩn đoán', 'Diagnostic info')}
       inline
       hint={
-        <>
-          <span>
-            {t('Không gửi gì đi đâu. Khi báo lỗi, dán phần đã chép vào issue trên GitHub.', 'Nothing is sent anywhere. When reporting a bug, paste what you copied into a GitHub issue.')}
-          </span>
-          <span>
-            <LinkButton small onClick={() => onAction('release:issue')}>
-              {t('Mở trang báo lỗi trên GitHub', 'Open the GitHub bug form')}
-            </LinkButton>
-          </span>
-        </>
+        <span>
+          <LinkButton small onClick={() => onAction('release:issue')}>
+            {t('Mở trang báo lỗi trên GitHub', 'Open the GitHub bug form')}
+          </LinkButton>
+        </span>
       }
     >
       <Button small onClick={() => onAction('diag:open')}>

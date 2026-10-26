@@ -700,8 +700,8 @@ export type Tab =
   | 'copy'
   | 'settings';
 
-/** A group of Cài đặt, each its own tab there. */
-export type SettingsGroup = 'env' | 'general' | 'display' | 'notify' | 'updates' | 'services' | 'backup' | 'diag' | 'advanced';
+/** A tab of Cài đặt: Chung holds Cập nhật and Sao lưu too, Dịch vụ the variables that override a login. */
+export type SettingsGroup = 'general' | 'display' | 'notify' | 'services' | 'advanced';
 
 // ===== Codex (M8) =====
 

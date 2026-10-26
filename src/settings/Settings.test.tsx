@@ -32,17 +32,16 @@ async function showGroup(name: string) {
 }
 
 describe('settings tab', () => {
-  it('Thanh menu picks the service the menu bar title follows', async () => {
+  it('Dịch vụ trên thanh menu picks the service the menu bar title follows', async () => {
     const fake = await open(fixtureModel('fresh'));
     await showGroup('Hiển thị');
-    const group = screen.getByRole('group', { name: 'Thanh menu' });
+    const group = screen.getByRole('group', { name: 'Dịch vụ trên thanh menu' });
     const [claude, gemini, codex] = within(group).getAllByRole('button');
     expect([claude, gemini, codex].map((b) => [b.textContent, b.getAttribute('aria-pressed'), (b as HTMLButtonElement).disabled])).toEqual([
       ['Claude', 'true', false],
       ['Gemini', 'false', false],
       ['Codex', 'false', false],
     ]);
-    expect(screen.getByText('Tên và phần trăm đã dùng của tài khoản đang dùng.')).toBeTruthy();
     await act(async () => {
       fireEvent.click(codex);
     });
@@ -53,7 +52,7 @@ describe('settings tab', () => {
   it('a service this Mac lacks is greyed out with the reason, and the title falls back to Claude', async () => {
     await open(fixtureModel('no-antigravity', { menubar: 'gemini', codex: codexFixture({ present: false }) }));
     await showGroup('Hiển thị');
-    const group = screen.getByRole('group', { name: 'Thanh menu' });
+    const group = screen.getByRole('group', { name: 'Dịch vụ trên thanh menu' });
     const [, gemini, codex] = within(group).getAllByRole('button') as HTMLButtonElement[];
     expect([gemini.disabled, codex.disabled]).toEqual([true, true]);
     expect(gemini.title).toBe('Máy này chưa có Antigravity.');
@@ -63,7 +62,7 @@ describe('settings tab', () => {
     // Codex on its ChatGPT login without one signed in.
     await open(fixtureModel('no-antigravity', { codex: codexFixture({ current: 'chatgpt' }) }));
     await showGroup('Hiển thị');
-    const [, , codex2] = within(screen.getByRole('group', { name: 'Thanh menu' })).getAllByRole('button') as HTMLButtonElement[];
+    const [, , codex2] = within(screen.getByRole('group', { name: 'Dịch vụ trên thanh menu' })).getAllByRole('button') as HTMLButtonElement[];
     expect([codex2.disabled, codex2.title]).toEqual([true, 'Codex chưa đăng nhập ChatGPT.']);
   });
 
@@ -76,7 +75,7 @@ describe('settings tab', () => {
       ['5 giờ', 'true', false],
       ['Tuần', 'false', false],
       ['Fable tuần', 'false', false],
-      ['Chặt nhất', 'false', false],
+      ['Cao nhất', 'false', false],
     ]);
     await act(async () => {
       fireEvent.click(buttons[2]);
@@ -102,7 +101,7 @@ describe('settings tab', () => {
 
   it('shows that Keychain access is granted, and no path to another program', async () => {
     await open(fixtureModel('fresh'));
-    await showGroup('Dịch vụ và nguồn số');
+    await showGroup('Dịch vụ');
     expect(screen.queryByLabelText(/quota-axi/)).toBeNull();
     expect(screen.getByText('đã cấp')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Cấp quyền một lần' })).toBeNull();
@@ -110,7 +109,7 @@ describe('settings tab', () => {
 
   it('the Keychain button runs only when pressed, through the fake', async () => {
     const fake = await open(fixtureModel('keychain'));
-    await showGroup('Dịch vụ và nguồn số');
+    await showGroup('Dịch vụ');
     expect(screen.getByText('chưa cấp')).toBeTruthy();
     expect(screen.getByText('Đến khi cấp, dòng Claude chỉ hiện số đọc được lần trước.')).toBeTruthy();
     expect(fake.api.grantKeychain).not.toHaveBeenCalled();
@@ -124,14 +123,14 @@ describe('settings tab', () => {
 
   it('while macOS asks, the button waits and says what to press', async () => {
     await open(fixtureModel('keychain', { granting: true }));
-    await showGroup('Dịch vụ và nguồn số');
+    await showGroup('Dịch vụ');
     expect((screen.getByRole('button', { name: 'Cấp quyền một lần' }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText('macOS sẽ hỏi. Bấm "Luôn cho phép". App chỉ đọc đăng nhập của Claude Code để lấy số, không làm mới hay sửa nó.')).toBeTruthy();
   });
 
   it('says whether oauth-client.json is in place and where it goes', async () => {
     await open(fixtureModel('fresh'));
-    await showGroup('Dịch vụ và nguồn số');
+    await showGroup('Dịch vụ');
     expect(screen.getByText('có, dùng được')).toBeTruthy();
     expect(screen.getByText('Quyền 600, chỉ có trên Mac này.')).toBeTruthy();
     // The path waits behind "Chi tiết".
@@ -144,11 +143,11 @@ describe('settings tab', () => {
     expect(more.textContent).toMatch(/quyền 600, chỉ có trên Mac này\. README ghi định dạng\.$/);
     cleanup();
     await open(fixtureModel('fresh', { antigravity: agyFixture({ client: 'tooOpen' }) }));
-    await showGroup('Dịch vụ và nguồn số');
+    await showGroup('Dịch vụ');
     expect(screen.getByText('cần quyền 600')).toBeTruthy();
     cleanup();
     await open(fixtureModel('fresh', { antigravity: agyFixture({ client: 'missing' }) }));
-    await showGroup('Dịch vụ và nguồn số');
+    await showGroup('Dịch vụ');
     expect(screen.getByText('chưa có')).toBeTruthy();
   });
 
@@ -203,12 +202,18 @@ describe('settings tab', () => {
     document.documentElement.dataset.theme = 'auto';
   });
 
+  it('while the windows follow macOS, each pack shows its light and its dark look', async () => {
+    await open(fixtureModel('fresh'));
+    await showGroup('Hiển thị');
+    const radios = within(screen.getByRole('radiogroup', { name: 'Chủ đề' })).getAllByRole('radio');
+    for (const r of radios) expect(Array.from(r.querySelectorAll<HTMLElement>('[data-pack]'), (w) => w.dataset.theme)).toEqual(['light', 'dark']);
+  });
+
   it('names this Mac and goes back to the name macOS gives when emptied', async () => {
     const fake = await open(fixtureModel('fresh'));
     const input = screen.getByLabelText(/Tên máy này/) as HTMLInputElement;
     expect(input.value).toBe('Mac mini');
     expect(input.placeholder).toBe('Mac mini');
-    expect(screen.getByText('Để trống để dùng tên trong macOS: Mac mini.')).toBeTruthy();
 
     fireEvent.change(input, { target: { value: 'Mac phòng khách' } });
     await act(async () => {
@@ -474,12 +479,11 @@ describe('settings for M7: the app itself', () => {
   const sourceInput = () => screen.getByLabelText(/^Mã nguồn/) as HTMLInputElement;
 
   it('shows the version and the commit it was built from', async () => {
+    // In Chung's Cập nhật card, so the tab Cài đặt opens on.
     await openApp();
-    await showGroup('Cập nhật');
     expect(screen.getByText('0.1.0 (a1b2c3d) · build từ mã nguồn')).toBeTruthy();
     cleanup();
     await openApp({ commit: null });
-    await showGroup('Cập nhật');
     expect(screen.getByText('0.1.0 · build từ mã nguồn')).toBeTruthy();
   });
 
@@ -656,7 +660,7 @@ describe('settings: Nâng cao, alert 1 and the backup folder', () => {
     const sidebar = screen.getByRole('navigation', { name: 'Các tab' });
     expect(within(sidebar).queryByRole('button', { name: 'Luật xoay vòng' })).toBeNull();
     // The version stays where everyone sees it.
-    await showGroup('Cập nhật');
+    await showGroup('Chung');
     expect(screen.getByText('0.1.0 (a1b2c3d) · build từ mã nguồn')).toBeTruthy();
   });
 
@@ -677,10 +681,11 @@ describe('settings: Nâng cao, alert 1 and the backup folder', () => {
     expect(screen.queryByText('Tài khoản sắp rời vòng')).toBeNull();
     expect(screen.queryByText('Firstmate đang chờ hạn mức Claude')).toBeNull();
     // What every build has stays.
-    await showGroup('Cập nhật');
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Chung', 'Hiển thị', 'Thông báo', 'Dịch vụ']);
+    await showGroup('Chung');
     expect(screen.getByText('0.1.0 (a1b2c3d) · build từ mã nguồn')).toBeTruthy();
-    await showGroup('Sao lưu');
     expect(screen.getByLabelText('Thư mục sao lưu')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Chép thông tin chẩn đoán…' })).toBeTruthy();
   });
 
   it('alert 1 takes its two thresholds here, and says why one is refused', async () => {
@@ -700,15 +705,19 @@ describe('settings: Nâng cao, alert 1 and the backup folder', () => {
       fireEvent.blur(room);
     });
     expect(fake.api.setPoolAlert).toHaveBeenLastCalledWith(20, 30);
-    expect(screen.getByText('Thông báo 1 dùng hai ngưỡng này.')).toBeTruthy();
+    // The thresholds' row sits right under the alert it sets.
+    const rows = Array.from(screen.getByRole('region', { name: 'Thông báo' }).querySelectorAll('.srow'));
+    const alert = rows.findIndex((r) => r.contains(screen.getByRole('switch', { name: 'Hạn mức Claude trong vòng sắp cạn / có lại' })));
+    expect(rows[alert + 1].contains(dry)).toBe(true);
+    expect(rows[alert + 1].children[0].textContent).toBe('Ngưỡng sắp cạn');
   });
 
   it('the backup folder is iCloud Drive’s until another is chosen', async () => {
     const fake = await open(fixtureModel('fresh'));
-    await showGroup('Sao lưu');
+    // In Chung, under the app's own rows.
     const input = screen.getByLabelText('Thư mục sao lưu') as HTMLInputElement;
     expect(input.value).toBe('');
-    expect(screen.getByText('Để trống để dùng iCloud Drive › Quota Station Agents.')).toBeTruthy();
+    expect(input.placeholder).toBe('iCloud Drive › Quota Station Agents');
     fireEvent.change(input, { target: { value: 'Backups' } });
     await act(async () => {
       fireEvent.blur(input);
@@ -729,52 +738,43 @@ describe('settings: the layout of settings-R2, its groups as tabs', () => {
   const shown = () => screen.getAllByRole('region').filter((r) => r.closest('main'));
   const regionName = (r: HTMLElement) => r.getAttribute('aria-label') ?? document.getElementById(r.getAttribute('aria-labelledby')!)!.textContent;
 
-  it('has a tab for every card, in the cards’ order, and shows Chung alone at first', async () => {
+  it('has five tabs, and shows Chung with its Cập nhật card at first', async () => {
     await open(fixtureModel('fresh'));
-    expect(tabs().map((b) => b.textContent)).toEqual([
-      'Chung',
-      'Hiển thị',
-      'Thông báo',
-      'Cập nhật',
-      'Dịch vụ và nguồn số',
-      'Biến môi trường',
-      'Sao lưu',
-      'Chẩn đoán',
-      'Nâng cao',
-    ]);
-    expect(tabs().map((b) => b.getAttribute('aria-selected'))).toEqual(['true', 'false', 'false', 'false', 'false', 'false', 'false', 'false', 'false']);
-    expect(shown().map(regionName)).toEqual(['Chung']);
+    expect(tabs().map((b) => b.textContent)).toEqual(['Chung', 'Hiển thị', 'Thông báo', 'Dịch vụ', 'Nâng cao']);
+    expect(tabs().map((b) => b.getAttribute('aria-selected'))).toEqual(['true', 'false', 'false', 'false', 'false']);
+    expect(shown().map(regionName)).toEqual(['Chung', 'Cập nhật']);
     // The panel shown is named by its tab.
     const panel = screen.getByRole('tabpanel');
     expect(panel.getAttribute('aria-labelledby')).toBe(tabs()[0].id);
-    // Each tab shows its card alone, a region named by the card's title.
-    const cards: string[] = [];
+    // Each tab shows its own cards, each a region named by its title.
+    const cards: string[][] = [];
     for (const tab of tabs().map((b) => b.textContent!)) {
       await showGroup(tab);
-      expect(shown()).toHaveLength(1);
-      cards.push(regionName(shown()[0])!);
+      cards.push(shown().map((r) => regionName(r)!));
     }
-    expect(cards).toEqual([
-      'Chung',
-      'Hiển thị',
-      'Thông báo',
-      'Cập nhật',
-      'Dịch vụ và nguồn số',
-      'Biến môi trường đè đăng nhập',
-      'Sao lưu',
-      'Chẩn đoán',
-      'Nâng cao',
-    ]);
+    expect(cards).toEqual([['Chung', 'Cập nhật'], ['Hiển thị'], ['Thông báo'], ['Dịch vụ', 'Biến môi trường đè đăng nhập'], ['Nâng cao']]);
+  });
+
+  it('every row that had a tab of its own is still there, in the tab that holds it now', async () => {
+    await open(fixtureModel('fresh'));
+    // Chung: Sao lưu, and Cập nhật with Chẩn đoán.
+    expect(screen.getByLabelText('Thư mục sao lưu')).toBeTruthy();
+    expect(screen.getByRole('switch', { name: 'Báo khi có bản mới' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Chép thông tin chẩn đoán…' })).toBeTruthy();
+    // Dịch vụ: the services' rows and the variables' card.
+    await showGroup('Dịch vụ');
+    expect(screen.getByText('Quyền Keychain')).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'Biến môi trường đè đăng nhập' })).toBeTruthy();
   });
 
   it('a tab shows its card and marks itself; the arrows, Home and End move along the bar', async () => {
     await open(fixtureModel('fresh'));
-    await showGroup('Dịch vụ và nguồn số');
-    expect(shown().map(regionName)).toEqual(['Dịch vụ và nguồn số']);
-    expect(within(bar()).getByRole('tab', { name: 'Dịch vụ và nguồn số' }).getAttribute('aria-selected')).toBe('true');
+    await showGroup('Dịch vụ');
+    expect(shown().map(regionName)).toEqual(['Dịch vụ', 'Biến môi trường đè đăng nhập']);
+    expect(within(bar()).getByRole('tab', { name: 'Dịch vụ' }).getAttribute('aria-selected')).toBe('true');
     expect(within(bar()).getByRole('tab', { name: 'Chung' }).getAttribute('aria-selected')).toBe('false');
     // One stop in the Tab order: the tab shown.
-    expect(tabs().map((b) => b.tabIndex)).toEqual([-1, -1, -1, -1, 0, -1, -1, -1, -1]);
+    expect(tabs().map((b) => b.tabIndex)).toEqual([-1, -1, -1, 0, -1]);
     // Radix moves the focus on the next turn.
     const key = async (k: string) => {
       await act(async () => {
@@ -782,18 +782,18 @@ describe('settings: the layout of settings-R2, its groups as tabs', () => {
         await new Promise((r) => setTimeout(r, 0));
       });
     };
-    tabs()[4].focus();
+    tabs()[3].focus();
     await key('ArrowRight');
-    expect(document.activeElement!.textContent).toBe('Biến môi trường');
-    expect(shown().map(regionName)).toEqual(['Biến môi trường đè đăng nhập']);
+    expect(document.activeElement!.textContent).toBe('Nâng cao');
+    expect(shown().map(regionName)).toEqual(['Nâng cao']);
     await key('ArrowLeft');
     await key('ArrowLeft');
-    expect(document.activeElement!.textContent).toBe('Cập nhật');
+    expect(document.activeElement!.textContent).toBe('Thông báo');
     await key('End');
     expect(document.activeElement!.textContent).toBe('Nâng cao');
     await key('Home');
     expect(document.activeElement!.textContent).toBe('Chung');
-    expect(shown().map(regionName)).toEqual(['Chung']);
+    expect(shown().map(regionName)).toEqual(['Chung', 'Cập nhật']);
   });
 
   it('the window keeps the tab picked: away to another page and back, the same one shows', async () => {
@@ -850,18 +850,19 @@ describe('settings: the layout of settings-R2, its groups as tabs', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Mở Cài đặt' }));
     });
     expect(shown().map(regionName)).toEqual(['Nâng cao']);
-    // The variables' banners and alerts open Biến môi trường (EnvCard.test.tsx).
+    // The variables' banners and alerts open Dịch vụ (EnvCard.test.tsx).
   });
 
-  it('a variable overriding a login puts its card, and its tab, first; a release build has no Nâng cao', async () => {
+  it('a variable overriding a login puts Dịch vụ first, its card at the top; a release build has no Nâng cao', async () => {
     await open(fixtureModel('fresh', { env: envFixture({ found: [API_KEY] }) }));
-    expect(tabs()[0].textContent).toBe('Biến môi trường');
-    expect(tabs().filter((b) => b.textContent === 'Biến môi trường')).toHaveLength(1);
+    expect(tabs().map((b) => b.textContent)).toEqual(['Dịch vụ', 'Chung', 'Hiển thị', 'Thông báo', 'Nâng cao']);
     // Chung still shows first.
-    expect(shown().map(regionName)).toEqual(['Chung']);
+    expect(shown().map(regionName)).toEqual(['Chung', 'Cập nhật']);
+    await showGroup('Dịch vụ');
+    expect(shown().map(regionName)).toEqual(['Biến môi trường đè đăng nhập', 'Dịch vụ']);
     cleanup();
     await open(communityModel(fixtureModel('fresh')));
-    expect(tabs().map((b) => b.textContent)).not.toContain('Nâng cao');
+    expect(tabs().map((b) => b.textContent)).toEqual(['Chung', 'Hiển thị', 'Thông báo', 'Dịch vụ']);
   });
 
   it('a row has its name and its line on the left, and its switch at the right end', async () => {
@@ -893,7 +894,6 @@ describe('settings: the layout of settings-R2, its groups as tabs', () => {
     expect(within(screen.getByRole('dialog')).getByText(/^Khi tài khoản đang dùng còn 10% trở xuống và không tài khoản nào trong vòng còn 15%, và khi có lại\./)).toBeTruthy();
     cleanup();
     await open(fixtureModel('fresh'));
-    await showGroup('Cập nhật');
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Chi tiết: Báo khi có bản mới' }));
     });

@@ -57,7 +57,7 @@ const WINDOW_IDS: [(MenubarWindow, &str, &str); 4] = [
     (MenubarWindow::FiveHours, "window:fiveHours", "5 giờ"),
     (MenubarWindow::Week, "window:week", "Tuần"),
     (MenubarWindow::FableWeek, "window:fableWeek", "Fable tuần"),
-    (MenubarWindow::Tightest, "window:tightest", "Chặt nhất"),
+    (MenubarWindow::Tightest, "window:tightest", "Cao nhất"),
 ];
 
 pub fn build(app: &App) -> tauri::Result<()> {

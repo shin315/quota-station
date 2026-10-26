@@ -22,9 +22,14 @@ the text's colour.
   `crates/quota-station-core/src/settings.rs`); every window reads it from
   the model, so a change redraws them all at once. A value a later version
   adds reads as `default`.
-- Each tile in the picker carries its own `data-pack` and the look on
-  screen, so it is drawn in that pack's tokens. Every pack sets the same
-  names in both modes, so a tile never shows another pack's value.
+- The picker (`src/settings/ThemePicker.tsx`) shows each pack as the main
+  window in small (`MiniWindow`): its desktop and two shapes behind its
+  glass, its sidebar and the row in use, a title in its type, a group with
+  two quota bars and its accent. Each carries its own `data-pack` and the
+  look on screen, so it is drawn in that pack's tokens; while the windows
+  follow macOS it shows the light look and the dark one split across the
+  diagonal. Every pack sets the same names in both modes, so a picture
+  never shows another pack's value.
 - Names a pack may set beyond the old ones: `--meter-ok` (a quota bar that
   is not short; green in `default`, the pack's grey elsewhere), `--panel`
   and `--panel-line` (a group's panel in the main window and its edge),

@@ -46,14 +46,15 @@ const row = (name: string) => within(card()).getByRole('listitem', { name: new R
 
 afterEach(cleanup);
 
-describe('Cài đặt › Biến môi trường đè đăng nhập', () => {
+describe('Cài đặt › Dịch vụ › Biến môi trường đè đăng nhập', () => {
   it('comes first, checks again when Cài đặt opens, and says each variable, its place and what it does', async () => {
     const fake = await openTab('settings', withEnv([API_KEY, BASE_URL, LAUNCHD_GEMINI]));
     expect(fake.api.envCheck).toHaveBeenCalled();
-    expect(screen.getAllByRole('tab')[0].textContent).toBe('Biến môi trường');
-    await showGroup('Biến môi trường');
+    expect(screen.getAllByRole('tab')[0].textContent).toBe('Dịch vụ');
+    await showGroup('Dịch vụ');
+    // The variables' card leads Dịch vụ while one overrides a login.
     const h4s = [...document.querySelectorAll('.main [data-slot=card] h4')].map((h) => h.textContent);
-    expect(h4s).toEqual(['Biến môi trường đè đăng nhập']);
+    expect(h4s).toEqual(['Biến môi trường đè đăng nhập', 'Dịch vụ']);
     const key = row('ANTHROPIC_API_KEY');
     expect(within(key).getByText('Claude Code').getAttribute('data-tone')).toBe('bad');
     expect(within(key).getByText('~/.zshrc · dòng 42')).toBeTruthy();
@@ -72,7 +73,7 @@ describe('Cài đặt › Biến môi trường đè đăng nhập', () => {
 
   it('opens the file at the line', async () => {
     const fake = await openTab('settings', withEnv([API_KEY]));
-    await showGroup('Biến môi trường');
+    await showGroup('Dịch vụ');
     await press(within(row('ANTHROPIC_API_KEY')).getByRole('button', { name: 'Mở file: ~/.zshrc · dòng 42' }));
     expect(fake.api.envOpen).toHaveBeenCalledWith('ANTHROPIC_API_KEY@zshrc');
     const toast = screen.getByText('Đã mở ~/.zshrc dòng 42 trong Visual Studio Code').closest('.toast') as HTMLElement;
@@ -81,7 +82,7 @@ describe('Cài đặt › Biến môi trường đè đăng nhập', () => {
 
   it('"Bỏ qua" hides one place, says how many are hidden, and "Hoàn tác" brings it back', async () => {
     const fake = await openTab('settings', withEnv([API_KEY, BASE_URL]));
-    await showGroup('Biến môi trường');
+    await showGroup('Dịch vụ');
     await press(within(row('ANTHROPIC_API_KEY')).getByRole('button', { name: 'Bỏ qua ANTHROPIC_API_KEY ở ~/.zshrc · dòng 42' }));
     expect(fake.api.envIgnore).toHaveBeenCalledWith('ANTHROPIC_API_KEY@zshrc');
     expect(within(card()).queryByRole('listitem', { name: /^ANTHROPIC_API_KEY/ })).toBeNull();
@@ -94,7 +95,7 @@ describe('Cài đặt › Biến môi trường đè đăng nhập', () => {
 
   it('none set: one green line, and "Kiểm lại" looks again', async () => {
     const fake = await openTab('settings', withEnv([]));
-    await showGroup('Biến môi trường');
+    await showGroup('Dịch vụ');
     expect(within(card()).queryByRole('list')).toBeNull();
     expect(within(card()).getByText('không có').getAttribute('data-tone')).toBe('ok');
     expect(within(card()).getByText('Không có biến nào đè đăng nhập.')).toBeTruthy();
@@ -106,13 +107,13 @@ describe('Cài đặt › Biến môi trường đè đăng nhập', () => {
 
   it('a place it could not read is said', async () => {
     await openTab('settings', fixtureModel('fresh', { env: envFixture({ found: [API_KEY], unread: ['zprofile', 'launchctl'] }) }));
-    await showGroup('Biến môi trường');
+    await showGroup('Dịch vụ');
     expect(within(card()).getByText('Không đọc được ~/.zprofile, launchctl.')).toBeTruthy();
   });
 
   it('"Xem danh sách" lists the eleven names and the six places', async () => {
     await openTab('settings', withEnv([]));
-    await showGroup('Biến môi trường');
+    await showGroup('Dịch vụ');
     await press(within(card()).getByRole('button', { name: 'Xem danh sách' }));
     const d = screen.getByRole('dialog', { name: 'App kiểm những gì' });
     for (const n of envFixture().vars) expect(within(d).getByText(new RegExp(n + '( ·|$)'))).toBeTruthy();
@@ -152,8 +153,8 @@ describe('the Claude tab', () => {
     expect(within(banner).getByText(/ANTHROPIC_API_KEY ở ~\/\.zshrc dòng 42, ANTHROPIC_BASE_URL ở launchctl\./)).toBeTruthy();
     await press(within(banner).getByRole('button', { name: 'Xem trong Cài đặt' }));
     expect(screen.getByRole('heading', { level: 2, name: 'Cài đặt' })).toBeTruthy();
-    // On the tab of the variables, whichever was shown last.
-    expect(screen.getByRole('tab', { name: 'Biến môi trường' }).getAttribute('aria-selected')).toBe('true');
+    // On Dịch vụ, the variables' tab, whichever was shown last.
+    expect(screen.getByRole('tab', { name: 'Dịch vụ' }).getAttribute('aria-selected')).toBe('true');
     expect(card()).toBeTruthy();
   });
 
@@ -177,8 +178,8 @@ describe('the notifications', () => {
     await press(within(base).getByRole('button', { name: 'Xem' }));
     expect(screen.getByRole('heading', { level: 2, name: 'Cài đặt' })).toBeTruthy();
     expect(screen.queryByRole('dialog', { name: 'Thông báo' })).toBeNull();
-    // The Rust side opens Cài đặt on Biến môi trường, not on the tab shown last.
-    expect(screen.getByRole('tab', { name: 'Biến môi trường' }).getAttribute('aria-selected')).toBe('true');
+    // The Rust side opens Cài đặt on Dịch vụ, not on the tab shown last.
+    expect(screen.getByRole('tab', { name: 'Dịch vụ' }).getAttribute('aria-selected')).toBe('true');
     expect(card()).toBeTruthy();
   });
 });
@@ -206,7 +207,7 @@ describe('a planted value', () => {
       await openTab(tab, fromRust());
       // Every notification drawn, not only the newest.
       if (tab === 'alerts') await press(screen.getByRole('button', { name: /^Xem tất cả/ }));
-      if (tab === 'settings') await showGroup('Biến môi trường');
+      if (tab === 'settings') await showGroup('Dịch vụ');
       expect(document.body.textContent).toContain('ANTHROPIC_API_KEY');
       if (tab === 'settings') await press(within(card()).getByRole('button', { name: 'Xem danh sách' }));
       expect(document.body.innerHTML).not.toContain(TRAP);

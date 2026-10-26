@@ -330,7 +330,7 @@ describe('the Skills tab', () => {
 describe('Cài đặt › Skills', () => {
   it('has "Kiểm bản mới" daily or off, and the macOS card off by default', async () => {
     const fake = await openTab('settings');
-    await showGroup('Cập nhật');
+    await showGroup('Chung');
     const seg = screen.getByRole('group', { name: 'Kiểm bản mới của skill' });
     expect(within(seg).getByRole('button', { name: 'Mỗi ngày' }).getAttribute('aria-pressed')).toBe('true');
     const notify = screen.getByRole('switch', { name: 'Báo skill có bản mới bằng thông báo macOS' });

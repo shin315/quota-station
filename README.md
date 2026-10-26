@@ -71,11 +71,12 @@ the confirmation sheet first.
   and liquid fill. Next to it is the account in use and its share used for
   one service, `lan.acme1 38%`, the way
   claude-swap's own menu bar named it. The service is Claude by default;
-  `Thanh menu` in `Cài đặt` and `Thanh menu theo` in the right-click menu
-  pick Gemini (Antigravity's Gemini models) or Codex instead, on each Mac.
+  `Dịch vụ trên thanh menu` in `Cài đặt` and `Thanh menu theo` in the
+  right-click menu pick Gemini (Antigravity's Gemini models) or Codex
+  instead, on each Mac.
   The number is the account's five-hour window by default; `Số trên thanh
   menu` in `Cài đặt` and in the right-click menu picks `Tuần`, `Fable tuần`
-  (Claude only) or `Chặt nhất` (the window used the most, a tie naming the
+  (Claude only) or `Cao nhất` (the window used the most, a tie naming the
   longer window) instead, on each Mac. A service without the window picked
   shows its five-hour window, and the window used the most without that
   either. Đang dùng shows the same window; which window it is shows on hover.
@@ -85,7 +86,7 @@ the confirmation sheet first.
   only the provider's name when it goes through a provider of its own,
   which reports no quota. Without a number (no read yet, a read that failed,
   a window waiting for its number after a reset) the title is the name and
-  `–`; only the window shown needs a number, except for `Chặt nhất`, which
+  `–`; only the window shown needs a number, except for `Cao nhất`, which
   needs every window. A Mac without Antigravity, or without Codex, follows
   Claude. The gauge fills with the same service and window as the title;
   without a number its reservoir is empty. The tooltip and the VoiceOver
@@ -158,7 +159,7 @@ the confirmation sheet first.
 - **Short menu** (right click). `Mở cửa sổ chính` (main window), `Làm mới`
   (refresh), `Thanh menu theo` (Claude, Gemini or Codex, ticked; a service
   this Mac lacks is greyed out), `Số trên thanh menu` (`5 giờ`, `Tuần`,
-  `Fable tuần` or `Chặt nhất`, ticked; `Fable tuần` is greyed out unless the
+  `Fable tuần` or `Cao nhất`, ticked; `Fable tuần` is greyed out unless the
   title follows Claude), `Cài đặt…` (settings), `Thoát Quota Station`
   (quit).
 - **Main window.** One sheet of glass, like the popover: macOS draws the
@@ -201,13 +202,15 @@ the confirmation sheet first.
     changes nothing), whether `oauth-client.json` is in place and usable,
     `Hiện email` (on by default; off names accounts by place), `Giao diện`
     (`Theo macOS`, `Sáng` or `Tối`), `Chủ đề` (the theme pack every window
-    is drawn in, each with a small picture of it: `Mặc định`, `Kính Nhịp`,
-    `Dải sáng tĩnh`, `Một nhịp nhìn`, `Bàn điều khiển` or `Chiều lặng`; a
-    pack changes colours, glass, type and corners, never what is shown; see
-    [docs/themes.md](docs/themes.md)), `Thanh menu` (the service the menu bar
-    title follows: Claude, Gemini or Codex; one this Mac lacks is greyed out
-    with the reason), `Số trên thanh menu` (the window the title shows:
-    `5 giờ` by default, `Tuần`, `Fable tuần` or `Chặt nhất`; `Fable tuần` is
+    is drawn in, each shown as the window in small in its own glass,
+    colours and type, light and dark split across it while the windows
+    follow macOS: `Mặc định`, `Kính Nhịp`, `Dải sáng tĩnh`, `Một nhịp
+    nhìn`, `Bàn điều khiển` or `Chiều lặng`; a pack changes colours, glass,
+    type and corners, never what is shown; see
+    [docs/themes.md](docs/themes.md)), `Dịch vụ trên thanh menu` (the
+    service the menu bar title follows: Claude, Gemini or Codex; one this
+    Mac lacks is greyed out with the reason), `Số trên thanh menu` (the window the title shows:
+    `5 giờ` by default, `Tuần`, `Fable tuần` or `Cao nhất`; `Fable tuần` is
     greyed out unless the title follows Claude), `File của firstmate` (the path to
     Firstmate's `quota-pool.last`; nothing is built in, and only a file of
     that name is taken), `Thông báo` (whether macOS lets the cards show,
@@ -218,22 +221,26 @@ the confirmation sheet first.
     [Update](#update)). A settings file from before M5 with a single
     `sshAlias` moves into the list of other Macs.
 
-    The page is in tabs, one per group, in a bar under its title that
-    stays at the top while the page scrolls: `Chung`, `Hiển thị`, `Thông
-    báo`, `Cập nhật`, `Dịch vụ và nguồn số`, `Biến môi trường`, `Sao lưu`,
-    `Chẩn đoán` and `Nâng cao` (the last two only in builds that have
-    them). Only the group picked shows, `Chung` at first; the app keeps the
-    one picked last while it runs, and a link from elsewhere opens the one
-    it is about (`Mở Cài đặt` in `Firstmate` and `Chép sang Mac khác` opens
-    `Nâng cao`, a variable's banner or notification opens `Biến môi trường`,
-    and `Cài đặt thông báo` under the bell opens `Thông báo`). The
+    The page is in five tabs, in a bar under its title that stays at the
+    top while the page scrolls: `Chung` (the language, this Mac's name,
+    `Mở khi đăng nhập` and `Thư mục sao lưu`, then the `Cập nhật` card: the
+    version and new releases, the skills' checks and, in a build that has
+    it, `Thông tin chẩn đoán`), `Hiển thị`, `Thông báo`, `Dịch vụ`
+    (Keychain, Codex's folder and the Antigravity OAuth client, with the
+    `Biến môi trường đè đăng nhập` card) and `Nâng cao` (only in builds
+    that have it). Only the tab picked shows, `Chung` at first; the app
+    keeps the one picked last while it runs, and a link from elsewhere
+    opens the one it is about (`Mở Cài đặt` in `Firstmate` and `Chép sang
+    Mac khác` opens `Nâng cao`, a variable's banner or notification opens
+    `Dịch vụ`, and `Cài đặt thông báo` under the bell opens `Thông báo`). The
     arrow keys, Home and End move along the bar; where the window is too
     narrow for every tab, the bar scrolls sideways, faded at the end with
     more past it.
 
-    `Hạn mức sắp cạn` sets alert 1's two thresholds (10% and 15% by
-    default), and `Thư mục sao lưu` the folder the backup packs go to
-    (empty is iCloud Drive's `Quota Station Agents`). `Nâng cao`, the last
+    `Ngưỡng sắp cạn`, right under alert 1 in `Thông báo`, sets its two
+    thresholds (10% and 15% by default), and `Thư mục sao lưu` the folder
+    the backup packs go to (empty is iCloud Drive's `Quota Station
+    Agents`). `Nâng cao`, the last
     tab, holds what was made for the author's own Macs: `Hiện phần nâng
     cao` shows the `Luật xoay vòng`, `Firstmate` and `Chép sang Mac khác`
     tabs, automatic switching with its pause (`Đến 18:00` among them), the
@@ -634,8 +641,9 @@ the confirmation sheet first.
   `~/.zshrc`, `~/.bash_profile`, `~/.profile` and launchd (what apps opened
   from the Dock get). It learns only whether each is set, in which file and
   on which line, never its value, and never runs a shell file. The
-  `Biến môi trường` tab of `Cài đặt` (its first tab while a variable is
-  set) names each variable, the agent it overrides, the file
+  `Biến môi trường đè đăng nhập` card in `Cài đặt › Dịch vụ` (the first
+  tab, and its first card, while a variable is set) names each variable,
+  the agent it overrides, the file
   and line and what it does, with `Mở file` (in Visual Studio Code, Cursor
   or Zed at the line when one is installed, else the default text editor)
   and `Bỏ qua`, which has `Hoàn tác`; with none, one green line.
@@ -646,7 +654,7 @@ the confirmation sheet first.
   minutes after a read, when `Cài đặt` opens and on `Kiểm lại`; it never
   edits a shell file and never unsets anything.
 
-  <img src="docs/env-card.png" width="760" alt="Cài đặt on fixture data, on its Biến môi trường tab: the card Biến môi trường đè đăng nhập with ANTHROPIC_API_KEY in ~/.zshrc on line 42 for Claude Code and OPENAI_BASE_URL in ~/.zprofile on line 7 for Codex, each with Mở file and Bỏ qua">
+  <img src="docs/env-card.png" width="760" alt="Cài đặt on fixture data, on its Dịch vụ tab: the card Biến môi trường đè đăng nhập with ANTHROPIC_API_KEY in ~/.zshrc on line 42 for Claude Code and OPENAI_BASE_URL in ~/.zprofile on line 7 for Codex, each with Mở file and Bỏ qua, above the Dịch vụ card">
 
   <img src="docs/env-claude.png" width="760" alt="The Claude tab with the red banner: ANTHROPIC_API_KEY đang đè đăng nhập Claude, with Mở ~/.zshrc ở dòng 42, Bỏ qua and Kiểm lại">
 
