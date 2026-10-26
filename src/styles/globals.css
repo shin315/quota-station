@@ -63,12 +63,6 @@
     outline: none;
   }
 
-  /* A Duotone glyph's back layer (components/icons.tsx): Phosphor draws it at
-     0.2; the token sets how much of the tint it keeps. */
-  .glyph [opacity] {
-    opacity: var(--glyph-back);
-  }
-
   /* Browser preview (npm run dev, outside Tauri): the popover on a desktop,
      and the main window filling it. */
   body.preview {

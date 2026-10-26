@@ -181,21 +181,6 @@
   --color-series-1: var(--series-1);
   --color-series-2: var(--series-2);
   --color-grid: var(--grid);
-  /* The icons' tints (components/icons.tsx). */
-  --color-glyph-blue: var(--glyph-blue);
-  --color-glyph-green: var(--glyph-green);
-  --color-glyph-orange: var(--glyph-orange);
-  --color-glyph-indigo: var(--glyph-indigo);
-  --color-glyph-red: var(--glyph-red);
-  --color-glyph-teal: var(--glyph-teal);
-  --color-glyph-purple: var(--glyph-purple);
-  --color-glyph-yellow: var(--glyph-yellow);
-  --color-glyph-mint: var(--glyph-mint);
-  --color-glyph-slate: var(--glyph-slate);
-  --color-glyph-pink: var(--glyph-pink);
-  --color-glyph-brown: var(--glyph-brown);
-  --color-glyph-cyan: var(--glyph-cyan);
-  --color-glyph-gray: var(--glyph-gray);
 
   /* shadcn/ui's names, for its components. */
   --color-background: var(--background);

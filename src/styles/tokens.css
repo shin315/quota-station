@@ -106,15 +106,6 @@
      hai giao diện; cam dưới 3:1 trên nền sáng nên luôn có chú thích kèm số và bảng). */
   --series-1: #2a78d6; --series-2: #eb6834; --grid: rgba(0, 0, 0, .08);
 
-  /* Màu icon (Phosphor Duotone): mỗi mục thanh bên một màu riêng, như Clean Station tô
-     SF Symbols. Mỗi màu đạt ít nhất 3:1 trên kính thanh bên, dòng đang chọn, khung trên
-     kính và thẻ, ở cả hai giao diện. --glyph-back: độ đậm lớp nền của nét đôi. */
-  --glyph-blue: #0070eb; --glyph-green: #1f853a; --glyph-orange: #c25700; --glyph-indigo: #5856d6;
-  --glyph-red: #dc1e14; --glyph-teal: #007f7a; --glyph-purple: #a843db; --glyph-yellow: #8f7000;
-  --glyph-mint: #00865a; --glyph-slate: #5b6a85; --glyph-pink: #d1146a; --glyph-brown: #8a7050;
-  --glyph-cyan: #0a78ab; --glyph-gray: #74747a;
-  --glyph-back: .3;
-
   /* Bóng */
   --sh-pop: 0 18px 50px rgba(30, 40, 70, .22);
   --sh-sheet: 0 10px 40px rgba(0, 0, 0, .28);
@@ -140,10 +131,6 @@
   --id-agy: #8583ff; --id-agy-ink: #c4c2ff; --id-agy-tint: rgba(133, 131, 255, .22);
   --id-codex: #d1d1d6; --id-codex-ink: #d1d1d6; --id-codex-tint: rgba(209, 209, 214, .14);
   --series-1: #3987e5; --series-2: #d95926; --grid: rgba(255, 255, 255, .09);
-  --glyph-blue: #2692ff; --glyph-green: #30d158; --glyph-orange: #ff9f0a; --glyph-indigo: #8786ec;
-  --glyph-red: #ff5a50; --glyph-teal: #3fd3c8; --glyph-purple: #c96cf5; --glyph-yellow: #ffd60a;
-  --glyph-mint: #5ee0a8; --glyph-slate: #a3b1c9; --glyph-pink: #ff5c9d; --glyph-brown: #c09d72;
-  --glyph-cyan: #64d2ff; --glyph-gray: #a1a1a6;
   --sh-pop: 0 18px 50px rgba(0, 0, 0, .55);
   --sh-sheet: 0 10px 40px rgba(0, 0, 0, .6);
   --sh-card: 0 1px 2px rgba(0, 0, 0, .3);
@@ -170,10 +157,6 @@
     --id-agy: #8583ff; --id-agy-ink: #c4c2ff; --id-agy-tint: rgba(133, 131, 255, .22);
     --id-codex: #d1d1d6; --id-codex-ink: #d1d1d6; --id-codex-tint: rgba(209, 209, 214, .14);
     --series-1: #3987e5; --series-2: #d95926; --grid: rgba(255, 255, 255, .09);
-    --glyph-blue: #2692ff; --glyph-green: #30d158; --glyph-orange: #ff9f0a; --glyph-indigo: #8786ec;
-    --glyph-red: #ff5a50; --glyph-teal: #3fd3c8; --glyph-purple: #c96cf5; --glyph-yellow: #ffd60a;
-    --glyph-mint: #5ee0a8; --glyph-slate: #a3b1c9; --glyph-pink: #ff5c9d; --glyph-brown: #c09d72;
-    --glyph-cyan: #64d2ff; --glyph-gray: #a1a1a6;
     --sh-pop: 0 18px 50px rgba(0, 0, 0, .55);
     --sh-sheet: 0 10px 40px rgba(0, 0, 0, .6);
     --sh-card: 0 1px 2px rgba(0, 0, 0, .3);

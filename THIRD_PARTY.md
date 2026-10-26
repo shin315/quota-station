@@ -236,8 +236,8 @@ SOFTWARE.
 
 - Project: https://github.com/phosphor-icons/react (https://phosphoricons.com)
 - How it is used: the interface's icons, in the window, its dialogs and
-  the popover: their Duotone weight, each tinted its own colour, and their
-  Bold for a control's plus, dots, caret or arrow. The
+  the popover: their Regular weight, in the colour of the text around them,
+  and their Bold for a control's plus, dots, caret or arrow. The
   `@phosphor-icons/react` package (2.1) is a dependency in `package.json`;
   `src/components/icons.tsx` imports only the glyphs it draws, which the
   build bundles into the app unchanged, so nothing is fetched while it runs.
