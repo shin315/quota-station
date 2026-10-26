@@ -816,6 +816,67 @@ export interface CodexView {
   firstSwitchAt: string | null;
   busy: 'switching' | 'restarting' | null;
   openaiBaseUrl: boolean;
+  /** Every Codex account the app lists: the ChatGPT sign-ins it keeps, then the provider tables in `config.toml`. */
+  accounts: CodexAccount[];
+  /** Where the ChatGPT sign-ins not in the Codex folder wait, each in its own folder. */
+  accountsDir: string;
+}
+
+/**
+ * One Codex account: a ChatGPT sign-in the app keeps (its own Codex folder,
+ * `auth.json` moved into the Codex folder while it is the one signed in), or
+ * a custom provider table in `config.toml`. Never a token or a key.
+ */
+export interface CodexAccount {
+  /** `chatgpt:<n>` for a sign-in, the table's id for a custom provider. */
+  id: string;
+  kind: 'chatgpt' | 'custom';
+  /** The owner's nickname, else the email's name (ChatGPT) or the table's `name`. */
+  name: string;
+  /** The owner gave it a nickname. */
+  nickname: boolean;
+  /** ChatGPT: its number in the snapshot's Codex section, where its quota is. */
+  number: number | null;
+  /** ChatGPT: the email, only while the owner shows names. */
+  email: string | null;
+  /** ChatGPT: `Plus`, `Pro`, `Team`… as the usage answer names it. */
+  plan: string | null;
+  /** Codex sends its requests through this account now. */
+  active: boolean;
+  /** ChatGPT: its sign-in is the one in the Codex folder (in use, or kept for plugins on a custom provider). */
+  signedIn: boolean;
+  /** ChatGPT: `relogin` when ChatGPT refused the sign-in; `idle` when its token ran out while not in use (the numbers wait until it is used). */
+  login: 'ok' | 'relogin' | 'idle';
+  /** Custom: its table, how its key is given, whether it answers. */
+  custom: CodexCustom | null;
+  reach: CodexReach | null;
+  /** Why "Chuyển" to it cannot run. */
+  refusal: CodexRefusal | null;
+  /** When it was added here; null for what was already in Codex. */
+  addedAt: string | null;
+}
+
+/** What an account action did. Holds no token or key. */
+export type CodexAccountDone =
+  | { kind: 'added'; id: string }
+  /** The sign-in is an account already in the list: nothing added. */
+  | { kind: 'dup'; id: string }
+  | { kind: 'renewed'; id: string }
+  | { kind: 'renamed'; id: string }
+  | { kind: 'removed'; id: string; name: string; loggedOut: boolean }
+  | { kind: 'failed'; reason: CodexLoginFail; detail: string | null }
+  | { kind: 'refused'; reason: 'busy' | 'inUse' | 'signedIn' | 'changed' | 'badUrl' | 'name' | 'empty' | 'key' };
+
+/** Why a ChatGPT sign-in ended without an account. */
+export type CodexLoginFail = 'cancelled' | 'timeout' | 'port' | 'noCodex' | 'denied' | 'other';
+
+/** "Kiểm tra" on a new provider: its address asked with no key, then with the key. */
+export interface CodexProviderCheck {
+  reach: 'up' | 'down' | 'badUrl';
+  ms: number | null;
+  /** `rejected`: 401 or 403 with the key; `unknown`: the address did not answer, or answered both the same. */
+  key: 'accepted' | 'rejected' | 'unknown';
+  status: number | null;
 }
 
 export type CodexTarget = 'chatGpt' | 'custom';
@@ -842,7 +903,9 @@ export type CodexKeyRefusal =
   | { kind: 'placeholder' }
   | { kind: 'reference' }
   | { kind: 'badUrl' }
-  | { kind: 'noUndo' };
+  | { kind: 'noUndo' }
+  /** A new provider's name is taken, or one Codex reserves. */
+  | { kind: 'name' };
 
 /** `codex::KeyPreview`: the lines "Dán khoá" changes; the new key only as `sk-…abcd`. */
 export interface CodexKeyPreview {

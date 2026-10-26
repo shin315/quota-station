@@ -21,6 +21,8 @@ export const CHATGPT_ID = 'openai';
 /** Short, for chips and arrows: `ChatGPT`, or the provider's name. */
 export function shortName(v: CodexView, id: string): string {
   if (id === CHATGPT_ID) return 'ChatGPT';
+  const account = v.accounts?.find((a) => a.id === id);
+  if (account) return account.name;
   if (v.custom && id === v.custom.id) return v.custom.name;
   return id || t('không rõ', 'unknown');
 }
@@ -870,6 +872,8 @@ export function keyRefusalText(v: CodexView, r: CodexKeyRefusal): string {
       );
     case 'noUndo':
       return t('Không còn gì để hoàn tác.', 'Nothing left to undo.');
+    case 'name':
+      return t('Tên này đã có, hoặc trùng tên Codex giữ riêng (openai, ollama, lmstudio).', 'This name is taken, or is one Codex reserves (openai, ollama, lmstudio).');
   }
 }
 
