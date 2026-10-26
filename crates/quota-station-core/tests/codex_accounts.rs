@@ -536,3 +536,104 @@ fn removing_a_provider_takes_out_its_table_only_and_never_the_one_in_use() {
     assert!(matches!(out, ProviderOutcome::Refused { .. }), "{out:?}");
     assert!(config_text(&mac.home).contains("[model_providers.custom]"));
 }
+
+// ===== Using an account =====
+
+#[test]
+fn using_a_chatgpt_account_from_a_provider_moves_its_sign_in_and_leaves_the_provider() {
+    let ann = sign_in("ann", "ws-ann", "plus");
+    let bob = sign_in("bob", "ws-bob", "pro");
+    let mac = Mac::new("config-custom.toml", Some(&ann));
+    mac.store().list(at(0)).unwrap();
+    let pending = mac.codex_login("bob", "ws-bob");
+    std::fs::write(pending.join(codex::AUTH), &bob).unwrap();
+    mac.store().finish_login(&pending, None, at(10)).unwrap();
+
+    let out = codex::use_account(
+        &mac.home,
+        &mac.app,
+        &mac.spy,
+        "chatgpt:2",
+        Some(&hash(&mac.home)),
+        true,
+        at(20),
+    );
+    assert!(
+        matches!(out, codex::Outcome::Switched { ref from, ref to, .. } if from == "custom" && to == "chatgpt:2"),
+        "{out:?}"
+    );
+    assert_eq!(mac.home_auth().as_deref(), Some(bob.as_str()));
+    assert_eq!(mac.folder_auth(1).as_deref(), Some(ann.as_str()));
+    let parsed = config::parse(&config_text(&mac.home), None).unwrap();
+    assert_eq!(parsed.current(), config::Current::ChatGpt);
+    let last = codex::log::read(&mac.app).pop().unwrap();
+    assert_eq!((last.from.as_str(), last.to.as_str()), ("custom", "chatgpt:2"));
+}
+
+#[test]
+fn using_another_chatgpt_account_moves_the_files_and_writes_no_config() {
+    let ann = sign_in("ann", "ws-ann", "plus");
+    let mac = Mac::new("config-chatgpt.toml", Some(&ann));
+    mac.store().list(at(0)).unwrap();
+    let pending = mac.codex_login("bob", "ws-bob");
+    mac.store().finish_login(&pending, None, at(10)).unwrap();
+    let before = config_text(&mac.home);
+
+    let out = codex::use_account(
+        &mac.home,
+        &mac.app,
+        &mac.spy,
+        "chatgpt:2",
+        Some(&hash(&mac.home)),
+        true,
+        at(20),
+    );
+    assert!(
+        matches!(out, codex::Outcome::Switched { ref from, ref to, ref backup, .. }
+            if from == "chatgpt:1" && to == "chatgpt:2" && backup.is_empty()),
+        "{out:?}"
+    );
+    assert_eq!(config_text(&mac.home), before, "config.toml untouched");
+    assert_eq!(mac.folder_auth(1).as_deref(), Some(ann.as_str()));
+    let again = codex::use_account(
+        &mac.home,
+        &mac.app,
+        &mac.spy,
+        "chatgpt:2",
+        Some(&hash(&mac.home)),
+        true,
+        at(30),
+    );
+    assert!(matches!(again, codex::Outcome::Already { .. }), "{again:?}");
+}
+
+#[test]
+fn using_an_account_moves_nothing_when_config_changed_or_codex_keeps_its_sign_in_elsewhere() {
+    let ann = sign_in("ann", "ws-ann", "plus");
+    let mac = Mac::new("config-custom.toml", Some(&ann));
+    mac.store().list(at(0)).unwrap();
+    let pending = mac.codex_login("bob", "ws-bob");
+    mac.store().finish_login(&pending, None, at(10)).unwrap();
+
+    let out =
+        codex::use_account(&mac.home, &mac.app, &mac.spy, "chatgpt:2", Some("old"), true, at(20));
+    assert!(matches!(out, codex::Outcome::Failed { .. }), "{out:?}");
+    assert_eq!(mac.home_auth().as_deref(), Some(ann.as_str()), "nothing moved");
+
+    let out = codex::use_account(&mac.home, &mac.app, &mac.spy, "chatgpt:9", None, true, at(25));
+    assert!(matches!(out, codex::Outcome::Account { refusal: Refusal::Unknown, .. }), "{out:?}");
+
+    let text = format!("cli_auth_credentials_store = \"keyring\"\n{}", config_text(&mac.home));
+    std::fs::write(mac.home.join(codex::CONFIG), text).unwrap();
+    let out = codex::use_account(
+        &mac.home,
+        &mac.app,
+        &mac.spy,
+        "chatgpt:2",
+        Some(&hash(&mac.home)),
+        true,
+        at(30),
+    );
+    assert!(matches!(out, codex::Outcome::Account { refusal: Refusal::Keychain, .. }), "{out:?}");
+    assert_eq!(mac.home_auth().as_deref(), Some(ann.as_str()), "nothing moved");
+}

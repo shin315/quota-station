@@ -16,11 +16,14 @@
 //! those ids, nicknames, and the move under way, so a switch cut short is
 //! put back when the app next looks.
 //!
-//! Every step that depends on the system goes through [`Platform`].
+//! Every step that depends on the system goes through [`Platform`], and
+//! every step that moves or reads the account folders holds one lock, so a
+//! quota read never meets a switch half done.
 
 use std::collections::BTreeMap;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, MutexGuard};
 
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
@@ -35,6 +38,14 @@ pub const REGISTRY: &str = "codex/accounts.json";
 const VERSION: u32 = 1;
 /// A sign-in under way lives in `pending-<uuid>` until it is known.
 const PENDING: &str = "pending-";
+
+/// One look at, or move in, the account folders at a time, across the
+/// app's threads.
+static GUARD: Mutex<()> = Mutex::new(());
+
+fn guard() -> MutexGuard<'static, ()> {
+    GUARD.lock().unwrap_or_else(|e| e.into_inner())
+}
 
 /// Who a sign-in is: ChatGPT's user and the workspace (a Plus and a Team
 /// workspace of one person are two accounts, as Codex counts them).
@@ -319,6 +330,22 @@ impl<'a> Store<'a> {
     /// The accounts and where each sign-in is. Puts back a switch cut short,
     /// and adds the ChatGPT sign-in Codex has when it is not in the list.
     pub fn list(&self, now: OffsetDateTime) -> io::Result<Vec<Account>> {
+        let _held = guard();
+        self.listed(now)
+    }
+
+    /// [`Self::list`], then `look` with nothing moved meanwhile: the quota
+    /// read takes each account's sign-in into memory here.
+    pub fn with_list<T>(
+        &self,
+        now: OffsetDateTime,
+        look: impl FnOnce(&[Account]) -> T,
+    ) -> io::Result<T> {
+        let _held = guard();
+        Ok(look(&self.listed(now)?))
+    }
+
+    fn listed(&self, now: OffsetDateTime) -> io::Result<Vec<Account>> {
         let (registry, home) = self.settle(now)?;
         Ok(registry
             .accounts
@@ -338,6 +365,7 @@ impl<'a> Store<'a> {
 
     /// A new, empty folder for `codex login` to sign in to.
     pub fn begin_login(&self) -> io::Result<PathBuf> {
+        let _held = guard();
         let root = self.ensure_root()?;
         let dir = root.join(format!("{PENDING}{}", uuid::Uuid::new_v4().simple()));
         self.app.inside(&dir)?;
@@ -365,10 +393,11 @@ impl<'a> Store<'a> {
         again: Option<u32>,
         now: OffsetDateTime,
     ) -> io::Result<Added> {
+        let _held = guard();
         self.check_pending(pending)?;
         let file = pending.join(super::AUTH);
         let Some(w) = who(&file) else {
-            self.discard(pending);
+            self.drop_pending(pending);
             return Ok(Added::NoLogin);
         };
         let (mut registry, home) = self.settle(now)?;
@@ -382,12 +411,12 @@ impl<'a> Store<'a> {
                 };
                 self.platform.private_file(&file)?;
                 self.platform.replace_file(&file, &to)?;
-                self.discard(pending);
+                self.drop_pending(pending);
                 self.save(&registry)?;
                 Ok(Added::Renewed { number: n })
             }
             (Some(n), _) => {
-                self.discard(pending);
+                self.drop_pending(pending);
                 self.save(&registry)?;
                 Ok(Added::Dup { number: n })
             }
@@ -410,6 +439,11 @@ impl<'a> Store<'a> {
 
     /// A sign-in that did not finish: its folder goes.
     pub fn discard(&self, pending: &Path) {
+        let _held = guard();
+        self.drop_pending(pending);
+    }
+
+    fn drop_pending(&self, pending: &Path) {
         if self.check_pending(pending).is_ok() {
             let _ = std::fs::remove_dir_all(pending);
         }
@@ -426,6 +460,7 @@ impl<'a> Store<'a> {
         if !store_is_file {
             return Err(Refusal::Keychain);
         }
+        let _held = guard();
         let io = |e: io::Error| Refusal::Io { detail: e.to_string() };
         let (mut registry, home) = self.settle(now).map_err(io)?;
         if !registry.accounts.iter().any(|e| e.number == number) {
@@ -482,6 +517,7 @@ impl<'a> Store<'a> {
             return Err(Refusal::Name);
         }
         let name = (!name.is_empty()).then(|| name.to_string());
+        let _held = guard();
         let mut registry = self.registry();
         match id.strip_prefix(CHATGPT_ID).map(str::parse::<u32>) {
             Some(Ok(n)) => {
@@ -505,6 +541,11 @@ impl<'a> Store<'a> {
     /// The folder of an account that can be removed: not the one in the
     /// Codex folder. The caller may sign it out there first.
     pub fn removable(&self, number: u32) -> Result<PathBuf, Refusal> {
+        let _held = guard();
+        self.removable_now(number)
+    }
+
+    fn removable_now(&self, number: u32) -> Result<PathBuf, Refusal> {
         let (registry, home) = self
             .settle(OffsetDateTime::now_utc())
             .map_err(|e| Refusal::Io { detail: e.to_string() })?;
@@ -519,7 +560,8 @@ impl<'a> Store<'a> {
 
     /// Deletes the account's folder and its entry.
     pub fn remove(&self, number: u32) -> Result<(), Refusal> {
-        let dir = self.removable(number)?;
+        let _held = guard();
+        let dir = self.removable_now(number)?;
         let io = |e: io::Error| Refusal::Io { detail: e.to_string() };
         self.app.inside(&dir).map_err(io)?;
         match std::fs::remove_dir_all(&dir) {

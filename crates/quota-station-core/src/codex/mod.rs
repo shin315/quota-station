@@ -11,8 +11,10 @@
 //! owner pastes one ("Dán khoá", [`set_key`]), the provider's own key and
 //! the `base_url` that pointed at CC Switch's proxy. It backs the file
 //! up first, with the keys left out of the backup, and checks it was not
-//! changed meanwhile ([`files`]). It never writes `auth.json` (only its
-//! shape is looked at, [`login`]); the switch never writes the
+//! changed meanwhile ([`files`]). It never writes into `auth.json` (only
+//! its shape is looked at, [`login`]): a switch between ChatGPT accounts
+//! moves whole `auth.json` files between the Codex folder and each
+//! account's own folder ([`accounts`]); the switch never writes the
 //! `[mcp_servers]` list, which only the MCP tab edits
 //! ([`crate::agents::codex_mcp`]); and the custom provider's settings come
 //! from the file itself: no host, URL or key is built in. It runs `ps` and, when the
@@ -155,6 +157,11 @@ pub enum Outcome {
         target: Target,
         error: WriteError,
     },
+    /// A ChatGPT account's sign-in could not be moved: nothing changed.
+    Account {
+        target: Target,
+        refusal: accounts::Refusal,
+    },
 }
 
 /// Switches to `target`, when `config.toml` still hashes to `base_hash`
@@ -170,16 +177,91 @@ pub fn switch(
     plugins: bool,
     now: OffsetDateTime,
 ) -> Outcome {
-    switch_to(codex_home, app, target, None, base_hash, plugins, now)
+    switch_to(codex_home, app, target, None, None, base_hash, plugins, now)
+}
+
+/// Switches Codex to one account of the list: a ChatGPT sign-in the app
+/// keeps (`chatgpt:<n>`: its `auth.json` moves into the Codex folder, the
+/// one there back to its own folder, and `model_provider` goes when Codex
+/// went through a custom provider), or a custom provider's table id.
+/// `base_hash` is `config.toml` as the sheet showed it: when it changed
+/// since, nothing moves. Should `config.toml` fail to write after the move,
+/// the account stays signed in and Codex stays on its provider.
+pub fn use_account(
+    codex_home: &Path,
+    app: &AppDir,
+    platform: &dyn platform::Platform,
+    id: &str,
+    base_hash: Option<&str>,
+    plugins: bool,
+    now: OffsetDateTime,
+) -> Outcome {
+    let Some(number) = id.strip_prefix(accounts::CHATGPT_ID) else {
+        return switch_provider(codex_home, app, id, base_hash, plugins, now);
+    };
+    let target = Target::ChatGpt;
+    let refused = |refusal| Outcome::Account { target, refusal };
+    let Ok(number) = number.parse::<u32>() else { return refused(accounts::Refusal::Unknown) };
+    let (on_provider, kept_in) = match read_bytes(&codex_home.join(CONFIG)) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => (false, config::AuthStore::File),
+        Err(e) => return Outcome::Invalid { target, detail: e.to_string() },
+        Ok(bytes) => {
+            if base_hash.is_some_and(|b| b != files::sha256(&bytes)) {
+                return Outcome::Failed { target, error: WriteError::Changed };
+            }
+            let Ok(text) = std::str::from_utf8(&bytes) else {
+                return Outcome::Invalid { target, detail: "not UTF-8".into() };
+            };
+            match config::parse(text, files::load(app).last_custom.as_deref()) {
+                Ok(p) => (p.current() != config::Current::ChatGpt, p.store),
+                Err(detail) => return Outcome::Invalid { target, detail },
+            }
+        }
+    };
+    let store = accounts::Store::new(app, codex_home, platform);
+    let before = store
+        .list(now)
+        .ok()
+        .and_then(|l| l.into_iter().find(|a| a.place == accounts::Place::Home))
+        .map(|a| format!("{}{}", accounts::CHATGPT_ID, a.entry.number));
+    let moved = match store.switch(number, kept_in == config::AuthStore::File, now) {
+        Ok(m) => m,
+        Err(r) => return refused(r),
+    };
+    if on_provider {
+        // Back to the ChatGPT login, which is this account's now.
+        return switch_to(codex_home, app, target, None, Some(id), base_hash, plugins, now);
+    }
+    match moved {
+        accounts::Moved::Already => Outcome::Already { target },
+        accounts::Moved::Moved { .. } => {
+            let from = before.unwrap_or_else(|| provider_id(None));
+            let _ = log::append(
+                app,
+                &log::Line {
+                    at: now.unix_timestamp(),
+                    from: from.clone(),
+                    to: id.to_string(),
+                    result: "switched".into(),
+                    restarted: None,
+                    requires: None,
+                },
+            );
+            Outcome::Switched { target, from, to: id.to_string(), backup: String::new() }
+        }
+    }
 }
 
 /// [`switch`], to the provider table `provider` when given, else to the
-/// one the file and the record choose.
+/// one the file and the record choose. `account`: the ChatGPT account the
+/// switch lands on, named in the log and the outcome instead of `openai`.
+#[allow(clippy::too_many_arguments)]
 fn switch_to(
     codex_home: &Path,
     app: &AppDir,
     target: Target,
     provider: Option<&str>,
+    account: Option<&str>,
     base_hash: Option<&str>,
     plugins: bool,
     now: OffsetDateTime,
@@ -224,7 +306,7 @@ fn switch_to(
         }
     };
     let from = provider_id(parsed.selected.as_deref());
-    let to = provider_id(plan.selector.as_deref());
+    let to = account.map(str::to_string).unwrap_or_else(|| provider_id(plan.selector.as_deref()));
     if new_text == text {
         return Outcome::Already { target };
     }
@@ -814,5 +896,5 @@ pub fn switch_provider(
     plugins: bool,
     now: OffsetDateTime,
 ) -> Outcome {
-    switch_to(codex_home, app, Target::Custom, Some(id), base_hash, plugins, now)
+    switch_to(codex_home, app, Target::Custom, Some(id), None, base_hash, plugins, now)
 }
