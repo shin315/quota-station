@@ -210,10 +210,15 @@ export interface Api {
    * back to its own folder) or a custom provider (`model_provider`). Rejects with `busy`.
    */
   codexUse(id: string, base: string | null): Promise<CodexOutcome>;
-  /** Signs a new ChatGPT account in, in a Codex folder of its own; `id` signs that account in again. */
-  codexLogin(id: string | null): Promise<CodexAccountDone>;
+  /**
+   * Signs a new ChatGPT account in, in a Codex folder of its own; `id` signs that account in again.
+   * `device`: with a code typed on ChatGPT's page (`model.codex.loginCode`) instead of the browser coming back.
+   */
+  codexLogin(id: string | null, device?: boolean): Promise<CodexAccountDone>;
   /** Stops the sign-in that waits for the browser. */
   codexCancelLogin(): Promise<void>;
+  /** "Mở lại trang đăng nhập": the page the sign-in under way printed, in the browser. */
+  codexReopenLogin(): Promise<void>;
   /** "Kiểm tra" on a new provider: its address with no key, then with the key. The key goes only there. */
   codexCheckProvider(baseUrl: string, key: string): Promise<CodexProviderCheck>;
   /** The lines a new provider adds to `config.toml`; the key only as its hint. */
@@ -501,8 +506,9 @@ export const tauriApi: Api = {
   codexUndoKey: (base) => invoke<CodexKeyOutcome>('codex_undo_key', { base }),
   setCodexPlugins: (on) => invoke<Model>('set_codex_plugins', { on }),
   codexUse: (id, base) => invoke<CodexOutcome>('codex_use', { id, base }),
-  codexLogin: (id) => invoke<CodexAccountDone>('codex_login', { id }),
+  codexLogin: (id, device) => invoke<CodexAccountDone>('codex_login', { id, device: device ?? false }),
   codexCancelLogin: () => invoke('codex_cancel_login'),
+  codexReopenLogin: () => invoke('codex_reopen_login'),
   codexCheckProvider: (baseUrl, key) => invoke<CodexProviderCheck>('codex_check_provider', { baseUrl, key }),
   codexProviderPreview: (name, baseUrl, key) => invoke<CodexKeyPreview>('codex_provider_preview', { name, baseUrl, key }),
   codexAddProvider: (name, baseUrl, key, base) => invoke<CodexAccountDone>('codex_add_provider', { name, baseUrl, key, base }),

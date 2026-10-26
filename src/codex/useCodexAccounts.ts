@@ -20,8 +20,8 @@ export type CodexAddHow = 'chatgpt' | 'custom' | 'json';
 
 export type CodexDialog =
   | { kind: 'add'; how: CodexAddHow; error: string | null }
-  /** Waiting for the browser; `id`: the account signing in again. */
-  | { kind: 'wait'; id: string | null; started: number }
+  /** Waiting for the browser; `id`: the account signing in again; `device`: with a code. */
+  | { kind: 'wait'; id: string | null; started: number; device: boolean }
   | { kind: 'done'; id: string }
   | { kind: 'dup'; id: string }
   | { kind: 'fail'; reason: CodexLoginFail; detail: string | null; id: string | null }
@@ -50,10 +50,10 @@ export function useCodexAccounts(api: Api, model: Model | null, showFeedback: (f
     }
   };
 
-  /** Sign in with the browser: a new account, or `id` signing in again. */
-  const login = async (id: string | null) => {
-    setDialog({ kind: 'wait', id, started: Date.now() });
-    const d = await call(api.codexLogin(id));
+  /** Sign in with the browser: a new account, or `id` signing in again; `device`: with a code typed on ChatGPT's page. */
+  const login = async (id: string | null, device = false) => {
+    setDialog({ kind: 'wait', id, started: Date.now(), device });
+    const d = await call(api.codexLogin(id, device));
     if (d.kind === 'failed') return from('wait', d.reason === 'cancelled' ? null : { kind: 'fail', reason: d.reason, detail: d.detail, id });
     if (d.kind === 'refused') return from('wait', { kind: 'fail', reason: 'other', detail: refusedText(d.reason), id });
     if (d.kind === 'renewed') {
@@ -109,6 +109,7 @@ export function useCodexAccounts(api: Api, model: Model | null, showFeedback: (f
     void plain(api.codexRemove(id, logout, model?.codex.hash ?? null), latest);
   };
   const cancelLogin = () => void api.codexCancelLogin().catch(() => {});
+  const reopenLogin = () => void api.codexReopenLogin().catch(() => {});
 
   /** The actions on rows, banners and lines. Returns false for others. */
   const act = (a: Action): boolean => {
@@ -118,7 +119,7 @@ export function useCodexAccounts(api: Api, model: Model | null, showFeedback: (f
     return true;
   };
 
-  return { api, dialog, open: setDialog, close, pending, setPending, act, add, login, cancelLogin, rename, remove, pick, importFiles };
+  return { api, dialog, open: setDialog, close, pending, setPending, act, add, login, cancelLogin, reopenLogin, rename, remove, pick, importFiles };
 }
 
 export type CodexAccountsState = ReturnType<typeof useCodexAccounts>;

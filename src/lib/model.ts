@@ -820,6 +820,8 @@ export interface CodexView {
   accounts: CodexAccount[];
   /** Where the ChatGPT sign-ins not in the Codex folder wait, each in its own folder. */
   accountsDir: string;
+  /** A sign-in with a device code: the page and the code to type there. */
+  loginCode?: { url: string; code: string } | null;
   /** "Nhập file đăng nhập (JSON)" is offered (the prototype only, until it is built). */
   imports?: boolean;
   /** "Tự đánh thức tài khoản ChatGPT": only in a build with the author's tools, else null. */

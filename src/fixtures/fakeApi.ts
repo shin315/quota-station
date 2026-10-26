@@ -780,14 +780,17 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       });
       return outcome;
     },
-    codexLogin: async (id) => {
+    codexLogin: async (id, device) => {
       const c = model.codex;
       if (c.busy || codexLoginEnd) return { kind: 'refused', reason: 'busy' } satisfies CodexAccountDone;
+      // A device code shows while it waits, as `codex login --device-auth` prints one.
+      if (device) push({ ...model, codex: { ...model.codex, loginCode: { url: 'https://auth.openai.com/codex/device', code: 'QSFX-27K4D' } } });
       const ended = await new Promise<'self' | 'cancel'>((resolve) => {
         codexLoginEnd = resolve;
         setTimeout(() => resolve('self'), options.codexLoginDelayMs ?? 0);
       });
       codexLoginEnd = null;
+      if (device) push({ ...model, codex: { ...model.codex, loginCode: null } });
       if (ended === 'cancel') return { kind: 'failed', reason: 'cancelled', detail: null } satisfies CodexAccountDone;
       const end = options.codexLoginEnd;
       if (end === 'dup') return { kind: 'dup', id: c.accounts.find((a) => a.kind === 'chatgpt' && !a.signedIn)?.id ?? 'chatgpt:1' } satisfies CodexAccountDone;
@@ -826,6 +829,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
     codexCancelLogin: async () => {
       codexLoginEnd?.('cancel');
     },
+    codexReopenLogin: async () => {},
     codexCheckProvider: async (baseUrl, key) => {
       if (options.codexDelayMs) await new Promise((r) => setTimeout(r, 900));
       if (!/^https?:\/\/[^\s@]+$/.test(baseUrl.trim())) return { reach: 'badUrl', ms: null, key: 'unknown', status: null } satisfies CodexProviderCheck;

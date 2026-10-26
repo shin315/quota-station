@@ -163,12 +163,18 @@ function WaitBody({ d, codex, model }: { d: Extract<CodexDialog, { kind: 'wait' 
   }, []);
   const a = d.id ? accountOf(model.codex, d.id) : undefined;
   const who = a ? accountName(model, a) : '';
+  const code = d.device ? model.codex.loginCode : null;
   return (
     <Stack>
       {a ? (
         <Head
           title={t('Đăng nhập lại ' + who, 'Sign ' + who + ' in again')}
           lead={a.email ? t('Đăng nhập đúng **' + a.email + '** trong tab vừa mở.', 'Sign in as **' + a.email + '** in the tab that opened.') : t('Đăng nhập đúng tài khoản này trong tab vừa mở.', 'Sign in to this account in the tab that opened.')}
+        />
+      ) : d.device ? (
+        <Head
+          title={t('Đăng nhập bằng mã thiết bị', 'Sign in with a device code')}
+          lead={t('Mở trang dưới đây ở trình duyệt nào cũng được, đăng nhập ChatGPT rồi nhập mã. Cửa sổ này tự cập nhật khi xong.', 'Open the page below in any browser, sign in to ChatGPT and type the code. This window updates by itself when you are done.')}
         />
       ) : (
         <Head
@@ -185,12 +191,29 @@ function WaitBody({ d, codex, model }: { d: Extract<CodexDialog, { kind: 'wait' 
           </small>
         </div>
       </div>
-      <Hint className="mb-0">
-        {t('Không thấy tab? ', 'No tab? ')}
-        <LinkButton small onClick={() => {}}>
-          {t('Mở lại trang đăng nhập', 'Open the sign-in page again')}
-        </LinkButton>
-      </Hint>
+      {d.device ? (
+        code ? (
+          <div className="grid gap-1 rounded-tile bg-fill px-[11px] py-2 text-sm">
+            <span>
+              {t('Mở ', 'Open ')}
+              <LinkButton small onClick={codex.reopenLogin}>
+                {code.url}
+              </LinkButton>
+              {t(', đăng nhập rồi nhập mã:', ', sign in, then type the code:')}
+            </span>
+            <b className="font-mono text-[18px] font-semi tracking-wider text-heading select-all">{code.code}</b>
+          </div>
+        ) : (
+          <Hint className="mb-0">{t('Đang lấy mã thiết bị…', 'Getting a device code…')}</Hint>
+        )
+      ) : (
+        <Hint className="mb-0">
+          {t('Không thấy tab? ', 'No tab? ')}
+          <LinkButton small onClick={codex.reopenLogin}>
+            {t('Mở lại trang đăng nhập', 'Open the sign-in page again')}
+          </LinkButton>
+        </Hint>
+      )}
       <DialogButtons>
         <Button onClick={codex.cancelLogin}>{t('Thôi', 'Cancel')}</Button>
       </DialogButtons>
@@ -273,7 +296,7 @@ function FailBody({ d, codex, model }: { d: Extract<CodexDialog, { kind: 'fail' 
       <Head title={t('Chưa đăng nhập được', 'Sign-in did not finish')} lead={loginFailText(d.reason, d.detail) + t(' Không có gì được lưu.', ' Nothing was saved.')} />
       <DialogButtons>
         {d.reason === 'port' ? (
-          <Button onClick={() => void codex.login(d.id)}>{t('Dùng mã thiết bị', 'Use a device code')}</Button>
+          <Button onClick={() => void codex.login(d.id, true)}>{t('Dùng mã thiết bị', 'Use a device code')}</Button>
         ) : null}
         <Button onClick={codex.close}>{t('Đóng', 'Close')}</Button>
         <Button primary disabled={model.codex.version == null || model.codex.busy != null} onClick={() => void codex.login(d.id)}>
