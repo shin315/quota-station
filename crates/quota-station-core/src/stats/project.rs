@@ -269,11 +269,8 @@ fn same_remote(url: &str) -> String {
 /// the home's links resolved or not.
 fn show(path: &Path, home: &Path) -> String {
     let real_home = home.canonicalize().unwrap_or_else(|_| home.to_path_buf());
-    match path.strip_prefix(home).or_else(|_| path.strip_prefix(&real_home)).ok() {
-        Some(rest) if rest.as_os_str().is_empty() => "~".to_string(),
-        Some(rest) => format!("~/{}", rest.display()),
-        None => path.display().to_string(),
-    }
+    let home = if path.starts_with(home) { home } else { &real_home };
+    crate::runner::display_path(path, home)
 }
 
 #[cfg(test)]
