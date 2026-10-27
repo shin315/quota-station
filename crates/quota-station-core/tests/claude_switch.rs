@@ -6,7 +6,7 @@
 
 mod common;
 
-use std::process::Command;
+use std::path::Path;
 
 use quota_station_core::claude::switch::{self, SwitchError};
 use quota_station_core::claude::{cc, usage};
@@ -101,9 +101,7 @@ fn a_lock_left_behind_is_taken_over() {
     let (mac, _, _) = two_accounts("switch-stale");
     let lock = mac.home.join(".claude.lock");
     std::fs::create_dir(&lock).unwrap();
-    let old =
-        Command::new("/usr/bin/touch").args(["-t", "202001010000"]).arg(&lock).status().unwrap();
-    assert!(old.success());
+    filetime::set_file_mtime(&lock, filetime::FileTime::from_unix_time(1_577_836_800, 0)).unwrap();
     switch::switch(&mac.store, 3).unwrap();
     assert_eq!(switch::active_slot(&mac.store), Some(3));
 }
@@ -155,15 +153,31 @@ fn a_login_file_that_cannot_be_written_puts_the_keychain_back() {
     let file = mac.home.join(".claude/.credentials.json");
     std::fs::create_dir_all(file.parent().unwrap()).unwrap();
     std::fs::write(&file, &c2).unwrap();
-    let flag = |f: &str| Command::new("/usr/bin/chflags").arg(f).arg(&file).status().unwrap();
-    assert!(flag("uchg").success());
+    locked(&file, true);
     let result = switch::switch(&mac.store, 3);
-    assert!(flag("nouchg").success());
+    locked(&file, false);
     assert!(matches!(result, Err(SwitchError::NotConfirmed { restored: true, .. })), "{result:?}");
     assert_eq!(mac.live_credential(), Some(c2.clone()));
     assert_eq!(std::fs::read_to_string(&file).unwrap(), c2);
     assert_eq!(mac.live_email().as_deref(), Some("lan@team.example"));
     assert_eq!(switch::active_slot(&mac.store), Some(2));
+}
+
+/// Makes `file` one nothing can replace: immutable on macOS, read-only on
+/// Windows.
+fn locked(file: &Path, on: bool) {
+    #[cfg(unix)]
+    {
+        let flag = if on { "uchg" } else { "nouchg" };
+        let status = std::process::Command::new("/usr/bin/chflags").arg(flag).arg(file).status();
+        assert!(status.unwrap().success());
+    }
+    #[cfg(windows)]
+    {
+        let mut permissions = std::fs::metadata(file).unwrap().permissions();
+        permissions.set_readonly(on);
+        std::fs::set_permissions(file, permissions).unwrap();
+    }
 }
 
 /// `~/.claude.json` without `oauthAccount`, as after a reset.
