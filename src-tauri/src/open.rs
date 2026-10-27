@@ -14,12 +14,28 @@ use tauri_plugin_opener::OpenerExt;
 
 /// A web page in the default browser, or a settings page by its scheme.
 pub fn url<R: Runtime>(app: &AppHandle<R>, url: &str) -> Result<(), String> {
-    app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string())
+    let opened = app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string());
+    let scheme = url.split(':').next().unwrap_or_default();
+    noted("url", scheme, &opened);
+    opened
 }
 
 /// A folder in Finder or File Explorer.
 pub fn folder<R: Runtime>(app: &AppHandle<R>, dir: &Path) -> Result<(), String> {
-    app.opener().open_path(dir.to_string_lossy(), None::<&str>).map_err(|e| e.to_string())
+    let opened =
+        app.opener().open_path(dir.to_string_lossy(), None::<&str>).map_err(|e| e.to_string());
+    noted("folder", "", &opened);
+    opened
+}
+
+/// The test build's record of what was opened (`crate::session`): the
+/// kind, a URL's scheme or a file's extension, and whether it opened;
+/// never the address or the path.
+fn noted(kind: &str, what: &str, opened: &Result<(), String>) {
+    crate::session::note(
+        "open",
+        serde_json::json!({ "kind": kind, "what": what, "ok": opened.is_ok() }),
+    );
 }
 
 /// A text file in the default text editor. The plugin has no word for
@@ -37,7 +53,15 @@ pub fn text<R: Runtime>(app: &AppHandle<R>, file: &Path) -> Result<(), String> {
         Ok(())
     }
     #[cfg(not(target_os = "macos"))]
-    app.opener().open_path(file.to_string_lossy(), Some("notepad")).map_err(|e| e.to_string())
+    {
+        let opened = app
+            .opener()
+            .open_path(file.to_string_lossy(), Some("notepad"))
+            .map_err(|e| e.to_string());
+        let ext = file.extension().map(|e| e.to_string_lossy().into_owned()).unwrap_or_default();
+        noted("text", &ext, &opened);
+        opened
+    }
 }
 
 /// The browser for the core's sign-ins, through the plugin.

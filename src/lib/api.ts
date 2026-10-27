@@ -6,6 +6,7 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import type { SessionView } from '../session/steps';
 import type {
   CopyComparison,
   CopySelection,
@@ -452,6 +453,22 @@ export interface Api {
   increaseContrast(): Promise<boolean>;
   /** macOS's Increase Contrast changed, as a window learns when it comes forward. */
   onIncreaseContrast(handler: (on: boolean) => void): Promise<() => void>;
+  /** A test build's guided session (`session.rs`): where the guide is, and what this PC has. */
+  sessionGet(): Promise<SessionView>;
+  /** The guide shows step `id`; the app takes the pictures it wants (`popover`, `main`, `toast`) as they show. */
+  sessionStep(id: string, captures: string[]): Promise<void>;
+  /** The step is done (or skipped): its facts and self-checks go to the session's folder. */
+  sessionDone(id: string, skipped: boolean, facts: unknown, checks: string[]): Promise<void>;
+  /** "Chụp sau 3 giây": a picture of `tray`, `main` or `popover`. */
+  sessionShot(what: string, delayMs: number): Promise<void>;
+  /** What a page saw itself (its fonts, a contrast theme, a reload). */
+  sessionNote(kind: string, data: unknown): Promise<void>;
+  /** A Windows Settings page, or Codex's `config.toml` in Notepad. */
+  sessionOpen(what: string): Promise<void>;
+  /** "Ghi gói chẩn đoán": `diag-<date>.zip`, and where it went. */
+  sessionZip(): Promise<{ name: string; folder: string }>;
+  /** Shows the zip in File Explorer. */
+  sessionReveal(): Promise<void>;
 }
 
 export const tauriApi: Api = {
@@ -624,4 +641,12 @@ export const tauriApi: Api = {
   increaseContrast: () => invoke<boolean>('increase_contrast'),
   onIncreaseContrast: (handler) => listen<boolean>('increaseContrast', (event) => handler(event.payload)),
   onTab: (handler) => listen<Tab>('tab', (event) => handler(event.payload)),
+  sessionGet: () => invoke<SessionView>('session_get'),
+  sessionStep: (id, captures) => invoke('session_step', { id, captures }),
+  sessionDone: (id, skipped, facts, checks) => invoke('session_done', { id, skipped, facts, checks }),
+  sessionShot: (what, delayMs) => invoke('session_shot', { what, delayMs }),
+  sessionNote: (kind, data) => invoke('session_note', { kind, data }),
+  sessionOpen: (what) => invoke('session_open', { what }),
+  sessionZip: () => invoke<{ name: string; folder: string }>('session_zip'),
+  sessionReveal: () => invoke('session_reveal'),
 };

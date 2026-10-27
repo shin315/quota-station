@@ -49,6 +49,8 @@ url = "2.5"
 # Launching at login (`src/login_item.rs`): the current user's `Run` key,
 # as `tauri-plugin-autostart` writes it, without its macOS side.
 auto-launch = "0.6"
+# The test build's pictures of the app's own windows (`src/shot.rs`).
+jpeg-encoder = "0.6"
 # Toasts with buttons (`src/notify.rs`).
 tauri-plugin-notification = "2.7"
 webview2-com = "0.39"
@@ -56,6 +58,8 @@ windows = { version = "0.62", features = [
   "UI_ViewManagement",
   "Wdk_System_SystemServices",
   "Win32_Graphics_Dwm",
+  "Win32_Graphics_Gdi",
+  "Win32_System_Console",
   "Win32_System_Registry",
   "Win32_System_SystemInformation",
   "Win32_UI_Accessibility",

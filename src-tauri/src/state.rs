@@ -801,6 +801,9 @@ pub struct Capabilities {
     /// take its type, corners and scroll bars, and its words for its own
     /// parts (Keychain, Finder, the menu bar).
     pub platform: &'static str,
+    /// A test build for a guided session on a Windows PC (`crate::session`):
+    /// the guide's window and its pictures. False in every other build.
+    pub session: bool,
 }
 
 impl Capabilities {
@@ -808,6 +811,7 @@ impl Capabilities {
         agy_accounts: cfg!(feature = "antigravity-accounts"),
         author_tools: cfg!(feature = "author-tools"),
         platform: if cfg!(windows) { "windows" } else { "macos" },
+        session: crate::session::ON,
     };
 }
 
@@ -1039,6 +1043,8 @@ mod tests {
         assert_eq!(json["capabilities"]["authorTools"], tools);
         let platform = if cfg!(windows) { "windows" } else { "macos" };
         assert_eq!(json["capabilities"]["platform"], platform);
+        // Only CI's Windows installer is built for a guided session.
+        assert_eq!(json["capabilities"]["session"], option_env!("QS_TEST_SESSION").is_some());
         assert_eq!(json["advanced"]["on"], tools);
         assert_eq!(json["advanced"]["firstmate"], tools);
         assert_eq!(json.get("rotation").is_some(), tools);

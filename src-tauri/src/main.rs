@@ -30,6 +30,9 @@
 //! Since M16 it counts the tokens in this Mac's own session logs (Thống kê),
 //! keeping the counts only.
 
+// A window app on Windows: a release build opens no console of its own.
+#![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
+
 mod agents;
 #[cfg(feature = "antigravity-accounts")]
 mod agy_quota;
@@ -48,6 +51,7 @@ mod codex_wake;
 mod commands;
 #[cfg(feature = "author-tools")]
 mod copy;
+mod diag;
 mod env;
 mod install;
 mod login_item;
@@ -57,7 +61,10 @@ mod reader;
 mod release;
 #[cfg(feature = "author-tools")]
 mod rules;
+mod session;
 mod sets;
+#[cfg(windows)]
+mod shot;
 mod skills;
 mod state;
 mod stats;
@@ -81,6 +88,10 @@ fn main() {
     // Only a build with the author's tools copies; any other refuses as
     // a copy of another version would, and never opens a window.
     let args: Vec<String> = std::env::args().skip(1).collect();
+    #[cfg(windows)]
+    if matches!(args.first().map(String::as_str), Some("claude" | "quota")) {
+        attach_console();
+    }
     if args.first().map(String::as_str) == Some("agents") {
         #[cfg(feature = "author-tools")]
         std::process::exit(copy::cli(&args[1..]));
@@ -104,6 +115,7 @@ fn main() {
         // icon; on Windows, where the Start menu is how the app is found
         // again, the popover beside the tray icon.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            session::note("second-launch", serde_json::json!({}));
             #[cfg(not(windows))]
             windows::open_main(app, Tab::Overview);
             #[cfg(windows)]
@@ -156,6 +168,8 @@ fn main() {
             #[cfg(windows)]
             timer::spawn(state.clone());
             codex::spawn(app.handle().clone(), state);
+            // A test build's guided session (plan 4.3); nothing in any other.
+            session::start(app.handle());
             Ok(())
         })
         .invoke_handler(handler())
@@ -369,12 +383,46 @@ commands![
     install::update_from_source,
     #[cfg(feature = "author-tools")]
     install::relaunch,
+    session::session_get,
+    session::session_step,
+    session::session_done,
+    session::session_shot,
+    session::session_note,
+    session::session_open,
+    session::session_zip,
+    session::session_reveal,
 ];
+
+/// The home folder for the commands a terminal runs: `HOME`, which Windows
+/// rarely sets, else the profile folder there.
+fn cli_home() -> Option<std::path::PathBuf> {
+    let home = std::env::var_os("HOME");
+    #[cfg(windows)]
+    let home = home.or_else(|| std::env::var_os("USERPROFILE"));
+    home.map(std::path::PathBuf::from)
+}
+
+/// A release build on Windows has no console of its own: `quota-station
+/// claude …` and `quota-station quota …` write to the terminal they were
+/// started from, unless their output already goes somewhere (a pipe).
+#[cfg(windows)]
+fn attach_console() {
+    use ::windows::Win32::System::Console::{
+        AttachConsole, GetStdHandle, ATTACH_PARENT_PROCESS, STD_OUTPUT_HANDLE,
+    };
+    // SAFETY: plain console calls on this process.
+    unsafe {
+        let has_output = GetStdHandle(STD_OUTPUT_HANDLE).is_ok_and(|h| !h.is_invalid());
+        if !has_output {
+            let _ = AttachConsole(ATTACH_PARENT_PROCESS);
+        }
+    }
+}
 
 /// `quota-station claude …`, with the owner's home and the Keychain.
 fn claude_cli(args: &[String]) -> i32 {
     use quota_station_core::claude::{cli, rotate, store::Store, Paths};
-    let Some(home) = std::env::var_os("HOME").map(std::path::PathBuf::from) else {
+    let Some(home) = cli_home() else {
         eprintln!("quota-station claude: HOME is not set");
         return 1;
     };
@@ -430,7 +478,7 @@ fn quota_cli(args: &[String]) -> i32 {
     if wanted.is_empty() {
         wanted = vec![ProviderId::Claude, ProviderId::Agy, ProviderId::Codex];
     }
-    let Some(home) = std::env::var_os("HOME").map(std::path::PathBuf::from) else {
+    let Some(home) = cli_home() else {
         eprintln!("quota-station quota: HOME is not set");
         return 1;
     };

@@ -247,7 +247,7 @@ fn system() -> String {
 /// `text` with every `home` in it as `~`; on Windows, where `HOME` is
 /// rarely set and a path may come in any case, the profile folder
 /// (`C:\Users\<name>`) in any case.
-fn tilde(text: &str, home: &str) -> String {
+pub(crate) fn tilde(text: &str, home: &str) -> String {
     if home.len() <= 1 {
         return text.to_string();
     }
@@ -268,7 +268,7 @@ fn tilde(text: &str, home: &str) -> String {
 }
 
 /// A Windows path: a drive (`C:\`, `c:/`) or a share (`\\server`).
-fn windows_path(word: &str) -> bool {
+pub(crate) fn windows_path(word: &str) -> bool {
     let b = word.as_bytes();
     word.starts_with("\\\\")
         || (b.len() >= 3

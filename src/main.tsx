@@ -5,10 +5,11 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MainWindowApp, PopoverApp } from './App';
 import { tauriApi, type Api } from './lib/api';
+import { GuideApp } from './session/Guide';
 import { THEME_PACKS } from './lib/model';
 import './styles/globals.css';
 
-type View = 'popover' | 'window';
+type View = 'popover' | 'window' | 'guide';
 
 function tauriLabel(): string | null {
   const meta = (window as { __TAURI_INTERNALS__?: { metadata?: { currentWindow?: { label?: string } } } }).__TAURI_INTERNALS__;
@@ -18,7 +19,7 @@ function tauriLabel(): string | null {
 async function start() {
   const label = tauriLabel();
   let api: Api = tauriApi;
-  let view: View = label === 'main' ? 'window' : 'popover';
+  let view: View = label === 'main' ? 'window' : label === 'guide' ? 'guide' : 'popover';
   let clock: (() => Date) | undefined;
   let preview = false;
 
@@ -42,6 +43,21 @@ async function start() {
   // Glass and plain edges until macOS says otherwise (useMaterial).
   document.documentElement.dataset.material = 'glass';
   document.documentElement.dataset.contrast = 'normal';
+  if (view === 'guide') {
+    // A test build's guided session (session.rs): its own window and words.
+    createRoot(document.getElementById('root')!).render(
+      <StrictMode>
+        <div className="qs h-full w-full" data-os="windows">
+          <GuideApp api={api} />
+        </div>
+      </StrictMode>,
+    );
+    return;
+  }
+  // A page that reloaded (F5 where WebView2's browser keys should be off):
+  // a test build notes it; any other build has no session to note it in.
+  const navigation = performance.getEntriesByType?.('navigation')[0] as PerformanceNavigationTiming | undefined;
+  if (label && navigation?.type === 'reload') void api.sessionNote('reload', { view }).catch(() => {});
   document.body.classList.add(view === 'window' ? 'main-window' : 'popover-window');
   if (preview) document.body.classList.add('preview');
   createRoot(document.getElementById('root')!).render(

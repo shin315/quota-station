@@ -7,6 +7,7 @@
 // Plain code: the preview bundle must not load Vitest.
 
 import type { AuthorModel } from '../lib/author';
+import type { SessionView } from '../session/steps';
 import type { Api } from '../lib/api';
 import { fakeParts, fakeRestore, planFixture, summaryFixture } from './fakeBackup';
 import { comparisonFixture, copyDoneFixture, copyUndoneFixture } from './fakeCopy';
@@ -73,6 +74,8 @@ import type {
 } from '../lib/model';
 
 export interface FakeOptions {
+  /** A test build's guided session: where the guide was, and what the PC has. */
+  session?: Partial<SessionView>;
   /** macOS reduces transparency: the windows show the solid ground. */
   reduceTransparency?: boolean;
   /** macOS increases contrast: the edges are drawn stronger. */
@@ -281,6 +284,18 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
   let closed: 'window' | 'app' | null = null;
   let quitPending = options.quitPending ?? false;
   let relaunched = 0;
+  let session: SessionView = {
+    on: false,
+    step: null,
+    done: [],
+    restarted: false,
+    zip: null,
+    claudeProgram: null,
+    exe: null,
+    ...options.session,
+  };
+  /** What the guide asked of the session, in order. */
+  const sessionCalls: { call: string; id?: string; captures?: string[]; skipped?: boolean; facts?: unknown; checks?: string[] }[] = [];
   let lastMcpUndo: McpOutcome['undo'] = null;
   let lastSkillUndo: SkillOutcome['undo'] = null;
   /** The last apply's undo, and the set deleted last. */
@@ -1741,6 +1756,32 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       contrastListeners.add(handler);
       return () => contrastListeners.delete(handler);
     },
+    sessionGet: async () => session,
+    sessionStep: async (id, captures) => {
+      session = { ...session, step: id };
+      sessionCalls.push({ call: 'step', id, captures });
+    },
+    sessionDone: async (id, skipped, facts, checks) => {
+      session = { ...session, done: [...session.done, id] };
+      sessionCalls.push({ call: 'done', id, skipped, facts, checks });
+    },
+    sessionShot: async (what) => {
+      sessionCalls.push({ call: 'shot', id: what });
+    },
+    sessionNote: async (kind) => {
+      sessionCalls.push({ call: 'note', id: kind });
+    },
+    sessionOpen: async (what) => {
+      sessionCalls.push({ call: 'open', id: what });
+    },
+    sessionZip: async () => {
+      sessionCalls.push({ call: 'zip' });
+      session = { ...session, zip: { name: 'diag-2026-10-28.zip', folder: 'Desktop' } };
+      return session.zip!;
+    },
+    sessionReveal: async () => {
+      sessionCalls.push({ call: 'reveal' });
+    },
   };
   /** The window's close button, as macOS would press it with unsaved rules. */
   const requestClose = () => closeListeners.forEach((l) => l());
@@ -1785,6 +1826,8 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
     released: () => released,
     /** Where the first run's last step opened the app: `window` or `popover`. */
     finished: () => finished,
+    /** What the guide asked of the session (a test build's). */
+    sessionCalls: () => sessionCalls,
   };
 }
 
