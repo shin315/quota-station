@@ -89,3 +89,32 @@ jobs:
 
       - name: Build the app (MIT)
         run: npx tauri build --bundles app
+
+  # The start of the Windows build: the core does not compile on Windows yet,
+  # so its two steps may fail without failing the job, and the cargo check
+  # runs even after vitest failed. The macOS job stays the required check.
+  build-windows:
+    name: Build and test (Windows x64)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install npm packages
+        run: npm ci
+
+      - name: Vitest
+        run: npm test
+        continue-on-error: true
+
+      - name: cargo check (core)
+        run: cargo check -p quota-station-core --target x86_64-pc-windows-msvc --locked
+        continue-on-error: true

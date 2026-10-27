@@ -21,6 +21,7 @@ path = [
   "docs/**",
   "src-tauri/Info.plist",
   "src-tauri/tauri.conf.json",
+  "src-tauri/tauri.windows.conf.json",
   "src-tauri/capabilities/**",
   "src-tauri/icons/**",
   "src/fixtures/**.json",

@@ -3,13 +3,15 @@
 
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import type { Plugin } from 'vite';
+import { fileURLToPath } from 'node:url';
+import { normalizePath, type Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
 
 /** Node's, read only here; the app's own code never sees it. */
 declare const process: { env: Record<string, string | undefined> };
 
-const src = decodeURIComponent(new URL('./src', import.meta.url).pathname);
+// `/`-separated on Windows too (`C:/…`), as Vite writes the module ids `noAgyScreens` compares.
+const src = normalizePath(fileURLToPath(new URL('./src', import.meta.url)));
 /** The Antigravity accounts' screens: CC BY-NC-SA 4.0, see `NOTICE`. */
 const agyScreens = src + '/antigravity/';
 
@@ -31,7 +33,8 @@ export default defineConfig(({ command }) => {
     },
     clearScreen: false,
     server: { port: 1420, strictPort: true },
-    build: { target: 'safari16', outDir: 'dist' },
+    // WebView2 (Chromium) on Windows, WebKit on macOS; the target is Tauri's Vite guide's for Windows.
+    build: { target: process.env.TAURI_ENV_PLATFORM === 'windows' ? 'chrome105' : 'safari16', outDir: 'dist' },
     test: {
       environment: 'jsdom',
       // Fixture times read like the prototype (14:20) at UTC+7.
