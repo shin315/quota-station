@@ -33,7 +33,10 @@ pub enum Login {
     ApiKey,
     Missing,
     Unreadable,
-    /// Kept in the Keychain (`keyring`, `auto`): the app does not look.
+    /// Kept in the system's store (`keyring`, `auto`): the Keychain on a
+    /// Mac; on Windows Credential Manager holds the key of
+    /// `secrets\codex_auth.age`, and the UI says Credential Manager. The app
+    /// does not look.
     Keychain,
     /// `ephemeral`: never kept on disk.
     Ephemeral,

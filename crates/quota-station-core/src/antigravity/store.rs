@@ -28,9 +28,14 @@ pub struct Keychain {
 }
 
 impl Keychain {
-    /// The system's store: [`SecurityCli`] on macOS.
+    /// The system's store: [`SecurityCli`] on macOS, the app's sealed
+    /// files on Windows ([`crate::os::secret_store`]).
     pub fn system() -> Self {
-        Keychain::new(SecurityCli::system())
+        #[cfg(windows)]
+        let store = crate::os::secret_store();
+        #[cfg(not(windows))]
+        let store = SecurityCli::system();
+        Keychain::new(store)
     }
 
     pub fn new(store: impl SecretStore + 'static) -> Self {

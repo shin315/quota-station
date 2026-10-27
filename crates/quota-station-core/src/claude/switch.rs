@@ -16,7 +16,7 @@
 use serde::Serialize;
 
 use super::cc;
-use super::keychain::{user_account, KeychainError};
+use super::keychain::KeychainError;
 use super::locks::{self, AppLock, LockError};
 use super::session;
 use super::store::{Store, StoreError, Who};
@@ -197,7 +197,7 @@ pub fn switch(store: &Store, slot: u32) -> Result<Switched, SwitchError> {
         if login_back() != live.credential {
             let _ = match live.credential.as_deref() {
                 Some(c) => cc::write_credential(paths, &*store.security, c).is_ok(),
-                None => store.security.delete(cc::ACTIVE_SERVICE, &user_account()).is_ok(),
+                None => cc::remove_credential(paths, &*store.security),
             };
         }
         login_back() == live.credential

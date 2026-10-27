@@ -4,9 +4,15 @@
 
 //! Codex on this Mac as the process table shows it: `codex` sessions in a
 //! terminal, Codex App, the shared background process (`codex app-server
-//! --managed-daemon`), and whether CC Switch runs. Only `ps` is read. The
-//! one thing run is Codex's own `codex app-server daemon restart`, after
-//! the owner confirmed it.
+//! --managed-daemon`), and whether CC Switch runs. Only `ps` is read (on
+//! Windows `sysinfo`'s table, [`crate::win::Tasks`]). The one thing run is
+//! Codex's own `codex app-server daemon restart`, after the owner
+//! confirmed it.
+//!
+//! On Windows a command line names `codex.exe` with `\`, Codex App is the
+//! ChatGPT app (`ChatGPT.exe`, or `Codex.exe`, in its Store package), and a
+//! process has no terminal to tell: every `codex` that is not one of
+//! [`NOT_SESSIONS`] counts as a session.
 //!
 //! Telling the daemon from the other app-servers by its command line is
 //! ported from CC Switch (MIT, © 2025 Jason Young), commit 79e754ab,
@@ -47,7 +53,8 @@ pub fn read_from(list: &dyn ProcessList) -> Option<Procs> {
 }
 
 /// The part of a command line after the executable `codex` (`codex` or
-/// `…/codex`); `ps` joins the words with spaces, so the name is looked for.
+/// `…/codex`; on Windows `codex.exe` or `…\codex.exe`); `ps` joins the
+/// words with spaces, so the name is looked for.
 fn after_codex_executable(command: &str) -> Option<&str> {
     const NAME: &str = "codex";
     let mut from = 0;
@@ -55,7 +62,11 @@ fn after_codex_executable(command: &str) -> Option<&str> {
         let start = from + found;
         let end = start + NAME.len();
         let rest = &command[end..];
-        if (start == 0 || command[..start].ends_with('/'))
+        let rest = match rest.get(..4) {
+            Some(ext) if ext.eq_ignore_ascii_case(".exe") => &rest[4..],
+            _ => rest,
+        };
+        if (start == 0 || command[..start].ends_with('/') || command[..start].ends_with('\\'))
             && (rest.is_empty() || rest.starts_with(' '))
         {
             return Some(rest);
@@ -63,6 +74,19 @@ fn after_codex_executable(command: &str) -> Option<&str> {
         from = end;
     }
     None
+}
+
+/// Whether the command line starts with Node, which starts the native
+/// `codex` that is counted itself.
+fn is_node(command: &str) -> bool {
+    let first = command.split(' ').next().unwrap_or("");
+    first == "node"
+        || first.ends_with("/node")
+        || command
+            .to_ascii_lowercase()
+            .split(".exe")
+            .next()
+            .is_some_and(|program| program == "node" || program.ends_with("\\node"))
 }
 
 /// The first word after the executable that is not an option.
@@ -83,30 +107,44 @@ fn subcommand(rest: &str) -> (Option<&str>, Vec<&str>) {
 /// Subcommands that are not a session someone works in.
 const NOT_SESSIONS: &[&str] = &["app-server", "mcp-server", "login", "logout", "mcp", "completion"];
 
-/// [`classify_all`] of a `ps -ww -Ao tty=,command=` table.
+/// [`classify_all`] of a `ps -ww -Ao tty=,command=` table, whose lines
+/// show their terminal.
 pub fn classify(table: &str) -> Procs {
-    classify_all(&crate::os::tty_table(table))
+    classify_in(&crate::os::tty_table(table), true)
 }
 
 pub fn classify_all(processes: &[Process]) -> Procs {
+    classify_in(processes, cfg!(unix))
+}
+
+/// [`classify_all`]; a session needs a terminal when `needs_tty`, which
+/// a Windows process never shows.
+pub fn classify_in(processes: &[Process], needs_tty: bool) -> Procs {
     let mut p = Procs::default();
     for process in processes {
         let command = process.command.as_str();
         if command.contains("/CC Switch.app/Contents/MacOS/")
             || command.split(' ').next().is_some_and(|w| w.ends_with("/cc-switch"))
+            || command.contains("\\CC Switch.exe")
+            || command.to_ascii_lowercase().contains("\\cc-switch.exe")
         {
             p.cc_switch = true;
             continue;
         }
-        if ["/Codex.app/Contents/MacOS/", "/ChatGPT.app/Contents/MacOS/"]
-            .iter()
-            .any(|m| command.contains(m))
+        if [
+            "/Codex.app/Contents/MacOS/",
+            "/ChatGPT.app/Contents/MacOS/",
+            "\\ChatGPT.exe",
+            "\\Codex.exe",
+        ]
+        .iter()
+        .any(|m| command.contains(m))
         {
             p.app = true;
             continue;
         }
         // `node …/bin/codex` starts the native `codex`, which is counted.
-        if command.split(' ').next().is_some_and(|w| w == "node" || w.ends_with("/node")) {
+        if is_node(command) {
             continue;
         }
         let Some(rest) = after_codex_executable(command) else { continue };
@@ -119,7 +157,8 @@ pub fn classify_all(processes: &[Process]) -> Procs {
             }
             continue;
         }
-        if process.tty.is_some() && !sub.is_some_and(|s| NOT_SESSIONS.contains(&s)) {
+        if (process.tty.is_some() || !needs_tty) && !sub.is_some_and(|s| NOT_SESSIONS.contains(&s))
+        {
             p.sessions += 1;
         }
     }
@@ -127,15 +166,19 @@ pub fn classify_all(processes: &[Process]) -> Procs {
 }
 
 /// Where `codex` is usually installed, in the order the app tries them.
+/// On Windows `codex.exe` and npm's `codex.cmd` in the same folders, then
+/// on the `PATH`, as `where codex` finds them.
 pub fn candidates(home: &Path) -> Vec<PathBuf> {
-    let mut out = vec![home.join(".local/bin/codex")];
-    out.extend(
-        runner::bin_dirs(home)
-            .into_iter()
-            .map(|d| d.join("codex"))
-            .filter(|p| !p.starts_with(home.join(".local/bin"))),
-    );
-    out.push(PathBuf::from("/Applications/Codex.app/Contents/Resources/codex"));
+    let mut dirs = vec![home.join(".local/bin")];
+    dirs.extend(runner::bin_dirs(home).into_iter().filter(|d| *d != home.join(".local/bin")));
+    if cfg!(windows) {
+        dirs.extend(std::env::var_os("PATH").iter().flat_map(std::env::split_paths));
+    }
+    let mut out: Vec<PathBuf> =
+        dirs.iter().flat_map(|d| runner::program_files(d, "codex")).collect();
+    if cfg!(not(windows)) {
+        out.push(PathBuf::from("/Applications/Codex.app/Contents/Resources/codex"));
+    }
     out.dedup();
     out
 }

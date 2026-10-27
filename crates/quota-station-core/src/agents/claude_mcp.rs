@@ -155,15 +155,13 @@ pub fn remove_line(name: &str) -> String {
     format!("claude mcp remove {name} --scope user")
 }
 
-/// Where `claude` is usually installed, in the order the app tries them.
+/// Where `claude` is usually installed, in the order the app tries them
+/// (`claude.exe` and `claude.cmd` on Windows).
 pub fn candidates(home: &Path) -> Vec<PathBuf> {
-    let mut out = vec![home.join(".local/bin/claude"), home.join(".claude/local/claude")];
-    out.extend(
-        runner::bin_dirs(home)
-            .into_iter()
-            .map(|d| d.join("claude"))
-            .filter(|p| !p.starts_with(home.join(".local/bin"))),
-    );
+    let mut dirs = vec![home.join(".local/bin"), home.join(".claude/local")];
+    dirs.extend(runner::bin_dirs(home).into_iter().filter(|d| *d != home.join(".local/bin")));
+    let mut out: Vec<PathBuf> =
+        dirs.iter().flat_map(|d| runner::program_files(d, "claude")).collect();
     out.dedup();
     out
 }

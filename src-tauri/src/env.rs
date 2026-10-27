@@ -73,7 +73,7 @@ pub fn view(inner: &Inner) -> EnvView {
         checked_at: live.at.clone(),
         checking: live.checking,
         vars: VARS.iter().map(|v| v.name).collect(),
-        places: Place::ALL.iter().map(|p| p.label()).collect(),
+        places: Place::system().iter().map(|p| p.label()).collect(),
         found,
         ignored: hidden,
         unread: live.check.as_ref().map(|c| c.unread.clone()).unwrap_or_default(),

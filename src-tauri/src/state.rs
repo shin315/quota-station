@@ -19,7 +19,6 @@ use quota_station_core::antigravity::pace::Pace;
 #[cfg(feature = "antigravity-accounts")]
 use quota_station_core::antigravity::{export, index};
 use quota_station_core::app_dir::AppDir;
-use quota_station_core::claude::keychain::Security;
 #[cfg(feature = "author-tools")]
 use quota_station_core::claude::rotate;
 use quota_station_core::claude::session;
@@ -459,7 +458,7 @@ impl Inner {
 
     /// The Claude accounts the app keeps, with the Keychain.
     pub fn claude_store(&self) -> Store {
-        Store::new(self.claude_paths(), Security::system())
+        Store::new(self.claude_paths(), quota_station_core::os::secret_store())
     }
 
     /// What the rotation's dry run uses.

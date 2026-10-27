@@ -17,10 +17,13 @@
 //!
 //! The app gets each from [`secret_store`], [`scheduler`], [`processes`]
 //! and [`opener`]; the tests give their own, kept in memory, so none of
-//! them runs a system tool. On Windows the process list answers whether a
-//! pid runs; the secret store, the scheduler and the opener answer
-//! [`UNSUPPORTED`] until the Windows lanes build them, and nothing there
-//! counts as an older switcher.
+//! them runs a system tool. On Windows the secret store is two
+//! ([`Split`]): the app's own items sealed by DPAPI in files
+//! ([`crate::sealed`]), and Claude Code's login items in Credential
+//! Manager, as Claude Code keeps them ([`crate::claude::credman`]); the
+//! process list is `sysinfo`'s ([`crate::win::Tasks`]). The scheduler and
+//! the opener answer [`UNSUPPORTED`] until the Windows lanes build them,
+//! and nothing there counts as an older switcher.
 //!
 //! The file steps that differ between the two systems are here too: modes
 //! (700 and 600 on Unix; on Windows the profile's ACL keeps other users
@@ -98,6 +101,66 @@ pub trait ProcessList: Send + Sync + std::fmt::Debug {
     fn listening(&self, pid: u32, wait: Duration) -> Option<Vec<u16>>;
 }
 
+/// Generic credentials by target name, as Windows Credential Manager keeps
+/// them for other programs (Claude Code). The app's own secrets never go
+/// here ([`crate::sealed`]).
+pub trait Credentials: Send + Sync + std::fmt::Debug {
+    /// The credential's bytes, or `None` when there is none.
+    fn read(&self, target: &str) -> io::Result<Option<Vec<u8>>>;
+    /// Adds or replaces the credential, with `account` as its user name.
+    fn write(&self, target: &str, account: &str, blob: &[u8]) -> io::Result<()>;
+    /// Removes the credential; one that is not there counts as removed.
+    fn delete(&self, target: &str) -> io::Result<()>;
+}
+
+/// Two secret stores as one: Claude Code's own items
+/// ([`crate::claude::credman::is_claude_code`]) in `claude_code`, every
+/// other in `own`. On macOS both live in the login Keychain and the app
+/// needs no such split; on Windows Claude Code keeps its login in
+/// Credential Manager and the app its own in sealed files.
+#[derive(Debug)]
+pub struct Split<C, O> {
+    pub claude_code: C,
+    pub own: O,
+}
+
+impl<C: SecretStore, O: SecretStore> Split<C, O> {
+    fn pick(&self, service: &str) -> &dyn SecretStore {
+        if crate::claude::credman::is_claude_code(service) {
+            &self.claude_code
+        } else {
+            &self.own
+        }
+    }
+}
+
+impl<C: SecretStore, O: SecretStore> SecretStore for Split<C, O> {
+    fn get_within(
+        &self,
+        service: &str,
+        account: &str,
+        wait: Duration,
+    ) -> Result<Option<String>, KeychainError> {
+        self.pick(service).get_within(service, account, wait)
+    }
+
+    fn get(&self, service: &str, account: &str) -> Result<Option<String>, KeychainError> {
+        self.pick(service).get(service, account)
+    }
+
+    fn exists(&self, service: &str, account: &str) -> Result<bool, KeychainError> {
+        self.pick(service).exists(service, account)
+    }
+
+    fn set(&self, service: &str, account: &str, value: &str) -> Result<(), KeychainError> {
+        self.pick(service).set(service, account, value)
+    }
+
+    fn delete(&self, service: &str, account: &str) -> Result<(), KeychainError> {
+        self.pick(service).delete(service, account)
+    }
+}
+
 /// Hands a URL (or a file) to the program the owner chose for it.
 pub trait Opener {
     fn open(&self, target: &str) -> Result<(), String>;
@@ -112,10 +175,11 @@ pub fn secret_store() -> crate::claude::keychain::Security {
     crate::claude::keychain::Security::system()
 }
 
-/// This system's secret store.
+/// This system's secret store: Claude Code's items in Credential Manager,
+/// the app's own sealed by DPAPI in its local folder.
 #[cfg(windows)]
-pub fn secret_store() -> NoSecretStore {
-    NoSecretStore
+pub fn secret_store() -> crate::win::Secrets {
+    crate::win::Secrets::system()
 }
 
 /// This system's scheduler.
@@ -138,8 +202,8 @@ pub fn processes() -> Ps {
 
 /// This system's process list.
 #[cfg(windows)]
-pub fn processes() -> Tasks {
-    Tasks
+pub fn processes() -> crate::win::Tasks {
+    crate::win::Tasks
 }
 
 /// This system's opener.
@@ -276,36 +340,6 @@ impl Opener for SystemOpener {
     }
 }
 
-/// Windows has no secret store in this build yet (the Windows logins
-/// bring one): every call fails as one that could not reach it, and the
-/// readers go on with the files they also read.
-#[cfg(windows)]
-#[derive(Debug, Clone, Copy, Default)]
-pub struct NoSecretStore;
-
-#[cfg(windows)]
-impl SecretStore for NoSecretStore {
-    fn get_within(&self, _: &str, _: &str, _: Duration) -> Result<Option<String>, KeychainError> {
-        Err(KeychainError::Spawn(UNSUPPORTED.into()))
-    }
-
-    fn get(&self, _: &str, _: &str) -> Result<Option<String>, KeychainError> {
-        Err(KeychainError::Spawn(UNSUPPORTED.into()))
-    }
-
-    fn exists(&self, _: &str, _: &str) -> Result<bool, KeychainError> {
-        Err(KeychainError::Spawn(UNSUPPORTED.into()))
-    }
-
-    fn set(&self, _: &str, _: &str, _: &str) -> Result<(), KeychainError> {
-        Err(KeychainError::Spawn(UNSUPPORTED.into()))
-    }
-
-    fn delete(&self, _: &str, _: &str) -> Result<(), KeychainError> {
-        Err(KeychainError::Spawn(UNSUPPORTED.into()))
-    }
-}
-
 /// Windows has no rotation job in this build yet (the app's own timer comes
 /// with the Windows services): none is loaded, none can be installed, and
 /// the older switchers, which are macOS's, never run.
@@ -329,52 +363,6 @@ impl Scheduler for NoScheduler {
 
     fn remove(&self, _: &Path) -> Result<(), AgentError> {
         Ok(())
-    }
-}
-
-/// Windows's processes: whether a pid runs, through `OpenProcess`. The
-/// process table and the ports come with the Windows logins; until then
-/// they cannot be listed.
-#[cfg(windows)]
-#[derive(Debug, Clone, Copy, Default)]
-pub struct Tasks;
-
-#[cfg(windows)]
-impl ProcessList for Tasks {
-    fn alive(&self, pid: i32) -> bool {
-        use windows_sys::Win32::Foundation::{CloseHandle, STILL_ACTIVE};
-        use windows_sys::Win32::System::Threading::{
-            GetExitCodeProcess, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION,
-        };
-        let Ok(pid) = u32::try_from(pid) else { return false };
-        if pid <= 4 {
-            // The idle process and System, never a session.
-            return false;
-        }
-        // SAFETY: the handle is checked, read once and closed.
-        unsafe {
-            let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
-            if handle.is_null() {
-                // Denied means it runs, as another user's.
-                return std::io::Error::last_os_error().raw_os_error() == Some(5);
-            }
-            let mut code = 0u32;
-            let read = GetExitCodeProcess(handle, &mut code);
-            CloseHandle(handle);
-            read != 0 && code == STILL_ACTIVE as u32
-        }
-    }
-
-    fn all(&self) -> Option<Vec<Process>> {
-        None
-    }
-
-    fn own(&self, _wait: Duration) -> Option<Vec<Process>> {
-        None
-    }
-
-    fn listening(&self, _pid: u32, _wait: Duration) -> Option<Vec<u16>> {
-        None
     }
 }
 
@@ -408,6 +396,84 @@ pub(crate) fn set_mode(path: &Path, mode: u32) -> io::Result<()> {
     {
         let _ = (path, mode);
         Ok(())
+    }
+}
+
+/// Makes `dir` and its parents, and leaves it to its owner alone: mode 700
+/// on Unix, on Windows an ACL that grants the current user alone and
+/// inherits nothing ([`crate::win::owner_only`]), which the files made in
+/// it inherit.
+pub(crate) fn owner_dir(dir: &Path) -> io::Result<()> {
+    let fresh = !dir.is_dir();
+    std::fs::create_dir_all(dir)?;
+    #[cfg(windows)]
+    {
+        if fresh {
+            crate::win::owner_only(dir)?;
+        }
+        Ok(())
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = fresh;
+        set_mode(dir, 0o700)
+    }
+}
+
+/// Stops `child`, and on Windows every process it started: `claude.cmd`
+/// and `codex.cmd` are `cmd.exe` running Node, which runs the native
+/// program, and stopping `cmd.exe` alone would leave those (and a sign-in's
+/// local server) running. On Unix it is [`std::process::Child::kill`].
+pub fn kill_tree(child: &mut std::process::Child) -> io::Result<()> {
+    #[cfg(windows)]
+    {
+        let pid = child.id().to_string();
+        let mut taskkill = std::process::Command::new("taskkill");
+        taskkill
+            .args(["/PID", &pid, "/T", "/F"])
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null());
+        no_window(&mut taskkill);
+        let _ = taskkill.status();
+    }
+    child.kill()
+}
+
+/// On Windows, starts `command` without a console window, which an app in
+/// the tray has none to lend; nothing on Unix.
+pub fn no_window(command: &mut std::process::Command) -> &mut std::process::Command {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        // CREATE_NO_WINDOW.
+        command.creation_flags(0x0800_0000);
+    }
+    command
+}
+
+/// Removes the file or folder at `path`, one that is not there counting as
+/// removed. On Windows a file another program still holds for a moment (a
+/// database Codex closes as it exits) is tried again for up to two seconds.
+pub fn remove_retrying(path: &Path) -> io::Result<()> {
+    let mut tries = 0;
+    loop {
+        let removed = if std::fs::symlink_metadata(path).is_ok_and(|m| m.is_dir()) {
+            std::fs::remove_dir_all(path)
+        } else {
+            std::fs::remove_file(path)
+        };
+        match removed {
+            Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(()),
+            Err(e) if cfg!(windows) && matches!(e.raw_os_error(), Some(5 | 32 | 33)) => {
+                tries += 1;
+                if tries > 20 {
+                    return Err(e);
+                }
+                std::thread::sleep(Duration::from_millis(100));
+            }
+            other => return other,
+        }
     }
 }
 

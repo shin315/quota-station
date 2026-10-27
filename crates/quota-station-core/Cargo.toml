@@ -60,8 +60,24 @@ uuid = { version = "1.10", features = ["v4"] }
 [target.'cfg(windows)'.dependencies]
 # A link to a folder without Developer Mode (`os::link_dir`).
 junction = "2"
-# Whether a process runs, and a file's volume and index (`os`).
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_Threading"] }
+# The command lines of the processes that run (`win::Tasks`), as Cockpit
+# Tools reads them on Windows; never built on macOS, where it would ask for
+# permissions `ps` does not need.
+sysinfo = { version = "0.36", default-features = false, features = ["system"] }
+# Whether a process runs and a file's volume and index (`os`); the app's own
+# secrets sealed by DPAPI, Claude Code's items in Credential Manager, a
+# folder for its owner alone, a move that never replaces, and the
+# environment kept in the registry (`win`).
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Security_Authorization",
+    "Win32_Security_Credentials",
+    "Win32_Security_Cryptography",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Registry",
+    "Win32_System_Threading",
+] }
 
 [dev-dependencies]
 quota-station-core = { path = ".", features = ["test-support"] }

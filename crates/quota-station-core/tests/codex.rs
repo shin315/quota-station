@@ -28,6 +28,7 @@ use quota_station_core::codex::config::{self, Current, KeyKind, KeyRefusal, Refu
 use quota_station_core::codex::files::{self, Record, WriteError};
 use quota_station_core::codex::login::{self, Login};
 use quota_station_core::codex::{self, log, probe, procs, resume, FileState, KeyOutcome, Outcome};
+use quota_station_core::os::Process;
 use time::OffsetDateTime;
 
 const T0: i64 = 1_768_548_000;
@@ -493,6 +494,40 @@ fn the_process_table_shows_sessions_the_app_the_daemon_and_cc_switch() {
         procs::Restart::NotRunning,
         "nothing runs when no daemon does"
     );
+}
+
+#[test]
+fn windows_command_lines_show_sessions_the_app_and_the_daemon() {
+    let line = |command: &str| Process { pid: 1, tty: None, command: command.into() };
+    let package = r"C:\Program Files\WindowsApps\OpenAI.Codex_26.1.0.0_x64__2p2nqsd0c76g0\app";
+    let npm = r"C:\Users\lan\AppData\Roaming\npm\node_modules\@openai\codex";
+    let table = [
+        line(&format!(r"{package}\ChatGPT.exe --type=renderer")),
+        line(&format!(r"{package}\resources\codex.exe app-server --managed-daemon")),
+        line(&format!(r"C:\Program Files\nodejs\node.exe {npm}\bin\codex.js")),
+        line(&format!(
+            r"{npm}\node_modules\@openai\codex-win32-x64\vendor\x86_64-pc-windows-msvc\codex\codex.exe"
+        )),
+        line(r"C:\Users\lan\.local\bin\codex.exe resume --last"),
+        line(r"C:\Users\lan\.local\bin\codex.exe login"),
+        line(r"C:\Users\lan\AppData\Local\Programs\cc-switch\CC Switch.exe"),
+        line(r"C:\Windows\System32\notepad.exe codex.txt"),
+    ];
+    let p = procs::classify_in(&table, false);
+    assert_eq!(p.sessions, 2, "the native codex and resume; not login, not the node wrapper");
+    assert!(p.app && p.daemon && p.cc_switch);
+    // With a terminal required, as on a Mac, none of these is a session.
+    assert_eq!(procs::classify_in(&table, true).sessions, 0);
+}
+
+#[cfg(windows)]
+#[test]
+fn codex_is_looked_for_as_codex_exe_and_npms_codex_cmd() {
+    let home = temp_dir("codex-win-find");
+    let found = procs::candidates(&home);
+    assert_eq!(found[..2], [home.join(".local/bin/codex.exe"), home.join(".local/bin/codex.cmd")]);
+    assert!(found.iter().all(|p| p.extension().is_some_and(|e| e == "exe" || e == "cmd")));
+    assert!(!found.iter().any(|p| p.starts_with("/Applications")));
 }
 
 #[cfg(unix)]

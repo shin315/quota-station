@@ -17,6 +17,13 @@
 //!   asked whether it is empty, then zeroed at once: never kept, logged,
 //!   stored or shown.
 //!
+//! On Windows the places are Git Bash's three files, the two PowerShell
+//! profiles (`$env:NAME = …`, matched without regard to case, as PowerShell
+//! reads names) and the registry's environment, the user's
+//! (`HKCU\Environment`) and the computer's, which every app started from
+//! Start gets. For the registry only the value's size is asked for, never
+//! its text ([`crate::win::env_set`]).
+//!
 //! The app never edits a shell file and never unsets anything. "Mở file"
 //! opens the file in an editor at the line ([`open_args`]); "Bỏ qua" is
 //! kept in the app's own folder ([`load_ignored`]).
@@ -139,7 +146,9 @@ pub fn var_of(name: &str) -> Option<&'static Var> {
 }
 
 /// Where a variable can be set: five shell files in the home folder, and
-/// launchd's environment, which apps opened from the Dock get.
+/// launchd's environment, which apps opened from the Dock get. On Windows:
+/// Git Bash's files, the PowerShell profiles, and the registry's
+/// environment of the user and of the computer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Place {
@@ -149,9 +158,15 @@ pub enum Place {
     BashProfile,
     Profile,
     Launchctl,
+    Bashrc,
+    PowerShell,
+    WindowsPowerShell,
+    UserEnv,
+    MachineEnv,
 }
 
 impl Place {
+    /// The places on a Mac.
     pub const ALL: [Place; 6] = [
         Place::Zshenv,
         Place::Zprofile,
@@ -161,7 +176,28 @@ impl Place {
         Place::Launchctl,
     ];
 
-    /// The file's name in the home folder; launchd has none.
+    /// The places on Windows.
+    pub const WINDOWS: [Place; 7] = [
+        Place::BashProfile,
+        Place::Bashrc,
+        Place::Profile,
+        Place::PowerShell,
+        Place::WindowsPowerShell,
+        Place::UserEnv,
+        Place::MachineEnv,
+    ];
+
+    /// This system's places.
+    pub fn system() -> &'static [Place] {
+        if cfg!(windows) {
+            &Place::WINDOWS
+        } else {
+            &Place::ALL
+        }
+    }
+
+    /// The file's path from the home folder; launchd and the registry have
+    /// none.
     pub fn file(self) -> Option<&'static str> {
         match self {
             Place::Zshenv => Some(".zshenv"),
@@ -169,13 +205,23 @@ impl Place {
             Place::Zshrc => Some(".zshrc"),
             Place::BashProfile => Some(".bash_profile"),
             Place::Profile => Some(".profile"),
-            Place::Launchctl => None,
+            Place::Bashrc => Some(".bashrc"),
+            Place::PowerShell => Some("Documents/PowerShell/Microsoft.PowerShell_profile.ps1"),
+            Place::WindowsPowerShell => {
+                Some("Documents/WindowsPowerShell/Microsoft.PowerShell_profile.ps1")
+            }
+            Place::Launchctl | Place::UserEnv | Place::MachineEnv => None,
         }
     }
 
-    /// `~/.zshrc`, or `launchctl`.
+    /// `~/.zshrc`, `launchctl`, or the registry's environment.
     pub fn label(self) -> String {
-        self.file().map(|f| format!("~/{f}")).unwrap_or_else(|| "launchctl".into())
+        match self {
+            Place::Launchctl => "launchctl".into(),
+            Place::UserEnv => "biến môi trường của người dùng".into(),
+            Place::MachineEnv => "biến môi trường của máy".into(),
+            _ => self.file().map(|f| format!("~/{f}")).unwrap_or_default(),
+        }
     }
 
     /// The word in an id (`ANTHROPIC_API_KEY@zshrc`).
@@ -187,11 +233,31 @@ impl Place {
             Place::BashProfile => "bashProfile",
             Place::Profile => "profile",
             Place::Launchctl => "launchctl",
+            Place::Bashrc => "bashrc",
+            Place::PowerShell => "powerShell",
+            Place::WindowsPowerShell => "windowsPowerShell",
+            Place::UserEnv => "userEnv",
+            Place::MachineEnv => "machineEnv",
         }
     }
 
     pub fn from_word(word: &str) -> Option<Place> {
-        Place::ALL.into_iter().find(|p| p.word() == word)
+        Place::ALL.into_iter().chain(Place::WINDOWS).find(|p| p.word() == word)
+    }
+
+    /// A PowerShell profile: `$env:NAME = …`.
+    fn powershell(self) -> bool {
+        matches!(self, Place::PowerShell | Place::WindowsPowerShell)
+    }
+
+    /// Where an app started by the owner gets it, before anything else.
+    fn opened(self) -> &'static str {
+        match self {
+            Place::Launchctl => "Trong các app mở từ Dock",
+            Place::UserEnv | Place::MachineEnv => "Trong các app mở từ Start",
+            Place::PowerShell | Place::WindowsPowerShell => "Trong PowerShell",
+            _ => "Trong Terminal",
+        }
     }
 }
 
@@ -214,11 +280,7 @@ pub struct Found {
 
 impl Found {
     fn new(v: &Var, place: Place, line: Option<u32>) -> Found {
-        let opened = if place == Place::Launchctl {
-            "Trong các app mở từ Dock"
-        } else {
-            "Trong Terminal"
-        };
+        let opened = place.opened();
         Found {
             id: id_of(v.name, place),
             name: v.name.into(),
@@ -262,13 +324,32 @@ pub struct Check {
 }
 
 /// Looks at the five shell files under `home` and asks `launchctl` (the
-/// path, so tests pass a fake one) about each name.
+/// path, so tests pass a fake one) about each name. On Windows: Git Bash's
+/// files, the PowerShell profiles and the registry ([`Place::WINDOWS`]).
 pub fn check(home: &Path, launchctl: &Path) -> Check {
+    #[cfg(windows)]
+    {
+        let _ = launchctl;
+        check_with(home, &Place::WINDOWS, &|place, name| {
+            crate::win::env_set(place == Place::MachineEnv, name).map_err(|_| ())
+        })
+    }
+    #[cfg(not(windows))]
+    check_with(home, &Place::ALL, &|_, name| launchctl_has(launchctl, name).map_err(|_| ()))
+}
+
+/// [`check`] of `places`, asking `set` whether a name is set in a place
+/// that is not a file.
+pub fn check_with(
+    home: &Path,
+    places: &[Place],
+    set: &dyn Fn(Place, &str) -> Result<bool, ()>,
+) -> Check {
     let mut out = Check::default();
     let mut found: Vec<Found> = Vec::new();
-    for place in Place::ALL {
+    for &place in places {
         match place.file() {
-            Some(file) => match read_lines(&home.join(file)) {
+            Some(file) => match read_lines(&home.join(file), place.powershell()) {
                 Ok(Some(lines)) => {
                     for v in &VARS {
                         if let Some(&n) = lines.get(v.name) {
@@ -282,7 +363,7 @@ pub fn check(home: &Path, launchctl: &Path) -> Check {
             None => {
                 let mut failed = false;
                 for v in &VARS {
-                    match launchctl_has(launchctl, v.name) {
+                    match set(place, v.name) {
                         Ok(true) => found.push(Found::new(v, place, None)),
                         Ok(false) => {}
                         Err(_) => failed = true,
@@ -300,9 +381,13 @@ pub fn check(home: &Path, launchctl: &Path) -> Check {
     out
 }
 
-/// For each of [`VARS`] the file sets, the last line that does. `None`
-/// when there is no file; an error when it is there but cannot be read.
-fn read_lines(path: &Path) -> Result<Option<std::collections::BTreeMap<&'static str, u32>>, ()> {
+/// For each of [`VARS`] the file sets, the last line that does (in
+/// PowerShell's words when `powershell`). `None` when there is no file; an
+/// error when it is there but cannot be read.
+fn read_lines(
+    path: &Path,
+    powershell: bool,
+) -> Result<Option<std::collections::BTreeMap<&'static str, u32>>, ()> {
     let mut file = match std::fs::File::open(path) {
         Ok(f) => f,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
@@ -315,7 +400,9 @@ fn read_lines(path: &Path) -> Result<Option<std::collections::BTreeMap<&'static 
     let mut bytes = Vec::with_capacity(meta.len() as usize);
     let read = file.by_ref().take(MAX_BYTES + 1).read_to_end(&mut bytes);
     let lines = match read {
-        Ok(_) if bytes.len() as u64 <= MAX_BYTES => Ok(Some(scan(&bytes))),
+        Ok(_) if bytes.len() as u64 <= MAX_BYTES => {
+            Ok(Some(if powershell { scan_powershell(&bytes) } else { scan(&bytes) }))
+        }
         _ => Err(()),
     };
     // The values are in these bytes: they go now, zeroed first.
@@ -334,6 +421,40 @@ pub fn scan(bytes: &[u8]) -> std::collections::BTreeMap<&'static str, u32> {
         }
     }
     at
+}
+
+/// [`scan`] of a PowerShell profile.
+pub fn scan_powershell(bytes: &[u8]) -> std::collections::BTreeMap<&'static str, u32> {
+    let mut at = std::collections::BTreeMap::new();
+    for (i, line) in bytes.split(|b| *b == b'\n').enumerate() {
+        for v in &VARS {
+            if assigns_env(line, v.name.as_bytes()) {
+                at.insert(v.name, i as u32 + 1);
+            }
+        }
+    }
+    at
+}
+
+/// `$env:NAME = …` at the start of the line, after spaces, in any case. A
+/// comment, `$env:NAME -eq …` or `$env:OTHER_NAME =` is not.
+fn assigns_env(line: &[u8], name: &[u8]) -> bool {
+    let blank = |b: &u8| *b == b' ' || *b == b'\t';
+    let rest = &line[line.iter().take_while(|b| blank(b)).count()..];
+    let Some(after) =
+        rest.get(..5).filter(|p| p.eq_ignore_ascii_case(b"$env:")).map(|_| &rest[5..])
+    else {
+        return false;
+    };
+    let Some(after) = after
+        .get(..name.len())
+        .filter(|n| n.eq_ignore_ascii_case(name))
+        .map(|_| &after[name.len()..])
+    else {
+        return false;
+    };
+    let after = &after[after.iter().take_while(|b| blank(b)).count()..];
+    after.first() == Some(&b'=') && after.get(1) != Some(&b'=')
 }
 
 /// `NAME=…` or `export NAME=…` at the start of the line, after spaces. A
@@ -439,12 +560,70 @@ mod tests {
     }
 
     #[test]
+    fn a_powershell_profile_sets_a_name_with_env() {
+        let n = b"ANTHROPIC_API_KEY".as_slice();
+        assert!(assigns_env(b"$env:ANTHROPIC_API_KEY = \"x\"", n));
+        assert!(assigns_env(b"  $Env:anthropic_api_key='x'", n));
+        assert!(!assigns_env(b"# $env:ANTHROPIC_API_KEY = 'x'", n));
+        assert!(!assigns_env(b"$env:ANTHROPIC_API_KEY_OLD = 'x'", n));
+        assert!(!assigns_env(b"if ($env:ANTHROPIC_API_KEY -eq 'x') {}", n));
+        assert!(!assigns_env(b"$env:ANTHROPIC_API_KEY == 'x'", n));
+        assert!(!assigns_env(b"ANTHROPIC_API_KEY=x", n));
+    }
+
+    #[test]
+    fn windows_places_are_git_bash_powershell_and_the_registry() {
+        let home = std::env::temp_dir().join(format!("qs-env-win-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&home);
+        std::fs::create_dir_all(home.join("Documents/PowerShell")).unwrap();
+        std::fs::write(home.join(".bashrc"), "export OPENAI_API_KEY=sk-made-up\n").unwrap();
+        std::fs::write(
+            home.join(Place::PowerShell.file().unwrap()),
+            "Set-Alias g git\n$env:CODEX_HOME = 'D:\\codex'\n",
+        )
+        .unwrap();
+        let asked = std::sync::Mutex::new(Vec::new());
+        let set = |place: Place, name: &str| {
+            asked.lock().unwrap().push((place, name.to_string()));
+            match (place, name) {
+                (Place::UserEnv, "ANTHROPIC_API_KEY") => Ok(true),
+                (Place::MachineEnv, _) => Err(()),
+                _ => Ok(false),
+            }
+        };
+        let c = check_with(&home, &Place::WINDOWS, &set);
+        let got: Vec<(&str, Place, Option<u32>)> =
+            c.found.iter().map(|f| (f.name.as_str(), f.place, f.line)).collect();
+        assert_eq!(
+            got,
+            [
+                ("ANTHROPIC_API_KEY", Place::UserEnv, None),
+                ("OPENAI_API_KEY", Place::Bashrc, Some(1)),
+                ("CODEX_HOME", Place::PowerShell, Some(2)),
+            ]
+        );
+        assert_eq!(c.unread, [Place::MachineEnv]);
+        assert_eq!(c.found[0].effect.split(',').next(), Some("Trong các app mở từ Start"));
+        assert_eq!(c.found[2].effect.split(',').next(), Some("Trong PowerShell"));
+        assert_eq!(c.found[0].at(), "biến môi trường của người dùng");
+        assert_eq!(c.found[1].at(), "~/.bashrc dòng 1");
+        // Each name asked once of each registry place, and of nothing else.
+        let asked = asked.into_inner().unwrap();
+        assert_eq!(asked.len(), 2 * VARS.len());
+        assert!(asked.iter().all(|(p, _)| matches!(p, Place::UserEnv | Place::MachineEnv)));
+        for p in Place::WINDOWS {
+            assert_eq!(Place::from_word(p.word()), Some(p));
+        }
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    #[test]
     fn ids_name_a_variable_and_a_place() {
         assert_eq!(id_of("CODEX_HOME", Place::BashProfile), "CODEX_HOME@bashProfile");
         let (v, p) = parse_id("CODEX_HOME@bashProfile").unwrap();
         assert_eq!((v.name, p), ("CODEX_HOME", Place::BashProfile));
         assert!(parse_id("PATH@zshrc").is_none());
-        assert!(parse_id("CODEX_HOME@bashrc").is_none());
+        assert!(parse_id("CODEX_HOME@fishrc").is_none());
         assert!(parse_id("CODEX_HOME").is_none());
     }
 }

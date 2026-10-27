@@ -82,6 +82,22 @@ fn the_login_is_written_while_claude_codes_locks_are_held() {
     assert!(!watched.iter().any(|l| l == "free Claude Code-credentials"), "{watched:?}");
     assert!(!mac.home.join(".claude.lock").exists());
     assert!(!mac.home.join(".claude/.oauth_refresh.lock").exists());
+    assert!(!mac.home.join(".claude/.storage-write.lock").exists());
+}
+
+#[test]
+fn claude_codes_write_lock_held_stops_the_switch() {
+    let (mac, c2, _) = two_accounts("switch-storage-write");
+    let lock = mac.home.join(".claude/.storage-write.lock");
+    std::fs::create_dir_all(&lock).unwrap();
+    let err = switch::switch(&mac.store, 3).unwrap_err();
+    assert_eq!(err.kind(), "busy");
+    assert_eq!(mac.live_credential(), Some(c2));
+    assert!(lock.is_dir());
+    // Held past its 15 seconds, it was left behind.
+    filetime::set_file_mtime(&lock, filetime::FileTime::from_unix_time(1_577_836_800, 0)).unwrap();
+    switch::switch(&mac.store, 3).unwrap();
+    assert_eq!(switch::active_slot(&mac.store), Some(3));
 }
 
 #[test]

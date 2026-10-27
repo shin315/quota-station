@@ -65,9 +65,19 @@ impl Tools {
     /// The system's process list, and `agy` where quota-axi finds it: on
     /// the `PATH` (an app opened from Finder has launchd's, which leaves out
     /// `~/.local/bin`; a read from a shell has the shell's), then in
-    /// Homebrew's folders.
+    /// Homebrew's folders; on Windows `agy.exe`, then in the folder its
+    /// installer uses, `%LOCALAPPDATA%\agy\bin`. Windows lists no process
+    /// of this user's ([`crate::win::Tasks`]), so a read there is `agy`'s
+    /// alone, as quota-axi's is.
     pub fn system() -> Tools {
-        Tools { agy: runner::on_path("agy"), processes: Arc::new(crate::os::processes()) }
+        let installed = || {
+            let local = std::env::var_os("LOCALAPPDATA").filter(|_| cfg!(windows))?;
+            runner::program_in(&PathBuf::from(local).join("agy").join("bin"), "agy")
+        };
+        Tools {
+            agy: runner::on_path("agy").or_else(installed),
+            processes: Arc::new(crate::os::processes()),
+        }
     }
 }
 
@@ -223,15 +233,26 @@ pub fn account_hash(email: &str) -> String {
 }
 
 /// A folder whose `open` and `xdg-open` only fail, first on agy's PATH, so
-/// `/quota` can never send the owner to a browser. Windows opens a browser
-/// by other means, which no such folder stops; as quota-axi does there, it
-/// has none.
+/// `/quota` can never send the owner to a browser. On Windows, as quota-axi
+/// does there, they are `open.cmd` and `xdg-open.cmd`, and agy runs with
+/// `NoDefaultCurrentDirectoryInExePath`, so no program in its working
+/// folder is found before them; Windows also opens a browser by other
+/// means, which no such folder stops.
 struct OpenerGuard(Option<PathBuf>);
 
 impl OpenerGuard {
     #[cfg(not(unix))]
     fn new() -> std::io::Result<OpenerGuard> {
-        Ok(OpenerGuard(None))
+        let dir = std::env::temp_dir().join(format!(
+            "quota-station-agy-{}-{}",
+            std::process::id(),
+            OffsetDateTime::now_utc().unix_timestamp_nanos()
+        ));
+        std::fs::create_dir(&dir)?;
+        for name in ["open.cmd", "xdg-open.cmd"] {
+            std::fs::write(dir.join(name), "@exit /b 1\r\n")?;
+        }
+        Ok(OpenerGuard(Some(dir)))
     }
 
     #[cfg(unix)]
@@ -272,12 +293,15 @@ fn cli(tools: &Tools) -> Result<Reading, Fail> {
     let path = std::env::join_paths(dirs).unwrap_or(inherited);
     let args: Vec<String> =
         ["-p", "/quota", "--output-format", "json"].iter().map(|s| s.to_string()).collect();
-    let out = runner::run_with(agy, &args, &[("PATH", path.as_os_str())], None, CLI_TIMEOUT)
-        .map_err(|e| match e {
-            RunError::Timeout(_) => Fail::Unavailable("Antigravity CLI /quota timed out".into()),
-            RunError::NotFound(_) => Fail::Unavailable(NOT_INSTALLED.into()),
-            _ => Fail::Other("Antigravity CLI /quota failed".into()),
-        })?;
+    let mut env = vec![("PATH", path.as_os_str())];
+    if cfg!(windows) {
+        env.push(("NoDefaultCurrentDirectoryInExePath", std::ffi::OsStr::new("1")));
+    }
+    let out = runner::run_with(agy, &args, &env, None, CLI_TIMEOUT).map_err(|e| match e {
+        RunError::Timeout(_) => Fail::Unavailable("Antigravity CLI /quota timed out".into()),
+        RunError::NotFound(_) => Fail::Unavailable(NOT_INSTALLED.into()),
+        _ => Fail::Other("Antigravity CLI /quota failed".into()),
+    })?;
     drop(guard);
     if out.code != Some(0) {
         return Err(Fail::Other("Antigravity CLI /quota failed".into()));

@@ -8,7 +8,8 @@
 // login variables taken out of the environment, a newer login Claude Code
 // wrote there taken back once the folder is quiet, and the folder left
 // alone while a session in it runs. Unlike claude-swap, the login is put in
-// the Keychain item Claude Code keys to the folder, never in a file.
+// the Keychain item Claude Code keys to the folder, never in a file; on
+// Windows it goes where Claude Code reads it there (`cc::write_login`).
 
 //! Running `claude` as one account without changing the active login, for
 //! Firstmate and the rotation's priming: `CLAUDE_CONFIG_DIR` points at
@@ -21,7 +22,7 @@ use std::time::{Duration, Instant};
 use serde_json::Value;
 
 use super::cc;
-use super::keychain::{user_account, KeychainError};
+use super::keychain::KeychainError;
 use super::locks::{AppLock, LockError};
 use super::store::{Store, StoreError};
 use super::switch;
@@ -51,7 +52,12 @@ pub fn live(dir: &Path) -> bool {
 
 pub(crate) fn profile_credential(dir: &Path, store: &Store) -> Option<String> {
     let service = cc::profile_service(dir)?;
-    store.security.get(&service, &user_account()).ok().flatten()
+    cc::read_login(&*store.security, &service, dir).ok().flatten()
+}
+
+/// Puts `credential` where Claude Code run in the folder `dir` reads it.
+fn put_profile(store: &Store, dir: &Path, service: &str, credential: &str) -> std::io::Result<()> {
+    cc::write_login(&*store.security, service, dir, &dir.join(".claude.json"), credential)
 }
 
 /// Takes a newer login Claude Code wrote in the account's quiet session
@@ -87,7 +93,7 @@ pub fn refresh_profile(store: &Store, slot: u32) {
     else {
         return;
     };
-    let _ = store.security.set(&service, &user_account(), &ours);
+    let _ = put_profile(store, &dir, &service, &ours);
 }
 
 #[derive(Debug)]
@@ -174,7 +180,7 @@ pub fn prepare(store: &Store, slot: u32) -> Result<PathBuf, SessionError> {
         let ours =
             store.credential(slot)?.filter(|c| cc::usable(c)).ok_or(SessionError::NoCredential)?;
         if profile_credential(&dir, store).as_deref() != Some(ours.as_str()) {
-            store.security.set(&service, &user_account(), &ours)?;
+            put_profile(store, &dir, &service, &ours)?;
         }
     }
     Ok(dir)
@@ -198,18 +204,25 @@ fn write_config(dir: &Path, oauth: &Value) -> std::io::Result<()> {
     )
 }
 
-/// Where `claude` is usually installed.
+/// Where `claude` is usually installed: on the `PATH`, then
+/// `~/.local/bin` and Homebrew's folders; on Windows `claude.exe` (the
+/// native installer's, in `~/.local/bin`) or npm's `claude.cmd`, on the
+/// `PATH`, then in the folders [`crate::runner::bin_dirs`] knows.
 pub fn find_claude(home: &Path) -> Option<PathBuf> {
+    let usual = if cfg!(windows) {
+        crate::runner::bin_dirs(home)
+    } else {
+        vec![
+            home.join(".local/bin"),
+            PathBuf::from("/opt/homebrew/bin"),
+            PathBuf::from("/usr/local/bin"),
+        ]
+    };
     std::env::var_os("PATH")
         .into_iter()
         .flat_map(|p| std::env::split_paths(&p).collect::<Vec<_>>())
-        .map(|d| d.join("claude"))
-        .chain([
-            home.join(".local/bin/claude"),
-            PathBuf::from("/opt/homebrew/bin/claude"),
-            PathBuf::from("/usr/local/bin/claude"),
-        ])
-        .find(|p| p.is_file())
+        .chain(usual)
+        .find_map(|d| crate::runner::program_in(&d, "claude"))
 }
 
 /// Runs `claude args…` as account `slot` and returns its exit code. When the
