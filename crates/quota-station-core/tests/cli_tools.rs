@@ -58,7 +58,7 @@ fn a_homebrew_cask_updates_with_the_brew_beside_its_caskroom() {
     assert_eq!(l.install, Some(Install::Homebrew));
     assert_eq!(l.cask.as_deref(), Some("codex"));
     assert_eq!(l.command.as_deref(), Some("brew upgrade --cask codex"));
-    let brew = prefix.join("bin/brew").to_string_lossy().into_owned();
+    let brew = prefix.join("bin").join("brew").to_string_lossy().into_owned();
     assert_eq!(l.update, Some(vec![brew, "upgrade".into(), "--cask".into(), "codex".into()]));
     assert_eq!(l.root, Some(prefix.join("Caskroom/codex")));
 
@@ -75,7 +75,7 @@ fn codex_from_npm_updates_with_the_npm_of_its_prefix() {
     let l = layout(Tool::Codex, &prefix.join("bin/codex"), &target, &home);
     assert_eq!(l.install, Some(Install::Npm));
     assert_eq!(l.command.as_deref(), Some("npm install -g @openai/codex@latest"));
-    assert_eq!(l.update.unwrap()[0], prefix.join("bin/npm").to_string_lossy());
+    assert_eq!(l.update.unwrap()[0], prefix.join("bin").join("npm").to_string_lossy());
     assert_eq!(l.root, Some(prefix.join("lib/node_modules/@openai/codex")));
 }
 
