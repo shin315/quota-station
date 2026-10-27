@@ -36,7 +36,7 @@ import type { Tab } from '../lib/model';
 import { pauseOptions, type AutoView, type PauseChoice } from '../lib/switching';
 import { bannerUnder, type Action, type BannerView, type CardView, type ChipView, type FeedbackView, type NoteView } from '../lib/view';
 import type { KeyValue, WindowView } from '../lib/window';
-import { t } from '../lib/i18n';
+import { mac, onWindows, os, t } from '../lib/i18n';
 import { Glyph, type GlyphName } from '../components/icons';
 import { NAV_ICONS } from './icons';
 
@@ -107,13 +107,15 @@ function Sidebar(props: { tab: Tab; machine: string; note: string | null; hidden
   const { tab, machine, note, onTab } = props;
   const items = navs(props.advanced).filter((n) => n[0] === '-' || !props.hidden.has(n[0]));
   return (
-    <nav className="material-side m-0 flex min-h-0 flex-col gap-px overflow-y-auto rounded-none px-2.5 pt-5 pb-2.5" aria-label={t('Các tab', 'Tabs')} data-tauri-drag-region>
-      {/* macOS draws the window's traffic lights here; the browser preview draws the prototype's. */}
-      <div className="flex min-h-3.5 flex-none items-center gap-[7px] px-3 pb-3.5" data-tauri-drag-region aria-hidden="true">
-        <i className={LIGHT + ' bg-[#ff5f57]'} />
-        <i className={LIGHT + ' bg-[#febc2e]'} />
-        <i className={LIGHT + ' bg-[#28c840]'} />
-      </div>
+    <nav className="material-side m-0 flex min-h-0 flex-col gap-px overflow-y-auto rounded-none px-2.5 pt-5 pb-2.5 win:pt-2.5" aria-label={t('Các tab', 'Tabs')} data-tauri-drag-region>
+      {/* macOS draws the window's traffic lights here; the browser preview draws the prototype's. Windows draws its title bar above the page. */}
+      {onWindows() ? null : (
+        <div className="flex min-h-3.5 flex-none items-center gap-[7px] px-3 pb-3.5" data-tauri-drag-region aria-hidden="true">
+          <i className={LIGHT + ' bg-[#ff5f57]'} />
+          <i className={LIGHT + ' bg-[#febc2e]'} />
+          <i className={LIGHT + ' bg-[#28c840]'} />
+        </div>
+      )}
       {items.map((n) =>
         n[0] === '-' ? (
           <div className="px-2 pt-2 pb-0.5 text-cap font-semi tracking-[.02em] text-ink2" key={n[1]}>
@@ -543,7 +545,7 @@ function ClaudeTab(props: TabProps & { advanced: boolean }) {
     return (
       <>
         <Top {...props} title="Claude" />
-        <EmptyBox icon={<IdMark id="c" className="size-6" />} title={t('Máy này chưa có Claude Code', 'This Mac has no Claude Code')} body={t('Cài Claude Code rồi mở lại tab này. Quota Station đọc ~/.claude.', 'Install Claude Code, then open this tab again. Quota Station reads ~/.claude.')} />
+        <EmptyBox icon={<IdMark id="c" className="size-6" />} title={mac(t('Máy này chưa có Claude Code', 'This Mac has no Claude Code'))} body={t('Cài Claude Code rồi mở lại tab này. Quota Station đọc ~/.claude.', 'Install Claude Code, then open this tab again. Quota Station reads ~/.claude.')} />
       </>
     );
   return (
@@ -570,9 +572,15 @@ function ClaudeTab(props: TabProps & { advanced: boolean }) {
           <EmptyBox
             icon={<IdMark id="c" className="size-6" />}
             title={t('Chưa có tài khoản Claude nào', 'No Claude accounts yet')}
-            body={t(
-              'Quota Station giữ đăng nhập của từng tài khoản trong Keychain của máy này, để bạn chuyển Claude Code giữa các tài khoản.',
-              'Quota Station keeps each account’s sign-in in this Mac’s Keychain so you can switch Claude Code between them.',
+            body={os(
+              t(
+                'Quota Station giữ đăng nhập của từng tài khoản trong Keychain của máy này, để bạn chuyển Claude Code giữa các tài khoản.',
+                'Quota Station keeps each account’s sign-in in this Mac’s Keychain so you can switch Claude Code between them.',
+              ),
+              t(
+                'Quota Station giữ đăng nhập của từng tài khoản trên máy này, được Windows mã hoá cho tài khoản của bạn, để bạn chuyển Claude Code giữa các tài khoản.',
+                'Quota Station keeps each account’s sign-in on this PC, encrypted by Windows for your account, so you can switch Claude Code between them.',
+              ),
             )}
           >
             {m ? (
@@ -635,7 +643,7 @@ function AgyTab(props: TabProps & { agyAccounts: boolean }) {
         {a.present ? <AgyTable cards={a.cards} logins={a.own ? logins : undefined} onSwitch={props.onSwitchAgy} /> : null}
         {!a.present ? (
           <Empty>
-            <b>{t('Máy này chưa có Antigravity', 'This Mac has no Antigravity')}</b>
+            <b>{mac(t('Máy này chưa có Antigravity', 'This Mac has no Antigravity'))}</b>
           </Empty>
         ) : null}
         <Note note={a.tabNote} />
@@ -746,8 +754,8 @@ export function MainWindow(props: MainWindowProps) {
   const tab: Tab = hidden.has(props.tab as NavId) || props.tab === 'alerts' ? 'overview' : props.tab;
   return (
     <div className={cn('win-o material-window relative grid h-full w-full overflow-hidden', props.setup ? 'grid-cols-[minmax(0,1fr)]' : 'grid-cols-[var(--side-w)_minmax(0,1fr)]')}>
-      {/* The window's top edge drags it, over the sidebar and the page alike, as a title bar would. */}
-      <div className="dragbar absolute top-0 right-0 left-0 z-10 h-4" data-tauri-drag-region aria-hidden="true" />
+      {/* The window's top edge drags it, over the sidebar and the page alike, as a title bar would. Windows has its own title bar. */}
+      {onWindows() ? null : <div className="dragbar absolute top-0 right-0 left-0 z-10 h-4" data-tauri-drag-region aria-hidden="true" />}
       {props.setup ? (
         <main className="main material-main @container/main relative flex min-w-0 overflow-y-auto" inert={open}>
           {props.setup}

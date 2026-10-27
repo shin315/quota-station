@@ -1077,3 +1077,26 @@
     --panel-line: var(--rim-more);
   }
 }
+
+/* ========== Windows ==========
+   The app on Windows (data-os="windows", from Capabilities.platform; the
+   preview's ?os=win): Windows' own type, Segoe UI Variable on Windows 11
+   and Segoe UI on 10, where macOS's would fall back to Arial, and Cascadia
+   Mono for code; and the 8 px corners Windows 11 rounds its windows and
+   flyouts to. Every pack keeps its colours; the two packs whose type is
+   their look keep it (Inter QS, bundled; monospace). */
+[data-os="windows"][data-pack],
+[data-os="windows"] [data-pack] {
+  --font: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --mono: "Cascadia Mono", Consolas, monospace;
+  --r-pop: 8px;
+  --r-win: 8px;
+}
+[data-os="windows"][data-pack="kinhNhip"],
+[data-os="windows"] [data-pack="kinhNhip"] {
+  --font: "Inter QS", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+}
+[data-os="windows"][data-pack="banDieuKhien"],
+[data-os="windows"] [data-pack="banDieuKhien"] {
+  --font: "Cascadia Mono", Consolas, monospace;
+}

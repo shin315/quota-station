@@ -227,6 +227,9 @@
   --ring: var(--focus);
 }
 
+/* The app on Windows (data-os, usePlatform): `win:` for what Windows draws otherwise. */
+@custom-variant win (&:where([data-os="windows"], [data-os="windows"] *));
+
 /* The dark look: chosen (data-theme="dark"), or "Theo macOS" while macOS is dark. */
 @custom-variant dark {
   &:where([data-theme="dark"], [data-theme="dark"] *) {

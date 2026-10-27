@@ -27,7 +27,7 @@ import {
   whereLine,
 } from '../lib/mcp';
 import type { Agent, McpRow, McpTable, Model } from '../lib/model';
-import { t } from '../lib/i18n';
+import { mac, t } from '../lib/i18n';
 import { dayClock } from '../lib/switching';
 import type { Action, BannerView, FeedbackView, PopoverView } from '../lib/view';
 import { NoteGlyph } from '../components/icons';
@@ -55,7 +55,7 @@ function columnBanners(table: McpTable): BannerView[] {
     } else if (c.state === 'absent')
       out.push({
         tone: 'info',
-        title: t(name + ' chưa cài trên máy này', name + ' is not installed on this Mac'),
+        title: mac(t(name + ' chưa cài trên máy này', name + ' is not installed on this Mac')),
         body: t('Cột ' + name + ' để trống.', 'The ' + name + ' column stays empty.'),
         actions: [],
       });
@@ -82,7 +82,7 @@ function rowBanners(rows: McpRow[], later: string[]): BannerView[] {
     if (missing.length)
       out.push({
         tone: 'warn',
-        title: t(r.name + ' thiếu khoá trên máy này', r.name + ' is missing a key on this Mac'),
+        title: mac(t(r.name + ' thiếu khoá trên máy này', r.name + ' is missing a key on this Mac')),
         body: t(
           'Thiếu ' + missing.map((s) => s.label).join(', ') + ': chưa bật được ' + r.name + ' ở agent chưa có nó.',
           'Missing ' + missing.map((s) => s.label).join(', ') + ': ' + r.name + ' cannot be turned on for agents that do not have it yet.',
@@ -95,7 +95,7 @@ function rowBanners(rows: McpRow[], later: string[]): BannerView[] {
     else if (r.missingCommand?.path)
       out.push({
         tone: 'warn',
-        title: t('Lệnh của ' + r.name + ' chưa có trên máy này', r.name + '’s command is not on this Mac'),
+        title: mac(t('Lệnh của ' + r.name + ' chưa có trên máy này', r.name + '’s command is not on this Mac')),
         body: t(
           r.missingCommand.command + ' không có, nên ' + r.name + ' chỉ tắt được, chưa bật được. Cài lệnh rồi bấm Đọc lại.',
           r.missingCommand.command + ' is missing, so ' + r.name + ' can only be turned off, not on. Install the command, then press Read again.',
@@ -115,7 +115,7 @@ function columns(table: McpTable): MatrixColumn[] {
     open: c.writable && table.rows.some((r) => !r.cells[c.agent].lock),
     note:
       c.state === 'absent'
-        ? t('chưa cài trên máy này', 'not installed on this Mac')
+        ? mac(t('chưa cài trên máy này', 'not installed on this Mac'))
         : c.state === 'invalid' || c.state === 'unreadable'
           ? t('file lỗi, chỉ xem', 'broken file, view only')
           : c.state === 'noCli'
@@ -126,7 +126,7 @@ function columns(table: McpTable): MatrixColumn[] {
 
 function cellOf(table: McpTable, mcp: Mcp, row: McpRow, agent: Agent): MatrixCell {
   const col = table.columns.find((c) => c.agent === agent);
-  if (col?.state === 'absent') return { checked: null, mark: '—', pending: false, disabled: true, title: t(AGENT_NAME[agent] + ' chưa cài trên máy này', AGENT_NAME[agent] + ' is not installed on this Mac') };
+  if (col?.state === 'absent') return { checked: null, mark: '—', pending: false, disabled: true, title: mac(t(AGENT_NAME[agent] + ' chưa cài trên máy này', AGENT_NAME[agent] + ' is not installed on this Mac')) };
   if (col?.state === 'invalid' || col?.state === 'unreadable')
     return { checked: null, mark: '?', pending: false, disabled: true, title: t('Không đọc được ' + col.file.split('/').pop(), 'Cannot read ' + col.file.split('/').pop()) };
   const cell = row.cells[agent];
@@ -198,7 +198,7 @@ export function McpTab({ model, fresh, feedback, now, mcp, onAction }: McpTabPro
         <Panel>
           <Empty>
             <b>{t('Đang đọc danh sách MCP…', 'Reading the MCP lists…')}</b>
-            {t('Claude Code, Codex và Antigravity, trên máy này.', 'Claude Code, Codex and Antigravity, on this Mac.')}
+            {mac(t('Claude Code, Codex và Antigravity, trên máy này.', 'Claude Code, Codex and Antigravity, on this Mac.'))}
           </Empty>
         </Panel>
       </>
@@ -261,7 +261,7 @@ export function McpTab({ model, fresh, feedback, now, mcp, onAction }: McpTabPro
         <Panel>
           <Empty>
             <EmptyIcon>{PLUG_BIG}</EmptyIcon>
-            <b>{t('Chưa có MCP nào trên máy này', 'No MCP on this Mac yet')}</b>
+            <b>{mac(t('Chưa có MCP nào trên máy này', 'No MCP on this Mac yet'))}</b>
             <CardText className="mt-2 mb-0">{t('Thêm một MCP một lần cho cả ba agent.', 'Add an MCP once for all three agents.')}</CardText>
             <div className="mt-2.5 flex flex-wrap justify-center gap-2">
               <Button primary disabled={busy} onClick={mcp.add}>

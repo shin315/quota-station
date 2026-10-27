@@ -38,13 +38,13 @@ import { alertKinds, permissionChip, unreadText } from '../lib/alerts';
 import { authorModel, type AuthorModel } from '../lib/author';
 import type { ChipView } from '../lib/view';
 import type { AlertKind, AppView, ClientStatus, Language, Menubar, MenubarWindow, Model, Peer, PeerTest, SettingsGroup, SourceView, Theme, ThemePack, UpdateError } from '../lib/model';
-import { t } from '../lib/i18n';
+import { cloudDrive, mac, onWindows, os, osName, systemSettings, t } from '../lib/i18n';
 import { SectionGlyph, type Section } from '../components/icons';
 import type { Action, FeedbackView, PopoverView } from '../lib/view';
 import { cn } from '@/lib/utils';
 
 const themes = (): [Theme, string][] => [
-  ['auto', t('Theo macOS', 'Match macOS')],
+  ['auto', t('Theo ' + osName(), 'Match ' + osName())],
   ['light', t('Sáng', 'Light')],
   ['dark', t('Tối', 'Dark')],
 ];
@@ -126,7 +126,7 @@ type Layout = 'form' | 'set';
 /** "Ngôn ngữ": macOS's preferred language until one is picked here. */
 function LanguageRow({ model, onPick }: { model: Model; onPick(language: Language): void }) {
   const options: [Language, string][] = [
-    ['auto', t('Theo macOS', 'Match macOS')],
+    ['auto', t('Theo ' + osName(), 'Match ' + osName())],
     ['vi', 'Tiếng Việt'],
     ['en', 'English'],
   ];
@@ -172,7 +172,7 @@ function MachineName({ model, onSet }: { model: Model; onSet(name: string): Prom
     if (name.trim() !== model.machine && !(await onSet(name))) setName(model.machine);
   };
   return (
-    <SetRow label={t('Tên máy này', 'This Mac’s name')} htmlFor="qs-name">
+    <SetRow label={mac(t('Tên máy này', 'This Mac’s name'))} htmlFor="qs-name">
       <Input
         id="qs-name"
         className={SET_CTL}
@@ -502,16 +502,19 @@ function NotifyRows(props: {
   return (
     <>
       <SetRow
-        label={t('Thông báo macOS', 'macOS notifications')}
+        label={t('Thông báo ' + osName(), osName() + ' notifications')}
         inline
         hint={
           a.permission === 'unbundled'
-            ? t('Chỉ app đã đóng gói mới gửi được thẻ macOS. Thông báo vẫn có ở chuông trên đầu trang.', 'Only the packaged app can send macOS notifications. Notifications still show under the bell at the top of the page.')
+            ? os(
+                t('Chỉ app đã đóng gói mới gửi được thẻ macOS. Thông báo vẫn có ở chuông trên đầu trang.', 'Only the packaged app can send macOS notifications. Notifications still show under the bell at the top of the page.'),
+                t('Chỉ bản đã cài mới gửi được thông báo Windows. Thông báo vẫn có ở chuông trên đầu trang.', 'Only the installed app can send Windows notifications. Notifications still show under the bell at the top of the page.'),
+              )
             : null
         }
       >
         {a.permission === 'denied' ? (
-          <Button onClick={() => props.onAction('notify:settings')}>{t('Mở Cài đặt hệ thống', 'Open System Settings')}</Button>
+          <Button onClick={() => props.onAction('notify:settings')}>{t('Mở ', 'Open ') + systemSettings()}</Button>
         ) : null}
         <Chip chip={permissionChip(a.permission)} />
       </SetRow>
@@ -530,7 +533,16 @@ function NotifyRows(props: {
   );
 }
 
-/** "Mở khi đăng nhập": macOS's own login item, off until turned on here. */
+/** Where the system holds an app that opens at login back until the owner turns it on there. */
+const approvalText = (): string =>
+  os(
+    t('macOS cần bạn bật Quota Station trong Cài đặt hệ thống › Cài đặt chung › Mục đăng nhập.', 'macOS needs you to turn on Quota Station in System Settings › General › Login Items.'),
+    t('Windows đang tắt Quota Station trong Cài đặt Windows › Ứng dụng › Khởi động: bật lại ở đó.', 'Windows has Quota Station turned off in Windows Settings › Apps › Startup: turn it on there.'),
+  );
+const loginItemsLabel = (): string => os(t('Mở Cài đặt hệ thống: Mục đăng nhập', 'Open System Settings: Login Items'), t('Mở Cài đặt Windows: Khởi động', 'Open Windows Settings: Startup'));
+const installedOnly = (): string => os(t('Chỉ bản .app đã cài mới mở khi đăng nhập được.', 'Only the installed .app can open at login.'), t('Chỉ bản đã cài mới mở khi đăng nhập được.', 'Only the installed app can open at login.'));
+
+/** "Mở khi đăng nhập": the system's own login item, off until turned on here. */
 export function LaunchAtLogin({ app, onSet, onOpen, layout = 'form' }: { app: AppView; onSet: SettingsProps['onLaunchAtLogin']; onOpen(): void; layout?: Layout }) {
   const [refused, setRefused] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -550,9 +562,9 @@ export function LaunchAtLogin({ app, onSet, onOpen, layout = 'form' }: { app: Ap
         inline
         hint={
           state === 'needsApproval'
-            ? t('macOS cần bạn bật Quota Station trong Cài đặt hệ thống › Cài đặt chung › Mục đăng nhập.', 'macOS needs you to turn on Quota Station in System Settings › General › Login Items.')
+            ? approvalText()
             : state === 'unavailable'
-              ? t('Chỉ bản .app đã cài mới mở khi đăng nhập được.', 'Only the installed .app can open at login.')
+              ? installedOnly()
               : null
         }
         under={failed}
@@ -560,8 +572,8 @@ export function LaunchAtLogin({ app, onSet, onOpen, layout = 'form' }: { app: Ap
         {state === 'needsApproval' ? (
           <>
             <Chip chip={{ t: t('chờ duyệt', 'awaiting approval'), k: 'warn' }} />
-            <Button label={t('Mở Cài đặt hệ thống: Mục đăng nhập', 'Open System Settings: Login Items')} onClick={onOpen}>
-              {t('Mở Cài đặt hệ thống', 'Open System Settings')}
+            <Button label={loginItemsLabel()} onClick={onOpen}>
+              {t('Mở ', 'Open ') + systemSettings()}
             </Button>
           </>
         ) : null}
@@ -579,18 +591,13 @@ export function LaunchAtLogin({ app, onSet, onOpen, layout = 'form' }: { app: Ap
           <>
             {' '}
             <Chip chip={{ t: t('chờ duyệt', 'awaiting approval'), k: 'warn' }} />{' '}
-            <Button label={t('Mở Cài đặt hệ thống: Mục đăng nhập', 'Open System Settings: Login Items')} onClick={onOpen}>
-              {t('Mở Cài đặt hệ thống', 'Open System Settings')}
+            <Button label={loginItemsLabel()} onClick={onOpen}>
+              {t('Mở ', 'Open ') + systemSettings()}
             </Button>
-            <FieldHint>
-              {t(
-                'macOS cần bạn bật Quota Station trong Cài đặt hệ thống › Cài đặt chung › Mục đăng nhập.',
-                'macOS needs you to turn on Quota Station in System Settings › General › Login Items.',
-              )}
-            </FieldHint>
+            <FieldHint>{approvalText()}</FieldHint>
           </>
         ) : null}
-        {state === 'unavailable' ? <FieldHint>{t('Chỉ bản .app đã cài mới mở khi đăng nhập được.', 'Only the installed .app can open at login.')}</FieldHint> : null}
+        {state === 'unavailable' ? <FieldHint>{installedOnly()}</FieldHint> : null}
         {failed}
       </div>
     </div>
@@ -826,7 +833,7 @@ function BackupFolder({ model, onSet }: { model: Model; onSet: NonNullable<Setti
         mono
         invalid={refused != null}
         value={path}
-        placeholder="iCloud Drive › Quota Station Agents"
+        placeholder={cloudDrive() + ' › Quota Station Agents'}
         spellCheck={false}
         autoComplete="off"
         onChange={(e) => {
@@ -902,9 +909,9 @@ const MENUBARS: [Menubar, string, 'c' | 'g' | 'x'][] = [
  * a ChatGPT login or a provider of its own. '' when it can.
  */
 export function menubarOff(model: Model, menubar: Menubar): string {
-  if (menubar === 'gemini' && model.snapshot.agy.status === 'notSetUp') return t('Máy này chưa có Antigravity.', 'This Mac has no Antigravity.');
+  if (menubar === 'gemini' && model.snapshot.agy.status === 'notSetUp') return mac(t('Máy này chưa có Antigravity.', 'This Mac has no Antigravity.'));
   if (menubar === 'codex') {
-    if (!model.codex.present) return t('Máy này chưa có Codex.', 'This Mac has no Codex.');
+    if (!model.codex.present) return mac(t('Máy này chưa có Codex.', 'This Mac has no Codex.'));
     if (model.codex.current === 'chatgpt' && model.snapshot.codex.status === 'notSetUp')
       return t('Codex chưa đăng nhập ChatGPT.', 'Codex is not signed in to ChatGPT.');
   }
@@ -945,13 +952,13 @@ function SkillChecksRows({ model, onSet }: { model: Model; onSet: NonNullable<Se
         </Segmented>
       </SetRow>
       <SetRow
-        label={t('Báo skill mới bằng thông báo macOS', 'Show skill updates as macOS notifications')}
+        label={t('Báo skill mới bằng thông báo ' + osName(), 'Show skill updates as ' + osName() + ' notifications')}
         inline
         hint={t('Tắt thì chỉ báo ở chuông Thông báo.', 'When off, updates show only under the Notifications bell.')}
       >
         <Toggle
           on={c.notify}
-          label={t('Báo skill có bản mới bằng thông báo macOS', 'Show a macOS notification when a skill has an update')}
+          label={t('Báo skill có bản mới bằng thông báo ' + osName(), 'Show a ' + osName() + ' notification when a skill has an update')}
           onClick={() => onSet(c.daily, !c.notify)}
         />
       </SetRow>
@@ -986,24 +993,32 @@ export function MenubarRow({ model, onPick, layout = 'form' }: { model: Model; o
   const off = offs.length ? (
     <FieldHint tone="off">
       {picked
-        ? t(picked.replace(/\.$/, '') + ': thanh menu theo Claude.', picked.replace(/\.$/, '') + ': the menu bar follows Claude.')
+        ? os(
+            t(picked.replace(/\.$/, '') + ': thanh menu theo Claude.', picked.replace(/\.$/, '') + ': the menu bar follows Claude.'),
+            t(picked.replace(/\.$/, '') + ': icon khay theo Claude.', picked.replace(/\.$/, '') + ': the tray icon follows Claude.'),
+          )
         : offs.join(' ')}
     </FieldHint>
   ) : null;
   if (set)
     return (
-      <SetRow label={t('Dịch vụ trên thanh menu', 'Service in the menu bar')} labelId="qs-menubar-l" hint={off}>
+      <SetRow label={os(t('Dịch vụ trên thanh menu', 'Service in the menu bar'), t('Dịch vụ trên icon khay', 'Service on the tray icon'))} labelId="qs-menubar-l" hint={off}>
         {control}
       </SetRow>
     );
   return (
     <div className={rowClass()}>
       <div className={LABEL} id="qs-menubar-l">
-        {t('Thanh menu', 'Menu bar')}
+        {os(t('Thanh menu', 'Menu bar'), t('Khay hệ thống', 'System tray'))}
       </div>
       <div>
         {control}
-        <FieldHint>{t('Tên và phần trăm đã dùng của tài khoản đang dùng.', 'Name and percent used of the account in use.')}</FieldHint>
+        <FieldHint>
+          {os(
+            t('Tên và phần trăm đã dùng của tài khoản đang dùng.', 'Name and percent used of the account in use.'),
+            t('Phần trăm đã dùng trên icon, tên tài khoản khi trỏ chuột vào.', 'Percent used on the icon; the account’s name when you point at it.'),
+          )}
+        </FieldHint>
         {off}
       </div>
     </div>
@@ -1028,6 +1043,9 @@ export function menubarWindowOff(model: Model, window: MenubarWindow): string {
   return t(name + ' không có Fable tuần.', name + ' has no Fable week.');
 }
 
+/** "Số trên thanh menu", or on Windows the number drawn on the tray icon. */
+const numberLabel = (): string => os(t('Số trên thanh menu', 'Number in the menu bar'), t('Số trên icon khay', 'Number on the tray icon'));
+
 /** Số trên thanh menu: which window's share used the menu bar shows. */
 export function MenubarWindowRow({ model, onPick, layout = 'form' }: { model: Model; onPick(window: MenubarWindow): void; layout?: Layout }) {
   const picked = menubarWindowOff(model, model.menubarWindow);
@@ -1046,19 +1064,22 @@ export function MenubarWindowRow({ model, onPick, layout = 'form' }: { model: Mo
   );
   const off = picked ? (
     <FieldHint tone="off">
-      {t(picked.replace(/\.$/, '') + ': thanh menu hiện 5 giờ.', picked.replace(/\.$/, '') + ': the menu bar shows the 5-hour window.')}
+      {os(
+        t(picked.replace(/\.$/, '') + ': thanh menu hiện 5 giờ.', picked.replace(/\.$/, '') + ': the menu bar shows the 5-hour window.'),
+        t(picked.replace(/\.$/, '') + ': icon khay hiện 5 giờ.', picked.replace(/\.$/, '') + ': the tray icon shows the 5-hour window.'),
+      )}
     </FieldHint>
   ) : null;
   if (set)
     return (
-      <SetRow label={t('Số trên thanh menu', 'Number in the menu bar')} labelId="qs-mbwindow-l" hint={off}>
+      <SetRow label={numberLabel()} labelId="qs-mbwindow-l" hint={off}>
         {control}
       </SetRow>
     );
   return (
     <div className={rowClass()}>
       <div className={LABEL} id="qs-mbwindow-l">
-        {t('Số trên thanh menu', 'Number in the menu bar')}
+        {numberLabel()}
       </div>
       <div>
         {control}
@@ -1074,6 +1095,7 @@ const CARDS = {
   general: 'qs-set-general',
   updates: 'qs-set-updates',
   display: 'qs-set-display',
+  tray: 'qs-set-tray',
   notify: 'qs-set-notify',
   services: 'qs-set-services',
   env: 'qs-set-env',
@@ -1195,33 +1217,36 @@ export function Settings(props: SettingsProps) {
       <>
         {envFound ? env : null}
         <SettingsCard id={CARDS.services} title={t('Dịch vụ', 'Services')} icon="services">
-          <SetRow
-            label={t('Quyền Keychain', 'Keychain access')}
-            inline
-            hint={
-              keychain === 'required'
-                ? model.granting
-                  ? t(
-                      'macOS sẽ hỏi. Bấm "Luôn cho phép". App chỉ đọc đăng nhập của Claude Code để lấy số, không làm mới hay sửa nó.',
-                      'macOS will ask. Click "Always Allow". The app only reads Claude Code’s sign-in to get the numbers; it never refreshes or changes it.',
-                    )
-                  : t('Đến khi cấp, dòng Claude chỉ hiện số đọc được lần trước.', 'Until you grant it, the Claude row shows only the numbers read last time.')
-                : null
-            }
-          >
-            {keychain === 'granted' ? (
-              <Chip chip={{ t: t('đã cấp', 'granted'), k: 'ok' }} />
-            ) : keychain === 'required' ? (
-              <>
-                <Chip chip={{ t: t('chưa cấp', 'not granted'), k: 'warn' }} />
-                <Button primary disabled={model.granting} onClick={onGrant}>
-                  {t('Cấp quyền một lần', 'Grant once')}
-                </Button>
-              </>
-            ) : (
-              <Chip chip={{ t: t('chưa rõ', 'unknown'), k: '' }} />
-            )}
-          </SetRow>
+          {/* Windows asks nothing before the app reads Claude Code's sign-in. */}
+          {onWindows() ? null : (
+            <SetRow
+              label={t('Quyền Keychain', 'Keychain access')}
+              inline
+              hint={
+                keychain === 'required'
+                  ? model.granting
+                    ? t(
+                        'macOS sẽ hỏi. Bấm "Luôn cho phép". App chỉ đọc đăng nhập của Claude Code để lấy số, không làm mới hay sửa nó.',
+                        'macOS will ask. Click "Always Allow". The app only reads Claude Code’s sign-in to get the numbers; it never refreshes or changes it.',
+                      )
+                    : t('Đến khi cấp, dòng Claude chỉ hiện số đọc được lần trước.', 'Until you grant it, the Claude row shows only the numbers read last time.')
+                  : null
+              }
+            >
+              {keychain === 'granted' ? (
+                <Chip chip={{ t: t('đã cấp', 'granted'), k: 'ok' }} />
+              ) : keychain === 'required' ? (
+                <>
+                  <Chip chip={{ t: t('chưa cấp', 'not granted'), k: 'warn' }} />
+                  <Button primary disabled={model.granting} onClick={onGrant}>
+                    {t('Cấp quyền một lần', 'Grant once')}
+                  </Button>
+                </>
+              ) : (
+                <Chip chip={{ t: t('chưa rõ', 'unknown'), k: '' }} />
+              )}
+            </SetRow>
+          )}
           {onSetCodexHome ? <CodexHome model={model} onSet={onSetCodexHome} /> : null}
           {model.codex.present ? <CodexAccountsRow model={model} onAction={onAction} /> : null}
           {model.capabilities.agyAccounts && model.antigravity ? (
@@ -1275,23 +1300,32 @@ export function Settings(props: SettingsProps) {
       key: 'display',
       title: t('Hiển thị', 'Display'),
       card: (
-        <SettingsCard id={CARDS.display} title={t('Hiển thị', 'Display')} icon="display">
-          <SetRow label={t('Giao diện', 'Appearance')} labelId="qs-theme-l">
-            <Segmented className={SET_CTL} aria-labelledby="qs-theme-l">
-              {themes().map(([v, label]) => (
-                <Segment key={v} pressed={model.theme === v} onClick={() => onTheme(v)}>
-                  {label}
-                </Segment>
-              ))}
-            </Segmented>
-          </SetRow>
-          {onThemePack ? <ThemePicker value={model.themePack} theme={model.theme} onPick={onThemePack} /> : null}
-          <SetRow label={t('Hiện email', 'Show emails')} labelId="qs-email-l" inline>
-            <Toggle on={model.showNames} label={t('Hiện email', 'Show emails')} onClick={() => onShowNames(!model.showNames)} />
-          </SetRow>
-          <MenubarRow layout="set" model={model} onPick={onMenubar} />
-          <MenubarWindowRow layout="set" model={model} onPick={onMenubarWindow} />
-        </SettingsCard>
+        <>
+          <SettingsCard id={CARDS.display} title={t('Hiển thị', 'Display')} icon="display">
+            <SetRow label={t('Giao diện', 'Appearance')} labelId="qs-theme-l">
+              <Segmented className={SET_CTL} aria-labelledby="qs-theme-l">
+                {themes().map(([v, label]) => (
+                  <Segment key={v} pressed={model.theme === v} onClick={() => onTheme(v)}>
+                    {label}
+                  </Segment>
+                ))}
+              </Segmented>
+            </SetRow>
+            {onThemePack ? <ThemePicker value={model.themePack} theme={model.theme} onPick={onThemePack} /> : null}
+            <SetRow label={t('Hiện email', 'Show emails')} labelId="qs-email-l" inline>
+              <Toggle on={model.showNames} label={t('Hiện email', 'Show emails')} onClick={() => onShowNames(!model.showNames)} />
+            </SetRow>
+            {onWindows() ? null : <MenubarRow layout="set" model={model} onPick={onMenubar} />}
+            {onWindows() ? null : <MenubarWindowRow layout="set" model={model} onPick={onMenubarWindow} />}
+          </SettingsCard>
+          {/* Windows has no menu bar: the account and its number go to the tray, its own card. */}
+          {onWindows() ? (
+            <SettingsCard id={CARDS.tray} title={t('Khay hệ thống', 'System tray')} icon="tray">
+              <MenubarRow layout="set" model={model} onPick={onMenubar} />
+              <MenubarWindowRow layout="set" model={model} onPick={onMenubarWindow} />
+            </SettingsCard>
+          ) : null}
+        </>
       ),
     },
     {

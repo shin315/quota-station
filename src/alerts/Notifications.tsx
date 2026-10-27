@@ -17,7 +17,7 @@ import { PlaceGlyph } from '../components/icons';
 import { GROUP_HEAD } from '../components/page';
 import { Banner, Button, Feedback, FeedbackLine, FeedbackText, LinkButton, Spinner } from '../components/parts';
 import { alertCard, permissionBanner, type AlertCardView } from '../lib/alerts';
-import { t } from '../lib/i18n';
+import { osName, t } from '../lib/i18n';
 import type { Model } from '../lib/model';
 import type { Action, FeedbackView } from '../lib/view';
 
@@ -200,7 +200,7 @@ export function NotificationBell(props: NotificationBellProps) {
           ) : (
             <div className="px-2 py-8 text-center text-sm text-ink2">
               <b className="mb-1 block text-body font-semi text-ink">{t('Chưa có thông báo', 'No notifications yet')}</b>
-              {t('Khi có, thẻ hiện ở đây với cùng nút như thông báo macOS.', 'When one comes, its card shows here with the same buttons as the macOS notification.')}
+              {t('Khi có, thẻ hiện ở đây với cùng nút như thông báo ' + osName() + '.', 'When one comes, its card shows here with the same buttons as the ' + osName() + ' notification.')}
             </div>
           )}
           {!all && a.recent.length > PANEL_FIRST ? (

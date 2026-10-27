@@ -29,7 +29,7 @@ import {
 } from '../lib/codex';
 import { dayClock } from '../lib/switching';
 import { accountSheet } from '../lib/codexAccounts';
-import { t } from '../lib/i18n';
+import { onWindows, t, terminal } from '../lib/i18n';
 import type { AgyHow, CodexKeyPreview, CodexTarget, CodexView, Model, Sessions } from '../lib/model';
 import {
   claudeSheet,
@@ -334,8 +334,8 @@ function CodexAccountBody(props: SheetBodyProps & { account: string }) {
           {t('Khởi động lại tiến trình nền Codex sau khi chuyển', 'Restart the Codex background process after switching')}
           <small className="block text-xs text-ink2">
             {t(
-              'Việc đang chạy trong Terminal sẽ bị ngắt. App hỏi lại một lần trước khi làm. Codex App vẫn phải tự thoát và mở lại.',
-              'Work running in Terminal will stop. The app asks once more first. Codex App still has to quit and reopen on its own.',
+              'Việc đang chạy trong ' + terminal() + ' sẽ bị ngắt. App hỏi lại một lần trước khi làm. Codex App vẫn phải tự thoát và mở lại.',
+              'Work running in ' + terminal() + ' will stop. The app asks once more first. Codex App still has to quit and reopen on its own.',
             )}
           </small>
         </span>
@@ -389,8 +389,8 @@ function CodexProviderBody(props: SheetBodyProps & { target: CodexTarget; accoun
           {t('Khởi động lại tiến trình nền Codex sau khi chuyển', 'Restart the Codex background process after switching')}
           <small className="block text-xs text-ink2">
             {t(
-              'Việc đang chạy trong Terminal sẽ bị ngắt. App hỏi lại một lần trước khi làm. Codex App vẫn phải tự thoát và mở lại.',
-              'Work running in Terminal will stop. The app asks once more first. Codex App still has to quit and reopen on its own.',
+              'Việc đang chạy trong ' + terminal() + ' sẽ bị ngắt. App hỏi lại một lần trước khi làm. Codex App vẫn phải tự thoát và mở lại.',
+              'Work running in ' + terminal() + ' will stop. The app asks once more first. Codex App still has to quit and reopen on its own.',
             )}
           </small>
         </span>
@@ -574,19 +574,30 @@ function CodexKeyBody(props: SheetBodyProps) {
       <>
         <DialogTitle>{t(name + ' đọc khoá từ biến ' + v.custom?.envKey, name + ' reads its key from the variable ' + v.custom?.envKey)}</DialogTitle>
         <DialogLead>{t('App không ghi gì: đặt biến này rồi mở lại Codex.', 'The app writes nothing: set this variable, then reopen Codex.')}</DialogLead>
-        <ol className={HOWTO}>
-          <li>
-            {t('Thêm vào ', 'Add to ')}
-            <span className={CODE}>~/.zshrc</span>:<Command>export {v.custom?.envKey}=&lt;{t('khoá của bạn', 'your key')}&gt;</Command>
-          </li>
-          <li>{t('Mở Terminal mới rồi chạy codex.', 'Open a new Terminal and run codex.')}</li>
-          <li>
-            {t(
-              'Codex App mở từ Dock có thể không thấy biến trong ~/.zshrc. Khi đó dùng codex trong Terminal.',
-              'Codex App opened from the Dock may not see the variable in ~/.zshrc. Then use codex in Terminal.',
-            )}
-          </li>
-        </ol>
+        {onWindows() ? (
+          <ol className={HOWTO}>
+            <li>
+              {t('Đặt biến người dùng trong PowerShell: ', 'Set it as a user variable in PowerShell: ')}
+              <Command>setx {v.custom?.envKey} "&lt;{t('khoá của bạn', 'your key')}&gt;"</Command>
+            </li>
+            <li>{t('Mở Windows Terminal mới rồi chạy codex.', 'Open a new Windows Terminal and run codex.')}</li>
+            <li>{t('Thoát hẳn Codex App rồi mở lại để nó thấy biến.', 'Quit Codex App completely, then open it again so it sees the variable.')}</li>
+          </ol>
+        ) : (
+          <ol className={HOWTO}>
+            <li>
+              {t('Thêm vào ', 'Add to ')}
+              <span className={CODE}>~/.zshrc</span>:<Command>export {v.custom?.envKey}=&lt;{t('khoá của bạn', 'your key')}&gt;</Command>
+            </li>
+            <li>{t('Mở Terminal mới rồi chạy codex.', 'Open a new Terminal and run codex.')}</li>
+            <li>
+              {t(
+                'Codex App mở từ Dock có thể không thấy biến trong ~/.zshrc. Khi đó dùng codex trong Terminal.',
+                'Codex App opened from the Dock may not see the variable in ~/.zshrc. Then use codex in Terminal.',
+              )}
+            </li>
+          </ol>
+        )}
         <DialogButtons>{close(t('Đóng', 'Close'))}</DialogButtons>
       </>
     );

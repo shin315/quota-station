@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { CheckLine, CheckRow, Command, DiffFile, DiffLine, DiffView, Steps as StepList, TECH, type LineOp } from '../components/blocks';
 import { Banner, Button, Chip, ChoiceGroup, FieldHint, KVT, LinkButton } from '../components/parts';
-import { t } from '../lib/i18n';
+import { mac, os, t } from '../lib/i18n';
 import { AGENT_NAME, AGENTS, restartText } from '../lib/mcp';
 import type { Agent, Model } from '../lib/model';
 import { groupFile, onAt, sizeText, skillRefusalText } from '../lib/skills';
@@ -115,7 +115,7 @@ function AgentTicks(props: { model: Model; value: Record<Agent, boolean>; onChan
           <CheckLine
             key={a}
             className="m-0"
-            title={can ? undefined : t(AGENT_NAME[a] + ': chỉ xem trên máy này', AGENT_NAME[a] + ': view only on this Mac')}
+            title={can ? undefined : mac(t(AGENT_NAME[a] + ': chỉ xem trên máy này', AGENT_NAME[a] + ': view only on this Mac'))}
             checked={can && props.value[a]}
             disabled={!can}
             onChange={(on) => props.onChange({ ...props.value, [a]: on })}
@@ -157,7 +157,7 @@ function GhFind({ d, skills }: { d: SkillGh; skills: Skills }) {
         </FieldHint>
       ) : null}
       <div className="mt-2.5">
-        <Facts items={[['w', t('Skill có thể chạy lệnh trên máy khi agent dùng nó. Chỉ cài từ nguồn bạn tin.', 'A skill can run commands on this Mac when an agent uses it. Only install from sources you trust.')]]} />
+        <Facts items={[['w', mac(t('Skill có thể chạy lệnh trên máy khi agent dùng nó. Chỉ cài từ nguồn bạn tin.', 'A skill can run commands on this Mac when an agent uses it. Only install from sources you trust.'))]]} />
       </div>
       <DialogButtons>
         <Button large onClick={skills.close}>
@@ -344,7 +344,7 @@ function UpdateBody({ d, skills }: { d: Extract<SkillDialog, { kind: 'update' }>
     <>
       <DialogTitle>{t('Cập nhật ' + r.name + '?', 'Update ' + r.name + '?')}</DialogTitle>
       <div className={cn(KVT, 'mb-2.5')}>
-        <span>{t('Bản trên máy', 'Version on this Mac')}</span>
+        <span>{mac(t('Bản trên máy', 'Version on this Mac'))}</span>
         <span>{u.fromAt ? day(u.fromAt) : t('không rõ ngày cài', 'install date unknown')}</span>
         <span>{t('Bản mới', 'New version')}</span>
         <span>
@@ -357,7 +357,7 @@ function UpdateBody({ d, skills }: { d: Extract<SkillDialog, { kind: 'update' }>
         <Banner
           banner={{
             tone: 'warn',
-            title: t('Bạn đã sửa skill này trên máy', 'You edited this skill on this Mac'),
+            title: mac(t('Bạn đã sửa skill này trên máy', 'You edited this skill on this Mac')),
             body: t(
               'Cập nhật sẽ thay phần bạn sửa bằng bản mới. App lưu lại bản đang có để bạn lấy lại.',
               'Updating replaces your edits with the new version. The app keeps a copy of the current one so you can get it back.',
@@ -423,7 +423,7 @@ function UpdateManyBody({ d, skills, model }: { d: SkillUpdateMany; skills: Skil
         <Banner
           banner={{
             tone: 'warn',
-            title: t('Bạn đã sửa skill này trên máy', 'You edited this skill on this Mac'),
+            title: mac(t('Bạn đã sửa skill này trên máy', 'You edited this skill on this Mac')),
             body: t(
               edited.map((r) => r.name).join(', ') + ' chưa tick, để giữ phần bạn sửa. Tick thì bản mới thay phần bạn sửa; app lưu lại bản đang có để bạn lấy lại.',
               edited.map((r) => r.name).join(', ') +
@@ -591,15 +591,29 @@ function NpxBody({ skills }: { skills: Skills }) {
     <>
       <DialogTitle>{t('Cài Node.js để có npx', 'Install Node.js to get npx')}</DialogTitle>
       <DialogLead>
-        {t(
-          'App dùng npx skills để cài và cập nhật skill từ GitHub, nên cần Node.js trên máy này.',
-          'The app uses npx skills to install and update skills from GitHub, so it needs Node.js on this Mac.',
+        {mac(
+          t(
+            'App dùng npx skills để cài và cập nhật skill từ GitHub, nên cần Node.js trên máy này.',
+            'The app uses npx skills to install and update skills from GitHub, so it needs Node.js on this Mac.',
+          ),
         )}
       </DialogLead>
       <Facts
         items={[
-          ['', t('Cài Node.js bản LTS từ nodejs.org, hoặc bằng Homebrew: brew install node.', 'Install the LTS version of Node.js from nodejs.org, or with Homebrew: brew install node.')],
-          ['', t('App tìm npx ở /opt/homebrew/bin, /usr/local/bin và ~/.nvm.', 'The app looks for npx in /opt/homebrew/bin, /usr/local/bin and ~/.nvm.')],
+          [
+            '',
+            os(
+              t('Cài Node.js bản LTS từ nodejs.org, hoặc bằng Homebrew: brew install node.', 'Install the LTS version of Node.js from nodejs.org, or with Homebrew: brew install node.'),
+              t('Cài Node.js bản LTS từ nodejs.org, hoặc bằng winget: winget install OpenJS.NodeJS.LTS.', 'Install the LTS version of Node.js from nodejs.org, or with winget: winget install OpenJS.NodeJS.LTS.'),
+            ),
+          ],
+          [
+            '',
+            os(
+              t('App tìm npx ở /opt/homebrew/bin, /usr/local/bin và ~/.nvm.', 'The app looks for npx in /opt/homebrew/bin, /usr/local/bin and ~/.nvm.'),
+              t('App tìm npx ở %ProgramFiles%\\nodejs, %APPDATA%\\npm và nvm-windows.', 'The app looks for npx in %ProgramFiles%\\nodejs, %APPDATA%\\npm and nvm-windows.'),
+            ),
+          ],
           ['ok', t('Bật, tắt và gom skill không cần npx.', 'Turning skills on or off and gathering them does not need npx.')],
         ]}
       />

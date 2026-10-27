@@ -77,6 +77,8 @@
 // first read halfway, `stats=new` starts one that runs (a step every 0.4 s), `stats=skip` has
 // 38 Codex sessions in a format the app cannot read, `stats=fail` a report that cannot be read.
 // The glass: `rt=1` is macOS with Reduce Transparency on (the solid ground).
+// Windows: `os=win` is the app on Windows: its type, corners and scroll bars, no traffic
+// lights, and Windows' words wherever the text names a part of the system.
 // `lang=vi|en` sets the language; without it the preview follows the browser's, as the app follows macOS.
 
 import type { Api } from './lib/api';
@@ -497,7 +499,9 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
     });
     model.snapshot.codex = { ...codexSnap, accounts: [{ ...first, number: 1, email: 'lan.chatgpt1@example.com' }, ...extra] };
   }
-  const built: Model = params.get('build') === 'release' ? { ...communityModel(model), capabilities: { agyAccounts: false, authorTools: false } } : model;
+  const release: Model = params.get('build') === 'release' ? { ...communityModel(model), capabilities: { ...model.capabilities, agyAccounts: false, authorTools: false } } : model;
+  // `os=win`: the app as Windows draws it (W5); its title bar and tray are Windows' own.
+  const built: Model = params.get('os') === 'win' ? { ...release, capabilities: { ...release.capabilities, platform: 'windows' } } : release;
   const { api } = fakeApi(params.get('email') === 'off' ? hideNames(built) : built, tab, {
     switchDelayMs: 1500,
     claudeDelayMs: 3000,

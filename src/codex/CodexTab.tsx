@@ -38,7 +38,7 @@ import {
   shortName,
   undoLabel,
 } from '../lib/codex';
-import { t } from '../lib/i18n';
+import { mac, os, quitKey, t, terminal, toolStore } from '../lib/i18n';
 import type { CodexTrigger, CodexTriggerRun, CodexView, Model } from '../lib/model';
 import { dayClock } from '../lib/switching';
 import type { Action, BannerView, ChipView, FeedbackView, PopoverView } from '../lib/view';
@@ -72,12 +72,15 @@ function Rows({ rows }: { rows: { key: ReactNode; value: ReactNode; id: string }
 function loginChip(v: CodexView): ChipView {
   switch (v.login) {
     case 'chatGpt':
-      return { t: t('còn trong máy', 'still on this Mac'), k: 'ok' };
+      return { t: mac(t('còn trong máy', 'still on this Mac')), k: 'ok' };
     case 'keychain':
       return {
-        t: t('trong Keychain', 'in the Keychain'),
+        t: os(t('trong Keychain', 'in the Keychain'), t('trong ' + toolStore(), 'in ' + toolStore())),
         k: 'info',
-        title: t('Codex giữ đăng nhập trong Keychain; app không mở Keychain để kiểm.', 'Codex keeps the sign-in in the Keychain; the app does not open the Keychain to check.'),
+        title: os(
+          t('Codex giữ đăng nhập trong Keychain; app không mở Keychain để kiểm.', 'Codex keeps the sign-in in the Keychain; the app does not open the Keychain to check.'),
+          t('Codex giữ đăng nhập trong ' + toolStore() + '; app không mở nó để kiểm.', 'Codex keeps the sign-in in ' + toolStore() + '; the app does not open it to check.'),
+        ),
       };
     case 'other':
       return { t: t('đăng nhập khác', 'another sign-in'), k: 'warn' };
@@ -150,7 +153,7 @@ function AccountMenu({ row, accounts, busy }: { row: CodexAccountRowView; accoun
         ) : null}
         <DropdownMenuSeparator />
         <DropdownMenuItem className={ITEM + ' font-med text-bad-ink'} onSelect={() => accounts.open({ kind: 'remove', id: row.id })}>
-          {row.kind === 'chatgpt' ? t('Xoá khỏi máy này…', 'Remove from this Mac…') : t('Xoá khỏi config.toml…', 'Remove from config.toml…')}
+          {row.kind === 'chatgpt' ? mac(t('Xoá khỏi máy này…', 'Remove from this Mac…')) : t('Xoá khỏi config.toml…', 'Remove from config.toml…')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -341,9 +344,11 @@ function TriggerCard({ model, now, tr, accounts }: { model: Model; now: Date; tr
           {
             v: 'daily',
             t: t('Mỗi ngày lúc ' + tr.at, 'Each day at ' + tr.at),
-            s: t(
-              'Khung 5 giờ mở lúc ' + tr.at + ', đặt lại lúc ' + plusFive(tr.at) + '. Mac ngủ lúc đó thì chạy khi thức, trễ tối đa 3 giờ.',
-              'The 5-hour window opens at ' + tr.at + ' and resets at ' + plusFive(tr.at) + '. A Mac asleep then runs it on waking, up to 3 hours late.',
+            s: mac(
+              t(
+                'Khung 5 giờ mở lúc ' + tr.at + ', đặt lại lúc ' + plusFive(tr.at) + '. Mac ngủ lúc đó thì chạy khi thức, trễ tối đa 3 giờ.',
+                'The 5-hour window opens at ' + tr.at + ' and resets at ' + plusFive(tr.at) + '. A Mac asleep then runs it on waking, up to 3 hours late.',
+              ),
             ),
           },
           {
@@ -539,7 +544,7 @@ function Details({ v, now, onAction }: { v: CodexView; now: Date; onAction(a: Ac
               ))}
             </div>
           ) : (
-            t('Chưa có lần chuyển nào trên máy này.', 'No switches on this Mac yet.')
+            mac(t('Chưa có lần chuyển nào trên máy này.', 'No switches on this Mac yet.'))
           )}
         </div>
       </div>
@@ -552,13 +557,13 @@ function OnThisMac({ v, now, onAction }: { v: CodexView; now: Date; onAction(a: 
   const on = v.mcp.filter((m) => m.enabled).length;
   const line = [
     'CLI ' + (v.version ?? t('không tìm thấy', 'not found')),
-    p ? t(p.sessions + ' phiên Terminal', p.sessions + (p.sessions === 1 ? ' Terminal session' : ' Terminal sessions')) : null,
+    p ? t(p.sessions + ' phiên ' + terminal(), p.sessions + ' ' + terminal() + (p.sessions === 1 ? ' session' : ' sessions')) : null,
     p ? (p.app ? t('Codex App đang mở', 'Codex App is open') : t('Codex App không mở', 'Codex App is not open')) : null,
   ]
     .filter(Boolean)
     .join(' · ');
   return (
-    <Card title={t('Codex trên máy này', 'Codex on this Mac')}>
+    <Card title={mac(t('Codex trên máy này', 'Codex on this Mac'))}>
       <div className="text-sm text-ink2">
         <Dot tone={p?.daemon ? 'ok' : 'muted'} className="mr-1.5" />
         {line}
@@ -568,7 +573,7 @@ function OnThisMac({ v, now, onAction }: { v: CodexView; now: Date; onAction(a: 
         <LinkButton onClick={() => onAction('mcp:tab')}>{t('Mở tab MCP', 'Open the MCP tab')}</LinkButton>
       </div>
       <div className={cn(ROW2, 'mt-2.5')}>
-        <small className="text-xs text-ink2">{t('Đổi xong: ⌘Q Codex App rồi mở lại.', 'After a switch: ⌘Q Codex App and open it again.')}</small>
+        <small className="text-xs text-ink2">{t('Đổi xong: ' + quitKey() + ' Codex App rồi mở lại.', 'After a switch: ' + quitKey() + ' Codex App and open it again.')}</small>
         <Button disabled={v.busy != null} onClick={() => onAction('codex:daemon')}>
           {t('Khởi động lại tiến trình nền…', 'Restart background process…')}
         </Button>
@@ -610,7 +615,7 @@ export function CodexTab({ model, fresh, feedback, now, onAction, onPlugins, acc
         {top}
         <Panel>
           <Empty>
-            <b>{t('Máy này chưa có Codex', 'This Mac has no Codex')}</b>
+            <b>{mac(t('Máy này chưa có Codex', 'This Mac has no Codex'))}</b>
             {t(
               'Không thấy thư mục ' + v.home + '. Nếu Codex dùng thư mục khác, đặt nó ở Cài đặt › Thư mục Codex.',
               'No ' + v.home + ' folder found. If Codex uses another folder, set it in Settings › Codex folder.',

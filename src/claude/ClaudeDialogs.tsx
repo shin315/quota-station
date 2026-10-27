@@ -11,7 +11,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { DialogButtons, DialogLead, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button, Chip, ChoiceGroup, Facts, FeedbackLine, Hint, LinkButton, Rich, Spinner, Toggle } from '../components/parts';
-import { t } from '../lib/i18n';
+import { mac, secretStore, t, terminal } from '../lib/i18n';
 import { localName, quotaLine, rotationMatters, signInChip } from '../lib/claudeAccounts';
 import type { ClaudeAccountRow, ClaudeAccountsView, Tab } from '../lib/model';
 import type { AddHow, ClaudeAccountsState, ClaudeDialog } from './useClaudeAccounts';
@@ -85,19 +85,19 @@ function AddBody({ d, view, claude, nameOf }: { d: Extract<ClaudeDialog, { kind:
       t: t('Đăng nhập trong trình duyệt', 'Sign in with the browser'),
       s: view.claude
         ? t('Mở trang đăng nhập của Claude. Xong thì quay lại đây.', 'Opens Claude’s sign-in page. Come back here when done.')
-        : t('Không thấy lệnh claude trên máy này.', 'The claude command was not found on this Mac.'),
+        : mac(t('Không thấy lệnh claude trên máy này.', 'The claude command was not found on this Mac.')),
     },
     {
       v: 'current',
       t: t('Lấy tài khoản Claude Code đang đăng nhập', 'Use the account Claude Code is signed in to'),
       s: using
         ? t('Claude Code đang dùng ' + nameOf(using.slot) + ', đã có trong danh sách.', 'Claude Code uses ' + nameOf(using.slot) + ', already in the list.')
-        : t('Tài khoản `claude` trong Terminal đang đăng nhập.', 'The account `claude` in Terminal is signed in to.'),
+        : t('Tài khoản `claude` trong ' + terminal() + ' đang đăng nhập.', 'The account `claude` in ' + terminal() + ' is signed in to.'),
     },
     {
       v: 'token',
       t: t('Dán setup-token', 'Paste a setup-token'),
-      s: t('Token từ `claude setup-token`, cho máy không mở được trình duyệt.', 'A token from `claude setup-token`, for a Mac that cannot open a browser.'),
+      s: mac(t('Token từ `claude setup-token`, cho máy không mở được trình duyệt.', 'A token from `claude setup-token`, for a Mac that cannot open a browser.')),
     },
   ];
   if (view.importable)
@@ -109,7 +109,7 @@ function AddBody({ d, view, claude, nameOf }: { d: Extract<ClaudeDialog, { kind:
   const blocked = (d.how === 'browser' && !view.claude) || claude.pending || view.working != null;
   return (
     <Stack>
-      <Head title={t('Thêm tài khoản Claude', 'Add a Claude account')} lead={t('Đăng nhập chỉ lưu trên Mac này.', 'The sign-in is stored on this Mac only.')} />
+      <Head title={t('Thêm tài khoản Claude', 'Add a Claude account')} lead={mac(t('Đăng nhập chỉ lưu trên Mac này.', 'The sign-in is stored on this Mac only.'))} />
       <div>
         <ChoiceGroup
           id="qs-addhow"
@@ -190,9 +190,11 @@ function TokenBody({ d, claude, view }: { d: Extract<ClaudeDialog, { kind: 'toke
     <Stack>
       <Head
         title={t('Dán setup-token', 'Paste a setup-token')}
-        lead={t(
-          'Chạy `claude setup-token` ở máy có trình duyệt, rồi dán token vào đây. Token chỉ lưu trong Keychain của máy này.',
-          'Run `claude setup-token` on a computer with a browser, then paste the token here. It is stored only in this Mac’s Keychain.',
+        lead={mac(
+          t(
+            'Chạy `claude setup-token` ở máy có trình duyệt, rồi dán token vào đây. Token chỉ lưu trong ' + secretStore() + ' của máy này.',
+            'Run `claude setup-token` on a computer with a browser, then paste the token here. It is stored only in this Mac’s ' + secretStore() + '.',
+          ),
         )}
       />
       <div>
@@ -229,15 +231,17 @@ function DoneBody({ d, view, claude, advanced, onTab }: { d: Extract<ClaudeDialo
     <Stack>
       <Head
         title={t('Đã thêm ' + local, 'Added ' + local)}
-        lead={row.kind === 'setupToken' ? t('Setup token · lưu trên Mac này.', 'Setup token · stored on this Mac.') : t('Đăng nhập lưu trên Mac này.', 'Sign-in stored on this Mac.')}
+        lead={row.kind === 'setupToken' ? mac(t('Setup token · lưu trên Mac này.', 'Setup token · stored on this Mac.')) : mac(t('Đăng nhập lưu trên Mac này.', 'Sign-in stored on this Mac.'))}
       />
       <Facts
         items={[
           {
             k: 'ok',
-            text: t(
-              'Đăng nhập lưu trong Keychain của Quota Station trên Mac này. Hạn mức có ở lần đọc tới.',
-              'The sign-in is in Quota Station’s Keychain on this Mac. Quota shows up on the next read.',
+            text: mac(
+              t(
+                'Đăng nhập lưu trong ' + secretStore() + ' của Quota Station trên Mac này. Hạn mức có ở lần đọc tới.',
+                'The sign-in is in Quota Station’s ' + secretStore() + ' on this Mac. Quota shows up on the next read.',
+              ),
             ),
           },
           ...(auto
@@ -343,7 +347,7 @@ function DetailBody({ d, view, claude, advanced, nameOf }: { d: Extract<ClaudeDi
           <div className="min-w-0 flex-1">
             <b className="block text-body font-semi">{t('Cho tự chuyển dùng tài khoản này', 'Let auto-switch use this account')}</b>
             <small className="block text-xs text-ink2">
-              {t('Tắt để tự chuyển trên máy này bỏ qua ' + who + '. Bạn vẫn chuyển tay được.', 'Turn off so auto-switch on this Mac skips ' + who + '. You can still switch by hand.')}
+              {mac(t('Tắt để tự chuyển trên máy này bỏ qua ' + who + '. Bạn vẫn chuyển tay được.', 'Turn off so auto-switch on this Mac skips ' + who + '. You can still switch by hand.'))}
             </small>
           </div>
           <Toggle
@@ -356,7 +360,7 @@ function DetailBody({ d, view, claude, advanced, nameOf }: { d: Extract<ClaudeDi
       ) : null}
       <DialogButtons className="items-center">
         <LinkButton bad className="mr-auto" onClick={() => claude.open({ kind: 'remove', slot: row.slot })}>
-          {t('Xoá khỏi máy này…', 'Remove from this Mac…')}
+          {mac(t('Xoá khỏi máy này…', 'Remove from this Mac…'))}
         </LinkButton>
         <Button onClick={claude.close}>{t('Thôi', 'Cancel')}</Button>
         <Button
@@ -410,14 +414,16 @@ function RemoveBody({ d, claude, nameOf, view, advanced }: { d: Extract<ClaudeDi
     );
   return (
     <Stack>
-      <Head title={t('Xoá ' + who + ' khỏi máy này?', 'Remove ' + who + ' from this Mac?')} />
+      <Head title={mac(t('Xoá ' + who + ' khỏi máy này?', 'Remove ' + who + ' from this Mac?'))} />
       <Facts
         items={[
           {
             k: '',
-            text: t(
-              'Quota Station quên đăng nhập của ' + who + ' trên Mac này. Tài khoản Claude vẫn còn nguyên.',
-              'Quota Station forgets ' + who + '’s sign-in on this Mac. The Claude account itself is untouched.',
+            text: mac(
+              t(
+                'Quota Station quên đăng nhập của ' + who + ' trên Mac này. Tài khoản Claude vẫn còn nguyên.',
+                'Quota Station forgets ' + who + '’s sign-in on this Mac. The Claude account itself is untouched.',
+              ),
             ),
           },
           ...(advanced
@@ -443,7 +449,7 @@ function RemoveBody({ d, claude, nameOf, view, advanced }: { d: Extract<ClaudeDi
       <DialogButtons>
         <Button onClick={claude.close}>{t('Thôi', 'Cancel')}</Button>
         <Button danger disabled={view.working != null} onClick={() => claude.remove(d.slot)}>
-          {t('Xoá khỏi máy này', 'Remove from this Mac')}
+          {mac(t('Xoá khỏi máy này', 'Remove from this Mac'))}
         </Button>
       </DialogButtons>
     </Stack>
@@ -474,7 +480,7 @@ function ReloginBody({ d, claude, nameOf, view }: { d: Extract<ClaudeDialog, { k
         <Button
           primary
           disabled={!view.claude || view.working != null}
-          title={view.claude ? undefined : t('Không thấy lệnh claude trên máy này', 'The claude command was not found on this Mac')}
+          title={view.claude ? undefined : mac(t('Không thấy lệnh claude trên máy này', 'The claude command was not found on this Mac'))}
           onClick={() => void claude.login(d.slot)}
         >
           {t('Mở trang đăng nhập', 'Open the sign-in page')}

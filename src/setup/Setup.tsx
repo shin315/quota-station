@@ -18,7 +18,7 @@ import { LOGIN_WAIT_MS, minutes } from '../claude/ClaudeDialogs';
 import type { ClaudeAccountsState } from '../claude/useClaudeAccounts';
 import { permissionChip } from '../lib/alerts';
 import { accountName, localName } from '../lib/claudeAccounts';
-import { resolveLang, systemLanguages, t } from '../lib/i18n';
+import { appName, mac, onWindows, os, osName, resolveLang, secretStore, systemLanguages, systemSettings, t } from '../lib/i18n';
 import type { ClaudeAccountRow, Language, Menubar, MenubarWindow, Model } from '../lib/model';
 import type { Action } from '../lib/view';
 import { LaunchAtLogin, MenubarRow, MenubarWindowRow } from '../settings/Settings';
@@ -59,10 +59,10 @@ export function detected(model: Model) {
 function steps(model: Model): [SetupStep, string][] {
   const out: [SetupStep, string][] = [
     ['lang', t('Ngôn ngữ', 'Language')],
-    ['detect', t('Máy này có gì', 'This Mac')],
+    ['detect', mac(t('Máy này có gì', 'This Mac'))],
   ];
   if (detected(model).claude) out.push(['acc', t('Tài khoản Claude', 'Claude accounts')]);
-  out.push(['perm', t('Quyền và thanh menu', 'Permissions')], ['done', t('Xong', 'Done')]);
+  out.push(['perm', os(t('Quyền và thanh menu', 'Permissions'), t('Quyền và khay hệ thống', 'Permissions'))], ['done', t('Xong', 'Done')]);
   return out;
 }
 
@@ -112,8 +112,8 @@ function Nav({ back, children }: { back?: () => void; children: ReactNode }) {
 // ===== Bước 1: ngôn ngữ =====
 
 function LangStep({ model, onLanguage }: Pick<SetupProps, 'model' | 'onLanguage'>) {
-  const mac = resolveLang('auto', systemLanguages());
-  const macName = mac === 'vi' ? 'Tiếng Việt' : 'English';
+  const system = resolveLang('auto', systemLanguages());
+  const systemName = system === 'vi' ? 'Tiếng Việt' : 'English';
   return (
     <>
       <Title lead={t('Đổi lại được trong Cài đặt.', 'You can change it later in Settings.')}>{t('Chào bạn. Chọn ngôn ngữ', 'Welcome. Pick a language')}</Title>
@@ -127,11 +127,11 @@ function LangStep({ model, onLanguage }: Pick<SetupProps, 'model' | 'onLanguage'
         options={[
           {
             v: 'auto',
-            t: t('Theo macOS (' + macName + ')', 'Match macOS (' + macName + ')'),
+            t: t('Theo ' + osName() + ' (' + systemName + ')', 'Match ' + osName() + ' (' + systemName + ')'),
             s:
-              mac === 'vi'
-                ? t('Máy đặt tiếng Việt nên app dùng tiếng Việt.', 'This Mac is set to Vietnamese, so the app uses Vietnamese.')
-                : t('Máy đặt tiếng Anh nên app dùng tiếng Anh.', 'This Mac is set to English, so the app uses English.'),
+              system === 'vi'
+                ? mac(t('Máy đặt tiếng Việt nên app dùng tiếng Việt.', 'This Mac is set to Vietnamese, so the app uses Vietnamese.'))
+                : mac(t('Máy đặt tiếng Anh nên app dùng tiếng Anh.', 'This Mac is set to English, so the app uses English.')),
           },
           { v: 'vi', t: 'Tiếng Việt', s: '' },
           { v: 'en', t: 'English', s: '' },
@@ -176,8 +176,8 @@ function DetectStep({ model }: { model: Model }) {
   const none = !has.claude && !has.codex && !has.agy;
   return (
     <>
-      <Title lead={t('Quota Station chỉ đọc những gì đã có trên máy. Không gửi gì đi đâu.', 'Quota Station only reads what is already on this Mac. Nothing is sent anywhere.')}>
-        {t('Máy này có gì', 'What this Mac has')}
+      <Title lead={mac(t('Quota Station chỉ đọc những gì đã có trên máy. Không gửi gì đi đâu.', 'Quota Station only reads what is already on this Mac. Nothing is sent anywhere.'))}>
+        {mac(t('Máy này có gì', 'What this Mac has'))}
       </Title>
       {none ? (
         <BannerBox
@@ -189,7 +189,7 @@ function DetectStep({ model }: { model: Model }) {
           )}
         />
       ) : null}
-      <ul className="m-0 grid list-none rounded-tile bg-fill px-3 py-1" aria-label={t('Máy này có gì', 'What this Mac has')}>
+      <ul className="m-0 grid list-none rounded-tile bg-fill px-3 py-1" aria-label={mac(t('Máy này có gì', 'What this Mac has'))}>
         {has.claude ? (
           s.claude.status === 'unavailable' ? (
             <Found mark="note" title="Claude Code" line={'`~/.claude` · ' + readNote(s.claude.reason)} />
@@ -225,13 +225,13 @@ function DetectStep({ model }: { model: Model }) {
             }
           />
         ) : (
-          <Found mark="none" title={t('Không thấy Codex', 'No Codex')} line={t('Không sao: Quota Station chỉ hiện dịch vụ máy có.', 'That is fine: Quota Station only shows what this Mac has.')} />
+          <Found mark="none" title={t('Không thấy Codex', 'No Codex')} line={mac(t('Không sao: Quota Station chỉ hiện dịch vụ máy có.', 'That is fine: Quota Station only shows what this Mac has.'))} />
         )}
         {has.agy ? (
           s.agy.status === 'unavailable' ? (
             <Found mark="note" title="Antigravity" line={readNote(s.agy.reason)} />
           ) : (
-            <Found mark="ok" title="Antigravity" line={t('Antigravity.app · đọc tài khoản đang đăng nhập', 'Antigravity.app · reads the signed-in account')} />
+            <Found mark="ok" title="Antigravity" line={t(appName('Antigravity') + ' · đọc tài khoản đang đăng nhập', appName('Antigravity') + ' · reads the signed-in account')} />
           )
         ) : (
           <Found mark="none" title={t('Không thấy Antigravity', 'No Antigravity')} line={t('Không sao.', 'That is fine.')} />
@@ -324,9 +324,11 @@ function AccStep(props: SetupProps & { back(): void; next(): void }) {
     return (
       <>
         <Title
-          lead={t(
-            'Quota Station giữ đăng nhập của từng tài khoản trong Keychain của máy này, để chuyển Claude Code giữa chúng. Một tài khoản cũng được.',
-            'Quota Station keeps each account’s sign-in in this Mac’s Keychain so it can switch Claude Code between them. One account is fine.',
+          lead={mac(
+            t(
+              'Quota Station giữ đăng nhập của từng tài khoản trong ' + secretStore() + ' của máy này, để chuyển Claude Code giữa chúng. Một tài khoản cũng được.',
+              'Quota Station keeps each account’s sign-in in this Mac’s ' + secretStore() + ' so it can switch Claude Code between them. One account is fine.',
+            ),
           )}
         >
           {t('Tài khoản Claude', 'Claude accounts')}
@@ -432,31 +434,37 @@ function Row({ title, line, children }: { title: string; line?: string; children
   );
 }
 
+/** The step's name: the menu bar, or Windows' tray. */
+const permTitle = (): string => os(t('Quyền và thanh menu', 'Permissions and menu bar'), t('Quyền và khay hệ thống', 'Permissions and system tray'));
+
 function PermStep(props: SetupProps) {
   const { model, busy, onAction } = props;
   const keychain = model.snapshot.keychain;
   const notify = model.alerts.permission;
   return (
     <>
-      <Title>{t('Quyền và thanh menu', 'Permissions and menu bar')}</Title>
-      <section className="material-card grid rounded-card px-3.5 py-3" aria-label={t('Quyền và thanh menu', 'Permissions and menu bar')}>
-        <Row title={t('Quyền Keychain', 'Keychain access')} line={t('Để đọc hạn mức của từng tài khoản Claude. macOS hỏi một lần.', 'To read each Claude account’s quota. macOS asks once.')}>
-          {keychain === 'granted' ? (
-            <Chip chip={{ t: t('đã cấp', 'granted'), k: 'ok' }} />
-          ) : keychain === 'required' ? (
-            <Button small disabled={busy === 'keychain'} onClick={() => onAction('keychain')}>
-              {t('Cấp quyền một lần', 'Grant once')}
-            </Button>
-          ) : (
-            <Chip chip={{ t: t('chưa rõ', 'unknown'), k: '' }} />
-          )}
-        </Row>
+      <Title>{permTitle()}</Title>
+      <section className="material-card grid rounded-card px-3.5 py-3" aria-label={permTitle()}>
+        {/* Windows asks nothing before the app reads Claude Code's sign-in. */}
+        {onWindows() ? null : (
+          <Row title={t('Quyền Keychain', 'Keychain access')} line={t('Để đọc hạn mức của từng tài khoản Claude. macOS hỏi một lần.', 'To read each Claude account’s quota. macOS asks once.')}>
+            {keychain === 'granted' ? (
+              <Chip chip={{ t: t('đã cấp', 'granted'), k: 'ok' }} />
+            ) : keychain === 'required' ? (
+              <Button small disabled={busy === 'keychain'} onClick={() => onAction('keychain')}>
+                {t('Cấp quyền một lần', 'Grant once')}
+              </Button>
+            ) : (
+              <Chip chip={{ t: t('chưa rõ', 'unknown'), k: '' }} />
+            )}
+          </Row>
+        )}
         <Row title={t('Thông báo', 'Notifications')} line={t('Báo khi hạn mức sắp cạn hoặc một tài khoản cần đăng nhập lại.', 'Tells you when quota is running out or an account needs to sign in again.')}>
           {notify === 'allowed' || notify === 'unbundled' ? (
             <Chip chip={permissionChip(notify)} />
           ) : (
             <Button small onClick={() => onAction('notify:settings')}>
-              {notify === 'denied' ? t('Mở Cài đặt hệ thống', 'Open System Settings') : t('Cho phép', 'Allow')}
+              {notify === 'denied' ? t('Mở ', 'Open ') + systemSettings() : t('Cho phép', 'Allow')}
             </Button>
           )}
         </Row>
@@ -484,7 +492,10 @@ function DoneStep({ model }: { model: Model }) {
   return (
     <>
       <Title>{t('Xong', 'All set')}</Title>
-      <p className="m-0 text-sm text-ink">{t('Quota Station nằm trên thanh menu. Bấm vào để xem hạn mức và chuyển tài khoản.', 'Quota Station lives in the menu bar. Click it to see quota and switch accounts.')}</p>
+      <p className="m-0 text-sm text-ink">{os(
+          t('Quota Station nằm trên thanh menu. Bấm vào để xem hạn mức và chuyển tài khoản.', 'Quota Station lives in the menu bar. Click it to see quota and switch accounts.'),
+          t('Quota Station nằm ở khay hệ thống, góc phải thanh tác vụ. Bấm vào để xem hạn mức và chuyển tài khoản.', 'Quota Station lives in the system tray, at the right of the taskbar. Click it to see quota and switch accounts.'),
+        )}</p>
       {items.length ? (
         <ul className="m-0 grid list-disc gap-2 pl-3.5 text-sm text-ink marker:text-ink3">
           {items.map((x) => (

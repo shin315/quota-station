@@ -9,7 +9,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { Api } from '../lib/api';
-import { t } from '../lib/i18n';
+import { os, secretStore, t } from '../lib/i18n';
 import {
   AGENTS,
   AGENT_NAME,
@@ -252,7 +252,7 @@ export function useMcp(api: Api, model: Model | null, showFeedback: (fb: Feedbac
       for (const p of f.pairs.filter((x) => x.secret && x.value)) await api.mcpSaveSecret(f.name, pairSlot(f, p), p.value, bitwarden);
     } catch {
       setWorking(false);
-      return setDialog({ ...d, error: t('Chưa lưu được khoá vào Keychain. Chưa ghi gì.', 'Could not save the key to the Keychain. Nothing was written.') });
+      return setDialog({ ...d, error: t('Chưa lưu được khoá vào ' + secretStore() + '. Chưa ghi gì.', 'Could not save the key to the ' + secretStore() + '. Nothing was written.') });
     }
     setWorking(false);
     const typed = [...new Set([...d.typed, ...typedSlots(f)])];
@@ -304,10 +304,10 @@ export function useMcp(api: Api, model: Model | null, showFeedback: (fb: Feedbac
       showFeedback({
         tone: '',
         title: t('Đã xoá ' + name + ' khỏi kho', 'Deleted ' + name + ' from the store'),
-        body: keys ? t('Khoá của nó trong Keychain cũng đã xoá.', 'Its keys in the Keychain were deleted too.') : t('Khoá của nó vẫn trong Keychain.', 'Its keys are still in the Keychain.'),
+        body: keys ? t('Khoá của nó trong ' + secretStore() + ' cũng đã xoá.', 'Its keys in the ' + secretStore() + ' were deleted too.') : t('Khoá của nó vẫn trong ' + secretStore() + '.', 'Its keys are still in the ' + secretStore() + '.'),
       });
     } catch {
-      showFeedback({ tone: 'bad', title: t('Chưa xoá được ' + name, 'Could not delete ' + name), body: t('App không ghi được kho hoặc Keychain. Thử lại.', 'The app could not write the store or the Keychain. Try again.') });
+      showFeedback({ tone: 'bad', title: t('Chưa xoá được ' + name, 'Could not delete ' + name), body: t('App không ghi được kho hoặc ' + secretStore() + '. Thử lại.', 'The app could not write the store or the ' + secretStore() + '. Try again.') });
     } finally {
       setWorking(false);
       setDialog(null);
@@ -321,11 +321,18 @@ export function useMcp(api: Api, model: Model | null, showFeedback: (fb: Feedbac
       showFeedback({
         tone: 'info',
         title: t('Đã lưu khoá cho ' + name, 'Saved the key for ' + name),
-        body: t('Khoá ở Keychain của Quota Station. Giờ tick ' + name + ' cho agent cần dùng.', 'The key is in Quota Station’s Keychain. Now tick ' + name + ' for the agents that need it.'),
+        body: t('Khoá ở ' + secretStore() + ' của Quota Station. Giờ tick ' + name + ' cho agent cần dùng.', 'The key is in Quota Station’s ' + secretStore() + '. Now tick ' + name + ' for the agents that need it.'),
       });
       setDialog(null);
     } catch {
-      showFeedback({ tone: 'bad', title: t('Chưa lưu được khoá', 'Could not save the key'), body: t('Keychain không nhận khoá lúc này. Thử lại.', 'The Keychain is not taking the key right now. Try again.') });
+      showFeedback({
+        tone: 'bad',
+        title: t('Chưa lưu được khoá', 'Could not save the key'),
+        body: os(
+          t('Keychain không nhận khoá lúc này. Thử lại.', 'The Keychain is not taking the key right now. Try again.'),
+          t('Kho mã hoá không nhận khoá lúc này. Thử lại.', 'The encrypted store is not taking the key right now. Try again.'),
+        ),
+      });
     } finally {
       setWorking(false);
     }

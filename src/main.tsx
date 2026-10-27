@@ -37,6 +37,8 @@ async function start() {
   document.documentElement.dataset.theme = theme === 'light' || theme === 'dark' ? theme : 'auto';
   const pack = params?.get('pack');
   document.documentElement.dataset.pack = THEME_PACKS.find((p) => p === pack) ?? 'default';
+  // macOS until the model says otherwise (usePlatform); the preview's `os=win` at once.
+  document.documentElement.dataset.os = params?.get('os') === 'win' ? 'windows' : 'macos';
   // Glass and plain edges until macOS says otherwise (useMaterial).
   document.documentElement.dataset.material = 'glass';
   document.documentElement.dataset.contrast = 'normal';
@@ -50,6 +52,7 @@ async function start() {
         data-material={document.documentElement.dataset.material}
         data-pack={document.documentElement.dataset.pack}
         data-contrast={document.documentElement.dataset.contrast}
+        data-os={document.documentElement.dataset.os}
       >
         {view === 'window' ? <MainWindowApp api={api} clock={clock} /> : <PopoverApp api={api} clock={clock} />}
       </div>

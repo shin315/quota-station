@@ -33,7 +33,7 @@ import {
 } from '../lib/mcp';
 import { serviceOf } from '../lib/brands';
 import type { Agent, McpBlock, McpDef, McpPaste, McpRow, Model } from '../lib/model';
-import { t } from '../lib/i18n';
+import { mac, os, secretStore, t } from '../lib/i18n';
 import { dayClock } from '../lib/switching';
 import { LOCK_ICON } from '../window/icons';
 import { AgentLogo, HEAD_OFF, MATRIX_CELL, MATRIX_HEAD, MATRIX_NAME, MATRIX_ROW, MATRIX_TITLE } from './CheckMatrix';
@@ -78,7 +78,7 @@ function Diff({ file, agent, block }: { file: string; agent: Agent; block: McpBl
 function claudeNote(b: McpBlock): string {
   const notes = [t('Claude Code tự ghi ~/.claude.json.', 'Claude Code writes ~/.claude.json itself.')];
   if (b.kept && b.action === 'off') notes.push(t('App giữ cấu hình của ' + b.name + ' để bật lại.', 'The app keeps ' + b.name + '’s config to turn it back on.'));
-  else if (b.kept) notes.push(t('App giữ cấu hình trong kho, khoá trong Keychain.', 'The app keeps the config in its store and the keys in the Keychain.'));
+  else if (b.kept) notes.push(t('App giữ cấu hình trong kho, khoá trong ' + secretStore() + '.', 'The app keeps the config in its store and the keys in the ' + secretStore() + '.'));
   if (b.secret && b.action !== 'off' && b.action !== 'remove') notes.push(t('Khoá đi vào lệnh, không vào log hay bản lưu.', 'The key goes into the command, not into logs or backups.'));
   return notes.join(' ');
 }
@@ -92,7 +92,7 @@ export function BlockView({ agent, file, block }: { agent: Agent; file: string; 
           AGENT_NAME[agent] + ' has no ' + block.dropped.join(', ') + ': left out when writing.',
         )
       : '',
-    agent !== 'claude' && block.kept ? t('App giữ cấu hình trong kho, khoá trong Keychain.', 'The app keeps the config in its store and the keys in the Keychain.') : '',
+    agent !== 'claude' && block.kept ? t('App giữ cấu hình trong kho, khoá trong ' + secretStore() + '.', 'The app keeps the config in its store and the keys in the ' + secretStore() + '.') : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -189,9 +189,9 @@ function PairRow(props: { pair: FormPair; i: number; http: boolean; onChange(p: 
           onChange={(e) => props.onChange({ ...p, value: e.target.value, secret: p.kept || isSecretPair(p.name, e.target.value) })}
         />
         {p.secret ? (
-          <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs text-info-ink [&_svg]:flex-none" title={t('Giá trị vào Keychain, không hiện lại', 'The value goes to the Keychain and is not shown again')}>
+          <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs text-info-ink [&_svg]:flex-none" title={t('Giá trị vào ' + secretStore() + ', không hiện lại', 'The value goes to the ' + secretStore() + ' and is not shown again')}>
             {LOCK_ICON}
-            Keychain
+            {os('Keychain', t('Mã hoá', 'Encrypted'))}
           </span>
         ) : null}
       </span>
@@ -212,7 +212,7 @@ function AgentTicks(props: { model: Model; value: Record<Agent, boolean>; label:
           <CheckLine
             key={a}
             className="m-0"
-            title={can ? undefined : t(AGENT_NAME[a] + ': chỉ xem trên máy này', AGENT_NAME[a] + ': view only on this Mac')}
+            title={can ? undefined : mac(t(AGENT_NAME[a] + ': chỉ xem trên máy này', AGENT_NAME[a] + ': view only on this Mac'))}
             checked={can && props.value[a]}
             disabled={!can}
             onChange={(on) => props.onChange({ ...props.value, [a]: on })}
@@ -236,7 +236,7 @@ function pasteSummary(p: McpPaste | null, saved: boolean): { facts: [string, str
       'The MCP name is missing. Paste {"name": {"command": …}} or the whole "mcpServers" block.',
     ),
     none: t('Không thấy MCP nào trong đoạn này.', 'No MCP found in this text.'),
-    keychain: t('Chưa lưu được khoá vào Keychain. Chưa ghi gì.', 'Could not save the key to the Keychain. Nothing was written.'),
+    keychain: t('Chưa lưu được khoá vào ' + secretStore() + '. Chưa ghi gì.', 'Could not save the key to the ' + secretStore() + '. Nothing was written.'),
   };
   if (p.error) return { facts: [], error: errors[p.error] || null };
   const facts: [string, string][] = [];
@@ -247,11 +247,11 @@ function pasteSummary(p: McpPaste | null, saved: boolean): { facts: [string, str
     facts.push([
       'ok',
       t(
-        secrets.length + ' giá trị có dạng khoá: ' + secrets.join(', ') + '. ' + (saved ? 'Đã lưu vào Keychain.' : 'App che giá trị và lưu vào Keychain khi bấm Tiếp.'),
+        secrets.length + ' giá trị có dạng khoá: ' + secrets.join(', ') + '. ' + (saved ? 'Đã lưu vào ' + secretStore() + '.' : 'App che giá trị và lưu vào ' + secretStore() + ' khi bấm Tiếp.'),
         (secrets.length === 1 ? '1 value looks like a key: ' : secrets.length + ' values look like keys: ') +
           secrets.join(', ') +
           '. ' +
-          (saved ? 'Saved to the Keychain.' : 'The app masks them and saves them to the Keychain when you press Next.'),
+          (saved ? 'Saved to the ' + secretStore() + '.' : 'The app masks them and saves them to the ' + secretStore() + ' when you press Next.'),
       ),
     ]);
   if (p.skipped.length)
@@ -307,8 +307,8 @@ function FormBody({ d, mcp, model }: { d: FormDialog; mcp: Mcp; model: Model }) 
           {d.saved ? (
             <DialogLead>
               {t(
-                'Khoá đã vào Keychain. Bấm Tiếp để xem lại phần sẽ ghi, hoặc dán đoạn khác.',
-                'The keys are in the Keychain. Press Next to review what will be written, or paste something else.',
+                'Khoá đã vào ' + secretStore() + '. Bấm Tiếp để xem lại phần sẽ ghi, hoặc dán đoạn khác.',
+                'The keys are in the ' + secretStore() + '. Press Next to review what will be written, or paste something else.',
               )}
             </DialogLead>
           ) : null}
@@ -432,8 +432,8 @@ function FormBody({ d, mcp, model }: { d: FormDialog; mcp: Mcp; model: Model }) 
                 <>
                   <FieldHint>
                     {t(
-                      'Tên có dạng khoá: giá trị vào Keychain, không hiện lại, không vào bản lưu.',
-                      'The name looks like a key: the value goes to the Keychain, is not shown again and stays out of backups.',
+                      'Tên có dạng khoá: giá trị vào ' + secretStore() + ', không hiện lại, không vào bản lưu.',
+                      'The name looks like a key: the value goes to the ' + secretStore() + ', is not shown again and stays out of backups.',
                     )}
                   </FieldHint>
                   <div className="flex items-center gap-2">
@@ -575,7 +575,7 @@ function CompareBody({ d, mcp }: { d: Extract<McpDialog, { kind: 'compare' }>; m
         })}
       </div>
       <p className={TECH}>
-        {t('Khoá chỉ so trong máy, không hiện.', 'Keys are only compared on this Mac, never shown.')}
+        {mac(t('Khoá chỉ so trong máy, không hiện.', 'Keys are only compared on this Mac, never shown.'))}
       </p>
       <div className="mt-2.5">
         <ChoiceGroup id="mcp-cmp" label={t('Dùng bản nào', 'Which version to use')} options={options} value={d.pick} onChange={(pick) => mcp.setDialog({ ...d, pick })} />
@@ -630,7 +630,7 @@ function DelBody({ d, mcp }: { d: Extract<McpDialog, { kind: 'del' }>; mcp: Mcp 
       {d.mode === 'hard' && row.secrets.length ? (
         <CheckLine className="mt-2.5" checked={d.keys} onChange={(keys) => mcp.setDialog({ ...d, keys })}>
           <span>
-            {t('Xoá cả khoá ' + labels + ' trong Keychain', 'Also delete the ' + labels + ' key from the Keychain')}
+            {t('Xoá cả khoá ' + labels + ' trong ' + secretStore(), 'Also delete the ' + labels + ' key from the ' + secretStore())}
             <small>{t('Bản lưu trước khi ghi không có khoá; thêm lại sẽ hỏi dán lại.', 'Backups hold no keys; adding it again will ask you to paste them.')}</small>
           </span>
         </CheckLine>
@@ -671,15 +671,18 @@ function KhoBody({ d, mcp }: { d: Extract<McpDialog, { kind: 'kho' }>; mcp: Mcp 
       <DialogTitle>{t('Bật lại ' + k.name, 'Turn ' + k.name + ' back on')}</DialogTitle>
       <DialogLead>
         {t(
-          'Chọn agent. App ghi lại cấu hình đã giữ trong kho, khoá lấy từ Keychain.',
-          'Choose the agents. The app writes back the config kept in its store, with the keys from the Keychain.',
+          'Chọn agent. App ghi lại cấu hình đã giữ trong kho, khoá lấy từ ' + secretStore() + '.',
+          'Choose the agents. The app writes back the config kept in its store, with the keys from the ' + secretStore() + '.',
         )}
       </DialogLead>
       {k.missing.length ? (
         <FeedbackLine tone="warn" style={{ margin: '0 0 8px' }}>
           <div>
             <FeedbackText
-              title={t('Keychain không còn khoá ' + k.missing.join(', '), 'The Keychain no longer has the key ' + k.missing.join(', '))}
+              title={os(
+                t('Keychain không còn khoá ' + k.missing.join(', '), 'The Keychain no longer has the key ' + k.missing.join(', ')),
+                t('Kho mã hoá không còn khoá ' + k.missing.join(', '), 'The encrypted store no longer has the key ' + k.missing.join(', ')),
+              )}
               body={t('Dán khoá trước, rồi bật lại.', 'Paste the key first, then turn it back on.')}
             />
           </div>
@@ -732,7 +735,7 @@ function ForgetBody({ d, mcp }: { d: Extract<McpDialog, { kind: 'forget' }>; mcp
       {k.def.slots.length ? (
         <CheckLine checked={d.keys} onChange={(keys) => mcp.setDialog({ ...d, keys })}>
           <span>
-            {t('Xoá cả khoá trong Keychain', 'Also delete its keys from the Keychain')}
+            {t('Xoá cả khoá trong ' + secretStore(), 'Also delete its keys from the ' + secretStore())}
             <small>{t('Thêm lại sau sẽ phải dán lại khoá.', 'Adding it again later means pasting the keys again.')}</small>
           </span>
         </CheckLine>
@@ -773,7 +776,7 @@ function KeyBody({ d, mcp }: { d: Extract<McpDialog, { kind: 'key' }>; mcp: Mcp 
         <div key={s.id} className={SECRET_ROW}>
           <span>
             <b>{s.label}</b>
-            <small>{s.bitwarden ? t('Lưu ở: ' + s.bitwarden, 'Stored in: ' + s.bitwarden) : t('Khoá này chưa có trên máy này', 'This key is not on this Mac yet')}</small>
+            <small>{s.bitwarden ? t('Lưu ở: ' + s.bitwarden, 'Stored in: ' + s.bitwarden) : mac(t('Khoá này chưa có trên máy này', 'This key is not on this Mac yet'))}</small>
           </span>
           <span className="flex items-center gap-1.5">
             <Input
@@ -800,7 +803,7 @@ function KeyBody({ d, mcp }: { d: Extract<McpDialog, { kind: 'key' }>; mcp: Mcp 
       </div>
       <Facts
         items={[
-          ['ok', t('Lưu vào Keychain của Quota Station. App không hiện lại giá trị.', 'Saved to Quota Station’s Keychain. The app does not show the value again.')],
+          ['ok', t('Lưu vào ' + secretStore() + ' của Quota Station. App không hiện lại giá trị.', 'Saved to Quota Station’s ' + secretStore() + '. The app does not show the value again.')],
           ['ok', t('Sau đó tick ' + d.name + ' cho agent cần dùng.', 'Then tick ' + d.name + ' for the agents that need it.')],
         ]}
       />
@@ -809,7 +812,7 @@ function KeyBody({ d, mcp }: { d: Extract<McpDialog, { kind: 'key' }>; mcp: Mcp 
           {t('Huỷ', 'Cancel')}
         </Button>
         <Button large primary disabled={mcp.working || !Object.values(values).some(Boolean)} onClick={() => mcp.saveKeys(d.name, values, bitwarden)}>
-          {t('Lưu vào Keychain', 'Save to Keychain')}
+          {t('Lưu vào ' + secretStore(), 'Save to ' + os('Keychain', 'the encrypted store'))}
         </Button>
       </DialogButtons>
     </>
@@ -822,12 +825,12 @@ function HowCmdBody({ d, mcp }: { d: Extract<McpDialog, { kind: 'howCmd' }>; mcp
   return (
     <>
       <DialogTitle>{t('Cài lệnh của ' + d.name, 'Install ' + d.name + '’s command')}</DialogTitle>
-      <DialogLead>{t(d.name + ' chạy lệnh này, mà máy này chưa có:', d.name + ' runs this command, which this Mac does not have:')}</DialogLead>
+      <DialogLead>{mac(t(d.name + ' chạy lệnh này, mà máy này chưa có:', d.name + ' runs this command, which this Mac does not have:'))}</DialogLead>
       <Command>{command}</Command>
       <p className={TECH}>
         {t(
-          'App không tự cài lệnh. Cài theo hướng dẫn của MCP đó (thường là npm, brew hay uv), rồi bấm Đọc lại.',
-          'The app does not install commands itself. Install it as that MCP’s guide says (usually npm, brew or uv), then press Read again.',
+          'App không tự cài lệnh. Cài theo hướng dẫn của MCP đó (thường là npm, ' + os('brew', 'winget') + ' hay uv), rồi bấm Đọc lại.',
+          'The app does not install commands itself. Install it as that MCP’s guide says (usually npm, ' + os('brew', 'winget') + ' or uv), then press Read again.',
         )}
       </p>
       <DialogButtons>
@@ -944,9 +947,11 @@ function BackupsBody({ mcp, model, now }: { mcp: Mcp; model: Model; now: Date })
     <>
       <DialogTitle>{t('Bản đã lưu trước khi ghi', 'Backups made before writing')}</DialogTitle>
       <DialogLead>
-        {t(
-          'Giữ 10 bản gần nhất cho mỗi agent, trên máy này. Bản lưu không chứa khoá: giá trị của khoá được thay bằng <redacted>.',
-          'Keeps the 10 latest for each agent, on this Mac. Backups hold no keys: each key’s value is replaced with <redacted>.',
+        {mac(
+          t(
+            'Giữ 10 bản gần nhất cho mỗi agent, trên máy này. Bản lưu không chứa khoá: giá trị của khoá được thay bằng <redacted>.',
+            'Keeps the 10 latest for each agent, on this Mac. Backups hold no keys: each key’s value is replaced with <redacted>.',
+          ),
         )}
       </DialogLead>
       {list.length ? (

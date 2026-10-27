@@ -22,10 +22,11 @@ import {
   ignoredFeedback,
   openedFeedback,
   openFailedFeedback,
+  isFile,
   unreadNote,
   whereLine,
 } from '../lib/env';
-import { t } from '../lib/i18n';
+import { os, t } from '../lib/i18n';
 import type { Model } from '../lib/model';
 import type { Action, FeedbackView } from '../lib/view';
 
@@ -104,7 +105,7 @@ export function EnvCard({ model, onAction, id }: { model: Model; onAction(act: A
                 <small className="block text-xs text-ink2">{f.effect}</small>
               </span>
               <span className="flex items-start gap-1.5">
-                {f.place !== 'launchctl' ? (
+                {isFile(f.place) ? (
                   <Button label={t('Mở file: ', 'Open file: ') + whereLine(f)} onClick={() => onAction(`env:open:${f.id}`)}>
                     {t('Mở file', 'Open file')}
                   </Button>
@@ -146,9 +147,15 @@ export function EnvListBody({ model, env }: { model: Model; env: EnvState }) {
       <DialogSection>{t('Chỗ', 'Places')}</DialogSection>
       <Facts items={model.env.places.map((p) => ['', p === 'launchctl' ? t('launchctl (app mở từ Dock)', 'launchctl (apps opened from the Dock)') : p])} />
       <p className="mt-1.5 mb-0 text-xs text-ink2">
-        {t(
-          'App tìm tên biến ở đầu dòng trong từng file và hỏi launchctl biến có đặt hay không. App không đọc giá trị, không chạy file shell, không sửa file và không tự bỏ biến.',
-          'The app looks for each name at the start of a line in each file, and asks launchctl whether it is set. It never reads a value, runs a shell file, edits a file or unsets a variable.',
+        {os(
+          t(
+            'App tìm tên biến ở đầu dòng trong từng file và hỏi launchctl biến có đặt hay không. App không đọc giá trị, không chạy file shell, không sửa file và không tự bỏ biến.',
+            'The app looks for each name at the start of a line in each file, and asks launchctl whether it is set. It never reads a value, runs a shell file, edits a file or unsets a variable.',
+          ),
+          t(
+            'App tìm tên biến ở đầu dòng trong $PROFILE của PowerShell và hỏi Windows biến có đặt trong biến người dùng hay biến hệ thống không. App không đọc giá trị, không chạy file shell, không sửa file và không tự bỏ biến.',
+            'The app looks for each name at the start of a line in PowerShell’s $PROFILE, and asks Windows whether it is set as a user or system variable. It never reads a value, runs a shell file, edits a file or unsets a variable.',
+          ),
         )}
       </p>
       <DialogButtons>

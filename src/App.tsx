@@ -43,8 +43,8 @@ import { codexErrorFeedback, codexFeedback, codexPopover, codexRestartFeedback, 
 import type { Api } from './lib/api';
 import { authorModel } from './lib/author';
 import { alertFailedFeedback, testFailedFeedback } from './lib/alerts';
-import type { AgyHow, AlertKind, CodexOutcome, CodexTarget, Language, Model, Sessions, SettingsGroup, Tab, Theme, ThemePack } from './lib/model';
-import { resolveLang, setLang, systemLanguages, t, type Lang } from './lib/i18n';
+import type { AgyHow, AlertKind, CodexOutcome, CodexTarget, Language, Model, Platform, Sessions, SettingsGroup, Tab, Theme, ThemePack } from './lib/model';
+import { resolveLang, setLang, setPlatform, systemLanguages, t, type Lang } from './lib/i18n';
 import {
   autoView,
   extendedFeedback,
@@ -149,6 +149,22 @@ export function useLang(language: Language | undefined): Lang {
   setLang(next);
   useEffect(() => {
     document.documentElement.lang = next;
+  }, [next]);
+  return next;
+}
+
+/**
+ * Sets the system the windows speak of (`Capabilities.platform`, macOS
+ * until the model says otherwise), during the root's render as the
+ * language is, and `data-os` on the page for the system's own type,
+ * corners and scroll bars (tokens.css).
+ */
+export function usePlatform(platform: Platform | undefined): Platform {
+  const next = platform ?? 'macos';
+  setPlatform(next);
+  useEffect(() => {
+    document.documentElement.dataset.os = next;
+    document.querySelectorAll<HTMLElement>('.qs[data-os]').forEach((el) => (el.dataset.os = next));
   }, [next]);
   return next;
 }
@@ -549,6 +565,7 @@ export function PopoverApp({ api, clock = systemClock }: AppProps) {
   const dark = useTheme(model?.theme);
   useThemePack(model?.themePack);
   useLang(model?.language);
+  usePlatform(model?.capabilities.platform);
   useMaterial(api);
   const now = useNow(clock);
   const [feedback, showFeedback] = useFeedback();
@@ -650,6 +667,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   useTheme(model?.theme);
   useThemePack(model?.themePack);
   useLang(model?.language);
+  usePlatform(model?.capabilities.platform);
   useMaterial(api);
   const now = useNow(clock);
   const [keychainLater, setKeychainLater] = useState(false);

@@ -137,6 +137,7 @@ export const SECTION_GLYPHS = {
   advanced: 'sliders-horizontal',
   general: PLACE_GLYPHS.settings,
   display: 'monitor',
+  tray: 'app-window',
   notify: PLACE_GLYPHS.alerts,
   updates: 'arrows-clockwise',
   services: 'database',

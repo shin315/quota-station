@@ -11,7 +11,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { CardText } from '@/components/ui/card';
 import { BannerBox, BannerButtons, Button, LinkButton, Rich, Toggle } from '../components/parts';
 import { Glyph } from '../components/icons';
-import { t } from '../lib/i18n';
+import { mac, t } from '../lib/i18n';
 import { rotationMatters, rotationRow, setupText } from '../lib/claudeAccounts';
 import type { ClaudeAccountsView } from '../lib/model';
 import type { Action, CardView } from '../lib/view';
@@ -65,7 +65,7 @@ function AccountMenu({ card, view, claude, advanced }: { card: CardView } & Pick
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem className={ITEM + ' font-med text-bad-ink'} onSelect={() => claude.open({ kind: 'remove', slot: row.slot })}>
-          {t('Xoá khỏi máy này…', 'Remove from this Mac…')}
+          {mac(t('Xoá khỏi máy này…', 'Remove from this Mac…'))}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

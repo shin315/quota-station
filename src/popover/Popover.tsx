@@ -28,7 +28,7 @@ import { IdMark, InUse } from '../components/accounts';
 import { PlaceGlyph } from '../components/icons';
 import { Banner, Button, Dot, Feedback, LinkButton, Meter, More, Skeleton, Spinner, Toggle } from '../components/parts';
 import { isGemini } from '../lib/accounts';
-import { t } from '../lib/i18n';
+import { mac, t } from '../lib/i18n';
 import type { AutoView } from '../lib/switching';
 import type { CodexPopView } from '../lib/codex';
 import { bannerUnder, type Action, type CardView, type CellView, type ChipView, type FeedbackView, type GroupView, type NoteView, type NowRowView, type PopoverView, type UsedTone } from '../lib/view';
@@ -614,7 +614,7 @@ export function Popover({ view, codex = null, auto, sync = null, release = null,
           {banner ? <Banner banner={banner} onAction={onAction} busy={busy} /> : null}
           {view.none ? (
             <EmptyCard
-              title={t('Chưa thấy Claude Code, Codex hay Antigravity trên máy này', 'No Claude Code, Codex or Antigravity on this Mac yet')}
+              title={mac(t('Chưa thấy Claude Code, Codex hay Antigravity trên máy này', 'No Claude Code, Codex or Antigravity on this Mac yet'))}
               body={t('Quota Station hiện hạn mức của các agent này. Cài một agent rồi bấm Kiểm lại.', 'Quota Station shows the quota of these agents. Install one, then press Check again.')}
             >
               <Button small onClick={() => onAction('refresh')} disabled={busy === 'refresh'}>

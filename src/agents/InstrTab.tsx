@@ -21,7 +21,7 @@ import { CARD_END, COUNT, Empty, GROUP_HEAD, TabHead, TabSub, TabTitle } from '.
 import { DialogButtons, DialogLead, DialogTitle } from '@/components/ui/dialog';
 import type { Api } from '../lib/api';
 import { clock } from '../lib/format';
-import { t } from '../lib/i18n';
+import { cloudDrive, mac, t } from '../lib/i18n';
 import { AGENT_NAME, AGENTS } from '../lib/mcp';
 import type { Agent, InstrFile, InstrShown, McpLine, Model } from '../lib/model';
 import { dayClock } from '../lib/switching';
@@ -122,13 +122,13 @@ export function useInstr(api: Api, model: Model | null, showFeedback: (fb: Feedb
     try {
       await api.backupNow();
       setDialog(null);
-      showFeedback({ tone: 'info', title: t('Đã sao lưu', 'Backed up'), body: t('Gói mới có bản file hướng dẫn trên máy lúc này.', 'The new pack has the instruction files as they are on this Mac now.') });
+      showFeedback({ tone: 'info', title: t('Đã sao lưu', 'Backed up'), body: mac(t('Gói mới có bản file hướng dẫn trên máy lúc này.', 'The new pack has the instruction files as they are on this Mac now.')) });
       reread();
     } catch (e) {
       showFeedback({
         tone: 'bad',
         title: t('Chưa sao lưu được', 'Could not back up'),
-        body: String(e) === 'noICloud' ? t('iCloud Drive chưa bật trên máy này.', 'iCloud Drive is not turned on on this Mac.') : t('Xem tab Sao lưu để biết thêm.', 'See the Backup tab for more.'),
+        body: String(e) === 'noICloud' ? mac(t(cloudDrive() + ' chưa bật trên máy này.', cloudDrive() + ' is not turned on on this Mac.')) : t('Xem tab Sao lưu để biết thêm.', 'See the Backup tab for more.'),
       });
       setDialog(null);
     } finally {
@@ -272,7 +272,7 @@ export function InstrTab({ model, fresh, feedback, now, instr, onAction }: Instr
         ))}
       <Panel>
         <CardTitle>
-          {t('Trong máy này', 'On this Mac')} {view ? <span className={COUNT}>{view.files.length}</span> : null}
+          {mac(t('Trong máy này', 'On this Mac'))} {view ? <span className={COUNT}>{view.files.length}</span> : null}
           <span className={CARD_END}>
             <Button small onClick={() => instr.setDialog({ kind: 'add', path: '', error: null })}>
               {t('Thêm file…', 'Add file…')}
@@ -282,7 +282,7 @@ export function InstrTab({ model, fresh, feedback, now, instr, onAction }: Instr
         {!view ? (
           <Empty>
             <b>{t('Đang đọc file hướng dẫn…', 'Reading the instruction files…')}</b>
-            {t('CLAUDE.md, AGENTS.md, GEMINI.md và các file luật, trên máy này.', 'CLAUDE.md, AGENTS.md, GEMINI.md and the rule files on this Mac.')}
+            {mac(t('CLAUDE.md, AGENTS.md, GEMINI.md và các file luật, trên máy này.', 'CLAUDE.md, AGENTS.md, GEMINI.md and the rule files on this Mac.'))}
           </Empty>
         ) : view.files.length ? (
           <div role="group" aria-label={t('File hướng dẫn', 'Instruction files')}>
@@ -318,7 +318,7 @@ export function InstrTab({ model, fresh, feedback, now, instr, onAction }: Instr
             className="mb-0"
             items={[
               { k: '', text: t('App không sửa các file này. Khôi phục chỉ ghi file bạn chọn, sau khi xem so sánh từng dòng.', 'The app does not edit these files. A restore only writes the files you pick, after a line-by-line comparison.') },
-              { k: '', text: t('Bản trên máy khác gói thì mặc định giữ bản trên máy.', 'When the copy on this Mac differs from the pack, the one on this Mac is kept by default.') },
+              { k: '', text: mac(t('Bản trên máy khác gói thì mặc định giữ bản trên máy.', 'When the copy on this Mac differs from the pack, the one on this Mac is kept by default.')) },
             ]}
           />
         </div>
@@ -428,7 +428,7 @@ function DiffBody({ d, instr, model }: { d: Extract<InstrDialog, { kind: 'diff' 
       ) : (
         <p>{t('Đang so…', 'Comparing…')}</p>
       )}
-      <p className={TECH}>{t('Gói tự sao lưu sẽ lấy bản trên máy ở lần tới.', 'The next automatic backup takes the copy on this Mac.')}</p>
+      <p className={TECH}>{mac(t('Gói tự sao lưu sẽ lấy bản trên máy ở lần tới.', 'The next automatic backup takes the copy on this Mac.'))}</p>
       <DialogButtons>
         <Button large disabled={instr.working} onClick={instr.backupNow}>
           {instr.working ? t('Đang sao lưu…', 'Backing up…') : t('Sao lưu bây giờ', 'Back up now')}

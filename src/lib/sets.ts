@@ -10,7 +10,7 @@
 import { AGENT_NAME, AGENTS, changesWord, failureText } from './mcp';
 import { skillFailureText, skillLockText } from './skills';
 import { clock } from './format';
-import { t } from './i18n';
+import { mac, t } from './i18n';
 import type {
   Agent,
   CodexTarget,
@@ -142,7 +142,7 @@ export function sentOf(p: SetPreview): SetSent {
 }
 
 function reason(s: SetSkipped): string {
-  if (s.reason === 'notHere') return t('máy này không có', 'not on this Mac');
+  if (s.reason === 'notHere') return mac(t('máy này không có', 'not on this Mac'));
   if (s.reason === 'owned') return t('có sẵn của agent, app để yên', 'built into the agent, left alone');
   if (s.kind === 'skill' && ['readOnly', 'hand', 'taken', 'broken'].includes(s.reason)) return skillLockText(s.reason as 'readOnly');
   switch (s.reason) {
@@ -219,7 +219,7 @@ export function appliedFeedback(name: string, o: SetOutcome, step: CodexTarget |
     body:
       (n
         ? t('Đã sao lưu file của agent lúc ' + at + '. Phiên mở sau sẽ dùng cấu hình mới.', 'Backed up the agents’ files at ' + at + '. Sessions opened from now on use the new setup.')
-        : t('Máy đã đúng như bộ, không có gì để ghi.', 'This Mac already matches the set; nothing to write.')) + cx,
+        : mac(t('Máy đã đúng như bộ, không có gì để ghi.', 'This Mac already matches the set; nothing to write.'))) + cx,
     actions: [
       ...(n ? [undo] : []),
       ...(step ? [{ label: t('Chuyển Codex', 'Switch Codex'), act: step === 'chatGpt' ? ('codex:switch:chatGpt' as const) : ('codex:switch:custom' as const) }] : []),
@@ -283,6 +283,6 @@ export function setErrorText(e: unknown): string {
         );
   }
   if (s === 'notTheSet')
-    return t('Chưa đổi gì: máy đã khác lúc xem trước. Bấm Áp… lại để xem trước lần nữa.', 'Nothing changed: this Mac changed after the preview. Press Apply… again to preview again.');
+    return mac(t('Chưa đổi gì: máy đã khác lúc xem trước. Bấm Áp… lại để xem trước lần nữa.', 'Nothing changed: this Mac changed after the preview. Press Apply… again to preview again.'));
   return t('App không ghi được lúc này. Các file không đổi.', 'The app cannot write right now. The files are unchanged.');
 }

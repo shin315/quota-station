@@ -8,7 +8,7 @@
 // `tabFirstmate`.
 
 import { age, clock, percent, secondsSince } from './format';
-import { t } from './i18n';
+import { appName, osName, systemSettings, t } from './i18n';
 import type { AuthorModel } from './author';
 import type { AlertRecord, AlertTone, FirstmateView, Model, NotifyPermission, SwitchKind } from './model';
 import { dayLabel } from './history';
@@ -108,7 +108,7 @@ function iso(unix: number): string {
 
 function working(action: string): string {
   return action.startsWith('agy:quitFirst:')
-    ? t('Đang thoát Antigravity.app và chuyển tài khoản…', 'Quitting Antigravity.app and switching accounts…')
+    ? t('Đang thoát ' + appName('Antigravity') + ' và chuyển tài khoản…', 'Quitting ' + appName('Antigravity') + ' and switching accounts…')
     : t('Đang chuyển tài khoản Antigravity…', 'Switching the Antigravity account…');
 }
 
@@ -119,7 +119,7 @@ export function alertCard(r: AlertRecord, now: Date): AlertCardView {
   // The day is the group's head; the line keeps the time.
   const meta = [clock(iso(a.at))];
   if (a.test) meta.push(t('thông báo thử', 'test notification'));
-  meta.push(r.notified ? t('đã gửi thông báo macOS', 'sent as a macOS notification') : t('chỉ có trong app', 'in the app only'));
+  meta.push(r.notified ? t('đã gửi thông báo ' + osName(), 'sent as a ' + osName() + ' notification') : t('chỉ có trong app', 'in the app only'));
   return {
     id: r.id,
     icon: { k: icon, mark: a.tone === 'ok' ? '✓' : '!' },
@@ -143,13 +143,13 @@ export function permissionBanner(p: NotifyPermission): BannerView | null {
     return {
       tone: 'warn',
       title: t('Thông báo của Quota Station đang tắt', 'Quota Station notifications are off'),
-      body: t('macOS không hiện thẻ nào. Các thông báo vẫn nằm ở đây, kèm nút như trên thẻ.', 'macOS shows no cards. Notifications still show up here, with the same buttons as the cards.'),
-      actions: [{ label: t('Mở Cài đặt hệ thống', 'Open System Settings'), act: 'notify:settings' }],
+      body: t(osName() + ' không hiện thẻ nào. Các thông báo vẫn nằm ở đây, kèm nút như trên thẻ.', osName() + ' shows no cards. Notifications still show up here, with the same buttons as the cards.'),
+      actions: [{ label: t('Mở ', 'Open ') + systemSettings(), act: 'notify:settings' }],
     };
   if (p === 'unbundled')
     return {
       tone: 'info',
-      title: t('Bản chạy thử không gửi thông báo macOS', 'A dev build sends no macOS notifications'),
+      title: t('Bản chạy thử không gửi thông báo ' + osName(), 'A dev build sends no ' + osName() + ' notifications'),
       body: t(
         'Chỉ app đã đóng gói mới có thẻ thông báo. Các thông báo vẫn nằm ở đây, kèm nút như trên thẻ.',
         'Only the packaged app gets notification cards. Notifications still show up here, with the same buttons as the cards.',
@@ -320,7 +320,7 @@ export function firstmateTab(model: AuthorModel, now: Date): FirstmateTabView {
 
 function pressRefused(code: string): string {
   const known: Record<string, string> = {
-    answered: t('Thông báo này đã có câu trả lời, có thể từ thẻ macOS.', 'This notification already has an answer, possibly from the macOS card.'),
+    answered: t('Thông báo này đã có câu trả lời, có thể từ thẻ ' + osName() + '.', 'This notification already has an answer, possibly from the ' + osName() + ' card.'),
     unknown: t('App không còn giữ thông báo này.', 'The app no longer keeps this notification.'),
     noSuchAction: t('Thẻ này không có nút đó.', 'This card has no such button.'),
     noPage: t(

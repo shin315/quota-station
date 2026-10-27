@@ -11,25 +11,37 @@ import { AGENT_NAME } from './mcp';
 import type { EnvFound, EnvPlace, EnvView, Model } from './model';
 import type { BannerView, ChipView, FeedbackView } from './view';
 
-const FILES: Record<Exclude<EnvPlace, 'launchctl'>, string> = {
+/** The places that are no file: launchd, and Windows' user and system variables (the registry). */
+type NoFile = 'launchctl' | 'userEnv' | 'machineEnv';
+
+const FILES: Record<Exclude<EnvPlace, NoFile>, string> = {
   zshenv: '~/.zshenv',
   zprofile: '~/.zprofile',
   zshrc: '~/.zshrc',
   bashProfile: '~/.bash_profile',
   profile: '~/.profile',
+  psProfile: '$PROFILE',
 };
+
+/** A shell file, which "Mở file" opens at its line. */
+export function isFile(p: EnvPlace): p is Exclude<EnvPlace, NoFile> {
+  return p !== 'launchctl' && p !== 'userEnv' && p !== 'machineEnv';
+}
 
 /** "3 variables", "1 place": a count with its English noun. */
 const plural = (n: number, one: string, many: string): string => n + ' ' + (n === 1 ? one : many);
 
-/** `~/.zshrc`, or `launchctl`. */
+/** `~/.zshrc`, `launchctl`, or Windows' "biến người dùng". */
 export function placeLabel(p: EnvPlace): string {
+  if (p === 'userEnv') return t('biến người dùng', 'user variables');
+  if (p === 'machineEnv') return t('biến hệ thống', 'system variables');
   return p === 'launchctl' ? 'launchctl' : FILES[p];
 }
 
 /** Under the name: `~/.zshrc · dòng 42`, or where launchd's variables go. */
 export function whereLine(f: EnvFound): string {
   if (f.place === 'launchctl') return t('launchctl · app mở từ Dock', 'launchctl · apps opened from the Dock');
+  if (!isFile(f.place)) return placeLabel(f.place) + t(' · app mở từ Start', ' · apps opened from Start');
   return placeLabel(f.place) + (f.line != null ? t(' · dòng ', ' · line ') + f.line : '');
 }
 
@@ -44,7 +56,7 @@ export function agentChip(f: EnvFound): ChipView {
 
 /** "Mở ~/.zshrc ở dòng 42": only for a file. */
 export function openLabel(f: EnvFound): string | null {
-  if (f.place === 'launchctl') return null;
+  if (!isFile(f.place)) return null;
   return t('Mở ', 'Open ') + placeLabel(f.place) + (f.line != null ? t(' ở dòng ', ' at line ') + f.line : '');
 }
 

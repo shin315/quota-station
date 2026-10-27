@@ -9,7 +9,7 @@
 // since the download has neither part.
 
 import { clock } from './format';
-import { t } from './i18n';
+import { mac, t } from './i18n';
 import type { Model, ReleaseLatest } from './model';
 import type { BannerView } from './view';
 
@@ -54,9 +54,11 @@ export function releaseBanner(model: Model): BannerView | null {
     icon: 'note',
     title: t('Có bản mới: Quota Station ' + l.version, 'New version: Quota Station ' + l.version),
     body: fromSource(model)
-      ? t(
-          'Máy này chạy bản build từ mã nguồn, nên cập nhật từ mã nguồn để giữ phần chỉ có ở bản build này.',
-          'This Mac runs a build from source, so update from source to keep what only this build has.',
+      ? mac(
+          t(
+            'Máy này chạy bản build từ mã nguồn, nên cập nhật từ mã nguồn để giữ phần chỉ có ở bản build này.',
+            'This Mac runs a build from source, so update from source to keep what only this build has.',
+          ),
         )
       : t('Bạn đang dùng ' + model.app.version + '. Không có gì tự cài: app hỏi trước.', 'You have ' + model.app.version + '. Nothing installs by itself: the app asks first.'),
     actions: [
