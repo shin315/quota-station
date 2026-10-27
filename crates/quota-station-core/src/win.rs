@@ -379,6 +379,70 @@ pub fn owner_only(dir: &Path) -> io::Result<()> {
     Ok(())
 }
 
+/// Whether `dir` is its owner's alone, as [`owner_only`] leaves it: its
+/// ACL inherits nothing and each of its entries allows the current user.
+/// The test build's self-check reads this instead of the Security tab,
+/// which shows the user's name.
+pub fn is_owner_only(dir: &Path) -> io::Result<bool> {
+    use windows_sys::Win32::Security::Authorization::{GetNamedSecurityInfoW, SE_FILE_OBJECT};
+    use windows_sys::Win32::Security::{
+        EqualSid, GetAce, GetSecurityDescriptorControl, ACCESS_ALLOWED_ACE, ACE_HEADER, ACL,
+        DACL_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, SE_DACL_PROTECTED,
+    };
+    /// `ACCESS_ALLOWED_ACE_TYPE`.
+    const ALLOWED: u8 = 0;
+    let mut sid = user_sid()?;
+    let path = wide(dir);
+    let mut dacl: *mut ACL = std::ptr::null_mut();
+    let mut descriptor: PSECURITY_DESCRIPTOR = std::ptr::null_mut();
+    // SAFETY: `path` is NUL-terminated; the descriptor is freed below and
+    // `dacl` points inside it.
+    let got = unsafe {
+        GetNamedSecurityInfoW(
+            path.as_ptr(),
+            SE_FILE_OBJECT,
+            DACL_SECURITY_INFORMATION,
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            &mut dacl,
+            std::ptr::null_mut(),
+            &mut descriptor,
+        )
+    };
+    if got != ERROR_SUCCESS {
+        return Err(io::Error::from_raw_os_error(got as i32));
+    }
+    // SAFETY: the descriptor and its ACL are the ones just read; each ACE
+    // is read only through its header and, when allowed, as an
+    // ACCESS_ALLOWED_ACE whose SID starts at `SidStart`.
+    let alone = unsafe {
+        let mut control = 0u16;
+        let mut revision = 0u32;
+        let protected = GetSecurityDescriptorControl(descriptor, &mut control, &mut revision) != 0
+            && control & SE_DACL_PROTECTED != 0;
+        let mut ours = !dacl.is_null() && (*dacl).AceCount > 0;
+        if ours {
+            for i in 0..u32::from((*dacl).AceCount) {
+                let mut ace: *mut core::ffi::c_void = std::ptr::null_mut();
+                if GetAce(dacl, i, &mut ace) == 0
+                    || (*(ace as *const ACE_HEADER)).AceType != ALLOWED
+                {
+                    ours = false;
+                    break;
+                }
+                let start = &raw const (*(ace as *const ACCESS_ALLOWED_ACE)).SidStart;
+                if EqualSid(start as *mut core::ffi::c_void, sid.as_mut_ptr().cast()) == 0 {
+                    ours = false;
+                    break;
+                }
+            }
+        }
+        LocalFree(descriptor);
+        protected && ours
+    };
+    Ok(alone)
+}
+
 /// What the move of a sign-in says when Codex keeps holding the file.
 pub const HELD: &str = "Codex is using the sign-in; quit Codex and try again";
 
@@ -528,7 +592,10 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("qs-owner-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
+        // A new folder under %TEMP% inherits its parent's entries.
+        assert!(!is_owner_only(&dir).unwrap());
         owner_only(&dir).unwrap();
+        assert!(is_owner_only(&dir).unwrap());
         std::fs::write(dir.join("auth.json"), "{}").unwrap();
         assert_eq!(std::fs::read_to_string(dir.join("auth.json")).unwrap(), "{}");
         let _ = std::fs::remove_dir_all(&dir);

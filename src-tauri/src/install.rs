@@ -166,6 +166,7 @@ pub fn set_launch_at_login(
     on: bool,
 ) -> Result<Model, String> {
     let result = login_item::set(&MainApp, on);
+    crate::session::note("login-item", serde_json::json!({ "on": on, "ok": result.is_ok() }));
     read_login(state.inner());
     reader::publish(&app, &state);
     result.map(|_| state.lock().model()).map_err(|e| e.to_string())

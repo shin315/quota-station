@@ -75,7 +75,7 @@ const FEEDBACK_MS = 8000;
 /** A line that only says something went well goes sooner. */
 const QUIET_MS = 6000;
 
-function useModel(api: Api): Model | null {
+export function useModel(api: Api): Model | null {
   const [model, setModel] = useState<Model | null>(null);
   useEffect(() => {
     let live = true;

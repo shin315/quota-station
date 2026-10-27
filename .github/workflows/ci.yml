@@ -93,7 +93,8 @@ jobs:
   # The Windows build: vitest (the windows as Windows draws them, the
   # *.win.test.tsx files among them), and the core and the app crate:
   # clippy and their tests in the two feature sets Windows builds (the
-  # author's tools are Unix only). The macOS job stays the required check.
+  # author's tools are Unix only), then the guided sessions' test
+  # installer. The macOS job stays the required check.
   build-windows:
     name: Build and test (Windows x64)
     runs-on: windows-latest
@@ -137,3 +138,20 @@ jobs:
 
       - name: cargo test (app, Antigravity accounts)
         run: cargo test -p quota-station --locked --no-fail-fast --features antigravity-accounts
+
+      # The test installer for the guided sessions on a Windows PC (plan
+      # 4.3): NSIS, unsigned on purpose, MIT build. QS_TEST_SESSION makes it
+      # open the session's guide and write diag-<date>.zip; no release
+      # carries it.
+      - name: Build the session's test installer (NSIS, unsigned)
+        run: npx tauri build --bundles nsis
+        env:
+          QS_TEST_SESSION: "1"
+
+      - name: Upload the session's test installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: quota-station-windows-x64-test-setup
+          path: target/release/bundle/nsis/*-setup.exe
+          if-no-files-found: error
+          retention-days: 14

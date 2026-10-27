@@ -261,6 +261,7 @@ pub async fn alert_action(
 /// opens the main window with the bell's panel open (`Tab::Alerts` asks for
 /// the panel, not a page). Comes on the notification center's thread.
 pub fn on_card(app: &AppHandle, id: String, action: Option<String>) {
+    crate::session::note("toast-press", serde_json::json!({ "action": action }));
     let Some(action) = action else {
         windows::open_main(app, Tab::Alerts);
         return;
@@ -381,6 +382,8 @@ pub fn test_alert(app: AppHandle, state: State<'_, AppState>, kind: Kind) -> Mod
         let _ = alerts::save(&inner.app_dir(), &inner.alerts);
     }
     reader::publish(&app, &state);
+    crate::session::note("toast-sent", serde_json::json!({ "kind": kind }));
+    crate::session::shoot(&app, "toast", Duration::from_millis(1800));
     state.lock().model()
 }
 
@@ -483,6 +486,8 @@ pub fn notify_refresh(app: AppHandle, state: State<'_, AppState>) {
     let shared: Arc<_> = state.inner().clone();
     std::thread::spawn(move || {
         std::thread::sleep(Duration::from_millis(500));
+        let permission = center.permission();
+        crate::session::note("notifications", serde_json::json!({ "permission": permission }));
         reader::publish(&app, &shared);
     });
 }

@@ -58,8 +58,9 @@ pub fn settings_group(state: State<'_, AppState>) -> String {
 
 /// The group picked in Cài đặt, kept while the app runs.
 #[tauri::command]
-pub fn set_settings_group(state: State<'_, AppState>, group: String) {
+pub fn set_settings_group(app: AppHandle, state: State<'_, AppState>, group: String) {
     state.lock().settings_group = group;
+    crate::session::changed(&app);
 }
 
 #[tauri::command]
@@ -158,6 +159,7 @@ pub fn set_menubar(
     menubar: Menubar,
 ) -> Result<Model, String> {
     save_menubar(&app, &state, menubar)?;
+    crate::session::changed(&app);
     Ok(state.lock().model())
 }
 
@@ -184,6 +186,7 @@ pub fn set_menubar_window(
     window: MenubarWindow,
 ) -> Result<Model, String> {
     save_menubar_window(&app, &state, window)?;
+    crate::session::changed(&app);
     Ok(state.lock().model())
 }
 
@@ -221,6 +224,7 @@ pub fn set_theme(
     }
     windows::apply_theme(&app, theme);
     reader::publish(&app, &state);
+    crate::session::changed(&app);
     Ok(state.lock().model())
 }
 
@@ -239,6 +243,7 @@ pub fn set_theme_pack(
         inner.settings = settings;
     }
     reader::publish(&app, &state);
+    crate::session::changed(&app);
     Ok(state.lock().model())
 }
 
@@ -280,6 +285,7 @@ pub fn set_language(
         inner.settings = settings;
     }
     reader::publish(&app, &state);
+    crate::session::changed(&app);
     Ok(state.lock().model())
 }
 

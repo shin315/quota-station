@@ -105,6 +105,9 @@ pub fn build(app: &App) -> tauri::Result<()> {
     let refresh = MenuItem::with_id(app, "refresh", "Làm mới", true, None::<&str>)?;
     let settings = MenuItem::with_id(app, "settings", "Cài đặt…", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Thoát Quota Station", true, None::<&str>)?;
+    // The test build's guided session (`crate::session`) only.
+    let guide = MenuItem::with_id(app, "guide", "Hướng dẫn phiên thử", true, None::<&str>)?;
+    let separator = PredefinedMenuItem::separator(app)?;
     let mut items = Vec::new();
     for (menubar, id, text) in FOLLOW_IDS {
         let on = menubar == Menubar::Claude;
@@ -137,6 +140,9 @@ pub fn build(app: &App) -> tauri::Result<()> {
             &quit,
         ],
     )?;
+    if crate::session::ON {
+        menu.insert_items(&[&guide, &separator], 0)?;
+    }
     if let (Ok(items), Ok(windows)) = (<[_; 3]>::try_from(items), <[_; 4]>::try_from(windows)) {
         *FOLLOW.lock().unwrap_or_else(|e| e.into_inner()) =
             Some(FollowMenu { items, windows, last: None });
@@ -179,6 +185,7 @@ pub fn build(app: &App) -> tauri::Result<()> {
             "window" => windows::open_main(app, Tab::Overview),
             "settings" => windows::open_main(app, Tab::Settings),
             "quit" => windows::quit(app),
+            "guide" => crate::session::open_guide(app),
             id => {
                 if let Some((menubar, _, _)) = FOLLOW_IDS.iter().find(|(_, i, _)| *i == id) {
                     let state = app.state::<AppState>();
@@ -269,7 +276,10 @@ pub fn apply(app: &AppHandle, icon: &Icon, follow: Follow) {
     let Some(tray) = app.tray_by_id(TRAY_ID) else {
         return;
     };
-    let _ = tray.set_icon(Some(glyph(icon, look)));
+    let image = glyph(icon, look);
+    #[cfg(windows)]
+    crate::session::tray_drawn(&icon.title, look.size, look.light, image.rgba());
+    let _ = tray.set_icon(Some(image));
     let _ = tray.set_icon_as_template(true);
     let _ = tray.set_title(Some(&icon.title));
     let _ = tray.set_tooltip(Some(tooltip(icon)));

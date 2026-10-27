@@ -1332,6 +1332,11 @@ export interface Capabilities {
    * and the tests written before Windows.
    */
   platform?: Platform;
+  /**
+   * A test build for a guided session on a Windows PC (`session.rs`): the
+   * guide's window, its self-checks and pictures. Absent in every other build.
+   */
+  session?: boolean;
 }
 
 export interface Model {

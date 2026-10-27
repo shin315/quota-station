@@ -38,6 +38,10 @@ const REOPEN_GUARD: Duration = Duration::from_millis(300);
 /// title bar, so the window is the size the design was drawn at.
 const MAIN_SIZE: (f64, f64) = (1152.0, 864.0);
 const MAIN_MIN_SIZE: (f64, f64) = (760.0, 480.0);
+/// The test build's pictures (`crate::session`) wait this long for the
+/// popover to take its place and its material, and the main window to draw.
+const POPOVER_SETTLES: Duration = Duration::from_millis(700);
+const MAIN_SETTLES: Duration = Duration::from_millis(900);
 /// The traffic lights sit inside the sidebar, where the prototype draws them.
 #[cfg(target_os = "macos")]
 const TRAFFIC_LIGHTS: (f64, f64) = (22.0, 26.0);
@@ -165,11 +169,13 @@ fn check_material(app: &AppHandle) {
         #[cfg(windows)]
         set_materials(app);
         let _ = app.emit("reduceTransparency", now);
+        crate::session::note("material", serde_json::json!({ "reduceTransparency": now }));
     }
     let before = INCREASE_CONTRAST.load(Ordering::Relaxed);
     let now = increase_contrast();
     if now != before {
         let _ = app.emit("increaseContrast", now);
+        crate::session::note("material", serde_json::json!({ "increaseContrast": now }));
     }
 }
 
@@ -202,6 +208,7 @@ pub fn toggle_popover(app: &AppHandle) {
     let _ = window.show();
     let _ = window.set_focus();
     update_visible(app);
+    crate::session::shoot(app, "popover", POPOVER_SETTLES);
 }
 
 /// Shows the popover under the menu bar item, for a button on a macOS card
@@ -214,6 +221,7 @@ pub fn show_popover(app: &AppHandle) {
         #[cfg(windows)]
         place_popover(app, &window, None);
         let _ = window.show();
+        crate::session::shoot(app, "popover", POPOVER_SETTLES);
     }
     let _ = window.set_focus();
     update_visible(app);
@@ -275,6 +283,13 @@ pub fn tray_clicked(rect: &tauri::Rect) {
     *TRAY_AREA.lock().unwrap_or_else(|e| e.into_inner()) = area;
 }
 
+/// The tray icon's rectangle in physical pixels (left, top, width,
+/// height), for the test build's pictures of the tray corner.
+#[cfg(windows)]
+pub(crate) fn tray_rect(app: &AppHandle) -> Option<(i32, i32, i32, i32)> {
+    tray_area(app).map(|a| (a.x, a.y, a.w, a.h))
+}
+
 /// Where the tray icon is: where it was last clicked, else what Windows
 /// says now (a second launch opens the popover without a click).
 #[cfg(windows)]
@@ -327,6 +342,7 @@ fn place_popover(app: &AppHandle, window: &WebviewWindow, height: Option<f64>) {
     let size = ((POPOVER_WIDTH * scale).round() as i32, (height * scale).round() as i32);
     let margin = (POPOVER_MARGIN * scale).round() as i32;
     let (x, y) = place::popover(tray, screen, work, size, margin);
+    note_placed(tray, work, (x, y), size, margin, scale);
     let at = tauri::PhysicalPosition::new(x, y);
     // Moved first, so a screen of another scale has already rescaled the
     // window when it takes its logical size; moved again in case that
@@ -334,6 +350,49 @@ fn place_popover(app: &AppHandle, window: &WebviewWindow, height: Option<f64>) {
     let _ = window.set_position(at);
     let _ = window.set_size(LogicalSize::new(POPOVER_WIDTH, height));
     let _ = window.set_position(at);
+}
+
+/// The test build's record of where the popover went (`crate::session`):
+/// the icon, the work area, the scale, and whether the popover stayed
+/// `margin` inside the work area. Only a place that changed is noted.
+#[cfg(windows)]
+fn note_placed(
+    tray: Option<place::Area>,
+    work: place::Area,
+    at: (i32, i32),
+    size: (i32, i32),
+    margin: i32,
+    scale: f64,
+) {
+    static LAST: std::sync::Mutex<Option<[i32; 4]>> = std::sync::Mutex::new(None);
+    if !crate::session::ON {
+        return;
+    }
+    {
+        let mut last = LAST.lock().unwrap_or_else(|e| e.into_inner());
+        let placed = [at.0, at.1, size.0, size.1];
+        if *last == Some(placed) {
+            return;
+        }
+        *last = Some(placed);
+    }
+    let inside = at.0 >= work.x + margin
+        && at.1 >= work.y + margin
+        && at.0 + size.0 <= work.x + work.w - margin
+        && at.1 + size.1 <= work.y + work.h - margin;
+    crate::session::note(
+        "popover",
+        serde_json::json!({
+            "tray": tray.map(|t| [t.x, t.y, t.w, t.h]),
+            "work": [work.x, work.y, work.w, work.h],
+            "at": [at.0, at.1],
+            "size": [size.0, size.1],
+            "scale": scale,
+            "insideWithMargin": inside,
+            "gapBelow": work.y + work.h - (at.1 + size.1),
+            "margin": margin,
+        }),
+    );
 }
 
 /// Where the popover goes on Windows, worked out in physical pixels.
@@ -571,7 +630,10 @@ pub fn open_main(app: &AppHandle, tab: Tab) {
                 api.prevent_close();
                 let _ = handle.emit_to(MAIN, "closeRequested", ());
             }
-            WindowEvent::Focused(true) => check_material(&handle),
+            WindowEvent::Focused(true) => {
+                check_material(&handle);
+                crate::session::shoot(&handle, "main", MAIN_SETTLES);
+            }
             WindowEvent::Destroyed => {
                 let popover = popover(&handle).is_some_and(|w| w.is_visible().unwrap_or(false));
                 handle.state::<AppState>().lock().set_visible(popover, false);

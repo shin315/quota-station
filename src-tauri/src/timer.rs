@@ -40,6 +40,7 @@ pub fn spawn(state: AppState) {
                 } else if timer::due(on, last.map(|t| t.elapsed())) {
                     last = Some(Instant::now());
                     rotate::run(&store, &tools);
+                    crate::session::note("rotation-run", serde_json::json!({}));
                     state.request_switcher();
                 }
                 thread::sleep(TICK);

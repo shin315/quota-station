@@ -139,10 +139,34 @@ mod win {
     pub fn open_settings(app: &tauri::AppHandle) {
         let _ = crate::open::url(app, "ms-settings:startupapps");
     }
+
+    /// The test build's self-check (`crate::session`): the value, whether
+    /// it holds this copy's quoted path, none under the machine's key, and
+    /// whether Settings › Apps › Startup has it on (`StartupApproved`'s
+    /// first byte is even when on).
+    pub fn session_check() -> serde_json::Value {
+        let value = windows_registry::CURRENT_USER.open(RUN).and_then(|k| k.get_string(NAME)).ok();
+        let exe = std::env::current_exe().ok().map(|e| format!("\"{}\"", e.display()));
+        let machine =
+            windows_registry::LOCAL_MACHINE.open(RUN).and_then(|k| k.get_string(NAME)).is_ok();
+        let approved = windows_registry::CURRENT_USER
+            .open(r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run")
+            .and_then(|k| k.get_value(NAME))
+            .ok()
+            .and_then(|v| v.first().copied())
+            .map(|b| b % 2 == 0);
+        serde_json::json!({
+            "runValue": value.is_some(),
+            "thisCopy": value.is_some() && value == exe,
+            "machineValue": machine,
+            "startupOn": approved,
+            "status": format!("{:?}", MainApp.status()),
+        })
+    }
 }
 
 #[cfg(windows)]
-pub use win::open_settings;
+pub use win::{open_settings, session_check};
 
 /// Elsewhere there are no login items to offer.
 #[cfg(not(any(target_os = "macos", windows)))]
