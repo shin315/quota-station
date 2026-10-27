@@ -106,7 +106,7 @@ function why(e: HistoryEntry, nameOf: NameOf, now: Date): string {
       let s = t('Bạn chuyển tay', 'You switched by hand');
       if (c.holdUntil) s += t(' · giữ đến ', ' · held until ') + dayClock(c.holdUntil, now);
       if (c.result === 'raced') s += t(' · một lần chuyển khác ghi ngay sau đó', ' · another switch wrote right after');
-      if (c.result === 'unconfirmed') s += t(' · chưa đọc lại được để kiểm', ' · could not read it back to check');
+      if (c.result === 'unconfirmed') s += t(' · chưa đọc lại được để kiểm tra', ' · could not read it back to check');
       return s;
     }
     case 'switcher':
@@ -143,7 +143,7 @@ function pill(e: HistoryEntry): HistoryRowView['pill'] {
   if (c.kind === 'agyOverwrite') return { t: t('Cảnh báo', 'Alert'), k: 'w' };
   if (e.app === 'antigravity') return { t: 'Antigravity', k: 'g' };
   if (e.app === 'codex') return { t: 'Codex', k: 'x' };
-  if (c.kind === 'primed') return { t: t('Mồi', 'Prime'), k: '' };
+  if (c.kind === 'primed') return { t: t('Khởi tạo sớm', 'Prime'), k: '' };
   return { t: t('Chuyển', 'Switch'), k: 'sw' };
 }
 

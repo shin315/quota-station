@@ -58,16 +58,40 @@ impl Look {
 
 /// The submenus' names: Windows has a tray, not a menu bar.
 #[cfg(not(windows))]
-const FOLLOW_MENU: &str = "Thanh menu theo";
+fn follow_menu_title(en: bool) -> &'static str {
+    if en {
+        "Menu bar service"
+    } else {
+        "Theo dõi trên thanh menu"
+    }
+}
 #[cfg(not(windows))]
-const WINDOW_MENU: &str = "Số trên thanh menu";
+fn window_menu_title(en: bool) -> &'static str {
+    if en {
+        "Menu bar quota window"
+    } else {
+        "Cửa sổ hạn mức trên thanh menu"
+    }
+}
 #[cfg(windows)]
-const FOLLOW_MENU: &str = "Icon khay theo";
+fn follow_menu_title(en: bool) -> &'static str {
+    if en {
+        "Tray icon service"
+    } else {
+        "Theo dõi trên biểu tượng khay"
+    }
+}
 #[cfg(windows)]
-const WINDOW_MENU: &str = "Số trên icon khay";
+fn window_menu_title(en: bool) -> &'static str {
+    if en {
+        "Tray icon quota window"
+    } else {
+        "Cửa sổ hạn mức trên biểu tượng khay"
+    }
+}
 
-/// What "Thanh menu theo" shows: the service picked, and which ones this
-/// Mac has (the others are greyed out); and what "Số trên thanh menu" shows:
+/// What "Theo dõi trên thanh menu" shows: the service picked, and which ones this
+/// Mac has (the others are greyed out); and what "Cửa sổ hạn mức trên thanh menu" shows:
 /// the window picked, Fable tuần greyed out unless the title follows Claude.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Follow {
@@ -76,10 +100,17 @@ pub struct Follow {
     pub codex: bool,
     pub window: MenubarWindow,
     pub fable: bool,
+    pub en: bool,
 }
 
 /// The submenus' items, and what they last showed.
 struct FollowMenu {
+    open: MenuItem<Wry>,
+    refresh: MenuItem<Wry>,
+    settings: MenuItem<Wry>,
+    quit: MenuItem<Wry>,
+    follow: Submenu<Wry>,
+    shows: Submenu<Wry>,
     items: [(Menubar, CheckMenuItem<Wry>); 3],
     windows: [(MenubarWindow, CheckMenuItem<Wry>); 4],
     last: Option<Follow>,
@@ -93,11 +124,11 @@ const FOLLOW_IDS: [(Menubar, &str, &str); 3] = [
     (Menubar::Codex, "menubar:codex", "Codex"),
 ];
 
-const WINDOW_IDS: [(MenubarWindow, &str, &str); 4] = [
-    (MenubarWindow::FiveHours, "window:fiveHours", "5 giờ"),
-    (MenubarWindow::Week, "window:week", "Tuần"),
-    (MenubarWindow::FableWeek, "window:fableWeek", "Fable tuần"),
-    (MenubarWindow::Tightest, "window:tightest", "Cao nhất"),
+const WINDOW_IDS: [(MenubarWindow, &str, &str, &str); 4] = [
+    (MenubarWindow::FiveHours, "window:fiveHours", "5 giờ", "5 hours"),
+    (MenubarWindow::Week, "window:week", "Tuần", "7 days"),
+    (MenubarWindow::FableWeek, "window:fableWeek", "Fable tuần", "Fable week"),
+    (MenubarWindow::Tightest, "window:tightest", "Cao nhất", "Tightest"),
 ];
 
 pub fn build(app: &App) -> tauri::Result<()> {
@@ -113,16 +144,20 @@ pub fn build(app: &App) -> tauri::Result<()> {
         let on = menubar == Menubar::Claude;
         items.push((menubar, CheckMenuItem::with_id(app, id, text, true, on, None::<&str>)?));
     }
-    let follow =
-        Submenu::with_items(app, FOLLOW_MENU, true, &[&items[0].1, &items[1].1, &items[2].1])?;
+    let follow = Submenu::with_items(
+        app,
+        follow_menu_title(false),
+        true,
+        &[&items[0].1, &items[1].1, &items[2].1],
+    )?;
     let mut windows = Vec::new();
-    for (window, id, text) in WINDOW_IDS {
-        let on = window == MenubarWindow::default();
-        windows.push((window, CheckMenuItem::with_id(app, id, text, true, on, None::<&str>)?));
+    for (w, id, text, _) in WINDOW_IDS {
+        let on = w == MenubarWindow::default();
+        windows.push((w, CheckMenuItem::with_id(app, id, text, true, on, None::<&str>)?));
     }
     let shows = Submenu::with_items(
         app,
-        WINDOW_MENU,
+        window_menu_title(false),
         true,
         &[&windows[0].1, &windows[1].1, &windows[2].1, &windows[3].1],
     )?;
@@ -144,8 +179,17 @@ pub fn build(app: &App) -> tauri::Result<()> {
         menu.insert_items(&[&guide, &separator], 0)?;
     }
     if let (Ok(items), Ok(windows)) = (<[_; 3]>::try_from(items), <[_; 4]>::try_from(windows)) {
-        *FOLLOW.lock().unwrap_or_else(|e| e.into_inner()) =
-            Some(FollowMenu { items, windows, last: None });
+        *FOLLOW.lock().unwrap_or_else(|e| e.into_inner()) = Some(FollowMenu {
+            open: window,
+            refresh,
+            settings,
+            quit,
+            follow,
+            shows,
+            items,
+            windows,
+            last: None,
+        });
     }
     let blank = Icon {
         title: "–".into(),
@@ -196,7 +240,9 @@ pub fn build(app: &App) -> tauri::Result<()> {
                     if commands::save_menubar(app, &state, *menubar).is_err() {
                         crate::reader::publish(app, &state);
                     }
-                } else if let Some((window, _, _)) = WINDOW_IDS.iter().find(|(_, i, _)| *i == id) {
+                } else if let Some((window, _, _, _)) =
+                    WINDOW_IDS.iter().find(|(_, i, _, _)| *i == id)
+                {
                     let state = app.state::<AppState>();
                     follow_menu(None);
                     if commands::save_menubar_window(app, &state, *window).is_err() {
@@ -239,7 +285,7 @@ fn tooltip(icon: &Icon) -> String {
 /// from the reader thread each call waits for the main thread, which may be
 /// handling a click that needs the lock.
 fn follow_menu(follow: Option<Follow>) {
-    let (items, windows, follow) = {
+    let (open, refresh, settings, quit, follow_sub, shows_sub, items, windows, follow) = {
         let mut menu = FOLLOW.lock().unwrap_or_else(|e| e.into_inner());
         let Some(menu) = menu.as_mut() else { return };
         let Some(follow) = follow else {
@@ -250,8 +296,24 @@ fn follow_menu(follow: Option<Follow>) {
             return;
         }
         menu.last = Some(follow);
-        (menu.items.clone(), menu.windows.clone(), follow)
+        (
+            menu.open.clone(),
+            menu.refresh.clone(),
+            menu.settings.clone(),
+            menu.quit.clone(),
+            menu.follow.clone(),
+            menu.shows.clone(),
+            menu.items.clone(),
+            menu.windows.clone(),
+            follow,
+        )
     };
+    let _ = open.set_text(if follow.en { "Open Quota Station" } else { "Mở cửa sổ chính" });
+    let _ = refresh.set_text(if follow.en { "Refresh" } else { "Làm mới" });
+    let _ = settings.set_text(if follow.en { "Settings…" } else { "Cài đặt…" });
+    let _ = quit.set_text(if follow.en { "Quit Quota Station" } else { "Thoát Quota Station" });
+    let _ = follow_sub.set_text(follow_menu_title(follow.en));
+    let _ = shows_sub.set_text(window_menu_title(follow.en));
     for (menubar, item) in &items {
         let _ = item.set_checked(*menubar == follow.picked);
         let _ = item.set_enabled(match menubar {
@@ -260,7 +322,8 @@ fn follow_menu(follow: Option<Follow>) {
             Menubar::Codex => follow.codex,
         });
     }
-    for (window, item) in &windows {
+    for ((window, item), (_, _, vi, en)) in windows.iter().zip(WINDOW_IDS.iter()) {
+        let _ = item.set_text(if follow.en { *en } else { *vi });
         let _ = item.set_checked(*window == follow.window);
         let _ = item.set_enabled(*window != MenubarWindow::FableWeek || follow.fable);
     }

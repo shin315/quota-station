@@ -52,11 +52,11 @@ function AccountMenu({ card, view, claude, advanced }: { card: CardView } & Pick
         {rotationMatters(view, advanced) ? (
           row.enabled ? (
             <DropdownMenuItem className={ITEM} disabled={busy} onSelect={() => claude.open({ kind: 'rest', slot: row.slot })}>
-              {t('Cho nghỉ khỏi tự chuyển…', 'Leave out of auto-switch…')}
+              {t('Tạm dừng tự chuyển…', 'Pause auto-switch…')}
             </DropdownMenuItem>
           ) : (
             <DropdownMenuItem className={ITEM} disabled={busy} onSelect={() => claude.setEnabled(row.slot, true)}>
-              {t('Cho vào lại tự chuyển', 'Put back into auto-switch')}
+              {t('Đưa lại vào tự chuyển', 'Resume auto-switch')}
             </DropdownMenuItem>
           )
         ) : null}

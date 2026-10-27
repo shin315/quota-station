@@ -200,7 +200,7 @@ export function NotificationBell(props: NotificationBellProps) {
           ) : (
             <div className="px-2 py-8 text-center text-sm text-ink2">
               <b className="mb-1 block text-body font-semi text-ink">{t('Chưa có thông báo', 'No notifications yet')}</b>
-              {t('Khi có, thẻ hiện ở đây với cùng nút như thông báo ' + osName() + '.', 'When one comes, its card shows here with the same buttons as the ' + osName() + ' notification.')}
+              {t('Khi có, thông báo sẽ hiện ở đây với cùng các nút bấm như thông báo ' + osName() + '.', 'When one comes, the notification shows here with the same buttons as the ' + osName() + ' notification.')}
             </div>
           )}
           {!all && a.recent.length > PANEL_FIRST ? (

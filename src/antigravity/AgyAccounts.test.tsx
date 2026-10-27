@@ -239,7 +239,7 @@ describe('Antigravity accounts logged in here', () => {
     const ask = confirmFor('lan.ultra2');
     expect(within(ask).getByText('Đăng xuất lan.ultra2 khỏi Quota Station?')).toBeTruthy();
     expect(within(ask).getByText(/Antigravity\.app và agy vẫn đăng nhập như cũ/)).toBeTruthy();
-    fireEvent.click(within(ask).getByRole('button', { name: 'Thôi' }));
+    fireEvent.click(within(ask).getByRole('button', { name: 'Huỷ' }));
     expect(screen.queryByRole('group', { name: 'Đăng xuất lan.ultra2' })).toBeNull();
     expect(fake.api.agyLogout).not.toHaveBeenCalled();
 
@@ -326,7 +326,7 @@ describe('Antigravity quota reads', () => {
     await open(withAgy({ accounts: [login(1, { reading: true }), login(2)] }));
     expect(within(row('lanpham.ultra')).getByText('đang đọc…')).toBeTruthy();
     expect(within(row('lan.ultra2')).queryByText('đang đọc…')).toBeNull();
-    expect(within(row('lan.ultra2')).queryByText('đọc lỗi')).toBeNull();
+    expect(within(row('lan.ultra2')).queryByText('lỗi đọc dữ liệu')).toBeNull();
   });
 
   it('a failed read says why and that the last numbers stay', async () => {
@@ -341,17 +341,17 @@ describe('Antigravity quota reads', () => {
       }),
     );
     // In the table: a chip, coloured by whether the app reads it again by itself.
-    const chip = (name: string) => within(row(name)).getByText('đọc lỗi');
+    const chip = (name: string) => within(row(name)).getByText('lỗi đọc dữ liệu');
     expect(chip('lanpham.ultra').className).toContain('bad');
     expect(chip('lan.ultra2').className).toContain('warn');
     // Why it failed and that the last numbers stay must still be there to read.
-    expect(said(row('lanpham.ultra'))).toContain('đọc lỗi: không kết nối được Google. Giữ số cũ.');
-    expect(said(row('lan.ultra2'))).toContain('đọc lỗi: Google báo gọi quá nhiều (429). Giữ số cũ; app đọc lại lúc 14:24.');
+    expect(said(row('lanpham.ultra'))).toContain('lỗi đọc dữ liệu: không kết nối được Google. Giữ số cũ.');
+    expect(said(row('lan.ultra2'))).toContain('lỗi đọc dữ liệu: Google báo gọi quá nhiều (429). Giữ số cũ; app đọc lại lúc 14:24.');
     // Under the table, the logins the row does not list keep the whole line.
     const extra = within(others()).getAllByRole('listitem');
     const line = (i: number) => within(extra[i]).getByRole('status');
-    expect(line(0).textContent).toBe('đọc lỗi: Google từ chối (fetchAvailableModels: Google refused (400)). Giữ số cũ.');
-    expect(line(1).textContent).toBe('đọc lỗi: Google không nhận đăng nhập (401). Giữ số cũ.');
+    expect(line(0).textContent).toBe('lỗi đọc dữ liệu: Google từ chối (fetchAvailableModels: Google refused (400)). Giữ số cũ.');
+    expect(line(1).textContent).toBe('lỗi đọc dữ liệu: Google không nhận đăng nhập (401). Giữ số cũ.');
     expect(line(1).className).toContain('bad');
     // The login stays as it is: a failed read is not a logout.
     expect(screen.queryByText('cần đăng nhập lại')).toBeNull();
@@ -374,6 +374,6 @@ describe('Antigravity quota reads', () => {
   it('a Mac with no account logged in still says it has no Antigravity, and reads nothing', async () => {
     await open(fixtureModel('no-antigravity', { antigravity: agyFixture() }));
     expect(screen.getByText('Máy này chưa có Antigravity')).toBeTruthy();
-    expect(screen.queryByText(/đang đọc|đọc lỗi/)).toBeNull();
+    expect(screen.queryByText(/đang đọc|lỗi đọc dữ liệu/)).toBeNull();
   });
 });

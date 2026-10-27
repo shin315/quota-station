@@ -41,7 +41,7 @@ describe('configuration sets', () => {
 
   it('offers the Codex switch back after an undo, never switching itself', () => {
     const fb = undoneFeedback('Viết tài liệu', { skills: null, mcp: null, left: ['docs'], ok: true, codexBefore: 'custom' }, codexFixture({ current: 'chatgpt' }));
-    expect(fb.body).toBe('MCP và skills trở về như trước khi áp. Giữ docs: đã đổi sau khi áp. Codex vẫn ở tài khoản ChatGPT.');
+    expect(fb.body).toBe('MCP và skills trở về như trước khi áp dụng. Giữ docs: đã đổi sau khi áp dụng. Codex vẫn ở tài khoản ChatGPT.');
     expect(fb.actions).toEqual([{ label: 'Chuyển Codex về relay', act: 'codex:switch:custom' }]);
     const same = undoneFeedback('Viết tài liệu', { skills: null, mcp: null, left: [], ok: true, codexBefore: 'custom' }, codexFixture());
     expect(same.actions).toBeUndefined();

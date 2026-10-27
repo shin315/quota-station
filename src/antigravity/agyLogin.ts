@@ -90,7 +90,7 @@ export function agyReadLine(reading: boolean, error: AgyReadError | null): AgyRo
   const why = readError(error.kind) + (WITH_DETAIL.has(error.kind) && error.detail ? ' (' + error.detail + ')' : '');
   const retry = clock(error.retryAt);
   const then = retry ? t('Giữ số cũ; app đọc lại lúc ' + retry + '.', 'Keeping the old numbers; the app reads again at ' + retry + '.') : t('Giữ số cũ.', 'Keeping the old numbers.');
-  return { tone: error.retryAt ? 'warn' : 'bad', text: t('đọc lỗi: ', 'read failed: ') + why + '. ' + then };
+  return { tone: error.retryAt ? 'warn' : 'bad', text: t('lỗi đọc dữ liệu: ', 'read failed: ') + why + '. ' + then };
 }
 
 export function agyRows(view: AgyAccounts): AgyRowView[] {

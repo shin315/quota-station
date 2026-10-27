@@ -44,7 +44,7 @@ export function alertKindList(agy = true): { kind: SwitchKind; title: string; te
     {
       kind: 'overwrite',
       title: t('Antigravity đổi về tài khoản cũ', 'Antigravity went back to the old account'),
-      text: t('Trong 6 giờ sau khi chuyển. Thôi đề nghị chuyển lại sau 2 lần.', 'Within 6 hours of a switch. Stops offering to switch back after 2 times.'),
+      text: t('Trong 6 giờ sau khi chuyển. Ngừng đề nghị chuyển lại sau 2 lần.', 'Within 6 hours of a switch. Stops offering to switch back after 2 times.'),
     },
     {
       kind: 'firstmate',
@@ -143,7 +143,7 @@ export function permissionBanner(p: NotifyPermission): BannerView | null {
     return {
       tone: 'warn',
       title: t('Thông báo của Quota Station đang tắt', 'Quota Station notifications are off'),
-      body: t(osName() + ' không hiện thẻ nào. Các thông báo vẫn nằm ở đây, kèm nút như trên thẻ.', osName() + ' shows no cards. Notifications still show up here, with the same buttons as the cards.'),
+      body: t(osName() + ' không hiện thông báo nào. Các thông báo vẫn nằm ở đây, kèm các nút bấm tương ứng.', osName() + ' shows no notifications. Notifications still show up here, with the same buttons.'),
       actions: [{ label: t('Mở ', 'Open ') + systemSettings(), act: 'notify:settings' }],
     };
   if (p === 'unbundled')
@@ -151,8 +151,8 @@ export function permissionBanner(p: NotifyPermission): BannerView | null {
       tone: 'info',
       title: t('Bản chạy thử không gửi thông báo ' + osName(), 'A dev build sends no ' + osName() + ' notifications'),
       body: t(
-        'Chỉ app đã đóng gói mới có thẻ thông báo. Các thông báo vẫn nằm ở đây, kèm nút như trên thẻ.',
-        'Only the packaged app gets notification cards. Notifications still show up here, with the same buttons as the cards.',
+        'Chỉ bản ứng dụng đã đóng gói mới gửi được thông báo. Các thông báo vẫn nằm ở đây, kèm các nút bấm tương ứng.',
+        'Only the packaged app can send notifications. Notifications still show up here, with the same buttons.',
       ),
       actions: [],
     };
@@ -278,7 +278,7 @@ export function firstmateTab(model: AuthorModel, now: Date): FirstmateTabView {
   else
     head = {
       tone: 'muted',
-      title: t('Firstmate chưa tính được hạn mức Claude', 'Firstmate has not worked out the Claude quota'),
+      title: t('Chưa lấy được dữ liệu hạn mức Claude trên máy này', 'Claude quota data on this Mac is not available yet'),
       body: t('File không ghi hạn mức đã cạn hay chưa.', 'The file does not say whether the quota is used up.'),
     };
 
@@ -304,12 +304,12 @@ export function firstmateTab(model: AuthorModel, now: Date): FirstmateTabView {
     note: differs
       ? t(
           'App tính từ số của nó ' + (read ? 'lúc ' + read : 'gần nhất') + ' thì hạn mức trong vòng ' + (own ? 'đã cạn' : 'chưa cạn') +
-            '. Hai bên đọc ở hai lúc khác nhau; lần kiểm sau của firstmate sẽ khớp lại.',
+            '. Hai bên đọc ở hai lúc khác nhau; lần kiểm tra sau của firstmate sẽ khớp lại.',
           'By the app’s own numbers ' + (read ? 'from ' + read : 'from its latest read') + ', the quota in rotation ' + (own ? 'is used up' : 'is not used up') +
             '. The two read at different times; firstmate’s next check will match again.',
         )
       : t(
-          'Firstmate ghi file này sau mỗi lần kiểm' + (read ? '; app đọc số lúc ' + read : '') +
+          'Firstmate ghi file này sau mỗi lần kiểm tra' + (read ? '; ứng dụng cập nhật dữ liệu lúc ' + read : '') +
             '. Hai giờ cập nhật có thể lệch nhau; firstmate đọc cùng các tài khoản qua bản sao của app.',
           'Firstmate writes this file after every check' + (read ? '; the app read its numbers at ' + read : '') +
             '. The two update times can differ; firstmate reads the same accounts through the app’s copy.',
@@ -320,9 +320,9 @@ export function firstmateTab(model: AuthorModel, now: Date): FirstmateTabView {
 
 function pressRefused(code: string): string {
   const known: Record<string, string> = {
-    answered: t('Thông báo này đã có câu trả lời, có thể từ thẻ ' + osName() + '.', 'This notification already has an answer, possibly from the ' + osName() + ' card.'),
+    answered: t('Thông báo này đã có câu trả lời, có thể từ thông báo ' + osName() + '.', 'This notification already has an answer, possibly from the ' + osName() + ' notification.'),
     unknown: t('App không còn giữ thông báo này.', 'The app no longer keeps this notification.'),
-    noSuchAction: t('Thẻ này không có nút đó.', 'This card has no such button.'),
+    noSuchAction: t('Thông báo này không có nút đó.', 'This notification has no such button.'),
     noPage: t(
       'Google chưa gửi trang xác minh cho tài khoản này. Đăng nhập lại trong tab Antigravity.',
       'Google has not sent a verification page for this account. Sign in again in the Antigravity tab.',

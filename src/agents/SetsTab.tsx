@@ -55,7 +55,7 @@ function InUse({ model, sets, now }: { model: Model; sets: Sets; now: Date }) {
     return (
       <Panel>
         <CardTitle>{t('Đang dùng', 'In use')}</CardTitle>
-        <CardText className="m-0">{t('Chưa áp bộ nào.', 'No set applied yet.')}</CardText>
+        <CardText className="m-0">{t('Chưa áp dụng bộ nào.', 'No set applied yet.')}</CardText>
       </Panel>
     );
   const chip = st.lines ? driftChip(st.lines.length) : null;
@@ -68,8 +68,8 @@ function InUse({ model, sets, now }: { model: Model; sets: Sets; now: Date }) {
           <b className="text-title">{a.name}</b>
           <small className="block text-xs text-ink2 [overflow-wrap:anywhere]">
             {since
-              ? t('áp lúc ' + dayClock(a.at, now) + ' · sau đó ' + since, 'applied at ' + dayClock(a.at, now) + ' · since then ' + since)
-              : t('áp lúc ' + dayClock(a.at, now), 'applied at ' + dayClock(a.at, now))}
+              ? t('áp dụng lúc ' + dayClock(a.at, now) + ' · sau đó ' + since, 'applied at ' + dayClock(a.at, now) + ' · since then ' + since)
+              : t('áp dụng lúc ' + dayClock(a.at, now), 'applied at ' + dayClock(a.at, now))}
           </small>
         </div>
         <span className={ROW_ACTIONS}>
@@ -99,7 +99,7 @@ function SetCard({ set, model, sets }: { set: ConfigSet; model: Model; sets: Set
       </b>
       <CardText className="mt-1 mb-2.5">{setSummary(set, model.codex)}</CardText>
       <div className="mt-auto flex items-center gap-2.5 border-t-[.5px] border-card-line pt-2.5">
-        <Button primary={!inUse} disabled={sets.working} label={t('Áp bộ ' + set.name, 'Apply the set ' + set.name)} onClick={() => sets.openApply(set)}>
+        <Button primary={!inUse} disabled={sets.working} label={t('Áp dụng bộ ' + set.name, 'Apply the set ' + set.name)} onClick={() => sets.openApply(set)}>
           {t('Áp dụng…', 'Apply…')}
         </Button>
         <span className={'ml-auto ' + ROW_ACTIONS}>
@@ -132,7 +132,7 @@ export function SetsTab({ model, fresh, feedback, now, sets, onAction }: SetsTab
         <TabTitle>{t('Bộ cấu hình', 'Config sets')}</TabTitle>
         <TabSub>
           <Dot tone={fresh.tone} />
-          {model.machine + mac(t(' · áp cho cả máy', ' · applies to the whole Mac'))}
+          {model.machine + mac(t(' · áp dụng cho cả máy', ' · applies to the whole Mac'))}
         </TabSub>
       </TabHead>
       {feedback ? <Feedback fb={feedback} onAction={onAction} /> : null}
@@ -178,7 +178,7 @@ export function SetsTab({ model, fresh, feedback, now, sets, onAction }: SetsTab
                   k: '',
                   text: mac(
                     t(
-                      'Áp cho cả máy: mọi dự án, mọi phiên mở sau đó. Phiên đang chạy giữ cấu hình cũ.',
+                      'Áp dụng cho cả máy: mọi dự án, mọi phiên mở sau đó. Phiên đang chạy giữ cấu hình cũ.',
                       'Applies to the whole Mac: every project, every session opened afterwards. Running sessions keep the old setup.',
                     ),
                   ),
@@ -280,7 +280,7 @@ function EditBody({ d, sets, model }: { d: Extract<SetDialog, { kind: 'edit' }>;
       </div>
       <DialogSection>
         {NAV_ICONS.mcp}
-        {t('MCP · áp cho mọi agent đang có MCP đó', 'MCP · applies to every agent that has that MCP')}
+        {t('MCP · áp dụng cho mọi agent đang có MCP đó', 'MCP · applies to every agent that has that MCP')}
       </DialogSection>
       {mcp.names.length ? (
         <Entries names={mcp.names} here={mcp.here} entries={s.mcp} onChange={(e) => sets.setDraft({ ...s, mcp: e })} />
@@ -289,7 +289,7 @@ function EditBody({ d, sets, model }: { d: Extract<SetDialog, { kind: 'edit' }>;
       )}
       <DialogSection>
         {NAV_ICONS.skills}
-        {t('Skills · áp cho mọi agent bật được', 'Skills · applies to every agent that can turn them on')}
+        {t('Skills · áp dụng cho mọi agent bật được', 'Skills · applies to every agent that can turn them on')}
       </DialogSection>
       {sk.names.length ? (
         <Entries names={sk.names} here={sk.here} entries={s.skills} onChange={(e) => sets.setDraft({ ...s, skills: e })} />
@@ -362,7 +362,7 @@ function ApplyBody({ d, sets, model }: { d: Extract<SetDialog, { kind: 'apply' }
   const skipped = p ? [...p.skipped.map(skippedLine), ...refusedLines(p)] : [];
   return (
     <>
-      <DialogTitle>{t('Áp bộ ' + d.set.name + '?', 'Apply the set ' + d.set.name + '?')}</DialogTitle>
+      <DialogTitle>{t('Áp dụng bộ ' + d.set.name + '?', 'Apply the set ' + d.set.name + '?')}</DialogTitle>
       {!p && !d.error ? <DialogLead>{t('Đang đọc file của các agent…', 'Reading the agents’ files…')}</DialogLead> : null}
       {p ? (
         <div className="mt-0 mb-1 grid">
@@ -397,7 +397,7 @@ function ApplyBody({ d, sets, model }: { d: Extract<SetDialog, { kind: 'apply' }
             items={[
               ...skipped.map((line): [string, string] => ['x', line]),
               ['w', sessionsLine(d.sessions, model.codex)],
-              ['w', mac(t('Áp cho cả máy, mọi dự án.', 'Applies to the whole Mac, every project.'))],
+              ['w', mac(t('Áp dụng cho cả máy, mọi dự án.', 'Applies to the whole Mac, every project.'))],
               ...(n
                 ? [
                     [
@@ -420,7 +420,7 @@ function ApplyBody({ d, sets, model }: { d: Extract<SetDialog, { kind: 'apply' }
           {t('Huỷ', 'Cancel')}
         </Button>
         <Button large primary disabled={sets.working || !p || (!n && !step)} onClick={sets.apply}>
-          {sets.working && p ? t('Đang ghi…', 'Writing…') : !n && step ? t('Tiếp: chuyển Codex', 'Next: switch Codex') : t('Áp bộ', 'Apply set')}
+          {sets.working && p ? t('Đang ghi…', 'Writing…') : !n && step ? t('Tiếp: chuyển Codex', 'Next: switch Codex') : t('Áp dụng bộ', 'Apply set')}
         </Button>
       </DialogButtons>
     </>

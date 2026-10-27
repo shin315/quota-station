@@ -115,10 +115,10 @@ export function dayMonth(secs: number): string {
   return t(pad(d.getDate()) + '/' + pad(d.getMonth() + 1), d.getDate() + ' ' + MONTHS_EN[d.getMonth()]);
 }
 
-/** The line next to the title: `đọc log lúc 14:30`. */
+/** The line next to the title: `cập nhật lúc 14:30`. */
 export function readLine(stats: StatsView): string {
-  if (stats.reading) return t('đang đọc log…', 'reading logs…');
-  return stats.readAt ? t('đọc log lúc ', 'logs read at ') + clock(stats.readAt) : t('chưa đọc log', 'logs not read yet');
+  if (stats.reading) return t('đang cập nhật…', 'updating…');
+  return stats.readAt ? t('cập nhật lúc ', 'updated at ') + clock(stats.readAt) : t('chưa cập nhật', 'not updated yet');
 }
 
 export interface SkippedNotice {

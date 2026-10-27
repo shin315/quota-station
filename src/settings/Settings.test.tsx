@@ -361,7 +361,7 @@ describe('settings tab', () => {
     expect(fake.api.testPeer).toHaveBeenCalledWith('mac-b');
     expect(fake.api.testPeer).toHaveBeenCalledWith('mac-c');
     expect(screen.getByText('SSH ổn')).toBeTruthy();
-    expect(screen.getByText('SSH hết giờ chờ. Kiểm tên kết nối hoặc bật máy đó.')).toBeTruthy();
+    expect(screen.getByText('SSH hết thời gian chờ. Kiểm tra tên kết nối hoặc bật máy đó.')).toBeTruthy();
   });
 
   it('with no other Mac the rules stay on this Mac', async () => {
@@ -458,7 +458,7 @@ describe('settings for M6', () => {
     await openWith(fixtureModel('fresh', { alerts: alertsFixture({ permission: 'unbundled' }) }));
     await showGroup('Thông báo');
     expect(screen.getByText('bản chạy thử')).toBeTruthy();
-    expect(screen.getByText('Chỉ app đã đóng gói mới gửi được thẻ macOS. Thông báo vẫn có ở chuông trên đầu trang.')).toBeTruthy();
+    expect(screen.getByText('Chỉ bản ứng dụng đã đóng gói mới gửi được thông báo macOS. Thông báo vẫn có ở chuông trên đầu trang.')).toBeTruthy();
   });
 });
 

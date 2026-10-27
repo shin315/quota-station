@@ -114,7 +114,7 @@ export function HistoryTab({ model, fresh, now, load }: HistoryTabProps) {
         {entries === null ? null : entries === 'failed' ? (
           <Empty>
             <b>{t('Chưa đọc được lịch sử', 'Could not read the history')}</b>
-            {t('App thử lại sau lần đọc số tới.', 'The app tries again after its next read.')}
+            {t('Ứng dụng sẽ thử lại ở lần cập nhật tới.', 'The app will try again on the next update.')}
           </Empty>
         ) : !entries.length ? (
           <Empty>

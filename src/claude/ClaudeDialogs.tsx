@@ -250,12 +250,12 @@ function DoneBody({ d, view, claude, advanced, onTab }: { d: Extract<ClaudeDialo
                   k: 'w',
                   text: advanced
                     ? t(
-                        'Luật xoay vòng chưa có tài khoản này: switcher chưa tự chuyển sang nó. Thêm vào Team trong vòng nếu muốn.',
-                        'The rotation rules do not have this account yet, so the switcher will not move to it. Add it to Team in rotation if you want.',
+                        'Luật xoay vòng chưa có tài khoản này: tự động chuyển chưa tự chuyển sang nó. Thêm vào Tài khoản Team trong vòng xoay nếu muốn.',
+                        'The rotation rules do not have this account yet, so auto-switch will not move to it. Add it to Team accounts in rotation if you want.',
                       )
                     : t(
-                        'Tự chuyển dùng được tài khoản này. Muốn để nó ngoài, chọn Cho nghỉ khỏi tự chuyển trong menu ⋯.',
-                        'Auto-switch may use this account. To keep it out, choose Leave out of auto-switch in its ⋯ menu.',
+                        'Tự chuyển dùng được tài khoản này. Muốn để nó ngoài, chọn Tạm dừng tự chuyển trong menu ⋯.',
+                        'Auto-switch may use this account. To keep it out, choose Pause auto-switch in its ⋯ menu.',
                       ),
                 },
               ]
@@ -379,7 +379,7 @@ function RestBody({ d, claude, nameOf, view }: { d: Extract<ClaudeDialog, { kind
   const who = nameOf(d.slot);
   return (
     <Stack>
-      <Head title={t('Cho ' + who + ' nghỉ khỏi tự chuyển?', 'Leave ' + who + ' out of auto-switch?')} />
+      <Head title={t('Tạm dừng tự chuyển cho ' + who + '?', 'Pause auto-switch for ' + who + '?')} />
       <Facts
         items={[
           { k: '', text: t('Tự chuyển bỏ qua ' + who + ' cho tới khi bạn cho vào lại.', 'Auto-switch skips ' + who + ' until you put it back.') },
@@ -389,7 +389,7 @@ function RestBody({ d, claude, nameOf, view }: { d: Extract<ClaudeDialog, { kind
       <DialogButtons>
         <Button onClick={claude.close}>{t('Thôi', 'Cancel')}</Button>
         <Button primary disabled={view.working != null} onClick={() => claude.setEnabled(d.slot, false)}>
-          {t('Cho nghỉ', 'Leave out')}
+          {t('Tạm dừng', 'Pause')}
         </Button>
       </DialogButtons>
     </Stack>
@@ -431,8 +431,8 @@ function RemoveBody({ d, claude, nameOf, view, advanced }: { d: Extract<ClaudeDi
                 {
                   k: 'w',
                   text: t(
-                    'Luật xoay vòng vẫn có tài khoản này trong Team trong vòng. Sửa luật sau khi xoá.',
-                    'The rotation rules still list this account in Team in rotation. Edit the rules after removing it.',
+                    'Luật xoay vòng vẫn có tài khoản này trong Tài khoản Team trong vòng xoay. Sửa luật sau khi xoá.',
+                    'The rotation rules still list this account in Team accounts in rotation. Edit the rules after removing it.',
                   ),
                 },
               ]

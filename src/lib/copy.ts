@@ -166,8 +166,8 @@ export function planLine(i: CopyItem, keys: boolean, dest: string): string {
 /** "Giống nhau: 11 mục." */
 export const sameLine = (c: CopyComparison): string => t('Giống nhau: ' + c.diff.same.length + ' mục.', 'Same on both: ' + plural(c.diff.same.length, 'item', 'items') + '.');
 
-/** When the comparison read the other Mac: "đọc lúc 14:35". */
-export const readAt = (c: CopyComparison): string => t('đọc lúc ', 'read at ') + clock(new Date(c.at * 1000).toISOString());
+/** When the comparison read the other Mac: "cập nhật lúc 14:35". */
+export const readAt = (c: CopyComparison): string => t('cập nhật lúc ', 'updated at ') + clock(new Date(c.at * 1000).toISOString());
 
 /** A server's line of the result, as the copy says it. */
 function serverLine(r: RestoreItemResult, dest: string): [string, string, string] {
@@ -222,7 +222,7 @@ export function copyError(e: unknown, other: string): FeedbackView {
       tone: 'bad',
       title: t(other + ' không trả lời qua SSH', other + ' is not answering over SSH'),
       body: t(
-        'Chờ 20 giây không thấy trả lời. Kiểm máy đã bật và tên kết nối trong Cài đặt › Các Mac khác.',
+        'Chờ 20 giây không thấy trả lời. Kiểm tra xem máy đã bật và tên kết nối trong Cài đặt › Các Mac khác.',
         'No answer after 20 seconds. Check that the Mac is on, and its SSH name in Settings › Other Macs.',
       ),
     };
@@ -244,7 +244,7 @@ export function copyError(e: unknown, other: string): FeedbackView {
   if (s === 'noSsh')
     return { tone: 'bad', title: t('Không thấy ssh trên máy này', 'ssh not found on this Mac'), body: t('App dùng ssh của macOS để nói chuyện với Mac khác.', 'The app uses the ssh in macOS to talk to other Macs.') };
   if (s === 'unknownMac')
-    return { tone: 'warn', title: t('Mac này không còn trong danh sách', 'This Mac is no longer in the list'), body: t('Kiểm lại Cài đặt › Các Mac khác.', 'Check Settings › Other Macs.') };
+    return { tone: 'warn', title: t('Mac này không còn trong danh sách', 'This Mac is no longer in the list'), body: t('Kiểm tra lại trong Cài đặt › Các Mac khác.', 'Check Settings › Other Macs.') };
   if (s === 'busy' || s === 'refused:busy')
     return { tone: 'warn', title: t('Đang có một lần ghi khác', 'Another write is running'), body: t('Đợi xong rồi thử lại.', 'Wait for it to finish, then try again.') };
   if (s === 'stale')

@@ -26,7 +26,7 @@ describe('popover states', () => {
     m.snapshot.agy.newestReadingAt = null;
     const v = view(m);
     expect(v.loading).toBe(true);
-    expect(v.fresh).toEqual({ tone: 'muted', text: 'đang đọc số…' });
+    expect(v.fresh).toEqual({ tone: 'muted', text: 'đang cập nhật…' });
     expect(v.claude.cards.map((c) => c.name)).toEqual(['lanpham.dev', 'lan.acme1', 'lan.acme2', 'lan.acme3']);
     expect(view(fixtureModel('fresh')).loading).toBe(false);
   });

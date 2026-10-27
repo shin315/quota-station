@@ -64,7 +64,7 @@ describe('the Antigravity switch sheet', () => {
     const fake = await openPopover(listed());
     expect(ultra1().getAttribute('aria-disabled')).toBeNull();
     expect(ultra1().getAttribute('aria-label')).toMatch(/^lanpham\.ultra\. Gemini 5 giờ đã dùng .*\. Bấm để chuyển$/);
-    expect(ultra1().getAttribute('title')).toBe('lanpham.ultra@example.com · Quota Station · tài khoản 1 · số 25 phút trước');
+    expect(ultra1().getAttribute('title')).toBe('lanpham.ultra@example.com · Quota Station · tài khoản 1 · cập nhật 25 phút trước');
     const sheet = await sheetForUltra1();
     expect(fake.api.agyAppState).toHaveBeenCalledTimes(1);
     expect(facts(sheet)).toEqual([
@@ -330,7 +330,7 @@ describe('the Antigravity switch sheet', () => {
   it('an account that needs a new login does not switch', async () => {
     const fake = await openPopover(listed({ status: 'needsLogin' }));
     expect(ultra1().getAttribute('aria-disabled')).toBe('true');
-    expect(ultra1().getAttribute('title')).toBe('lanpham.ultra@example.com · Quota Station · tài khoản 1 · Cần đăng nhập lại trong tab Antigravity · số 25 phút trước');
+    expect(ultra1().getAttribute('title')).toBe('lanpham.ultra@example.com · Quota Station · tài khoản 1 · Cần đăng nhập lại trong tab Antigravity · cập nhật 25 phút trước');
     fireEvent.click(ultra1());
     expect(screen.queryByRole('dialog', { name: /Chuyển Antigravity/ })).toBeNull();
     expect(fake.api.agyAppState).not.toHaveBeenCalled();
@@ -344,7 +344,7 @@ describe('the Antigravity switch sheet', () => {
       }),
     );
     expect(ultra1().getAttribute('aria-disabled')).toBe('true');
-    expect(ultra1().getAttribute('title')).toBe('lanpham.ultra@example.com · Quota Station · tài khoản 1 · Chưa đăng nhập tài khoản này trong Quota Station · số 25 phút trước');
+    expect(ultra1().getAttribute('title')).toBe('lanpham.ultra@example.com · Quota Station · tài khoản 1 · Chưa đăng nhập tài khoản này trong Quota Station · cập nhật 25 phút trước');
   });
 });
 
@@ -378,7 +378,7 @@ describe('the overwrite banner', () => {
     expect(fake.api.agyAppState).toHaveBeenCalledTimes(1);
   });
 
-  it('on the Antigravity tab, "Thôi" stops the watch and the banner goes', async () => {
+  it('on the Antigravity tab, "Bỏ qua" stops the watch and the banner goes', async () => {
     const fake = fakeApi(listed({ overwritten: { ...overwritten, overwrites: 2 } }), 'agy');
     for (const name of Object.keys(fake.api) as (keyof Api)[]) vi.spyOn(fake.api, name);
     render(
@@ -389,7 +389,7 @@ describe('the overwrite banner', () => {
     await screen.findByRole('navigation', { name: 'Các tab' });
     expect(screen.getByText(/Đây là lần thứ 2\./)).toBeTruthy();
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Thôi' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Huỷ' }));
     });
     expect(fake.api.agyDismissOverwrite).toHaveBeenCalledTimes(1);
     expect(screen.queryByText('Chuyển Antigravity bị ghi đè')).toBeNull();

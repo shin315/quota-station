@@ -139,7 +139,9 @@ impl std::fmt::Display for RemoteError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             RemoteError::Unreachable(e) => write!(f, "{e}"),
-            RemoteError::Timeout => write!(f, "SSH hết giờ chờ ({} giây)", SSH_TIMEOUT.as_secs()),
+            RemoteError::Timeout => {
+                write!(f, "SSH hết thời gian chờ ({} giây)", SSH_TIMEOUT.as_secs())
+            }
             RemoteError::Failed(e) => write!(f, "{e}"),
             RemoteError::Changed => write!(f, "file luật trên máy đó vừa đổi trong lúc gửi"),
         }

@@ -311,8 +311,8 @@ function cardView(a: Account, kind: 'c' | 'g', names: AccountName, ctx: CardCont
   // Freshness shows only when the reading is not fresh: its own age, never the app's last call.
   const since = secondsSince(a.fetchedAt, ctx.now);
   if (a.reading === 'resetPending') chips.push({ t: t('chờ số sau mốc đặt lại', 'waiting for the number after its reset'), k: 'info' });
-  else if (a.reading === 'noData') chips.push({ t: t('chưa có số', 'no number yet'), k: '' });
-  else if (a.reading === 'stale' && since != null) chips.push({ t: t('số ' + age(since) + ' trước', 'numbers ' + age(since) + ' old'), k: 'stale' });
+  else if (a.reading === 'noData') chips.push({ t: t('chưa có dữ liệu', 'no data yet'), k: '' });
+  else if (a.reading === 'stale' && since != null) chips.push({ t: t('cập nhật ' + age(since) + ' trước', 'updated ' + age(since) + ' ago'), k: 'stale' });
   const cells = kind === 'c' ? claudeCells(a, ctx.now) : agyCells(a, ctx.now);
   const where =
     a.number === 0
@@ -447,7 +447,7 @@ function codexNow(model: Model, now: Date): NowRowView | null {
     );
   }
   if (s.status === 'notSetUp') return null;
-  const why = s.status === 'unread' ? t('chưa có số', 'no number yet') : s.status === 'unavailable' ? t('không đọc được số', 'cannot read numbers') : null;
+  const why = s.status === 'unread' ? t('chưa có dữ liệu', 'no data yet') : s.status === 'unavailable' ? t('không đọc được hạn mức', 'cannot read quota') : null;
   return nowRow({ id: 'x', svc: 'Codex', name: 'ChatGPT', sub: '' }, cells, model.menubarWindow, why);
 }
 
@@ -456,9 +456,9 @@ function nowView(model: Model, claudeCards: CardView[], agyCards: CardView[], no
   const rows: NowRowView[] = [];
   const failing = (section: Section) =>
     section.status === 'unread'
-      ? t('chưa có số', 'no number yet')
+      ? t('chưa có dữ liệu', 'no data yet')
       : section.status === 'single' && !section.accounts.length && section.reason
-        ? t('không đọc được số', 'cannot read numbers')
+        ? t('không đọc được hạn mức', 'cannot read quota')
         : null;
   if (s.claude.status !== 'notSetUp') {
     const a = claudeCards.find((c) => c.active);
@@ -515,8 +515,8 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
   let fresh: PopoverView['fresh'];
   const newest = c.newestReadingAt ?? g.newestReadingAt;
   const since = secondsSince(newest, now);
-  if (since == null && c.status === 'single' && c.reason) fresh = { tone: 'bad', text: t('không đọc được số', 'cannot read numbers') };
-  else if (since == null) fresh = { tone: 'muted', text: model.reading ? t('đang đọc số…', 'reading…') : t('chưa có số', 'no numbers yet') };
+  if (since == null && c.status === 'single' && c.reason) fresh = { tone: 'bad', text: t('không đọc được hạn mức', 'cannot read quota') };
+  else if (since == null) fresh = { tone: 'muted', text: model.reading ? t('đang cập nhật…', 'updating…') : t('chưa có dữ liệu', 'no data yet') };
   else fresh = { tone: since > STALE_SECONDS ? 'warn' : 'ok', text: t('cập nhật ' + age(since) + ' trước', 'updated ' + age(since) + ' ago') };
 
   const loading = since == null && model.reading;
@@ -596,7 +596,7 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
   // Group notes.
   let claudeNote: NoteView | null = null;
   if (c.status === 'single' && !c.accounts.length && c.reason && !keychainRequired)
-    claudeNote = { tone: 'warn', text: t('Không đọc được số của Claude Code (' + c.reason + ').', 'Cannot read Claude Code’s numbers (' + c.reason + ').') };
+    claudeNote = { tone: 'warn', text: t('Không đọc được hạn mức của Claude Code (' + c.reason + ').', 'Cannot read Claude Code’s quota (' + c.reason + ').') };
   else if (c.status === 'notSetUp') claudeNote = { tone: '', text: mac(t('Máy này chưa có Claude Code', 'No Claude Code on this Mac')) };
   else if (!model.claudeSwitch.ready && c.accounts.some((a) => a.number > 0))
     claudeNote = {
@@ -611,7 +611,7 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
 
   let agyNote: NoteView | null = null;
   if (g.status === 'single' && !g.accounts.length && g.reason)
-    agyNote = { tone: 'warn', text: t('Không đọc được số Antigravity (' + g.reason + ').', 'Cannot read Antigravity’s numbers (' + g.reason + ').') };
+    agyNote = { tone: 'warn', text: t('Không đọc được hạn mức Antigravity (' + g.reason + ').', 'Cannot read Antigravity’s quota (' + g.reason + ').') };
   else if (g.status === 'single') agyNote = { tone: '', text: t('Tài khoản đang đăng nhập trong Antigravity.', 'The account signed in to Antigravity.') };
   else if (g.status === 'unavailable')
     agyNote = { tone: '', text: t('Không đọc được danh sách tài khoản: chỉ thấy tài khoản đang dùng', 'Cannot read the account list: only the account in use shows') };
@@ -716,7 +716,7 @@ export function bannerUnder(banner: BannerView | null, feedback: FeedbackView | 
 }
 
 export function refreshedFeedback(now: Date): FeedbackView {
-  return { tone: '', title: t('Đã làm mới', 'Refreshed'), body: t('Đọc lại số lúc ', 'Read the numbers again at ') + clock(now.toISOString()) + '.' };
+  return { tone: '', title: t('Đã làm mới', 'Refreshed'), body: t('Cập nhật dữ liệu lúc ', 'Updated data at ') + clock(now.toISOString()) + '.' };
 }
 
 export function settingsFailedFeedback(): FeedbackView {

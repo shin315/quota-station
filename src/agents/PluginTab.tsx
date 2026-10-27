@@ -124,7 +124,7 @@ export interface PluginTabProps {
 export function PluginTab({ model, fresh, plugins, onAction }: PluginTabProps) {
   const v = model.plugins;
   const sides = v.sides;
-  const sub = v.busy ? t('đang đọc…', 'reading…') : v.readAt ? t('đọc lúc ' + clock(v.readAt), 'read at ' + clock(v.readAt)) : fresh.text;
+  const sub = v.busy ? t('đang đọc…', 'reading…') : v.readAt ? t('cập nhật lúc ' + clock(v.readAt), 'updated at ' + clock(v.readAt)) : fresh.text;
   const markets = (sides ?? []).flatMap((s) => s.marketplaces.map((m) => ({ ...m, agent: s.agent })));
   return (
     <>
@@ -138,7 +138,7 @@ export function PluginTab({ model, fresh, plugins, onAction }: PluginTabProps) {
           {t('Lệnh cài lại', 'Reinstall commands')}
         </Button>
         <Button disabled={v.busy} onClick={() => onAction('plugins:reread')}>
-          {t('Đọc lại', 'Read again')}
+          {t('Làm mới', 'Refresh')}
         </Button>
       </TabHead>
       <TabNote>

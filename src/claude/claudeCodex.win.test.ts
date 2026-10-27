@@ -46,7 +46,7 @@ describe('Claude and Codex on Windows', () => {
   it('Windows notifications and Windows Settings', () => {
     setPlatform('windows');
     const denied = permissionBanner('denied')!;
-    expect(denied.body).toBe('Windows không hiện thẻ nào. Các thông báo vẫn nằm ở đây, kèm nút như trên thẻ.');
+    expect(denied.body).toBe('Windows không hiện thông báo nào. Các thông báo vẫn nằm ở đây, kèm các nút bấm tương ứng.');
     expect(denied.actions!.map((a) => a.label)).toEqual(['Mở Cài đặt Windows']);
   });
 

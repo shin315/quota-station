@@ -204,7 +204,7 @@ function testText(test: SshTest | undefined, alias: string): { tone: string; tex
     tone: 'bad',
     text:
       test.error === 'timeout' || !test.error
-        ? t('SSH hết giờ chờ. Kiểm tên kết nối hoặc bật máy đó.', 'SSH timed out. Check the SSH name or turn that Mac on.')
+        ? t('SSH hết thời gian chờ. Kiểm tra tên kết nối hoặc bật máy đó.', 'SSH timed out. Check the SSH name or turn that Mac on.')
         : t('SSH không tới được: ' + test.error, 'SSH could not connect: ' + test.error),
   };
 }
@@ -507,7 +507,7 @@ function NotifyRows(props: {
         hint={
           a.permission === 'unbundled'
             ? os(
-                t('Chỉ app đã đóng gói mới gửi được thẻ macOS. Thông báo vẫn có ở chuông trên đầu trang.', 'Only the packaged app can send macOS notifications. Notifications still show under the bell at the top of the page.'),
+                t('Chỉ bản ứng dụng đã đóng gói mới gửi được thông báo macOS. Thông báo vẫn có ở chuông trên đầu trang.', 'Only the packaged app can send macOS notifications. Notifications still show under the bell at the top of the page.'),
                 t('Chỉ bản đã cài mới gửi được thông báo Windows. Thông báo vẫn có ở chuông trên đầu trang.', 'Only the installed app can send Windows notifications. Notifications still show under the bell at the top of the page.'),
               )
             : null
@@ -669,7 +669,7 @@ function errorText(e: UpdateError, log: string): string {
       return t('Build hoặc cài lỗi: ' + e.detail + '. Log đầy đủ: ' + log, 'Build or install failed: ' + e.detail + '. Full log: ' + log);
     case 'timeout':
       return e.step === 'pulling'
-        ? t('git pull hết giờ chờ. Kiểm mạng rồi thử lại.', 'git pull timed out. Check the network and try again.')
+        ? t('git pull hết thời gian chờ. Kiểm tra mạng rồi thử lại.', 'git pull timed out. Check the network and try again.')
         : t('Build quá 30 phút nên đã dừng. Log: ' + log, 'The build took over 30 minutes and was stopped. Log: ' + log);
     case 'spawn':
       return t('Không chạy được: ' + e.detail, 'Could not run: ' + e.detail);

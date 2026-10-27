@@ -82,9 +82,9 @@ describe('main window', () => {
       expect(c[c.length - 1]).toBe('96px');
     }
     // What the numbers are, once for the page, behind Chi tiết.
-    expect(screen.getByText(/^% đã dùng của từng hạn mức/)).toBeTruthy();
+    expect(screen.getByText(/^Phần trăm đã dùng của từng hạn mức/)).toBeTruthy();
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Chi tiết: % đã dùng của từng hạn mức' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Chi tiết: Phần trăm đã dùng của từng hạn mức' }));
     });
     expect(screen.getByText(/Dấu — là chưa có số, không phải 0\./)).toBeTruthy();
 
@@ -208,7 +208,7 @@ describe('main window', () => {
     expect(screen.queryByText(/tài khoản claude-swap/)).toBeNull();
     // No column of when each was updated; the sidebar's Cập nhật is another place.
     expect(within(screen.getByRole('main')).queryByText('Cập nhật')).toBeNull();
-    expect(screen.getAllByText('số 41 phút trước').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('cập nhật 41 phút trước').length).toBeGreaterThan(0);
     expect(screen.getByText('Số liệu Claude đã cũ 41 phút')).toBeTruthy();
   });
 
@@ -441,7 +441,7 @@ describe('switching Claude and pausing from the main window', () => {
 
   it('one card in two halves: Tự chuyển Claude with its switch and pause, and what runs it', async () => {
     const fake = await open(fixtureModel('fresh'), 'claude');
-    const auto = screen.getByRole('region', { name: /^Tự chuyển Claude/ });
+    const auto = screen.getByRole('region', { name: /^Tự động chuyển Claude/ });
     const run = screen.getByRole('region', { name: /^Chạy nền/ });
     expect(auto.parentElement).toBe(run.parentElement);
     expect(within(auto).getByText('14:19 · Vẫn dùng lan.acme1: chưa tới ngưỡng tự chuyển.')).toBeTruthy();
@@ -467,7 +467,7 @@ describe('switching Claude and pausing from the main window', () => {
   it('Chạy nền says when it last ran; whether it runs, its last decision and log sit under Chi tiết', async () => {
     await open(fixtureModel('fresh', { switcher: heldSwitcher() }), 'claude');
     const run = screen.getByRole('region', { name: /^Chạy nền/ });
-    expect(within(run).getByText(/^Kiểm lúc \d\d:\d\d$/)).toBeTruthy();
+    expect(within(run).getByText(/^Kiểm tra lúc \d\d:\d\d$/)).toBeTruthy();
     expect(within(run).getByText('LaunchAgent chạy mỗi 3 phút, kể cả khi đã đóng app.')).toBeTruthy();
     expect(kv()).toEqual({});
     await details();
@@ -476,7 +476,7 @@ describe('switching Claude and pausing from the main window', () => {
       'LaunchAgent tự chuyển': 'chạy mỗi 3 phút',
       'Bộ tự chuyển cũ': 'tắt',
       'Tạm dừng tự chuyển': 'đến 15:20',
-      'Switcher đọc cờ tạm dừng': 'có',
+      'Bộ tự chuyển đọc cờ tạm dừng': 'có',
       'Nhật ký 09:12': '2026-01-16 09:12:05 switch to slot 2 (ends for good at 17:45, use it first)',
     });
     // While paused, the decision is the switcher's own paused line.

@@ -73,7 +73,7 @@ describe('the MCP tab', () => {
   it('has "Thêm MCP" at the table\'s head, the agents named over their columns, and the lines under it on the glass', async () => {
     await openTab();
     const head = screen.getByRole('heading', { level: 2, name: 'MCP' }).parentElement!;
-    expect(within(head).getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['Đọc lại', 'Thông báo']);
+    expect(within(head).getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['Làm mới', 'Thông báo']);
     const title = screen.getByRole('heading', { level: 4, name: /MCP của bạn/ });
     expect(within(title).getByRole('button', { name: 'Thêm MCP' })).toBeTruthy();
     expect(['Claude Code', 'Codex', 'Antigravity'].map((a) => screen.getByRole('button', { name: a + ': tuỳ chọn cột' }).textContent)).toEqual(['Claude Code', 'Codex', 'Antigravity']);
@@ -128,7 +128,7 @@ describe('the MCP tab', () => {
     const menu = screen.getByRole('menu', { name: 'Antigravity' });
     const items = within(menu).getAllByRole('menuitem');
     expect(items.map((i) => i.textContent)).toEqual(['Bật tất cả', 'Tắt tất cả']);
-    expect(within(menu).getByText('3/6 MCP đang tick')).toBeTruthy();
+    expect(within(menu).getByText('Đang bật 3/6 MCP')).toBeTruthy();
     // The keys go where the focus is, as a keyboard sends them.
     expect(document.activeElement).toBe(items[0]);
     await key(items[0], 'ArrowDown');

@@ -68,7 +68,7 @@ export function checkedLine(env: EnvView): string {
   const vars = plural(env.vars.length, 'variable', 'variables');
   const places = plural(env.places.length, 'place', 'places');
   const hidden = env.ignored ? t(' Đã bỏ qua ' + env.ignored + ' chỗ.', ' Ignored ' + plural(env.ignored, 'place', 'places') + '.') : '';
-  const when = env.checking ? 'Đang kiểm' : env.checkedAt ? 'Đã kiểm' : 'Chưa kiểm';
+  const when = env.checking ? 'Đang kiểm tra' : env.checkedAt ? 'Đã kiểm tra' : 'Chưa kiểm tra';
   const what = env.checking
     ? 'Checking ' + vars + ' in ' + places + '.'
     : env.checkedAt
@@ -102,7 +102,7 @@ export function envBanner(model: Model): BannerView | null {
       actions: [
         ...(open ? [{ label: open, act: `env:open:${f.id}` as const }] : []),
         { label: t('Bỏ qua', 'Ignore'), act: `env:ignore:${f.id}` },
-        { label: t('Kiểm lại', 'Check again'), act: 'env:check' },
+        { label: t('Kiểm tra lại', 'Check again'), act: 'env:check' },
       ],
     };
   }
@@ -115,7 +115,7 @@ export function envBanner(model: Model): BannerView | null {
     ),
     actions: [
       { label: t('Xem trong Cài đặt', 'See in Settings'), act: 'env:settings' },
-      { label: t('Kiểm lại', 'Check again'), act: 'env:check' },
+      { label: t('Kiểm tra lại', 'Check again'), act: 'env:check' },
     ],
   };
 }
@@ -135,9 +135,9 @@ export function openFailedFeedback(f: EnvFound | undefined): FeedbackView {
   return {
     tone: 'warn',
     title: f ? t('Chưa mở được ', 'Could not open ') + placeLabel(f.place) : t('Chưa mở được file', 'Could not open the file'),
-    body: t('Bấm Kiểm lại rồi thử lần nữa.', 'Press Check again, then try once more.'),
+    body: t('Bấm Kiểm tra lại rồi thử lần nữa.', 'Press Check again, then try once more.'),
     actions: [
-      { label: t('Kiểm lại', 'Check again'), act: 'env:check' },
+      { label: t('Kiểm tra lại', 'Check again'), act: 'env:check' },
       { label: t('Đóng', 'Close'), act: 'closeFeedback' },
     ],
   };
@@ -153,11 +153,11 @@ export function ignoredFeedback(f: EnvFound): FeedbackView {
   };
 }
 
-/** After "Kiểm lại". */
+/** After "Kiểm tra lại". */
 export function checkedFeedback(env: EnvView): FeedbackView {
   const n = env.found.length;
   const time = env.checkedAt ? clock(env.checkedAt) : '';
-  const vi = 'Đã kiểm' + (time ? ' lúc ' + time : '');
+  const vi = 'Đã kiểm tra' + (time ? ' lúc ' + time : '');
   const en = 'Checked' + (time ? ' at ' + time : '');
   return n
     ? {

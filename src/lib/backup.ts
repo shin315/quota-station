@@ -373,7 +373,7 @@ export function todoLines(done: RestoreDone): string[] {
     if (r.login && r.done.length) out.push(t('Nếu agent hỏi, đăng nhập lại ' + r.name + ' trong ' + agentsText(r.done) + '.', 'If asked, sign in to ' + r.name + ' again in ' + agentsText(r.done) + '.'));
   }
   if (done.failed)
-    out.push(t('Một phần chưa ghi được. Mở tab MCP, bấm Đọc lại rồi khôi phục lại phần còn thiếu.', 'Part of it was not written. Open the MCP tab, press Read again, then restore what is missing.'));
+    out.push(t('Một phần chưa ghi được. Mở tab MCP, bấm Làm mới rồi khôi phục lại phần còn thiếu.', 'Part of it was not written. Open the MCP tab, press Refresh, then restore what is missing.'));
   const parts = done.parts ?? [];
   for (const r of parts.filter((x) => !x.ok)) {
     const name = partName(r);
@@ -437,7 +437,7 @@ export function restoreError(e: unknown): FeedbackView {
   if (s === 'newer')
     return { tone: 'warn', title: t('Gói của bản app mới hơn', 'Pack from a newer app version'), body: mac(t('Cập nhật Quota Station trên máy này rồi thử lại.', 'Update Quota Station on this Mac, then try again.')) };
   if (s === 'missing')
-    return { tone: 'warn', title: t('Không còn gói này', 'This pack is gone'), body: t('Gói vừa bị xoá hoặc đổi tên. Bấm Kiểm lại.', 'The pack was just deleted or renamed. Press Check again.') };
+    return { tone: 'warn', title: t('Không còn gói này', 'This pack is gone'), body: t('Gói vừa bị xoá hoặc đổi tên. Bấm Kiểm tra lại.', 'The pack was just deleted or renamed. Press Check again.') };
   if (s.startsWith('invalid')) return { tone: 'bad', title: t('Gói hỏng, không đọc được', 'Damaged pack, cannot be read'), body: t('Chọn một gói khác.', 'Choose another pack.') };
   return { tone: 'bad', title: t('Chưa khôi phục', 'Not restored'), body: t('App không chạy được bước này. Các file không đổi.', 'The app could not run this step. No files changed.') };
 }

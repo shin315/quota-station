@@ -658,7 +658,7 @@ fn pool_alerts(
                 format!("Sang {} (đã dùng {}%)", name_of(names, slot), (100.0 - left).round()),
             ));
         }
-        actions.push(act("dismiss", "Thôi"));
+        actions.push(act("dismiss", "Bỏ qua"));
         return Some(Alert {
             key: format!("pool:dry:{now}"),
             kind: Kind::Pool,
@@ -721,7 +721,7 @@ fn leaving_alerts(
             let mut body = format!("Còn {}.", span(at - now));
             let mut actions = vec![act("dismiss", "Ổn")];
             if active == Some(slot) {
-                body += " Sau đó switcher chuyển sang tài khoản khác trong vòng.";
+                body += " Sau đó tự động chuyển sẽ đổi sang tài khoản khác trong vòng xoay.";
                 if let Some((slot, _)) = check.and_then(PoolCheck::best_other) {
                     actions.push(act(format!("switch:{slot}"), "Chuyển ngay"));
                 }
@@ -863,9 +863,9 @@ fn overwrite_alert(o: &Overwrite, f: &Facts) -> Alert {
             None => actions.push(act(format!("agy:keepRunning:{}", o.to), "Chuyển lại")),
         }
     } else {
-        body += " App thôi đề nghị chuyển lại.";
+        body += " Ứng dụng ngừng đề nghị chuyển lại.";
     }
-    actions.push(act("agy:keep", "Thôi"));
+    actions.push(act("agy:keep", "Bỏ qua"));
     Alert {
         key: format!("overwrite:{}:{}", o.to_id, o.at),
         kind: Kind::Overwrite,
@@ -1135,7 +1135,7 @@ pub fn answer(
         let said = said(
             Tone::Info,
             "Đã bỏ qua",
-            "Antigravity giữ tài khoản đang dùng. App thôi canh lần chuyển này.",
+            "Antigravity giữ tài khoản đang dùng. Ứng dụng ngừng theo dõi lần chuyển này.",
         );
         (Effect::DismissOverwrite, Some(said))
     } else if action == "skills:open" {
@@ -1176,8 +1176,8 @@ pub fn answer(
     } else if let Some(slot) = action.strip_prefix("switch:").and_then(|n| n.parse().ok()) {
         let said = said(
             Tone::Info,
-            "Đã mở tấm hỏi chuyển",
-            "Xác nhận trên tấm để chuyển. Chưa có gì thay đổi.",
+            "Đã mở hộp thoại chuyển tài khoản",
+            "Xác nhận trong hộp thoại để chuyển. Chưa có gì thay đổi.",
         );
         (Effect::OpenClaudeSwitch { slot }, Some(said))
     } else if let Some((h, n)) = action.strip_prefix("agy:").and_then(|r| r.split_once(':')) {
@@ -1282,12 +1282,13 @@ pub fn sample(kind: Kind, now: i64, offset: UtcOffset, roles: bool) -> Alert {
             }
             .into(),
             format!("Thử: {a} đã dùng 92%. {b} có lại hạn mức lúc {later}."),
-            vec![act("switch:0", format!("Sang {c} (đã dùng 81%)")), act("dismiss", "Thôi")],
+            vec![act("switch:0", format!("Sang {c} (đã dùng 81%)")), act("dismiss", "Bỏ qua")],
         ),
         Kind::Leaving => (
             Tone::Warn,
             format!("{a} rời vòng lúc {}", clock(now + 30 * 60, offset)),
-            "Thử: còn 30 phút. Sau đó switcher chuyển sang tài khoản khác trong vòng.".into(),
+            "Thử: còn 30 phút. Sau đó tự động chuyển sẽ đổi sang tài khoản khác trong vòng xoay."
+                .into(),
             vec![act("dismiss", "Ổn"), act("switch:0", "Chuyển ngay")],
         ),
         Kind::Login => (
@@ -1310,7 +1311,7 @@ pub fn sample(kind: Kind, now: i64, offset: UtcOffset, roles: bool) -> Alert {
             vec![
                 act("agy:quitFirst:0", "Thoát app rồi chuyển lại"),
                 act("agy:keepRunning:0", "Chuyển lại"),
-                act("agy:keep", "Thôi"),
+                act("agy:keep", "Bỏ qua"),
             ],
         ),
         Kind::Firstmate => (

@@ -217,7 +217,7 @@ function failedBody(error: string, detail: string, reopened: boolean | null): st
         t(' Bấm Thử lại để chọn thoát app rồi chuyển, hoặc để app chạy.', ' Press Try again to quit the app and then switch, or to keep it open.')
       );
     case 'appState':
-      return t('Không kiểm được Antigravity.app có đang chạy không.', 'Could not check whether Antigravity.app is running.') + nothing;
+      return t('Không kiểm tra được Antigravity.app có đang chạy không.', 'Could not check whether Antigravity.app is running.') + nothing;
     case 'write':
     case 'writeTimeout': {
       const why = error === 'writeTimeout' ? t('security không trả lời trong 15 giây', 'security did not answer within 15 seconds') : detail;
@@ -275,7 +275,7 @@ export function agySwitchFeedback(outcome: AgyOutcome, model?: Model | null): Fe
                 'Nhưng đọc lại sau 5 giây, agy vẫn đang dùng ' + nameOf(outcome.active) + '. Antigravity.app hoặc phiên agy đang chạy có thể vẫn giữ tài khoản cũ.',
                 'But reading again after 5 seconds, agy still uses ' + nameOf(outcome.active) + '. Antigravity.app or a running agy session may still hold the old account.',
               )
-            : t('Nhưng app chưa đọc lại được tài khoản agy đang dùng để kiểm.', 'But the app could not read back which account agy uses to check.')) + tail.text,
+            : t('Nhưng ứng dụng chưa đọc lại được tài khoản agy đang dùng để kiểm tra.', 'But the app could not read back which account agy uses to check.')) + tail.text,
         actions: [refresh(), close()],
       };
     }
@@ -320,7 +320,7 @@ export function overwriteBanner(model: Model): BannerView | null {
       ) + again,
     actions: [
       { label: t('Chuyển lại', 'Switch again'), act: ('agy:switch:' + o.to) as Action },
-      { label: t('Thôi', 'Cancel'), act: 'agy:keep' },
+      { label: t('Huỷ', 'Cancel'), act: 'agy:keep' },
     ],
   };
 }

@@ -412,9 +412,9 @@ function AutoHead({ auto, onToggle }: { auto: AutoView; onToggle(): void }) {
 function OverviewNote() {
   return (
     <TabNote>
-      {t('% đã dùng của từng hạn mức', 'Share used of each quota')}
+      {t('Phần trăm đã dùng của từng hạn mức', 'Percent used of each quota')}
       {' · '}
-      <More about={t('% đã dùng của từng hạn mức', 'Share used of each quota')}>
+      <More about={t('Phần trăm đã dùng của từng hạn mức', 'Percent used of each quota')}>
         <p>
           {t(
             'Mỗi số là phần đã dùng của một hạn mức, theo mẫu số riêng của dịch vụ và cửa sổ đó, nên không cộng được giữa các cột hay các dịch vụ.',
@@ -429,8 +429,8 @@ function OverviewNote() {
         </p>
         <p>
           {t(
-            'Chip “số … trước” cho biết số của tài khoản đó đọc cách đây bao lâu.',
-            'A “numbers … old” chip says how long ago that account was read.',
+            'Nhãn “cập nhật … trước” cho biết hạn mức của tài khoản đó được cập nhật cách đây bao lâu.',
+            'An “updated … ago” badge shows how long ago that account’s quota was updated.',
           )}
         </p>
       </More>
@@ -624,7 +624,7 @@ function ClaudeTab(props: TabProps & { advanced: boolean }) {
             </Segmented>
           </section>
           <section className={cn(HALF, 'border-l-[.5px] border-card-line @max-[680px]/main:border-t-[.5px] @max-[680px]/main:border-l-0')} aria-labelledby="qs-run-h">
-            <RunHalf title={t('Chạy nền', 'Background run')} tag={<AdvancedTag />} rotation={m?.rotation} switcher={sw} />
+            <RunHalf title={t('Chạy nền', 'Background check')} tag={<AdvancedTag />} rotation={m?.rotation} switcher={sw} />
           </section>
         </Panel>
       ) : m?.rotationAlone ? (
@@ -662,11 +662,11 @@ function AgyTab(props: TabProps & { agyAccounts: boolean }) {
         ) : null}
       </Card>
       {!props.agyAccounts && a.present ? (
-        <Card title={t('Nhiều tài khoản Antigravity', 'Several Antigravity accounts')}>
+        <Card title={t('Nhiều tài khoản Antigravity', 'Multiple Antigravity accounts')}>
           <CardText className="mb-0">
             {t(
               'Bản này chỉ đọc tài khoản đang đăng nhập. Thêm, đăng nhập và chuyển nhiều tài khoản có ở bản build từ mã nguồn với phần Antigravity, theo giấy phép CC BY-NC-SA 4.0 của phần đó.',
-              'This build only reads the signed-in account. Adding, signing in and switching several accounts comes with a build from source that includes the Antigravity part, under that part’s CC BY-NC-SA 4.0 licence.',
+              'This build only reads the signed-in account. Adding, signing in and switching several accounts comes with a build from source that includes the Antigravity part, under that part’s CC BY-NC-SA 4.0 license.',
             )}
           </CardText>
         </Card>

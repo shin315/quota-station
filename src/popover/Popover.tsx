@@ -615,10 +615,10 @@ export function Popover({ view, codex = null, auto, sync = null, release = null,
           {view.none ? (
             <EmptyCard
               title={mac(t('Chưa thấy Claude Code, Codex hay Antigravity trên máy này', 'No Claude Code, Codex or Antigravity on this Mac yet'))}
-              body={t('Quota Station hiện hạn mức của các agent này. Cài một agent rồi bấm Kiểm lại.', 'Quota Station shows the quota of these agents. Install one, then press Check again.')}
+              body={t('Quota Station hiện hạn mức của các agent này. Cài một agent rồi bấm Kiểm tra lại.', 'Quota Station shows the quota of these agents. Install one, then press Check again.')}
             >
               <Button small onClick={() => onAction('refresh')} disabled={busy === 'refresh'}>
-                {t('Kiểm lại', 'Check again')}
+                {t('Kiểm tra lại', 'Check again')}
               </Button>
             </EmptyCard>
           ) : (

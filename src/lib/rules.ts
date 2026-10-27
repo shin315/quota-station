@@ -235,8 +235,8 @@ export function rotationBanner(model: AuthorModel): BannerView | null {
       body:
         cap(keyWords(r.reason)) +
         t(
-          '. App đang tính theo tài khoản đang dùng. Bộ sửa hiện mặc định của switcher: lưu để ghi đè, bản cũ được sao lưu.',
-          '. The app goes by the account in use. The editor shows the switcher’s defaults: save to overwrite; the old copy is backed up.',
+          '. App đang tính theo tài khoản đang dùng. Khung cấu hình đang hiển thị mặc định của bộ tự chuyển: lưu để ghi đè, bản cũ được sao lưu.',
+          '. The app goes by the account in use. Showing auto-switch defaults: save to overwrite; the old copy is backed up.',
         ),
       actions: [],
     };

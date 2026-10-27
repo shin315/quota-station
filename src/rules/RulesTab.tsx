@@ -378,7 +378,7 @@ function Preview({ rules: st }: { rules: RulesState }) {
       ) : st.preview?.kind === 'error' ? (
         <span>{st.preview.text}</span>
       ) : st.preview?.kind === 'loading' ? (
-        <span>{t('Đang hỏi switcher…', 'Asking the switcher…')}</span>
+        <span>{t('Đang kiểm tra kết quả xem trước…', 'Checking preview…')}</span>
       ) : (
         <span>{r && rulesProblem(r) ? t('Sửa luật cho hợp lệ để xem trước.', 'Fix the rules to see a preview.') : '—'}</span>
       )}
@@ -421,7 +421,7 @@ function SaveBar({ model, rules: st }: { model: AuthorModel; rules: RulesState }
               {t('Có ' + st.changes.length + ' thay đổi chưa lưu.', st.changes.length === 1 ? '1 unsaved change.' : st.changes.length + ' unsaved changes.')}
             </span>
             <Button large disabled={st.working != null} onClick={st.revert}>
-              {t('Huỷ thay đổi', 'Discard changes')}
+              {t('Bỏ thay đổi', 'Discard changes')}
             </Button>
           </>
         ) : null}

@@ -44,7 +44,7 @@ import { Button, ChoiceGroup, CODE, Facts as FactList, FeedbackLine, FeedbackTex
 
 /** What a write of config.toml goes through. */
 const WRITE_STEPS = () =>
-  t('Sao lưu bản cũ → ghi file tạm → kiểm mã băm → thay file → đọc lại.', 'Back up the old file → write a temporary file → check its hash → replace the file → read it again.');
+  t('Sao lưu bản cũ → ghi file tạm → kiểm tra mã băm → thay file → đọc lại.', 'Back up the old file → write a temporary file → check its checksum → replace the file → read it again.');
 
 /** A numbered how-to list. */
 const HOWTO = 'm-0 mb-3 grid gap-1.5 pl-5 text-sm';
@@ -131,7 +131,7 @@ function ClaudeBody(props: SheetBodyProps & { slot: number }) {
           <div>
             <FeedbackText
               title={t('Đang đổi đăng nhập Claude Code sang ' + v.name, 'Switching the Claude Code sign-in to ' + v.name)}
-              body={t('Sau đó app đợi 5 giây rồi đọc lại tài khoản đang dùng để kiểm.', 'Then the app waits 5 seconds and reads the account in use again to check.')}
+              body={t('Sau đó ứng dụng đợi 5 giây rồi đọc lại tài khoản đang dùng để kiểm tra.', 'Then the app waits 5 seconds and reads the account in use again to check.')}
             />
           </div>
         </FeedbackLine>

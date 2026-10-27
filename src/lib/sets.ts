@@ -203,7 +203,7 @@ export function appliedFeedback(name: string, o: SetOutcome, step: CodexTarget |
   if (failed)
     return {
       tone: 'warn',
-      title: t('Đã áp một phần bộ ' + name + ': ' + changesWord(n) + '.', 'Applied part of the set ' + name + ': ' + changesWord(n) + '.'),
+      title: t('Đã áp dụng một phần bộ ' + name + ': ' + changesWord(n) + '.', 'Applied part of the set ' + name + ': ' + changesWord(n) + '.'),
       body: failed.title + ' ' + failed.body,
       actions: [undo],
     };
@@ -214,7 +214,7 @@ export function appliedFeedback(name: string, o: SetOutcome, step: CodexTarget |
   return {
     tone: 'info',
     title: n
-      ? t('Đã áp bộ ' + name + ': ' + changesWord(n) + '.', 'Applied the set ' + name + ': ' + changesWord(n) + '.')
+      ? t('Đã áp dụng bộ ' + name + ': ' + changesWord(n) + '.', 'Applied the set ' + name + ': ' + changesWord(n) + '.')
       : t('Bộ ' + name + ' đang dùng.', 'The set ' + name + ' is in use.'),
     body:
       (n
@@ -241,7 +241,7 @@ export function undoneFeedback(name: string, u: SetUndone, codex: CodexView): Fe
       body: failed.title + ' ' + failed.body,
       actions: [{ label: t('Thử lại', 'Try again'), act: 'sets:undo' }],
     };
-  const left = u.left.length ? t(' Giữ ' + u.left.join(', ') + ': đã đổi sau khi áp.', ' Kept ' + u.left.join(', ') + ': changed after the set was applied.') : '';
+  const left = u.left.length ? t(' Giữ ' + u.left.join(', ') + ': đã đổi sau khi áp dụng.', ' Kept ' + u.left.join(', ') + ': changed after the set was applied.') : '';
   const back = u.codexBefore === 'chatgpt' ? ('chatGpt' as const) : u.codexBefore === 'custom' ? ('custom' as const) : null;
   const switchBack = back && codex.current !== u.codexBefore;
   const now = sideName(codex.current === 'chatgpt' ? 'chatGpt' : 'custom', codex);
@@ -249,7 +249,7 @@ export function undoneFeedback(name: string, u: SetUndone, codex: CodexView): Fe
     tone: 'info',
     title: t('Đã hoàn tác bộ ' + name + '.', 'Undid the set ' + name + '.'),
     body:
-      t('MCP và skills trở về như trước khi áp.', 'MCP and skills are back as they were before the set was applied.') +
+      t('MCP và skills trở về như trước khi áp dụng.', 'MCP and skills are back as they were before the set was applied.') +
       left +
       (switchBack ? t(' Codex vẫn ở ' + now + '.', ' Codex is still on ' + now + '.') : ''),
     actions: switchBack
@@ -274,15 +274,15 @@ export function setErrorText(e: unknown): string {
     const a = s.slice('changed:'.length) as Agent;
     return AGENT_NAME[a]
       ? t(
-          'Chưa đổi gì: file của ' + AGENT_NAME[a] + ' vừa đổi sau lúc xem trước. Bấm Áp… lại để xem trước lần nữa.',
+          'Chưa đổi gì: file của ' + AGENT_NAME[a] + ' vừa đổi sau lúc xem trước. Bấm Áp dụng… lại để xem trước lần nữa.',
           'Nothing changed: ' + AGENT_NAME[a] + '’s file changed after the preview. Press Apply… again to preview again.',
         )
       : t(
-          'Chưa đổi gì: file của một agent vừa đổi sau lúc xem trước. Bấm Áp… lại để xem trước lần nữa.',
+          'Chưa đổi gì: file của một agent vừa đổi sau lúc xem trước. Bấm Áp dụng… lại để xem trước lần nữa.',
           'Nothing changed: an agent’s file changed after the preview. Press Apply… again to preview again.',
         );
   }
   if (s === 'notTheSet')
-    return mac(t('Chưa đổi gì: máy đã khác lúc xem trước. Bấm Áp… lại để xem trước lần nữa.', 'Nothing changed: this Mac changed after the preview. Press Apply… again to preview again.'));
+    return mac(t('Chưa đổi gì: máy đã khác lúc xem trước. Bấm Áp dụng… lại để xem trước lần nữa.', 'Nothing changed: this Mac changed after the preview. Press Apply… again to preview again.'));
   return t('App không ghi được lúc này. Các file không đổi.', 'The app cannot write right now. The files are unchanged.');
 }

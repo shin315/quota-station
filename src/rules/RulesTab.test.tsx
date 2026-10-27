@@ -80,7 +80,7 @@ describe('rules editor', () => {
     expect(saveButton()?.disabled).toBe(false);
     expect(fake.api.rulesDirty).toHaveBeenLastCalledWith(true);
 
-    await press(screen.getByRole('button', { name: 'Huỷ thay đổi' }));
+    await press(screen.getByRole('button', { name: 'Bỏ thay đổi' }));
     expect(screen.queryByText(/thay đổi chưa lưu/)).toBeNull();
     expect(team().getAllByRole('button').every((b) => b.getAttribute('aria-pressed') === 'true')).toBe(true);
     expect(fake.api.rulesDirty).toHaveBeenLastCalledWith(false);
@@ -314,7 +314,7 @@ describe('rules editor', () => {
     const fake = await open();
     expect(await screen.findByText('Vẫn dùng lan.acme1: chưa tới ngưỡng tự chuyển.', {}, { timeout: 2000 })).toBeTruthy();
     await press(team().getByRole('button', { name: /lan\.acme1/ }));
-    expect(await screen.findByText(/^Lần kiểm tới sẽ chuyển sang lan\.acme2/, {}, { timeout: 2000 })).toBeTruthy();
+    expect(await screen.findByText(/^Lần kiểm tra tới sẽ chuyển sang lan\.acme2/, {}, { timeout: 2000 })).toBeTruthy();
     expect(fake.api.previewRotation).toHaveBeenLastCalledWith(rulesFixture({ team: [3, 4] }));
   });
 

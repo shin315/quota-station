@@ -29,7 +29,7 @@ function banners(model: Model, now: Date): BannerView[] {
       tone: 'bad',
       title: mac(t(cloudDrive() + ' đang tắt trên máy này', cloudDrive() + ' is off on this Mac')),
       body: mac(t('Bật ' + cloudDrive() + ' để sao lưu, và để lấy gói của Mac khác.', 'Turn on ' + cloudDrive() + ' to back up, and to get packs from other Macs.')),
-      actions: [{ label: t('Kiểm lại', 'Check again'), act: 'backup:reread' }],
+      actions: [{ label: t('Kiểm tra lại', 'Check again'), act: 'backup:reread' }],
     });
   const cloud = (v.packs ?? []).filter((p) => p.state === 'cloud');
   if (cloud.length)
@@ -42,7 +42,7 @@ function banners(model: Model, now: Date): BannerView[] {
       body: t(cloudDrive() + ' mới có tên file. Mở thư mục trong ' + fileManager() + ' để tải, hoặc chờ.', cloudDrive() + ' only has the file name so far. Open the folder in ' + fileManager() + ' to download it, or wait.'),
       actions: [
         { label: t('Mở trong ' + fileManager(), 'Open in ' + fileManager()), act: 'backup:open' },
-        { label: t('Kiểm lại', 'Check again'), act: 'backup:reread' },
+        { label: t('Kiểm tra lại', 'Check again'), act: 'backup:reread' },
       ],
     });
   const auto = autoErrorText(v);

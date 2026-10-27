@@ -23,9 +23,9 @@ describe('the numbers of Thống kê', () => {
   });
 
   it('say when the logs were read', () => {
-    expect(readLine(statsFixture())).toBe('đọc log lúc 14:30');
-    expect(readLine(statsFixture({ readAt: null }))).toBe('chưa đọc log');
-    expect(readLine(firstReadFixture())).toBe('đang đọc log…');
+    expect(readLine(statsFixture())).toBe('cập nhật lúc 14:30');
+    expect(readLine(statsFixture({ readAt: null }))).toBe('chưa cập nhật');
+    expect(readLine(firstReadFixture())).toBe('đang cập nhật…');
   });
 
   it('give each agent a line on the first read', () => {

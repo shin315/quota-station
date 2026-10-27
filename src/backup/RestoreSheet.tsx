@@ -374,7 +374,7 @@ function PreviewStep({ d, backup, now }: { d: RestoreDialog; backup: Backup; now
         </Button>
         {d.error ? (
           <Button large onClick={() => backup.toPreview(d)}>
-            {t('Đọc lại', 'Read again')}
+            {t('Làm mới', 'Refresh')}
           </Button>
         ) : null}
         <Button large primary disabled={!any || backup.working} onClick={() => backup.next(d)}>

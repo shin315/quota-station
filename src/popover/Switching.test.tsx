@@ -100,7 +100,7 @@ describe('the Claude switch sheet', () => {
     const fake = await open(fixtureModel('fresh'));
     const sheet = await sheetFor('lan.acme2');
     fireEvent.click(within(sheet).getByRole('radio', { name: /Để tự chuyển/ }));
-    expect(within(sheet).getByText('Tự chuyển vẫn bật. Switcher có thể đổi sang tài khoản khác ở lần kiểm sau (trong vòng 3 phút).')).toBeTruthy();
+    expect(within(sheet).getByText('Tự động chuyển vẫn bật. Bộ tự chuyển có thể đổi sang tài khoản khác ở lần kiểm tra sau (trong vòng 3 phút).')).toBeTruthy();
     await act(async () => {
       fireEvent.click(within(sheet).getByRole('button', { name: 'Chuyển sang lan.acme2' }));
     });
@@ -109,7 +109,7 @@ describe('the Claude switch sheet', () => {
     const toast = screen.getByText('Đã chuyển sang lan.acme2');
     expect(toast.getAttribute('role')).toBe('status');
     expect(toast.getAttribute('title')).toBe(
-      'Đọc lại sau 5 giây: lan.acme2 đang dùng ✓. Tự chuyển vẫn bật: switcher kiểm lại trong vòng 3 phút và có thể đổi tài khoản.',
+      'Đọc lại sau 5 giây: lan.acme2 đang dùng ✓. Tự động chuyển vẫn bật: bộ tự chuyển kiểm tra lại trong vòng 3 phút và có thể đổi tài khoản.',
     );
   });
 
@@ -294,7 +294,7 @@ describe('the pause control', () => {
     expect(screen.getByText('Đã tạm dừng tự chuyển Claude')).toBeTruthy();
     expect(screen.getByText('Giữ lan.acme1 đến 15:20. Hết thời gian này, tự chuyển sẽ bật lại.')).toBeTruthy();
     // The why line and the toggle say so; the banner waits for the line to close.
-    expect(screen.getByText('Tự chuyển đang tạm dừng')).toBeTruthy();
+    expect(screen.getByText('Tự động chuyển đang tạm dừng')).toBeTruthy();
     expect(screen.getByText('Đang tạm dừng tới 15:20: tạm dừng trong Quota Station lúc 14:20')).toBeTruthy();
     expect(screen.getByRole('switch', { name: 'Tự chuyển Claude, đang tạm dừng' }).getAttribute('aria-checked')).toBe('false');
     expect(screen.queryByText('Đang giữ lan.acme1 đến 15:20')).toBeNull();

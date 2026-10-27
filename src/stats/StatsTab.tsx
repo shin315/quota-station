@@ -331,7 +331,7 @@ export function PointTable({ report }: { report: StatsReport }) {
               </tr>
             ))}
             <tr className="font-semi">
-              <td>{t('Cộng', 'Sum')}</td>
+              <td>{t('Tổng cộng', 'Total')}</td>
               <td>{inUnit(report.claude, unit)}</td>
               <td>{inUnit(report.codex, unit)}</td>
               <td>{inUnit(report.total, unit)}</td>
@@ -341,7 +341,7 @@ export function PointTable({ report }: { report: StatsReport }) {
       </div>
       <p className="mt-1.5 mb-0 text-xs text-ink2">
         {unitWords(unit)}
-        {rows.length < report.points.length ? t(' · giờ, ngày không có token không ghi', ' · hours and days with no tokens are left out') : ''}
+        {rows.length < report.points.length ? t(' · ẩn các giờ và ngày không có token', ' · hours and days with no tokens are hidden') : ''}
       </p>
     </>
   );
@@ -504,7 +504,7 @@ export function StatsTab({ model, fresh, stats }: StatsTabProps) {
         ))}
       </Segmented>
       <Button disabled={v.reading} onClick={stats.reread}>
-        {t('Đọc lại', 'Read again')}
+        {t('Làm mới', 'Refresh')}
       </Button>
     </TabHead>
   );
@@ -579,7 +579,7 @@ export function StatsTab({ model, fresh, stats }: StatsTabProps) {
           {stats.report === 'failed' ? (
             <Empty>
               <b>{t('Chưa đọc được số', 'Could not read the numbers')}</b>
-              {t('Bấm Đọc lại để thử lần nữa.', 'Press Read again to try once more.')}
+              {t('Bấm Làm mới để thử lần nữa.', 'Press Refresh to try once more.')}
             </Empty>
           ) : null}
         </Panel>

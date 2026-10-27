@@ -29,7 +29,7 @@ use quota_station_core::detail::ClaudeDetail;
 use quota_station_core::os::Scheduler;
 use quota_station_core::quota::cache::{Cache, MAX_AGE_SECONDS};
 use quota_station_core::quota::{self, ProviderId, Response};
-use quota_station_core::settings::Menubar;
+use quota_station_core::settings::{Language, Menubar};
 use quota_station_core::switcher;
 use quota_station_core::{icon, local_time, pause, schedule};
 use tauri::{AppHandle, Emitter};
@@ -340,6 +340,7 @@ pub fn publish(app: &AppHandle, state: &AppState) {
             codex: has(Menubar::Codex),
             window: inner.settings.menubar_window,
             fable: icon::followed(&snapshot, inner.settings.menubar, &codex) == Menubar::Claude,
+            en: inner.settings.language == Language::En,
         };
         (inner.model_with(snapshot), icon, follow)
     };

@@ -126,7 +126,7 @@ export function EnvCard({ model, onAction, id }: { model: Model; onAction(act: A
       <CardText className="mt-1.5 mb-0">
         {checkedLine(env)}{' '}
         <LinkButton small disabled={env.checking} onClick={() => onAction('env:check')}>
-          {t('Kiểm lại', 'Check again')}
+          {t('Kiểm tra lại', 'Check again')}
         </LinkButton>
         {' · '}
         <LinkButton small onClick={() => onAction('env:list')}>
@@ -141,7 +141,7 @@ export function EnvCard({ model, onAction, id }: { model: Model; onAction(act: A
 export function EnvListBody({ model, env }: { model: Model; env: EnvState }) {
   return (
     <>
-      <DialogTitle>{t('App kiểm những gì', 'What the app checks')}</DialogTitle>
+      <DialogTitle>{t('Ứng dụng kiểm tra những gì', 'What the app checks')}</DialogTitle>
       <DialogSection>{t('Biến', 'Variables')}</DialogSection>
       <p className="mt-0 mb-1.5 block rounded-sm bg-fill px-1 font-mono text-xs leading-[1.9] text-ink [overflow-wrap:anywhere]">{model.env.vars.join(' · ')}</p>
       <DialogSection>{t('Chỗ', 'Places')}</DialogSection>

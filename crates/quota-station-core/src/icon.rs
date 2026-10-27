@@ -48,7 +48,7 @@ impl Icon {
     pub fn with_pause(mut self, paused: bool) -> Icon {
         if paused && matches!(self.tone, Tone::Ok | Tone::Warn) {
             self.paused = true;
-            self.label.push_str(". Tự chuyển đang tạm dừng");
+            self.label.push_str(". Tự động chuyển đang tạm dừng");
         }
         self
     }
@@ -302,7 +302,7 @@ impl Now<'_> {
                 }
                 w
             }
-            None => format!("{} chưa có số", self.name),
+            None => format!("{} chưa có dữ liệu", self.name),
         }
     }
 }

@@ -184,7 +184,7 @@ function DetectStep({ model }: { model: Model }) {
           tone=""
           title={t('Chưa thấy agent nào', 'No agents found')}
           body={t(
-            'Quota Station hiện hạn mức của Claude Code, Codex và Antigravity. Cài ít nhất một cái rồi bấm Kiểm lại; app vẫn mở được để bạn xem trước.',
+            'Quota Station hiện hạn mức của Claude Code, Codex và Antigravity. Cài ít nhất một cái rồi bấm Kiểm tra lại; app vẫn mở được để bạn xem trước.',
             'Quota Station shows the quota of Claude Code, Codex and Antigravity. Install at least one and press Check again; the app still opens so you can look around.',
           )}
         />
@@ -544,7 +544,7 @@ export function Setup(props: SetupProps) {
           <DetectStep model={model} />
           <Nav back={back}>
             <Button disabled={props.busy === 'refresh'} onClick={() => props.onAction('refresh')}>
-              {t('Kiểm lại', 'Check again')}
+              {t('Kiểm tra lại', 'Check again')}
             </Button>
             <Button primary onClick={next}>
               {has.claude || has.codex || has.agy ? t('Tiếp tục', 'Continue') : t('Vẫn tiếp tục', 'Continue anyway')}

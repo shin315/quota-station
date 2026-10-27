@@ -191,11 +191,11 @@ export function resultFeedback(v: ClaudeAccountsView, done: ClaudeActionDone, wh
       return row?.enabled === false
         ? {
             tone: '',
-            title: t('Đã cho ' + who + ' nghỉ khỏi tự chuyển.', who + ' is now out of auto-switch.'),
+            title: t('Đã tạm dừng tự chuyển cho ' + who + '.', 'Paused auto-switch for ' + who + '.'),
             body: mac(t('Tự chuyển trên máy này bỏ qua tài khoản này cho tới khi bạn cho vào lại.', 'Auto-switch on this Mac skips this account until you put it back.')),
             actions: [{ label: t('Hoàn tác', 'Undo'), act: `claude:unrest:${done.slot ?? 0}` }, close()],
           }
-        : { tone: '', title: t('Đã cho ' + who + ' vào lại tự chuyển.', who + ' is back in auto-switch.'), body: '', actions: [] };
+        : { tone: '', title: t('Đã đưa ' + who + ' lại vào tự chuyển.', 'Resumed auto-switch for ' + who + '.'), body: '', actions: [] };
     case 'rotation':
       return {
         tone: '',

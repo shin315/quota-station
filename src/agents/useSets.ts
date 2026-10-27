@@ -38,7 +38,7 @@ export function useSets(api: Api, model: Model | null, showFeedback: (fb: Feedba
     try {
       const saved = await api.setsSave(d.draft);
       setDialog(null);
-      showFeedback({ tone: 'info', title: t('Đã lưu bộ ' + saved.name + '.', 'Saved the set ' + saved.name + '.'), body: t('Chưa áp. Bấm Áp… khi cần.', 'Not applied yet. Press Apply… when you need it.') });
+      showFeedback({ tone: 'info', title: t('Đã lưu bộ ' + saved.name + '.', 'Saved the set ' + saved.name + '.'), body: t('Chưa áp dụng. Bấm Áp dụng… khi cần.', 'Not applied yet. Press Apply… when you need it.') });
     } catch (e) {
       setDialog({ ...d, error: setErrorText(e) });
     } finally {
@@ -118,7 +118,7 @@ export function useSets(api: Api, model: Model | null, showFeedback: (fb: Feedba
     } catch (e) {
       showFeedback(
         String(e) === 'nothing'
-          ? { tone: 'warn', title: t('Không còn gì để hoàn tác', 'Nothing left to undo'), body: t('Bộ vừa áp đã được hoàn tác.', 'The set just applied was already undone.') }
+          ? { tone: 'warn', title: t('Không còn gì để hoàn tác', 'Nothing left to undo'), body: t('Bộ vừa áp dụng đã được hoàn tác.', 'The set just applied was already undone.') }
           : { tone: 'warn', title: t('Chưa hoàn tác', 'Not undone'), body: setErrorText(e) },
       );
     }

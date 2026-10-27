@@ -175,7 +175,7 @@ export function npxText(e: NpxError | string): { title: string; body: string } {
     return { title: t('Không phải repo GitHub', 'Not a GitHub repo'), body: t('Gõ dạng chủ/tên-repo, hoặc dán link GitHub của repo.', 'Type owner/repo-name, or paste the repo’s GitHub link.') };
   if (code === 'noSkills')
     return { title: t('Repo này không có skill nào', 'This repo has no skills'), body: t('Không thấy thư mục nào có SKILL.md trong repo.', 'No folder in the repo has a SKILL.md.') };
-  if (code === 'timeout') return { title: t('npx skills chạy quá lâu', 'npx skills took too long'), body: t('Kiểm mạng rồi thử lại.', 'Check the network, then try again.') };
+  if (code === 'timeout') return { title: t('npx skills chạy quá lâu', 'npx skills took too long'), body: t('Kiểm tra mạng rồi thử lại.', 'Check the network, then try again.') };
   if (code === 'busy') return { title: t('Đang có một lần ghi khác', 'Another write is running'), body: t('Đợi xong rồi thử lại.', 'Wait for it to finish, then try again.') };
   if (code.startsWith('failed:')) return { title: t('npx skills báo lỗi', 'npx skills reported an error'), body: code.slice('failed:'.length) || t('Không rõ lý do.', 'Unknown reason.') };
   return { title: t('Chưa làm được', 'Could not do it'), body: code };
@@ -221,7 +221,7 @@ export function bulkUpdatedFeedback(out: SkillUpdatedMany): FeedbackView {
 export function checkedLine(v: SkillsView): string {
   const u = v.updates;
   if (u.checking) return t('đang kiểm tra bản mới…', 'checking for updates…');
-  if (!u.settings.daily && !u.checkedAt) return t('không tự kiểm tra bản mới', 'no automatic update check');
+  if (!u.settings.daily && !u.checkedAt) return t('không tự động kiểm tra bản mới', 'no automatic update check');
   return u.checkedAt ? t('kiểm tra bản mới lúc ' + clock(u.checkedAt), 'checked for updates at ' + clock(u.checkedAt)) : t('chưa kiểm tra bản mới', 'not checked for updates yet');
 }
 

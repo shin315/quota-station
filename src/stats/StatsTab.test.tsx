@@ -158,7 +158,7 @@ describe('the Thống kê tab', () => {
       const cells = within(rows[i]).getAllByRole('cell').map((c) => c.textContent);
       expect(cells).toEqual([p.label, num(p.claude / u.div), num(p.codex / u.div), num((p.claude + p.codex) / u.div)]);
     });
-    expect(within(rows[7]).getAllByRole('cell')[0].textContent).toBe('Cộng');
+    expect(within(rows[7]).getAllByRole('cell')[0].textContent).toBe('Tổng cộng');
     await press(screen.getByRole('button', { name: 'Xem biểu đồ' }));
     expect(chart()).toBeTruthy();
   });
@@ -183,16 +183,16 @@ describe('the Thống kê tab', () => {
     expect(await screen.findByText(/Claude Code · \d/)).toBeTruthy();
     expect(screen.getByText('Đọc lần đầu mất vài phút. Lần sau chỉ đọc phần mới.')).toBeTruthy();
     expect(screen.getByText('Antigravity · chưa có log token trên máy')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Đọc lại' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByRole('button', { name: 'Làm mới' }).hasAttribute('disabled')).toBe(true);
     expect(await screen.findByText('Tổng · 7 ngày', {}, { timeout: 4000 })).toBeTruthy();
-    expect(screen.getByText(/đọc log lúc/)).toBeTruthy();
+    expect(screen.getByText(/cập nhật lúc/)).toBeTruthy();
   });
 
   it('draws the first read halfway as the prototype', async () => {
     await openTab(fixtureModel('fresh', { stats: firstReadFixture() }));
     expect(screen.getByText('Claude Code · 2.140 file log')).toBeTruthy();
     expect(screen.getByText('Codex · 640/960 file')).toBeTruthy();
-    expect(screen.getByText(/đang đọc log…/)).toBeTruthy();
+    expect(screen.getByText(/đang cập nhật…/)).toBeTruthy();
   });
 
   it('says how many sessions it skipped, never guessing them, until "Đã biết"', async () => {
