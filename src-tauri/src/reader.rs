@@ -23,9 +23,10 @@ use quota_station_core::app_dir::AppDir;
 use quota_station_core::claude::state::AccountOut;
 use quota_station_core::claude::store::Store;
 use quota_station_core::claude::usage::{self, Endpoints};
-use quota_station_core::claude::{agent, rotate, state, switch, Paths};
+use quota_station_core::claude::{rotate, state, switch, Paths};
 use quota_station_core::codex::platform::System;
 use quota_station_core::detail::ClaudeDetail;
+use quota_station_core::os::Scheduler;
 use quota_station_core::quota::cache::{Cache, MAX_AGE_SECONDS};
 use quota_station_core::quota::{self, ProviderId, Response};
 use quota_station_core::settings::Menubar;
@@ -158,7 +159,7 @@ fn check_switcher(home: &Path, paths: Paths, full: bool, pause_generation: u64) 
     let full = full.then(|| {
         let at = OffsetDateTime::now_utc();
         let flag_held = pause.as_ref().is_some_and(|f| f.holds(&local_time::stamp(at)));
-        let launchctl = Path::new(switcher::LAUNCHCTL);
+        let scheduler = quota_station_core::os::scheduler();
         let dry_run = if paths.in_use() {
             let store = Store::new(paths, quota_station_core::os::secret_store());
             let decided = rotate::dry_run(
@@ -174,8 +175,8 @@ fn check_switcher(home: &Path, paths: Paths, full: bool, pause_generation: u64) 
         FullCheck {
             dry_run,
             last_log: switcher::last_log_line(&switcher::log_file(home)),
-            service: agent::loaded(launchctl),
-            legacy: agent::legacy_loaded(launchctl).map(String::from),
+            service: scheduler.loaded(),
+            legacy: scheduler.legacy_loaded().map(String::from),
         }
     });
     SwitcherCheck { pause, pause_generation, full }
@@ -282,7 +283,7 @@ fn read_own(store: &Store, names: bool) -> Own {
     if !store.paths.in_use() {
         return None;
     }
-    let legacy = agent::legacy_loaded(Path::new(switcher::LAUNCHCTL));
+    let legacy = quota_station_core::os::scheduler().legacy_loaded();
     usage::read_due(store, &Endpoints::anthropic(), false, legacy.is_none());
     let _ = state::write(store, switch::active_slot(store), OffsetDateTime::now_utc());
     Some(crate::claude::load(store, names))

@@ -172,8 +172,14 @@ pub fn set_launch_at_login(
 }
 
 #[tauri::command]
-pub fn open_login_items() {
-    crate::login_item::open_settings();
+pub fn open_login_items(app: AppHandle) {
+    #[cfg(windows)]
+    crate::login_item::open_settings(&app);
+    #[cfg(not(windows))]
+    {
+        let _ = app;
+        crate::login_item::open_settings();
+    }
 }
 
 /// The clone to update from; empty forgets it. Rejects with `missing` or

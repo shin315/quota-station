@@ -7,9 +7,11 @@
 //! - [`SecretStore`]: generic passwords by service and account (macOS:
 //!   the login Keychain through `/usr/bin/security`,
 //!   [`crate::claude::keychain::Security`]);
-//! - [`Scheduler`]: the rotation run every few minutes while the app is
-//!   closed, and the older switchers that must not run beside it (macOS:
-//!   launchd through `/bin/launchctl`, [`crate::claude::agent::Launchd`]);
+//! - [`Scheduler`]: the rotation run every few minutes, and the older
+//!   switchers that must not run beside it (macOS: launchd through
+//!   `/bin/launchctl`, [`crate::claude::agent::Launchd`], also while the app
+//!   is closed; Windows: the app's own timer while it runs,
+//!   [`crate::claude::timer::AppTimer`]);
 //! - [`ProcessList`]: which processes run, their command lines and the
 //!   ports they listen on (macOS: `kill(pid, 0)`, `ps` and `lsof`, [`Ps`]);
 //! - [`Opener`]: a URL or a file handed to the program the owner chose for
@@ -23,8 +25,8 @@
 //! ([`crate::sealed`]), and Claude Code's login items in Credential
 //! Manager, as Claude Code keeps them ([`crate::claude::credman`]); the
 //! process list is `sysinfo`'s ([`crate::win::Tasks`]); the opener is the
-//! shell's. The scheduler answers [`UNSUPPORTED`] until the Windows lanes
-//! build it, and nothing there counts as an older switcher.
+//! shell's; the scheduler is the app's own timer. Nothing there counts as
+//! an older switcher.
 //!
 //! The file steps that differ between the two systems are here too: modes
 //! (700 and 600 on Unix; on Windows the profile's ACL keeps other users
@@ -189,10 +191,10 @@ pub fn scheduler() -> crate::claude::agent::Launchd {
     crate::claude::agent::Launchd::system()
 }
 
-/// This system's scheduler.
+/// This system's scheduler: the app's own timer.
 #[cfg(windows)]
-pub fn scheduler() -> NoScheduler {
-    NoScheduler
+pub fn scheduler() -> crate::claude::timer::AppTimer {
+    crate::claude::timer::AppTimer::system()
 }
 
 /// This system's process list.
@@ -339,32 +341,6 @@ impl Opener for SystemOpener {
         } else {
             Err(runner::first_line(&out.stderr))
         }
-    }
-}
-
-/// Windows has no rotation job in this build yet (the app's own timer comes
-/// with the Windows services): none is loaded, none can be installed, and
-/// the older switchers, which are macOS's, never run.
-#[cfg(windows)]
-#[derive(Debug, Clone, Copy, Default)]
-pub struct NoScheduler;
-
-#[cfg(windows)]
-impl Scheduler for NoScheduler {
-    fn loaded(&self) -> Option<bool> {
-        Some(false)
-    }
-
-    fn legacy_loaded(&self) -> Option<&'static str> {
-        None
-    }
-
-    fn install(&self, _: &Path, _: &Path) -> Result<(), AgentError> {
-        Err(AgentError::Io(UNSUPPORTED.into()))
-    }
-
-    fn remove(&self, _: &Path) -> Result<(), AgentError> {
-        Ok(())
     }
 }
 

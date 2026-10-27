@@ -37,7 +37,9 @@
 //! iCloud Drive may list a pack it has not downloaded yet: the folder holds
 //! `.manifest.json.icloud` in place of the file, or the file is there with
 //! no data. Such a pack is listed as not downloaded and not read: reading
-//! one would wait on the network.
+//! one would wait on the network. On Windows the packs go to OneDrive, else
+//! Documents ([`cloud_drive`]), and OneDrive's files on demand are such
+//! placeholders too: a file whose data Windows fetches when it is read.
 
 use std::collections::BTreeMap;
 use std::io::{self, Read, Write as _};
@@ -81,9 +83,27 @@ pub fn icloud_drive(home: &Path) -> PathBuf {
     home.join("Library/Mobile Documents/com~apple~CloudDocs")
 }
 
-/// Where the packs go: `iCloud Drive › Quota Station Agents`.
+/// The folder that holds the packs' folder by default: iCloud Drive on
+/// macOS; on Windows OneDrive (`%OneDrive%`) when this PC has it, else
+/// Documents.
+pub fn cloud_drive(home: &Path) -> PathBuf {
+    if cfg!(windows) {
+        windows_drive(home, std::env::var_os("OneDrive").map(PathBuf::from))
+    } else {
+        icloud_drive(home)
+    }
+}
+
+/// Windows's [`cloud_drive`]: `onedrive` when it is a folder, else
+/// `Documents` in `home`.
+pub fn windows_drive(home: &Path, onedrive: Option<PathBuf>) -> PathBuf {
+    onedrive.filter(|d| d.is_absolute() && d.is_dir()).unwrap_or_else(|| home.join("Documents"))
+}
+
+/// Where the packs go: `iCloud Drive › Quota Station Agents` (on Windows,
+/// `OneDrive › Quota Station Agents` or `Documents › Quota Station Agents`).
 pub fn default_root(home: &Path) -> PathBuf {
-    icloud_drive(home).join(FOLDER)
+    cloud_drive(home).join(FOLDER)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -642,7 +662,7 @@ pub fn write(
             return Err(PackError::Secret);
         }
     }
-    if root.starts_with(icloud_drive(home)) && !icloud_drive(home).is_dir() {
+    if root.starts_with(cloud_drive(home)) && !cloud_drive(home).is_dir() {
         return Err(PackError::NoICloud);
     }
     std::fs::create_dir_all(root)?;
@@ -752,7 +772,24 @@ fn dataless(m: &std::fs::Metadata) -> bool {
     m.st_flags() & 0x4000_0000 != 0
 }
 
-#[cfg(not(target_os = "macos"))]
+/// Windows's placeholders (OneDrive's files on demand): the data is fetched
+/// when the file is opened or read (`FILE_ATTRIBUTE_RECALL_ON_OPEN`,
+/// `FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS`), or it is offline.
+#[cfg(windows)]
+fn dataless(m: &std::fs::Metadata) -> bool {
+    use std::os::windows::fs::MetadataExt;
+    placeholder(m.file_attributes())
+}
+
+/// Attributes that mark a Windows placeholder.
+pub fn placeholder(attributes: u32) -> bool {
+    const OFFLINE: u32 = 0x0000_1000;
+    const RECALL_ON_OPEN: u32 = 0x0004_0000;
+    const RECALL_ON_DATA_ACCESS: u32 = 0x0040_0000;
+    attributes & (OFFLINE | RECALL_ON_OPEN | RECALL_ON_DATA_ACCESS) != 0
+}
+
+#[cfg(not(any(target_os = "macos", windows)))]
 fn dataless(_: &std::fs::Metadata) -> bool {
     false
 }
@@ -1016,6 +1053,30 @@ pub fn holes(def: &Def) -> Vec<String> {
 mod tests {
     use super::*;
     use crate::agents::def::Pair;
+
+    #[test]
+    fn windows_keeps_the_packs_in_onedrive_else_in_documents() {
+        let home = std::env::temp_dir().join(format!("qs-pack-drive-{}", std::process::id()));
+        let onedrive = home.join("OneDrive");
+        assert_eq!(windows_drive(&home, Some(onedrive.clone())), home.join("Documents"));
+        std::fs::create_dir_all(&onedrive).unwrap();
+        assert_eq!(windows_drive(&home, Some(onedrive.clone())), onedrive);
+        assert_eq!(windows_drive(&home, None), home.join("Documents"));
+        // A relative `%OneDrive%` is not a place to write to.
+        assert_eq!(windows_drive(&home, Some("OneDrive".into())), home.join("Documents"));
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    #[test]
+    fn a_onedrive_file_on_demand_counts_as_not_downloaded() {
+        // A file on demand, one pinned while it is fetched, an offline one.
+        assert!(placeholder(0x0040_0020));
+        assert!(placeholder(0x0004_0010));
+        assert!(placeholder(0x0000_1020));
+        // A plain file, and one OneDrive keeps on this PC (pinned).
+        assert!(!placeholder(0x0000_0020));
+        assert!(!placeholder(0x0008_0020));
+    }
 
     #[test]
     fn home_paths_go_and_come_back_as_tilde() {

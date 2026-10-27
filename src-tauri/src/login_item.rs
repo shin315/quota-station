@@ -5,6 +5,13 @@
 //! entry in System Settings › General › Login Items, with no plist of our
 //! own. Only the switch in settings calls [`MainApp::register`]; nothing
 //! registers it on install or at start.
+//!
+//! On Windows it is the current user's `Run` key, written by `auto-launch`
+//! (never the machine's, which needs an administrator): a value named
+//! after the product, which the uninstaller removes. The owner can turn it
+//! off in Settings › Apps › Startup or Task Manager, which leaves the value
+//! and marks it off beside it: the app shows that as waiting for the
+//! owner's approval there, as macOS's Login Items do.
 
 use quota_station_core::login_item::{Error, LoginItems, Registered, Status};
 
@@ -74,8 +81,71 @@ mod mac {
 #[cfg(target_os = "macos")]
 pub use mac::open_settings;
 
+#[cfg(windows)]
+mod win {
+    use auto_launch::{AutoLaunch, WindowsEnableMode};
+
+    use super::{Error, LoginItems, MainApp, Registered, Status};
+
+    /// The `Run` value's name: the product's, as the uninstaller removes it.
+    const NAME: &str = "Quota Station";
+    const RUN: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
+
+    /// This copy of the app, quoted: the installed path has a space.
+    fn launcher() -> Result<AutoLaunch, Error> {
+        let exe = std::env::current_exe().map_err(|e| Error::Failed(e.to_string()))?;
+        let path = format!("\"{}\"", exe.display());
+        Ok(AutoLaunch::new(NAME, &path, WindowsEnableMode::CurrentUser, &[] as &[&str]))
+    }
+
+    /// The value is in the current user's `Run` key, on or off.
+    fn registered() -> bool {
+        windows_registry::CURRENT_USER.open(RUN).and_then(|k| k.get_string(NAME)).is_ok()
+    }
+
+    impl LoginItems for MainApp {
+        fn status(&self) -> Status {
+            if !crate::notify::bundled() {
+                return Status::Unavailable;
+            }
+            let Ok(launcher) = launcher() else { return Status::Unavailable };
+            match launcher.is_enabled() {
+                Ok(true) => Status::On,
+                // Turned off in Settings › Apps › Startup or Task Manager.
+                Ok(false) if registered() => Status::NeedsApproval,
+                _ => Status::Off,
+            }
+        }
+
+        /// Writes the value and marks it on, also when the owner had turned
+        /// it off in Settings: the switch in the app asked for it.
+        fn register(&self) -> Result<Registered, Error> {
+            if !crate::notify::bundled() {
+                return Err(Error::Unavailable);
+            }
+            launcher()?.enable().map_err(|e| Error::Failed(e.to_string()))?;
+            Ok(Registered::Done)
+        }
+
+        fn unregister(&self) -> Result<(), Error> {
+            if !crate::notify::bundled() {
+                return Err(Error::Unavailable);
+            }
+            launcher()?.disable().map_err(|e| Error::Failed(e.to_string()))
+        }
+    }
+
+    /// Settings › Apps › Startup, where the owner turns it on or off.
+    pub fn open_settings(app: &tauri::AppHandle) {
+        let _ = crate::open::url(app, "ms-settings:startupapps");
+    }
+}
+
+#[cfg(windows)]
+pub use win::open_settings;
+
 /// Elsewhere there are no login items to offer.
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", windows)))]
 impl LoginItems for MainApp {
     fn status(&self) -> Status {
         Status::Unavailable
@@ -88,5 +158,5 @@ impl LoginItems for MainApp {
     }
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", windows)))]
 pub fn open_settings() {}

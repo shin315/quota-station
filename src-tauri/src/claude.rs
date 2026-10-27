@@ -18,7 +18,7 @@ use quota_station_core::claude::manage::{self, Added, ManageError};
 use quota_station_core::claude::state::{self, AccountOut};
 use quota_station_core::claude::store::Store;
 use quota_station_core::claude::{agent, switch};
-use quota_station_core::switcher;
+use quota_station_core::os::Scheduler;
 use serde::Serialize;
 use tauri::{AppHandle, State};
 use time::OffsetDateTime;
@@ -342,7 +342,8 @@ pub async fn claude_set_enabled(
 
 /// Loads the rotation's LaunchAgent (`on`), which runs `quota-station
 /// claude rotate` every three minutes whether the app is open or not, or
-/// unloads it. Refused while an older switcher is loaded.
+/// unloads it; on Windows turns the app's own timer on or off (`timer`).
+/// Refused while an older switcher is loaded.
 #[tauri::command]
 pub async fn claude_set_rotation(
     app: AppHandle,
@@ -351,11 +352,11 @@ pub async fn claude_set_rotation(
 ) -> Result<Model, String> {
     let home = state.lock().home.clone();
     run(app, state.inner().clone(), "rotation", move |_| {
-        let launchctl = std::path::Path::new(switcher::LAUNCHCTL);
+        let scheduler = quota_station_core::os::scheduler();
         let result = match (on, std::env::current_exe()) {
-            (true, Ok(exe)) => agent::install(launchctl, &home, &exe),
+            (true, Ok(exe)) => scheduler.install(&home, &exe),
             (true, Err(e)) => Err(agent::AgentError::Io(e.to_string())),
-            (false, _) => agent::remove(launchctl, &home),
+            (false, _) => scheduler.remove(&home),
         };
         let (error, detail) = match result {
             Ok(()) => (None, None),

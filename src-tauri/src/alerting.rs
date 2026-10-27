@@ -487,7 +487,8 @@ pub fn notify_refresh(app: AppHandle, state: State<'_, AppState>) {
     });
 }
 
-/// System Settings › Notifications, where the owner turns the cards on.
+/// System Settings › Notifications, where the owner turns the cards on
+/// (Windows: Settings › System › Notifications).
 #[tauri::command]
 pub fn open_notification_settings(app: AppHandle) -> Result<(), String> {
     #[cfg(not(windows))]
@@ -497,11 +498,13 @@ pub fn open_notification_settings(app: AppHandle) -> Result<(), String> {
     open::url(&app, page)
 }
 
-/// Starts the macOS notification center, with presses coming to [`on_card`].
+/// Starts the macOS notification center (Windows: the toasts), with
+/// presses coming to [`on_card`].
 pub fn start_center(app: &AppHandle) -> notify::Center {
     let handle = app.clone();
     let refused = app.clone();
     notify::Center::start(
+        app,
         Box::new(move |id, action| on_card(&handle, id, action)),
         Arc::new(move |id| on_refused(&refused, &id)),
     )

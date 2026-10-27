@@ -46,6 +46,11 @@ url = "2.5"
 # computer's name, and WebView2's browser keys (`src/winsys.rs`), at the
 # versions Tauri itself builds on.
 [target.'cfg(windows)'.dependencies]
+# Launching at login (`src/login_item.rs`): the current user's `Run` key,
+# as `tauri-plugin-autostart` writes it, without its macOS side.
+auto-launch = "0.6"
+# Toasts with buttons (`src/notify.rs`).
+tauri-plugin-notification = "2.7"
 webview2-com = "0.39"
 windows = { version = "0.62", features = [
   "UI_ViewManagement",
@@ -57,6 +62,8 @@ windows = { version = "0.62", features = [
   "Win32_UI_HiDpi",
   "Win32_UI_WindowsAndMessaging",
 ] }
+# Whether toasts and launching at login are turned off in Settings.
+windows-registry = "0.6"
 
 # Notification cards with buttons: the system's UNUserNotificationCenter
 # (`src/notify.rs`), the same bindings Tauri itself builds on.

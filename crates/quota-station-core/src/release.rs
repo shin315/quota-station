@@ -7,8 +7,9 @@
 //! presses "Kiểm bản mới", the app asks GitHub one thing: this repository's
 //! latest release (`GET /repos/shin315/quota-station/releases/latest`). No
 //! token and nothing about this Mac is sent. The app never downloads or
-//! installs anything: "Tải và cài" opens the release's disk image or its
-//! page in the browser, and the owner installs it as the first time.
+//! installs anything: "Tải và cài" opens the release's disk image (on
+//! Windows its `-setup.exe` for this processor) or its page in the browser,
+//! and the owner installs it as the first time.
 //!
 //! "Để sau" quiets one version's banner and popover line; "Bỏ qua bản này"
 //! also leaves it out of Cài đặt until a later version comes. Both are kept
@@ -53,7 +54,8 @@ pub struct Latest {
     pub notes: Vec<String>,
     /// The release's page.
     pub url: String,
-    /// The disk image, when the release has one.
+    /// The installer for this system, when the release has one: the disk
+    /// image on macOS, the NSIS `-setup.exe` for this processor on Windows.
     pub dmg: Option<String>,
     /// Its size in bytes.
     pub size: Option<u64>,
@@ -201,16 +203,35 @@ pub fn notes(body: &str) -> Vec<String> {
         .collect()
 }
 
+/// Whether the asset `name` installs the app on `os` (`std::env::consts::OS`)
+/// and `arch`: the disk image on macOS; on Windows the NSIS installer for the
+/// processor, as tauri-action names it (`Quota.Station_0.3.0_x64-setup.exe`,
+/// `…_arm64-setup.exe`), never the `.msi` nor the updater's `.sig`.
+pub fn installs(name: &str, os: &str, arch: &str) -> bool {
+    match (os, arch) {
+        ("macos", _) => name.ends_with(".dmg"),
+        ("windows", "x86_64") => name.ends_with("_x64-setup.exe"),
+        ("windows", "aarch64") => name.ends_with("_arm64-setup.exe"),
+        _ => false,
+    }
+}
+
 /// The release GitHub calls latest; None for a draft or a pre-release, or
 /// one whose page is not this repository's.
 pub fn parse(json: &[u8]) -> Option<Latest> {
+    parse_for(json, std::env::consts::OS, std::env::consts::ARCH)
+}
+
+/// [`parse`], with the installer chosen for `os` and `arch`.
+pub fn parse_for(json: &[u8], os: &str, arch: &str) -> Option<Latest> {
     let b: Body = serde_json::from_slice(json).ok()?;
     if b.draft || b.prerelease || !ours(&b.html_url) {
         return None;
     }
     let version = b.tag_name.trim().trim_start_matches(['v', 'V']).to_string();
     parts(&version)?;
-    let dmg = b.assets.iter().find(|a| a.name.ends_with(".dmg") && ours(&a.browser_download_url));
+    let dmg =
+        b.assets.iter().find(|a| installs(&a.name, os, arch) && ours(&a.browser_download_url));
     Some(Latest {
         version,
         published_at: b.published_at,
@@ -347,7 +368,7 @@ mod tests {
                 {"name": "Quota.Station_0.3.0_aarch64.dmg", "browser_download_url": "https://github.com/shin315/quota-station/releases/download/v0.3.0/Quota.Station_0.3.0_aarch64.dmg", "size": 14000000}
             ]
         }"#;
-        let l = parse(json).unwrap();
+        let l = parse_for(json, "macos", "aarch64").unwrap();
         assert_eq!(l.version, "0.3.0");
         assert_eq!(l.notes, vec!["One".to_string()]);
         assert_eq!(l.size, Some(14_000_000));
@@ -360,7 +381,42 @@ mod tests {
         assert_eq!(parse(draft), None);
         let foreign_dmg = br#"{"tag_name": "v0.3.0", "html_url": "https://github.com/shin315/quota-station/releases/tag/v0.3.0",
             "assets": [{"name": "x.dmg", "browser_download_url": "https://evil.example/x.dmg"}]}"#;
-        assert_eq!(parse(foreign_dmg).unwrap().dmg, None);
+        assert_eq!(parse_for(foreign_dmg, "macos", "aarch64").unwrap().dmg, None);
+    }
+
+    #[test]
+    fn windows_takes_the_setup_exe_for_its_processor() {
+        let base = "https://github.com/shin315/quota-station/releases/download/v0.3.0/";
+        let assets = [
+            "Quota.Station_0.3.0_aarch64.dmg",
+            "Quota.Station_0.3.0_x64_en-US.msi",
+            "Quota.Station_0.3.0_x64-setup.exe.sig",
+            "Quota.Station_0.3.0_arm64-setup.exe",
+            "Quota.Station_0.3.0_x64-setup.exe",
+            "latest.json",
+        ]
+        .map(|name| {
+            format!(r#"{{"name": "{name}", "browser_download_url": "{base}{name}", "size": 9}}"#)
+        })
+        .join(",");
+        let json = format!(
+            r#"{{"tag_name": "v0.3.0", "html_url": "https://github.com/shin315/quota-station/releases/tag/v0.3.0", "assets": [{assets}]}}"#
+        );
+        let pick = |os, arch| parse_for(json.as_bytes(), os, arch).unwrap().dmg;
+        assert_eq!(
+            pick("windows", "x86_64"),
+            Some(format!("{base}Quota.Station_0.3.0_x64-setup.exe"))
+        );
+        assert_eq!(
+            pick("windows", "aarch64"),
+            Some(format!("{base}Quota.Station_0.3.0_arm64-setup.exe"))
+        );
+        assert_eq!(
+            pick("macos", "aarch64"),
+            Some(format!("{base}Quota.Station_0.3.0_aarch64.dmg"))
+        );
+        // Another system gets the release's page, as a release without one.
+        assert_eq!(pick("linux", "x86_64"), None);
     }
 
     #[test]
