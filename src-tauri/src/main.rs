@@ -52,6 +52,7 @@ mod env;
 mod install;
 mod login_item;
 mod notify;
+mod open;
 mod reader;
 mod release;
 #[cfg(feature = "author-tools")]
@@ -62,7 +63,10 @@ mod state;
 mod stats;
 mod tray;
 mod windows;
+#[cfg(windows)]
+mod winsys;
 
+#[cfg(not(windows))]
 use std::process::Command;
 
 use tauri::Manager;
@@ -93,13 +97,22 @@ fn main() {
     if args.first().map(String::as_str) == Some("quota") {
         std::process::exit(quota_cli(&args[1..]));
     }
-    tauri::Builder::default()
-        // A second launch shows this copy's main window instead of a second icon.
+    let builder = tauri::Builder::default()
+        // A second launch shows this copy's main window instead of a second
+        // icon; on Windows, where the Start menu is how the app is found
+        // again, the popover beside the tray icon.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            #[cfg(not(windows))]
             windows::open_main(app, Tab::Overview);
+            #[cfg(windows)]
+            windows::show_popover(app);
         }))
         .plugin(tauri_plugin_positioner::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init());
+    #[cfg(windows)]
+    let builder = builder.plugin(winsys::webviews());
+    builder
         .setup(|app| {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
@@ -126,6 +139,8 @@ fn main() {
                 let handle = app.handle().clone();
                 popover.on_window_event(move |event| windows::on_popover_event(&handle, event));
             }
+            #[cfg(windows)]
+            windows::prepare_popover(app.handle());
             reader::spawn(app.handle().clone(), state.clone());
             #[cfg(feature = "antigravity-accounts")]
             agy_quota::spawn(app.handle().clone(), state.clone());
@@ -484,6 +499,7 @@ fn quota_cli(args: &[String]) -> i32 {
 }
 
 /// The name macOS shows for this Mac (System Settings › General › About).
+#[cfg(not(windows))]
 pub(crate) fn machine_name() -> String {
     Command::new("/usr/sbin/scutil")
         .args(["--get", "ComputerName"])
@@ -493,6 +509,12 @@ pub(crate) fn machine_name() -> String {
         .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
         .filter(|name| !name.is_empty())
         .unwrap_or_else(|| "Mac này".to_string())
+}
+
+/// The name Windows shows for this computer (Settings › System › About).
+#[cfg(windows)]
+pub(crate) fn machine_name() -> String {
+    winsys::computer_name().unwrap_or_else(|| "Máy này".to_string())
 }
 
 #[cfg(test)]

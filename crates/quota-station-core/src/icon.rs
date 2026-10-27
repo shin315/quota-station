@@ -459,26 +459,150 @@ pub const PAUSED_POINTS: u32 = GLYPH_POINTS;
 /// Renders black RGBA pixels with coverage in alpha, ready for AppKit tinting.
 /// Geometry is traced from the approved C04 templates (`assets/menubar`).
 pub fn render_glyph(icon: &Icon, scale: u32) -> (Vec<u8>, u32, u32) {
-    let height = GLYPH_POINTS * scale;
-    let width = height;
-    let s = f64::from(scale);
-    let mut rgba = vec![0u8; (width * height * 4) as usize];
-    for py in 0..height {
-        for px in 0..width {
+    let size = GLYPH_POINTS * scale;
+    (coverage(size, f64::from(scale), |x, y| inside(icon, x, y)), size, size)
+}
+
+/// A square of `size` pixels, black with the shape's coverage in alpha;
+/// `shape` takes points in units of `1 / scale` pixels.
+fn coverage(size: u32, scale: f64, shape: impl Fn(f64, f64) -> bool) -> Vec<u8> {
+    let mut rgba = vec![0u8; (size * size * 4) as usize];
+    for py in 0..size {
+        for px in 0..size {
             // Supersampling keeps the small ring, bead and wave smooth on
             // both 1x and Retina displays, without a bitmap dependency.
             let mut hits = 0;
             for sy in 0..4 {
                 for sx in 0..4 {
-                    let x = (f64::from(px) + (f64::from(sx) + 0.5) / 4.0) / s;
-                    let y = (f64::from(py) + (f64::from(sy) + 0.5) / 4.0) / s;
-                    hits += u32::from(inside(icon, x, y));
+                    let x = (f64::from(px) + (f64::from(sx) + 0.5) / 4.0) / scale;
+                    let y = (f64::from(py) + (f64::from(sy) + 0.5) / 4.0) / scale;
+                    hits += u32::from(shape(x, y));
                 }
             }
-            rgba[((py * width + px) * 4 + 3) as usize] = (hits * 255 / 16) as u8;
+            rgba[((py * size + px) * 4 + 3) as usize] = (hits * 255 / 16) as u8;
         }
     }
-    (rgba, width, height)
+    rgba
+}
+
+/// The Windows tray icon, `size` pixels square: Windows shows no title
+/// beside a tray icon, so the icon draws the title's number itself, in
+/// white on a dark taskbar and black on a light one. An exhausted rotation,
+/// no number, and a full window (three digits do not fit) keep the menu
+/// bar's glyph; the tooltip ([`tray_tip`]) says the rest.
+pub fn render_tray(icon: &Icon, size: u32, light_taskbar: bool) -> Vec<u8> {
+    let number = icon
+        .used
+        .filter(|u| u.is_finite() && icon.tone != Tone::Bad)
+        .map(|u| u.clamp(0.0, 100.0) as u32)
+        .filter(|n| *n < 100);
+    let mut rgba = match number {
+        Some(n) => {
+            let digits: Vec<u8> =
+                if n < 10 { vec![n as u8] } else { vec![(n / 10) as u8, (n % 10) as u8] };
+            // The digits' box is 5 by 9 units with a unit between them,
+            // 78% of the icon tall, centred.
+            let unit = f64::from(size) * 0.78 / 9.0;
+            let count = digits.len() as f64;
+            let width = count * 5.0 + (count - 1.0);
+            let left = (f64::from(size) / unit - width) / 2.0;
+            let top = (f64::from(size) / unit - 9.0) / 2.0;
+            coverage(size, unit, |x, y| {
+                let x = (x - left) / 6.0;
+                let slot = x.floor();
+                (0.0..count).contains(&slot)
+                    && digit(digits[slot as usize], (x - slot) * 6.0, y - top) <= STROKE
+            })
+        }
+        None => {
+            coverage(size, f64::from(size) / f64::from(GLYPH_POINTS), |x, y| inside(icon, x, y))
+        }
+    };
+    let ink = if light_taskbar { 0 } else { 255 };
+    for pixel in rgba.chunks_mut(4) {
+        pixel[..3].fill(ink);
+    }
+    rgba
+}
+
+/// Half the digits' stroke, in units of their 5 by 9 box.
+const STROKE: f64 = 0.675;
+
+/// How far `(x, y)` lies from the centre line of `d`, in its 5 by 9 box.
+fn digit(d: u8, x: f64, y: f64) -> f64 {
+    let (l, r, t, b) = (0.7, 4.3, 0.7, 8.3);
+    let line = |points: &[(f64, f64)]| {
+        points.windows(2).map(|w| seg_dist(x, y, w[0], w[1])).fold(f64::INFINITY, f64::min)
+    };
+    let ring = |cx: f64, cy: f64, radius: f64| ((x - cx).hypot(y - cy) - radius).abs();
+    match d {
+        0 => round_rect(x, y, l, t, r - l, b - t, 1.8).abs(),
+        1 => line(&[(1.3, 2.1), (3.0, t), (3.0, b)]),
+        2 => arc(x, y, (2.5, 2.5), 1.8, 180.0, 380.0).min(line(&[(4.19, 3.12), (l, b), (r, b)])),
+        3 => arc(x, y, (2.5, 2.35), 1.65, 200.0, 450.0).min(arc(
+            x,
+            y,
+            (2.5, 6.25),
+            2.05,
+            270.0,
+            520.0,
+        )),
+        4 => line(&[(3.5, b), (3.5, t), (l, 5.9), (r, 5.9)]),
+        5 => line(&[(r, t), (1.1, t), (0.9, 4.2)]).min(arc(x, y, (2.45, 6.05), 2.25, 235.0, 520.0)),
+        6 => ring(2.5, 6.25, 2.05).min(line(&[
+            (0.45, 6.1),
+            (0.75, 3.7),
+            (1.5, 1.85),
+            (2.6, 0.9),
+            (3.9, t),
+        ])),
+        7 => line(&[(l, t), (r, t), (1.8, b)]),
+        8 => ring(2.5, 2.35, 1.65).min(ring(2.5, 6.45, 1.85)),
+        // A 6 turned upside down.
+        _ => digit(6, 5.0 - x, 9.0 - y),
+    }
+}
+
+/// Distance to the arc of `radius` round `centre` from `from` to `to`
+/// degrees, clockwise on screen (y grows downwards).
+fn arc(x: f64, y: f64, centre: (f64, f64), radius: f64, from: f64, to: f64) -> f64 {
+    let (dx, dy) = (x - centre.0, y - centre.1);
+    let angle = dy.atan2(dx).to_degrees();
+    let within = (0..3).any(|k| {
+        let a = angle + 360.0 * f64::from(k);
+        (from..=to).contains(&a)
+    });
+    if within {
+        return (dx.hypot(dy) - radius).abs();
+    }
+    let end = |deg: f64| {
+        let (sin, cos) = deg.to_radians().sin_cos();
+        (x - centre.0 - radius * cos).hypot(y - centre.1 - radius * sin)
+    };
+    end(from).min(end(to))
+}
+
+/// The Windows tray's tooltip: the title on the first line (the icon has
+/// only its number), then what the label reads, cut to the 127 characters
+/// a tray tooltip holds.
+pub fn tray_tip(icon: &Icon) -> String {
+    const MAX: usize = 127;
+    let rest = icon.label.strip_prefix("Quota Station. ").unwrap_or(&icon.label);
+    let full = format!("{}\n{rest}", icon.title);
+    if full.encode_utf16().count() <= MAX {
+        return full;
+    }
+    let mut out = String::new();
+    let mut units = 0;
+    for c in full.chars() {
+        if units + c.len_utf16() > MAX - 1 {
+            break;
+        }
+        units += c.len_utf16();
+        out.push(c);
+    }
+    out.push('…');
+    out
 }
 
 fn inside(icon: &Icon, x: f64, y: f64) -> bool {

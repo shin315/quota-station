@@ -13,9 +13,7 @@
 
 use quota_station_core::antigravity::client::{self, ClientStatus};
 use quota_station_core::antigravity::index::{self, Standing};
-use quota_station_core::antigravity::login::{
-    self, Browser, Deps, LoginError, LogoutError, SystemBrowser,
-};
+use quota_station_core::antigravity::login::{self, Deps, LoginError, LogoutError};
 use quota_station_core::antigravity::oauth::Endpoints;
 use quota_station_core::antigravity::oauth_server::{CallbackError, LOGIN_TIMEOUT};
 use quota_station_core::antigravity::store::Keychain;
@@ -25,6 +23,7 @@ use serde::Serialize;
 use tauri::{AppHandle, State};
 use time::OffsetDateTime;
 
+use crate::open;
 use crate::reader;
 use crate::state::{AppState, Inner, Model, ReadState};
 
@@ -188,7 +187,7 @@ pub async fn agy_login(app: AppHandle, state: State<'_, AppState>) -> Result<Log
             let flow = login::prepare(&deps)?;
             shared.lock().agy_login = Some(flow.handle());
             reader::publish(&app, &shared);
-            login::complete(&deps, flow, &SystemBrowser, LOGIN_TIMEOUT, &unix_now)
+            login::complete(&deps, flow, &open::Browser(app), LOGIN_TIMEOUT, &unix_now)
         }
     })
     .await;
@@ -304,14 +303,18 @@ fn verification_page(standing: Option<&Standing>) -> Option<&str> {
 /// Opens the verification page Google sent for an account, when it is one
 /// of Google's own pages.
 #[tauri::command]
-pub fn agy_open_verification(state: State<'_, AppState>, id: String) -> Result<(), String> {
+pub fn agy_open_verification(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<(), String> {
     let dir = state.lock().app_dir();
-    open_verification(&dir, &id)
+    open_verification(&app, &dir, &id)
 }
 
 /// The verification page for account `id`, in the browser; also for the
 /// button on an alert card.
-pub fn open_verification(dir: &AppDir, id: &str) -> Result<(), String> {
+pub fn open_verification(app: &AppHandle, dir: &AppDir, id: &str) -> Result<(), String> {
     let statuses = index::load_statuses(dir);
     let Some(url) = verification_page(statuses.accounts.get(id)) else {
         return Err("noPage".into());
@@ -319,7 +322,7 @@ pub fn open_verification(dir: &AppDir, id: &str) -> Result<(), String> {
     if !is_google_page(url) {
         return Err("noPage".into());
     }
-    SystemBrowser.open(url).map_err(|_| "browser".to_string())
+    open::url(app, url).map_err(|_| "browser".to_string())
 }
 
 /// The `Antigravity` tab opened: every account is read now, unless it was

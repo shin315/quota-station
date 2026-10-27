@@ -14,7 +14,9 @@ use std::sync::{Arc, Mutex};
 use quota_station_core::alerts::{Card, Notifier};
 use serde::Serialize;
 
-/// What macOS lets the app do.
+/// What macOS lets the app do. Elsewhere only `Unbundled` is told until
+/// that system's cards come.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Permission {
@@ -38,6 +40,7 @@ pub type Refused = Arc<dyn Fn(String) + Send + Sync>;
 type Category = (String, Vec<(String, String)>);
 
 /// The process is a packaged `.app` with a bundle id.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub fn bundled() -> bool {
     mac::bundled()
 }

@@ -5,7 +5,8 @@ mod common;
 
 use common::fixture;
 use quota_station_core::icon::{
-    icon, render_glyph, reset_words, short_name, CodexUse, Context, Icon, Tone,
+    icon, render_glyph, render_tray, reset_words, short_name, tray_tip, CodexUse, Context, Icon,
+    Tone,
 };
 use quota_station_core::settings::{Menubar, MenubarWindow};
 use quota_station_core::snapshot::{LineKind, Role, SectionStatus};
@@ -308,6 +309,95 @@ fn reservoir_fills_monotonically_without_changing_the_rim() {
     let empty = render_glyph(&Icon { used: None, ..sample(Tone::Muted, true) }, 2);
     let zero = render_glyph(&Icon { used: Some(0.0), ..sample(Tone::Ok, true) }, 2);
     assert_eq!(empty, zero);
+}
+
+/// Columns of the tray icon with any ink, as `#` and `.`.
+fn inked_columns(rgba: &[u8], size: u32) -> String {
+    (0..size)
+        .map(|x| {
+            if (0..size).any(|y| rgba[((y * size + x) * 4 + 3) as usize] > 128) {
+                '#'
+            } else {
+                '.'
+            }
+        })
+        .collect()
+}
+
+#[test]
+fn the_windows_tray_draws_the_number_in_the_taskbars_ink() {
+    for size in [16, 20, 24, 32] {
+        let two = render_tray(&Icon { used: Some(38.9), ..sample(Tone::Ok, true) }, size, false);
+        assert_eq!(two.len(), (size * size * 4) as usize);
+        // Two digits, side by side with a gap between them.
+        let columns = inked_columns(&two, size);
+        let runs = columns.split('.').filter(|r| !r.is_empty()).count();
+        assert!(runs >= 2, "{size}: {columns}");
+        // White on a dark taskbar, black on a light one.
+        assert!(two.chunks(4).all(|p| p[..3] == [255, 255, 255]));
+        let light = render_tray(&Icon { used: Some(38.0), ..sample(Tone::Ok, true) }, size, true);
+        assert!(light.chunks(4).all(|p| p[..3] == [0, 0, 0]));
+        assert_eq!(
+            two.chunks(4).map(|p| p[3]).collect::<Vec<_>>(),
+            light.chunks(4).map(|p| p[3]).collect::<Vec<_>>(),
+            "the number is the title's, cut the same way"
+        );
+    }
+    // One digit stands in the middle.
+    let one = render_tray(&Icon { used: Some(7.0), ..sample(Tone::Ok, true) }, 16, false);
+    let columns = inked_columns(&one, 16);
+    assert_eq!(columns.split('.').filter(|r| !r.is_empty()).count(), 1, "{columns}");
+    let first = columns.find('#').unwrap();
+    let last = columns.rfind('#').unwrap();
+    assert!(first >= 4 && last <= 11, "{columns}");
+    // Each number draws differently.
+    let drawn: Vec<Vec<u8>> = (0..100)
+        .map(|n| {
+            render_tray(&Icon { used: Some(f64::from(n)), ..sample(Tone::Ok, true) }, 16, false)
+        })
+        .collect();
+    for (a, x) in drawn.iter().enumerate() {
+        for (b, y) in drawn.iter().enumerate().skip(a + 1) {
+            assert_ne!(x, y, "{a} and {b}");
+        }
+    }
+}
+
+#[test]
+fn the_windows_tray_keeps_the_glyph_without_a_two_digit_number() {
+    let glyph = |icon: &Icon| {
+        let (rgba, _, _) = render_glyph(icon, 2);
+        rgba.chunks(4).map(|p| p[3]).collect::<Vec<_>>()
+    };
+    for icon in [
+        Icon { used: None, ..sample(Tone::Muted, true) },
+        Icon { used: Some(100.0), ..sample(Tone::Ok, true) },
+        sample(Tone::Bad, true),
+    ] {
+        // The glyph at 36 pixels, as the menu bar draws it at 2x.
+        let tray = render_tray(&icon, 36, true);
+        assert_eq!(tray.chunks(4).map(|p| p[3]).collect::<Vec<_>>(), glyph(&icon));
+    }
+}
+
+#[test]
+fn the_windows_tray_tooltip_leads_with_the_title_and_fits_the_tray() {
+    let i = icon(Some(&full()), &cx(Menubar::Claude));
+    let tip = tray_tip(&i);
+    let (first, rest) = tip.split_once('\n').unwrap();
+    assert_eq!(first, i.title);
+    assert!(rest.starts_with("Claude: "), "{rest}");
+    assert!(tip.encode_utf16().count() <= 127);
+
+    let long = Icon {
+        title: "lan.acme1 38%".into(),
+        label: format!("Quota Station. Claude: {}", "đã dùng 38% 5 giờ, ".repeat(20)),
+        ..sample(Tone::Ok, true)
+    };
+    let tip = tray_tip(&long);
+    assert_eq!(tip.encode_utf16().count(), 127);
+    assert!(tip.starts_with("lan.acme1 38%\nClaude: đã dùng"));
+    assert!(tip.ends_with('…'));
 }
 
 #[test]

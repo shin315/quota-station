@@ -13,7 +13,8 @@
 //! - [`ProcessList`]: which processes run, their command lines and the
 //!   ports they listen on (macOS: `kill(pid, 0)`, `ps` and `lsof`, [`Ps`]);
 //! - [`Opener`]: a URL or a file handed to the program the owner chose for
-//!   it (macOS: `/usr/bin/open`, [`SystemOpener`]).
+//!   it (macOS: `/usr/bin/open`; Windows: the shell, through the `open`
+//!   crate; [`SystemOpener`]).
 //!
 //! The app gets each from [`secret_store`], [`scheduler`], [`processes`]
 //! and [`opener`]; the tests give their own, kept in memory, so none of
@@ -21,9 +22,9 @@
 //! ([`Split`]): the app's own items sealed by DPAPI in files
 //! ([`crate::sealed`]), and Claude Code's login items in Credential
 //! Manager, as Claude Code keeps them ([`crate::claude::credman`]); the
-//! process list is `sysinfo`'s ([`crate::win::Tasks`]). The scheduler and
-//! the opener answer [`UNSUPPORTED`] until the Windows lanes build them,
-//! and nothing there counts as an older switcher.
+//! process list is `sysinfo`'s ([`crate::win::Tasks`]); the opener is the
+//! shell's. The scheduler answers [`UNSUPPORTED`] until the Windows lanes
+//! build it, and nothing there counts as an older switcher.
 //!
 //! The file steps that differ between the two systems are here too: modes
 //! (700 and 600 on Unix; on Windows the profile's ACL keeps other users
@@ -318,13 +319,14 @@ pub fn listening_ports(lsof: &str) -> Vec<u16> {
     out
 }
 
-/// The default browser (or the app for a file), through `open` on macOS.
+/// The default browser (or the app for a file), through `open` on macOS
+/// and the shell on Windows, as `tauri-plugin-opener` opens them in the app.
 pub struct SystemOpener;
 
 impl Opener for SystemOpener {
     #[cfg(windows)]
-    fn open(&self, _target: &str) -> Result<(), String> {
-        Err(UNSUPPORTED.into())
+    fn open(&self, target: &str) -> Result<(), String> {
+        open::that_detached(target).map_err(|e| e.to_string())
     }
 
     #[cfg(unix)]

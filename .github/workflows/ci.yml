@@ -91,8 +91,9 @@ jobs:
         run: npx tauri build --bundles app
 
   # The Windows build: vitest (the windows as Windows draws them, the
-  # *.win.test.tsx files among them) and the core's check and tests. The
-  # macOS job stays the required check.
+  # *.win.test.tsx files among them), and the core and the app crate:
+  # clippy and their tests in the two feature sets Windows builds (the
+  # author's tools are Unix only). The macOS job stays the required check.
   build-windows:
     name: Build and test (Windows x64)
     runs-on: windows-latest
@@ -105,6 +106,8 @@ jobs:
           cache: npm
 
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
 
       - uses: Swatinem/rust-cache@v2
 
@@ -122,3 +125,15 @@ jobs:
 
       - name: cargo test (core, Antigravity accounts)
         run: cargo test -p quota-station-core --locked --no-fail-fast --features antigravity-accounts
+
+      - name: Clippy (MIT)
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: Clippy with the Antigravity accounts
+        run: cargo clippy --workspace --all-targets --locked --features antigravity-accounts -- -D warnings
+
+      - name: cargo test (app)
+        run: cargo test -p quota-station --locked --no-fail-fast
+
+      - name: cargo test (app, Antigravity accounts)
+        run: cargo test -p quota-station --locked --no-fail-fast --features antigravity-accounts

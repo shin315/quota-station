@@ -36,7 +36,27 @@ tauri-plugin-positioner = { version = "2", features = ["tray-icon"] }
 # "Nhập file đăng nhập (JSON)": the system's own file picker, on macOS and Windows alike.
 tauri-plugin-dialog = "2"
 tauri-plugin-single-instance = "2"
+# URLs, folders and files, opened in the program the owner chose for them
+# (`src/open.rs`), on macOS and Windows alike.
+tauri-plugin-opener = "2"
 url = "2.5"
+
+# Windows: the taskbar's theme and the tray icon's size, the material,
+# Transparency effects and High contrast, the popover's corners, the
+# computer's name, and WebView2's browser keys (`src/winsys.rs`), at the
+# versions Tauri itself builds on.
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.39"
+windows = { version = "0.62", features = [
+  "UI_ViewManagement",
+  "Wdk_System_SystemServices",
+  "Win32_Graphics_Dwm",
+  "Win32_System_Registry",
+  "Win32_System_SystemInformation",
+  "Win32_UI_Accessibility",
+  "Win32_UI_HiDpi",
+  "Win32_UI_WindowsAndMessaging",
+] }
 
 # Notification cards with buttons: the system's UNUserNotificationCenter
 # (`src/notify.rs`), the same bindings Tauri itself builds on.

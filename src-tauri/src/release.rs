@@ -14,6 +14,7 @@ use serde::Serialize;
 use tauri::{AppHandle, State};
 use time::OffsetDateTime;
 
+use crate::open;
 use crate::reader;
 use crate::state::{AppState, Inner};
 
@@ -179,7 +180,11 @@ pub fn set_release_checks(
 /// else its page), `notes` (the latest release's page), `releases`, or
 /// `issue` (the bug form). Only this repository's addresses on github.com.
 #[tauri::command]
-pub fn release_open(state: State<'_, AppState>, what: String) -> Result<(), String> {
+pub fn release_open(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    what: String,
+) -> Result<(), String> {
     let latest = release::load(&state.lock().app_dir()).latest;
     let url = match what.as_str() {
         "download" => latest.as_ref().and_then(|l| l.dmg.clone().or_else(|| Some(l.url.clone()))),
@@ -194,8 +199,7 @@ pub fn release_open(state: State<'_, AppState>, what: String) -> Result<(), Stri
     {
         return Err("notOurs".into());
     }
-    std::process::Command::new("/usr/bin/open").arg(&url).status().map_err(|e| e.to_string())?;
-    Ok(())
+    open::url(&app, &url)
 }
 
 // ===== The diagnostic info =====
