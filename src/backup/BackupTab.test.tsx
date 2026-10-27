@@ -191,7 +191,7 @@ describe('the Khôi phục sheet', () => {
     await press(within(dialog()).getByRole('button', { name: 'Tiếp: dán khoá' }));
     await press(within(dialog()).getByRole('button', { name: 'Khôi phục' }));
     expect(await within(dialog()).findByText(/Chưa khôi phục: file của Codex vừa đổi/)).toBeTruthy();
-    expect(within(dialog()).getByRole('button', { name: 'Đọc lại' })).toBeTruthy();
+    expect(within(dialog()).getByRole('button', { name: 'Làm mới' })).toBeTruthy();
   });
 
   it('undoes the whole restore, asking first when a file changed since', async () => {

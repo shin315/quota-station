@@ -84,7 +84,7 @@ export function useInstr(api: Api, model: Model | null, showFeedback: (fb: Feedb
       showFeedback({
         tone: '',
         title: t('Đã đánh dấu dòng ' + line + ' không phải khoá', 'Marked line ' + line + ' as not a key'),
-        body: t('Chỉ dòng này, đúng nội dung này. Sửa dòng thì app kiểm lại.', 'Only this line, with exactly this content. If the line changes, the app checks it again.'),
+        body: t('Chỉ dòng này, đúng nội dung này. Nếu sửa dòng này, ứng dụng sẽ kiểm tra lại.', 'Only this line, with exactly this content. If the line changes, the app checks it again.'),
       });
       await show(path);
     } catch {
@@ -253,7 +253,7 @@ function FileRow({ f, packAt, now, instr }: { f: InstrFile; packAt: number | nul
 export function InstrTab({ model, fresh, feedback, now, instr, onAction }: InstrTabProps) {
   const v = model.instructions;
   const view = v.view;
-  const sub = v.readAt ? t('đọc lúc ' + clock(v.readAt), 'read at ' + clock(v.readAt)) : fresh.text;
+  const sub = v.readAt ? t('cập nhật lúc ' + clock(v.readAt), 'updated at ' + clock(v.readAt)) : fresh.text;
   return (
     <>
       <TabHead>
@@ -262,7 +262,7 @@ export function InstrTab({ model, fresh, feedback, now, instr, onAction }: Instr
           <Dot tone="ok" />
           {model.machine} · {sub}
         </TabSub>
-        <Button onClick={instr.reread}>{t('Đọc lại', 'Read again')}</Button>
+        <Button onClick={instr.reread}>{t('Làm mới', 'Refresh')}</Button>
       </TabHead>
       {feedback ? <Feedback fb={feedback} onAction={onAction} /> : null}
       {(view?.files ?? [])

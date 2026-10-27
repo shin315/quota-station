@@ -211,7 +211,7 @@ export function leavingAlert(over: Partial<AlertRecord> = {}): AlertRecord {
       kind: 'leaving',
       tone: 'warn',
       title: 'Team A rời vòng lúc 14:45',
-      body: 'Còn 30 phút. Sau đó switcher chuyển sang tài khoản khác trong vòng.',
+      body: 'Còn 30 phút. Sau đó tự động chuyển sẽ đổi sang tài khoản khác trong vòng xoay.',
       actions: [
         { id: 'dismiss', label: 'Ổn' },
         { id: 'switch:3', label: 'Chuyển ngay' },
@@ -238,7 +238,7 @@ export function overwriteAlert(over: Partial<AlertRecord> = {}): AlertRecord {
       actions: [
         { id: 'agy:quitFirst:2', label: 'Thoát app rồi chuyển lại' },
         { id: 'agy:keepRunning:2', label: 'Chuyển lại' },
-        { id: 'agy:keep', label: 'Thôi' },
+        { id: 'agy:keep', label: 'Bỏ qua' },
       ],
       at: 1768547400,
     },

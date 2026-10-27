@@ -128,7 +128,7 @@ describe('the bell', () => {
     ]);
     const o = card('Antigravity đổi về tài khoản cũ');
     expect(within(o).getByText('Lúc 14:10 Antigravity.app đổi về Ultra 1. Bạn đã chuyển sang Ultra 2 lúc 13:50.')).toBeTruthy();
-    expect(within(o).getAllByRole('button').map((b) => b.textContent)).toEqual(['Thoát app rồi chuyển lại', 'Chuyển lại', 'Thôi']);
+    expect(within(o).getAllByRole('button').map((b) => b.textContent)).toEqual(['Thoát app rồi chuyển lại', 'Chuyển lại', 'Bỏ qua']);
     expect(within(o).getByText('14:10 · đã gửi thông báo macOS')).toBeTruthy();
     expect(within(card('Team A rời vòng lúc 14:45')).getAllByRole('button').map((b) => b.textContent)).toEqual(['Ổn', 'Chuyển ngay']);
     expect(within(card('Team A rời vòng lúc 14:45 hôm qua')).getByText('14:15 · đã gửi thông báo macOS')).toBeTruthy();
@@ -148,7 +148,7 @@ describe('the bell', () => {
   it('with none yet, the panel says so', async () => {
     await open(withAlerts({ recent: [] }));
     expect(within(panel()).getByText('Chưa có thông báo')).toBeTruthy();
-    expect(within(panel()).getByText('Khi có, thẻ hiện ở đây với cùng nút như thông báo macOS.')).toBeTruthy();
+    expect(within(panel()).getByText('Khi có, thông báo sẽ hiện ở đây với cùng các nút bấm như thông báo macOS.')).toBeTruthy();
   });
 
   it('Esc and a click outside close it, and the focus goes back to the bell', async () => {
@@ -252,7 +252,7 @@ describe('a notification’s buttons in the panel', () => {
     const fake = await open(withAlerts());
     vi.mocked(fake.api.alertAction).mockRejectedValueOnce('answered');
     await press(within(card('Team A rời vòng lúc 14:45')).getByRole('button', { name: 'Ổn' }));
-    expect(within(panel()).getByText('Thông báo này đã có câu trả lời, có thể từ thẻ macOS.')).toBeTruthy();
+    expect(within(panel()).getByText('Thông báo này đã có câu trả lời, có thể từ thông báo macOS.')).toBeTruthy();
   });
 
   it('"Đăng nhập lại" on an Antigravity one opens the Antigravity tab and closes the panel', async () => {

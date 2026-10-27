@@ -77,10 +77,10 @@ describe('popover view', () => {
     // Not read yet, or ChatGPT not answering: the name and no number.
     const unread = fixtureModel('fresh', { codex: codexFixture({ current: 'chatgpt' }) });
     unread.snapshot.codex = { ...unread.snapshot.codex, status: 'unread', accounts: [] };
-    expect(now(popoverView(unread, FIXTURE_NOW).now)[2]).toEqual(['Codex', 'ChatGPT', '—', '', '', 'chưa có số']);
+    expect(now(popoverView(unread, FIXTURE_NOW).now)[2]).toEqual(['Codex', 'ChatGPT', '—', '', '', 'chưa có dữ liệu']);
     const down = fixtureModel('fresh', { codex: codexFixture({ current: 'chatgpt' }) });
     down.snapshot.codex = { ...down.snapshot.codex, status: 'unavailable', accounts: [] };
-    expect(popoverView(down, FIXTURE_NOW).now.rows[2]).toMatchObject({ text: '—', note: 'không đọc được số' });
+    expect(popoverView(down, FIXTURE_NOW).now.rows[2]).toMatchObject({ text: '—', note: 'không đọc được hạn mức' });
     // No ChatGPT login on a Mac whose Codex uses it: no row.
     const nologin = view('no-antigravity', { codex: codexFixture({ current: 'chatgpt' }) });
     expect(nologin.now.rows.map((r) => r.id)).toEqual(['c']);
@@ -162,7 +162,7 @@ describe('popover view', () => {
     ]);
     expect(ultra1.name).toBe('lanpham.ultra');
     expect(ultra1.dim).toBe(true);
-    expect(ultra1.chips).toEqual([{ t: 'số 25 phút trước', k: 'stale' }]);
+    expect(ultra1.chips).toEqual([{ t: 'cập nhật 25 phút trước', k: 'stale' }]);
 
   });
 
@@ -212,7 +212,7 @@ describe('popover view', () => {
     // No reading is not no account: the group does not offer to add one.
     expect(v.claude.empty).toBe(false);
     expect(v.claude.note).toBeNull();
-    expect(v.now.rows[0]).toMatchObject({ svc: 'Claude', text: '—', note: 'không đọc được số' });
+    expect(v.now.rows[0]).toMatchObject({ svc: 'Claude', text: '—', note: 'không đọc được hạn mức' });
     expect(view('keychain', {}, { keychainLater: true }).banner).toBeNull();
   });
 
@@ -227,7 +227,7 @@ describe('popover view', () => {
       actions: [{ label: 'Làm mới', act: 'refresh' }],
     });
     expect(v.claude.cards.every((r) => r.dim)).toBe(true);
-    expect(v.claude.cards[1].chips.map((c) => c.t)).toContain('số 41 phút trước');
+    expect(v.claude.cards[1].chips.map((c) => c.t)).toContain('cập nhật 41 phút trước');
   });
 
   it('never shows a number for a slot waiting after its reset', () => {
@@ -264,8 +264,8 @@ describe('popover view', () => {
   it('an unread login and an unreadable account list say why without guessing numbers', () => {
     const v = view('unavailable');
     expect(v.claude.cards).toEqual([]);
-    expect(v.claude.note?.text).toBe('Không đọc được số của Claude Code (network_unreachable).');
-    expect(v.now.rows[0]).toMatchObject({ svc: 'Claude', text: '—', note: 'không đọc được số' });
+    expect(v.claude.note?.text).toBe('Không đọc được hạn mức của Claude Code (network_unreachable).');
+    expect(v.now.rows[0]).toMatchObject({ svc: 'Claude', text: '—', note: 'không đọc được hạn mức' });
     expect(v.agy.note?.text).toBe('Không đọc được danh sách tài khoản: chỉ thấy tài khoản đang dùng');
   });
 
@@ -280,14 +280,14 @@ describe('popover view', () => {
     const m = fixtureModel('single');
     m.snapshot.agy = { ...m.snapshot.agy, accounts: [], reason: 'Antigravity sign-in required' };
     const v = popoverView(m, FIXTURE_NOW);
-    expect(v.agy.note).toEqual({ tone: 'warn', text: 'Không đọc được số Antigravity (Antigravity sign-in required).' });
-    expect(v.now.rows[1]).toMatchObject({ svc: 'Gemini', text: '—', note: 'không đọc được số' });
+    expect(v.agy.note).toEqual({ tone: 'warn', text: 'Không đọc được hạn mức Antigravity (Antigravity sign-in required).' });
+    expect(v.now.rows[1]).toMatchObject({ svc: 'Gemini', text: '—', note: 'không đọc được hạn mức' });
   });
 
   it('before the first read says it is reading', () => {
     const m = fixtureModel('fresh', { reading: true });
     m.snapshot.claude = { ...m.snapshot.claude, status: 'unread', accounts: [], newestReadingAt: null };
     m.snapshot.agy = { ...m.snapshot.agy, status: 'unread', accounts: [], newestReadingAt: null };
-    expect(popoverView(m, FIXTURE_NOW).fresh).toEqual({ tone: 'muted', text: 'đang đọc số…' });
+    expect(popoverView(m, FIXTURE_NOW).fresh).toEqual({ tone: 'muted', text: 'đang cập nhật…' });
   });
 });

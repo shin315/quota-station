@@ -50,7 +50,7 @@ describe('the tabs in English', () => {
     expect(num(1234.56)).toBe('1,234.6');
     expect(tokensText(45_500_000)).toBe('45.5 million tokens');
     expect(tokensText(820)).toBe('820 tokens');
-    expect(readLine({ ...fixtureModel('fresh').stats, reading: true })).toBe('reading logs…');
+    expect(readLine({ ...fixtureModel('fresh').stats, reading: true })).toBe('updating…');
   });
 
   it('Alerts: the kinds and the permission chip', () => {
@@ -67,7 +67,7 @@ describe('the tabs in English', () => {
     expect(quotaLine(row)).toBe('73% 5-hour');
     const rested = { ...view, accounts: view.accounts.map((a) => (a.slot === 3 ? { ...a, enabled: false } : a)) };
     const fb = resultFeedback(rested, { action: 'enabled', ok: true, error: null, detail: null, slot: 3, renewed: false, imported: null }, 'Team B');
-    expect(fb!.title).toBe('Team B is now out of auto-switch.');
+    expect(fb!.title).toBe('Paused auto-switch for Team B.');
     expect(fb!.actions!.map((a) => a.label)).toEqual(['Undo', 'Close']);
     const claude = { dialog: { kind: 'add', how: 'browser', error: null }, pending: false } as unknown as ClaudeAccountsState;
     render(

@@ -305,8 +305,8 @@ export function claudeSheet(
     hint = {
       tone: '',
       text: t(
-        'Tự chuyển vẫn bật. Switcher có thể đổi sang tài khoản khác ở lần kiểm sau (' + switcherEvery() + ').',
-        'Auto-switch stays on. The switcher may move to another account at its next check (' + switcherEvery() + ').',
+        'Tự động chuyển vẫn bật. Bộ tự chuyển có thể đổi sang tài khoản khác ở lần kiểm tra sau (' + switcherEvery() + ').',
+        'Auto-switch stays on. Auto-switch may move to another account on the next check (' + switcherEvery() + ').',
       ),
     };
   }
@@ -405,15 +405,15 @@ export function decisionText(d: Decision, raw: string, active: string | null, na
         'Staying on ' + a + ': no account has quota left; waiting for ' + nameOf(d.slot) + ' to reset at ' + d.at + '.',
       );
     case 'wait':
-      return t('Không tài khoản nào còn hạn mức. Switcher giữ tài khoản đang dùng.', 'No account has quota left. The switcher keeps the account in use.');
+      return t('Không tài khoản nào còn hạn mức. Tự động chuyển giữ tài khoản đang dùng.', 'No account has quota left. Auto-switch keeps the account in use.');
     case 'switch':
-      return t('Lần kiểm tới sẽ chuyển sang ', 'The next check switches to ') + nameOf(d.slot) + ': ' + whyText(d.why, nameOf(d.slot), nameOf);
+      return t('Lần kiểm tra tới sẽ chuyển sang ', 'The next check switches to ') + nameOf(d.slot) + ': ' + whyText(d.why, nameOf(d.slot), nameOf);
     case 'paused':
-      return t('Switcher đang tạm dừng', 'The switcher is paused') + (d.reason ? ': ' + d.reason : '') + '.';
+      return t('Tự động chuyển đang tạm dừng', 'Auto-switch is paused') + (d.reason ? ': ' + d.reason : '') + '.';
     case 'blocked':
       return t('Chưa tự chuyển: bộ tự chuyển cũ ' + d.label + ' còn chạy.', 'Not auto-switching: the old auto-switcher ' + d.label + ' is still running.');
     default:
-      return t('Switcher báo: ', 'The switcher says: ') + raw;
+      return t('Tự động chuyển báo: ', 'Auto-switch says: ') + raw;
   }
 }
 
@@ -480,16 +480,16 @@ export function autoView(model: Model, now: Date): AutoView {
   else if (sw.dryRun) why = decisionText(sw.dryRun.decision, sw.dryRun.raw, active, nameOf);
   else if (sw.dryRunError)
     why = t(
-      'Chưa đọc được quyết định của switcher (' + dryRunReason(sw.dryRunError) + ').',
-      'Could not read the switcher’s decision (' + dryRunReason(sw.dryRunError) + ').',
+      'Chưa đọc được quyết định tự động chuyển (' + dryRunReason(sw.dryRunError) + ').',
+      'Could not read the auto-switch decision (' + dryRunReason(sw.dryRunError) + ').',
     );
-  else why = t('Đang hỏi switcher…', 'Asking the switcher…');
+  else why = t('Đang kiểm tra quyết định tự động chuyển…', 'Checking auto-switch decision…');
   const off = !sw.installed || !!sw.legacy || sw.service === false;
   const line = paused ? pausedLine(paused, now) : at && sw.dryRun && !off ? at + ' · ' + why : why;
   const usual = !paused && !off && (sw.dryRun ? sw.dryRun.decision.kind === 'stay' : !sw.dryRunError);
   return {
     paused,
-    title: paused ? t('Tự chuyển đang tạm dừng', 'Auto-switch is paused') : t('Tự chuyển Claude', 'Claude auto-switch'),
+    title: paused ? t('Tự động chuyển đang tạm dừng', 'Auto-switch is paused') : t('Tự động chuyển Claude', 'Claude auto-switch'),
     line,
     popLine: usual ? null : line,
     why: paused ? pausedLine(paused, now) + '.' : why,
@@ -583,8 +583,8 @@ function holdTail(hold: Hold | null, now: Date): string {
   if (!hold) return '';
   return hold.failed
     ? t(
-        ' Chưa ghi được cờ tạm dừng, nên switcher vẫn có thể đổi tài khoản ở lần kiểm sau.',
-        ' Could not write the pause flag, so the switcher may still change accounts at its next check.',
+        ' Chưa ghi được cờ tạm dừng, nên tự động chuyển vẫn có thể đổi tài khoản ở lần kiểm tra sau.',
+        ' Could not write the pause flag, so auto-switch may still change accounts on the next check.',
       )
     : t(' Tự chuyển Claude tạm dừng tới ' + dayClock(hold.until, now) + '.', ' Claude auto-switch is paused until ' + dayClock(hold.until, now) + '.');
 }
@@ -622,8 +622,8 @@ export function switchFeedback(outcome: Outcome, model: Model, now: Date): Feedb
             : paused
               ? ' ' + pausedLine(paused, now) + '.'
               : t(
-                  ' Tự chuyển vẫn bật: switcher kiểm lại ' + switcherEvery() + ' và có thể đổi tài khoản.',
-                  ' Auto-switch stays on: the switcher checks again ' + switcherEvery() + ' and may change accounts.',
+                  ' Tự động chuyển vẫn bật: bộ tự chuyển kiểm tra lại ' + switcherEvery() + ' và có thể đổi tài khoản.',
+                  ' Auto-switch stays on: auto-switch checks again ' + switcherEvery() + ' and may change accounts.',
                 )),
         actions: [close()],
       };
@@ -757,7 +757,7 @@ export function resumedFeedback(): FeedbackView {
   return {
     tone: '',
     title: t('Tự chuyển Claude đã bật lại', 'Claude auto-switch is back on'),
-    body: t('Switcher kiểm lại ' + switcherEvery() + '.', 'The switcher checks again ' + switcherEvery() + '.'),
+    body: t('Tự động chuyển kiểm tra lại ' + switcherEvery() + '.', 'Auto-switch checks again ' + switcherEvery() + '.'),
   };
 }
 

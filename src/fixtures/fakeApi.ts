@@ -193,13 +193,13 @@ function sample(kind: AlertKind, at: number): Alert {
   const base = { key: 'test:' + kind + ':' + at, kind, at, test: true };
   switch (kind) {
     case 'pool':
-      return { ...base, tone: 'bad', title: 'Hạn mức Claude trong vòng sắp cạn', body: 'Thử: còn tương đương 0,4 tài khoản.', actions: [{ id: 'switch:0', label: 'Sang Cá nhân (còn 19%)' }, { id: 'dismiss', label: 'Thôi' }] };
+      return { ...base, tone: 'bad', title: 'Hạn mức Claude trong vòng sắp cạn', body: 'Thử: còn tương đương 0,4 tài khoản.', actions: [{ id: 'switch:0', label: 'Sang Cá nhân (còn 19%)' }, { id: 'dismiss', label: 'Bỏ qua' }] };
     case 'leaving':
       return { ...base, tone: 'warn', title: 'Team A rời vòng sau 30 phút', body: 'Thử: còn 30 phút.', actions: [{ id: 'dismiss', label: 'Ổn' }, { id: 'switch:0', label: 'Chuyển ngay' }] };
     case 'login':
       return { ...base, tone: 'warn', title: 'Team B cần đăng nhập lại', body: 'Thử: đăng nhập hết hạn sau 2 ngày.', actions: [{ id: 'snooze', label: 'Nhắc ngày mai' }, { id: 'dismiss', label: 'Đã biết' }] };
     case 'overwrite':
-      return { ...base, tone: 'warn', title: 'Antigravity đổi về tài khoản cũ', body: 'Thử: Antigravity.app đổi về Ultra 1.', actions: [{ id: 'agy:quitFirst:0', label: 'Thoát app rồi chuyển lại' }, { id: 'agy:keepRunning:0', label: 'Chuyển lại' }, { id: 'agy:keep', label: 'Thôi' }] };
+      return { ...base, tone: 'warn', title: 'Antigravity đổi về tài khoản cũ', body: 'Thử: Antigravity.app đổi về Ultra 1.', actions: [{ id: 'agy:quitFirst:0', label: 'Thoát app rồi chuyển lại' }, { id: 'agy:keepRunning:0', label: 'Chuyển lại' }, { id: 'agy:keep', label: 'Bỏ qua' }] };
     case 'firstmate':
       return { ...base, tone: 'info', title: 'Firstmate đang chờ hạn mức Claude', body: 'Thử: hạn mức trong vòng dưới ngưỡng.', actions: [] };
     case 'skill':
@@ -1533,7 +1533,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
             ? said('Đã bỏ qua thông báo này', 'Không lặp lại cho cùng sự kiện. Quota Station báo lại khi hạn mức trong vòng có lại.')
             : said('Đã ghi nhận', record.alert.kind === 'leaving' ? 'Không nhắc lại cho lần rời vòng này.' : 'Không nhắc lại cho lần này.');
       else if (action === 'snooze') result = said('Sẽ nhắc lại lúc 09:00 ngày mai', 'Thứ Bảy 17/01.');
-      else if (action === 'agy:keep') result = said('Đã bỏ qua', 'Antigravity giữ tài khoản đang dùng. App thôi canh lần chuyển này.');
+      else if (action === 'agy:keep') result = said('Đã bỏ qua', 'Antigravity giữ tài khoản đang dùng. Ứng dụng ngừng theo dõi lần chuyển này.');
       else if (action === 'agy:login') {
         result = said('Đã mở tab Antigravity', 'Bấm Đăng nhập lại ở dòng của tài khoản này.');
         // The Rust side opens the main window on the Antigravity tab.
@@ -1563,7 +1563,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
         tabListeners.forEach((l) => l('skills'));
       } else if (action.startsWith('agy:verify:')) result = said('Đã mở trang xác minh', 'Trang của Google mở trong trình duyệt.');
       else if (action.startsWith('switch:')) {
-        result = said('Đã mở tấm hỏi chuyển', 'Xác nhận trên tấm để chuyển. Chưa có gì thay đổi.');
+        result = said('Đã mở hộp thoại chuyển tài khoản', 'Xác nhận trong hộp thoại để chuyển. Chưa có gì thay đổi.');
         openSwitch = Number(action.slice('switch:'.length));
       } else if (agy) {
         result = null;

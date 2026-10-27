@@ -55,7 +55,7 @@ describe('the first run', () => {
     const found = screen.getByRole('list', { name: 'Máy này có gì' });
     expect(within(found).getAllByRole('listitem').map((li) => li.querySelector('b')!.textContent)).toEqual(['Claude Code', 'Codex', 'Antigravity']);
     expect(within(found).getByText(/đang đăng nhập lan\.acme1@example\.com/)).toBeTruthy();
-    await press(button('Kiểm lại'));
+    await press(button('Kiểm tra lại'));
     expect(fake.api.refresh).toHaveBeenCalled();
     await press(button('Tiếp tục'));
     // 3: the account Claude Code is signed in to is kept at once, and takes a nickname.

@@ -116,29 +116,29 @@ describe('the switcher in words', () => {
     [{ kind: 'stay' }, 'Vẫn dùng lan.acme1: chưa tới ngưỡng tự chuyển.'],
     [{ kind: 'unknown', slot: 3 }, 'Vẫn dùng lan.acme2: chưa có số mới để quyết định.'],
     [{ kind: 'waiting', slot: 4, at: '17:09' }, 'Vẫn dùng lan.acme1: không tài khoản nào còn hạn mức, chờ lan.acme3 được đặt lại lúc 17:09.'],
-    [{ kind: 'wait' }, 'Không tài khoản nào còn hạn mức. Switcher giữ tài khoản đang dùng.'],
+    [{ kind: 'wait' }, 'Không tài khoản nào còn hạn mức. Tự động chuyển giữ tài khoản đang dùng.'],
     [
       { kind: 'switch', slot: 2, why: { kind: 'expiring', at: '17:45' } },
-      'Lần kiểm tới sẽ chuyển sang lan.acme1: ưu tiên dùng lan.acme1 trước khi tài khoản rời vòng lúc 17:45.',
+      'Lần kiểm tra tới sẽ chuyển sang lan.acme1: ưu tiên dùng lan.acme1 trước khi tài khoản rời vòng lúc 17:45.',
     ],
     [
       { kind: 'switch', slot: 4, why: { kind: 'early', at: '17:09', left: 30, before: 3 } },
-      'Lần kiểm tới sẽ chuyển sang lan.acme3: hạn mức 5 giờ của lan.acme3 đặt lại lúc 17:09 khi mới dùng 70%, sớm hơn lan.acme2.',
+      'Lần kiểm tra tới sẽ chuyển sang lan.acme3: hạn mức 5 giờ của lan.acme3 đặt lại lúc 17:09 khi mới dùng 70%, sớm hơn lan.acme2.',
     ],
     [
       { kind: 'switch', slot: 3, why: { kind: 'room', used: 0, ends: null } },
-      'Lần kiểm tới sẽ chuyển sang lan.acme2: lan.acme2 còn hạn mức (đã dùng 0%).',
+      'Lần kiểm tra tới sẽ chuyển sang lan.acme2: lan.acme2 còn hạn mức (đã dùng 0%).',
     ],
     [
       { kind: 'switch', slot: 1, why: { kind: 'personal', used: 12 } },
-      'Lần kiểm tới sẽ chuyển sang lanpham.dev: không tài khoản Team nào còn hạn mức (lanpham.dev đã dùng 12%).',
+      'Lần kiểm tra tới sẽ chuyển sang lanpham.dev: không tài khoản Team nào còn hạn mức (lanpham.dev đã dùng 12%).',
     ],
     [
       { kind: 'switch', slot: 4, why: { kind: 'park', at: '17:09' } },
-      'Lần kiểm tới sẽ chuyển sang lan.acme3: không tài khoản nào còn hạn mức, lan.acme3 được đặt lại sớm nhất (17:09).',
+      'Lần kiểm tra tới sẽ chuyển sang lan.acme3: không tài khoản nào còn hạn mức, lan.acme3 được đặt lại sớm nhất (17:09).',
     ],
-    [{ kind: 'paused', until: '2026-01-16T15:20', reason: 'giữ tay' }, 'Switcher đang tạm dừng: giữ tay.'],
-    [{ kind: 'other' }, 'Switcher báo: something new'],
+    [{ kind: 'paused', until: '2026-01-16T15:20', reason: 'giữ tay' }, 'Tự động chuyển đang tạm dừng: giữ tay.'],
+    [{ kind: 'other' }, 'Tự động chuyển báo: something new'],
   ];
   it.each(cases)('%j', (decision, words) => {
     expect(decisionText(decision, 'something new', 'lan.acme1', nameOf)).toBe(words);
@@ -147,7 +147,7 @@ describe('the switcher in words', () => {
   it('goes by Team A, Team B… while names are hidden', () => {
     const hidden = namesOf(hideNames(model));
     expect(decisionText({ kind: 'switch', slot: 3, why: { kind: 'room', used: 0, ends: null } }, '', 'Team A', hidden)).toBe(
-      'Lần kiểm tới sẽ chuyển sang Team B: Team B còn hạn mức (đã dùng 0%).',
+      'Lần kiểm tra tới sẽ chuyển sang Team B: Team B còn hạn mức (đã dùng 0%).',
     );
     expect(hidden(1)).toBe('Cá nhân');
   });
@@ -173,7 +173,7 @@ describe('the switcher in words', () => {
 
   it('a dry run that failed says why', () => {
     const v = autoView(fixtureModel('fresh', { switcher: switcherFixture({ dryRun: null, dryRunError: 'noAccounts' }) }), FIXTURE_NOW);
-    expect(v.why).toBe('Chưa đọc được quyết định của switcher (chưa có tài khoản).');
+    expect(v.why).toBe('Chưa đọc được quyết định tự động chuyển (chưa có tài khoản).');
   });
 
   it('the popover writes the why line only when there is something to act on', () => {
@@ -224,7 +224,7 @@ describe('the switch sheet and its result', () => {
     const fb = switchFeedback({ kind: 'switched', slot: 3, hold: { until: '2026-01-16T08:20:00Z', failed: true } }, model, FIXTURE_NOW);
     expect(fb.tone).toBe('warn');
     expect(fb.body).toBe(
-      'Đọc lại sau 5 giây: lan.acme2 đang dùng ✓. Chưa ghi được cờ tạm dừng, nên switcher vẫn có thể đổi tài khoản ở lần kiểm sau.',
+      'Đọc lại sau 5 giây: lan.acme2 đang dùng ✓. Chưa ghi được cờ tạm dừng, nên tự động chuyển vẫn có thể đổi tài khoản ở lần kiểm tra sau.',
     );
   });
 

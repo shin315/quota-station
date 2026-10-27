@@ -56,7 +56,7 @@ describe('the Claude accounts Quota Station keeps', () => {
     await open(withAccounts({}));
     expect(names()).toEqual(['lanpham.dev', 'lan.acme1', 'lan.acme2', 'lan.acme3']);
     const items = within(await menu('lan.acme2')).getAllByRole('menuitem');
-    expect(items.map((i) => i.textContent)).toEqual(['Chi tiết và tên gọi…', 'Cho nghỉ khỏi tự chuyển…', 'Đăng nhập lại…', 'Xoá khỏi máy này…']);
+    expect(items.map((i) => i.textContent)).toEqual(['Chi tiết và tên gọi…', 'Tạm dừng tự chuyển…', 'Đăng nhập lại…', 'Xoá khỏi máy này…']);
   });
 
   it('without the rotation and without Nâng cao, the menu has nothing to hold out of it', async () => {
@@ -133,13 +133,13 @@ describe('the Claude accounts Quota Station keeps', () => {
 
   it('an account leaves the rotation after asking, and Hoàn tác puts it back', async () => {
     const fake = await open(withAccounts({}));
-    await choose('lan.acme3', 'Cho nghỉ khỏi tự chuyển…');
-    expect(within(dialog()).getByRole('heading', { name: 'Cho lan.acme3 nghỉ khỏi tự chuyển?' })).toBeTruthy();
-    await press(inDialog('Cho nghỉ'));
+    await choose('lan.acme3', 'Tạm dừng tự chuyển…');
+    expect(within(dialog()).getByRole('heading', { name: 'Tạm dừng tự chuyển cho lan.acme3?' })).toBeTruthy();
+    await press(inDialog('Tạm dừng'));
     expect(fake.api.claudeSetEnabled).toHaveBeenCalledWith(4, false);
     const rested = within(table()).getAllByRole('listitem')[3];
     expect(within(rested).getByText('nghỉ tự chuyển')).toBeTruthy();
-    expect(screen.getByText('Đã cho lan.acme3 nghỉ khỏi tự chuyển.')).toBeTruthy();
+    expect(screen.getByText('Đã tạm dừng tự chuyển cho lan.acme3.')).toBeTruthy();
     await press(screen.getByRole('button', { name: 'Hoàn tác' }));
     expect(fake.api.claudeSetEnabled).toHaveBeenLastCalledWith(4, true);
     expect(within(within(table()).getAllByRole('listitem')[3]).queryByText('nghỉ tự chuyển')).toBeNull();
@@ -246,8 +246,8 @@ describe('the Claude accounts Quota Station keeps', () => {
 
   it('an action that fails is reported and changes nothing', async () => {
     await open(withAccounts({}), { claudeFail: (a) => (a === 'enabled' ? 'busy' : null) });
-    await choose('lan.acme3', 'Cho nghỉ khỏi tự chuyển…');
-    await press(inDialog('Cho nghỉ'));
+    await choose('lan.acme3', 'Tạm dừng tự chuyển…');
+    await press(inDialog('Tạm dừng'));
     expect(within(within(table()).getAllByRole('listitem')[3]).queryByText('nghỉ tự chuyển')).toBeNull();
     expect(screen.getByText('Một thao tác khác đang giữ tài khoản. Thử lại sau vài giây.')).toBeTruthy();
   });

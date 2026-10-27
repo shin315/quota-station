@@ -409,7 +409,7 @@ fn exhausted_rotation_keeps_the_warning_instead_of_a_quota_gauge() {
 fn a_paused_switcher_adds_a_pause_sign_and_says_so() {
     let paused = icon(Some(&full()), &cx(Menubar::Claude)).with_pause(true);
     assert!(paused.paused);
-    assert!(paused.label.ends_with(". Tự chuyển đang tạm dừng"));
+    assert!(paused.label.ends_with(". Tự động chuyển đang tạm dừng"));
     let (_, w, h) = render_glyph(&paused, 2);
     assert_eq!((w, h), (36, 36));
     for used in [0.0, 45.0, 100.0] {

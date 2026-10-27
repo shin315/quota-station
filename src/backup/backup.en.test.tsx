@@ -93,7 +93,7 @@ describe('Backup, Copy to another Mac and the variables card in English', () => 
 
   it('still speaks Vietnamese: a copy, not a restore, in the undo of a copy, and the variables', () => {
     expect(changedLines('changed:codex\nskill:notes-helper', 'copy')).toEqual(['File của Codex đã sửa sau lần chép.', 'Skill notes-helper đã sửa sau lần chép.']);
-    expect(checkedLine(envFixture({ ignored: 2 }))).toMatch(/^Đã kiểm 11 biến ở 6 chỗ lúc \d\d:\d\d\. Chỉ biết biến có đặt hay không, không đọc giá trị\. Đã bỏ qua 2 chỗ\.$/);
+    expect(checkedLine(envFixture({ ignored: 2 }))).toMatch(/^Đã kiểm tra 11 biến ở 6 chỗ lúc \d\d:\d\d\. Chỉ biết biến có đặt hay không, không đọc giá trị\. Đã bỏ qua 2 chỗ\.$/);
     expect(envBanner(fixtureModel('fresh', { env: envFixture({ found: [API_KEY] }) }))?.title).toBe('ANTHROPIC_API_KEY đang đè đăng nhập Claude');
   });
 });

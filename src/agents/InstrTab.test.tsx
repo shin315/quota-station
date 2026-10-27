@@ -62,7 +62,7 @@ describe('the File hướng dẫn tab', () => {
     expect(within(table).getByRole('button', { name: 'Thêm file…' })).toBeTruthy();
     const title = screen.getByRole('heading', { level: 2 }).parentElement!;
     expect(within(title).queryByRole('button', { name: 'Thêm file…' })).toBeNull();
-    expect(within(title).getByRole('button', { name: 'Đọc lại' })).toBeTruthy();
+    expect(within(title).getByRole('button', { name: 'Làm mới' })).toBeTruthy();
     // A group per agent; the agent is no longer a column.
     const groups = within(table).getAllByRole('region');
     expect(groups.map((g) => [g.getAttribute('aria-label'), within(g).getAllByRole('listitem').length])).toEqual([

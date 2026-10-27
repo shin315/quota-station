@@ -5,7 +5,7 @@
 // one colour, or a service's logo: no drawing of its own and no other icon
 // set, in the source and on every page and the popover as they render.
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import tokens from '../styles/tokens.css?raw';
 import { MainWindowApp, PopoverApp } from '../App';
@@ -88,6 +88,8 @@ describe('the icons', () => {
         </div>,
       );
       await screen.findByRole('navigation', { name: 'Các tab' });
+      if (tab === 'stats') await screen.findByRole('group', { name: /^Token mỗi/ });
+      await act(async () => {});
       const svgs = [...document.querySelectorAll('svg')];
       expect(svgs.length, tab).toBeGreaterThan(0);
       for (const svg of svgs) {

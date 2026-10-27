@@ -70,12 +70,12 @@ describe('the Bộ cấu hình tab', () => {
     // Each card: its name, what it does, and its three actions on one line at its foot.
     for (const c of cards) {
       expect(c.getAttribute('data-slot')).toBe('card');
-      const foot = within(c).getByRole('button', { name: /^Áp bộ / }).parentElement!;
+      const foot = within(c).getByRole('button', { name: /^Áp dụng bộ / }).parentElement!;
       expect(within(foot).getAllByRole('button').map((b) => b.textContent)).toEqual(['Áp dụng…', 'Sửa', 'Xoá']);
     }
     expect(within(cards[0]).getByText('đang dùng')).toBeTruthy();
     // The notes stand on the glass, in no card.
-    expect(screen.getByText(/^Áp cho cả máy: mọi dự án/).closest('[data-slot=card]')).toBeNull();
+    expect(screen.getByText(/^Áp dụng cho cả máy: mọi dự án/).closest('[data-slot=card]')).toBeNull();
   });
 
   it('with no set yet, offers only the first set from the configuration', async () => {
@@ -148,7 +148,7 @@ describe('the Bộ cấu hình tab', () => {
 
   it('previews by agent, reminds that running sessions keep the old configuration, and writes only what it showed', async () => {
     const fake = await openTab();
-    await press(button('Áp bộ Tối giản'));
+    await press(button('Áp dụng bộ Tối giản'));
     const d = within(dialog());
     await d.findByText('Claude Code');
     expect(fake.api.setsPreview).toHaveBeenCalledWith('min');
@@ -159,10 +159,10 @@ describe('the Bộ cấu hình tab', () => {
     expect(dialog().textContent).not.toMatch(/Bước 2/);
     expect(fake.api.setsApply).not.toHaveBeenCalled();
     const p = await vi.mocked(fake.api.setsPreview).mock.results[0].value;
-    await press(d.getByRole('button', { name: 'Áp bộ' }));
+    await press(d.getByRole('button', { name: 'Áp dụng bộ' }));
     expect(fake.api.setsApply).toHaveBeenCalledWith('min', { mcp: p.mcp.changes, mcpBases: p.mcp.bases, skills: p.skills.changes, skillBases: p.skills.bases });
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(screen.getByText(/^Đã áp bộ Tối giản: \d+ thay đổi\.$/)).toBeTruthy();
+    expect(screen.getByText(/^Đã áp dụng bộ Tối giản: \d+ thay đổi\.$/)).toBeTruthy();
     // No Codex side: the Codex switch is not opened.
     expect(fake.api.codexSwitch).not.toHaveBeenCalled();
     expect(screen.getByText('đúng như bộ')).toBeTruthy();
@@ -171,15 +171,15 @@ describe('the Bộ cấu hình tab', () => {
     await press(screen.getAllByRole('button', { name: 'Hoàn tác bộ' })[0]);
     expect(fake.api.setsUndo).toHaveBeenCalledTimes(1);
     expect(screen.getByText('Đã hoàn tác bộ Tối giản.')).toBeTruthy();
-    expect(screen.getByText('Chưa áp bộ nào.')).toBeTruthy();
+    expect(screen.getByText('Chưa áp dụng bộ nào.')).toBeTruthy();
   });
 
   it('opens the Codex switch of version 1 as step 2, and never switches Codex itself', async () => {
     const fake = await openTab();
-    await press(button('Áp bộ Viết tài liệu'));
+    await press(button('Áp dụng bộ Viết tài liệu'));
     const d = within(dialog());
     await d.findByText('Bước 2: mở tấm chuyển Codex về tài khoản ChatGPT');
-    await press(d.getByRole('button', { name: 'Áp bộ' }));
+    await press(d.getByRole('button', { name: 'Áp dụng bộ' }));
     expect(fake.api.setsApply).toHaveBeenCalledTimes(1);
     // The sheet is the Codex tab's own: switching waits for its button.
     expect(within(dialog()).getByRole('heading', { name: /Chuyển Codex về tài khoản ChatGPT/ })).toBeTruthy();
@@ -196,7 +196,7 @@ describe('the Bộ cấu hình tab', () => {
   it('goes straight to step 2 when only Codex differs', async () => {
     const only = { id: 'cx', name: 'Chỉ Codex', mcp: {}, skills: {}, codex: 'chatGpt' as const };
     const fake = await openTab(fixtureModel('fresh', { sets: setsFixture({ sets: [only], applied: null }) }));
-    await press(button('Áp bộ Chỉ Codex'));
+    await press(button('Áp dụng bộ Chỉ Codex'));
     const go = await within(dialog()).findByRole('button', { name: 'Tiếp: chuyển Codex' });
     await press(go);
     expect(fake.api.setsApply).toHaveBeenCalledWith('cx', { mcp: [], mcpBases: {}, skills: [], skillBases: {} });
@@ -205,7 +205,7 @@ describe('the Bộ cấu hình tab', () => {
 
   it('says which entries it cannot change', async () => {
     await openTab();
-    await press(button('Áp bộ Web app'));
+    await press(button('Áp dụng bộ Web app'));
     const d = within(dialog());
     await d.findByText('Antigravity');
     expect(d.getByText('Bỏ qua deploy-check cho Antigravity: nằm ở thư mục riêng của agent, gom về một chỗ để bật tắt.')).toBeTruthy();
@@ -215,17 +215,17 @@ describe('the Bộ cấu hình tab', () => {
   it('has nothing to write when the Mac is as the set says', async () => {
     const even = { id: 'even', name: 'Như hiện tại', mcp: { files: 'on' as const }, skills: {}, codex: 'custom' as const };
     await openTab(fixtureModel('fresh', { sets: setsFixture({ sets: [even], applied: null }), codex: codexFixture() }));
-    await press(button('Áp bộ Như hiện tại'));
+    await press(button('Áp dụng bộ Như hiện tại'));
     const d = within(dialog());
     await d.findByText('Máy đang đúng như bộ này. Không có gì để ghi.');
-    expect((d.getByRole('button', { name: 'Áp bộ' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((d.getByRole('button', { name: 'Áp dụng bộ' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('writes nothing when a file changed since the preview', async () => {
     const fake = await openTab(fixtureModel('fresh'), { setsChanged: 'codex' });
-    await press(button('Áp bộ Tối giản'));
+    await press(button('Áp dụng bộ Tối giản'));
     await within(dialog()).findByText('Claude Code');
-    await press(within(dialog()).getByRole('button', { name: 'Áp bộ' }));
+    await press(within(dialog()).getByRole('button', { name: 'Áp dụng bộ' }));
     expect(within(dialog()).getByText(/Chưa đổi gì: file của Codex vừa đổi sau lúc xem trước/)).toBeTruthy();
     expect(fake.api.mcpWrite).not.toHaveBeenCalled();
     expect(screen.getByText('đã lệch 1 mục')).toBeTruthy();

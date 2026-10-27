@@ -196,7 +196,7 @@ describe('the Skills tab', () => {
     expect(screen.queryByRole('group', { name: 'pdf-tools' })).toBeNull();
     expect(screen.getByRole('group', { name: 'ui-polish' })).toBeTruthy();
     await openMenu(screen.getByRole('button', { name: 'Antigravity: tuỳ chọn cột' }));
-    expect(within(screen.getByRole('menu')).getByText('0/2 skill đang tick')).toBeTruthy();
+    expect(within(screen.getByRole('menu')).getByText('Đang bật 0/2 skill')).toBeTruthy();
     await press(screen.getByRole('menuitem', { name: 'Bật tất cả' }));
     expect(screen.getByText('2 thay đổi chưa ghi')).toBeTruthy();
   });

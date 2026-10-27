@@ -112,7 +112,7 @@ function switcherCard(model: Model, auto: AutoView, now: Date): WindowView['swit
   ];
   if (sw.guard != null) {
     const guard = sw.guard ? chip(t('có', 'yes'), 'ok') : chip(t('chưa', 'not yet'), 'bad');
-    details.push({ key: t('Switcher đọc cờ tạm dừng', 'Switcher reads the pause flag'), value: guard.t, chip: guard });
+    details.push({ key: t('Bộ tự chuyển đọc cờ tạm dừng', 'Auto-switch reads the pause flag'), value: guard.t, chip: guard });
   }
   if (auto.raw) details.push({ key: t('Quyết định gần nhất', 'Latest decision') + (auto.at ? ' ' + auto.at : ''), value: auto.raw, mono: true });
   if (sw.lastLog) details.push({ key: t('Nhật ký', 'Log') + (sw.lastLog.at ? ' ' + dayClock(sw.lastLog.at, now) : ''), value: sw.lastLog.raw, mono: true });
@@ -122,8 +122,8 @@ function switcherCard(model: Model, auto: AutoView, now: Date): WindowView['swit
   else if (sw.legacy)
     [line, tone] = [t('Bộ tự chuyển cũ ' + sw.legacy + ' còn chạy: Quota Station chưa tự chuyển', 'The old auto-switcher ' + sw.legacy + ' still runs: Quota Station does not switch yet'), 'bad'];
   else if (sw.service === false) [line, tone] = [t('Tự chuyển đang tắt', 'Auto-switch is off'), 'bad'];
-  else if (sw.service === true) [line, tone] = [auto.at ? t('Kiểm lúc ' + auto.at, 'Checked at ' + auto.at) : t('Đang chạy', 'Running'), 'ok'];
-  else [line, tone] = [t('Không rõ switcher có chạy không', 'Not sure the switcher runs'), 'muted'];
+  else if (sw.service === true) [line, tone] = [auto.at ? t('Kiểm tra lúc ' + auto.at, 'Checked at ' + auto.at) : t('Đang chạy', 'Running'), 'ok'];
+  else [line, tone] = [t('Không rõ bộ tự chuyển có đang chạy không', 'Cannot tell if auto-switch is running'), 'muted'];
   return { line, tone, details };
 }
 

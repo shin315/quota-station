@@ -64,7 +64,7 @@ describe('Cài đặt › Dịch vụ › Biến môi trường đè đăng nh�
     const launchd = row('GEMINI_API_KEY');
     expect(within(launchd).getByText('launchctl · app mở từ Dock')).toBeTruthy();
     expect(within(launchd).queryByRole('button', { name: /^Mở file/ })).toBeNull();
-    expect(within(card()).getByText(/Đã kiểm 11 biến ở 6 chỗ lúc \d\d:\d\d\. Chỉ biết biến có đặt hay không, không đọc giá trị\./)).toBeTruthy();
+    expect(within(card()).getByText(/Đã kiểm tra 11 biến ở 6 chỗ lúc \d\d:\d\d\. Chỉ biết biến có đặt hay không, không đọc giá trị\./)).toBeTruthy();
     // The title row drags the window, as on every tab.
     expect(screen.getByRole('heading', { level: 2, name: 'Cài đặt' }).parentElement!.getAttribute('data-tauri-drag-region')).toBe('deep');
     // One sheet of glass: the card is not inside another card.
@@ -93,16 +93,16 @@ describe('Cài đặt › Dịch vụ › Biến môi trường đè đăng nh�
     expect(row('ANTHROPIC_API_KEY')).toBeTruthy();
   });
 
-  it('none set: one green line, and "Kiểm lại" looks again', async () => {
+  it('none set: one green line, and "Kiểm tra lại" looks again', async () => {
     const fake = await openTab('settings', withEnv([]));
     await showGroup('Dịch vụ');
     expect(within(card()).queryByRole('list')).toBeNull();
     expect(within(card()).getByText('không có').getAttribute('data-tone')).toBe('ok');
     expect(within(card()).getByText('Không có biến nào đè đăng nhập.')).toBeTruthy();
     vi.mocked(fake.api.envCheck).mockClear();
-    await press(within(card()).getByRole('button', { name: 'Kiểm lại' }));
+    await press(within(card()).getByRole('button', { name: 'Kiểm tra lại' }));
     expect(fake.api.envCheck).toHaveBeenCalledTimes(1);
-    expect(screen.getByText(/Đã kiểm lúc \d\d:\d\d: không có biến nào đè đăng nhập/)).toBeTruthy();
+    expect(screen.getByText(/Đã kiểm tra lúc \d\d:\d\d: không có biến nào đè đăng nhập/)).toBeTruthy();
   });
 
   it('a place it could not read is said', async () => {
@@ -115,7 +115,7 @@ describe('Cài đặt › Dịch vụ › Biến môi trường đè đăng nh�
     await openTab('settings', withEnv([]));
     await showGroup('Dịch vụ');
     await press(within(card()).getByRole('button', { name: 'Xem danh sách' }));
-    const d = screen.getByRole('dialog', { name: 'App kiểm những gì' });
+    const d = screen.getByRole('dialog', { name: 'Ứng dụng kiểm tra những gì' });
     for (const n of envFixture().vars) expect(within(d).getByText(new RegExp(n + '( ·|$)'))).toBeTruthy();
     expect(within(d).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
       '~/.zshenv',
@@ -132,14 +132,14 @@ describe('Cài đặt › Dịch vụ › Biến môi trường đè đăng nh�
 });
 
 describe('the Claude tab', () => {
-  it('has a red banner while a variable overrides Claude Code, with "Mở file", "Bỏ qua" and "Kiểm lại"', async () => {
+  it('has a red banner while a variable overrides Claude Code, with "Mở file", "Bỏ qua" and "Kiểm tra lại"', async () => {
     const fake = await openTab('claude', withEnv([API_KEY, BASE_URL]));
     const banner = screen.getByText('ANTHROPIC_API_KEY đang đè đăng nhập Claude').closest('.banner') as HTMLElement;
     expect(banner.getAttribute('data-tone')).toBe('bad');
     expect(
       within(banner).getByText('Đặt ở ~/.zshrc dòng 42. Trong Terminal, Claude Code dùng khoá này thay cho tài khoản claude-swap đang chọn.'),
     ).toBeTruthy();
-    expect(within(banner).getAllByRole('button').map((b) => b.textContent)).toEqual(['Mở ~/.zshrc ở dòng 42', 'Bỏ qua', 'Kiểm lại']);
+    expect(within(banner).getAllByRole('button').map((b) => b.textContent)).toEqual(['Mở ~/.zshrc ở dòng 42', 'Bỏ qua', 'Kiểm tra lại']);
     await press(within(banner).getByRole('button', { name: 'Mở ~/.zshrc ở dòng 42' }));
     expect(fake.api.envOpen).toHaveBeenCalledWith('ANTHROPIC_API_KEY@zshrc');
     await press(within(banner).getByRole('button', { name: 'Bỏ qua' }));

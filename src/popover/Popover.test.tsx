@@ -88,7 +88,7 @@ describe('popover', () => {
     expect(agy).toHaveLength(1);
     expect(agy[0].getAttribute('aria-disabled')).toBe('true');
     expect(agy[0].getAttribute('title')).toBe(
-      'lanpham.ultra@example.com · Quota Station · tài khoản 1 · Chưa chuyển được: chưa đọc được danh sách tài khoản của Quota Station · số 25 phút trước',
+      'lanpham.ultra@example.com · Quota Station · tài khoản 1 · Chưa chuyển được: chưa đọc được danh sách tài khoản của Quota Station · cập nhật 25 phút trước',
     );
     // Its numbers are 25 minutes old: drawn dim, the age on hover, no chip.
     expect(agy[0].getAttribute('data-stale')).toBe('true');
@@ -192,14 +192,14 @@ describe('popover', () => {
     await open(m);
     const [, acme2, acme3] = others('Claude');
     expect(acme2.getAttribute('data-stale')).toBe('true');
-    expect(acme2.getAttribute('title')).toBe('lan.acme2@example.com · Quota Station · tài khoản 3 · số 25 phút trước');
+    expect(acme2.getAttribute('title')).toBe('lan.acme2@example.com · Quota Station · tài khoản 3 · cập nhật 25 phút trước');
     // The bars and numbers go grey, not red or orange.
     const numbers = within(acme2).getAllByText(/%$/);
     expect(numbers.length).toBeGreaterThan(0);
     for (const n of numbers) expect(n.className).toContain('text-ink3');
     expect(acme3.getAttribute('title')).toBe('lan.acme3@example.com · Quota Station · tài khoản 4 · đã rời vòng');
     expect(acme3.getAttribute('data-stale')).toBeNull();
-    for (const note of [/phút trước/, /rời vòng/, /ngoài vòng/, /nghỉ tự chuyển/]) expect(screen.queryByText(note)).toBeNull();
+    for (const note of [/phút trước/, /rời vòng/, /ngoài vòng/, /tạm dừng tự chuyển/]) expect(screen.queryByText(note)).toBeNull();
   });
 
   it('shows the glass, and the solid ground while macOS reduces transparency', async () => {
@@ -321,7 +321,7 @@ describe('popover', () => {
     expect(screen.queryByText('Đã làm mới')).toBeNull();
     act(() => fake.push(fixtureModel('fresh', { reads: 4 })));
     // A short line that goes by itself, with the time on hover.
-    expect(screen.getByText('Đã làm mới').closest('.toast')?.getAttribute('title')).toBe('Đọc lại số lúc 14:20.');
+    expect(screen.getByText('Đã làm mới').closest('.toast')?.getAttribute('title')).toBe('Cập nhật dữ liệu lúc 14:20.');
   });
 
   it('updates when the reader pushes a new model', async () => {
@@ -354,7 +354,7 @@ describe('popover', () => {
     expect(fake.api.openWindow).toHaveBeenCalledWith('claude');
   });
 
-  it('no agent on this Mac: one empty card with Kiểm lại, and no groups', async () => {
+  it('no agent on this Mac: one empty card with Kiểm tra lại, and no groups', async () => {
     const m = fixtureModel('fresh', { codex: codexFixture({ present: false }) });
     m.snapshot.claude.status = 'notSetUp';
     m.snapshot.agy.status = 'notSetUp';
@@ -363,7 +363,7 @@ describe('popover', () => {
     expect(screen.queryByRole('list', { name: 'Claude' })).toBeNull();
     expect(screen.queryByRole('list', { name: 'Antigravity' })).toBeNull();
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Kiểm lại' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Kiểm tra lại' }));
     });
     expect(fake.api.refresh).toHaveBeenCalled();
   });

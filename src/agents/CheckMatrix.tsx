@@ -139,7 +139,7 @@ function ColumnHead(props: {
         <DropdownMenuLabel aria-hidden="true">
           <b className="block text-sm font-semi text-ink">{name}</b>
           <small className="text-xs text-ink2">
-            {t(m.ticked + '/' + m.total + ' ' + props.noun + ' đang tick', m.ticked + ' of ' + m.total + ' ticked')}
+            {t('Đang bật ' + m.ticked + '/' + m.total + ' ' + props.noun, m.ticked + ' of ' + m.total + ' enabled')}
           </small>
         </DropdownMenuLabel>
         <DropdownMenuItem asChild disabled={m.ticked === m.total} onSelect={() => props.onSet(true)}>

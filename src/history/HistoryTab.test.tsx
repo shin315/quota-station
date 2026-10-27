@@ -47,7 +47,7 @@ describe('the Lịch sử tab', () => {
       '13:40 | Cảnh báo | lan.ultra2→lanpham.ultra | Antigravity.app đổi về tài khoản cũ (lần 1/2) | quan sát',
       '13:20 | Antigravity | lanpham.ultra→lan.ultra2 | Bạn chuyển trong app · thoát app rồi chuyển | app',
       '09:12 | Chuyển | lan.acme2 | 5 giờ đã dùng 4% · đặt lại 15:00 | switcher',
-      '08:01 | Mồi | lan.acme2 | Bắt đầu tính 5 giờ sớm | switcher',
+      '08:01 | Khởi tạo sớm | lan.acme2 | Bắt đầu tính 5 giờ sớm | switcher',
     ]);
     expect(rows('Hôm qua')).toEqual(['22:47 | Chuyển | lan.acme1→lanpham.dev | Đổi giữa hai lần đọc, không do app hay switcher | quan sát']);
     // No line of explanation, no exit code; the switcher's own line is on hover only.

@@ -178,7 +178,7 @@ export function McpTab({ model, fresh, feedback, now, mcp, onAction }: McpTabPro
   const v = model.mcp;
   const table = v.table;
   const busy = v.busy != null || mcp.working;
-  const sub = v.busy === 'reading' ? t('đang đọc…', 'reading…') : v.readAt ? t('đọc lúc ' + clock(v.readAt), 'read at ' + clock(v.readAt)) : fresh.text;
+  const sub = v.busy === 'reading' ? t('đang đọc…', 'reading…') : v.readAt ? t('cập nhật lúc ' + clock(v.readAt), 'updated at ' + clock(v.readAt)) : fresh.text;
   const top = (
     <TabHead>
       <TabTitle>MCP</TabTitle>
@@ -187,7 +187,7 @@ export function McpTab({ model, fresh, feedback, now, mcp, onAction }: McpTabPro
         {model.machine} · {sub}
       </TabSub>
       <Button disabled={busy} onClick={mcp.reread}>
-        {t('Đọc lại', 'Read again')}
+        {t('Làm mới', 'Refresh')}
       </Button>
     </TabHead>
   );

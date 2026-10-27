@@ -29,7 +29,7 @@ describe('main window view', () => {
     expect(view('fresh', { claudeSwitch: { ready: false, busy: null } }).claude.count).toBe('4 tài khoản claude-swap');
     const unavailable = view('unavailable').claude;
     expect(unavailable).toMatchObject({ count: '', cards: [] });
-    expect(unavailable.note?.text).toBe('Không đọc được số của Claude Code (network_unreachable).');
+    expect(unavailable.note?.text).toBe('Không đọc được hạn mức của Claude Code (network_unreachable).');
   });
 
   it('writes resets in the tables as the popover does, minutes only within a day', () => {
@@ -58,7 +58,7 @@ describe('main window view', () => {
     m.snapshot.agy = { ...m.snapshot.agy, accounts: [], reason: 'Antigravity sign-in required' };
     const agy = windowView(m, FIXTURE_NOW).agy;
     expect(agy.banner).toMatchObject({ title: 'Chỉ thấy tài khoản đang dùng' });
-    expect(agy.tabNote).toEqual({ tone: 'warn', text: 'Không đọc được số Antigravity (Antigravity sign-in required).' });
+    expect(agy.tabNote).toEqual({ tone: 'warn', text: 'Không đọc được hạn mức Antigravity (Antigravity sign-in required).' });
     expect(view('single').agy.tabNote).toBeNull();
     expect(view('fresh').agy.tabNote).toBeNull();
   });
@@ -73,7 +73,7 @@ describe('main window view', () => {
   it('the switcher card is one line, the rest folded', () => {
     const s = view('fresh').switcher;
     // How often it runs is the LaunchAgent's own line beside it; this one says when it last checked.
-    expect(s.line).toMatch(/^Kiểm lúc \d\d:\d\d$/);
+    expect(s.line).toMatch(/^Kiểm tra lúc \d\d:\d\d$/);
     expect(s.tone).toBe('ok');
     expect(s.details.map((d) => d.key)).toContain('LaunchAgent tự chuyển');
     expect(s.details.find((d) => d.key.startsWith('Quyết định gần nhất'))).toMatchObject({ mono: true });

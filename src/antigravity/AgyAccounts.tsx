@@ -152,7 +152,7 @@ export function loginChips(row: AgyRowView | undefined): ChipView[] {
   if (row.chip.k !== 'ok') chips.push({ ...row.chip, title: row.sub || undefined });
   if (row.read)
     chips.push({
-      t: row.read.tone === 'info' ? row.read.text : t('đọc lỗi', 'read failed'),
+      t: row.read.tone === 'info' ? row.read.text : t('lỗi đọc dữ liệu', 'read failed'),
       k: row.read.tone === 'bad' ? 'bad' : row.read.tone === 'warn' ? 'warn' : 'info',
       title: row.read.text,
     });
@@ -196,7 +196,7 @@ export function LogoutConfirm({ logins, row, inTable }: { logins: AgyLogins; row
         <b>{t('Đăng xuất ' + row.name + ' khỏi Quota Station?', 'Sign ' + row.name + ' out of Quota Station?')}</b>
         <small className="block text-xs text-ink2">{t('Antigravity.app và agy vẫn đăng nhập như cũ.', 'Antigravity.app and agy stay signed in as before.')}</small>
       </div>
-      <Button onClick={() => logins.ask(null)}>{t('Thôi', 'Cancel')}</Button>
+      <Button onClick={() => logins.ask(null)}>{t('Huỷ', 'Cancel')}</Button>
       <Button primary disabled={logins.busy} onClick={() => logins.logout(row)}>
         {t('Đăng xuất', 'Sign out')}
       </Button>

@@ -186,7 +186,7 @@ fn the_pool_running_dry_and_coming_back_are_two_cards() {
     assert_eq!(card.title, "Hạn mức Claude trong vòng sắp cạn");
     // The account in use and when another comes back, never a room in accounts.
     assert_eq!(card.body, "Team A đã dùng 92%. Cá nhân có lại hạn mức lúc 17:29.");
-    assert_eq!(labels(&card.actions), ["Sang Cá nhân (đã dùng 88%)", "Thôi"]);
+    assert_eq!(labels(&card.actions), ["Sang Cá nhân (đã dùng 88%)", "Bỏ qua"]);
 
     // Still dry on the next reads, and after a restart: no second card.
     assert!(run(&mut memory, &facts(T0 + 6 * MIN, Some(&dry)), &center).is_empty());
@@ -254,7 +254,10 @@ fn an_account_leaving_the_rotation_is_told_thirty_minutes_before() {
     let card = center.last();
     assert_eq!(card.kind, Kind::Leaving);
     assert_eq!(card.title, "Team A rời vòng lúc 15:20");
-    assert_eq!(card.body, "Còn 30 phút. Sau đó switcher chuyển sang tài khoản khác trong vòng.");
+    assert_eq!(
+        card.body,
+        "Còn 30 phút. Sau đó tự động chuyển sẽ đổi sang tài khoản khác trong vòng xoay."
+    );
     assert_eq!(labels(&card.actions), ["Ổn", "Chuyển ngay"]);
     // Once only, up to the end; past it, nothing.
     assert!(run(&mut memory, &facts(ends - 10 * MIN, Some(&r)), &center).is_empty());
@@ -457,7 +460,7 @@ fn an_overwrite_within_six_hours_offers_to_switch_back() {
         card.body,
         "Lúc 16:20 Antigravity.app đổi về Ultra 1. Bạn đã chuyển sang Ultra 2 lúc 14:20."
     );
-    assert_eq!(labels(&card.actions), ["Thoát app rồi chuyển lại", "Chuyển lại", "Thôi"]);
+    assert_eq!(labels(&card.actions), ["Thoát app rồi chuyển lại", "Chuyển lại", "Bỏ qua"]);
     // Once for this overwrite.
     assert!(run(&mut memory, &f, &center).is_empty());
 
@@ -483,22 +486,26 @@ fn an_overwrite_within_six_hours_offers_to_switch_back() {
     let mut f2 = facts(T0 + 3 * HOUR, None);
     f2.overwrite = Some(quiet.clone());
     run(&mut memory, &f2, &center);
-    assert_eq!(labels(&center.last().actions), ["Chuyển lại", "Thôi"]);
+    assert_eq!(labels(&center.last().actions), ["Chuyển lại", "Bỏ qua"]);
     assert_eq!(
         center.press(&mut memory, &center.last(), "Chuyển lại", T0 + 3 * HOUR),
         Effect::SwitchAgy { number: 2, how: How::Plain }
     );
 
-    // After two overwrites the app stops offering to switch back; "Thôi" stops the watch.
+    // After two overwrites the app stops offering to switch back; "Bỏ qua" stops the watch.
     quiet.overwrites = 3;
     quiet.at += 1;
     let mut f3 = facts(T0 + 4 * HOUR, None);
     f3.overwrite = Some(quiet);
     run(&mut memory, &f3, &center);
     let card = center.last();
-    assert!(card.body.ends_with("Đây là lần thứ 3. App thôi đề nghị chuyển lại."), "{}", card.body);
-    assert_eq!(labels(&card.actions), ["Thôi"]);
-    assert_eq!(center.press(&mut memory, &card, "Thôi", T0 + 4 * HOUR), Effect::DismissOverwrite);
+    assert!(
+        card.body.ends_with("Đây là lần thứ 3. Ứng dụng ngừng đề nghị chuyển lại."),
+        "{}",
+        card.body
+    );
+    assert_eq!(labels(&card.actions), ["Bỏ qua"]);
+    assert_eq!(center.press(&mut memory, &card, "Bỏ qua", T0 + 4 * HOUR), Effect::DismissOverwrite);
 }
 
 #[cfg(feature = "author-tools")]
@@ -626,7 +633,7 @@ fn a_test_card_shows_the_real_buttons_and_changes_nothing() {
     }
     assert_eq!(center.titles().len(), 5);
     let overwrite = center.cards.lock().unwrap()[3].clone();
-    assert_eq!(labels(&overwrite.actions), ["Thoát app rồi chuyển lại", "Chuyển lại", "Thôi"]);
+    assert_eq!(labels(&overwrite.actions), ["Thoát app rồi chuyển lại", "Chuyển lại", "Bỏ qua"]);
     assert_eq!(center.press(&mut memory, &overwrite, "Chuyển lại", T0), Effect::None);
     let said = memory.record(&overwrite.id).unwrap().answer.clone().unwrap().result.unwrap();
     assert_eq!(said.title, "Thông báo thử");
@@ -696,7 +703,7 @@ fn without_nang_cao_the_cards_go_by_number_and_every_account_counts() {
     let card = center.last();
     assert_eq!(card.title, "Hạn mức Claude sắp cạn");
     assert_eq!(card.body, "Tài khoản 1 đã dùng 95%. Tài khoản 1 có lại hạn mức lúc 17:29.");
-    assert_eq!(labels(&card.actions), ["Sang Tài khoản 5 (đã dùng 88%)", "Thôi"]);
+    assert_eq!(labels(&card.actions), ["Sang Tài khoản 5 (đã dùng 88%)", "Bỏ qua"]);
     // "Gửi thử" speaks the same way.
     let sample = alerts::sample(Kind::Pool, T0, offset(), false);
     assert_eq!(sample.title, "Hạn mức Claude sắp cạn");
