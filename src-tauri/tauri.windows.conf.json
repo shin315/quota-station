@@ -1,4 +1,23 @@
 {
+  "app": {
+    "windows": [
+      {
+        "label": "popover",
+        "title": "Quota Station",
+        "url": "index.html",
+        "width": 360,
+        "height": 560,
+        "decorations": false,
+        "transparent": true,
+        "resizable": false,
+        "skipTaskbar": true,
+        "alwaysOnTop": true,
+        "visible": false,
+        "focus": false,
+        "shadow": true
+      }
+    ]
+  },
   "bundle": {
     "icon": [
       "icons/32x32.png",

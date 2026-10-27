@@ -30,6 +30,7 @@ use tauri::{AppHandle, State};
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
+use crate::open;
 use crate::reader;
 use crate::state::{AppState, Inner};
 
@@ -348,7 +349,7 @@ pub fn backup_set_folder(
 
 /// "Mở trong Finder": the packs' folder, or iCloud Drive before the first.
 #[tauri::command]
-pub fn backup_open_folder(state: State<'_, AppState>) -> Result<(), String> {
+pub fn backup_open_folder(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
     let (root, home) = {
         let inner = state.lock();
         (inner.pack_root(), inner.home.clone())
@@ -357,8 +358,7 @@ pub fn backup_open_folder(state: State<'_, AppState>) -> Result<(), String> {
     if !dir.is_dir() {
         return Err("missing".into());
     }
-    std::process::Command::new("/usr/bin/open").arg(&dir).status().map_err(|e| e.to_string())?;
-    Ok(())
+    open::folder(&app, &dir)
 }
 
 fn load_code(e: &LoadError) -> String {

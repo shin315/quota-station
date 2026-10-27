@@ -60,6 +60,9 @@ uuid = { version = "1.10", features = ["v4"] }
 [target.'cfg(windows)'.dependencies]
 # A link to a folder without Developer Mode (`os::link_dir`).
 junction = "2"
+# The default browser or app (`os::SystemOpener`): what `tauri-plugin-opener`
+# opens with in the app.
+open = "5"
 # The command lines of the processes that run (`win::Tasks`), as Cockpit
 # Tools reads them on Windows; never built on macOS, where it would ask for
 # permissions `ps` does not need.

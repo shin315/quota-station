@@ -398,7 +398,8 @@ pub fn codex_trigger_now(app: AppHandle, state: State<'_, AppState>) -> Result<(
     Ok(())
 }
 
-#[cfg(test)]
+// The fake `codex` is a shell script.
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
     use std::os::unix::fs::PermissionsExt;

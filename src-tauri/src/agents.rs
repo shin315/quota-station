@@ -20,6 +20,7 @@ use tauri::{AppHandle, State};
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
+use crate::open;
 use crate::reader;
 use crate::state::{AppState, Inner};
 
@@ -355,11 +356,14 @@ pub async fn mcp_forget(
 
 /// The backups' folder, opened in Finder.
 #[tauri::command]
-pub fn mcp_open_backups(state: State<'_, AppState>, agent: Agent) -> Result<(), String> {
+pub fn mcp_open_backups(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    agent: Agent,
+) -> Result<(), String> {
     let dir = state.lock().app_dir().path().join(agent.backups().0);
     if !dir.is_dir() {
         return Err("missing".into());
     }
-    std::process::Command::new("/usr/bin/open").arg(&dir).status().map_err(|e| e.to_string())?;
-    Ok(())
+    open::folder(&app, &dir)
 }

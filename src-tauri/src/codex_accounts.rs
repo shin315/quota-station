@@ -34,6 +34,7 @@ use tauri::{AppHandle, State};
 use time::OffsetDateTime;
 
 use crate::codex::{list, rfc, write, Reach, Signing};
+use crate::open;
 use crate::reader;
 use crate::state::{AppState, Inner};
 
@@ -331,7 +332,7 @@ pub fn codex_cancel_login(state: State<'_, AppState>) {
 
 /// "Mở lại trang đăng nhập": the page `codex login` printed, in the browser.
 #[tauri::command]
-pub fn codex_reopen_login(state: State<'_, AppState>) -> Result<(), String> {
+pub fn codex_reopen_login(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
     let link = state
         .lock()
         .codex
@@ -339,8 +340,7 @@ pub fn codex_reopen_login(state: State<'_, AppState>) -> Result<(), String> {
         .as_ref()
         .and_then(|s| s.link.lock().ok().and_then(|l| l.clone()))
         .ok_or("none")?;
-    Command::new("/usr/bin/open").arg(&link).status().map_err(|_| "open".to_string())?;
-    Ok(())
+    open::url(&app, &link).map_err(|_| "open".to_string())
 }
 
 /// How a sign-in runs, and where it says what it printed.
@@ -719,9 +719,12 @@ fn sign_out(user_home: &Path, folder: &PathBuf) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
     use std::os::unix::fs::PermissionsExt;
 
-    /// A temporary home with a fake `codex` in `~/.local/bin` running `body`.
+    /// A temporary home with a fake `codex` in `~/.local/bin` running `body`,
+    /// a shell script.
+    #[cfg(unix)]
     fn fake_codex(name: &str, body: &str) -> PathBuf {
         let home =
             std::env::temp_dir().join(format!("qs-codex-login-{name}-{}", std::process::id()));
@@ -735,16 +738,19 @@ mod tests {
     }
 
     /// A made-up ChatGPT sign-in of workspace `ws-<user>`; its tokens are not real.
+    #[cfg(unix)]
     fn made_up(user: &str) -> String {
         serde_json::json!({ "tokens": { "access_token": "not-real", "refresh_token": "not-real", "account_id": format!("ws-{user}") } })
             .to_string()
     }
 
+    #[cfg(unix)]
     fn browser(signing: &Signing) -> How<'_> {
         How { device: false, signing }
     }
 
     #[test]
+    #[cfg(unix)]
     fn a_device_code_sign_in_shows_the_page_and_the_code_while_it_waits() {
         let home = fake_codex(
             "device",
@@ -771,6 +777,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn a_sign_in_runs_codex_login_in_a_folder_of_its_own_and_adds_the_account() {
         let auth = made_up("ann").replace('"', "\\\"");
         let home = fake_codex(
@@ -799,6 +806,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn a_sign_in_that_fails_or_is_stopped_leaves_nothing() {
         let home =
             fake_codex("port", "echo 'Error: Address already in use (os error 48)' >&2; exit 1");

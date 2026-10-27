@@ -22,6 +22,7 @@ use tauri::{AppHandle, State};
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
+use crate::open;
 use crate::reader;
 use crate::state::{AppState, Inner};
 
@@ -159,7 +160,11 @@ pub async fn env_check(app: AppHandle, state: State<'_, AppState>) -> Result<(),
 /// Resolves to the editor that went to the line, or null when the default
 /// text editor opened the file without it.
 #[tauri::command]
-pub fn env_open(state: State<'_, AppState>, id: String) -> Result<Option<String>, String> {
+pub fn env_open(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<Option<String>, String> {
     let (home, line) = {
         let inner = state.lock();
         let found = inner.env.check.as_ref().and_then(|c| c.found.iter().find(|f| f.id == id));
@@ -167,17 +172,33 @@ pub fn env_open(state: State<'_, AppState>, id: String) -> Result<Option<String>
         (inner.home.clone(), found.line)
     };
     let (_, place) = env_check::parse_id(&id).ok_or("notFound")?;
-    let file = place.file().ok_or("noFile")?;
-    let (args, editor) =
-        env_check::open_args(&home.join(file), line, &env_check::app_folders(&home));
-    let status = std::process::Command::new("/usr/bin/open")
-        .args(&args)
-        .status()
-        .map_err(|e| e.to_string())?;
-    if !status.success() {
-        return Err("open".into());
+    let file = home.join(place.file().ok_or("noFile")?);
+    #[cfg(windows)]
+    if let Some(editor) = code_at(&file, line) {
+        return Ok(Some(editor.to_string()));
+    }
+    let (args, editor) = env_check::open_args(&file, line, &env_check::app_folders(&home));
+    match (editor, args.first()) {
+        (Some(_), Some(url)) => open::url(&app, url).map_err(|_| "open".to_string())?,
+        _ => open::text(&app, &file).map_err(|_| "open".to_string())?,
     }
     Ok(editor.map(str::to_string))
+}
+
+/// Windows: VS Code at the line, when `code` is on the `PATH`.
+#[cfg(windows)]
+fn code_at(file: &std::path::Path, line: Option<u32>) -> Option<&'static str> {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    let line = line?;
+    let code = quota_station_core::runner::on_path("code")?;
+    std::process::Command::new(code)
+        .arg("--goto")
+        .arg(format!("{}:{line}", file.display()))
+        .creation_flags(CREATE_NO_WINDOW)
+        .spawn()
+        .ok()?;
+    Some("Visual Studio Code")
 }
 
 /// Adds `ids` to "Bỏ qua", or takes them off; ignoring also answers the

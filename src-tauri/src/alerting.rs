@@ -12,7 +12,6 @@
 //! Firstmate's `quota-pool.last` at the path set in settings, and, while an
 //! overwrite waits for an answer, whether Antigravity.app runs (`pgrep`).
 
-use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -44,7 +43,7 @@ use time::OffsetDateTime;
 use crate::agy_switch;
 use crate::notify::{self, Permission};
 use crate::state::{AppState, Inner, Model, Tab};
-use crate::{reader, windows};
+use crate::{open, reader, windows};
 
 /// The bell's panel (Thông báo) and its count.
 #[derive(Debug, Clone, Serialize)]
@@ -334,7 +333,7 @@ pub async fn press(
         #[cfg(feature = "antigravity-accounts")]
         Effect::OpenVerification { number } => {
             let id = account_id(&dir, number).ok_or("notFound")?;
-            crate::antigravity::open_verification(&dir, &id)?;
+            crate::antigravity::open_verification(app, &dir, &id)?;
         }
         // Only the Antigravity cards offer these, and a build without the
         // Antigravity accounts sends none.
@@ -489,12 +488,12 @@ pub fn notify_refresh(app: AppHandle, state: State<'_, AppState>) {
 
 /// System Settings › Notifications, where the owner turns the cards on.
 #[tauri::command]
-pub fn open_notification_settings() -> Result<(), String> {
-    std::process::Command::new(Path::new("/usr/bin/open"))
-        .arg("x-apple.systempreferences:com.apple.Notifications-Settings.extension")
-        .spawn()
-        .map(|_| ())
-        .map_err(|e| e.to_string())
+pub fn open_notification_settings(app: AppHandle) -> Result<(), String> {
+    #[cfg(not(windows))]
+    let page = "x-apple.systempreferences:com.apple.Notifications-Settings.extension";
+    #[cfg(windows)]
+    let page = "ms-settings:notifications";
+    open::url(&app, page)
 }
 
 /// Starts the macOS notification center, with presses coming to [`on_card`].

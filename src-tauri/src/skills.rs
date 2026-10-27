@@ -35,6 +35,7 @@ use tauri::{AppHandle, State};
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
+use crate::open;
 use crate::reader;
 use crate::state::{AppState, Inner};
 
@@ -753,12 +754,11 @@ pub async fn skills_import(
 
 /// A skill's history on GitHub, in the browser.
 #[tauri::command]
-pub fn skills_open_link(url: String) -> Result<(), String> {
+pub fn skills_open_link(app: AppHandle, url: String) -> Result<(), String> {
     if !url.starts_with("https://github.com/") || url.contains(char::is_whitespace) {
         return Err("invalid".into());
     }
-    std::process::Command::new("/usr/bin/open").arg(&url).status().map_err(|e| e.to_string())?;
-    Ok(())
+    open::url(&app, &url)
 }
 
 // ===== Newer versions (G) =====
@@ -1059,14 +1059,9 @@ pub fn instr_forget(
 
 /// "Mở file": in the default text editor. The app does not edit it.
 #[tauri::command]
-pub fn instr_open(state: State<'_, AppState>, path: String) -> Result<(), String> {
+pub fn instr_open(app: AppHandle, state: State<'_, AppState>, path: String) -> Result<(), String> {
     let (r, _, _) = find(state.inner(), &path)?;
-    std::process::Command::new("/usr/bin/open")
-        .arg("-t")
-        .arg(&r.path)
-        .status()
-        .map_err(|e| e.to_string())?;
-    Ok(())
+    open::text(&app, &r.path)
 }
 
 // ===== The backup pack =====
