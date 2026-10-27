@@ -1299,7 +1299,8 @@ export function Settings(props: SettingsProps) {
             {onSkillChecks ? <SkillChecksRows model={model} onSet={onSkillChecks} /> : null}
             {onReleaseChecks ? <DiagnosticsRows onAction={onAction} /> : null}
           </SettingsCard>
-          {model.cliTools && props.onCliCheck && props.onCliUpdate && props.onCliChecks ? (
+          {/* The tools' Windows installs are not read yet: the card is macOS's. */}
+          {!onWindows() && model.cliTools && props.onCliCheck && props.onCliUpdate && props.onCliChecks ? (
             <SettingsCard id={CARDS.cli} title={t('Cập nhật Agent', 'Agent updates')} icon="cli">
               <CliToolsRows view={model.cliTools} onCheck={props.onCliCheck} onUpdate={props.onCliUpdate} onDaily={props.onCliChecks} />
             </SettingsCard>

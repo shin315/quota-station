@@ -50,6 +50,12 @@ describe('Cài đặt › Chung › Cập nhật Agent', () => {
     expect(within(card()).queryByText('Tự cập nhật')).toBeNull();
   });
 
+  it('is not shown on Windows, whose installs it does not read yet', async () => {
+    const model = withCli();
+    await openTab('settings', { ...model, capabilities: { ...model.capabilities, platform: 'windows' } });
+    expect(screen.queryByRole('region', { name: 'Cập nhật Agent' })).toBeNull();
+  });
+
   it('"Cập nhật" runs that tool’s update and says how it went', async () => {
     const fake = await openTab('settings', withCli());
     await press(within(row('Codex CLI')).getByRole('button', { name: 'Cập nhật' }));
