@@ -283,9 +283,9 @@ describe('the Skills tab', () => {
   it('keeps the newer versions in one card above the table: Cập nhật tất cả, a line per repository, the details behind Chi tiết', async () => {
     await openTab('skills');
     const card = screen.getByRole('region', { name: '2 skill có bản mới' });
-    // The tab's head keeps only "Kiểm bản mới"; installing sits at the table's head.
+    // The tab's head keeps only "Kiểm tra bản mới"; installing sits at the table's head.
     const head = screen.getByRole('heading', { level: 2, name: 'Skills' }).parentElement!;
-    expect(within(head).getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['Kiểm bản mới', 'Thông báo']);
+    expect(within(head).getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['Kiểm tra bản mới', 'Thông báo']);
     expect(within(card).getByRole('button', { name: 'Cập nhật tất cả (2)' })).toBeTruthy();
     expect(Array.from(card.querySelectorAll('.grid > div')).map((r) => r.textContent)).toEqual([
       'dataworks/skills · 1 skill có bản mới: sql-helperXem sql-helperCập nhật cả bộ',
@@ -328,10 +328,10 @@ describe('the Skills tab', () => {
 });
 
 describe('Cài đặt › Skills', () => {
-  it('has "Kiểm bản mới" daily or off, and the macOS card off by default', async () => {
+  it('has "Kiểm tra bản mới" daily or off, and the macOS card off by default', async () => {
     const fake = await openTab('settings');
     await showGroup('Chung');
-    const seg = screen.getByRole('group', { name: 'Kiểm bản mới của skill' });
+    const seg = screen.getByRole('group', { name: 'Kiểm tra bản mới của skill' });
     expect(within(seg).getByRole('button', { name: 'Mỗi ngày' }).getAttribute('aria-pressed')).toBe('true');
     const notify = screen.getByRole('switch', { name: 'Báo skill có bản mới bằng thông báo macOS' });
     expect(notify.getAttribute('aria-checked')).toBe('false');

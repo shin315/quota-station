@@ -47,6 +47,7 @@ export const NAV_ICONS = {
   plugins: nav('plugins'),
   instr: nav('instr'),
   sets: nav('sets'),
+  cliTools: nav('cliTools'),
   backup: nav('backup'),
   copy: nav('copy'),
   settings: nav('settings'),

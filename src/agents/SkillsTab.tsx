@@ -184,7 +184,7 @@ export function SkillsTab({ model, fresh, feedback, skills, onAction }: SkillsTa
         {model.machine} · {sub}
       </TabSub>
       <Button disabled={v.updates.checking} onClick={skills.check}>
-        {v.updates.checking ? t('Đang kiểm…', 'Checking…') : t('Kiểm bản mới', 'Check updates')}
+        {v.updates.checking ? t('Đang kiểm tra…', 'Checking…') : t('Kiểm tra bản mới', 'Check updates')}
       </Button>
     </TabHead>
   );

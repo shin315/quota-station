@@ -284,20 +284,22 @@ export interface Api {
   skillsImport(names: string[]): Promise<SkillGathered>;
   /** A skill's history on GitHub, in the browser. */
   skillsOpenLink(url: string): Promise<void>;
-  /** "Kiểm bản mới": one question to GitHub per repository in the lock file. */
+  /** "Kiểm tra bản mới": one question to GitHub per repository in the lock file. */
   skillsCheck(): Promise<void>;
-  /** "Kiểm bản mới" of the app: asks GitHub Releases now. */
+  /** "Kiểm tra bản mới" of the app: asks GitHub Releases now. */
   releaseCheck(): Promise<void>;
   /** "Bỏ qua bản này" (a version), or its Hoàn tác (null). */
   releaseSkip(version: string | null): Promise<void>;
   /** "Để sau": the version's banner and popover line go quiet. */
   releaseLater(version: string): Promise<void>;
   setReleaseChecks(on: boolean): Promise<void>;
-  /** Cập nhật Agent's "Kiểm ngay" (and a row's "Kiểm lại"): each tool's version, install, sessions and newest, read again. */
+  /** Cập nhật Agent's "Kiểm tra ngay" (and a row's "Kiểm tra lại"): each tool's version, install, sessions and newest, read again. */
   cliToolsCheck(): Promise<void>;
   /** "Cập nhật": the tool's own update command. Rejects with `busy`, `handsOff`, `notInstalled`; how it ended is in the model. */
   cliToolUpdate(tool: CliTool): Promise<void>;
-  /** Cập nhật Agent's "Tự kiểm mỗi ngày". */
+  /** Cập nhật Agent opened: while "Tự động kiểm tra" is on, a check when the last one is missing or a day old. */
+  cliToolsOpened(): Promise<void>;
+  /** Cập nhật Agent's "Tự động kiểm tra". */
   setCliChecks(daily: boolean): Promise<void>;
   /** Opens the latest disk image (`download`), its page (`notes`), the Releases page, or the bug form. */
   releaseOpen(what: 'download' | 'notes' | 'releases' | 'issue'): Promise<void>;
@@ -556,6 +558,7 @@ export const tauriApi: Api = {
   releaseLater: (version) => invoke('release_later', { version }),
   setReleaseChecks: (on) => invoke('set_release_checks', { on }),
   cliToolsCheck: () => invoke('cli_tools_check'),
+  cliToolsOpened: () => invoke('cli_tools_opened'),
   cliToolUpdate: (tool) => invoke('cli_tool_update', { tool }),
   setCliChecks: (daily) => invoke('set_cli_checks', { daily }),
   releaseOpen: (what) => invoke('release_open', { what }),

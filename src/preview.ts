@@ -8,7 +8,7 @@
 // `accounts=none` shows a Mac where Quota Station keeps no Claude account yet. A switch takes 1.5 s, so the working sheet shows.
 // Claude accounts: `claude=relogin` has account 3 to sign in again, `claude=renew` makes a sign-in land on
 // account 1 (already here), `claude=fail` ends a sign-in without one; an action takes 3 s.
-// GitHub Releases: `release=avail|later|skipped|offline|none|off` (up to date by default); "Kiểm bản mới"
+// GitHub Releases: `release=avail|later|skipped|offline|none|off` (up to date by default); "Kiểm tra bản mới"
 // takes 1.5 s and finds 0.3.0, or `releasefinds=offline`. `build=release` is the downloaded app
 // (no author's tools, no Antigravity accounts), whose dialog offers the DMG.
 // The first run: `setup=on` (the fixture's Mac, its accounts not kept yet: the one signed in is
@@ -76,9 +76,9 @@
 // Thống kê (M16): `tab=stats` with made-up counts for made-up projects; `stats=first` shows the
 // first read halfway, `stats=new` starts one that runs (a step every 0.4 s), `stats=skip` has
 // 38 Codex sessions in a format the app cannot read, `stats=fail` a report that cannot be read.
-// Cập nhật Agent (Cài đặt › Chung): `cli=running|missing|npm|bundled|unwritable|unknown|offline|never|updated|updating`,
+// Cập nhật Agent (`tab=cliTools`): `cli=running|missing|npm|bundled|unwritable|unknown|offline|never|updated|updating|latest|failed|checking`,
 // several joined with commas; `clifail=offline|permission|busy|exit|timeout|unchanged|started|sessions`
-// is how every "Cập nhật" ends (it lands on the newest by default), and `cliclosed=1` has "Kiểm lại" find the sessions closed.
+// is how every "Cập nhật" ends (it lands on the newest by default), and `cliclosed=1` has "Kiểm tra lại" find the sessions closed.
 // A check takes 1 s and an update 2 s.
 // The glass: `rt=1` is macOS with Reduce Transparency on (the solid ground).
 // Windows: `os=win` is the app on Windows: its type, corners and scroll bars, no traffic
@@ -124,7 +124,7 @@ import {
   overwriteAlert,
 } from './fixtures/models';
 
-const TABS: Tab[] = ['overview', 'stats', 'claude', 'agy', 'codex', 'rules', 'history', 'alerts', 'firstmate', 'mcp', 'skills', 'plugins', 'instr', 'sets', 'backup', 'copy', 'settings'];
+const TABS: Tab[] = ['overview', 'stats', 'claude', 'agy', 'codex', 'rules', 'history', 'alerts', 'firstmate', 'mcp', 'skills', 'plugins', 'instr', 'sets', 'cliTools', 'backup', 'copy', 'settings'];
 
 const SKILLS: Record<string, () => Model['skills']> = {
   empty: () => skillsFixture({ table: skillTableFixture({ rows: [], owned: [], broken: [] }) }),

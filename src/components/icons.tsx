@@ -122,6 +122,7 @@ export const PLACE_GLYPHS = {
   plugins: 'puzzle-piece',
   instr: 'file-text',
   sets: 'stack',
+  cliTools: 'arrow-circle-up',
   backup: 'archive',
   copy: 'swap',
   settings: 'gear-six',

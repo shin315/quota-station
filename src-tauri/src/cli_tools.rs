@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-//! Cài đặt › Chung › Cập nhật Agent: Claude Code, the Codex CLI and the
-//! Antigravity CLI. Once a day, while "Tự kiểm mỗi ngày" is on, or when the
-//! owner presses "Kiểm ngay", the app reads each tool's version and asks
+//! Agent › Cập nhật (Cập nhật Agent): Claude Code, the Codex CLI and the
+//! Antigravity CLI. Once a day, while "Tự động kiểm tra" is on, or when the
+//! owner presses "Kiểm tra ngay", the app reads each tool's version and asks
 //! where it is published for the newest; a newer one is told at the bell.
 //! A tool is updated only when the owner presses its "Cập nhật", with the
 //! tool's own command; Codex waits while one of its sessions is open.
@@ -38,7 +38,7 @@ pub struct Live {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CliToolsView {
-    /// "Tự kiểm mỗi ngày".
+    /// "Tự động kiểm tra".
     pub daily: bool,
     pub checking: bool,
     /// Unix seconds of the last check that ended.
@@ -129,7 +129,7 @@ fn end(app: &AppHandle, state: &AppState) {
     reader::publish(app, state);
 }
 
-/// "Kiểm ngay", and "Kiểm lại" on a row.
+/// "Kiểm tra ngay", and "Kiểm lại" on a row.
 #[tauri::command]
 pub async fn cli_tools_check(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
     let shared = state.inner().clone();
@@ -143,7 +143,7 @@ pub async fn cli_tools_check(app: AppHandle, state: State<'_, AppState>) -> Resu
 }
 
 /// After each read: the tools are looked for once after the app starts,
-/// and their feeds asked once a day while "Tự kiểm mỗi ngày" is on (an hour
+/// and their feeds asked once a day while "Tự động kiểm tra" is on (an hour
 /// after a check that reached none).
 pub fn daily(app: &AppHandle, state: &AppState) {
     let fetch = {
@@ -170,6 +170,22 @@ pub fn daily(app: &AppHandle, state: &AppState) {
         let _ = tauri::async_runtime::spawn_blocking(move || look(&a2, &s2, fetch)).await;
         end(&a, &s);
     });
+}
+
+/// The page opened: while "Tự động kiểm tra" is on, a check when the last
+/// one is missing or due (a day old, an hour after one that reached no
+/// feed), even within the hour after a check that did not start.
+#[tauri::command]
+pub async fn cli_tools_opened(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
+    let shared = state.inner().clone();
+    {
+        let inner = shared.lock();
+        let due = cli_tools::load(&inner.app_dir()).due(OffsetDateTime::now_utc().unix_timestamp());
+        if inner.settings.cli_checks_off || inner.cli_tools.updating.is_some() || !due {
+            return Ok(());
+        }
+    }
+    cli_tools_check(app, state).await
 }
 
 /// "Cập nhật" on a row: the tool's own command, never while another
@@ -228,7 +244,7 @@ pub async fn cli_tool_update(
     done
 }
 
-/// Cập nhật Agent: "Tự kiểm mỗi ngày".
+/// Cập nhật Agent: "Tự động kiểm tra".
 #[tauri::command]
 pub fn set_cli_checks(
     app: AppHandle,

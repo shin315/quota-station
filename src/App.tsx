@@ -13,6 +13,7 @@ import { InstrDialogBody, InstrTab, instrDialogSize, useInstr } from './agents/I
 import { PluginDialogBody, PluginTab, usePlugins } from './agents/PluginTab';
 import { SkillDialogBody, skillDialogSize } from './agents/SkillDialogs';
 import { SetDialogBody, SetsTab, setDialogSize } from './agents/SetsTab';
+import { CliToolsTab } from './agents/CliToolsTab';
 import { SkillsTab } from './agents/SkillsTab';
 import { useSets } from './agents/useSets';
 import { StatsTab, useStats } from './stats/StatsTab';
@@ -805,6 +806,8 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       void api.mcpRead().catch(() => {});
       void api.skillsRead().catch(() => {});
     }
+    // Opening Cập nhật Agent checks for new versions when the last check is missing or a day old.
+    if (tab === 'cliTools') void api.cliToolsOpened().catch(() => {});
     // Opening the Sao lưu tab lists the packs and the keys now; the MCP table names the keys.
     if (tab === 'backup') {
       void api.backupRead().catch(() => {});
@@ -928,9 +931,6 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       onRelaunch={() => refusal(api.relaunch())}
       onSkillChecks={(daily, notify) => void api.skillsSetChecks(daily, notify).catch(() => showFeedback(settingsFailedFeedback()))}
       onReleaseChecks={release.setAuto}
-      onCliCheck={() => void api.cliToolsCheck().catch(() => showFeedback(settingsFailedFeedback()))}
-      onCliUpdate={(tool) => void api.cliToolUpdate(tool).catch(() => showFeedback(settingsFailedFeedback()))}
-      onCliChecks={(daily) => void api.setCliChecks(daily).catch(() => showFeedback(settingsFailedFeedback()))}
       group={settingsGroup}
       onGroup={showGroup}
     />
@@ -1040,6 +1040,15 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       plugins={<PluginTab model={model} fresh={view.fresh} plugins={plugins} onAction={onAction} />}
       stats={<StatsTab model={model} fresh={view.fresh} stats={stats} />}
       sets={<SetsTab model={model} fresh={view.fresh} feedback={feedback} now={now} sets={sets} onAction={onAction} />}
+      cliTools={
+        <CliToolsTab
+          model={model}
+          now={now}
+          onCheck={() => void api.cliToolsCheck().catch(() => showFeedback(settingsFailedFeedback()))}
+          onUpdate={(tool) => void api.cliToolUpdate(tool).catch(() => showFeedback(settingsFailedFeedback()))}
+          onDaily={(daily) => void api.setCliChecks(daily).catch(() => showFeedback(settingsFailedFeedback()))}
+        />
+      }
       instr={<InstrTab model={model} fresh={view.fresh} feedback={feedback} now={now} instr={instr} onAction={onAction} />}
       backup={<BackupTab model={model} fresh={view.fresh} feedback={feedback} now={now} backup={backup} onAction={onAction} />}
       copy={author ? <CopyTab model={author} feedback={feedback} copy={copy} onAction={onAction} /> : null}

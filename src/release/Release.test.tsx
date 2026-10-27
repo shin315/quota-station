@@ -123,12 +123,13 @@ describe('a newer release on GitHub', () => {
 });
 
 describe('Cài đặt › Chung › Cập nhật', () => {
-  it('Kiểm bản mới asks GitHub and shows what it found', async () => {
+  it('Kiểm tra bản mới asks GitHub and shows what it found', async () => {
     const fake = await open(downloaded(releaseFixture()), 'settings', { releaseFinds: releaseAvailable().latest });
     await showGroup('Chung');
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Chi tiết: Phiên bản' })));
     expect(screen.getByText('0.1.0 (a1b2c3d) · bản tải về (MIT)')).toBeTruthy();
-    expect(screen.getByText('Đang dùng bản mới nhất · kiểm lúc 09:14')).toBeTruthy();
-    await press(screen.getByRole('button', { name: 'Kiểm bản mới' }));
+    expect(screen.getByText('Đã là bản mới nhất · kiểm tra lúc 09:14')).toBeTruthy();
+    await press(screen.getByRole('button', { name: 'Kiểm tra bản mới' }));
     expect(fake.api.releaseCheck).toHaveBeenCalled();
     expect(screen.getByText('Có bản 0.3.0 (phát hành 15/01/2026).')).toBeTruthy();
     await press(screen.getByRole('button', { name: 'Xem có gì mới' }));
@@ -138,8 +139,8 @@ describe('Cài đặt › Chung › Cập nhật', () => {
   it('GitHub out of reach: the line says so and Thử lại checks again', async () => {
     const fake = await open(downloaded(releaseFixture()), 'settings', { releaseFinds: 'offline' });
     await showGroup('Chung');
-    await press(screen.getByRole('button', { name: 'Kiểm bản mới' }));
-    expect(screen.getByText('Chưa kiểm được: không kết nối được GitHub. Tự thử lại sau 1 giờ.')).toBeTruthy();
+    await press(screen.getByRole('button', { name: 'Kiểm tra bản mới' }));
+    expect(screen.getByText('Chưa kiểm tra được: không kết nối được GitHub. Tự thử lại sau 1 giờ.')).toBeTruthy();
     await press(screen.getByRole('button', { name: 'Thử lại' }));
     expect(fake.api.releaseCheck).toHaveBeenCalledTimes(2);
   });
@@ -147,11 +148,11 @@ describe('Cài đặt › Chung › Cập nhật', () => {
   it('the daily check turns off', async () => {
     const fake = await open(downloaded(releaseFixture()), 'settings');
     await showGroup('Chung');
-    const toggle = screen.getByRole('switch', { name: 'Tự kiểm bản mới của app' });
+    const toggle = screen.getByRole('switch', { name: 'Tự kiểm tra bản mới của app' });
     expect(toggle.getAttribute('aria-checked')).toBe('true');
     await press(toggle);
     expect(fake.api.setReleaseChecks).toHaveBeenCalledWith(false);
-    expect(screen.getByRole('switch', { name: 'Tự kiểm bản mới của app' }).getAttribute('aria-checked')).toBe('false');
+    expect(screen.getByRole('switch', { name: 'Tự kiểm tra bản mới của app' }).getAttribute('aria-checked')).toBe('false');
   });
 });
 
@@ -196,6 +197,6 @@ describe('the release in English', () => {
     expect(releaseLine(m)).toEqual({ title: 'Version 0.3.0 is out', body: 'Asks before installing.' });
     expect(versionRow(m).status).toBe('Version 0.3.0 is out (released 15 Jan 2026).');
     expect(versionRow(downloaded(releaseFixture({ error: 'rateLimited' }))).status).toBe('Could not check: GitHub is rate-limiting. Tries again in 1 hour.');
-    expect(versionRow(downloaded(releaseFixture({ none: true, latest: null }))).status).toBe('No release on GitHub yet · checked at 09:14');
+    expect(versionRow(downloaded(releaseFixture({ none: true, latest: null }))).status).toBe('Already the newest: no release on GitHub yet · checked at 09:14');
   });
 });

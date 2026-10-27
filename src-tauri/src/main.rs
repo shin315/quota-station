@@ -298,6 +298,7 @@ commands![
     release::release_open,
     release::release_diagnostics,
     cli_tools::cli_tools_check,
+    cli_tools::cli_tools_opened,
     cli_tools::cli_tool_update,
     cli_tools::set_cli_checks,
     skills::skills_check,

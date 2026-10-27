@@ -663,7 +663,7 @@ export interface ReleaseLatest {
 
 /** A newer Quota Station on GitHub Releases (`src-tauri/src/release.rs` `ReleaseView`). */
 export interface ReleaseView {
-  /** "Tự kiểm bản mới của app": once a day. */
+  /** "Tự kiểm tra bản mới của app": once a day. */
   auto: boolean;
   checking: boolean;
   /** Unix seconds of the last check that ended. */
@@ -724,6 +724,8 @@ export interface CliToolView {
   /** The newest for the way it was installed; null before a check, or when the check failed. */
   latest: string | null;
   newer: boolean;
+  /** Why the last check did not reach its feed: `offline`, a status such as `503`, `unreadable`. */
+  failed: string | null;
   install: CliInstall | null;
   /** Where the command is, `~` for the home folder. */
   path: string | null;
@@ -740,9 +742,9 @@ export interface CliToolView {
   last: CliLast | null;
 }
 
-/** Cài đặt › Chung › Cập nhật Agent (`src-tauri/src/cli_tools.rs` `CliToolsView`). */
+/** Agent › Cập nhật, the Cập nhật Agent page (`src-tauri/src/cli_tools.rs` `CliToolsView`). */
 export interface CliToolsView {
-  /** "Tự kiểm mỗi ngày": only looks and tells the bell, never updates. */
+  /** "Tự động kiểm tra", once a day: only looks and tells the bell, never updates. */
   daily: boolean;
   checking: boolean;
   /** Unix seconds of the last check that ended. */
@@ -769,6 +771,8 @@ export type Tab =
   | 'plugins'
   | 'instr'
   | 'sets'
+  /** Cập nhật Agent: Claude Code, the Codex CLI and the Antigravity CLI. */
+  | 'cliTools'
   | 'backup'
   | 'copy'
   | 'settings';

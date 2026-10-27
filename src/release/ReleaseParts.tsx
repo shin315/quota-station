@@ -16,7 +16,7 @@ import { Button, Facts, LinkButton, More, Rich, Spinner, Toggle } from '../compo
 import { SetRow } from '../settings/SetRow';
 import { mac, os, t } from '../lib/i18n';
 import type { Model } from '../lib/model';
-import { fromSource, megabytes, newerRelease, releaseDate, versionRow } from '../lib/release';
+import { fromSource, megabytes, newerRelease, releaseDate, versionRow, type VersionRowView } from '../lib/release';
 import type { Action } from '../lib/view';
 import type { ReleaseState } from './useRelease';
 
@@ -64,7 +64,7 @@ export function ReleaseDialogBody({ model, release, onUpdateFromSource }: { mode
   if (!l)
     return (
       <div className="grid gap-3.5">
-        <Head title={t('Không còn bản mới', 'No newer version')} lead={t('Kiểm lại trong Cài đặt › Chung › Cập nhật.', 'Check again in Settings › General › Updates.')} />
+        <Head title={t('Không còn bản mới', 'No newer version')} lead={t('Kiểm tra lại trong Cài đặt › Chung › Cập nhật.', 'Check again in Settings › General › Updates.')} />
         <DialogButtons>
           <Button primary onClick={release.close}>
             {t('Đóng', 'Close')}
@@ -208,28 +208,35 @@ export function DiagDialogBody({ release }: { release: ReleaseState }) {
   );
 }
 
+/** The version row's status in the colour of what it says: the newest, a newer one, a failed check. */
+const STATUS_INK: Record<VersionRowView['tone'], string> = { ok: 'text-ok-ink', info: 'text-info-ink', bad: 'text-bad-ink', off: 'text-ink3', '': '' };
+
 /** Cài đặt › Cập nhật (u-set…): the version and what the last check found, and the daily check. */
 export function ReleaseRows({ model, onAction, onAuto }: { model: Model; onAction(act: Action): void; onAuto(on: boolean): void }) {
   const row = versionRow(model);
   const source = fromSource(model);
-  const label = source ? t('Báo khi có bản mới', 'Tell me about new versions') : t('Tự kiểm bản mới của app', 'Check for app updates');
+  const label = source ? t('Báo khi có bản mới', 'Tell me about new versions') : t('Tự kiểm tra bản mới của app', 'Check for app updates');
   return (
     <>
       <SetRow
         label={t('Phiên bản', 'Version')}
         inline
         hint={
-          <>
-            <span>{row.build}</span>
-            <span role="status">
-              {row.status}{' '}
-              {row.undo ? (
-                <LinkButton small onClick={() => onAction('release:unskip')}>
-                  {t('Hoàn tác', 'Undo')}
-                </LinkButton>
-              ) : null}
-            </span>
-          </>
+          // One line: the version and whether it is the newest; the build behind Chi tiết.
+          <span className="tabular-nums">
+            {model.app.version + (model.app.commit ? ' (' + model.app.commit + ')' : '')} ·{' '}
+            <span role="status" data-tone={row.tone || undefined} className={STATUS_INK[row.tone]}>
+              {row.status}
+            </span>{' '}
+            {row.undo ? (
+              <LinkButton small onClick={() => onAction('release:unskip')}>
+                {t('Hoàn tác', 'Undo')}
+              </LinkButton>
+            ) : null}{' '}
+            <More small about={t('Phiên bản', 'Version')}>
+              <p>{row.build}</p>
+            </More>
+          </span>
         }
       >
         {row.button ? (
@@ -244,7 +251,7 @@ export function ReleaseRows({ model, onAction, onAuto }: { model: Model; onActio
         hint={
           <span>
             {source
-              ? t('Kiểm GitHub mỗi ngày; bản build từ mã nguồn chỉ báo.', 'Checks GitHub daily; a build from source only tells you.')
+              ? t('Kiểm tra GitHub mỗi ngày; bản build từ mã nguồn chỉ báo.', 'Checks GitHub daily; a build from source only tells you.')
               : t('Mỗi ngày một lần qua GitHub Releases.', 'Once a day through GitHub Releases.')}{' '}
             <More small about={label}>
               <p>
@@ -255,7 +262,7 @@ export function ReleaseRows({ model, onAction, onAuto }: { model: Model; onActio
                     )
                   : mac(
                       t(
-                        'Mỗi ngày một lần qua GitHub Releases, không token, không gửi gì về máy này. Tắt thì chỉ kiểm khi bạn bấm.',
+                        'Mỗi ngày một lần qua GitHub Releases, không token, không gửi gì về máy này. Tắt thì chỉ kiểm tra khi bạn bấm.',
                         'Once a day through GitHub Releases, no token, nothing about this Mac sent. Off means it only checks when you press.',
                       ),
                     )}

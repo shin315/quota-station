@@ -25,7 +25,6 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Tabs as TabsPrimitive } from 'radix-ui';
 import { DiagnosticsRows, ReleaseRows } from '../release/ReleaseParts';
-import { CliToolsRows } from './CliTools';
 import { EnvCard } from './EnvCard';
 import { ThemePicker } from './ThemePicker';
 import { SET_CTL, SetRow } from './SetRow';
@@ -38,7 +37,7 @@ import { Button, Chip, CODE, Dot, Feedback, FieldHint, LinkButton, More, Toggle 
 import { alertKinds, permissionChip, unreadText } from '../lib/alerts';
 import { authorModel, type AuthorModel } from '../lib/author';
 import type { ChipView } from '../lib/view';
-import type { AlertKind, AppView, CliTool, ClientStatus, Language, Menubar, MenubarWindow, Model, Peer, PeerTest, SettingsGroup, SourceView, Theme, ThemePack, UpdateError } from '../lib/model';
+import type { AlertKind, AppView, ClientStatus, Language, Menubar, MenubarWindow, Model, Peer, PeerTest, SettingsGroup, SourceView, Theme, ThemePack, UpdateError } from '../lib/model';
 import { cloudDrive, mac, onWindows, os, osName, systemSettings, t } from '../lib/i18n';
 import { SectionGlyph, type Section } from '../components/icons';
 import type { Action, FeedbackView, PopoverView } from '../lib/view';
@@ -86,7 +85,7 @@ export interface SettingsProps {
   onUpdate(): Promise<string | null>;
   /** The app quits on success; resolves to the refusal (`rulesDirty`, …) otherwise. */
   onRelaunch(): Promise<string | null>;
-  /** Skills (M11): "Kiểm bản mới" once a day or never, and whether a macOS card says so too. */
+  /** Skills (M11): "Kiểm tra bản mới" once a day or never, and whether a macOS card says so too. */
   onSkillChecks?(daily: boolean, notify: boolean): void;
   /** Nâng cao on or off. */
   onAdvanced(on: boolean): void;
@@ -98,12 +97,8 @@ export interface SettingsProps {
   onSetBackupFolder?(path: string): Promise<string | null>;
   /** The app's language: macOS's, Vietnamese or English. */
   onLanguage?(language: Language): void;
-  /** Cài đặt › Cập nhật: "Tự kiểm bản mới của app"; with it come the release rows and Chẩn đoán. */
+  /** Cài đặt › Cập nhật: "Tự kiểm tra bản mới của app"; with it come the release rows and Chẩn đoán. */
   onReleaseChecks?(on: boolean): void;
-  /** Công cụ dòng lệnh: "Kiểm bản mới", a tool's "Cập nhật", and the daily check (and "Tự cập nhật" where offered). */
-  onCliCheck?(): void;
-  onCliUpdate?(tool: CliTool): void;
-  onCliChecks?(daily: boolean): void;
   /** The group shown, kept by the window while it is open; Chung when it is not one this build has. */
   group?: SettingsGroup;
   onGroup?(group: SettingsGroup): void;
@@ -927,7 +922,7 @@ export function menubarOff(model: Model, menubar: Menubar): string {
 /** Skills (M11, G): looking for newer versions, and how the app says it found one. */
 function SkillChecksRows({ model, onSet }: { model: Model; onSet: NonNullable<SettingsProps['onSkillChecks']> }) {
   const c = model.skills.updates.settings;
-  const label = t('Kiểm bản mới của skill', 'Check for skill updates');
+  const label = t('Kiểm tra bản mới của skill', 'Check for skill updates');
   return (
     <>
       <SetRow
@@ -1099,7 +1094,6 @@ export function MenubarWindowRow({ model, onPick, layout = 'form' }: { model: Mo
 const CARDS = {
   general: 'qs-set-general',
   updates: 'qs-set-updates',
-  cli: 'qs-set-cli',
   display: 'qs-set-display',
   tray: 'qs-set-tray',
   notify: 'qs-set-notify',
@@ -1299,12 +1293,6 @@ export function Settings(props: SettingsProps) {
             {onSkillChecks ? <SkillChecksRows model={model} onSet={onSkillChecks} /> : null}
             {onReleaseChecks ? <DiagnosticsRows onAction={onAction} /> : null}
           </SettingsCard>
-          {/* The tools' Windows installs are not read yet: the card is macOS's. */}
-          {!onWindows() && model.cliTools && props.onCliCheck && props.onCliUpdate && props.onCliChecks ? (
-            <SettingsCard id={CARDS.cli} title={t('Cập nhật Agent', 'Agent updates')} icon="cli">
-              <CliToolsRows view={model.cliTools} onCheck={props.onCliCheck} onUpdate={props.onCliUpdate} onDaily={props.onCliChecks} />
-            </SettingsCard>
-          ) : null}
         </>
       ),
     },
