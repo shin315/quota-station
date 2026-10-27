@@ -159,8 +159,11 @@ pub enum Place {
     Profile,
     Launchctl,
     Bashrc,
-    PowerShell,
-    WindowsPowerShell,
+    /// Windows PowerShell's `$PROFILE`, the one Windows comes with.
+    PsProfile,
+    /// PowerShell 7's.
+    #[serde(rename = "pwshProfile")]
+    Pwsh,
     UserEnv,
     MachineEnv,
 }
@@ -181,8 +184,8 @@ impl Place {
         Place::BashProfile,
         Place::Bashrc,
         Place::Profile,
-        Place::PowerShell,
-        Place::WindowsPowerShell,
+        Place::PsProfile,
+        Place::Pwsh,
         Place::UserEnv,
         Place::MachineEnv,
     ];
@@ -206,20 +209,23 @@ impl Place {
             Place::BashProfile => Some(".bash_profile"),
             Place::Profile => Some(".profile"),
             Place::Bashrc => Some(".bashrc"),
-            Place::PowerShell => Some("Documents/PowerShell/Microsoft.PowerShell_profile.ps1"),
-            Place::WindowsPowerShell => {
+            Place::PsProfile => {
                 Some("Documents/WindowsPowerShell/Microsoft.PowerShell_profile.ps1")
             }
+            Place::Pwsh => Some("Documents/PowerShell/Microsoft.PowerShell_profile.ps1"),
             Place::Launchctl | Place::UserEnv | Place::MachineEnv => None,
         }
     }
 
-    /// `~/.zshrc`, `launchctl`, or the registry's environment.
+    /// `~/.zshrc`, `launchctl`, `$PROFILE`, or the registry's environment,
+    /// as the window names them.
     pub fn label(self) -> String {
         match self {
             Place::Launchctl => "launchctl".into(),
-            Place::UserEnv => "biến môi trường của người dùng".into(),
-            Place::MachineEnv => "biến môi trường của máy".into(),
+            Place::UserEnv => "biến người dùng".into(),
+            Place::MachineEnv => "biến hệ thống".into(),
+            Place::PsProfile => "$PROFILE".into(),
+            Place::Pwsh => "$PROFILE (PowerShell 7)".into(),
             _ => self.file().map(|f| format!("~/{f}")).unwrap_or_default(),
         }
     }
@@ -234,8 +240,8 @@ impl Place {
             Place::Profile => "profile",
             Place::Launchctl => "launchctl",
             Place::Bashrc => "bashrc",
-            Place::PowerShell => "powerShell",
-            Place::WindowsPowerShell => "windowsPowerShell",
+            Place::PsProfile => "psProfile",
+            Place::Pwsh => "pwshProfile",
             Place::UserEnv => "userEnv",
             Place::MachineEnv => "machineEnv",
         }
@@ -247,7 +253,7 @@ impl Place {
 
     /// A PowerShell profile: `$env:NAME = …`.
     fn powershell(self) -> bool {
-        matches!(self, Place::PowerShell | Place::WindowsPowerShell)
+        matches!(self, Place::PsProfile | Place::Pwsh)
     }
 
     /// Where an app started by the owner gets it, before anything else.
@@ -255,7 +261,7 @@ impl Place {
         match self {
             Place::Launchctl => "Trong các app mở từ Dock",
             Place::UserEnv | Place::MachineEnv => "Trong các app mở từ Start",
-            Place::PowerShell | Place::WindowsPowerShell => "Trong PowerShell",
+            Place::PsProfile | Place::Pwsh => "Trong PowerShell",
             _ => "Trong Terminal",
         }
     }
@@ -578,7 +584,7 @@ mod tests {
         std::fs::create_dir_all(home.join("Documents/PowerShell")).unwrap();
         std::fs::write(home.join(".bashrc"), "export OPENAI_API_KEY=sk-made-up\n").unwrap();
         std::fs::write(
-            home.join(Place::PowerShell.file().unwrap()),
+            home.join(Place::Pwsh.file().unwrap()),
             "Set-Alias g git\n$env:CODEX_HOME = 'D:\\codex'\n",
         )
         .unwrap();
@@ -599,13 +605,14 @@ mod tests {
             [
                 ("ANTHROPIC_API_KEY", Place::UserEnv, None),
                 ("OPENAI_API_KEY", Place::Bashrc, Some(1)),
-                ("CODEX_HOME", Place::PowerShell, Some(2)),
+                ("CODEX_HOME", Place::Pwsh, Some(2)),
             ]
         );
         assert_eq!(c.unread, [Place::MachineEnv]);
         assert_eq!(c.found[0].effect.split(',').next(), Some("Trong các app mở từ Start"));
         assert_eq!(c.found[2].effect.split(',').next(), Some("Trong PowerShell"));
-        assert_eq!(c.found[0].at(), "biến môi trường của người dùng");
+        assert_eq!(c.found[0].at(), "biến người dùng");
+        assert_eq!(c.found[2].at(), "$PROFILE (PowerShell 7) dòng 2");
         assert_eq!(c.found[1].at(), "~/.bashrc dòng 1");
         // Each name asked once of each registry place, and of nothing else.
         let asked = asked.into_inner().unwrap();
@@ -613,6 +620,8 @@ mod tests {
         assert!(asked.iter().all(|(p, _)| matches!(p, Place::UserEnv | Place::MachineEnv)));
         for p in Place::WINDOWS {
             assert_eq!(Place::from_word(p.word()), Some(p));
+            // The window's `EnvPlace` is the same word.
+            assert_eq!(serde_json::to_value(p).unwrap(), p.word());
         }
         let _ = std::fs::remove_dir_all(&home);
     }
