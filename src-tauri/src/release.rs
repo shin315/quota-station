@@ -32,7 +32,7 @@ pub struct Live {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReleaseView {
-    /// "Tự kiểm bản mới của app".
+    /// "Tự kiểm tra bản mới của app".
     pub auto: bool,
     pub checking: bool,
     /// Unix seconds of the last check that ended.
@@ -89,7 +89,7 @@ fn end(app: &AppHandle, state: &AppState) {
     reader::publish(app, state);
 }
 
-/// "Kiểm bản mới".
+/// "Kiểm tra bản mới".
 #[tauri::command]
 pub async fn release_check(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
     let shared = state.inner().clone();
@@ -102,7 +102,7 @@ pub async fn release_check(app: AppHandle, state: State<'_, AppState>) -> Result
     Ok(())
 }
 
-/// After each read: once a day while "Tự kiểm bản mới của app" is on, an
+/// After each read: once a day while "Tự kiểm tra bản mới của app" is on, an
 /// hour after a check that did not reach GitHub.
 pub fn daily(app: &AppHandle, state: &AppState) {
     {
@@ -158,7 +158,7 @@ pub fn release_later(
     keep(&app, &state, |r| r.later = Some(version))
 }
 
-/// Cài đặt › Cập nhật: "Tự kiểm bản mới của app".
+/// Cài đặt › Cập nhật: "Tự kiểm tra bản mới của app".
 #[tauri::command]
 pub fn set_release_checks(
     app: AppHandle,

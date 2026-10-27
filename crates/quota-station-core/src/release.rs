@@ -3,8 +3,8 @@
 
 //! A newer Quota Station on GitHub Releases (the community edition's B1).
 //!
-//! Once a day, while "Tự kiểm bản mới của app" is on, or when the owner
-//! presses "Kiểm bản mới", the app asks GitHub one thing: this repository's
+//! Once a day, while "Tự kiểm tra bản mới của app" is on, or when the owner
+//! presses "Kiểm tra bản mới", the app asks GitHub one thing: this repository's
 //! latest release (`GET /repos/shin315/quota-station/releases/latest`). No
 //! token and nothing about this Mac is sent. The app never downloads or
 //! installs anything: "Tải và cài" opens the release's disk image or its
