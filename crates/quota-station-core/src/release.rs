@@ -363,6 +363,20 @@ mod tests {
         assert_eq!(parse(foreign_dmg).unwrap().dmg, None);
     }
 
+    /// The Mac mini M6 at ca353c5: `release.json` sits in the app's folder
+    /// itself and was refused, so Phiên bản kept saying it had never checked.
+    #[test]
+    fn a_check_is_kept_in_the_apps_folder_and_read_back() {
+        let root = std::env::temp_dir().join(format!("qs-release-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let app = AppDir::new(root.join("app"));
+        let r = Releases { checked_at: Some(1000), none: true, ..Default::default() };
+        save(&app, &r).unwrap();
+        assert_eq!(load(&app), r);
+        assert!(!load(&app).due(1000 + 60));
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
     #[test]
     fn a_check_is_due_a_day_after_one_that_worked_and_an_hour_after_one_that_did_not() {
         let mut r = Releases::default();

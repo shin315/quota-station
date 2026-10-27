@@ -105,12 +105,16 @@ impl AppDir {
     /// Writes through a temporary file and a rename, readable only by the
     /// owner (600), in a folder only the owner can open (700). Each write has
     /// its own temporary file, so two writes at once cannot take each other's.
+    /// A file may sit in the folder itself (`release.json`), which `check`
+    /// already looked at as one of the path's folders.
     pub fn write_private(&self, path: &Path, text: &str) -> io::Result<()> {
         use std::io::Write;
         static NEXT: AtomicU64 = AtomicU64::new(0);
         self.check(path)?;
         let dir = path.parent().ok_or_else(|| io::Error::other("no folder"))?;
-        self.check(dir)?;
+        if dir != self.0 {
+            self.check(dir)?;
+        }
         std::fs::DirBuilder::new().recursive(true).create(dir)?;
         os::set_mode(dir, 0o700)?;
         let ext =
@@ -272,6 +276,36 @@ mod tests {
         let names: Vec<_> = std::fs::read_dir(root.join("real")).unwrap().flatten().collect();
         assert_eq!(names.len(), 1);
         assert_eq!(dir.read_to_string(&root.join("real/accounts.json")).unwrap(), "{}");
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+
+    /// The Mac mini M6 at ca353c5: `release.json` and `cli-tools.json` were
+    /// refused as "outside the app's folder", so neither check ever showed.
+    #[test]
+    fn a_file_in_the_folder_itself_is_written() {
+        let base = std::env::temp_dir().join(format!("qs-root-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let root = base.join("app");
+        let dir = AppDir::new(&root);
+        dir.write_private(&root.join("release.json"), "{}").unwrap();
+        assert_eq!(dir.read_to_string(&root.join("release.json")).unwrap(), "{}");
+        let names: Vec<_> = std::fs::read_dir(&root).unwrap().flatten().collect();
+        assert_eq!(names.len(), 1, "no temporary file left behind");
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_symlinked_app_folder_is_refused_for_a_file_in_it() {
+        let base = std::env::temp_dir().join(format!("qs-rootlink-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let elsewhere = base.join("elsewhere");
+        std::fs::create_dir_all(&elsewhere).unwrap();
+        std::os::unix::fs::symlink(&elsewhere, base.join("app")).unwrap();
+        let dir = AppDir::new(base.join("app"));
+        let err = dir.write_private(&base.join("app/release.json"), "{}").unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::PermissionDenied);
+        assert_eq!(std::fs::read_dir(&elsewhere).unwrap().count(), 0, "nothing written there");
         std::fs::remove_dir_all(&base).unwrap();
     }
 }
