@@ -8,6 +8,8 @@
 //! HOME and no global or system config.
 
 #![cfg(feature = "author-tools")]
+// Unix only: the update from a clone runs shell scripts.
+#![cfg(unix)]
 
 mod common;
 

@@ -21,7 +21,6 @@
 //! Nothing here prints the id or the secret: `Debug` hides them and the UI
 //! only learns the file's [`ClientStatus`].
 
-use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
@@ -103,7 +102,8 @@ pub fn load(dir: &AppDir) -> Result<OAuthClient, ClientStatus> {
     if !meta.file_type().is_file() {
         return Err(ClientStatus::Unreadable);
     }
-    if meta.permissions().mode() & 0o077 != 0 {
+    // Windows keeps no mode: the profile's ACL keeps others out there.
+    if cfg!(unix) && crate::os::mode(&meta) & 0o077 != 0 {
         return Err(ClientStatus::TooOpen);
     }
     let text = dir.read_to_string(&file).map_err(|_| ClientStatus::Unreadable)?;

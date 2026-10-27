@@ -23,7 +23,7 @@ use quota_station_core::codex::accounts::{self, Added, Place, Store, CHATGPT_ID}
 use quota_station_core::codex::config::{self, Custom, KeyRefusal, Parsed, Refusal, Target};
 use quota_station_core::codex::files::WriteError;
 use quota_station_core::codex::login::Login;
-use quota_station_core::codex::platform::{Platform, Unix};
+use quota_station_core::codex::platform::{Platform, System};
 use quota_station_core::codex::probe::{self, KeyCheck};
 use quota_station_core::codex::{self, procs, Outcome, ProviderOutcome, ProviderPreview};
 use quota_station_core::quota::cache::Cache;
@@ -265,7 +265,7 @@ pub async fn codex_use(
         codex::use_account(
             home,
             dir,
-            &Unix::system(),
+            &System::system(),
             &id,
             base.as_deref(),
             plugins,
@@ -309,7 +309,7 @@ pub async fn codex_login(
     let (shown, showing) = (app.clone(), shared.clone());
     let done = tauri::async_runtime::spawn_blocking(move || {
         let how = How { device: device.unwrap_or(false), signing: &signing };
-        sign_in(&home, &dir, &user_home, &Unix::system(), again, &how, &|| {
+        sign_in(&home, &dir, &user_home, &System::system(), again, &how, &|| {
             reader::publish(&shown, &showing)
         })
     })
@@ -594,7 +594,7 @@ pub async fn codex_rename(
     };
     let target = id.clone();
     let out = tauri::async_runtime::spawn_blocking(move || {
-        Store::new(&dir, &home, &Unix::system()).rename(&target, &name)
+        Store::new(&dir, &home, &System::system()).rename(&target, &name)
     })
     .await
     .map_err(|e| e.to_string())?;
@@ -658,7 +658,7 @@ pub async fn codex_remove(
         (inner.codex_home(), inner.app_dir(), inner.home.clone())
     };
     let done = tauri::async_runtime::spawn_blocking(move || {
-        let platform = Unix::system();
+        let platform = System::system();
         let store = Store::new(&dir, &home, &platform);
         let folder = store.removable(number)?;
         let logged_out = logout && sign_out(&user_home, &folder);
@@ -749,7 +749,7 @@ mod tests {
         let how = How { device: true, signing: &signing };
         // Stopped once the code shows, as the owner would after typing it.
         let done =
-            sign_in(&home.join(".codex"), &dir, &home, &Unix::default(), None, &how, &|| {
+            sign_in(&home.join(".codex"), &dir, &home, &System::default(), None, &how, &|| {
                 if signing.code.lock().unwrap().is_some() {
                     signing.cancel.store(true, Ordering::SeqCst);
                 }
@@ -778,7 +778,7 @@ mod tests {
             &codex_home,
             &dir,
             &home,
-            &Unix::default(),
+            &System::default(),
             None,
             &browser(&Signing::default()),
             &|| {},
@@ -802,7 +802,7 @@ mod tests {
             &codex_home,
             &dir,
             &home,
-            &Unix::default(),
+            &System::default(),
             None,
             &browser(&Signing::default()),
             &|| {},
@@ -817,7 +817,7 @@ mod tests {
             &home.join(".codex"),
             &dir,
             &home,
-            &Unix::default(),
+            &System::default(),
             None,
             &browser(&stopped),
             &|| {},

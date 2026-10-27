@@ -18,7 +18,6 @@
 
 use std::collections::BTreeMap;
 use std::io::{self, Read};
-use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::time::Duration;
 
@@ -109,7 +108,9 @@ fn tree(
             std::fs::File::open(&path)?.read_to_end(&mut bytes)?;
             let id = object("blob", &bytes);
             files.push((rel, hex(&id)));
-            let mode = if meta.permissions().mode() & 0o111 != 0 { "100755" } else { "100644" };
+            // Git's mode: on Windows, which keeps no execute bit, a script
+            // is told by its `#!` (`os::runs`).
+            let mode = if crate::os::runs(&meta, &bytes) { "100755" } else { "100644" };
             items.push((name, mode, id));
         }
     }

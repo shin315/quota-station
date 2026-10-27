@@ -19,7 +19,6 @@
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::{self, BufRead, BufReader, Read, Seek, SeekFrom};
-use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 
 use base64::Engine;
@@ -28,6 +27,7 @@ use sha2::{Digest, Sha256};
 
 use super::{claude_log, codex_log, Agent, Line, Tokens, Usage};
 use crate::app_dir::AppDir;
+use crate::os;
 
 pub const FILE: &str = "stats/index.json";
 /// Bumped when the index changes shape: an index of another version is
@@ -335,8 +335,8 @@ impl Index {
             let total = files.len() as u32;
             progress(Progress { agent, done: 0, total });
             for (i, (file, meta)) in files.into_iter().enumerate() {
-                let id = (meta.dev(), meta.ino());
-                if found.insert(id) {
+                let id = os::file_id(&file, &meta);
+                if id.is_ok_and(|id| found.insert(id)) {
                     self.read_log(agent, &file, &meta, keep_from, &mut buckets);
                 }
                 progress(Progress { agent, done: i as u32 + 1, total });
@@ -374,7 +374,8 @@ impl Index {
         keep_from: i64,
         buckets: &mut BTreeMap<BucketKey, Tokens>,
     ) {
-        let (dev, ino, len) = (meta.dev(), meta.ino(), meta.len());
+        let Ok((dev, ino)) = os::file_id(file, meta) else { return };
+        let len = meta.len();
         let at = self.logs.iter().position(|l| l.dev == dev && l.ino == ino);
         // Nothing appended, same place: nothing to open.
         if let Some(i) = at {
@@ -413,7 +414,7 @@ impl Index {
             log.head = head;
             log.head_len = head_len;
         }
-        let changed = meta.ctime();
+        let changed = os::changed(meta);
         if f.seek(SeekFrom::Start(log.offset)).is_err() {
             return;
         }

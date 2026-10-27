@@ -97,6 +97,48 @@ impl Platform for Unix {
     }
 }
 
+/// Windows: the folders and files under the profile, which its ACL keeps
+/// to the owner; a move that refuses to replace, and a replace that waits
+/// while Codex holds the file open.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Windows;
+
+impl Windows {
+    pub fn system() -> Self {
+        Windows
+    }
+}
+
+#[cfg(windows)]
+impl Platform for Windows {
+    fn private_dir(&self, dir: &Path) -> io::Result<()> {
+        std::fs::create_dir_all(dir)
+    }
+
+    fn private_file(&self, _file: &Path) -> io::Result<()> {
+        Ok(())
+    }
+
+    fn move_file(&self, from: &Path, to: &Path) -> io::Result<()> {
+        if std::fs::symlink_metadata(to).is_ok() {
+            return Err(io::ErrorKind::AlreadyExists.into());
+        }
+        crate::os::replace(from, to)
+    }
+
+    fn replace_file(&self, from: &Path, to: &Path) -> io::Result<()> {
+        crate::os::replace(from, to)
+    }
+
+    fn exclude_from_backup(&self, _dir: &Path) {}
+}
+
+/// This system's: [`Unix`] or [`Windows`].
+#[cfg(unix)]
+pub type System = Unix;
+#[cfg(windows)]
+pub type System = Windows;
+
 /// `rename` that fails with `AlreadyExists` instead of replacing `to`.
 #[cfg(target_os = "macos")]
 fn rename_no_replace(from: &Path, to: &Path) -> io::Result<()> {

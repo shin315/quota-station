@@ -136,14 +136,14 @@ fn signed_in(user: &str, exp: i64) -> String {
 #[test]
 fn every_kept_codex_account_is_read_in_its_own_folder_and_a_waiting_expired_one_is_not_asked() {
     use quota_station_core::codex::accounts::Store;
-    use quota_station_core::codex::platform::Unix;
+    use quota_station_core::codex::platform::System;
     let dir = temp_dir("readers-codex-accounts");
     let app = AppDir::new(dir.join("app"));
     let home = dir.join(".codex");
     std::fs::create_dir_all(&home).unwrap();
     let soon = now().unix_timestamp() + 3600;
     std::fs::write(home.join("auth.json"), signed_in("ann", soon)).unwrap();
-    let platform = Unix::default();
+    let platform = System::default();
     let store = Store::new(&app, &home, &platform);
     store.list(now()).unwrap();
     for (user, exp) in [("bob", now().unix_timestamp() - 60), ("cat", soon)] {
@@ -463,6 +463,7 @@ fn a_mac_without_claude_code_has_no_claude_row() {
 
 // ===== No quota-axi =====
 
+#[cfg(unix)]
 const CHILD: &str = "QUOTA_STATION_TEST_NO_QUOTA_AXI";
 
 /// Runs again in a child whose PATH has only the system's folders, so no

@@ -9,6 +9,8 @@
 //! touch the Keychain. The last one lists both accounts on the Antigravity
 //! row from the files written here, with a fake `agy`.
 #![cfg(feature = "antigravity-accounts")]
+// Unix only: the fake `security` and `agy` are shell scripts.
+#![cfg(unix)]
 
 mod common;
 

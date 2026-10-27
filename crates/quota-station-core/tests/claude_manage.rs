@@ -4,6 +4,9 @@
 //! Adding, removing and changing the app's Claude accounts, and the
 //! `quota-station claude` command line, against a fake Keychain, launchd
 //! and `claude` in a temporary home. Every login is made up.
+// Off Unix the tests that run a fake `claude` script are left out, and
+// with them the uses of some imports.
+#![cfg_attr(not(unix), allow(unused_imports))]
 
 mod common;
 

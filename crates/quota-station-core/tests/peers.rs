@@ -8,6 +8,8 @@
 //! file but reads back something else.
 
 #![cfg(feature = "author-tools")]
+// Unix only: the copy to the other Macs runs shell scripts.
+#![cfg(unix)]
 
 mod common;
 

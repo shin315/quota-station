@@ -22,7 +22,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use quota_station_core::codex::accounts::{Place, Store};
-use quota_station_core::codex::platform::Unix;
+use quota_station_core::codex::platform::System;
 use quota_station_core::codex::wake::{self, Book, Login, Mode, Outcome, Plan, Run, Seen, Why};
 use quota_station_core::codex::{self, procs};
 use quota_station_core::local_time;
@@ -210,7 +210,7 @@ fn target(inner: &Inner, id: &str) -> Option<(PathBuf, bool)> {
         Place::Home => Some((inner.codex_home(), false)),
         Place::Folder => {
             let (home, dir) = (inner.codex_home(), inner.app_dir());
-            let platform = Unix::default();
+            let platform = System::default();
             Some((Store::new(&dir, &home, &platform).folder(n), true))
         }
         Place::Missing => None,

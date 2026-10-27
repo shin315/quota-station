@@ -31,6 +31,14 @@ test-support = []
 
 [dependencies]
 base64 = "0.22"
+# Touches Claude Code's lock folders (`claude/locks.rs`), folders included.
+filetime = "0.2"
+# The app's own lock file: `flock` on Unix, `LockFileEx` on Windows, on the
+# workspace's Rust 1.85 (`File::try_lock` needs 1.89).
+fs4 = { version = "1", features = ["sync"] }
+# The offset of the local time zone, thread-safe on both systems
+# (`local_time`); on Windows it carries its own copy of the tz database.
+jiff = "0.2"
 libc = "0.2"
 md5 = "0.7"
 # The features Cockpit Tools builds reqwest 0.12 with that shape a request:
@@ -48,6 +56,12 @@ time.workspace = true
 toml_edit = "0.25"
 url = "2.5"
 uuid = { version = "1.10", features = ["v4"] }
+
+[target.'cfg(windows)'.dependencies]
+# A link to a folder without Developer Mode (`os::link_dir`).
+junction = "2"
+# Whether a process runs, and a file's volume and index (`os`).
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_Threading"] }
 
 [dev-dependencies]
 quota-station-core = { path = ".", features = ["test-support"] }

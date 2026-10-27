@@ -18,7 +18,7 @@ use std::time::{Duration, Instant};
 
 use quota_station_core::codex::accounts::{Added, Store, CHATGPT_ID};
 use quota_station_core::codex::import::{self, Fate, Format, Found, Kind};
-use quota_station_core::codex::platform::Unix;
+use quota_station_core::codex::platform::System;
 use serde::Serialize;
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_dialog::DialogExt;
@@ -238,7 +238,7 @@ fn preview(shared: &AppState, sources: Vec<Source>) -> Result<ImportPreview, Str
             .collect();
         (inner.codex_home(), inner.app_dir(), relogin, !inner.settings.hide_names)
     };
-    let platform = Unix::system();
+    let platform = System::system();
     let store = Store::new(&dir, &home, &platform);
     let items = read(&store, &sources, &|n| relogin.contains(&n), OffsetDateTime::now_utc())
         .map_err(|e| e.to_string())?;
@@ -329,7 +329,7 @@ pub async fn codex_import(
         (held, inner.codex_home(), inner.app_dir())
     };
     let done = tauri::async_runtime::spawn_blocking(move || {
-        let platform = Unix::system();
+        let platform = System::system();
         let store = Store::new(&dir, &home, &platform);
         import_items(&store, &held.items, remove_source, OffsetDateTime::now_utc())
     })
@@ -379,7 +379,7 @@ mod tests {
     #[test]
     fn files_picked_are_imported_and_only_the_ones_fully_kept_are_deleted_when_asked() {
         let (home, dir) = mac("files");
-        let platform = Unix::default();
+        let platform = System::default();
         let store = Store::new(&dir, &home, &platform);
         let picks = dir.path().join("picked");
         std::fs::create_dir_all(&picks).unwrap();
@@ -424,7 +424,7 @@ mod tests {
     #[test]
     fn files_are_kept_unless_asked_and_text_pasted_is_imported_the_same_way() {
         let (home, dir) = mac("paste");
-        let platform = Unix::default();
+        let platform = System::default();
         let store = Store::new(&dir, &home, &platform);
         let picks = dir.path().join("picked");
         std::fs::create_dir_all(&picks).unwrap();
@@ -457,7 +457,7 @@ mod tests {
     #[test]
     fn an_account_that_must_sign_in_again_takes_the_sign_in_in_the_file() {
         let (home, dir) = mac("renew");
-        let platform = Unix::default();
+        let platform = System::default();
         let store = Store::new(&dir, &home, &platform);
         let first = vec![Source { name: None, path: None, bytes: cli_proxy("ann").into_bytes() }];
         let items = read(&store, &first, &|_| false, OffsetDateTime::now_utc()).unwrap();

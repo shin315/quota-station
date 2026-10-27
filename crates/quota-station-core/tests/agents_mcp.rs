@@ -13,6 +13,8 @@
 //! Keychain, and nowhere else: not in the app's folder (backups, store,
 //! log), nor in what the windows get (the table, the preview, the result).
 //! The sentinel outside `mcpServers` in `~/.claude.json` is never read.
+// Unix only: the fake `claude` and the fake `security` are shell scripts.
+#![cfg(unix)]
 
 mod common;
 

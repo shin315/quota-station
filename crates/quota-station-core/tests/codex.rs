@@ -17,6 +17,7 @@
 
 mod common;
 
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -197,7 +198,9 @@ fn switching_to_the_custom_provider_keeps_the_chatgpt_login_and_everything_else(
         "the file before is kept, its keys left out"
     );
     assert!(!kept.contains("not-real"), "no key in the backup: {kept}");
+    #[cfg(unix)]
     assert_eq!(std::fs::metadata(&backup).unwrap().permissions().mode() & 0o777, 0o600);
+    #[cfg(unix)]
     assert_eq!(
         std::fs::metadata(home.join(codex::CONFIG)).unwrap().permissions().mode() & 0o777,
         0o600
@@ -372,6 +375,7 @@ fn a_write_stops_when_the_file_changes_between_the_plan_and_the_rename() {
     assert_eq!(std::fs::read(&backups[0]).unwrap(), base, "the planned-on file is in the backups");
 }
 
+#[cfg(unix)]
 #[test]
 fn a_symlinked_config_stays_a_symlink() {
     let (home, app) = setup("config-chatgpt.toml", Some("auth-chatgpt.json"));
@@ -396,6 +400,7 @@ fn the_newest_ten_backups_stay() {
     let kept = files::backups(&dir);
     assert_eq!(kept.len(), files::BACKUPS_KEPT);
     assert_eq!(std::fs::read_to_string(&kept[0]).unwrap(), "v12");
+    #[cfg(unix)]
     assert_eq!(std::fs::metadata(&dir).unwrap().permissions().mode() & 0o777, 0o700);
 }
 
@@ -414,6 +419,7 @@ fn backups_kept_whole_before_m9_lose_their_keys() {
     assert!(kept.contains("experimental_bearer_token = \"<redacted>\""), "{kept}");
     assert_eq!(kept.lines().count(), whole.lines().count(), "every other line stays");
     assert_eq!(std::fs::metadata(&old).unwrap().modified().unwrap(), stamp, "its time is kept");
+    #[cfg(unix)]
     assert_eq!(std::fs::metadata(&old).unwrap().permissions().mode() & 0o777, 0o600);
     assert!(!garbage.exists(), "one that does not read as TOML might hold a key: removed");
     assert_eq!(files::scrub_backups(&dir), 0, "a second run changes nothing");
@@ -489,6 +495,7 @@ fn the_process_table_shows_sessions_the_app_the_daemon_and_cc_switch() {
     );
 }
 
+#[cfg(unix)]
 #[test]
 fn the_daemon_restart_runs_codex_own_command_for_this_codex_home() {
     let root = temp_dir("codex-restart");

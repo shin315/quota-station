@@ -15,6 +15,8 @@
 //! In a file of its own: the list of opened files is global to the test
 //! binary, so no other test that opens files may run beside it.
 #![cfg(feature = "antigravity-accounts")]
+// Unix only: the fake `security` and `agy` are shell scripts.
+#![cfg(unix)]
 
 mod common;
 

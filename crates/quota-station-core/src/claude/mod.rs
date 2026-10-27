@@ -163,24 +163,30 @@ impl Paths {
     }
 }
 
-/// The app's Application Support folder for `home`, as Tauri names it from
-/// the bundle id.
+/// The app's own folder for `home`, as Tauri's `PathResolver` names it
+/// from the bundle id (`app_config_dir`, where `settings.json` is): the
+/// Application Support folder on macOS, the roaming AppData folder on
+/// Windows. The app takes it from Tauri; the command line, which runs
+/// without Tauri, from here.
 pub fn app_dir(home: &Path) -> PathBuf {
-    home.join("Library/Application Support/com.shin315.quota-station")
+    const ID: &str = "com.shin315.quota-station";
+    if cfg!(windows) {
+        home.join("AppData").join("Roaming").join(ID)
+    } else {
+        home.join("Library/Application Support").join(ID)
+    }
 }
 
 /// Makes `dir` and its parents, then sets it to 700.
 pub(crate) fn private_dir(dir: &Path) -> io::Result<()> {
-    use std::os::unix::fs::PermissionsExt;
     std::fs::DirBuilder::new().recursive(true).create(dir)?;
-    std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700))
+    crate::os::set_mode(dir, 0o700)
 }
 
 /// Writes `text` through a temporary file and a rename, mode 600, in a
 /// folder of mode 700.
 pub(crate) fn write_private(path: &Path, text: &str) -> io::Result<()> {
     use std::io::Write;
-    use std::os::unix::fs::OpenOptionsExt;
     static NEXT: AtomicU64 = AtomicU64::new(0);
     let dir = path.parent().ok_or_else(|| io::Error::other("no folder"))?;
     private_dir(dir)?;
@@ -190,16 +196,14 @@ pub(crate) fn write_private(path: &Path, text: &str) -> io::Result<()> {
         std::process::id(),
         NEXT.fetch_add(1, Ordering::Relaxed)
     ));
-    let written = std::fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .mode(0o600)
-        .open(&tmp)
-        .and_then(|mut file| {
-            file.write_all(text.as_bytes())?;
-            file.sync_all()
-        })
-        .and_then(|()| std::fs::rename(&tmp, path));
+    let written =
+        crate::os::with_mode(std::fs::OpenOptions::new().write(true).create_new(true), 0o600)
+            .open(&tmp)
+            .and_then(|mut file| {
+                file.write_all(text.as_bytes())?;
+                file.sync_all()
+            })
+            .and_then(|()| crate::os::replace(&tmp, path));
     if written.is_err() {
         let _ = std::fs::remove_file(&tmp);
     }

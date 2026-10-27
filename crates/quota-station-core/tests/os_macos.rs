@@ -5,7 +5,7 @@
 //! `launchctl`, `ps` and `lsof` shell scripts: the commands the app runs and
 //! how it reads their answers. The other tests use the fakes kept in memory
 //! (`common::os`).
-#![cfg(unix)]
+#![cfg(target_os = "macos")]
 
 mod common;
 

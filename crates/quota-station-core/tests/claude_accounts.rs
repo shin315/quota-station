@@ -7,7 +7,9 @@
 
 mod common;
 
-use quota_station_core::claude::session::{self, SessionError};
+use quota_station_core::claude::session;
+#[cfg(unix)]
+use quota_station_core::claude::session::SessionError;
 use quota_station_core::claude::state;
 use quota_station_core::claude::usage;
 use quota_station_core::claude::{cc, switch};

@@ -178,7 +178,7 @@ fn evaluate(state: &AppState) {
     let rules = match has_rotation {
         true => None,
         false => match rotation::load(
-            &quota_station_core::claude::Paths::for_home(&home).rotation_file(),
+            &quota_station_core::claude::Paths::new(&home, dir.path()).rotation_file(),
         ) {
             FileState::Ok { parsed, .. } => Some(parsed.rules),
             _ => None,

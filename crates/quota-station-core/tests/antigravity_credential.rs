@@ -12,6 +12,8 @@
 //! The write of the shared Antigravity login, against a fake `security`:
 //! a failed write must leave the old login as it was, and a write that
 //! hangs must be stopped before it can change anything late.
+// Unix only: the fake `security` is a shell script.
+#![cfg(unix)]
 
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;

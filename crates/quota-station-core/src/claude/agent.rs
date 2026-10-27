@@ -60,9 +60,16 @@ pub fn plist(exe: &Path) -> String {
     )
 }
 
+#[cfg(unix)]
 fn domain() -> String {
     // SAFETY: `getuid` only reads the process's user id.
     format!("gui/{}", unsafe { libc::getuid() })
+}
+
+/// No launchd: nothing reaches `launchctl` (see [`install`]).
+#[cfg(not(unix))]
+fn domain() -> String {
+    String::new()
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -89,8 +96,12 @@ impl std::error::Error for AgentError {}
 
 /// The older switcher still loaded, if any: the first of [`LEGACY`] that
 /// launchd has loaded, or of which it cannot tell, so nothing switches or
-/// refreshes beside a switcher that may run.
+/// refreshes beside a switcher that may run. The older switchers are
+/// macOS's: elsewhere none runs, and no `launchctl` is asked.
 pub fn legacy_loaded(launchctl: &Path) -> Option<&'static str> {
+    if !cfg!(target_os = "macos") {
+        return None;
+    }
     LEGACY.into_iter().find(|label| switcher::service_loaded(launchctl, label) != Some(false))
 }
 
@@ -102,6 +113,9 @@ pub fn loaded(launchctl: &Path) -> Option<bool> {
 /// Writes the plist and loads it. Refused while an older switcher is
 /// loaded.
 pub fn install(launchctl: &Path, home: &Path, exe: &Path) -> Result<(), AgentError> {
+    if !cfg!(unix) {
+        return Err(AgentError::Io(crate::os::UNSUPPORTED.into()));
+    }
     if let Some(label) = legacy_loaded(launchctl) {
         return Err(AgentError::Legacy(label.to_string()));
     }

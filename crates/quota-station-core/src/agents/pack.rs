@@ -41,7 +41,6 @@
 
 use std::collections::BTreeMap;
 use std::io::{self, Read, Write as _};
-use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -50,7 +49,7 @@ use time::OffsetDateTime;
 use super::def::{Def, MASK, REDACTED};
 use super::kho::Kho;
 use super::{batch, instructions, plugins, redact, Agent, Reading};
-use crate::local_time;
+use crate::{local_time, os};
 
 /// The folder in iCloud Drive.
 pub const FOLDER: &str = "Quota Station Agents";
@@ -504,7 +503,6 @@ pub type SkillFiles = Vec<(String, bool)>;
 /// whether it runs, or why not (`key`, `link`, `large`, `unreadable`). No
 /// line of it may be shaped like a key or hold one of `known`.
 pub fn check_skill(dir: &Path, known: &[String]) -> Result<SkillFiles, &'static str> {
-    use std::os::unix::fs::PermissionsExt;
     let mut out = Vec::new();
     let mut bytes = 0u64;
     let mut stack = vec![(dir.to_path_buf(), String::new())];
@@ -535,7 +533,7 @@ pub fn check_skill(dir: &Path, known: &[String]) -> Result<SkillFiles, &'static 
             if text.lines().any(|l| instructions::key_span(l, known).is_some()) {
                 return Err("key");
             }
-            out.push((rel, meta.permissions().mode() & 0o111 != 0));
+            out.push((rel, os::runs(&meta, &data)));
         }
     }
     out.sort();
@@ -545,8 +543,7 @@ pub fn check_skill(dir: &Path, known: &[String]) -> Result<SkillFiles, &'static 
 /// Copies the files `files` lists from `from` to the new folder `to`: mode
 /// 700 for those that run, 600 for the others. Nothing else, no link.
 pub fn copy_skill(from: &Path, to: &Path, files: &[(String, bool)]) -> io::Result<()> {
-    use std::os::unix::fs::DirBuilderExt;
-    std::fs::DirBuilder::new().mode(0o700).create(to)?;
+    os::create_dir(to, 0o700, false)?;
     for (rel, exec) in files {
         let rel = Path::new(rel);
         if rel.components().any(|c| !matches!(c, std::path::Component::Normal(_))) {
@@ -554,18 +551,18 @@ pub fn copy_skill(from: &Path, to: &Path, files: &[(String, bool)]) -> io::Resul
         }
         let dst = to.join(rel);
         if let Some(parent) = dst.parent() {
-            std::fs::DirBuilder::new().recursive(true).mode(0o700).create(parent)?;
+            os::create_dir(parent, 0o700, true)?;
         }
         let src = from.join(rel);
         if std::fs::symlink_metadata(&src)?.file_type().is_symlink() {
             return Err(io::Error::new(io::ErrorKind::InvalidInput, "a link"));
         }
         let mut input = std::fs::File::open(&src)?;
-        let mut output = std::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .mode(if *exec { 0o700 } else { 0o600 })
-            .open(&dst)?;
+        let mut output = os::with_mode(
+            std::fs::OpenOptions::new().write(true).create_new(true),
+            if *exec { 0o700 } else { 0o600 },
+        )
+        .open(&dst)?;
         io::copy(&mut input, &mut output)?;
         output.sync_all()?;
     }
@@ -622,7 +619,8 @@ fn named_at(id: &str) -> Option<i64> {
 }
 
 fn write_file(path: &Path, text: &str) -> io::Result<()> {
-    let mut f = std::fs::OpenOptions::new().write(true).create_new(true).mode(0o600).open(path)?;
+    let mut f = os::with_mode(std::fs::OpenOptions::new().write(true).create_new(true), 0o600)
+        .open(path)?;
     f.write_all(text.as_bytes())?;
     f.sync_all()
 }

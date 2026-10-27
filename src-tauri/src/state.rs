@@ -451,9 +451,10 @@ impl Inner {
         self.schedule.set_visible(popover || main, Instant::now())
     }
 
-    /// Where the Claude accounts the app keeps live on this Mac.
+    /// Where the Claude accounts the app keeps live on this Mac: in the
+    /// folder Tauri gives the app, beside `settings.json`.
     pub fn claude_paths(&self) -> quota_station_core::claude::Paths {
-        quota_station_core::claude::Paths::for_home(&self.home)
+        quota_station_core::claude::Paths::new(&self.home, self.app_dir().path())
     }
 
     /// The Claude accounts the app keeps, with the Keychain.

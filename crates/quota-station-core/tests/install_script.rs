@@ -10,6 +10,8 @@
 //! are `launchctl`, `osascript` and `sfltool`, which must never run: the
 //! script adds no login item. Nothing here opens an app or reads the
 //! Keychain.
+// Unix only: `scripts/install.sh` is macOS's.
+#![cfg(unix)]
 
 mod common;
 

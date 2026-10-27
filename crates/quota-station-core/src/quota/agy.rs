@@ -20,7 +20,6 @@
 //! answer with their own login, and the CSRF token read from the process
 //! list goes no further than the request to that process on 127.0.0.1.
 
-use std::ffi::OsString;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -224,10 +223,18 @@ pub fn account_hash(email: &str) -> String {
 }
 
 /// A folder whose `open` and `xdg-open` only fail, first on agy's PATH, so
-/// `/quota` can never send the owner to a browser.
-struct OpenerGuard(PathBuf);
+/// `/quota` can never send the owner to a browser. Windows opens a browser
+/// by other means, which no such folder stops; as quota-axi does there, it
+/// has none.
+struct OpenerGuard(Option<PathBuf>);
 
 impl OpenerGuard {
+    #[cfg(not(unix))]
+    fn new() -> std::io::Result<OpenerGuard> {
+        Ok(OpenerGuard(None))
+    }
+
+    #[cfg(unix)]
     fn new() -> std::io::Result<OpenerGuard> {
         use std::os::unix::fs::PermissionsExt;
         let dir = std::env::temp_dir().join(format!(
@@ -242,13 +249,15 @@ impl OpenerGuard {
             std::fs::write(&file, "#!/bin/sh\nexit 1\n")?;
             std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o700))?;
         }
-        Ok(OpenerGuard(dir))
+        Ok(OpenerGuard(Some(dir)))
     }
 }
 
 impl Drop for OpenerGuard {
     fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.0);
+        if let Some(dir) = &self.0 {
+            let _ = std::fs::remove_dir_all(dir);
+        }
     }
 }
 
@@ -258,9 +267,9 @@ fn cli(tools: &Tools) -> Result<Reading, Fail> {
     };
     let guard =
         OpenerGuard::new().map_err(|_| Fail::Other("Antigravity CLI /quota failed".into()))?;
-    let mut path = OsString::from(guard.0.as_os_str());
-    path.push(":");
-    path.push(runner::child_path(agy, std::env::var_os("PATH")));
+    let inherited = runner::child_path(agy, std::env::var_os("PATH"));
+    let dirs = guard.0.iter().cloned().chain(std::env::split_paths(&inherited));
+    let path = std::env::join_paths(dirs).unwrap_or(inherited);
     let args: Vec<String> =
         ["-p", "/quota", "--output-format", "json"].iter().map(|s| s.to_string()).collect();
     let out = runner::run_with(agy, &args, &[("PATH", path.as_os_str())], None, CLI_TIMEOUT)

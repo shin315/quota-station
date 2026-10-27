@@ -5,6 +5,8 @@
 //! Google, a fake browser and a fake `security` in a temporary home. These
 //! tests never reach Google and never touch the Keychain.
 #![cfg(feature = "antigravity-accounts")]
+// Unix only: the fake `security` is a shell script.
+#![cfg(unix)]
 
 mod common;
 

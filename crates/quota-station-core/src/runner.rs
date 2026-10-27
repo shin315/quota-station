@@ -3,7 +3,9 @@
 
 //! Running the programs the app calls: `agy`, `claude`, `codex`, `security`,
 //! `ps` and the rest. Each run has a time limit, and a program started from
-//! an app opened in Finder still finds the tools of the owner's shell.
+//! an app opened in Finder still finds the tools of the owner's shell. On
+//! Windows no run opens a console window, and a command is found under any
+//! of the `PATHEXT` extensions (`claude.cmd`, `agy.exe`).
 
 use std::ffi::OsString;
 use std::io::Read;
@@ -80,6 +82,12 @@ pub(crate) fn run_in(
     for (key, value) in env {
         command.env(key, value);
     }
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        // CREATE_NO_WINDOW: an app in the tray has no console to lend.
+        command.creation_flags(0x0800_0000);
+    }
     let mut child = command.spawn().map_err(|e| RunError::Spawn(e.to_string()))?;
     // Written from its own thread, so a child that does not read cannot
     // block the timeout below.
@@ -144,9 +152,12 @@ pub fn child_path(path: &Path, inherited: Option<OsString>) -> OsString {
     if let Ok(real) = std::fs::canonicalize(path) {
         push(real.parent());
     }
-    push(Some(Path::new("/opt/homebrew/bin")));
-    push(Some(Path::new("/usr/local/bin")));
-    let inherited = inherited.unwrap_or_else(|| OsString::from("/usr/bin:/bin:/usr/sbin:/sbin"));
+    for dir in system_dirs() {
+        push(Some(&dir));
+    }
+    let inherited = inherited.unwrap_or_else(|| {
+        OsString::from(if cfg!(windows) { "" } else { "/usr/bin:/bin:/usr/sbin:/sbin" })
+    });
     for d in std::env::split_paths(&inherited) {
         push(Some(&d));
     }
@@ -174,9 +185,55 @@ pub fn bin_dirs(home: &Path) -> Vec<PathBuf> {
         .collect();
     nvm.sort_by(|a, b| b.0.cmp(&a.0));
     out.extend(nvm.into_iter().map(|(_, p)| p));
-    out.push(PathBuf::from("/opt/homebrew/bin"));
-    out.push(PathBuf::from("/usr/local/bin"));
+    if cfg!(windows) {
+        out.extend(windows_dirs(home));
+    }
+    out.extend(system_dirs());
     out
+}
+
+/// Homebrew's folders on macOS; none on Windows, whose own come from
+/// [`windows_dirs`].
+fn system_dirs() -> Vec<PathBuf> {
+    if cfg!(windows) {
+        Vec::new()
+    } else {
+        vec![PathBuf::from("/opt/homebrew/bin"), PathBuf::from("/usr/local/bin")]
+    }
+}
+
+/// Where Windows keeps the commands the owner installed: npm's global
+/// folder, Node itself, nvm-windows, Volta, scoop, WinGet's links and the
+/// agy installer's folder, from the variables that name them.
+fn windows_dirs(home: &Path) -> Vec<PathBuf> {
+    let var = |name: &str| std::env::var_os(name).map(PathBuf::from);
+    let roaming = var("APPDATA").unwrap_or_else(|| home.join("AppData").join("Roaming"));
+    let local = var("LOCALAPPDATA").unwrap_or_else(|| home.join("AppData").join("Local"));
+    let mut out = vec![roaming.join("npm")];
+    out.extend(var("NVM_SYMLINK"));
+    out.extend(var("ProgramFiles").map(|p| p.join("nodejs")));
+    out.push(local.join("Volta").join("bin"));
+    out.push(home.join("scoop").join("shims"));
+    out.push(local.join("Microsoft").join("WinGet").join("Links"));
+    out.push(local.join("agy").join("bin"));
+    out
+}
+
+/// `dir/name` when it is a file, or on Windows the first of `name` with a
+/// `PATHEXT` extension (`.COM;.EXE;.BAT;.CMD` when the variable is unset).
+pub fn program_in(dir: &Path, name: &str) -> Option<PathBuf> {
+    let plain = dir.join(name);
+    if plain.is_file() {
+        return Some(plain);
+    }
+    if !cfg!(windows) || Path::new(name).extension().is_some() {
+        return None;
+    }
+    let exts = std::env::var("PATHEXT").unwrap_or_else(|_| ".COM;.EXE;.BAT;.CMD".into());
+    exts.split(';')
+        .filter(|e| !e.is_empty())
+        .map(|e| dir.join(format!("{name}{}", e.to_ascii_lowercase())))
+        .find(|p| p.is_file())
 }
 
 /// The first `name` on this process's `PATH`, then in Homebrew's folders:
@@ -184,34 +241,40 @@ pub fn bin_dirs(home: &Path) -> Vec<PathBuf> {
 pub fn on_path(name: &str) -> Option<PathBuf> {
     let inherited = std::env::var_os("PATH").unwrap_or_default();
     std::env::split_paths(&inherited)
-        .chain([PathBuf::from("/opt/homebrew/bin"), PathBuf::from("/usr/local/bin")])
+        .chain(system_dirs())
         .filter(|d| d.is_absolute())
-        .map(|d| d.join(name))
-        .find(|p| p.is_file())
+        .find_map(|d| program_in(&d, name))
 }
 
-/// `~/…` for paths under `home`, so the UI never shows the user name.
+/// `~/…` for paths under `home`, so the UI never shows the user name. The
+/// parts are joined by `/` on every system, as the UI splits them.
 pub fn display_path(path: &Path, home: &Path) -> String {
     match path.strip_prefix(home) {
         Ok(rest) if rest.as_os_str().is_empty() => "~".to_string(),
-        Ok(rest) => format!("~/{}", rest.display()),
+        Ok(rest) => {
+            let parts: Vec<String> =
+                rest.iter().map(|p| p.to_string_lossy().into_owned()).collect();
+            format!("~/{}", parts.join("/"))
+        }
         Err(_) => path.display().to_string(),
     }
 }
 
-/// Expands a leading `~/` typed in a settings field.
+/// Expands a leading `~/` typed in a settings field (or `~\` on Windows).
 pub fn expand_path(text: &str, home: &Path) -> PathBuf {
     let text = text.trim();
     if text == "~" {
         home.to_path_buf()
-    } else if let Some(rest) = text.strip_prefix("~/") {
+    } else if let Some(rest) =
+        text.strip_prefix("~/").or_else(|| text.strip_prefix("~\\").filter(|_| cfg!(windows)))
+    {
         home.join(rest)
     } else {
         PathBuf::from(text)
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
     use std::os::unix::fs::PermissionsExt;

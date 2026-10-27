@@ -15,7 +15,6 @@
 //! rename; the hash the app keeps of its write catches that afterwards.
 
 use std::io::{self, Write};
-use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -23,7 +22,7 @@ use serde::Serialize;
 use sha2::{Digest, Sha256};
 use time::OffsetDateTime;
 
-use crate::local_time;
+use crate::{local_time, os};
 
 pub const BACKUPS_KEPT: usize = 10;
 
@@ -92,8 +91,8 @@ pub fn write(
     let n = WRITES.fetch_add(1, Ordering::Relaxed);
     let tmp = dir.join(format!(".{name}.qs-{}-{n}", std::process::id()));
     let result = (|| {
-        let mut f =
-            std::fs::OpenOptions::new().write(true).create_new(true).mode(0o600).open(&tmp)?;
+        let mut f = os::with_mode(std::fs::OpenOptions::new().write(true).create_new(true), 0o600)
+            .open(&tmp)?;
         f.write_all(text.as_bytes())?;
         f.sync_all()?;
         drop(f);
@@ -104,7 +103,7 @@ pub fn write(
         if current(&target)?.as_deref() != base {
             return Err(WriteError::Changed);
         }
-        std::fs::rename(&tmp, &target)?;
+        os::replace(&tmp, &target)?;
         if std::fs::read(&target)? != text.as_bytes() {
             return Err(WriteError::Verify);
         }
@@ -120,7 +119,7 @@ pub fn write(
 /// only the newest [`BACKUPS_KEPT`] with that prefix.
 pub fn keep(bytes: &[u8], dir: &Path, prefix: &str, now: OffsetDateTime) -> io::Result<PathBuf> {
     std::fs::create_dir_all(dir)?;
-    std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700))?;
+    os::set_mode(dir, 0o700)?;
     let name = local_time::stamp(now).replace(['-', ':'], "").replace('T', "-");
     let mut path = dir.join(format!("{prefix}{name}"));
     let mut n = 2;
@@ -128,7 +127,8 @@ pub fn keep(bytes: &[u8], dir: &Path, prefix: &str, now: OffsetDateTime) -> io::
         path = dir.join(format!("{prefix}{name}-{n}"));
         n += 1;
     }
-    let mut f = std::fs::OpenOptions::new().write(true).create_new(true).mode(0o600).open(&path)?;
+    let mut f = os::with_mode(std::fs::OpenOptions::new().write(true).create_new(true), 0o600)
+        .open(&path)?;
     f.write_all(bytes)?;
     f.sync_all()?;
     for old in list(dir, prefix).into_iter().skip(BACKUPS_KEPT) {
@@ -171,20 +171,18 @@ pub fn scrub(dir: &Path, prefix: &str, redact: fn(&str) -> Result<String, String
                 let mut tmp = path.clone().into_os_string();
                 tmp.push(".qs-scrub");
                 let tmp = PathBuf::from(tmp);
-                let written = std::fs::OpenOptions::new()
-                    .write(true)
-                    .create_new(true)
-                    .mode(0o600)
-                    .open(&tmp)
-                    .and_then(|mut f| {
-                        f.write_all(clean.as_bytes())?;
-                        f.sync_all()?;
-                        if let Ok(at) = meta.modified() {
-                            f.set_modified(at)?;
-                        }
-                        Ok(())
-                    })
-                    .and_then(|()| std::fs::rename(&tmp, &path));
+                let written =
+                    os::with_mode(std::fs::OpenOptions::new().write(true).create_new(true), 0o600)
+                        .open(&tmp)
+                        .and_then(|mut f| {
+                            f.write_all(clean.as_bytes())?;
+                            f.sync_all()?;
+                            if let Ok(at) = meta.modified() {
+                                f.set_modified(at)?;
+                            }
+                            Ok(())
+                        })
+                        .and_then(|()| os::replace(&tmp, &path));
                 if written.is_err() {
                     let _ = std::fs::remove_file(&tmp);
                     let _ = std::fs::remove_file(&path);

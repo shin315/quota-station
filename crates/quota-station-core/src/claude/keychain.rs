@@ -191,8 +191,13 @@ pub fn user_account() -> String {
     if let Some(user) = std::env::var_os("USER").filter(|u| !u.is_empty()) {
         return user.to_string_lossy().into_owned();
     }
+    #[cfg(windows)]
+    if let Some(user) = std::env::var_os("USERNAME").filter(|u| !u.is_empty()) {
+        return user.to_string_lossy().into_owned();
+    }
     // SAFETY: `getpwuid` returns a pointer into static storage or null; the
     // name is copied out at once.
+    #[cfg(unix)]
     unsafe {
         let pw = libc::getpwuid(libc::geteuid());
         if !pw.is_null() && !(*pw).pw_name.is_null() {

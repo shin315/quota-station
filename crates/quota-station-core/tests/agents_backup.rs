@@ -12,6 +12,8 @@
 //! The secrets are traps: each may be in the agent files and the fake
 //! Keychain, and nowhere else: not in a pack, the app's folder (store,
 //! backups, log, the restore record), the plan or the result.
+// Unix only: the fake agents and MCP commands, and the fake `security`, are shell scripts.
+#![cfg(unix)]
 
 mod common;
 

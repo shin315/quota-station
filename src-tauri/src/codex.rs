@@ -24,7 +24,7 @@ use quota_station_core::codex::accounts::{self, Account, Store};
 use quota_station_core::codex::config::{self, Current, Custom, Mcp, Refusal, Target};
 use quota_station_core::codex::files::{self, Record};
 use quota_station_core::codex::login::Login;
-use quota_station_core::codex::platform::Unix;
+use quota_station_core::codex::platform::System;
 use quota_station_core::codex::probe::{self, Answer};
 use quota_station_core::codex::procs::{self, Procs, Restart};
 use quota_station_core::codex::{
@@ -523,7 +523,7 @@ pub fn list(
     home: &std::path::Path,
     dir: &AppDir,
 ) -> Option<(Vec<Account>, BTreeMap<String, String>)> {
-    let platform = Unix::system();
+    let platform = System::system();
     let store = Store::new(dir, home, &platform);
     let accounts = store.list(OffsetDateTime::now_utc()).ok()?;
     Some((accounts, store.registry().nicknames))

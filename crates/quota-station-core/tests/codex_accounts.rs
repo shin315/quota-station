@@ -13,6 +13,7 @@
 
 mod common;
 
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -23,7 +24,7 @@ use quota_station_core::app_dir::AppDir;
 use quota_station_core::codex::accounts::{self, Added, Moved, Place, Refusal, Store};
 use quota_station_core::codex::config;
 use quota_station_core::codex::import::{self, Fate, Format, Kind};
-use quota_station_core::codex::platform::{Platform, Unix};
+use quota_station_core::codex::platform::{Platform, System};
 use quota_station_core::codex::{self, files, ProviderOutcome};
 use time::OffsetDateTime;
 
@@ -41,16 +42,16 @@ struct Spy {
 
 impl Platform for Spy {
     fn private_dir(&self, dir: &Path) -> std::io::Result<()> {
-        Unix::default().private_dir(dir)
+        System::default().private_dir(dir)
     }
     fn private_file(&self, file: &Path) -> std::io::Result<()> {
-        Unix::default().private_file(file)
+        System::default().private_file(file)
     }
     fn move_file(&self, from: &Path, to: &Path) -> std::io::Result<()> {
-        Unix::default().move_file(from, to)
+        System::default().move_file(from, to)
     }
     fn replace_file(&self, from: &Path, to: &Path) -> std::io::Result<()> {
-        Unix::default().replace_file(from, to)
+        System::default().replace_file(from, to)
     }
     fn exclude_from_backup(&self, dir: &Path) {
         self.excluded.lock().unwrap().push(dir.to_path_buf());
@@ -146,6 +147,7 @@ impl Mac {
     }
 }
 
+#[cfg(unix)]
 fn mode(path: &Path) -> u32 {
     std::fs::metadata(path).unwrap().permissions().mode() & 0o777
 }
@@ -176,12 +178,15 @@ fn a_new_sign_in_gets_its_own_private_folder_and_codex_is_not_touched() {
     let added = mac.store().finish_login(&pending, None, at(10)).unwrap();
     assert_eq!(added, Added::Added { number: 2 });
     assert!(!pending.exists(), "the sign-in's temporary folder is gone");
-    let folder = mac.store().folder(2);
     assert!(
         mac.folder_auth(2).unwrap().contains("bob@example.com") || mac.folder_auth(2).is_some()
     );
-    assert_eq!(mode(&folder), 0o700);
-    assert_eq!(mode(&folder.join(codex::AUTH)), 0o600);
+    #[cfg(unix)]
+    {
+        let folder = mac.store().folder(2);
+        assert_eq!(mode(&folder), 0o700);
+        assert_eq!(mode(&folder.join(codex::AUTH)), 0o600);
+    }
     assert_eq!(mac.home_auth().as_deref(), Some(ann.as_str()), "Codex keeps its sign-in");
     let list = mac.store().list(at(20)).unwrap();
     let bob = list.iter().find(|a| a.entry.number == 2).unwrap();
@@ -237,6 +242,7 @@ fn switching_moves_the_two_sign_ins_and_copies_none() {
     assert_eq!(all.len(), 2);
     assert_eq!(all.iter().filter(|t| **t == ann).count(), 1);
     assert_eq!(all.iter().filter(|t| **t == bob).count(), 1);
+    #[cfg(unix)]
     assert_eq!(mode(&mac.store().folder(1).join(codex::AUTH)), 0o600);
     assert_eq!(mac.store().registry().moving, None, "nothing left under way");
     let list = mac.store().list(at(30)).unwrap();
@@ -773,7 +779,9 @@ fn importing_puts_the_sign_in_in_its_own_folder_as_codex_writes_it() {
     let found = import::read(file.to_string().as_bytes());
     assert_eq!(mac.store().import(&found[0], None, at(10)).unwrap(), Added::Added { number: 2 });
     let folder = mac.store().folder(2);
+    #[cfg(unix)]
     assert_eq!(mode(&folder), 0o700);
+    #[cfg(unix)]
     assert_eq!(mode(&folder.join(codex::AUTH)), 0o600);
     // Codex's own shape, with the tokens as they were and nothing renewed.
     let written: serde_json::Value = serde_json::from_str(&mac.folder_auth(2).unwrap()).unwrap();

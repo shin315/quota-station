@@ -5,24 +5,16 @@
 //! write it: `2026-10-16T18:30`, no offset.
 //!
 //! The `time` crate will not read the local offset in a multi-threaded
-//! process, so the offset comes from `localtime_r`, which is thread-safe.
+//! process, so the offset comes from `jiff`, which reads the system's time
+//! zone safely on macOS and Windows.
 
 use time::{Date, Month, OffsetDateTime, PrimitiveDateTime, Time, UtcOffset};
 
 /// The offset of this Mac's time zone at `at`.
 pub fn offset_at(at: OffsetDateTime) -> UtcOffset {
-    // `time_t` is 64-bit on macOS.
-    let t = at.unix_timestamp() as libc::time_t;
-    // SAFETY: `localtime_r` writes only into the `tm` it is given, and a
-    // zeroed `tm` is a valid value of that plain C struct.
-    let mut tm: libc::tm = unsafe { std::mem::zeroed() };
-    if unsafe { libc::localtime_r(&t, &mut tm) }.is_null() {
-        return UtcOffset::UTC;
-    }
-    i32::try_from(tm.tm_gmtoff)
-        .ok()
-        .and_then(|s| UtcOffset::from_whole_seconds(s).ok())
-        .unwrap_or(UtcOffset::UTC)
+    let Ok(t) = jiff::Timestamp::from_second(at.unix_timestamp()) else { return UtcOffset::UTC };
+    let seconds = jiff::tz::TimeZone::system().to_offset(t).seconds();
+    UtcOffset::from_whole_seconds(seconds).unwrap_or(UtcOffset::UTC)
 }
 
 /// `at` on this Mac's clock, to the second: `2026-10-16T18:30:05`.

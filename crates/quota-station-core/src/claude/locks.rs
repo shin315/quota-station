@@ -19,7 +19,6 @@
 //!    it writes `~/.claude.json`.
 
 use std::io;
-use std::os::unix::io::AsRawFd;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -83,14 +82,12 @@ impl AppLock {
             .open(paths.lock())?;
         let deadline = Instant::now() + timeout;
         loop {
-            // SAFETY: `flock` on a descriptor this function owns.
-            let r = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
-            if r == 0 {
-                return Ok(AppLock { _file: file });
-            }
-            let e = io::Error::last_os_error();
-            if e.raw_os_error() != Some(libc::EWOULDBLOCK) {
-                return Err(e.into());
+            // `flock` on Unix, `LockFileEx` on Windows; named in full, as
+            // newer Rust has a `File::try_lock` of its own.
+            match fs4::FileExt::try_lock(&file) {
+                Ok(()) => return Ok(AppLock { _file: file }),
+                Err(fs4::TryLockError::WouldBlock) => {}
+                Err(fs4::TryLockError::Error(e)) => return Err(e.into()),
             }
             if Instant::now() >= deadline {
                 return Err(LockError::Busy("Quota Station's account lock".into()));
@@ -166,12 +163,10 @@ impl Drop for DirLock {
     }
 }
 
+/// Both of the folder's times to now, as `utimes(dir, NULL)` sets them.
 fn touch(dir: &Path) {
-    let Ok(c) = std::ffi::CString::new(dir.as_os_str().as_encoded_bytes()) else { return };
-    // SAFETY: a null `times` sets both times to now.
-    unsafe {
-        libc::utimes(c.as_ptr(), std::ptr::null());
-    }
+    let now = filetime::FileTime::now();
+    let _ = filetime::set_file_times(dir, now, now);
 }
 
 /// 0 to 250 milliseconds, so two waiters do not retry in step.
