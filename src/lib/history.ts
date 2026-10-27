@@ -9,7 +9,7 @@
 import { agyNames, claudeAliases, claudeNames } from './accounts';
 import { shortName } from './codex';
 import { clock, pad } from './format';
-import { t } from './i18n';
+import { appName, t } from './i18n';
 import type { AgyHow, HistoryEntry, HistorySource, Model, Why } from './model';
 import { dayClock, type NameOf } from './switching';
 import type { ChipView } from './view';
@@ -125,8 +125,8 @@ function why(e: HistoryEntry, nameOf: NameOf, now: Date): string {
     }
     case 'agyOverwrite':
       return t(
-        'Antigravity.app đổi về tài khoản cũ (lần ' + c.overwrites + (c.overwrites <= 2 ? '/2' : '') + ')',
-        'Antigravity.app went back to the old account (' + (c.overwrites <= 2 ? c.overwrites + ' of 2' : c.overwrites + ' times') + ')',
+        appName('Antigravity') + ' đổi về tài khoản cũ (lần ' + c.overwrites + (c.overwrites <= 2 ? '/2' : '') + ')',
+        appName('Antigravity') + ' went back to the old account (' + (c.overwrites <= 2 ? c.overwrites + ' of 2' : c.overwrites + ' times') + ')',
       );
     case 'codexSwitch':
       return (

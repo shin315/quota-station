@@ -21,7 +21,7 @@ import { COUNT, Empty, GRID2_EVEN, GROUP_HEAD, TabHead, TabNote, TabSub, TabTitl
 import { Banner, Button, Chip, CODE, Dot, More } from '../components/parts';
 import { pluginName, serviceOf } from '../lib/brands';
 import { clock } from '../lib/format';
-import { t } from '../lib/i18n';
+import { mac, t } from '../lib/i18n';
 import { AGENT_NAME, AGENTS } from '../lib/mcp';
 import type { Agent, Marketplace, Model, PluginSide } from '../lib/model';
 import { brings } from '../lib/skills';
@@ -103,7 +103,7 @@ const SIDE_ROW = 'grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3 borde
 
 function marketSource(m: Marketplace): string {
   if (m.kind === 'builtin') return t('có sẵn', 'built in');
-  if (m.kind === 'local') return t('thư mục trên máy', 'folder on this Mac');
+  if (m.kind === 'local') return mac(t('thư mục trên máy', 'folder on this Mac'));
   return m.source ?? m.kind;
 }
 
@@ -172,7 +172,7 @@ export function PluginTab({ model, fresh, plugins, onAction }: PluginTabProps) {
         <Panel>
           <Empty>
             <b>{t('Đang đọc danh sách plugin…', 'Reading the plugin list…')}</b>
-            {t('Claude Code và Codex, trên máy này.', 'Claude Code and Codex, on this Mac.')}
+            {mac(t('Claude Code và Codex, trên máy này.', 'Claude Code and Codex, on this Mac.'))}
           </Empty>
         </Panel>
       ) : (

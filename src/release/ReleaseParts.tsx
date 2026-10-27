@@ -14,7 +14,7 @@ import { Command } from '../components/blocks';
 import { Glyph } from '../components/icons';
 import { Button, Facts, LinkButton, More, Rich, Spinner, Toggle } from '../components/parts';
 import { SetRow } from '../settings/SetRow';
-import { t } from '../lib/i18n';
+import { mac, os, t } from '../lib/i18n';
 import type { Model } from '../lib/model';
 import { fromSource, megabytes, newerRelease, releaseDate, versionRow } from '../lib/release';
 import type { Action } from '../lib/view';
@@ -95,7 +95,7 @@ export function ReleaseDialogBody({ model, release, onUpdateFromSource }: { mode
         <Head
           cap={t('Bản mới', 'New version')}
           title={'Quota Station ' + l.version}
-          lead={t('Máy này chạy bản build từ mã nguồn.', 'This Mac runs a build from source.') + (date ? t(' Phát hành ' + date + '.', ' Released ' + date + '.') : '')}
+          lead={mac(t('Máy này chạy bản build từ mã nguồn.', 'This Mac runs a build from source.')) + (date ? t(' Phát hành ' + date + '.', ' Released ' + date + '.') : '')}
         />
         {notes}
         <Facts
@@ -143,10 +143,16 @@ export function ReleaseDialogBody({ model, release, onUpdateFromSource }: { mode
         items={[
           {
             k: '',
-            text: l.dmg
-              ? t(
-                  'Tải và cài mở bản DMG' + (l.size ? ' ' + megabytes(l.size) : '') + ' trên GitHub. Mở nó rồi kéo Quota Station vào Applications như lần đầu.',
-                  'Download and install opens the' + (l.size ? ' ' + megabytes(l.size) : '') + ' DMG on GitHub. Open it and drag Quota Station into Applications, as the first time.',
+            text: (l.asset ?? l.dmg)
+              ? os(
+                  t(
+                    'Tải và cài mở bản DMG' + (l.size ? ' ' + megabytes(l.size) : '') + ' trên GitHub. Mở nó rồi kéo Quota Station vào Applications như lần đầu.',
+                    'Download and install opens the' + (l.size ? ' ' + megabytes(l.size) : '') + ' DMG on GitHub. Open it and drag Quota Station into Applications, as the first time.',
+                  ),
+                  t(
+                    'Tải và cài mở bản cài đặt' + (l.size ? ' ' + megabytes(l.size) : '') + ' trên GitHub. Chạy nó để cài đè lên bản này, như lần đầu.',
+                    'Download and install opens the' + (l.size ? ' ' + megabytes(l.size) : '') + ' installer on GitHub. Run it to install over this version, as the first time.',
+                  ),
                 )
               : t('Tải và cài mở trang phát hành trên GitHub.', 'Download and install opens the release page on GitHub.'),
           },
@@ -247,9 +253,11 @@ export function ReleaseRows({ model, onAction, onAuto }: { model: Model; onActio
                       'Mỗi ngày một lần qua GitHub Releases. Bản build từ mã nguồn không cài bản tải về: chỉ báo.',
                       'Once a day through GitHub Releases. A build from source never installs the download: it only tells you.',
                     )
-                  : t(
-                      'Mỗi ngày một lần qua GitHub Releases, không token, không gửi gì về máy này. Tắt thì chỉ kiểm khi bạn bấm.',
-                      'Once a day through GitHub Releases, no token, nothing about this Mac sent. Off means it only checks when you press.',
+                  : mac(
+                      t(
+                        'Mỗi ngày một lần qua GitHub Releases, không token, không gửi gì về máy này. Tắt thì chỉ kiểm khi bạn bấm.',
+                        'Once a day through GitHub Releases, no token, nothing about this Mac sent. Off means it only checks when you press.',
+                      ),
                     )}
               </p>
             </More>

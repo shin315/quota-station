@@ -8,7 +8,7 @@
 // `fbLine`, `whyCard`, wording review W01–W11, W43).
 
 import { clock, pad, percent } from './format';
-import { t } from './i18n';
+import { mac, onWindows, os, t } from './i18n';
 import type { Account, Decision, Hold, LogLine, Model, Outcome, Sessions, Why } from './model';
 import { BAD_USED, claudeAliases, claudeCells, tightest } from './accounts';
 import { claudeNames, type Action, type BannerView, type FeedbackView } from './view';
@@ -158,7 +158,7 @@ function inHours(range: string | null, now: Date): boolean | null {
 }
 
 function sessionsFact(sessions: Sessions | null | 'loading'): FactView {
-  if (sessions === 'loading') return { k: '', text: t('Đang đếm các phiên Claude đang chạy trên máy này…', 'Counting the Claude sessions running on this Mac…') };
+  if (sessions === 'loading') return { k: '', text: mac(t('Đang đếm các phiên Claude đang chạy trên máy này…', 'Counting the Claude sessions running on this Mac…')) };
   if (!sessions)
     return {
       k: 'w',
@@ -170,18 +170,22 @@ function sessionsFact(sessions: Sessions | null | 'loading'): FactView {
   if (sessions.live === 0 && sessions.unreadable === 0)
     return {
       k: '',
-      text: t(
-        'Không có phiên Claude nào đang chạy trên máy này, nên không phiên nào phải tạo lại bộ nhớ đệm.',
-        'No Claude sessions are running on this Mac, so none has to rebuild its cache.',
+      text: mac(
+        t(
+          'Không có phiên Claude nào đang chạy trên máy này, nên không phiên nào phải tạo lại bộ nhớ đệm.',
+          'No Claude sessions are running on this Mac, so none has to rebuild its cache.',
+        ),
       ),
     };
   if (sessions.live === 0)
     return {
       k: 'w',
-      text: t(
-        'Không đọc được ' + sessions.unreadable + ' bản ghi phiên Claude trên máy này, nên có thể có phiên đang chạy sẽ tạo lại bộ nhớ đệm ở tin nhắn tiếp theo.',
-        'Could not read ' + sessions.unreadable + ' Claude session ' + (sessions.unreadable === 1 ? 'record' : 'records') +
-          ' on this Mac, so a running session may rebuild its cache on its next message.',
+      text: mac(
+        t(
+          'Không đọc được ' + sessions.unreadable + ' bản ghi phiên Claude trên máy này, nên có thể có phiên đang chạy sẽ tạo lại bộ nhớ đệm ở tin nhắn tiếp theo.',
+          'Could not read ' + sessions.unreadable + ' Claude session ' + (sessions.unreadable === 1 ? 'record' : 'records') +
+            ' on this Mac, so a running session may rebuild its cache on its next message.',
+        ),
       ),
     };
   const one = sessions.live === 1;
@@ -248,9 +252,11 @@ export function claudeSheet(
   if (!model.claudeSwitch.ready)
     facts.push({
       k: 'x',
-      text: t(
-        'Quota Station chưa giữ tài khoản Claude nào trên máy này. Nhập từ claude-swap hoặc thêm tài khoản ở tab Claude.',
-        'Quota Station keeps no Claude accounts on this Mac yet. Import from claude-swap or add an account in the Claude tab.',
+      text: mac(
+        t(
+          'Quota Station chưa giữ tài khoản Claude nào trên máy này. Nhập từ claude-swap hoặc thêm tài khoản ở tab Claude.',
+          'Quota Station keeps no Claude accounts on this Mac yet. Import from claude-swap or add an account in the Claude tab.',
+        ),
       ),
     });
   else if (legacy)
@@ -278,9 +284,11 @@ export function claudeSheet(
     if (model.switcher.guard === false)
       hint = {
         tone: 'warn',
-        text: t(
-          'Switcher trên máy này chưa đọc cờ tạm dừng, nên vẫn có thể đổi tài khoản.',
-          'The switcher on this Mac does not read the pause flag yet, so it may still change accounts.',
+        text: mac(
+          t(
+            'Switcher trên máy này chưa đọc cờ tạm dừng, nên vẫn có thể đổi tài khoản.',
+            'The switcher on this Mac does not read the pause flag yet, so it may still change accounts.',
+          ),
         ),
       };
   } else if (paused) {
@@ -457,9 +465,11 @@ export function autoView(model: Model, now: Date): AutoView {
   const at = sw.dryRun ? clock(sw.dryRun.at) : null;
   let why: string;
   if (!sw.installed)
-    why = t(
-      'Quota Station chưa giữ tài khoản Claude nào trên máy này: chưa có tự chuyển Claude.',
-      'Quota Station keeps no Claude accounts on this Mac yet, so there is no Claude auto-switch.',
+    why = mac(
+      t(
+        'Quota Station chưa giữ tài khoản Claude nào trên máy này: chưa có tự chuyển Claude.',
+        'Quota Station keeps no Claude accounts on this Mac yet, so there is no Claude auto-switch.',
+      ),
     );
   else if (sw.legacy)
     why = t(
@@ -516,9 +526,11 @@ export function switcherBanner(model: Model, now: Date): BannerView | null {
     return {
       tone: 'bad',
       title: t('Switcher chưa đọc cờ tạm dừng', 'The switcher does not read the pause flag'),
-      body: t(
-        'Bộ tự chuyển trên máy này không dừng theo cờ tạm dừng, nên vẫn tự chuyển. Cho phép tự chuyển lại, hoặc tắt bộ tự chuyển đó.',
-        'The auto-switcher on this Mac does not stop for the pause flag, so it keeps switching. Allow auto-switch again, or turn that auto-switcher off.',
+      body: mac(
+        t(
+          'Bộ tự chuyển trên máy này không dừng theo cờ tạm dừng, nên vẫn tự chuyển. Cho phép tự chuyển lại, hoặc tắt bộ tự chuyển đó.',
+          'The auto-switcher on this Mac does not stop for the pause flag, so it keeps switching. Allow auto-switch again, or turn that auto-switcher off.',
+        ),
       ),
       actions: [{ label: t('Cho phép tự chuyển lại', 'Allow auto-switch again'), act: 'resume' }],
     };
@@ -693,9 +705,9 @@ function failedBody(outcome: Extract<Outcome, { kind: 'failed' }>, nameOf: NameO
     case 'unknownSlot':
       return t('Quota Station không giữ tài khoản này. Chưa đổi gì.', 'Quota Station does not keep this account. Nothing changed.');
     case 'keychain':
-      return t(
-        'Keychain không cho đọc hoặc ghi đăng nhập' + detail + '. Chưa đổi gì.',
-        'The Keychain did not allow reading or writing the sign-in' + detail + '. Nothing changed.',
+      return os(
+        t('Keychain không cho đọc hoặc ghi đăng nhập' + detail + '. Chưa đổi gì.', 'The Keychain did not allow reading or writing the sign-in' + detail + '. Nothing changed.'),
+        t('Windows không cho đọc hoặc ghi đăng nhập' + detail + '. Chưa đổi gì.', 'Windows did not allow reading or writing the sign-in' + detail + '. Nothing changed.'),
       );
     default:
       return t('Chuyển không được' + detail + '. Chưa đổi gì.', 'The switch failed' + detail + '. Nothing changed.');
@@ -763,12 +775,12 @@ export function pauseFailedFeedback(resume: boolean): FeedbackView {
     ? {
         tone: 'bad',
         title: t('Chưa bật lại được tự chuyển', 'Could not turn auto-switch back on'),
-        body: t('Không xoá được cờ tạm dừng của switcher trên máy này. Thử lại.', 'Could not remove the switcher’s pause flag on this Mac. Try again.'),
+        body: mac(t('Không xoá được cờ tạm dừng của switcher trên máy này. Thử lại.', 'Could not remove the switcher’s pause flag on this Mac. Try again.')),
       }
     : {
         tone: 'bad',
         title: t('Chưa ghi được cờ tạm dừng', 'Could not write the pause flag'),
-        body: t('Không ghi được cờ tạm dừng của switcher trên máy này. Tự chuyển vẫn bật.', 'Could not write the switcher’s pause flag on this Mac. Auto-switch stays on.'),
+        body: mac(t('Không ghi được cờ tạm dừng của switcher trên máy này. Tự chuyển vẫn bật.', 'Could not write the switcher’s pause flag on this Mac. Auto-switch stays on.')),
       };
 }
 
@@ -812,15 +824,22 @@ export function guide(id: 'auto' | 'switcher', authorTools = true): GuideView {
       }
     : {
         title: t('Chuyển từ claude-swap sang Quota Station', 'Move from claude-swap to Quota Station'),
-        lead: t(
-          'Làm lần lượt trên từng Mac. claude-swap và dữ liệu của nó được giữ nguyên, để quay lại được khi cần.',
-          'Do this on one Mac at a time. claude-swap and its data stay as they are, so you can go back if needed.',
+        lead: mac(
+          t(
+            'Làm lần lượt trên từng Mac. claude-swap và dữ liệu của nó được giữ nguyên, để quay lại được khi cần.',
+            'Do this on one Mac at a time. claude-swap and its data stay as they are, so you can go back if needed.',
+          ),
         ),
         steps: [
-          t(
-            'Tắt bộ tự chuyển cũ: giữ bản sao plist rồi `launchctl bootout gui/$(id -u)/com.cswap.prefer-team`.',
-            'Turn off the old auto-switcher: keep a copy of the plist, then `launchctl bootout gui/$(id -u)/com.cswap.prefer-team`.',
-          ),
+          // claude-swap's auto-switcher is a LaunchAgent: Windows has none to turn off.
+          ...(onWindows()
+            ? []
+            : [
+                t(
+                  'Tắt bộ tự chuyển cũ: giữ bản sao plist rồi `launchctl bootout gui/$(id -u)/com.cswap.prefer-team`.',
+                  'Turn off the old auto-switcher: keep a copy of the plist, then `launchctl bootout gui/$(id -u)/com.cswap.prefer-team`.',
+                ),
+              ]),
           t(
             'Ở tab Claude, bấm **Nhập từ claude-swap**. Chạy lại lần nữa cũng không sao: chỉ đăng nhập mới hơn được lấy thêm.',
             'In the Claude tab, press **Import from claude-swap**. Running it again is fine: only newer sign-ins are added.',
@@ -837,7 +856,7 @@ export function guide(id: 'auto' | 'switcher', authorTools = true): GuideView {
                 ),
               ]
             : []),
-          t('Chỉ gỡ claude-swap khi đã hỏi và mọi Mac đã chạy ổn.', 'Remove claude-swap only after asking, and once every Mac runs smoothly.'),
+          mac(t('Chỉ gỡ claude-swap khi đã hỏi và mọi Mac đã chạy ổn.', 'Remove claude-swap only after asking, and once every Mac runs smoothly.')),
         ],
       };
 }

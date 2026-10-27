@@ -24,7 +24,7 @@ import {
   usable,
   type Ticks,
 } from '../lib/backup';
-import { t } from '../lib/i18n';
+import { cloudDrive, mac, os, t } from '../lib/i18n';
 import type { BackupKey, Model, PackSummary, RestoreDone, RestorePartResult, RestorePlan } from '../lib/model';
 import type { Action, FeedbackView } from '../lib/view';
 
@@ -197,7 +197,14 @@ export function useBackup(api: Api, model: Model | null, showFeedback: (fb: Feed
           body: t('Agent nào bật ' + key.mcp + ' lần sau sẽ dùng khoá mới.', 'Agents that turn on ' + key.mcp + ' will use the new key from now on.'),
         });
     } catch {
-      showFeedback({ tone: 'bad', title: t('Chưa thay được khoá', 'Could not replace the key'), body: t('Keychain không nhận khoá lúc này. Thử lại.', 'Keychain is not accepting keys right now. Try again.') });
+      showFeedback({
+        tone: 'bad',
+        title: t('Chưa thay được khoá', 'Could not replace the key'),
+        body: os(
+          t('Keychain không nhận khoá lúc này. Thử lại.', 'Keychain is not accepting keys right now. Try again.'),
+          t('Kho mã hoá không nhận khoá lúc này. Thử lại.', 'The encrypted store is not accepting keys right now. Try again.'),
+        ),
+      });
     } finally {
       setWorking(false);
     }
@@ -209,11 +216,18 @@ export function useBackup(api: Api, model: Model | null, showFeedback: (fb: Feed
       await api.backupDeleteKey(key.mcp, key.slot);
       showFeedback({
         tone: '',
-        title: t('Đã xoá khoá ' + key.mcp + ' khỏi máy này.', 'Deleted the key for ' + key.mcp + ' from this Mac.'),
+        title: mac(t('Đã xoá khoá ' + key.mcp + ' khỏi máy này.', 'Deleted the key for ' + key.mcp + ' from this Mac.')),
         body: t('Agent đang dùng ' + key.mcp + ' vẫn giữ bản của nó.', 'Agents using ' + key.mcp + ' keep their own copy.'),
       });
     } catch {
-      showFeedback({ tone: 'bad', title: t('Chưa xoá được khoá', 'Could not delete the key'), body: t('Keychain không nhận lệnh lúc này. Thử lại.', 'Keychain is not responding right now. Try again.') });
+      showFeedback({
+        tone: 'bad',
+        title: t('Chưa xoá được khoá', 'Could not delete the key'),
+        body: os(
+          t('Keychain không nhận lệnh lúc này. Thử lại.', 'Keychain is not responding right now. Try again.'),
+          t('Kho mã hoá không nhận lệnh lúc này. Thử lại.', 'The encrypted store is not responding right now. Try again.'),
+        ),
+      });
     } finally {
       setWorking(false);
       setDialog(null);
@@ -221,7 +235,7 @@ export function useBackup(api: Api, model: Model | null, showFeedback: (fb: Feed
   };
 
   const openFolder = () =>
-    void api.backupOpenFolder().catch(() => showFeedback({ tone: 'warn', title: t('Không mở được thư mục', 'Could not open the folder'), body: t('iCloud Drive chưa bật trên máy này.', 'iCloud Drive is off on this Mac.') }));
+    void api.backupOpenFolder().catch(() => showFeedback({ tone: 'warn', title: t('Không mở được thư mục', 'Could not open the folder'), body: mac(t(cloudDrive() + ' chưa bật trên máy này.', cloudDrive() + ' is off on this Mac.')) }));
 
   /** The tab's actions on banners and feedback lines. Returns false for others. */
   const act = (a: Action): boolean => {

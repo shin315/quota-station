@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils';
 import { Empty, GROUP_HEAD, TabHead, TabSub, TabTitle } from '../components/page';
 import { Dot } from '../components/parts';
 import { historyDays, historyFilters, type HistoryFilter } from '../lib/history';
-import { t } from '../lib/i18n';
+import { mac, t } from '../lib/i18n';
 import type { HistoryEntry, Model } from '../lib/model';
 import type { PopoverView } from '../lib/view';
 
@@ -119,9 +119,11 @@ export function HistoryTab({ model, fresh, now, load }: HistoryTabProps) {
         ) : !entries.length ? (
           <Empty>
             <b>{t('Chưa có lần chuyển nào', 'No switches yet')}</b>
-            {t(
-              'Lịch sử của máy này bắt đầu từ khi cài app. Mỗi lần chuyển tay, switcher chuyển, hay app thấy tài khoản đổi sẽ hiện ở đây.',
-              'This Mac’s history starts when the app is installed. Every manual switch, switcher switch, or account change the app notices shows up here.',
+            {mac(
+              t(
+                'Lịch sử của máy này bắt đầu từ khi cài app. Mỗi lần chuyển tay, switcher chuyển, hay app thấy tài khoản đổi sẽ hiện ở đây.',
+                'This Mac’s history starts when the app is installed. Every manual switch, switcher switch, or account change the app notices shows up here.',
+              ),
             )}
           </Empty>
         ) : !days.length ? (

@@ -6,7 +6,9 @@
 /* The glass: what Tailwind's utilities cannot say well on their own. Each
    material keeps its fallbacks with it: the solid ground when macOS reduces
    transparency (data-material="solid", which useMaterial sets from macOS's
-   own flag), and when the WebView has no backdrop-filter. */
+   own flag), and when the WebView has no backdrop-filter. In Windows'
+   contrast themes (forced-colors) the edges are outlines: box-shadow is
+   dropped there. */
 
 /* The popover's glass and the column menus': tint and blur. */
 @utility material-pop {
@@ -25,6 +27,10 @@
   }
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
     background: var(--glass-solid);
+  }
+  @media (forced-colors: active) {
+    outline: 1px solid CanvasText;
+    outline-offset: -1px;
   }
 }
 
@@ -61,6 +67,10 @@
 @utility material-dlg {
   background: var(--card);
   box-shadow: var(--sh-sheet), inset 0 0 0 0.5px var(--glass-line);
+  @media (forced-colors: active) {
+    outline: 1px solid CanvasText;
+    outline-offset: -1px;
+  }
 }
 
 /* A menu: the popover's glass. */
@@ -82,6 +92,10 @@
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
     background: var(--glass-solid);
   }
+  @media (forced-colors: active) {
+    outline: 1px solid CanvasText;
+    outline-offset: -1px;
+  }
 }
 
 /* A group in the main window: a frosted panel on the window's glass. The
@@ -89,6 +103,10 @@
 @utility material-card {
   background: var(--panel);
   box-shadow: inset 0 0 0 0.5px var(--panel-line);
+  @media (forced-colors: active) {
+    outline: 1px solid CanvasText;
+    outline-offset: -1px;
+  }
 }
 /* Text on glass. tokens.css promises 4.5:1 for --ink3 and --accent-ink on
    solid surfaces; on the glass of the popover and the main window, its

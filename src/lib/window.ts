@@ -8,7 +8,7 @@
 
 import { overwriteBanner } from '@agy/agySwitch';
 import { envBanner } from './env';
-import { t } from './i18n';
+import { mac, os, t } from './i18n';
 import type { Model, Section } from './model';
 import { autoView, dayClock, pauseOf, type AutoView } from './switching';
 import { popoverView, type BannerView, type CardView, type ChipView, type NoteView, type PopoverView, type ViewOptions } from './view';
@@ -70,9 +70,11 @@ function agyBanner(g: Section): BannerView | null {
     return {
       tone: 'info',
       title: t('Chỉ thấy tài khoản đang dùng', 'Only the account in use shows'),
-      body: t(
-        'Chưa có danh sách tài khoản Antigravity trên máy này. Đăng nhập tài khoản ở đây để thấy và chuyển mọi tài khoản.',
-        'There is no Antigravity account list on this Mac yet. Sign in to the accounts here to see and switch them all.',
+      body: mac(
+        t(
+          'Chưa có danh sách tài khoản Antigravity trên máy này. Đăng nhập tài khoản ở đây để thấy và chuyển mọi tài khoản.',
+          'There is no Antigravity account list on this Mac yet. Sign in to the accounts here to see and switch them all.',
+        ),
       ),
       actions: [],
     };
@@ -101,7 +103,7 @@ function switcherCard(model: Model, auto: AutoView, now: Date): WindowView['swit
   const legacy = sw.legacy ? chip(t(sw.legacy + ' đang nạp', sw.legacy + ' is loaded'), 'warn') : chip(t('tắt', 'off'), 'ok');
   const p = pauseOf(model, now);
   const details: KeyValue[] = [
-    { key: t('LaunchAgent tự chuyển', 'Auto-switch LaunchAgent'), value: service.t, chip: service },
+    { key: os(t('LaunchAgent tự chuyển', 'Auto-switch LaunchAgent'), t('Hẹn giờ tự chuyển', 'Auto-switch timer')), value: service.t, chip: service },
     { key: t('Bộ tự chuyển cũ', 'Old auto-switcher'), value: legacy.t, chip: legacy },
     {
       key: t('Tạm dừng tự chuyển', 'Auto-switch paused'),
@@ -131,9 +133,15 @@ function claudeBanner(model: Model): BannerView | null {
   return {
     tone: 'bad',
     title: t('Tự chuyển Claude đang tắt', 'Claude auto-switch is off'),
-    body: t(
-      'LaunchAgent tự chuyển của Quota Station chưa được nạp, nên không có gì tự chuyển Claude. Số vẫn cập nhật khi app đọc.',
-      'Quota Station’s auto-switch LaunchAgent is not loaded, so nothing switches Claude. The numbers still update when the app reads them.',
+    body: os(
+      t(
+        'LaunchAgent tự chuyển của Quota Station chưa được nạp, nên không có gì tự chuyển Claude. Số vẫn cập nhật khi app đọc.',
+        'Quota Station’s auto-switch LaunchAgent is not loaded, so nothing switches Claude. The numbers still update when the app reads them.',
+      ),
+      t(
+        'Hẹn giờ tự chuyển của Quota Station đang không chạy, nên không có gì tự chuyển Claude. Số vẫn cập nhật khi app đọc.',
+        'Quota Station’s auto-switch timer is not running, so nothing switches Claude. The numbers still update when the app reads them.',
+      ),
     ),
     actions: [
       { label: t('Bật tự chuyển', 'Turn on auto-switch'), act: 'claude:rotation:on' },

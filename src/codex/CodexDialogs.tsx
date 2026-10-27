@@ -16,7 +16,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input, Textarea } from '@/components/ui/input';
 import { DiffFile, DiffLine, DiffView, GROUP_PANEL, KeyMasked } from '../components/blocks';
 import { Button, Chip, ChoiceGroup, Facts, FeedbackLine, Hint, LinkButton, Rich, Spinner } from '../components/parts';
-import { t } from '../lib/i18n';
+import { mac, t } from '../lib/i18n';
 import { accountName, accountOf, accountRows, checkText, loginFailText, refusedText } from '../lib/codexAccounts';
 import { keyRefusalText } from '../lib/codex';
 import { dayClock } from '../lib/switching';
@@ -110,7 +110,7 @@ function AddBody({ d, codex, model }: { d: Extract<CodexDialog, { kind: 'add' }>
             'Mở trang đăng nhập của ChatGPT. Đăng nhập nằm trong thư mục riêng của tài khoản này; Codex đang chạy giữ nguyên.',
             'Opens ChatGPT’s sign-in page. The sign-in goes into this account’s own folder; the Codex that runs is not touched.',
           )
-        : t('Không thấy lệnh codex trên máy này.', 'The codex command was not found on this Mac.'),
+        : mac(t('Không thấy lệnh codex trên máy này.', 'The codex command was not found on this Mac.')),
     },
     {
       v: 'custom',
@@ -131,7 +131,7 @@ function AddBody({ d, codex, model }: { d: Extract<CodexDialog, { kind: 'add' }>
   const paste = d.how === 'json' && pasted.trim() !== '';
   return (
     <Stack>
-      <Head title={t('Thêm tài khoản Codex', 'Add a Codex account')} lead={t('Chỉ lưu trên Mac này.', 'Stored on this Mac only.')} />
+      <Head title={t('Thêm tài khoản Codex', 'Add a Codex account')} lead={mac(t('Chỉ lưu trên Mac này.', 'Stored on this Mac only.'))} />
       <ChoiceGroup
         id="qs-codex-addhow"
         label={t('Cách thêm', 'How to add')}
@@ -260,7 +260,7 @@ function DoneBody({ d, codex, model, onAction, latest }: { d: Extract<CodexDialo
     <Stack>
       <Head
         title={t('Đã thêm ' + own, 'Added ' + own)}
-        lead={a.kind === 'chatgpt' ? 'ChatGPT' + (a.plan ? ' ' + a.plan : '') + t(' · đăng nhập lưu trên Mac này.', ' · sign-in stored on this Mac.') : 'Custom API · ' + (a.custom?.baseUrl ?? '')}
+        lead={a.kind === 'chatgpt' ? 'ChatGPT' + (a.plan ? ' ' + a.plan : '') + mac(t(' · đăng nhập lưu trên Mac này.', ' · sign-in stored on this Mac.')) : 'Custom API · ' + (a.custom?.baseUrl ?? '')}
       />
       <RichFacts
         items={[
@@ -302,7 +302,7 @@ function DupBody({ d, codex, model }: { d: Extract<CodexDialog, { kind: 'dup' }>
   return (
     <Stack>
       <Head title={t('Tài khoản này đã có', 'This account is already here')} lead={t('Đăng nhập vừa xong là ' + who + '. Không thêm lần nữa.', 'The sign-in you just finished is ' + who + '. It is not added twice.')} />
-      <RichFacts items={[{ k: 'ok', text: t('Đăng nhập vừa tạo đã được xoá khỏi máy, không đăng xuất; đăng nhập cũ của ' + who + ' giữ nguyên.', 'The new sign-in was deleted from this Mac, not signed out; ' + who + '’s own sign-in stays as it was.') }]} />
+      <RichFacts items={[{ k: 'ok', text: mac(t('Đăng nhập vừa tạo đã được xoá khỏi máy, không đăng xuất; đăng nhập cũ của ' + who + ' giữ nguyên.', 'The new sign-in was deleted from this Mac, not signed out; ' + who + '’s own sign-in stays as it was.')) }]} />
       <DialogButtons>
         <Button onClick={() => void codex.login(null)}>{t('Đăng nhập tài khoản khác', 'Sign in to another account')}</Button>
         <Button primary onClick={codex.close}>
@@ -522,9 +522,11 @@ function ImportBody({ d, codex, model, latest }: { d: Extract<CodexDialog, { kin
           { k: 'ok', text: t('Mỗi đăng nhập vào thư mục riêng của nó trong app, chỉ bạn đọc được, như khi đăng nhập bằng trình duyệt.', 'Each sign-in goes into its own folder in the app, readable only by you, as a browser sign-in does.') },
           {
             k: 'w',
-            text: t(
-              'Đăng nhập trong file vẫn sống ở nơi tạo ra nó (máy khác, CLIProxyAPI…). Hai nơi cùng dùng một đăng nhập thì lần làm mới token ở nơi này **đăng xuất nơi kia**. Nhập xong, thôi dùng nó ở nơi cũ.',
-              'The sign-in in the file is still live where it was made (another Mac, CLIProxyAPI…). When two places use one sign-in, a token refresh in one **signs the other out**. Once imported, stop using it there.',
+            text: mac(
+              t(
+                'Đăng nhập trong file vẫn sống ở nơi tạo ra nó (máy khác, CLIProxyAPI…). Hai nơi cùng dùng một đăng nhập thì lần làm mới token ở nơi này **đăng xuất nơi kia**. Nhập xong, thôi dùng nó ở nơi cũ.',
+                'The sign-in in the file is still live where it was made (another Mac, CLIProxyAPI…). When two places use one sign-in, a token refresh in one **signs the other out**. Once imported, stop using it there.',
+              ),
             ),
           },
           ...(refreshOnly
@@ -557,7 +559,7 @@ function ImportBody({ d, codex, model, latest }: { d: Extract<CodexDialog, { kin
           <span>
             {t('Xoá file gốc sau khi nhập', 'Delete the original files once imported')}
             <small className="block text-xs text-ink2">
-              {t('Chỉ xoá các file đã nhập. Để lại thì đăng nhập có thêm một bản đọc được trên máy này.', 'Only the files imported. Kept, the sign-in has one more readable copy on this Mac.')}
+              {mac(t('Chỉ xoá các file đã nhập. Để lại thì đăng nhập có thêm một bản đọc được trên máy này.', 'Only the files imported. Kept, the sign-in has one more readable copy on this Mac.'))}
             </small>
           </span>
         </label>
@@ -592,7 +594,7 @@ function ImportedBody({ d, codex, model }: { d: Extract<CodexDialog, { kind: 'im
             ? { k: 'w', text: t('JSON đã dán có thể còn trong clipboard. Chép một thứ khác đè lên.', 'The pasted JSON may still be on the clipboard. Copy something else over it.') }
             : d.removed
               ? { k: 'ok', text: t('Đã xoá các file gốc vừa nhập.', 'The files imported were deleted.') }
-              : { k: 'w', text: t('File gốc vẫn còn: đăng nhập có thêm một bản đọc được trên máy này. Xoá chúng khi chắc không dùng nữa.', 'The original files are still there: the sign-in has one more readable copy on this Mac. Delete them once you are sure.') },
+              : { k: 'w', text: mac(t('File gốc vẫn còn: đăng nhập có thêm một bản đọc được trên máy này. Xoá chúng khi chắc không dùng nữa.', 'The original files are still there: the sign-in has one more readable copy on this Mac. Delete them once you are sure.')) },
           { k: '', text: t('Hạn mức hiện sau lần cập nhật tới nếu đăng nhập trong file còn hạn; nếu không, ở lần đầu Codex dùng tài khoản.', 'Quota shows on the next read if the sign-in in the file is still valid; else the first time Codex uses the account.') },
           {
             k: '',
@@ -657,7 +659,7 @@ function DetailBody({ d, codex, model, now, latest }: { d: Extract<CodexDialog, 
       ) : null}
       <DialogButtons>
         <LinkButton style={{ marginRight: 'auto' }} className="text-bad-ink" onClick={() => codex.open({ kind: 'remove', id: a.id })}>
-          {t('Xoá khỏi máy này…', 'Remove from this Mac…')}
+          {mac(t('Xoá khỏi máy này…', 'Remove from this Mac…'))}
         </LinkButton>
         <Button onClick={codex.close}>{t('Thôi', 'Cancel')}</Button>
         <Button primary disabled={codex.pending} onClick={() => codex.rename(a.id, alias, latest)}>
@@ -693,7 +695,7 @@ function RemoveBody({ d, codex, model, latest }: { d: Extract<CodexDialog, { kin
   const sessions = model.codex.resume?.[a.id];
   return (
     <Stack>
-      <Head title={a.kind === 'chatgpt' ? t('Xoá ' + who + ' khỏi máy này?', 'Remove ' + who + ' from this Mac?') : t('Xoá ' + who + ' khỏi config.toml?', 'Remove ' + who + ' from config.toml?')} />
+      <Head title={a.kind === 'chatgpt' ? mac(t('Xoá ' + who + ' khỏi máy này?', 'Remove ' + who + ' from this Mac?')) : t('Xoá ' + who + ' khỏi config.toml?', 'Remove ' + who + ' from config.toml?')} />
       {a.kind === 'chatgpt' ? (
         <>
           <RichFacts
@@ -728,7 +730,7 @@ function RemoveBody({ d, codex, model, latest }: { d: Extract<CodexDialog, { kin
       <DialogButtons>
         <Button onClick={codex.close}>{t('Thôi', 'Cancel')}</Button>
         <Button danger disabled={model.codex.busy != null || codex.pending} onClick={() => codex.remove(a.id, logout, latest)}>
-          {a.kind === 'chatgpt' ? t('Xoá khỏi máy này', 'Remove from this Mac') : t('Xoá khỏi config.toml', 'Remove from config.toml')}
+          {a.kind === 'chatgpt' ? mac(t('Xoá khỏi máy này', 'Remove from this Mac')) : t('Xoá khỏi config.toml', 'Remove from config.toml')}
         </Button>
       </DialogButtons>
     </Stack>

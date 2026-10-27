@@ -90,9 +90,9 @@ jobs:
       - name: Build the app (MIT)
         run: npx tauri build --bundles app
 
-  # The start of the Windows build: the core does not compile on Windows yet,
-  # so its two steps may fail without failing the job, and the cargo check
-  # runs even after vitest failed. The macOS job stays the required check.
+  # The Windows build: vitest (the windows as Windows draws them, the
+  # *.win.test.tsx files among them) and the core's check and tests. The
+  # macOS job stays the required check.
   build-windows:
     name: Build and test (Windows x64)
     runs-on: windows-latest
@@ -113,7 +113,6 @@ jobs:
 
       - name: Vitest
         run: npm test
-        continue-on-error: true
 
       - name: cargo check (core)
         run: cargo check -p quota-station-core --target x86_64-pc-windows-msvc --locked

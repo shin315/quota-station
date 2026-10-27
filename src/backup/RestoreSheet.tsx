@@ -50,7 +50,7 @@ import {
   usable,
   type Ticks,
 } from '../lib/backup';
-import { t } from '../lib/i18n';
+import { cloudDrive, mac, t } from '../lib/i18n';
 import { AGENT_NAME, joinCommand } from '../lib/mcp';
 import type { McpDef, Model, RestoreFileItem, RestoreItem, RestorePlan } from '../lib/model';
 import { NAV_ICONS } from '../window/icons';
@@ -152,7 +152,7 @@ function Compare({ item }: { item: RestoreItem }) {
         <div key={c.agent} className="grid grid-cols-[90px_minmax(0,1fr)_minmax(0,1fr)] gap-2 text-xs [&_code]:block [&_code]:[font:11px_var(--mono)] [&_code]:text-ink [&_code]:[overflow-wrap:anywhere] [&_small]:block [&_small]:text-ink3">
           <b>{AGENT_NAME[c.agent]}</b>
           <span>
-            <small>{t('Trên máy', 'On this Mac')}</small>
+            <small>{mac(t('Trên máy', 'On this Mac'))}</small>
             <code>{defLine(c.here.def)}</code>
             {pairs(c.here.def) ? <code>{pairs(c.here.def)}</code> : null}
           </span>
@@ -173,7 +173,7 @@ function PickStep({ d, backup, model, now }: { d: RestoreDialog; backup: Backup;
     <>
       <DialogTitle>{t('Khôi phục', 'Restore')}</DialogTitle>
       <Steps at={0} />
-      <DialogLead>{t('Các gói trong iCloud Drive.', 'Packs in iCloud Drive.')}</DialogLead>
+      <DialogLead>{t('Các gói trong ' + cloudDrive() + '.', 'Packs in ' + cloudDrive() + '.')}</DialogLead>
       <RadioGroup
         className="mb-2 grid-cols-[minmax(0,1fr)]"
         aria-label={t('Gói để khôi phục', 'Pack to restore')}
@@ -235,7 +235,7 @@ function CompareButton({ k, d, backup, label }: { k: string; d: RestoreDialog; b
 /** "So sánh" of an instruction file: this Mac's lines against the pack's, keys masked. */
 function FileCompare({ f }: { f: RestoreFileItem }) {
   return (
-    <DiffView flat head={<span>{t('Trên máy → trong gói', 'On this Mac → in the pack')}</span>} right={t(f.changed + ' dòng khác', plural(f.changed, 'line differs', 'lines differ'))}>
+    <DiffView flat head={<span>{mac(t('Trên máy → trong gói', 'On this Mac → in the pack'))}</span>} right={t(f.changed + ' dòng khác', plural(f.changed, 'line differs', 'lines differ'))}>
       {f.diff.map((l, i) => (
         <DiffLine key={i} op={l.op}>
           {l.op === 'gap' ? '…' : l.text || ' '}
@@ -271,7 +271,7 @@ function MoreGroups({ d, backup, plan }: { d: RestoreDialog; backup: Backup; pla
             {sk.github.length ? <Tick k={SKILLS_GITHUB} d={d} backup={backup} title={SKILL_TITLE.github(sk.github.length)} line={skillLine('github', sk.github)} /> : null}
             {sk.hand.length ? <Tick k={SKILLS_HAND} d={d} backup={backup} title={SKILL_TITLE.hand(sk.hand.length)} line={skillLine('hand', sk.hand)} /> : null}
             {!sk.github.length && !sk.hand.length ? <Note>{t('Không có skill nào để khôi phục.', 'No skills to restore.')}</Note> : null}
-            {skills.same.length ? <Note>{t('Giống trên máy: ' + skills.same.join(', ') + '.', 'Same as on this Mac: ' + skills.same.join(', ') + '.')}</Note> : null}
+            {skills.same.length ? <Note>{mac(t('Giống trên máy: ' + skills.same.join(', ') + '.', 'Same as on this Mac: ' + skills.same.join(', ') + '.'))}</Note> : null}
           </div>
         </>
       ) : null}
@@ -287,7 +287,7 @@ function MoreGroups({ d, backup, plan }: { d: RestoreDialog; backup: Backup; pla
               <Tick key={pluginKey(p)} k={pluginKey(p)} d={d} backup={backup} title={'Plugin ' + p.id.split('@')[0]} line={t('Codex · tắt trong gói. Cài lại thì sẽ bật.', 'Codex · off in the pack. Reinstalling turns it on.')} />
             ))}
             {!pl.main.length && !pl.off.length ? <Note>{t('Không có plugin nào để cài.', 'No plugins to install.')}</Note> : null}
-            {plugins.same.length ? <Note>{t('Giống trên máy: ' + plugins.same.length + ' plugin.', 'Same as on this Mac: ' + plural(plugins.same.length, 'plugin', 'plugins') + '.')}</Note> : null}
+            {plugins.same.length ? <Note>{mac(t('Giống trên máy: ' + plugins.same.length + ' plugin.', 'Same as on this Mac: ' + plural(plugins.same.length, 'plugin', 'plugins') + '.'))}</Note> : null}
           </div>
         </>
       ) : null}
@@ -308,7 +308,7 @@ function MoreGroups({ d, backup, plan }: { d: RestoreDialog; backup: Backup; pla
               );
             })}
             {!files.items.length ? <Note>{t('Không có file nào để ghi.', 'No files to write.')}</Note> : null}
-            {files.same.length ? <Note>{t('Giống trên máy: ' + files.same.length + ' file.', 'Same as on this Mac: ' + plural(files.same.length, 'file', 'files') + '.')}</Note> : null}
+            {files.same.length ? <Note>{mac(t('Giống trên máy: ' + files.same.length + ' file.', 'Same as on this Mac: ' + plural(files.same.length, 'file', 'files') + '.'))}</Note> : null}
           </div>
         </>
       ) : null}
@@ -352,8 +352,8 @@ function PreviewStep({ d, backup, now }: { d: RestoreDialog; backup: Backup; now
             </div>
           );
         })}
-        {!plan.items.length ? <Note>{t('Máy này đã có đủ các MCP trong gói.', 'This Mac already has every MCP in the pack.')}</Note> : null}
-        {plan.same.length ? <Note>{t('Giống trên máy: ' + plan.same.join(', ') + '.', 'Same as on this Mac: ' + plan.same.join(', ') + '.')}</Note> : null}
+        {!plan.items.length ? <Note>{mac(t('Máy này đã có đủ các MCP trong gói.', 'This Mac already has every MCP in the pack.'))}</Note> : null}
+        {plan.same.length ? <Note>{mac(t('Giống trên máy: ' + plan.same.join(', ') + '.', 'Same as on this Mac: ' + plan.same.join(', ') + '.'))}</Note> : null}
       </div>
       <MoreGroups d={d} backup={backup} plan={plan} />
       {skipped.length ? <Facts items={skipped.map((line) => ['w', line])} /> : null}
@@ -394,9 +394,11 @@ function KeysStep({ d, backup }: { d: RestoreDialog; backup: Backup }) {
       <DialogTitle>{t('Dán khoá', 'Paste keys')}</DialogTitle>
       <Steps at={2} />
       <DialogLead>
-        {t(
-          keys.length + ' khoá, lấy từ nơi bạn cất chúng. App giữ trên máy này và không hiện lại.',
-          plural(keys.length, 'key', 'keys') + ', from wherever you keep them. The app keeps them on this Mac and never shows them again.',
+        {mac(
+          t(
+            keys.length + ' khoá, lấy từ nơi bạn cất chúng. App giữ trên máy này và không hiện lại.',
+            plural(keys.length, 'key', 'keys') + ', from wherever you keep them. The app keeps them on this Mac and never shows them again.',
+          ),
         )}
       </DialogLead>
       {keys.map((k) => {
@@ -576,8 +578,8 @@ function DelKeyBody({ d, backup }: { d: Extract<BackupDialog, { kind: 'delKey' }
       <DialogTitle>{t('Xoá khoá ' + d.key.mcp + '?', 'Delete the key for ' + d.key.mcp + '?')}</DialogTitle>
       <Facts
         items={[
-          ['', t('Khoá chỉ bị xoá khỏi máy này. Agent đang dùng ' + d.key.mcp + ' vẫn giữ bản của nó.', 'The key is deleted from this Mac only. Agents using ' + d.key.mcp + ' keep their own copy.')],
-          ['', t('Lần khôi phục sau trên máy này, app sẽ hỏi lại khoá này.', 'On the next restore on this Mac, the app asks for this key again.')],
+          ['', mac(t('Khoá chỉ bị xoá khỏi máy này. Agent đang dùng ' + d.key.mcp + ' vẫn giữ bản của nó.', 'The key is deleted from this Mac only. Agents using ' + d.key.mcp + ' keep their own copy.'))],
+          ['', mac(t('Lần khôi phục sau trên máy này, app sẽ hỏi lại khoá này.', 'On the next restore on this Mac, the app asks for this key again.'))],
         ]}
       />
       <DialogButtons>

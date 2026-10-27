@@ -8,7 +8,7 @@
 // uses them too.
 
 import { clock } from './format';
-import { t } from './i18n';
+import { mac, secretStore, t } from './i18n';
 import type { Agent, McpCell, McpChange, McpDef, McpFailure, McpLock, McpOutcome, McpPreview, McpRefusal, McpRow, McpTable } from './model';
 import type { ChipView, FeedbackView } from './view';
 
@@ -118,7 +118,7 @@ export function columnOpen(table: McpTable, agent: Agent): boolean {
 
 /** Under the name: runs on this Mac, and what; or over the network, and where. */
 export function whereLine(row: { kind: McpRow['kind']; program: string | null; host: string | null }): string {
-  if (row.kind === 'stdio') return t('trên máy · ', 'on this Mac · ') + (row.program ?? t('lệnh', 'command'));
+  if (row.kind === 'stdio') return mac(t('trên máy · ', 'on this Mac · ')) + (row.program ?? t('lệnh', 'command'));
   if (row.kind === 'http' || row.kind === 'sse') return t('qua mạng · ', 'over the network · ') + (row.host ?? t('địa chỉ', 'address')) + (row.kind === 'sse' ? ' · SSE' : '');
   return t('kiểu app chưa đọc được', 'a kind the app cannot read yet');
 }
@@ -130,10 +130,10 @@ export function rowChips(row: McpRow): ChipView[] {
     out.push({
       t: t('thiếu khoá', 'key missing'),
       k: 'bad',
-      title: t('Không thấy khoá trong file của agent nào hay trong Keychain. Dán khoá để bật.', 'No key in any agent’s file or in the Keychain. Paste the key to turn it on.'),
+      title: t('Không thấy khoá trong file của agent nào hay trong ' + secretStore() + '. Dán khoá để bật.', 'No key in any agent’s file or in the ' + secretStore() + '. Paste the key to turn it on.'),
     });
   const m = row.missingCommand;
-  if (m?.path) out.push({ t: t('lệnh chưa cài', 'command not installed'), k: 'bad', title: t(m.command + ' không có trên máy này.', m.command + ' is not on this Mac.') });
+  if (m?.path) out.push({ t: t('lệnh chưa cài', 'command not installed'), k: 'bad', title: mac(t(m.command + ' không có trên máy này.', m.command + ' is not on this Mac.')) });
   else if (m)
     out.push({
       t: t('không thấy lệnh', 'command not found'),
@@ -303,7 +303,7 @@ export function failureText(f: McpFailure, agent: Agent): { title: string; body:
       return plain(t('Lệnh claude chưa chạy xong.', 'The claude command did not finish.'), f.detail, true);
     case 'keychain':
       return plain(
-        t('Chưa lưu được khoá vào Keychain.', 'Could not save the key to the Keychain.'),
+        t('Chưa lưu được khoá vào ' + secretStore() + '.', 'Could not save the key to the ' + secretStore() + '.'),
         t(f.detail + '. Chưa đổi gì ở ' + AGENT_NAME[agent] + '.', f.detail + '. Nothing changed in ' + AGENT_NAME[agent] + '.'),
         false,
       );

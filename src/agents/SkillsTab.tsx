@@ -15,7 +15,7 @@ import { Card as Panel, CardText, CardTitle } from '@/components/ui/card';
 import { Segment, Segmented } from '@/components/ui/segmented';
 import { CARD_END, COUNT, Empty, EmptyIcon, InfoLine, TabHead, TabSub, TabTitle } from '../components/page';
 import { Banner, Button, Chip, Dot, Feedback, LinkButton, More } from '../components/parts';
-import { t } from '../lib/i18n';
+import { mac, t } from '../lib/i18n';
 import { AGENT_NAME, columnMenu, pendingList, shown } from '../lib/mcp';
 import type { Agent, Model, SkillRow, SkillTable } from '../lib/model';
 import { checkedLine, FILTERS, filterCounts, filterWord, filterRows, pendingSkillText, skillBanners, skillCellTitle, skillChips, sourceLine, updateGroups, type SkillFilter } from '../lib/skills';
@@ -30,7 +30,7 @@ function columns(table: SkillTable): MatrixColumn[] {
     agent: c.agent,
     open: c.writable && table.rows.some((r) => !r.cells[c.agent].lock),
     note: !c.present
-      ? t('chưa cài trên máy này', 'not installed on this Mac')
+      ? mac(t('chưa cài trên máy này', 'not installed on this Mac'))
       : c.state === 'invalid' || c.state === 'unreadable'
         ? t('file lỗi, chỉ xem', 'file has errors, view only')
         : undefined,
@@ -39,7 +39,7 @@ function columns(table: SkillTable): MatrixColumn[] {
 
 function cellOf(table: SkillTable, skills: Skills, row: SkillRow, agent: Agent): MatrixCell {
   const col = table.columns.find((c) => c.agent === agent);
-  if (col && !col.present) return { checked: null, mark: '—', pending: false, disabled: true, title: t(AGENT_NAME[agent] + ' chưa cài trên máy này', AGENT_NAME[agent] + ' is not installed on this Mac') };
+  if (col && !col.present) return { checked: null, mark: '—', pending: false, disabled: true, title: mac(t(AGENT_NAME[agent] + ' chưa cài trên máy này', AGENT_NAME[agent] + ' is not installed on this Mac')) };
   if (col?.state === 'invalid' || col?.state === 'unreadable') return { checked: null, mark: '?', pending: false, disabled: true, title: t('Không đọc được ' + col.file, 'Could not read ' + col.file) };
   const cell = row.cells[agent];
   if (cell.lock === 'broken') return { checked: null, mark: '!', pending: false, disabled: true, title: t('Liên kết hỏng', 'Broken link') };
@@ -118,9 +118,11 @@ function UpdateCard({ rows, skills, progress }: { rows: SkillRow[]; skills: Skil
                 )}
               </p>
               <p>
-                {t(
-                  'Skill bạn đã sửa trên máy để chưa tick, để giữ phần bạn sửa. Tick thì bản mới thay phần sửa; app lưu lại bản đang có để lấy lại.',
-                  'A skill you edited on this Mac starts unticked, to keep your edits. Ticked, the new version replaces them; the app keeps a copy of the current one to get back.',
+                {mac(
+                  t(
+                    'Skill bạn đã sửa trên máy để chưa tick, để giữ phần bạn sửa. Tick thì bản mới thay phần sửa; app lưu lại bản đang có để lấy lại.',
+                    'A skill you edited on this Mac starts unticked, to keep your edits. Ticked, the new version replaces them; the app keeps a copy of the current one to get back.',
+                  ),
                 )}
               </p>
               <p>{t('Agent nào đang bật skill vẫn bật. Không chạy script nào của skill.', 'Agents that have a skill on keep it on. None of the skills’ scripts run.')}</p>
@@ -193,7 +195,7 @@ export function SkillsTab({ model, fresh, feedback, skills, onAction }: SkillsTa
         <Panel>
           <Empty>
             <b>{t('Đang đọc danh sách skill…', 'Reading the skill list…')}</b>
-            {t('Claude Code, Codex và Antigravity, trên máy này.', 'Claude Code, Codex and Antigravity, on this Mac.')}
+            {mac(t('Claude Code, Codex và Antigravity, trên máy này.', 'Claude Code, Codex and Antigravity, on this Mac.'))}
           </Empty>
         </Panel>
       </>

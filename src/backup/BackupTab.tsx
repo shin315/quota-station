@@ -15,7 +15,7 @@ import { COUNT, Empty, EmptyIcon, GRID3, GROUP_HEAD, TabHead, TabSub, TabTitle }
 import { Banner, Button, Chip, Dot, Feedback, LinkButton, Toggle } from '../components/parts';
 import { clock } from '../lib/format';
 import { keysLine, macOf, packClock, packDay, packLine, packNote, packWhen, packWhenLower, autoErrorText, usable } from '../lib/backup';
-import { t } from '../lib/i18n';
+import { cloudDrive, fileManager, mac, t } from '../lib/i18n';
 import type { Model, PackInfo } from '../lib/model';
 import type { Action, BannerView, FeedbackView, PopoverView } from '../lib/view';
 import { ARCHIVE_BIG } from '../window/icons';
@@ -27,8 +27,8 @@ function banners(model: Model, now: Date): BannerView[] {
   if (!v.icloud)
     out.push({
       tone: 'bad',
-      title: t('iCloud Drive đang tắt trên máy này', 'iCloud Drive is off on this Mac'),
-      body: t('Bật iCloud Drive để sao lưu, và để lấy gói của Mac khác.', 'Turn on iCloud Drive to back up, and to get packs from other Macs.'),
+      title: mac(t(cloudDrive() + ' đang tắt trên máy này', cloudDrive() + ' is off on this Mac')),
+      body: mac(t('Bật ' + cloudDrive() + ' để sao lưu, và để lấy gói của Mac khác.', 'Turn on ' + cloudDrive() + ' to back up, and to get packs from other Macs.')),
       actions: [{ label: t('Kiểm lại', 'Check again'), act: 'backup:reread' }],
     });
   const cloud = (v.packs ?? []).filter((p) => p.state === 'cloud');
@@ -39,9 +39,9 @@ function banners(model: Model, now: Date): BannerView[] {
         cloud.length === 1
           ? t('Gói ' + packWhenLower(cloud[0].at, now) + ' chưa tải về máy', 'Pack from ' + packWhenLower(cloud[0].at, now) + ' not downloaded yet')
           : t(cloud.length + ' gói chưa tải về máy', cloud.length + ' packs not downloaded yet'),
-      body: t('iCloud Drive mới có tên file. Mở thư mục trong Finder để tải, hoặc chờ.', 'iCloud Drive only has the file name so far. Open the folder in Finder to download it, or wait.'),
+      body: t(cloudDrive() + ' mới có tên file. Mở thư mục trong ' + fileManager() + ' để tải, hoặc chờ.', cloudDrive() + ' only has the file name so far. Open the folder in ' + fileManager() + ' to download it, or wait.'),
       actions: [
-        { label: t('Mở trong Finder', 'Open in Finder'), act: 'backup:open' },
+        { label: t('Mở trong ' + fileManager(), 'Open in ' + fileManager()), act: 'backup:open' },
         { label: t('Kiểm lại', 'Check again'), act: 'backup:reread' },
       ],
     });
@@ -103,7 +103,7 @@ function PackTable({ packs, model, now, backup }: { packs: PackInfo[]; model: Mo
       <div className={PACKS}>
         <div className={PACK_TH} aria-hidden="true">
           <span>{t('Giờ', 'Time')}</span>
-          <span>Mac</span>
+          <span>{mac('Mac')}</span>
           <span>{t('Nội dung', 'Contents')}</span>
           <span>{t('Trạng thái', 'Status')}</span>
           <span />
@@ -141,7 +141,7 @@ export function BackupTab({ model, feedback, now, backup, onAction }: BackupTabP
       <TabTitle>{t('Sao lưu', 'Backup')}</TabTitle>
       <TabSub>
         <Dot tone={v.icloud ? 'ok' : 'stale'} />
-        {model.machine} · iCloud Drive
+        {model.machine} · {cloudDrive()}
       </TabSub>
       <Button primary disabled={busy || !v.icloud} onClick={backup.backupNow}>
         {v.busy === 'packing' ? t('Đang sao lưu…', 'Backing up…') : t('Sao lưu bây giờ', 'Back up now')}
@@ -158,7 +158,7 @@ export function BackupTab({ model, feedback, now, backup, onAction }: BackupTabP
         <Panel>
           <Empty>
             <b>{t('Đang tìm các gói sao lưu…', 'Looking for backup packs…')}</b>
-            {t('Trong iCloud Drive.', 'In iCloud Drive.')}
+            {t('Trong ' + cloudDrive() + '.', 'In ' + cloudDrive() + '.')}
           </Empty>
         </Panel>
       </>
@@ -179,7 +179,7 @@ export function BackupTab({ model, feedback, now, backup, onAction }: BackupTabP
             <EmptyIcon>{ARCHIVE_BIG}</EmptyIcon>
             <b>{t('Chưa có gói sao lưu nào', 'No backup packs yet')}</b>
             <CardText className="mt-2 mb-0">
-              {t('Gói gồm các MCP của bạn, không có khoá. Lưu trong iCloud Drive để máy khác lấy được.', 'A pack holds your MCP servers, without keys. It is kept in iCloud Drive so other Macs can get it.')}
+              {mac(t('Gói gồm các MCP của bạn, không có khoá. Lưu trong ' + cloudDrive() + ' để máy khác lấy được.', 'A pack holds your MCP servers, without keys. It is kept in ' + cloudDrive() + ' so other Macs can get it.'))}
             </CardText>
             <div className="mt-2.5 flex flex-wrap justify-center gap-2">
               <Button primary disabled={busy || !v.icloud} onClick={backup.backupNow}>
@@ -206,7 +206,7 @@ export function BackupTab({ model, feedback, now, backup, onAction }: BackupTabP
                   </div>
                 </>
               ) : (
-                <CardText className="m-0">{t('Chưa có gói nào mở được trên máy này.', 'No pack can be opened on this Mac yet.')}</CardText>
+                <CardText className="m-0">{mac(t('Chưa có gói nào mở được trên máy này.', 'No pack can be opened on this Mac yet.'))}</CardText>
               )}
             </Panel>
             <Panel>
@@ -219,7 +219,7 @@ export function BackupTab({ model, feedback, now, backup, onAction }: BackupTabP
                 <span>{t('Mỗi ngày, nếu agent có gì đổi', 'Daily, if an agent changed')}</span>
                 <Toggle on={v.auto.daily} label={t('Mỗi ngày, nếu agent có gì đổi', 'Daily, if an agent changed')} onClick={() => backup.setAuto(v.auto.afterChange, !v.auto.daily)} />
               </div>
-              <CardText className="mt-auto mb-0 pt-2">{t('Giữ 10 gói gần nhất của mỗi Mac.', 'Keeps the 10 latest packs per Mac.')}</CardText>
+              <CardText className="mt-auto mb-0 pt-2">{mac(t('Giữ 10 gói gần nhất của mỗi Mac.', 'Keeps the 10 latest packs per Mac.'))}</CardText>
             </Panel>
             <Panel>
               <CardTitle>
@@ -241,8 +241,8 @@ export function BackupTab({ model, feedback, now, backup, onAction }: BackupTabP
                   </div>
                 </div>
               ))}
-              {!keys.length ? <CardText className="mt-0 mb-0">{t('Chưa có khoá nào app giữ trên máy này.', 'The app keeps no keys on this Mac yet.')}</CardText> : null}
-              <CardText className="mt-auto mb-0 pt-2">{t('Khoá chỉ nằm trên máy này, không vào gói.', 'Keys stay on this Mac and never go into a pack.')}</CardText>
+              {!keys.length ? <CardText className="mt-0 mb-0">{mac(t('Chưa có khoá nào app giữ trên máy này.', 'The app keeps no keys on this Mac yet.'))}</CardText> : null}
+              <CardText className="mt-auto mb-0 pt-2">{mac(t('Khoá chỉ nằm trên máy này, không vào gói.', 'Keys stay on this Mac and never go into a pack.'))}</CardText>
             </Panel>
           </div>
           <Panel>

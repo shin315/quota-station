@@ -8,7 +8,7 @@
 // like `view.ts`. Copy follows the prototype's `tabStats`.
 
 import { clock, pad } from './format';
-import { lang, t } from './i18n';
+import { lang, mac, t } from './i18n';
 import type { Agent, Model, StatsPeriod, StatsPoint, StatsReport, StatsView } from './model';
 import { namesOf } from './switching';
 
@@ -25,7 +25,7 @@ export const AGENT_NAME: Record<Agent, string> = { claude: 'Claude Code', codex:
 
 /** Antigravity keeps no token log on the Mac that the app can read. */
 export function agyNone(): string {
-  return t('chưa có log token trên máy', 'no token log on this Mac');
+  return mac(t('chưa có log token trên máy', 'no token log on this Mac'));
 }
 
 /** The unit numbers are shown in: `long` after a big number, `short` on an axis. */

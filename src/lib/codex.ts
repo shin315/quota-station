@@ -11,7 +11,7 @@
 import { cellOf, emailNames, type CellView } from './accounts';
 import { accountRows, type CodexAccountRowView } from './codexAccounts';
 import { age, clock, secondsSince } from './format';
-import { t } from './i18n';
+import { mac, os, quitKey, t, terminal, toolStore } from './i18n';
 import type { CodexAccountRefusal, CodexKeyOutcome, CodexKeyPreview, CodexKeyRefusal, CodexOutcome, CodexRefusal, CodexRestart, CodexTarget, CodexView, Model } from './model';
 import type { FactView } from './switching';
 import type { Action, BannerView, ChipView, FeedbackView, NoteView } from './view';
@@ -242,7 +242,7 @@ export function chatGptRows(model: Model, now: Date): ChatGptRowView[] {
     const off = active ? '' : v.backRefusal ? refusalText(v, v.backRefusal) : v.busy ? t('Codex đang chuyển', 'Codex is switching') : '';
     const email = a?.email ?? '';
     const name = (email && names.get(email)) || 'ChatGPT';
-    const sub = v.login === 'keychain' ? t('đăng nhập trong Keychain', 'sign-in in the Keychain') : hasLogin(v) ? t('đăng nhập còn trong máy', 'sign-in kept on this Mac') : '';
+    const sub = v.login === 'keychain' ? os(t('đăng nhập trong Keychain', 'sign-in in the Keychain'), t('đăng nhập trong ' + toolStore(), 'sign-in in ' + toolStore())) : hasLogin(v) ? mac(t('đăng nhập còn trong máy', 'sign-in kept on this Mac')) : '';
     return {
       key: 'x' + (a?.number ?? 0) + ':' + i,
       name,
@@ -433,9 +433,11 @@ export function codexSheet(model: Model, target: CodexTarget): CodexSheetView {
   if (cc)
     facts.push({
       k: 'w',
-      text: t(
-        '**CC Switch vẫn đang quản lý Codex** trên máy này. Lần chuyển sau của CC Switch sẽ ghi đè lựa chọn nhà cung cấp này. Chỉ chuyển Codex ở một nơi.',
-        '**CC Switch still manages Codex** on this Mac. Its next switch will overwrite this provider choice. Switch Codex in one place only.',
+      text: mac(
+        t(
+          '**CC Switch vẫn đang quản lý Codex** trên máy này. Lần chuyển sau của CC Switch sẽ ghi đè lựa chọn nhà cung cấp này. Chỉ chuyển Codex ở một nơi.',
+          '**CC Switch still manages Codex** on this Mac. Its next switch will overwrite this provider choice. Switch Codex in one place only.',
+        ),
       ),
     });
   const isDown = down(v);
@@ -504,8 +506,8 @@ export function codexSheet(model: Model, target: CodexTarget): CodexSheetView {
   facts.push({
     k: 'w',
     text: t(
-      'Codex phải khởi động lại: thoát hẳn Codex App (⌘Q) rồi mở lại; ' + s.vi + ' trong Terminal cần mở lại.',
-      'Codex has to restart: quit Codex App (⌘Q) and open it again; ' + s.en + ' in Terminal ' + (sessions === 1 ? 'needs' : 'need') + ' reopening.',
+      'Codex phải khởi động lại: thoát hẳn Codex App (' + quitKey() + ') rồi mở lại; ' + s.vi + ' trong ' + terminal() + ' cần mở lại.',
+      'Codex has to restart: quit Codex App (' + quitKey() + ') and open it again; ' + s.en + ' in ' + terminal() + ' ' + (sessions === 1 ? 'needs' : 'need') + ' reopening.',
     ),
   });
   // 4. Finish what runs.
@@ -552,8 +554,8 @@ export function daemonFacts(): FactView[] {
     {
       k: 'w',
       text: t(
-        'Mọi phiên codex trong Terminal dùng chung tiến trình nền này: **việc đang chạy sẽ bị ngắt**.',
-        'Every codex session in Terminal shares this background process: **running work will stop**.',
+        'Mọi phiên codex trong ' + terminal() + ' dùng chung tiến trình nền này: **việc đang chạy sẽ bị ngắt**.',
+        'Every codex session in ' + terminal() + ' shares this background process: **running work will stop**.',
       ),
     },
     {
@@ -590,7 +592,7 @@ export function externalSheet(model: Model): ExternalSheetView | null {
           : shortName(v, e.now) + ' (model_provider = "' + e.now + '")',
       mono: false,
     },
-    { key: t('Đăng nhập ChatGPT', 'ChatGPT sign-in'), value: hasLogin(v) ? t('còn trong máy', 'still on this Mac') : t('chưa có', 'none') },
+    { key: t('Đăng nhập ChatGPT', 'ChatGPT sign-in'), value: hasLogin(v) ? mac(t('còn trong máy', 'still on this Mac')) : t('chưa có', 'none') },
     {
       key: t('Danh sách MCP', 'MCP list'),
       value: t(
@@ -624,10 +626,10 @@ const NOTHING_EN = ' Nothing changed.';
 function restartLine(v: CodexView, name: string): string {
   const n = v.procs?.sessions;
   return t(
-    'Thoát hẳn Codex App (⌘Q) rồi mở lại; ' + (n == null ? 'các phiên' : n + ' phiên') + ' codex trong Terminal cần mở lại để dùng ' + name + '.',
-    'Quit Codex App (⌘Q) and open it again; ' +
+    'Thoát hẳn Codex App (' + quitKey() + ') rồi mở lại; ' + (n == null ? 'các phiên' : n + ' phiên') + ' codex trong ' + terminal() + ' cần mở lại để dùng ' + name + '.',
+    'Quit Codex App (' + quitKey() + ') and open it again; ' +
       (n == null ? 'codex sessions' : n + (n === 1 ? ' codex session' : ' codex sessions')) +
-      ' in Terminal ' + (n === 1 ? 'needs' : 'need') + ' reopening to use ' + name + '.',
+      ' in ' + terminal() + ' ' + (n === 1 ? 'needs' : 'need') + ' reopening to use ' + name + '.',
   );
 }
 
@@ -720,15 +722,21 @@ function accountRefusalText(v: CodexView, r: CodexAccountRefusal): string {
     case 'unknown':
       return t('Tài khoản này không còn trong danh sách.', 'This account is no longer in the list.');
     case 'noLogin':
-      return t('Đăng nhập của tài khoản này không còn trên máy: đăng nhập lại trước.', 'This account’s sign-in is gone from this Mac: sign it in again first.');
+      return mac(t('Đăng nhập của tài khoản này không còn trên máy: đăng nhập lại trước.', 'This account’s sign-in is gone from this Mac: sign it in again first.'));
     case 'inUse':
       return t('Tài khoản này đang dùng.', 'This account is in use.');
     case 'conflict':
       return t('Đã có một auth.json ở chỗ đăng nhập sẽ dời tới (có thể là khoá API). App không ghi đè.', 'There is already an auth.json where the sign-in would go (maybe an API key). The app does not overwrite it.');
     case 'keychain':
-      return t(
-        'Codex giữ đăng nhập trong Keychain (cli_auth_credentials_store trong ' + v.home + '/config.toml), nên không có file nào để dời.',
-        'Codex keeps its sign-in in the Keychain (cli_auth_credentials_store in ' + v.home + '/config.toml), so there is no file to move.',
+      return os(
+        t(
+          'Codex giữ đăng nhập trong Keychain (cli_auth_credentials_store trong ' + v.home + '/config.toml), nên không có file nào để dời.',
+          'Codex keeps its sign-in in the Keychain (cli_auth_credentials_store in ' + v.home + '/config.toml), so there is no file to move.',
+        ),
+        t(
+          'Codex giữ đăng nhập trong ' + toolStore() + ' (cli_auth_credentials_store trong ' + v.home + '/config.toml), nên không có file nào để dời.',
+          'Codex keeps its sign-in in ' + toolStore() + ' (cli_auth_credentials_store in ' + v.home + '/config.toml), so there is no file to move.',
+        ),
       );
     case 'name':
       return t('Tên gọi quá dài.', 'The nickname is too long.');
@@ -762,7 +770,7 @@ export function codexRestartFeedback(r: CodexRestart | 'busy' | 'error', model: 
         : r === 'error'
           ? t('Không gọi được lệnh.', 'Could not run the command.')
           : r.kind === 'noCodex'
-            ? t('Không tìm thấy lệnh codex trên máy này.', 'The codex command was not found on this Mac.')
+            ? mac(t('Không tìm thấy lệnh codex trên máy này.', 'The codex command was not found on this Mac.'))
             : t('codex app-server daemon restart báo lỗi (' + r.detail + ').', 'codex app-server daemon restart failed (' + r.detail + ').');
     return {
       tone: 'warn',
@@ -770,7 +778,7 @@ export function codexRestartFeedback(r: CodexRestart | 'busy' | 'error', model: 
         (afterSwitch ? 'Đã chuyển Codex sang ' + name + ', ' : '') + 'chưa khởi động lại được tiến trình nền',
         afterSwitch ? 'Switched Codex to ' + name + ', but could not restart the background process' : 'Could not restart the background process',
       ),
-      body: why + t(' Mở lại codex trong Terminal; Codex App vẫn phải thoát hẳn (⌘Q) rồi mở lại.', ' Reopen codex in Terminal; Codex App still has to quit (⌘Q) and open again.'),
+      body: why + t(' Mở lại codex trong ' + terminal() + '; Codex App vẫn phải thoát hẳn (' + quitKey() + ') rồi mở lại.', ' Reopen codex in ' + terminal() + '; Codex App still has to quit (' + quitKey() + ') and open again.'),
       actions: [close()],
     };
   }
@@ -788,15 +796,15 @@ export function codexRestartFeedback(r: CodexRestart | 'busy' | 'error', model: 
         tone: '',
         title: t('Đã chuyển Codex sang ' + name + ' và khởi động lại tiến trình nền', 'Switched Codex to ' + name + ' and restarted the background process'),
         body: t(
-          'Mở lại codex trong Terminal để dùng ' + name + '. Codex App vẫn phải thoát hẳn (⌘Q) rồi mở lại.',
-          'Reopen codex in Terminal to use ' + name + '. Codex App still has to quit (⌘Q) and open again.',
+          'Mở lại codex trong ' + terminal() + ' để dùng ' + name + '. Codex App vẫn phải thoát hẳn (' + quitKey() + ') rồi mở lại.',
+          'Reopen codex in ' + terminal() + ' to use ' + name + '. Codex App still has to quit (' + quitKey() + ') and open again.',
         ),
         actions: [{ label: t('Đã hiểu', 'Got it'), act: 'closeFeedback' }],
       }
     : {
         tone: '',
         title: t('Tiến trình nền Codex đã khởi động lại', 'The Codex background process restarted'),
-        body: t('Mở lại codex trong Terminal để dùng ' + name + '.', 'Reopen codex in Terminal to use ' + name + '.'),
+        body: t('Mở lại codex trong ' + terminal() + ' để dùng ' + name + '.', 'Reopen codex in ' + terminal() + ' to use ' + name + '.'),
       };
 }
 
@@ -866,8 +874,8 @@ export function pluginsSheet(model: Model, on: boolean): PluginsSheetView {
       {
         k: 'w',
         text: t(
-          'Thoát hẳn Codex App (⌘Q) rồi mở lại; ' + s.vi + ' trong Terminal cần mở lại.',
-          'Quit Codex App (⌘Q) and open it again; ' + s.en + ' in Terminal ' + (sessions === 1 ? 'needs' : 'need') + ' reopening.',
+          'Thoát hẳn Codex App (' + quitKey() + ') rồi mở lại; ' + s.vi + ' trong ' + terminal() + ' cần mở lại.',
+          'Quit Codex App (' + quitKey() + ') and open it again; ' + s.en + ' in ' + terminal() + ' ' + (sessions === 1 ? 'needs' : 'need') + ' reopening.',
         ),
       },
     ],
@@ -962,8 +970,8 @@ export function keyFacts(v: CodexView, p: CodexKeyPreview): FactView[] {
     facts.push({
       k: 'w',
       text: t(
-        'Codex đang dùng ' + name + ': thoát hẳn Codex App (⌘Q) rồi mở lại để dùng khoá mới.',
-        'Codex is using ' + name + ': quit Codex App (⌘Q) and open it again to use the new key.',
+        'Codex đang dùng ' + name + ': thoát hẳn Codex App (' + quitKey() + ') rồi mở lại để dùng khoá mới.',
+        'Codex is using ' + name + ': quit Codex App (' + quitKey() + ') and open it again to use the new key.',
       ),
     });
   return facts;

@@ -8,7 +8,7 @@
 
 import { agyCells, agyGroups, agyNames, cellOf, claudeAliases, claudeCells, claudeNames, isGemini, tightest, WARN_USED, type AccountName, type CellView, type UsedTone } from './accounts';
 import { age, clock, secondsSince } from './format';
-import { t } from './i18n';
+import { mac, onWindows, t } from './i18n';
 import type { Account, AgyLogin, LineKind, MenubarWindow, Model, Section } from './model';
 import { codexBanner, currentId, shortName } from './codex';
 import { switcherBanner } from './switching';
@@ -492,7 +492,8 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
   const g = s.agy;
   const names = claudeNames(c.accounts, c.personalHours, model.advanced.on, claudeAliases(model));
   const nameOf = (n: number) => names.get(n)?.name ?? t('Tài khoản ', 'Account ') + n;
-  const keychainRequired = s.keychain === 'required';
+  // Windows asks nothing before the app reads Claude Code's sign-in: no banner, no "Cấp quyền".
+  const keychainRequired = s.keychain === 'required' && !onWindows();
   const ctx = (section: Section): CardContext => ({
     now,
     personalHours: section.personalHours,
@@ -596,13 +597,15 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
   let claudeNote: NoteView | null = null;
   if (c.status === 'single' && !c.accounts.length && c.reason && !keychainRequired)
     claudeNote = { tone: 'warn', text: t('Không đọc được số của Claude Code (' + c.reason + ').', 'Cannot read Claude Code’s numbers (' + c.reason + ').') };
-  else if (c.status === 'notSetUp') claudeNote = { tone: '', text: t('Máy này chưa có Claude Code', 'No Claude Code on this Mac') };
+  else if (c.status === 'notSetUp') claudeNote = { tone: '', text: mac(t('Máy này chưa có Claude Code', 'No Claude Code on this Mac')) };
   else if (!model.claudeSwitch.ready && c.accounts.some((a) => a.number > 0))
     claudeNote = {
       tone: 'warn',
-      text: t(
-        'Quota Station chưa giữ tài khoản Claude nào trên máy này: nhập từ claude-swap ở tab Claude để chuyển được tài khoản.',
-        'Quota Station keeps no Claude account on this Mac yet: import from claude-swap in the Claude tab to switch accounts.',
+      text: mac(
+        t(
+          'Quota Station chưa giữ tài khoản Claude nào trên máy này: nhập từ claude-swap ở tab Claude để chuyển được tài khoản.',
+          'Quota Station keeps no Claude account on this Mac yet: import from claude-swap in the Claude tab to switch accounts.',
+        ),
       ),
     };
 
@@ -612,7 +615,7 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
   else if (g.status === 'single') agyNote = { tone: '', text: t('Tài khoản đang đăng nhập trong Antigravity.', 'The account signed in to Antigravity.') };
   else if (g.status === 'unavailable')
     agyNote = { tone: '', text: t('Không đọc được danh sách tài khoản: chỉ thấy tài khoản đang dùng', 'Cannot read the account list: only the account in use shows') };
-  else if (g.status === 'notSetUp') agyNote = { tone: '', text: t('Máy này chưa có Antigravity', 'No Antigravity on this Mac') };
+  else if (g.status === 'notSetUp') agyNote = { tone: '', text: mac(t('Máy này chưa có Antigravity', 'No Antigravity on this Mac')) };
 
   const claudeEmpty = c.status !== 'notSetUp' && !claudeCards.length && model.claudeAccounts.claude && !keychainRequired && !c.reason;
   return {
@@ -720,7 +723,7 @@ export function settingsFailedFeedback(): FeedbackView {
   return {
     tone: 'bad',
     title: t('Chưa lưu được cài đặt', 'Settings not saved'),
-    body: t('Không ghi được file cài đặt của app trên máy này. Thử lại.', 'Could not write the app’s settings file on this Mac. Try again.'),
+    body: mac(t('Không ghi được file cài đặt của app trên máy này. Thử lại.', 'Could not write the app’s settings file on this Mac. Try again.')),
   };
 }
 

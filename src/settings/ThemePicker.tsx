@@ -62,8 +62,8 @@ export function MiniWindow({ pack, mode, className }: { pack: ThemePack; mode: T
             </span>
           </span>
         </span>
-        {/* Over the sidebar's tint, as macOS draws them. */}
-        <span className="absolute top-[5cqw] left-[4cqw] flex gap-[1.3cqw]">
+        {/* Over the sidebar's tint, as macOS draws them; Windows has none there. */}
+        <span className="absolute top-[5cqw] left-[4cqw] flex gap-[1.3cqw] win:hidden">
           <span className="size-[2.2cqw] rounded-full bg-[#ff5f57]" />
           <span className="size-[2.2cqw] rounded-full bg-[#febc2e]" />
           <span className="size-[2.2cqw] rounded-full bg-[#28c840]" />

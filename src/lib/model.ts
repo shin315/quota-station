@@ -656,6 +656,8 @@ export interface ReleaseLatest {
   url: string;
   /** The disk image, when the release has one. */
   dmg: string | null;
+  /** The installer for this system, when the release has one: on Windows the `-setup.exe`. Older apps send only `dmg`. */
+  asset?: string | null;
   size: number | null;
 }
 
@@ -1227,7 +1229,10 @@ export interface AdvancedView {
   firstmate: boolean;
 }
 
-/** The parts a build may leave out. */
+/** The system the app runs on: every difference the windows draw follows it. */
+export type Platform = 'macos' | 'windows';
+
+/** The parts a build may leave out, and the system it was built for. */
 export interface Capabilities {
   /**
    * The Antigravity accounts the app logs in, reads and switches itself (the
@@ -1243,6 +1248,13 @@ export interface Capabilities {
    * show no switch, tab or setting for them.
    */
   authorTools: boolean;
+  /**
+   * The system the app was built for: `data-os` on the page (fonts,
+   * corners, scroll bars) and the words for the system's own parts
+   * (`os()`, `mac()` in i18n.ts). Absent is macOS, as in the fixtures
+   * and the tests written before Windows.
+   */
+  platform?: Platform;
 }
 
 export interface Model {
@@ -1399,8 +1411,12 @@ export interface StatsReport {
 
 // ===== Variables that override a login (M14) =====
 
-/** `agents::env_check::Place`: five shell files in the home folder, and launchd. */
-export type EnvPlace = 'zshenv' | 'zprofile' | 'zshrc' | 'bashProfile' | 'profile' | 'launchctl';
+/**
+ * `agents::env_check::Place`: on macOS five shell files in the home folder,
+ * and launchd; on Windows the user's and the system's environment variables
+ * (the registry) and PowerShell's profile.
+ */
+export type EnvPlace = 'zshenv' | 'zprofile' | 'zshrc' | 'bashProfile' | 'profile' | 'launchctl' | 'userEnv' | 'machineEnv' | 'psProfile';
 
 /** `agents::env_check::Found`: a name set in one place. Never its value. */
 export interface EnvFound {

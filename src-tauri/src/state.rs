@@ -790,12 +790,17 @@ pub struct Capabilities {
     /// from source and Firstmate. Without them none of their commands is
     /// built and the windows show no switch, tab or setting for them.
     pub author_tools: bool,
+    /// The system the app was built for, `macos` or `windows`: the windows
+    /// take its type, corners and scroll bars, and its words for its own
+    /// parts (Keychain, Finder, the menu bar).
+    pub platform: &'static str,
 }
 
 impl Capabilities {
     pub const BUILT: Capabilities = Capabilities {
         agy_accounts: cfg!(feature = "antigravity-accounts"),
         author_tools: cfg!(feature = "author-tools"),
+        platform: if cfg!(windows) { "windows" } else { "macos" },
     };
 }
 
@@ -1025,6 +1030,8 @@ mod tests {
         let json = serde_json::to_value(inner.model()).unwrap();
         let tools = cfg!(feature = "author-tools");
         assert_eq!(json["capabilities"]["authorTools"], tools);
+        let platform = if cfg!(windows) { "windows" } else { "macos" };
+        assert_eq!(json["capabilities"]["platform"], platform);
         assert_eq!(json["advanced"]["on"], tools);
         assert_eq!(json["advanced"]["firstmate"], tools);
         assert_eq!(json.get("rotation").is_some(), tools);

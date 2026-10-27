@@ -9,7 +9,7 @@
 import { cellOf, emailNames, type CellView } from './accounts';
 import { ccSwitchManages } from './codex';
 import { age, clock, secondsSince } from './format';
-import { t } from './i18n';
+import { mac, quitKey, t, terminal } from './i18n';
 import type { CodexAccount, CodexAccountDone, CodexLoginFail, CodexProviderCheck, CodexView, Model } from './model';
 import type { FactView } from './switching';
 import type { ChipView, FeedbackView } from './view';
@@ -202,9 +202,11 @@ export function accountSheet(model: Model, id: string): AccountSheetView | null 
   if (cc)
     facts.push({
       k: 'w',
-      text: t(
-        '**CC Switch vẫn đang quản lý Codex** trên máy này. Lần chuyển sau của CC Switch sẽ ghi đè tài khoản chọn ở đây. Chỉ chuyển Codex ở một nơi.',
-        '**CC Switch still manages Codex** on this Mac. Its next switch will overwrite the account chosen here. Switch Codex in one place only.',
+      text: mac(
+        t(
+          '**CC Switch vẫn đang quản lý Codex** trên máy này. Lần chuyển sau của CC Switch sẽ ghi đè tài khoản chọn ở đây. Chỉ chuyển Codex ở một nơi.',
+          '**CC Switch still manages Codex** on this Mac. Its next switch will overwrite the account chosen here. Switch Codex in one place only.',
+        ),
       ),
     });
   if (to.login === 'relogin')
@@ -232,8 +234,8 @@ export function accountSheet(model: Model, id: string): AccountSheetView | null 
     });
   const s = sessions(v.procs?.sessions);
   const reopen = t(
-    ' Thoát hẳn Codex App (⌘Q) rồi mở lại; ' + s.vi + ' trong Terminal mở lại bằng `codex resume`.',
-    ' Quit Codex App (⌘Q) and open it again; reopen ' + s.en + ' in Terminal with `codex resume`.',
+    ' Thoát hẳn Codex App (' + quitKey() + ') rồi mở lại; ' + s.vi + ' trong ' + terminal() + ' mở lại bằng `codex resume`.',
+    ' Quit Codex App (' + quitKey() + ') and open it again; reopen ' + s.en + ' in ' + terminal() + ' with `codex resume`.',
   );
   facts.push({
     k: 'w',
@@ -269,7 +271,7 @@ export function loginFailText(reason: CodexLoginFail, detail: string | null): st
         'Codex’s sign-in port (1455) is busy: another Codex sign-in may be open. Close it and try again, or use a device code.',
       );
     case 'noCodex':
-      return t('Không thấy lệnh codex trên máy này. Cài Codex CLI rồi thử lại.', 'The codex command was not found on this Mac. Install the Codex CLI and try again.');
+      return mac(t('Không thấy lệnh codex trên máy này. Cài Codex CLI rồi thử lại.', 'The codex command was not found on this Mac. Install the Codex CLI and try again.'));
     case 'denied':
       return t('Trang đăng nhập báo không cho phép (tài khoản không được dùng Codex, hoặc bạn đã bấm Huỷ).', 'The sign-in page said no (the account cannot use Codex, or you pressed Cancel).');
     case 'cancelled':
@@ -292,7 +294,7 @@ export function accountFeedback(done: CodexAccountDone, model: Model): FeedbackV
     case 'removed':
       return {
         tone: 'info',
-        title: t('Đã xoá ' + done.name + ' khỏi máy này.', 'Removed ' + done.name + ' from this Mac.'),
+        title: mac(t('Đã xoá ' + done.name + ' khỏi máy này.', 'Removed ' + done.name + ' from this Mac.')),
         body: done.loggedOut ? t('Đăng nhập của nó đã được thu hồi.', 'Its sign-in was revoked.') : '',
       };
     case 'renewed':

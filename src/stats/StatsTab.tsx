@@ -52,7 +52,7 @@ import {
   usd,
   type Unit,
 } from '../lib/stats';
-import { t } from '../lib/i18n';
+import { mac, t } from '../lib/i18n';
 import type { PopoverView } from '../lib/view';
 
 const MARK: Record<Agent, string> = { claude: 'c', codex: 'x', agy: 'g' };
@@ -511,13 +511,15 @@ export function StatsTab({ model, fresh, stats }: StatsTabProps) {
 
   const note = (
     <TabNote>
-      {t('Token từ log trên máy · không lưu nội dung hội thoại', 'Tokens from this Mac’s logs · no conversation is kept')}
+      {mac(t('Token từ log trên máy · không lưu nội dung hội thoại', 'Tokens from this Mac’s logs · no conversation is kept'))}
       {' · '}
       <More about={t('Thống kê', 'Stats')}>
         <p>
-          {t(
-            'App chỉ lấy số token, model, thời gian và thư mục dự án từ log phiên của Claude Code và Codex trên máy này. Nội dung hội thoại không được lưu, ghi lại hay hiện ra, và không có gì được gửi đi.',
-            'The app takes only the token counts, the model, the time and the project folder from Claude Code’s and Codex’s session logs on this Mac. No conversation is kept, logged or shown, and nothing is sent anywhere.',
+          {mac(
+            t(
+              'App chỉ lấy số token, model, thời gian và thư mục dự án từ log phiên của Claude Code và Codex trên máy này. Nội dung hội thoại không được lưu, ghi lại hay hiện ra, và không có gì được gửi đi.',
+              'The app takes only the token counts, the model, the time and the project folder from Claude Code’s and Codex’s session logs on this Mac. No conversation is kept, logged or shown, and nothing is sent anywhere.',
+            ),
           )}
         </p>
         <p>
@@ -618,9 +620,11 @@ export function StatsTab({ model, fresh, stats }: StatsTabProps) {
         {report.total === 0 ? (
           <Empty>
             <b>{t('Chưa có token nào ' + per.within, 'No tokens ' + per.within)}</b>
-            {t(
-              'Log phiên của Claude Code và Codex trên máy này chưa có số trong khoảng này.',
-              'The Claude Code and Codex session logs on this Mac have no numbers for this range.',
+            {mac(
+              t(
+                'Log phiên của Claude Code và Codex trên máy này chưa có số trong khoảng này.',
+                'The Claude Code and Codex session logs on this Mac have no numbers for this range.',
+              ),
             )}
           </Empty>
         ) : stats.table ? (

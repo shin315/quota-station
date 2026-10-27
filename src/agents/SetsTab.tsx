@@ -20,7 +20,7 @@ import { ROW_ACTIONS } from '../components/blocks';
 import { COUNT, Empty, EmptyIcon, TabHead, TabSub, TabTitle } from '../components/page';
 import { Button, ChoiceGroup, Chip, Dot, Facts as FactList, Feedback, LinkButton } from '../components/parts';
 import { DialogButtons, DialogLead, DialogSection, DialogTitle } from '@/components/ui/dialog';
-import { t } from '../lib/i18n';
+import { mac, t } from '../lib/i18n';
 import { AGENT_NAME } from '../lib/mcp';
 import type { CodexTarget, ConfigSet, Model, SetPreview, SetWant } from '../lib/model';
 import {
@@ -132,7 +132,7 @@ export function SetsTab({ model, fresh, feedback, now, sets, onAction }: SetsTab
         <TabTitle>{t('Bộ cấu hình', 'Config sets')}</TabTitle>
         <TabSub>
           <Dot tone={fresh.tone} />
-          {model.machine + t(' · áp cho cả máy', ' · applies to the whole Mac')}
+          {model.machine + mac(t(' · áp cho cả máy', ' · applies to the whole Mac'))}
         </TabSub>
       </TabHead>
       {feedback ? <Feedback fb={feedback} onAction={onAction} /> : null}
@@ -176,9 +176,11 @@ export function SetsTab({ model, fresh, feedback, now, sets, onAction }: SetsTab
               items={[
                 {
                   k: '',
-                  text: t(
-                    'Áp cho cả máy: mọi dự án, mọi phiên mở sau đó. Phiên đang chạy giữ cấu hình cũ.',
-                    'Applies to the whole Mac: every project, every session opened afterwards. Running sessions keep the old setup.',
+                  text: mac(
+                    t(
+                      'Áp cho cả máy: mọi dự án, mọi phiên mở sau đó. Phiên đang chạy giữ cấu hình cũ.',
+                      'Applies to the whole Mac: every project, every session opened afterwards. Running sessions keep the old setup.',
+                    ),
                   ),
                 },
                 {
@@ -225,7 +227,7 @@ function Entries(props: { names: string[]; here: Set<string>; entries: Record<st
         <div key={n} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 border-t-[.5px] border-card-line py-1 text-sm first:border-t-0">
           <span className="[overflow-wrap:anywhere]">
             {n}
-            {props.here.has(n) ? null : <small className="block text-xs text-ink3">{t('máy này không có', 'not on this Mac')}</small>}
+            {props.here.has(n) ? null : <small className="block text-xs text-ink3">{mac(t('máy này không có', 'not on this Mac'))}</small>}
           </span>
           <WantSeg
             name={n}
@@ -283,7 +285,7 @@ function EditBody({ d, sets, model }: { d: Extract<SetDialog, { kind: 'edit' }>;
       {mcp.names.length ? (
         <Entries names={mcp.names} here={mcp.here} entries={s.mcp} onChange={(e) => sets.setDraft({ ...s, mcp: e })} />
       ) : (
-        <DialogLead>{model.mcp.table ? t('Máy này chưa có MCP nào.', 'This Mac has no MCP yet.') : t('Đang đọc danh sách MCP…', 'Reading the MCP list…')}</DialogLead>
+        <DialogLead>{model.mcp.table ? mac(t('Máy này chưa có MCP nào.', 'This Mac has no MCP yet.')) : t('Đang đọc danh sách MCP…', 'Reading the MCP list…')}</DialogLead>
       )}
       <DialogSection>
         {NAV_ICONS.skills}
@@ -292,7 +294,7 @@ function EditBody({ d, sets, model }: { d: Extract<SetDialog, { kind: 'edit' }>;
       {sk.names.length ? (
         <Entries names={sk.names} here={sk.here} entries={s.skills} onChange={(e) => sets.setDraft({ ...s, skills: e })} />
       ) : (
-        <DialogLead>{model.skills.table ? t('Máy này chưa có skill nào.', 'This Mac has no skills yet.') : t('Đang đọc danh sách skills…', 'Reading the skills list…')}</DialogLead>
+        <DialogLead>{model.skills.table ? mac(t('Máy này chưa có skill nào.', 'This Mac has no skills yet.')) : t('Đang đọc danh sách skills…', 'Reading the skills list…')}</DialogLead>
       )}
       {cx.present ? (
         <div>
@@ -385,7 +387,7 @@ function ApplyBody({ d, sets, model }: { d: Extract<SetDialog, { kind: 'apply' }
               <span>{t('Bước 2: mở tấm chuyển Codex về ' + sideName(step, model.codex), 'Step 2: open the Codex switch sheet for ' + sideName(step, model.codex))}</span>
             </div>
           ) : null}
-          {!n && !step ? <p className="m-0">{t('Máy đang đúng như bộ này. Không có gì để ghi.', 'This Mac already matches this set. Nothing to write.')}</p> : null}
+          {!n && !step ? <p className="m-0">{mac(t('Máy đang đúng như bộ này. Không có gì để ghi.', 'This Mac already matches this set. Nothing to write.'))}</p> : null}
         </div>
       ) : null}
       {p ? <Details p={p} /> : null}
@@ -395,7 +397,7 @@ function ApplyBody({ d, sets, model }: { d: Extract<SetDialog, { kind: 'apply' }
             items={[
               ...skipped.map((line): [string, string] => ['x', line]),
               ['w', sessionsLine(d.sessions, model.codex)],
-              ['w', t('Áp cho cả máy, mọi dự án.', 'Applies to the whole Mac, every project.')],
+              ['w', mac(t('Áp cho cả máy, mọi dự án.', 'Applies to the whole Mac, every project.'))],
               ...(n
                 ? [
                     [

@@ -5,7 +5,7 @@
 // account's name, sign-in and quota for its dialog, the card before any
 // account is kept, the rotation's LaunchAgent, and what an action did.
 
-import { t } from './i18n';
+import { mac, os, t } from './i18n';
 import { clock, percent } from './format';
 import type { ClaudeAccountRow, ClaudeAccountsView, ClaudeActionDone, ClaudeWindowOut } from './model';
 import type { Action, ChipView, FeedbackView } from './view';
@@ -92,9 +92,13 @@ export function rotationRow(v: ClaudeAccountsView): RotationRowView {
     : null;
   let line: string;
   if (!v.ready) line = t('Cần ít nhất một tài khoản.', 'Needs at least one account.');
-  else if (v.rotation === true) line = t('LaunchAgent chạy mỗi 3 phút, kể cả khi đã đóng app.', 'The LaunchAgent runs every 3 minutes, even when the app is closed.');
+  else if (v.rotation === true)
+    line = os(
+      t('LaunchAgent chạy mỗi 3 phút, kể cả khi đã đóng app.', 'The LaunchAgent runs every 3 minutes, even when the app is closed.'),
+      t('Hẹn giờ trong app chạy mỗi 3 phút khi app đang chạy, kể cả khi chỉ còn ở khay.', 'The app’s timer runs every 3 minutes while the app runs, even from the tray.'),
+    );
   else if (v.rotation === false) line = t('Đang tắt: không có gì tự chuyển Claude.', 'Off: nothing switches Claude automatically.');
-  else line = t('Không rõ LaunchAgent có đang nạp không.', 'Not known whether the LaunchAgent is loaded.');
+  else line = os(t('Không rõ LaunchAgent có đang nạp không.', 'Not known whether the LaunchAgent is loaded.'), t('Không rõ hẹn giờ của app có đang chạy không.', 'Not known whether the app’s timer is running.'));
   return { on: v.rotation === true, disabled: !v.ready || (!!v.legacy && v.rotation !== true) || v.working != null, line, legacy };
 }
 
@@ -117,13 +121,13 @@ export function errorText(done: ClaudeActionDone): string {
     case 'cancelled':
       return t('Đã huỷ đăng nhập. Không thêm gì.', 'Sign-in cancelled. Nothing was added.');
     case 'keychain':
-      return t('Keychain không cho ghi', 'The Keychain refused the write') + detail + '.';
+      return os(t('Keychain không cho ghi', 'The Keychain refused the write'), t('Kho mã hoá không cho ghi', 'The encrypted store refused the write')) + detail + '.';
     case 'legacy':
       return t('Bộ tự chuyển cũ ' + (done.detail ?? '') + ' còn chạy: tắt nó trước.', 'The old auto-switcher ' + (done.detail ?? '') + ' is still running: turn it off first.');
     case 'launchctl':
-      return t('launchctl báo lỗi', 'launchctl reported an error') + detail + '.';
+      return os(t('launchctl báo lỗi', 'launchctl reported an error'), t('Không bật được hẹn giờ của app', 'Could not start the app’s timer')) + detail + '.';
     case 'notFound':
-      return t('Không thấy dữ liệu claude-swap trên máy này.', 'No claude-swap data on this Mac.');
+      return mac(t('Không thấy dữ liệu claude-swap trên máy này.', 'No claude-swap data on this Mac.'));
     case 'corrupt':
       return t('Không đọc được sequence.json của claude-swap. Không nhập gì.', 'Cannot read claude-swap’s sequence.json. Nothing was imported.');
     case 'unknownSlot':
@@ -170,7 +174,7 @@ export function resultFeedback(v: ClaudeAccountsView, done: ClaudeActionDone, wh
     case 'remove':
       return {
         tone: '',
-        title: t('Đã xoá ' + who + ' khỏi máy này.', 'Removed ' + who + ' from this Mac.'),
+        title: mac(t('Đã xoá ' + who + ' khỏi máy này.', 'Removed ' + who + ' from this Mac.')),
         body: t('Lịch sử vẫn giữ các lần chuyển cũ. Đăng nhập của Claude Code không đổi.', 'History keeps its past switches. Claude Code’s sign-in is unchanged.'),
         actions: [close()],
       };
@@ -188,7 +192,7 @@ export function resultFeedback(v: ClaudeAccountsView, done: ClaudeActionDone, wh
         ? {
             tone: '',
             title: t('Đã cho ' + who + ' nghỉ khỏi tự chuyển.', who + ' is now out of auto-switch.'),
-            body: t('Tự chuyển trên máy này bỏ qua tài khoản này cho tới khi bạn cho vào lại.', 'Auto-switch on this Mac skips this account until you put it back.'),
+            body: mac(t('Tự chuyển trên máy này bỏ qua tài khoản này cho tới khi bạn cho vào lại.', 'Auto-switch on this Mac skips this account until you put it back.')),
             actions: [{ label: t('Hoàn tác', 'Undo'), act: `claude:unrest:${done.slot ?? 0}` }, close()],
           }
         : { tone: '', title: t('Đã cho ' + who + ' vào lại tự chuyển.', who + ' is back in auto-switch.'), body: '', actions: [] };

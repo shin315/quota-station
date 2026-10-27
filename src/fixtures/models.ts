@@ -761,7 +761,7 @@ export function fixtureModel(name: string, over: Partial<Model> = {}): AuthorMod
     menubarWindow: 'fiveHours',
     // The author's Mac, as the fixtures were drawn: Nâng cao on, a build with the Antigravity accounts.
     advanced: { on: true, firstmate: true },
-    capabilities: { agyAccounts: true, authorTools: true },
+    capabilities: { agyAccounts: true, authorTools: true, platform: 'macos' },
     antigravity: agyFixture(),
     agySwitch: { busy: null, listed: false, overwritten: null },
     alerts: alertsFixture(),
