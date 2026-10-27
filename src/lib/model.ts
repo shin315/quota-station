@@ -860,7 +860,7 @@ export interface CodexView {
   custom: CodexCustom | null;
   /** The `requires_openai_auth` a switch to the custom provider writes. */
   wantsRequires: boolean | null;
-  /** "Dùng plugin khi chạy Custom API (giữ đăng nhập ChatGPT)": kept in the settings, on by default. */
+  /** "Dùng plugin với Custom API": kept in the settings, on by default. */
   plugins: boolean;
   /** The custom provider's table takes a pasted key ("Dán khoá"). */
   takesKey: boolean;
@@ -941,10 +941,10 @@ export interface CodexImportPreview {
  */
 export interface CodexTrigger {
   on: boolean;
-  /** `daily`: each day at `at`; `reset`: once a five-hour window has reset, at most once per window. */
+  /** `daily`: each day at each of `times`; `reset`: once a five-hour window has reset, at most once per window. */
   mode: 'daily' | 'reset';
-  /** `06:00`, the Mac's time. */
-  at: string;
+  /** `07:00`, `12:00`: the Mac's times, earliest first, five hours apart at least. */
+  times: string[];
   /** Also wake an unused account whose sign-in is about to run out, so Codex renews it. */
   keepAlive: boolean;
   /** The accounts it wakes. */
@@ -964,9 +964,11 @@ export interface CodexTriggerRun {
   /**
    * `started`: a five-hour window opened; `open`: one was open already, so
    * it ran nothing; `relogin`: ChatGPT refused the sign-in; `limited`: no
-   * quota left this week; `failed`: Codex ended with an error.
+   * quota left this week; `failed`: Codex ended with an error; `soon`: run
+   * less than five hours before, and `capped`: five times in 24 hours, so
+   * it ran nothing.
    */
-  result: 'started' | 'open' | 'relogin' | 'limited' | 'failed';
+  result: 'started' | 'open' | 'relogin' | 'limited' | 'failed' | 'soon' | 'capped';
   /** `started`: when the window it opened resets. */
   resetsAt: string | null;
   detail: string | null;

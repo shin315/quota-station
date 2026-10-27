@@ -10,7 +10,10 @@
 //! little after a Mac that slept; an open window, a week used up or a
 //! refused sign-in is recorded instead of run; the reset mode wakes once a
 //! window at most and never loops, even when every wake-up fails; the
-//! model's answer is never kept.
+//! model's answer is never kept. A day may hold several times, five hours
+//! apart at least; a time that comes under five hours after a run, or after
+//! five runs in 24 hours, is recorded as skipped, never moved; the file
+//! kept with one `at` reads as one time.
 
 mod common;
 
@@ -35,7 +38,7 @@ fn settings(mode: Mode, ids: &[&str]) -> Settings {
     Settings {
         on: true,
         mode,
-        at: "06:00".into(),
+        times: vec!["06:00".into()],
         keep_alive: false,
         ids: ids.iter().map(|s| s.to_string()).collect(),
     }
@@ -238,7 +241,112 @@ fn the_settings_and_the_newest_runs_are_kept_in_the_app_folder() {
     assert_eq!(Book::load(&app), book);
     // Times that are not a clock, ids that are not a ChatGPT account: refused.
     assert!(wake::check(&settings(Mode::Daily, &["chatgpt:1"])).is_ok());
-    assert!(wake::check(&Settings { at: "25:00".into(), ..settings(Mode::Daily, &[]) }).is_err());
-    assert!(wake::check(&Settings { at: "6h".into(), ..settings(Mode::Daily, &[]) }).is_err());
+    let at = |at: &str| Settings { times: vec![at.into()], ..settings(Mode::Daily, &[]) };
+    assert!(wake::check(&at("25:00")).is_err());
+    assert!(wake::check(&at("6h")).is_err());
     assert!(wake::check(&settings(Mode::Daily, &["custom"])).is_err());
+}
+
+fn times(list: &[&str]) -> Result<Vec<String>, &'static str> {
+    wake::times(&list.iter().map(|s| s.to_string()).collect::<Vec<_>>())
+}
+
+#[test]
+fn wake_times_are_kept_earliest_first_and_five_hours_apart_over_midnight_too() {
+    assert_eq!(times(&["12:00", "07:00"]), Ok(vec!["07:00".to_string(), "12:00".to_string()]));
+    assert_eq!(times(&["07:00", "12:00", "17:00", "22:00"]).map(|t| t.len()), Ok(4));
+    assert_eq!(times(&["07:00", "09:00"]), Err("gap"));
+    // 22:00 to 02:00 the next day is four hours.
+    assert_eq!(times(&["02:00", "12:00", "22:00"]), Err("gap"));
+    assert_eq!(times(&["07:00", "07:00"]), Err("same"));
+    assert_eq!(times(&[]), Err("empty"));
+    assert_eq!(times(&["7:00"]), Err("at"));
+    // Five times cannot be five hours apart in a day.
+    assert_eq!(times(&["00:00", "05:00", "10:00", "15:00", "20:00"]), Err("gap"));
+    let s = |list: &[&str]| Settings {
+        times: list.iter().map(|s| s.to_string()).collect(),
+        ..settings(Mode::Daily, &["chatgpt:1"])
+    };
+    assert!(wake::check(&s(&["07:00", "12:00"])).is_ok());
+    assert!(wake::check(&s(&["12:00", "07:00"])).is_err(), "kept earliest first");
+    assert!(wake::check(&s(&[])).is_err());
+}
+
+#[test]
+fn the_settings_kept_with_one_time_read_as_that_time() {
+    let app = AppDir::new(temp_dir("codex-wake-at"));
+    let old = r#"{"settings":{"on":true,"mode":"daily","at":"06:30","keepAlive":false,"ids":["chatgpt:1"]},"runs":[]}"#;
+    std::fs::create_dir_all(app.path().join("codex")).unwrap();
+    std::fs::write(app.path().join(wake::FILE), old).unwrap();
+    let book = Book::load(&app);
+    assert!(book.settings.on);
+    assert_eq!(book.settings.times, ["06:30"]);
+    assert_eq!(book.settings.ids, ["chatgpt:1"]);
+    book.save(&app).unwrap();
+    let text = std::fs::read_to_string(app.path().join(wake::FILE)).unwrap();
+    assert!(text.contains("\"times\"") && !text.contains("\"at\": \"06:30\""), "{text}");
+}
+
+#[test]
+fn a_day_of_several_times_wakes_at_each_and_skips_one_under_five_hours_after_a_run() {
+    let mut s = settings(Mode::Daily, &["chatgpt:1"]);
+    s.times = vec!["07:00".into(), "12:00".into()];
+    let seen = [idle("chatgpt:1")];
+    assert_eq!(
+        ids(&wake::due(&s, &[], &seen, local(0, 7, 0), hcm())),
+        [("chatgpt:1", Why::Daily, None)]
+    );
+    let woke = [ran(local(0, 7, 0), "chatgpt:1", Why::Daily, Outcome::Started)];
+    assert!(wake::due(&s, &woke, &seen, local(0, 9, 0), hcm()).is_empty(), "07:00 is done");
+    assert_eq!(wake::next(&s, &woke, local(0, 9, 0), hcm()), Some(local(0, 12, 0)));
+    // The window 07:00 opened has reset by 12:00: woken again.
+    assert_eq!(
+        ids(&wake::due(&s, &woke, &seen, local(0, 12, 0), hcm())),
+        [("chatgpt:1", Why::Daily, None)]
+    );
+    // A Mac asleep at 07:00 woke it at 07:20: at 12:00 that is under five
+    // hours, so 12:00 is recorded as skipped, not moved to 12:20.
+    let late = [ran(local(0, 7, 20), "chatgpt:1", Why::Daily, Outcome::Failed)];
+    let plans = wake::due(&s, &late, &seen, local(0, 12, 0), hcm());
+    assert_eq!(ids(&plans), [("chatgpt:1", Why::Daily, Some(Outcome::Soon))]);
+    let skipped = [ran(local(0, 12, 0), "chatgpt:1", Why::Daily, Outcome::Soon), late[0].clone()];
+    assert!(wake::due(&s, &skipped, &seen, local(0, 12, 20), hcm()).is_empty());
+    assert_eq!(wake::next(&s, &skipped, local(0, 12, 20), hcm()), Some(local(1, 7, 0)));
+    // A Mac asleep through 07:00 and 12:00 wakes once, for 12:00 only.
+    let plans = wake::due(&s, &[], &seen, local(0, 13, 0), hcm());
+    assert_eq!(ids(&plans), [("chatgpt:1", Why::Daily, None)]);
+    // A time late in the day is woken a little after midnight on a Mac that slept.
+    s.times = vec!["08:00".into(), "23:00".into()];
+    assert_eq!(wake::due(&s, &[], &seen, local(1, 0, 30), hcm()).len(), 1);
+    assert_eq!(wake::next(&s, &[], local(0, 11, 30), hcm()), Some(local(0, 23, 0)));
+}
+
+#[test]
+fn five_runs_in_24_hours_hold_an_account_off_whatever_asked_for_them() {
+    let mut s = settings(Mode::Daily, &["chatgpt:1"]);
+    s.times = vec!["07:00".into(), "12:00".into(), "17:00".into(), "22:00".into()];
+    let seen = [idle("chatgpt:1")];
+    // Five "Chạy ngay" since yesterday 22:00, every one failed.
+    let runs: Vec<Run> = (0..5)
+        .map(|i| ran(local(0, 6, 50 - i * 10), "chatgpt:1", Why::Now, Outcome::Failed))
+        .chain([ran(local(-1, 22, 0), "chatgpt:1", Why::Daily, Outcome::Open)])
+        .collect();
+    let plans = wake::due(&s, &runs, &seen, local(0, 12, 0), hcm());
+    assert_eq!(ids(&plans), [("chatgpt:1", Why::Daily, Some(Outcome::Capped))]);
+    assert_eq!(
+        ids(&wake::now(&s, &runs, &seen, local(0, 12, 0))),
+        [("chatgpt:1", Why::Now, Some(Outcome::Capped))]
+    );
+    // A skip sent nothing: it neither holds an account off nor counts.
+    let skips = [ran(local(0, 6, 0), "chatgpt:1", Why::Daily, Outcome::Soon)];
+    assert_eq!(
+        ids(&wake::due(&s, &skips, &seen, local(0, 7, 0), hcm())),
+        [("chatgpt:1", Why::Daily, None)]
+    );
+    // "Chạy ngay" may follow a failed run at once.
+    let failed = [ran(local(0, 11, 0), "chatgpt:1", Why::Now, Outcome::Failed)];
+    assert_eq!(
+        ids(&wake::now(&s, &failed, &seen, local(0, 11, 5))),
+        [("chatgpt:1", Why::Now, None)]
+    );
 }

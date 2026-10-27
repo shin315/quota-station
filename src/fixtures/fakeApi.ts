@@ -14,6 +14,7 @@ import { fakeApply, fakePaste, fakePreview } from './fakeMcp';
 import { fakeSetChanges, fakeSetDrift } from './fakeSets';
 import { SKIPPED_NONE, statsReport } from './fakeStats';
 import { claudeAccountsFixture } from './models';
+import { nextWake, wakeTimes } from '../lib/codexWake';
 import { fakeSkillApply, fakeSkillPreview, instrDiffFixture, instrShownFixture, repoFixture, SKILL_MD } from './fakeSkills';
 import type {
   Account,
@@ -957,10 +958,11 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
     codexTriggerSet: async (next) => {
       const c = model.codex;
       if (!c.trigger) return;
-      const due = new Date(now().getTime() + 86400e3);
-      const [h, m] = next.at.split(':').map(Number);
-      due.setHours(h || 0, m || 0, 0, 0);
-      push({ ...model, codex: { ...c, trigger: { ...c.trigger, ...next, next: next.on ? (next.mode === 'daily' ? due.toISOString() : null) : null } } });
+      // Refused as Rust refuses it: `at`, `same`, `empty` or `gap`.
+      const kept = wakeTimes(next.times);
+      if ('error' in kept) throw kept.error;
+      const due = next.on && next.mode === 'daily' ? nextWake(kept.times, now()) : null;
+      push({ ...model, codex: { ...c, trigger: { ...c.trigger, ...next, times: kept.times, next: due } } });
     },
     codexTriggerNow: async () => {
       const first = model.codex.trigger;

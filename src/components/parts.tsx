@@ -56,6 +56,8 @@ export function Button(props: {
   disabled?: boolean;
   label?: string;
   title?: string;
+  /** It opens or closes something in place: whether that is open. */
+  expanded?: boolean;
   className?: string;
   onClick?: () => void;
 }) {
@@ -66,6 +68,7 @@ export function Button(props: {
       className={props.className}
       disabled={props.disabled}
       aria-label={props.label}
+      aria-expanded={props.expanded}
       title={props.title ?? (props.icon ? props.label : undefined)}
       onClick={props.onClick}
     >

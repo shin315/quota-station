@@ -17,7 +17,9 @@ import { ArrowCircleUpIcon } from '@phosphor-icons/react/dist/csr/ArrowCircleUp'
 import { ArrowRightIcon } from '@phosphor-icons/react/dist/csr/ArrowRight';
 import { ArrowsClockwiseIcon } from '@phosphor-icons/react/dist/csr/ArrowsClockwise';
 import { BellIcon } from '@phosphor-icons/react/dist/csr/Bell';
+import { CaretDownIcon } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRightIcon } from '@phosphor-icons/react/dist/csr/CaretRight';
+import { CaretUpIcon } from '@phosphor-icons/react/dist/csr/CaretUp';
 import { ChartBarIcon } from '@phosphor-icons/react/dist/csr/ChartBar';
 import { CheckIcon } from '@phosphor-icons/react/dist/csr/Check';
 import { CheckCircleIcon } from '@phosphor-icons/react/dist/csr/CheckCircle';
@@ -45,6 +47,7 @@ import { SwapIcon } from '@phosphor-icons/react/dist/csr/Swap';
 import { TerminalWindowIcon } from '@phosphor-icons/react/dist/csr/TerminalWindow';
 import { WarningCircleIcon } from '@phosphor-icons/react/dist/csr/WarningCircle';
 import { WrenchIcon } from '@phosphor-icons/react/dist/csr/Wrench';
+import { XIcon } from '@phosphor-icons/react/dist/csr/X';
 import { cn } from '@/lib/utils';
 
 /** The Phosphor glyphs the app draws, by Phosphor's own names. */
@@ -56,7 +59,9 @@ export const GLYPHS = {
   'arrow-right': ArrowRightIcon,
   'arrows-clockwise': ArrowsClockwiseIcon,
   'bell': BellIcon,
+  'caret-down': CaretDownIcon,
   'caret-right': CaretRightIcon,
+  'caret-up': CaretUpIcon,
   'chart-bar': ChartBarIcon,
   'check': CheckIcon,
   'check-circle': CheckCircleIcon,
@@ -84,6 +89,7 @@ export const GLYPHS = {
   'terminal-window': TerminalWindowIcon,
   'warning-circle': WarningCircleIcon,
   'wrench': WrenchIcon,
+  'x': XIcon,
 } satisfies Record<string, PhosphorIcon>;
 
 export type GlyphName = keyof typeof GLYPHS;

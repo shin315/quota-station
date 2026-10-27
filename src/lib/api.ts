@@ -203,7 +203,7 @@ export interface Api {
   codexSetKey(key: string, baseUrl: string | null, base: string): Promise<CodexKeyOutcome>;
   /** "Hoàn tác" after "Dán khoá". Rejects with `busy`. */
   codexUndoKey(base: string): Promise<CodexKeyOutcome>;
-  /** "Dùng plugin khi chạy Custom API": kept for the next switch; writes nothing to Codex. */
+  /** "Dùng plugin với Custom API": kept for the next switch; writes nothing to Codex. */
   setCodexPlugins(on: boolean): Promise<Model>;
   /**
    * Switches Codex to one account after the owner confirmed it: a ChatGPT
@@ -237,7 +237,7 @@ export interface Api {
   /** Imports what the preview read; `removeSource` deletes the files picked once their sign-ins are in the app. */
   codexImport(token: string, removeSource: boolean): Promise<CodexAccountDone>;
   /** "Tự đánh thức": its settings, kept by the app. */
-  codexTriggerSet(t: Pick<CodexTrigger, 'on' | 'mode' | 'at' | 'keepAlive' | 'ids'>): Promise<void>;
+  codexTriggerSet(t: Pick<CodexTrigger, 'on' | 'mode' | 'times' | 'keepAlive' | 'ids'>): Promise<void>;
   /** "Chạy ngay": wakes the chosen accounts now, one after another. */
   codexTriggerNow(): Promise<void>;
   /** The MCP tab opened, or "Đọc lại": every agent's list read again; the table comes in the model. */

@@ -102,5 +102,9 @@ describe('the tabs in English', () => {
     expect(screen.getByRole('listitem', { name: 'relay, Custom API · relay.example.com · answers in 180 ms, in use. Reports no quota' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Add account' })).toBeTruthy();
     expect(screen.getByText('Codex on this Mac')).toBeTruthy();
+    expect(screen.getByText('CLI 0.163.0 · 3 Terminal sessions · App open · MCP 3/4')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Open MCP' })).toBeTruthy();
+    expect(screen.getByText('Use plugins with a Custom API')).toBeTruthy();
+    expect(screen.getByText('API key in config.toml ·', { exact: false }).textContent).toBe('API key in config.toml · Set');
   });
 });

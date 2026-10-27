@@ -6,14 +6,17 @@
 // (the ChatGPT sign-ins the app keeps, then the custom providers in
 // config.toml), each "Chuyển" opening the confirmation sheet and each ⋯ its
 // details, a new sign-in and its removal, "Thêm tài khoản" over it; the
-// plugins box and "Dán khoá…" for the provider in use under it; "Tự đánh
-// thức tài khoản ChatGPT" once the app keeps a ChatGPT account; then Codex on
-// this Mac with the technical detail behind "Chi tiết". CC Switch shows only
-// as the banner that warns when it also switches Codex.
+// plugins box and "Đổi khoá…" for the provider in use under it, one line
+// each; "Tự đánh thức ChatGPT" once the app keeps a ChatGPT account, resting
+// on one line that opens in place (direction C, 27/10/2026); then Codex on
+// this Mac as one line, the technical detail on its "Chi tiết…" sheet. Every
+// longer explanation is behind a Chi tiết. CC Switch shows only as the
+// banner that warns when it also switches Codex.
 
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Card as Panel, CardText, CardTitle } from '@/components/ui/card';
+import { DialogButtons, DialogLead, DialogTitle } from '@/components/ui/dialog';
 import { Glyph } from '../components/icons';
 import { accountName, accountOf, accountRows, type CodexAccountRowView } from '../lib/codexAccounts';
 import type { CodexAccountsState } from './useCodexAccounts';
@@ -23,7 +26,8 @@ import { AccountName, IdMark, InUse, WindowCell } from '../components/accounts';
 import { CheckLine, CheckRow, GROUP_PANEL } from '../components/blocks';
 import { CARD_END, COUNT, Empty, TABLE, TABLE_BOX, TABLE_CELLS, TABLE_END, TABLE_HEAD, TABLE_ROW, TABLE_ROW_ON, TabHead, TabSub, TabTitle } from '../components/page';
 import { Input } from '@/components/ui/input';
-import { Banner, BannerBox, Button, Chip, ChoiceGroup, ChoiceLabel, CODE, Dot, Facts, Feedback, KVT, LinkButton, More, Rich, Spinner, Toggle } from '../components/parts';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Banner, BannerBox, Button, Chip, ChoiceLabel, CODE, Dot, Feedback, KVT, LinkButton, More, Rich, Spinner, Toggle } from '../components/parts';
 import {
   CHATGPT_ID,
   ccSwitchManages,
@@ -38,27 +42,16 @@ import {
   shortName,
   undoLabel,
 } from '../lib/codex';
+import { plusFive, runLine, suggestWake, triggerError, triggerLine, wakeErrorText, wakeTimes } from '../lib/codexWake';
 import { mac, os, quitKey, t, terminal, toolStore } from '../lib/i18n';
-import type { CodexTrigger, CodexTriggerRun, CodexView, Model } from '../lib/model';
+import type { CodexTrigger, CodexView, Model } from '../lib/model';
 import { dayClock } from '../lib/switching';
 import type { Action, BannerView, ChipView, FeedbackView, PopoverView } from '../lib/view';
 
-function Card(props: { title: ReactNode; id?: string; x?: boolean; children: ReactNode }) {
-  return (
-    <Panel id={props.id}>
-      <CardTitle>
-        {props.x ? <IdMark id="x" /> : null}
-        {props.title}
-      </CardTitle>
-      {props.children}
-    </Panel>
-  );
-}
-
 /** A line with its button at the far end. */
 const ROW2 = 'flex items-center justify-between gap-2.5';
-const DETAILS = 'mt-2 text-sm text-ink2';
-const SUMMARY = 'cursor-pointer list-none text-accent-ink [&::-webkit-details-marker]:hidden';
+/** A line under the accounts, a hairline above it. */
+const LINE = 'mt-2 border-t-[.5px] border-card-line pt-2 text-sm text-ink2';
 
 /** A note at the end of a card; red or amber when it warns. */
 function Note({ tone, children }: { tone: string; children: ReactNode }) {
@@ -251,26 +244,37 @@ function AccountsCard({ model, now, accounts, onAction, onPlugins }: { model: Mo
       {v.current === 'other' ? <Note tone="warn">{t('Codex đang dùng nhà cung cấp "' + v.other + '" không có trong danh sách. Chọn một tài khoản để chuyển.', 'Codex is using the provider "' + v.other + '", which is not in the list. Pick an account to switch.')}</Note> : null}
       {v.openaiBaseUrl ? <Note tone="warn">{t('config.toml có openai_base_url: tài khoản ChatGPT đang được gửi tới địa chỉ khác.', 'config.toml has openai_base_url: the ChatGPT account is being sent to another address.')}</Note> : null}
       {rows.some((r) => r.kind === 'custom') ? (
-        <CheckLine className="mt-2.5 mb-0" checked={v.plugins} disabled={busy} onChange={onPlugins}>
-          <span>
-            {pluginsLabel()}
-            <small>
-              {t('Bỏ tick: plugin cần đăng nhập ChatGPT sẽ tắt khi chạy Custom API.', 'Unticked: plugins that need the ChatGPT sign-in turn off on a Custom API.')} <PluginsMore />
-            </small>
+        <div className={cn(ROW2, LINE)}>
+          <span className="flex min-w-0 flex-wrap items-center gap-x-1.5">
+            <CheckLine className="mb-0" checked={v.plugins} disabled={busy} onChange={onPlugins}>
+              <span>{pluginsLabel()}</span>
+            </CheckLine>
+            <span aria-hidden="true">·</span>
+            {pluginsNeedApply(v, v.plugins) ? (
+              <span className="text-warn-ink" title={t('config.toml chưa theo lựa chọn này.', 'config.toml does not follow this choice yet.')}>
+                {t('Chưa áp dụng', 'Not applied yet')}
+              </span>
+            ) : (
+              <span className={v.plugins ? 'text-ok-ink' : 'text-ink2'}>{v.plugins ? t('Đang bật', 'On') : t('Đang tắt', 'Off')}</span>
+            )}
           </span>
-        </CheckLine>
-      ) : null}
-      {pluginsNeedApply(v, v.plugins) ? (
-        <div className={cn(ROW2, 'mt-1.5 text-sm text-warn-ink')}>
-          <span>{t('config.toml chưa theo lựa chọn này.', 'config.toml does not follow this choice yet.')}</span>
-          <LinkButton disabled={busy} onClick={() => onAction('codex:plugins:apply')}>
-            {t('Áp dụng ngay…', 'Apply now…')}
-          </LinkButton>
+          <span className="flex items-center gap-2.5">
+            {pluginsNeedApply(v, v.plugins) ? (
+              <LinkButton disabled={busy} onClick={() => onAction('codex:plugins:apply')}>
+                {t('Áp dụng ngay…', 'Apply now…')}
+              </LinkButton>
+            ) : null}
+            <PluginsMore />
+          </span>
         </div>
       ) : null}
       {v.current === 'custom' && mode && v.custom ? (
-        <div className={cn(ROW2, 'mt-1.5 text-sm text-ink2')}>
-          <span>{t('Khoá của ' + v.custom.name + ' nằm trong config.toml.', v.custom.name + '’s key is in config.toml.')}</span>
+        <div className={cn(ROW2, LINE)}>
+          <span>
+            {mode === 'env' ? t('Khoá API qua biến ' + (v.custom.envKey ?? ''), 'API key from the variable ' + (v.custom.envKey ?? '')) : t('Khoá API trong config.toml', 'API key in config.toml')}
+            {' · '}
+            <span className={keyChip(v).k === 'ok' ? 'text-ok-ink' : 'text-bad-ink'}>{keyChip(v).k === 'ok' ? t('Đã có', 'Set') : v.custom.key === 'placeholder' ? t('Chưa có · khoá giữ chỗ', 'Not set · placeholder') : t('Chưa có', 'Not set')}</span>
+          </span>
           <LinkButton disabled={busy} onClick={() => onAction('codex:key')}>
             {mode === 'replace' ? t('Đổi khoá…', 'Change key…') : mode === 'env' ? t('Cách đặt khoá…', 'How to set the key…') : t('Dán khoá…', 'Paste key…')}
           </LinkButton>
@@ -288,164 +292,232 @@ function AccountsCard({ model, now, accounts, onAction, onPlugins }: { model: Mo
   );
 }
 
-/** `06:00` five hours on: when a window opened then resets. */
-function plusFive(at: string): string {
-  const [h, m] = at.split(':').map(Number);
-  return String(((h || 0) + 5) % 24).padStart(2, '0') + ':' + String(m || 0).padStart(2, '0');
+/** A label and its control, as the expanded card lines them up. */
+const FORM = 'mt-2.5 grid grid-cols-[88px_minmax(0,1fr)] items-start gap-x-3 gap-y-2.5 text-sm @max-[420px]/main:grid-cols-[minmax(0,1fr)]';
+const FORM_LABEL = 'pt-[5px] font-semi';
+/** A wake time in the list: the time, then its ×. */
+const TIME_BOX = 'inline-flex h-[26px] w-[110px] items-center rounded-ctl bg-fill px-2 tabular-nums shadow-[inset_0_0_0_.5px_var(--card-line)]';
+
+/** "Tốn hạn mức · Có thể trái điều khoản": always on the card, the whole of it behind Chi tiết. */
+function TriggerWarn() {
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-x-1.5 text-sm text-warn-ink">
+      <span aria-hidden="true" className="font-black">
+        !
+      </span>
+      <span>{t('Tốn hạn mức · Có thể trái điều khoản', 'Spends quota · May break the terms')}</span>
+      <span aria-hidden="true">·</span>
+      <More about={t('Tự đánh thức ChatGPT', 'Wake ChatGPT')}>
+        <p>
+          <Rich
+            text={t(
+              'Mỗi lần chạy `codex exec` với một câu "hi" trong thư mục của tài khoản đó, không dùng config, MCP hay plugin của bạn: Codex tự dùng và làm mới đăng nhập, app không cầm token. Mỗi lần tốn một tin nhắn ngắn của hạn mức. Không chạy cùng lúc với Chuyển hay đăng nhập.',
+              'Each run is `codex exec` with a "hi" in that account’s folder, without your config, MCP servers or plugins: Codex uses and renews the sign-in itself, the app holds no token. Each run spends one short message of quota. It never runs during a switch or a sign-in.',
+            )}
+          />
+        </p>
+        <p className="text-warn-ink">
+          {t(
+            'OpenAI không nói tới việc tự gửi yêu cầu theo lịch: có thể trái điều khoản sử dụng. Chỉ dùng cho tài khoản của chính bạn.',
+            'OpenAI does not cover sending requests on a schedule: it may break the terms of use. Use it only on your own accounts.',
+          )}
+        </p>
+      </More>
+    </div>
+  );
 }
 
-/** One wake-up, as the account's line under its name says it. */
-function runText(r: CodexTriggerRun, now: Date): string {
-  const when = dayClock(r.at, now) + ' · ';
-  switch (r.result) {
-    case 'started':
-      return when + t('khung 5 giờ mở', '5-hour window opened') + (r.resetsAt ? t(', đặt lại ', ', resets ') + dayClock(r.resetsAt, now) : '');
-    case 'open':
-      return when + t('khung 5 giờ đang mở, không gửi gì', '5-hour window already open, nothing sent');
-    case 'relogin':
-      return when + t('ChatGPT từ chối đăng nhập', 'ChatGPT refused the sign-in');
-    case 'limited':
-      return when + t('hết hạn mức tuần, không gửi', 'no quota left this week, nothing sent');
-    default:
-      return when + t('Codex báo lỗi', 'Codex reported an error') + (r.detail ? ': ' + r.detail : '');
-  }
+/** "Giờ chạy": the times, each with its ×, and "Thêm giờ"; a list Rust would refuse is not sent, and says why. */
+function WakeTimes({ times, onSet }: { times: string[]; onSet(times: string[]): Promise<string | null> }) {
+  const [adding, setAdding] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const keep = async (list: string[]) => {
+    const kept = wakeTimes(list);
+    if ('error' in kept) return setError(wakeErrorText(kept.error)), false;
+    const refused = await onSet(kept.times);
+    setError(refused ? wakeErrorText(refused) : null);
+    return !refused;
+  };
+  return (
+    <div className="grid justify-items-start gap-1.5" role="group" aria-label={t('Giờ chạy', 'Wake times')}>
+      {times.map((at) => (
+        <span key={at} className="flex items-center gap-1.5">
+          <span className={TIME_BOX}>{at}</span>
+          <Button quiet icon small lead="x" label={t('Xoá giờ ', 'Remove ') + at} onClick={() => void keep(times.filter((x) => x !== at))}>
+            {null}
+          </Button>
+        </span>
+      ))}
+      {adding == null ? (
+        <Button small lead="plus" onClick={() => (setAdding(suggestWake(times)), setError(null))}>
+          {t('Thêm giờ', 'Add time')}
+        </Button>
+      ) : (
+        <span className="flex items-center gap-1.5">
+          <Input type="time" aria-label={t('Giờ mới', 'New time')} className="w-[110px]" value={adding} onChange={(e) => setAdding(e.target.value)} />
+          <Button small primary onClick={() => void keep([...times, adding]).then((ok) => ok && setAdding(null))}>
+            {t('Thêm', 'Add')}
+          </Button>
+          <Button small quiet onClick={() => (setAdding(null), setError(null))}>
+            {t('Thôi', 'Cancel')}
+          </Button>
+        </span>
+      )}
+      <small className={cn('text-xs', error ? 'text-bad-ink' : 'text-ink2')} role={error ? 'alert' : undefined}>
+        {error ?? t('Các mốc cách nhau ít nhất 5 giờ.', 'Times at least 5 hours apart.')}
+      </small>
+    </div>
+  );
 }
 
 /**
- * "Tự đánh thức tài khoản ChatGPT", off until turned on: a short message
- * sent with Codex in each chosen account's own folder, daily or as a window
- * resets, and to an account whose sign-in ran out while it waited.
+ * "Tự đánh thức ChatGPT", off until turned on: a short message sent with
+ * Codex in each chosen account's own folder, each day at its times or as a
+ * window resets, and to an account whose sign-in ran out while it waited.
+ * It rests on one line (on or off, its times, how many accounts) and opens
+ * in place on "Cài đặt"; the explanations are behind Chi tiết.
  */
 function TriggerCard({ model, now, tr, accounts }: { model: Model; now: Date; tr: CodexTrigger; accounts: CodexAccountsState }) {
   const v = model.codex;
-  const set = (p: Partial<Pick<CodexTrigger, 'on' | 'mode' | 'at' | 'keepAlive' | 'ids'>>) =>
-    void accounts.api.codexTriggerSet({ on: tr.on, mode: tr.mode, at: tr.at, keepAlive: tr.keepAlive, ids: tr.ids, ...p }).catch(() => {});
+  const [open, setOpen] = useState(false);
+  const set = (p: Partial<Pick<CodexTrigger, 'on' | 'mode' | 'times' | 'keepAlive' | 'ids'>>) =>
+    accounts.api.codexTriggerSet({ on: tr.on, mode: tr.mode, times: tr.times, keepAlive: tr.keepAlive, ids: tr.ids, ...p }).then(
+      () => null,
+      (e: unknown) => (typeof e === 'string' ? e : 'at'),
+    );
   const gpts = v.accounts.filter((a) => a.kind === 'chatgpt' && (a.number ?? 0) > 0);
-  const last = (id: string) => tr.runs.find((r) => r.id === id);
+  const chosen = gpts.filter((a) => tr.ids.includes(a.id) && a.login !== 'relogin').length;
   const runner = tr.running ? accountOf(v, tr.running) : undefined;
+  const failed = runner ? null : triggerError(tr);
+  const failedOf = failed ? accountOf(v, failed.id) : undefined;
+  const runNow = (
+    <Button disabled={!tr.ids.length || !!tr.running || v.version == null} onClick={() => void accounts.api.codexTriggerNow().catch(() => {})}>
+      {t('Chạy ngay', 'Run now')}
+    </Button>
+  );
   return (
     <Panel>
       <CardTitle>
-        {t('Tự đánh thức tài khoản ChatGPT', 'Wake ChatGPT accounts')}
+        {t('Tự đánh thức ChatGPT', 'Wake ChatGPT')}
         <span className={CARD_END}>
-          <Toggle on={tr.on} label={t('Tự đánh thức', 'Wake accounts')} disabled={v.version == null} onClick={() => set({ on: !tr.on })} />
+          <Toggle on={tr.on} label={t('Tự đánh thức', 'Wake accounts')} disabled={v.version == null} onClick={() => void set({ on: !tr.on })} />
+          <Button small quiet={open} expanded={open} label={open ? t('Thu gọn Tự đánh thức', 'Collapse Wake ChatGPT') : t('Cài đặt Tự đánh thức', 'Wake ChatGPT settings')} onClick={() => setOpen(!open)}>
+            {open ? t('Thu gọn', 'Collapse') : t('Cài đặt', 'Settings')}
+            <Glyph name={open ? 'caret-up' : 'caret-down'} bold />
+          </Button>
+          {open ? null : runNow}
         </span>
       </CardTitle>
-      <CardText className="mt-0 mb-2.5">
-        {t(
-          'Gửi một câu ngắn bằng Codex cho từng tài khoản đã chọn: khung 5 giờ mở từ sớm nên đặt lại sớm, và đăng nhập không hết hạn khi lâu không dùng.',
-          'Sends a short message with Codex for each chosen account: its 5-hour window opens early so it resets early, and its sign-in does not run out while unused.',
-        )}
-      </CardText>
-      <ChoiceGroup
-        id="qs-cx-trig-mode"
-        label={t('Khi nào', 'When')}
-        options={[
-          {
-            v: 'daily',
-            t: t('Mỗi ngày lúc ' + tr.at, 'Each day at ' + tr.at),
-            s: mac(
-              t(
-                'Khung 5 giờ mở lúc ' + tr.at + ', đặt lại lúc ' + plusFive(tr.at) + '. Mac ngủ lúc đó thì chạy khi thức, trễ tối đa 3 giờ.',
-                'The 5-hour window opens at ' + tr.at + ' and resets at ' + plusFive(tr.at) + '. A Mac asleep then runs it on waking, up to 3 hours late.',
-              ),
-            ),
-          },
-          {
-            v: 'reset',
-            t: t('Ngay khi khung 5 giờ đặt lại', 'As soon as a 5-hour window resets'),
-            s: t(
-              'Mỗi tài khoản cách nhau ít nhất 5 giờ, tối đa 5 lần một ngày, kể cả khi lỗi; không gửi khi khung đang mở hay hết hạn mức tuần.',
-              'Each account at least 5 hours apart, at most 5 times a day, failed runs included; nothing sent while a window is open or the week is used up.',
-            ),
-          },
-        ]}
-        value={tr.mode}
-        onChange={(mode) => set({ mode })}
-      />
-      {tr.mode === 'daily' ? (
-        <div className="mt-2.5 flex items-center gap-2 text-sm">
-          <label htmlFor="qs-cx-trig-at" className="text-ink2">
-            {t('Giờ chạy', 'Time')}
-          </label>
-          <Input id="qs-cx-trig-at" type="time" className="w-[110px]" value={tr.at} onChange={(e) => e.target.value && set({ at: e.target.value })} />
-        </div>
-      ) : null}
-      <CheckLine className="mt-2.5" checked={tr.keepAlive} onChange={(keepAlive) => set({ keepAlive })}>
-        <span>
-          {t('Giữ đăng nhập không hết hạn', 'Keep sign-ins from running out')}
-          <small>
-            {t(
-              'Cũng đánh thức tài khoản đang chờ trong thư mục riêng khi token của nó đã hết hạn (app không đọc được hạn mức), để Codex làm mới; tối đa 2 lần một ngày.',
-              'Also wakes an account waiting in its own folder once its token has run out (the app cannot read its quota then), so Codex renews it; at most twice a day.',
-            )}
-          </small>
-        </span>
-      </CheckLine>
-      <ChoiceLabel>{t('Tài khoản', 'Accounts')}</ChoiceLabel>
-      <div className={GROUP_PANEL} role="list" aria-label={t('Tài khoản được đánh thức', 'Accounts woken')}>
-        {gpts.map((a) => {
-          const r = last(a.id);
-          const refused = a.login === 'relogin';
-          return (
-            <CheckRow
-              key={a.id}
-              checked={tr.ids.includes(a.id) && !refused}
-              disabled={refused}
-              off={refused}
-              onChange={(on) => set({ ids: on ? [...tr.ids, a.id] : tr.ids.filter((x) => x !== a.id) })}
-            >
-              <span className="min-w-0">
-                <b>{accountName(model, a)}</b>
-                <small className="tabular-nums">{r ? runText(r, now) : t('chưa đánh thức lần nào', 'not woken yet')}</small>
-              </span>
-              {tr.running === a.id ? <Spinner /> : refused ? <Chip chip={{ t: t('cần đăng nhập lại', 'must sign in again'), k: 'bad' }} /> : <span />}
-            </CheckRow>
-          );
-        })}
+      <div className="text-sm text-ink2 tabular-nums">
+        {runner ? <Spinner className="mr-1.5 inline-block align-[-2px]" /> : null}
+        {triggerLine(tr, chosen, gpts.length, now, runner ? accountName(model, runner) : null)}
+        {failed && failedOf ? (
+          <span className="text-bad-ink">
+            {' · ' + t('Lỗi', 'Error') + ' · ' + accountName(model, failedOf) + ': '}
+            {failed.result === 'relogin' ? t('cần đăng nhập lại', 'must sign in again') : (failed.detail ?? t('Codex báo lỗi', 'Codex reported an error'))}
+          </span>
+        ) : null}
       </div>
-      <Facts
-        className="mt-2"
-        items={[
-          {
-            k: '',
-            text: (
-              <Rich
-                text={t(
-                  'Mỗi lần chạy `codex exec` với một câu "hi" trong thư mục của tài khoản đó, không dùng config, MCP hay plugin của bạn: Codex tự dùng và làm mới đăng nhập, app không cầm token. Mỗi lần tốn một tin nhắn ngắn của hạn mức. Không chạy cùng lúc với Chuyển hay đăng nhập.',
-                  'Each run is `codex exec` with a "hi" in that account’s folder, without your config, MCP servers or plugins: Codex uses and renews the sign-in itself, the app holds no token. Each run spends one short message of quota. It never runs during a switch or a sign-in.',
+      {open ? (
+        <>
+          <div className="mt-0.5 text-sm text-ink2">
+            {t('Mở sớm khung 5 giờ', 'Opens the 5-hour window early')}
+            {' · '}
+            <More about={t('Tự đánh thức ChatGPT', 'Wake ChatGPT')}>
+              <p>
+                {t(
+                  'Gửi một câu ngắn bằng Codex cho từng tài khoản đã chọn: khung 5 giờ mở từ sớm nên đặt lại sớm.',
+                  'Sends a short message with Codex for each chosen account: its 5-hour window opens early, so it resets early.',
                 )}
-              />
-            ),
-          },
-          {
-            k: 'w',
-            text: t(
-              'OpenAI không nói tới việc tự gửi yêu cầu theo lịch: có thể trái điều khoản sử dụng. Chỉ dùng cho tài khoản của chính bạn.',
-              'OpenAI does not cover sending requests on a schedule: it may break the terms of use. Use it only on your own accounts.',
-            ),
-          },
-        ]}
-      />
-      <div className={cn(ROW2, 'mt-2.5')}>
-        <small className="text-xs text-ink2 tabular-nums">
-          {runner
-            ? t('Đang đánh thức ' + accountName(model, runner) + '…', 'Waking ' + accountName(model, runner) + '…')
-            : !tr.on
-              ? t('Đang tắt.', 'Off.')
-              : tr.next
-                ? t('Lần tới: ', 'Next: ') + dayClock(tr.next, now)
-                : t('Chạy khi một khung 5 giờ đặt lại.', 'Runs when a 5-hour window resets.')}
-        </small>
-        <Button disabled={!tr.ids.length || !!tr.running || v.version == null} onClick={() => void accounts.api.codexTriggerNow().catch(() => {})}>
-          {t('Chạy ngay', 'Run now')}
-        </Button>
-      </div>
+              </p>
+              <p>
+                <b>{t('Mỗi ngày', 'Every day')}</b>
+                {mac(
+                  t(
+                    ': chạy ở từng giờ đã chọn; mở lúc ' + tr.times[0] + ' thì đặt lại lúc ' + plusFive(tr.times[0] ?? '06:00') + '. Mac ngủ lúc đó thì chạy khi thức, trễ tối đa 3 giờ; giờ đã lỡ không chạy bù.',
+                    ': runs at each time chosen; opened at ' + tr.times[0] + ', it resets at ' + plusFive(tr.times[0] ?? '06:00') + '. A Mac asleep then runs it on waking, up to 3 hours late; a time missed is not made up.',
+                  ),
+                )}
+              </p>
+              <p>
+                <b>{t('Khi đặt lại', 'On reset')}</b>
+                {t(': chạy ngay khi khung 5 giờ của tài khoản đã đặt lại.', ': runs as soon as the account’s 5-hour window has reset.')}
+              </p>
+              <p>
+                {t(
+                  'Mỗi tài khoản cách nhau ít nhất 5 giờ, tối đa 5 lần trong 24 giờ, kể cả khi lỗi; không gửi khi khung đang mở hay hết hạn mức tuần. Giờ nào rơi vào lúc đó thì bỏ qua và ghi lý do.',
+                  'Each account at least 5 hours apart, at most 5 times in 24 hours, failed runs included; nothing sent while a window is open or the week is used up. A time that falls then is skipped, with its reason.',
+                )}
+              </p>
+            </More>
+          </div>
+          <div className={FORM}>
+            <span className={FORM_LABEL} id="qs-cx-trig-mode-l">
+              {t('Khi nào', 'When')}
+            </span>
+            <RadioGroup className="grid-cols-[repeat(2,max-content)]" aria-labelledby="qs-cx-trig-mode-l" value={tr.mode} onValueChange={(mode) => void set({ mode: mode as CodexTrigger['mode'] })}>
+              <RadioGroupItem value="daily" className="items-center">
+                {t('Mỗi ngày', 'Every day')}
+              </RadioGroupItem>
+              <RadioGroupItem value="reset" className="items-center">
+                {t('Khi đặt lại', 'On reset')}
+              </RadioGroupItem>
+            </RadioGroup>
+            {tr.mode === 'daily' ? (
+              <>
+                <span className={FORM_LABEL}>{t('Giờ chạy', 'Wake times')}</span>
+                <WakeTimes times={tr.times} onSet={(times) => set({ times })} />
+              </>
+            ) : null}
+          </div>
+          <div className={cn(ROW2, 'mt-2.5')}>
+            <CheckLine className="mb-0" checked={tr.keepAlive} onChange={(keepAlive) => void set({ keepAlive })}>
+              <span>{t('Giữ đăng nhập', 'Keep sign-ins')}</span>
+            </CheckLine>
+            <More small about={t('Giữ đăng nhập', 'Keep sign-ins')}>
+              <p>
+                {t(
+                  'Cũng đánh thức tài khoản đang chờ trong thư mục riêng khi token của nó đã hết hạn (app không đọc được hạn mức), để Codex làm mới; tối đa 2 lần một ngày. Không hứa đăng nhập luôn còn hạn: ChatGPT từ chối thì cần đăng nhập lại.',
+                  'Also wakes an account waiting in its own folder once its token has run out (the app cannot read its quota then), so Codex renews it; at most twice a day. It does not promise a sign-in never runs out: one ChatGPT refuses must sign in again.',
+                )}
+              </p>
+            </More>
+          </div>
+          <ChoiceLabel className="mt-2.5">{t('Tài khoản', 'Accounts')}</ChoiceLabel>
+          <div className={GROUP_PANEL} role="list" aria-label={t('Tài khoản được đánh thức', 'Accounts woken')}>
+            {gpts.map((a) => {
+              const r = tr.runs.find((x) => x.id === a.id);
+              const refused = a.login === 'relogin';
+              return (
+                <CheckRow
+                  key={a.id}
+                  checked={tr.ids.includes(a.id) && !refused}
+                  disabled={refused}
+                  off={refused}
+                  onChange={(on) => void set({ ids: on ? [...tr.ids, a.id] : tr.ids.filter((x) => x !== a.id) })}
+                >
+                  <span className="min-w-0 truncate" title={r?.detail ?? undefined}>
+                    <b>{accountName(model, a)}</b>
+                    <span className="text-ink2 tabular-nums">{' · ' + runLine(r, now)}</span>
+                  </span>
+                  {tr.running === a.id ? <Spinner /> : refused ? <Chip chip={{ t: t('cần đăng nhập lại', 'must sign in again'), k: 'bad' }} /> : <span />}
+                </CheckRow>
+              );
+            })}
+          </div>
+          <div className={cn(ROW2, 'items-end')}>
+            <TriggerWarn />
+            {runNow}
+          </div>
+        </>
+      ) : (
+        <TriggerWarn />
+      )}
     </Panel>
   );
 }
 
-/** What "Dùng plugin khi chạy Custom API" does, said in full behind "Chi tiết". */
+/** What "Dùng plugin với Custom API" does, said in full behind "Chi tiết". */
 function PluginsMore() {
   return (
     <More about={pluginsLabel()}>
@@ -474,7 +546,7 @@ function PluginsMore() {
   );
 }
 
-/** What the tab used to spell out, behind one "Chi tiết". */
+/** What Codex on this Mac used to spell out, on its "Chi tiết…" sheet. */
 function Details({ v, now, onAction }: { v: CodexView; now: Date; onAction(a: Action): void }) {
   const c = v.custom;
   const w = v.lastWrite;
@@ -482,104 +554,139 @@ function Details({ v, now, onAction }: { v: CodexView; now: Date; onAction(a: Ac
   const wants = v.wantsRequires != null && v.wantsRequires !== c?.requiresOpenaiAuth ? ' → ' + v.wantsRequires + t(' khi chuyển', ' on switch') : '';
   const r = v.resume;
   return (
-    <details className={DETAILS}>
-      <summary className={SUMMARY}>{t('Chi tiết', 'Details')}</summary>
-      <div className="mt-2 grid gap-3">
-        <Rows
-          rows={[
-            { id: 'login', key: t('Đăng nhập ChatGPT (auth.json)', 'ChatGPT sign-in (auth.json)'), value: <Chip chip={loginChip(v)} /> },
-            ...(c
-              ? [
-                  { id: 'url', key: t('Địa chỉ ' + c.name, c.name + ' address'), value: c.baseUrl ? <span className={CODE}>{c.baseUrl}</span> : t('không có', 'none') },
-                  { id: 'key', key: t('Khoá API riêng', 'Own API key'), value: <Chip chip={keyChip(v)} /> },
-                  { id: 'req', key: 'requires_openai_auth', value: <span className={CODE}>{requires + wants}</span> },
-                ]
-              : []),
-            { id: 'w', key: t('File app ghi', 'File the app writes'), value: <span className={CODE}>{v.home}/config.toml</span> },
-            { id: 'n', key: t('Không ghi', 'Never written'), value: <span className={CODE}>auth.json · [mcp_servers]</span> },
-            {
-              id: 'b',
-              key: t('Sao lưu', 'Backups'),
-              value: (
-                <>
-                  {t(v.backups.length + ' bản · không chứa khoá', v.backups.length + (v.backups.length === 1 ? ' copy' : ' copies') + ' · no keys inside')}{' '}
-                  <LinkButton onClick={() => onAction('codex:backup')}>{t('Xem', 'View')}</LinkButton>
-                </>
-              ),
-            },
-            {
-              id: 'l',
-              key: t('App ghi lần cuối', 'Last written by the app'),
-              value: w ? (
-                <>
-                  {(w.at ? dayClock(w.at, now) + ' · ' : '') + shortName(v, w.provider) + ' '}
-                  <Chip chip={w.matches ? { t: t('mã băm khớp', 'hash matches'), k: 'ok' } : { t: t('file đã khác', 'file has changed'), k: 'warn' }} />
-                </>
-              ) : (
-                t('chưa ghi lần nào', 'never written')
-              ),
-            },
-            {
-              id: 'r',
-              key: t('Phiên tiếp tục được', 'Resumable sessions'),
-              value: r
-                ? 'ChatGPT ' +
-                  (r[CHATGPT_ID] ?? 0) +
-                  (c ? ' · ' + c.name + ' ' + (r[c.id] ?? 0) : '') +
-                  t(' (codex resume tách theo nhà cung cấp)', ' (codex resume keeps them per provider)')
-                : '…',
-            },
-          ]}
-        />
-        <div>
-          <b className="mb-1 block text-xs font-semi text-ink2">{t('Lần chuyển gần đây', 'Recent switches')}</b>
-          {v.recent.length ? (
-            // One grid: the time column as wide as its longest time ("hôm qua 22:47" on one line).
-            <div className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-2 gap-y-1">
-              {v.recent.map((e) => (
-                <div key={e.at + e.to + e.result} className="col-span-full grid grid-cols-subgrid">
-                  <time className="tabular-nums">{dayClock(e.at, now)}</time>
-                  <span className="text-ink">{recentText(v, e)}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            mac(t('Chưa có lần chuyển nào trên máy này.', 'No switches on this Mac yet.'))
-          )}
-        </div>
+    <div className="grid gap-3 text-sm text-ink2">
+      <Rows
+        rows={[
+          { id: 'login', key: t('Đăng nhập ChatGPT (auth.json)', 'ChatGPT sign-in (auth.json)'), value: <Chip chip={loginChip(v)} /> },
+          ...(c
+            ? [
+                { id: 'url', key: t('Địa chỉ ' + c.name, c.name + ' address'), value: c.baseUrl ? <span className={CODE}>{c.baseUrl}</span> : t('không có', 'none') },
+                { id: 'key', key: t('Khoá API riêng', 'Own API key'), value: <Chip chip={keyChip(v)} /> },
+                { id: 'req', key: 'requires_openai_auth', value: <span className={CODE}>{requires + wants}</span> },
+              ]
+            : []),
+          { id: 'w', key: t('File app ghi', 'File the app writes'), value: <span className={CODE}>{v.home}/config.toml</span> },
+          { id: 'n', key: t('Không ghi', 'Never written'), value: <span className={CODE}>auth.json · [mcp_servers]</span> },
+          {
+            id: 'b',
+            key: t('Sao lưu', 'Backups'),
+            value: (
+              <>
+                {t(v.backups.length + ' bản · không chứa khoá', v.backups.length + (v.backups.length === 1 ? ' copy' : ' copies') + ' · no keys inside')}{' '}
+                <LinkButton onClick={() => onAction('codex:backup')}>{t('Xem', 'View')}</LinkButton>
+              </>
+            ),
+          },
+          {
+            id: 'l',
+            key: t('App ghi lần cuối', 'Last written by the app'),
+            value: w ? (
+              <>
+                {(w.at ? dayClock(w.at, now) + ' · ' : '') + shortName(v, w.provider) + ' '}
+                <Chip chip={w.matches ? { t: t('mã băm khớp', 'hash matches'), k: 'ok' } : { t: t('file đã khác', 'file has changed'), k: 'warn' }} />
+              </>
+            ) : (
+              t('chưa ghi lần nào', 'never written')
+            ),
+          },
+          {
+            id: 'r',
+            key: t('Phiên tiếp tục được', 'Resumable sessions'),
+            value: r
+              ? 'ChatGPT ' +
+                (r[CHATGPT_ID] ?? 0) +
+                (c ? ' · ' + c.name + ' ' + (r[c.id] ?? 0) : '') +
+                t(' (codex resume tách theo nhà cung cấp)', ' (codex resume keeps them per provider)')
+              : '…',
+          },
+        ]}
+      />
+      <div>
+        <b className="mb-1 block text-xs font-semi text-ink2">{t('Lần chuyển gần đây', 'Recent switches')}</b>
+        {v.recent.length ? (
+          // One grid: the time column as wide as its longest time ("hôm qua 22:47" on one line).
+          <div className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-2 gap-y-1">
+            {v.recent.map((e) => (
+              <div key={e.at + e.to + e.result} className="col-span-full grid grid-cols-subgrid">
+                <time className="tabular-nums">{dayClock(e.at, now)}</time>
+                <span className="text-ink">{recentText(v, e)}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          mac(t('Chưa có lần chuyển nào trên máy này.', 'No switches on this Mac yet.'))
+        )}
       </div>
-    </details>
+    </div>
   );
 }
 
-function OnThisMac({ v, now, onAction }: { v: CodexView; now: Date; onAction(a: Action): void }) {
+/** Codex on this Mac in one line: the CLI, the sessions, the app, the MCP servers on. */
+function machineLine(v: CodexView): string {
   const p = v.procs;
   const on = v.mcp.filter((m) => m.enabled).length;
-  const line = [
+  return [
     'CLI ' + (v.version ?? t('không tìm thấy', 'not found')),
     p ? t(p.sessions + ' phiên ' + terminal(), p.sessions + ' ' + terminal() + (p.sessions === 1 ? ' session' : ' sessions')) : null,
-    p ? (p.app ? t('Codex App đang mở', 'Codex App is open') : t('Codex App không mở', 'Codex App is not open')) : null,
+    p ? (p.app ? t('App đang mở', 'App open') : t('App đã đóng', 'App closed')) : null,
+    v.mcp.length ? 'MCP ' + on + '/' + v.mcp.length : t('Chưa có MCP', 'No MCP yet'),
   ]
     .filter(Boolean)
     .join(' · ');
+}
+
+/**
+ * "Codex trên máy này"'s sheet: the line in full, the technical detail and
+ * the recent switches, the reminder after a switch, and the restart of the
+ * background process.
+ */
+export function MachineSheet({ v, now, onAction, onClose }: { v: CodexView; now: Date; onAction(a: Action): void; onClose(): void }) {
+  const go = (a: Action) => {
+    onClose();
+    onAction(a);
+  };
   return (
-    <Card title={mac(t('Codex trên máy này', 'Codex on this Mac'))}>
-      <div className="text-sm text-ink2">
-        <Dot tone={p?.daemon ? 'ok' : 'muted'} className="mr-1.5" />
-        {line}
+    <div className="grid gap-3.5">
+      <div className="grid gap-1">
+        <DialogTitle className="mb-0">{mac(t('Codex trên máy này', 'Codex on this Mac'))}</DialogTitle>
+        <DialogLead className="mb-0 flex items-center">
+          <Dot tone={v.procs?.daemon ? 'ok' : 'muted'} className="mr-1.5" />
+          {machineLine(v)}
+        </DialogLead>
       </div>
-      <div className={cn(ROW2, 'mt-1.5 text-sm text-ink2')}>
-        <span>{v.mcp.length ? v.mcp.length + ' MCP · ' + on + t(' đang bật', ' on') : t('Chưa có MCP', 'No MCP yet')}</span>
-        <LinkButton onClick={() => onAction('mcp:tab')}>{t('Mở tab MCP', 'Open the MCP tab')}</LinkButton>
-      </div>
-      <div className={cn(ROW2, 'mt-2.5')}>
-        <small className="text-xs text-ink2">{t('Đổi xong: ' + quitKey() + ' Codex App rồi mở lại.', 'After a switch: ' + quitKey() + ' Codex App and open it again.')}</small>
-        <Button disabled={v.busy != null} onClick={() => onAction('codex:daemon')}>
+      <Details v={v} now={now} onAction={go} />
+      <small className="text-xs text-ink2">{t('Đổi xong: ' + quitKey() + ' Codex App rồi mở lại.', 'After a switch: ' + quitKey() + ' Codex App and open it again.')}</small>
+      <DialogButtons>
+        <Button disabled={v.busy != null} onClick={() => go('codex:daemon')}>
           {t('Khởi động lại tiến trình nền…', 'Restart background process…')}
         </Button>
+        <Button primary onClick={onClose}>
+          {t('Đóng', 'Close')}
+        </Button>
+      </DialogButtons>
+    </div>
+  );
+}
+
+function OnThisMac({ v, accounts, onAction }: { v: CodexView; accounts: CodexAccountsState; onAction(a: Action): void }) {
+  return (
+    <Panel>
+      <CardTitle>
+        {mac(t('Codex trên máy này', 'Codex on this Mac'))}
+        <span className={CARD_END}>
+          <Button small onClick={() => accounts.open({ kind: 'mac' })}>
+            {t('Chi tiết…', 'Details…')}
+          </Button>
+          <Button small primary onClick={() => onAction('mcp:tab')}>
+            {t('Mở MCP', 'Open MCP')}
+          </Button>
+        </span>
+      </CardTitle>
+      <div className="flex items-center text-sm text-ink2 tabular-nums">
+        <Dot tone={v.procs?.daemon ? 'ok' : 'muted'} className="mr-1.5" />
+        {machineLine(v)}
       </div>
-      <Details v={v} now={now} onAction={onAction} />
-    </Card>
+    </Panel>
   );
 }
 
@@ -589,7 +696,7 @@ export interface CodexTabProps {
   feedback: FeedbackView | null;
   now: Date;
   onAction(act: Action): void;
-  /** "Dùng plugin khi chạy Custom API". */
+  /** "Dùng plugin với Custom API". */
   onPlugins(on: boolean): void;
   /** The accounts' dialogs and ⋯ menus. */
   accounts: CodexAccountsState;
@@ -656,7 +763,7 @@ export function CodexTab({ model, fresh, feedback, now, onAction, onPlugins, acc
       ) : null}
       <AccountsCard model={model} now={now} accounts={accounts} onAction={onAction} onPlugins={onPlugins} />
       {v.accounts.some((a) => a.kind === 'chatgpt' && (a.number ?? 0) > 0) ? <TriggerCard model={model} now={now} tr={v.trigger} accounts={accounts} /> : null}
-      <OnThisMac v={v} now={now} onAction={onAction} />
+      <OnThisMac v={v} accounts={accounts} onAction={onAction} />
     </>
   );
 }

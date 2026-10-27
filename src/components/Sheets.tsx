@@ -93,7 +93,7 @@ export interface SheetBodyProps {
   onCodexOpen?(sheet: SheetState): void;
   /** The guide to stop using CC Switch, in the Codex tab. */
   onCodexGuide?(): void;
-  /** "Dùng plugin khi chạy Custom API": kept for the next switch. */
+  /** "Dùng plugin với Custom API": kept for the next switch. */
   onCodexPlugins?(on: boolean): void;
   /** "Dán khoá": the preview; the key comes back only as its hint. */
   onCodexKeyPreview?(key: string, baseUrl: string | null): Promise<CodexKeyPreview>;

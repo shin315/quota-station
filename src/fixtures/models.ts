@@ -450,7 +450,7 @@ export function codexFixture(over: Partial<CodexView> = {}): CodexView {
     openaiBaseUrl: false,
     accounts: [],
     accountsDir: '~/Library/Application Support/com.shin315.quota-station/codex/accounts',
-    trigger: { on: false, mode: 'daily', at: '06:00', keepAlive: true, ids: [], next: null, running: null, runs: [] },
+    trigger: { on: false, mode: 'daily', times: ['06:00'], keepAlive: true, ids: [], next: null, running: null, runs: [] },
     ...over,
   };
   return over.accounts ? v : { ...v, accounts: codexAccountsOf(v) };
@@ -545,8 +545,8 @@ export function codexMany(model: Model): Model {
 }
 
 /**
- * "Tự đánh thức tài khoản ChatGPT" on `codexMany`'s accounts: each day at
- * 06:00 (the Mac's time, here UTC+7), the three that sign in; this morning
+ * "Tự đánh thức ChatGPT" on `codexMany`'s accounts: each day at 06:00 and
+ * 18:00 (the Mac's time, here UTC+7), the three that sign in; this morning
  * one opened its window, one had it open already, one opened it after a
  * keep-alive; yesterday the side account was refused and left out since.
  */
@@ -554,10 +554,10 @@ export function codexTriggerFixture(on: boolean): CodexTrigger {
   return {
     on,
     mode: 'daily',
-    at: '06:00',
+    times: ['06:00', '18:00'],
     keepAlive: true,
     ids: ['chatgpt:1', 'chatgpt:2', 'chatgpt:3'],
-    next: on ? '2026-01-16T23:00:00Z' : null,
+    next: on ? '2026-01-16T11:00:00Z' : null,
     running: null,
     runs: [
       { at: '2026-01-15T23:01:10Z', id: 'chatgpt:3', why: 'daily', result: 'started', resetsAt: '2026-01-16T04:01:10Z', detail: null },

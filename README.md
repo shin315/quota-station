@@ -427,12 +427,17 @@ the confirmation sheet first.
   `codex-*.json`, picked in the system's file picker or pasted, shows who
   each sign-in is and what importing it does (new, renews an account that
   must sign in again, already here, refresh token only), and never renews
-  or sends one. `Tự đánh thức tài khoản ChatGPT` (off until turned on) runs
-  `codex exec "hi"` in each chosen account's folder, each day at a time or
+  or sends one. `Tự đánh thức ChatGPT` (off until turned on) runs
+  `codex exec "hi"` in each chosen account's folder, each day at its wake
+  times (07:00 and 12:00, say: five hours apart at least, four at most) or
   as a five-hour window resets, so the window starts early; it can also
   wake an account whose token ran out while it waited, so Codex renews it.
-  OpenAI says nothing of requests sent on a schedule: use it on your own
-  accounts only.
+  Every run it starts keeps to one guard: five hours since the account's
+  last run, five runs in 24 hours, nothing while its window is open or its
+  week is used up; a time that falls inside it is skipped with its reason,
+  never moved. It rests on one line under the accounts and opens in place
+  on `Cài đặt`. OpenAI says nothing of requests sent on a schedule: use it
+  on your own accounts only.
 
   `Dán khoá…` (or `Đổi khoá…`) puts the owner's key in the custom
   provider's table as `experimental_bearer_token`, the way CC Switch's
