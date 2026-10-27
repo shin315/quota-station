@@ -7,13 +7,17 @@
 #![allow(dead_code)]
 
 pub mod accounts;
+#[cfg(unix)]
 pub mod claude;
-#[cfg(feature = "antigravity-accounts")]
+// The Antigravity fakes and the fake `security` are shell scripts.
+#[cfg(all(feature = "antigravity-accounts", unix))]
 pub mod desktop;
-#[cfg(feature = "antigravity-accounts")]
+#[cfg(all(feature = "antigravity-accounts", unix))]
 pub mod google;
 pub mod http;
+#[cfg(unix)]
 pub mod keychain;
+pub mod os;
 
 use std::path::PathBuf;
 
@@ -46,7 +50,9 @@ pub fn temp_dir(tag: &str) -> PathBuf {
     dir
 }
 
-/// Writes an executable `#!/bin/sh` script at `path`.
+/// Writes an executable `#!/bin/sh` script at `path`. Unix only: a test
+/// that runs one runs there.
+#[cfg(unix)]
 pub fn script(path: &std::path::Path, body: &str) -> PathBuf {
     use std::os::unix::fs::PermissionsExt;
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();

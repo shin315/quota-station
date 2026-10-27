@@ -169,7 +169,7 @@ fn forget_reading(store: &Store, slot: u32) {
 /// Adds the login Claude Code is on now.
 pub fn adopt_live(store: &Store) -> Result<Added, ManageError> {
     let _app = AppLock::take(&store.paths)?;
-    let live = cc::read_live(&store.paths, &store.security)?;
+    let live = cc::read_live(&store.paths, &*store.security)?;
     let (Some(credential), Some(oauth)) = (live.credential, live.oauth) else {
         return Err(ManageError::NoLogin);
     };

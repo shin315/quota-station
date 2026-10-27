@@ -14,6 +14,8 @@
 //! Each skill holds a `run.sh` that leaves a mark when it runs: nothing the
 //! app does runs it. The keys are traps: never in a pack, the plan, the
 //! result, the restore's record or the app's backups.
+// Unix only: the fake agents, `npx` and `git` are shell scripts.
+#![cfg(unix)]
 
 mod common;
 

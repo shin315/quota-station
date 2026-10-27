@@ -16,6 +16,8 @@
 //! on stdin only when "Gửi cả khoá qua SSH" is ticked.
 
 #![cfg(feature = "author-tools")]
+// Unix only: the fake agents and `npx` are shell scripts.
+#![cfg(unix)]
 
 mod common;
 

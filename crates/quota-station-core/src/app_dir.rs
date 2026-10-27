@@ -18,6 +18,8 @@ use std::io;
 use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use crate::os;
+
 /// The app's Application Support folder, the root of everything here.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AppDir(PathBuf);
@@ -32,11 +34,13 @@ impl AppDir {
     }
 
     /// `path` must be under the folder, written without `..`, and neither
-    /// the folder nor any folder between it and `path` may be a symlink.
+    /// the folder nor any folder between it and `path` may be a symlink. A
+    /// Windows path starts with its drive (`C:`).
     fn check(&self, path: &Path) -> io::Result<()> {
         record(path);
-        let plain =
-            path.components().all(|c| matches!(c, Component::Normal(_) | Component::RootDir));
+        let plain = path
+            .components()
+            .all(|c| matches!(c, Component::Normal(_) | Component::RootDir | Component::Prefix(_)));
         if !(plain && !self.0.as_os_str().is_empty() && path.starts_with(&self.0) && path != self.0)
         {
             return Err(io::Error::new(
@@ -80,26 +84,23 @@ impl AppDir {
     /// its own temporary file, so two writes at once cannot take each other's.
     pub fn write_private(&self, path: &Path, text: &str) -> io::Result<()> {
         use std::io::Write;
-        use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
         static NEXT: AtomicU64 = AtomicU64::new(0);
         self.check(path)?;
         let dir = path.parent().ok_or_else(|| io::Error::other("no folder"))?;
         self.check(dir)?;
         std::fs::DirBuilder::new().recursive(true).create(dir)?;
-        std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700))?;
+        os::set_mode(dir, 0o700)?;
         let ext =
             format!("json.{}.{}.tmp", std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed));
         let tmp = path.with_extension(ext);
-        let written = std::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .mode(0o600)
-            .open(&tmp)
-            .and_then(|mut file| {
-                file.write_all(text.as_bytes())?;
-                file.sync_all()
-            })
-            .and_then(|()| std::fs::rename(&tmp, path));
+        let written =
+            os::with_mode(std::fs::OpenOptions::new().write(true).create_new(true), 0o600)
+                .open(&tmp)
+                .and_then(|mut file| {
+                    file.write_all(text.as_bytes())?;
+                    file.sync_all()
+                })
+                .and_then(|()| os::replace(&tmp, path));
         if written.is_err() {
             let _ = std::fs::remove_file(&tmp);
         }
@@ -215,6 +216,7 @@ mod tests {
         std::fs::remove_dir_all(&base).unwrap();
     }
 
+    #[cfg(unix)]
     #[test]
     fn a_symlinked_folder_inside_is_refused() {
         let base = std::env::temp_dir().join(format!("qs-fs-{}", std::process::id()));

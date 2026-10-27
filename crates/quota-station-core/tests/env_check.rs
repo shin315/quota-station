@@ -8,6 +8,8 @@
 //! The trap: a value planted in a shell file and in launchd's answer must
 //! never reach what the check returns, the alerts, the app's files or the
 //! window's model.
+// Unix only: the fake `launchctl` is a shell script, and the files read are zsh's and bash's.
+#![cfg(unix)]
 
 mod common;
 

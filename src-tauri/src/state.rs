@@ -44,7 +44,7 @@ use quota_station_core::schedule::Schedule;
 use quota_station_core::settings::{Language, Menubar, MenubarWindow, Settings, Theme, ThemePack};
 use quota_station_core::switcher::{Decision, DryRun, LogLine};
 use quota_station_core::switching::Tools;
-use quota_station_core::{local_time, pause, switcher, Snapshot};
+use quota_station_core::{local_time, pause, Snapshot};
 use serde::{Deserialize, Serialize};
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
@@ -451,9 +451,10 @@ impl Inner {
         self.schedule.set_visible(popover || main, Instant::now())
     }
 
-    /// Where the Claude accounts the app keeps live on this Mac.
+    /// Where the Claude accounts the app keeps live on this Mac: in the
+    /// folder Tauri gives the app, beside `settings.json`.
     pub fn claude_paths(&self) -> quota_station_core::claude::Paths {
-        quota_station_core::claude::Paths::for_home(&self.home)
+        quota_station_core::claude::Paths::new(&self.home, self.app_dir().path())
     }
 
     /// The Claude accounts the app keeps, with the Keychain.
@@ -471,7 +472,7 @@ impl Inner {
     pub fn switch_tools(&self) -> Tools {
         Tools {
             store: self.claude_store(),
-            launchctl: PathBuf::from(switcher::LAUNCHCTL),
+            scheduler: std::sync::Arc::new(quota_station_core::os::scheduler()),
             pause_file: pause::path(&self.home),
         }
     }

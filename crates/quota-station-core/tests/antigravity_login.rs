@@ -5,6 +5,8 @@
 //! Google, a fake browser and a fake `security` in a temporary home. These
 //! tests never reach Google and never touch the Keychain.
 #![cfg(feature = "antigravity-accounts")]
+// Unix only: the fake `security` is a shell script.
+#![cfg(unix)]
 
 mod common;
 
@@ -348,8 +350,12 @@ fn a_login_without_a_callback_gives_up_at_the_timeout() {
     let late = redirect_of(handle.auth_url());
     assert_eq!(handle.submit_callback_url(&late), Err(CallbackError::AlreadyHandled));
     let port = url::Url::parse(handle.redirect_uri()).unwrap().port().unwrap();
-    std::thread::sleep(Duration::from_millis(100));
-    assert!(std::net::TcpStream::connect(("127.0.0.1", port)).is_err(), "the port is closed");
+    // Its thread looks every 25 ms; a busy machine may take longer than one look.
+    let closed = (0..40).any(|_| {
+        std::thread::sleep(Duration::from_millis(50));
+        std::net::TcpStream::connect(("127.0.0.1", port)).is_err()
+    });
+    assert!(closed, "the port is closed");
     assert!(home.security_calls().is_empty());
 }
 

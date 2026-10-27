@@ -25,7 +25,7 @@ use quota_station_core::claude::state::AccountOut;
 use quota_station_core::claude::store::Store;
 use quota_station_core::claude::usage::{self, Endpoints};
 use quota_station_core::claude::{agent, rotate, state, switch, Paths};
-use quota_station_core::codex::platform::Unix;
+use quota_station_core::codex::platform::System;
 use quota_station_core::detail::ClaudeDetail;
 use quota_station_core::quota::cache::{Cache, MAX_AGE_SECONDS};
 use quota_station_core::quota::{self, ProviderId, Response};
@@ -69,13 +69,14 @@ fn run(app: &AppHandle, state: &AppState) {
             continue;
         }
         let home = inner.home.clone();
+        let claude_paths = inner.claude_paths();
         // A switcher look on its own, between reads.
         let read_due = inner.read_now || inner.schedule.due_in(Instant::now()).is_zero();
         let pause_generation = inner.switcher.pause_generation;
         if !read_due {
             inner.switcher_now = false;
             drop(inner);
-            let check = check_switcher(&home, true, pause_generation);
+            let check = check_switcher(&home, claude_paths, true, pause_generation);
             check.store(&mut state.lock());
             publish(app, state);
             continue;
@@ -95,7 +96,8 @@ fn run(app: &AppHandle, state: &AppState) {
 
         // The switcher check runs beside the read, and the numbers are shown
         // as soon as they are in: a slow dry run never holds them back.
-        let switcher = thread::spawn(move || check_switcher(&home, full, pause_generation));
+        let switcher =
+            thread::spawn(move || check_switcher(&home, claude_paths, full, pause_generation));
         let codex_app = app_dir.clone();
         let codex = thread::spawn(move || codex_home.map(|h| read_codex(&h, &codex_app)));
         let (claude, agy, own) = read_all(&accounts, &app_dir, names);
@@ -150,14 +152,13 @@ struct FullCheck {
     legacy: Option<String>,
 }
 
-fn check_switcher(home: &Path, full: bool, pause_generation: u64) -> SwitcherCheck {
+fn check_switcher(home: &Path, paths: Paths, full: bool, pause_generation: u64) -> SwitcherCheck {
     let flag_file = pause::path(home);
     let pause = pause::read(&flag_file).ok().flatten();
     let full = full.then(|| {
         let at = OffsetDateTime::now_utc();
         let flag_held = pause.as_ref().is_some_and(|f| f.holds(&local_time::stamp(at)));
         let launchctl = Path::new(switcher::LAUNCHCTL);
-        let paths = Paths::for_home(home);
         let dry_run = if paths.in_use() {
             let store = Store::new(paths, Security::system());
             let decided = rotate::dry_run(
@@ -242,7 +243,7 @@ pub fn read_claude(
     }
     let live = quota::claude::Live {
         paths: &store.paths,
-        security: &store.security,
+        security: &*store.security,
         endpoints: &Endpoints::anthropic(),
         app,
     };
@@ -268,7 +269,7 @@ fn read_codex(codex_home: &Path, app: &AppDir) -> Response {
     quota::codex::read_accounts(
         app,
         codex_home,
-        &Unix::system(),
+        &System::system(),
         &quota::codex::Endpoints::chatgpt(),
         MAX_AGE_SECONDS,
         OffsetDateTime::now_utc(),

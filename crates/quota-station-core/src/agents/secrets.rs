@@ -15,8 +15,11 @@
 //! one agent to another reads the secret from the first agent's file.
 
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Duration;
 
+use crate::claude::keychain::KeychainError;
+use crate::os::SecretStore;
 use crate::runner::{self, RunError};
 
 pub const SERVICE: &str = "com.shin315.quota-station.mcp-secret";
@@ -65,12 +68,15 @@ pub fn account(mcp: &str, slot: &str) -> String {
     format!("{mcp}:{slot}")
 }
 
+/// macOS's `security` with the value on its command line (`-w`), the form
+/// Cockpit Tools keeps its items in: the [`SecretStore`] of the MCP secrets
+/// and of the Antigravity tokens (`antigravity::store`) on macOS.
 #[derive(Debug, Clone)]
-pub struct Secrets {
+pub struct SecurityCli {
     program: PathBuf,
 }
 
-impl Secrets {
+impl SecurityCli {
     /// macOS's `security`.
     pub fn system() -> Self {
         // The tests run a fake `security`; one that reached for the real
@@ -78,13 +84,13 @@ impl Secrets {
         if cfg!(feature = "test-support") {
             panic!("tests must use a fake security");
         }
-        Secrets { program: PathBuf::from("/usr/bin/security") }
+        SecurityCli { program: PathBuf::from("/usr/bin/security") }
     }
 
-    /// A fake `security` for the tests.
+    /// A fake `security` for the tests of this backend.
     #[cfg(feature = "test-support")]
     pub fn fake(program: impl Into<PathBuf>) -> Self {
-        Secrets { program: program.into() }
+        SecurityCli { program: program.into() }
     }
 
     fn run(&self, args: &[&str]) -> Result<Vec<u8>, StoreError> {
@@ -99,39 +105,118 @@ impl Secrets {
             code => Err(StoreError::Failed { code, message: runner::first_line(&out.stderr) }),
         }
     }
+}
 
-    /// Adds or replaces the item (`-U`). On a failure the item that was
-    /// there stays as it was.
-    pub fn save(&self, mcp: &str, slot: &str, value: &str) -> Result<(), StoreError> {
-        let account = account(mcp, slot);
-        let value = ascii(value);
-        self.run(&["add-generic-password", "-U", "-s", SERVICE, "-a", &account, "-w", &value])
+impl SecretStore for SecurityCli {
+    fn get_within(
+        &self,
+        service: &str,
+        account: &str,
+        _wait: Duration,
+    ) -> Result<Option<String>, KeychainError> {
+        self.get(service, account)
+    }
+
+    fn get(&self, service: &str, account: &str) -> Result<Option<String>, KeychainError> {
+        match self.run(&["find-generic-password", "-s", service, "-a", account, "-w"]) {
+            // `-w` ends the value with one newline.
+            Ok(out) => match String::from_utf8(out) {
+                Ok(text) => Ok(Some(text.strip_suffix('\n').unwrap_or(&text).to_string())),
+                Err(_) => Err(StoreError::Corrupt.into()),
+            },
+            Err(StoreError::NotFound) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    fn exists(&self, service: &str, account: &str) -> Result<bool, KeychainError> {
+        match self.run(&["find-generic-password", "-s", service, "-a", account]) {
+            Ok(_) => Ok(true),
+            Err(StoreError::NotFound) => Ok(false),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    fn set(&self, service: &str, account: &str, value: &str) -> Result<(), KeychainError> {
+        self.run(&["add-generic-password", "-U", "-s", service, "-a", account, "-w", value])
             .map(|_| ())
+            .map_err(KeychainError::from)
+    }
+
+    fn delete(&self, service: &str, account: &str) -> Result<(), KeychainError> {
+        match self.run(&["delete-generic-password", "-s", service, "-a", account]) {
+            Ok(_) | Err(StoreError::NotFound) => Ok(()),
+            Err(e) => Err(e.into()),
+        }
+    }
+}
+
+/// The MCP secrets, in the app's [`SecretStore`].
+#[derive(Debug, Clone)]
+pub struct Secrets {
+    store: Arc<dyn SecretStore>,
+}
+
+impl Secrets {
+    /// The system's store: [`SecurityCli`] on macOS.
+    pub fn system() -> Self {
+        Secrets::new(SecurityCli::system())
+    }
+
+    pub fn new(store: impl SecretStore + 'static) -> Self {
+        Secrets { store: Arc::new(store) }
+    }
+
+    /// A fake `security` for the tests.
+    #[cfg(feature = "test-support")]
+    pub fn fake(program: impl Into<PathBuf>) -> Self {
+        Secrets::new(SecurityCli::fake(program))
+    }
+
+    /// Adds or replaces the item. On a failure the item that was there
+    /// stays as it was.
+    pub fn save(&self, mcp: &str, slot: &str, value: &str) -> Result<(), StoreError> {
+        Ok(self.store.set(SERVICE, &account(mcp, slot), &ascii(value))?)
     }
 
     pub fn read(&self, mcp: &str, slot: &str) -> Result<String, StoreError> {
-        let account = account(mcp, slot);
-        let out = self.run(&["find-generic-password", "-s", SERVICE, "-a", &account, "-w"])?;
-        let text = String::from_utf8(out).map_err(|_| StoreError::Corrupt)?;
+        let text = self.store.get(SERVICE, &account(mcp, slot))?.ok_or(StoreError::NotFound)?;
         serde_json::from_str(text.trim_end_matches('\n')).map_err(|_| StoreError::Corrupt)
     }
 
     /// Whether the item is there, without reading its value.
     pub fn has(&self, mcp: &str, slot: &str) -> Result<bool, StoreError> {
-        let account = account(mcp, slot);
-        match self.run(&["find-generic-password", "-s", SERVICE, "-a", &account]) {
-            Ok(_) => Ok(true),
-            Err(StoreError::NotFound) => Ok(false),
-            Err(e) => Err(e),
-        }
+        Ok(self.store.exists(SERVICE, &account(mcp, slot))?)
     }
 
     /// Removes the item; one that is not there counts as removed.
     pub fn delete(&self, mcp: &str, slot: &str) -> Result<(), StoreError> {
-        let account = account(mcp, slot);
-        match self.run(&["delete-generic-password", "-s", SERVICE, "-a", &account]) {
-            Ok(_) | Err(StoreError::NotFound) => Ok(()),
-            Err(e) => Err(e),
+        Ok(self.store.delete(SERVICE, &account(mcp, slot))?)
+    }
+}
+
+impl From<KeychainError> for StoreError {
+    fn from(e: KeychainError) -> Self {
+        match e {
+            KeychainError::Timeout => StoreError::Timeout,
+            KeychainError::Spawn(e) => StoreError::Spawn(e),
+            KeychainError::Failed { code, message } => StoreError::Failed { code, message },
+        }
+    }
+}
+
+impl From<StoreError> for KeychainError {
+    fn from(e: StoreError) -> Self {
+        match e {
+            StoreError::Timeout => KeychainError::Timeout,
+            StoreError::Spawn(e) => KeychainError::Spawn(e),
+            StoreError::Failed { code, message } => KeychainError::Failed { code, message },
+            StoreError::NotFound => {
+                KeychainError::Failed { code: Some(NOT_FOUND), message: "not found".into() }
+            }
+            StoreError::Corrupt => {
+                KeychainError::Failed { code: Some(0), message: "the value is not text".into() }
+            }
         }
     }
 }

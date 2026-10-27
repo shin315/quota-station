@@ -2,99 +2,25 @@
 // SPDX-License-Identifier: MIT
 
 //! Fakes for the Claude account tests: a temporary home with a made-up
-//! Claude Code login, a `security` that keeps generic passwords as files
-//! (and reads `security -i` lines from stdin, as the app writes them), a
-//! `launchctl` that keeps which labels are loaded, and a local Anthropic
-//! that answers the usage and token calls. Nothing here reaches the
-//! Keychain, launchd or Anthropic, and every login is made up.
+//! Claude Code login, a secret store and a scheduler kept in memory
+//! ([`super::os`]), and a local Anthropic that answers the usage and token
+//! calls. Nothing here reaches the Keychain, launchd or Anthropic, and every
+//! login is made up.
 
 use std::collections::BTreeMap;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-use quota_station_core::claude::keychain::Security;
 use quota_station_core::claude::store::{self, Account, Kind, Store};
 use quota_station_core::claude::usage::Endpoints;
 use quota_station_core::claude::Paths;
 use serde_json::{json, Value};
 
-use super::{script, temp_dir};
-
-/// A `security` that keeps items as files in `dir/items/<service>--<account>`,
-/// exits 44 for a missing one as macOS's does, takes a write from a
-/// `security -i` line on stdin (the value as hex after `-X`), and records
-/// every run (never a value) in `dir/calls`. With `dir/watch` naming a
-/// folder, each write notes in `dir/watched` whether that folder existed;
-/// with `dir/drop-add` naming a service, writes to it report success and
-/// keep nothing.
-pub fn fake_security(dir: &Path) -> PathBuf {
-    std::fs::create_dir_all(dir.join("items")).unwrap();
-    let d = dir.display();
-    script(
-        &dir.join("bin/security"),
-        &format!(
-            r#"if [ "$1" = "-i" ]; then
-  IFS= read -r line
-  eval "set -- $line"
-fi
-cmd="$1"; shift
-printf '%s' "$cmd" >> '{d}/calls'
-svc=""; acct=""; hex=""; value=""; show=""
-while [ $# -gt 0 ]; do
-  case "$1" in
-    -s) svc="$2"; printf ' -s %s' "$2" >> '{d}/calls'; shift 2 ;;
-    -a) acct="$2"; printf ' -a %s' "$2" >> '{d}/calls'; shift 2 ;;
-    -X) hex="$2"; shift 2 ;;
-    -w) if [ $# -ge 2 ] && [ "$cmd" = add-generic-password ]; then value="$2"; shift 2; else show=1; shift; fi ;;
-    *) shift ;;
-  esac
-done
-printf '\n' >> '{d}/calls'
-item='{d}/items/'"$svc--$acct"
-missing() {{ echo "security: SecKeychainSearchCopyNext: The specified item could not be found in the keychain." >&2; exit 44; }}
-case "$cmd" in
-  add-generic-password)
-    [ -e '{d}/fail-add' ] && {{ echo "security: SecKeychainItemCreateFromContent: User interaction is not allowed." >&2; exit 36; }}
-    [ -e '{d}/watch' ] && {{ [ -d "$(cat '{d}/watch')" ] && echo "held $svc" || echo "free $svc"; }} >> '{d}/watched'
-    [ -e '{d}/drop-add' ] && [ "$svc" = "$(cat '{d}/drop-add')" ] && exit 0
-    if [ -n "$hex" ]; then printf '%s' "$hex" | /usr/bin/xxd -r -p > "$item"; else printf '%s' "$value" > "$item"; fi ;;
-  find-generic-password)
-    [ -e '{d}/fail-find' ] && {{ echo "security: SecKeychainSearchCopyNext: User interaction is not allowed." >&2; exit 36; }}
-    [ -f "$item" ] || missing
-    if [ -n "$show" ]; then cat "$item"; echo; fi ;;
-  delete-generic-password)
-    [ -f "$item" ] || missing
-    rm "$item" ;;
-  *) exit 2 ;;
-esac
-"#
-        ),
-    )
-}
-
-/// A `launchctl` that keeps loaded labels as files in `dir/loaded/`:
-/// `list LABEL` exits 0 or 113, `bootstrap DOMAIN PLIST` loads the plist's
-/// label, `bootout DOMAIN/LABEL` unloads it. Every run is recorded.
-pub fn fake_launchctl(dir: &Path) -> PathBuf {
-    std::fs::create_dir_all(dir.join("loaded")).unwrap();
-    let d = dir.display();
-    script(
-        &dir.join("bin/launchctl"),
-        &format!(
-            r#"printf '%s\n' "$*" >> '{d}/launchctl-calls'
-case "$1" in
-  list) [ -e '{d}/loaded/'"$2" ] && exit 0; exit 113 ;;
-  bootstrap) label=$(basename "$3" .plist); : > '{d}/loaded/'"$label" ;;
-  bootout) label=${{2##*/}}; [ -e '{d}/loaded/'"$label" ] || exit 3; rm '{d}/loaded/'"$label" ;;
-  *) exit 2 ;;
-esac
-"#
-        ),
-    )
-}
+use super::os::{FakeKeychain, FakeScheduler};
+use super::temp_dir;
 
 /// A request the fake Anthropic answered.
 #[derive(Clone, Debug)]
@@ -298,38 +224,39 @@ pub fn oauth(email: &str, uuid: &str, org: &str) -> Value {
 /// A Mac in a temporary folder.
 pub struct Mac {
     pub home: PathBuf,
+    /// A folder for the test's own fakes.
     pub dir: PathBuf,
     pub paths: Paths,
     pub store: Store,
-    pub launchctl: PathBuf,
+    pub keychain: FakeKeychain,
+    pub scheduler: Arc<FakeScheduler>,
 }
 
 impl Mac {
     pub fn new(tag: &str) -> Mac {
         let home = temp_dir(tag);
         let dir = home.join("fakes");
-        let security = Security::fake(fake_security(&dir));
-        let launchctl = fake_launchctl(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let keychain = FakeKeychain::new();
         let mut paths = Paths::for_home(&home);
         // A lock that is held stays held: the tests never wait for one.
         paths.lock_wait = std::time::Duration::ZERO;
-        let store = Store::new(paths.clone(), security);
-        Mac { home, dir, paths, store, launchctl }
+        let store = Store::new(paths.clone(), keychain.clone());
+        Mac { home, dir, paths, store, keychain, scheduler: FakeScheduler::new() }
     }
 
     /// The value of a fake Keychain item.
     pub fn item(&self, service: &str, account: &str) -> Option<String> {
-        std::fs::read_to_string(self.dir.join("items").join(format!("{service}--{account}"))).ok()
+        self.keychain.item(service, account)
     }
 
     pub fn put_item(&self, service: &str, account: &str, value: &str) {
-        std::fs::write(self.dir.join("items").join(format!("{service}--{account}")), value)
-            .unwrap();
+        self.keychain.put(service, account, value);
     }
 
-    /// Every `security` run, without values.
+    /// Every secret store call, without values.
     pub fn security_calls(&self) -> String {
-        std::fs::read_to_string(self.dir.join("calls")).unwrap_or_default()
+        self.keychain.calls()
     }
 
     pub fn user(&self) -> String {
@@ -374,11 +301,11 @@ impl Mac {
     }
 
     pub fn load_label(&self, label: &str) {
-        std::fs::write(self.dir.join("loaded").join(label), "").unwrap();
+        self.scheduler.load(label);
     }
 
     pub fn loaded(&self, label: &str) -> bool {
-        self.dir.join("loaded").join(label).exists()
+        self.scheduler.is_loaded(label)
     }
 
     /// Cài đặt › Nâng cao shows Firstmate, or does not: the copy for

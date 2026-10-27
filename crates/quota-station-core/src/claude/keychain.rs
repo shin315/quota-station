@@ -18,6 +18,7 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
+use crate::os::SecretStore;
 use crate::runner::{self, RunError};
 
 /// Each `security` call. Short on purpose: a switch runs inside Claude Code's
@@ -56,7 +57,7 @@ impl std::fmt::Display for KeychainError {
 
 impl std::error::Error for KeychainError {}
 
-/// The `security` tool the app runs.
+/// The `security` tool the app runs: the app's [`SecretStore`] on macOS.
 #[derive(Debug, Clone)]
 pub struct Security {
     program: PathBuf,
@@ -73,7 +74,7 @@ impl Security {
         Security { program: PathBuf::from("/usr/bin/security") }
     }
 
-    /// A fake `security` for the tests.
+    /// A fake `security` for the tests of this backend.
     #[cfg(feature = "test-support")]
     pub fn fake(program: impl Into<PathBuf>) -> Self {
         Security { program: program.into() }
@@ -99,15 +100,17 @@ impl Security {
     fn failed(out: &runner::Output) -> KeychainError {
         KeychainError::Failed { code: out.code, message: runner::first_line(&out.stderr) }
     }
+}
 
+impl SecretStore for Security {
     /// The item's value, or `None` when there is no such item.
-    pub fn get(&self, service: &str, account: &str) -> Result<Option<String>, KeychainError> {
+    fn get(&self, service: &str, account: &str) -> Result<Option<String>, KeychainError> {
         self.get_within(service, account, TIMEOUT)
     }
 
-    /// [`Security::get`], waiting up to `timeout`: a read macOS asks the
+    /// [`SecretStore::get`], waiting up to `timeout`: a read macOS asks the
     /// owner about waits for the answer.
-    pub fn get_within(
+    fn get_within(
         &self,
         service: &str,
         account: &str,
@@ -133,7 +136,7 @@ impl Security {
     }
 
     /// Whether the item is there, without reading its value.
-    pub fn exists(&self, service: &str, account: &str) -> Result<bool, KeychainError> {
+    fn exists(&self, service: &str, account: &str) -> Result<bool, KeychainError> {
         let out = self.run(&["find-generic-password", "-a", account, "-s", service], None)?;
         match out.code {
             Some(0) => Ok(true),
@@ -144,7 +147,7 @@ impl Security {
 
     /// Adds or replaces the item (`-U`). On a failure the item that was
     /// there stays as it was.
-    pub fn set(&self, service: &str, account: &str, value: &str) -> Result<(), KeychainError> {
+    fn set(&self, service: &str, account: &str, value: &str) -> Result<(), KeychainError> {
         let hex: String = value.bytes().map(|b| format!("{b:02x}")).collect();
         let line = format!(
             "add-generic-password -U -a {} -s {} -X {hex}\n",
@@ -168,7 +171,7 @@ impl Security {
     }
 
     /// Removes the item; one that is not there counts as removed.
-    pub fn delete(&self, service: &str, account: &str) -> Result<(), KeychainError> {
+    fn delete(&self, service: &str, account: &str) -> Result<(), KeychainError> {
         let out = self.run(&["delete-generic-password", "-a", account, "-s", service], None)?;
         match out.code {
             Some(0) | Some(NOT_FOUND) => Ok(()),
@@ -188,8 +191,13 @@ pub fn user_account() -> String {
     if let Some(user) = std::env::var_os("USER").filter(|u| !u.is_empty()) {
         return user.to_string_lossy().into_owned();
     }
+    #[cfg(windows)]
+    if let Some(user) = std::env::var_os("USERNAME").filter(|u| !u.is_empty()) {
+        return user.to_string_lossy().into_owned();
+    }
     // SAFETY: `getpwuid` returns a pointer into static storage or null; the
     // name is copied out at once.
+    #[cfg(unix)]
     unsafe {
         let pw = libc::getpwuid(libc::geteuid());
         if !pw.is_null() && !(*pw).pw_name.is_null() {

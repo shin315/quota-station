@@ -12,6 +12,8 @@
 //! Each skill holds a `run.sh` that leaves a mark when it runs: nothing the
 //! app does runs it. The keys are traps: never in a backup, a pack, or
 //! what the windows get.
+// Unix only: the fake `npx` and skill scripts are shell scripts.
+#![cfg(unix)]
 
 mod common;
 

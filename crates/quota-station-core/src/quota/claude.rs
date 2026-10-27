@@ -39,11 +39,12 @@ use super::{
 };
 use crate::app_dir::AppDir;
 use crate::claude::cc::{self, ACTIVE_SERVICE};
-use crate::claude::keychain::{self, user_account, KeychainError, Security};
+use crate::claude::keychain::{self, user_account, KeychainError};
 use crate::claude::store::{Account, List};
 use crate::claude::usage::{self, Endpoints, Reading};
 use crate::claude::Paths;
 use crate::local_time;
+use crate::os::SecretStore;
 use crate::rotation::Rules;
 use crate::time_util::parse_ts;
 
@@ -71,7 +72,7 @@ const ACCOUNT_WINDOWS: [&str; 2] = ["five_hour", "seven_day"];
 /// What a read of Claude Code's own login uses.
 pub struct Live<'a> {
     pub paths: &'a Paths,
-    pub security: &'a Security,
+    pub security: &'a dyn SecretStore,
     pub endpoints: &'a Endpoints,
     /// The app's folder: the reading cache and the Keychain hold.
     pub app: &'a AppDir,

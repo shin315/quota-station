@@ -7,7 +7,9 @@
 
 mod common;
 
-use quota_station_core::claude::session::{self, SessionError};
+use quota_station_core::claude::session;
+#[cfg(unix)]
+use quota_station_core::claude::session::SessionError;
 use quota_station_core::claude::state;
 use quota_station_core::claude::usage;
 use quota_station_core::claude::{cc, switch};
@@ -275,14 +277,17 @@ fn the_copy_for_firstmate_pairs_each_reading_with_its_account() {
 
 /// A fake `claude` that writes where it ran and with which folder, and, when
 /// `refresh` is given, puts that login in its folder's Keychain item as
-/// Claude Code does after a refresh.
+/// Claude Code does after a refresh. A shell script, so these tests run on
+/// Unix only.
+#[cfg(unix)]
 fn fake_claude(mac: &Mac, refresh: Option<&str>) -> std::path::PathBuf {
     let out = mac.dir.join("claude-ran");
-    let items = mac.dir.join("items");
     let refresh = match refresh {
         Some(c) => {
             let service = cc::profile_service(&session::folder(&mac.store, 3)).unwrap();
-            format!("printf '%s' '{c}' > '{}/{service}--{}'\n", items.display(), mac.user())
+            let item = mac.dir.join("refreshed-login");
+            mac.keychain.written_by_file(&service, &mac.user(), &item);
+            format!("printf '%s' '{c}' > '{}'\n", item.display())
         }
         None => String::new(),
     };
@@ -295,6 +300,7 @@ fn fake_claude(mac: &Mac, refresh: Option<&str>) -> std::path::PathBuf {
     )
 }
 
+#[cfg(unix)]
 #[test]
 fn claude_runs_as_another_account_in_its_own_folder() {
     let (mac, _) = mac("session");
@@ -314,6 +320,7 @@ fn claude_runs_as_another_account_in_its_own_folder() {
     assert_eq!(switch::active_slot(&mac.store), Some(2));
 }
 
+#[cfg(unix)]
 #[test]
 fn the_account_in_use_runs_as_claude_code_does_unless_a_session_is_required() {
     let (mac, _) = mac("session-active");
@@ -323,6 +330,7 @@ fn the_account_in_use_runs_as_claude_code_does_unless_a_session_is_required() {
     assert!(matches!(session::run(&mac.store, &claude, 2, true, &[]), Err(SessionError::IsActive)));
 }
 
+#[cfg(unix)]
 #[test]
 fn a_login_claude_code_refreshed_in_the_folder_comes_back_to_the_app() {
     let (mac, _) = mac("session-adopt");
@@ -332,6 +340,7 @@ fn a_login_claude_code_refreshed_in_the_folder_comes_back_to_the_app() {
     assert_eq!(mac.store.credential(3).unwrap(), Some(newer));
 }
 
+#[cfg(unix)]
 #[test]
 fn a_login_that_comes_back_from_the_folder_is_read_again() {
     let (mac, _) = mac("session-adopt-relogin");

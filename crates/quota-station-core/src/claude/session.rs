@@ -162,7 +162,11 @@ pub fn prepare(store: &Store, slot: u32) -> Result<PathBuf, SessionError> {
     for name in SHARED {
         let (from, to) = (store.paths.claude_home().join(name), dir.join(name));
         if from.exists() && std::fs::symlink_metadata(&to).is_err() {
-            std::os::unix::fs::symlink(&from, &to)?;
+            if from.is_dir() {
+                crate::os::link_dir(&from, &to)?;
+            } else {
+                crate::os::link_file(&from, &to)?;
+            }
         }
     }
     if !live(&dir) {

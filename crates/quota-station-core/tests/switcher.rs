@@ -6,11 +6,12 @@
 
 mod common;
 
-use common::{script, temp_dir};
+use common::temp_dir;
 use quota_station_core::switcher::{
-    decided, last_log_line, log_file, parse_decision, parse_log_line, service_loaded, Decision,
-    LogEvent, Why,
+    decided, last_log_line, log_file, parse_decision, parse_log_line, Decision, LogEvent, Why,
 };
+#[cfg(unix)]
+use {common::script, quota_station_core::switcher::service_loaded};
 
 #[test]
 fn every_decision_line_the_switcher_prints() {
@@ -153,6 +154,7 @@ fn only_the_end_of_a_long_log_is_read() {
     assert_eq!(last_log_line(&dir.join("none.log")), None);
 }
 
+#[cfg(unix)]
 #[test]
 fn launchd_says_whether_a_service_is_loaded() {
     let dir = temp_dir("launchctl");

@@ -422,7 +422,7 @@ fn quota_cli(args: &[String]) -> i32 {
                 quota::claude::own_now(&store, now).unwrap_or_else(|| {
                     let live = quota::claude::Live {
                         paths: &store.paths,
-                        security: &store.security,
+                        security: &*store.security,
                         endpoints: &usage::Endpoints::anthropic(),
                         app: &own,
                     };

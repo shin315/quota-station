@@ -6,7 +6,7 @@
 
 mod common;
 
-use std::process::Command;
+use std::path::Path;
 
 use quota_station_core::claude::switch::{self, SwitchError};
 use quota_station_core::claude::{cc, usage};
@@ -75,12 +75,11 @@ fn claude_codes_own_secrets_stay_with_the_live_login() {
 #[test]
 fn the_login_is_written_while_claude_codes_locks_are_held() {
     let (mac, _, _) = two_accounts("switch-locks");
-    std::fs::write(mac.dir.join("watch"), mac.home.join(".claude.lock").display().to_string())
-        .unwrap();
+    mac.keychain.watch(&mac.home.join(".claude.lock"));
     switch::switch(&mac.store, 3).unwrap();
-    let watched = std::fs::read_to_string(mac.dir.join("watched")).unwrap();
-    assert!(watched.lines().any(|l| l == "held Claude Code-credentials"), "{watched}");
-    assert!(!watched.lines().any(|l| l == "free Claude Code-credentials"), "{watched}");
+    let watched = mac.keychain.watched();
+    assert!(watched.iter().any(|l| l == "held Claude Code-credentials"), "{watched:?}");
+    assert!(!watched.iter().any(|l| l == "free Claude Code-credentials"), "{watched:?}");
     assert!(!mac.home.join(".claude.lock").exists());
     assert!(!mac.home.join(".claude/.oauth_refresh.lock").exists());
 }
@@ -102,9 +101,7 @@ fn a_lock_left_behind_is_taken_over() {
     let (mac, _, _) = two_accounts("switch-stale");
     let lock = mac.home.join(".claude.lock");
     std::fs::create_dir(&lock).unwrap();
-    let old =
-        Command::new("/usr/bin/touch").args(["-t", "202001010000"]).arg(&lock).status().unwrap();
-    assert!(old.success());
+    filetime::set_file_mtime(&lock, filetime::FileTime::from_unix_time(1_577_836_800, 0)).unwrap();
     switch::switch(&mac.store, 3).unwrap();
     assert_eq!(switch::active_slot(&mac.store), Some(3));
 }
@@ -123,7 +120,7 @@ fn a_live_login_the_app_does_not_keep_is_never_overwritten() {
 #[test]
 fn a_login_that_does_not_read_back_is_put_back() {
     let (mac, c2, _) = two_accounts("switch-unconfirmed");
-    std::fs::write(mac.dir.join("drop-add"), "Claude Code-credentials").unwrap();
+    mac.keychain.drop_add("Claude Code-credentials");
     let err = switch::switch(&mac.store, 3).unwrap_err();
     assert!(matches!(err, SwitchError::NotConfirmed { restored: true, .. }), "{err:?}");
     assert_eq!(mac.live_credential(), Some(c2));
@@ -134,7 +131,7 @@ fn a_login_that_does_not_read_back_is_put_back() {
 fn a_keychain_that_refuses_the_write_leaves_claude_code_as_it_was() {
     let (mac, c2, _) = two_accounts("switch-refused");
     let before = std::fs::read_to_string(mac.paths.claude_json()).unwrap();
-    std::fs::write(mac.dir.join("fail-add"), "").unwrap();
+    mac.keychain.fail_add(true);
     assert!(switch::switch(&mac.store, 3).is_err());
     assert_eq!(mac.live_credential(), Some(c2));
     assert_eq!(std::fs::read_to_string(mac.paths.claude_json()).unwrap(), before);
@@ -156,15 +153,31 @@ fn a_login_file_that_cannot_be_written_puts_the_keychain_back() {
     let file = mac.home.join(".claude/.credentials.json");
     std::fs::create_dir_all(file.parent().unwrap()).unwrap();
     std::fs::write(&file, &c2).unwrap();
-    let flag = |f: &str| Command::new("/usr/bin/chflags").arg(f).arg(&file).status().unwrap();
-    assert!(flag("uchg").success());
+    locked(&file, true);
     let result = switch::switch(&mac.store, 3);
-    assert!(flag("nouchg").success());
+    locked(&file, false);
     assert!(matches!(result, Err(SwitchError::NotConfirmed { restored: true, .. })), "{result:?}");
     assert_eq!(mac.live_credential(), Some(c2.clone()));
     assert_eq!(std::fs::read_to_string(&file).unwrap(), c2);
     assert_eq!(mac.live_email().as_deref(), Some("lan@team.example"));
     assert_eq!(switch::active_slot(&mac.store), Some(2));
+}
+
+/// Makes `file` one nothing can replace: immutable on macOS, read-only on
+/// Windows.
+fn locked(file: &Path, on: bool) {
+    #[cfg(unix)]
+    {
+        let flag = if on { "uchg" } else { "nouchg" };
+        let status = std::process::Command::new("/usr/bin/chflags").arg(flag).arg(file).status();
+        assert!(status.unwrap().success());
+    }
+    #[cfg(windows)]
+    {
+        let mut permissions = std::fs::metadata(file).unwrap().permissions();
+        permissions.set_readonly(on);
+        std::fs::set_permissions(file, permissions).unwrap();
+    }
 }
 
 /// `~/.claude.json` without `oauthAccount`, as after a reset.

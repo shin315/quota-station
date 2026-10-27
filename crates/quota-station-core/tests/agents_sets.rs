@@ -14,6 +14,8 @@
 //! the fake `claude`'s arguments and the fake Keychain, and nowhere else:
 //! not in the app's folder (the sets file, backups, store, log) nor in what
 //! the windows get (the preview, the result, the undo).
+// Unix only: the fake `claude` and `npx`, and the fake `security`, are shell scripts.
+#![cfg(unix)]
 
 mod common;
 

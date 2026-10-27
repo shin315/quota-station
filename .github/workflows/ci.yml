@@ -117,4 +117,9 @@ jobs:
 
       - name: cargo check (core)
         run: cargo check -p quota-station-core --target x86_64-pc-windows-msvc --locked
-        continue-on-error: true
+
+      - name: cargo test (core)
+        run: cargo test -p quota-station-core --locked --no-fail-fast
+
+      - name: cargo test (core, Antigravity accounts)
+        run: cargo test -p quota-station-core --locked --no-fail-fast --features antigravity-accounts

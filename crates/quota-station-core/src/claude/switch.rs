@@ -145,7 +145,7 @@ pub fn switch(store: &Store, slot: u32) -> Result<Switched, SwitchError> {
 
     let _login = locks::credentials(paths)?;
     let _config = locks::config(paths)?;
-    let live = cc::read_live(paths, &store.security)?;
+    let live = cc::read_live(paths, &*store.security)?;
     let live_cred = live.credential.clone().filter(|c| cc::usable(c));
     let from = match (live.who(), live_cred.as_deref()) {
         (Some(who), _) => match list.find(&who.identity()) {
@@ -192,11 +192,11 @@ pub fn switch(store: &Store, slot: u32) -> Result<Switched, SwitchError> {
 
     let config_before = super::read_optional(&paths.claude_json())?;
     let composed = cc::merge_shared(&target_cred, live.credential.as_deref());
-    let login_back = || cc::read_credential(paths, &store.security).ok().flatten();
+    let login_back = || cc::read_credential(paths, &*store.security).ok().flatten();
     let put_back = || -> bool {
         if login_back() != live.credential {
             let _ = match live.credential.as_deref() {
-                Some(c) => cc::write_credential(paths, &store.security, c).is_ok(),
+                Some(c) => cc::write_credential(paths, &*store.security, c).is_ok(),
                 None => store.security.delete(cc::ACTIVE_SERVICE, &user_account()).is_ok(),
             };
         }
@@ -210,7 +210,8 @@ pub fn switch(store: &Store, slot: u32) -> Result<Switched, SwitchError> {
             detail: format!("{step} failed ({e})"),
         }
     };
-    cc::write_credential(paths, &store.security, &composed).map_err(failed("writing the login"))?;
+    cc::write_credential(paths, &*store.security, &composed)
+        .map_err(failed("writing the login"))?;
     cc::write_oauth(paths, &target_oauth).map_err(failed("writing the account to .claude.json"))?;
 
     let who_back = cc::read_oauth(paths).map(|o| Who::of(&o).identity());

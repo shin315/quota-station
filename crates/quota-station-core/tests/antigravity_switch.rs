@@ -7,6 +7,8 @@
 //! `agy`. These tests never reach Google, the Keychain, the real
 //! Antigravity.app or the real agy.
 #![cfg(feature = "antigravity-accounts")]
+// Unix only: the fake `security`, `agy` and Antigravity.app tools are shell scripts.
+#![cfg(unix)]
 
 mod common;
 

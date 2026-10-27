@@ -11,11 +11,15 @@
 mod common;
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use base64::Engine as _;
 use common::accounts::{credential, in_hours, oauth, FakeAnthropic, Mac};
 use common::http::FakeHttp;
-use common::{script, temp_dir};
+use common::os::FakeProcesses;
+#[cfg(unix)]
+use common::script;
+use common::temp_dir;
 use quota_station_core::app_dir::AppDir;
 use quota_station_core::quota::cache::Cache;
 use quota_station_core::quota::claude::{self as live, Keychain, Live};
@@ -132,14 +136,14 @@ fn signed_in(user: &str, exp: i64) -> String {
 #[test]
 fn every_kept_codex_account_is_read_in_its_own_folder_and_a_waiting_expired_one_is_not_asked() {
     use quota_station_core::codex::accounts::Store;
-    use quota_station_core::codex::platform::Unix;
+    use quota_station_core::codex::platform::System;
     let dir = temp_dir("readers-codex-accounts");
     let app = AppDir::new(dir.join("app"));
     let home = dir.join(".codex");
     std::fs::create_dir_all(&home).unwrap();
     let soon = now().unix_timestamp() + 3600;
     std::fs::write(home.join("auth.json"), signed_in("ann", soon)).unwrap();
-    let platform = Unix::default();
+    let platform = System::default();
     let store = Store::new(&app, &home, &platform);
     store.list(now()).unwrap();
     for (user, exp) in [("bob", now().unix_timestamp() - 60), ("cat", soon)] {
@@ -237,7 +241,8 @@ fn summary() -> serde_json::Value {
 }
 
 /// An `agy` that records its arguments, tries to open a browser, and prints
-/// `dir/agy.json` (or fails when there is none); `ps` lists no process.
+/// `dir/agy.json` (or fails when there is none); no process runs.
+#[cfg(unix)]
 fn agy_cli(dir: &Path) -> agy::Tools {
     let bin = dir.join("bin");
     let d = dir.display();
@@ -248,29 +253,23 @@ fn agy_cli(dir: &Path) -> agy::Tools {
                 "printf '%s\\n' \"$@\" > '{d}/agy-args'\nopen 'https://example.invalid/login' && : > '{d}/opened'\n[ -f '{d}/agy.json' ] || exit 2\ncat '{d}/agy.json'\n"
             ),
         )),
-        ps: script(&bin.join("ps"), "exit 0\n"),
-        lsof: script(&bin.join("lsof"), "exit 1\n"),
+        processes: Arc::new(FakeProcesses::none()),
     }
 }
 
 /// No `agy` command, and a running agy whose language server listens on
 /// `port`.
-fn agy_running(dir: &Path, port: u16) -> agy::Tools {
-    let bin = dir.join("bin");
-    agy::Tools {
-        agy: None,
-        ps: script(&bin.join("ps"), "echo '4242 /usr/local/bin/agy --resume'\n"),
-        lsof: script(
-            &bin.join("lsof"),
-            &format!("echo 'COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME'\necho 'agy 4242 me 9u IPv4 0x1 0t0 TCP 127.0.0.1:{port} (LISTEN)'\n"),
-        ),
-    }
+fn agy_running(port: u16) -> agy::Tools {
+    let processes = FakeProcesses::none().with_own(4242, "/usr/local/bin/agy --resume", &[port]);
+    agy::Tools { agy: None, processes: Arc::new(processes) }
 }
 
 fn read_agy(tools: &agy::Tools, app: &AppDir) -> Response {
     agy::read(tools, &Cache::new(app, ProviderId::Agy), 0, now())
 }
 
+// The fake `agy` is a shell script.
+#[cfg(unix)]
 #[test]
 fn agy_quota_reads_its_windows_and_never_opens_a_browser() {
     let dir = temp_dir("readers-agy-cli");
@@ -296,7 +295,7 @@ fn the_running_language_server_names_its_account_by_a_hash_and_goes_stale() {
     let server = FakeHttp::start();
     server.answer(SUMMARY, 200, &summary().to_string());
     server.answer(USER_STATUS, 200, r#"{"userStatus":{"email":"Lan.Ultra@example.com"}}"#);
-    let tools = agy_running(&dir, server.port);
+    let tools = agy_running(server.port);
 
     let report = read_agy(&tools, &app);
     let r = row(&report, "agy");
@@ -321,7 +320,7 @@ fn a_signed_out_antigravity_shows_a_sign_in_and_drops_the_old_reading() {
     let app = AppDir::new(dir.join("app"));
     let server = FakeHttp::start();
     server.answer(SUMMARY, 200, &summary().to_string());
-    let tools = agy_running(&dir, server.port);
+    let tools = agy_running(server.port);
     assert_eq!(row(&read_agy(&tools, &app), "agy").state.status, "fresh");
 
     server.answer_all(401, "{}");
@@ -338,7 +337,7 @@ fn a_signed_out_antigravity_shows_a_sign_in_and_drops_the_old_reading() {
 fn a_mac_without_antigravity_has_no_antigravity_row() {
     let dir = temp_dir("readers-agy-missing");
     let app = AppDir::new(dir.join("app"));
-    let tools = agy::Tools { agy: None, ..agy_cli(&dir) };
+    let tools = agy::Tools { agy: None, processes: Arc::new(FakeProcesses::none()) };
     let report = read_agy(&tools, &app);
     let r = row(&report, "agy");
     assert!(r.not_set_up);
@@ -361,7 +360,7 @@ fn claude_mac(tag: &str, login: &str) -> (Mac, FakeAnthropic, AppDir) {
 
 fn read_claude(mac: &Mac, anthropic: &FakeAnthropic, app: &AppDir, mode: Keychain) -> Response {
     let endpoints = anthropic.endpoints();
-    let l = Live { paths: &mac.paths, security: &mac.store.security, endpoints: &endpoints, app };
+    let l = Live { paths: &mac.paths, security: &*mac.store.security, endpoints: &endpoints, app };
     live::read(&l, mode, &Cache::new(app, ProviderId::Claude), 0, now())
 }
 
@@ -430,7 +429,7 @@ fn a_keychain_that_holds_back_waits_for_the_owner() {
 
     // macOS refuses the quiet read: the last numbers stay, and the row asks
     // for the owner's permission.
-    std::fs::write(mac.dir.join("fail-find"), "").unwrap();
+    mac.keychain.fail_find(true);
     let report = read_claude(&mac, &anthropic, &app, Keychain::Quiet);
     let r = row(&report, "claude");
     assert_eq!(r.state.status, "stale");
@@ -440,7 +439,7 @@ fn a_keychain_that_holds_back_waits_for_the_owner() {
 
     // Allowed again in macOS, the quiet reads still only check the item is
     // there until the owner presses the button.
-    std::fs::remove_file(mac.dir.join("fail-find")).unwrap();
+    mac.keychain.fail_find(false);
     let asked = anthropic.to("/api/oauth/usage").len();
     let report = read_claude(&mac, &anthropic, &app, Keychain::Quiet);
     assert_eq!(row(&report, "claude").state.reason.as_deref(), Some(live::ACCESS_REQUIRED));
@@ -464,10 +463,13 @@ fn a_mac_without_claude_code_has_no_claude_row() {
 
 // ===== No quota-axi =====
 
+#[cfg(unix)]
 const CHILD: &str = "QUOTA_STATION_TEST_NO_QUOTA_AXI";
 
 /// Runs again in a child whose PATH has only the system's folders, so no
-/// quota-axi can be found, and every service still shows its numbers.
+/// quota-axi can be found, and every service still shows its numbers. The
+/// fake `agy` is a shell script.
+#[cfg(unix)]
 #[test]
 fn without_quota_axi_on_the_path_every_service_still_shows_numbers() {
     const NAME: &str = "without_quota_axi_on_the_path_every_service_still_shows_numbers";

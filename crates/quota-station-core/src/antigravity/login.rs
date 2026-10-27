@@ -10,7 +10,6 @@
 //! is the app's own: the token goes to the app's Keychain item first, and the
 //! index is written only once that worked.
 
-use std::path::Path;
 use std::time::Duration;
 
 use super::client::{self, ClientStatus, OAuthClient};
@@ -21,28 +20,10 @@ use super::oauth_server::{self, Flow, FlowError};
 use super::store::{Keychain, StoreError};
 use super::token::TokenData;
 use crate::app_dir::AppDir;
-use crate::runner;
 
-/// Opens the consent screen.
-pub trait Browser {
-    fn open(&self, url: &str) -> Result<(), String>;
-}
-
-/// The default browser, through `open`.
-pub struct SystemBrowser;
-
-impl Browser for SystemBrowser {
-    fn open(&self, url: &str) -> Result<(), String> {
-        let out =
-            runner::run(Path::new("/usr/bin/open"), &[url.to_string()], Duration::from_secs(15))
-                .map_err(|e| e.to_string())?;
-        if out.code == Some(0) {
-            Ok(())
-        } else {
-            Err(runner::first_line(&out.stderr))
-        }
-    }
-}
+/// Opens the consent screen: the system's [`crate::os::Opener`], under the
+/// names the login has always used.
+pub use crate::os::{Opener as Browser, SystemOpener as SystemBrowser};
 
 /// Where a login keeps things and whom it talks to.
 pub struct Deps<'a> {

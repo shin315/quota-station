@@ -60,7 +60,15 @@
 //! the copy of the rotation file, `agents::copy` (the agents' setup to
 //! another Mac), `update`, `firstmate`, alerts 2 and 5, and the copy of
 //! the Claude accounts in claude-swap's layout. Without it the settings
-//! keep their values, so a settings file passes through either build.
+//! keep their values, so a settings file passes through either build. They
+//! are made for macOS and build on Unix only.
+//!
+//! What the core asks of the operating system (the secret store, the job
+//! that runs the rotation, the process list, opening a URL) goes through
+//! the seams in [`os`].
+
+#[cfg(all(feature = "author-tools", not(unix)))]
+compile_error!("`author-tools` (the tools for the author's own Macs) builds on Unix only");
 
 pub mod agents;
 pub mod alerts;
@@ -76,6 +84,7 @@ pub mod history;
 pub mod icon;
 pub mod local_time;
 pub mod login_item;
+pub mod os;
 pub mod pause;
 #[cfg(feature = "author-tools")]
 pub mod peers;

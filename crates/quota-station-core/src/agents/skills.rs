@@ -26,7 +26,6 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::{self, Read};
-use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::{Component, Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -37,7 +36,7 @@ use super::batch::{self, Line};
 use super::{redact, skill_updates, write, Agent, FileState};
 use crate::app_dir::AppDir;
 use crate::codex::files as codex_files;
-use crate::{local_time, runner};
+use crate::{local_time, os, runner};
 
 /// In the home folder: the shared store and the file `npx skills` keeps.
 pub const SHARED: &str = ".agents/skills";
@@ -1148,7 +1147,7 @@ pub fn link(places: &SkillPlaces, agent: Agent, name: &str) -> io::Result<()> {
     if std::fs::symlink_metadata(&at).is_ok() {
         return Err(io::Error::new(io::ErrorKind::AlreadyExists, "something is there"));
     }
-    std::os::unix::fs::symlink(relative(dir, &places.shared.join(name)), &at)
+    os::link_dir(&relative(dir, &places.shared.join(name)), &at)
 }
 
 /// Removes the link `<dir>/<name>`, only when it is a link to the shared
@@ -1161,7 +1160,7 @@ pub fn unlink(places: &SkillPlaces, agent: Agent, name: &str) -> io::Result<()> 
     if !ours {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "not a link to the shared skill"));
     }
-    std::fs::remove_file(&at)
+    os::remove_link(&at)
 }
 
 /// Removes a link that points to nothing (`Bỏ liên kết`): never a folder.
@@ -1174,7 +1173,7 @@ pub fn drop_broken(places: &SkillPlaces, agent: Agent, name: &str) -> io::Result
     if !meta.file_type().is_symlink() || std::fs::metadata(&at).is_ok() {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "not a broken link"));
     }
-    std::fs::remove_file(&at)
+    os::remove_link(&at)
 }
 
 /// Writes Codex's part of a batch: `config.toml` once, after its backup.
@@ -1321,7 +1320,7 @@ pub fn copy_tree(from: &Path, to: &Path) -> io::Result<()> {
             let dst = to.join(e.file_name());
             let meta = std::fs::symlink_metadata(&src)?;
             if meta.file_type().is_symlink() {
-                std::os::unix::fs::symlink(std::fs::read_link(&src)?, &dst)?;
+                os::copy_link(&src, &dst)?;
             } else if meta.is_dir() {
                 go(&src, &dst, bytes, entries)?;
             } else if meta.is_file() {
@@ -1330,11 +1329,11 @@ pub fn copy_tree(from: &Path, to: &Path) -> io::Result<()> {
                     return Err(io::Error::other("larger than 100 MB"));
                 }
                 let mut input = std::fs::File::open(&src)?;
-                let mut output = std::fs::OpenOptions::new()
-                    .write(true)
-                    .create_new(true)
-                    .mode(meta.permissions().mode() & 0o777)
-                    .open(&dst)?;
+                let mut output = os::with_mode(
+                    std::fs::OpenOptions::new().write(true).create_new(true),
+                    os::mode(&meta) & 0o777,
+                )
+                .open(&dst)?;
                 io::copy(&mut input, &mut output)?;
                 output.sync_all()?;
             }
@@ -1354,7 +1353,7 @@ pub fn keep_folder(
 ) -> io::Result<String> {
     let root = app.path().join(BACKUP_DIR);
     std::fs::create_dir_all(&root)?;
-    std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700))?;
+    os::set_mode(&root, 0o700)?;
     let stamp = local_time::stamp(now).replace(['-', ':'], "").replace('T', "-");
     let prefix = format!("{name}.folder.");
     let mut id = format!("{prefix}{stamp}");
@@ -1501,7 +1500,7 @@ pub fn unimport(
         match &m.link {
             None => std::fs::rename(&dest, &at).map_err(|e| e.to_string())?,
             Some(target) => {
-                std::os::unix::fs::symlink(target, &at).map_err(|e| e.to_string())?;
+                os::link_dir(target, &at).map_err(|e| e.to_string())?;
                 // The copy the gathering made, unchanged: nothing else is lost.
                 std::fs::remove_dir_all(&dest).map_err(|e| e.to_string())?;
             }

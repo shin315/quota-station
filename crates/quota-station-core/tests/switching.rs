@@ -30,7 +30,7 @@ fn mac(tag: &str) -> (Mac, Tools) {
     );
     let tools = Tools {
         store: mac.store.clone(),
-        launchctl: mac.launchctl.clone(),
+        scheduler: mac.scheduler.clone(),
         pause_file: pause::path(&mac.home),
     };
     (mac, tools)
