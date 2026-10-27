@@ -809,11 +809,11 @@ export function codexRestartFeedback(r: CodexRestart | 'busy' | 'error', model: 
 }
 
 
-// ===== "Dùng plugin khi chạy Custom API" =====
+// ===== "Dùng plugin với Custom API" =====
 
-/** The checkbox's words: the label and its one-line hint. */
+/** The checkbox's words: the label, and the hint its Chi tiết opens with. */
 export function pluginsLabel(): string {
-  return t('Dùng plugin khi chạy Custom API (giữ đăng nhập ChatGPT)', 'Use plugins while on a Custom API (keeps the ChatGPT sign-in)');
+  return t('Dùng plugin với Custom API', 'Use plugins with a Custom API');
 }
 export function pluginsHint(): string {
   return t(

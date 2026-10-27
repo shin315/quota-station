@@ -23,6 +23,7 @@ import { dayClock } from '../lib/switching';
 import type { CodexAccount, CodexImportItem, CodexKeyPreview, CodexProviderCheck, Model } from '../lib/model';
 import type { Action, ChipView } from '../lib/view';
 import type { CodexAccountsState, CodexAddHow, CodexDialog } from './useCodexAccounts';
+import { MachineSheet } from './CodexTab';
 
 /** Facts whose `code` and **bold** read as such. */
 function RichFacts({ items }: { items: { k: string; text: string }[] }) {
@@ -801,5 +802,7 @@ export function CodexDialogBody(props: BodyProps) {
       return <RemoveBody key={d.id} d={d} {...props} />;
     case 'relogin':
       return <ReloginBody d={d} {...props} />;
+    case 'mac':
+      return <MachineSheet v={props.model.codex} now={props.now} onAction={props.onAction} onClose={props.codex.close} />;
   }
 }

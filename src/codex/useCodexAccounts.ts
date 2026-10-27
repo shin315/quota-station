@@ -33,7 +33,9 @@ export type CodexDialog =
   | { kind: 'imported'; ids: string[]; removed: boolean; pasted: boolean }
   | { kind: 'detail'; id: string }
   | { kind: 'remove'; id: string }
-  | { kind: 'relogin'; id: string };
+  | { kind: 'relogin'; id: string }
+  /** "Codex trên máy này"'s Chi tiết…: the technical detail and the restart. */
+  | { kind: 'mac' };
 
 export function useCodexAccounts(api: Api, model: Model | null, showFeedback: (fb: FeedbackView | null) => void) {
   const [dialog, setDialog] = useState<CodexDialog | null>(null);

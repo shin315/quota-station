@@ -251,7 +251,7 @@ async function openTab(model: Model) {
 }
 
 describe('the Codex tab', () => {
-  it('lists every Codex account in one table as Claude lists its own, Codex on this Mac under it, the detail behind Chi tiết', async () => {
+  it('lists every Codex account in one table as Claude lists its own, Codex on this Mac as one line under it, the detail on its sheet', async () => {
     const fake = await openTab(withCodex());
     expect(fake.api.codexCheck).toHaveBeenCalled();
     // One list, as Claude's and Antigravity's are: the ChatGPT sign-in with its two windows, then the custom provider.
@@ -263,17 +263,19 @@ describe('the Codex tab', () => {
     expect(accounts[1].getAttribute('aria-label')).toBe('relay, Custom API · relay.example.com · trả lời 180 ms, đang dùng. Không báo hạn mức');
     expect(within(accounts[1]).getByText('Đang dùng')).toBeTruthy();
     expect(within(accounts[1]).getByText('Custom API · relay.example.com · trả lời 180 ms')).toBeTruthy();
-    expect(screen.getByText('Khoá của relay nằm trong config.toml.')).toBeTruthy();
+    expect(screen.getByText('Khoá API trong config.toml ·', { exact: false }).textContent).toBe('Khoá API trong config.toml · Đã có');
     expect(screen.getByRole('button', { name: 'Đổi khoá…' })).toBeTruthy();
-    expect(screen.getByText('CLI 0.163.0 · 3 phiên Terminal · Codex App đang mở')).toBeTruthy();
-    expect(screen.getByText('4 MCP · 3 đang bật')).toBeTruthy();
-    // The technical words wait behind one Chi tiết, at the foot of Codex on this Mac.
-    const details = screen.getAllByText('Chi tiết').find((e) => e.tagName === 'SUMMARY')!;
-    const more = details.parentElement!;
-    for (const t of ['có · experimental_bearer_token', 'auth.json · [mcp_servers]', 'mã băm khớp', 'ChatGPT 128 · relay 54 (codex resume tách theo nhà cung cấp)', 'ChatGPT → relay · đã khởi động lại tiến trình nền'])
+    // Codex on this Mac is one line; the technical words wait on its Chi tiết… sheet.
+    expect(screen.getByText('CLI 0.163.0 · 3 phiên Terminal · App đang mở · MCP 3/4')).toBeTruthy();
+    expect(screen.queryByText('auth.json · [mcp_servers]')).toBeNull();
+    await press(screen.getByRole('button', { name: 'Chi tiết…' }));
+    const more = screen.getByRole('dialog', { name: 'Codex trên máy này' });
+    for (const t of ['có · experimental_bearer_token', 'auth.json · [mcp_servers]', 'mã băm khớp', 'ChatGPT 128 · relay 54 (codex resume tách theo nhà cung cấp)', 'ChatGPT → relay · đã khởi động lại tiến trình nền', 'Đổi xong: ⌘Q Codex App rồi mở lại.'])
       expect(within(more).getByText(t)).toBeTruthy();
-    // The plugins box keeps one short line; the rest is in its own Chi tiết.
-    await press(screen.getByRole('button', { name: 'Chi tiết: Dùng plugin khi chạy Custom API (giữ đăng nhập ChatGPT)' }));
+    await press(within(more).getByRole('button', { name: 'Đóng' }));
+    // The plugins box keeps one short line and its state; the rest is in its own Chi tiết.
+    expect(screen.getByText('Đang bật')).toBeTruthy();
+    await press(screen.getByRole('button', { name: 'Chi tiết: Dùng plugin với Custom API' }));
     expect(screen.getByText(/Bỏ chọn không xoá auth\.json/)).toBeTruthy();
     // The author's own guide to leave CC Switch is not part of the app.
     expect(document.getElementById('cc-card')).toBeNull();
@@ -287,13 +289,14 @@ describe('the Codex tab', () => {
   it('sends the MCP list to the MCP tab, and restarts the background process only after its own sheet', async () => {
     const fake = await openTab(withCodex());
     expect(screen.queryByRole('button', { name: 'Xuất danh sách MCP…' })).toBeNull();
-    await press(screen.getByRole('button', { name: 'Mở tab MCP' }));
+    await press(screen.getByRole('button', { name: 'Mở MCP' }));
     expect(await screen.findByRole('heading', { level: 2, name: 'MCP' })).toBeTruthy();
     expect(fake.api.mcpRead).toHaveBeenCalled();
     await press(screen.getByRole('button', { name: 'Codex' }));
     await screen.findByRole('heading', { level: 2, name: 'Codex' });
 
-    await press(screen.getByRole('button', { name: 'Khởi động lại tiến trình nền…' }));
+    await press(screen.getByRole('button', { name: 'Chi tiết…' }));
+    await press(within(screen.getByRole('dialog', { name: 'Codex trên máy này' })).getByRole('button', { name: 'Khởi động lại tiến trình nền…' }));
     expect(fake.api.codexRestart).not.toHaveBeenCalled();
     const sheet = screen.getByRole('dialog', { name: 'Khởi động lại tiến trình nền Codex?' });
     await press(within(sheet).getByRole('button', { name: 'Khởi động lại' }));
@@ -376,9 +379,9 @@ describe('"Dán khoá" for the custom provider', () => {
   });
 });
 
-describe('"Dùng plugin khi chạy Custom API"', () => {
+describe('"Dùng plugin với Custom API"', () => {
   // `hidden`: a sheet on top leaves the tab behind it out of the accessibility tree.
-  const box = () => screen.getByRole('checkbox', { name: /Dùng plugin khi chạy Custom API \(giữ đăng nhập ChatGPT\)/, hidden: true });
+  const box = () => screen.getByRole('checkbox', { name: /Dùng plugin với Custom API/, hidden: true });
 
   it('is a ticked checkbox by default, kept when unticked, and offers to apply it on the provider in use', async () => {
     const fake = await openTab(withCodex());
@@ -424,7 +427,7 @@ describe('"Dùng plugin khi chạy Custom API"', () => {
     expect(facts(sheet)[0]).toBe(
       'Không dùng đăng nhập ChatGPT khi chạy relay (ô "Dùng plugin" đang bỏ tick): plugin cần đăng nhập (apps, connector) sẽ tắt. auth.json vẫn giữ nguyên.',
     );
-    await press(within(sheet).getByRole('checkbox', { name: /Dùng plugin khi chạy Custom API/ }));
+    await press(within(sheet).getByRole('checkbox', { name: /Dùng plugin với Custom API/ }));
     expect(fake.api.setCodexPlugins).toHaveBeenCalledWith(true);
     expect(facts(screen.getByRole('dialog', { name: 'Chuyển Codex sang relay?' }))[0]).toBe(
       'Giữ đăng nhập ChatGPT để Codex App tiếp tục dùng plugin và điều khiển từ xa.',

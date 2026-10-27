@@ -10,7 +10,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MainWindowApp } from '../App';
 import { fakeApi } from '../fixtures/fakeApi';
-import { codexFixture, codexMany, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
+import { codexFixture, codexMany, codexTriggerFixture, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
 import type { Api } from '../lib/api';
 import { codexFeedback } from '../lib/codex';
 import type { Model } from '../lib/model';
@@ -139,13 +139,66 @@ describe('the Codex accounts', () => {
 
   it('"Tự đánh thức" is in every build, off until turned on, and runs only on the owner\'s word', async () => {
     const fake = await openTab(codexMany(fixtureModel('fresh')));
-    expect(screen.getByText('Tự đánh thức tài khoản ChatGPT')).toBeTruthy();
+    expect(screen.getByText('Tự đánh thức ChatGPT')).toBeTruthy();
     expect(screen.queryByText('bản cá nhân')).toBeNull();
-    expect(screen.getByText('Đang tắt.')).toBeTruthy();
+    // It rests on one line, its warning beside it.
+    expect(screen.getByText('Đang tắt · 06:00 · 0/4 tài khoản')).toBeTruthy();
+    expect(screen.getByText('Tốn hạn mức · Có thể trái điều khoản')).toBeTruthy();
+    expect(screen.queryByRole('group', { name: 'Giờ chạy' })).toBeNull();
     expect(fake.api.codexTriggerNow).not.toHaveBeenCalled();
     await press(screen.getByRole('switch', { name: 'Tự đánh thức' }));
-    expect(fake.api.codexTriggerSet).toHaveBeenCalledWith({ on: true, mode: 'daily', at: '06:00', keepAlive: true, ids: [] });
+    expect(fake.api.codexTriggerSet).toHaveBeenCalledWith({ on: true, mode: 'daily', times: ['06:00'], keepAlive: true, ids: [] });
     // No account chosen yet: nothing to run.
     expect((screen.getByRole('button', { name: 'Chạy ngay' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('"Cài đặt" opens it in place: a day of several wake times, five hours apart, and "Thu gọn" closes it', async () => {
+    const model = codexMany(fixtureModel('fresh'));
+    model.codex = { ...model.codex, trigger: codexTriggerFixture(true) };
+    const fake = await openTab(model);
+    expect(screen.getByText('Lần tới: 18:00 · 3/4 tài khoản')).toBeTruthy();
+    const settings = screen.getByRole('button', { name: 'Cài đặt Tự đánh thức' });
+    expect(settings.getAttribute('aria-expanded')).toBe('false');
+    await press(settings);
+    const times = screen.getByRole('group', { name: 'Giờ chạy' });
+    expect(within(times).getByText('06:00')).toBeTruthy();
+    expect(within(times).getByText('18:00')).toBeTruthy();
+    // Each account's last run in a few words; the refused one cannot be ticked.
+    const woken = screen.getByRole('list', { name: 'Tài khoản được đánh thức' });
+    expect(within(woken).getAllByRole('checkbox')).toHaveLength(4);
+    expect(within(woken).getByText(/· 06:00 · Bỏ qua · Khung còn mở$/)).toBeTruthy();
+    expect(within(woken).getByText('cần đăng nhập lại')).toBeTruthy();
+
+    // 09:00 is under 5 hours from 06:00: refused here, nothing sent.
+    await press(within(times).getByRole('button', { name: 'Thêm giờ' }));
+    const input = within(times).getByLabelText('Giờ mới') as HTMLInputElement;
+    expect(input.value).toBe('23:00');
+    await act(async () => {
+      fireEvent.change(input, { target: { value: '09:00' } });
+    });
+    await press(within(times).getByRole('button', { name: 'Thêm' }));
+    expect(within(times).getByRole('alert').textContent).toBe('Các mốc phải cách nhau ít nhất 5 giờ.');
+    expect(fake.api.codexTriggerSet).not.toHaveBeenCalled();
+    await act(async () => {
+      fireEvent.change(within(times).getByLabelText('Giờ mới'), { target: { value: '12:00' } });
+    });
+    await press(within(times).getByRole('button', { name: 'Thêm' }));
+    expect(fake.api.codexTriggerSet).toHaveBeenLastCalledWith({ on: true, mode: 'daily', times: ['06:00', '12:00', '18:00'], keepAlive: true, ids: ['chatgpt:1', 'chatgpt:2', 'chatgpt:3'] });
+    expect(within(times).queryByRole('alert')).toBeNull();
+    // A time already there, then the last one: refused with their reason.
+    await press(within(times).getByRole('button', { name: 'Xoá giờ 12:00' }));
+    await press(within(times).getByRole('button', { name: 'Xoá giờ 18:00' }));
+    await press(within(times).getByRole('button', { name: 'Xoá giờ 06:00' }));
+    expect(within(times).getByRole('alert').textContent).toBe('Cần ít nhất một giờ chạy.');
+    expect(fake.api.codexTriggerSet).toHaveBeenLastCalledWith(expect.objectContaining({ times: ['06:00'] }));
+
+    // Khi đặt lại keeps the times for later and hides them.
+    await press(screen.getByRole('radio', { name: 'Khi đặt lại' }));
+    expect(fake.api.codexTriggerSet).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'reset', times: ['06:00'] }));
+    expect(screen.queryByRole('group', { name: 'Giờ chạy' })).toBeNull();
+    expect(screen.getByText('Chờ đặt lại · 3/4 tài khoản')).toBeTruthy();
+    await press(screen.getByRole('button', { name: 'Thu gọn Tự đánh thức' }));
+    expect(screen.queryByRole('list', { name: 'Tài khoản được đánh thức' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Chạy ngay' })).toBeTruthy();
   });
 });

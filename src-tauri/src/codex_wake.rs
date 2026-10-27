@@ -53,7 +53,7 @@ const KEEP: [&str; 2] = [codex::AUTH, codex::CONFIG];
 pub struct TriggerIn {
     pub on: bool,
     pub mode: Mode,
-    pub at: String,
+    pub times: Vec<String>,
     pub keep_alive: bool,
     pub ids: Vec<String>,
 }
@@ -63,7 +63,7 @@ pub struct TriggerIn {
 pub struct TriggerView {
     pub on: bool,
     pub mode: Mode,
-    pub at: String,
+    pub times: Vec<String>,
     pub keep_alive: bool,
     pub ids: Vec<String>,
     /// When the next daily wake-up is due; `None` in the reset mode or off.
@@ -161,7 +161,7 @@ pub fn view(inner: &Inner) -> TriggerView {
     TriggerView {
         on: s.on,
         mode: s.mode,
-        at: s.at.clone(),
+        times: s.times.clone(),
         keep_alive: s.keep_alive,
         ids: s.ids.clone(),
         next: wake::next(s, &book.runs, now, local_time::offset_at(now))
@@ -353,7 +353,8 @@ fn exec(cli: &Path, home: &Path) -> (Outcome, Option<String>) {
     }
 }
 
-/// "Tự đánh thức": its settings, kept by the app. Refused with `at` or `ids`.
+/// "Tự đánh thức": its settings, kept by the app, the times earliest first.
+/// Refused with `at`, `same`, `empty` or `gap` (see [`wake::times`]), or `ids`.
 #[tauri::command]
 pub fn codex_trigger_set(
     app: AppHandle,
@@ -363,7 +364,7 @@ pub fn codex_trigger_set(
     let settings = wake::Settings {
         on: trigger.on,
         mode: trigger.mode,
-        at: trigger.at,
+        times: wake::times(&trigger.times).map_err(str::to_string)?,
         keep_alive: trigger.keep_alive,
         ids: trigger.ids,
     };

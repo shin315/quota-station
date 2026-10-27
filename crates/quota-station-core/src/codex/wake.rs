@@ -9,7 +9,9 @@
 //! This module only decides: which account is due and why, what a run
 //! ended as, and the settings and the runs kept in `codex/wake.json`. It
 //! never loops: a window is woken once at most, every run (failed ones too)
-//! holds the account off for five hours, and a day has a cap.
+//! holds the account off for five hours, and a day has a cap. A day may hold
+//! several wake times, five hours apart at least; a time that finds the
+//! account held off is recorded as skipped, never moved or made up later.
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -39,23 +41,49 @@ const DETAIL_MAX: usize = 200;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Mode {
-    /// Each day at `at`.
+    /// Each day at each of `times`.
     Daily,
     /// As soon as an account's five-hour window is not open.
     Reset,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", from = "Kept")]
 pub struct Settings {
     pub on: bool,
     pub mode: Mode,
-    /// `06:00`, the Mac's time.
-    pub at: String,
+    /// `07:00`, `12:00`: the Mac's times, earliest first.
+    pub times: Vec<String>,
     /// Also wake a waiting account whose sign-in ran out.
     pub keep_alive: bool,
     /// `chatgpt:<n>`.
     pub ids: Vec<String>,
+}
+
+/// The settings as `codex/wake.json` holds them: one `at` before the day
+/// held several times.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Kept {
+    on: bool,
+    mode: Mode,
+    #[serde(default)]
+    times: Vec<String>,
+    #[serde(default)]
+    at: Option<String>,
+    keep_alive: bool,
+    ids: Vec<String>,
+}
+
+impl From<Kept> for Settings {
+    fn from(k: Kept) -> Self {
+        let times = match (k.times, k.at) {
+            (times, _) if !times.is_empty() => times,
+            (_, Some(at)) => vec![at],
+            _ => Settings::default().times,
+        };
+        Settings { on: k.on, mode: k.mode, times, keep_alive: k.keep_alive, ids: k.ids }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -80,6 +108,17 @@ pub enum Outcome {
     Limited,
     /// Codex ended with another error.
     Failed,
+    /// Run less than five hours before: nothing was sent.
+    Soon,
+    /// Run five times in 24 hours already: nothing was sent.
+    Capped,
+}
+
+impl Outcome {
+    /// Only recorded, never the end of a run: nothing was sent.
+    fn skipped(self) -> bool {
+        matches!(self, Outcome::Open | Outcome::Soon | Outcome::Capped)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -140,7 +179,7 @@ impl Default for Settings {
         Settings {
             on: false,
             mode: Mode::Daily,
-            at: "06:00".into(),
+            times: vec!["06:00".into()],
             keep_alive: true,
             ids: Vec::new(),
         }
@@ -168,9 +207,33 @@ impl Book {
     }
 }
 
-/// Settings the owner may keep: a clock time, ChatGPT accounts only.
+/// The wake times as kept, earliest first. Refused: `at`, a time that is
+/// not a clock; `same`, a time twice; `empty`, no time; `gap`, two times
+/// less than five hours apart, over midnight too (so four at most).
+pub fn times(list: &[String]) -> Result<Vec<String>, &'static str> {
+    let mut all = list.iter().map(|at| minutes(at).ok_or("at")).collect::<Result<Vec<_>, _>>()?;
+    all.sort_unstable();
+    if all.is_empty() {
+        return Err("empty");
+    }
+    if all.windows(2).any(|w| w[0] == w[1]) {
+        return Err("same");
+    }
+    let apart = |a: i64, b: i64| (b - a) * 60 >= WINDOW;
+    if all.windows(2).any(|w| !apart(w[0], w[1]))
+        || (all.len() > 1 && !apart(all[all.len() - 1], all[0] + DAY / 60))
+    {
+        return Err("gap");
+    }
+    Ok(all.into_iter().map(|m| format!("{:02}:{:02}", m / 60, m % 60)).collect())
+}
+
+/// Settings the owner may keep: wake times as [`times`] keeps them,
+/// ChatGPT accounts only.
 pub fn check(settings: &Settings) -> Result<(), &'static str> {
-    minutes(&settings.at).ok_or("at")?;
+    if times(&settings.times)? != settings.times {
+        return Err("at");
+    }
     let chatgpt =
         |id: &String| id.strip_prefix(CHATGPT_ID).is_some_and(|n| n.parse::<u32>().is_ok());
     if settings.ids.len() > IDS_MAX || !settings.ids.iter().all(chatgpt) {
@@ -195,6 +258,20 @@ fn slot(now: OffsetDateTime, offset: UtcOffset, minutes: i64) -> i64 {
     (day + Duration::minutes(minutes)).unix_timestamp()
 }
 
+/// The latest wake time at or before `now`: today's, or yesterday's.
+fn last_slot(settings: &Settings, now: OffsetDateTime, offset: UtcOffset) -> Option<i64> {
+    let t = now.unix_timestamp();
+    settings
+        .times
+        .iter()
+        .filter_map(|at| minutes(at))
+        .map(|m| match slot(now, offset, m) {
+            s if s <= t => s,
+            _ => slot(now - Duration::days(1), offset, m),
+        })
+        .max()
+}
+
 /// Why a run cannot help `seen` now: its sign-in was refused, its week is
 /// used up, or its window is open (read, or opened by a run of the app's
 /// less than five hours ago).
@@ -215,6 +292,26 @@ fn blocked(seen: &Seen, runs: &[Run], t: i64) -> Option<Outcome> {
     }
 }
 
+/// Why no run of `id` may go now: [`blocked`], or (`Soon`) one ran less
+/// than five hours before, or (`Capped`) five ran in 24 hours. Only runs
+/// that sent something count, failed ones too.
+fn held(seen: &Seen, runs: &[Run], t: i64) -> Option<Outcome> {
+    blocked(seen, runs, t).or_else(|| {
+        let sent: Vec<i64> = runs
+            .iter()
+            .filter(|r| r.id == seen.id && !r.result.skipped())
+            .map(|r| t - r.at)
+            .collect();
+        if sent.iter().any(|d| (0..WINDOW).contains(d)) {
+            Some(Outcome::Soon)
+        } else if sent.iter().filter(|d| (0..DAY).contains(*d)).count() >= DAILY_CAP {
+            Some(Outcome::Capped)
+        } else {
+            None
+        }
+    })
+}
+
 /// The accounts due at `now`, in the order chosen.
 pub fn due(
     settings: &Settings,
@@ -227,41 +324,37 @@ pub fn due(
         return Vec::new();
     }
     let t = now.unix_timestamp();
-    let today = minutes(&settings.at).map(|m| slot(now, offset, m));
+    // Only the latest time counts: one passed while the Mac slept is not made up.
+    let latest = last_slot(settings, now, offset);
     let mut out = Vec::new();
     for id in &settings.ids {
         // An account removed since it was chosen is left alone.
         let Some(seen) = seen.iter().find(|s| &s.id == id) else { continue };
         let mine: Vec<&Run> = runs.iter().filter(|r| &r.id == id).collect();
-        let since_last = mine.iter().map(|r| t - r.at).min();
-        let today_runs = mine.iter().filter(|r| (0..DAY).contains(&(t - r.at))).count();
+        let since_sent = mine.iter().filter(|r| !r.result.skipped()).map(|r| t - r.at).min();
         let plan = |why, skip| Some(Plan { id: id.clone(), why, skip });
         let mut found = match settings.mode {
-            Mode::Daily => match today {
+            Mode::Daily => match latest {
                 Some(at)
                     if (0..=CATCH_UP).contains(&(t - at))
                         && !mine.iter().any(|r| r.why == Why::Daily && r.at >= at) =>
                 {
-                    plan(Why::Daily, blocked(seen, runs, t))
+                    plan(Why::Daily, held(seen, runs, t))
                 }
                 _ => None,
             },
-            Mode::Reset => {
-                let rested = since_last.is_none_or(|d| d >= WINDOW);
-                if blocked(seen, runs, t).is_none() && rested && today_runs < DAILY_CAP {
-                    plan(Why::Reset, None)
-                } else {
-                    None
-                }
-            }
+            Mode::Reset => match held(seen, runs, t) {
+                None => plan(Why::Reset, None),
+                Some(_) => None,
+            },
         };
         // The account Codex uses renews its own sign-in.
         if found.is_none()
             && settings.keep_alive
             && seen.waiting
             && seen.login == Login::Idle
-            && since_last.is_none_or(|d| d >= KEEP_ALIVE_GAP)
-            && today_runs < DAILY_CAP
+            && since_sent.is_none_or(|d| d >= KEEP_ALIVE_GAP)
+            && held(seen, runs, t).is_none()
         {
             found = plan(Why::KeepAlive, None);
         }
@@ -270,7 +363,9 @@ pub fn due(
     out
 }
 
-/// "Chạy ngay": every chosen account but one a run cannot help.
+/// "Chạy ngay": every chosen account but one a run cannot help, or one run
+/// five times in 24 hours. It may follow a failed run at once, so a fix
+/// can be tried.
 pub fn now(settings: &Settings, runs: &[Run], seen: &[Seen], now: OffsetDateTime) -> Vec<Plan> {
     let t = now.unix_timestamp();
     settings
@@ -278,7 +373,11 @@ pub fn now(settings: &Settings, runs: &[Run], seen: &[Seen], now: OffsetDateTime
         .iter()
         .filter_map(|id| {
             let seen = seen.iter().find(|s| &s.id == id)?;
-            Some(Plan { id: id.clone(), why: Why::Now, skip: blocked(seen, runs, t) })
+            let skip = blocked(seen, runs, t).or(match held(seen, runs, t) {
+                Some(Outcome::Capped) => Some(Outcome::Capped),
+                _ => None,
+            });
+            Some(Plan { id: id.clone(), why: Why::Now, skip })
         })
         .collect()
 }
@@ -293,13 +392,26 @@ pub fn next(
     if !settings.on || settings.mode != Mode::Daily {
         return None;
     }
-    let at = slot(now, offset, minutes(&settings.at)?);
     let t = now.unix_timestamp();
-    let done = settings
-        .ids
+    // A time passed whose accounts are still being woken.
+    if let Some(at) = last_slot(settings, now, offset) {
+        let done = settings
+            .ids
+            .iter()
+            .all(|id| runs.iter().any(|r| &r.id == id && r.why == Why::Daily && r.at >= at));
+        if t - at <= CATCH_UP && !done {
+            return OffsetDateTime::from_unix_timestamp(at).ok();
+        }
+    }
+    let next = settings
+        .times
         .iter()
-        .all(|id| runs.iter().any(|r| &r.id == id && r.why == Why::Daily && r.at >= at));
-    let next = if t < at || (t - at <= CATCH_UP && !done) { at } else { at + DAY };
+        .filter_map(|at| minutes(at))
+        .map(|m| match slot(now, offset, m) {
+            s if s > t => s,
+            s => s + DAY,
+        })
+        .min()?;
     OffsetDateTime::from_unix_timestamp(next).ok()
 }
 
