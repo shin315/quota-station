@@ -44,7 +44,7 @@ use quota_station_core::schedule::Schedule;
 use quota_station_core::settings::{Language, Menubar, MenubarWindow, Settings, Theme, ThemePack};
 use quota_station_core::switcher::{Decision, DryRun, LogLine};
 use quota_station_core::switching::Tools;
-use quota_station_core::{local_time, pause, switcher, Snapshot};
+use quota_station_core::{local_time, pause, Snapshot};
 use serde::{Deserialize, Serialize};
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
@@ -471,7 +471,7 @@ impl Inner {
     pub fn switch_tools(&self) -> Tools {
         Tools {
             store: self.claude_store(),
-            launchctl: PathBuf::from(switcher::LAUNCHCTL),
+            scheduler: std::sync::Arc::new(quota_station_core::os::scheduler()),
             pause_file: pause::path(&self.home),
         }
     }

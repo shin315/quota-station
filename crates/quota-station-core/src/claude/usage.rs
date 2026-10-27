@@ -464,7 +464,7 @@ pub fn read_due(store: &Store, endpoints: &Endpoints, force: bool, may_refresh: 
 
 /// The account Claude Code is on, with its live token, read-only.
 fn read_active(store: &Store, endpoints: &Endpoints) -> Result<Reading, Failure> {
-    let credential = cc::read_credential(&store.paths, &store.security)
+    let credential = cc::read_credential(&store.paths, &*store.security)
         .map_err(|_| Failure { kind: "keychain_unavailable".into(), retry_after: None })?
         .ok_or(Failure { kind: "no-access-token".into(), retry_after: None })?;
     let now_ms = (OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000) as i64;
@@ -542,7 +542,7 @@ fn refresh_stored(
     let held = if dir.is_dir() && session::live(&dir) {
         Some(session::profile_credential(&dir, store))
     } else {
-        let live = cc::read_credential(&store.paths, &store.security)
+        let live = cc::read_credential(&store.paths, &*store.security)
             .map_err(|_| Failure { kind: "keychain_unavailable".into(), retry_after: None })?;
         let token = cc::refresh_token(&current);
         let same = token.is_some() && live.as_deref().and_then(cc::refresh_token) == token;

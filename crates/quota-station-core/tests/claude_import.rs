@@ -116,18 +116,14 @@ fn claude_swaps_own_data_is_left_as_it_was() {
     let mac = Mac::new("import-untouched");
     let dir = claude_swap(&mac);
     let before = snapshot(&dir);
-    let items = snapshot(&mac.dir.join("items"));
+    let claude_swaps = || {
+        let items = mac.keychain.items();
+        items.into_iter().filter(|((service, _), _)| service == "claude-swap").collect::<Vec<_>>()
+    };
+    let theirs = claude_swaps();
     import::import(&mac.store, &dir).unwrap();
     assert_eq!(snapshot(&dir), before);
-    let after: BTreeMap<_, _> = snapshot(&mac.dir.join("items"))
-        .into_iter()
-        .filter(|(p, _)| p.file_name().unwrap().to_string_lossy().starts_with("claude-swap--"))
-        .collect();
-    let theirs: BTreeMap<_, _> = items
-        .into_iter()
-        .filter(|(p, _)| p.file_name().unwrap().to_string_lossy().starts_with("claude-swap--"))
-        .collect();
-    assert_eq!(after, theirs);
+    assert_eq!(claude_swaps(), theirs);
     assert!(!mac
         .security_calls()
         .lines()

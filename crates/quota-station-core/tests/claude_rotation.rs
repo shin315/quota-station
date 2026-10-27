@@ -422,7 +422,7 @@ fn three_accounts(tag: &str) -> (Mac, FakeAnthropic, Tools) {
     let stamp = rotation::Stamp::new(OffsetDateTime::now_utc(), "Mac A");
     std::fs::write(&file, rotation::render(&rules(), &stamp, None)).unwrap();
     let tools = Tools {
-        launchctl: mac.launchctl.clone(),
+        scheduler: mac.scheduler.clone(),
         claude: None,
         pause_file: mac.home.join(".config/cswap-prefer-team/pause"),
         endpoints: anthropic.endpoints(),
@@ -518,7 +518,7 @@ fn a_run_while_the_old_switcher_is_loaded_neither_switches_nor_refreshes() {
 #[test]
 fn a_run_when_launchctl_cannot_tell_neither_switches_nor_refreshes() {
     let (mac, anthropic, mut tools) = three_accounts("rotate-launchctl-unknown");
-    tools.launchctl = common::script(&mac.dir.join("bin/launchctl-unknown"), "exit 1\n");
+    tools.scheduler = common::os::FakeScheduler::cannot_tell();
     let expired = credential("acc-3", "ref-3", in_hours(-1.0));
     mac.store.set_credential(3, &expired).unwrap();
     anthropic.refreshes("ref-3", "acc-3b", "ref-3b");
@@ -585,7 +585,7 @@ fn a_switch_that_finds_a_lock_busy_logs_which() {
 #[test]
 fn a_switch_whose_login_does_not_read_back_logs_it() {
     let line = failed_switch_line("rotate-fail-readback", |mac| {
-        std::fs::write(mac.dir.join("drop-add"), "Claude Code-credentials").unwrap();
+        mac.keychain.drop_add("Claude Code-credentials");
     });
     assert!(
         line.ends_with(
@@ -599,7 +599,7 @@ fn a_switch_whose_login_does_not_read_back_logs_it() {
 #[test]
 fn a_switch_the_keychain_refuses_logs_its_words() {
     let line = failed_switch_line("rotate-fail-keychain", |mac| {
-        std::fs::write(mac.dir.join("fail-add"), "").unwrap();
+        mac.keychain.fail_add(true);
     });
     assert!(line.contains(" switch to slot 3 failed: "), "{line}");
     assert!(line.contains("User interaction is not allowed"), "{line}");

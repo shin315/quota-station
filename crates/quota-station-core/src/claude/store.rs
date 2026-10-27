@@ -16,13 +16,15 @@
 //! memory only.
 
 use std::io;
+use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
-use super::keychain::{KeychainError, Security};
+use super::keychain::KeychainError;
 use super::Paths;
+use crate::os::SecretStore;
 
 /// The app's own Keychain service for the Claude accounts.
 pub const SERVICE: &str = "com.shin315.quota-station.claude";
@@ -170,7 +172,8 @@ impl From<KeychainError> for StoreError {
 #[derive(Debug, Clone)]
 pub struct Store {
     pub paths: Paths,
-    pub security: Security,
+    /// Where the logins are kept: the Keychain on macOS.
+    pub security: Arc<dyn SecretStore>,
 }
 
 fn credential_item(slot: u32) -> String {
@@ -182,8 +185,8 @@ fn account_item(slot: u32) -> String {
 }
 
 impl Store {
-    pub fn new(paths: Paths, security: Security) -> Store {
-        Store { paths, security }
+    pub fn new(paths: Paths, security: impl SecretStore + 'static) -> Store {
+        Store { paths, security: Arc::new(security) }
     }
 
     /// The list; none yet is an empty list. A file that does not parse is

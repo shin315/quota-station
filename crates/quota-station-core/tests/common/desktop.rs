@@ -169,8 +169,8 @@ impl Drop for FakeApp {
 }
 
 /// An `agy` that records its arguments in `dir/agy-args` and prints
-/// `dir/agy.json`, or fails when there is none, with a `ps` that lists no
-/// process: agy's own `/quota` is the only reading.
+/// `dir/agy.json`, or fails when there is none, with no process running:
+/// agy's own `/quota` is the only reading.
 pub fn fake_agy(dir: &Path) -> agy::Tools {
     let d = dir.display();
     agy::Tools {
@@ -180,8 +180,7 @@ pub fn fake_agy(dir: &Path) -> agy::Tools {
                 "printf '%s\\n' \"$@\" > '{d}/agy-args'\n[ -f '{d}/agy.json' ] || {{ echo 'agy: not signed in' >&2; exit 2; }}\ncat '{d}/agy.json'\n"
             ),
         )),
-        ps: script(&dir.join("bin/ps"), "exit 0\n"),
-        lsof: script(&dir.join("bin/lsof"), "exit 1\n"),
+        processes: std::sync::Arc::new(super::os::FakeProcesses::none()),
     }
 }
 

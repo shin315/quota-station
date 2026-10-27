@@ -18,10 +18,11 @@ use std::path::Path;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
-use super::keychain::{user_account, KeychainError, Security};
+use super::keychain::{user_account, KeychainError};
 use super::store::Who;
 use super::Paths;
 use crate::agents::json_text;
+use crate::os::SecretStore;
 
 /// Claude Code's item for its default folder.
 pub const ACTIVE_SERVICE: &str = "Claude Code-credentials";
@@ -60,7 +61,7 @@ impl Live {
 /// Code reads them.
 pub fn read_credential(
     paths: &Paths,
-    security: &Security,
+    security: &dyn SecretStore,
 ) -> Result<Option<String>, KeychainError> {
     if let Some(c) = security.get(ACTIVE_SERVICE, &user_account())? {
         if !c.trim().is_empty() {
@@ -78,7 +79,7 @@ pub fn read_oauth(paths: &Paths) -> Option<Value> {
     value.get("oauthAccount").filter(|v| v.is_object()).cloned()
 }
 
-pub fn read_live(paths: &Paths, security: &Security) -> Result<Live, KeychainError> {
+pub fn read_live(paths: &Paths, security: &dyn SecretStore) -> Result<Live, KeychainError> {
     Ok(Live { credential: read_credential(paths, security)?, oauth: read_oauth(paths) })
 }
 
@@ -131,7 +132,7 @@ pub fn merge_shared(target: &str, live: Option<&str>) -> String {
 /// Code notices the file changed), never creating it.
 pub fn write_credential(
     paths: &Paths,
-    security: &Security,
+    security: &dyn SecretStore,
     credential: &str,
 ) -> Result<(), std::io::Error> {
     security

@@ -22,6 +22,7 @@
 
 use std::ffi::OsString;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
@@ -29,6 +30,7 @@ use time::OffsetDateTime;
 
 use super::cache::{fingerprint, Cache};
 use super::{epoch_or_iso, number, slugify, text, Provider, ProviderId, Response, Window};
+use crate::os::{Process, ProcessList};
 use crate::runner::{self, RunError};
 
 const QUOTA_SUMMARY: &str =
@@ -56,21 +58,17 @@ const CSRF: &str = "Antigravity CLI quota unavailable because its runtime CSRF t
 pub struct Tools {
     /// `agy`, when it is on this Mac.
     pub agy: Option<PathBuf>,
-    pub ps: PathBuf,
-    pub lsof: PathBuf,
+    /// The running processes and their ports: `ps` and `lsof` on macOS.
+    pub processes: Arc<dyn ProcessList>,
 }
 
 impl Tools {
-    /// macOS's `ps` and `lsof`, and `agy` where quota-axi finds it: on the
-    /// `PATH` (an app opened from Finder has launchd's, which leaves out
+    /// The system's process list, and `agy` where quota-axi finds it: on
+    /// the `PATH` (an app opened from Finder has launchd's, which leaves out
     /// `~/.local/bin`; a read from a shell has the shell's), then in
     /// Homebrew's folders.
     pub fn system() -> Tools {
-        Tools {
-            agy: runner::on_path("agy"),
-            ps: PathBuf::from("/bin/ps"),
-            lsof: PathBuf::from("/usr/sbin/lsof"),
-        }
+        Tools { agy: runner::on_path("agy"), processes: Arc::new(crate::os::processes()) }
     }
 }
 
@@ -633,18 +631,13 @@ fn flag(command: &str, name: &str) -> Option<String> {
     None
 }
 
-fn processes(ps: &str) -> Vec<ProcessInfo> {
-    ps.lines()
-        .filter_map(|line| {
-            let line = line.trim_start();
-            let (pid, command) = line.split_once(char::is_whitespace)?;
-            let pid: u32 = pid.parse().ok()?;
-            let command = command.trim();
-            if command.is_empty() {
-                return None;
-            }
+fn processes(listed: &[Process]) -> Vec<ProcessInfo> {
+    listed
+        .iter()
+        .filter_map(|p| {
+            let command = p.command.as_str();
             Some(ProcessInfo {
-                pid,
+                pid: p.pid,
                 source: process_source(command)?,
                 csrf: flag(command, "csrf_token"),
                 extension_port: flag(command, "extension_server_port").and_then(|p| p.parse().ok()),
@@ -652,26 +645,6 @@ fn processes(ps: &str) -> Vec<ProcessInfo> {
             })
         })
         .collect()
-}
-
-/// The ports `lsof` shows listening.
-fn ports(lsof: &str) -> Vec<u16> {
-    let mut out = Vec::new();
-    for line in lsof.lines() {
-        let words: Vec<&str> = line.split_whitespace().collect();
-        let Some(at) = words.iter().position(|w| *w == "TCP") else { continue };
-        let (Some(addr), Some(state)) = (words.get(at + 1), words.get(at + 2)) else { continue };
-        if *state != "(LISTEN)" {
-            continue;
-        }
-        let port = addr.rsplit(':').next().and_then(|p| p.parse::<u16>().ok());
-        if let Some(p) = port.filter(|p| *p > 0) {
-            if !out.contains(&p) {
-                out.push(p);
-            }
-        }
-    }
-    out
 }
 
 struct Deadline(Instant);
@@ -690,14 +663,7 @@ impl Deadline {
 /// The endpoints to ask, agy's first, and how discovery ended when there
 /// are none: `Ok` with no endpoints and the skip's words.
 fn endpoints(tools: &Tools, deadline: &Deadline) -> Result<(Vec<Endpoint>, &'static str), Fail> {
-    let uid = unsafe { libc::geteuid() }.to_string();
-    let args: Vec<String> =
-        ["-x", "-u", &uid, "-o", "pid=,command="].iter().map(|s| s.to_string()).collect();
-    let listed = runner::run(&tools.ps, &args, deadline.step(PROCESS_TIMEOUT)?)
-        .ok()
-        .filter(|o| o.code == Some(0))
-        .map(|o| String::from_utf8_lossy(&o.stdout).into_owned());
-    let Some(listed) = listed else {
+    let Some(listed) = tools.processes.own(deadline.step(PROCESS_TIMEOUT)?) else {
         return Ok((Vec::new(), DISCOVERY_UNAVAILABLE));
     };
     let found = processes(&listed);
@@ -707,13 +673,9 @@ fn endpoints(tools: &Tools, deadline: &Deadline) -> Result<(Vec<Endpoint>, &'sta
     let mut out = Vec::new();
     let mut discovery: Option<Fail> = None;
     for p in &found {
-        let args: Vec<String> = ["-nP", "-a", "-p", &p.pid.to_string(), "-iTCP", "-sTCP:LISTEN"]
-            .iter()
-            .map(|s| s.to_string())
-            .collect();
-        let listening = match runner::run(&tools.lsof, &args, deadline.step(PORT_TIMEOUT)?) {
-            Ok(o) if o.code == Some(0) => ports(&String::from_utf8_lossy(&o.stdout)),
-            _ => {
+        let listening = match tools.processes.listening(p.pid, deadline.step(PORT_TIMEOUT)?) {
+            Some(ports) => ports,
+            None => {
                 let f = Fail::Discovery("Antigravity port discovery failed".into());
                 discovery = Some(stronger(discovery, f));
                 continue;
@@ -923,7 +885,7 @@ mod tests {
                   202 /Applications/Antigravity.app/Contents/Resources/app/extensions/antigravity/bin/language_server_macos_arm --csrf_token abc --extension_server_port 6000 --extension_server_csrf_token def\n\
                   303 /usr/bin/node /opt/antigravity-cli/dist/mcp-server.cjs\n\
                   404 /bin/zsh\n";
-        let p = processes(ps);
+        let p = processes(&crate::os::pid_table(ps));
         assert_eq!(p.len(), 3);
         assert_eq!((p[0].pid, p[0].source), (101, Source::Agy));
         assert_eq!(p[1].source, Source::App);
@@ -932,15 +894,6 @@ mod tests {
         assert_eq!(p[1].extension_csrf.as_deref(), Some("def"));
         assert_eq!(p[2].source, Source::Agy);
         assert_eq!(flag("x --csrf_token=q y", "csrf_token").as_deref(), Some("q"));
-    }
-
-    #[test]
-    fn lsof_lines_give_the_listening_ports() {
-        let out = "COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME\n\
-                   language 202 me 10u IPv4 0x1 0t0 TCP 127.0.0.1:53210 (LISTEN)\n\
-                   language 202 me 11u IPv6 0x2 0t0 TCP [::1]:53211 (LISTEN)\n\
-                   language 202 me 12u IPv4 0x3 0t0 TCP 127.0.0.1:53212->127.0.0.1:1 (ESTABLISHED)\n";
-        assert_eq!(ports(out), [53210, 53211]);
     }
 
     #[test]

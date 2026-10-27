@@ -14,6 +14,7 @@ pub mod desktop;
 pub mod google;
 pub mod http;
 pub mod keychain;
+pub mod os;
 
 use std::path::PathBuf;
 

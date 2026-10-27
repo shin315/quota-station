@@ -12,7 +12,7 @@ use time::OffsetDateTime;
 
 use super::rotate::{self, Tools};
 use super::store::Store;
-use super::{agent, import, manage, session, state, switch, usage};
+use super::{import, manage, session, state, switch, usage};
 
 pub const USAGE: &str = "\
 usage: quota-station claude <command>
@@ -58,7 +58,7 @@ pub fn run(cli: &Cli, args: &[String], out: &mut dyn Write, err: &mut dyn Write)
     match word {
         "status" => {
             if has("--refresh") {
-                let legacy = agent::legacy_loaded(&cli.tools.launchctl);
+                let legacy = cli.tools.scheduler.legacy_loaded();
                 usage::read_due(store, &cli.tools.endpoints, false, legacy.is_none());
             }
             let now = OffsetDateTime::now_utc();
@@ -86,7 +86,7 @@ pub fn run(cli: &Cli, args: &[String], out: &mut dyn Write, err: &mut dyn Write)
         }
         "switch" => {
             let Some(n) = slot(rest.first()) else { return usage_error(err) };
-            if let Some(label) = agent::legacy_loaded(&cli.tools.launchctl) {
+            if let Some(label) = cli.tools.scheduler.legacy_loaded() {
                 return fail(
                     err,
                     &format!("{label} is loaded; stop it first (see the README's cutover)"),
@@ -145,8 +145,8 @@ pub fn run(cli: &Cli, args: &[String], out: &mut dyn Write, err: &mut dyn Write)
         "rotation" => {
             let home = &store.paths.home;
             let done = match rest.first().map(String::as_str) {
-                Some("on") => agent::install(&cli.tools.launchctl, home, &cli.exe),
-                Some("off") => agent::remove(&cli.tools.launchctl, home),
+                Some("on") => cli.tools.scheduler.install(home, &cli.exe),
+                Some("off") => cli.tools.scheduler.remove(home),
                 _ => return usage_error(err),
             };
             match done {

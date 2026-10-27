@@ -14,6 +14,7 @@
 //! switched: it keeps its own copies of the same logins.
 
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
@@ -22,10 +23,11 @@ use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
 use crate::claude::locks::LockError;
+use crate::claude::state;
 use crate::claude::store::Store;
 use crate::claude::switch::{self, SwitchError};
-use crate::claude::{agent, state};
 use crate::local_time;
+use crate::os::Scheduler;
 use crate::pause::{self, Flag};
 use crate::quota::{claude as quota_claude, Response};
 use crate::switcher::{self, LogEvent};
@@ -37,7 +39,8 @@ pub const SETTLE: Duration = Duration::from_secs(5);
 #[derive(Debug, Clone)]
 pub struct Tools {
     pub store: Store,
-    pub launchctl: PathBuf,
+    /// The rotation's job, and the older switchers.
+    pub scheduler: Arc<dyn Scheduler>,
     pub pause_file: PathBuf,
 }
 
@@ -87,7 +90,7 @@ pub fn switch_claude(
         outcome: Outcome::Failed { slot, error: error.to_string(), detail, active },
         report: None,
     };
-    if let Some(label) = agent::legacy_loaded(&tools.launchctl) {
+    if let Some(label) = tools.scheduler.legacy_loaded() {
         return failed("legacy", label.to_string(), None);
     }
     let started = OffsetDateTime::now_utc();

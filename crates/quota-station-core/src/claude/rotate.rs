@@ -15,6 +15,7 @@
 use std::collections::BTreeMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::Duration;
 
 use time::OffsetDateTime;
@@ -22,9 +23,10 @@ use time::OffsetDateTime;
 use super::engine::{self, Input, Plan};
 use super::session;
 use super::store::Store;
+use super::switch;
 use super::usage::{self, Endpoints};
-use super::{agent, switch};
 use crate::local_time;
+use crate::os::Scheduler;
 use crate::pause::{self, Flag};
 use crate::rotation::{self, FileState, Rules};
 
@@ -36,7 +38,8 @@ pub const PRIME_TIMEOUT: Duration = Duration::from_secs(120);
 /// The programs and files a run uses.
 #[derive(Debug, Clone)]
 pub struct Tools {
-    pub launchctl: PathBuf,
+    /// The job that runs the rotation, and the older switchers.
+    pub scheduler: Arc<dyn Scheduler>,
     /// `claude`, for priming; none skips priming.
     pub claude: Option<PathBuf>,
     pub pause_file: PathBuf,
@@ -46,7 +49,7 @@ pub struct Tools {
 impl Tools {
     pub fn system(home: &Path) -> Tools {
         Tools {
-            launchctl: PathBuf::from(crate::switcher::LAUNCHCTL),
+            scheduler: Arc::new(crate::os::scheduler()),
             claude: session::find_claude(home),
             pause_file: pause::path(home),
             endpoints: Endpoints::anthropic(),
@@ -198,7 +201,7 @@ pub fn dry_run(
         Guard::Paused(line) => return Decided { line, primes: Vec::new() },
         Guard::None | Guard::Ended { .. } => {}
     }
-    if let Some(label) = agent::legacy_loaded(&tools.launchctl) {
+    if let Some(label) = tools.scheduler.legacy_loaded() {
         return Decided { line: blocked_line(label), primes: Vec::new() };
     }
     let Some(rules) = rules else { return Decided { line: NO_RULES.into(), primes: Vec::new() } };
@@ -257,7 +260,7 @@ pub fn run(store: &Store, tools: &Tools) -> Decided {
         }
         Guard::None => {}
     }
-    let legacy = agent::legacy_loaded(&tools.launchctl);
+    let legacy = tools.scheduler.legacy_loaded();
     usage::read_due(store, &tools.endpoints, false, legacy.is_none());
     let now = OffsetDateTime::now_utc();
     let _ = super::state::write(store, switch::active_slot(store), now);

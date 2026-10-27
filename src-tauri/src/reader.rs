@@ -242,7 +242,7 @@ pub fn read_claude(
     }
     let live = quota::claude::Live {
         paths: &store.paths,
-        security: &store.security,
+        security: &*store.security,
         endpoints: &Endpoints::anthropic(),
         app,
     };

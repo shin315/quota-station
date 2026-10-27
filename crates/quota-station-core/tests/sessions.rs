@@ -6,6 +6,7 @@
 mod common;
 
 use common::temp_dir;
+use quota_station_core::os::{self, ProcessList};
 use quota_station_core::sessions::{self, count, count_with, Sessions};
 
 fn record(dir: &std::path::Path, name: &str, text: &str) {
@@ -16,8 +17,12 @@ fn record(dir: &std::path::Path, name: &str, text: &str) {
 fn counts_records_whose_pid_is_alive() {
     let dir = temp_dir("sessions");
     let me = std::process::id();
-    // A finished child's pid is dead.
-    let mut child = std::process::Command::new("/usr/bin/true").spawn().unwrap();
+    // A finished child's pid is dead: this test program, listing nothing.
+    let mut child = std::process::Command::new(std::env::current_exe().unwrap())
+        .args(["--list", "--exact", "no-such-test"])
+        .stdout(std::process::Stdio::null())
+        .spawn()
+        .unwrap();
     let dead = child.id();
     child.wait().unwrap();
 
@@ -50,10 +55,11 @@ fn the_liveness_check_decides_and_a_missing_folder_is_no_session() {
 
 #[test]
 fn pid_checks() {
-    assert!(sessions::pid_alive(std::process::id() as i32));
-    assert!(!sessions::pid_alive(0));
-    assert!(!sessions::pid_alive(1), "pid 1 is launchd, never a session");
-    assert!(!sessions::pid_alive(-5));
+    let processes = os::processes();
+    assert!(processes.alive(std::process::id() as i32));
+    assert!(!processes.alive(0));
+    assert!(!processes.alive(1), "pid 1 is launchd, never a session");
+    assert!(!processes.alive(-5));
 }
 
 #[test]

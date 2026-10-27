@@ -15,6 +15,8 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+use crate::os::ProcessList;
+
 pub const DIR: &str = ".claude/sessions";
 
 pub fn dir(home: &Path) -> PathBuf {
@@ -39,7 +41,8 @@ struct Record {
 
 /// Counts the live sessions in `dir`. A missing folder is no session.
 pub fn count(dir: &Path) -> io::Result<Sessions> {
-    count_with(dir, pid_alive)
+    let processes = crate::os::processes();
+    count_with(dir, |pid| processes.alive(pid))
 }
 
 /// [`count`] with the liveness check passed in, for tests.
@@ -79,14 +82,4 @@ pub fn count_with(dir: &Path, alive: impl Fn(i32) -> bool) -> io::Result<Session
         }
     }
     Ok(out)
-}
-
-/// `kill(pid, 0)`: the process exists, even when it belongs to another user.
-pub fn pid_alive(pid: i32) -> bool {
-    if pid <= 1 {
-        return false;
-    }
-    // SAFETY: signal 0 sends nothing; it only checks that the pid exists.
-    let r = unsafe { libc::kill(pid, 0) };
-    r == 0 || io::Error::last_os_error().raw_os_error() == Some(libc::EPERM)
 }

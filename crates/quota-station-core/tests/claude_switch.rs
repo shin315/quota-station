@@ -75,12 +75,11 @@ fn claude_codes_own_secrets_stay_with_the_live_login() {
 #[test]
 fn the_login_is_written_while_claude_codes_locks_are_held() {
     let (mac, _, _) = two_accounts("switch-locks");
-    std::fs::write(mac.dir.join("watch"), mac.home.join(".claude.lock").display().to_string())
-        .unwrap();
+    mac.keychain.watch(&mac.home.join(".claude.lock"));
     switch::switch(&mac.store, 3).unwrap();
-    let watched = std::fs::read_to_string(mac.dir.join("watched")).unwrap();
-    assert!(watched.lines().any(|l| l == "held Claude Code-credentials"), "{watched}");
-    assert!(!watched.lines().any(|l| l == "free Claude Code-credentials"), "{watched}");
+    let watched = mac.keychain.watched();
+    assert!(watched.iter().any(|l| l == "held Claude Code-credentials"), "{watched:?}");
+    assert!(!watched.iter().any(|l| l == "free Claude Code-credentials"), "{watched:?}");
     assert!(!mac.home.join(".claude.lock").exists());
     assert!(!mac.home.join(".claude/.oauth_refresh.lock").exists());
 }
@@ -123,7 +122,7 @@ fn a_live_login_the_app_does_not_keep_is_never_overwritten() {
 #[test]
 fn a_login_that_does_not_read_back_is_put_back() {
     let (mac, c2, _) = two_accounts("switch-unconfirmed");
-    std::fs::write(mac.dir.join("drop-add"), "Claude Code-credentials").unwrap();
+    mac.keychain.drop_add("Claude Code-credentials");
     let err = switch::switch(&mac.store, 3).unwrap_err();
     assert!(matches!(err, SwitchError::NotConfirmed { restored: true, .. }), "{err:?}");
     assert_eq!(mac.live_credential(), Some(c2));
@@ -134,7 +133,7 @@ fn a_login_that_does_not_read_back_is_put_back() {
 fn a_keychain_that_refuses_the_write_leaves_claude_code_as_it_was() {
     let (mac, c2, _) = two_accounts("switch-refused");
     let before = std::fs::read_to_string(mac.paths.claude_json()).unwrap();
-    std::fs::write(mac.dir.join("fail-add"), "").unwrap();
+    mac.keychain.fail_add(true);
     assert!(switch::switch(&mac.store, 3).is_err());
     assert_eq!(mac.live_credential(), Some(c2));
     assert_eq!(std::fs::read_to_string(mac.paths.claude_json()).unwrap(), before);

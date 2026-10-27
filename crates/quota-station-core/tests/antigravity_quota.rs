@@ -652,8 +652,7 @@ fn agy_on_account_one(dir: &Path) -> agy::Tools {
                 dir.join("agy-quota.json").display()
             ),
         )),
-        ps: script(&bin.join("ps"), "echo '  PID COMMAND'\n"),
-        lsof: script(&bin.join("lsof"), "exit 1\n"),
+        processes: std::sync::Arc::new(common::os::FakeProcesses::none()),
     }
 }
 

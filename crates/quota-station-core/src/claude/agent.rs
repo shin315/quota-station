@@ -9,6 +9,7 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use crate::os::Scheduler;
 use crate::runner;
 use crate::switcher;
 
@@ -124,6 +125,36 @@ pub fn remove(launchctl: &Path, home: &Path) -> Result<(), AgentError> {
     match std::fs::remove_file(plist_path(home)) {
         Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(AgentError::Io(e.to_string())),
         _ => Ok(()),
+    }
+}
+
+/// launchd, through `launchctl`: the app's [`Scheduler`] on macOS.
+#[derive(Debug, Clone)]
+pub struct Launchd {
+    pub launchctl: PathBuf,
+}
+
+impl Launchd {
+    pub fn system() -> Launchd {
+        Launchd { launchctl: PathBuf::from(switcher::LAUNCHCTL) }
+    }
+}
+
+impl Scheduler for Launchd {
+    fn loaded(&self) -> Option<bool> {
+        loaded(&self.launchctl)
+    }
+
+    fn legacy_loaded(&self) -> Option<&'static str> {
+        legacy_loaded(&self.launchctl)
+    }
+
+    fn install(&self, home: &Path, exe: &Path) -> Result<(), AgentError> {
+        install(&self.launchctl, home, exe)
+    }
+
+    fn remove(&self, home: &Path) -> Result<(), AgentError> {
+        remove(&self.launchctl, home)
     }
 }
 

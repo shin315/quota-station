@@ -14,11 +14,11 @@
 //! (`app_server_role`, `after_codex_executable`, `run_restart`). See `NOTICE`.
 
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
 use std::time::Duration;
 
 use serde::Serialize;
 
+use crate::os::{Process, ProcessList};
 use crate::runner;
 
 /// The daemon finishes its running work first, up to its 60-second grace,
@@ -36,16 +36,14 @@ pub struct Procs {
     pub cc_switch: bool,
 }
 
-/// Reads `ps -ww -Ao tty=,command=`; `None` when it cannot run.
+/// Reads the process table; `None` when it cannot be read.
 pub fn read() -> Option<Procs> {
-    let out = Command::new("/bin/ps")
-        .args(["-ww", "-Ao", "tty=,command="])
-        .env("LC_ALL", "C")
-        .stdin(Stdio::null())
-        .output()
-        .ok()
-        .filter(|o| o.status.success())?;
-    Some(classify(&String::from_utf8_lossy(&out.stdout)))
+    read_from(&crate::os::processes())
+}
+
+/// [`read`] from `list`.
+pub fn read_from(list: &dyn ProcessList) -> Option<Procs> {
+    Some(classify_all(&list.all()?))
 }
 
 /// The part of a command line after the executable `codex` (`codex` or
@@ -85,12 +83,15 @@ fn subcommand(rest: &str) -> (Option<&str>, Vec<&str>) {
 /// Subcommands that are not a session someone works in.
 const NOT_SESSIONS: &[&str] = &["app-server", "mcp-server", "login", "logout", "mcp", "completion"];
 
+/// [`classify_all`] of a `ps -ww -Ao tty=,command=` table.
 pub fn classify(table: &str) -> Procs {
+    classify_all(&crate::os::tty_table(table))
+}
+
+pub fn classify_all(processes: &[Process]) -> Procs {
     let mut p = Procs::default();
-    for line in table.lines() {
-        let line = line.trim_start();
-        let Some((tty, command)) = line.split_once(char::is_whitespace) else { continue };
-        let command = command.trim_start();
+    for process in processes {
+        let command = process.command.as_str();
         if command.contains("/CC Switch.app/Contents/MacOS/")
             || command.split(' ').next().is_some_and(|w| w.ends_with("/cc-switch"))
         {
@@ -118,8 +119,7 @@ pub fn classify(table: &str) -> Procs {
             }
             continue;
         }
-        let terminal = tty != "??" && tty != "-";
-        if terminal && !sub.is_some_and(|s| NOT_SESSIONS.contains(&s)) {
+        if process.tty.is_some() && !sub.is_some_and(|s| NOT_SESSIONS.contains(&s)) {
             p.sessions += 1;
         }
     }

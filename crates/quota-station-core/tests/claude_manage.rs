@@ -32,9 +32,10 @@ fn mac(tag: &str) -> Mac {
 
 /// A fake `claude auth login` that logs `email` in where `CLAUDE_CONFIG_DIR`
 /// points, as Claude Code does: its folder's Keychain item and
-/// `.claude.json`. With `fail`, it says why on stderr and exits 1.
+/// `.claude.json`. With `fail`, it says why on stderr and exits 1. A shell
+/// script, so its tests run on Unix only.
+#[cfg(unix)]
 fn fake_login(mac: &Mac, email: &str, fail: bool) -> std::path::PathBuf {
-    let items = mac.dir.join("items");
     let body = if fail {
         "echo 'OAuth error: the browser closed' >&2\nexit 1\n".to_string()
     } else {
@@ -42,17 +43,19 @@ fn fake_login(mac: &Mac, email: &str, fail: bool) -> std::path::PathBuf {
         let service = cc::profile_service(&dir).unwrap();
         let login = credential("acc-new", "ref-new", in_hours(8.0));
         let config = serde_json::json!({ "oauthAccount": oauth(email, "uuid-new", "org-team") });
+        let item = mac.dir.join("login-item");
+        mac.keychain.written_by_file(&service, &mac.user(), &item);
         format!(
             "[ \"$1 $2\" = 'auth login' ] || exit 9\n[ \"$CLAUDE_CONFIG_DIR\" = '{dir}' ] || exit 8\n\
-             printf '%s' '{login}' > '{items}/{service}--{user}'\nprintf '%s' '{config}' > \"$CLAUDE_CONFIG_DIR/.claude.json\"\n",
+             printf '%s' '{login}' > '{item}'\nprintf '%s' '{config}' > \"$CLAUDE_CONFIG_DIR/.claude.json\"\n",
             dir = dir.display(),
-            items = items.display(),
-            user = mac.user(),
+            item = item.display(),
         )
     };
     common::script(&mac.dir.join("bin/claude"), &body)
 }
 
+#[cfg(unix)]
 #[test]
 fn a_new_login_comes_in_under_the_next_slot_without_touching_claude_code() {
     let mac = mac("manage-login");
@@ -73,6 +76,7 @@ fn a_new_login_comes_in_under_the_next_slot_without_touching_claude_code() {
     assert_eq!(mac.item(&cc::profile_service(&dir).unwrap(), &mac.user()), None);
 }
 
+#[cfg(unix)]
 #[test]
 fn logging_in_an_account_the_app_has_renews_its_login() {
     let mac = mac("manage-relogin");
@@ -86,6 +90,7 @@ fn logging_in_an_account_the_app_has_renews_its_login() {
     assert_eq!(mac.store.load().unwrap().accounts.len(), 2);
 }
 
+#[cfg(unix)]
 #[test]
 fn a_login_that_fails_adds_nothing() {
     let mac = mac("manage-fail");
@@ -99,6 +104,7 @@ fn a_login_that_fails_adds_nothing() {
     assert!(!manage::login_folder(&mac.store).exists());
 }
 
+#[cfg(unix)]
 #[test]
 fn a_cancelled_login_adds_nothing() {
     let mac = mac("manage-cancel");
@@ -143,6 +149,7 @@ fn a_setup_token_is_kept_as_a_login_without_refresh() {
     }
 }
 
+#[cfg(unix)]
 #[test]
 fn removing_an_account_takes_its_secrets_folder_and_reading() {
     let mac = mac("manage-remove");
@@ -192,7 +199,7 @@ fn cli(mac: &Mac, claude: Option<std::path::PathBuf>) -> Cli {
     Cli {
         store: mac.store.clone(),
         tools: Tools {
-            launchctl: mac.launchctl.clone(),
+            scheduler: mac.scheduler.clone(),
             claude,
             pause_file: mac.home.join(".config/cswap-prefer-team/pause"),
             endpoints: FakeAnthropic::start().endpoints(),
@@ -223,6 +230,7 @@ fn status_names_no_email_unless_asked() {
     assert_eq!(data["accounts"][1]["email"], "lan.b@team.example");
 }
 
+#[cfg(unix)]
 #[test]
 fn run_gives_back_claudes_exit_code() {
     let mac = mac("cli-run");
@@ -250,7 +258,7 @@ fn nothing_is_switched_or_turned_on_while_the_old_switcher_is_loaded() {
 fn nothing_is_switched_when_launchctl_cannot_tell() {
     let mac = mac("cli-launchctl-unknown");
     let mut cli = cli(&mac, None);
-    cli.tools.launchctl = common::script(&mac.dir.join("bin/launchctl-unknown"), "exit 1\n");
+    cli.tools.scheduler = common::os::FakeScheduler::cannot_tell();
     assert_eq!(call(&cli, &["switch", "3"]).0, 1);
     assert_eq!(switch::active_slot(&mac.store), Some(2));
 }
@@ -261,15 +269,8 @@ fn the_rotation_agent_is_loaded_and_unloaded() {
     let cli = cli(&mac, None);
     assert_eq!(call(&cli, &["rotation", "on"]).0, 0);
     assert!(mac.loaded("com.shin315.quota-station.rotation"));
-    let plist = std::fs::read_to_string(
-        mac.home.join("Library/LaunchAgents/com.shin315.quota-station.rotation.plist"),
-    )
-    .unwrap();
-    assert!(plist.contains(&format!("<string>{}</string>", cli.exe.display())));
+    assert_eq!(mac.scheduler.installed(), Some(cli.exe.clone()));
     assert_eq!(call(&cli, &["rotation", "off"]).0, 0);
     assert!(!mac.loaded("com.shin315.quota-station.rotation"));
-    assert!(!mac
-        .home
-        .join("Library/LaunchAgents/com.shin315.quota-station.rotation.plist")
-        .exists());
+    assert_eq!(mac.scheduler.installed(), None);
 }
