@@ -3,7 +3,7 @@
 
 //! Newer versions of the skills installed from GitHub (M11, G).
 //!
-//! Once a day (or on "Kiểm bản mới") the app asks GitHub one thing per
+//! Once a day (or on "Kiểm tra bản mới") the app asks GitHub one thing per
 //! repository the lock file records: the repository's tree at its default
 //! branch (`GET /repos/<owner>/<repo>/git/trees/HEAD?recursive=1`). Nothing
 //! else is sent, no token either. A skill whose folder's tree id there is

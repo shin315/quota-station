@@ -217,12 +217,12 @@ export function bulkUpdatedFeedback(out: SkillUpdatedMany): FeedbackView {
   };
 }
 
-/** "kiểm bản mới lúc 09:12", in the title row. */
+/** "kiểm tra bản mới lúc 09:12", in the title row. */
 export function checkedLine(v: SkillsView): string {
   const u = v.updates;
-  if (u.checking) return t('đang kiểm bản mới…', 'checking for updates…');
-  if (!u.settings.daily && !u.checkedAt) return t('không tự kiểm bản mới', 'no automatic update check');
-  return u.checkedAt ? t('kiểm bản mới lúc ' + clock(u.checkedAt), 'checked for updates at ' + clock(u.checkedAt)) : t('chưa kiểm bản mới', 'not checked for updates yet');
+  if (u.checking) return t('đang kiểm tra bản mới…', 'checking for updates…');
+  if (!u.settings.daily && !u.checkedAt) return t('không tự kiểm tra bản mới', 'no automatic update check');
+  return u.checkedAt ? t('kiểm tra bản mới lúc ' + clock(u.checkedAt), 'checked for updates at ' + clock(u.checkedAt)) : t('chưa kiểm tra bản mới', 'not checked for updates yet');
 }
 
 /**
@@ -245,20 +245,20 @@ export function skillBanners(v: SkillsView, table: SkillTable): BannerView[] {
   if (u.error)
     out.push({
       tone: 'warn',
-      title: t('Chưa kiểm được bản mới', 'Could not check for updates'),
+      title: t('Chưa kiểm tra được bản mới', 'Could not check for updates'),
       body:
         (u.error === 'rateLimited'
           ? t('GitHub tạm chặn vì hỏi nhiều quá.', 'GitHub is briefly blocking the app for asking too often.')
           : u.error === 'offline'
             ? t('Không kết nối được GitHub.', 'Could not reach GitHub.')
             : t('GitHub trả lời ' + u.error + '.', 'GitHub answered ' + u.error + '.')) + t(' App thử lại sau một giờ.', ' The app tries again in an hour.'),
-      actions: [{ label: t('Kiểm lại', 'Check again'), act: 'skills:check' }],
+      actions: [{ label: t('Kiểm tra lại', 'Check again'), act: 'skills:check' }],
     });
   else if (u.failed.length)
     out.push({
       tone: 'warn',
-      title: t('Chưa kiểm được ' + u.failed.join(', '), 'Could not check ' + u.failed.join(', ')),
-      body: t('GitHub không trả lời cho repo này. Các repo khác đã kiểm.', 'GitHub did not answer for this repo. The other repos were checked.'),
+      title: t('Chưa kiểm tra được ' + u.failed.join(', '), 'Could not check ' + u.failed.join(', ')),
+      body: t('GitHub không trả lời cho repo này. Các repo khác đã kiểm tra.', 'GitHub did not answer for this repo. The other repos were checked.'),
       actions: [],
     });
   if (table.lockError)

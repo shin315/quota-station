@@ -97,7 +97,7 @@ export interface FakeOptions {
   claudeDelayMs?: number;
   /** A sign-in or the account Claude Code is on turns out to be this kept account: it is renewed, not added. */
   claudeRenews?: number;
-  /** What "Kiểm bản mới" of the app finds: a release (by default the one the model has), or an error kind. */
+  /** What "Kiểm tra bản mới" of the app finds: a release (by default the one the model has), or an error kind. */
   releaseFinds?: ReleaseView['latest'] | 'offline';
   /** How long that check takes. */
   releaseDelayMs?: number;
@@ -1183,8 +1183,16 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       if (!c) return;
       push({ ...model, cliTools: { ...c, checking: true } });
       if (options.cliDelayMs) await new Promise((r) => setTimeout(r, options.cliDelayMs));
-      const tools = model.cliTools!.tools.map((v) => (options.cliClosed ? { ...v, running: 0 } : v));
+      const tools = model.cliTools!.tools.map((v) => ({ ...v, failed: null, ...(options.cliClosed ? { running: 0 } : {}) }));
       push({ ...model, cliTools: { ...model.cliTools!, checking: false, checkedAt: Math.floor(now().getTime() / 1000), offline: false, tools } });
+    },
+    cliToolsOpened: async () => {
+      // As the Rust side: while "Tự động kiểm tra" is on, a check when the last one is missing or a day old.
+      const c = model.cliTools;
+      if (!c?.daily || c.tools.some((v) => v.updating)) return;
+      const nowS = Math.floor(now().getTime() / 1000);
+      if (c.checkedAt && nowS - c.checkedAt < (c.offline ? 3600 : 86400)) return;
+      await api.cliToolsCheck();
     },
     cliToolUpdate: async (tool) => {
       const set = (over: Partial<CliToolView>) =>
@@ -1543,11 +1551,10 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
         const gone = model.env.found.filter((x) => x.name === name).length;
         push({ ...model, env: { ...model.env, found: model.env.found.filter((x) => x.name !== name), ignored: model.env.ignored + gone } });
       } else if (action === 'cli:settings') {
-        result = said('Đã mở Cài đặt', 'Ở tab Chung, thẻ Cập nhật Agent. App chỉ cập nhật khi bạn bấm.');
-        // The Rust side opens the main window on Cài đặt's Chung.
-        settingsGroup = 'general';
-        tab = 'settings';
-        tabListeners.forEach((l) => l('settings'));
+        result = said('Đã mở Cập nhật Agent', 'Ở nhóm Agent, mục Cập nhật. App chỉ cập nhật khi bạn bấm.');
+        // The Rust side opens the main window on Cập nhật Agent.
+        tab = 'cliTools';
+        tabListeners.forEach((l) => l('cliTools'));
       } else if (action === 'skills:open') {
         result = said('Đã mở tab Skills', 'Bấm Cập nhật ở skill bạn muốn. App không tự cập nhật.');
         tab = 'skills';

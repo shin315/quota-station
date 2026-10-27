@@ -1040,8 +1040,8 @@ pub enum Effect {
     OpenSkills,
     /// Cài đặt's Dịch vụ tab, where the variables' card is.
     OpenSettings,
-    /// Cài đặt's Chung tab, where Cập nhật Agent is.
-    OpenCliSettings,
+    /// Agent › Cập nhật, the Cập nhật Agent page.
+    OpenCliTools,
     /// "Bỏ qua" on a variable: every place the card named.
     IgnoreEnv {
         name: String,
@@ -1148,10 +1148,10 @@ pub fn answer(
     } else if action == "cli:settings" {
         let said = said(
             Tone::Info,
-            "Đã mở Cài đặt",
-            "Ở tab Chung, thẻ Cập nhật Agent. App chỉ cập nhật khi bạn bấm.",
+            "Đã mở Cập nhật Agent",
+            "Ở nhóm Agent, mục Cập nhật. App chỉ cập nhật khi bạn bấm.",
         );
-        (Effect::OpenCliSettings, Some(said))
+        (Effect::OpenCliTools, Some(said))
     } else if action == "env:settings" {
         let said = said(Tone::Info, "Đã mở Cài đặt", "Ở tab Dịch vụ. App không sửa file shell.");
         (Effect::OpenSettings, Some(said))

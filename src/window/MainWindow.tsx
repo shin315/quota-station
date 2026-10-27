@@ -15,7 +15,8 @@
 // The Sao lưu group has the backup packs and the restore (M10), and the copy
 // to or from another Mac over SSH (M13).
 // The Claude tab has a red banner while a variable overrides Claude Code's login (M14).
-// Bộ cấu hình (M15) closes the Agent group: named sets applied for the whole Mac.
+// Bộ cấu hình (M15) follows: named sets applied for the whole Mac. Cập nhật
+// closes the Agent group: Claude Code, Codex and agy's versions (macOS only).
 // Thống kê (M16) follows Tổng quan: the tokens counted from this Mac's session logs.
 // Cài đặt › Nâng cao holds what was made for the author's own Macs: off, the
 // sidebar has no Luật xoay vòng, Firstmate or Chép sang Mac khác (Firstmate
@@ -62,6 +63,7 @@ function navs(advanced: boolean): (['-', string] | [NavId, string])[] {
     ['plugins', t('Plugin', 'Plugins')],
     ['instr', t('File hướng dẫn', 'Instruction files')],
     ['sets', t('Bộ cấu hình', 'Config sets')],
+    ['cliTools', t('Cập nhật', 'Updates')],
     ['-', t('Sao lưu', 'Backup')],
     ['backup', t('Sao lưu', 'Backup')],
     ['copy', t('Chép sang Mac khác', 'Copy to another Mac')],
@@ -98,6 +100,8 @@ function NavButton(props: { id: NavId; label: string; tab: Tab; onTab(tab: Tab):
 /** The tabs Nâng cao holds, and the one behind the Firstmate switch. */
 function hiddenTabs(advanced: boolean, firstmate: boolean): Set<NavId> {
   const hidden = new Set<NavId>();
+  // The tools' Windows installs are not read yet: Cập nhật Agent is macOS's.
+  if (onWindows()) hidden.add('cliTools');
   if (!advanced) ['rules', 'copy'].forEach((t) => hidden.add(t as NavId));
   if (!advanced || !firstmate) hidden.add('firstmate');
   return hidden;
@@ -699,6 +703,8 @@ export interface MainWindowProps {
   instr?: ReactNode;
   /** The Bộ cấu hình tab (M15). */
   sets?: ReactNode;
+  /** The Cập nhật Agent page. */
+  cliTools?: ReactNode;
   /** The Thống kê tab (M16). */
   stats?: ReactNode;
   /** The Sao lưu tab (M10). */
@@ -786,6 +792,7 @@ export function MainWindow(props: MainWindowProps) {
               {tab === 'plugins' ? props.plugins : null}
               {tab === 'instr' ? props.instr : null}
               {tab === 'sets' ? props.sets : null}
+              {tab === 'cliTools' ? props.cliTools : null}
               {tab === 'backup' ? props.backup : null}
               {tab === 'copy' ? props.copy : null}
               {tab === 'settings' ? props.settings : null}

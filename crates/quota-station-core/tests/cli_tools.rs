@@ -302,6 +302,45 @@ fn a_check_that_reaches_no_feed_keeps_what_the_last_one_found() {
 }
 
 #[test]
+fn a_feed_that_does_not_answer_says_why_on_its_own_row() {
+    let home = temp_dir("cli-home");
+    let http = feeds();
+    http.answer("/brew/api/cask/codex.json", 503, "down");
+    http.answer("/claude/claude-code-releases/latest", 200, "not a version");
+    let kept = check(&Feeds::at(&http.base), &installs(&home), &home, &Kept::default(), 1000);
+    assert!(!kept.offline, "agy's feed answered");
+    assert_eq!(kept.failed.get(&Tool::Codex).map(String::as_str), Some("503"));
+    assert_eq!(kept.failed.get(&Tool::Claude).map(String::as_str), Some("unreadable"));
+    assert_eq!(kept.failed.get(&Tool::Agy), None);
+    let codex = &installs(&home)[1];
+    let r = row(Tool::Codex, Some(codex), &kept, 0, false, &home);
+    assert_eq!((r.failed.as_deref(), r.latest), (Some("503"), None));
+
+    // The next check that reaches it clears the reason.
+    let http = feeds();
+    let again = check(&Feeds::at(&http.base), &installs(&home), &home, &kept, 2000);
+    assert!(again.failed.is_empty());
+}
+
+/// The Mac mini M6 at ca353c5: a check ran, but `cli-tools.json` sits in
+/// the app's folder itself and was refused, so the page kept saying it had
+/// never checked.
+#[test]
+fn a_check_is_kept_in_the_apps_folder_and_read_back() {
+    let root = temp_dir("cli-app");
+    let app = quota_station_core::app_dir::AppDir::new(root.join("app"));
+    let home = temp_dir("cli-home");
+    let http = feeds();
+    let kept = check(&Feeds::at(&http.base), &installs(&home), &home, &Kept::default(), 1000);
+    cli_tools::save(&app, &kept).unwrap();
+    assert!(root.join("app").join(cli_tools::FILE).is_file());
+    let back = cli_tools::load(&app);
+    assert_eq!(back, kept);
+    assert_eq!(back.checked_at, Some(1000));
+    assert!(!back.due(1000 + 60));
+}
+
+#[test]
 fn a_check_is_due_a_day_after_one_that_worked() {
     let kept = Kept { checked_at: Some(1000), ..Kept::default() };
     assert!(Kept::default().due(0));
@@ -384,7 +423,7 @@ fn the_new_alert_names_each_tool_once_per_set_of_versions() {
     let id = alerts::cli_alert(&mut memory, &two, 3000).unwrap();
     assert_eq!(memory.record(&id).unwrap().alert.title, "2 agent có bản mới");
     let effect = alerts::answer(&mut memory, &id, "cli:settings", 3100, time::UtcOffset::UTC);
-    assert_eq!(effect, Ok(Effect::OpenCliSettings));
+    assert_eq!(effect, Ok(Effect::OpenCliTools));
 }
 
 /// Fake `codex` reading its version from `version` beside a fake `brew`

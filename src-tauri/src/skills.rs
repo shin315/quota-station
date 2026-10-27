@@ -812,7 +812,7 @@ fn end_check(app: &AppHandle, state: &AppState) {
     reader::publish(app, state);
 }
 
-/// "Kiểm bản mới".
+/// "Kiểm tra bản mới".
 #[tauri::command]
 pub async fn skills_check(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
     let shared = state.inner().clone();
@@ -825,7 +825,7 @@ pub async fn skills_check(app: AppHandle, state: State<'_, AppState>) -> Result<
     Ok(())
 }
 
-/// After each read: once a day, with "Kiểm bản mới" on "Mỗi ngày".
+/// After each read: once a day, with "Kiểm tra bản mới" on "Mỗi ngày".
 pub fn daily(app: &AppHandle, state: &AppState) {
     {
         let inner = state.lock();
@@ -855,7 +855,7 @@ pub fn daily(app: &AppHandle, state: &AppState) {
     });
 }
 
-/// Cài đặt › Skills: "Kiểm bản mới" and "Báo bằng thông báo macOS".
+/// Cài đặt › Skills: "Kiểm tra bản mới" and "Báo bằng thông báo macOS".
 #[tauri::command]
 pub fn skills_set_checks(
     app: AppHandle,

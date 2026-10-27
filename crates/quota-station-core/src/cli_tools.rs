@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-//! Cài đặt › Chung › Cập nhật Agent: Claude Code, the Codex CLI and the
+//! Agent › Cập nhật (Cập nhật Agent): Claude Code, the Codex CLI and the
 //! Antigravity CLI on this Mac, their versions, the newest for the way each
 //! was installed, and the tool's own update when the owner presses
 //! "Cập nhật".
@@ -418,8 +418,9 @@ pub enum Newest {
     Version(String),
     /// Nowhere to ask for this install.
     NoFeed,
-    /// The feed was not reached, or did not answer with a version.
-    Failed,
+    /// The feed was not reached (`offline`), answered with an error (its
+    /// status, `503`), or answered with no version (`unreadable`).
+    Failed(String),
 }
 
 /// Claude Code's release channel: `autoUpdatesChannel` in its settings,
@@ -489,23 +490,24 @@ pub fn read_feed(body: &str, key: Option<&str>) -> Option<String> {
 /// Asks `found`'s feed for its newest version.
 pub fn newest(feeds: &Feeds, found: &Found, home: &Path) -> Newest {
     let Some((url, key)) = feed(feeds, found, home) else { return Newest::NoFeed };
+    let failed = |why: &str| Newest::Failed(why.into());
     let Ok(client) = reqwest::blocking::Client::builder().timeout(HTTP_TIMEOUT).build() else {
-        return Newest::Failed;
+        return failed("offline");
     };
     let resp = client
         .get(&url)
         .header("Accept", "application/json, text/plain")
         .header("User-Agent", "Quota-Station")
         .send();
-    let Ok(resp) = resp else { return Newest::Failed };
+    let Ok(resp) = resp else { return failed("offline") };
     if !resp.status().is_success() {
-        return Newest::Failed;
+        return failed(resp.status().as_str());
     }
     let mut body = Vec::new();
     if resp.take(MAX_BODY).read_to_end(&mut body).is_err() {
-        return Newest::Failed;
+        return failed("offline");
     }
-    read_feed(&String::from_utf8_lossy(&body), key).map_or(Newest::Failed, Newest::Version)
+    read_feed(&String::from_utf8_lossy(&body), key).map_or(failed("unreadable"), Newest::Version)
 }
 
 // ===== What the app keeps =====
@@ -587,6 +589,9 @@ pub struct Kept {
     pub offline: bool,
     /// The newest version of each tool, as its feed said.
     pub latest: BTreeMap<Tool, String>,
+    /// Each tool whose feed did not answer the last check, and why
+    /// (`offline`, a status such as `503`, `unreadable`).
+    pub failed: BTreeMap<Tool, String>,
     pub last: BTreeMap<Tool, Last>,
 }
 
@@ -626,9 +631,10 @@ pub fn check(feeds: &Feeds, found: &[Found], home: &Path, before: &Kept, now: i6
                 after.latest.insert(f.tool, v);
             }
             Newest::NoFeed => {}
-            Newest::Failed => {
+            Newest::Failed(why) => {
                 asked += 1;
                 failed += 1;
+                after.failed.insert(f.tool, why);
                 if let Some(v) = before.latest.get(&f.tool) {
                     after.latest.insert(f.tool, v.clone());
                 }
@@ -641,7 +647,7 @@ pub fn check(feeds: &Feeds, found: &[Found], home: &Path, before: &Kept, now: i6
 
 // ===== The row =====
 
-/// One tool's row in Cài đặt › Chung › Cập nhật Agent.
+/// One tool's row in Agent › Cập nhật (Cập nhật Agent).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ToolView {
@@ -649,6 +655,8 @@ pub struct ToolView {
     pub version: Option<String>,
     pub latest: Option<String>,
     pub newer: bool,
+    /// Why the last check did not reach this tool's feed.
+    pub failed: Option<String>,
     pub install: Option<Install>,
     /// `~/.local/bin/claude → ~/.local/share/claude/versions/2.1.311`.
     pub path: Option<String>,
@@ -677,6 +685,7 @@ pub fn row(
             version: None,
             latest: None,
             newer: false,
+            failed: None,
             install: None,
             path: None,
             command: None,
@@ -700,6 +709,7 @@ pub fn row(
         newer: matches!((&latest, &f.version), (Some(l), Some(v)) if newer(l, v)),
         version: f.version.clone(),
         latest,
+        failed: kept.failed.get(&tool).cloned(),
         install: f.layout.install,
         path: Some(path),
         command: f.layout.command.clone(),

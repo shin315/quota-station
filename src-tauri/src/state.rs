@@ -342,6 +342,8 @@ pub enum Tab {
     Plugins,
     Instr,
     Sets,
+    /// Cập nhật Agent: Claude Code, the Codex CLI and the Antigravity CLI.
+    CliTools,
     Backup,
     Copy,
     Settings,

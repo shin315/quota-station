@@ -225,20 +225,14 @@ the confirmation sheet first.
     top while the page scrolls: `Chung` (the language, this Mac's name,
     `Mở khi đăng nhập` and `Thư mục sao lưu`, then the `Cập nhật` card: the
     version and new releases, the skills' checks and, in a build that has
-    it, `Thông tin chẩn đoán`; then `Cập nhật Agent`: Claude Code, the Codex
-    CLI and the Antigravity CLI, each with its version, how it was installed,
-    the newest and `Cập nhật`, which runs the tool's own update only when
-    pressed; Codex waits while one of its sessions is open, and an install
-    the app cannot update safely shows the command to run in Terminal; see
-    [SECURITY.md](SECURITY.md)), `Hiển thị`, `Thông báo`, `Dịch vụ`
+    it, `Thông tin chẩn đoán`), `Hiển thị`, `Thông báo`, `Dịch vụ`
     (Keychain, Codex's folder and the Antigravity OAuth client, with the
     `Biến môi trường đè đăng nhập` card) and `Nâng cao` (only in builds
     that have it). Only the tab picked shows, `Chung` at first; the app
     keeps the one picked last while it runs, and a link from elsewhere
     opens the one it is about (`Mở Cài đặt` in `Firstmate` and `Chép sang
     Mac khác` opens `Nâng cao`, a variable's banner or notification opens
-    `Dịch vụ`, a new version of an agent's command under the bell opens
-    `Chung`, and `Cài đặt thông báo` under the bell opens `Thông báo`). The
+    `Dịch vụ`, and `Cài đặt thông báo` under the bell opens `Thông báo`). The
     arrow keys, Home and End move along the bar; where the window is too
     narrow for every tab, the bar scrolls sideways, faded at the end with
     more past it.
@@ -566,7 +560,7 @@ the confirmation sheet first.
   turned on in Cài đặt); it never updates on its own. `Cập nhật` shows what
   changed, warns when the skill was edited on this Mac, keeps a copy and
   keeps every agent's box; `Bỏ qua bản này` waits for the next version.
-  `Cập nhật tất cả` (beside `Kiểm bản mới`) and `Cập nhật cả bộ` (for each
+  `Cập nhật tất cả` (beside `Kiểm tra bản mới`) and `Cập nhật cả bộ` (for each
   repository with a newer version, under `Bản mới theo bộ`) do the same for
   several skills in one preview: each skill with its versions, the ones
   edited on this Mac left unticked, a copy of every folder kept before the
@@ -730,6 +724,20 @@ the confirmation sheet first.
   <img src="docs/sets-apply.png" width="760" alt="Áp bộ Viết tài liệu?: what changes for Claude Code, Codex and Antigravity, step 2 to open the Codex switch, and the running sessions that keep the old configuration">
 
   <img src="docs/sets-codex.png" width="760" alt="Step 2: the set is applied and the Codex switch's own sheet asks to switch Codex back to the ChatGPT account">
+
+- **Cập nhật Agent**, the `Cập nhật` item that closes the `Agent` group (macOS
+  only). A line at the top says whether Claude Code, the Codex CLI and the
+  Antigravity CLI are the newest (`Tất cả đã là bản mới nhất · kiểm tra lúc
+  20:41`, `2 công cụ có bản mới`), then a row per tool gives its version,
+  how it was installed and its state: the newest (with when it was
+  checked), a new version (`current → new` with `Cập nhật`, which runs the
+  tool's own update only when pressed), checking, or could not check (with
+  the reason). Codex waits while one of its sessions is open, and an
+  install the app cannot update safely shows the command to run in
+  Terminal. `Kiểm tra ngay` checks now; `Tự động kiểm tra` checks once a day,
+  and opening the page checks when the last check is missing or a day old.
+  A new version under the bell opens this page. See
+  [SECURITY.md](SECURITY.md).
 
 - **Thống kê** (M16), right under Tổng quan. The tokens Claude Code and
   Codex used on this Mac, from their own session logs

@@ -536,7 +536,7 @@ hướng dẫn tabs only read.
   and copies files; nothing in a skill is run by the app or by the install.
   `Gỡ hẳn` is offered only for skills in the lock file; the app never
   removes a skill installed by hand.
-- Newer versions: once a day after a reading (and on `Kiểm bản mới`), the
+- Newer versions: once a day after a reading (and on `Kiểm tra bản mới`), the
   app asks GitHub one question per repository in the lock file,
   `GET https://api.github.com/repos/<owner>/<repo>/git/trees/HEAD?recursive=1`,
   with no token, and compares the skill's folder hash with the one in the
@@ -546,7 +546,7 @@ hướng dẫn tabs only read.
   The app never updates a skill on its own. It shows `skill có bản mới` in
   the Thông báo panel (the bell) once per set of versions, and as a macOS card only when
   `Báo bằng thông báo macOS` is on in Cài đặt (off by default);
-  `Kiểm bản mới` there can be turned off.
+  `Kiểm tra bản mới` there can be turned off.
 - The Plugin tab runs `claude plugin list --json` and `claude plugin
   marketplace list --json` (with `DISABLE_AUTOUPDATER=1`, 30 seconds) and
   `codex plugin list --json`, and reads each installed plugin's own folder
@@ -785,9 +785,10 @@ only counts, never text.
 
 ## Updating Claude Code, Codex and agy (Cập nhật Agent)
 
-`Cài đặt › Chung › Cập nhật Agent` shows Claude Code, the Codex CLI and the
-Antigravity CLI (`agy`) on this Mac: each one's version, how it was
-installed, the newest version for that install, and `Cập nhật`. It never
+`Agent › Cập nhật` (the `Cập nhật Agent` page) shows Claude Code, the Codex
+CLI and the Antigravity CLI (`agy`) on this Mac: each one's version, how it
+was installed, whether it is the newest version for that install, and
+`Cập nhật`. It never
 reads or writes a login, an account, a key or a quota file of any of them.
 
 - Finding a tool looks for `claude`, `codex` and `agy` in `~/.local/bin`,
@@ -797,8 +798,9 @@ reads or writes a login, an account, a key or a quota file of any of them.
   tool's name or from its own install counts, so a copy inside another app
   or another program's `node_modules` does not. Of Claude Code's settings
   only `autoUpdatesChannel` in `~/.claude/settings.json` is read.
-- Network: once a day after a reading while `Tự kiểm mỗi ngày` is on (and on
-  `Kiểm ngay`), one `GET` per installed tool, to where its install method
+- Network: once a day after a reading while `Tự động kiểm tra` is on, when
+  the page opens with no check from the last day, and on `Kiểm tra ngay`,
+  one `GET` per installed tool, to where its install method
   publishes, the same place the tool's own updater asks:
   `downloads.claude.ai/claude-code-releases/<latest|stable>`,
   `formulae.brew.sh/api/cask/<cask>.json`,

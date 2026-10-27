@@ -89,12 +89,12 @@ pub struct Settings {
     /// Looking for newer versions of the skills (M11).
     #[serde(default, skip_serializing_if = "SkillChecks::is_default")]
     pub skill_checks: SkillChecks,
-    /// "Tự kiểm bản mới của app" turned off: GitHub Releases is asked only
-    /// on "Kiểm bản mới". On by default.
+    /// "Tự kiểm tra bản mới của app" turned off: GitHub Releases is asked only
+    /// on "Kiểm tra bản mới". On by default.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub release_checks_off: bool,
-    /// "Tự kiểm mỗi ngày" of Cập nhật Agent turned off: the feeds of
-    /// Claude Code, Codex and agy are asked only on "Kiểm ngay". On by default.
+    /// "Tự động kiểm tra" of Cập nhật Agent turned off: the feeds of
+    /// Claude Code, Codex and agy are asked only on "Kiểm tra ngay". On by default.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub cli_checks_off: bool,
     /// Where the backup packs go; `None` is iCloud Drive's
@@ -182,7 +182,7 @@ impl CodexOptions {
     }
 }
 
-/// "Kiểm bản mới" (once a day, or never) and "Báo bằng thông báo macOS"
+/// "Kiểm tra bản mới" (once a day, or never) and "Báo bằng thông báo macOS"
 /// (off by default: the alert shows in the app only).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

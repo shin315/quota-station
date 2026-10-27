@@ -481,9 +481,13 @@ describe('settings for M7: the app itself', () => {
   it('shows the version and the commit it was built from', async () => {
     // In Chung's Cập nhật card, so the tab Cài đặt opens on.
     await openApp();
+    // The version and its commit on the row; how it was built behind Chi tiết.
+    expect(screen.getByText(/^0\.1\.0 \(a1b2c3d\) ·/)).toBeTruthy();
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Chi tiết: Phiên bản' })));
     expect(screen.getByText('0.1.0 (a1b2c3d) · build từ mã nguồn')).toBeTruthy();
     cleanup();
     await openApp({ commit: null });
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Chi tiết: Phiên bản' })));
     expect(screen.getByText('0.1.0 · build từ mã nguồn')).toBeTruthy();
   });
 
@@ -661,6 +665,8 @@ describe('settings: Nâng cao, alert 1 and the backup folder', () => {
     expect(within(sidebar).queryByRole('button', { name: 'Luật xoay vòng' })).toBeNull();
     // The version stays where everyone sees it.
     await showGroup('Chung');
+    // The build is behind the version row's Chi tiết.
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Chi tiết: Phiên bản' })));
     expect(screen.getByText('0.1.0 (a1b2c3d) · build từ mã nguồn')).toBeTruthy();
   });
 
@@ -683,6 +689,8 @@ describe('settings: Nâng cao, alert 1 and the backup folder', () => {
     // What every build has stays.
     expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Chung', 'Hiển thị', 'Thông báo', 'Dịch vụ']);
     await showGroup('Chung');
+    // The build is behind the version row's Chi tiết.
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Chi tiết: Phiên bản' })));
     expect(screen.getByText('0.1.0 (a1b2c3d) · build từ mã nguồn')).toBeTruthy();
     expect(screen.getByLabelText('Thư mục sao lưu')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Chép thông tin chẩn đoán…' })).toBeTruthy();

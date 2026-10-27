@@ -3,8 +3,8 @@
 
 //! A newer Quota Station on GitHub Releases (the community edition's B1).
 //!
-//! Once a day, while "Tự kiểm bản mới của app" is on, or when the owner
-//! presses "Kiểm bản mới", the app asks GitHub one thing: this repository's
+//! Once a day, while "Tự kiểm tra bản mới của app" is on, or when the owner
+//! presses "Kiểm tra bản mới", the app asks GitHub one thing: this repository's
 //! latest release (`GET /repos/shin315/quota-station/releases/latest`). No
 //! token and nothing about this Mac is sent. The app never downloads or
 //! installs anything: "Tải và cài" opens the release's disk image (on
@@ -417,6 +417,20 @@ mod tests {
         );
         // Another system gets the release's page, as a release without one.
         assert_eq!(pick("linux", "x86_64"), None);
+    }
+
+    /// The Mac mini M6 at ca353c5: `release.json` sits in the app's folder
+    /// itself and was refused, so Phiên bản kept saying it had never checked.
+    #[test]
+    fn a_check_is_kept_in_the_apps_folder_and_read_back() {
+        let root = std::env::temp_dir().join(format!("qs-release-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let app = AppDir::new(root.join("app"));
+        let r = Releases { checked_at: Some(1000), none: true, ..Default::default() };
+        save(&app, &r).unwrap();
+        assert_eq!(load(&app), r);
+        assert!(!load(&app).due(1000 + 60));
+        std::fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]

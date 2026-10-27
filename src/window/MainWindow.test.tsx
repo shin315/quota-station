@@ -206,7 +206,8 @@ describe('main window', () => {
     await open(fixtureModel('stale'), 'claude');
     expect(screen.getByText('4 tài khoản Quota Station')).toBeTruthy();
     expect(screen.queryByText(/tài khoản claude-swap/)).toBeNull();
-    expect(screen.queryByText('Cập nhật')).toBeNull();
+    // No column of when each was updated; the sidebar's Cập nhật is another place.
+    expect(within(screen.getByRole('main')).queryByText('Cập nhật')).toBeNull();
     expect(screen.getAllByText('số 41 phút trước').length).toBeGreaterThan(0);
     expect(screen.getByText('Số liệu Claude đã cũ 41 phút')).toBeTruthy();
   });

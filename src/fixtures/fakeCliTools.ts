@@ -16,6 +16,7 @@ export function cliToolFixture(tool: CliToolView['tool'], over: Partial<CliToolV
       version: '2.1.311',
       latest: '2.1.311',
       newer: false,
+      failed: null,
       install: 'native',
       path: '~/.local/bin/claude → ~/.local/share/claude/versions/2.1.311',
       command: 'claude update',
@@ -30,6 +31,7 @@ export function cliToolFixture(tool: CliToolView['tool'], over: Partial<CliToolV
       version: '0.163.0',
       latest: '0.164.0',
       newer: true,
+      failed: null,
       install: 'homebrew',
       path: '/opt/homebrew/bin/codex → /opt/homebrew/Caskroom/codex/0.163.0/bin/codex',
       command: 'brew upgrade --cask codex',
@@ -44,6 +46,7 @@ export function cliToolFixture(tool: CliToolView['tool'], over: Partial<CliToolV
       version: '1.4.7',
       latest: '1.4.8',
       newer: true,
+      failed: null,
       install: 'script',
       path: '~/.local/bin/agy',
       command: 'agy update',
@@ -82,7 +85,12 @@ export const CLI_STATES: Record<string, (v: CliToolsView) => CliToolsView> = {
   unwritable: (v) =>
     tools(v, { codex: { install: 'npm', handsOff: 'unwritable', path: '/usr/local/bin/codex', command: 'sudo npm install -g @openai/codex@latest' } }),
   unknown: (v) => tools(v, { codex: { install: null, handsOff: 'unknown', path: '~/bin/codex', command: null } }),
-  offline: (v) => ({ ...v, offline: true, tools: v.tools.map((t) => ({ ...t, latest: null, newer: false })) }),
+  offline: (v) => ({ ...v, offline: true, tools: v.tools.map((t) => ({ ...t, latest: null, newer: false, failed: 'offline' })) }),
+  // Every tool on its newest version.
+  latest: (v) => tools(v, { codex: { version: '0.164.0', newer: false }, agy: { version: '1.4.8', newer: false } }),
+  // Homebrew's feed answered 503; the others answered.
+  failed: (v) => tools(v, { codex: { latest: null, newer: false, failed: '503' } }),
+  checking: (v) => ({ ...v, checking: true }),
   never: (v) => ({ ...v, checkedAt: null, tools: v.tools.map((t) => ({ ...t, latest: null, newer: false })) }),
   updated: (v) => tools(v, { codex: { version: '0.164.0', newer: false, last: { ok: true, from: '0.163.0', to: '0.164.0', at: CHECKED + 60 } } }),
   updating: (v) => tools(v, { codex: { updating: true } }),
