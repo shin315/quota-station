@@ -502,7 +502,7 @@ export type SwitchKind = 'pool' | 'leaving' | 'login' | 'overwrite' | 'firstmate
  * `skill`: skills with a newer version (M11), shown in the app only unless Cài đặt says otherwise.
  * `env`: a variable overriding a login (M14), in the app only.
  */
-export type AlertKind = SwitchKind | 'skill' | 'env';
+export type AlertKind = SwitchKind | 'skill' | 'env' | 'cli';
 export type AlertTone = 'ok' | 'warn' | 'bad' | 'info';
 
 export interface AlertAct {
@@ -679,6 +679,77 @@ export interface ReleaseView {
   skipped: string | null;
   /** "Để sau". */
   later: string | null;
+}
+
+/** A command-line tool the app can update: Claude Code, the Codex CLI, the Antigravity CLI. */
+export type CliTool = 'claude' | 'codex' | 'agy';
+
+/** How it was installed (`quota-station-core::cli_tools::Install`). */
+export type CliInstall =
+  /** Claude Code's own installer: `~/.local/bin/claude` into `~/.local/share/claude/versions/`. */
+  | 'native'
+  | 'homebrew'
+  | 'npm'
+  /** Codex's `install.sh`: `~/.local/bin/codex` into `~/.codex/packages/standalone/`. */
+  | 'standalone'
+  /** Antigravity's `install.sh`: one file, `~/.local/bin/agy`. */
+  | 'script';
+
+/** Why the app leaves a tool's update to the owner, who is told what to do instead. */
+export type CliHandsOff =
+  /** Claude Code from npm: the old way, which updates over the files a session runs from. */
+  | 'npm'
+  /** A copy inside another app, which updates it itself. */
+  | 'bundled'
+  /** Its folder needs an administrator to write. */
+  | 'unwritable'
+  /** Installed in a way the app does not know. */
+  | 'unknown';
+
+/**
+ * Why an update failed (`quota-station-core::cli_tools::Failure`). `started`: a Codex session opened before it ran
+ * (`detail` is how many); `sessions`: the processes could not be listed, so Codex did not update.
+ */
+export type CliFailure = 'offline' | 'permission' | 'busy' | 'exit' | 'timeout' | 'unchanged' | 'started' | 'sessions';
+
+export type CliLast =
+  | { ok: true; from: string; to: string; at: number }
+  | { ok: false; failure: CliFailure; detail: string; log?: string | null; at: number };
+
+/** One tool (`quota-station-core::cli_tools::ToolView`). */
+export interface CliToolView {
+  tool: CliTool;
+  /** Null: not found on this Mac. */
+  version: string | null;
+  /** The newest for the way it was installed; null before a check, or when the check failed. */
+  latest: string | null;
+  newer: boolean;
+  install: CliInstall | null;
+  /** Where the command is, `~` for the home folder. */
+  path: string | null;
+  /** What "Cập nhật" runs, or what to run in Terminal when the app leaves it to the owner. */
+  command: string | null;
+  handsOff: CliHandsOff | null;
+  /** The app that brings it, for `bundled`. */
+  bundledBy?: string | null;
+  /** Its sessions running now. */
+  running: number;
+  /** An update while they run is safe: they keep their version until opened again. */
+  safeWhileRunning: boolean;
+  updating: boolean;
+  last: CliLast | null;
+}
+
+/** Cài đặt › Chung › Cập nhật Agent (`src-tauri/src/cli_tools.rs` `CliToolsView`). */
+export interface CliToolsView {
+  /** "Tự kiểm mỗi ngày": only looks and tells the bell, never updates. */
+  daily: boolean;
+  checking: boolean;
+  /** Unix seconds of the last check that ended. */
+  checkedAt: number | null;
+  /** The last check reached no server. */
+  offline: boolean;
+  tools: CliToolView[];
 }
 
 /** The main window's tabs in this build (`src-tauri/src/state.rs` `Tab`). */
@@ -1306,6 +1377,8 @@ export interface Model {
   skills: SkillsView;
   /** A newer version on GitHub Releases. */
   release: ReleaseView;
+  /** Claude Code, Codex and Antigravity's command-line tools: their versions and updates. */
+  cliTools?: CliToolsView;
   /** A new install: the main window shows the first run's steps. */
   firstRun: boolean;
   plugins: PluginsView;

@@ -641,6 +641,22 @@ pub(crate) fn changed(meta: &std::fs::Metadata) -> i64 {
     }
 }
 
+/// Whether this user may write in the folder `dir`: `access(W_OK)` on
+/// Unix; on Windows a folder that is not read-only.
+pub fn writable(dir: &Path) -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::ffi::OsStrExt;
+        let Ok(c) = std::ffi::CString::new(dir.as_os_str().as_bytes()) else { return false };
+        // SAFETY: `c` is a valid C string for the call's length.
+        unsafe { libc::access(c.as_ptr(), libc::W_OK) == 0 }
+    }
+    #[cfg(not(unix))]
+    {
+        std::fs::metadata(dir).is_ok_and(|m| !m.permissions().readonly())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

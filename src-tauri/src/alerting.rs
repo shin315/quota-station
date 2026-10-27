@@ -330,6 +330,7 @@ pub async fn press(
         Effect::OpenAgyTab => windows::open_main(app, Tab::Agy),
         Effect::OpenSkills => windows::open_main(app, Tab::Skills),
         Effect::OpenSettings => windows::open_settings(app, "services"),
+        Effect::OpenCliSettings => windows::open_settings(app, "general"),
         Effect::IgnoreEnv { name } => crate::env::ignore_name(app, &shared, &name)?,
         #[cfg(feature = "antigravity-accounts")]
         Effect::OpenVerification { number } => {

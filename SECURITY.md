@@ -783,6 +783,48 @@ only counts, never text.
   date); nothing fetches prices. The Claude account of a session is
   approximate, from the switch history the app already keeps.
 
+## Updating Claude Code, Codex and agy (Cập nhật Agent)
+
+`Cài đặt › Chung › Cập nhật Agent` shows Claude Code, the Codex CLI and the
+Antigravity CLI (`agy`) on this Mac: each one's version, how it was
+installed, the newest version for that install, and `Cập nhật`. It never
+reads or writes a login, an account, a key or a quota file of any of them.
+
+- Finding a tool looks for `claude`, `codex` and `agy` in `~/.local/bin`,
+  nvm's Node folders and Homebrew's, follows the links, and runs only the
+  tool's `--version`. How it was installed comes from the path alone.
+  `ps` is read to count each tool's processes: only a process run by the
+  tool's name or from its own install counts, so a copy inside another app
+  or another program's `node_modules` does not. Of Claude Code's settings
+  only `autoUpdatesChannel` in `~/.claude/settings.json` is read.
+- Network: once a day after a reading while `Tự kiểm mỗi ngày` is on (and on
+  `Kiểm ngay`), one `GET` per installed tool, to where its install method
+  publishes, the same place the tool's own updater asks:
+  `downloads.claude.ai/claude-code-releases/<latest|stable>`,
+  `formulae.brew.sh/api/cask/<cask>.json`,
+  `registry.npmjs.org/@openai/codex/latest`,
+  `api.github.com/repos/openai/codex/releases/latest`, and agy's manifest
+  on `antigravity-cli-auto-updater-974169037036.us-central1.run.app`. No
+  token, and nothing about this Mac or its accounts, is sent. What they
+  answered is kept in `cli-tools.json` in the app's folder. A newer
+  version is told once per set of versions at the bell, in the app only,
+  never as a macOS card.
+- Nothing is updated unless the owner presses `Cập nhật` on that tool's
+  row. It runs the tool's own command, with fixed arguments and no shell:
+  `claude update`, `brew upgrade --cask <cask>` (the `brew` beside that
+  Caskroom), `npm install -g @openai/codex@latest` (the `npm` of that
+  prefix), `codex update` or `agy update`, stopped after ten minutes. Its
+  output goes to `cli-updates/<tool>.log` in the app's folder.
+- Claude Code and agy keep a running session on its old files until it is
+  opened again, so they update while sessions run. Codex from Homebrew or
+  npm replaces the files its sessions use: it does not update while one of
+  its processes runs, the processes are counted again just before, and
+  when they cannot be listed it does not update either.
+- The app never asks for an administrator and never runs `sudo`. Claude
+  Code from npm, a copy inside another app, a folder this user cannot
+  write and an install the app does not recognise are left to the owner,
+  with the command to run in Terminal where there is one.
+
 ## How the tests hold the app to this
 
 - Every file the Antigravity code opens goes through one guard
@@ -938,6 +980,10 @@ only counts, never text.
   repositories and a fake install script; the login item tests use a fake
   backend. No test opens an app, writes to `/Applications` or registers a
   login item.
+- `tests/cli_tools.rs` tells each install apart from paths in a temporary
+  home, asks a local fake of each feed, and updates fake `claude`, `codex`
+  and `brew` scripts; `Feeds::live()` refuses to run in a test build, so no
+  test reaches a real feed or runs a real update.
 
 ## Terms of service
 

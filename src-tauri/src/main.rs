@@ -40,6 +40,7 @@ mod alerting;
 mod antigravity;
 mod backup;
 mod claude;
+mod cli_tools;
 mod codex;
 mod codex_accounts;
 mod codex_import;
@@ -281,6 +282,9 @@ commands![
     release::set_release_checks,
     release::release_open,
     release::release_diagnostics,
+    cli_tools::cli_tools_check,
+    cli_tools::cli_tool_update,
+    cli_tools::set_cli_checks,
     skills::skills_check,
     skills::skills_set_checks,
     env::env_check,

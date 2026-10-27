@@ -31,6 +31,9 @@ import type {
   AlertRecord,
   AlertSaid,
   ClaudeAccountAction,
+  CliFailure,
+  CliTool,
+  CliToolView,
   ClaudeAccountRow,
   ClaudeAccountsView,
   ClaudeActionDone,
@@ -98,6 +101,12 @@ export interface FakeOptions {
   releaseFinds?: ReleaseView['latest'] | 'offline';
   /** How long that check takes. */
   releaseDelayMs?: number;
+  /** How a tool's "Cập nhật" ends; by default it lands on the newest. */
+  cliFails?: Partial<Record<CliTool, { failure: CliFailure; detail: string }>>;
+  /** How long a check or an update of a command-line tool takes. */
+  cliDelayMs?: number;
+  /** What "Kiểm lại" finds: the tools' sessions closed meanwhile. */
+  cliClosed?: boolean;
   /**
    * How an Antigravity login ends when no callback is pasted and it is not cancelled; by default
    * it keeps the next account after `agyLoginDelayMs`.
@@ -196,6 +205,8 @@ function sample(kind: AlertKind, at: number): Alert {
       return { ...base, tone: 'info', title: '2 skill có bản mới', body: 'Thử: ui-polish, sql-helper. App không tự cập nhật.', actions: [{ id: 'skills:open', label: 'Xem' }, { id: 'dismiss', label: 'Để sau' }] };
     case 'env':
       return { ...base, tone: 'bad', title: 'ANTHROPIC_API_KEY đang đè đăng nhập Claude Code', body: 'Thử: đặt ở ~/.zshrc dòng 42. App không đọc giá trị.', actions: [{ id: 'env:settings', label: 'Xem' }, { id: 'env:ignore:ANTHROPIC_API_KEY', label: 'Bỏ qua' }] };
+    case 'cli':
+      return { ...base, tone: 'info', title: 'Codex CLI có bản 0.164.0', body: 'Thử: Codex CLI 0.163.0 → 0.164.0. App chỉ cập nhật khi bạn bấm.', actions: [{ id: 'cli:settings', label: 'Xem' }, { id: 'dismiss', label: 'Để sau' }] };
   }
 }
 
@@ -1167,6 +1178,34 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       const newer = !!latest && latest.version.localeCompare(model.app.version, undefined, { numeric: true }) > 0;
       push({ ...model, release: { ...model.release, checking: false, checkedAt, error: null, none: !latest, latest, newer } });
     },
+    cliToolsCheck: async () => {
+      const c = model.cliTools;
+      if (!c) return;
+      push({ ...model, cliTools: { ...c, checking: true } });
+      if (options.cliDelayMs) await new Promise((r) => setTimeout(r, options.cliDelayMs));
+      const tools = model.cliTools!.tools.map((v) => (options.cliClosed ? { ...v, running: 0 } : v));
+      push({ ...model, cliTools: { ...model.cliTools!, checking: false, checkedAt: Math.floor(now().getTime() / 1000), offline: false, tools } });
+    },
+    cliToolUpdate: async (tool) => {
+      const set = (over: Partial<CliToolView>) =>
+        push({ ...model, cliTools: { ...model.cliTools!, tools: model.cliTools!.tools.map((v) => (v.tool === tool ? { ...v, ...over } : v)) } });
+      const v = model.cliTools?.tools.find((x) => x.tool === tool);
+      if (!v?.version) throw 'notInstalled';
+      if (v.handsOff) throw 'handsOff';
+      if (v.updating) throw 'busy';
+      set({ updating: true, last: null });
+      if (options.cliDelayMs) await new Promise((r) => setTimeout(r, options.cliDelayMs! * 2));
+      const at = Math.floor(now().getTime() / 1000);
+      const fail = options.cliFails?.[tool];
+      if (fail) return set({ updating: false, last: { ok: false, ...fail, log: '~/Library/Application Support/com.shin315.quota-station/cli-updates/' + tool + '.log', at } });
+      // As the app does: a tool that waits does not update while one of its sessions runs.
+      if (v.running > 0 && !v.safeWhileRunning) return set({ updating: false, last: { ok: false, failure: 'started', detail: String(v.running), at } });
+      set({ updating: false, version: v.latest, newer: false, last: { ok: true, from: v.version, to: v.latest ?? v.version, at } });
+    },
+    setCliChecks: async (daily) => {
+      const c = model.cliTools;
+      if (c) push({ ...model, cliTools: { ...c, daily } });
+    },
     releaseSkip: async (version) => push({ ...model, release: { ...model.release, skipped: version } }),
     releaseLater: async (version) => push({ ...model, release: { ...model.release, later: version } }),
     setReleaseChecks: async (on) => push({ ...model, release: { ...model.release, auto: on } }),
@@ -1503,6 +1542,12 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
         for (const f of model.env.found.filter((x) => x.name === name)) envHidden.set(f.id, f);
         const gone = model.env.found.filter((x) => x.name === name).length;
         push({ ...model, env: { ...model.env, found: model.env.found.filter((x) => x.name !== name), ignored: model.env.ignored + gone } });
+      } else if (action === 'cli:settings') {
+        result = said('Đã mở Cài đặt', 'Ở tab Chung, thẻ Cập nhật Agent. App chỉ cập nhật khi bạn bấm.');
+        // The Rust side opens the main window on Cài đặt's Chung.
+        settingsGroup = 'general';
+        tab = 'settings';
+        tabListeners.forEach((l) => l('settings'));
       } else if (action === 'skills:open') {
         result = said('Đã mở tab Skills', 'Bấm Cập nhật ở skill bạn muốn. App không tự cập nhật.');
         tab = 'skills';

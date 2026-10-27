@@ -76,17 +76,22 @@
 // Thống kê (M16): `tab=stats` with made-up counts for made-up projects; `stats=first` shows the
 // first read halfway, `stats=new` starts one that runs (a step every 0.4 s), `stats=skip` has
 // 38 Codex sessions in a format the app cannot read, `stats=fail` a report that cannot be read.
+// Cập nhật Agent (Cài đặt › Chung): `cli=running|missing|npm|bundled|unwritable|unknown|offline|never|updated|updating`,
+// several joined with commas; `clifail=offline|permission|busy|exit|timeout|unchanged|started|sessions`
+// is how every "Cập nhật" ends (it lands on the newest by default), and `cliclosed=1` has "Kiểm lại" find the sessions closed.
+// A check takes 1 s and an update 2 s.
 // The glass: `rt=1` is macOS with Reduce Transparency on (the solid ground).
 // Windows: `os=win` is the app on Windows: its type, corners and scroll bars, no traffic
 // lights, and Windows' words wherever the text names a part of the system.
 // `lang=vi|en` sets the language; without it the preview follows the browser's, as the app follows macOS.
 
 import type { Api } from './lib/api';
-import { THEME_PACKS, type AgyAccounts, type AgyApp, type AgyHow, type AgyOutcome, type CodexOutcome, type CodexTarget, type McpTable, type Model, type Outcome, type Tab, type UpdateError, type UpdateOutcome } from './lib/model';
+import { THEME_PACKS, type AgyAccounts, type AgyApp, type AgyHow, type AgyOutcome, type CliFailure, type CodexOutcome, type CodexTarget, type McpTable, type Model, type Outcome, type Tab, type UpdateError, type UpdateOutcome } from './lib/model';
 import { fakeApi, fakeEmail, hideNames } from './fixtures/fakeApi';
 import { backupFixture, packsFixture } from './fixtures/fakeBackup';
 import { API_KEY, BASE_URL, CLAUDE_BASE, envAlert, envFixture, LAUNCHD_GEMINI } from './fixtures/fakeEnv';
 import { setsFixture } from './fixtures/fakeSets';
+import { CLI_STATES, cliToolsFixture } from './fixtures/fakeCliTools';
 import { firstReadFixture, SKIPPED_CODEX, statsFixture } from './fixtures/fakeStats';
 import { instrFixture, pluginsBrandsFixture, pluginsFixture, skillsFixture, skillTableFixture } from './fixtures/fakeSkills';
 import {
@@ -263,6 +268,14 @@ const APPS: Record<string, () => Model['app']> = {
   unbundled: () => appFixture({ bundled: false, launchAtLogin: 'unavailable', commit: null }),
 };
 
+const CLI_FAILS: CliFailure[] = ['offline', 'permission', 'busy', 'exit', 'timeout', 'unchanged', 'started', 'sessions'];
+/** What each failure says, as the tool would. */
+const CLI_FAIL_DETAIL: Record<string, string> = {
+  permission: '/opt/homebrew/Caskroom/codex',
+  started: '1',
+  exit: 'Error: Download failed on Cask \'codex\' with message: SHA256 mismatch (mã 1)',
+};
+
 const UPDATES: Record<string, () => UpdateOutcome | UpdateError> = {
   uptodate: () => ({ kind: 'upToDate', commit: 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678' }),
   pull: () => ({ kind: 'pull', detail: 'fatal: Not possible to fast-forward, aborting.' }),
@@ -390,6 +403,9 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
   else if (rel === 'offline') over.release = releaseFixture({ error: 'offline' });
   else if (rel === 'none') over.release = releaseFixture({ none: true, latest: null });
   else if (rel === 'off') over.release = releaseFixture({ auto: false });
+  let cli = cliToolsFixture();
+  for (const state of (params.get('cli') ?? '').split(',')) if (Object.hasOwn(CLI_STATES, state)) cli = CLI_STATES[state](cli);
+  over.cliTools = cli;
   const claude = params.get('claude');
   if (claude === 'relogin')
     over.claudeAccounts = claudeAccountsFixture({
@@ -506,6 +522,11 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
     switchDelayMs: 1500,
     claudeDelayMs: 3000,
     releaseDelayMs: 1500,
+    cliDelayMs: 1000,
+    cliClosed: params.get('cliclosed') === '1',
+    cliFails: CLI_FAILS.includes(params.get('clifail') as CliFailure)
+      ? Object.fromEntries((['claude', 'codex', 'agy'] as const).map((tool) => [tool, { failure: params.get('clifail') as CliFailure, detail: CLI_FAIL_DETAIL[params.get('clifail')!] }]))
+      : undefined,
     releaseFinds: params.get('releasefinds') === 'offline' ? 'offline' : releaseAvailable().latest,
     claudeRenews: claude === 'renew' ? 1 : undefined,
     claudeFail: claude === 'fail' ? (action) => (action === 'login' ? 'login' : null) : undefined,

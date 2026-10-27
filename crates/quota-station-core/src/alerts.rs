@@ -91,6 +91,8 @@ pub enum Kind {
     Skill,
     /// A variable overriding a login (M14): in the app only, no switch.
     Env,
+    /// Claude Code, Codex or agy with a newer version: in the app only, no switch.
+    Cli,
 }
 
 impl Kind {
@@ -107,6 +109,7 @@ impl Kind {
             Kind::Firstmate => 5,
             Kind::Skill => 6,
             Kind::Env => 7,
+            Kind::Cli => 8,
         }
     }
 
@@ -145,7 +148,7 @@ impl Switches {
             Kind::Overwrite => self.overwrite,
             Kind::Firstmate => self.firstmate,
             // Its own settings say whether the app checks at all.
-            Kind::Skill | Kind::Env => true,
+            Kind::Skill | Kind::Env | Kind::Cli => true,
         }
     }
 
@@ -156,7 +159,7 @@ impl Switches {
             Kind::Login => self.login = on,
             Kind::Overwrite => self.overwrite = on,
             Kind::Firstmate => self.firstmate = on,
-            Kind::Skill | Kind::Env => {}
+            Kind::Skill | Kind::Env | Kind::Cli => {}
         }
     }
 
@@ -1037,6 +1040,8 @@ pub enum Effect {
     OpenSkills,
     /// Cài đặt's Dịch vụ tab, where the variables' card is.
     OpenSettings,
+    /// Cài đặt's Chung tab, where Cập nhật Agent is.
+    OpenCliSettings,
     /// "Bỏ qua" on a variable: every place the card named.
     IgnoreEnv {
         name: String,
@@ -1140,6 +1145,13 @@ pub fn answer(
             "Bấm Cập nhật ở skill bạn muốn. App không tự cập nhật.",
         );
         (Effect::OpenSkills, Some(said))
+    } else if action == "cli:settings" {
+        let said = said(
+            Tone::Info,
+            "Đã mở Cài đặt",
+            "Ở tab Chung, thẻ Cập nhật Agent. App chỉ cập nhật khi bạn bấm.",
+        );
+        (Effect::OpenCliSettings, Some(said))
     } else if action == "env:settings" {
         let said = said(Tone::Info, "Đã mở Cài đặt", "Ở tab Dịch vụ. App không sửa file shell.");
         (Effect::OpenSettings, Some(said))
@@ -1319,6 +1331,12 @@ pub fn sample(kind: Kind, now: i64, offset: UtcOffset, roles: bool) -> Alert {
             "Thử: đặt ở ~/.zshrc dòng 42. App không đọc giá trị.".into(),
             vec![act("env:settings", "Xem"), act("env:ignore:ANTHROPIC_API_KEY", "Bỏ qua")],
         ),
+        Kind::Cli => (
+            Tone::Info,
+            "Codex CLI có bản 0.164.0".into(),
+            "Thử: Codex CLI 0.163.0 → 0.164.0. App chỉ cập nhật khi bạn bấm.".into(),
+            vec![act("cli:settings", "Xem"), act("dismiss", "Để sau")],
+        ),
     };
     Alert {
         key: format!("test:{}:{now}", kind.number()),
@@ -1354,6 +1372,48 @@ pub fn skill_alert(memory: &mut Memory, found: &[(String, String)], now: i64) ->
         title: format!("{} skill có bản mới", names.len()),
         body: format!("{}. App không tự cập nhật.", names.join(", ")),
         actions: vec![act("skills:open", "Xem"), act("dismiss", "Để sau")],
+        at: now,
+        test: false,
+    };
+    memory.sent.insert(key.clone(), now);
+    let id = format!("{key}@{now}");
+    memory.recent.retain(|r| r.id != id);
+    memory.recent.insert(0, Record::new(id.clone(), alert));
+    memory.recent.truncate(RECENT_KEEP);
+    Some(id)
+}
+
+/// The alert for Claude Code, Codex or agy with a newer version: one card
+/// for each new set of versions (`found` is each tool's name, its version
+/// and the newer one), never twice for the same set. Returns its id when
+/// it is new.
+pub fn cli_alert(
+    memory: &mut Memory,
+    found: &[(String, String, String)],
+    now: i64,
+) -> Option<String> {
+    if found.is_empty() {
+        return None;
+    }
+    let mut parts: Vec<String> = found.iter().map(|(n, _, to)| format!("{n}@{to}")).collect();
+    parts.sort();
+    let key = format!("cli:{}", parts.join(","));
+    if memory.sent.contains_key(&key) {
+        return None;
+    }
+    let title = match found {
+        [(name, _, to)] => format!("{name} có bản {to}"),
+        _ => format!("{} agent có bản mới", found.len()),
+    };
+    let lines: Vec<String> =
+        found.iter().map(|(n, from, to)| format!("{n} {from} → {to}")).collect();
+    let alert = Alert {
+        key: key.clone(),
+        kind: Kind::Cli,
+        tone: Tone::Info,
+        title,
+        body: format!("{}. App chỉ cập nhật khi bạn bấm.", lines.join(", ")),
+        actions: vec![act("cli:settings", "Xem"), act("dismiss", "Để sau")],
         at: now,
         test: false,
     };
