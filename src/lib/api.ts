@@ -47,6 +47,7 @@ import type {
   Menubar,
   MenubarWindow,
   Agent,
+  CliTool,
   McpChange,
   McpOutcome,
   McpPaste,
@@ -292,6 +293,12 @@ export interface Api {
   /** "Để sau": the version's banner and popover line go quiet. */
   releaseLater(version: string): Promise<void>;
   setReleaseChecks(on: boolean): Promise<void>;
+  /** Cập nhật Agent's "Kiểm ngay" (and a row's "Kiểm lại"): each tool's version, install, sessions and newest, read again. */
+  cliToolsCheck(): Promise<void>;
+  /** "Cập nhật": the tool's own update command. Rejects with `busy`, `handsOff`, `notInstalled`; how it ended is in the model. */
+  cliToolUpdate(tool: CliTool): Promise<void>;
+  /** Cập nhật Agent's "Tự kiểm mỗi ngày". */
+  setCliChecks(daily: boolean): Promise<void>;
   /** Opens the latest disk image (`download`), its page (`notes`), the Releases page, or the bug form. */
   releaseOpen(what: 'download' | 'notes' | 'releases' | 'issue'): Promise<void>;
   /** The diagnostic info, exactly as "Chép" copies it. */
@@ -548,6 +555,9 @@ export const tauriApi: Api = {
   releaseSkip: (version) => invoke('release_skip', { version }),
   releaseLater: (version) => invoke('release_later', { version }),
   setReleaseChecks: (on) => invoke('set_release_checks', { on }),
+  cliToolsCheck: () => invoke('cli_tools_check'),
+  cliToolUpdate: (tool) => invoke('cli_tool_update', { tool }),
+  setCliChecks: (daily) => invoke('set_cli_checks', { daily }),
   releaseOpen: (what) => invoke('release_open', { what }),
   releaseDiagnostics: () => invoke<string>('release_diagnostics'),
   skillsSetChecks: (daily, notify) => invoke('skills_set_checks', { daily, notify }),

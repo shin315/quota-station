@@ -76,6 +76,7 @@ pub mod alerts;
 pub mod antigravity;
 pub mod app_dir;
 pub mod claude;
+pub mod cli_tools;
 pub mod codex;
 pub mod detail;
 #[cfg(feature = "author-tools")]

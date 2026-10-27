@@ -25,6 +25,7 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Tabs as TabsPrimitive } from 'radix-ui';
 import { DiagnosticsRows, ReleaseRows } from '../release/ReleaseParts';
+import { CliToolsRows } from './CliTools';
 import { EnvCard } from './EnvCard';
 import { ThemePicker } from './ThemePicker';
 import { SET_CTL, SetRow } from './SetRow';
@@ -37,7 +38,7 @@ import { Button, Chip, CODE, Dot, Feedback, FieldHint, LinkButton, More, Toggle 
 import { alertKinds, permissionChip, unreadText } from '../lib/alerts';
 import { authorModel, type AuthorModel } from '../lib/author';
 import type { ChipView } from '../lib/view';
-import type { AlertKind, AppView, ClientStatus, Language, Menubar, MenubarWindow, Model, Peer, PeerTest, SettingsGroup, SourceView, Theme, ThemePack, UpdateError } from '../lib/model';
+import type { AlertKind, AppView, CliTool, ClientStatus, Language, Menubar, MenubarWindow, Model, Peer, PeerTest, SettingsGroup, SourceView, Theme, ThemePack, UpdateError } from '../lib/model';
 import { cloudDrive, mac, onWindows, os, osName, systemSettings, t } from '../lib/i18n';
 import { SectionGlyph, type Section } from '../components/icons';
 import type { Action, FeedbackView, PopoverView } from '../lib/view';
@@ -99,6 +100,10 @@ export interface SettingsProps {
   onLanguage?(language: Language): void;
   /** Cài đặt › Cập nhật: "Tự kiểm bản mới của app"; with it come the release rows and Chẩn đoán. */
   onReleaseChecks?(on: boolean): void;
+  /** Công cụ dòng lệnh: "Kiểm bản mới", a tool's "Cập nhật", and the daily check (and "Tự cập nhật" where offered). */
+  onCliCheck?(): void;
+  onCliUpdate?(tool: CliTool): void;
+  onCliChecks?(daily: boolean): void;
   /** The group shown, kept by the window while it is open; Chung when it is not one this build has. */
   group?: SettingsGroup;
   onGroup?(group: SettingsGroup): void;
@@ -1094,6 +1099,7 @@ export function MenubarWindowRow({ model, onPick, layout = 'form' }: { model: Mo
 const CARDS = {
   general: 'qs-set-general',
   updates: 'qs-set-updates',
+  cli: 'qs-set-cli',
   display: 'qs-set-display',
   tray: 'qs-set-tray',
   notify: 'qs-set-notify',
@@ -1293,6 +1299,11 @@ export function Settings(props: SettingsProps) {
             {onSkillChecks ? <SkillChecksRows model={model} onSet={onSkillChecks} /> : null}
             {onReleaseChecks ? <DiagnosticsRows onAction={onAction} /> : null}
           </SettingsCard>
+          {model.cliTools && props.onCliCheck && props.onCliUpdate && props.onCliChecks ? (
+            <SettingsCard id={CARDS.cli} title={t('Cập nhật Agent', 'Agent updates')} icon="cli">
+              <CliToolsRows view={model.cliTools} onCheck={props.onCliCheck} onUpdate={props.onCliUpdate} onDaily={props.onCliChecks} />
+            </SettingsCard>
+          ) : null}
         </>
       ),
     },

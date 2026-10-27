@@ -126,6 +126,7 @@ fn run(app: &AppHandle, state: &AppState) {
         crate::backup::daily(app, state);
         crate::skills::daily(app, state);
         crate::release::daily(app, state);
+        crate::cli_tools::daily(app, state);
         crate::env::every(app, state);
         publish(app, state);
 

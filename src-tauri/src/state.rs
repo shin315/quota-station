@@ -256,6 +256,8 @@ pub struct Inner {
     pub skills: crate::skills::Live,
     /// The check of GitHub Releases running now.
     pub release: crate::release::Live,
+    /// Claude Code, Codex and agy as last found, and their check and update.
+    pub cli_tools: crate::cli_tools::Live,
     #[cfg(feature = "author-tools")]
     pub copy: crate::copy::Live,
     /// The variables that override a login (M14).
@@ -419,6 +421,7 @@ impl Inner {
             backup: crate::backup::Live::default(),
             skills: crate::skills::Live::default(),
             release: crate::release::Live::default(),
+            cli_tools: crate::cli_tools::Live::default(),
             env: crate::env::Live::default(),
             sets: crate::sets::Live::default(),
             stats: crate::stats::Live::default(),
@@ -605,6 +608,7 @@ impl Inner {
             backup: crate::backup::view(self),
             skills: crate::skills::skills_view(self),
             release: crate::release::view(self),
+            cli_tools: crate::cli_tools::view(self),
             first_run: !self.settings.setup_seen,
             plugins: crate::skills::plugins_view(self),
             instructions: crate::skills::instr_view(self),
@@ -755,6 +759,8 @@ pub struct Model {
     pub skills: crate::skills::SkillsView,
     /// A newer version on GitHub Releases.
     pub release: crate::release::ReleaseView,
+    /// Cài đặt › Chung › Cập nhật Agent.
+    pub cli_tools: crate::cli_tools::CliToolsView,
     /// A new install: the main window shows the first run's steps.
     pub first_run: bool,
     pub plugins: crate::skills::PluginsView,

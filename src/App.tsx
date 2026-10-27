@@ -928,6 +928,9 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       onRelaunch={() => refusal(api.relaunch())}
       onSkillChecks={(daily, notify) => void api.skillsSetChecks(daily, notify).catch(() => showFeedback(settingsFailedFeedback()))}
       onReleaseChecks={release.setAuto}
+      onCliCheck={() => void api.cliToolsCheck().catch(() => showFeedback(settingsFailedFeedback()))}
+      onCliUpdate={(tool) => void api.cliToolUpdate(tool).catch(() => showFeedback(settingsFailedFeedback()))}
+      onCliChecks={(daily) => void api.setCliChecks(daily).catch(() => showFeedback(settingsFailedFeedback()))}
       group={settingsGroup}
       onGroup={showGroup}
     />

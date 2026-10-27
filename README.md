@@ -225,14 +225,20 @@ the confirmation sheet first.
     top while the page scrolls: `Chung` (the language, this Mac's name,
     `Mở khi đăng nhập` and `Thư mục sao lưu`, then the `Cập nhật` card: the
     version and new releases, the skills' checks and, in a build that has
-    it, `Thông tin chẩn đoán`), `Hiển thị`, `Thông báo`, `Dịch vụ`
+    it, `Thông tin chẩn đoán`; then `Cập nhật Agent`: Claude Code, the Codex
+    CLI and the Antigravity CLI, each with its version, how it was installed,
+    the newest and `Cập nhật`, which runs the tool's own update only when
+    pressed; Codex waits while one of its sessions is open, and an install
+    the app cannot update safely shows the command to run in Terminal; see
+    [SECURITY.md](SECURITY.md)), `Hiển thị`, `Thông báo`, `Dịch vụ`
     (Keychain, Codex's folder and the Antigravity OAuth client, with the
     `Biến môi trường đè đăng nhập` card) and `Nâng cao` (only in builds
     that have it). Only the tab picked shows, `Chung` at first; the app
     keeps the one picked last while it runs, and a link from elsewhere
     opens the one it is about (`Mở Cài đặt` in `Firstmate` and `Chép sang
     Mac khác` opens `Nâng cao`, a variable's banner or notification opens
-    `Dịch vụ`, and `Cài đặt thông báo` under the bell opens `Thông báo`). The
+    `Dịch vụ`, a new version of an agent's command under the bell opens
+    `Chung`, and `Cài đặt thông báo` under the bell opens `Thông báo`). The
     arrow keys, Home and End move along the bar; where the window is too
     narrow for every tab, the bar scrolls sideways, faded at the end with
     more past it.

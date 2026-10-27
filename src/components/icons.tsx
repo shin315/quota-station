@@ -142,6 +142,7 @@ export const SECTION_GLYPHS = {
   updates: 'arrows-clockwise',
   services: 'database',
   env: 'terminal-window',
+  cli: 'terminal-window',
   backup: PLACE_GLYPHS.backup,
   diag: 'wrench',
 } satisfies Record<string, GlyphName>;
