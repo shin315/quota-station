@@ -73,7 +73,8 @@ pub struct RestoreView {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BackupView {
-    /// iCloud Drive is on on this Mac.
+    /// iCloud Drive is on on this Mac (on Windows: OneDrive or Documents is
+    /// there, which holds the packs by default).
     pub icloud: bool,
     /// Where the packs go, `~/…`.
     pub folder: String,
@@ -90,7 +91,8 @@ pub struct BackupView {
 
 impl Inner {
     /// Where the packs are: the folder chosen in settings, else
-    /// `iCloud Drive › Quota Station Agents`.
+    /// `iCloud Drive › Quota Station Agents` (on Windows, in OneDrive or
+    /// Documents).
     pub fn pack_root(&self) -> PathBuf {
         self.settings.backup_dir.clone().unwrap_or_else(|| pack::default_root(&self.home))
     }
@@ -99,7 +101,7 @@ impl Inner {
 pub fn view(inner: &Inner) -> BackupView {
     let live = &inner.backup;
     BackupView {
-        icloud: pack::icloud_drive(&inner.home).is_dir(),
+        icloud: pack::cloud_drive(&inner.home).is_dir(),
         folder: quota_station_core::runner::display_path(&inner.pack_root(), &inner.home),
         custom_folder: inner.settings.backup_dir.is_some(),
         packs: live.packs.clone(),
@@ -347,14 +349,15 @@ pub fn backup_set_folder(
     Ok(())
 }
 
-/// "Mở trong Finder": the packs' folder, or iCloud Drive before the first.
+/// "Mở trong Finder": the packs' folder, or iCloud Drive (on Windows,
+/// OneDrive or Documents) before the first.
 #[tauri::command]
 pub fn backup_open_folder(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
     let (root, home) = {
         let inner = state.lock();
         (inner.pack_root(), inner.home.clone())
     };
-    let dir = if root.is_dir() { root } else { pack::icloud_drive(&home) };
+    let dir = if root.is_dir() { root } else { pack::cloud_drive(&home) };
     if !dir.is_dir() {
         return Err("missing".into());
     }

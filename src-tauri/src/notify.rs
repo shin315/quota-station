@@ -8,24 +8,41 @@
 //!
 //! Only a packaged `.app` has a notification center: a bare binary, as
 //! `tauri dev` runs it, posts nothing, and its alerts stay in the app.
+//!
+//! On Windows the same cards are toasts with buttons, through
+//! `tauri-plugin-notification` ([`win`]): each set of buttons is an action
+//! type, and a press comes back with the card's id. Windows reports a
+//! press only while the toast is on screen; once it moved to the Action
+//! Center its buttons do nothing. Only the installed app has the AUMID the
+//! toasts need (the installer's Start Menu shortcut carries it): a copy run
+//! from `target`, as `tauri dev` runs it, counts as not packaged.
 
 use std::sync::{Arc, Mutex};
 
 use quota_station_core::alerts::{Card, Notifier};
 use serde::Serialize;
+use tauri::AppHandle;
 
-/// What macOS lets the app do. Elsewhere only `Unbundled` is told until
-/// that system's cards come.
-#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+#[cfg(target_os = "macos")]
+use mac as sys;
+#[cfg(not(any(target_os = "macos", windows)))]
+use none as sys;
+#[cfg(windows)]
+use win as sys;
+
+/// What macOS (or Windows) lets the app do. Elsewhere only `Unbundled` is
+/// told.
+#[cfg_attr(not(any(target_os = "macos", windows)), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Permission {
     /// Not asked yet, or not known yet.
     Unknown,
     Allowed,
-    /// Turned off in System Settings › Notifications.
+    /// Turned off in System Settings › Notifications (on Windows, in
+    /// Settings › System › Notifications, for the app or for every app).
     Denied,
-    /// Not running as a packaged `.app`.
+    /// Not running as a packaged `.app` (on Windows: not the installed app).
     Unbundled,
 }
 
@@ -39,10 +56,11 @@ pub type Refused = Arc<dyn Fn(String) + Send + Sync>;
 /// A category's id and its buttons, each an id and a label.
 type Category = (String, Vec<(String, String)>);
 
-/// The process is a packaged `.app` with a bundle id.
-#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+/// The process is a packaged `.app` with a bundle id; on Windows, the
+/// installed app.
+#[cfg_attr(not(any(target_os = "macos", windows)), allow(dead_code))]
 pub fn bundled() -> bool {
-    mac::bundled()
+    sys::bundled()
 }
 
 pub struct Center {
@@ -55,14 +73,14 @@ pub struct Center {
 impl Center {
     /// Sets the delegate that takes the presses and asks macOS, once, for
     /// leave to show cards. `refused` hears of a card macOS did not post.
-    pub fn start(handler: Handler, refused: Refused) -> Center {
+    pub fn start(app: &AppHandle, handler: Handler, refused: Refused) -> Center {
         let center = Center {
             permission: Arc::new(Mutex::new(Permission::Unknown)),
             categories: Mutex::new(Vec::new()),
             refused,
         };
-        if mac::bundled() {
-            mac::start(handler, center.permission.clone());
+        if sys::bundled() {
+            sys::start(app, handler, center.permission.clone());
         } else {
             *center.permission.lock().unwrap_or_else(|e| e.into_inner()) = Permission::Unbundled;
         }
@@ -76,7 +94,7 @@ impl Center {
     /// Asks macOS again whether cards may show; the answer comes later.
     pub fn refresh(&self) {
         if self.permission() != Permission::Unbundled {
-            mac::refresh(self.permission.clone());
+            sys::refresh(self.permission.clone());
         }
     }
 
@@ -91,7 +109,7 @@ impl Center {
         let id = format!("qs.{}.{}", card.kind.number(), known.len());
         known.push((id.clone(), buttons));
         // Re-registering replaces every category, so all of them go each time.
-        mac::set_categories(&known);
+        sys::set_categories(&known);
         id
     }
 }
@@ -104,13 +122,13 @@ impl Notifier for Center {
             _ => {}
         }
         let category = self.category(card);
-        mac::post(card, &category, self.refused.clone());
+        sys::post(card, &category, self.refused.clone());
         Ok(())
     }
 
     fn withdraw(&self, id: &str) {
         if self.permission() != Permission::Unbundled {
-            mac::withdraw(id);
+            sys::withdraw(id);
         }
     }
 }
@@ -204,7 +222,7 @@ mod mac {
         UNUserNotificationCenter::currentNotificationCenter()
     }
 
-    pub fn start(handler: Handler, permission: Arc<Mutex<Permission>>) {
+    pub fn start(_app: &tauri::AppHandle, handler: Handler, permission: Arc<Mutex<Permission>>) {
         let delegate = Delegate::new(handler);
         center().setDelegate(Some(ProtocolObject::from_ref(&*delegate)));
         // The center keeps the delegate weakly: it lives as long as the app.
@@ -292,8 +310,8 @@ mod mac {
 }
 
 /// Elsewhere there is no notification center to talk to.
-#[cfg(not(target_os = "macos"))]
-mod mac {
+#[cfg(not(any(target_os = "macos", windows)))]
+mod none {
     use std::sync::{Arc, Mutex};
 
     use quota_station_core::alerts::Card;
@@ -303,9 +321,114 @@ mod mac {
     pub fn bundled() -> bool {
         false
     }
-    pub fn start(_: Handler, _: Arc<Mutex<Permission>>) {}
+    pub fn start(_: &tauri::AppHandle, _: Handler, _: Arc<Mutex<Permission>>) {}
     pub fn refresh(_: Arc<Mutex<Permission>>) {}
     pub fn set_categories(_: &[super::Category]) {}
     pub fn post(_: &Card, _: &str, _: Refused) {}
+    pub fn withdraw(_: &str) {}
+}
+
+/// Windows: toasts through `tauri-plugin-notification`, which shows each
+/// card's buttons and reports a press while the toast is on screen.
+#[cfg(windows)]
+mod win {
+    use std::sync::{Arc, Mutex, OnceLock};
+
+    use quota_station_core::alerts::Card;
+    use tauri::AppHandle;
+    use tauri_plugin_notification::{Action, ActionType, NotificationExt};
+
+    use super::{Handler, Permission, Refused};
+
+    /// The app the toasts go out from, set by [`start`].
+    static APP: OnceLock<AppHandle> = OnceLock::new();
+    /// Where a toast carries its card's id.
+    const CARD: &str = "card";
+    /// The AUMID the installer gives the Start Menu shortcut: the bundle id.
+    const AUMID: &str = "com.shin315.quota-station";
+
+    /// The installed app: Tauri's installer puts `uninstall.exe` beside it,
+    /// with the Start Menu shortcut that carries the AUMID.
+    pub fn bundled() -> bool {
+        std::env::current_exe()
+            .ok()
+            .and_then(|exe| exe.parent().map(|dir| dir.join("uninstall.exe").is_file()))
+            .unwrap_or(false)
+    }
+
+    pub fn start(app: &AppHandle, handler: Handler, permission: Arc<Mutex<Permission>>) {
+        let _ = APP.set(app.clone());
+        // A press on the toast is `tap`, as on the card itself on macOS.
+        let _ = app.notification().on_action(move |performed| {
+            let Some(card) = performed
+                .notification()
+                .and_then(|n| n.extra().get(CARD))
+                .and_then(|v| v.as_str())
+                .map(String::from)
+            else {
+                return;
+            };
+            let action = performed.action_id();
+            handler(card, (action != "tap").then(|| action.to_string()));
+        });
+        refresh(permission);
+    }
+
+    /// Windows keeps no answer to ask for: toasts are off when the owner
+    /// turned them off for every app or for this one (Settings › System ›
+    /// Notifications), which the registry records.
+    pub fn refresh(permission: Arc<Mutex<Permission>>) {
+        use windows_registry::CURRENT_USER;
+        let off = |path: &str, name: &str| {
+            CURRENT_USER.open(path).and_then(|k| k.get_u32(name)).is_ok_and(|v| v == 0)
+        };
+        let denied =
+            off(r"Software\Microsoft\Windows\CurrentVersion\PushNotifications", "ToastEnabled")
+                || off(
+                    &format!(
+                        r"Software\Microsoft\Windows\CurrentVersion\Notifications\Settings\{AUMID}"
+                    ),
+                    "Enabled",
+                );
+        *permission.lock().unwrap_or_else(|e| e.into_inner()) =
+            if denied { Permission::Denied } else { Permission::Allowed };
+    }
+
+    pub fn set_categories(all: &[super::Category]) {
+        let Some(app) = APP.get() else { return };
+        let types = all
+            .iter()
+            .map(|(id, buttons)| {
+                ActionType::builder(id)
+                    .actions(
+                        buttons
+                            .iter()
+                            .map(|(id, label)| Action::builder(id, label).build())
+                            .collect(),
+                    )
+                    .build()
+            })
+            .collect();
+        let _ = app.notification().register_action_types(types);
+    }
+
+    /// Shows the toast; one Windows refused at once goes to `refused`.
+    pub fn post(card: &Card, category: &str, refused: Refused) {
+        let Some(app) = APP.get() else { return refused(card.id.clone()) };
+        let shown = app
+            .notification()
+            .builder()
+            .title(&card.title)
+            .body(&card.body)
+            .action_type_id(category)
+            .extra(CARD, &card.id)
+            .show();
+        if shown.is_err() {
+            refused(card.id.clone());
+        }
+    }
+
+    /// A toast cannot be taken back once shown: it stays until it times
+    /// out or the owner clears it.
     pub fn withdraw(_: &str) {}
 }

@@ -61,6 +61,8 @@ mod sets;
 mod skills;
 mod state;
 mod stats;
+#[cfg(windows)]
+mod timer;
 mod tray;
 mod windows;
 #[cfg(windows)]
@@ -112,6 +114,9 @@ fn main() {
         .plugin(tauri_plugin_opener::init());
     #[cfg(windows)]
     let builder = builder.plugin(winsys::webviews());
+    // Windows's toasts with buttons (`notify`); macOS posts its own cards.
+    #[cfg(windows)]
+    let builder = builder.plugin(tauri_plugin_notification::init());
     builder
         .setup(|app| {
             #[cfg(target_os = "macos")]
@@ -147,6 +152,9 @@ fn main() {
             #[cfg(feature = "author-tools")]
             rules::spawn(app.handle().clone(), state.clone());
             codex_wake::spawn(app.handle().clone(), state.clone());
+            // Windows has no launchd: the app runs the rotation itself.
+            #[cfg(windows)]
+            timer::spawn(state.clone());
             codex::spawn(app.handle().clone(), state);
             Ok(())
         })

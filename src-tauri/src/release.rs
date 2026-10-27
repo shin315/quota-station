@@ -205,6 +205,7 @@ pub fn release_open(
 // ===== The diagnostic info =====
 
 /// macOS's version, as `sw_vers` gives it.
+#[cfg(not(windows))]
 fn macos() -> String {
     std::process::Command::new("/usr/bin/sw_vers")
         .arg("-productVersion")
@@ -216,15 +217,77 @@ fn macos() -> String {
         .unwrap_or_else(|| "?".into())
 }
 
+/// The system and its version: `macOS 15.1`.
+#[cfg(not(windows))]
+fn system() -> String {
+    format!("macOS {}", macos())
+}
+
+/// The system and its version, as Settings › System › About shows it:
+/// `Windows 11 24H2 (build 26100.2033)`. Windows 11 still names itself
+/// Windows 10 in the registry; its builds start at 22000.
+#[cfg(windows)]
+fn system() -> String {
+    let Ok(key) =
+        windows_registry::LOCAL_MACHINE.open(r"SOFTWARE\Microsoft\Windows NT\CurrentVersion")
+    else {
+        return "Windows ?".into();
+    };
+    let build = key.get_string("CurrentBuildNumber").unwrap_or_default();
+    let name = match build.parse::<u32>() {
+        Ok(b) if b >= 22000 => "Windows 11",
+        Ok(_) => "Windows 10",
+        Err(_) => "Windows",
+    };
+    let release = key.get_string("DisplayVersion").unwrap_or_default();
+    let patch = key.get_u32("UBR").map(|u| format!(".{u}")).unwrap_or_default();
+    format!("{name} {release} (build {build}{patch})").replace("  ", " ")
+}
+
+/// `text` with every `home` in it as `~`; on Windows, where `HOME` is
+/// rarely set and a path may come in any case, the profile folder
+/// (`C:\Users\<name>`) in any case.
+fn tilde(text: &str, home: &str) -> String {
+    if home.len() <= 1 {
+        return text.to_string();
+    }
+    if !windows_path(home) {
+        return text.replace(home, "~");
+    }
+    // ASCII lowercasing keeps every byte where it was.
+    let (lower, needle) = (text.to_ascii_lowercase(), home.to_ascii_lowercase());
+    let mut out = String::new();
+    let mut from = 0;
+    while let Some(at) = lower[from..].find(&needle) {
+        out.push_str(&text[from..from + at]);
+        out.push('~');
+        from += at + needle.len();
+    }
+    out.push_str(&text[from..]);
+    out
+}
+
+/// A Windows path: a drive (`C:\`, `c:/`) or a share (`\\server`).
+fn windows_path(word: &str) -> bool {
+    let b = word.as_bytes();
+    word.starts_with("\\\\")
+        || (b.len() >= 3
+            && b[0].is_ascii_alphabetic()
+            && b[1] == b':'
+            && matches!(b[2], b'\\' | b'/'))
+}
+
 /// A line with no email, no path outside the home folder (the home folder
-/// itself becomes `~`), and nothing longer than a short reason.
+/// itself becomes `~`), and nothing longer than a short reason. A Windows
+/// path counts as a path too, so `C:\Users\<name>` never shows.
 pub fn scrub(text: &str, home: &str) -> String {
-    let text = if home.len() > 1 { text.replace(home, "~") } else { text.to_string() };
+    let text = tilde(text, home);
     text.split_whitespace()
         .map(|w| {
+            let bare = w.trim_start_matches(['(', '"', '\'', '`']);
             if w.contains('@') {
                 "[email]"
-            } else if w.starts_with('/') {
+            } else if w.starts_with('/') || windows_path(bare) {
                 "[path]"
             } else {
                 w
@@ -253,7 +316,12 @@ fn section_line(name: &str, s: &Section, home: &str) -> String {
 /// build, macOS and the chip, the language, Nâng cao, what was found and
 /// each service's last read. No email, account name, key or path outside ~.
 pub fn diagnostics(inner: &Inner) -> String {
-    let home = std::env::var("HOME").unwrap_or_default();
+    // Windows rarely sets `HOME`: its profile folder is the app's home.
+    let home = if cfg!(windows) {
+        inner.home.display().to_string()
+    } else {
+        std::env::var("HOME").unwrap_or_default()
+    };
     let mut features = Vec::new();
     if cfg!(feature = "antigravity-accounts") {
         features.push("antigravity-accounts");
@@ -275,8 +343,8 @@ pub fn diagnostics(inner: &Inner) -> String {
     let lines = [
         format!("Quota Station {} ({commit}) · {build}", inner.app_version),
         format!(
-            "macOS {} · {} · language {language} · Advanced {}",
-            macos(),
+            "{} · {} · language {language} · Advanced {}",
+            system(),
             std::env::consts::ARCH,
             if inner.settings.advanced_shown() { "on" } else { "off" }
         ),
@@ -312,5 +380,19 @@ mod tests {
             "read failed for [email] at ~/.claude/x and [path]"
         );
         assert_eq!(scrub(&"x".repeat(400), "/Users/lan").len(), 160);
+    }
+
+    #[test]
+    fn a_windows_profile_folder_never_shows_whatever_its_case() {
+        assert_eq!(
+            scrub(
+                r"read failed at C:\Users\Lan\.claude\x and c:\users\lan\AppData (D:\work\y) \\nas\share",
+                r"C:\Users\Lan"
+            ),
+            r"read failed at ~\.claude\x and ~\AppData [path] [path]"
+        );
+        // Another user's folder, or one under a home that is not set.
+        assert_eq!(scrub(r"at C:\Users\other\x", ""), "at [path]");
+        assert_eq!(scrub(r"at C:/Users/other/x", r"C:\Users\Lan"), "at [path]");
     }
 }

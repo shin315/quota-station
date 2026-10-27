@@ -8,7 +8,8 @@
 //! rotation's decision ([`engine`]) and its run ([`rotate`]), running one
 //! process as a chosen account ([`session`]), the data file for Firstmate
 //! and the copy its quota-axi reads ([`state`]), the one-time import from claude-swap
-//! ([`import`]) and the app's own LaunchAgent ([`agent`]).
+//! ([`import`]) and the app's own LaunchAgent ([`agent`]), or on Windows the
+//! app's own timer ([`timer`]).
 //!
 //! What touches Claude Code's login is learned from claude-swap's source
 //! (MIT, <https://github.com/realiti4/claude-swap>), credited in
@@ -30,6 +31,7 @@ pub mod session;
 pub mod state;
 pub mod store;
 pub mod switch;
+pub mod timer;
 pub mod usage;
 
 use std::io;
