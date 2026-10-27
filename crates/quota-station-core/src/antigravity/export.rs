@@ -125,7 +125,7 @@ mod tests {
         // `printf '%s' someone@example.com | shasum -a 256`
         let expected = "/tmp/qs-app/antigravity/cache/quota_api_v1_desktop/authorized/\
              72497f475e4f76d0b28f57c73a084ece576d170874eba3ee2609d9afe4b71aab.json";
-        assert_eq!(path(&app, " Someone@Example.com ").to_string_lossy(), expected);
+        assert_eq!(path(&app, " Someone@Example.com "), std::path::Path::new(expected));
     }
 
     #[test]
