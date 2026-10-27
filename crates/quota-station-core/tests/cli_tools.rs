@@ -75,7 +75,7 @@ fn codex_from_npm_updates_with_the_npm_of_its_prefix() {
     let l = layout(Tool::Codex, &prefix.join("bin/codex"), &target, &home);
     assert_eq!(l.install, Some(Install::Npm));
     assert_eq!(l.command.as_deref(), Some("npm install -g @openai/codex@latest"));
-    assert_eq!(l.update.unwrap()[0], prefix.join("bin").join("npm").to_string_lossy());
+    assert_eq!(Path::new(&l.update.unwrap()[0]), prefix.join("bin").join("npm"));
     assert_eq!(l.root, Some(prefix.join("lib/node_modules/@openai/codex")));
 }
 
