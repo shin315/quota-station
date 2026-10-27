@@ -93,6 +93,7 @@ pub mod release;
 pub mod rotation;
 pub mod runner;
 pub mod schedule;
+pub mod sealed;
 pub mod sessions;
 pub mod settings;
 pub mod snapshot;
@@ -102,6 +103,8 @@ pub mod switching;
 mod time_util;
 #[cfg(feature = "author-tools")]
 pub mod update;
+#[cfg(windows)]
+pub mod win;
 
 pub use icon::{icon, Icon, Tone};
 pub use snapshot::Snapshot;

@@ -1414,9 +1414,21 @@ export interface StatsReport {
 /**
  * `agents::env_check::Place`: on macOS five shell files in the home folder,
  * and launchd; on Windows the user's and the system's environment variables
- * (the registry) and PowerShell's profile.
+ * (the registry), Windows PowerShell's and PowerShell 7's profiles, and Git
+ * Bash's `~/.bash_profile`, `~/.bashrc` and `~/.profile`.
  */
-export type EnvPlace = 'zshenv' | 'zprofile' | 'zshrc' | 'bashProfile' | 'profile' | 'launchctl' | 'userEnv' | 'machineEnv' | 'psProfile';
+export type EnvPlace =
+  | 'zshenv'
+  | 'zprofile'
+  | 'zshrc'
+  | 'bashProfile'
+  | 'profile'
+  | 'launchctl'
+  | 'userEnv'
+  | 'machineEnv'
+  | 'psProfile'
+  | 'pwshProfile'
+  | 'bashrc';
 
 /** `agents::env_check::Found`: a name set in one place. Never its value. */
 export interface EnvFound {

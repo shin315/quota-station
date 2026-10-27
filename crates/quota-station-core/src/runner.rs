@@ -219,15 +219,26 @@ fn windows_dirs(home: &Path) -> Vec<PathBuf> {
     out
 }
 
+/// The files a command `name` may be in `dir`, in the order they are
+/// tried: `dir/name`; on Windows a native program and npm's shim,
+/// `name.exe` and `name.cmd`. A `.cmd` runs through `cmd.exe`, which
+/// `std::process::Command` does itself.
+pub fn program_files(dir: &Path, name: &str) -> Vec<PathBuf> {
+    if cfg!(windows) {
+        vec![dir.join(format!("{name}.exe")), dir.join(format!("{name}.cmd"))]
+    } else {
+        vec![dir.join(name)]
+    }
+}
+
 /// `dir/name` when it is a file, or on Windows the first of `name` with a
 /// `PATHEXT` extension (`.COM;.EXE;.BAT;.CMD` when the variable is unset).
+/// On Windows a file of the bare name is no program: npm puts a `sh`
+/// script for Git Bash there, beside `name.cmd`.
 pub fn program_in(dir: &Path, name: &str) -> Option<PathBuf> {
     let plain = dir.join(name);
-    if plain.is_file() {
-        return Some(plain);
-    }
     if !cfg!(windows) || Path::new(name).extension().is_some() {
-        return None;
+        return plain.is_file().then_some(plain);
     }
     let exts = std::env::var("PATHEXT").unwrap_or_else(|_| ".COM;.EXE;.BAT;.CMD".into());
     exts.split(';')

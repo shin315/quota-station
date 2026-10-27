@@ -20,6 +20,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::os;
 
+/// The bundle id, which names the app's folders.
+pub const ID: &str = "com.shin315.quota-station";
+
 /// The app's Application Support folder, the root of everything here.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AppDir(PathBuf);
@@ -31,6 +34,26 @@ impl AppDir {
 
     pub fn path(&self) -> &Path {
         &self.0
+    }
+
+    /// The folder for what must stay on this computer. On Windows the app's
+    /// folder (`AppData\Roaming\<id>`, which a roaming profile carries to
+    /// other computers) has a local twin, `AppData\Local\<id>`, as
+    /// Tauri's `app_local_data_dir` names it; any other folder is its own.
+    pub fn local(&self) -> AppDir {
+        let named = |p: Option<&Path>, name: &str| {
+            p.and_then(Path::file_name).is_some_and(|n| n.eq_ignore_ascii_case(name))
+        };
+        let roaming = self.0.parent();
+        let appdata = roaming.and_then(Path::parent);
+        match (appdata, self.0.file_name()) {
+            (Some(appdata), Some(id))
+                if named(roaming, "Roaming") && named(Some(appdata), "AppData") =>
+            {
+                AppDir(appdata.join("Local").join(id))
+            }
+            _ => self.clone(),
+        }
     }
 
     /// `path` must be under the folder, written without `..`, and neither
@@ -195,6 +218,18 @@ mod tests {
         assert!(dir.check(Path::new("/tmp/qs-application/x")).is_err());
         assert!(dir.check(Path::new("relative/x")).is_err());
         assert!(AppDir::new("").check(Path::new("x")).is_err());
+    }
+
+    #[test]
+    fn the_roaming_folder_has_a_local_twin_and_others_are_their_own() {
+        let roaming = Path::new("/u/AppData").join("Roaming").join(ID);
+        assert_eq!(
+            AppDir::new(&roaming).local().path(),
+            Path::new("/u/AppData").join("Local").join(ID)
+        );
+        let mac = Path::new("/Users/x/Library/Application Support").join(ID);
+        assert_eq!(AppDir::new(&mac).local().path(), mac);
+        assert_eq!(AppDir::new("/tmp/qs-app").local().path(), Path::new("/tmp/qs-app"));
     }
 
     #[test]

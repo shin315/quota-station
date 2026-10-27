@@ -20,7 +20,6 @@ use std::thread;
 use std::time::{Duration, Instant, SystemTime};
 
 use quota_station_core::app_dir::AppDir;
-use quota_station_core::claude::keychain::Security;
 use quota_station_core::claude::state::AccountOut;
 use quota_station_core::claude::store::Store;
 use quota_station_core::claude::usage::{self, Endpoints};
@@ -160,7 +159,7 @@ fn check_switcher(home: &Path, paths: Paths, full: bool, pause_generation: u64) 
         let flag_held = pause.as_ref().is_some_and(|f| f.holds(&local_time::stamp(at)));
         let launchctl = Path::new(switcher::LAUNCHCTL);
         let dry_run = if paths.in_use() {
-            let store = Store::new(paths, Security::system());
+            let store = Store::new(paths, quota_station_core::os::secret_store());
             let decided = rotate::dry_run(
                 &store,
                 &rotate::Tools::system(home),

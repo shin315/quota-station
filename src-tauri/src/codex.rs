@@ -400,7 +400,7 @@ pub fn view(inner: &Inner) -> CodexView {
         busy: live.busy,
         openai_base_url: parsed.is_some_and(|p| p.openai_base_url),
         accounts: codex_accounts::view(inner, parsed, login, current),
-        accounts_dir: runner::display_path(&app.path().join(accounts::DIR), &inner.home),
+        accounts_dir: runner::display_path(&accounts::root_of(&app), &inner.home),
         login_code: live.signing.as_ref().and_then(|s| {
             let lock = |m: &Mutex<Option<String>>| m.lock().ok().and_then(|v| v.clone());
             Some(LoginCode { url: lock(&s.link)?, code: lock(&s.code)? })

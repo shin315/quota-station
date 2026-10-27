@@ -136,6 +136,22 @@ fn claude_code_two_counts_a_response_once() {
 }
 
 #[test]
+fn a_log_in_a_folder_named_as_claude_code_for_windows_names_it_counts_the_same() {
+    // `C:\Users\demo\Projects\web-shop` with each character that is not a
+    // letter or a digit as `-`: the project is the line's `cwd`, never the
+    // folder's name.
+    let mac = Mac::new("stats-claude-windows");
+    let lines = fixture("claude-2.0.jsonl").replace(
+        "\"cwd\":\"/Users/demo/Projects/web-shop\"",
+        "\"cwd\":\"C:\\\\Users\\\\demo\\\\Projects\\\\web-shop\"",
+    );
+    mac.put(&mac.claude_log("C--Users-demo-Projects-web-shop", "s1"), &lines);
+    let ix = mac.read();
+    assert_eq!(totals(&ix, Agent::Claude), CLAUDE_20);
+    assert!(ix.buckets.iter().all(|b| b.project == r"C:\Users\demo\Projects\web-shop"));
+}
+
+#[test]
 fn claude_code_one_without_cache_fields() {
     let mac = Mac::new("stats-claude1");
     mac.put(&mac.claude_log("-Users-demo-Projects-notes-app", "s2"), &fixture("claude-1.0.jsonl"));

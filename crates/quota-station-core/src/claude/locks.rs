@@ -14,7 +14,10 @@
 //!    or Claude Code's login at the same time;
 //! 2. [`credentials`]: Claude Code's `~/.claude/.oauth_refresh.lock`, then
 //!    `~/.claude.lock`, which Claude Code holds while it refreshes or writes
-//!    its login;
+//!    its login, then `~/.claude/.storage-write.lock`, which Claude Code
+//!    (2.1.311, on macOS and Windows) holds around every write of its login
+//!    (`proper-lockfile` on `<its folder>/.storage-write`, stale after 15
+//!    seconds);
 //! 3. [`config`]: Claude Code's `~/.claude.json.lock`, which it holds while
 //!    it writes `~/.claude.json`.
 
@@ -36,6 +39,8 @@ pub const CC_TIMEOUT: Duration = Duration::from_secs(9);
 /// after [`CONFIG_STALE`].
 pub const CREDENTIALS_STALE: Duration = Duration::from_secs(60);
 pub const CONFIG_STALE: Duration = Duration::from_secs(10);
+/// Claude Code's write lock counts as stale after this.
+pub const STORAGE_STALE: Duration = Duration::from_secs(15);
 /// How often a held lock folder is touched, so it never looks stale.
 const TOUCH_EVERY: Duration = Duration::from_secs(3);
 
@@ -175,8 +180,8 @@ fn jitter() -> u64 {
     u64::from(nanos.subsec_nanos() % 250_000_000) / 1_000_000
 }
 
-/// Claude Code's two login locks, in its order.
-pub fn credentials(paths: &Paths) -> Result<(DirLock, DirLock), LockError> {
+/// Claude Code's three login locks, in its order.
+pub fn credentials(paths: &Paths) -> Result<(DirLock, DirLock, DirLock), LockError> {
     let refresh = DirLock::take(
         &paths.claude_home().join(".oauth_refresh.lock"),
         CREDENTIALS_STALE,
@@ -184,7 +189,12 @@ pub fn credentials(paths: &Paths) -> Result<(DirLock, DirLock), LockError> {
     )?;
     let login =
         DirLock::take(&paths.home.join(".claude.lock"), CREDENTIALS_STALE, paths.lock_wait)?;
-    Ok((refresh, login))
+    let write = DirLock::take(
+        &paths.claude_home().join(".storage-write.lock"),
+        STORAGE_STALE,
+        paths.lock_wait,
+    )?;
+    Ok((refresh, login, write))
 }
 
 /// Claude Code's lock on `~/.claude.json`.

@@ -12,6 +12,11 @@
 
 //! Claude Code's side of a login: its Keychain item, its credentials file
 //! and the `oauthAccount` member of `~/.claude.json`.
+//!
+//! On Windows Claude Code keeps a folder's login in its
+//! `.credentials.json`, unless its Credential Manager store is on
+//! ([`credman_used`]); the item is then read before the file, as Claude
+//! Code reads them, and a login is written where Claude Code reads it.
 
 use std::path::Path;
 
@@ -63,13 +68,58 @@ pub fn read_credential(
     paths: &Paths,
     security: &dyn SecretStore,
 ) -> Result<Option<String>, KeychainError> {
-    if let Some(c) = security.get(ACTIVE_SERVICE, &user_account())? {
+    read_login(security, ACTIVE_SERVICE, &paths.claude_home())
+}
+
+/// The login of Claude Code's folder `dir` (`~/.claude`, or a
+/// `CLAUDE_CONFIG_DIR`): its item `service` first, then
+/// `dir/.credentials.json`.
+pub fn read_login(
+    security: &dyn SecretStore,
+    service: &str,
+    dir: &Path,
+) -> Result<Option<String>, KeychainError> {
+    if let Some(c) = security.get(service, &user_account())? {
         if !c.trim().is_empty() {
             return Ok(Some(c));
         }
     }
-    let file = paths.claude_home().join(".credentials.json");
+    let file = dir.join(".credentials.json");
     Ok(std::fs::read_to_string(file).ok().filter(|t| !t.trim().is_empty()))
+}
+
+/// Whether Claude Code on Windows keeps the login of the folder `dir`
+/// (whose config is `config`) in Credential Manager, as its `windows-credman`
+/// store: `CLAUDE_CODE_FORCE_WINDOWS_CREDMAN=1` is set (`forced`), its
+/// `tengu_windows_credman` flag is on ([`credman_flag`]), or the item is
+/// there already (`item`), written by a Claude Code that had the switch,
+/// perhaps in a terminal the app does not share. Otherwise it keeps the
+/// login in `.credentials.json` alone.
+pub fn credman_used(forced: bool, flag: bool, item: bool) -> bool {
+    forced || flag || item
+}
+
+/// `CLAUDE_CODE_FORCE_WINDOWS_CREDMAN=1` in the app's own environment,
+/// which the processes it starts get too.
+pub fn credman_forced() -> bool {
+    std::env::var_os("CLAUDE_CODE_FORCE_WINDOWS_CREDMAN").is_some_and(|v| v == "1")
+}
+
+/// Claude Code's `tengu_windows_credman` flag, as it reads it: in
+/// `dir/.config.json` when that file is there and not empty, else in
+/// `config` (`~/.claude.json`, or `.claude.json` in a `CLAUDE_CONFIG_DIR`),
+/// under `cachedGrowthBookFeatures`. A file that does not read is off.
+pub fn credman_flag(dir: &Path, config: &Path) -> bool {
+    let legacy = std::fs::read_to_string(dir.join(".config.json")).unwrap_or_default();
+    let text = if legacy.is_empty() {
+        std::fs::read_to_string(config).unwrap_or_default()
+    } else {
+        legacy
+    };
+    serde_json::from_str::<Value>(&text)
+        .ok()
+        .and_then(|v| v.get("cachedGrowthBookFeatures")?.get("tengu_windows_credman")?.as_bool())
+        == Some(true)
 }
 
 /// `oauthAccount` of `~/.claude.json`, when the file reads.
@@ -129,20 +179,52 @@ pub fn merge_shared(target: &str, live: Option<&str>) -> String {
 
 /// Puts `credential` on Claude Code's own item, and in
 /// `~/.claude/.credentials.json` when that file is there (a running Claude
-/// Code notices the file changed), never creating it.
+/// Code notices the file changed), never creating it. On Windows, where
+/// Claude Code keeps the login in that file unless [`credman_used`], the
+/// file is written instead of the item, made when it is not there.
 pub fn write_credential(
     paths: &Paths,
     security: &dyn SecretStore,
     credential: &str,
 ) -> Result<(), std::io::Error> {
+    write_login(security, ACTIVE_SERVICE, &paths.claude_home(), &paths.claude_json(), credential)
+}
+
+/// [`write_credential`] for Claude Code's folder `dir`, its item `service`
+/// and its config `config`.
+pub fn write_login(
+    security: &dyn SecretStore,
+    service: &str,
+    dir: &Path,
+    config: &Path,
+    credential: &str,
+) -> Result<(), std::io::Error> {
+    let account = user_account();
+    let file = dir.join(".credentials.json");
+    let item = || security.exists(service, &account).unwrap_or(false);
+    if cfg!(windows) && !credman_used(credman_forced(), credman_flag(dir, config), item()) {
+        return super::write_private(&file, credential);
+    }
     security
-        .set(ACTIVE_SERVICE, &user_account(), credential)
+        .set(service, &account, credential)
         .map_err(|e| std::io::Error::other(e.to_string()))?;
-    let file = paths.claude_home().join(".credentials.json");
     if file.is_file() {
         super::write_private(&file, credential)?;
     }
     Ok(())
+}
+
+/// Takes Claude Code's login away: its item, and on Windows its
+/// `.credentials.json` too. Whether both are gone.
+pub fn remove_credential(paths: &Paths, security: &dyn SecretStore) -> bool {
+    let item = security.delete(ACTIVE_SERVICE, &user_account()).is_ok();
+    if !cfg!(windows) {
+        return item;
+    }
+    match std::fs::remove_file(paths.claude_home().join(".credentials.json")) {
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => false,
+        _ => item,
+    }
 }
 
 /// `~/.claude.json` with `oauthAccount` set to `oauth`, every other byte
@@ -251,6 +333,32 @@ mod tests {
         assert_eq!(v["trustedDeviceToken"], "d2");
         assert_eq!(v["pluginSecrets"], json!({"p": 1}));
         assert!(v.get("mcpOAuth").is_none());
+    }
+
+    #[test]
+    fn claude_codes_credential_manager_switch_is_read_as_it_reads_it() {
+        let dir = std::env::temp_dir().join(format!("qs-cc-flag-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join(".claude")).unwrap();
+        let (claude, config) = (dir.join(".claude"), dir.join(".claude.json"));
+        assert!(!credman_flag(&claude, &config), "no file is off");
+        let on = r#"{"cachedGrowthBookFeatures":{"tengu_windows_credman":true}}"#;
+        let off = r#"{"cachedGrowthBookFeatures":{"tengu_windows_credman":false}}"#;
+        std::fs::write(&config, on).unwrap();
+        assert!(credman_flag(&claude, &config));
+        // The old `.config.json` in the folder is read first when there.
+        std::fs::write(claude.join(".config.json"), off).unwrap();
+        assert!(!credman_flag(&claude, &config));
+        std::fs::write(claude.join(".config.json"), "").unwrap();
+        assert!(credman_flag(&claude, &config));
+        std::fs::write(&config, r#"{"cachedGrowthBookFeatures":{"tengu_windows_credman":"yes"}}"#)
+            .unwrap();
+        assert!(!credman_flag(&claude, &config));
+        assert!(credman_used(true, false, false));
+        assert!(credman_used(false, true, false));
+        assert!(credman_used(false, false, true));
+        assert!(!credman_used(false, false, false));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

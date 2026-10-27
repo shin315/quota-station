@@ -26,6 +26,7 @@ use quota_station_core::codex::platform::System;
 use quota_station_core::codex::wake::{self, Book, Login, Mode, Outcome, Plan, Run, Seen, Why};
 use quota_station_core::codex::{self, procs};
 use quota_station_core::local_time;
+use quota_station_core::os;
 use quota_station_core::quota;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};
@@ -279,8 +280,9 @@ fn wake_one(cli: &Path, home: &Path, tidy: bool) -> (Outcome, Option<String>) {
             if KEEP.contains(&name.as_str()) {
                 continue;
             }
-            let p = home.join(name);
-            let _ = if p.is_dir() { std::fs::remove_dir_all(&p) } else { std::fs::remove_file(&p) };
+            // A database Codex still holds for a moment is tried again
+            // on Windows; what stays, stays.
+            let _ = os::remove_retrying(&home.join(name));
         }
     }
     out
@@ -296,26 +298,25 @@ fn entries(dir: &Path) -> BTreeSet<String> {
 }
 
 fn exec(cli: &Path, home: &Path) -> (Outcome, Option<String>) {
-    let mut child = match Command::new(cli)
-        .args([
-            "exec",
-            "--skip-git-repo-check",
-            "--ephemeral",
-            "--ignore-user-config",
-            "--ignore-rules",
-            "--sandbox",
-            "read-only",
-            "--color",
-            "never",
-            "--json",
-            PROMPT,
-        ])
-        .env("CODEX_HOME", home)
-        .current_dir(std::env::temp_dir())
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
+    let mut child = match os::no_window(Command::new(cli).args([
+        "exec",
+        "--skip-git-repo-check",
+        "--ephemeral",
+        "--ignore-user-config",
+        "--ignore-rules",
+        "--sandbox",
+        "read-only",
+        "--color",
+        "never",
+        "--json",
+        PROMPT,
+    ]))
+    .env("CODEX_HOME", home)
+    .current_dir(std::env::temp_dir())
+    .stdin(Stdio::null())
+    .stdout(Stdio::piped())
+    .stderr(Stdio::piped())
+    .spawn()
     {
         Ok(c) => c,
         Err(e) => return (Outcome::Failed, Some(e.to_string())),
@@ -338,7 +339,7 @@ fn exec(cli: &Path, home: &Path) -> (Outcome, Option<String>) {
             Ok(Some(status)) => break Some(status),
             Ok(None) if started.elapsed() < RUN_WAIT => thread::sleep(Duration::from_millis(250)),
             _ => {
-                let _ = child.kill();
+                let _ = os::kill_tree(&mut child);
                 let _ = child.wait();
                 break None;
             }

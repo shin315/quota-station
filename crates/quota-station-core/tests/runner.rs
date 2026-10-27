@@ -63,6 +63,7 @@ fn paths_show_home_as_a_tilde() {
     assert_eq!(expand_path("/srv/codex", home), PathBuf::from("/srv/codex"));
 }
 
+#[cfg(unix)]
 #[test]
 fn a_program_in_a_folder_is_found_by_its_name() {
     let dir = temp_dir("runner-program-in");
@@ -76,7 +77,10 @@ fn a_program_in_a_folder_is_found_by_its_name() {
 fn on_windows_a_command_is_found_under_a_pathext_extension() {
     let dir = temp_dir("runner-pathext");
     std::fs::write(dir.join("claude.cmd"), "@echo off\r\n").unwrap();
+    // npm's script for Git Bash, beside the `.cmd`.
+    std::fs::write(dir.join("claude"), "#!/bin/sh\n").unwrap();
     assert_eq!(program_in(&dir, "claude"), Some(dir.join("claude.cmd")));
+    assert_eq!(program_in(&dir, "codex"), None);
     assert_eq!(program_in(&dir, "claude.exe"), None, "a name with an extension is taken as is");
     let home = Path::new(r"C:\Users\someone");
     assert_eq!(expand_path(r"~\.codex", home), home.join(".codex"));

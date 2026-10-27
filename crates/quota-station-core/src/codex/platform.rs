@@ -97,9 +97,13 @@ impl Platform for Unix {
     }
 }
 
-/// Windows: the folders and files under the profile, which its ACL keeps
-/// to the owner; a move that refuses to replace, and a replace that waits
-/// while Codex holds the file open.
+/// Windows: a folder whose ACL grants the current user alone and inherits
+/// nothing, which the files made in it inherit; `MoveFileExW` without
+/// `MOVEFILE_REPLACE_EXISTING` for a move (across volumes too, written
+/// through), with it for a replace, both tried again for two seconds while
+/// Codex holds the file open ([`crate::win::move_file`]). Windows's File
+/// History leaves `AppData` out, where the account folders are (see
+/// [`super::accounts`]), and Windows Search is told to leave them out too.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Windows;
 
@@ -112,25 +116,25 @@ impl Windows {
 #[cfg(windows)]
 impl Platform for Windows {
     fn private_dir(&self, dir: &Path) -> io::Result<()> {
-        std::fs::create_dir_all(dir)
+        crate::os::owner_dir(dir)
     }
 
     fn private_file(&self, _file: &Path) -> io::Result<()> {
+        // The folder's ACL, inherited.
         Ok(())
     }
 
     fn move_file(&self, from: &Path, to: &Path) -> io::Result<()> {
-        if std::fs::symlink_metadata(to).is_ok() {
-            return Err(io::ErrorKind::AlreadyExists.into());
-        }
-        crate::os::replace(from, to)
+        crate::win::move_file(from, to, false)
     }
 
     fn replace_file(&self, from: &Path, to: &Path) -> io::Result<()> {
-        crate::os::replace(from, to)
+        crate::win::move_file(from, to, true)
     }
 
-    fn exclude_from_backup(&self, _dir: &Path) {}
+    fn exclude_from_backup(&self, dir: &Path) {
+        crate::win::not_indexed(dir);
+    }
 }
 
 /// This system's: [`Unix`] or [`Windows`].

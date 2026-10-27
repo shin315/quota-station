@@ -19,6 +19,7 @@
 pub mod agent;
 pub mod cc;
 pub mod cli;
+pub mod credman;
 pub mod engine;
 pub mod import;
 pub mod keychain;
@@ -169,11 +170,11 @@ impl Paths {
 /// Windows. The app takes it from Tauri; the command line, which runs
 /// without Tauri, from here.
 pub fn app_dir(home: &Path) -> PathBuf {
-    const ID: &str = "com.shin315.quota-station";
+    let id = crate::app_dir::ID;
     if cfg!(windows) {
-        home.join("AppData").join("Roaming").join(ID)
+        home.join("AppData").join("Roaming").join(id)
     } else {
-        home.join("Library/Application Support").join(ID)
+        home.join("Library/Application Support").join(id)
     }
 }
 

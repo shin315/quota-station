@@ -18,7 +18,9 @@
 //!
 //! Every step that depends on the system goes through [`Platform`], and
 //! every step that moves or reads the account folders holds one lock, so a
-//! quota read never meets a switch half done.
+//! quota read never meets a switch half done. On Windows the folders and
+//! their list are in the app's local folder ([`AppDir::local`]), which a
+//! roaming profile never carries to another computer.
 
 use std::collections::BTreeMap;
 use std::io;
@@ -185,7 +187,8 @@ pub enum Refusal {
     InUse,
     /// Something is where a sign-in would go: nothing was moved.
     Conflict,
-    /// Codex keeps its sign-in in the Keychain: there is no file to move.
+    /// Codex keeps its sign-in in the Keychain (Credential Manager on
+    /// Windows): there is no file to move.
     Keychain,
     /// The nickname is too long or has a line break.
     Name,
@@ -194,16 +197,31 @@ pub enum Refusal {
     },
 }
 
+/// Where the account folders and their list live for the app's folder
+/// `app`: that folder, or on Windows its local twin.
+pub fn kept_in(app: &AppDir) -> AppDir {
+    if cfg!(windows) {
+        app.local()
+    } else {
+        app.clone()
+    }
+}
+
+/// The account folders' parent, for the app's folder `app`.
+pub fn root_of(app: &AppDir) -> PathBuf {
+    kept_in(app).path().join(DIR)
+}
+
 /// The Codex accounts of one Codex folder.
 pub struct Store<'a> {
-    app: &'a AppDir,
+    app: AppDir,
     home: &'a Path,
     platform: &'a dyn Platform,
 }
 
 impl<'a> Store<'a> {
-    pub fn new(app: &'a AppDir, codex_home: &'a Path, platform: &'a dyn Platform) -> Self {
-        Store { app, home: codex_home, platform }
+    pub fn new(app: &AppDir, codex_home: &'a Path, platform: &'a dyn Platform) -> Self {
+        Store { app: kept_in(app), home: codex_home, platform }
     }
 
     fn root(&self) -> PathBuf {

@@ -345,13 +345,13 @@ commands![
 
 /// `quota-station claude …`, with the owner's home and the Keychain.
 fn claude_cli(args: &[String]) -> i32 {
-    use quota_station_core::claude::{cli, keychain::Security, rotate, store::Store, Paths};
+    use quota_station_core::claude::{cli, rotate, store::Store, Paths};
     let Some(home) = std::env::var_os("HOME").map(std::path::PathBuf::from) else {
         eprintln!("quota-station claude: HOME is not set");
         return 1;
     };
     let cli = cli::Cli {
-        store: Store::new(Paths::for_home(&home), Security::system()),
+        store: Store::new(Paths::for_home(&home), quota_station_core::os::secret_store()),
         tools: rotate::Tools::system(&home),
         exe: std::env::current_exe().unwrap_or_else(|_| "quota-station".into()),
     };
@@ -373,7 +373,7 @@ usage: quota-station quota [--provider claude|agy|codex]... [--json]
 /// its files, without a read.
 fn quota_cli(args: &[String]) -> i32 {
     use quota_station_core::app_dir::AppDir;
-    use quota_station_core::claude::{self, keychain::Security, store::Store, usage, Paths};
+    use quota_station_core::claude::{self, store::Store, usage, Paths};
     use quota_station_core::quota::{self, cache::Cache, ProviderId, Response};
     use quota_station_core::settings::Settings;
     use std::io::Write;
@@ -418,7 +418,8 @@ fn quota_cli(args: &[String]) -> i32 {
     for provider in wanted {
         let report = match provider {
             ProviderId::Claude => {
-                let store = Store::new(Paths::for_home(&home), Security::system());
+                let store =
+                    Store::new(Paths::for_home(&home), quota_station_core::os::secret_store());
                 quota::claude::own_now(&store, now).unwrap_or_else(|| {
                     let live = quota::claude::Live {
                         paths: &store.paths,

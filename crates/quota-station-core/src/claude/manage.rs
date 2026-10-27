@@ -219,7 +219,8 @@ fn clear_login(store: &Store, dir: &Path) {
 pub fn add_from_folder(store: &Store, dir: &Path) -> Result<Added, ManageError> {
     let _app = AppLock::take(&store.paths)?;
     let service = cc::profile_service(dir).ok_or(ManageError::NoLogin)?;
-    let credential = store.security.get(&service, &user_account())?.ok_or(ManageError::NoLogin)?;
+    let credential =
+        cc::read_login(&*store.security, &service, dir)?.ok_or(ManageError::NoLogin)?;
     let oauth = super::read_optional(&dir.join(".claude.json"))?
         .and_then(|t| serde_json::from_str::<Value>(&t).ok())
         .and_then(|c| c.get("oauthAccount").cloned())

@@ -21,6 +21,8 @@ const FILES: Record<Exclude<EnvPlace, NoFile>, string> = {
   bashProfile: '~/.bash_profile',
   profile: '~/.profile',
   psProfile: '$PROFILE',
+  pwshProfile: '$PROFILE (PowerShell 7)',
+  bashrc: '~/.bashrc',
 };
 
 /** A shell file, which "Mở file" opens at its line. */

@@ -26,6 +26,7 @@ use quota_station_core::codex::login::Login;
 use quota_station_core::codex::platform::{Platform, System};
 use quota_station_core::codex::probe::{self, KeyCheck};
 use quota_station_core::codex::{self, procs, Outcome, ProviderOutcome, ProviderPreview};
+use quota_station_core::os;
 use quota_station_core::quota::cache::Cache;
 use quota_station_core::quota::{self, ProviderId};
 use serde::Serialize;
@@ -405,15 +406,17 @@ fn run_login(
     std::fs::write(folder.join(codex::CONFIG), accounts::FILE_STORE).map_err(|_| "other")?;
     let printed = File::create(folder.join(LOGIN_LOG)).map_err(|_| "other")?;
     let printed_err = printed.try_clone().map_err(|_| "other")?;
-    let mut child = Command::new(codex_cli)
-        .arg("login")
-        .args(how.device.then_some("--device-auth"))
-        .env("CODEX_HOME", folder)
-        .stdin(Stdio::null())
-        .stdout(printed)
-        .stderr(printed_err)
-        .spawn()
-        .map_err(|_| "noCodex")?;
+    let mut child = os::no_window(
+        Command::new(codex_cli)
+            .arg("login")
+            .args(how.device.then_some("--device-auth"))
+            .env("CODEX_HOME", folder)
+            .stdin(Stdio::null())
+            .stdout(printed)
+            .stderr(printed_err),
+    )
+    .spawn()
+    .map_err(|_| "noCodex")?;
     let started = Instant::now();
     let mut seen = (None, None);
     loop {
@@ -443,7 +446,9 @@ fn run_login(
             None
         };
         if let Some(why) = stop {
-            let _ = child.kill();
+            // With its local server: on Windows `codex.cmd` runs it in a
+            // child of its own.
+            let _ = os::kill_tree(&mut child);
             let _ = child.wait();
             return Err(why);
         }
@@ -684,14 +689,15 @@ pub async fn codex_remove(
 /// sign-in at OpenAI. Gives up after [`LOGOUT_WAIT`].
 fn sign_out(user_home: &Path, folder: &PathBuf) -> bool {
     let Some(codex_cli) = procs::discover(user_home) else { return false };
-    let Ok(mut child) = Command::new(codex_cli)
-        .arg("logout")
-        .env("CODEX_HOME", folder)
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()
-    else {
+    let Ok(mut child) = os::no_window(
+        Command::new(codex_cli)
+            .arg("logout")
+            .env("CODEX_HOME", folder)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null()),
+    )
+    .spawn() else {
         return false;
     };
     let started = Instant::now();
@@ -702,7 +708,7 @@ fn sign_out(user_home: &Path, folder: &PathBuf) -> bool {
                 std::thread::sleep(Duration::from_millis(200))
             }
             _ => {
-                let _ = child.kill();
+                let _ = os::kill_tree(&mut child);
                 let _ = child.wait();
                 return false;
             }

@@ -186,13 +186,14 @@ fn quote(value: &str) -> String {
 }
 
 /// The account name of Claude Code's own item: `$USER`, else the user's
-/// name, as Claude Code's `getUsername()` gives it.
+/// name, as Claude Code's `getUsername()` gives it. On Windows always
+/// `claude-code-user`, as its Windows build names its Credential Manager
+/// items.
 pub fn user_account() -> String {
-    if let Some(user) = std::env::var_os("USER").filter(|u| !u.is_empty()) {
-        return user.to_string_lossy().into_owned();
+    if cfg!(windows) {
+        return "claude-code-user".to_string();
     }
-    #[cfg(windows)]
-    if let Some(user) = std::env::var_os("USERNAME").filter(|u| !u.is_empty()) {
+    if let Some(user) = std::env::var_os("USER").filter(|u| !u.is_empty()) {
         return user.to_string_lossy().into_owned();
     }
     // SAFETY: `getpwuid` returns a pointer into static storage or null; the
