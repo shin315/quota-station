@@ -1178,6 +1178,7 @@ resets.
 ## Requirements
 
 - macOS 13 or later
+- Windows: đang làm (in progress; not usable yet)
 - To build: Rust stable (1.85 or later) and Node.js 20 or later (CI uses
   24). A Mac without them installs a copy built on another Mac.
 - Nothing else for the numbers: Codex, `agy` or Antigravity.app, and
