@@ -74,7 +74,8 @@ python3 community/export.py --out /tmp/qs-community --worktree --build
 build`, `cargo fmt --all` (the cut is laid out by rustfmt, not by hand),
 clippy with `-D warnings` and `cargo test`. `--public-url` sets the
 repository the community tree's links name. The folder given to `--out`
-must be empty or an earlier export.
+must be empty, an earlier export, or hold a build's `target/` alone (CI
+restores it there from its cache); `target/` is kept for the build.
 
 The leak check reads every path and every text line of the community tree
 against `community/leak-patterns.txt` and fails on any match, listing each
