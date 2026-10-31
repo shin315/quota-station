@@ -179,7 +179,7 @@ fn copy_then_remove(from: &Path, to: &Path) -> io::Result<()> {
         std::fs::OpenOptions::new().write(true).create_new(true).mode(0o600).open(to).and_then(
             |mut f| {
                 f.write_all(&bytes)?;
-                f.sync_all()
+                crate::os::sync_all(&f)
             },
         );
     // A sign-in: the bytes go no further than this function.

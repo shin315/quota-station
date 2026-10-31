@@ -584,7 +584,7 @@ pub fn copy_skill(from: &Path, to: &Path, files: &[(String, bool)]) -> io::Resul
         )
         .open(&dst)?;
         io::copy(&mut input, &mut output)?;
-        output.sync_all()?;
+        os::sync_all(&output)?;
     }
     Ok(())
 }
@@ -642,7 +642,7 @@ fn write_file(path: &Path, text: &str) -> io::Result<()> {
     let mut f = os::with_mode(std::fs::OpenOptions::new().write(true).create_new(true), 0o600)
         .open(path)?;
     f.write_all(text.as_bytes())?;
-    f.sync_all()
+    os::sync_all(&f)
 }
 
 /// Writes `pack` as a new folder in `root`, when none of its files holds a

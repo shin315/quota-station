@@ -94,7 +94,7 @@ pub fn write(
         let mut f = os::with_mode(std::fs::OpenOptions::new().write(true).create_new(true), 0o600)
             .open(&tmp)?;
         f.write_all(text.as_bytes())?;
-        f.sync_all()?;
+        os::sync_all(&f)?;
         drop(f);
         let kept = match (base, backup) {
             (Some(_), Some(b)) => Some(keep(b.bytes, b.dir, b.prefix, now)?),
@@ -130,7 +130,7 @@ pub fn keep(bytes: &[u8], dir: &Path, prefix: &str, now: OffsetDateTime) -> io::
     let mut f = os::with_mode(std::fs::OpenOptions::new().write(true).create_new(true), 0o600)
         .open(&path)?;
     f.write_all(bytes)?;
-    f.sync_all()?;
+    os::sync_all(&f)?;
     for old in list(dir, prefix).into_iter().skip(BACKUPS_KEPT) {
         let _ = std::fs::remove_file(old);
     }
@@ -176,7 +176,7 @@ pub fn scrub(dir: &Path, prefix: &str, redact: fn(&str) -> Result<String, String
                         .open(&tmp)
                         .and_then(|mut f| {
                             f.write_all(clean.as_bytes())?;
-                            f.sync_all()?;
+                            os::sync_all(&f)?;
                             if let Ok(at) = meta.modified() {
                                 f.set_modified(at)?;
                             }

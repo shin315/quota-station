@@ -204,7 +204,7 @@ pub(crate) fn write_private(path: &Path, text: &str) -> io::Result<()> {
             .open(&tmp)
             .and_then(|mut file| {
                 file.write_all(text.as_bytes())?;
-                file.sync_all()
+                crate::os::sync_all(&file)
             })
             .and_then(|()| crate::os::replace(&tmp, path));
     if written.is_err() {
