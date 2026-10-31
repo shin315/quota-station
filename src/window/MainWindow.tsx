@@ -665,8 +665,8 @@ function AgyTab(props: TabProps & { agyAccounts: boolean }) {
         <Card title={t('Nhiều tài khoản Antigravity', 'Multiple Antigravity accounts')}>
           <CardText className="mb-0">
             {t(
-              'Bản này chỉ đọc tài khoản đang đăng nhập. Thêm, đăng nhập và chuyển nhiều tài khoản có ở bản build từ mã nguồn với phần Antigravity, theo giấy phép CC BY-NC-SA 4.0 của phần đó.',
-              'This build only reads the signed-in account. Adding, signing in and switching several accounts comes with a build from source that includes the Antigravity part, under that part’s CC BY-NC-SA 4.0 license.',
+              'Bản này chỉ đọc tài khoản đang đăng nhập. Thêm, đăng nhập và chuyển nhiều tài khoản có ở bản build từ mã nguồn với phần Antigravity.',
+              'This build only reads the signed-in account. Adding, signing in and switching several accounts comes with a build from source that includes the Antigravity part.',
             )}
           </CardText>
         </Card>
