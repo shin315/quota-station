@@ -38,11 +38,11 @@ Code's login is learned from claude-swap's MIT source and credited in
 ## Switch
 
 `switch N` (the app's sheet, the rotation, and `quota-station claude switch
-N`) runs under four locks, in claude-swap's order: the app's own `flock` on
+N`) runs under five locks, in claude-swap's order: the app's own `flock` on
 `claude/.lock`, then Claude Code's lock folders `~/.claude/.oauth_refresh.lock`,
-`~/.claude.lock` and `~/.claude.json.lock` (the `proper-lockfile` protocol
-Claude Code uses: `mkdir`, stale after 60, 60 and 10 seconds, touched every
-3 seconds while held). Under them it:
+`~/.claude.lock`, `~/.claude/.storage-write.lock` and `~/.claude.json.lock`
+(the `proper-lockfile` protocol Claude Code uses: `mkdir`, stale after 60, 60,
+15 and 10 seconds, touched every 3 seconds while held). Under them it:
 
 1. reads the live login (the Keychain item `Claude Code-credentials`,
    account `$USER`) and `oauthAccount` in `~/.claude.json`; when that
@@ -101,8 +101,8 @@ decision, checks `com.cswap.prefer-team` and `com.cswap.auto`: while either is
 loaded, or `launchctl` cannot tell, the run switches nothing and the window says so, so two switchers never
 run at once. The decisions and switches go to `claude/rotation.log`, in the
 script's log format. A switch that fails is logged with its cause on the same
-line, `switch to slot 3 failed: <kind>: <reason>` (`busy`, a lock another
-process holds; `unconfirmed`, a login or account that did not read back as
+line, `switch to slot 3 failed: <kind>: <reason>` (`unknownSlot`, no account
+in that slot; `busy`, a lock another process holds; `unconfirmed`, a login or account that did not read back as
 written, with the old login put back; `keychain`; `noCredential`, the account
 has no usable login; `unmanaged`, Claude Code is on a login the app does not
 keep; `store`; `write`), and a prime that could not start as

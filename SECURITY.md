@@ -38,7 +38,7 @@ what it reads and writes of Claude Code's login is in
 Files, under `~/Library/Application Support/com.shin315.quota-station/`:
 
 - `oauth-client.json`: the Antigravity OAuth client, which the owner puts
-  there (see the README). The app only reads it, and refuses it unless only
+  there (see [docs/how-it-works.md](docs/how-it-works.md#the-oauth-client-file)). The app only reads it, and refuses it unless only
   the owner can read it (mode 600). The id and the secret never go into this
   repository, the logs or the windows; the windows only learn whether the
   file is usable.

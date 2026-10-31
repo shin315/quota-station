@@ -60,7 +60,7 @@ SOFTWARE.
   `Nhập từ claude-swap`. [`NOTICE`](NOTICE) lists the files and what was
   changed. The app runs no claude-swap command and never writes claude-swap's
   files or Keychain items; the import only reads them, when the owner asks.
-  The README's cutover checklist leaves claude-swap installed.
+  The cutover checklist ([docs/cutover.md](docs/cutover.md)) leaves claude-swap installed.
 - License: MIT
 
 ```
