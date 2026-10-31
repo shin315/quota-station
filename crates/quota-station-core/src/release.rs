@@ -419,7 +419,7 @@ mod tests {
         assert_eq!(pick("linux", "x86_64"), None);
     }
 
-    /// The Mac mini M6 at ca353c5: `release.json` sits in the app's folder
+    /// One Mac at ca353c5: `release.json` sits in the app's folder
     /// itself and was refused, so Phiên bản kept saying it had never checked.
     #[test]
     fn a_check_is_kept_in_the_apps_folder_and_read_back() {

@@ -15,8 +15,8 @@
 //! SHA-256 of the email (trimmed, lower case), holding Google's
 //! `fetchAvailableModels` answer with the `retrieveUserQuotaSummary` answer
 //! under `quota_summary`. With the account index beside it, the Antigravity
-//! row lists these accounts ([`super::listing`]), and Firstmate's quota-axi
-//! can read them as it reads Cockpit's.
+//! row lists these accounts ([`super::listing`]), and quota-axi can read
+//! them as it reads Cockpit's.
 //!
 //! The same files are the app's cache: a reading younger than 60 seconds is
 //! used instead of asking Google again.

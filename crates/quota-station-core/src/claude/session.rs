@@ -11,9 +11,12 @@
 // the Keychain item Claude Code keys to the folder, never in a file; on
 // Windows it goes where Claude Code reads it there (`cc::write_login`).
 
-//! Running `claude` as one account without changing the active login, for
-//! Firstmate and the rotation's priming: `CLAUDE_CONFIG_DIR` points at
-//! `claude/sessions/<slot>/`, a folder Claude Code treats as its own.
+//! Running `claude` as one account without changing the active login:
+//! `CLAUDE_CONFIG_DIR` points at `claude/sessions/<slot>/`, a folder Claude
+//! Code treats as its own.
+// @private:begin
+//! Firstmate and the rotation's priming run it.
+// @private:end
 
 use std::path::{Path, PathBuf};
 use std::process::Command;

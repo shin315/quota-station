@@ -9,9 +9,12 @@
 
 //! The locks a change of the Claude accounts takes, in this order:
 //!
-//! 1. [`AppLock`]: the app's own `flock` on `claude/.lock`, so the app, the
-//!    rotation's LaunchAgent and the command line never change the accounts
-//!    or Claude Code's login at the same time;
+//! 1. [`AppLock`]: the app's own `flock` on `claude/.lock`, so the app and
+//!    the command line never change the accounts or Claude Code's login at
+//!    the same time;
+// @private:begin
+//!    nor does the rotation's LaunchAgent;
+// @private:end
 //! 2. [`credentials`]: Claude Code's `~/.claude/.oauth_refresh.lock`, then
 //!    `~/.claude.lock`, which Claude Code holds while it refreshes or writes
 //!    its login, then `~/.claude/.storage-write.lock`, which Claude Code

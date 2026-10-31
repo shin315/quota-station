@@ -24,7 +24,7 @@ const SCENARIOS: &[(&str, &str, &str, Option<&str>)] = &[
     ("stale", "claude-stale.json", "agy-list.json", None),
     ("reset-pending", "claude-reset-pending.json", "agy-list.json", None),
     ("exhausted", "claude-exhausted.json", "agy-list.json", None),
-    ("no-rotation", "claude-no-rotation.json", "agy-single.json", None),
+    ("unnamed", "claude-unnamed.json", "agy-single.json", None),
     (
         "unavailable",
         "claude-unavailable.json",
@@ -35,7 +35,15 @@ const SCENARIOS: &[(&str, &str, &str, Option<&str>)] = &[
 ];
 
 fn ui_dir() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../src/fixtures/snapshots")
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    // @private:begin
+    // Without the private part a snapshot has no roles and no room pool:
+    // those fixtures are the community tree's (community/make-fixtures.py).
+    if cfg!(not(feature = "author-tools")) {
+        return root.join("community/overlay/src/fixtures/snapshots");
+    }
+    // @private:end
+    root.join("src/fixtures/snapshots")
 }
 
 /// Every window of every account, with names, as the app adds them.

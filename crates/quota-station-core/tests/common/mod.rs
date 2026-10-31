@@ -22,6 +22,7 @@ pub mod os;
 use std::path::PathBuf;
 
 use quota_station_core::quota::Response;
+#[cfg(feature = "author-tools")]
 use quota_station_core::rotation::Rules;
 
 pub fn fixture_path(name: &str) -> PathBuf {
@@ -96,6 +97,7 @@ pub fn claude_details(name: &str) -> Vec<quota_station_core::detail::ClaudeDetai
 /// A rotation with every key set: Team 2 3 4, personal 1 from 8 to 23, full
 /// at 90 %, Fable full at 95 %, no end times. The app has no built-in
 /// rotation; this is one a test writes.
+#[cfg(feature = "author-tools")]
 pub fn sample_rules() -> Rules {
     Rules {
         team: vec![2, 3, 4],

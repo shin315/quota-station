@@ -113,8 +113,8 @@ fixture. The comment at the top of `src/preview.ts` explains each state; the
 query parameters are:
 
 - `state`: a snapshot in `src/fixtures/snapshots/`: `fresh` (the default),
-  `exhausted`, `keychain`, `no-antigravity`, `no-rotation`, `reset-pending`,
-  `single`, `stale` or `unavailable`.
+  `exhausted`, `keychain`, `no-antigravity`, `reset-pending`, `single`,
+  `stale`, `unavailable` or `unnamed`.
 - `view=window` with `tab`: `overview`, `stats`, `claude`, `agy`, `codex`,
   `rules`, `history`, `alerts` (Overview with the bell's panel open),
   `firstmate`, `mcp`, `skills`, `plugins`, `instr`, `sets`, `cliTools`,

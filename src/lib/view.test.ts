@@ -256,8 +256,8 @@ describe('popover view', () => {
     expect(v.now.rows[0]).toMatchObject({ text: '96%', tone: 'bad' });
   });
 
-  it('without a rotation file names accounts by number', () => {
-    const v = view('no-rotation');
+  it('accounts without a name go by number', () => {
+    const v = view('unnamed');
     expect(v.claude.cards.map((r) => r.name).sort()).toEqual(['Tài khoản 1', 'Tài khoản 2', 'Tài khoản 3', 'Tài khoản 4']);
   });
 

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 //! The macOS side of [`quota_station_core::os`], against fake `security`,
-//! `launchctl`, `ps` and `lsof` shell scripts: the commands the app runs and
+//! `ps` and `lsof` shell scripts (and `launchctl`): the commands the app runs and
 //! how it reads their answers. The other tests use the fakes kept in memory
 //! (`common::os`).
 #![cfg(target_os = "macos")]
@@ -13,9 +13,12 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use common::{script, temp_dir};
+#[cfg(feature = "author-tools")]
 use quota_station_core::claude::agent::{self, AgentError, Launchd};
 use quota_station_core::claude::keychain::{KeychainError, Security};
-use quota_station_core::os::{Process, ProcessList, Ps, Scheduler, SecretStore};
+#[cfg(feature = "author-tools")]
+use quota_station_core::os::Scheduler;
+use quota_station_core::os::{Process, ProcessList, Ps, SecretStore};
 
 /// A `security` that keeps items as files in `dir/items/<service>--<account>`,
 /// exits 44 for a missing one as macOS's does, takes a write from a
@@ -67,6 +70,7 @@ esac
 /// A `launchctl` that keeps loaded labels as files in `dir/loaded/`:
 /// `list LABEL` exits 0 or 113, `bootstrap DOMAIN PLIST` loads the plist's
 /// label, `bootout DOMAIN/LABEL` unloads it. Every run is recorded.
+#[cfg(feature = "author-tools")]
 fn fake_launchctl(dir: &Path) -> PathBuf {
     std::fs::create_dir_all(dir.join("loaded")).unwrap();
     let d = dir.display();
@@ -118,6 +122,7 @@ fn security_keeps_a_value_off_its_command_line_and_reads_it_back() {
     assert!(matches!(gone.get("svc", "acct"), Err(KeychainError::Spawn(_))));
 }
 
+#[cfg(feature = "author-tools")]
 #[test]
 fn launchd_loads_the_rotation_agent_and_unloads_it() {
     let dir = temp_dir("os-launchd");

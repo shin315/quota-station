@@ -6,6 +6,8 @@
 //! Keychain, launchd and Anthropic. Every account is made up, and the
 //! clock is an argument, never waited on.
 
+#![cfg(feature = "author-tools")]
+
 mod common;
 
 use std::collections::BTreeMap;

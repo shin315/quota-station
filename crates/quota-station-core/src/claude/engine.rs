@@ -50,7 +50,7 @@ use crate::local_time;
 use crate::rotation::Rules;
 
 /// The age at which a reading stops counting, as the script counts it.
-pub const FRESH_SECONDS: i64 = 900;
+pub use super::usage::FRESH_SECONDS;
 /// What an early switch needs left of the other account's five-hour window:
 /// less is not worth the switch.
 pub const EARLY_MIN_SECONDS: f64 = 20.0 * 60.0;

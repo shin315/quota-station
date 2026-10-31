@@ -12,7 +12,7 @@ use serde::Serialize;
 
 pub const TIMEOUT: Duration = Duration::from_secs(5);
 pub const TRIES: u32 = 3;
-const PAUSE: Duration = Duration::from_secs(1);
+const GAP: Duration = Duration::from_secs(1);
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
@@ -32,10 +32,10 @@ fn models_url(base: &str) -> Option<url::Url> {
 
 /// Asks once per try, a second apart, until one answers.
 pub fn check(base_url: &str) -> Answer {
-    check_with(base_url, TIMEOUT, PAUSE)
+    check_with(base_url, TIMEOUT, GAP)
 }
 
-pub fn check_with(base_url: &str, timeout: Duration, pause: Duration) -> Answer {
+pub fn check_with(base_url: &str, timeout: Duration, gap: Duration) -> Answer {
     let Some(url) = models_url(base_url) else { return Answer::BadUrl };
     let client = match reqwest::blocking::Client::builder()
         .timeout(timeout)
@@ -48,7 +48,7 @@ pub fn check_with(base_url: &str, timeout: Duration, pause: Duration) -> Answer 
     let mut detail = String::new();
     for i in 0..TRIES {
         if i > 0 {
-            std::thread::sleep(pause);
+            std::thread::sleep(gap);
         }
         let started = Instant::now();
         match client.get(url.clone()).send() {
@@ -76,11 +76,11 @@ pub struct KeyCheck {
 }
 
 pub fn check_key(base_url: &str, key: &str) -> KeyCheck {
-    check_key_with(base_url, key, TIMEOUT, PAUSE)
+    check_key_with(base_url, key, TIMEOUT, GAP)
 }
 
-pub fn check_key_with(base_url: &str, key: &str, timeout: Duration, pause: Duration) -> KeyCheck {
-    let ms = match check_with(base_url, timeout, pause) {
+pub fn check_key_with(base_url: &str, key: &str, timeout: Duration, gap: Duration) -> KeyCheck {
+    let ms = match check_with(base_url, timeout, gap) {
         Answer::Up { ms } => ms,
         Answer::Down { .. } => {
             return KeyCheck { reach: "down", ms: None, key: "unknown", status: None }

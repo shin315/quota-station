@@ -1,8 +1,10 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-//! This Mac's wall clock, written the way the switcher's pause flag and log
-//! write it: `2026-10-16T18:30`, no offset.
+//! This Mac's wall clock, written `2026-10-16T18:30`, with no offset.
+// @private:begin
+//! The switcher's pause flag and log write it so.
+// @private:end
 //!
 //! The `time` crate will not read the local offset in a multi-threaded
 //! process, so the offset comes from `jiff`, which reads the system's time
@@ -31,7 +33,7 @@ pub fn stamp(at: OffsetDateTime) -> String {
     )
 }
 
-/// `at` on this Mac's clock, to the minute, as the pause flag stores it.
+/// `at` on this Mac's clock, to the minute.
 pub fn minute(at: OffsetDateTime) -> String {
     stamp(at)[..16].to_string()
 }

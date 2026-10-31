@@ -3,7 +3,11 @@
 
 //! The switch history: the app's journal, the switcher's log and the app's
 //! Antigravity switch log in one list, and the changes of the account in use
-//! the journal keeps, on synthetic files in temporary folders.
+//! the journal keeps, on synthetic files in temporary folders. A build
+//! without the `author-tools` feature reads no switcher's log and has its
+//! own in `history_journal.rs`.
+
+#![cfg(feature = "author-tools")]
 
 mod common;
 
@@ -19,7 +23,6 @@ use quota_station_core::antigravity::watch;
 use quota_station_core::app_dir::AppDir;
 use quota_station_core::history::{self, App, Cause, Seen, Source};
 use quota_station_core::local_time;
-#[cfg(feature = "antigravity-accounts")]
 use quota_station_core::switcher::Why;
 use time::OffsetDateTime;
 

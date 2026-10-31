@@ -2,10 +2,9 @@
 // SPDX-License-Identifier: MIT
 
 //! Fakes for the Claude account tests: a temporary home with a made-up
-//! Claude Code login, a secret store and a scheduler kept in memory
-//! ([`super::os`]), and a local Anthropic that answers the usage and token
-//! calls. Nothing here reaches the Keychain, launchd or Anthropic, and every
-//! login is made up.
+//! Claude Code login, a secret store kept in memory ([`super::os`]), and a
+//! local Anthropic that answers the usage and token calls. Nothing here
+//! reaches the Keychain, launchd or Anthropic, and every login is made up.
 
 use std::collections::BTreeMap;
 use std::io::{BufRead, BufReader, Read, Write};
@@ -19,7 +18,9 @@ use quota_station_core::claude::usage::Endpoints;
 use quota_station_core::claude::Paths;
 use serde_json::{json, Value};
 
-use super::os::{FakeKeychain, FakeScheduler};
+use super::os::FakeKeychain;
+#[cfg(feature = "author-tools")]
+use super::os::FakeScheduler;
 use super::temp_dir;
 
 /// A request the fake Anthropic answered.
@@ -229,6 +230,7 @@ pub struct Mac {
     pub paths: Paths,
     pub store: Store,
     pub keychain: FakeKeychain,
+    #[cfg(feature = "author-tools")]
     pub scheduler: Arc<FakeScheduler>,
 }
 
@@ -242,7 +244,15 @@ impl Mac {
         // A lock that is held stays held: the tests never wait for one.
         paths.lock_wait = std::time::Duration::ZERO;
         let store = Store::new(paths.clone(), keychain.clone());
-        Mac { home, dir, paths, store, keychain, scheduler: FakeScheduler::new() }
+        Mac {
+            home,
+            dir,
+            paths,
+            store,
+            keychain,
+            #[cfg(feature = "author-tools")]
+            scheduler: FakeScheduler::new(),
+        }
     }
 
     /// The value of a fake Keychain item.
@@ -288,6 +298,7 @@ impl Mac {
         list.put(Account {
             slot,
             alias: None,
+            #[cfg(feature = "author-tools")]
             disabled: false,
             kind: Kind::Login,
             account_uuid: format!("uuid-{slot}"),
@@ -300,16 +311,19 @@ impl Mac {
         self.store.set_oauth_account(slot, &oauth).unwrap();
     }
 
+    #[cfg(feature = "author-tools")]
     pub fn load_label(&self, label: &str) {
         self.scheduler.load(label);
     }
 
+    #[cfg(feature = "author-tools")]
     pub fn loaded(&self, label: &str) -> bool {
         self.scheduler.is_loaded(label)
     }
 
     /// Cài đặt › Nâng cao shows Firstmate, or does not: the copy for
     /// Firstmate's quota-axi is written only while it does.
+    #[cfg(feature = "author-tools")]
     pub fn show_firstmate(&self, shown: bool) {
         let settings = quota_station_core::settings::Settings {
             advanced: true,

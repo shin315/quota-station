@@ -3,7 +3,7 @@
 
 [package]
 name = "quota-station-core"
-description = "Reads the quota of Claude, Codex and Antigravity itself, turns it into the Quota Station snapshot, paces refreshes, keeps and switches the Claude accounts, keeps the rotation file in step across Macs, and logs in, reads the quota of and switches Antigravity accounts."
+description = "Reads the quota of Claude, Codex and Antigravity itself, turns it into the Quota Station snapshot, paces refreshes, keeps and switches the Claude accounts, and logs in, reads the quota of and switches Antigravity accounts."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -17,13 +17,17 @@ publish = false
 # CC BY-NC-SA 4.0 (`LICENSES/`, `NOTICE`). Off, the crate is MIT only and
 # Antigravity is the one account signed in on this Mac, read-only.
 antigravity-accounts = []
-# The tools made for the author's own Macs (`author-tools`): the rotation
-# editor and its copy to the other Macs over SSH, the copy of the agents'
-# setup to another Mac, the update from a clone of the source, the
-# Firstmate state file and alert, and the copy of the Claude accounts in
-# claude-swap's layout (`docs/claude-accounts.md`). Off by default and in a
-# release build; `scripts/install.sh` builds with it.
+# @private:begin
+# The private part, made for the author's own Macs (`author-tools`): the
+# automatic Claude rotation, its rules and their copy to the other Macs over
+# SSH, the pause, the switcher, the account roles, the other Macs' view, the
+# copy of the agents' setup to another Mac, the update from a clone of the
+# source, the Firstmate state file and alert, and the copy of the Claude
+# accounts in claude-swap's layout (`docs/claude-accounts.md`). Off by
+# default and in a release build; `scripts/install.sh` builds with it. The
+# community edition is this repository without it (`community/`).
 author-tools = []
+# @private:end
 # For the tests only: points the Google, Anthropic and ChatGPT endpoints at
 # a local fake, lets a fake `security` stand in for the Keychain, and
 # records every file the Antigravity module opens. The app never turns it on.

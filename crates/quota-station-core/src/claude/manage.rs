@@ -9,8 +9,8 @@
 
 //! Adding, removing and changing the app's Claude accounts: a new login in
 //! a folder of its own (Claude Code's default login is never touched), the
-//! login Claude Code is on now, a setup token, and each account's alias and
-//! place in the rotation. Every change holds the app's account lock.
+//! login Claude Code is on now, a setup token, and each account's alias.
+//! Every change holds the app's account lock.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -148,6 +148,7 @@ fn put(store: &Store, credential: &str, oauth: &Value, kind: Kind) -> Result<Add
     list.put(Account {
         slot,
         alias: None,
+        #[cfg(feature = "author-tools")]
         disabled: false,
         kind,
         account_uuid: who.account_uuid,
@@ -316,6 +317,7 @@ pub fn set_alias(store: &Store, slot: u32, alias: &str) -> Result<(), ManageErro
 
 /// Puts the account in the rotation, or holds it out (it can still be
 /// switched to by hand).
+#[cfg(feature = "author-tools")]
 pub fn set_enabled(store: &Store, slot: u32, enabled: bool) -> Result<(), ManageError> {
     change(store, slot, |a| a.disabled = !enabled)
 }

@@ -1109,7 +1109,7 @@ mod tests {
 
     #[test]
     fn folder_names_are_plain() {
-        assert_eq!(slug("Mac mini (M6)"), "mac-mini-m6");
+        assert_eq!(slug("Mac Studio (M2)"), "mac-studio-m2");
         assert_eq!(slug("Máy của tôi"), "m-y-c-a-t-i");
         assert_eq!(slug("…"), "mac");
         assert!(valid_id("agents-20261019-143005-mac-mini"));

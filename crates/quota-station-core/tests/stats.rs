@@ -477,7 +477,10 @@ fn switch(at: &str, from: Option<u32>, to: u32) -> Entry {
         source: Source::App,
         from,
         to: Some(to),
+        #[cfg(feature = "author-tools")]
         cause: Cause::Manual { hold_until: None, result: "switched".into() },
+        #[cfg(not(feature = "author-tools"))]
+        cause: Cause::Manual { result: "switched".into() },
     }
 }
 

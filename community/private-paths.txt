@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: 2026 Shin315
+# SPDX-License-Identifier: MIT
+#
+# What the community tree never has (community/export.py): globs on the
+# repository's paths; one that ends in / is a whole directory. A Rust file
+# only the author-tools feature builds (#![cfg(feature = "author-tools")])
+# leaves without being named here.
+
+# The export itself, its lists and its overlay.
+community/
+# The web UI of the private part.
+src/private/
+# The core's private modules (their `mod` lines are under the feature).
+crates/quota-station-core/src/agents/copy.rs
+crates/quota-station-core/src/claude/agent.rs
+crates/quota-station-core/src/claude/engine.rs
+crates/quota-station-core/src/claude/rotate.rs
+crates/quota-station-core/src/claude/timer.rs
+crates/quota-station-core/src/firstmate.rs
+crates/quota-station-core/src/pause.rs
+crates/quota-station-core/src/peers.rs
+crates/quota-station-core/src/rotation.rs
+crates/quota-station-core/src/switcher.rs
+crates/quota-station-core/src/update.rs
+# The app's private modules.
+src-tauri/src/copy.rs
+src-tauri/src/rules.rs
+# The menu bar icon while the rotation is paused.
+assets/menubar/qs-tray-paused.svg

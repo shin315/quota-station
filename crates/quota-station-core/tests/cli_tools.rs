@@ -322,7 +322,7 @@ fn a_feed_that_does_not_answer_says_why_on_its_own_row() {
     assert!(again.failed.is_empty());
 }
 
-/// The Mac mini M6 at ca353c5: a check ran, but `cli-tools.json` sits in
+/// One Mac at ca353c5: a check ran, but `cli-tools.json` sits in
 /// the app's folder itself and was refused, so the page kept saying it had
 /// never checked.
 #[test]

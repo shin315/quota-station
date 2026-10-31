@@ -3,11 +3,13 @@
 
 //! What the app tells other programs about the Claude accounts:
 //!
-//! - `claude/state.json`, for Firstmate and anyone else: each account's
-//!   slot, alias, whether it is in the rotation, its three windows, how old
-//!   its reading is and its error, and the account in use. No email, no
-//!   token. `quota-station claude status --json` prints the same, and only
-//!   with `--emails` adds the emails.
+//! - `claude/state.json`, for any other program: each account's slot,
+//!   alias, its three windows, how old its reading is and its error, and
+//!   the account in use. No email, no token. `quota-station claude status
+//!   --json` prints the same, and only with `--emails` adds the emails.
+// @private:begin
+//!   With the `author-tools` feature also whether each account is in the
+//!   rotation.
 //! - `claude/swap/sequence.json` and `claude/swap/cache/usage.json`, the
 //!   same numbers in claude-swap's layout, which the quota-axi Firstmate
 //!   runs reads when `QUOTA_AXI_CLAUDE_SWAP_DIR` points at `claude/swap`.
@@ -16,6 +18,7 @@
 //!   feature. Addresses there are placeholders
 //!   (`slot-2@quota-station.local`); quota-axi only compares the two
 //!   files' with each other.
+// @private:end
 //! - [`details`], for the app's own windows: each account's windows and,
 //!   only while the owner shows names, its email and organization, read
 //!   from its Keychain item into memory.
@@ -57,6 +60,7 @@ pub struct AccountOut {
     pub slot: u32,
     pub alias: Option<String>,
     /// In the rotation (not held out by the owner).
+    #[cfg(feature = "author-tools")]
     pub enabled: bool,
     pub active: bool,
     /// `login` or `setupToken`.
@@ -109,6 +113,7 @@ pub fn build(list: &List, cache: &Cache, active: Option<u32>, now: OffsetDateTim
             AccountOut {
                 slot: a.slot,
                 alias: a.alias.clone(),
+                #[cfg(feature = "author-tools")]
                 enabled: !a.disabled,
                 active: active == Some(a.slot),
                 kind: a.kind,
@@ -191,7 +196,10 @@ pub fn swap_usage(list: &List, cache: &Cache) -> Value {
     json!({ "schemaVersion": 2, "accounts": accounts })
 }
 
-/// Writes the data file, and the copy for Firstmate while it shows.
+/// Writes the data file.
+// @private:begin
+/// Also the copy for Firstmate while it shows.
+// @private:end
 pub fn write(store: &Store, active: Option<u32>, now: OffsetDateTime) -> std::io::Result<()> {
     let list = store.load().map_err(|e| std::io::Error::other(e.to_string()))?;
     let cache = usage::load(store);

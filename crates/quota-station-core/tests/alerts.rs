@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-//! The five alerts on synthetic sequences of readings, de-duplication, and
+//! The alerts on synthetic sequences of readings, de-duplication, and
 //! the buttons through a fake notification center that records every card
 //! it shows and every button pressed. Nothing here reads a real account,
 //! the Keychain or macOS's notification center.
@@ -45,9 +45,31 @@ fn at(t: i64) -> OffsetDateTime {
     OffsetDateTime::from_unix_timestamp(t).unwrap()
 }
 
+#[cfg(feature = "author-tools")]
 fn rfc(t: i64) -> String {
     at(t).format(&time::format_description::well_known::Rfc3339).unwrap()
 }
+
+/// Claude account `n` by the name the cards give it.
+#[cfg(feature = "author-tools")]
+fn name(n: u32) -> String {
+    match n {
+        1 => "Cá nhân".into(),
+        n => format!("Team {}", char::from(b'A' + (n - 2) as u8)),
+    }
+}
+
+/// Claude account `n` by the name the cards give it.
+#[cfg(not(feature = "author-tools"))]
+fn name(n: u32) -> String {
+    format!("Tài khoản {n}")
+}
+
+/// The title of alert 1's card.
+#[cfg(feature = "author-tools")]
+const DRY: &str = "Hạn mức Claude trong vòng sắp cạn";
+#[cfg(not(feature = "author-tools"))]
+const DRY: &str = "Hạn mức Claude sắp cạn";
 
 /// One of the app's Claude accounts as its report gives it.
 fn slot(n: u32, left: f64, active: bool) -> Value {
@@ -59,13 +81,41 @@ fn slot(n: u32, left: f64, active: bool) -> Value {
     })
 }
 
-/// A Claude report with the app's accounts and the rotation Team 2 3 4,
-/// Cá nhân 1 from 8 to 23, and `expire` entries.
-fn report(slots: Vec<Value>, expire: Vec<(u32, i64)>, room: f64) -> Response {
-    serde_json::from_value(report_value(slots, expire, room)).expect("synthetic report parses")
+/// A Claude report with the app's accounts.
+#[cfg(not(feature = "author-tools"))]
+fn report(slots: Vec<Value>) -> Response {
+    serde_json::from_value(report_value(slots)).expect("synthetic report parses")
 }
 
-fn report_value(slots: Vec<Value>, expire: Vec<(u32, i64)>, room: f64) -> Value {
+#[cfg(not(feature = "author-tools"))]
+fn report_value(slots: Vec<Value>) -> Value {
+    let active = slots.iter().find(|s| s["active"] == true).and_then(|s| s["slot"].as_u64());
+    json!({
+        "generatedAt": "2026-01-16T07:20:00.000Z",
+        "providers": [{
+            "provider": "claude",
+            "windows": [],
+            "state": { "status": "fresh" },
+            "claudeAccounts": { "activeSlot": active, "slots": slots }
+        }]
+    })
+}
+
+/// A Claude report with the app's accounts and the rotation Team 2 3 4,
+/// Cá nhân 1 from 8 to 23.
+#[cfg(feature = "author-tools")]
+fn report(slots: Vec<Value>) -> Response {
+    rotating(slots, vec![])
+}
+
+/// The same with `expire` entries.
+#[cfg(feature = "author-tools")]
+fn rotating(slots: Vec<Value>, expire: Vec<(u32, i64)>) -> Response {
+    serde_json::from_value(report_value(slots, expire)).expect("synthetic report parses")
+}
+
+#[cfg(feature = "author-tools")]
+fn report_value(slots: Vec<Value>, expire: Vec<(u32, i64)>) -> Value {
     let active = slots.iter().find(|s| s["active"] == true).and_then(|s| s["slot"].as_u64());
     json!({
         "generatedAt": "2026-01-16T07:20:00.000Z",
@@ -80,7 +130,7 @@ fn report_value(slots: Vec<Value>, expire: Vec<(u32, i64)>, room: f64) -> Value 
                     "team": [2, 3, 4], "personal": 1, "personalHours": "8-23",
                     "expire": expire.iter().map(|(s, t)| json!({ "slot": s, "at": rfc(*t) })).collect::<Vec<_>>()
                 },
-                "pool": { "scope": "all_models", "members": 4, "effectivePercentRemaining": room * 25.0, "slotsOfRoom": room, "slots": [] }
+                "pool": { "scope": "all_models", "members": 4, "effectivePercentRemaining": 50.0, "slotsOfRoom": 2.0, "slots": [] }
             }
         }]
     })
@@ -88,8 +138,9 @@ fn report_value(slots: Vec<Value>, expire: Vec<(u32, i64)>, room: f64) -> Value 
 
 /// The same report without the rotation: the app then reads the rotation
 /// file itself.
+#[cfg(feature = "author-tools")]
 fn report_without_rotation(slots: Vec<Value>) -> Response {
-    let mut text = report_value(slots, vec![], 2.0);
+    let mut text = report_value(slots, vec![]);
     text["providers"][0]["claudeAccounts"]["rotation"] = Value::Null;
     serde_json::from_value(text).expect("synthetic report parses")
 }
@@ -99,6 +150,7 @@ fn facts<'a>(now: i64, claude: Option<&'a Response>) -> Facts<'a> {
         now: at(now),
         offset: offset(),
         claude,
+        #[cfg(feature = "author-tools")]
         rules: None,
         #[cfg(feature = "antigravity-accounts")]
         agy: Vec::new(),
@@ -107,8 +159,25 @@ fn facts<'a>(now: i64, claude: Option<&'a Response>) -> Facts<'a> {
         #[cfg(feature = "author-tools")]
         firstmate: None,
         pool: PoolAlert::default(),
+        #[cfg(feature = "author-tools")]
         advanced: true,
     }
+}
+
+/// Alert 1's check at 14:20 with these thresholds.
+fn check_pool(r: &Response, limits: PoolAlert) -> alerts::PoolCheck {
+    #[cfg(feature = "author-tools")]
+    return alerts::pool_check(r, None, limits, at(T0), offset()).unwrap();
+    #[cfg(not(feature = "author-tools"))]
+    alerts::pool_check(r, limits).unwrap()
+}
+
+/// The card "Gửi thử" sends, naming the accounts as the cards do.
+fn sample(kind: Kind, now: i64) -> alerts::Alert {
+    #[cfg(feature = "author-tools")]
+    return alerts::sample(kind, now, offset(), true);
+    #[cfg(not(feature = "author-tools"))]
+    alerts::sample(kind, now, offset())
 }
 
 /// Records every card and every button pressed, as macOS would deliver
@@ -155,7 +224,11 @@ impl FakeCenter {
 
 /// Runs the rules and shows what they found, as the reader does.
 fn run(memory: &mut Memory, f: &Facts, center: &FakeCenter) -> Vec<String> {
-    let ids = alerts::evaluate(memory, f, &Switches { firstmate: true, ..Switches::default() });
+    #[cfg(feature = "author-tools")]
+    let switches = Switches { firstmate: true, ..Switches::default() };
+    #[cfg(not(feature = "author-tools"))]
+    let switches = Switches::default();
+    let ids = alerts::evaluate(memory, f, &switches);
     alerts::deliver(memory, &ids, center);
     ids
 }
@@ -169,24 +242,28 @@ fn the_pool_running_dry_and_coming_back_are_two_cards() {
     let center = FakeCenter::default();
     let mut memory = Memory::default();
     // Team A in use with room: nothing.
-    let ok =
-        report(vec![slot(1, 80.0, false), slot(2, 60.0, true), slot(3, 40.0, false)], vec![], 1.8);
+    let ok = report(vec![slot(1, 80.0, false), slot(2, 60.0, true), slot(3, 40.0, false)]);
     assert!(run(&mut memory, &facts(T0, Some(&ok)), &center).is_empty());
 
     // Team A at 8 %, every other account under 15 % but Cá nhân at 12 %.
-    let dry = report(
-        vec![slot(1, 12.0, false), slot(2, 8.0, true), slot(3, 4.0, false), slot(4, 0.0, false)],
-        vec![],
-        0.4,
-    );
+    let dry = report(vec![
+        slot(1, 12.0, false),
+        slot(2, 8.0, true),
+        slot(3, 4.0, false),
+        slot(4, 0.0, false),
+    ]);
     let shown = run(&mut memory, &facts(T0 + 5 * MIN, Some(&dry)), &center);
     assert_eq!(shown.len(), 1);
     let card = center.last();
     assert_eq!(card.kind, Kind::Pool);
-    assert_eq!(card.title, "Hạn mức Claude trong vòng sắp cạn");
+    assert_eq!(card.title, DRY);
     // The account in use and when another comes back, never a room in accounts.
-    assert_eq!(card.body, "Team A đã dùng 92%. Cá nhân có lại hạn mức lúc 17:29.");
-    assert_eq!(labels(&card.actions), ["Sang Cá nhân (đã dùng 88%)", "Bỏ qua"]);
+    assert_eq!(
+        card.body,
+        format!("{} đã dùng 92%. {} có lại hạn mức lúc 17:29.", name(2), name(1))
+    );
+    let switch = format!("Sang {} (đã dùng 88%)", name(1));
+    assert_eq!(labels(&card.actions), [switch.as_str(), "Bỏ qua"]);
 
     // Still dry on the next reads, and after a restart: no second card.
     assert!(run(&mut memory, &facts(T0 + 6 * MIN, Some(&dry)), &center).is_empty());
@@ -195,15 +272,16 @@ fn the_pool_running_dry_and_coming_back_are_two_cards() {
     assert!(run(&mut restarted, &facts(T0 + 7 * MIN, Some(&dry)), &center).is_empty());
 
     // Team C reset: room again.
-    let back = report(
-        vec![slot(1, 12.0, false), slot(2, 8.0, true), slot(3, 4.0, false), slot(4, 100.0, false)],
-        vec![],
-        1.2,
-    );
+    let back = report(vec![
+        slot(1, 12.0, false),
+        slot(2, 8.0, true),
+        slot(3, 4.0, false),
+        slot(4, 100.0, false),
+    ]);
     run(&mut restarted, &facts(T0 + HOUR, Some(&back)), &center);
     let card = center.last();
     assert_eq!(card.title, "Claude đã có lại hạn mức");
-    assert_eq!(card.body, "Team C có lại hạn mức: đã dùng 0%.");
+    assert_eq!(card.body, format!("{} có lại hạn mức: đã dùng 0%.", name(4)));
     assert!(card.actions.is_empty());
     assert_eq!(center.titles().len(), 2);
 
@@ -213,28 +291,35 @@ fn the_pool_running_dry_and_coming_back_are_two_cards() {
 }
 
 #[test]
+fn the_account_in_use_is_dry_when_no_other_has_room() {
+    let check = |slots: Vec<Value>| check_pool(&report(slots), PoolAlert::default()).dry;
+    // 10 % or less in use and nothing else at 15 %: dry.
+    assert!(check(vec![slot(2, 10.0, true), slot(3, 14.0, false)]));
+    assert!(!check(vec![slot(2, 11.0, true), slot(3, 0.0, false)]));
+    assert!(!check(vec![slot(2, 5.0, true), slot(3, 15.0, false)]));
+    // One past its reset counts as full.
+    let mut pending = slot(3, 0.0, false);
+    pending["status"] = json!("reset_pending");
+    assert!(!check(vec![slot(2, 5.0, true), pending]));
+}
+
+#[cfg(feature = "author-tools")]
+#[test]
 fn the_dry_rule_is_firstmates() {
     let check = |slots: Vec<Value>, expire: Vec<(u32, i64)>, now: i64| {
-        let r = report(slots, expire, 0.0);
+        let r = rotating(slots, expire);
         alerts::pool_check(&r, None, PoolAlert::default(), at(now), offset()).unwrap()
     };
-    // 10 % or less in use and nothing else at 15 %: dry.
-    assert!(check(vec![slot(2, 10.0, true), slot(3, 14.0, false)], vec![], T0).dry);
-    assert!(!check(vec![slot(2, 11.0, true), slot(3, 0.0, false)], vec![], T0).dry);
-    assert!(!check(vec![slot(2, 5.0, true), slot(3, 15.0, false)], vec![], T0).dry);
     // An account past its `expire` no longer counts.
     assert!(check(vec![slot(2, 5.0, true), slot(3, 90.0, false)], vec![(3, T0 - MIN)], T0).dry);
     // The personal account counts only during its hours: 03:20 at UTC+7 is outside.
     let night = T0 - 11 * HOUR;
     assert!(check(vec![slot(2, 5.0, true), slot(1, 90.0, false)], vec![], night).dry);
     assert!(!check(vec![slot(2, 5.0, true), slot(1, 90.0, false)], vec![], T0).dry);
-    // A disabled account does not count; one past its reset counts as full.
+    // A disabled account does not count.
     let mut off = slot(3, 90.0, false);
     off["disabled"] = json!(true);
     assert!(check(vec![slot(2, 5.0, true), off], vec![], T0).dry);
-    let mut pending = slot(3, 0.0, false);
-    pending["status"] = json!("reset_pending");
-    assert!(!check(vec![slot(2, 5.0, true), pending], vec![], T0).dry);
 }
 
 #[cfg(feature = "author-tools")]
@@ -243,10 +328,9 @@ fn an_account_leaving_the_rotation_is_told_thirty_minutes_before() {
     let center = FakeCenter::default();
     let mut memory = Memory::default();
     let ends = T0 + HOUR;
-    let r = report(
+    let r = rotating(
         vec![slot(1, 80.0, false), slot(2, 60.0, true), slot(3, 90.0, false)],
         vec![(2, ends)],
-        2.0,
     );
     // 31 minutes before: not yet.
     assert!(run(&mut memory, &facts(ends - 31 * MIN, Some(&r)), &center).is_empty());
@@ -271,10 +355,9 @@ fn an_account_leaving_the_rotation_is_told_thirty_minutes_before() {
     );
 
     // An account not in use leaving: no switch button.
-    let r = report(
+    let r = rotating(
         vec![slot(2, 60.0, true), slot(3, 50.0, false), slot(4, 90.0, false)],
         vec![(4, ends)],
-        2.0,
     );
     run(&mut memory, &facts(ends - 20 * MIN, Some(&r)), &center);
     let card = center.last();
@@ -310,15 +393,15 @@ fn a_claude_login_refused_asks_for_a_new_login() {
     c["error"] = json!("invalid_grant");
     let mut d = slot(1, 50.0, false);
     d["error"] = json!("http-429");
-    let r = report(vec![slot(2, 60.0, true), slot(3, 80.0, false), c, d], vec![], 2.0);
+    let r = report(vec![slot(2, 60.0, true), slot(3, 80.0, false), c, d]);
     run(&mut memory, &facts(T0, Some(&r)), &center);
     let card = center.last();
     assert_eq!(card.kind, Kind::Login);
-    assert_eq!(card.title, "Team C cần đăng nhập lại");
+    assert_eq!(card.title, format!("{} cần đăng nhập lại", name(4)));
     assert!(card.body.contains("(invalid_grant)"), "{}", card.body);
     assert_eq!(labels(&card.actions), ["Nhắc ngày mai", "Đã biết"]);
     // A passing 429 is not a login to renew.
-    assert!(!center.titles().iter().any(|t| t.starts_with("Cá nhân")));
+    assert!(!center.titles().iter().any(|t| t.starts_with(&name(1))));
 
     // "Nhắc ngày mai": nothing until 09:00 tomorrow, then once more.
     assert_eq!(center.press(&mut memory, &card, "Nhắc ngày mai", T0 + MIN), Effect::None);
@@ -339,10 +422,10 @@ fn a_claude_login_refused_asks_for_a_new_login() {
     // never as claude-swap's own words.
     let mut e = slot(3, 0.0, false);
     e["error"] = json!("Relogin required for owner@example.com: token revoked");
-    let r = report(vec![slot(2, 60.0, true), e], vec![], 2.0);
+    let r = report(vec![slot(2, 60.0, true), e]);
     run(&mut memory, &facts(T0 + MIN, Some(&r)), &center);
     let card = center.last();
-    assert_eq!(card.title, "Team B cần đăng nhập lại");
+    assert_eq!(card.title, format!("{} cần đăng nhập lại", name(3)));
     assert!(card.body.contains("(relogin)"), "{}", card.body);
     assert!(!format!("{card:?}").contains("example.com"), "{card:?}");
     assert_eq!(alerts::relogin_code(" INVALID_GRANT "), Some("invalid_grant"));
@@ -355,14 +438,23 @@ fn a_refused_login_that_was_mended_can_come_back_later() {
     let mut memory = Memory::default();
     let mut c = slot(4, 0.0, false);
     c["error"] = json!("invalid_grant");
-    let broken = report(vec![slot(2, 60.0, true), c], vec![], 2.0);
-    let mended = report(vec![slot(2, 60.0, true), slot(4, 90.0, false)], vec![], 2.0);
+    let broken = report(vec![slot(2, 60.0, true), c]);
+    let mended = report(vec![slot(2, 60.0, true), slot(4, 90.0, false)]);
     run(&mut memory, &facts(T0, Some(&broken)), &center);
     run(&mut memory, &facts(T0 + MIN, Some(&broken)), &center);
     assert_eq!(center.titles().len(), 1);
     run(&mut memory, &facts(T0 + HOUR, Some(&mended)), &center);
     run(&mut memory, &facts(T0 + 30 * 86400, Some(&broken)), &center);
     assert_eq!(center.titles().len(), 2);
+}
+
+/// Antigravity account `n` by the name the cards give it.
+#[cfg(feature = "antigravity-accounts")]
+fn agy(n: u32) -> String {
+    #[cfg(feature = "author-tools")]
+    return format!("Ultra {n}");
+    #[cfg(not(feature = "author-tools"))]
+    format!("Antigravity {n}")
 }
 
 #[cfg(feature = "antigravity-accounts")]
@@ -404,9 +496,9 @@ fn antigravity_accounts_that_need_a_login_or_a_verification_are_told() {
     f.agy = alerts::agy_logins(&app);
     assert_eq!(run(&mut memory, &f, &center).len(), 2);
     let cards = center.cards.lock().unwrap().clone();
-    assert_eq!(cards[0].title, "Ultra 1 cần đăng nhập lại");
+    assert_eq!(cards[0].title, format!("{} cần đăng nhập lại", agy(1)));
     assert_eq!(labels(&cards[0].actions), ["Đăng nhập lại", "Đã biết"]);
-    assert_eq!(cards[1].title, "Ultra 3 cần xác minh");
+    assert_eq!(cards[1].title, format!("{} cần xác minh", agy(3)));
     assert_eq!(labels(&cards[1].actions), ["Mở trang xác minh", "Đã biết"]);
     assert_eq!(center.press(&mut memory, &cards[0], "Đăng nhập lại", T0 + MIN), Effect::OpenAgyTab);
     assert_eq!(
@@ -458,7 +550,11 @@ fn an_overwrite_within_six_hours_offers_to_switch_back() {
     assert_eq!(card.title, "Antigravity đổi về tài khoản cũ");
     assert_eq!(
         card.body,
-        "Lúc 16:20 Antigravity.app đổi về Ultra 1. Bạn đã chuyển sang Ultra 2 lúc 14:20."
+        format!(
+            "Lúc 16:20 Antigravity.app đổi về {}. Bạn đã chuyển sang {} lúc 14:20.",
+            agy(1),
+            agy(2)
+        )
     );
     assert_eq!(labels(&card.actions), ["Thoát app rồi chuyển lại", "Chuyển lại", "Bỏ qua"]);
     // Once for this overwrite.
@@ -475,9 +571,14 @@ fn an_overwrite_within_six_hours_offers_to_switch_back() {
         reopened: None,
         saved: true,
     };
-    alerts::settle(&mut memory, &card.id, alerts::agy_result(&outcome, true));
+    #[cfg(feature = "author-tools")]
+    let said = alerts::agy_result(&outcome, true);
+    #[cfg(not(feature = "author-tools"))]
+    let said = alerts::agy_result(&outcome);
+    alerts::settle(&mut memory, &card.id, said);
     let said = memory.record(&card.id).unwrap().answer.clone().unwrap().result.unwrap();
-    assert_eq!((said.tone, said.title.as_str()), (Tone::Ok, "Đã chuyển lại sang Ultra 2"));
+    let title = format!("Đã chuyển lại sang {}", agy(2));
+    assert_eq!((said.tone, said.title.as_str()), (Tone::Ok, title.as_str()));
 
     // The app not running: one "Chuyển lại", the plain switch.
     let mut quiet = f.overwrite.clone().unwrap();
@@ -545,31 +646,13 @@ fn firstmate_holding_claude_work_is_told_once_per_hold() {
     assert!(run(&mut memory, &f, &center).is_empty());
 }
 
-/// Alerts 2 and 5 are the author's tools': a build without them never
-/// raises them, every switch on.
-#[cfg(not(feature = "author-tools"))]
-#[test]
-fn without_the_author_tools_no_account_is_told_it_leaves_the_rotation() {
-    let center = FakeCenter::default();
-    let mut memory = Memory::default();
-    let ends = T0 + HOUR;
-    let r = report(vec![slot(2, 60.0, true), slot(3, 90.0, false)], vec![(2, ends)], 2.0);
-    let all = Switches { firstmate: true, ..Switches::default() };
-    for now in [ends - 30 * MIN, ends - 10 * MIN] {
-        let ids = alerts::evaluate(&mut memory, &facts(now, Some(&r)), &all);
-        alerts::deliver(&mut memory, &ids, &center);
-    }
-    assert!(center.titles().is_empty(), "{:?}", center.titles());
-    assert!(memory.recent.iter().all(|r| r.alert.kind != Kind::Leaving));
-}
-
 #[cfg(feature = "author-tools")]
 #[test]
 fn kinds_turned_off_send_nothing_and_cards_macos_refused_stay_in_the_app() {
     let center = FakeCenter { refuse: true, ..FakeCenter::default() };
     let mut memory = Memory::default();
     let ends = T0 + 20 * MIN;
-    let r = report(vec![slot(2, 60.0, true), slot(3, 90.0, false)], vec![(2, ends)], 2.0);
+    let r = rotating(vec![slot(2, 60.0, true), slot(3, 90.0, false)], vec![(2, ends)]);
     let off = Switches { leaving: false, ..Switches::default() };
     assert!(alerts::evaluate(&mut memory, &facts(T0, Some(&r)), &off).is_empty());
     // Turned on while it still holds: it comes.
@@ -581,14 +664,14 @@ fn kinds_turned_off_send_nothing_and_cards_macos_refused_stay_in_the_app() {
     assert_eq!(memory.unanswered(), 1);
 }
 
-// Its cards are alert 2's, which only a build with the author's tools raises.
+// Its cards are alert 2's.
 #[cfg(feature = "author-tools")]
 #[test]
 fn a_card_takes_one_answer_whichever_card_was_pressed() {
     let center = FakeCenter::default();
     let mut memory = Memory::default();
     let ends = T0 + 30 * MIN;
-    let r = report(vec![slot(2, 60.0, true), slot(3, 90.0, false)], vec![(2, ends)], 2.0);
+    let r = rotating(vec![slot(2, 60.0, true), slot(3, 90.0, false)], vec![(2, ends)]);
     run(&mut memory, &facts(T0, Some(&r)), &center);
     let card = center.last();
     // In the app first: the macOS card is withdrawn, it has nothing left to ask.
@@ -612,7 +695,7 @@ fn a_card_takes_one_answer_whichever_card_was_pressed() {
     assert_eq!(memory.unanswered(), 0);
 
     // A button on the macOS card leaves that card to macOS.
-    let r = report(vec![slot(2, 60.0, true), slot(4, 90.0, false)], vec![(4, ends)], 2.0);
+    let r = rotating(vec![slot(2, 60.0, true), slot(4, 90.0, false)], vec![(4, ends)]);
     run(&mut memory, &facts(T0 + 5 * MIN, Some(&r)), &center);
     let other = center.last();
     center.press(&mut memory, &other, "Ổn", T0 + 6 * MIN);
@@ -624,15 +707,16 @@ fn a_test_card_shows_the_real_buttons_and_changes_nothing() {
     let center = FakeCenter::default();
     let mut memory = Memory::default();
     for kind in Kind::ALL {
-        let alert = alerts::sample(kind, T0, offset(), true);
+        let alert = sample(kind, T0);
         assert!(alert.test);
         assert!(alert.body.starts_with("Thử:"), "{}", alert.body);
         assert!(!alert.body.contains("tương đương"), "{}", alert.body);
         let id = alerts::keep_test(&mut memory, alert);
         alerts::deliver(&mut memory, std::slice::from_ref(&id), &center);
     }
-    assert_eq!(center.titles().len(), 5);
-    let overwrite = center.cards.lock().unwrap()[3].clone();
+    assert_eq!(center.titles().len(), Kind::ALL.len());
+    let cards = center.cards.lock().unwrap().clone();
+    let overwrite = cards.into_iter().find(|c| c.kind == Kind::Overwrite).unwrap();
     assert_eq!(labels(&overwrite.actions), ["Thoát app rồi chuyển lại", "Chuyển lại", "Bỏ qua"]);
     assert_eq!(center.press(&mut memory, &overwrite, "Chuyển lại", T0), Effect::None);
     let said = memory.record(&overwrite.id).unwrap().answer.clone().unwrap().result.unwrap();
@@ -646,7 +730,7 @@ fn the_bell_counts_the_cards_since_its_panel_was_opened() {
     let center = FakeCenter::default();
     let mut memory = Memory::default();
     for kind in [Kind::Pool, Kind::Login] {
-        let id = alerts::keep_test(&mut memory, alerts::sample(kind, T0, offset(), true));
+        let id = alerts::keep_test(&mut memory, sample(kind, T0));
         alerts::deliver(&mut memory, std::slice::from_ref(&id), &center);
     }
     // Test cards are notifications like any other: they count until read.
@@ -655,8 +739,7 @@ fn the_bell_counts_the_cards_since_its_panel_was_opened() {
     assert_eq!(memory.unread(), 0);
     assert!(!memory.mark_read(), "nothing left to mark");
     // A card sent after the panel was opened counts again.
-    let id =
-        alerts::keep_test(&mut memory, alerts::sample(Kind::Overwrite, T0 + MIN, offset(), true));
+    let id = alerts::keep_test(&mut memory, sample(Kind::Overwrite, T0 + MIN));
     assert_eq!(memory.unread(), 1);
     assert!(!memory.record(&id).unwrap().read);
 }
@@ -665,7 +748,7 @@ fn the_bell_counts_the_cards_since_its_panel_was_opened() {
 fn cards_kept_before_the_bell_count_as_read() {
     let app = AppDir::new(temp_dir("alerts-read"));
     let mut memory = Memory::default();
-    alerts::keep_test(&mut memory, alerts::sample(Kind::Pool, T0, offset(), true));
+    alerts::keep_test(&mut memory, sample(Kind::Pool, T0));
     let mut kept = serde_json::to_value(&memory).unwrap();
     // The file as the app wrote it before: no `read` on its cards.
     kept["recent"][0].as_object_mut().unwrap().remove("read");
@@ -682,14 +765,15 @@ fn memory_survives_the_file_and_an_unreadable_file_starts_afresh() {
     assert_eq!(alerts::load(&app), Memory::default());
     let center = FakeCenter::default();
     let mut memory = Memory::default();
-    let r = report(vec![slot(2, 60.0, true)], vec![(2, T0 + 10 * MIN)], 1.0);
-    run(&mut memory, &facts(T0, Some(&r)), &center);
+    let r = report(vec![slot(2, 5.0, true)]);
+    assert_eq!(run(&mut memory, &facts(T0, Some(&r)), &center).len(), 1);
     alerts::save(&app, &memory).unwrap();
     assert_eq!(alerts::load(&app), memory);
     std::fs::write(alerts::path(&app), "{ not json").unwrap();
     assert_eq!(alerts::load(&app), Memory::default());
 }
 
+#[cfg(feature = "author-tools")]
 #[test]
 fn without_nang_cao_the_cards_go_by_number_and_every_account_counts() {
     let center = FakeCenter::default();
@@ -718,8 +802,8 @@ fn without_nang_cao_the_cards_go_by_number_and_every_account_counts() {
 
 #[test]
 fn alert_one_uses_the_thresholds_from_settings() {
-    let r = report(vec![slot(2, 18.0, true), slot(3, 25.0, false)], vec![], 0.0);
-    let check = |limits| alerts::pool_check(&r, None, limits, at(T0), offset()).unwrap().dry;
+    let r = report(vec![slot(2, 18.0, true), slot(3, 25.0, false)]);
+    let check = |limits| check_pool(&r, limits).dry;
     assert!(!check(PoolAlert::default()), "18 % left is not dry at 10 %");
     assert!(check(PoolAlert { dry_at_most: 20, room_at_least: 30 }));
     assert!(!check(PoolAlert { dry_at_most: 20, room_at_least: 25 }), "25 % elsewhere is room");

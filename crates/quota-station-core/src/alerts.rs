@@ -1,25 +1,28 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-//! The five alerts (F09), each sent once for its event, as a macOS card with
+//! The alerts (F09), each sent once for its event, as a macOS card with
 //! buttons and as the same card under the bell (Thông báo) in the main window:
 //!
-//! 1. The whole Claude pool about to run dry, and back: Firstmate's
-//!    quota-pool rule on the accounts' numbers. Dry: the account in use has
-//!    10 % or less, and no other account the switcher may choose now (any
-//!    account, without a rotation file) has 15 % or more; both thresholds
-//!    are set in Cài đặt ([`PoolAlert`]). Back: no longer dry.
+//! 1. Claude about to run dry, and back. Dry: the account in use has 10 %
+//!    or less, and no other account has 15 % or more; both thresholds are
+//!    set in Cài đặt ([`PoolAlert`]). Back: no longer dry.
+// @private:begin
+//!    With a rotation file only the accounts the switcher may choose now
+//!    count, as Firstmate's quota-pool rule counts them.
 //! 2. An account about to leave the rotation: 30 minutes before its
 //!    `expire` in the rotation file.
+// @private:end
 //! 3. A login to renew: a Claude account whose login ends within 3 days, or
 //!    whose last reading failed with a login only a new one mends; an
 //!    Antigravity account here that needs a new login or a verification.
 //! 4. An Antigravity switch overwritten: the six-hour watch after a switch
 //!    (M4c) saw the old account back in use.
+// @private:begin
 //! 5. Firstmate holding new Claude work: `pool=dry` in its state file.
 //!
-//! Alerts 2 and 5 are built only with the `author-tools` feature; without
-//! it their kinds and switches are still read and kept, never raised.
+//! Alerts 2 and 5 are built only with the `author-tools` feature.
+// @private:end
 //!
 //! And one more of its own (M11, G), not among the five: skills with a newer
 //! version on GitHub ([`skill_alert`]). It shows in the app; a macOS card
@@ -31,9 +34,8 @@
 //!
 //! An alert's key names its event (the account, the time it ends), and a
 //! key is sent once; "Nhắc ngày mai" sends it again the next morning while
-//! it still holds. The cards name accounts the way the windows do (Team A,
-//! Cá nhân, Ultra 1 with Nâng cao on; Tài khoản 1, Antigravity 1 without),
-//! never by email. What each button does is
+//! it still holds. The cards name accounts the way the windows do
+//! (Tài khoản 1, Antigravity 1), never by email. What each button does is
 //! [`answer`]'s: some only note the answer, the others return an [`Effect`]
 //! for the app to carry out.
 
@@ -53,16 +55,21 @@ use crate::antigravity::watch;
 use crate::app_dir::AppDir;
 #[cfg(feature = "author-tools")]
 use crate::firstmate;
+#[cfg(feature = "author-tools")]
 use crate::local_time;
 use crate::quota::{Response, Slot};
+#[cfg(feature = "author-tools")]
 use crate::rotation::Rules;
 use crate::settings::PoolAlert;
-use crate::snapshot::{Role, Snapshot};
+#[cfg(feature = "author-tools")]
+use crate::snapshot::Role;
+use crate::snapshot::Snapshot;
 use crate::time_util::parse_ts;
 
 /// In the app's folder, `alerts/alerts.json`.
 pub const DIR: &str = "alerts";
 pub const FILE: &str = "alerts.json";
+#[cfg(feature = "author-tools")]
 /// Alert 2 comes this long before an account leaves the rotation.
 pub const LEAVING_BEFORE: i64 = 30 * 60;
 /// Alert 3 comes when a Claude login ends within this long.
@@ -83,9 +90,11 @@ const RELOGIN_ERRORS: [&str; 4] =
 #[serde(rename_all = "camelCase")]
 pub enum Kind {
     Pool,
+    #[cfg(feature = "author-tools")]
     Leaving,
     Login,
     Overwrite,
+    #[cfg(feature = "author-tools")]
     Firstmate,
     /// Skills with a newer version (M11): not one of the five, no switch here.
     Skill,
@@ -96,46 +105,56 @@ pub enum Kind {
 }
 
 impl Kind {
+    #[cfg(feature = "author-tools")]
     pub const ALL: [Kind; 5] =
         [Kind::Pool, Kind::Leaving, Kind::Login, Kind::Overwrite, Kind::Firstmate];
+    #[cfg(not(feature = "author-tools"))]
+    pub const ALL: [Kind; 3] = [Kind::Pool, Kind::Login, Kind::Overwrite];
 
-    /// Its number in the plan and in Cài đặt › Thông báo, 1 to 5.
+    /// Its number in the plan and in Cài đặt › Thông báo.
     pub fn number(self) -> u8 {
         match self {
             Kind::Pool => 1,
+            #[cfg(feature = "author-tools")]
             Kind::Leaving => 2,
             Kind::Login => 3,
             Kind::Overwrite => 4,
+            #[cfg(feature = "author-tools")]
             Kind::Firstmate => 5,
             Kind::Skill => 6,
             Kind::Env => 7,
             Kind::Cli => 8,
         }
     }
-
-    /// Alerts 2 and 5 are the author's tools': a build without the
-    /// `author-tools` feature never raises them, sends their test card or
-    /// turns their switch.
-    pub fn built(self) -> bool {
-        cfg!(feature = "author-tools") || !matches!(self, Kind::Leaving | Kind::Firstmate)
-    }
 }
 
-/// Which alerts are on: the first four by default; Firstmate's only where
-/// Firstmate runs.
+/// Which alerts are on: every one by default.
+// @private:begin
+/// Firstmate's is on only where Firstmate runs.
+// @private:end
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Switches {
     pub pool: bool,
+    #[cfg(feature = "author-tools")]
     pub leaving: bool,
     pub login: bool,
     pub overwrite: bool,
+    #[cfg(feature = "author-tools")]
     pub firstmate: bool,
 }
 
 impl Default for Switches {
     fn default() -> Self {
-        Switches { pool: true, leaving: true, login: true, overwrite: true, firstmate: false }
+        Switches {
+            pool: true,
+            #[cfg(feature = "author-tools")]
+            leaving: true,
+            login: true,
+            overwrite: true,
+            #[cfg(feature = "author-tools")]
+            firstmate: false,
+        }
     }
 }
 
@@ -143,9 +162,11 @@ impl Switches {
     pub fn on(&self, kind: Kind) -> bool {
         match kind {
             Kind::Pool => self.pool,
+            #[cfg(feature = "author-tools")]
             Kind::Leaving => self.leaving,
             Kind::Login => self.login,
             Kind::Overwrite => self.overwrite,
+            #[cfg(feature = "author-tools")]
             Kind::Firstmate => self.firstmate,
             // Its own settings say whether the app checks at all.
             Kind::Skill | Kind::Env | Kind::Cli => true,
@@ -155,9 +176,11 @@ impl Switches {
     pub fn set(&mut self, kind: Kind, on: bool) {
         match kind {
             Kind::Pool => self.pool = on,
+            #[cfg(feature = "author-tools")]
             Kind::Leaving => self.leaving = on,
             Kind::Login => self.login = on,
             Kind::Overwrite => self.overwrite = on,
+            #[cfg(feature = "author-tools")]
             Kind::Firstmate => self.firstmate = on,
             Kind::Skill | Kind::Env | Kind::Cli => {}
         }
@@ -258,6 +281,7 @@ pub struct Memory {
     /// The pool rule's last answer, for alert 1's two edges.
     pub pool_dry: Option<bool>,
     /// Firstmate's last `pool=`, for alert 5's edge.
+    #[cfg(feature = "author-tools")]
     pub firstmate_dry: Option<bool>,
     /// Keys sent, and when first.
     pub sent: BTreeMap<String, i64>,
@@ -350,6 +374,7 @@ pub struct Facts<'a> {
     pub offset: UtcOffset,
     pub claude: Option<&'a Response>,
     /// The rotation file's rules, for a report without the rotation's keys.
+    #[cfg(feature = "author-tools")]
     pub rules: Option<&'a Rules>,
     #[cfg(feature = "antigravity-accounts")]
     pub agy: Vec<AgyLogin>,
@@ -361,6 +386,7 @@ pub struct Facts<'a> {
     pub pool: PoolAlert,
     /// Cài đặt › Nâng cao: accounts go by their place in the rotation and as
     /// Ultra N, and alert 1 speaks of the rotation.
+    #[cfg(feature = "author-tools")]
     pub advanced: bool,
 }
 
@@ -401,15 +427,15 @@ pub fn overwrite(app: &AppDir, running: Option<bool>) -> Option<Overwrite> {
     })
 }
 
-/// The pool rule on the accounts' numbers, as Firstmate's watch counts.
+/// The pool rule on the accounts' numbers.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PoolCheck {
     pub dry: bool,
     pub active: Option<u32>,
     /// Percent left of the account in use; 100 when none is known.
     pub active_left: f64,
-    /// The accounts the switcher may choose now besides the one in use,
-    /// with their percent left.
+    /// The accounts that count besides the one in use, with their percent
+    /// left.
     pub others: Vec<(u32, f64)>,
     /// The first reset among the usable accounts under 15 %, and whose.
     pub next_reset: Option<(u32, String)>,
@@ -427,33 +453,39 @@ impl PoolCheck {
     }
 }
 
+#[cfg(feature = "author-tools")]
 /// `8-23` → (8, 23).
 fn hours_of(text: &str) -> Option<(u8, u8)> {
     let (from, to) = text.split_once('-')?;
     Some((from.trim().parse().ok()?, to.trim().parse().ok()?))
 }
 
+#[cfg(feature = "author-tools")]
 /// An `expire` time: RFC 3339 from the report, local `2026-10-16T17:45`
 /// from the rotation file.
 fn instant(text: &str) -> Option<OffsetDateTime> {
     parse_ts(text).or_else(|| local_time::instant(text))
 }
 
-/// Firstmate's dry rule, as its quota-pool watch counts it, with the
-/// thresholds in `limits`. With a rotation, only the accounts the switcher
-/// may choose now count: the Team accounts not past their `expire`, and the
-/// personal account during its hours. Without one, every account counts, as
-/// any can be switched to by hand. Never a disabled one. An account past its
-/// reset counts as full. `None` without the accounts' numbers.
+/// The dry rule, with the thresholds in `limits`: every account counts, as
+/// any can be switched to by hand. An account past its reset counts as
+/// full. `None` without the accounts' numbers.
+// @private:begin
+/// With a rotation, as Firstmate's quota-pool watch counts it, only the
+/// accounts the switcher may choose now count: the Team accounts not past
+/// their `expire`, and the personal account during its hours; never a
+/// disabled one.
+// @private:end
 pub fn pool_check(
     report: &Response,
-    rules: Option<&Rules>,
+    #[cfg(feature = "author-tools")] rules: Option<&Rules>,
     limits: PoolAlert,
-    now: OffsetDateTime,
-    offset: UtcOffset,
+    #[cfg(feature = "author-tools")] now: OffsetDateTime,
+    #[cfg(feature = "author-tools")] offset: UtcOffset,
 ) -> Option<PoolCheck> {
     let row = report.primary("claude")?;
     let swap = row.claude_accounts.as_ref()?;
+    #[cfg(feature = "author-tools")]
     let rotation = match swap.rotation.as_ref() {
         Some(r) => Some((
             r.team.clone(),
@@ -470,6 +502,7 @@ pub fn pool_check(
             )
         }),
     };
+    #[cfg(feature = "author-tools")]
     let allowed: Vec<u32> = match rotation {
         Some((team, personal, hours, expire)) => {
             let gone: Vec<u32> = expire
@@ -488,6 +521,8 @@ pub fn pool_check(
         }
         None => swap.slots.iter().map(|s| s.slot).collect(),
     };
+    #[cfg(not(feature = "author-tools"))]
+    let allowed: Vec<u32> = swap.slots.iter().map(|s| s.slot).collect();
     let (dry_at_most, room_at_least) =
         (f64::from(limits.dry_at_most), f64::from(limits.room_at_least));
     let left = |s: &Slot| {
@@ -498,8 +533,11 @@ pub fn pool_check(
         }
     };
     let active = swap.active_slot;
+    #[cfg(feature = "author-tools")]
     let usable: Vec<&Slot> =
         swap.slots.iter().filter(|s| !s.disabled && allowed.contains(&s.slot)).collect();
+    #[cfg(not(feature = "author-tools"))]
+    let usable: Vec<&Slot> = swap.slots.iter().filter(|s| allowed.contains(&s.slot)).collect();
     let others: Vec<(u32, f64)> =
         usable.iter().filter(|s| Some(s.slot) != active).map(|s| (s.slot, left(s))).collect();
     let active_left =
@@ -517,9 +555,22 @@ pub fn pool_check(
     Some(PoolCheck { dry, active, active_left, others, next_reset })
 }
 
+/// Claude accounts by the names the windows give them: `Tài khoản N`.
+#[cfg(not(feature = "author-tools"))]
+pub fn claude_names(report: Option<&Response>) -> BTreeMap<u32, String> {
+    Snapshot::build(report, None)
+        .claude
+        .accounts
+        .iter()
+        .filter(|a| a.number > 0)
+        .map(|a| (a.number, format!("Tài khoản {}", a.number)))
+        .collect()
+}
+
 /// Claude accounts by the names the windows give them: with `roles`,
 /// Cá nhân, then Team A, B… in slot order; `Tài khoản N` without a rotation
 /// file, and always without `roles`.
+#[cfg(feature = "author-tools")]
 pub fn claude_names(report: Option<&Response>, roles: bool) -> BTreeMap<u32, String> {
     let mut accounts = Snapshot::build(report, None).claude.accounts;
     if !roles {
@@ -548,6 +599,13 @@ pub fn claude_names(report: Option<&Response>, roles: bool) -> BTreeMap<u32, Str
         .collect()
 }
 
+#[cfg(not(feature = "author-tools"))]
+#[cfg(feature = "antigravity-accounts")]
+fn agy_name(n: u32) -> String {
+    format!("Antigravity {n}")
+}
+
+#[cfg(feature = "author-tools")]
 fn agy_name(n: u32, roles: bool) -> String {
     if roles {
         format!("Ultra {n}")
@@ -613,7 +671,7 @@ pub fn remind_at(now: i64, offset: UtcOffset) -> i64 {
 
 // ===== The rules =====
 
-/// The account in use and its share used, never the rotation's room.
+/// The account in use and its share used.
 fn pool_amount(c: &PoolCheck, names: &BTreeMap<u32, String>) -> String {
     match c.active {
         Some(a) => format!("{} đã dùng {}%", name_of(names, a), (100.0 - c.active_left).round()),
@@ -659,15 +717,19 @@ fn pool_alerts(
             ));
         }
         actions.push(act("dismiss", "Bỏ qua"));
+        #[cfg(feature = "author-tools")]
+        let title = if f.advanced {
+            "Hạn mức Claude trong vòng sắp cạn"
+        } else {
+            "Hạn mức Claude sắp cạn"
+        };
+        #[cfg(not(feature = "author-tools"))]
+        let title = "Hạn mức Claude sắp cạn";
         return Some(Alert {
             key: format!("pool:dry:{now}"),
             kind: Kind::Pool,
             tone: Tone::Bad,
-            title: if f.advanced {
-                "Hạn mức Claude trong vòng sắp cạn".into()
-            } else {
-                "Hạn mức Claude sắp cạn".into()
-            },
+            title: title.into(),
             body,
             actions,
             at: now,
@@ -790,11 +852,18 @@ fn login_alerts(report: &Response, names: &BTreeMap<u32, String>, f: &Facts) -> 
 }
 
 #[cfg(feature = "antigravity-accounts")]
-fn agy_login_alerts(logins: &[AgyLogin], now: i64, roles: bool) -> Vec<Alert> {
+fn agy_login_alerts(
+    logins: &[AgyLogin],
+    now: i64,
+    #[cfg(feature = "author-tools")] roles: bool,
+) -> Vec<Alert> {
     logins
         .iter()
         .map(|l| {
+            #[cfg(feature = "author-tools")]
             let name = agy_name(l.number, roles);
+            #[cfg(not(feature = "author-tools"))]
+            let name = agy_name(l.number);
             let (state, since, title, body, url) = match &l.standing {
                 Standing::NeedsLogin { since } => (
                     "login",
@@ -843,7 +912,10 @@ fn agy_login_alerts(logins: &[AgyLogin], now: i64, roles: bool) -> Vec<Alert> {
 #[cfg(feature = "antigravity-accounts")]
 fn overwrite_alert(o: &Overwrite, f: &Facts) -> Alert {
     let now = f.now.unix_timestamp();
+    #[cfg(feature = "author-tools")]
     let (to, from) = (agy_name(o.to, f.advanced), agy_name(o.from, f.advanced));
+    #[cfg(not(feature = "author-tools"))]
+    let (to, from) = (agy_name(o.to), agy_name(o.from));
     let mut body = format!(
         "Lúc {} Antigravity.app đổi về {from}. Bạn đã chuyển sang {to} lúc {}.",
         clock(o.at, f.offset),
@@ -898,11 +970,17 @@ fn firstmate_alert(reading: &firstmate::Reading, f: &Facts) -> Alert {
     }
 }
 
-/// Every alert whose event holds now. Alerts 1 and 5 come only on their
-/// edges, which `memory` keeps.
+/// Every alert whose event holds now. Alert 1 comes only on its edges,
+/// which `memory` keeps.
 fn found(memory: &mut Memory, f: &Facts) -> Vec<Alert> {
+    #[cfg(feature = "author-tools")]
     let names = claude_names(f.claude, f.advanced);
+    #[cfg(not(feature = "author-tools"))]
+    let names = claude_names(f.claude);
+    #[cfg(feature = "author-tools")]
     let check = f.claude.and_then(|r| pool_check(r, f.rules, f.pool, f.now, f.offset));
+    #[cfg(not(feature = "author-tools"))]
+    let check = f.claude.and_then(|r| pool_check(r, f.pool));
     let mut out = Vec::new();
     if let Some(c) = &check {
         out.extend(pool_alerts(c, memory.pool_dry.unwrap_or(false), &names, f));
@@ -915,7 +993,10 @@ fn found(memory: &mut Memory, f: &Facts) -> Vec<Alert> {
     }
     #[cfg(feature = "antigravity-accounts")]
     {
+        #[cfg(feature = "author-tools")]
         out.extend(agy_login_alerts(&f.agy, f.now.unix_timestamp(), f.advanced));
+        #[cfg(not(feature = "author-tools"))]
+        out.extend(agy_login_alerts(&f.agy, f.now.unix_timestamp()));
         out.extend(f.overwrite.as_ref().map(|o| overwrite_alert(o, f)));
     }
     #[cfg(feature = "author-tools")]
@@ -1111,11 +1192,19 @@ pub fn answer(
         )
     } else if action == "dismiss" {
         let said = match a.kind {
+            #[cfg(feature = "author-tools")]
             Kind::Pool => said(
                 Tone::Info,
                 "Đã bỏ qua thông báo này",
                 "Không lặp lại cho cùng sự kiện. Quota Station báo lại khi hạn mức trong vòng có lại.",
             ),
+            #[cfg(not(feature = "author-tools"))]
+            Kind::Pool => said(
+                Tone::Info,
+                "Đã bỏ qua thông báo này",
+                "Không lặp lại cho cùng sự kiện. Quota Station báo lại khi có lại hạn mức.",
+            ),
+            #[cfg(feature = "author-tools")]
             Kind::Leaving => {
                 said(Tone::Info, "Đã ghi nhận", "Không nhắc lại cho lần rời vòng này.")
             }
@@ -1224,14 +1313,28 @@ pub fn settle(memory: &mut Memory, id: &str, said: Said) {
     }
 }
 
+/// The line under the card after "Chuyển lại", naming the accounts as the
+/// cards do.
+#[cfg(not(feature = "author-tools"))]
+#[cfg(feature = "antigravity-accounts")]
+pub fn agy_result(outcome: &AgyOutcome) -> Said {
+    agy_said(outcome, agy_name)
+}
+
 /// The line under the card after "Chuyển lại"; `roles` names the accounts
 /// as the cards do.
+#[cfg(feature = "author-tools")]
 #[cfg(feature = "antigravity-accounts")]
 pub fn agy_result(outcome: &AgyOutcome, roles: bool) -> Said {
+    agy_said(outcome, |n| agy_name(n, roles))
+}
+
+#[cfg(feature = "antigravity-accounts")]
+fn agy_said(outcome: &AgyOutcome, agy_name: impl Fn(u32) -> String) -> Said {
     match outcome {
         AgyOutcome::Switched { number, reopened, .. } => said(
             Tone::Ok,
-            format!("Đã chuyển lại sang {}", agy_name(*number as u32, roles)),
+            format!("Đã chuyển lại sang {}", agy_name(*number as u32)),
             match reopened {
                 Some(true) => "Antigravity.app đã mở lại với tài khoản này.",
                 Some(false) => "Chưa mở lại được Antigravity.app; mở nó bằng tay.",
@@ -1240,18 +1343,30 @@ pub fn agy_result(outcome: &AgyOutcome, roles: bool) -> Said {
         ),
         AgyOutcome::Unconfirmed { number, .. } => said(
             Tone::Warn,
-            format!("Đã ghi đăng nhập {}", agy_name(*number as u32, roles)),
+            format!("Đã ghi đăng nhập {}", agy_name(*number as u32)),
             "agy chưa cho thấy tài khoản mới. Xem lại tab Antigravity sau ít phút.",
         ),
         AgyOutcome::Failed { number, error, .. } => said(
             Tone::Bad,
-            format!("Chưa chuyển lại được sang {}", agy_name(*number as u32, roles)),
+            format!("Chưa chuyển lại được sang {}", agy_name(*number as u32)),
             format!("Lý do: {error}. Không có gì thay đổi."),
         ),
     }
 }
 
 /// A switch from a card that could not start.
+#[cfg(not(feature = "author-tools"))]
+#[cfg(feature = "antigravity-accounts")]
+pub fn agy_refused(number: u32, why: &str) -> Said {
+    said(
+        Tone::Bad,
+        format!("Chưa chuyển lại được sang {}", agy_name(number)),
+        format!("Lý do: {why}. Không có gì thay đổi."),
+    )
+}
+
+/// A switch from a card that could not start.
+#[cfg(feature = "author-tools")]
 #[cfg(feature = "antigravity-accounts")]
 pub fn agy_refused(number: u32, why: &str, roles: bool) -> Said {
     said(
@@ -1262,28 +1377,45 @@ pub fn agy_refused(number: u32, why: &str, roles: bool) -> Said {
 }
 
 /// The card "Gửi thử" sends for `kind`: the prototype's words, marked as a
+/// test, with buttons that change nothing, naming the accounts as the
+/// cards do.
+#[cfg(not(feature = "author-tools"))]
+pub fn sample(kind: Kind, now: i64, offset: UtcOffset) -> Alert {
+    let names = (["Tài khoản 1", "Tài khoản 2", "Tài khoản 3"], ["Antigravity 1", "Antigravity 2"]);
+    sample_named(kind, now, offset, names, "Hạn mức Claude sắp cạn")
+}
+
+/// The card "Gửi thử" sends for `kind`: the prototype's words, marked as a
 /// test, with buttons that change nothing. `roles` names the accounts as
 /// the cards do.
+#[cfg(feature = "author-tools")]
 pub fn sample(kind: Kind, now: i64, offset: UtcOffset, roles: bool) -> Alert {
-    let later = clock(now + 2 * 3600, offset);
-    let [a, b, c] = if roles {
+    let claude = if roles {
         ["Team A", "Team B", "Cá nhân"]
     } else {
         ["Tài khoản 1", "Tài khoản 2", "Tài khoản 3"]
     };
-    let (g1, g2) = (agy_name(1, roles), agy_name(2, roles));
+    let agy = [agy_name(1, roles), agy_name(2, roles)];
+    let pool = if roles { "Hạn mức Claude trong vòng sắp cạn" } else { "Hạn mức Claude sắp cạn" };
+    sample_named(kind, now, offset, (claude, agy.each_ref().map(String::as_str)), pool)
+}
+
+fn sample_named(
+    kind: Kind,
+    now: i64,
+    offset: UtcOffset,
+    ([a, b, c], [g1, g2]): ([&str; 3], [&str; 2]),
+    pool: &str,
+) -> Alert {
+    let later = clock(now + 2 * 3600, offset);
     let (tone, title, body, actions): (Tone, String, String, Vec<Act>) = match kind {
         Kind::Pool => (
             Tone::Bad,
-            if roles {
-                "Hạn mức Claude trong vòng sắp cạn"
-            } else {
-                "Hạn mức Claude sắp cạn"
-            }
-            .into(),
+            pool.into(),
             format!("Thử: {a} đã dùng 92%. {b} có lại hạn mức lúc {later}."),
             vec![act("switch:0", format!("Sang {c} (đã dùng 81%)")), act("dismiss", "Bỏ qua")],
         ),
+        #[cfg(feature = "author-tools")]
         Kind::Leaving => (
             Tone::Warn,
             format!("{a} rời vòng lúc {}", clock(now + 30 * 60, offset)),
@@ -1314,6 +1446,7 @@ pub fn sample(kind: Kind, now: i64, offset: UtcOffset, roles: bool) -> Alert {
                 act("agy:keep", "Bỏ qua"),
             ],
         ),
+        #[cfg(feature = "author-tools")]
         Kind::Firstmate => (
             Tone::Info,
             "Firstmate đang chờ hạn mức Claude".into(),
