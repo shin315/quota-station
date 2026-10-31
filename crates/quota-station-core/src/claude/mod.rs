@@ -4,12 +4,15 @@
 //! The Claude accounts, kept by Quota Station itself (see
 //! `docs/claude-accounts.md`): the account list and its Keychain items
 //! ([`store`]), the switch of Claude Code's active login under Claude
-//! Code's own locks ([`switch`]), each account's usage ([`usage`]), the
-//! rotation's decision ([`engine`]) and its run ([`rotate`]), running one
-//! process as a chosen account ([`session`]), the data file for Firstmate
-//! and the copy its quota-axi reads ([`state`]), the one-time import from claude-swap
-//! ([`import`]) and the app's own LaunchAgent ([`agent`]), or on Windows the
-//! app's own timer ([`timer`]).
+//! Code's own locks ([`switch`]), each account's usage ([`usage`]), running
+//! one process as a chosen account ([`session`]), the data file other
+//! programs read ([`state`]) and the one-time import from claude-swap
+//! ([`import`]).
+// @private:begin
+//! With the `author-tools` feature also the rotation's decision
+//! ([`engine`]) and its run ([`rotate`]) from the app's own LaunchAgent
+//! ([`agent`]), or on Windows the app's own timer ([`timer`]).
+// @private:end
 //!
 //! What touches Claude Code's login is learned from claude-swap's source
 //! (MIT, <https://github.com/realiti4/claude-swap>), credited in
@@ -17,20 +20,24 @@
 //! lock folders and their order, the `oauthAccount` splice, the usage and
 //! token endpoints, and the session folder.
 
+#[cfg(feature = "author-tools")]
 pub mod agent;
 pub mod cc;
 pub mod cli;
 pub mod credman;
+#[cfg(feature = "author-tools")]
 pub mod engine;
 pub mod import;
 pub mod keychain;
 pub mod locks;
 pub mod manage;
+#[cfg(feature = "author-tools")]
 pub mod rotate;
 pub mod session;
 pub mod state;
 pub mod store;
 pub mod switch;
+#[cfg(feature = "author-tools")]
 pub mod timer;
 pub mod usage;
 
@@ -72,10 +79,12 @@ impl Paths {
         self.dir.join("usage.json")
     }
 
+    #[cfg(feature = "author-tools")]
     pub fn rotation(&self) -> PathBuf {
         self.dir.join("rotation")
     }
 
+    #[cfg(feature = "author-tools")]
     pub fn log(&self) -> PathBuf {
         self.dir.join("rotation.log")
     }
@@ -95,11 +104,13 @@ impl Paths {
     }
 
     /// Priming is on while this file exists.
+    #[cfg(feature = "author-tools")]
     pub fn prime_flag(&self) -> PathBuf {
         self.dir.join("prime")
     }
 
     /// When each account was last primed.
+    #[cfg(feature = "author-tools")]
     pub fn prime_state(&self) -> PathBuf {
         self.dir.join("prime-state")
     }
@@ -128,6 +139,7 @@ impl Paths {
 
     /// The rotation file the app reads and writes: its own once it keeps
     /// the accounts (or has its own copy), else the old switcher's.
+    #[cfg(feature = "author-tools")]
     pub fn rotation_file(&self) -> PathBuf {
         if self.in_use() || self.rotation().exists() {
             self.rotation()

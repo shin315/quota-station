@@ -10,14 +10,16 @@ const line = (over: Partial<Line> = {}): Line => ({ kind: 'session', percent: 62
 
 const account = (number: number, over: Partial<Account> = {}): Account => ({
   number,
+  // @private:begin
   role: 'team',
-  active: false,
   disabled: false,
+  membership: 'in',
+  leavesAt: null,
+  // @private:end
+  active: false,
   reading: 'fresh',
   fetchedAt: null,
   source: 'list',
-  membership: 'in',
-  leavesAt: null,
   lines: [],
   windows: [],
   ...over,
@@ -71,14 +73,29 @@ describe('account names', () => {
     expect([...emailNames(['a@Example.com', 'b@example.COM']).values()]).toEqual(['a', 'b']);
   });
 
-  it('Claude: the email with the organization of a Team seat and the hours of the personal account', () => {
+  it('Claude: the email, else by place; a nickname wins', () => {
+    const names = claudeNames([account(1, { email: 'lan.acme1@example.com', org: 'Acme Studio' }), account(2), account(0)], new Map([[2, 'Work']]));
+    expect(names.get(1)).toEqual({ name: 'lan.acme1', short: '1', sub: '', full: 'lan.acme1@example.com' });
+    expect(names.get(2)).toEqual({ name: 'Work', short: '2', sub: '', full: '' });
+    expect(names.get(0)).toMatchObject({ name: 'Tài khoản đang dùng', short: 'C' });
+  });
+
+  it('Antigravity: the email, else Antigravity N', () => {
+    const names = agyNames([{ number: 1, email: 'lanpham.ultra@example.com' }, { number: 2, email: 'lan.ultra2@example.com' }, { number: 3 }]);
+    expect([...names.values()].map((n) => n.name)).toEqual(['lanpham.ultra', 'lan.ultra2', 'Antigravity 3']);
+    expect(agyNames([{ number: 0 }]).get(0)?.name).toBe('Tài khoản đang dùng');
+  });
+
+  // @private:begin
+  it('Claude with roles: the email with the organization of a Team seat and the hours of the personal account', () => {
     const names = claudeNames(
       [
         account(1, { role: 'personal', email: 'lanpham.dev@example.com', org: "lanpham.dev@example.com's Organization" }),
         account(2, { email: 'lan.acme1@example.com', org: 'Acme Studio' }),
         account(3, { role: 'unknown', email: 'lan.solo@example.com' }),
       ],
-      '8-23',
+      new Map(),
+      { personalHours: '8-23' },
     );
     expect(names.get(1)).toEqual({ name: 'lanpham.dev', short: 'CN', sub: 'Cá nhân · 08–23', full: 'lanpham.dev@example.com' });
     expect(names.get(2)).toEqual({ name: 'lan.acme1', short: 'A', sub: 'Acme Studio', full: 'lan.acme1@example.com' });
@@ -86,7 +103,7 @@ describe('account names', () => {
   });
 
   it('Claude with names hidden: by place, no organization, and the personal hours alone', () => {
-    const names = claudeNames([account(1, { role: 'personal' }), account(4), account(2), account(7, { role: 'unknown' })], '8-23');
+    const names = claudeNames([account(1, { role: 'personal' }), account(4), account(2), account(7, { role: 'unknown' })], new Map(), { personalHours: '8-23' });
     expect([...names.values()].map((n) => [n.name, n.sub, n.full])).toEqual([
       ['Cá nhân', '08–23', ''],
       ['Team B', '', ''],
@@ -95,9 +112,9 @@ describe('account names', () => {
     ]);
   });
 
-  it('Antigravity: the email, else Ultra N', () => {
-    const names = agyNames([{ number: 1, email: 'lanpham.ultra@example.com' }, { number: 2, email: 'lan.ultra2@example.com' }, { number: 3 }]);
+  it('Antigravity with roles: the email, else Ultra N', () => {
+    const names = agyNames([{ number: 1, email: 'lanpham.ultra@example.com' }, { number: 2, email: 'lan.ultra2@example.com' }, { number: 3 }], true);
     expect([...names.values()].map((n) => n.name)).toEqual(['lanpham.ultra', 'lan.ultra2', 'Ultra 3']);
-    expect(agyNames([{ number: 0 }]).get(0)?.name).toBe('Tài khoản đang dùng');
   });
+  // @private:end
 });

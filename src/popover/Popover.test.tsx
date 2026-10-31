@@ -6,7 +6,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PopoverApp } from '../App';
 import { FOLD_KEY, MORE_KEY } from './Popover';
 import { fakeApi } from '../fixtures/fakeApi';
-import { claudeAccountsFixture, codexFixture, FIXTURE_NOW, fixtureModel, heldSwitcher, peerFixture, rotationFixture } from '../fixtures/models';
+import { claudeAccountsFixture, codexFixture, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
+// @private:begin
+import { heldSwitcher, peerFixture, rotationFixture } from '../fixtures/models';
+// @private:end
 import type { Api } from '../lib/api';
 import type { Model } from '../lib/model';
 
@@ -45,17 +48,23 @@ describe('popover', () => {
   it('shows each service’s account in use, the others behind one line: Claude rows switch, unlisted Antigravity ones do not', async () => {
     const fake = await open(fixtureModel('fresh'));
     // One header line: this Mac, with no age while the numbers are fresh.
-    expect(screen.getByText('Mac mini')).toBeTruthy();
+    expect(screen.getByText('Mac Studio')).toBeTruthy();
     expect(screen.queryByText(/cập nhật .* trước/)).toBeNull();
     expect(screen.queryByText(/còn tương đương/)).toBeNull();
     expect(screen.queryByText(/n = ngày/)).toBeNull();
 
     // The account in use first, a status with every window; the spoken label keeps every word the screen no longer writes.
     const acme1 = inUse('Claude');
-    expect(acme1.getAttribute('aria-label')).toMatch(/^lan\.acme1, Acme Studio, đang dùng\. 5 giờ đã dùng 74%/);
-    expect(acme1.getAttribute('data-active')).toBe('true');
+    let label = /^lan\.acme1, đang dùng\. 5 giờ đã dùng 74%/;
+    let title = 'lan.acme1@example.com · Quota Station · tài khoản 2';
+    // @private:begin
+    label = /^lan\.acme1, Acme Studio, đang dùng\. 5 giờ đã dùng 74%/;
     // Its rotation note is no chip here: the hover has it, and the main window.
-    expect(acme1.getAttribute('title')).toBe('lan.acme1@example.com · Quota Station · tài khoản 2 · rời vòng 17:45');
+    title += ' · rời vòng 17:45';
+    // @private:end
+    expect(acme1.getAttribute('aria-label')).toMatch(label);
+    expect(acme1.getAttribute('data-active')).toBe('true');
+    expect(acme1.getAttribute('title')).toBe(title);
     expect(screen.queryByText(/rời vòng/)).toBeNull();
     expect(within(acme1).getByText('Đang dùng')).toBeTruthy();
     expect(within(acme1).getByText('74%')).toBeTruthy();
@@ -76,7 +85,7 @@ describe('popover', () => {
     expect(cards.map((c) => c.getAttribute('aria-label')!.split(/,|\. /)[0])).toEqual(['lanpham.dev', 'lan.acme2', 'lan.acme3']);
     expect(within(cards[0]).getByText('chưa dùng')).toBeTruthy();
     expect(within(cards[1]).queryByText('Tuần')).toBeNull();
-    expect(cards[1].getAttribute('aria-label')).toMatch(/^lan\.acme2, Acme Studio\. .*\. Bấm để chuyển$/);
+    expect(cards[1].getAttribute('aria-label')).toMatch(/^lan\.acme2(, Acme Studio)?\. .*\. Bấm để chuyển$/);
     expect(cards[1].getAttribute('aria-disabled')).toBeNull();
     expect(screen.queryByText('2,3')).toBeNull();
     expect(JSON.parse(localStorage.getItem(MORE_KEY)!)).toEqual({ c: true, g: false, x: false });
@@ -155,6 +164,7 @@ describe('popover', () => {
     set.mockRestore();
   });
 
+  // @private:begin
   it('the footer has the automatic switching toggle and why Claude is on its account', async () => {
     await open(fixtureModel('fresh'));
     const toggle = screen.getByRole('switch', { name: 'Tự chuyển Claude' });
@@ -167,11 +177,14 @@ describe('popover', () => {
     await open(fixtureModel('fresh', { switcher: heldSwitcher() }));
     expect(screen.getByRole('switch', { name: /Tự chuyển Claude/ }).parentElement!.querySelector('small')).toBeTruthy();
   });
+  // @private:end
 
+  // @private:begin
   it('without Nâng cao the footer has no automatic switching', async () => {
     await open({ ...fixtureModel('fresh'), advanced: { on: false, firstmate: true } });
     expect(screen.queryByRole('switch', { name: /Tự chuyển Claude/ })).toBeNull();
   });
+  // @private:end
 
   it('each section opens on its account in use, with its share used and reset', async () => {
     await open(fixtureModel('fresh'));
@@ -182,12 +195,14 @@ describe('popover', () => {
     expect(screen.getByText('· cập nhật 41 phút trước')).toBeTruthy();
   });
 
-  it('writes no notes on the accounts: an old number is dim with its age on hover, the rotation stays in the main window', async () => {
+  it('writes no notes on the accounts: an old number is dim with its age on hover', async () => {
     const m = fixtureModel('fresh');
     const accounts = m.snapshot.claude.accounts;
     const old = new Date(FIXTURE_NOW.getTime() - 25 * 60_000).toISOString();
     accounts[2] = { ...accounts[2], reading: 'stale', fetchedAt: old };
+    // @private:begin
     accounts[3] = { ...accounts[3], membership: 'ended' };
+    // @private:end
     showOthers();
     await open(m);
     const [, acme2, acme3] = others('Claude');
@@ -197,9 +212,16 @@ describe('popover', () => {
     const numbers = within(acme2).getAllByText(/%$/);
     expect(numbers.length).toBeGreaterThan(0);
     for (const n of numbers) expect(n.className).toContain('text-ink3');
+    // @private:begin
+    // The rotation stays in the main window.
     expect(acme3.getAttribute('title')).toBe('lan.acme3@example.com · Quota Station · tài khoản 4 · đã rời vòng');
+    // @private:end
     expect(acme3.getAttribute('data-stale')).toBeNull();
-    for (const note of [/phút trước/, /rời vòng/, /ngoài vòng/, /tạm dừng tự chuyển/]) expect(screen.queryByText(note)).toBeNull();
+    const notes = [/phút trước/];
+    // @private:begin
+    notes.push(/rời vòng/, /ngoài vòng/, /tạm dừng tự chuyển/);
+    // @private:end
+    for (const note of notes) expect(screen.queryByText(note)).toBeNull();
   });
 
   it('shows the glass, and the solid ground while macOS reduces transparency', async () => {
@@ -327,10 +349,15 @@ describe('popover', () => {
   it('updates when the reader pushes a new model', async () => {
     const fake = await open(fixtureModel('fresh'));
     act(() => fake.push(fixtureModel('exhausted')));
-    expect(screen.getByText('Hạn mức Claude trong vòng đã cạn')).toBeTruthy();
-    expect(screen.getByText('Có lại lúc 16:40 khi Cá nhân và Team B được đặt lại.')).toBeTruthy();
+    let banner: [string, RegExp] = ['Hạn mức Claude sắp cạn', /Sớm nhất có lại lúc 16:40 \(Tài khoản 1\)\.$/];
+    // @private:begin
+    banner = ['Hạn mức Claude trong vòng đã cạn', /^Có lại lúc 16:40 khi Cá nhân và Team B được đặt lại\.$/];
+    // @private:end
+    expect(screen.getByText(banner[0])).toBeTruthy();
+    expect(screen.getByText(banner[1])).toBeTruthy();
   });
 
+  // @private:begin
   it('the footer says which Macs have the rotation rules only when one is behind', async () => {
     await open(fixtureModel('fresh'));
     expect(screen.queryByText(/^Luật xoay vòng ·/)).toBeNull();
@@ -344,6 +371,7 @@ describe('popover', () => {
     await open(fixtureModel('fresh', { rotation: rotationFixture({ peers: [] }) }));
     expect(screen.queryByText(/^Luật xoay vòng ·/)).toBeNull();
   });
+  // @private:end
 
   it('no Claude account yet: an empty card whose button opens the Claude tab', async () => {
     const m = fixtureModel('fresh');
@@ -398,7 +426,9 @@ describe('popover', () => {
     await open(fixtureModel('fresh', { language: 'en' }));
     expect(within(inUse('Claude')).getByText('In use')).toBeTruthy();
     expect(screen.getByRole('button', { name: '3 other accounts' })).toBeTruthy();
+    // @private:begin
     expect(screen.getByRole('switch', { name: 'Claude auto-switch' })).toBeTruthy();
+    // @private:end
     expect(screen.getByRole('button', { name: 'Switch to the dark look' })).toBeTruthy();
     expect(document.documentElement.lang).toBe('en');
   });

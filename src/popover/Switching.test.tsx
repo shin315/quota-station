@@ -1,15 +1,21 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-// The switch sheet (F04) and the pause control (F07) in the popover, on the
-// fake Rust side: nothing here runs claude-swap or writes a pause flag.
+// The switch sheet (F04) in the popover, on the fake Rust side: nothing
+// here runs claude-swap.
+// @private:begin
+// The pause control (F07) too; nothing writes a pause flag.
+// @private:end
 
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PopoverApp } from '../App';
 import { MORE_KEY } from './Popover';
 import { fakeApi, type FakeOptions } from '../fixtures/fakeApi';
-import { FIXTURE_NOW, fixtureModel, heldSwitcher, switcherFixture } from '../fixtures/models';
+import { FIXTURE_NOW, fixtureModel } from '../fixtures/models';
+// @private:begin
+import { heldSwitcher, switcherFixture } from '../fixtures/models';
+// @private:end
 import type { Api } from '../lib/api';
 import type { Model, Outcome } from '../lib/model';
 
@@ -37,10 +43,12 @@ async function sheetFor(name: string) {
 }
 
 const facts = (sheet: HTMLElement) => within(sheet).getAllByRole('listitem').map((li) => li.textContent);
+// @private:begin
 const radios = (sheet: HTMLElement) =>
   within(sheet)
     .getAllByRole('radio')
     .map((r) => (r.getAttribute('aria-checked') === 'true' ? '● ' : '○ ') + r.textContent);
+// @private:end
 
 // Every section shows its other accounts, as the owner opens them.
 beforeEach(() => localStorage.setItem(MORE_KEY, JSON.stringify({ c: true, g: true, x: true })));
@@ -50,6 +58,7 @@ afterEach(() => {
 });
 
 describe('the Claude switch sheet', () => {
+  // @private:begin
   it('names the target, counts the live sessions and offers the four holds, one hour by default', async () => {
     const fake = await open(fixtureModel('fresh'));
     const sheet = await sheetFor('lan.acme2');
@@ -69,14 +78,18 @@ describe('the Claude switch sheet', () => {
     // The rest of the popover sits behind the sheet.
     expect(screen.getByRole('dialog', { name: 'Quota Station' }).querySelector('.body')!.hasAttribute('inert')).toBe(true);
   });
+  // @private:end
 
+  // @private:begin
   it('"Đến lúc đặt lại" ends at the five-hour reset of an account whose window runs', async () => {
     await open(fixtureModel('fresh'));
     const sheet = await sheetFor('lan.acme3');
     expect(within(sheet).getByRole('radio', { name: /Đến lúc đặt lại/ }).textContent).toBe('Đến lúc đặt lạiđến 17:09');
     expect(facts(sheet)[0]).toBe('lan.acme3 đã dùng 2% 5 giờ, 2% Fable.');
   });
+  // @private:end
 
+  // @private:begin
   it('confirming switches with the hold chosen and reports what the re-read shows', async () => {
     const fake = await open(fixtureModel('fresh'));
     const sheet = await sheetFor('lan.acme2');
@@ -95,7 +108,9 @@ describe('the Claude switch sheet', () => {
     });
     expect(screen.queryByText(/Đã chuyển sang lan.acme2/)).toBeNull();
   });
+  // @private:end
 
+  // @private:begin
   it('"Để tự chuyển" switches without a hold and says the switcher may switch again', async () => {
     const fake = await open(fixtureModel('fresh'));
     const sheet = await sheetFor('lan.acme2');
@@ -112,7 +127,9 @@ describe('the Claude switch sheet', () => {
       'Đọc lại sau 5 giây: lan.acme2 đang dùng ✓. Tự động chuyển vẫn bật: bộ tự chuyển kiểm tra lại trong vòng 3 phút và có thể đổi tài khoản.',
     );
   });
+  // @private:end
 
+  // @private:begin
   it('the hold ends at the time its choice shows, even when the clock has moved on since', async () => {
     let now = FIXTURE_NOW;
     const fake = await open(fixtureModel('fresh'), {}, () => now);
@@ -124,7 +141,9 @@ describe('the Claude switch sheet', () => {
     });
     expect(fake.api.switchClaude).toHaveBeenCalledWith(3, '2026-01-16T08:20:40.000Z');
   });
+  // @private:end
 
+  // @private:begin
   it('the arrow keys move the hold choice', async () => {
     await open(fixtureModel('fresh'));
     const sheet = await sheetFor('lan.acme2');
@@ -137,6 +156,7 @@ describe('the Claude switch sheet', () => {
     expect(within(sheet).getByRole('radio', { name: /Đến lúc đặt lại/ }).getAttribute('aria-checked')).toBe('true');
     expect(within(sheet).getByText('Tạm dừng tự chuyển đến 19:20 để giữ tài khoản này.')).toBeTruthy();
   });
+  // @private:end
 
   it('shows the switch running until the result is in', async () => {
     let finish: (o: Outcome) => void = () => {};
@@ -152,11 +172,12 @@ describe('the Claude switch sheet', () => {
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.getByRole('dialog', { name: 'Đang chuyển sang lan.acme2…' })).toBeTruthy();
     expect(fake.api.hidePopover).not.toHaveBeenCalled();
-    await act(async () => finish({ kind: 'switched', slot: 3, hold: null }));
+    await act(async () => finish({ kind: 'switched', slot: 3, hold: null } as Outcome));
     expect(screen.queryByRole('dialog', { name: /Đang chuyển/ })).toBeNull();
     expect(screen.getByText('Đã chuyển sang lan.acme2')).toBeTruthy();
   });
 
+  // @private:begin
   it('when the switcher switches back, says so and offers to switch again', async () => {
     await open(fixtureModel('fresh'), {
       outcome: (slot, holdUntil) => ({
@@ -179,15 +200,19 @@ describe('the Claude switch sheet', () => {
     });
     expect(screen.getByRole('dialog', { name: 'Chuyển Claude sang lan.acme2?' })).toBeTruthy();
   });
+  // @private:end
 
-  it('another switch winning is not blamed on the switcher', async () => {
-    await open(fixtureModel('fresh'), { outcome: (slot) => ({ kind: 'raced', slot, active: 4, bySwitcherAt: null, hold: null }) });
+  it('another switch winning says which account won', async () => {
+    await open(fixtureModel('fresh'), { outcome: (slot) => ({ kind: 'raced', slot, active: 4, bySwitcherAt: null, hold: null }) as Outcome });
     const sheet = await sheetFor('lan.acme2');
     await act(async () => {
       fireEvent.click(within(sheet).getByRole('button', { name: 'Chuyển sang lan.acme2' }));
     });
     expect(screen.getByText('Một lần chuyển khác vừa chuyển sang lan.acme3')).toBeTruthy();
+    // @private:begin
+    // Not blamed on the switcher: nothing to allow again.
     expect(screen.queryByRole('button', { name: 'Cho phép tự chuyển lại' })).toBeNull();
+    // @private:end
   });
 
   it('a switch that does not land says nothing changed and offers to try again', async () => {
@@ -202,11 +227,11 @@ describe('the Claude switch sheet', () => {
     expect(screen.getByText('Claude Code đang giữ khoá đăng nhập (đang làm mới hoặc ghi đăng nhập). Thử lại sau vài giây. Chưa đổi gì.')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Thử lại' })).toBeTruthy();
     // Nothing changed: lan.acme1 is still the one in use.
-    expect(document.querySelector('[data-active]')!.getAttribute('aria-label')).toMatch(/^lan\.acme1, Acme Studio, đang dùng\./);
+    expect(document.querySelector('[data-active]')!.getAttribute('aria-label')).toMatch(/^lan\.acme1, (Acme Studio, )?đang dùng\./);
   });
 
   it('an unconfirmed switch asks for a refresh', async () => {
-    await open(fixtureModel('fresh'), { outcome: (slot) => ({ kind: 'unconfirmed', slot, hold: null }) });
+    await open(fixtureModel('fresh'), { outcome: (slot) => ({ kind: 'unconfirmed', slot, hold: null }) as Outcome });
     const sheet = await sheetFor('lan.acme2');
     await act(async () => {
       fireEvent.click(within(sheet).getByRole('button', { name: 'Chuyển sang lan.acme2' }));
@@ -242,6 +267,7 @@ describe('the Claude switch sheet', () => {
     expect(facts(await sheetFor('lan.acme2'))[1]).toMatch(/^Các phiên Claude đang chạy sẽ tạo lại bộ nhớ đệm/);
   });
 
+  // @private:begin
   it('the personal account outside its hours warns that the switcher will move away', async () => {
     // 00:30 at UTC+7: outside the personal hours 8-23.
     await open(fixtureModel('fresh'), {}, () => new Date('2026-01-16T17:30:00.000Z'));
@@ -252,6 +278,7 @@ describe('the Claude switch sheet', () => {
     fireEvent.click(within(sheet).getByRole('radio', { name: /Để tự chuyển/ }));
     expect(within(sheet).getByText('Ngoài giờ dùng tài khoản Cá nhân. Chọn thời lượng giữ để tránh tự chuyển sang tài khoản khác.').getAttribute('data-tone')).toBe('warn');
   });
+  // @private:end
 
   it('before Quota Station keeps any account nothing can switch', async () => {
     await open(fixtureModel('fresh', { claudeSwitch: { ready: false, busy: null } }));
@@ -280,6 +307,7 @@ describe('the Claude switch sheet', () => {
   });
 });
 
+// @private:begin
 describe('the pause control', () => {
   it('the toggle opens the pause sheet; pausing holds the active account for the time chosen', async () => {
     const fake = await open(fixtureModel('fresh'));
@@ -412,3 +440,4 @@ describe('the pause control', () => {
     expect(screen.getByText('Quota Station chưa giữ tài khoản Claude nào trên máy này: chưa có tự chuyển Claude.')).toBeTruthy();
   });
 });
+// @private:end

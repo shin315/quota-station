@@ -2,15 +2,13 @@
 // SPDX-License-Identifier: MIT
 
 // A fake Rust side on fixture data, for the tests and the browser preview.
-// Never reads a real quota, runs claude-swap or the switcher, never opens a browser
+// Never reads a real quota or runs claude-swap, never opens a browser
 // or the Keychain, and writes no file.
 // Plain code: the preview bundle must not load Vitest.
 
-import type { AuthorModel } from '../lib/author';
 import type { SessionView } from '../session/steps';
 import type { Api } from '../lib/api';
 import { fakeParts, fakeRestore, planFixture, summaryFixture } from './fakeBackup';
-import { comparisonFixture, copyDoneFixture, copyUndoneFixture } from './fakeCopy';
 import { fakeApply, fakePaste, fakePreview } from './fakeMcp';
 import { fakeSetChanges, fakeSetDrift } from './fakeSets';
 import { SKIPPED_NONE, statsReport } from './fakeStats';
@@ -21,7 +19,6 @@ import type {
   Account,
   ReleaseView,
   Agent,
-  CopyComparison,
   AgyApp,
   AgyHow,
   AgyLogin,
@@ -55,7 +52,6 @@ import type {
   Line,
   EnvFound,
   StatsSkipped,
-  FirstmateView,
   HistoryEntry,
   McpOutcome,
   Model,
@@ -63,15 +59,15 @@ import type {
   SetsView,
   SkillOutcome,
   Outcome,
-  PeerView,
-  RotationView,
-  RulesError,
   Sessions,
   SettingsGroup,
   Tab,
-  UpdateError,
-  UpdateOutcome,
 } from '../lib/model';
+// @private:begin
+import type { AuthorModel } from '@/private/author';
+import { comparisonFixture, copyDoneFixture, copyUndoneFixture } from '@/private/copy/fakeCopy';
+import type { CopyComparison, FirstmateView, PeerView, RotationView, RulesError, UpdateError, UpdateOutcome } from '../lib/model';
+// @private:end
 
 export interface FakeOptions {
   /** A test build's guided session: where the guide was, and what the PC has. */
@@ -80,21 +76,30 @@ export interface FakeOptions {
   reduceTransparency?: boolean;
   /** macOS increases contrast: the edges are drawn stronger. */
   increaseContrast?: boolean;
+  // @private:begin
   /** Aliases SSH cannot reach: a save leaves them behind, and "Thử SSH" fails. */
   unreachable?: string[];
   /** What a save, adopt or keep rejects with, instead of writing. */
   rulesError?: RulesError;
   /** How long a save takes; the preview waits to show "Đang lưu…". */
   saveDelayMs?: number;
+  // @private:end
   /** When an action happens, for the stamps it writes. */
   clock?: () => Date;
+  // @private:begin
   /** `Thoát Quota Station` was chosen before the window listened. */
   quitPending?: boolean;
+  // @private:end
   /** How long a switch takes before it reports; the preview waits to show the working sheet. */
   switchDelayMs?: number;
   sessions?: Sessions | null;
   /** What a switch reports; by default it lands on the slot asked for. */
-  outcome?: (slot: number, holdUntil: string | null) => Outcome;
+  outcome?: (
+    slot: number,
+    // @private:begin
+    holdUntil: string | null,
+    // @private:end
+  ) => Outcome;
   /** The error kind a Claude account action ends with; none lands it. */
   claudeFail?: (action: ClaudeAccountAction) => string | null;
   /** How long a Claude account action takes; the preview waits to show it running. */
@@ -141,14 +146,18 @@ export interface FakeOptions {
   codexImportNone?: boolean;
   /** The History tab's lines; none by default. */
   history?: HistoryEntry[];
+  // @private:begin
   /** What a `quota-pool.last` set in Cài đặt reads as; without it a path finds no file. */
   firstmate?: FirstmateView;
+  // @private:end
   /** macOS waits for the owner's approval after the login switch is turned on. */
   loginApproval?: boolean;
+  // @private:begin
   /** How "Cập nhật từ mã nguồn" ends; by default it installs 0.1.1 from a new commit. */
   update?: () => UpdateOutcome | UpdateError;
   /** How long each update step takes; the preview waits to show them. */
   updateDelayMs?: number;
+  // @private:end
   /** A write finds a file changed since the preview: nothing is written. */
   mcpChanged?: boolean;
   /** How long an MCP preview or write takes. */
@@ -167,6 +176,7 @@ export interface FakeOptions {
   skillsDelayMs?: number;
   /** Skills `npx skills update` fails for, in "Cập nhật tất cả" and "Cập nhật cả bộ". */
   skillsUpdateFail?: string[];
+  // @private:begin
   /** Chép sang Mac khác (M13): Macs that do not answer, run version 1, or have no app. */
   copyUnreach?: string[];
   copyOld?: string[];
@@ -175,6 +185,7 @@ export interface FakeOptions {
   copyChanged?: boolean;
   /** How long a comparison, a copy and its undo take. */
   copyDelayMs?: number;
+  // @private:end
   /** How long "Kiểm lại" takes (M14). */
   envDelayMs?: number;
   /** "Áp bộ" finds an agent's file changed since the preview (M15): nothing is written. */
@@ -195,16 +206,25 @@ const said = (title: string, body: string): AlertSaid => ({ tone: 'info', title,
 function sample(kind: AlertKind, at: number): Alert {
   const base = { key: 'test:' + kind + ':' + at, kind, at, test: true };
   switch (kind) {
-    case 'pool':
-      return { ...base, tone: 'bad', title: 'Hạn mức Claude trong vòng sắp cạn', body: 'Thử: còn tương đương 0,4 tài khoản.', actions: [{ id: 'switch:0', label: 'Sang Cá nhân (còn 19%)' }, { id: 'dismiss', label: 'Bỏ qua' }] };
+    case 'pool': {
+      let pool = { title: 'Hạn mức Claude sắp cạn', body: 'Thử: tài khoản đang dùng còn 8%.', to: 'Sang tài khoản 3 (còn 19%)' };
+      // @private:begin
+      pool = { title: 'Hạn mức Claude trong vòng sắp cạn', body: 'Thử: còn tương đương 0,4 tài khoản.', to: 'Sang Cá nhân (còn 19%)' };
+      // @private:end
+      return { ...base, tone: 'bad', title: pool.title, body: pool.body, actions: [{ id: 'switch:0', label: pool.to }, { id: 'dismiss', label: 'Bỏ qua' }] };
+    }
+    // @private:begin
     case 'leaving':
       return { ...base, tone: 'warn', title: 'Team A rời vòng sau 30 phút', body: 'Thử: còn 30 phút.', actions: [{ id: 'dismiss', label: 'Ổn' }, { id: 'switch:0', label: 'Chuyển ngay' }] };
+    // @private:end
     case 'login':
       return { ...base, tone: 'warn', title: 'Team B cần đăng nhập lại', body: 'Thử: đăng nhập hết hạn sau 2 ngày.', actions: [{ id: 'snooze', label: 'Nhắc ngày mai' }, { id: 'dismiss', label: 'Đã biết' }] };
     case 'overwrite':
       return { ...base, tone: 'warn', title: 'Antigravity đổi về tài khoản cũ', body: 'Thử: Antigravity.app đổi về Ultra 1.', actions: [{ id: 'agy:quitFirst:0', label: 'Thoát app rồi chuyển lại' }, { id: 'agy:keepRunning:0', label: 'Chuyển lại' }, { id: 'agy:keep', label: 'Bỏ qua' }] };
+    // @private:begin
     case 'firstmate':
       return { ...base, tone: 'info', title: 'Firstmate đang chờ hạn mức Claude', body: 'Thử: hạn mức trong vòng dưới ngưỡng.', actions: [] };
+    // @private:end
     case 'skill':
       return { ...base, tone: 'info', title: '2 skill có bản mới', body: 'Thử: ui-polish, sql-helper. App không tự cập nhật.', actions: [{ id: 'skills:open', label: 'Xem' }, { id: 'dismiss', label: 'Để sau' }] };
     case 'env':
@@ -243,13 +263,16 @@ export function hideNames(m: Model): Model {
   };
 }
 
+// @private:begin
 /** RFC 3339 cut to the minute, as the pause flag keeps it. */
 function minute(iso: string): string {
   const d = new Date(iso);
   d.setSeconds(0, 0);
   return d.toISOString();
 }
+// @private:end
 
+// @private:begin
 /** The stamp's form: this Mac's offset, to the second. */
 function stampAt(d: Date): string {
   const p = (n: number) => String(Math.abs(n)).padStart(2, '0');
@@ -259,9 +282,14 @@ function stampAt(d: Date): string {
     (off < 0 ? '-' : '+') + p(Math.trunc(off / 60)) + ':' + p(off % 60)
   );
 }
+// @private:end
 
 /** The model of a build with the Antigravity accounts, as the fixtures are. */
-type Full = AuthorModel & Required<Pick<Model, 'antigravity' | 'agySwitch'>>;
+type Full = Model &
+  // @private:begin
+  AuthorModel &
+  // @private:end
+  Required<Pick<Model, 'antigravity' | 'agySwitch'>>;
 
 export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: FakeOptions = {}) {
   let model = initial as Full;
@@ -269,21 +297,29 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
   const named = initial.snapshot;
   let tab = initialTab;
   let settingsGroup: SettingsGroup = 'general';
+  // @private:begin
   let version = 1;
+  // @private:end
   const now = options.clock ?? (() => new Date());
   const listeners = new Set<(m: Model) => void>();
   const tabListeners = new Set<(t: Tab) => void>();
+  // @private:begin
   const closeListeners = new Set<() => void>();
+  // @private:end
   const openSwitchListeners = new Set<(slot: number) => void>();
+  // @private:begin
   const quitListeners = new Set<() => void>();
+  // @private:end
   const materialListeners = new Set<(on: boolean) => void>();
   let reduceTransparency = options.reduceTransparency ?? false;
   const contrastListeners = new Set<(on: boolean) => void>();
   let increaseContrast = options.increaseContrast ?? false;
+  // @private:begin
   /** What the last `closeMain` did: the tests check a quit really quits. */
   let closed: 'window' | 'app' | null = null;
   let quitPending = options.quitPending ?? false;
   let relaunched = 0;
+  // @private:end
   let session: SessionView = {
     on: false,
     step: null,
@@ -302,6 +338,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
   let lastSetUndo: { mcp: McpOutcome['undo']; skills: SkillOutcome['undo']; codexBefore: string | null } | null = null;
   let removedSet: { set: SetsView['sets'][number]; index: number; applied: SetsView['applied'] } | null = null;
   const setsWait = () => (options.setsDelayMs ? new Promise((r) => setTimeout(r, options.setsDelayMs)) : Promise.resolve());
+  // @private:begin
   const delay = () => (options.saveDelayMs ? new Promise((r) => setTimeout(r, options.saveDelayMs)) : Promise.resolve());
   /** Every Mac SSH reaches takes the file; the others wait 5 minutes. */
   const sent = (peers: PeerView[]): PeerView[] =>
@@ -323,6 +360,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
     push({ ...model, rotation: { ...r, status: 'ok', reason: null, version: 'v' + version, peers: sent(r.peers), ...next(r) } });
     return model;
   };
+  // @private:end
   const push = (next: Model) => {
     model = next as Full;
     listeners.forEach((l) => l(model));
@@ -335,7 +373,9 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
   let endLogin: ((how: 'paste' | 'cancel' | 'self') => void) | null = null;
   /** Ends the waiting Codex sign-in: its own end, or "Thôi". */
   let codexLoginEnd: ((how: 'self' | 'cancel') => void) | null = null;
+  // @private:begin
   let lastCopy: CopyComparison | null = null;
+  // @private:end
   /** The pages "Tải và cài", "Mở trang Releases" and the bug form opened. */
   const released: string[] = [];
   const finished: string[] = [];
@@ -371,17 +411,24 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
     const accounts = kept.map(
       (r): Account =>
         had.has(r.slot)
-          ? { ...had.get(r.slot)!, disabled: !r.enabled }
+          ? {
+              ...had.get(r.slot)!,
+              // @private:begin
+              disabled: !r.enabled,
+              // @private:end
+            }
           : {
               number: r.slot,
+              // @private:begin
               role: 'unknown',
-              active: r.active,
               disabled: !r.enabled,
+              membership: 'unknown',
+              leavesAt: null,
+              // @private:end
+              active: r.active,
               reading: 'noData',
               fetchedAt: null,
               source: 'list',
-              membership: 'unknown',
-              leavesAt: null,
               lines: [],
               windows: [],
               ...(r.email ? { email: r.email } : {}),
@@ -392,7 +439,9 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
   const claudeRow = (slot: number, over: Partial<ClaudeAccountRow> = {}): ClaudeAccountRow => ({
     slot,
     alias: null,
+    // @private:begin
     enabled: true,
+    // @private:end
     active: false,
     kind: 'login',
     status: 'noData',
@@ -435,24 +484,40 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       return model;
     },
     claudeSessions: async () => (options.sessions === undefined ? { live: 5, unreadable: 0 } : options.sessions),
-    switchClaude: async (slot, holdUntil) => {
+    switchClaude: async (
+      slot,
+      // @private:begin
+      holdUntil,
+      // @private:end
+    ) => {
       push({ ...model, claudeSwitch: { ...model.claudeSwitch, busy: slot } });
       if (options.switchDelayMs) await new Promise((r) => setTimeout(r, options.switchDelayMs));
-      const outcome: Outcome = options.outcome?.(slot, holdUntil) ?? {
+      const outcome: Outcome = options.outcome?.(
+        slot,
+        // @private:begin
+        holdUntil,
+        // @private:end
+      ) ?? {
         kind: 'switched',
         slot,
+        // @private:begin
         hold: holdUntil ? { until: minute(holdUntil), failed: false } : null,
+        // @private:end
       };
       const lands = outcome.kind === 'switched' || outcome.kind === 'unconfirmed' ? slot : outcome.kind === 'raced' ? outcome.active : null;
+      // @private:begin
       const hold = outcome.kind !== 'failed' && outcome.hold && !outcome.hold.failed ? outcome.hold : null;
+      // @private:end
       const accounts = model.snapshot.claude.accounts.map((a) => (lands == null ? a : { ...a, active: a.number === lands }));
       push({
         ...model,
         snapshot: { ...model.snapshot, claude: { ...model.snapshot.claude, accounts } },
         claudeSwitch: { ...model.claudeSwitch, busy: null },
+        // @private:begin
         switcher: hold
           ? { ...model.switcher, pause: { until: hold.until, reason: 'chuyển tay sang tài khoản ' + slot + ' lúc 14:20', holds: true } }
           : model.switcher,
+        // @private:end
       });
       return outcome;
     },
@@ -462,9 +527,23 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
         return {
           view: { ready: true, accounts: ready },
           done: {
-            imported: { added: ready.map((a) => a.slot), updated: [], unchanged: [], skipped: [], rotation: true, prime: false },
+            imported: {
+              added: ready.map((a) => a.slot),
+              updated: [],
+              unchanged: [],
+              skipped: [],
+              // @private:begin
+              rotation: true,
+              prime: false,
+              // @private:end
+            },
           },
-          model: { claudeSwitch: { ...model.claudeSwitch, ready: true }, switcher: { ...model.switcher, installed: true } },
+          model: {
+            claudeSwitch: { ...model.claudeSwitch, ready: true },
+            // @private:begin
+            switcher: { ...model.switcher, installed: true },
+            // @private:end
+          },
         };
       }),
     claudeAddLogin: () =>
@@ -494,6 +573,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
         v.accounts.find((a) => a.slot === slot)?.active ? 'active' : { view: { accounts: v.accounts.filter((a) => a.slot !== slot) }, done: { slot } },
       ),
     claudeSetAlias: (slot, alias) => claudeRun('alias', editRow(slot, (r) => ({ ...r, alias: alias.trim() || null }))),
+    // @private:begin
     claudeSetEnabled: (slot, enabled) => claudeRun('enabled', editRow(slot, (r) => ({ ...r, enabled }))),
     claudeSetRotation: (on) =>
       claudeRun('rotation', (v) =>
@@ -579,6 +659,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       quitListeners.add(handler);
       return () => quitListeners.delete(handler);
     },
+    // @private:end
     agyLogin: async () => {
       if (model.antigravity.loggingIn) throw { kind: 'busy', detail: '' } satisfies AgyLoginFailure;
       if (model.agySwitch.busy != null) throw { kind: 'switching', detail: '' } satisfies AgyLoginFailure;
@@ -1240,7 +1321,11 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
     releaseDiagnostics: async () =>
       [
         'Quota Station ' + model.app.version + ' (' + (model.app.commit ?? 'no commit') + ') · MIT build',
-        'macOS 26.1 · aarch64 · language auto · Advanced ' + (model.advanced.on ? 'on' : 'off'),
+        'macOS 26.1 · aarch64 · language auto' +
+          // @private:begin
+          ' · Advanced ' + (model.advanced.on ? 'on' : 'off') +
+          // @private:end
+          '',
         'Claude Code: found · ' + model.claudeAccounts.accounts.length + ' account(s) kept · Keychain ' + model.snapshot.keychain,
         'Claude quota: ' + model.snapshot.claude.status + ', ' + model.snapshot.claude.accounts.length + ' account(s)',
         'Antigravity quota: ' + model.snapshot.agy.status + ', ' + model.snapshot.agy.accounts.length + ' account(s)',
@@ -1497,6 +1582,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       if (options.restoreDelayMs) await new Promise((r) => setTimeout(r, options.restoreDelayMs));
       return { part, id: item, agent, kind: '', ok: true, why: null, retry: false };
     },
+    // @private:begin
     copyCompare: async (alias) => {
       if (options.copyDelayMs) await new Promise((r) => setTimeout(r, options.copyDelayMs));
       if (options.copyUnreach?.includes(alias)) throw 'unreachable:ssh: connect to host ' + alias + ' port 22: Operation timed out';
@@ -1515,6 +1601,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       if (options.copyDelayMs) await new Promise((r) => setTimeout(r, options.copyDelayMs));
       return copyUndoneFixture();
     },
+    // @private:end
     restoreUndo: async (force) => {
       if (!model.backup.restore) throw 'nothing';
       if (options.restoreUndoChanged && !force) throw 'changed:codex';
@@ -1542,11 +1629,15 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       let switchBack: { number: number; how: AgyHow } | null = null;
       const agy = /^agy:(plain|quitFirst|keepRunning):(\d+)$/.exec(action);
       if (record.alert.test) result = said('Thông báo thử', 'Bạn đã bấm “' + pressed.label + '”. Thông báo thử không làm gì cả.');
-      else if (action === 'dismiss')
-        result =
-          record.alert.kind === 'pool'
-            ? said('Đã bỏ qua thông báo này', 'Không lặp lại cho cùng sự kiện. Quota Station báo lại khi hạn mức trong vòng có lại.')
-            : said('Đã ghi nhận', record.alert.kind === 'leaving' ? 'Không nhắc lại cho lần rời vòng này.' : 'Không nhắc lại cho lần này.');
+      else if (action === 'dismiss') {
+        let again = 'Không nhắc lại cho lần này.';
+        let back = 'Không lặp lại cho cùng sự kiện. Quota Station báo lại khi có lại hạn mức.';
+        // @private:begin
+        if (record.alert.kind === 'leaving') again = 'Không nhắc lại cho lần rời vòng này.';
+        back = 'Không lặp lại cho cùng sự kiện. Quota Station báo lại khi hạn mức trong vòng có lại.';
+        // @private:end
+        result = record.alert.kind === 'pool' ? said('Đã bỏ qua thông báo này', back) : said('Đã ghi nhận', again);
+      }
       else if (action === 'snooze') result = said('Sẽ nhắc lại lúc 09:00 ngày mai', 'Thứ Bảy 17/01.');
       else if (action === 'agy:keep') result = said('Đã bỏ qua', 'Antigravity giữ tài khoản đang dùng. Ứng dụng ngừng theo dõi lần chuyển này.');
       else if (action === 'agy:login') {
@@ -1640,6 +1731,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       push({ ...model, alerts: { ...model.alerts, poolAlert: { dryAtMost, roomAtLeast } } });
       return model;
     },
+    // @private:begin
     setAdvanced: async (on) => {
       push({ ...model, advanced: { ...model.advanced, on } });
       return model;
@@ -1658,6 +1750,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       push({ ...model, firstmate: { ...options.firstmate, file: path.trim() } });
       return model;
     },
+    // @private:end
     settingsOpened: async () => {},
     setLaunchAtLogin: async (on) => {
       if (model.app.launchAtLogin === 'unavailable') throw 'unavailable';
@@ -1665,6 +1758,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       return model;
     },
     openLoginItems: async () => {},
+    // @private:begin
     // A clone is a path ending in `quota-station`; `nowhere` has no folder.
     setSourceDir: async (path) => {
       const p = path.trim();
@@ -1701,6 +1795,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       if (model.app.outcome?.kind !== 'installed') throw 'notInstalled';
       relaunched += 1;
     },
+    // @private:end
     getHistory: async () => options.history ?? [],
     notifyRefresh: async () => {},
     openNotificationSettings: async () => {},
@@ -1783,6 +1878,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       sessionCalls.push({ call: 'reveal' });
     },
   };
+  // @private:begin
   /** The window's close button, as macOS would press it with unsaved rules. */
   const requestClose = () => closeListeners.forEach((l) => l());
   /** `Thoát Quota Station` in the menu bar menu with unsaved rules. */
@@ -1790,6 +1886,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
     quitPending = true;
     quitListeners.forEach((l) => l());
   };
+  // @private:end
   /** The owner turns Reduce Transparency on or off in macOS's settings. */
   const setReduceTransparency = (on: boolean) => {
     reduceTransparency = on;
@@ -1811,15 +1908,17 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
     api,
     push,
     current: () => model,
+    // @private:begin
     requestClose,
     requestQuit,
     closed: () => closed,
+    /** How many times "Mở lại" quit the app. */
+    relaunched: () => relaunched,
+    // @private:end
     cardOpensSwitch,
     cardOpened,
     setReduceTransparency,
     setIncreaseContrast,
-    /** How many times "Mở lại" quit the app. */
-    relaunched: () => relaunched,
     /** The ids "Mở file" opened (M14). */
     envOpened: () => envOpened,
     /** What the release buttons opened: `download`, `notes`, `releases`, `issue`. */

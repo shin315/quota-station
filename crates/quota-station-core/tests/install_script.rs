@@ -214,8 +214,12 @@ fn builds_signs_ad_hoc_installs_and_opens() {
     let build =
         calls.iter().find(|c| c.starts_with("cargo tauri build --bundles app")).expect("a build");
     // A build from source keeps the Antigravity accounts, in Rust and in the
-    // frontend, and the tools made for the author's own Macs.
+    // frontend.
+    assert!(build.contains("--features antigravity-accounts"), "{build}");
+    // @private:begin
+    // And the tools made for the author's own Macs.
     assert!(build.contains("--features antigravity-accounts,author-tools "), "{build}");
+    // @private:end
     assert!(build.contains(" QS_ANTIGRAVITY_ACCOUNTS=1 "), "{build}");
     assert!(calls.iter().any(|c| c == "security find-identity -v -p codesigning"));
     assert!(!calls.iter().any(|c| c.starts_with("npm")), "node_modules is up to date: {calls:?}");
@@ -285,11 +289,14 @@ fn qs_antigravity_accounts_0_builds_without_the_antigravity_accounts() {
     let calls = s.calls();
     let build = calls.iter().find(|c| c.starts_with("cargo tauri build")).expect("a build");
     assert!(!build.contains("antigravity-accounts"), "{build}");
+    // @private:begin
     assert!(build.contains("--features author-tools "), "{build}");
+    // @private:end
     assert!(build.contains(" QS_ANTIGRAVITY_ACCOUNTS=0 "), "{build}");
     assert!(verifies(&s.installed()));
 }
 
+// @private:begin
 #[test]
 fn qs_author_tools_0_builds_without_the_author_tools_as_a_release_build_does() {
     let s = Sandbox::new("install-no-author");
@@ -310,6 +317,7 @@ fn qs_author_tools_0_builds_without_the_author_tools_as_a_release_build_does() {
         s.calls().into_iter().find(|c| c.starts_with("cargo tauri build")).expect("a build");
     assert!(!build.contains("--features"), "{build}");
 }
+// @private:end
 
 #[test]
 fn no_open_installs_without_opening() {

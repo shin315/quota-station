@@ -3,11 +3,14 @@
 
 // The confirmation sheets (ConfirmSheet `.sheet` in the popover, LeaveDialog
 // `.dlg` in the main window): switch Claude (F04), switch Antigravity (M4c),
-// pause automatic switching (F07), the two rotation guides, and Codex (M8):
-// its switch with the optional restart box, the restart of its background
-// process, the file changed outside the app, and its guides and previews;
-// "Dán khoá" for the custom provider and "Áp dụng ngay" for the plugins box.
-// Both hosts draw the same body.
+// and Codex (M8): its switch with the optional restart box, the restart of
+// its background process, the file changed outside the app, and its guides
+// and previews; "Dán khoá" for the custom provider and "Áp dụng ngay" for
+// the plugins box. Both hosts draw the same body.
+// @private:begin
+// Also the pause of automatic switching (F07) and the two rotation guides,
+// from `private/sheets.tsx`.
+// @private:end
 
 import { useState } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -27,33 +30,32 @@ import {
   pluginsSheet,
   targetId,
 } from '../lib/codex';
-import { dayClock } from '../lib/switching';
+import { claudeSheet, dayClock } from '../lib/switching';
 import { accountSheet } from '../lib/codexAccounts';
 import { onWindows, t, terminal } from '../lib/i18n';
 import type { AgyHow, CodexKeyPreview, CodexTarget, CodexView, Model, Sessions } from '../lib/model';
-import {
-  claudeSheet,
-  guide,
-  pauseOptions,
-  pauseSheet,
-  type HoldChoice,
-  type PauseChoice,
-} from '../lib/switching';
 import { CheckLine, Command, DiffFile, DiffLine, DiffView, KeyMasked } from './blocks';
-import { Button, ChoiceGroup, CODE, Facts as FactList, FeedbackLine, FeedbackText, FieldHint, Hint, KVT, LinkButton, Rich, Spinner } from './parts';
+import { Button, CODE, Facts as FactList, FeedbackLine, FeedbackText, FieldHint, Hint, KVT, LinkButton, Rich, Spinner } from './parts';
+// @private:begin
+import { ChoiceGroup } from './parts';
+import { GuideBody, PauseBody } from '@/private/sheets';
+import type { HoldChoice, PauseChoice } from '@/private/switching';
+// @private:end
 
 /** What a write of config.toml goes through. */
 const WRITE_STEPS = () =>
   t('Sao lưu bản cũ → ghi file tạm → kiểm tra mã băm → thay file → đọc lại.', 'Back up the old file → write a temporary file → check its checksum → replace the file → read it again.');
 
 /** A numbered how-to list. */
-const HOWTO = 'm-0 mb-3 grid gap-1.5 pl-5 text-sm';
+export const HOWTO = 'm-0 mb-3 grid gap-1.5 pl-5 text-sm';
 
 export type SheetState =
   | { kind: 'claude'; slot: number }
   | { kind: 'agy'; number: number }
+  // @private:begin
   | { kind: 'pause'; preset: PauseChoice }
   | { kind: 'guide'; id: 'auto' | 'switcher' }
+  // @private:end
   /** `account`: the Codex account to switch to (a ChatGPT sign-in or a custom provider); without it, the other side. */
   | { kind: 'codex'; target: CodexTarget; account?: string }
   /** Restart Codex's background process; `after` straight after a switch whose box was ticked. */
@@ -79,9 +81,16 @@ export interface SheetBodyProps {
   /** The button the running Antigravity switch was started with. */
   agyHow: AgyHow | null;
   onClose(): void;
-  onSwitch(slot: number, holdUntil: Date | null): void;
+  onSwitch(
+    slot: number,
+    // @private:begin
+    holdUntil: Date | null,
+    // @private:end
+  ): void;
   onSwitchAgy(number: number, how: AgyHow): void;
+  // @private:begin
   onPause(until: Date | null): void;
+  // @private:end
   onSettings(): void;
   /** Codex (M8): switch, with the restart sheet after it when `restart`. */
   onCodexSwitch?(target: CodexTarget, restart: boolean, account?: string): void;
@@ -91,8 +100,10 @@ export interface SheetBodyProps {
   onCodexKeep?(): void;
   /** Another Codex sheet: "Về lại …", the guides. */
   onCodexOpen?(sheet: SheetState): void;
+  // @private:begin
   /** The guide to stop using CC Switch, in the Codex tab. */
   onCodexGuide?(): void;
+  // @private:end
   /** "Dùng plugin với Custom API": kept for the next switch. */
   onCodexPlugins?(on: boolean): void;
   /** "Dán khoá": the preview; the key comes back only as its hint. */
@@ -102,8 +113,18 @@ export interface SheetBodyProps {
 }
 
 function ClaudeBody(props: SheetBodyProps & { slot: number }) {
+  // @private:begin
   const [choice, setChoice] = useState<HoldChoice>('60');
-  const v = claudeSheet(props.model, props.slot, choice, props.sessions, props.now);
+  // @private:end
+  const v = claudeSheet(
+    props.model,
+    props.slot,
+    // @private:begin
+    choice,
+    // @private:end
+    props.sessions,
+    props.now,
+  );
   if (!v) {
     return (
       <>
@@ -138,12 +159,19 @@ function ClaudeBody(props: SheetBodyProps & { slot: number }) {
       </>
     );
   }
-  // The hold ends at the time its choice shows.
-  const confirm = () => props.onSwitch(props.slot, v.options.find((o) => o.v === choice)?.until ?? null);
+  const confirm = () =>
+    props.onSwitch(
+      props.slot,
+      // @private:begin
+      // The hold ends at the time its choice shows.
+      v.options.find((o) => o.v === choice)?.until ?? null,
+      // @private:end
+    );
   return (
     <>
       <DialogTitle>{v.title}</DialogTitle>
       <Facts facts={v.facts} />
+      {/* @private:begin */}
       {v.options.length ? (
         <>
           <ChoiceGroup<HoldChoice> id="qs-hold" label={t('Giữ tài khoản này', 'Keep this account')} options={v.options} value={choice} onChange={setChoice} />
@@ -152,6 +180,7 @@ function ClaudeBody(props: SheetBodyProps & { slot: number }) {
           </Hint>
         </>
       ) : null}
+      {/* @private:end */}
       <DialogButtons>
         {v.blocked ? (
           <LinkButton style={{ marginRight: 'auto' }} onClick={props.onSettings}>
@@ -215,62 +244,6 @@ function AgyBody(props: SheetBodyProps & { number: number }) {
             {b.label}
           </Button>
         ))}
-      </DialogButtons>
-    </>
-  );
-}
-
-function PauseBody(props: SheetBodyProps & { preset: PauseChoice }) {
-  const [choice, setChoice] = useState<PauseChoice>(props.preset);
-  // The clock as of the last confirm, when it ran ahead of the window's.
-  const [late, setLate] = useState<Date | null>(null);
-  const now = late && late > props.now ? late : props.now;
-  const v = pauseSheet(props.model, choice, now);
-  const value = v.options.some((o) => o.v === choice) ? choice : v.options[0].v;
-  const confirm = () => {
-    const at = props.clock();
-    // "Đến 18:00" is gone once 18:00 has passed: show the choices again
-    // rather than pause with no end.
-    if (!pauseOptions(at).some((o) => o.v === value)) return setLate(at);
-    // The pause ends at the time its choice shows.
-    const option = v.options.find((o) => o.v === value);
-    if (option) props.onPause(option.until);
-  };
-  return (
-    <>
-      <DialogTitle>{v.title}</DialogTitle>
-      <DialogLead>{v.lead}</DialogLead>
-      <ChoiceGroup<PauseChoice> id="qs-pause" label={t('Trong bao lâu', 'For how long')} options={v.options} value={value} columns={1} onChange={setChoice} />
-      <Hint aria-live="polite">{v.hint}</Hint>
-      <DialogButtons>
-        <Button large onClick={props.onClose}>
-          {t('Thôi', 'Cancel')}
-        </Button>
-        <Button large primary onClick={confirm}>
-          {t('Tạm dừng', 'Pause')}
-        </Button>
-      </DialogButtons>
-    </>
-  );
-}
-
-function GuideBody(props: SheetBodyProps & { id: 'auto' | 'switcher' }) {
-  const g = guide(props.id, props.model.capabilities.authorTools);
-  return (
-    <>
-      <DialogTitle>{g.title}</DialogTitle>
-      <DialogLead>{g.lead}</DialogLead>
-      <ol className={HOWTO}>
-        {g.steps.map((s) => (
-          <li key={s}>
-            <Rich text={s} />
-          </li>
-        ))}
-      </ol>
-      <DialogButtons>
-        <Button large primary onClick={props.onClose}>
-          {t('Đóng', 'Close')}
-        </Button>
       </DialogButtons>
     </>
   );
@@ -341,11 +314,13 @@ function CodexAccountBody(props: SheetBodyProps & { account: string }) {
         </span>
       </label>
       <DialogButtons>
+        {/* @private:begin */}
         {v.ccSwitch && props.onCodexGuide ? (
           <LinkButton style={{ marginRight: 'auto' }} onClick={props.onCodexGuide}>
             {t('Hướng dẫn ngừng dùng CC Switch', 'How to stop using CC Switch')}
           </LinkButton>
         ) : null}
+        {/* @private:end */}
         <Button large onClick={props.onClose}>
           {t('Thôi', 'Cancel')}
         </Button>
@@ -396,11 +371,13 @@ function CodexProviderBody(props: SheetBodyProps & { target: CodexTarget; accoun
         </span>
       </label>
       <DialogButtons>
+        {/* @private:begin */}
         {v.ccSwitch && props.onCodexGuide ? (
           <LinkButton style={{ marginRight: 'auto' }} onClick={props.onCodexGuide}>
             {t('Hướng dẫn ngừng dùng CC Switch', 'How to stop using CC Switch')}
           </LinkButton>
         ) : null}
+        {/* @private:end */}
         <Button large onClick={props.onClose}>
           {t('Thôi', 'Cancel')}
         </Button>
@@ -749,6 +726,9 @@ export function SheetBody(props: SheetBodyProps) {
   if (s.kind === 'codexInfo') return <CodexInfoBody {...props} id={s.id} />;
   if (s.kind === 'claude') return <ClaudeBody key={'c' + s.slot} {...props} slot={s.slot} />;
   if (s.kind === 'agy') return <AgyBody key={'g' + s.number} {...props} number={s.number} />;
+  // @private:begin
   if (s.kind === 'pause') return <PauseBody key={'p' + s.preset} {...props} preset={s.preset} />;
-  return <GuideBody {...props} id={s.id} />;
+  if (s.kind === 'guide') return <GuideBody {...props} id={s.id} />;
+  // @private:end
+  return null;
 }

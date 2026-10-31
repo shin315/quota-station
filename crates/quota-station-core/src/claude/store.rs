@@ -4,7 +4,7 @@
 //! Quota Station's own list of Claude accounts and their secrets.
 //!
 //! `claude/accounts.json` (mode 600) holds each account's slot number,
-//! alias, whether it is held out of the rotation, its kind, its ids, and
+//! alias, its kind, its ids, and
 //! [`identity`]: a hash of its email and organization, so the app can tell
 //! which account Claude Code is on without keeping the email. No email,
 //! organization name or token is in the file.
@@ -48,6 +48,7 @@ pub struct Account {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub alias: Option<String>,
     /// Held out of the rotation; still switched to by hand.
+    #[cfg(feature = "author-tools")]
     #[serde(default)]
     pub disabled: bool,
     #[serde(default)]

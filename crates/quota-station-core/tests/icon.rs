@@ -9,10 +9,20 @@ use quota_station_core::icon::{
     Tone,
 };
 use quota_station_core::settings::{Menubar, MenubarWindow};
-use quota_station_core::snapshot::{LineKind, Role, SectionStatus};
+#[cfg(feature = "author-tools")]
+use quota_station_core::snapshot::Role;
+use quota_station_core::snapshot::{LineKind, SectionStatus};
 use quota_station_core::Snapshot;
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
+
+/// What the account in use goes by in the title without its email: its
+/// place in the rotation.
+#[cfg(feature = "author-tools")]
+const A: &str = "Team A";
+/// What the account in use goes by in the title without its email.
+#[cfg(not(feature = "author-tools"))]
+const A: &str = "Tài khoản 2";
 
 fn at(text: &str) -> OffsetDateTime {
     OffsetDateTime::parse(text, &Rfc3339).unwrap()
@@ -23,7 +33,7 @@ fn snap(claude: &str, agy: Option<&str>) -> Snapshot {
     Snapshot::build(Some(&fixture(claude)), agy.as_ref())
 }
 
-/// Claude in rotation, Antigravity's live account, Codex on its ChatGPT login.
+/// Claude's accounts, Antigravity's live account, Codex on its ChatGPT login.
 fn full() -> Snapshot {
     snap("claude-pool.json", Some("agy-single.json"))
         .with_codex(Some(&fixture("codex-chatgpt.json")))
@@ -40,6 +50,7 @@ fn shows(follow: Menubar, window: MenubarWindow) -> Context {
         window,
         codex: CodexUse::ChatGpt,
         now: at("2026-01-16T07:20:00Z"),
+        #[cfg(feature = "author-tools")]
         roles: true,
     }
 }
@@ -57,7 +68,7 @@ fn named(mut s: Snapshot) -> Snapshot {
 #[test]
 fn the_title_is_the_claude_account_in_use_and_its_tightest_window() {
     let i = icon(Some(&named(full())), &cx(Menubar::Claude));
-    // Team A: 5 giờ 74 %, tuần 39 %, Fable 87 %: Fable limits first.
+    // The account in use: 5 giờ 74 %, tuần 39 %, Fable 87 %: Fable limits first.
     assert_eq!(i.title, "lan.acme2 87%");
     assert_eq!(i.tone, Tone::Ok);
     assert_eq!(
@@ -83,24 +94,24 @@ fn the_title_follows_gemini_or_codex_when_picked() {
 #[test]
 fn the_title_shows_the_window_picked_and_the_bars_stay_the_tightest() {
     let s = full();
-    // Team A: 5 giờ 74 %, tuần 39 %, Fable 87 %.
+    // The account in use: 5 giờ 74 %, tuần 39 %, Fable 87 %.
     let five = icon(Some(&s), &shows(Menubar::Claude, MenubarWindow::default()));
-    assert_eq!(five.title, "Team A 74%");
+    assert_eq!(five.title, format!("{A} 74%"));
     assert!(
-        five.label.starts_with("Quota Station. Claude: Team A đã dùng 74% 5 giờ, "),
+        five.label.starts_with(&format!("Quota Station. Claude: {A} đã dùng 74% 5 giờ, ")),
         "{}",
         five.label
     );
     assert_eq!(five.claude, Some(87.0), "the bar fills with the tightest window");
     let week = icon(Some(&s), &shows(Menubar::Claude, MenubarWindow::Week));
-    assert_eq!(week.title, "Team A 39%");
-    assert!(week.label.contains("Team A đã dùng 39% tuần"), "{}", week.label);
+    assert_eq!(week.title, format!("{A} 39%"));
+    assert!(week.label.contains(&format!("{A} đã dùng 39% tuần")), "{}", week.label);
     let fable = icon(Some(&s), &shows(Menubar::Claude, MenubarWindow::FableWeek));
-    assert_eq!(fable.title, "Team A 87%");
-    assert!(fable.label.contains("Team A đã dùng 87% Fable tuần"), "{}", fable.label);
+    assert_eq!(fable.title, format!("{A} 87%"));
+    assert!(fable.label.contains(&format!("{A} đã dùng 87% Fable tuần")), "{}", fable.label);
     assert_eq!(
         icon(Some(&s), &shows(Menubar::Claude, MenubarWindow::Tightest)).title,
-        "Team A 87%"
+        format!("{A} 87%")
     );
     // Every service in the label names the window picked.
     assert!(week.label.contains("Antigravity: Gemini đã dùng 6% Gemini tuần"), "{}", week.label);
@@ -123,14 +134,17 @@ fn a_window_the_service_lacks_falls_back_to_five_hours_then_the_tightest() {
     let mut seat = full();
     let team = seat.claude.accounts.iter_mut().find(|a| a.active).unwrap();
     team.windows.retain(|l| l.kind != LineKind::Week);
-    assert_eq!(icon(Some(&seat), &shows(Menubar::Claude, MenubarWindow::Week)).title, "Team A 74%");
+    assert_eq!(
+        icon(Some(&seat), &shows(Menubar::Claude, MenubarWindow::Week)).title,
+        format!("{A} 74%")
+    );
     // Neither the window picked nor five hours: the tightest.
     let mut fable_only = full();
     let team = fable_only.claude.accounts.iter_mut().find(|a| a.active).unwrap();
     team.windows.retain(|l| l.kind == LineKind::FableWeek);
     assert_eq!(
         icon(Some(&fable_only), &shows(Menubar::Claude, MenubarWindow::Week)).title,
-        "Team A 87%"
+        format!("{A} 87%")
     );
 }
 
@@ -141,11 +155,17 @@ fn the_window_picked_without_a_number_shows_no_number() {
     team.windows.iter_mut().filter(|l| l.kind == LineKind::Session).for_each(|l| l.pending = true);
     // Five hours waits for its number: no number, never another window's.
     let i = icon(Some(&s), &shows(Menubar::Claude, MenubarWindow::FiveHours));
-    assert_eq!((i.title.as_str(), i.tone), ("Team A –", Tone::Muted));
+    assert_eq!((i.title.clone(), i.tone), (format!("{A} –"), Tone::Muted));
     // The week's own number is known and is the one picked.
-    assert_eq!(icon(Some(&s), &shows(Menubar::Claude, MenubarWindow::Week)).title, "Team A 39%");
+    assert_eq!(
+        icon(Some(&s), &shows(Menubar::Claude, MenubarWindow::Week)).title,
+        format!("{A} 39%")
+    );
     // The tightest needs every window.
-    assert_eq!(icon(Some(&s), &shows(Menubar::Claude, MenubarWindow::Tightest)).title, "Team A –");
+    assert_eq!(
+        icon(Some(&s), &shows(Menubar::Claude, MenubarWindow::Tightest)).title,
+        format!("{A} –")
+    );
 }
 
 #[test]
@@ -156,11 +176,12 @@ fn a_long_name_is_cut_to_twelve_characters() {
     assert_eq!(short_name("cliproxy"), "cliproxy");
 }
 
+#[cfg(feature = "author-tools")]
 #[test]
 fn hidden_names_give_the_account_its_place() {
     // No email reaches the snapshot while names are hidden.
     let s = full();
-    assert_eq!(icon(Some(&s), &cx(Menubar::Claude)).title, "Team A 87%");
+    assert_eq!(icon(Some(&s), &cx(Menubar::Claude)).title, format!("{A} 87%"));
     assert_eq!(icon(Some(&s), &cx(Menubar::Gemini)).title, "Gemini 6%");
     let mut personal = full();
     for a in &mut personal.claude.accounts {
@@ -181,7 +202,7 @@ fn no_number_shows_the_name_and_a_dash() {
     assert!(unavailable.title.ends_with(" –"), "{}", unavailable.title);
     // A window past its reset waits for a new reading.
     let later = Context { now: at("2026-01-18T02:00:00Z"), ..cx(Menubar::Claude) };
-    assert_eq!(icon(Some(&full()), &later).title, "Team A –");
+    assert_eq!(icon(Some(&full()), &later).title, format!("{A} –"));
     // Codex not read yet.
     let unread_codex = snap("claude-pool.json", None);
     assert_eq!(icon(Some(&unread_codex), &cx(Menubar::Codex)).title, "ChatGPT –");
@@ -203,18 +224,18 @@ fn codex_through_its_own_provider_shows_the_provider_without_a_number() {
 fn a_service_this_mac_lacks_falls_back_to_claude() {
     let air = snap("claude-pool.json", Some("agy-not-set-up.json"));
     let i = icon(Some(&air), &cx(Menubar::Gemini));
-    assert_eq!(i.title, "Team A 87%");
+    assert_eq!(i.title, format!("{A} 87%"));
     assert!(!i.show_agy);
     assert_eq!(i.agy, None);
     assert!(!i.label.contains("Antigravity"));
     let mut no_codex = cx(Menubar::Codex);
     no_codex.codex = CodexUse::Missing;
     let i = icon(Some(&full()), &no_codex);
-    assert_eq!(i.title, "Team A 87%");
+    assert_eq!(i.title, format!("{A} 87%"));
     assert!(!i.label.contains("Codex"));
     let no_login =
         snap("claude-pool.json", None).with_codex(Some(&fixture("codex-not-set-up.json")));
-    assert_eq!(icon(Some(&no_login), &cx(Menubar::Codex)).title, "Team A 87%");
+    assert_eq!(icon(Some(&no_login), &cx(Menubar::Codex)).title, format!("{A} 87%"));
 }
 
 #[test]
@@ -236,16 +257,20 @@ fn a_tie_names_the_longer_window_and_a_team_seat_has_no_week() {
         l.percent = Some(60.0);
     }
     let i = icon(Some(&s), &cx(Menubar::Claude));
-    assert_eq!(i.title, "Team A 40%");
+    assert_eq!(i.title, format!("{A} 40%"));
     assert!(i.label.contains("đã dùng 40% Fable tuần"), "{}", i.label);
 }
 
 #[test]
-fn stale_numbers_warn_and_an_empty_rotation_is_bad() {
+fn stale_numbers_warn_and_claude_used_up_is_bad() {
     assert_eq!(icon(Some(&snap("claude-stale.json", None)), &cx(Menubar::Claude)).tone, Tone::Warn);
-    let ex = icon(Some(&snap("claude-exhausted.json", None)), &cx(Menubar::Claude));
-    assert_eq!(ex.tone, Tone::Bad);
-    assert!(ex.label.ends_with(". Claude đã cạn"));
+    // The whole rotation used up.
+    #[cfg(feature = "author-tools")]
+    {
+        let ex = icon(Some(&snap("claude-exhausted.json", None)), &cx(Menubar::Claude));
+        assert_eq!(ex.tone, Tone::Bad);
+        assert!(ex.label.ends_with(". Claude đã cạn"));
+    }
 }
 
 #[test]
@@ -264,6 +289,7 @@ fn sample(tone: Tone, show_agy: bool) -> Icon {
         claude: Some(56.75),
         agy: Some(94.0),
         show_agy,
+        #[cfg(feature = "author-tools")]
         paused: false,
         label: String::new(),
     }
@@ -401,10 +427,11 @@ fn the_windows_tray_tooltip_leads_with_the_title_and_fits_the_tray() {
 }
 
 #[test]
-fn exhausted_rotation_keeps_the_warning_instead_of_a_quota_gauge() {
+fn claude_used_up_keeps_the_warning_instead_of_a_quota_gauge() {
     assert_ne!(render_glyph(&sample(Tone::Bad, true), 2), render_glyph(&sample(Tone::Ok, true), 2));
 }
 
+#[cfg(feature = "author-tools")]
 #[test]
 fn a_paused_switcher_adds_a_pause_sign_and_says_so() {
     let paused = icon(Some(&full()), &cx(Menubar::Claude)).with_pause(true);
@@ -432,11 +459,12 @@ fn a_paused_switcher_adds_a_pause_sign_and_says_so() {
     assert!(!icon(Some(&full()), &cx(Menubar::Claude)).with_pause(false).paused);
 }
 
+#[cfg(feature = "author-tools")]
 #[test]
 fn without_nang_cao_an_account_without_a_name_goes_by_number() {
     let s = full();
     let plain = |follow| Context { roles: false, ..cx(follow) };
-    assert_eq!(icon(Some(&s), &cx(Menubar::Claude)).title, "Team A 87%");
+    assert_eq!(icon(Some(&s), &cx(Menubar::Claude)).title, format!("{A} 87%"));
     assert_eq!(icon(Some(&s), &plain(Menubar::Claude)).title, "Tài khoản 2 87%");
     assert!(!icon(Some(&s), &plain(Menubar::Gemini)).title.contains("Ultra"));
     // A name shown wins either way.

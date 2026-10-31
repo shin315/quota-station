@@ -5,11 +5,14 @@
 //! reason and where it comes from:
 //!
 //! - the app's own journal, `history/history.jsonl` in its folder: a Claude switch
-//!   the owner made here (with the hold it set), an account in use that
-//!   changed between two readings with nothing here or in the switcher's log
-//!   to explain it, and an Antigravity switch that Antigravity.app undid (the
-//!   six-hour watch of M4c);
-//! - the switcher's log: its switches and primes;
+//!   the owner made here, an account in use that changed between two
+//!   readings with nothing here to explain it, and an Antigravity switch
+//!   that Antigravity.app undid (the six-hour watch of M4c);
+// @private:begin
+//! - with the `author-tools` feature, the hold a switch set, and the
+//!   switcher's log: its switches and primes, which also explain a change
+//!   of the account in use;
+// @private:end
 //! - the app's Antigravity switch log of M4c, `antigravity/switch-log.jsonl`;
 //! - the app's Codex switch log of M8, `codex/switch-log.jsonl`: the owner's
 //!   switches and the changes of provider made outside the app.
@@ -18,8 +21,11 @@
 //! (Antigravity, shown by its number in the app's list), Codex providers by
 //! id; never an email.
 
+#[cfg(feature = "author-tools")]
 use std::io::{Read, Seek, SeekFrom};
-use std::path::{Path, PathBuf};
+#[cfg(feature = "author-tools")]
+use std::path::Path;
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 use time::format_description::well_known::Rfc3339;
@@ -31,6 +37,7 @@ use crate::antigravity::switch::{self as agy_switch, How};
 use crate::antigravity::{index, watch};
 use crate::app_dir::AppDir;
 use crate::codex::log as codex_log;
+#[cfg(feature = "author-tools")]
 use crate::switcher::{self, LogEvent, Why};
 
 /// In the app's folder, `history/history.jsonl`.
@@ -39,10 +46,11 @@ pub const FILE: &str = "history.jsonl";
 /// The journal keeps this many lines.
 const KEEP: usize = 500;
 /// How much of the end of the switcher's log is read.
+#[cfg(feature = "author-tools")]
 const SWITCHER_TAIL: u64 = 64 * 1024;
 /// A change of the account in use is explained by a switch to that account
-/// this long before the reading that shows it: the switcher runs every
-/// three minutes and the app reads every five while hidden.
+/// this long before the reading that shows it: the app reads every five
+/// minutes while hidden.
 pub const EXPLAINED_WITHIN: i64 = 15 * 60;
 /// The most lines the windows get.
 pub const SHOWN: usize = 200;
@@ -61,6 +69,7 @@ pub enum App {
 pub enum Source {
     /// The owner, in this app.
     App,
+    #[cfg(feature = "author-tools")]
     Switcher,
     /// Seen between two readings.
     Observed,
@@ -86,6 +95,7 @@ pub enum Kept {
     /// The owner switched Claude here; `result` is what the check after it
     /// found (`switched`, `raced`, `unconfirmed`).
     Manual {
+        #[cfg(feature = "author-tools")]
         #[serde(default, skip_serializing_if = "Option::is_none")]
         hold_until: Option<String>,
         result: String,
@@ -117,15 +127,18 @@ pub struct Entry {
 #[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum Cause {
     Manual {
+        #[cfg(feature = "author-tools")]
         hold_until: Option<String>,
         result: String,
     },
     /// `switch to slot N (…)` in the switcher's log.
+    #[cfg(feature = "author-tools")]
     Switcher {
         why: Why,
         raw: String,
     },
     /// `primed slot N (exit X)`: a five-hour window started early.
+    #[cfg(feature = "author-tools")]
     Primed {
         raw: String,
     },
@@ -186,7 +199,7 @@ pub fn manual_claude(
     app: &AppDir,
     from: Option<u32>,
     to: u32,
-    hold_until: Option<String>,
+    #[cfg(feature = "author-tools")] hold_until: Option<String>,
     result: &str,
     at: i64,
 ) -> std::io::Result<()> {
@@ -197,7 +210,11 @@ pub fn manual_claude(
             app: App::Claude,
             from: from.map(|n| n.to_string()),
             to: to.to_string(),
-            what: Kept::Manual { hold_until, result: result.to_string() },
+            what: Kept::Manual {
+                #[cfg(feature = "author-tools")]
+                hold_until,
+                result: result.to_string(),
+            },
         },
     )
 }
@@ -214,6 +231,7 @@ fn unix(at: &str) -> Option<i64> {
 }
 
 /// The switcher's switches and primes in the end of its log, oldest first.
+#[cfg(feature = "author-tools")]
 pub fn switcher_lines(log: &Path) -> Vec<switcher::LogLine> {
     let Ok(mut f) = std::fs::File::open(log) else { return Vec::new() };
     let len = f.metadata().map(|m| m.len()).unwrap_or(0);
@@ -246,6 +264,7 @@ pub fn switcher_lines(log: &Path) -> Vec<switcher::LogLine> {
 
 /// `switch to slot 4 (4.0%, ends 15:00)` → the switcher's reason, read the
 /// way its dry-run decision is.
+#[cfg(feature = "author-tools")]
 fn switch_why(raw: &str) -> Why {
     let text = raw.get(20..).unwrap_or("");
     let rest = text.strip_prefix("switch to slot ").unwrap_or("");
@@ -274,7 +293,11 @@ fn agy_numbers(app: &AppDir) -> impl Fn(&str) -> Option<u32> {
 }
 
 /// Every line, newest first, at most `limit`.
-pub fn collect(app: &AppDir, switcher_log: &Path, limit: usize) -> Vec<Entry> {
+pub fn collect(
+    app: &AppDir,
+    #[cfg(feature = "author-tools")] switcher_log: &Path,
+    limit: usize,
+) -> Vec<Entry> {
     let number = agy_numbers(app);
     let slot = |s: &str| s.parse::<u32>().ok();
     let mut out: Vec<(i64, Entry)> = Vec::new();
@@ -290,9 +313,12 @@ pub fn collect(app: &AppDir, switcher_log: &Path, limit: usize) -> Vec<Entry> {
             continue;
         }
         let (source, cause) = match line.what {
+            #[cfg(feature = "author-tools")]
             Kept::Manual { hold_until, result } => {
                 (Source::App, Cause::Manual { hold_until, result })
             }
+            #[cfg(not(feature = "author-tools"))]
+            Kept::Manual { result } => (Source::App, Cause::Manual { result }),
             Kept::Observed => (Source::Observed, Cause::Observed),
             Kept::Overwrite { overwrites } => {
                 (Source::Observed, Cause::AgyOverwrite { overwrites })
@@ -342,6 +368,7 @@ pub fn collect(app: &AppDir, switcher_log: &Path, limit: usize) -> Vec<Entry> {
         ));
     }
 
+    #[cfg(feature = "author-tools")]
     for line in switcher_lines(switcher_log) {
         let Some(at) = line.at.as_deref().and_then(unix) else { continue };
         let (to, cause) = match line.event {
@@ -384,7 +411,7 @@ pub struct Seen {
 /// after the app starts only sets `seen`.
 pub fn track(
     app: &AppDir,
-    switcher_log: &Path,
+    #[cfg(feature = "author-tools")] switcher_log: &Path,
     seen: &mut Seen,
     claude: Option<u32>,
     agy: Option<&str>,
@@ -422,10 +449,13 @@ pub fn track(
         _ => None,
     };
     if claude_change.is_some() || agy_change.is_some() {
+        #[cfg(feature = "author-tools")]
         let recent = collect(app, switcher_log, usize::MAX);
+        #[cfg(not(feature = "author-tools"))]
+        let recent = collect(app, usize::MAX);
         let number = agy_numbers(app);
-        // A switch to that account (by the owner, the switcher or the
-        // overwrite just kept) shortly before: not a change of its own.
+        // A switch to that account (by the owner, or the overwrite just
+        // kept) shortly before: not a change of its own.
         let explained = |which: App, to: Option<u32>| {
             to.is_some()
                 && recent.iter().any(|e| {

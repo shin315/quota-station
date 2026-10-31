@@ -21,10 +21,13 @@
 #
 # A build from source comes with the Antigravity accounts (the
 # antigravity-accounts feature, CC BY-NC-SA 4.0: NOTICE);
-# QS_ANTIGRAVITY_ACCOUNTS=0 builds the MIT app without them. It also comes
-# with the tools made for the author's own Macs (the author-tools feature:
-# Cài đặt › Nâng cao and what it holds), so a Mac that installs from source
-# keeps them; QS_AUTHOR_TOOLS=0 leaves them out, as a release build does.
+# QS_ANTIGRAVITY_ACCOUNTS=0 builds the MIT app without them.
+# @private:begin
+# It also comes with the tools made for the author's own Macs (the
+# author-tools feature: Cài đặt › Nâng cao and what it holds), so a Mac that
+# installs from source keeps them; QS_AUTHOR_TOOLS=0 leaves them out, as a
+# release build does.
+# @private:end
 #
 # It never adds a login item: launching at login is a switch in the app's
 # settings. It touches nothing outside the build folder and DIR/Quota Station.app.
@@ -104,7 +107,7 @@ dest="$(abs "$dest")"
 [ -z "$package" ] || package="$(abs "$package")"
 started_in="$PWD"
 
-# An app started from Finder, which runs this for "Cập nhật từ mã nguồn",
+# An app started from Finder, which runs this to update itself,
 # has launchd's short PATH: add where rustup, Homebrew and nvm put their
 # tools, after what is there already.
 extra="$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin"
@@ -183,9 +186,11 @@ build() {
     export QS_ANTIGRAVITY_ACCOUNTS=1
     features="antigravity-accounts"
   fi
+  # @private:begin
   if [ "${QS_AUTHOR_TOOLS:-1}" != 0 ]; then
     features="${features:+$features,}author-tools"
   fi
+  # @private:end
   if [ -n "$features" ]; then
     features="--features $features"
   fi

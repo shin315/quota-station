@@ -8,11 +8,11 @@
 // undo on the Mac it was written to. Nothing is written before "Chép".
 
 import { useState } from 'react';
-import type { Api } from '../lib/api';
-import { copyError, initialTicks, macState, picked, selectionOf, undoneFeedback, type CopyTicks } from '../lib/copy';
-import { t } from '../lib/i18n';
-import type { CopyComparison, Model, RestoreDone } from '../lib/model';
-import type { FeedbackView } from '../lib/view';
+import type { Api } from '@/lib/api';
+import { copyError, initialTicks, macState, picked, selectionOf, undoneFeedback, type CopyTicks } from './copy';
+import { t } from '@/lib/i18n';
+import type { CopyComparison, Model, RestoreDone } from '@/lib/model';
+import type { FeedbackView } from '@/lib/view';
 
 export type CopyPhase = 'idle' | 'reading' | 'diff' | 'error';
 

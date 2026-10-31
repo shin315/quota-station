@@ -1,39 +1,54 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-// What the bell's panel (Thông báo) and the Firstmate tab show (F09, F10). The cards carry the
+// What the bell's panel (Thông báo) shows (F09). The cards carry the
 // words and buttons the Rust side wrote for the macOS card, so both say the
 // same; this file adds when, what was pressed and how it went. Pure, like
-// `view.ts`. Copy follows the prototype's `tabAlerts`, `alertCard` and
-// `tabFirstmate`.
+// `view.ts`. Copy follows the prototype's `tabAlerts` and `alertCard`.
+// @private:begin
+// The Firstmate tab too (F10), after the prototype's `tabFirstmate`.
+// @private:end
 
-import { age, clock, percent, secondsSince } from './format';
+import { clock } from './format';
 import { appName, osName, systemSettings, t } from './i18n';
-import type { AuthorModel } from './author';
-import type { AlertRecord, AlertTone, FirstmateView, Model, NotifyPermission, SwitchKind } from './model';
+import type { AlertRecord, AlertTone, Model, NotifyPermission, SwitchKind } from './model';
 import { dayLabel } from './history';
+import type { BannerView, ChipView, FeedbackView } from './view';
+// @private:begin
+import { age, percent, secondsSince } from './format';
+import type { AuthorModel } from '@/private/author';
+import type { FirstmateView } from './model';
 import { dayClock, namesOf } from './switching';
-import type { BannerView, ChipView, FeedbackView, Tone } from './view';
+import type { Tone } from './view';
+// @private:end
 
 /**
- * The five kinds, in the prototype's order and words. `agy`: this build
+ * The kinds, in the prototype's order and words. `agy`: this build
  * switches Antigravity, so the sign-in alert covers its accounts too.
  */
 export function alertKindList(agy = true): { kind: SwitchKind; title: string; text: string }[] {
+  let pool = {
+    title: t('Hạn mức Claude sắp cạn / có lại', 'Claude quota running out / back'),
+    text: t('Khi hạn mức đã dùng từ 90% trở lên và khi có lại.', 'When the quota is 90% used or more, and when it is back.'),
+  };
+  // @private:begin
+  pool = {
+    title: t('Hạn mức Claude trong vòng sắp cạn / có lại', 'Claude quota in rotation running out / back'),
+    text: t(
+      'Khi hạn mức trong vòng đã dùng từ 90% trở lên và khi có lại. Cùng luật với firstmate.',
+      'When the quota in rotation is 90% used or more, and when it is back. Same rule as firstmate.',
+    ),
+  };
+  // @private:end
   return [
-    {
-      kind: 'pool',
-      title: t('Hạn mức Claude trong vòng sắp cạn / có lại', 'Claude quota in rotation running out / back'),
-      text: t(
-        'Khi hạn mức trong vòng đã dùng từ 90% trở lên và khi có lại. Cùng luật với firstmate.',
-        'When the quota in rotation is 90% used or more, and when it is back. Same rule as firstmate.',
-      ),
-    },
+    { kind: 'pool', ...pool },
+    // @private:begin
     {
       kind: 'leaving',
       title: t('Tài khoản sắp rời vòng', 'An account is about to leave rotation'),
       text: t('30 phút trước giờ rời vòng trong file luật.', '30 minutes before its leave time in the rules file.'),
     },
+    // @private:end
     {
       kind: 'login',
       title: t('Tài khoản cần đăng nhập lại', 'An account needs to sign in again'),
@@ -46,40 +61,53 @@ export function alertKindList(agy = true): { kind: SwitchKind; title: string; te
       title: t('Antigravity đổi về tài khoản cũ', 'Antigravity went back to the old account'),
       text: t('Trong 6 giờ sau khi chuyển. Ngừng đề nghị chuyển lại sau 2 lần.', 'Within 6 hours of a switch. Stops offering to switch back after 2 times.'),
     },
+    // @private:begin
     {
       kind: 'firstmate',
       title: t('Firstmate đang chờ hạn mức Claude', 'Firstmate is waiting for Claude quota'),
       text: t('Khi firstmate báo hạn mức trong vòng đã cạn. Chỉ trên máy có firstmate.', 'When firstmate reports the quota in rotation is used up. Only on a Mac with firstmate.'),
     },
+    // @private:end
   ];
 }
 
 /**
- * The kinds this Mac can turn on, in that order: the rotation's (2) and
- * Firstmate's (5) only with Cài đặt › Nâng cao (Firstmate's behind its own
- * switch too), the overwritten Antigravity switch (4) only in a build that
- * switches Antigravity. Alert 1 says its thresholds.
+ * The kinds this Mac can turn on, in that order: the overwritten
+ * Antigravity switch only in a build that switches Antigravity. Alert 1
+ * says its thresholds.
  */
+// @private:begin
+/** The rotation's (2) and Firstmate's (5) only with Cài đặt › Nâng cao (Firstmate's behind its own switch too). */
+// @private:end
 export function alertKinds(model: Model): { kind: SwitchKind; title: string; text: string }[] {
-  const adv = model.advanced.on;
-  const fm = adv && model.advanced.firstmate;
   const agy = model.capabilities.agyAccounts;
   const p = model.alerts.poolAlert;
+  // @private:begin
+  const adv = model.advanced.on;
+  const fm = adv && model.advanced.firstmate;
+  // @private:end
   return alertKindList(agy)
-    .filter((k) => (k.kind !== 'leaving' || adv) && (k.kind !== 'firstmate' || fm) && (k.kind !== 'overwrite' || agy))
+    .filter((k) => k.kind !== 'overwrite' || agy)
+    // @private:begin
+    .filter((k) => (k.kind !== 'leaving' || adv) && (k.kind !== 'firstmate' || fm))
+    // @private:end
     .map((k) => {
-      if (k.kind === 'pool')
-        return {
-          ...k,
-          title: adv ? k.title : t('Hạn mức Claude sắp cạn / có lại', 'Claude quota running out / back'),
-          text: t(
-            'Khi tài khoản đang dùng còn ' + p.dryAtMost + '% trở xuống và không tài khoản' + (adv ? ' nào trong vòng' : ' nào') +
-              ' còn ' + p.roomAtLeast + '%, và khi có lại.' + (fm ? ' Cùng luật với firstmate.' : ''),
-            'When the account in use has ' + p.dryAtMost + '% or less left and no account' + (adv ? ' in rotation' : '') +
-              ' still has ' + p.roomAtLeast + '%, and when it is back.' + (fm ? ' Same rule as firstmate.' : ''),
-          ),
-        };
-      return k;
+      if (k.kind !== 'pool') return k;
+      let title = t('Hạn mức Claude sắp cạn / có lại', 'Claude quota running out / back');
+      let where = ['', ''];
+      let rule = ['', ''];
+      // @private:begin
+      if (adv) [title, where] = [k.title, [' trong vòng', ' in rotation']];
+      if (fm) rule = [' Cùng luật với firstmate.', ' Same rule as firstmate.'];
+      // @private:end
+      return {
+        ...k,
+        title,
+        text: t(
+          'Khi tài khoản đang dùng còn ' + p.dryAtMost + '% trở xuống và không tài khoản nào' + where[0] + ' còn ' + p.roomAtLeast + '%, và khi có lại.' + rule[0],
+          'When the account in use has ' + p.dryAtMost + '% or less left and no account' + where[1] + ' still has ' + p.roomAtLeast + '%, and when it is back.' + rule[1],
+        ),
+      };
     });
 }
 
@@ -167,6 +195,7 @@ export function permissionChip(p: NotifyPermission): ChipView {
   return { t: t('chưa rõ', 'unknown'), k: '' };
 }
 
+// @private:begin
 // ===== Firstmate =====
 
 export interface FirstmateTabView {
@@ -317,6 +346,7 @@ export function firstmateTab(model: AuthorModel, now: Date): FirstmateTabView {
     setUp: false,
   };
 }
+// @private:end
 
 function pressRefused(code: string): string {
   const known: Record<string, string> = {

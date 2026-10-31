@@ -4,8 +4,8 @@
 // The Claude tab's accounts: the open dialog and what each action does once
 // the app answers. An add goes through its dialog (the three ways in, the
 // wait for the browser, then added, already here, or not signed in); the ⋯
-// menu opens the details, holding out of the rotation, signing in again and
-// removing; the rest end on the line under the tab's head. Each call returns
+// menu opens the details, signing in again and removing; the rest end on
+// the line under the tab's head. Each call returns
 // the model with what it did (`claudeAccounts.last`), so the answer is read
 // from the call rather than from whichever model comes next.
 
@@ -27,7 +27,9 @@ export type ClaudeDialog =
   | { kind: 'dup'; slot: number }
   | { kind: 'fail'; text: string }
   | { kind: 'detail'; slot: number }
+  // @private:begin
   | { kind: 'rest'; slot: number }
+  // @private:end
   | { kind: 'remove'; slot: number }
   | { kind: 'relogin'; slot: number };
 
@@ -114,31 +116,53 @@ export function useClaudeAccounts(api: Api, model: Model | null, showFeedback: (
     setDialog(null);
     void plain(api.claudeSetAlias(slot, alias.trim()), nameOf(slot));
   };
+  // @private:begin
   const setEnabled = (slot: number, on: boolean) => {
     setDialog(null);
     void plain(api.claudeSetEnabled(slot, on), nameOf(slot));
   };
+  const setRotation = (on: boolean) => void plain(api.claudeSetRotation(on), '');
+  // @private:end
   const remove = (slot: number) => {
     setDialog(null);
     void plain(api.claudeRemove(slot), nameOf(slot));
   };
-  const setRotation = (on: boolean) => void plain(api.claudeSetRotation(on), '');
   const cancelLogin = () => void api.claudeCancelLogin().catch(() => {});
 
   /** The actions on banners and lines. Returns false for others. */
   const act = (a: Action): boolean => {
     if (a === 'claude:add') setDialog({ kind: 'add', how: model?.claudeAccounts.claude === false ? 'current' : 'browser', error: null });
     else if (a === 'claude:import') void plain(api.claudeImport(), '');
-    else if (a === 'claude:rotation:on') setRotation(true);
     else if (a.startsWith('claude:relogin:')) setDialog({ kind: 'relogin', slot: Number(a.slice('claude:relogin:'.length)) });
+    // @private:begin
+    else if (a === 'claude:rotation:on') setRotation(true);
     else if (a.startsWith('claude:unrest:')) {
       showFeedback(null);
       setEnabled(Number(a.slice('claude:unrest:'.length)), true);
-    } else return false;
+    }
+    // @private:end
+    else return false;
     return true;
   };
 
-  return { dialog, open: setDialog, close, pending, act, add, login, cancelLogin, addToken, finish, setAlias, setEnabled, remove, setRotation };
+  return {
+    dialog,
+    open: setDialog,
+    close,
+    pending,
+    act,
+    add,
+    login,
+    cancelLogin,
+    addToken,
+    finish,
+    setAlias,
+    remove,
+    // @private:begin
+    setEnabled,
+    setRotation,
+    // @private:end
+  };
 }
 
 export type ClaudeAccountsState = ReturnType<typeof useClaudeAccounts>;

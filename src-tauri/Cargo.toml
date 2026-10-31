@@ -16,10 +16,13 @@ publish = false
 # (CC BY-NC-SA 4.0, see `NOTICE`). `scripts/install.sh` builds with it; a
 # build without it is MIT only.
 antigravity-accounts = ["quota-station-core/antigravity-accounts"]
-# The tools made for the author's own Macs: Cài đặt › Nâng cao and what it
-# holds (see `quota-station-core`). Off by default and in a release build;
-# `scripts/install.sh` builds with it.
+# @private:begin
+# The private part, made for the author's own Macs: Cài đặt › Nâng cao and
+# what it holds (see `quota-station-core`). Off by default and in a release
+# build; `scripts/install.sh` builds with it. The community edition is this
+# repository without it (`community/`).
 author-tools = ["quota-station-core/author-tools"]
+# @private:end
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

@@ -41,10 +41,14 @@ use quota_station_core::rotation::{self, FileState, Rules, Stamp};
 use quota_station_core::runner;
 use quota_station_core::schedule::Schedule;
 use quota_station_core::settings::{Language, Menubar, MenubarWindow, Settings, Theme, ThemePack};
+#[cfg(feature = "author-tools")]
 use quota_station_core::switcher::{Decision, DryRun, LogLine};
 use quota_station_core::switching::Tools;
-use quota_station_core::{local_time, pause, Snapshot};
+use quota_station_core::Snapshot;
+#[cfg(feature = "author-tools")]
+use quota_station_core::{local_time, pause};
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "author-tools")]
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
@@ -129,6 +133,7 @@ impl Shared {
 
     /// Asks the reader thread to look at the switcher again: its dry run,
     /// its log and launchd.
+    #[cfg(feature = "author-tools")]
     pub fn request_switcher(&self) {
         self.lock().switcher_now = true;
         self.wake.notify_all();
@@ -183,7 +188,9 @@ pub struct Inner {
     /// them): the last one picked while the app runs, or the one an alert
     /// opened it on.
     pub settings_group: String,
+    #[cfg(feature = "author-tools")]
     pub switcher: SwitcherState,
+    #[cfg(feature = "author-tools")]
     pub switcher_now: bool,
     /// The slot a manual switch is running for.
     pub switching: Option<u32>,
@@ -201,10 +208,12 @@ pub struct Inner {
     #[cfg(feature = "author-tools")]
     pub rotation_saving: bool,
     /// The rules editor holds changes not saved yet: closing the main window asks first.
+    #[cfg(feature = "author-tools")]
     pub rules_dirty: bool,
     /// `Thoát Quota Station` waits for the main window to ask about unsaved
     /// rules. Kept here, not only sent as an event, because a window opened
     /// for it may not listen yet; the page takes it with `take_quit`.
+    #[cfg(feature = "author-tools")]
     pub quit_pending: bool,
     /// An Antigravity login is running.
     #[cfg(feature = "antigravity-accounts")]
@@ -243,7 +252,10 @@ pub struct Inner {
     pub center: Option<Arc<notify::Center>>,
     /// This copy's version, from `tauri.conf.json`.
     pub app_version: String,
-    /// Launching at login and the update from source (M7).
+    /// Launching at login (M7).
+    // @private:begin
+    /// And the update from source.
+    // @private:end
     pub install: InstallState,
     /// Codex's files, processes and provider as last looked at (M8).
     pub codex: codex::Live,
@@ -280,6 +292,7 @@ pub enum ReadState {
 }
 
 /// What the app last saw of the rotation.
+#[cfg(feature = "author-tools")]
 #[derive(Debug, Default)]
 pub struct SwitcherState {
     /// The pause flag; `None` when there is none.
@@ -298,6 +311,7 @@ pub struct SwitcherState {
     pub checked_at: Option<Instant>,
 }
 
+#[cfg(feature = "author-tools")]
 #[derive(Debug)]
 pub struct DryRunRecord {
     pub run: DryRun,
@@ -306,6 +320,7 @@ pub struct DryRunRecord {
     pub flag_held: bool,
 }
 
+#[cfg(feature = "author-tools")]
 impl SwitcherState {
     /// The pause is on now: the flag holds by the guard's rule, and the
     /// switcher has not shown that it ignores the flag.
@@ -332,10 +347,12 @@ pub enum Tab {
     Claude,
     Agy,
     Codex,
+    #[cfg(feature = "author-tools")]
     Rules,
     History,
     /// Not a page: the bell's panel (Thông báo), open over the page in view.
     Alerts,
+    #[cfg(feature = "author-tools")]
     Firstmate,
     Mcp,
     Skills,
@@ -345,6 +362,7 @@ pub enum Tab {
     /// Cập nhật Agent: Claude Code, the Codex CLI and the Antigravity CLI.
     CliTools,
     Backup,
+    #[cfg(feature = "author-tools")]
     Copy,
     Settings,
 }
@@ -381,7 +399,9 @@ impl Inner {
             popover_hidden_at: None,
             main_tab: Tab::Overview,
             settings_group: "general".into(),
+            #[cfg(feature = "author-tools")]
             switcher: SwitcherState::default(),
+            #[cfg(feature = "author-tools")]
             switcher_now: true,
             switching: None,
             #[cfg(feature = "author-tools")]
@@ -394,7 +414,9 @@ impl Inner {
             pushing: BTreeSet::new(),
             #[cfg(feature = "author-tools")]
             rotation_saving: false,
+            #[cfg(feature = "author-tools")]
             rules_dirty: false,
+            #[cfg(feature = "author-tools")]
             quit_pending: false,
             #[cfg(feature = "antigravity-accounts")]
             agy_logging_in: false,
@@ -476,13 +498,16 @@ impl Inner {
     pub fn switch_tools(&self) -> Tools {
         Tools {
             store: self.claude_store(),
+            #[cfg(feature = "author-tools")]
             scheduler: std::sync::Arc::new(quota_station_core::os::scheduler()),
+            #[cfg(feature = "author-tools")]
             pause_file: pause::path(&self.home),
         }
     }
 
     /// Reads the pause flag again after a command changed it; an unreadable
     /// flag counts as none.
+    #[cfg(feature = "author-tools")]
     pub fn reload_pause(&mut self) {
         self.switcher.pause = pause::read(&pause::path(&self.home)).ok().flatten();
         self.switcher.pause_generation += 1;
@@ -555,16 +580,21 @@ impl Inner {
 
     /// The menu bar icon for `snapshot`, the detailed one the windows get:
     /// only it has the names and every window.
+    // The binding stays for the build that adds to it.
+    #[allow(clippy::let_and_return)]
     pub fn icon(&self, snapshot: &Snapshot, now: OffsetDateTime) -> Icon {
         let cx = Context {
             follow: self.settings.menubar,
             window: self.settings.menubar_window,
             codex: self.codex_use(),
             now,
+            #[cfg(feature = "author-tools")]
             roles: self.settings.advanced_shown(),
         };
-        icon::icon(self.claude.is_some().then_some(snapshot), &cx)
-            .with_pause(self.switcher.paused(now))
+        let icon = icon::icon(self.claude.is_some().then_some(snapshot), &cx);
+        #[cfg(feature = "author-tools")]
+        let icon = icon.with_pause(self.switcher.paused(now));
+        icon
     }
 
     /// The model for `snapshot`: [`Inner::detailed_snapshot`] reads the
@@ -577,6 +607,7 @@ impl Inner {
             machine: self.machine(),
             machine_default: self.system_machine.clone(),
             granting: self.granting,
+            #[cfg(feature = "author-tools")]
             switcher: self.switcher_view(OffsetDateTime::now_utc()),
             claude_switch: ClaudeSwitchView {
                 ready: self.claude_paths().in_use(),
@@ -584,9 +615,10 @@ impl Inner {
             },
             claude_accounts: crate::claude::view(self),
             show_names: !self.settings.hide_names,
+            #[cfg(feature = "author-tools")]
             advanced: AdvancedView {
                 on: self.settings.advanced_shown(),
-                firstmate: cfg!(feature = "author-tools") && self.settings.firstmate,
+                firstmate: self.settings.firstmate,
             },
             theme: self.settings.theme,
             theme_pack: self.settings.theme_pack,
@@ -677,6 +709,7 @@ impl Inner {
         }
     }
 
+    #[cfg(feature = "author-tools")]
     fn switcher_view(&self, now: OffsetDateTime) -> SwitcherView {
         let sw = &self.switcher;
         let stamp = local_time::stamp(now);
@@ -714,14 +747,15 @@ pub struct Model {
     pub machine_default: String,
     /// The owner's read of Claude Code's Keychain item runs.
     pub granting: bool,
+    #[cfg(feature = "author-tools")]
     pub switcher: SwitcherView,
     pub claude_switch: ClaudeSwitchView,
     /// The Claude accounts the app keeps, and their actions.
     pub claude_accounts: crate::claude::AccountsView,
     /// Account names (emails, organizations) may show.
     pub show_names: bool,
-    /// Cài đặt › Nâng cao and the Firstmate switch inside it; both off in
-    /// a build without the author's tools.
+    /// Cài đặt › Nâng cao and the Firstmate switch inside it.
+    #[cfg(feature = "author-tools")]
     pub advanced: AdvancedView,
     pub theme: Theme,
     /// The theme pack every window is drawn in.
@@ -744,7 +778,7 @@ pub struct Model {
     /// author's tools.
     #[cfg(feature = "author-tools")]
     pub rotation: RotationView,
-    /// The five alerts (M6).
+    /// The alerts (M6).
     pub alerts: AlertsView,
     /// What Firstmate sees (M6); only in a build with the author's tools.
     #[cfg(feature = "author-tools")]
@@ -776,6 +810,7 @@ pub struct Model {
 
 /// Cài đặt › Nâng cao: on, the tabs and switches made for the author's own
 /// Macs show; `firstmate` is its own switch inside.
+#[cfg(feature = "author-tools")]
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AdvancedView {
@@ -796,6 +831,7 @@ pub struct Capabilities {
     /// rules editor and the other Macs, the copy to another Mac, the update
     /// from source and Firstmate. Without them none of their commands is
     /// built and the windows show no switch, tab or setting for them.
+    #[cfg(feature = "author-tools")]
     pub author_tools: bool,
     /// The system the app was built for, `macos` or `windows`: the windows
     /// take its type, corners and scroll bars, and its words for its own
@@ -809,7 +845,8 @@ pub struct Capabilities {
 impl Capabilities {
     pub const BUILT: Capabilities = Capabilities {
         agy_accounts: cfg!(feature = "antigravity-accounts"),
-        author_tools: cfg!(feature = "author-tools"),
+        #[cfg(feature = "author-tools")]
+        author_tools: true,
         platform: if cfg!(windows) { "windows" } else { "macos" },
         session: crate::session::ON,
     };
@@ -860,6 +897,7 @@ pub struct PeerView {
 }
 
 /// The rotation as the windows show it (F07).
+#[cfg(feature = "author-tools")]
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SwitcherView {
@@ -878,6 +916,7 @@ pub struct SwitcherView {
     pub legacy: Option<String>,
 }
 
+#[cfg(feature = "author-tools")]
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PauseView {
@@ -888,6 +927,7 @@ pub struct PauseView {
     pub holds: bool,
 }
 
+#[cfg(feature = "author-tools")]
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DryRunView {
@@ -912,7 +952,7 @@ mod tests {
     use super::*;
 
     fn inner() -> Inner {
-        Inner::new(PathBuf::new(), PathBuf::from("/nonexistent/settings.json"), "Mac mini".into())
+        Inner::new(PathBuf::new(), PathBuf::from("/nonexistent/settings.json"), "Mac Studio".into())
     }
 
     #[cfg(feature = "author-tools")]
@@ -923,13 +963,14 @@ mod tests {
     #[test]
     fn the_machine_name_set_by_the_user_wins_over_the_one_macos_gives() {
         let mut inner = inner();
-        assert_eq!(inner.model().machine, "Mac mini");
+        assert_eq!(inner.model().machine, "Mac Studio");
         inner.settings.machine_name = Some("Mac phòng khách".into());
         let model = inner.model();
         assert_eq!(model.machine, "Mac phòng khách");
-        assert_eq!(model.machine_default, "Mac mini");
+        assert_eq!(model.machine_default, "Mac Studio");
     }
 
+    #[cfg(feature = "author-tools")]
     #[test]
     fn a_pause_counts_until_a_dry_run_shows_the_switcher_ignores_it() {
         use quota_station_core::switcher::parse_decision;
@@ -1025,12 +1066,11 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    /// A settings file with Nâng cao and Firstmate on, as a build with the
-    /// author's tools writes it: only such a build sends them to the
-    /// windows, with the rules editor, Firstmate and the update from
-    /// source; the other keeps the switches in the file and sends none.
+    /// A settings file with Nâng cao and Firstmate on: the windows get them,
+    /// with the rules editor, Firstmate and the update from source.
+    #[cfg(feature = "author-tools")]
     #[test]
-    fn the_model_carries_the_author_tools_only_in_a_build_with_them() {
+    fn the_model_carries_the_author_tools() {
         let dir = std::env::temp_dir().join(format!("qs-state-author-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let file = dir.join("app/settings.json");
@@ -1039,20 +1079,26 @@ mod tests {
             .unwrap();
         let inner = Inner::new(dir.clone(), file, "Mac A".into());
         let json = serde_json::to_value(inner.model()).unwrap();
-        let tools = cfg!(feature = "author-tools");
-        assert_eq!(json["capabilities"]["authorTools"], tools);
+        assert_eq!(json["capabilities"]["authorTools"], true);
+        assert_eq!(json["advanced"]["on"], true);
+        assert_eq!(json["advanced"]["firstmate"], true);
+        assert!(json.get("rotation").is_some());
+        assert!(json.get("firstmate").is_some());
+        assert!(json["app"].get("sourceStatus").is_some());
+        assert!(inner.settings.advanced && inner.settings.firstmate, "the file keeps them");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn the_model_says_what_this_build_has() {
+        let json = serde_json::to_value(inner().model()).unwrap();
         let platform = if cfg!(windows) { "windows" } else { "macos" };
         assert_eq!(json["capabilities"]["platform"], platform);
         // Only CI's Windows installer is built for a guided session.
         assert_eq!(json["capabilities"]["session"], option_env!("QS_TEST_SESSION").is_some());
-        assert_eq!(json["advanced"]["on"], tools);
-        assert_eq!(json["advanced"]["firstmate"], tools);
-        assert_eq!(json.get("rotation").is_some(), tools);
-        assert_eq!(json.get("firstmate").is_some(), tools);
-        assert_eq!(json["app"].get("sourceStatus").is_some(), tools);
+        let agy = cfg!(feature = "antigravity-accounts");
+        assert_eq!(json["capabilities"]["agyAccounts"], agy);
         assert!(json["app"].get("version").is_some());
-        assert!(inner.settings.advanced && inner.settings.firstmate, "the file keeps them");
-        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
@@ -1084,6 +1130,7 @@ mod tests {
         inner.claude_accounts = vec![AccountOut {
             slot: 1,
             alias: None,
+            #[cfg(feature = "author-tools")]
             enabled: true,
             active: false,
             kind: Default::default(),

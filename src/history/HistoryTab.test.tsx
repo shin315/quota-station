@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 // The Lịch sử tab (M6) on the fake Rust side: synthetic lines from the
-// app's journal, the switcher's log and the readings, a day at a time.
+// app's journal and the readings, a day at a time.
 
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -41,21 +41,33 @@ describe('the Lịch sử tab', () => {
     const fake = await open(ENTRIES);
     await screen.findByText('Hôm nay');
     expect(fake.api.getHistory).toHaveBeenCalled();
-    expect(rows('Hôm nay')).toEqual([
-      '14:12 | Chuyển | lan.acme2→lan.acme1 | Bạn chuyển tay · giữ đến 15:20 | app',
+    let today = [
+      '14:12 | Chuyển | lan.acme2→lan.acme1 | Bạn chuyển tay | app',
       '13:50 | Codex | ChatGPT→relay | Bạn chuyển trong app · giữ đăng nhập ChatGPT · đã khởi động lại tiến trình nền | app',
       '13:40 | Cảnh báo | lan.ultra2→lanpham.ultra | Antigravity.app đổi về tài khoản cũ (lần 1/2) | quan sát',
       '13:20 | Antigravity | lanpham.ultra→lan.ultra2 | Bạn chuyển trong app · thoát app rồi chuyển | app',
+    ];
+    let yesterday = '22:47 | Chuyển | lan.acme1→lanpham.dev | Đổi giữa hai lần đọc, không do app | quan sát';
+    // @private:begin
+    today = [
+      '14:12 | Chuyển | lan.acme2→lan.acme1 | Bạn chuyển tay · giữ đến 15:20 | app',
+      ...today.slice(1),
       '09:12 | Chuyển | lan.acme2 | 5 giờ đã dùng 4% · đặt lại 15:00 | switcher',
       '08:01 | Khởi tạo sớm | lan.acme2 | Bắt đầu tính 5 giờ sớm | switcher',
-    ]);
-    expect(rows('Hôm qua')).toEqual(['22:47 | Chuyển | lan.acme1→lanpham.dev | Đổi giữa hai lần đọc, không do app hay switcher | quan sát']);
-    // No line of explanation, no exit code; the switcher's own line is on hover only.
+    ];
+    yesterday = '22:47 | Chuyển | lan.acme1→lanpham.dev | Đổi giữa hai lần đọc, không do app hay switcher | quan sát';
+    // @private:end
+    expect(rows('Hôm nay')).toEqual(today);
+    expect(rows('Hôm qua')).toEqual([yesterday]);
+    // No line of explanation, no exit code.
     expect(screen.queryByText(/^Lịch sử của/)).toBeNull();
     expect(screen.queryByText(/exit 0/)).toBeNull();
+    // @private:begin
+    // The switcher's own line is on hover only.
     const primed = screen.getByRole('region', { name: 'Hôm nay' }).querySelectorAll('.hrow')[5];
     expect(primed.getAttribute('title')).toMatch(/exit 0/);
     expect(primed.classList.contains('hrow')).toBe(true);
+    // @private:end
   });
 
   it('one card: the filter at its top, then a line per switch in the same five columns', async () => {
@@ -78,8 +90,12 @@ describe('the Lịch sử tab', () => {
   it('goes by place when names are hidden', async () => {
     await open(ENTRIES, false);
     await screen.findByText('Hôm nay');
-    expect(rows('Hôm nay')[0]).toBe('14:12 | Chuyển | Team B→Team A | Bạn chuyển tay · giữ đến 15:20 | app');
-    expect(rows('Hôm nay')[2]).toMatch(/^13:40 \| Cảnh báo \| Ultra 2→Ultra 1/);
+    let first: [string, RegExp] = ['14:12 | Chuyển | Tài khoản 3→Tài khoản 2 | Bạn chuyển tay | app', /^13:40 \| Cảnh báo \| Antigravity 2→Antigravity 1/];
+    // @private:begin
+    first = ['14:12 | Chuyển | Team B→Team A | Bạn chuyển tay · giữ đến 15:20 | app', /^13:40 \| Cảnh báo \| Ultra 2→Ultra 1/];
+    // @private:end
+    expect(rows('Hôm nay')[0]).toBe(first[0]);
+    expect(rows('Hôm nay')[2]).toMatch(first[1]);
     expect(document.body.textContent).not.toMatch(/@|lan\.|Acme/);
   });
 
@@ -92,7 +108,11 @@ describe('the Lịch sử tab', () => {
     expect(rows('Hôm nay')).toHaveLength(2);
     expect(screen.queryByRole('region', { name: 'Hôm qua' })).toBeNull();
     fireEvent.click(within(filter).getByRole('button', { name: 'Claude' }));
-    expect(rows('Hôm nay')).toHaveLength(3);
+    let claude = 1;
+    // @private:begin
+    claude = 3;
+    // @private:end
+    expect(rows('Hôm nay')).toHaveLength(claude);
     expect(rows('Hôm qua')).toHaveLength(1);
     fireEvent.click(within(filter).getByRole('button', { name: 'Codex' }));
     expect(rows('Hôm nay')).toEqual([

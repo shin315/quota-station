@@ -10,13 +10,16 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MainWindowApp, PopoverApp } from '../App';
 import { fakeApi, type FakeOptions } from '../fixtures/fakeApi';
-import { agyAccount, agyFixture, alertsFixture, FIXTURE_NOW, fixtureModel, leavingAlert, overwriteAlert } from '../fixtures/models';
+import { agyAccount, agyFixture, alertsFixture, FIXTURE_NOW, fixtureModel, overwriteAlert, poolAlert } from '../fixtures/models';
+// @private:begin
+import { leavingAlert } from '../fixtures/models';
+// @private:end
 import type { Api } from '../lib/api';
 import type { AlertRecord, AlertsView, Model, Tab } from '../lib/model';
 import { bellCount, PANEL_FIRST } from './Notifications';
 
 function withAlerts(over: Partial<AlertsView> = {}): Model {
-  const recent = over.recent ?? [overwriteAlert(), leavingAlert()];
+  const recent = over.recent ?? [overwriteAlert(), poolAlert()];
   return fixtureModel('fresh', {
     antigravity: agyFixture({ accounts: [agyAccount(1), agyAccount(2)] }),
     agySwitch: { busy: null, listed: true, overwritten: null },
@@ -48,10 +51,10 @@ const press = async (el: Element) => {
   });
 };
 
-/** A notification of the same kind as `leavingAlert`, `n` minutes later. */
+/** A notification of the same kind as `poolAlert`, `n` minutes later. */
 function later(n: number, over: Partial<AlertRecord> = {}): AlertRecord {
   const at = 1768547700 + n * 60;
-  return leavingAlert({ id: 'leaving:' + n + '@' + at, alert: { ...leavingAlert().alert, key: 'leaving:' + n, title: 'Thông báo số ' + n, at }, ...over });
+  return poolAlert({ id: 'pool:' + n + '@' + at, alert: { ...poolAlert().alert, key: 'pool:' + n, title: 'Thông báo số ' + n, at }, ...over });
 }
 
 afterEach(cleanup);
@@ -72,7 +75,7 @@ describe('the bell', () => {
     await press(within(nav).getByRole('button', { name: 'Tổng quan' }));
     const row = screen.getByRole('heading', { level: 2, name: 'Tổng quan' }).parentElement!;
     expect(within(row).getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['Làm mới', 'Thông báo, 2 chưa đọc']);
-    expect(within(row).getByText('Mac mini · cập nhật 40 giây trước')).toBeTruthy();
+    expect(within(row).getByText('Mac Studio · cập nhật 40 giây trước')).toBeTruthy();
   });
 
   it('counts the notifications not read yet: none at zero, 9+ past nine', async () => {
@@ -85,13 +88,13 @@ describe('the bell', () => {
     expect(count()).toBe('9+');
     expect(bell().getAttribute('aria-label')).toBe('Thông báo, 12 chưa đọc');
     cleanup();
-    await open(withAlerts({ recent: [overwriteAlert({ read: true }), leavingAlert({ read: true })] }), 'overview');
+    await open(withAlerts({ recent: [overwriteAlert({ read: true }), poolAlert({ read: true })] }), 'overview');
     expect(count()).toBe('');
     expect(bell().getAttribute('aria-label')).toBe('Thông báo');
   });
 
   it('opens its panel, and opening reads them: the count goes, the new ones keep a dot while it stays open', async () => {
-    const fake = await open(withAlerts({ recent: [overwriteAlert(), leavingAlert({ read: true })] }), 'overview');
+    const fake = await open(withAlerts({ recent: [overwriteAlert(), poolAlert({ read: true })] }), 'overview');
     expect(count()).toBe('1');
     expect(bell().getAttribute('aria-expanded')).toBe('false');
     await press(bell());
@@ -101,7 +104,7 @@ describe('the bell', () => {
     expect(count()).toBe('');
     expect(fake.current().alerts.recent.every((r) => r.read)).toBe(true);
     expect(within(card('Antigravity đổi về tài khoản cũ')).getByText(', mới')).toBeTruthy();
-    expect(within(card('Team A rời vòng lúc 14:45')).queryByText(', mới')).toBeNull();
+    expect(within(card('Hạn mức Claude sắp cạn')).queryByText(', mới')).toBeNull();
     // One that comes while it is open is read at once.
     await act(async () => {
       fake.push({ ...fake.current(), alerts: alertsFixture({ ...fake.current().alerts, recent: [later(30), ...fake.current().alerts.recent], unread: 1 }) });
@@ -112,27 +115,27 @@ describe('the bell', () => {
   });
 
   it('shows the recent ones a day at a time, one line each with the buttons of its macOS card, newest first', async () => {
-    const yesterday = leavingAlert({
-      id: 'leaving:2:2026-01-15T14:45@1768461300',
-      alert: { ...leavingAlert().alert, key: 'leaving:2:2026-01-15T14:45', title: 'Team A rời vòng lúc 14:45 hôm qua', at: 1768461300 },
-      answer: { action: 'dismiss', label: 'Ổn', at: 1768461400, result: null },
+    const yesterday = poolAlert({
+      id: 'pool:dry:1768461300@1768461300',
+      alert: { ...poolAlert().alert, key: 'pool:dry:1768461300', title: 'Hạn mức Claude sắp cạn hôm qua', at: 1768461300 },
+      answer: { action: 'dismiss', label: 'Bỏ qua', at: 1768461400, result: null },
     });
-    await open(withAlerts({ recent: [overwriteAlert(), leavingAlert(), yesterday] }));
+    await open(withAlerts({ recent: [overwriteAlert(), poolAlert(), yesterday] }));
     const recent = within(panel()).getByRole('region', { name: 'Gần đây' });
     expect(Array.from(recent.children).map((c) => (c.getAttribute('role') === 'group' ? '· ' + c.getAttribute('aria-label') : c.textContent))).toEqual([
       'Hôm nay',
       '· Thông báo: Antigravity đổi về tài khoản cũ',
-      '· Thông báo: Team A rời vòng lúc 14:45',
+      '· Thông báo: Hạn mức Claude sắp cạn',
       'Hôm qua',
-      '· Thông báo: Team A rời vòng lúc 14:45 hôm qua',
+      '· Thông báo: Hạn mức Claude sắp cạn hôm qua',
     ]);
     const o = card('Antigravity đổi về tài khoản cũ');
     expect(within(o).getByText('Lúc 14:10 Antigravity.app đổi về Ultra 1. Bạn đã chuyển sang Ultra 2 lúc 13:50.')).toBeTruthy();
     expect(within(o).getAllByRole('button').map((b) => b.textContent)).toEqual(['Thoát app rồi chuyển lại', 'Chuyển lại', 'Bỏ qua']);
     expect(within(o).getByText('14:10 · đã gửi thông báo macOS')).toBeTruthy();
-    expect(within(card('Team A rời vòng lúc 14:45')).getAllByRole('button').map((b) => b.textContent)).toEqual(['Ổn', 'Chuyển ngay']);
-    expect(within(card('Team A rời vòng lúc 14:45 hôm qua')).getByText('14:15 · đã gửi thông báo macOS')).toBeTruthy();
-    expect(within(card('Team A rời vòng lúc 14:45 hôm qua')).queryByRole('button')).toBeNull();
+    expect(within(card('Hạn mức Claude sắp cạn')).getAllByRole('button').map((b) => b.textContent)).toEqual(['Sang lan.acme2 (đã dùng 2%)', 'Bỏ qua']);
+    expect(within(card('Hạn mức Claude sắp cạn hôm qua')).getByText('14:15 · đã gửi thông báo macOS')).toBeTruthy();
+    expect(within(card('Hạn mức Claude sắp cạn hôm qua')).queryByRole('button')).toBeNull();
   });
 
   it('a long list shows the newest first and the rest behind "Xem tất cả"', async () => {
@@ -186,7 +189,11 @@ describe('the bell', () => {
     expect(fake.api.setSettingsGroup).toHaveBeenLastCalledWith('notify');
     // The kinds, "Gửi thử" and their switches are there.
     const group = screen.getByRole('region', { name: 'Thông báo' });
-    expect(within(group).getAllByRole('button', { name: /^Gửi thử: / })).toHaveLength(5);
+    let kinds = 3;
+    // @private:begin
+    kinds = 5;
+    // @private:end
+    expect(within(group).getAllByRole('button', { name: /^Gửi thử: / })).toHaveLength(kinds);
     // Asked again from another page after another tab was picked, it opens Thông báo again.
     fireEvent.mouseDown(screen.getByRole('tab', { name: 'Chung' }));
     await press(within(screen.getByRole('navigation', { name: 'Các tab' })).getByRole('button', { name: 'Tổng quan' }));
@@ -212,18 +219,29 @@ describe('the bell', () => {
 describe('a notification’s buttons in the panel', () => {
   it('a press counts once: the line says what was chosen and how it went', async () => {
     const fake = await open(withAlerts());
-    await press(within(card('Team A rời vòng lúc 14:45')).getByRole('button', { name: 'Ổn' }));
-    expect(fake.api.alertAction).toHaveBeenCalledWith('leaving:2:2026-01-16T14:45@1768547700', 'dismiss');
-    const c = card('Team A rời vòng lúc 14:45');
+    await press(within(card('Hạn mức Claude sắp cạn')).getByRole('button', { name: 'Bỏ qua' }));
+    expect(fake.api.alertAction).toHaveBeenCalledWith('pool:dry:1768547700@1768547700', 'dismiss');
+    const c = card('Hạn mức Claude sắp cạn');
     expect(within(c).queryByRole('button')).toBeNull();
-    expect(within(c).getByText('Bạn đã chọn “Ổn”.')).toBeTruthy();
-    expect(within(c).getByText('Không nhắc lại cho lần rời vòng này.')).toBeTruthy();
+    expect(within(c).getByText('Bạn đã chọn “Bỏ qua”.')).toBeTruthy();
+    expect(within(c).getByText(/^Không lặp lại cho cùng sự kiện\./)).toBeTruthy();
     expect(fake.current().alerts.unanswered).toBe(1);
   });
 
-  it('"Chuyển ngay" opens the switch sheet in this window, closes the panel and switches nothing yet', async () => {
+  // @private:begin
+  it('"Ổn" on a card about an account leaving the rotation is not said again for that leave', async () => {
+    const fake = await open(withAlerts({ recent: [leavingAlert()] }));
+    await press(within(card('Team A rời vòng lúc 14:45')).getByRole('button', { name: 'Ổn' }));
+    expect(fake.api.alertAction).toHaveBeenCalledWith('leaving:2:2026-01-16T14:45@1768547700', 'dismiss');
+    const c = card('Team A rời vòng lúc 14:45');
+    expect(within(c).getByText('Bạn đã chọn “Ổn”.')).toBeTruthy();
+    expect(within(c).getByText('Không nhắc lại cho lần rời vòng này.')).toBeTruthy();
+  });
+  // @private:end
+
+  it('"Sang …" opens the switch sheet in this window, closes the panel and switches nothing yet', async () => {
     const fake = await open(withAlerts());
-    await press(within(card('Team A rời vòng lúc 14:45')).getByRole('button', { name: 'Chuyển ngay' }));
+    await press(within(card('Hạn mức Claude sắp cạn')).getByRole('button', { name: 'Sang lan.acme2 (đã dùng 2%)' }));
     expect(screen.getByRole('dialog', { name: /lan\.acme2/ })).toBeTruthy();
     expect(screen.queryByRole('dialog', { name: 'Thông báo' })).toBeNull();
     expect(fake.api.switchClaude).not.toHaveBeenCalled();
@@ -251,15 +269,15 @@ describe('a notification’s buttons in the panel', () => {
   it('one answered on macOS meanwhile says so in the panel instead of pressing twice', async () => {
     const fake = await open(withAlerts());
     vi.mocked(fake.api.alertAction).mockRejectedValueOnce('answered');
-    await press(within(card('Team A rời vòng lúc 14:45')).getByRole('button', { name: 'Ổn' }));
+    await press(within(card('Hạn mức Claude sắp cạn')).getByRole('button', { name: 'Bỏ qua' }));
     expect(within(panel()).getByText('Thông báo này đã có câu trả lời, có thể từ thông báo macOS.')).toBeTruthy();
   });
 
   it('"Đăng nhập lại" on an Antigravity one opens the Antigravity tab and closes the panel', async () => {
-    const relogin = leavingAlert({
+    const relogin = poolAlert({
       id: 'agy:login:antigravity_fake2@1768547700',
       alert: {
-        ...leavingAlert().alert,
+        ...poolAlert().alert,
         key: 'agy:login:antigravity_fake2',
         kind: 'login',
         title: 'Ultra 2 cần đăng nhập lại',
@@ -280,14 +298,14 @@ describe('a notification’s buttons in the panel', () => {
     const fake = await open(withAlerts({ recent: [] }), 'settings');
     fireEvent.mouseDown(screen.getByRole('tab', { name: 'Thông báo' }));
     expect(count()).toBe('');
-    await press(screen.getByRole('button', { name: 'Gửi thử: Tài khoản sắp rời vòng' }));
-    expect(fake.api.testAlert).toHaveBeenCalledWith('leaving');
+    await press(screen.getByRole('button', { name: 'Gửi thử: Tài khoản cần đăng nhập lại' }));
+    expect(fake.api.testAlert).toHaveBeenCalledWith('login');
     expect(count()).toBe('1');
     await press(bell());
-    const t = within(panel()).getByRole('group', { name: /^Thông báo: Team A rời vòng/ });
+    const t = within(panel()).getByRole('group', { name: /cần đăng nhập lại$/ });
     expect(within(t).getByText(/thông báo thử · đã gửi thông báo macOS$/)).toBeTruthy();
-    await press(within(t).getByRole('button', { name: 'Chuyển ngay' }));
-    expect(within(t).getByText('Bạn đã bấm “Chuyển ngay”. Thông báo thử không làm gì cả.')).toBeTruthy();
+    await press(within(t).getByRole('button', { name: 'Nhắc ngày mai' }));
+    expect(within(t).getByText('Bạn đã bấm “Nhắc ngày mai”. Thông báo thử không làm gì cả.')).toBeTruthy();
     expect(screen.queryByRole('dialog', { name: /lan\.acme2/ })).toBeNull();
   });
 

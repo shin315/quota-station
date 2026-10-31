@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: MIT
 
 import { describe, expect, it } from 'vitest';
-import { hideNames } from '../fixtures/fakeApi';
-import { FIXTURE_NOW, fixtureModel, peerFixture, rotationFixture, rulesFixture } from '../fixtures/models';
-import type { AuthorModel } from './author';
-import type { Model, PeerView } from './model';
+import { hideNames } from '@/fixtures/fakeApi';
+import { FIXTURE_NOW, fixtureModel, peerFixture, rotationFixture, rulesFixture } from '@/fixtures/models';
+import type { AuthorModel } from '@/private/author';
+import type { Model, PeerView } from '@/lib/model';
 import {
   changedBanner,
   compareRows,
@@ -103,7 +103,7 @@ describe('rules view', () => {
       tone: 'info',
       text: 'có bản mới hơn 14:11',
     });
-    expect(line({ state: { kind: 'edited', their: { at: '2026-01-16T14:02:00+07:00', machine: 'Mac mini' } } }).short).toBe('Mac C: bản đã bị sửa tay');
+    expect(line({ state: { kind: 'edited', their: { at: '2026-01-16T14:02:00+07:00', machine: 'Mac Studio' } } }).short).toBe('Mac C: bản đã bị sửa tay');
     expect(line({ state: { kind: 'edited', their: null } }).short).toBe('Mac C: bản đã bị sửa tay');
     expect(line({ current: false }).short).toBe('Mac C: chưa nhận bản mới, sẽ gửi');
     expect(line({ state: null }).short).toBe('Mac C: chưa gửi lần nào');
@@ -177,7 +177,7 @@ describe('rules view', () => {
   });
 
   it('the feedback after a save names the Macs left behind', () => {
-    const now = rotationFixture({ stamp: { at: '2026-01-16T14:21:00+07:00', machine: 'Mac mini' } });
+    const now = rotationFixture({ stamp: { at: '2026-01-16T14:21:00+07:00', machine: 'Mac Studio' } });
     expect(saveFeedback(fixtureModel('fresh', { rotation: now }))).toEqual({
       tone: '',
       title: 'Đã lưu luật cho cả ba Mac lúc 14:21',

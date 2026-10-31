@@ -9,7 +9,6 @@ import { backupFixture } from './fakeBackup';
 import { instrFixture, pluginsFixture, skillsFixture } from './fakeSkills';
 import { setsFixture } from './fakeSets';
 import { statsFixture } from './fakeStats';
-import type { AuthorModel } from '../lib/author';
 import type {
   AgyAccounts,
   ReleaseView,
@@ -26,20 +25,18 @@ import type {
   CodexTrigger,
   CodexView,
   Line,
-  FirstmateView,
   HistoryEntry,
   McpDef,
   McpRow,
   McpTable,
   McpView,
   Model,
-  PeerView,
-  RotationView,
-  Rules,
   Snapshot,
-  SourceView,
-  SwitcherView,
 } from '../lib/model';
+// @private:begin
+import type { AuthorModel } from '@/private/author';
+import type { FirstmateView, PeerView, RotationView, Rules, SourceView, SwitcherView } from '../lib/model';
+// @private:end
 
 const files = import.meta.glob('./snapshots/*.json', { eager: true, import: 'default' }) as Record<string, Snapshot>;
 
@@ -50,6 +47,7 @@ export const SNAPSHOTS: Record<string, Snapshot> = Object.fromEntries(
 /** 40 seconds after the fixtures were generated (14:20:40 at UTC+7). */
 export const FIXTURE_NOW = new Date('2026-01-16T07:20:40.000Z');
 
+// @private:begin
 /**
  * The switcher on a Mac where all is well: the dry run a minute ago kept
  * Team A, and the last switch it logged was to Team A this morning.
@@ -71,13 +69,16 @@ export function switcherFixture(over: Partial<SwitcherView> = {}): SwitcherView 
     ...over,
   };
 }
+// @private:end
 
 /** The four accounts of the pool fixture, kept by Quota Station; Team A (2) in use. */
 export function claudeAccountsFixture(over: Partial<ClaudeAccountsView> = {}): ClaudeAccountsView {
   const row = (slot: number, email: string, five: number | null, over: Partial<ClaudeAccountRow> = {}): ClaudeAccountRow => ({
     slot,
     alias: null,
+    // @private:begin
     enabled: true,
+    // @private:end
     active: false,
     kind: 'login',
     status: 'fresh',
@@ -99,13 +100,16 @@ export function claudeAccountsFixture(over: Partial<ClaudeAccountsView> = {}): C
     ],
     working: null,
     last: null,
+    // @private:begin
     rotation: true,
     legacy: null,
+    // @private:end
     claude: true,
     ...over,
   };
 }
 
+// @private:begin
 /** Paused by a manual switch to Team A at 14:12, held until 15:20 (UTC+7). */
 export function heldSwitcher(over: Partial<SwitcherView> = {}): SwitcherView {
   return switcherFixture({
@@ -119,7 +123,9 @@ export function heldSwitcher(over: Partial<SwitcherView> = {}): SwitcherView {
     ...over,
   });
 }
+// @private:end
 
+// @private:begin
 /** The rotation in the fixtures: Team A, B and C in turn, Cá nhân 08:00–24:00, Team A leaving at 17:45. */
 export function rulesFixture(over: Partial<Rules> = {}): Rules {
   return {
@@ -133,14 +139,20 @@ export function rulesFixture(over: Partial<Rules> = {}): Rules {
     ...over,
   };
 }
+// @private:end
 
+// @private:begin
 /** Saved on this Mac at 14:02 (UTC+7); Mac B and Mac C have it. */
 export const SAVED_AT = '2026-01-16T14:02:00+07:00';
+// @private:end
 
+// @private:begin
 export function peerFixture(name: string, alias: string, over: Partial<PeerView> = {}): PeerView {
   return { name, alias, state: { kind: 'synced', at: '2026-01-16T07:02:05.000Z' }, current: true, theirRules: null, pushing: false, ...over };
 }
+// @private:end
 
+// @private:begin
 export function rotationFixture(over: Partial<RotationView> = {}): RotationView {
   return {
     path: '~/.config/cswap-prefer-team/rotation',
@@ -148,7 +160,7 @@ export function rotationFixture(over: Partial<RotationView> = {}): RotationView 
     rules: rulesFixture(),
     reason: null,
     version: 'v1',
-    stamp: { at: SAVED_AT, machine: 'Mac mini' },
+    stamp: { at: SAVED_AT, machine: 'Mac Studio' },
     ignoredKeys: [],
     defaults: rulesFixture({ expire: [] }),
     saving: false,
@@ -157,6 +169,7 @@ export function rotationFixture(over: Partial<RotationView> = {}): RotationView 
     ...over,
   };
 }
+// @private:end
 
 /** The Antigravity login card on a Mac with the OAuth client in place and no account yet. */
 export function agyFixture(over: Partial<AgyAccounts> = {}): AgyAccounts {
@@ -185,11 +198,19 @@ export function agyAccount(n: number, over: Partial<AgyLogin> = {}): AgyLogin {
   };
 }
 
-/** No alert yet, the five switches as they ship, and macOS letting the cards show. */
+/** No alert yet, the switches as they ship, and macOS letting the cards show. */
 export function alertsFixture(over: Partial<AlertsView> = {}): AlertsView {
   return {
     recent: [],
-    switches: { pool: true, leaving: true, login: true, overwrite: true, firstmate: false },
+    switches: {
+      pool: true,
+      login: true,
+      overwrite: true,
+      // @private:begin
+      leaving: true,
+      firstmate: false,
+      // @private:end
+    },
     poolAlert: { dryAtMost: 10, roomAtLeast: 15 },
     unanswered: 0,
     // The bell counts the cards not read yet unless told otherwise.
@@ -199,6 +220,7 @@ export function alertsFixture(over: Partial<AlertsView> = {}): AlertsView {
   };
 }
 
+// @private:begin
 /**
  * Team A leaving the rotation at 14:45, sent at 14:15 (UTC+7) on the fixture day:
  * the prototype's card 2, with its two buttons.
@@ -215,6 +237,30 @@ export function leavingAlert(over: Partial<AlertRecord> = {}): AlertRecord {
       actions: [
         { id: 'dismiss', label: 'Ổn' },
         { id: 'switch:3', label: 'Chuyển ngay' },
+      ],
+      at: 1768547700,
+    },
+    notified: true,
+    answer: null,
+    read: false,
+    ...over,
+  };
+}
+// @private:end
+
+/** Claude's quota running out at 14:15 (UTC+7) on the fixture day, with a way to account 3. */
+export function poolAlert(over: Partial<AlertRecord> = {}): AlertRecord {
+  return {
+    id: 'pool:dry:1768547700@1768547700',
+    alert: {
+      key: 'pool:dry:1768547700',
+      kind: 'pool',
+      tone: 'bad',
+      title: 'Hạn mức Claude sắp cạn',
+      body: 'Tài khoản đang dùng còn 8%.',
+      actions: [
+        { id: 'switch:3', label: 'Sang lan.acme2 (đã dùng 2%)' },
+        { id: 'dismiss', label: 'Bỏ qua' },
       ],
       at: 1768547700,
     },
@@ -249,6 +295,7 @@ export function overwriteAlert(over: Partial<AlertRecord> = {}): AlertRecord {
   };
 }
 
+// @private:begin
 /** Firstmate's file is set and was written a minute ago: the pool has room. */
 export function firstmateFixture(over: Partial<FirstmateView> = {}): FirstmateView {
   return {
@@ -274,12 +321,16 @@ export function firstmateFixture(over: Partial<FirstmateView> = {}): FirstmateVi
     ...over,
   };
 }
+// @private:end
 
 /**
  * A morning on this Mac, newest first as the Rust side sends them (UTC+7): a manual
- * switch, an Antigravity switch Antigravity.app undid, the switcher's switch and prime,
- * and a change seen last night that nothing here made.
+ * switch, an Antigravity switch Antigravity.app undid, and a change seen last night
+ * that nothing here made.
  */
+// @private:begin
+/** And the switcher's switch and prime. */
+// @private:end
 export function historyFixture(): HistoryEntry[] {
   return [
     {
@@ -288,7 +339,13 @@ export function historyFixture(): HistoryEntry[] {
       source: 'app',
       from: 3,
       to: 2,
-      cause: { kind: 'manual', holdUntil: '2026-01-16T08:20:00Z', result: 'switched' },
+      cause: {
+        kind: 'manual',
+        // @private:begin
+        holdUntil: '2026-01-16T08:20:00Z',
+        // @private:end
+        result: 'switched',
+      },
     },
     {
       at: '2026-01-16T06:50:00Z',
@@ -314,6 +371,7 @@ export function historyFixture(): HistoryEntry[] {
       to: 2,
       cause: { kind: 'agySwitch', how: 'quitFirst', result: 'switched', reopened: true },
     },
+    // @private:begin
     {
       at: '2026-01-16T02:12:05Z',
       app: 'claude',
@@ -334,6 +392,7 @@ export function historyFixture(): HistoryEntry[] {
       to: 3,
       cause: { kind: 'primed', raw: '2026-01-16 08:01:00 primed slot 3 (exit 0)' },
     },
+    // @private:end
     { at: '2026-01-15T15:47:00Z', app: 'claude', source: 'observed', from: 2, to: 1, cause: { kind: 'observed' } },
   ];
 }
@@ -378,11 +437,19 @@ export function releaseAvailable(over: Partial<ReleaseView> = {}): ReleaseView {
   });
 }
 
-export function appFixture(over: Partial<AppView> = {}): AppView & SourceView {
+/** The app's row as this build has it. */
+type AppFixture = AppView &
+  // @private:begin
+  SourceView &
+  // @private:end
+  unknown;
+
+export function appFixture(over: Partial<AppView> = {}): AppFixture {
   return {
     version: '0.1.0',
     commit: 'a1b2c3d',
     launchAtLogin: 'off',
+    // @private:begin
     source: '~/src/quota-station',
     sourceStatus: 'ok',
     bundled: true,
@@ -390,6 +457,7 @@ export function appFixture(over: Partial<AppView> = {}): AppView & SourceView {
     outcome: null,
     error: null,
     log: '~/Library/Application Support/com.shin315.quota-station/update/install.log',
+    // @private:end
     ...over,
   };
 }
@@ -475,7 +543,22 @@ function codexQuota(number: number, email: string, left: [number, number], reset
     { kind: 'session', percent: left[0], resetsAt: resets[0], pending: false, atLeast: false },
     { kind: 'week', percent: left[1], resetsAt: resets[1], pending: false, atLeast: false },
   ];
-  return { number, role: 'unknown', active: false, disabled: false, reading, fetchedAt, source: 'list', membership: 'unknown', leavesAt: null, lines, windows: lines, email };
+  return {
+    number,
+    // @private:begin
+    role: 'unknown',
+    disabled: false,
+    membership: 'unknown',
+    leavesAt: null,
+    // @private:end
+    active: false,
+    reading,
+    fetchedAt,
+    source: 'list',
+    lines,
+    windows: lines,
+    email,
+  };
 }
 
 /**
@@ -726,6 +809,7 @@ export function mcpFixture(over: Partial<McpView> = {}): McpView {
   };
 }
 
+// @private:begin
 /**
  * The same Mac on a build without the author's tools (a release build), whatever its settings
  * file says: Nâng cao off, and no rules editor, Firstmate or update from source in the model.
@@ -737,35 +821,47 @@ export function communityModel(m: Model): Model {
   delete out.firstmate;
   return out;
 }
+// @private:end
 
-/** The author's Mac, as the fixtures were drawn: a build with the author's tools and the Antigravity accounts. */
-export function fixtureModel(name: string, over: Partial<Model> = {}): AuthorModel {
+/** The model the fixtures give. */
+type Fixture = Model &
+  // @private:begin
+  AuthorModel &
+  // @private:end
+  unknown;
+
+/** The author's Mac, as the fixtures were drawn: a build with the Antigravity accounts. */
+// @private:begin
+/** And with the author's tools. */
+// @private:end
+export function fixtureModel(name: string, over: Partial<Model> = {}): Fixture {
   const snapshot = SNAPSHOTS[name];
   if (!snapshot) throw new Error('no snapshot fixture ' + name);
   return {
     snapshot: structuredClone(snapshot),
     reading: false,
     reads: 1,
-    machine: 'Mac mini',
-    machineDefault: 'Mac mini',
+    machine: 'Mac Studio',
+    machineDefault: 'Mac Studio',
     granting: false,
-    switcher: switcherFixture(),
     claudeSwitch: { ready: true, busy: null },
     claudeAccounts: claudeAccountsFixture(),
-    rotation: rotationFixture(),
     showNames: true,
     theme: 'auto',
     themePack: 'default',
     language: 'auto',
     menubar: 'claude',
     menubarWindow: 'fiveHours',
-    // The author's Mac, as the fixtures were drawn: Nâng cao on, a build with the Antigravity accounts.
-    advanced: { on: true, firstmate: true },
-    capabilities: { agyAccounts: true, authorTools: true, platform: 'macos' },
+    capabilities: {
+      agyAccounts: true,
+      // @private:begin
+      authorTools: true,
+      // @private:end
+      platform: 'macos',
+    },
     antigravity: agyFixture(),
     agySwitch: { busy: null, listed: false, overwritten: null },
     alerts: alertsFixture(),
-    firstmate: { file: null, status: 'notSet', line: null, writtenAt: null, fresh: false, ownDry: false },
     app: appFixture(),
     codex: codexFixture(),
     mcp: mcpFixture(),
@@ -778,8 +874,17 @@ export function fixtureModel(name: string, over: Partial<Model> = {}): AuthorMod
     env: envFixture(),
     sets: setsFixture(),
     stats: statsFixture(),
+    // @private:begin
+    switcher: switcherFixture(),
+    rotation: rotationFixture(),
+    // The author's Mac, as the fixtures were drawn: Nâng cao on.
+    advanced: { on: true, firstmate: true },
+    firstmate: { file: null, status: 'notSet', line: null, writtenAt: null, fresh: false, ownDry: false },
+    // @private:end
     ...over,
+    // @private:begin
     // An override of the app's row comes with the update from source, as every fixture's does.
-  } as AuthorModel;
+    // @private:end
+  } as Fixture;
 }
 

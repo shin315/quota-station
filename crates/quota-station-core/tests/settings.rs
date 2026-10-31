@@ -5,11 +5,11 @@ use std::path::PathBuf;
 
 use quota_station_core::alerts::{Kind, Switches};
 use quota_station_core::settings::{
-    machine_name, AutoBackup, CodexOptions, Language, Menubar, MenubarWindow, Peer, PoolAlert,
-    Settings, SkillChecks, Theme, ThemePack, MACHINE_NAME_MAX,
+    machine_name, AutoBackup, CodexOptions, Language, Menubar, MenubarWindow, PoolAlert, Settings,
+    SkillChecks, Theme, ThemePack, MACHINE_NAME_MAX,
 };
 #[cfg(feature = "author-tools")]
-use quota_station_core::settings::{peers, PeersError, PEERS_MAX};
+use quota_station_core::settings::{peers, Peer, PeersError, PEERS_MAX};
 
 #[test]
 fn settings_round_trip_and_default_when_missing() {
@@ -20,6 +20,7 @@ fn settings_round_trip_and_default_when_missing() {
 
     let s = Settings {
         machine_name: Some("Mac phòng khách".into()),
+        #[cfg(feature = "author-tools")]
         peers: vec![peer("Mac B", "mac-b"), peer("Mac C", "mac-c")],
         hide_names: true,
         theme: Theme::Dark,
@@ -27,8 +28,13 @@ fn settings_round_trip_and_default_when_missing() {
         language: Language::En,
         menubar: Menubar::Codex,
         menubar_window: MenubarWindow::FableWeek,
+        #[cfg(feature = "author-tools")]
         alerts: Switches { leaving: false, firstmate: true, ..Switches::default() },
+        #[cfg(not(feature = "author-tools"))]
+        alerts: Switches { login: false, ..Switches::default() },
+        #[cfg(feature = "author-tools")]
         firstmate_file: Some(PathBuf::from("/srv/example/quota-pool.last")),
+        #[cfg(feature = "author-tools")]
         source_dir: Some(PathBuf::from("/srv/example/quota-station")),
         codex_home: Some(PathBuf::from("/srv/example/codex")),
         codex: CodexOptions { plugins: false },
@@ -38,7 +44,9 @@ fn settings_round_trip_and_default_when_missing() {
         cli_checks_off: true,
         backup_dir: Some(PathBuf::from("/srv/example/backups")),
         pool_alert: PoolAlert { dry_at_most: 5, room_at_least: 20 },
+        #[cfg(feature = "author-tools")]
         advanced: true,
+        #[cfg(feature = "author-tools")]
         firstmate: false,
         setup_seen: true,
     };
@@ -48,22 +56,29 @@ fn settings_round_trip_and_default_when_missing() {
     assert!(text.contains("machineName"));
     assert!(text.contains(r#""releaseChecksOff": true"#));
     assert!(text.contains(r#""cliChecksOff": true"#));
-    assert!(text.contains(r#""alias": "mac-c""#));
     assert!(text.contains("\"hideNames\": true"));
     assert!(text.contains("\"theme\": \"dark\""));
     assert!(text.contains("\"language\": \"en\""));
     assert!(text.contains("\"menubar\": \"codex\""));
     assert!(text.contains("\"menubarWindow\": \"fableWeek\""));
-    assert!(text.contains("\"leaving\": false"));
-    assert!(text.contains("firstmateFile"));
-    assert!(text.contains("sourceDir"));
     assert!(text.contains("codexHome"));
     assert!(text.contains("\"afterChange\": false"));
     assert!(text.contains(r#""skillChecks": {"#));
     assert!(text.contains("backupDir"));
     assert!(text.contains(r#""dryAtMost": 5"#));
-    assert!(text.contains("\"advanced\": true"));
-    assert!(text.contains("\"firstmate\": false"));
+    #[cfg(feature = "author-tools")]
+    for key in [
+        r#""alias": "mac-c""#,
+        "\"leaving\": false",
+        "firstmateFile",
+        "sourceDir",
+        "\"advanced\": true",
+        "\"firstmate\": false",
+    ] {
+        assert!(text.contains(key), "{key} in {text}");
+    }
+    #[cfg(not(feature = "author-tools"))]
+    assert!(text.contains("\"login\": false"));
 
     std::fs::write(&file, "{ not json").unwrap();
     assert_eq!(Settings::load(&file), Settings::default());
@@ -82,13 +97,16 @@ fn a_settings_file_from_m1_still_loads() {
     assert_eq!(s.theme, Theme::Auto);
     assert_eq!(s.menubar, Menubar::Claude, "the menu bar follows Claude");
     assert_eq!(s.menubar_window, MenubarWindow::FiveHours, "the title shows five hours");
-    // Alerts 1 to 4 on, Firstmate's off until a Mac has Firstmate.
-    assert!([Kind::Pool, Kind::Leaving, Kind::Login, Kind::Overwrite]
-        .iter()
-        .all(|k| s.alerts.on(*k)));
-    assert!(!s.alerts.on(Kind::Firstmate));
-    assert_eq!(s.firstmate_file, None);
-    assert_eq!(s.source_dir, None);
+    // Alerts 1, 3 and 4 on.
+    assert!([Kind::Pool, Kind::Login, Kind::Overwrite].iter().all(|k| s.alerts.on(*k)));
+    // Alert 2 on too, Firstmate's off until a Mac has Firstmate.
+    #[cfg(feature = "author-tools")]
+    {
+        assert!(s.alerts.on(Kind::Leaving));
+        assert!(!s.alerts.on(Kind::Firstmate));
+        assert_eq!(s.firstmate_file, None);
+        assert_eq!(s.source_dir, None);
+    }
     assert_eq!(s.codex_home, None, "Codex's own ~/.codex");
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -180,7 +198,7 @@ fn the_title_shows_five_hours_unless_told_and_an_unknown_value_reads_as_five_hou
 
 #[test]
 fn machine_names_are_trimmed_and_capped() {
-    assert_eq!(machine_name("  Mac mini 2  "), Some("Mac mini 2".into()));
+    assert_eq!(machine_name("  Mac Studio 2  "), Some("Mac Studio 2".into()));
     assert_eq!(machine_name("   "), None);
     assert_eq!(machine_name(""), None);
     let long = "Máy ".repeat(20);
@@ -189,6 +207,7 @@ fn machine_names_are_trimmed_and_capped() {
     assert!(!cut.ends_with(' '));
 }
 
+#[cfg(feature = "author-tools")]
 fn peer(name: &str, alias: &str) -> Peer {
     Peer { name: name.into(), alias: alias.into() }
 }
@@ -278,32 +297,43 @@ fn fresh_dir(tag: &str) -> PathBuf {
 }
 
 #[test]
-fn a_new_install_starts_without_nang_cao_and_stays_new() {
+fn a_new_install_starts_with_the_first_run_and_stays_new() {
     let dir = fresh_dir("new");
     let file = dir.join("settings.json");
     let s = Settings::open(&file);
-    assert!(!s.advanced, "Nâng cao is off on a new install");
-    assert!(!s.firstmate, "and Firstmate with it");
+    #[cfg(feature = "author-tools")]
+    {
+        assert!(!s.advanced, "Nâng cao is off on a new install");
+        assert!(!s.firstmate, "and Firstmate with it");
+    }
     assert!(!s.setup_seen, "the main window opens on the first run's steps");
     assert_eq!(s.pool_alert, PoolAlert { dry_at_most: 10, room_at_least: 15 });
     assert_eq!(s.backup_dir, None, "iCloud Drive until another folder is chosen");
     // The answer is written at once…
     let text = std::fs::read_to_string(&file).unwrap();
-    assert!(text.contains("\"advanced\": false"), "{text}");
-    assert!(text.contains("\"firstmate\": false"), "{text}");
+    #[cfg(feature = "author-tools")]
+    assert!(text.contains("\"advanced\": false") && text.contains("\"firstmate\": false"));
     assert!(text.contains("\"setupSeen\": false"), "{text}");
     // …so the files the app writes next never make it look like an older install.
     std::fs::create_dir_all(dir.join("alerts")).unwrap();
     std::fs::write(dir.join("alerts/alerts.json"), "{}").unwrap();
     let again = Settings::open(&file);
+    #[cfg(feature = "author-tools")]
     assert!(!again.advanced && !again.firstmate);
     assert!(!again.setup_seen, "until its owner finishes the steps");
-    let mut seen = again.clone();
+    let mut seen = again;
     seen.setup_seen = true;
     seen.save(&file).unwrap();
     assert!(Settings::open(&file).setup_seen);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[cfg(feature = "author-tools")]
+#[test]
+fn alerts_two_and_five_wait_for_nang_cao() {
     // Alerts 2 and 5 stay quiet while Nâng cao is off, whatever their switches say.
-    let mut on = again;
+    let mut on = Settings::default();
+    assert!(!on.advanced && !on.firstmate);
     on.alerts.leaving = true;
     on.alerts.firstmate = true;
     let run = on.alert_switches();
@@ -312,25 +342,52 @@ fn a_new_install_starts_without_nang_cao_and_stays_new() {
     assert!(!on.firstmate_shown());
     // Turned on in Cài đặt, both run; Firstmate's has its own switch inside.
     on.advanced = true;
-    #[cfg(feature = "author-tools")]
-    {
-        assert!(on.alert_switches().leaving);
-        assert!(!on.alert_switches().firstmate);
-        on.firstmate = true;
-        assert!(on.alert_switches().firstmate && on.firstmate_shown());
-    }
-    // A build without the author's tools has no Nâng cao: on in the file
-    // or not, alerts 2 and 5 never run.
-    #[cfg(not(feature = "author-tools"))]
-    {
-        on.firstmate = true;
-        assert!(!on.advanced_shown() && !on.firstmate_shown());
-        let run = on.alert_switches();
-        assert!(!run.leaving && !run.firstmate);
-    }
+    assert!(on.alert_switches().leaving);
+    assert!(!on.alert_switches().firstmate);
+    on.firstmate = true;
+    assert!(on.alert_switches().firstmate && on.firstmate_shown());
+}
+
+#[cfg(not(feature = "author-tools"))]
+#[test]
+fn a_mac_that_had_the_app_skips_the_first_run() {
+    // A settings file from before the first run's steps.
+    let dir = fresh_dir("had");
+    let file = dir.join("settings.json");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(&file, r#"{ "machineName": "Mac B", "alerts": { "login": false } }"#).unwrap();
+    let s = Settings::open(&file);
+    assert!(s.setup_seen, "no first run");
+    assert!(!s.alerts.login, "and the alerts stay as they were");
+    assert_eq!(s.pool_alert, PoolAlert::default(), "alert 1 keeps 10 % and 15 %");
+    let text = std::fs::read_to_string(&file).unwrap();
+    assert!(text.contains("\"setupSeen\": true") && text.contains("Mac B"), "{text}");
+    let _ = std::fs::remove_dir_all(&dir);
+
+    // No settings file, but the app's folder holds what it wrote: an older install too.
+    let dir = fresh_dir("had-folder");
+    std::fs::create_dir_all(dir.join("alerts")).unwrap();
+    std::fs::write(dir.join("alerts/alerts.json"), "{}").unwrap();
+    assert!(Settings::open(&dir.join("settings.json")).setup_seen);
+    let _ = std::fs::remove_dir_all(&dir);
+
+    // A settings file that cannot be read is not written over.
+    let dir = fresh_dir("had-broken");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("settings.json"), "{ half").unwrap();
+    assert!(Settings::open(&dir.join("settings.json")).setup_seen);
+    assert_eq!(std::fs::read_to_string(dir.join("settings.json")).unwrap(), "{ half");
+    let _ = std::fs::remove_dir_all(&dir);
+
+    // A hidden file alone (Finder's) is not the app's.
+    let dir = fresh_dir("hidden");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join(".DS_Store"), "").unwrap();
+    assert!(!Settings::open(&dir.join("settings.json")).setup_seen);
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+#[cfg(feature = "author-tools")]
 #[test]
 fn a_mac_that_had_the_app_keeps_everything_as_it_was() {
     // A settings file from before Nâng cao, with the owner's Macs and Firstmate.
@@ -347,11 +404,8 @@ fn a_mac_that_had_the_app_keeps_everything_as_it_was() {
     let s = Settings::open(&file);
     assert!(s.advanced && s.firstmate, "the tabs and alerts stay as they were");
     assert!(s.setup_seen, "and no first run");
-    #[cfg(feature = "author-tools")]
-    {
-        assert_eq!(s.alert_switches(), s.alerts);
-        assert!(s.firstmate_shown());
-    }
+    assert_eq!(s.alert_switches(), s.alerts);
+    assert!(s.firstmate_shown());
     assert_eq!(s.peers, vec![peer("Mac B", "mac-b")]);
     assert_eq!(s.firstmate_file, Some(PathBuf::from("/srv/example/quota-pool.last")));
     assert_eq!(s.pool_alert, PoolAlert::default(), "alert 1 keeps 10 % and 15 %");
@@ -373,7 +427,7 @@ fn a_mac_that_had_the_app_keeps_everything_as_it_was() {
     // No settings file, but the app's folder holds what it wrote: an older install too.
     let dir = fresh_dir("had-folder");
     std::fs::create_dir_all(dir.join("claude")).unwrap();
-    std::fs::write(dir.join("claude/rotation"), "team = 2\n").unwrap();
+    std::fs::write(dir.join("claude/accounts.json"), "{}").unwrap();
     let s = Settings::open(&dir.join("settings.json"));
     assert!(s.advanced && s.firstmate);
     let _ = std::fs::remove_dir_all(&dir);
@@ -401,10 +455,10 @@ fn alert_one_s_thresholds_are_read_loosely() {
     let file = dir.join("settings.json");
     std::fs::create_dir_all(&dir).unwrap();
     for (text, want) in [
-        (r#"{ "advanced": false, "poolAlert": { "dryAtMost": 20, "roomAtLeast": 30 } }"#, (20, 30)),
-        (r#"{ "advanced": false, "poolAlert": { "dryAtMost": 30, "roomAtLeast": 20 } }"#, (10, 15)),
-        (r#"{ "advanced": false, "poolAlert": { "dryAtMost": 0 } }"#, (10, 15)),
-        (r#"{ "advanced": false, "poolAlert": "high" }"#, (10, 15)),
+        (r#"{ "setupSeen": true, "poolAlert": { "dryAtMost": 20, "roomAtLeast": 30 } }"#, (20, 30)),
+        (r#"{ "setupSeen": true, "poolAlert": { "dryAtMost": 30, "roomAtLeast": 20 } }"#, (10, 15)),
+        (r#"{ "setupSeen": true, "poolAlert": { "dryAtMost": 0 } }"#, (10, 15)),
+        (r#"{ "setupSeen": true, "poolAlert": "high" }"#, (10, 15)),
     ] {
         std::fs::write(&file, text).unwrap();
         let p = Settings::open(&file).pool_alert;
@@ -415,12 +469,12 @@ fn alert_one_s_thresholds_are_read_loosely() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// A settings file written by a build with the author's tools (Nâng cao and
-/// Firstmate on, the other Macs, the clone, Firstmate's file, alerts 2 and
-/// 5) loads in a build without them and is written back unchanged, so the
-/// first build finds it as it left it; the second only counts it all as off.
+/// A settings file with everything Nâng cao keeps (Nâng cao and Firstmate
+/// on, the other Macs, the clone, Firstmate's file, alerts 2 and 5) loads
+/// and is written back unchanged.
+#[cfg(feature = "author-tools")]
 #[test]
-fn a_settings_file_passes_through_a_build_with_or_without_the_author_tools() {
+fn a_settings_file_with_nang_cao_on_is_written_back_as_it_was() {
     let dir = fresh_dir("either-build");
     let file = dir.join("settings.json");
     std::fs::create_dir_all(&dir).unwrap();
@@ -440,11 +494,9 @@ fn a_settings_file_passes_through_a_build_with_or_without_the_author_tools() {
     assert_eq!(s.firstmate_file, Some(PathBuf::from("/srv/example/quota-pool.last")));
     assert_eq!(s.source_dir, Some(PathBuf::from("/srv/example/quota-station")));
     assert!(s.alerts.leaving && s.alerts.firstmate);
-    let tools = cfg!(feature = "author-tools");
-    assert_eq!(s.advanced_shown(), tools);
-    assert_eq!(s.firstmate_shown(), tools);
+    assert!(s.advanced_shown() && s.firstmate_shown());
     let run = s.alert_switches();
-    assert_eq!((run.leaving, run.firstmate), (tools, tools));
+    assert!(run.leaving && run.firstmate);
     assert!(run.pool && run.login && run.overwrite);
 
     // A change made in this build (the theme) keeps every key the other wrote.
@@ -457,8 +509,8 @@ fn a_settings_file_passes_through_a_build_with_or_without_the_author_tools() {
         assert!(text.contains(key), "{key} in {text}");
     }
 
-    // The other way: a new install of either build writes Nâng cao off, and
-    // a build with the tools reads it so, with everything else as it was.
+    // The other way: a new install writes Nâng cao off and reads it so,
+    // with everything else as it was.
     let dir = fresh_dir("either-build-new");
     let file = dir.join("settings.json");
     let new = Settings::open(&file);

@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: MIT
 
 //! Adding, removing and changing the app's Claude accounts, and the
-//! `quota-station claude` command line, against a fake Keychain, launchd
-//! and `claude` in a temporary home. Every login is made up.
+//! `quota-station claude` command line, against a fake Keychain and
+//! `claude` in a temporary home. Every login is made up.
 // Off Unix the tests that run a fake `claude` script are left out, and
 // with them the uses of some imports.
 #![cfg_attr(not(unix), allow(unused_imports))]
@@ -12,9 +12,8 @@ mod common;
 
 use std::sync::atomic::AtomicBool;
 
-use quota_station_core::claude::cli::{self, Cli};
+use quota_station_core::claude::cli::{self, Cli, Tools};
 use quota_station_core::claude::manage::{self, ManageError};
-use quota_station_core::claude::rotate::Tools;
 use quota_station_core::claude::store::Kind;
 use quota_station_core::claude::{cc, session, switch, usage};
 use serde_json::Value;
@@ -182,8 +181,21 @@ fn the_account_in_use_cannot_be_removed() {
 }
 
 #[test]
-fn an_account_gets_an_alias_and_leaves_the_rotation() {
+fn an_account_gets_an_alias() {
     let mac = mac("manage-alias");
+    manage::set_alias(&mac.store, 3, "  Team phụ ").unwrap();
+    let three = mac.store.load().unwrap().get(3).cloned().unwrap();
+    assert_eq!(three.alias.as_deref(), Some("Team phụ"));
+    manage::set_alias(&mac.store, 3, "").unwrap();
+    let three = mac.store.load().unwrap().get(3).cloned().unwrap();
+    assert_eq!(three.alias, None);
+    assert!(matches!(manage::set_alias(&mac.store, 9, "x"), Err(ManageError::UnknownSlot)));
+}
+
+#[cfg(feature = "author-tools")]
+#[test]
+fn an_account_gets_an_alias_and_leaves_the_rotation() {
+    let mac = mac("manage-alias-rotation");
     manage::set_alias(&mac.store, 3, "  Team phụ ").unwrap();
     manage::set_enabled(&mac.store, 3, false).unwrap();
     let three = mac.store.load().unwrap().get(3).cloned().unwrap();
@@ -202,11 +214,14 @@ fn cli(mac: &Mac, claude: Option<std::path::PathBuf>) -> Cli {
     Cli {
         store: mac.store.clone(),
         tools: Tools {
+            #[cfg(feature = "author-tools")]
             scheduler: mac.scheduler.clone(),
             claude,
+            #[cfg(feature = "author-tools")]
             pause_file: mac.home.join(".config/cswap-prefer-team/pause"),
             endpoints: FakeAnthropic::start().endpoints(),
         },
+        #[cfg(feature = "author-tools")]
         exe: mac.dir.join("bin/quota-station"),
     }
 }
@@ -244,6 +259,7 @@ fn run_gives_back_claudes_exit_code() {
     assert_eq!(call(&cli, &["run", "x"]).0, 2);
 }
 
+#[cfg(feature = "author-tools")]
 #[test]
 fn nothing_is_switched_or_turned_on_while_the_old_switcher_is_loaded() {
     let mac = mac("cli-legacy");
@@ -257,6 +273,7 @@ fn nothing_is_switched_or_turned_on_while_the_old_switcher_is_loaded() {
     assert!(!mac.loaded("com.shin315.quota-station.rotation"));
 }
 
+#[cfg(feature = "author-tools")]
 #[test]
 fn nothing_is_switched_when_launchctl_cannot_tell() {
     let mac = mac("cli-launchctl-unknown");
@@ -266,6 +283,7 @@ fn nothing_is_switched_when_launchctl_cannot_tell() {
     assert_eq!(switch::active_slot(&mac.store), Some(2));
 }
 
+#[cfg(feature = "author-tools")]
 #[test]
 fn the_rotation_agent_is_loaded_and_unloaded() {
     let mac = mac("cli-agent");

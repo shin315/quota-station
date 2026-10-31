@@ -8,14 +8,14 @@
 // runs on the Mac the copy was written to.
 
 import { DialogButtons, DialogLead, DialogTitle } from '@/components/ui/dialog';
-import { COMPARE, COMPARE_DIFF, COMPARE_HEAD, DiffLine, DiffView, Progress, TECH } from '../components/blocks';
-import { Button } from '../components/parts';
-import { changedLines, plural } from '../lib/backup';
-import { day, doneLines, itemKey, itemName, onText, planLine, stateChip } from '../lib/copy';
-import { t } from '../lib/i18n';
-import { AGENT_NAME, joinCommand } from '../lib/mcp';
-import type { CopyItem, McpDef } from '../lib/model';
-import { Facts } from './RestoreSheet';
+import { COMPARE, COMPARE_DIFF, COMPARE_HEAD, DiffLine, DiffView, Progress, TECH } from '@/components/blocks';
+import { Button } from '@/components/parts';
+import { changedLines, plural } from '@/lib/backup';
+import { day, doneLines, itemKey, itemName, onText, planLine, stateChip } from './copy';
+import { t } from '@/lib/i18n';
+import { AGENT_NAME, joinCommand } from '@/lib/mcp';
+import type { CopyItem, McpDef } from '@/lib/model';
+import { Facts } from '@/backup/RestoreSheet';
 import type { Copy, CopyDialog } from './useCopy';
 
 export function copyDialogSize(d: CopyDialog, copy: Copy): 'lg' | 'xl' {

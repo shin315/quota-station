@@ -58,7 +58,7 @@ function Segmented({ className, variant = 'fill', ...props }: React.ComponentPro
 
 /**
  * One segment. With `pressed` it is a toggle (aria-pressed); without, a plain
- * button that does its job at once (the pause lengths).
+ * button that does its job at once.
  */
 function Segment({
   className,

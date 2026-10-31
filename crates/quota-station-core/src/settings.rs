@@ -2,27 +2,26 @@
 // SPDX-License-Identifier: MIT
 
 //! The app's own settings file, `settings.json` in its Application Support
-//! folder: the name this Mac goes by, the other Macs
-//! the rotation file is copied to, whether account names show, the light or
-//! dark look and the theme pack drawn in it, which service the menu bar follows and which of its windows
-//! the title shows, which alerts are on,
-//! where Firstmate's state file is, the clone "Cập nhật từ mã nguồn"
-//! builds from, Codex's folder and whether Codex keeps the ChatGPT login
-//! for plugins under a custom API, when the agents' backup packs are made,
-//! where they go, how the app looks for newer versions of the skills, the
-//! two thresholds of alert 1, and the switches of Cài đặt › Nâng cao.
+//! folder: the name this Mac goes by, whether account names show, the light
+//! or dark look and the theme pack drawn in it, which service the menu bar
+//! follows and which of its windows the title shows, which alerts are on,
+//! Codex's folder and whether Codex keeps the ChatGPT login for plugins
+//! under a custom API, when the agents' backup packs are made, where they
+//! go, how the app looks for newer versions of the skills, the two
+//! thresholds of alert 1, and whether the first run's steps were seen.
+// @private:begin
 //!
-//! Nâng cao (`advanced`) holds what was made for the author's own Macs: the
+//! With the `author-tools` feature also the other Macs the rotation file is
+//! copied to, where Firstmate's state file is, the clone "Cập nhật từ mã
+//! nguồn" builds from, and the switches of Cài đặt › Nâng cao. Nâng cao
+//! (`advanced`) holds what was made for the author's own Macs: the
 //! rotation, the pause and the switcher, the other Macs and the copy to them,
 //! the update from source, and Firstmate (its own switch inside). A new
 //! install starts with it off; a Mac that already had the app keeps it on, so
-//! nothing there changes ([`Settings::open`]).
-//!
-//! Only a build with the `author-tools` feature has Nâng cao. Without it
-//! the values it holds (the switches, the other Macs, the clone, Firstmate's
-//! file) are still read and written back as they were, so a settings file
-//! passes through a build with or without the feature unchanged, but they
-//! count as off ([`Settings::advanced_shown`]).
+//! nothing there changes ([`Settings::open`]). A build without the feature
+//! (the community edition) reads none of these keys and leaves them out of
+//! the file it writes.
+// @private:end
 
 use std::io;
 use std::path::{Path, PathBuf};
@@ -40,10 +39,11 @@ pub struct Settings {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub machine_name: Option<String>,
     /// The other Macs, each reached by an SSH alias.
+    #[cfg(feature = "author-tools")]
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub peers: Vec<Peer>,
     /// Account names (emails, organizations) are hidden, for screenshots:
-    /// accounts go by their place (Team A, Ultra 1). Off by default. It
+    /// accounts go by their number. Off by default. It
     /// replaces `showEmail`, which only Antigravity used and which was off
     /// by default, so an older file shows names as a new one does.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
@@ -66,15 +66,17 @@ pub struct Settings {
     /// its own.
     #[serde(default, skip_serializing_if = "MenubarWindow::is_five_hours")]
     pub menubar_window: MenubarWindow,
-    /// Which of the five alerts are on.
+    /// Which alerts are on.
     #[serde(default, skip_serializing_if = "Switches::is_default")]
     pub alerts: Switches,
     /// Firstmate's `quota-pool.last`, set by the user; `None` on a Mac
     /// without Firstmate.
+    #[cfg(feature = "author-tools")]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub firstmate_file: Option<PathBuf>,
     /// The clone of this repository the app updates itself from; `None` on
     /// a Mac that installs a copy built elsewhere.
+    #[cfg(feature = "author-tools")]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_dir: Option<PathBuf>,
     /// Codex's folder, set by the user; `None` is `~/.codex`.
@@ -106,8 +108,10 @@ pub struct Settings {
     pub pool_alert: PoolAlert,
     /// Cài đặt › Nâng cao: the tabs and switches made for the author's own
     /// Macs show. Always written, so a new install stays new.
+    #[cfg(feature = "author-tools")]
     pub advanced: bool,
     /// The Firstmate tab and alert 5, inside Nâng cao. Always written.
+    #[cfg(feature = "author-tools")]
     pub firstmate: bool,
     /// The first run's steps were gone through, or skipped: the main window
     /// no longer opens on them. Always written, so a new install stays new
@@ -117,7 +121,7 @@ pub struct Settings {
 
 /// Alert 1: the account in use has `dry_at_most` percent left or less, and
 /// no other account has `room_at_least` percent or more. 10 and 15 by
-/// default, Firstmate's own rule.
+/// default.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PoolAlert {
@@ -332,6 +336,7 @@ impl MenubarWindow {
 }
 
 /// Another of the owner's Macs.
+#[cfg(feature = "author-tools")]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Peer {
@@ -341,17 +346,22 @@ pub struct Peer {
     pub alias: String,
 }
 
-/// The file as written by any version: the plan's single `sshAlias` for the
-/// one other Mac became the list of [`Peer`]s, and the quota-axi path of
-/// versions that ran it (`quotaAxiPath`) is left behind. The list is read loosely: an
-/// entry that is not a Mac with a usable alias is dropped, not the file.
+/// The file as written by any version: the quota-axi path of versions that
+/// ran it (`quotaAxiPath`) is left behind.
+// @private:begin
+/// The plan's single `sshAlias` for the one other Mac became the list of
+/// [`Peer`]s. The list is read loosely: an entry that is not a Mac with a
+/// usable alias is dropped, not the file.
+// @private:end
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Stored {
     #[serde(default)]
     machine_name: Option<String>,
+    #[cfg(feature = "author-tools")]
     #[serde(default)]
     peers: Vec<serde_json::Value>,
+    #[cfg(feature = "author-tools")]
     #[serde(default)]
     ssh_alias: Option<String>,
     #[serde(default)]
@@ -373,8 +383,10 @@ struct Stored {
     menubar_window: serde_json::Value,
     #[serde(default)]
     alerts: Switches,
+    #[cfg(feature = "author-tools")]
     #[serde(default)]
     firstmate_file: Option<PathBuf>,
+    #[cfg(feature = "author-tools")]
     #[serde(default)]
     source_dir: Option<PathBuf>,
     #[serde(default)]
@@ -398,8 +410,10 @@ struct Stored {
     #[serde(default)]
     pool_alert: serde_json::Value,
     /// Missing in a file an older version wrote: that Mac had the app, so on.
+    #[cfg(feature = "author-tools")]
     #[serde(default)]
     advanced: Option<bool>,
+    #[cfg(feature = "author-tools")]
     #[serde(default)]
     firstmate: Option<bool>,
     /// Missing in a file an older version wrote: that Mac had the app, so seen.
@@ -409,7 +423,9 @@ struct Stored {
 
 impl From<Stored> for Settings {
     fn from(s: Stored) -> Settings {
+        #[cfg(feature = "author-tools")]
         let text = |v: &serde_json::Value, key: &str| v.get(key)?.as_str().map(String::from);
+        #[cfg(feature = "author-tools")]
         let mut found: Vec<Peer> = s
             .peers
             .iter()
@@ -417,6 +433,7 @@ impl From<Stored> for Settings {
                 Some(Peer { name: text(v, "name").unwrap_or_default(), alias: text(v, "alias")? })
             })
             .collect();
+        #[cfg(feature = "author-tools")]
         if found.is_empty() {
             found.extend(s.ssh_alias.map(|alias| Peer { name: String::new(), alias }));
         }
@@ -436,12 +453,9 @@ impl From<Stored> for Settings {
             }
             peers
         };
-        // Without the author's tools nothing reaches the other Macs: the
-        // list is only kept, as it was, for a build with them.
-        #[cfg(not(feature = "author-tools"))]
-        let peers = found;
         Settings {
             machine_name: s.machine_name,
+            #[cfg(feature = "author-tools")]
             peers,
             hide_names: s.hide_names,
             theme: serde_json::from_value(s.theme).unwrap_or_default(),
@@ -450,7 +464,9 @@ impl From<Stored> for Settings {
             menubar: serde_json::from_value(s.menubar).unwrap_or_default(),
             menubar_window: serde_json::from_value(s.menubar_window).unwrap_or_default(),
             alerts: s.alerts,
+            #[cfg(feature = "author-tools")]
             firstmate_file: s.firstmate_file,
+            #[cfg(feature = "author-tools")]
             source_dir: s.source_dir,
             codex_home: s.codex_home,
             codex: serde_json::from_value(s.codex).unwrap_or_default(),
@@ -463,7 +479,9 @@ impl From<Stored> for Settings {
                 .ok()
                 .filter(|p| p.check().is_ok())
                 .unwrap_or_default(),
+            #[cfg(feature = "author-tools")]
             advanced: s.advanced.unwrap_or(true),
+            #[cfg(feature = "author-tools")]
             firstmate: s.firstmate.unwrap_or(true),
             setup_seen: s.setup_seen.unwrap_or(true),
         }
@@ -542,21 +560,31 @@ impl Settings {
     /// The settings at start. The first time this version runs it settles
     /// whether the Mac is new to the app: one that already has this file, or
     /// anything else in the app's folder, had the app before and keeps it as
-    /// it was, Nâng cao and Firstmate on and no first run; a new one starts
-    /// with both off and opens on the first run's steps.
+    /// it was, with no first run; a new one opens on the first run's steps.
     /// The answer is written at once, so what the app puts in its folder
     /// afterwards never makes a new install look like an older one.
+    // @private:begin
+    /// Nâng cao and Firstmate start on where the Mac had the app, off on a
+    /// new one.
+    // @private:end
     pub fn open(file: &Path) -> Self {
         let json = std::fs::read_to_string(file)
             .ok()
             .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok());
-        if json.as_ref().is_some_and(|v| v.get("advanced").is_some_and(|a| a.is_boolean())) {
+        #[cfg(feature = "author-tools")]
+        let settled = "advanced";
+        #[cfg(not(feature = "author-tools"))]
+        let settled = "setupSeen";
+        if json.as_ref().is_some_and(|v| v.get(settled).is_some_and(|a| a.is_boolean())) {
             return Settings::load(file);
         }
         let had_app = file.exists() || file.parent().is_some_and(|dir| has_files(dir, file));
         let mut settings = Settings::load(file);
-        settings.advanced = had_app;
-        settings.firstmate = had_app;
+        #[cfg(feature = "author-tools")]
+        {
+            settings.advanced = had_app;
+            settings.firstmate = had_app;
+        }
         settings.setup_seen = had_app;
         // A file there that cannot be read is never written over. Unsaved,
         // the next start asks again and finds the same answer.
@@ -566,8 +594,15 @@ impl Settings {
         settings
     }
 
+    /// Which alerts run: the switches.
+    #[cfg(not(feature = "author-tools"))]
+    pub fn alert_switches(&self) -> Switches {
+        self.alerts
+    }
+
     /// Which alerts run: the switches, less the ones Nâng cao holds while
     /// it is off (2, the rotation's; 5, Firstmate's, also behind its own switch).
+    #[cfg(feature = "author-tools")]
     pub fn alert_switches(&self) -> Switches {
         let mut on = self.alerts;
         on.leaving &= self.advanced_shown();
@@ -575,13 +610,14 @@ impl Settings {
         on
     }
 
-    /// Nâng cao is on, in a build that has it (`author-tools`); a build
-    /// without it keeps the switch in the file but never counts it.
+    /// Nâng cao is on.
+    #[cfg(feature = "author-tools")]
     pub fn advanced_shown(&self) -> bool {
-        cfg!(feature = "author-tools") && self.advanced
+        self.advanced
     }
 
     /// The Firstmate tab and alert 5 show.
+    #[cfg(feature = "author-tools")]
     pub fn firstmate_shown(&self) -> bool {
         self.advanced_shown() && self.firstmate
     }

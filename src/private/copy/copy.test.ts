@@ -5,9 +5,9 @@
 // Mac, item and key is made up.
 
 import { describe, expect, it } from 'vitest';
-import { comparisonFixture } from '../fixtures/fakeCopy';
+import { comparisonFixture } from './fakeCopy';
 import { copyError, initialTicks, itemKey, itemNote, macState, picked, selectable, selectionOf, wrongWay } from './copy';
-import type { CopyItem } from './model';
+import type { CopyItem } from '@/lib/model';
 
 const cmp = () => comparisonFixture('mac-b', 'Mac B');
 const find = (id: string): CopyItem => cmp().diff.items.find((i) => i.id === id)!;
@@ -25,14 +25,14 @@ describe('which way an item can go', () => {
     const skill = find('ui-polish');
     expect(selectable(skill, true)).toBe(true);
     expect(selectable(skill, false)).toBe(false);
-    expect(itemNote(skill, false, 'Mac mini', 'Mac B', false)).toBe('Mac B có bản 12/09, máy này 17/10. Bản trên Mac mini mới hơn.');
+    expect(itemNote(skill, false, 'Mac Studio', 'Mac B', false)).toBe('Mac B có bản 12/09, máy này 17/10. Bản trên Mac Studio mới hơn.');
   });
 
   it('never copies a file that holds a key', () => {
     const held: CopyItem = { ...find('~/.claude/CLAUDE.md'), push: 'key', pull: 'key' };
     expect(selectable(held, true)).toBe(false);
     expect(selectable(held, false)).toBe(false);
-    expect(itemNote(held, true, 'Mac mini', 'Mac B', false)).toBe('Có dòng giống khoá: không chép');
+    expect(itemNote(held, true, 'Mac Studio', 'Mac B', false)).toBe('Có dòng giống khoá: không chép');
   });
 });
 
@@ -61,8 +61,8 @@ describe('the ticks', () => {
   });
 
   it('says where a key will be asked for, or that it goes along', () => {
-    expect(itemNote(find('design-kit'), true, 'Mac mini', 'Mac B', false)).toBe('Cần dán khoá trên Mac B');
-    expect(itemNote(find('design-kit'), true, 'Mac mini', 'Mac B', true)).toBe('Gửi kèm khoá qua SSH');
+    expect(itemNote(find('design-kit'), true, 'Mac Studio', 'Mac B', false)).toBe('Cần dán khoá trên Mac B');
+    expect(itemNote(find('design-kit'), true, 'Mac Studio', 'Mac B', true)).toBe('Gửi kèm khoá qua SSH');
   });
 });
 

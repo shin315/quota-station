@@ -3,11 +3,11 @@
 
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { MainWindowApp } from '../App';
-import { fakeApi, hideNames, type FakeOptions } from '../fixtures/fakeApi';
-import { FIXTURE_NOW, fixtureModel, peerFixture, rotationFixture, rulesFixture } from '../fixtures/models';
-import type { Api } from '../lib/api';
-import type { Model, Tab } from '../lib/model';
+import { MainWindowApp } from '@/App';
+import { fakeApi, hideNames, type FakeOptions } from '@/fixtures/fakeApi';
+import { FIXTURE_NOW, fixtureModel, peerFixture, rotationFixture, rulesFixture } from '@/fixtures/models';
+import type { Api } from '@/lib/api';
+import type { Model, Tab } from '@/lib/model';
 
 async function open(model: Model = fixtureModel('fresh'), options: FakeOptions = {}, tab: Tab = 'rules') {
   const fake = fakeApi(model, tab, { clock: () => FIXTURE_NOW, ...options });
@@ -58,7 +58,7 @@ describe('rules editor', () => {
     expect((screen.getByLabelText('Giờ rời vòng của lan.acme1') as HTMLInputElement).value).toBe('2026-01-16T17:45');
     expect(screen.getByRole('button', { name: 'Đặt giờ rời vòng cho lan.acme2' })).toBeTruthy();
 
-    expect(macs().getByText('Mac mini (máy này)').textContent).toBe('Mac mini (máy này) · lưu 14:02');
+    expect(macs().getByText('Mac Studio (máy này)').textContent).toBe('Mac Studio (máy này) · lưu 14:02');
     expect(macs().getByText('Mac B').textContent).toBe('Mac B · đã nhận 14:02');
     expect(saveButton()?.textContent).toBe('Lưu cho cả ba Mac');
     expect(saveButton()?.disabled).toBe(true);
@@ -76,7 +76,7 @@ describe('rules editor', () => {
     fireEvent.change(screen.getByLabelText('Ngưỡng tự chuyển, phần trăm hạn mức 5 giờ đã dùng'), { target: { value: '85' } });
     expect(screen.getByText('85%')).toBeTruthy();
     expect(screen.getByText('Có 2 thay đổi chưa lưu.')).toBeTruthy();
-    expect(macs().getByText('Mac mini (máy này)').textContent).toBe('Mac mini (máy này) · chưa lưu');
+    expect(macs().getByText('Mac Studio (máy này)').textContent).toBe('Mac Studio (máy này) · chưa lưu');
     expect(saveButton()?.disabled).toBe(false);
     expect(fake.api.rulesDirty).toHaveBeenLastCalledWith(true);
 

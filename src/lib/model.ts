@@ -28,22 +28,26 @@ export interface Line {
 }
 
 export type Reading = 'fresh' | 'stale' | 'resetPending' | 'noData';
+// @private:begin
 export type Role = 'team' | 'personal' | 'unknown';
+export type Membership = 'in' | 'out' | 'ended' | 'unknown';
+// @private:end
 /** `live`: the one login read; `list`: the accounts the app keeps. */
 export type Source = 'live' | 'list';
-export type Membership = 'in' | 'out' | 'ended' | 'unknown';
 
 export interface Account {
   /** The account's number in the app's list; 0 for the only account a row reads. */
   number: number;
+  // @private:begin
   role: Role;
-  active: boolean;
   disabled: boolean;
+  membership: Membership;
+  leavesAt: string | null;
+  // @private:end
+  active: boolean;
   reading: Reading;
   fetchedAt: string | null;
   source: Source;
-  membership: Membership;
-  leavesAt: string | null;
   /** The row's numbers: the tighter window only, when there is one. */
   lines: Line[];
   /** Every window on its own, from the app's own reading of the account; empty when it has none. */
@@ -54,25 +58,34 @@ export interface Account {
   org?: string;
 }
 
-export type PoolKind = 'rotation' | 'active' | 'none';
+export type PoolKind =
+  // @private:begin
+  | 'rotation'
+  // @private:end
+  | 'active'
+  | 'none';
 
+// @private:begin
 export interface Room {
   number: number;
   percent: number;
 }
+// @private:end
 
 export interface Pool {
   kind: PoolKind;
+  // @private:begin
   /** Rotation: room left in fresh accounts. */
   room: number | null;
+  members: number;
+  rooms: Room[];
+  refills: number[];
+  // @private:end
   /** 0-100, for the bar. */
   percent: number | null;
   line: LineKind | null;
   scope: string | null;
-  members: number;
-  rooms: Room[];
   nextRefillAt: string | null;
-  refills: number[];
   exhausted: boolean;
   reason: string | null;
 }
@@ -90,8 +103,10 @@ export interface Section {
   generatedAt: string | null;
   newestReadingAt: string | null;
   stale: boolean;
+  // @private:begin
   /** `8-23` */
   personalHours: string | null;
+  // @private:end
   /** `quota-station` when the section lists the Antigravity accounts this app logs in. */
   source: string | null;
 }
@@ -106,8 +121,9 @@ export interface Snapshot {
   keychain: Keychain;
 }
 
-// ===== The switcher and manual switching (M3) =====
+// ===== Manual switching (M3) =====
 
+// @private:begin
 /** Why the switcher would switch (`quota-station-core::switcher::Why`). Times are the switcher's local `HH:MM`. */
 export type Why =
   | { kind: 'expiring'; at: string }
@@ -166,6 +182,7 @@ export interface SwitcherView {
   /** An older switcher still loaded (`com.cswap.prefer-team`, `com.cswap.auto`): nothing switches while it is. */
   legacy: string | null;
 }
+// @private:end
 
 export interface ClaudeSwitchView {
   /** Quota Station keeps the Claude accounts on this Mac; before that nothing can switch. */
@@ -191,8 +208,10 @@ export interface ClaudeWindowOut {
 export interface ClaudeAccountRow {
   slot: number;
   alias: string | null;
+  // @private:begin
   /** In the rotation; held out, it is still switched to by hand. */
   enabled: boolean;
+  // @private:end
   active: boolean;
   kind: 'login' | 'setupToken';
   status: 'fresh' | 'stale' | 'noData' | 'reloginRequired';
@@ -205,7 +224,18 @@ export interface ClaudeAccountRow {
   email?: string | null;
 }
 
-export type ClaudeAccountAction = 'import' | 'login' | 'current' | 'token' | 'remove' | 'alias' | 'enabled' | 'rotation';
+export type ClaudeAccountAction =
+  | 'import'
+  | 'login'
+  | 'current'
+  | 'token'
+  | 'remove'
+  | 'alias'
+  // @private:begin
+  | 'enabled'
+  | 'rotation'
+  // @private:end
+  ;
 
 export interface ClaudeImported {
   added: number[];
@@ -213,8 +243,10 @@ export interface ClaudeImported {
   unchanged: number[];
   /** `[slot, why]`: `slotTaken`, `elsewhere`, `apiKey`, `noConfig`, `noCredential`, `keychain`. */
   skipped: [number, string][];
+  // @private:begin
   rotation: boolean;
   prime: boolean;
+  // @private:end
 }
 
 export interface ClaudeActionDone {
@@ -236,33 +268,60 @@ export interface ClaudeAccountsView {
   accounts: ClaudeAccountRow[];
   working: ClaudeAccountAction | null;
   last: ClaudeActionDone | null;
+  // @private:begin
   /** The rotation's LaunchAgent is loaded; null when that cannot be told. */
   rotation: boolean | null;
   /** An older switcher still loaded. */
   legacy: string | null;
+  // @private:end
   /** `claude` is on this Mac, to log a new account in with. */
   claude: boolean;
 }
 
+// @private:begin
 export interface Hold {
   /** RFC 3339. */
   until: string;
   /** The pause flag could not be written. */
   failed: boolean;
 }
+// @private:end
 
 /** What a switch really did (`quota-station-core::switching::Outcome`). */
 export type Outcome =
-  | { kind: 'switched'; slot: number; hold: Hold | null }
-  | { kind: 'raced'; slot: number; active: number; bySwitcherAt: string | null; hold: Hold | null }
-  | { kind: 'unconfirmed'; slot: number; hold: Hold | null }
+  | {
+      kind: 'switched';
+      slot: number;
+      // @private:begin
+      hold: Hold | null;
+      // @private:end
+    }
+  | {
+      kind: 'raced';
+      slot: number;
+      active: number;
+      // @private:begin
+      bySwitcherAt: string | null;
+      hold: Hold | null;
+      // @private:end
+    }
+  | {
+      kind: 'unconfirmed';
+      slot: number;
+      // @private:begin
+      hold: Hold | null;
+      // @private:end
+    }
   /**
-   * `error`: the switch's error kind (`busy`, `noCredential`, `unmanaged`, `unconfirmed`, `keychain`, …),
-   * or `legacy` while an older switcher is loaded (its label in `detail`). `active`: the account in use
-   * when the login could not be put back as it was.
+   * `error`: the switch's error kind (`busy`, `noCredential`, `unmanaged`, `unconfirmed`, `keychain`, …).
+   * `active`: the account in use when the login could not be put back as it was.
    */
+  // @private:begin
+  /** Also `legacy` while an older switcher is loaded (its label in `detail`). */
+  // @private:end
   | { kind: 'failed'; slot: number; error: string; detail: string; active: number | null };
 
+// @private:begin
 // ===== The rotation file and the other Macs (M5) =====
 
 /** The six keys of the rotation file (`quota-station-core::rotation::Rules`). */
@@ -347,6 +406,7 @@ export interface Peer {
   name: string;
   alias: string;
 }
+// @private:end
 
 // ===== Antigravity accounts the app logs in (M4a) and reads (M4b) =====
 
@@ -463,18 +523,31 @@ export interface AgySwitchView {
   overwritten: AgyOverwrite | null;
 }
 
-// ===== History, alerts and Firstmate (M6) =====
+// ===== History and alerts (M6) =====
 
 /** Where a history line comes from (`quota-station-core::history::Source`). */
-export type HistorySource = 'app' | 'switcher' | 'observed';
+export type HistorySource =
+  | 'app'
+  // @private:begin
+  | 'switcher'
+  // @private:end
+  | 'observed';
 
 export type HistoryCause =
   /** The owner switched Claude in this app; `result` is what the check after it found. */
-  | { kind: 'manual'; holdUntil: string | null; result: 'switched' | 'raced' | 'unconfirmed' | string }
+  | {
+      kind: 'manual';
+      // @private:begin
+      holdUntil: string | null;
+      // @private:end
+      result: 'switched' | 'raced' | 'unconfirmed' | string;
+    }
+  // @private:begin
   | { kind: 'switcher'; why: Why; raw: string }
   /** The switcher started a five-hour window early. */
   | { kind: 'primed'; raw: string }
-  /** The account in use changed between two readings, and nothing here or in the switcher's log switched it. */
+  // @private:end
+  /** The account in use changed between two readings, and nothing the app knows of switched it. */
   | { kind: 'observed' }
   | { kind: 'agySwitch'; how: AgyHow; result: 'switched' | 'unconfirmed' | string; reopened: boolean | null }
   /** Antigravity.app wrote the old login back after a switch. */
@@ -496,8 +569,15 @@ export interface HistoryEntry {
   cause: HistoryCause;
 }
 
-/** The five kinds with a switch each (M6). */
-export type SwitchKind = 'pool' | 'leaving' | 'login' | 'overwrite' | 'firstmate';
+/** The kinds with a switch each (M6). */
+export type SwitchKind =
+  | 'pool'
+  // @private:begin
+  | 'leaving'
+  | 'firstmate'
+  // @private:end
+  | 'login'
+  | 'overwrite';
 /**
  * `skill`: skills with a newer version (M11), shown in the app only unless Cài đặt says otherwise.
  * `env`: a variable overriding a login (M14), in the app only.
@@ -575,6 +655,7 @@ export interface AlertsView {
   permission: NotifyPermission;
 }
 
+// @private:begin
 /** Firstmate's `quota-pool.last`, in parts (`quota-station-core::firstmate::PoolLine`). */
 export interface PoolLine {
   fork: boolean | null;
@@ -599,10 +680,12 @@ export interface FirstmateView {
   /** The same dry rule, counted by the app from its own numbers. */
   ownDry: boolean | null;
 }
+// @private:end
 
 /** The app as a login item (`quota-station-core::login_item::Status`). */
 export type LaunchAtLogin = 'off' | 'on' | 'needsApproval' | 'unavailable';
 
+// @private:begin
 /** Where "Cập nhật từ mã nguồn" is (`quota-station-core::update::Step`). */
 export type UpdateStep = 'pulling' | 'installing';
 
@@ -637,9 +720,14 @@ export interface SourceView {
   /** The last install's output, `~/…`. */
   log: string;
 }
+// @private:end
 
-/** The app itself (`src-tauri/src/install.rs` `AppView`, M7), with the update from source in a build with the author's tools. */
-export interface AppView extends Partial<SourceView> {
+/** The app itself (`src-tauri/src/install.rs` `AppView`, M7). */
+export interface AppView
+  // @private:begin
+  extends Partial<SourceView>
+  // @private:end
+{
   version: string;
   /** The commit it was built from, 7 characters, `-dirty` kept; null when not built by `scripts/install.sh`. */
   commit: string | null;
@@ -761,11 +849,14 @@ export type Tab =
   | 'claude'
   | 'agy'
   | 'codex'
+  // @private:begin
   | 'rules'
+  | 'firstmate'
+  | 'copy'
+  // @private:end
   | 'history'
   /** Not a page: the bell's panel (Thông báo), open over the page in view. */
   | 'alerts'
-  | 'firstmate'
   | 'mcp'
   | 'skills'
   | 'plugins'
@@ -774,11 +865,18 @@ export type Tab =
   /** Cập nhật Agent: Claude Code, the Codex CLI and the Antigravity CLI. */
   | 'cliTools'
   | 'backup'
-  | 'copy'
   | 'settings';
 
 /** A tab of Cài đặt: Chung holds Cập nhật and Sao lưu too, Dịch vụ the variables that override a login. */
-export type SettingsGroup = 'general' | 'display' | 'notify' | 'services' | 'advanced';
+export type SettingsGroup =
+  | 'general'
+  | 'display'
+  | 'notify'
+  | 'services'
+  // @private:begin
+  | 'advanced'
+  // @private:end
+  ;
 
 // ===== Codex (M8) =====
 
@@ -1294,6 +1392,7 @@ export interface McpView {
   backups: McpBackup[];
 }
 
+// @private:begin
 /**
  * Cài đặt › Nâng cao (`src-tauri/src/state.rs` `AdvancedView`): on, the
  * tabs and switches made for the author's own Macs show (the rotation, the
@@ -1305,6 +1404,7 @@ export interface AdvancedView {
   on: boolean;
   firstmate: boolean;
 }
+// @private:end
 
 /** The system the app runs on: every difference the windows draw follows it. */
 export type Platform = 'macos' | 'windows';
@@ -1317,6 +1417,7 @@ export interface Capabilities {
    * Antigravity is the one account signed in here, read-only.
    */
   agyAccounts: boolean;
+  // @private:begin
   /**
    * The tools made for the author's own Macs (the `author-tools` feature,
    * which a release build leaves out): Cài đặt › Nâng cao, Luật xoay vòng
@@ -1325,6 +1426,7 @@ export interface Capabilities {
    * show no switch, tab or setting for them.
    */
   authorTools: boolean;
+  // @private:end
   /**
    * The system the app was built for: `data-os` on the page (fonts,
    * corners, scroll bars) and the words for the system's own parts
@@ -1348,12 +1450,18 @@ export interface Model {
   /** The name macOS gives this Mac. */
   machineDefault: string;
   granting: boolean;
+  // @private:begin
   switcher: SwitcherView;
+  /** The rules editor and the other Macs; only in a build with the author's tools. */
+  rotation?: RotationView;
+  /** Cài đặt › Nâng cao, and the Firstmate switch inside it. */
+  advanced: AdvancedView;
+  /** What Firstmate sees (M6); only in a build with the author's tools. */
+  firstmate?: FirstmateView;
+  // @private:end
   claudeSwitch: ClaudeSwitchView;
   /** The Claude accounts Quota Station keeps, and their actions. */
   claudeAccounts: ClaudeAccountsView;
-  /** The rules editor and the other Macs; only in a build with the author's tools. */
-  rotation?: RotationView;
   /** Account names (emails, organizations) may show; off, none reaches the window. */
   showNames: boolean;
   theme: Theme;
@@ -1364,19 +1472,15 @@ export interface Model {
   menubar: Menubar;
   /** The window whose share used the menu bar title and Đang dùng show. */
   menubarWindow: MenubarWindow;
-  /** Cài đặt › Nâng cao, and the Firstmate switch inside it. */
-  advanced: AdvancedView;
   /** What this build has (`src-tauri/src/state.rs` `Capabilities`). */
   capabilities: Capabilities;
   /** The Antigravity accounts the app logs in; only in a build with them. */
   antigravity?: AgyAccounts;
   /** Switching them; only in a build with them. */
   agySwitch?: AgySwitchView;
-  /** The five alerts (M6). */
+  /** The alerts (M6). */
   alerts: AlertsView;
-  /** What Firstmate sees (M6); only in a build with the author's tools. */
-  firstmate?: FirstmateView;
-  /** Version, launching at login and the update from source (M7). */
+  /** Version and launching at login (M7). */
   app: AppView;
   /** Switching Codex (M8). */
   codex: CodexView;
@@ -1745,6 +1849,7 @@ export interface RestoreUndone {
   left?: number;
 }
 
+// @private:begin
 // ===== Chép sang Mac khác (M13) =====
 
 /** `agents::copy::DiffItem`: one item the two Macs do not have alike. */
@@ -1798,6 +1903,7 @@ export interface CopySelection {
   plugins: { agent: Agent; id: string }[];
   files: string[];
 }
+// @private:end
 
 // ===== Skills, plugins and instruction files (M11) =====
 

@@ -508,6 +508,7 @@ fn check(app: &AppHandle, state: &AppState, id: &str) -> Value {
         "claudeSessions" => json!({
             "folders": count(&inner.app_dir().path().join("claude").join("sessions"), ".credentials.json"),
         }),
+        #[cfg(feature = "author-tools")]
         "rotation" => rotation(inner.app_dir().path()),
         "port1455" => json!({
             "free": std::net::TcpListener::bind(("127.0.0.1", 1455)).is_ok(),
@@ -576,6 +577,7 @@ fn claude_store(inner: &Inner) -> Value {
 
 /// The rotation's timer flag and its log: lines counted, the last one's
 /// time, never their text.
+#[cfg(feature = "author-tools")]
 fn rotation(app_dir: &Path) -> Value {
     let claude = app_dir.join("claude");
     let log = std::fs::read_to_string(claude.join("rotation.log")).unwrap_or_default();
@@ -746,6 +748,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    #[cfg(feature = "author-tools")]
     #[test]
     fn rotation_counts_lines_and_keeps_only_the_last_time() {
         let dir = std::env::temp_dir().join(format!("qs-session-rot-{}", std::process::id()));

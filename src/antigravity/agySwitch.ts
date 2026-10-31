@@ -19,7 +19,12 @@ export const agyNameOf: NameOf = (n) => agyName({ number: n }).name;
 /** Names by the model's accounts: their email while names show, else Ultra N. */
 export function agyNamesOf(model: Model | null | undefined): NameOf {
   if (!model) return agyNameOf;
-  const names = agyNames(model.snapshot.agy.accounts, model.advanced.on);
+  const names = agyNames(
+    model.snapshot.agy.accounts,
+    // @private:begin
+    model.advanced.on,
+    // @private:end
+  );
   return (n) => names.get(n)?.name ?? agyNameOf(n);
 }
 

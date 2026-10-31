@@ -1,8 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
-//! The six-hour watch after an Antigravity switch (the rule of the
-//! `agy-prefer-room` switcher draft). A running Antigravity.app writes its
+//! The six-hour watch after an Antigravity switch. A running Antigravity.app writes its
 //! own refreshed token back to the shared login about once an hour, which
 //! can undo a switch made while it ran. So after each switch the app keeps
 //! "from account A to account B at T" in `antigravity/watch.json`, and for

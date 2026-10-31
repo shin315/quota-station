@@ -50,9 +50,12 @@ adapted from claude-swap (MIT) and shadcn/ui (MIT) are credited in
   `codex.rs`, `agy.rs`, `claude.rs`, `semantics.rs`), read-only: no login is
   refreshed or written. See [`NOTICE`](NOTICE) for the files and the
   changes; each ported file also says so in its header. The app no longer
-  runs quota-axi; the rotation file keeps quota-axi's format, and the
-  copies the app writes for Firstmate (`docs/claude-accounts.md`) are for
-  the quota-axi Firstmate runs.
+  runs quota-axi.
+  <!-- @private:begin -->
+  The rotation file keeps quota-axi's format, and the copies the app
+  writes for Firstmate (`docs/claude-accounts.md`) are for the quota-axi
+  Firstmate runs.
+  <!-- @private:end -->
 - License: MIT
 
 ```
@@ -90,7 +93,9 @@ SOFTWARE.
   `Nhập từ claude-swap`. [`NOTICE`](NOTICE) lists the files and what was
   changed. The app runs no claude-swap command and never writes claude-swap's
   files or Keychain items; the import only reads them, when the owner asks.
+  <!-- @private:begin -->
   The cutover checklist ([docs/cutover.md](docs/cutover.md)) leaves claude-swap installed.
+  <!-- @private:end -->
 - License: MIT
 
 ```

@@ -42,6 +42,12 @@ const confirmFor = (name: string) => screen.getByRole('group', { name: 'Đăng x
 /** What a row says, on screen or on hover. */
 const said = (el: HTMLElement) => [el.textContent, ...Array.from(el.querySelectorAll('[title]')).map((t) => t.getAttribute('title'))].join(' ');
 
+/** An account's name while names are hidden. */
+let hidden = (n: number) => 'Antigravity ' + n;
+// @private:begin
+hidden = (n: number) => 'Ultra ' + n;
+// @private:end
+
 afterEach(cleanup);
 
 describe('Antigravity accounts logged in here', () => {
@@ -92,8 +98,8 @@ describe('Antigravity accounts logged in here', () => {
     cleanup();
 
     await open(hideNames(withAgy({ accounts })));
-    expect(within(row('Ultra 1')).getByRole('button', { name: 'Đăng xuất Ultra 1' })).toBeTruthy();
-    expect(within(row('Ultra 2')).getByRole('button', { name: 'Đăng xuất Ultra 2' })).toBeTruthy();
+    expect(within(row(hidden(1))).getByRole('button', { name: 'Đăng xuất ' + hidden(1) })).toBeTruthy();
+    expect(within(row(hidden(2))).getByRole('button', { name: 'Đăng xuất ' + hidden(2) })).toBeTruthy();
     expect(document.body.innerHTML).not.toMatch(EMAIL);
   });
 
@@ -107,7 +113,7 @@ describe('Antigravity accounts logged in here', () => {
     });
     expect(fake.api.setShowNames).toHaveBeenCalledWith(false);
     fireEvent.click(screen.getByRole('button', { name: 'Antigravity' }));
-    expect(within(row('Ultra 1')).getByRole('button', { name: 'Đăng xuất Ultra 1' })).toBeTruthy();
+    expect(within(row(hidden(1))).getByRole('button', { name: 'Đăng xuất ' + hidden(1) })).toBeTruthy();
     expect(document.body.innerHTML).not.toMatch(EMAIL);
   });
 

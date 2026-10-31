@@ -6,8 +6,10 @@
 //! app's accounts when the owner confirms (switching Antigravity is in
 //! `agy_switch`, the accounts' own actions in `claude`), and keeps the
 //! switch in the history.
-//! The pause commands write the rotation's pause flag; the rest write only
-//! the app's own settings file.
+//! @private:begin
+//! The pause commands write the rotation's pause flag.
+//! @private:end
+//! The rest write only the app's own settings file.
 
 use quota_station_core::history;
 use quota_station_core::quota;
@@ -16,10 +18,14 @@ use quota_station_core::sessions::{self, Sessions};
 use quota_station_core::settings::Settings;
 use quota_station_core::settings::{Language, Menubar, MenubarWindow, Theme, ThemePack};
 use quota_station_core::switching::{self, Outcome};
+#[cfg(feature = "author-tools")]
 use quota_station_core::{local_time, pause};
 use tauri::{AppHandle, State};
+#[cfg(feature = "author-tools")]
 use time::format_description::well_known::Rfc3339;
-use time::{Duration, OffsetDateTime};
+#[cfg(feature = "author-tools")]
+use time::Duration;
+use time::OffsetDateTime;
 
 use crate::reader;
 use crate::state::{AppState, Model, Tab};
@@ -341,8 +347,8 @@ pub fn claude_sessions(state: State<'_, AppState>) -> Option<Sessions> {
 
 /// Switches Claude Code to the app's account `slot`, after the owner
 /// confirmed it on the sheet. With `hold_until` (RFC 3339) the rotation is
-/// paused until then. Looks at the active account again five seconds later
-/// and reports what really happened.
+/// paused until then.
+#[cfg(feature = "author-tools")]
 #[tauri::command]
 pub async fn switch_claude(
     app: AppHandle,
@@ -350,11 +356,33 @@ pub async fn switch_claude(
     slot: u32,
     hold_until: Option<String>,
 ) -> Result<Outcome, String> {
-    let shared = state.inner().clone();
     let hold = match hold_until.as_deref() {
         Some(text) => Some(OffsetDateTime::parse(text, &Rfc3339).map_err(|_| "badTime")?),
         None => None,
     };
+    switch(app, state.inner().clone(), slot, hold).await
+}
+
+/// Switches Claude Code to the app's account `slot`, after the owner
+/// confirmed it on the sheet.
+#[cfg(not(feature = "author-tools"))]
+#[tauri::command]
+pub async fn switch_claude(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    slot: u32,
+) -> Result<Outcome, String> {
+    switch(app, state.inner().clone(), slot).await
+}
+
+/// Looks at the active account again five seconds after the switch and
+/// reports what really happened.
+async fn switch(
+    app: AppHandle,
+    shared: AppState,
+    slot: u32,
+    #[cfg(feature = "author-tools")] hold: Option<OffsetDateTime>,
+) -> Result<Outcome, String> {
     let (tools, from, dir) = {
         let mut inner = shared.lock();
         if inner.switching.is_some() {
@@ -373,23 +401,28 @@ pub async fn switch_claude(
     };
     reader::publish(&app, &shared);
     let done = tauri::async_runtime::spawn_blocking(move || {
-        switching::switch_claude(&tools, slot, hold, &switching::settle)
+        #[cfg(feature = "author-tools")]
+        return switching::switch_claude(&tools, slot, hold, &switching::settle);
+        #[cfg(not(feature = "author-tools"))]
+        switching::switch_claude(&tools, slot, &switching::settle)
     })
     .await;
     // Kept before the reading that shows it, so the change is this switch's.
     if let Ok(d) = &done {
         let landed = match &d.outcome {
-            Outcome::Switched { hold, .. } => Some(("switched", hold)),
-            Outcome::Raced { hold, .. } => Some(("raced", hold)),
-            Outcome::Unconfirmed { hold, .. } => Some(("unconfirmed", hold)),
+            Outcome::Switched { .. } => Some("switched"),
+            Outcome::Raced { .. } => Some("raced"),
+            Outcome::Unconfirmed { .. } => Some("unconfirmed"),
             Outcome::Failed { .. } => None,
         };
-        if let Some((result, hold)) = landed {
-            let until = hold.as_ref().filter(|h| !h.failed).map(|h| h.until.clone());
+        if let Some(result) = landed {
             let at = OffsetDateTime::now_utc().unix_timestamp();
             // The same lock as the history's look at the readings.
             let _one = shared.history.lock().unwrap_or_else(|e| e.into_inner());
-            let _ = history::manual_claude(&dir, from, slot, until, result, at);
+            #[cfg(feature = "author-tools")]
+            let _ = history::manual_claude(&dir, from, slot, held(&d.outcome), result, at);
+            #[cfg(not(feature = "author-tools"))]
+            let _ = history::manual_claude(&dir, from, slot, result, at);
         }
     }
     {
@@ -398,16 +431,31 @@ pub async fn switch_claude(
         if let Ok(Some(report)) = done.as_ref().map(|d| d.report.clone()) {
             inner.store_claude(report);
         }
+        #[cfg(feature = "author-tools")]
         inner.reload_pause();
     }
     crate::alerting::track_history(&shared);
+    #[cfg(feature = "author-tools")]
     shared.request_switcher();
     reader::publish(&app, &shared);
     done.map(|d| d.outcome).map_err(|e| e.to_string())
 }
 
+/// The hold a switch wrote, for the history; none when writing it failed.
+#[cfg(feature = "author-tools")]
+fn held(outcome: &Outcome) -> Option<String> {
+    let hold = match outcome {
+        Outcome::Switched { hold, .. }
+        | Outcome::Raced { hold, .. }
+        | Outcome::Unconfirmed { hold, .. } => hold.as_ref(),
+        Outcome::Failed { .. } => None,
+    };
+    hold.filter(|h| !h.failed).map(|h| h.until.clone())
+}
+
 /// Pauses automatic switching until `until` (RFC 3339), or until the owner
 /// resumes when it is `None`.
+#[cfg(feature = "author-tools")]
 #[tauri::command]
 pub fn pause_switching(
     app: AppHandle,
@@ -430,6 +478,7 @@ pub fn pause_switching(
 }
 
 /// Moves the end of a timed pause `minutes` later, keeping why it started.
+#[cfg(feature = "author-tools")]
 #[tauri::command]
 pub fn extend_pause(
     app: AppHandle,
@@ -445,11 +494,13 @@ pub fn extend_pause(
 }
 
 /// Lets the switcher switch again: removes the pause flag.
+#[cfg(feature = "author-tools")]
 #[tauri::command]
 pub fn resume_switching(app: AppHandle, state: State<'_, AppState>) -> Result<Model, String> {
     write_flag(&app, &state, None)
 }
 
+#[cfg(feature = "author-tools")]
 fn write_flag(
     app: &AppHandle,
     state: &State<'_, AppState>,
@@ -471,6 +522,7 @@ fn write_flag(
 }
 
 /// The editor has changes not saved: closing the main window asks first.
+#[cfg(feature = "author-tools")]
 #[tauri::command]
 pub fn rules_dirty(state: State<'_, AppState>, dirty: bool) {
     state.lock().rules_dirty = dirty;
@@ -478,6 +530,7 @@ pub fn rules_dirty(state: State<'_, AppState>, dirty: bool) {
 
 /// Takes a pending `Thoát Quota Station` request: true once per request, for
 /// the page to ask about unsaved rules (or quit when there are none).
+#[cfg(feature = "author-tools")]
 #[tauri::command]
 pub fn take_quit(state: State<'_, AppState>) -> bool {
     std::mem::take(&mut state.lock().quit_pending)
@@ -485,6 +538,7 @@ pub fn take_quit(state: State<'_, AppState>) -> bool {
 
 /// Closes the main window after the owner answered the unsaved-changes
 /// dialog, or quits the app when the dialog came from `Thoát Quota Station`.
+#[cfg(feature = "author-tools")]
 #[tauri::command]
 pub fn close_main(app: AppHandle, state: State<'_, AppState>, quit: bool) {
     {

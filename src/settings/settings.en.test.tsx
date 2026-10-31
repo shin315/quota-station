@@ -18,24 +18,32 @@ function renderSettings(model: Model) {
     onAction: vi.fn(),
     onGrant: vi.fn(),
     onSetMachine: vi.fn(async () => true),
+    // @private:begin
     onSetPeers: vi.fn(async () => null),
     onTestPeer: vi.fn(),
+    // @private:end
     onShowNames: vi.fn(),
     onTheme: vi.fn(),
     onMenubar: vi.fn(),
     onMenubarWindow: vi.fn(),
+    // @private:begin
     onSetFirstmate: vi.fn(async () => null),
+    // @private:end
     onSetCodexHome: vi.fn(async () => null),
     onTestAlert: vi.fn(),
     onAlertSwitch: vi.fn(),
     onLaunchAtLogin: vi.fn(async () => null),
     onOpenLoginItems: vi.fn(),
+    // @private:begin
     onSetSource: vi.fn(async () => null),
     onUpdate: vi.fn(async () => null),
     onRelaunch: vi.fn(async () => null),
+    // @private:end
     onSkillChecks: vi.fn(),
+    // @private:begin
     onAdvanced: vi.fn(),
     onFirstmate: vi.fn(),
+    // @private:end
     onPoolAlert: vi.fn(async () => null),
     onSetBackupFolder: vi.fn(async () => null),
     onLanguage: vi.fn(),
@@ -58,13 +66,17 @@ describe('settings tab in English', () => {
     // The bar of tabs names the same cards.
     const bar = screen.getByRole('tablist', { name: 'Settings sections' });
     const tabs = within(bar).getAllByRole('tab').map((b) => b.textContent!);
-    expect(tabs).toEqual(['General', 'Display', 'Notifications', 'Services', 'Advanced']);
+    let want = { tabs: ['General', 'Display', 'Notifications', 'Services'], titles: [['General', 'Updates'], ['Display'], ['Notifications'], ['Services', 'Environment variables that override sign-in']] };
+    // @private:begin
+    want = { tabs: [...want.tabs, 'Advanced'], titles: [...want.titles, ['Advanced']] };
+    // @private:end
+    expect(tabs).toEqual(want.tabs);
     const show = (name: string) => fireEvent.mouseDown(within(bar).getByRole('tab', { name }));
     const titles = tabs.map((name) => {
       show(name);
       return Array.from(document.querySelectorAll('[data-slot="card-title"]'), (h) => h.textContent);
     });
-    expect(titles).toEqual([['General', 'Updates'], ['Display'], ['Notifications'], ['Services', 'Environment variables that override sign-in'], ['Advanced']]);
+    expect(titles).toEqual(want.titles);
 
     show('General');
     expect(screen.getByText('This Mac’s name')).toBeTruthy();
@@ -89,10 +101,12 @@ describe('settings tab in English', () => {
       'Highest',
     ]);
     expect(screen.getByRole('group', { name: 'Service in the menu bar' })).toBeTruthy();
+    // @private:begin
     show('Advanced');
     expect(screen.getByRole('switch', { name: 'Show advanced features' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Add Mac' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Update from source' })).toBeTruthy();
+    // @private:end
     show('General');
     expect(screen.getByRole('button', { name: 'Details: Check for skill updates' })).toBeTruthy();
     expect(screen.getByText('Show skill updates as macOS notifications')).toBeTruthy();

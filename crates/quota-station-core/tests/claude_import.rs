@@ -130,6 +130,7 @@ fn claude_swaps_own_data_is_left_as_it_was() {
         .any(|l| !l.starts_with("find-generic-password") && l.contains("-s claude-swap")));
 }
 
+#[cfg(feature = "author-tools")]
 #[test]
 fn every_account_comes_in_the_rotation_whatever_claude_swap_held_out() {
     let mac = Mac::new("import-in-rotation");
@@ -152,7 +153,10 @@ fn importing_again_changes_nothing_the_owner_set() {
     import::import(&mac.store, &dir).unwrap();
     let mut list = mac.store.load().unwrap();
     list.get_mut(2).unwrap().alias = Some("Đã đổi".into());
-    list.get_mut(3).unwrap().disabled = true;
+    #[cfg(feature = "author-tools")]
+    {
+        list.get_mut(3).unwrap().disabled = true;
+    }
     mac.store.save(&list).unwrap();
     let saved = std::fs::read(mac.paths.accounts()).unwrap();
     let again = import::import(&mac.store, &dir).unwrap();
@@ -202,6 +206,7 @@ fn an_api_key_account_is_left_in_claude_swap() {
     assert!(mac.store.load().unwrap().get(4).is_none());
 }
 
+#[cfg(feature = "author-tools")]
 #[test]
 fn the_rotation_file_and_priming_come_over_once() {
     let mac = Mac::new("import-rotation");

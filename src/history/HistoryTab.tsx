@@ -2,12 +2,15 @@
 // SPDX-License-Identifier: MIT
 
 // The Lịch sử tab (F08): every switch on this Mac, newest first, a day at a
-// time, from the app's journal, the switcher's log and what the readings
-// showed. The list is read from the Rust side when the tab opens and again
-// after each read while it is open. One card: the app filter at its top,
-// then a line per switch in fixed columns: time, tag, the accounts, a short
-// reason on one line (all of it on hover, and on focus once it is cut), and
-// where it came from; the switcher's own line on hover.
+// time, from the app's journal and what the readings showed. The list is
+// read from the Rust side when the tab opens and again after each read
+// while it is open. One card: the app filter at its top, then a line per
+// switch in fixed columns: time, tag, the accounts, a short reason on one
+// line (all of it on hover, and on focus once it is cut), and where it came
+// from.
+// @private:begin
+// The switcher's log adds its lines, with the switcher's own line on hover.
+// @private:end
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Badge, badgeTone } from '@/components/ui/badge';
@@ -71,6 +74,21 @@ function Reason({ text, className }: { text: string; className?: string }) {
   );
 }
 
+/** What the list says before its first switch. */
+function emptyText(): string {
+  let s = t(
+    'Lịch sử của máy này bắt đầu từ khi cài app. Mỗi lần chuyển tay hay app thấy tài khoản đổi sẽ hiện ở đây.',
+    'This Mac’s history starts when the app is installed. Every manual switch or account change the app notices shows up here.',
+  );
+  // @private:begin
+  s = t(
+    'Lịch sử của máy này bắt đầu từ khi cài app. Mỗi lần chuyển tay, switcher chuyển, hay app thấy tài khoản đổi sẽ hiện ở đây.',
+    'This Mac’s history starts when the app is installed. Every manual switch, switcher switch, or account change the app notices shows up here.',
+  );
+  // @private:end
+  return s;
+}
+
 export function HistoryTab({ model, fresh, now, load }: HistoryTabProps) {
   const [filter, setFilter] = useState<HistoryFilter>('all');
   const [entries, setEntries] = useState<HistoryEntry[] | 'failed' | null>(null);
@@ -119,12 +137,7 @@ export function HistoryTab({ model, fresh, now, load }: HistoryTabProps) {
         ) : !entries.length ? (
           <Empty>
             <b>{t('Chưa có lần chuyển nào', 'No switches yet')}</b>
-            {mac(
-              t(
-                'Lịch sử của máy này bắt đầu từ khi cài app. Mỗi lần chuyển tay, switcher chuyển, hay app thấy tài khoản đổi sẽ hiện ở đây.',
-                'This Mac’s history starts when the app is installed. Every manual switch, switcher switch, or account change the app notices shows up here.',
-              ),
-            )}
+            {mac(emptyText())}
           </Empty>
         ) : !days.length ? (
           <Empty>

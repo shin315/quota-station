@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: MIT
 
 //! The snapshot the tray and the popover draw: every Claude and Antigravity
-//! account on this Mac, Codex's ChatGPT account, the whole-rotation numbers,
-//! and how fresh they are.
+//! account on this Mac, Codex's ChatGPT account, how much room is left, and
+//! how fresh the numbers are.
 //!
 //! Built only from the app's own readings ([`crate::quota`]). Numbers are
 //! never guessed: a window past its reset stays empty (`pending`) until the
@@ -12,10 +12,14 @@
 use serde::Serialize;
 use time::OffsetDateTime;
 
-use crate::quota::{AgyAccounts, Provider, Response, RoomPool, Scope, Slot, Window};
-use crate::time_util::{is_after, latest, parse_ts};
+#[cfg(feature = "author-tools")]
+use crate::quota::RoomPool;
+use crate::quota::{AgyAccounts, Provider, Response, Scope, Slot, Window};
+#[cfg(feature = "author-tools")]
+use crate::time_util::is_after;
+use crate::time_util::{latest, parse_ts};
 
-/// A reading older than this is stale, as the rotation counts it.
+/// A reading older than this is stale.
 pub const STALE_AFTER_SECONDS: i64 = 900;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -57,6 +61,7 @@ pub enum Reading {
     NoData,
 }
 
+#[cfg(feature = "author-tools")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Role {
@@ -75,6 +80,7 @@ pub enum Source {
     List,
 }
 
+#[cfg(feature = "author-tools")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Membership {
@@ -91,14 +97,18 @@ pub struct Account {
     /// The account's number in the app's list; 0 for the one account a
     /// provider row reads when the app lists no others.
     pub number: u32,
+    #[cfg(feature = "author-tools")]
     pub role: Role,
     pub active: bool,
+    #[cfg(feature = "author-tools")]
     pub disabled: bool,
     pub reading: Reading,
     pub fetched_at: Option<String>,
     pub source: Source,
+    #[cfg(feature = "author-tools")]
     pub membership: Membership,
     /// A rotation end still ahead.
+    #[cfg(feature = "author-tools")]
     pub leaves_at: Option<String>,
     /// The effective numbers: the tighter window only, when that is all
     /// the list knows.
@@ -120,6 +130,7 @@ pub struct Account {
 #[serde(rename_all = "camelCase")]
 pub enum PoolKind {
     /// The whole rotation was counted.
+    #[cfg(feature = "author-tools")]
     Rotation,
     /// Only the signed-in account's own number.
     Active,
@@ -131,24 +142,31 @@ pub enum PoolKind {
 pub struct Pool {
     pub kind: PoolKind,
     /// Rotation: room left, in fresh accounts (2.3 is two and a third).
+    #[cfg(feature = "author-tools")]
     pub room: Option<f64>,
-    /// 0-100 for the bar: room per counted account, or the active percent.
+    /// 0-100 for the bar: the active account's percent left.
     pub percent: Option<f64>,
     /// Active: the line the percent comes from.
     pub line: Option<LineKind>,
-    /// Rotation: the scope counted (`all_models`, `gemini`).
+    /// The scope counted (`all_models`, `gemini`).
     pub scope: Option<String>,
+    /// Rotation: the accounts counted.
+    #[cfg(feature = "author-tools")]
     pub members: u32,
     /// Rotation: each counted account's room before its switch threshold.
+    #[cfg(feature = "author-tools")]
     pub rooms: Vec<Room>,
     pub next_refill_at: Option<String>,
     /// Accounts whose room comes back at `next_refill_at`.
+    #[cfg(feature = "author-tools")]
     pub refills: Vec<u32>,
     pub exhausted: bool,
-    /// Why the active account's numbers stand for the rotation, when known.
+    /// Why there is no wider count than the active account's own numbers,
+    /// when known.
     pub reason: Option<String>,
 }
 
+#[cfg(feature = "author-tools")]
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Room {
@@ -161,13 +179,17 @@ impl Pool {
     fn none() -> Self {
         Pool {
             kind: PoolKind::None,
+            #[cfg(feature = "author-tools")]
             room: None,
             percent: None,
             line: None,
             scope: None,
+            #[cfg(feature = "author-tools")]
             members: 0,
+            #[cfg(feature = "author-tools")]
             rooms: Vec::new(),
             next_refill_at: None,
+            #[cfg(feature = "author-tools")]
             refills: Vec::new(),
             exhausted: false,
             reason: None,
@@ -207,6 +229,7 @@ pub struct Section {
     /// Every reading is older than [`STALE_AFTER_SECONDS`].
     pub stale: bool,
     /// The rotation's personal hours, `8-23`.
+    #[cfg(feature = "author-tools")]
     pub personal_hours: Option<String>,
     /// `quota-station` when the Antigravity accounts are the app's own list;
     /// none without that list.
@@ -223,6 +246,7 @@ impl Section {
             generated_at: None,
             newest_reading_at: None,
             stale: false,
+            #[cfg(feature = "author-tools")]
             personal_hours: None,
             source: None,
         }
@@ -320,6 +344,7 @@ fn claude_section(report: &Response) -> (Section, Keychain) {
     let live = live_claude_lines(row);
     let live_at = row.state.refreshed_at.clone().unwrap_or_else(|| report.generated_at.clone());
     let accounts = row.claude_accounts.as_ref();
+    #[cfg(feature = "author-tools")]
     let rotation = accounts.and_then(|a| a.rotation.as_ref());
 
     let mut section = match accounts {
@@ -328,7 +353,12 @@ fn claude_section(report: &Response) -> (Section, Keychain) {
             s.accounts = list
                 .slots
                 .iter()
-                .map(|slot| list_account(slot, rotation, live.as_ref(), &live_at, now))
+                .map(|slot| {
+                    #[cfg(feature = "author-tools")]
+                    return list_account(slot, rotation, live.as_ref(), &live_at, now);
+                    #[cfg(not(feature = "author-tools"))]
+                    list_account(slot, live.as_ref(), &live_at)
+                })
                 .collect();
             s.accounts.sort_by_key(|a| a.number);
             s
@@ -348,11 +378,18 @@ fn claude_section(report: &Response) -> (Section, Keychain) {
     for account in section.accounts.iter_mut().filter(|a| a.source == Source::Live) {
         account.windows = live_claude_windows(row);
     }
-    section.personal_hours = rotation.and_then(|r| r.personal_hours.clone());
-    section.pool = match accounts.and_then(|a| a.pool.as_ref()) {
+    #[cfg(feature = "author-tools")]
+    {
+        section.personal_hours = rotation.and_then(|r| r.personal_hours.clone());
+    }
+    #[cfg(feature = "author-tools")]
+    let pool = match accounts.and_then(|a| a.pool.as_ref()) {
         Some(pool) => room_pool(pool),
         None => active_pool(&section, accounts.and_then(|a| a.pool_reason.clone())),
     };
+    #[cfg(not(feature = "author-tools"))]
+    let pool = active_pool(&section, None);
+    section.pool = pool;
     finish(&mut section, now);
     (section, keychain)
 }
@@ -435,18 +472,21 @@ fn tightest(windows: &[&Window], kind_of: impl Fn(&Window) -> LineKind) -> Line 
 
 fn list_account(
     slot: &Slot,
-    rotation: Option<&crate::quota::Rotation>,
+    #[cfg(feature = "author-tools")] rotation: Option<&crate::quota::Rotation>,
     live: Option<&Vec<Line>>,
     live_at: &str,
-    now: Option<OffsetDateTime>,
+    #[cfg(feature = "author-tools")] now: Option<OffsetDateTime>,
 ) -> Account {
+    #[cfg(feature = "author-tools")]
     let (role, mut membership) = match rotation {
         None => (Role::Unknown, Membership::Unknown),
         Some(r) if r.personal == Some(slot.slot) => (Role::Personal, Membership::In),
         Some(r) if r.team.contains(&slot.slot) => (Role::Team, Membership::In),
         Some(_) => (Role::Unknown, Membership::Out),
     };
+    #[cfg(feature = "author-tools")]
     let mut leaves_at = None;
+    #[cfg(feature = "author-tools")]
     if let Some(end) = rotation.and_then(|r| r.expire.iter().find(|e| e.slot == slot.slot)) {
         if is_after(&end.at, now) {
             leaves_at = Some(end.at.clone());
@@ -461,8 +501,10 @@ fn list_account(
     };
     Account {
         number: slot.slot,
+        #[cfg(feature = "author-tools")]
         role,
         active: slot.active,
+        #[cfg(feature = "author-tools")]
         disabled: slot.disabled,
         reading: if live.is_some() { Reading::Fresh } else { reading(&slot.status) },
         fetched_at: if live.is_some() {
@@ -471,7 +513,9 @@ fn list_account(
             slot.fetched_at.clone()
         },
         source: if live.is_some() { Source::Live } else { Source::List },
+        #[cfg(feature = "author-tools")]
         membership,
+        #[cfg(feature = "author-tools")]
         leaves_at,
         windows: Vec::new(),
         email: None,
@@ -523,13 +567,17 @@ fn live_only_account(row: &Provider, live_at: &str) -> Option<Account> {
     let lines = claude_lines(row)?;
     Some(Account {
         number: 0,
+        #[cfg(feature = "author-tools")]
         role: Role::Unknown,
         active: true,
+        #[cfg(feature = "author-tools")]
         disabled: false,
         reading: reading(&row.state.status),
         fetched_at: Some(live_at.to_string()),
         source: Source::Live,
+        #[cfg(feature = "author-tools")]
         membership: Membership::Unknown,
+        #[cfg(feature = "author-tools")]
         leaves_at: None,
         windows: Vec::new(),
         email: None,
@@ -577,13 +625,17 @@ fn listed_agy(row: &Provider, list: &AgyAccounts) -> Section {
         .iter()
         .map(|a| Account {
             number: a.account,
+            #[cfg(feature = "author-tools")]
             role: Role::Unknown,
             active: a.active,
+            #[cfg(feature = "author-tools")]
             disabled: false,
             reading: reading(&a.status),
             fetched_at: a.fetched_at.clone(),
             source: Source::List,
+            #[cfg(feature = "author-tools")]
             membership: Membership::Unknown,
+            #[cfg(feature = "author-tools")]
             leaves_at: None,
             windows: Vec::new(),
             email: None,
@@ -646,13 +698,17 @@ fn live_agy_account(row: &Provider, generated_at: &str) -> Option<Account> {
     }
     Some(Account {
         number: 0,
+        #[cfg(feature = "author-tools")]
         role: Role::Unknown,
         active: true,
+        #[cfg(feature = "author-tools")]
         disabled: false,
         reading: reading(&row.state.status),
         fetched_at: row.state.refreshed_at.clone().or_else(|| Some(generated_at.to_string())),
         source: Source::Live,
+        #[cfg(feature = "author-tools")]
         membership: Membership::Unknown,
+        #[cfg(feature = "author-tools")]
         leaves_at: None,
         windows: agy_live_windows(row),
         email: None,
@@ -723,13 +779,17 @@ fn codex_account(row: &Provider, report: &Response, home: bool) -> Option<Accoun
         .unwrap_or(0);
     Some(Account {
         number,
+        #[cfg(feature = "author-tools")]
         role: Role::Unknown,
         active: home,
+        #[cfg(feature = "author-tools")]
         disabled: false,
         reading: reading(&row.state.status),
         fetched_at: row.state.refreshed_at.clone().or_else(|| Some(report.generated_at.clone())),
         source: Source::Live,
+        #[cfg(feature = "author-tools")]
         membership: Membership::Unknown,
+        #[cfg(feature = "author-tools")]
         leaves_at: None,
         windows: lines.clone(),
         email: None,
@@ -738,6 +798,7 @@ fn codex_account(row: &Provider, report: &Response, home: bool) -> Option<Accoun
     })
 }
 
+#[cfg(feature = "author-tools")]
 fn room_pool(pool: &RoomPool) -> Pool {
     let members = pool.members;
     let room = pool.slots_of_room;

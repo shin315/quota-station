@@ -5,7 +5,7 @@
 // `capabilities.authorTools`): Cài đặt › Nâng cao and what it holds. A
 // release build leaves them out, and its model has none of their parts.
 
-import type { AppView, FirstmateView, Model, RotationView, SourceView } from './model';
+import type { AppView, FirstmateView, Model, RotationView, SourceView } from '@/lib/model';
 
 /** A model from a build with the author's tools: the rules editor, Firstmate and the update from source come with it. */
 export type AuthorModel = Model & { rotation: RotationView; firstmate: FirstmateView; app: AppView & SourceView };

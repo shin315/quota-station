@@ -16,11 +16,15 @@ describe('popover view', () => {
     const v = view('fresh');
     expect(v.fresh).toEqual({ tone: 'ok', text: 'cập nhật 40 giây trước' });
     expect(v.banner).toBeNull();
+    let subs = ['', '', '', ''];
+    // @private:begin
+    subs = ['Cá nhân · 08–23', 'Acme Studio', 'Acme Studio', 'Acme Studio'];
+    // @private:end
     expect(v.claude.cards.map((c) => [c.name, c.sub, c.active])).toEqual([
-      ['lanpham.dev', 'Cá nhân · 08–23', false],
-      ['lan.acme1', 'Acme Studio', true],
-      ['lan.acme2', 'Acme Studio', false],
-      ['lan.acme3', 'Acme Studio', false],
+      ['lanpham.dev', subs[0], false],
+      ['lan.acme1', subs[1], true],
+      ['lan.acme2', subs[2], false],
+      ['lan.acme3', subs[3], false],
     ]);
     // The menu bar's number for each service: the account in use and its five hours, by default.
     expect(now(v.now)).toEqual([
@@ -29,7 +33,7 @@ describe('popover view', () => {
       // Codex goes through its own provider: no number, the ChatGPT account's on hover.
       ['Codex', 'relay', '—', '', '', 'ChatGPT đã dùng 23% 5 giờ'],
     ]);
-    expect(v.now.rows[0]).toMatchObject({ sub: 'Acme Studio', tone: 'warn', title: 'Claude: lan.acme1 đã dùng 74% 5 giờ', extra: null });
+    expect(v.now.rows[0]).toMatchObject({ sub: subs[1], tone: 'warn', title: 'Claude: lan.acme1 đã dùng 74% 5 giờ', extra: null });
     expect(v.now.rows[0].label).toBe(
       'Claude, lan.acme1. 5 giờ đã dùng 74%, đặt lại sau 3 giờ 08 phút. Tuần đã dùng 39%, đặt lại sau 4 ngày 19 giờ 39 phút. Fable đã dùng 87%, đặt lại sau 1 ngày 17 giờ 59 phút',
     );
@@ -131,10 +135,14 @@ describe('popover view', () => {
       ['Fable', '87%', '1d 17h'],
     ]);
     expect(acme1.cells.map((c) => c.tone)).toEqual(['warn', 'ok', 'warn']);
-    expect(acme1.chips).toEqual([{ t: 'rời vòng 17:45', k: 'warn' }]);
-    expect(acme1.label).toBe(
-      'lan.acme1, Acme Studio, đang dùng. 5 giờ đã dùng 74%, đặt lại sau 3 giờ 08 phút. Tuần đã dùng 39%, đặt lại sau 4 ngày 19 giờ 39 phút. Fable đã dùng 87%, đặt lại sau 1 ngày 17 giờ 59 phút. rời vòng 17:45',
-    );
+    let chips: CardView['chips'] = [];
+    let label = 'lan.acme1, đang dùng. 5 giờ đã dùng 74%, đặt lại sau 3 giờ 08 phút. Tuần đã dùng 39%, đặt lại sau 4 ngày 19 giờ 39 phút. Fable đã dùng 87%, đặt lại sau 1 ngày 17 giờ 59 phút';
+    // @private:begin
+    chips = [{ t: 'rời vòng 17:45', k: 'warn' }];
+    label = label.replace('lan.acme1,', 'lan.acme1, Acme Studio,') + '. rời vòng 17:45';
+    // @private:end
+    expect(acme1.chips).toEqual(chips);
+    expect(acme1.label).toBe(label);
     expect(cells(personal)[0]).toEqual(['5 giờ', '0%', 'chưa dùng']);
     // A Team seat claude-swap gives no week.
     expect(acme2.cells[1]).toMatchObject({ label: 'Tuần', text: '—', none: true, title: 'claude-swap không báo hạn mức tuần cho tài khoản này' });
@@ -178,13 +186,21 @@ describe('popover view', () => {
 
   it('hidden names fall back to the places, and the folded line follows', () => {
     const v = popoverView(hideNames(fixtureModel('fresh')), FIXTURE_NOW);
-    expect(v.claude.cards.map((c) => [c.name, c.sub, c.full])).toEqual([
+    let want = [1, 2, 3, 4].map((n) => ['Tài khoản ' + n, '', '']);
+    // @private:begin
+    want = [
       ['Cá nhân', '08–23', ''],
       ['Team A', '', ''],
       ['Team B', '', ''],
       ['Team C', '', ''],
-    ]);
-    expect(v.agy.cards.map((c) => c.name)).toEqual(['Ultra 1', 'Ultra 2']);
+    ];
+    // @private:end
+    expect(v.claude.cards.map((c) => [c.name, c.sub, c.full])).toEqual(want);
+    let agy = ['Antigravity 1', 'Antigravity 2'];
+    // @private:begin
+    agy = ['Ultra 1', 'Ultra 2'];
+    // @private:end
+    expect(v.agy.cards.map((c) => c.name)).toEqual(agy);
     expect(JSON.stringify(v)).not.toContain('@');
     expect(JSON.stringify(v)).not.toContain('Acme');
   });
@@ -232,9 +248,13 @@ describe('popover view', () => {
 
   it('never shows a number for a slot waiting after its reset', () => {
     const v = view('reset-pending');
+    let fourth = 'Tài khoản 4';
+    // @private:begin
+    fourth = 'Team C';
+    // @private:end
     expect(v.banner).toMatchObject({
       tone: 'info',
-      title: 'Team C vừa qua mốc đặt lại',
+      title: fourth + ' vừa qua mốc đặt lại',
       body: 'Đang chờ Quota Station đọc số mới. App không hiện số khi chưa có số thật.',
     });
     const teamC = v.claude.cards.find((c) => c.slot === 4)!;
@@ -245,19 +265,21 @@ describe('popover view', () => {
     ]);
   });
 
-  it('says when an empty rotation comes back and who refills it', () => {
+  it('says when Claude’s quota runs dry and when it comes back', () => {
     const v = view('exhausted');
-    expect(v.banner).toEqual({
-      tone: 'bad',
-      title: 'Hạn mức Claude trong vòng đã cạn',
-      body: 'Có lại lúc 16:40 khi Cá nhân và Team B được đặt lại.',
-      actions: [],
-    });
+    let banner = {
+      title: 'Hạn mức Claude sắp cạn',
+      body: '**Tài khoản 2** còn 4% hạn mức 5 giờ và không tài khoản nào còn từ 15% trở lên. Sớm nhất có lại lúc 16:40 (Tài khoản 1).',
+    };
+    // @private:begin
+    banner = { title: 'Hạn mức Claude trong vòng đã cạn', body: 'Có lại lúc 16:40 khi Cá nhân và Team B được đặt lại.' };
+    // @private:end
+    expect(v.banner).toEqual({ tone: 'bad', ...banner, actions: [] });
     expect(v.now.rows[0]).toMatchObject({ text: '96%', tone: 'bad' });
   });
 
-  it('without a rotation file names accounts by number', () => {
-    const v = view('no-rotation');
+  it('accounts without a name go by number', () => {
+    const v = view('unnamed');
     expect(v.claude.cards.map((r) => r.name).sort()).toEqual(['Tài khoản 1', 'Tài khoản 2', 'Tài khoản 3', 'Tài khoản 4']);
   });
 

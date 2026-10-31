@@ -2,23 +2,29 @@
 // SPDX-License-Identifier: MIT
 
 //! One manual switch of the Claude account, start to finish (F04): switch
-//! Claude Code's login with the app's own [`crate::claude::switch`], pause
-//! the rotation when the owner chose to hold the account, wait for things to
-//! settle, then look again at which account is active and say what really
-//! happened.
+//! Claude Code's login with the app's own [`crate::claude::switch`], wait
+//! for things to settle, then look again at which account is active and say
+//! what really happened: another program may have switched right after.
+// @private:begin
 //!
-//! The second look matters because the rotation may run right after: the
-//! app's account lock keeps the two switches apart, so the later one wins;
-//! the rotation's log says whether it was the rotation. While an older
-//! switcher (`com.cswap.prefer-team`, `com.cswap.auto`) is loaded nothing is
-//! switched: it keeps its own copies of the same logins.
+//! With the `author-tools` feature the switch also pauses the rotation when
+//! the owner chose to hold the account. The second look matters because the
+//! rotation may run right after: the app's account lock keeps the two
+//! switches apart, so the later one wins; the rotation's log says whether it
+//! was the rotation. While an older switcher (`com.cswap.prefer-team`,
+//! `com.cswap.auto`) is loaded nothing is switched: it keeps its own copies
+//! of the same logins.
+// @private:end
 
+#[cfg(feature = "author-tools")]
 use std::path::PathBuf;
+#[cfg(feature = "author-tools")]
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
 use serde::Serialize;
+#[cfg(feature = "author-tools")]
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
@@ -26,10 +32,14 @@ use crate::claude::locks::LockError;
 use crate::claude::state;
 use crate::claude::store::Store;
 use crate::claude::switch::{self, SwitchError};
+#[cfg(feature = "author-tools")]
 use crate::local_time;
+#[cfg(feature = "author-tools")]
 use crate::os::Scheduler;
+#[cfg(feature = "author-tools")]
 use crate::pause::{self, Flag};
 use crate::quota::{claude as quota_claude, Response};
+#[cfg(feature = "author-tools")]
 use crate::switcher::{self, LogEvent};
 
 /// How long after the switch the active account is looked at again.
@@ -40,10 +50,13 @@ pub const SETTLE: Duration = Duration::from_secs(5);
 pub struct Tools {
     pub store: Store,
     /// The rotation's job, and the older switchers.
+    #[cfg(feature = "author-tools")]
     pub scheduler: Arc<dyn Scheduler>,
+    #[cfg(feature = "author-tools")]
     pub pause_file: PathBuf,
 }
 
+#[cfg(feature = "author-tools")]
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Hold {
@@ -57,15 +70,34 @@ pub struct Hold {
 #[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum Outcome {
     /// The second look shows `slot` active.
-    Switched { slot: u32, hold: Option<Hold> },
+    Switched {
+        slot: u32,
+        #[cfg(feature = "author-tools")]
+        hold: Option<Hold>,
+    },
     /// The switch landed, but the second look shows `active`: a later switch
-    /// won. `by_switcher_at` is set when the rotation's log has that switch.
-    Raced { slot: u32, active: u32, by_switcher_at: Option<String>, hold: Option<Hold> },
+    /// won.
+    Raced {
+        slot: u32,
+        active: u32,
+        /// Set when the rotation's log has that switch.
+        #[cfg(feature = "author-tools")]
+        by_switcher_at: Option<String>,
+        #[cfg(feature = "author-tools")]
+        hold: Option<Hold>,
+    },
     /// The switch landed, and the active account could not be told after.
-    Unconfirmed { slot: u32, hold: Option<Hold> },
-    /// The switch did not land: [`SwitchError::kind`], or `legacy` while an
-    /// older switcher is loaded (its label in `detail`). `active` is the
+    Unconfirmed {
+        slot: u32,
+        #[cfg(feature = "author-tools")]
+        hold: Option<Hold>,
+    },
+    /// The switch did not land: [`SwitchError::kind`]. `active` is the
     /// account in use when the login could not be put back as it was.
+    // @private:begin
+    /// Also `legacy` while an older switcher is loaded (its label in
+    /// `detail`).
+    // @private:end
     Failed { slot: u32, error: String, detail: String, active: Option<u32> },
 }
 
@@ -77,22 +109,27 @@ pub struct Done {
     pub report: Option<Response>,
 }
 
-/// Switches to `slot`. With `hold_until`, the rotation is paused until then
-/// after the switch, so it does not switch straight back. `settle` runs
-/// between the switch and the second look: [`settle`] waits [`SETTLE`].
+/// Switches to `slot`. `settle` runs between the switch and the second
+/// look: [`settle`] waits [`SETTLE`].
+// @private:begin
+/// With `hold_until`, the rotation is paused until then after the switch,
+/// so it does not switch straight back.
+// @private:end
 pub fn switch_claude(
     tools: &Tools,
     slot: u32,
-    hold_until: Option<OffsetDateTime>,
+    #[cfg(feature = "author-tools")] hold_until: Option<OffsetDateTime>,
     settle: &dyn Fn(),
 ) -> Done {
     let failed = |error: &str, detail: String, active: Option<u32>| Done {
         outcome: Outcome::Failed { slot, error: error.to_string(), detail, active },
         report: None,
     };
+    #[cfg(feature = "author-tools")]
     if let Some(label) = tools.scheduler.legacy_loaded() {
         return failed("legacy", label.to_string(), None);
     }
+    #[cfg(feature = "author-tools")]
     let started = OffsetDateTime::now_utc();
     if let Err(e) = switch::switch(&tools.store, slot) {
         let active = matches!(e, SwitchError::NotConfirmed { restored: false, .. })
@@ -102,17 +139,28 @@ pub fn switch_claude(
     }
     let _ = state::write(&tools.store, Some(slot), OffsetDateTime::now_utc());
 
+    #[cfg(feature = "author-tools")]
     let hold = hold(tools, slot, hold_until, started);
     settle();
     let outcome = match switch::active_slot(&tools.store) {
-        Some(a) if a == slot => Outcome::Switched { slot, hold },
+        Some(a) if a == slot => Outcome::Switched {
+            slot,
+            #[cfg(feature = "author-tools")]
+            hold,
+        },
         Some(active) => Outcome::Raced {
             slot,
             active,
+            #[cfg(feature = "author-tools")]
             by_switcher_at: switcher_switch(&tools.store.paths.log(), active, started),
+            #[cfg(feature = "author-tools")]
             hold,
         },
-        None => Outcome::Unconfirmed { slot, hold },
+        None => Outcome::Unconfirmed {
+            slot,
+            #[cfg(feature = "author-tools")]
+            hold,
+        },
     };
     Done { outcome, report: quota_claude::own_now(&tools.store, OffsetDateTime::now_utc()) }
 }
@@ -139,6 +187,7 @@ fn detail(e: &SwitchError) -> String {
 /// The flag keeps local time to the minute, and the sheet shows the end to
 /// the minute (`đến 15:20`), so the hold ends at the minute the owner saw:
 /// up to 59 seconds before a duration counted from the second.
+#[cfg(feature = "author-tools")]
 fn hold(
     tools: &Tools,
     slot: u32,
@@ -165,6 +214,7 @@ fn hold(
 
 /// When the rotation's last log line is its switch to `slot`, written after
 /// `since`: the time of that switch.
+#[cfg(feature = "author-tools")]
 fn switcher_switch(log: &std::path::Path, slot: u32, since: OffsetDateTime) -> Option<String> {
     let line = switcher::last_log_line(log)?;
     let at = line.at?;

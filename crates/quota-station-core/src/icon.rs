@@ -9,7 +9,9 @@ use serde::Serialize;
 use time::OffsetDateTime;
 
 use crate::settings::{Menubar, MenubarWindow};
-use crate::snapshot::{Account, Line, LineKind, Reading, Role, Section, SectionStatus, Snapshot};
+use crate::snapshot::{Account, Line, LineKind, Reading, SectionStatus, Snapshot};
+#[cfg(feature = "author-tools")]
+use crate::snapshot::{Role, Section};
 use crate::time_util::parse_ts;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -17,7 +19,7 @@ use crate::time_util::parse_ts;
 pub enum Tone {
     Ok,
     Warn,
-    /// Claude has no room left in the rotation.
+    /// Claude has no room left.
     Bad,
     /// The title has no number.
     Muted,
@@ -36,11 +38,13 @@ pub struct Icon {
     /// Legacy service presence: false where this Mac has no Antigravity.
     pub show_agy: bool,
     /// Automatic switching is paused: two upright bars inside the gauge.
+    #[cfg(feature = "author-tools")]
     pub paused: bool,
     /// What VoiceOver reads and the tooltip shows.
     pub label: String,
 }
 
+#[cfg(feature = "author-tools")]
 impl Icon {
     /// Marks automatic switching as paused, as the C04 template draws
     /// it. An empty rotation or no number keeps its own glyph: that matters
@@ -76,6 +80,7 @@ pub struct Context {
     pub now: OffsetDateTime,
     /// Accounts without a name shown go by their place in the rotation and
     /// as Ultra N (Cài đặt › Nâng cao on); otherwise by number.
+    #[cfg(feature = "author-tools")]
     pub roles: bool,
 }
 
@@ -98,11 +103,27 @@ fn local_part(name: &str) -> &str {
     name.split('@').next().unwrap_or(name)
 }
 
+#[cfg(feature = "author-tools")]
 const LETTERS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+/// A Claude account's name, uncut, as the windows write it: its email, else
+/// `Tài khoản N`, else "Claude" for the one account read without the app's
+/// list.
+#[cfg(not(feature = "author-tools"))]
+pub fn claude_name(a: &Account) -> String {
+    if let Some(email) = &a.email {
+        return local_part(email).to_string();
+    }
+    if a.number == 0 {
+        return "Claude".into();
+    }
+    format!("Tài khoản {}", a.number)
+}
 
 /// A Claude account's name, uncut, as the windows write it: its email, else its
 /// place (Cá nhân, Team A, Tài khoản N) with `roles`, else `Tài khoản N`, else
 /// "Claude" for the one account read without the app's list.
+#[cfg(feature = "author-tools")]
 pub fn claude_name(section: &Section, a: &Account, roles: bool) -> String {
     if let Some(email) = &a.email {
         return local_part(email).to_string();
@@ -133,8 +154,20 @@ pub fn claude_name(section: &Section, a: &Account, roles: bool) -> String {
     }
 }
 
+/// An Antigravity account's name, uncut: its email, else Antigravity N,
+/// else "Gemini".
+#[cfg(not(feature = "author-tools"))]
+pub fn agy_name(a: &Account) -> String {
+    match (&a.email, a.number) {
+        (Some(email), _) => local_part(email).to_string(),
+        (None, 0) => "Gemini".into(),
+        (None, n) => format!("Antigravity {n}"),
+    }
+}
+
 /// An Antigravity account's name, uncut: its email, else Ultra N with
 /// `roles` or Antigravity N, else "Gemini".
+#[cfg(feature = "author-tools")]
 pub fn agy_name(a: &Account, roles: bool) -> String {
     match (&a.email, a.number) {
         (Some(email), _) => local_part(email).to_string(),
@@ -323,8 +356,12 @@ fn claude_now<'a>(s: &'a Snapshot, cx: &Context) -> Now<'a> {
         };
     };
     let lines = if readable(a) { pick(a, CLAUDE) } else { Vec::new() };
+    #[cfg(feature = "author-tools")]
+    let name = claude_name(section, a, cx.roles);
+    #[cfg(not(feature = "author-tools"))]
+    let name = claude_name(a);
     Now {
-        name: claude_name(section, a, cx.roles),
+        name,
         tight: chosen(&lines, cx.window, cx.now),
         bar: tightest(&lines, cx.now).map(|(_, u)| u),
         stale: section.stale,
@@ -344,8 +381,12 @@ fn agy_now<'a>(s: &'a Snapshot, cx: &Context, kinds: &[LineKind]) -> Now<'a> {
         };
     };
     let lines = if readable(a) { pick(a, kinds) } else { Vec::new() };
+    #[cfg(feature = "author-tools")]
+    let name = agy_name(a, cx.roles);
+    #[cfg(not(feature = "author-tools"))]
+    let name = agy_name(a);
     Now {
-        name: agy_name(a, cx.roles),
+        name,
         tight: chosen(&lines, cx.window, cx.now),
         bar: tightest(&lines, cx.now).map(|(_, u)| u),
         stale: section.stale,
@@ -447,6 +488,7 @@ pub fn icon(snapshot: Option<&Snapshot>, cx: &Context) -> Icon {
         claude: claude.bar,
         agy: if show_agy { gemini.bar } else { None },
         show_agy,
+        #[cfg(feature = "author-tools")]
         paused: false,
         label,
     }
@@ -454,6 +496,7 @@ pub fn icon(snapshot: Option<&Snapshot>, cx: &Context) -> Icon {
 
 /// Both C04 states share an 18 pt frame: pausing never shifts the title.
 pub const GLYPH_POINTS: u32 = 18;
+#[cfg(feature = "author-tools")]
 pub const PAUSED_POINTS: u32 = GLYPH_POINTS;
 
 /// Renders black RGBA pixels with coverage in alpha, ready for AppKit tinting.
@@ -487,8 +530,8 @@ fn coverage(size: u32, scale: f64, shape: impl Fn(f64, f64) -> bool) -> Vec<u8> 
 
 /// The Windows tray icon, `size` pixels square: Windows shows no title
 /// beside a tray icon, so the icon draws the title's number itself, in
-/// white on a dark taskbar and black on a light one. An exhausted rotation,
-/// no number, and a full window (three digits do not fit) keep the menu
+/// white on a dark taskbar and black on a light one. Claude used up, no
+/// number, and a full window (three digits do not fit) keep the menu
 /// bar's glyph; the tooltip ([`tray_tip`]) says the rest.
 pub fn render_tray(icon: &Icon, size: u32, light_taskbar: bool) -> Vec<u8> {
     let number = icon
@@ -607,7 +650,7 @@ pub fn tray_tip(icon: &Icon) -> String {
 
 fn inside(icon: &Icon, x: f64, y: f64) -> bool {
     if icon.tone == Tone::Bad {
-        // Preserve the existing exhausted-rotation warning.
+        // Preserve the existing exhausted warning.
         let (a, b, c) = ((9.0, 2.2), (16.6, 15.6), (1.4, 15.6));
         let edge = seg_dist(x, y, a, b).min(seg_dist(x, y, b, c)).min(seg_dist(x, y, c, a));
         return edge <= 0.75
@@ -626,12 +669,15 @@ fn inside(icon: &Icon, x: f64, y: f64) -> bool {
         return true;
     }
     // Pause bars have a transparent halo so they survive a high reservoir.
-    let pause = [7.05, 9.55].map(|left| round_rect(x, y, left, 4.8, 1.4, 3.7, 0.7));
-    if icon.paused && pause.iter().any(|d| *d <= 0.0) {
-        return true;
-    }
-    if icon.paused && pause.iter().any(|d| *d <= 0.55) {
-        return false;
+    #[cfg(feature = "author-tools")]
+    if icon.paused {
+        let pause = [7.05, 9.55].map(|left| round_rect(x, y, left, 4.8, 1.4, 3.7, 0.7));
+        if pause.iter().any(|d| *d <= 0.0) {
+            return true;
+        }
+        if pause.iter().any(|d| *d <= 0.55) {
+            return false;
+        }
     }
     let Some(used) = icon.used.filter(|p| p.is_finite() && *p > 0.0) else {
         return false;

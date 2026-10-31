@@ -7,13 +7,13 @@
 // copies. Pure, like `view.ts`. Copy follows the approved prototype
 // (`tabRules`, `compareTable`, `leaveDialog`, `fbLine` rules-*).
 
-import { claudeAliases, claudeNames } from './accounts';
-import { clock, pad } from './format';
-import { t } from './i18n';
-import type { AuthorModel } from './author';
-import type { Model, PeerView, Rules, RulesError, Stamp } from './model';
-import { dayClock, type NameOf } from './switching';
-import type { BannerView, FeedbackView } from './view';
+import { claudeAliases, claudeNames, rolesOf } from '@/lib/accounts';
+import { clock, pad } from '@/lib/format';
+import { t } from '@/lib/i18n';
+import type { AuthorModel } from '@/private/author';
+import type { Model, PeerView, Rules, RulesError, Stamp } from '@/lib/model';
+import { dayClock, type NameOf } from '@/lib/switching';
+import type { BannerView, FeedbackView } from '@/lib/view';
 
 export function cloneRules(r: Rules): Rules {
   return { ...r, team: [...r.team], expire: r.expire.map((e) => ({ ...e })) };
@@ -76,7 +76,7 @@ export function slotsOf(model: Model, ...rules: (Rules | null)[]): number[] {
  * are hidden), `Tài khoản 5` for a slot it does not list.
  */
 export function ruleNames(model: Model): NameOf {
-  const names = claudeNames(model.snapshot.claude.accounts, model.snapshot.claude.personalHours, model.advanced.on, claudeAliases(model));
+  const names = claudeNames(model.snapshot.claude.accounts, claudeAliases(model), rolesOf(model, true));
   return (n) => names.get(n)?.name ?? t('Tài khoản ', 'Account ') + n;
 }
 

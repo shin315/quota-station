@@ -13,7 +13,7 @@
 //!
 //! - `accounts.json`, the account index in Cockpit's layout (version `2.0`:
 //!   id, email, name, created and last-used times, current account), which
-//!   the Antigravity row lists and Firstmate's quota-axi reads as Cockpit's;
+//!   the Antigravity row lists and quota-axi reads as Cockpit's;
 //! - `status.json`, the accounts that need the owner: a new login after
 //!   Google refused the refresh token, a verification Google asks for, or
 //!   an account the quota API refuses.

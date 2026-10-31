@@ -1,19 +1,64 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-//! `quota-station claude …`: the accounts from the command line, for
-//! Firstmate, the rotation's LaunchAgent and the owner in a terminal. No
-//! command prints a token; only `status --emails` prints emails.
+//! `quota-station claude …`: the accounts from the command line, for other
+//! programs and the owner in a terminal. No command prints a token; only
+//! `status --emails` prints emails.
+// @private:begin
+//! Firstmate and the rotation's LaunchAgent run it too.
+// @private:end
 
 use std::io::{Read, Write};
+#[cfg(not(feature = "author-tools"))]
+use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 
 use time::OffsetDateTime;
 
-use super::rotate::{self, Tools};
+#[cfg(feature = "author-tools")]
+use super::rotate;
+#[cfg(feature = "author-tools")]
+pub use super::rotate::Tools;
 use super::store::Store;
+#[cfg(not(feature = "author-tools"))]
+use super::usage::Endpoints;
 use super::{import, manage, session, state, switch, usage};
 
+/// The programs the commands run.
+#[cfg(not(feature = "author-tools"))]
+#[derive(Debug, Clone)]
+pub struct Tools {
+    /// `claude`, to log a new account in with and to run as an account.
+    pub claude: Option<PathBuf>,
+    pub endpoints: Endpoints,
+}
+
+#[cfg(not(feature = "author-tools"))]
+impl Tools {
+    pub fn system(home: &Path) -> Tools {
+        Tools { claude: session::find_claude(home), endpoints: Endpoints::anthropic() }
+    }
+}
+
+#[cfg(not(feature = "author-tools"))]
+pub const USAGE: &str = "\
+usage: quota-station claude <command>
+
+  status [--json] [--emails] [--refresh]
+                        every account, its windows and the account in use
+  switch N              make account N Claude Code's login
+  run N [--require-session] [--] ARGS...
+                        run `claude ARGS...` as account N, in its own folder
+  session N             print account N's folder, for CLAUDE_CONFIG_DIR
+  import                carry claude-swap's accounts over (claude-swap is left as it is)
+  add                   log a new account in with `claude auth login`
+  add --current         add the login Claude Code is on now
+  add --token [--email E]
+                        add a `claude setup-token` token, read from stdin
+  remove N | alias N TEXT
+";
+
+#[cfg(feature = "author-tools")]
 pub const USAGE: &str = "\
 usage: quota-station claude <command>
 
@@ -38,6 +83,7 @@ pub struct Cli {
     pub store: Store,
     pub tools: Tools,
     /// This program, for the LaunchAgent.
+    #[cfg(feature = "author-tools")]
     pub exe: std::path::PathBuf,
 }
 
@@ -58,8 +104,11 @@ pub fn run(cli: &Cli, args: &[String], out: &mut dyn Write, err: &mut dyn Write)
     match word {
         "status" => {
             if has("--refresh") {
-                let legacy = cli.tools.scheduler.legacy_loaded();
-                usage::read_due(store, &cli.tools.endpoints, false, legacy.is_none());
+                #[cfg(feature = "author-tools")]
+                let may_refresh = cli.tools.scheduler.legacy_loaded().is_none();
+                #[cfg(not(feature = "author-tools"))]
+                let may_refresh = true;
+                usage::read_due(store, &cli.tools.endpoints, false, may_refresh);
             }
             let now = OffsetDateTime::now_utc();
             let active = switch::active_slot(store);
@@ -86,6 +135,7 @@ pub fn run(cli: &Cli, args: &[String], out: &mut dyn Write, err: &mut dyn Write)
         }
         "switch" => {
             let Some(n) = slot(rest.first()) else { return usage_error(err) };
+            #[cfg(feature = "author-tools")]
             if let Some(label) = cli.tools.scheduler.legacy_loaded() {
                 return fail(
                     err,
@@ -128,6 +178,7 @@ pub fn run(cli: &Cli, args: &[String], out: &mut dyn Write, err: &mut dyn Write)
                 Err(e) => fail(err, &e),
             }
         }
+        #[cfg(feature = "author-tools")]
         "rotate" => {
             let decided = if has("--dry-run") {
                 rotate::dry_run(
@@ -142,6 +193,7 @@ pub fn run(cli: &Cli, args: &[String], out: &mut dyn Write, err: &mut dyn Write)
             let _ = write!(out, "{}", decided.print());
             0
         }
+        #[cfg(feature = "author-tools")]
         "rotation" => {
             let home = &store.paths.home;
             let done = match rest.first().map(String::as_str) {
@@ -190,12 +242,29 @@ pub fn run(cli: &Cli, args: &[String], out: &mut dyn Write, err: &mut dyn Write)
                 Err(e) => fail(err, &e),
             }
         }
+        #[cfg(feature = "author-tools")]
         "remove" | "enable" | "disable" | "alias" => {
             let Some(n) = slot(rest.first()) else { return usage_error(err) };
             let done = match word {
                 "remove" => manage::remove(store, n),
                 "enable" => manage::set_enabled(store, n, true),
                 "disable" => manage::set_enabled(store, n, false),
+                _ => manage::set_alias(store, n, &rest[1..].join(" ")),
+            };
+            match done {
+                Ok(()) => {
+                    let _ =
+                        state::write(store, switch::active_slot(store), OffsetDateTime::now_utc());
+                    0
+                }
+                Err(e) => fail(err, &e),
+            }
+        }
+        #[cfg(not(feature = "author-tools"))]
+        "remove" | "alias" => {
+            let Some(n) = slot(rest.first()) else { return usage_error(err) };
+            let done = match word {
+                "remove" => manage::remove(store, n),
                 _ => manage::set_alias(store, n, &rest[1..].join(" ")),
             };
             match done {
@@ -226,16 +295,18 @@ fn print_status(view: &state::StateOut, out: &mut dyn Write) {
         None => "   -".to_string(),
     };
     for a in &view.accounts {
+        let name = a.alias.as_deref().unwrap_or("");
+        #[cfg(feature = "author-tools")]
+        let name = if a.enabled { name.to_string() } else { format!("held out  {name}") };
         let _ = writeln!(
             out,
-            "{} {:>2}  5h {}  7d {}  {:<8} {}{}{}",
+            "{} {:>2}  5h {}  7d {}  {:<8} {}{}",
             if a.active { '*' } else { ' ' },
             a.slot,
             pct(&a.windows.five_hour),
             pct(&a.windows.seven_day),
             a.status,
-            if a.enabled { "" } else { "held out  " },
-            a.alias.as_deref().unwrap_or(""),
+            name,
             a.email.as_deref().map(|e| format!("  {e}")).unwrap_or_default(),
         );
     }

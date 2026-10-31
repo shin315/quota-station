@@ -6,11 +6,11 @@
 
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { MainWindowApp } from '../App';
-import { fakeApi } from '../fixtures/fakeApi';
-import { firstmateFixture, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
-import type { Api } from '../lib/api';
-import type { FirstmateView, Model } from '../lib/model';
+import { MainWindowApp } from '@/App';
+import { fakeApi } from '@/fixtures/fakeApi';
+import { firstmateFixture, FIXTURE_NOW, fixtureModel } from '@/fixtures/models';
+import type { Api } from '@/lib/api';
+import type { FirstmateView, Model } from '@/lib/model';
 
 async function open(firstmate?: FirstmateView, language: Model['language'] = 'auto') {
   const model = fixtureModel('fresh', { ...(firstmate ? { firstmate } : {}), language });

@@ -5,7 +5,7 @@
 // sánh" finds between this Mac and a made-up other one, and what a copy and
 // its undo report. Every name, path and Mac is made up.
 
-import type { CopyComparison, CopyItem, CopySelection, RestoreDone, RestoreItemResult, RestorePartResult, RestoreUndone } from '../lib/model';
+import type { CopyComparison, CopyItem, CopySelection, RestoreDone, RestoreItemResult, RestorePartResult, RestoreUndone } from '@/lib/model';
 
 const item = (over: Partial<CopyItem> & Pick<CopyItem, 'group' | 'id' | 'state'>): CopyItem => ({
   agent: null,

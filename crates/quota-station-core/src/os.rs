@@ -1,32 +1,32 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-//! What the core asks of the operating system, behind four seams, beside
+//! What the core asks of the operating system, behind its seams, beside
 //! [`crate::login_item::LoginItems`] and [`crate::alerts::Notifier`]:
 //!
 //! - [`SecretStore`]: generic passwords by service and account (macOS:
 //!   the login Keychain through `/usr/bin/security`,
 //!   [`crate::claude::keychain::Security`]);
-//! - [`Scheduler`]: the rotation run every few minutes, and the older
-//!   switchers that must not run beside it (macOS: launchd through
-//!   `/bin/launchctl`, [`crate::claude::agent::Launchd`], also while the app
-//!   is closed; Windows: the app's own timer while it runs,
-//!   [`crate::claude::timer::AppTimer`]);
+// @private:begin
+//! - `Scheduler` (the `author-tools` feature): the rotation run every few
+//!   minutes, and the older switchers that must not run beside it (macOS:
+//!   launchd through `/bin/launchctl`, `crate::claude::agent::Launchd`,
+//!   also while the app is closed; Windows: the app's own timer while it
+//!   runs, `crate::claude::timer::AppTimer`);
+// @private:end
 //! - [`ProcessList`]: which processes run, their command lines and the
 //!   ports they listen on (macOS: `kill(pid, 0)`, `ps` and `lsof`, [`Ps`]);
 //! - [`Opener`]: a URL or a file handed to the program the owner chose for
 //!   it (macOS: `/usr/bin/open`; Windows: the shell, through the `open`
 //!   crate; [`SystemOpener`]).
 //!
-//! The app gets each from [`secret_store`], [`scheduler`], [`processes`]
-//! and [`opener`]; the tests give their own, kept in memory, so none of
-//! them runs a system tool. On Windows the secret store is two
-//! ([`Split`]): the app's own items sealed by DPAPI in files
-//! ([`crate::sealed`]), and Claude Code's login items in Credential
-//! Manager, as Claude Code keeps them ([`crate::claude::credman`]); the
-//! process list is `sysinfo`'s ([`crate::win::Tasks`]); the opener is the
-//! shell's; the scheduler is the app's own timer. Nothing there counts as
-//! an older switcher.
+//! The app gets each from [`secret_store`], [`processes`] and [`opener`];
+//! the tests give their own, kept in memory, so none of them runs a system
+//! tool. On Windows the secret store is two ([`Split`]): the app's own
+//! items sealed by DPAPI in files ([`crate::sealed`]), and Claude Code's
+//! login items in Credential Manager, as Claude Code keeps them
+//! ([`crate::claude::credman`]); the process list is `sysinfo`'s
+//! ([`crate::win::Tasks`]); the opener is the shell's.
 //!
 //! The file steps that differ between the two systems are here too: modes
 //! (700 and 600 on Unix; on Windows the profile's ACL keeps other users
@@ -38,6 +38,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+#[cfg(feature = "author-tools")]
 use crate::claude::agent::AgentError;
 use crate::claude::keychain::KeychainError;
 #[cfg(unix)]
@@ -66,6 +67,7 @@ pub trait SecretStore: Send + Sync + std::fmt::Debug {
 
 /// The job that runs `<exe> claude rotate` every few minutes, and the
 /// older switchers that must never run beside it.
+#[cfg(feature = "author-tools")]
 pub trait Scheduler: Send + Sync + std::fmt::Debug {
     /// Whether the job is installed and loaded; `None` when that cannot be
     /// told.
@@ -186,12 +188,14 @@ pub fn secret_store() -> crate::win::Secrets {
 }
 
 /// This system's scheduler.
+#[cfg(feature = "author-tools")]
 #[cfg(unix)]
 pub fn scheduler() -> crate::claude::agent::Launchd {
     crate::claude::agent::Launchd::system()
 }
 
 /// This system's scheduler: the app's own timer.
+#[cfg(feature = "author-tools")]
 #[cfg(windows)]
 pub fn scheduler() -> crate::claude::timer::AppTimer {
     crate::claude::timer::AppTimer::system()

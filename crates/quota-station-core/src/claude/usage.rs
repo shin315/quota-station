@@ -47,6 +47,8 @@ const CLAIM_SECONDS: f64 = 90.0;
 /// Between two calls in one pass.
 const STAGGER: Duration = Duration::from_millis(250);
 const VERSION: u32 = 1;
+/// The age at which a reading stops counting as fresh.
+pub const FRESH_SECONDS: i64 = 900;
 
 /// Where the reads go. The app always uses [`Endpoints::anthropic`].
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -185,12 +187,12 @@ impl Row {
         self.fetched_at.map(|t| (now - t).max(0.0))
     }
 
-    /// The reading counts for the rotation: there is one, not older than
-    /// [`super::engine::FRESH_SECONDS`], and the login is not dead.
+    /// The reading counts: there is one, not older than [`FRESH_SECONDS`],
+    /// and the login is not dead.
     pub fn fresh(&self, now: f64) -> bool {
         self.last_good.is_some()
             && !self.relogin
-            && self.age(now).is_some_and(|a| a <= super::engine::FRESH_SECONDS as f64)
+            && self.age(now).is_some_and(|a| a <= FRESH_SECONDS as f64)
     }
 
     /// Another copy of the login was stored: it is read again at once, not
@@ -378,8 +380,8 @@ pub struct Pass {
 /// or a switch needs the numbers now); a login that needs a new sign-in
 /// still is.
 /// Without `may_refresh` no token is refreshed: an account whose token
-/// expired waits. The rotation passes that while an older switcher still
-/// runs, which keeps its own copies of the same logins.
+/// expired waits, as while another program keeps its own copies of the
+/// same logins.
 pub fn read_due(store: &Store, endpoints: &Endpoints, force: bool, may_refresh: bool) -> Pass {
     let now = super::epoch(OffsetDateTime::now_utc());
     let Ok(list) = store.load() else { return Pass::default() };

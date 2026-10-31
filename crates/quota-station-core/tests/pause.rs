@@ -3,6 +3,8 @@
 
 //! The pause flag in a temporary folder: never the real one.
 
+#![cfg(feature = "author-tools")]
+
 mod common;
 
 use common::temp_dir;

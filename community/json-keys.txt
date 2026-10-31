@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: 2026 Shin315
+# SPDX-License-Identifier: MIT
+#
+# Keys community/export.py takes out of JSON files: a glob, then the key's
+# dotted path, where * is every element of an array or every key of an
+# object. The Claude reports' rotation, room pool and held-out accounts are
+# read only by the private part; without it the parser skips them.
+crates/quota-station-core/tests/fixtures/claude-*.json providers.*.claudeAccounts.rotation
+crates/quota-station-core/tests/fixtures/claude-*.json providers.*.claudeAccounts.pool
+crates/quota-station-core/tests/fixtures/claude-*.json providers.*.claudeAccounts.poolReason
+crates/quota-station-core/tests/fixtures/claude-*.json providers.*.claudeAccounts.slots.*.disabled

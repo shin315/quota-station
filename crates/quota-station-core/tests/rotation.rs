@@ -4,6 +4,8 @@
 //! The rotation file in temporary folders: these tests never touch the real
 //! rotation file.
 
+#![cfg(feature = "author-tools")]
+
 mod common;
 
 use std::path::{Path, PathBuf};

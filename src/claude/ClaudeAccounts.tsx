@@ -2,17 +2,24 @@
 // SPDX-License-Identifier: MIT
 
 // The Claude accounts Quota Station keeps, in the Claude tab's table: each
-// account's ⋯ menu (details and nickname, holding it out of the rotation,
-// signing in again, removing it), "Thêm tài khoản" and its dialogs
-// (ClaudeDialogs), claude-swap's import while its folder is here, and the
+// account's ⋯ menu (details and nickname, signing in again, removing it),
+// "Thêm tài khoản" and its dialogs (ClaudeDialogs), and claude-swap's
+// import while its folder is here.
+// @private:begin
+// The menu also holds an account out of the rotation, and the tab has the
 // rotation's LaunchAgent with the old switcher's warning.
+// @private:end
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { CardText } from '@/components/ui/card';
-import { BannerBox, BannerButtons, Button, LinkButton, Rich, Toggle } from '../components/parts';
+import { BannerBox, BannerButtons, Button } from '../components/parts';
 import { Glyph } from '../components/icons';
 import { mac, t } from '../lib/i18n';
-import { rotationMatters, rotationRow, setupText } from '../lib/claudeAccounts';
+import { setupText } from '../lib/claudeAccounts';
+// @private:begin
+import { CardText } from '@/components/ui/card';
+import { LinkButton, Rich, Toggle } from '../components/parts';
+import { rotationMatters, rotationRow } from '../lib/claudeAccounts';
+// @private:end
 import type { ClaudeAccountsView } from '../lib/model';
 import type { Action, CardView } from '../lib/view';
 import type { ClaudeManage } from '../window/MainWindow';
@@ -21,15 +28,31 @@ import type { ClaudeAccountsState } from './useClaudeAccounts';
 interface Props {
   view: ClaudeAccountsView;
   claude: ClaudeAccountsState;
-  advanced: boolean;
   onAction(act: Action): void;
+  // @private:begin
+  advanced: boolean;
   /** A build with the author's tools: the line on what Firstmate runs shows. */
   authorTools?: boolean;
+  // @private:end
 }
 
 const ITEM = 'px-2.5 py-[7px] data-[highlighted]:bg-ctl-hover data-[highlighted]:text-ink';
 
-function AccountMenu({ card, view, claude, advanced }: { card: CardView } & Pick<Props, 'view' | 'claude' | 'advanced'>) {
+function AccountMenu({
+  card,
+  view,
+  claude,
+  // @private:begin
+  advanced,
+  // @private:end
+}: { card: CardView } & Pick<
+  Props,
+  | 'view'
+  | 'claude'
+  // @private:begin
+  | 'advanced'
+  // @private:end
+>) {
   const row = view.accounts.find((a) => a.slot === card.slot);
   if (!row) return null;
   const busy = view.working != null;
@@ -49,6 +72,7 @@ function AccountMenu({ card, view, claude, advanced }: { card: CardView } & Pick
         <DropdownMenuItem className={ITEM} onSelect={() => claude.open({ kind: 'detail', slot: row.slot })}>
           {t('Chi tiết và tên gọi…', 'Details and nickname…')}
         </DropdownMenuItem>
+        {/* @private:begin */}
         {rotationMatters(view, advanced) ? (
           row.enabled ? (
             <DropdownMenuItem className={ITEM} disabled={busy} onSelect={() => claude.open({ kind: 'rest', slot: row.slot })}>
@@ -60,6 +84,7 @@ function AccountMenu({ card, view, claude, advanced }: { card: CardView } & Pick
             </DropdownMenuItem>
           )
         ) : null}
+        {/* @private:end */}
         <DropdownMenuItem className={ITEM} disabled={busy || !view.claude} onSelect={() => claude.open({ kind: 'relogin', slot: row.slot })}>
           {t('Đăng nhập lại…', 'Sign in again…')}
         </DropdownMenuItem>
@@ -72,6 +97,7 @@ function AccountMenu({ card, view, claude, advanced }: { card: CardView } & Pick
   );
 }
 
+// @private:begin
 /**
  * The rotation's LaunchAgent, in parts the Claude tab lays out: its switch,
  * its line, the warning while the old switcher is loaded, and what Firstmate
@@ -107,10 +133,11 @@ function rotationParts({ view, claude, onAction, authorTools }: Props): ClaudeMa
     ) : null,
   };
 }
+// @private:end
 
 /** What the Claude tab's table and cards take from the accounts Quota Station keeps. */
 export function claudeManage(props: Props): ClaudeManage {
-  const { view, claude, advanced, onAction } = props;
+  const { view, claude, onAction } = props;
   const busy = view.working != null;
   const setup = view.importable ? setupText(view) : null;
   return {
@@ -120,25 +147,40 @@ export function claudeManage(props: Props): ClaudeManage {
           <Button small tint disabled={busy} onClick={() => onAction('claude:import')}>
             {t('Nhập từ claude-swap', 'Import from claude-swap')}
           </Button>
+          {/* @private:begin */}
           <Button small onClick={() => onAction('guide:switcher')}>
             {t('Hướng dẫn', 'Guide')}
           </Button>
+          {/* @private:end */}
         </BannerButtons>
       </BannerBox>
     ) : null,
-    menu: (card) => <AccountMenu card={card} view={view} claude={claude} advanced={advanced} />,
+    menu: (card) => (
+      <AccountMenu
+        card={card}
+        view={view}
+        claude={claude}
+        // @private:begin
+        advanced={props.advanced}
+        // @private:end
+      />
+    ),
     onAdd: () => claude.open({ kind: 'add', how: view.claude ? 'browser' : 'current', error: null }),
     emptyExtra: view.importable ? (
       <>
         <Button small disabled={busy} onClick={() => onAction('claude:import')}>
           {t('Nhập từ claude-swap', 'Import from claude-swap')}
         </Button>
+        {/* @private:begin */}
         <LinkButton small onClick={() => onAction('guide:switcher')}>
           {t('Hướng dẫn chuyển từ claude-swap', 'How to move from claude-swap')}
         </LinkButton>
+        {/* @private:end */}
       </>
     ) : null,
+    // @private:begin
     rotation: rotationParts(props),
     rotationAlone: view.rotation === true || !!view.legacy,
+    // @private:end
   };
 }

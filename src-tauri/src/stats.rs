@@ -16,6 +16,7 @@ use quota_station_core::history;
 use quota_station_core::local_time;
 use quota_station_core::stats::index::{self, Index, Progress, Roots};
 use quota_station_core::stats::report::{self, Period, Report, Timeline};
+#[cfg(feature = "author-tools")]
 use quota_station_core::switcher;
 use serde::Serialize;
 use tauri::{AppHandle, State};
@@ -146,7 +147,10 @@ pub async fn stats_report(state: State<'_, AppState>, period: Period) -> Result<
             let inner = shared.lock();
             (inner.app_dir(), inner.home.clone(), inner.seen.claude)
         };
+        #[cfg(feature = "author-tools")]
         let entries = history::collect(&dir, &switcher::log_file(&home), usize::MAX);
+        #[cfg(not(feature = "author-tools"))]
+        let entries = history::collect(&dir, usize::MAX);
         let accounts = Timeline::from_history(&entries, now_slot);
         report::report(
             &ix,

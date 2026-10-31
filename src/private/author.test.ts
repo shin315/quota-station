@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import { describe, expect, it } from 'vitest';
-import { communityModel, fixtureModel } from '../fixtures/models';
+import { communityModel, fixtureModel } from '@/fixtures/models';
 import { authorModel } from './author';
 
 describe('the author\'s tools', () => {

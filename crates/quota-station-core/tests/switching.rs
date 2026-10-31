@@ -3,7 +3,10 @@
 
 //! A manual switch end to end, with the app's own switch against a fake
 //! Keychain and launchd in a temporary home: these tests never touch the
-//! Keychain, Claude Code's login or the real pause flag.
+//! Keychain, Claude Code's login or the real pause flag. A build without
+//! the `author-tools` feature has its own in `manual_switch.rs`.
+
+#![cfg(feature = "author-tools")]
 
 mod common;
 
@@ -64,7 +67,6 @@ fn a_confirmed_switch_with_a_hold_writes_the_pause_flag() {
     assert_eq!(accounts.active_slot, Some(3));
 }
 
-#[cfg(feature = "author-tools")]
 #[test]
 fn the_switch_is_in_the_files_firstmate_reads() {
     let (mac, tools) = mac("switching-state");
@@ -89,23 +91,7 @@ fn without_firstmate_no_copy_is_written() {
         serde_json::from_str(&std::fs::read_to_string(mac.paths.state()).unwrap()).unwrap();
     assert_eq!(state["activeSlot"], 3);
     assert!(!mac.paths.state().with_file_name("swap").exists());
-    #[cfg(feature = "author-tools")]
     assert!(mac.paths.firstmate_env().is_empty());
-}
-
-/// A build without the author's tools writes the data file only: no copy
-/// in claude-swap's layout, even with Nâng cao and Firstmate on in a
-/// settings file a build with them wrote.
-#[cfg(not(feature = "author-tools"))]
-#[test]
-fn without_the_author_tools_no_copy_is_written_whatever_the_settings_say() {
-    let (mac, tools) = mac("switching-no-author-tools");
-    mac.show_firstmate(true);
-    switch_claude(&tools, 3, None, &quiet);
-    let state: serde_json::Value =
-        serde_json::from_str(&std::fs::read_to_string(mac.paths.state()).unwrap()).unwrap();
-    assert_eq!(state["activeSlot"], 3);
-    assert!(!mac.paths.state().with_file_name("swap").exists());
 }
 
 #[test]

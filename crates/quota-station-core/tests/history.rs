@@ -3,7 +3,11 @@
 
 //! The switch history: the app's journal, the switcher's log and the app's
 //! Antigravity switch log in one list, and the changes of the account in use
-//! the journal keeps, on synthetic files in temporary folders.
+//! the journal keeps, on synthetic files in temporary folders. A build
+//! without the `author-tools` feature reads no switcher's log and has its
+//! own in `history_journal.rs`.
+
+#![cfg(feature = "author-tools")]
 
 mod common;
 

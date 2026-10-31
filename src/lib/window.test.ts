@@ -13,7 +13,7 @@ describe('main window view', () => {
     const model = fixtureModel('fresh');
     const w = windowView(model, FIXTURE_NOW);
     const p = popoverView(model, FIXTURE_NOW);
-    expect(w.machine).toBe('Mac mini');
+    expect(w.machine).toBe('Mac Studio');
     expect(w.fresh).toEqual(p.fresh);
     expect(w.banner).toEqual(p.banner);
     expect(w.claude.cards.map((c) => c.slot)).toEqual([1, 2, 3, 4]);
@@ -70,6 +70,7 @@ describe('main window view', () => {
     }
   });
 
+  // @private:begin
   it('the switcher card is one line, the rest folded', () => {
     const s = view('fresh').switcher;
     // How often it runs is the LaunchAgent's own line beside it; this one says when it last checked.
@@ -78,6 +79,7 @@ describe('main window view', () => {
     expect(s.details.map((d) => d.key)).toContain('LaunchAgent tự chuyển');
     expect(s.details.find((d) => d.key.startsWith('Quyết định gần nhất'))).toMatchObject({ mono: true });
   });
+  // @private:end
 
   it('a Mac without Antigravity has no Antigravity card', () => {
     expect(view('no-antigravity').agy.present).toBe(false);

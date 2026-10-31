@@ -117,15 +117,20 @@ pub struct Timeline {
 }
 
 impl Timeline {
-    /// From the History tab's lines: the owner's switches here, the
-    /// switcher's, and the changes the readings showed.
+    /// From the History tab's lines: the owner's switches here and the
+    /// changes the readings showed.
+    // @private:begin
+    /// With the `author-tools` feature also the switcher's switches.
+    // @private:end
     pub fn from_history(entries: &[Entry], now: Option<u32>) -> Self {
         let mut switches: Vec<(i64, Option<u32>, u32)> = entries
             .iter()
             .filter(|e| e.app == App::Claude)
             .filter(|e| match &e.cause {
                 Cause::Manual { result, .. } => result == "switched" || result == "unconfirmed",
-                Cause::Switcher { .. } | Cause::Observed => true,
+                Cause::Observed => true,
+                #[cfg(feature = "author-tools")]
+                Cause::Switcher { .. } => true,
                 _ => false,
             })
             .filter_map(|e| Some((super::unix(&e.at)?, e.from, e.to?)))

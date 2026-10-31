@@ -24,8 +24,11 @@
 //!   Code's own login, read-only. The token goes into memory for the one
 //!   request; it is never refreshed, logged or kept.
 //! - [`own`], where the app keeps the accounts: the row from the app's own
-//!   readings (`claude/usage.json`), with every account listed and the
-//!   rotation's room. It reads nothing more, and no Keychain.
+//!   readings (`claude/usage.json`), with every account listed. It reads
+//!   nothing more, and no Keychain.
+// @private:begin
+//!   With the `author-tools` feature also the rotation's room.
+// @private:end
 
 use std::time::Duration;
 
@@ -34,9 +37,11 @@ use time::OffsetDateTime;
 
 use super::cache::Cache;
 use super::{
-    iso, semantics, slugify, status_for_error, text, ClaudeAccounts, Effective, Expire, Provider,
-    ProviderId, Response, RoomPool, RoomSlot, Rotation, Scope, Slot, Window,
+    iso, semantics, slugify, status_for_error, text, ClaudeAccounts, Effective, Provider,
+    ProviderId, Response, Scope, Slot, Window,
 };
+#[cfg(feature = "author-tools")]
+use super::{Expire, RoomPool, RoomSlot, Rotation};
 use crate::app_dir::AppDir;
 use crate::claude::cc::{self, ACTIVE_SERVICE};
 use crate::claude::keychain::{self, user_account, KeychainError};
@@ -45,6 +50,7 @@ use crate::claude::usage::{self, Endpoints, Reading};
 use crate::claude::Paths;
 use crate::local_time;
 use crate::os::SecretStore;
+#[cfg(feature = "author-tools")]
 use crate::rotation::Rules;
 use crate::time_util::parse_ts;
 
@@ -63,8 +69,9 @@ pub const TOKEN_EXPIRED: &str = "Claude access token expired";
 const UNAVAILABLE: &str = "Claude quota unavailable";
 const FIVE_HOURS: f64 = 18_000.0;
 const WEEK: f64 = 604_800.0;
-/// A reading older than this is stale, as the rotation counts it.
-const FRESH_SECONDS: f64 = crate::claude::engine::FRESH_SECONDS as f64;
+/// A reading older than this is stale.
+const FRESH_SECONDS: f64 = crate::claude::usage::FRESH_SECONDS as f64;
+#[cfg(feature = "author-tools")]
 const ACCOUNT_WINDOWS: [&str; 2] = ["five_hour", "seven_day"];
 
 // ===== Claude Code's own login =====
@@ -414,6 +421,7 @@ pub struct Own<'a> {
     /// The account Claude Code is on.
     pub active: Option<u32>,
     /// The rotation file the app follows, when it reads.
+    #[cfg(feature = "author-tools")]
     pub rules: Option<&'a Rules>,
 }
 
@@ -488,7 +496,13 @@ fn scope(e: &Effective, windows: &[Window], now: OffsetDateTime) -> Scope {
 }
 
 fn slot_of(a: &Account, row: Option<&usage::Row>, active: bool, now: OffsetDateTime) -> Slot {
-    let base = Slot { slot: a.slot, active, disabled: a.disabled, ..Slot::default() };
+    let base = Slot {
+        slot: a.slot,
+        active,
+        #[cfg(feature = "author-tools")]
+        disabled: a.disabled,
+        ..Slot::default()
+    };
     let no_data = |error: Option<String>| Slot {
         status: "no_data".into(),
         error: error.or_else(|| Some("no_reading".into())),
@@ -529,8 +543,11 @@ fn slot_of(a: &Account, row: Option<&usage::Row>, active: bool, now: OffsetDateT
 
 /// The row of a Mac where the app keeps the Claude accounts: the account in
 /// use's own reading as the row's windows (stale once older than 15
-/// minutes or past a reset), every account as a slot, the rotation file's
-/// keys, and the rotation's room.
+/// minutes or past a reset), and every account as a slot.
+// @private:begin
+/// With the `author-tools` feature also the rotation file's keys and the
+/// rotation's room.
+// @private:end
 pub fn own(input: &Own, now: OffsetDateTime) -> Response {
     let row_of = |a: &Account| input.usage.row(a.slot).filter(|r| r.identity == a.identity);
     let active = input.active.filter(|s| input.list.get(*s).is_some());
@@ -576,6 +593,7 @@ pub fn own(input: &Own, now: OffsetDateTime) -> Response {
             Provider::failed(ProviderId::Claude, "unavailable", &error)
         }
     };
+    #[cfg(feature = "author-tools")]
     let (pool, pool_reason) = match input.rules {
         Some(rules) => match room(rules, &row, &slots, active, now) {
             Ok(pool) => (Some(pool), None),
@@ -586,13 +604,17 @@ pub fn own(input: &Own, now: OffsetDateTime) -> Response {
     row.claude_accounts = Some(ClaudeAccounts {
         active_slot: active,
         slots,
+        #[cfg(feature = "author-tools")]
         rotation: input.rules.map(rotation_of),
+        #[cfg(feature = "author-tools")]
         pool,
+        #[cfg(feature = "author-tools")]
         pool_reason,
     });
     Response::new(now, vec![row])
 }
 
+#[cfg(feature = "author-tools")]
 fn rotation_of(rules: &Rules) -> Rotation {
     let mut expire: Vec<Expire> = rules
         .expire
@@ -609,6 +631,7 @@ fn rotation_of(rules: &Rules) -> Rotation {
     }
 }
 
+#[cfg(feature = "author-tools")]
 struct Member<'a> {
     slot: u32,
     windows: &'a [Window],
@@ -616,6 +639,7 @@ struct Member<'a> {
 }
 
 /// Percent used now: none past its reset.
+#[cfg(feature = "author-tools")]
 fn used_now(w: &Window, now: OffsetDateTime) -> Option<f64> {
     if w.reset_passed(now) {
         return Some(0.0);
@@ -623,6 +647,7 @@ fn used_now(w: &Window, now: OffsetDateTime) -> Option<f64> {
     w.percent_used.or(w.percent_remaining.map(|r| 100.0 - r))
 }
 
+#[cfg(feature = "author-tools")]
 fn round(v: f64, digits: i32) -> f64 {
     let f = 10f64.powi(digits);
     (v * f + 0.5).floor() / f
@@ -634,6 +659,7 @@ fn round(v: f64, digits: i32) -> f64 {
 /// from the row), the room before `full`, as a percent of that room, in the
 /// tighter of the five-hour and weekly windows; and the first reset that
 /// gives an account more room. `Err` says why there is no rotation to count.
+#[cfg(feature = "author-tools")]
 fn room(
     rules: &Rules,
     row: &Provider,
@@ -709,6 +735,7 @@ fn room(
 
 /// One account's room in percent, and the first reset before it leaves the
 /// rotation after which it has more.
+#[cfg(feature = "author-tools")]
 fn member_room(m: &Member, full: f64, now: OffsetDateTime) -> (f64, Option<OffsetDateTime>) {
     let windows: Vec<&Window> =
         m.windows.iter().filter(|w| ACCOUNT_WINDOWS.contains(&w.id.as_str())).collect();
@@ -748,9 +775,11 @@ fn member_room(m: &Member, full: f64, now: OffsetDateTime) -> (f64, Option<Offse
     (left, None)
 }
 
-/// [`own`] from the app's files as they are now: its list, its readings,
-/// the account Claude Code is on and the rotation file it follows. `None`
-/// while the app keeps no account.
+/// [`own`] from the app's files as they are now: its list, its readings and
+/// the account Claude Code is on. `None` while the app keeps no account.
+// @private:begin
+/// With the `author-tools` feature also the rotation file it follows.
+// @private:end
 pub fn own_now(store: &crate::claude::store::Store, now: OffsetDateTime) -> Option<Response> {
     if !store.paths.in_use() {
         return None;
@@ -758,16 +787,25 @@ pub fn own_now(store: &crate::claude::store::Store, now: OffsetDateTime) -> Opti
     let list = store.load().ok()?;
     let usage = usage::load(store);
     let active = crate::claude::switch::active_slot(store);
+    #[cfg(feature = "author-tools")]
     let rules = match crate::rotation::load(&store.paths.rotation_file()) {
         crate::rotation::FileState::Ok { parsed, .. } => Some(parsed.rules),
         _ => None,
     };
-    Some(own(&Own { list: &list, usage: &usage, active, rules: rules.as_ref() }, now))
+    let input = Own {
+        list: &list,
+        usage: &usage,
+        active,
+        #[cfg(feature = "author-tools")]
+        rules: rules.as_ref(),
+    };
+    Some(own(&input, now))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(feature = "author-tools")]
     use crate::quota::parse_iso;
     use serde_json::json;
 
@@ -803,11 +841,13 @@ mod tests {
         assert_eq!((w[1].id.as_str(), w[1].kind.as_deref()), ("seven_day_opus", Some("model")));
     }
 
+    #[cfg(feature = "author-tools")]
     fn window(id: &str, used: f64, resets: Option<&str>) -> Window {
         let kind = if id == "five_hour" { "session" } else { "weekly" };
         Window::used(id, kind, used, resets.map(String::from))
     }
 
+    #[cfg(feature = "author-tools")]
     #[test]
     fn an_accounts_room_is_its_tighter_window_before_full() {
         let now = parse_iso("2030-01-15T12:00:00Z").unwrap();

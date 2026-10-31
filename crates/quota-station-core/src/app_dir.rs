@@ -279,7 +279,7 @@ mod tests {
         std::fs::remove_dir_all(&base).unwrap();
     }
 
-    /// The Mac mini M6 at ca353c5: `release.json` and `cli-tools.json` were
+    /// One Mac at ca353c5: `release.json` and `cli-tools.json` were
     /// refused as "outside the app's folder", so neither check ever showed.
     #[test]
     fn a_file_in_the_folder_itself_is_written() {

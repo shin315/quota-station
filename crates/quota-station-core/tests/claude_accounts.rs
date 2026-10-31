@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-//! The Claude accounts' readings, the data file Firstmate reads and the
-//! copy its quota-axi reads, and running `claude` as one account, against a fake Keychain and a
-//! fake Anthropic in a temporary home. Every login is made up.
+//! The Claude accounts' readings, the data file and the copy quota-axi
+//! reads, and running `claude` as one account, against a fake Keychain and
+//! a fake Anthropic in a temporary home. Every login is made up.
 
 mod common;
 
@@ -208,10 +208,13 @@ fn a_rate_limit_backs_off() {
 #[test]
 fn the_data_file_has_every_account_and_no_secret_or_email() {
     let (mac, anthropic) = mac("state");
-    mac.show_firstmate(true);
-    let mut list = mac.store.load().unwrap();
-    list.get_mut(3).unwrap().disabled = true;
-    mac.store.save(&list).unwrap();
+    #[cfg(feature = "author-tools")]
+    {
+        mac.show_firstmate(true);
+        let mut list = mac.store.load().unwrap();
+        list.get_mut(3).unwrap().disabled = true;
+        mac.store.save(&list).unwrap();
+    }
     anthropic.usage("acc-2", 30.0, Some("2030-01-16T09:00:00Z"), Some(12.0), None);
     anthropic.usage("acc-3", 5.0, None, None, None);
     read(&mac, &anthropic, false);
@@ -224,8 +227,11 @@ fn the_data_file_has_every_account_and_no_secret_or_email() {
         accounts.iter().map(|a| a["slot"].as_u64().unwrap()).collect::<Vec<_>>(),
         vec![2, 3]
     );
-    assert_eq!(accounts[0]["enabled"], true);
-    assert_eq!(accounts[1]["enabled"], false);
+    #[cfg(feature = "author-tools")]
+    assert_eq!(
+        (accounts[0]["enabled"].as_bool(), accounts[1]["enabled"].as_bool()),
+        (Some(true), Some(false))
+    );
     assert_eq!(accounts[0]["status"], "fresh");
     assert_eq!(accounts[0]["windows"]["fiveHour"]["usedPercent"], 30.0);
     assert_eq!(accounts[0]["windows"]["fiveHour"]["resetsAt"], "2030-01-16T09:00:00Z");

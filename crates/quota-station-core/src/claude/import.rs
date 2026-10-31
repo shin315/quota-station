@@ -10,18 +10,22 @@
 // `claude-swap` / `account-N-<email>`.
 
 //! `Nhập từ claude-swap`: carries every claude-swap account over to the app,
-//! under the same slot number, without a new login, each in the rotation:
-//! claude-swap's own `disabled` is not carried over, as the old switcher
-//! never read it. It only reads claude-swap's folder and Keychain items,
-//! never writes them.
+//! under the same slot number, without a new login. It only reads
+//! claude-swap's folder and Keychain items, never writes them.
 //!
 //! Running it again changes nothing, except that a credential claude-swap
 //! holds a newer copy of (a later `expiresAt`) replaces the app's: an
-//! account the owner renamed or held out of the rotation in the app stays as
-//! the owner left it, and an account already in the app under another slot
-//! is not added twice. It also copies the rotation file, the
-//! `prime` flag and its times, and claude-swap's last readings, each only
-//! when the app has none yet.
+//! account the owner renamed in the app stays as the owner left it, and an
+//! account already in the app under another slot is not added twice. It
+//! also copies claude-swap's last readings, only when the app has none yet.
+// @private:begin
+//!
+//! Each account comes in the rotation: claude-swap's own `disabled` is not
+//! carried over, as the old switcher never read it, and one the owner held
+//! out of the rotation in the app stays held out. It also copies the
+//! rotation file, the `prime` flag and its times, each only when the app
+//! has none yet.
+// @private:end
 
 use std::path::{Path, PathBuf};
 
@@ -33,16 +37,20 @@ use time::OffsetDateTime;
 
 use super::cc;
 use super::locks::{AppLock, LockError};
+use super::session;
 use super::store::{self, Account, Kind, Store, StoreError};
 use super::usage::{self, Row, Scoped, Win};
-use super::{session, Paths};
+#[cfg(feature = "author-tools")]
+use super::Paths;
 
 /// claude-swap's folder on macOS.
 pub const SOURCE: &str = ".claude-swap-backup";
 /// claude-swap's Keychain service for its accounts.
 const SWAP_SERVICE: &str = "claude-swap";
 /// The old switcher's priming times.
+#[cfg(feature = "author-tools")]
 const PRIME_STATE: &str = ".local/state/cswap-prefer-team";
+#[cfg(feature = "author-tools")]
 const PRIME_FLAG: &str = ".config/cswap-prefer-team/prime";
 
 pub fn source(home: &Path) -> PathBuf {
@@ -61,7 +69,9 @@ pub struct Imported {
     /// slot in the app), `elsewhere` (the account is in the app under
     /// another slot), `apiKey`, `noConfig`, `noCredential`, `keychain`.
     pub skipped: Vec<(u32, String)>,
+    #[cfg(feature = "author-tools")]
     pub rotation: bool,
+    #[cfg(feature = "author-tools")]
     pub prime: bool,
 }
 
@@ -250,6 +260,7 @@ pub fn import(store: &Store, dir: &Path) -> Result<Imported, ImportError> {
                 list.put(Account {
                     slot: f.slot,
                     alias,
+                    #[cfg(feature = "author-tools")]
                     disabled: false,
                     kind: if token { Kind::SetupToken } else { Kind::Login },
                     account_uuid: text(&oauth, "accountUuid").to_string(),
@@ -265,8 +276,11 @@ pub fn import(store: &Store, dir: &Path) -> Result<Imported, ImportError> {
     store.save(&list)?;
 
     seed_usage(store, dir, &found, &imported, &done.updated);
-    done.rotation = copy_rotation(paths);
-    done.prime = copy_prime(paths);
+    #[cfg(feature = "author-tools")]
+    {
+        done.rotation = copy_rotation(paths);
+        done.prime = copy_prime(paths);
+    }
     Ok(done)
 }
 
@@ -349,6 +363,7 @@ fn seed_usage(
 }
 
 /// The old switcher's rotation file, when the app has none.
+#[cfg(feature = "author-tools")]
 fn copy_rotation(paths: &Paths) -> bool {
     let own = paths.rotation();
     let legacy = crate::rotation::path(&paths.home);
@@ -362,6 +377,7 @@ fn copy_rotation(paths: &Paths) -> bool {
 }
 
 /// The old switcher's priming flag and times, when the app has none.
+#[cfg(feature = "author-tools")]
 fn copy_prime(paths: &Paths) -> bool {
     if paths.prime_flag().exists() || !paths.home.join(PRIME_FLAG).exists() {
         return false;

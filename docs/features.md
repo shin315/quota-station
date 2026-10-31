@@ -7,6 +7,7 @@ each part is in [how-it-works.md](how-it-works.md).
 
 Some parts belong to a build or a setting:
 
+<!-- @private:begin -->
 - **Advanced** (`Nâng cao`): the tools made for the author's own Macs. They are
   compiled only with the `author-tools` feature, which `scripts/install.sh`
   turns on and a release build leaves out, and shown only while `Settings ›
@@ -14,6 +15,7 @@ Some parts belong to a build or a setting:
   no rotation rules and accounts named `Account N` (`Tài khoản N`); a Mac that
   already had the app gets it on, with Firstmate. Parts marked *(Advanced)*
   below need it.
+<!-- @private:end -->
 - **Antigravity accounts**: logging in and switching several Antigravity
   accounts, compiled only with the `antigravity-accounts` feature. Without it the Antigravity tab is `read-only` and offers a card about
   the multi-account build. Parts marked *(Antigravity accounts)* need it.
@@ -21,15 +23,22 @@ Some parts belong to a build or a setting:
 Contents: [the menu bar](#the-menu-bar-item) ·
 [the popover](#the-popover) · [the main window](#the-main-window) ·
 [names](#names) · [Claude](#claude) · [Antigravity](#antigravity) ·
-[Codex](#codex) · [rotation rules](#rotation-rules-advanced) ·
-[history](#history) · [notifications](#notifications) ·
-[Firstmate](#firstmate-advanced) · [MCP](#mcp) ·
+[Codex](#codex) · [history](#history) · [notifications](#notifications) ·
+[MCP](#mcp) ·
 [Skills, Plugins and Instruction files](#skills-plugins-and-instruction-files) ·
 [Config sets](#config-sets) · [Agent updates](#agent-updates) ·
-[Backup](#backup-and-restore) · [Copy to another Mac](#copy-to-another-mac-advanced) ·
+[Backup](#backup-and-restore) ·
 [Variables that override a sign-in](#variables-that-override-a-sign-in) ·
 [Stats](#stats) · [Settings](#settings) · [the first run](#the-first-run) ·
 [app updates](#app-updates)
+
+<!-- @private:begin -->
+
+Advanced: [rotation rules](#rotation-rules-advanced) ·
+[Firstmate](#firstmate-advanced) ·
+[Copy to another Mac](#copy-to-another-mac-advanced)
+
+<!-- @private:end -->
 
 ## The menu bar item
 
@@ -53,11 +62,17 @@ it goes through a provider of its own, which reports no quota. Without a number
 the title is the name and `–`; only the window shown needs a number, except for
 the window used the most, which needs every window. A Mac without Antigravity,
 or without Codex, follows Claude. The gauge fills with the same service and
-window as the title; without a number its reservoir is empty. While automatic
-switching is paused, two small pause bars sit inside the gauge; an exhausted
-Claude rotation draws a warning triangle. The tooltip and the VoiceOver label
-give every service in words, the window shown and its reset included (this
-label is in Vietnamese for now).
+window as the title; without a number its reservoir is empty. When Claude's
+quota is used up the icon draws a warning triangle. The tooltip and the
+VoiceOver label give every service in words, the window shown and its reset
+included (this label is in Vietnamese for now).
+
+<!-- @private:begin -->
+
+*(Advanced)* While automatic switching is paused, two small pause bars sit
+inside the gauge; an exhausted Claude rotation draws the warning triangle.
+
+<!-- @private:end -->
 
 **Right-click menu**: `Open Quota Station`, `Refresh`, `Menu bar service`
 (Claude, Gemini or Codex, ticked; a service this Mac lacks is greyed out),
@@ -89,12 +104,12 @@ the account in use and its number; folds and open lists stay as they were the
 next time the popover opens, and every line is a button with `aria-expanded`.
 
 The popover writes no notes on the accounts: an old number is drawn grey with
-its age on hover, and the rotation's notes stay in the main window. Only an
+its age on hover. Only an
 account that must sign in again says so, in one short line (and on the closed
 line, `· 1 to sign in again`). Every window, the organization and the hours
 stay in the accounts' spoken labels and in the main window. It also has
 banners for stale numbers, an unavailable source, numbers waiting after a
-reset, an exhausted rotation and missing Keychain permission; the first read
+reset, Claude's quota used up and missing Keychain permission; the first read
 says `Reading quota for the first time…`, and a Mac with no agent at all says
 so with `Check again`. Every other Claude account is a button that opens the
 switch sheet, and so is every other Antigravity account the app signs in
@@ -102,10 +117,16 @@ switch sheet, and so is every other Antigravity account the app signs in
 
 The footer, outside the scrolling part, explains the numbers (`% used · time
 until reset`, with `Details`) and says when a new version of the app is out.
+
+<!-- @private:begin -->
+
 *(Advanced)* It also has the `Claude auto-switch` switch; the line that says why
 Claude is on its account shows only when there is something to act on (a pause
 or hold, waiting for quota, a switch coming, the switcher missing or failing),
-and the other Macs' line only when one of them is behind.
+and the other Macs' line only when one of them is behind. The popover's notes
+on the rotation stay in the main window.
+
+<!-- @private:end -->
 
 ## The main window
 
@@ -119,33 +140,49 @@ The sidebar:
 
 - `Overview` and `Stats`
 - **Accounts**: `Claude`, `Antigravity`, `Codex`
-- **Automation** (with Advanced; **Activity** otherwise): `Rotation rules`
-  *(Advanced)*, `History`, `Firstmate` *(Advanced)*
+- **Activity**: `History`
 - **Agent**: `MCP`, `Skills`, `Plugins`, `Instruction files`, `Config sets`,
   `Updates` (Agent updates; not on Windows)
-- **Backup**: `Backup`, `Copy to another Mac` *(Advanced)*
-- `Settings`, at the foot, with the Mac's name under it (and, with Advanced,
-  whether the other Macs have the rotation rules).
+- **Backup**: `Backup`
+- `Settings`, at the foot, with the Mac's name under it.
+
+<!-- @private:begin -->
+
+*(Advanced)* **Activity** becomes **Automation**, with `Rotation rules` and
+`Firstmate` beside `History`; **Backup** adds `Copy to another Mac`; and under
+`Settings`, whether the other Macs have the rotation rules.
+
+<!-- @private:end -->
 
 `Overview` has a card per service: the Claude accounts in a table with fixed
 columns (`5-hour · Week · Fable week`), the Antigravity accounts (`5-hour` and
 `Week` under `Gemini` and `Claude/GPT`), and the Codex accounts (`5-hour` and
 `Week`, and the custom providers), each the share used, with `Switch` on each
 account not in use and `In use` (a dot and words, nothing to press) on the one
-in use. *(Advanced)* The Claude card's header has `Claude auto-switch` and its
-one line, when there is more than one account. A banner at the foot says when a
-new version of the app is out.
+in use. A banner at the foot says when a new version of the app is out.
+
+<!-- @private:begin -->
+
+*(Advanced)* The Claude card's header has `Claude auto-switch` and its one
+line, when there is more than one account.
+
+<!-- @private:end -->
 
 ## Names
 
 Accounts go by the part of their email before `@` when every account shares
-one domain (the whole email otherwise, and always on hover), with the
-organization of a Team seat or `Personal · 08–23` under it, unless a nickname
-was given. Turning off `Show emails` (`Hiện email`) in `Settings › Display`
-names them by place instead, for screenshots, and then no email or
-organization reaches the windows at all. The place names (`Team A`,
-`Personal`, `Ultra 1`) come with Advanced; without it accounts are `Account N`
-and `Antigravity N`.
+one domain (the whole email otherwise, and always on hover), unless a
+nickname was given. Turning off `Show emails` (`Hiện email`) in `Settings ›
+Display` names them by place instead, for screenshots, and then no email or
+organization reaches the windows at all: accounts are `Account N` and
+`Antigravity N`.
+
+<!-- @private:begin -->
+
+*(Advanced)* The organization of a Team seat or `Personal · 08–23` sits under
+the name, and the place names are `Team A`, `Personal` and `Ultra 1`.
+
+<!-- @private:end -->
 
 ## Claude
 
@@ -154,12 +191,16 @@ and `Antigravity N`.
 reading gets a chip by the name. `Add account` signs one in with the browser,
 takes the account Claude Code is signed in to, takes a pasted setup-token, or
 imports claude-swap's accounts (see [how-it-works.md](how-it-works.md#the-claude-accounts)).
-Each row's `⋯` menu has `Details and nickname…`, pausing automatic switching
-for that account (or putting it back), `Sign in again…` and `Remove from this
-Mac…`. A variable that overrides Claude Code's sign-in puts a red banner at the
-top of the tab ([below](#variables-that-override-a-sign-in)). While an older
-switcher (`com.cswap.prefer-team` or `com.cswap.auto`) is still loaded, the tab
-says so with `How to turn it off`, and a guide covers moving from claude-swap.
+Each row's `⋯` menu has `Details and nickname…`, `Sign in again…` and `Remove
+from this Mac…`. A variable that overrides Claude Code's sign-in puts a red
+banner at the top of the tab ([below](#variables-that-override-a-sign-in)).
+
+<!-- @private:begin -->
+
+*(Advanced)* The `⋯` menu can also pause automatic switching for that account
+(or put it back). While an older switcher (`com.cswap.prefer-team` or
+`com.cswap.auto`) is still loaded, the tab says so with `How to turn it off`,
+and a guide covers moving from claude-swap.
 
 *(Advanced)* Below the accounts, one card has two halves: `Claude auto-switch`,
 with its line (the rotation's decision from a dry run, or `Paused until HH:MM:
@@ -171,19 +212,28 @@ rotation every 3 minutes, even when the app is closed. Without Advanced, an
 older switcher is loaded. Banners warn when a switcher ignores the pause flag
 and when launchd does not run the rotation.
 
+<!-- @private:end -->
+
 **Switching.** The confirmation sheet names the account, its allowances, and
 how many Claude Code sessions running on this Mac will rebuild their prompt
-cache on their next message, which costs quota. *(Advanced)* It offers a hold so
-automatic switching does not switch straight back: `30 minutes`, `1 hour` (the
-default), `Until reset` (the account's next five-hour reset) or `Let it
-auto-switch`; outside the personal account's hours it warns that the rotation
-will move away from it. Confirming switches with the app's own switch, writes
-the pause flag when a hold was chosen (a hold never shortens a pause that is
-already on for longer), waits 5 seconds, reads the active account again without
-the app's cache and reports what it finds: switched, switched back by the
-rotation (or by another switch), not yet confirmed, or why nothing changed
-(Claude Code held its login locks, the account needs a new sign-in, Claude Code
-is on a sign-in the app does not keep, or an older switcher is still loaded).
+cache on their next message, which costs quota. Confirming switches with the
+app's own switch, waits 5 seconds, reads the active account again without the
+app's cache and reports what it finds: switched, switched back by another
+switch, not yet confirmed, or why nothing changed (Claude Code held its login
+locks, the account needs a new sign-in, or Claude Code is on a sign-in the app
+does not keep).
+
+<!-- @private:begin -->
+
+*(Advanced)* The sheet also offers a hold so automatic switching does not
+switch straight back: `30 minutes`, `1 hour` (the default), `Until reset` (the
+account's next five-hour reset) or `Let it auto-switch`; outside the personal
+account's hours it warns that the rotation will move away from it. Confirming
+writes the pause flag when a hold was chosen (a hold never shortens a pause
+that is already on for longer). The report can also say the rotation switched
+back, or that nothing changed because an older switcher is still loaded.
+
+<!-- @private:end -->
 
 ## Antigravity
 
@@ -281,7 +331,7 @@ cannot be undone, since the app never keeps a key, and the preview says so. A
 table that reads its key from `env_key` gets the steps to set the variable, and
 nothing is written. CC Switch's `model_catalog_json` is only reported: Codex
 does not start without that file. The key never reaches a window, the log,
-`History`, a backup, the copy to another Mac or a configuration set.
+`History`, a backup, a copy between Macs or a configuration set.
 
 **Plugins.** `Use plugins with a Custom API` is a checkbox, ticked by default
 and kept in the settings. Ticked, a switch to the custom provider keeps the
@@ -319,6 +369,8 @@ every key in it replaced by `<redacted>`, writes a temporary file and renames
 it, and reads the result. The Codex folder is `~/.codex` unless `Settings ›
 Services › Codex folder` says otherwise.
 
+<!-- @private:begin -->
+
 ## Rotation rules *(Advanced)*
 
 The editor shows the rotation file's six keys: the Team accounts in the
@@ -349,15 +401,25 @@ is newer. Reload?` and saves over it only when told to. Leaving the tab,
 closing the window or quitting from the menu bar with unsaved changes asks
 first.
 
+<!-- @private:end -->
+
 ## History
 
 Every switch on this Mac, newest first, a day at a time (at most 200 shown),
 filtered by `All`, `Claude`, `Antigravity` or `Codex`. Each line has its time, a
 tag, the accounts before and after, why, and where it comes from: the app (a
-switch made in this app), the switcher (a `switch to slot N` or `primed slot N`
-line in the switcher's log, read from its last 64 KB) or `observed` (the
-account in use changed between two reads and neither the app nor the switcher
-made it, or Antigravity.app wrote the old sign-in back). The app keeps its own
+switch made in this app) or `observed` (the account in use changed between
+two reads and the app did not make it, or Antigravity.app wrote the old
+sign-in back).
+
+<!-- @private:begin -->
+
+*(Advanced)* A line can also come from the switcher (a `switch to slot N` or
+`primed slot N` line in the switcher's log, read from its last 64 KB), and
+`observed` then means neither the app nor the switcher made the change.
+
+<!-- @private:end -->
+ The app keeps its own
 lines, at most 500, in `history/history.jsonl`; the Antigravity and Codex
 switches come from the app's own switch logs, never from Cockpit's switch
 history.
@@ -381,20 +443,25 @@ The cards' titles, words and buttons are written by the Rust side and are in
 Vietnamese for now, whatever the app's language; `Settings › Notifications`
 lists the kinds in both languages. The kinds:
 
-1. **Claude quota running out, and back** (`Hạn mức Claude trong vòng sắp cạn`
-   and `Claude đã có lại hạn mức`): Firstmate's rule on the accounts' numbers.
-   The rotation's accounts that have not left it (the personal one only inside
-   its hours) count; the pool is dry when the account in use has 10% or less
-   left and no other has 15% or more (both set in `Settings › Notifications ›
-   Running-out thresholds`; without Advanced every account counts and the title
-   is `Hạn mức Claude sắp cạn`). Where the app keeps no Claude account it reads
-   the rotation file. The card names the account in use and its share used, and
+1. **Claude quota running out, and back** (`Hạn mức Claude sắp cạn` and
+   `Claude đã có lại hạn mức`): the pool is dry when the account in use has 10%
+   or less left and no other account has 15% or more (both set in `Settings ›
+   Notifications › Running-out thresholds`).
+   <!-- @private:begin -->
+   *(Advanced)* Firstmate's rule: only the rotation's accounts that have not
+   left it (the personal one only inside its hours) count, and the title is
+   `Hạn mức Claude trong vòng sắp cạn`. Where the app keeps no Claude account
+   it reads the rotation file.
+   <!-- @private:end -->
+   The card names the account in use and its share used, and
    when an account resets, and offers `Sang <account> (đã dùng N%)` when a
    better account exists, which opens the switch sheet, and `Bỏ qua`.
+<!-- @private:begin -->
 2. **An account is about to leave the rotation** *(Advanced)* (`<account> rời
    vòng lúc HH:MM`): 30 minutes before an account leaves the rotation (`expire`
    in the rules). For the account in use it offers `Ổn` and `Chuyển ngay` (the
    switch sheet).
+<!-- @private:end -->
 3. **An account needs to sign in again** (`<account> cần đăng nhập lại`): the
    usage read reports an error only a new sign-in mends (`invalid_grant`,
    `no_refresh_token`, `no-access-token`, `relogin_required`, a relogin), with
@@ -408,9 +475,11 @@ lists the kinds in both languages. The kinds:
    card offers `Thoát app rồi chuyển lại` and `Chuyển lại` (only `Chuyển lại`
    while Antigravity.app is not running; they switch back at once, as the
    sheet's buttons do) and `Bỏ qua`; after that it only says so.
+<!-- @private:begin -->
 5. **Firstmate is waiting for Claude quota** *(Advanced)* (`Firstmate đang chờ
    hạn mức Claude`): Firstmate's `quota-pool.last`, written within the last 30
    minutes, says `pool=dry`. Off by default.
+<!-- @private:end -->
 
 The bell also gets, in the app only unless said otherwise: skills with a newer
 version (a macOS card only if `Show skill updates as macOS notifications` is
@@ -425,6 +494,8 @@ once for leave to show cards, the first time the app runs. Only the packaged
 was sent, answered and snoozed is kept in `alerts/alerts.json` (the newest 30
 cards).
 
+<!-- @private:begin -->
+
 ## Firstmate *(Advanced)*
 
 Whether Firstmate holds new Claude work, from the line its quota-pool watch
@@ -434,6 +505,8 @@ account has left, the next reset, whether Firstmate's quota-axi has `+cswap`
 and whether it could read claude-swap, and when the file was written. A file
 older than 30 minutes says Firstmate may not be running, and a Mac without the
 file says so. Only the keys Firstmate writes are read.
+
+<!-- @private:end -->
 
 ## MCP
 
@@ -602,6 +675,8 @@ whole restore back, asking first when a file was edited since. See
 [`SECURITY.md`](../SECURITY.md#backup-packs-and-restore-m10) and
 [its restore section](../SECURITY.md#restoring-skills-plugins-and-instruction-files-m12).
 
+<!-- @private:begin -->
+
 ## Copy to another Mac *(Advanced)*
 
 The tab copies MCP servers, skills, plugins and instruction files between this
@@ -619,6 +694,8 @@ off by default: a server that needs a key is then added turned off and that Mac
 asks for the key. A Mac that does not answer, or whose app is still version 1,
 is never written to. Codex's provider, sign-ins and accounts are never part of
 a copy. See [`SECURITY.md`](../SECURITY.md#copying-to-another-mac-m13).
+
+<!-- @private:end -->
 
 ## Variables that override a sign-in
 
@@ -710,6 +787,7 @@ it.
   client` (whether `oauth-client.json` is in place and usable), and the
   `Environment variables that override sign-in` card. While a variable is set,
   this tab moves to the front of the bar and the card leads it.
+<!-- @private:begin -->
 - **Advanced** (`Nâng cao`, `author-tools` builds only): `Show advanced
   features` shows the `Rotation rules`, `Firstmate` and `Copy to another Mac`
   tabs, automatic switching with its pause (`Until 18:00` among them), the
@@ -722,11 +800,18 @@ it.
   `Update` (`Update from source`) pulls it and installs the new build
   ([README](../README.md#update)). A settings file from before the list of
   other Macs with a single `sshAlias` moves into it.
+<!-- @private:end -->
 
-Links elsewhere open the tab they are about: `Open Settings` in `Firstmate` and
-`Copy to another Mac` opens `Advanced`, a variable's banner or notification
-opens `Services`, and `Notification settings` under the bell opens
-`Notifications`.
+Links elsewhere open the tab they are about: a variable's banner or
+notification opens `Services`, and `Notification settings` under the bell
+opens `Notifications`.
+
+<!-- @private:begin -->
+
+*(Advanced)* `Open Settings` in `Firstmate` and `Copy to another Mac` opens
+`Advanced`.
+
+<!-- @private:end -->
 
 ## The first run
 

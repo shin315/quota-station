@@ -2,18 +2,24 @@
 // SPDX-License-Identifier: MIT
 
 //! The operating system as the tests give it, kept in memory: a secret
-//! store, a scheduler and a process list. Nothing here runs a program or
-//! reaches the Keychain, launchd or the real process table, so the tests
-//! that use them run on every system.
+//! store and a process list.
+//! @private:begin
+//! With the private part, a scheduler too.
+//! @private:end
+//! Nothing here runs a program or reaches the Keychain, launchd or the real
+//! process table, so the tests that use them run on every system.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+#[cfg(feature = "author-tools")]
 use quota_station_core::claude::agent::{self, AgentError};
 use quota_station_core::claude::keychain::KeychainError;
-use quota_station_core::os::{Process, ProcessList, Scheduler, SecretStore};
+#[cfg(feature = "author-tools")]
+use quota_station_core::os::Scheduler;
+use quota_station_core::os::{Process, ProcessList, SecretStore};
 
 /// A secret store that keeps its items in memory and records every call
 /// (never a value) as `command -a <account> -s <service>`, in the words of
@@ -183,6 +189,7 @@ impl SecretStore for FakeKeychain {
 /// A scheduler that keeps which jobs are loaded, by launchd label; one that
 /// cannot tell answers `None` for every label, as `launchctl` does when it
 /// fails.
+#[cfg(feature = "author-tools")]
 #[derive(Debug, Default)]
 pub struct FakeScheduler {
     loaded: Mutex<BTreeSet<String>>,
@@ -191,6 +198,7 @@ pub struct FakeScheduler {
     installed: Mutex<Option<PathBuf>>,
 }
 
+#[cfg(feature = "author-tools")]
 impl FakeScheduler {
     pub fn new() -> Arc<FakeScheduler> {
         Arc::new(FakeScheduler::default())
@@ -219,6 +227,7 @@ impl FakeScheduler {
     }
 }
 
+#[cfg(feature = "author-tools")]
 impl Scheduler for FakeScheduler {
     fn loaded(&self) -> Option<bool> {
         self.label_loaded(agent::LABEL)

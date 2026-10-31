@@ -7,9 +7,10 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import type { SessionView } from '../session/steps';
+// @private:begin
+import type { CopyComparison, CopySelection, Decision, Peer, PeerTest, Rules } from './model';
+// @private:end
 import type {
-  CopyComparison,
-  CopySelection,
   PackSummary,
   RestoreDone,
   RestoreMore,
@@ -30,13 +31,9 @@ import type {
   AgyLoginDone,
   AgyOutcome,
   AlertKind,
-  Decision,
   HistoryEntry,
   Model,
   Outcome,
-  Peer,
-  PeerTest,
-  Rules,
   Sessions,
   SettingsGroup,
   StatsPeriod,
@@ -91,11 +88,18 @@ export interface Api {
   /** Live Claude Code sessions on this Mac; null when they cannot be counted. */
   claudeSessions(): Promise<Sessions | null>;
   /**
-   * Switches Claude Code's login to the app's account `slot`, pauses the rotation until `holdUntil`
-   * (RFC 3339) when given, and reports what the second look five seconds later shows. Rejects with
-   * `busy` (a switch is running), `unknownSlot` or `badTime` (`holdUntil` is not RFC 3339).
+   * Switches Claude Code's login to the app's account `slot` and reports what the second look five
+   * seconds later shows. Rejects with `busy` (a switch is running) or `unknownSlot`.
    */
-  switchClaude(slot: number, holdUntil: string | null): Promise<Outcome>;
+  // @private:begin
+  /** With `holdUntil` (RFC 3339) it pauses the rotation until then; `badTime` when it is not RFC 3339. */
+  // @private:end
+  switchClaude(
+    slot: number,
+    // @private:begin
+    holdUntil: string | null,
+    // @private:end
+  ): Promise<Outcome>;
   /** Carries claude-swap's accounts over; claude-swap is left as it is. The result is in `claudeAccounts.last`. */
   claudeImport(): Promise<Model>;
   /** Logs a new account in with `claude auth login` in a folder of its own; waits for the browser. */
@@ -107,6 +111,7 @@ export interface Api {
   claudeAddToken(token: string, email: string | null): Promise<Model>;
   claudeRemove(slot: number): Promise<Model>;
   claudeSetAlias(slot: number, alias: string): Promise<Model>;
+  // @private:begin
   claudeSetEnabled(slot: number, enabled: boolean): Promise<Model>;
   /** Loads or unloads the rotation's LaunchAgent. */
   claudeSetRotation(on: boolean): Promise<Model>;
@@ -146,6 +151,7 @@ export interface Api {
   onQuitRequested(handler: () => void): Promise<() => void>;
   /** Takes a pending quit request: true once per request, also when the window opened for it before listening. */
   takeQuit(): Promise<boolean>;
+  // @private:end
   /**
    * Adds an Antigravity account, or logs one in again, through Google's consent screen in the
    * browser; resolves once the account is kept. Rejects with an `AgyLoginFailure`.
@@ -385,6 +391,7 @@ export interface Api {
    * `changed:<agents>` (then `file:<~/…>` and `skill:<name>` lines), `busy`, `failed`.
    */
   restoreUndo(force: boolean): Promise<RestoreUndone>;
+  // @private:begin
   /**
    * Chép sang Mac khác (M13), "So sánh": reads the other Mac over SSH and this one; writes nothing.
    * Rejects with `unreachable:<line>`, `timeout`, `noApp`, `old`, `noSsh`, `unknownMac`, `busy`,
@@ -400,6 +407,7 @@ export interface Api {
   copyRun(alias: string, push: boolean, selection: CopySelection, keys: boolean): Promise<RestoreDone>;
   /** "Hoàn tác" of the copy that ran at `at`, on the Mac it was written to. Rejects with `gone`, `changed:…`, … */
   copyUndo(alias: string, push: boolean, at: number, force: boolean): Promise<RestoreUndone>;
+  // @private:end
   /**
    * A button on a card in the bell's panel (Thông báo), the same as on the macOS card. A switch back
    * runs on the Rust side and its result comes in the model; `openSwitch` asks this window to open
@@ -413,12 +421,14 @@ export interface Api {
   setAlertSwitch(kind: AlertKind, on: boolean): Promise<Model>;
   /** Alert 1's thresholds in percent left; rejects with `range` or `order`. */
   setPoolAlert(dryAtMost: number, roomAtLeast: number): Promise<Model>;
+  // @private:begin
   /** Cài đặt › Nâng cao on or off. */
   setAdvanced(on: boolean): Promise<Model>;
   /** The Firstmate switch inside Nâng cao. */
   setFirstmate(on: boolean): Promise<Model>;
   /** Firstmate's `quota-pool.last`; empty forgets it. Rejects with `notPoolFile` or `notFound`. */
   setFirstmateFile(path: string): Promise<Model>;
+  // @private:end
   /** The History tab's lines, newest first. */
   getHistory(): Promise<HistoryEntry[]>;
   /** Asks macOS again whether cards may show; the answer comes in the model. */
@@ -431,6 +441,7 @@ export interface Api {
   setLaunchAtLogin(on: boolean): Promise<Model>;
   /** System Settings › General › Login Items, where macOS asks for approval. */
   openLoginItems(): Promise<void>;
+  // @private:begin
   /** The clone to update from; empty forgets it. Rejects with `missing` or `notSource`. */
   setSourceDir(path: string): Promise<Model>;
   /**
@@ -440,6 +451,7 @@ export interface Api {
   updateFromSource(): Promise<Model>;
   /** Quits and opens the copy just installed. Rejects with `notInstalled`, `rulesDirty` or `unbundled`. */
   relaunch(): Promise<void>;
+  // @private:end
   /** A button on a macOS card asks the popover to open its switch sheet for a Claude account. */
   onOpenSwitch(handler: (slot: number) => void): Promise<() => void>;
   onModel(handler: (model: Model) => void): Promise<() => void>;
@@ -483,7 +495,18 @@ export const tauriApi: Api = {
   setMachineName: (name) => invoke<Model>('set_machine_name', { name }),
   grantKeychain: () => invoke<Model>('grant_keychain'),
   claudeSessions: () => invoke<Sessions | null>('claude_sessions'),
-  switchClaude: (slot, holdUntil) => invoke<Outcome>('switch_claude', { slot, holdUntil }),
+  switchClaude: (
+    slot,
+    // @private:begin
+    holdUntil,
+    // @private:end
+  ) =>
+    invoke<Outcome>('switch_claude', {
+      slot,
+      // @private:begin
+      holdUntil,
+      // @private:end
+    }),
   claudeImport: () => invoke<Model>('claude_import'),
   claudeAddLogin: () => invoke<Model>('claude_add_login'),
   claudeCancelLogin: () => invoke<void>('claude_cancel_login'),
@@ -491,6 +514,7 @@ export const tauriApi: Api = {
   claudeAddToken: (token, email) => invoke<Model>('claude_add_token', { token, email }),
   claudeRemove: (slot) => invoke<Model>('claude_remove', { slot }),
   claudeSetAlias: (slot, alias) => invoke<Model>('claude_set_alias', { slot, alias }),
+  // @private:begin
   claudeSetEnabled: (slot, enabled) => invoke<Model>('claude_set_enabled', { slot, enabled }),
   claudeSetRotation: (on) => invoke<Model>('claude_set_rotation', { on }),
   pauseSwitching: (until) => invoke<Model>('pause_switching', { until }),
@@ -508,6 +532,7 @@ export const tauriApi: Api = {
   onCloseRequested: (handler) => listen('closeRequested', () => handler()),
   onQuitRequested: (handler) => listen('quitRequested', () => handler()),
   takeQuit: () => invoke<boolean>('take_quit'),
+  // @private:end
   agyLogin: () => invoke<AgyLoginDone>('agy_login'),
   agyLoginCallback: (url) => invoke('agy_login_callback', { url }),
   agyLoginCancel: () => invoke('agy_login_cancel'),
@@ -614,26 +639,32 @@ export const tauriApi: Api = {
   restoreRun: (id, picks, more, keys, bases) => invoke<RestoreDone>('restore_run', { id, picks, more, keys, bases }),
   restoreRetry: (id, part, item, agent) => invoke<RestorePartResult>('restore_retry', { id, part, item, agent }),
   restoreUndo: (force) => invoke<RestoreUndone>('restore_undo', { force }),
+  // @private:begin
   copyCompare: (alias) => invoke<CopyComparison>('copy_compare', { alias }),
   copyRun: (alias, push, selection, keys) => invoke<RestoreDone>('copy_run', { alias, push, selection, keys }),
   copyUndo: (alias, push, at, force) => invoke<RestoreUndone>('copy_undo', { alias, push, at, force }),
+  // @private:end
   alertAction: (id, action) => invoke('alert_action', { id, action }),
   alertsRead: () => invoke('alerts_read'),
   testAlert: (kind) => invoke<Model>('test_alert', { kind }),
   setAlertSwitch: (kind, on) => invoke<Model>('set_alert_switch', { kind, on }),
   setPoolAlert: (dryAtMost, roomAtLeast) => invoke<Model>('set_pool_alert', { dryAtMost, roomAtLeast }),
+  // @private:begin
   setAdvanced: (on) => invoke<Model>('set_advanced', { on }),
   setFirstmate: (on) => invoke<Model>('set_firstmate', { on }),
   setFirstmateFile: (path) => invoke<Model>('set_firstmate_file', { path }),
+  // @private:end
   getHistory: () => invoke<HistoryEntry[]>('get_history'),
   notifyRefresh: () => invoke('notify_refresh'),
   openNotificationSettings: () => invoke('open_notification_settings'),
   settingsOpened: () => invoke('settings_opened'),
   setLaunchAtLogin: (on) => invoke<Model>('set_launch_at_login', { on }),
   openLoginItems: () => invoke('open_login_items'),
+  // @private:begin
   setSourceDir: (path) => invoke<Model>('set_source_dir', { path }),
   updateFromSource: () => invoke<Model>('update_from_source'),
   relaunch: () => invoke('relaunch'),
+  // @private:end
   onOpenSwitch: (handler) => listen<number>('openSwitch', (event) => handler(event.payload)),
   onModel: (handler) => listen<Model>('model', (event) => handler(event.payload)),
   reduceTransparency: () => invoke<boolean>('reduce_transparency'),

@@ -6,9 +6,13 @@
 // back to macOS and the language back to Vietnamese after each test.
 
 import { describe, expect, it } from 'vitest';
-import { claudeAccountsFixture, fixtureModel } from '../fixtures/models';
+import { fixtureModel } from '../fixtures/models';
 import { permissionBanner } from '../lib/alerts';
-import { errorText, rotationRow } from '../lib/claudeAccounts';
+import { errorText } from '../lib/claudeAccounts';
+// @private:begin
+import { claudeAccountsFixture } from '../fixtures/models';
+import { rotationRow } from '../lib/claudeAccounts';
+// @private:end
 import { codexSheet } from '../lib/codex';
 import { loginFailText } from '../lib/codexAccounts';
 import { setLang, setPlatform } from '../lib/i18n';
@@ -17,6 +21,7 @@ import type { ClaudeActionDone } from '../lib/model';
 const failed = (error: string): ClaudeActionDone => ({ action: 'login', ok: false, error, detail: null, slot: null, renewed: false, imported: null });
 
 describe('Claude and Codex on Windows', () => {
+  // @private:begin
   it('the rotation runs on the app’s timer, not a LaunchAgent', () => {
     setPlatform('windows');
     const row = rotationRow(claudeAccountsFixture({ rotation: true }));
@@ -24,6 +29,7 @@ describe('Claude and Codex on Windows', () => {
     setLang('en');
     expect(errorText(failed('launchctl'))).toBe('Could not start the app’s timer.');
   });
+  // @private:end
 
   it('the app’s own sign-ins are in its encrypted store', () => {
     setPlatform('windows');

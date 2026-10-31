@@ -1,16 +1,22 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-//! The history, the five alerts and what Firstmate sees (M6), after every
-//! read: the history keeps a change of the account in use that nothing
-//! explains, the alert rules run on the newest readings and each new alert
-//! goes out as a macOS card with buttons, and Firstmate's state file is read
-//! again. The buttons, on the macOS card or the same card in the bell's
-//! panel (Thông báo), come back through [`press`].
+//! The history and the alerts (M6), after every read: the history keeps a
+//! change of the account in use that nothing explains, and the alert rules
+//! run on the newest readings and each new alert goes out as a macOS card
+//! with buttons.
+//! @private:begin
+//! Also what Firstmate sees: its state file is read again.
+//! @private:end
+//! The buttons, on the macOS card or the same card in the bell's panel
+//! (Thông báo), come back through [`press`].
 //!
-//! Reads only: the app's own files, the switcher's log, the rotation file,
-//! Firstmate's `quota-pool.last` at the path set in settings, and, while an
-//! overwrite waits for an answer, whether Antigravity.app runs (`pgrep`).
+//! Reads only: the app's own files and, while an overwrite waits for an
+//! answer, whether Antigravity.app runs (`pgrep`).
+//! @private:begin
+//! Also the switcher's log, the rotation file, and Firstmate's
+//! `quota-pool.last` at the path set in settings.
+//! @private:end
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -27,12 +33,15 @@ use quota_station_core::app_dir::AppDir;
 #[cfg(feature = "author-tools")]
 use quota_station_core::firstmate::{self, PoolLine};
 use quota_station_core::history::{self, Entry};
+use quota_station_core::local_time;
+#[cfg(feature = "author-tools")]
 use quota_station_core::rotation::{self, FileState};
 #[cfg(feature = "author-tools")]
 use quota_station_core::runner;
 use quota_station_core::settings::PoolAlert;
 use quota_station_core::snapshot::SectionStatus;
-use quota_station_core::{local_time, switcher};
+#[cfg(feature = "author-tools")]
+use quota_station_core::switcher;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 #[cfg(feature = "author-tools")]
@@ -124,7 +133,9 @@ pub fn after_read(state: &AppState) {
 /// Keeps in the history what the newest readings show changed.
 pub fn track_history(state: &AppState) {
     let _one = state.history.lock().unwrap_or_else(|e| e.into_inner());
-    let (dir, log, mut seen, claude, agy) = {
+    #[cfg(feature = "author-tools")]
+    let log = switcher::log_file(&state.lock().home);
+    let (dir, mut seen, claude, agy) = {
         let inner = state.lock();
         // A switch keeps its own line when it ends, then looks again; a
         // reading taken meanwhile is not compared.
@@ -145,35 +156,37 @@ pub fn track_history(state: &AppState) {
             .and_then(|r| index::load(&dir).ok().and_then(|idx| agy::shown_active_id(r, &idx)));
         #[cfg(not(feature = "antigravity-accounts"))]
         let agy: Option<String> = None;
-        (dir, switcher::log_file(&inner.home), inner.seen.clone(), claude, agy)
+        (dir, inner.seen.clone(), claude, agy)
     };
     let now = OffsetDateTime::now_utc().unix_timestamp();
+    #[cfg(feature = "author-tools")]
     history::track(&dir, &log, &mut seen, claude, agy.as_deref(), now);
+    #[cfg(not(feature = "author-tools"))]
+    history::track(&dir, &mut seen, claude, agy.as_deref(), now);
     state.lock().seen = seen;
 }
 
-/// The rules of the five alerts on the newest readings; new alerts go out.
+/// The alert rules on the newest readings; new alerts go out.
 fn evaluate(state: &AppState) {
     let now = OffsetDateTime::now_utc();
-    let (dir, home, claude, pool, advanced) = {
+    let (dir, claude, pool) = {
         let inner = state.lock();
-        (
-            inner.app_dir(),
-            inner.home.clone(),
-            inner.claude.clone(),
-            inner.settings.pool_alert,
-            inner.settings.advanced_shown(),
-        )
+        (inner.app_dir(), inner.claude.clone(), inner.settings.pool_alert)
     };
     #[cfg(feature = "author-tools")]
-    let file = state.lock().settings.firstmate_file.clone();
+    let (home, advanced, file) = {
+        let inner = state.lock();
+        (inner.home.clone(), inner.settings.advanced_shown(), inner.settings.firstmate_file.clone())
+    };
     #[cfg(feature = "author-tools")]
     let reading = file.as_deref().map(firstmate::read);
+    #[cfg(feature = "author-tools")]
     let has_rotation = claude
         .as_ref()
         .and_then(|r| r.primary("claude"))
         .and_then(|r| r.claude_accounts.as_ref())
         .is_some_and(|a| a.rotation.is_some());
+    #[cfg(feature = "author-tools")]
     let rules = match has_rotation {
         true => None,
         false => match rotation::load(
@@ -191,6 +204,7 @@ fn evaluate(state: &AppState) {
         now,
         offset: local_time::offset_at(now),
         claude: claude.as_ref(),
+        #[cfg(feature = "author-tools")]
         rules: rules.as_ref(),
         #[cfg(feature = "antigravity-accounts")]
         agy: alerts::agy_logins(&dir),
@@ -199,6 +213,7 @@ fn evaluate(state: &AppState) {
         #[cfg(feature = "author-tools")]
         firstmate: reading.as_ref().and_then(|r| r.as_ref().ok()),
         pool,
+        #[cfg(feature = "author-tools")]
         advanced,
     };
     let mut inner = state.lock();
@@ -345,13 +360,21 @@ pub async fn press(
         }
         #[cfg(feature = "antigravity-accounts")]
         Effect::SwitchAgy { number, how } => {
+            #[cfg(feature = "author-tools")]
             let roles = shared.lock().settings.advanced_shown();
+            #[cfg(feature = "author-tools")]
+            let refused = |why: &str| alerts::agy_refused(number, why, roles);
+            #[cfg(not(feature = "author-tools"))]
+            let refused = |why: &str| alerts::agy_refused(number, why);
             let said = match account_id(&dir, number) {
-                None => alerts::agy_refused(number, refusal("unknownAccount"), roles),
+                None => refused(refusal("unknownAccount")),
                 Some(account) => {
                     match agy_switch::switch(app, shared.clone(), account, how).await {
+                        #[cfg(feature = "author-tools")]
                         Ok(outcome) => alerts::agy_result(&outcome, roles),
-                        Err(e) => alerts::agy_refused(number, refusal(&e), roles),
+                        #[cfg(not(feature = "author-tools"))]
+                        Ok(outcome) => alerts::agy_result(&outcome),
+                        Err(e) => refused(refusal(&e)),
                     }
                 }
             };
@@ -367,14 +390,17 @@ pub async fn press(
 }
 
 /// "Gửi thử": a sample card of `kind` with its real buttons, which change
-/// nothing. None for a kind this build does not have ([`Kind::built`]).
+/// nothing.
 #[tauri::command]
 pub fn test_alert(app: AppHandle, state: State<'_, AppState>, kind: Kind) -> Model {
     let now = OffsetDateTime::now_utc();
-    if kind.built() {
+    {
         let mut inner = state.lock();
-        let roles = inner.settings.advanced_shown();
-        let alert = alerts::sample(kind, now.unix_timestamp(), local_time::offset_at(now), roles);
+        let (at, offset) = (now.unix_timestamp(), local_time::offset_at(now));
+        #[cfg(feature = "author-tools")]
+        let alert = alerts::sample(kind, at, offset, inner.settings.advanced_shown());
+        #[cfg(not(feature = "author-tools"))]
+        let alert = alerts::sample(kind, at, offset);
         let id = alerts::keep_test(&mut inner.alerts, alert);
         if let Some(center) = inner.center.clone() {
             alerts::deliver(&mut inner.alerts, &[id], &*center);
@@ -387,8 +413,7 @@ pub fn test_alert(app: AppHandle, state: State<'_, AppState>, kind: Kind) -> Mod
     state.lock().model()
 }
 
-/// Turns one kind of alert on or off; refuses (`notBuilt`) a kind this
-/// build does not have ([`Kind::built`]).
+/// Turns one kind of alert on or off.
 #[tauri::command]
 pub fn set_alert_switch(
     app: AppHandle,
@@ -396,9 +421,6 @@ pub fn set_alert_switch(
     kind: Kind,
     on: bool,
 ) -> Result<Model, String> {
-    if !kind.built() {
-        return Err("notBuilt".into());
-    }
     {
         let mut inner = state.lock();
         let mut settings = inner.settings.clone();
@@ -470,11 +492,11 @@ pub fn set_firstmate_file(
 /// The History tab's lines, newest first.
 #[tauri::command]
 pub fn get_history(state: State<'_, AppState>) -> Vec<Entry> {
-    let (dir, home) = {
-        let inner = state.lock();
-        (inner.app_dir(), inner.home.clone())
-    };
-    history::collect(&dir, &switcher::log_file(&home), history::SHOWN)
+    let dir = state.lock().app_dir();
+    #[cfg(feature = "author-tools")]
+    return history::collect(&dir, &switcher::log_file(&state.lock().home), history::SHOWN);
+    #[cfg(not(feature = "author-tools"))]
+    history::collect(&dir, history::SHOWN)
 }
 
 /// Asks macOS again whether cards may show, then sends the answer to the

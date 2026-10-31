@@ -281,7 +281,7 @@ export function ChoiceGroup<V extends string>(props: {
   /** `s`: the second line, with ``code`` or **bold** runs drawn (see Rich). */
   options: (Omit<ChoiceView<V>, 'until'> & { until?: Date | null })[];
   value: V;
-  /** Two columns by default; the pause's choices stack in one. */
+  /** Two columns by default; long choices stack in one. */
   columns?: 1 | 3;
   onChange(v: V): void;
 }) {

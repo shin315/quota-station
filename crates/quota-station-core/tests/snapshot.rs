@@ -5,9 +5,10 @@ mod common;
 
 use common::fixture;
 use quota_station_core::snapshot::{
-    Keychain, LineKind, Membership, PoolKind, Reading, Role, SectionStatus, Snapshot, Source,
-    LIST_SOURCE,
+    Keychain, LineKind, PoolKind, Reading, SectionStatus, Snapshot, Source, LIST_SOURCE,
 };
+#[cfg(feature = "author-tools")]
+use quota_station_core::snapshot::{Membership, Role};
 
 fn claude(name: &str) -> Snapshot {
     Snapshot::build(Some(&fixture(name)), None)
@@ -17,6 +18,7 @@ fn agy(name: &str) -> Snapshot {
     Snapshot::build(None, Some(&fixture(name)))
 }
 
+#[cfg(feature = "author-tools")]
 #[test]
 fn the_room_pool_counts_the_whole_rotation() {
     let s = claude("claude-pool.json");
@@ -39,6 +41,19 @@ fn the_room_pool_counts_the_whole_rotation() {
     assert_eq!(rooms, [(2, 0.0), (3, 100.0), (4, 97.8), (1, 29.2)]);
 }
 
+#[cfg(not(feature = "author-tools"))]
+#[test]
+fn the_pool_is_the_active_accounts_own_numbers() {
+    let s = claude("claude-pool.json");
+    let pool = &s.claude.pool;
+    assert_eq!(pool.kind, PoolKind::Active);
+    assert_eq!(pool.percent, Some(26.0));
+    assert_eq!(pool.line, Some(LineKind::Session));
+    assert_eq!(pool.next_refill_at.as_deref(), Some("2026-01-16T10:29:00.000Z"));
+    assert!(!pool.exhausted);
+    assert_eq!(pool.reason, None);
+}
+
 #[test]
 fn the_active_slot_reads_the_live_row_and_others_read_the_list() {
     let s = claude("claude-pool.json");
@@ -46,6 +61,7 @@ fn the_active_slot_reads_the_live_row_and_others_read_the_list() {
     assert_eq!(active.number, 2);
     assert_eq!(active.source, Source::Live);
     assert_eq!(active.reading, Reading::Fresh);
+    #[cfg(feature = "author-tools")]
     assert_eq!(active.role, Role::Team);
     // Live windows: five_hour 26, seven_day 61, model:fable 13.
     assert_eq!(active.lines[0].kind, LineKind::Session);
@@ -53,9 +69,11 @@ fn the_active_slot_reads_the_live_row_and_others_read_the_list() {
     assert_eq!(active.lines[0].resets_at.as_deref(), Some("2026-01-16T10:29:00.000Z"));
     assert_eq!(active.lines[1].kind, LineKind::FableWeek);
     assert_eq!(active.lines[1].percent, Some(13.0));
+    #[cfg(feature = "author-tools")]
     assert_eq!(active.leaves_at.as_deref(), Some("2026-01-16T10:45:00.000Z"));
 
     let personal = &s.claude.accounts[0];
+    #[cfg(feature = "author-tools")]
     assert_eq!(personal.role, Role::Personal);
     assert_eq!(personal.source, Source::List);
     // Bound by both account windows: named by the week, which resets last.
@@ -74,6 +92,7 @@ fn the_active_slot_reads_the_live_row_and_others_read_the_list() {
     let unstarted = &s.claude.accounts[2];
     assert_eq!(unstarted.lines[0].kind, LineKind::Session);
     assert_eq!(unstarted.lines[0].resets_at, None);
+    #[cfg(feature = "author-tools")]
     assert_eq!(unstarted.membership, Membership::In);
 }
 
@@ -122,6 +141,7 @@ fn a_stale_active_account_falls_back_to_its_list_numbers() {
     assert_eq!(pool.kind, PoolKind::Active);
     assert_eq!(pool.percent, Some(27.0));
     assert_eq!(pool.line, Some(LineKind::Session));
+    #[cfg(feature = "author-tools")]
     assert_eq!(pool.reason.as_deref(), Some("claude_row_not_fresh"));
 }
 
@@ -147,10 +167,13 @@ fn reset_pending_states_no_number() {
 }
 
 #[test]
-fn no_rotation_file_shows_the_active_slot_only() {
-    let s = claude("claude-no-rotation.json");
+fn accounts_without_a_name_show_the_active_slot_only() {
+    let s = claude("claude-unnamed.json");
+    #[cfg(feature = "author-tools")]
     assert!(s.claude.accounts.iter().all(|a| a.role == Role::Unknown));
+    #[cfg(feature = "author-tools")]
     assert!(s.claude.accounts.iter().all(|a| a.membership == Membership::Unknown));
+    #[cfg(feature = "author-tools")]
     assert_eq!(s.claude.personal_hours, None);
     assert_eq!(s.claude.pool.kind, PoolKind::Active);
     assert_eq!(s.claude.pool.percent, Some(26.0));
@@ -167,6 +190,7 @@ fn an_unread_login_shows_no_number_and_says_why() {
     assert_eq!(s.keychain, Keychain::Unknown);
 }
 
+#[cfg(feature = "author-tools")]
 #[test]
 fn exhausted_rotation_names_who_refills_first() {
     let s = claude("claude-exhausted.json");
@@ -254,7 +278,10 @@ fn each_section_keeps_the_time_of_its_own_report() {
 fn snapshot_serializes_in_camel_case_for_the_ui() {
     let s = Snapshot::build(Some(&fixture("claude-pool.json")), Some(&fixture("agy-single.json")));
     let v: serde_json::Value = serde_json::to_value(&s).unwrap();
+    #[cfg(feature = "author-tools")]
     assert_eq!(v["claude"]["pool"]["kind"], "rotation");
+    #[cfg(not(feature = "author-tools"))]
+    assert_eq!(v["claude"]["pool"]["kind"], "active");
     assert_eq!(v["claude"]["accounts"][1]["lines"][1]["kind"], "fableWeek");
     assert_eq!(v["agy"]["status"], "single");
     assert_eq!(v["keychain"], "granted");

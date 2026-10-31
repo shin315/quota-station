@@ -59,7 +59,18 @@ function Head({ title, lead, cap }: { title: string; lead?: string; cap?: string
 }
 
 /** The release's dialog (u-dialog), or the build from source's (u-source). */
-export function ReleaseDialogBody({ model, release, onUpdateFromSource }: { model: Model; release: ReleaseState; onUpdateFromSource?: () => void }) {
+export function ReleaseDialogBody(props: {
+  model: Model;
+  release: ReleaseState;
+  // @private:begin
+  onUpdateFromSource?: () => void;
+  // @private:end
+}) {
+  const { model, release } = props;
+  let update = false;
+  // @private:begin
+  update = !!props.onUpdateFromSource;
+  // @private:end
   const l = newerRelease(model) ?? model.release.latest;
   if (!l)
     return (
@@ -113,17 +124,20 @@ export function ReleaseDialogBody({ model, release, onUpdateFromSource }: { mode
         <PullCommand />
         <DialogButtons>
           <Button onClick={release.later}>{t('Để sau', 'Later')}</Button>
-          {onUpdateFromSource ? (
+          {/* @private:begin */}
+          {update && (
             <Button
               primary
               onClick={() => {
                 release.close();
-                onUpdateFromSource();
+                props.onUpdateFromSource?.();
               }}
             >
               {t('Cập nhật từ mã nguồn', 'Update from source')}
             </Button>
-          ) : (
+          )}
+          {/* @private:end */}
+          {!update && (
             <Button primary onClick={release.close}>
               {t('Xong', 'Done')}
             </Button>

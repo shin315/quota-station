@@ -16,7 +16,7 @@
 //! provider's last good reading, so a read within two minutes of the last
 //! asks the vendor nothing and a failed read shows the last numbers as stale.
 //!
-//! Nothing here refreshes, rotates or writes a login: an expired login is
+//! Nothing here refreshes or writes a login: an expired login is
 //! shown as one, and the vendor's own tool renews it when it next runs.
 //!
 //! A row carries only windows, times and error words: no token, no header,
@@ -75,8 +75,8 @@ pub struct Provider {
     /// Nothing of the provider is on this Mac.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub not_set_up: bool,
-    /// The Claude accounts the app keeps, with their readings and the
-    /// rotation file; only on the Claude row of a Mac where it keeps them.
+    /// The Claude accounts the app keeps, with their readings; only on the
+    /// Claude row of a Mac where it keeps them.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub claude_accounts: Option<ClaudeAccounts>,
     /// The Antigravity accounts the app logs in itself; only in a build
@@ -206,19 +206,23 @@ pub struct ClaudeAccounts {
     #[serde(default)]
     pub slots: Vec<Slot>,
     /// The rotation file the app follows, when it reads.
+    #[cfg(feature = "author-tools")]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rotation: Option<Rotation>,
     /// The rotation's room, when there is a rotation to count.
+    #[cfg(feature = "author-tools")]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pool: Option<RoomPool>,
     /// Why the rotation's room is not counted (`claude_row_not_fresh`,
     /// `no_other_slot`).
+    #[cfg(feature = "author-tools")]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pool_reason: Option<String>,
 }
 
 /// The room the rotation has: each account it may move to now, with the
 /// room it has before the switch threshold.
+#[cfg(feature = "author-tools")]
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RoomPool {
@@ -235,6 +239,7 @@ pub struct RoomPool {
     pub slots: Vec<RoomSlot>,
 }
 
+#[cfg(feature = "author-tools")]
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RoomSlot {
@@ -253,6 +258,7 @@ pub struct Slot {
     #[serde(default)]
     pub active: bool,
     /// Held out of the rotation by the owner.
+    #[cfg(feature = "author-tools")]
     #[serde(default)]
     pub disabled: bool,
     /// `fresh` (at most 15 minutes old), `stale`, `reset_pending` or `no_data`.
@@ -275,12 +281,13 @@ pub struct Slot {
     /// reading could be used (`no_reading`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
-    /// The account's windows as read, for the rotation's room.
+    /// The account's windows as read.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub windows: Vec<Window>,
 }
 
 /// The rotation file's keys the windows show.
+#[cfg(feature = "author-tools")]
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Rotation {
@@ -296,6 +303,7 @@ pub struct Rotation {
     pub expire: Vec<Expire>,
 }
 
+#[cfg(feature = "author-tools")]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Expire {
     pub slot: u32,

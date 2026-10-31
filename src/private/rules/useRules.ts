@@ -7,9 +7,9 @@
 // the main window, so leaving the tab or closing the window can ask first.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Api } from '../lib/api';
-import { authorModel, type AuthorModel } from '../lib/author';
-import type { Model, Rules, RulesError, Tab } from '../lib/model';
+import type { Api } from '@/lib/api';
+import { authorModel, type AuthorModel } from '@/private/author';
+import type { Model, Rules, RulesError, Tab } from '@/lib/model';
 import {
   adoptFeedback,
   changedBanner,
@@ -22,10 +22,11 @@ import {
   rulesProblem,
   sameRules,
   saveFeedback,
-} from '../lib/rules';
-import { t } from '../lib/i18n';
-import { decisionText, namesOf } from '../lib/switching';
-import type { Action, BannerView, FeedbackView } from '../lib/view';
+} from './rules';
+import { t } from '@/lib/i18n';
+import { namesOf } from '@/lib/switching';
+import { decisionText } from '@/private/switching';
+import type { Action, BannerView, FeedbackView } from '@/lib/view';
 
 /** The owner's edits; null while the editor shows the file as it is. */
 interface Draft {
