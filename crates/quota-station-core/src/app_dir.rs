@@ -125,7 +125,7 @@ impl AppDir {
                 .open(&tmp)
                 .and_then(|mut file| {
                     file.write_all(text.as_bytes())?;
-                    file.sync_all()
+                    os::sync_all(&file)
                 })
                 .and_then(|()| os::replace(&tmp, path));
         if written.is_err() {

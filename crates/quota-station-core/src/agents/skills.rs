@@ -1335,7 +1335,7 @@ pub fn copy_tree(from: &Path, to: &Path) -> io::Result<()> {
                 )
                 .open(&dst)?;
                 io::copy(&mut input, &mut output)?;
-                output.sync_all()?;
+                os::sync_all(&output)?;
             }
         }
         Ok(())

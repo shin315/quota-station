@@ -363,6 +363,39 @@ pub(crate) fn with_mode(
     }
 }
 
+/// Puts `file`'s bytes on the drive, before the rename that makes it the
+/// real one. On macOS `F_FULLFSYNC` first, which also has the drive empty
+/// its own cache (Rust's `sync_all` is that alone); a drive that refuses it
+/// gets `fsync`, as SQLite does. A virtual machine's disk, some external
+/// and network ones answer `F_FULLFSYNC` with EIO, ENOTSUP or ENODEV now
+/// and then, and a sign-in would fail to save for that alone. A write
+/// that truly failed fails `fsync` too.
+pub(crate) fn sync_all(file: &std::fs::File) -> io::Result<()> {
+    #[cfg(target_os = "macos")]
+    {
+        use std::os::fd::AsRawFd;
+        let fd = file.as_raw_fd();
+        // SAFETY: `fd` stays open while `file` is borrowed.
+        if unsafe { libc::fcntl(fd, libc::F_FULLFSYNC) } == 0 {
+            return Ok(());
+        }
+        loop {
+            // SAFETY: as above.
+            if unsafe { libc::fsync(fd) } == 0 {
+                return Ok(());
+            }
+            let e = io::Error::last_os_error();
+            if e.kind() != io::ErrorKind::Interrupted {
+                return Err(e);
+            }
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        file.sync_all()
+    }
+}
+
 /// Sets `path`'s mode (Unix; nothing on Windows).
 pub(crate) fn set_mode(path: &Path, mode: u32) -> io::Result<()> {
     #[cfg(unix)]
@@ -638,6 +671,15 @@ pub fn writable(dir: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn a_drive_that_refuses_a_full_sync_gets_fsync() {
+        // `/dev/null` answers `F_FULLFSYNC` with ENODEV, `fsync` with success.
+        let null = std::fs::OpenOptions::new().write(true).open("/dev/null").unwrap();
+        assert!(null.sync_all().is_err(), "Rust's own is F_FULLFSYNC alone");
+        sync_all(&null).unwrap();
+    }
 
     #[test]
     fn ps_tables_split_into_processes() {

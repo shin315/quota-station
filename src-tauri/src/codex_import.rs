@@ -461,7 +461,8 @@ mod tests {
         let store = Store::new(&dir, &home, &platform);
         let first = vec![Source { name: None, path: None, bytes: cli_proxy("ann").into_bytes() }];
         let items = read(&store, &first, &|_| false, OffsetDateTime::now_utc()).unwrap();
-        import_items(&store, &items, false, OffsetDateTime::now_utc());
+        let done = import_items(&store, &items, false, OffsetDateTime::now_utc());
+        assert!(matches!(done, AccountDone::Imported { .. }), "{done:?}");
         let auth = dir.path().join(accounts::DIR).join("1").join("auth.json");
         std::fs::remove_file(&auth).unwrap();
         let again = vec![Source { name: None, path: None, bytes: cli_proxy("ann").into_bytes() }];

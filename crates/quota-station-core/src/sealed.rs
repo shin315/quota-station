@@ -136,7 +136,7 @@ fn write_new(file: &Path, bytes: &[u8]) -> io::Result<()> {
             .open(&tmp)
             .and_then(|mut f| {
                 f.write_all(bytes)?;
-                f.sync_all()
+                crate::os::sync_all(&f)
             })
             .and_then(|()| crate::os::replace(&tmp, file));
     if written.is_err() {
