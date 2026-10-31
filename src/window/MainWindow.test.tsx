@@ -331,7 +331,11 @@ describe('with Nâng cao off', () => {
   it('a build without the Antigravity accounts reads Antigravity without logging in', async () => {
     await open({ ...fixtureModel('fresh'), capabilities: { agyAccounts: false, authorTools: true } }, 'agy');
     expect(screen.queryByRole('button', { name: 'Thêm tài khoản' })).toBeNull();
-    expect(screen.getByText(/Bản này chỉ đọc tài khoản đang đăng nhập/)).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Bản này chỉ đọc tài khoản đang đăng nhập. Thêm, đăng nhập và chuyển nhiều tài khoản có ở bản build từ mã nguồn với phần Antigravity.',
+      ),
+    ).toBeTruthy();
     expect(screen.getByText('Đổi tài khoản trong chính Antigravity; Quota Station đọc lại ở lần đọc sau.')).toBeTruthy();
   });
 });
