@@ -5,7 +5,10 @@
 // windows as the share USED (100 − what the report calls percent left).
 // Shared by the popover, the main window's tables and the rules editor.
 
-import { hours, minutesUntil, resetShort, resetWords } from './format';
+import { minutesUntil, resetShort, resetWords } from './format';
+// @private:begin
+import { hours } from './format';
+// @private:end
 import { t } from './i18n';
 import type { Account, Line, LineKind, Model } from './model';
 
@@ -196,7 +199,7 @@ export function agyGroups(cells: CellView[]): { label: string; short: string; ce
 // ===== Names =====
 
 export interface AccountName {
-  /** `lan.acme1`, or `Team A` while names are hidden. */
+  /** `lan.acme1`, or `Tài khoản 1` while names are hidden. */
   name: string;
   /** The avatar letters of the older layout, still used by the sheets. */
   short: string;
@@ -206,7 +209,9 @@ export interface AccountName {
   full: string;
 }
 
+// @private:begin
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+// @private:end
 
 /**
  * Each email's part before `@` when every account here shares one domain
@@ -227,57 +232,90 @@ export function claudeAliases(model: Pick<Model, 'claudeAccounts'>): Map<number,
 
 /**
  * Claude accounts: the nickname the owner gave one, else their email when
- * the owner shows names, else with `roles` (Cài đặt › Nâng cao) Cá nhân,
- * Team A, Team B… by slot order, and `Tài khoản N` without a rotation file
- * or without `roles`. The sub-line is the organization of a Team seat, and
- * with `roles` the hours of the personal account.
+ * the owner shows names, else `Tài khoản N`.
  */
+// @private:begin
+/**
+ * With `roles` (Cài đặt › Nâng cao) Cá nhân, Team A, Team B… by slot order
+ * instead, from the rotation file; the sub-line is then the organization of
+ * a Team seat, and the hours of the personal account.
+ */
+// @private:end
 export function claudeNames(
   accounts: Account[],
-  personalHours: string | null = null,
-  roles = true,
   aliases: ReadonlyMap<number, string> = new Map(),
+  // @private:begin
+  roles: Roles | null = null,
+  // @private:end
 ): Map<number, AccountName> {
   const out = new Map<number, AccountName>();
+  // @private:begin
   // The roles come from the rotation file, which is Nâng cao's.
   if (!roles) accounts = accounts.map((a) => ({ ...a, role: 'unknown' as const }));
   const team = accounts.filter((a) => a.role === 'team').map((a) => a.number).sort((x, y) => x - y);
+  const h = hours(roles?.personalHours ?? null);
+  // @private:end
   const emails = emailNames(accounts.map((a) => a.email));
-  const h = hours(personalHours);
   for (const a of accounts) {
     let name: string;
     let short: string;
     if (a.number === 0) [name, short] = [t('Tài khoản đang dùng', 'Account in use'), 'C'];
-    else if (a.role === 'personal') [name, short] = [t('Cá nhân', 'Personal'), t('CN', 'P')];
-    else if (a.role === 'team') {
+    else [name, short] = [t('Tài khoản ', 'Account ') + a.number, String(a.number)];
+    // @private:begin
+    if (a.number !== 0 && a.role === 'personal') [name, short] = [t('Cá nhân', 'Personal'), t('CN', 'P')];
+    else if (a.number !== 0 && a.role === 'team') {
       const l = LETTERS[team.indexOf(a.number)] ?? String(a.number);
       [name, short] = ['Team ' + l, l];
-    } else [name, short] = [t('Tài khoản ', 'Account ') + a.number, String(a.number)];
+    }
+    // @private:end
     const email = a.email ? emails.get(a.email) : undefined;
     let sub = '';
     if (email) {
+      // @private:begin
       sub = a.role === 'personal' ? t('Cá nhân', 'Personal') + (h ? ' · ' + h : '') : a.role === 'team' ? (a.org ?? '') : '';
+      // @private:end
       name = email;
-    } else if (a.role === 'personal' && h) sub = h;
+    }
+    // @private:begin
+    else if (a.role === 'personal' && h) sub = h;
+    // @private:end
     name = aliases.get(a.number) ?? name;
     out.set(a.number, { name, short, sub, full: a.email ?? '' });
   }
   return out;
 }
 
-/** Antigravity accounts: their email when shown, else Ultra 1, Ultra 2 with `roles`, Antigravity 1, 2 without. */
-export function agyNames(accounts: Pick<Account, 'number' | 'email'>[], roles = true): Map<number, AccountName> {
+/** Antigravity accounts: their email when shown, else Antigravity 1, 2. */
+// @private:begin
+/** With `roles` Ultra 1, Ultra 2 instead. */
+// @private:end
+export function agyNames(
+  accounts: Pick<Account, 'number' | 'email'>[],
+  // @private:begin
+  roles = false,
+  // @private:end
+): Map<number, AccountName> {
   const emails = emailNames(accounts.map((a) => a.email));
   const out = new Map<number, AccountName>();
   for (const a of accounts) {
     const email = a.email ? emails.get(a.email) : undefined;
-    const base =
-      a.number === 0
-        ? { name: t('Tài khoản đang dùng', 'Account in use'), short: 'G' }
-        : roles
-          ? { name: 'Ultra ' + a.number, short: 'U' + a.number }
-          : { name: 'Antigravity ' + a.number, short: 'A' + a.number };
+    let base = a.number === 0 ? { name: t('Tài khoản đang dùng', 'Account in use'), short: 'G' } : { name: 'Antigravity ' + a.number, short: 'A' + a.number };
+    // @private:begin
+    if (roles && a.number !== 0) base = { name: 'Ultra ' + a.number, short: 'U' + a.number };
+    // @private:end
     out.set(a.number, { ...base, name: email ?? base.name, sub: '', full: a.email ?? '' });
   }
   return out;
 }
+
+// @private:begin
+/** Nâng cao's account roles: the personal hours ride along where a name shows them. */
+export interface Roles {
+  personalHours: string | null;
+}
+
+/** The roles while Nâng cao is on, with the personal hours when `withHours`; null while it is off. */
+export function rolesOf(model: Pick<Model, 'advanced' | 'snapshot'>, withHours = false): Roles | null {
+  return model.advanced.on ? { personalHours: withHours ? model.snapshot.claude.personalHours : null } : null;
+}
+// @private:end

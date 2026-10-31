@@ -1,9 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-// Sao lưu, Chép sang Mac khác and the card of variables that override a
-// sign-in, in English: the owner's language set to English, on the fake
-// Rust side. Every pack, Mac, key and variable is made up.
+// Sao lưu and the card of variables that override a sign-in, in English:
+// the owner's language set to English, on the fake Rust side. Every pack, Mac, key and variable is made up.
 
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -13,7 +12,9 @@ import { API_KEY, envFixture } from '../fixtures/fakeEnv';
 import { FIXTURE_NOW, fixtureModel } from '../fixtures/models';
 import type { Api } from '../lib/api';
 import { changedLines, keysLine, restoreError } from '../lib/backup';
-import { copyError, macChip } from '../lib/copy';
+// @private:begin
+import { copyError, macChip } from '@/private/copy/copy';
+// @private:end
 import { checkedLine, envBanner } from '../lib/env';
 import { setLang } from '../lib/i18n';
 import type { Model, Tab } from '../lib/model';
@@ -42,7 +43,7 @@ const button = (name: string | RegExp) => screen.getByRole('button', { name });
 
 afterEach(cleanup);
 
-describe('Backup, Copy to another Mac and the variables card in English', () => {
+describe('Backup and the variables card in English', () => {
   it('draws the Backup tab and the restore sheet in English', async () => {
     await open('backup', english());
     await screen.findByRole('heading', { level: 2, name: 'Backup' });
@@ -59,6 +60,7 @@ describe('Backup, Copy to another Mac and the variables card in English', () => 
     expect(within(dialog()).getByRole('button', { name: 'Cancel' })).toBeTruthy();
   });
 
+  // @private:begin
   it('compares with another Mac in English', async () => {
     await open('copy', english());
     await screen.findByRole('heading', { level: 2, name: 'Copy to another Mac' });
@@ -71,6 +73,7 @@ describe('Backup, Copy to another Mac and the variables card in English', () => 
     expect(within(dialog()).getByRole('heading', { name: /^Copy \d+ items? to .+\?$/ })).toBeTruthy();
     expect(within(dialog()).getByText('Sends no keys.')).toBeTruthy();
   });
+  // @private:end
 
   it('titles the variables card in English', () => {
     setLang('en');
@@ -84,8 +87,10 @@ describe('Backup, Copy to another Mac and the variables card in English', () => 
     setLang('en');
     expect(keysLine(1)).toBe('No keys inside. On restore, the app asks for 1 key again.');
     expect(restoreError('busy').title).toBe('Not restored');
+    // @private:begin
     expect(copyError('timeout', 'Mac B').title).toBe('Mac B is not answering over SSH');
     expect(macChip('ok')?.t).toBe('SSH OK');
+    // @private:end
     expect(changedLines('changed:codex\nskill:notes-helper', 'copy')).toEqual(['Codex files were edited after the copy.', 'Skill notes-helper was edited after the copy.']);
     expect(checkedLine(envFixture({ found: [], checkedAt: null, checking: false }))).toMatch(/not checked yet\. The app only knows whether each is set, never its value\.$/);
     expect(envBanner(fixtureModel('fresh', { env: envFixture({ found: [API_KEY] }) }))?.title).toBe('ANTHROPIC_API_KEY is overriding the Claude sign-in');

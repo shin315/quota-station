@@ -37,9 +37,9 @@ use time::OffsetDateTime;
 
 use super::cc;
 use super::locks::{AppLock, LockError};
+use super::session;
 use super::store::{self, Account, Kind, Store, StoreError};
 use super::usage::{self, Row, Scoped, Win};
-use super::session;
 #[cfg(feature = "author-tools")]
 use super::Paths;
 

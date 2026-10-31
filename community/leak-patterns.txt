@@ -18,10 +18,11 @@
 \b[Pp]aused?\b|\bpause_|pause::|PauseView|[Tt][ạa]m d[ừu]ng|qs-tray-paused
 # The other Macs, SSH and the copy to another Mac. (A backup pack made on
 # another Mac and a git remote over ssh:// are not theirs.)
-(?i)\bpeers?\b(?!"\s*:\s*true)|PeerView|other Macs|Mac kh[áa]c|copy to another Mac|copy\.rs|find_ssh
+(?i)\bpeers?\b(?!"\s*:\s*true)|PeerView|other Macs|C[áa]c Mac kh[áa]c|sang Mac kh[áa]c|t[ừu] Mac kh[áa]c|copy to another Mac|copy\.rs|find_ssh
 \bSSH\b|\bssh (alias|-o)
-# The update from a clone of the source.
-(?i)update.from.source|from_source|fromSource|m[ãa] ngu[ồo]n
+# The update from a clone of the source. (A build from source, which
+# `fromSource()` tells, is not theirs.)
+(?i)update.?from.?source|from_source|c[ậa]p nh[ậa]t t[ừu] m[ãa] ngu[ồo]n|th[ưu] m[ụu]c m[ãa] ngu[ồo]n
 # Settings › Advanced, which holds the private part.
 (?i)N[âa]ng cao|\badvanced\b
 # The guide for leaving CC Switch.

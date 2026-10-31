@@ -11,32 +11,45 @@ import { age, clock, secondsSince } from './format';
 import { mac, onWindows, t } from './i18n';
 import type { Account, AgyLogin, LineKind, MenubarWindow, Model, Section } from './model';
 import { codexBanner, currentId, shortName } from './codex';
-import { switcherBanner } from './switching';
+// @private:begin
+import { rolesOf } from './accounts';
+import { switcherBanner } from '@/private/switching';
+// @private:end
 
 export type Tone = 'ok' | 'warn' | 'bad' | 'muted' | 'info';
 export type Action =
   | 'refresh'
   | 'settings'
+  // @private:begin
   /** Cài đặt on its Nâng cao tab: Firstmate's file and the other Macs are there. */
   | 'settings:advanced'
+  // @private:end
   | 'window'
   /** The popover's theme button: light ↔ dark. */
   | 'theme'
   | 'keychain'
   | 'dismiss'
+  // @private:begin
   /** Removes the pause flag. */
   | 'resume'
   /** One more hour on a timed pause. */
   | 'addHour'
+  // @private:end
   | 'closeFeedback'
+  // @private:begin
   | 'guide:auto'
   | 'guide:switcher'
+  // @private:end
   /** The Claude accounts' actions on banners (`ClaudeAccounts`). */
+  // @private:begin
   | 'claude:rotation:on'
+  // @private:end
   | 'claude:import'
   /** Signs a Claude account in again (its slot): the Claude tab's dialog. */
   | `claude:relogin:${number}`
+  // @private:begin
   | `claude:unrest:${number}`
+  // @private:end
   /** Adds a Claude account: the Claude tab's dialog. */
   | 'claude:add'
   /** A newer release: its dialog, putting it off, checking now, undoing a skip. */
@@ -60,8 +73,10 @@ export type Action =
   | 'notifications'
   /** Codex (M8): the row, a switch sheet, the restart sheet, the change made outside, guides and the tab. */
   | CodexAction
+  // @private:begin
   /** The rotation editor's banners and feedback (M5). */
   | RulesAction
+  // @private:end
   /** The MCP tab (M9): open it, undo the last write, its backups, read again. */
   | McpAction
   /** The Sao lưu tab (M10): read again, its folder in Finder, undo the last restore, restore. */
@@ -89,7 +104,15 @@ export type SkillAction =
   | 'instr:reread'
   | `instr:key:${string}`;
 
-export type BackupAction = 'backup:reread' | 'backup:open' | 'backup:undo' | 'backup:restore' | 'copy:compare';
+export type BackupAction =
+  | 'backup:reread'
+  | 'backup:open'
+  | 'backup:undo'
+  | 'backup:restore'
+  // @private:begin
+  | 'copy:compare'
+  // @private:end
+  ;
 
 export type McpAction = 'mcp:tab' | 'mcp:undo' | 'mcp:backups' | 'mcp:reread' | `mcp:key:${string}` | `mcp:howcmd:${string}` | `mcp:later:${string}`;
 
@@ -112,6 +135,7 @@ export type CodexAction =
   | `codex:use:${string}`
   | `codex:relogin:${string}`;
 
+// @private:begin
 export type RulesAction =
   | 'rules:create'
   | 'rules:retry'
@@ -120,6 +144,7 @@ export type RulesAction =
   | 'rules:dismiss'
   | `rules:adopt:${string}`
   | `rules:compare:${string}`;
+// @private:end
 
 export interface ChipView {
   t: string;
@@ -141,7 +166,7 @@ export interface CardView {
   active: boolean;
   /** Old numbers: drawn muted. */
   dim: boolean;
-  /** Rotation and freshness chips, never `đang dùng` (the card and the table draw that themselves). */
+  /** Chips such as how fresh the numbers are, never `đang dùng` (the card and the table draw that themselves). */
   chips: ChipView[];
   /** 5 giờ · Tuần · Fable, or Antigravity's four windows. */
   cells: CellView[];
@@ -161,7 +186,7 @@ export interface CardView {
   switchable: boolean;
   /** Its login in Quota Station expired: pressing it signs in again instead of switching. */
   relogin: boolean;
-  /** Held out of the rotation or turned off: drawn with a dashed edge, its text unchanged. */
+  /** Out of the owner's switching: drawn with a dashed edge, its text unchanged. */
   resting: boolean;
   /** Why this one cannot be switched to; '' when it can, or when it is the active one. */
   off: string;
@@ -193,7 +218,7 @@ export interface NowRowView {
   label: string;
 }
 
-/** Đang dùng (replaces the rotation's room): the account in use on each service. */
+/** Đang dùng: the account in use on each service. */
 export interface NowView {
   rows: NowRowView[];
 }
@@ -251,14 +276,18 @@ export { claudeNames, agyNames, type AccountName, type CellView, type UsedTone }
 
 /** Positional name of an Antigravity account, with its email when one is given. */
 export function agyName(a: Pick<Account, 'number' | 'email'>): AccountName {
-  return agyNames([a]).get(a.number)!;
+  return agyNames(
+    [a],
+  // @private:begin
+    true,
+  // @private:end
+  ).get(a.number)!;
 }
 
 // ===== Cards =====
 
 interface CardContext {
   now: Date;
-  personalHours: string | null;
   /** Claude cards: what switching needs. */
   switching: { listed: boolean; ready: boolean; busy: number | null } | null;
   /** Claude accounts whose login in Quota Station expired. */
@@ -302,12 +331,14 @@ function listName(ctx: CardContext): string {
 
 function cardView(a: Account, kind: 'c' | 'g', names: AccountName, ctx: CardContext): CardView {
   const chips: ChipView[] = [];
+// @private:begin
   if (kind === 'c') {
     if (a.membership === 'out') chips.push({ t: t('ngoài vòng', 'out of rotation'), k: '' });
     if (a.membership === 'ended') chips.push({ t: t('đã rời vòng', 'left rotation'), k: '' });
     if (a.leavesAt) chips.push({ t: t('rời vòng ', 'leaves rotation ') + clock(a.leavesAt), k: 'warn' });
     if (a.disabled) chips.push({ t: t('nghỉ tự chuyển', 'out of auto-switch'), k: '' });
   }
+// @private:end
   // Freshness shows only when the reading is not fresh: its own age, never the app's last call.
   const since = secondsSince(a.fetchedAt, ctx.now);
   if (a.reading === 'resetPending') chips.push({ t: t('chờ số sau mốc đặt lại', 'waiting for the number after its reset'), k: 'info' });
@@ -325,6 +356,10 @@ function cardView(a: Account, kind: 'c' | 'g', names: AccountName, ctx: CardCont
   const relogin = kind === 'c' && !!ctx.relogin?.has(a.number);
   if (relogin) chips.push({ t: t('cần đăng nhập lại', 'sign in again'), k: '' });
   const switchable = listed && a.number > 0 && !a.active && !off;
+  let resting = false;
+  // @private:begin
+  resting = !!a.disabled || a.membership === 'out' || a.membership === 'ended';
+  // @private:end
   return {
     key: kind + a.number,
     kind,
@@ -349,7 +384,7 @@ function cardView(a: Account, kind: 'c' | 'g', names: AccountName, ctx: CardCont
     title: [names.full, where, off].filter(Boolean).join(' · '),
     switchable,
     relogin,
-    resting: a.disabled || a.membership === 'out' || a.membership === 'ended',
+    resting,
     off,
   };
 }
@@ -490,26 +525,32 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
   const s = model.snapshot;
   const c = s.claude;
   const g = s.agy;
-  const names = claudeNames(c.accounts, c.personalHours, model.advanced.on, claudeAliases(model));
+  const names = claudeNames(
+    c.accounts,
+    claudeAliases(model),
+  // @private:begin
+    rolesOf(model, true),
+  // @private:end
+  );
   const nameOf = (n: number) => names.get(n)?.name ?? t('Tài khoản ', 'Account ') + n;
   // Windows asks nothing before the app reads Claude Code's sign-in: no banner, no "Cấp quyền".
   const keychainRequired = s.keychain === 'required' && !onWindows();
-  const ctx = (section: Section): CardContext => ({
-    now,
-    personalHours: section.personalHours,
-    switching: null,
-    agy: null,
-  });
+  const ctx: CardContext = { now, switching: null, agy: null };
   const claudeSwitching = { listed: c.status === 'ok', ready: model.claudeSwitch.ready, busy: model.claudeSwitch.busy };
   const relogin = new Set(model.claudeAccounts.accounts.filter((r) => r.status === 'reloginRequired').map((r) => r.slot));
-  const claudeCards = c.accounts.map((a) => cardView(a, 'c', names.get(a.number)!, { ...ctx(c), switching: claudeSwitching, relogin }));
+  const claudeCards = c.accounts.map((a) => cardView(a, 'c', names.get(a.number)!, { ...ctx, switching: claudeSwitching, relogin }));
   const agySwitching: AgyRowSwitch = {
     listed: g.status === 'ok' && !!model.agySwitch?.listed,
     busy: model.agySwitch?.busy ?? null,
     logins: new Map((model.antigravity?.accounts ?? []).map((a) => [a.number, a])),
   };
-  const gNames = agyNames(g.accounts, model.advanced.on);
-  const agyCards = g.status === 'notSetUp' ? [] : g.accounts.map((a) => cardView(a, 'g', gNames.get(a.number)!, { ...ctx(g), agy: agySwitching }));
+  const gNames = agyNames(
+    g.accounts,
+  // @private:begin
+    model.advanced.on,
+  // @private:end
+  );
+  const agyCards = g.status === 'notSetUp' ? [] : g.accounts.map((a) => cardView(a, 'g', gNames.get(a.number)!, { ...ctx, agy: agySwitching }));
 
   // Header freshness: the age of the newest reading, never the time of the app's call.
   let fresh: PopoverView['fresh'];
@@ -528,17 +569,27 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
   let banner: BannerView | null = null;
   let dry: BannerView | null;
   const pendingAccount = c.accounts.find((a) => a.reading === 'resetPending');
+  // @private:begin
   const switcher = switcherBanner(model, now);
+  // @private:end
   const codex = codexBanner(model, true);
   // An Antigravity switch written over comes as a macOS card with buttons (M6),
   // and stays on the main window's Antigravity tab; the popover has no banner for it.
+  // @private:begin
   if (switcher && switcher.tone !== 'info') banner = switcher;
-  else if (pool.exhausted) {
-    const who = pool.refills.map(nameOf);
+  else
+  // @private:end
+  if (pool.exhausted) {
+    let who: string[] = [];
+    let title = t('Hạn mức Claude của tài khoản đang dùng đã cạn', 'Claude quota of the account in use is used up');
+    // @private:begin
+    who = pool.refills.map(nameOf);
+    title = t('Hạn mức Claude trong vòng đã cạn', 'Claude quota in rotation is used up');
+    // @private:end
     const at = clock(pool.nextRefillAt);
     banner = {
       tone: 'bad',
-      title: t('Hạn mức Claude trong vòng đã cạn', 'Claude quota in rotation is used up'),
+      title,
       body: at
         ? t('Có lại lúc ' + at + (who.length ? ' khi ' + who.join(' và ') + ' được đặt lại' : '') + '.', 'Back at ' + at + (who.length ? ' when ' + who.join(' and ') + ' resets' : '') + '.')
         : '',
@@ -591,7 +642,9 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
       actions: [{ label: t('Làm mới', 'Refresh'), act: 'refresh' }],
     };
   } else if (codex) banner = codex;
+  // @private:begin
   else if (switcher) banner = switcher;
+  // @private:end
 
   // Group notes.
   let claudeNote: NoteView | null = null;
@@ -650,7 +703,7 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
 /**
  * Claude nearly gone (alert 1's rule, as Cài đặt › Thông báo sets it): the
  * account in use has `dryAtMost` % left or less, and no other account has
- * `roomAtLeast` %. Without a rotation it looks only at the accounts here.
+ * `roomAtLeast` %.
  */
 function dryBanner(model: Model, cards: CardView[], nameOf: (n: number) => string): BannerView | null {
   const limits = model.alerts?.poolAlert;
@@ -694,12 +747,6 @@ export interface FeedbackView {
 }
 
 /**
- * The banner to show under a feedback line. A line that already says the
- * account is held (it offers to resume, or reports the pause) makes the
- * paused banner step aside rather than repeat it and its buttons; any other
- * line leaves it in place.
- */
-/**
  * A line that only says something went well: a short toast that goes by
  * itself, with nothing to press. Any other line stays where it was asked
  * for until it is answered or times out.
@@ -708,11 +755,22 @@ export function isQuiet(fb: FeedbackView): boolean {
   return fb.tone === '' && (fb.actions ?? []).every((a) => a.act === 'closeFeedback');
 }
 
+/** The banner to show under a feedback line. */
+// @private:begin
+/**
+ * A line that already says the account is held (it offers to resume, or
+ * reports the pause) makes the paused banner step aside rather than repeat
+ * it and its buttons; any other line leaves it in place.
+ */
+// @private:end
 export function bannerUnder(banner: BannerView | null, feedback: FeedbackView | null | undefined): BannerView | null {
   if (!banner || !feedback) return banner;
+  // @private:begin
   const paused = banner.tone === 'info' && banner.actions.some((a) => a.act === 'resume');
   const repeats = feedback.tone === 'info' || !!feedback.actions?.some((a) => a.act === 'resume');
-  return paused && repeats ? null : banner;
+  if (paused && repeats) return null;
+  // @private:end
+  return banner;
 }
 
 export function refreshedFeedback(now: Date): FeedbackView {

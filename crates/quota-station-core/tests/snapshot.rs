@@ -4,11 +4,11 @@
 mod common;
 
 use common::fixture;
-#[cfg(feature = "author-tools")]
-use quota_station_core::snapshot::{Membership, Role};
 use quota_station_core::snapshot::{
     Keychain, LineKind, PoolKind, Reading, SectionStatus, Snapshot, Source, LIST_SOURCE,
 };
+#[cfg(feature = "author-tools")]
+use quota_station_core::snapshot::{Membership, Role};
 
 fn claude(name: &str) -> Snapshot {
     Snapshot::build(Some(&fixture(name)), None)

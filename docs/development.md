@@ -7,7 +7,9 @@ runs and writes is in [how-it-works.md](how-it-works.md).
 - [Build and run](#build-and-run)
 - [Build features](#build-features)
 - [Browser preview](#browser-preview)
+<!-- @private:begin -->
 - [The README's screenshots](#the-readmes-screenshots)
+<!-- @private:end -->
 - [Tests](#tests)
 - [Layout](#layout)
 - [Front-end stack](#front-end-stack)
@@ -40,7 +42,7 @@ itself; `scripts/install.sh` installs it.
 
 `scripts/install.sh` runs `npm ci` when `package-lock.json` changed, makes a
 release build (`cargo tauri build --bundles app` when the Tauri CLI is installed
-with cargo, else the npm one) with both [build features](#build-features) on,
+with cargo, else the npm one) with the [build features](#build-features) on,
 signs it with the first `Apple Development` identity in the Keychain or ad-hoc
 when there is none (`--identity <name>` picks one, `--identity -` forces
 ad-hoc), checks the signature, copies it to `/Applications/Quota Station.app`
@@ -66,9 +68,9 @@ ditto -x -k quota-station-0.1.0.zip . && ./quota-station-0.1.0/install.sh --app 
 
 ## Build features
 
-Two Cargo features decide what is compiled in. A plain `cargo tauri build`,
-`npm run app` or a release build has neither; `scripts/install.sh` turns both
-on (`QS_ANTIGRAVITY_ACCOUNTS=0` or `QS_AUTHOR_TOOLS=0` leaves one out).
+Cargo features decide what is compiled in. A plain `cargo tauri build`,
+`npm run app` or a release build has none; `scripts/install.sh` turns them on
+(`QS_ANTIGRAVITY_ACCOUNTS=0` leaves the Antigravity accounts out).
 
 - **`antigravity-accounts`**: logging in and switching several Antigravity
   accounts, adapted from Cockpit Tools (see [`THIRD_PARTY.md`](../THIRD_PARTY.md)).
@@ -79,6 +81,7 @@ on (`QS_ANTIGRAVITY_ACCOUNTS=0` or `QS_AUTHOR_TOOLS=0` leaves one out).
   `cargo tauri build --features antigravity-accounts` with
   `QS_ANTIGRAVITY_ACCOUNTS=1`. Without it the app reads the
   Antigravity account signed in and does not log in or switch accounts.
+<!-- @private:begin -->
 - **`author-tools`**: the tools made for the author's own Macs: `Settings ›
   Advanced` and what it holds, the `Rotation rules` editor and the copy of the
   rotation file to the other Macs, `Copy to another Mac`, `Source code` and
@@ -95,11 +98,17 @@ on (`QS_ANTIGRAVITY_ACCOUNTS=0` or `QS_AUTHOR_TOOLS=0` leaves one out).
   author-tools`, or `npm run app -- --features author-tools`. The author's
   tools are Unix only.
 
-The settings file is the same in every build: a build without `author-tools`
-reads the values `Advanced` holds (its two switches, the other Macs, the clone,
-Firstmate's file, the switches of those two notifications) and writes them back
-as they were, so a settings file written by either build loads unchanged in the
-other.
+`QS_AUTHOR_TOOLS=0` leaves them out of `scripts/install.sh`'s build. The
+private part's code is `src/private/` for the interface and the items under
+`#[cfg(feature = "author-tools")]` in the crates; `community/README.md` says
+how the community tree is cut from this one.
+
+A build without `author-tools` does not know the values `Advanced` holds (its
+two switches, the other Macs, the clone, Firstmate's file, the switches of
+those two notifications): it reads a settings file that has them and leaves
+them out the next time it writes it. Back on a build with `author-tools`, the
+owner sets them again.
+<!-- @private:end -->
 
 ## Browser preview
 
@@ -116,27 +125,22 @@ query parameters are:
   `exhausted`, `keychain`, `no-antigravity`, `reset-pending`, `single`,
   `stale`, `unavailable` or `unnamed`.
 - `view=window` with `tab`: `overview`, `stats`, `claude`, `agy`, `codex`,
-  `rules`, `history`, `alerts` (Overview with the bell's panel open),
-  `firstmate`, `mcp`, `skills`, `plugins`, `instr`, `sets`, `cliTools`,
-  `backup`, `copy` or `settings`.
+  `history`, `alerts` (Overview with the bell's panel open), `mcp`, `skills`,
+  `plugins`, `instr`, `sets`, `cliTools`, `backup` or `settings`.
 - The look: `lang` (`vi` or `en`; without it the preview follows the browser's
   language, as the app follows macOS), `theme` (`light` or `dark`), `pack` (a
   theme pack: `default`, `kinhNhip`, `daiSangTinh`, `motNhipNhin`,
   `banDieuKhien` or `chieuLang`), `rt=1` (Reduce transparency), `os=win` (the
   app as Windows draws it) and `email=off` (names by place).
-- The build: `build=release` (the downloaded app: no author's tools, no
-  Antigravity accounts).
+- The build: `build=release` (the downloaded app: no Antigravity accounts).
 - The first run: `setup` (`on`, `signedout` for Claude Code signed in to none,
   `none` for no agent).
 - Releases: `release` (`avail`, `later`, `skipped`, `offline`, `none` or `off`;
   up to date by default) and `releasefinds=offline`.
-- Claude: `switcher` (`held`, `noguard`, `auto`, `stopped` or `missing`),
-  `outcome` (`raced`, `failed`, `busy` for Claude Code's locks held, or
+- Claude: `outcome` (`raced`, `failed`, `busy` for Claude Code's locks held, or
   `unconfirmed`; a switch lands by default), `accounts=none` (a Mac where Quota
   Station keeps no Claude account yet) and `claude` (`relogin`, `renew` or
   `fail`).
-- Rotation rules, on `tab=rules`: `rotation` (`unreachable`, `newer`, `edited`,
-  `unstamped`, `missing`, `invalid`, `unwritable` or `single`).
 - Antigravity: `agy` (`two`, `relogin`, `verify`, `noclient`, `tooopen`,
   `invalid`, `broken`, `reading`, `failing` or `forbidden`), `login` (how a
   login ends: `timeout`, `cancelled`, `noCode`, `stateMismatch`,
@@ -147,12 +151,9 @@ query parameters are:
   `agyhot=on`.
 - The menu bar settings: `menubar` (`claude`, `gemini` or `codex`) and
   `mbwindow` (`fiveHours`, `week`, `fableWeek` or `tightest`).
-- History, notifications and Firstmate: `history=empty`, `alerts` (`on`, the
-  default on `tab=alerts`, `off`, `unbundled`, `empty`, `many` or `env`) and
-  `firstmate` (`ok`, `holding`, `stale`, `missing` or `unset`, the default).
-- The app, on `tab=settings`: `app` (`on`, `approval`, `unavailable`,
-  `nosource` or `unbundled`) and `update` (`uptodate`, `pull`, `install` or
-  `timeout`; by default an update installs 0.1.1).
+- History and notifications: `history=empty` and `alerts` (`on`, the default
+  on `tab=alerts`, `off`, `unbundled`, `empty`, `many` or `env`).
+- The app, on `tab=settings`: `app` (`on`, `approval` or `unavailable`).
 - Codex: `codex` (`chatgpt`, `ccswitch`, `down`, `external`, `nologin`,
   `nokey`, `placeholder`, `header`, `envkey`, `noplugins`, `broken` or `none`;
   the custom provider is in use by default), `codexoutcome` (`changed` or
@@ -167,8 +168,6 @@ query parameters are:
 - Skills, Plugins and Instruction files: `skills` (`empty`, `nonpx`,
   `offline`, `unread` or `sets`), `skillsoutcome` (`changed` or `updatefail`),
   `plugins` (`noclaude` or `brands`) and `instr=clean`.
-- Copy to another Mac, on `tab=copy` with two made-up Macs: `copy` (`unreach`,
-  `old`, `noapp`, `none` or `changed`).
 - Variables that override a login: `env` (`found`, `claude2`, `launchd`,
   `unread` or `unchecked`), on `tab=settings` and `tab=claude`.
 - Config sets, on `tab=sets`: `sets` (`empty`, `fresh` or `even`) and
@@ -179,6 +178,27 @@ query parameters are:
   `updating`, `latest`, `failed` or `checking`, several joined with commas),
   `clifail` (`offline`, `permission`, `busy`, `exit`, `timeout`, `unchanged`,
   `started` or `sessions`) and `cliclosed=1`.
+
+<!-- @private:begin -->
+
+With the author's tools the preview also takes:
+
+- `tab`: `rules`, `firstmate` and `copy`, and `build=release` leaves the
+  author's tools out too.
+- Claude: `switcher` (`held`, `noguard`, `auto`, `stopped` or `missing`).
+- Rotation rules, on `tab=rules`: `rotation` (`unreachable`, `newer`, `edited`,
+  `unstamped`, `missing`, `invalid`, `unwritable` or `single`).
+- Firstmate: `firstmate` (`ok`, `holding`, `stale`, `missing` or `unset`, the
+  default).
+- The app, on `tab=settings`: `app` also takes `nosource` and `unbundled`, and
+  `update` (`uptodate`, `pull`, `install` or `timeout`; by default an update
+  installs 0.1.1).
+- Copy to another Mac, on `tab=copy` with two made-up Macs: `copy` (`unreach`,
+  `old`, `noapp`, `none` or `changed`).
+
+<!-- @private:end -->
+
+<!-- @private:begin -->
 
 ## The README's screenshots
 
@@ -192,6 +212,8 @@ captured: the C04 glyph from `render_glyph` in
 `crates/quota-station-core/src/icon.rs`, with the titles the snapshot fixtures
 give, in a light and a dark menu bar.
 
+<!-- @private:end -->
+
 ## Tests
 
 ```sh
@@ -204,31 +226,47 @@ CI (`.github/workflows/ci.yml`) has three jobs:
 - **Licenses**: `reuse lint`.
 - **Build and test (macOS)**, the required check: Vitest, the frontend's type
   check and build with and without `QS_ANTIGRAVITY_ACCOUNTS=1`, rustfmt, and
-  clippy and `cargo test --workspace` four times: with no feature, with
-  `antigravity-accounts`, with `author-tools` and with both, as
-  `scripts/install.sh` builds; then the MIT app (`tauri build --bundles app`).
-  The tests of the other Macs, the copy to another Mac and the update from
-  source build only with `author-tools`, and the tests of the settings file,
-  the alerts, the Claude accounts' copy, the model and the list of commands
-  check each build's side (`npm test` checks the windows of both).
+  clippy and `cargo test --workspace` with no feature and with
+  `antigravity-accounts`; then the MIT app (`tauri build --bundles app`).
 - **Build and test (Windows x64)**: Vitest, the core's `cargo check` and tests,
   clippy, and the app crate's tests, each with and without
-  `antigravity-accounts` (the author's tools are Unix only), then an unsigned
+  `antigravity-accounts`, then an unsigned
   NSIS test installer built with `QS_TEST_SESSION=1` for the guided sessions on
   a Windows PC, uploaded as the workflow artifact
   `quota-station-windows-x64-test-setup` (kept 14 days). No release carries it.
 
+<!-- @private:begin -->
+
+In this repository the macOS job also runs clippy and `cargo test` with
+`author-tools` and with both features, as `scripts/install.sh` builds. The
+tests of the other Macs, the copy to another Mac, the update from source, the
+rotation, the pause, the switcher and the history build only with
+`author-tools`, and the tests of the settings file, the alerts, the Claude
+accounts' copy, the model and the list of commands check each build's side.
+`npm test` here checks the full windows; a fourth job, **Community tree
+(macOS)**, runs `community/export.py --worktree --build`, which cuts the
+community tree from the commit, checks it for leaks and runs its own Vitest,
+frontend build, rustfmt, clippy and `cargo test`. The author's tools are Unix
+only, so Windows builds without them.
+
+<!-- @private:end -->
+
 The core's integration tests are `crates/quota-station-core/tests/*.rs`:
-`agents_backup`, `agents_copy`, `agents_mcp`, `agents_restore`, `agents_sets`,
+`agents_backup`, `agents_mcp`, `agents_restore`, `agents_sets`,
 `agents_skills`, `alerts`, `antigravity_credential`, `antigravity_login`,
 `antigravity_quota`, `antigravity_spy`, `antigravity_switch`,
-`claude_accounts`, `claude_import`, `claude_manage`, `claude_rotation`,
-`claude_switch`, `claude_windows`, `cli_tools`, `codex`, `codex_accounts`,
-`codex_wake`, `detail`, `env_check`, `history`, `icon`, `install_script`,
-`login_item`, `os_macos`, `pause`, `peers`, `quota_readers`, `rotation`,
-`runner`, `sessions`, `settings`, `snapshot`, `stats`, `switcher`,
-`switching`, `ui_fixtures` and `update`, with shared helpers in `common/` and
-synthetic data in `fixtures/`. The app crate (`src-tauri/src`) has its tests
+`claude_accounts`, `claude_import`, `claude_manage`, `claude_switch`,
+`claude_windows`, `cli_tools`, `codex`, `codex_accounts`, `codex_wake`,
+`detail`, `env_check`, `icon`, `install_script`, `login_item`, `os_macos`,
+`quota_readers`, `runner`, `sessions`, `settings`, `snapshot`, `stats` and
+`ui_fixtures`, with shared helpers in `common/` and synthetic data in
+`fixtures/`.
+<!-- @private:begin -->
+
+With `author-tools` also `agents_copy`, `claude_rotation`, `history`,
+`pause`, `peers`, `rotation`, `switcher`, `switching` and `update`.
+
+<!-- @private:end --> The app crate (`src-tauri/src`) has its tests
 inline. The Vitest tests are the `*.test.ts(x)` files under `src/`; the
 `*.en.test.*` files draw the windows in English and the `*.win.test.*` files as
 Windows draws them.
@@ -247,12 +285,15 @@ What the main suites check:
   with `--no-open`), a failed build that leaves the old copy, `npm ci` after a
   lock file change, the commit passed to the build, and a package that installs
   with `--app` on a Mac without `cargo` or `npm`, from the folder or the zip.
-- **Update and login item** (`update.rs`, `login_item.rs`): real git on
-  temporary repositories (a bare origin, the clone, and a second clone that
-  pushes) with a temporary HOME and no git config, and a fake `install.sh` that
-  records its arguments: a new commit pulled and installed, nothing new, a clone
-  that cannot fast-forward (left as it is), an origin that is gone, a failed
-  install, and what counts as a clone. The login item tests use a fake backend
+<!-- @private:begin -->
+- **Update from source** (`update.rs`): real git on temporary repositories (a
+  bare origin, the clone, and a second clone that pushes) with a temporary HOME
+  and no git config, and a fake `install.sh` that records its arguments: a new
+  commit pulled and installed, nothing new, a clone that cannot fast-forward
+  (left as it is), an origin that is gone, a failed install, and what counts
+  as a clone.
+<!-- @private:end -->
+- **Login item** (`login_item.rs`): the tests use a fake backend
   that keeps the state macOS would: on, off, waiting for approval, not a
   packaged app, and refused. Reading the switch never registers anything. No
   test opens an app, registers a login item or writes to `/Applications`.
@@ -295,8 +336,7 @@ What the main suites check:
   out while it is prepared, the 60-second preparation and one that breaks, one
   switch at a time, a reopen that fails, and the six-hour watch on synthetic
   readings.
-- **Claude accounts and switching** (the `claude_*.rs` files, `switching.rs`,
-  `switcher.rs`, `sessions.rs`, `pause.rs`) never touch a real account, the real
+- **Claude accounts** (the `claude_*.rs` files and `sessions.rs`) never touch a real account, the real
   Keychain or Anthropic. They run in a temporary HOME with a fake `security`
   that keeps items in files (and can refuse a write or drop one, to check that a
   switch puts everything back), a fake `launchctl`, a fake `claude` and a local
@@ -306,13 +346,18 @@ What the main suites check:
   keep, the usage reads and their back-off, a refresh of an account not in use
   and never of the one in use, the import (claude-swap's folder and items
   unchanged, running it again changes nothing), adding and removing accounts,
-  the session folders, the command line, and the rotation's decisions on the
-  same cases as the old script; one ignored test runs the real
-  `cswap-prefer-team` with `--dry-run` beside the port when
-  `QUOTA_STATION_PREFER_TEAM` names it. The read after a switch is the app's own
-  reading of the accounts. Session counting runs on session files in a
-  temporary folder, and the pause flag tests write it there with an `until`
-  ahead, passed, malformed or missing.
+  the session folders and the command line. The read after a switch is the
+  app's own reading of the accounts. Session counting runs on session files in
+  a temporary folder.
+<!-- @private:begin -->
+- **Switching, the switcher and the pause** (`switching.rs`, `switcher.rs`,
+  `pause.rs`, `claude_rotation.rs`): the rotation's decisions on the same cases
+  as the old script; one ignored test runs the real `cswap-prefer-team` with
+  `--dry-run` beside the port when `QUOTA_STATION_PREFER_TEAM` names it. The
+  pause flag tests write the flag in a temporary folder with an `until` ahead,
+  passed, malformed or missing.
+<!-- @private:end -->
+<!-- @private:begin -->
 - **Rotation and the other Macs** (`rotation.rs`, `peers.rs`) write rotation
   files in temporary folders: one the rules accept, and ones they refuse, which
   leave the file as it was. The other-Mac tests put a fake `ssh` first on
@@ -321,20 +366,24 @@ What the main suites check:
   cover a Mac with no file, an older copy (replaced, backup kept, ten newest
   kept), the copy already there, the 5-minute retry, a newer copy that wins, and
   a copy edited by hand.
-- **History and notifications** (`history.rs`, `alerts.rs`) run on synthetic
-  reports, switcher logs and app folders in temporary directories, with a fake
-  notification center that records each card, its buttons and what was
-  withdrawn, and presses a button. They step through readings: the pool going
-  dry and coming back, an account leaving the rotation in 30 minutes (and not
-  for an account that left already), a refused Claude login, Antigravity
-  accounts that need a new login or a verification, an overwrite within 6 hours
-  (offering to switch back twice, then only saying so), and Firstmate's
-  `pool=dry`, fresh and stale. They check that each event alerts once, that a
-  switched-off kind sends nothing, that the reminder for tomorrow comes back at
-  09:00, that a test card changes nothing, and that a press counts once on
-  either card. The history tests merge the app's journal, its switch logs and
-  the switcher's log, and keep a change nothing explains as observed only once.
-  Nothing posts a real notification.
+<!-- @private:end -->
+- **Notifications** (`alerts.rs`) run on synthetic reports and app folders in
+  temporary directories, with a fake notification center that records each
+  card, its buttons and what was withdrawn, and presses a button. They step
+  through readings: the pool going dry and coming back, a refused Claude
+  login, Antigravity accounts that need a new login or a verification, and an
+  overwrite within 6 hours (offering to switch back twice, then only saying
+  so). They check that each event alerts once, that a switched-off kind sends
+  nothing, that the reminder for tomorrow comes back at 09:00, that a test
+  card changes nothing, and that a press counts once on either card. Nothing
+  posts a real notification.
+<!-- @private:begin -->
+- **History, and the private notifications** (`history.rs`, and `alerts.rs`
+  with `author-tools`): an account leaving the rotation in 30 minutes (and not
+  for an account that left already) and Firstmate's `pool=dry`, fresh and
+  stale. The history tests merge the app's journal, its switch logs and the
+  switcher's log, and keep a change nothing explains as observed only once.
+<!-- @private:end -->
 - **Quota readers** (`quota_readers.rs`) never use a real login: Codex,
   Antigravity and Claude Code each run against a local fake server, a fake
   `agy`, `ps` and `lsof`, and a fake `security`, with made-up tokens. For each
@@ -391,6 +440,7 @@ What the main suites check:
   and `Try again` gets it done, that the undo takes it all back, and that no
   trap key reaches the pack, the plan, the result, the record or the app's
   backups.
+<!-- @private:begin -->
 - **Copy to another Mac** (`agents_copy.rs`) copies between two temporary homes
   through a fake `ssh` that records its arguments and stdin and runs the script
   on the other home, where a fake app bundle answers with canned replies, with
@@ -403,6 +453,7 @@ What the main suites check:
   written; and that bad names, paths and protocols are refused. No test opens a
   real SSH connection. The Vitest tests walk the tab and its dialogs on a fake
   Rust side.
+<!-- @private:end -->
 - **Variables that override a login** (`env_check.rs`) check fake home folders
   with fake shell files and a fake `launchctl` that records its words: a name
   counts only at the start of a line, the last line wins, `launchctl` is asked
@@ -459,17 +510,22 @@ UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test stats
   modules:
   - `claude/`: the Claude accounts: the Keychain store (and `credman.rs`, the
     Windows Credential Manager), Claude Code's locks and login, the switch, the
-    usage reads, the rotation and its LaunchAgent (`timer.rs` on Windows), the
-    session folders, the import from claude-swap and the `quota-station claude`
-    command line.
-  - Pausing, sessions and the switcher: it counts live sessions, reads and
-    writes the pause flag, reads the rotation's dry run and log, reads, checks
-    and writes the rotation file, and copies it over SSH (`peers.rs`).
+    usage reads, the session folders, the import from claude-swap and the
+    `quota-station claude` command line.
+  - `sessions` counts live sessions; `switching` and `history` hold what the
+    switch sheet and the History tab read.
+  <!-- @private:begin -->
+  - With `author-tools`: the rotation and its LaunchAgent (`timer.rs` on
+    Windows) in `claude/`; the pause flag, the rotation's dry run and log, the
+    rotation file, read, checked and written, and its copy over SSH
+    (`peers.rs`); Firstmate's `quota-pool.last` (`firstmate`); `update`, which
+    pulls the clone and runs its install script; and `agents/copy.rs`, which
+    compares two Macs and copies between them over SSH.
+  <!-- @private:end -->
   - `antigravity/`: logs Antigravity accounts in and out, reads their quota,
     paces those reads, and switches the account Antigravity.app and agy use.
-  - `history`, `alerts` and `firstmate`: the switch history, the notification
-    rules and Firstmate's `quota-pool.last`.
-  - `update` pulls the clone and runs its install script; `login_item` holds
+  - `alerts`: the notification rules.
+  - `login_item` holds
     the rule of the `Open at login` switch; `release.rs` checks GitHub
     Releases; `cli_tools.rs` checks and updates the agents' command-line tools;
     `settings.rs` is the settings file.
@@ -480,8 +536,7 @@ UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test stats
   - `agents/`: the MCP tab (each agent's list, the edits of one entry, the
     batch, the safe write it shares with `codex`, the backups without keys, the
     app's store and its Keychain items); `pack.rs` makes, lists and reads the
-    backup packs and `restore.rs` plans, runs and undoes a restore; `copy.rs`
-    compares two Macs and copies between them over SSH; `skills.rs` reads and
+    backup packs and `restore.rs` plans, runs and undoes a restore; `skills.rs` reads and
     writes the Skills tab's links and `[[skills.config]]` entries, `skill_ops.rs`
     and `npx.rs` install, update and remove through `npx skills`,
     `skill_updates.rs` asks GitHub for newer versions, `plugins.rs` reads the
@@ -500,30 +555,40 @@ UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test stats
   the popover and the main window, the read loop (`reader.rs`), the Antigravity
   quota and switch (`agy_quota.rs`, `agy_switch.rs`, `antigravity.rs`), the
   macOS notification center (`notify.rs`, `alerting.rs`), the login item
-  (`login_item.rs`), the update from source (`install.rs`), the release check
+  (`login_item.rs`), the app's version and its login item commands
+  (`install.rs`), the release check
   (`release.rs`), the Codex thread, accounts, import and wake (`codex.rs`,
   `codex_accounts.rs`, `codex_import.rs`, `codex_wake.rs`), the MCP tab's
   commands (`agents.rs`), the backup tab's (`backup.rs`), the Skills, Plugins
-  and Instruction files tabs' (`skills.rs`), the copy tab's and the
-  `quota-station agents …` commands another Mac runs (`copy.rs`), the Claude
+  and Instruction files tabs' (`skills.rs`), the Claude
   accounts' commands and the `quota-station claude …` dispatch (`claude.rs`,
   `main.rs`), the variables check (`env.rs`), Config sets (`sets.rs`), Stats
-  (`stats.rs`), Agent updates (`cli_tools.rs`), the rotation rules
-  (`rules.rs`), the state and commands (`state.rs`, `commands.rs`, `open.rs`),
-  and on Windows the tray, windows and the rotation timer (`windows.rs`,
-  `winsys.rs`, `timer.rs`) and the test build's guided session and diagnostics
-  zip (`session.rs`, `diag.rs`, `shot.rs`).
+  (`stats.rs`), Agent updates (`cli_tools.rs`), the state and commands
+  (`state.rs`, `commands.rs`, `open.rs`), and on Windows the tray and windows
+  (`windows.rs`, `winsys.rs`) and the test build's guided session and
+  diagnostics zip (`session.rs`, `diag.rs`, `shot.rs`).
+  <!-- @private:begin -->
+  With `author-tools` also the update from source (in `install.rs`), the copy
+  tab's and the `quota-station agents …` commands another Mac runs
+  (`copy.rs`), the rotation rules (`rules.rs`) and, on Windows, the rotation
+  timer (`timer.rs`).
+  <!-- @private:end -->
 - `scripts/install.sh` builds, signs, installs and packages the app.
 - `src/` is the React and TypeScript frontend: `popover/`, `window/`,
   `claude/`, `antigravity/` (and `antigravity-off/`, which stands in when the
   Antigravity accounts are left out), `codex/`, `agents/` (MCP and its
   `CheckMatrix`, which the Skills tab reuses, Plugins, Instruction files,
-  Config sets and Agent updates), `backup/` (the backup tab, the restore sheet
-  and the copy tab), `settings/`, `stats/` (the Stats tab and its SVG chart),
-  `rules/`, `history/`, `alerts/`, `firstmate/`, `release/`, `setup/` (the first
-  run), `session/` (the Windows test build's guide), `lib/` (the model, the
-  view functions and `i18n.ts`), `components/` and `styles/`. `preview.ts` is
-  the browser preview.
+  Config sets and Agent updates), `backup/` (the backup tab and the restore
+  sheet), `settings/`, `stats/` (the Stats tab and its SVG chart),
+  `history/`, `alerts/`, `release/`, `setup/` (the first run), `session/` (the
+  Windows test build's guide), `lib/` (the model, the view functions and
+  `i18n.ts`), `components/` and `styles/`. `preview.ts` is the browser
+  preview.
+  <!-- @private:begin -->
+  `private/` holds the private part's screens and their logic: `rules/`,
+  `firstmate/`, `copy/` (the copy tab), `settings/` (Advanced), the pause and
+  the switcher's words.
+  <!-- @private:end -->
 
 ## Front-end stack
 
@@ -572,6 +637,11 @@ classes.
 
 ## Milestones
 
+The app was built in milestones, M1 to M16, which the code's comments and
+the git history still name; later work is named by its pull request.
+
+<!-- @private:begin -->
+
 The app was built in milestones, which the code's comments and the git history
 still name: M1 `Khung và số` (the frame and the numbers), M2 `Cửa sổ chính chỉ
 đọc` (a read-only main window), M3 `Chuyển Claude và tạm dừng` (switching Claude
@@ -586,3 +656,5 @@ restore (skills, plugins and instruction files), M13 `Chép sang Mac khác`, M14
 (the bilingual community edition, the first run, the Codex accounts, Agent
 updates, the theme packs and the Windows plans W1–W5) is named by its pull
 request.
+
+<!-- @private:end -->

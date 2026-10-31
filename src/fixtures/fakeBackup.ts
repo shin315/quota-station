@@ -41,11 +41,11 @@ export function packsFixture(): PackInfo[] {
     newer: false,
   });
   return [
-    p('agents-20260116-141000-studio-mini', NOW - 600, 'Mac mini', true, 6, 2),
-    p('agents-20260116-091200-studio-mini', NOW - 18_480, 'Mac mini', true, 6, 2),
+    p('agents-20260116-141000-studio-mini', NOW - 600, 'Mac Studio', true, 6, 2),
+    p('agents-20260116-091200-studio-mini', NOW - 18_480, 'Mac Studio', true, 6, 2),
     p('agents-20260115-220500-travel-air', NOW - 33_900, 'Travel Air', false, 4, 1, 'cloud'),
     p('agents-20260115-143000-desk-mini', NOW - 60_000, 'Desk mini', false, 5, 2),
-    p('agents-20260114-214800-studio-mini', NOW - 120_000, 'Mac mini', true, 5, 2),
+    p('agents-20260114-214800-studio-mini', NOW - 120_000, 'Mac Studio', true, 5, 2),
   ];
 }
 

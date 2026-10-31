@@ -1,17 +1,25 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-// What the Lịch sử tab shows (F08): the app's own switches, the switcher's
-// log and the changes the app saw, a day at a time, newest first. Pure,
-// like `view.ts`. Copy follows the prototype's `tabHistory`: accounts by
-// the window's names, a short reason, and the switcher's own line on hover.
+// What the Lịch sử tab shows (F08): the app's own switches and the changes
+// the app saw, a day at a time, newest first. Pure, like `view.ts`. Copy
+// follows the prototype's `tabHistory`: accounts by the window's names and
+// a short reason.
+// @private:begin
+// Also the switcher's log, with its own line on hover.
+// @private:end
 
 import { agyNames, claudeAliases, claudeNames } from './accounts';
 import { shortName } from './codex';
 import { clock, pad } from './format';
 import { appName, t } from './i18n';
-import type { AgyHow, HistoryEntry, HistorySource, Model, Why } from './model';
-import { dayClock, type NameOf } from './switching';
+import type { AgyHow, HistoryEntry, HistorySource, Model } from './model';
+import { type NameOf } from './switching';
+// @private:begin
+import { rolesOf } from './accounts';
+import type { Why } from './model';
+import { dayClock } from './switching';
+// @private:end
 import type { ChipView } from './view';
 
 export type HistoryFilter = 'all' | 'claude' | 'antigravity' | 'codex';
@@ -34,7 +42,7 @@ export interface HistoryRowView {
   to: string;
   why: string;
   source: ChipView;
-  /** The switcher's line as it wrote it, on hover. */
+  /** The line as its source wrote it, on hover. */
   raw: string | null;
 }
 
@@ -64,15 +72,16 @@ function sourceText(s: HistorySource): string {
   return s === 'observed' ? t('quan sát', 'observed') : s;
 }
 
-/** The switcher's line without the stamp it starts with. */
-function logText(raw: string): string {
-  return raw.replace(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} /, '');
-}
-
 function agyHow(how: AgyHow): string {
   if (how === 'quitFirst') return t(' · thoát app rồi chuyển', ' · quit the app, then switched');
   if (how === 'keepRunning') return t(' · chuyển khi app vẫn mở', ' · switched with the app open');
   return '';
+}
+
+// @private:begin
+/** The switcher's line without the stamp it starts with. */
+function logText(raw: string): string {
+  return raw.replace(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} /, '');
 }
 
 /** Why the switcher switched, short: `5 giờ đã dùng 0% · đặt lại 23:40`. Every percent is the share used. */
@@ -98,25 +107,31 @@ function switcherWhy(w: Why, nameOf: NameOf): string {
       return t('Switcher chuyển', 'The switcher switched');
   }
 }
+// @private:end
 
 function why(e: HistoryEntry, nameOf: NameOf, now: Date): string {
   const c = e.cause;
   switch (c.kind) {
     case 'manual': {
       let s = t('Bạn chuyển tay', 'You switched by hand');
+      // @private:begin
       if (c.holdUntil) s += t(' · giữ đến ', ' · held until ') + dayClock(c.holdUntil, now);
+      // @private:end
       if (c.result === 'raced') s += t(' · một lần chuyển khác ghi ngay sau đó', ' · another switch wrote right after');
       if (c.result === 'unconfirmed') s += t(' · chưa đọc lại được để kiểm tra', ' · could not read it back to check');
       return s;
     }
+    // @private:begin
     case 'switcher':
       return switcherWhy(c.why, nameOf);
     case 'primed':
       return t('Bắt đầu tính 5 giờ sớm', 'Started the 5-hour window early');
+    // @private:end
     case 'observed':
-      return e.app === 'claude'
-        ? t('Đổi giữa hai lần đọc, không do app hay switcher', 'Changed between two reads, not by the app or the switcher')
-        : t('Đổi giữa hai lần đọc, không do app', 'Changed between two reads, not by the app');
+      // @private:begin
+      if (e.app === 'claude') return t('Đổi giữa hai lần đọc, không do app hay switcher', 'Changed between two reads, not by the app or the switcher');
+      // @private:end
+      return t('Đổi giữa hai lần đọc, không do app', 'Changed between two reads, not by the app');
     case 'agySwitch': {
       let s = t('Bạn chuyển trong app', 'You switched in the app') + agyHow(c.how as AgyHow);
       if (c.reopened === false) s += t(' · chưa mở lại được app', ' · could not reopen the app');
@@ -143,23 +158,31 @@ function pill(e: HistoryEntry): HistoryRowView['pill'] {
   if (c.kind === 'agyOverwrite') return { t: t('Cảnh báo', 'Alert'), k: 'w' };
   if (e.app === 'antigravity') return { t: 'Antigravity', k: 'g' };
   if (e.app === 'codex') return { t: 'Codex', k: 'x' };
+  // @private:begin
   if (c.kind === 'primed') return { t: t('Khởi tạo sớm', 'Prime'), k: '' };
+  // @private:end
   return { t: t('Chuyển', 'Switch'), k: 'sw' };
 }
 
 /**
  * The window's names for each app's accounts, built from the snapshot now:
- * the email's part before `@` while names show, else Team A, Ultra 1 (with
- * Nâng cao) or Tài khoản 1, Antigravity 1. A slot
- * the snapshot no longer lists goes by its place.
+ * the email's part before `@` while names show, else Tài khoản 1,
+ * Antigravity 1. A slot the snapshot no longer lists goes by its place.
  */
 export function historyNames(model: Model): { claude: NameOf; agy: NameOf } {
-  const roles = model.advanced.on;
-  const c = claudeNames(model.snapshot.claude.accounts, model.snapshot.claude.personalHours, roles, claudeAliases(model));
-  const g = agyNames(model.snapshot.agy.accounts, roles);
+  let agyWord = 'Antigravity ';
+  let c = claudeNames(model.snapshot.claude.accounts, claudeAliases(model));
+  let g = agyNames(model.snapshot.agy.accounts);
+  // @private:begin
+  // With Nâng cao: Team A, Ultra 1.
+  const roles = rolesOf(model, true);
+  c = claudeNames(model.snapshot.claude.accounts, claudeAliases(model), roles);
+  g = agyNames(model.snapshot.agy.accounts, !!roles);
+  if (roles) agyWord = 'Ultra ';
+  // @private:end
   return {
     claude: (n) => c.get(n)?.name ?? t('Tài khoản ', 'Account ') + n,
-    agy: (n) => g.get(n)?.name ?? (roles ? 'Ultra ' : 'Antigravity ') + n,
+    agy: (n) => g.get(n)?.name ?? agyWord + n,
   };
 }
 
@@ -180,16 +203,21 @@ export function historyRow(e: HistoryEntry, i: number, model: Model, now: Date):
       raw: null,
     };
   }
-  return {
+  const row: HistoryRowView = {
     key: e.at + ':' + i,
     time: clock(e.at),
     pill: pill(e),
-    from: e.from != null && c.kind !== 'primed' ? nameOf(e.from) : null,
+    from: e.from != null ? nameOf(e.from) : null,
     to: e.to != null ? nameOf(e.to) : t('tài khoản đã đăng xuất', 'signed-out account'),
     why: why(e, claude, now),
     source: { t: sourceText(e.source), k: '' },
-    raw: c.kind === 'switcher' || c.kind === 'primed' ? logText(c.raw) : null,
+    raw: null,
   };
+  // @private:begin
+  if (c.kind === 'primed') row.from = null;
+  if (c.kind === 'switcher' || c.kind === 'primed') row.raw = logText(c.raw);
+  // @private:end
+  return row;
 }
 
 /** The entries of `filter`, a day at a time. */

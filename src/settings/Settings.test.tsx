@@ -6,7 +6,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MainWindowApp } from '../App';
 import { fakeApi, type FakeOptions } from '../fixtures/fakeApi';
 import { API_KEY, envFixture } from '../fixtures/fakeEnv';
-import { agyFixture, alertsFixture, appFixture, codexFixture, communityModel, firstmateFixture, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
+import { agyFixture, alertsFixture, appFixture, codexFixture, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
+// @private:begin
+import { communityModel, firstmateFixture } from '../fixtures/models';
+// @private:end
 import type { Api } from '../lib/api';
 import type { Model } from '../lib/model';
 
@@ -23,6 +26,23 @@ async function open(model: Model) {
 }
 
 afterEach(cleanup);
+
+/** Alert 1 by its name in this build. */
+let POOL = 'Hạn mức Claude sắp cạn / có lại';
+/** The kinds of alert this build can send. */
+let KINDS = 3;
+/** Cài đặt's tabs, and the cards each shows. */
+let GROUPS: [string, string[]][] = [
+  ['Chung', ['Chung', 'Cập nhật']],
+  ['Hiển thị', ['Hiển thị']],
+  ['Thông báo', ['Thông báo']],
+  ['Dịch vụ', ['Dịch vụ', 'Biến môi trường đè đăng nhập']],
+];
+// @private:begin
+POOL = 'Hạn mức Claude trong vòng sắp cạn / có lại';
+KINDS = 5;
+GROUPS = [...GROUPS, ['Nâng cao', ['Nâng cao']]];
+// @private:end
 
 /** Shows one of Cài đặt's tabs, as a press on it does. */
 async function showGroup(name: string) {
@@ -212,8 +232,8 @@ describe('settings tab', () => {
   it('names this Mac and goes back to the name macOS gives when emptied', async () => {
     const fake = await open(fixtureModel('fresh'));
     const input = screen.getByLabelText(/Tên máy này/) as HTMLInputElement;
-    expect(input.value).toBe('Mac mini');
-    expect(input.placeholder).toBe('Mac mini');
+    expect(input.value).toBe('Mac Studio');
+    expect(input.placeholder).toBe('Mac Studio');
 
     fireEvent.change(input, { target: { value: 'Mac phòng khách' } });
     await act(async () => {
@@ -228,7 +248,7 @@ describe('settings tab', () => {
       fireEvent.blur(input);
     });
     expect(fake.api.setMachineName).toHaveBeenLastCalledWith('');
-    expect(input.value).toBe('Mac mini');
+    expect(input.value).toBe('Mac Studio');
   });
 
   it('a name that cannot be saved says so and goes back to the saved one', async () => {
@@ -240,18 +260,19 @@ describe('settings tab', () => {
       fireEvent.keyDown(input, { key: 'Enter' });
     });
     expect(screen.getByText('Chưa lưu được cài đặt')).toBeTruthy();
-    expect(input.value).toBe('Mac mini');
-    expect(screen.getByText('Mac mini · cập nhật 40 giây trước')).toBeTruthy();
+    expect(input.value).toBe('Mac Studio');
+    expect(screen.getByText('Mac Studio · cập nhật 40 giây trước')).toBeTruthy();
   });
 
   it('an unchanged name is not saved again', async () => {
     const fake = await open(fixtureModel('fresh'));
     const input = screen.getByLabelText(/Tên máy này/);
-    fireEvent.change(input, { target: { value: ' Mac mini ' } });
+    fireEvent.change(input, { target: { value: ' Mac Studio ' } });
     fireEvent.blur(input);
     expect(fake.api.setMachineName).not.toHaveBeenCalled();
   });
 
+  // @private:begin
   it('lists the other Macs with their SSH alias, and adds, renames and removes them', async () => {
     const fake = await open(fixtureModel('fresh'));
     await showGroup('Nâng cao');
@@ -299,7 +320,9 @@ describe('settings tab', () => {
     ]);
     expect(fake.current().rotation.peers.map((p) => p.name)).toEqual(['Mac B', 'Mac phòng làm việc']);
   });
+  // @private:end
 
+  // @private:begin
   it('a new row with no alias yet neither blocks nor loses the edits to the others', async () => {
     const fake = await open(fixtureModel('fresh'));
     await showGroup('Nâng cao');
@@ -317,7 +340,9 @@ describe('settings tab', () => {
     expect(screen.getByLabelText('Tên kết nối SSH của Mac mới')).toBeTruthy();
     expect(screen.getByText('Nhập tên kết nối SSH')).toBeTruthy();
   });
+  // @private:end
 
+  // @private:begin
   it('an alias listed twice is refused on the row that repeats it', async () => {
     const fake = await open(fixtureModel('fresh'));
     await showGroup('Nâng cao');
@@ -330,7 +355,9 @@ describe('settings tab', () => {
     expect(alias.getAttribute('data-invalid')).toBe('true');
     expect(fake.current().rotation.peers.map((p) => p.alias)).toEqual(['mac-b', 'mac-c']);
   });
+  // @private:end
 
+  // @private:begin
   it('refuses an alias ssh would read as an option and says why', async () => {
     const fake = await open(fixtureModel('fresh'));
     await showGroup('Nâng cao');
@@ -343,7 +370,9 @@ describe('settings tab', () => {
     expect(screen.getByText('Tên kết nối chỉ gồm chữ, số và . - _ @, không bắt đầu bằng dấu gạch.')).toBeTruthy();
     expect(fake.current().rotation.peers[0].alias).toBe('mac-b');
   });
+  // @private:end
 
+  // @private:begin
   it('Thử SSH reads each Mac and shows which one it reached', async () => {
     const fake = fakeApi(fixtureModel('fresh'), 'settings', { unreachable: ['mac-c'] });
     vi.spyOn(fake.api, 'testPeer');
@@ -363,18 +392,30 @@ describe('settings tab', () => {
     expect(screen.getByText('SSH ổn')).toBeTruthy();
     expect(screen.getByText('SSH hết thời gian chờ. Kiểm tra tên kết nối hoặc bật máy đó.')).toBeTruthy();
   });
+  // @private:end
 
+  // @private:begin
   it('with no other Mac the rules stay on this Mac', async () => {
     await open(fixtureModel('fresh', { rotation: { ...fixtureModel('fresh').rotation, peers: [] } }));
     await showGroup('Nâng cao');
     expect(screen.getByText('Chưa có Mac nào. Luật xoay vòng chỉ lưu trên máy này.')).toBeTruthy();
     expect((screen.getByRole('button', { name: 'Thử SSH' }) as HTMLButtonElement).disabled).toBe(true);
   });
+  // @private:end
 });
 
 describe('settings for M6', () => {
-  async function openWith(model: Parameters<typeof open>[0], firstmate = firstmateFixture()) {
-    const fake = fakeApi(model, 'settings', { firstmate });
+  async function openWith(
+    model: Parameters<typeof open>[0],
+    // @private:begin
+    firstmate = firstmateFixture(),
+    // @private:end
+  ) {
+    const fake = fakeApi(model, 'settings', {
+      // @private:begin
+      firstmate,
+      // @private:end
+    });
     for (const name of Object.keys(fake.api) as (keyof Api)[]) vi.spyOn(fake.api, name);
     render(
       <div className="qs app-window">
@@ -384,8 +425,11 @@ describe('settings for M6', () => {
     await screen.findByRole('heading', { name: 'Cài đặt' });
     return fake;
   }
+  // @private:begin
   const fmInput = () => screen.getByLabelText(/^File của firstmate/) as HTMLInputElement;
+  // @private:end
 
+  // @private:begin
   it('Firstmate\'s file has no path built in, and only quota-pool.last is taken', async () => {
     const fake = await openWith(fixtureModel('fresh'));
     await showGroup('Nâng cao');
@@ -407,7 +451,9 @@ describe('settings for M6', () => {
     expect(fake.current().firstmate.file).toBe('~/example/watch/quota-pool.last');
     expect(screen.getByText('Đọc được ✓')).toBeTruthy();
   });
+  // @private:end
 
+  // @private:begin
   it('a path with no file is refused and the one before stays', async () => {
     const fake = fakeApi(fixtureModel('fresh', { firstmate: firstmateFixture() }), 'settings');
     vi.spyOn(fake.api, 'setFirstmateFile');
@@ -426,14 +472,15 @@ describe('settings for M6', () => {
     expect(fake.current().firstmate.file).toBe('~/example/quota-pool.last');
     expect(fake.current().firstmate.status).toBe('ok');
   });
+  // @private:end
 
   it('Thông báo shows whether macOS lets the cards show, with "Gửi thử" and a switch for each kind', async () => {
     const fake = await openWith(fixtureModel('fresh'));
     await showGroup('Thông báo');
     expect(screen.getByText('đang bật')).toBeTruthy();
-    expect(screen.getAllByRole('button', { name: /^Gửi thử: / })).toHaveLength(5);
+    expect(screen.getAllByRole('button', { name: /^Gửi thử: / })).toHaveLength(KINDS);
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Gửi thử: Hạn mức Claude trong vòng sắp cạn / có lại' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Gửi thử: ' + POOL }));
     });
     expect(fake.api.testAlert).toHaveBeenCalledWith('pool');
     await act(async () => {
@@ -475,8 +522,10 @@ describe('settings for M7: the app itself', () => {
     return fake;
   }
   const loginSwitch = () => screen.getByRole('switch', { name: 'Mở khi đăng nhập' });
+  // @private:begin
   const updateButton = () => screen.getByRole('button', { name: /Cập nhật từ mã nguồn|Đang cập nhật…/ }) as HTMLButtonElement;
   const sourceInput = () => screen.getByLabelText(/^Mã nguồn/) as HTMLInputElement;
+  // @private:end
 
   it('shows the version and the commit it was built from', async () => {
     // In Chung's Cập nhật card, so the tab Cài đặt opens on.
@@ -525,14 +574,23 @@ describe('settings for M7: the app itself', () => {
     expect(fake.api.openLoginItems).toHaveBeenCalledTimes(1);
   });
 
-  it('outside the installed app the switch and the update are off', async () => {
-    const fake = await openApp({ launchAtLogin: 'unavailable', bundled: false });
+  it('outside the installed app the switch is off', async () => {
+    const fake = await openApp({
+      launchAtLogin: 'unavailable',
+      // @private:begin
+      bundled: false,
+      // @private:end
+    });
     expect((loginSwitch() as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText('Chỉ bản .app đã cài mới mở khi đăng nhập được.')).toBeTruthy();
+    // @private:begin
+    // And so is the update.
     await showGroup('Nâng cao');
     expect(updateButton().disabled).toBe(true);
     expect(screen.getByText('Bản đang chạy không phải .app đã cài, nên không có gì để cập nhật.')).toBeTruthy();
     expect(fake.api.updateFromSource).not.toHaveBeenCalled();
+    // @private:end
+    expect(fake.api.setLaunchAtLogin).not.toHaveBeenCalled();
   });
 
   it('a refusal from macOS is shown and the switch stays off', async () => {
@@ -545,6 +603,7 @@ describe('settings for M7: the app itself', () => {
     expect(loginSwitch().getAttribute('aria-checked')).toBe('false');
   });
 
+  // @private:begin
   it('the source folder must be a clone with the install script', async () => {
     const fake = await openApp({ source: null, sourceStatus: 'notSet' });
     await showGroup('Nâng cao');
@@ -573,7 +632,9 @@ describe('settings for M7: the app itself', () => {
     expect(screen.getByText('Có scripts/install.sh ✓')).toBeTruthy();
     expect(updateButton().disabled).toBe(false);
   });
+  // @private:end
 
+  // @private:begin
   it('an update pulls, installs and offers to open the new copy', async () => {
     const fake = await openApp();
     await showGroup('Nâng cao');
@@ -589,7 +650,9 @@ describe('settings for M7: the app itself', () => {
     expect(fake.api.relaunch).toHaveBeenCalledTimes(1);
     expect(fake.relaunched()).toBe(1);
   });
+  // @private:end
 
+  // @private:begin
   it('while it runs it says which step it is on', async () => {
     await openApp({ updating: 'pulling' });
     await showGroup('Nâng cao');
@@ -601,7 +664,9 @@ describe('settings for M7: the app itself', () => {
     await showGroup('Nâng cao');
     expect(screen.getByText('Đang build và cài. Mất vài phút; app vẫn chạy như thường.')).toBeTruthy();
   });
+  // @private:end
 
+  // @private:begin
   it('nothing new installs nothing', async () => {
     const fake = await openApp({}, { update: () => ({ kind: 'upToDate', commit: 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678' }) });
     await showGroup('Nâng cao');
@@ -612,7 +677,9 @@ describe('settings for M7: the app itself', () => {
     expect(screen.queryByRole('button', { name: 'Mở lại' })).toBeNull();
     expect(fake.api.relaunch).not.toHaveBeenCalled();
   });
+  // @private:end
 
+  // @private:begin
   it('a pull or an install that fails says why, and where the log is', async () => {
     await openApp({ error: { kind: 'pull', detail: 'fatal: Not possible to fast-forward, aborting.' } });
     await showGroup('Nâng cao');
@@ -627,7 +694,9 @@ describe('settings for M7: the app itself', () => {
     ).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Mở lại' })).toBeNull();
   });
+  // @private:end
 
+  // @private:begin
   it('opening again waits for unsaved rules', async () => {
     const fake = await openApp({ outcome: { kind: 'installed', commit: 'b2c3d4e5f6', version: '0.1.1' } });
     await showGroup('Nâng cao');
@@ -637,9 +706,11 @@ describe('settings for M7: the app itself', () => {
     });
     expect(screen.getByText('Luật xoay vòng còn thay đổi chưa lưu. Lưu hoặc bỏ trước khi mở lại.')).toBeTruthy();
   });
+  // @private:end
 });
 
-describe('settings: Nâng cao, alert 1 and the backup folder', () => {
+describe('settings: alert 1 and the backup folder', () => {
+  // @private:begin
   it('Nâng cao is the last tab; off, it hides its rows and its tabs', async () => {
     const fake = await open(fixtureModel('fresh'));
     expect(screen.getAllByRole('tab').at(-1)!.textContent).toBe('Nâng cao');
@@ -669,7 +740,9 @@ describe('settings: Nâng cao, alert 1 and the backup folder', () => {
     await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Chi tiết: Phiên bản' })));
     expect(screen.getByText('0.1.0 (a1b2c3d) · build từ mã nguồn')).toBeTruthy();
   });
+  // @private:end
 
+  // @private:begin
   it('a build without the author\'s tools has no Nâng cao card, switch or row', async () => {
     await open(communityModel(fixtureModel('fresh')));
     expect(screen.getAllByRole('tab').map((t) => t.textContent)).not.toContain('Nâng cao');
@@ -695,6 +768,7 @@ describe('settings: Nâng cao, alert 1 and the backup folder', () => {
     expect(screen.getByLabelText('Thư mục sao lưu')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Chép thông tin chẩn đoán…' })).toBeTruthy();
   });
+  // @private:end
 
   it('alert 1 takes its two thresholds here, and says why one is refused', async () => {
     const fake = await open(fixtureModel('fresh'));
@@ -715,7 +789,7 @@ describe('settings: Nâng cao, alert 1 and the backup folder', () => {
     expect(fake.api.setPoolAlert).toHaveBeenLastCalledWith(20, 30);
     // The thresholds' row sits right under the alert it sets.
     const rows = Array.from(screen.getByRole('region', { name: 'Thông báo' }).querySelectorAll('.srow'));
-    const alert = rows.findIndex((r) => r.contains(screen.getByRole('switch', { name: 'Hạn mức Claude trong vòng sắp cạn / có lại' })));
+    const alert = rows.findIndex((r) => r.contains(screen.getByRole('switch', { name: POOL })));
     expect(rows[alert + 1].contains(dry)).toBe(true);
     expect(rows[alert + 1].children[0].textContent).toBe('Ngưỡng sắp cạn');
   });
@@ -746,10 +820,10 @@ describe('settings: the layout of settings-R2, its groups as tabs', () => {
   const shown = () => screen.getAllByRole('region').filter((r) => r.closest('main'));
   const regionName = (r: HTMLElement) => r.getAttribute('aria-label') ?? document.getElementById(r.getAttribute('aria-labelledby')!)!.textContent;
 
-  it('has five tabs, and shows Chung with its Cập nhật card at first', async () => {
+  it('has its tabs, and shows Chung with its Cập nhật card at first', async () => {
     await open(fixtureModel('fresh'));
-    expect(tabs().map((b) => b.textContent)).toEqual(['Chung', 'Hiển thị', 'Thông báo', 'Dịch vụ', 'Nâng cao']);
-    expect(tabs().map((b) => b.getAttribute('aria-selected'))).toEqual(['true', 'false', 'false', 'false', 'false']);
+    expect(tabs().map((b) => b.textContent)).toEqual(GROUPS.map(([g]) => g));
+    expect(tabs().map((b) => b.getAttribute('aria-selected'))).toEqual(GROUPS.map((_, i) => String(i === 0)));
     expect(shown().map(regionName)).toEqual(['Chung', 'Cập nhật']);
     // The panel shown is named by its tab.
     const panel = screen.getByRole('tabpanel');
@@ -760,7 +834,7 @@ describe('settings: the layout of settings-R2, its groups as tabs', () => {
       await showGroup(tab);
       cards.push(shown().map((r) => regionName(r)!));
     }
-    expect(cards).toEqual([['Chung', 'Cập nhật'], ['Hiển thị'], ['Thông báo'], ['Dịch vụ', 'Biến môi trường đè đăng nhập'], ['Nâng cao']]);
+    expect(cards).toEqual(GROUPS.map(([, c]) => c));
   });
 
   it('every row that had a tab of its own is still there, in the tab that holds it now', async () => {
@@ -782,7 +856,7 @@ describe('settings: the layout of settings-R2, its groups as tabs', () => {
     expect(within(bar()).getByRole('tab', { name: 'Dịch vụ' }).getAttribute('aria-selected')).toBe('true');
     expect(within(bar()).getByRole('tab', { name: 'Chung' }).getAttribute('aria-selected')).toBe('false');
     // One stop in the Tab order: the tab shown.
-    expect(tabs().map((b) => b.tabIndex)).toEqual([-1, -1, -1, 0, -1]);
+    expect(tabs().map((b) => b.tabIndex)).toEqual(GROUPS.map(([g]) => (g === 'Dịch vụ' ? 0 : -1)));
     // Radix moves the focus on the next turn.
     const key = async (k: string) => {
       await act(async () => {
@@ -792,13 +866,15 @@ describe('settings: the layout of settings-R2, its groups as tabs', () => {
     };
     tabs()[3].focus();
     await key('ArrowRight');
-    expect(document.activeElement!.textContent).toBe('Nâng cao');
-    expect(shown().map(regionName)).toEqual(['Nâng cao']);
+    // The tab after Dịch vụ, or Chung again past the end of the bar.
+    const [next, nextCards] = GROUPS[4] ?? GROUPS[0];
+    expect(document.activeElement!.textContent).toBe(next);
+    expect(shown().map(regionName)).toEqual(nextCards);
     await key('ArrowLeft');
     await key('ArrowLeft');
     expect(document.activeElement!.textContent).toBe('Thông báo');
     await key('End');
-    expect(document.activeElement!.textContent).toBe('Nâng cao');
+    expect(document.activeElement!.textContent).toBe(GROUPS[GROUPS.length - 1][0]);
     await key('Home');
     expect(document.activeElement!.textContent).toBe('Chung');
     expect(shown().map(regionName)).toEqual(['Chung', 'Cập nhật']);
@@ -830,6 +906,7 @@ describe('settings: the layout of settings-R2, its groups as tabs', () => {
     expect(shown().map(regionName)).toEqual(['Thông báo']);
   });
 
+  // @private:begin
   it('links from elsewhere open the tab they are about', async () => {
     // Firstmate's "Mở Cài đặt" opens Nâng cao, where its file is.
     const fake = fakeApi(fixtureModel('fresh'), 'firstmate');
@@ -860,17 +937,21 @@ describe('settings: the layout of settings-R2, its groups as tabs', () => {
     expect(shown().map(regionName)).toEqual(['Nâng cao']);
     // The variables' banners and alerts open Dịch vụ (EnvCard.test.tsx).
   });
+  // @private:end
 
-  it('a variable overriding a login puts Dịch vụ first, its card at the top; a release build has no Nâng cao', async () => {
+  it('a variable overriding a login puts Dịch vụ first, its card at the top', async () => {
     await open(fixtureModel('fresh', { env: envFixture({ found: [API_KEY] }) }));
-    expect(tabs().map((b) => b.textContent)).toEqual(['Dịch vụ', 'Chung', 'Hiển thị', 'Thông báo', 'Nâng cao']);
+    expect(tabs().map((b) => b.textContent)).toEqual(['Dịch vụ', ...GROUPS.map(([g]) => g).filter((g) => g !== 'Dịch vụ')]);
     // Chung still shows first.
     expect(shown().map(regionName)).toEqual(['Chung', 'Cập nhật']);
     await showGroup('Dịch vụ');
     expect(shown().map(regionName)).toEqual(['Biến môi trường đè đăng nhập', 'Dịch vụ']);
+    // @private:begin
+    // A release build has no Nâng cao.
     cleanup();
     await open(communityModel(fixtureModel('fresh')));
     expect(tabs().map((b) => b.textContent)).toEqual(['Chung', 'Hiển thị', 'Thông báo', 'Dịch vụ']);
+    // @private:end
   });
 
   it('a row has its name and its line on the left, and its switch at the right end', async () => {
@@ -894,12 +975,16 @@ describe('settings: the layout of settings-R2, its groups as tabs', () => {
   it('a long rule waits behind its "Chi tiết", whole', async () => {
     await open(fixtureModel('fresh'));
     await showGroup('Thông báo');
-    expect(screen.getByText('Đang dùng còn ≤ 10%, mọi tài khoản trong vòng còn < 15%.')).toBeTruthy();
+    let where = '';
+    // @private:begin
+    where = ' trong vòng';
+    // @private:end
+    expect(screen.getByText('Đang dùng còn ≤ 10%, mọi tài khoản' + where + ' còn < 15%.')).toBeTruthy();
     expect(screen.queryByText(/^Khi tài khoản đang dùng còn 10% trở xuống/)).toBeNull();
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Chi tiết: Hạn mức Claude trong vòng sắp cạn / có lại' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Chi tiết: ' + POOL }));
     });
-    expect(within(screen.getByRole('dialog')).getByText(/^Khi tài khoản đang dùng còn 10% trở xuống và không tài khoản nào trong vòng còn 15%, và khi có lại\./)).toBeTruthy();
+    expect(within(screen.getByRole('dialog')).getByText('Khi tài khoản đang dùng còn 10% trở xuống và không tài khoản nào' + where + ' còn 15%, và khi có lại.', { exact: false })).toBeTruthy();
     cleanup();
     await open(fixtureModel('fresh'));
     await act(async () => {

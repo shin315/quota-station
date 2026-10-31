@@ -20,9 +20,11 @@ import { StatsTab, useStats } from './stats/StatsTab';
 import { useSkills } from './agents/useSkills';
 import { BackupTab } from './backup/BackupTab';
 import { BackupDialogBody, backupDialogSize } from './backup/RestoreSheet';
-import { CopyTab } from './backup/CopyTab';
-import { CopyDialogBody, copyDialogSize } from './backup/CopySheet';
-import { useCopy } from './backup/useCopy';
+// @private:begin
+import { CopyTab } from '@/private/copy/CopyTab';
+import { CopyDialogBody, copyDialogSize } from '@/private/copy/CopySheet';
+import { useCopy } from '@/private/copy/useCopy';
+// @private:end
 import { useBackup } from './backup/useBackup';
 import { NotificationBell } from './alerts/Notifications';
 import { CodexCard, CodexTab } from './codex/CodexTab';
@@ -42,29 +44,28 @@ import { SheetBody, type SheetState } from './components/Sheets';
 import { agyLoginOf, agySwitchErrorFeedback, agySwitchFeedback, type AppAnswer } from '@agy/agySwitch';
 import { codexErrorFeedback, codexFeedback, codexPopover, codexRestartFeedback, keyFeedback, nextTarget, pluginsNeedApply } from './lib/codex';
 import type { Api } from './lib/api';
-import { authorModel } from './lib/author';
+// @private:begin
+import { authorModel } from '@/private/author';
+// @private:end
 import { alertFailedFeedback, testFailedFeedback } from './lib/alerts';
 import type { AgyHow, AlertKind, CodexOutcome, CodexTarget, Language, Model, Platform, Sessions, SettingsGroup, Tab, Theme, ThemePack } from './lib/model';
 import { resolveLang, setLang, setPlatform, systemLanguages, t, type Lang } from './lib/i18n';
-import {
-  autoView,
-  extendedFeedback,
-  pauseFailedFeedback,
-  pauseOf,
-  pausedFeedback,
-  resumedFeedback,
-  switchErrorFeedback,
-  switchFeedback,
-  type PauseChoice,
-} from './lib/switching';
-import { sidebarLine, syncSummary } from './lib/rules';
+import { switchErrorFeedback, switchFeedback } from './lib/switching';
+// @private:begin
+import { autoView, extendedFeedback, pauseFailedFeedback, pauseOf, pausedFeedback, resumedFeedback, type PauseChoice } from '@/private/switching';
+import { sidebarLine, syncSummary } from '@/private/rules/rules';
+// @private:end
 import { isQuiet, keychainFeedback, popoverView, refreshedFeedback, settingsFailedFeedback, type Action, type FeedbackView } from './lib/view';
 import { windowView } from './lib/window';
 import { Popover } from './popover/Popover';
-import { FirstmateTab } from './firstmate/FirstmateTab';
+// @private:begin
+import { FirstmateTab } from '@/private/firstmate/FirstmateTab';
+// @private:end
 import { HistoryTab } from './history/HistoryTab';
-import { CompareDialog, LeaveDialog, RulesTab } from './rules/RulesTab';
-import { useRules } from './rules/useRules';
+// @private:begin
+import { CompareDialog, LeaveDialog, RulesTab } from '@/private/rules/RulesTab';
+import { useRules } from '@/private/rules/useRules';
+// @private:end
 import { EnvListBody, useEnv } from './settings/EnvCard';
 import { Settings } from './settings/Settings';
 import { MainWindow } from './window/MainWindow';
@@ -253,10 +254,13 @@ function useActions(api: Api, model: Model | null, clock: () => Date, showFeedba
 }
 
 /**
- * Switching Claude, Antigravity and Codex and pausing the switcher: the open sheet,
- * the live session count or Antigravity.app's state it shows, the running
- * switch, and the feedback after each action.
+ * Switching Claude, Antigravity and Codex: the open sheet, the live session
+ * count or Antigravity.app's state it shows, the running switch, and the
+ * feedback after each action.
  */
+// @private:begin
+/** Pausing the switcher too. */
+// @private:end
 function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeedback: (fb: FeedbackView | null) => void) {
   const [sheet, setSheet] = useState<SheetState | null>(null);
   const [sessions, setSessions] = useState<Sessions | null | 'loading'>('loading');
@@ -300,11 +304,30 @@ function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeed
   useEffect(() => {
     if (landed) setSheet(null);
   }, [landed]);
-  const doSwitch = async (slot: number, holdUntil: Date | null) => {
+  const doSwitch = async (
+    slot: number,
+    // @private:begin
+    holdUntil: Date | null,
+    // @private:end
+  ) => {
     setWorking(true);
     try {
-      const outcome = await api.switchClaude(slot, holdUntil ? holdUntil.toISOString() : null);
-      if (latest.current) showFeedback(switchFeedback(outcome, latest.current, clock()));
+      const outcome = await api.switchClaude(
+        slot,
+        // @private:begin
+        holdUntil ? holdUntil.toISOString() : null,
+        // @private:end
+      );
+      if (latest.current)
+        showFeedback(
+          switchFeedback(
+            outcome,
+            latest.current,
+            // @private:begin
+            clock(),
+            // @private:end
+          ),
+        );
     } catch (e) {
       if (latest.current) showFeedback(switchErrorFeedback(slot, e, latest.current));
     } finally {
@@ -421,6 +444,7 @@ function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeed
       // The banner stays; nothing else to say.
     }
   };
+  // @private:begin
   const pause = async (until: Date | null) => {
     setSheet(null);
     try {
@@ -449,14 +473,17 @@ function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeed
     if (model && pauseOf(model, clock())) void resume();
     else open({ kind: 'pause', preset: '60' });
   };
-  /** The switcher's actions on banners and feedback lines. Returns false for others. */
+  // @private:end
+  /** The switching actions on banners and feedback lines. Returns false for others. */
   const act = (a: Action): boolean => {
-    if (a === 'resume') void resume();
+    if (a === 'closeFeedback') showFeedback(null);
+    // @private:begin
+    else if (a === 'resume') void resume();
     else if (a === 'addHour') void addHour();
-    else if (a === 'closeFeedback') showFeedback(null);
     else if (a === 'guide:auto' || a === 'guide:switcher') open({ kind: 'guide', id: a === 'guide:auto' ? 'auto' : 'switcher' });
-    else if (a === 'agy:keep') void keepOverwrite();
     else if (a === 'claude:rotation:on') void api.claudeSetRotation(true).catch(() => {});
+    // @private:end
+    else if (a === 'agy:keep') void keepOverwrite();
     else if (a === 'claude:import') void api.claudeImport().catch(() => {});
     else if (a === 'codex:open' && model) open(model.codex.external ? { kind: 'codexExternal' } : { kind: 'codex', target: nextTarget(model.codex) });
     else if (a === 'codex:switch:chatGpt' || a === 'codex:switch:custom') {
@@ -515,16 +542,20 @@ function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeed
         }
         agyHow={agyHow}
         onClose={close}
-        onSwitch={(slot, until) => void doSwitch(slot, until)}
-        onSwitchAgy={(number, how) => void doSwitchAgy(number, how)}
+        onSwitch={(slot, ...hold) => void doSwitch(slot, ...hold)}
+        // @private:begin
         onPause={(until) => void pause(until)}
+        // @private:end
+        onSwitchAgy={(number, how) => void doSwitchAgy(number, how)}
         onSettings={onSettings}
         onCodexSwitch={(target, restart, account) => void doCodexSwitch(target, restart, account)}
         onCodexRestart={(after) => void doCodexRestart(after)}
         onCodexSkipRestart={skipCodexRestart}
         onCodexKeep={() => void keepCodex()}
         onCodexOpen={open}
+        // @private:begin
         onCodexGuide={onCodexGuide}
+        // @private:end
         onCodexPlugins={(on) => void setCodexPlugins(on, false)}
         onCodexKeyPreview={(key, baseUrl) => api.codexKeyPreview(key, baseUrl)}
         onCodexSetKey={(key, baseUrl, base, undo) => void doCodexSetKey(key, baseUrl, base, undo)}
@@ -534,12 +565,14 @@ function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeed
     sheet,
     open,
     close,
-    toggle,
     act,
     body,
     openSwitch: (slot: number) => open({ kind: 'claude', slot }),
     openSwitchAgy: (number: number) => open({ kind: 'agy', number }),
+    // @private:begin
+    toggle,
     openPause: (preset: PauseChoice) => open({ kind: 'pause', preset }),
+    // @private:end
     setCodexPlugins: (on: boolean) => void setCodexPlugins(on, true),
   };
 }
@@ -633,13 +666,18 @@ export function PopoverApp({ api, clock = systemClock }: AppProps) {
 
   if (!model) return null;
   const view = popoverView(model, now, { keychainLater });
+  // @private:begin
   const author = authorModel(model);
+  // @private:end
   return (
     <Popover
       view={view}
       codex={codexPopover(model, now)}
+      // @private:begin
       auto={model.advanced.on ? autoView(model, now) : null}
       sync={author && model.advanced.on ? syncSummary(author) : null}
+      onToggle={switching.toggle}
+      // @private:end
       release={releaseLine(model)}
       unread={model.alerts.unread}
       feedback={feedback}
@@ -648,7 +686,6 @@ export function PopoverApp({ api, clock = systemClock }: AppProps) {
       onAction={onAction}
       onSwitch={switching.openSwitch}
       onSwitchAgy={switching.openSwitchAgy}
-      onToggle={switching.toggle}
       sheet={switching.body(
         now,
         () => void api.openWindow('settings'),
@@ -685,14 +722,23 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   const agyLogins = useAgyLogins(model?.antigravity ?? NO_LOGINS, api, showFeedback);
   const { busy, refresh, grant } = useActions(api, model, clock, showFeedback);
   const switching = useSwitching(api, model, clock, showFeedback);
+  // @private:begin
   const rules = useRules(api, model, clock, showFeedback, tab);
+  // @private:end
+  /** Moves to another tab; the rules editor may ask first. */
+  let guardTab = (_from: Tab | null, to: Tab, go: (t: Tab) => void) => go(to);
+  // @private:begin
+  guardTab = rules.guardTab;
+  // @private:end
   const mcp = useMcp(api, model, showFeedback);
   const skills = useSkills(api, model, showFeedback);
   const plugins = usePlugins();
   const instr = useInstr(api, model, showFeedback);
   const toTab = useRef<(t: Tab) => void>(() => {});
   const backup = useBackup(api, model, showFeedback, { rekey: mcp.rekey, onTab: (t) => toTab.current(t) });
+  // @private:begin
   const copy = useCopy(api, model, showFeedback);
+  // @private:end
   const env = useEnv(api, model, showFeedback);
   const onActionRef = useRef<(a: Action) => void>(() => {});
   const sets = useSets(api, model, showFeedback, (a) => onActionRef.current(a));
@@ -704,18 +750,24 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   const latestModel = useRef(model);
   latestModel.current = model;
   const release = useRelease(api, model, showFeedback);
+  let sheetOpen =
+    !!switching.sheet || !!mcp.dialog || !!backup.dialog || !!skills.dialog || plugins.open || !!instr.dialog || env.list || !!sets.dialog || !!claude.dialog || !!codexAccounts.dialog || !!release.dialog;
+  // @private:begin
   const ruleDialog = rules.leave ? 'leave' : rules.compare ? 'compare' : null;
-  const sheetOpen =
-    !!switching.sheet || !!ruleDialog || !!mcp.dialog || !!backup.dialog || !!copy.dialog || !!skills.dialog || plugins.open || !!instr.dialog || env.list || !!sets.dialog || !!claude.dialog || !!codexAccounts.dialog || !!release.dialog;
+  sheetOpen = sheetOpen || !!ruleDialog || !!copy.dialog;
+  // @private:end
   const closeSheet = useRef(switching.close);
-  // Escape closes the sheet on show: the unsaved-changes one, then a switch, then the comparison, then an MCP dialog.
+  // Escape closes the sheet on show: a switch first, then an MCP dialog.
   closeSheet.current = () => {
-    if (rules.leave) void rules.answerLeave('cancel', setTab);
-    else if (switching.sheet) switching.close();
-    else if (rules.compare) rules.closeCompare();
+    // @private:begin
+    // The unsaved-changes one goes before a switch, the comparison after it.
+    if (rules.leave) return void rules.answerLeave('cancel', setTab);
+    if (!switching.sheet && rules.compare) return rules.closeCompare();
+    if (!switching.sheet && !mcp.dialog && !backup.dialog && copy.dialog) return copy.close();
+    // @private:end
+    if (switching.sheet) switching.close();
     else if (mcp.dialog) mcp.close();
     else if (backup.dialog) backup.close();
-    else if (copy.dialog) copy.close();
     else if (skills.dialog) skills.close();
     else if (plugins.open) plugins.close();
     else if (instr.dialog) instr.close();
@@ -819,21 +871,23 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
     // The Claude accounts' actions first: here they have the tab's dialogs and lines.
     if (claude.act(act)) {
       // A sign-in or an add asked from another tab's banner opens over the Claude tab.
-      if (act === 'claude:add' || act.startsWith('claude:relogin:')) rules.guardTab(tab, 'claude', setTab);
+      if (act === 'claude:add' || act.startsWith('claude:relogin:')) guardTab(tab, 'claude', setTab);
       return;
     }
     // The Codex accounts' dialogs open over the Codex tab.
     if (codexAccounts.act(act)) {
-      rules.guardTab(tab, 'codex', setTab);
+      guardTab(tab, 'codex', setTab);
       return;
     }
     if (release.act(act)) {
       // The release's dialog opens over Tổng quan, the diagnostic info's over Cài đặt.
-      if (act === 'release:open') rules.guardTab(tab, 'overview', setTab);
+      if (act === 'release:open') guardTab(tab, 'overview', setTab);
       return;
     }
     if (switching.act(act)) return;
+    // @private:begin
     if (rules.act(act)) return;
+    // @private:end
     if (mcp.act(act)) return;
     if (backup.act(act)) return;
     if (skills.act(act)) return;
@@ -842,17 +896,19 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
     if (sets.act(act)) return;
     if (act === 'env:settings') {
       showGroup('services');
-      return rules.guardTab(tab, 'settings', setTab);
+      return guardTab(tab, 'settings', setTab);
     }
+    // @private:begin
     if (act === 'settings:advanced') {
       showGroup('advanced');
-      return rules.guardTab(tab, 'settings', setTab);
+      return guardTab(tab, 'settings', setTab);
     }
+    // @private:end
     if (act === 'plugins:reread') return void api.pluginsRead().catch(() => {});
-    if (act === 'mcp:tab') return rules.guardTab(tab, 'mcp', setTab);
+    if (act === 'mcp:tab') return guardTab(tab, 'mcp', setTab);
     if (act === 'notify:settings') return void api.openNotificationSettings().catch(() => showFeedback(settingsFailedFeedback()));
-    if (act === 'settings') return rules.guardTab(tab, 'settings', setTab);
-    if (act === 'codex:tab') return rules.guardTab(tab, 'codex', setTab);
+    if (act === 'settings') return guardTab(tab, 'settings', setTab);
+    if (act === 'codex:tab') return guardTab(tab, 'codex', setTab);
     if (act === 'dismiss') return setKeychainLater(true);
     if (act === 'refresh') return void refresh();
     if (act === 'keychain') return void grant();
@@ -880,8 +936,10 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
 
   if (!model || !tab) return null;
   const view = windowView(model, now, { keychainLater });
+  // @private:begin
   // The rules editor, the copy to another Mac and Firstmate: only from a build with the author's tools.
   const author = authorModel(model);
+  // @private:end
   const settings = (
     <Settings
       model={model}
@@ -904,6 +962,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
           },
         )
       }
+      // @private:begin
       onSetPeers={(peers) =>
         api.setPeers(peers).then(
           () => null,
@@ -917,18 +976,23 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
           (e: unknown) => String(e),
         )
       }
+      // @private:end
       onSetCodexHome={(path) => refusal(api.setCodexHome(path))}
       onSetBackupFolder={(path) => refusal(api.backupSetFolder(path))}
       onPoolAlert={(dry, room) => refusal(api.setPoolAlert(dry, room))}
+      // @private:begin
       onAdvanced={(on) => void api.setAdvanced(on).catch(() => showFeedback(settingsFailedFeedback()))}
       onFirstmate={(on) => void api.setFirstmate(on).catch(() => showFeedback(settingsFailedFeedback()))}
+      // @private:end
       onTestAlert={testAlert}
       onAlertSwitch={alertSwitch}
       onLaunchAtLogin={(on) => refusal(api.setLaunchAtLogin(on))}
       onOpenLoginItems={() => void api.openLoginItems().catch(() => showFeedback(settingsFailedFeedback()))}
+      // @private:begin
       onSetSource={(path) => refusal(api.setSourceDir(path))}
       onUpdate={() => refusal(api.updateFromSource())}
       onRelaunch={() => refusal(api.relaunch())}
+      // @private:end
       onSkillChecks={(daily, notify) => void api.skillsSetChecks(daily, notify).catch(() => showFeedback(settingsFailedFeedback()))}
       onReleaseChecks={release.setAuto}
       group={settingsGroup}
@@ -937,12 +1001,12 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   );
   const goTab = (next: Tab) => {
     setBell(false);
-    rules.guardTab(tab, next, setTab);
+    guardTab(tab, next, setTab);
   };
   /** "Cài đặt thông báo" under the bell: Cài đặt, at its Thông báo group. */
   const notifySettings = () => {
     setBell(false);
-    rules.guardTab(tab, 'settings', (t) => {
+    guardTab(tab, 'settings', (t) => {
       showGroup('notify');
       setTab(t);
     });
@@ -952,9 +1016,12 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   const nameOf = (slot: number) => shownNames.get(slot) ?? accountName(model.claudeAccounts.accounts.find((a) => a.slot === slot) ?? { slot, alias: null });
   claudeNames.current = nameOf;
   const dialog =
+    // @private:begin
     ruleDialog === 'leave' ? (
       <LeaveDialog rules={rules} onAnswer={(a) => void rules.answerLeave(a, setTab)} />
-    ) : (
+    ) :
+    // @private:end
+    (
       (switching.body(
         now,
         () => {
@@ -966,14 +1033,20 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
           goTab('codex');
         },
       ) ??
-      (ruleDialog === 'compare' && author ? (
+      (
+      // @private:begin
+      ruleDialog === 'compare' && author ? (
         <CompareDialog model={author} rules={rules} now={now} />
-      ) : mcp.dialog ? (
+      ) :
+      // @private:end
+      mcp.dialog ? (
         <McpDialogBody mcp={mcp} model={model} now={now} />
       ) : backup.dialog ? (
         <BackupDialogBody backup={backup} model={model} now={now} />
+      // @private:begin
       ) : copy.dialog ? (
         <CopyDialogBody copy={copy} />
+      // @private:end
       ) : skills.dialog ? (
         <SkillDialogBody skills={skills} model={model} />
       ) : plugins.open ? (
@@ -985,25 +1058,47 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       ) : sets.dialog ? (
         <SetDialogBody sets={sets} model={model} />
       ) : release.dialog === 'release' ? (
-        <ReleaseDialogBody model={model} release={release} onUpdateFromSource={author && model.advanced.on ? () => void refusal(api.updateFromSource()) : undefined} />
+        <ReleaseDialogBody
+          model={model}
+          release={release}
+          // @private:begin
+          onUpdateFromSource={author && model.advanced.on ? () => void refusal(api.updateFromSource()) : undefined}
+          // @private:end
+        />
       ) : release.dialog === 'diag' ? (
         <DiagDialogBody release={release} />
       ) : claude.dialog ? (
-        <ClaudeDialogBody claude={claude} view={model.claudeAccounts} advanced={model.advanced.on} nameOf={nameOf} onTab={goTab} />
+        <ClaudeDialogBody
+          claude={claude}
+          view={model.claudeAccounts}
+          // @private:begin
+          advanced={model.advanced.on}
+          // @private:end
+          nameOf={nameOf}
+          onTab={goTab}
+        />
       ) : codexAccounts.dialog ? (
         <CodexDialogBody codex={codexAccounts} model={model} now={now} onAction={onAction} latest={() => latestModel.current} />
       ) : null))
     );
+  let sheetSize = !!switching.sheet;
+  // @private:begin
+  sheetSize = sheetSize || !!ruleDialog;
+  // @private:end
   const dialogSize =
-    switching.sheet || ruleDialog
+    sheetSize
       ? undefined
       : mcp.dialog
         ? mcpDialogSize(mcp.dialog)
         : backup.dialog
           ? backupDialogSize(backup.dialog)
-          : copy.dialog
+          :
+          // @private:begin
+          copy.dialog
             ? copyDialogSize(copy.dialog, copy)
-            : skills.dialog
+            :
+          // @private:end
+          skills.dialog
             ? skillDialogSize(skills.dialog)
             : plugins.open
               ? 'xl'
@@ -1028,11 +1123,13 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       onAction={onAction}
       onSwitch={switching.openSwitch}
       onSwitchAgy={switching.openSwitchAgy}
+      // @private:begin
       onToggle={switching.toggle}
       onPause={switching.openPause}
-      settings={settings}
       syncNote={author ? sidebarLine(author) : null}
       rules={author ? <RulesTab model={author} fresh={view.fresh} rules={rules} feedback={feedback} now={now} onAction={onAction} /> : null}
+      // @private:end
+      settings={settings}
       codex={<CodexTab model={model} fresh={view.fresh} feedback={feedback} now={now} onAction={onAction} onPlugins={switching.setCodexPlugins} accounts={codexAccounts} />}
       codexCard={<CodexCard model={model} now={now} cols={OV_COLS.codex} onAction={onAction} />}
       mcp={<McpTab model={model} fresh={view.fresh} feedback={feedback} now={now} mcp={mcp} onAction={onAction} />}
@@ -1051,9 +1148,11 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       }
       instr={<InstrTab model={model} fresh={view.fresh} feedback={feedback} now={now} instr={instr} onAction={onAction} />}
       backup={<BackupTab model={model} fresh={view.fresh} feedback={feedback} now={now} backup={backup} onAction={onAction} />}
-      copy={author ? <CopyTab model={author} feedback={feedback} copy={copy} onAction={onAction} /> : null}
       history={<HistoryTab model={model} fresh={view.fresh} now={now} load={api.getHistory} />}
+      // @private:begin
+      copy={author ? <CopyTab model={author} feedback={feedback} copy={copy} onAction={onAction} /> : null}
       firstmate={author ? <FirstmateTab model={author} fresh={view.fresh} now={now} onAction={onAction} /> : null}
+      // @private:end
       bell={
         <NotificationBell
           model={model}
@@ -1066,11 +1165,21 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
           onSettings={notifySettings}
         />
       }
+      // @private:begin
       advanced={model.advanced.on}
       firstmateTab={model.advanced.on && model.advanced.firstmate}
+      // @private:end
       agyAccounts={model.capabilities.agyAccounts}
       agyLogins={agyLogins}
-      claude={claudeManage({ view: model.claudeAccounts, claude, advanced: model.advanced.on, onAction, authorTools: model.capabilities.authorTools })}
+      claude={claudeManage({
+        view: model.claudeAccounts,
+        claude,
+        onAction,
+        // @private:begin
+        advanced: model.advanced.on,
+        authorTools: model.capabilities.authorTools,
+        // @private:end
+      })}
       // The first run waits for the browser on its own page, not in a dialog.
       dialog={model.firstRun && claude.dialog?.kind === 'wait' ? null : dialog}
       dialogSize={dialogSize}

@@ -100,6 +100,7 @@ jobs:
       - name: Clippy with the Antigravity accounts
         run: cargo clippy --workspace --all-targets --locked --features antigravity-accounts -- -D warnings
 
+      # @private:begin
       # The tools made for the author's own Macs (Cài đặt › Nâng cao): left
       # out of the default and release builds, built by scripts/install.sh.
       - name: Clippy with the author's tools
@@ -107,6 +108,7 @@ jobs:
 
       - name: Clippy as scripts/install.sh builds
         run: cargo clippy --workspace --all-targets --locked --features antigravity-accounts,author-tools -- -D warnings
+      # @private:end
 
       - name: cargo test (MIT)
         run: cargo test --workspace --locked
@@ -114,20 +116,55 @@ jobs:
       - name: cargo test with the Antigravity accounts
         run: cargo test --workspace --locked --features antigravity-accounts
 
+      # @private:begin
       - name: cargo test with the author's tools
         run: cargo test --workspace --locked --features author-tools
 
       - name: cargo test as scripts/install.sh builds
         run: cargo test --workspace --locked --features antigravity-accounts,author-tools
+      # @private:end
 
       - name: Build the app (MIT)
         run: npx tauri build --bundles app
 
+  # @private:begin
+  # The community tree (community/README.md): cut from this commit by
+  # community/export.py, checked for leaks, then built and tested on its own
+  # (Vitest, the frontend build, rustfmt, clippy and cargo test). Nothing is
+  # pushed: the export's push is turned off.
+  community:
+    name: Community tree (macOS)
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ runner.temp }}/community -> target
+
+      - name: Export, check for leaks, build and test
+        run: python3 community/export.py --out "$RUNNER_TEMP/community" --worktree --build
+  # @private:end
+
   # The Windows build: vitest (the windows as Windows draws them, the
   # *.win.test.tsx files among them), and the core and the app crate:
-  # clippy and their tests in the two feature sets Windows builds (the
-  # author's tools are Unix only), then the guided sessions' test
-  # installer. The macOS job stays the required check.
+  # clippy and their tests with and without the Antigravity accounts, then
+  # the guided sessions' test installer. The macOS job stays the required
+  # check.
+  # @private:begin
+  # (The author's tools are Unix only: Windows builds without them.)
+  # @private:end
   build-windows:
     name: Build and test (Windows x64)
     needs: changes

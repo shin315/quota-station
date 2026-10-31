@@ -10,12 +10,12 @@
 
 import { Card as Panel, CardText, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { GRID3, TabHead, TabSub, TabTitle } from '../components/page';
-import { Button, Chip, Dot } from '../components/parts';
-import { firstmateTab, type FirstmateRow } from '../lib/alerts';
-import type { AuthorModel } from '../lib/author';
-import { t } from '../lib/i18n';
-import type { Action, PopoverView } from '../lib/view';
+import { GRID3, TabHead, TabSub, TabTitle } from '@/components/page';
+import { Button, Chip, Dot } from '@/components/parts';
+import { firstmateTab, type FirstmateRow } from '@/lib/alerts';
+import type { AuthorModel } from '@/private/author';
+import { t } from '@/lib/i18n';
+import type { Action, PopoverView } from '@/lib/view';
 
 export interface FirstmateTabProps {
   model: AuthorModel;

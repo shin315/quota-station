@@ -15,7 +15,32 @@ import type { BannerView } from './view';
 
 /** This copy was built from source with a part the download leaves out. */
 export function fromSource(model: Pick<Model, 'capabilities'>): boolean {
-  return model.capabilities.agyAccounts || model.capabilities.authorTools;
+  let parts = model.capabilities.agyAccounts;
+  // @private:begin
+  parts = parts || model.capabilities.authorTools;
+  // @private:end
+  return parts;
+}
+
+/** How a build from source is told to update: rebuilt from its clone. */
+function sourceWords(): { banner: string; line: string } {
+  let w = {
+    banner: t(
+      'Máy này chạy bản build từ mã nguồn, nên build lại từ bản clone để giữ phần chỉ có ở bản build này.',
+      'This Mac runs a build from source, so rebuild it from your clone to keep what only this build has.',
+    ),
+    line: t('Bản build từ mã nguồn: build lại từ bản clone.', 'Built from source: rebuild from your clone.'),
+  };
+  // @private:begin
+  w = {
+    banner: t(
+      'Máy này chạy bản build từ mã nguồn, nên cập nhật từ mã nguồn để giữ phần chỉ có ở bản build này.',
+      'This Mac runs a build from source, so update from source to keep what only this build has.',
+    ),
+    line: t('Bản build từ mã nguồn: cập nhật từ mã nguồn.', 'Built from source: update from source.'),
+  };
+  // @private:end
+  return w;
 }
 
 /** The newer release to tell about, unless the owner skipped it. */
@@ -54,12 +79,7 @@ export function releaseBanner(model: Model): BannerView | null {
     icon: 'note',
     title: t('Có bản mới: Quota Station ' + l.version, 'New version: Quota Station ' + l.version),
     body: fromSource(model)
-      ? mac(
-          t(
-            'Máy này chạy bản build từ mã nguồn, nên cập nhật từ mã nguồn để giữ phần chỉ có ở bản build này.',
-            'This Mac runs a build from source, so update from source to keep what only this build has.',
-          ),
-        )
+      ? mac(sourceWords().banner)
       : t('Bạn đang dùng ' + model.app.version + '. Không có gì tự cài: app hỏi trước.', 'You have ' + model.app.version + '. Nothing installs by itself: the app asks first.'),
     actions: [
       { label: t('Xem có gì mới', 'See what’s new'), act: 'release:open' },
@@ -74,7 +94,7 @@ export function releaseLine(model: Model): { title: string; body: string } | nul
   if (!l) return null;
   return {
     title: t('Có bản mới ' + l.version, 'Version ' + l.version + ' is out'),
-    body: fromSource(model) ? t('Bản build từ mã nguồn: cập nhật từ mã nguồn.', 'Built from source: update from source.') : t('Hỏi trước khi cài.', 'Asks before installing.'),
+    body: fromSource(model) ? sourceWords().line : t('Hỏi trước khi cài.', 'Asks before installing.'),
   };
 }
 

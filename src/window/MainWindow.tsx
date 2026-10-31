@@ -2,41 +2,56 @@
 // SPDX-License-Identifier: MIT
 
 // The main window: the prototype's window with the tabs Tổng quan, Claude,
-// Antigravity, Luật xoay vòng and Cài đặt. Claude accounts switch from the
-// tables (F04), Tổng quan and Claude show automatic switching and why Claude
-// is on its account (F07), Luật xoay vòng edits the rotation for every Mac
-// (F06), and Antigravity also shows the accounts the app logs in (M4a) and
-// switches from its tables once its row lists them (M4c). Lịch sử and
-// Firstmate come from M6, and Thông báo, the bell at the right of every
-// page's title row, with its red count of the notifications not read yet.
+// Antigravity and Cài đặt. Claude accounts switch from the tables (F04),
+// and Antigravity also shows the accounts the app logs in (M4a) and
+// switches from its tables once its row lists them (M4c). Lịch sử comes
+// from M6, and Thông báo, the bell at the right of every page's title row,
+// with its red count of the notifications not read yet.
+// @private:begin
+// Tổng quan and Claude show automatic switching and why Claude is on its
+// account (F07), Luật xoay vòng edits the rotation for every Mac (F06), and
+// Firstmate comes from M6.
+// @private:end
 // Codex (M8) has its own tab and a compact card on Tổng quan.
 // The Agent group starts with MCP (M9): every agent's MCP servers in one table,
 // then Skills, Plugin and File hướng dẫn (M11).
-// The Sao lưu group has the backup packs and the restore (M10), and the copy
-// to or from another Mac over SSH (M13).
+// The Sao lưu group has the backup packs and the restore (M10).
+// @private:begin
+// It also has the copy to or from another Mac over SSH (M13).
+// @private:end
 // The Claude tab has a red banner while a variable overrides Claude Code's login (M14).
 // Bộ cấu hình (M15) follows: named sets applied for the whole Mac. Cập nhật
 // closes the Agent group: Claude Code, Codex and agy's versions (macOS only).
 // Thống kê (M16) follows Tổng quan: the tokens counted from this Mac's session logs.
+// @private:begin
 // Cài đặt › Nâng cao holds what was made for the author's own Macs: off, the
 // sidebar has no Luật xoay vòng, Firstmate or Chép sang Mac khác (Firstmate
 // also has its own switch), and Tổng quan and Claude show no automatic
-// switching, pause or switcher. A build without the Antigravity accounts
-// shows the one account signed in, with no login or switch.
+// switching, pause or switcher.
+// @private:end
+// A build without the Antigravity accounts shows the one account signed in,
+// with no login or switch.
 
 import { Fragment, type ReactNode } from 'react';
 import { Card as Panel, CardText, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogOverlay } from '@/components/ui/dialog';
-import { Segment, Segmented } from '@/components/ui/segmented';
 import { cn } from '@/lib/utils';
 import { AddAccount, LoginActions, LoginNotes, LogoutConfirm, loginChips, type AgyLogins } from '@agy/AgyAccounts';
 import { AccountName, IdMark, InUse, WindowCell } from '../components/accounts';
 import { Empty, HeadEnd, OV_COLS, TABLE, TABLE_BOX, TABLE_CELLS, TABLE_END, TABLE_HEAD, TABLE_ROW, TABLE_ROW_ON, TabHead, TabNote, TabSub, TabTitle } from '../components/page';
-import { Banner, Button, Chip, CODE, Dot, Feedback, KVT, More, Toggle } from '../components/parts';
+import { Banner, Button, Chip, Dot, Feedback, More } from '../components/parts';
+// @private:begin
+import { CODE, KVT } from '../components/parts';
+import type { KeyValue } from '../lib/window';
+import { Segment, Segmented } from '@/components/ui/segmented';
+import { Toggle } from '../components/parts';
+// @private:end
 import type { Tab } from '../lib/model';
-import { pauseOptions, type AutoView, type PauseChoice } from '../lib/switching';
+// @private:begin
+import { pauseOptions, type AutoView, type PauseChoice } from '@/private/switching';
+// @private:end
 import { bannerUnder, type Action, type BannerView, type CardView, type ChipView, type FeedbackView, type NoteView } from '../lib/view';
-import type { KeyValue, WindowView } from '../lib/window';
+import type { WindowView } from '../lib/window';
 import { mac, onWindows, os, t } from '../lib/i18n';
 import { Glyph, type GlyphName } from '../components/icons';
 import { NAV_ICONS } from './icons';
@@ -44,7 +59,16 @@ import { NAV_ICONS } from './icons';
 type NavId = keyof typeof NAV_ICONS;
 
 /** The sidebar, by group. */
-function navs(advanced: boolean): (['-', string] | [NavId, string])[] {
+function navs(
+  // @private:begin
+  advanced: boolean,
+  // @private:end
+): (['-', string] | [NavId, string])[] {
+  let watch = t('Theo dõi', 'Activity');
+  // @private:begin
+  // Without automatic switching the group only watches.
+  if (advanced) watch = t('Tự động', 'Automation');
+  // @private:end
   return [
     ['overview', t('Tổng quan', 'Overview')],
     ['stats', t('Thống kê', 'Stats')],
@@ -52,11 +76,14 @@ function navs(advanced: boolean): (['-', string] | [NavId, string])[] {
     ['claude', 'Claude'],
     ['agy', 'Antigravity'],
     ['codex', 'Codex'],
-    // Without automatic switching the group only watches.
-    ['-', advanced ? t('Tự động', 'Automation') : t('Theo dõi', 'Activity')],
+    ['-', watch],
+    // @private:begin
     ['rules', t('Luật xoay vòng', 'Rotation rules')],
+    // @private:end
     ['history', t('Lịch sử', 'History')],
+    // @private:begin
     ['firstmate', 'Firstmate'],
+    // @private:end
     ['-', 'Agent'],
     ['mcp', 'MCP'],
     ['skills', 'Skills'],
@@ -66,10 +93,13 @@ function navs(advanced: boolean): (['-', string] | [NavId, string])[] {
     ['cliTools', t('Cập nhật', 'Updates')],
     ['-', t('Sao lưu', 'Backup')],
     ['backup', t('Sao lưu', 'Backup')],
+    // @private:begin
     ['copy', t('Chép sang Mac khác', 'Copy to another Mac')],
+    // @private:end
   ];
 }
 
+// @private:begin
 /** The small tag on what Nâng cao holds. */
 export function AdvancedTag({ className, hidden }: { className?: string; hidden?: boolean }) {
   return (
@@ -78,6 +108,7 @@ export function AdvancedTag({ className, hidden }: { className?: string; hidden?
     </span>
   );
 }
+// @private:end
 
 function NavButton(props: { id: NavId; label: string; tab: Tab; onTab(tab: Tab): void }) {
   const on = props.id === props.tab;
@@ -97,19 +128,42 @@ function NavButton(props: { id: NavId; label: string; tab: Tab; onTab(tab: Tab):
   );
 }
 
-/** The tabs Nâng cao holds, and the one behind the Firstmate switch. */
-function hiddenTabs(advanced: boolean, firstmate: boolean): Set<NavId> {
+/** The tabs this Mac does not show. */
+// @private:begin
+/** Those Nâng cao holds, and the one behind the Firstmate switch. */
+// @private:end
+function hiddenTabs(
+  // @private:begin
+  advanced: boolean,
+  firstmate: boolean,
+  // @private:end
+): Set<NavId> {
   const hidden = new Set<NavId>();
   // The tools' Windows installs are not read yet: Cập nhật Agent is macOS's.
   if (onWindows()) hidden.add('cliTools');
+  // @private:begin
   if (!advanced) ['rules', 'copy'].forEach((t) => hidden.add(t as NavId));
   if (!advanced || !firstmate) hidden.add('firstmate');
+  // @private:end
   return hidden;
 }
 
-function Sidebar(props: { tab: Tab; machine: string; note: string | null; hidden: Set<NavId>; advanced: boolean; onTab(tab: Tab): void }) {
+function Sidebar(props: {
+  tab: Tab;
+  machine: string;
+  note: string | null;
+  hidden: Set<NavId>;
+  // @private:begin
+  advanced: boolean;
+  // @private:end
+  onTab(tab: Tab): void;
+}) {
   const { tab, machine, note, onTab } = props;
-  const items = navs(props.advanced).filter((n) => n[0] === '-' || !props.hidden.has(n[0]));
+  const items = navs(
+    // @private:begin
+    props.advanced,
+    // @private:end
+  ).filter((n) => n[0] === '-' || !props.hidden.has(n[0]));
   return (
     <nav className="material-side m-0 flex min-h-0 flex-col gap-px overflow-y-auto rounded-none px-2.5 pt-5 pb-2.5 win:pt-2.5" aria-label={t('Các tab', 'Tabs')} data-tauri-drag-region>
       {/* macOS draws the window's traffic lights here; the browser preview draws the prototype's. Windows draws its title bar above the page. */}
@@ -322,6 +376,7 @@ function Note({ note }: { note: NoteView | null }) {
   ) : null;
 }
 
+// @private:begin
 function KeyValues({ rows }: { rows: KeyValue[] }) {
   return (
     <div className={KVT}>
@@ -334,6 +389,7 @@ function KeyValues({ rows }: { rows: KeyValue[] }) {
     </div>
   );
 }
+// @private:end
 
 /** A card with nothing in it yet: a dashed box, a bold line, a word, and its button. */
 export function EmptyBox(props: { icon?: ReactNode; title: string; body?: string; children?: ReactNode }) {
@@ -357,8 +413,12 @@ interface TabProps {
   onSwitch(slot: number): void;
   /** An Antigravity row's switch button (M4c). */
   onSwitchAgy(number: number): void;
+  // @private:begin
   onToggle(): void;
   onPause(preset: PauseChoice): void;
+  /** Cài đặt › Nâng cao is on: automatic switching shows. */
+  advanced: boolean;
+  // @private:end
   now: Date;
   /** The accounts the app logs in, merged into the Antigravity table. */
   agyLogins?: AgyLogins;
@@ -368,7 +428,7 @@ interface TabProps {
   claude?: ClaudeManage;
 }
 
-/** The Claude tab's accounts, from `ClaudeAccounts`: the ⋯ menus, the add button, the rotation. */
+/** The Claude tab's accounts, from `ClaudeAccounts`: the ⋯ menus, the add button. */
 export interface ClaudeManage {
   /** The ⋯ menu of an account Quota Station keeps; null for one it does not. */
   menu(card: CardView): ReactNode;
@@ -377,10 +437,12 @@ export interface ClaudeManage {
   emptyExtra?: ReactNode;
   /** Before Quota Station keeps the accounts claude-swap lists: the banner to bring them in. */
   setup?: ReactNode;
+  // @private:begin
   /** The rotation's LaunchAgent, in the Claude tab's "Chạy nền": its switch, its line, the old switcher's warning, what Firstmate runs. */
   rotation: { toggle: ReactNode; line: string; warning: ReactNode; firstmate: ReactNode };
   /** Without Nâng cao, a card of its own: only while the rotation runs or the old switcher is loaded. */
   rotationAlone: boolean;
+  // @private:end
 }
 
 function Top(props: TabProps & { title: string; banner?: boolean }) {
@@ -394,6 +456,7 @@ function Top(props: TabProps & { title: string; banner?: boolean }) {
   );
 }
 
+// @private:begin
 /** Automatic switching in the Claude section's head on Tổng quan: its switch and why Claude is on its account. */
 function AutoHead({ auto, onToggle }: { auto: AutoView; onToggle(): void }) {
   return (
@@ -407,6 +470,7 @@ function AutoHead({ auto, onToggle }: { auto: AutoView; onToggle(): void }) {
     </span>
   );
 }
+// @private:end
 
 /** What the numbers on Tổng quan are, said once for the whole page. */
 function OverviewNote() {
@@ -441,17 +505,25 @@ function OverviewNote() {
 /**
  * Tổng quan: one section per service, each the whole width (Claude,
  * Antigravity, Codex), every account with its windows, the names and the
- * buttons on the same columns in all three. Automatic switching sits in
- * the Claude section's head.
+ * buttons on the same columns in all three.
  */
-function Overview(props: TabProps & { advanced: boolean; agyAccounts: boolean; release?: BannerView | null; onTab(tab: Tab): void }) {
+// @private:begin
+/** Automatic switching sits in the Claude section's head. */
+// @private:end
+function Overview(props: TabProps & { agyAccounts: boolean; release?: BannerView | null; onTab(tab: Tab): void }) {
   const v = props.view;
   return (
     <>
       <Top {...props} title={t('Tổng quan', 'Overview')} />
       <OverviewNote />
       {v.claude.present ? (
-        <Card title="Claude" kind="c" head={props.advanced && v.claude.cards.length > 1 ? <AutoHead auto={v.auto} onToggle={props.onToggle} /> : null}>
+        <Card
+          title="Claude"
+          kind="c"
+          // @private:begin
+          head={props.advanced && v.claude.cards.length > 1 ? <AutoHead auto={v.auto} onToggle={props.onToggle} /> : null}
+          // @private:end
+        >
           {v.claude.empty ? (
             <EmptyBox title={t('Chưa có tài khoản Claude nào', 'No Claude accounts yet')}>
               <Button small primary onClick={() => props.onTab('claude')}>
@@ -484,6 +556,7 @@ function Overview(props: TabProps & { advanced: boolean; agyAccounts: boolean; r
   );
 }
 
+// @private:begin
 /** A half of the Claude tab's automatic switching card. */
 const HALF = 'min-w-0 px-3.5 py-3';
 
@@ -538,11 +611,14 @@ function RunHalf(props: { title: string; tag?: ReactNode; rotation?: ClaudeManag
     </>
   );
 }
+// @private:end
 
-function ClaudeTab(props: TabProps & { advanced: boolean }) {
+function ClaudeTab(props: TabProps) {
   const v = props.view;
+  // @private:begin
   const a = v.auto;
   const sw = v.switcher;
+  // @private:end
   const m = props.claude;
   const cards = v.claude.cards;
   if (!v.claude.present && !cards.length)
@@ -556,7 +632,9 @@ function ClaudeTab(props: TabProps & { advanced: boolean }) {
     <>
       <Top {...props} title="Claude" />
       {v.envBanner ? <Banner banner={v.envBanner} onAction={props.onAction} busy={props.busy} /> : null}
+      {/* @private:begin */}
       {v.claudeBanner ? <Banner banner={v.claudeBanner} onAction={props.onAction} busy={props.busy} /> : null}
+      {/* @private:end */}
       <Card
         title={t('Tài khoản', 'Accounts')}
         kind="c"
@@ -600,6 +678,7 @@ function ClaudeTab(props: TabProps & { advanced: boolean }) {
         ) : null}
         <Note note={v.claude.note} />
       </Card>
+      {/* @private:begin */}
       {props.advanced ? (
         // One card in two halves that end on one line: switching itself, and what runs it.
         <Panel className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] p-0 @max-[680px]/main:grid-cols-[minmax(0,1fr)]">
@@ -632,6 +711,7 @@ function ClaudeTab(props: TabProps & { advanced: boolean }) {
           <RunHalf title={t('Tự chuyển bằng Quota Station', 'Auto-switch with Quota Station')} rotation={m.rotation} />
         </Panel>
       ) : null}
+      {/* @private:end */}
     </>
   );
 }
@@ -686,12 +766,16 @@ export interface MainWindowProps {
   onSwitch(slot: number): void;
   /** An Antigravity row's switch button; none leaves the rows without one that works. */
   onSwitchAgy?(number: number): void;
+  // @private:begin
   onToggle(): void;
   onPause(preset: PauseChoice): void;
+  // @private:end
   /** The Cài đặt tab, drawn by the settings component. */
   settings: ReactNode;
+  // @private:begin
   /** The Luật xoay vòng tab, drawn by the rules editor. */
   rules: ReactNode;
+  // @private:end
   /** The Codex tab (M8) and Codex's card on Tổng quan. */
   codex?: ReactNode;
   codexCard?: ReactNode;
@@ -709,25 +793,34 @@ export interface MainWindowProps {
   stats?: ReactNode;
   /** The Sao lưu tab (M10). */
   backup?: ReactNode;
+  // @private:begin
   /** The Chép sang Mac khác tab (M13). */
   copy?: ReactNode;
-  /** The Lịch sử and Firstmate tabs (M6). */
+  // @private:end
+  /** The Lịch sử tab (M6). */
   history?: ReactNode;
+  // @private:begin
+  /** The Firstmate tab (M6). */
   firstmate?: ReactNode;
+  // @private:end
   /** The bell (Thông báo), at the right of every page's title row. */
   bell?: ReactNode;
+  // @private:begin
   /** Under the machine name in the sidebar: whether the other Macs have the rules. */
   syncNote?: string | null;
+  // @private:end
   /** The accounts the app logs in, merged into the Antigravity table. */
   agyLogins?: AgyLogins;
   /** The Claude accounts Quota Station keeps, in the Claude tab. */
   claude?: ClaudeManage;
   /** A newer release on GitHub, as Tổng quan's banner. */
   release?: BannerView | null;
+  // @private:begin
   /** Cài đặt › Nâng cao is on: its tabs and switches show. */
   advanced: boolean;
   /** The Firstmate switch inside Nâng cao is on too. */
   firstmateTab: boolean;
+  // @private:end
   /** This build logs Antigravity accounts in and switches them. */
   agyAccounts: boolean;
   /** The open dialog's body; null when none is open. */
@@ -746,17 +839,29 @@ export function MainWindow(props: MainWindowProps) {
     onAction: props.onAction,
     onSwitch: props.onSwitch,
     onSwitchAgy: props.onSwitchAgy ?? (() => {}),
+    // @private:begin
     onToggle: props.onToggle,
     onPause: props.onPause,
+    advanced: props.advanced,
+    // @private:end
     now: props.now,
     agyLogins: props.agyAccounts ? props.agyLogins : undefined,
     codexCard: props.codexCard,
     claude: props.claude,
   };
   const open = !!props.dialog;
-  const hidden = hiddenTabs(props.advanced, props.firstmateTab);
-  // A tab Nâng cao took away while it was open gives way to Tổng quan, and
-  // so does `alerts`, which asks for the bell's panel, not a page.
+  const hidden = hiddenTabs(
+    // @private:begin
+    props.advanced,
+    props.firstmateTab,
+    // @private:end
+  );
+  let note: string | null = null;
+  // @private:begin
+  note = props.advanced ? (props.syncNote ?? null) : null;
+  // @private:end
+  // A hidden tab gives way to Tổng quan, and so does `alerts`, which asks
+  // for the bell's panel, not a page.
   const tab: Tab = hidden.has(props.tab as NavId) || props.tab === 'alerts' ? 'overview' : props.tab;
   return (
     <div className={cn('win-o material-window relative grid h-full w-full overflow-hidden', props.setup ? 'grid-cols-[minmax(0,1fr)]' : 'grid-cols-[var(--side-w)_minmax(0,1fr)]')}>
@@ -771,22 +876,28 @@ export function MainWindow(props: MainWindowProps) {
           <Sidebar
             tab={tab}
             machine={props.view.machine}
-            note={props.advanced ? (props.syncNote ?? null) : null}
+            note={note}
             hidden={hidden}
+            // @private:begin
             advanced={props.advanced}
+            // @private:end
             onTab={props.onTab}
           />
           {/* The page is the container its layouts measure: the window less the sidebar. */}
           <main className="main material-main @container/main relative flex min-w-0 flex-col gap-3 overflow-y-auto pt-4 pr-[22px] pb-[22px] pl-3.5">
             <HeadEnd.Provider value={props.bell ?? null}>
-              {tab === 'overview' ? <Overview {...tabProps} advanced={props.advanced} agyAccounts={props.agyAccounts} release={props.release} onTab={props.onTab} /> : null}
+              {tab === 'overview' ? <Overview {...tabProps} agyAccounts={props.agyAccounts} release={props.release} onTab={props.onTab} /> : null}
               {tab === 'stats' ? props.stats : null}
-              {tab === 'claude' ? <ClaudeTab {...tabProps} advanced={props.advanced} /> : null}
+              {tab === 'claude' ? <ClaudeTab {...tabProps} /> : null}
               {tab === 'agy' ? <AgyTab {...tabProps} agyAccounts={props.agyAccounts} /> : null}
               {tab === 'codex' ? props.codex : null}
+              {/* @private:begin */}
               {tab === 'rules' ? props.rules : null}
+              {/* @private:end */}
               {tab === 'history' ? props.history : null}
+              {/* @private:begin */}
               {tab === 'firstmate' ? props.firstmate : null}
+              {/* @private:end */}
               {tab === 'mcp' ? props.mcp : null}
               {tab === 'skills' ? props.skills : null}
               {tab === 'plugins' ? props.plugins : null}
@@ -794,7 +905,9 @@ export function MainWindow(props: MainWindowProps) {
               {tab === 'sets' ? props.sets : null}
               {tab === 'cliTools' ? props.cliTools : null}
               {tab === 'backup' ? props.backup : null}
+              {/* @private:begin */}
               {tab === 'copy' ? props.copy : null}
+              {/* @private:end */}
               {tab === 'settings' ? props.settings : null}
             </HeadEnd.Provider>
           </main>

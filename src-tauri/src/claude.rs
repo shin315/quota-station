@@ -16,13 +16,13 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
+#[cfg(feature = "author-tools")]
+use quota_station_core::claude::agent;
 use quota_station_core::claude::import::{self, Imported};
 use quota_station_core::claude::manage::{self, Added, ManageError};
 use quota_station_core::claude::state::{self, AccountOut};
 use quota_station_core::claude::store::Store;
 use quota_station_core::claude::switch;
-#[cfg(feature = "author-tools")]
-use quota_station_core::claude::agent;
 #[cfg(feature = "author-tools")]
 use quota_station_core::os::Scheduler;
 use serde::Serialize;

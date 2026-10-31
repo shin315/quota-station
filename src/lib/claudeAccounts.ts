@@ -3,7 +3,10 @@
 
 // The Claude accounts Quota Station keeps, in words for the Claude tab: an
 // account's name, sign-in and quota for its dialog, the card before any
-// account is kept, the rotation's LaunchAgent, and what an action did.
+// account is kept, and what an action did.
+// @private:begin
+// The rotation's LaunchAgent too.
+// @private:end
 
 import { mac, os, t } from './i18n';
 import { clock, percent } from './format';
@@ -20,10 +23,12 @@ export function localName(row: Pick<ClaudeAccountRow, 'slot' | 'email'>): string
   return row.email ? row.email.split('@')[0] : t('Tài khoản ', 'Account ') + row.slot;
 }
 
+// @private:begin
 /** The ⋯ menu and the detail dialog hold an account out of the rotation only while it can run. */
 export function rotationMatters(v: ClaudeAccountsView, advanced: boolean): boolean {
   return v.rotation === true || advanced;
 }
+// @private:end
 
 /** Whether the sign-in Quota Station keeps still works, as the detail dialog's chip. */
 export function signInChip(row: ClaudeAccountRow): ChipView {
@@ -74,6 +79,7 @@ export function setupText(v: ClaudeAccountsView): { title: string; body: string 
       };
 }
 
+// @private:begin
 export interface RotationRowView {
   on: boolean;
   disabled: boolean;
@@ -101,6 +107,7 @@ export function rotationRow(v: ClaudeAccountsView): RotationRowView {
   else line = os(t('Không rõ LaunchAgent có đang nạp không.', 'Not known whether the LaunchAgent is loaded.'), t('Không rõ hẹn giờ của app có đang chạy không.', 'Not known whether the app’s timer is running.'));
   return { on: v.rotation === true, disabled: !v.ready || (!!v.legacy && v.rotation !== true) || v.working != null, line, legacy };
 }
+// @private:end
 
 /** What went wrong, in a line. */
 export function errorText(done: ClaudeActionDone): string {
@@ -122,10 +129,12 @@ export function errorText(done: ClaudeActionDone): string {
       return t('Đã huỷ đăng nhập. Không thêm gì.', 'Sign-in cancelled. Nothing was added.');
     case 'keychain':
       return os(t('Keychain không cho ghi', 'The Keychain refused the write'), t('Kho mã hoá không cho ghi', 'The encrypted store refused the write')) + detail + '.';
+    // @private:begin
     case 'legacy':
       return t('Bộ tự chuyển cũ ' + (done.detail ?? '') + ' còn chạy: tắt nó trước.', 'The old auto-switcher ' + (done.detail ?? '') + ' is still running: turn it off first.');
     case 'launchctl':
       return os(t('launchctl báo lỗi', 'launchctl reported an error'), t('Không bật được hẹn giờ của app', 'Could not start the app’s timer')) + detail + '.';
+    // @private:end
     case 'notFound':
       return mac(t('Không thấy dữ liệu claude-swap trên máy này.', 'No claude-swap data on this Mac.'));
     case 'corrupt':
@@ -153,7 +162,9 @@ function importText(done: ClaudeActionDone): string {
   let text = t('Đã nhập từ claude-swap: ', 'Imported from claude-swap: ') + (parts.length ? parts.join(', ') : t('không có gì mới', 'nothing new')) + '.';
   if (i.skipped.length)
     text += t(' Bỏ qua tài khoản ', i.skipped.length === 1 ? ' Skipped account ' : ' Skipped accounts ') + i.skipped.map(([s]) => s).join(', ') + '.';
+  // @private:begin
   if (i.rotation) text += t(' Đã chép luật xoay vòng.', ' Copied the rotation rules.');
+  // @private:end
   return text + t(' claude-swap vẫn để nguyên.', ' claude-swap stays as it is.');
 }
 
@@ -187,6 +198,7 @@ export function resultFeedback(v: ClaudeAccountsView, done: ClaudeActionDone, wh
             actions: [close()],
           }
         : { tone: '', title: t('Đã bỏ tên gọi của ' + who + '.', 'Removed ' + who + '’s nickname.'), body: '', actions: [] };
+    // @private:begin
     case 'enabled':
       return row?.enabled === false
         ? {
@@ -205,6 +217,7 @@ export function resultFeedback(v: ClaudeAccountsView, done: ClaudeActionDone, wh
         body: '',
         actions: [],
       };
+    // @private:end
     default:
       return null;
   }

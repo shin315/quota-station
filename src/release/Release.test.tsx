@@ -5,7 +5,10 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MainWindowApp, PopoverApp } from '../App';
 import { fakeApi, type FakeOptions } from '../fixtures/fakeApi';
-import { communityModel, FIXTURE_NOW, fixtureModel, releaseAvailable, releaseFixture } from '../fixtures/models';
+import { FIXTURE_NOW, fixtureModel, releaseAvailable, releaseFixture } from '../fixtures/models';
+// @private:begin
+import { communityModel } from '../fixtures/models';
+// @private:end
 import type { Api } from '../lib/api';
 import { setLang } from '../lib/i18n';
 import type { Model, ReleaseView, Tab } from '../lib/model';
@@ -23,10 +26,13 @@ async function open(model: Model, tab: Tab = 'overview', options: FakeOptions = 
   return fake;
 }
 
-/** The app as downloaded: no author's tools, no Antigravity accounts. */
+/** The app as downloaded: no Antigravity accounts. */
 function downloaded(release: ReleaseView = releaseAvailable()): Model {
-  const m = communityModel(fixtureModel('fresh', { release }));
-  return { ...m, capabilities: { agyAccounts: false, authorTools: false } };
+  let m: Model = fixtureModel('fresh', { release });
+  // @private:begin
+  m = communityModel(m);
+  // @private:end
+  return { ...m, capabilities: { ...m.capabilities, agyAccounts: false } };
 }
 
 const dialog = () => screen.getByRole('dialog');
@@ -84,6 +90,7 @@ describe('a newer release on GitHub', () => {
     expect(screen.getByText('Có bản 0.3.0 (phát hành 15/01/2026).')).toBeTruthy();
   });
 
+  // @private:begin
   it('a build from source is pointed at its clone, not the download', async () => {
     const fake = await open(fixtureModel('fresh', { release: releaseAvailable() }));
     expect(screen.getByText(/Máy này chạy bản build từ mã nguồn, nên cập nhật từ mã nguồn/)).toBeTruthy();
@@ -98,6 +105,7 @@ describe('a newer release on GitHub', () => {
     await press(inDialog('Cập nhật từ mã nguồn'));
     expect(fake.api.updateFromSource).toHaveBeenCalled();
   });
+  // @private:end
 
   it('the popover has one quiet line; Xem opens Tổng quan', async () => {
     const fake = fakeApi(downloaded());

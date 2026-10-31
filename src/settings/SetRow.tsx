@@ -26,7 +26,7 @@ export function SetRow(props: {
   under?: ReactNode;
   /** A switch, a chip or a button: it stays beside its name where the page is narrow. */
   inline?: boolean;
-  /** The control's own lines (the other Macs) start on the left of its block. */
+  /** The control's own lines (a list under it) start on the left of its block. */
   block?: boolean;
   children: ReactNode;
 }) {

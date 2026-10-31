@@ -10,19 +10,23 @@ import type { ClaudeAccountsState } from '../claude/useClaudeAccounts';
 import { CodexTab } from '../codex/CodexTab';
 import { useCodexAccounts } from '../codex/useCodexAccounts';
 import { fakeApi } from '../fixtures/fakeApi';
-import { claudeAccountsFixture, FIXTURE_NOW, fixtureModel, historyFixture, peerFixture, rotationFixture, rulesFixture } from '../fixtures/models';
+import { claudeAccountsFixture, FIXTURE_NOW, fixtureModel, historyFixture } from '../fixtures/models';
 import { alertKinds, permissionChip } from './alerts';
 import { quotaLine, resultFeedback, signInChip } from './claudeAccounts';
 import { dayLabel, historyDays } from './history';
 import { setLang } from './i18n';
-import { compareRows, peerLine, ruleNames, rulesProblem, saveFeedback, sidebarLine } from './rules';
 import { num, readLine, tokensText } from './stats';
+// @private:begin
+import { peerFixture, rotationFixture, rulesFixture } from '../fixtures/models';
+import { compareRows, peerLine, ruleNames, rulesProblem, saveFeedback, sidebarLine } from '@/private/rules/rules';
+// @private:end
 
 // The tabs' words in English, built when called: the language set here is the one they come out in.
 describe('the tabs in English', () => {
   beforeEach(() => setLang('en'));
   afterEach(cleanup);
 
+  // @private:begin
   it('Rotation rules: each Mac, the problems and the compare table', () => {
     const model = fixtureModel('fresh');
     expect(peerLine(peerFixture('Mac C', 'mac-c')).text).toBe('received 14:02');
@@ -35,6 +39,7 @@ describe('the tabs in English', () => {
     const lonely = fixtureModel('fresh', { rotation: rotationFixture({ peers: [] }) });
     expect(saveFeedback(lonely).title).toBe('Saved the rules for this Mac at 14:02');
   });
+  // @private:end
 
   it('History: days, tags and reasons', () => {
     expect(dayLabel(FIXTURE_NOW.toISOString(), FIXTURE_NOW)).toBe('Today');
@@ -65,15 +70,27 @@ describe('the tabs in English', () => {
     const row = view.accounts[1];
     expect(signInChip({ ...row, status: 'reloginRequired' }).t).toBe('expired');
     expect(quotaLine(row)).toBe('73% 5-hour');
+    const fb = resultFeedback(view, { action: 'remove', ok: true, error: null, detail: null, slot: 3, renewed: false, imported: null }, 'Team B');
+    expect(fb!.title).toBe('Removed Team B from this Mac.');
+    // @private:begin
     const rested = { ...view, accounts: view.accounts.map((a) => (a.slot === 3 ? { ...a, enabled: false } : a)) };
-    const fb = resultFeedback(rested, { action: 'enabled', ok: true, error: null, detail: null, slot: 3, renewed: false, imported: null }, 'Team B');
-    expect(fb!.title).toBe('Paused auto-switch for Team B.');
-    expect(fb!.actions!.map((a) => a.label)).toEqual(['Undo', 'Close']);
+    const held = resultFeedback(rested, { action: 'enabled', ok: true, error: null, detail: null, slot: 3, renewed: false, imported: null }, 'Team B');
+    expect(held!.title).toBe('Paused auto-switch for Team B.');
+    expect(held!.actions!.map((a) => a.label)).toEqual(['Undo', 'Close']);
+    // @private:end
     const claude = { dialog: { kind: 'add', how: 'browser', error: null }, pending: false } as unknown as ClaudeAccountsState;
     render(
       <Dialog open>
         <DialogContent>
-          <ClaudeDialogBody claude={claude} view={view} advanced={false} nameOf={(n) => 'Account ' + n} onTab={() => {}} />
+          <ClaudeDialogBody
+            claude={claude}
+            view={view}
+            // @private:begin
+            advanced={false}
+            // @private:end
+            nameOf={(n) => 'Account ' + n}
+            onTab={() => {}}
+          />
         </DialogContent>
       </Dialog>,
     );

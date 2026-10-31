@@ -122,7 +122,7 @@ describe('the Codex row', () => {
 
   const ccSwitch = { ccSwitch: { installed: true, running: true, data: true, traces: [] }, procs: { sessions: 3, app: true, daemon: true, ccSwitch: true } };
 
-  it('CC Switch also managing Codex: a note, the hover of what is in use, and "Vẫn chuyển" with the guide on the sheet', async () => {
+  it('CC Switch also managing Codex: a note, the hover of what is in use, and "Vẫn chuyển" on the sheet', async () => {
     await openPopover(withCodex({ current: 'chatgpt', ...ccSwitch }));
     // No chip: the note says it, and the hover of what is in use.
     expect(codexSection().textContent).not.toContain('CC Switch cũng quản lý');
@@ -132,7 +132,9 @@ describe('the Codex row', () => {
     const sheet = screen.getByRole('dialog', { name: 'Chuyển Codex sang relay?' });
     expect(facts(sheet)[0]).toMatch(/^CC Switch vẫn đang quản lý Codex trên máy này/);
     expect(within(sheet).getByRole('button', { name: 'Vẫn chuyển' })).toBeTruthy();
+    // @private:begin
     expect(within(sheet).getByRole('button', { name: 'Hướng dẫn ngừng dùng CC Switch' })).toBeTruthy();
+    // @private:end
   });
 
   it('CC Switch also managing Codex: going to a ChatGPT account warns on the sheet too', async () => {
@@ -141,7 +143,9 @@ describe('the Codex row', () => {
     const sheet = screen.getByRole('dialog', { name: 'Chuyển Codex sang ChatGPT?' });
     expect(facts(sheet)[0]).toMatch(/^CC Switch vẫn đang quản lý Codex trên máy này/);
     expect(within(sheet).getByRole('button', { name: 'Vẫn chuyển' })).toBeTruthy();
+    // @private:begin
     expect(within(sheet).getByRole('button', { name: 'Hướng dẫn ngừng dùng CC Switch' })).toBeTruthy();
+    // @private:end
     expect(fake.api.codexUse).not.toHaveBeenCalled();
   });
 
@@ -277,9 +281,11 @@ describe('the Codex tab', () => {
     expect(screen.getByText('Đang bật')).toBeTruthy();
     await press(screen.getByRole('button', { name: 'Chi tiết: Dùng plugin với Custom API' }));
     expect(screen.getByText(/Bỏ chọn không xoá auth\.json/)).toBeTruthy();
-    // The author's own guide to leave CC Switch is not part of the app.
+    // @private:begin
+    // The author's own guide to leave CC Switch is not part of this tab.
     expect(document.getElementById('cc-card')).toBeNull();
     expect(screen.queryByText(/Ngừng dùng CC Switch/)).toBeNull();
+    // @private:end
 
     await press(within(accounts[0]).getByRole('button', { name: 'Chuyển sang ChatGPT' }));
     expect(screen.getByRole('dialog', { name: 'Chuyển Codex sang ChatGPT?' })).toBeTruthy();

@@ -28,7 +28,7 @@ function banners(model: Model, now: Date): BannerView[] {
     out.push({
       tone: 'bad',
       title: mac(t(cloudDrive() + ' đang tắt trên máy này', cloudDrive() + ' is off on this Mac')),
-      body: mac(t('Bật ' + cloudDrive() + ' để sao lưu, và để lấy gói của Mac khác.', 'Turn on ' + cloudDrive() + ' to back up, and to get packs from other Macs.')),
+      body: mac(t('Bật ' + cloudDrive() + ' để sao lưu, và để lấy gói của Mac khác.', 'Turn on ' + cloudDrive() + ' to back up, and to get packs made on another Mac.')),
       actions: [{ label: t('Kiểm tra lại', 'Check again'), act: 'backup:reread' }],
     });
   const cloud = (v.packs ?? []).filter((p) => p.state === 'cloud');
@@ -179,7 +179,7 @@ export function BackupTab({ model, feedback, now, backup, onAction }: BackupTabP
             <EmptyIcon>{ARCHIVE_BIG}</EmptyIcon>
             <b>{t('Chưa có gói sao lưu nào', 'No backup packs yet')}</b>
             <CardText className="mt-2 mb-0">
-              {mac(t('Gói gồm các MCP của bạn, không có khoá. Lưu trong ' + cloudDrive() + ' để máy khác lấy được.', 'A pack holds your MCP servers, without keys. It is kept in ' + cloudDrive() + ' so other Macs can get it.'))}
+              {mac(t('Gói gồm các MCP của bạn, không có khoá. Lưu trong ' + cloudDrive() + ' để máy khác lấy được.', 'A pack holds your MCP servers, without keys. It is kept in ' + cloudDrive() + ' so another Mac can get it.'))}
             </CardText>
             <div className="mt-2.5 flex flex-wrap justify-center gap-2">
               <Button primary disabled={busy || !v.icloud} onClick={backup.backupNow}>

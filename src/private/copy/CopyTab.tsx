@@ -14,17 +14,17 @@ import { Card as Panel, CardText, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Segment, Segmented } from '@/components/ui/segmented';
 import { cn } from '@/lib/utils';
-import { CheckRow, Progress } from '../components/blocks';
-import { Glyph } from '../components/icons';
-import { COUNT, Empty, EmptyIcon, GROUP_HEAD, TabHead, TabSub, TabTitle } from '../components/page';
-import { Banner, Button, Chip, Dot, Feedback, LinkButton, Toggle } from '../components/parts';
-import { groups, hasView, itemKey, itemName, itemNote, macChip, readAt, sameLine, selectable, stateChip, wrongWay } from '../lib/copy';
-import type { AuthorModel } from '../lib/author';
-import { t } from '../lib/i18n';
-import { plural } from '../lib/backup';
-import type { CopyItem } from '../lib/model';
-import type { Action, FeedbackView } from '../lib/view';
-import { NAV_ICONS, SYNC_BIG } from '../window/icons';
+import { CheckRow, Progress } from '@/components/blocks';
+import { Glyph } from '@/components/icons';
+import { COUNT, Empty, EmptyIcon, GROUP_HEAD, TabHead, TabSub, TabTitle } from '@/components/page';
+import { Banner, Button, Chip, Dot, Feedback, LinkButton, Toggle } from '@/components/parts';
+import { groups, hasView, itemKey, itemName, itemNote, macChip, readAt, sameLine, selectable, stateChip, wrongWay } from './copy';
+import type { AuthorModel } from '@/private/author';
+import { t } from '@/lib/i18n';
+import { plural } from '@/lib/backup';
+import type { CopyItem } from '@/lib/model';
+import type { Action, FeedbackView } from '@/lib/view';
+import { NAV_ICONS, SYNC_BIG } from '@/window/icons';
 import type { Copy } from './useCopy';
 
 /** The Macs to copy with: arrow keys move the choice, Tab reaches the chosen one. */

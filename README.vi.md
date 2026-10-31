@@ -7,6 +7,8 @@ Antigravity của bạn đã dùng bao nhiêu, chuyển qua lại giữa các t�
 gọn MCP server, skill cùng file hướng dẫn của các agent. Giao diện có tiếng Việt
 và tiếng Anh.
 
+<!-- @private:begin -->
+
 <p align="center">
   <img src="docs/screenshots/vi/popover.png" width="360" alt="Popover ở giao diện tối: mỗi dịch vụ Claude, Antigravity và Codex một phần, mở ra ở tài khoản đang dùng với phần trăm đã dùng và thời gian đến lúc đặt lại, các tài khoản khác gập dưới một dòng, và Tự động chuyển Claude ở chân">
 </p>
@@ -15,10 +17,18 @@ và tiếng Anh.
   <img src="docs/screenshots/menubar.png" width="600" alt="Mục trên thanh menu, ở thanh menu sáng và tối: đồng hồ C04 với tài khoản và phần trăm đã dùng cho Claude, Gemini và Codex qua ChatGPT, Codex qua nhà cung cấp riêng không có số, vòng xoay đang tạm dừng với hai vạch trong đồng hồ, và vòng xoay cạn với hình tam giác cảnh báo">
 </p>
 
+<!-- @private:end -->
+
 Quota Station tự đọc hạn mức ngay trên máy bạn, bằng các bộ đọc chuyển từ
 [quota-axi](https://github.com/kunchenguid/quota-axi); không cần chương trình
-nào khác để có số. Mọi hình trong trang này dùng dữ liệu thử bịa ra, không bao
-giờ là tài khoản thật.
+nào khác để có số.
+
+<!-- @private:begin -->
+
+Mọi hình trong trang này dùng dữ liệu thử bịa ra, không bao giờ là tài khoản
+thật.
+
+<!-- @private:end -->
 
 > **Tình trạng.** macOS 13 trở lên. GitHub chưa có bản phát hành nào, nên bạn
 > cài [từ mã nguồn](#cài-đặt). Bản Windows đang làm và chưa dùng được.
@@ -47,7 +57,11 @@ nhấp. Thanh chuyển vàng từ 70 % và đỏ từ 90 %. Nhấp phải mở m
 
 ### Cửa sổ chính
 
+<!-- @private:begin -->
+
 <img src="docs/screenshots/vi/overview.png" width="760" alt="Tổng quan của cửa sổ chính: tài khoản Claude, Antigravity và Codex trong các bảng, với phần trăm đã dùng của từng cửa sổ và nút Chuyển trên mỗi tài khoản không dùng">
+
+<!-- @private:end -->
 
 `Tổng quan` gom mọi tài khoản của ba dịch vụ vào một chỗ, với `Chuyển` trên mỗi
 tài khoản chưa dùng. Thanh bên chia phần còn lại: `Thống kê`, tài khoản
@@ -57,18 +71,32 @@ tài khoản chưa dùng. Thanh bên chia phần còn lại: `Thống kê`, tài
 
 ### Tài khoản Claude
 
+<!-- @private:begin -->
+
 <img src="docs/screenshots/vi/claude.png" width="760" alt="Tab Claude: bốn tài khoản với 5 giờ, Tuần và Fable tuần, nút Chuyển và menu ⋯ trên mỗi dòng, bên dưới là Tự động chuyển Claude với các lựa chọn tạm dừng và Chạy nền">
+
+<!-- @private:end -->
 
 Quota Station tự giữ nhiều tài khoản Claude và tự chuyển Claude Code giữa
 chúng: thêm tài khoản bằng cách đăng nhập trong trình duyệt, lấy tài khoản
 Claude Code đang đăng nhập, hoặc dán setup-token. Trước khi chuyển, app cho biết
 bao nhiêu phiên Claude Code đang chạy sẽ phải dựng lại prompt cache, rồi kiểm
-tra lại là đã chuyển xong. Vòng xoay tự động giữa các tài khoản Team, có tạm
-dừng, là một trong [các công cụ của tác giả](#dành-cho-máy-của-tác-giả).
+tra lại là đã chuyển xong.
+
+<!-- @private:begin -->
+
+Vòng xoay tự động giữa các tài khoản Team, có tạm dừng, là một trong
+[các công cụ của tác giả](#dành-cho-máy-của-tác-giả).
+
+<!-- @private:end -->
 
 ### Codex
 
+<!-- @private:begin -->
+
 <img src="docs/screenshots/vi/codex.png" width="760" alt="Tab Codex: bốn tài khoản ChatGPT và ba nhà cung cấp Custom API với nút Chuyển, ô plugin, dòng khoá API, Tự đánh thức ChatGPT và Codex trên máy này">
+
+<!-- @private:end -->
 
 Giữ nhiều tài khoản ChatGPT cho Codex, cùng các nhà cung cấp Custom API trong
 `config.toml` của nó, và chuyển qua lại; đăng nhập ChatGPT vẫn ở nguyên chỗ nên
@@ -85,13 +113,21 @@ và chuyển tài khoản mà Antigravity.app và `agy` dùng.
 
 ### MCP server, skill, plugin và file hướng dẫn
 
+<!-- @private:begin -->
+
 <img src="docs/screenshots/vi/mcp.png" width="760" alt="Tab MCP: mỗi server một dòng với ô đánh dấu cho Claude Code, Codex và Antigravity, nhãn báo thiếu khoá hoặc thiếu lệnh, và các dòng cho server đã cất, server Codex tự có và bản lưu">
+
+<!-- @private:end -->
 
 Một bảng cho mọi MCP server của Claude Code, Codex và Antigravity, mỗi agent một
 ô đánh dấu. Các thay đổi được gom lại, cho xem trước một lần, ghi một lần kèm
 bản lưu, và hoàn tác được. Khoá nằm trong Keychain và không bao giờ hiện ra.
 
+<!-- @private:begin -->
+
 <img src="docs/screenshots/vi/skills.png" width="760" alt="Tab Skills: mỗi skill một dòng với ô đánh dấu cho từng agent, hai skill có bản mới, Cập nhật tất cả và Cài từ GitHub">
+
+<!-- @private:end -->
 
 Tab `Skills` làm như vậy cho skill, cài skill từ GitHub và báo khi một skill có
 bản mới. `Plugin` liệt kê những gì mỗi agent đã cài, còn `File hướng dẫn` theo
@@ -99,7 +135,11 @@ dõi CLAUDE.md, AGENTS.md và GEMINI.md.
 
 ### Bộ cấu hình
 
+<!-- @private:begin -->
+
 <img src="docs/screenshots/vi/sets.png" width="760" alt="Bộ cấu hình: bộ đang dùng lệch một mục, và ba bộ với Áp dụng…, Sửa và Xoá">
+
+<!-- @private:end -->
 
 Một bộ bật hoặc tắt một nhóm MCP server và skill đã chọn cho cả máy trong một
 lần, sau một lần xem trước, và có thể chuyển cả Codex. App báo khi máy đã lệch
@@ -107,7 +147,11 @@ khỏi bộ, và hoàn tác được.
 
 ### Sao lưu và khôi phục
 
+<!-- @private:begin -->
+
 <img src="docs/screenshots/vi/backup.png" width="760" alt="Tab Sao lưu: gói mới nhất, công tắc tự sao lưu, các khoá đã lưu, và các gói của ba máy Mac">
+
+<!-- @private:end -->
 
 Sao lưu MCP server, skill, plugin và file hướng dẫn lên iCloud Drive (hoặc thư
 mục bạn chọn) rồi khôi phục trên bất kỳ máy Mac nào của bạn, từng mục một. Gói
@@ -115,7 +159,11 @@ sao lưu không bao giờ chứa khoá: lúc khôi phục app hỏi lại.
 
 ### Thống kê
 
+<!-- @private:begin -->
+
 <img src="docs/screenshots/vi/stats.png" width="760" alt="Thống kê 7 ngày: 45,5 triệu token, giá API tương đương, mỗi ngày một cột chồng cho Claude Code và Codex, cùng số token theo tài khoản Claude, theo dự án và theo model">
+
+<!-- @private:end -->
 
 Số token Claude Code và Codex đã dùng trên máy này, đọc từ log phiên của chính
 chúng (chỉ đọc con số, không bao giờ đọc nội dung hội thoại): theo ngày hoặc
@@ -123,16 +171,24 @@ giờ, theo tài khoản Claude, dự án và model, kèm giá nếu tính theo 
 
 ### Cập nhật Agent
 
+<!-- @private:begin -->
+
 <img src="docs/screenshots/vi/updates.png" width="760" alt="Cập nhật Agent: Claude Code đã là bản mới nhất, Codex CLI và Antigravity CLI có bản mới với nút Cập nhật, và Tự động kiểm tra">
+
+<!-- @private:end -->
 
 Kiểm tra Claude Code, Codex CLI và Antigravity CLI đã là bản mới nhất chưa, và
 chỉ chạy lệnh cập nhật của chính công cụ đó khi bạn bấm `Cập nhật`.
 
 ### Thông báo
 
+<!-- @private:begin -->
+
 <img src="docs/screenshots/vi/notifications.png" width="760" alt="Bảng thông báo mở dưới cái chuông trên Tổng quan: hai thông báo hôm nay, Antigravity đổi về tài khoản cũ và Team A rời vòng lúc 14:45, mỗi thông báo kèm các nút của thẻ macOS">
 
-Thông báo khi hạn mức trong vòng xoay sắp cạn, khi một tài khoản cần đăng nhập
+<!-- @private:end -->
+
+Thông báo khi hạn mức Claude sắp cạn, khi một tài khoản cần đăng nhập
 lại, khi lần chuyển Antigravity bị ghi đè, khi skill hay công cụ có bản mới, và
 khi một biến môi trường (như `ANTHROPIC_API_KEY` trong `~/.zshrc`) đè đăng nhập
 của agent. Mỗi thông báo đến một lần, dưới dạng thẻ macOS có nút bấm, và nằm lại
@@ -140,16 +196,30 @@ dưới cái chuông.
 
 ### Cài đặt, chủ đề và ngôn ngữ
 
+<!-- @private:begin -->
+
 <img src="docs/screenshots/vi/settings.png" width="760" alt="Cài đặt › Hiển thị: Giao diện, sáu chủ đề vẽ như cửa sổ thu nhỏ, Hiện email, và dịch vụ cùng con số trên thanh menu">
 
-Cài đặt có năm tab: `Chung` (ngôn ngữ, mở khi đăng nhập, thư mục sao lưu, cập
-nhật app), `Hiển thị` (sáng hoặc tối, sáu chủ đề, thanh menu), `Thông báo`,
-`Dịch vụ` và, ở bản dựng của tác giả, `Nâng cao`. Tắt `Hiện email` thì tài khoản
-được gọi theo vị trí hoặc số thứ tự, tiện để chụp màn hình.
+<!-- @private:end -->
+
+Cài đặt có `Chung` (ngôn ngữ, mở khi đăng nhập, thư mục sao lưu, cập nhật
+app), `Hiển thị` (sáng hoặc tối, sáu chủ đề, thanh menu), `Thông báo` và
+`Dịch vụ`. Tắt `Hiện email` thì tài khoản được gọi theo vị trí hoặc số thứ tự,
+tiện để chụp màn hình.
+
+<!-- @private:begin -->
+
+Ở bản dựng của tác giả, Cài đặt có thêm `Nâng cao`.
+
+<!-- @private:end -->
 
 ### Lần chạy đầu
 
+<!-- @private:begin -->
+
 <img src="docs/screenshots/vi/first-run.png" width="760" alt="Bước thứ hai của lần chạy đầu, Máy này có gì: đã thấy Claude Code, Codex và Antigravity">
+
+<!-- @private:end -->
 
 Bản cài mới mở ra một phần thiết lập ngắn: ngôn ngữ, máy này có gì, tài khoản
 Claude, quyền và thanh menu, xong.
@@ -160,6 +230,8 @@ Claude, quyền và thanh menu, xong.
 - **Cập nhật app**: app hỏi GitHub Releases xem có bản mới không và báo cho bạn;
   app không bao giờ tự cài.
 
+<!-- @private:begin -->
+
 ### Dành cho máy của tác giả
 
 Một số công cụ làm cho chính các máy Mac của tác giả, chỉ được dựng khi bật
@@ -167,6 +239,8 @@ feature `author-tools` (bật trong `scripts/install.sh`, tắt ở bản phát 
 rồi hiện ra qua `Cài đặt › Nâng cao`: vòng xoay Claude tự động cùng tạm dừng và
 trình sửa luật, gửi luật sang các máy Mac khác qua SSH, `Chép sang Mac khác`,
 `Firstmate`, và cập nhật từ bản clone mã nguồn.
+
+<!-- @private:end -->
 
 Mọi phần được mô tả đầy đủ trong [docs/features.md](docs/features.md) (tiếng
 Anh, kèm nhãn tiếng Việt).
@@ -181,8 +255,10 @@ Anh, kèm nhãn tiếng Việt).
   ghi.
 - Khoá và đăng nhập mà app giữ nằm trong Keychain của macOS (các tài khoản
   ChatGPT phụ nằm trong thư mục chỉ bạn mở được). Khoá không bao giờ hiện trong
-  cửa sổ, log hay gói sao lưu, và chỉ sang máy Mac khác khi bạn đánh dấu `Gửi cả
-  khoá qua SSH`.
+  cửa sổ, log hay gói sao lưu.
+  <!-- @private:begin -->
+  Khoá chỉ sang máy Mac khác khi bạn đánh dấu `Gửi cả khoá qua SSH`.
+  <!-- @private:end -->
 
 [SECURITY.md](SECURITY.md) có chi tiết, và
 [docs/how-it-works.md](docs/how-it-works.md) liệt kê mọi thứ app đọc, chạy và
@@ -199,8 +275,10 @@ ghi (tiếng Anh).
   `claude` của Claude Code.
 - Để đăng nhập tài khoản Antigravity (bản dựng có phần tài khoản Antigravity):
   [file OAuth client](docs/how-it-works.md#the-oauth-client-file).
+<!-- @private:begin -->
 - Cho các công cụ của tác giả cần tới máy Mac khác: một SSH alias tới từng máy,
   đăng nhập không cần hỏi (dùng khoá, `BatchMode=yes`).
+<!-- @private:end -->
 
 ## Cài đặt
 
@@ -215,9 +293,14 @@ scripts/install.sh
 Script dựng app, ký (bằng định danh `Apple Development` của bạn, hoặc ad-hoc),
 chép vào `/Applications/Quota Station.app` và mở lên. Script không bao giờ thêm
 mục đăng nhập và không bao giờ đòi `sudo`. Nó dựng kèm phần tài khoản
-Antigravity và các công cụ của tác giả; `QS_ANTIGRAVITY_ACCOUNTS=0` hoặc
-`QS_AUTHOR_TOOLS=0` bỏ bớt một phần. `scripts/install.sh --help` liệt kê các
-tuỳ chọn.
+Antigravity; `QS_ANTIGRAVITY_ACCOUNTS=0` bỏ phần đó ra. `scripts/install.sh
+--help` liệt kê các tuỳ chọn.
+
+<!-- @private:begin -->
+
+Nó cũng dựng kèm các công cụ của tác giả; `QS_AUTHOR_TOOLS=0` bỏ phần đó ra.
+
+<!-- @private:end -->
 
 Trên máy không dựng được, hãy tạo gói trên một máy dựng được rồi chép sang:
 
@@ -231,8 +314,12 @@ Sau đó, trên máy đăng nhập tài khoản Antigravity, đặt
 [file OAuth client](docs/how-it-works.md#the-oauth-client-file) vào chỗ, và bật
 `Cài đặt › Chung › Mở khi đăng nhập` nếu muốn app chạy cùng máy.
 
+<!-- @private:begin -->
+
 Đang chuyển từ claude-swap hoặc Cockpit Tools? Làm theo
 [docs/cutover.md](docs/cutover.md).
+
+<!-- @private:end -->
 
 ## Cập nhật
 
@@ -242,18 +329,24 @@ Từ Terminal, trong thư mục clone:
 git pull --ff-only && scripts/install.sh
 ```
 
+<!-- @private:begin -->
+
 Ở bản dựng có các công cụ của tác giả, `Cài đặt › Nâng cao` làm được việc này:
 đặt `Mã nguồn` là thư mục clone rồi bấm `Cập nhật`. App kéo mã mới, dựng và cài
 khi bản clone có commit mới, rồi đề nghị `Mở lại`; bản clone có commit riêng
 không bao giờ bị merge hay reset, và lần dựng quá 30 phút thì dừng.
 
+<!-- @private:end -->
+
 ## Gỡ cài đặt
 
 1. Trong `Cài đặt › Chung`, tắt `Mở khi đăng nhập` (hoặc bỏ Quota Station trong
-   System Settings › General › Login Items). Nếu app đang chạy vòng xoay Claude,
-   tắt nó trong tab `Claude` (hoặc chạy `quota-station claude rotation off`), và
-   bật lại bộ tự chuyển cũ trước nếu Claude vẫn cần xoay vòng
-   ([docs/cutover.md](docs/cutover.md)).
+   System Settings › General › Login Items).
+   <!-- @private:begin -->
+   Nếu app đang chạy vòng xoay Claude, tắt nó trong tab `Claude` (hoặc chạy
+   `quota-station claude rotation off`), và bật lại bộ tự chuyển cũ trước nếu
+   Claude vẫn cần xoay vòng ([docs/cutover.md](docs/cutover.md)).
+   <!-- @private:end -->
 2. Thoát Quota Station từ menu của nó, rồi kéo
    `/Applications/Quota Station.app` vào Thùng rác.
 3. Tuỳ chọn, xoá dữ liệu của app:
@@ -267,7 +360,11 @@ không bao giờ bị merge hay reset, và lần dựng quá 30 phút thì dừn
    trước để xoá các mục đó. Đừng đụng vào mục `gemini`/`antigravity`:
    Antigravity.app và agy dùng nó.
 
+<!-- @private:begin -->
+
 Cờ tạm dừng và file luật xoay vòng thuộc về bộ tự chuyển, nên vẫn ở lại.
+
+<!-- @private:end -->
 
 ## Tài liệu
 
@@ -277,13 +374,20 @@ Các trang trong `docs/` viết bằng tiếng Anh.
 |---|---|
 | [docs/features.md](docs/features.md) | Mọi phần của app, đầy đủ |
 | [docs/how-it-works.md](docs/how-it-works.md) | Các bộ đọc hạn mức, tài khoản Claude và Antigravity, dòng lệnh, những gì app đọc, chạy và ghi, file OAuth client |
-| [docs/cutover.md](docs/cutover.md) | Chuyển một máy Mac khỏi claude-swap và Cockpit Tools |
 | [docs/development.md](docs/development.md) | Dựng app, các feature khi dựng, bản xem trước trên trình duyệt, kiểm thử, cấu trúc mã |
 | [docs/claude-accounts.md](docs/claude-accounts.md) | Thiết kế phần tài khoản Claude |
 | [docs/themes.md](docs/themes.md) | Sáu chủ đề |
 | [docs/ui-guidelines.md](docs/ui-guidelines.md) | Cách viết chữ trên giao diện, tiếng Việt và tiếng Anh |
-| [docs/brand-icons.md](docs/brand-icons.md) | Biểu tượng app và thanh menu |
 | [SECURITY.md](SECURITY.md) | Khoá, token, những gì không bao giờ đọc, và cách báo lỗi bảo mật |
+
+<!-- @private:begin -->
+
+| Trang | Nội dung |
+|---|---|
+| [docs/cutover.md](docs/cutover.md) | Chuyển một máy Mac khỏi claude-swap và Cockpit Tools |
+| [docs/brand-icons.md](docs/brand-icons.md) | Biểu tượng app và thanh menu |
+
+<!-- @private:end -->
 
 ## Điều khoản dịch vụ
 

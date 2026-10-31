@@ -626,17 +626,17 @@ fn listed_agy(row: &Provider, list: &AgyAccounts) -> Section {
         .map(|a| Account {
             number: a.account,
             #[cfg(feature = "author-tools")]
-        role: Role::Unknown,
+            role: Role::Unknown,
             active: a.active,
             #[cfg(feature = "author-tools")]
-        disabled: false,
+            disabled: false,
             reading: reading(&a.status),
             fetched_at: a.fetched_at.clone(),
             source: Source::List,
             #[cfg(feature = "author-tools")]
-        membership: Membership::Unknown,
+            membership: Membership::Unknown,
             #[cfg(feature = "author-tools")]
-        leaves_at: None,
+            leaves_at: None,
             windows: Vec::new(),
             email: None,
             org: None,

@@ -127,8 +127,8 @@ describe('the Sao lưu layout', () => {
             .map((c) => c.textContent)
             .join(' | '),
         );
-    expect(cells('Hôm nay')).toEqual(['14:10 | Mac mini | 6 MCP | ', '09:12 | Mac mini | 6 MCP | ', '04:55 | Mac khác | — | chưa tải về máy']);
-    expect(cells('Hôm qua')).toEqual(['21:40 | Desk mini | 5 MCP | ', '05:00 | Mac mini | 5 MCP | ']);
+    expect(cells('Hôm nay')).toEqual(['14:10 | Mac Studio | 6 MCP | ', '09:12 | Mac Studio | 6 MCP | ', '04:55 | Mac khác | — | chưa tải về máy']);
+    expect(cells('Hôm qua')).toEqual(['21:40 | Desk mini | 5 MCP | ', '05:00 | Mac Studio | 5 MCP | ']);
     // A pack iCloud Drive has not downloaded cannot be opened or restored.
     const cloud = within(screen.getByRole('list', { name: 'Hôm nay' })).getAllByRole('listitem')[2];
     for (const b of within(cloud).getAllByRole('button')) expect((b as HTMLButtonElement).disabled).toBe(true);

@@ -69,6 +69,8 @@ until it passed; those are marked *adjusted*. The four Q styles were drawn
 only in dark: their light modes are derived (same hue, glass and corners on
 a light ground) and marked *derived*.
 
+<!-- @private:begin -->
+
 Sources (read only, in Firstmate's data folder):
 
 - Q03, Q06, Q11, Q13: `qs-ce-look/assets/Q{03,06,11,13}.png`
@@ -76,6 +78,8 @@ Sources (read only, in Firstmate's data folder):
 - Design-system sheets D01–D10: `qs-ce-look/ds/assets/D01.png` … `D10.png`
 - The community edition's measurements on the same images:
   `qs-ce-ui-build/design/DESIGN.md`
+
+<!-- @private:end -->
 
 ## Mặc định
 

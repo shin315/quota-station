@@ -1396,7 +1396,11 @@ pub fn sample(kind: Kind, now: i64, offset: UtcOffset, roles: bool) -> Alert {
         ["Tài khoản 1", "Tài khoản 2", "Tài khoản 3"]
     };
     let agy = [agy_name(1, roles), agy_name(2, roles)];
-    let pool = if roles { "Hạn mức Claude trong vòng sắp cạn" } else { "Hạn mức Claude sắp cạn" };
+    let pool = if roles {
+        "Hạn mức Claude trong vòng sắp cạn"
+    } else {
+        "Hạn mức Claude sắp cạn"
+    };
     sample_named(kind, now, offset, (claude, agy.each_ref().map(String::as_str)), pool)
 }
 

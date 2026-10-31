@@ -24,7 +24,27 @@ const ICONS = /^\.\/icons\.tsx$/;
 /** Where an <svg> of the app's own may be written: the services' logos, the glyphs' module, and Thống kê's chart. */
 const OWN_SVG = [/^\.\/ui\/svgs\//, ICONS, /\/stats\/StatsTab\.tsx$/];
 
-const TABS: Tab[] = ['overview', 'stats', 'claude', 'agy', 'codex', 'rules', 'history', 'alerts', 'firstmate', 'mcp', 'skills', 'plugins', 'instr', 'sets', 'backup', 'copy', 'settings'];
+const TABS: Tab[] = [
+  'overview',
+  'stats',
+  'claude',
+  'agy',
+  'codex',
+  'history',
+  'alerts',
+  'mcp',
+  'skills',
+  'plugins',
+  'instr',
+  'sets',
+  'backup',
+  'settings',
+  // @private:begin
+  'rules',
+  'firstmate',
+  'copy',
+  // @private:end
+];
 
 /** What an <svg> on screen is: a Phosphor glyph, a logo, or the chart; anything else is named by its markup. */
 function kind(svg: SVGSVGElement): string {

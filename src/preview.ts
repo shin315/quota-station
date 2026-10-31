@@ -3,18 +3,22 @@
 
 // Browser preview for `npm run dev`: the popover or the main window on a
 // fixture, without Tauri. `?state=keychain&view=window&tab=claude`.
-// Switching (M3): `switcher=held|noguard|auto|stopped|missing` sets the
-// switcher, `outcome=raced|failed|busy|unconfirmed` what a switch reports, and
+// Switching (M3): `outcome=raced|failed|busy|unconfirmed` is what a switch reports, and
 // `accounts=none` shows a Mac where Quota Station keeps no Claude account yet. A switch takes 1.5 s, so the working sheet shows.
+// @private:begin
+// `switcher=held|noguard|auto|stopped|missing` sets the switcher.
+// @private:end
 // Claude accounts: `claude=relogin` has account 3 to sign in again, `claude=renew` makes a sign-in land on
 // account 1 (already here), `claude=fail` ends a sign-in without one; an action takes 3 s.
 // GitHub Releases: `release=avail|later|skipped|offline|none|off` (up to date by default); "Kiểm tra bản mới"
 // takes 1.5 s and finds 0.3.0, or `releasefinds=offline`. `build=release` is the downloaded app
-// (no author's tools, no Antigravity accounts), whose dialog offers the DMG.
+// (no Antigravity accounts), whose dialog offers the DMG.
 // The first run: `setup=on` (the fixture's Mac, its accounts not kept yet: the one signed in is
 // taken at the Claude step), `setup=signedout` (Claude Code signed in to none), `setup=none` (no agent).
+// @private:begin
 // Rotation rules (M5): `tab=rules` with `rotation=unreachable|newer|edited|unstamped|missing|invalid|unwritable|single`;
 // a save takes 1 s, and `unreachable` leaves Mac C behind.
+// @private:end
 // Antigravity logins (M4a) and reads (M4b): `agy=two|relogin|verify|noclient|tooopen|invalid|broken|reading|failing|forbidden`
 // sets the login card, `login=timeout|noRefreshToken|keychain|…` how a login ends
 // (it keeps the next account after 3 s by default, or at once on any pasted
@@ -24,15 +28,17 @@
 // `overwritten`), `agyapp=closed|missing|old|unreadable|unknown` is what the sheet learns
 // about Antigravity.app (it runs by default), and
 // `agyoutcome=unconfirmed|notquit|write` what a switch reports. A switch takes 1.5 s.
-// History, notifications and Firstmate (M6): `tab=history|firstmate`, and
+// History and notifications (M6): `tab=history`, and
 // `tab=alerts`, Tổng quan with the bell's panel open (as a macOS card opens
-// it), with `history=empty`, `alerts=on|off|unbundled|empty|many` (two cards
+// it), with `history=empty` and `alerts=on|off|unbundled|empty|many` (two cards
 // by default on `tab=alerts`; `off` is macOS refusing the cards; `many`,
-// twelve not read yet, `9+` on the bell) and
-// `firstmate=ok|holding|stale|missing|unset` (unset by default).
-// The app itself (M7), on `tab=settings`: `app=on|approval|unavailable|nosource|unbundled`
-// sets the login switch and the clone, and `update=uptodate|pull|install|timeout` how
+// twelve not read yet, `9+` on the bell).
+// The app itself (M7), on `tab=settings`: `app=on|approval|unavailable` sets the login switch.
+// @private:begin
+// Firstmate (M6): `tab=firstmate` and `firstmate=ok|holding|stale|missing|unset` (unset by default).
+// `app=nosource|unbundled` sets the clone, and `update=uptodate|pull|install|timeout` how
 // "Cập nhật từ mã nguồn" ends (by default it installs 0.1.1). Each step takes 1.5 s.
+// @private:end
 // Codex (M8): `codex=chatgpt|ccswitch|down|external|nologin|nokey|placeholder|header|envkey|noplugins|broken|none`
 // sets the six states of the design and more (Codex goes through the made-up `relay` by
 // default), and `codexoutcome=changed|refused` what a switch reports. A switch or a
@@ -63,10 +69,12 @@
 // (`sets`: acme/agent-skills has two newer versions too, for "Cập nhật cả bộ");
 // `skillsoutcome=changed` for a write that finds a folder changed, `skillsoutcome=updatefail`
 // for an update of release-notes that fails. npx and a write take 0.8 s.
+// @private:begin
 // Chép sang Mac khác (M13): `tab=copy` with the made-up Macs "MacBook Air" (`travel-air`) and
 // "Studio iMac" (`studio-imac`), and `copy=unreach|old|noapp|none|changed`: the first Mac does
 // not answer, runs version 1, has no app; no Mac in settings; a copy finds a file changed.
 // A comparison, a copy and its undo take 0.9 s.
+// @private:end
 // Variables that override a login (M14): `env=found|claude2|launchd|unread|unchecked` (none set by
 // default), shown on `tab=settings` (the card), `tab=claude` (the banner) and with `alerts=env`.
 // Bộ cấu hình (M15): `tab=sets` with three made-up sets, Web app applied and drifted by one
@@ -86,8 +94,8 @@
 // `lang=vi|en` sets the language; without it the preview follows the browser's, as the app follows macOS.
 
 import type { Api } from './lib/api';
-import { THEME_PACKS, type AgyAccounts, type AgyApp, type AgyHow, type AgyOutcome, type CliFailure, type CodexOutcome, type CodexTarget, type McpTable, type Model, type Outcome, type Tab, type UpdateError, type UpdateOutcome } from './lib/model';
-import { fakeApi, fakeEmail, hideNames } from './fixtures/fakeApi';
+import { THEME_PACKS, type AgyAccounts, type AgyApp, type AgyHow, type AgyOutcome, type CliFailure, type CodexOutcome, type CodexTarget, type McpTable, type Model, type Tab, type AlertRecord } from './lib/model';
+import { fakeApi, fakeEmail, hideNames, type FakeOptions } from './fixtures/fakeApi';
 import { backupFixture, packsFixture } from './fixtures/fakeBackup';
 import { API_KEY, BASE_URL, CLAUDE_BASE, envAlert, envFixture, LAUNCHD_GEMINI } from './fixtures/fakeEnv';
 import { setsFixture } from './fixtures/fakeSets';
@@ -99,32 +107,49 @@ import {
   agyFixture,
   FIXTURE_NOW,
   fixtureModel,
-  heldSwitcher,
-  peerFixture,
-  rotationFixture,
-  rulesFixture,
   SNAPSHOTS,
-  switcherFixture,
   claudeAccountsFixture,
   releaseAvailable,
   releaseFixture,
-  communityModel,
   alertsFixture,
   appFixture,
   codexFixture,
   codexEmpty,
   codexMany,
   codexTriggerFixture,
-  firstmateFixture,
   mcpBrandsFixture,
   mcpFixture,
   mcpTableFixture,
   historyFixture,
-  leavingAlert,
   overwriteAlert,
 } from './fixtures/models';
+// @private:begin
+import type { UpdateError, UpdateOutcome } from './lib/model';
+import { communityModel, firstmateFixture, heldSwitcher, leavingAlert, peerFixture, rotationFixture, rulesFixture, switcherFixture } from './fixtures/models';
+// @private:end
 
-const TABS: Tab[] = ['overview', 'stats', 'claude', 'agy', 'codex', 'rules', 'history', 'alerts', 'firstmate', 'mcp', 'skills', 'plugins', 'instr', 'sets', 'cliTools', 'backup', 'copy', 'settings'];
+const TABS: Tab[] = [
+  'overview',
+  'stats',
+  'claude',
+  'agy',
+  'codex',
+  'history',
+  'alerts',
+  'mcp',
+  'skills',
+  'plugins',
+  'instr',
+  'sets',
+  'cliTools',
+  'backup',
+  'settings',
+  // @private:begin
+  'rules',
+  'firstmate',
+  'copy',
+  // @private:end
+];
 
 const SKILLS: Record<string, () => Model['skills']> = {
   empty: () => skillsFixture({ table: skillTableFixture({ rows: [], owned: [], broken: [] }) }),
@@ -189,7 +214,7 @@ const BACKUP: Record<string, () => Model['backup']> = {
   empty: () => backupFixture({ packs: [], keys: [] }),
   icloud: () => backupFixture({ packs: packsFixture() }),
   noicloud: () => backupFixture({ icloud: false, packs: [] }),
-  restored: () => backupFixture({ restore: { at: 1768547700, pack: 'agents-20260116-141000-studio-mini', mac: 'Mac mini' } }),
+  restored: () => backupFixture({ restore: { at: 1768547700, pack: 'agents-20260116-141000-studio-mini', mac: 'Mac Studio' } }),
   unread: () => backupFixture({ packs: null, keys: null, readAt: null }),
 };
 
@@ -233,24 +258,35 @@ const CODEX_OUTCOMES: Record<string, (target: CodexTarget) => CodexOutcome> = {
   refused: (target) => ({ kind: 'refused', target, refusal: { kind: 'noKey' } }),
 };
 
+/** The bell's other card beside the overwritten Antigravity switch: a variable over a login. */
+let otherAlert = (): AlertRecord => envAlert(API_KEY);
+// @private:begin
+// Team A leaving the rotation, with the author's tools.
+otherAlert = () => leavingAlert();
+// @private:end
+
 const ALERTS: Record<string, () => Model['alerts']> = {
-  on: () => alertsFixture({ recent: [overwriteAlert(), leavingAlert()], unanswered: 2 }),
-  off: () => alertsFixture({ recent: [overwriteAlert(), leavingAlert()], unanswered: 2, permission: 'denied' }),
-  unbundled: () => alertsFixture({ recent: [overwriteAlert(), leavingAlert()], unanswered: 2, permission: 'unbundled' }),
+  on: () => alertsFixture({ recent: [overwriteAlert(), otherAlert()], unanswered: 2 }),
+  off: () => alertsFixture({ recent: [overwriteAlert(), otherAlert()], unanswered: 2, permission: 'denied' }),
+  unbundled: () => alertsFixture({ recent: [overwriteAlert(), otherAlert()], unanswered: 2, permission: 'unbundled' }),
   empty: () => alertsFixture(),
   many: () =>
     alertsFixture({
       recent: Array.from({ length: 12 }, (_, i) => {
         const at = 1768547700 - i * 2400;
-        const hm = new Date((at + 7 * 3600) * 1000).toISOString().slice(11, 16);
-        const base = i % 2 ? overwriteAlert() : leavingAlert();
-        return { ...base, id: base.alert.key + ':' + i + '@' + at, alert: { ...base.alert, key: base.alert.key + ':' + i, title: i % 2 ? base.alert.title : 'Team A rời vòng lúc ' + hm, at } };
+        const base = i % 2 ? overwriteAlert() : otherAlert();
+        let title = base.alert.title;
+        // @private:begin
+        if (!(i % 2)) title = 'Team A rời vòng lúc ' + new Date((at + 7 * 3600) * 1000).toISOString().slice(11, 16);
+        // @private:end
+        return { ...base, id: base.alert.key + ':' + i + '@' + at, alert: { ...base.alert, key: base.alert.key + ':' + i, title, at } };
       }),
       unanswered: 12,
     }),
   env: () => alertsFixture({ recent: [envAlert(API_KEY), envAlert(BASE_URL, 1768547640)], unanswered: 2 }),
 };
 
+// @private:begin
 const FIRSTMATES: Record<string, () => Model['firstmate']> = {
   ok: () => firstmateFixture(),
   holding: () =>
@@ -259,13 +295,23 @@ const FIRSTMATES: Record<string, () => Model['firstmate']> = {
   missing: () => firstmateFixture({ status: 'missing', line: null, writtenAt: null, fresh: false }),
   unset: () => fixtureModel('fresh').firstmate,
 };
+// @private:end
 
 const APPS: Record<string, () => Model['app']> = {
   on: () => appFixture({ launchAtLogin: 'on' }),
   approval: () => appFixture({ launchAtLogin: 'needsApproval' }),
-  unavailable: () => appFixture({ launchAtLogin: 'unavailable', bundled: false, commit: null }),
+  unavailable: () =>
+    appFixture({
+      launchAtLogin: 'unavailable',
+      commit: null,
+      // @private:begin
+      bundled: false,
+      // @private:end
+    }),
+  // @private:begin
   nosource: () => appFixture({ source: null, sourceStatus: 'notSet' }),
   unbundled: () => appFixture({ bundled: false, launchAtLogin: 'unavailable', commit: null }),
+  // @private:end
 };
 
 const CLI_FAILS: CliFailure[] = ['offline', 'permission', 'busy', 'exit', 'timeout', 'unchanged', 'started', 'sessions'];
@@ -276,20 +322,25 @@ const CLI_FAIL_DETAIL: Record<string, string> = {
   exit: 'Error: Download failed on Cask \'codex\' with message: SHA256 mismatch (mã 1)',
 };
 
+// @private:begin
 const UPDATES: Record<string, () => UpdateOutcome | UpdateError> = {
   uptodate: () => ({ kind: 'upToDate', commit: 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678' }),
   pull: () => ({ kind: 'pull', detail: 'fatal: Not possible to fast-forward, aborting.' }),
   install: () => ({ kind: 'install', detail: 'cargo tauri build failed' }),
   timeout: () => ({ kind: 'timeout', step: 'installing' }),
 };
+// @private:end
 
+// @private:begin
 const RETRY = '2026-01-16T07:21:40.000Z';
 const NEWER = { at: '2026-01-16T14:11:00+07:00', machine: 'Mac B' };
+// @private:end
 
+// @private:begin
 const ROTATIONS: Record<string, () => Model['rotation']> = {
   unreachable: () =>
     rotationFixture({
-      stamp: { at: '2026-01-16T14:16:00+07:00', machine: 'Mac mini' },
+      stamp: { at: '2026-01-16T14:16:00+07:00', machine: 'Mac Studio' },
       peers: [
         peerFixture('Mac B', 'mac-b', { state: { kind: 'synced', at: '2026-01-16T07:16:04.000Z' } }),
         peerFixture('Mac C', 'mac-c', { state: { kind: 'unreachable', error: 'ssh: connect to host mac-c port 22: Operation timed out', retryAt: RETRY } }),
@@ -305,13 +356,15 @@ const ROTATIONS: Record<string, () => Model['rotation']> = {
     }),
   edited: () =>
     rotationFixture({
-      peers: [peerFixture('Mac B', 'mac-b'), peerFixture('Mac C', 'mac-c', { state: { kind: 'edited', their: { at: '2026-01-16T14:02:00+07:00', machine: 'Mac mini' } }, theirRules: rulesFixture({ team: [3, 4] }) })],
+      peers: [peerFixture('Mac B', 'mac-b'), peerFixture('Mac C', 'mac-c', { state: { kind: 'edited', their: { at: '2026-01-16T14:02:00+07:00', machine: 'Mac Studio' } }, theirRules: rulesFixture({ team: [3, 4] }) })],
     }),
   missing: () => rotationFixture({ status: 'missing', rules: null, version: null, stamp: null, peers: [peerFixture('Mac B', 'mac-b', { state: null, current: false }), peerFixture('Mac C', 'mac-c', { state: null, current: false })] }),
   invalid: () => rotationFixture({ status: 'invalid', rules: null, reason: 'rotation_bad_value:personal_hours', stamp: null }),
   single: () => rotationFixture({ peers: [] }),
 };
+// @private:end
 
+// @private:begin
 const SWITCHERS: Record<string, () => Model['switcher']> = {
   held: () => heldSwitcher(),
   noguard: () => heldSwitcher({ dryRun: { decision: { kind: 'stay' }, raw: 'stay', at: '2026-01-16T07:19:40.000Z' }, guard: false }),
@@ -319,6 +372,7 @@ const SWITCHERS: Record<string, () => Model['switcher']> = {
   stopped: () => switcherFixture({ service: false }),
   missing: () => switcherFixture({ installed: false, dryRun: null, lastLog: null, service: null }),
 };
+// @private:end
 
 const AGY: Record<string, () => AgyAccounts> = {
   two: () => agyFixture({ accounts: [agyAccount(1), agyAccount(2)] }),
@@ -341,23 +395,43 @@ const AGY: Record<string, () => AgyAccounts> = {
 
 const LOGIN_ENDS = ['timeout', 'cancelled', 'noCode', 'stateMismatch', 'noRefreshToken', 'invalidGrant', 'network', 'keychain', 'index', 'browser'];
 
+// @private:begin
 /** The hold a switch writes: to the minute, as the pause flag keeps it. */
 const holdOf = (until: string | null) =>
   until ? { until: new Date(Math.floor(Date.parse(until) / 60000) * 60000).toISOString(), failed: false } : null;
+// @private:end
 
-const OUTCOMES: Record<string, (slot: number, holdUntil: string | null) => Outcome> = {
-  // The switcher puts back an account other than the one asked for.
-  raced: (slot, holdUntil) => ({
+const OUTCOMES: Record<string, NonNullable<FakeOptions['outcome']>> = {
+  // Another switch puts back an account other than the one asked for.
+  raced: (
+    slot,
+    // @private:begin
+    holdUntil,
+    // @private:end
+  ) => ({
     kind: 'raced',
     slot,
     active: slot === 2 ? 3 : 2,
+    // @private:begin
     bySwitcherAt: '2026-01-16T07:21:00.000Z',
     hold: holdOf(holdUntil),
+    // @private:end
   }),
   failed: (slot) => ({ kind: 'failed', slot, error: 'noCredential', detail: '', active: null }),
   // Claude Code held its login locks, so nothing was written.
   busy: (slot) => ({ kind: 'failed', slot, error: 'busy', detail: '', active: null }),
-  unconfirmed: (slot, holdUntil) => ({ kind: 'unconfirmed', slot, hold: holdOf(holdUntil) }),
+  unconfirmed: (
+    slot,
+    // @private:begin
+    holdUntil,
+    // @private:end
+  ) => ({
+    kind: 'unconfirmed',
+    slot,
+    // @private:begin
+    hold: holdOf(holdUntil),
+    // @private:end
+  }),
 };
 
 const AGY_APPS: Record<string, AgyApp | null> = {
@@ -391,12 +465,17 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
   const tab = TABS.find((t) => t === params.get('tab')) ?? 'overview';
   const view = params.get('view') === 'window' ? 'window' : 'popover';
   const over: Partial<Model> = {};
+  // @private:begin
   const switcher = pick(SWITCHERS, params.get('switcher'));
   if (switcher) over.switcher = switcher();
+  // @private:end
   if (params.get('accounts') === 'none') {
     over.claudeSwitch = { ready: false, busy: null };
-    over.claudeAccounts = claudeAccountsFixture({ ready: false, accounts: [], rotation: false });
+    over.claudeAccounts = claudeAccountsFixture({ ready: false, accounts: [] });
+    // @private:begin
+    over.claudeAccounts.rotation = false;
     over.switcher = switcherFixture({ installed: false, service: false, dryRun: null, dryRunError: 'noAccounts' });
+    // @private:end
   }
   const rel = params.get('release');
   if (rel === 'avail' || rel === 'later' || rel === 'skipped') over.release = releaseAvailable(rel === 'later' ? { later: '0.3.0' } : rel === 'skipped' ? { skipped: '0.3.0' } : {});
@@ -411,9 +490,11 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
     over.claudeAccounts = claudeAccountsFixture({
       accounts: claudeAccountsFixture().accounts.map((a) => (a.slot === 3 ? { ...a, status: 'reloginRequired' as const } : a)),
     });
+  // @private:begin
   const rotation = params.get('rotation');
   const rules = pick(ROTATIONS, rotation);
   if (rules) over.rotation = rules();
+  // @private:end
   const agy = pick(AGY, params.get('agy'));
   if (agy) over.antigravity = agy();
   const agySwitch = params.get('agyswitch');
@@ -437,8 +518,10 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
   if (lang === 'vi' || lang === 'en') over.language = lang;
   const alerts = pick(ALERTS, params.get('alerts') ?? (tab === 'alerts' ? 'on' : null));
   if (alerts) over.alerts = alerts();
+  // @private:begin
   const firstmate = pick(FIRSTMATES, params.get('firstmate'));
   if (firstmate) over.firstmate = firstmate();
+  // @private:end
   const app = pick(APPS, params.get('app'));
   if (app) over.app = app();
   const codex = pick(CODEX, params.get('codex'));
@@ -466,11 +549,13 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
   if (menubar === 'claude' || menubar === 'gemini' || menubar === 'codex') over.menubar = menubar;
   const mbwindow = params.get('mbwindow');
   if (mbwindow === 'fiveHours' || mbwindow === 'week' || mbwindow === 'fableWeek' || mbwindow === 'tightest') over.menubarWindow = mbwindow;
+  // @private:begin
   const copy = params.get('copy');
   if (tab === 'copy' || copy) {
     const peers = copy === 'none' ? [] : [peerFixture('MacBook Air', 'travel-air'), peerFixture('Studio iMac', 'studio-imac')];
     over.rotation = rotationFixture({ peers });
   }
+  // @private:end
   const setup = params.get('setup');
   if (setup) over.claudeAccounts = claudeAccountsFixture({ accounts: [], ready: false });
   const model = fixtureModel(SNAPSHOTS[state] ? state : 'fresh', over);
@@ -515,7 +600,10 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
     });
     model.snapshot.codex = { ...codexSnap, accounts: [{ ...first, number: 1, email: 'lan.chatgpt1@example.com' }, ...extra] };
   }
-  const release: Model = params.get('build') === 'release' ? { ...communityModel(model), capabilities: { ...model.capabilities, agyAccounts: false, authorTools: false } } : model;
+  let release: Model = params.get('build') === 'release' ? { ...model, capabilities: { ...model.capabilities, agyAccounts: false } } : model;
+  // @private:begin
+  if (release !== model) release = { ...communityModel(model), capabilities: { ...model.capabilities, agyAccounts: false, authorTools: false } };
+  // @private:end
   // `os=win`: the app as Windows draws it (W5); its title bar and tray are Windows' own.
   const built: Model = params.get('os') === 'win' ? { ...release, capabilities: { ...release.capabilities, platform: 'windows' } } : release;
   const { api } = fakeApi(params.get('email') === 'off' ? hideNames(built) : built, tab, {
@@ -531,20 +619,27 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
     claudeRenews: claude === 'renew' ? 1 : undefined,
     claudeFail: claude === 'fail' ? (action) => (action === 'login' ? 'login' : null) : undefined,
     outcome: pick(OUTCOMES, params.get('outcome')),
-    saveDelayMs: 1000,
     clock: () => FIXTURE_NOW,
+    // @private:begin
+    saveDelayMs: 1000,
     unreachable: rotation === 'unreachable' ? ['mac-c'] : [],
     rulesError: rotation === 'unwritable' ? { kind: 'write', detail: 'Permission denied', restored: true } : undefined,
+    firstmate: firstmateFixture(),
+    update: pick(UPDATES, params.get('update')),
+    updateDelayMs: 1500,
+    copyUnreach: copy === 'unreach' ? ['travel-air'] : [],
+    copyOld: copy === 'old' ? ['travel-air'] : [],
+    copyNoApp: copy === 'noapp' ? ['travel-air'] : [],
+    copyChanged: copy === 'changed',
+    copyDelayMs: 900,
+    // @private:end
     agyLoginDelayMs: 3000,
     agyLogin: ends ? () => ({ kind: ends, detail: '' }) : undefined,
     agyApp: agyApp !== null && Object.hasOwn(AGY_APPS, agyApp) ? AGY_APPS[agyApp] : undefined,
     agyOutcome: pick(AGY_OUTCOMES, params.get('agyoutcome')),
     agySwitchDelayMs: 1500,
     history: params.get('history') === 'empty' ? [] : historyFixture(),
-    firstmate: firstmateFixture(),
     loginApproval: params.get('app') === 'approval',
-    update: pick(UPDATES, params.get('update')),
-    updateDelayMs: 1500,
     codexOutcome: pick(CODEX_OUTCOMES, params.get('codexoutcome')),
     codexDelayMs: 1500,
     codexLoginDelayMs: 3000,
@@ -561,11 +656,6 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
     skillsChanged: params.get('skillsoutcome') === 'changed',
     skillsUpdateFail: params.get('skillsoutcome') === 'updatefail' ? ['release-notes'] : undefined,
     skillsDelayMs: 800,
-    copyUnreach: copy === 'unreach' ? ['travel-air'] : [],
-    copyOld: copy === 'old' ? ['travel-air'] : [],
-    copyNoApp: copy === 'noapp' ? ['travel-air'] : [],
-    copyChanged: copy === 'changed',
-    copyDelayMs: 900,
     envDelayMs: 300,
     setsChanged: params.get('setsoutcome') === 'changed' ? 'codex' : undefined,
     setsDelayMs: 500,
@@ -574,7 +664,7 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
     statsFails: stats === 'fail',
     reduceTransparency: params.get('rt') === '1',
   });
-  // The window opens on the same fixture and switcher states as the popover.
+  // The window opens on the same fixture and states as the popover.
   const openWindow = async (next: Tab) => {
     const query = new URLSearchParams(params);
     query.set('view', 'window');

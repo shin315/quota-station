@@ -4,15 +4,22 @@
 // The Claude tab's dialogs, as the prototype draws them (a-add … a-remove):
 // the ways to add an account, the wait for the browser, a setup token, added
 // with its nickname, already here, not signed in; an account's details and
-// nickname; holding it out of the rotation; removing it; signing it in again.
+// nickname; removing it; signing it in again.
+// @private:begin
+// Holding it out of the rotation too.
+// @private:end
 // A token typed here goes to the app and is never shown again.
 
 import { useEffect, useState, type ReactNode } from 'react';
 import { DialogButtons, DialogLead, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Button, Chip, ChoiceGroup, Facts, FeedbackLine, Hint, LinkButton, Rich, Spinner, Toggle } from '../components/parts';
+import { Button, Chip, ChoiceGroup, Facts, FeedbackLine, Hint, LinkButton, Rich, Spinner } from '../components/parts';
 import { mac, secretStore, t, terminal } from '../lib/i18n';
-import { localName, quotaLine, rotationMatters, signInChip } from '../lib/claudeAccounts';
+import { localName, quotaLine, signInChip } from '../lib/claudeAccounts';
+// @private:begin
+import { Toggle } from '../components/parts';
+import { rotationMatters } from '../lib/claudeAccounts';
+// @private:end
 import type { ClaudeAccountRow, ClaudeAccountsView, Tab } from '../lib/model';
 import type { AddHow, ClaudeAccountsState, ClaudeDialog } from './useClaudeAccounts';
 
@@ -22,8 +29,10 @@ export const LOGIN_WAIT_MS = 10 * 60 * 1000;
 interface BodyProps {
   claude: ClaudeAccountsState;
   view: ClaudeAccountsView;
+  // @private:begin
   /** Nâng cao is on: the rotation rules exist. */
   advanced: boolean;
+  // @private:end
   /** The account's name as the table shows it. */
   nameOf(slot: number): string;
   onTab(tab: Tab): void;
@@ -77,7 +86,7 @@ function Nickname({ id, row, value, onChange }: { id: string; row: ClaudeAccount
   );
 }
 
-function AddBody({ d, view, claude, nameOf }: { d: Extract<ClaudeDialog, { kind: 'add' }> } & Omit<BodyProps, 'advanced' | 'onTab'>) {
+function AddBody({ d, view, claude, nameOf }: { d: Extract<ClaudeDialog, { kind: 'add' }> } & Pick<BodyProps, 'claude' | 'view' | 'nameOf'>) {
   const using = view.accounts.find((a) => a.active);
   const options: { v: AddHow; t: string; s: string }[] = [
     {
@@ -138,7 +147,7 @@ export function minutes(ms: number): string {
   return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
 }
 
-function WaitBody({ d, view, claude, nameOf }: { d: Extract<ClaudeDialog, { kind: 'wait' }> } & Omit<BodyProps, 'advanced' | 'onTab'>) {
+function WaitBody({ d, view, claude, nameOf }: { d: Extract<ClaudeDialog, { kind: 'wait' }> } & Pick<BodyProps, 'claude' | 'view' | 'nameOf'>) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
@@ -179,7 +188,7 @@ function WaitBody({ d, view, claude, nameOf }: { d: Extract<ClaudeDialog, { kind
   );
 }
 
-function TokenBody({ d, claude, view }: { d: Extract<ClaudeDialog, { kind: 'token' }> } & Omit<BodyProps, 'advanced' | 'nameOf' | 'onTab'>) {
+function TokenBody({ d, claude, view }: { d: Extract<ClaudeDialog, { kind: 'token' }> } & Pick<BodyProps, 'claude' | 'view'>) {
   const [token, setToken] = useState('');
   const [email, setEmail] = useState('');
   const add = () => {
@@ -221,12 +230,22 @@ function TokenBody({ d, claude, view }: { d: Extract<ClaudeDialog, { kind: 'toke
   );
 }
 
-function DoneBody({ d, view, claude, advanced, onTab }: { d: Extract<ClaudeDialog, { kind: 'done' }> } & Omit<BodyProps, 'nameOf'>) {
+function DoneBody({
+  d,
+  view,
+  claude,
+  // @private:begin
+  advanced,
+  onTab,
+  // @private:end
+}: { d: Extract<ClaudeDialog, { kind: 'done' }> } & Omit<BodyProps, 'nameOf'>) {
   const [alias, setAlias] = useState('');
   const row = view.accounts.find((a) => a.slot === d.slot);
   if (!row) return <Gone claude={claude} />;
   const local = localName(row);
+  // @private:begin
   const auto = rotationMatters(view, advanced);
+  // @private:end
   return (
     <Stack>
       <Head
@@ -244,6 +263,7 @@ function DoneBody({ d, view, claude, advanced, onTab }: { d: Extract<ClaudeDialo
               ),
             ),
           },
+          // @private:begin
           ...(auto
             ? [
                 {
@@ -260,10 +280,12 @@ function DoneBody({ d, view, claude, advanced, onTab }: { d: Extract<ClaudeDialo
                 },
               ]
             : []),
+          // @private:end
         ]}
       />
       <Nickname id="qs-al-new" row={row} value={alias} onChange={setAlias} />
       <DialogButtons>
+        {/* @private:begin */}
         {auto && advanced ? (
           <Button
             onClick={() => {
@@ -274,6 +296,7 @@ function DoneBody({ d, view, claude, advanced, onTab }: { d: Extract<ClaudeDialo
             {t('Mở Luật xoay vòng', 'Open Rotation rules')}
           </Button>
         ) : null}
+        {/* @private:end */}
         <Button primary onClick={() => void claude.finish(d.slot, alias)}>
           {t('Xong', 'Done')}
         </Button>
@@ -316,7 +339,15 @@ function FailBody({ d, claude, view }: { d: Extract<ClaudeDialog, { kind: 'fail'
   );
 }
 
-function DetailBody({ d, view, claude, advanced, nameOf }: { d: Extract<ClaudeDialog, { kind: 'detail' }> } & Omit<BodyProps, 'onTab'>) {
+function DetailBody({
+  d,
+  view,
+  claude,
+  nameOf,
+  // @private:begin
+  advanced,
+  // @private:end
+}: { d: Extract<ClaudeDialog, { kind: 'detail' }> } & Omit<BodyProps, 'onTab'>) {
   const row = view.accounts.find((a) => a.slot === d.slot);
   const [alias, setAlias] = useState(row?.alias ?? '');
   if (!row) return <Gone claude={claude} />;
@@ -342,6 +373,7 @@ function DetailBody({ d, view, claude, advanced, nameOf }: { d: Extract<ClaudeDi
         <dt>{t('Hạn mức', 'Quota')}</dt>
         <dd className="tabular-nums">{quota || t('chưa có số', 'no numbers yet')}</dd>
       </dl>
+      {/* @private:begin */}
       {rotationMatters(view, advanced) ? (
         <div className="flex items-center gap-3">
           <div className="min-w-0 flex-1">
@@ -358,6 +390,7 @@ function DetailBody({ d, view, claude, advanced, nameOf }: { d: Extract<ClaudeDi
           />
         </div>
       ) : null}
+      {/* @private:end */}
       <DialogButtons className="items-center">
         <LinkButton bad className="mr-auto" onClick={() => claude.open({ kind: 'remove', slot: row.slot })}>
           {mac(t('Xoá khỏi máy này…', 'Remove from this Mac…'))}
@@ -375,6 +408,7 @@ function DetailBody({ d, view, claude, advanced, nameOf }: { d: Extract<ClaudeDi
   );
 }
 
+// @private:begin
 function RestBody({ d, claude, nameOf, view }: { d: Extract<ClaudeDialog, { kind: 'rest' }> } & Pick<BodyProps, 'claude' | 'nameOf' | 'view'>) {
   const who = nameOf(d.slot);
   return (
@@ -395,8 +429,17 @@ function RestBody({ d, claude, nameOf, view }: { d: Extract<ClaudeDialog, { kind
     </Stack>
   );
 }
+// @private:end
 
-function RemoveBody({ d, claude, nameOf, view, advanced }: { d: Extract<ClaudeDialog, { kind: 'remove' }> } & Omit<BodyProps, 'onTab'>) {
+function RemoveBody({
+  d,
+  claude,
+  nameOf,
+  view,
+  // @private:begin
+  advanced,
+  // @private:end
+}: { d: Extract<ClaudeDialog, { kind: 'remove' }> } & Omit<BodyProps, 'onTab'>) {
   const who = nameOf(d.slot);
   const row = view.accounts.find((a) => a.slot === d.slot);
   if (!row) return <Gone claude={claude} />;
@@ -426,6 +469,7 @@ function RemoveBody({ d, claude, nameOf, view, advanced }: { d: Extract<ClaudeDi
               ),
             ),
           },
+          // @private:begin
           ...(advanced
             ? [
                 {
@@ -437,6 +481,7 @@ function RemoveBody({ d, claude, nameOf, view, advanced }: { d: Extract<ClaudeDi
                 },
               ]
             : []),
+          // @private:end
           {
             k: '',
             text: t(
@@ -522,8 +567,10 @@ export function ClaudeDialogBody(props: BodyProps) {
       return <FailBody d={d} {...props} />;
     case 'detail':
       return <DetailBody key={d.slot} d={d} {...props} />;
+    // @private:begin
     case 'rest':
       return <RestBody d={d} {...props} />;
+    // @private:end
     case 'remove':
       return <RemoveBody d={d} {...props} />;
     case 'relogin':

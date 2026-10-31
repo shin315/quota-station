@@ -1,20 +1,24 @@
 # Design note: Quota Station keeps the Claude accounts itself
 
-Until now the app leaned on claude-swap (`cswap`) for four jobs: keeping the
-logins of the Claude accounts, switching the active one (`cswap switch N
---json`), reading every account's usage (`cswap list --json`), and the
-automatic rotation (`~/.local/bin/cswap-prefer-team`, run every three minutes
-by the LaunchAgent `com.cswap.prefer-team`, which calls `cswap`). This note
-says how Quota Station does all four itself. The logic that touches Claude
-Code's login is learned from claude-swap's MIT source and credited in
-`THIRD_PARTY.md`.
+Until now the app leaned on claude-swap (`cswap`) for keeping the logins of
+the Claude accounts, switching the active one (`cswap switch N --json`) and
+reading every account's usage (`cswap list --json`). This note says how
+Quota Station does that itself. The logic that touches Claude Code's login
+is learned from claude-swap's MIT source and credited in `THIRD_PARTY.md`.
+
+<!-- @private:begin -->
+
+With the `author-tools` feature it also runs the automatic rotation that
+`~/.local/bin/cswap-prefer-team` ran every three minutes from the
+LaunchAgent `com.cswap.prefer-team` (see Rotation host below).
+
+<!-- @private:end -->
 
 ## Store
 
 - `~/Library/Application Support/com.shin315.quota-station/claude/`
   (mode 700) holds `accounts.json` (mode 600): each account's slot number,
-  alias, whether it is held out of the rotation, its kind (a login or a
-  setup token), its `accountUuid` and `organizationUuid`, and a SHA-256 of
+  alias, its kind (a login or a setup token), its `accountUuid` and `organizationUuid`, and a SHA-256 of
   its email and organization, to tell which account Claude Code is on
   without keeping the email. No email, organization name or token is in a
   file.
@@ -29,16 +33,21 @@ Code's login is learned from claude-swap's MIT source and credited in
 - `Nhập từ claude-swap` reads `~/.claude-swap-backup` once (its
   `sequence.json`, each slot's config for `oauthAccount`, each credential
   from its `.enc` file or Keychain item, its usage cache) and carries every
-  account over under the same slot number, without a new login, each in the
-  rotation (claude-swap's own `disabled` is not carried over: the old
-  switcher never read it). It never writes there. Running it again changes nothing, except that a credential
+  account over under the same slot number, without a new login. It never
+  writes there. Running it again changes nothing, except that a credential
   claude-swap holds a newer copy of (a later `expiresAt`) replaces the app's.
-  It also copies the rotation file and the `prime` flag when the app has none.
+<!-- @private:begin -->
+- With the `author-tools` feature `accounts.json` also keeps whether each
+  account is held out of the rotation. The import puts every account in the
+  rotation (claude-swap's own `disabled` is not carried over: the old
+  switcher never read it), and copies the rotation file and the `prime`
+  flag when the app has none.
+<!-- @private:end -->
 
 ## Switch
 
-`switch N` (the app's sheet, the rotation, and `quota-station claude switch
-N`) runs under five locks, in claude-swap's order: the app's own `flock` on
+`switch N` (the app's sheet, `quota-station claude switch N` and every other
+switch) runs under five locks, in claude-swap's order: the app's own `flock` on
 `claude/.lock`, then Claude Code's lock folders `~/.claude/.oauth_refresh.lock`,
 `~/.claude.lock`, `~/.claude/.storage-write.lock` and `~/.claude.json.lock`
 (the `proper-lockfile` protocol Claude Code uses: `mkdir`, stale after 60, 60,
@@ -79,6 +88,8 @@ claude-swap's back-off after a failure or a 429. The readings go to
 `claude/usage.json` (no email, no token). Emails stay in memory and reach the
 windows only while `Hiện email` is on, as before.
 
+<!-- @private:begin -->
+
 ## Rotation host
 
 The rotation is the `cswap-prefer-team` script's rules, ported line for line
@@ -110,6 +121,8 @@ keep; `store`; `write`), and a prime that could not start as
 200 characters, with no token or Keychain value. An account held out of the rotation is never switched
 to; the account in use is kept or left by the script's rules, held out or not.
 
+<!-- @private:end -->
+
 ## Session folders
 
 `quota-station claude run N [--require-session] -- <claude args>` runs
@@ -126,11 +139,16 @@ copy when Claude Code refreshed it there. No credential is written to a file.
 ## Data file
 
 `claude/state.json` is rewritten after every read: each account's slot,
-alias, whether it is in the rotation, its three windows (share used and
-reset), how old its reading is and its error, and the account in use; no
-email, no token. `quota-station claude status --json` prints the same, and
-with `--emails` adds the emails. The app's Claude row is built from the same
-readings; the app runs no quota-axi. For the quota-axi Firstmate runs, which
+alias, its three windows (share used and reset), how old its reading is and
+its error, and the account in use; no email, no token. `quota-station
+claude status --json` prints the same, and with `--emails` adds the emails.
+The app's Claude row is built from the same readings; the app runs no
+quota-axi.
+
+<!-- @private:begin -->
+
+With the `author-tools` feature each account also says whether it is in the
+rotation. For the quota-axi Firstmate runs, which
 still reads claude-swap's layout, the app also writes
 `claude/swap/sequence.json` and `claude/swap/cache/usage.json` in that layout
 (slot numbers, the account and organization ids, placeholder addresses
@@ -142,6 +160,10 @@ Firstmate. Only a build with the `author-tools` feature (the one
 environment, point that quota-axi at the app without a change to quota-axi
 (`Paths::firstmate_env` names both).
 
+<!-- @private:end -->
+
+<!-- @private:begin -->
+
 ## Cutover
 
 An explicit checklist in the README, run by the owner Mac by Mac: stop
@@ -151,3 +173,5 @@ Until the older switcher is stopped, the app switches nothing and refreshes
 no token, so the two never rotate the same refresh token. Nothing of
 claude-swap is removed; the way back is to turn the app's rotation off and
 load the older switcher's plist again.
+
+<!-- @private:end -->

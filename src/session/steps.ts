@@ -37,7 +37,9 @@ export type Check =
   | 'machine'
   | 'claudeStore'
   | 'claudeSessions'
+  // @private:begin
   | 'rotation'
+  // @private:end
   | 'port1455'
   | 'codexConfig'
   | 'codexAccounts'
@@ -116,8 +118,11 @@ export const ITEMS = [
   'W5.7',
   'W5.8',
   // #62 (W4), M2: autostart, off in Settings, toasts, Action Center,
-  // notifications off, rotation, token refresh, backup folder, files on
-  // demand, diagnostic info.
+  // notifications off, token refresh, backup folder, files on demand,
+  // diagnostic info.
+  // @private:begin
+  // And the rotation.
+  // @private:end
   'W4.1',
   'W4.2',
   'W4.3',
@@ -149,7 +154,13 @@ const SHOT_MAIN: Help = { kind: 'shot', what: 'main', label: 'Chụp cửa sổ 
 
 /** A Claude account kept and on, but not the one in use: for `claude run`. */
 export function spareSlot(model: Model): number | null {
-  const row = model.claudeAccounts.accounts.find((a) => a.enabled && !a.active);
+  const row = model.claudeAccounts.accounts.find(
+    (a) =>
+      // @private:begin
+      a.enabled &&
+      // @private:end
+      !a.active,
+  );
   return row ? row.slot : null;
 }
 
@@ -191,7 +202,7 @@ export const STEPS: Step[] = [
     right: [
       'Icon là một con số (ví dụ 38), nét rõ, chữ trắng trên taskbar tối.',
       'Tooltip bắt đầu bằng tên tài khoản và phần trăm, ví dụ “tài khoản 38%”, rồi tới dòng mô tả.',
-      'Khi app chưa đọc xong lần đầu, hoặc khi xoay vòng đã cạn, icon là hình chữ C thay cho con số.',
+      'Khi app chưa đọc xong lần đầu, hoặc khi hạn mức Claude đã cạn, icon là hình chữ C thay cho con số.',
     ],
     help: [SHOT_TRAY],
     checks: ['tray'],
@@ -363,7 +374,7 @@ export const STEPS: Step[] = [
     right: [
       'Không có dòng “Quyền Keychain”. Popover không có dải báo về Keychain.',
       'Đường dẫn và tên biến như ANTHROPIC_API_KEY hiện bằng chữ đều nhau (Cascadia Mono hoặc Consolas).',
-      'Thanh cuộn mảnh và mờ; nội dung không giật sang ngang khi thanh cuộn hiện. Hàng tab Cài đặt (Chung … Nâng cao) không có thanh cuộn.',
+      'Thanh cuộn mảnh và mờ; nội dung không giật sang ngang khi thanh cuộn hiện. Hàng tab Cài đặt không có thanh cuộn.',
     ],
     help: [{ kind: 'window', tab: 'settings', group: 'services', label: 'Mở Cài đặt › Dịch vụ' }],
     captures: ['main', 'popover'],
@@ -566,6 +577,7 @@ export const STEPS: Step[] = [
     captures: ['main'],
     covers: ['W4.5'],
   },
+  // @private:begin
   {
     id: 'm2-rotation',
     part: 2,
@@ -580,6 +592,7 @@ export const STEPS: Step[] = [
     cannot: ({ model }) => (model.claudeAccounts.accounts.length < 2 ? 'App cần giữ hai tài khoản Claude cho bước này, nên bước này tự bỏ qua.' : null),
     covers: ['W4.6', 'W4.7'],
   },
+  // @private:end
   {
     id: 'm2-backup',
     part: 2,
@@ -815,11 +828,21 @@ export const STEPS: Step[] = [
     do: [
       'Mở popover: các tài khoản vẫn đọc được hạn mức.',
       'Ở tab MCP, MCP có token vẫn còn token.',
-      'Ở tab Claude, tắt Xoay vòng nếu lúc đầu nó tắt. Ở Cài đặt › Chung, tắt “Mở khi đăng nhập” nếu không muốn giữ.',
+      // @private:begin
+      'Ở tab Claude, tắt Xoay vòng nếu lúc đầu nó tắt. ' +
+      // @private:end
+      'Ở Cài đặt › Chung, tắt “Mở khi đăng nhập” nếu không muốn giữ.',
     ],
     right: ['Không tài khoản nào đòi đăng nhập lại; MCP vẫn còn token.'],
     help: [{ kind: 'window', tab: 'claude', label: 'Mở tab Claude' }],
-    checks: ['autostart', 'secrets', 'rotation', 'claudeStore'],
+    checks: [
+      'autostart',
+      'secrets',
+      // @private:begin
+      'rotation',
+      // @private:end
+      'claudeStore',
+    ],
     covers: ['W3.6', 'W4.6', 'W4.7'],
   },
   {
@@ -853,10 +876,14 @@ export function facts(model: Model, session: SessionView) {
       status: model.snapshot.claude.status,
       kept: claude.length,
       inUse: claude.find((a) => a.active)?.slot ?? null,
+      // @private:begin
       on: claude.filter((a) => a.enabled).length,
+      // @private:end
       signInAgain: claude.filter((a) => a.status === 'reloginRequired').length,
       program: session.claudeProgram,
+      // @private:begin
       rotation: model.claudeAccounts.rotation,
+      // @private:end
       canLogIn: model.claudeAccounts.claude,
     },
     codex: {

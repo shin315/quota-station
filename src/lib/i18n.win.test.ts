@@ -9,7 +9,9 @@ import { describe, expect, it } from 'vitest';
 import { FIXTURE_NOW, fixtureModel } from '../fixtures/models';
 import { isFile, openLabel, placeLabel, whereLine } from './env';
 import { appName, cloudDrive, fileManager, mac, onWindows, os, osName, platform, quitKey, secretStore, setLang, setPlatform, systemSettings, terminal, toolStore } from './i18n';
-import { guide } from './switching';
+// @private:begin
+import { guide } from '@/private/switching';
+// @private:end
 import { popoverView } from './view';
 import type { EnvFound } from './model';
 
@@ -29,7 +31,7 @@ describe('the words for the system', () => {
     expect(onWindows()).toBe(false);
     expect(mac('Xoá khỏi máy này. Mac khác giữ nguyên.')).toBe('Xoá khỏi máy này. Mac khác giữ nguyên.');
     setLang('en');
-    expect(mac('Remove from this Mac’s Keychain; other Macs keep theirs.')).toBe('Remove from this Mac’s Keychain; other Macs keep theirs.');
+    expect(mac('Remove from this Mac’s Keychain; another Mac keeps its own.')).toBe('Remove from this Mac’s Keychain; another Mac keeps its own.');
     expect([osName(), quitKey(), fileManager(), systemSettings(), terminal(), appName('Antigravity'), secretStore(), toolStore(), cloudDrive()]).toEqual([
       'macOS',
       '⌘Q',
@@ -46,7 +48,7 @@ describe('the words for the system', () => {
   it('a Mac is a PC in English and a máy in Vietnamese on Windows', () => {
     setPlatform('windows');
     expect(mac('Mac khác')).toBe('Máy khác');
-    expect(mac('Tối đa 8 Mac. Các Mac khác: Mac kia.')).toBe('Tối đa 8 máy. Các máy khác: máy kia.');
+    expect(mac('Tối đa 8 Mac. Mỗi Mac khác: Mac kia.')).toBe('Tối đa 8 máy. Mỗi máy khác: máy kia.');
     setLang('en');
     expect(mac('This Mac’s name')).toBe('This PC’s name');
     expect(mac('Up to 8 Macs on this Mac.')).toBe('Up to 8 PCs on this PC.');
@@ -76,6 +78,7 @@ describe('the words for the system', () => {
     expect(popoverView(fixtureModel('keychain'), FIXTURE_NOW).banner).toBeNull();
   });
 
+  // @private:begin
   it('the move from claude-swap has no LaunchAgent to turn off on Windows', () => {
     const steps = guide('switcher', false).steps;
     expect(steps[0]).toContain('launchctl bootout');
@@ -85,6 +88,7 @@ describe('the words for the system', () => {
     expect(win.steps).toHaveLength(steps.length - 1);
     expect(win.lead).toBe('Làm lần lượt trên từng máy. claude-swap và dữ liệu của nó được giữ nguyên, để quay lại được khi cần.');
   });
+  // @private:end
 
   it('a variable set in Windows’ user or system variables, or in PowerShell’s profile', () => {
     setPlatform('windows');

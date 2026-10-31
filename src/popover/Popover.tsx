@@ -11,25 +11,32 @@
 // account opens its switch sheet; one whose login expired opens the sign-in
 // again. Codex's ChatGPT accounts sit as Claude's do, and its custom API keeps
 // its own entry; both open the confirmation sheet, never a one-tap switch.
-// The popover writes no per-account notes (the rotation, a number's age):
-// those stay in the main window, an old number is drawn dim with its age on
-// hover, and only what the owner must do (sign in again) keeps a short line.
+// The popover writes no per-account notes (a number's age): those stay in
+// the main window, an old number is drawn dim with its age on hover, and
+// only what the owner must do (sign in again) keeps a short line.
 // The header's buttons switch between the light and dark look, open the
 // notifications (a bell with the red count of those not read yet: the main
 // window with its bell's panel open) and open the main window. The footer
-// holds the automatic switching toggle while Cài đặt › Nâng cao is on, a
-// quiet line when a newer release is out, and what the numbers mean behind
-// Chi tiết.
+// holds a quiet line when a newer release is out, and what the numbers mean
+// behind Chi tiết.
+// @private:begin
+// Above them, the automatic switching toggle while Cài đặt › Nâng cao is on.
+// @private:end
 
 import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Dialog, DialogContent, DialogOverlay } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { IdMark, InUse } from '../components/accounts';
 import { PlaceGlyph } from '../components/icons';
-import { Banner, Button, Dot, Feedback, LinkButton, Meter, More, Skeleton, Spinner, Toggle } from '../components/parts';
+import { Banner, Button, Dot, Feedback, LinkButton, Meter, More, Skeleton, Spinner } from '../components/parts';
+// @private:begin
+import { Toggle } from '../components/parts';
+// @private:end
 import { isGemini } from '../lib/accounts';
 import { mac, t } from '../lib/i18n';
-import type { AutoView } from '../lib/switching';
+// @private:begin
+import type { AutoView } from '@/private/switching';
+// @private:end
 import type { CodexPopView } from '../lib/codex';
 import { bannerUnder, type Action, type CardView, type CellView, type ChipView, type FeedbackView, type GroupView, type NoteView, type NowRowView, type PopoverView, type UsedTone } from '../lib/view';
 import { ChevronIcon, MoonIcon, OpenIcon, SunIcon } from '../window/icons';
@@ -80,7 +87,7 @@ function toneInk(tone: UsedTone | string): string | undefined {
 
 /**
  * An account's hover: its email and where its numbers come from, then the
- * notes the popover no longer writes (an old number's age, the rotation).
+ * notes the popover no longer writes (an old number's age).
  */
 function hoverOf(title: string, chips: ChipView[]): string | undefined {
   return [title, ...chips.map((c) => c.t)].filter(Boolean).join(' · ') || undefined;
@@ -443,6 +450,7 @@ function CodexSection(props: { pop: CodexPopView; now?: NowRowView; folded: bool
   );
 }
 
+// @private:begin
 /**
  * G17: outside the scrolling body, so the toggle is always in view. The why
  * line shows only when there is something to act on; the usual reason stays
@@ -474,10 +482,15 @@ function Footer({ auto, sync, onToggle }: { auto: AutoView; sync: SyncLine | nul
     </>
   );
 }
+// @private:end
 
 /** What the numbers mean, in one line; the rest behind Chi tiết. */
 function Legend() {
   const line = t('% đã dùng · thời gian đặt lại', '% used · time until reset');
+  let dim = t('Số mờ là số cũ: rê chuột lên tài khoản để xem số đọc từ bao giờ.', 'A dim number is an old one: hover the account to see how old.');
+  // @private:begin
+  dim += t(' Ghi chú về vòng xoay nằm ở cửa sổ chính.', ' Notes about the rotation are in the main window.');
+  // @private:end
   return (
     <div className="flex items-center gap-2 text-xs text-ink2">
       <span className="min-w-0 flex-1 truncate">{line}</span>
@@ -485,7 +498,7 @@ function Legend() {
         <p>{t('Số % là phần đã dùng của từng cửa sổ (5 giờ, tuần, Fable); thanh đầy dần khi dùng. Các dịch vụ không cộng chung.', 'The % is the share used of each window (5-hour, week, Fable); the bar fills as it is used. Services are never added up.')}</p>
         <p>{t('Thời gian bên cạnh là còn bao lâu nữa cửa sổ đó đặt lại.', 'The time beside it is how long until that window resets.')}</p>
         <p>{t('“—” là chưa có số, hoặc tài khoản không có cửa sổ đó; không phải 0%.', '“—” means no number yet, or no such window for the account; not 0%.')}</p>
-        <p>{t('Số mờ là số cũ: rê chuột lên tài khoản để xem số đọc từ bao giờ. Ghi chú về vòng xoay nằm ở cửa sổ chính.', 'A dim number is an old one: hover the account to see how old. Notes about the rotation are in the main window.')}</p>
+        <p>{dim}</p>
         <p>{t('Bấm một tài khoản khác để mở tấm xác nhận chuyển; không chuyển ngay.', 'Press another account to open the switch confirmation; nothing switches at once.')}</p>
       </More>
     </div>
@@ -507,20 +520,24 @@ function ReleaseLine({ line, onAction }: { line: { title: string; body: string }
   );
 }
 
+// @private:begin
 /** The other Macs and the rotation file, in the footer (I09). */
 export interface SyncLine {
   tone: 'ok' | 'warn' | 'bad' | 'info' | 'muted';
   text: string;
 }
+// @private:end
 
 export interface PopoverProps {
   view: PopoverView;
   /** Codex (M8): its ChatGPT accounts and custom API; null on a Mac without Codex. */
   codex?: CodexPopView | null;
+  // @private:begin
   /** Automatic switching, in the footer; null while Cài đặt › Nâng cao is off. */
   auto: AutoView | null;
   /** The other Macs' copies of the rotation file; null with no other Mac. */
   sync?: SyncLine | null;
+  // @private:end
   /** A newer release on GitHub, at the foot; null when there is none to tell. */
   release?: { title: string; body: string } | null;
   /** Notifications not read yet: the bell's count. */
@@ -533,7 +550,9 @@ export interface PopoverProps {
   onSwitch(slot: number): void;
   /** An Antigravity card was pressed (M4c). */
   onSwitchAgy?(number: number): void;
+  // @private:begin
   onToggle(): void;
+  // @private:end
   /** The open sheet's body; null when none is open. */
   sheet?: ReactNode;
   onCloseSheet?(): void;
@@ -541,7 +560,30 @@ export interface PopoverProps {
   onHeight?(height: number): void;
 }
 
-export function Popover({ view, codex = null, auto, sync = null, release = null, unread = 0, feedback, busy, dark = false, onAction, onSwitch, onSwitchAgy, onToggle, sheet, onCloseSheet, onHeight }: PopoverProps) {
+export function Popover({
+  view,
+  codex = null,
+  // @private:begin
+  auto,
+  sync = null,
+  onToggle,
+  // @private:end
+  release = null,
+  unread = 0,
+  feedback,
+  busy,
+  dark = false,
+  onAction,
+  onSwitch,
+  onSwitchAgy,
+  sheet,
+  onCloseSheet,
+  onHeight,
+}: PopoverProps) {
+  let footer = !!release || !view.none;
+  // @private:begin
+  footer = footer || !!auto;
+  // @private:end
   const head = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const foot = useRef<HTMLDivElement>(null);
@@ -668,10 +710,12 @@ export function Popover({ view, codex = null, auto, sync = null, release = null,
           )}
         </div>
       </div>
-      {auto || release || !view.none ? (
+      {footer ? (
         <div className="grid flex-none gap-[7px] border-t-[.5px] border-glass-line px-3.5 pt-2 pb-2.5" ref={foot} inert={open}>
           {release ? <ReleaseLine line={release} onAction={onAction} /> : null}
+          {/* @private:begin */}
           {auto ? <Footer auto={auto} sync={sync} onToggle={onToggle} /> : null}
+          {/* @private:end */}
           {view.none ? null : <Legend />}
         </div>
       ) : null}

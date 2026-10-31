@@ -33,6 +33,7 @@ use quota_station_core::app_dir::AppDir;
 #[cfg(feature = "author-tools")]
 use quota_station_core::firstmate::{self, PoolLine};
 use quota_station_core::history::{self, Entry};
+use quota_station_core::local_time;
 #[cfg(feature = "author-tools")]
 use quota_station_core::rotation::{self, FileState};
 #[cfg(feature = "author-tools")]
@@ -41,7 +42,6 @@ use quota_station_core::settings::PoolAlert;
 use quota_station_core::snapshot::SectionStatus;
 #[cfg(feature = "author-tools")]
 use quota_station_core::switcher;
-use quota_station_core::local_time;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 #[cfg(feature = "author-tools")]

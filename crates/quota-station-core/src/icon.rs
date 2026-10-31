@@ -9,9 +9,9 @@ use serde::Serialize;
 use time::OffsetDateTime;
 
 use crate::settings::{Menubar, MenubarWindow};
+use crate::snapshot::{Account, Line, LineKind, Reading, SectionStatus, Snapshot};
 #[cfg(feature = "author-tools")]
 use crate::snapshot::{Role, Section};
-use crate::snapshot::{Account, Line, LineKind, Reading, SectionStatus, Snapshot};
 use crate::time_util::parse_ts;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]

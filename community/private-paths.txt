@@ -8,6 +8,13 @@
 
 # The export itself, its lists and its overlay.
 community/
+# The owner's own pages: moving their Macs over, and the icons' design
+# sources on their machines.
+docs/cutover.md
+docs/brand-icons.md
+# The README's screenshots, taken from the full build's preview (its
+# sidebar and switches show the private part).
+docs/screenshots/
 # The web UI of the private part.
 src/private/
 # The core's private modules (their `mod` lines are under the feature).

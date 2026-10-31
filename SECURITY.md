@@ -49,9 +49,9 @@ Files, under `~/Library/Application Support/com.shin315.quota-station/`:
   account's last quota reading in Cockpit's cache layout (the email, the
   Cloud Code project, the time, and Google's quota answers; no token).
   The Antigravity row lists the accounts from the index and the readings,
-  and Firstmate's quota-axi reads them as it reads Cockpit's. After a
-  switch also `antigravity_legacy_instances.json` (only the account id
-  bound to Antigravity.app, which the row and Firstmate's quota-axi read),
+  and quota-axi reads them as it reads Cockpit's. After a switch also
+  `antigravity_legacy_instances.json` (only the account id bound to
+  Antigravity.app, which the row and quota-axi read),
   `switch-log.jsonl`
   (time, account ids, the button pressed and the result of the last 200
   switches) and `watch.json` (the six-hour watch of the last switch). The
@@ -61,9 +61,11 @@ Files, under `~/Library/Application Support/com.shin315.quota-station/`:
   digits of a SHA-256 of the login it was read with; no token, header or
   email. `quota/claude-keychain-hold` marks that macOS held Claude Code's
   Keychain item back.
+<!-- @private:begin -->
 - `update/install.log` (M7, mode 600): the output of the last
   `Cập nhật từ mã nguồn` build, which names folders on this Mac and nothing
   secret; each update replaces it.
+<!-- @private:end -->
 - `history/history.jsonl` and `alerts/alerts.json` (M6, folders mode 700,
   files mode 600): the switch history (time, Claude slot numbers or the
   app's Antigravity account ids, how a switch was made, at most 500 lines)
@@ -131,6 +133,10 @@ Tokens are refreshed only right before a use (a quota read), when they have
 under five minutes left. Nothing refreshes them on a timer. Logging out
 deletes the app's item and the index line, and asks Google to revoke nothing.
 
+The history and the alerts read the app's own folder.
+
+<!-- @private:begin -->
+
 The history and the alerts read, besides the app's own folder, only the
 last 64 KB of the switcher's log and, at the path the owner sets in
 `Cài đặt`, Firstmate's `quota-pool.last` (only a build with the
@@ -140,7 +146,11 @@ without following a symlink, reads it only when it is a plain file of at
 most 16 KB, and keeps only the keys
 Firstmate writes there (`fork`, `auto`, `cs`, `active`, `pool` and the
 per-account percents and next reset), each checked, so nothing else in a
-file the path points at can show. The macOS cards go through the system's
+file the path points at can show.
+
+<!-- @private:end -->
+
+The macOS cards go through the system's
 notification center with the app's own bundle id; a card is withdrawn once
 it is answered in the app.
 
@@ -216,8 +226,8 @@ has the design.
 - **Claude Code's login.** The item `Claude Code-credentials` (account
   `$USER`) and `~/.claude.json`'s `oauthAccount` are read to tell which
   account is in use and, for that account only, to read its usage with
-  Claude Code's own token; the app never refreshes that token. A switch,
-  started by the owner or by the rotation, writes that item (keeping the
+  Claude Code's own token; the app never refreshes that token. A switch
+  writes that item (keeping the
   live login's MCP and plugin secrets) and replaces only `oauthAccount` in
   `~/.claude.json`, under Claude Code's lock folders
   (`~/.claude/.oauth_refresh.lock`, `~/.claude.lock`,
@@ -225,8 +235,7 @@ has the design.
   rewritten only when Claude Code already keeps one. It reads both back and
   puts them back as they were when they do not match. A login the app does
   not keep stops the switch, so no login is ever lost.
-- **Session folders.** `quota-station claude run N` and the rotation's
-  priming run `claude` with `CLAUDE_CONFIG_DIR` set to `claude/sessions/N/`;
+- **Session folders.** `quota-station claude run N` runs `claude` with `CLAUDE_CONFIG_DIR` set to `claude/sessions/N/`;
   the login goes to the Keychain item Claude Code keys to that folder
   (`Claude Code-credentials-<8 hex>`), never to a file, with
   `ANTHROPIC_API_KEY` and the other login variables taken out of the
@@ -239,23 +248,30 @@ has the design.
   `POST https://platform.claude.com/v1/oauth/token` with Claude Code's
   client id; the new login goes to the app's item. Nothing else.
 - **Files**, in `claude/` in the app's folder (mode 700, files mode 600):
-  `accounts.json` (slot, alias, in the rotation or not, kind, the account
-  and organization ids and a SHA-256 of the email and organization; no
-  email, no token), `usage.json` and `state.json` (each account's windows,
-  how old its reading is and its error; no email, no token), `swap/` (the
-  same in claude-swap's layout for Firstmate's quota-axi, written only by a
-  build with the `author-tools` feature while `Cài đặt › Nâng cao` shows
-  Firstmate, with placeholder addresses
-  `slot-N@quota-station.local`), `rotation`, `rotation.log`, `prime` and
-  `prime-state/`, `sessions/` and `.lock`. Emails reach a window only while
-  `Hiện email` is on, and `quota-station claude status --json` prints them
-  only with `--emails`.
+  `accounts.json` (slot, alias, kind, the account and organization ids and
+  a SHA-256 of the email and organization; no email, no token),
+  `usage.json` and `state.json` (each account's windows, how old its
+  reading is and its error; no email, no token), `sessions/` and `.lock`.
+  Emails reach a window only while `Hiện email` is on, and `quota-station
+  claude status --json` prints them only with `--emails`.
+  <!-- @private:begin -->
+  With the `author-tools` feature also: whether each account is in the
+  rotation, in `accounts.json`; `swap/` (the same in claude-swap's layout
+  for Firstmate's quota-axi, written only while `Cài đặt › Nâng cao` shows
+  Firstmate, with placeholder addresses `slot-N@quota-station.local`);
+  `rotation`, `rotation.log`, `prime` and `prime-state/`. The rotation's
+  priming runs `claude` in the session folders too.
+  <!-- @private:end -->
 - **Import.** `Nhập từ claude-swap` reads `~/.claude-swap-backup` once:
   `sequence.json`, each account's config for `oauthAccount`, its login from
   its `credentials/*.enc` file or claude-swap's Keychain item (read with
-  `find-generic-password`, nothing else), and its usage cache. It copies the
-  rotation file and the priming flag from `~/.config/cswap-prefer-team` when
-  the app has none. It writes nothing there.
+  `find-generic-password`, nothing else), and its usage cache. It writes
+  nothing there.
+  <!-- @private:begin -->
+  With the `author-tools` feature it also copies the rotation file and the
+  priming flag from `~/.config/cswap-prefer-team` when the app has none.
+  <!-- @private:end -->
+<!-- @private:begin -->
 - **LaunchAgent.** `Tự chuyển bằng Quota Station` writes
   `~/Library/LaunchAgents/com.shin315.quota-station.rotation.plist`
   (`<the app>/Contents/MacOS/quota-station claude rotate` every 180 seconds)
@@ -264,6 +280,7 @@ has the design.
   loaded, neither the rotation nor a switch from the app or the command line
   writes a login, so two switchers never rotate the same refresh token. The
   app never stops, loads or removes either of them.
+<!-- @private:end -->
 - A token pasted in `Thêm setup token` goes to the app's item and is never
   shown again; the command line takes one only on stdin. Errors carry
   `security`'s exit code and first line, never a value.
@@ -277,11 +294,13 @@ has the design.
   mark on that copy, never adds a login item or a launchd job, and never
   uses `sudo`. A copy given with `--app` must carry the app's bundle id and
   a valid signature.
+<!-- @private:begin -->
 - `Cập nhật từ mã nguồn` runs the clone the owner sets in `Cài đặt`: the
   code it builds is whatever that clone's upstream holds, as when the owner
   builds by hand. git runs with prompts off, so it never waits for a
   password, and with `--ff-only`, so it never merges or resets a clone with
   local changes. It runs only when the owner presses the button.
+<!-- @private:end -->
 - `Mở khi đăng nhập` uses macOS's `SMAppService.mainApp`, only when the
   owner turns the switch on or off; macOS shows the item in System Settings
   › General › Login Items, where the owner can turn it off as well. Nothing
@@ -304,7 +323,7 @@ has the design.
 - Several ChatGPT accounts: each one the app keeps has its own folder,
   `codex/accounts/<n>/` in the app's folder (mode 700, its `auth.json` mode
   600, the folder kept out of Time Machine; never in a backup pack or a
-  copy to another Mac). `codex login` writes the sign-in there itself, run
+  copy between Macs). `codex login` writes the sign-in there itself, run
   with that new, empty folder as `CODEX_HOME`, so the Codex in use is not
   signed out. A switch moves two whole files, the `auth.json` in the Codex
   folder to its account's folder and the chosen one in, never over another
@@ -648,6 +667,8 @@ files, in the same sheet, after the same preview, under the same undo.
   `[[skills.config]]` entries, and anything a `codex plugin` command itself
   writes.
 
+<!-- @private:begin -->
+
 ## Copying to another Mac (M13)
 
 `Chép sang Mac khác` compares this Mac with one of `Cài đặt › Các Mac
@@ -698,6 +719,8 @@ Station, which does every write there.
   while that record is still this copy's.
 - Codex's provider, logins and accounts are never part of it, and nothing
   else is ever run on the other Mac.
+
+<!-- @private:end -->
 
 ## Variables that override a login (M14)
 
@@ -916,6 +939,7 @@ reads or writes a login, an account, a key or a quota file of any of them.
   password) must not be in a pack, the plan, the result, the restore
   record, the app's backups, the shared skills or the commands run, and no
   skill's `run.sh` may ever run.
+<!-- @private:begin -->
 - `tests/agents_copy.rs` (M13) copies between two temporary homes with a
   fake `ssh` that records its arguments and stdin and runs the script on
   the other home, a fake app bundle there (with and without
@@ -929,6 +953,7 @@ reads or writes a login, an account, a key or a quota file of any of them.
   changed since the comparison is not written, that invalid names and paths
   and another protocol are refused, and that a write running or lost is
   told apart. No test opens a real SSH connection.
+<!-- @private:end -->
 - `tests/env_check.rs` (M14) checks fake home folders with fake shell files
   and a fake `launchctl` that records its words. It checks that a name is
   found only at the start of a line and its last line wins, that
@@ -974,7 +999,11 @@ reads or writes a login, an account, a key or a quota file of any of them.
   byte as they were and that only `find-generic-password` touched
   claude-swap's service; the switch tests check that a login the app does
   not keep stops a switch, that a write that does not read back is put
-  back, and that nothing is written while an older switcher is loaded.
+  back.
+  <!-- @private:begin -->
+  With the `author-tools` feature they also check that nothing is written
+  while an older switcher is loaded.
+  <!-- @private:end -->
 - CI has no Keychain access and no Google account.
 - The install tests run `scripts/install.sh` in a temporary folder with fake
   `open` and `security`, and fakes of `launchctl`, `osascript` and `sfltool`

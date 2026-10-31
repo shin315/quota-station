@@ -7,7 +7,10 @@
     "jsx": "react-jsx",
     "strict": true,
     "noUnusedLocals": true,
+    // @private:begin
+    // The community edition keeps the parameters only the private part reads.
     "noUnusedParameters": true,
+    // @private:end
     "noFallthroughCasesInSwitch": true,
     "resolveJsonModule": true,
     "isolatedModules": true,

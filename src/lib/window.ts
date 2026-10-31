@@ -8,9 +8,13 @@
 
 import { overwriteBanner } from '@agy/agySwitch';
 import { envBanner } from './env';
-import { mac, os, t } from './i18n';
+import { mac, t } from './i18n';
 import type { Model, Section } from './model';
-import { autoView, dayClock, pauseOf, type AutoView } from './switching';
+// @private:begin
+import { os } from './i18n';
+import { dayClock } from './switching';
+import { autoView, pauseOf, type AutoView } from '@/private/switching';
+// @private:end
 import { popoverView, type BannerView, type CardView, type ChipView, type NoteView, type PopoverView, type ViewOptions } from './view';
 
 export interface KeyValue {
@@ -53,14 +57,18 @@ export interface WindowView {
     /** The row lists the app's own accounts: the logins are the table's rows. */
     own: boolean;
   };
+  // @private:begin
   /** Automatic switching and why Claude is on its account (F07). */
   auto: AutoView;
   /** The Claude tab's own banner: the rotation's LaunchAgent is not loaded. */
   claudeBanner: BannerView | null;
+  // @private:end
   /** The Claude tab's red banner: a variable overrides Claude Code's login (M14). */
   envBanner: BannerView | null;
+  // @private:begin
   /** The Claude tab's Switcher card: one line, the rest folded. */
   switcher: { line: string; tone: 'ok' | 'warn' | 'bad' | 'muted'; details: KeyValue[] };
+  // @private:end
 }
 
 // ===== Antigravity =====
@@ -88,6 +96,7 @@ function agyBanner(g: Section): BannerView | null {
   return null;
 }
 
+// @private:begin
 // ===== The switcher (F07) =====
 
 function switcherCard(model: Model, auto: AutoView, now: Date): WindowView['switcher'] {
@@ -149,6 +158,7 @@ function claudeBanner(model: Model): BannerView | null {
     ],
   };
 }
+// @private:end
 
 // ===== The window =====
 
@@ -166,7 +176,9 @@ export function windowView(model: Model, now: Date, options: ViewOptions = {}): 
   const g = model.snapshot.agy;
   const swap = c.accounts.some((a) => a.number > 0);
   const present = g.status !== 'notSetUp';
+  // @private:begin
   const auto = autoView(model, now);
+  // @private:end
   return {
     machine: pv.machine,
     fresh: pv.fresh,
@@ -186,9 +198,13 @@ export function windowView(model: Model, now: Date, options: ViewOptions = {}): 
       tabNote: g.status === 'single' && !g.accounts.length && g.reason ? pv.agy.note : null,
       own: g.status === 'ok' && g.source === 'quota-station',
     },
+    // @private:begin
     auto,
     claudeBanner: claudeBanner(model),
+    // @private:end
     envBanner: envBanner(model),
+    // @private:begin
     switcher: switcherCard(model, auto, now),
+    // @private:end
   };
 }

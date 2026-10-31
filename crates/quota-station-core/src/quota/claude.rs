@@ -36,12 +36,12 @@ use serde_json::Value;
 use time::OffsetDateTime;
 
 use super::cache::Cache;
-#[cfg(feature = "author-tools")]
-use super::{Expire, RoomPool, RoomSlot, Rotation};
 use super::{
     iso, semantics, slugify, status_for_error, text, ClaudeAccounts, Effective, Provider,
     ProviderId, Response, Scope, Slot, Window,
 };
+#[cfg(feature = "author-tools")]
+use super::{Expire, RoomPool, RoomSlot, Rotation};
 use crate::app_dir::AppDir;
 use crate::claude::cc::{self, ACTIVE_SERVICE};
 use crate::claude::keychain::{self, user_account, KeychainError};
@@ -805,6 +805,7 @@ pub fn own_now(store: &crate::claude::store::Store, now: OffsetDateTime) -> Opti
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(feature = "author-tools")]
     use crate::quota::parse_iso;
     use serde_json::json;
 
@@ -840,11 +841,13 @@ mod tests {
         assert_eq!((w[1].id.as_str(), w[1].kind.as_deref()), ("seven_day_opus", Some("model")));
     }
 
+    #[cfg(feature = "author-tools")]
     fn window(id: &str, used: f64, resets: Option<&str>) -> Window {
         let kind = if id == "five_hour" { "session" } else { "weekly" };
         Window::used(id, kind, used, resets.map(String::from))
     }
 
+    #[cfg(feature = "author-tools")]
     #[test]
     fn an_accounts_room_is_its_tighter_window_before_full() {
         let now = parse_iso("2030-01-15T12:00:00Z").unwrap();

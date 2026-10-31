@@ -5,7 +5,10 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MainWindowApp } from '../App';
 import { fakeApi, fakeEmail, hideNames } from '../fixtures/fakeApi';
-import { agyAccount, agyFixture, claudeAccountsFixture, communityModel, FIXTURE_NOW, fixtureModel, heldSwitcher, switcherFixture } from '../fixtures/models';
+import { agyAccount, agyFixture, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
+// @private:begin
+import { claudeAccountsFixture, communityModel, heldSwitcher, switcherFixture } from '../fixtures/models';
+// @private:end
 import type { Api } from '../lib/api';
 import type { Model, Tab } from '../lib/model';
 
@@ -44,7 +47,11 @@ describe('main window', () => {
     expect(refresh.hasAttribute('data-tauri-drag-region')).toBe(false);
     expect(within(bar).getByRole('button', { name: 'Thông báo' }).hasAttribute('data-tauri-drag-region')).toBe(false);
     expect(screen.getByRole('navigation', { name: 'Các tab' }).hasAttribute('data-tauri-drag-region')).toBe(true);
-    for (const tab of ['rules', 'history', 'firstmate', 'settings', 'codex', 'mcp', 'skills', 'plugins', 'instr'] as Tab[]) {
+    let tabs: Tab[] = ['history', 'settings', 'codex', 'mcp', 'skills', 'plugins', 'instr'];
+    // @private:begin
+    tabs = ['rules', 'firstmate', ...tabs];
+    // @private:end
+    for (const tab of tabs) {
       cleanup();
       await open(fixtureModel('fresh'), tab);
       const row = screen.getByRole('heading', { level: 2 }).parentElement!;
@@ -62,11 +69,11 @@ describe('main window', () => {
     expect(screen.getByRole('dialog', { name: 'Thông báo' })).toBeTruthy();
   });
 
-  it('Tổng quan is one section per service, every account by its windows, automatic switching in the Claude head', async () => {
+  it('Tổng quan is one section per service, every account by its windows', async () => {
     await open(fixtureModel('fresh'));
     expect(heading()).toBe('Tổng quan');
-    expect(screen.getByText('Mac mini · cập nhật 40 giây trước')).toBeTruthy();
-    // No tiles and no Sắp tới: the reset times stay under each bar, the account leaving the rotation keeps its chip.
+    expect(screen.getByText('Mac Studio · cập nhật 40 giây trước')).toBeTruthy();
+    // No tiles and no Sắp tới: the reset times stay under each bar.
     expect(screen.queryByRole('list', { name: 'Đang dùng' })).toBeNull();
     expect(screen.queryByText('Sắp tới')).toBeNull();
     expect(screen.queryByText(/còn dùng được|tài khoản Claude/)).toBeNull();
@@ -91,20 +98,29 @@ describe('main window', () => {
     const claude = screen.getByRole('list', { name: 'Claude Code' });
     const rows = within(claude).getAllByRole('listitem');
     expect(rows).toHaveLength(4);
-    expect(rows[1].getAttribute('aria-label')).toMatch(/^lan\.acme1, Acme Studio, đang dùng\./);
+    let active = /^lan\.acme1, đang dùng\./;
+    // @private:begin
+    active = /^lan\.acme1, Acme Studio, đang dùng\./;
+    // @private:end
+    expect(rows[1].getAttribute('aria-label')).toMatch(active);
     expect(within(rows[1]).queryByRole('button')).toBeNull();
     // Fixed columns: 5 giờ · Tuần · Fable tuần, whatever window is tightest.
     const header = claude.querySelector('.wt-r.h')!;
     expect(Array.from(header.children).map((c) => c.textContent)).toEqual(['Tài khoản', '5 giờ', 'Tuần', 'Fable tuần', '']);
     expect(Array.from(rows[0].querySelectorAll('.wc b')).map((b) => b.textContent)).toEqual(['0%', '0%', '4%']);
+    // @private:begin
+    // The account leaving the rotation keeps its chip.
     expect(rows[1].getAttribute('aria-label')).toMatch(/rời vòng 17:45$/);
+    // @private:end
     expect(within(screen.getByRole('list', { name: 'Antigravity' })).getAllByRole('listitem')).toHaveLength(2);
 
+    // @private:begin
     // Automatic switching in the Claude section's head: its switch and why Claude is on its account.
     const head = sections[0].querySelector('[data-slot=card-title]') as HTMLElement;
     expect(within(head).getByText('14:19 · Vẫn dùng lan.acme1: chưa tới ngưỡng tự chuyển.')).toBeTruthy();
     expect(screen.queryByText(/^Vì sao đang ở/)).toBeNull();
     expect(within(head).getByRole('switch', { name: 'Tự chuyển Claude' }).getAttribute('aria-checked')).toBe('true');
+    // @private:end
 
     // Every Claude account but the active one switches; Antigravity only once the app's account list is read.
     for (const name of ['lanpham.dev', 'lan.acme2', 'lan.acme3']) {
@@ -132,7 +148,11 @@ describe('main window', () => {
   it('with names hidden, no email or organization reaches the window', async () => {
     await open(hideNames(fixtureModel('fresh')), 'claude');
     const rows = within(screen.getByRole('list', { name: 'Claude Code' })).getAllByRole('listitem');
-    expect(rows.map((r) => r.querySelector('.an b')!.textContent)).toEqual(['Cá nhân', 'Team A', 'Team B', 'Team C']);
+    let names = ['Tài khoản 1', 'Tài khoản 2', 'Tài khoản 3', 'Tài khoản 4'];
+    // @private:begin
+    names = ['Cá nhân', 'Team A', 'Team B', 'Team C'];
+    // @private:end
+    expect(rows.map((r) => r.querySelector('.an b')!.textContent)).toEqual(names);
     expect(document.body.textContent).not.toContain('@');
     expect(document.body.textContent).not.toContain('Acme');
     expect(document.body.innerHTML).not.toContain('example.com');
@@ -294,11 +314,16 @@ describe('main window', () => {
   it('follows the reader like the popover does', async () => {
     const fake = await open(fixtureModel('fresh'));
     act(() => fake.push(fixtureModel('exhausted')));
-    expect(screen.getByText('Hạn mức Claude trong vòng đã cạn')).toBeTruthy();
+    let dry = 'Hạn mức Claude sắp cạn';
+    // @private:begin
+    dry = 'Hạn mức Claude trong vòng đã cạn';
+    // @private:end
+    expect(screen.getByText(dry)).toBeTruthy();
     expect(screen.getAllByText('96%').length).toBeGreaterThan(0);
   });
 });
 
+// @private:begin
 describe('with Nâng cao off', () => {
   const plain = (m: Model): Model => ({ ...m, advanced: { on: false, firstmate: true } });
 
@@ -339,7 +364,18 @@ describe('with Nâng cao off', () => {
     expect(screen.getByText('Đổi tài khoản trong chính Antigravity; Quota Station đọc lại ở lần đọc sau.')).toBeTruthy();
   });
 });
+// @private:end
 
+describe('a build without the Antigravity accounts', () => {
+  it('reads Antigravity without logging in', async () => {
+    const m = fixtureModel('fresh');
+    await open({ ...m, capabilities: { ...m.capabilities, agyAccounts: false } }, 'agy');
+    expect(screen.queryByRole('button', { name: 'Thêm tài khoản' })).toBeNull();
+    expect(screen.getByText('Đổi tài khoản trong chính Antigravity; Quota Station đọc lại ở lần đọc sau.')).toBeTruthy();
+  });
+});
+
+// @private:begin
 describe('a build without the author\'s tools', () => {
   it('has none of their tabs, and no automatic switching, pause or Firstmate line', async () => {
     await open(communityModel(fixtureModel('fresh')), 'rules');
@@ -367,8 +403,10 @@ describe('a build without the author\'s tools', () => {
     expect(screen.getByText('quota-station claude status --json', { selector: 'code' }).closest('p')!.textContent).toMatch(/^Firstmate đọc quota-station claude status --json và chạy/);
   });
 });
+// @private:end
 
-describe('switching Claude and pausing from the main window', () => {
+describe('switching Claude from the main window', () => {
+  // @private:begin
   const details = async () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Chi tiết: Chạy nền' }));
@@ -380,7 +418,9 @@ describe('switching Claude and pausing from the main window', () => {
     for (let i = 0; i < cells.length; i += 2) out[cells[i].textContent!] = cells[i + 1].textContent!;
     return out;
   };
+  // @private:end
 
+  // @private:begin
   it('"Chuyển" on the Claude tab opens the confirmation and switches with the hold chosen', async () => {
     const fake = await open(fixtureModel('fresh'), 'claude');
     await act(async () => {
@@ -396,7 +436,9 @@ describe('switching Claude and pausing from the main window', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(screen.getByText('Đã chuyển sang lan.acme3. Giữ tài khoản này đến 14:50.')).toBeTruthy();
   });
+  // @private:end
 
+  // @private:begin
   it('a refresh while paused keeps the paused banner and its buttons', async () => {
     const fake = await open(fixtureModel('fresh', { reads: 3, switcher: heldSwitcher() }), 'claude');
     await act(async () => {
@@ -407,7 +449,9 @@ describe('switching Claude and pausing from the main window', () => {
     expect(screen.getByText('Đang giữ lan.acme1 đến 15:20')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Thêm 1 giờ' })).toBeTruthy();
   });
+  // @private:end
 
+  // @private:begin
   it('a feedback line stays on the tab it was raised on, with its buttons', async () => {
     await open(fixtureModel('fresh'), 'claude');
     await act(async () => {
@@ -416,17 +460,20 @@ describe('switching Claude and pausing from the main window', () => {
     await act(async () => {
       fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Chuyển sang lan.acme3' }));
     });
-    expect(screen.getByText('Đã chuyển sang lan.acme3. Giữ tài khoản này đến 15:20.')).toBeTruthy();
+    // With a hold the line has buttons, so it stays.
+    const said = 'Đã chuyển sang lan.acme3. Giữ tài khoản này đến 15:20.';
+    expect(screen.getByText(said)).toBeTruthy();
     fireEvent.click(nav('Cài đặt'));
     expect(screen.queryByText(/Đã chuyển sang lan.acme3/)).toBeNull();
     fireEvent.click(nav('Antigravity'));
     expect(screen.queryByText(/Đã chuyển sang lan.acme3/)).toBeNull();
     fireEvent.click(nav('Claude'));
-    expect(screen.getByText('Đã chuyển sang lan.acme3. Giữ tài khoản này đến 15:20.')).toBeTruthy();
+    expect(screen.getByText(said)).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Cho phép tự chuyển lại' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Đóng' }));
     expect(screen.queryByText(/Đã chuyển sang lan.acme3/)).toBeNull();
   });
+  // @private:end
 
   it('Escape closes the dialog and Thôi does too, without switching', async () => {
     const fake = await open(fixtureModel('fresh'), 'claude');
@@ -443,6 +490,7 @@ describe('switching Claude and pausing from the main window', () => {
     expect(fake.api.switchClaude).not.toHaveBeenCalled();
   });
 
+  // @private:begin
   it('one card in two halves: Tự chuyển Claude with its switch and pause, and what runs it', async () => {
     const fake = await open(fixtureModel('fresh'), 'claude');
     const auto = screen.getByRole('region', { name: /^Tự động chuyển Claude/ });
@@ -467,7 +515,9 @@ describe('switching Claude and pausing from the main window', () => {
     await details();
     expect(kv()['Tạm dừng tự chuyển']).toBe('đến 18:00');
   });
+  // @private:end
 
+  // @private:begin
   it('Chạy nền says when it last ran; whether it runs, its last decision and log sit under Chi tiết', async () => {
     await open(fixtureModel('fresh', { switcher: heldSwitcher() }), 'claude');
     const run = screen.getByRole('region', { name: /^Chạy nền/ });
@@ -486,7 +536,9 @@ describe('switching Claude and pausing from the main window', () => {
     // While paused, the decision is the switcher's own paused line.
     expect(Object.entries(rows).find(([k]) => k.startsWith('Quyết định gần nhất'))?.[1]).toMatch(/^paused until/);
   });
+  // @private:end
 
+  // @private:begin
   it('a rotation that is not loaded gets a banner that turns it on', async () => {
     const fake = await open(
       fixtureModel('fresh', { switcher: switcherFixture({ service: false }), claudeAccounts: claudeAccountsFixture({ rotation: false }) }),
@@ -501,7 +553,9 @@ describe('switching Claude and pausing from the main window', () => {
     });
     expect(fake.api.claudeSetRotation).toHaveBeenCalledWith(true);
   });
+  // @private:end
 
+  // @private:begin
   it('an older switcher still loaded is a warning with a guide to stop it', async () => {
     await open(fixtureModel('fresh', { switcher: switcherFixture({ legacy: 'com.cswap.prefer-team' }) }), 'claude');
     await details();
@@ -513,6 +567,7 @@ describe('switching Claude and pausing from the main window', () => {
     fireEvent.click(within(guide).getByRole('button', { name: 'Đóng' }));
     expect(screen.queryByRole('dialog')).toBeNull();
   });
+  // @private:end
 
   it('Antigravity rows do not switch while the app\'s account list is not read', async () => {
     await open(fixtureModel('fresh'), 'agy');

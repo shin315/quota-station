@@ -15,14 +15,14 @@ import { Card as Panel, CardText } from '@/components/ui/card';
 import { DialogButtons, DialogLead, DialogTitle } from '@/components/ui/dialog';
 import { inputVariants, Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { Empty, LABEL, rowClass, TabHead, TabSub, TabTitle } from '../components/page';
-import { Banner, Button, Chip, Dot, Facts, Feedback, FieldHint, KVT, LinkButton, More, Spinner } from '../components/parts';
-import { clock, pad } from '../lib/format';
-import { t } from '../lib/i18n';
-import type { AuthorModel } from '../lib/author';
-import type { Rules } from '../lib/model';
-import { compareRows, localLine, macsWord, markLeft, peerLine, rotationBanner, ruleEmails, rulesProblem, slotsOf } from '../lib/rules';
-import type { Action, FeedbackView, PopoverView } from '../lib/view';
+import { Empty, LABEL, rowClass, TabHead, TabSub, TabTitle } from '@/components/page';
+import { Banner, Button, Chip, Dot, Facts, Feedback, FieldHint, KVT, LinkButton, More, Spinner } from '@/components/parts';
+import { clock, pad } from '@/lib/format';
+import { t } from '@/lib/i18n';
+import type { AuthorModel } from '@/private/author';
+import type { Rules } from '@/lib/model';
+import { compareRows, localLine, macsWord, markLeft, peerLine, rotationBanner, ruleEmails, rulesProblem, slotsOf } from './rules';
+import type { Action, FeedbackView, PopoverView } from '@/lib/view';
 import type { RulesState } from './useRules';
 
 export interface RulesTabProps {

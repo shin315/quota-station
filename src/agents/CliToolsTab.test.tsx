@@ -90,7 +90,7 @@ describe('Agent › Cập nhật', () => {
     expect(line('Codex CLI')).toBe('0.164.0 · Không kiểm tra được: máy chủ trả lỗi 503');
   });
 
-  // The Mac mini M6 at ca353c5: no check had ever been kept, and the page said only "Chưa kiểm lần nào.".
+  // An owner’s Mac at ca353c5: no check had ever been kept, and the page said only "Chưa kiểm lần nào.".
   it('opening it with no check kept checks at once and shows the result', async () => {
     const fake = await openTab('cliTools', withCli(CLI_STATES.never(cliToolsFixture())));
     expect(fake.api.cliToolsOpened).toHaveBeenCalledTimes(1);

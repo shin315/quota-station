@@ -52,13 +52,19 @@ async function choose(account: string, item: string) {
 afterEach(cleanup);
 
 describe('the Claude accounts Quota Station keeps', () => {
-  it('each account has a ⋯ menu: details, out of the rotation, sign in again, remove', async () => {
+  it('each account has a ⋯ menu: details, sign in again, remove', async () => {
     await open(withAccounts({}));
     expect(names()).toEqual(['lanpham.dev', 'lan.acme1', 'lan.acme2', 'lan.acme3']);
     const items = within(await menu('lan.acme2')).getAllByRole('menuitem');
-    expect(items.map((i) => i.textContent)).toEqual(['Chi tiết và tên gọi…', 'Tạm dừng tự chuyển…', 'Đăng nhập lại…', 'Xoá khỏi máy này…']);
+    const want = ['Chi tiết và tên gọi…', 'Đăng nhập lại…', 'Xoá khỏi máy này…'];
+    // @private:begin
+    // And out of the rotation.
+    want.splice(1, 0, 'Tạm dừng tự chuyển…');
+    // @private:end
+    expect(items.map((i) => i.textContent)).toEqual(want);
   });
 
+  // @private:begin
   it('without the rotation and without Nâng cao, the menu has nothing to hold out of it', async () => {
     await open(withAccounts({ rotation: false }, { advanced: { on: false, firstmate: false } }));
     const items = within(await menu('lan.acme2')).getAllByRole('menuitem');
@@ -66,12 +72,23 @@ describe('the Claude accounts Quota Station keeps', () => {
     // Nor a card for a rotation that does not run.
     expect(screen.queryByRole('switch', { name: 'Tự chuyển bằng Quota Station' })).toBeNull();
   });
+  // @private:end
 
   it('before any account is kept, importing from claude-swap brings them over', async () => {
-    const fake = await open(withAccounts({ ready: false, accounts: [], rotation: false }));
+    const fake = await open(
+      withAccounts({
+        ready: false,
+        accounts: [],
+        // @private:begin
+        rotation: false,
+        // @private:end
+      }),
+    );
     expect(screen.getByText('Đưa các tài khoản Claude vào Quota Station')).toBeTruthy();
+    // @private:begin
     // Nothing to rotate yet.
     expect((screen.getByRole('switch', { name: 'Tự chuyển bằng Quota Station' }) as HTMLButtonElement).disabled).toBe(true);
+    // @private:end
     await press(screen.getByRole('button', { name: 'Nhập từ claude-swap' }));
     expect(fake.api.claudeImport).toHaveBeenCalledTimes(1);
     expect(screen.getByText(/^Đã nhập từ claude-swap: 4 tài khoản mới/)).toBeTruthy();
@@ -131,6 +148,7 @@ describe('the Claude accounts Quota Station keeps', () => {
     expect(names()).toContain('lan.acme2');
   });
 
+  // @private:begin
   it('an account leaves the rotation after asking, and Hoàn tác puts it back', async () => {
     const fake = await open(withAccounts({}));
     await choose('lan.acme3', 'Tạm dừng tự chuyển…');
@@ -144,6 +162,7 @@ describe('the Claude accounts Quota Station keeps', () => {
     expect(fake.api.claudeSetEnabled).toHaveBeenLastCalledWith(4, true);
     expect(within(within(table()).getAllByRole('listitem')[3]).queryByText('nghỉ tự chuyển')).toBeNull();
   });
+  // @private:end
 
   it('a setup token goes to the app once and is never shown; the added account takes a nickname', async () => {
     const fake = await open(withAccounts({}));
@@ -244,6 +263,7 @@ describe('the Claude accounts Quota Station keeps', () => {
     expect(within(dialog()).getByText('Không thấy lệnh claude trên máy này.')).toBeTruthy();
   });
 
+  // @private:begin
   it('an action that fails is reported and changes nothing', async () => {
     await open(withAccounts({}), { claudeFail: (a) => (a === 'enabled' ? 'busy' : null) });
     await choose('lan.acme3', 'Tạm dừng tự chuyển…');
@@ -251,7 +271,9 @@ describe('the Claude accounts Quota Station keeps', () => {
     expect(within(within(table()).getAllByRole('listitem')[3]).queryByText('nghỉ tự chuyển')).toBeNull();
     expect(screen.getByText('Một thao tác khác đang giữ tài khoản. Thử lại sau vài giây.')).toBeTruthy();
   });
+  // @private:end
 
+  // @private:begin
   it('the rotation turns on from the Switcher card', async () => {
     const fake = await open(withAccounts({ rotation: false }));
     const toggle = () => screen.getByRole('switch', { name: 'Tự chuyển bằng Quota Station' });
@@ -261,7 +283,9 @@ describe('the Claude accounts Quota Station keeps', () => {
     expect(toggle().getAttribute('aria-checked')).toBe('true');
     expect(screen.getByText('Đã bật tự chuyển bằng Quota Station')).toBeTruthy();
   });
+  // @private:end
 
+  // @private:begin
   it('while the old switcher is loaded the rotation cannot turn on, and the guide says how to stop it', async () => {
     await open(withAccounts({ rotation: false, legacy: 'com.cswap.prefer-team' }, { advanced: { on: false, firstmate: false } }));
     expect((screen.getByRole('switch', { name: 'Tự chuyển bằng Quota Station' }) as HTMLButtonElement).disabled).toBe(true);
@@ -269,11 +293,16 @@ describe('the Claude accounts Quota Station keeps', () => {
     const guide = screen.getByRole('dialog', { name: 'Tắt bộ tự chuyển cũ' });
     expect(within(guide).getByText('launchctl bootout gui/$(id -u)/com.cswap.prefer-team')).toBeTruthy();
   });
+  // @private:end
 
   it('with names hidden no email shows, in the table or the details', async () => {
     await open(hideNames(withAccounts({})));
     expect(names()).toHaveLength(4);
-    await choose('Team B', 'Chi tiết và tên gọi…');
+    let third = 'Tài khoản 3';
+    // @private:begin
+    third = 'Team B';
+    // @private:end
+    await choose(third, 'Chi tiết và tên gọi…');
     expect(dialog().textContent).not.toMatch(/\w@\w/);
     await press(inDialog('Thôi'));
     expect(table().textContent).not.toMatch(/@/);

@@ -107,7 +107,7 @@ dest="$(abs "$dest")"
 [ -z "$package" ] || package="$(abs "$package")"
 started_in="$PWD"
 
-# An app started from Finder, which runs this for "Cập nhật từ mã nguồn",
+# An app started from Finder, which runs this to update itself,
 # has launchd's short PATH: add where rustup, Homebrew and nvm put their
 # tools, after what is there already.
 extra="$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin"

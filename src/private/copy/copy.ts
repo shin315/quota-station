@@ -6,12 +6,12 @@
 // tab and its dialogs say. Plain words, as the approved prototype's `cp`
 // screens: no path to a command, no hash.
 
-import { AGENT_NAME } from './mcp';
-import { fileLabel, names, partLines, plural, type PartLine } from './backup';
-import { clock, pad } from './format';
-import { t } from './i18n';
-import type { Agent, CopyComparison, CopyItem, CopySelection, RestoreDone, RestoreItemResult, RestoreUndone } from './model';
-import type { ChipView, FeedbackView } from './view';
+import { AGENT_NAME } from '@/lib/mcp';
+import { fileLabel, names, partLines, plural, type PartLine } from '@/lib/backup';
+import { clock, pad } from '@/lib/format';
+import { t } from '@/lib/i18n';
+import type { Agent, CopyComparison, CopyItem, CopySelection, RestoreDone, RestoreItemResult, RestoreUndone } from '@/lib/model';
+import type { ChipView, FeedbackView } from '@/lib/view';
 
 export type CopyTicks = Record<string, boolean>;
 

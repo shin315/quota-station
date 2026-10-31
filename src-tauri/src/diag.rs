@@ -487,10 +487,7 @@ mod tests {
             ),
             "Bearer [secret] and [secret]"
         );
-        assert_eq!(
-            redact("claude: kept 2, switched to 1", home),
-            "claude: kept 2, switched to 1"
-        );
+        assert_eq!(redact("claude: kept 2, switched to 1", home), "claude: kept 2, switched to 1");
         assert_eq!(
             redact("https://github.com/shin315/quota-station/releases", home),
             "https://github.com/shin315/quota-station/releases"
