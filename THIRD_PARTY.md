@@ -10,6 +10,36 @@ are adapted from shadcn/ui; [`NOTICE`](NOTICE) lists those files and what
 was changed. The agents' and the services' logos come from svgl, and the
 interface's icons from Phosphor.
 
+## Quota Station's own licenses
+
+Copyright © 2026 Shin315.
+
+Quota Station is licensed under the [MIT License](LICENSE), except:
+
+- **The Antigravity accounts** (signing several Antigravity accounts in, reading
+  their quota and switching between them), adapted from Cockpit Tools (below),
+  are licensed under the [Creative Commons Attribution-NonCommercial-ShareAlike
+  4.0 International License](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+  ([`LICENSES/CC-BY-NC-SA-4.0.txt`](LICENSES/CC-BY-NC-SA-4.0.txt)): personal and
+  non-commercial use. They are `crates/quota-station-core/src/antigravity/`,
+  `src-tauri/src/{antigravity,agy_quota,agy_switch}.rs`, `src/antigravity/`, and
+  their tests and fixtures, as [`NOTICE`](NOTICE) lists them. They are compiled
+  only with the Cargo feature `antigravity-accounts` and bundled into the
+  interface only with `QS_ANTIGRAVITY_ACCOUNTS=1`; `scripts/install.sh` turns
+  both on (`QS_ANTIGRAVITY_ACCOUNTS=0` leaves them out), and `cargo tauri build`
+  and `npm run app` leave them out unless given `--features
+  antigravity-accounts` (with `QS_ANTIGRAVITY_ACCOUNTS=1` for a release build's
+  interface). An app built without them is MIT only: it reads the Antigravity
+  account signed in and does not sign in or switch accounts.
+- **The Inter font** (`src/assets/fonts/InterVariable-vi.woff2`) is under the
+  [SIL Open Font License 1.1](LICENSES/OFL-1.1.txt) (below).
+
+Every file names its license in an `SPDX-License-Identifier` line or in
+[`REUSE.toml`](REUSE.toml), and `reuse lint` checks it in CI. Code adapted from
+Cockpit Tools, code ported from quota-axi (MIT) and CC Switch (MIT), and code
+adapted from claude-swap (MIT) and shadcn/ui (MIT) are credited in
+[`NOTICE`](NOTICE) and in the sections below.
+
 ## quota-axi
 
 - Project: https://github.com/kunchenguid/quota-axi
@@ -60,7 +90,7 @@ SOFTWARE.
   `Nhập từ claude-swap`. [`NOTICE`](NOTICE) lists the files and what was
   changed. The app runs no claude-swap command and never writes claude-swap's
   files or Keychain items; the import only reads them, when the owner asks.
-  The README's cutover checklist leaves claude-swap installed.
+  The cutover checklist ([docs/cutover.md](docs/cutover.md)) leaves claude-swap installed.
 - License: MIT
 
 ```
