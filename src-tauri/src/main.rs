@@ -6,29 +6,32 @@
 //! Each Mac runs its own copy and switches only its own machine. It reads
 //! the quota of Claude, Codex and Antigravity itself (it read them through
 //! quota-axi until it stood alone); since M3 it also switches Claude when the owner
-//! confirms, and pauses the rotation. Since the Claude accounts moved in
-//! (`docs/claude-accounts.md`) it keeps their logins itself, reads their
-//! usage, runs the rotation from its own LaunchAgent and runs a process as a
+//! confirms. Since the Claude accounts moved in (`docs/claude-accounts.md`)
+//! it keeps their logins itself, reads their usage and runs a process as a
 //! chosen account (`quota-station claude …`), without claude-swap.
-//! Since M5 it edits the rotation file and copies it to the owner's other
-//! Macs over SSH, so every Mac's switcher follows the same rules.
 //! Since M4a it logs Antigravity accounts in itself, since M4b it reads
 //! their quota itself and lists it on the Antigravity row, and since M4c
 //! it switches the Antigravity account without Cockpit Tools. Since M6 it
-//! keeps a history of the switches, sends five alerts as macOS cards with
-//! buttons, and shows what Firstmate sees. Since M7 it can launch at login
-//! (a switch in settings, off by default) and update itself from a clone of
-//! its source with `scripts/install.sh`. Since M8 it switches Codex between
-//! the ChatGPT login and a custom API provider, keeping the ChatGPT login.
-//! Since M9 it shows the MCP servers of Claude Code, Codex and Antigravity
-//! in one table and turns them on, off, adds and removes them, after a
-//! preview of the whole batch. Since M10 it backs them up to iCloud Drive
-//! and restores them. Since M11 it does the same for the skills, shows the
-//! plugins and the instruction files, and says when a skill from GitHub has
-//! a newer version. Since M13 it copies them, item by item, to or from
-//! another Mac over SSH, where that Mac's own Quota Station writes them.
-//! Since M16 it counts the tokens in this Mac's own session logs (Thống kê),
-//! keeping the counts only.
+//! keeps a history of the switches and sends alerts as macOS cards with
+//! buttons. Since M7 it can launch at login (a switch in settings, off by
+//! default). Since M8 it switches Codex between the ChatGPT login and a
+//! custom API provider, keeping the ChatGPT login. Since M9 it shows the MCP
+//! servers of Claude Code, Codex and Antigravity in one table and turns them
+//! on, off, adds and removes them, after a preview of the whole batch. Since
+//! M10 it backs them up to iCloud Drive and restores them. Since M11 it does
+//! the same for the skills, shows the plugins and the instruction files, and
+//! says when a skill from GitHub has a newer version. Since M16 it counts the
+//! tokens in this Mac's own session logs (Thống kê), keeping the counts only.
+//! @private:begin
+//!
+//! With the `author-tools` feature it also pauses the rotation and runs it
+//! from its own LaunchAgent; edits the rotation file and copies it to the
+//! owner's other Macs over SSH, so every Mac's switcher follows the same
+//! rules (M5); shows what Firstmate sees (M6); updates itself from a clone
+//! of its source with `scripts/install.sh` (M7); and copies the agents'
+//! setup, item by item, to or from another Mac over SSH, where that Mac's
+//! own Quota Station writes them (M13).
+//! @private:end
 
 // A window app on Windows: a release build opens no console of its own.
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
@@ -68,7 +71,7 @@ mod shot;
 mod skills;
 mod state;
 mod stats;
-#[cfg(windows)]
+#[cfg(all(feature = "author-tools", windows))]
 mod timer;
 mod tray;
 mod windows;
@@ -83,10 +86,12 @@ use tauri::Manager;
 use crate::state::{Inner, Shared, Tab};
 
 fn main() {
+    // @private:begin
     // Another Mac's Quota Station runs `quota-station agents <word>` here
     // over SSH (M13): answered without a window, and nothing else starts.
     // Only a build with the author's tools copies; any other refuses as
     // a copy of another version would, and never opens a window.
+    // @private:end
     let args: Vec<String> = std::env::args().skip(1).collect();
     #[cfg(windows)]
     if matches!(args.first().map(String::as_str), Some("claude" | "quota")) {
@@ -95,14 +100,16 @@ fn main() {
     if args.first().map(String::as_str) == Some("agents") {
         #[cfg(feature = "author-tools")]
         std::process::exit(copy::cli(&args[1..]));
+        // `quota-station agents …` is refused, as by a copy of another
+        // version, without a window.
         #[cfg(not(feature = "author-tools"))]
         {
             println!("{}", serde_json::json!({ "error": "protocol" }));
             std::process::exit(quota_station_core::agents::COPY_REFUSED);
         }
     }
-    // The Claude accounts from a terminal, Firstmate and the rotation's
-    // LaunchAgent: answered without a window.
+    // The Claude accounts from a terminal and the programs that use them:
+    // answered without a window.
     if args.first().map(String::as_str) == Some("claude") {
         std::process::exit(claude_cli(&args[1..]));
     }
@@ -165,7 +172,7 @@ fn main() {
             rules::spawn(app.handle().clone(), state.clone());
             codex_wake::spawn(app.handle().clone(), state.clone());
             // Windows has no launchd: the app runs the rotation itself.
-            #[cfg(windows)]
+            #[cfg(all(feature = "author-tools", windows))]
             timer::spawn(state.clone());
             codex::spawn(app.handle().clone(), state);
             // A test build's guided session (plan 4.3); nothing in any other.
@@ -221,8 +228,11 @@ commands![
     commands::grant_keychain,
     commands::claude_sessions,
     commands::switch_claude,
+    #[cfg(feature = "author-tools")]
     commands::pause_switching,
+    #[cfg(feature = "author-tools")]
     commands::extend_pause,
+    #[cfg(feature = "author-tools")]
     commands::resume_switching,
     claude::claude_import,
     claude::claude_add_login,
@@ -231,7 +241,9 @@ commands![
     claude::claude_add_token,
     claude::claude_remove,
     claude::claude_set_alias,
+    #[cfg(feature = "author-tools")]
     claude::claude_set_enabled,
+    #[cfg(feature = "author-tools")]
     claude::claude_set_rotation,
     #[cfg(feature = "author-tools")]
     rules::save_rotation,
@@ -247,8 +259,11 @@ commands![
     rules::test_peer,
     #[cfg(feature = "author-tools")]
     rules::preview_rotation,
+    #[cfg(feature = "author-tools")]
     commands::rules_dirty,
+    #[cfg(feature = "author-tools")]
     commands::take_quit,
+    #[cfg(feature = "author-tools")]
     commands::close_main,
     #[cfg(feature = "antigravity-accounts")]
     antigravity::agy_login,
@@ -421,14 +436,15 @@ fn attach_console() {
 
 /// `quota-station claude …`, with the owner's home and the Keychain.
 fn claude_cli(args: &[String]) -> i32 {
-    use quota_station_core::claude::{cli, rotate, store::Store, Paths};
+    use quota_station_core::claude::{cli, store::Store, Paths};
     let Some(home) = cli_home() else {
         eprintln!("quota-station claude: HOME is not set");
         return 1;
     };
     let cli = cli::Cli {
         store: Store::new(Paths::for_home(&home), quota_station_core::os::secret_store()),
-        tools: rotate::Tools::system(&home),
+        tools: cli::Tools::system(&home),
+        #[cfg(feature = "author-tools")]
         exe: std::env::current_exe().unwrap_or_else(|_| "quota-station".into()),
     };
     cli::run(&cli, args, &mut std::io::stdout(), &mut std::io::stderr())
@@ -578,12 +594,19 @@ pub(crate) fn machine_name() -> String {
 mod tests {
     use super::command_names;
 
+    // @private:begin
     /// The commands of the author's tools: Nâng cao and its Firstmate
-    /// switch, the rules editor and the other Macs, the copy to another
-    /// Mac, Firstmate's state file, and the update from source.
-    const AUTHOR_COMMANDS: [&str; 16] = [
+    /// switch, the pause, the rotation and its rules editor, the other Macs,
+    /// the quit guard for unsaved rules, the copy to another Mac,
+    /// Firstmate's state file, and the update from source.
+    const AUTHOR_COMMANDS: [&str; 24] = [
         "set_advanced",
         "set_firstmate",
+        "pause_switching",
+        "extend_pause",
+        "resume_switching",
+        "claude_set_enabled",
+        "claude_set_rotation",
         "save_rotation",
         "adopt_rotation",
         "keep_rotation",
@@ -591,6 +614,9 @@ mod tests {
         "set_peers",
         "test_peer",
         "preview_rotation",
+        "rules_dirty",
+        "take_quit",
+        "close_main",
         "copy_compare",
         "copy_run",
         "copy_undo",
@@ -607,18 +633,18 @@ mod tests {
         for command in AUTHOR_COMMANDS {
             assert_eq!(names.contains(&command), tools, "{command}");
         }
-        // Every build keeps the rest: the quit guard, the pause, the alerts,
-        // the Claude accounts' own rotation switch.
+    }
+    // @private:end
+
+    #[test]
+    fn every_build_has_the_shared_commands() {
+        let names = command_names();
         for command in [
             "get_model",
-            "rules_dirty",
-            "take_quit",
-            "close_main",
-            "pause_switching",
-            "resume_switching",
+            "switch_claude",
+            "claude_set_alias",
             "set_alert_switch",
             "set_pool_alert",
-            "claude_set_rotation",
             "set_launch_at_login",
             "finish_setup",
         ] {

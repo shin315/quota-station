@@ -624,6 +624,7 @@ pub fn open_main(app: &AppHandle, tab: Tab) {
         window.on_window_event(move |event| match event {
             // Unsaved rules: the window asks first, and closes itself through
             // `close_main` once the owner answered.
+            #[cfg(feature = "author-tools")]
             WindowEvent::CloseRequested { api, .. }
                 if handle.state::<AppState>().lock().rules_dirty =>
             {
@@ -682,10 +683,17 @@ pub fn close_main(app: &AppHandle) {
     }
 }
 
+/// `Thoát Quota Station`: quits.
+#[cfg(not(feature = "author-tools"))]
+pub fn quit(app: &AppHandle) {
+    app.exit(0);
+}
+
 /// `Thoát Quota Station`: quits, unless the rules editor holds unsaved
 /// changes; then the main window asks first and quits through the
 /// `close_main` command with `quit` set. The request is kept until the page
 /// takes it (`take_quit`), whether it was listening already or opens now.
+#[cfg(feature = "author-tools")]
 pub fn quit(app: &AppHandle) {
     {
         let state = app.state::<AppState>();

@@ -226,10 +226,12 @@ pub fn redact(text: &str, home: &str) -> String {
 
 /// Keys whose value never goes in, whatever it holds: names of people,
 /// computers and accounts, and anything secret.
-const HIDDEN_KEYS: [&str; 20] = [
+const HIDDEN_KEYS: &[&str] = &[
     "machinename",
     "machine",
+    // @private:begin
     "peers",
+    // @private:end
     "host",
     "user",
     "username",
@@ -376,7 +378,7 @@ fn safe_name(name: &str) -> String {
 }
 
 /// The app's logs: every `*.log` in its folder and the folders right
-/// below (`claude/rotation.log`), each named by where it lies.
+/// below (`claude/*.log`), each named by where it lies.
 pub fn logs(dirs: &[&Path]) -> Vec<(String, String)> {
     let mut found = Vec::new();
     for root in dirs {
@@ -486,8 +488,8 @@ mod tests {
             "Bearer [secret] and [secret]"
         );
         assert_eq!(
-            redact("rotation: kept 2, switched to 1", home),
-            "rotation: kept 2, switched to 1"
+            redact("claude: kept 2, switched to 1", home),
+            "claude: kept 2, switched to 1"
         );
         assert_eq!(
             redact("https://github.com/shin315/quota-station/releases", home),
@@ -499,13 +501,13 @@ mod tests {
     fn json_hides_names_and_secrets_by_key() {
         let v = serde_json::json!({
             "machineName": "Lan-Desk",
-            "peers": [{"host": "mac.local", "user": "lan"}],
+            "label": [{"host": "mac.local", "user": "lan"}],
             "theme": "dark",
             "nested": {"refresh_token": "abc", "count": 3, "email": null},
         });
         let v = clean(v, "/Users/lan");
         assert_eq!(v["machineName"], "[hidden]");
-        assert_eq!(v["peers"], "[hidden]");
+        assert_eq!(v["label"], "[hidden]");
         assert_eq!(v["theme"], "dark");
         assert_eq!(v["nested"]["refresh_token"], "[hidden]");
         assert_eq!(v["nested"]["count"], 3);
@@ -548,14 +550,14 @@ mod tests {
                 "machineName": "Lan-Gaming-PC",
                 "codexHome": "D:\\private\\notes",
                 "backupDir": format!("{}\\OneDrive\\Quota Station Agents", home.display()),
-                "peers": [{"name": "lan.nguyen@example.com", "host": "Lan-Gaming-PC"}],
+                "label": [{"name": "lan.nguyen@example.com", "host": "Lan-Gaming-PC"}],
                 "theme": "dark",
             })
             .to_string(),
         )
         .unwrap();
         std::fs::write(
-            app.join("claude").join("rotation.log"),
+            app.join("claude").join("switch.log"),
             format!(
                 "2026-10-28T09:00:00Z switched to lan.nguyen@example.com\n\
                  2026-10-28T09:03:00Z refreshed sk-ant-oat01-FAKEFAKEFAKEFAKE (sk-ant-ort01-REFRESHFAKEFAKE)\n\
@@ -616,7 +618,7 @@ mod tests {
                 "README.txt",
                 "diagnostics.txt",
                 "settings.json",
-                "logs/claude-rotation.log",
+                "logs/claude-switch.log",
                 "session/events.jsonl",
                 "session/steps.jsonl",
                 "shots/01-m1-tray-1.jpg",

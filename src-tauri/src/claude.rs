@@ -4,8 +4,11 @@
 //! The Claude accounts the app keeps (see `docs/claude-accounts.md`): what
 //! the Claude tab shows of them, and its actions: import from claude-swap,
 //! log a new account in, add the login Claude Code is on or a setup token,
-//! remove an account, give it an alias, hold it out of the rotation, and
-//! turn the rotation's LaunchAgent on or off.
+//! remove an account and give it an alias.
+//! @private:begin
+//! Also hold an account out of the rotation, and turn the rotation's
+//! LaunchAgent on or off.
+//! @private:end
 //!
 //! The windows only ever get account numbers, aliases and readings; an
 //! email only while the owner shows names, and never a token.
@@ -17,7 +20,10 @@ use quota_station_core::claude::import::{self, Imported};
 use quota_station_core::claude::manage::{self, Added, ManageError};
 use quota_station_core::claude::state::{self, AccountOut};
 use quota_station_core::claude::store::Store;
-use quota_station_core::claude::{agent, switch};
+use quota_station_core::claude::switch;
+#[cfg(feature = "author-tools")]
+use quota_station_core::claude::agent;
+#[cfg(feature = "author-tools")]
 use quota_station_core::os::Scheduler;
 use serde::Serialize;
 use tauri::{AppHandle, State};
@@ -30,7 +36,10 @@ use crate::state::{AppState, Inner, Model};
 #[derive(Debug, Default)]
 pub struct Live {
     /// The action running now: `import`, `login`, `current`, `token`,
-    /// `remove`, `alias`, `enabled` or `rotation`.
+    /// `remove` or `alias`.
+    // @private:begin
+    /// Also `enabled` or `rotation`.
+    // @private:end
     pub working: Option<&'static str>,
     /// Stops a `claude auth login` that waits for the browser.
     pub cancel: Option<Arc<AtomicBool>>,
@@ -64,8 +73,10 @@ pub struct AccountsView {
     pub working: Option<&'static str>,
     pub last: Option<Done>,
     /// The rotation's LaunchAgent is loaded; `None` when that cannot be told.
+    #[cfg(feature = "author-tools")]
     pub rotation: Option<bool>,
     /// An older switcher still loaded: nothing switches while it is.
+    #[cfg(feature = "author-tools")]
     pub legacy: Option<String>,
     /// `claude` is on this Mac, to log a new account in with.
     pub claude: bool,
@@ -85,7 +96,9 @@ pub fn view(inner: &Inner) -> AccountsView {
         accounts,
         working: inner.claude_live.working,
         last: inner.claude_live.last.clone(),
+        #[cfg(feature = "author-tools")]
         rotation: inner.switcher.service,
+        #[cfg(feature = "author-tools")]
         legacy: inner.switcher.legacy.clone(),
         claude: inner.claude_program.is_some(),
     }
@@ -139,6 +152,7 @@ fn finish(app: &AppHandle, state: &AppState, store: &Store, names: bool, done: D
         inner.claude_list = Some(details);
     }
     state.request_read();
+    #[cfg(feature = "author-tools")]
     state.request_switcher();
     reader::publish(app, state);
     state.lock().model()
@@ -327,6 +341,7 @@ pub async fn claude_set_alias(
     .await
 }
 
+#[cfg(feature = "author-tools")]
 #[tauri::command]
 pub async fn claude_set_enabled(
     app: AppHandle,
@@ -344,6 +359,7 @@ pub async fn claude_set_enabled(
 /// claude rotate` every three minutes whether the app is open or not, or
 /// unloads it; on Windows turns the app's own timer on or off (`timer`).
 /// Refused while an older switcher is loaded.
+#[cfg(feature = "author-tools")]
 #[tauri::command]
 pub async fn claude_set_rotation(
     app: AppHandle,

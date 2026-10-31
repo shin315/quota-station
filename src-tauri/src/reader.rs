@@ -2,12 +2,14 @@
 // SPDX-License-Identifier: MIT
 
 //! The reader thread: reads the quota on the schedule ([`quota`]) and pushes
-//! each result to the menu bar and the windows. It also looks at the
-//! switcher: the pause flag on every read, and the dry run, log and launchd
-//! while a window is open or after the owner acted. Where the app keeps the
-//! Claude accounts it reads them (each account's windows, and its name from
-//! the Keychain while names show), writes the files Firstmate reads, and
-//! builds the Claude row from them; elsewhere it reads Claude Code's own
+//! each result to the menu bar and the windows.
+//! @private:begin
+//! It also looks at the switcher: the pause flag on every read, and the dry
+//! run, log and launchd while a window is open or after the owner acted.
+//! @private:end
+//! Where the app keeps the Claude accounts it reads them (each account's
+//! windows, and its name from the Keychain while names show), writes the
+//! data file, and builds the Claude row from them; elsewhere it reads Claude Code's own
 //! login. Antigravity is read beside it, and Codex where this Mac has a
 //! Codex folder. A reading younger than two minutes is reused without
 //! asking the vendor. Each read also wakes the Antigravity quota thread for
@@ -23,19 +25,27 @@ use quota_station_core::app_dir::AppDir;
 use quota_station_core::claude::state::AccountOut;
 use quota_station_core::claude::store::Store;
 use quota_station_core::claude::usage::{self, Endpoints};
-use quota_station_core::claude::{rotate, state, switch, Paths};
+use quota_station_core::claude::{state, switch};
+#[cfg(feature = "author-tools")]
+use quota_station_core::claude::{rotate, Paths};
 use quota_station_core::codex::platform::System;
 use quota_station_core::detail::ClaudeDetail;
+#[cfg(feature = "author-tools")]
 use quota_station_core::os::Scheduler;
 use quota_station_core::quota::cache::{Cache, MAX_AGE_SECONDS};
 use quota_station_core::quota::{self, ProviderId, Response};
 use quota_station_core::settings::{Language, Menubar};
+#[cfg(feature = "author-tools")]
 use quota_station_core::switcher;
-use quota_station_core::{icon, local_time, pause, schedule};
+use quota_station_core::{icon, schedule};
+#[cfg(feature = "author-tools")]
+use quota_station_core::{local_time, pause};
 use tauri::{AppHandle, Emitter};
 use time::OffsetDateTime;
 
-use crate::state::{AppState, DryRunRecord, Inner};
+#[cfg(feature = "author-tools")]
+use crate::state::DryRunRecord;
+use crate::state::{AppState, Inner};
 use crate::tray;
 
 /// The longest single wait, so a sleep of the Mac is noticed soon after it wakes.
@@ -51,11 +61,10 @@ pub fn spawn(app: AppHandle, state: AppState) {
 fn run(app: &AppHandle, state: &AppState) {
     loop {
         let mut inner = state.lock();
-        let wait = if inner.read_now || inner.switcher_now {
-            Duration::ZERO
-        } else {
-            inner.schedule.due_in(Instant::now())
-        };
+        let now_due = inner.read_now;
+        #[cfg(feature = "author-tools")]
+        let now_due = now_due || inner.switcher_now;
+        let wait = if now_due { Duration::ZERO } else { inner.schedule.due_in(Instant::now()) };
         if !wait.is_zero() {
             let (mono, wall) = (Instant::now(), SystemTime::now());
             let (mut inner, _) = state
@@ -68,21 +77,27 @@ fn run(app: &AppHandle, state: &AppState) {
             }
             continue;
         }
-        let home = inner.home.clone();
-        let claude_paths = inner.claude_paths();
-        // A switcher look on its own, between reads.
-        let read_due = inner.read_now || inner.schedule.due_in(Instant::now()).is_zero();
-        let pause_generation = inner.switcher.pause_generation;
-        if !read_due {
+        // The switcher check runs beside the read, and the numbers are shown
+        // as soon as they are in: a slow dry run never holds them back.
+        #[cfg(feature = "author-tools")]
+        let switcher = {
+            let home = inner.home.clone();
+            let claude_paths = inner.claude_paths();
+            // A switcher look on its own, between reads.
+            let read_due = inner.read_now || inner.schedule.due_in(Instant::now()).is_zero();
+            let pause_generation = inner.switcher.pause_generation;
+            if !read_due {
+                inner.switcher_now = false;
+                drop(inner);
+                let check = check_switcher(&home, claude_paths, true, pause_generation);
+                check.store(&mut state.lock());
+                publish(app, state);
+                continue;
+            }
+            let full = inner.switcher_now || inner.schedule.visible();
             inner.switcher_now = false;
-            drop(inner);
-            let check = check_switcher(&home, claude_paths, true, pause_generation);
-            check.store(&mut state.lock());
-            publish(app, state);
-            continue;
-        }
-        let full = inner.switcher_now || inner.schedule.visible();
-        inner.switcher_now = false;
+            thread::spawn(move || check_switcher(&home, claude_paths, full, pause_generation))
+        };
         inner.read_now = false;
         inner.reading = true;
         let accounts = inner.claude_store();
@@ -94,10 +109,6 @@ fn run(app: &AppHandle, state: &AppState) {
         drop(inner);
         publish(app, state);
 
-        // The switcher check runs beside the read, and the numbers are shown
-        // as soon as they are in: a slow dry run never holds them back.
-        let switcher =
-            thread::spawn(move || check_switcher(&home, claude_paths, full, pause_generation));
         let codex_app = app_dir.clone();
         let codex = thread::spawn(move || codex_home.map(|h| read_codex(&h, &codex_app)));
         let (claude, agy, own) = read_all(&accounts, &app_dir, names);
@@ -130,6 +141,7 @@ fn run(app: &AppHandle, state: &AppState) {
         crate::env::every(app, state);
         publish(app, state);
 
+        #[cfg(feature = "author-tools")]
         if let Ok(check) = switcher.join() {
             check.store(&mut state.lock());
             publish(app, state);
@@ -138,6 +150,7 @@ fn run(app: &AppHandle, state: &AppState) {
 }
 
 /// One look at the switcher. Without `full`, only the pause flag.
+#[cfg(feature = "author-tools")]
 struct SwitcherCheck {
     pause: Option<pause::Flag>,
     /// The flag's generation when the check started.
@@ -145,6 +158,7 @@ struct SwitcherCheck {
     full: Option<FullCheck>,
 }
 
+#[cfg(feature = "author-tools")]
 struct FullCheck {
     /// The rotation's decision now; `noAccounts` before the app keeps any.
     dry_run: Result<DryRunRecord, &'static str>,
@@ -153,6 +167,7 @@ struct FullCheck {
     legacy: Option<String>,
 }
 
+#[cfg(feature = "author-tools")]
 fn check_switcher(home: &Path, paths: Paths, full: bool, pause_generation: u64) -> SwitcherCheck {
     let flag_file = pause::path(home);
     let pause = pause::read(&flag_file).ok().flatten();
@@ -182,6 +197,7 @@ fn check_switcher(home: &Path, paths: Paths, full: bool, pause_generation: u64) 
     SwitcherCheck { pause, pause_generation, full }
 }
 
+#[cfg(feature = "author-tools")]
 impl SwitcherCheck {
     fn store(self, inner: &mut Inner) {
         let sw = &mut inner.switcher;
@@ -277,14 +293,17 @@ fn read_codex(codex_home: &Path, app: &AppDir) -> Response {
     )
 }
 
-/// Reads each account whose reading is due and writes the files Firstmate
-/// reads. No token is refreshed while an older switcher runs.
+/// Reads each account whose reading is due and writes the data file.
 fn read_own(store: &Store, names: bool) -> Own {
     if !store.paths.in_use() {
         return None;
     }
-    let legacy = quota_station_core::os::scheduler().legacy_loaded();
-    usage::read_due(store, &Endpoints::anthropic(), false, legacy.is_none());
+    // No token is refreshed while an older switcher runs.
+    #[cfg(feature = "author-tools")]
+    let may_refresh = quota_station_core::os::scheduler().legacy_loaded().is_none();
+    #[cfg(not(feature = "author-tools"))]
+    let may_refresh = true;
+    usage::read_due(store, &Endpoints::anthropic(), false, may_refresh);
     let _ = state::write(store, switch::active_slot(store), OffsetDateTime::now_utc());
     Some(crate::claude::load(store, names))
 }
@@ -448,6 +467,7 @@ mod tests {
         assert!(inner.codex_quota.is_none());
     }
 
+    #[cfg(feature = "author-tools")]
     #[test]
     fn a_switcher_check_that_read_the_flag_before_a_pause_keeps_the_pause() {
         let mut inner = inner();

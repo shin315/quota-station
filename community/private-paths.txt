@@ -27,3 +27,4 @@ src-tauri/src/copy.rs
 src-tauri/src/rules.rs
 # The menu bar icon while the rotation is paused.
 assets/menubar/qs-tray-paused.svg
+src-tauri/src/timer.rs

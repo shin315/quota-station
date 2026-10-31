@@ -210,6 +210,11 @@ def item_end(text, i):
                 if text.startswith('else', j) or (j < len(text) and text[j] in '.?'):
                     i = j
                     continue
+                # A struct pattern or literal goes on along its line
+                # (`Kind { .. } if … =>`); a block ends with its line.
+                if j < len(text) and '\n' not in text[i + 1:j]:
+                    i = j
+                    continue
                 return i + 1
         elif c == '<' and depth == 0 and i > 0 and (IDENT.match(text[i - 1]) or text[i - 1] == ':') and text[i + 1] not in '= ':
             angle += 1

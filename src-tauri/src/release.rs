@@ -313,8 +313,8 @@ fn section_line(name: &str, s: &Section, home: &str) -> String {
 }
 
 /// What "Chép" copies, exactly as the dialog shows it: the version, the
-/// build, macOS and the chip, the language, Nâng cao, what was found and
-/// each service's last read. No email, account name, key or path outside ~.
+/// build, macOS and the chip, the language, what was found and each
+/// service's last read. No email, account name, key or path outside ~.
 pub fn diagnostics(inner: &Inner) -> String {
     // Windows rarely sets `HOME`: its profile folder is the app's home.
     let home = if cfg!(windows) {
@@ -326,9 +326,8 @@ pub fn diagnostics(inner: &Inner) -> String {
     if cfg!(feature = "antigravity-accounts") {
         features.push("antigravity-accounts");
     }
-    if cfg!(feature = "author-tools") {
-        features.push("author-tools");
-    }
+    #[cfg(feature = "author-tools")]
+    features.push("author-tools");
     let build = if features.is_empty() { "MIT build".to_string() } else { features.join(", ") };
     let commit = crate::install::COMMIT.unwrap_or("no commit");
     let snap = inner.detailed_snapshot();
@@ -340,14 +339,16 @@ pub fn diagnostics(inner: &Inner) -> String {
         .ok()
         .and_then(|v| v.as_str().map(String::from))
         .unwrap_or_default();
+    let platform = format!("{} · {} · language {language}", system(), std::env::consts::ARCH);
+    // And Nâng cao.
+    #[cfg(feature = "author-tools")]
+    let platform = format!(
+        "{platform} · Advanced {}",
+        if inner.settings.advanced_shown() { "on" } else { "off" }
+    );
     let lines = [
         format!("Quota Station {} ({commit}) · {build}", inner.app_version),
-        format!(
-            "{} · {} · language {language} · Advanced {}",
-            system(),
-            std::env::consts::ARCH,
-            if inner.settings.advanced_shown() { "on" } else { "off" }
-        ),
+        platform,
         format!(
             "Claude Code: {} · {} account(s) kept · Keychain {keychain}",
             if inner.claude_program.is_some() { "found" } else { "not found" },
