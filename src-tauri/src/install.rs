@@ -6,18 +6,19 @@
 //! Also "Cập nhật từ mã nguồn", which pulls the clone set in settings and
 //! runs its `scripts/install.sh` over the running copy, then opens the new
 //! copy when the owner asks. The update from source is one of the author's
-//! tools: only a build with the `author-tools` feature has it.
+//! tools, and a Mac's: only a build with the `author-tools` feature has it,
+//! and only on macOS.
 //! @private:end
 
-#[cfg(feature = "author-tools")]
+#[cfg(all(feature = "author-tools", unix))]
 use std::path::{Path, PathBuf};
-#[cfg(feature = "author-tools")]
+#[cfg(all(feature = "author-tools", unix))]
 use std::process::{Command, Stdio};
 
 use quota_station_core::login_item::{self, LoginItems, Status};
-#[cfg(feature = "author-tools")]
+#[cfg(all(feature = "author-tools", unix))]
 use quota_station_core::runner;
-#[cfg(feature = "author-tools")]
+#[cfg(all(feature = "author-tools", unix))]
 use quota_station_core::update::{self, Outcome, SourceError, Step, Tools, UpdateError};
 use serde::Serialize;
 use tauri::{AppHandle, State};
@@ -37,11 +38,11 @@ pub struct InstallState {
     /// As macOS last reported it: at start, after the switch and when the
     /// settings open.
     pub login: Status,
-    #[cfg(feature = "author-tools")]
+    #[cfg(all(feature = "author-tools", unix))]
     pub updating: Option<Step>,
-    #[cfg(feature = "author-tools")]
+    #[cfg(all(feature = "author-tools", unix))]
     pub outcome: Option<Outcome>,
-    #[cfg(feature = "author-tools")]
+    #[cfg(all(feature = "author-tools", unix))]
     pub error: Option<UpdateError>,
 }
 
@@ -49,11 +50,11 @@ impl Default for InstallState {
     fn default() -> Self {
         InstallState {
             login: Status::Off,
-            #[cfg(feature = "author-tools")]
+            #[cfg(all(feature = "author-tools", unix))]
             updating: None,
-            #[cfg(feature = "author-tools")]
+            #[cfg(all(feature = "author-tools", unix))]
             outcome: None,
-            #[cfg(feature = "author-tools")]
+            #[cfg(all(feature = "author-tools", unix))]
             error: None,
         }
     }
@@ -67,14 +68,15 @@ pub struct AppView {
     /// The first 7 characters of [`COMMIT`], with `-dirty` kept.
     pub commit: Option<String>,
     pub launch_at_login: Status,
-    /// The update from source; only in a build with the author's tools.
-    #[cfg(feature = "author-tools")]
+    /// The update from source; only in a build with the author's tools, on
+    /// a Mac.
+    #[cfg(all(feature = "author-tools", unix))]
     #[serde(flatten)]
     pub source: SourceView,
 }
 
 /// "Mã nguồn" and "Cập nhật từ mã nguồn" in Cài đặt › Nâng cao.
-#[cfg(feature = "author-tools")]
+#[cfg(all(feature = "author-tools", unix))]
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SourceView {
@@ -97,7 +99,7 @@ fn short(commit: &str) -> String {
     rest.map_or(hash.clone(), |r| format!("{hash}-{r}"))
 }
 
-#[cfg(feature = "author-tools")]
+#[cfg(all(feature = "author-tools", unix))]
 fn log_file(inner: &Inner) -> PathBuf {
     inner.app_dir().path().join("update/install.log")
 }
@@ -107,12 +109,12 @@ pub fn view(inner: &Inner) -> AppView {
         version: inner.app_version.clone(),
         commit: COMMIT.map(short),
         launch_at_login: inner.install.login,
-        #[cfg(feature = "author-tools")]
+        #[cfg(all(feature = "author-tools", unix))]
         source: source_view(inner),
     }
 }
 
-#[cfg(feature = "author-tools")]
+#[cfg(all(feature = "author-tools", unix))]
 fn source_view(inner: &Inner) -> SourceView {
     let source = inner.settings.source_dir.as_deref();
     let source_status = match source.map(update::check_source) {
@@ -132,13 +134,13 @@ fn source_view(inner: &Inner) -> SourceView {
 }
 
 /// The folder holding the `.app` this copy runs from.
-#[cfg(feature = "author-tools")]
+#[cfg(all(feature = "author-tools", unix))]
 fn running_dest() -> Option<PathBuf> {
     std::env::current_exe().ok().as_deref().and_then(update::install_dest)
 }
 
 /// The `.app` this copy runs from.
-#[cfg(feature = "author-tools")]
+#[cfg(all(feature = "author-tools", unix))]
 fn running_bundle() -> Option<PathBuf> {
     let exe = std::env::current_exe().ok()?;
     update::install_dest(&exe)?;
@@ -187,7 +189,7 @@ pub fn open_login_items(app: AppHandle) {
 
 /// The clone to update from; empty forgets it. Rejects with `missing` or
 /// `notSource`.
-#[cfg(feature = "author-tools")]
+#[cfg(all(feature = "author-tools", unix))]
 #[tauri::command]
 pub fn set_source_dir(
     app: AppHandle,
@@ -216,7 +218,7 @@ pub fn set_source_dir(
 /// install script into the folder this copy runs from, unless this copy was
 /// built from that commit already. The outcome comes in the model. Rejects
 /// with `busy`, `noSource` or `unbundled`.
-#[cfg(feature = "author-tools")]
+#[cfg(all(feature = "author-tools", unix))]
 #[tauri::command]
 pub async fn update_from_source(
     app: AppHandle,
@@ -263,7 +265,7 @@ pub async fn update_from_source(
 /// process to end before opening the new copy (opening it while this one
 /// runs would only bring this one forward). Rejects with `notInstalled`,
 /// `rulesDirty` (the rules editor holds changes) or `unbundled`.
-#[cfg(feature = "author-tools")]
+#[cfg(all(feature = "author-tools", unix))]
 #[tauri::command]
 pub fn relaunch(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
     {

@@ -35,14 +35,13 @@ use time::OffsetDateTime;
 
 use crate::rotation::{self, Stamp};
 use crate::runner::{self, RunError};
+pub use crate::settings::alias_ok;
 use crate::time_util::parse_ts;
 
 /// One SSH call, connection included.
 pub const SSH_TIMEOUT: Duration = Duration::from_secs(20);
 /// How long a Mac that could not take the file waits before the next try.
 pub const RETRY_MINUTES: i64 = 5;
-/// The longest alias kept.
-pub const ALIAS_MAX: usize = 64;
 
 /// `ssh` exits 255 when it could not reach the other Mac or log in.
 const SSH_FAILED: i32 = 255;
@@ -103,15 +102,6 @@ pub fn cksum(text: &str) -> u32 {
         len >>= 8;
     }
     !crc
-}
-
-/// An SSH alias as typed in settings: what `~/.ssh/config` or a host name
-/// allows, and never something `ssh` would read as an option.
-pub fn alias_ok(alias: &str) -> bool {
-    let mut chars = alias.chars();
-    alias.len() <= ALIAS_MAX
-        && chars.next().is_some_and(|c| c.is_ascii_alphanumeric())
-        && chars.all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_' | '@'))
 }
 
 /// The first `ssh` on `path_var` (a `PATH` value), else `/usr/bin/ssh`.

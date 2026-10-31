@@ -25,12 +25,15 @@
 //! @private:begin
 //!
 //! With the `author-tools` feature it also pauses the rotation and runs it
-//! from its own LaunchAgent; edits the rotation file and copies it to the
-//! owner's other Macs over SSH, so every Mac's switcher follows the same
-//! rules (M5); shows what Firstmate sees (M6); updates itself from a clone
-//! of its source with `scripts/install.sh` (M7); and copies the agents'
-//! setup, item by item, to or from another Mac over SSH, where that Mac's
-//! own Quota Station writes them (M13).
+//! from its own LaunchAgent (on Windows, from its own timer); edits the
+//! rotation file and copies it to the owner's other Macs over SSH, so every
+//! Mac's switcher follows the same rules (M5); shows what Firstmate sees
+//! (M6); updates itself from a clone of its source with
+//! `scripts/install.sh` (M7); and copies the agents' setup, item by item,
+//! to or from another Mac over SSH, where that Mac's own Quota Station
+//! writes them (M13). On Windows it does the rotation, its rules, the pause
+//! and Firstmate; the copies to other Macs and the update from source are a
+//! Mac's only.
 //! @private:end
 
 // A window app on Windows: a release build opens no console of its own.
@@ -52,7 +55,7 @@ mod codex_accounts;
 mod codex_import;
 mod codex_wake;
 mod commands;
-#[cfg(feature = "author-tools")]
+#[cfg(all(feature = "author-tools", unix))]
 mod copy;
 mod diag;
 mod env;
@@ -98,11 +101,17 @@ fn main() {
         attach_console();
     }
     if args.first().map(String::as_str) == Some("agents") {
-        #[cfg(feature = "author-tools")]
+        #[cfg(all(feature = "author-tools", unix))]
         std::process::exit(copy::cli(&args[1..]));
         // `quota-station agents …` is refused, as by a copy of another
         // version, without a window.
         #[cfg(not(feature = "author-tools"))]
+        {
+            println!("{}", serde_json::json!({ "error": "protocol" }));
+            std::process::exit(quota_station_core::agents::COPY_REFUSED);
+        }
+        // Windows has no copy to another Mac: refused the same way.
+        #[cfg(all(feature = "author-tools", not(unix)))]
         {
             println!("{}", serde_json::json!({ "error": "protocol" }));
             std::process::exit(quota_station_core::agents::COPY_REFUSED);
@@ -168,7 +177,7 @@ fn main() {
             reader::spawn(app.handle().clone(), state.clone());
             #[cfg(feature = "antigravity-accounts")]
             agy_quota::spawn(app.handle().clone(), state.clone());
-            #[cfg(feature = "author-tools")]
+            #[cfg(all(feature = "author-tools", unix))]
             rules::spawn(app.handle().clone(), state.clone());
             codex_wake::spawn(app.handle().clone(), state.clone());
             // Windows has no launchd: the app runs the rotation itself.
@@ -247,15 +256,15 @@ commands![
     claude::claude_set_rotation,
     #[cfg(feature = "author-tools")]
     rules::save_rotation,
-    #[cfg(feature = "author-tools")]
+    #[cfg(all(feature = "author-tools", unix))]
     rules::adopt_rotation,
-    #[cfg(feature = "author-tools")]
+    #[cfg(all(feature = "author-tools", unix))]
     rules::keep_rotation,
-    #[cfg(feature = "author-tools")]
+    #[cfg(all(feature = "author-tools", unix))]
     rules::retry_rotation,
-    #[cfg(feature = "author-tools")]
+    #[cfg(all(feature = "author-tools", unix))]
     rules::set_peers,
-    #[cfg(feature = "author-tools")]
+    #[cfg(all(feature = "author-tools", unix))]
     rules::test_peer,
     #[cfg(feature = "author-tools")]
     rules::preview_rotation,
@@ -373,11 +382,11 @@ commands![
     backup::restore_run,
     backup::restore_retry,
     backup::restore_undo,
-    #[cfg(feature = "author-tools")]
+    #[cfg(all(feature = "author-tools", unix))]
     copy::copy_compare,
-    #[cfg(feature = "author-tools")]
+    #[cfg(all(feature = "author-tools", unix))]
     copy::copy_run,
-    #[cfg(feature = "author-tools")]
+    #[cfg(all(feature = "author-tools", unix))]
     copy::copy_undo,
     alerting::alert_action,
     alerting::alerts_read,
@@ -392,11 +401,11 @@ commands![
     install::settings_opened,
     install::set_launch_at_login,
     install::open_login_items,
-    #[cfg(feature = "author-tools")]
+    #[cfg(all(feature = "author-tools", unix))]
     install::set_source_dir,
-    #[cfg(feature = "author-tools")]
+    #[cfg(all(feature = "author-tools", unix))]
     install::update_from_source,
-    #[cfg(feature = "author-tools")]
+    #[cfg(all(feature = "author-tools", unix))]
     install::relaunch,
     session::session_get,
     session::session_step,
@@ -595,11 +604,10 @@ mod tests {
     use super::command_names;
 
     // @private:begin
-    /// The commands of the author's tools: Nâng cao and its Firstmate
-    /// switch, the pause, the rotation and its rules editor, the other Macs,
-    /// the quit guard for unsaved rules, the copy to another Mac,
-    /// Firstmate's state file, and the update from source.
-    const AUTHOR_COMMANDS: [&str; 24] = [
+    /// The commands of the author's tools on every system: Nâng cao and its
+    /// Firstmate switch, the pause, the rotation and its rules editor, the
+    /// quit guard for unsaved rules, and Firstmate's state file.
+    const AUTHOR_COMMANDS: [&str; 13] = [
         "set_advanced",
         "set_firstmate",
         "pause_switching",
@@ -608,19 +616,24 @@ mod tests {
         "claude_set_enabled",
         "claude_set_rotation",
         "save_rotation",
+        "preview_rotation",
+        "rules_dirty",
+        "take_quit",
+        "close_main",
+        "set_firstmate_file",
+    ];
+
+    /// Those only a Mac has: the rules' copy to the other Macs, the copy to
+    /// another Mac, and the update from source.
+    const MAC_COMMANDS: [&str; 11] = [
         "adopt_rotation",
         "keep_rotation",
         "retry_rotation",
         "set_peers",
         "test_peer",
-        "preview_rotation",
-        "rules_dirty",
-        "take_quit",
-        "close_main",
         "copy_compare",
         "copy_run",
         "copy_undo",
-        "set_firstmate_file",
         "set_source_dir",
         "update_from_source",
         "relaunch",
@@ -632,6 +645,9 @@ mod tests {
         let tools = cfg!(feature = "author-tools");
         for command in AUTHOR_COMMANDS {
             assert_eq!(names.contains(&command), tools, "{command}");
+        }
+        for command in MAC_COMMANDS {
+            assert_eq!(names.contains(&command), tools && cfg!(unix), "{command}");
         }
     }
     // @private:end

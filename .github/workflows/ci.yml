@@ -163,7 +163,10 @@ jobs:
   # the guided sessions' test installer. The macOS job stays the required
   # check.
   # @private:begin
-  # (The author's tools are Unix only: Windows builds without them.)
+  # It also runs clippy and the core's and the app's tests with the author's
+  # tools: on Windows they have the rotation, its rules, the pause, the
+  # rotation timer and Firstmate; the copies to other Macs over SSH, the
+  # LaunchAgent and the update from source stay Unix only.
   # @private:end
   build-windows:
     name: Build and test (Windows x64)
@@ -210,6 +213,17 @@ jobs:
 
       - name: cargo test (app, Antigravity accounts)
         run: cargo test -p quota-station --locked --no-fail-fast --features antigravity-accounts
+
+      # @private:begin
+      - name: Clippy with the author's tools
+        run: cargo clippy --workspace --all-targets --locked --features author-tools -- -D warnings
+
+      - name: cargo test (core, author's tools)
+        run: cargo test -p quota-station-core --locked --no-fail-fast --features author-tools
+
+      - name: cargo test (app, author's tools)
+        run: cargo test -p quota-station --locked --no-fail-fast --features author-tools
+      # @private:end
 
       # The test installer for the guided sessions on a Windows PC (plan
       # 4.3): NSIS, unsigned on purpose, MIT build. QS_TEST_SESSION makes it

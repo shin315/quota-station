@@ -46,23 +46,22 @@
 //! The private part is built only with the `author-tools` feature, which
 //! a release build and the community edition leave out
 //! (`community/README.md`): the rotation ([`rotation`], its run in
-//! [`claude::rotate`] from its own LaunchAgent, [`switcher`] reading its
-//! decision and log, and the [`pause`] flag), [`peers`] and the copy of the
-//! rotation file to the owner's other Macs over SSH, `agents::copy` (the
-//! agents' setup to another Mac), [`update`] (`git pull --ff-only` and
-//! `scripts/install.sh` in the clone set in settings), [`firstmate`]
+//! [`claude::rotate`] from its own LaunchAgent, or the app's own timer on
+//! Windows, [`switcher`] reading its decision and log, and the [`pause`]
+//! flag), `peers` and the copy of the rotation file to the owner's other
+//! Macs over SSH, `agents::copy` (the agents' setup to another Mac),
+//! `update` (`git pull --ff-only` and `scripts/install.sh` in the clone set
+//! in settings), [`firstmate`]
 //! (Firstmate's `quota-pool.last`, read only at the path set in settings),
 //! alerts 2 and 5, and the copy of the Claude accounts in claude-swap's
 //! layout. Without it the settings keep their values, so a settings file
-//! passes through either build. It is made for macOS and builds on Unix
-//! only.
+//! passes through either build. It builds on macOS and Windows; what only
+//! a Mac does (`peers`, `agents::copy`, `update` and the LaunchAgent)
+//! builds on Unix only.
 //!
 // @private:end
 //! What the core asks of the operating system (the secret store, the
 //! process list, opening a URL) goes through the seams in [`os`].
-
-#[cfg(all(feature = "author-tools", not(unix)))]
-compile_error!("`author-tools` (the tools for the author's own Macs) builds on Unix only");
 
 pub mod agents;
 pub mod alerts;
@@ -82,7 +81,7 @@ pub mod login_item;
 pub mod os;
 #[cfg(feature = "author-tools")]
 pub mod pause;
-#[cfg(feature = "author-tools")]
+#[cfg(all(feature = "author-tools", unix))]
 pub mod peers;
 pub mod quota;
 pub mod release;
@@ -99,7 +98,7 @@ pub mod stats;
 pub mod switcher;
 pub mod switching;
 mod time_util;
-#[cfg(feature = "author-tools")]
+#[cfg(all(feature = "author-tools", unix))]
 pub mod update;
 #[cfg(windows)]
 pub mod win;
