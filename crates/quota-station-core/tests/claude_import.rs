@@ -154,7 +154,9 @@ fn importing_again_changes_nothing_the_owner_set() {
     let mut list = mac.store.load().unwrap();
     list.get_mut(2).unwrap().alias = Some("Đã đổi".into());
     #[cfg(feature = "author-tools")]
-    list.get_mut(3).unwrap().disabled = true;
+    {
+        list.get_mut(3).unwrap().disabled = true;
+    }
     mac.store.save(&list).unwrap();
     let saved = std::fs::read(mac.paths.accounts()).unwrap();
     let again = import::import(&mac.store, &dir).unwrap();

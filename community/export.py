@@ -211,8 +211,9 @@ def item_end(text, i):
                     i = j
                     continue
                 # A struct pattern or literal goes on along its line
-                # (`Kind { .. } if … =>`); a block ends with its line.
-                if j < len(text) and '\n' not in text[i + 1:j]:
+                # (`Kind { .. } if … =>`), and a match arm's pattern into its
+                # guard on the next line; a block ends with its line.
+                if j < len(text) and ('\n' not in text[i + 1:j] or arm_goes_on(text, j)):
                     i = j
                     continue
                 return i + 1
@@ -220,9 +221,32 @@ def item_end(text, i):
             angle += 1
         elif c == '>' and depth == 0 and angle > 0 and text[i - 1] not in '-=':
             angle -= 1
+        elif c == '|' and depth == 0 and opens_closure(text, i):
+            # A closure's parameters: their commas end nothing.
+            i = text.index('|', i + 1) + 1
+            continue
         elif c in ';,' and depth == 0 and angle == 0:
             return i + 1
         i += 1
+
+
+def arm_goes_on(text, j):
+    """Whether a match arm's pattern goes on at `j`: `=> …`, or a guard `if … =>`."""
+    if text.startswith('=>', j):
+        return True
+    if not re.match(r'if\b', text[j:]):
+        return False
+    arrow = text.find('=>', j)
+    brace = text.find('{', j)
+    return arrow != -1 and (brace == -1 or arrow < brace)
+
+
+def opens_closure(text, i):
+    """Whether the `|` at `i` opens a closure's parameters (after `=`, `(`, `,` or `move`)."""
+    if text.startswith('||', i):
+        return False
+    before = text[:i].rstrip()
+    return before.endswith(('=', '(', ',')) and not before.endswith(('==', '!=', '<=', '>=')) or before.endswith('move')
 
 
 def line_start(text, i):
