@@ -45,7 +45,7 @@ import { agyLoginOf, agySwitchErrorFeedback, agySwitchFeedback, type AppAnswer }
 import { codexErrorFeedback, codexFeedback, codexPopover, codexRestartFeedback, keyFeedback, nextTarget, pluginsNeedApply } from './lib/codex';
 import type { Api } from './lib/api';
 // @private:begin
-import { authorModel } from '@/private/author';
+import { authorModel, macTools } from '@/private/author';
 // @private:end
 import { alertFailedFeedback, testFailedFeedback } from './lib/alerts';
 import type { AgyHow, AlertKind, CodexOutcome, CodexTarget, Language, Model, Platform, Sessions, SettingsGroup, Tab, Theme, ThemePack } from './lib/model';
@@ -1062,7 +1062,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
           model={model}
           release={release}
           // @private:begin
-          onUpdateFromSource={author && model.advanced.on ? () => void refusal(api.updateFromSource()) : undefined}
+          onUpdateFromSource={author && model.advanced.on && macTools(author) ? () => void refusal(api.updateFromSource()) : undefined}
           // @private:end
         />
       ) : release.dialog === 'diag' ? (
@@ -1150,7 +1150,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       backup={<BackupTab model={model} fresh={view.fresh} feedback={feedback} now={now} backup={backup} onAction={onAction} />}
       history={<HistoryTab model={model} fresh={view.fresh} now={now} load={api.getHistory} />}
       // @private:begin
-      copy={author ? <CopyTab model={author} feedback={feedback} copy={copy} onAction={onAction} /> : null}
+      copy={author && macTools(author) ? <CopyTab model={author} feedback={feedback} copy={copy} onAction={onAction} /> : null}
       firstmate={author ? <FirstmateTab model={author} fresh={view.fresh} now={now} onAction={onAction} /> : null}
       // @private:end
       bell={

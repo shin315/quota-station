@@ -3,7 +3,8 @@
 
 import { describe, expect, it } from 'vitest';
 import { communityModel, fixtureModel } from '@/fixtures/models';
-import { authorModel } from './author';
+import { appFixture } from '@/fixtures/models';
+import { authorModel, macTools, sourceView } from './author';
 
 describe('the author\'s tools', () => {
   it('come with a build that has them, and not with one that does not', () => {
@@ -17,5 +18,16 @@ describe('the author\'s tools', () => {
     expect(authorModel({ ...full, rotation: undefined })).toBeNull();
     expect(authorModel({ ...full, firstmate: undefined })).toBeNull();
     expect(authorModel({ ...full, capabilities: { ...full.capabilities, authorTools: false } })).toBeNull();
+  });
+
+  it('come on Windows without what only a Mac does', () => {
+    const full = fixtureModel('fresh');
+    const { version, commit, launchAtLogin } = appFixture();
+    const win = { ...full, capabilities: { ...full.capabilities, platform: 'windows' as const }, app: { version, commit, launchAtLogin } };
+    expect(authorModel(win)).toBe(win);
+    expect(macTools(win)).toBe(false);
+    expect(sourceView(win.app)).toBeNull();
+    expect(macTools(full)).toBe(true);
+    expect(sourceView(full.app)).toBe(full.app);
   });
 });

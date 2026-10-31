@@ -5,7 +5,7 @@
 
 #[cfg(feature = "antigravity-accounts")]
 use std::collections::BTreeMap;
-#[cfg(feature = "author-tools")]
+#[cfg(all(feature = "author-tools", unix))]
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
@@ -32,7 +32,7 @@ use quota_station_core::detail::ClaudeDetail;
 use quota_station_core::firstmate::{self, Reading};
 use quota_station_core::history::Seen;
 use quota_station_core::icon::{self, Context, Icon};
-#[cfg(feature = "author-tools")]
+#[cfg(all(feature = "author-tools", unix))]
 use quota_station_core::peers::{self, PeerState, SyncLog};
 use quota_station_core::quota::Response;
 #[cfg(feature = "author-tools")]
@@ -71,11 +71,11 @@ pub struct Shared {
     /// Wakes the reader thread early: a read was asked for, or settings changed.
     pub wake: Condvar,
     /// Wakes the rotation sync thread: a save, or the list of Macs changed.
-    #[cfg(feature = "author-tools")]
+    #[cfg(all(feature = "author-tools", unix))]
     pub sync_wake: Condvar,
     /// Held while copying the rotation file to the other Macs, so two copies
     /// to the same Mac never run at once.
-    #[cfg(feature = "author-tools")]
+    #[cfg(all(feature = "author-tools", unix))]
     pub push_lock: Mutex<()>,
     /// Wakes the Antigravity quota thread: a read, the tab, a login.
     pub agy_wake: Condvar,
@@ -96,9 +96,9 @@ impl Shared {
         Arc::new(Shared {
             inner: Mutex::new(inner),
             wake: Condvar::new(),
-            #[cfg(feature = "author-tools")]
+            #[cfg(all(feature = "author-tools", unix))]
             sync_wake: Condvar::new(),
-            #[cfg(feature = "author-tools")]
+            #[cfg(all(feature = "author-tools", unix))]
             push_lock: Mutex::new(()),
             agy_wake: Condvar::new(),
             #[cfg(feature = "antigravity-accounts")]
@@ -109,7 +109,7 @@ impl Shared {
     }
 
     /// Asks the sync thread to look at the other Macs now.
-    #[cfg(feature = "author-tools")]
+    #[cfg(all(feature = "author-tools", unix))]
     pub fn request_sync(&self) {
         self.lock().sync_now = true;
         self.sync_wake.notify_all();
@@ -195,14 +195,14 @@ pub struct Inner {
     /// The slot a manual switch is running for.
     pub switching: Option<u32>,
     /// Where each other Mac stands with this Mac's rotation file.
-    #[cfg(feature = "author-tools")]
+    #[cfg(all(feature = "author-tools", unix))]
     pub sync: SyncLog,
-    #[cfg(feature = "author-tools")]
+    #[cfg(all(feature = "author-tools", unix))]
     pub sync_file: PathBuf,
-    #[cfg(feature = "author-tools")]
+    #[cfg(all(feature = "author-tools", unix))]
     pub sync_now: bool,
     /// Aliases of the Macs a copy is going to now.
-    #[cfg(feature = "author-tools")]
+    #[cfg(all(feature = "author-tools", unix))]
     pub pushing: BTreeSet<String>,
     /// A rotation save is running.
     #[cfg(feature = "author-tools")]
@@ -269,7 +269,7 @@ pub struct Inner {
     pub release: crate::release::Live,
     /// Claude Code, Codex and agy as last found, and their check and update.
     pub cli_tools: crate::cli_tools::Live,
-    #[cfg(feature = "author-tools")]
+    #[cfg(all(feature = "author-tools", unix))]
     pub copy: crate::copy::Live,
     /// The variables that override a login (M14).
     pub env: crate::env::Live,
@@ -362,7 +362,7 @@ pub enum Tab {
     /// Cập nhật Agent: Claude Code, the Codex CLI and the Antigravity CLI.
     CliTools,
     Backup,
-    #[cfg(feature = "author-tools")]
+    #[cfg(all(feature = "author-tools", unix))]
     Copy,
     Settings,
 }
@@ -372,7 +372,7 @@ impl Inner {
         let settings = Settings::open(&settings_file);
         #[cfg(feature = "author-tools")]
         let firstmate = settings.firstmate_file.as_deref().map(firstmate::read);
-        #[cfg(feature = "author-tools")]
+        #[cfg(all(feature = "author-tools", unix))]
         let sync_file = settings_file.with_file_name("rotation-sync.json");
         let app_dir =
             AppDir::new(settings_file.parent().map(|p| p.to_path_buf()).unwrap_or_default());
@@ -404,13 +404,13 @@ impl Inner {
             #[cfg(feature = "author-tools")]
             switcher_now: true,
             switching: None,
-            #[cfg(feature = "author-tools")]
+            #[cfg(all(feature = "author-tools", unix))]
             sync: SyncLog::load(&sync_file),
-            #[cfg(feature = "author-tools")]
+            #[cfg(all(feature = "author-tools", unix))]
             sync_file,
-            #[cfg(feature = "author-tools")]
+            #[cfg(all(feature = "author-tools", unix))]
             sync_now: true,
-            #[cfg(feature = "author-tools")]
+            #[cfg(all(feature = "author-tools", unix))]
             pushing: BTreeSet::new(),
             #[cfg(feature = "author-tools")]
             rotation_saving: false,
@@ -448,7 +448,7 @@ impl Inner {
             env: crate::env::Live::default(),
             sets: crate::sets::Live::default(),
             stats: crate::stats::Live::default(),
-            #[cfg(feature = "author-tools")]
+            #[cfg(all(feature = "author-tools", unix))]
             copy: crate::copy::Live::default(),
         }
     }
@@ -651,7 +651,8 @@ impl Inner {
         }
     }
 
-    /// The rotation file as it is on disk now, and each other Mac against it.
+    /// The rotation file as it is on disk now, and each other Mac against it
+    /// (none on Windows, which copies it to no other Mac).
     #[cfg(feature = "author-tools")]
     pub fn rotation_view(&self) -> RotationView {
         let file = self.claude_paths().rotation_file();
@@ -668,6 +669,7 @@ impl Inner {
                 ("ok", Some(parsed.rules.clone()), None, parsed.ignored_keys.clone())
             }
         };
+        #[cfg(unix)]
         let peers = self
             .settings
             .peers
@@ -704,8 +706,14 @@ impl Inner {
                     .collect::<Vec<_>>(),
             ),
             saving: self.rotation_saving,
+            #[cfg(unix)]
             peers,
+            #[cfg(not(unix))]
+            peers: [],
+            #[cfg(unix)]
             ssh: peers::find_ssh(std::env::var_os("PATH").as_deref()).is_some(),
+            #[cfg(not(unix))]
+            ssh: false,
         }
     }
 
@@ -875,12 +883,16 @@ pub struct RotationView {
     /// in the rotation, each in turn. There is no built-in rotation.
     pub defaults: Rules,
     pub saving: bool,
+    #[cfg(unix)]
     pub peers: Vec<PeerView>,
-    /// An `ssh` to copy the file with.
+    /// Windows copies the file to no other Mac: always `[]`.
+    #[cfg(not(unix))]
+    pub peers: [(); 0],
+    /// An `ssh` to copy the file with; never on Windows.
     pub ssh: bool,
 }
 
-#[cfg(feature = "author-tools")]
+#[cfg(all(feature = "author-tools", unix))]
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PeerView {
@@ -955,7 +967,7 @@ mod tests {
         Inner::new(PathBuf::new(), PathBuf::from("/nonexistent/settings.json"), "Mac Studio".into())
     }
 
-    #[cfg(feature = "author-tools")]
+    #[cfg(all(feature = "author-tools", unix))]
     fn sample() -> Rules {
         Rules { team: vec![2, 3, 4], personal: Some(1), ..Rules::starter(&[]) }
     }
@@ -1010,7 +1022,7 @@ mod tests {
         assert!(!inner.model().switcher.pause.unwrap().holds);
     }
 
-    #[cfg(feature = "author-tools")]
+    #[cfg(all(feature = "author-tools", unix))]
     #[test]
     fn each_other_mac_is_shown_against_the_file_on_disk_now() {
         use quota_station_core::peers::PeerRecord;
@@ -1067,7 +1079,8 @@ mod tests {
     }
 
     /// A settings file with Nâng cao and Firstmate on: the windows get them,
-    /// with the rules editor, Firstmate and the update from source.
+    /// with the rules editor, Firstmate and, on a Mac, the update from
+    /// source. Windows has no other Mac to copy the rules to.
     #[cfg(feature = "author-tools")]
     #[test]
     fn the_model_carries_the_author_tools() {
@@ -1084,7 +1097,11 @@ mod tests {
         assert_eq!(json["advanced"]["firstmate"], true);
         assert!(json.get("rotation").is_some());
         assert!(json.get("firstmate").is_some());
-        assert!(json["app"].get("sourceStatus").is_some());
+        assert_eq!(json["app"].get("sourceStatus").is_some(), cfg!(unix));
+        if cfg!(windows) {
+            assert_eq!(json["rotation"]["peers"], serde_json::json!([]));
+            assert_eq!(json["rotation"]["ssh"], false);
+        }
         assert!(inner.settings.advanced && inner.settings.firstmate, "the file keeps them");
         let _ = std::fs::remove_dir_all(&dir);
     }

@@ -160,20 +160,10 @@ pub fn is_pool_file(path: &Path) -> bool {
 /// Reads the state file at `path`: a plain file, not a symlink (it is
 /// opened without following one) and not a pipe or a device.
 pub fn read(path: &Path) -> Result<Reading, ReadError> {
-    use std::os::unix::fs::OpenOptionsExt;
     if !is_pool_file(path) {
         return Err(ReadError::NotPoolFile);
     }
-    let file = match std::fs::OpenOptions::new()
-        .read(true)
-        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
-        .open(path)
-    {
-        Ok(f) => f,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Err(ReadError::Missing),
-        Err(e) if e.raw_os_error() == Some(libc::ELOOP) => return Err(ReadError::NotPlain),
-        Err(e) => return Err(ReadError::Unreadable(e.to_string())),
-    };
+    let file = open_plain(path)?;
     let meta = file.metadata().map_err(|e| ReadError::Unreadable(e.to_string()))?;
     if !meta.is_file() || meta.len() > MAX_BYTES {
         return Err(ReadError::NotPlain);
@@ -189,6 +179,55 @@ pub fn read(path: &Path) -> Result<Reading, ReadError> {
         .read_to_string(&mut text)
         .map_err(|e| ReadError::Unreadable(e.to_string()))?;
     Ok(Reading { line: parse(&text), modified_at })
+}
+
+/// Opens `path` without following a symlink at its end, and without
+/// waiting on a pipe.
+#[cfg(unix)]
+fn open_plain(path: &Path) -> Result<std::fs::File, ReadError> {
+    use std::os::unix::fs::OpenOptionsExt;
+    match std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+        .open(path)
+    {
+        Ok(f) => Ok(f),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Err(ReadError::Missing),
+        Err(e) if e.raw_os_error() == Some(libc::ELOOP) => Err(ReadError::NotPlain),
+        Err(e) => Err(ReadError::Unreadable(e.to_string())),
+    }
+}
+
+/// Opens `path` as itself when it is a link (a symlink or a junction, both
+/// reparse points), and refuses it then; a folder is refused before
+/// opening, which Windows would refuse as access denied.
+#[cfg(windows)]
+fn open_plain(path: &Path) -> Result<std::fs::File, ReadError> {
+    use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
+    use windows_sys::Win32::Storage::FileSystem::{
+        FILE_ATTRIBUTE_REPARSE_POINT, FILE_FLAG_OPEN_REPARSE_POINT,
+    };
+    let not_found = |e: &std::io::Error| e.kind() == std::io::ErrorKind::NotFound;
+    match std::fs::symlink_metadata(path) {
+        Ok(m) if m.is_dir() => return Err(ReadError::NotPlain),
+        Ok(_) => {}
+        Err(e) if not_found(&e) => return Err(ReadError::Missing),
+        Err(e) => return Err(ReadError::Unreadable(e.to_string())),
+    }
+    let file = match std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
+        .open(path)
+    {
+        Ok(f) => f,
+        Err(e) if not_found(&e) => return Err(ReadError::Missing),
+        Err(e) => return Err(ReadError::Unreadable(e.to_string())),
+    };
+    let meta = file.metadata().map_err(|e| ReadError::Unreadable(e.to_string()))?;
+    if meta.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0 {
+        return Err(ReadError::NotPlain);
+    }
+    Ok(file)
 }
 
 #[cfg(test)]
@@ -251,10 +290,14 @@ mod tests {
         assert_eq!(reading.holding(reading.modified_at - 5), Some(false));
 
         // A symlink by that name is not followed, nor is a folder read.
-        let linked = dir.join("linked");
-        std::fs::create_dir_all(&linked).unwrap();
-        std::os::unix::fs::symlink(&other, linked.join(FILE_NAME)).unwrap();
-        assert_eq!(read(&linked.join(FILE_NAME)), Err(ReadError::NotPlain));
+        // (Making a symlink on Windows needs Developer Mode or an admin.)
+        #[cfg(unix)]
+        {
+            let linked = dir.join("linked");
+            std::fs::create_dir_all(&linked).unwrap();
+            std::os::unix::fs::symlink(&other, linked.join(FILE_NAME)).unwrap();
+            assert_eq!(read(&linked.join(FILE_NAME)), Err(ReadError::NotPlain));
+        }
         let folder = dir.join("folder").join(FILE_NAME);
         std::fs::create_dir_all(&folder).unwrap();
         assert_eq!(read(&folder), Err(ReadError::NotPlain));

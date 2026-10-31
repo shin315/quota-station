@@ -43,7 +43,7 @@ pub mod agy_mcp;
 pub mod batch;
 pub mod claude_mcp;
 pub mod codex_mcp;
-#[cfg(feature = "author-tools")]
+#[cfg(all(feature = "author-tools", unix))]
 pub mod copy;
 pub mod def;
 pub mod env_check;

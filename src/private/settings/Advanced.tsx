@@ -4,12 +4,13 @@
 // Cài đặt › Nâng cao (the author's tools): its switch, and while it is on,
 // Firstmate and its state file, the other Macs the rotation file is copied
 // to (an SSH alias each), and the clone "Cập nhật từ mã nguồn" builds from.
+// Windows has no other Macs and no update from source: their rows stay out.
 
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button, Dot, FieldHint, LinkButton, More, Toggle } from '@/components/parts';
 import { unreadText } from '@/lib/alerts';
-import type { AuthorModel } from '@/private/author';
+import { macTools, sourceView, type AuthorModel } from '@/private/author';
 import type { Peer, PeerTest, SourceView, UpdateError } from '@/lib/model';
 import { t } from '@/lib/i18n';
 import { SET_CTL, SetRow } from '@/settings/SetRow';
@@ -352,6 +353,8 @@ function UpdateFromSource({ app, onUpdate, onRelaunch }: { app: SourceView; onUp
 export function Advanced(props: SettingsProps & { model: AuthorModel; id: string }) {
   const { model } = props;
   const a = model.advanced;
+  const mac = macTools(model);
+  const source = mac ? sourceView(model.app) : null;
   return (
     <SettingsCard id={props.id} title={t('Nâng cao', 'Advanced')} icon="advanced">
       <SetRow
@@ -359,13 +362,17 @@ export function Advanced(props: SettingsProps & { model: AuthorModel; id: string
         inline
         hint={
           <span>
-            {t('Luật, tạm dừng, các Mac khác và Firstmate.', 'Rules, pausing, other Macs and Firstmate.')}{' '}
+            {mac
+              ? t('Luật, tạm dừng, các Mac khác và Firstmate.', 'Rules, pausing, other Macs and Firstmate.')
+              : t('Luật, tạm dừng và Firstmate.', 'Rules, pausing and Firstmate.')}{' '}
             <More small about={t('Hiện phần nâng cao', 'Show advanced features')}>
               <p>
-                {t(
-                  'Tự chuyển Claude theo luật xoay vòng, tạm dừng, các Mac khác, cập nhật từ mã nguồn và Firstmate.',
-                  'Automatic Claude switching by rotation rules, pausing, other Macs, updating from source, and Firstmate.',
-                )}
+                {mac
+                  ? t(
+                      'Tự chuyển Claude theo luật xoay vòng, tạm dừng, các Mac khác, cập nhật từ mã nguồn và Firstmate.',
+                      'Automatic Claude switching by rotation rules, pausing, other Macs, updating from source, and Firstmate.',
+                    )
+                  : t('Tự chuyển Claude theo luật xoay vòng, tạm dừng và Firstmate.', 'Automatic Claude switching by rotation rules, pausing, and Firstmate.')}
               </p>
             </More>
           </span>
@@ -383,9 +390,9 @@ export function Advanced(props: SettingsProps & { model: AuthorModel; id: string
             <Toggle on={a.firstmate} label="Firstmate" onClick={() => props.onFirstmate(!a.firstmate)} />
           </SetRow>
           {a.firstmate ? <FirstmateFile model={model} onSet={props.onSetFirstmate} /> : null}
-          <OtherMacs model={model} onSet={props.onSetPeers} onTest={props.onTestPeer} />
-          <SourceDir app={model.app} onSet={props.onSetSource} />
-          <UpdateFromSource app={model.app} onUpdate={props.onUpdate} onRelaunch={props.onRelaunch} />
+          {mac ? <OtherMacs model={model} onSet={props.onSetPeers} onTest={props.onTestPeer} /> : null}
+          {source ? <SourceDir app={source} onSet={props.onSetSource} /> : null}
+          {source ? <UpdateFromSource app={source} onUpdate={props.onUpdate} onRelaunch={props.onRelaunch} /> : null}
         </>
       ) : null}
     </SettingsCard>

@@ -370,10 +370,18 @@ def build_tree(out, ref, worktree, public_url):
     private = read_list('private-paths.txt')
     keys = json_keys()
     if os.path.exists(out):
-        if not os.path.isdir(out) or (os.listdir(out) and not os.path.exists(os.path.join(out, '.community-export'))):
+        # A build's `target/` alone is no tree (CI restores it from its cache
+        # before the export): it stays, so the build reuses it.
+        names = set(os.listdir(out)) if os.path.isdir(out) else None
+        if names is None or (names - {'target'} and '.community-export' not in names):
             raise ExportError('%s is not empty and is not an earlier export: choose another folder' % out)
-        shutil.rmtree(out)
-    os.makedirs(out)
+        for name in names - {'target'}:
+            full = os.path.join(out, name)
+            if os.path.isdir(full) and not os.path.islink(full):
+                shutil.rmtree(full)
+            else:
+                os.remove(full)
+    os.makedirs(out, exist_ok=True)
     kept = dropped = 0
     for path, data, executable in source_files(ref, worktree):
         if is_private(path, private):
@@ -494,7 +502,7 @@ def push(out, public_url, ref):
 
 def main(argv):
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
-    ap.add_argument('--out', required=True, help='the folder the community tree is written to (empty, or an earlier export)')
+    ap.add_argument('--out', required=True, help='the folder the community tree is written to (empty, an earlier export, or a build\'s target/ alone)')
     ap.add_argument('--ref', default='main', help='the commit to export (default main)')
     ap.add_argument('--worktree', action='store_true', help='export the files as they are now instead of --ref')
     ap.add_argument('--public-url', default=DEFAULT_URL, help='the public repository (default %s)' % DEFAULT_URL)

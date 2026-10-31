@@ -143,6 +143,8 @@ function hiddenTabs(
   if (onWindows()) hidden.add('cliTools');
   // @private:begin
   if (!advanced) ['rules', 'copy'].forEach((t) => hidden.add(t as NavId));
+  // Chép sang Mac khác is a Mac's: Windows has no other Mac to copy to.
+  if (onWindows()) hidden.add('copy');
   if (!advanced || !firstmate) hidden.add('firstmate');
   // @private:end
   return hidden;

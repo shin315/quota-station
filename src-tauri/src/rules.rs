@@ -7,14 +7,21 @@
 //! settings over SSH. A Mac that could not
 //! take it is tried again every 5 minutes; one holding a newer copy waits
 //! for the owner to choose.
+//!
+//! On Windows only the editor is built: the save, the preview, and no copy
+//! to another Mac (the other Macs, SSH and their conflicts are a Mac's).
 
+#[cfg(unix)]
 use std::thread;
+#[cfg(unix)]
 use std::time::Duration;
 
 use quota_station_core::claude::rotate;
+#[cfg(unix)]
 use quota_station_core::peers::{self, PeerRecord, PeerState, RemoteError, RETRY_MINUTES};
 use quota_station_core::quota;
 use quota_station_core::rotation::{self, ApplyError, FileState, Rules, Stamp};
+#[cfg(unix)]
 use quota_station_core::settings::{self, Peer};
 use quota_station_core::switcher;
 use serde::Serialize;
@@ -25,8 +32,10 @@ use crate::reader;
 use crate::state::{AppState, DryRunView, Model};
 
 /// How often the sync thread looks for a Mac whose wait is over.
+#[cfg(unix)]
 const LOOK_EVERY: Duration = Duration::from_secs(60);
 
+#[cfg(unix)]
 pub fn spawn(app: AppHandle, state: AppState) {
     thread::Builder::new()
         .name("rotation-sync".into())
@@ -54,6 +63,7 @@ pub fn spawn(app: AppHandle, state: AppState) {
 /// copy is written too. Does nothing before the app has saved the file once
 /// (no `updated` stamp: nothing of the app's to copy), or while the file is
 /// one quota-axi's format refuses.
+#[cfg(unix)]
 pub fn push_peers(app: &AppHandle, state: &AppState, now_all: bool, force_conflicts: bool) {
     let _one_at_a_time = state.push_lock.lock().unwrap_or_else(|e| e.into_inner());
     let (file, peers) = {
@@ -122,6 +132,7 @@ pub fn push_peers(app: &AppHandle, state: &AppState, now_all: bool, force_confli
     reader::publish(app, state);
 }
 
+#[cfg(unix)]
 fn retry_at(now: OffsetDateTime) -> String {
     use time::format_description::well_known::Rfc3339;
     (now + time::Duration::minutes(RETRY_MINUTES)).format(&Rfc3339).unwrap_or_default()
@@ -158,7 +169,8 @@ impl From<ApplyError> for RulesError {
 }
 
 /// Writes `text` here when the file is still at `base` and its rules hold,
-/// then copies it to the other Macs. `text` gets the file on disk first.
+/// then copies it to the other Macs (on a Mac). `text` gets the file on
+/// disk first.
 async fn write_here(
     app: &AppHandle,
     state: &AppState,
@@ -201,11 +213,16 @@ async fn write_here(
     };
     reader::publish(app, state);
     ok?;
-    let (app2, state2) = (app.clone(), state.clone());
-    let _ = tauri::async_runtime::spawn_blocking(move || {
-        push_peers(&app2, &state2, true, force_conflicts)
-    })
-    .await;
+    #[cfg(unix)]
+    {
+        let (app2, state2) = (app.clone(), state.clone());
+        let _ = tauri::async_runtime::spawn_blocking(move || {
+            push_peers(&app2, &state2, true, force_conflicts)
+        })
+        .await;
+    }
+    #[cfg(not(unix))]
+    let _ = force_conflicts;
     Ok(state.lock().model())
 }
 
@@ -235,6 +252,7 @@ pub async fn save_rotation(
 /// Takes the copy on the Mac at `alias` as this Mac's file (it was newer, or
 /// edited there), stamped again so it is the newest copy, then copies it to
 /// the other Macs.
+#[cfg(unix)]
 #[tauri::command]
 pub async fn adopt_rotation(
     app: AppHandle,
@@ -270,6 +288,7 @@ pub async fn adopt_rotation(
 
 /// Keeps this Mac's file over another Mac's newer or edited copy: stamps it
 /// again, so it is the newest, and copies it out. That Mac keeps a backup.
+#[cfg(unix)]
 #[tauri::command]
 pub async fn keep_rotation(
     app: AppHandle,
@@ -288,6 +307,7 @@ pub async fn keep_rotation(
 }
 
 /// Tries every Mac that is behind now, without waiting for its 5 minutes.
+#[cfg(unix)]
 #[tauri::command]
 pub async fn retry_rotation(app: AppHandle, state: State<'_, AppState>) -> Result<Model, String> {
     let state = state.inner().clone();
@@ -301,6 +321,7 @@ pub async fn retry_rotation(app: AppHandle, state: State<'_, AppState>) -> Resul
 
 /// Sets the other Macs. Refuses an alias `ssh` would not take safely, or one
 /// listed twice (`badAlias:<i>`, `sameAlias:<i>`, `tooMany`).
+#[cfg(unix)]
 #[tauri::command]
 pub fn set_peers(
     app: AppHandle,
@@ -325,6 +346,7 @@ pub fn set_peers(
 
 /// What "Thử SSH" found on another Mac. Reads its rotation file and
 /// changes nothing.
+#[cfg(unix)]
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PeerTest {
@@ -335,6 +357,7 @@ pub struct PeerTest {
     pub stamp: Option<Stamp>,
 }
 
+#[cfg(unix)]
 #[tauri::command]
 pub async fn test_peer(alias: String) -> Result<PeerTest, String> {
     if !peers::alias_ok(alias.trim()) {

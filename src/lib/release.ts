@@ -10,6 +10,9 @@
 
 import { clock } from './format';
 import { mac, t } from './i18n';
+// @private:begin
+import { onWindows } from './i18n';
+// @private:end
 import type { Model, ReleaseLatest } from './model';
 import type { BannerView } from './view';
 
@@ -32,13 +35,15 @@ function sourceWords(): { banner: string; line: string } {
     line: t('Bản build từ mã nguồn: build lại từ bản clone.', 'Built from source: rebuild from your clone.'),
   };
   // @private:begin
-  w = {
-    banner: t(
-      'Máy này chạy bản build từ mã nguồn, nên cập nhật từ mã nguồn để giữ phần chỉ có ở bản build này.',
-      'This Mac runs a build from source, so update from source to keep what only this build has.',
-    ),
-    line: t('Bản build từ mã nguồn: cập nhật từ mã nguồn.', 'Built from source: update from source.'),
-  };
+  // Windows has no update from source: rebuilt from the clone, as above.
+  if (!onWindows())
+    w = {
+      banner: t(
+        'Máy này chạy bản build từ mã nguồn, nên cập nhật từ mã nguồn để giữ phần chỉ có ở bản build này.',
+        'This Mac runs a build from source, so update from source to keep what only this build has.',
+      ),
+      line: t('Bản build từ mã nguồn: cập nhật từ mã nguồn.', 'Built from source: update from source.'),
+    };
   // @private:end
   return w;
 }

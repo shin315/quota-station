@@ -29,8 +29,6 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::alerts::Switches;
-#[cfg(feature = "author-tools")]
-use crate::peers;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", from = "Stored")]
@@ -533,6 +531,22 @@ impl PeersError {
     }
 }
 
+/// The longest SSH alias kept.
+#[cfg(feature = "author-tools")]
+pub const ALIAS_MAX: usize = 64;
+
+/// An SSH alias as typed in settings: what `~/.ssh/config` or a host name
+/// allows, and never something `ssh` would read as an option. Here rather
+/// than in `peers`, so the list of other Macs stays in the settings on a
+/// system that copies to none (Windows).
+#[cfg(feature = "author-tools")]
+pub fn alias_ok(alias: &str) -> bool {
+    let mut chars = alias.chars();
+    alias.len() <= ALIAS_MAX
+        && chars.next().is_some_and(|c| c.is_ascii_alphanumeric())
+        && chars.all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_' | '@'))
+}
+
 /// Tidies the other Macs typed in settings: names trimmed like
 /// [`machine_name`] (an empty name takes the alias), aliases trimmed and
 /// checked, no alias twice.
@@ -544,7 +558,7 @@ pub fn peers(input: &[Peer]) -> Result<Vec<Peer>, PeersError> {
     let mut out: Vec<Peer> = Vec::new();
     for (i, p) in input.iter().enumerate() {
         let alias = p.alias.trim();
-        if !peers::alias_ok(alias) {
+        if !alias_ok(alias) {
             return Err(PeersError::BadAlias(i));
         }
         if out.iter().any(|q| q.alias.eq_ignore_ascii_case(alias)) {

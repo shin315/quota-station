@@ -95,8 +95,12 @@ Cargo features decide what is compiled in. A plain `cargo tauri build`,
   (automatic switching with its pause and the background check card, the
   Personal/Team and Ultra names). The model says which build it is
   (`capabilities.authorTools`). By hand: `cargo tauri build --features
-  author-tools`, or `npm run app -- --features author-tools`. The author's
-  tools are Unix only.
+  author-tools`, or `npm run app -- --features author-tools`. On Windows the
+  author's tools are the rotation (run by the app's own timer), its rules,
+  the pause and Firstmate; the other Macs, `Copy to another Mac`, the
+  LaunchAgent and the update from source are Unix only, and the windows offer
+  none of them there. The private Windows installer: `npx tauri build
+  --bundles nsis --features author-tools`.
 
 `QS_AUTHOR_TOOLS=0` leaves them out of `scripts/install.sh`'s build. The
 private part's code is `src/private/` for the interface and the items under
@@ -246,8 +250,10 @@ accounts' copy, the model and the list of commands check each build's side.
 `npm test` here checks the full windows; a fourth job, **Community tree
 (macOS)**, runs `community/export.py --worktree --build`, which cuts the
 community tree from the commit, checks it for leaks and runs its own Vitest,
-frontend build, rustfmt, clippy and `cargo test`. The author's tools are Unix
-only, so Windows builds without them.
+frontend build, rustfmt, clippy and `cargo test`. The Windows job also runs
+clippy and the core's and the app's `cargo test` with `author-tools`, whose
+Mac-only parts (the other Macs, the copy to another Mac, the LaunchAgent and
+the update from source) build on Unix only.
 
 <!-- @private:end -->
 
