@@ -34,7 +34,6 @@ real accounts.
 - [Uninstall](#uninstall)
 - [Documentation](#documentation)
 - [Terms of service](#terms-of-service)
-- [License](#license)
 
 ## What it does
 
@@ -85,8 +84,7 @@ schedule you set.
 
 The Antigravity row shows the Gemini and Claude/GPT quota of the account signed
 in. A build with the Antigravity accounts can also sign several Google accounts
-in and switch the one Antigravity.app and `agy` use (see
-[License](#license)).
+in and switch the one Antigravity.app and `agy` use.
 
 ### MCP servers, skills, plugins and instruction files
 
@@ -297,32 +295,6 @@ OpenAI's terms do not address: use it on your own accounts only.
 [SECURITY.md](SECURITY.md) says what could happen and which changes would make
 the risk larger.
 
-## License
+---
 
-Copyright © 2026 Shin315.
-
-Quota Station is licensed under the [MIT License](LICENSE), except:
-
-- **The Antigravity accounts** (signing several Antigravity accounts in, reading
-  their quota and switching between them) are adapted from
-  [Cockpit Tools](https://github.com/jlcodes99/cockpit-tools) and licensed under
-  the [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International
-  License](https://creativecommons.org/licenses/by-nc-sa/4.0/)
-  ([`LICENSES/CC-BY-NC-SA-4.0.txt`](LICENSES/CC-BY-NC-SA-4.0.txt)): personal and
-  non-commercial use. They are `crates/quota-station-core/src/antigravity/`,
-  `src-tauri/src/{antigravity,agy_quota,agy_switch}.rs`, `src/antigravity/`, and
-  their tests and fixtures, as [`NOTICE`](NOTICE) lists them. They are compiled
-  only with the Cargo feature `antigravity-accounts` and bundled into the
-  interface only with `QS_ANTIGRAVITY_ACCOUNTS=1`; `scripts/install.sh` turns
-  both on, and `cargo tauri build` and `npm run app` leave them out unless asked.
-  An app built without them is MIT only: it reads the Antigravity account
-  signed in and does not sign in or switch accounts.
-- **The Inter font** (`src/assets/fonts/InterVariable-vi.woff2`) is under the
-  [SIL Open Font License 1.1](LICENSES/OFL-1.1.txt).
-
-Every file names its license in an `SPDX-License-Identifier` line or in
-[`REUSE.toml`](REUSE.toml), and `reuse lint` checks it in CI. Code adapted from
-Cockpit Tools, code ported from quota-axi (MIT) and CC Switch (MIT), and code
-adapted from claude-swap (MIT) and shadcn/ui (MIT) are credited in
-[`NOTICE`](NOTICE). The tools the app talks to, and the icons, logos and font it
-ships, are listed in [`THIRD_PARTY.md`](THIRD_PARTY.md).
+<sub>MIT, except the optional Antigravity accounts part (adapted from Cockpit Tools, CC BY-NC-SA 4.0). Details in [LICENSE](LICENSE), [LICENSES/](LICENSES), [NOTICE](NOTICE) and [THIRD_PARTY.md](THIRD_PARTY.md).</sub>

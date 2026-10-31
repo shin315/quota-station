@@ -15,8 +15,7 @@ Some parts belong to a build or a setting:
   already had the app gets it on, with Firstmate. Parts marked *(Advanced)*
   below need it.
 - **Antigravity accounts**: logging in and switching several Antigravity
-  accounts, compiled only with the `antigravity-accounts` feature (CC BY-NC-SA
-  4.0). Without it the Antigravity tab is `read-only` and offers a card about
+  accounts, compiled only with the `antigravity-accounts` feature. Without it the Antigravity tab is `read-only` and offers a card about
   the multi-account build. Parts marked *(Antigravity accounts)* need it.
 
 Contents: [the menu bar](#the-menu-bar-item) ·

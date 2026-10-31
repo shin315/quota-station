@@ -33,7 +33,6 @@ giờ là tài khoản thật.
 - [Gỡ cài đặt](#gỡ-cài-đặt)
 - [Tài liệu](#tài-liệu)
 - [Điều khoản dịch vụ](#điều-khoản-dịch-vụ)
-- [Giấy phép](#giấy-phép)
 
 ## Ứng dụng làm gì
 
@@ -82,8 +81,7 @@ cửa sổ 5 giờ của một tài khoản theo lịch bạn đặt.
 
 Dòng Antigravity hiện hạn mức Gemini và Claude/GPT của tài khoản đang đăng nhập.
 Bản dựng có phần tài khoản Antigravity còn đăng nhập được nhiều tài khoản Google
-và chuyển tài khoản mà Antigravity.app và `agy` dùng (xem
-[Giấy phép](#giấy-phép)).
+và chuyển tài khoản mà Antigravity.app và `agy` dùng.
 
 ### MCP server, skill, plugin và file hướng dẫn
 
@@ -297,31 +295,6 @@ và header, không dày hơn. `Tự đánh thức ChatGPT` gửi yêu cầu theo
 [SECURITY.md](SECURITY.md) nói điều gì có thể xảy ra và thay đổi nào sẽ làm rủi
 ro lớn hơn.
 
-## Giấy phép
+---
 
-Copyright © 2026 Shin315.
-
-Quota Station theo [giấy phép MIT](LICENSE), trừ:
-
-- **Phần tài khoản Antigravity** (đăng nhập nhiều tài khoản Antigravity, đọc
-  hạn mức của chúng và chuyển giữa chúng) dựa một phần trên
-  [Cockpit Tools](https://github.com/jlcodes99/cockpit-tools) và theo giấy phép
-  [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International](https://creativecommons.org/licenses/by-nc-sa/4.0/)
-  ([`LICENSES/CC-BY-NC-SA-4.0.txt`](LICENSES/CC-BY-NC-SA-4.0.txt)): chỉ dùng cá
-  nhân, phi thương mại. Đó là `crates/quota-station-core/src/antigravity/`,
-  `src-tauri/src/{antigravity,agy_quota,agy_switch}.rs`, `src/antigravity/`,
-  cùng các bài kiểm thử và fixture của chúng, như [`NOTICE`](NOTICE) liệt kê.
-  Chúng chỉ được biên dịch khi bật Cargo feature `antigravity-accounts` và chỉ
-  được gói vào giao diện khi có `QS_ANTIGRAVITY_ACCOUNTS=1`; `scripts/install.sh`
-  bật cả hai, còn `cargo tauri build` và `npm run app` bỏ chúng ra nếu không được
-  yêu cầu. App dựng không có chúng chỉ theo MIT: nó đọc tài khoản Antigravity
-  đang đăng nhập, không đăng nhập hay chuyển tài khoản.
-- **Phông Inter** (`src/assets/fonts/InterVariable-vi.woff2`) theo
-  [SIL Open Font License 1.1](LICENSES/OFL-1.1.txt).
-
-Mỗi file ghi giấy phép của nó trong một dòng `SPDX-License-Identifier` hoặc
-trong [`REUSE.toml`](REUSE.toml), và CI kiểm tra bằng `reuse lint`. Mã chuyển
-thể từ Cockpit Tools, mã chuyển từ quota-axi (MIT) và CC Switch (MIT), và mã
-chuyển thể từ claude-swap (MIT) và shadcn/ui (MIT) được ghi công trong
-[`NOTICE`](NOTICE). Các công cụ app làm việc cùng, cùng biểu tượng, logo và
-phông chữ đi kèm app, được liệt kê trong [`THIRD_PARTY.md`](THIRD_PARTY.md).
+<sub>MIT, trừ phần tài khoản Antigravity tuỳ chọn (dựa một phần trên Cockpit Tools, CC BY-NC-SA 4.0). Chi tiết trong [LICENSE](LICENSE), [LICENSES/](LICENSES), [NOTICE](NOTICE) và [THIRD_PARTY.md](THIRD_PARTY.md).</sub>

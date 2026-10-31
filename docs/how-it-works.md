@@ -156,8 +156,8 @@ rest (`switch`, `rotate [--dry-run]`, `rotation on|off`, `import`,
 ## Antigravity logins, quota and switching
 
 These parts are adapted from [Cockpit Tools](https://github.com/jlcodes99/cockpit-tools)
-and are built only with the `antigravity-accounts` feature (CC BY-NC-SA 4.0, see
-the README's License section). Without it the `Antigravity` tab is marked
+and are built only with the `antigravity-accounts` feature (see
+[`THIRD_PARTY.md`](../THIRD_PARTY.md)). Without it the `Antigravity` tab is marked
 `read-only` (`chỉ đọc`): it reads the account signed in, and logs nothing in.
 
 - **Logins.** `Add account` opens Google's consent screen in the default

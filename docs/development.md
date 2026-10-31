@@ -71,13 +71,13 @@ Two Cargo features decide what is compiled in. A plain `cargo tauri build`,
 on (`QS_ANTIGRAVITY_ACCOUNTS=0` or `QS_AUTHOR_TOOLS=0` leaves one out).
 
 - **`antigravity-accounts`**: logging in and switching several Antigravity
-  accounts, adapted from Cockpit Tools and licensed CC BY-NC-SA 4.0 (see the
-  README's License section). The Rust side is the feature; the interface's
+  accounts, adapted from Cockpit Tools (see [`THIRD_PARTY.md`](../THIRD_PARTY.md)).
+  The Rust side is the feature; the interface's
   screens go into the bundle only with `QS_ANTIGRAVITY_ACCOUNTS=1` (Vite swaps
   in `src/antigravity-off/` otherwise, and a build without it stops if it would
   bundle a file from `src/antigravity/`). By hand:
   `cargo tauri build --features antigravity-accounts` with
-  `QS_ANTIGRAVITY_ACCOUNTS=1`. Without it the app is MIT only: it reads the
+  `QS_ANTIGRAVITY_ACCOUNTS=1`. Without it the app reads the
   Antigravity account signed in and does not log in or switch accounts.
 - **`author-tools`**: the tools made for the author's own Macs: `Settings ›
   Advanced` and what it holds, the `Rotation rules` editor and the copy of the
