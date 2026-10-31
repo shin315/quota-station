@@ -580,6 +580,8 @@ impl Inner {
 
     /// The menu bar icon for `snapshot`, the detailed one the windows get:
     /// only it has the names and every window.
+    // The binding stays for the build that adds to it.
+    #[allow(clippy::let_and_return)]
     pub fn icon(&self, snapshot: &Snapshot, now: OffsetDateTime) -> Icon {
         let cx = Context {
             follow: self.settings.menubar,
@@ -591,8 +593,7 @@ impl Inner {
         };
         let icon = icon::icon(self.claude.is_some().then_some(snapshot), &cx);
         #[cfg(feature = "author-tools")]
-        return icon.with_pause(self.switcher.paused(now));
-        #[cfg(not(feature = "author-tools"))]
+        let icon = icon.with_pause(self.switcher.paused(now));
         icon
     }
 

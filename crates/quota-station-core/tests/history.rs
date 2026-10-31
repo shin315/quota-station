@@ -23,6 +23,7 @@ use quota_station_core::antigravity::watch;
 use quota_station_core::app_dir::AppDir;
 use quota_station_core::history::{self, App, Cause, Seen, Source};
 use quota_station_core::local_time;
+#[cfg(feature = "antigravity-accounts")]
 use quota_station_core::switcher::Why;
 use time::OffsetDateTime;
 
