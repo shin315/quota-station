@@ -7,7 +7,7 @@
 // passes a step this PC cannot do by itself, comes back after a sign-out,
 // and its facts carry no name or email.
 
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { fakeApi } from '../fixtures/fakeApi';
 import { claudeAccountsFixture, fixtureModel } from '../fixtures/models';
@@ -83,7 +83,9 @@ describe('the guide', () => {
     const fake = await open(windows());
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Bắt đầu');
     expect(screen.getByText('Phần 1 · Nhìn · Bước 1/18')).toBeTruthy();
-    expect(fake.sessionCalls()).toContainEqual({ call: 'step', id: 'm1-start', captures: ['main'] });
+    // The guide tells the session its step from an effect after the step is
+    // drawn, so the heading can be there a moment before the call is.
+    await waitFor(() => expect(fake.sessionCalls()).toContainEqual({ call: 'step', id: 'm1-start', captures: ['main'] }));
     await press('Xong');
     const done = fake.sessionCalls().find((c) => c.call === 'done');
     expect(done).toMatchObject({ id: 'm1-start', skipped: false, checks: ['system', 'mainWindow'] });
