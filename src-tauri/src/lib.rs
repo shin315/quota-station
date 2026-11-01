@@ -382,7 +382,7 @@ fn subcommand<E: Extension + ?Sized>(extension: &E, args: &[String]) -> Option<i
         // them.
         Some("claude") => Some(claude_cli(&args[1..], extension.hooks())),
         // The quota as the app reads it, from a terminal.
-        Some("quota") => Some(quota_cli(&args[1..])),
+        Some("quota") => Some(quota_cli(&args[1..], extension.hooks())),
         _ => extension.subcommand(args).or_else(|| {
             (args.first().map(String::as_str) == Some("agents")).then(|| {
                 let (text, code) = agents_refused();
@@ -430,8 +430,8 @@ usage: quota-station quota [--provider claude|agy|codex]... [--json]
 /// three by default), printed as the app's rows. The readings go to a
 /// cache folder of their own, removed after, so the app's are untouched;
 /// the Claude row of a Mac where the app keeps the accounts is built from
-/// its files, without a read.
-fn quota_cli(args: &[String]) -> i32 {
+/// its files, without a read, with the pool's policy `hooks` give.
+fn quota_cli(args: &[String], hooks: &dyn ext::Hooks) -> i32 {
     use quota_station_core::app_dir::AppDir;
     use quota_station_core::claude::{self, store::Store, usage, Paths};
     use quota_station_core::quota::{self, cache::Cache, ProviderId, Response};
@@ -480,7 +480,7 @@ fn quota_cli(args: &[String]) -> i32 {
             ProviderId::Claude => {
                 let store =
                     Store::new(Paths::for_home(&home), quota_station_core::os::secret_store());
-                quota::claude::own_now(&store, now).unwrap_or_else(|| {
+                quota::claude::own_now(&store, hooks, now).unwrap_or_else(|| {
                     let live = quota::claude::Live {
                         paths: &store.paths,
                         security: &*store.security,

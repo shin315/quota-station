@@ -7,11 +7,15 @@ mod common;
 
 use std::path::{Path, PathBuf};
 
-use common::ext::TestHooks;
-use quota_station_core::alerts::Switches;
+use common::accounts::{credential, in_hours, oauth, Mac};
+use common::ext::{pool_reads, TestHooks, TestPolicy};
+use quota_station_core::alerts::{self, Facts, Kind, Memory, Switches};
 use quota_station_core::ext::{self, Hooks, NoHooks};
-use quota_station_core::settings::Settings;
-use serde_json::json;
+use quota_station_core::quota::claude::own_now;
+use quota_station_core::quota::Response;
+use quota_station_core::settings::{PoolAlert, Settings};
+use serde_json::{json, Value};
+use time::{OffsetDateTime, UtcOffset};
 
 /// What every caller holds: hooks behind a shared reference, from any
 /// thread.
@@ -199,4 +203,151 @@ fn without_an_extension_the_settings_are_the_apps_own() {
         json!({ "setupSeen": false })
     );
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// One Claude account the app keeps, as the report gives it, with `left`
+/// percent left.
+fn slot(n: u32, left: f64, active: bool) -> Value {
+    json!({
+        "slot": n, "active": active, "status": "fresh", "ageSeconds": 60,
+        "fetchedAt": "2026-01-16T07:19:00.000Z", "effectivePercentRemaining": left,
+        "limitedBy": "five_hour", "resetsAt": "2026-01-16T10:29:00.000Z", "scopes": []
+    })
+}
+
+/// A Claude report of the accounts the app keeps.
+fn report(slots: Vec<Value>) -> Response {
+    let active = slots.iter().find(|s| s["active"] == true).and_then(|s| s["slot"].as_u64());
+    serde_json::from_value(json!({
+        "generatedAt": "2026-01-16T07:20:00.000Z",
+        "providers": [{
+            "provider": "claude", "windows": [], "state": { "status": "fresh" },
+            "claudeAccounts": { "activeSlot": active, "slots": slots }
+        }]
+    }))
+    .expect("synthetic report parses")
+}
+
+fn now() -> OffsetDateTime {
+    OffsetDateTime::from_unix_timestamp(1_768_548_000).unwrap()
+}
+
+/// A pass of the alert rules on `claude` with the pool's `policy`.
+fn facts<'a>(
+    claude: &'a Response,
+    policy: Option<&'a dyn quota_station_core::quota::claude::PoolPolicy>,
+) -> Facts<'a> {
+    Facts {
+        now: now(),
+        offset: UtcOffset::UTC,
+        claude: Some(claude),
+        pool_policy: policy,
+        #[cfg(feature = "antigravity-accounts")]
+        agy: Vec::new(),
+        #[cfg(feature = "antigravity-accounts")]
+        overwrite: None,
+        ext: None,
+        pool: PoolAlert::default(),
+    }
+}
+
+/// Team accounts 1 to 3 in the app, Claude Code on 2.
+fn mac_with_accounts(tag: &str) -> Mac {
+    let mac = Mac::new(tag);
+    for n in 1..=3 {
+        let login = credential(&format!("acc-{n}"), &format!("ref-{n}"), in_hours(5.0));
+        mac.add(n, &format!("lan{n}@team.example"), "org-team", &login);
+    }
+    mac.log_in(
+        &credential("acc-2", "ref-2", in_hours(5.0)),
+        &oauth("lan2@team.example", "uuid-2", "org-team"),
+    );
+    mac
+}
+
+/// The read of the accounts the app keeps asks the extension for its policy
+/// of the pool where they are kept, and hands it the accounts as read.
+#[test]
+fn the_extensions_pool_policy_is_read_with_the_accounts_the_app_keeps() {
+    let mac = mac_with_accounts("ext-pool-read");
+    let report = own_now(&mac.store, &TestHooks, now()).expect("the app keeps accounts");
+    assert_eq!(pool_reads(&mac.home), [(Some(2), vec![1, 2, 3])]);
+    // The test policy writes no room: the row is the app's own.
+    assert_eq!(own_now(&mac.store, &NoHooks, now()), Some(report));
+    assert_eq!(pool_reads(&mac.home).len(), 1, "no policy without the extension");
+    let _ = std::fs::remove_dir_all(&mac.home);
+}
+
+/// Alert 1's check counts the accounts the extension's policy counts: the
+/// other accounts, the best of them, and whether Claude is dry follow it.
+#[test]
+fn alert_ones_check_counts_the_accounts_the_extensions_policy_counts() {
+    let r = report(vec![
+        slot(1, 10.0, false),
+        slot(2, 5.0, true),
+        slot(3, 12.0, false),
+        slot(4, 95.0, false),
+    ]);
+    let policy = TestPolicy { home: PathBuf::new() };
+    let check = |p| alerts::pool_check(&r, p, PoolAlert::default(), now(), UtcOffset::UTC).unwrap();
+    let counted = check(Some(&policy));
+    assert_eq!(counted.others, [(1, 10.0), (3, 12.0)], "the odd ones");
+    assert_eq!((counted.active, counted.active_left), (Some(2), 5.0));
+    assert!(counted.dry);
+    assert_eq!(counted.best_other(), Some((3, 12.0)));
+
+    // A pass of the rules with that policy sends alert 1.
+    let mut memory = Memory::default();
+    let ids =
+        alerts::evaluate(&mut memory, &facts(&r, Some(&policy)), &Switches::default(), &TestHooks);
+    assert_eq!(ids.len(), 1);
+    assert_eq!(memory.recent[0].alert.kind, Kind::Pool);
+    assert_eq!(memory.recent[0].alert.title, "Hạn mức Claude sắp cạn");
+}
+
+/// Alert 1's card says the extension's words once "dismiss" is pressed,
+/// and the button still does what it does.
+#[test]
+fn alert_ones_card_has_the_extensions_words_for_its_pool() {
+    let r = report(vec![slot(2, 5.0, true), slot(3, 12.0, false)]);
+    for (hooks, title, body) in [
+        (&TestHooks as &dyn Hooks, "Test pool noted", "Not again until the test pool has room."),
+        (
+            &NoHooks,
+            "Đã bỏ qua thông báo này",
+            "Không lặp lại cho cùng sự kiện. Quota Station báo lại khi có lại hạn mức.",
+        ),
+    ] {
+        let mut memory = Memory::default();
+        let ids = alerts::evaluate(&mut memory, &facts(&r, None), &Switches::default(), hooks);
+        assert_eq!(memory.recent[0].alert.kind, Kind::Pool);
+        let effect = alerts::answer(&mut memory, &ids[0], "dismiss", 0, UtcOffset::UTC, hooks);
+        assert_eq!(effect, Ok(alerts::Effect::None));
+        let said = memory.recent[0].answer.as_ref().unwrap().result.clone().unwrap();
+        assert_eq!((said.title.as_str(), said.body.as_str()), (title, body));
+    }
+}
+
+/// Without an extension there is no policy: the read writes no room and
+/// every account counts in alert 1's check.
+#[test]
+fn without_an_extension_every_account_counts_in_the_pool() {
+    let mac = Mac::new("ext-pool-none");
+    assert!(NoHooks.claude_pool(&mac.paths).is_none());
+    assert!(ext::none().claude_pool(&mac.paths).is_none());
+    assert!(NoHooks.pool_answers().is_empty());
+    let r = report(vec![
+        slot(1, 10.0, false),
+        slot(2, 5.0, true),
+        slot(3, 12.0, false),
+        slot(4, 95.0, false),
+    ]);
+    let all = alerts::pool_check(&r, None, PoolAlert::default(), now(), UtcOffset::UTC).unwrap();
+    assert_eq!(all.others, [(1, 10.0), (3, 12.0), (4, 95.0)]);
+    assert!(!all.dry);
+    assert_eq!(all.best_other(), Some((4, 95.0)));
+    let mut memory = Memory::default();
+    let ids = alerts::evaluate(&mut memory, &facts(&r, None), &Switches::default(), &NoHooks);
+    assert!(ids.is_empty(), "not dry");
+    let _ = std::fs::remove_dir_all(&mac.home);
 }

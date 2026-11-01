@@ -6,15 +6,20 @@
 //! that `NoHooks` leaves the core as it is.
 
 use std::io::Write;
+use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 use quota_station_core::alerts::{
     self, act, Alert, ExtAnswer, ExtKind, ExtPass, ExtSource, Kind, Switches, Tone,
 };
 use quota_station_core::claude::cli::Cli;
+use quota_station_core::claude::Paths;
 use quota_station_core::ext::Hooks;
+use quota_station_core::quota::claude::PoolPolicy;
+use quota_station_core::quota::{ClaudeAccounts, Provider, Slot};
 use quota_station_core::settings::Settings;
 use serde_json::{Map, Value};
-use time::UtcOffset;
+use time::{OffsetDateTime, UtcOffset};
 
 /// Hooks a test can see the core call.
 ///
@@ -29,6 +34,10 @@ use time::UtcOffset;
 ///
 /// The alerts: one kind of their own, `testKind` ([`TEST_KINDS`]), whose
 /// cards [`TestSource`] draws, and its card for "Gửi thử".
+///
+/// The Claude pool: their policy ([`TestPolicy`]) counts the accounts with
+/// an odd number only, and alert 1's card has their own words once
+/// "dismiss" is pressed ([`TEST_POOL_ANSWERS`]).
 #[derive(Debug, Default)]
 pub struct TestHooks;
 
@@ -101,6 +110,60 @@ impl Hooks for TestHooks {
             at: 0,
             test: false,
         })
+    }
+
+    fn claude_pool(&self, paths: &Paths) -> Option<Box<dyn PoolPolicy>> {
+        Some(Box::new(TestPolicy { home: paths.home.clone() }))
+    }
+
+    fn pool_answers(&self) -> &'static [ExtAnswer] {
+        &TEST_POOL_ANSWERS
+    }
+}
+
+/// The test hooks' words under alert 1's card once "dismiss" is pressed.
+pub const TEST_POOL_ANSWERS: [ExtAnswer; 1] = [ExtAnswer {
+    action: "dismiss",
+    title: "Test pool noted",
+    body: "Not again until the test pool has room.",
+}];
+
+/// What the test policy saw at one read of the accounts the app keeps
+/// ([`TestPolicy::room`]): the home it was read for, the account in use and
+/// the accounts' numbers.
+pub type PoolRead = (PathBuf, Option<u32>, Vec<u32>);
+
+/// Every [`PoolRead`] so far.
+pub static POOL_READS: Mutex<Vec<PoolRead>> = Mutex::new(Vec::new());
+
+/// The reads [`POOL_READS`] holds for `home`.
+pub fn pool_reads(home: &Path) -> Vec<(Option<u32>, Vec<u32>)> {
+    let reads = POOL_READS.lock().unwrap_or_else(|e| e.into_inner());
+    reads.iter().filter(|r| r.0 == home).map(|r| (r.1, r.2.clone())).collect()
+}
+
+/// The test hooks' policy of the Claude pool, read for `home`: an account
+/// counts while its number is odd. At a read it notes what it saw
+/// ([`POOL_READS`]) and writes nothing.
+pub struct TestPolicy {
+    pub home: PathBuf,
+}
+
+impl PoolPolicy for TestPolicy {
+    fn room(&self, _row: &Provider, accounts: &mut ClaudeAccounts, _now: OffsetDateTime) {
+        let slots = accounts.slots.iter().map(|s| s.slot).collect();
+        let mut reads = POOL_READS.lock().unwrap_or_else(|e| e.into_inner());
+        reads.push((self.home.clone(), accounts.active_slot, slots));
+    }
+
+    fn counts(
+        &self,
+        _accounts: &ClaudeAccounts,
+        slot: &Slot,
+        _now: OffsetDateTime,
+        _offset: UtcOffset,
+    ) -> bool {
+        slot.slot % 2 == 1
     }
 }
 

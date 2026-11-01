@@ -25,7 +25,9 @@
 //!   request; it is never refreshed, logged or kept.
 //! - [`own`], where the app keeps the accounts: the row from the app's own
 //!   readings (`claude/usage.json`), with every account listed. It reads
-//!   nothing more, and no Keychain.
+//!   nothing more, and no Keychain. An extension's pool policy
+//!   ([`PoolPolicy`], [`crate::ext::Hooks::claude_pool`]) adds the room
+//!   the pool it counts has.
 
 use std::time::Duration;
 
@@ -43,6 +45,7 @@ use crate::claude::keychain::{self, user_account, KeychainError};
 use crate::claude::store::{Account, List};
 use crate::claude::usage::{self, Endpoints, Reading};
 use crate::claude::Paths;
+use crate::ext::Hooks;
 use crate::local_time;
 use crate::os::SecretStore;
 use crate::time_util::parse_ts;
@@ -411,6 +414,38 @@ pub struct Own<'a> {
     pub usage: &'a usage::Cache,
     /// The account Claude Code is on.
     pub active: Option<u32>,
+    /// The extension's policy of the pool, when it has one
+    /// ([`crate::ext::Hooks::claude_pool`]).
+    pub pool: Option<&'a dyn PoolPolicy>,
+}
+
+/// Which of the Claude accounts the app keeps count in the pool, and the
+/// room the pool has: an extension's policy, which
+/// [`crate::ext::Hooks::claude_pool`] gives. Without one every account
+/// counts, each with what it has left, and no room is counted.
+pub trait PoolPolicy {
+    /// At a read of the accounts the app keeps ([`own`]): the room of the
+    /// pool as the policy counts it, written into `accounts` as the read
+    /// built them, at `now`. `row` is the row of the account in use. The
+    /// default writes nothing.
+    fn room(&self, row: &Provider, accounts: &mut ClaudeAccounts, now: OffsetDateTime) {
+        let _ = (row, accounts, now);
+    }
+
+    /// Whether account `slot` of `accounts` counts in the pool at `now`
+    /// (`offset` is this Mac's), for alert 1's check
+    /// ([`crate::alerts::pool_check`]): one that does not count is neither
+    /// room nor an account to move to. The default: every account counts.
+    fn counts(
+        &self,
+        accounts: &ClaudeAccounts,
+        slot: &Slot,
+        now: OffsetDateTime,
+        offset: time::UtcOffset,
+    ) -> bool {
+        let _ = (accounts, slot, now, offset);
+        true
+    }
 }
 
 fn at_epoch(seconds: f64) -> Option<OffsetDateTime> {
@@ -525,7 +560,8 @@ fn slot_of(a: &Account, row: Option<&usage::Row>, active: bool, now: OffsetDateT
 
 /// The row of a Mac where the app keeps the Claude accounts: the account in
 /// use's own reading as the row's windows (stale once older than 15
-/// minutes or past a reset), and every account as a slot.
+/// minutes or past a reset), and every account as a slot; with a pool
+/// policy, the room it counts ([`PoolPolicy::room`]).
 pub fn own(input: &Own, now: OffsetDateTime) -> Response {
     let row_of = |a: &Account| input.usage.row(a.slot).filter(|r| r.identity == a.identity);
     let active = input.active.filter(|s| input.list.get(*s).is_some());
@@ -571,20 +607,33 @@ pub fn own(input: &Own, now: OffsetDateTime) -> Response {
             Provider::failed(ProviderId::Claude, "unavailable", &error)
         }
     };
-    row.claude_accounts = Some(ClaudeAccounts { active_slot: active, slots });
+    // A build may give the row more fields, which start empty.
+    #[allow(clippy::needless_update)]
+    let mut accounts = ClaudeAccounts { active_slot: active, slots, ..ClaudeAccounts::default() };
+    if let Some(policy) = input.pool {
+        policy.room(&row, &mut accounts, now);
+    }
+    row.claude_accounts = Some(accounts);
     Response::new(now, vec![row])
 }
 
-/// [`own`] from the app's files as they are now: its list, its readings and
-/// the account Claude Code is on. `None` while the app keeps no account.
-pub fn own_now(store: &crate::claude::store::Store, now: OffsetDateTime) -> Option<Response> {
+/// [`own`] from the app's files as they are now: its list, its readings,
+/// the account Claude Code is on, and the pool's policy `hooks` read for
+/// them ([`crate::ext::Hooks::claude_pool`]). `None` while the app keeps
+/// no account.
+pub fn own_now(
+    store: &crate::claude::store::Store,
+    hooks: &dyn Hooks,
+    now: OffsetDateTime,
+) -> Option<Response> {
     if !store.paths.in_use() {
         return None;
     }
     let list = store.load().ok()?;
     let usage = usage::load(store);
     let active = crate::claude::switch::active_slot(store);
-    let input = Own { list: &list, usage: &usage, active };
+    let pool = hooks.claude_pool(&store.paths);
+    let input = Own { list: &list, usage: &usage, active, pool: pool.as_deref() };
     Some(own(&input, now))
 }
 

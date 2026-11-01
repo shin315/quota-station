@@ -24,6 +24,7 @@ use quota_station_core::antigravity::switch::How;
 use quota_station_core::antigravity::watch;
 use quota_station_core::app_dir::AppDir;
 use quota_station_core::ext::Hooks;
+use quota_station_core::quota::claude::PoolPolicy;
 use quota_station_core::quota::Response;
 use quota_station_core::settings::PoolAlert;
 use serde_json::{json, Value};
@@ -82,11 +83,18 @@ fn hooks() -> &'static dyn Hooks {
     quota_station_core::ext::none()
 }
 
+/// The policy of the Claude pool the app's hooks give at each pass: with the
+/// private part, its own; without it, none.
+fn policy() -> Option<&'static dyn PoolPolicy> {
+    None
+}
+
 fn facts<'a>(now: i64, claude: Option<&'a Response>) -> Facts<'a> {
     Facts {
         now: at(now),
         offset: offset(),
         claude,
+        pool_policy: policy(),
         #[cfg(feature = "antigravity-accounts")]
         agy: Vec::new(),
         #[cfg(feature = "antigravity-accounts")]
@@ -98,7 +106,7 @@ fn facts<'a>(now: i64, claude: Option<&'a Response>) -> Facts<'a> {
 
 /// Alert 1's check at 14:20 with these thresholds.
 fn check_pool(r: &Response, limits: PoolAlert) -> alerts::PoolCheck {
-    alerts::pool_check(r, limits).unwrap()
+    alerts::pool_check(r, policy(), limits, at(T0), offset()).unwrap()
 }
 
 /// The card "Gửi thử" sends, naming the accounts as the cards do.

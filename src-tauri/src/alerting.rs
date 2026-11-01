@@ -5,7 +5,9 @@
 //! change of the account in use that nothing explains, and the alert rules
 //! run on the newest readings and each new alert goes out as a macOS card
 //! with buttons. The extension's own alerts run with the app's, from what it
-//! reads for them first ([`crate::ext::Extension::alert_read`]).
+//! reads for them first ([`crate::ext::Extension::alert_read`]), and alert
+//! 1's check counts the Claude pool by the extension's policy, read for
+//! the pass ([`Hooks::claude_pool`]).
 //! The buttons, on the macOS card or the same card in the bell's panel
 //! (Thông báo), come back through [`press`].
 //!
@@ -24,6 +26,7 @@ use quota_station_core::antigravity::switch::{self as agy};
 use quota_station_core::antigravity::{index, watch};
 #[cfg(feature = "antigravity-accounts")]
 use quota_station_core::app_dir::AppDir;
+use quota_station_core::claude::Paths;
 use quota_station_core::history::{self, Entry};
 use quota_station_core::local_time;
 use quota_station_core::settings::PoolAlert;
@@ -115,12 +118,13 @@ fn evaluate(state: &AppState) {
 
 /// The alert rules on the newest readings, the new cards handed to
 /// `deliver` under the app's lock. The extension reads what its own alerts
-/// need first, without the app's lock. Apart from [`evaluate`] so a test
+/// need and its policy of the Claude pool first, without the app's lock.
+/// Apart from [`evaluate`] so a test
 /// runs the rules without the notification center, which holds the window
 /// runtime a Windows test program cannot load.
 fn run_rules(state: &AppState, deliver: impl FnOnce(&mut Inner, &[String])) {
     let now = OffsetDateTime::now_utc();
-    let (dir, claude, settings, home, extension) = {
+    let (dir, claude, settings, home, extension, hooks) = {
         let inner = state.lock();
         (
             inner.app_dir(),
@@ -128,11 +132,13 @@ fn run_rules(state: &AppState, deliver: impl FnOnce(&mut Inner, &[String])) {
             inner.settings.clone(),
             inner.home.clone(),
             inner.extension,
+            inner.hooks,
         )
     };
     let pool = settings.pool_alert;
     let read =
         extension.alert_read_part(&AlertInput { settings: &settings, home: &home, app_dir: &dir });
+    let pool_policy = hooks.claude_pool(&Paths::new(&home, dir.path()));
     #[cfg(feature = "antigravity-accounts")]
     let pending = watch::load(&dir).and_then(|w| w.alert()).is_some();
     #[cfg(feature = "antigravity-accounts")]
@@ -141,6 +147,7 @@ fn run_rules(state: &AppState, deliver: impl FnOnce(&mut Inner, &[String])) {
         now,
         offset: local_time::offset_at(now),
         claude: claude.as_ref(),
+        pool_policy: pool_policy.as_deref(),
         #[cfg(feature = "antigravity-accounts")]
         agy: alerts::agy_logins(&dir),
         #[cfg(feature = "antigravity-accounts")]
@@ -149,7 +156,6 @@ fn run_rules(state: &AppState, deliver: impl FnOnce(&mut Inner, &[String])) {
         pool,
     };
     let mut inner = state.lock();
-    let hooks: &dyn Hooks = inner.hooks;
     let before = inner.alerts.clone();
     let switches = inner.settings.alert_switches(hooks);
     let ids = alerts::evaluate(&mut inner.alerts, &facts, &switches, hooks);
@@ -444,6 +450,8 @@ mod tests {
     use std::sync::Mutex;
 
     use quota_station_core::alerts::{act, Alert, ExtKind, ExtPass, ExtSource, Tone};
+    use quota_station_core::quota::claude::PoolPolicy;
+    use quota_station_core::quota::{ClaudeAccounts, Response, Slot};
 
     use super::*;
     use crate::ext::{AlertRead, Extension, Kept};
@@ -547,6 +555,71 @@ mod tests {
         assert!(inner.alerts.recent.is_empty());
         assert!(inner.kept.get::<Had>().unwrap().0.lock().unwrap().is_empty());
         drop(inner);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A pool policy that counts the account in use only.
+    struct InUseOnly;
+
+    impl PoolPolicy for InUseOnly {
+        fn counts(
+            &self,
+            accounts: &ClaudeAccounts,
+            slot: &Slot,
+            _now: OffsetDateTime,
+            _offset: time::UtcOffset,
+        ) -> bool {
+            accounts.active_slot == Some(slot.slot)
+        }
+    }
+
+    /// Hooks whose policy of the Claude pool is [`InUseOnly`], read where
+    /// the app keeps the accounts.
+    struct InUseHooks;
+
+    impl Hooks for InUseHooks {
+        fn claude_pool(&self, paths: &Paths) -> Option<Box<dyn PoolPolicy>> {
+            assert!(paths.dir.ends_with("claude"), "{}", paths.dir.display());
+            Some(Box::new(InUseOnly))
+        }
+    }
+
+    /// The account in use, 2, nearly out; 3 with room.
+    fn nearly_out() -> Response {
+        serde_json::from_value(serde_json::json!({
+            "generatedAt": "2026-01-16T07:20:00.000Z",
+            "providers": [{
+                "provider": "claude", "windows": [], "state": { "status": "fresh" },
+                "claudeAccounts": { "activeSlot": 2, "slots": [
+                    { "slot": 2, "active": true, "status": "fresh", "effectivePercentRemaining": 5.0 },
+                    { "slot": 3, "active": false, "status": "fresh", "effectivePercentRemaining": 90.0 }
+                ] }
+            }]
+        }))
+        .unwrap()
+    }
+
+    /// Alert 1's check at each pass counts the Claude pool by the policy
+    /// the extension's hooks read for that pass: counted alone, the account
+    /// in use is dry; with every account counted, it is not.
+    #[test]
+    fn alert_one_counts_the_pool_by_the_extensions_policy() {
+        let dir = temp("pool");
+        let counted = state(&dir, &InUseHooks);
+        counted.lock().claude = Some(nearly_out());
+        run_rules(&counted, |_, _| {});
+        let inner = counted.lock();
+        let kinds: Vec<&Kind> = inner.alerts.recent.iter().map(|r| &r.alert.kind).collect();
+        assert_eq!(kinds, [&Kind::Pool]);
+        assert!(inner.alerts.recent[0].alert.key.starts_with("pool:dry:"));
+        drop(inner);
+        let _ = std::fs::remove_dir_all(&dir);
+
+        let dir = temp("pool-none");
+        let every = state(&dir, quota_station_core::ext::none());
+        every.lock().claude = Some(nearly_out());
+        run_rules(&every, |_, _| {});
+        assert!(every.lock().alerts.recent.is_empty(), "3 has room");
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

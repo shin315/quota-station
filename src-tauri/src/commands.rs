@@ -271,17 +271,17 @@ pub fn increase_contrast() -> bool {
 #[tauri::command]
 pub async fn grant_keychain(app: AppHandle, state: State<'_, AppState>) -> Result<Model, String> {
     let shared = state.inner().clone();
-    let (store, dir) = {
+    let (store, dir, hooks) = {
         let mut inner = shared.lock();
         if inner.granting {
             return Err("busy".into());
         }
         inner.granting = true;
-        (inner.claude_store(), inner.app_dir())
+        (inner.claude_store(), inner.app_dir(), inner.hooks)
     };
     reader::publish(&app, &shared);
     let result = tauri::async_runtime::spawn_blocking(move || {
-        reader::read_claude(&store, &dir, false, quota::claude::Keychain::Grant).0
+        reader::read_claude(&store, &dir, false, quota::claude::Keychain::Grant, hooks).0
     })
     .await
     .map_err(|e| e.to_string());
@@ -316,7 +316,7 @@ pub async fn switch_claude(
 /// Looks at the active account again five seconds after the switch and
 /// reports what really happened.
 async fn switch(app: AppHandle, shared: AppState, slot: u32) -> Result<Outcome, String> {
-    let (tools, from, dir) = {
+    let (tools, from, dir, hooks) = {
         let mut inner = shared.lock();
         if inner.switching.is_some() {
             return Err("busy".into());
@@ -330,11 +330,11 @@ async fn switch(app: AppHandle, shared: AppState, slot: u32) -> Result<Outcome, 
         }
         let from = snapshot.claude.active().map(|a| a.number).filter(|n| *n > 0);
         inner.switching = Some(slot);
-        (inner.switch_tools(), from, inner.app_dir())
+        (inner.switch_tools(), from, inner.app_dir(), inner.hooks)
     };
     reader::publish(&app, &shared);
     let done = tauri::async_runtime::spawn_blocking(move || {
-        switching::switch_claude(&tools, slot, &switching::settle)
+        switching::switch_claude(&tools, slot, &switching::settle, hooks)
     })
     .await;
     // Kept before the reading that shows it, so the change is this switch's.

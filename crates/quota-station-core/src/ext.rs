@@ -27,15 +27,22 @@
 //!   from what the extension read for it ([`crate::alerts::Facts::ext`]);
 //! - `quota-station claude …` ([`crate::claude::cli::run`]): the commands
 //!   the extension adds to the app's ([`Hooks::claude_command`]) and the
-//!   usage that names them ([`Hooks::claude_usage`]).
+//!   usage that names them ([`Hooks::claude_usage`]);
+//! - the Claude pool: which of the accounts the app keeps count in it and
+//!   the room it has, at the read ([`crate::quota::claude::own_now`]) and in
+//!   alert 1's check ([`crate::alerts::pool_check`]), by the extension's
+//!   policy ([`Hooks::claude_pool`]), and the words alert 1's card has for
+//!   the pool so counted ([`Hooks::pool_answers`]).
 
 use std::io::Write;
 
 use serde_json::{Map, Value};
 use time::UtcOffset;
 
-use crate::alerts::{Alert, ExtKind, Switches};
+use crate::alerts::{Alert, ExtAnswer, ExtKind, Switches};
 use crate::claude::cli::Cli;
+use crate::claude::Paths;
+use crate::quota::claude::PoolPolicy;
 use crate::settings::Settings;
 
 /// The hooks an extension gives the core. Every method has a default that
@@ -124,6 +131,25 @@ pub trait Hooks: Send + Sync {
     /// app's own ([`crate::claude::cli::USAGE`]).
     fn claude_usage(&self) -> Option<&'static str> {
         None
+    }
+
+    /// The policy of the Claude pool where the app keeps the accounts at
+    /// `paths`, read from what is there now: which accounts count in the
+    /// pool and the room it has ([`PoolPolicy`]). Asked once for each read
+    /// of the accounts and each pass of the alert rules. `None`, the
+    /// default: every account counts, each with what it has left.
+    fn claude_pool(&self, paths: &Paths) -> Option<Box<dyn PoolPolicy>> {
+        let _ = paths;
+        None
+    }
+
+    /// What alert 1's card (the Claude pool) says under itself once one of
+    /// these buttons is pressed, where the pool the extension counts
+    /// ([`Hooks::claude_pool`]) has its own words, in place of the app's
+    /// for that button. The button still does what it does. The default
+    /// has none.
+    fn pool_answers(&self) -> &'static [ExtAnswer] {
+        &[]
     }
 }
 

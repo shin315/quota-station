@@ -14,8 +14,9 @@
 //!
 //! - [`Extension::hooks`]: the core's hooks. The app keeps them for as long
 //!   as it runs and passes them where the core calls one (the settings file,
-//!   the kinds of alert and which alerts run, and the commands of
-//!   `quota-station claude …`, today).
+//!   the kinds of alert and which alerts run, the commands of
+//!   `quota-station claude …`, and the policy of the Claude pool at each
+//!   read of the accounts and each pass of the alert rules, today).
 //! - [`Extension::command_names`] and [`Extension::command_handler`]: the
 //!   commands the windows can call besides the app's own, both made from one
 //!   list by [`extension_commands!`](crate::extension_commands). A command

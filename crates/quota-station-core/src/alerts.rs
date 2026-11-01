@@ -6,7 +6,8 @@
 //!
 //! 1. Claude about to run dry, and back. Dry: the account in use has 10 %
 //!    or less, and no other account has 15 % or more; both thresholds are
-//!    set in Cài đặt ([`PoolAlert`]). Back: no longer dry.
+//!    set in Cài đặt ([`PoolAlert`]). Back: no longer dry. An extension's
+//!    pool policy says which accounts count ([`Facts::pool_policy`]).
 //! 3. A login to renew: a Claude account whose login ends within 3 days, or
 //!    whose last reading failed with a login only a new one mends; an
 //!    Antigravity account here that needs a new login or a verification.
@@ -50,6 +51,7 @@ use crate::antigravity::switch::{How, Outcome as AgyOutcome};
 use crate::antigravity::watch;
 use crate::app_dir::AppDir;
 use crate::ext::Hooks;
+use crate::quota::claude::PoolPolicy;
 use crate::quota::{Response, Slot};
 use crate::settings::PoolAlert;
 use crate::snapshot::Snapshot;
@@ -489,6 +491,10 @@ pub struct Facts<'a> {
     /// hours.
     pub offset: UtcOffset,
     pub claude: Option<&'a Response>,
+    /// The extension's policy of the Claude pool, read for this pass
+    /// ([`Hooks::claude_pool`]): which accounts count in alert 1's check.
+    /// `None`: every account counts.
+    pub pool_policy: Option<&'a dyn PoolPolicy>,
     #[cfg(feature = "antigravity-accounts")]
     pub agy: Vec<AgyLogin>,
     #[cfg(feature = "antigravity-accounts")]
@@ -565,12 +571,19 @@ impl PoolCheck {
 }
 
 /// The dry rule, with the thresholds in `limits`: every account counts, as
-/// any can be switched to by hand. An account past its reset counts as
-/// full. `None` without the accounts' numbers.
-pub fn pool_check(report: &Response, limits: PoolAlert) -> Option<PoolCheck> {
+/// any can be switched to by hand, unless the extension's pool `policy`
+/// says one does not count at `now` (`offset` is this Mac's)
+/// ([`PoolPolicy::counts`]). An account past its reset counts as full.
+/// `None` without the accounts' numbers.
+pub fn pool_check(
+    report: &Response,
+    policy: Option<&dyn PoolPolicy>,
+    limits: PoolAlert,
+    now: OffsetDateTime,
+    offset: UtcOffset,
+) -> Option<PoolCheck> {
     let row = report.primary("claude")?;
     let swap = row.claude_accounts.as_ref()?;
-    let allowed: Vec<u32> = swap.slots.iter().map(|s| s.slot).collect();
     let (dry_at_most, room_at_least) =
         (f64::from(limits.dry_at_most), f64::from(limits.room_at_least));
     let left = |s: &Slot| {
@@ -581,7 +594,11 @@ pub fn pool_check(report: &Response, limits: PoolAlert) -> Option<PoolCheck> {
         }
     };
     let active = swap.active_slot;
-    let usable: Vec<&Slot> = swap.slots.iter().filter(|s| allowed.contains(&s.slot)).collect();
+    let usable: Vec<&Slot> = swap
+        .slots
+        .iter()
+        .filter(|s| policy.is_none_or(|p| p.counts(swap, s, now, offset)))
+        .collect();
     let others: Vec<(u32, f64)> =
         usable.iter().filter(|s| Some(s.slot) != active).map(|s| (s.slot, left(s))).collect();
     let active_left =
@@ -900,7 +917,7 @@ pub struct ExtPass<'a> {
 /// of their kinds' numbers.
 fn found(memory: &mut Memory, f: &Facts, hooks: &dyn Hooks) -> Vec<Alert> {
     let names = claude_names(f.claude);
-    let check = f.claude.and_then(|r| pool_check(r, f.pool));
+    let check = f.claude.and_then(|r| pool_check(r, f.pool_policy, f.pool, f.now, f.offset));
     let mut out = Vec::new();
     if let Some(c) = &check {
         out.extend(pool_alerts(c, memory.pool_dry.unwrap_or(false), &names, f));
@@ -1084,7 +1101,8 @@ fn how(word: &str) -> Option<How> {
 /// the one in the app: notes the answer (once per card), sets a reminder
 /// for "Nhắc ngày mai", and says what else the app must do. A card of one
 /// of the extension's kinds (`hooks`) says what its kind says for the
-/// button ([`ExtKind::answers`]), where it says something.
+/// button ([`ExtKind::answers`]), where it says something, and alert 1's
+/// what the extension's pool says ([`Hooks::pool_answers`]).
 pub fn answer(
     memory: &mut Memory,
     id: &str,
@@ -1198,7 +1216,10 @@ pub fn answer(
     } else {
         return Err(AnswerError::NoSuchAction);
     };
-    let own = a.kind.ext(hooks).and_then(|k| k.answers.iter().find(|x| x.action == action));
+    let own = match &a.kind {
+        Kind::Pool => hooks.pool_answers().iter().find(|x| x.action == action),
+        kind => kind.ext(hooks).and_then(|k| k.answers.iter().find(|x| x.action == action)),
+    };
     if let Some(own) = own.filter(|_| !a.test) {
         said = Some(self::said(Tone::Info, own.title, own.body));
     }

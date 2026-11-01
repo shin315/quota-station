@@ -16,6 +16,7 @@ use crate::claude::locks::LockError;
 use crate::claude::state;
 use crate::claude::store::Store;
 use crate::claude::switch::{self, SwitchError};
+use crate::ext::Hooks;
 use crate::quota::{claude as quota_claude, Response};
 
 /// How long after the switch the active account is looked at again.
@@ -51,8 +52,9 @@ pub struct Done {
 }
 
 /// Switches to `slot`. `settle` runs between the switch and the second
-/// look: [`settle`] waits [`SETTLE`].
-pub fn switch_claude(tools: &Tools, slot: u32, settle: &dyn Fn()) -> Done {
+/// look: [`settle`] waits [`SETTLE`]. The report after is read with the
+/// pool's policy `hooks` give ([`Hooks::claude_pool`]).
+pub fn switch_claude(tools: &Tools, slot: u32, settle: &dyn Fn(), hooks: &dyn Hooks) -> Done {
     let failed = |error: &str, detail: String, active: Option<u32>| Done {
         outcome: Outcome::Failed { slot, error: error.to_string(), detail, active },
         report: None,
@@ -71,7 +73,7 @@ pub fn switch_claude(tools: &Tools, slot: u32, settle: &dyn Fn()) -> Done {
         Some(active) => Outcome::Raced { slot, active },
         None => Outcome::Unconfirmed { slot },
     };
-    Done { outcome, report: quota_claude::own_now(&tools.store, OffsetDateTime::now_utc()) }
+    Done { outcome, report: quota_claude::own_now(&tools.store, hooks, OffsetDateTime::now_utc()) }
 }
 
 /// Waits [`SETTLE`].

@@ -33,7 +33,7 @@ use quota_station_core::{icon, schedule};
 use tauri::{AppHandle, Emitter};
 use time::OffsetDateTime;
 
-use crate::ext::{Extension, ReaderDone, ReaderPass, ReaderWork};
+use crate::ext::{Extension, Hooks, ReaderDone, ReaderPass, ReaderWork};
 use crate::state::{AppState, Inner};
 use crate::tray;
 
@@ -87,12 +87,13 @@ fn run(app: &AppHandle, state: &AppState, extension: &dyn Extension) {
         let generation = inner.claude_generation;
         let agy_generation = inner.agy_generation;
         let codex_home = Some(inner.codex_home()).filter(|h| h.is_dir());
+        let hooks = inner.hooks;
         drop(inner);
         publish(app, state);
 
         let codex_app = app_dir.clone();
         let codex = thread::spawn(move || codex_home.map(|h| read_codex(&h, &codex_app)));
-        let (claude, agy, own) = read_all(&accounts, &app_dir, names);
+        let (claude, agy, own) = read_all(&accounts, &app_dir, names, hooks);
         let codex = codex.join().ok().flatten();
 
         let mut inner = state.lock();
@@ -164,10 +165,15 @@ pub type Own = Option<(Vec<AccountOut>, Vec<ClaudeDetail>)>;
 
 /// Claude and Antigravity read in parallel: an `agy -p /quota` read takes
 /// seconds and should not hold the Claude numbers back.
-fn read_all(store: &Store, app: &AppDir, names: bool) -> (Response, Response, Own) {
+fn read_all(
+    store: &Store,
+    app: &AppDir,
+    names: bool,
+    hooks: &dyn Hooks,
+) -> (Response, Response, Own) {
     let agy_app = app.clone();
     let agy = thread::spawn(move || read_agy(&agy_app, MAX_AGE_SECONDS));
-    let (claude, own) = read_claude(store, app, names, quota::claude::Keychain::Quiet);
+    let (claude, own) = read_claude(store, app, names, quota::claude::Keychain::Quiet, hooks);
     let agy = agy.join().unwrap_or_else(|_| {
         Response::new(
             OffsetDateTime::now_utc(),
@@ -178,17 +184,18 @@ fn read_all(store: &Store, app: &AppDir, names: bool) -> (Response, Response, Ow
 }
 
 /// The Claude row: from the accounts the app keeps, read first, where it
-/// keeps them; else Claude Code's own login, read-only, the Keychain item
-/// read as `mode` allows.
+/// keeps them, with the pool's policy `hooks` give; else Claude Code's own
+/// login, read-only, the Keychain item read as `mode` allows.
 pub fn read_claude(
     store: &Store,
     app: &AppDir,
     names: bool,
     mode: quota::claude::Keychain,
+    hooks: &dyn Hooks,
 ) -> (Response, Own) {
     let now = OffsetDateTime::now_utc();
     if let Some(own) = read_own(store, names) {
-        if let Some(report) = quota::claude::own_now(store, now) {
+        if let Some(report) = quota::claude::own_now(store, hooks, now) {
             return (report, Some(own));
         }
     }
