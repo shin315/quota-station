@@ -23,15 +23,23 @@
 //!   extension's way to the app: the settings, a wake for the app's reader,
 //!   and a place for the extension's own state ([`Host::keep_state`]), which
 //!   its commands take as Tauri state.
+//! - [`Extension::start_threads`]: once, when the app's own reader runs: the
+//!   extension's own threads start here.
+//! - [`Extension::reader_asked`] and [`Extension::reader_pass`]: the app's
+//!   reader goes at once when the extension asks, and runs the extension's
+//!   work at each pass, beside its read or alone between reads
+//!   ([`ReaderPass`]).
 //!
 //! The names and the handler are apart so a test can read the names without
 //! building the handler: a handler holds Tauri's window runtime, which a
 //! Windows test program cannot load (it lacks the app's manifest, which
 //! only the binary gets). The [`Host`] holds that runtime too, so no test
-//! makes one; what the extension keeps is plain data ([`Kept`]).
+//! makes one; what the extension keeps is plain data ([`Kept`]), and so is
+//! what the reader hands it ([`ReaderPass`]).
 
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
+use std::path::Path;
 use std::sync::Arc;
 
 use quota_station_core::app_dir::AppDir;
@@ -68,7 +76,59 @@ pub trait Extension: Send + Sync + 'static {
     fn start(&self, host: Host) {
         let _ = host;
     }
+
+    /// Called once when the app starts, after [`Extension::start`], once the
+    /// menu bar is up and the app's reader runs: the extension starts its
+    /// own threads here.
+    fn start_threads(&self, host: Host) {
+        let _ = host;
+    }
+
+    /// Whether the extension asks the app's reader to go now rather than
+    /// at its next time. Asked each time the reader is about to wait, under
+    /// the app's lock: it reads only `kept`, never the [`Host`].
+    fn reader_asked(&self, kept: &Kept) -> bool {
+        let _ = kept;
+        false
+    }
+
+    /// The extension's work at one pass of the app's reader, asked under
+    /// the app's lock: it reads only `pass`, never the [`Host`]. With a read
+    /// due ([`ReaderPass::read_due`]) the work runs in a thread of its own
+    /// beside the read and is finished after it; without one (the reader
+    /// went because [`Extension::reader_asked`] said so) it runs alone, and
+    /// the reader waits again after it. Either way what the work returns is
+    /// called under the app's lock with what the extension keeps, and the
+    /// windows and the menu bar are redrawn. An extension that asked clears
+    /// what made it ask here.
+    fn reader_pass(&self, pass: &ReaderPass<'_>) -> Option<ReaderWork> {
+        let _ = pass;
+        None
+    }
 }
+
+/// The app's reader at one pass, as an extension sees it
+/// ([`Extension::reader_pass`]): plain data, taken under the app's lock.
+pub struct ReaderPass<'a> {
+    /// What the extension keeps ([`Host::keep_state`]).
+    pub kept: &'a Kept,
+    /// The home folder of the user the app runs as.
+    pub home: &'a Path,
+    /// The app's folder, where its settings file is.
+    pub app_dir: &'a AppDir,
+    /// The quota is read on this pass: asked for, or on its schedule.
+    pub read_due: bool,
+    /// A window of the app is open, so the reader reads more often.
+    pub window_open: bool,
+}
+
+/// The extension's work at a pass of the reader, run without the app's
+/// lock. What it returns finishes it under that lock.
+pub type ReaderWork = Box<dyn FnOnce() -> ReaderDone + Send>;
+
+/// What finishes an extension's work at a pass of the reader, called under
+/// the app's lock with what the extension keeps.
+pub type ReaderDone = Box<dyn FnOnce(&Kept) + Send>;
 
 /// No extension: the app as it is.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -120,11 +180,23 @@ impl Host {
         self.app.manage(state);
     }
 
+    /// The value of type `T` the extension keeps ([`Host::keep_state`]), if
+    /// it keeps one.
+    pub fn kept_state<T: Any + Send + Sync>(&self) -> Option<Arc<T>> {
+        self.state.lock().kept.get()
+    }
+
     /// Wakes the app's reader, so what the extension asked of it is seen at
     /// once. Taken under the app's lock: a reader about to wait cannot miss it.
     pub fn wake_reader(&self) {
         let _held = self.state.lock();
         self.state.wake.notify_all();
+    }
+
+    /// The running app, as Tauri hands it over: for the extension's own
+    /// threads, which tell the windows what changed.
+    pub fn app_handle(&self) -> &AppHandle {
+        &self.app
     }
 }
 

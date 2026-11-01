@@ -11,7 +11,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use quota_station::ext::{Extension, Hooks, Host};
+use quota_station::ext::{Extension, Hooks, Host, Kept, ReaderDone, ReaderPass, ReaderWork};
 
 /// The test extension's commands.
 pub mod tools {
@@ -41,11 +41,15 @@ pub struct TestHooks;
 impl Hooks for TestHooks {}
 
 /// The test extension's own state, which it keeps in the app when it
-/// starts: what it read of the settings, and a count its commands keep.
+/// starts: what it read of the settings, a count its commands and its work
+/// at the reader's passes keep, whether it asks the reader to go now, and
+/// the passes it saw (`read_due`, `window_open`).
 #[derive(Debug, Default)]
 pub struct TestState {
     pub machine: Option<String>,
     pub count: Mutex<u32>,
+    pub asks: Mutex<bool>,
+    pub passes: Mutex<Vec<(bool, bool)>>,
 }
 
 /// Another type, which the test extension never keeps.
@@ -64,6 +68,28 @@ impl Extension for TestExtension {
     fn start(&self, host: Host) {
         let state = TestState { machine: host.settings().machine_name, ..TestState::default() };
         host.keep_state(Arc::new(state));
+    }
+
+    fn start_threads(&self, host: Host) {
+        let _ = host.kept_state::<TestState>();
+    }
+
+    fn reader_asked(&self, kept: &Kept) -> bool {
+        kept.get::<TestState>().is_some_and(|state| *state.asks.lock().unwrap())
+    }
+
+    fn reader_pass(&self, pass: &ReaderPass<'_>) -> Option<ReaderWork> {
+        let state = pass.kept.get::<TestState>()?;
+        *state.asks.lock().unwrap() = false;
+        state.passes.lock().unwrap().push((pass.read_due, pass.window_open));
+        // Alone between reads it counts 10, beside a read 1.
+        let add = if pass.read_due { 1 } else { 10 };
+        Some(Box::new(move || {
+            let done: ReaderDone = Box::new(move |kept: &Kept| {
+                *kept.get::<TestState>().expect("kept").count.lock().unwrap() += add;
+            });
+            done
+        }))
     }
 
     quota_station::extension_commands![

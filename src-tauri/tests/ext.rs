@@ -6,10 +6,12 @@
 
 mod common;
 
+use std::path::Path;
 use std::sync::Arc;
 
 use common::{NotKept, TestExtension, TestState};
-use quota_station::ext::{shadowed, Extension, Kept, NoExtension};
+use quota_station::ext::{shadowed, Extension, Kept, NoExtension, ReaderPass};
+use quota_station_core::app_dir::AppDir;
 
 #[test]
 fn no_extension_adds_no_command() {
@@ -54,4 +56,61 @@ fn without_an_extension_nothing_is_kept() {
     let kept = Kept::default();
     assert!(kept.get::<TestState>().is_none());
     assert!(kept.get::<NotKept>().is_none());
+}
+
+fn pass(kept: &Kept, app_dir: &AppDir, read_due: bool) -> bool {
+    let pass = ReaderPass {
+        kept,
+        home: Path::new("/nonexistent/home"),
+        app_dir,
+        read_due,
+        window_open: false,
+    };
+    match TestExtension.reader_pass(&pass) {
+        Some(work) => {
+            work()(kept);
+            true
+        }
+        None => false,
+    }
+}
+
+#[test]
+fn an_extension_asks_the_reader_and_works_at_its_passes() {
+    let app_dir = AppDir::new("/nonexistent/app");
+    let mut kept = Kept::default();
+    let state = Arc::new(TestState::default());
+    kept.keep(state.clone());
+    assert!(!TestExtension.reader_asked(&kept));
+    *state.asks.lock().unwrap() = true;
+    assert!(TestExtension.reader_asked(&kept), "the reader goes now");
+
+    // Alone between reads: the pass takes the ask, the work finishes.
+    assert!(pass(&kept, &app_dir, false));
+    assert!(!TestExtension.reader_asked(&kept));
+    assert_eq!(*state.count.lock().unwrap(), 10);
+
+    // Beside a read.
+    assert!(pass(&kept, &app_dir, true));
+    assert_eq!(*state.count.lock().unwrap(), 11);
+    assert_eq!(*state.passes.lock().unwrap(), vec![(false, false), (true, false)]);
+}
+
+#[test]
+fn without_an_extension_the_reader_neither_waits_for_it_nor_runs_its_work() {
+    let app_dir = AppDir::new("/nonexistent/app");
+    let kept = Kept::default();
+    assert!(!NoExtension.reader_asked(&kept));
+    for read_due in [false, true] {
+        let pass = ReaderPass {
+            kept: &kept,
+            home: Path::new("/nonexistent/home"),
+            app_dir: &app_dir,
+            read_due,
+            window_open: true,
+        };
+        assert!(NoExtension.reader_pass(&pass).is_none());
+    }
+    // An extension that keeps nothing yet does no work either.
+    assert!(!pass(&kept, &app_dir, true));
 }

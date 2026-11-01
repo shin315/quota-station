@@ -147,9 +147,10 @@ pub fn run(context: tauri::Context<tauri::Wry>, extension: impl Extension) {
             }
             #[cfg(windows)]
             windows::prepare_popover(app.handle());
-            reader::spawn(app.handle().clone(), state.clone());
+            reader::spawn(app.handle().clone(), state.clone(), extension);
             #[cfg(feature = "antigravity-accounts")]
             agy_quota::spawn(app.handle().clone(), state.clone());
+            extension.start_threads(Host::new(app.handle().clone(), state.clone()));
             codex_wake::spawn(app.handle().clone(), state.clone());
             codex::spawn(app.handle().clone(), state);
             // A test build's guided session (plan 4.3); nothing in any other.

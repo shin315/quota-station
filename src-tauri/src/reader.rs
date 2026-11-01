@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: MIT
 
 //! The reader thread: reads the quota on the schedule ([`quota`]) and pushes
-//! each result to the menu bar and the windows.
+//! each result to the menu bar and the windows. At each pass it also runs
+//! the extension's work ([`Extension::reader_pass`]): beside the read, or
+//! alone between reads when the extension asked for it.
 //! Where the app keeps the Claude accounts it reads them (each account's
 //! windows, and its name from the Keychain while names show), writes the
 //! data file, and builds the Claude row from them; elsewhere it reads Claude Code's own
@@ -14,7 +16,7 @@
 //! alerts look at the new numbers (`alerting`).
 
 use std::path::Path;
-use std::thread;
+use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant, SystemTime};
 
 use quota_station_core::app_dir::AppDir;
@@ -31,24 +33,28 @@ use quota_station_core::{icon, schedule};
 use tauri::{AppHandle, Emitter};
 use time::OffsetDateTime;
 
+use crate::ext::{Extension, ReaderDone, ReaderPass, ReaderWork};
 use crate::state::{AppState, Inner};
 use crate::tray;
 
 /// The longest single wait, so a sleep of the Mac is noticed soon after it wakes.
 const WAIT_STEP: Duration = Duration::from_secs(30);
 
-pub fn spawn(app: AppHandle, state: AppState) {
+pub fn spawn(app: AppHandle, state: AppState, extension: &'static dyn Extension) {
     thread::Builder::new()
         .name("quota-reader".into())
-        .spawn(move || run(&app, &state))
+        .spawn(move || run(&app, &state, extension))
         .expect("reader thread starts");
 }
 
-fn run(app: &AppHandle, state: &AppState) {
+fn run(app: &AppHandle, state: &AppState, extension: &dyn Extension) {
     loop {
         let mut inner = state.lock();
-        let wait =
-            if asked(&inner) { Duration::ZERO } else { inner.schedule.due_in(Instant::now()) };
+        let wait = if asked(&inner, extension) {
+            Duration::ZERO
+        } else {
+            inner.schedule.due_in(Instant::now())
+        };
         if !wait.is_zero() {
             let (mono, wall) = (Instant::now(), SystemTime::now());
             let (mut inner, _) = state
@@ -61,6 +67,18 @@ fn run(app: &AppHandle, state: &AppState) {
             }
             continue;
         }
+        // The extension's work runs beside the read, and the numbers are
+        // shown as soon as they are in: slow work never holds them back.
+        let (read_due, work) = extension_pass(&inner, extension);
+        if !read_due {
+            // The extension's work on its own, between reads.
+            drop(inner);
+            if let Some(work) = work {
+                finish(app, state, work());
+            }
+            continue;
+        }
+        let beside: Option<JoinHandle<ReaderDone>> = work.map(thread::spawn);
         inner.read_now = false;
         inner.reading = true;
         let accounts = inner.claude_store();
@@ -103,16 +121,41 @@ fn run(app: &AppHandle, state: &AppState) {
         crate::cli_tools::daily(app, state);
         crate::env::every(app, state);
         publish(app, state);
+
+        if let Some(Ok(done)) = beside.map(JoinHandle::join) {
+            finish(app, state, done);
+        }
     }
 }
 
-/// A read was asked for, or a build that adds to it asked for a look: the
-/// reader goes now, without waiting for the schedule.
-// The binding stays for the build that adds to it.
-#[allow(clippy::let_and_return)]
-fn asked(inner: &Inner) -> bool {
-    let asked = inner.read_now;
-    asked
+/// A read was asked for, or the extension asked: the reader goes now,
+/// without waiting for the schedule.
+fn asked<E: Extension + ?Sized>(inner: &Inner, extension: &E) -> bool {
+    inner.read_now || extension.reader_asked(&inner.kept)
+}
+
+/// The extension's work at this pass, asked under the app's lock, and
+/// whether the quota is read on it.
+fn extension_pass<E: Extension + ?Sized>(
+    inner: &Inner,
+    extension: &E,
+) -> (bool, Option<ReaderWork>) {
+    let read_due = inner.read_now || inner.schedule.due_in(Instant::now()).is_zero();
+    let app_dir = inner.app_dir();
+    let pass = ReaderPass {
+        kept: &inner.kept,
+        home: &inner.home,
+        app_dir: &app_dir,
+        read_due,
+        window_open: inner.schedule.visible(),
+    };
+    (read_due, extension.reader_pass(&pass))
+}
+
+/// Finishes the extension's work under the app's lock, and shows it.
+fn finish(app: &AppHandle, state: &AppState, done: ReaderDone) {
+    done(&state.lock().kept);
+    publish(app, state);
 }
 
 /// The Claude accounts as the app read them: the tab's rows and the
@@ -257,11 +300,14 @@ pub fn publish(app: &AppHandle, state: &AppState) {
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Mutex;
 
     use quota_station_core::quota::{Provider, State, Window};
     use quota_station_core::snapshot::Keychain;
 
     use super::*;
+    use crate::ext::{Kept, NoExtension};
 
     fn inner() -> Inner {
         Inner::new(
@@ -362,8 +408,56 @@ mod tests {
     #[test]
     fn a_read_asked_for_goes_without_waiting() {
         let mut inner = inner();
-        assert!(asked(&inner), "the first read, at start");
+        assert!(asked(&inner, &NoExtension), "the first read, at start");
         inner.read_now = false;
-        assert!(!asked(&inner));
+        assert!(!asked(&inner, &NoExtension));
+    }
+
+    /// An extension that asks, as the reader sees it: plain data only.
+    struct Asking {
+        asks: AtomicBool,
+        seen: Mutex<Vec<(bool, bool)>>,
+    }
+
+    impl Extension for Asking {
+        fn reader_asked(&self, _kept: &Kept) -> bool {
+            self.asks.load(Ordering::SeqCst)
+        }
+
+        fn reader_pass(&self, pass: &ReaderPass<'_>) -> Option<ReaderWork> {
+            self.asks.store(false, Ordering::SeqCst);
+            self.seen.lock().unwrap().push((pass.read_due, pass.window_open));
+            Some(Box::new(|| Box::new(|_: &Kept| ())))
+        }
+    }
+
+    #[test]
+    fn an_extension_that_asks_sends_the_reader_without_a_read() {
+        let asking = Asking { asks: AtomicBool::new(true), seen: Mutex::default() };
+        let mut inner = inner();
+        inner.read_now = false;
+        inner.schedule.mark_read(Instant::now());
+        assert!(asked(&inner, &asking));
+
+        let (read_due, work) = extension_pass(&inner, &asking);
+        assert!(!read_due, "only the extension asked");
+        assert!(work.is_some());
+        assert!(!asked(&inner, &asking), "the pass took the ask");
+
+        // A read asked for: the extension's work goes beside it.
+        inner.read_now = true;
+        let (read_due, work) = extension_pass(&inner, &asking);
+        assert!(read_due);
+        assert!(work.is_some());
+        assert_eq!(*asking.seen.lock().unwrap(), vec![(false, false), (true, false)]);
+    }
+
+    #[test]
+    fn without_an_extension_the_reader_reads_alone() {
+        let inner = inner();
+        assert!(!NoExtension.reader_asked(&inner.kept));
+        let (read_due, work) = extension_pass(&inner, &NoExtension);
+        assert!(read_due, "the first read, at start");
+        assert!(work.is_none());
     }
 }
