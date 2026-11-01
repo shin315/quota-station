@@ -12,8 +12,10 @@
 use std::sync::{Arc, Mutex};
 
 use quota_station::ext::{
-    Closing, Extension, Hold, Hooks, Host, Kept, ModelInput, ReaderDone, ReaderPass, ReaderWork,
+    AlertInput, AlertRead, Closing, Extension, Hold, Hooks, Host, Kept, ModelInput, ReaderDone,
+    ReaderPass, ReaderWork,
 };
+use quota_station_core::alerts::{Alert, ExtPass, ExtSource};
 use serde_json::{json, Map, Value};
 
 /// The test extension's commands.
@@ -48,15 +50,42 @@ impl Hooks for TestHooks {}
 /// at the reader's passes keep (and its part of the model shows), whether it
 /// asks the reader to go now, the passes it saw (`read_due`,
 /// `window_open`), and whether it holds work not kept yet (so a close
-/// waits) and the closes it was asked about.
+/// waits) and the closes it was asked about, and the machine names it read
+/// for its alerts and had back once the alert rules ran.
 #[derive(Debug, Default)]
 pub struct TestState {
+    pub alert_reads: Mutex<Vec<Option<String>>>,
     pub machine: Option<String>,
     pub count: Mutex<u32>,
     pub asks: Mutex<bool>,
     pub passes: Mutex<Vec<(bool, bool)>>,
     pub unkept: Mutex<bool>,
     pub closes: Mutex<Vec<Closing>>,
+}
+
+/// What the test extension read for its alerts: the machine's name, from
+/// the settings. It draws no alert.
+pub struct TestRead {
+    pub machine: Option<String>,
+}
+
+impl ExtSource for TestRead {
+    fn alerts(&self, pass: &mut ExtPass<'_>) -> Vec<Alert> {
+        let _ = pass;
+        Vec::new()
+    }
+}
+
+impl AlertRead for TestRead {
+    fn source(&self) -> &dyn ExtSource {
+        self
+    }
+
+    fn done(self: Box<Self>, kept: &Kept) {
+        if let Some(state) = kept.get::<TestState>() {
+            state.alert_reads.lock().unwrap().push(self.machine);
+        }
+    }
 }
 
 /// Another type, which the test extension never keeps.
@@ -133,6 +162,11 @@ impl Extension for TestExtension {
             Closing::MainWindow => Hold::Ask { tab: None },
             Closing::App => Hold::Ask { tab: Some("testExtension") },
         }
+    }
+
+    /// It reads the machine's name for its alerts.
+    fn alert_read(&self, input: &AlertInput<'_>) -> Option<Box<dyn AlertRead>> {
+        Some(Box::new(TestRead { machine: input.settings.machine_name.clone() }))
     }
 
     /// `quota-station test-extension ARGS…` exits with as many as there

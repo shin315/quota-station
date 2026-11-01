@@ -7,11 +7,14 @@
 
 use std::io::Write;
 
-use quota_station_core::alerts::Switches;
+use quota_station_core::alerts::{
+    self, act, Alert, ExtAnswer, ExtKind, ExtPass, ExtSource, Kind, Switches, Tone,
+};
 use quota_station_core::claude::cli::Cli;
 use quota_station_core::ext::Hooks;
 use quota_station_core::settings::Settings;
 use serde_json::{Map, Value};
+use time::UtcOffset;
 
 /// Hooks a test can see the core call.
 ///
@@ -23,6 +26,9 @@ use serde_json::{Map, Value};
 ///
 /// `quota-station claude …`: they add `test-word` (and would take `status`
 /// too, were it ever asked), with a usage of their own.
+///
+/// The alerts: one kind of their own, `testKind` ([`TEST_KINDS`]), whose
+/// cards [`TestSource`] draws, and its card for "Gửi thử".
 #[derive(Debug, Default)]
 pub struct TestHooks;
 
@@ -70,6 +76,90 @@ impl Hooks for TestHooks {
 
     fn claude_usage(&self) -> Option<&'static str> {
         Some(TEST_USAGE)
+    }
+
+    fn alert_kinds(&self) -> &'static [ExtKind] {
+        &TEST_KINDS
+    }
+
+    /// `testKind`'s sample names the first Claude account; a name of no
+    /// kind of theirs has none.
+    fn alert_sample(
+        &self,
+        name: &str,
+        now: i64,
+        offset: UtcOffset,
+        claude: [&str; 3],
+    ) -> Option<Alert> {
+        (name == TEST_KIND).then(|| Alert {
+            key: "ignored".into(),
+            kind: Kind::Pool,
+            tone: Tone::Info,
+            title: format!("Test sample for {} at {}", claude[0], alerts::clock(now, offset)),
+            body: "Thử: a test event.".into(),
+            actions: vec![act("dismiss", "Fine")],
+            at: 0,
+            test: false,
+        })
+    }
+}
+
+/// The test hooks' kind of alert, by name.
+pub const TEST_KIND: &str = "testKind";
+
+/// Their one kind: number 2, which comes between the app's 1 and 3; off by
+/// default; and their own words under a card once "dismiss" is pressed.
+pub const TEST_KINDS: [ExtKind; 1] = [ExtKind {
+    number: 2,
+    name: TEST_KIND,
+    on: false,
+    answers: &[ExtAnswer {
+        action: "dismiss",
+        title: "Test noted",
+        body: "Not again for this test event.",
+    }],
+}];
+
+/// The test hooks' kind.
+pub fn test_kind() -> Kind {
+    Kind::Ext(TEST_KIND.into())
+}
+
+/// The test extension's alerts at one pass, from what it "read": a
+/// `testKind` card for each Claude account in `events` (named as the cards
+/// name it, with a button to switch to it), and one of a kind no hooks have
+/// (`testStranger`), which never goes out. It counts its passes in the
+/// alerts' memory (`testPasses`).
+pub struct TestSource {
+    pub events: Vec<u32>,
+}
+
+impl ExtSource for TestSource {
+    fn alerts(&self, pass: &mut ExtPass<'_>) -> Vec<Alert> {
+        let passes = pass.memory.get("testPasses").and_then(Value::as_u64).unwrap_or(0);
+        pass.memory.insert("testPasses".into(), (passes + 1).into());
+        let now = pass.facts.now.unix_timestamp();
+        let card = |key: String, kind: Kind, title: String, actions| Alert {
+            key,
+            kind,
+            tone: Tone::Warn,
+            title,
+            body: "A test event.".into(),
+            actions,
+            at: now,
+            test: false,
+        };
+        let mut out: Vec<Alert> = self
+            .events
+            .iter()
+            .map(|n| {
+                let name = alerts::name_of(pass.names, *n);
+                let actions = vec![act("dismiss", "Fine"), act(format!("switch:{n}"), "Go")];
+                card(format!("test:{n}"), test_kind(), format!("Test event for {name}"), actions)
+            })
+            .collect();
+        out.push(card("stranger".into(), Kind::Ext("testStranger".into()), "Never".into(), vec![]));
+        out
     }
 }
 

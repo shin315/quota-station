@@ -20,6 +20,7 @@ use quota_station_core::cli_tools::{
     self, check, diagnose, layout, row, running, Failure, Feeds, Found, HandsOff, Install, Kept,
     Last, Refused, Tool,
 };
+use quota_station_core::ext::NoHooks;
 use quota_station_core::os::Process;
 
 fn found(tool: Tool, path: &Path, target: &Path, home: &Path, version: &str) -> Found {
@@ -422,7 +423,8 @@ fn the_new_alert_names_each_tool_once_per_set_of_versions() {
     let two = [one[0].clone(), ("Antigravity CLI".into(), "1.4.7".into(), "1.4.8".into())];
     let id = alerts::cli_alert(&mut memory, &two, 3000).unwrap();
     assert_eq!(memory.record(&id).unwrap().alert.title, "2 agent có bản mới");
-    let effect = alerts::answer(&mut memory, &id, "cli:settings", 3100, time::UtcOffset::UTC);
+    let effect =
+        alerts::answer(&mut memory, &id, "cli:settings", 3100, time::UtcOffset::UTC, &NoHooks);
     assert_eq!(effect, Ok(Effect::OpenCliTools));
 }
 

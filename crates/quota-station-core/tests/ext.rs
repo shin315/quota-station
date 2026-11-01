@@ -103,6 +103,69 @@ fn the_extension_holds_back_the_alerts_it_says() {
     assert_eq!(Switches { pool: true, ..run }, s.alerts, "and only those");
 }
 
+/// The switches of the extension's kinds of alert live in the settings
+/// file's `alerts` beside the app's own: missing, each is at its default; a
+/// file with a switch off its default keeps them all, written as the app's
+/// are; and Cài đặt › Thông báo shows them with the app's.
+#[test]
+fn the_extensions_alert_switches_are_kept_in_the_settings_file_with_the_apps() {
+    use common::ext::test_kind;
+    let dir = fresh_dir("alerts");
+    let file = dir.join("settings.json");
+    std::fs::create_dir_all(&dir).unwrap();
+    let alerts_of = |file: &Path| -> Option<serde_json::Value> {
+        serde_json::from_str::<serde_json::Value>(&text(file)).unwrap().get("alerts").cloned()
+    };
+    let settled = r#"{ "setupSeen": true, "testSettled": true, "alerts": { "testKind": true } }"#;
+    std::fs::write(&file, settled).unwrap();
+    let mut s = Settings::open(&file, &TestHooks);
+    assert!(s.alerts.on(&test_kind(), &TestHooks));
+    assert_eq!(
+        serde_json::to_value(s.alerts.shown(&TestHooks)).unwrap(),
+        json!({ "pool": true, "testKind": true, "login": true, "overwrite": true })
+    );
+    s.save(&file).unwrap();
+    assert_eq!(
+        alerts_of(&file),
+        Some(json!({ "pool": true, "testKind": true, "login": true, "overwrite": true }))
+    );
+    // Back to its default: no `alerts` written, as for the app's own.
+    s.alerts.set(&test_kind(), false, &TestHooks);
+    s.save(&file).unwrap();
+    assert_eq!(alerts_of(&file), None);
+    // One of the app's off: the extension's is written too, at its default.
+    s.alerts.set(&quota_station_core::alerts::Kind::Login, false, &TestHooks);
+    s.save(&file).unwrap();
+    assert_eq!(
+        alerts_of(&file),
+        Some(json!({ "pool": true, "testKind": false, "login": false, "overwrite": true }))
+    );
+    assert_eq!(Settings::open(&file, &TestHooks).alerts, s.alerts);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Without an extension, a switch in the settings file's `alerts` that is
+/// none of the app's is kept as it was read and written back, never shown
+/// and never on.
+#[test]
+fn without_an_extension_an_alert_switch_it_does_not_know_is_kept_and_never_on() {
+    let dir = fresh_dir("alerts-none");
+    let file = dir.join("settings.json");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(&file, r#"{ "setupSeen": true, "alerts": { "laterKind": true } }"#).unwrap();
+    let s = Settings::open(&file, &NoHooks);
+    let later = quota_station_core::alerts::Kind::named("laterKind");
+    assert!(!s.alerts.on(&later, &NoHooks));
+    assert_eq!(s.alerts.ext.get("laterKind"), Some(&json!(true)));
+    assert_eq!(
+        serde_json::to_value(s.alerts.shown(&NoHooks)).unwrap(),
+        json!({ "pool": true, "login": true, "overwrite": true })
+    );
+    s.save(&file).unwrap();
+    assert!(text(&file).contains(r#""laterKind": true"#), "{}", text(&file));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// No extension: the settings keys the app does not know pass through as
 /// they were, no other key settles the file, and every alert switched on
 /// runs.

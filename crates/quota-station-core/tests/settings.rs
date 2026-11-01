@@ -78,7 +78,7 @@ fn a_settings_file_from_m1_still_loads() {
     assert_eq!(s.menubar, Menubar::Claude, "the menu bar follows Claude");
     assert_eq!(s.menubar_window, MenubarWindow::FiveHours, "the title shows five hours");
     // Alerts 1, 3 and 4 on.
-    assert!([Kind::Pool, Kind::Login, Kind::Overwrite].iter().all(|k| s.alerts.on(*k)));
+    assert!([Kind::Pool, Kind::Login, Kind::Overwrite].iter().all(|k| s.alerts.on(k, hooks())));
     assert_eq!(s.codex_home, None, "Codex's own ~/.codex");
     assert!(s.ext.is_empty(), "and nothing is kept for an extension");
     let _ = std::fs::remove_dir_all(&dir);

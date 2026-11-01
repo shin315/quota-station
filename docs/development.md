@@ -266,8 +266,9 @@ What the main suites check:
   overwrite within 6 hours (offering to switch back twice, then only saying
   so). They check that each event alerts once, that a switched-off kind sends
   nothing, that the reminder for tomorrow comes back at 09:00, that a test
-  card changes nothing, and that a press counts once on either card. Nothing
-  posts a real notification.
+  card changes nothing, and that a press counts once on either card. A test
+  extension's kind of alert goes out among the app's, switched and answered
+  like them, and none without it. Nothing posts a real notification.
 - **Quota readers** (`quota_readers.rs`) never use a real login: Codex,
   Antigravity and Claude Code each run against a local fake server, a fake
   `agy`, `ps` and `lsof`, and a fake `security`, with made-up tokens. For each

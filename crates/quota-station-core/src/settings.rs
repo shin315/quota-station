@@ -429,7 +429,9 @@ impl Settings {
     /// `hooks` has the extension's keys read ([`Hooks::tidy_settings`]),
     /// may name the key that tells the file was settled
     /// ([`Hooks::settled_key`], `setupSeen` without one), and settles its
-    /// keys with the app's ([`Hooks::settle_settings`]).
+    /// keys with the app's ([`Hooks::settle_settings`]). The switches of
+    /// its kinds of alert ([`Hooks::alert_kinds`]) are read with the app's
+    /// ([`Switches::tidy`]).
     pub fn open(file: &Path, hooks: &dyn Hooks) -> Self {
         let text = std::fs::read_to_string(file).ok();
         let json = text.as_deref().and_then(|t| serde_json::from_str::<Value>(t).ok());
@@ -437,6 +439,7 @@ impl Settings {
         let found = read.is_some();
         let mut settings = read.unwrap_or_default();
         hooks.tidy_settings(&mut settings.ext, found);
+        settings.alerts.tidy(hooks);
         let settled = hooks.settled_key().unwrap_or("setupSeen");
         if json.as_ref().is_some_and(|v| v.get(settled).is_some_and(|a| a.is_boolean())) {
             return settings;
@@ -455,7 +458,7 @@ impl Settings {
     /// Which alerts run: the switches, as `hooks` lets them
     /// ([`Hooks::alert_switches`]).
     pub fn alert_switches(&self, hooks: &dyn Hooks) -> Switches {
-        hooks.alert_switches(self, self.alerts)
+        hooks.alert_switches(self, self.alerts.clone())
     }
 
     /// A missing or unreadable file gives the defaults: the app still runs.

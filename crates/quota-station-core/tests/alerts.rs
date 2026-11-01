@@ -23,6 +23,7 @@ use quota_station_core::antigravity::switch::How;
 #[cfg(feature = "antigravity-accounts")]
 use quota_station_core::antigravity::watch;
 use quota_station_core::app_dir::AppDir;
+use quota_station_core::ext::Hooks;
 use quota_station_core::quota::Response;
 use quota_station_core::settings::PoolAlert;
 use serde_json::{json, Value};
@@ -76,6 +77,11 @@ fn report_value(slots: Vec<Value>) -> Value {
     })
 }
 
+/// The hooks the app passes without an extension: none.
+fn hooks() -> &'static dyn Hooks {
+    quota_station_core::ext::none()
+}
+
 fn facts<'a>(now: i64, claude: Option<&'a Response>) -> Facts<'a> {
     Facts {
         now: at(now),
@@ -85,6 +91,7 @@ fn facts<'a>(now: i64, claude: Option<&'a Response>) -> Facts<'a> {
         agy: Vec::new(),
         #[cfg(feature = "antigravity-accounts")]
         overwrite: None,
+        ext: None,
         pool: PoolAlert::default(),
     }
 }
@@ -96,7 +103,7 @@ fn check_pool(r: &Response, limits: PoolAlert) -> alerts::PoolCheck {
 
 /// The card "Gửi thử" sends, naming the accounts as the cards do.
 fn sample(kind: Kind, now: i64) -> alerts::Alert {
-    alerts::sample(kind, now, offset())
+    alerts::sample(&kind, now, offset(), hooks()).unwrap()
 }
 
 /// Records every card and every button pressed, as macOS would deliver
@@ -137,15 +144,16 @@ impl FakeCenter {
     fn press(&self, memory: &mut Memory, card: &Card, label: &str, now: i64) -> Effect {
         let act = card.actions.iter().find(|a| a.label == label).expect("the card has the button");
         self.pressed.lock().unwrap().push((card.id.clone(), act.id.clone()));
-        alerts::answer(memory, &card.id, &act.id, now, offset()).expect("the answer is taken")
+        alerts::answer(memory, &card.id, &act.id, now, offset(), hooks())
+            .expect("the answer is taken")
     }
 }
 
 /// Runs the rules and shows what they found, as the reader does.
 fn run(memory: &mut Memory, f: &Facts, center: &FakeCenter) -> Vec<String> {
     let switches = Switches::default();
-    let ids = alerts::evaluate(memory, f, &switches);
-    alerts::deliver(memory, &ids, center);
+    let ids = alerts::evaluate(memory, f, &switches, hooks());
+    alerts::deliver(memory, &ids, center, hooks());
     ids
 }
 
@@ -442,15 +450,15 @@ fn an_overwrite_within_six_hours_offers_to_switch_back() {
 fn a_test_card_shows_the_real_buttons_and_changes_nothing() {
     let center = FakeCenter::default();
     let mut memory = Memory::default();
-    for kind in Kind::ALL {
+    for kind in Kind::all(hooks()) {
         let alert = sample(kind, T0);
         assert!(alert.test);
         assert!(alert.body.starts_with("Thử:"), "{}", alert.body);
         assert!(!alert.body.contains("tương đương"), "{}", alert.body);
         let id = alerts::keep_test(&mut memory, alert);
-        alerts::deliver(&mut memory, std::slice::from_ref(&id), &center);
+        alerts::deliver(&mut memory, std::slice::from_ref(&id), &center, hooks());
     }
-    assert_eq!(center.titles().len(), Kind::ALL.len());
+    assert_eq!(center.titles().len(), Kind::all(hooks()).len());
     let cards = center.cards.lock().unwrap().clone();
     let overwrite = cards.into_iter().find(|c| c.kind == Kind::Overwrite).unwrap();
     assert_eq!(labels(&overwrite.actions), ["Thoát app rồi chuyển lại", "Chuyển lại", "Bỏ qua"]);
@@ -467,7 +475,7 @@ fn the_bell_counts_the_cards_since_its_panel_was_opened() {
     let mut memory = Memory::default();
     for kind in [Kind::Pool, Kind::Login] {
         let id = alerts::keep_test(&mut memory, sample(kind, T0));
-        alerts::deliver(&mut memory, std::slice::from_ref(&id), &center);
+        alerts::deliver(&mut memory, std::slice::from_ref(&id), &center, hooks());
     }
     // Test cards are notifications like any other: they count until read.
     assert_eq!(memory.unread(), 2);
@@ -490,7 +498,7 @@ fn cards_kept_before_the_bell_count_as_read() {
     kept["recent"][0].as_object_mut().unwrap().remove("read");
     std::fs::create_dir_all(alerts::path(&app).parent().unwrap()).unwrap();
     std::fs::write(alerts::path(&app), kept.to_string()).unwrap();
-    let loaded = alerts::load(&app);
+    let loaded = alerts::load(&app, hooks());
     assert_eq!(loaded.recent.len(), 1);
     assert_eq!(loaded.unread(), 0);
 }
@@ -498,15 +506,15 @@ fn cards_kept_before_the_bell_count_as_read() {
 #[test]
 fn memory_survives_the_file_and_an_unreadable_file_starts_afresh() {
     let app = AppDir::new(temp_dir("alerts-memory"));
-    assert_eq!(alerts::load(&app), Memory::default());
+    assert_eq!(alerts::load(&app, hooks()), Memory::default());
     let center = FakeCenter::default();
     let mut memory = Memory::default();
     let r = report(vec![slot(2, 5.0, true)]);
     assert_eq!(run(&mut memory, &facts(T0, Some(&r)), &center).len(), 1);
     alerts::save(&app, &memory).unwrap();
-    assert_eq!(alerts::load(&app), memory);
+    assert_eq!(alerts::load(&app, hooks()), memory);
     std::fs::write(alerts::path(&app), "{ not json").unwrap();
-    assert_eq!(alerts::load(&app), Memory::default());
+    assert_eq!(alerts::load(&app, hooks()), Memory::default());
 }
 
 #[test]
@@ -516,4 +524,138 @@ fn alert_one_uses_the_thresholds_from_settings() {
     assert!(!check(PoolAlert::default()), "18 % left is not dry at 10 %");
     assert!(check(PoolAlert { dry_at_most: 20, room_at_least: 30 }));
     assert!(!check(PoolAlert { dry_at_most: 20, room_at_least: 25 }), "25 % elsewhere is room");
+}
+
+/// "Gửi thử" for `kind` with `hooks`, naming the accounts by number.
+fn sample_with(kind: &Kind, now: i64, hooks: &dyn Hooks) -> Option<alerts::Alert> {
+    alerts::sample(kind, now, offset(), hooks)
+}
+
+/// A pool gone dry and a refused login, the app's alerts 1 and 3.
+fn dry_and_refused() -> Response {
+    let mut refused = slot(4, 0.0, false);
+    refused["error"] = json!("invalid_grant");
+    report(vec![slot(2, 5.0, true), slot(3, 4.0, false), refused])
+}
+
+/// An extension's kind (`testKind`, number 2, off by default) is one more
+/// kind beside the app's: its cards come from what the extension read,
+/// among the app's in the order of the numbers, once each, only while
+/// switched on; a kind its hooks do not have never goes out; its buttons
+/// do what they do on any card, in its own words where it has some; it
+/// keeps its own memory in the alerts' file; and "Gửi thử" sends its sample.
+#[test]
+fn an_extensions_kind_alerts_among_the_apps_and_is_switched_and_answered_like_them() {
+    use common::ext::{test_kind, TestHooks, TestSource};
+    let hooks: &dyn Hooks = &TestHooks;
+    assert_eq!(Kind::all(hooks), [Kind::Pool, test_kind(), Kind::Login, Kind::Overwrite]);
+    assert_eq!(test_kind().number(hooks), 2);
+    assert!(test_kind().known(hooks) && !Kind::named("testStranger").known(hooks));
+    assert_eq!(Kind::named("testKind"), test_kind());
+    assert_eq!(serde_json::to_value(test_kind()).unwrap(), json!("testKind"));
+    assert_eq!(serde_json::from_value::<Kind>(json!("login")).unwrap(), Kind::Login);
+
+    let r = dry_and_refused();
+    let source = TestSource { events: vec![3] };
+    let mut f = facts(T0, Some(&r));
+    f.ext = Some(&source);
+    // Off by default: the app's two cards only, as without it.
+    let mut memory = Memory::default();
+    let ids = alerts::evaluate(&mut memory, &f, &Switches::default(), hooks);
+    assert_eq!(ids.len(), 2, "{ids:?}");
+    assert_eq!(memory.ext.get("testPasses"), Some(&json!(1)), "the extension ran all the same");
+
+    // Switched on: its card comes between the app's 1 and 3, once.
+    let mut on = Switches::default();
+    on.set(&test_kind(), true, hooks);
+    let mut memory = Memory::default();
+    let ids = alerts::evaluate(&mut memory, &f, &on, hooks);
+    let kinds: Vec<Kind> =
+        ids.iter().map(|id| memory.record(id).unwrap().alert.kind.clone()).collect();
+    assert_eq!(kinds, [Kind::Pool, test_kind(), Kind::Login]);
+    let center = FakeCenter::default();
+    alerts::deliver(&mut memory, &ids, &center, hooks);
+    let card = center.cards.lock().unwrap()[1].clone();
+    assert_eq!((card.kind.clone(), card.number), (test_kind(), 2));
+    assert_eq!(card.title, format!("Test event for {}", name(3)));
+    // After a restart, nothing again; its memory went with the file.
+    let app = AppDir::new(temp_dir("alerts-ext"));
+    alerts::save(&app, &memory).unwrap();
+    let mut memory = alerts::load(&app, hooks);
+    assert_eq!(memory.ext.get("testPasses"), Some(&json!(1)));
+    let mut f = facts(T0 + MIN, Some(&r));
+    f.ext = Some(&source);
+    assert!(alerts::evaluate(&mut memory, &f, &on, hooks).is_empty());
+    assert_eq!(memory.ext.get("testPasses"), Some(&json!(2)));
+
+    // Its switch button opens the switch sheet, in the app's words; its
+    // "dismiss" says its own.
+    let go = alerts::answer(&mut memory, &card.id, "switch:3", T0 + MIN, offset(), hooks);
+    assert_eq!(go, Ok(Effect::OpenClaudeSwitch { slot: 3 }));
+    let said = memory.record(&card.id).unwrap().answer.clone().unwrap().result.unwrap();
+    assert_eq!(said.title, "Đã mở hộp thoại chuyển tài khoản");
+    let mut f = facts(T0 + HOUR, Some(&r));
+    let other = TestSource { events: vec![2] };
+    f.ext = Some(&other);
+    let ids = alerts::evaluate(&mut memory, &f, &on, hooks);
+    assert_eq!(ids.len(), 1);
+    assert_eq!(
+        alerts::answer(&mut memory, &ids[0], "dismiss", T0 + HOUR, offset(), hooks),
+        Ok(Effect::None)
+    );
+    let said = memory.record(&ids[0]).unwrap().answer.clone().unwrap().result.unwrap();
+    assert_eq!(
+        (said.title.as_str(), said.body.as_str()),
+        ("Test noted", "Not again for this test event.")
+    );
+
+    // "Gửi thử": its sample, keyed and marked by the app; none for a kind
+    // its hooks do not have.
+    let sample = sample_with(&test_kind(), T0, hooks).expect("its sample");
+    assert_eq!(
+        (sample.key.as_str(), sample.kind.clone(), sample.test),
+        ("test:2:1768548000", test_kind(), true)
+    );
+    assert_eq!(sample.title, "Test sample for Tài khoản 1 at 14:20");
+    assert!(sample_with(&Kind::named("testStranger"), T0, hooks).is_none());
+    let id = alerts::keep_test(&mut memory, sample);
+    assert_eq!(alerts::answer(&mut memory, &id, "dismiss", T0, offset(), hooks), Ok(Effect::None));
+    let said = memory.record(&id).unwrap().answer.clone().unwrap().result.unwrap();
+    assert_eq!(said.title, "Thông báo thử", "a test card keeps the app's words");
+}
+
+/// Without an extension, no kind is added: the app's own kinds and nothing
+/// else, a source handed over anyway sends nothing, there is no sample of a
+/// kind it does not have, and a file with a card of such a kind starts
+/// afresh, as a build without that kind always did.
+#[test]
+fn without_an_extension_no_kind_is_added_and_its_cards_never_go_out() {
+    use common::ext::{test_kind, TestHooks, TestSource};
+    let none = quota_station_core::ext::none();
+    assert_eq!(Kind::all(none), Kind::ALL);
+    assert!(!test_kind().known(none));
+    assert_eq!(test_kind().number(none), 0);
+    assert!(!Switches::default().on(&test_kind(), none));
+
+    let r = dry_and_refused();
+    let source = TestSource { events: vec![3] };
+    let mut with = facts(T0, Some(&r));
+    with.ext = Some(&source);
+    let mut without = facts(T0, Some(&r));
+    without.ext = None;
+    let (mut a, mut b) = (Memory::default(), Memory::default());
+    let ids = alerts::evaluate(&mut a, &with, &Switches::default(), none);
+    assert_eq!(ids, alerts::evaluate(&mut b, &without, &Switches::default(), none));
+    assert_eq!(a.recent, b.recent);
+    assert!(sample_with(&test_kind(), T0, none).is_none());
+
+    // A file with a card of the extension's kind.
+    let app = AppDir::new(temp_dir("alerts-no-ext"));
+    let mut memory = Memory::default();
+    let mut on = Switches::default();
+    on.set(&test_kind(), true, &TestHooks);
+    alerts::evaluate(&mut memory, &with, &on, &TestHooks);
+    alerts::save(&app, &memory).unwrap();
+    assert_eq!(alerts::load(&app, &TestHooks), memory);
+    assert_eq!(alerts::load(&app, none), Memory::default());
 }

@@ -13,6 +13,12 @@
 //! 4. An Antigravity switch overwritten: the six-hour watch after a switch
 //!    (M4c) saw the old account back in use.
 //!
+//! An extension may add kinds of its own beside these ([`ExtKind`], named by
+//! [`Hooks::alert_kinds`]), with a number, a switch and the words of their
+//! buttons, and their alerts at each pass of the rules ([`ExtSource`],
+//! handed over in [`Facts::ext`]). They are sent, remembered, switched off
+//! and answered as the app's own are.
+//!
 //! And one more of its own (M11, G), not among the five: skills with a newer
 //! version on GitHub ([`skill_alert`]). It shows in the app; a macOS card
 //! only when the owner turned that on in Cài đặt.
@@ -31,7 +37,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde_json::{Map, Value};
 use time::{OffsetDateTime, UtcOffset, Weekday};
 
 use crate::agents::env_check;
@@ -42,6 +49,7 @@ use crate::antigravity::switch::{How, Outcome as AgyOutcome};
 #[cfg(feature = "antigravity-accounts")]
 use crate::antigravity::watch;
 use crate::app_dir::AppDir;
+use crate::ext::Hooks;
 use crate::quota::{Response, Slot};
 use crate::settings::PoolAlert;
 use crate::snapshot::Snapshot;
@@ -64,8 +72,9 @@ const SENT_KEEP: i64 = 60 * 86400;
 const RELOGIN_ERRORS: [&str; 4] =
     ["invalid_grant", "no_refresh_token", "no-access-token", "relogin_required"];
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+/// A kind of alert: one of the app's own, or one an extension adds
+/// ([`Kind::Ext`]). Written as its name: `pool`, `login`, …
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Kind {
     Pool,
     Login,
@@ -76,13 +85,57 @@ pub enum Kind {
     Env,
     /// Claude Code, Codex or agy with a newer version: in the app only, no switch.
     Cli,
+    /// One of the extension's kinds ([`Hooks::alert_kinds`]), by its name.
+    /// Any name that is not one of the app's reads as one; a build whose
+    /// extension has no kind of that name ([`Kind::known`]) has no such
+    /// kind.
+    Ext(String),
 }
 
+/// The app's own kinds, by the names they are written as.
+const OWN_KINDS: [(&str, Kind); 6] = [
+    ("pool", Kind::Pool),
+    ("login", Kind::Login),
+    ("overwrite", Kind::Overwrite),
+    ("skill", Kind::Skill),
+    ("env", Kind::Env),
+    ("cli", Kind::Cli),
+];
+
 impl Kind {
+    /// The app's own kinds with a switch in Cài đặt › Thông báo; with the
+    /// extension's, [`Kind::all`].
     pub const ALL: [Kind; 3] = [Kind::Pool, Kind::Login, Kind::Overwrite];
 
-    /// Its number in the plan and in Cài đặt › Thông báo.
-    pub fn number(self) -> u8 {
+    /// Every kind with a switch, the app's and the extension's, in the
+    /// order of their numbers.
+    pub fn all(hooks: &dyn Hooks) -> Vec<Kind> {
+        let mut all: Vec<Kind> = Kind::ALL.to_vec();
+        all.extend(ext_kinds(hooks).map(|k| Kind::Ext(k.name.to_string())));
+        all.sort_by_key(|k| k.number(hooks));
+        all
+    }
+
+    /// The kind written as `name`: the app's own of that name, else the
+    /// extension's.
+    pub fn named(name: &str) -> Kind {
+        OWN_KINDS
+            .iter()
+            .find(|(own, _)| *own == name)
+            .map_or_else(|| Kind::Ext(name.to_string()), |(_, kind)| kind.clone())
+    }
+
+    /// Its name, as the cards and the windows write it.
+    pub fn name(&self) -> &str {
+        match self {
+            Kind::Ext(name) => name,
+            own => OWN_KINDS.iter().find(|(_, k)| k == own).map_or("", |(name, _)| name),
+        }
+    }
+
+    /// Its number in the plan and in Cài đặt › Thông báo; 0 for a kind
+    /// this build does not have.
+    pub fn number(&self, hooks: &dyn Hooks) -> u8 {
         match self {
             Kind::Pool => 1,
             Kind::Login => 3,
@@ -90,43 +143,153 @@ impl Kind {
             Kind::Skill => 6,
             Kind::Env => 7,
             Kind::Cli => 8,
+            Kind::Ext(_) => self.ext(hooks).map_or(0, |k| k.number),
         }
+    }
+
+    /// The extension's kind this is, if it is one of them.
+    pub fn ext(&self, hooks: &dyn Hooks) -> Option<&'static ExtKind> {
+        let Kind::Ext(name) = self else { return None };
+        ext_kinds(hooks).find(|k| k.name == name)
+    }
+
+    /// This build has the kind: it is the app's own, or one of the
+    /// extension's.
+    pub fn known(&self, hooks: &dyn Hooks) -> bool {
+        !matches!(self, Kind::Ext(_)) || self.ext(hooks).is_some()
     }
 }
 
-/// Which alerts are on: every one by default.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+impl Serialize for Kind {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.name())
+    }
+}
+
+impl<'de> Deserialize<'de> for Kind {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Kind, D::Error> {
+        String::deserialize(deserializer).map(|name| Kind::named(&name))
+    }
+}
+
+/// A kind of alert an extension adds to the app's own
+/// ([`Hooks::alert_kinds`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ExtKind {
+    /// Its number in Cài đặt › Thông báo, one the app's own kinds do not
+    /// have (theirs are 1, 3, 4, 6, 7 and 8). Among the alerts found at one
+    /// pass, its cards come in the order of this number.
+    pub number: u8,
+    /// Its name: its cards' `kind`, and its switch's key in the settings
+    /// file's `alerts`. A name of one of the app's own kinds stays the
+    /// app's.
+    pub name: &'static str,
+    /// Its switch where the settings file does not set it.
+    pub on: bool,
+    /// What its cards say once a button is pressed, where that is not what
+    /// the app says for that button.
+    pub answers: &'static [ExtAnswer],
+}
+
+/// What a card of an extension's kind says under itself once the button
+/// `action` is pressed ([`ExtKind::answers`]), in place of the app's words
+/// for that button. The button still does what it does on any card.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ExtAnswer {
+    pub action: &'static str,
+    pub title: &'static str,
+    pub body: &'static str,
+}
+
+/// The extension's kinds, less any named like one of the app's own.
+fn ext_kinds(hooks: &dyn Hooks) -> impl Iterator<Item = &'static ExtKind> {
+    hooks.alert_kinds().iter().filter(|k| !OWN_KINDS.iter().any(|(own, _)| *own == k.name))
+}
+
+/// Which alerts are on: every one of the app's by default, and each of the
+/// extension's as its kind says ([`ExtKind::on`]).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Switches {
     pub pool: bool,
     pub login: bool,
     pub overwrite: bool,
+    /// The switches of the extension's kinds, by their names, and any other
+    /// key of the settings file's `alerts` this build does not know, as it
+    /// was read: written back beside the app's own. A kind's switch missing
+    /// here is at its default.
+    #[serde(flatten)]
+    pub ext: Map<String, Value>,
 }
 
 impl Default for Switches {
     fn default() -> Self {
-        Switches { pool: true, login: true, overwrite: true }
+        Switches { pool: true, login: true, overwrite: true, ext: Map::new() }
     }
 }
 
 impl Switches {
-    pub fn on(&self, kind: Kind) -> bool {
+    /// Whether alerts of `kind` are sent. A kind this build does not have
+    /// never is.
+    pub fn on(&self, kind: &Kind, hooks: &dyn Hooks) -> bool {
         match kind {
             Kind::Pool => self.pool,
             Kind::Login => self.login,
             Kind::Overwrite => self.overwrite,
             // Its own settings say whether the app checks at all.
             Kind::Skill | Kind::Env | Kind::Cli => true,
+            Kind::Ext(name) => kind
+                .ext(hooks)
+                .is_some_and(|k| self.ext.get(name).and_then(Value::as_bool).unwrap_or(k.on)),
         }
     }
 
-    pub fn set(&mut self, kind: Kind, on: bool) {
+    /// Turns `kind` on or off, and keeps the switches as the settings file
+    /// keeps them ([`Switches::tidy`]). A kind without a switch, or one this
+    /// build does not have, changes nothing.
+    pub fn set(&mut self, kind: &Kind, on: bool, hooks: &dyn Hooks) {
         match kind {
             Kind::Pool => self.pool = on,
             Kind::Login => self.login = on,
             Kind::Overwrite => self.overwrite = on,
             Kind::Skill | Kind::Env | Kind::Cli => {}
+            Kind::Ext(name) => {
+                if kind.ext(hooks).is_some() {
+                    self.ext.insert(name.clone(), Value::Bool(on));
+                }
+            }
         }
+        self.tidy(hooks);
+    }
+
+    /// The switches as the settings file keeps them: while every switch,
+    /// the app's and the extension's, is at its default, the extension's
+    /// are left out (and with nothing else kept, so is `alerts`); otherwise
+    /// each of the extension's is written, at its default where it was
+    /// missing or not `true` or `false`. Keys that are no kind's stay as
+    /// they were.
+    pub fn tidy(&mut self, hooks: &dyn Hooks) {
+        let values: Vec<(&ExtKind, bool)> = ext_kinds(hooks)
+            .map(|k| (k, self.ext.get(k.name).and_then(Value::as_bool).unwrap_or(k.on)))
+            .collect();
+        let default =
+            self.pool && self.login && self.overwrite && values.iter().all(|(k, on)| *on == k.on);
+        for (k, on) in values {
+            if default {
+                self.ext.remove(k.name);
+            } else {
+                self.ext.insert(k.name.to_string(), Value::Bool(on));
+            }
+        }
+    }
+
+    /// Every switch with a kind, the extension's at their values: what
+    /// Cài đặt › Thông báo shows. Keys that are no kind's are left out.
+    pub fn shown(&self, hooks: &dyn Hooks) -> Switches {
+        let ext = ext_kinds(hooks)
+            .map(|k| (k.name.to_string(), Value::Bool(self.on(&Kind::Ext(k.name.into()), hooks))))
+            .collect();
+        Switches { pool: self.pool, login: self.login, overwrite: self.overwrite, ext }
     }
 
     pub fn is_default(&self) -> bool {
@@ -152,7 +315,8 @@ pub struct Act {
     pub label: String,
 }
 
-fn act(id: impl Into<String>, label: impl Into<String>) -> Act {
+/// A button `label` that does `id`.
+pub fn act(id: impl Into<String>, label: impl Into<String>) -> Act {
     Act { id: id.into(), label: label.into() }
 }
 
@@ -229,6 +393,11 @@ pub struct Memory {
     pub snoozed: BTreeMap<String, i64>,
     /// Newest first.
     pub recent: Vec<Record>,
+    /// What the extension's alerts keep between passes
+    /// ([`ExtPass::memory`]), and any other key of the file this build does
+    /// not know, as it was read: written back beside the app's own.
+    #[serde(flatten)]
+    pub ext: Map<String, Value>,
 }
 
 impl Memory {
@@ -264,12 +433,19 @@ pub fn path(app: &AppDir) -> PathBuf {
     app.path().join(DIR).join(FILE)
 }
 
-/// What was kept; none, or an unreadable file, starts afresh.
-pub fn load(app: &AppDir) -> Memory {
-    app.read_to_string(&path(app))
+/// What was kept; none, or an unreadable file, starts afresh. So does a
+/// file with a card of a kind this build does not have ([`Kind::known`]
+/// with `hooks`): it was never this build's to read.
+pub fn load(app: &AppDir, hooks: &dyn Hooks) -> Memory {
+    let memory: Memory = app
+        .read_to_string(&path(app))
         .ok()
         .and_then(|text| serde_json::from_str(&text).ok())
-        .unwrap_or_default()
+        .unwrap_or_default();
+    if memory.recent.iter().any(|r| !r.alert.kind.known(hooks)) {
+        return Memory::default();
+    }
+    memory
 }
 
 pub fn save(app: &AppDir, memory: &Memory) -> std::io::Result<()> {
@@ -317,6 +493,9 @@ pub struct Facts<'a> {
     pub agy: Vec<AgyLogin>,
     #[cfg(feature = "antigravity-accounts")]
     pub overwrite: Option<Overwrite>,
+    /// The extension's alerts at this pass, from what it read for it; `None`
+    /// without an extension, or one that adds none.
+    pub ext: Option<&'a dyn ExtSource>,
     /// Alert 1's thresholds, from settings.
     pub pool: PoolAlert,
 }
@@ -379,7 +558,8 @@ impl PoolCheck {
         self.best_other().filter(|(_, left)| *left > self.active_left)
     }
 
-    fn best_other(&self) -> Option<(u32, f64)> {
+    /// The other account with the most left.
+    pub fn best_other(&self) -> Option<(u32, f64)> {
         self.others.iter().copied().max_by(|a, b| a.1.total_cmp(&b.1))
     }
 }
@@ -465,7 +645,8 @@ pub fn day(at: i64, offset: UtcOffset) -> String {
     format!("{} {:02}/{:02}", weekday(t.weekday()), t.day(), u8::from(t.month()))
 }
 
-fn name_of(names: &BTreeMap<u32, String>, slot: u32) -> String {
+/// Claude account `slot` by its name in `names`, else `Tài khoản N`.
+pub fn name_of(names: &BTreeMap<u32, String>, slot: u32) -> String {
     names.get(&slot).cloned().unwrap_or_else(|| format!("Tài khoản {slot}"))
 }
 
@@ -690,9 +871,34 @@ fn overwrite_alert(o: &Overwrite, f: &Facts) -> Alert {
     }
 }
 
+/// An extension's alerts at one pass of the rules ([`evaluate`]), drawn
+/// from what it read for that pass; the app hands it over in [`Facts::ext`].
+pub trait ExtSource {
+    /// Its alerts whose event holds now, each of one of its kinds
+    /// ([`Hooks::alert_kinds`]). They go out as the app's own do: a key
+    /// once, a kind switched off never, and "Nhắc ngày mai" again the next
+    /// morning while the event still holds.
+    fn alerts(&self, pass: &mut ExtPass<'_>) -> Vec<Alert>;
+}
+
+/// What an extension's alerts look at ([`ExtSource::alerts`]).
+pub struct ExtPass<'a> {
+    /// The newest readings, as the app's own rules see them.
+    pub facts: &'a Facts<'a>,
+    /// Alert 1's check on the Claude accounts, when they were read.
+    pub check: Option<&'a PoolCheck>,
+    /// The Claude accounts by the names the cards give them.
+    pub names: &'a BTreeMap<u32, String>,
+    /// What the extension's alerts keep from one pass to the next (an
+    /// event's edge, say), in `alerts/alerts.json` beside the app's own
+    /// ([`Memory::ext`]). Its keys must not be any of the app's.
+    pub memory: &'a mut Map<String, Value>,
+}
+
 /// Every alert whose event holds now. Alert 1 comes only on its edges,
-/// which `memory` keeps.
-fn found(memory: &mut Memory, f: &Facts) -> Vec<Alert> {
+/// which `memory` keeps. The extension's come among the app's in the order
+/// of their kinds' numbers.
+fn found(memory: &mut Memory, f: &Facts, hooks: &dyn Hooks) -> Vec<Alert> {
     let names = claude_names(f.claude);
     let check = f.claude.and_then(|r| pool_check(r, f.pool));
     let mut out = Vec::new();
@@ -708,16 +914,28 @@ fn found(memory: &mut Memory, f: &Facts) -> Vec<Alert> {
         out.extend(agy_login_alerts(&f.agy, f.now.unix_timestamp()));
         out.extend(f.overwrite.as_ref().map(|o| overwrite_alert(o, f)));
     }
+    if let Some(source) = f.ext {
+        let mut pass =
+            ExtPass { facts: f, check: check.as_ref(), names: &names, memory: &mut memory.ext };
+        out.extend(source.alerts(&mut pass));
+        out.sort_by_key(|a| a.kind.number(hooks));
+    }
     out
 }
 
 /// Runs the rules on the newest readings. Returns the ids of the cards to
 /// show now, each kept in `memory.recent`: alerts of kinds turned off are
 /// left out, a key already sent is not sent again, and a reminder whose
-/// time came is sent again while its event still holds.
-pub fn evaluate(memory: &mut Memory, facts: &Facts, switches: &Switches) -> Vec<String> {
+/// time came is sent again while its event still holds. `hooks` has the
+/// extension's kinds, whose alerts come from [`Facts::ext`].
+pub fn evaluate(
+    memory: &mut Memory,
+    facts: &Facts,
+    switches: &Switches,
+    hooks: &dyn Hooks,
+) -> Vec<String> {
     let now = facts.now.unix_timestamp();
-    let found = found(memory, facts);
+    let found = found(memory, facts, hooks);
     let holding: BTreeSet<String> = found.iter().map(|a| a.key.clone()).collect();
     // A dead login whose error went away (logged in again) may come back
     // later under the same key; forget it, but only while the accounts are read.
@@ -730,7 +948,7 @@ pub fn evaluate(memory: &mut Memory, facts: &Facts, switches: &Switches) -> Vec<
     }
     let mut shown = Vec::new();
     for alert in found {
-        if !switches.on(alert.kind) {
+        if !switches.on(&alert.kind, hooks) {
             continue;
         }
         let due = memory.snoozed.get(&alert.key).is_some_and(|t| *t <= now);
@@ -757,6 +975,8 @@ pub fn evaluate(memory: &mut Memory, facts: &Facts, switches: &Switches) -> Vec<
 pub struct Card {
     pub id: String,
     pub kind: Kind,
+    /// Its kind's number ([`Kind::number`]).
+    pub number: u8,
     pub title: String,
     pub body: String,
     pub actions: Vec<Act>,
@@ -768,10 +988,12 @@ impl Record {
         Record { id, alert, notified: false, answer: None, read: false }
     }
 
-    pub fn card(&self) -> Card {
+    /// The card for macOS; `hooks` numbers the extension's kinds.
+    pub fn card(&self, hooks: &dyn Hooks) -> Card {
         Card {
             id: self.id.clone(),
-            kind: self.alert.kind,
+            kind: self.alert.kind.clone(),
+            number: self.alert.kind.number(hooks),
             title: self.alert.title.clone(),
             body: self.alert.body.clone(),
             actions: self.alert.actions.clone(),
@@ -788,10 +1010,10 @@ pub trait Notifier: Send + Sync {
 }
 
 /// Shows the cards `ids`, noting the ones macOS took.
-pub fn deliver(memory: &mut Memory, ids: &[String], center: &dyn Notifier) {
+pub fn deliver(memory: &mut Memory, ids: &[String], center: &dyn Notifier, hooks: &dyn Hooks) {
     for id in ids {
         if let Some(r) = memory.recent.iter_mut().find(|r| &r.id == id) {
-            r.notified = center.show(&r.card()).is_ok();
+            r.notified = center.show(&r.card(hooks)).is_ok();
         }
     }
 }
@@ -860,13 +1082,16 @@ fn how(word: &str) -> Option<How> {
 
 /// The button `action` on card `id`, pressed at `now`, on the macOS card or
 /// the one in the app: notes the answer (once per card), sets a reminder
-/// for "Nhắc ngày mai", and says what else the app must do.
+/// for "Nhắc ngày mai", and says what else the app must do. A card of one
+/// of the extension's kinds (`hooks`) says what its kind says for the
+/// button ([`ExtKind::answers`]), where it says something.
 pub fn answer(
     memory: &mut Memory,
     id: &str,
     action: &str,
     now: i64,
     offset: UtcOffset,
+    hooks: &dyn Hooks,
 ) -> Result<Effect, AnswerError> {
     let Memory { recent, snoozed, .. } = memory;
     let record = recent.iter_mut().find(|r| r.id == id).ok_or(AnswerError::Unknown)?;
@@ -881,7 +1106,7 @@ pub fn answer(
         .cloned()
         .ok_or(AnswerError::NoSuchAction)?;
     let a = &record.alert;
-    let (effect, said) = if a.test {
+    let (effect, mut said) = if a.test {
         (
             Effect::None,
             Some(said(
@@ -973,6 +1198,10 @@ pub fn answer(
     } else {
         return Err(AnswerError::NoSuchAction);
     };
+    let own = a.kind.ext(hooks).and_then(|k| k.answers.iter().find(|x| x.action == action));
+    if let Some(own) = own.filter(|_| !a.test) {
+        said = Some(self::said(Tone::Info, own.title, own.body));
+    }
     record.answer =
         Some(Answer { action: pressed.id, label: pressed.label, at: now, result: said });
     Ok(effect)
@@ -987,8 +1216,9 @@ pub fn answer_in_app(
     now: i64,
     offset: UtcOffset,
     center: &dyn Notifier,
+    hooks: &dyn Hooks,
 ) -> Result<Effect, AnswerError> {
-    let effect = answer(memory, id, action, now, offset)?;
+    let effect = answer(memory, id, action, now, offset, hooks)?;
     center.withdraw(id);
     Ok(effect)
 }
@@ -1046,19 +1276,22 @@ pub fn agy_refused(number: u32, why: &str) -> Said {
 
 /// The card "Gửi thử" sends for `kind`: the prototype's words, marked as a
 /// test, with buttons that change nothing, naming the accounts as the
-/// cards do.
-pub fn sample(kind: Kind, now: i64, offset: UtcOffset) -> Alert {
+/// cards do. One of the extension's kinds sends what `hooks` give
+/// ([`Hooks::alert_sample`]); `None` when they give nothing, or the build
+/// does not have the kind.
+pub fn sample(kind: &Kind, now: i64, offset: UtcOffset, hooks: &dyn Hooks) -> Option<Alert> {
     let names = (["Tài khoản 1", "Tài khoản 2", "Tài khoản 3"], ["Antigravity 1", "Antigravity 2"]);
-    sample_named(kind, now, offset, names, "Hạn mức Claude sắp cạn")
+    sample_named(kind, now, offset, names, "Hạn mức Claude sắp cạn", hooks)
 }
 
 fn sample_named(
-    kind: Kind,
+    kind: &Kind,
     now: i64,
     offset: UtcOffset,
     ([a, b, c], [g1, g2]): ([&str; 3], [&str; 2]),
     pool: &str,
-) -> Alert {
+    hooks: &dyn Hooks,
+) -> Option<Alert> {
     let later = clock(now + 2 * 3600, offset);
     let (tone, title, body, actions): (Tone, String, String, Vec<Act>) = match kind {
         Kind::Pool => (
@@ -1108,17 +1341,22 @@ fn sample_named(
             "Thử: Codex CLI 0.163.0 → 0.164.0. App chỉ cập nhật khi bạn bấm.".into(),
             vec![act("cli:settings", "Xem"), act("dismiss", "Để sau")],
         ),
+        Kind::Ext(name) => {
+            kind.ext(hooks)?;
+            let own = hooks.alert_sample(name, now, offset, [a, b, c])?;
+            (own.tone, own.title, own.body, own.actions)
+        }
     };
-    Alert {
-        key: format!("test:{}:{now}", kind.number()),
-        kind,
+    Some(Alert {
+        key: format!("test:{}:{now}", kind.number(hooks)),
+        kind: kind.clone(),
         tone,
         title,
         body,
         actions,
         at: now,
         test: true,
-    }
+    })
 }
 
 /// The alert for skills with a newer version (G): one card for each new
@@ -1258,7 +1496,7 @@ pub fn env_ignored(memory: &mut Memory, name: &str, now: i64, offset: UtcOffset)
         .map(|r| r.id.clone())
         .collect();
     for id in &ids {
-        let _ = answer(memory, id, &action, now, offset);
+        let _ = answer(memory, id, &action, now, offset, crate::ext::none());
     }
     ids
 }

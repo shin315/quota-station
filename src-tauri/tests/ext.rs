@@ -11,7 +11,8 @@ use std::sync::Arc;
 
 use common::{NotKept, TestExtension, TestState};
 use quota_station::ext::{
-    shadowed, shadowed_tabs, Closing, Extension, Hold, Kept, ModelInput, NoExtension, ReaderPass,
+    shadowed, shadowed_tabs, AlertInput, Closing, Extension, Hold, Kept, ModelInput, NoExtension,
+    ReaderPass,
 };
 use quota_station_core::app_dir::AppDir;
 use quota_station_core::settings::Settings;
@@ -229,4 +230,29 @@ fn without_an_extension_no_subcommand_is_its_own() {
     for args in [words(&[]), words(&["test-extension"]), words(&["agents", "read"])] {
         assert_eq!(NoExtension.subcommand(&args), None, "{args:?}");
     }
+}
+
+#[test]
+fn an_extension_reads_for_its_alerts_and_has_what_it_read_back() {
+    let mut kept = Kept::default();
+    let state = Arc::new(TestState::default());
+    kept.keep(state.clone());
+    let settings = Settings { machine_name: Some("Mac A".into()), ..Settings::default() };
+    let app_dir = AppDir::new("/nonexistent/app");
+    let input =
+        AlertInput { settings: &settings, home: Path::new("/nonexistent"), app_dir: &app_dir };
+    let read = TestExtension.alert_read(&input).expect("it reads for its alerts");
+    let _source = read.source();
+    assert!(state.alert_reads.lock().unwrap().is_empty(), "not had back before the rules ran");
+    read.done(&kept);
+    assert_eq!(*state.alert_reads.lock().unwrap(), [Some("Mac A".to_string())]);
+}
+
+#[test]
+fn without_an_extension_nothing_is_read_for_the_alerts() {
+    let settings = Settings::default();
+    let app_dir = AppDir::new("/nonexistent/app");
+    let input =
+        AlertInput { settings: &settings, home: Path::new("/nonexistent"), app_dir: &app_dir };
+    assert!(NoExtension.alert_read(&input).is_none());
 }

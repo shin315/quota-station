@@ -782,10 +782,11 @@ fn check(app: &AppHandle, state: &AppState) {
         .collect();
     {
         let mut inner = state.lock();
+        let hooks = inner.hooks;
         if let Some(id) = alerts::skill_alert(&mut inner.alerts, &found, now) {
             if inner.settings.skill_checks.notify {
                 if let Some(center) = inner.center.clone() {
-                    alerts::deliver(&mut inner.alerts, &[id], &*center);
+                    alerts::deliver(&mut inner.alerts, &[id], &*center, hooks);
                 }
             }
             let _ = alerts::save(&dir, &inner.alerts);

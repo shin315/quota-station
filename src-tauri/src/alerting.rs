@@ -4,7 +4,8 @@
 //! The history and the alerts (M6), after every read: the history keeps a
 //! change of the account in use that nothing explains, and the alert rules
 //! run on the newest readings and each new alert goes out as a macOS card
-//! with buttons.
+//! with buttons. The extension's own alerts run with the app's, from what it
+//! reads for them first ([`crate::ext::Extension::alert_read`]).
 //! The buttons, on the macOS card or the same card in the bell's panel
 //! (Thông báo), come back through [`press`].
 //!
@@ -33,6 +34,7 @@ use time::OffsetDateTime;
 
 #[cfg(feature = "antigravity-accounts")]
 use crate::agy_switch;
+use crate::ext::{AlertInput, Hooks};
 use crate::notify::{self, Permission};
 use crate::state::{AppState, Inner, Model, Tab};
 use crate::{open, reader, windows};
@@ -56,7 +58,7 @@ pub struct AlertsView {
 pub fn alerts_view(inner: &Inner) -> AlertsView {
     AlertsView {
         recent: inner.alerts.recent.clone(),
-        switches: inner.settings.alerts,
+        switches: inner.settings.alerts.shown(inner.hooks),
         pool_alert: inner.settings.pool_alert,
         unanswered: inner.alerts.unanswered(),
         unread: inner.alerts.unread(),
@@ -101,13 +103,36 @@ pub fn track_history(state: &AppState) {
     state.lock().seen = seen;
 }
 
-/// The alert rules on the newest readings; new alerts go out.
+/// The alert rules on the newest readings; new alerts go out on the
+/// notification center.
 fn evaluate(state: &AppState) {
+    run_rules(state, |inner, ids| {
+        if let Some(center) = inner.center.clone() {
+            alerts::deliver(&mut inner.alerts, ids, &*center, inner.hooks);
+        }
+    });
+}
+
+/// The alert rules on the newest readings, the new cards handed to
+/// `deliver` under the app's lock. The extension reads what its own alerts
+/// need first, without the app's lock. Apart from [`evaluate`] so a test
+/// runs the rules without the notification center, which holds the window
+/// runtime a Windows test program cannot load.
+fn run_rules(state: &AppState, deliver: impl FnOnce(&mut Inner, &[String])) {
     let now = OffsetDateTime::now_utc();
-    let (dir, claude, pool) = {
+    let (dir, claude, settings, home, extension) = {
         let inner = state.lock();
-        (inner.app_dir(), inner.claude.clone(), inner.settings.pool_alert)
+        (
+            inner.app_dir(),
+            inner.claude.clone(),
+            inner.settings.clone(),
+            inner.home.clone(),
+            inner.extension,
+        )
     };
+    let pool = settings.pool_alert;
+    let read =
+        extension.alert_read_part(&AlertInput { settings: &settings, home: &home, app_dir: &dir });
     #[cfg(feature = "antigravity-accounts")]
     let pending = watch::load(&dir).and_then(|w| w.alert()).is_some();
     #[cfg(feature = "antigravity-accounts")]
@@ -120,17 +145,20 @@ fn evaluate(state: &AppState) {
         agy: alerts::agy_logins(&dir),
         #[cfg(feature = "antigravity-accounts")]
         overwrite: alerts::overwrite(&dir, running),
+        ext: read.as_deref().map(|r| r.source()),
         pool,
     };
     let mut inner = state.lock();
+    let hooks: &dyn Hooks = inner.hooks;
     let before = inner.alerts.clone();
-    let switches = inner.settings.alert_switches(inner.hooks);
-    let ids = alerts::evaluate(&mut inner.alerts, &facts, &switches);
-    if let Some(center) = inner.center.clone() {
-        alerts::deliver(&mut inner.alerts, &ids, &*center);
-    }
+    let switches = inner.settings.alert_switches(hooks);
+    let ids = alerts::evaluate(&mut inner.alerts, &facts, &switches, hooks);
+    deliver(&mut inner, &ids);
     if inner.alerts != before {
         let _ = alerts::save(&dir, &inner.alerts);
+    }
+    if let Some(read) = read {
+        read.done(&inner.kept);
     }
 }
 
@@ -215,9 +243,10 @@ pub async fn press(
     let (effect, dir) = {
         let mut inner = shared.lock();
         let center = inner.center.clone().filter(|_| !on_macos);
+        let hooks: &dyn Hooks = inner.hooks;
         let effect = match center {
-            Some(c) => alerts::answer_in_app(&mut inner.alerts, id, action, at, offset, &*c),
-            None => alerts::answer(&mut inner.alerts, id, action, at, offset),
+            Some(c) => alerts::answer_in_app(&mut inner.alerts, id, action, at, offset, &*c, hooks),
+            None => alerts::answer(&mut inner.alerts, id, action, at, offset, hooks),
         }
         .map_err(|e| e.code().to_string())?;
         let dir = inner.app_dir();
@@ -276,28 +305,36 @@ pub async fn press(
     Ok(Pressed { open_switch: None })
 }
 
+/// A kind of alert this build does not have, refused.
+fn unknown_kind(kind: &Kind) -> String {
+    format!("unknown alert kind `{}`", kind.name())
+}
+
 /// "Gửi thử": a sample card of `kind` with its real buttons, which change
-/// nothing.
+/// nothing. A kind this build does not have sends nothing and is refused.
 #[tauri::command]
-pub fn test_alert(app: AppHandle, state: State<'_, AppState>, kind: Kind) -> Model {
+pub fn test_alert(app: AppHandle, state: State<'_, AppState>, kind: Kind) -> Result<Model, String> {
     let now = OffsetDateTime::now_utc();
     {
         let mut inner = state.lock();
+        let hooks: &dyn Hooks = inner.hooks;
         let (at, offset) = (now.unix_timestamp(), local_time::offset_at(now));
-        let alert = alerts::sample(kind, at, offset);
+        let alert = alerts::sample(&kind, at, offset, hooks);
+        let alert = alert.ok_or_else(|| unknown_kind(&kind))?;
         let id = alerts::keep_test(&mut inner.alerts, alert);
         if let Some(center) = inner.center.clone() {
-            alerts::deliver(&mut inner.alerts, &[id], &*center);
+            alerts::deliver(&mut inner.alerts, &[id], &*center, hooks);
         }
         let _ = alerts::save(&inner.app_dir(), &inner.alerts);
     }
     reader::publish(&app, &state);
     crate::session::note("toast-sent", serde_json::json!({ "kind": kind }));
     crate::session::shoot(&app, "toast", Duration::from_millis(1800));
-    state.lock().model()
+    Ok(state.lock().model())
 }
 
-/// Turns one kind of alert on or off.
+/// Turns one kind of alert on or off. A kind this build does not have is
+/// refused.
 #[tauri::command]
 pub fn set_alert_switch(
     app: AppHandle,
@@ -307,8 +344,12 @@ pub fn set_alert_switch(
 ) -> Result<Model, String> {
     {
         let mut inner = state.lock();
+        let hooks: &dyn Hooks = inner.hooks;
+        if !kind.known(hooks) {
+            return Err(unknown_kind(&kind));
+        }
         let mut settings = inner.settings.clone();
-        settings.alerts.set(kind, on);
+        settings.alerts.set(&kind, on, hooks);
         settings.save(&inner.settings_file).map_err(|e| e.to_string())?;
         inner.settings = settings;
     }
@@ -395,4 +436,117 @@ fn on_refused(app: &AppHandle, id: &str) {
         let _ = alerts::save(&dir, &inner.alerts);
     }
     reader::publish(app, &shared);
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+    use std::sync::Mutex;
+
+    use quota_station_core::alerts::{act, Alert, ExtKind, ExtPass, ExtSource, Tone};
+
+    use super::*;
+    use crate::ext::{AlertRead, Extension, Kept};
+    use crate::state::Shared;
+
+    /// One kind of alert, `testKind`, on by default.
+    struct KindHooks;
+
+    impl Hooks for KindHooks {
+        fn alert_kinds(&self) -> &'static [ExtKind] {
+            &[ExtKind { number: 2, name: "testKind", on: true, answers: &[] }]
+        }
+    }
+
+    /// Reads the machine's name for its alerts: one `testKind` card naming
+    /// it, and the name had back once the rules ran.
+    struct Reads;
+
+    impl Extension for Reads {
+        fn alert_read(&self, input: &AlertInput<'_>) -> Option<Box<dyn AlertRead>> {
+            Some(Box::new(Read(input.settings.machine_name.clone().unwrap_or_default())))
+        }
+    }
+
+    struct Read(String);
+
+    impl ExtSource for Read {
+        fn alerts(&self, pass: &mut ExtPass<'_>) -> Vec<Alert> {
+            vec![Alert {
+                key: format!("test:{}", self.0),
+                kind: Kind::Ext("testKind".into()),
+                tone: Tone::Info,
+                title: self.0.clone(),
+                body: String::new(),
+                actions: vec![act("dismiss", "Fine")],
+                at: pass.facts.now.unix_timestamp(),
+                test: false,
+            }]
+        }
+    }
+
+    #[derive(Default)]
+    struct Had(Mutex<Vec<String>>);
+
+    impl AlertRead for Read {
+        fn source(&self) -> &dyn ExtSource {
+            self
+        }
+
+        fn done(self: Box<Self>, kept: &Kept) {
+            kept.get::<Had>().expect("kept").0.lock().unwrap().push(self.0);
+        }
+    }
+
+    fn temp(tag: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("qs-alerting-{tag}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    fn state(dir: &std::path::Path, hooks: &'static dyn Hooks) -> AppState {
+        let mut inner = Inner::new(dir.into(), dir.join("settings.json"), "Mac".into(), hooks);
+        inner.settings.machine_name = Some("Mac A".into());
+        inner.kept.keep(Arc::new(Had::default()));
+        Shared::new(inner)
+    }
+
+    /// After a read, the extension reads what its alerts need, its card
+    /// goes out with the app's rules (once), is kept in the alerts' file,
+    /// and what it read is its again.
+    #[test]
+    fn after_a_read_the_extensions_alerts_go_out_from_what_it_read() {
+        let dir = temp("ext");
+        let state = state(&dir, &KindHooks);
+        state.lock().extension = &Reads;
+        run_rules(&state, |_, _| {});
+        run_rules(&state, |_, _| {});
+        let inner = state.lock();
+        assert_eq!(inner.alerts.recent.len(), 1, "once");
+        let alert = &inner.alerts.recent[0].alert;
+        assert_eq!(
+            (alert.kind.clone(), alert.title.as_str()),
+            (Kind::Ext("testKind".into()), "Mac A")
+        );
+        assert_eq!(alerts::load(&inner.app_dir(), &KindHooks), inner.alerts);
+        let had = inner.kept.get::<Had>().unwrap();
+        assert_eq!(*had.0.lock().unwrap(), ["Mac A", "Mac A"]);
+        drop(inner);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Without an extension the rules run as the app's own: nothing read,
+    /// no card of a kind it does not have.
+    #[test]
+    fn without_an_extension_the_rules_are_the_apps_own() {
+        let dir = temp("none");
+        let state = state(&dir, quota_station_core::ext::none());
+        run_rules(&state, |_, _| {});
+        let inner = state.lock();
+        assert!(inner.alerts.recent.is_empty());
+        assert!(inner.kept.get::<Had>().unwrap().0.lock().unwrap().is_empty());
+        drop(inner);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

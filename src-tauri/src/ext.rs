@@ -13,8 +13,9 @@
 //! Today's sockets:
 //!
 //! - [`Extension::hooks`]: the core's hooks. The app keeps them for as long
-//!   as it runs and passes them where the core calls one (the settings file
-//!   and which alerts run, today).
+//!   as it runs and passes them where the core calls one (the settings file,
+//!   the kinds of alert and which alerts run, and the commands of
+//!   `quota-station claude …`, today).
 //! - [`Extension::command_names`] and [`Extension::command_handler`]: the
 //!   commands the windows can call besides the app's own, both made from one
 //!   list by [`extension_commands!`](crate::extension_commands). A command
@@ -40,6 +41,11 @@
 //!   quits, at once when the owner asks ([`Closing`]), or waits while the
 //!   main window asks the owner first ([`Hold`]), for work of the
 //!   extension's that is not kept yet.
+//! - [`Extension::alert_read`]: what the extension reads for its own
+//!   alerts after each read, before the app's alert rules run
+//!   ([`AlertInput`]); its alerts at that pass come from it
+//!   ([`AlertRead::source`]), of the kinds its hooks name
+//!   ([`Hooks::alert_kinds`]).
 //! - [`Extension::subcommand`]: a subcommand from a terminal
 //!   (`quota-station <word> …`) that is not one of the app's, answered
 //!   before the app starts and without a window. The app's own subcommands
@@ -54,14 +60,16 @@
 //! what the reader hands it ([`ReaderPass`]) and what the model is drawn
 //! from ([`ModelInput`]). The app's state keeps only the extension's
 //! sockets it asks under its lock (the model, what the build has, the tabs
-//! and the hold on a close), apart from the rest, so a test can build that
-//! state and its model without the runtime.
+//! and the hold on a close, and what it reads for its alerts), apart from
+//! the rest, so a test can build that state and its model without the
+//! runtime.
 
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 
+use quota_station_core::alerts::ExtSource;
 use quota_station_core::app_dir::AppDir;
 use quota_station_core::claude::state::AccountOut;
 use quota_station_core::settings::Settings;
@@ -163,6 +171,17 @@ pub trait Extension: Send + Sync + 'static {
         Hold::Close
     }
 
+    /// What the extension reads for its own alerts, after each read of the
+    /// app's, before the app's alert rules run: without the app's lock, so
+    /// it may read files, but from `input` only, never the [`Host`]. Its
+    /// alerts at this pass come from what it returns
+    /// ([`AlertRead::source`]), and it gets what it read back once the
+    /// rules ran ([`AlertRead::done`]). `None`, the default, adds no alert.
+    fn alert_read(&self, input: &AlertInput<'_>) -> Option<Box<dyn AlertRead>> {
+        let _ = input;
+        None
+    }
+
     /// A subcommand from a terminal: `args` are the words after
     /// `quota-station`, the subcommand first (none when the app is simply
     /// launched). The extension answers with the exit code, having printed
@@ -220,10 +239,34 @@ pub struct ModelInput<'a> {
     pub claude_accounts: &'a [AccountOut],
 }
 
+/// What the extension reads its alerts' facts with ([`Extension::alert_read`]):
+/// plain data, taken under the app's lock and handed over without it.
+pub struct AlertInput<'a> {
+    /// The settings as the app holds them now.
+    pub settings: &'a Settings,
+    /// The home folder of the user the app runs as.
+    pub home: &'a Path,
+    /// The app's folder, where its settings file is.
+    pub app_dir: &'a AppDir,
+}
+
+/// What the extension read for its own alerts at one pass of the app's
+/// alert rules ([`Extension::alert_read`]).
+pub trait AlertRead {
+    /// Its alerts at this pass, drawn from what it read.
+    fn source(&self) -> &dyn ExtSource;
+
+    /// Called once the rules ran and their cards went out, under the app's
+    /// lock, with what the extension keeps: what it read is its again (to
+    /// draw in its part of the model, say). It never calls the [`Host`].
+    fn done(self: Box<Self>, kept: &Kept);
+}
+
 /// The extension's sockets the app asks under its lock (what draws,
 /// [`Extension::model`] and [`Extension::capabilities`], the tabs,
 /// [`Extension::tabs`], and the hold on a close, [`Extension::hold_close`]),
-/// as the app's state keeps them: apart from the rest
+/// and what it reads for its alerts ([`Extension::alert_read`]), as the
+/// app's state keeps them: apart from the rest
 /// of [`Extension`], so that state holds nothing of the window runtime the
 /// command handler brings, and a test can build it.
 pub(crate) trait StateSockets: Send + Sync {
@@ -231,6 +274,7 @@ pub(crate) trait StateSockets: Send + Sync {
     fn capabilities_part(&self) -> Map<String, Value>;
     fn tabs_part(&self) -> &[&'static str];
     fn hold_close_part(&self, kept: &Kept, closing: Closing) -> Hold;
+    fn alert_read_part(&self, input: &AlertInput<'_>) -> Option<Box<dyn AlertRead>>;
 }
 
 impl<E: Extension> StateSockets for E {
@@ -248,6 +292,10 @@ impl<E: Extension> StateSockets for E {
 
     fn hold_close_part(&self, kept: &Kept, closing: Closing) -> Hold {
         self.hold_close(kept, closing)
+    }
+
+    fn alert_read_part(&self, input: &AlertInput<'_>) -> Option<Box<dyn AlertRead>> {
+        self.alert_read(input)
     }
 }
 

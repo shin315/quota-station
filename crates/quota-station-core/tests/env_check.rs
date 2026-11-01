@@ -22,6 +22,7 @@ use quota_station_core::agents::env_check::{self, Check, Found, Place, Weight, V
 use quota_station_core::agents::Agent;
 use quota_station_core::alerts::{self, Effect, Kind, Memory, Tone};
 use quota_station_core::app_dir::AppDir;
+use quota_station_core::ext::NoHooks;
 use time::UtcOffset;
 
 /// Planted as every value: none of it may come out.
@@ -342,7 +343,7 @@ fn the_card_buttons_open_settings_and_ignore() {
     let codex = ids.iter().find(|i| i.contains("CODEX_HOME")).unwrap().clone();
     let key = ids.iter().find(|i| i.contains("ANTHROPIC")).unwrap().clone();
     assert_eq!(
-        alerts::answer(&mut m, &codex, "env:settings", 110, UtcOffset::UTC),
+        alerts::answer(&mut m, &codex, "env:settings", 110, UtcOffset::UTC, &NoHooks),
         Ok(Effect::OpenSettings)
     );
     // "Bỏ qua" in Cài đặt answers the card that nobody answered yet.
@@ -359,7 +360,14 @@ fn the_card_buttons_open_settings_and_ignore() {
     let mut fresh = Memory::default();
     let id = alerts::env_alerts(&mut fresh, &found(&mac)[..1], 100).remove(0);
     assert_eq!(
-        alerts::answer(&mut fresh, &id, "env:ignore:ANTHROPIC_API_KEY", 110, UtcOffset::UTC),
+        alerts::answer(
+            &mut fresh,
+            &id,
+            "env:ignore:ANTHROPIC_API_KEY",
+            110,
+            UtcOffset::UTC,
+            &NoHooks
+        ),
         Ok(Effect::IgnoreEnv { name: "ANTHROPIC_API_KEY".into() })
     );
 }

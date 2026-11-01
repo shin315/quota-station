@@ -20,6 +20,11 @@
 //!   for a Mac new to the app by [`Hooks::settle_settings`], and
 //!   [`Hooks::settled_key`] names the key that tells a file was settled;
 //! - which alerts run ([`Settings::alert_switches`]): [`Hooks::alert_switches`];
+//! - the alerts ([`crate::alerts`]): the kinds the extension adds to the
+//!   app's, with their switches in the settings file and the words of their
+//!   buttons ([`Hooks::alert_kinds`]), and the card "Gửi thử" sends for one
+//!   ([`Hooks::alert_sample`]); their alerts at each pass of the rules come
+//!   from what the extension read for it ([`crate::alerts::Facts::ext`]);
 //! - `quota-station claude …` ([`crate::claude::cli::run`]): the commands
 //!   the extension adds to the app's ([`Hooks::claude_command`]) and the
 //!   usage that names them ([`Hooks::claude_usage`]).
@@ -27,8 +32,9 @@
 use std::io::Write;
 
 use serde_json::{Map, Value};
+use time::UtcOffset;
 
-use crate::alerts::Switches;
+use crate::alerts::{Alert, ExtKind, Switches};
 use crate::claude::cli::Cli;
 use crate::settings::Settings;
 
@@ -67,6 +73,32 @@ pub trait Hooks: Send + Sync {
     fn alert_switches(&self, settings: &Settings, on: Switches) -> Switches {
         let _ = settings;
         on
+    }
+
+    /// The kinds of alert the extension adds to the app's own: each one's
+    /// number, name, switch and the words of its buttons. Their switches
+    /// are kept in the settings file's `alerts` beside the app's, and their
+    /// alerts, which the extension draws at each pass of the rules
+    /// ([`crate::alerts::ExtSource`]), go out as the app's own do. The
+    /// default adds none.
+    fn alert_kinds(&self) -> &'static [ExtKind] {
+        &[]
+    }
+
+    /// The card "Gửi thử" sends for the extension's kind `name`, at `now`:
+    /// its tone, title, body and buttons, with `claude` the names the cards
+    /// give three Claude accounts. Its key, kind and time are the app's to
+    /// set, and so is the mark that makes its buttons change nothing.
+    /// `None`, the default, sends nothing.
+    fn alert_sample(
+        &self,
+        name: &str,
+        now: i64,
+        offset: UtcOffset,
+        claude: [&str; 3],
+    ) -> Option<Alert> {
+        let _ = (name, now, offset, claude);
+        None
     }
 
     /// A command of `quota-station claude …` that is not one of the app's:

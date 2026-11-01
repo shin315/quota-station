@@ -353,7 +353,7 @@ impl Inner {
             agy_switching: None,
             #[cfg(feature = "antigravity-accounts")]
             agy_logging_out: false,
-            alerts: alerts::load(&app_dir),
+            alerts: alerts::load(&app_dir, hooks),
             seen: Seen::default(),
             kept: Kept::default(),
             extension: &NoExtension,

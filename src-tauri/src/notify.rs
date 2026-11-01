@@ -106,7 +106,7 @@ impl Center {
         if let Some((id, _)) = known.iter().find(|(_, b)| *b == buttons) {
             return id.clone();
         }
-        let id = format!("qs.{}.{}", card.kind.number(), known.len());
+        let id = format!("qs.{}.{}", card.number, known.len());
         known.push((id.clone(), buttons));
         // Re-registering replaces every category, so all of them go each time.
         sys::set_categories(&known);
@@ -285,7 +285,7 @@ mod mac {
         content.setTitle(&NSString::from_str(&card.title));
         content.setBody(&NSString::from_str(&card.body));
         content.setCategoryIdentifier(&NSString::from_str(category));
-        content.setThreadIdentifier(&NSString::from_str(&format!("qs.{}", card.kind.number())));
+        content.setThreadIdentifier(&NSString::from_str(&format!("qs.{}", card.number)));
         content.setSound(Some(&UNNotificationSound::defaultSound()));
         let request = UNNotificationRequest::requestWithIdentifier_content_trigger(
             &NSString::from_str(&card.id),

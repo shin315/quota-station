@@ -34,6 +34,7 @@ use quota_station_core::agents::skills::{self, Change, Entry, SkillPlaces};
 use quota_station_core::agents::{self, Agent};
 use quota_station_core::alerts::{self, Effect, Memory};
 use quota_station_core::app_dir::AppDir;
+use quota_station_core::ext::NoHooks;
 use time::{OffsetDateTime, UtcOffset};
 
 const PROVIDER_TRAP: &str = "trap-provider-key-1234";
@@ -771,7 +772,7 @@ fn the_alert_for_new_versions_comes_once_and_opens_the_skills_tab() {
     let r = m.record(&id).unwrap();
     assert_eq!(r.alert.title, "2 skill có bản mới");
     assert_eq!(r.alert.body, "sql-helper, ui-polish. App không tự cập nhật.");
-    let e = alerts::answer(&mut m, &id, "skills:open", 300, UtcOffset::UTC).unwrap();
+    let e = alerts::answer(&mut m, &id, "skills:open", 300, UtcOffset::UTC, &NoHooks).unwrap();
     assert_eq!(e, Effect::OpenSkills);
     assert!(alerts::skill_alert(&mut m, &[("ui-polish".into(), "9999".into())], 400).is_some());
 }
