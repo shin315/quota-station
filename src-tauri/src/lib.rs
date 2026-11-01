@@ -65,7 +65,7 @@ use std::process::Command;
 
 use tauri::Manager;
 
-use crate::ext::Extension;
+use crate::ext::{Extension, Host};
 use crate::state::{Inner, Shared, Tab};
 
 /// The app: a subcommand from a terminal (`quota-station claude …`,
@@ -74,7 +74,7 @@ use crate::state::{Inner, Shared, Tab};
 /// context of its own `tauri.conf.json` and the extension it is built with.
 pub fn run(context: tauri::Context<tauri::Wry>, extension: impl Extension) {
     // The extension lasts as long as the app: the state keeps its hooks.
-    let extension = Box::leak(Box::new(extension));
+    let extension: &'static dyn Extension = Box::leak(Box::new(extension));
     let hooks = extension.hooks();
     let args: Vec<String> = std::env::args().skip(1).collect();
     #[cfg(windows)]
@@ -131,6 +131,7 @@ pub fn run(context: tauri::Context<tauri::Wry>, extension: impl Extension) {
             install::read_login(&state);
             app.manage(state.clone());
             state.lock().center = Some(std::sync::Arc::new(alerting::start_center(app.handle())));
+            extension.start(Host::new(app.handle().clone(), state.clone()));
 
             let theme = state.lock().settings.theme;
             let first_run = !state.lock().settings.setup_seen;

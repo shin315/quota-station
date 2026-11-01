@@ -19,13 +19,28 @@
 //!   commands the windows can call besides the app's own, both made from one
 //!   list by [`extension_commands!`](crate::extension_commands). A command
 //!   name the app already has stays the app's ([`shadowed`] lists those).
+//! - [`Extension::start`]: once, when the app starts, with the [`Host`], the
+//!   extension's way to the app: the settings, a wake for the app's reader,
+//!   and a place for the extension's own state ([`Host::keep_state`]), which
+//!   its commands take as Tauri state.
 //!
 //! The names and the handler are apart so a test can read the names without
 //! building the handler: a handler holds Tauri's window runtime, which a
 //! Windows test program cannot load (it lacks the app's manifest, which
-//! only the binary gets).
+//! only the binary gets). The [`Host`] holds that runtime too, so no test
+//! makes one; what the extension keeps is plain data ([`Kept`]).
+
+use std::any::{Any, TypeId};
+use std::collections::HashMap;
+use std::sync::Arc;
+
+use quota_station_core::app_dir::AppDir;
+use quota_station_core::settings::Settings;
+use tauri::{AppHandle, Manager};
 
 pub use quota_station_core::ext::{Hooks, NoHooks};
+
+use crate::state::AppState;
 
 /// What an extension adds to the app. Every method has a default that adds
 /// nothing; an extension overrides the sockets it fills.
@@ -46,6 +61,13 @@ pub trait Extension: Send + Sync + 'static {
     fn command_handler(&self) -> Handler {
         Box::new(|_| false)
     }
+
+    /// Called once when the app starts: after its state is made and before
+    /// its threads start or a window opens. The extension keeps what it
+    /// needs of `host`.
+    fn start(&self, host: Host) {
+        let _ = host;
+    }
 }
 
 /// No extension: the app as it is.
@@ -57,6 +79,72 @@ impl Extension for NoExtension {}
 /// The handler of an extension's commands, as Tauri calls one: it answers
 /// the commands it knows and returns `false` for any other.
 pub type Handler = Box<dyn Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static>;
+
+/// The extension's way to the app while it runs. A cheap clone: keep one
+/// where it is needed.
+///
+/// The app may hold its own lock while it takes a lock of the extension's
+/// state (to draw it, say), so the extension never calls the host while it
+/// holds a lock of its own.
+#[derive(Clone)]
+pub struct Host {
+    app: AppHandle,
+    state: AppState,
+}
+
+impl Host {
+    pub(crate) fn new(app: AppHandle, state: AppState) -> Host {
+        Host { app, state }
+    }
+
+    /// The host of the running app `app`, as a command reaches it. Only
+    /// once the app has started.
+    pub fn of(app: &AppHandle) -> Host {
+        Host::new(app.clone(), app.state::<AppState>().inner().clone())
+    }
+
+    /// The settings as the app holds them now.
+    pub fn settings(&self) -> Settings {
+        self.state.lock().settings.clone()
+    }
+
+    /// The app's folder, where its settings file is.
+    pub fn app_dir(&self) -> AppDir {
+        self.state.lock().app_dir()
+    }
+
+    /// Keeps `state` for as long as the app runs, once for its type: the
+    /// extension's commands take it as Tauri state (`State<'_, Arc<T>>`).
+    pub fn keep_state<T: Any + Send + Sync>(&self, state: Arc<T>) {
+        self.state.lock().kept.keep(state.clone());
+        self.app.manage(state);
+    }
+
+    /// Wakes the app's reader, so what the extension asked of it is seen at
+    /// once. Taken under the app's lock: a reader about to wait cannot miss it.
+    pub fn wake_reader(&self) {
+        let _held = self.state.lock();
+        self.state.wake.notify_all();
+    }
+}
+
+/// What an extension keeps in the app ([`Host::keep_state`]): one value of
+/// each type, found again by its type. The app holds it and never looks
+/// inside.
+#[derive(Default)]
+pub struct Kept(HashMap<TypeId, Arc<dyn Any + Send + Sync>>);
+
+impl Kept {
+    /// Keeps `state`, in place of any value of its type kept before.
+    pub fn keep<T: Any + Send + Sync>(&mut self, state: Arc<T>) {
+        self.0.insert(TypeId::of::<T>(), state);
+    }
+
+    /// The value of type `T` kept, if one is.
+    pub fn get<T: Any + Send + Sync>(&self) -> Option<Arc<T>> {
+        self.0.get(&TypeId::of::<T>()).cloned().and_then(|s| s.downcast().ok())
+    }
+}
 
 /// The names in `names` that the app's own commands already answer: the
 /// app's command is the one called, so these never reach the extension.

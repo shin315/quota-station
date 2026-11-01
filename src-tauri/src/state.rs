@@ -42,6 +42,7 @@ use crate::alerting::{self, AlertsView};
 #[cfg(feature = "antigravity-accounts")]
 use crate::antigravity::{self, AccountsView};
 use crate::codex::{self, CodexView};
+use crate::ext::Kept;
 use crate::install::{self, AppView, InstallState};
 use crate::notify;
 
@@ -49,7 +50,8 @@ pub type AppState = Arc<Shared>;
 
 pub struct Shared {
     inner: Mutex<Inner>,
-    /// Wakes the reader thread early: a read was asked for, or settings changed.
+    /// Wakes the reader thread early: a read was asked for, settings
+    /// changed, or the extension asked (`ext::Host::wake_reader`).
     pub wake: Condvar,
     /// Wakes the Antigravity quota thread: a read, the tab, a login.
     pub agy_wake: Condvar,
@@ -173,6 +175,8 @@ pub struct Inner {
     pub alerts: Memory,
     /// The accounts the last readings showed in use, for the history.
     pub seen: Seen,
+    /// What the app's extension keeps in it (`ext::Host::keep_state`).
+    pub kept: Kept,
     /// macOS's notification center; `None` until the app has started it.
     pub center: Option<Arc<notify::Center>>,
     /// This copy's version, from `tauri.conf.json`.
@@ -284,6 +288,7 @@ impl Inner {
             agy_logging_out: false,
             alerts: alerts::load(&app_dir),
             seen: Seen::default(),
+            kept: Kept::default(),
             center: None,
             app_version: String::new(),
             install: InstallState::default(),

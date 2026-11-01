@@ -5,10 +5,13 @@
 //! through `quota_station::ext` and `quota_station::extension_commands!`.
 //! Each socket's tests fill the socket here and check that the app calls it.
 //! A test reads what needs no window runtime (the commands' names, never
-//! their handler): a Windows test program cannot load Tauri's runtime.
+//! their handler, never the host): a Windows test program cannot load
+//! Tauri's runtime.
 #![allow(dead_code)]
 
-use quota_station::ext::{Extension, Hooks};
+use std::sync::{Arc, Mutex};
+
+use quota_station::ext::{Extension, Hooks, Host};
 
 /// The test extension's commands.
 pub mod tools {
@@ -37,6 +40,18 @@ pub struct TestHooks;
 
 impl Hooks for TestHooks {}
 
+/// The test extension's own state, which it keeps in the app when it
+/// starts: what it read of the settings, and a count its commands keep.
+#[derive(Debug, Default)]
+pub struct TestState {
+    pub machine: Option<String>,
+    pub count: Mutex<u32>,
+}
+
+/// Another type, which the test extension never keeps.
+#[derive(Debug, Default)]
+pub struct NotKept;
+
 /// The test extension: fills every socket there is with something a test
 /// can see.
 pub struct TestExtension;
@@ -44,6 +59,11 @@ pub struct TestExtension;
 impl Extension for TestExtension {
     fn hooks(&self) -> &dyn Hooks {
         &TestHooks
+    }
+
+    fn start(&self, host: Host) {
+        let state = TestState { machine: host.settings().machine_name, ..TestState::default() };
+        host.keep_state(Arc::new(state));
     }
 
     quota_station::extension_commands![

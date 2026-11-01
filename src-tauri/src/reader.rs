@@ -47,8 +47,8 @@ pub fn spawn(app: AppHandle, state: AppState) {
 fn run(app: &AppHandle, state: &AppState) {
     loop {
         let mut inner = state.lock();
-        let now_due = inner.read_now;
-        let wait = if now_due { Duration::ZERO } else { inner.schedule.due_in(Instant::now()) };
+        let wait =
+            if asked(&inner) { Duration::ZERO } else { inner.schedule.due_in(Instant::now()) };
         if !wait.is_zero() {
             let (mono, wall) = (Instant::now(), SystemTime::now());
             let (mut inner, _) = state
@@ -104,6 +104,15 @@ fn run(app: &AppHandle, state: &AppState) {
         crate::env::every(app, state);
         publish(app, state);
     }
+}
+
+/// A read was asked for, or a build that adds to it asked for a look: the
+/// reader goes now, without waiting for the schedule.
+// The binding stays for the build that adds to it.
+#[allow(clippy::let_and_return)]
+fn asked(inner: &Inner) -> bool {
+    let asked = inner.read_now;
+    asked
 }
 
 /// The Claude accounts as the app read them: the tab's rows and the
@@ -348,5 +357,13 @@ mod tests {
         assert!(inner.codex_quota.is_some());
         store_codex(&mut inner, None);
         assert!(inner.codex_quota.is_none());
+    }
+
+    #[test]
+    fn a_read_asked_for_goes_without_waiting() {
+        let mut inner = inner();
+        assert!(asked(&inner), "the first read, at start");
+        inner.read_now = false;
+        assert!(!asked(&inner));
     }
 }
