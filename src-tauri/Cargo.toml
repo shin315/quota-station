@@ -11,6 +11,16 @@ repository.workspace = true
 rust-version.workspace = true
 publish = false
 
+# The app is a library (`src/lib.rs`, its entry point `quota_station::run`)
+# and a thin `quota-station` binary that calls it (`src/main.rs`), as in
+# Tauri 2's template. Only an rlib: the template's `staticlib` and `cdylib`
+# serve its iOS and Android builds, which this app has none of, and a
+# `cdylib` named like the binary collides with it on Windows
+# (rust-lang/cargo#8519).
+[lib]
+name = "quota_station"
+crate-type = ["rlib"]
+
 [features]
 # The Antigravity accounts tab: log in, read and switch accounts
 # (CC BY-NC-SA 4.0, see `NOTICE`). `scripts/install.sh` builds with it; a

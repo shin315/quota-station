@@ -422,8 +422,8 @@ UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test stats
   commands (`agents.rs`), the backup tab's (`backup.rs`), the Skills, Plugins
   and Instruction files tabs' (`skills.rs`), the Claude
   accounts' commands and the `quota-station claude …` dispatch (`claude.rs`,
-  `main.rs`), the variables check (`env.rs`), Config sets (`sets.rs`), Stats
-  (`stats.rs`), Agent updates (`cli_tools.rs`), the state and commands
+  `lib.rs`, whose `run()` the thin `main.rs` calls), the variables check
+  (`env.rs`), Config sets (`sets.rs`), Stats (`stats.rs`), Agent updates (`cli_tools.rs`), the state and commands
   (`state.rs`, `commands.rs`, `open.rs`), and on Windows the tray and windows
   (`windows.rs`, `winsys.rs`) and the test build's guided session and
   diagnostics zip (`session.rs`, `diag.rs`, `shot.rs`).
