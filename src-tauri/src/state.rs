@@ -33,6 +33,7 @@ use quota_station_core::settings::{Language, Menubar, MenubarWindow, Settings, T
 use quota_station_core::switching::Tools;
 use quota_station_core::Snapshot;
 use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value};
 use time::OffsetDateTime;
 
 use crate::agents::{self, McpView};
@@ -42,7 +43,7 @@ use crate::alerting::{self, AlertsView};
 #[cfg(feature = "antigravity-accounts")]
 use crate::antigravity::{self, AccountsView};
 use crate::codex::{self, CodexView};
-use crate::ext::Kept;
+use crate::ext::{Kept, ModelInput, ModelSockets, NoExtension};
 use crate::install::{self, AppView, InstallState};
 use crate::notify;
 
@@ -177,6 +178,9 @@ pub struct Inner {
     pub seen: Seen,
     /// What the app's extension keeps in it (`ext::Host::keep_state`).
     pub kept: Kept,
+    /// The extension's part of the model and of what the build has
+    /// (`ext::Extension::model`); nothing until the app sets it at start.
+    pub extension: &'static dyn ModelSockets,
     /// macOS's notification center; `None` until the app has started it.
     pub center: Option<Arc<notify::Center>>,
     /// This copy's version, from `tauri.conf.json`.
@@ -289,6 +293,7 @@ impl Inner {
             alerts: alerts::load(&app_dir),
             seen: Seen::default(),
             kept: Kept::default(),
+            extension: &NoExtension,
             center: None,
             app_version: String::new(),
             install: InstallState::default(),
@@ -449,7 +454,7 @@ impl Inner {
             antigravity: antigravity::view(self),
             #[cfg(feature = "antigravity-accounts")]
             agy_switch: agy_switch::view(self),
-            capabilities: Capabilities::BUILT,
+            capabilities: Capabilities::built(self.extension.capabilities_part()),
             alerts: alerting::alerts_view(self),
             app: install::view(self),
             codex: codex::view(self),
@@ -464,6 +469,13 @@ impl Inner {
             env: crate::env::view(self),
             sets: crate::sets::view(self),
             stats: crate::stats::view(self),
+            ext: self.extension.model_part(&ModelInput {
+                kept: &self.kept,
+                settings: &self.settings,
+                home: &self.home,
+                app_dir: &self.app_dir(),
+                claude_accounts: &self.claude_accounts,
+            }),
         }
     }
 }
@@ -527,16 +539,23 @@ pub struct Model {
     pub sets: crate::sets::SetsView,
     /// The token statistics' read (M16); the numbers come with `stats_report`.
     pub stats: crate::stats::StatsView,
+    /// The extension's part (`ext::Extension::model`), its keys beside these.
+    #[serde(flatten)]
+    pub ext: Map<String, Value>,
 }
 
 /// The parts a build may leave out, so the windows draw only what it has.
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Capabilities {
     /// The Antigravity accounts the app logs in, reads and switches itself
     /// (the `antigravity-accounts` feature, CC BY-NC-SA 4.0). Without them
     /// Antigravity is the one account signed in on this Mac, read-only.
     pub agy_accounts: bool,
+    /// What the extension adds (`ext::Extension::capabilities`), its keys
+    /// here, after `agyAccounts`.
+    #[serde(flatten)]
+    pub ext: Map<String, Value>,
     /// The system the app was built for, `macos` or `windows`: the windows
     /// take its type, corners and scroll bars, and its words for its own
     /// parts (Keychain, Finder, the menu bar).
@@ -547,11 +566,15 @@ pub struct Capabilities {
 }
 
 impl Capabilities {
-    pub const BUILT: Capabilities = Capabilities {
-        agy_accounts: cfg!(feature = "antigravity-accounts"),
-        platform: if cfg!(windows) { "windows" } else { "macos" },
-        session: crate::session::ON,
-    };
+    /// What this build has, with what the extension adds (`ext`).
+    pub fn built(ext: Map<String, Value>) -> Capabilities {
+        Capabilities {
+            agy_accounts: cfg!(feature = "antigravity-accounts"),
+            ext,
+            platform: if cfg!(windows) { "windows" } else { "macos" },
+            session: crate::session::ON,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -599,6 +622,57 @@ mod tests {
         assert!(json["app"].get("version").is_some());
     }
 
+    /// An extension that draws a part of the model from what the app hands
+    /// it, and adds to what the build has.
+    struct Draws;
+
+    impl crate::ext::Extension for Draws {
+        fn model(&self, input: &ModelInput<'_>) -> Map<String, Value> {
+            let part = serde_json::json!({
+                "machine": input.settings.machine_name,
+                "accounts": input.claude_accounts.len(),
+                "kept": input.kept.get::<u32>().map(|n| *n),
+                "home": input.home,
+            });
+            Map::from_iter([("drawn".to_string(), part)])
+        }
+
+        fn capabilities(&self) -> Map<String, Value> {
+            Map::from_iter([("drawn".to_string(), Value::Bool(true))])
+        }
+    }
+
+    #[test]
+    fn an_extension_draws_its_part_beside_the_apps_own() {
+        let mut inner = inner();
+        let before = serde_json::to_value(inner.model()).unwrap();
+        inner.extension = &Draws;
+        inner.settings.machine_name = Some("Mac A".into());
+        inner.kept.keep(Arc::new(7_u32));
+        let json = serde_json::to_value(inner.model()).unwrap();
+        assert_eq!(
+            json["drawn"],
+            serde_json::json!({ "machine": "Mac A", "accounts": 0, "kept": 7, "home": "" })
+        );
+        assert_eq!(json["capabilities"]["drawn"], true);
+        // The app's own keys are all still there, beside the extension's.
+        let Value::Object(mut after) = json else { panic!("an object") };
+        after.remove("drawn");
+        after["capabilities"].as_object_mut().unwrap().remove("drawn");
+        after.insert("machine".into(), before["machine"].clone());
+        assert_eq!(Value::Object(after), before);
+    }
+
+    #[test]
+    fn without_an_extension_the_model_has_only_the_apps_keys() {
+        let model = inner().model();
+        assert!(model.ext.is_empty() && model.capabilities.ext.is_empty());
+        let json = serde_json::to_value(&model).unwrap();
+        let keys: Vec<&str> =
+            json["capabilities"].as_object().unwrap().keys().map(String::as_str).collect();
+        assert_eq!(keys, ["agyAccounts", "platform", "session"]);
+    }
+
     #[test]
     fn hidden_names_never_reach_the_windows() {
         let mut inner = inner();
@@ -643,6 +717,99 @@ mod tests {
         }];
         let json = serde_json::to_string(&inner.model()).unwrap();
         assert!(!json.contains("@example.com"), "nor through the accounts' list");
+    }
+
+    /// A state with something in every part of the model, none of it from
+    /// the clock, the time zone or the machine the test runs on.
+    #[cfg(target_os = "macos")]
+    fn fixed_state(dir: &std::path::Path) -> Inner {
+        let home = dir.join("home");
+        let file = dir.join("app/settings.json");
+        std::fs::create_dir_all(&home).unwrap();
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        #[allow(unused_mut)]
+        let mut settings = serde_json::json!({
+            "setupSeen": true,
+            "machineName": "Mac phòng khách",
+            "theme": "dark",
+        });
+        std::fs::write(&file, settings.to_string()).unwrap();
+        let hooks = quota_station_core::ext::none();
+        let mut inner = Inner::new(home.clone(), file, "Mac Studio".into(), hooks);
+        inner.app_version = "1.2.3".into();
+        inner.reading = true;
+        inner.reads = 7;
+        inner.switching = Some(2);
+        inner.claude = serde_json::from_str(include_str!(
+            "../../crates/quota-station-core/tests/fixtures/claude-pool.json"
+        ))
+        .ok();
+        let account = |slot: u32, active: bool| AccountOut {
+            slot,
+            alias: Some(format!("tài khoản {slot}")),
+            active,
+            kind: Default::default(),
+            status: "fresh",
+            fetched_at: Some("2026-01-16T07:00:00Z".into()),
+            age_seconds: Some(60),
+            windows: quota_station_core::claude::state::Windows {
+                five_hour: None,
+                seven_day: None,
+                fable: None,
+            },
+            error: None,
+            email: None,
+        };
+        inner.claude_accounts = vec![account(1, false), account(2, true), account(3, false)];
+        inner
+    }
+
+    /// The model JSON the windows get from [`fixed_state`] in this feature
+    /// set, with the test's folder written as `/TEST` and the one thing
+    /// read outside it (whether this Mac has CC Switch in /Applications) as
+    /// `false`.
+    #[cfg(target_os = "macos")]
+    fn fixed_model_json() -> serde_json::Value {
+        let dir = std::env::temp_dir().join(format!("qs-model-golden-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let inner = fixed_state(&dir);
+        let text = serde_json::to_string(&inner.model()).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+        let folder = serde_json::to_string(&dir.to_string_lossy()).unwrap();
+        let folder = folder.trim_matches('"');
+        let mut json: serde_json::Value =
+            serde_json::from_str(&text.replace(folder, "/TEST")).unwrap();
+        json["codex"]["ccSwitch"]["installed"] = false.into();
+        json
+    }
+
+    /// The model JSON is the same, key for key and value for value, as the
+    /// golden file of this feature set, written by the build before the
+    /// extension drew its own part of it. Only on a Mac: the files are a
+    /// Mac's model (Windows draws its own platform and paths).
+    /// `UPDATE_MODEL_GOLDEN=1` rewrites the file after a change the windows
+    /// are meant to see.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn the_model_json_is_the_golden_one_of_this_feature_set() {
+        let golden = golden_model();
+        let json = fixed_model_json();
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(&golden);
+        if std::env::var_os("UPDATE_MODEL_GOLDEN").is_some() {
+            std::fs::write(&path, serde_json::to_string_pretty(&json).unwrap() + "\n").unwrap();
+            return;
+        }
+        let text = std::fs::read_to_string(&path).expect("the golden file");
+        let expected: serde_json::Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(json, expected, "the model JSON differs from {golden}");
+    }
+
+    /// This feature set's golden model file, from the crate's folder.
+    #[cfg(target_os = "macos")]
+    fn golden_model() -> String {
+        let dir = "tests/fixtures";
+        let agy = if cfg!(feature = "antigravity-accounts") { "-antigravity-accounts" } else { "" };
+        format!("{dir}/model{agy}.json")
     }
 
     #[test]

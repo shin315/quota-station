@@ -11,7 +11,10 @@
 
 use std::sync::{Arc, Mutex};
 
-use quota_station::ext::{Extension, Hooks, Host, Kept, ReaderDone, ReaderPass, ReaderWork};
+use quota_station::ext::{
+    Extension, Hooks, Host, Kept, ModelInput, ReaderDone, ReaderPass, ReaderWork,
+};
+use serde_json::{json, Map, Value};
 
 /// The test extension's commands.
 pub mod tools {
@@ -42,8 +45,9 @@ impl Hooks for TestHooks {}
 
 /// The test extension's own state, which it keeps in the app when it
 /// starts: what it read of the settings, a count its commands and its work
-/// at the reader's passes keep, whether it asks the reader to go now, and
-/// the passes it saw (`read_due`, `window_open`).
+/// at the reader's passes keep (and its part of the model shows), whether it
+/// asks the reader to go now, and the passes it saw (`read_due`,
+/// `window_open`).
 #[derive(Debug, Default)]
 pub struct TestState {
     pub machine: Option<String>,
@@ -90,6 +94,23 @@ impl Extension for TestExtension {
             });
             done
         }))
+    }
+
+    /// `testExtension` in the model: what it read of the settings and the
+    /// accounts, and its count, from the state it keeps.
+    fn model(&self, input: &ModelInput<'_>) -> Map<String, Value> {
+        let count = input.kept.get::<TestState>().map(|state| *state.count.lock().unwrap());
+        let part = json!({
+            "machine": input.settings.machine_name,
+            "accounts": input.claude_accounts.iter().map(|a| a.slot).collect::<Vec<_>>(),
+            "count": count,
+        });
+        Map::from_iter([("testExtension".to_string(), part)])
+    }
+
+    /// `testExtension` in what the build has.
+    fn capabilities(&self) -> Map<String, Value> {
+        Map::from_iter([("testExtension".to_string(), Value::Bool(true))])
     }
 
     quota_station::extension_commands![

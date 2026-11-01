@@ -29,13 +29,20 @@
 //!   reader goes at once when the extension asks, and runs the extension's
 //!   work at each pass, beside its read or alone between reads
 //!   ([`ReaderPass`]).
+//! - [`Extension::model`] and [`Extension::capabilities`]: the extension's
+//!   part of the model every window draws, and of what the build has
+//!   (`capabilities` in it), as JSON keys beside the app's own, drawn from
+//!   what the app hands it ([`ModelInput`]).
 //!
 //! The names and the handler are apart so a test can read the names without
 //! building the handler: a handler holds Tauri's window runtime, which a
 //! Windows test program cannot load (it lacks the app's manifest, which
 //! only the binary gets). The [`Host`] holds that runtime too, so no test
 //! makes one; what the extension keeps is plain data ([`Kept`]), and so is
-//! what the reader hands it ([`ReaderPass`]).
+//! what the reader hands it ([`ReaderPass`]) and what the model is drawn
+//! from ([`ModelInput`]). The app's state keeps only the extension's model
+//! sockets, apart from the rest, so a test can build that state and its
+//! model without the runtime.
 
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
@@ -43,7 +50,9 @@ use std::path::Path;
 use std::sync::Arc;
 
 use quota_station_core::app_dir::AppDir;
+use quota_station_core::claude::state::AccountOut;
 use quota_station_core::settings::Settings;
+use serde_json::{Map, Value};
 use tauri::{AppHandle, Manager};
 
 pub use quota_station_core::ext::{Hooks, NoHooks};
@@ -104,6 +113,55 @@ pub trait Extension: Send + Sync + 'static {
     fn reader_pass(&self, pass: &ReaderPass<'_>) -> Option<ReaderWork> {
         let _ = pass;
         None
+    }
+
+    /// The extension's part of the model every window draws: JSON keys the
+    /// windows find beside the app's own, at the model's top level. Asked
+    /// each time the model is drawn, under the app's lock: it reads only
+    /// `input`, never the [`Host`]. Its keys must not be any of the app's.
+    fn model(&self, input: &ModelInput<'_>) -> Map<String, Value> {
+        let _ = input;
+        Map::new()
+    }
+
+    /// The extension's part of what the build has (`capabilities` in the
+    /// model): JSON keys beside the app's own, none of them the app's.
+    fn capabilities(&self) -> Map<String, Value> {
+        Map::new()
+    }
+}
+
+/// What the extension draws its part of the model from
+/// ([`Extension::model`]): plain data, taken under the app's lock.
+pub struct ModelInput<'a> {
+    /// What the extension keeps ([`Host::keep_state`]).
+    pub kept: &'a Kept,
+    /// The settings as the app holds them now.
+    pub settings: &'a Settings,
+    /// The home folder of the user the app runs as.
+    pub home: &'a Path,
+    /// The app's folder, where its settings file is.
+    pub app_dir: &'a AppDir,
+    /// The Claude accounts the app keeps, as its Claude tab lists them.
+    pub claude_accounts: &'a [AccountOut],
+}
+
+/// The extension's sockets that draw ([`Extension::model`] and
+/// [`Extension::capabilities`]), as the app's state keeps them: apart from
+/// the rest of [`Extension`], so that state holds nothing of the window
+/// runtime the command handler brings, and a test can build it.
+pub(crate) trait ModelSockets: Send + Sync {
+    fn model_part(&self, input: &ModelInput<'_>) -> Map<String, Value>;
+    fn capabilities_part(&self) -> Map<String, Value>;
+}
+
+impl<E: Extension> ModelSockets for E {
+    fn model_part(&self, input: &ModelInput<'_>) -> Map<String, Value> {
+        self.model(input)
+    }
+
+    fn capabilities_part(&self) -> Map<String, Value> {
+        self.capabilities()
     }
 }
 

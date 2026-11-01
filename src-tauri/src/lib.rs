@@ -72,9 +72,12 @@ use crate::state::{Inner, Shared, Tab};
 /// `quota-station quota …`), else the menu bar app, with what `extension`
 /// adds ([`ext`]). The binary (`main.rs`) only calls it, with the Tauri
 /// context of its own `tauri.conf.json` and the extension it is built with.
-pub fn run(context: tauri::Context<tauri::Wry>, extension: impl Extension) {
-    // The extension lasts as long as the app: the state keeps its hooks.
-    let extension: &'static dyn Extension = Box::leak(Box::new(extension));
+pub fn run<E: Extension>(context: tauri::Context<tauri::Wry>, extension: E) {
+    // The extension lasts as long as the app: the state keeps its hooks and
+    // its model sockets.
+    let extension: &'static E = Box::leak(Box::new(extension));
+    let model_sockets: &'static dyn ext::ModelSockets = extension;
+    let extension: &'static dyn Extension = extension;
     let hooks = extension.hooks();
     let args: Vec<String> = std::env::args().skip(1).collect();
     #[cfg(windows)]
@@ -126,6 +129,7 @@ pub fn run(context: tauri::Context<tauri::Wry>, extension: impl Extension) {
             let settings_file = app.path().app_config_dir()?.join("settings.json");
             let mut inner = Inner::new(home, settings_file, machine_name(), hooks);
             inner.app_version = app.package_info().version.to_string();
+            inner.extension = model_sockets;
             let state = Shared::new(inner);
             // Only asks macOS: the app never registers itself.
             install::read_login(&state);

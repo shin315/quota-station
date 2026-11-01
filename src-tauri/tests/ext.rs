@@ -10,8 +10,10 @@ use std::path::Path;
 use std::sync::Arc;
 
 use common::{NotKept, TestExtension, TestState};
-use quota_station::ext::{shadowed, Extension, Kept, NoExtension, ReaderPass};
+use quota_station::ext::{shadowed, Extension, Kept, ModelInput, NoExtension, ReaderPass};
 use quota_station_core::app_dir::AppDir;
+use quota_station_core::settings::Settings;
+use serde_json::json;
 
 #[test]
 fn no_extension_adds_no_command() {
@@ -113,4 +115,48 @@ fn without_an_extension_the_reader_neither_waits_for_it_nor_runs_its_work() {
     }
     // An extension that keeps nothing yet does no work either.
     assert!(!pass(&kept, &app_dir, true));
+}
+
+fn model_input<'a>(kept: &'a Kept, settings: &'a Settings, app_dir: &'a AppDir) -> ModelInput<'a> {
+    ModelInput {
+        kept,
+        settings,
+        home: Path::new("/nonexistent/home"),
+        app_dir,
+        claude_accounts: &[],
+    }
+}
+
+#[test]
+fn an_extension_draws_its_part_of_the_model_from_what_the_app_hands_it() {
+    let app_dir = AppDir::new("/nonexistent/app");
+    let settings = Settings { machine_name: Some("Mac A".into()), ..Settings::default() };
+    let mut kept = Kept::default();
+    let state = Arc::new(TestState::default());
+    kept.keep(state.clone());
+    *state.count.lock().unwrap() = 3;
+    let part = TestExtension.model(&model_input(&kept, &settings, &app_dir));
+    assert_eq!(
+        serde_json::Value::Object(part),
+        json!({ "testExtension": { "machine": "Mac A", "accounts": [], "count": 3 } })
+    );
+    assert_eq!(
+        serde_json::Value::Object(TestExtension.capabilities()),
+        json!({ "testExtension": true })
+    );
+
+    // Before it keeps its state, it draws what it has.
+    let empty = Kept::default();
+    let part = TestExtension.model(&model_input(&empty, &settings, &app_dir));
+    assert_eq!(part["testExtension"]["count"], serde_json::Value::Null);
+}
+
+#[test]
+fn without_an_extension_the_model_and_the_capabilities_gain_nothing() {
+    let app_dir = AppDir::new("/nonexistent/app");
+    let settings = Settings::default();
+    let mut kept = Kept::default();
+    kept.keep(Arc::new(TestState::default()));
+    assert!(NoExtension.model(&model_input(&kept, &settings, &app_dir)).is_empty());
+    assert!(NoExtension.capabilities().is_empty());
 }
