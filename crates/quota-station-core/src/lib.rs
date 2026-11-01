@@ -44,6 +44,9 @@
 //!
 //! What the core asks of the operating system (the secret store, the
 //! process list, opening a URL) goes through the seams in [`os`].
+//!
+//! [`ext`] holds the hooks an extension may give the core; without one
+//! ([`ext::NoHooks`]) each does nothing.
 
 pub mod agents;
 pub mod alerts;
@@ -54,6 +57,7 @@ pub mod claude;
 pub mod cli_tools;
 pub mod codex;
 pub mod detail;
+pub mod ext;
 pub mod history;
 pub mod icon;
 pub mod local_time;

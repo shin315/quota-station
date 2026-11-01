@@ -178,11 +178,13 @@ The core's integration tests are `crates/quota-station-core/tests/*.rs`:
 `antigravity_quota`, `antigravity_spy`, `antigravity_switch`,
 `claude_accounts`, `claude_import`, `claude_manage`, `claude_switch`,
 `claude_windows`, `cli_tools`, `codex`, `codex_accounts`, `codex_wake`,
-`detail`, `env_check`, `icon`, `install_script`, `login_item`, `os_macos`,
+`detail`, `env_check`, `ext`, `icon`, `install_script`, `login_item`, `os_macos`,
 `quota_readers`, `runner`, `sessions`, `settings`, `snapshot`, `stats` and
 `ui_fixtures`, with shared helpers in `common/` and synthetic data in
 `fixtures/`.
-inline. The Vitest tests are the `*.test.ts(x)` files under `src/`; the
+inline, and in `src-tauri/tests/` those of its sockets for an extension
+(`ext.rs`), filled by a test extension (`common/`) made as a crate outside the
+app would make one. The Vitest tests are the `*.test.ts(x)` files under `src/`; the
 `*.en.test.*` files draw the windows in English and the `*.win.test.*` files as
 Windows draws them.
 
@@ -422,7 +424,9 @@ UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test stats
   commands (`agents.rs`), the backup tab's (`backup.rs`), the Skills, Plugins
   and Instruction files tabs' (`skills.rs`), the Claude
   accounts' commands and the `quota-station claude …` dispatch (`claude.rs`,
-  `lib.rs`, whose `run()` the thin `main.rs` calls), the variables check
+  `lib.rs`, whose `run(context, extension)` the thin `main.rs` calls), the
+  sockets an extension fills, empty by default (`ext.rs`, with the core's
+  hooks in `crates/quota-station-core/src/ext.rs`), the variables check
   (`env.rs`), Config sets (`sets.rs`), Stats (`stats.rs`), Agent updates (`cli_tools.rs`), the state and commands
   (`state.rs`, `commands.rs`, `open.rs`), and on Windows the tray and windows
   (`windows.rs`, `winsys.rs`) and the test build's guided session and

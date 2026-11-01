@@ -41,6 +41,7 @@ mod codex_wake;
 mod commands;
 mod diag;
 mod env;
+pub mod ext;
 mod install;
 mod login_item;
 mod notify;
@@ -64,12 +65,14 @@ use std::process::Command;
 
 use tauri::Manager;
 
+use crate::ext::Extension;
 use crate::state::{Inner, Shared, Tab};
 
 /// The app: a subcommand from a terminal (`quota-station claude …`,
-/// `quota-station quota …`), else the menu bar app. The binary
-/// (`main.rs`) only calls it.
-pub fn run() {
+/// `quota-station quota …`), else the menu bar app, with what `extension`
+/// adds ([`ext`]). The binary (`main.rs`) only calls it, with the Tauri
+/// context of its own `tauri.conf.json` and the extension it is built with.
+pub fn run(context: tauri::Context<tauri::Wry>, extension: impl Extension) {
     let args: Vec<String> = std::env::args().skip(1).collect();
     #[cfg(windows)]
     if matches!(args.first().map(String::as_str), Some("claude" | "quota")) {
@@ -149,21 +152,38 @@ pub fn run() {
             session::start(app.handle());
             Ok(())
         })
-        .invoke_handler(handler())
-        .run(tauri::generate_context!())
+        .invoke_handler(route(handler(), extension.command_handler()))
+        .run(context)
         .expect("Quota Station failed to start");
 }
 
-/// Every command the windows can call: [`handler`] for Tauri, and their
-/// names for the tests. An entry with a `cfg` is built only with that
-/// feature, so a build without it has no such command at all.
+/// The windows' calls: a command the app has goes to the app's own handler,
+/// any other to the extension's ([`ext::Extension::command_handler`]),
+/// which refuses those it does not have either.
+fn route(
+    app: impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static,
+    extension: ext::Handler,
+) -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static {
+    let own: std::collections::HashSet<&'static str> = command_names().into_iter().collect();
+    move |invoke| {
+        if own.contains(invoke.message.command()) {
+            app(invoke)
+        } else {
+            extension(invoke)
+        }
+    }
+}
+
+/// Every command of the app's own: [`handler`] for Tauri, and their names
+/// for [`route`] and the tests. An entry with a `cfg` is built only with
+/// that feature, so a build without it has no such command at all. The
+/// extension's commands are its own ([`ext::Extension::command_names`]).
 macro_rules! commands {
     ($( $(#[cfg($c:meta)])? $module:ident :: $name:ident ),* $(,)?) => {
         fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static {
             tauri::generate_handler![$( $(#[cfg($c)])? $module::$name ),*]
         }
 
-        #[cfg(test)]
         fn command_names() -> Vec<&'static str> {
             let mut names = Vec::new();
             $( $(#[cfg($c)])? names.push(stringify!($name)); )*
@@ -512,7 +532,20 @@ pub(crate) fn machine_name() -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::command_names;
+    use crate::ext::Extension;
+
+    /// The extension the binary passes in this build (`main.rs`).
+    fn extension() -> crate::ext::NoExtension {
+        crate::ext::NoExtension
+    }
+
+    /// The commands the windows can call in this build: the app's own and
+    /// those of the extension its binary passes.
+    fn command_names() -> Vec<&'static str> {
+        let mut names = super::command_names();
+        names.extend(extension().command_names());
+        names
+    }
 
     #[test]
     fn every_build_has_the_shared_commands() {

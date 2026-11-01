@@ -12,6 +12,7 @@ pub mod claude;
 // The Antigravity fakes and the fake `security` are shell scripts.
 #[cfg(all(feature = "antigravity-accounts", unix))]
 pub mod desktop;
+pub mod ext;
 #[cfg(all(feature = "antigravity-accounts", unix))]
 pub mod google;
 pub mod http;
