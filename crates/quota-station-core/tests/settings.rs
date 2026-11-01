@@ -4,10 +4,16 @@
 use std::path::PathBuf;
 
 use quota_station_core::alerts::{Kind, Switches};
+use quota_station_core::ext::Hooks;
 use quota_station_core::settings::{
     machine_name, AutoBackup, CodexOptions, Language, Menubar, MenubarWindow, PoolAlert, Settings,
     SkillChecks, Theme, ThemePack, MACHINE_NAME_MAX,
 };
+
+/// The hooks the app passes without an extension: none.
+fn hooks() -> &'static dyn Hooks {
+    quota_station_core::ext::none()
+}
 
 #[test]
 fn settings_round_trip_and_default_when_missing() {
@@ -34,6 +40,7 @@ fn settings_round_trip_and_default_when_missing() {
         backup_dir: Some(PathBuf::from("/srv/example/backups")),
         pool_alert: PoolAlert { dry_at_most: 5, room_at_least: 20 },
         setup_seen: true,
+        ext: serde_json::Map::new(),
     };
     s.save(&file).unwrap();
     assert_eq!(Settings::load(&file), s);
@@ -73,6 +80,7 @@ fn a_settings_file_from_m1_still_loads() {
     // Alerts 1, 3 and 4 on.
     assert!([Kind::Pool, Kind::Login, Kind::Overwrite].iter().all(|k| s.alerts.on(*k)));
     assert_eq!(s.codex_home, None, "Codex's own ~/.codex");
+    assert!(s.ext.is_empty(), "and nothing is kept for an extension");
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -205,7 +213,7 @@ fn fresh_dir(tag: &str) -> PathBuf {
 fn a_new_install_starts_with_the_first_run_and_stays_new() {
     let dir = fresh_dir("new");
     let file = dir.join("settings.json");
-    let s = Settings::open(&file);
+    let s = Settings::open(&file, hooks());
     assert!(!s.setup_seen, "the main window opens on the first run's steps");
     assert_eq!(s.pool_alert, PoolAlert { dry_at_most: 10, room_at_least: 15 });
     assert_eq!(s.backup_dir, None, "iCloud Drive until another folder is chosen");
@@ -215,12 +223,12 @@ fn a_new_install_starts_with_the_first_run_and_stays_new() {
     // …so the files the app writes next never make it look like an older install.
     std::fs::create_dir_all(dir.join("alerts")).unwrap();
     std::fs::write(dir.join("alerts/alerts.json"), "{}").unwrap();
-    let again = Settings::open(&file);
+    let again = Settings::open(&file, hooks());
     assert!(!again.setup_seen, "until its owner finishes the steps");
     let mut seen = again;
     seen.setup_seen = true;
     seen.save(&file).unwrap();
-    assert!(Settings::open(&file).setup_seen);
+    assert!(Settings::open(&file, hooks()).setup_seen);
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -231,7 +239,7 @@ fn a_mac_that_had_the_app_skips_the_first_run() {
     let file = dir.join("settings.json");
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(&file, r#"{ "machineName": "Mac B", "alerts": { "login": false } }"#).unwrap();
-    let s = Settings::open(&file);
+    let s = Settings::open(&file, hooks());
     assert!(s.setup_seen, "no first run");
     assert!(!s.alerts.login, "and the alerts stay as they were");
     assert_eq!(s.pool_alert, PoolAlert::default(), "alert 1 keeps 10 % and 15 %");
@@ -243,14 +251,14 @@ fn a_mac_that_had_the_app_skips_the_first_run() {
     let dir = fresh_dir("had-folder");
     std::fs::create_dir_all(dir.join("alerts")).unwrap();
     std::fs::write(dir.join("alerts/alerts.json"), "{}").unwrap();
-    assert!(Settings::open(&dir.join("settings.json")).setup_seen);
+    assert!(Settings::open(&dir.join("settings.json"), hooks()).setup_seen);
     let _ = std::fs::remove_dir_all(&dir);
 
     // A settings file that cannot be read is not written over.
     let dir = fresh_dir("had-broken");
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(dir.join("settings.json"), "{ half").unwrap();
-    assert!(Settings::open(&dir.join("settings.json")).setup_seen);
+    assert!(Settings::open(&dir.join("settings.json"), hooks()).setup_seen);
     assert_eq!(std::fs::read_to_string(dir.join("settings.json")).unwrap(), "{ half");
     let _ = std::fs::remove_dir_all(&dir);
 
@@ -258,7 +266,7 @@ fn a_mac_that_had_the_app_skips_the_first_run() {
     let dir = fresh_dir("hidden");
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(dir.join(".DS_Store"), "").unwrap();
-    assert!(!Settings::open(&dir.join("settings.json")).setup_seen);
+    assert!(!Settings::open(&dir.join("settings.json"), hooks()).setup_seen);
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -274,7 +282,7 @@ fn alert_one_s_thresholds_are_read_loosely() {
         (r#"{ "setupSeen": true, "poolAlert": "high" }"#, (10, 15)),
     ] {
         std::fs::write(&file, text).unwrap();
-        let p = Settings::open(&file).pool_alert;
+        let p = Settings::open(&file, hooks()).pool_alert;
         assert_eq!((p.dry_at_most, p.room_at_least), want, "{text}");
     }
     assert_eq!(PoolAlert { dry_at_most: 15, room_at_least: 15 }.check(), Err("order"));

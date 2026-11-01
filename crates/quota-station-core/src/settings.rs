@@ -9,13 +9,21 @@
 //! under a custom API, when the agents' backup packs are made, where they
 //! go, how the app looks for newer versions of the skills, the two
 //! thresholds of alert 1, and whether the first run's steps were seen.
+//!
+//! Keys the app does not know are an extension's: they stay in
+//! [`Settings::ext`] as they were read and are written back with the rest,
+//! so a settings file passes through any build. What they mean, and how a
+//! Mac new to the app starts them, is the extension's
+//! ([`crate::ext::Hooks`]).
 
 use std::io;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value};
 
 use crate::alerts::Switches;
+use crate::ext::Hooks;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", from = "Stored")]
@@ -81,6 +89,11 @@ pub struct Settings {
     /// no longer opens on them. Always written, so a new install stays new
     /// until its owner finishes them.
     pub setup_seen: bool,
+    /// The keys this build does not know, as they were read: an
+    /// extension's settings, written back beside the app's own. The
+    /// extension reads and changes them; the app only keeps them.
+    #[serde(flatten)]
+    pub ext: Map<String, Value>,
 }
 
 /// Alert 1: the account in use has `dry_at_most` percent left or less, and
@@ -300,7 +313,8 @@ impl MenubarWindow {
 }
 
 /// The file as written by any version: the quota-axi path of versions that
-/// ran it (`quotaAxiPath`) is left behind.
+/// ran it (`quotaAxiPath`) and the `showEmail` that `hideNames` replaced are
+/// left behind; any other key the app does not know is kept in `ext`.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Stored {
@@ -348,6 +362,12 @@ struct Stored {
     /// Missing in a file an older version wrote: that Mac had the app, so seen.
     #[serde(default)]
     setup_seen: Option<bool>,
+    #[serde(default, rename = "quotaAxiPath")]
+    _quota_axi_path: Option<serde::de::IgnoredAny>,
+    #[serde(default, rename = "showEmail")]
+    _show_email: Option<serde::de::IgnoredAny>,
+    #[serde(flatten)]
+    ext: Map<String, Value>,
 }
 
 impl From<Stored> for Settings {
@@ -373,6 +393,7 @@ impl From<Stored> for Settings {
                 .filter(|p| p.check().is_ok())
                 .unwrap_or_default(),
             setup_seen: s.setup_seen.unwrap_or(true),
+            ext: s.ext,
         }
     }
 }
@@ -404,16 +425,24 @@ impl Settings {
     /// it was, with no first run; a new one opens on the first run's steps.
     /// The answer is written at once, so what the app puts in its folder
     /// afterwards never makes a new install look like an older one.
-    pub fn open(file: &Path) -> Self {
-        let json = std::fs::read_to_string(file)
-            .ok()
-            .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok());
-        let settled = "setupSeen";
+    ///
+    /// `hooks` has the extension's keys read ([`Hooks::tidy_settings`]),
+    /// may name the key that tells the file was settled
+    /// ([`Hooks::settled_key`], `setupSeen` without one), and settles its
+    /// keys with the app's ([`Hooks::settle_settings`]).
+    pub fn open(file: &Path, hooks: &dyn Hooks) -> Self {
+        let text = std::fs::read_to_string(file).ok();
+        let json = text.as_deref().and_then(|t| serde_json::from_str::<Value>(t).ok());
+        let read = text.as_deref().and_then(|t| serde_json::from_str::<Settings>(t).ok());
+        let found = read.is_some();
+        let mut settings = read.unwrap_or_default();
+        hooks.tidy_settings(&mut settings.ext, found);
+        let settled = hooks.settled_key().unwrap_or("setupSeen");
         if json.as_ref().is_some_and(|v| v.get(settled).is_some_and(|a| a.is_boolean())) {
-            return Settings::load(file);
+            return settings;
         }
         let had_app = file.exists() || file.parent().is_some_and(|dir| has_files(dir, file));
-        let mut settings = Settings::load(file);
+        hooks.settle_settings(&mut settings.ext, had_app);
         settings.setup_seen = had_app;
         // A file there that cannot be read is never written over. Unsaved,
         // the next start asks again and finds the same answer.
@@ -423,9 +452,10 @@ impl Settings {
         settings
     }
 
-    /// Which alerts run: the switches.
-    pub fn alert_switches(&self) -> Switches {
-        self.alerts
+    /// Which alerts run: the switches, as `hooks` lets them
+    /// ([`Hooks::alert_switches`]).
+    pub fn alert_switches(&self, hooks: &dyn Hooks) -> Switches {
+        hooks.alert_switches(self, self.alerts)
     }
 
     /// A missing or unreadable file gives the defaults: the app still runs.

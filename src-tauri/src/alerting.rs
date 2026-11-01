@@ -124,7 +124,7 @@ fn evaluate(state: &AppState) {
     };
     let mut inner = state.lock();
     let before = inner.alerts.clone();
-    let switches = inner.settings.alert_switches();
+    let switches = inner.settings.alert_switches(inner.hooks);
     let ids = alerts::evaluate(&mut inner.alerts, &facts, &switches);
     if let Some(center) = inner.center.clone() {
         alerts::deliver(&mut inner.alerts, &ids, &*center);

@@ -73,6 +73,9 @@ use crate::state::{Inner, Shared, Tab};
 /// adds ([`ext`]). The binary (`main.rs`) only calls it, with the Tauri
 /// context of its own `tauri.conf.json` and the extension it is built with.
 pub fn run(context: tauri::Context<tauri::Wry>, extension: impl Extension) {
+    // The extension lasts as long as the app: the state keeps its hooks.
+    let extension = Box::leak(Box::new(extension));
+    let hooks = extension.hooks();
     let args: Vec<String> = std::env::args().skip(1).collect();
     #[cfg(windows)]
     if matches!(args.first().map(String::as_str), Some("claude" | "quota")) {
@@ -115,13 +118,13 @@ pub fn run(context: tauri::Context<tauri::Wry>, extension: impl Extension) {
     #[cfg(windows)]
     let builder = builder.plugin(tauri_plugin_notification::init());
     builder
-        .setup(|app| {
+        .setup(move |app| {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
             let home = app.path().home_dir()?;
             let settings_file = app.path().app_config_dir()?.join("settings.json");
-            let mut inner = Inner::new(home, settings_file, machine_name());
+            let mut inner = Inner::new(home, settings_file, machine_name(), hooks);
             inner.app_version = app.package_info().version.to_string();
             let state = Shared::new(inner);
             // Only asks macOS: the app never registers itself.

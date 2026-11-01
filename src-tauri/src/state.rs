@@ -24,6 +24,7 @@ use quota_station_core::detail;
 #[cfg(feature = "antigravity-accounts")]
 use quota_station_core::detail::AgyDetail;
 use quota_station_core::detail::ClaudeDetail;
+use quota_station_core::ext::Hooks;
 use quota_station_core::history::Seen;
 use quota_station_core::icon::{self, Context, Icon};
 use quota_station_core::quota::Response;
@@ -103,6 +104,9 @@ pub struct Inner {
     pub home: PathBuf,
     pub settings_file: PathBuf,
     pub settings: Settings,
+    /// The hooks of the app's extension (`ext::Extension::hooks`), kept for
+    /// as long as the app runs.
+    pub hooks: &'static dyn Hooks,
     /// The name macOS gives this Mac, used when the user has set none.
     pub system_machine: String,
     pub claude: Option<Response>,
@@ -232,8 +236,13 @@ pub enum Tab {
 }
 
 impl Inner {
-    pub fn new(home: PathBuf, settings_file: PathBuf, system_machine: String) -> Self {
-        let settings = Settings::open(&settings_file);
+    pub fn new(
+        home: PathBuf,
+        settings_file: PathBuf,
+        system_machine: String,
+        hooks: &'static dyn Hooks,
+    ) -> Self {
+        let settings = Settings::open(&settings_file, hooks);
         let app_dir =
             AppDir::new(settings_file.parent().map(|p| p.to_path_buf()).unwrap_or_default());
         let claude_program = session::find_claude(&home);
@@ -241,6 +250,7 @@ impl Inner {
             home,
             settings_file,
             settings,
+            hooks,
             system_machine,
             claude: None,
             agy: None,
@@ -554,7 +564,12 @@ mod tests {
     use super::*;
 
     fn inner() -> Inner {
-        Inner::new(PathBuf::new(), PathBuf::from("/nonexistent/settings.json"), "Mac Studio".into())
+        Inner::new(
+            PathBuf::new(),
+            PathBuf::from("/nonexistent/settings.json"),
+            "Mac Studio".into(),
+            quota_station_core::ext::none(),
+        )
     }
 
     #[test]

@@ -10,8 +10,11 @@
 //! nothing. The core's own sockets are [`Hooks`] (in
 //! `quota_station_core::ext`), handed over by [`Extension::hooks`].
 //!
-//! Today's socket:
+//! Today's sockets:
 //!
+//! - [`Extension::hooks`]: the core's hooks. The app keeps them for as long
+//!   as it runs and passes them where the core calls one (the settings file
+//!   and which alerts run, today).
 //! - [`Extension::command_names`] and [`Extension::command_handler`]: the
 //!   commands the windows can call besides the app's own, both made from one
 //!   list by [`extension_commands!`](crate::extension_commands). A command

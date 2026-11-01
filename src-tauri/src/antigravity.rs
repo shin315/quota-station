@@ -392,6 +392,7 @@ mod tests {
             std::path::PathBuf::new(),
             std::path::PathBuf::from("/nonexistent/settings.json"),
             "Mac".into(),
+            quota_station_core::ext::none(),
         );
         assert_eq!(inner.agy_login_refusal(), None);
 
@@ -416,6 +417,7 @@ mod tests {
             std::path::PathBuf::new(),
             std::path::PathBuf::from("/nonexistent/settings.json"),
             "Mac".into(),
+            quota_station_core::ext::none(),
         );
         assert_eq!(inner.agy_logout_refusal(), None);
 

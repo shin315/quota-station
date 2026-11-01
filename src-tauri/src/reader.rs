@@ -255,7 +255,12 @@ mod tests {
     use super::*;
 
     fn inner() -> Inner {
-        Inner::new(PathBuf::new(), PathBuf::from("/nonexistent/settings.json"), "Mac".into())
+        Inner::new(
+            PathBuf::new(),
+            PathBuf::from("/nonexistent/settings.json"),
+            "Mac".into(),
+            quota_station_core::ext::none(),
+        )
     }
 
     fn at() -> OffsetDateTime {
