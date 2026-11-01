@@ -13,11 +13,19 @@ on:
 # runs as it always has, on GitHub's hosted runners:
 #
 # - MAC_RUNNER: the macOS jobs' runner labels, as a JSON array (for example
-#   ["self-hosted","macOS","ARM64"]); unset, macos-latest. On such a runner
-#   Cargo builds into a fixed folder outside the workspace, which outlives
-#   each run, instead of using the Rust cache action. Never set it to a
+#   ["self-hosted","macOS","ARM64"]); unset, macos-latest. Never set it to a
 #   self-hosted runner in a public repository: a pull request from anyone
 #   would run on that machine.
+# - MAC_CI_ROOT: on MAC_RUNNER, the folder outside the workspace that the
+#   macOS jobs keep their Rust in, and which outlives each run: the
+#   toolchain (rustup/, RUSTUP_HOME), Cargo's own folder (cargo/,
+#   CARGO_HOME) and the build (target/), instead of the Rust cache action.
+#   The toolchain action then installs and picks its toolchain there, never
+#   in the account's own ~/.rustup and ~/.cargo, so a runner that runs as
+#   someone's own account leaves their Rust alone. A job on MAC_RUNNER
+#   stops when it is unset, or when rustup is not on the runner's PATH (the
+#   action would otherwise install rustup itself). Unused without
+#   MAC_RUNNER.
 # - WINDOWS_ON_PUSH: "false" runs the Windows job only when the workflow is
 #   started by hand (Actions › CI › Run workflow); unset, on every change.
 
@@ -82,15 +90,32 @@ jobs:
           node-version: 24
           cache: npm
 
+      # MAC_RUNNER's own machine: the toolchain and the builds in
+      # MAC_CI_ROOT, set before the toolchain action so that it installs
+      # there (checkout empties the workspace's ignored files on every run).
+      - name: Rust outside the workspace (MAC_RUNNER)
+        if: ${{ vars.MAC_RUNNER }}
+        env:
+          ROOT: ${{ vars.MAC_CI_ROOT }}
+        run: |
+          if [ -z "$ROOT" ]; then
+            echo "::error::MAC_RUNNER is set but MAC_CI_ROOT is not: set it to the folder the jobs keep their Rust in."
+            exit 1
+          fi
+          if ! command -v rustup >/dev/null 2>&1; then
+            echo "::error::rustup is not on the runner's PATH; the toolchain action would install it into this account."
+            exit 1
+          fi
+          mkdir -p "$ROOT"
+          {
+            echo "RUSTUP_HOME=$ROOT/rustup"
+            echo "CARGO_HOME=$ROOT/cargo"
+            echo "CARGO_TARGET_DIR=$ROOT/target"
+          } >> "$GITHUB_ENV"
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-
-      # checkout empties the workspace's ignored files on every run, so a
-      # build on MAC_RUNNER's own machine keeps its target outside it.
-      - name: Build outside the workspace (MAC_RUNNER)
-        if: ${{ vars.MAC_RUNNER }}
-        run: echo "CARGO_TARGET_DIR=$HOME/ci-cache/quota-station/target" >> "$GITHUB_ENV"
 
       - uses: Swatinem/rust-cache@v2
         if: ${{ !vars.MAC_RUNNER }}
