@@ -1,0 +1,201 @@
+# SPDX-FileCopyrightText: 2026 Shin315
+# SPDX-License-Identifier: MIT
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Repository variables pick where the jobs run; a repository that sets none
+# runs as it always has, on GitHub's hosted runners:
+#
+# - MAC_RUNNER: the macOS jobs' runner labels, as a JSON array (for example
+#   ["self-hosted","macOS","ARM64"]); unset, macos-latest. On such a runner
+#   Cargo builds into a fixed folder outside the workspace, which outlives
+#   each run, instead of using the Rust cache action. Never set it to a
+#   self-hosted runner in a public repository: a pull request from anyone
+#   would run on that machine.
+# - WINDOWS_ON_PUSH: "false" runs the Windows job only when the workflow is
+#   started by hand (Actions › CI › Run workflow); unset, on every change.
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  reuse:
+    name: Licenses (REUSE)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: reuse lint
+        uses: fsfe/reuse-action@v5
+
+  # Whether the change touches anything but the docs: *.md anywhere and the
+  # docs/ directory. When it does not, the two build jobs are skipped; the
+  # licence check above always runs. If the diff cannot be read (a new
+  # branch, a history that was forced over, this job failing) the builds run.
+  changes:
+    name: Changed files
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Anything besides the docs?
+        id: diff
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: |
+          code=true
+          if [ -n "$BASE" ] && [ "$BASE" != 0000000000000000000000000000000000000000 ] \
+            && files=$(git diff --name-only --no-renames "$BASE...$HEAD_SHA") && [ -n "$files" ]; then
+            printf 'Changed files:\n%s\n' "$files"
+            if [ -z "$(grep -vE '\.md$|^docs/' <<<"$files" || true)" ]; then
+              code=false
+            fi
+          fi
+          echo "code=$code"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build and test (macOS)
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
+    runs-on: ${{ vars.MAC_RUNNER && fromJSON(vars.MAC_RUNNER) || 'macos-latest' }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      # checkout empties the workspace's ignored files on every run, so a
+      # build on MAC_RUNNER's own machine keeps its target outside it.
+      - name: Build outside the workspace (MAC_RUNNER)
+        if: ${{ vars.MAC_RUNNER }}
+        run: echo "CARGO_TARGET_DIR=$HOME/ci-cache/quota-station/target" >> "$GITHUB_ENV"
+
+      - uses: Swatinem/rust-cache@v2
+        if: ${{ !vars.MAC_RUNNER }}
+
+      - name: Install npm packages
+        run: npm ci
+
+      - name: Vitest
+        run: npm test
+
+      # Without QS_ANTIGRAVITY_ACCOUNTS the build stops if it would bundle a
+      # file from src/antigravity/ (CC BY-NC-SA 4.0).
+      - name: Type check and build the frontend (MIT)
+        run: npm run build
+
+      - name: Build the frontend with the Antigravity accounts
+        run: npx vite build
+        env:
+          QS_ANTIGRAVITY_ACCOUNTS: "1"
+
+      - name: rustfmt
+        run: cargo fmt --all --check
+
+      - name: Clippy (MIT)
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: Clippy with the Antigravity accounts
+        run: cargo clippy --workspace --all-targets --locked --features antigravity-accounts -- -D warnings
+
+
+      - name: cargo test (MIT)
+        run: cargo test --workspace --locked
+
+      - name: cargo test with the Antigravity accounts
+        run: cargo test --workspace --locked --features antigravity-accounts
+
+
+      - name: Build the app (MIT)
+        run: npx tauri build --bundles app
+
+
+  # The Windows build: vitest (the windows as Windows draws them, the
+  # *.win.test.tsx files among them), and the core and the app crate:
+  # clippy and their tests with and without the Antigravity accounts, then
+  # the guided sessions' test installer. The macOS job stays the required
+  # check.
+  build-windows:
+    name: Build and test (Windows x64)
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' && (vars.WINDOWS_ON_PUSH != 'false' || github.event_name == 'workflow_dispatch') }}
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install npm packages
+        run: npm ci
+
+      - name: Vitest
+        run: npm test
+
+      - name: cargo check (core)
+        run: cargo check -p quota-station-core --target x86_64-pc-windows-msvc --locked
+
+      - name: cargo test (core)
+        run: cargo test -p quota-station-core --locked --no-fail-fast
+
+      - name: cargo test (core, Antigravity accounts)
+        run: cargo test -p quota-station-core --locked --no-fail-fast --features antigravity-accounts
+
+      - name: Clippy (MIT)
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: Clippy with the Antigravity accounts
+        run: cargo clippy --workspace --all-targets --locked --features antigravity-accounts -- -D warnings
+
+      - name: cargo test (app)
+        run: cargo test -p quota-station --locked --no-fail-fast
+
+      - name: cargo test (app, Antigravity accounts)
+        run: cargo test -p quota-station --locked --no-fail-fast --features antigravity-accounts
+
+      # The test installer for the guided sessions on a Windows PC (plan
+      # 4.3): NSIS, unsigned on purpose, MIT build. QS_TEST_SESSION makes it
+      # open the session's guide and write diag-<date>.zip; no release
+      # carries it.
+      - name: Build the session's test installer (NSIS, unsigned)
+        run: npx tauri build --bundles nsis
+        env:
+          QS_TEST_SESSION: "1"
+
+      - name: Upload the session's test installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: quota-station-windows-x64-test-setup
+          path: target/release/bundle/nsis/*-setup.exe
+          if-no-files-found: error
+          retention-days: 14

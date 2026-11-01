@@ -1,0 +1,960 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
+//! The Codex switch (M8) on a temporary Codex home built from the fixtures
+//! in `fixtures/codex/`: every name, URL and key in them is made up, and no
+//! test reads or writes the real `~/.codex`, Codex's login or CC Switch.
+//!
+//! What these tests prove about keeping the ChatGPT login (the plugins and
+//! remote control of Codex App): a switch to the custom provider leaves
+//! `auth.json` byte for byte, writes `requires_openai_auth = true` in the
+//! provider's table when the provider has its own key and a ChatGPT login
+//! is there (so Codex keeps treating the login as signed in), keeps the
+//! `[mcp_servers]` list and every other line as they were, and refuses a
+//! provider with no key of its own. Whether Codex App's plugins and remote
+//! control then really work is Codex's behaviour, not this file's: it needs
+//! a check on a Mac.
+
+mod common;
+
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+use std::path::{Path, PathBuf};
+use std::time::Duration;
+
+use common::{fixture_text, temp_dir};
+use quota_station_core::app_dir::AppDir;
+use quota_station_core::codex::config::{self, Current, KeyKind, KeyRefusal, Refusal, Target};
+use quota_station_core::codex::files::{self, Record, WriteError};
+use quota_station_core::codex::login::{self, Login};
+use quota_station_core::codex::{self, log, probe, procs, resume, FileState, KeyOutcome, Outcome};
+use quota_station_core::os::Process;
+use time::OffsetDateTime;
+
+const T0: i64 = 1_768_548_000;
+
+fn at(offset: i64) -> OffsetDateTime {
+    OffsetDateTime::from_unix_timestamp(T0 + offset).unwrap()
+}
+
+/// A Codex home with `config` (a fixture name) and `auth`, and an app folder.
+fn setup(config: &str, auth: Option<&str>) -> (PathBuf, AppDir) {
+    let root = temp_dir("codex");
+    let home = root.join("codex-home");
+    std::fs::create_dir_all(&home).unwrap();
+    std::fs::write(home.join(codex::CONFIG), fixture_text(&format!("codex/{config}"))).unwrap();
+    if let Some(auth) = auth {
+        std::fs::write(home.join(codex::AUTH), fixture_text(&format!("codex/{auth}"))).unwrap();
+    }
+    (home, AppDir::new(root.join("app")))
+}
+
+fn config_text(home: &Path) -> String {
+    std::fs::read_to_string(home.join(codex::CONFIG)).unwrap()
+}
+
+fn hash(home: &Path) -> String {
+    files::sha256(&std::fs::read(home.join(codex::CONFIG)).unwrap())
+}
+
+/// The lines that are not the switch's own keys.
+fn other_lines(text: &str) -> Vec<&str> {
+    text.lines()
+        .filter(|l| {
+            let t = l.trim_start();
+            !(t.starts_with("model_provider ") || t.starts_with("requires_openai_auth "))
+        })
+        .collect()
+}
+
+fn requires(home: &Path, id: &str) -> Option<bool> {
+    let doc: toml_edit::DocumentMut = config_text(home).parse().unwrap();
+    doc.get("model_providers")?.get(id)?.get("requires_openai_auth")?.as_bool()
+}
+
+#[test]
+fn the_file_is_read_without_keeping_a_key() {
+    let parsed = config::parse(&fixture_text("codex/config-chatgpt.toml"), None).unwrap();
+    assert_eq!(parsed.current(), Current::ChatGpt);
+    let custom = parsed.custom.clone().unwrap();
+    assert_eq!(custom.id, "custom");
+    assert_eq!(custom.name, "relay");
+    assert_eq!(custom.base_url.as_deref(), Some("https://relay.example.com/v1"));
+    assert_eq!(custom.key, KeyKind::Bearer);
+    assert_eq!(custom.requires_openai_auth, Some(true));
+    let mcp: Vec<_> = parsed.mcp.iter().map(|m| (m.name.as_str(), m.kind, m.enabled)).collect();
+    assert_eq!(
+        mcp,
+        [("files", "stdio", true), ("docs-search", "http", true), ("tracker", "http", false)]
+    );
+    assert!(parsed.traces.is_empty());
+    let shown = format!("{parsed:?}");
+    assert!(
+        !shown.contains("test-key-not-real") && !shown.contains("test-token"),
+        "no key in what is kept"
+    );
+
+    let custom = config::parse(&fixture_text("codex/config-custom.toml"), None).unwrap();
+    assert_eq!(custom.current(), Current::Custom);
+
+    let env =
+        config::parse(&fixture_text("codex/config-envkey.toml"), None).unwrap().custom.unwrap();
+    assert_eq!(
+        (env.id.as_str(), env.key, env.env_key.as_deref()),
+        ("relay", KeyKind::EnvKey, Some("RELAY_API_KEY"))
+    );
+    let header =
+        config::parse(&fixture_text("codex/config-header.toml"), None).unwrap().custom.unwrap();
+    assert_eq!(header.key, KeyKind::Headers);
+    let none =
+        config::parse(&fixture_text("codex/config-nokey.toml"), None).unwrap().custom.unwrap();
+    assert_eq!(none.key, KeyKind::None);
+
+    let dormant = config::parse(&fixture_text("codex/config-dormant.toml"), None).unwrap();
+    assert_eq!(dormant.custom.as_ref().unwrap().key, KeyKind::Placeholder);
+    assert_eq!(dormant.traces.len(), 2, "the model list and the placeholder: {:?}", dormant.traces);
+}
+
+#[test]
+fn a_file_with_several_tables_goes_back_to_the_one_last_used() {
+    let text = "[model_providers.alpha]\nenv_key = \"A\"\n\n[model_providers.custom]\nenv_key = \"C\"\n\n[model_providers.ollama]\nbase_url = \"http://localhost\"\n";
+    assert_eq!(
+        config::parse(text, None).unwrap().custom.unwrap().id,
+        "custom",
+        "CC Switch's id first"
+    );
+    assert_eq!(
+        config::parse(text, Some("alpha")).unwrap().custom.unwrap().id,
+        "alpha",
+        "then the remembered one"
+    );
+    let only = "[model_providers.ollama]\nbase_url = \"http://localhost\"\n[model_providers.mine]\nenv_key = \"M\"\n";
+    assert_eq!(
+        config::parse(only, Some("gone")).unwrap().custom.unwrap().id,
+        "mine",
+        "never a built-in id"
+    );
+    let other = "model_provider = \"ollama\"\n[model_providers.mine]\nenv_key = \"M\"\n";
+    assert_eq!(config::parse(other, None).unwrap().current(), Current::Other("ollama".into()));
+}
+
+#[test]
+fn requires_openai_auth_follows_the_login_only_for_a_provider_with_its_own_key() {
+    // CC Switch's own table of cases.
+    for (kind, login, want) in [
+        (KeyKind::Bearer, true, true),
+        (KeyKind::Bearer, false, false),
+        (KeyKind::EnvKey, true, true),
+        (KeyKind::EnvKey, false, false),
+        (KeyKind::Headers, true, false),
+        (KeyKind::Headers, false, false),
+        (KeyKind::None, true, false),
+        (KeyKind::Placeholder, true, false),
+    ] {
+        assert_eq!(
+            config::requires_openai_auth(kind, login, true),
+            want,
+            "{kind:?} with login {login}"
+        );
+        assert!(!config::requires_openai_auth(kind, login, false), "plugins off: never");
+    }
+}
+
+#[test]
+fn switching_to_the_custom_provider_keeps_the_chatgpt_login_and_everything_else() {
+    let (home, app) = setup("config-chatgpt.toml", Some("auth-chatgpt.json"));
+    let before = config_text(&home);
+    let auth_before = std::fs::read(home.join(codex::AUTH)).unwrap();
+    let auth_mtime = std::fs::metadata(home.join(codex::AUTH)).unwrap().modified().unwrap();
+
+    let reading = codex::read(&home, &Record::default());
+    assert_eq!(reading.login, Login::ChatGpt);
+    let out = codex::switch(&home, &app, Target::Custom, reading.hash.as_deref(), true, at(0));
+    let Outcome::Switched { from, to, backup, .. } = out else { panic!("{out:?}") };
+    assert_eq!((from.as_str(), to.as_str()), ("openai", "custom"));
+
+    let after = config_text(&home);
+    assert!(after.starts_with("model_provider = \"custom\"\n"), "{after}");
+    assert_eq!(requires(&home, "custom"), Some(true), "Codex keeps the ChatGPT login signed in");
+    assert_eq!(other_lines(&before), other_lines(&after), "every other line as it was");
+    let mcp = |t: &str| {
+        let doc: toml_edit::DocumentMut = t.parse().unwrap();
+        doc.get("mcp_servers").unwrap().to_string()
+    };
+    assert_eq!(mcp(&before), mcp(&after), "the MCP list is not written");
+    assert_eq!(
+        std::fs::read(home.join(codex::AUTH)).unwrap(),
+        auth_before,
+        "auth.json byte for byte"
+    );
+    assert_eq!(std::fs::metadata(home.join(codex::AUTH)).unwrap().modified().unwrap(), auth_mtime);
+
+    let backup = app.path().join(files::BACKUP_DIR).join(backup);
+    let kept = std::fs::read_to_string(&backup).unwrap();
+    assert_eq!(
+        kept,
+        before
+            .replace("\"test-key-not-real\"", "\"<redacted>\"")
+            .replace("\"test-token-not-real\"", "\"<redacted>\""),
+        "the file before is kept, its keys left out"
+    );
+    assert!(!kept.contains("not-real"), "no key in the backup: {kept}");
+    #[cfg(unix)]
+    assert_eq!(std::fs::metadata(&backup).unwrap().permissions().mode() & 0o777, 0o600);
+    #[cfg(unix)]
+    assert_eq!(
+        std::fs::metadata(home.join(codex::CONFIG)).unwrap().permissions().mode() & 0o777,
+        0o600
+    );
+
+    let record = files::load(&app);
+    assert_eq!(record.written_hash.as_deref(), Some(hash(&home).as_str()));
+    assert_eq!(record.written_provider.as_deref(), Some("custom"));
+    assert_eq!(record.last_custom.as_deref(), Some("custom"));
+    assert!(!record.changed_outside(&hash(&home)));
+    let lines = log::read(&app);
+    assert_eq!(lines.len(), 1);
+    assert_eq!(
+        (lines[0].from.as_str(), lines[0].to.as_str(), lines[0].result.as_str()),
+        ("openai", "custom", "switched")
+    );
+}
+
+#[test]
+fn switching_back_removes_only_the_provider_line_and_keeps_the_table() {
+    let (home, app) = setup("config-custom.toml", Some("auth-chatgpt.json"));
+    let before = config_text(&home);
+    let reading = codex::read(&home, &Record::default());
+    let out = codex::switch(&home, &app, Target::ChatGpt, reading.hash.as_deref(), true, at(0));
+    assert!(matches!(out, Outcome::Switched { .. }), "{out:?}");
+    let after = config_text(&home);
+    assert!(!after.contains("model_provider ="));
+    assert!(
+        after.contains("# Chosen by hand: the relay.\nmodel = \"gpt-5.5\""),
+        "the comment above the line stays: {after}"
+    );
+    assert!(
+        after.contains("[model_providers.custom]")
+            && after.contains("experimental_bearer_token = \"test-key-not-real\"")
+    );
+    assert_eq!(
+        requires(&home, "custom"),
+        Some(true),
+        "the table is kept as it was, for resuming old sessions"
+    );
+    assert_eq!(other_lines(&before), other_lines(&after));
+    assert_eq!(
+        codex::read(&home, &files::load(&app)).parsed().unwrap().current(),
+        Current::ChatGpt
+    );
+}
+
+#[test]
+fn a_switch_there_and_back_gives_the_same_bytes() {
+    let (home, app) = setup("config-chatgpt.toml", Some("auth-chatgpt.json"));
+    let before = std::fs::read(home.join(codex::CONFIG)).unwrap();
+    let h = hash(&home);
+    assert!(matches!(
+        codex::switch(&home, &app, Target::Custom, Some(&h), true, at(0)),
+        Outcome::Switched { .. }
+    ));
+    let h = hash(&home);
+    assert!(matches!(
+        codex::switch(&home, &app, Target::ChatGpt, Some(&h), true, at(60)),
+        Outcome::Switched { .. }
+    ));
+    assert_eq!(std::fs::read(home.join(codex::CONFIG)).unwrap(), before);
+    assert_eq!(files::backups(&app.path().join(files::BACKUP_DIR)).len(), 2);
+}
+
+#[test]
+fn requires_openai_auth_is_written_by_the_rule() {
+    // An environment key with no login: off, or Codex would stay on its login page.
+    let (home, app) = setup("config-envkey.toml", None);
+    let h = hash(&home);
+    assert!(matches!(
+        codex::switch(&home, &app, Target::Custom, Some(&h), true, at(0)),
+        Outcome::Switched { .. }
+    ));
+    assert_eq!(requires(&home, "relay"), Some(false));
+    assert!(config_text(&home).contains(
+        "env_key = \"RELAY_API_KEY\"\nwire_api = \"responses\"\nrequires_openai_auth = false\n"
+    ));
+
+    // The same with a ChatGPT login: on.
+    let (home, app) = setup("config-envkey.toml", Some("auth-chatgpt.json"));
+    let h = hash(&home);
+    assert!(matches!(
+        codex::switch(&home, &app, Target::Custom, Some(&h), true, at(0)),
+        Outcome::Switched { .. }
+    ));
+    assert_eq!(requires(&home, "relay"), Some(true));
+
+    // Only an API key in auth.json is no login.
+    let (home, app) = setup("config-envkey.toml", Some("auth-apikey.json"));
+    let h = hash(&home);
+    assert!(matches!(
+        codex::switch(&home, &app, Target::Custom, Some(&h), true, at(0)),
+        Outcome::Switched { .. }
+    ));
+    assert_eq!(requires(&home, "relay"), Some(false));
+
+    // An Authorization header: always off, so the ChatGPT login is never sent there.
+    let (home, app) = setup("config-header.toml", Some("auth-chatgpt.json"));
+    let before = config_text(&home);
+    let h = hash(&home);
+    assert!(matches!(
+        codex::switch(&home, &app, Target::Custom, Some(&h), true, at(0)),
+        Outcome::Switched { .. }
+    ));
+    assert_eq!(requires(&home, "custom"), Some(false));
+    assert_eq!(other_lines(&before), other_lines(&config_text(&home)));
+}
+
+#[test]
+fn a_provider_without_its_own_key_is_refused_and_nothing_is_written() {
+    for (fixture, refusal) in [
+        ("config-nokey.toml", Refusal::NoKey),
+        ("config-dormant.toml", Refusal::Placeholder),
+        (
+            "config-profile.toml",
+            Refusal::Profile { profile: "fast".into(), key: "model_provider".into() },
+        ),
+    ] {
+        let (home, app) = setup(fixture, Some("auth-chatgpt.json"));
+        let before = std::fs::read(home.join(codex::CONFIG)).unwrap();
+        let h = hash(&home);
+        let out = codex::switch(&home, &app, Target::Custom, Some(&h), true, at(0));
+        assert_eq!(out, Outcome::Refused { target: Target::Custom, refusal }, "{fixture}");
+        assert_eq!(std::fs::read(home.join(codex::CONFIG)).unwrap(), before);
+        assert!(files::backups(&app.path().join(files::BACKUP_DIR)).is_empty());
+    }
+    let inline = "model = \"x\"\nmodel_providers = { custom = { env_key = \"K\" } }\n";
+    let parsed = config::parse(inline, None).unwrap();
+    assert_eq!(config::plan(&parsed, Target::Custom, true, true), Err(Refusal::Shape));
+}
+
+#[test]
+fn a_file_changed_after_the_sheet_opened_is_not_overwritten() {
+    let (home, app) = setup("config-chatgpt.toml", Some("auth-chatgpt.json"));
+    let seen = hash(&home);
+    let mut text = config_text(&home);
+    text.push_str("\n# edited meanwhile\n");
+    std::fs::write(home.join(codex::CONFIG), &text).unwrap();
+    let out = codex::switch(&home, &app, Target::Custom, Some(&seen), true, at(0));
+    assert_eq!(out, Outcome::Failed { target: Target::Custom, error: WriteError::Changed });
+    assert_eq!(config_text(&home), text);
+}
+
+#[test]
+fn a_write_stops_when_the_file_changes_between_the_plan_and_the_rename() {
+    let root = temp_dir("codex-race");
+    let file = root.join("config.toml");
+    std::fs::write(&file, "a = 1\n").unwrap();
+    let base = b"a = 1\n";
+    let h = files::sha256(base);
+    // Another program writes after the app read the file.
+    std::fs::write(&file, "a = 2\n").unwrap();
+    let err = files::write(
+        &file,
+        base,
+        &h,
+        "a = 1\nmodel_provider = \"x\"\n",
+        &root.join("backups"),
+        at(0),
+    )
+    .unwrap_err();
+    assert_eq!(err, WriteError::Changed);
+    assert_eq!(
+        std::fs::read_to_string(&file).unwrap(),
+        "a = 2\n",
+        "the other program's write stays"
+    );
+    let left: Vec<_> = std::fs::read_dir(&root).unwrap().flatten().map(|e| e.file_name()).collect();
+    assert_eq!(left.len(), 2, "no temporary file left: {left:?}");
+    let backups = files::backups(&root.join("backups"));
+    assert_eq!(std::fs::read(&backups[0]).unwrap(), base, "the planned-on file is in the backups");
+}
+
+#[cfg(unix)]
+#[test]
+fn a_symlinked_config_stays_a_symlink() {
+    let (home, app) = setup("config-chatgpt.toml", Some("auth-chatgpt.json"));
+    let real = home.parent().unwrap().join("dotfiles-config.toml");
+    std::fs::rename(home.join(codex::CONFIG), &real).unwrap();
+    std::os::unix::fs::symlink(&real, home.join(codex::CONFIG)).unwrap();
+    let h = hash(&home);
+    assert!(matches!(
+        codex::switch(&home, &app, Target::Custom, Some(&h), true, at(0)),
+        Outcome::Switched { .. }
+    ));
+    assert!(std::fs::symlink_metadata(home.join(codex::CONFIG)).unwrap().file_type().is_symlink());
+    assert!(std::fs::read_to_string(&real).unwrap().starts_with("model_provider = \"custom\""));
+}
+
+#[test]
+fn the_newest_ten_backups_stay() {
+    let dir = temp_dir("codex-backups");
+    for i in 0..13 {
+        files::backup(format!("v{i}").as_bytes(), &dir, at(i * 60)).unwrap();
+    }
+    let kept = files::backups(&dir);
+    assert_eq!(kept.len(), files::BACKUPS_KEPT);
+    assert_eq!(std::fs::read_to_string(&kept[0]).unwrap(), "v12");
+    #[cfg(unix)]
+    assert_eq!(std::fs::metadata(&dir).unwrap().permissions().mode() & 0o777, 0o700);
+}
+
+#[test]
+fn backups_kept_whole_before_m9_lose_their_keys() {
+    let dir = temp_dir("codex-old-backups");
+    let whole = fixture_text("codex/config-chatgpt.toml");
+    let old = files::backup(whole.as_bytes(), &dir, at(0)).unwrap();
+    let stamp = std::time::SystemTime::UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+    std::fs::File::options().write(true).open(&old).unwrap().set_modified(stamp).unwrap();
+    let garbage = files::backup(b"not = [toml", &dir, at(60)).unwrap();
+
+    assert_eq!(files::scrub_backups(&dir), 2);
+    let kept = std::fs::read_to_string(&old).unwrap();
+    assert!(!kept.contains("not-real"), "{kept}");
+    assert!(kept.contains("experimental_bearer_token = \"<redacted>\""), "{kept}");
+    assert_eq!(kept.lines().count(), whole.lines().count(), "every other line stays");
+    assert_eq!(std::fs::metadata(&old).unwrap().modified().unwrap(), stamp, "its time is kept");
+    #[cfg(unix)]
+    assert_eq!(std::fs::metadata(&old).unwrap().permissions().mode() & 0o777, 0o600);
+    assert!(!garbage.exists(), "one that does not read as TOML might hold a key: removed");
+    assert_eq!(files::scrub_backups(&dir), 0, "a second run changes nothing");
+    assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1, "no temporary file left");
+}
+
+#[test]
+fn a_change_outside_the_app_is_seen_and_can_be_kept() {
+    let (home, app) = setup("config-chatgpt.toml", Some("auth-chatgpt.json"));
+    assert!(
+        !files::load(&app).changed_outside(&hash(&home)),
+        "nothing to compare before the first write"
+    );
+    let h = hash(&home);
+    codex::switch(&home, &app, Target::Custom, Some(&h), true, at(0));
+    // CC Switch, or a hand, switches back.
+    let text = config_text(&home).replacen("model_provider = \"custom\"\n", "", 1);
+    std::fs::write(home.join(codex::CONFIG), text).unwrap();
+    let reading = codex::read(&home, &files::load(&app));
+    let now = reading.hash.clone().unwrap();
+    assert!(files::load(&app).changed_outside(&now));
+    codex::keep(&app, &now, reading.parsed()).unwrap();
+    assert!(!files::load(&app).changed_outside(&now), "kept by the owner");
+    std::fs::write(home.join(codex::CONFIG), "model = \"other\"\n").unwrap();
+    assert!(files::load(&app).changed_outside(&hash(&home)), "a later change is seen again");
+}
+
+#[test]
+fn the_login_is_judged_by_its_shape_and_the_store() {
+    let (home, _) = setup("config-chatgpt.toml", Some("auth-chatgpt.json"));
+    assert_eq!(login::check(&home, config::AuthStore::File), Login::ChatGpt);
+    assert_eq!(
+        login::check(&home, config::AuthStore::Keyring),
+        Login::Keychain,
+        "the Keychain is not opened"
+    );
+    assert_eq!(login::check(&home, config::AuthStore::Ephemeral), Login::Ephemeral);
+    let (home, _) = setup("config-chatgpt.toml", Some("auth-apikey.json"));
+    assert_eq!(login::check(&home, config::AuthStore::File), Login::ApiKey);
+    let (home, _) = setup("config-chatgpt.toml", None);
+    assert_eq!(login::check(&home, config::AuthStore::File), Login::Missing);
+    std::fs::write(home.join(codex::AUTH), "{not json").unwrap();
+    assert_eq!(login::check(&home, config::AuthStore::File), Login::Unreadable);
+    assert!(Login::Keychain.on_disk() && !Login::ApiKey.on_disk() && !Login::Missing.on_disk());
+}
+
+#[test]
+fn a_missing_or_broken_config_is_read_as_such() {
+    let root = temp_dir("codex-missing");
+    let reading = codex::read(&root, &Record::default());
+    assert!(reading.present && reading.file == FileState::Missing);
+    std::fs::write(root.join(codex::CONFIG), "model = [\n").unwrap();
+    assert!(matches!(codex::read(&root, &Record::default()).file, FileState::Invalid(_)));
+    let app = AppDir::new(root.join("app"));
+    let out = codex::switch(&root, &app, Target::ChatGpt, None, true, at(0));
+    assert!(matches!(out, Outcome::Invalid { .. }), "{out:?}");
+    assert_eq!(std::fs::read_to_string(root.join(codex::CONFIG)).unwrap(), "model = [\n");
+}
+
+#[test]
+fn the_process_table_shows_sessions_the_app_the_daemon_and_cc_switch() {
+    let p = procs::classify(&fixture_text("codex/ps.txt"));
+    assert_eq!(
+        p.sessions, 3,
+        "the native codex once, resume and exec; not mcp, not the node wrapper"
+    );
+    assert!(p.app && p.daemon && p.cc_switch);
+    assert_eq!(procs::classify(""), procs::Procs::default());
+    assert_eq!(
+        procs::restart_daemon(None, Path::new("/nonexistent"), false),
+        procs::Restart::NotRunning,
+        "nothing runs when no daemon does"
+    );
+}
+
+#[test]
+fn windows_command_lines_show_sessions_the_app_and_the_daemon() {
+    let line = |command: &str| Process { pid: 1, tty: None, command: command.into() };
+    let package = r"C:\Program Files\WindowsApps\OpenAI.Codex_26.1.0.0_x64__2p2nqsd0c76g0\app";
+    let npm = r"C:\Users\lan\AppData\Roaming\npm\node_modules\@openai\codex";
+    let table = [
+        line(&format!(r"{package}\ChatGPT.exe --type=renderer")),
+        line(&format!(r"{package}\resources\codex.exe app-server --managed-daemon")),
+        line(&format!(r"C:\Program Files\nodejs\node.exe {npm}\bin\codex.js")),
+        line(&format!(
+            r"{npm}\node_modules\@openai\codex-win32-x64\vendor\x86_64-pc-windows-msvc\codex\codex.exe"
+        )),
+        line(r"C:\Users\lan\.local\bin\codex.exe resume --last"),
+        line(r"C:\Users\lan\.local\bin\codex.exe login"),
+        line(r"C:\Users\lan\AppData\Local\Programs\cc-switch\CC Switch.exe"),
+        line(r"C:\Windows\System32\notepad.exe codex.txt"),
+    ];
+    let p = procs::classify_in(&table, false);
+    assert_eq!(p.sessions, 2, "the native codex and resume; not login, not the node wrapper");
+    assert!(p.app && p.daemon && p.cc_switch);
+    // With a terminal required, as on a Mac, none of these is a session.
+    assert_eq!(procs::classify_in(&table, true).sessions, 0);
+}
+
+#[cfg(windows)]
+#[test]
+fn codex_is_looked_for_as_codex_exe_and_npms_codex_cmd() {
+    let home = temp_dir("codex-win-find");
+    let found = procs::candidates(&home);
+    assert_eq!(found[..2], [home.join(".local/bin/codex.exe"), home.join(".local/bin/codex.cmd")]);
+    assert!(found.iter().all(|p| p.extension().is_some_and(|e| e == "exe" || e == "cmd")));
+    assert!(!found.iter().any(|p| p.starts_with("/Applications")));
+}
+
+#[cfg(unix)]
+#[test]
+fn the_daemon_restart_runs_codex_own_command_for_this_codex_home() {
+    let root = temp_dir("codex-restart");
+    let args = root.join("args");
+    let codex = common::script(
+        &root.join("bin/codex"),
+        &format!("echo \"$@ $CODEX_HOME\" > '{}'\n", args.display()),
+    );
+    assert_eq!(
+        procs::restart_daemon(Some(&codex), &root.join("home"), true),
+        procs::Restart::Restarted
+    );
+    let got = std::fs::read_to_string(&args).unwrap();
+    assert_eq!(got.trim(), format!("app-server daemon restart {}", root.join("home").display()));
+    let failing = common::script(&root.join("bin/codex-fail"), "echo nope >&2\nexit 3\n");
+    assert!(matches!(
+        procs::restart_daemon(Some(&failing), &root, true),
+        procs::Restart::Failed { .. }
+    ));
+}
+
+#[test]
+fn the_provider_counts_as_answering_on_any_http_answer() {
+    use std::io::{Read, Write};
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let seen = std::thread::spawn(move || {
+        let (mut s, _) = listener.accept().unwrap();
+        let mut buf = [0u8; 2048];
+        let n = s.read(&mut buf).unwrap();
+        s.write_all(b"HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+            .unwrap();
+        String::from_utf8_lossy(&buf[..n]).to_string()
+    });
+    let answer = probe::check_with(
+        &format!("http://127.0.0.1:{port}/v1/"),
+        Duration::from_secs(2),
+        Duration::ZERO,
+    );
+    assert!(matches!(answer, probe::Answer::Up { .. }), "{answer:?}");
+    let request = seen.join().unwrap();
+    assert!(request.starts_with("GET /v1/models "), "{request}");
+    assert!(!request.to_ascii_lowercase().contains("authorization"), "no key is sent");
+
+    // A port nobody listens on.
+    let closed = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
+    let answer = probe::check_with(
+        &format!("http://127.0.0.1:{closed}/v1"),
+        Duration::from_millis(500),
+        Duration::ZERO,
+    );
+    assert!(matches!(answer, probe::Answer::Down { .. }));
+    assert_eq!(probe::check("file:///etc"), probe::Answer::BadUrl);
+}
+
+#[test]
+fn resumable_sessions_are_counted_by_their_provider() {
+    let home = temp_dir("codex-sessions");
+    let day = home.join("sessions/2026/01/16");
+    std::fs::create_dir_all(&day).unwrap();
+    let meta = |p: &str| {
+        format!("{{\"timestamp\":\"2026-01-16T07:00:00Z\",\"type\":\"session_meta\",\"payload\":{{\"id\":\"x\",\"cwd\":\"/w\",\"instructions\":\"{}\",\"model_provider\":\"{p}\"}}}}\n{{\"type\":\"turn\"}}\n", "a".repeat(4000))
+    };
+    for (i, p) in ["openai", "openai", "custom", "openai"].iter().enumerate() {
+        std::fs::write(day.join(format!("rollout-2026-01-16T07-00-0{i}-x.jsonl")), meta(p))
+            .unwrap();
+    }
+    std::fs::write(day.join("rollout-old.jsonl"), "{\"type\":\"session_meta\"}\n").unwrap();
+    std::fs::write(day.join("notes.txt"), "model_provider").unwrap();
+    let counts = resume::count(&home);
+    assert_eq!(counts.get("openai"), Some(&3));
+    assert_eq!(counts.get("custom"), Some(&1));
+    assert_eq!(counts.get(""), Some(&1), "one without a provider");
+    assert_eq!(counts.values().sum::<u32>(), 5);
+}
+
+#[test]
+fn the_log_marks_a_restart_on_the_last_switch() {
+    let (home, app) = setup("config-chatgpt.toml", Some("auth-chatgpt.json"));
+    let h = hash(&home);
+    codex::switch(&home, &app, Target::Custom, Some(&h), true, at(0));
+    log::mark_restarted(&app, true).unwrap();
+    assert_eq!(log::read(&app)[0].restarted, Some(true));
+}
+
+// ===== "Dán khoá" and "Dùng plugin khi chạy Custom API" =====
+
+/// A made-up key, long enough to show a hint.
+const NEW_KEY: &str = "sk-pasted-trap-key-0123456789abcd";
+
+/// Every file the app keeps, as one text, to look for a key in.
+fn app_text(app: &AppDir) -> String {
+    let mut out = String::new();
+    let mut dirs = vec![app.path().to_path_buf()];
+    while let Some(d) = dirs.pop() {
+        for e in std::fs::read_dir(&d).into_iter().flatten().flatten() {
+            let p = e.path();
+            if p.is_dir() {
+                dirs.push(p);
+            } else {
+                out.push_str(&String::from_utf8_lossy(&std::fs::read(&p).unwrap()));
+            }
+        }
+    }
+    out
+}
+
+/// The lines of `after` that are not in `before`, and the other way.
+fn changed_lines<'a>(before: &'a str, after: &'a str) -> (Vec<&'a str>, Vec<&'a str>) {
+    let gone = before.lines().filter(|l| !after.lines().any(|a| a == *l)).collect();
+    let new = after.lines().filter(|l| !before.lines().any(|b| b == *l)).collect();
+    (gone, new)
+}
+
+fn token(home: &Path, id: &str) -> Option<String> {
+    let doc: toml_edit::DocumentMut = config_text(home).parse().unwrap();
+    doc.get("model_providers")?
+        .get(id)?
+        .get("experimental_bearer_token")?
+        .as_str()
+        .map(String::from)
+}
+
+#[test]
+fn a_pasted_key_replaces_cc_switch_s_placeholder_on_its_one_line() {
+    let (home, app) = setup("config-dormant.toml", Some("auth-chatgpt.json"));
+    let before = config_text(&home);
+    let auth = std::fs::read(home.join(codex::AUTH)).unwrap();
+    let h = hash(&home);
+
+    let preview = codex::key_preview(&home, &app, NEW_KEY, None);
+    assert_eq!(preview.refusal, None);
+    assert_eq!(preview.hash.as_deref(), Some(h.as_str()));
+    assert_eq!(preview.undo, Some("placeholder"));
+    assert!(!preview.replaces);
+    let shown = serde_json::to_string(&preview).unwrap();
+    assert!(!shown.contains(NEW_KEY), "the preview masks the key: {shown}");
+    assert!(shown.contains("sk-…abcd"), "{shown}");
+    assert!(shown.contains("PROXY_MANAGED"), "the placeholder is not a key: {shown}");
+    assert_eq!(config_text(&home), before, "a preview writes nothing");
+
+    let out = codex::set_key(&home, &app, NEW_KEY, None, &h, at(0));
+    let KeyOutcome::Written { provider, backup, undo } = &out else { panic!("{out:?}") };
+    assert_eq!((provider.as_str(), *undo), ("custom", true));
+    let after = config_text(&home);
+    assert_eq!(
+        changed_lines(&before, &after),
+        (
+            vec!["experimental_bearer_token = \"PROXY_MANAGED\""],
+            vec!["experimental_bearer_token = \"sk-pasted-trap-key-0123456789abcd\""]
+        ),
+        "only the key's line changes"
+    );
+    assert_eq!(before.lines().count(), after.lines().count());
+    assert_eq!(std::fs::read(home.join(codex::AUTH)).unwrap(), auth, "auth.json byte for byte");
+    assert!(after.contains("model_catalog_json = \"cc-switch-model-catalog.json\""), "kept");
+
+    // The key is nowhere but in config.toml.
+    let kept = std::fs::read_to_string(app.path().join(files::BACKUP_DIR).join(backup)).unwrap();
+    assert!(kept.contains("experimental_bearer_token = \"<redacted>\""), "{kept}");
+    for (what, text) in [
+        ("the outcome", serde_json::to_string(&out).unwrap()),
+        ("its debug text", format!("{out:?}")),
+        ("the app's folder", app_text(&app)),
+    ] {
+        assert!(!text.contains(NEW_KEY) && !text.contains("0123456789abcd"), "key in {what}");
+    }
+    let lines = log::read(&app);
+    assert_eq!((lines[0].from.as_str(), lines[0].result.as_str()), ("custom", "key"));
+
+    // With a key of its own, the table now takes the switch, and keeps the login.
+    let reading = codex::read(&home, &files::load(&app));
+    assert_eq!(reading.parsed().unwrap().custom.as_ref().unwrap().key, KeyKind::Bearer);
+    let out = codex::switch(&home, &app, Target::Custom, reading.hash.as_deref(), true, at(60));
+    assert!(matches!(out, Outcome::Switched { .. }), "{out:?}");
+    assert_eq!(requires(&home, "custom"), Some(true));
+    assert_eq!(std::fs::read(home.join(codex::AUTH)).unwrap(), auth);
+}
+
+#[test]
+fn the_real_address_replaces_cc_switch_s_proxy_in_the_same_write_and_undo_puts_both_back() {
+    let (home, app) = setup("config-dormant.toml", Some("auth-chatgpt.json"));
+    let before = std::fs::read(home.join(codex::CONFIG)).unwrap();
+    let parsed = codex::read(&home, &Record::default());
+    assert!(
+        parsed.parsed().unwrap().custom.as_ref().unwrap().proxy,
+        "127.0.0.1:15721 is CC Switch's"
+    );
+    let url = "https://relay.example.com/v1";
+    let preview = codex::key_preview(&home, &app, NEW_KEY, Some(url));
+    let texts: Vec<_> = preview.lines.iter().map(|l| (l.op, l.text.as_str())).collect();
+    assert!(texts.contains(&("del", "base_url = \"http://127.0.0.1:15721/v1\"")), "{texts:?}");
+    assert!(texts.contains(&("add", "base_url = \"https://relay.example.com/v1\"")), "{texts:?}");
+
+    let h = hash(&home);
+    assert!(matches!(
+        codex::set_key(&home, &app, NEW_KEY, Some(url), &h, at(0)),
+        KeyOutcome::Written { undo: true, .. }
+    ));
+    let after = config_text(&home);
+    let (gone, new) = changed_lines(std::str::from_utf8(&before).unwrap(), &after);
+    assert_eq!(gone.len(), 2, "{gone:?}");
+    assert_eq!(
+        new,
+        [
+            "base_url = \"https://relay.example.com/v1\"",
+            &format!("experimental_bearer_token = \"{NEW_KEY}\"")
+        ]
+    );
+    let undo = files::load(&app).key_undo.unwrap();
+    assert_eq!(undo.token.as_deref(), Some("PROXY_MANAGED"));
+    assert_eq!(undo.base_url.as_deref(), Some("http://127.0.0.1:15721/v1"));
+
+    let h = hash(&home);
+    let out = codex::undo_key(&home, &app, &h, at(60));
+    assert!(matches!(out, KeyOutcome::Undone { .. }), "{out:?}");
+    assert_eq!(
+        std::fs::read(home.join(codex::CONFIG)).unwrap(),
+        before,
+        "the same bytes as before"
+    );
+    assert_eq!(files::load(&app).key_undo, None);
+    assert!(!app_text(&app).contains(NEW_KEY), "the undo's backup leaves the key out too");
+    assert_eq!(
+        codex::undo_key(&home, &app, &hash(&home), at(90)),
+        KeyOutcome::Refused { refusal: KeyRefusal::NoUndo }
+    );
+}
+
+#[test]
+fn a_table_with_no_key_gets_a_new_last_line_and_undo_removes_it() {
+    let (home, app) = setup("config-nokey.toml", Some("auth-chatgpt.json"));
+    let before = std::fs::read(home.join(codex::CONFIG)).unwrap();
+    let h = hash(&home);
+    assert_eq!(codex::key_preview(&home, &app, NEW_KEY, None).undo, Some("none"));
+    assert!(matches!(
+        codex::set_key(&home, &app, NEW_KEY, None, &h, at(0)),
+        KeyOutcome::Written { undo: true, .. }
+    ));
+    assert!(config_text(&home).ends_with(&format!(
+        "requires_openai_auth = true\nexperimental_bearer_token = \"{NEW_KEY}\"\n"
+    )));
+    let h = hash(&home);
+    assert!(matches!(codex::undo_key(&home, &app, &h, at(60)), KeyOutcome::Undone { .. }));
+    assert_eq!(std::fs::read(home.join(codex::CONFIG)).unwrap(), before);
+}
+
+#[test]
+fn a_key_written_over_a_key_cannot_be_undone_and_the_preview_says_so() {
+    let (home, app) = setup("config-chatgpt.toml", Some("auth-chatgpt.json"));
+    let before = config_text(&home);
+    let preview = codex::key_preview(&home, &app, NEW_KEY, None);
+    assert!(preview.replaces);
+    assert_eq!(preview.undo, None);
+    let shown = serde_json::to_string(&preview).unwrap();
+    assert!(!shown.contains("test-key-not-real"), "nor the old key: {shown}");
+    let h = hash(&home);
+    let out = codex::set_key(&home, &app, NEW_KEY, None, &h, at(0));
+    assert!(matches!(out, KeyOutcome::Written { undo: false, .. }), "{out:?}");
+    assert_eq!(token(&home, "custom").as_deref(), Some(NEW_KEY));
+    assert_eq!(
+        changed_lines(&before, &config_text(&home)).0,
+        ["experimental_bearer_token = \"test-key-not-real\"   # the provider's own key"]
+    );
+    assert!(
+        config_text(&home).contains(&format!(
+            "experimental_bearer_token = \"{NEW_KEY}\"   # the provider's own key"
+        )),
+        "the comment after it stays"
+    );
+    assert_eq!(files::load(&app).key_undo, None);
+    // The same key again: nothing to write.
+    assert_eq!(
+        codex::set_key(&home, &app, NEW_KEY, None, &hash(&home), at(30)),
+        KeyOutcome::Already
+    );
+}
+
+#[test]
+fn a_key_is_not_written_into_a_file_changed_since_the_preview() {
+    let (home, app) = setup("config-dormant.toml", None);
+    let seen = codex::key_preview(&home, &app, NEW_KEY, None).hash.unwrap();
+    let mut text = config_text(&home);
+    text.push_str("# edited meanwhile\n");
+    std::fs::write(home.join(codex::CONFIG), &text).unwrap();
+    assert_eq!(
+        codex::set_key(&home, &app, NEW_KEY, None, &seen, at(0)),
+        KeyOutcome::Failed { error: WriteError::Changed }
+    );
+    assert_eq!(config_text(&home), text);
+    assert!(files::backups(&app.path().join(files::BACKUP_DIR)).is_empty());
+
+    // Nor is an undo once the file changed after the key went in.
+    let h = hash(&home);
+    codex::set_key(&home, &app, NEW_KEY, None, &h, at(10));
+    let mut text = config_text(&home);
+    text.push_str("# and again\n");
+    std::fs::write(home.join(codex::CONFIG), &text).unwrap();
+    assert_eq!(
+        codex::undo_key(&home, &app, &hash(&home), at(20)),
+        KeyOutcome::Failed { error: WriteError::Changed }
+    );
+    assert_eq!(config_text(&home), text);
+}
+
+#[test]
+fn a_key_is_refused_where_the_table_does_not_take_one_and_nothing_is_written() {
+    for (fixture, refusal) in [
+        ("config-envkey.toml", KeyRefusal::EnvKey { var: "RELAY_API_KEY".into() }),
+        ("config-header.toml", KeyRefusal::Headers),
+    ] {
+        let (home, app) = setup(fixture, Some("auth-chatgpt.json"));
+        let before = std::fs::read(home.join(codex::CONFIG)).unwrap();
+        let h = hash(&home);
+        assert_eq!(codex::key_preview(&home, &app, NEW_KEY, None).refusal, Some(refusal.clone()));
+        assert_eq!(
+            codex::set_key(&home, &app, NEW_KEY, None, &h, at(0)),
+            KeyOutcome::Refused { refusal },
+            "{fixture}"
+        );
+        assert_eq!(std::fs::read(home.join(codex::CONFIG)).unwrap(), before);
+        assert!(!app_text(&app).contains(NEW_KEY));
+    }
+    let inline = "model_providers = { custom = { name = \"relay\", experimental_bearer_token = \"PROXY_MANAGED\" } }\n";
+    let parsed = config::parse(inline, None).unwrap();
+    assert_eq!(config::key_plan(&parsed, NEW_KEY.into(), None), Err(KeyRefusal::Shape));
+    let (home, app) = setup("config-dormant.toml", None);
+    let h = hash(&home);
+    for (bad_url, why) in
+        [("ftp://relay.example.com", "scheme"), ("https://u:pw@relay.example.com", "password")]
+    {
+        assert_eq!(
+            codex::set_key(&home, &app, NEW_KEY, Some(bad_url), &h, at(0)),
+            KeyOutcome::Refused { refusal: KeyRefusal::BadUrl },
+            "{why}"
+        );
+    }
+}
+
+#[test]
+fn a_paste_gives_the_key_alone_or_says_why_it_is_not_one() {
+    for pasted in [
+        NEW_KEY.to_string(),
+        format!("  {NEW_KEY}\n"),
+        format!("Bearer {NEW_KEY}"),
+        format!("\"{NEW_KEY}\""),
+        format!("OPENAI_API_KEY={NEW_KEY}"),
+        format!("export RELAY_API_KEY='{NEW_KEY}'"),
+        format!("experimental_bearer_token = \"{NEW_KEY}\""),
+    ] {
+        assert_eq!(config::clean_key(&pasted).as_deref(), Ok(NEW_KEY), "{pasted}");
+    }
+    assert_eq!(config::clean_key("  "), Err(KeyRefusal::Empty));
+    assert_eq!(config::clean_key("sk-one two"), Err(KeyRefusal::NotAKey));
+    assert_eq!(config::clean_key("PROXY_MANAGED"), Err(KeyRefusal::Placeholder));
+    assert_eq!(config::clean_key("${RELAY_API_KEY}"), Err(KeyRefusal::Reference));
+    assert_eq!(config::clean_key(&"k".repeat(5000)), Err(KeyRefusal::TooLong));
+    assert_eq!(config::hint(NEW_KEY), "sk-…abcd");
+    assert_eq!(config::hint("short-key"), "••••••", "too short to show any of it");
+    assert!(!format!(
+        "{:?}",
+        config::KeyPlan { id: "c".into(), token: Some(NEW_KEY.into()), base_url: None }
+    )
+    .contains(NEW_KEY));
+}
+
+#[test]
+fn unticked_plugins_write_false_ticked_write_true_and_auth_json_never_changes() {
+    for plugins in [true, false] {
+        let (home, app) = setup("config-chatgpt.toml", Some("auth-chatgpt.json"));
+        let auth = std::fs::read(home.join(codex::AUTH)).unwrap();
+        let start = std::fs::read(home.join(codex::CONFIG)).unwrap();
+        let h = hash(&home);
+        let out = codex::switch(&home, &app, Target::Custom, Some(&h), plugins, at(0));
+        assert!(matches!(out, Outcome::Switched { .. }), "{out:?}");
+        assert_eq!(requires(&home, "custom"), Some(plugins), "plugins {plugins}");
+        assert_eq!(log::read(&app)[0].requires, Some(plugins));
+        assert_eq!(std::fs::read(home.join(codex::AUTH)).unwrap(), auth, "plugins {plugins}");
+        // And back to ChatGPT, at once: the login was never touched.
+        let h = hash(&home);
+        let out = codex::switch(&home, &app, Target::ChatGpt, Some(&h), plugins, at(60));
+        assert!(matches!(out, Outcome::Switched { .. }), "{out:?}");
+        assert_eq!(std::fs::read(home.join(codex::AUTH)).unwrap(), auth);
+        assert_eq!(login::check(&home, config::AuthStore::File), Login::ChatGpt);
+        if plugins {
+            assert_eq!(std::fs::read(home.join(codex::CONFIG)).unwrap(), start);
+        }
+    }
+}
+
+#[test]
+fn changing_plugins_on_the_custom_provider_in_use_rewrites_only_that_key() {
+    let (home, app) = setup("config-custom.toml", Some("auth-chatgpt.json"));
+    let auth = std::fs::read(home.join(codex::AUTH)).unwrap();
+    let before = config_text(&home);
+    let h = hash(&home);
+    let out = codex::switch(&home, &app, Target::Custom, Some(&h), false, at(0));
+    let Outcome::Switched { from, to, .. } = &out else { panic!("{out:?}") };
+    assert_eq!((from.as_str(), to.as_str()), ("custom", "custom"));
+    let after = config_text(&home);
+    assert_eq!(
+        changed_lines(&before, &after),
+        (vec!["requires_openai_auth = true"], vec!["requires_openai_auth = false"])
+    );
+    assert_eq!(before.lines().count(), after.lines().count());
+    assert_eq!(std::fs::read(home.join(codex::AUTH)).unwrap(), auth);
+    let line = &log::read(&app)[0];
+    assert_eq!((line.result.as_str(), line.requires), ("plugins", Some(false)));
+    // Ticked again: back to the same bytes.
+    let h = hash(&home);
+    assert!(matches!(
+        codex::switch(&home, &app, Target::Custom, Some(&h), true, at(60)),
+        Outcome::Switched { .. }
+    ));
+    assert_eq!(config_text(&home), before);
+    // Nothing to change: nothing written.
+    assert_eq!(
+        codex::switch(&home, &app, Target::Custom, Some(&hash(&home)), true, at(90)),
+        Outcome::Already { target: Target::Custom }
+    );
+    // A provider line in single quotes is not rewritten in double ones.
+    let text = before.replace("model_provider = \"custom\"", "model_provider = 'custom'");
+    let plan =
+        config::plan(&config::parse(&text, None).unwrap(), Target::Custom, true, false).unwrap();
+    let out = config::apply(&text, &plan).unwrap();
+    assert_eq!(changed_lines(&text, &out).0, ["requires_openai_auth = true"]);
+}

@@ -1,0 +1,60 @@
+{
+  "generatedAt": "2026-01-16T07:20:00.000Z",
+  "providers": [
+    {
+      "provider": "codex",
+      "accountKeys": [
+        "codex-home"
+      ],
+      "windows": [
+        {
+          "id": "five_hour",
+          "kind": "session",
+          "percentUsed": 23,
+          "percentRemaining": 77,
+          "resetsAt": "2026-01-16T09:30:00.000Z",
+          "windowSeconds": 18000
+        },
+        {
+          "id": "weekly",
+          "kind": "weekly",
+          "percentUsed": 41,
+          "percentRemaining": 59,
+          "resetsAt": "2026-01-20T13:00:00.000Z",
+          "windowSeconds": 604800
+        },
+        {
+          "id": "code_review_five_hour",
+          "kind": "session",
+          "percentUsed": 0,
+          "percentRemaining": 100,
+          "windowSeconds": 18000
+        }
+      ],
+      "state": {
+        "status": "fresh",
+        "refreshedAt": "2026-01-16T07:19:00.000Z"
+      }
+    },
+    {
+      "provider": "codex",
+      "accountKeys": [
+        "openai-codex-work"
+      ],
+      "windows": [
+        {
+          "id": "five_hour",
+          "kind": "session",
+          "percentUsed": 90,
+          "percentRemaining": 10,
+          "resetsAt": "2026-01-16T08:00:00.000Z",
+          "windowSeconds": 18000
+        }
+      ],
+      "state": {
+        "status": "fresh",
+        "refreshedAt": "2026-01-16T07:19:00.000Z"
+      }
+    }
+  ]
+}

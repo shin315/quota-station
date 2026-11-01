@@ -1,0 +1,111 @@
+{
+  "claude": {
+    "status": "single",
+    "reason": "keychain_prompt_required",
+    "accounts": [],
+    "pool": {
+      "kind": "none",
+      "percent": null,
+      "line": null,
+      "scope": null,
+      "nextRefillAt": null,
+      "exhausted": false,
+      "reason": null
+    },
+    "generatedAt": "2026-01-16T07:20:00.000Z",
+    "newestReadingAt": null,
+    "stale": false,
+    "source": null
+  },
+  "agy": {
+    "status": "single",
+    "reason": null,
+    "accounts": [
+      {
+        "number": 0,
+        "active": true,
+        "reading": "fresh",
+        "fetchedAt": "2026-01-16T07:16:00.000Z",
+        "source": "live",
+        "lines": [
+          {
+            "kind": "session",
+            "percent": 98.0,
+            "resetsAt": "2026-01-16T09:18:00.000Z",
+            "pending": false,
+            "atLeast": false
+          },
+          {
+            "kind": "week",
+            "percent": 94.0,
+            "resetsAt": "2026-01-20T07:20:00.000Z",
+            "pending": false,
+            "atLeast": false
+          }
+        ],
+        "windows": [
+          {
+            "kind": "geminiSession",
+            "percent": 98.0,
+            "resetsAt": "2026-01-16T09:18:00.000Z",
+            "pending": false,
+            "atLeast": false
+          },
+          {
+            "kind": "geminiWeek",
+            "percent": 94.0,
+            "resetsAt": "2026-01-20T07:20:00.000Z",
+            "pending": false,
+            "atLeast": false
+          },
+          {
+            "kind": "claudeGptSession",
+            "percent": 100.0,
+            "resetsAt": "2026-01-16T12:20:00.000Z",
+            "pending": false,
+            "atLeast": false
+          },
+          {
+            "kind": "claudeGptWeek",
+            "percent": 100.0,
+            "resetsAt": "2026-01-22T07:20:00.000Z",
+            "pending": false,
+            "atLeast": false
+          }
+        ]
+      }
+    ],
+    "pool": {
+      "kind": "active",
+      "percent": 94.0,
+      "line": "week",
+      "scope": "gemini",
+      "nextRefillAt": null,
+      "exhausted": false,
+      "reason": null
+    },
+    "generatedAt": "2026-01-16T07:20:00.000Z",
+    "newestReadingAt": "2026-01-16T07:16:00.000Z",
+    "stale": false,
+    "source": null
+  },
+  "codex": {
+    "status": "unread",
+    "reason": null,
+    "accounts": [],
+    "pool": {
+      "kind": "none",
+      "percent": null,
+      "line": null,
+      "scope": null,
+      "nextRefillAt": null,
+      "exhausted": false,
+      "reason": null
+    },
+    "generatedAt": null,
+    "newestReadingAt": null,
+    "stale": false,
+    "source": null
+  },
+  "keychain": "required"
+}

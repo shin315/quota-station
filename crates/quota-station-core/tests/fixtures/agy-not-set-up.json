@@ -1,0 +1,16 @@
+{
+  "generatedAt": "2026-01-16T07:20:00.000Z",
+  "providers": [
+    {
+      "provider": "agy",
+      "accountKeys": [
+        "default"
+      ],
+      "windows": [],
+      "state": {
+        "status": "unavailable"
+      },
+      "notSetUp": true
+    }
+  ]
+}

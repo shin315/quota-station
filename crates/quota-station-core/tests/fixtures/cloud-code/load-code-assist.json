@@ -1,0 +1,22 @@
+{
+  "currentTier": {
+    "id": "standard-tier",
+    "name": "Fixture Standard",
+    "description": "Synthetic tier for the tests",
+    "userDefinedCloudaicompanionProject": true
+  },
+  "allowedTiers": [
+    {
+      "id": "standard-tier",
+      "name": "Fixture Standard",
+      "isDefault": true,
+      "userDefinedCloudaicompanionProject": true
+    }
+  ],
+  "cloudaicompanionProject": "fixture-project-1001",
+  "gcpManaged": false,
+  "paidTier": {
+    "id": "g1-ultra-tier",
+    "name": "Fixture Ultra"
+  }
+}

@@ -1,0 +1,240 @@
+{
+  "claude": {
+    "status": "ok",
+    "reason": null,
+    "accounts": [
+      {
+        "number": 1,
+        "active": false,
+        "reading": "fresh",
+        "fetchedAt": "2026-01-16T07:18:00.000Z",
+        "source": "list",
+        "lines": [
+          {
+            "kind": "session",
+            "percent": 5.0,
+            "resetsAt": "2026-01-16T09:40:00.000Z",
+            "pending": false,
+            "atLeast": false
+          },
+          {
+            "kind": "fableWeek",
+            "percent": 96.0,
+            "resetsAt": "2026-01-22T15:20:00.000Z",
+            "pending": false,
+            "atLeast": false
+          }
+        ],
+        "windows": []
+      },
+      {
+        "number": 2,
+        "active": true,
+        "reading": "fresh",
+        "fetchedAt": "2026-01-16T07:20:00.000Z",
+        "source": "live",
+        "lines": [
+          {
+            "kind": "session",
+            "percent": 4.0,
+            "resetsAt": "2026-01-16T09:52:00.000Z",
+            "pending": false,
+            "atLeast": false
+          }
+        ],
+        "windows": [
+          {
+            "kind": "session",
+            "percent": 4.0,
+            "resetsAt": "2026-01-16T09:52:00.000Z",
+            "pending": false,
+            "atLeast": false
+          },
+          {
+            "kind": "week",
+            "percent": 40.0,
+            "resetsAt": "2026-01-21T03:00:00.000Z",
+            "pending": false,
+            "atLeast": false
+          }
+        ]
+      },
+      {
+        "number": 3,
+        "active": false,
+        "reading": "fresh",
+        "fetchedAt": "2026-01-16T07:16:40.000Z",
+        "source": "list",
+        "lines": [
+          {
+            "kind": "session",
+            "percent": 3.0,
+            "resetsAt": "2026-01-16T09:40:00.000Z",
+            "pending": false,
+            "atLeast": false
+          },
+          {
+            "kind": "fableWeek",
+            "percent": 50.0,
+            "resetsAt": "2026-01-16T20:20:00.000Z",
+            "pending": false,
+            "atLeast": false
+          }
+        ],
+        "windows": []
+      },
+      {
+        "number": 4,
+        "active": false,
+        "reading": "fresh",
+        "fetchedAt": "2026-01-16T07:15:00.000Z",
+        "source": "list",
+        "lines": [
+          {
+            "kind": "session",
+            "percent": 6.0,
+            "resetsAt": "2026-01-16T09:52:00.000Z",
+            "pending": false,
+            "atLeast": false
+          },
+          {
+            "kind": "fableWeek",
+            "percent": 98.0,
+            "resetsAt": null,
+            "pending": false,
+            "atLeast": true
+          }
+        ],
+        "windows": []
+      }
+    ],
+    "pool": {
+      "kind": "active",
+      "percent": 4.0,
+      "line": "session",
+      "scope": null,
+      "nextRefillAt": "2026-01-16T09:52:00.000Z",
+      "exhausted": false,
+      "reason": null
+    },
+    "generatedAt": "2026-01-16T07:20:00.000Z",
+    "newestReadingAt": "2026-01-16T07:20:00.000Z",
+    "stale": false,
+    "source": null
+  },
+  "agy": {
+    "status": "ok",
+    "reason": null,
+    "accounts": [
+      {
+        "number": 1,
+        "active": false,
+        "reading": "stale",
+        "fetchedAt": "2026-01-16T06:55:00.000Z",
+        "source": "list",
+        "lines": [
+          {
+            "kind": "gemini",
+            "percent": 63.0,
+            "resetsAt": "2026-01-21T07:20:00.000Z",
+            "pending": false,
+            "atLeast": false
+          },
+          {
+            "kind": "claudeGpt",
+            "percent": 82.0,
+            "resetsAt": "2026-01-21T11:20:00.000Z",
+            "pending": false,
+            "atLeast": false
+          }
+        ],
+        "windows": []
+      },
+      {
+        "number": 2,
+        "active": true,
+        "reading": "fresh",
+        "fetchedAt": "2026-01-16T07:19:10.000Z",
+        "source": "list",
+        "lines": [
+          {
+            "kind": "gemini",
+            "percent": 94.0,
+            "resetsAt": "2026-01-20T07:20:00.000Z",
+            "pending": false,
+            "atLeast": false
+          },
+          {
+            "kind": "claudeGpt",
+            "percent": null,
+            "resetsAt": null,
+            "pending": true,
+            "atLeast": false
+          }
+        ],
+        "windows": [
+          {
+            "kind": "geminiSession",
+            "percent": 98.0,
+            "resetsAt": "2026-01-16T09:18:00.000Z",
+            "pending": false,
+            "atLeast": false
+          },
+          {
+            "kind": "geminiWeek",
+            "percent": 94.0,
+            "resetsAt": "2026-01-20T07:20:00.000Z",
+            "pending": false,
+            "atLeast": false
+          },
+          {
+            "kind": "claudeGptSession",
+            "percent": 100.0,
+            "resetsAt": "2026-01-16T12:20:00.000Z",
+            "pending": false,
+            "atLeast": false
+          },
+          {
+            "kind": "claudeGptWeek",
+            "percent": 100.0,
+            "resetsAt": "2026-01-22T07:20:00.000Z",
+            "pending": false,
+            "atLeast": false
+          }
+        ]
+      }
+    ],
+    "pool": {
+      "kind": "active",
+      "percent": 94.0,
+      "line": "week",
+      "scope": "gemini",
+      "nextRefillAt": null,
+      "exhausted": false,
+      "reason": null
+    },
+    "generatedAt": "2026-01-16T07:20:00.000Z",
+    "newestReadingAt": "2026-01-16T07:19:10.000Z",
+    "stale": false,
+    "source": "quota-station"
+  },
+  "codex": {
+    "status": "unread",
+    "reason": null,
+    "accounts": [],
+    "pool": {
+      "kind": "none",
+      "percent": null,
+      "line": null,
+      "scope": null,
+      "nextRefillAt": null,
+      "exhausted": false,
+      "reason": null
+    },
+    "generatedAt": null,
+    "newestReadingAt": null,
+    "stale": false,
+    "source": null
+  },
+  "keychain": "granted"
+}

@@ -1,0 +1,118 @@
+/*
+ * SPDX-FileCopyrightText: 2026 Shin315
+ * SPDX-License-Identifier: MIT
+ */
+
+/* Quota Station's styles: Tailwind CSS v4 and shadcn/ui on the design tokens.
+   Without Preflight: the components were drawn on the browser's own defaults
+   (headings, lists, small text), and every component sets what it changes. */
+
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+@import "./tokens.css";
+@import "./theme.css";
+@import "./glass.css";
+@import "./logos.css";
+
+@layer base {
+  html,
+  body,
+  #root {
+    margin: 0;
+    height: 100%;
+  }
+
+  body {
+    font: var(--fs-base) / var(--lh) var(--font);
+    font-feature-settings: var(--font-features);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    -webkit-user-select: none;
+    user-select: none;
+    cursor: default;
+  }
+
+  /* Both windows are transparent: macOS draws the material behind the page. */
+  body.popover-window,
+  body.main-window {
+    background: transparent;
+    overflow: hidden;
+  }
+
+  .qs {
+    font: var(--fs-base) / var(--lh) var(--font);
+    font-feature-settings: var(--font-features);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+  .qs *,
+  .qs *::before,
+  .qs *::after {
+    box-sizing: border-box;
+  }
+  .qs button {
+    font: inherit;
+    color: inherit;
+  }
+  /* The keyboard's focus ring. A dialog that takes focus by script (tabindex=-1) draws none. */
+  .qs :focus-visible {
+    outline: 2px solid var(--accent-ink);
+    outline-offset: 2px;
+  }
+  .qs [tabindex="-1"]:focus {
+    outline: none;
+  }
+
+  /* Windows: WebView2's scroll bars take room where macOS's float over the
+     page, so they are thin and faint, and a scrolling part keeps its gutter
+     so nothing moves when one appears. A part that hides its bar
+     (scrollbar-width: none, a utility) still does: utilities come later. */
+  [data-os="windows"] .qs,
+  [data-os="windows"] .qs * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--fill2) transparent;
+  }
+  [data-os="windows"] .qs .overflow-auto,
+  [data-os="windows"] .qs .overflow-y-auto {
+    scrollbar-gutter: stable;
+  }
+
+  /* Windows' contrast themes (forced-colors): the system's colours replace
+     the page's and box-shadow is dropped, so an edge drawn as an inset
+     shadow is drawn as a real outline, the fields get a border, and a
+     meter's fill keeps a colour of its own. macOS never forces colours. */
+  @media (forced-colors: active) {
+    .qs input,
+    .qs textarea,
+    .qs select {
+      border: 1px solid CanvasText;
+    }
+    .qs [role="switch"],
+    .qs [aria-pressed] {
+      border: 1px solid ButtonText;
+    }
+    .qs .bg-track {
+      forced-color-adjust: none;
+      background: Canvas;
+      outline: 1px solid CanvasText;
+    }
+    .qs .bg-track > i {
+      forced-color-adjust: none;
+      background: Highlight;
+    }
+  }
+
+  /* Browser preview (npm run dev, outside Tauri): the popover on a desktop,
+     and the main window filling it. */
+  body.preview {
+    background: var(--desk);
+    padding: 24px;
+    box-sizing: border-box;
+    min-height: 100%;
+  }
+  body.preview.main-window {
+    padding: 0;
+  }
+}

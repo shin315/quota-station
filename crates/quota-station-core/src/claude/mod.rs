@@ -1,0 +1,166 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
+//! The Claude accounts, kept by Quota Station itself (see
+//! `docs/claude-accounts.md`): the account list and its Keychain items
+//! ([`store`]), the switch of Claude Code's active login under Claude
+//! Code's own locks ([`switch`]), each account's usage ([`usage`]), running
+//! one process as a chosen account ([`session`]), the data file other
+//! programs read ([`state`]) and the one-time import from claude-swap
+//! ([`import`]).
+//!
+//! What touches Claude Code's login is learned from claude-swap's source
+//! (MIT, <https://github.com/realiti4/claude-swap>), credited in
+//! `THIRD_PARTY.md`: the Keychain items and their `security` commands, the
+//! lock folders and their order, the `oauthAccount` splice, the usage and
+//! token endpoints, and the session folder.
+
+pub mod cc;
+pub mod cli;
+pub mod credman;
+pub mod import;
+pub mod keychain;
+pub mod locks;
+pub mod manage;
+pub mod session;
+pub mod state;
+pub mod store;
+pub mod switch;
+pub mod usage;
+
+use std::io;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+
+/// The app's folder for the Claude accounts, under its Application Support
+/// folder.
+pub const DIR: &str = "claude";
+
+/// Where everything of the Claude accounts lives on this Mac.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Paths {
+    /// The owner's home folder: Claude Code's files are under it.
+    pub home: PathBuf,
+    /// `~/Library/Application Support/com.shin315.quota-station/claude`.
+    pub dir: PathBuf,
+    /// How long a change waits for each of Claude Code's lock folders.
+    pub lock_wait: std::time::Duration,
+}
+
+impl Paths {
+    /// `app_dir` is the app's Application Support folder.
+    pub fn new(home: impl Into<PathBuf>, app_dir: &Path) -> Paths {
+        Paths { home: home.into(), dir: app_dir.join(DIR), lock_wait: locks::CC_TIMEOUT }
+    }
+
+    /// The app's folder as the command line finds it, without Tauri.
+    pub fn for_home(home: &Path) -> Paths {
+        Paths::new(home, &app_dir(home))
+    }
+
+    pub fn accounts(&self) -> PathBuf {
+        self.dir.join("accounts.json")
+    }
+
+    pub fn usage(&self) -> PathBuf {
+        self.dir.join("usage.json")
+    }
+
+    pub fn state(&self) -> PathBuf {
+        self.dir.join("state.json")
+    }
+
+    pub fn sessions(&self) -> PathBuf {
+        self.dir.join("sessions")
+    }
+
+    /// The `flock` every change of the accounts, their credentials or Claude
+    /// Code's login takes first.
+    pub fn lock(&self) -> PathBuf {
+        self.dir.join(".lock")
+    }
+
+    /// Claude Code's `~/.claude.json`.
+    pub fn claude_json(&self) -> PathBuf {
+        self.home.join(".claude.json")
+    }
+
+    /// Claude Code's folder, `~/.claude`.
+    pub fn claude_home(&self) -> PathBuf {
+        self.home.join(".claude")
+    }
+
+    /// The app keeps the Claude accounts on this Mac: they were imported or
+    /// added.
+    pub fn in_use(&self) -> bool {
+        self.accounts().is_file()
+    }
+
+    /// The app's `settings.json`, beside this folder.
+    pub fn settings_file(&self) -> PathBuf {
+        self.dir
+            .parent()
+            .map_or_else(|| self.dir.join("settings.json"), |d| d.join("settings.json"))
+    }
+}
+
+/// The app's own folder for `home`, as Tauri's `PathResolver` names it
+/// from the bundle id (`app_config_dir`, where `settings.json` is): the
+/// Application Support folder on macOS, the roaming AppData folder on
+/// Windows. The app takes it from Tauri; the command line, which runs
+/// without Tauri, from here.
+pub fn app_dir(home: &Path) -> PathBuf {
+    let id = crate::app_dir::ID;
+    if cfg!(windows) {
+        home.join("AppData").join("Roaming").join(id)
+    } else {
+        home.join("Library/Application Support").join(id)
+    }
+}
+
+/// Makes `dir` and its parents, then sets it to 700.
+pub(crate) fn private_dir(dir: &Path) -> io::Result<()> {
+    std::fs::DirBuilder::new().recursive(true).create(dir)?;
+    crate::os::set_mode(dir, 0o700)
+}
+
+/// Writes `text` through a temporary file and a rename, mode 600, in a
+/// folder of mode 700.
+pub(crate) fn write_private(path: &Path, text: &str) -> io::Result<()> {
+    use std::io::Write;
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    let dir = path.parent().ok_or_else(|| io::Error::other("no folder"))?;
+    private_dir(dir)?;
+    let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("file");
+    let tmp = dir.join(format!(
+        ".{name}.{}.{}.tmp",
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed)
+    ));
+    let written =
+        crate::os::with_mode(std::fs::OpenOptions::new().write(true).create_new(true), 0o600)
+            .open(&tmp)
+            .and_then(|mut file| {
+                file.write_all(text.as_bytes())?;
+                crate::os::sync_all(&file)
+            })
+            .and_then(|()| crate::os::replace(&tmp, path));
+    if written.is_err() {
+        let _ = std::fs::remove_file(&tmp);
+    }
+    written
+}
+
+/// The file's text, or `None` when it is not there.
+pub(crate) fn read_optional(path: &Path) -> io::Result<Option<String>> {
+    match std::fs::read_to_string(path) {
+        Ok(text) => Ok(Some(text)),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(e),
+    }
+}
+
+/// Seconds since the epoch, with the fraction, as claude-swap keeps times.
+pub(crate) fn epoch(t: time::OffsetDateTime) -> f64 {
+    t.unix_timestamp_nanos() as f64 / 1e9
+}

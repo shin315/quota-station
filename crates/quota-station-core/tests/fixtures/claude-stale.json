@@ -1,0 +1,110 @@
+{
+  "generatedAt": "2026-01-16T07:20:00.000Z",
+  "providers": [
+    {
+      "provider": "claude",
+      "accountKeys": [
+        "default"
+      ],
+      "windows": [],
+      "quotaSemantics": {
+        "status": "known",
+        "effectiveAvailability": [
+          {
+            "scope": "all_models",
+            "status": "known",
+            "effectivePercentRemaining": 100,
+            "boundedBy": [
+              "five_hour",
+              "seven_day"
+            ],
+            "limitingWindowIds": []
+          }
+        ]
+      },
+      "state": {
+        "status": "stale"
+      },
+      "claudeAccounts": {
+        "activeSlot": 2,
+        "slots": [
+          {
+            "slot": 1,
+            "active": false,
+            "status": "stale",
+            "ageSeconds": 2460,
+            "fetchedAt": "2026-01-16T06:39:00.000Z",
+            "effectivePercentRemaining": 100,
+            "limitedBy": "five_hour + seven_day",
+            "resetsAt": "2026-01-22T15:20:00.000Z",
+            "scopes": [
+              {
+                "scope": "model:fable",
+                "status": "known",
+                "effectivePercentRemaining": 96,
+                "limitedBy": "five_hour + seven_day + model:fable",
+                "resetsAt": "2026-01-22T15:20:00.000Z"
+              }
+            ]
+          },
+          {
+            "slot": 2,
+            "active": true,
+            "status": "stale",
+            "ageSeconds": 2460,
+            "fetchedAt": "2026-01-16T06:39:00.000Z",
+            "effectivePercentRemaining": 27,
+            "limitedBy": "five_hour",
+            "resetsAt": "2026-01-16T10:29:00.000Z",
+            "scopes": [
+              {
+                "scope": "model:fable",
+                "status": "known",
+                "effectivePercentRemaining": 13,
+                "limitedBy": "model:fable",
+                "resetsAt": "2026-01-18T01:20:00.000Z"
+              }
+            ]
+          },
+          {
+            "slot": 3,
+            "active": false,
+            "status": "stale",
+            "ageSeconds": 2460,
+            "fetchedAt": "2026-01-16T06:39:00.000Z",
+            "effectivePercentRemaining": 100,
+            "limitedBy": "five_hour",
+            "scopes": [
+              {
+                "scope": "model:fable",
+                "status": "known",
+                "effectivePercentRemaining": 50,
+                "limitedBy": "model:fable",
+                "resetsAt": "2026-01-16T20:20:00.000Z"
+              }
+            ]
+          },
+          {
+            "slot": 4,
+            "active": false,
+            "status": "stale",
+            "ageSeconds": 2460,
+            "fetchedAt": "2026-01-16T06:39:00.000Z",
+            "effectivePercentRemaining": 98,
+            "limitedBy": "five_hour",
+            "resetsAt": "2026-01-16T10:09:00.000Z",
+            "scopes": [
+              {
+                "scope": "model:fable",
+                "status": "known",
+                "effectivePercentRemaining": 98,
+                "limitedBy": "five_hour",
+                "resetsAt": "2026-01-16T10:09:00.000Z"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

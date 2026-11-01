@@ -1,0 +1,450 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
+//! The app's own settings file, `settings.json` in its Application Support
+//! folder: the name this Mac goes by, whether account names show, the light
+//! or dark look and the theme pack drawn in it, which service the menu bar
+//! follows and which of its windows the title shows, which alerts are on,
+//! Codex's folder and whether Codex keeps the ChatGPT login for plugins
+//! under a custom API, when the agents' backup packs are made, where they
+//! go, how the app looks for newer versions of the skills, the two
+//! thresholds of alert 1, and whether the first run's steps were seen.
+
+use std::io;
+use std::path::{Path, PathBuf};
+
+use serde::{Deserialize, Serialize};
+
+use crate::alerts::Switches;
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", from = "Stored")]
+pub struct Settings {
+    /// Set by the user; `None` means the name macOS gives this Mac.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub machine_name: Option<String>,
+    /// Account names (emails, organizations) are hidden, for screenshots:
+    /// accounts go by their number. Off by default. It
+    /// replaces `showEmail`, which only Antigravity used and which was off
+    /// by default, so an older file shows names as a new one does.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub hide_names: bool,
+    /// Light, dark, or as macOS is.
+    #[serde(default, skip_serializing_if = "Theme::is_auto")]
+    pub theme: Theme,
+    /// The theme pack: the colours, glass and type every window is drawn
+    /// in, light or dark as `theme` says.
+    #[serde(default, skip_serializing_if = "ThemePack::is_default")]
+    pub theme_pack: ThemePack,
+    /// Vietnamese, English, or as macOS is.
+    #[serde(default, skip_serializing_if = "Language::is_auto")]
+    pub language: Language,
+    /// The service whose account and percent used the menu bar shows.
+    /// Each Mac keeps its own.
+    #[serde(default, skip_serializing_if = "Menubar::is_claude")]
+    pub menubar: Menubar,
+    /// The window whose share used the menu bar title shows. Each Mac keeps
+    /// its own.
+    #[serde(default, skip_serializing_if = "MenubarWindow::is_five_hours")]
+    pub menubar_window: MenubarWindow,
+    /// Which alerts are on.
+    #[serde(default, skip_serializing_if = "Switches::is_default")]
+    pub alerts: Switches,
+    /// Codex's folder, set by the user; `None` is `~/.codex`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub codex_home: Option<PathBuf>,
+    /// How Codex runs on the custom provider.
+    #[serde(default, skip_serializing_if = "CodexOptions::is_default")]
+    pub codex: CodexOptions,
+    /// When a backup pack of the agents is made on its own (M10).
+    #[serde(default, skip_serializing_if = "AutoBackup::is_default")]
+    pub auto_backup: AutoBackup,
+    /// Looking for newer versions of the skills (M11).
+    #[serde(default, skip_serializing_if = "SkillChecks::is_default")]
+    pub skill_checks: SkillChecks,
+    /// "Tự kiểm tra bản mới của app" turned off: GitHub Releases is asked only
+    /// on "Kiểm tra bản mới". On by default.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub release_checks_off: bool,
+    /// "Tự động kiểm tra" of Cập nhật Agent turned off: the feeds of
+    /// Claude Code, Codex and agy are asked only on "Kiểm tra ngay". On by default.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub cli_checks_off: bool,
+    /// Where the backup packs go; `None` is iCloud Drive's
+    /// `Quota Station Agents`, as before there was a choice.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backup_dir: Option<PathBuf>,
+    /// Alert 1's two thresholds.
+    #[serde(default, skip_serializing_if = "PoolAlert::is_default")]
+    pub pool_alert: PoolAlert,
+    /// The first run's steps were gone through, or skipped: the main window
+    /// no longer opens on them. Always written, so a new install stays new
+    /// until its owner finishes them.
+    pub setup_seen: bool,
+}
+
+/// Alert 1: the account in use has `dry_at_most` percent left or less, and
+/// no other account has `room_at_least` percent or more. 10 and 15 by
+/// default.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PoolAlert {
+    #[serde(default = "dry_at_most")]
+    pub dry_at_most: u8,
+    #[serde(default = "room_at_least")]
+    pub room_at_least: u8,
+}
+
+fn dry_at_most() -> u8 {
+    10
+}
+
+fn room_at_least() -> u8 {
+    15
+}
+
+impl Default for PoolAlert {
+    fn default() -> Self {
+        PoolAlert { dry_at_most: dry_at_most(), room_at_least: room_at_least() }
+    }
+}
+
+impl PoolAlert {
+    pub fn is_default(&self) -> bool {
+        *self == PoolAlert::default()
+    }
+
+    /// Both percents, 1 to 99; the room asked of another account is more
+    /// than what counts as dry.
+    pub fn check(&self) -> Result<(), &'static str> {
+        let ok = |v: u8| (1..=99).contains(&v);
+        if !ok(self.dry_at_most) || !ok(self.room_at_least) {
+            return Err("range");
+        }
+        if self.room_at_least <= self.dry_at_most {
+            return Err("order");
+        }
+        Ok(())
+    }
+}
+
+/// "Dùng plugin khi chạy Custom API (giữ đăng nhập ChatGPT)": on by
+/// default, as the switch did before there was a choice. Off, a switch to
+/// the custom provider writes `requires_openai_auth = false`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexOptions {
+    #[serde(default = "yes")]
+    pub plugins: bool,
+}
+
+impl Default for CodexOptions {
+    fn default() -> Self {
+        CodexOptions { plugins: true }
+    }
+}
+
+impl CodexOptions {
+    pub fn is_default(&self) -> bool {
+        *self == CodexOptions::default()
+    }
+}
+
+/// "Kiểm tra bản mới" (once a day, or never) and "Báo bằng thông báo macOS"
+/// (off by default: the alert shows in the app only).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SkillChecks {
+    #[serde(default = "yes")]
+    pub daily: bool,
+    #[serde(default)]
+    pub notify: bool,
+}
+
+impl Default for SkillChecks {
+    fn default() -> Self {
+        SkillChecks { daily: true, notify: false }
+    }
+}
+
+impl SkillChecks {
+    pub fn is_default(&self) -> bool {
+        *self == SkillChecks::default()
+    }
+}
+
+/// "Tự sao lưu": after each change the app writes to an agent, and once a
+/// day when an agent's list changed outside the app. Both on by default.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AutoBackup {
+    #[serde(default = "yes")]
+    pub after_change: bool,
+    #[serde(default = "yes")]
+    pub daily: bool,
+}
+
+fn yes() -> bool {
+    true
+}
+
+impl Default for AutoBackup {
+    fn default() -> Self {
+        AutoBackup { after_change: true, daily: true }
+    }
+}
+
+impl AutoBackup {
+    pub fn is_default(&self) -> bool {
+        *self == AutoBackup::default()
+    }
+}
+
+/// How the windows look.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Theme {
+    /// As macOS is.
+    #[default]
+    Auto,
+    Light,
+    Dark,
+}
+
+impl Theme {
+    pub fn is_auto(&self) -> bool {
+        *self == Theme::Auto
+    }
+}
+
+/// The theme packs (Cài đặt › Hiển thị › Chủ đề), made from the styles the
+/// owner chose in October 2026. A pack changes only how the windows are
+/// drawn (`src/styles/tokens.css`), never what they show.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ThemePack {
+    /// The look the app has worn since 25/10/2026.
+    #[default]
+    Default,
+    /// Frosted glass after redraw A and the design-system sheets D01-D10.
+    KinhNhip,
+    /// Style Q03: a compact list on dense glass.
+    DaiSangTinh,
+    /// Style Q06: flat and dark, no glass.
+    MotNhipNhin,
+    /// Style Q11: a console in even-width type.
+    BanDieuKhien,
+    /// Style Q13: clear glass with a soft violet.
+    ChieuLang,
+}
+
+impl ThemePack {
+    pub fn is_default(&self) -> bool {
+        *self == ThemePack::Default
+    }
+}
+
+/// The windows' language.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Language {
+    /// macOS's first preferred language the app speaks; English otherwise.
+    #[default]
+    Auto,
+    Vi,
+    En,
+}
+
+impl Language {
+    pub fn is_auto(&self) -> bool {
+        *self == Language::Auto
+    }
+}
+
+/// The service the menu bar title follows.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Menubar {
+    #[default]
+    Claude,
+    /// Antigravity's Gemini models.
+    Gemini,
+    Codex,
+}
+
+impl Menubar {
+    pub fn is_claude(&self) -> bool {
+        *self == Menubar::Claude
+    }
+}
+
+/// The window the menu bar title shows. A service without that window shows
+/// its five-hour window instead, and the tightest one without either.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum MenubarWindow {
+    #[default]
+    FiveHours,
+    Week,
+    /// Claude's Fable weekly window.
+    FableWeek,
+    /// The window used the most, as the title showed before there was a
+    /// choice.
+    Tightest,
+}
+
+impl MenubarWindow {
+    pub fn is_five_hours(&self) -> bool {
+        *self == MenubarWindow::FiveHours
+    }
+}
+
+/// The file as written by any version: the quota-axi path of versions that
+/// ran it (`quotaAxiPath`) is left behind.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Stored {
+    #[serde(default)]
+    machine_name: Option<String>,
+    #[serde(default)]
+    hide_names: bool,
+    /// An unknown value reads as automatic.
+    #[serde(default)]
+    theme: serde_json::Value,
+    /// An unknown value (a pack a later version added) reads as the default.
+    #[serde(default)]
+    theme_pack: serde_json::Value,
+    /// An unknown value reads as automatic.
+    #[serde(default)]
+    language: serde_json::Value,
+    /// An unknown value reads as Claude.
+    #[serde(default)]
+    menubar: serde_json::Value,
+    /// An unknown value reads as five hours.
+    #[serde(default)]
+    menubar_window: serde_json::Value,
+    #[serde(default)]
+    alerts: Switches,
+    #[serde(default)]
+    codex_home: Option<PathBuf>,
+    /// An unknown value reads as plugins on.
+    #[serde(default)]
+    codex: serde_json::Value,
+    /// An unknown value reads as both on.
+    #[serde(default)]
+    auto_backup: serde_json::Value,
+    /// An unknown value reads as daily, no macOS card.
+    #[serde(default)]
+    skill_checks: serde_json::Value,
+    #[serde(default)]
+    release_checks_off: bool,
+    #[serde(default)]
+    cli_checks_off: bool,
+    #[serde(default)]
+    backup_dir: Option<PathBuf>,
+    /// An unknown or refused value reads as 10 and 15.
+    #[serde(default)]
+    pool_alert: serde_json::Value,
+    /// Missing in a file an older version wrote: that Mac had the app, so seen.
+    #[serde(default)]
+    setup_seen: Option<bool>,
+}
+
+impl From<Stored> for Settings {
+    fn from(s: Stored) -> Settings {
+        Settings {
+            machine_name: s.machine_name,
+            hide_names: s.hide_names,
+            theme: serde_json::from_value(s.theme).unwrap_or_default(),
+            theme_pack: serde_json::from_value(s.theme_pack).unwrap_or_default(),
+            language: serde_json::from_value(s.language).unwrap_or_default(),
+            menubar: serde_json::from_value(s.menubar).unwrap_or_default(),
+            menubar_window: serde_json::from_value(s.menubar_window).unwrap_or_default(),
+            alerts: s.alerts,
+            codex_home: s.codex_home,
+            codex: serde_json::from_value(s.codex).unwrap_or_default(),
+            auto_backup: serde_json::from_value(s.auto_backup).unwrap_or_default(),
+            skill_checks: serde_json::from_value(s.skill_checks).unwrap_or_default(),
+            release_checks_off: s.release_checks_off,
+            cli_checks_off: s.cli_checks_off,
+            backup_dir: s.backup_dir,
+            pool_alert: serde_json::from_value::<PoolAlert>(s.pool_alert)
+                .ok()
+                .filter(|p| p.check().is_ok())
+                .unwrap_or_default(),
+            setup_seen: s.setup_seen.unwrap_or(true),
+        }
+    }
+}
+
+/// Anything but hidden files in `dir`, `file` aside.
+fn has_files(dir: &Path, file: &Path) -> bool {
+    std::fs::read_dir(dir).into_iter().flatten().flatten().any(|e| {
+        let name = e.file_name();
+        e.path() != file && !name.to_string_lossy().starts_with('.')
+    })
+}
+
+/// The longest machine name kept, in characters: it shares a line with the
+/// freshness text at the top of the popover.
+pub const MACHINE_NAME_MAX: usize = 40;
+
+/// Tidies a machine name typed by the user: trimmed, cut to
+/// [`MACHINE_NAME_MAX`] characters, and `None` when nothing is left.
+pub fn machine_name(input: &str) -> Option<String> {
+    let name: String = input.trim().chars().take(MACHINE_NAME_MAX).collect();
+    let name = name.trim_end();
+    (!name.is_empty()).then(|| name.to_string())
+}
+
+impl Settings {
+    /// The settings at start. The first time this version runs it settles
+    /// whether the Mac is new to the app: one that already has this file, or
+    /// anything else in the app's folder, had the app before and keeps it as
+    /// it was, with no first run; a new one opens on the first run's steps.
+    /// The answer is written at once, so what the app puts in its folder
+    /// afterwards never makes a new install look like an older one.
+    pub fn open(file: &Path) -> Self {
+        let json = std::fs::read_to_string(file)
+            .ok()
+            .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok());
+        let settled = "setupSeen";
+        if json.as_ref().is_some_and(|v| v.get(settled).is_some_and(|a| a.is_boolean())) {
+            return Settings::load(file);
+        }
+        let had_app = file.exists() || file.parent().is_some_and(|dir| has_files(dir, file));
+        let mut settings = Settings::load(file);
+        settings.setup_seen = had_app;
+        // A file there that cannot be read is never written over. Unsaved,
+        // the next start asks again and finds the same answer.
+        if json.is_some() || !file.exists() {
+            let _ = settings.save(file);
+        }
+        settings
+    }
+
+    /// Which alerts run: the switches.
+    pub fn alert_switches(&self) -> Switches {
+        self.alerts
+    }
+
+    /// A missing or unreadable file gives the defaults: the app still runs.
+    pub fn load(file: &Path) -> Self {
+        std::fs::read_to_string(file)
+            .ok()
+            .and_then(|text| serde_json::from_str(&text).ok())
+            .unwrap_or_default()
+    }
+
+    /// Writes through a temporary file and a rename, so a crash never
+    /// leaves half a file.
+    pub fn save(&self, file: &Path) -> io::Result<()> {
+        if let Some(dir) = file.parent() {
+            std::fs::create_dir_all(dir)?;
+        }
+        let tmp = file.with_extension("json.tmp");
+        let text = serde_json::to_string_pretty(self).map_err(io::Error::other)?;
+        std::fs::write(&tmp, text)?;
+        std::fs::rename(&tmp, file)
+    }
+}

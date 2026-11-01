@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18">
+  <title>Quota Station C04 — no reading</title>
+  <desc>Technical trace of the approved C04 master. Black-alpha macOS template; runtime fill follows the selected account/window. Reference level 45%.</desc>
+  <defs>
+    <mask id="bead"><rect width="18" height="18" fill="white"/><circle cx="14.05" cy="3.8" r="1.87" fill="black"/></mask>
+    <clipPath id="reservoir"><circle cx="9" cy="9" r="5.6"/></clipPath>
+  </defs>
+  <path d="M 9,2.15 A 6.85,6.85 0 1 1 7.112,2.415" fill="none" stroke="black" stroke-width="1.44" stroke-linecap="round" mask="url(#bead)"/>
+  <circle cx="14.05" cy="3.8" r="1.42"/>
+</svg>

@@ -1,0 +1,4 @@
+{"parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/Users/demo/Projects/web-shop","sessionId":"0b6c7d1e-0000-4000-8000-000000000003","version":"9.9.0","gitBranch":"main","type":"assistant","message":{"id":"msg_new1","model":"claude-opus-5-5","content":[{"type":"text","text":"TRAP-conversation-7c41e9"}],"usage":"in=100;out=20"},"requestId":"r9","uuid":"z1","timestamp":"2026-01-16T03:00:00.000Z"}
+{"parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/Users/demo/Projects/web-shop","sessionId":"0b6c7d1e-0000-4000-8000-000000000003","version":"9.9.0","gitBranch":"main","type":"assistant","message":{"id":"msg_new2","model":"claude-opus-5-5","content":[{"type":"text","text":"TRAP-conversation-7c41e9"}],"tokens":{"in":100}},"requestId":"r10","uuid":"z2","timestamp":"2026-01-16T03:00:01.000Z"}
+not json at all TRAP-conversation-7c41e9
+{"note":"TRAP-conversation-7c41e9"}

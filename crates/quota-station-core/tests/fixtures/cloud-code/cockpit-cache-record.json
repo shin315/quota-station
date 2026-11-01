@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "source": "authorized",
+  "customSource": "desktop",
+  "email": "someone@example.com",
+  "projectId": "fixture-project-1001",
+  "updatedAt": 1768548000000,
+  "payload": {
+    "defaultAgentModelId": "fixture-gemini-pro",
+    "models": {
+      "fixture-claude-sonnet": {
+        "displayName": "Fixture Claude Sonnet",
+        "quotaInfo": {
+          "remainingFraction": 0.73,
+          "resetTime": "2030-01-16T12:52:10Z"
+        }
+      },
+      "fixture-gemini-pro": {
+        "displayName": "Fixture Gemini Pro",
+        "quotaInfo": {
+          "remainingFraction": 0.91,
+          "resetTime": "2030-01-16T11:39:34Z"
+        }
+      }
+    },
+    "quota_summary": {
+      "groups": [
+        {
+          "buckets": [
+            {
+              "bucketId": "gemini-weekly",
+              "displayName": "Weekly Limit",
+              "remainingFraction": 0.82,
+              "resetTime": "2030-01-19T08:45:39Z",
+              "window": "weekly"
+            },
+            {
+              "bucketId": "gemini-5h",
+              "displayName": "Five Hour Limit",
+              "remainingFraction": 0.91,
+              "resetTime": "2030-01-16T11:39:34Z",
+              "window": "5h"
+            }
+          ],
+          "description": "Models within this group: Fixture Gemini Pro",
+          "displayName": "Gemini Models"
+        },
+        {
+          "buckets": [
+            {
+              "bucketId": "3p-weekly",
+              "displayName": "Weekly Limit",
+              "remainingFraction": 0.64,
+              "resetTime": "2030-01-20T00:39:54Z",
+              "window": "weekly"
+            },
+            {
+              "bucketId": "3p-5h",
+              "displayName": "Five Hour Limit",
+              "remainingFraction": 0.73,
+              "resetTime": "2030-01-16T12:52:10Z",
+              "window": "5h"
+            }
+          ],
+          "description": "Models within this group: Fixture Claude Sonnet",
+          "displayName": "Claude and GPT models"
+        }
+      ]
+    }
+  }
+}

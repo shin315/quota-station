@@ -1,0 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Shin315
+# SPDX-License-Identifier: MIT
+
+# Text files are checked out with LF on every system: the tests compare
+# fixtures and snapshots byte for byte, and Git for Windows would turn them
+# to CRLF.
+* text=auto eol=lf

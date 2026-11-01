@@ -1,0 +1,368 @@
+Quota Station
+Copyright © 2026 Shin315
+
+Quota Station is licensed under the MIT License (LICENSE), except the
+Antigravity accounts, which are licensed under the Creative Commons
+Attribution-NonCommercial-ShareAlike 4.0 International License
+(CC BY-NC-SA 4.0, LICENSES/CC-BY-NC-SA-4.0.txt) because they are adapted
+from Cockpit Tools. Each file names its license in an SPDX-License-Identifier
+line, or in REUSE.toml for the files that cannot carry one
+(https://reuse.software).
+
+The Antigravity accounts are, besides the adapted files listed below, every
+file joined to them, drawn wide on purpose:
+
+- crates/quota-station-core/src/antigravity/
+- src-tauri/src/antigravity.rs, agy_quota.rs and agy_switch.rs
+- src/antigravity/
+- their tests: crates/quota-station-core/tests/antigravity_*.rs,
+  tests/common/google.rs and desktop.rs, tests/fixtures/cloud-code/, and
+  src/popover/AgySwitch.test.tsx
+
+They are compiled only with the Cargo feature antigravity-accounts, and
+bundled into the interface only when it is built with
+QS_ANTIGRAVITY_ACCOUNTS=1; scripts/install.sh turns both on for a build
+from source. Without them src/antigravity-off/ (MIT) stands in, and the app
+holds no CC BY-NC-SA code: it reads the Antigravity account signed in, and
+does not log in or switch accounts.
+
+----------------------------------------------------------------------------
+
+This work contains code adapted from Cockpit Tools
+(https://github.com/jlcodes99/cockpit-tools), © jlcodes, licensed under
+CC BY-NC-SA 4.0 (https://creativecommons.org/licenses/by-nc-sa/4.0/).
+Adapted from version 1.3.70, commit 244b957.
+
+Adapted parts. Each file names its source and its changes in its header.
+
+- crates/quota-station-core/src/antigravity/oauth.rs
+  from src-tauri/src/modules/oauth.rs: the authorization URL, the code
+  exchange, the token refresh, userinfo, and the rule that refreshes a token
+  only when it has less than 300 seconds left.
+- crates/quota-station-core/src/antigravity/client.rs
+  from src-tauri/src/modules/oauth.rs: the client's key name
+  (antigravity_enterprise) and the single client it logs in with, read here
+  from oauth-client.json.
+- crates/quota-station-core/src/antigravity/oauth_server.rs
+  from src-tauri/src/modules/oauth_server.rs: the loopback callback server,
+  the state check, the request limits, the 10-minute wait and the pasted
+  callback URL.
+- crates/quota-station-core/src/antigravity/token.rs
+  from src-tauri/src/models/token.rs: the token record.
+- crates/quota-station-core/src/antigravity/index.rs
+  from src-tauri/src/models/account.rs and src-tauri/src/modules/account.rs:
+  the account index layout (accounts.json, version 2.0) and the account id.
+- crates/quota-station-core/src/antigravity/login.rs
+  follows the order of start_oauth_login in src-tauri/src/commands/oauth.rs
+  and the invalid_grant handling in src-tauri/src/modules/account.rs.
+- crates/quota-station-core/src/antigravity/cloud_code.rs
+  from src-tauri/src/modules/quota.rs: the Cloud Code hosts and their
+  choice, the loadCodeAssist request and its metadata, the
+  fetchAvailableModels and retrieveUserQuotaSummary requests and the payload
+  cached from them, the 403 handling, the retries a second apart, and the
+  reading of Google's error bodies and verification links.
+- crates/quota-station-core/src/antigravity/version.rs
+  from src-tauri/src/modules/wakeup_gateway.rs and
+  src-tauri/src/modules/quota.rs: where Antigravity's version is read
+  (product.json, Info.plist through plutil, google-auth-library), the user
+  agents, x-goog-api-client, the platform name and the defaults.
+- crates/quota-station-core/src/antigravity/export.rs
+  from src-tauri/src/modules/quota.rs: the quota cache record, its file name
+  (the SHA-256 of the email), its folder and its 60-second TTL.
+- crates/quota-station-core/src/antigravity/quota.rs
+  follows the order of fetch_quota_with_fresh_token in
+  src-tauri/src/modules/account.rs and fetch_quota_with_context in
+  src-tauri/src/modules/quota.rs, and their handling of 403, invalid_grant
+  and verification requests.
+- crates/quota-station-core/src/antigravity/credential.rs
+  from src-tauri/src/modules/antigravity_credential.rs: the login payload
+  Antigravity.app and agy share, its go-keyring-base64 value, and the
+  security command that writes the gemini/antigravity Keychain item with a
+  15-second timeout.
+- crates/quota-station-core/tests/antigravity_credential.rs
+  from src-tauri/src/modules/antigravity_credential_tests.rs: the tests that
+  a failed write keeps the old item and that a hung write is stopped before
+  it can write late.
+- crates/quota-station-core/src/antigravity/desktop.rs
+  from src-tauri/src/commands/account.rs and
+  src-tauri/src/commands/system_config_types.rs: the version compare and the
+  rule that Antigravity.app 2.0 and later keep their login in the Keychain.
+- crates/quota-station-core/src/antigravity/switch.rs
+  from src-tauri/src/commands/account_desktop_switch.rs and
+  prepare_account_for_injection in src-tauri/src/modules/account.rs: one
+  switch at a time, the 60-second preparation (a fresh token and the
+  project lookup through cloud_code.rs), quitting before and opening after,
+  writing the login before the account pointers, and a reopen failure
+  reported apart.
+
+What was changed:
+
+- macOS only. The Windows and Linux branches, the SQLite store (and with
+  it switching Antigravity.app older than 2.0), the instance management,
+  the WebSocket server, wake-up and the other platforms are not included.
+- One OAuth client, read from a local oauth-client.json instead of
+  constants in the source.
+- Tokens are kept in the app's own macOS Keychain items instead of
+  AES-encrypted files with their key beside them.
+- A thread and blocking HTTP instead of async tasks and Tauri events; typed
+  errors that keep no response body, token or secret; nothing about a login
+  or a token is logged.
+- Quota reads: no environment overrides, no autopush host, no onboardUser,
+  no subscription tier or credit parsing (only the GCP ToS mark is read);
+  loadCodeAssist only while a token lacks a project or the GCP ToS mark,
+  and an answer without the mark is kept as no GCP ToS; a 429 or 5xx is
+  not retried at once but waits longer before the next read; a quota
+  summary that does not come back keeps the last full reading instead of
+  caching one without it; the cache lives in the app's own folder.
+- The pages the browser sees are translated to Vietnamese, error messages to
+  English.
+- Antigravity.app is quit with osascript and opened with open -b instead of
+  closed by its process; it is never killed. The switch is checked with the
+  app's own Antigravity quota read afterwards, logged in the app's own folder, and watched for six
+  hours for a running app writing its old login back. An Antigravity.app
+  whose version cannot be read stops the switch instead of counting as new,
+  and the index and the binding are written together or not at all.
+
+A later milestone that adapts more of Cockpit Tools adds its parts to
+this list.
+
+----------------------------------------------------------------------------
+
+This work also contains code ported from quota-axi
+(https://github.com/kunchenguid/quota-axi), version 0.1.66, licensed under
+the MIT License:
+
+  MIT License
+
+  Copyright (c) 2026 Kun Chen
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+
+Ported parts. Each file names its source and its changes in its header.
+
+- crates/quota-station-core/src/quota/mod.rs
+  from src/types.ts, src/lib/time.ts and src/providers/common.ts: the
+  reading model (window ids, state words), percent used rounded and
+  clamped, percent left, and a failed read served as stale.
+- crates/quota-station-core/src/quota/cache.rs
+  from src/cache.ts and src/providers/common.ts: when the last reading
+  answers instead of a new read, which of its windows may stand in as
+  stale, and forgetting it on a confirmed sign-out.
+- crates/quota-station-core/src/quota/codex.rs
+  from src/providers/codex.ts: the login read from auth.json, the two
+  usage endpoints, the errors and the windows.
+- crates/quota-station-core/src/quota/agy.rs
+  from src/providers/agy.ts: agy -p /quota with a guard against opening a
+  browser, then the local language server found with ps and lsof, the
+  group and bucket names and the time limits.
+- crates/quota-station-core/src/quota/claude.rs (its read of Claude Code's
+  login)
+  from src/providers/claude.ts: the login from the Keychain item, then
+  .credentials.json, the usage endpoint and its header, the windows, and
+  how a 401, a 429 and an unreadable Keychain are told.
+- crates/quota-station-core/src/quota/semantics.rs
+  from src/interpretation.ts: which windows bound which scope, the
+  effective percent and the limiting windows.
+
+What was changed:
+
+- No login is ever refreshed, rotated or written: no token endpoint, no
+  Codex app-server, no Pi or environment logins, no other profiles.
+- No email, account id or plan is kept: an Antigravity account is told by
+  a hash of its email, and the cache holds only windows, times and a hash
+  of the login it was read with.
+- The Keychain prompt is the app's own: after macOS holds the item back,
+  the quiet reads only check it is there until the owner asks.
+- The pace, runway and selection figures, the TUI and every other provider
+  are not ported.
+
+----------------------------------------------------------------------------
+
+This work also contains code ported from CC Switch
+(https://github.com/farion1231/cc-switch), version 4.0.15, commit 79e754ab,
+licensed under the MIT License:
+
+  MIT License
+
+  Copyright (c) 2025 Jason Young
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+
+Ported parts. Each file names its source in its header.
+
+- crates/quota-station-core/src/codex/config.rs
+  from src-tauri/src/live/project/codex.rs: the reserved provider ids
+  (openai, ollama, lmstudio) and the built-in ones; how a provider table's
+  own credentials are told apart (env_key, experimental_bearer_token, and
+  the header styles: auth, aws, headers, query_params); the
+  requires_openai_auth rule (on for an environment or bearer key when a
+  ChatGPT login exists, off otherwise); the refusal of a table with no key of
+  its own; the placeholder CC Switch leaves in a dormant table; and the check
+  that the active profile does not choose another provider.
+- crates/quota-station-core/src/codex/login.rs
+  from src-tauri/src/codex_config.rs: which auth.json fields count as a
+  login, and the credential store modes (file, keyring, auto, ephemeral).
+- crates/quota-station-core/src/codex/procs.rs
+  from src-tauri/src/services/provider/codex_client_catalog.rs: telling
+  Codex's shared background process (app-server --managed-daemon) from the
+  other app-servers by its command line, and restarting it with
+  codex app-server daemon restart under CODEX_HOME.
+
+What was changed:
+
+- Only the provider choice is switched. The app keeps no provider list or
+  database of its own: the custom provider's id, address and key come from
+  the existing config.toml, and no host, address or key is built in.
+- The edit is made on the file's text with toml_edit, and only
+  model_provider and the custom table's requires_openai_auth change; a check
+  refuses any other change. auth.json and [mcp_servers] are never written,
+  and the MCP list is never rebuilt.
+- Each write checks a SHA-256 of the file the owner saw, keeps a backup
+  (mode 600, the newest ten), re-reads before the rename and verifies after;
+  a symlinked config.toml stays a symlink.
+- The background process is restarted only after the owner ticks the box
+  or confirms its own sheet; nothing is killed.
+
+----------------------------------------------------------------------------
+
+This work also contains code adapted from claude-swap
+(https://github.com/realiti4/claude-swap), licensed under the MIT License:
+
+  MIT License
+
+  Copyright (c) 2026 Onur Cetinkol
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+
+Adapted parts. Each file names its source in its header.
+
+- crates/quota-station-core/src/claude/keychain.rs
+  from macos_keychain.py: the security commands, the read with -w and exit
+  code 44 for a missing item, the write piped to security -i as hex, the
+  command-line fallback for a long value and the 5-second limit.
+- crates/quota-station-core/src/claude/locks.rs
+  from claude_locks.py: Claude Code's lock folders, their order and the
+  proper-lockfile protocol.
+- crates/quota-station-core/src/claude/cc.rs
+  from credentials.py, session.py and switcher.py: Claude Code's Keychain
+  items (the default one and the one keyed to a CLAUDE_CONFIG_DIR), the MCP
+  and plugin secrets kept from the live login, and oauthAccount in
+  ~/.claude.json.
+- crates/quota-station-core/src/claude/switch.rs
+  from _perform_switch in switcher.py: the locks, the outgoing account's
+  live login kept first, the target written, and everything put back when a
+  step fails.
+- crates/quota-station-core/src/claude/usage.rs
+  from oauth.py, usage_store.py and poll_policy.py: the usage and token
+  endpoints, headers, client id and bodies, the reading of the windows, the
+  error kinds, the expiry margin, the 180-second reuse and the back-off.
+- crates/quota-station-core/src/claude/session.rs
+  from session.py (cswap run): the folder per account, its links to the
+  owner's settings, the login variables removed from the environment, and
+  a newer login taken back.
+- crates/quota-station-core/src/claude/manage.rs
+  from cswap add and cswap add --token: a new login through claude auth
+  login in a folder of its own, and a setup token kept as a credential.
+- crates/quota-station-core/src/claude/import.rs
+  from switcher.py and credentials.py: where claude-swap keeps each
+  account's slot, oauthAccount and credential.
+
+What was changed:
+
+- The logins are in the app's own Keychain items
+  (com.shin315.quota-station.claude), and its files hold no email and no
+  token; a session's login goes to Claude Code's Keychain item for its
+  folder, never to a file.
+- A switch reads Claude Code's item and ~/.claude.json back and puts both
+  back when they do not match, and writes nothing while claude-swap's own
+  switchers are loaded.
+- The account in use is read with Claude Code's live token and never
+  refreshed by the app.
+- The import only reads claude-swap's folder and Keychain items.
+
+----------------------------------------------------------------------------
+
+This work also contains code adapted from shadcn/ui
+(https://github.com/shadcn-ui/ui), licensed under the MIT License:
+
+  MIT License
+
+  Copyright (c) 2023 shadcn
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+
+Adapted parts: src/components/ui/ (badge, button, card, checkbox, dialog,
+dropdown-menu, input, radio-group and switch) follow shadcn/ui's
+components: their structure, data-slot names and Radix wiring.
+
+What was changed: every class is the app's own, drawn on its design tokens
+(the macOS checkbox, switch, sheet and column menu); a few take
+props the app needs (a dialog's kind, a field's invalid state, a column
+menu's first focus). segmented.tsx, in the same folder, is the app's own,
+on Radix Toggle. src/components/ui/svgs/ is not shadcn/ui code: it holds
+the logos added from svgl (MIT), listed in THIRD_PARTY.md with its license
+and the two Codex files' one change.

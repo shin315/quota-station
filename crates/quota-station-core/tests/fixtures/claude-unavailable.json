@@ -1,0 +1,20 @@
+{
+  "generatedAt": "2026-01-16T07:20:00.000Z",
+  "providers": [
+    {
+      "provider": "claude",
+      "accountKeys": [
+        "default"
+      ],
+      "windows": [],
+      "quotaSemantics": {
+        "status": "unknown",
+        "effectiveAvailability": []
+      },
+      "state": {
+        "status": "unavailable",
+        "error": "network_unreachable"
+      }
+    }
+  ]
+}

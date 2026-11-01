@@ -1,0 +1,21 @@
+{
+  "generatedAt": "2026-01-16T07:20:00.000Z",
+  "providers": [
+    {
+      "provider": "claude",
+      "accountKeys": [
+        "default"
+      ],
+      "windows": [],
+      "quotaSemantics": {
+        "status": "unknown",
+        "effectiveAvailability": []
+      },
+      "state": {
+        "status": "auth_required",
+        "error": "keychain_prompt_required",
+        "reason": "keychain_access_required"
+      }
+    }
+  ]
+}

@@ -1,0 +1,243 @@
+/*
+ * SPDX-FileCopyrightText: 2026 Shin315
+ * SPDX-License-Identifier: MIT
+ */
+
+/* The tokens (tokens.css) as Tailwind's theme and as shadcn/ui's variables.
+   tokens.css stays the one source: every value here reads a token, so the
+   light, dark and "auto" looks, the glass and the solid ground follow it.
+   `inline`: a utility reads the token where it is used, so a token a window
+   redefines is the one it gets. Both the prototype's names and the ones the
+   community edition's screens use are here; tokens.css maps the second
+   onto the first. */
+
+@theme {
+  /* Only the theme's own names: no colours, sizes or shadows of Tailwind's palette. */
+  --color-*: initial;
+  --text-*: initial;
+  --font-weight-*: initial;
+  --shadow-*: initial;
+  --blur-*: initial;
+  --color-white: #fff;
+  --color-transparent: transparent;
+  /* The working spinner, a step still running in a list, and the loading shimmer. */
+  --animate-qs-spin: qs-spin 0.9s linear infinite;
+  --animate-qs-pulse: qs-pulse 1.2s ease-in-out infinite;
+  --animate-qs-shimmer: qs-shimmer 1.6s linear infinite;
+  @keyframes qs-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  @keyframes qs-pulse {
+    50% {
+      opacity: 0.45;
+    }
+  }
+  @keyframes qs-shimmer {
+    to {
+      background-position: -200% 0;
+    }
+  }
+  --font-weight-heavy: 700;
+  --font-weight-black: 800;
+}
+
+@theme inline {
+  --font-sans: var(--font);
+  --font-mono: var(--mono);
+
+  --text-page: var(--fs-page);
+  --text-h2: var(--fs-h2);
+  --text-h3: var(--fs-h3);
+  --text-big: var(--fs-big);
+  --text-body: var(--fs-body);
+  --text-sm: var(--fs-sm);
+  --text-xs: var(--fs-xs);
+  --text-2xs: var(--fs-2xs);
+  --text-pop-title: var(--pop-fs-title);
+  --text-pop-h: var(--pop-fs-h);
+  /* The prototype's names. */
+  --text-cap: var(--fs-cap);
+  --text-s: var(--fs-s);
+  --text-base: var(--fs-base);
+  --text-title: var(--fs-title);
+  --text-sheet: var(--fs-sheet);
+  --text-num: var(--fs-num);
+
+  --font-weight-reg: var(--fw-regular);
+  --font-weight-med: var(--fw-medium);
+  --font-weight-semi: var(--fw-semibold);
+  --font-weight-heading: var(--fw-heading);
+  --font-weight-bold: var(--fw-heading);
+
+  --tracking-page: var(--track-page);
+  --tracking-head: var(--track-head);
+
+  --radius-win: var(--r-win);
+  --radius-pop: var(--r-pop);
+  --radius-card: var(--r-card);
+  --radius-ctl: var(--r-ctl);
+  --radius-seg: var(--r-seg);
+  --radius-nav: var(--r-nav);
+  --radius-dlg: var(--r-dlg);
+  --radius-chip: var(--r-chip);
+  /* The prototype's names. */
+  --radius-sheet: var(--r-sheet);
+  --radius-tile: var(--r-tile);
+  --radius-row: var(--r-row);
+
+  --shadow-card: var(--sh-card);
+  --shadow-pop: var(--sh-pop);
+  --shadow-win: var(--sh-win);
+  --shadow-dlg: var(--sh-dlg);
+  --shadow-sheet: var(--sh-dlg);
+
+  --ease-qs: var(--ease);
+
+  --color-heading: var(--text-title);
+  --color-ink: var(--text-1);
+  --color-ink2: var(--text-2);
+  --color-ink3: var(--text-3);
+  --color-nav: var(--text-nav);
+  --color-th: var(--text-th);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-press: var(--accent-press);
+  --color-on-accent: var(--on-accent);
+  --color-accent-ink: var(--accent-text);
+  --color-nav-sel: var(--nav-sel);
+  --color-nav-sel-ink: var(--nav-sel-text);
+  --color-tint: var(--tint);
+  --color-tint-ink: var(--tint-text);
+  --color-tag: var(--tag);
+  --color-tag-ink: var(--tag-text);
+  --color-passive: var(--passive);
+  --color-passive-ink: var(--passive-text);
+  --color-focus: var(--focus);
+  --color-ok: var(--ok);
+  --color-ok-ink: var(--ok-text);
+  /* A quota bar that is not short: green here, a theme pack's own grey. */
+  --color-meter-ok: var(--meter-ok);
+  --color-dot-off: var(--dot-off);
+  --color-warn: var(--warn);
+  --color-warn-ink: var(--warn-text);
+  --color-bad: var(--bad);
+  --color-bad-ink: var(--bad-text);
+  --color-bar-track: var(--bar-track);
+  --color-bar-fill: var(--bar-fill);
+  --color-toggle-on: var(--toggle-on);
+  --color-toggle-off: var(--toggle-off);
+  --color-knob: var(--knob);
+  --color-seg: var(--seg);
+  --color-seg-on: var(--seg-on);
+  --color-bn-bad: var(--bn-bad);
+  --color-bn-bad-line: var(--bn-bad-line);
+  --color-destr: var(--destr);
+  --color-destr-ink: var(--destr-text);
+  --color-menu: var(--menu);
+  --color-chart: var(--chart-fill);
+  --color-win: var(--win);
+  --color-side: var(--side);
+  --color-card: var(--card);
+  --color-card-2: var(--card-2);
+  --color-thead: var(--thead);
+  --color-tile: var(--tile);
+  --color-field: var(--field);
+  --color-ctl: var(--ctl);
+  --color-ctl-hover: var(--ctl-hover);
+  --color-line: var(--line);
+  --color-line-2: var(--line-2);
+  --color-divider: var(--divider);
+  --color-hi: var(--hi);
+  --color-glass-win: var(--glass-win);
+  --color-glass-side: var(--glass-side);
+  --color-glass-pop: var(--glass-pop);
+  --color-glass-dlg: var(--glass-dlg);
+  --color-glass-edge: var(--glass-edge);
+  --color-pop-panel: var(--pop-panel);
+  --color-pop-card: var(--pop-card);
+  --color-pop-now: var(--pop-now);
+  --color-scrim: var(--scrim);
+  /* The prototype's names. */
+  --color-fill: var(--fill);
+  --color-fill2: var(--fill2);
+  --color-sel: var(--sel);
+  --color-card-line: var(--card-line);
+  --color-winbg: var(--winbg);
+  --color-track: var(--track);
+  --color-glass: var(--glass);
+  --color-glass-solid: var(--glass-solid);
+  --color-glass-line: var(--glass-line);
+  --color-info-ink: var(--info-ink);
+  --color-bad-fill: var(--bad-fill);
+  --color-id-claude: var(--id-claude);
+  --color-id-claude-ink: var(--id-claude-ink);
+  --color-id-claude-tint: var(--id-claude-tint);
+  --color-id-agy: var(--id-agy);
+  --color-id-agy-ink: var(--id-agy-ink);
+  --color-id-agy-tint: var(--id-agy-tint);
+  --color-id-codex: var(--id-codex);
+  --color-id-codex-ink: var(--id-codex-ink);
+  --color-id-codex-tint: var(--id-codex-tint);
+  --color-series-1: var(--series-1);
+  --color-series-2: var(--series-2);
+  --color-grid: var(--grid);
+
+  /* shadcn/ui's names, for its components. */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+/* shadcn/ui's variables, on every element that sets a look or a material,
+   so they follow the tokens that element redefines. --card and --accent
+   are tokens already and mean what shadcn/ui means: the card's ground, and
+   the fill of a chosen item. */
+[data-theme],
+[data-material] {
+  --background: var(--win);
+  --foreground: var(--text-1);
+  --card-foreground: var(--text-1);
+  --popover: var(--menu);
+  --popover-foreground: var(--text-1);
+  --primary: var(--accent);
+  --primary-foreground: var(--on-accent);
+  --secondary: var(--ctl);
+  --secondary-foreground: var(--text-1);
+  --muted: var(--card-2);
+  --muted-foreground: var(--text-2);
+  --accent-foreground: var(--on-accent);
+  --destructive: var(--bad-text);
+  --border: var(--line);
+  --input: var(--field);
+  --ring: var(--focus);
+}
+
+/* The app on Windows (data-os, usePlatform): `win:` for what Windows draws otherwise. */
+@custom-variant win (&:where([data-os="windows"], [data-os="windows"] *));
+
+/* The dark look: chosen (data-theme="dark"), or "Theo macOS" while macOS is dark. */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where([data-theme="auto"], [data-theme="auto"] *) {
+      @slot;
+    }
+  }
+}

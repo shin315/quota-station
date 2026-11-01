@@ -1,0 +1,11 @@
+??       /Applications/ChatGPT.app/Contents/MacOS/ChatGPT
+??       /Applications/ChatGPT.app/Contents/Frameworks/ChatGPT Helper.app/Contents/MacOS/ChatGPT Helper --type=renderer
+??       /Users/someone/.nvm/versions/node/v24.0.0/lib/node_modules/@openai/codex/vendor/aarch64-apple-darwin/codex/codex app-server --managed-daemon
+ttys001  node /Users/someone/.nvm/versions/node/v24.0.0/bin/codex
+ttys001  /Users/someone/.nvm/versions/node/v24.0.0/lib/node_modules/@openai/codex/vendor/aarch64-apple-darwin/codex/codex
+ttys002  /opt/homebrew/bin/codex resume --last
+ttys003  /opt/homebrew/bin/codex -c model=o3 exec "fix the build"
+ttys004  /opt/homebrew/bin/codex mcp list
+??       /opt/homebrew/bin/codex app-server daemon restart
+??       /Applications/CC Switch.app/Contents/MacOS/cc-switch
+ttys005  vim codex/notes.md

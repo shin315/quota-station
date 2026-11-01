@@ -1,0 +1,26 @@
+# Codex config used by the tests. Every name, URL and key here is made up.
+model = "gpt-5.5"
+model_reasoning_effort = "high"
+approval_policy = "on-request"
+
+[model_providers.custom]
+name = "relay"
+base_url = "https://relay.example.com/v1"
+wire_api = "responses"
+experimental_bearer_token = "test-key-not-real"   # the provider's own key
+requires_openai_auth = true
+
+[mcp_servers.files]
+command = "npx"
+args = ["-y", "files-mcp"]
+env = { FILES_TOKEN = "test-token-not-real" }
+
+[mcp_servers.docs-search]
+url = "https://docs.example.com/mcp"
+
+[mcp_servers.tracker]
+url = "https://tracker.example.com/mcp"
+enabled = false
+
+[projects."/work/app"]
+trust_level = "trusted"

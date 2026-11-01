@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: 2026 Shin315
+# SPDX-License-Identifier: MIT
+
+# Build output
+/target/
+/dist/
+/node_modules/
+/src-tauri/gen/
+*.tsbuildinfo
+
+# Local tools and editor state
+.DS_Store
+/.tools/

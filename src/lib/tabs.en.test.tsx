@@ -1,0 +1,100 @@
+// SPDX-FileCopyrightText: 2026 Shin315
+// SPDX-License-Identifier: MIT
+
+import { cleanup, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { agyLoginErrorFeedback } from '../antigravity/agyLogin';
+import { ClaudeDialogBody } from '../claude/ClaudeDialogs';
+import type { ClaudeAccountsState } from '../claude/useClaudeAccounts';
+import { CodexTab } from '../codex/CodexTab';
+import { useCodexAccounts } from '../codex/useCodexAccounts';
+import { fakeApi } from '../fixtures/fakeApi';
+import { claudeAccountsFixture, FIXTURE_NOW, fixtureModel, historyFixture } from '../fixtures/models';
+import { alertKinds, permissionChip } from './alerts';
+import { quotaLine, resultFeedback, signInChip } from './claudeAccounts';
+import { dayLabel, historyDays } from './history';
+import { setLang } from './i18n';
+import { num, readLine, tokensText } from './stats';
+
+// The tabs' words in English, built when called: the language set here is the one they come out in.
+describe('the tabs in English', () => {
+  beforeEach(() => setLang('en'));
+  afterEach(cleanup);
+
+
+  it('History: days, tags and reasons', () => {
+    expect(dayLabel(FIXTURE_NOW.toISOString(), FIXTURE_NOW)).toBe('Today');
+    const days = historyDays(historyFixture(), 'all', fixtureModel('fresh'), FIXTURE_NOW);
+    expect(days[0].label).toBe('Today');
+    const pills = days.flatMap((d) => d.rows.map((r) => r.pill.t));
+    expect(pills).toContain('Switch');
+    expect(pills).not.toContain('Chuyển');
+    expect(days.flatMap((d) => d.rows.map((r) => r.why)).some((w) => w.startsWith('You switched'))).toBe(true);
+  });
+
+  it('Stats: English numbers and units', () => {
+    expect(num(1234.56)).toBe('1,234.6');
+    expect(tokensText(45_500_000)).toBe('45.5 million tokens');
+    expect(tokensText(820)).toBe('820 tokens');
+    expect(readLine({ ...fixtureModel('fresh').stats, reading: true })).toBe('updating…');
+  });
+
+  it('Alerts: the kinds and the permission chip', () => {
+    const kinds = alertKinds(fixtureModel('fresh'));
+    expect(kinds.map((k) => k.title)).toContain('An account needs to sign in again');
+    expect(kinds.find((k) => k.kind === 'pool')!.text).toMatch(/^When the account in use has \d+% or less left/);
+    expect(permissionChip('denied').t).toBe('off');
+  });
+
+  it('Claude accounts: the details, the lines and the add dialog', () => {
+    const view = claudeAccountsFixture();
+    const row = view.accounts[1];
+    expect(signInChip({ ...row, status: 'reloginRequired' }).t).toBe('expired');
+    expect(quotaLine(row)).toBe('73% 5-hour');
+    const fb = resultFeedback(view, { action: 'remove', ok: true, error: null, detail: null, slot: 3, renewed: false, imported: null }, 'Team B');
+    expect(fb!.title).toBe('Removed Team B from this Mac.');
+    const claude = { dialog: { kind: 'add', how: 'browser', error: null }, pending: false } as unknown as ClaudeAccountsState;
+    render(
+      <Dialog open>
+        <DialogContent>
+          <ClaudeDialogBody
+            claude={claude}
+            view={view}
+            nameOf={(n) => 'Account ' + n}
+            onTab={() => {}}
+          />
+        </DialogContent>
+      </Dialog>,
+    );
+    expect(screen.getByRole('heading', { name: 'Add a Claude account' })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: /Sign in with the browser/ })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: /Import from claude-swap|Import again from claude-swap/ })).toBeTruthy();
+  });
+
+  it('Antigravity sign-in feedback', () => {
+    expect(agyLoginErrorFeedback('timeout')!.body).toBe('No account added. Press Add account to try again.');
+  });
+
+  it('the Codex tab', () => {
+    const model = fixtureModel('fresh');
+    const api = fakeApi(model, 'codex').api;
+    // The tab's dialogs and ⋯ menus, as the main window gives them.
+    function Tab() {
+      const accounts = useCodexAccounts(api, model, () => {});
+      return <CodexTab model={model} fresh={{ tone: 'ok', text: 'now' }} feedback={null} now={FIXTURE_NOW} onAction={() => {}} onPlugins={() => {}} accounts={accounts} />;
+    }
+    render(<Tab />);
+    expect(screen.getByRole('button', { name: 'Check again' })).toBeTruthy();
+    expect(screen.getByRole('list', { name: 'Codex accounts' })).toBeTruthy();
+    expect(screen.getAllByText('5-hour').length).toBeGreaterThan(0);
+    expect(screen.getByRole('listitem', { name: /^ChatGPT, ChatGPT · plugins use this sign-in\. 5-hour used 23%/ })).toBeTruthy();
+    expect(screen.getByRole('listitem', { name: 'relay, Custom API · relay.example.com · answers in 180 ms, in use. Reports no quota' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Add account' })).toBeTruthy();
+    expect(screen.getByText('Codex on this Mac')).toBeTruthy();
+    expect(screen.getByText('CLI 0.163.0 · 3 Terminal sessions · App open · MCP 3/4')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Open MCP' })).toBeTruthy();
+    expect(screen.getByText('Use plugins with a Custom API')).toBeTruthy();
+    expect(screen.getByText('API key in config.toml ·', { exact: false }).textContent).toBe('API key in config.toml · Set');
+  });
+});

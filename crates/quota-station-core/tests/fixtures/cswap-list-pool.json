@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "activeAccountNumber": 2,
+  "accounts": [
+    {
+      "number": 1,
+      "email": "lanpham.dev@example.com",
+      "organizationName": "lanpham.dev@example.com's Organization",
+      "organizationUuid": "00000000-0000-4000-8000-000000000001",
+      "isOrganization": true,
+      "active": false,
+      "usageStatus": "ok",
+      "usage": {
+        "fiveHour": {
+          "pct": 0.0
+        },
+        "sevenDay": {
+          "pct": 0.0,
+          "resetsAt": "2026-01-22T15:20:00+00:00"
+        },
+        "scoped": [
+          {
+            "pct": 4.0,
+            "resetsAt": "2026-01-22T15:20:00+00:00",
+            "name": "Fable"
+          }
+        ]
+      },
+      "loginExpiresAt": "2026-02-10T07:53:49Z",
+      "usageFetchedAt": "2026-01-16T07:18:00Z",
+      "usageAgeSeconds": 120.0
+    },
+    {
+      "number": 2,
+      "email": "lan.acme1@example.com",
+      "organizationName": "Acme Studio",
+      "organizationUuid": "00000000-0000-4000-8000-000000000002",
+      "isOrganization": true,
+      "active": true,
+      "usageStatus": "ok",
+      "usage": {
+        "fiveHour": {
+          "pct": 73.0,
+          "resetsAt": "2026-01-16T10:29:00+00:00"
+        },
+        "scoped": [
+          {
+            "pct": 87.0,
+            "resetsAt": "2026-01-18T01:20:00+00:00",
+            "name": "Fable"
+          }
+        ]
+      },
+      "loginExpiresAt": "2026-02-10T07:53:49Z",
+      "usageFetchedAt": "2026-01-16T07:18:00Z",
+      "usageAgeSeconds": 120.0
+    },
+    {
+      "number": 3,
+      "email": "lan.acme2@example.com",
+      "organizationName": "Acme Studio",
+      "organizationUuid": "00000000-0000-4000-8000-000000000003",
+      "isOrganization": true,
+      "active": false,
+      "usageStatus": "ok",
+      "usage": {
+        "fiveHour": {
+          "pct": 0.0
+        },
+        "scoped": [
+          {
+            "pct": 50.0,
+            "resetsAt": "2026-01-19T20:00:00+00:00",
+            "name": "Fable"
+          }
+        ]
+      },
+      "loginExpiresAt": "2026-02-10T07:53:49Z",
+      "usageFetchedAt": "2026-01-16T07:18:00Z",
+      "usageAgeSeconds": 120.0
+    },
+    {
+      "number": 4,
+      "email": "lan.acme3@example.com",
+      "organizationName": "Acme Studio",
+      "organizationUuid": "00000000-0000-4000-8000-000000000004",
+      "isOrganization": true,
+      "active": false,
+      "usageStatus": "ok",
+      "usage": {
+        "fiveHour": {
+          "pct": 2.0,
+          "resetsAt": "2026-01-16T10:09:00+00:00"
+        },
+        "scoped": [
+          {
+            "pct": 2.0,
+            "resetsAt": "2026-01-20T09:00:00+00:00",
+            "name": "Fable"
+          }
+        ]
+      },
+      "loginExpiresAt": "2026-02-10T07:53:49Z",
+      "usageFetchedAt": "2026-01-16T07:18:00Z",
+      "usageAgeSeconds": 120.0
+    }
+  ]
+}
