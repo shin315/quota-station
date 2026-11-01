@@ -24,6 +24,7 @@ use quota_station_core::antigravity::switch::How;
 use quota_station_core::antigravity::watch;
 use quota_station_core::app_dir::AppDir;
 use quota_station_core::ext::Hooks;
+use quota_station_core::labels::Labels;
 use quota_station_core::quota::claude::PoolPolicy;
 use quota_station_core::quota::Response;
 use quota_station_core::settings::PoolAlert;
@@ -89,6 +90,12 @@ fn policy() -> Option<&'static dyn PoolPolicy> {
     None
 }
 
+/// The names the app's hooks give the accounts on the cards: with the
+/// private part, its own; without it, none.
+fn names() -> Option<&'static dyn Labels> {
+    None
+}
+
 fn facts<'a>(now: i64, claude: Option<&'a Response>) -> Facts<'a> {
     Facts {
         now: at(now),
@@ -101,6 +108,7 @@ fn facts<'a>(now: i64, claude: Option<&'a Response>) -> Facts<'a> {
         overwrite: None,
         ext: None,
         pool: PoolAlert::default(),
+        labels: names(),
     }
 }
 
@@ -111,7 +119,7 @@ fn check_pool(r: &Response, limits: PoolAlert) -> alerts::PoolCheck {
 
 /// The card "Gửi thử" sends, naming the accounts as the cards do.
 fn sample(kind: Kind, now: i64) -> alerts::Alert {
-    alerts::sample(&kind, now, offset(), hooks()).unwrap()
+    alerts::sample(&kind, now, offset(), names(), hooks()).unwrap()
 }
 
 /// Records every card and every button pressed, as macOS would deliver
@@ -419,7 +427,7 @@ fn an_overwrite_within_six_hours_offers_to_switch_back() {
         reopened: None,
         saved: true,
     };
-    let said = alerts::agy_result(&outcome);
+    let said = alerts::agy_result(&outcome, names());
     alerts::settle(&mut memory, &card.id, said);
     let said = memory.record(&card.id).unwrap().answer.clone().unwrap().result.unwrap();
     let title = format!("Đã chuyển lại sang {}", agy(2));
@@ -536,7 +544,7 @@ fn alert_one_uses_the_thresholds_from_settings() {
 
 /// "Gửi thử" for `kind` with `hooks`, naming the accounts by number.
 fn sample_with(kind: &Kind, now: i64, hooks: &dyn Hooks) -> Option<alerts::Alert> {
-    alerts::sample(kind, now, offset(), hooks)
+    alerts::sample(kind, now, offset(), None, hooks)
 }
 
 /// A pool gone dry and a refused login, the app's alerts 1 and 3.

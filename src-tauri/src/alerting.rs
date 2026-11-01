@@ -139,6 +139,7 @@ fn run_rules(state: &AppState, deliver: impl FnOnce(&mut Inner, &[String])) {
     let read =
         extension.alert_read_part(&AlertInput { settings: &settings, home: &home, app_dir: &dir });
     let pool_policy = hooks.claude_pool(&Paths::new(&home, dir.path()));
+    let labels = hooks.account_labels(&settings);
     #[cfg(feature = "antigravity-accounts")]
     let pending = watch::load(&dir).and_then(|w| w.alert()).is_some();
     #[cfg(feature = "antigravity-accounts")]
@@ -154,6 +155,7 @@ fn run_rules(state: &AppState, deliver: impl FnOnce(&mut Inner, &[String])) {
         overwrite: alerts::overwrite(&dir, running),
         ext: read.as_deref().map(|r| r.source()),
         pool,
+        labels: labels.as_deref(),
     };
     let mut inner = state.lock();
     let before = inner.alerts.clone();
@@ -290,12 +292,16 @@ pub async fn press(
         }
         #[cfg(feature = "antigravity-accounts")]
         Effect::SwitchAgy { number, how } => {
-            let refused = |why: &str| alerts::agy_refused(number, why);
+            let labels = {
+                let inner = shared.lock();
+                inner.hooks.account_labels(&inner.settings)
+            };
+            let refused = |why: &str| alerts::agy_refused(number, why, labels.as_deref());
             let said = match account_id(&dir, number) {
                 None => refused(refusal("unknownAccount")),
                 Some(account) => {
                     match agy_switch::switch(app, shared.clone(), account, how).await {
-                        Ok(outcome) => alerts::agy_result(&outcome),
+                        Ok(outcome) => alerts::agy_result(&outcome, labels.as_deref()),
                         Err(e) => refused(refusal(&e)),
                     }
                 }
@@ -325,8 +331,9 @@ pub fn test_alert(app: AppHandle, state: State<'_, AppState>, kind: Kind) -> Res
         let mut inner = state.lock();
         let hooks: &dyn Hooks = inner.hooks;
         let (at, offset) = (now.unix_timestamp(), local_time::offset_at(now));
-        let alert = alerts::sample(&kind, at, offset, hooks);
-        let alert = alert.ok_or_else(|| unknown_kind(&kind))?;
+        let labels = hooks.account_labels(&inner.settings);
+        let alert = alerts::sample(&kind, at, offset, labels.as_deref(), hooks)
+            .ok_or_else(|| unknown_kind(&kind))?;
         let id = alerts::keep_test(&mut inner.alerts, alert);
         if let Some(center) = inner.center.clone() {
             alerts::deliver(&mut inner.alerts, &[id], &*center, hooks);
@@ -621,5 +628,65 @@ mod tests {
         run_rules(&every, |_, _| {});
         assert!(every.lock().alerts.recent.is_empty(), "3 has room");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Names every Claude account `Named N`, with a title of its own for
+    /// alert 1, while `testNames` is on in the settings; counts the pool
+    /// as [`InUseOnly`].
+    struct NamedHooks;
+
+    struct Named;
+
+    impl quota_station_core::labels::Labels for Named {
+        fn claude(
+            &self,
+            _accounts: &[quota_station_core::snapshot::Account],
+            account: &quota_station_core::snapshot::Account,
+        ) -> Option<String> {
+            Some(format!("Named {}", account.number))
+        }
+
+        fn pool_title(&self) -> Option<&'static str> {
+            Some("Named pool dry")
+        }
+    }
+
+    impl Hooks for NamedHooks {
+        fn claude_pool(&self, _paths: &Paths) -> Option<Box<dyn PoolPolicy>> {
+            Some(Box::new(InUseOnly))
+        }
+
+        fn account_labels(
+            &self,
+            settings: &quota_station_core::settings::Settings,
+        ) -> Option<Box<dyn quota_station_core::labels::Labels>> {
+            (settings.ext.get("testNames") == Some(&serde_json::Value::Bool(true)))
+                .then(|| Box::new(Named) as Box<dyn quota_station_core::labels::Labels>)
+        }
+    }
+
+    /// Each pass of the rules names the accounts on the cards as the
+    /// extension's hooks do for the settings in force, and as the app does
+    /// when they give no names.
+    #[test]
+    fn the_cards_name_the_accounts_as_the_extension_does_for_the_settings() {
+        for (on, title, body) in [
+            (true, "Named pool dry", "Named 2 đã dùng 95%."),
+            (false, "Hạn mức Claude sắp cạn", "Tài khoản 2 đã dùng 95%."),
+        ] {
+            let dir = temp(&format!("names-{on}"));
+            let state = state(&dir, &NamedHooks);
+            {
+                let mut inner = state.lock();
+                inner.claude = Some(nearly_out());
+                inner.settings.ext.insert("testNames".into(), on.into());
+            }
+            run_rules(&state, |_, _| {});
+            let inner = state.lock();
+            let alert = &inner.alerts.recent[0].alert;
+            assert_eq!((alert.title.as_str(), alert.body.as_str()), (title, body));
+            drop(inner);
+            let _ = std::fs::remove_dir_all(&dir);
+        }
     }
 }

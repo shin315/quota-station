@@ -8,8 +8,9 @@
 use serde::Serialize;
 use time::OffsetDateTime;
 
+use crate::labels::Labels;
 use crate::settings::{Menubar, MenubarWindow};
-use crate::snapshot::{Account, Line, LineKind, Reading, SectionStatus, Snapshot};
+use crate::snapshot::{Account, Line, LineKind, Reading, Section, SectionStatus, Snapshot};
 use crate::time_util::parse_ts;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -51,14 +52,18 @@ pub enum CodexUse {
 }
 
 /// What the icon needs beside the snapshot.
-#[derive(Debug, Clone)]
-pub struct Context {
+#[derive(Clone)]
+pub struct Context<'a> {
     /// The service the title follows, from settings.
     pub follow: Menubar,
     /// The window the title shows, from settings.
     pub window: MenubarWindow,
     pub codex: CodexUse,
     pub now: OffsetDateTime,
+    /// The extension's names for an account without a name shown, for the
+    /// settings in force ([`crate::ext::Hooks::account_labels`]); `None`:
+    /// the app's own, by number.
+    pub labels: Option<&'a dyn Labels>,
 }
 
 /// The longest name the title keeps, in characters.
@@ -81,25 +86,28 @@ fn local_part(name: &str) -> &str {
 }
 
 /// A Claude account's name, uncut, as the windows write it: its email, else
-/// `Tài khoản N`, else "Claude" for the one account read without the app's
-/// list.
-pub fn claude_name(a: &Account) -> String {
+/// "Claude" for the one account read without the app's list, else the
+/// extension's name for it ([`Labels::claude`]), else `Tài khoản N`.
+pub fn claude_name(section: &Section, a: &Account, labels: Option<&dyn Labels>) -> String {
     if let Some(email) = &a.email {
         return local_part(email).to_string();
     }
     if a.number == 0 {
         return "Claude".into();
     }
-    format!("Tài khoản {}", a.number)
+    labels
+        .and_then(|l| l.claude(&section.accounts, a))
+        .unwrap_or_else(|| format!("Tài khoản {}", a.number))
 }
 
-/// An Antigravity account's name, uncut: its email, else Antigravity N,
-/// else "Gemini".
-pub fn agy_name(a: &Account) -> String {
+/// An Antigravity account's name, uncut: its email, else "Gemini" for the
+/// one account read without the app's list, else the extension's name for
+/// it ([`Labels::agy`]), else Antigravity N.
+pub fn agy_name(a: &Account, labels: Option<&dyn Labels>) -> String {
     match (&a.email, a.number) {
         (Some(email), _) => local_part(email).to_string(),
         (None, 0) => "Gemini".into(),
-        (None, n) => format!("Antigravity {n}"),
+        (None, n) => labels.and_then(|l| l.agy(n)).unwrap_or_else(|| format!("Antigravity {n}")),
     }
 }
 
@@ -282,7 +290,7 @@ fn claude_now<'a>(s: &'a Snapshot, cx: &Context) -> Now<'a> {
         };
     };
     let lines = if readable(a) { pick(a, CLAUDE) } else { Vec::new() };
-    let name = claude_name(a);
+    let name = claude_name(section, a, cx.labels);
     Now {
         name,
         tight: chosen(&lines, cx.window, cx.now),
@@ -304,7 +312,7 @@ fn agy_now<'a>(s: &'a Snapshot, cx: &Context, kinds: &[LineKind]) -> Now<'a> {
         };
     };
     let lines = if readable(a) { pick(a, kinds) } else { Vec::new() };
-    let name = agy_name(a);
+    let name = agy_name(a, cx.labels);
     Now {
         name,
         tight: chosen(&lines, cx.window, cx.now),

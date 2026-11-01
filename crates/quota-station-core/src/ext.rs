@@ -32,7 +32,11 @@
 //!   the room it has, at the read ([`crate::quota::claude::own_now`]) and in
 //!   alert 1's check ([`crate::alerts::pool_check`]), by the extension's
 //!   policy ([`Hooks::claude_pool`]), and the words alert 1's card has for
-//!   the pool so counted ([`Hooks::pool_answers`]).
+//!   the pool so counted ([`Hooks::pool_answers`]);
+//! - the names of the accounts the app shows where no name is shown, on
+//!   the menu bar's title ([`crate::icon`]) and on the alerts' cards
+//!   ([`crate::alerts`]), and alert 1's title: the extension's for the
+//!   settings in force ([`Hooks::account_labels`]).
 
 use std::io::Write;
 
@@ -42,6 +46,7 @@ use time::UtcOffset;
 use crate::alerts::{Alert, ExtAnswer, ExtKind, Switches};
 use crate::claude::cli::Cli;
 use crate::claude::Paths;
+use crate::labels::Labels;
 use crate::quota::claude::PoolPolicy;
 use crate::settings::Settings;
 
@@ -150,6 +155,17 @@ pub trait Hooks: Send + Sync {
     /// has none.
     fn pool_answers(&self) -> &'static [ExtAnswer] {
         &[]
+    }
+
+    /// The extension's names for the accounts the app shows where no name
+    /// is shown, and alert 1's title, with `settings` as they are now
+    /// ([`Labels`]). Asked wherever the app names them: each build of the
+    /// menu bar's icon, each pass of the alert rules, a sample card and
+    /// the line under a card after a switch. `None`, the default: the
+    /// app's own names (`Tài khoản N`, `Antigravity N`).
+    fn account_labels(&self, settings: &Settings) -> Option<Box<dyn Labels>> {
+        let _ = settings;
+        None
     }
 }
 

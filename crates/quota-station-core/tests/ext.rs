@@ -8,9 +8,11 @@ mod common;
 use std::path::{Path, PathBuf};
 
 use common::accounts::{credential, in_hours, oauth, Mac};
-use common::ext::{pool_reads, TestHooks, TestPolicy};
+use common::ext::{pool_reads, test_kind, TestHooks, TestPolicy};
 use quota_station_core::alerts::{self, Facts, Kind, Memory, Switches};
 use quota_station_core::ext::{self, Hooks, NoHooks};
+use quota_station_core::icon;
+use quota_station_core::labels::Labels;
 use quota_station_core::quota::claude::own_now;
 use quota_station_core::quota::Response;
 use quota_station_core::settings::{PoolAlert, Settings};
@@ -248,6 +250,7 @@ fn facts<'a>(
         overwrite: None,
         ext: None,
         pool: PoolAlert::default(),
+        labels: None,
     }
 }
 
@@ -350,4 +353,88 @@ fn without_an_extension_every_account_counts_in_the_pool() {
     let ids = alerts::evaluate(&mut memory, &facts(&r, None), &Switches::default(), &NoHooks);
     assert!(ids.is_empty(), "not dry");
     let _ = std::fs::remove_dir_all(&mac.home);
+}
+
+/// Settings with the test hooks' names on (`testLabels`).
+fn labelled() -> Settings {
+    let mut s = Settings::default();
+    s.ext.insert("testLabels".into(), Value::Bool(true));
+    s
+}
+
+/// Claude accounts 1 to 4, account 2 in use and dry, account 3 the one with
+/// the most left.
+fn four_accounts() -> Response {
+    report(vec![slot(1, 5.0, false), slot(2, 5.0, true), slot(3, 12.0, false), slot(4, 8.0, false)])
+}
+
+/// The extension names the accounts it gives a name on the menu bar's icon
+/// and on the cards, with the settings in force; an account it gives no
+/// name keeps the app's.
+#[test]
+fn the_extensions_labels_name_the_accounts_where_the_app_shows_them() {
+    let settings = labelled();
+    let labels = TestHooks.account_labels(&settings).expect("on in these settings");
+    let labels: Option<&dyn Labels> = Some(labels.as_ref());
+    let r = four_accounts();
+    // The icon, with the accounts of the snapshot's Claude section.
+    let s = quota_station_core::Snapshot::build(Some(&r), None);
+    let names: Vec<String> =
+        s.claude.accounts.iter().map(|a| icon::claude_name(&s.claude, a, labels)).collect();
+    assert_eq!(names, ["Test 1 of 4", "Tài khoản 2", "Test 3 of 4", "Tài khoản 4"]);
+    let mut agy = s.claude.accounts[0].clone();
+    agy.number = 2;
+    assert_eq!(icon::agy_name(&agy, labels), "Test agy 2");
+    agy.email = Some("lan@example.com".into());
+    assert_eq!(icon::agy_name(&agy, labels), "lan", "a name shown wins");
+    // The cards: alert 1 at a pass, with the extension's title.
+    let names = alerts::claude_names(Some(&r), labels);
+    assert_eq!(
+        names.values().collect::<Vec<_>>(),
+        ["Test 1 of 4", "Tài khoản 2", "Test 3 of 4", "Tài khoản 4"]
+    );
+    let mut memory = Memory::default();
+    let f = Facts { labels, ..facts(&r, None) };
+    alerts::evaluate(&mut memory, &f, &Switches::default(), &TestHooks);
+    let card = &memory.recent[0].alert;
+    assert_eq!(card.title, "Test pool running dry");
+    assert_eq!(card.body, "Tài khoản 2 đã dùng 95%. Test 1 of 4 có lại hạn mức lúc 10:29.");
+    assert_eq!(card.actions[0].label, "Sang Test 3 of 4 (đã dùng 88%)");
+    // "Gửi thử": the app's kinds, and the extension's kind gets the same names.
+    let sample = |kind: &Kind| alerts::sample(kind, 0, UtcOffset::UTC, labels, &TestHooks).unwrap();
+    let pool = sample(&Kind::Pool);
+    assert_eq!(pool.title, "Test pool running dry");
+    assert_eq!(pool.body, "Thử: Test one đã dùng 92%. Test two có lại hạn mức lúc 02:00.");
+    assert_eq!(pool.actions[0].label, "Sang Test three (đã dùng 81%)");
+    assert!(sample(&Kind::Overwrite)
+        .body
+        .contains("đổi về Test agy 1. Bạn đã chuyển sang Test agy 2"));
+    assert_eq!(sample(&test_kind()).title, "Test sample for Test one at 00:00");
+    #[cfg(feature = "antigravity-accounts")]
+    assert_eq!(alerts::agy_refused(2, "x", labels).title, "Chưa chuyển lại được sang Test agy 2");
+}
+
+/// The extension gives no names for settings it says not to, and without
+/// an extension there are none: the accounts go by number everywhere.
+#[test]
+fn without_an_extensions_labels_the_accounts_go_by_number() {
+    assert!(TestHooks.account_labels(&Settings::default()).is_none());
+    assert!(NoHooks.account_labels(&labelled()).is_none());
+    assert!(ext::none().account_labels(&labelled()).is_none());
+    let r = four_accounts();
+    let names = alerts::claude_names(Some(&r), None);
+    assert_eq!(
+        names.values().collect::<Vec<_>>(),
+        ["Tài khoản 1", "Tài khoản 2", "Tài khoản 3", "Tài khoản 4"]
+    );
+    let mut memory = Memory::default();
+    alerts::evaluate(&mut memory, &facts(&r, None), &Switches::default(), &NoHooks);
+    let card = &memory.recent[0].alert;
+    assert_eq!(card.title, "Hạn mức Claude sắp cạn");
+    assert_eq!(card.body, "Tài khoản 2 đã dùng 95%. Tài khoản 1 có lại hạn mức lúc 10:29.");
+    let pool = alerts::sample(&Kind::Pool, 0, UtcOffset::UTC, None, &TestHooks).unwrap();
+    assert_eq!(pool.title, "Hạn mức Claude sắp cạn");
+    assert_eq!(pool.body, "Thử: Tài khoản 1 đã dùng 92%. Tài khoản 2 có lại hạn mức lúc 02:00.");
+    let overwrite = alerts::sample(&Kind::Overwrite, 0, UtcOffset::UTC, None, &TestHooks).unwrap();
+    assert!(overwrite.body.contains("đổi về Antigravity 1. Bạn đã chuyển sang Antigravity 2"));
 }

@@ -498,11 +498,13 @@ impl Inner {
     // The binding stays for the build that adds to it.
     #[allow(clippy::let_and_return)]
     pub fn icon(&self, snapshot: &Snapshot, now: OffsetDateTime) -> Icon {
+        let labels = self.hooks.account_labels(&self.settings);
         let cx = Context {
             follow: self.settings.menubar,
             window: self.settings.menubar_window,
             codex: self.codex_use(),
             now,
+            labels: labels.as_deref(),
         };
         let icon = icon::icon(self.claude.is_some().then_some(snapshot), &cx);
         icon
@@ -687,6 +689,67 @@ mod tests {
         let model = inner.model();
         assert_eq!(model.machine, "Mac phòng khách");
         assert_eq!(model.machine_default, "Mac Studio");
+    }
+
+    /// Names every Claude account `Named N` while `testNames` is on in the
+    /// settings.
+    struct NamedHooks;
+
+    struct Named;
+
+    impl quota_station_core::labels::Labels for Named {
+        fn claude(
+            &self,
+            _accounts: &[quota_station_core::snapshot::Account],
+            account: &quota_station_core::snapshot::Account,
+        ) -> Option<String> {
+            Some(format!("Named {}", account.number))
+        }
+    }
+
+    impl Hooks for NamedHooks {
+        fn account_labels(
+            &self,
+            settings: &Settings,
+        ) -> Option<Box<dyn quota_station_core::labels::Labels>> {
+            (settings.ext.get("testNames") == Some(&serde_json::Value::Bool(true)))
+                .then(|| Box::new(Named) as Box<dyn quota_station_core::labels::Labels>)
+        }
+    }
+
+    /// The menu bar's icon names the Claude account in use as the
+    /// extension's hooks do for the settings in force, and as the app does
+    /// when they give no name.
+    #[test]
+    fn the_icon_names_the_account_as_the_extension_does_for_the_settings() {
+        let mut inner = Inner::new(
+            PathBuf::new(),
+            PathBuf::from("/nonexistent/settings.json"),
+            "Mac Studio".into(),
+            &NamedHooks,
+        );
+        inner.settings.menubar = quota_station_core::settings::Menubar::Claude;
+        inner.claude = Some(
+            serde_json::from_value(serde_json::json!({
+                "generatedAt": "2026-01-16T07:20:00.000Z",
+                "providers": [{
+                    "provider": "claude", "windows": [], "state": { "status": "fresh" },
+                    "claudeAccounts": { "activeSlot": 2, "slots": [
+                        { "slot": 1, "active": false, "status": "fresh" },
+                        { "slot": 2, "active": true, "status": "fresh" }
+                    ] }
+                }]
+            }))
+            .unwrap(),
+        );
+        let snapshot = Snapshot::build(inner.claude.as_ref(), None);
+        let now = OffsetDateTime::from_unix_timestamp(1_768_548_000).unwrap();
+        for (on, name) in [(true, "Named 2"), (false, "Tài khoản 2")] {
+            inner.settings.ext.insert("testNames".into(), on.into());
+            let icon = inner.icon(&snapshot, now);
+            assert!(icon.title.starts_with(name), "{}", icon.title);
+            assert!(icon.label.contains(&format!("Claude: {name}")), "{}", icon.label);
+        }
     }
 
     #[test]

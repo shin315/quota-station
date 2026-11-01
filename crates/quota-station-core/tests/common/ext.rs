@@ -15,9 +15,11 @@ use quota_station_core::alerts::{
 use quota_station_core::claude::cli::Cli;
 use quota_station_core::claude::Paths;
 use quota_station_core::ext::Hooks;
+use quota_station_core::labels::Labels;
 use quota_station_core::quota::claude::PoolPolicy;
 use quota_station_core::quota::{ClaudeAccounts, Provider, Slot};
 use quota_station_core::settings::Settings;
+use quota_station_core::snapshot::Account;
 use serde_json::{Map, Value};
 use time::{OffsetDateTime, UtcOffset};
 
@@ -38,6 +40,9 @@ use time::{OffsetDateTime, UtcOffset};
 /// The Claude pool: their policy ([`TestPolicy`]) counts the accounts with
 /// an odd number only, and alert 1's card has their own words once
 /// "dismiss" is pressed ([`TEST_POOL_ANSWERS`]).
+///
+/// The accounts' names: while `testLabels` is on in the settings, their own
+/// ([`TestLabels`]); otherwise the app's.
 #[derive(Debug, Default)]
 pub struct TestHooks;
 
@@ -118,6 +123,37 @@ impl Hooks for TestHooks {
 
     fn pool_answers(&self) -> &'static [ExtAnswer] {
         &TEST_POOL_ANSWERS
+    }
+
+    fn account_labels(&self, settings: &Settings) -> Option<Box<dyn Labels>> {
+        let on = settings.ext.get("testLabels") == Some(&Value::Bool(true));
+        on.then(|| Box::new(TestLabels) as Box<dyn Labels>)
+    }
+}
+
+/// The test hooks' names for the accounts: a Claude account with an odd
+/// number goes by `Test N of M` (M the accounts there are), one with an
+/// even number keeps the app's name; an Antigravity account goes by
+/// `Test agy N`; the cards "Gửi thử" sends name `Test one`, `Test two` and
+/// `Test three`; and alert 1 has its own title.
+#[derive(Debug, Default)]
+pub struct TestLabels;
+
+impl Labels for TestLabels {
+    fn claude(&self, accounts: &[Account], account: &Account) -> Option<String> {
+        (account.number % 2 == 1).then(|| format!("Test {} of {}", account.number, accounts.len()))
+    }
+
+    fn agy(&self, number: u32) -> Option<String> {
+        Some(format!("Test agy {number}"))
+    }
+
+    fn claude_samples(&self) -> Option<[&'static str; 3]> {
+        Some(["Test one", "Test two", "Test three"])
+    }
+
+    fn pool_title(&self) -> Option<&'static str> {
+        Some("Test pool running dry")
     }
 }
 

@@ -31,7 +31,8 @@
 //! An alert's key names its event (the account, the time it ends), and a
 //! key is sent once; "Nhắc ngày mai" sends it again the next morning while
 //! it still holds. The cards name accounts the way the windows do
-//! (Tài khoản 1, Antigravity 1), never by email. What each button does is
+//! (Tài khoản 1, Antigravity 1, or the extension's names for them,
+//! [`Facts::labels`]), never by email. What each button does is
 //! [`answer`]'s: some only note the answer, the others return an [`Effect`]
 //! for the app to carry out.
 
@@ -51,6 +52,7 @@ use crate::antigravity::switch::{How, Outcome as AgyOutcome};
 use crate::antigravity::watch;
 use crate::app_dir::AppDir;
 use crate::ext::Hooks;
+use crate::labels::Labels;
 use crate::quota::claude::PoolPolicy;
 use crate::quota::{Response, Slot};
 use crate::settings::PoolAlert;
@@ -504,6 +506,10 @@ pub struct Facts<'a> {
     pub ext: Option<&'a dyn ExtSource>,
     /// Alert 1's thresholds, from settings.
     pub pool: PoolAlert,
+    /// The extension's names for the accounts on the cards, and alert 1's
+    /// title, for the settings in force
+    /// ([`Hooks::account_labels`]); `None`: the app's own.
+    pub labels: Option<&'a dyn Labels>,
 }
 
 /// The Antigravity accounts here that need a new login or a verification.
@@ -616,20 +622,29 @@ pub fn pool_check(
     Some(PoolCheck { dry, active, active_left, others, next_reset })
 }
 
-/// Claude accounts by the names the windows give them: `Tài khoản N`.
-pub fn claude_names(report: Option<&Response>) -> BTreeMap<u32, String> {
-    Snapshot::build(report, None)
-        .claude
-        .accounts
+/// Claude accounts by the names the windows give them: the extension's
+/// ([`Labels::claude`]), else `Tài khoản N`.
+pub fn claude_names(
+    report: Option<&Response>,
+    labels: Option<&dyn Labels>,
+) -> BTreeMap<u32, String> {
+    let accounts = Snapshot::build(report, None).claude.accounts;
+    accounts
         .iter()
         .filter(|a| a.number > 0)
-        .map(|a| (a.number, format!("Tài khoản {}", a.number)))
+        .map(|a| {
+            let name = labels
+                .and_then(|l| l.claude(&accounts, a))
+                .unwrap_or_else(|| format!("Tài khoản {}", a.number));
+            (a.number, name)
+        })
         .collect()
 }
 
-#[cfg(feature = "antigravity-accounts")]
-fn agy_name(n: u32) -> String {
-    format!("Antigravity {n}")
+/// Antigravity account `n` by the name the windows give it: the
+/// extension's ([`Labels::agy`]), else `Antigravity N`.
+fn agy_name(n: u32, labels: Option<&dyn Labels>) -> String {
+    labels.and_then(|l| l.agy(n)).unwrap_or_else(|| format!("Antigravity {n}"))
 }
 
 // ===== Words =====
@@ -724,7 +739,7 @@ fn pool_alerts(
             ));
         }
         actions.push(act("dismiss", "Bỏ qua"));
-        let title = "Hạn mức Claude sắp cạn";
+        let title = pool_title(f.labels);
         return Some(Alert {
             key: format!("pool:dry:{now}"),
             kind: Kind::Pool,
@@ -750,6 +765,12 @@ fn pool_alerts(
         });
     }
     None
+}
+
+/// Alert 1's title when the pool runs dry: the extension's
+/// ([`Labels::pool_title`]), else the app's.
+fn pool_title(labels: Option<&dyn Labels>) -> &'static str {
+    labels.and_then(|l| l.pool_title()).unwrap_or("Hạn mức Claude sắp cạn")
 }
 
 /// A claude-swap error that only a new login mends, as one of the known
@@ -800,11 +821,11 @@ fn login_alerts(report: &Response, names: &BTreeMap<u32, String>, f: &Facts) -> 
 }
 
 #[cfg(feature = "antigravity-accounts")]
-fn agy_login_alerts(logins: &[AgyLogin], now: i64) -> Vec<Alert> {
+fn agy_login_alerts(logins: &[AgyLogin], now: i64, labels: Option<&dyn Labels>) -> Vec<Alert> {
     logins
         .iter()
         .map(|l| {
-            let name = agy_name(l.number);
+            let name = agy_name(l.number, labels);
             let (state, since, title, body, url) = match &l.standing {
                 Standing::NeedsLogin { since } => (
                     "login",
@@ -853,7 +874,7 @@ fn agy_login_alerts(logins: &[AgyLogin], now: i64) -> Vec<Alert> {
 #[cfg(feature = "antigravity-accounts")]
 fn overwrite_alert(o: &Overwrite, f: &Facts) -> Alert {
     let now = f.now.unix_timestamp();
-    let (to, from) = (agy_name(o.to), agy_name(o.from));
+    let (to, from) = (agy_name(o.to, f.labels), agy_name(o.from, f.labels));
     let mut body = format!(
         "Lúc {} Antigravity.app đổi về {from}. Bạn đã chuyển sang {to} lúc {}.",
         clock(o.at, f.offset),
@@ -916,7 +937,7 @@ pub struct ExtPass<'a> {
 /// which `memory` keeps. The extension's come among the app's in the order
 /// of their kinds' numbers.
 fn found(memory: &mut Memory, f: &Facts, hooks: &dyn Hooks) -> Vec<Alert> {
-    let names = claude_names(f.claude);
+    let names = claude_names(f.claude, f.labels);
     let check = f.claude.and_then(|r| pool_check(r, f.pool_policy, f.pool, f.now, f.offset));
     let mut out = Vec::new();
     if let Some(c) = &check {
@@ -928,7 +949,7 @@ fn found(memory: &mut Memory, f: &Facts, hooks: &dyn Hooks) -> Vec<Alert> {
     }
     #[cfg(feature = "antigravity-accounts")]
     {
-        out.extend(agy_login_alerts(&f.agy, f.now.unix_timestamp()));
+        out.extend(agy_login_alerts(&f.agy, f.now.unix_timestamp(), f.labels));
         out.extend(f.overwrite.as_ref().map(|o| overwrite_alert(o, f)));
     }
     if let Some(source) = f.ext {
@@ -1254,10 +1275,10 @@ pub fn settle(memory: &mut Memory, id: &str, said: Said) {
 }
 
 /// The line under the card after "Chuyển lại", naming the accounts as the
-/// cards do.
+/// cards do with `labels` ([`Facts::labels`]).
 #[cfg(feature = "antigravity-accounts")]
-pub fn agy_result(outcome: &AgyOutcome) -> Said {
-    agy_said(outcome, agy_name)
+pub fn agy_result(outcome: &AgyOutcome, labels: Option<&dyn Labels>) -> Said {
+    agy_said(outcome, |n| agy_name(n, labels))
 }
 
 #[cfg(feature = "antigravity-accounts")]
@@ -1285,24 +1306,37 @@ fn agy_said(outcome: &AgyOutcome, agy_name: impl Fn(u32) -> String) -> Said {
     }
 }
 
-/// A switch from a card that could not start.
+/// A switch from a card that could not start, naming the account as the
+/// cards do with `labels` ([`Facts::labels`]).
 #[cfg(feature = "antigravity-accounts")]
-pub fn agy_refused(number: u32, why: &str) -> Said {
+pub fn agy_refused(number: u32, why: &str, labels: Option<&dyn Labels>) -> Said {
     said(
         Tone::Bad,
-        format!("Chưa chuyển lại được sang {}", agy_name(number)),
+        format!("Chưa chuyển lại được sang {}", agy_name(number, labels)),
         format!("Lý do: {why}. Không có gì thay đổi."),
     )
 }
 
 /// The card "Gửi thử" sends for `kind`: the prototype's words, marked as a
 /// test, with buttons that change nothing, naming the accounts as the
-/// cards do. One of the extension's kinds sends what `hooks` give
-/// ([`Hooks::alert_sample`]); `None` when they give nothing, or the build
-/// does not have the kind.
-pub fn sample(kind: &Kind, now: i64, offset: UtcOffset, hooks: &dyn Hooks) -> Option<Alert> {
-    let names = (["Tài khoản 1", "Tài khoản 2", "Tài khoản 3"], ["Antigravity 1", "Antigravity 2"]);
-    sample_named(kind, now, offset, names, "Hạn mức Claude sắp cạn", hooks)
+/// cards do with `labels` ([`Facts::labels`]). One of the extension's
+/// kinds sends what `hooks` give ([`Hooks::alert_sample`]); `None` when
+/// they give nothing, or the build does not have the kind.
+pub fn sample(
+    kind: &Kind,
+    now: i64,
+    offset: UtcOffset,
+    labels: Option<&dyn Labels>,
+    hooks: &dyn Hooks,
+) -> Option<Alert> {
+    let claude = labels.and_then(|l| l.claude_samples()).unwrap_or([
+        "Tài khoản 1",
+        "Tài khoản 2",
+        "Tài khoản 3",
+    ]);
+    let agy = [agy_name(1, labels), agy_name(2, labels)];
+    let names = (claude, agy.each_ref().map(String::as_str));
+    sample_named(kind, now, offset, names, pool_title(labels), hooks)
 }
 
 fn sample_named(

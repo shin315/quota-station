@@ -46,7 +46,8 @@
 //! process list, opening a URL) goes through the seams in [`os`].
 //!
 //! [`ext`] holds the hooks an extension may give the core; without one
-//! ([`ext::NoHooks`]) each does nothing.
+//! ([`ext::NoHooks`]) each does nothing. [`labels`] is what an extension
+//! may call the accounts the app shows.
 
 pub mod agents;
 pub mod alerts;
@@ -60,6 +61,7 @@ pub mod detail;
 pub mod ext;
 pub mod history;
 pub mod icon;
+pub mod labels;
 pub mod local_time;
 pub mod login_item;
 pub mod os;

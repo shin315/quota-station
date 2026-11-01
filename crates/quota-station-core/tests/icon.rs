@@ -33,12 +33,18 @@ fn full() -> Snapshot {
 }
 
 /// The tightest window, as the title showed before there was a choice.
-fn cx(follow: Menubar) -> Context {
+fn cx(follow: Menubar) -> Context<'static> {
     shows(follow, MenubarWindow::Tightest)
 }
 
-fn shows(follow: Menubar, window: MenubarWindow) -> Context {
-    Context { follow, window, codex: CodexUse::ChatGpt, now: at("2026-01-16T07:20:00Z") }
+fn shows(follow: Menubar, window: MenubarWindow) -> Context<'static> {
+    Context {
+        follow,
+        window,
+        codex: CodexUse::ChatGpt,
+        now: at("2026-01-16T07:20:00Z"),
+        labels: None,
+    }
 }
 
 fn named(mut s: Snapshot) -> Snapshot {
