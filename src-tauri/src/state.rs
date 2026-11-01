@@ -43,7 +43,7 @@ use crate::alerting::{self, AlertsView};
 #[cfg(feature = "antigravity-accounts")]
 use crate::antigravity::{self, AccountsView};
 use crate::codex::{self, CodexView};
-use crate::ext::{Kept, ModelInput, NoExtension, StateSockets};
+use crate::ext::{Closing, Hold, Kept, ModelInput, NoExtension, StateSockets};
 use crate::install::{self, AppView, InstallState};
 use crate::notify;
 
@@ -295,6 +295,17 @@ impl Serialize for Tab {
     }
 }
 
+/// What the app does when the owner closes the main window or quits
+/// ([`Inner::on_close`]).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum OnClose {
+    /// It closes, or quits, at once.
+    Close,
+    /// The extension holds it: the main window asks the owner first, on
+    /// this tab when the extension named one of the main window's tabs.
+    Ask(Option<Tab>),
+}
+
 impl Inner {
     pub fn new(
         home: PathBuf,
@@ -466,6 +477,16 @@ impl Inner {
     /// extension's ([`crate::ext::Extension::tabs`]); `None` for any other.
     pub fn tab(&self, name: &str) -> Option<Tab> {
         Tab::named(name, self.extension.tabs_part())
+    }
+
+    /// What the app does when the owner is `closing` the main window or the
+    /// app: as the extension answers ([`crate::ext::Extension::hold_close`]),
+    /// which takes its own lock after the app's.
+    pub fn on_close(&self, closing: Closing) -> OnClose {
+        match self.extension.hold_close_part(&self.kept, closing) {
+            Hold::Close => OnClose::Close,
+            Hold::Ask { tab } => OnClose::Ask(tab.and_then(|name| self.tab(name))),
+        }
     }
 
     pub fn model(&self) -> Model {
@@ -781,6 +802,52 @@ mod tests {
         assert_eq!(inner.tab("drawnTab"), None);
         assert_eq!(inner.tab(""), None);
         assert_eq!(inner.tab("Settings"), None, "names are matched as written");
+    }
+
+    /// An extension holding the close while it keeps a tab name: the main
+    /// window's close keeps the tab in view, a quit asks on that tab.
+    struct Holds;
+
+    impl crate::ext::Extension for Holds {
+        fn tabs(&self) -> &[&'static str] {
+            &["drawnTab"]
+        }
+
+        fn hold_close(&self, kept: &Kept, closing: Closing) -> Hold {
+            let Some(tab) = kept.get::<&'static str>() else { return Hold::Close };
+            match closing {
+                Closing::MainWindow => Hold::Ask { tab: None },
+                Closing::App => Hold::Ask { tab: Some(*tab) },
+            }
+        }
+    }
+
+    #[test]
+    fn an_extension_holds_the_close_and_names_the_tab_it_asks_on() {
+        let mut inner = inner();
+        inner.extension = &Holds;
+        assert_eq!(inner.on_close(Closing::MainWindow), OnClose::Close);
+        assert_eq!(inner.on_close(Closing::App), OnClose::Close);
+
+        inner.kept.keep(Arc::new("drawnTab"));
+        assert_eq!(inner.on_close(Closing::MainWindow), OnClose::Ask(None));
+        assert_eq!(inner.on_close(Closing::App), OnClose::Ask(Some(Tab::Ext("drawnTab".into()))));
+        // A tab the app has stays the app's; a name that is no tab asks on
+        // the tab in view.
+        inner.kept.keep(Arc::new("settings"));
+        assert_eq!(inner.on_close(Closing::App), OnClose::Ask(Some(Tab::Settings)));
+        inner.kept.keep(Arc::new("drawn"));
+        assert_eq!(inner.on_close(Closing::App), OnClose::Ask(None));
+    }
+
+    /// Without an extension the main window closes and the app quits at
+    /// once, whatever is kept, as before the socket.
+    #[test]
+    fn without_an_extension_the_main_window_closes_and_the_app_quits() {
+        let mut inner = inner();
+        inner.kept.keep(Arc::new("drawnTab"));
+        assert_eq!(inner.on_close(Closing::MainWindow), OnClose::Close);
+        assert_eq!(inner.on_close(Closing::App), OnClose::Close);
     }
 
     #[test]

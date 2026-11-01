@@ -12,7 +12,7 @@
 use std::sync::{Arc, Mutex};
 
 use quota_station::ext::{
-    Extension, Hooks, Host, Kept, ModelInput, ReaderDone, ReaderPass, ReaderWork,
+    Closing, Extension, Hold, Hooks, Host, Kept, ModelInput, ReaderDone, ReaderPass, ReaderWork,
 };
 use serde_json::{json, Map, Value};
 
@@ -46,14 +46,17 @@ impl Hooks for TestHooks {}
 /// The test extension's own state, which it keeps in the app when it
 /// starts: what it read of the settings, a count its commands and its work
 /// at the reader's passes keep (and its part of the model shows), whether it
-/// asks the reader to go now, and the passes it saw (`read_due`,
-/// `window_open`).
+/// asks the reader to go now, the passes it saw (`read_due`,
+/// `window_open`), and whether it holds work not kept yet (so a close
+/// waits) and the closes it was asked about.
 #[derive(Debug, Default)]
 pub struct TestState {
     pub machine: Option<String>,
     pub count: Mutex<u32>,
     pub asks: Mutex<bool>,
     pub passes: Mutex<Vec<(bool, bool)>>,
+    pub unkept: Mutex<bool>,
+    pub closes: Mutex<Vec<Closing>>,
 }
 
 /// Another type, which the test extension never keeps.
@@ -116,6 +119,20 @@ impl Extension for TestExtension {
     /// Its own tab, and one named like an app's tab, which stays the app's.
     fn tabs(&self) -> &[&'static str] {
         &["testExtension", "settings"]
+    }
+
+    /// While it holds work not kept, the main window's close asks on the tab
+    /// in view and a quit asks on its own tab.
+    fn hold_close(&self, kept: &Kept, closing: Closing) -> Hold {
+        let Some(state) = kept.get::<TestState>() else { return Hold::Close };
+        state.closes.lock().unwrap().push(closing);
+        if !*state.unkept.lock().unwrap() {
+            return Hold::Close;
+        }
+        match closing {
+            Closing::MainWindow => Hold::Ask { tab: None },
+            Closing::App => Hold::Ask { tab: Some("testExtension") },
+        }
     }
 
     quota_station::extension_commands![

@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use common::{NotKept, TestExtension, TestState};
 use quota_station::ext::{
-    shadowed, shadowed_tabs, Extension, Kept, ModelInput, NoExtension, ReaderPass,
+    shadowed, shadowed_tabs, Closing, Extension, Hold, Kept, ModelInput, NoExtension, ReaderPass,
 };
 use quota_station_core::app_dir::AppDir;
 use quota_station_core::settings::Settings;
@@ -173,4 +173,40 @@ fn an_extension_names_its_tabs_and_a_tab_the_app_has_stays_the_apps() {
 fn without_an_extension_the_app_has_only_its_own_tabs() {
     assert!(NoExtension.tabs().is_empty());
     assert!(shadowed_tabs(&[]).is_empty());
+}
+
+#[test]
+fn an_extension_holds_the_close_while_its_work_is_not_kept() {
+    let mut kept = Kept::default();
+    let state = Arc::new(TestState::default());
+    kept.keep(state.clone());
+    assert_eq!(TestExtension.hold_close(&kept, Closing::MainWindow), Hold::Close);
+    assert_eq!(TestExtension.hold_close(&kept, Closing::App), Hold::Close);
+
+    *state.unkept.lock().unwrap() = true;
+    assert_eq!(TestExtension.hold_close(&kept, Closing::MainWindow), Hold::Ask { tab: None });
+    assert_eq!(
+        TestExtension.hold_close(&kept, Closing::App),
+        Hold::Ask { tab: Some("testExtension") }
+    );
+    assert_eq!(
+        *state.closes.lock().unwrap(),
+        [Closing::MainWindow, Closing::App, Closing::MainWindow, Closing::App]
+    );
+
+    // Before it keeps its state, it holds nothing.
+    assert_eq!(TestExtension.hold_close(&Kept::default(), Closing::App), Hold::Close);
+}
+
+#[test]
+fn without_an_extension_the_main_window_closes_and_the_app_quits_at_once() {
+    let mut kept = Kept::default();
+    let state = Arc::new(TestState::default());
+    *state.unkept.lock().unwrap() = true;
+    kept.keep(state.clone());
+    for closing in [Closing::MainWindow, Closing::App] {
+        assert_eq!(NoExtension.hold_close(&kept, closing), Hold::Close);
+    }
+    assert!(state.closes.lock().unwrap().is_empty(), "never asked");
+    assert_eq!(Hold::default(), Hold::Close);
 }

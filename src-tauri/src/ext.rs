@@ -36,6 +36,10 @@
 //! - [`Extension::tabs`]: the main window's tabs the extension adds to the
 //!   app's own, by the names the windows know them by. A name that is one of
 //!   the app's tabs stays the app's ([`shadowed_tabs`] lists those).
+//! - [`Extension::hold_close`]: whether the main window closes, and the app
+//!   quits, at once when the owner asks ([`Closing`]), or waits while the
+//!   main window asks the owner first ([`Hold`]), for work of the
+//!   extension's that is not kept yet.
 //!
 //! The names and the handler are apart so a test can read the names without
 //! building the handler: a handler holds Tauri's window runtime, which a
@@ -44,9 +48,9 @@
 //! makes one; what the extension keeps is plain data ([`Kept`]), and so is
 //! what the reader hands it ([`ReaderPass`]) and what the model is drawn
 //! from ([`ModelInput`]). The app's state keeps only the extension's
-//! sockets it asks under its lock (the model, what the build has and the
-//! tabs), apart from the rest, so a test can build that state and its
-//! model without the runtime.
+//! sockets it asks under its lock (the model, what the build has, the tabs
+//! and the hold on a close), apart from the rest, so a test can build that
+//! state and its model without the runtime.
 
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
@@ -142,6 +146,45 @@ pub trait Extension: Send + Sync + 'static {
     fn tabs(&self) -> &[&'static str] {
         &[]
     }
+
+    /// Whether `closing` happens at once ([`Hold::Close`]) or waits while
+    /// the main window asks the owner first ([`Hold::Ask`]), say because
+    /// the extension holds work the owner has not kept. Asked each time the
+    /// owner closes the main window or quits the app, under the app's lock:
+    /// it reads only `kept`, never the [`Host`]. Once the owner answered,
+    /// the extension's own commands close the window or quit.
+    fn hold_close(&self, kept: &Kept, closing: Closing) -> Hold {
+        let _ = (kept, closing);
+        Hold::Close
+    }
+}
+
+/// What the owner is closing ([`Extension::hold_close`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Closing {
+    /// The main window, by its close button or the system's shortcut.
+    MainWindow,
+    /// The app, by `Thoát Quota Station` in the menu bar item's menu.
+    App,
+}
+
+/// The extension's answer when the owner closes the main window or quits
+/// ([`Extension::hold_close`]).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum Hold {
+    /// It closes at once, as without the extension.
+    #[default]
+    Close,
+    /// It waits: the main window stays and the app tells it to ask the
+    /// owner (the `closeRequested` event when the window is closing,
+    /// `quitRequested` when the app is). The window comes forward on `tab`,
+    /// one of the main window's tabs, when it names one; a quit opens the
+    /// window if it is not open.
+    Ask {
+        /// The tab the window asks on, by its name; `None` keeps the tab in
+        /// view.
+        tab: Option<&'static str>,
+    },
 }
 
 /// What the extension draws its part of the model from
@@ -160,14 +203,16 @@ pub struct ModelInput<'a> {
 }
 
 /// The extension's sockets the app asks under its lock (what draws,
-/// [`Extension::model`] and [`Extension::capabilities`], and the tabs,
-/// [`Extension::tabs`]), as the app's state keeps them: apart from the rest
+/// [`Extension::model`] and [`Extension::capabilities`], the tabs,
+/// [`Extension::tabs`], and the hold on a close, [`Extension::hold_close`]),
+/// as the app's state keeps them: apart from the rest
 /// of [`Extension`], so that state holds nothing of the window runtime the
 /// command handler brings, and a test can build it.
 pub(crate) trait StateSockets: Send + Sync {
     fn model_part(&self, input: &ModelInput<'_>) -> Map<String, Value>;
     fn capabilities_part(&self) -> Map<String, Value>;
     fn tabs_part(&self) -> &[&'static str];
+    fn hold_close_part(&self, kept: &Kept, closing: Closing) -> Hold;
 }
 
 impl<E: Extension> StateSockets for E {
@@ -181,6 +226,10 @@ impl<E: Extension> StateSockets for E {
 
     fn tabs_part(&self) -> &[&'static str] {
         self.tabs()
+    }
+
+    fn hold_close_part(&self, kept: &Kept, closing: Closing) -> Hold {
+        self.hold_close(kept, closing)
     }
 }
 

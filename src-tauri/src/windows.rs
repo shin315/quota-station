@@ -23,7 +23,8 @@ use tauri::{LogicalPosition, TitleBarStyle};
 #[cfg(not(windows))]
 use tauri_plugin_positioner::{Position, WindowExt};
 
-use crate::state::{AppState, Tab};
+use crate::ext::Closing;
+use crate::state::{AppState, OnClose, Tab};
 
 pub const POPOVER: &str = "popover";
 pub const MAIN: &str = "main";
@@ -622,6 +623,19 @@ pub fn open_main(app: &AppHandle, tab: Tab) {
     if let Ok(window) = built {
         let handle = app.clone();
         window.on_window_event(move |event| match event {
+            // The extension may hold the close (`Extension::hold_close`): the
+            // window then asks first, and the extension closes it once the
+            // owner answered.
+            WindowEvent::CloseRequested { api, .. } => {
+                let on_close = handle.state::<AppState>().lock().on_close(Closing::MainWindow);
+                if let OnClose::Ask(tab) = on_close {
+                    api.prevent_close();
+                    if let Some(tab) = tab {
+                        open_main(&handle, tab);
+                    }
+                    let _ = handle.emit_to(MAIN, "closeRequested", ());
+                }
+            }
             WindowEvent::Focused(true) => {
                 check_material(&handle);
                 crate::session::shoot(&handle, "main", MAIN_SETTLES);
@@ -674,9 +688,21 @@ pub fn close_main(app: &AppHandle) {
     }
 }
 
-/// `Thoát Quota Station`: quits.
+/// `Thoát Quota Station`: quits, unless the extension holds it
+/// (`Extension::hold_close`); then the main window comes forward, on the
+/// tab the extension named or else the one it was on, and asks first. The
+/// extension quits once the owner answered.
 pub fn quit(app: &AppHandle) {
-    app.exit(0);
+    let on_close = app.state::<AppState>().lock().on_close(Closing::App);
+    let OnClose::Ask(tab) = on_close else {
+        app.exit(0);
+        return;
+    };
+    let tab = tab.unwrap_or_else(|| app.state::<AppState>().lock().main_tab.clone());
+    open_main(app, tab);
+    if let Some(window) = main_window(app) {
+        let _ = window.emit_to(MAIN, "quitRequested", ());
+    }
 }
 
 #[cfg(test)]
