@@ -5,7 +5,10 @@
 //! socket's tests fill its hook here and check that the core calls it, and
 //! that `NoHooks` leaves the core as it is.
 
+use std::io::Write;
+
 use quota_station_core::alerts::Switches;
+use quota_station_core::claude::cli::Cli;
 use quota_station_core::ext::Hooks;
 use quota_station_core::settings::Settings;
 use serde_json::{Map, Value};
@@ -17,6 +20,9 @@ use serde_json::{Map, Value};
 /// a Mac that had the app on; every open notes whether a file was read
 /// (`testFound`) and drops `testDropped`. While `testQuiet` is on, alert 1
 /// does not run.
+///
+/// `quota-station claude …`: they add `test-word` (and would take `status`
+/// too, were it ever asked), with a usage of their own.
 #[derive(Debug, Default)]
 pub struct TestHooks;
 
@@ -40,4 +46,32 @@ impl Hooks for TestHooks {
         }
         on
     }
+
+    /// `test-word ARGS…` prints `test ARGS…` and a note on stderr, and
+    /// exits 3; `status` would exit 9; anything else is not theirs.
+    fn claude_command(
+        &self,
+        cli: &Cli,
+        args: &[String],
+        out: &mut dyn Write,
+        err: &mut dyn Write,
+    ) -> Option<i32> {
+        let _ = cli;
+        match args.first().map(String::as_str) {
+            Some("test-word") => {
+                let _ = writeln!(out, "test {}", args[1..].join(" "));
+                let _ = writeln!(err, "noted");
+                Some(3)
+            }
+            Some("status") => Some(9),
+            _ => None,
+        }
+    }
+
+    fn claude_usage(&self) -> Option<&'static str> {
+        Some(TEST_USAGE)
+    }
 }
+
+/// The usage the test hooks give `quota-station claude`.
+pub const TEST_USAGE: &str = "usage: quota-station claude test-word ARGS...\n";

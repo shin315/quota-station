@@ -19,6 +19,8 @@ use quota_station_core::claude::{cc, session, switch, usage};
 use serde_json::Value;
 
 use common::accounts::{credential, in_hours, oauth, FakeAnthropic, Mac};
+use common::ext::{TestHooks, TEST_USAGE};
+use quota_station_core::ext::{Hooks, NoHooks};
 
 /// Accounts 2 and 3, Claude Code on 2.
 fn mac(tag: &str) -> Mac {
@@ -201,11 +203,59 @@ fn cli(mac: &Mac, claude: Option<std::path::PathBuf>) -> Cli {
     }
 }
 
+/// The hooks the command line runs with in this build: none.
+fn hooks(_: &Cli) -> quota_station_core::ext::NoHooks {
+    quota_station_core::ext::NoHooks
+}
+
 fn call(cli: &Cli, args: &[&str]) -> (i32, String, String) {
+    call_with(cli, &hooks(cli), args)
+}
+
+/// `quota-station claude ARGS…` with `hooks`: the exit code, stdout and
+/// stderr.
+fn call_with(cli: &Cli, hooks: &dyn Hooks, args: &[&str]) -> (i32, String, String) {
     let args: Vec<String> = args.iter().map(|a| a.to_string()).collect();
     let (mut out, mut err) = (Vec::new(), Vec::new());
-    let code = cli::run(cli, &args, &mut out, &mut err);
+    let code = cli::run(cli, hooks, &args, &mut out, &mut err);
     (code, String::from_utf8(out).unwrap(), String::from_utf8(err).unwrap())
+}
+
+#[test]
+fn an_extension_adds_commands_and_its_usage_and_the_apps_own_stay_the_apps() {
+    let mac = mac("cli-ext");
+    let cli = cli(&mac, None);
+    let hooks = TestHooks;
+    let usage = || (2, String::new(), TEST_USAGE.to_string());
+    assert_eq!(
+        call_with(&cli, &hooks, &["test-word", "a", "b"]),
+        (3, "test a b\n".to_string(), "noted\n".to_string())
+    );
+    // The app's `status` is the app's: the extension is never asked.
+    let (code, text, _) = call_with(&cli, &hooks, &["status", "--json"]);
+    assert_eq!(code, 0);
+    let data: Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(data["activeSlot"], 2);
+    // The usage is the extension's, for help and for what nobody knows.
+    assert_eq!(call_with(&cli, &hooks, &["help"]), (0, TEST_USAGE.to_string(), String::new()));
+    assert_eq!(call_with(&cli, &hooks, &["--help"]).1, TEST_USAGE);
+    assert_eq!(call_with(&cli, &hooks, &[]).1, TEST_USAGE);
+    assert_eq!(call_with(&cli, &hooks, &["nonsense"]), usage());
+    assert_eq!(call_with(&cli, &hooks, &["switch", "x"]), usage());
+    assert_eq!(call_with(&cli, &hooks, &["remove"]), usage());
+}
+
+#[test]
+fn without_an_extension_a_command_the_app_has_not_prints_the_apps_usage_and_exits_2() {
+    let mac = mac("cli-no-ext");
+    let cli = cli(&mac, None);
+    let usage = (2, String::new(), cli::USAGE.to_string());
+    for args in [&["test-word", "a"][..], &["nonsense"], &["switch", "x"], &["alias"]] {
+        assert_eq!(call_with(&cli, &NoHooks, args), usage, "{args:?}");
+    }
+    assert_eq!(call_with(&cli, &NoHooks, &["help"]), (0, cli::USAGE.to_string(), String::new()));
+    assert_eq!(call_with(&cli, &NoHooks, &["-h"]).1, cli::USAGE);
+    assert_eq!(switch::active_slot(&mac.store), Some(2));
 }
 
 #[test]

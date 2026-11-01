@@ -69,9 +69,10 @@ use crate::ext::{Extension, Host};
 use crate::state::{Inner, Shared, Tab};
 
 /// The app: a subcommand from a terminal (`quota-station claude …`,
-/// `quota-station quota …`), else the menu bar app, with what `extension`
-/// adds ([`ext`]). The binary (`main.rs`) only calls it, with the Tauri
-/// context of its own `tauri.conf.json` and the extension it is built with.
+/// `quota-station quota …`, or one of `extension`'s), else the menu bar
+/// app, with what `extension` adds ([`ext`]). The binary (`main.rs`) only
+/// calls it, with the Tauri context of its own `tauri.conf.json` and the
+/// extension it is built with.
 pub fn run<E: Extension>(context: tauri::Context<tauri::Wry>, extension: E) {
     // The extension lasts as long as the app: the state keeps its hooks and
     // the sockets it asks under its lock.
@@ -84,22 +85,8 @@ pub fn run<E: Extension>(context: tauri::Context<tauri::Wry>, extension: E) {
     if matches!(args.first().map(String::as_str), Some("claude" | "quota")) {
         attach_console();
     }
-    if args.first().map(String::as_str) == Some("agents") {
-        // `quota-station agents …` is refused, as by a copy of another
-        // version, without a window.
-        {
-            println!("{}", serde_json::json!({ "error": "protocol" }));
-            std::process::exit(quota_station_core::agents::COPY_REFUSED);
-        }
-    }
-    // The Claude accounts from a terminal and the programs that use them:
-    // answered without a window.
-    if args.first().map(String::as_str) == Some("claude") {
-        std::process::exit(claude_cli(&args[1..]));
-    }
-    // The quota as the app reads it, from a terminal.
-    if args.first().map(String::as_str) == Some("quota") {
-        std::process::exit(quota_cli(&args[1..]));
+    if let Some(code) = subcommand(extension, &args) {
+        std::process::exit(code);
     }
     let builder = tauri::Builder::default()
         // A second launch shows this copy's main window instead of a second
@@ -385,8 +372,40 @@ fn attach_console() {
     }
 }
 
-/// `quota-station claude …`, with the owner's home and the Keychain.
-fn claude_cli(args: &[String]) -> i32 {
+/// A subcommand from a terminal, answered without a window, and nothing
+/// else starts: the app's own, else the extension's
+/// ([`Extension::subcommand`]), else the refusal of `quota-station agents
+/// …` ([`agents_refused`]). `None`: the app starts.
+fn subcommand<E: Extension + ?Sized>(extension: &E, args: &[String]) -> Option<i32> {
+    match args.first().map(String::as_str) {
+        // The Claude accounts from a terminal and the programs that use
+        // them.
+        Some("claude") => Some(claude_cli(&args[1..], extension.hooks())),
+        // The quota as the app reads it, from a terminal.
+        Some("quota") => Some(quota_cli(&args[1..])),
+        _ => extension.subcommand(args).or_else(|| {
+            (args.first().map(String::as_str) == Some("agents")).then(|| {
+                let (text, code) = agents_refused();
+                println!("{text}");
+                code
+            })
+        }),
+    }
+}
+
+/// What `quota-station agents …` gets when the extension does not answer
+/// it: the refusal a copy of another version gives (this JSON on stdout and
+/// exit 7), without a window.
+fn agents_refused() -> (String, i32) {
+    (
+        serde_json::json!({ "error": "protocol" }).to_string(),
+        quota_station_core::agents::COPY_REFUSED,
+    )
+}
+
+/// `quota-station claude …`, with the owner's home and the Keychain, and
+/// the commands `hooks` add.
+fn claude_cli(args: &[String], hooks: &dyn ext::Hooks) -> i32 {
     use quota_station_core::claude::{cli, store::Store, Paths};
     let Some(home) = cli_home() else {
         eprintln!("quota-station claude: HOME is not set");
@@ -396,7 +415,7 @@ fn claude_cli(args: &[String]) -> i32 {
         store: Store::new(Paths::for_home(&home), quota_station_core::os::secret_store()),
         tools: cli::Tools::system(&home),
     };
-    cli::run(&cli, args, &mut std::io::stdout(), &mut std::io::stderr())
+    cli::run(&cli, hooks, args, &mut std::io::stdout(), &mut std::io::stderr())
 }
 
 const QUOTA_USAGE: &str = "\
@@ -554,6 +573,54 @@ mod tests {
         let mut names = super::command_names();
         names.extend(extension().command_names());
         names
+    }
+
+    fn words(words: &[&str]) -> Vec<String> {
+        words.iter().map(|w| w.to_string()).collect()
+    }
+
+    /// An extension with subcommands of its own, `agents` among them.
+    struct Answers;
+
+    impl Extension for Answers {
+        fn subcommand(&self, args: &[String]) -> Option<i32> {
+            match args.first().map(String::as_str) {
+                Some("agents") => Some(3),
+                Some("test-word") => Some(4),
+                _ => None,
+            }
+        }
+    }
+
+    // `claude` and `quota` are answered by the app before any extension is
+    // asked; they read the owner's home, so no test runs them here.
+
+    #[test]
+    fn without_an_extension_agents_is_refused_and_anything_else_starts_the_app() {
+        let none = crate::ext::NoExtension;
+        assert_eq!(super::agents_refused(), (r#"{"error":"protocol"}"#.to_string(), 7));
+        assert_eq!(super::subcommand(&none, &words(&["agents", "read"])), Some(7));
+        assert_eq!(super::subcommand(&none, &words(&["agents"])), Some(7));
+        for args in [words(&[]), words(&["test-word"]), words(&["--agents"])] {
+            assert_eq!(super::subcommand(&none, &args), None, "{args:?}");
+        }
+    }
+
+    #[test]
+    fn an_extension_answers_its_own_subcommands_and_agents_before_the_refusal() {
+        assert_eq!(super::subcommand(&Answers, &words(&["agents", "read"])), Some(3));
+        assert_eq!(super::subcommand(&Answers, &words(&["test-word", "x"])), Some(4));
+        for args in [words(&[]), words(&["nonsense"])] {
+            assert_eq!(super::subcommand(&Answers, &args), None, "{args:?}");
+        }
+    }
+
+    /// The extension this build's binary passes leaves a plain launch to
+    /// the app.
+    #[test]
+    fn this_builds_extension_leaves_a_launch_to_the_app() {
+        assert_eq!(super::subcommand(&extension(), &[]), None);
+        assert_eq!(super::subcommand(&extension(), &words(&["nonsense"])), None);
     }
 
     #[test]

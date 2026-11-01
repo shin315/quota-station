@@ -3,7 +3,9 @@
 
 //! `quota-station claude …`: the accounts from the command line, for other
 //! programs and the owner in a terminal. No command prints a token; only
-//! `status --emails` prints emails.
+//! `status --emails` prints emails. An extension may add commands of its own
+//! ([`Hooks::claude_command`]) and the usage that names them
+//! ([`Hooks::claude_usage`]).
 
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
@@ -14,6 +16,7 @@ use time::OffsetDateTime;
 use super::store::Store;
 use super::usage::Endpoints;
 use super::{import, manage, session, state, switch, usage};
+use crate::ext::Hooks;
 
 /// The programs the commands run.
 #[derive(Debug, Clone)]
@@ -29,6 +32,7 @@ impl Tools {
     }
 }
 
+/// The usage of the app's own commands.
 pub const USAGE: &str = "\
 usage: quota-station claude <command>
 
@@ -56,8 +60,15 @@ fn slot(arg: Option<&String>) -> Option<u32> {
     arg.and_then(|a| a.parse().ok()).filter(|n| *n > 0)
 }
 
-/// Runs one command; the exit code.
-pub fn run(cli: &Cli, args: &[String], out: &mut dyn Write, err: &mut dyn Write) -> i32 {
+/// Runs one command; the exit code. A command that is not the app's goes to
+/// `hooks` ([`Hooks::claude_command`]).
+pub fn run(
+    cli: &Cli,
+    hooks: &dyn Hooks,
+    args: &[String],
+    out: &mut dyn Write,
+    err: &mut dyn Write,
+) -> i32 {
     let store = &cli.store;
     let word = args.first().map(String::as_str).unwrap_or("help");
     let rest = &args[args.len().min(1)..];
@@ -96,7 +107,7 @@ pub fn run(cli: &Cli, args: &[String], out: &mut dyn Write, err: &mut dyn Write)
             0
         }
         "switch" => {
-            let Some(n) = slot(rest.first()) else { return usage_error(err) };
+            let Some(n) = slot(rest.first()) else { return usage_error(err, hooks) };
             match switch::switch(store, n) {
                 Ok(done) => {
                     let _ = state::write(store, Some(n), OffsetDateTime::now_utc());
@@ -108,7 +119,7 @@ pub fn run(cli: &Cli, args: &[String], out: &mut dyn Write, err: &mut dyn Write)
             }
         }
         "run" => {
-            let Some(n) = slot(rest.first()) else { return usage_error(err) };
+            let Some(n) = slot(rest.first()) else { return usage_error(err, hooks) };
             let mut tail = &rest[1..];
             let require = tail.first().is_some_and(|a| a == "--require-session");
             if require {
@@ -124,7 +135,7 @@ pub fn run(cli: &Cli, args: &[String], out: &mut dyn Write, err: &mut dyn Write)
             }
         }
         "session" => {
-            let Some(n) = slot(rest.first()) else { return usage_error(err) };
+            let Some(n) = slot(rest.first()) else { return usage_error(err, hooks) };
             match session::prepare(store, n) {
                 Ok(dir) => {
                     let _ = writeln!(out, "{}", dir.display());
@@ -170,7 +181,7 @@ pub fn run(cli: &Cli, args: &[String], out: &mut dyn Write, err: &mut dyn Write)
             }
         }
         "remove" | "alias" => {
-            let Some(n) = slot(rest.first()) else { return usage_error(err) };
+            let Some(n) = slot(rest.first()) else { return usage_error(err, hooks) };
             let done = match word {
                 "remove" => manage::remove(store, n),
                 _ => manage::set_alias(store, n, &rest[1..].join(" ")),
@@ -185,15 +196,20 @@ pub fn run(cli: &Cli, args: &[String], out: &mut dyn Write, err: &mut dyn Write)
             }
         }
         "help" | "--help" | "-h" => {
-            let _ = write!(out, "{USAGE}");
+            let _ = write!(out, "{}", usage(hooks));
             0
         }
-        _ => usage_error(err),
+        _ => hooks.claude_command(cli, args, out, err).unwrap_or_else(|| usage_error(err, hooks)),
     }
 }
 
-fn usage_error(err: &mut dyn Write) -> i32 {
-    let _ = write!(err, "{USAGE}");
+/// The usage: the extension's when it gives one, else the app's.
+fn usage(hooks: &dyn Hooks) -> &'static str {
+    hooks.claude_usage().unwrap_or(USAGE)
+}
+
+fn usage_error(err: &mut dyn Write, hooks: &dyn Hooks) -> i32 {
+    let _ = write!(err, "{}", usage(hooks));
     2
 }
 

@@ -40,6 +40,11 @@
 //!   quits, at once when the owner asks ([`Closing`]), or waits while the
 //!   main window asks the owner first ([`Hold`]), for work of the
 //!   extension's that is not kept yet.
+//! - [`Extension::subcommand`]: a subcommand from a terminal
+//!   (`quota-station <word> …`) that is not one of the app's, answered
+//!   before the app starts and without a window. The app's own subcommands
+//!   (`claude`, `quota`) stay the app's; the commands the extension adds to
+//!   `quota-station claude …` are a core hook ([`Hooks::claude_command`]).
 //!
 //! The names and the handler are apart so a test can read the names without
 //! building the handler: a handler holds Tauri's window runtime, which a
@@ -156,6 +161,19 @@ pub trait Extension: Send + Sync + 'static {
     fn hold_close(&self, kept: &Kept, closing: Closing) -> Hold {
         let _ = (kept, closing);
         Hold::Close
+    }
+
+    /// A subcommand from a terminal: `args` are the words after
+    /// `quota-station`, the subcommand first (none when the app is simply
+    /// launched). The extension answers with the exit code, having printed
+    /// what it prints, and the app exits with it without starting; or
+    /// `None`, the default, when the words are not its own: then the app
+    /// answers them, or starts. Asked before the app starts, so the
+    /// extension has no [`Host`] and nothing it keeps yet. The app's own
+    /// subcommands (`claude`, `quota`) never reach the extension.
+    fn subcommand(&self, args: &[String]) -> Option<i32> {
+        let _ = args;
+        None
     }
 }
 

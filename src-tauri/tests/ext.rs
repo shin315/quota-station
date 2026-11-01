@@ -210,3 +210,23 @@ fn without_an_extension_the_main_window_closes_and_the_app_quits_at_once() {
     assert!(state.closes.lock().unwrap().is_empty(), "never asked");
     assert_eq!(Hold::default(), Hold::Close);
 }
+
+fn words(words: &[&str]) -> Vec<String> {
+    words.iter().map(|w| w.to_string()).collect()
+}
+
+#[test]
+fn an_extension_answers_its_own_subcommand_from_a_terminal() {
+    assert_eq!(TestExtension.subcommand(&words(&["test-extension"])), Some(5));
+    assert_eq!(TestExtension.subcommand(&words(&["test-extension", "a", "b"])), Some(7));
+    for args in [words(&[]), words(&["nonsense"]), words(&["--test-extension"])] {
+        assert_eq!(TestExtension.subcommand(&args), None, "{args:?}");
+    }
+}
+
+#[test]
+fn without_an_extension_no_subcommand_is_its_own() {
+    for args in [words(&[]), words(&["test-extension"]), words(&["agents", "read"])] {
+        assert_eq!(NoExtension.subcommand(&args), None, "{args:?}");
+    }
+}

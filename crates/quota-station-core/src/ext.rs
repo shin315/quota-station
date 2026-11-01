@@ -19,11 +19,17 @@
 //!   [`Settings::ext`], are read by [`Hooks::tidy_settings`] and settled
 //!   for a Mac new to the app by [`Hooks::settle_settings`], and
 //!   [`Hooks::settled_key`] names the key that tells a file was settled;
-//! - which alerts run ([`Settings::alert_switches`]): [`Hooks::alert_switches`].
+//! - which alerts run ([`Settings::alert_switches`]): [`Hooks::alert_switches`];
+//! - `quota-station claude …` ([`crate::claude::cli::run`]): the commands
+//!   the extension adds to the app's ([`Hooks::claude_command`]) and the
+//!   usage that names them ([`Hooks::claude_usage`]).
+
+use std::io::Write;
 
 use serde_json::{Map, Value};
 
 use crate::alerts::Switches;
+use crate::claude::cli::Cli;
 use crate::settings::Settings;
 
 /// The hooks an extension gives the core. Every method has a default that
@@ -61,6 +67,31 @@ pub trait Hooks: Send + Sync {
     fn alert_switches(&self, settings: &Settings, on: Switches) -> Switches {
         let _ = settings;
         on
+    }
+
+    /// A command of `quota-station claude …` that is not one of the app's:
+    /// `args` are the words after `claude`, the command first. The
+    /// extension answers with the exit code, having written what it prints
+    /// to `out` and `err`, or `None`, the default, when the command is not
+    /// its own either: then the app prints the usage on `err` and exits 2.
+    /// The app's own commands never reach the extension.
+    fn claude_command(
+        &self,
+        cli: &Cli,
+        args: &[String],
+        out: &mut dyn Write,
+        err: &mut dyn Write,
+    ) -> Option<i32> {
+        let _ = (cli, args, out, err);
+        None
+    }
+
+    /// The usage `quota-station claude` prints (for `help`, and on stderr
+    /// for a command or an argument it does not know), when the
+    /// extension's commands belong in it. `None`, the default, is the
+    /// app's own ([`crate::claude::cli::USAGE`]).
+    fn claude_usage(&self) -> Option<&'static str> {
+        None
     }
 }
 
