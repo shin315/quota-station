@@ -32,7 +32,7 @@ use quota_station_core::schedule::Schedule;
 use quota_station_core::settings::{Language, Menubar, MenubarWindow, Settings, Theme, ThemePack};
 use quota_station_core::switching::Tools;
 use quota_station_core::Snapshot;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::{Map, Value};
 use time::OffsetDateTime;
 
@@ -43,7 +43,7 @@ use crate::alerting::{self, AlertsView};
 #[cfg(feature = "antigravity-accounts")]
 use crate::antigravity::{self, AccountsView};
 use crate::codex::{self, CodexView};
-use crate::ext::{Kept, ModelInput, ModelSockets, NoExtension};
+use crate::ext::{Kept, ModelInput, NoExtension, StateSockets};
 use crate::install::{self, AppView, InstallState};
 use crate::notify;
 
@@ -179,8 +179,9 @@ pub struct Inner {
     /// What the app's extension keeps in it (`ext::Host::keep_state`).
     pub kept: Kept,
     /// The extension's part of the model and of what the build has
-    /// (`ext::Extension::model`); nothing until the app sets it at start.
-    pub extension: &'static dyn ModelSockets,
+    /// (`ext::Extension::model`), and its tabs (`ext::Extension::tabs`);
+    /// nothing until the app sets it at start.
+    pub extension: &'static dyn StateSockets,
     /// macOS's notification center; `None` until the app has started it.
     pub center: Option<Arc<notify::Center>>,
     /// This copy's version, from `tauri.conf.json`.
@@ -219,9 +220,11 @@ pub enum ReadState {
     },
 }
 
-/// The main window's tabs.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+/// The main window's tabs, the app's own and the extension's
+/// ([`crate::ext::Extension::tabs`]). Each is written as the name the
+/// windows know it by (`"overview"`, `"cliTools"`, an extension's own name),
+/// and read back from it with [`Tab::named`].
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub enum Tab {
     #[default]
     Overview,
@@ -241,6 +244,55 @@ pub enum Tab {
     CliTools,
     Backup,
     Settings,
+    /// One of the extension's tabs, by its name.
+    Ext(String),
+}
+
+impl Tab {
+    /// The app's own tabs, by their names.
+    const OWN: [(&'static str, Tab); 15] = [
+        ("overview", Tab::Overview),
+        ("stats", Tab::Stats),
+        ("claude", Tab::Claude),
+        ("agy", Tab::Agy),
+        ("codex", Tab::Codex),
+        ("history", Tab::History),
+        ("alerts", Tab::Alerts),
+        ("mcp", Tab::Mcp),
+        ("skills", Tab::Skills),
+        ("plugins", Tab::Plugins),
+        ("instr", Tab::Instr),
+        ("sets", Tab::Sets),
+        ("cliTools", Tab::CliTools),
+        ("backup", Tab::Backup),
+        ("settings", Tab::Settings),
+    ];
+
+    /// The app's own tab named `name`, if one is.
+    pub fn own(name: &str) -> Option<Tab> {
+        Tab::OWN.into_iter().find(|(own, _)| *own == name).map(|(_, tab)| tab)
+    }
+
+    /// The tab named `name`: one of the app's own, else one of `extension`'s
+    /// (the names [`crate::ext::Extension::tabs`] lists); `None` for any
+    /// other name.
+    pub fn named(name: &str, extension: &[&str]) -> Option<Tab> {
+        Tab::own(name).or_else(|| extension.contains(&name).then(|| Tab::Ext(name.into())))
+    }
+
+    /// The name the windows know the tab by.
+    pub fn name(&self) -> &str {
+        match self {
+            Tab::Ext(name) => name,
+            own => Tab::OWN.iter().find(|(_, tab)| tab == own).map_or("", |(name, _)| *name),
+        }
+    }
+}
+
+impl Serialize for Tab {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.name())
+    }
 }
 
 impl Inner {
@@ -408,6 +460,12 @@ impl Inner {
                 payload: export::read(&app, &a.email).map(|r| r.payload),
             })
             .collect()
+    }
+
+    /// The main window's tab named `name`: one of the app's own or of the
+    /// extension's ([`crate::ext::Extension::tabs`]); `None` for any other.
+    pub fn tab(&self, name: &str) -> Option<Tab> {
+        Tab::named(name, self.extension.tabs_part())
     }
 
     pub fn model(&self) -> Model {
@@ -671,6 +729,58 @@ mod tests {
         let keys: Vec<&str> =
             json["capabilities"].as_object().unwrap().keys().map(String::as_str).collect();
         assert_eq!(keys, ["agyAccounts", "platform", "session"]);
+    }
+
+    /// The names the app's own tabs have always been written as (serde's
+    /// camelCase of the variants), which the windows ask for and are told.
+    const OWN_TABS: [&str; 15] = [
+        "overview", "stats", "claude", "agy", "codex", "history", "alerts", "mcp", "skills",
+        "plugins", "instr", "sets", "cliTools", "backup", "settings",
+    ];
+
+    #[test]
+    fn each_tab_of_the_apps_reads_and_writes_back_its_name() {
+        let inner = inner();
+        for name in OWN_TABS {
+            let tab = inner.tab(name).unwrap_or_else(|| panic!("{name}"));
+            assert!(!matches!(tab, Tab::Ext(_)), "{name} is the app's");
+            assert_eq!(tab.name(), name);
+            assert_eq!(serde_json::to_value(&tab).unwrap(), name);
+        }
+        assert_eq!(serde_json::to_value(Tab::default()).unwrap(), "overview");
+        assert_eq!(serde_json::to_value(&inner.main_tab).unwrap(), "overview");
+    }
+
+    /// An extension with a tab of its own, and one named like an app's tab.
+    struct Tabs;
+
+    impl crate::ext::Extension for Tabs {
+        fn tabs(&self) -> &[&'static str] {
+            &["drawnTab", "settings"]
+        }
+    }
+
+    #[test]
+    fn an_extensions_tab_reads_and_writes_back_its_name() {
+        let mut inner = inner();
+        inner.extension = &Tabs;
+        let tab = inner.tab("drawnTab").unwrap();
+        assert_eq!(tab, Tab::Ext("drawnTab".into()));
+        assert_eq!(tab.name(), "drawnTab");
+        assert_eq!(serde_json::to_value(&tab).unwrap(), "drawnTab");
+        // A name the app has stays the app's; any other opens nothing.
+        assert_eq!(inner.tab("settings"), Some(Tab::Settings));
+        assert_eq!(inner.tab("drawn"), None);
+    }
+
+    /// A window asking for an extension's tab in a build without it gets
+    /// nothing, as for any name the app does not know.
+    #[test]
+    fn without_an_extension_its_tab_name_opens_nothing() {
+        let inner = inner();
+        assert_eq!(inner.tab("drawnTab"), None);
+        assert_eq!(inner.tab(""), None);
+        assert_eq!(inner.tab("Settings"), None, "names are matched as written");
     }
 
     #[test]

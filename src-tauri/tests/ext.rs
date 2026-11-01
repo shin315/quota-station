@@ -10,7 +10,9 @@ use std::path::Path;
 use std::sync::Arc;
 
 use common::{NotKept, TestExtension, TestState};
-use quota_station::ext::{shadowed, Extension, Kept, ModelInput, NoExtension, ReaderPass};
+use quota_station::ext::{
+    shadowed, shadowed_tabs, Extension, Kept, ModelInput, NoExtension, ReaderPass,
+};
 use quota_station_core::app_dir::AppDir;
 use quota_station_core::settings::Settings;
 use serde_json::json;
@@ -159,4 +161,16 @@ fn without_an_extension_the_model_and_the_capabilities_gain_nothing() {
     kept.keep(Arc::new(TestState::default()));
     assert!(NoExtension.model(&model_input(&kept, &settings, &app_dir)).is_empty());
     assert!(NoExtension.capabilities().is_empty());
+}
+
+#[test]
+fn an_extension_names_its_tabs_and_a_tab_the_app_has_stays_the_apps() {
+    assert_eq!(TestExtension.tabs(), ["testExtension", "settings"]);
+    assert_eq!(shadowed_tabs(TestExtension.tabs()), ["settings"]);
+}
+
+#[test]
+fn without_an_extension_the_app_has_only_its_own_tabs() {
+    assert!(NoExtension.tabs().is_empty());
+    assert!(shadowed_tabs(&[]).is_empty());
 }

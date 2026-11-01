@@ -74,9 +74,9 @@ use crate::state::{Inner, Shared, Tab};
 /// context of its own `tauri.conf.json` and the extension it is built with.
 pub fn run<E: Extension>(context: tauri::Context<tauri::Wry>, extension: E) {
     // The extension lasts as long as the app: the state keeps its hooks and
-    // its model sockets.
+    // the sockets it asks under its lock.
     let extension: &'static E = Box::leak(Box::new(extension));
-    let model_sockets: &'static dyn ext::ModelSockets = extension;
+    let state_sockets: &'static dyn ext::StateSockets = extension;
     let extension: &'static dyn Extension = extension;
     let hooks = extension.hooks();
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -129,7 +129,7 @@ pub fn run<E: Extension>(context: tauri::Context<tauri::Wry>, extension: E) {
             let settings_file = app.path().app_config_dir()?.join("settings.json");
             let mut inner = Inner::new(home, settings_file, machine_name(), hooks);
             inner.app_version = app.package_info().version.to_string();
-            inner.extension = model_sockets;
+            inner.extension = state_sockets;
             let state = Shared::new(inner);
             // Only asks macOS: the app never registers itself.
             install::read_login(&state);

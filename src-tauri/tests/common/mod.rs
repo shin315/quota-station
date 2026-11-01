@@ -113,6 +113,11 @@ impl Extension for TestExtension {
         Map::from_iter([("testExtension".to_string(), Value::Bool(true))])
     }
 
+    /// Its own tab, and one named like an app's tab, which stays the app's.
+    fn tabs(&self) -> &[&'static str] {
+        &["testExtension", "settings"]
+    }
+
     quota_station::extension_commands![
         tools::test_extension_echo,
         #[cfg(unix)]

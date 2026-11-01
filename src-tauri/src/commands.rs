@@ -34,15 +34,19 @@ pub fn refresh(state: State<'_, AppState>) -> u64 {
     reads
 }
 
+/// Opens the main window on the tab named `tab`, one of the app's own or
+/// of the extension's; any other name opens nothing.
 #[tauri::command]
-pub fn open_window(app: AppHandle, tab: Tab) {
-    windows::open_main(&app, tab);
+pub fn open_window(app: AppHandle, state: State<'_, AppState>, tab: String) -> Result<(), String> {
+    let named = state.lock().tab(&tab);
+    windows::open_main(&app, named.ok_or_else(|| format!("unknown tab `{tab}`"))?);
+    Ok(())
 }
 
 /// The tab the main window should show when it first loads.
 #[tauri::command]
 pub fn main_tab(state: State<'_, AppState>) -> Tab {
-    state.lock().main_tab
+    state.lock().main_tab.clone()
 }
 
 /// The group Cài đặt shows.

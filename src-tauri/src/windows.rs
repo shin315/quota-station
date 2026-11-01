@@ -576,7 +576,7 @@ mod place {
 /// A new window asks for its tab once it has loaded (`main_tab`).
 pub fn open_main(app: &AppHandle, tab: Tab) {
     hide_popover(app);
-    app.state::<AppState>().lock().main_tab = tab;
+    app.state::<AppState>().lock().main_tab = tab.clone();
     if let Some(window) = main_window(app) {
         let _ = window.emit_to(MAIN, "tab", tab);
         let _ = window.unminimize();

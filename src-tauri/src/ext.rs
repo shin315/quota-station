@@ -33,6 +33,9 @@
 //!   part of the model every window draws, and of what the build has
 //!   (`capabilities` in it), as JSON keys beside the app's own, drawn from
 //!   what the app hands it ([`ModelInput`]).
+//! - [`Extension::tabs`]: the main window's tabs the extension adds to the
+//!   app's own, by the names the windows know them by. A name that is one of
+//!   the app's tabs stays the app's ([`shadowed_tabs`] lists those).
 //!
 //! The names and the handler are apart so a test can read the names without
 //! building the handler: a handler holds Tauri's window runtime, which a
@@ -40,8 +43,9 @@
 //! only the binary gets). The [`Host`] holds that runtime too, so no test
 //! makes one; what the extension keeps is plain data ([`Kept`]), and so is
 //! what the reader hands it ([`ReaderPass`]) and what the model is drawn
-//! from ([`ModelInput`]). The app's state keeps only the extension's model
-//! sockets, apart from the rest, so a test can build that state and its
+//! from ([`ModelInput`]). The app's state keeps only the extension's
+//! sockets it asks under its lock (the model, what the build has and the
+//! tabs), apart from the rest, so a test can build that state and its
 //! model without the runtime.
 
 use std::any::{Any, TypeId};
@@ -57,7 +61,7 @@ use tauri::{AppHandle, Manager};
 
 pub use quota_station_core::ext::{Hooks, NoHooks};
 
-use crate::state::AppState;
+use crate::state::{AppState, Tab};
 
 /// What an extension adds to the app. Every method has a default that adds
 /// nothing; an extension overrides the sockets it fills.
@@ -129,6 +133,15 @@ pub trait Extension: Send + Sync + 'static {
     fn capabilities(&self) -> Map<String, Value> {
         Map::new()
     }
+
+    /// The main window's tabs the extension adds to the app's own, by the
+    /// names the windows know them by (the name the window asks to open, and
+    /// the one the app tells it to show). A window asking for any other name
+    /// than the app's tabs and these opens nothing. A name that is one of the
+    /// app's tabs stays the app's.
+    fn tabs(&self) -> &[&'static str] {
+        &[]
+    }
 }
 
 /// What the extension draws its part of the model from
@@ -146,22 +159,28 @@ pub struct ModelInput<'a> {
     pub claude_accounts: &'a [AccountOut],
 }
 
-/// The extension's sockets that draw ([`Extension::model`] and
-/// [`Extension::capabilities`]), as the app's state keeps them: apart from
-/// the rest of [`Extension`], so that state holds nothing of the window
-/// runtime the command handler brings, and a test can build it.
-pub(crate) trait ModelSockets: Send + Sync {
+/// The extension's sockets the app asks under its lock (what draws,
+/// [`Extension::model`] and [`Extension::capabilities`], and the tabs,
+/// [`Extension::tabs`]), as the app's state keeps them: apart from the rest
+/// of [`Extension`], so that state holds nothing of the window runtime the
+/// command handler brings, and a test can build it.
+pub(crate) trait StateSockets: Send + Sync {
     fn model_part(&self, input: &ModelInput<'_>) -> Map<String, Value>;
     fn capabilities_part(&self) -> Map<String, Value>;
+    fn tabs_part(&self) -> &[&'static str];
 }
 
-impl<E: Extension> ModelSockets for E {
+impl<E: Extension> StateSockets for E {
     fn model_part(&self, input: &ModelInput<'_>) -> Map<String, Value> {
         self.model(input)
     }
 
     fn capabilities_part(&self) -> Map<String, Value> {
         self.capabilities()
+    }
+
+    fn tabs_part(&self) -> &[&'static str] {
+        self.tabs()
     }
 }
 
@@ -281,6 +300,12 @@ impl Kept {
 pub fn shadowed(names: &[&'static str]) -> Vec<&'static str> {
     let own = crate::command_names();
     names.iter().copied().filter(|name| own.contains(name)).collect()
+}
+
+/// The names in `names` that are the app's own tabs: the app's tab is the
+/// one opened, so these never name the extension's ([`Extension::tabs`]).
+pub fn shadowed_tabs(names: &[&'static str]) -> Vec<&'static str> {
+    names.iter().copied().filter(|name| Tab::own(name).is_some()).collect()
 }
 
 /// An extension's [`Extension::command_names`] and
