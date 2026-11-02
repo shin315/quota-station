@@ -14,7 +14,9 @@ use quota_station_core::alerts::{
 };
 use quota_station_core::app_dir::AppDir;
 use quota_station_core::claude::cli::Cli;
-use quota_station_core::claude::store::{AccountKeys, Store};
+use quota_station_core::claude::state::StateCopy;
+use quota_station_core::claude::store::{AccountKeys, List, Store};
+use quota_station_core::claude::usage::Cache;
 use quota_station_core::claude::Paths;
 use quota_station_core::ext::Fields;
 use quota_station_core::ext::Hooks;
@@ -74,6 +76,9 @@ use time::{OffsetDateTime, UtcOffset};
 /// An import of claude-swap's accounts: they bring over `testAccounts` (how
 /// many accounts the app's file has by then) and `testHome` (the home the
 /// accounts are kept under).
+///
+/// The state file: each time the app writes it, they write their own copy
+/// beside it ([`TestCopy`]).
 #[derive(Debug, Default)]
 pub struct TestHooks;
 
@@ -241,6 +246,47 @@ impl Hooks for TestHooks {
         ext.insert("testAccounts", json!(accounts));
         ext.insert("testHome", json!(paths.home.display().to_string()));
         ext
+    }
+
+    fn claude_state_copy(&self) -> Option<Arc<dyn StateCopy>> {
+        Some(Arc::new(TestCopy))
+    }
+}
+
+/// The test hooks' copy of the state file, in the Claude accounts' folder.
+pub const TEST_COPY: &str = "test-copy.json";
+/// While this file is in the Claude accounts' folder, the copy fails.
+pub const TEST_COPY_FAILS: &str = "test-copy-fails";
+
+/// The test hooks' copy of the state file ([`TEST_COPY`]): the accounts'
+/// numbers (`slots`), the account in use (`active`), the time (`at`), the
+/// account in use the state file already has (`stateActive`) and whether
+/// the store keeps the extension's keys (`keys`). It fails, `the test copy
+/// fails`, while [`TEST_COPY_FAILS`] is there.
+#[derive(Debug, Default)]
+pub struct TestCopy;
+
+impl StateCopy for TestCopy {
+    fn write(
+        &self,
+        store: &Store,
+        list: &List,
+        _cache: &Cache,
+        active: Option<u32>,
+        now: OffsetDateTime,
+    ) -> std::io::Result<()> {
+        if store.paths.dir.join(TEST_COPY_FAILS).exists() {
+            return Err(std::io::Error::other("the test copy fails"));
+        }
+        let state: Value = serde_json::from_str(&std::fs::read_to_string(store.paths.state())?)?;
+        let copy = json!({
+            "slots": list.accounts.iter().map(|a| a.slot).collect::<Vec<_>>(),
+            "active": active,
+            "at": now.unix_timestamp(),
+            "stateActive": state["activeSlot"],
+            "keys": store.account_keys().is_some(),
+        });
+        std::fs::write(store.paths.dir.join(TEST_COPY), copy.to_string())
     }
 }
 

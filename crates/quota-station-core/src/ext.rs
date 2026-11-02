@@ -56,7 +56,10 @@
 //!   them on each account's slot ([`crate::quota::Slot::ext`]);
 //! - the import of claude-swap's accounts ([`crate::claude::import::import`]):
 //!   what the extension brings over of its own, at the end of the import's
-//!   outcome ([`Hooks::claude_imported`]).
+//!   outcome ([`Hooks::claude_imported`]);
+//! - the state file (`claude/state.json`, [`crate::claude::state::write`]):
+//!   what the extension writes of its own each time the app writes it
+//!   ([`Hooks::claude_state_copy`]).
 
 use std::fmt;
 use std::io::Write;
@@ -73,6 +76,7 @@ use time::UtcOffset;
 use crate::alerts::{Alert, ExtAnswer, ExtKind, Switches};
 use crate::app_dir::AppDir;
 use crate::claude::cli::Cli;
+use crate::claude::state::StateCopy;
 use crate::claude::store::AccountKeys;
 use crate::claude::Paths;
 use crate::history::ExtLine;
@@ -277,6 +281,15 @@ pub trait Hooks: Send + Sync {
     fn claude_imported(&self, paths: &Paths) -> Fields {
         let _ = paths;
         Fields::new()
+    }
+
+    /// What the extension writes of its own from the Claude accounts and
+    /// their readings each time the app writes its state file
+    /// ([`StateCopy`]). Asked wherever the app opens its Claude accounts
+    /// with the extension ([`crate::claude::store::Store::with_hooks`]).
+    /// `None`, the default: the app writes the state file alone.
+    fn claude_state_copy(&self) -> Option<Arc<dyn StateCopy>> {
+        None
     }
 }
 

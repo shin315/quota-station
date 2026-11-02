@@ -28,6 +28,7 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 use super::keychain::KeychainError;
+use super::state::StateCopy;
 use super::Paths;
 use crate::ext::{Fields, Hooks};
 use crate::os::SecretStore;
@@ -215,6 +216,8 @@ pub struct Store {
     pub security: Arc<dyn SecretStore>,
     /// What an extension keeps on each account; `None`: only the app's keys.
     keys: Option<Arc<dyn AccountKeys>>,
+    /// What an extension writes beside the state file; `None`: nothing.
+    copy: Option<Arc<dyn StateCopy>>,
 }
 
 impl fmt::Debug for Store {
@@ -223,6 +226,7 @@ impl fmt::Debug for Store {
             .field("paths", &self.paths)
             .field("security", &self.security)
             .field("keys", &self.keys.is_some())
+            .field("copy", &self.copy.is_some())
             .finish()
     }
 }
@@ -237,19 +241,26 @@ fn account_item(slot: u32) -> String {
 
 impl Store {
     pub fn new(paths: Paths, security: impl SecretStore + 'static) -> Store {
-        Store { paths, security: Arc::new(security), keys: None }
+        Store { paths, security: Arc::new(security), keys: None, copy: None }
     }
 
     /// The same accounts, kept with what `hooks` keep on each of them
-    /// ([`Hooks::claude_account_keys`]).
+    /// ([`Hooks::claude_account_keys`]), and with what `hooks` write beside
+    /// the state file ([`Hooks::claude_state_copy`]).
     pub fn with_hooks(mut self, hooks: &dyn Hooks) -> Store {
         self.keys = hooks.claude_account_keys();
+        self.copy = hooks.claude_state_copy();
         self
     }
 
     /// What an extension keeps on each account, when one does.
     pub fn account_keys(&self) -> Option<&dyn AccountKeys> {
         self.keys.as_deref()
+    }
+
+    /// What an extension writes beside the state file, when one does.
+    pub fn state_copy(&self) -> Option<&dyn StateCopy> {
+        self.copy.as_deref()
     }
 
     /// Each account's keys beyond the app's as the extension keeps them;

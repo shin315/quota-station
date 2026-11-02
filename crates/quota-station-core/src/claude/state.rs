@@ -7,6 +7,8 @@
 //!   alias, its three windows, how old its reading is and its error, and
 //!   the account in use. No email, no token. `quota-station claude status
 //!   --json` prints the same, and only with `--emails` adds the emails.
+//! - what an extension writes of its own beside the state file, each time
+//!   the app writes it ([`StateCopy`]);
 //! - [`details`], for the app's own windows: each account's windows and,
 //!   only while the owner shows names, its email and organization, read
 //!   from its Keychain item into memory.
@@ -132,7 +134,26 @@ pub fn build(
     }
 }
 
-/// Writes the data file.
+/// What an extension writes of its own from the Claude accounts and their
+/// readings each time the app writes the state file ([`write`]). Given by
+/// [`crate::ext::Hooks::claude_state_copy`] and kept by the store
+/// ([`Store::with_hooks`]).
+pub trait StateCopy: Send + Sync {
+    /// Writes the extension's files, right after the app wrote the state
+    /// file for `list`, `cache` and the account in use (`active`) at `now`,
+    /// from `store`. An error: the write fails with it.
+    fn write(
+        &self,
+        store: &Store,
+        list: &List,
+        cache: &Cache,
+        active: Option<u32>,
+        now: OffsetDateTime,
+    ) -> std::io::Result<()>;
+}
+
+/// Writes the data file, then what the store's extension writes beside it
+/// ([`Store::state_copy`]).
 pub fn write(store: &Store, active: Option<u32>, now: OffsetDateTime) -> std::io::Result<()> {
     let list = store.load().map_err(|e| std::io::Error::other(e.to_string()))?;
     let cache = usage::load(store);
@@ -141,7 +162,10 @@ pub fn write(store: &Store, active: Option<u32>, now: OffsetDateTime) -> std::io
         &store.paths.state(),
         &(serde_json::to_string_pretty(&state).expect("serializes") + "\n"),
     )?;
-    Ok(())
+    match store.state_copy() {
+        Some(copy) => copy.write(store, &list, &cache, active, now),
+        None => Ok(()),
+    }
 }
 
 /// Each account the app keeps with its last reading, for the windows. With

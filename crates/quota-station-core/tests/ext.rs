@@ -9,7 +9,8 @@ use std::path::{Path, PathBuf};
 
 use common::accounts::{credential, in_hours, oauth, FakeAnthropic, Mac};
 use common::ext::{
-    pool_reads, test_kind, TestHooks, TestPolicy, TEST_HISTORY, TEST_REFUSE, TEST_SOURCE,
+    pool_reads, test_kind, TestHooks, TestPolicy, TEST_COPY, TEST_COPY_FAILS, TEST_HISTORY,
+    TEST_REFUSE, TEST_SOURCE,
 };
 use quota_station_core::alerts::{self, Facts, Kind, Memory, Switches};
 use quota_station_core::app_dir::AppDir;
@@ -936,5 +937,80 @@ fn without_an_extension_an_import_brings_only_the_apps_own() {
         let printed: Fields = serde_json::from_str(&out).unwrap();
         let keys: Vec<&str> = printed.iter().map(|(k, _)| k).collect();
         assert_eq!(keys, ["added", "updated", "unchanged", "skipped"]);
+    }
+}
+
+// What the extension writes beside the state file.
+
+/// The test hooks' copy in `mac`'s Claude accounts' folder.
+fn test_copy(mac: &Mac) -> Value {
+    serde_json::from_str(&std::fs::read_to_string(mac.paths.dir.join(TEST_COPY)).unwrap()).unwrap()
+}
+
+/// The extension writes its own each time the app writes the state file,
+/// once the state file is written, from the same accounts and account in
+/// use, wherever the app writes it with the store it opened with the
+/// extension (here, the owner's manual switch in the app and `claude
+/// switch`); its error is the write's, with the state file written.
+#[test]
+fn the_extension_writes_its_own_beside_the_state_file() {
+    let mac = switch_mac("state-copy");
+    let store = Store::new(mac.paths.clone(), mac.keychain.clone()).with_hooks(&TestHooks);
+    assert!(store.state_copy().is_some());
+    let at = OffsetDateTime::from_unix_timestamp(T).unwrap();
+    state::write(&store, Some(2), at).unwrap();
+    assert_eq!(
+        test_copy(&mac),
+        json!({ "slots": [2, 3, 4], "active": 2, "at": T, "stateActive": 2, "keys": true })
+    );
+
+    switch_claude(&Tools { store: store.clone() }, 3, None, &quiet, &TestHooks);
+    assert_eq!(
+        (test_copy(&mac)["active"].clone(), test_copy(&mac)["stateActive"].clone()),
+        (json!(3), json!(3))
+    );
+    let cli = cli::Cli {
+        store: store.clone(),
+        tools: cli::Tools { claude: None, endpoints: FakeAnthropic::start().endpoints() },
+    };
+    let (mut out, mut err) = (Vec::new(), Vec::new());
+    let args = ["switch".to_string(), "4".to_string()];
+    assert_eq!(cli::run(&cli, &TestHooks, &args, &mut out, &mut err), 0);
+    assert_eq!(test_copy(&mac)["active"], 4);
+
+    std::fs::write(mac.paths.dir.join(TEST_COPY_FAILS), "").unwrap();
+    let failed = state::write(&store, Some(2), at).unwrap_err();
+    assert_eq!(failed.to_string(), "the test copy fails");
+    let written: Value =
+        serde_json::from_str(&std::fs::read_to_string(mac.paths.state()).unwrap()).unwrap();
+    assert_eq!(written["activeSlot"], 2);
+    assert_eq!(test_copy(&mac)["active"], 4);
+}
+
+/// Without an extension the app writes the state file alone.
+#[test]
+fn without_an_extension_only_the_state_file_is_written() {
+    let names = |mac: &Mac| -> Vec<String> {
+        let mut names: Vec<String> = std::fs::read_dir(&mac.paths.dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        names
+    };
+    for (n, hooks) in [ext::none(), &NoHooks as &dyn Hooks].into_iter().enumerate() {
+        assert!(hooks.claude_state_copy().is_none());
+        let mac = switch_mac(&format!("state-copy-none-{n}"));
+        let store = Store::new(mac.paths.clone(), mac.keychain.clone()).with_hooks(hooks);
+        assert!(store.state_copy().is_none());
+        let _ = std::fs::remove_file(mac.paths.state());
+        let mut before = names(&mac);
+        state::write(&store, Some(3), OffsetDateTime::from_unix_timestamp(T).unwrap()).unwrap();
+        before.push("state.json".into());
+        before.sort();
+        assert_eq!(names(&mac), before);
+        let written: Value =
+            serde_json::from_str(&std::fs::read_to_string(mac.paths.state()).unwrap()).unwrap();
+        assert_eq!(written["activeSlot"], 3);
     }
 }
