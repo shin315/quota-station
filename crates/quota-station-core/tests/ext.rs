@@ -14,7 +14,7 @@ use common::ext::{
 use quota_station_core::alerts::{self, Facts, Kind, Memory, Switches};
 use quota_station_core::app_dir::AppDir;
 use quota_station_core::claude::store::Store;
-use quota_station_core::claude::{cli, state, switch};
+use quota_station_core::claude::{cli, import, state, switch};
 use quota_station_core::ext::{self, Fields, Hooks, NoHooks};
 use quota_station_core::history::{self, Seen, Source};
 use quota_station_core::icon;
@@ -876,5 +876,65 @@ fn without_an_extension_the_claude_accounts_keep_only_the_apps_keys() {
             OffsetDateTime::UNIX_EPOCH,
         );
         assert!(state.accounts.iter().all(|a| a.ext.is_empty()));
+    }
+}
+
+// An import of claude-swap's accounts.
+
+/// claude-swap's folder under `mac`'s home with one account, 1, its login
+/// in claude-swap's Keychain item.
+fn claude_swap_one(mac: &Mac) -> PathBuf {
+    let dir = import::source(&mac.home);
+    std::fs::create_dir_all(dir.join("configs")).unwrap();
+    let email = "lan@example.com";
+    let sequence = json!({ "accounts": { "1": { "email": email, "organizationUuid": "org-1" } } });
+    std::fs::write(dir.join("sequence.json"), sequence.to_string()).unwrap();
+    let config = json!({ "oauthAccount": oauth(email, "uuid-1", "org-1") });
+    std::fs::write(dir.join(format!("configs/.claude-config-1-{email}.json")), config.to_string())
+        .unwrap();
+    let login = credential("acc-1", "ref-1", in_hours(5.0));
+    mac.put_item("claude-swap", &format!("account-1-{email}"), &login);
+    dir
+}
+
+/// What the extension brings over is asked once the accounts are in, for
+/// the accounts the app keeps, and ends the import's outcome in the order
+/// the extension put it, in the app and on `claude import`.
+#[test]
+fn the_extension_brings_its_own_over_at_the_end_of_an_import() {
+    let mac = Mac::new("ext-import");
+    let dir = claude_swap_one(&mac);
+    let done = import::import(&mac.store, &dir, &TestHooks).unwrap();
+    assert_eq!(done.added, vec![1]);
+    assert_eq!(done.ext.get("testAccounts"), Some(&json!(1)));
+    assert_eq!(done.ext.get("testHome"), Some(&json!(mac.home.display().to_string())));
+    let own = ["added", "updated", "unchanged", "skipped"];
+    assert_eq!(keys_of(&done), [&own[..], &["testAccounts", "testHome"]].concat());
+
+    let (code, out, err) = claude_cli(&mac, &TestHooks, &["import"]);
+    assert_eq!((code, err.as_str()), (0, ""));
+    let printed: Fields = serde_json::from_str(&out).unwrap();
+    let keys: Vec<&str> = printed.iter().map(|(k, _)| k).collect();
+    assert_eq!(keys, [&own[..], &["testAccounts", "testHome"]].concat());
+    assert_eq!(printed.get("unchanged"), Some(&json!([1])));
+}
+
+/// Without an extension an import brings over only the app's own, and its
+/// outcome has only the app's keys.
+#[test]
+fn without_an_extension_an_import_brings_only_the_apps_own() {
+    for (n, hooks) in [ext::none(), &NoHooks as &dyn Hooks].into_iter().enumerate() {
+        let mac = Mac::new(&format!("ext-import-none-{n}"));
+        assert!(hooks.claude_imported(&mac.paths).is_empty());
+        let dir = claude_swap_one(&mac);
+        let done = import::import(&mac.store, &dir, hooks).unwrap();
+        assert_eq!(done.added, vec![1]);
+        assert!(done.ext.is_empty());
+        assert_eq!(keys_of(&done), ["added", "updated", "unchanged", "skipped"]);
+        let (code, out, _) = claude_cli(&mac, hooks, &["import"]);
+        assert_eq!(code, 0);
+        let printed: Fields = serde_json::from_str(&out).unwrap();
+        let keys: Vec<&str> = printed.iter().map(|(k, _)| k).collect();
+        assert_eq!(keys, ["added", "updated", "unchanged", "skipped"]);
     }
 }

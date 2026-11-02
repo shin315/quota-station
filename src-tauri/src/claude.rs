@@ -221,9 +221,12 @@ pub(crate) async fn run(
 /// Carries claude-swap's accounts over. claude-swap is left as it is.
 #[tauri::command]
 pub async fn claude_import(app: AppHandle, state: State<'_, AppState>) -> Result<Model, String> {
-    let home = state.lock().home.clone();
+    let (home, hooks) = {
+        let inner = state.lock();
+        (inner.home.clone(), inner.hooks)
+    };
     run(app, state.inner().clone(), "import", move |store| {
-        match import::import(store, &import::source(&home)) {
+        match import::import(store, &import::source(&home), hooks) {
             Ok(imported) => Done {
                 action: "import",
                 ok: true,

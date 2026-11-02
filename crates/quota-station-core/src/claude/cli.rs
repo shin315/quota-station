@@ -157,7 +157,7 @@ pub fn run(
                 Err(e) => fail(err, &e),
             }
         }
-        "import" => match import::import(store, &import::source(&store.paths.home)) {
+        "import" => match import::import(store, &import::source(&store.paths.home), hooks) {
             Ok(done) => {
                 let _ =
                     writeln!(out, "{}", serde_json::to_string_pretty(&done).expect("serializes"));

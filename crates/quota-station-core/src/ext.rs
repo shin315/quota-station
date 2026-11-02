@@ -53,7 +53,10 @@
 //!   extension keeps on each account there, and what it shows of them in
 //!   the state file and on `quota-station claude status`
 //!   ([`Hooks::claude_account_keys`]); the read of the accounts carries
-//!   them on each account's slot ([`crate::quota::Slot::ext`]).
+//!   them on each account's slot ([`crate::quota::Slot::ext`]);
+//! - the import of claude-swap's accounts ([`crate::claude::import::import`]):
+//!   what the extension brings over of its own, at the end of the import's
+//!   outcome ([`Hooks::claude_imported`]).
 
 use std::fmt;
 use std::io::Write;
@@ -263,21 +266,33 @@ pub trait Hooks: Send + Sync {
     fn claude_account_keys(&self) -> Option<Arc<dyn AccountKeys>> {
         None
     }
+
+    /// What the extension brings over of its own when the app imports
+    /// claude-swap's accounts into the Claude accounts it keeps at `paths`
+    /// ([`crate::claude::import::import`]), once the accounts and their
+    /// readings are in: the keys it returns end the import's outcome
+    /// ([`crate::claude::import::Imported::ext`]), in the order it put
+    /// them. Asked at the end of every import that read claude-swap's
+    /// accounts. The default brings nothing.
+    fn claude_imported(&self, paths: &Paths) -> Fields {
+        let _ = paths;
+        Fields::new()
+    }
 }
 
 /// The keys an extension adds to one of the app's JSON objects (the
 /// snapshot's sections, accounts and pools, the Claude read's list of
 /// accounts and its slots, the Claude accounts' file and state file, a
-/// manual switch's outcome and its lines in the history), with
-/// their values. In the snapshot each key is written right
+/// manual switch's outcome and its lines in the history, an import's
+/// outcome), with their values. In the snapshot each key is written right
 /// after the app's own key it was put after ([`Fields::insert_after`]), so
 /// the object reads with the extension's keys where they belong, even
 /// where the app leaves that key out; a key put after none
 /// ([`Fields::insert`]), or after a key the object does not have, comes at
-/// the end, in the order the keys were put. The Claude read's list and a
-/// manual switch's outcome write them all at their end, in that order; a
-/// manual switch's lines in the history before their `result`; a slot of
-/// the Claude read after its `active`; an account of the Claude accounts'
+/// the end, in the order the keys were put. The Claude read's list, a
+/// manual switch's outcome and an import's write them all at their end, in
+/// that order; a manual switch's lines in the history before their
+/// `result`; a slot of the Claude read after its `active`; an account of the Claude accounts'
 /// file and of the state file after its `alias`. Read back from JSON (a
 /// report), an object keeps here every key it does not know, written back
 /// where its extension's keys go.

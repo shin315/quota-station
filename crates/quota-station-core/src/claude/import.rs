@@ -32,7 +32,7 @@ use super::locks::{AppLock, LockError};
 use super::session;
 use super::store::{self, Account, Kind, Store, StoreError};
 use super::usage::{self, Row, Scoped, Win};
-use crate::ext::Fields;
+use crate::ext::{Fields, Hooks};
 
 /// claude-swap's folder on macOS.
 pub const SOURCE: &str = ".claude-swap-backup";
@@ -44,7 +44,7 @@ pub fn source(home: &Path) -> PathBuf {
 }
 
 /// What an import did, by slot.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Imported {
     pub added: Vec<u32>,
@@ -55,6 +55,10 @@ pub struct Imported {
     /// slot in the app), `elsewhere` (the account is in the app under
     /// another slot), `apiKey`, `noConfig`, `noCredential`, `keychain`.
     pub skipped: Vec<(u32, String)>,
+    /// What the extension brought over of its own
+    /// ([`Hooks::claude_imported`]), written at the end.
+    #[serde(flatten)]
+    pub ext: Fields,
 }
 
 #[derive(Debug)]
@@ -155,8 +159,10 @@ fn text<'a>(v: &'a Value, key: &str) -> &'a str {
     v.get(key).and_then(Value::as_str).unwrap_or("")
 }
 
-/// Imports from claude-swap's folder at `dir` (normally `~/.claude-swap-backup`).
-pub fn import(store: &Store, dir: &Path) -> Result<Imported, ImportError> {
+/// Imports from claude-swap's folder at `dir` (normally `~/.claude-swap-backup`),
+/// and then whatever `hooks` bring over of their own
+/// ([`Hooks::claude_imported`]).
+pub fn import(store: &Store, dir: &Path, hooks: &dyn Hooks) -> Result<Imported, ImportError> {
     let paths = &store.paths;
     let _app = AppLock::take(paths)?;
     let found = read_sequence(dir)?;
@@ -257,6 +263,7 @@ pub fn import(store: &Store, dir: &Path) -> Result<Imported, ImportError> {
     store.save(&list)?;
 
     seed_usage(store, dir, &found, &imported, &done.updated);
+    done.ext = hooks.claude_imported(paths);
     Ok(done)
 }
 

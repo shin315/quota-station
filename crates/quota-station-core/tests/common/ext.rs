@@ -70,6 +70,10 @@ use time::{OffsetDateTime, UtcOffset};
 ///
 /// The Claude accounts' file: they keep `testTag` on each account
 /// ([`TestKeys`]).
+///
+/// An import of claude-swap's accounts: they bring over `testAccounts` (how
+/// many accounts the app's file has by then) and `testHome` (the home the
+/// accounts are kept under).
 #[derive(Debug, Default)]
 pub struct TestHooks;
 
@@ -225,6 +229,18 @@ impl Hooks for TestHooks {
 
     fn claude_account_keys(&self) -> Option<Arc<dyn AccountKeys>> {
         Some(Arc::new(TestKeys))
+    }
+
+    fn claude_imported(&self, paths: &Paths) -> Fields {
+        let file: Value = std::fs::read_to_string(paths.accounts())
+            .ok()
+            .and_then(|t| serde_json::from_str(&t).ok())
+            .unwrap_or(Value::Null);
+        let accounts = file["accounts"].as_array().map_or(0, Vec::len);
+        let mut ext = Fields::new();
+        ext.insert("testAccounts", json!(accounts));
+        ext.insert("testHome", json!(paths.home.display().to_string()));
+        ext
     }
 }
 

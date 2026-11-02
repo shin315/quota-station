@@ -14,6 +14,7 @@ use base64::{engine::general_purpose::STANDARD, Engine as _};
 use quota_station_core::claude::import;
 use quota_station_core::claude::store::Kind;
 use quota_station_core::claude::usage;
+use quota_station_core::ext;
 use serde_json::{json, Value};
 
 use common::accounts::{credential, in_hours, oauth, Mac};
@@ -90,7 +91,7 @@ fn snapshot(dir: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
 fn every_claude_swap_account_comes_over_under_its_slot() {
     let mac = Mac::new("import");
     let dir = claude_swap(&mac);
-    let done = import::import(&mac.store, &dir).unwrap();
+    let done = import::import(&mac.store, &dir, ext::none()).unwrap();
     assert_eq!(done.added, vec![1, 2, 3]);
     let list = mac.store.load().unwrap();
     assert_eq!(list.accounts.iter().map(|a| a.slot).collect::<Vec<_>>(), vec![1, 2, 3]);
@@ -121,7 +122,7 @@ fn claude_swaps_own_data_is_left_as_it_was() {
         items.into_iter().filter(|((service, _), _)| service == "claude-swap").collect::<Vec<_>>()
     };
     let theirs = claude_swaps();
-    import::import(&mac.store, &dir).unwrap();
+    import::import(&mac.store, &dir, ext::none()).unwrap();
     assert_eq!(snapshot(&dir), before);
     assert_eq!(claude_swaps(), theirs);
     assert!(!mac
@@ -134,12 +135,12 @@ fn claude_swaps_own_data_is_left_as_it_was() {
 fn importing_again_changes_nothing_the_owner_set() {
     let mac = Mac::new("import-again");
     let dir = claude_swap(&mac);
-    import::import(&mac.store, &dir).unwrap();
+    import::import(&mac.store, &dir, ext::none()).unwrap();
     let mut list = mac.store.load().unwrap();
     list.get_mut(2).unwrap().alias = Some("Đã đổi".into());
     mac.store.save(&list).unwrap();
     let saved = std::fs::read(mac.paths.accounts()).unwrap();
-    let again = import::import(&mac.store, &dir).unwrap();
+    let again = import::import(&mac.store, &dir, ext::none()).unwrap();
     assert_eq!((again.added, again.updated, again.unchanged), (vec![], vec![], vec![1, 2, 3]));
     assert_eq!(std::fs::read(mac.paths.accounts()).unwrap(), saved);
 }
@@ -148,12 +149,12 @@ fn importing_again_changes_nothing_the_owner_set() {
 fn a_newer_login_in_claude_swap_replaces_the_apps_copy() {
     let mac = Mac::new("import-newer");
     let dir = claude_swap(&mac);
-    import::import(&mac.store, &dir).unwrap();
+    import::import(&mac.store, &dir, ext::none()).unwrap();
     let newer = credential("acc-1b", "ref-1b", in_hours(9.0));
     write_enc(&dir, 1, PERSONAL, &newer);
     let older = credential("acc-2-old", "ref-2-old", in_hours(1.0));
     mac.put_item("claude-swap", &format!("account-2-{TEAM}"), &older);
-    let done = import::import(&mac.store, &dir).unwrap();
+    let done = import::import(&mac.store, &dir, ext::none()).unwrap();
     assert_eq!(done.updated, vec![1]);
     assert_eq!(mac.store.credential(1).unwrap(), Some(newer));
     assert_ne!(mac.store.credential(2).unwrap(), Some(older));
@@ -164,7 +165,7 @@ fn a_slot_the_app_uses_for_another_account_is_not_taken() {
     let mac = Mac::new("import-taken");
     mac.add(2, "someone@else.example", "org-x", &credential("acc-x", "ref-x", in_hours(5.0)));
     let dir = claude_swap(&mac);
-    let done = import::import(&mac.store, &dir).unwrap();
+    let done = import::import(&mac.store, &dir, ext::none()).unwrap();
     assert_eq!(done.added, vec![1, 3]);
     assert!(done.skipped.contains(&(2, "slotTaken".to_string())));
     assert_eq!(
@@ -181,7 +182,7 @@ fn an_api_key_account_is_left_in_claude_swap() {
         serde_json::from_str(&std::fs::read_to_string(dir.join("sequence.json")).unwrap()).unwrap();
     sequence["accounts"]["4"] = json!({ "email": "api@example.com", "kind": "api_key" });
     std::fs::write(dir.join("sequence.json"), sequence.to_string()).unwrap();
-    let done = import::import(&mac.store, &dir).unwrap();
+    let done = import::import(&mac.store, &dir, ext::none()).unwrap();
     assert!(done.skipped.contains(&(4, "apiKey".to_string())));
     assert!(mac.store.load().unwrap().get(4).is_none());
 }
@@ -200,7 +201,7 @@ fn claude_swaps_last_readings_seed_the_apps_only_for_the_same_account() {
         }
     });
     std::fs::write(dir.join("cache/usage.json"), cache.to_string()).unwrap();
-    import::import(&mac.store, &dir).unwrap();
+    import::import(&mac.store, &dir, ext::none()).unwrap();
     let ours = usage::load(&mac.store);
     let one = ours.row(1).unwrap().last_good.as_ref().unwrap();
     assert_eq!(one.five_hour.as_ref().unwrap().pct, 42.0);
@@ -212,7 +213,7 @@ fn a_mac_without_claude_swap_has_nothing_to_import() {
     let mac = Mac::new("import-none");
     assert!(!import::available(&mac.home));
     assert!(matches!(
-        import::import(&mac.store, &import::source(&mac.home)),
+        import::import(&mac.store, &import::source(&mac.home), ext::none()),
         Err(import::ImportError::NotFound)
     ));
 }
