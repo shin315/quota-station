@@ -180,9 +180,9 @@ The core's integration tests are `crates/quota-station-core/tests/*.rs`:
 `claude_switch`, `claude_windows`, `cli_tools`, `codex`, `codex_accounts`,
 `codex_wake`, `detail`, `env_check`, `ext`, `icon`, `install_script`,
 `labels`, `login_item`, `os_macos`,
-`quota_readers`, `runner`, `sessions`, `settings`, `snapshot`, `stats` and
-`ui_fixtures`, with shared helpers in `common/` and synthetic data in
-`fixtures/`.
+`quota_readers`, `runner`, `sessions`, `settings`, `snapshot`,
+`snapshot_ext`, `stats` and `ui_fixtures`, with shared helpers in
+`common/` and synthetic data in `fixtures/`.
 inline, and in `src-tauri/tests/` those of its sockets for an extension
 (`ext.rs`), filled by a test extension (`common/`) made as a crate outside the
 app would make one. The Vitest tests are the `*.test.ts(x)` files under `src/`; the
@@ -377,8 +377,9 @@ UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test stats
 ## Layout
 
 - `crates/quota-station-core/` is plain Rust, with no window. It reads the
-  quota (`quota/`, ported from quota-axi), turns the readings into a snapshot,
-  holds the icon rules and glyph (`icon.rs`) and the names the app shows for
+  quota (`quota/`, ported from quota-axi), turns the readings into a snapshot
+  (`snapshot.rs`, to which an extension may add its own keys once it is
+  built), holds the icon rules and glyph (`icon.rs`) and the names the app shows for
   accounts without a name shown, which an extension may give (`labels.rs`),
   and schedules reads. Its main
   modules:

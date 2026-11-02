@@ -426,8 +426,8 @@ pub struct Own<'a> {
 pub trait PoolPolicy {
     /// At a read of the accounts the app keeps ([`own`]): the room of the
     /// pool as the policy counts it, written into `accounts` as the read
-    /// built them, at `now`. `row` is the row of the account in use. The
-    /// default writes nothing.
+    /// built them (in its own keys, [`ClaudeAccounts::ext`]), at `now`.
+    /// `row` is the row of the account in use. The default writes nothing.
     fn room(&self, row: &Provider, accounts: &mut ClaudeAccounts, now: OffsetDateTime) {
         let _ = (row, accounts, now);
     }
@@ -607,8 +607,6 @@ pub fn own(input: &Own, now: OffsetDateTime) -> Response {
             Provider::failed(ProviderId::Claude, "unavailable", &error)
         }
     };
-    // A build may give the row more fields, which start empty.
-    #[allow(clippy::needless_update)]
     let mut accounts = ClaudeAccounts { active_slot: active, slots, ..ClaudeAccounts::default() };
     if let Some(policy) = input.pool {
         policy.room(&row, &mut accounts, now);

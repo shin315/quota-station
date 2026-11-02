@@ -21,9 +21,12 @@ fn at(text: &str) -> OffsetDateTime {
     OffsetDateTime::parse(text, &Rfc3339).unwrap()
 }
 
+/// The snapshot of these reports as this build's app shows it.
 fn snap(claude: &str, agy: Option<&str>) -> Snapshot {
-    let agy = agy.map(fixture);
-    Snapshot::build(Some(&fixture(claude)), agy.as_ref())
+    let (claude, agy) = (fixture(claude), agy.map(fixture));
+    #[allow(unused_mut)]
+    let mut s = Snapshot::build(Some(&claude), agy.as_ref());
+    s
 }
 
 /// Claude's accounts, Antigravity's live account, Codex on its ChatGPT login.

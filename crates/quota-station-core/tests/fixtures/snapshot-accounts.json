@@ -1,0 +1,337 @@
+{
+  "plain-2": {
+    "claude": {
+      "status": "ok",
+      "reason": null,
+      "accounts": [
+        {
+          "number": 1,
+          "active": false,
+          "reading": "fresh",
+          "fetchedAt": "2026-01-16T07:19:00.000Z",
+          "source": "list",
+          "lines": [
+            {
+              "kind": "session",
+              "percent": 12.0,
+              "resetsAt": null,
+              "pending": false,
+              "atLeast": false
+            }
+          ],
+          "windows": []
+        },
+        {
+          "number": 2,
+          "active": true,
+          "reading": "fresh",
+          "fetchedAt": "2026-01-16T07:19:00.000Z",
+          "source": "live",
+          "lines": [
+            {
+              "kind": "session",
+              "percent": 8.0,
+              "resetsAt": "2026-01-16T09:20:00Z",
+              "pending": false,
+              "atLeast": false
+            }
+          ],
+          "windows": [
+            {
+              "kind": "session",
+              "percent": 8.0,
+              "resetsAt": "2026-01-16T09:20:00Z",
+              "pending": false,
+              "atLeast": false
+            },
+            {
+              "kind": "week",
+              "percent": 60.0,
+              "resetsAt": "2026-01-19T07:20:00Z",
+              "pending": false,
+              "atLeast": false
+            }
+          ]
+        },
+        {
+          "number": 3,
+          "active": false,
+          "reading": "fresh",
+          "fetchedAt": "2026-01-16T07:19:00.000Z",
+          "source": "list",
+          "lines": [
+            {
+              "kind": "session",
+              "percent": 14.0,
+              "resetsAt": "2026-01-16T08:20:00Z",
+              "pending": false,
+              "atLeast": false
+            }
+          ],
+          "windows": []
+        },
+        {
+          "number": 4,
+          "active": false,
+          "reading": "fresh",
+          "fetchedAt": "2026-01-16T07:19:00.000Z",
+          "source": "list",
+          "lines": [
+            {
+              "kind": "week",
+              "percent": 90.0,
+              "resetsAt": null,
+              "pending": false,
+              "atLeast": false
+            }
+          ],
+          "windows": []
+        },
+        {
+          "number": 5,
+          "active": false,
+          "reading": "fresh",
+          "fetchedAt": "2026-01-16T07:19:00.000Z",
+          "source": "list",
+          "lines": [
+            {
+              "kind": "week",
+              "percent": 95.0,
+              "resetsAt": null,
+              "pending": false,
+              "atLeast": false
+            }
+          ],
+          "windows": []
+        },
+        {
+          "number": 6,
+          "active": false,
+          "reading": "fresh",
+          "fetchedAt": "2026-01-16T07:19:00.000Z",
+          "source": "list",
+          "lines": [
+            {
+              "kind": "week",
+              "percent": 80.0,
+              "resetsAt": null,
+              "pending": false,
+              "atLeast": false
+            }
+          ],
+          "windows": []
+        }
+      ],
+      "pool": {
+        "kind": "active",
+        "percent": 8.0,
+        "line": "session",
+        "scope": null,
+        "nextRefillAt": "2026-01-16T09:20:00Z",
+        "exhausted": false,
+        "reason": null
+      },
+      "generatedAt": "2026-01-16T07:20:00.000Z",
+      "newestReadingAt": "2026-01-16T07:19:00.000Z",
+      "stale": false,
+      "source": null
+    },
+    "agy": {
+      "status": "unread",
+      "reason": null,
+      "accounts": [],
+      "pool": {
+        "kind": "none",
+        "percent": null,
+        "line": null,
+        "scope": null,
+        "nextRefillAt": null,
+        "exhausted": false,
+        "reason": null
+      },
+      "generatedAt": null,
+      "newestReadingAt": null,
+      "stale": false,
+      "source": null
+    },
+    "codex": {
+      "status": "unread",
+      "reason": null,
+      "accounts": [],
+      "pool": {
+        "kind": "none",
+        "percent": null,
+        "line": null,
+        "scope": null,
+        "nextRefillAt": null,
+        "exhausted": false,
+        "reason": null
+      },
+      "generatedAt": null,
+      "newestReadingAt": null,
+      "stale": false,
+      "source": null
+    },
+    "keychain": "granted"
+  },
+  "plain-none": {
+    "claude": {
+      "status": "ok",
+      "reason": null,
+      "accounts": [
+        {
+          "number": 1,
+          "active": false,
+          "reading": "fresh",
+          "fetchedAt": "2026-01-16T07:19:00.000Z",
+          "source": "list",
+          "lines": [
+            {
+              "kind": "session",
+              "percent": 12.0,
+              "resetsAt": null,
+              "pending": false,
+              "atLeast": false
+            }
+          ],
+          "windows": []
+        },
+        {
+          "number": 2,
+          "active": false,
+          "reading": "fresh",
+          "fetchedAt": "2026-01-16T07:19:00.000Z",
+          "source": "list",
+          "lines": [
+            {
+              "kind": "session",
+              "percent": 8.0,
+              "resetsAt": "2026-01-16T09:20:00Z",
+              "pending": false,
+              "atLeast": false
+            }
+          ],
+          "windows": []
+        },
+        {
+          "number": 3,
+          "active": false,
+          "reading": "fresh",
+          "fetchedAt": "2026-01-16T07:19:00.000Z",
+          "source": "list",
+          "lines": [
+            {
+              "kind": "session",
+              "percent": 14.0,
+              "resetsAt": "2026-01-16T08:20:00Z",
+              "pending": false,
+              "atLeast": false
+            }
+          ],
+          "windows": []
+        },
+        {
+          "number": 4,
+          "active": false,
+          "reading": "fresh",
+          "fetchedAt": "2026-01-16T07:19:00.000Z",
+          "source": "list",
+          "lines": [
+            {
+              "kind": "week",
+              "percent": 90.0,
+              "resetsAt": null,
+              "pending": false,
+              "atLeast": false
+            }
+          ],
+          "windows": []
+        },
+        {
+          "number": 5,
+          "active": false,
+          "reading": "fresh",
+          "fetchedAt": "2026-01-16T07:19:00.000Z",
+          "source": "list",
+          "lines": [
+            {
+              "kind": "week",
+              "percent": 95.0,
+              "resetsAt": null,
+              "pending": false,
+              "atLeast": false
+            }
+          ],
+          "windows": []
+        },
+        {
+          "number": 6,
+          "active": false,
+          "reading": "fresh",
+          "fetchedAt": "2026-01-16T07:19:00.000Z",
+          "source": "list",
+          "lines": [
+            {
+              "kind": "week",
+              "percent": 80.0,
+              "resetsAt": null,
+              "pending": false,
+              "atLeast": false
+            }
+          ],
+          "windows": []
+        }
+      ],
+      "pool": {
+        "kind": "none",
+        "percent": null,
+        "line": null,
+        "scope": null,
+        "nextRefillAt": null,
+        "exhausted": false,
+        "reason": null
+      },
+      "generatedAt": "2026-01-16T07:20:00.000Z",
+      "newestReadingAt": "2026-01-16T07:19:00.000Z",
+      "stale": false,
+      "source": null
+    },
+    "agy": {
+      "status": "unread",
+      "reason": null,
+      "accounts": [],
+      "pool": {
+        "kind": "none",
+        "percent": null,
+        "line": null,
+        "scope": null,
+        "nextRefillAt": null,
+        "exhausted": false,
+        "reason": null
+      },
+      "generatedAt": null,
+      "newestReadingAt": null,
+      "stale": false,
+      "source": null
+    },
+    "codex": {
+      "status": "unread",
+      "reason": null,
+      "accounts": [],
+      "pool": {
+        "kind": "none",
+        "percent": null,
+        "line": null,
+        "scope": null,
+        "nextRefillAt": null,
+        "exhausted": false,
+        "reason": null
+      },
+      "generatedAt": null,
+      "newestReadingAt": null,
+      "stale": false,
+      "source": null
+    },
+    "keychain": "unknown"
+  }
+}

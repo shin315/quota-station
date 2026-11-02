@@ -14,13 +14,14 @@ use quota_station_core::alerts::{
 };
 use quota_station_core::claude::cli::Cli;
 use quota_station_core::claude::Paths;
+use quota_station_core::ext::Fields;
 use quota_station_core::ext::Hooks;
 use quota_station_core::labels::Labels;
 use quota_station_core::quota::claude::PoolPolicy;
-use quota_station_core::quota::{ClaudeAccounts, Provider, Slot};
+use quota_station_core::quota::{ClaudeAccounts, Provider, Response, Slot};
 use quota_station_core::settings::Settings;
-use quota_station_core::snapshot::Account;
-use serde_json::{Map, Value};
+use quota_station_core::snapshot::{Account, PoolKind, Section, Snapshot};
+use serde_json::{json, Map, Value};
 use time::{OffsetDateTime, UtcOffset};
 
 /// Hooks a test can see the core call.
@@ -43,6 +44,13 @@ use time::{OffsetDateTime, UtcOffset};
 ///
 /// The accounts' names: while `testLabels` is on in the settings, their own
 /// ([`TestLabels`]); otherwise the app's.
+///
+/// The snapshot: on every account of every section, `testNumber` (ten
+/// times its number) after its number and `testEnd` at its end; on Claude's
+/// section, `testListKeys` (the keys of their own the report's list of
+/// accounts had) after `stale`; and where that list has `testPool`, Claude's
+/// pool is theirs (kind `testPool`, `testPool`'s value as its percent, and
+/// `testWhole` after its kind).
 #[derive(Debug, Default)]
 pub struct TestHooks;
 
@@ -129,6 +137,27 @@ impl Hooks for TestHooks {
         let on = settings.ext.get("testLabels") == Some(&Value::Bool(true));
         on.then(|| Box::new(TestLabels) as Box<dyn Labels>)
     }
+
+    fn decorate_snapshot(&self, snapshot: &mut Snapshot, claude: Option<&Response>) {
+        for section in [&mut snapshot.claude, &mut snapshot.agy, &mut snapshot.codex] {
+            for a in &mut section.accounts {
+                a.ext.insert_after("number", "testNumber", json!(a.number * 10));
+                a.ext.insert("testEnd", json!(true));
+            }
+        }
+        let list = claude
+            .and_then(|r| r.primary("claude"))
+            .and_then(|row| row.claude_accounts.as_ref())
+            .map_or_else(Fields::new, |l| l.ext.clone());
+        let keys: Vec<&str> = list.iter().map(|(k, _)| k).collect();
+        snapshot.claude.ext.insert_after("stale", "testListKeys", json!(keys));
+        if let Some(percent) = list.get("testPool").and_then(Value::as_f64) {
+            let pool = &mut snapshot.claude.pool;
+            pool.kind = PoolKind::Ext("testPool");
+            pool.percent = Some(percent);
+            pool.ext.insert_after("kind", "testWhole", json!(true));
+        }
+    }
 }
 
 /// The test hooks' names for the accounts: a Claude account with an odd
@@ -140,8 +169,9 @@ impl Hooks for TestHooks {
 pub struct TestLabels;
 
 impl Labels for TestLabels {
-    fn claude(&self, accounts: &[Account], account: &Account) -> Option<String> {
-        (account.number % 2 == 1).then(|| format!("Test {} of {}", account.number, accounts.len()))
+    fn claude(&self, section: &Section, account: &Account) -> Option<String> {
+        let all = section.accounts.len();
+        (account.number % 2 == 1).then(|| format!("Test {} of {all}", account.number))
     }
 
     fn agy(&self, number: u32) -> Option<String> {

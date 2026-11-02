@@ -628,13 +628,14 @@ pub fn claude_names(
     report: Option<&Response>,
     labels: Option<&dyn Labels>,
 ) -> BTreeMap<u32, String> {
-    let accounts = Snapshot::build(report, None).claude.accounts;
-    accounts
+    let section = Snapshot::build(report, None).claude;
+    section
+        .accounts
         .iter()
         .filter(|a| a.number > 0)
         .map(|a| {
             let name = labels
-                .and_then(|l| l.claude(&accounts, a))
+                .and_then(|l| l.claude(&section, a))
                 .unwrap_or_else(|| format!("Tài khoản {}", a.number));
             (a.number, name)
         })

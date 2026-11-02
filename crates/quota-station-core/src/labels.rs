@@ -9,18 +9,19 @@
 //! [`crate::ext::Hooks::account_labels`] gives for the settings in force).
 //! A name it does not give stays the app's.
 
-use crate::snapshot::Account;
+use crate::snapshot::{Account, Section};
 
 /// An extension's names for the accounts the app shows, for one set of
 /// settings ([`crate::ext::Hooks::account_labels`]). Every method has a
 /// default that gives nothing: the app's own name or words stay.
 pub trait Labels: Send + Sync {
-    /// The name of the Claude account `account`, one of `accounts` (the
-    /// Claude accounts as the snapshot has them), where no name is shown:
-    /// it has a number from 1 and no email the app shows. `None`, the
-    /// default, is the app's `Tài khoản N`.
-    fn claude(&self, accounts: &[Account], account: &Account) -> Option<String> {
-        let _ = (accounts, account);
+    /// The name of the Claude account `account`, one of `section`'s (the
+    /// Claude accounts as the snapshot has them, with the keys of the
+    /// extension's own their list had, [`Section::list_ext`]), where no
+    /// name is shown: it has a number from 1 and no email the app shows.
+    /// `None`, the default, is the app's `Tài khoản N`.
+    fn claude(&self, section: &Section, account: &Account) -> Option<String> {
+        let _ = (section, account);
         None
     }
 

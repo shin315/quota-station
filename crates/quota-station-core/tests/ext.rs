@@ -10,12 +10,14 @@ use std::path::{Path, PathBuf};
 use common::accounts::{credential, in_hours, oauth, Mac};
 use common::ext::{pool_reads, test_kind, TestHooks, TestPolicy};
 use quota_station_core::alerts::{self, Facts, Kind, Memory, Switches};
-use quota_station_core::ext::{self, Hooks, NoHooks};
+use quota_station_core::ext::{self, Fields, Hooks, NoHooks};
 use quota_station_core::icon;
 use quota_station_core::labels::Labels;
 use quota_station_core::quota::claude::own_now;
 use quota_station_core::quota::Response;
 use quota_station_core::settings::{PoolAlert, Settings};
+use quota_station_core::snapshot::PoolKind;
+use quota_station_core::Snapshot;
 use serde_json::{json, Value};
 use time::{OffsetDateTime, UtcOffset};
 
@@ -378,7 +380,7 @@ fn the_extensions_labels_name_the_accounts_where_the_app_shows_them() {
     let labels: Option<&dyn Labels> = Some(labels.as_ref());
     let r = four_accounts();
     // The icon, with the accounts of the snapshot's Claude section.
-    let s = quota_station_core::Snapshot::build(Some(&r), None);
+    let s = Snapshot::build(Some(&r), None);
     let names: Vec<String> =
         s.claude.accounts.iter().map(|a| icon::claude_name(&s.claude, a, labels)).collect();
     assert_eq!(names, ["Test 1 of 4", "Tài khoản 2", "Test 3 of 4", "Tài khoản 4"]);
@@ -437,4 +439,121 @@ fn without_an_extensions_labels_the_accounts_go_by_number() {
     assert_eq!(pool.body, "Thử: Tài khoản 1 đã dùng 92%. Tài khoản 2 có lại hạn mức lúc 02:00.");
     let overwrite = alerts::sample(&Kind::Overwrite, 0, UtcOffset::UTC, None, &TestHooks).unwrap();
     assert!(overwrite.body.contains("đổi về Antigravity 1. Bạn đã chuyển sang Antigravity 2"));
+}
+
+/// `value`'s keys, in the order they are written.
+fn keys_of(value: &impl serde::Serialize) -> Vec<String> {
+    let text = serde_json::to_string(value).unwrap();
+    serde_json::from_str::<Fields>(&text).unwrap().iter().map(|(k, _)| k.to_string()).collect()
+}
+
+/// [`four_accounts`], whose list has two keys of the extension's own:
+/// `testPool` (42) and `testOther`.
+fn four_accounts_with_keys() -> Response {
+    let mut r = four_accounts();
+    let list = r.primary_mut("claude").unwrap().claude_accounts.as_mut().unwrap();
+    list.ext.insert("testPool", json!(42.0));
+    list.ext.insert("testOther", json!("x"));
+    r
+}
+
+/// The app's own keys of an account, of a pool and of a section.
+const ACCOUNT_KEYS: [&str; 7] =
+    ["number", "active", "reading", "fetchedAt", "source", "lines", "windows"];
+const POOL_KEYS: [&str; 7] =
+    ["kind", "percent", "line", "scope", "nextRefillAt", "exhausted", "reason"];
+const SECTION_KEYS: [&str; 8] =
+    ["status", "reason", "accounts", "pool", "generatedAt", "newestReadingAt", "stale", "source"];
+
+/// The extension's part of the snapshot: its keys sit right after the
+/// app's key it put them after (even one the app leaves out), or at the
+/// end; it may count a pool its own way; and it reads the keys of its own
+/// the report's list had, which the section keeps without sending them.
+#[test]
+fn the_extensions_part_of_the_snapshot_sits_among_the_apps_keys() {
+    let r = four_accounts_with_keys();
+    let mut s = Snapshot::build(Some(&r), None);
+    assert_eq!(s.claude.list_ext.get("testPool"), Some(&json!(42.0)));
+    assert_eq!(keys_of(&s.claude), SECTION_KEYS, "the list's keys are never sent");
+    TestHooks.decorate_snapshot(&mut s, Some(&r));
+
+    let first = &s.claude.accounts[0];
+    assert_eq!(
+        keys_of(first),
+        [
+            "number",
+            "testNumber",
+            "active",
+            "reading",
+            "fetchedAt",
+            "source",
+            "lines",
+            "windows",
+            "testEnd"
+        ]
+    );
+    let v = serde_json::to_value(&s).unwrap();
+    let numbers: Vec<&Value> = (0..4).map(|i| &v["claude"]["accounts"][i]["testNumber"]).collect();
+    assert_eq!(numbers, [&json!(10), &json!(20), &json!(30), &json!(40)]);
+    let mut named = first.clone();
+    named.email = Some("lan@example.com".into());
+    assert_eq!(keys_of(&named)[7..], ["windows", "email", "testEnd"]);
+
+    let pool = &s.claude.pool;
+    assert_eq!(pool.kind, PoolKind::Ext("testPool"));
+    assert_eq!(
+        keys_of(pool),
+        ["kind", "testWhole", "percent", "line", "scope", "nextRefillAt", "exhausted", "reason"]
+    );
+    assert_eq!(
+        (&v["claude"]["pool"]["kind"], &v["claude"]["pool"]["percent"]),
+        (&json!("testPool"), &json!(42.0))
+    );
+
+    let mut section = SECTION_KEYS.map(String::from).to_vec();
+    section.insert(7, "testListKeys".into());
+    assert_eq!(keys_of(&s.claude), section);
+    assert_eq!(v["claude"]["testListKeys"], json!(["testPool", "testOther"]));
+    assert_eq!(keys_of(&s.agy), SECTION_KEYS, "the extension adds what it says only");
+
+    // A key put after one the object never has comes at the end, as one
+    // put after none does; a key put again leaves its place for the new one.
+    let mut a = first.clone();
+    a.ext.insert_after("noSuchKey", "testStray", json!(1));
+    a.ext.insert_after("active", "testNumber", json!(0));
+    assert_eq!(
+        keys_of(&a),
+        [
+            "number",
+            "active",
+            "testNumber",
+            "reading",
+            "fetchedAt",
+            "source",
+            "lines",
+            "windows",
+            "testEnd",
+            "testStray"
+        ]
+    );
+    assert_eq!(a.ext.remove("testStray"), Some(json!(1)));
+    assert_eq!(a.ext.get("testStray"), None);
+}
+
+/// Without an extension's part the snapshot is as the app builds it: the
+/// app's keys only, and its own count of the pool.
+#[test]
+fn without_an_extension_the_snapshot_is_as_the_app_builds_it() {
+    let r = four_accounts_with_keys();
+    let built = Snapshot::build(Some(&r), None);
+    for hooks in [&NoHooks as &dyn Hooks, ext::none()] {
+        let mut s = built.clone();
+        hooks.decorate_snapshot(&mut s, Some(&r));
+        assert_eq!(s, built);
+        assert_eq!(serde_json::to_string(&s).unwrap(), serde_json::to_string(&built).unwrap());
+    }
+    assert_eq!(keys_of(&built.claude.accounts[0]), ACCOUNT_KEYS);
+    assert_eq!(keys_of(&built.claude.pool), POOL_KEYS);
+    assert_eq!(built.claude.pool.kind, PoolKind::Active);
+    assert!(built.claude.accounts.iter().all(|a| a.ext.is_empty()));
 }

@@ -70,8 +70,9 @@ fn ui_fixtures_match_the_snapshots_rust_builds() {
     let mut stale = Vec::new();
     for (name, claude, agy, codex) in SCENARIOS {
         let codex = codex.map(fixture);
+        let claude = fixture(claude);
         let mut snapshot =
-            Snapshot::build(Some(&fixture(claude)), Some(&fixture(agy))).with_codex(codex.as_ref());
+            Snapshot::build(Some(&claude), Some(&fixture(agy))).with_codex(codex.as_ref());
         if *name == "fresh" {
             add_detail(&mut snapshot);
         }

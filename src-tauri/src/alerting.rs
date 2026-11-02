@@ -640,7 +640,7 @@ mod tests {
     impl quota_station_core::labels::Labels for Named {
         fn claude(
             &self,
-            _accounts: &[quota_station_core::snapshot::Account],
+            _section: &quota_station_core::snapshot::Section,
             account: &quota_station_core::snapshot::Account,
         ) -> Option<String> {
             Some(format!("Named {}", account.number))

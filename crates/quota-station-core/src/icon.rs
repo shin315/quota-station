@@ -95,9 +95,7 @@ pub fn claude_name(section: &Section, a: &Account, labels: Option<&dyn Labels>) 
     if a.number == 0 {
         return "Claude".into();
     }
-    labels
-        .and_then(|l| l.claude(&section.accounts, a))
-        .unwrap_or_else(|| format!("Tài khoản {}", a.number))
+    labels.and_then(|l| l.claude(section, a)).unwrap_or_else(|| format!("Tài khoản {}", a.number))
 }
 
 /// An Antigravity account's name, uncut: its email, else "Gemini" for the

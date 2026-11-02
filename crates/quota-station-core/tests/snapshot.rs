@@ -4,16 +4,24 @@
 mod common;
 
 use common::fixture;
+use quota_station_core::quota::Response;
 use quota_station_core::snapshot::{
     Keychain, LineKind, PoolKind, Reading, SectionStatus, Snapshot, Source, LIST_SOURCE,
 };
 
+/// The snapshot of these reports as this build's app shows it.
+fn shown(claude: Option<&Response>, agy: Option<&Response>) -> Snapshot {
+    #[allow(unused_mut)]
+    let mut s = Snapshot::build(claude, agy);
+    s
+}
+
 fn claude(name: &str) -> Snapshot {
-    Snapshot::build(Some(&fixture(name)), None)
+    shown(Some(&fixture(name)), None)
 }
 
 fn agy(name: &str) -> Snapshot {
-    Snapshot::build(None, Some(&fixture(name)))
+    shown(None, Some(&fixture(name)))
 }
 
 #[test]
@@ -223,7 +231,7 @@ fn each_section_keeps_the_time_of_its_own_report() {
 
 #[test]
 fn snapshot_serializes_in_camel_case_for_the_ui() {
-    let s = Snapshot::build(Some(&fixture("claude-pool.json")), Some(&fixture("agy-single.json")));
+    let s = shown(Some(&fixture("claude-pool.json")), Some(&fixture("agy-single.json")));
     let v: serde_json::Value = serde_json::to_value(&s).unwrap();
     assert_eq!(v["claude"]["pool"]["kind"], "active");
     assert_eq!(v["claude"]["accounts"][1]["lines"][1]["kind"], "fableWeek");

@@ -8,10 +8,16 @@
 //! Built only from the app's own readings ([`crate::quota`]). Numbers are
 //! never guessed: a window past its reset stays empty (`pending`) until the
 //! owner measures again.
+//!
+//! An extension adds its own part once the snapshot is built
+//! ([`crate::ext::Hooks::decorate_snapshot`]): its keys in the [`Fields`]
+//! of the sections, accounts and pools, written among the app's own, and a
+//! pool it counts its own way ([`PoolKind::Ext`]).
 
-use serde::Serialize;
+use serde::{Serialize, Serializer};
 use time::OffsetDateTime;
 
+use crate::ext::{Fields, Placed};
 use crate::quota::{AgyAccounts, Provider, Response, Scope, Slot, Window};
 use crate::time_util::{latest, parse_ts};
 
@@ -66,8 +72,7 @@ pub enum Source {
     List,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Account {
     /// The account's number in the app's list; 0 for the one account a
     /// provider row reads when the app lists no others.
@@ -85,23 +90,52 @@ pub struct Account {
     pub windows: Vec<Line>,
     /// The account's email; filled only while the owner shows names, and
     /// left out of the JSON otherwise.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub email: Option<String>,
     /// The Claude account's organization, under the same rule.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub org: Option<String>,
+    /// The extension's keys ([`crate::ext::Hooks::decorate_snapshot`]).
+    pub ext: Fields,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
+impl Serialize for Account {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut out = Placed::start(serializer, &self.ext)?;
+        out.entry("number", &self.number)?;
+        out.entry("active", &self.active)?;
+        out.entry("reading", &self.reading)?;
+        out.entry("fetchedAt", &self.fetched_at)?;
+        out.entry("source", &self.source)?;
+        out.entry("lines", &self.lines)?;
+        out.entry("windows", &self.windows)?;
+        out.optional("email", self.email.as_ref())?;
+        out.optional("org", self.org.as_ref())?;
+        out.end()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PoolKind {
     /// Only the signed-in account's own number.
     Active,
     None,
+    /// A pool the extension counts its own way
+    /// ([`crate::ext::Hooks::decorate_snapshot`]), by the name the JSON
+    /// gives it.
+    Ext(&'static str),
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
+/// A kind is its name: `active`, `none`, or the extension's.
+impl Serialize for PoolKind {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(match self {
+            PoolKind::Active => "active",
+            PoolKind::None => "none",
+            PoolKind::Ext(name) => name,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct Pool {
     pub kind: PoolKind,
     /// 0-100 for the bar: the active account's percent left.
@@ -115,10 +149,27 @@ pub struct Pool {
     /// Why there is no wider count than the active account's own numbers,
     /// when known.
     pub reason: Option<String>,
+    /// The extension's keys ([`crate::ext::Hooks::decorate_snapshot`]).
+    pub ext: Fields,
+}
+
+impl Serialize for Pool {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut out = Placed::start(serializer, &self.ext)?;
+        out.entry("kind", &self.kind)?;
+        out.entry("percent", &self.percent)?;
+        out.entry("line", &self.line)?;
+        out.entry("scope", &self.scope)?;
+        out.entry("nextRefillAt", &self.next_refill_at)?;
+        out.entry("exhausted", &self.exhausted)?;
+        out.entry("reason", &self.reason)?;
+        out.end()
+    }
 }
 
 impl Pool {
-    fn none() -> Self {
+    /// No pool: nothing counted.
+    pub fn none() -> Self {
         Pool {
             kind: PoolKind::None,
             percent: None,
@@ -127,6 +178,7 @@ impl Pool {
             next_refill_at: None,
             exhausted: false,
             reason: None,
+            ext: Fields::new(),
         }
     }
 }
@@ -147,8 +199,7 @@ pub enum SectionStatus {
     Unread,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Section {
     pub status: SectionStatus,
     /// Why the list could not be read (`unavailable`), or why the one login
@@ -165,6 +216,29 @@ pub struct Section {
     /// `quota-station` when the Antigravity accounts are the app's own list;
     /// none without that list.
     pub source: Option<String>,
+    /// The extension's keys ([`crate::ext::Hooks::decorate_snapshot`]).
+    pub ext: Fields,
+    /// The keys of the extension's own that the report's list of accounts
+    /// had ([`crate::quota::ClaudeAccounts::ext`]), as the section was
+    /// built from it: there for the extension's hooks to read (the names
+    /// it gives the accounts, [`crate::labels::Labels::claude`]), never
+    /// sent.
+    pub list_ext: Fields,
+}
+
+impl Serialize for Section {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut out = Placed::start(serializer, &self.ext)?;
+        out.entry("status", &self.status)?;
+        out.entry("reason", &self.reason)?;
+        out.entry("accounts", &self.accounts)?;
+        out.entry("pool", &self.pool)?;
+        out.entry("generatedAt", &self.generated_at)?;
+        out.entry("newestReadingAt", &self.newest_reading_at)?;
+        out.entry("stale", &self.stale)?;
+        out.entry("source", &self.source)?;
+        out.end()
+    }
 }
 
 impl Section {
@@ -178,6 +252,8 @@ impl Section {
             newest_reading_at: None,
             stale: false,
             source: None,
+            ext: Fields::new(),
+            list_ext: Fields::new(),
         }
     }
 
@@ -280,6 +356,7 @@ fn claude_section(report: &Response) -> (Section, Keychain) {
             s.accounts =
                 list.slots.iter().map(|slot| list_account(slot, live.as_ref(), &live_at)).collect();
             s.accounts.sort_by_key(|a| a.number);
+            s.list_ext = list.ext.clone();
             s
         }
         None if row.not_set_up => Section::empty(SectionStatus::NotSetUp),
@@ -297,8 +374,7 @@ fn claude_section(report: &Response) -> (Section, Keychain) {
     for account in section.accounts.iter_mut().filter(|a| a.source == Source::Live) {
         account.windows = live_claude_windows(row);
     }
-    let pool = active_pool(&section, None);
-    section.pool = pool;
+    section.pool = active_pool(&section, None);
     finish(&mut section, now);
     (section, keychain)
 }
@@ -399,6 +475,7 @@ fn list_account(slot: &Slot, live: Option<&Vec<Line>>, live_at: &str) -> Account
         email: None,
         org: None,
         lines,
+        ext: Fields::new(),
     }
 }
 
@@ -453,6 +530,7 @@ fn live_only_account(row: &Provider, live_at: &str) -> Option<Account> {
         email: None,
         org: None,
         lines,
+        ext: Fields::new(),
     })
 }
 
@@ -502,6 +580,7 @@ fn listed_agy(row: &Provider, list: &AgyAccounts) -> Section {
             windows: Vec::new(),
             email: None,
             org: None,
+            ext: Fields::new(),
             lines: [("gemini", LineKind::Gemini), ("claude_gpt", LineKind::ClaudeGpt)]
                 .into_iter()
                 .filter_map(|(id, kind)| {
@@ -568,6 +647,7 @@ fn live_agy_account(row: &Provider, generated_at: &str) -> Option<Account> {
         email: None,
         org: None,
         lines,
+        ext: Fields::new(),
     })
 }
 
@@ -641,6 +721,7 @@ fn codex_account(row: &Provider, report: &Response, home: bool) -> Option<Accoun
         email: None,
         org: None,
         lines,
+        ext: Fields::new(),
     })
 }
 

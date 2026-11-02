@@ -205,6 +205,11 @@ pub struct ClaudeAccounts {
     pub active_slot: Option<u32>,
     #[serde(default)]
     pub slots: Vec<Slot>,
+    /// The keys the policy of the Claude pool adds to the row
+    /// ([`claude::PoolPolicy::room`]), after the app's; read back from a
+    /// report, every key the row has that the app does not know.
+    #[serde(flatten)]
+    pub ext: crate::ext::Fields,
 }
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]

@@ -430,9 +430,13 @@ impl Inner {
         list.accounts.iter().find(|a| a.active).map(|a| a.account as usize)
     }
 
+    /// The snapshot of the last reports, with the extension's part
+    /// ([`Hooks::decorate_snapshot`]).
     pub fn snapshot(&self) -> Snapshot {
-        Snapshot::build(self.claude.as_ref(), self.agy.as_ref())
-            .with_codex(self.codex_quota.as_ref())
+        let mut snapshot = Snapshot::build(self.claude.as_ref(), self.agy.as_ref())
+            .with_codex(self.codex_quota.as_ref());
+        self.hooks.decorate_snapshot(&mut snapshot, self.claude.as_ref());
+        snapshot
     }
 
     /// The snapshot the windows draw: every account's windows from the
@@ -700,7 +704,7 @@ mod tests {
     impl quota_station_core::labels::Labels for Named {
         fn claude(
             &self,
-            _accounts: &[quota_station_core::snapshot::Account],
+            _section: &quota_station_core::snapshot::Section,
             account: &quota_station_core::snapshot::Account,
         ) -> Option<String> {
             Some(format!("Named {}", account.number))
@@ -714,6 +718,56 @@ mod tests {
         ) -> Option<Box<dyn quota_station_core::labels::Labels>> {
             (settings.ext.get("testNames") == Some(&serde_json::Value::Bool(true)))
                 .then(|| Box::new(Named) as Box<dyn quota_station_core::labels::Labels>)
+        }
+    }
+
+    /// Marks every Claude account of the snapshot with `testMark`: whether
+    /// the hooks were handed the Claude report it was built from.
+    struct MarkingHooks;
+
+    impl Hooks for MarkingHooks {
+        fn decorate_snapshot(&self, snapshot: &mut Snapshot, claude: Option<&Response>) {
+            for a in &mut snapshot.claude.accounts {
+                a.ext.insert_after("number", "testMark", claude.is_some().into());
+            }
+        }
+    }
+
+    /// The snapshot the app shows (the menu bar's, the windows' and the
+    /// model's) has the extension's part, drawn from the report it read;
+    /// without an extension it has none.
+    #[test]
+    fn the_snapshot_has_the_extensions_part() {
+        let hooks: [(&'static dyn Hooks, Option<bool>); 2] =
+            [(&MarkingHooks, Some(true)), (quota_station_core::ext::none(), None)];
+        for (hooks, mark) in hooks {
+            let mut inner = Inner::new(
+                PathBuf::from("/nonexistent"),
+                PathBuf::from("/nonexistent/settings.json"),
+                "Mac Studio".into(),
+                hooks,
+            );
+            inner.claude = Some(
+                serde_json::from_value(serde_json::json!({
+                    "generatedAt": "2026-01-16T07:20:00.000Z",
+                    "providers": [{
+                        "provider": "claude", "windows": [], "state": { "status": "fresh" },
+                        "claudeAccounts": { "activeSlot": 2, "slots": [
+                            { "slot": 1, "active": false, "status": "fresh" },
+                            { "slot": 2, "active": true, "status": "fresh" }
+                        ] }
+                    }]
+                }))
+                .unwrap(),
+            );
+            let marked = |s: &Snapshot| -> Vec<Option<bool>> {
+                s.claude.accounts.iter().map(|a| a.ext.get("testMark")?.as_bool()).collect()
+            };
+            assert_eq!(marked(&inner.snapshot()), [mark, mark]);
+            assert_eq!(marked(&inner.detailed_snapshot()), [mark, mark]);
+            let model = serde_json::to_value(inner.model()).unwrap();
+            let sent = model["snapshot"]["claude"]["accounts"][1].get("testMark");
+            assert_eq!(sent.and_then(Value::as_bool), mark);
         }
     }
 

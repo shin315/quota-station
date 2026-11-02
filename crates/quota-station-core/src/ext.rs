@@ -36,10 +36,17 @@
 //! - the names of the accounts the app shows where no name is shown, on
 //!   the menu bar's title ([`crate::icon`]) and on the alerts' cards
 //!   ([`crate::alerts`]), and alert 1's title: the extension's for the
-//!   settings in force ([`Hooks::account_labels`]).
+//!   settings in force ([`Hooks::account_labels`]);
+//! - the snapshot the windows and the menu bar draw: what the extension
+//!   adds to it once the app has built it ([`Hooks::decorate_snapshot`]),
+//!   in its own keys among the app's ([`Fields`]).
 
+use std::fmt;
 use std::io::Write;
 
+use serde::de::{MapAccess, Visitor};
+use serde::ser::SerializeMap;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{Map, Value};
 use time::UtcOffset;
 
@@ -48,7 +55,9 @@ use crate::claude::cli::Cli;
 use crate::claude::Paths;
 use crate::labels::Labels;
 use crate::quota::claude::PoolPolicy;
+use crate::quota::Response;
 use crate::settings::Settings;
+use crate::snapshot::Snapshot;
 
 /// The hooks an extension gives the core. Every method has a default that
 /// does nothing; an extension overrides the ones it needs.
@@ -166,6 +175,179 @@ pub trait Hooks: Send + Sync {
     fn account_labels(&self, settings: &Settings) -> Option<Box<dyn Labels>> {
         let _ = settings;
         None
+    }
+
+    /// Adds the extension's part to `snapshot`, which the app has just
+    /// built from its reports (`claude` is the Claude report it was built
+    /// from): keys of the extension's own in the [`Fields`] of its
+    /// sections, accounts and pools, and, where the extension counts a
+    /// pool its own way, that pool ([`crate::snapshot::PoolKind::Ext`]).
+    /// Called wherever the app builds the snapshot it shows. The default
+    /// adds nothing.
+    fn decorate_snapshot(&self, snapshot: &mut Snapshot, claude: Option<&Response>) {
+        let _ = (snapshot, claude);
+    }
+}
+
+/// The keys an extension adds to one of the app's JSON objects (the
+/// snapshot's sections, accounts and pools, the Claude read's list of
+/// accounts), with their values. In the snapshot each key is written right
+/// after the app's own key it was put after ([`Fields::insert_after`]), so
+/// the object reads with the extension's keys where they belong, even
+/// where the app leaves that key out; a key put after none
+/// ([`Fields::insert`]), or after a key the object does not have, comes at
+/// the end, in the order the keys were put. The Claude read's list writes
+/// them all at its end, in that order. Read back from JSON (a report), an
+/// object keeps here every key it does not know, at its end.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Fields {
+    entries: Vec<Field>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct Field {
+    after: Option<&'static str>,
+    key: String,
+    value: Value,
+}
+
+impl Fields {
+    /// No keys.
+    pub fn new() -> Self {
+        Fields::default()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+
+    /// The value of `key`, when it is here.
+    pub fn get(&self, key: &str) -> Option<&Value> {
+        self.entries.iter().find(|f| f.key == key).map(|f| &f.value)
+    }
+
+    /// Puts `key`, written right after the object's own key `after`; a
+    /// key already here leaves its place for the new one.
+    pub fn insert_after(&mut self, after: &'static str, key: impl Into<String>, value: Value) {
+        self.put(Some(after), key.into(), value);
+    }
+
+    /// Puts `key`, written at the end of the object; a key already here
+    /// leaves its place for the new one.
+    pub fn insert(&mut self, key: impl Into<String>, value: Value) {
+        self.put(None, key.into(), value);
+    }
+
+    /// Takes `key` out, with its value.
+    pub fn remove(&mut self, key: &str) -> Option<Value> {
+        let at = self.entries.iter().position(|f| f.key == key)?;
+        Some(self.entries.remove(at).value)
+    }
+
+    /// Every key with its value, in the order they were put.
+    pub fn iter(&self) -> impl Iterator<Item = (&str, &Value)> {
+        self.entries.iter().map(|f| (f.key.as_str(), &f.value))
+    }
+
+    fn put(&mut self, after: Option<&'static str>, key: String, value: Value) {
+        self.remove(&key);
+        self.entries.push(Field { after, key, value });
+    }
+}
+
+/// The keys in the order they were put, as one object (or, flattened, at
+/// the end of the object that has them).
+impl Serialize for Fields {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut map = serializer.serialize_map(Some(self.entries.len()))?;
+        for f in &self.entries {
+            map.serialize_entry(&f.key, &f.value)?;
+        }
+        map.end()
+    }
+}
+
+/// Every key of an object, each put at the end.
+impl<'de> Deserialize<'de> for Fields {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct Keys;
+        impl<'de> Visitor<'de> for Keys {
+            type Value = Fields;
+
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                f.write_str("an object")
+            }
+
+            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Fields, A::Error> {
+                let mut fields = Fields::new();
+                while let Some((key, value)) = map.next_entry::<String, Value>()? {
+                    fields.insert(key, value);
+                }
+                Ok(fields)
+            }
+        }
+        deserializer.deserialize_map(Keys)
+    }
+}
+
+/// Writes one of the app's objects with an extension's [`Fields`] among
+/// its own keys: each own key in turn ([`Placed::entry`]), each followed by
+/// the extension's keys put after it, and the rest of them at the end
+/// ([`Placed::end`]).
+pub(crate) struct Placed<'a, M> {
+    map: M,
+    fields: &'a Fields,
+    seen: Vec<&'static str>,
+}
+
+impl<'a, M: SerializeMap> Placed<'a, M> {
+    pub(crate) fn start<S: Serializer<SerializeMap = M>>(
+        serializer: S,
+        fields: &'a Fields,
+    ) -> Result<Self, S::Error> {
+        Ok(Placed { map: serializer.serialize_map(None)?, fields, seen: Vec::new() })
+    }
+
+    /// The app's own `key`, then the extension's keys put after it.
+    pub(crate) fn entry<T: Serialize + ?Sized>(
+        &mut self,
+        key: &'static str,
+        value: &T,
+    ) -> Result<(), M::Error> {
+        self.map.serialize_entry(key, value)?;
+        self.after(key)
+    }
+
+    /// The app's own `key` when it has a value (left out otherwise), then
+    /// the extension's keys put after it, either way.
+    pub(crate) fn optional<T: Serialize>(
+        &mut self,
+        key: &'static str,
+        value: Option<&T>,
+    ) -> Result<(), M::Error> {
+        if let Some(value) = value {
+            self.map.serialize_entry(key, value)?;
+        }
+        self.after(key)
+    }
+
+    fn after(&mut self, key: &'static str) -> Result<(), M::Error> {
+        self.seen.push(key);
+        for f in self.fields.entries.iter().filter(|f| f.after == Some(key)) {
+            self.map.serialize_entry(&f.key, &f.value)?;
+        }
+        Ok(())
+    }
+
+    /// The extension's keys put after none of the object's own, and the end.
+    pub(crate) fn end(mut self) -> Result<M::Ok, M::Error> {
+        let seen = std::mem::take(&mut self.seen);
+        for f in &self.fields.entries {
+            if !f.after.is_some_and(|a| seen.contains(&a)) {
+                self.map.serialize_entry(&f.key, &f.value)?;
+            }
+        }
+        self.map.end()
     }
 }
 
