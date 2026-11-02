@@ -13,7 +13,8 @@ use common::ext::{
 };
 use quota_station_core::alerts::{self, Facts, Kind, Memory, Switches};
 use quota_station_core::app_dir::AppDir;
-use quota_station_core::claude::{cli, switch};
+use quota_station_core::claude::store::Store;
+use quota_station_core::claude::{cli, state, switch};
 use quota_station_core::ext::{self, Fields, Hooks, NoHooks};
 use quota_station_core::history::{self, Seen, Source};
 use quota_station_core::icon;
@@ -794,5 +795,86 @@ fn the_extension_may_hold_a_logins_refresh_back() {
         let (mut out, mut err) = (Vec::new(), Vec::new());
         assert_eq!(cli::run(&cli, hooks, &args, &mut out, &mut err), 0);
         assert_eq!(anthropic.to("/v1/oauth/token").len(), usize::from(refreshed));
+    }
+}
+
+// The Claude accounts' file.
+
+/// The extension's keys on the Claude accounts: kept on each account the
+/// file has (one without them gets them), written back right after its
+/// alias, shown in the state file after the alias and before the name on
+/// `claude status`, carried on each account's slot by the read of the
+/// accounts after `active`, and a file whose keys the extension refuses is
+/// not read.
+#[test]
+fn the_extension_keeps_its_keys_on_the_claude_accounts() {
+    let mac = switch_mac("account-keys");
+    let store = Store::new(mac.paths.clone(), mac.keychain.clone()).with_hooks(&TestHooks);
+    assert!(store.account_keys().is_some());
+    let mut list = store.load().unwrap();
+    assert_eq!(list.get(2).unwrap().ext.get("testTag"), Some(&json!("none")));
+    list.get_mut(3).unwrap().alias = Some("Ba".into());
+    list.get_mut(3).unwrap().ext.insert("testTag", json!("blue"));
+    store.save(&list).unwrap();
+    let file = std::fs::read_to_string(mac.paths.accounts()).unwrap();
+    let three =
+        "\"slot\": 3,\n      \"alias\": \"Ba\",\n      \"testTag\": \"blue\",\n      \"kind\"";
+    let two = "\"slot\": 2,\n      \"testTag\": \"none\",\n      \"kind\"";
+    assert!(file.contains(three) && file.contains(two), "{file}");
+
+    state::write(&store, Some(2), OffsetDateTime::from_unix_timestamp(T).unwrap()).unwrap();
+    let written = std::fs::read_to_string(store.paths.state()).unwrap();
+    let shown = "\"alias\": \"Ba\",\n      \"testState\": \"blue!\",\n      \"active\"";
+    assert!(written.contains(shown), "{written}");
+    let cli = cli::Cli {
+        store: store.clone(),
+        tools: cli::Tools { claude: None, endpoints: FakeAnthropic::start().endpoints() },
+    };
+    let (mut out, mut err) = (Vec::new(), Vec::new());
+    assert_eq!(cli::run(&cli, &NoHooks, &["status".to_string()], &mut out, &mut err), 0);
+    let out = String::from_utf8(out).unwrap();
+    let lines: Vec<&str> = out.lines().map(str::trim_end).collect();
+    assert!(lines[0].ends_with("noData") && lines[1].ends_with("noData   tagged  Ba"), "{out}");
+
+    let report = own_now(&store, &NoHooks, OffsetDateTime::from_unix_timestamp(T).unwrap());
+    let report = report.unwrap();
+    let slots = &report.primary("claude").unwrap().claude_accounts.as_ref().unwrap().slots;
+    assert_eq!(slots[1].ext.get("testTag"), Some(&json!("blue")));
+    assert_eq!(keys_of(&slots[1])[..4], ["slot", "active", "testTag", "status"]);
+
+    let refused = file.replace("\"testTag\": \"blue\"", "\"testTag\": 5");
+    std::fs::write(mac.paths.accounts(), refused).unwrap();
+    assert_eq!(
+        store.load().unwrap_err().to_string(),
+        "accounts.json cannot be read: testTag is not text"
+    );
+}
+
+/// Without an extension the file keeps only the app's keys: what it does
+/// not know is read and left out, nothing is shown of it, and `claude
+/// status` names the accounts alone.
+#[test]
+fn without_an_extension_the_claude_accounts_keep_only_the_apps_keys() {
+    let mac = switch_mac("account-keys-none");
+    for hooks in [ext::none(), &NoHooks as &dyn Hooks] {
+        assert!(hooks.claude_account_keys().is_none());
+        let store = Store::new(mac.paths.clone(), mac.keychain.clone()).with_hooks(hooks);
+        assert!(store.account_keys().is_none());
+        let text = std::fs::read_to_string(mac.paths.accounts()).unwrap();
+        let tagged = text.replace("\"kind\"", "\"testTag\": \"blue\",\n      \"kind\"");
+        std::fs::write(mac.paths.accounts(), tagged).unwrap();
+        let list = store.load().unwrap();
+        assert!(list.accounts.iter().all(|a| a.ext.is_empty()));
+        store.save(&list).unwrap();
+        let file = std::fs::read_to_string(mac.paths.accounts()).unwrap();
+        assert!(!file.contains("testTag") && !file.contains("disabled"), "{file}");
+        let state = quota_station_core::claude::state::build(
+            &list,
+            &Default::default(),
+            None,
+            None,
+            OffsetDateTime::UNIX_EPOCH,
+        );
+        assert!(state.accounts.iter().all(|a| a.ext.is_empty()));
     }
 }

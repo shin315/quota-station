@@ -27,6 +27,7 @@ use quota_station_core::detail::ClaudeDetail;
 use quota_station_core::ext::Hooks;
 use quota_station_core::history::Seen;
 use quota_station_core::icon::{self, Context, Icon};
+use quota_station_core::os::SecretStore;
 use quota_station_core::quota::Response;
 use quota_station_core::schedule::Schedule;
 use quota_station_core::settings::{Language, Menubar, MenubarWindow, Settings, Theme, ThemePack};
@@ -402,9 +403,16 @@ impl Inner {
         quota_station_core::claude::Paths::new(&self.home, self.app_dir().path())
     }
 
-    /// The Claude accounts the app keeps, with the Keychain.
+    /// The Claude accounts the app keeps, with the Keychain and what the
+    /// extension keeps on each ([`Hooks::claude_account_keys`]).
     pub fn claude_store(&self) -> Store {
-        Store::new(self.claude_paths(), quota_station_core::os::secret_store())
+        self.claude_store_in(quota_station_core::os::secret_store())
+    }
+
+    /// The Claude accounts the app keeps, with their logins in `security`
+    /// and what the extension keeps on each.
+    fn claude_store_in(&self, security: impl SecretStore + 'static) -> Store {
+        Store::new(self.claude_paths(), security).with_hooks(self.hooks)
     }
 
     /// What a manual switch uses.
@@ -507,9 +515,9 @@ impl Inner {
     }
 
     /// The menu bar icon for `snapshot`, the detailed one the windows get:
-    /// only it has the names and every window.
-    // The binding stays for the build that adds to it.
-    #[allow(clippy::let_and_return)]
+    /// only it has the names and every window. It carries the extension's
+    /// badge ([`crate::ext::Extension::icon_badge`]), which takes its own
+    /// lock after the app's.
     pub fn icon(&self, snapshot: &Snapshot, now: OffsetDateTime) -> Icon {
         let labels = self.hooks.account_labels(&self.settings);
         let cx = Context {
@@ -519,8 +527,8 @@ impl Inner {
             now,
             labels: labels.as_deref(),
         };
-        let icon = icon::icon(self.claude.is_some().then_some(snapshot), &cx);
-        icon
+        icon::icon(self.claude.is_some().then_some(snapshot), &cx)
+            .with_badge(self.extension.icon_badge_part(&self.kept, now))
     }
 
     /// The model for `snapshot`: [`Inner::detailed_snapshot`] reads the
@@ -780,6 +788,87 @@ mod tests {
         }
     }
 
+    /// Keeps `testKept` on each Claude account of the app's file, 0 where
+    /// the file has none.
+    struct KeepingHooks;
+
+    struct Keeping;
+
+    impl quota_station_core::claude::store::AccountKeys for Keeping {
+        fn keep(
+            &self,
+            read: &quota_station_core::ext::Fields,
+        ) -> Result<quota_station_core::ext::Fields, String> {
+            let mut kept = quota_station_core::ext::Fields::new();
+            kept.insert("testKept", read.get("testKept").cloned().unwrap_or(0.into()));
+            Ok(kept)
+        }
+    }
+
+    impl Hooks for KeepingHooks {
+        fn claude_account_keys(
+            &self,
+        ) -> Option<Arc<dyn quota_station_core::claude::store::AccountKeys>> {
+            Some(Arc::new(Keeping))
+        }
+    }
+
+    use quota_station_core::claude::keychain::KeychainError;
+
+    /// No secret at all: the tests never reach the Keychain.
+    #[derive(Debug)]
+    struct NoSecrets;
+
+    impl SecretStore for NoSecrets {
+        fn get_within(
+            &self,
+            _service: &str,
+            _account: &str,
+            _wait: std::time::Duration,
+        ) -> Result<Option<String>, KeychainError> {
+            Ok(None)
+        }
+
+        fn get(&self, _service: &str, _account: &str) -> Result<Option<String>, KeychainError> {
+            Ok(None)
+        }
+
+        fn exists(&self, _service: &str, _account: &str) -> Result<bool, KeychainError> {
+            Ok(false)
+        }
+
+        fn set(&self, _service: &str, _account: &str, _value: &str) -> Result<(), KeychainError> {
+            Ok(())
+        }
+
+        fn delete(&self, _service: &str, _account: &str) -> Result<(), KeychainError> {
+            Ok(())
+        }
+    }
+
+    /// The Claude accounts the app opens (its commands, its reads, a manual
+    /// switch: all through `claude_store`) keep what the extension keeps on
+    /// each account; without an extension, only the app's keys.
+    #[test]
+    fn the_claude_accounts_keep_the_extensions_keys() {
+        let hooks: [(&'static dyn Hooks, bool); 2] =
+            [(&KeepingHooks, true), (quota_station_core::ext::none(), false)];
+        for (hooks, keeps) in hooks {
+            let inner = Inner::new(
+                PathBuf::from("/nonexistent"),
+                PathBuf::from("/nonexistent/settings.json"),
+                "Mac Studio".into(),
+                hooks,
+            );
+            let store = inner.claude_store_in(NoSecrets);
+            let kept = store.account_keys().map(|k| k.keep(&Default::default()).unwrap());
+            assert_eq!(kept.is_some(), keeps);
+            if let Some(kept) = kept {
+                assert_eq!(kept.get("testKept"), Some(&Value::from(0)));
+            }
+        }
+    }
+
     /// The menu bar's icon names the Claude account in use as the
     /// extension's hooks do for the settings in force, and as the app does
     /// when they give no name.
@@ -813,6 +902,69 @@ mod tests {
             assert!(icon.title.starts_with(name), "{}", icon.title);
             assert!(icon.label.contains(&format!("Claude: {name}")), "{}", icon.label);
         }
+    }
+
+    /// An extension badging the menu bar icon with the badge it keeps.
+    struct Badges;
+
+    impl crate::ext::Extension for Badges {
+        fn icon_badge(&self, kept: &Kept, _now: OffsetDateTime) -> Option<crate::ext::Badge> {
+            kept.get::<crate::ext::Badge>().map(|badge| (*badge).clone())
+        }
+    }
+
+    /// A test badge: one square in the middle of the gauge.
+    fn square() -> crate::ext::Badge {
+        crate::ext::Badge {
+            shapes: vec![crate::ext::Shape {
+                x: 7.5,
+                y: 7.5,
+                width: 3.0,
+                height: 3.0,
+                radius: 0.5,
+            }],
+            halo: 0.5,
+            words: "Huy hiệu thử".into(),
+        }
+    }
+
+    /// Claude's accounts with numbers, read at the time the report has.
+    fn with_numbers(inner: &mut Inner) -> (Snapshot, OffsetDateTime) {
+        let report =
+            include_str!("../../crates/quota-station-core/tests/fixtures/claude-pool.json");
+        inner.claude = serde_json::from_str(report).ok();
+        let now = OffsetDateTime::from_unix_timestamp(1_768_548_000).unwrap();
+        (inner.detailed_snapshot(), now)
+    }
+
+    /// The menu bar's icon carries the badge the extension gives for what it
+    /// keeps: drawn in the gauge, its words after the label's.
+    #[test]
+    fn the_icon_carries_the_extensions_badge() {
+        let mut inner = inner();
+        inner.extension = &Badges;
+        let (snapshot, now) = with_numbers(&mut inner);
+        let plain = inner.icon(&snapshot, now);
+        assert_eq!(plain.badge, None, "no badge kept yet");
+        assert_eq!(plain.tone, quota_station_core::Tone::Ok);
+        inner.kept.keep(Arc::new(square()));
+        let badged = inner.icon(&snapshot, now);
+        assert_eq!(badged, plain.clone().with_badge(Some(square())));
+        assert_eq!(badged.badge, Some(square()));
+        assert_eq!(badged.label, format!("{}. Huy hiệu thử", plain.label));
+        assert_eq!(badged.title, plain.title);
+    }
+
+    /// Without an extension the icon has no badge, whatever is kept, as
+    /// before the socket.
+    #[test]
+    fn without_an_extension_the_icon_has_no_badge() {
+        let mut inner = inner();
+        inner.kept.keep(Arc::new(square()));
+        let (snapshot, now) = with_numbers(&mut inner);
+        let icon = inner.icon(&snapshot, now);
+        assert_eq!(icon.badge, None);
+        assert!(!icon.label.contains("Huy hiệu thử"));
     }
 
     #[test]
@@ -1038,6 +1190,7 @@ mod tests {
         inner.claude_accounts = vec![AccountOut {
             slot: 1,
             alias: None,
+            ext: shown(true),
             active: false,
             kind: Default::default(),
             status: "fresh",
@@ -1053,6 +1206,10 @@ mod tests {
         }];
         let json = serde_json::to_string(&inner.model()).unwrap();
         assert!(!json.contains("@example.com"), "nor through the accounts' list");
+    }
+
+    fn shown(_enabled: bool) -> quota_station_core::ext::Fields {
+        quota_station_core::ext::Fields::new()
     }
 
     /// A state with something in every part of the model, none of it from
@@ -1083,6 +1240,7 @@ mod tests {
         let account = |slot: u32, active: bool| AccountOut {
             slot,
             alias: Some(format!("tài khoản {slot}")),
+            ext: shown(slot != 3),
             active,
             kind: Default::default(),
             status: "fresh",

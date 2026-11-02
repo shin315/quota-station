@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "accounts": [
+    {
+      "slot": 1,
+      "alias": "Cá nhân",
+      "kind": "login",
+      "accountUuid": "uuid-1",
+      "organizationUuid": "",
+      "identity": "id-1",
+      "added": "2026-01-01T00:00:00Z"
+    },
+    {
+      "slot": 2,
+      "kind": "login",
+      "accountUuid": "uuid-2",
+      "organizationUuid": "org-team",
+      "identity": "id-2",
+      "added": "2026-01-02T00:00:00Z"
+    },
+    {
+      "slot": 3,
+      "alias": "Team phụ",
+      "kind": "setupToken",
+      "accountUuid": "",
+      "organizationUuid": "",
+      "identity": "id-3",
+      "added": "2026-01-03T00:00:00Z"
+    },
+    {
+      "slot": 4,
+      "kind": "login",
+      "accountUuid": "uuid-4",
+      "organizationUuid": "org-team",
+      "identity": "id-4",
+      "added": "2026-01-04T00:00:00Z"
+    },
+    {
+      "slot": 5,
+      "alias": "Năm",
+      "kind": "login",
+      "accountUuid": "uuid-5",
+      "organizationUuid": "org-team",
+      "identity": "id-5",
+      "added": "2026-01-05T00:00:00Z",
+      "note": "a key no build knows"
+    }
+  ]
+}

@@ -32,6 +32,7 @@ use super::locks::{AppLock, LockError};
 use super::session;
 use super::store::{self, Account, Kind, Store, StoreError};
 use super::usage::{self, Row, Scoped, Win};
+use crate::ext::Fields;
 
 /// claude-swap's folder on macOS.
 pub const SOURCE: &str = ".claude-swap-backup";
@@ -241,6 +242,7 @@ pub fn import(store: &Store, dir: &Path) -> Result<Imported, ImportError> {
                 list.put(Account {
                     slot: f.slot,
                     alias,
+                    ext: Fields::new(),
                     kind: if token { Kind::SetupToken } else { Kind::Login },
                     account_uuid: text(&oauth, "accountUuid").to_string(),
                     organization_uuid: org,

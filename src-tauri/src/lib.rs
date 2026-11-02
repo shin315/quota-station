@@ -412,7 +412,8 @@ fn claude_cli(args: &[String], hooks: &dyn ext::Hooks) -> i32 {
         return 1;
     };
     let cli = cli::Cli {
-        store: Store::new(Paths::for_home(&home), quota_station_core::os::secret_store()),
+        store: Store::new(Paths::for_home(&home), quota_station_core::os::secret_store())
+            .with_hooks(hooks),
         tools: cli::Tools::system(&home),
     };
     cli::run(&cli, hooks, args, &mut std::io::stdout(), &mut std::io::stderr())
@@ -479,7 +480,8 @@ fn quota_cli(args: &[String], hooks: &dyn ext::Hooks) -> i32 {
         let report = match provider {
             ProviderId::Claude => {
                 let store =
-                    Store::new(Paths::for_home(&home), quota_station_core::os::secret_store());
+                    Store::new(Paths::for_home(&home), quota_station_core::os::secret_store())
+                        .with_hooks(hooks);
                 quota::claude::own_now(&store, hooks, now).unwrap_or_else(|| {
                     let live = quota::claude::Live {
                         paths: &store.paths,

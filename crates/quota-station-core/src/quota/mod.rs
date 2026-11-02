@@ -218,6 +218,12 @@ pub struct Slot {
     pub slot: u32,
     #[serde(default)]
     pub active: bool,
+    /// The keys an extension keeps on the account in the app's file
+    /// ([`crate::claude::store::Account::ext`]), as they are there, written
+    /// right after `active`; read back from a report, every key the slot
+    /// has that the app does not know.
+    #[serde(flatten)]
+    pub ext: crate::ext::Fields,
     /// `fresh` (at most 15 minutes old), `stale`, `reset_pending` or `no_data`.
     pub status: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]

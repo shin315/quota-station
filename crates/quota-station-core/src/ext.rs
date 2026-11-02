@@ -48,11 +48,17 @@
 //!   ([`crate::switching::switch_claude`], and `quota-station claude
 //!   switch`): what the extension does around it ([`Hooks::manual_switch`]);
 //! - whether the app refreshes a Claude login's token while it reads
-//!   ([`Hooks::may_refresh_logins`]).
+//!   ([`Hooks::may_refresh_logins`]);
+//! - the Claude accounts' file (`claude/accounts.json`): the keys the
+//!   extension keeps on each account there, and what it shows of them in
+//!   the state file and on `quota-station claude status`
+//!   ([`Hooks::claude_account_keys`]); the read of the accounts carries
+//!   them on each account's slot ([`crate::quota::Slot::ext`]).
 
 use std::fmt;
 use std::io::Write;
 use std::path::Path;
+use std::sync::Arc;
 
 use serde::de::{MapAccess, Visitor};
 use serde::ser::SerializeMap;
@@ -64,6 +70,7 @@ use time::UtcOffset;
 use crate::alerts::{Alert, ExtAnswer, ExtKind, Switches};
 use crate::app_dir::AppDir;
 use crate::claude::cli::Cli;
+use crate::claude::store::AccountKeys;
 use crate::claude::Paths;
 use crate::history::ExtLine;
 use crate::labels::Labels;
@@ -247,11 +254,21 @@ pub trait Hooks: Send + Sync {
     fn may_refresh_logins(&self) -> bool {
         true
     }
+
+    /// What the extension keeps on each Claude account of the app's file,
+    /// and shows of it where the app tells other programs about the
+    /// accounts ([`AccountKeys`]). Asked wherever the app opens its Claude
+    /// accounts with the extension ([`crate::claude::store::Store::with_hooks`]).
+    /// `None`, the default: the file keeps only the app's keys.
+    fn claude_account_keys(&self) -> Option<Arc<dyn AccountKeys>> {
+        None
+    }
 }
 
 /// The keys an extension adds to one of the app's JSON objects (the
 /// snapshot's sections, accounts and pools, the Claude read's list of
-/// accounts, a manual switch's outcome and its lines in the history), with
+/// accounts and its slots, the Claude accounts' file and state file, a
+/// manual switch's outcome and its lines in the history), with
 /// their values. In the snapshot each key is written right
 /// after the app's own key it was put after ([`Fields::insert_after`]), so
 /// the object reads with the extension's keys where they belong, even
@@ -259,8 +276,11 @@ pub trait Hooks: Send + Sync {
 /// ([`Fields::insert`]), or after a key the object does not have, comes at
 /// the end, in the order the keys were put. The Claude read's list and a
 /// manual switch's outcome write them all at their end, in that order; a
-/// manual switch's lines in the history before their `result`. Read back from JSON (a report), an
-/// object keeps here every key it does not know, at its end.
+/// manual switch's lines in the history before their `result`; a slot of
+/// the Claude read after its `active`; an account of the Claude accounts'
+/// file and of the state file after its `alias`. Read back from JSON (a
+/// report), an object keeps here every key it does not know, written back
+/// where its extension's keys go.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Fields {
     entries: Vec<Field>,

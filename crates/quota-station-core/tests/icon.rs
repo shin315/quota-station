@@ -260,6 +260,7 @@ fn sample(tone: Tone, show_agy: bool) -> Icon {
         claude: Some(56.75),
         agy: Some(94.0),
         show_agy,
+        badge: None,
         label: String::new(),
     }
 }

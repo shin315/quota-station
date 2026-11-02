@@ -36,8 +36,57 @@ pub struct Icon {
     pub agy: Option<f64>,
     /// Legacy service presence: false where this Mac has no Antigravity.
     pub show_agy: bool,
+    /// The extension's badge inside the gauge ([`Icon::with_badge`]);
+    /// `None`: the gauge alone.
+    pub badge: Option<Badge>,
     /// What VoiceOver reads and the tooltip shows.
     pub label: String,
+}
+
+impl Icon {
+    /// The icon with an extension's `badge` (the app asks its extension for
+    /// one each time it builds the icon): its shapes drawn inside the gauge
+    /// and its words read after the label's. Claude used up and no number
+    /// keep their own glyph and words, which matter more than a badge;
+    /// `None` changes nothing.
+    pub fn with_badge(mut self, badge: Option<Badge>) -> Icon {
+        if let Some(badge) = badge.filter(|_| matches!(self.tone, Tone::Ok | Tone::Warn)) {
+            if !badge.words.is_empty() {
+                self.label.push_str(". ");
+                self.label.push_str(&badge.words);
+            }
+            self.badge = Some(badge);
+        }
+        self
+    }
+}
+
+/// A badge an extension puts on the icon: solid shapes inside the gauge,
+/// over its fill, and words the label reads after the app's.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Badge {
+    /// Rounded rectangles in points of the [`GLYPH_POINTS`] frame, solid.
+    pub shapes: Vec<Shape>,
+    /// A clear margin round the shapes, in points, so they stay apart from
+    /// a high fill.
+    pub halo: f64,
+    /// What the label reads after the app's words, as a sentence of its
+    /// own (without its full stop); empty adds nothing.
+    pub words: String,
+}
+
+/// One rounded rectangle of a [`Badge`], in points of the
+/// [`GLYPH_POINTS`] frame from its top left corner.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Shape {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+    /// The corners' radius.
+    pub radius: f64,
 }
 
 /// How Codex reaches its models, from its `config.toml`.
@@ -414,11 +463,13 @@ pub fn icon(snapshot: Option<&Snapshot>, cx: &Context) -> Icon {
         claude: claude.bar,
         agy: if show_agy { gemini.bar } else { None },
         show_agy,
+        badge: None,
         label,
     }
 }
 
-/// Both C04 states share an 18 pt frame: pausing never shifts the title.
+/// The glyph's frame, in points; a badge draws inside it, so it never
+/// shifts the title.
 pub const GLYPH_POINTS: u32 = 18;
 
 /// Renders black RGBA pixels with coverage in alpha, ready for AppKit tinting.
@@ -589,6 +640,20 @@ fn inside(icon: &Icon, x: f64, y: f64) -> bool {
     let bead_distance = (x - 14.05).hypot(y - 3.8);
     if bead_distance <= 1.42 || (ring && bead_distance >= 1.87) {
         return true;
+    }
+    // A badge's shapes have a clear halo so they survive a high reservoir.
+    if let Some(badge) = &icon.badge {
+        let near = badge
+            .shapes
+            .iter()
+            .map(|s| round_rect(x, y, s.x, s.y, s.width, s.height, s.radius))
+            .fold(f64::INFINITY, f64::min);
+        if near <= 0.0 {
+            return true;
+        }
+        if near <= badge.halo {
+            return false;
+        }
     }
     let Some(used) = icon.used.filter(|p| p.is_finite() && *p > 0.0) else {
         return false;

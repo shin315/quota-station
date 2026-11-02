@@ -286,6 +286,7 @@ impl Mac {
         list.put(Account {
             slot,
             alias: None,
+            ext: Default::default(),
             kind: Kind::Login,
             account_uuid: format!("uuid-{slot}"),
             organization_uuid: org.into(),

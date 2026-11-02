@@ -519,7 +519,7 @@ fn scope(e: &Effective, windows: &[Window], now: OffsetDateTime) -> Scope {
 }
 
 fn slot_of(a: &Account, row: Option<&usage::Row>, active: bool, now: OffsetDateTime) -> Slot {
-    let base = Slot { slot: a.slot, active, ..Slot::default() };
+    let base = Slot { slot: a.slot, active, ext: a.ext.clone(), ..Slot::default() };
     let no_data = |error: Option<String>| Slot {
         status: "no_data".into(),
         error: error.or_else(|| Some("no_reading".into())),

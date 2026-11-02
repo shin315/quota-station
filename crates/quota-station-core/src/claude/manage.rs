@@ -26,6 +26,7 @@ use super::keychain::{user_account, KeychainError};
 use super::locks::{AppLock, LockError};
 use super::store::{self, Account, Kind, Store, StoreError, Who};
 use super::{cc, session, switch, usage};
+use crate::ext::Fields;
 
 /// How long a login in the browser may take.
 pub const LOGIN_TIMEOUT: Duration = Duration::from_secs(10 * 60);
@@ -148,6 +149,7 @@ fn put(store: &Store, credential: &str, oauth: &Value, kind: Kind) -> Result<Add
     list.put(Account {
         slot,
         alias: None,
+        ext: Fields::new(),
         kind,
         account_uuid: who.account_uuid,
         organization_uuid: who.organization_uuid,
@@ -313,7 +315,9 @@ pub fn set_alias(store: &Store, slot: u32, alias: &str) -> Result<(), ManageErro
     change(store, slot, |a| a.alias = alias)
 }
 
-fn change(store: &Store, slot: u32, f: impl FnOnce(&mut Account)) -> Result<(), ManageError> {
+/// Changes the account in `slot` with `f` and saves the list, under the
+/// app's lock; `UnknownSlot` when the app has no such account.
+pub fn change(store: &Store, slot: u32, f: impl FnOnce(&mut Account)) -> Result<(), ManageError> {
     let _app = AppLock::take(&store.paths)?;
     let mut list = store.load()?;
     f(list.get_mut(slot).ok_or(ManageError::UnknownSlot)?);

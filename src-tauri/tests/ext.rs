@@ -9,7 +9,7 @@ mod common;
 use std::path::Path;
 use std::sync::Arc;
 
-use common::{NotKept, TestExtension, TestState};
+use common::{test_badge, NotKept, TestExtension, TestState};
 use quota_station::ext::{
     shadowed, shadowed_tabs, AlertInput, Closing, Extension, Hold, Kept, ModelInput, NoExtension,
     ReaderPass,
@@ -17,6 +17,7 @@ use quota_station::ext::{
 use quota_station_core::app_dir::AppDir;
 use quota_station_core::settings::Settings;
 use serde_json::json;
+use time::{Duration, OffsetDateTime};
 
 #[test]
 fn no_extension_adds_no_command() {
@@ -234,6 +235,29 @@ fn without_an_extension_nothing_follows_a_manual_switch() {
     assert!(!NoExtension.after_switch(&kept, Path::new("/home/of/the/owner")));
     assert!(state.switches.lock().unwrap().is_empty(), "never asked");
     assert!(!*state.asks.lock().unwrap());
+}
+
+#[test]
+fn an_extension_badges_the_icon_from_what_it_keeps() {
+    let now = OffsetDateTime::from_unix_timestamp(1_768_548_000).unwrap();
+    let mut kept = Kept::default();
+    assert_eq!(TestExtension.icon_badge(&kept, now), None, "nothing kept yet");
+    let state = Arc::new(TestState::default());
+    kept.keep(state.clone());
+    assert_eq!(TestExtension.icon_badge(&kept, now), None);
+    *state.badge_until.lock().unwrap() = Some(now + Duration::hours(1));
+    assert_eq!(TestExtension.icon_badge(&kept, now), Some(test_badge()));
+    assert_eq!(TestExtension.icon_badge(&kept, now + Duration::hours(2)), None, "over");
+}
+
+#[test]
+fn without_an_extension_the_icon_has_no_badge() {
+    let now = OffsetDateTime::from_unix_timestamp(1_768_548_000).unwrap();
+    let mut kept = Kept::default();
+    let state = Arc::new(TestState::default());
+    *state.badge_until.lock().unwrap() = Some(now + Duration::hours(1));
+    kept.keep(state);
+    assert_eq!(NoExtension.icon_badge(&kept, now), None);
 }
 
 fn words(words: &[&str]) -> Vec<String> {

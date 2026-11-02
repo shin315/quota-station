@@ -94,7 +94,8 @@ pub fn load(
     let rows = match store.load() {
         Ok(list) => {
             let cache = quota_station_core::claude::usage::load(store);
-            let mut rows = state::build(&list, &cache, switch::active_slot(store), now).accounts;
+            let active = switch::active_slot(store);
+            let mut rows = state::build(&list, &cache, active, store.account_keys(), now).accounts;
             for row in &mut rows {
                 row.email =
                     details.iter().find(|d| d.number == row.slot).and_then(|d| d.email.clone());
@@ -166,7 +167,8 @@ fn added(action: &'static str, result: Result<Added, ManageError>) -> Done {
     }
 }
 
-fn changed(action: &'static str, slot: u32, result: Result<(), ManageError>) -> Done {
+/// The result of `action` on the account in `slot`.
+pub(crate) fn changed(action: &'static str, slot: u32, result: Result<(), ManageError>) -> Done {
     match result {
         Ok(()) => Done {
             action,
@@ -182,7 +184,7 @@ fn changed(action: &'static str, slot: u32, result: Result<(), ManageError>) -> 
 }
 
 /// Runs `work` off the main thread as `action`, then finishes it.
-async fn run(
+pub(crate) async fn run(
     app: AppHandle,
     state: AppState,
     action: &'static str,

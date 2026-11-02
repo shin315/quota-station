@@ -13,11 +13,12 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use quota_station::ext::{
-    AlertInput, AlertRead, Closing, Extension, Hold, Hooks, Host, Kept, ModelInput, ReaderDone,
-    ReaderPass, ReaderWork,
+    AlertInput, AlertRead, Badge, Closing, Extension, Hold, Hooks, Host, Kept, ModelInput,
+    ReaderDone, ReaderPass, ReaderWork, Shape,
 };
 use quota_station_core::alerts::{Alert, ExtPass, ExtSource};
 use serde_json::{json, Map, Value};
+use time::OffsetDateTime;
 
 /// The test extension's commands.
 pub mod tools {
@@ -51,8 +52,9 @@ impl Hooks for TestHooks {}
 /// at the reader's passes keep (and its part of the model shows), whether it
 /// asks the reader to go now, the passes it saw (`read_due`,
 /// `window_open`), and whether it holds work not kept yet (so a close
-/// waits) and the closes it was asked about, and the machine names it read
-/// for its alerts and had back once the alert rules ran.
+/// waits) and the closes it was asked about, the machine names it read
+/// for its alerts and had back once the alert rules ran, and until when it
+/// badges the menu bar icon.
 #[derive(Debug, Default)]
 pub struct TestState {
     pub alert_reads: Mutex<Vec<Option<String>>>,
@@ -63,6 +65,17 @@ pub struct TestState {
     pub unkept: Mutex<bool>,
     pub closes: Mutex<Vec<Closing>>,
     pub switches: Mutex<Vec<PathBuf>>,
+    pub badge_until: Mutex<Option<OffsetDateTime>>,
+}
+
+/// The test extension's badge on the menu bar icon: one square in the
+/// middle of the gauge.
+pub fn test_badge() -> Badge {
+    Badge {
+        shapes: vec![Shape { x: 7.5, y: 7.5, width: 3.0, height: 3.0, radius: 0.5 }],
+        halo: 0.5,
+        words: "Huy hiệu thử".into(),
+    }
 }
 
 /// What the test extension read for its alerts: the machine's name, from
@@ -178,6 +191,12 @@ impl Extension for TestExtension {
         state.switches.lock().unwrap().push(home.to_path_buf());
         *state.asks.lock().unwrap() = true;
         true
+    }
+
+    /// Its badge on the icon, until the time its state names.
+    fn icon_badge(&self, kept: &Kept, now: OffsetDateTime) -> Option<Badge> {
+        let until = (*kept.get::<TestState>()?.badge_until.lock().unwrap())?;
+        (now < until).then(test_badge)
     }
 
     /// `quota-station test-extension ARGS…` exits with as many as there

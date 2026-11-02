@@ -7,14 +7,14 @@
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use quota_station_core::alerts::{
     self, act, Alert, ExtAnswer, ExtKind, ExtPass, ExtSource, Kind, Switches, Tone,
 };
 use quota_station_core::app_dir::AppDir;
 use quota_station_core::claude::cli::Cli;
-use quota_station_core::claude::store::Store;
+use quota_station_core::claude::store::{AccountKeys, Store};
 use quota_station_core::claude::Paths;
 use quota_station_core::ext::Fields;
 use quota_station_core::ext::Hooks;
@@ -67,6 +67,9 @@ use time::{OffsetDateTime, UtcOffset};
 /// keys are not in sorted order), and the journal keeps `testKept` (the
 /// account). The History tab shows `testShown` from `testKept`. No login's
 /// token is ever refreshed.
+///
+/// The Claude accounts' file: they keep `testTag` on each account
+/// ([`TestKeys`]).
 #[derive(Debug, Default)]
 pub struct TestHooks;
 
@@ -218,6 +221,42 @@ impl Hooks for TestHooks {
 
     fn may_refresh_logins(&self) -> bool {
         false
+    }
+
+    fn claude_account_keys(&self) -> Option<Arc<dyn AccountKeys>> {
+        Some(Arc::new(TestKeys))
+    }
+}
+
+/// The test hooks' keys on the Claude accounts: `testTag`, text, `none`
+/// for an account without one (a file whose `testTag` is not text is
+/// refused, `testTag is not text`); the state shows it as `testState`
+/// (the tag and `!`), and `claude status` puts `tagged` before the name of
+/// an account whose tag is not `none`.
+#[derive(Debug, Default)]
+pub struct TestKeys;
+
+impl AccountKeys for TestKeys {
+    fn keep(&self, read: &Fields) -> Result<Fields, String> {
+        let tag = match read.get("testTag") {
+            None => "none",
+            Some(Value::String(tag)) => tag.as_str(),
+            Some(_) => return Err("testTag is not text".into()),
+        };
+        let mut kept = Fields::new();
+        kept.insert("testTag", json!(tag));
+        Ok(kept)
+    }
+
+    fn state(&self, kept: &Fields) -> Fields {
+        let tag = kept.get("testTag").and_then(Value::as_str).unwrap_or("?");
+        let mut shown = Fields::new();
+        shown.insert("testState", json!(format!("{tag}!")));
+        shown
+    }
+
+    fn status_words(&self, shown: &Fields) -> Option<&'static str> {
+        (shown.get("testState") != Some(&json!("none!"))).then_some("tagged")
     }
 }
 

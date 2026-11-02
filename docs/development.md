@@ -173,13 +173,13 @@ CI (`.github/workflows/ci.yml`) has three jobs:
 
 
 The core's integration tests are `crates/quota-station-core/tests/*.rs`:
-`agents_backup`, `agents_mcp`, `agents_restore`, `agents_sets`,
-`agents_skills`, `alerts`, `antigravity_credential`, `antigravity_login`,
+`account_keys`, `agents_backup`, `agents_mcp`, `agents_restore`,
+`agents_sets`, `agents_skills`, `alerts`, `antigravity_credential`, `antigravity_login`,
 `antigravity_quota`, `antigravity_spy`, `antigravity_switch`,
 `claude_accounts`, `claude_import`, `claude_manage`, `claude_pool`,
 `claude_switch`, `claude_windows`, `cli_tools`, `codex`, `codex_accounts`,
 `codex_wake`, `detail`, `env_check`, `ext`, `history_ext`, `icon`,
-`install_script`, `labels`, `login_item`, `os_macos`,
+`icon_badge`, `install_script`, `labels`, `login_item`, `os_macos`,
 `quota_readers`, `runner`, `sessions`, `settings`, `snapshot`,
 `snapshot_ext`, `stats`, `switch_ext` and `ui_fixtures`, with shared helpers in
 `common/` and synthetic data in `fixtures/`.
@@ -379,7 +379,8 @@ UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test stats
 - `crates/quota-station-core/` is plain Rust, with no window. It reads the
   quota (`quota/`, ported from quota-axi), turns the readings into a snapshot
   (`snapshot.rs`, to which an extension may add its own keys once it is
-  built), holds the icon rules and glyph (`icon.rs`) and the names the app shows for
+  built), holds the icon rules and glyph (`icon.rs`, with a badge an extension
+  may draw in the gauge) and the names the app shows for
   accounts without a name shown, which an extension may give (`labels.rs`),
   and schedules reads. Its main
   modules:

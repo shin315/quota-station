@@ -14,7 +14,7 @@ use std::sync::atomic::AtomicBool;
 use serde_json::Map;
 use time::OffsetDateTime;
 
-use super::store::Store;
+use super::store::{AccountKeys, Store};
 use super::usage::Endpoints;
 use super::{import, manage, session, state, switch, usage};
 use crate::ext::Hooks;
@@ -93,7 +93,8 @@ pub fn run(
                 Ok(l) => l,
                 Err(e) => return fail(err, &e),
             };
-            let mut view = state::build(&list, &usage::load(store), active, now);
+            let keys = store.account_keys();
+            let mut view = state::build(&list, &usage::load(store), active, keys, now);
             if has("--emails") {
                 for a in &mut view.accounts {
                     a.email = store.oauth_account(a.slot).ok().flatten().and_then(|o| {
@@ -105,7 +106,7 @@ pub fn run(
                 let _ =
                     writeln!(out, "{}", serde_json::to_string_pretty(&view).expect("serializes"));
             } else {
-                print_status(&view, out);
+                print_status(&view, keys, out);
             }
             0
         }
@@ -225,13 +226,18 @@ fn usage_error(err: &mut dyn Write, hooks: &dyn Hooks) -> i32 {
     2
 }
 
-fn print_status(view: &state::StateOut, out: &mut dyn Write) {
+/// The accounts' lines, each name after the words `keys` put before it.
+fn print_status(view: &state::StateOut, keys: Option<&dyn AccountKeys>, out: &mut dyn Write) {
     let pct = |w: &Option<state::WindowOut>| match w {
         Some(w) => format!("{:>3.0}%", w.used_percent),
         None => "   -".to_string(),
     };
     for a in &view.accounts {
         let name = a.alias.as_deref().unwrap_or("");
+        let name = match keys.and_then(|k| k.status_words(&a.ext)) {
+            Some(words) => format!("{words}  {name}"),
+            None => name.to_string(),
+        };
         let _ = writeln!(
             out,
             "{} {:>2}  5h {}  7d {}  {:<8} {}{}",

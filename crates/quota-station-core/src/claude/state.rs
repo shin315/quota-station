@@ -16,9 +16,10 @@ use serde_json::Value;
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
-use super::store::{Kind, List, Store};
+use super::store::{AccountKeys, Kind, List, Store};
 use super::usage::{self, Cache, Reading, Win};
 use crate::detail::{ClaudeDetail, Usage};
+use crate::ext::Fields;
 
 pub const SCHEMA: u32 = 1;
 
@@ -42,6 +43,10 @@ pub struct Windows {
 pub struct AccountOut {
     pub slot: u32,
     pub alias: Option<String>,
+    /// The keys an extension shows of the account
+    /// ([`AccountKeys::state`]), written right after `alias`.
+    #[serde(flatten)]
+    pub ext: Fields,
     pub active: bool,
     /// `login` or `setupToken`.
     pub kind: Kind,
@@ -75,8 +80,16 @@ fn out(w: Option<&Win>) -> Option<WindowOut> {
     w.map(|w| WindowOut { used_percent: w.pct, resets_at: w.resets_at.clone() })
 }
 
-/// The data file's content for `list`, `cache` and the account in use.
-pub fn build(list: &List, cache: &Cache, active: Option<u32>, now: OffsetDateTime) -> StateOut {
+/// The data file's content for `list`, `cache` and the account in use,
+/// with what `keys` show of each account (the store's,
+/// [`Store::account_keys`]).
+pub fn build(
+    list: &List,
+    cache: &Cache,
+    active: Option<u32>,
+    keys: Option<&dyn AccountKeys>,
+    now: OffsetDateTime,
+) -> StateOut {
     let at = super::epoch(now);
     let accounts = list
         .accounts
@@ -93,6 +106,7 @@ pub fn build(list: &List, cache: &Cache, active: Option<u32>, now: OffsetDateTim
             AccountOut {
                 slot: a.slot,
                 alias: a.alias.clone(),
+                ext: keys.map(|k| k.state(&a.ext)).unwrap_or_default(),
                 active: active == Some(a.slot),
                 kind: a.kind,
                 status,
@@ -122,7 +136,7 @@ pub fn build(list: &List, cache: &Cache, active: Option<u32>, now: OffsetDateTim
 pub fn write(store: &Store, active: Option<u32>, now: OffsetDateTime) -> std::io::Result<()> {
     let list = store.load().map_err(|e| std::io::Error::other(e.to_string()))?;
     let cache = usage::load(store);
-    let state = build(&list, &cache, active, now);
+    let state = build(&list, &cache, active, store.account_keys(), now);
     super::write_private(
         &store.paths.state(),
         &(serde_json::to_string_pretty(&state).expect("serializes") + "\n"),

@@ -53,6 +53,9 @@
 //!   app's reader may go at once for what the extension asks of it (what
 //!   the extension does around the switch itself is a core hook,
 //!   [`Hooks::manual_switch`]).
+//! - [`Extension::icon_badge`]: a badge on the menu bar icon, drawn inside
+//!   its gauge, with words its label reads ([`Badge`]), from what the
+//!   extension keeps.
 //! - [`Extension::subcommand`]: a subcommand from a terminal
 //!   (`quota-station <word> …`) that is not one of the app's, answered
 //!   before the app starts and without a window. The app's own subcommands
@@ -67,8 +70,8 @@
 //! what the reader hands it ([`ReaderPass`]) and what the model is drawn
 //! from ([`ModelInput`]). The app's state keeps only the extension's
 //! sockets it asks under its lock (the model, what the build has, the tabs
-//! and the hold on a close, what it reads for its alerts, and what follows
-//! a manual switch), apart from
+//! and the hold on a close, what it reads for its alerts, what follows
+//! a manual switch, and the icon's badge), apart from
 //! the rest, so a test can build that state and its model without the
 //! runtime.
 
@@ -83,8 +86,10 @@ use quota_station_core::claude::state::AccountOut;
 use quota_station_core::settings::Settings;
 use serde_json::{Map, Value};
 use tauri::{AppHandle, Manager};
+use time::OffsetDateTime;
 
 pub use quota_station_core::ext::{Hooks, NoHooks};
+pub use quota_station_core::icon::{Badge, Shape};
 
 use crate::state::{AppState, Tab};
 
@@ -203,6 +208,17 @@ pub trait Extension: Send + Sync + 'static {
         false
     }
 
+    /// The extension's badge on the menu bar icon at `now`: shapes the icon
+    /// draws inside its gauge and words its label reads after the app's
+    /// ([`Badge`]). Asked each time the icon is built, under the app's lock:
+    /// it reads only `kept`, never the [`Host`]. Claude used up and no
+    /// number keep their own glyph whatever it answers. `None`, the
+    /// default, leaves the icon the app's own.
+    fn icon_badge(&self, kept: &Kept, now: OffsetDateTime) -> Option<Badge> {
+        let _ = (kept, now);
+        None
+    }
+
     /// A subcommand from a terminal: `args` are the words after
     /// `quota-station`, the subcommand first (none when the app is simply
     /// launched). The extension answers with the exit code, having printed
@@ -285,8 +301,9 @@ pub trait AlertRead {
 
 /// The extension's sockets the app asks under its lock (what draws,
 /// [`Extension::model`] and [`Extension::capabilities`], the tabs,
-/// [`Extension::tabs`], the hold on a close, [`Extension::hold_close`], and
-/// what follows a manual switch, [`Extension::after_switch`]), and what it
+/// [`Extension::tabs`], the hold on a close, [`Extension::hold_close`],
+/// what follows a manual switch, [`Extension::after_switch`], and the
+/// icon's badge, [`Extension::icon_badge`]), and what it
 /// reads for its alerts ([`Extension::alert_read`]), as the
 /// app's state keeps them: apart from the rest
 /// of [`Extension`], so that state holds nothing of the window runtime the
@@ -298,6 +315,7 @@ pub(crate) trait StateSockets: Send + Sync {
     fn hold_close_part(&self, kept: &Kept, closing: Closing) -> Hold;
     fn alert_read_part(&self, input: &AlertInput<'_>) -> Option<Box<dyn AlertRead>>;
     fn after_switch_part(&self, kept: &Kept, home: &Path) -> bool;
+    fn icon_badge_part(&self, kept: &Kept, now: OffsetDateTime) -> Option<Badge>;
 }
 
 impl<E: Extension> StateSockets for E {
@@ -323,6 +341,10 @@ impl<E: Extension> StateSockets for E {
 
     fn after_switch_part(&self, kept: &Kept, home: &Path) -> bool {
         self.after_switch(kept, home)
+    }
+
+    fn icon_badge_part(&self, kept: &Kept, now: OffsetDateTime) -> Option<Badge> {
+        self.icon_badge(kept, now)
     }
 }
 

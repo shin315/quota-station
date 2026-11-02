@@ -14,7 +14,12 @@
 //! `slot-N.account`, the account's `oauthAccount` object, which holds its
 //! email and organization. Both are read only when needed and kept in
 //! memory only.
+//!
+//! An extension may keep keys of its own on each account of the file
+//! ([`AccountKeys`], [`Store::with_hooks`]); without one the file keeps
+//! only the app's.
 
+use std::fmt;
 use std::io;
 use std::sync::Arc;
 
@@ -24,6 +29,7 @@ use sha2::{Digest, Sha256};
 
 use super::keychain::KeychainError;
 use super::Paths;
+use crate::ext::{Fields, Hooks};
 use crate::os::SecretStore;
 
 /// The app's own Keychain service for the Claude accounts.
@@ -47,6 +53,11 @@ pub struct Account {
     pub slot: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub alias: Option<String>,
+    /// The keys an extension keeps on the account ([`AccountKeys::keep`]),
+    /// written right after its alias; none without one. Read straight from
+    /// JSON, every key the account has that the app does not know.
+    #[serde(flatten)]
+    pub ext: Fields,
     #[serde(default)]
     pub kind: Kind,
     /// `oauthAccount.accountUuid`; empty for a setup token.
@@ -165,12 +176,55 @@ impl From<KeychainError> for StoreError {
     }
 }
 
+/// What an extension keeps on each account of the app's file
+/// (`claude/accounts.json`) beyond the app's own keys, and what it shows of
+/// them where the app tells other programs about the accounts
+/// ([`crate::claude::state`], `quota-station claude status`). Given by
+/// [`Hooks::claude_account_keys`].
+pub trait AccountKeys: Send + Sync {
+    /// The extension's keys of one account, from the keys it has beyond the
+    /// app's (`read`: as the file has them, or as last kept; none for an
+    /// account the app adds). The app keeps what this returns with the
+    /// account ([`Account::ext`]) and writes it in the file right after
+    /// the account's alias. Asked for every account at each load and save
+    /// of the file. An error: the file is not one the app can read.
+    fn keep(&self, read: &Fields) -> Result<Fields, String>;
+
+    /// The extension's keys on the account in `claude/state.json` and
+    /// `quota-station claude status --json`, right after its alias, from
+    /// the keys kept with it. The default shows none.
+    fn state(&self, kept: &Fields) -> Fields {
+        let _ = kept;
+        Fields::new()
+    }
+
+    /// Words before the account's name on its line of `quota-station claude
+    /// status`, from its keys in the state (`shown`, [`AccountKeys::state`]).
+    /// `None`, the default: the name alone.
+    fn status_words(&self, shown: &Fields) -> Option<&'static str> {
+        let _ = shown;
+        None
+    }
+}
+
 /// The account list and its Keychain items.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Store {
     pub paths: Paths,
     /// Where the logins are kept: the Keychain on macOS.
     pub security: Arc<dyn SecretStore>,
+    /// What an extension keeps on each account; `None`: only the app's keys.
+    keys: Option<Arc<dyn AccountKeys>>,
+}
+
+impl fmt::Debug for Store {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Store")
+            .field("paths", &self.paths)
+            .field("security", &self.security)
+            .field("keys", &self.keys.is_some())
+            .finish()
+    }
 }
 
 fn credential_item(slot: u32) -> String {
@@ -183,7 +237,31 @@ fn account_item(slot: u32) -> String {
 
 impl Store {
     pub fn new(paths: Paths, security: impl SecretStore + 'static) -> Store {
-        Store { paths, security: Arc::new(security) }
+        Store { paths, security: Arc::new(security), keys: None }
+    }
+
+    /// The same accounts, kept with what `hooks` keep on each of them
+    /// ([`Hooks::claude_account_keys`]).
+    pub fn with_hooks(mut self, hooks: &dyn Hooks) -> Store {
+        self.keys = hooks.claude_account_keys();
+        self
+    }
+
+    /// What an extension keeps on each account, when one does.
+    pub fn account_keys(&self) -> Option<&dyn AccountKeys> {
+        self.keys.as_deref()
+    }
+
+    /// Each account's keys beyond the app's as the extension keeps them;
+    /// none without one.
+    fn keep(&self, list: &mut List) -> Result<(), StoreError> {
+        for a in &mut list.accounts {
+            a.ext = match &self.keys {
+                Some(keys) => keys.keep(&a.ext).map_err(StoreError::Corrupt)?,
+                None => Fields::new(),
+            };
+        }
+        Ok(())
     }
 
     /// The list; none yet is an empty list. A file that does not parse is
@@ -193,7 +271,10 @@ impl Store {
         match super::read_optional(&self.paths.accounts())? {
             None => Ok(List { version: VERSION, accounts: Vec::new() }),
             Some(text) => {
-                serde_json::from_str(&text).map_err(|e| StoreError::Corrupt(e.to_string()))
+                let mut list: List =
+                    serde_json::from_str(&text).map_err(|e| StoreError::Corrupt(e.to_string()))?;
+                self.keep(&mut list)?;
+                Ok(list)
             }
         }
     }
@@ -202,6 +283,7 @@ impl Store {
         let mut list = list.clone();
         list.version = VERSION;
         list.accounts.sort_by_key(|a| a.slot);
+        self.keep(&mut list)?;
         let text = serde_json::to_string_pretty(&list).expect("the list serializes");
         super::write_private(&self.paths.accounts(), &(text + "\n"))?;
         Ok(())
