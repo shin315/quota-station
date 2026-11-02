@@ -5,8 +5,7 @@
 //! app here: it switches Claude Code's login on this Mac to one of the
 //! app's accounts when the owner confirms (switching Antigravity is in
 //! `agy_switch`, the accounts' own actions in `claude`), and keeps the
-//! switch in the history.
-//! The rest write only the app's own settings file.
+//! switch in the history. The rest write only the app's own settings file.
 
 use quota_station_core::history;
 use quota_station_core::quota;

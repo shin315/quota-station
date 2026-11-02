@@ -386,6 +386,22 @@ impl Inner {
         AppDir::new(self.settings_file.parent().map(|p| p.to_path_buf()).unwrap_or_default())
     }
 
+    /// Saves `settings` to the settings file and holds them from now on.
+    /// A save that fails leaves the file and the settings held as they were.
+    pub fn save_settings(&mut self, settings: Settings) -> Result<(), String> {
+        settings.save(&self.settings_file).map_err(|e| e.to_string())?;
+        self.settings = settings;
+        Ok(())
+    }
+
+    /// The settings held now, changed by `change`, saved and held
+    /// ([`Inner::save_settings`]).
+    pub fn change_settings(&mut self, change: impl FnOnce(&mut Settings)) -> Result<(), String> {
+        let mut settings = self.settings.clone();
+        change(&mut settings);
+        self.save_settings(settings)
+    }
+
     /// The name shown for this Mac: the user's, else the one macOS gives.
     pub fn machine(&self) -> String {
         self.settings.machine_name.clone().unwrap_or_else(|| self.system_machine.clone())
@@ -710,6 +726,67 @@ mod tests {
         let model = inner.model();
         assert_eq!(model.machine, "Mac phòng khách");
         assert_eq!(model.machine_default, "Mac Studio");
+    }
+
+    /// An app whose settings file is in a temporary folder of its own.
+    fn inner_in(name: &str) -> (Inner, PathBuf) {
+        let dir = std::env::temp_dir().join(format!("qs-state-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let file = dir.join("app/settings.json");
+        let inner =
+            Inner::new(dir.clone(), file, "Mac Studio".into(), quota_station_core::ext::none());
+        (inner, dir)
+    }
+
+    /// A change of the settings is saved to the file and held, as the
+    /// commands that change one setting do it.
+    #[test]
+    fn a_change_of_the_settings_is_saved_and_held() {
+        let (mut inner, dir) = inner_in("change");
+        inner.change_settings(|s| s.machine_name = Some("Mac phòng khách".into())).unwrap();
+        assert_eq!(inner.settings.machine_name.as_deref(), Some("Mac phòng khách"));
+        let read = Settings::open(&inner.settings_file, inner.hooks);
+        assert_eq!(read.machine_name.as_deref(), Some("Mac phòng khách"));
+        assert_eq!(inner.model().machine, "Mac phòng khách");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A save that fails changes nothing: the settings held stay as they
+    /// were, and the error comes back as words.
+    #[test]
+    fn a_change_that_cannot_be_saved_is_not_held() {
+        let (mut inner, dir) = inner_in("unsaved");
+        // The settings file's folder is a file: nothing can be written there.
+        let _ = std::fs::remove_dir_all(dir.join("app"));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("app"), "not a folder").unwrap();
+        let before = serde_json::to_value(&inner.settings).unwrap();
+        let error = inner.change_settings(|s| s.hide_names = true).unwrap_err();
+        assert!(!error.is_empty());
+        assert!(!inner.settings.hide_names);
+        assert_eq!(serde_json::to_value(&inner.settings).unwrap(), before);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// What the extension sees and saves under the app's lock
+    /// (`ext::Host::locked`): the home, the settings held, and a save that
+    /// holds them, the same as [`Inner::save_settings`].
+    #[test]
+    fn under_the_lock_the_extension_reads_and_saves_the_apps_settings() {
+        let (mut inner, dir) = inner_in("locked");
+        {
+            let mut locked = crate::ext::Locked::new(&mut inner);
+            assert_eq!(locked.home(), dir.as_path());
+            assert!(locked.settings().machine_name.is_none());
+            let mut settings = locked.settings().clone();
+            settings.machine_name = Some("Mac B".into());
+            locked.save_settings(settings).unwrap();
+            assert_eq!(locked.settings().machine_name.as_deref(), Some("Mac B"));
+        }
+        assert_eq!(inner.settings.machine_name.as_deref(), Some("Mac B"));
+        let read = Settings::open(&inner.settings_file, inner.hooks);
+        assert_eq!(read.machine_name.as_deref(), Some("Mac B"));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     /// Names every Claude account `Named N` while `testNames` is on in the

@@ -23,9 +23,14 @@
 //!   list by [`extension_commands!`](crate::extension_commands). A command
 //!   name the app already has stays the app's ([`shadowed`] lists those).
 //! - [`Extension::start`]: once, when the app starts, with the [`Host`], the
-//!   extension's way to the app: the settings, a wake for the app's reader,
-//!   and a place for the extension's own state ([`Host::keep_state`]), which
-//!   its commands take as Tauri state.
+//!   extension's way to the app: the settings and a change of them saved
+//!   ([`Host::update_settings`]), the home folder, a wake for the app's
+//!   reader, the model every window draws and a redraw of the windows and
+//!   the menu bar ([`Host::publish`]), the main window's close, work under
+//!   the app's lock ([`Host::locked`]), and a place for the extension's own
+//!   state ([`Host::keep_state`]), which its commands take as Tauri state.
+//!   The extension's commands reach the host with [`Host::of`] and return
+//!   the [`Model`] as the app's own commands do.
 //! - [`Extension::start_threads`]: once, when the app's own reader runs: the
 //!   extension's own threads start here.
 //! - [`Extension::reader_asked`] and [`Extension::reader_pass`]: the app's
@@ -77,7 +82,7 @@
 
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use quota_station_core::alerts::ExtSource;
@@ -91,7 +96,12 @@ use time::OffsetDateTime;
 pub use quota_station_core::ext::{Hooks, NoHooks};
 pub use quota_station_core::icon::{Badge, Shape};
 
-use crate::state::{AppState, Tab};
+/// The model every window draws, as the app's commands return it after a
+/// change: an extension's command returns it too (`Result<Model, String>`).
+pub use crate::state::Model;
+
+use crate::state::{AppState, Inner, Tab};
+use crate::{reader, windows};
 
 /// What an extension adds to the app. Every method has a default that adds
 /// nothing; an extension overrides the sockets it fills.
@@ -409,6 +419,46 @@ impl Host {
         self.state.lock().settings.clone()
     }
 
+    /// Changes the settings with `change`, saves them to the app's settings
+    /// file and holds them from now on, all under the app's lock. A save
+    /// that fails changes nothing and returns its error as words. The
+    /// windows see the change once the extension publishes it
+    /// ([`Host::publish`]).
+    pub fn update_settings(&self, change: impl FnOnce(&mut Settings)) -> Result<(), String> {
+        self.state.lock().change_settings(change)
+    }
+
+    /// The home folder of the user the app runs as.
+    pub fn home(&self) -> PathBuf {
+        self.state.lock().home.clone()
+    }
+
+    /// Runs `work` under the app's lock, with the app's state as it holds it
+    /// ([`Locked`]), for work that must stay whole with that state: a model
+    /// drawn meanwhile sees all of it or none. `work` may take a lock of the
+    /// extension's own inside (the app's lock first, then the extension's),
+    /// and never calls the host, whose every call takes the app's lock.
+    pub fn locked<R>(&self, work: impl FnOnce(&mut Locked<'_>) -> R) -> R {
+        let mut inner = self.state.lock();
+        work(&mut Locked::new(&mut inner))
+    }
+
+    /// The model every window draws, as it is now.
+    pub fn model(&self) -> Model {
+        self.state.lock().model()
+    }
+
+    /// Sends the model to the windows and redraws the menu bar, after a
+    /// change of the app's state or of the extension's.
+    pub fn publish(&self) {
+        reader::publish(&self.app, &self.state);
+    }
+
+    /// Closes the main window, if it is open.
+    pub fn close_main_window(&self) {
+        windows::close_main(&self.app);
+    }
+
     /// The app's folder, where its settings file is.
     pub fn app_dir(&self) -> AppDir {
         self.state.lock().app_dir()
@@ -438,6 +488,34 @@ impl Host {
     /// threads, which tell the windows what changed.
     pub fn app_handle(&self) -> &AppHandle {
         &self.app
+    }
+}
+
+/// The app's state under its lock, as [`Host::locked`] hands it to the
+/// extension: what it reads there, and the settings it may save there.
+pub struct Locked<'a> {
+    inner: &'a mut Inner,
+}
+
+impl<'a> Locked<'a> {
+    pub(crate) fn new(inner: &'a mut Inner) -> Locked<'a> {
+        Locked { inner }
+    }
+
+    /// The home folder of the user the app runs as.
+    pub fn home(&self) -> &Path {
+        &self.inner.home
+    }
+
+    /// The settings as the app holds them now.
+    pub fn settings(&self) -> &Settings {
+        &self.inner.settings
+    }
+
+    /// Saves `settings` to the app's settings file and holds them from now
+    /// on. A save that fails changes nothing and returns its error as words.
+    pub fn save_settings(&mut self, settings: Settings) -> Result<(), String> {
+        self.inner.save_settings(settings)
     }
 }
 
