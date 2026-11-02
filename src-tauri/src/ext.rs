@@ -33,8 +33,13 @@
 //!   the app's lock ([`Host::locked`], where a reading of the Claude
 //!   accounts may be held too), an action of the extension's on the
 //!   Claude accounts the app keeps, run as the Claude tab runs its own
-//!   ([`Host::claude_action`]), and a place for the extension's own state
-//!   ([`Host::keep_state`]), which its commands take as Tauri state.
+//!   ([`Host::claude_action`]), the agents' setup on this machine as the
+//!   app reads it ([`Host::local`], which a terminal's subcommand opens
+//!   without a window with [`Local::open`]), a write of that setup run as
+//!   the app runs a restore's ([`Host::write_agents`]) and the backup the
+//!   app makes after a change ([`Host::agents_changed`]), and a place for
+//!   the extension's own state ([`Host::keep_state`]), which its commands
+//!   take as Tauri state.
 //!   The extension's commands reach the host with [`Host::of`] and return
 //!   the [`Model`] as the app's own commands do.
 //! - [`Extension::start_threads`]: once, when the app's own reader runs: the
@@ -84,8 +89,8 @@
 //! Windows test program cannot load (it lacks the app's manifest, which
 //! only the binary gets). The [`Host`] holds that runtime too, so no test
 //! makes one; what the extension keeps is plain data ([`Kept`]), and so is
-//! what the reader hands it ([`ReaderPass`]) and what the model is drawn
-//! from ([`ModelInput`]). The app's state keeps only the extension's
+//! what the reader hands it ([`ReaderPass`]), what the model is drawn
+//! from ([`ModelInput`]) and the agents' setup ([`Local`]). The app's state keeps only the extension's
 //! sockets it asks under its lock (the model and the keys in its views,
 //! what the build has, the tabs and the hold on a close, what it reads for
 //! its alerts, what follows a manual switch or a change of the Claude
@@ -124,12 +129,20 @@ pub use quota_station_core::claude::manage::ManageError;
 /// another way (the app's own row in the settings shows it).
 pub use crate::install::COMMIT;
 
+/// A pack's sections besides the MCP lists (the skills, the plugins, the
+/// instruction files), and the folders of the skills it copies, as the
+/// app's backup gathers them ([`Local::pack_extras`]).
+pub use crate::skills::PackExtras;
+
+use quota_station_core::agents::restore;
+use quota_station_core::agents::skills::SkillPlaces;
+use quota_station_core::agents::Places;
 use quota_station_core::claude::store::Store;
 use quota_station_core::claude::Paths;
 use quota_station_core::quota::Response;
 
-use crate::state::{AppState, Inner, Tab};
-use crate::{claude, reader, session, windows};
+use crate::state::{AppState, Inner, Shared, Tab};
+use crate::{agents, backup, claude, reader, session, windows};
 
 /// What an extension adds to the app. Every method has a default that adds
 /// nothing; an extension overrides the sockets it fills.
@@ -611,6 +624,100 @@ impl Host {
         work: impl FnOnce(&Store) -> Done + Send + 'static,
     ) -> Result<Model, String> {
         claude::run(self.app.clone(), self.state.clone(), action, work).await
+    }
+
+    /// The agents' setup on this machine as the running app reads it
+    /// ([`Local`]).
+    pub fn local(&self) -> Local {
+        Local { state: self.state.clone() }
+    }
+
+    /// Runs `work`, a write of the agents' setup, as the app runs a
+    /// restore's: one write at a time with the app's own (`Err("busy")`
+    /// while one runs), off the main thread, with where each agent keeps
+    /// its MCP list, the app's folder and what a restore uses; then the
+    /// Agents tabs read again. `Err` too when `work` did not finish.
+    pub async fn write_agents<T: Send + 'static>(
+        &self,
+        work: impl FnOnce(&Places, &AppDir, &restore::Tools) -> T + Send + 'static,
+    ) -> Result<T, String> {
+        agents::write_as_restore(&self.app, &self.state, work).await
+    }
+
+    /// The agents' setup changed: the app makes a backup pack, as after a
+    /// change of its own, when the owner asked for one after each change.
+    pub fn agents_changed(&self) {
+        backup::after_change(&self.app, &self.state);
+    }
+}
+
+/// The agents' setup on this machine, as the app reads it: where each
+/// agent keeps its MCP list and its skills, the Codex folder, the app's
+/// folder, the machine's name, the app's version, a pack's other sections
+/// and what a restore uses. The running app's is [`Host::local`]; a
+/// subcommand from a terminal, which runs without a window, opens its own
+/// ([`Local::open`]). It holds no window runtime, so a test may open one.
+#[derive(Clone)]
+pub struct Local {
+    state: AppState,
+}
+
+impl Local {
+    /// The app's state for `home` as the app would start with it, without
+    /// a window: the settings file in the app's folder for `home`, the
+    /// name the system gives this machine, this build's version, and
+    /// `hooks` where the core calls one.
+    pub fn open(home: PathBuf, hooks: &'static dyn Hooks) -> Local {
+        let settings_file = quota_station_core::claude::app_dir(&home).join("settings.json");
+        let mut inner = Inner::new(home, settings_file, crate::machine_name(), hooks);
+        inner.app_version = env!("CARGO_PKG_VERSION").to_string();
+        Local { state: Shared::new(inner) }
+    }
+
+    /// The home folder of the user the app runs as.
+    pub fn home(&self) -> PathBuf {
+        self.state.lock().home.clone()
+    }
+
+    /// The app's folder, where its settings file is.
+    pub fn app_dir(&self) -> AppDir {
+        self.state.lock().app_dir()
+    }
+
+    /// The name shown for this machine: the owner's, else the system's.
+    pub fn machine(&self) -> String {
+        self.state.lock().machine()
+    }
+
+    /// The app's version.
+    pub fn app_version(&self) -> String {
+        self.state.lock().app_version.clone()
+    }
+
+    /// The Codex folder the app reads and edits.
+    pub fn codex_home(&self) -> PathBuf {
+        self.state.lock().codex_home()
+    }
+
+    /// Where each agent keeps its MCP list.
+    pub fn mcp_places(&self) -> Places {
+        self.state.lock().mcp_places()
+    }
+
+    /// Where each agent keeps its skills.
+    pub fn skill_places(&self) -> SkillPlaces {
+        self.state.lock().skill_places()
+    }
+
+    /// What a restore uses besides the MCP files.
+    pub fn restore_tools(&self) -> restore::Tools {
+        self.state.lock().restore_tools()
+    }
+
+    /// A pack's sections besides the MCP lists, as the app's backup
+    /// gathers them.
+    pub fn pack_extras(&self) -> PackExtras {
+        crate::skills::pack_extras(&self.state)
     }
 }
 

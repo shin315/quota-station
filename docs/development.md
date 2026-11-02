@@ -162,7 +162,9 @@ CI (`.github/workflows/ci.yml`) has three jobs:
 - **Licenses**: `reuse lint`. Like the changed-files job that decides whether
   the builds run, it runs on `ubuntu-latest`, or on the repository's
   `MAC_RUNNER` when that variable is set (through `uvx`, without Docker, with
-  its cache in `MAC_CI_ROOT`).
+  its cache in the CI root: the runner's own `QS_CI_ROOT`, set in the `.env`
+  file of its directory, or else the repository's `MAC_CI_ROOT`; the macOS
+  jobs keep their Rust there too).
 - **Build and test (macOS)**, the required check: Vitest, the frontend's type
   check and build with and without `QS_ANTIGRAVITY_ACCOUNTS=1`, rustfmt, and
   clippy and `cargo test --workspace` with no feature and with

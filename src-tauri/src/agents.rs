@@ -12,6 +12,7 @@
 
 use quota_station_core::agents::batch::{self, Change, Outcome, Preview, Undo};
 use quota_station_core::agents::paste::{self, Paste};
+use quota_station_core::agents::restore;
 use quota_station_core::agents::secrets::Secrets;
 use quota_station_core::agents::{self, claude_mcp, kho, Agent, Places, View};
 use quota_station_core::app_dir::AppDir;
@@ -205,6 +206,30 @@ pub async fn end_write(app: &AppHandle, shared: &AppState) {
     let s = shared.clone();
     let _ = tauri::async_runtime::spawn_blocking(move || look(&a, &s)).await;
     crate::codex::request(shared, false);
+}
+
+/// A write of the agents' setup that runs as a restore's writes do: the
+/// Skills tab's guard, then the MCP guard ([`begin_write`]; the first
+/// released when the second refuses), `work` off the main thread with the
+/// MCP places, the app's folder and what a restore uses, then both guards
+/// released and the tabs read again. `Err` when a guard is held, or when
+/// `work` did not finish.
+pub async fn write_as_restore<T: Send + 'static>(
+    app: &AppHandle,
+    shared: &AppState,
+    work: impl FnOnce(&Places, &AppDir, &restore::Tools) -> T + Send + 'static,
+) -> Result<T, String> {
+    crate::skills::begin_restore(shared)?;
+    let (places, dir) = begin_write(app, shared).inspect_err(|_| {
+        shared.lock().skills.busy = None;
+    })?;
+    let tools = shared.lock().restore_tools();
+    let done = tauri::async_runtime::spawn_blocking(move || work(&places, &dir, &tools))
+        .await
+        .map_err(|e| e.to_string());
+    end_write(app, shared).await;
+    crate::skills::end_restore(app, shared).await;
+    done
 }
 
 async fn run_write(

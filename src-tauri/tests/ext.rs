@@ -11,8 +11,8 @@ use std::sync::Arc;
 
 use common::{test_badge, NotKept, TestExtension, TestState};
 use quota_station::ext::{
-    claude_done, shadowed, shadowed_tabs, AlertInput, Closing, Extension, Hold, Kept, ManageError,
-    ModelInput, NoExtension, ReaderPass, View,
+    claude_done, shadowed, shadowed_tabs, AlertInput, Closing, Extension, Hold, Kept, Local,
+    ManageError, ModelInput, NoExtension, NoHooks, ReaderPass, View,
 };
 use quota_station_core::app_dir::AppDir;
 use quota_station_core::settings::Settings;
@@ -385,4 +385,29 @@ fn an_extensions_action_on_a_claude_account_ends_as_the_apps_own_do() {
 #[test]
 fn an_extension_reads_the_commit_the_app_was_built_from() {
     assert_eq!(quota_station::ext::COMMIT, option_env!("QS_COMMIT"));
+}
+
+#[test]
+fn without_a_window_the_agents_setup_of_a_home_reads_as_the_app_would() {
+    let home = std::env::temp_dir().join(format!("qs-ext-local-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&home);
+    let app_dir = quota_station_core::claude::app_dir(&home);
+    std::fs::create_dir_all(&app_dir).unwrap();
+    let codex_home = home.join("own-codex");
+    let settings = json!({ "machineName": "Test machine", "codexHome": codex_home });
+    std::fs::write(app_dir.join("settings.json"), settings.to_string()).unwrap();
+
+    let local = Local::open(home.clone(), &NoHooks);
+    assert_eq!(local.home(), home);
+    assert_eq!(local.app_dir().path(), app_dir);
+    assert_eq!(local.machine(), "Test machine");
+    assert_eq!(local.app_version(), env!("CARGO_PKG_VERSION"));
+    assert_eq!(local.codex_home(), codex_home);
+    let places = local.mcp_places();
+    assert_eq!(places.home, home);
+    assert_eq!(places.codex_config, codex_home.join("config.toml"));
+    let skills = local.skill_places();
+    assert_eq!(skills.home, home);
+    assert_eq!(local.restore_tools().codex_home, codex_home);
+    let _ = std::fs::remove_dir_all(home);
 }

@@ -24,11 +24,15 @@ on:
 #   CARGO_HOME) and the build (target/), instead of the Rust cache action.
 #   The toolchain action then installs and picks its toolchain there, never
 #   in the account's own ~/.rustup and ~/.cargo, so a runner that runs as
-#   someone's own account leaves their Rust alone. A job on MAC_RUNNER
-#   stops when it is unset, or when rustup is not on the runner's PATH (the
+#   someone's own account leaves their Rust alone. A runner can name its
+#   own folder instead: QS_CI_ROOT in the runner's own environment (the
+#   .env file in its directory, which every job it runs inherits) comes
+#   first, so runners on different machines each keep theirs, and
+#   MAC_CI_ROOT serves a runner that sets none. A job on MAC_RUNNER stops
+#   when neither is set, or when rustup is not on the runner's PATH (the
 #   action would otherwise install rustup itself). Licenses (REUSE) keeps its
 #   uv tool cache (uv-cache/, UV_CACHE_DIR) and tool folder (uv-tools/,
-#   UV_TOOL_DIR) there too, and stops when it is unset. Unused without
+#   UV_TOOL_DIR) there too, and stops when neither is set. Unused without
 #   MAC_RUNNER.
 # - WINDOWS_ON_PUSH: "false" runs the Windows job only when the workflow is
 #   started by hand (Actions › CI › Run workflow); unset, on every change.
@@ -52,16 +56,17 @@ jobs:
         uses: fsfe/reuse-action@v5
 
       # MAC_RUNNER has no Docker, which the action needs: the same tool (the
-      # 5.x line the action runs) through uv, kept in MAC_CI_ROOT. uv comes
-      # from the runner's PATH, or is installed into MAC_CI_ROOT when it is
-      # not there.
+      # 5.x line the action runs) through uv, kept in the CI root (the
+      # runner's QS_CI_ROOT, else MAC_CI_ROOT). uv comes from the runner's
+      # PATH, or is installed into the CI root when it is not there.
       - name: reuse lint (MAC_RUNNER)
         if: ${{ vars.MAC_RUNNER }}
         env:
-          ROOT: ${{ vars.MAC_CI_ROOT }}
+          MAC_CI_ROOT: ${{ vars.MAC_CI_ROOT }}
         run: |
+          ROOT="${QS_CI_ROOT:-$MAC_CI_ROOT}"
           if [ -z "$ROOT" ]; then
-            echo "::error::MAC_RUNNER is set but MAC_CI_ROOT is not: set it to the folder the jobs keep their tools in."
+            echo "::error::MAC_RUNNER is set but neither the runner's QS_CI_ROOT nor MAC_CI_ROOT is: set one to the folder the jobs keep their tools in."
             exit 1
           fi
           mkdir -p "$ROOT"
@@ -117,16 +122,18 @@ jobs:
           node-version: 24
           cache: npm
 
-      # MAC_RUNNER's own machine: the toolchain and the builds in
-      # MAC_CI_ROOT, set before the toolchain action so that it installs
-      # there (checkout empties the workspace's ignored files on every run).
+      # MAC_RUNNER's own machine: the toolchain and the builds in the CI
+      # root (the runner's QS_CI_ROOT, else MAC_CI_ROOT), set before the
+      # toolchain action so that it installs there (checkout empties the
+      # workspace's ignored files on every run).
       - name: Rust outside the workspace (MAC_RUNNER)
         if: ${{ vars.MAC_RUNNER }}
         env:
-          ROOT: ${{ vars.MAC_CI_ROOT }}
+          MAC_CI_ROOT: ${{ vars.MAC_CI_ROOT }}
         run: |
+          ROOT="${QS_CI_ROOT:-$MAC_CI_ROOT}"
           if [ -z "$ROOT" ]; then
-            echo "::error::MAC_RUNNER is set but MAC_CI_ROOT is not: set it to the folder the jobs keep their Rust in."
+            echo "::error::MAC_RUNNER is set but neither the runner's QS_CI_ROOT nor MAC_CI_ROOT is: set one to the folder the jobs keep their Rust in."
             exit 1
           fi
           if ! command -v rustup >/dev/null 2>&1; then
