@@ -12,10 +12,13 @@ use quota_station_core::history;
 use quota_station_core::quota;
 use quota_station_core::sessions::{self, Sessions};
 use quota_station_core::settings::{Language, Menubar, MenubarWindow, Theme, ThemePack};
-use quota_station_core::switching::{self, Outcome};
+use quota_station_core::switching::{self, AroundSwitch, Outcome};
+use serde_json::{Map, Value};
+use tauri::ipc::{InvokeBody, Request};
 use tauri::{AppHandle, State};
 use time::OffsetDateTime;
 
+use crate::ext::Host;
 use crate::reader;
 use crate::state::{AppState, Model, Tab};
 use crate::windows;
@@ -303,19 +306,39 @@ pub fn claude_sessions(state: State<'_, AppState>) -> Option<Sessions> {
 }
 
 /// Switches Claude Code to the app's account `slot`, after the owner
-/// confirmed it on the sheet.
+/// confirmed it on the sheet. The extension may act around the switch
+/// ([`quota_station_core::ext::Hooks::manual_switch`]), with any argument
+/// of its own the window passed beside `slot`; its error refuses the switch
+/// before anything else.
 #[tauri::command]
 pub async fn switch_claude(
     app: AppHandle,
     state: State<'_, AppState>,
     slot: u32,
+    request: Request<'_>,
 ) -> Result<Outcome, String> {
-    switch(app, state.inner().clone(), slot).await
+    let hooks = state.lock().hooks;
+    let around = hooks.manual_switch(&asked(request.body()))?;
+    switch(app, state.inner().clone(), slot, around).await
+}
+
+/// The arguments a window called a command with, as one JSON object: what
+/// the extension reads its own from. None for a call that sent no object.
+fn asked(body: &InvokeBody) -> Map<String, Value> {
+    match body {
+        InvokeBody::Json(Value::Object(args)) => args.clone(),
+        _ => Map::new(),
+    }
 }
 
 /// Looks at the active account again five seconds after the switch and
 /// reports what really happened.
-async fn switch(app: AppHandle, shared: AppState, slot: u32) -> Result<Outcome, String> {
+async fn switch(
+    app: AppHandle,
+    shared: AppState,
+    slot: u32,
+    around: Option<Box<dyn AroundSwitch>>,
+) -> Result<Outcome, String> {
     let (tools, from, dir, hooks) = {
         let mut inner = shared.lock();
         if inner.switching.is_some() {
@@ -334,7 +357,7 @@ async fn switch(app: AppHandle, shared: AppState, slot: u32) -> Result<Outcome, 
     };
     reader::publish(&app, &shared);
     let done = tauri::async_runtime::spawn_blocking(move || {
-        switching::switch_claude(&tools, slot, &switching::settle, hooks)
+        switching::switch_claude(&tools, slot, around, &switching::settle, hooks)
     })
     .await;
     // Kept before the reading that shows it, so the change is this switch's.
@@ -349,17 +372,42 @@ async fn switch(app: AppHandle, shared: AppState, slot: u32) -> Result<Outcome, 
             let at = OffsetDateTime::now_utc().unix_timestamp();
             // The same lock as the history's look at the readings.
             let _one = shared.history.lock().unwrap_or_else(|e| e.into_inner());
-            let _ = history::manual_claude(&dir, from, slot, result, at);
+            let _ = history::manual_claude(&dir, from, slot, d.journal.clone(), result, at);
         }
     }
-    {
+    let wake = {
         let mut inner = shared.lock();
         inner.switching = None;
         if let Ok(Some(report)) = done.as_ref().map(|d| d.report.clone()) {
             inner.store_claude(report);
         }
-    }
+        inner.after_switch()
+    };
     crate::alerting::track_history(&shared);
+    if wake {
+        Host::of(&app).wake_reader();
+    }
     reader::publish(&app, &shared);
     done.map(|d| d.outcome).map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The extension reads its own arguments of a switch from the whole
+    /// call, as the window sent it; a call without an object has none.
+    #[test]
+    fn the_extension_gets_every_argument_of_the_call() {
+        let call = serde_json::json!({ "slot": 3, "theirs": "kept as sent" });
+        let asked = asked(&InvokeBody::Json(call.clone()));
+        assert_eq!(Value::Object(asked), call);
+        assert!(asked_of_nothing().is_empty());
+    }
+
+    fn asked_of_nothing() -> Map<String, Value> {
+        let none = asked(&InvokeBody::Json(Value::Null));
+        assert_eq!(none, asked(&InvokeBody::Raw(b"{}".to_vec())));
+        none
+    }
 }

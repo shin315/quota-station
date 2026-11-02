@@ -9,6 +9,7 @@
 //! Tauri's runtime.
 #![allow(dead_code)]
 
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use quota_station::ext::{
@@ -61,6 +62,7 @@ pub struct TestState {
     pub passes: Mutex<Vec<(bool, bool)>>,
     pub unkept: Mutex<bool>,
     pub closes: Mutex<Vec<Closing>>,
+    pub switches: Mutex<Vec<PathBuf>>,
 }
 
 /// What the test extension read for its alerts: the machine's name, from
@@ -167,6 +169,15 @@ impl Extension for TestExtension {
     /// It reads the machine's name for its alerts.
     fn alert_read(&self, input: &AlertInput<'_>) -> Option<Box<dyn AlertRead>> {
         Some(Box::new(TestRead { machine: input.settings.machine_name.clone() }))
+    }
+
+    /// After a manual switch it notes the home it was handed and asks the
+    /// reader for a pass, once it keeps its state.
+    fn after_switch(&self, kept: &Kept, home: &Path) -> bool {
+        let Some(state) = kept.get::<TestState>() else { return false };
+        state.switches.lock().unwrap().push(home.to_path_buf());
+        *state.asks.lock().unwrap() = true;
+        true
     }
 
     /// `quota-station test-extension ARGS…` exits with as many as there

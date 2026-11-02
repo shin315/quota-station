@@ -15,7 +15,7 @@ use quota_station_core::antigravity::switch::{self, How, LogLine};
 #[cfg(feature = "antigravity-accounts")]
 use quota_station_core::antigravity::watch;
 use quota_station_core::app_dir::AppDir;
-use quota_station_core::ext;
+use quota_station_core::ext::{self, Fields};
 use quota_station_core::history::{self, App, Cause, Entry, Seen, Source};
 
 const T0: i64 = 1_768_548_000;
@@ -70,7 +70,7 @@ fn agy_log(app: &AppDir, lines: &[LogLine]) {
 #[test]
 fn the_journal_and_the_antigravity_log_make_one_list_newest_first() {
     let (app, ids) = setup(2);
-    history::manual_claude(&app, Some(2), 1, "switched", T0).unwrap();
+    history::manual_claude(&app, Some(2), 1, Fields::new(), "switched", T0).unwrap();
     let line = |at, to: &str, result: &str| LogLine {
         at,
         from: Some(ids[0].clone()),
@@ -95,7 +95,7 @@ fn the_journal_and_the_antigravity_log_make_one_list_newest_first() {
         all[0].cause,
         Cause::AgySwitch { how: How::QuitFirst, reopened: Some(true), .. }
     ));
-    assert!(matches!(&all[1].cause, Cause::Manual { result } if result == "switched"));
+    assert!(matches!(&all[1].cause, Cause::Manual { result, .. } if result == "switched"));
     assert_eq!(collect(&app, 1).len(), 1);
 
     // An account logged out since keeps its line, without a number.
@@ -128,7 +128,7 @@ fn a_change_nothing_explains_is_kept_as_seen() {
 fn a_change_the_owner_made_is_not_kept_twice() {
     let (app, _) = setup(0);
     let mut seen = Seen { claude: Some(3), agy: None };
-    history::manual_claude(&app, Some(3), 1, "switched", T0 + MIN).unwrap();
+    history::manual_claude(&app, Some(3), 1, Fields::new(), "switched", T0 + MIN).unwrap();
     track(&app, &mut seen, Some(1), None, T0 + MIN + 5);
     assert!(
         collect(&app, 50).iter().all(|e| e.source != Source::Observed),
@@ -177,7 +177,15 @@ fn an_overwrite_is_kept_once_and_explains_the_change_it_made() {
 fn the_journal_keeps_its_newest_lines_and_skips_broken_ones() {
     let (app, _) = setup(0);
     for i in 0..510 {
-        history::manual_claude(&app, None, 1 + (i % 3), "switched", T0 + i64::from(i)).unwrap();
+        history::manual_claude(
+            &app,
+            None,
+            1 + (i % 3),
+            Fields::new(),
+            "switched",
+            T0 + i64::from(i),
+        )
+        .unwrap();
     }
     let text = std::fs::read_to_string(history::path(&app)).unwrap();
     std::fs::write(history::path(&app), text + "{ broken\n").unwrap();

@@ -181,7 +181,7 @@ The core's integration tests are `crates/quota-station-core/tests/*.rs`:
 `codex_wake`, `detail`, `env_check`, `ext`, `history_ext`, `icon`,
 `install_script`, `labels`, `login_item`, `os_macos`,
 `quota_readers`, `runner`, `sessions`, `settings`, `snapshot`,
-`snapshot_ext`, `stats` and `ui_fixtures`, with shared helpers in
+`snapshot_ext`, `stats`, `switch_ext` and `ui_fixtures`, with shared helpers in
 `common/` and synthetic data in `fixtures/`.
 inline, and in `src-tauri/tests/` those of its sockets for an extension
 (`ext.rs`), filled by a test extension (`common/`) made as a crate outside the

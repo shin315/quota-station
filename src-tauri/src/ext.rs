@@ -15,8 +15,9 @@
 //! - [`Extension::hooks`]: the core's hooks. The app keeps them for as long
 //!   as it runs and passes them where the core calls one (the settings file,
 //!   the kinds of alert and which alerts run, the commands of
-//!   `quota-station claude …`, and the policy of the Claude pool at each
-//!   read of the accounts and each pass of the alert rules, today).
+//!   `quota-station claude …`, the policy of the Claude pool at each read of
+//!   the accounts and each pass of the alert rules, and what the extension
+//!   does around the owner's manual switch of the Claude account, today).
 //! - [`Extension::command_names`] and [`Extension::command_handler`]: the
 //!   commands the windows can call besides the app's own, both made from one
 //!   list by [`extension_commands!`](crate::extension_commands). A command
@@ -47,6 +48,11 @@
 //!   ([`AlertInput`]); its alerts at that pass come from it
 //!   ([`AlertRead::source`]), of the kinds its hooks name
 //!   ([`Hooks::alert_kinds`]).
+//! - [`Extension::after_switch`]: once the owner's manual switch of the
+//!   Claude account is over, the extension's own state follows it, and the
+//!   app's reader may go at once for what the extension asks of it (what
+//!   the extension does around the switch itself is a core hook,
+//!   [`Hooks::manual_switch`]).
 //! - [`Extension::subcommand`]: a subcommand from a terminal
 //!   (`quota-station <word> …`) that is not one of the app's, answered
 //!   before the app starts and without a window. The app's own subcommands
@@ -61,7 +67,8 @@
 //! what the reader hands it ([`ReaderPass`]) and what the model is drawn
 //! from ([`ModelInput`]). The app's state keeps only the extension's
 //! sockets it asks under its lock (the model, what the build has, the tabs
-//! and the hold on a close, and what it reads for its alerts), apart from
+//! and the hold on a close, what it reads for its alerts, and what follows
+//! a manual switch), apart from
 //! the rest, so a test can build that state and its model without the
 //! runtime.
 
@@ -183,6 +190,19 @@ pub trait Extension: Send + Sync + 'static {
         None
     }
 
+    /// The owner's manual switch of the Claude account is over, whatever
+    /// its outcome, and the app has kept the report it brought: called
+    /// under the app's lock with what the extension keeps and the owner's
+    /// home (never the [`Host`]), so the extension's own state can follow
+    /// what the switch changed. `true` asks the app to wake its reader once
+    /// the switch is in the history, for what the extension then asks of it
+    /// ([`Extension::reader_asked`]). The default changes nothing and
+    /// returns `false`.
+    fn after_switch(&self, kept: &Kept, home: &Path) -> bool {
+        let _ = (kept, home);
+        false
+    }
+
     /// A subcommand from a terminal: `args` are the words after
     /// `quota-station`, the subcommand first (none when the app is simply
     /// launched). The extension answers with the exit code, having printed
@@ -265,8 +285,9 @@ pub trait AlertRead {
 
 /// The extension's sockets the app asks under its lock (what draws,
 /// [`Extension::model`] and [`Extension::capabilities`], the tabs,
-/// [`Extension::tabs`], and the hold on a close, [`Extension::hold_close`]),
-/// and what it reads for its alerts ([`Extension::alert_read`]), as the
+/// [`Extension::tabs`], the hold on a close, [`Extension::hold_close`], and
+/// what follows a manual switch, [`Extension::after_switch`]), and what it
+/// reads for its alerts ([`Extension::alert_read`]), as the
 /// app's state keeps them: apart from the rest
 /// of [`Extension`], so that state holds nothing of the window runtime the
 /// command handler brings, and a test can build it.
@@ -276,6 +297,7 @@ pub(crate) trait StateSockets: Send + Sync {
     fn tabs_part(&self) -> &[&'static str];
     fn hold_close_part(&self, kept: &Kept, closing: Closing) -> Hold;
     fn alert_read_part(&self, input: &AlertInput<'_>) -> Option<Box<dyn AlertRead>>;
+    fn after_switch_part(&self, kept: &Kept, home: &Path) -> bool;
 }
 
 impl<E: Extension> StateSockets for E {
@@ -297,6 +319,10 @@ impl<E: Extension> StateSockets for E {
 
     fn alert_read_part(&self, input: &AlertInput<'_>) -> Option<Box<dyn AlertRead>> {
         self.alert_read(input)
+    }
+
+    fn after_switch_part(&self, kept: &Kept, home: &Path) -> bool {
+        self.after_switch(kept, home)
     }
 }
 

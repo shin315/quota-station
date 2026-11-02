@@ -14,6 +14,7 @@ use quota_station_core::alerts::{
 };
 use quota_station_core::app_dir::AppDir;
 use quota_station_core::claude::cli::Cli;
+use quota_station_core::claude::store::Store;
 use quota_station_core::claude::Paths;
 use quota_station_core::ext::Fields;
 use quota_station_core::ext::Hooks;
@@ -23,6 +24,7 @@ use quota_station_core::quota::claude::PoolPolicy;
 use quota_station_core::quota::{ClaudeAccounts, Provider, Response, Slot};
 use quota_station_core::settings::Settings;
 use quota_station_core::snapshot::{Account, PoolKind, Section, Snapshot};
+use quota_station_core::switching::{AroundSwitch, Refusal};
 use serde_json::{json, Map, Value};
 use time::{OffsetDateTime, UtcOffset};
 
@@ -56,6 +58,15 @@ use time::{OffsetDateTime, UtcOffset};
 ///
 /// The switch history: the lines in `test-history.json` under the home
 /// ([`TEST_HISTORY`]), from their own source (`testSource`).
+///
+/// The owner's manual switch ([`TestAround`]): an ask with `testBad`
+/// is refused at once (`testBadAsk`); the switch is refused while
+/// `test-refuse` is under the home ([`TEST_REFUSE`]); otherwise the outcome
+/// gets `testNote` (the ask's), `testLanded` (the account it landed on),
+/// `testActive` (what the second look saw) and `testOrder` (an object whose
+/// keys are not in sorted order), and the journal keeps `testKept` (the
+/// account). The History tab shows `testShown` from `testKept`. No login's
+/// token is ever refreshed.
 #[derive(Debug, Default)]
 pub struct TestHooks;
 
@@ -186,6 +197,73 @@ impl Hooks for TestHooks {
                 .unwrap(),
             })
             .collect()
+    }
+
+    fn manual_switch(
+        &self,
+        asked: &Map<String, Value>,
+    ) -> Result<Option<Box<dyn AroundSwitch>>, String> {
+        if asked.contains_key("testBad") {
+            return Err("testBadAsk".into());
+        }
+        let note = asked.get("testNote").cloned().unwrap_or(Value::Null);
+        Ok(Some(Box::new(TestAround { note, landed: None })))
+    }
+
+    fn manual_line(&self, kept: &Fields) -> Fields {
+        let mut ext = Fields::new();
+        ext.insert("testShown", kept.get("testKept").cloned().unwrap_or(Value::Null));
+        ext
+    }
+
+    fn may_refresh_logins(&self) -> bool {
+        false
+    }
+}
+
+/// While this file is under the home, the test hooks refuse a manual
+/// switch.
+pub const TEST_REFUSE: &str = "test-refuse";
+
+/// What the test hooks do around one manual switch ([`TestHooks`]).
+pub struct TestAround {
+    pub note: Value,
+    pub landed: Option<u32>,
+}
+
+/// An object whose keys serde writes out of sorted order.
+#[derive(serde::Serialize)]
+struct Unsorted {
+    zulu: u32,
+    alpha: u32,
+}
+
+impl AroundSwitch for TestAround {
+    fn before(&mut self, store: &Store) -> Option<Refusal> {
+        store.paths.home.join(TEST_REFUSE).exists().then(|| Refusal {
+            error: "testRefused".into(),
+            detail: "refused by the test".into(),
+            message: "the test hooks refuse it".into(),
+        })
+    }
+
+    fn landed(&mut self, _store: &Store, slot: u32) {
+        self.landed = Some(slot);
+    }
+
+    fn looked(&mut self, _store: &Store, _slot: u32, active: Option<u32>) -> Fields {
+        let mut ext = Fields::new();
+        ext.insert("testNote", self.note.clone());
+        ext.insert("testLanded", json!(self.landed));
+        ext.insert("testActive", json!(active));
+        ext.insert_written("testOrder", &Unsorted { zulu: 1, alpha: 2 }).unwrap();
+        ext
+    }
+
+    fn journal(&self) -> Fields {
+        let mut ext = Fields::new();
+        ext.insert("testKept", json!(self.landed));
+        ext
     }
 }
 

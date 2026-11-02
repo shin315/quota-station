@@ -8,7 +8,7 @@
 mod common;
 
 use quota_station_core::claude::switch;
-use quota_station_core::ext;
+use quota_station_core::ext::{self, Fields};
 use quota_station_core::switching::{switch_claude, Outcome, Tools};
 
 use common::accounts::{credential, in_hours, oauth, Mac};
@@ -35,8 +35,8 @@ fn quiet() {}
 #[test]
 fn a_confirmed_switch_is_reported_with_the_new_numbers() {
     let (mac, tools) = mac("manual-switch");
-    let done = switch_claude(&tools, 3, &quiet, ext::none());
-    assert_eq!(done.outcome, Outcome::Switched { slot: 3 });
+    let done = switch_claude(&tools, 3, None, &quiet, ext::none());
+    assert_eq!(done.outcome, Outcome::Switched { slot: 3, ext: Fields::new() });
     assert_eq!(mac.live_email().as_deref(), Some("lan.b@team.example"));
     // The report read after comes back to show at once, from the app's
     // own accounts.
@@ -48,7 +48,7 @@ fn a_confirmed_switch_is_reported_with_the_new_numbers() {
 #[test]
 fn the_switch_is_in_the_data_file_and_nothing_else_is_written() {
     let (mac, tools) = mac("manual-switch-state");
-    switch_claude(&tools, 3, &quiet, ext::none());
+    switch_claude(&tools, 3, None, &quiet, ext::none());
     let state: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(mac.paths.state()).unwrap()).unwrap();
     assert_eq!(state["activeSlot"], 3);
@@ -59,7 +59,7 @@ fn the_switch_is_in_the_data_file_and_nothing_else_is_written() {
 fn a_switch_that_does_not_land_changes_nothing() {
     let (mac, tools) = mac("manual-switch-busy");
     std::fs::create_dir(mac.home.join(".claude.lock")).unwrap();
-    let done = switch_claude(&tools, 3, &quiet, ext::none());
+    let done = switch_claude(&tools, 3, None, &quiet, ext::none());
     let Outcome::Failed { slot: 3, error, detail, active } = &done.outcome else {
         panic!("{:?}", done.outcome)
     };
@@ -75,8 +75,8 @@ fn another_switch_winning_is_raced() {
     let other = || {
         switch::switch(&mac.store, 4).unwrap();
     };
-    let done = switch_claude(&tools, 3, &other, ext::none());
-    assert_eq!(done.outcome, Outcome::Raced { slot: 3, active: 4 });
+    let done = switch_claude(&tools, 3, None, &other, ext::none());
+    assert_eq!(done.outcome, Outcome::Raced { slot: 3, active: 4, ext: Fields::new() });
 }
 
 #[test]
@@ -88,6 +88,6 @@ fn a_login_changed_to_one_the_app_does_not_keep_is_unconfirmed() {
             &oauth("x@else.example", "uuid-x", "org-x"),
         )
     };
-    let done = switch_claude(&tools, 3, &elsewhere, ext::none());
-    assert_eq!(done.outcome, Outcome::Unconfirmed { slot: 3 });
+    let done = switch_claude(&tools, 3, None, &elsewhere, ext::none());
+    assert_eq!(done.outcome, Outcome::Unconfirmed { slot: 3, ext: Fields::new() });
 }

@@ -41,7 +41,14 @@
 //!   adds to it once the app has built it ([`Hooks::decorate_snapshot`]),
 //!   in its own keys among the app's ([`Fields`]);
 //! - the switch history ([`crate::history`]): the lines the extension adds
-//!   to the app's, each with its source and reason ([`Hooks::history_lines`]).
+//!   to the app's, each with its source and reason ([`Hooks::history_lines`]),
+//!   and its keys on the lines of the owner's manual switches
+//!   ([`Hooks::manual_line`]);
+//! - the owner's manual switch of the Claude account
+//!   ([`crate::switching::switch_claude`], and `quota-station claude
+//!   switch`): what the extension does around it ([`Hooks::manual_switch`]);
+//! - whether the app refreshes a Claude login's token while it reads
+//!   ([`Hooks::may_refresh_logins`]).
 
 use std::fmt;
 use std::io::Write;
@@ -50,6 +57,7 @@ use std::path::Path;
 use serde::de::{MapAccess, Visitor};
 use serde::ser::SerializeMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde_json::value::RawValue;
 use serde_json::{Map, Value};
 use time::UtcOffset;
 
@@ -63,6 +71,7 @@ use crate::quota::claude::PoolPolicy;
 use crate::quota::Response;
 use crate::settings::Settings;
 use crate::snapshot::Snapshot;
+use crate::switching::AroundSwitch;
 
 /// The hooks an extension gives the core. Every method has a default that
 /// does nothing; an extension overrides the ones it needs.
@@ -206,17 +215,51 @@ pub trait Hooks: Send + Sync {
         let _ = (home, app);
         Vec::new()
     }
+
+    /// What the extension does around one manual switch of the Claude
+    /// account the owner asks for ([`AroundSwitch`]): `asked` holds the
+    /// arguments the window asked for the switch with (empty from a
+    /// terminal), among them any of the extension's own. Asked before
+    /// anything else about the switch, by the app's switch and by
+    /// `quota-station claude switch`. An error refuses the switch at once,
+    /// with that error for the window. `Ok(None)`, the default: nothing
+    /// around the switch.
+    fn manual_switch(
+        &self,
+        asked: &Map<String, Value>,
+    ) -> Result<Option<Box<dyn AroundSwitch>>, String> {
+        let _ = asked;
+        Ok(None)
+    }
+
+    /// The extension's keys on the History tab's line of one of the
+    /// owner's manual switches of the Claude account, before its `result`,
+    /// from the keys the switch kept in the journal (`kept`,
+    /// [`AroundSwitch::journal`]). The default shows none.
+    fn manual_line(&self, kept: &Fields) -> Fields {
+        let _ = kept;
+        Fields::new()
+    }
+
+    /// Whether a read of the Claude accounts the app keeps may refresh a
+    /// login's token now (the app's reader, and `quota-station claude
+    /// status --refresh`). Asked at each such read. The default: it may.
+    fn may_refresh_logins(&self) -> bool {
+        true
+    }
 }
 
 /// The keys an extension adds to one of the app's JSON objects (the
 /// snapshot's sections, accounts and pools, the Claude read's list of
-/// accounts), with their values. In the snapshot each key is written right
+/// accounts, a manual switch's outcome and its lines in the history), with
+/// their values. In the snapshot each key is written right
 /// after the app's own key it was put after ([`Fields::insert_after`]), so
 /// the object reads with the extension's keys where they belong, even
 /// where the app leaves that key out; a key put after none
 /// ([`Fields::insert`]), or after a key the object does not have, comes at
-/// the end, in the order the keys were put. The Claude read's list writes
-/// them all at its end, in that order. Read back from JSON (a report), an
+/// the end, in the order the keys were put. The Claude read's list and a
+/// manual switch's outcome write them all at their end, in that order; a
+/// manual switch's lines in the history before their `result`. Read back from JSON (a report), an
 /// object keeps here every key it does not know, at its end.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Fields {
@@ -228,6 +271,28 @@ struct Field {
     after: Option<&'static str>,
     key: String,
     value: Value,
+    /// The value as it was written, for one put that way
+    /// ([`Fields::insert_written`]): written so, not from `value`.
+    written: Option<Written>,
+}
+
+impl Field {
+    fn write<M: SerializeMap>(&self, map: &mut M) -> Result<(), M::Error> {
+        match &self.written {
+            Some(written) => map.serialize_entry(&self.key, &written.0),
+            None => map.serialize_entry(&self.key, &self.value),
+        }
+    }
+}
+
+/// A value's JSON text, as it was written.
+#[derive(Debug, Clone)]
+struct Written(Box<RawValue>);
+
+impl PartialEq for Written {
+    fn eq(&self, other: &Written) -> bool {
+        self.0.get() == other.0.get()
+    }
 }
 
 impl Fields {
@@ -257,6 +322,23 @@ impl Fields {
         self.put(None, key.into(), value);
     }
 
+    /// Puts `key` with `value` written as serde writes it, at the end of
+    /// the object: an object keeps its keys in the order it writes them,
+    /// where a [`Value`] would sort them. A key already here leaves its
+    /// place for the new one.
+    pub fn insert_written(
+        &mut self,
+        key: impl Into<String>,
+        value: &impl Serialize,
+    ) -> serde_json::Result<()> {
+        let written = serde_json::value::to_raw_value(value)?;
+        let value = serde_json::from_str(written.get())?;
+        let key = key.into();
+        self.remove(&key);
+        self.entries.push(Field { after: None, key, value, written: Some(Written(written)) });
+        Ok(())
+    }
+
     /// Takes `key` out, with its value.
     pub fn remove(&mut self, key: &str) -> Option<Value> {
         let at = self.entries.iter().position(|f| f.key == key)?;
@@ -270,7 +352,7 @@ impl Fields {
 
     fn put(&mut self, after: Option<&'static str>, key: String, value: Value) {
         self.remove(&key);
-        self.entries.push(Field { after, key, value });
+        self.entries.push(Field { after, key, value, written: None });
     }
 }
 
@@ -280,7 +362,7 @@ impl Serialize for Fields {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let mut map = serializer.serialize_map(Some(self.entries.len()))?;
         for f in &self.entries {
-            map.serialize_entry(&f.key, &f.value)?;
+            f.write(&mut map)?;
         }
         map.end()
     }
@@ -353,7 +435,7 @@ impl<'a, M: SerializeMap> Placed<'a, M> {
     fn after(&mut self, key: &'static str) -> Result<(), M::Error> {
         self.seen.push(key);
         for f in self.fields.entries.iter().filter(|f| f.after == Some(key)) {
-            self.map.serialize_entry(&f.key, &f.value)?;
+            f.write(&mut self.map)?;
         }
         Ok(())
     }
@@ -363,7 +445,7 @@ impl<'a, M: SerializeMap> Placed<'a, M> {
         let seen = std::mem::take(&mut self.seen);
         for f in &self.fields.entries {
             if !f.after.is_some_and(|a| seen.contains(&a)) {
-                self.map.serialize_entry(&f.key, &f.value)?;
+                f.write(&mut self.map)?;
             }
         }
         self.map.end()

@@ -16,6 +16,7 @@ use std::path::{Path, PathBuf};
 
 use common::temp_dir;
 use quota_station_core::app_dir::AppDir;
+use quota_station_core::ext::Fields;
 use quota_station_core::history::{App, Cause, Entry, Source};
 use quota_station_core::stats::index::{self, Index, Progress, Roots};
 use quota_station_core::stats::project;
@@ -477,7 +478,7 @@ fn switch(at: &str, from: Option<u32>, to: u32) -> Entry {
         source: Source::App,
         from,
         to: Some(to),
-        cause: Cause::Manual { result: "switched".into() },
+        cause: Cause::Manual { ext: Fields::new(), result: "switched".into() },
     }
 }
 

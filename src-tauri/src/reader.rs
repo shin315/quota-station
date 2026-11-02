@@ -194,7 +194,7 @@ pub fn read_claude(
     hooks: &dyn Hooks,
 ) -> (Response, Own) {
     let now = OffsetDateTime::now_utc();
-    if let Some(own) = read_own(store, names) {
+    if let Some(own) = read_own(store, names, hooks) {
         if let Some(report) = quota::claude::own_now(store, hooks, now) {
             return (report, Some(own));
         }
@@ -234,13 +234,14 @@ fn read_codex(codex_home: &Path, app: &AppDir) -> Response {
     )
 }
 
-/// Reads each account whose reading is due and writes the data file.
-fn read_own(store: &Store, names: bool) -> Own {
+/// Reads each account whose reading is due and writes the data file. A
+/// login's token is refreshed only while `hooks` let it
+/// ([`Hooks::may_refresh_logins`]).
+fn read_own(store: &Store, names: bool, hooks: &dyn Hooks) -> Own {
     if !store.paths.in_use() {
         return None;
     }
-    let may_refresh = true;
-    usage::read_due(store, &Endpoints::anthropic(), false, may_refresh);
+    usage::read_due(store, &Endpoints::anthropic(), false, hooks.may_refresh_logins());
     let _ = state::write(store, switch::active_slot(store), OffsetDateTime::now_utc());
     Some(crate::claude::load(store, names))
 }

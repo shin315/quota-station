@@ -11,6 +11,7 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 
+use serde_json::Map;
 use time::OffsetDateTime;
 
 use super::store::Store;
@@ -61,7 +62,10 @@ fn slot(arg: Option<&String>) -> Option<u32> {
 }
 
 /// Runs one command; the exit code. A command that is not the app's goes to
-/// `hooks` ([`Hooks::claude_command`]).
+/// `hooks` ([`Hooks::claude_command`]); `status --refresh` refreshes a token
+/// only while they let it ([`Hooks::may_refresh_logins`]), and `switch`
+/// switches only when what they do around it refuses nothing
+/// ([`Hooks::manual_switch`]).
 pub fn run(
     cli: &Cli,
     hooks: &dyn Hooks,
@@ -80,8 +84,7 @@ pub fn run(
     match word {
         "status" => {
             if has("--refresh") {
-                let may_refresh = true;
-                usage::read_due(store, &cli.tools.endpoints, false, may_refresh);
+                usage::read_due(store, &cli.tools.endpoints, false, hooks.may_refresh_logins());
             }
             let now = OffsetDateTime::now_utc();
             let active = switch::active_slot(store);
@@ -108,6 +111,15 @@ pub fn run(
         }
         "switch" => {
             let Some(n) = slot(rest.first()) else { return usage_error(err, hooks) };
+            match hooks.manual_switch(&Map::new()) {
+                Ok(Some(mut around)) => {
+                    if let Some(refusal) = around.before(store) {
+                        return fail(err, &refusal.message);
+                    }
+                }
+                Ok(None) => {}
+                Err(e) => return fail(err, &e),
+            }
             match switch::switch(store, n) {
                 Ok(done) => {
                     let _ = state::write(store, Some(n), OffsetDateTime::now_utc());

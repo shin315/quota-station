@@ -7,10 +7,13 @@ mod common;
 
 use std::path::{Path, PathBuf};
 
-use common::accounts::{credential, in_hours, oauth, Mac};
-use common::ext::{pool_reads, test_kind, TestHooks, TestPolicy, TEST_HISTORY, TEST_SOURCE};
+use common::accounts::{credential, in_hours, oauth, FakeAnthropic, Mac};
+use common::ext::{
+    pool_reads, test_kind, TestHooks, TestPolicy, TEST_HISTORY, TEST_REFUSE, TEST_SOURCE,
+};
 use quota_station_core::alerts::{self, Facts, Kind, Memory, Switches};
 use quota_station_core::app_dir::AppDir;
+use quota_station_core::claude::{cli, switch};
 use quota_station_core::ext::{self, Fields, Hooks, NoHooks};
 use quota_station_core::history::{self, Seen, Source};
 use quota_station_core::icon;
@@ -20,8 +23,9 @@ use quota_station_core::quota::Response;
 use quota_station_core::settings::{PoolAlert, Settings};
 use quota_station_core::snapshot::PoolKind;
 use quota_station_core::stats::report::Timeline;
+use quota_station_core::switching::{switch_claude, Tools};
 use quota_station_core::Snapshot;
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 use time::{OffsetDateTime, UtcOffset};
 
 /// What every caller holds: hooks behind a shared reference, from any
@@ -653,4 +657,142 @@ fn without_an_extension_the_history_is_the_apps_own() {
     let kept = history::read(&app);
     assert_eq!(kept.len(), 3);
     assert_eq!((kept[2].from.as_deref(), kept[2].to.as_str()), (Some("3"), "6"));
+}
+
+/// Accounts 2, 3 and 4, Claude Code on 2, and an expired login kept for 3.
+fn switch_mac(tag: &str) -> Mac {
+    let mac = Mac::new(tag);
+    for slot in [2, 3, 4] {
+        let login = credential(&format!("acc-{slot}"), &format!("ref-{slot}"), in_hours(5.0));
+        mac.add(slot, &format!("lan.{slot}@team.example"), "org-team", &login);
+    }
+    mac.log_in(
+        &mac.store.credential(2).unwrap().unwrap(),
+        &oauth("lan.2@team.example", "uuid-2", "org-team"),
+    );
+    mac
+}
+
+fn quiet() {}
+
+/// `quota-station claude ARGS…` with `hooks`: the exit code, stdout and
+/// stderr.
+fn claude_cli(mac: &Mac, hooks: &dyn Hooks, args: &[&str]) -> (i32, String, String) {
+    let cli = cli::Cli {
+        store: mac.store.clone(),
+        tools: cli::Tools { claude: None, endpoints: FakeAnthropic::start().endpoints() },
+    };
+    let args: Vec<String> = args.iter().map(|a| a.to_string()).collect();
+    let (mut out, mut err) = (Vec::new(), Vec::new());
+    let code = cli::run(&cli, hooks, &args, &mut out, &mut err);
+    (code, String::from_utf8(out).unwrap(), String::from_utf8(err).unwrap())
+}
+
+/// What the extension does around the owner's manual switch: it reads its
+/// own arguments of the ask, may refuse the ask or the switch before
+/// anything is switched (in the app and in a terminal), sees where the
+/// switch landed and what the second look found, puts its keys at the end
+/// of the outcome (in its own order where it wrote them so) and keeps its
+/// own on the journal's line, which the History tab shows its way.
+#[test]
+fn the_extension_acts_around_a_manual_switch() {
+    let mac = switch_mac("switch-around");
+    let tools = Tools { store: mac.store.clone() };
+    let mut asked = Map::new();
+    asked.insert("testBad".into(), json!(true));
+    assert_eq!(TestHooks.manual_switch(&asked).err(), Some("testBadAsk".to_string()));
+
+    std::fs::write(mac.home.join(TEST_REFUSE), "").unwrap();
+    let around = TestHooks.manual_switch(&Map::new()).unwrap();
+    let done = switch_claude(&tools, 3, around, &quiet, &TestHooks);
+    assert_eq!(
+        serde_json::to_string(&done.outcome).unwrap(),
+        r#"{"kind":"failed","slot":3,"error":"testRefused","detail":"refused by the test","active":null}"#
+    );
+    assert_eq!((done.journal, done.report.is_none()), (Fields::new(), true));
+    assert_eq!(switch::active_slot(&mac.store), Some(2), "nothing was switched");
+    assert_eq!(
+        claude_cli(&mac, &TestHooks, &["switch", "3"]),
+        (1, String::new(), "quota-station claude switch: the test hooks refuse it\n".into())
+    );
+    assert_eq!(switch::active_slot(&mac.store), Some(2));
+    std::fs::remove_file(mac.home.join(TEST_REFUSE)).unwrap();
+
+    asked = Map::new();
+    asked.insert("slot".into(), json!(3));
+    asked.insert("testNote".into(), json!("from the window"));
+    let around = TestHooks.manual_switch(&asked).unwrap();
+    let done = switch_claude(&tools, 3, around, &quiet, &TestHooks);
+    assert_eq!(
+        serde_json::to_string(&done.outcome).unwrap(),
+        r#"{"kind":"switched","slot":3,"testNote":"from the window","testLanded":3,"testActive":3,"testOrder":{"zulu":1,"alpha":2}}"#
+    );
+    assert_eq!(serde_json::to_string(&done.journal).unwrap(), r#"{"testKept":3}"#);
+
+    let other = || {
+        switch::switch(&mac.store, 2).unwrap();
+    };
+    let around = TestHooks.manual_switch(&Map::new()).unwrap();
+    let raced = switch_claude(&tools, 4, around, &other, &TestHooks);
+    assert_eq!(
+        serde_json::to_string(&raced.outcome).unwrap(),
+        r#"{"kind":"raced","slot":4,"active":2,"testNote":null,"testLanded":4,"testActive":2,"testOrder":{"zulu":1,"alpha":2}}"#
+    );
+
+    let app = AppDir::new(mac.dir.join("app"));
+    history::manual_claude(&app, Some(2), 3, done.journal, "switched", T).unwrap();
+    let line = std::fs::read_to_string(history::path(&app)).unwrap();
+    assert_eq!(
+        line.trim_end(),
+        format!(
+            r#"{{"at":{T},"app":"claude","from":"2","to":"3","what":{{"kind":"manual","testKept":3,"result":"switched"}}}}"#
+        )
+    );
+    let shown = |hooks: &dyn Hooks| {
+        serde_json::to_string(&history::collect(&app, &mac.home, hooks, 1)[0].cause).unwrap()
+    };
+    assert_eq!(shown(&TestHooks), r#"{"kind":"manual","testShown":3,"result":"switched"}"#);
+    // Without the extension its keys stay in the journal, and the History
+    // tab shows the app's own.
+    assert_eq!(shown(ext::none()), r#"{"kind":"manual","result":"switched"}"#);
+}
+
+/// Without an extension nothing is done around a manual switch: nothing is
+/// asked, refused or added, the History tab shows a manual switch's line
+/// without keys of the extension's, and a login's token is refreshed when
+/// due.
+#[test]
+fn without_an_extension_a_manual_switch_is_the_apps_own() {
+    let mut kept = Fields::new();
+    kept.insert("testKept", json!(3));
+    for hooks in [ext::none(), &NoHooks as &dyn Hooks] {
+        let mut asked = Map::new();
+        asked.insert("testBad".into(), json!(true));
+        assert!(hooks.manual_switch(&asked).unwrap().is_none());
+        assert_eq!(hooks.manual_line(&kept), Fields::new());
+        assert!(hooks.may_refresh_logins());
+    }
+}
+
+/// `quota-station claude status --refresh` refreshes a login's token only
+/// while the extension lets it.
+#[test]
+fn the_extension_may_hold_a_logins_refresh_back() {
+    for (hooks, refreshed) in [(&TestHooks as &dyn Hooks, false), (ext::none(), true)] {
+        let mac = switch_mac(if refreshed { "refresh-none" } else { "refresh-held" });
+        mac.store.set_credential(3, &credential("acc-3", "ref-3", in_hours(-1.0))).unwrap();
+        let anthropic = FakeAnthropic::start();
+        anthropic.refreshes("ref-3", "acc-3b", "ref-3b");
+        for access in ["acc-2", "acc-3b", "acc-4"] {
+            anthropic.usage(access, 5.0, None, None, None);
+        }
+        let cli = cli::Cli {
+            store: mac.store.clone(),
+            tools: cli::Tools { claude: None, endpoints: anthropic.endpoints() },
+        };
+        let args = ["status".to_string(), "--refresh".to_string()];
+        let (mut out, mut err) = (Vec::new(), Vec::new());
+        assert_eq!(cli::run(&cli, hooks, &args, &mut out, &mut err), 0);
+        assert_eq!(anthropic.to("/v1/oauth/token").len(), usize::from(refreshed));
+    }
 }

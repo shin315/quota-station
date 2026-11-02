@@ -7,7 +7,10 @@
 //! - the app's own journal, `history/history.jsonl` in its folder: a Claude switch
 //!   the owner made here, an account in use that changed between two
 //!   readings with nothing here to explain it, and an Antigravity switch
-//!   that Antigravity.app undid (the six-hour watch of M4c);
+//!   that Antigravity.app undid (the six-hour watch of M4c); the line of a
+//!   switch the owner made keeps the keys an extension gives it
+//!   ([`crate::switching::AroundSwitch::journal`]), and the History tab
+//!   shows the extension's keys from them ([`Hooks::manual_line`]);
 //! - the app's Antigravity switch log of M4c, `antigravity/switch-log.jsonl`;
 //! - the app's Codex switch log of M8, `codex/switch-log.jsonl`: the owner's
 //!   switches and the changes of provider made outside the app;
@@ -32,7 +35,7 @@ use crate::antigravity::switch::{self as agy_switch, How};
 use crate::antigravity::{index, watch};
 use crate::app_dir::AppDir;
 use crate::codex::log as codex_log;
-use crate::ext::Hooks;
+use crate::ext::{Fields, Hooks};
 
 /// In the app's folder, `history/history.jsonl`.
 pub const DIR: &str = "history";
@@ -97,6 +100,10 @@ pub enum Kept {
     /// The owner switched Claude here; `result` is what the check after it
     /// found (`switched`, `raced`, `unconfirmed`).
     Manual {
+        /// The extension's keys for the switch, before `result`; read back,
+        /// every key the line has that is not the app's.
+        #[serde(flatten)]
+        ext: Fields,
         result: String,
     },
     Observed,
@@ -126,6 +133,9 @@ pub struct Entry {
 #[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum Cause {
     Manual {
+        /// The extension's keys ([`Hooks::manual_line`]), before `result`.
+        #[serde(flatten)]
+        ext: Fields,
         result: String,
     },
     Observed,
@@ -242,11 +252,13 @@ pub fn append(app: &AppDir, line: &Stored) -> std::io::Result<()> {
     app.write_private(&path(app), &out)
 }
 
-/// A Claude switch the owner made here.
+/// A Claude switch the owner made here, with the keys the extension keeps
+/// for it (`ext`, [`crate::switching::Done::journal`]).
 pub fn manual_claude(
     app: &AppDir,
     from: Option<u32>,
     to: u32,
+    ext: Fields,
     result: &str,
     at: i64,
 ) -> std::io::Result<()> {
@@ -257,7 +269,7 @@ pub fn manual_claude(
             app: App::Claude,
             from: from.map(|n| n.to_string()),
             to: to.to_string(),
-            what: Kept::Manual { result: result.to_string() },
+            what: Kept::Manual { ext, result: result.to_string() },
         },
     )
 }
@@ -292,7 +304,8 @@ fn agy_numbers(app: &AppDir) -> impl Fn(&str) -> Option<u32> {
 }
 
 /// Every line, newest first, at most `limit`: the app's, then the lines
-/// the extension whose `hooks` are given adds, read under `home`.
+/// the extension whose `hooks` are given adds, read under `home`; the
+/// owner's switches with the extension's keys ([`Hooks::manual_line`]).
 pub fn collect(app: &AppDir, home: &Path, hooks: &dyn Hooks, limit: usize) -> Vec<Entry> {
     let number = agy_numbers(app);
     let slot = |s: &str| s.parse::<u32>().ok();
@@ -309,7 +322,9 @@ pub fn collect(app: &AppDir, home: &Path, hooks: &dyn Hooks, limit: usize) -> Ve
             continue;
         }
         let (source, cause) = match line.what {
-            Kept::Manual { result } => (Source::App, Cause::Manual { result }),
+            Kept::Manual { ext, result } => {
+                (Source::App, Cause::Manual { ext: hooks.manual_line(&ext), result })
+            }
             Kept::Observed => (Source::Observed, Cause::Observed),
             Kept::Overwrite { overwrites } => {
                 (Source::Observed, Cause::AgyOverwrite { overwrites })

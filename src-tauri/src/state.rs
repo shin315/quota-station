@@ -412,6 +412,15 @@ impl Inner {
         Tools { store: self.claude_store() }
     }
 
+    /// The owner's manual switch is over and the app kept what it brought:
+    /// the extension's state follows it
+    /// ([`crate::ext::Extension::after_switch`]), which takes its own lock
+    /// after the app's. Whether the reader is to be woken once the switch
+    /// is in the history.
+    pub fn after_switch(&self) -> bool {
+        self.extension.after_switch_part(&self.kept, &self.home)
+    }
+
     /// Stores a Claude report read outside the reader loop (the Keychain
     /// grant, the re-read after a switch), ahead of any read in flight.
     pub fn store_claude(&mut self, report: Response) {
@@ -965,6 +974,39 @@ mod tests {
         inner.kept.keep(Arc::new("drawnTab"));
         assert_eq!(inner.on_close(Closing::MainWindow), OnClose::Close);
         assert_eq!(inner.on_close(Closing::App), OnClose::Close);
+    }
+
+    /// An extension following a manual switch: it is handed the owner's
+    /// home and what it keeps, and asks for the reader once it keeps a value.
+    struct Follows;
+
+    impl crate::ext::Extension for Follows {
+        fn after_switch(&self, kept: &Kept, home: &std::path::Path) -> bool {
+            let Some(homes) = kept.get::<Mutex<Vec<PathBuf>>>() else { return false };
+            homes.lock().unwrap().push(home.to_path_buf());
+            true
+        }
+    }
+
+    #[test]
+    fn an_extension_follows_a_manual_switch_through_the_apps_state() {
+        let mut inner = inner();
+        inner.home = PathBuf::from("/home/of/the/owner");
+        inner.extension = &Follows;
+        assert!(!inner.after_switch());
+        let homes = Arc::new(Mutex::new(Vec::<PathBuf>::new()));
+        inner.kept.keep(homes.clone());
+        assert!(inner.after_switch());
+        assert_eq!(*homes.lock().unwrap(), [PathBuf::from("/home/of/the/owner")]);
+    }
+
+    /// Without an extension nothing follows a manual switch and the reader
+    /// is not woken, as before the socket.
+    #[test]
+    fn without_an_extension_nothing_follows_a_manual_switch() {
+        let mut inner = inner();
+        inner.kept.keep(Arc::new(Mutex::new(Vec::<PathBuf>::new())));
+        assert!(!inner.after_switch());
     }
 
     #[test]

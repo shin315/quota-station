@@ -212,6 +212,30 @@ fn without_an_extension_the_main_window_closes_and_the_app_quits_at_once() {
     assert_eq!(Hold::default(), Hold::Close);
 }
 
+#[test]
+fn an_extension_follows_a_manual_switch_and_asks_the_reader_for_a_pass() {
+    let mut kept = Kept::default();
+    let home = Path::new("/home/of/the/owner");
+    // Before it keeps its state, nothing follows and the reader stays.
+    assert!(!TestExtension.after_switch(&kept, home));
+
+    let state = Arc::new(TestState::default());
+    kept.keep(state.clone());
+    assert!(TestExtension.after_switch(&kept, home));
+    assert_eq!(*state.switches.lock().unwrap(), [home.to_path_buf()]);
+    assert!(TestExtension.reader_asked(&kept), "what it asks of the reader once woken");
+}
+
+#[test]
+fn without_an_extension_nothing_follows_a_manual_switch() {
+    let mut kept = Kept::default();
+    let state = Arc::new(TestState::default());
+    kept.keep(state.clone());
+    assert!(!NoExtension.after_switch(&kept, Path::new("/home/of/the/owner")));
+    assert!(state.switches.lock().unwrap().is_empty(), "never asked");
+    assert!(!*state.asks.lock().unwrap());
+}
+
 fn words(words: &[&str]) -> Vec<String> {
     words.iter().map(|w| w.to_string()).collect()
 }
