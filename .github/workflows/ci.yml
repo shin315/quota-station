@@ -12,10 +12,12 @@ on:
 # Repository variables pick where the jobs run; a repository that sets none
 # runs as it always has, on GitHub's hosted runners:
 #
-# - MAC_RUNNER: the macOS jobs' runner labels, as a JSON array (for example
-#   ["self-hosted","macOS","ARM64"]); unset, macos-latest. Never set it to a
-#   self-hosted runner in a public repository: a pull request from anyone
-#   would run on that machine.
+# - MAC_RUNNER: the runner labels of the macOS jobs and of the two small jobs
+#   (Licenses (REUSE), Changed files), as a JSON array (for example
+#   ["self-hosted","macOS","ARM64"]); unset, macos-latest for the macOS jobs
+#   and ubuntu-latest for the two small ones. Never set it to a self-hosted
+#   runner in a public repository: a pull request from anyone would run on
+#   that machine.
 # - MAC_CI_ROOT: on MAC_RUNNER, the folder outside the workspace that the
 #   macOS jobs keep their Rust in, and which outlives each run: the
 #   toolchain (rustup/, RUSTUP_HOME), Cargo's own folder (cargo/,
@@ -24,7 +26,9 @@ on:
 #   in the account's own ~/.rustup and ~/.cargo, so a runner that runs as
 #   someone's own account leaves their Rust alone. A job on MAC_RUNNER
 #   stops when it is unset, or when rustup is not on the runner's PATH (the
-#   action would otherwise install rustup itself). Unused without
+#   action would otherwise install rustup itself). Licenses (REUSE) keeps its
+#   uv tool cache (uv-cache/, UV_CACHE_DIR) and tool folder (uv-tools/,
+#   UV_TOOL_DIR) there too, and stops when it is unset. Unused without
 #   MAC_RUNNER.
 # - WINDOWS_ON_PUSH: "false" runs the Windows job only when the workflow is
 #   started by hand (Actions › CI › Run workflow); unset, on every change.
@@ -39,12 +43,35 @@ concurrency:
 jobs:
   reuse:
     name: Licenses (REUSE)
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.MAC_RUNNER && fromJSON(vars.MAC_RUNNER) || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v5
 
       - name: reuse lint
+        if: ${{ !vars.MAC_RUNNER }}
         uses: fsfe/reuse-action@v5
+
+      # MAC_RUNNER has no Docker, which the action needs: the same tool (the
+      # 5.x line the action runs) through uv, kept in MAC_CI_ROOT. uv comes
+      # from the runner's PATH, or is installed into MAC_CI_ROOT when it is
+      # not there.
+      - name: reuse lint (MAC_RUNNER)
+        if: ${{ vars.MAC_RUNNER }}
+        env:
+          ROOT: ${{ vars.MAC_CI_ROOT }}
+        run: |
+          if [ -z "$ROOT" ]; then
+            echo "::error::MAC_RUNNER is set but MAC_CI_ROOT is not: set it to the folder the jobs keep their tools in."
+            exit 1
+          fi
+          mkdir -p "$ROOT"
+          export UV_CACHE_DIR="$ROOT/uv-cache" UV_TOOL_DIR="$ROOT/uv-tools"
+          if ! command -v uvx >/dev/null 2>&1; then
+            python3 -m venv "$ROOT/uv-venv"
+            "$ROOT/uv-venv/bin/python" -m pip install --quiet --upgrade uv
+            PATH="$ROOT/uv-venv/bin:$PATH"
+          fi
+          uvx --from 'reuse[charset-normalizer]==5.1.1' reuse lint
 
   # Whether the change touches anything but the docs: *.md anywhere and the
   # docs/ directory. When it does not, the two build jobs are skipped; the
@@ -52,7 +79,7 @@ jobs:
   # branch, a history that was forced over, this job failing) the builds run.
   changes:
     name: Changed files
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.MAC_RUNNER && fromJSON(vars.MAC_RUNNER) || 'ubuntu-latest' }}
     outputs:
       code: ${{ steps.diff.outputs.code }}
     steps:

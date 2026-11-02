@@ -27,8 +27,10 @@
 //!   ([`Host::update_settings`]), the home folder, a wake for the app's
 //!   reader, the model every window draws and a redraw of the windows and
 //!   the menu bar ([`Host::publish`]), the main window's close, work under
-//!   the app's lock ([`Host::locked`]), and a place for the extension's own
-//!   state ([`Host::keep_state`]), which its commands take as Tauri state.
+//!   the app's lock ([`Host::locked`]), an action of the extension's on the
+//!   Claude accounts the app keeps, run as the Claude tab runs its own
+//!   ([`Host::claude_action`]), and a place for the extension's own state
+//!   ([`Host::keep_state`]), which its commands take as Tauri state.
 //!   The extension's commands reach the host with [`Host::of`] and return
 //!   the [`Model`] as the app's own commands do.
 //! - [`Extension::start_threads`]: once, when the app's own reader runs: the
@@ -107,8 +109,17 @@ pub use quota_station_core::icon::{Badge, Shape};
 /// change: an extension's command returns it too (`Result<Model, String>`).
 pub use crate::state::Model;
 
+/// How an action on the Claude accounts ended, as the Claude tab shows it
+/// (`claudeAccounts.last`): an extension's action ([`Host::claude_action`])
+/// ends with one too.
+pub use crate::claude::Done;
+/// Why an action on a Claude account failed, as the core tells it.
+pub use quota_station_core::claude::manage::ManageError;
+
+use quota_station_core::claude::store::Store;
+
 use crate::state::{AppState, Inner, Tab};
-use crate::{reader, windows};
+use crate::{claude, reader, windows};
 
 /// What an extension adds to the app. Every method has a default that adds
 /// nothing; an extension overrides the sockets it fills.
@@ -543,6 +554,28 @@ impl Host {
     pub fn app_handle(&self) -> &AppHandle {
         &self.app
     }
+
+    /// Runs `work` on the Claude accounts the app keeps as the Claude tab
+    /// runs its own actions, named `action` there: one action at a time
+    /// (`Err("busy")` while another runs), off the main thread, with the
+    /// accounts' store; then its [`Done`] shown, the accounts taken in
+    /// again, the extension told ([`Extension::after_accounts_change`]),
+    /// everything read again and the windows redrawn. Returns the model, as
+    /// the app's own actions do.
+    pub async fn claude_action(
+        &self,
+        action: &'static str,
+        work: impl FnOnce(&Store) -> Done + Send + 'static,
+    ) -> Result<Model, String> {
+        claude::run(self.app.clone(), self.state.clone(), action, work).await
+    }
+}
+
+/// The [`Done`] of `action` on the Claude account in `slot`: the account
+/// changed (`result` is `Ok`), or why not, as the app's own actions on one
+/// account tell it.
+pub fn claude_done(action: &'static str, slot: u32, result: Result<(), ManageError>) -> Done {
+    claude::changed(action, slot, result)
 }
 
 /// The app's state under its lock, as [`Host::locked`] hands it to the

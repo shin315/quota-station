@@ -11,8 +11,8 @@ use std::sync::Arc;
 
 use common::{test_badge, NotKept, TestExtension, TestState};
 use quota_station::ext::{
-    shadowed, shadowed_tabs, AlertInput, Closing, Extension, Hold, Kept, ModelInput, NoExtension,
-    ReaderPass, View,
+    claude_done, shadowed, shadowed_tabs, AlertInput, Closing, Extension, Hold, Kept, ManageError,
+    ModelInput, NoExtension, ReaderPass, View,
 };
 use quota_station_core::app_dir::AppDir;
 use quota_station_core::settings::Settings;
@@ -357,4 +357,27 @@ fn without_an_extension_nothing_is_read_for_the_alerts() {
     let input =
         AlertInput { settings: &settings, home: Path::new("/nonexistent"), app_dir: &app_dir };
     assert!(NoExtension.alert_read(&input).is_none());
+}
+
+#[test]
+fn an_extensions_action_on_a_claude_account_ends_as_the_apps_own_do() {
+    assert_eq!(
+        serde_json::to_value(claude_done("testAction", 3, Ok(()))).unwrap(),
+        json!({
+            "action": "testAction", "ok": true, "error": null, "detail": null,
+            "slot": 3, "renewed": false, "imported": null,
+        })
+    );
+    assert_eq!(
+        serde_json::to_value(claude_done(
+            "testAction",
+            3,
+            Err(ManageError::Login("the browser was closed".into()))
+        ))
+        .unwrap(),
+        json!({
+            "action": "testAction", "ok": false, "error": "login",
+            "detail": "the browser was closed", "slot": null, "renewed": false, "imported": null,
+        })
+    );
 }

@@ -4,7 +4,8 @@
 //! The Claude accounts the app keeps (see `docs/claude-accounts.md`): what
 //! the Claude tab shows of them, and its actions: import from claude-swap,
 //! log a new account in, add the login Claude Code is on or a setup token,
-//! remove an account and give it an alias.
+//! remove an account and give it an alias. An extension runs its own
+//! actions on the accounts the same way ([`crate::ext::Host::claude_action`]).
 //!
 //! The windows only ever get account numbers, aliases and readings; an
 //! email only while the owner shows names, and never a token.
@@ -30,7 +31,7 @@ use crate::state::{AppState, Inner, Model};
 #[derive(Debug, Default)]
 pub struct Live {
     /// The action running now: `import`, `login`, `current`, `token`,
-    /// `remove` or `alias`.
+    /// `remove` or `alias`, or an extension's, by the name it gives.
     pub working: Option<&'static str>,
     /// Stops a `claude auth login` that waits for the browser.
     pub cancel: Option<Arc<AtomicBool>>,
