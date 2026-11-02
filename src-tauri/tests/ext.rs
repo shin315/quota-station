@@ -411,3 +411,32 @@ fn without_a_window_the_agents_setup_of_a_home_reads_as_the_app_would() {
     assert_eq!(local.restore_tools().codex_home, codex_home);
     let _ = std::fs::remove_dir_all(home);
 }
+
+#[test]
+fn an_extension_adds_its_part_to_the_apps_diagnostics() {
+    assert_eq!(TestExtension.build_name(), Some("test-extension"));
+    let mut settings = Settings::default();
+    assert_eq!(TestExtension.diagnostics(&settings), ["Test machine unnamed"]);
+    settings.machine_name = Some("Mac A".into());
+    assert_eq!(TestExtension.diagnostics(&settings), ["Test machine named"]);
+    assert_eq!(TestExtension.hidden_keys(), ["testExtension"]);
+
+    let dir = std::env::temp_dir().join(format!("qs-ext-check-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let app_dir = AppDir::new(&dir);
+    assert_eq!(TestExtension.self_check("testCheck", &app_dir), Some(json!({ "file": false })));
+    std::fs::write(dir.join("test-check"), "").unwrap();
+    assert_eq!(TestExtension.self_check("testCheck", &app_dir), Some(json!({ "file": true })));
+    assert_eq!(TestExtension.self_check("system", &app_dir), None, "not its own");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn without_an_extension_the_apps_diagnostics_are_its_own() {
+    let app_dir = AppDir::new("/nonexistent/app");
+    assert_eq!(NoExtension.build_name(), None);
+    assert!(NoExtension.diagnostics(&Settings::default()).is_empty());
+    assert_eq!(NoExtension.self_check("testCheck", &app_dir), None);
+    assert!(NoExtension.hidden_keys().is_empty());
+}

@@ -83,6 +83,12 @@
 //!   before the app starts and without a window. The app's own subcommands
 //!   (`claude`, `quota`) stay the app's; the commands the extension adds to
 //!   `quota-station claude …` are a core hook ([`Hooks::claude_command`]).
+//! - [`Extension::build_name`], [`Extension::diagnostics`],
+//!   [`Extension::self_check`] and [`Extension::hidden_keys`]: the
+//!   extension's part of the app's diagnostics: its name for the build and
+//!   its words on the system line in the diagnostic info, its own
+//!   self-checks in a guided test session, and the keys the diagnostic
+//!   bundle hides besides the app's.
 //!
 //! The names and the handler are apart so a test can read the names without
 //! building the handler: a handler holds Tauri's window runtime, which a
@@ -94,7 +100,7 @@
 //! sockets it asks under its lock (the model and the keys in its views,
 //! what the build has, the tabs and the hold on a close, what it reads for
 //! its alerts, what follows a manual switch or a change of the Claude
-//! accounts, and the icon's badge), apart from
+//! accounts, the icon's badge, and its part of the diagnostics), apart from
 //! the rest, so a test can build that state and its model without the
 //! runtime.
 
@@ -305,6 +311,39 @@ pub trait Extension: Send + Sync + 'static {
         let _ = args;
         None
     }
+
+    /// The extension's name for this build in the app's diagnostic info
+    /// (what "Chép" copies), after the app's own on its first line. `None`,
+    /// the default, adds no name.
+    fn build_name(&self) -> Option<&'static str> {
+        None
+    }
+
+    /// Words the extension adds at the end of the system line of the app's
+    /// diagnostic info, each after a ` · `, read from `settings`. Asked
+    /// under the app's lock; a word names no person, account, path or
+    /// secret. The default adds none.
+    fn diagnostics(&self, settings: &Settings) -> Vec<String> {
+        let _ = settings;
+        Vec::new()
+    }
+
+    /// The extension's self-check `id` in a guided test session, read from
+    /// the app's folder `app_dir`: asked only for an id that is none of the
+    /// app's, under the app's lock. It reads no secret: files counted, their
+    /// times, never their text. `None`, the default, when the id is not its
+    /// own: the session then reports the id unknown.
+    fn self_check(&self, id: &str, app_dir: &AppDir) -> Option<Value> {
+        let _ = (id, app_dir);
+        None
+    }
+
+    /// Keys whose value never goes in the app's diagnostic bundle, besides
+    /// the app's own, matched as those are: whatever their case, `_` and
+    /// `-` left out. The default hides no more.
+    fn hidden_keys(&self) -> &[&'static str] {
+        &[]
+    }
 }
 
 /// What the owner is closing ([`Extension::hold_close`]).
@@ -390,8 +429,10 @@ pub trait AlertRead {
 /// [`Extension::view_keys`], the tabs, [`Extension::tabs`], the hold on a
 /// close, [`Extension::hold_close`], what follows a manual switch,
 /// [`Extension::after_switch`], and a change of the Claude accounts,
-/// [`Extension::after_accounts_change`], and the icon's badge,
-/// [`Extension::icon_badge`]), and what it
+/// [`Extension::after_accounts_change`], the icon's badge,
+/// [`Extension::icon_badge`], and its part of the app's diagnostics,
+/// [`Extension::build_name`], [`Extension::diagnostics`],
+/// [`Extension::self_check`] and [`Extension::hidden_keys`]), and what it
 /// reads for its alerts ([`Extension::alert_read`]), as the
 /// app's state keeps them: apart from the rest
 /// of [`Extension`], so that state holds nothing of the window runtime the
@@ -406,6 +447,10 @@ pub(crate) trait StateSockets: Send + Sync {
     fn after_switch_part(&self, kept: &Kept, home: &Path) -> bool;
     fn after_accounts_change_part(&self, kept: &Kept) -> bool;
     fn icon_badge_part(&self, kept: &Kept, now: OffsetDateTime) -> Option<Badge>;
+    fn build_name_part(&self) -> Option<&'static str>;
+    fn diagnostics_part(&self, settings: &Settings) -> Vec<String>;
+    fn self_check_part(&self, id: &str, app_dir: &AppDir) -> Option<Value>;
+    fn hidden_keys_part(&self) -> &[&'static str];
 }
 
 impl<E: Extension> StateSockets for E {
@@ -443,6 +488,22 @@ impl<E: Extension> StateSockets for E {
 
     fn icon_badge_part(&self, kept: &Kept, now: OffsetDateTime) -> Option<Badge> {
         self.icon_badge(kept, now)
+    }
+
+    fn build_name_part(&self) -> Option<&'static str> {
+        self.build_name()
+    }
+
+    fn diagnostics_part(&self, settings: &Settings) -> Vec<String> {
+        self.diagnostics(settings)
+    }
+
+    fn self_check_part(&self, id: &str, app_dir: &AppDir) -> Option<Value> {
+        self.self_check(id, app_dir)
+    }
+
+    fn hidden_keys_part(&self) -> &[&'static str] {
+        self.hidden_keys()
     }
 }
 

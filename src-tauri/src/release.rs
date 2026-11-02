@@ -326,6 +326,7 @@ pub fn diagnostics(inner: &Inner) -> String {
     if cfg!(feature = "antigravity-accounts") {
         features.push("antigravity-accounts");
     }
+    features.extend(inner.extension.build_name_part());
     let build = if features.is_empty() { "MIT build".to_string() } else { features.join(", ") };
     let commit = crate::install::COMMIT.unwrap_or("no commit");
     let snap = inner.detailed_snapshot();
@@ -337,7 +338,10 @@ pub fn diagnostics(inner: &Inner) -> String {
         .ok()
         .and_then(|v| v.as_str().map(String::from))
         .unwrap_or_default();
-    let platform = format!("{} · {} · language {language}", system(), std::env::consts::ARCH);
+    let mut platform = format!("{} · {} · language {language}", system(), std::env::consts::ARCH);
+    for word in inner.extension.diagnostics_part(&inner.settings) {
+        platform += &format!(" · {word}");
+    }
     let lines = [
         format!("Quota Station {} ({commit}) · {build}", inner.app_version),
         platform,
@@ -387,5 +391,65 @@ mod tests {
         // Another user's folder, or one under a home that is not set.
         assert_eq!(scrub(r"at C:\Users\other\x", ""), "at [path]");
         assert_eq!(scrub(r"at C:/Users/other/x", r"C:\Users\Lan"), "at [path]");
+    }
+
+    /// An extension that names the build and adds two words to the system
+    /// line, one read from the settings.
+    struct Named;
+
+    impl crate::ext::Extension for Named {
+        fn build_name(&self) -> Option<&'static str> {
+            Some("test-build")
+        }
+
+        fn diagnostics(&self, settings: &quota_station_core::settings::Settings) -> Vec<String> {
+            vec![format!("named {}", settings.machine_name.is_some()), "second".into()]
+        }
+    }
+
+    fn inner() -> Inner {
+        Inner::new(
+            std::path::PathBuf::new(),
+            std::path::PathBuf::from("/nonexistent/settings.json"),
+            "Mac Studio".into(),
+            quota_station_core::ext::none(),
+        )
+    }
+
+    /// The app's own features: none is "MIT build".
+    fn apps_build() -> &'static str {
+        if cfg!(feature = "antigravity-accounts") {
+            "antigravity-accounts"
+        } else {
+            "MIT build"
+        }
+    }
+
+    #[test]
+    fn an_extension_names_the_build_and_ends_the_system_line_with_its_words() {
+        let mut inner = inner();
+        let before = diagnostics(&inner);
+        inner.extension = &Named;
+        let after = diagnostics(&inner);
+        let (before, after): (Vec<&str>, Vec<&str>) =
+            (before.lines().collect(), after.lines().collect());
+        let build = if cfg!(feature = "antigravity-accounts") {
+            "antigravity-accounts, test-build"
+        } else {
+            "test-build"
+        };
+        assert_eq!(after[0], before[0].replace(apps_build(), build));
+        assert_eq!(after[1], format!("{} · named false · second", before[1]));
+        assert_eq!(after[2..], before[2..]);
+    }
+
+    #[test]
+    fn without_an_extension_the_info_has_only_the_apps_own() {
+        let text = diagnostics(&inner());
+        let lines: Vec<&str> = text.lines().collect();
+        assert!(lines[0].ends_with(&format!(" · {}", apps_build())), "{}", lines[0]);
+        let parts: Vec<&str> = lines[1].split(" · ").collect();
+        assert_eq!(parts.len(), 3, "{}", lines[1]);
+        assert!(parts[2].starts_with("language "), "{}", lines[1]);
     }
 }

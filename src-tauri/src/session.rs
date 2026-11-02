@@ -464,6 +464,7 @@ pub fn session_zip(app: AppHandle, state: State<'_, AppState>) -> Result<ZipView
             settings: std::fs::read_to_string(&inner.settings_file).ok(),
             logs: diag::logs(&[app_dir.as_path(), local_dir.as_path()]),
             session: Some(&dir),
+            hidden: inner.extension.hidden_keys_part(),
         });
         (bytes, app_dir)
     };
@@ -494,7 +495,8 @@ pub fn session_reveal(app: AppHandle) -> Result<(), String> {
 
 /// One self-check, read from the system and the app's folders. None reads
 /// a secret: files are counted, their times and first bytes compared, and
-/// Credential Manager's items only looked up by name.
+/// Credential Manager's items only looked up by name. An id that is none
+/// of the app's is the extension's ([`extension_check`]).
 fn check(app: &AppHandle, state: &AppState, id: &str) -> Value {
     let inner = state.lock();
     match id {
@@ -530,8 +532,16 @@ fn check(app: &AppHandle, state: &AppState, id: &str) -> Value {
             drop(inner);
             main_window(app)
         }
-        other => platform_check(app, &inner, other),
+        other => {
+            platform_check(app, &inner, other).unwrap_or_else(|| extension_check(&inner, other))
+        }
     }
+}
+
+/// The extension's self-check `id` ([`crate::ext::Extension::self_check`]),
+/// read from the app's folder; unknown when it is not the extension's either.
+fn extension_check(inner: &Inner, id: &str) -> Value {
+    inner.extension.self_check_part(id, &inner.app_dir()).unwrap_or_else(|| unknown(id))
 }
 
 /// The diagnostic info, and whether its system line and paths are right.
@@ -680,10 +690,10 @@ fn main_window(app: &AppHandle) -> Value {
 }
 
 /// The checks only Windows answers: the tray as drawn, the material,
-/// launching at login.
+/// launching at login. `None` for any other id.
 #[cfg(windows)]
-fn platform_check(_app: &AppHandle, _inner: &Inner, id: &str) -> Value {
-    match id {
+fn platform_check(_app: &AppHandle, _inner: &Inner, id: &str) -> Option<Value> {
+    Some(match id {
         "tray" => json!({
             "size": crate::winsys::tray_icon_size(),
             "lightTaskbar": crate::winsys::light_taskbar(),
@@ -693,13 +703,22 @@ fn platform_check(_app: &AppHandle, _inner: &Inner, id: &str) -> Value {
             "highContrast": crate::winsys::high_contrast(),
         }),
         "autostart" => crate::login_item::session_check(),
-        _ => json!({ "unknown": id }),
-    }
+        _ => return None,
+    })
 }
 
 #[cfg(not(windows))]
-fn platform_check(_app: &AppHandle, _inner: &Inner, id: &str) -> Value {
-    json!({ "unknown": id, "why": "not Windows" })
+fn platform_check(_app: &AppHandle, _inner: &Inner, _id: &str) -> Option<Value> {
+    None
+}
+
+/// What a check answers for an id neither the app nor the extension has.
+fn unknown(id: &str) -> Value {
+    if cfg!(windows) {
+        json!({ "unknown": id })
+    } else {
+        json!({ "unknown": id, "why": "not Windows" })
+    }
 }
 
 #[cfg(test)]
@@ -714,6 +733,44 @@ mod tests {
             note("nothing", json!({}));
             assert!(live().is_none());
         }
+    }
+
+    /// An extension with one self-check, which reads the app's folder.
+    struct Checks;
+
+    impl crate::ext::Extension for Checks {
+        fn self_check(
+            &self,
+            id: &str,
+            app_dir: &quota_station_core::app_dir::AppDir,
+        ) -> Option<Value> {
+            (id == "testCheck").then(|| json!({ "dir": app_dir.path() }))
+        }
+    }
+
+    fn inner() -> Inner {
+        Inner::new(
+            std::path::PathBuf::new(),
+            std::path::PathBuf::from("/nonexistent/app/settings.json"),
+            "Mac Studio".into(),
+            quota_station_core::ext::none(),
+        )
+    }
+
+    #[test]
+    fn a_check_the_app_lacks_is_the_extensions_or_unknown() {
+        let mut inner = inner();
+        assert_eq!(extension_check(&inner, "testCheck"), unknown("testCheck"));
+        inner.extension = &Checks;
+        assert_eq!(extension_check(&inner, "testCheck"), json!({ "dir": "/nonexistent/app" }));
+        assert_eq!(extension_check(&inner, "nothing"), unknown("nothing"));
+    }
+
+    #[test]
+    fn a_check_no_one_has_is_unknown() {
+        let v = unknown("nothing");
+        assert_eq!(v["unknown"], "nothing");
+        assert_eq!(v.get("why").is_none(), cfg!(windows));
     }
 
     #[test]

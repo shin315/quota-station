@@ -248,22 +248,31 @@ const HIDDEN_KEYS: &[&str] = &[
     "authorization",
 ];
 
-fn hidden(key: &str) -> bool {
-    let key: String = key.chars().filter(|c| *c != '_' && *c != '-').collect();
-    HIDDEN_KEYS.contains(&key.to_ascii_lowercase().as_str())
+/// A key as [`HIDDEN_KEYS`] lists it: lowercase, without `_` or `-`.
+fn bare(key: &str) -> String {
+    key.chars().filter(|c| *c != '_' && *c != '-').collect::<String>().to_ascii_lowercase()
 }
 
-/// A JSON value with every hidden key's value replaced and every string
-/// redacted.
-pub fn clean(value: Value, home: &str) -> Value {
+/// Whether `key` is hidden: one of the app's [`HIDDEN_KEYS`] or of `also`,
+/// the extension's ([`crate::ext::Extension::hidden_keys`]).
+fn hidden(key: &str, also: &[&str]) -> bool {
+    let key = bare(key);
+    HIDDEN_KEYS.contains(&key.as_str()) || also.iter().any(|k| bare(k) == key)
+}
+
+/// A JSON value with every hidden key's value replaced (the app's and
+/// `also`) and every string redacted.
+pub fn clean(value: Value, home: &str, also: &[&str]) -> Value {
     match value {
         Value::String(s) => Value::String(redact(&s, home)),
-        Value::Array(items) => Value::Array(items.into_iter().map(|v| clean(v, home)).collect()),
+        Value::Array(items) => {
+            Value::Array(items.into_iter().map(|v| clean(v, home, also)).collect())
+        }
         Value::Object(map) => Value::Object(
             map.into_iter()
                 .map(|(k, v)| {
-                    let v = if !hidden(&k) || v.is_null() {
-                        clean(v, home)
+                    let v = if !hidden(&k, also) || v.is_null() {
+                        clean(v, home, also)
                     } else {
                         Value::String("[hidden]".into())
                     };
@@ -276,11 +285,11 @@ pub fn clean(value: Value, home: &str) -> Value {
 }
 
 /// JSON Lines, each line cleaned; a line that is not JSON is redacted.
-fn clean_lines(text: &str, home: &str) -> String {
+fn clean_lines(text: &str, home: &str, also: &[&str]) -> String {
     text.lines()
         .filter(|l| !l.trim().is_empty())
         .map(|line| match serde_json::from_str::<Value>(line) {
-            Ok(v) => clean(v, home).to_string(),
+            Ok(v) => clean(v, home, also).to_string(),
             Err(_) => redact(line, home),
         })
         .collect::<Vec<_>>()
@@ -306,6 +315,9 @@ pub struct Sources<'a> {
     /// The session's own folder: its progress, its events, each step's
     /// results, and the pictures the app took.
     pub session: Option<&'a Path>,
+    /// Keys hidden in the settings and the session besides the app's own
+    /// ([`crate::ext::Extension::hidden_keys`]).
+    pub hidden: &'a [&'static str],
 }
 
 const README: &str = "\
@@ -329,7 +341,7 @@ pub fn bundle(src: &Sources) -> Vec<u8> {
     zip.add("diagnostics.txt", redact(&src.diagnostics, home).as_bytes());
     if let Some(raw) = &src.settings {
         let text = match serde_json::from_str::<Value>(raw) {
-            Ok(v) => serde_json::to_string_pretty(&clean(v, home)).unwrap_or_default(),
+            Ok(v) => serde_json::to_string_pretty(&clean(v, home, src.hidden)).unwrap_or_default(),
             Err(_) => "(not JSON)".into(),
         };
         zip.add("settings.json", text.as_bytes());
@@ -342,7 +354,7 @@ pub fn bundle(src: &Sources) -> Vec<u8> {
     let Some(dir) = src.session else { return zip.finish() };
     for name in ["progress.json", "events.jsonl", "steps.jsonl"] {
         if let Ok(text) = std::fs::read_to_string(dir.join(name)) {
-            zip.add(&format!("session/{name}"), clean_lines(&text, home).as_bytes());
+            zip.add(&format!("session/{name}"), clean_lines(&text, home, src.hidden).as_bytes());
         }
     }
     let mut pictures = 0;
@@ -499,13 +511,59 @@ mod tests {
             "theme": "dark",
             "nested": {"refresh_token": "abc", "count": 3, "email": null},
         });
-        let v = clean(v, "/Users/lan");
+        let v = clean(v, "/Users/lan", &[]);
         assert_eq!(v["machineName"], "[hidden]");
         assert_eq!(v["label"], "[hidden]");
         assert_eq!(v["theme"], "dark");
         assert_eq!(v["nested"]["refresh_token"], "[hidden]");
         assert_eq!(v["nested"]["count"], 3);
         assert_eq!(v["nested"]["email"], Value::Null);
+    }
+
+    #[test]
+    fn json_hides_the_keys_an_extension_names_too() {
+        let v = serde_json::json!({
+            "testKey": [{"name": "x"}],
+            "nested": {"test_key": "y", "TEST-KEY": 2, "other": "z"},
+        });
+        assert_eq!(clean(v.clone(), "/Users/lan", &[]), v, "the app alone hides none");
+        let v = clean(v, "/Users/lan", &["testkey"]);
+        assert_eq!(v["testKey"], "[hidden]");
+        assert_eq!(v["nested"]["test_key"], "[hidden]");
+        assert_eq!(v["nested"]["TEST-KEY"], "[hidden]");
+        assert_eq!(v["nested"]["other"], "z");
+        // Listed in any case, with `_` or `-`, it hides the same keys.
+        let w = serde_json::json!({ "testKey": 1 });
+        assert_eq!(clean(w, "/Users/lan", &["Test_Key"])["testKey"], "[hidden]");
+    }
+
+    /// The extension's keys are hidden in the settings and the session's
+    /// lines of a bundle, and only there where it names them.
+    #[test]
+    fn a_bundle_hides_the_keys_an_extension_names() {
+        let dir = std::env::temp_dir().join(format!("qs-diag-ext-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("events.jsonl"), "{\"testKey\":\"VALUE-IN-EVENTS\"}\n").unwrap();
+        let bundle_with = |hidden: &'static [&'static str]| {
+            let zip = bundle(&Sources {
+                home: "/Users/lan",
+                at: at(),
+                diagnostics: String::new(),
+                settings: Some("{\"testKey\":\"VALUE-IN-SETTINGS\"}".into()),
+                logs: Vec::new(),
+                session: Some(&dir),
+                hidden,
+            });
+            String::from_utf8_lossy(&zip).into_owned()
+        };
+        let plain = bundle_with(&[]);
+        let hiding = bundle_with(&["testKey"]);
+        let _ = std::fs::remove_dir_all(&dir);
+        for value in ["VALUE-IN-SETTINGS", "VALUE-IN-EVENTS"] {
+            assert!(plain.contains(value), "{value} without the extension");
+            assert!(!hiding.contains(value), "{value} with the extension");
+        }
     }
 
     /// Fake secrets in every place the app keeps something: none reaches
@@ -594,6 +652,7 @@ mod tests {
             settings: std::fs::read_to_string(app.join("settings.json")).ok(),
             logs: logs(&[app.as_path()]),
             session: Some(&session),
+            hidden: &[],
         });
         let _ = std::fs::remove_dir_all(&root);
 

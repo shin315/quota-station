@@ -1414,6 +1414,8 @@ mod tests {
         let hooks = quota_station_core::ext::none();
         let mut inner = Inner::new(home.clone(), file, "Mac Studio".into(), hooks);
         inner.app_version = "1.2.3".into();
+        // Claude Code is found, whatever this machine has on its PATH.
+        inner.claude_program = Some(PathBuf::from("/TEST/claude"));
         inner.reading = true;
         inner.reads = 7;
         inner.switching = Some(2);
@@ -1443,9 +1445,10 @@ mod tests {
     }
 
     /// The model JSON the windows get from [`fixed_state`] in this feature
-    /// set, with the test's folder written as `/TEST` and the one thing
-    /// read outside it (whether this Mac has CC Switch in /Applications) as
-    /// `false`.
+    /// set, with the test's folder written as `/TEST` and the things read
+    /// from this machine outside it fixed: CC Switch in /Applications is not
+    /// there, and `npx` is not found (the file says so, as Claude Code is
+    /// found: [`fixed_state`] sets that one).
     #[cfg(target_os = "macos")]
     fn fixed_model_json() -> serde_json::Value {
         let dir = std::env::temp_dir().join(format!("qs-model-golden-{}", std::process::id()));
@@ -1458,6 +1461,7 @@ mod tests {
         let mut json: serde_json::Value =
             serde_json::from_str(&text.replace(folder, "/TEST")).unwrap();
         json["codex"]["ccSwitch"]["installed"] = false.into();
+        json["skills"]["npx"] = false.into();
         json
     }
 

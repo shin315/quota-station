@@ -17,6 +17,8 @@ use quota_station::ext::{
     ReaderDone, ReaderPass, ReaderWork, Shape, View,
 };
 use quota_station_core::alerts::{Alert, ExtPass, ExtSource};
+use quota_station_core::app_dir::AppDir;
+use quota_station_core::settings::Settings;
 use serde_json::{json, Map, Value};
 use time::OffsetDateTime;
 
@@ -227,6 +229,29 @@ impl Extension for TestExtension {
     /// are ARGS, plus 5; anything else is not its own.
     fn subcommand(&self, args: &[String]) -> Option<i32> {
         (args.first()? == "test-extension").then(|| 5 + args.len() as i32 - 1)
+    }
+
+    /// `test-extension` after the app's own features.
+    fn build_name(&self) -> Option<&'static str> {
+        Some("test-extension")
+    }
+
+    /// Whether the settings name the machine, on the system line.
+    fn diagnostics(&self, settings: &Settings) -> Vec<String> {
+        vec![format!(
+            "Test machine {}",
+            if settings.machine_name.is_some() { "named" } else { "unnamed" }
+        )]
+    }
+
+    /// `testCheck`: whether its file is in the app's folder.
+    fn self_check(&self, id: &str, app_dir: &AppDir) -> Option<Value> {
+        (id == "testCheck").then(|| json!({ "file": app_dir.path().join("test-check").exists() }))
+    }
+
+    /// Its own key, hidden in the diagnostic bundle.
+    fn hidden_keys(&self) -> &[&'static str] {
+        &["testExtension"]
     }
 
     quota_station::extension_commands![
