@@ -15,7 +15,8 @@ use quota_station_core::antigravity::switch::{self, How, LogLine};
 #[cfg(feature = "antigravity-accounts")]
 use quota_station_core::antigravity::watch;
 use quota_station_core::app_dir::AppDir;
-use quota_station_core::history::{self, App, Cause, Seen, Source};
+use quota_station_core::ext;
+use quota_station_core::history::{self, App, Cause, Entry, Seen, Source};
 
 const T0: i64 = 1_768_548_000;
 const MIN: i64 = 60;
@@ -48,6 +49,17 @@ fn setup(n: usize) -> (AppDir, Vec<String>) {
     (AppDir::new(temp_dir("history-journal").join("app")), Vec::new())
 }
 
+/// The history of a build without an extension's lines (it reads nothing
+/// under the home).
+fn collect(app: &AppDir, limit: usize) -> Vec<Entry> {
+    history::collect(app, app.path(), ext::none(), limit)
+}
+
+/// What the readings show changed, without an extension's lines.
+fn track(app: &AppDir, seen: &mut Seen, claude: Option<u32>, agy: Option<&str>, now: i64) {
+    history::track(app, app.path(), ext::none(), seen, claude, agy, now);
+}
+
 #[cfg(feature = "antigravity-accounts")]
 fn agy_log(app: &AppDir, lines: &[LogLine]) {
     let text: String = lines.iter().map(|l| serde_json::to_string(l).unwrap() + "\n").collect();
@@ -70,7 +82,7 @@ fn the_journal_and_the_antigravity_log_make_one_list_newest_first() {
     };
     agy_log(&app, &[line(T0 + MIN, &ids[1], "switched"), line(T0 + 2 * MIN, &ids[1], "failed")]);
 
-    let all = history::collect(&app, 50);
+    let all = collect(&app, 50);
     let kinds: Vec<(App, Source, Option<u32>)> =
         all.iter().map(|e| (e.app, e.source, e.to)).collect();
     assert_eq!(
@@ -84,13 +96,13 @@ fn the_journal_and_the_antigravity_log_make_one_list_newest_first() {
         Cause::AgySwitch { how: How::QuitFirst, reopened: Some(true), .. }
     ));
     assert!(matches!(&all[1].cause, Cause::Manual { result } if result == "switched"));
-    assert_eq!(history::collect(&app, 1).len(), 1);
+    assert_eq!(collect(&app, 1).len(), 1);
 
     // An account logged out since keeps its line, without a number.
     let mut idx = index::load(&app).unwrap();
     idx.accounts.remove(1);
     index::save(&app, &idx).unwrap();
-    assert_eq!(history::collect(&app, 50)[0].to, None);
+    assert_eq!(collect(&app, 50)[0].to, None);
 }
 
 #[test]
@@ -98,17 +110,17 @@ fn a_change_nothing_explains_is_kept_as_seen() {
     let (app, _) = setup(0);
     let mut seen = Seen::default();
     // The first reading only sets what was seen.
-    history::track(&app, &mut seen, Some(2), None, T0);
+    track(&app, &mut seen, Some(2), None, T0);
     assert!(history::read(&app).is_empty());
-    history::track(&app, &mut seen, Some(2), None, T0 + MIN);
+    track(&app, &mut seen, Some(2), None, T0 + MIN);
     assert!(history::read(&app).is_empty());
     // A switch to 3 that the app did not make.
-    history::track(&app, &mut seen, Some(3), None, T0 + 2 * MIN);
-    let all = history::collect(&app, 50);
+    track(&app, &mut seen, Some(3), None, T0 + 2 * MIN);
+    let all = collect(&app, 50);
     assert_eq!(all.len(), 1);
     assert_eq!((all[0].source, all[0].from, all[0].to), (Source::Observed, Some(2), Some(3)));
     // A reading that does not say which account is in use changes nothing.
-    history::track(&app, &mut seen, None, None, T0 + 3 * MIN);
+    track(&app, &mut seen, None, None, T0 + 3 * MIN);
     assert_eq!(seen.claude, Some(3));
 }
 
@@ -117,15 +129,15 @@ fn a_change_the_owner_made_is_not_kept_twice() {
     let (app, _) = setup(0);
     let mut seen = Seen { claude: Some(3), agy: None };
     history::manual_claude(&app, Some(3), 1, "switched", T0 + MIN).unwrap();
-    history::track(&app, &mut seen, Some(1), None, T0 + MIN + 5);
+    track(&app, &mut seen, Some(1), None, T0 + MIN + 5);
     assert!(
-        history::collect(&app, 50).iter().all(|e| e.source != Source::Observed),
+        collect(&app, 50).iter().all(|e| e.source != Source::Observed),
         "the change has its switch"
     );
     // A switch long ago does not explain a change now.
-    history::track(&app, &mut seen, Some(3), None, T0 + 2 * 3600);
+    track(&app, &mut seen, Some(3), None, T0 + 2 * 3600);
     let observed: Vec<_> =
-        history::collect(&app, 50).into_iter().filter(|e| e.source == Source::Observed).collect();
+        collect(&app, 50).into_iter().filter(|e| e.source == Source::Observed).collect();
     assert_eq!(observed.len(), 1);
 }
 
@@ -147,13 +159,13 @@ fn an_overwrite_is_kept_once_and_explains_the_change_it_made() {
         }],
     );
     watch::begin(&app, &ids[0], &ids[1], T0).unwrap();
-    history::track(&app, &mut seen, None, Some(&ids[1]), T0 + 5);
+    track(&app, &mut seen, None, Some(&ids[1]), T0 + 5);
     watch::observe(&app, Some(&ids[1]), T0 + 5);
     // Antigravity.app writes account 1 back an hour later.
     watch::observe(&app, Some(&ids[0]), T0 + 3600);
-    history::track(&app, &mut seen, None, Some(&ids[0]), T0 + 3600);
-    history::track(&app, &mut seen, None, Some(&ids[0]), T0 + 3660);
-    let all = history::collect(&app, 50);
+    track(&app, &mut seen, None, Some(&ids[0]), T0 + 3600);
+    track(&app, &mut seen, None, Some(&ids[0]), T0 + 3660);
+    let all = collect(&app, 50);
     let causes: Vec<&Cause> = all.iter().map(|e| &e.cause).collect();
     assert_eq!(all.len(), 2, "{causes:?}");
     assert!(matches!(all[0].cause, Cause::AgyOverwrite { overwrites: 1 }));
@@ -172,7 +184,7 @@ fn the_journal_keeps_its_newest_lines_and_skips_broken_ones() {
     let kept = history::read(&app);
     assert_eq!(kept.len(), 500);
     assert_eq!(kept[0].at, T0 + 10);
-    assert_eq!(history::collect(&app, history::SHOWN).len(), history::SHOWN);
+    assert_eq!(collect(&app, history::SHOWN).len(), history::SHOWN);
 }
 
 #[test]
@@ -192,7 +204,7 @@ fn codex_switches_and_changes_seen_outside_come_from_the_codex_log() {
     codex_log::append(&app, &line(T0 + MIN, "relay", "openai", "failed")).unwrap();
     codex_log::append(&app, &line(T0 + 2 * MIN, "relay", "openai", "observed")).unwrap();
 
-    let all = history::collect(&app, 50);
+    let all = collect(&app, 50);
     assert_eq!(all.len(), 2, "a failed switch is not history");
     assert!(all.iter().all(|e| e.app == App::Codex && e.from.is_none() && e.to.is_none()));
     assert_eq!(all[0].source, Source::Observed);

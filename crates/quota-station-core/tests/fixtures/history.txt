@@ -1,0 +1,42 @@
+# collect(50)
+{"at":"2026-01-16T07:12:00Z","app":"claude","source":"app","from":null,"to":4,"cause":{"kind":"manual","result":"unconfirmed"}}
+{"at":"2026-01-16T07:10:00Z","app":"antigravity","source":"observed","from":null,"to":null,"cause":{"kind":"agyOverwrite","overwrites":2}}
+{"at":"2026-01-16T07:08:00Z","app":"codex","source":"observed","from":null,"to":null,"cause":{"kind":"codexObserved","from":"relay","to":"openai"}}
+{"at":"2026-01-16T07:05:00Z","app":"antigravity","source":"observed","from":null,"to":null,"cause":{"kind":"observed"}}
+{"at":"2026-01-16T06:55:00Z","app":"claude","source":"observed","from":2,"to":3,"cause":{"kind":"observed"}}
+{"at":"2026-01-16T06:50:00Z","app":"claude","source":"app","from":1,"to":2,"cause":{"kind":"manual","result":"raced"}}
+{"at":"2026-01-16T06:05:00Z","app":"codex","source":"app","from":null,"to":null,"cause":{"kind":"codexSwitch","from":"openai","to":"relay","restarted":true}}
+{"at":"2026-01-16T05:50:00Z","app":"claude","source":"app","from":2,"to":1,"cause":{"kind":"manual","result":"switched"}}
+# collect(3)
+{"at":"2026-01-16T07:12:00Z","app":"claude","source":"app","from":null,"to":4,"cause":{"kind":"manual","result":"unconfirmed"}}
+{"at":"2026-01-16T07:10:00Z","app":"antigravity","source":"observed","from":null,"to":null,"cause":{"kind":"agyOverwrite","overwrites":2}}
+{"at":"2026-01-16T07:08:00Z","app":"codex","source":"observed","from":null,"to":null,"cause":{"kind":"codexObserved","from":"relay","to":"openai"}}
+# timeline
+before Some(2) now Some(9)
+[(1768542600, 1), (1768546500, 3), (1768547520, 4)]
+# seen Some(5) Some("a2")
+# journal after track
+{"at":1768542600,"app":"claude","from":"2","to":"1","what":{"kind":"manual","holdUntil":"2026-01-16T08:20:00Z","result":"switched"}}
+{"at":1768546200,"app":"claude","from":"1","to":"2","what":{"kind":"manual","result":"raced"}}
+{"at":1768546500,"app":"claude","from":"2","to":"3","what":{"kind":"observed"}}
+{"at":1768546800,"app":"claude","to":"x","what":{"kind":"manual","result":"switched"}}
+{"at":1768547100,"app":"antigravity","from":"a1","to":"a2","what":{"kind":"observed"}}
+{"at":1768547400,"app":"antigravity","from":"a2","to":"a1","what":{"kind":"overwrite","overwrites":2}}
+{ broken
+{"at":1768547520,"app":"claude","to":"4","what":{"kind":"manual","result":"unconfirmed"}}
+{"at":1768547700,"app":"codex","to":"relay","what":{"kind":"observed"}}
+{"at":1768548000,"app":"claude","from":"2","to":"3","what":{"kind":"observed"}}
+{"at":1768548060,"app":"claude","from":"3","to":"5","what":{"kind":"observed"}}
+{"at":1768548060,"app":"antigravity","from":"a1","to":"a2","what":{"kind":"observed"}}
+# collect(50) after track
+{"at":"2026-01-16T07:21:00Z","app":"claude","source":"observed","from":3,"to":5,"cause":{"kind":"observed"}}
+{"at":"2026-01-16T07:21:00Z","app":"antigravity","source":"observed","from":null,"to":null,"cause":{"kind":"observed"}}
+{"at":"2026-01-16T07:20:00Z","app":"claude","source":"observed","from":2,"to":3,"cause":{"kind":"observed"}}
+{"at":"2026-01-16T07:12:00Z","app":"claude","source":"app","from":null,"to":4,"cause":{"kind":"manual","result":"unconfirmed"}}
+{"at":"2026-01-16T07:10:00Z","app":"antigravity","source":"observed","from":null,"to":null,"cause":{"kind":"agyOverwrite","overwrites":2}}
+{"at":"2026-01-16T07:08:00Z","app":"codex","source":"observed","from":null,"to":null,"cause":{"kind":"codexObserved","from":"relay","to":"openai"}}
+{"at":"2026-01-16T07:05:00Z","app":"antigravity","source":"observed","from":null,"to":null,"cause":{"kind":"observed"}}
+{"at":"2026-01-16T06:55:00Z","app":"claude","source":"observed","from":2,"to":3,"cause":{"kind":"observed"}}
+{"at":"2026-01-16T06:50:00Z","app":"claude","source":"app","from":1,"to":2,"cause":{"kind":"manual","result":"raced"}}
+{"at":"2026-01-16T06:05:00Z","app":"codex","source":"app","from":null,"to":null,"cause":{"kind":"codexSwitch","from":"openai","to":"relay","restarted":true}}
+{"at":"2026-01-16T05:50:00Z","app":"claude","source":"app","from":2,"to":1,"cause":{"kind":"manual","result":"switched"}}

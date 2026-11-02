@@ -10,15 +10,19 @@
 //!   that Antigravity.app undid (the six-hour watch of M4c);
 //! - the app's Antigravity switch log of M4c, `antigravity/switch-log.jsonl`;
 //! - the app's Codex switch log of M8, `codex/switch-log.jsonl`: the owner's
-//!   switches and the changes of provider made outside the app.
+//!   switches and the changes of provider made outside the app;
+//! - an extension's own lines ([`Hooks::history_lines`]), each with the
+//!   source and the reason the extension gives ([`ExtLine`]); they too
+//!   explain a change of the account in use.
 //!
 //! Accounts are kept by slot number (Claude) and by the app's account id
 //! (Antigravity, shown by its number in the app's list), Codex providers by
 //! id; never an email.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
+use serde_json::value::RawValue;
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
@@ -28,6 +32,7 @@ use crate::antigravity::switch::{self as agy_switch, How};
 use crate::antigravity::{index, watch};
 use crate::app_dir::AppDir;
 use crate::codex::log as codex_log;
+use crate::ext::Hooks;
 
 /// In the app's folder, `history/history.jsonl`.
 pub const DIR: &str = "history";
@@ -49,14 +54,27 @@ pub enum App {
     Codex,
 }
 
-/// Where a line comes from.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
+/// Where a line comes from: `app`, `observed`, or an extension's name.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Source {
     /// The owner, in this app.
     App,
     /// Seen between two readings.
     Observed,
+    /// An extension's line ([`ExtLine`]), by the name it gives its lines'
+    /// source.
+    Ext(&'static str),
+}
+
+/// A source is its name.
+impl Serialize for Source {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(match self {
+            Source::App => "app",
+            Source::Observed => "observed",
+            Source::Ext(name) => name,
+        })
+    }
 }
 
 /// One line of `history.jsonl`. `from` and `to` are a slot number for
@@ -134,6 +152,68 @@ pub enum Cause {
         from: String,
         to: String,
     },
+    /// The reason an extension gives for one of its lines, written as it
+    /// gives it (its own `kind` and keys).
+    #[serde(untagged)]
+    Ext(ExtCause),
+}
+
+/// The reason an extension gives for one of its lines ([`ExtLine`]): what
+/// the windows read as the line's cause, an object with the extension's
+/// own `kind` and keys, written as the extension wrote it, and whether the
+/// line is a switch of the account in use to the line's `to`.
+#[derive(Debug, Clone)]
+pub struct ExtCause {
+    json: Box<RawValue>,
+    switch: bool,
+}
+
+impl ExtCause {
+    /// `reason` as the windows read it (an object with a `kind`); `switch`
+    /// when the line is a switch of the account in use to its `to`, which
+    /// the stats' timeline of the accounts counts.
+    pub fn new(reason: &impl Serialize, switch: bool) -> serde_json::Result<ExtCause> {
+        Ok(ExtCause { json: serde_json::value::to_raw_value(reason)?, switch })
+    }
+
+    /// The reason's JSON text.
+    pub fn json(&self) -> &str {
+        self.json.get()
+    }
+
+    /// Whether the line is a switch of the account in use to its `to`.
+    pub fn switch(&self) -> bool {
+        self.switch
+    }
+}
+
+impl PartialEq for ExtCause {
+    fn eq(&self, other: &ExtCause) -> bool {
+        self.json() == other.json() && self.switch == other.switch
+    }
+}
+
+/// The reason as the extension wrote it.
+impl Serialize for ExtCause {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.json.serialize(serializer)
+    }
+}
+
+/// A line an extension adds to the history ([`Hooks::history_lines`]).
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExtLine {
+    /// Unix seconds.
+    pub at: i64,
+    pub app: App,
+    /// The name the line's source goes by ([`Source::Ext`]); not `app` or
+    /// `observed`, which are the app's.
+    pub source: &'static str,
+    /// Slot or account number before, when known.
+    pub from: Option<u32>,
+    /// Slot or account number after, when known.
+    pub to: Option<u32>,
+    pub cause: ExtCause,
 }
 
 pub fn path(app: &AppDir) -> PathBuf {
@@ -211,8 +291,9 @@ fn agy_numbers(app: &AppDir) -> impl Fn(&str) -> Option<u32> {
     }
 }
 
-/// Every line, newest first, at most `limit`.
-pub fn collect(app: &AppDir, limit: usize) -> Vec<Entry> {
+/// Every line, newest first, at most `limit`: the app's, then the lines
+/// the extension whose `hooks` are given adds, read under `home`.
+pub fn collect(app: &AppDir, home: &Path, hooks: &dyn Hooks, limit: usize) -> Vec<Entry> {
     let number = agy_numbers(app);
     let slot = |s: &str| s.parse::<u32>().ok();
     let mut out: Vec<(i64, Entry)> = Vec::new();
@@ -278,6 +359,18 @@ pub fn collect(app: &AppDir, limit: usize) -> Vec<Entry> {
         ));
     }
 
+    for line in hooks.history_lines(home, app) {
+        let entry = Entry {
+            at: rfc(line.at),
+            app: line.app,
+            source: Source::Ext(line.source),
+            from: line.from,
+            to: line.to,
+            cause: Cause::Ext(line.cause),
+        };
+        out.push((line.at, entry));
+    }
+
     // Newest first; at the same second the app's own line goes first.
     out.sort_by_key(|e| std::cmp::Reverse(e.0));
     out.into_iter().take(limit).map(|(_, e)| e).collect()
@@ -293,10 +386,19 @@ pub struct Seen {
 
 /// Keeps what the newest readings say happened: an overwrite the six-hour
 /// watch found that is not in the journal yet, and a change of the account
-/// in use since `seen` that no switch explains. `claude` and `agy` are the
-/// accounts the readings show in use, when they tell; the first reading
-/// after the app starts only sets `seen`.
-pub fn track(app: &AppDir, seen: &mut Seen, claude: Option<u32>, agy: Option<&str>, now: i64) {
+/// in use since `seen` that no switch explains (the extension's lines,
+/// read under `home` with its `hooks`, explain one too). `claude` and `agy`
+/// are the accounts the readings show in use, when they tell; the first
+/// reading after the app starts only sets `seen`.
+pub fn track(
+    app: &AppDir,
+    home: &Path,
+    hooks: &dyn Hooks,
+    seen: &mut Seen,
+    claude: Option<u32>,
+    agy: Option<&str>,
+    now: i64,
+) {
     #[cfg(feature = "antigravity-accounts")]
     if let Some(w) = watch::load(app) {
         if let Some(at) = w.alert() {
@@ -329,10 +431,10 @@ pub fn track(app: &AppDir, seen: &mut Seen, claude: Option<u32>, agy: Option<&st
         _ => None,
     };
     if claude_change.is_some() || agy_change.is_some() {
-        let recent = collect(app, usize::MAX);
+        let recent = collect(app, home, hooks, usize::MAX);
         let number = agy_numbers(app);
-        // A switch to that account (by the owner, or the overwrite just
-        // kept) shortly before: not a change of its own.
+        // A switch to that account (by the owner, the overwrite just kept,
+        // or an extension's line) shortly before: not a change of its own.
         let explained = |which: App, to: Option<u32>| {
             to.is_some()
                 && recent.iter().any(|e| {

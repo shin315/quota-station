@@ -178,8 +178,8 @@ The core's integration tests are `crates/quota-station-core/tests/*.rs`:
 `antigravity_quota`, `antigravity_spy`, `antigravity_switch`,
 `claude_accounts`, `claude_import`, `claude_manage`, `claude_pool`,
 `claude_switch`, `claude_windows`, `cli_tools`, `codex`, `codex_accounts`,
-`codex_wake`, `detail`, `env_check`, `ext`, `icon`, `install_script`,
-`labels`, `login_item`, `os_macos`,
+`codex_wake`, `detail`, `env_check`, `ext`, `history_ext`, `icon`,
+`install_script`, `labels`, `login_item`, `os_macos`,
 `quota_readers`, `runner`, `sessions`, `settings`, `snapshot`,
 `snapshot_ext`, `stats` and `ui_fixtures`, with shared helpers in
 `common/` and synthetic data in `fixtures/`.

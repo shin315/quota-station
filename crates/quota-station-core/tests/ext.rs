@@ -8,15 +8,18 @@ mod common;
 use std::path::{Path, PathBuf};
 
 use common::accounts::{credential, in_hours, oauth, Mac};
-use common::ext::{pool_reads, test_kind, TestHooks, TestPolicy};
+use common::ext::{pool_reads, test_kind, TestHooks, TestPolicy, TEST_HISTORY, TEST_SOURCE};
 use quota_station_core::alerts::{self, Facts, Kind, Memory, Switches};
+use quota_station_core::app_dir::AppDir;
 use quota_station_core::ext::{self, Fields, Hooks, NoHooks};
+use quota_station_core::history::{self, Seen, Source};
 use quota_station_core::icon;
 use quota_station_core::labels::Labels;
 use quota_station_core::quota::claude::own_now;
 use quota_station_core::quota::Response;
 use quota_station_core::settings::{PoolAlert, Settings};
 use quota_station_core::snapshot::PoolKind;
+use quota_station_core::stats::report::Timeline;
 use quota_station_core::Snapshot;
 use serde_json::{json, Value};
 use time::{OffsetDateTime, UtcOffset};
@@ -556,4 +559,98 @@ fn without_an_extension_the_snapshot_is_as_the_app_builds_it() {
     assert_eq!(keys_of(&built.claude.pool), POOL_KEYS);
     assert_eq!(built.claude.pool.kind, PoolKind::Active);
     assert!(built.claude.accounts.iter().all(|a| a.ext.is_empty()));
+}
+
+// The switch history.
+
+/// 2026-01-16 07:20 UTC, for the history.
+const T: i64 = 1_768_548_000;
+
+/// An app folder whose journal has the owner's switch from 1 to 2 at `T`
+/// and a change seen from 2 to 3 at `T + 100`, and a home whose
+/// [`TEST_HISTORY`] has three lines of the test hooks: a switch to 4 at
+/// `T`, a line to 5 at `T + 50` that is not a switch, and a switch to 6 at
+/// `T + 200`.
+fn history_files(tag: &str) -> (AppDir, PathBuf) {
+    let root = fresh_dir(tag);
+    let app = AppDir::new(root.join("app"));
+    let home = root.join("home");
+    let journal = format!(
+        "{}\n{}\n",
+        format_args!(
+            r#"{{"at":{T},"app":"claude","from":"1","to":"2","what":{{"kind":"manual","result":"switched"}}}}"#
+        ),
+        format_args!(
+            r#"{{"at":{},"app":"claude","from":"2","to":"3","what":{{"kind":"observed"}}}}"#,
+            T + 100
+        ),
+    );
+    std::fs::create_dir_all(history::path(&app).parent().unwrap()).unwrap();
+    std::fs::write(history::path(&app), journal).unwrap();
+    std::fs::create_dir_all(&home).unwrap();
+    let lines = json!([
+        { "at": T, "to": 4, "switch": true, "note": "same second" },
+        { "at": T + 50, "to": 5, "switch": false, "note": "not a switch" },
+        { "at": T + 200, "to": 6, "switch": true, "note": "newest" },
+    ]);
+    std::fs::write(home.join(TEST_HISTORY), lines.to_string()).unwrap();
+    (app, home)
+}
+
+/// The extension's lines join the app's, newest first and after the app's
+/// own at the same second, with their own source and reason as the windows
+/// read them; its switches count in the stats' timeline, and any of its
+/// lines explains a change of the account in use soon after it.
+#[test]
+fn the_extensions_lines_join_the_history() {
+    let (app, home) = history_files("history-ext");
+    let all = history::collect(&app, &home, &TestHooks, 50);
+    let order: Vec<(Source, Option<u32>)> = all.iter().map(|e| (e.source, e.to)).collect();
+    let ext = Source::Ext(TEST_SOURCE);
+    assert_eq!(
+        order,
+        [
+            (ext, Some(6)),
+            (Source::Observed, Some(3)),
+            (ext, Some(5)),
+            (Source::App, Some(2)),
+            (ext, Some(4)),
+        ]
+    );
+    assert_eq!(
+        serde_json::to_string(&all[0]).unwrap(),
+        r#"{"at":"2026-01-16T07:23:20Z","app":"claude","source":"testSource","from":null,"to":6,"cause":{"kind":"testCause","note":"newest"}}"#
+    );
+    assert_eq!(history::collect(&app, &home, &TestHooks, 2).len(), 2);
+
+    let timeline = Timeline::from_history(&all, None);
+    assert_eq!(timeline.switches, [(T, 2), (T, 4), (T + 100, 3), (T + 200, 6)]);
+
+    let mut seen = Seen { claude: Some(3), agy: None };
+    history::track(&app, &home, &TestHooks, &mut seen, Some(6), None, T + 260);
+    history::track(&app, &home, &TestHooks, &mut seen, Some(5), None, T + 300);
+    assert_eq!(history::read(&app).len(), 2, "both changes have a line of the extension's");
+    history::track(&app, &home, &TestHooks, &mut seen, Some(7), None, T + 400);
+    let kept = history::read(&app);
+    assert_eq!(kept.len(), 3);
+    assert_eq!((kept[2].from.as_deref(), kept[2].to.as_str()), (Some("5"), "7"));
+}
+
+/// Without an extension the history is the app's own: no line of the
+/// extension's, nothing read under the home, and a change only the
+/// extension's lines would explain is kept as seen.
+#[test]
+fn without_an_extension_the_history_is_the_apps_own() {
+    let (app, home) = history_files("history-none");
+    for hooks in [ext::none(), &NoHooks as &dyn Hooks] {
+        let all = history::collect(&app, &home, hooks, 50);
+        let order: Vec<(Source, Option<u32>)> = all.iter().map(|e| (e.source, e.to)).collect();
+        assert_eq!(order, [(Source::Observed, Some(3)), (Source::App, Some(2))]);
+        assert_eq!(Timeline::from_history(&all, None).switches, [(T, 2), (T + 100, 3)]);
+    }
+    let mut seen = Seen { claude: Some(3), agy: None };
+    history::track(&app, &home, ext::none(), &mut seen, Some(6), None, T + 260);
+    let kept = history::read(&app);
+    assert_eq!(kept.len(), 3);
+    assert_eq!((kept[2].from.as_deref(), kept[2].to.as_str()), (Some("3"), "6"));
 }

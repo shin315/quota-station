@@ -78,7 +78,7 @@ pub fn after_read(state: &AppState) {
 /// Keeps in the history what the newest readings show changed.
 pub fn track_history(state: &AppState) {
     let _one = state.history.lock().unwrap_or_else(|e| e.into_inner());
-    let (dir, mut seen, claude, agy) = {
+    let (dir, home, hooks, mut seen, claude, agy) = {
         let inner = state.lock();
         // A switch keeps its own line when it ends, then looks again; a
         // reading taken meanwhile is not compared.
@@ -99,10 +99,10 @@ pub fn track_history(state: &AppState) {
             .and_then(|r| index::load(&dir).ok().and_then(|idx| agy::shown_active_id(r, &idx)));
         #[cfg(not(feature = "antigravity-accounts"))]
         let agy: Option<String> = None;
-        (dir, inner.seen.clone(), claude, agy)
+        (dir, inner.home.clone(), inner.hooks, inner.seen.clone(), claude, agy)
     };
     let now = OffsetDateTime::now_utc().unix_timestamp();
-    history::track(&dir, &mut seen, claude, agy.as_deref(), now);
+    history::track(&dir, &home, hooks, &mut seen, claude, agy.as_deref(), now);
     state.lock().seen = seen;
 }
 
@@ -396,8 +396,17 @@ pub fn set_pool_alert(
 /// The History tab's lines, newest first.
 #[tauri::command]
 pub fn get_history(state: State<'_, AppState>) -> Vec<Entry> {
-    let dir = state.lock().app_dir();
-    history::collect(&dir, history::SHOWN)
+    history_lines(&state, history::SHOWN)
+}
+
+/// The history's lines, newest first, at most `limit`: the app's and the
+/// extension's ([`Hooks::history_lines`]).
+pub fn history_lines(state: &AppState, limit: usize) -> Vec<Entry> {
+    let (dir, home, hooks) = {
+        let inner = state.lock();
+        (inner.app_dir(), inner.home.clone(), inner.hooks)
+    };
+    history::collect(&dir, &home, hooks, limit)
 }
 
 /// Asks macOS again whether cards may show, then sends the answer to the
@@ -562,6 +571,43 @@ mod tests {
         assert!(inner.alerts.recent.is_empty());
         assert!(inner.kept.get::<Had>().unwrap().0.lock().unwrap().is_empty());
         drop(inner);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// One line of the history, whose reason names the home it was read
+    /// under.
+    struct LineHooks;
+
+    impl Hooks for LineHooks {
+        fn history_lines(
+            &self,
+            home: &std::path::Path,
+            _app: &quota_station_core::app_dir::AppDir,
+        ) -> Vec<history::ExtLine> {
+            let reason = serde_json::json!({ "kind": "testCause", "home": home });
+            vec![history::ExtLine {
+                at: 1_768_548_000,
+                app: history::App::Claude,
+                source: "testSource",
+                from: None,
+                to: Some(4),
+                cause: history::ExtCause::new(&reason, true).unwrap(),
+            }]
+        }
+    }
+
+    /// The history the windows and the stats read has the extension's
+    /// lines, read under the app's home; none without an extension.
+    #[test]
+    fn the_history_has_the_extensions_lines() {
+        let dir = temp("history");
+        let lines = history_lines(&state(&dir, &LineHooks), 10);
+        assert_eq!(lines.len(), 1);
+        assert_eq!((lines[0].source, lines[0].to), (history::Source::Ext("testSource"), Some(4)));
+        let history::Cause::Ext(cause) = &lines[0].cause else { panic!("{:?}", lines[0]) };
+        let reason = serde_json::json!({ "kind": "testCause", "home": dir });
+        assert_eq!(cause.json(), reason.to_string());
+        assert!(history_lines(&state(&dir, quota_station_core::ext::none()), 10).is_empty());
         let _ = std::fs::remove_dir_all(&dir);
     }
 

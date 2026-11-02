@@ -12,7 +12,6 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use quota_station_core::history;
 use quota_station_core::local_time;
 use quota_station_core::stats::index::{self, Index, Progress, Roots};
 use quota_station_core::stats::report::{self, Period, Report, Timeline};
@@ -141,11 +140,11 @@ pub async fn stats_report(state: State<'_, AppState>, period: Period) -> Result<
     let shared = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let ix = index_of(&shared);
-        let (dir, home, now_slot) = {
+        let (home, now_slot) = {
             let inner = shared.lock();
-            (inner.app_dir(), inner.home.clone(), inner.seen.claude)
+            (inner.home.clone(), inner.seen.claude)
         };
-        let entries = history::collect(&dir, usize::MAX);
+        let entries = crate::alerting::history_lines(&shared, usize::MAX);
         let accounts = Timeline::from_history(&entries, now_slot);
         report::report(
             &ix,

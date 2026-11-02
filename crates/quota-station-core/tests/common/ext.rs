@@ -12,10 +12,12 @@ use std::sync::Mutex;
 use quota_station_core::alerts::{
     self, act, Alert, ExtAnswer, ExtKind, ExtPass, ExtSource, Kind, Switches, Tone,
 };
+use quota_station_core::app_dir::AppDir;
 use quota_station_core::claude::cli::Cli;
 use quota_station_core::claude::Paths;
 use quota_station_core::ext::Fields;
 use quota_station_core::ext::Hooks;
+use quota_station_core::history::{App, ExtCause, ExtLine};
 use quota_station_core::labels::Labels;
 use quota_station_core::quota::claude::PoolPolicy;
 use quota_station_core::quota::{ClaudeAccounts, Provider, Response, Slot};
@@ -51,6 +53,9 @@ use time::{OffsetDateTime, UtcOffset};
 /// accounts had) after `stale`; and where that list has `testPool`, Claude's
 /// pool is theirs (kind `testPool`, `testPool`'s value as its percent, and
 /// `testWhole` after its kind).
+///
+/// The switch history: the lines in `test-history.json` under the home
+/// ([`TEST_HISTORY`]), from their own source (`testSource`).
 #[derive(Debug, Default)]
 pub struct TestHooks;
 
@@ -158,7 +163,38 @@ impl Hooks for TestHooks {
             pool.ext.insert_after("kind", "testWhole", json!(true));
         }
     }
+
+    /// Each line of [`TEST_HISTORY`]: a Claude line at `at` to `to`, a
+    /// switch when `switch` is true, whose reason is `testCause` with its
+    /// `note`.
+    fn history_lines(&self, home: &Path, app: &AppDir) -> Vec<ExtLine> {
+        let _ = app;
+        let Ok(text) = std::fs::read_to_string(home.join(TEST_HISTORY)) else { return Vec::new() };
+        let lines: Vec<Value> = serde_json::from_str(&text).unwrap();
+        lines
+            .iter()
+            .map(|l| ExtLine {
+                at: l["at"].as_i64().unwrap(),
+                app: App::Claude,
+                source: TEST_SOURCE,
+                from: None,
+                to: l["to"].as_u64().map(|n| n as u32),
+                cause: ExtCause::new(
+                    &json!({ "kind": "testCause", "note": l["note"] }),
+                    l["switch"] == json!(true),
+                )
+                .unwrap(),
+            })
+            .collect()
+    }
 }
+
+/// Where the test hooks read their lines of the history, under the home: a
+/// JSON array of `{ at, to, switch, note }`.
+pub const TEST_HISTORY: &str = "test-history.json";
+
+/// The source the test hooks' lines of the history go by.
+pub const TEST_SOURCE: &str = "testSource";
 
 /// The test hooks' names for the accounts: a Claude account with an odd
 /// number goes by `Test N of M` (M the accounts there are), one with an

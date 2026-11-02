@@ -39,10 +39,13 @@
 //!   settings in force ([`Hooks::account_labels`]);
 //! - the snapshot the windows and the menu bar draw: what the extension
 //!   adds to it once the app has built it ([`Hooks::decorate_snapshot`]),
-//!   in its own keys among the app's ([`Fields`]).
+//!   in its own keys among the app's ([`Fields`]);
+//! - the switch history ([`crate::history`]): the lines the extension adds
+//!   to the app's, each with its source and reason ([`Hooks::history_lines`]).
 
 use std::fmt;
 use std::io::Write;
+use std::path::Path;
 
 use serde::de::{MapAccess, Visitor};
 use serde::ser::SerializeMap;
@@ -51,8 +54,10 @@ use serde_json::{Map, Value};
 use time::UtcOffset;
 
 use crate::alerts::{Alert, ExtAnswer, ExtKind, Switches};
+use crate::app_dir::AppDir;
 use crate::claude::cli::Cli;
 use crate::claude::Paths;
+use crate::history::ExtLine;
 use crate::labels::Labels;
 use crate::quota::claude::PoolPolicy;
 use crate::quota::Response;
@@ -186,6 +191,20 @@ pub trait Hooks: Send + Sync {
     /// adds nothing.
     fn decorate_snapshot(&self, snapshot: &mut Snapshot, claude: Option<&Response>) {
         let _ = (snapshot, claude);
+    }
+
+    /// The lines the extension adds to the switch history, read now from
+    /// what it keeps under `home` (the owner's home folder) or in `app`
+    /// (the app's folder), in any order: each with its time, the account
+    /// before and after, the name its source goes by and the reason it
+    /// gives ([`ExtLine`]). The app shows them among its own, newest first
+    /// (its own first at the same second); one that is a switch counts in
+    /// the stats' timeline of the Claude accounts, and any of them explains
+    /// a change of the account in use the readings show soon after it.
+    /// Asked whenever the app gathers the history. The default adds none.
+    fn history_lines(&self, home: &Path, app: &AppDir) -> Vec<ExtLine> {
+        let _ = (home, app);
+        Vec::new()
     }
 }
 
