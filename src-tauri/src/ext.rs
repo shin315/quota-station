@@ -24,10 +24,14 @@
 //!   name the app already has stays the app's ([`shadowed`] lists those).
 //! - [`Extension::start`]: once, when the app starts, with the [`Host`], the
 //!   extension's way to the app: the settings and a change of them saved
-//!   ([`Host::update_settings`]), the home folder, a wake for the app's
+//!   ([`Host::update_settings`]), the home folder, the machine's name, the
+//!   core's hooks the app keeps, the Claude accounts the app keeps (where
+//!   they live, their store and the `claude` program the app found), a note
+//!   in the log of a test session ([`Host::note`]), a wake for the app's
 //!   reader, the model every window draws and a redraw of the windows and
 //!   the menu bar ([`Host::publish`]), the main window's close, work under
-//!   the app's lock ([`Host::locked`]), an action of the extension's on the
+//!   the app's lock ([`Host::locked`], where a reading of the Claude
+//!   accounts may be held too), an action of the extension's on the
 //!   Claude accounts the app keeps, run as the Claude tab runs its own
 //!   ([`Host::claude_action`]), and a place for the extension's own state
 //!   ([`Host::keep_state`]), which its commands take as Tauri state.
@@ -121,9 +125,11 @@ pub use quota_station_core::claude::manage::ManageError;
 pub use crate::install::COMMIT;
 
 use quota_station_core::claude::store::Store;
+use quota_station_core::claude::Paths;
+use quota_station_core::quota::Response;
 
 use crate::state::{AppState, Inner, Tab};
-use crate::{claude, reader, windows};
+use crate::{claude, reader, session, windows};
 
 /// What an extension adds to the app. Every method has a default that adds
 /// nothing; an extension overrides the sockets it fills.
@@ -502,6 +508,39 @@ impl Host {
         self.state.lock().home.clone()
     }
 
+    /// The name shown for this machine: the owner's, else the system's.
+    pub fn machine(&self) -> String {
+        self.state.lock().machine()
+    }
+
+    /// The core's hooks the app keeps ([`Extension::hooks`]), as it passes
+    /// them where the core calls one.
+    pub fn hooks(&self) -> &'static dyn Hooks {
+        self.state.lock().hooks
+    }
+
+    /// Where the Claude accounts the app keeps live on this machine.
+    pub fn claude_paths(&self) -> Paths {
+        self.state.lock().claude_paths()
+    }
+
+    /// The Claude accounts the app keeps, with their logins and what the
+    /// extension keeps on each, as the app opens them.
+    pub fn claude_store(&self) -> Store {
+        self.state.lock().claude_store()
+    }
+
+    /// The `claude` program the app found when it started, if it found one.
+    pub fn claude_program(&self) -> Option<PathBuf> {
+        self.state.lock().claude_program.clone()
+    }
+
+    /// Writes `kind` and `data` to the log of the test session that runs
+    /// now, as the app notes its own events there; nothing outside one.
+    pub fn note(&self, kind: &str, data: Value) {
+        session::note(kind, data);
+    }
+
     /// Runs `work` under the app's lock, with the app's state as it holds it
     /// ([`Locked`]), for work that must stay whole with that state: a model
     /// drawn meanwhile sees all of it or none. `work` may take a lock of the
@@ -607,6 +646,14 @@ impl<'a> Locked<'a> {
     /// on. A save that fails changes nothing and returns its error as words.
     pub fn save_settings(&mut self, settings: Settings) -> Result<(), String> {
         self.inner.save_settings(settings)
+    }
+
+    /// Holds `report`, a reading of the Claude accounts the extension made
+    /// outside the app's reader, as the app's newest, ahead of any read in
+    /// flight. The windows see it once the extension publishes it
+    /// ([`Host::publish`]).
+    pub fn store_claude_report(&mut self, report: Response) {
+        self.inner.store_claude(report)
     }
 }
 

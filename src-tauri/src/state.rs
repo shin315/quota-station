@@ -809,6 +809,22 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    /// A reading of the Claude accounts the extension holds under the lock
+    /// (`ext::Locked::store_claude_report`) is the app's newest, ahead of a
+    /// read in flight, as [`Inner::store_claude`] holds one.
+    #[test]
+    fn under_the_lock_the_extension_holds_a_reading_of_the_claude_accounts() {
+        use quota_station_core::quota::{Provider, ProviderId};
+        let mut inner = inner();
+        let started = inner.claude_generation;
+        assert!(inner.claude.is_none());
+        let at = OffsetDateTime::UNIX_EPOCH;
+        let report = Response::new(at, vec![Provider::fresh(ProviderId::Claude, vec![], at)]);
+        crate::ext::Locked::new(&mut inner).store_claude_report(report.clone());
+        assert_eq!(inner.claude, Some(report));
+        assert_eq!(inner.claude_generation, started + 1);
+    }
+
     /// Names every Claude account `Named N` while `testNames` is on in the
     /// settings.
     struct NamedHooks;
