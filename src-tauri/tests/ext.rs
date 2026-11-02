@@ -381,3 +381,8 @@ fn an_extensions_action_on_a_claude_account_ends_as_the_apps_own_do() {
         })
     );
 }
+
+#[test]
+fn an_extension_reads_the_commit_the_app_was_built_from() {
+    assert_eq!(quota_station::ext::COMMIT, option_env!("QS_COMMIT"));
+}

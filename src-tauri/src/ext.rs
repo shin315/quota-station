@@ -116,6 +116,10 @@ pub use crate::claude::Done;
 /// Why an action on a Claude account failed, as the core tells it.
 pub use quota_station_core::claude::manage::ManageError;
 
+/// The commit the running app was built from, `None` for a build made
+/// another way (the app's own row in the settings shows it).
+pub use crate::install::COMMIT;
+
 use quota_station_core::claude::store::Store;
 
 use crate::state::{AppState, Inner, Tab};

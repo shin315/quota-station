@@ -1,7 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-//! The app itself (M7): its version and launching at login.
+//! The app itself (M7): its version and launching at login. An extension
+//! may add its keys to the app's row ([`View::App`]).
 
 use quota_station_core::login_item::{self, LoginItems, Status};
 use serde::Serialize;
