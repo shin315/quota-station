@@ -5,8 +5,10 @@
 
 use quota_station_core::login_item::{self, LoginItems, Status};
 use serde::Serialize;
+use serde_json::{Map, Value};
 use tauri::{AppHandle, State};
 
+use crate::ext::View;
 use crate::login_item::MainApp;
 use crate::reader;
 use crate::state::{AppState, Inner, Model};
@@ -38,6 +40,9 @@ pub struct AppView {
     /// The first 7 characters of [`COMMIT`], with `-dirty` kept.
     pub commit: Option<String>,
     pub launch_at_login: Status,
+    /// The extension's keys in the view ([`crate::ext::Extension::view_keys`]).
+    #[serde(flatten)]
+    pub ext: Map<String, Value>,
 }
 
 fn short(commit: &str) -> String {
@@ -51,6 +56,7 @@ pub fn view(inner: &Inner) -> AppView {
         version: inner.app_version.clone(),
         commit: COMMIT.map(short),
         launch_at_login: inner.install.login,
+        ext: inner.view_keys(View::App),
     }
 }
 

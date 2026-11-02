@@ -44,7 +44,7 @@ use crate::alerting::{self, AlertsView};
 #[cfg(feature = "antigravity-accounts")]
 use crate::antigravity::{self, AccountsView};
 use crate::codex::{self, CodexView};
-use crate::ext::{Closing, Hold, Kept, ModelInput, NoExtension, StateSockets};
+use crate::ext::{Closing, Hold, Kept, ModelInput, NoExtension, StateSockets, View};
 use crate::install::{self, AppView, InstallState};
 use crate::notify;
 
@@ -445,6 +445,32 @@ impl Inner {
         self.extension.after_switch_part(&self.kept, &self.home)
     }
 
+    /// An action of the Claude tab on the accounts is over and the app took
+    /// them in again: the extension's state follows it
+    /// ([`crate::ext::Extension::after_accounts_change`]), which takes its
+    /// own lock after the app's. Whether the reader is to be woken.
+    pub fn after_accounts_change(&self) -> bool {
+        self.extension.after_accounts_change_part(&self.kept)
+    }
+
+    /// The extension's keys in `view`, one of the app's views in the model
+    /// ([`crate::ext::Extension::view_keys`]), drawn from what its part of
+    /// the model is.
+    pub fn view_keys(&self, view: View) -> Map<String, Value> {
+        self.with_model_input(|input| self.extension.view_keys_part(view, input))
+    }
+
+    /// What the extension draws from ([`ModelInput`]), as the app holds it.
+    fn with_model_input<R>(&self, draw: impl FnOnce(&ModelInput<'_>) -> R) -> R {
+        draw(&ModelInput {
+            kept: &self.kept,
+            settings: &self.settings,
+            home: &self.home,
+            app_dir: &self.app_dir(),
+            claude_accounts: &self.claude_accounts,
+        })
+    }
+
     /// Stores a Claude report read outside the reader loop (the Keychain
     /// grant, the re-read after a switch), ahead of any read in flight.
     pub fn store_claude(&mut self, report: Response) {
@@ -587,13 +613,7 @@ impl Inner {
             env: crate::env::view(self),
             sets: crate::sets::view(self),
             stats: crate::stats::view(self),
-            ext: self.extension.model_part(&ModelInput {
-                kept: &self.kept,
-                settings: &self.settings,
-                home: &self.home,
-                app_dir: &self.app_dir(),
-                claude_accounts: &self.claude_accounts,
-            }),
+            ext: self.with_model_input(|input| self.extension.model_part(input)),
         }
     }
 }
@@ -1236,6 +1256,77 @@ mod tests {
         let mut inner = inner();
         inner.kept.keep(Arc::new(Mutex::new(Vec::<PathBuf>::new())));
         assert!(!inner.after_switch());
+    }
+
+    /// An extension adding keys inside the app's views from what the app
+    /// hands it, and following a change of the Claude accounts once it
+    /// keeps a count.
+    struct Views;
+
+    impl crate::ext::Extension for Views {
+        fn view_keys(&self, view: View, input: &ModelInput<'_>) -> Map<String, Value> {
+            let (key, value) = match view {
+                View::ClaudeAccounts => {
+                    ("drawnAccounts", serde_json::json!(input.claude_accounts.len()))
+                }
+                View::App => ("drawnMachine", serde_json::json!(input.settings.machine_name)),
+            };
+            Map::from_iter([(key.to_string(), value)])
+        }
+
+        fn after_accounts_change(&self, kept: &Kept) -> bool {
+            let Some(changes) = kept.get::<Mutex<u32>>() else { return false };
+            *changes.lock().unwrap() += 1;
+            true
+        }
+    }
+
+    #[test]
+    fn an_extension_adds_its_keys_inside_the_apps_views() {
+        let mut inner = inner();
+        inner.settings.machine_name = Some("Mac A".into());
+        let before = serde_json::to_value(inner.model()).unwrap();
+        inner.extension = &Views;
+        let json = serde_json::to_value(inner.model()).unwrap();
+        assert_eq!(json["claudeAccounts"]["drawnAccounts"], 0);
+        assert_eq!(json["app"]["drawnMachine"], "Mac A");
+        // The views' own keys are all still there, beside the extension's.
+        let Value::Object(mut after) = json else { panic!("an object") };
+        after["claudeAccounts"].as_object_mut().unwrap().remove("drawnAccounts");
+        after["app"].as_object_mut().unwrap().remove("drawnMachine");
+        assert_eq!(Value::Object(after), before);
+    }
+
+    #[test]
+    fn without_an_extension_the_apps_views_have_only_their_own_keys() {
+        let model = inner().model();
+        assert!(model.claude_accounts.ext.is_empty() && model.app.ext.is_empty());
+        let json = serde_json::to_value(&model).unwrap();
+        let keys: Vec<&str> =
+            json["claudeAccounts"].as_object().unwrap().keys().map(String::as_str).collect();
+        assert_eq!(keys, ["accounts", "claude", "importable", "last", "ready", "working"]);
+    }
+
+    #[test]
+    fn an_extension_follows_a_change_of_the_claude_accounts_through_the_apps_state() {
+        let mut inner = inner();
+        inner.extension = &Views;
+        assert!(!inner.after_accounts_change());
+        let changes = Arc::new(Mutex::new(0_u32));
+        inner.kept.keep(changes.clone());
+        assert!(inner.after_accounts_change());
+        assert_eq!(*changes.lock().unwrap(), 1);
+    }
+
+    /// Without an extension nothing follows a change of the Claude accounts
+    /// and the reader is not woken for it, as before the socket.
+    #[test]
+    fn without_an_extension_nothing_follows_a_change_of_the_claude_accounts() {
+        let mut inner = inner();
+        let changes = Arc::new(Mutex::new(0_u32));
+        inner.kept.keep(changes.clone());
+        assert!(!inner.after_accounts_change());
+        assert_eq!(*changes.lock().unwrap(), 0);
     }
 
     #[test]

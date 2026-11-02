@@ -14,7 +14,7 @@ use std::sync::{Arc, Mutex};
 
 use quota_station::ext::{
     AlertInput, AlertRead, Badge, Closing, Extension, Hold, Hooks, Host, Kept, ModelInput,
-    ReaderDone, ReaderPass, ReaderWork, Shape,
+    ReaderDone, ReaderPass, ReaderWork, Shape, View,
 };
 use quota_station_core::alerts::{Alert, ExtPass, ExtSource};
 use serde_json::{json, Map, Value};
@@ -53,8 +53,9 @@ impl Hooks for TestHooks {}
 /// asks the reader to go now, the passes it saw (`read_due`,
 /// `window_open`), and whether it holds work not kept yet (so a close
 /// waits) and the closes it was asked about, the machine names it read
-/// for its alerts and had back once the alert rules ran, and until when it
-/// badges the menu bar icon.
+/// for its alerts and had back once the alert rules ran, until when it
+/// badges the menu bar icon, and how many changes of the Claude accounts it
+/// followed.
 #[derive(Debug, Default)]
 pub struct TestState {
     pub alert_reads: Mutex<Vec<Option<String>>>,
@@ -66,6 +67,7 @@ pub struct TestState {
     pub closes: Mutex<Vec<Closing>>,
     pub switches: Mutex<Vec<PathBuf>>,
     pub badge_until: Mutex<Option<OffsetDateTime>>,
+    pub accounts_changes: Mutex<u32>,
 }
 
 /// The test extension's badge on the menu bar icon: one square in the
@@ -160,6 +162,19 @@ impl Extension for TestExtension {
         Map::from_iter([("testExtension".to_string(), Value::Bool(true))])
     }
 
+    /// `testCount` in the Claude accounts' view, its count from the state it
+    /// keeps, and `testMachine` in the app's row, from the settings.
+    fn view_keys(&self, view: View, input: &ModelInput<'_>) -> Map<String, Value> {
+        let (key, value) = match view {
+            View::ClaudeAccounts => (
+                "testCount",
+                json!(input.kept.get::<TestState>().map(|state| *state.count.lock().unwrap())),
+            ),
+            View::App => ("testMachine", json!(input.settings.machine_name)),
+        };
+        Map::from_iter([(key.to_string(), value)])
+    }
+
     /// Its own tab, and one named like an app's tab, which stays the app's.
     fn tabs(&self) -> &[&'static str] {
         &["testExtension", "settings"]
@@ -189,6 +204,15 @@ impl Extension for TestExtension {
     fn after_switch(&self, kept: &Kept, home: &Path) -> bool {
         let Some(state) = kept.get::<TestState>() else { return false };
         state.switches.lock().unwrap().push(home.to_path_buf());
+        *state.asks.lock().unwrap() = true;
+        true
+    }
+
+    /// After a change of the Claude accounts it counts it and asks the
+    /// reader for a pass, once it keeps its state.
+    fn after_accounts_change(&self, kept: &Kept) -> bool {
+        let Some(state) = kept.get::<TestState>() else { return false };
+        *state.accounts_changes.lock().unwrap() += 1;
         *state.asks.lock().unwrap() = true;
         true
     }

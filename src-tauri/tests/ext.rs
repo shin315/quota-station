@@ -12,7 +12,7 @@ use std::sync::Arc;
 use common::{test_badge, NotKept, TestExtension, TestState};
 use quota_station::ext::{
     shadowed, shadowed_tabs, AlertInput, Closing, Extension, Hold, Kept, ModelInput, NoExtension,
-    ReaderPass,
+    ReaderPass, View,
 };
 use quota_station_core::app_dir::AppDir;
 use quota_station_core::settings::Settings;
@@ -166,6 +166,37 @@ fn without_an_extension_the_model_and_the_capabilities_gain_nothing() {
 }
 
 #[test]
+fn an_extension_adds_its_keys_to_the_apps_views_from_what_the_app_hands_it() {
+    let app_dir = AppDir::new("/nonexistent/app");
+    let settings = Settings { machine_name: Some("Mac A".into()), ..Settings::default() };
+    let mut kept = Kept::default();
+    let state = Arc::new(TestState::default());
+    kept.keep(state.clone());
+    *state.count.lock().unwrap() = 4;
+    let input = model_input(&kept, &settings, &app_dir);
+    let keys = |view| serde_json::Value::Object(TestExtension.view_keys(view, &input));
+    assert_eq!(keys(View::ClaudeAccounts), json!({ "testCount": 4 }));
+    assert_eq!(keys(View::App), json!({ "testMachine": "Mac A" }));
+
+    // Before it keeps its state, it adds what it has.
+    let empty = Kept::default();
+    let input = model_input(&empty, &settings, &app_dir);
+    let keys = TestExtension.view_keys(View::ClaudeAccounts, &input);
+    assert_eq!(serde_json::Value::Object(keys), json!({ "testCount": null }));
+}
+
+#[test]
+fn without_an_extension_the_apps_views_gain_no_key() {
+    let app_dir = AppDir::new("/nonexistent/app");
+    let settings = Settings::default();
+    let mut kept = Kept::default();
+    kept.keep(Arc::new(TestState::default()));
+    for view in [View::ClaudeAccounts, View::App] {
+        assert!(NoExtension.view_keys(view, &model_input(&kept, &settings, &app_dir)).is_empty());
+    }
+}
+
+#[test]
 fn an_extension_names_its_tabs_and_a_tab_the_app_has_stays_the_apps() {
     assert_eq!(TestExtension.tabs(), ["testExtension", "settings"]);
     assert_eq!(shadowed_tabs(TestExtension.tabs()), ["settings"]);
@@ -225,6 +256,29 @@ fn an_extension_follows_a_manual_switch_and_asks_the_reader_for_a_pass() {
     assert!(TestExtension.after_switch(&kept, home));
     assert_eq!(*state.switches.lock().unwrap(), [home.to_path_buf()]);
     assert!(TestExtension.reader_asked(&kept), "what it asks of the reader once woken");
+}
+
+#[test]
+fn an_extension_follows_a_change_of_the_claude_accounts_and_asks_the_reader() {
+    let mut kept = Kept::default();
+    // Before it keeps its state, nothing follows and the reader stays.
+    assert!(!TestExtension.after_accounts_change(&kept));
+
+    let state = Arc::new(TestState::default());
+    kept.keep(state.clone());
+    assert!(TestExtension.after_accounts_change(&kept));
+    assert_eq!(*state.accounts_changes.lock().unwrap(), 1);
+    assert!(TestExtension.reader_asked(&kept), "what it asks of the reader once woken");
+}
+
+#[test]
+fn without_an_extension_nothing_follows_a_change_of_the_claude_accounts() {
+    let mut kept = Kept::default();
+    let state = Arc::new(TestState::default());
+    kept.keep(state.clone());
+    assert!(!NoExtension.after_accounts_change(&kept));
+    assert_eq!(*state.accounts_changes.lock().unwrap(), 0, "never asked");
+    assert!(!*state.asks.lock().unwrap());
 }
 
 #[test]

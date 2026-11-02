@@ -41,6 +41,8 @@
 //!   part of the model every window draws, and of what the build has
 //!   (`capabilities` in it), as JSON keys beside the app's own, drawn from
 //!   what the app hands it ([`ModelInput`]).
+//! - [`Extension::view_keys`]: the extension's keys inside some of the
+//!   app's own views in that model ([`View`]), drawn from the same.
 //! - [`Extension::tabs`]: the main window's tabs the extension adds to the
 //!   app's own, by the names the windows know them by. A name that is one of
 //!   the app's tabs stays the app's ([`shadowed_tabs`] lists those).
@@ -58,6 +60,10 @@
 //!   app's reader may go at once for what the extension asks of it (what
 //!   the extension does around the switch itself is a core hook,
 //!   [`Hooks::manual_switch`]).
+//! - [`Extension::after_accounts_change`]: once an action of the Claude tab
+//!   on the accounts the app keeps is over, the extension's own state
+//!   follows it, and the app's reader may go at once for what the extension
+//!   asks of it.
 //! - [`Extension::icon_badge`]: a badge on the menu bar icon, drawn inside
 //!   its gauge, with words its label reads ([`Badge`]), from what the
 //!   extension keeps.
@@ -74,9 +80,10 @@
 //! makes one; what the extension keeps is plain data ([`Kept`]), and so is
 //! what the reader hands it ([`ReaderPass`]) and what the model is drawn
 //! from ([`ModelInput`]). The app's state keeps only the extension's
-//! sockets it asks under its lock (the model, what the build has, the tabs
-//! and the hold on a close, what it reads for its alerts, what follows
-//! a manual switch, and the icon's badge), apart from
+//! sockets it asks under its lock (the model and the keys in its views,
+//! what the build has, the tabs and the hold on a close, what it reads for
+//! its alerts, what follows a manual switch or a change of the Claude
+//! accounts, and the icon's badge), apart from
 //! the rest, so a test can build that state and its model without the
 //! runtime.
 
@@ -174,6 +181,16 @@ pub trait Extension: Send + Sync + 'static {
         Map::new()
     }
 
+    /// The extension's keys in one of the app's own views in the model
+    /// ([`View`]): JSON keys the windows find beside the view's own, inside
+    /// it. Asked each time the view is drawn, under the app's lock: it reads
+    /// only `input`, never the [`Host`]. Its keys must not be any of the
+    /// view's.
+    fn view_keys(&self, view: View, input: &ModelInput<'_>) -> Map<String, Value> {
+        let _ = (view, input);
+        Map::new()
+    }
+
     /// The main window's tabs the extension adds to the app's own, by the
     /// names the windows know them by (the name the window asks to open, and
     /// the one the app tells it to show). A window asking for any other name
@@ -215,6 +232,19 @@ pub trait Extension: Send + Sync + 'static {
     /// returns `false`.
     fn after_switch(&self, kept: &Kept, home: &Path) -> bool {
         let _ = (kept, home);
+        false
+    }
+
+    /// An action of the Claude tab on the accounts the app keeps is over
+    /// (an import, a login, an account added, removed or renamed, whatever
+    /// its outcome), and the app has taken the accounts in again and asked
+    /// for a read: called under the app's lock with what the extension
+    /// keeps (never the [`Host`]), so its own state can follow the change.
+    /// `true` asks the app to wake its reader then, for what the extension
+    /// asks of it ([`Extension::reader_asked`]). The default changes nothing
+    /// and returns `false`.
+    fn after_accounts_change(&self, kept: &Kept) -> bool {
+        let _ = kept;
         false
     }
 
@@ -271,8 +301,20 @@ pub enum Hold {
     },
 }
 
+/// One of the app's own views in the model, which the extension may add
+/// keys to ([`Extension::view_keys`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum View {
+    /// The Claude accounts the app keeps, as the Claude tab shows them
+    /// (`claudeAccounts`).
+    ClaudeAccounts,
+    /// The app itself, as its row in the settings shows it (`app`).
+    App,
+}
+
 /// What the extension draws its part of the model from
-/// ([`Extension::model`]): plain data, taken under the app's lock.
+/// ([`Extension::model`], [`Extension::view_keys`]): plain data, taken
+/// under the app's lock.
 pub struct ModelInput<'a> {
     /// What the extension keeps ([`Host::keep_state`]).
     pub kept: &'a Kept,
@@ -310,10 +352,12 @@ pub trait AlertRead {
 }
 
 /// The extension's sockets the app asks under its lock (what draws,
-/// [`Extension::model`] and [`Extension::capabilities`], the tabs,
-/// [`Extension::tabs`], the hold on a close, [`Extension::hold_close`],
-/// what follows a manual switch, [`Extension::after_switch`], and the
-/// icon's badge, [`Extension::icon_badge`]), and what it
+/// [`Extension::model`], [`Extension::capabilities`] and
+/// [`Extension::view_keys`], the tabs, [`Extension::tabs`], the hold on a
+/// close, [`Extension::hold_close`], what follows a manual switch,
+/// [`Extension::after_switch`], and a change of the Claude accounts,
+/// [`Extension::after_accounts_change`], and the icon's badge,
+/// [`Extension::icon_badge`]), and what it
 /// reads for its alerts ([`Extension::alert_read`]), as the
 /// app's state keeps them: apart from the rest
 /// of [`Extension`], so that state holds nothing of the window runtime the
@@ -321,10 +365,12 @@ pub trait AlertRead {
 pub(crate) trait StateSockets: Send + Sync {
     fn model_part(&self, input: &ModelInput<'_>) -> Map<String, Value>;
     fn capabilities_part(&self) -> Map<String, Value>;
+    fn view_keys_part(&self, view: View, input: &ModelInput<'_>) -> Map<String, Value>;
     fn tabs_part(&self) -> &[&'static str];
     fn hold_close_part(&self, kept: &Kept, closing: Closing) -> Hold;
     fn alert_read_part(&self, input: &AlertInput<'_>) -> Option<Box<dyn AlertRead>>;
     fn after_switch_part(&self, kept: &Kept, home: &Path) -> bool;
+    fn after_accounts_change_part(&self, kept: &Kept) -> bool;
     fn icon_badge_part(&self, kept: &Kept, now: OffsetDateTime) -> Option<Badge>;
 }
 
@@ -335,6 +381,10 @@ impl<E: Extension> StateSockets for E {
 
     fn capabilities_part(&self) -> Map<String, Value> {
         self.capabilities()
+    }
+
+    fn view_keys_part(&self, view: View, input: &ModelInput<'_>) -> Map<String, Value> {
+        self.view_keys(view, input)
     }
 
     fn tabs_part(&self) -> &[&'static str] {
@@ -351,6 +401,10 @@ impl<E: Extension> StateSockets for E {
 
     fn after_switch_part(&self, kept: &Kept, home: &Path) -> bool {
         self.after_switch(kept, home)
+    }
+
+    fn after_accounts_change_part(&self, kept: &Kept) -> bool {
+        self.after_accounts_change(kept)
     }
 
     fn icon_badge_part(&self, kept: &Kept, now: OffsetDateTime) -> Option<Badge> {

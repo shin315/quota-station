@@ -18,9 +18,11 @@ use quota_station_core::claude::state::{self, AccountOut};
 use quota_station_core::claude::store::Store;
 use quota_station_core::claude::switch;
 use serde::Serialize;
+use serde_json::{Map, Value};
 use tauri::{AppHandle, State};
 use time::OffsetDateTime;
 
+use crate::ext::{Host, View};
 use crate::reader;
 use crate::state::{AppState, Inner, Model};
 
@@ -61,6 +63,9 @@ pub struct AccountsView {
     pub accounts: Vec<AccountOut>,
     pub working: Option<&'static str>,
     pub last: Option<Done>,
+    /// The extension's keys in the view ([`crate::ext::Extension::view_keys`]).
+    #[serde(flatten)]
+    pub ext: Map<String, Value>,
     /// `claude` is on this Mac, to log a new account in with.
     pub claude: bool,
 }
@@ -79,6 +84,7 @@ pub fn view(inner: &Inner) -> AccountsView {
         accounts,
         working: inner.claude_live.working,
         last: inner.claude_live.last.clone(),
+        ext: inner.view_keys(View::ClaudeAccounts),
         claude: inner.claude_program.is_some(),
     }
 }
@@ -132,6 +138,9 @@ fn finish(app: &AppHandle, state: &AppState, store: &Store, names: bool, done: D
         inner.claude_list = Some(details);
     }
     state.request_read();
+    if state.lock().after_accounts_change() {
+        Host::of(app).wake_reader();
+    }
     reader::publish(app, state);
     state.lock().model()
 }
