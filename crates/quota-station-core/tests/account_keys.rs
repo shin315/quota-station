@@ -2,15 +2,14 @@
 // SPDX-License-Identifier: MIT
 
 //! The Claude accounts' file on one fixed `accounts.json`
-//! (`fixtures/claude-accounts-file.json`), with the keys an extension keeps
-//! on its accounts ([`AccountKeys`]) and without them: the file read and
-//! written again, after a change and after an account is added, `claude
-//! status` and its JSON, the state file, the read of the accounts and who
-//! counts in alert 1's pool. Without an extension the app keeps only its
-//! own keys (`fixtures/claude-accounts.txt`, every build); with the private
-//! part, its own (`src/author/fixtures/claude-accounts.txt`). Both texts
-//! were written before the keys left the app's own types. A temporary home
-//! and a fake Keychain: no real account is touched.
+//! (`fixtures/claude-accounts-file.json`), without the keys an extension
+//! keeps on its accounts ([`AccountKeys`]): the file read and written
+//! again, after a change and after an account is added, `claude status`
+//! and its JSON, the state file, the read of the accounts and who counts in
+//! alert 1's pool. Without an extension the app keeps only its own keys
+//! (`fixtures/claude-accounts.txt`, every build), a text written before the
+//! keys left the app's own types. A temporary home and a fake Keychain: no
+//! real account is touched.
 //!
 //! [`AccountKeys`]: quota_station_core::claude::store::AccountKeys
 

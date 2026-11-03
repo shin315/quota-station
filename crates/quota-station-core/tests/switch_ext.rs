@@ -1,13 +1,12 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-//! The owner's manual switch of the Claude account, with and without an
-//! extension around it, pinned as the windows, the journal, the History
-//! tab and a terminal get it: the outcome's JSON, the journal's line, the
-//! history's line and what `quota-station claude switch` prints. Without
-//! an extension in every build. Against a fake Keychain in a temporary
-//! home: these tests never touch the Keychain, Claude Code's login or
-//! launchd.
+//! The owner's manual switch of the Claude account without an extension
+//! around it, pinned as the windows, the journal, the History tab and a
+//! terminal get it: the outcome's JSON, the journal's line, the history's
+//! line and what `quota-station claude switch` prints, in every build.
+//! Against a fake Keychain in a temporary home: these tests never touch the
+//! Keychain, Claude Code's login or launchd.
 //!
 //! The expected texts were written by a probe of these same cases on the
 //! code before the extension's socket ([`Hooks::manual_switch`]), in each

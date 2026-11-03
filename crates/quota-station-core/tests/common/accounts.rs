@@ -233,8 +233,7 @@ pub struct Mac {
 
 impl Mac {
     pub fn new(tag: &str) -> Mac {
-        let hooks = quota_station_core::ext::none();
-        Mac::with_hooks(tag, hooks)
+        Mac::with_hooks(tag, quota_station_core::ext::none())
     }
 
     /// A Mac whose store keeps what `hooks` keep on the accounts, as the

@@ -4,8 +4,8 @@
 //! The Claude pool on one fixed set of accounts: which accounts count in
 //! alert 1's check, the best other account, whether Claude is dry, and the
 //! room the read of the accounts counts, without an extension's pool
-//! policy and with the private part's. Everything is built in memory: no
-//! account, Keychain or file is read.
+//! policy. Everything is built in memory: no account, Keychain or file is
+//! read.
 
 use quota_station_core::alerts;
 use quota_station_core::claude::store::List;
@@ -36,8 +36,7 @@ fn list() -> List {
             "identity": format!("id-{n}"), "added": "2026-01-01T00:00:00Z"
         })
     };
-    #[allow(unused_mut)]
-    let mut accounts: Vec<Value> = (1..=6).map(account).collect();
+    let accounts: Vec<Value> = (1..=6).map(account).collect();
     serde_json::from_value(json!({ "version": 1, "accounts": accounts })).unwrap()
 }
 

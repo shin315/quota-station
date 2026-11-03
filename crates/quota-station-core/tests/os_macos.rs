@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: MIT
 
 //! The macOS side of [`quota_station_core::os`], against fake `security`,
-//! `ps` and `lsof` shell scripts (and `launchctl`): the commands the app runs and
-//! how it reads their answers. The other tests use the fakes kept in memory
+//! `ps` and `lsof` shell scripts: the commands the app runs and how it
+//! reads their answers. The other tests use the fakes kept in memory
 //! (`common::os`).
 #![cfg(target_os = "macos")]
 
