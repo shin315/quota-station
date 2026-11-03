@@ -188,8 +188,9 @@ The core's integration tests are `crates/quota-station-core/tests/*.rs`:
 `quota_readers`, `runner`, `sessions`, `settings`, `snapshot`,
 `snapshot_ext`, `stats`, `switch_ext` and `ui_fixtures`, with shared helpers in
 `common/` and synthetic data in `fixtures/`.
-inline, and in `src-tauri/tests/` those of its sockets for an extension
-(`ext.rs`) and of the app's state an extension's own tests draw the model
+inline, and in `src-tauri/tests/` those of its advanced part (`advanced.rs`,
+with its model's golden file, and `advanced_commands.rs`), of its sockets for
+an extension (`ext.rs`) and of the app's state an extension's own tests draw the model
 through (`testing.rs`: `quota_station::testing`, behind the `test-support`
 feature), filled by a test extension (`common/`) made as a crate outside the
 app would make one. The Vitest tests are the `*.test.ts(x)` files under `src/`; the

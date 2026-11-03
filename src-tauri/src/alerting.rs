@@ -13,6 +13,9 @@
 //!
 //! Reads only: the app's own files and, while an overwrite waits for an
 //! answer, whether Antigravity.app runs (`pgrep`).
+//! The advanced part reads the switcher's log for its lines of the history
+//! (`quota_station_core::advanced::history`) and the rotation file for its
+//! pool policy (`quota_station_core::advanced::pool`) and its alerts.
 
 use std::sync::Arc;
 use std::time::Duration;

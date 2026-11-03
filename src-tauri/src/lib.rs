@@ -22,7 +22,19 @@
 //! the same for the skills, shows the plugins and the instruction files, and
 //! says when a skill from GitHub has a newer version. Since M16 it counts the
 //! tokens in this Mac's own session logs (Thống kê), keeping the counts only.
+//!
+//! With its advanced part ([`advanced`], shown by Cài đặt › Nâng cao) it
+//! also pauses the rotation and runs it from its own LaunchAgent (on
+//! Windows, from its own timer); edits the rotation file and copies it to
+//! the owner's other Macs over SSH, so every Mac's switcher follows the same
+//! rules (M5); updates itself from a clone of its source with
+//! `scripts/install.sh` (M7); and copies the agents' setup, item by item,
+//! to or from another Mac over SSH, where that Mac's own Quota Station
+//! writes them (M13). On Windows it does the rotation, its rules and the
+//! pause; the copies to other Macs and the update from source are a Mac's
+//! only.
 
+pub mod advanced;
 mod agents;
 #[cfg(feature = "antigravity-accounts")]
 mod agy_quota;
@@ -39,6 +51,8 @@ mod codex_accounts;
 mod codex_import;
 mod codex_wake;
 mod commands;
+#[cfg(unix)]
+mod copy;
 mod diag;
 mod env;
 pub mod ext;
@@ -48,6 +62,7 @@ mod notify;
 mod open;
 mod reader;
 mod release;
+mod rules;
 mod session;
 mod sets;
 #[cfg(windows)]
@@ -57,6 +72,8 @@ mod state;
 mod stats;
 #[cfg(any(test, feature = "test-support"))]
 pub mod testing;
+#[cfg(windows)]
+mod timer;
 mod tray;
 mod windows;
 #[cfg(windows)]
@@ -574,12 +591,12 @@ pub(crate) fn machine_name() -> String {
 mod tests {
     use crate::ext::{Extension, Hooks};
 
-    /// The extension the binary passes in this build (`main.rs`).
-    fn extension() -> crate::ext::NoExtension {
-        crate::ext::NoExtension
+    /// The extension the binary passes (`main.rs`): the advanced part.
+    fn extension() -> crate::advanced::Advanced {
+        crate::advanced::Advanced
     }
 
-    /// The core's hooks of that extension: none.
+    /// The core's hooks of no extension: none.
     fn hooks() -> &'static dyn Hooks {
         quota_station_core::ext::none()
     }
@@ -590,6 +607,55 @@ mod tests {
         let mut names = super::command_names();
         names.extend(extension().command_names());
         names
+    }
+
+    /// The advanced part's commands on every system: Nâng cao, the pause,
+    /// the rotation and its rules editor, and the quit guard for unsaved
+    /// rules.
+    const ADVANCED_COMMANDS: [&str; 11] = [
+        "set_advanced",
+        "pause_switching",
+        "extend_pause",
+        "resume_switching",
+        "claude_set_enabled",
+        "claude_set_rotation",
+        "save_rotation",
+        "preview_rotation",
+        "rules_dirty",
+        "take_quit",
+        "close_main",
+    ];
+
+    /// Those only a Mac has: the rules' copy to the other Macs, the copy to
+    /// another Mac, and the update from source.
+    const MAC_COMMANDS: [&str; 11] = [
+        "adopt_rotation",
+        "keep_rotation",
+        "retry_rotation",
+        "set_peers",
+        "test_peer",
+        "copy_compare",
+        "copy_run",
+        "copy_undo",
+        "set_source_dir",
+        "update_from_source",
+        "relaunch",
+    ];
+
+    /// None of them is one of the app's own commands: they come with the
+    /// extension the binary passes, the Mac's only on a Mac.
+    #[test]
+    fn the_advanced_parts_commands_are_not_the_apps_own() {
+        let own = super::command_names();
+        let names = command_names();
+        for command in ADVANCED_COMMANDS {
+            assert!(!own.contains(&command), "{command}");
+            assert!(names.contains(&command), "{command}");
+        }
+        for command in MAC_COMMANDS {
+            assert!(!own.contains(&command), "{command}");
+            assert_eq!(names.contains(&command), cfg!(unix), "{command}");
+        }
     }
 
     fn words(words: &[&str]) -> Vec<String> {

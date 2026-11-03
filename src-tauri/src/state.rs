@@ -188,6 +188,7 @@ pub struct Inner {
     /// This copy's version, from `tauri.conf.json`.
     pub app_version: String,
     /// Launching at login (M7).
+    /// And the update from source.
     pub install: InstallState,
     /// Codex's files, processes and provider as last looked at (M8).
     pub codex: codex::Live,
@@ -1343,6 +1344,17 @@ mod tests {
         inner.kept.keep(changes.clone());
         assert!(!inner.after_accounts_change());
         assert_eq!(*changes.lock().unwrap(), 0);
+    }
+
+    /// The advanced part's tab names in the app without an extension
+    /// (`NoExtension`): refused, as they were when that build's `Tab` lacked
+    /// their variants.
+    #[test]
+    fn without_an_extension_the_advanced_parts_tab_names_open_nothing() {
+        let inner = inner();
+        for name in ["rules", "copy"] {
+            assert_eq!(inner.tab(name), None, "{name}");
+        }
     }
 
     #[test]

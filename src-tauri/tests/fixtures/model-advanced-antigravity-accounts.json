@@ -1,0 +1,681 @@
+{
+  "advanced": {
+    "on": true
+  },
+  "agySwitch": {
+    "busy": null,
+    "listed": false,
+    "overwritten": null
+  },
+  "alerts": {
+    "permission": "unbundled",
+    "poolAlert": {
+      "dryAtMost": 10,
+      "roomAtLeast": 15
+    },
+    "recent": [],
+    "switches": {
+      "leaving": true,
+      "login": true,
+      "overwrite": true,
+      "pool": true
+    },
+    "unanswered": 0,
+    "unread": 0
+  },
+  "antigravity": {
+    "accounts": [],
+    "client": "missing",
+    "clientPath": "/TEST/app/oauth-client.json",
+    "indexError": false,
+    "loggingIn": false
+  },
+  "app": {
+    "bundled": false,
+    "commit": null,
+    "error": null,
+    "launchAtLogin": "off",
+    "log": "/TEST/app/update/install.log",
+    "outcome": null,
+    "source": "/srv/quota-station",
+    "sourceStatus": "missing",
+    "updating": null,
+    "version": "1.2.3"
+  },
+  "backup": {
+    "auto": {
+      "afterChange": true,
+      "daily": true
+    },
+    "autoError": null,
+    "busy": null,
+    "customFolder": false,
+    "folder": "~/Library/Mobile Documents/com~apple~CloudDocs/Quota Station Agents",
+    "icloud": false,
+    "keys": null,
+    "packs": null,
+    "readAt": null,
+    "restore": null
+  },
+  "capabilities": {
+    "agyAccounts": true,
+    "authorTools": true,
+    "platform": "macos",
+    "session": false
+  },
+  "claudeAccounts": {
+    "accounts": [
+      {
+        "active": false,
+        "ageSeconds": 60,
+        "alias": "tài khoản 1",
+        "enabled": true,
+        "error": null,
+        "fetchedAt": "2026-01-16T07:00:00Z",
+        "kind": "login",
+        "slot": 1,
+        "status": "fresh",
+        "windows": {
+          "fable": null,
+          "fiveHour": null,
+          "sevenDay": null
+        }
+      },
+      {
+        "active": true,
+        "ageSeconds": 60,
+        "alias": "tài khoản 2",
+        "enabled": true,
+        "error": null,
+        "fetchedAt": "2026-01-16T07:00:00Z",
+        "kind": "login",
+        "slot": 2,
+        "status": "fresh",
+        "windows": {
+          "fable": null,
+          "fiveHour": null,
+          "sevenDay": null
+        }
+      },
+      {
+        "active": false,
+        "ageSeconds": 60,
+        "alias": "tài khoản 3",
+        "enabled": false,
+        "error": null,
+        "fetchedAt": "2026-01-16T07:00:00Z",
+        "kind": "login",
+        "slot": 3,
+        "status": "fresh",
+        "windows": {
+          "fable": null,
+          "fiveHour": null,
+          "sevenDay": null
+        }
+      }
+    ],
+    "claude": true,
+    "importable": false,
+    "last": null,
+    "legacy": "com.cswap.auto",
+    "ready": false,
+    "rotation": true,
+    "working": null
+  },
+  "claudeSwitch": {
+    "busy": 2,
+    "ready": false
+  },
+  "cliTools": {
+    "checkedAt": null,
+    "checking": false,
+    "daily": true,
+    "offline": false,
+    "tools": [
+      {
+        "command": null,
+        "failed": null,
+        "handsOff": null,
+        "install": null,
+        "last": null,
+        "latest": null,
+        "newer": false,
+        "path": null,
+        "running": 0,
+        "safeWhileRunning": true,
+        "tool": "claude",
+        "updating": false,
+        "version": null
+      },
+      {
+        "command": null,
+        "failed": null,
+        "handsOff": null,
+        "install": null,
+        "last": null,
+        "latest": null,
+        "newer": false,
+        "path": null,
+        "running": 0,
+        "safeWhileRunning": false,
+        "tool": "codex",
+        "updating": false,
+        "version": null
+      },
+      {
+        "command": null,
+        "failed": null,
+        "handsOff": null,
+        "install": null,
+        "last": null,
+        "latest": null,
+        "newer": false,
+        "path": null,
+        "running": 0,
+        "safeWhileRunning": true,
+        "tool": "agy",
+        "updating": false,
+        "version": null
+      }
+    ]
+  },
+  "codex": {
+    "accounts": [],
+    "accountsDir": "/TEST/app/codex/accounts",
+    "backRefusal": null,
+    "backupDir": "/TEST/app/backups/codex",
+    "backups": [],
+    "busy": null,
+    "ccSwitch": {
+      "data": false,
+      "installed": false,
+      "running": false,
+      "traces": []
+    },
+    "config": "missing",
+    "current": "chatgpt",
+    "custom": null,
+    "customHome": false,
+    "external": null,
+    "firstSwitchAt": null,
+    "hash": null,
+    "home": "~/.codex",
+    "keyUndo": null,
+    "lastWrite": null,
+    "login": "missing",
+    "loginCode": null,
+    "mcp": [],
+    "openaiBaseUrl": false,
+    "other": null,
+    "plugins": true,
+    "present": false,
+    "procs": null,
+    "reach": {
+      "checkedAt": null,
+      "ms": null,
+      "since": null,
+      "state": ""
+    },
+    "reason": null,
+    "recent": [],
+    "refusal": {
+      "kind": "noCustom"
+    },
+    "resume": null,
+    "takesKey": false,
+    "trigger": {
+      "ids": [],
+      "keepAlive": true,
+      "mode": "daily",
+      "next": null,
+      "on": false,
+      "running": null,
+      "runs": [],
+      "times": [
+        "06:00"
+      ]
+    },
+    "version": null,
+    "wantsRequires": null
+  },
+  "env": {
+    "checkedAt": null,
+    "checking": false,
+    "found": [],
+    "ignored": 0,
+    "places": [
+      "~/.zshenv",
+      "~/.zprofile",
+      "~/.zshrc",
+      "~/.bash_profile",
+      "~/.profile",
+      "~/.claude/settings.json",
+      "~/.claude/settings.local.json",
+      "launchctl"
+    ],
+    "unread": [],
+    "vars": [
+      "ANTHROPIC_API_KEY",
+      "ANTHROPIC_AUTH_TOKEN",
+      "ANTHROPIC_BASE_URL",
+      "CLAUDE_CODE_OAUTH_TOKEN",
+      "CLAUDE_CONFIG_DIR",
+      "OPENAI_API_KEY",
+      "OPENAI_BASE_URL",
+      "CODEX_HOME",
+      "GEMINI_API_KEY",
+      "GOOGLE_API_KEY",
+      "GOOGLE_CLOUD_PROJECT"
+    ]
+  },
+  "firstRun": false,
+  "granting": false,
+  "instructions": {
+    "readAt": null,
+    "view": null
+  },
+  "language": "auto",
+  "machine": "Mac phòng khách",
+  "machineDefault": "Mac Studio",
+  "mcp": {
+    "backups": [],
+    "busy": null,
+    "last": null,
+    "readAt": null,
+    "table": null
+  },
+  "menubar": "claude",
+  "menubarWindow": "fiveHours",
+  "plugins": {
+    "busy": false,
+    "readAt": null,
+    "reinstall": {},
+    "sides": null
+  },
+  "reading": true,
+  "reads": 7,
+  "release": {
+    "auto": true,
+    "checkedAt": null,
+    "checking": false,
+    "error": null,
+    "later": null,
+    "latest": null,
+    "newer": false,
+    "none": false,
+    "skipped": null
+  },
+  "rotation": {
+    "defaults": {
+      "expire": [],
+      "fableFull": 95.0,
+      "full": 90.0,
+      "personal": null,
+      "personalFrom": 8,
+      "personalTo": 23,
+      "team": [
+        1,
+        2
+      ]
+    },
+    "ignoredKeys": [],
+    "path": "~/.config/cswap-prefer-team/rotation",
+    "peers": [
+      {
+        "alias": "mac-b",
+        "current": true,
+        "name": "Mac B",
+        "pushing": false,
+        "state": {
+          "kind": "newer",
+          "their": {
+            "at": "2026-01-16T14:39:05+07:00",
+            "machine": "Mac B"
+          }
+        },
+        "theirRules": {
+          "expire": [],
+          "fableFull": 95.0,
+          "full": 88.0,
+          "personal": 3,
+          "personalFrom": 8,
+          "personalTo": 23,
+          "team": [
+            1,
+            2
+          ]
+        }
+      },
+      {
+        "alias": "mac-c",
+        "current": false,
+        "name": "Mac C",
+        "pushing": true,
+        "state": {
+          "at": "2026-01-16T07:00:00Z",
+          "kind": "synced"
+        },
+        "theirRules": null
+      },
+      {
+        "alias": "mac-d",
+        "current": false,
+        "name": "Mac D",
+        "pushing": false,
+        "state": null,
+        "theirRules": null
+      }
+    ],
+    "reason": null,
+    "rules": {
+      "expire": [],
+      "fableFull": 95.0,
+      "full": 90.0,
+      "personal": 3,
+      "personalFrom": 8,
+      "personalTo": 23,
+      "team": [
+        1,
+        2
+      ]
+    },
+    "saving": true,
+    "ssh": true,
+    "stamp": {
+      "at": "2026-01-16T14:30:05+07:00",
+      "machine": "Mac A"
+    },
+    "status": "ok",
+    "version": "a5295f54ef587896"
+  },
+  "sets": {
+    "applied": null,
+    "busy": null,
+    "removed": null,
+    "sets": []
+  },
+  "showNames": true,
+  "skills": {
+    "busy": null,
+    "last": null,
+    "npx": false,
+    "progress": null,
+    "readAt": null,
+    "table": null,
+    "updates": {
+      "checkedAt": null,
+      "checking": false,
+      "error": null,
+      "failed": [],
+      "settings": {
+        "daily": true,
+        "notify": false
+      }
+    }
+  },
+  "snapshot": {
+    "agy": {
+      "accounts": [],
+      "generatedAt": null,
+      "newestReadingAt": null,
+      "personalHours": null,
+      "pool": {
+        "exhausted": false,
+        "kind": "none",
+        "line": null,
+        "members": 0,
+        "nextRefillAt": null,
+        "percent": null,
+        "reason": null,
+        "refills": [],
+        "room": null,
+        "rooms": [],
+        "scope": null
+      },
+      "reason": null,
+      "source": null,
+      "stale": false,
+      "status": "unread"
+    },
+    "claude": {
+      "accounts": [
+        {
+          "active": false,
+          "disabled": false,
+          "fetchedAt": "2026-01-16T07:18:00.000Z",
+          "leavesAt": null,
+          "lines": [
+            {
+              "atLeast": false,
+              "kind": "week",
+              "pending": false,
+              "percent": 100.0,
+              "resetsAt": "2026-01-22T15:20:00.000Z"
+            },
+            {
+              "atLeast": false,
+              "kind": "fableWeek",
+              "pending": false,
+              "percent": 96.0,
+              "resetsAt": "2026-01-22T15:20:00.000Z"
+            }
+          ],
+          "membership": "in",
+          "number": 1,
+          "reading": "fresh",
+          "role": "personal",
+          "source": "list",
+          "windows": []
+        },
+        {
+          "active": true,
+          "disabled": false,
+          "fetchedAt": "2026-01-16T07:20:00.000Z",
+          "leavesAt": "2026-01-16T10:45:00.000Z",
+          "lines": [
+            {
+              "atLeast": false,
+              "kind": "session",
+              "pending": false,
+              "percent": 26.0,
+              "resetsAt": "2026-01-16T10:29:00.000Z"
+            },
+            {
+              "atLeast": false,
+              "kind": "fableWeek",
+              "pending": false,
+              "percent": 13.0,
+              "resetsAt": "2026-01-18T01:20:00.000Z"
+            }
+          ],
+          "membership": "in",
+          "number": 2,
+          "reading": "fresh",
+          "role": "team",
+          "source": "live",
+          "windows": [
+            {
+              "atLeast": false,
+              "kind": "session",
+              "pending": false,
+              "percent": 26.0,
+              "resetsAt": "2026-01-16T10:29:00.000Z"
+            },
+            {
+              "atLeast": false,
+              "kind": "week",
+              "pending": false,
+              "percent": 61.0,
+              "resetsAt": "2026-01-21T03:00:00.000Z"
+            },
+            {
+              "atLeast": false,
+              "kind": "fableWeek",
+              "pending": false,
+              "percent": 13.0,
+              "resetsAt": "2026-01-18T01:20:00.000Z"
+            }
+          ]
+        },
+        {
+          "active": false,
+          "disabled": false,
+          "fetchedAt": "2026-01-16T07:16:40.000Z",
+          "leavesAt": null,
+          "lines": [
+            {
+              "atLeast": false,
+              "kind": "session",
+              "pending": false,
+              "percent": 100.0,
+              "resetsAt": null
+            },
+            {
+              "atLeast": false,
+              "kind": "fableWeek",
+              "pending": false,
+              "percent": 50.0,
+              "resetsAt": "2026-01-16T20:20:00.000Z"
+            }
+          ],
+          "membership": "in",
+          "number": 3,
+          "reading": "fresh",
+          "role": "team",
+          "source": "list",
+          "windows": []
+        },
+        {
+          "active": false,
+          "disabled": false,
+          "fetchedAt": "2026-01-16T07:15:00.000Z",
+          "leavesAt": null,
+          "lines": [
+            {
+              "atLeast": false,
+              "kind": "session",
+              "pending": false,
+              "percent": 98.0,
+              "resetsAt": "2026-01-16T10:09:00.000Z"
+            },
+            {
+              "atLeast": true,
+              "kind": "fableWeek",
+              "pending": false,
+              "percent": 98.0,
+              "resetsAt": null
+            }
+          ],
+          "membership": "in",
+          "number": 4,
+          "reading": "fresh",
+          "role": "team",
+          "source": "list",
+          "windows": []
+        }
+      ],
+      "generatedAt": "2026-01-16T07:20:00.000Z",
+      "newestReadingAt": "2026-01-16T07:20:00.000Z",
+      "personalHours": "8-23",
+      "pool": {
+        "exhausted": false,
+        "kind": "rotation",
+        "line": null,
+        "members": 4,
+        "nextRefillAt": "2026-01-16T10:09:00.000Z",
+        "percent": 56.75,
+        "reason": null,
+        "refills": [
+          4
+        ],
+        "room": 2.27,
+        "rooms": [
+          {
+            "number": 2,
+            "percent": 0.0
+          },
+          {
+            "number": 3,
+            "percent": 100.0
+          },
+          {
+            "number": 4,
+            "percent": 97.8
+          },
+          {
+            "number": 1,
+            "percent": 29.2
+          }
+        ],
+        "scope": "all_models"
+      },
+      "reason": null,
+      "source": null,
+      "stale": false,
+      "status": "ok"
+    },
+    "codex": {
+      "accounts": [],
+      "generatedAt": null,
+      "newestReadingAt": null,
+      "personalHours": null,
+      "pool": {
+        "exhausted": false,
+        "kind": "none",
+        "line": null,
+        "members": 0,
+        "nextRefillAt": null,
+        "percent": null,
+        "reason": null,
+        "refills": [],
+        "room": null,
+        "rooms": [],
+        "scope": null
+      },
+      "reason": null,
+      "source": null,
+      "stale": false,
+      "status": "unread"
+    },
+    "keychain": "granted"
+  },
+  "stats": {
+    "failed": false,
+    "first": false,
+    "generation": 0,
+    "progress": [],
+    "readAt": null,
+    "reading": false
+  },
+  "switcher": {
+    "dryRun": {
+      "at": "2026-01-16T07:20:00Z",
+      "decision": {
+        "kind": "paused",
+        "reason": "lý do",
+        "until": null
+      },
+      "raw": "paused indefinitely: lý do"
+    },
+    "dryRunError": null,
+    "guard": true,
+    "installed": false,
+    "lastLog": {
+      "at": "2026-01-16T07:00:00Z",
+      "event": {
+        "kind": "switch",
+        "slot": 2
+      },
+      "raw": "2026-01-16 14:00:00 switch to slot 2 (team)"
+    },
+    "legacy": "com.cswap.auto",
+    "pause": {
+      "holds": true,
+      "reason": "lý do",
+      "until": null
+    },
+    "service": true
+  },
+  "theme": "dark",
+  "themePack": "default"
+}
