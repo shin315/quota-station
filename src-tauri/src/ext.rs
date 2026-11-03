@@ -3,8 +3,13 @@
 
 //! The app's sockets for an extension: what a build may add to the app
 //! without the app's own code knowing what it adds. [`crate::run`] takes
-//! one [`Extension`]; this repository's binary passes [`NoExtension`], with
-//! which the app is exactly what it is without the sockets.
+//! one [`Extension`]; this repository's binary passes
+//! [`quota_station::advanced::Advanced`](crate::advanced::Advanced), the
+//! advanced part, and the full build (`ext/app`) passes a layer of its own over
+//! it. [`NoExtension`] is the app with no extension: with it the app is
+//! exactly what it is without the sockets. No binary passes it; it is the
+//! state's extension until [`crate::run`] sets the binary's, and what the tests
+//! of the app without an extension pass.
 //!
 //! Each socket is a method of [`Extension`] with a default that adds
 //! nothing. The core's own sockets are [`Hooks`] (in

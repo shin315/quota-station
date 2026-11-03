@@ -125,7 +125,8 @@ query parameters are:
   theme pack: `default`, `kinhNhip`, `daiSangTinh`, `motNhipNhin`,
   `banDieuKhien` or `chieuLang`), `rt=1` (Reduce transparency), `os=win` (the
   app as Windows draws it) and `email=off` (names by place).
-- The build: `build=release` (the downloaded app: no Antigravity accounts).
+- The build: `build=release` (the downloaded app: no Antigravity accounts, the
+  advanced part present).
 - The first run: `setup` (`on`, `signedout` for Claude Code signed in to none,
   `none` for no agent).
 - Releases: `release` (`avail`, `later`, `skipped`, `offline`, `none` or `off`;
@@ -174,8 +175,9 @@ query parameters are:
 
 The advanced part's states:
 
-- `tab`: `rules` and `copy`, and `build=release` leaves the advanced part out
-  too.
+- `tab`: `rules` and `copy`; `build=release` keeps them, as the downloaded app
+  has the advanced part (shown while `Settings › Advanced › Show advanced
+  features` is on).
 - Claude: `switcher` (`held`, `noguard`, `auto`, `stopped` or `missing`).
 - Rotation rules, on `tab=rules`: `rotation` (`unreachable`, `newer`, `edited`,
   `unstamped`, `missing`, `invalid`, `unwritable` or `single`).

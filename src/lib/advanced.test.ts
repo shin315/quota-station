@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import { describe, expect, it } from 'vitest';
-import { communityModel, fixtureModel } from '@/fixtures/models';
+import { communityModel, fixtureModel, releaseModel } from '@/fixtures/models';
 import { appFixture } from '@/fixtures/models';
 import { authorModel, macTools, sourceView } from './advanced';
 
@@ -11,6 +11,14 @@ describe('the author\'s tools', () => {
     const full = fixtureModel('fresh');
     expect(authorModel(full)).toBe(full);
     expect(authorModel(communityModel(full))).toBeNull();
+  });
+
+  it('are in the downloaded app (`build=release`), which has no Antigravity accounts', () => {
+    const release = releaseModel(fixtureModel('fresh'));
+    expect(release.capabilities.authorTools).toBe(true);
+    expect(release.capabilities.agyAccounts).toBe(false);
+    expect(authorModel(release)).toBe(release);
+    expect(release.advanced.on).toBe(true);
   });
 
   it('need every part of theirs in the model, not only the capability', () => {

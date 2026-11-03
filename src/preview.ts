@@ -10,7 +10,7 @@
 // account 1 (already here), `claude=fail` ends a sign-in without one; an action takes 3 s.
 // GitHub Releases: `release=avail|later|skipped|offline|none|off` (up to date by default); "Kiểm tra bản mới"
 // takes 1.5 s and finds 0.3.0, or `releasefinds=offline`. `build=release` is the downloaded app
-// (no Antigravity accounts), whose dialog offers the DMG.
+// (no Antigravity accounts, the advanced part present as in the app), whose dialog offers the DMG.
 // The first run: `setup=on` (the fixture's Mac, its accounts not kept yet: the one signed in is
 // taken at the Claude step), `setup=signedout` (Claude Code signed in to none), `setup=none` (no agent).
 // Rotation rules (M5): `tab=rules` with `rotation=unreachable|newer|edited|unstamped|missing|invalid|unwritable|single`;
@@ -115,7 +115,7 @@ import {
   overwriteAlert,
 } from './fixtures/models';
 import type { UpdateError, UpdateOutcome } from './lib/model';
-import { communityModel, heldSwitcher, leavingAlert, peerFixture, rotationFixture, rulesFixture, switcherFixture } from './fixtures/models';
+import { heldSwitcher, releaseModel, leavingAlert, peerFixture, rotationFixture, rulesFixture, switcherFixture } from './fixtures/models';
 
 const TABS: Tab[] = [
   'overview',
@@ -538,8 +538,7 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
     });
     model.snapshot.codex = { ...codexSnap, accounts: [{ ...first, number: 1, email: 'lan.chatgpt1@example.com' }, ...extra] };
   }
-  let release: Model = params.get('build') === 'release' ? { ...model, capabilities: { ...model.capabilities, agyAccounts: false } } : model;
-  if (release !== model) release = { ...communityModel(model), capabilities: { ...model.capabilities, agyAccounts: false, authorTools: false } };
+  const release: Model = params.get('build') === 'release' ? releaseModel(model) : model;
   // `os=win`: the app as Windows draws it (W5); its title bar and tray are Windows' own.
   const built: Model = params.get('os') === 'win' ? { ...release, capabilities: { ...release.capabilities, platform: 'windows' } } : release;
   const { api } = fakeApi(params.get('email') === 'off' ? hideNames(built) : built, tab, {

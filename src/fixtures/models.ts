@@ -761,6 +761,17 @@ export function communityModel(m: Model): Model {
   return out;
 }
 
+/**
+ * The downloaded app's model (`build=release` in the preview): the advanced
+ * part is in it, shown while Cài đặt › Nâng cao › Hiện phần nâng cao is on,
+ * and the Antigravity accounts are not (`agyAccounts`: the download is not
+ * built with that feature).
+ */
+export function releaseModel(m: Model): Model {
+  const out: Model = { ...m, capabilities: { ...m.capabilities, agyAccounts: false, authorTools: true } };
+  return out;
+}
+
 /** The model the fixtures give. */
 type Fixture = Model &
   AuthorModel &
