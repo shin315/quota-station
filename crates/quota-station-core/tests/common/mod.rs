@@ -7,6 +7,7 @@
 #![allow(dead_code)]
 
 pub mod accounts;
+pub mod advanced;
 #[cfg(unix)]
 pub mod claude;
 // The Antigravity fakes and the fake `security` are shell scripts.
