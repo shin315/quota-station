@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-//! The Claude accounts' readings, the data file and the copy quota-axi
-//! reads, and running `claude` as one account, against a fake Keychain and
-//! a fake Anthropic in a temporary home. Every login is made up.
+//! The Claude accounts' readings, the data file, and running `claude` as
+//! one account, against a fake Keychain and a fake Anthropic in a temporary
+//! home. Every login is made up.
 
 mod common;
 

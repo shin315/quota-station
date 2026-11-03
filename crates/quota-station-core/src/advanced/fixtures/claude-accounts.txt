@@ -1,0 +1,630 @@
+== the file read and written again
+{
+  "version": 1,
+  "accounts": [
+    {
+      "slot": 1,
+      "alias": "Cá nhân",
+      "disabled": false,
+      "kind": "login",
+      "accountUuid": "uuid-1",
+      "organizationUuid": "",
+      "identity": "id-1",
+      "added": "2026-01-01T00:00:00Z"
+    },
+    {
+      "slot": 2,
+      "disabled": true,
+      "kind": "login",
+      "accountUuid": "uuid-2",
+      "organizationUuid": "org-team",
+      "identity": "id-2",
+      "added": "2026-01-02T00:00:00Z"
+    },
+    {
+      "slot": 3,
+      "alias": "Team phụ",
+      "disabled": true,
+      "kind": "setupToken",
+      "accountUuid": "",
+      "organizationUuid": "",
+      "identity": "id-3",
+      "added": "2026-01-03T00:00:00Z"
+    },
+    {
+      "slot": 4,
+      "disabled": false,
+      "kind": "login",
+      "accountUuid": "uuid-4",
+      "organizationUuid": "org-team",
+      "identity": "id-4",
+      "added": "2026-01-04T00:00:00Z"
+    },
+    {
+      "slot": 5,
+      "alias": "Năm",
+      "disabled": true,
+      "kind": "login",
+      "accountUuid": "uuid-5",
+      "organizationUuid": "org-team",
+      "identity": "id-5",
+      "added": "2026-01-05T00:00:00Z"
+    }
+  ]
+}
+== after an alias on 4
+{
+  "version": 1,
+  "accounts": [
+    {
+      "slot": 1,
+      "alias": "Cá nhân",
+      "disabled": false,
+      "kind": "login",
+      "accountUuid": "uuid-1",
+      "organizationUuid": "",
+      "identity": "id-1",
+      "added": "2026-01-01T00:00:00Z"
+    },
+    {
+      "slot": 2,
+      "disabled": true,
+      "kind": "login",
+      "accountUuid": "uuid-2",
+      "organizationUuid": "org-team",
+      "identity": "id-2",
+      "added": "2026-01-02T00:00:00Z"
+    },
+    {
+      "slot": 3,
+      "alias": "Team phụ",
+      "disabled": true,
+      "kind": "setupToken",
+      "accountUuid": "",
+      "organizationUuid": "",
+      "identity": "id-3",
+      "added": "2026-01-03T00:00:00Z"
+    },
+    {
+      "slot": 4,
+      "alias": "Bốn",
+      "disabled": false,
+      "kind": "login",
+      "accountUuid": "uuid-4",
+      "organizationUuid": "org-team",
+      "identity": "id-4",
+      "added": "2026-01-04T00:00:00Z"
+    },
+    {
+      "slot": 5,
+      "alias": "Năm",
+      "disabled": true,
+      "kind": "login",
+      "accountUuid": "uuid-5",
+      "organizationUuid": "org-team",
+      "identity": "id-5",
+      "added": "2026-01-05T00:00:00Z"
+    }
+  ]
+}
+== claude status (0)
+   1  5h  88%  7d  10%  stale    Cá nhân
+   2  5h  10%  7d  10%  stale    held out  
+   3  5h  20%  7d  10%  stale    held out  Team phụ
+   4  5h  30%  7d  10%  stale    Bốn
+   5  5h   5%  7d  10%  stale    held out  Năm
+== claude status --json (0)
+{
+  "schemaVersion": 1,
+  "generatedAt": "<now>",
+  "activeSlot": null,
+  "accounts": [
+    {
+      "slot": 1,
+      "alias": "Cá nhân",
+      "enabled": true,
+      "active": false,
+      "kind": "login",
+      "status": "stale",
+      "fetchedAt": "2026-01-16T07:19:00Z",
+      "ageSeconds": "<age>",
+      "windows": {
+        "fiveHour": {
+          "usedPercent": 88.0,
+          "resetsAt": null
+        },
+        "sevenDay": {
+          "usedPercent": 10.0,
+          "resetsAt": null
+        },
+        "fable": null
+      },
+      "error": null
+    },
+    {
+      "slot": 2,
+      "alias": null,
+      "enabled": false,
+      "active": false,
+      "kind": "login",
+      "status": "stale",
+      "fetchedAt": "2026-01-16T07:19:00Z",
+      "ageSeconds": "<age>",
+      "windows": {
+        "fiveHour": {
+          "usedPercent": 10.0,
+          "resetsAt": null
+        },
+        "sevenDay": {
+          "usedPercent": 10.0,
+          "resetsAt": null
+        },
+        "fable": null
+      },
+      "error": null
+    },
+    {
+      "slot": 3,
+      "alias": "Team phụ",
+      "enabled": false,
+      "active": false,
+      "kind": "setupToken",
+      "status": "stale",
+      "fetchedAt": "2026-01-16T07:19:00Z",
+      "ageSeconds": "<age>",
+      "windows": {
+        "fiveHour": {
+          "usedPercent": 20.0,
+          "resetsAt": null
+        },
+        "sevenDay": {
+          "usedPercent": 10.0,
+          "resetsAt": null
+        },
+        "fable": null
+      },
+      "error": null
+    },
+    {
+      "slot": 4,
+      "alias": "Bốn",
+      "enabled": true,
+      "active": false,
+      "kind": "login",
+      "status": "stale",
+      "fetchedAt": "2026-01-16T07:19:00Z",
+      "ageSeconds": "<age>",
+      "windows": {
+        "fiveHour": {
+          "usedPercent": 30.0,
+          "resetsAt": null
+        },
+        "sevenDay": {
+          "usedPercent": 10.0,
+          "resetsAt": null
+        },
+        "fable": null
+      },
+      "error": null
+    },
+    {
+      "slot": 5,
+      "alias": "Năm",
+      "enabled": false,
+      "active": false,
+      "kind": "login",
+      "status": "stale",
+      "fetchedAt": "2026-01-16T07:19:00Z",
+      "ageSeconds": "<age>",
+      "windows": {
+        "fiveHour": {
+          "usedPercent": 5.0,
+          "resetsAt": null
+        },
+        "sevenDay": {
+          "usedPercent": 10.0,
+          "resetsAt": null
+        },
+        "fable": null
+      },
+      "error": null
+    }
+  ]
+}
+== state.json
+{
+  "schemaVersion": 1,
+  "generatedAt": "<now>",
+  "activeSlot": 4,
+  "accounts": [
+    {
+      "slot": 1,
+      "alias": "Cá nhân",
+      "enabled": true,
+      "active": false,
+      "kind": "login",
+      "status": "fresh",
+      "fetchedAt": "2026-01-16T07:19:00Z",
+      "ageSeconds": "<age>",
+      "windows": {
+        "fiveHour": {
+          "usedPercent": 88.0,
+          "resetsAt": null
+        },
+        "sevenDay": {
+          "usedPercent": 10.0,
+          "resetsAt": null
+        },
+        "fable": null
+      },
+      "error": null
+    },
+    {
+      "slot": 2,
+      "alias": null,
+      "enabled": false,
+      "active": false,
+      "kind": "login",
+      "status": "fresh",
+      "fetchedAt": "2026-01-16T07:19:00Z",
+      "ageSeconds": "<age>",
+      "windows": {
+        "fiveHour": {
+          "usedPercent": 10.0,
+          "resetsAt": null
+        },
+        "sevenDay": {
+          "usedPercent": 10.0,
+          "resetsAt": null
+        },
+        "fable": null
+      },
+      "error": null
+    },
+    {
+      "slot": 3,
+      "alias": "Team phụ",
+      "enabled": false,
+      "active": false,
+      "kind": "setupToken",
+      "status": "fresh",
+      "fetchedAt": "2026-01-16T07:19:00Z",
+      "ageSeconds": "<age>",
+      "windows": {
+        "fiveHour": {
+          "usedPercent": 20.0,
+          "resetsAt": null
+        },
+        "sevenDay": {
+          "usedPercent": 10.0,
+          "resetsAt": null
+        },
+        "fable": null
+      },
+      "error": null
+    },
+    {
+      "slot": 4,
+      "alias": "Bốn",
+      "enabled": true,
+      "active": true,
+      "kind": "login",
+      "status": "fresh",
+      "fetchedAt": "2026-01-16T07:19:00Z",
+      "ageSeconds": "<age>",
+      "windows": {
+        "fiveHour": {
+          "usedPercent": 30.0,
+          "resetsAt": null
+        },
+        "sevenDay": {
+          "usedPercent": 10.0,
+          "resetsAt": null
+        },
+        "fable": null
+      },
+      "error": null
+    },
+    {
+      "slot": 5,
+      "alias": "Năm",
+      "enabled": false,
+      "active": false,
+      "kind": "login",
+      "status": "fresh",
+      "fetchedAt": "2026-01-16T07:19:00Z",
+      "ageSeconds": "<age>",
+      "windows": {
+        "fiveHour": {
+          "usedPercent": 5.0,
+          "resetsAt": null
+        },
+        "sevenDay": {
+          "usedPercent": 10.0,
+          "resetsAt": null
+        },
+        "fable": null
+      },
+      "error": null
+    }
+  ]
+}
+== the read's accounts
+{
+  "slots": [
+    {
+      "slot": 1,
+      "active": false,
+      "disabled": false,
+      "status": "fresh",
+      "ageSeconds": 60.0,
+      "fetchedAt": "2026-01-16T07:19:00.000Z",
+      "effectivePercentRemaining": 12.0,
+      "limitedBy": "five_hour",
+      "scopes": [],
+      "windows": [
+        {
+          "id": "five_hour",
+          "kind": "session",
+          "percentUsed": 88.0,
+          "percentRemaining": 12.0,
+          "windowSeconds": 18000.0
+        },
+        {
+          "id": "seven_day",
+          "kind": "weekly",
+          "percentUsed": 10.0,
+          "percentRemaining": 90.0,
+          "windowSeconds": 604800.0
+        }
+      ]
+    },
+    {
+      "slot": 2,
+      "active": false,
+      "disabled": true,
+      "status": "fresh",
+      "ageSeconds": 60.0,
+      "fetchedAt": "2026-01-16T07:19:00.000Z",
+      "effectivePercentRemaining": 90.0,
+      "limitedBy": "five_hour + seven_day",
+      "scopes": [],
+      "windows": [
+        {
+          "id": "five_hour",
+          "kind": "session",
+          "percentUsed": 10.0,
+          "percentRemaining": 90.0,
+          "windowSeconds": 18000.0
+        },
+        {
+          "id": "seven_day",
+          "kind": "weekly",
+          "percentUsed": 10.0,
+          "percentRemaining": 90.0,
+          "windowSeconds": 604800.0
+        }
+      ]
+    },
+    {
+      "slot": 3,
+      "active": false,
+      "disabled": true,
+      "status": "fresh",
+      "ageSeconds": 60.0,
+      "fetchedAt": "2026-01-16T07:19:00.000Z",
+      "effectivePercentRemaining": 80.0,
+      "limitedBy": "five_hour",
+      "scopes": [],
+      "windows": [
+        {
+          "id": "five_hour",
+          "kind": "session",
+          "percentUsed": 20.0,
+          "percentRemaining": 80.0,
+          "windowSeconds": 18000.0
+        },
+        {
+          "id": "seven_day",
+          "kind": "weekly",
+          "percentUsed": 10.0,
+          "percentRemaining": 90.0,
+          "windowSeconds": 604800.0
+        }
+      ]
+    },
+    {
+      "slot": 4,
+      "active": false,
+      "disabled": false,
+      "status": "fresh",
+      "ageSeconds": 60.0,
+      "fetchedAt": "2026-01-16T07:19:00.000Z",
+      "effectivePercentRemaining": 70.0,
+      "limitedBy": "five_hour",
+      "scopes": [],
+      "windows": [
+        {
+          "id": "five_hour",
+          "kind": "session",
+          "percentUsed": 30.0,
+          "percentRemaining": 70.0,
+          "windowSeconds": 18000.0
+        },
+        {
+          "id": "seven_day",
+          "kind": "weekly",
+          "percentUsed": 10.0,
+          "percentRemaining": 90.0,
+          "windowSeconds": 604800.0
+        }
+      ]
+    },
+    {
+      "slot": 5,
+      "active": false,
+      "disabled": true,
+      "status": "fresh",
+      "ageSeconds": 60.0,
+      "fetchedAt": "2026-01-16T07:19:00.000Z",
+      "effectivePercentRemaining": 90.0,
+      "limitedBy": "seven_day",
+      "scopes": [],
+      "windows": [
+        {
+          "id": "five_hour",
+          "kind": "session",
+          "percentUsed": 5.0,
+          "percentRemaining": 95.0,
+          "windowSeconds": 18000.0
+        },
+        {
+          "id": "seven_day",
+          "kind": "weekly",
+          "percentUsed": 10.0,
+          "percentRemaining": 90.0,
+          "windowSeconds": 604800.0
+        }
+      ]
+    }
+  ]
+}
+== alert 1's pool
+Some((None, [(1, 12.0), (4, 70.0)]))
+== after adding the login in use (6)
+{
+  "version": 1,
+  "accounts": [
+    {
+      "slot": 1,
+      "alias": "Cá nhân",
+      "disabled": false,
+      "kind": "login",
+      "accountUuid": "uuid-1",
+      "organizationUuid": "",
+      "identity": "id-1",
+      "added": "2026-01-01T00:00:00Z"
+    },
+    {
+      "slot": 2,
+      "disabled": true,
+      "kind": "login",
+      "accountUuid": "uuid-2",
+      "organizationUuid": "org-team",
+      "identity": "id-2",
+      "added": "2026-01-02T00:00:00Z"
+    },
+    {
+      "slot": 3,
+      "alias": "Team phụ",
+      "disabled": true,
+      "kind": "setupToken",
+      "accountUuid": "",
+      "organizationUuid": "",
+      "identity": "id-3",
+      "added": "2026-01-03T00:00:00Z"
+    },
+    {
+      "slot": 4,
+      "alias": "Bốn",
+      "disabled": false,
+      "kind": "login",
+      "accountUuid": "uuid-4",
+      "organizationUuid": "org-team",
+      "identity": "id-4",
+      "added": "2026-01-04T00:00:00Z"
+    },
+    {
+      "slot": 5,
+      "alias": "Năm",
+      "disabled": true,
+      "kind": "login",
+      "accountUuid": "uuid-5",
+      "organizationUuid": "org-team",
+      "identity": "id-5",
+      "added": "2026-01-05T00:00:00Z"
+    },
+    {
+      "slot": 6,
+      "disabled": false,
+      "kind": "login",
+      "accountUuid": "uuid-9",
+      "organizationUuid": "org-team",
+      "identity": "f87d203d72eb9b1736218478b754c98f",
+      "added": "<now>"
+    }
+  ]
+}
+== after holding 1 out and putting 2 back
+{
+  "version": 1,
+  "accounts": [
+    {
+      "slot": 1,
+      "alias": "Cá nhân",
+      "disabled": true,
+      "kind": "login",
+      "accountUuid": "uuid-1",
+      "organizationUuid": "",
+      "identity": "id-1",
+      "added": "2026-01-01T00:00:00Z"
+    },
+    {
+      "slot": 2,
+      "disabled": false,
+      "kind": "login",
+      "accountUuid": "uuid-2",
+      "organizationUuid": "org-team",
+      "identity": "id-2",
+      "added": "2026-01-02T00:00:00Z"
+    },
+    {
+      "slot": 3,
+      "alias": "Team phụ",
+      "disabled": true,
+      "kind": "setupToken",
+      "accountUuid": "",
+      "organizationUuid": "",
+      "identity": "id-3",
+      "added": "2026-01-03T00:00:00Z"
+    },
+    {
+      "slot": 4,
+      "alias": "Bốn",
+      "disabled": false,
+      "kind": "login",
+      "accountUuid": "uuid-4",
+      "organizationUuid": "org-team",
+      "identity": "id-4",
+      "added": "2026-01-04T00:00:00Z"
+    },
+    {
+      "slot": 5,
+      "alias": "Năm",
+      "disabled": true,
+      "kind": "login",
+      "accountUuid": "uuid-5",
+      "organizationUuid": "org-team",
+      "identity": "id-5",
+      "added": "2026-01-05T00:00:00Z"
+    },
+    {
+      "slot": 6,
+      "disabled": false,
+      "kind": "login",
+      "accountUuid": "uuid-9",
+      "organizationUuid": "org-team",
+      "identity": "f87d203d72eb9b1736218478b754c98f",
+      "added": "<now>"
+    }
+  ]
+}
+== claude status (0)
+   1  5h  88%  7d  10%  stale    held out  Cá nhân
+   2  5h  10%  7d  10%  stale    
+   3  5h  20%  7d  10%  stale    held out  Team phụ
+   4  5h  30%  7d  10%  stale    Bốn
+   5  5h   5%  7d  10%  stale    held out  Năm
+*  6  5h    -  7d    -  noData   
+== an unknown account
+Err("unknownSlot")
