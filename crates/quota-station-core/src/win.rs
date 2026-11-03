@@ -224,8 +224,8 @@ impl Credentials for WinCred {
 
 /// Windows's processes: whether a pid runs through `OpenProcess`, and the
 /// table with each command line from `sysinfo`. None has a terminal to
-/// tell. This user's processes and their ports are not listed: as
-/// quota-axi does on Windows, the Antigravity read asks `agy` only.
+/// tell. This user's processes and their ports are not listed: on
+/// Windows the Antigravity read asks `agy` only.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Tasks;
 

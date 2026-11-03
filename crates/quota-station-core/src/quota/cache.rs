@@ -22,8 +22,7 @@ use crate::app_dir::AppDir;
 
 pub const DIR: &str = "quota";
 const VERSION: u32 = 1;
-/// A reading younger than this answers a timed read (quota-axi's
-/// `--max-age 120s`, which the app passed).
+/// A reading younger than this answers a timed read: two minutes.
 pub const MAX_AGE_SECONDS: i64 = 120;
 const FIVE_HOURS: f64 = 5.0 * 3600.0;
 const WEEK: f64 = 7.0 * 86400.0;

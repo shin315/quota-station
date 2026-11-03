@@ -62,13 +62,13 @@ pub struct Tools {
 }
 
 impl Tools {
-    /// The system's process list, and `agy` where quota-axi finds it: on
+    /// The system's process list, and `agy` where it is installed: on
     /// the `PATH` (an app opened from Finder has launchd's, which leaves out
     /// `~/.local/bin`; a read from a shell has the shell's), then in
     /// Homebrew's folders; on Windows `agy.exe`, then in the folder its
     /// installer uses, `%LOCALAPPDATA%\agy\bin`. Windows lists no process
     /// of this user's ([`crate::win::Tasks`]), so a read there is `agy`'s
-    /// alone, as quota-axi's is.
+    /// alone.
     pub fn system() -> Tools {
         let installed = || {
             let local = std::env::var_os("LOCALAPPDATA").filter(|_| cfg!(windows))?;
@@ -81,7 +81,7 @@ impl Tools {
     }
 }
 
-/// Why a read failed, weighed as quota-axi weighs it.
+/// Why a read failed.
 #[derive(Debug, Clone, PartialEq)]
 enum Fail {
     /// Not there, not reachable, timed out.
@@ -147,8 +147,8 @@ fn stronger(current: Option<Fail>, candidate: Fail) -> Fail {
     }
 }
 
-/// quota-axi's status for an Antigravity failure's words (`statusForError`):
-/// a process or endpoint not there is `unavailable`.
+/// The status for an Antigravity failure's words: a process or endpoint
+/// not there is `unavailable`.
 pub fn status_for_error(error: &str) -> &'static str {
     let e = error.to_lowercase();
     let unavailable = [
@@ -233,8 +233,8 @@ pub fn account_hash(email: &str) -> String {
 }
 
 /// A folder whose `open` and `xdg-open` only fail, first on agy's PATH, so
-/// `/quota` can never send the owner to a browser. On Windows, as quota-axi
-/// does there, they are `open.cmd` and `xdg-open.cmd`, and agy runs with
+/// `/quota` can never send the owner to a browser. On Windows they are
+/// `open.cmd` and `xdg-open.cmd`, and agy runs with
 /// `NoDefaultCurrentDirectoryInExePath`, so no program in its working
 /// folder is found before them; Windows also opens a browser by other
 /// means, which no such folder stops.
@@ -887,7 +887,7 @@ mod tests {
         let ids: Vec<&str> = w.iter().map(|w| w.id.as_str()).collect();
         assert_eq!(
             ids,
-            // quota-axi knows `gemini-5h`, not `gemini-argon-5h`.
+            // The window is `gemini-5h`, not `gemini-argon-5h`.
             [
                 "gemini_5h",
                 "gemini_weekly",
@@ -930,7 +930,7 @@ mod tests {
     }
 
     #[test]
-    fn errors_are_weighed_as_quota_axi_weighs_them() {
+    fn an_error_s_words_give_its_status() {
         assert_eq!(
             status_for_error("Antigravity loopback unavailable (ECONNREFUSED)"),
             "unavailable"

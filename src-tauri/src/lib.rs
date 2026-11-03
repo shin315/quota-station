@@ -4,8 +4,8 @@
 //! Quota Station: AI coding quota in the macOS menu bar.
 //!
 //! Each Mac runs its own copy and switches only its own machine. It reads
-//! the quota of Claude, Codex and Antigravity itself (it read them through
-//! quota-axi until it stood alone); since M3 it also switches Claude when the owner
+//! the quota of Claude, Codex and Antigravity itself, with no outside tool;
+//! since M3 it also switches Claude when the owner
 //! confirms. Since the Claude accounts moved in (`docs/claude-accounts.md`)
 //! it keeps their logins itself, reads their usage and runs a process as a
 //! chosen account (`quota-station claude …`), without claude-swap.

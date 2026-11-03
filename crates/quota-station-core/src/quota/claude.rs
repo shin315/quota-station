@@ -334,7 +334,7 @@ pub fn hold_lifted(app: &AppDir) -> bool {
     !hold(app).exists()
 }
 
-/// The usage answer as quota-axi reads it.
+/// The usage answer, read as windows.
 pub fn normalize(data: &Value) -> Vec<Window> {
     let limits: Vec<Window> = data
         .get("limits")

@@ -461,22 +461,24 @@ fn a_mac_without_claude_code_has_no_claude_row() {
     assert_eq!(Snapshot::build(Some(&report), None).claude.status, SectionStatus::NotSetUp);
 }
 
-// ===== No quota-axi =====
+// ===== No outside tool =====
 
 #[cfg(unix)]
-const CHILD: &str = "QUOTA_STATION_TEST_NO_QUOTA_AXI";
+const CHILD: &str = "QUOTA_STATION_TEST_SYSTEM_PATH_ONLY";
+#[cfg(unix)]
+const SYSTEM_PATH: &str = "/usr/bin:/bin:/usr/sbin:/sbin";
 
 /// Runs again in a child whose PATH has only the system's folders, so no
-/// quota-axi can be found, and every service still shows its numbers. The
-/// fake `agy` is a shell script.
+/// outside tool can be found, and every service still shows its numbers.
+/// The fake `agy` is a shell script.
 #[cfg(unix)]
 #[test]
-fn without_quota_axi_on_the_path_every_service_still_shows_numbers() {
-    const NAME: &str = "without_quota_axi_on_the_path_every_service_still_shows_numbers";
+fn with_only_the_system_on_the_path_every_service_still_shows_numbers() {
+    const NAME: &str = "with_only_the_system_on_the_path_every_service_still_shows_numbers";
     if std::env::var_os(CHILD).is_none() {
         let out = std::process::Command::new(std::env::current_exe().unwrap())
             .args([NAME, "--exact", "--test-threads=1"])
-            .env("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")
+            .env("PATH", SYSTEM_PATH)
             .env(CHILD, "1")
             .output()
             .unwrap();
@@ -485,14 +487,13 @@ fn without_quota_axi_on_the_path_every_service_still_shows_numbers() {
         assert!(text.contains("1 passed"), "{text}");
         return;
     }
-    let path = std::env::var_os("PATH").unwrap_or_default();
-    assert!(std::env::split_paths(&path).all(|d| !d.join("quota-axi").exists()));
+    assert_eq!(std::env::var_os("PATH").unwrap_or_default(), SYSTEM_PATH);
 
     let (mac, anthropic, app) =
-        claude_mac("readers-no-axi", &credential("acc-live", "ref-live", in_hours(5.0)));
+        claude_mac("readers-system-path", &credential("acc-live", "ref-live", in_hours(5.0)));
     let claude = read_claude(&mac, &anthropic, &app, Keychain::Quiet);
 
-    let dir = temp_dir("readers-no-axi-agy");
+    let dir = temp_dir("readers-system-path-agy");
     let answer = json!({ "command": { "name": "/quota", "data": summary() } });
     std::fs::write(dir.join("agy.json"), answer.to_string()).unwrap();
     let agy_report = read_agy(&agy_cli(&dir), &app);

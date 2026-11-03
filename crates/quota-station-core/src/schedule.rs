@@ -3,8 +3,8 @@
 
 //! When to read the quota again.
 //!
-//! Every 60 seconds while the popover is open, every 300 seconds (the
-//! `quota-axi --tui` default) while it is hidden, and at once when the
+//! Every 60 seconds while the popover is open, every 300 seconds (five
+//! minutes) while it is hidden, and at once when the
 //! popover opens, when the Mac wakes, or when the user asks. The freshness
 //! shown is the age of each reading, never the time of the app's last call.
 

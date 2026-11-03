@@ -39,7 +39,7 @@ pub const TOKEN_EXPIRED: &str = "Codex access token expired";
 pub const UNAVAILABLE: &str = "Codex quota unavailable";
 const FIVE_HOURS: f64 = 18_000.0;
 const WEEK: f64 = 604_800.0;
-/// The key of Codex's own login, as quota-axi names it.
+/// The key of Codex's own login.
 pub const ACCOUNT_KEY: &str = "codex-home";
 
 /// Where the usage is asked. The app always uses [`Endpoints::chatgpt`].
@@ -355,7 +355,7 @@ pub fn normalize(data: &Value, now: OffsetDateTime) -> Vec<Window> {
         }
     }
     windows.extend(spend_control(data.get("spend_control"), now));
-    // A repeated id gets `_2`, `_3`, as quota-axi numbers them.
+    // A repeated id gets `_2`, `_3`, in order.
     let mut seen: Vec<(String, u32)> = Vec::new();
     for w in &mut windows {
         let count = match seen.iter_mut().find(|(id, _)| *id == w.id) {
@@ -413,7 +413,7 @@ impl Names {
     }
 }
 
-/// `5h`, `2.5h`: a length in hours as quota-axi writes it.
+/// `5h`, `2.5h`: a length in hours, as a window's id writes it.
 fn hours(seconds: f64) -> String {
     let h = seconds / 3600.0;
     if h.fract() == 0.0 {
@@ -513,7 +513,7 @@ mod tests {
     }
 
     #[test]
-    fn the_http_answer_reads_as_quota_axi_reads_it() {
+    fn the_http_answer_reads_as_windows() {
         let data = json!({
             "plan_type": "pro",
             "rate_limit": {

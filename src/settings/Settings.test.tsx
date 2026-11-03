@@ -118,7 +118,8 @@ describe('settings tab', () => {
   it('shows that Keychain access is granted, and no path to another program', async () => {
     await open(fixtureModel('fresh'));
     await showGroup('Dịch vụ');
-    expect(screen.queryByLabelText(/quota-axi/)).toBeNull();
+    // The one path it asks for is Codex's own folder.
+    expect(screen.getAllByRole('textbox').map((e) => e.id)).toEqual(['qs-codex']);
     expect(screen.getByText('đã cấp')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Cấp quyền một lần' })).toBeNull();
   });

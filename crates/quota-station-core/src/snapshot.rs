@@ -665,7 +665,7 @@ fn codex_section(report: &Response) -> Section {
     // One account per ChatGPT sign-in the app keeps (`codex:<n>`); Codex's
     // own login alone, before the app keeps any, is number 0. The one in
     // the Codex folder is the active one.
-    // Another login's row (quota-axi reads Pi's too) is not Codex's.
+    // Another login's row (Pi's, say) is not Codex's.
     let mut accounts: Vec<Account> = rows
         .iter()
         .filter_map(|row| {

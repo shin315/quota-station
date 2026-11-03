@@ -343,7 +343,7 @@ impl Provider {
     }
 }
 
-/// quota-axi's status for a failure's words (`statusFromError`).
+/// The status for a failure's words.
 pub fn status_for_error(error: &str) -> &'static str {
     let e = error.to_lowercase();
     if e == "keychain_prompt_required"
@@ -370,8 +370,8 @@ fn js_round(v: f64) -> f64 {
     (v + 0.5).floor()
 }
 
-/// A percent rounded to a whole number and kept within 0 to 100, as
-/// quota-axi keeps every percent.
+/// A percent rounded to a whole number and kept within 0 to 100, as every
+/// percent is kept.
 pub fn clamp_percent(v: f64) -> f64 {
     if !v.is_finite() {
         return 0.0;
@@ -458,7 +458,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn percents_round_and_clamp_as_quota_axi_does() {
+    fn percents_round_half_up_and_stay_within_0_and_100() {
         assert_eq!(clamp_percent(37.5), 38.0);
         assert_eq!(clamp_percent(37.49), 37.0);
         assert_eq!(clamp_percent(-3.0), 0.0);
