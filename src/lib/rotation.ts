@@ -11,6 +11,7 @@ import { mac, onWindows, t } from '@/lib/i18n';
 import type { Account, Decision, Hold, LogLine, Model, SwitcherView, Why } from '@/lib/model';
 import { close, dayClock, namesOf, type ChoiceView, type ClaudeSheetView, type FactView, type NameOf } from '@/lib/switching';
 import type { Action, BannerView, FeedbackView } from '@/lib/view';
+import ext from '@qs-ext';
 
 /** The switcher's LaunchAgent runs every 180 seconds. */
 export const switcherEvery = () => t('trong vòng 3 phút', 'within 3 minutes');
@@ -225,6 +226,7 @@ export function pauseSheet(model: Model, choice: PauseChoice, now: Date): PauseS
   let hint = cur.until
     ? t('Hết thời gian này, tự chuyển sẽ bật lại.', 'When the time is up, auto-switch turns back on.')
     : t('Tự chuyển chỉ bật lại khi bạn bật công tắc.', 'Auto-switch only comes back when you turn the switch on.');
+  hint += ext.pauseNote?.() ?? '';
   return {
     title: t('Tạm dừng tự chuyển Claude?', 'Pause Claude auto-switch?'),
     lead: t(
@@ -568,7 +570,7 @@ export interface GuideView {
  * `auto`: stop the older switchers (step 1 of the cutover); `switcher`: the whole cutover from
  * claude-swap, as the README's checklist has it.
  */
-export function guide(id: 'auto' | 'switcher', authorTools = true): GuideView {
+export function guide(id: 'auto' | 'switcher'): GuideView {
   return id === 'auto'
     ? {
         title: t('Tắt bộ tự chuyển cũ', 'Turn off the old auto-switcher'),
@@ -619,6 +621,7 @@ export function guide(id: 'auto' | 'switcher', authorTools = true): GuideView {
             'Kiểm tra danh sách tài khoản, rồi bật **Tự chuyển bằng Quota Station**.',
             'Check the account list, then turn on **Auto-switch with Quota Station**.',
           ),
+          ...(ext.guideSteps?.() ?? []),
           mac(t('Chỉ gỡ claude-swap khi đã hỏi và mọi Mac đã chạy ổn.', 'Remove claude-swap only after asking, and once every Mac runs smoothly.')),
         ],
       };

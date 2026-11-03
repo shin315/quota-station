@@ -22,6 +22,8 @@
 // xoay vòng or Chép sang Mac khác, and Tổng quan and Claude show no automatic
 // switching, pause or switcher. A build without the advanced part shows none
 // of them.
+// An extension's tabs (src/ext/types.ts) come after the item each names,
+// shown as it says.
 // A build without the Antigravity accounts shows the one account signed in,
 // with no login or switch.
 
@@ -45,14 +47,26 @@ import { NAV_ICONS } from './icons';
 
 type NavId = keyof typeof NAV_ICONS;
 
+/** A tab an extension adds, as the window draws it. */
+export interface ExtTabView {
+  id: Tab;
+  label: string;
+  glyph: GlyphName;
+  /** The sidebar item it comes right after. */
+  after: Tab;
+  shown: boolean;
+  page: ReactNode;
+}
+
 /** The sidebar, by group. */
 function navs(
   advanced: boolean,
-): (['-', string] | [NavId, string])[] {
+  extra: ExtTabView[],
+): (['-', string] | [Tab, string])[] {
   let watch = t('Theo dõi', 'Activity');
   // Without automatic switching the group only watches.
   if (advanced) watch = t('Tự động', 'Automation');
-  return [
+  const items: (['-', string] | [Tab, string])[] = [
     ['overview', t('Tổng quan', 'Overview')],
     ['stats', t('Thống kê', 'Stats')],
     ['-', t('Tài khoản', 'Accounts')],
@@ -73,6 +87,8 @@ function navs(
     ['backup', t('Sao lưu', 'Backup')],
     ['copy', t('Chép sang Mac khác', 'Copy to another Mac')],
   ];
+  for (const x of extra) items.splice(items.findIndex((n) => n[0] === x.after) + 1, 0, [x.id, x.label]);
+  return items;
 }
 
 /** The small tag on what Nâng cao holds. */
@@ -84,7 +100,7 @@ export function AdvancedTag({ className, hidden }: { className?: string; hidden?
   );
 }
 
-function NavButton(props: { id: NavId; label: string; tab: Tab; onTab(tab: Tab): void }) {
+function NavButton(props: { id: Tab; label: string; glyph?: GlyphName; tab: Tab; onTab(tab: Tab): void }) {
   const on = props.id === props.tab;
   return (
     <button
@@ -94,24 +110,26 @@ function NavButton(props: { id: NavId; label: string; tab: Tab; onTab(tab: Tab):
         on ? 'bg-fill2 font-semi' : 'bg-transparent hover:bg-fill',
       )}
       aria-current={on ? 'page' : undefined}
-      onClick={() => props.onTab(props.id as Tab)}
+      onClick={() => props.onTab(props.id)}
     >
-      {NAV_ICONS[props.id]}
+      {props.glyph ? <Glyph name={props.glyph} className="size-[15px]" /> : NAV_ICONS[props.id as NavId]}
       <span className="min-w-0 truncate">{props.label}</span>
     </button>
   );
 }
 
-/** The tabs this Mac does not show: those Nâng cao holds while it is off. */
+/** The tabs this Mac does not show: those Nâng cao holds while it is off, and an extension's it hides. */
 function hiddenTabs(
   advanced: boolean,
-): Set<NavId> {
-  const hidden = new Set<NavId>();
+  extra: ExtTabView[],
+): Set<Tab> {
+  const hidden = new Set<Tab>();
   // The tools' Windows installs are not read yet: Cập nhật Agent is macOS's.
   if (onWindows()) hidden.add('cliTools');
-  if (!advanced) ['rules', 'copy'].forEach((t) => hidden.add(t as NavId));
+  if (!advanced) ['rules', 'copy'].forEach((t) => hidden.add(t as Tab));
   // Chép sang Mac khác is a Mac's: Windows has no other Mac to copy to.
   if (onWindows()) hidden.add('copy');
+  for (const x of extra) if (!x.shown) hidden.add(x.id);
   return hidden;
 }
 
@@ -119,13 +137,15 @@ function Sidebar(props: {
   tab: Tab;
   machine: string;
   note: string | null;
-  hidden: Set<NavId>;
+  hidden: Set<Tab>;
   advanced: boolean;
+  extra: ExtTabView[];
   onTab(tab: Tab): void;
 }) {
   const { tab, machine, note, onTab } = props;
   const items = navs(
     props.advanced,
+    props.extra,
   ).filter((n) => n[0] === '-' || !props.hidden.has(n[0]));
   return (
     <nav className="material-side m-0 flex min-h-0 flex-col gap-px overflow-y-auto rounded-none px-2.5 pt-5 pb-2.5 win:pt-2.5" aria-label={t('Các tab', 'Tabs')} data-tauri-drag-region>
@@ -143,7 +163,7 @@ function Sidebar(props: {
             {n[1]}
           </div>
         ) : (
-          <NavButton key={n[0]} id={n[0]} label={n[1]} tab={tab} onTab={onTab} />
+          <NavButton key={n[0]} id={n[0]} label={n[1]} glyph={props.extra.find((x) => x.id === n[0])?.glyph} tab={tab} onTab={onTab} />
         ),
       )}
       <div className="flex-1" data-tauri-drag-region />
@@ -401,6 +421,8 @@ export interface ClaudeManage {
     toggle: ReactNode;
     line: string;
     warning: ReactNode;
+    /** An extension's note, in a build with the advanced part: a line before Chi tiết, and more inside it. */
+    note: { lead: string; details: ReactNode } | null;
   };
   /** Without Nâng cao, a card of its own: only while the rotation runs or the old switcher is loaded. */
   rotationAlone: boolean;
@@ -523,6 +545,10 @@ function RunHalf(props: { title: string; tag?: ReactNode; rotation?: ClaudeManag
   // What comes before Chi tiết, and inside it before the switcher's details.
   let lead: ReactNode = null;
   let notes: ReactNode = null;
+  if (rotation?.note) {
+    lead = rotation.note.lead;
+    notes = rotation.note.details;
+  }
   return (
     <>
       <div className="flex items-center justify-between gap-2.5">
@@ -733,6 +759,8 @@ export interface MainWindowProps {
   copy?: ReactNode;
   /** The Lịch sử tab (M6). */
   history?: ReactNode;
+  /** An extension's tabs (src/ext/types.ts). */
+  extTabs?: ExtTabView[];
   /** The bell (Thông báo), at the right of every page's title row. */
   bell?: ReactNode;
   /** Under the machine name in the sidebar: whether the other Macs have the rules. */
@@ -772,13 +800,15 @@ export function MainWindow(props: MainWindowProps) {
     claude: props.claude,
   };
   const open = !!props.dialog;
+  const extra = props.extTabs ?? [];
   const hidden = hiddenTabs(
     props.advanced,
+    extra,
   );
   const note = props.advanced ? (props.syncNote ?? null) : null;
   // A hidden tab gives way to Tổng quan, and so does `alerts`, which asks
   // for the bell's panel, not a page.
-  const tab: Tab = hidden.has(props.tab as NavId) || props.tab === 'alerts' ? 'overview' : props.tab;
+  const tab: Tab = hidden.has(props.tab) || props.tab === 'alerts' ? 'overview' : props.tab;
   return (
     <div className={cn('win-o material-window relative grid h-full w-full overflow-hidden', props.setup ? 'grid-cols-[minmax(0,1fr)]' : 'grid-cols-[var(--side-w)_minmax(0,1fr)]')}>
       {/* The window's top edge drags it, over the sidebar and the page alike, as a title bar would. Windows has its own title bar. */}
@@ -795,6 +825,7 @@ export function MainWindow(props: MainWindowProps) {
             note={note}
             hidden={hidden}
             advanced={props.advanced}
+            extra={extra}
             onTab={props.onTab}
           />
           {/* The page is the container its layouts measure: the window less the sidebar. */}
@@ -807,6 +838,7 @@ export function MainWindow(props: MainWindowProps) {
               {tab === 'codex' ? props.codex : null}
               {tab === 'rules' ? props.rules : null}
               {tab === 'history' ? props.history : null}
+              {extra.map((x) => (tab === x.id ? <Fragment key={x.id}>{x.page}</Fragment> : null))}
               {tab === 'mcp' ? props.mcp : null}
               {tab === 'skills' ? props.skills : null}
               {tab === 'plugins' ? props.plugins : null}

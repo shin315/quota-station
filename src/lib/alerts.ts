@@ -12,6 +12,7 @@ import type { AlertRecord, AlertTone, Model, NotifyPermission, SwitchKind } from
 import { dayLabel } from './history';
 import type { BannerView, ChipView, FeedbackView } from './view';
 import { advancedOn } from './advanced';
+import ext from '@qs-ext';
 
 /**
  * The kinds, in the prototype's order and words. `agy`: this build
@@ -28,6 +29,7 @@ export function alertKindList(agy = true, rotation = false): { kind: SwitchKind;
       title: t('Hạn mức Claude trong vòng sắp cạn / có lại', 'Claude quota in rotation running out / back'),
       text: t('Khi hạn mức trong vòng đã dùng từ 90% trở lên và khi có lại.', 'When the quota in rotation is 90% used or more, and when it is back.'),
     };
+  if (rotation && ext.alerts) pool.text += ext.alerts.poolRule();
   return [
     { kind: 'pool', ...pool },
     {
@@ -47,6 +49,7 @@ export function alertKindList(agy = true, rotation = false): { kind: SwitchKind;
       title: t('Antigravity đổi về tài khoản cũ', 'Antigravity went back to the old account'),
       text: t('Trong 6 giờ sau khi chuyển. Ngừng đề nghị chuyển lại sau 2 lần.', 'Within 6 hours of a switch. Stops offering to switch back after 2 times.'),
     },
+    ...(ext.alerts?.kinds() ?? []),
   ];
 }
 
@@ -55,27 +58,30 @@ export function alertKindList(agy = true, rotation = false): { kind: SwitchKind;
  * Antigravity switch only in a build that switches Antigravity. Alert 1
  * says its thresholds.
  */
-/** The rotation's (2) only with Cài đặt › Nâng cao. */
+/** The rotation's (2) only with Cài đặt › Nâng cao; an extension's where it says. */
 export function alertKinds(model: Model): { kind: SwitchKind; title: string; text: string }[] {
   const agy = model.capabilities.agyAccounts;
   const p = model.alerts.poolAlert;
   const adv = advancedOn(model);
+  const extKinds = new Set(ext.alerts?.kinds().map((k) => k.kind));
+  const extShown = !!ext.alerts?.shown(model);
   return alertKindList(agy, adv)
     .filter((k) => k.kind !== 'overwrite' || agy)
     .filter((k) => k.kind !== 'leaving' || adv)
+    .filter((k) => !extKinds.has(k.kind) || extShown)
     .map((k) => {
       if (k.kind !== 'pool') return k;
       let title = t('Hạn mức Claude sắp cạn / có lại', 'Claude quota running out / back');
       let where = ['', ''];
-      let rule = ['', ''];
       if (adv) [title, where] = [k.title, [' trong vòng', ' in rotation']];
       return {
         ...k,
         title,
-        text: t(
-          'Khi tài khoản đang dùng còn ' + p.dryAtMost + '% trở xuống và không tài khoản nào' + where[0] + ' còn ' + p.roomAtLeast + '%, và khi có lại.' + rule[0],
-          'When the account in use has ' + p.dryAtMost + '% or less left and no account' + where[1] + ' still has ' + p.roomAtLeast + '%, and when it is back.' + rule[1],
-        ),
+        text:
+          t(
+            'Khi tài khoản đang dùng còn ' + p.dryAtMost + '% trở xuống và không tài khoản nào' + where[0] + ' còn ' + p.roomAtLeast + '%, và khi có lại.',
+            'When the account in use has ' + p.dryAtMost + '% or less left and no account' + where[1] + ' still has ' + p.roomAtLeast + '%, and when it is back.',
+          ) + (extShown ? ext.alerts!.poolRule() : ''),
       };
     });
 }
@@ -163,7 +169,6 @@ export function permissionChip(p: NotifyPermission): ChipView {
   if (p === 'unbundled') return { t: t('bản chạy thử', 'dev build'), k: '' };
   return { t: t('chưa rõ', 'unknown'), k: '' };
 }
-
 
 function pressRefused(code: string): string {
   const known: Record<string, string> = {

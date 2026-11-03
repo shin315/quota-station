@@ -35,6 +35,7 @@ import type {
 } from '../lib/model';
 import type { AuthorModel } from '@/lib/advanced';
 import type { AdvancedView, PeerView, RotationView, Rules, SourceView, SwitcherView } from '../lib/model';
+import ext from '@qs-ext';
 
 const files = import.meta.glob('./snapshots/*.json', { eager: true, import: 'default' }) as Record<string, Snapshot>;
 
@@ -189,7 +190,9 @@ export function alertsFixture(over: Partial<AlertsView> = {}): AlertsView {
       login: true,
       overwrite: true,
       leaving: true,
-    },
+      // An extension's, as it ships them (src/ext/types.ts).
+      ...ext.fixtures?.switches(),
+    } as AlertsView['switches'],
     poolAlert: { dryAtMost: 10, roomAtLeast: 15 },
     unanswered: 0,
     // The bell counts the cards not read yet unless told otherwise.
@@ -271,7 +274,6 @@ export function overwriteAlert(over: Partial<AlertRecord> = {}): AlertRecord {
     ...over,
   };
 }
-
 
 /**
  * A morning on this Mac, newest first as the Rust side sends them (UTC+7): a manual
@@ -751,6 +753,7 @@ export function mcpFixture(over: Partial<McpView> = {}): McpView {
  * The same Mac on a build without the advanced part (a release build), whatever its settings
  * file says: Nâng cao off, and no rules editor or update from source in the model.
  */
+/** Nor an extension's parts. */
 export function communityModel(m: Model): Model {
   const app: AppView = { version: m.app.version, commit: m.app.commit, launchAtLogin: m.app.launchAtLogin };
   const advanced: AdvancedView = {
@@ -758,7 +761,7 @@ export function communityModel(m: Model): Model {
   };
   const out: Model = { ...m, app, advanced, capabilities: { ...m.capabilities, authorTools: false } };
   delete out.rotation;
-  return out;
+  return ext.fixtures ? ext.fixtures.remove(out) : out;
 }
 
 /**
@@ -769,20 +772,19 @@ export function communityModel(m: Model): Model {
  */
 export function releaseModel(m: Model): Model {
   const out: Model = { ...m, capabilities: { ...m.capabilities, agyAccounts: false, authorTools: true } };
-  return out;
+  // Nor an extension's parts.
+  return ext.fixtures ? ext.fixtures.remove(out) : out;
 }
 
 /** The model the fixtures give. */
-type Fixture = Model &
-  AuthorModel &
-  unknown;
+type Fixture = Model & AuthorModel;
 
 /** The author's Mac, as the fixtures were drawn: a build with the Antigravity accounts. */
 /** And with the advanced part. */
 export function fixtureModel(name: string, over: Partial<Model> = {}): Fixture {
   const snapshot = SNAPSHOTS[name];
   if (!snapshot) throw new Error('no snapshot fixture ' + name);
-  return {
+  const model: Model = {
     snapshot: structuredClone(snapshot),
     reading: false,
     reads: 1,
@@ -823,6 +825,10 @@ export function fixtureModel(name: string, over: Partial<Model> = {}): Fixture {
     advanced: {
       on: true,
     },
+  };
+  return {
+    // An extension's parts too (src/ext/types.ts).
+    ...(ext.fixtures ? ext.fixtures.add(model) : model),
     ...over,
     // An override of the app's row comes with the update from source, as every fixture's does.
   } as Fixture;

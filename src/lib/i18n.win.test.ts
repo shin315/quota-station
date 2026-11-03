@@ -77,10 +77,10 @@ describe('the words for the system', () => {
   });
 
   it('the move from claude-swap has no LaunchAgent to turn off on Windows', () => {
-    const steps = guide('switcher', false).steps;
+    const steps = guide('switcher').steps;
     expect(steps[0]).toContain('launchctl bootout');
     setPlatform('windows');
-    const win = guide('switcher', false);
+    const win = guide('switcher');
     expect(win.steps.some((s) => s.includes('launchctl'))).toBe(false);
     expect(win.steps).toHaveLength(steps.length - 1);
     expect(win.lead).toBe('Làm lần lượt trên từng máy. claude-swap và dữ liệu của nó được giữ nguyên, để quay lại được khi cần.');

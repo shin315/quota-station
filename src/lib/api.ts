@@ -6,6 +6,7 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import ext from '@qs-ext';
 import type { SessionView } from '../session/steps';
 import type { CopyComparison, CopySelection, Decision, Peer, PeerTest, Rules } from './model';
 import type {
@@ -658,4 +659,6 @@ export const tauriApi: Api = {
   sessionOpen: (what) => invoke('session_open', { what }),
   sessionZip: () => invoke<{ name: string; folder: string }>('session_zip'),
   sessionReveal: () => invoke('session_reveal'),
+  // An extension's calls (src/ext/types.ts).
+  ...ext.api?.(invoke),
 };

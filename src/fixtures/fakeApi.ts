@@ -68,6 +68,7 @@ import type {
 import type { AuthorModel } from '@/lib/advanced';
 import { comparisonFixture, copyDoneFixture, copyUndoneFixture } from '@/copy/fakeCopy';
 import type { CopyComparison, PeerView, RotationView, RulesError, UpdateError, UpdateOutcome } from '../lib/model';
+import ext from '@qs-ext';
 
 export interface FakeOptions {
   /** A test build's guided session: where the guide was, and what the PC has. */
@@ -218,6 +219,12 @@ function sample(kind: AlertKind, at: number, rotation: boolean): Alert {
       return { ...base, tone: 'bad', title: 'ANTHROPIC_API_KEY đang đè đăng nhập Claude Code', body: 'Thử: đặt ở ~/.zshrc dòng 42. App không đọc giá trị.', actions: [{ id: 'env:settings', label: 'Xem' }, { id: 'env:ignore:ANTHROPIC_API_KEY', label: 'Bỏ qua' }] };
     case 'cli':
       return { ...base, tone: 'info', title: 'Codex CLI có bản 0.164.0', body: 'Thử: Codex CLI 0.163.0 → 0.164.0. App chỉ cập nhật khi bạn bấm.', actions: [{ id: 'cli:settings', label: 'Xem' }, { id: 'dismiss', label: 'Để sau' }] };
+    default: {
+      // An extension's kind (src/ext/types.ts).
+      const own = ext.fake?.sample(kind);
+      if (!own) throw new Error('no sample for ' + kind);
+      return { ...base, ...own };
+    }
   }
 }
 
@@ -1826,6 +1833,8 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
     sessionReveal: async () => {
       sessionCalls.push({ call: 'reveal' });
     },
+    // An extension's calls (src/ext/types.ts).
+    ...ext.fake?.api({ current: () => model, push, options }),
   };
   /** The window's close button, as macOS would press it with unsaved rules. */
   const requestClose = () => closeListeners.forEach((l) => l());

@@ -52,6 +52,8 @@ import { sidebarLine, syncSummary } from '@/rules/rules';
 import { isQuiet, keychainFeedback, popoverView, refreshedFeedback, settingsFailedFeedback, type Action, type FeedbackView } from './lib/view';
 import { windowView } from './lib/window';
 import { Popover } from './popover/Popover';
+import ext from '@qs-ext';
+import type { ExtProps } from '@/ext/types';
 import { HistoryTab } from './history/HistoryTab';
 import { CompareDialog, LeaveDialog, RulesTab } from '@/rules/RulesTab';
 import { useRules } from '@/rules/useRules';
@@ -889,6 +891,8 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   const view = windowView(model, now, { keychainLater });
   // The rules editor and the copy to another Mac: only from a build with the advanced part.
   const author = authorModel(model);
+  // What an extension's views take (src/ext/types.ts).
+  const extProps: ExtProps = { model, api, fresh: view.fresh, now, onAction, failed: () => showFeedback(settingsFailedFeedback()) };
   const settings = (
     <Settings
       model={model}
@@ -922,6 +926,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       onSetBackupFolder={(path) => refusal(api.backupSetFolder(path))}
       onPoolAlert={(dry, room) => refusal(api.setPoolAlert(dry, room))}
       onAdvanced={(on) => void api.setAdvanced(on).catch(() => showFeedback(settingsFailedFeedback()))}
+      advancedRows={ext.advanced ? <ext.advanced.Rows {...extProps} /> : null}
       onTestAlert={testAlert}
       onAlertSwitch={alertSwitch}
       onLaunchAtLogin={(on) => refusal(api.setLaunchAtLogin(on))}
@@ -1071,6 +1076,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       backup={<BackupTab model={model} fresh={view.fresh} feedback={feedback} now={now} backup={backup} onAction={onAction} />}
       history={<HistoryTab model={model} fresh={view.fresh} now={now} load={api.getHistory} />}
       copy={author && macTools(author) ? <CopyTab model={author} feedback={feedback} copy={copy} onAction={onAction} /> : null}
+      extTabs={ext.tabs.map((x) => ({ id: x.id, label: x.label(), glyph: x.glyph, after: x.after, shown: x.shown(model), page: <x.Page {...extProps} /> }))}
       bell={
         <NotificationBell
           model={model}
@@ -1091,6 +1097,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
         claude,
         onAction,
         advanced: advancedOn(model),
+        authorTools: model.capabilities.authorTools,
       })}
       // The first run waits for the browser on its own page, not in a dialog.
       dialog={model.firstRun && claude.dialog?.kind === 'wait' ? null : dialog}

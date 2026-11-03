@@ -5,6 +5,7 @@
 // the other Macs the rotation file is copied to (an SSH alias each), and the
 // clone "Cập nhật từ mã nguồn" builds from. Windows has no other Macs and no
 // update from source: their rows stay out.
+// An extension's rows come first.
 
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
@@ -14,6 +15,12 @@ import type { Peer, PeerTest, SourceView, UpdateError } from '@/lib/model';
 import { t } from '@/lib/i18n';
 import { SET_CTL, SetRow } from '@/settings/SetRow';
 import { noFolderText, notSavedText, SettingsCard, useField, type SettingsProps } from '@/settings/Settings';
+import ext from '@qs-ext';
+
+/** `a, b và c`: the last pair joined by `last`. */
+function list(items: string[], last: string): string {
+  return items.slice(0, -1).join(', ') + last + items[items.length - 1];
+}
 
 type SshTest = { kind: 'testing' } | { kind: 'ok'; hasFile: boolean } | { kind: 'fail'; error: string | null };
 
@@ -146,7 +153,6 @@ function OtherMacs({ model, onSet, onTest }: { model: AuthorModel; onSet: Settin
     </SetRow>
   );
 }
-
 
 const sourceRefused = (): Record<string, string> => ({
   missing: noFolderText(),
@@ -294,13 +300,22 @@ export function Advanced(props: SettingsProps & { model: AuthorModel; id: string
   const a = model.advanced;
   const mac = macTools(model);
   const source = mac ? sourceView(model.app) : null;
-  let lead = mac ? t('Luật, tạm dừng và các Mac khác.', 'Rules, pausing and other Macs.') : t('Luật và tạm dừng.', 'Rules and pausing.');
-  let more = mac
-    ? t(
-        'Tự chuyển Claude theo luật xoay vòng, tạm dừng, các Mac khác và cập nhật từ mã nguồn.',
-        'Automatic Claude switching by rotation rules, pausing, other Macs, and updating from source.',
-      )
-    : t('Tự chuyển Claude theo luật xoay vòng và tạm dừng.', 'Automatic Claude switching by rotation rules, and pausing.');
+  // What it holds, an extension's last: "Luật, tạm dừng, các Mac khác và …".
+  const own = ext.advanced ? [ext.advanced.name()] : [];
+  const lead =
+    list([t('Luật', 'Rules'), t('tạm dừng', 'pausing'), ...(mac ? [t('các Mac khác', 'other Macs')] : []), ...own], t(' và ', ' and ')) + '.';
+  const more =
+    t('Tự chuyển Claude theo ', 'Automatic Claude switching by ') +
+    list(
+      [
+        t('luật xoay vòng', 'rotation rules'),
+        t('tạm dừng', 'pausing'),
+        ...(mac ? [t('các Mac khác', 'other Macs'), t('cập nhật từ mã nguồn', 'updating from source')] : []),
+        ...own,
+      ],
+      t(' và ', ', and '),
+    ) +
+    '.';
   return (
     <SettingsCard id={props.id} title={t('Nâng cao', 'Advanced')} icon="advanced">
       <SetRow
@@ -319,6 +334,7 @@ export function Advanced(props: SettingsProps & { model: AuthorModel; id: string
       </SetRow>
       {a.on ? (
         <>
+          {props.advancedRows}
           {mac ? <OtherMacs model={model} onSet={props.onSetPeers} onTest={props.onTestPeer} /> : null}
           {source ? <SourceDir app={source} onSet={props.onSetSource} /> : null}
           {source ? <UpdateFromSource app={source} onUpdate={props.onUpdate} onRelaunch={props.onRelaunch} /> : null}

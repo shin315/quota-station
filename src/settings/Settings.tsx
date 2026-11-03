@@ -87,6 +87,8 @@ export interface SettingsProps {
   onSkillChecks?(daily: boolean, notify: boolean): void;
   /** Nâng cao on or off. */
   onAdvanced(on: boolean): void;
+  /** An extension's rows in Nâng cao, first under its switch (src/ext/types.ts). */
+  advancedRows?: ReactNode;
   /** Alert 1's thresholds; resolves to null once saved, else the refusal (`range`, `order`). */
   onPoolAlert(dryAtMost: number, roomAtLeast: number): Promise<string | null>;
   /** Where the backup packs go; empty is iCloud Drive. Resolves to the refusal (`notFound`), or null. */

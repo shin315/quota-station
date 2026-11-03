@@ -46,7 +46,7 @@ export function PauseBody(props: SheetBodyProps & { preset: PauseChoice }) {
 }
 
 export function GuideBody(props: SheetBodyProps & { id: 'auto' | 'switcher' }) {
-  const g = guide(props.id, props.model.capabilities.authorTools);
+  const g = guide(props.id);
   return (
     <>
       <DialogTitle>{g.title}</DialogTitle>

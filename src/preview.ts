@@ -116,6 +116,7 @@ import {
 } from './fixtures/models';
 import type { UpdateError, UpdateOutcome } from './lib/model';
 import { heldSwitcher, releaseModel, leavingAlert, peerFixture, rotationFixture, rulesFixture, switcherFixture } from './fixtures/models';
+import ext from '@qs-ext';
 
 const TABS: Tab[] = [
   'overview',
@@ -135,6 +136,8 @@ const TABS: Tab[] = [
   'settings',
   'rules',
   'copy',
+  // An extension's (src/ext/types.ts), with its own parameters.
+  ...ext.tabs.map((x) => x.id),
 ];
 
 const SKILLS: Record<string, () => Model['skills']> = {
@@ -267,7 +270,6 @@ const ALERTS: Record<string, () => Model['alerts']> = {
     }),
   env: () => alertsFixture({ recent: [envAlert(API_KEY), envAlert(BASE_URL, 1768547640)], unanswered: 2 }),
 };
-
 
 const APPS: Record<string, () => Model['app']> = {
   on: () => appFixture({ launchAtLogin: 'on' }),
@@ -462,6 +464,7 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
   if (lang === 'vi' || lang === 'en') over.language = lang;
   const alerts = pick(ALERTS, params.get('alerts') ?? (tab === 'alerts' ? 'on' : null));
   if (alerts) over.alerts = alerts();
+  ext.preview?.apply(params, over);
   const app = pick(APPS, params.get('app'));
   if (app) over.app = app();
   const codex = pick(CODEX, params.get('codex'));
@@ -558,6 +561,7 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
     saveDelayMs: 1000,
     unreachable: rotation === 'unreachable' ? ['mac-c'] : [],
     rulesError: rotation === 'unwritable' ? { kind: 'write', detail: 'Permission denied', restored: true } : undefined,
+    ...ext.preview?.options(),
     update: pick(UPDATES, params.get('update')),
     updateDelayMs: 1500,
     copyUnreach: copy === 'unreach' ? ['travel-air'] : [],

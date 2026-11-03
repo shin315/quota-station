@@ -390,11 +390,8 @@ describe('settings tab', () => {
 });
 
 describe('settings for M6', () => {
-  async function openWith(
-    model: Parameters<typeof open>[0],
-  ) {
-    const fake = fakeApi(model, 'settings', {
-    });
+  async function openWith(model: Parameters<typeof open>[0]) {
+    const fake = fakeApi(model, 'settings');
     for (const name of Object.keys(fake.api) as (keyof Api)[]) vi.spyOn(fake.api, name);
     render(
       <div className="qs app-window">
@@ -404,8 +401,6 @@ describe('settings for M6', () => {
     await screen.findByRole('heading', { name: 'Cài đặt' });
     return fake;
   }
-
-
 
   it('Thông báo shows whether macOS lets the cards show, with "Gửi thử" and a switch for each kind', async () => {
     const fake = await openWith(fixtureModel('fresh'));

@@ -13,6 +13,7 @@ import { BannerBox, BannerButtons, Button, LinkButton, Toggle } from '../compone
 import { Glyph } from '../components/icons';
 import { mac, t } from '../lib/i18n';
 import { rotationMatters, rotationRow, setupText } from '../lib/claudeAccounts';
+import ext from '@qs-ext';
 import type { ClaudeAccountsView } from '../lib/model';
 import type { Action, CardView } from '../lib/view';
 import type { ClaudeManage } from '../window/MainWindow';
@@ -24,6 +25,8 @@ interface Props {
   onAction(act: Action): void;
   /** Cài đặt › Nâng cao is on: the rotation rules exist. */
   advanced: boolean;
+  /** A build with the advanced part: an extension's note on the rotation shows (src/ext/types.ts). */
+  authorTools?: boolean;
 }
 
 const ITEM = 'px-2.5 py-[7px] data-[highlighted]:bg-ctl-hover data-[highlighted]:text-ink';
@@ -85,6 +88,7 @@ function AccountMenu({
  * The rotation's LaunchAgent, in parts the Claude tab lays out: its switch,
  * its line and the warning while the old switcher is loaded.
  */
+/** And an extension's note (a build with the advanced part). */
 function rotationParts(props: Props): ClaudeManage['rotation'] {
   const { view, claude, onAction } = props;
   const rotation = rotationRow(view);
@@ -103,6 +107,7 @@ function rotationParts(props: Props): ClaudeManage['rotation'] {
         <LinkButton onClick={() => onAction('guide:auto')}>{t('Hướng dẫn tắt', 'How to turn it off')}</LinkButton>
       </BannerBox>
     ) : null,
+    note: props.authorTools && ext.rotationNote ? { lead: ext.rotationNote.lead(), details: <ext.rotationNote.Details /> } : null,
   };
 }
 

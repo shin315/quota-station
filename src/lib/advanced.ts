@@ -17,7 +17,6 @@ export function authorModel(model: Model): AuthorModel | null {
   return model.capabilities.authorTools && model.rotation ? (model as AuthorModel) : null;
 }
 
-
 /**
  * What only a Mac has of the advanced part: the other Macs (the rules'
  * copy to them, Chép sang Mac khác) and the update from source. A Windows

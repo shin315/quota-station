@@ -324,7 +324,6 @@ describe('with Nâng cao off', () => {
     expect(nav('Sao lưu')).toBeTruthy();
   });
 
-
   it('the Claude tab has no Tự chuyển card or pause, and accounts go by number', async () => {
     await open(hideNames(plain(fixtureModel('fresh'))), 'claude');
     expect(screen.queryByRole('group', { name: 'Tạm dừng' })).toBeNull();
@@ -334,7 +333,6 @@ describe('with Nâng cao off', () => {
     expect(names.every((n) => /^Tài khoản \d+$/.test(n ?? ''))).toBe(true);
     expect(document.body.textContent).not.toMatch(/Team A|Cá nhân/);
   });
-
 
   it('a build without the Antigravity accounts reads Antigravity without logging in', async () => {
     await open({ ...fixtureModel('fresh'), capabilities: { agyAccounts: false, authorTools: true } }, 'agy');

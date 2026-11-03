@@ -48,7 +48,6 @@ describe('the author\'s tools on Windows', () => {
     expect(within(nav).queryByRole('button', { name: /Chép sang Mac khác/ })).toBeNull();
   });
 
-
   it('a Mac still has Chép sang Mac khác', async () => {
     await open(fixtureModel('fresh'), 'overview');
     const nav = screen.getByRole('navigation', { name: 'Các tab' });
@@ -68,7 +67,6 @@ describe('the author\'s tools on Windows', () => {
     expect(within(card).queryByRole('button', { name: 'Cập nhật từ mã nguồn' })).toBeNull();
     expect(fake.api.setPeers).not.toHaveBeenCalled();
   });
-
 
   it('the rules tab shows this computer alone', async () => {
     await open(windowsModel(), 'rules');

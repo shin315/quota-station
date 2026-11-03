@@ -4,6 +4,8 @@
 // The model the Rust side sends (`src-tauri/src/state.rs`, `quota-station-core::snapshot`).
 // Field names are serde's camelCase; `Option` arrives as null.
 
+import type { ExtSwitchKinds, ExtTabs } from '@/ext/types';
+
 export type LineKind =
   | 'session'
   | 'week'
@@ -534,7 +536,9 @@ export type SwitchKind =
   | 'pool'
   | 'leaving'
   | 'login'
-  | 'overwrite';
+  | 'overwrite'
+  /** An extension's (`src/ext/types.ts`). */
+  | keyof ExtSwitchKinds;
 /**
  * `skill`: skills with a newer version (M11), shown in the app only unless Cài đặt says otherwise.
  * `env`: a variable overriding a login (M14), in the app only.
@@ -611,7 +615,6 @@ export interface AlertsView {
   unread: number;
   permission: NotifyPermission;
 }
-
 
 /** The app as a login item (`quota-station-core::login_item::Status`). */
 export type LaunchAtLogin = 'off' | 'on' | 'needsApproval' | 'unavailable';
@@ -789,7 +792,9 @@ export type Tab =
   /** Cập nhật Agent: Claude Code, the Codex CLI and the Antigravity CLI. */
   | 'cliTools'
   | 'backup'
-  | 'settings';
+  | 'settings'
+  /** An extension's (`src/ext/types.ts`). */
+  | keyof ExtTabs;
 
 /** A tab of Cài đặt: Chung holds Cập nhật and Sao lưu too, Dịch vụ the variables that override a login. */
 export type SettingsGroup =
