@@ -158,9 +158,8 @@ and are built only with the `antigravity-accounts` feature (see
   read from `cloudcode-pa.googleapis.com`, every other from
   `daily-cloudcode-pa.googleapis.com`. Each reading goes, in Cockpit's cache
   layout, to the app's `antigravity/` folder; the Antigravity row lists every
-  account from there, beside the live read of the account in use, and
-  quota-axi (`+cswap.5`) reads the same folder before Cockpit's. The
-  pace is never denser than Cockpit's: the account in use with each of the
+  account from there, beside the live read of the account in use.
+  The pace is never denser than Cockpit's: the account in use with each of the
   app's reads, the others every 10 minutes and when the `Antigravity` tab opens,
   one account at a time, and no account twice within a minute (a reading
   younger than that is used as it is). A network error on
