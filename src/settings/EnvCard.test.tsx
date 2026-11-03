@@ -9,14 +9,14 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MainWindowApp } from '../App';
 import { fakeApi } from '../fixtures/fakeApi';
-import { API_KEY, BASE_URL, CLAUDE_BASE, envAlert, envFixture, LAUNCHD_GEMINI } from '../fixtures/fakeEnv';
+import { API_KEY, BASE_URL, CLAUDE_BASE, envAlert, envFixture, LAUNCHD_GEMINI, PS_TOKEN, SETTINGS_TOKEN } from '../fixtures/fakeEnv';
 import { alertsFixture, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
 import trap from '../fixtures/env-trap.json';
 import type { Api } from '../lib/api';
 import type { AlertRecord, EnvFound, EnvPlace, Model, Tab } from '../lib/model';
 
-async function openTab(tab: Tab, model: Model) {
-  const fake = fakeApi(model, tab);
+async function openTab(tab: Tab, model: Model, options: Parameters<typeof fakeApi>[2] = {}) {
+  const fake = fakeApi(model, tab, options);
   for (const name of Object.keys(fake.api) as (keyof Api)[]) vi.spyOn(fake.api, name);
   render(
     <div className="qs app-window">
@@ -64,7 +64,7 @@ describe('Cài đặt › Dịch vụ › Biến môi trường đè đăng nh�
     const launchd = row('GEMINI_API_KEY');
     expect(within(launchd).getByText('launchctl · app mở từ Dock')).toBeTruthy();
     expect(within(launchd).queryByRole('button', { name: /^Mở file/ })).toBeNull();
-    expect(within(card()).getByText(/Đã kiểm tra 11 biến ở 6 chỗ lúc \d\d:\d\d\. Chỉ biết biến có đặt hay không, không đọc giá trị\./)).toBeTruthy();
+    expect(within(card()).getByText(/Đã kiểm tra 11 biến ở 8 chỗ lúc \d\d:\d\d\. Chỉ biết biến có đặt hay không, không đọc giá trị\./)).toBeTruthy();
     // The title row drags the window, as on every tab.
     expect(screen.getByRole('heading', { level: 2, name: 'Cài đặt' }).parentElement!.getAttribute('data-tauri-drag-region')).toBe('deep');
     // One sheet of glass: the card is not inside another card.
@@ -77,7 +77,7 @@ describe('Cài đặt › Dịch vụ › Biến môi trường đè đăng nh�
     await press(within(row('ANTHROPIC_API_KEY')).getByRole('button', { name: 'Mở file: ~/.zshrc · dòng 42' }));
     expect(fake.api.envOpen).toHaveBeenCalledWith('ANTHROPIC_API_KEY@zshrc');
     const toast = screen.getByText('Đã mở ~/.zshrc dòng 42 trong Visual Studio Code').closest('.toast') as HTMLElement;
-    expect(toast.title).toBe('App không sửa file shell.');
+    expect(toast.title).toBe('App chỉ sửa file khi bạn bấm Gỡ.');
   });
 
   it('"Bỏ qua" hides one place, says how many are hidden, and "Hoàn tác" brings it back', async () => {
@@ -111,7 +111,7 @@ describe('Cài đặt › Dịch vụ › Biến môi trường đè đăng nh�
     expect(within(card()).getByText('Không đọc được ~/.zprofile, launchctl.')).toBeTruthy();
   });
 
-  it('"Xem danh sách" lists the eleven names and the six places', async () => {
+  it('"Xem danh sách" lists the eleven names and the eight places', async () => {
     await openTab('settings', withEnv([]));
     await showGroup('Dịch vụ');
     await press(within(card()).getByRole('button', { name: 'Xem danh sách' }));
@@ -123,11 +123,104 @@ describe('Cài đặt › Dịch vụ › Biến môi trường đè đăng nh�
       '~/.zshrc',
       '~/.bash_profile',
       '~/.profile',
+      '~/.claude/settings.json',
+      '~/.claude/settings.local.json',
       'launchctl (app mở từ Dock)',
     ]);
-    expect(within(d).getByText(/không đọc giá trị, không chạy file shell, không sửa file và không tự bỏ biến/)).toBeTruthy();
+    expect(within(d).getByText(/không đọc giá trị, không chạy file shell và không tự bỏ biến; app chỉ sửa file khi bạn bấm Gỡ ở một dòng/)).toBeTruthy();
     await press(within(d).getByRole('button', { name: 'Đóng' }));
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+});
+
+describe('Cài đặt › Dịch vụ › "Gỡ"', () => {
+  it('says a key in Claude Code’s settings and a line inside a PowerShell function, which counts only when it is called', async () => {
+    await openTab('settings', withEnv([SETTINGS_TOKEN, PS_TOKEN, LAUNCHD_GEMINI]));
+    await showGroup('Dịch vụ');
+    const rows = within(card()).getAllByRole('listitem');
+    const settings = rows.find((li) => li.textContent?.includes('settings.json'))!;
+    expect(within(settings).getByText('~/.claude/settings.json · dòng 4')).toBeTruthy();
+    expect(within(settings).getByText('Ở mọi lần chạy, Claude Code gửi token này thay cho đăng nhập của tài khoản claude-swap đang chọn.')).toBeTruthy();
+    const ps = rows.find((li) => li.textContent?.includes('$PROFILE'))!;
+    expect(within(ps).getByText('$PROFILE · dòng 5 · chỉ khi gọi hàm ccd')).toBeTruthy();
+    expect(within(ps).getByText('Trong PowerShell, khi gọi hàm ccd, Claude Code gửi token này thay cho đăng nhập của tài khoản claude-swap đang chọn.')).toBeTruthy();
+    // "Gỡ" next to "Mở file" and "Bỏ qua", only for a file.
+    expect(within(ps).getAllByRole('button').map((b) => b.textContent)).toEqual(['Mở file', 'Gỡ', 'Bỏ qua']);
+    expect(within(row('GEMINI_API_KEY')).getAllByRole('button').map((b) => b.textContent)).toEqual(['Bỏ qua']);
+  });
+
+  it('previews the one line, its value masked, removes it on "Gỡ" and puts it back on "Hoàn tác"', async () => {
+    const fake = await openTab('settings', withEnv([PS_TOKEN, API_KEY]));
+    await showGroup('Dịch vụ');
+    await press(within(card()).getByRole('button', { name: 'Gỡ ANTHROPIC_AUTH_TOKEN ở $PROFILE · dòng 5 · chỉ khi gọi hàm ccd' }));
+    expect(fake.api.envRemovePreview).toHaveBeenCalledWith('ANTHROPIC_AUTH_TOKEN@psProfile');
+    const d = screen.getByRole('dialog', { name: 'Gỡ ANTHROPIC_AUTH_TOKEN?' });
+    expect(within(d).getByText('$env:ANTHROPIC_AUTH_TOKEN = ••••••')).toBeTruthy();
+    expect(within(d).getByText('$PROFILE')).toBeTruthy();
+    expect(within(d).getByText('dòng 5')).toBeTruthy();
+    expect(within(d).getByText(/nằm trong một hàm PowerShell nên chỉ khi gọi hàm ccd/)).toBeTruthy();
+    expect(within(d).getByText(/App chỉ xoá đúng dòng này/)).toBeTruthy();
+    // "Huỷ" changes nothing.
+    await press(within(d).getByRole('button', { name: 'Huỷ' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(fake.api.envRemove).not.toHaveBeenCalled();
+    await press(within(card()).getByRole('button', { name: /^Gỡ ANTHROPIC_AUTH_TOKEN/ }));
+    await press(within(screen.getByRole('dialog')).getByRole('button', { name: 'Gỡ' }));
+    expect(fake.api.envRemove).toHaveBeenCalledWith('ANTHROPIC_AUTH_TOKEN@psProfile');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(within(card()).queryByRole('listitem', { name: /^ANTHROPIC_AUTH_TOKEN/ })).toBeNull();
+    expect(screen.getByText('Đã gỡ ANTHROPIC_AUTH_TOKEN khỏi $PROFILE')).toBeTruthy();
+    await press(screen.getByRole('button', { name: 'Hoàn tác' }));
+    expect(fake.api.envRestore).toHaveBeenCalledWith('ANTHROPIC_AUTH_TOKEN@psProfile');
+    expect(row('ANTHROPIC_AUTH_TOKEN')).toBeTruthy();
+    expect(screen.getByText('Đã đặt lại ANTHROPIC_AUTH_TOKEN ở $PROFILE')).toBeTruthy();
+  });
+
+  it('a key of Claude Code’s settings: the key goes, the rest of the file stays', async () => {
+    const fake = await openTab('settings', withEnv([SETTINGS_TOKEN]));
+    await showGroup('Dịch vụ');
+    await press(within(row('ANTHROPIC_AUTH_TOKEN')).getByRole('button', { name: /^Gỡ / }));
+    const d = screen.getByRole('dialog', { name: 'Gỡ ANTHROPIC_AUTH_TOKEN?' });
+    expect(within(d).getByText('Khoá sẽ xoá')).toBeTruthy();
+    expect(within(d).getByText('"ANTHROPIC_AUTH_TOKEN": ••••••')).toBeTruthy();
+    expect(within(d).getByText(/file vẫn là JSON hợp lệ, phần còn lại \(MCP, hooks, quyền\) giữ nguyên/)).toBeTruthy();
+    await press(within(d).getByRole('button', { name: 'Gỡ' }));
+    expect(fake.api.envRemove).toHaveBeenCalledWith('ANTHROPIC_AUTH_TOKEN@claudeSettings');
+  });
+
+  it('a line that is not a plain assignment: says why, offers "Mở file" and has no "Gỡ"', async () => {
+    const fake = await openTab('settings', withEnv([API_KEY]), { envRefusal: { 'ANTHROPIC_API_KEY@zshrc': 'continued' } });
+    await showGroup('Dịch vụ');
+    await press(within(row('ANTHROPIC_API_KEY')).getByRole('button', { name: /^Gỡ / }));
+    const d = screen.getByRole('dialog', { name: 'Gỡ ANTHROPIC_API_KEY?' });
+    expect(within(d).getByText(/App không gỡ được dòng này\. Dòng này nối với dòng trước hoặc dòng sau/)).toBeTruthy();
+    expect(within(d).getAllByRole('button').map((b) => b.textContent)).toEqual(['Đóng', 'Mở file']);
+    await press(within(d).getByRole('button', { name: 'Mở file' }));
+    expect(fake.api.envOpen).toHaveBeenCalledWith('ANTHROPIC_API_KEY@zshrc');
+    expect(fake.api.envRemove).not.toHaveBeenCalled();
+    expect(row('ANTHROPIC_API_KEY')).toBeTruthy();
+  });
+
+  it('a file changed since the preview: nothing removed, and said', async () => {
+    const fake = await openTab('settings', withEnv([API_KEY]), { envRemoveFail: 'changed' });
+    await showGroup('Dịch vụ');
+    await press(within(row('ANTHROPIC_API_KEY')).getByRole('button', { name: /^Gỡ / }));
+    await press(within(screen.getByRole('dialog')).getByRole('button', { name: 'Gỡ' }));
+    expect(fake.api.envRemove).toHaveBeenCalled();
+    expect(screen.getByText('Chưa gỡ được ANTHROPIC_API_KEY')).toBeTruthy();
+    expect(screen.getByText('File đã đổi sau khi xem trước. Không có gì bị xoá.')).toBeTruthy();
+    expect(row('ANTHROPIC_API_KEY')).toBeTruthy();
+  });
+
+  it('"Hoàn tác" after the file changed again: not overwritten, and said', async () => {
+    const fake = await openTab('settings', withEnv([API_KEY]), { envRestoreFail: 'changed' });
+    await showGroup('Dịch vụ');
+    await press(within(row('ANTHROPIC_API_KEY')).getByRole('button', { name: /^Gỡ / }));
+    await press(within(screen.getByRole('dialog')).getByRole('button', { name: 'Gỡ' }));
+    await press(screen.getByRole('button', { name: 'Hoàn tác' }));
+    expect(fake.api.envRestore).toHaveBeenCalledWith('ANTHROPIC_API_KEY@zshrc');
+    expect(screen.getByText('Chưa hoàn tác được')).toBeTruthy();
+    expect(screen.getByText(/File đã đổi sau khi gỡ, nên app không ghi đè/)).toBeTruthy();
   });
 });
 

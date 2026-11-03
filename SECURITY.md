@@ -635,7 +635,15 @@ learns whether each is set and where, never its value.
   run or `source`d, and no shell is started. A name counts only at the
   start of a line (`export NAME=` or `NAME=`, after spaces); only the line
   number is kept, and the bytes are zeroed before they are let go. A file
-  larger than 1 MB is not read.
+  larger than 1 MB is not read. A file with a byte order mark is read in
+  its encoding (UTF-8, or UTF-16 as Windows PowerShell's `Out-File` writes
+  it). On Windows the PowerShell profiles are read the same way
+  (`$env:NAME = …`); a line inside a function's body is marked as counting
+  only when that function is called, by the function's name.
+- The `env` of Claude Code's user settings, `~/.claude/settings.json` and
+  `~/.claude/settings.local.json` (`%USERPROFILE%\.claude` on Windows), is
+  parsed as JSON for its keys' names and lines, and only Claude Code's
+  names are looked for there; the bytes are zeroed the same way.
 - `/bin/launchctl getenv NAME` is run for each name, with fixed arguments.
   It prints the value, so its output is only asked whether it is empty and
   then zeroed at once: never kept, logged, stored or shown.
@@ -645,8 +653,30 @@ learns whether each is set and where, never its value.
   places in `agents/env-ignored.json` in the app's folder.
 - `Mở file` runs `/usr/bin/open` on that one shell file: at the line with
   the `vscode://`, `cursor://` or `zed://` URL when that editor is in
-  `/Applications` or `~/Applications`, else `open -t`. The app never edits a
-  shell file and never unsets a variable, in a file or in launchd.
+  `/Applications` or `~/Applications`, else `open -t`. The app never unsets a
+  variable in launchd or the registry.
+- `Gỡ` is the one way the app edits one of these files, and only on that
+  press, after a preview (`agents::env_remove`). The preview shows the line
+  or key with its value masked: what the window gets is only the part before
+  the value (`export NAME=`, `$env:NAME = `, `"NAME":`) and `••••••`. The
+  removal cuts that one line, with its line ending, or that one `env` key
+  with its comma, checked to still parse as JSON; every other byte stays,
+  the byte order mark, UTF-16 and `\r\n` included. It refuses, rather than
+  guesses, a line that is not a plain assignment ending on that line (an
+  open quote or bracket, a `\`, backtick or `|` carrying it on, a
+  here-string, more than one statement). The file is replaced through a
+  temporary file beside it and a rename, only when it still holds the bytes
+  the preview was made from; a symlinked file is written where it points
+  and keeps its mode.
+- `Hoàn tác` after `Gỡ` needs the cut bytes: only that span (never the whole
+  file), where it was and the file's hashes before and after are kept in
+  `agents/env-undo/` in the app's folder (on Windows its local twin, which a
+  roaming profile does not carry), as the Codex logins are kept: a folder
+  for the owner alone (mode 700, or an ACL that grants the current user
+  alone) and files of mode 600. Nothing is left beside the owner's file.
+  The undo writes only when the file still hashes to what the removal left,
+  and its record goes after it; a record older than a week goes at the next
+  removal.
 
 ## Configuration sets (M15)
 
@@ -849,6 +879,15 @@ reads or writes a login, an account, a key or a quota file of any of them.
   (`src/fixtures/env-trap.json`) on Cài đặt, the Claude tab and the Thông báo panel
   and find no value there. No test reads the real home, its shell files or
   launchd.
+- `tests/env_remove.rs` (M14, on macOS and Windows) checks Claude Code's
+  settings and their local twin, a profile line inside a function, a byte
+  order mark and UTF-16; that a preview masks the value; that `Gỡ` cuts
+  exactly the line (LF, CRLF, a last line with no line ending, a code page,
+  UTF-16) or the key (first, middle, last, only, repeated) and `Hoàn tác`
+  gives back every byte; that a line that is not a plain assignment is
+  refused and left alone; that a file changed after the preview, or after
+  the removal, is not written; and that the undo record, in the app's
+  folder for its owner alone, holds the cut span only.
 - `tests/agents_sets.rs` (M15) applies sets on a temporary home with
   Codex's and Antigravity's files, a fake `claude` and a fake `npx` that
   record their arguments, and a fake `security`. It checks that only the

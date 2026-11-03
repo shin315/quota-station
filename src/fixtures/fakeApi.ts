@@ -51,6 +51,8 @@ import type {
   CodexTriggerRun,
   Line,
   EnvFound,
+  EnvPreview,
+  EnvRefusal,
   StatsSkipped,
   HistoryEntry,
   McpOutcome,
@@ -148,6 +150,12 @@ export interface FakeOptions {
   skillsUpdateFail?: string[];
   /** How long "Kiểm lại" takes (M14). */
   envDelayMs?: number;
+  /** "Gỡ" will not take these ids out, and why. */
+  envRefusal?: Record<string, EnvRefusal>;
+  /** "Gỡ" fails after its preview (`changed`, `io`). */
+  envRemoveFail?: string;
+  /** "Hoàn tác" after "Gỡ" fails (`changed`, `missing`, `io`). */
+  envRestoreFail?: string;
   /** "Áp bộ" finds an agent's file changed since the preview (M15): nothing is written. */
   setsChanged?: Agent;
   /** How long a set's preview, apply and undo take. */
@@ -268,6 +276,8 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
   /** "Bỏ qua" keeps what it hid, for "Hoàn tác"; "Mở file" what it opened. */
   const envHidden = new Map<string, EnvFound>();
   const envOpened: string[] = [];
+  /** "Gỡ" keeps what it took out, for "Hoàn tác". */
+  const envRemoved = new Map<string, EnvFound>();
   let statsSkipped = structuredClone(options.statsSkipped ?? SKIPPED_NONE);
   /** One Claude account action: running, then landed (`change`) or failed (`claudeFail`). */
   const claudeRun = async (
@@ -1155,6 +1165,30 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       envHidden.delete(id);
       push({ ...model, env: { ...model.env, found: [...model.env.found, f], ignored: Math.max(0, model.env.ignored - 1) } });
     },
+    envRemovePreview: async (id) => {
+      const f = model.env.found.find((x) => x.id === id);
+      if (!f || f.line == null) throw f ? 'noFile' : 'gone';
+      const json = f.place === 'claudeSettings' || f.place === 'claudeLocalSettings';
+      const ps = f.place === 'psProfile' || f.place === 'pwshProfile';
+      const shown = json ? '"' + f.name + '": ••••••' : ps ? '$env:' + f.name + ' = ••••••' : 'export ' + f.name + '=••••••';
+      const preview: EnvPreview = { id, name: f.name, place: f.place, line: f.line, onlyIn: f.onlyIn ?? null, shown, refusal: options.envRefusal?.[id] ?? null };
+      return preview;
+    },
+    envRemove: async (id) => {
+      const f = model.env.found.find((x) => x.id === id);
+      if (!f) throw 'gone';
+      if (options.envRefusal?.[id]) throw options.envRefusal[id];
+      if (options.envRemoveFail) throw options.envRemoveFail;
+      envRemoved.set(id, f);
+      push({ ...model, env: { ...model.env, found: model.env.found.filter((x) => x.id !== id), checkedAt: now().toISOString() } });
+    },
+    envRestore: async (id) => {
+      const f = envRemoved.get(id);
+      if (options.envRestoreFail) throw options.envRestoreFail;
+      if (!f) throw 'missing';
+      envRemoved.delete(id);
+      push({ ...model, env: { ...model.env, found: [...model.env.found, f], checkedAt: now().toISOString() } });
+    },
     setsSave: async (set) => {
       const name = set.name.trim();
       if (!name || name.length > 60) throw 'name';
@@ -1383,7 +1417,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
         tabListeners.forEach((l) => l('agy'));
       }
       else if (action === 'env:settings') {
-        result = said('Đã mở Cài đặt', 'Ở tab Dịch vụ. App không sửa file shell.');
+        result = said('Đã mở Cài đặt', 'Ở tab Dịch vụ. App chỉ sửa file khi bạn bấm Gỡ.');
         // The Rust side opens the main window on Cài đặt's Dịch vụ, the variables' card first.
         settingsGroup = 'services';
         tab = 'settings';

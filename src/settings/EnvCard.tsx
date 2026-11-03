@@ -2,15 +2,18 @@
 // SPDX-License-Identifier: MIT
 
 // Cài đặt's card "Biến môi trường đè đăng nhập" (M14, I): each variable set
-// in a shell file or launchd, the agent it overrides and how, with "Mở file"
-// at its line and "Bỏ qua"; a green line when there is none. "Xem danh
-// sách" says what the app looks at. The app never reads a value, never
-// edits a shell file and never unsets anything.
+// in a shell file, Claude Code's settings or launchd, the agent it overrides
+// and how, with "Mở file" at its line, "Gỡ" and "Bỏ qua"; a green line when
+// there is none. "Xem danh sách" says what the app looks at. "Gỡ" shows the
+// one line or key that goes, its value masked, before it takes it out, and
+// its "Hoàn tác" puts it back. The app never reads a value and never unsets
+// anything.
 
 import { useRef, useState } from 'react';
 import { Facts } from '../agents/McpDialogs';
 import { Card as Panel, CardText, CardTitle } from '@/components/ui/card';
-import { DialogButtons, DialogSection, DialogTitle } from '@/components/ui/dialog';
+import { DialogButtons, DialogLead, DialogSection, DialogTitle } from '@/components/ui/dialog';
+import { DiffFile, DiffLine, DiffView } from '../components/blocks';
 import { SectionGlyph } from '../components/icons';
 import { Button, Chip, LinkButton } from '../components/parts';
 import type { Api } from '../lib/api';
@@ -20,14 +23,22 @@ import {
   checkedLine,
   envFailedFeedback,
   ignoredFeedback,
+  isJson,
+  onlyWhen,
   openedFeedback,
   openFailedFeedback,
   isFile,
+  placeLabel,
+  refusalText,
+  removedFeedback,
+  removeFailedFeedback,
+  restoredFeedback,
+  restoreFailedFeedback,
   unreadNote,
   whereLine,
 } from '../lib/env';
 import { os, t } from '../lib/i18n';
-import type { Model } from '../lib/model';
+import type { EnvPreview, Model } from '../lib/model';
 import type { Action, FeedbackView } from '../lib/view';
 
 /** The list dialog, and what the card's, banner's and feedback's buttons do. */
@@ -66,6 +77,44 @@ export function useEnv(api: Api, model: Model | null, showFeedback: (fb: Feedbac
     showFeedback(null);
     await api.envUnignore(id).catch(() => showFeedback(envFailedFeedback()));
   };
+  /** "Gỡ"'s preview while it is open, and whether the removal is under way. */
+  const [preview, setPreview] = useState<EnvPreview | null>(null);
+  const [working, setWorking] = useState(false);
+  /** What each "Gỡ" took out, for its "Hoàn tác"'s words. */
+  const removed = useRef(new Map<string, EnvPreview>());
+  const askRemove = async (id: string) => {
+    try {
+      setPreview(await api.envRemovePreview(id));
+    } catch (e) {
+      showFeedback(removeFailedFeedback(undefined, String(e)));
+    }
+  };
+  const remove = async () => {
+    const p = preview;
+    if (!p || p.refusal || working) return;
+    setWorking(true);
+    try {
+      await api.envRemove(p.id);
+      removed.current.set(p.id, p);
+      showFeedback(removedFeedback(p));
+    } catch (e) {
+      showFeedback(removeFailedFeedback(p, String(e)));
+    } finally {
+      setWorking(false);
+      setPreview(null);
+    }
+  };
+  const restore = async (id: string) => {
+    const p = removed.current.get(id);
+    showFeedback(null);
+    try {
+      await api.envRestore(id);
+      removed.current.delete(id);
+      if (p) showFeedback(restoredFeedback(p));
+    } catch (e) {
+      showFeedback(restoreFailedFeedback(String(e)));
+    }
+  };
   /** Its own actions; false for the others. `env:settings` is the window's. */
   const act = (a: Action): boolean => {
     if (a === 'env:check') void check();
@@ -73,10 +122,22 @@ export function useEnv(api: Api, model: Model | null, showFeedback: (fb: Feedbac
     else if (a.startsWith('env:open:')) void open(a.slice('env:open:'.length));
     else if (a.startsWith('env:ignore:')) void ignore(a.slice('env:ignore:'.length));
     else if (a.startsWith('env:back:')) void back(a.slice('env:back:'.length));
+    else if (a.startsWith('env:remove:')) void askRemove(a.slice('env:remove:'.length));
+    else if (a.startsWith('env:restore:')) void restore(a.slice('env:restore:'.length));
     else return false;
     return true;
   };
-  return { list, act, close: () => setList(false) };
+  return {
+    list,
+    preview,
+    working,
+    act,
+    remove,
+    close: () => {
+      setList(false);
+      if (!working) setPreview(null);
+    },
+  };
 }
 
 export type EnvState = ReturnType<typeof useEnv>;
@@ -108,6 +169,11 @@ export function EnvCard({ model, onAction, id }: { model: Model; onAction(act: A
                 {isFile(f.place) ? (
                   <Button label={t('Mở file: ', 'Open file: ') + whereLine(f)} onClick={() => onAction(`env:open:${f.id}`)}>
                     {t('Mở file', 'Open file')}
+                  </Button>
+                ) : null}
+                {isFile(f.place) ? (
+                  <Button label={t('Gỡ ' + f.name + ' ở ' + whereLine(f), 'Remove ' + f.name + ' from ' + whereLine(f))} onClick={() => onAction(`env:remove:${f.id}`)}>
+                    {t('Gỡ', 'Remove')}
                   </Button>
                 ) : null}
                 <Button label={t('Bỏ qua ' + f.name + ' ở ' + whereLine(f), 'Ignore ' + f.name + ' in ' + whereLine(f))} onClick={() => onAction(`env:ignore:${f.id}`)}>
@@ -149,12 +215,12 @@ export function EnvListBody({ model, env }: { model: Model; env: EnvState }) {
       <p className="mt-1.5 mb-0 text-xs text-ink2">
         {os(
           t(
-            'App tìm tên biến ở đầu dòng trong từng file và hỏi launchctl biến có đặt hay không. App không đọc giá trị, không chạy file shell, không sửa file và không tự bỏ biến.',
-            'The app looks for each name at the start of a line in each file, and asks launchctl whether it is set. It never reads a value, runs a shell file, edits a file or unsets a variable.',
+            'App tìm tên biến ở đầu dòng trong từng file shell, trong mục env của settings của Claude Code, và hỏi launchctl biến có đặt hay không. App không đọc giá trị, không chạy file shell và không tự bỏ biến; app chỉ sửa file khi bạn bấm Gỡ ở một dòng.',
+            'The app looks for each name at the start of a line in each shell file and in the env of Claude Code’s settings, and asks launchctl whether it is set. It never reads a value, runs a shell file or unsets a variable by itself; it edits a file only when you press Remove on a row.',
           ),
           t(
-            'App tìm tên biến ở đầu dòng trong $PROFILE của PowerShell và hỏi Windows biến có đặt trong biến người dùng hay biến hệ thống không. App không đọc giá trị, không chạy file shell, không sửa file và không tự bỏ biến.',
-            'The app looks for each name at the start of a line in PowerShell’s $PROFILE, and asks Windows whether it is set as a user or system variable. It never reads a value, runs a shell file, edits a file or unsets a variable.',
+            'App tìm tên biến ở đầu dòng trong $PROFILE của PowerShell (kể cả dòng trong một hàm, chỉ có tác dụng khi gọi hàm đó), trong mục env của settings của Claude Code, và hỏi Windows biến có đặt trong biến người dùng hay biến hệ thống không. App không đọc giá trị, không chạy file shell và không tự bỏ biến; app chỉ sửa file khi bạn bấm Gỡ ở một dòng.',
+            'The app looks for each name at the start of a line in PowerShell’s $PROFILE (a line inside a function counts only when that function is called) and in the env of Claude Code’s settings, and asks Windows whether it is set as a user or system variable. It never reads a value, runs a shell file or unsets a variable by itself; it edits a file only when you press Remove on a row.',
           ),
         )}
       </p>
@@ -162,6 +228,79 @@ export function EnvListBody({ model, env }: { model: Model; env: EnvState }) {
         <Button large primary onClick={env.close}>
           {t('Đóng', 'Close')}
         </Button>
+      </DialogButtons>
+    </>
+  );
+}
+
+/** "Gỡ": the one line or key that goes, its value masked, and what stays; or why the app will not. */
+export function EnvRemoveBody({ env, onAction }: { env: EnvState; onAction(act: Action): void }) {
+  const p = env.preview;
+  if (!p) return null;
+  const json = isJson(p.place);
+  const only = onlyWhen(p);
+  return (
+    <>
+      <DialogTitle>{t('Gỡ ' + p.name + '?', 'Remove ' + p.name + '?')}</DialogTitle>
+      <DialogLead>
+        {p.refusal
+          ? t('App không gỡ được dòng này. ', 'The app will not remove this line. ') + refusalText(p.refusal) + t(' Mở file để sửa bằng tay.', ' Open the file to edit it yourself.')
+          : json
+            ? t(
+                'App chỉ xoá đúng khoá này trong mục env; file vẫn là JSON hợp lệ, phần còn lại (MCP, hooks, quyền) giữ nguyên.',
+                'The app removes just this key from env; the file stays valid JSON and the rest (MCP, hooks, permissions) stays as it is.',
+              )
+            : t(
+                'App chỉ xoá đúng dòng này; mọi dòng khác, mã hoá và kiểu xuống dòng của file giữ nguyên.',
+                'The app removes just this line; every other line, the encoding and the line endings stay as they are.',
+              )}
+      </DialogLead>
+      <DialogSection>{json ? t('Khoá sẽ xoá', 'The key that goes') : t('Dòng sẽ xoá', 'The line that goes')}</DialogSection>
+      <DiffView head={<DiffFile>{placeLabel(p.place)}</DiffFile>} right={t('dòng ', 'line ') + p.line}>
+        <DiffLine op="del" n={p.line}>
+          {p.shown}
+        </DiffLine>
+      </DiffView>
+      {only ? (
+        <p className="mt-0 mb-1.5 text-xs text-ink2">
+          {t('Dòng này nằm trong một hàm PowerShell nên ', 'This line is inside a PowerShell function, so it applies ') + only + '.'}
+        </p>
+      ) : null}
+      {p.refusal ? null : (
+        <p className="mt-0 mb-1.5 text-xs text-ink2">
+          {t(
+            'Giá trị đã che. Phần bị xoá được giữ trong thư mục riêng của app (chỉ tài khoản của bạn mở được) để Hoàn tác; không có bản sao nào cạnh file.',
+            'The value is hidden. What goes is kept in the app’s own folder (only your account can open it) for Undo; no copy is left beside the file.',
+          )}
+        </p>
+      )}
+      <DialogButtons>
+        {p.refusal ? (
+          <>
+            <Button large onClick={env.close}>
+              {t('Đóng', 'Close')}
+            </Button>
+            <Button
+              large
+              primary
+              onClick={() => {
+                env.close();
+                onAction(`env:open:${p.id}`);
+              }}
+            >
+              {t('Mở file', 'Open file')}
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button large disabled={env.working} onClick={env.close}>
+              {t('Huỷ', 'Cancel')}
+            </Button>
+            <Button large danger disabled={env.working} onClick={() => void env.remove()}>
+              {t('Gỡ', 'Remove')}
+            </Button>
+          </>
+        )}
       </DialogButtons>
     </>
   );

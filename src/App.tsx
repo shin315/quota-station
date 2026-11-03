@@ -47,7 +47,7 @@ import { isQuiet, keychainFeedback, popoverView, refreshedFeedback, settingsFail
 import { windowView } from './lib/window';
 import { Popover } from './popover/Popover';
 import { HistoryTab } from './history/HistoryTab';
-import { EnvListBody, useEnv } from './settings/EnvCard';
+import { EnvListBody, EnvRemoveBody, useEnv } from './settings/EnvCard';
 import { Settings } from './settings/Settings';
 import { MainWindow } from './window/MainWindow';
 import { Setup } from './setup/Setup';
@@ -657,7 +657,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
   latestModel.current = model;
   const release = useRelease(api, model, showFeedback);
   let sheetOpen =
-    !!switching.sheet || !!mcp.dialog || !!backup.dialog || !!skills.dialog || plugins.open || !!instr.dialog || env.list || !!sets.dialog || !!claude.dialog || !!codexAccounts.dialog || !!release.dialog;
+    !!switching.sheet || !!mcp.dialog || !!backup.dialog || !!skills.dialog || plugins.open || !!instr.dialog || env.list || !!env.preview || !!sets.dialog || !!claude.dialog || !!codexAccounts.dialog || !!release.dialog;
   const closeSheet = useRef(switching.close);
   // Escape closes the sheet on show: a switch first, then an MCP dialog.
   closeSheet.current = () => {
@@ -667,7 +667,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
     else if (skills.dialog) skills.close();
     else if (plugins.open) plugins.close();
     else if (instr.dialog) instr.close();
-    else if (env.list) env.close();
+    else if (env.list || env.preview) env.close();
     else if (sets.dialog) sets.close();
     // The wait for the browser ends with its own Thôi, which stops the sign-in.
     else if (claude.dialog && claude.dialog.kind !== 'wait') claude.close();
@@ -900,6 +900,8 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
         <InstrDialogBody instr={instr} model={model} now={now} />
       ) : env.list ? (
         <EnvListBody model={model} env={env} />
+      ) : env.preview ? (
+        <EnvRemoveBody env={env} onAction={onAction} />
       ) : sets.dialog ? (
         <SetDialogBody sets={sets} model={model} />
       ) : release.dialog === 'release' ? (
@@ -935,7 +937,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
               ? 'xl'
               : instr.dialog
                 ? instrDialogSize(instr.dialog)
-                : env.list
+                : env.list || env.preview
                   ? 'lg'
                   : sets.dialog
                     ? setDialogSize(sets.dialog)

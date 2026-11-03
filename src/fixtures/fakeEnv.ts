@@ -19,7 +19,7 @@ export const ENV_VARS = [
   'GOOGLE_API_KEY',
   'GOOGLE_CLOUD_PROJECT',
 ];
-export const ENV_PLACES = ['~/.zshenv', '~/.zprofile', '~/.zshrc', '~/.bash_profile', '~/.profile', 'launchctl'];
+export const ENV_PLACES = ['~/.zshenv', '~/.zprofile', '~/.zshrc', '~/.bash_profile', '~/.profile', '~/.claude/settings.json', '~/.claude/settings.local.json', 'launchctl'];
 
 export const API_KEY: EnvFound = {
   id: 'ANTHROPIC_API_KEY@zshrc',
@@ -56,6 +56,27 @@ export const CLAUDE_BASE: EnvFound = {
   place: 'launchctl',
   line: null,
   effect: 'Trong các app mở từ Dock, Claude Code gửi yêu cầu tới địa chỉ này thay cho máy chủ của Anthropic.',
+};
+
+/** The owner's case: the token in Claude Code's settings, and in a profile function. */
+export const SETTINGS_TOKEN: EnvFound = {
+  id: 'ANTHROPIC_AUTH_TOKEN@claudeSettings',
+  name: 'ANTHROPIC_AUTH_TOKEN',
+  agent: 'claude',
+  weight: 'bad',
+  place: 'claudeSettings',
+  line: 4,
+  effect: 'Ở mọi lần chạy, Claude Code gửi token này thay cho đăng nhập của tài khoản claude-swap đang chọn.',
+};
+export const PS_TOKEN: EnvFound = {
+  id: 'ANTHROPIC_AUTH_TOKEN@psProfile',
+  name: 'ANTHROPIC_AUTH_TOKEN',
+  agent: 'claude',
+  weight: 'bad',
+  place: 'psProfile',
+  line: 5,
+  onlyIn: 'ccd',
+  effect: 'Trong PowerShell, khi gọi hàm ccd, Claude Code gửi token này thay cho đăng nhập của tài khoản claude-swap đang chọn.',
 };
 
 /** Checked a minute before the fixture's now; nothing set by default. */

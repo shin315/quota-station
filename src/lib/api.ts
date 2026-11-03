@@ -59,6 +59,7 @@ import type {
   SkillUpdated,
   SkillUpdatedMany,
   ConfigSet,
+  EnvPreview,
   SetOutcome,
   SetPreview,
   SetSent,
@@ -271,6 +272,12 @@ export interface Api {
   /** "Bỏ qua" on one place, and its "Hoàn tác". */
   envIgnore(id: string): Promise<void>;
   envUnignore(id: string): Promise<void>;
+  /** "Gỡ": what will be taken out, the value masked. Rejects with a refusal (`gone`, `noFile`, `unreadable`, `json`…). */
+  envRemovePreview(id: string): Promise<EnvPreview>;
+  /** "Gỡ" after its preview, then a check. Rejects with a refusal, `changed` (the file changed since the preview) or `io`. */
+  envRemove(id: string): Promise<void>;
+  /** "Hoàn tác" after "Gỡ", then a check. Rejects with `missing`, `changed` or `io`. */
+  envRestore(id: string): Promise<void>;
   /** "Lưu bộ" (M15): a new set (empty id) or one edited. Rejects with `name`, `taken`, `badEntry:…`, `full`, `io`. */
   setsSave(set: ConfigSet): Promise<ConfigSet>;
   /** "Xoá": the set goes; no agent file changes. */
@@ -499,6 +506,9 @@ export const tauriApi: Api = {
   envOpen: (id) => invoke<string | null>('env_open', { id }),
   envIgnore: (id) => invoke('env_ignore', { id }),
   envUnignore: (id) => invoke('env_unignore', { id }),
+  envRemovePreview: (id) => invoke<EnvPreview>('env_remove_preview', { id }),
+  envRemove: (id) => invoke('env_remove', { id }),
+  envRestore: (id) => invoke('env_restore', { id }),
   setsSave: (set) => invoke<ConfigSet>('sets_save', { set }),
   setsDelete: (id) => invoke('sets_delete', { id }),
   setsUndelete: () => invoke('sets_undelete'),

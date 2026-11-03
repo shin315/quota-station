@@ -2,13 +2,14 @@
 // SPDX-License-Identifier: MIT
 
 // The variables that override a login (M14, I), in words: Cài đặt's card,
-// the Claude tab's banner and the lines after "Mở file", "Bỏ qua" and
-// "Kiểm lại". The app knows names and places only, never a value.
+// the Claude tab's banner, "Gỡ"'s preview and the lines after "Mở file",
+// "Bỏ qua", "Gỡ", "Hoàn tác" and "Kiểm lại". The app knows names and places
+// only, never a value: a preview's line comes with the value masked.
 
 import { clock } from './format';
 import { t } from './i18n';
 import { AGENT_NAME } from './mcp';
-import type { EnvFound, EnvPlace, EnvView, Model } from './model';
+import type { EnvFound, EnvPlace, EnvPreview, EnvRefusal, EnvView, Model } from './model';
 import type { BannerView, ChipView, FeedbackView } from './view';
 
 /** The places that are no file: launchd, and Windows' user and system variables (the registry). */
@@ -23,6 +24,8 @@ const FILES: Record<Exclude<EnvPlace, NoFile>, string> = {
   psProfile: '$PROFILE',
   pwshProfile: '$PROFILE (PowerShell 7)',
   bashrc: '~/.bashrc',
+  claudeSettings: '~/.claude/settings.json',
+  claudeLocalSettings: '~/.claude/settings.local.json',
 };
 
 /** A shell file, which "Mở file" opens at its line. */
@@ -40,16 +43,29 @@ export function placeLabel(p: EnvPlace): string {
   return p === 'launchctl' ? 'launchctl' : FILES[p];
 }
 
+/** A settings file of Claude Code: a key of its `env`, not a line. */
+export function isJson(p: EnvPlace): boolean {
+  return p === 'claudeSettings' || p === 'claudeLocalSettings';
+}
+
+/** "chỉ khi gọi hàm ccd", for a line inside a PowerShell function; null otherwise. */
+export function onlyWhen(f: Pick<EnvFound, 'onlyIn'>): string | null {
+  if (f.onlyIn == null) return null;
+  return f.onlyIn ? t('chỉ khi gọi hàm ' + f.onlyIn, 'only when ' + f.onlyIn + ' is called') : t('chỉ khi gọi hàm chứa nó', 'only when its function is called');
+}
+
 /** Under the name: `~/.zshrc · dòng 42`, or where launchd's variables go. */
 export function whereLine(f: EnvFound): string {
   if (f.place === 'launchctl') return t('launchctl · app mở từ Dock', 'launchctl · apps opened from the Dock');
   if (!isFile(f.place)) return placeLabel(f.place) + t(' · app mở từ Start', ' · apps opened from Start');
-  return placeLabel(f.place) + (f.line != null ? t(' · dòng ', ' · line ') + f.line : '');
+  const only = onlyWhen(f);
+  return placeLabel(f.place) + (f.line != null ? t(' · dòng ', ' · line ') + f.line : '') + (only ? ' · ' + only : '');
 }
 
-/** In a sentence: `~/.zshrc dòng 42`. */
+/** In a sentence: `~/.zshrc dòng 42`, `$PROFILE dòng 5 (trong hàm ccd)`. */
 function at(f: EnvFound): string {
-  return placeLabel(f.place) + (f.line != null ? t(' dòng ', ' line ') + f.line : '');
+  const inside = f.onlyIn != null ? t(' (trong hàm ' + (f.onlyIn || 'không tên') + ')', ' (in function ' + (f.onlyIn || 'without a name') + ')') : '';
+  return placeLabel(f.place) + (f.line != null ? t(' dòng ', ' line ') + f.line + inside : '');
 }
 
 export function agentChip(f: EnvFound): ChipView {
@@ -122,7 +138,7 @@ export function envBanner(model: Model): BannerView | null {
 
 /** After "Mở file": the editor went to the line, or the default one opened the file. */
 export function openedFeedback(f: EnvFound, editor: string | null): FeedbackView {
-  const noEdit = t('App không sửa file shell.', 'The app does not edit shell files.');
+  const noEdit = t('App chỉ sửa file khi bạn bấm Gỡ.', 'The app edits a file only when you press Remove.');
   if (editor) return { tone: '', title: t('Đã mở ' + at(f) + ' trong ' + editor, 'Opened ' + at(f) + ' in ' + editor), body: noEdit };
   return {
     tone: '',
@@ -163,7 +179,7 @@ export function checkedFeedback(env: EnvView): FeedbackView {
     ? {
         tone: 'warn',
         title: t(vi + ': ' + n + ' chỗ đặt biến đè đăng nhập', en + ': ' + plural(n, 'place sets', 'places set') + ' a variable that overrides sign-in'),
-        body: t('App không sửa file shell và không tự bỏ biến.', 'The app does not edit shell files or unset variables.'),
+        body: t('App không tự sửa file hay bỏ biến. Bấm Gỡ ở từng dòng để xoá đúng dòng đó.', 'The app does not edit files or unset variables by itself. Press Remove on a row to take out just that line.'),
       }
     : { tone: '', title: t(vi + ': không có biến nào đè đăng nhập', en + ': no variable overrides a sign-in'), body: '' };
 }
@@ -173,6 +189,72 @@ export function envFailedFeedback(): FeedbackView {
     tone: 'warn',
     title: t('Chưa làm được', 'Could not do that'),
     body: t('Không có gì thay đổi.', 'Nothing changed.'),
+    actions: [{ label: t('Đóng', 'Close'), act: 'closeFeedback' }],
+  };
+}
+
+/** Why "Gỡ" will not take a place out, in a sentence. */
+export function refusalText(r: EnvRefusal | string): string {
+  switch (r) {
+    case 'multiline':
+      return t('Giá trị kéo sang dòng sau (dấu nháy hay ngoặc chưa đóng), nên app không biết xoá tới đâu.', 'The value goes on past this line (an open quote or bracket), so the app cannot tell where it ends.');
+    case 'continued':
+      return t('Dòng này nối với dòng trước hoặc dòng sau (\\, dấu ` hay |), nên xoá riêng nó sẽ làm hỏng lệnh.', 'This line is joined to the one before or after it (\\, ` or |), so taking it out alone would break the command.');
+    case 'hereString':
+      return t('Giá trị là here-string (@\'…\'@) trải nhiều dòng.', 'The value is a here-string (@\'…\'@) over several lines.');
+    case 'several':
+      return t('Dòng này còn làm việc khác ngoài đặt biến (biến khác, lệnh khác hay dấu đóng khối).', 'This line does more than set the variable (another variable, a command or the end of a block).');
+    case 'json':
+      return t('File không phải JSON hợp lệ.', 'The file is not valid JSON.');
+    case 'unreadable':
+      return t('Không đọc được file.', 'The file could not be read.');
+    case 'noFile':
+      return t('Biến này không nằm trong file.', 'This variable is not set in a file.');
+    case 'changed':
+      return t('File đã đổi sau khi xem trước. Không có gì bị xoá.', 'The file changed after the preview. Nothing was removed.');
+    default:
+      return t('Biến không còn ở chỗ này. Bấm Kiểm tra lại.', 'The variable is no longer there. Press Check again.');
+  }
+}
+
+/** After "Gỡ", with its "Hoàn tác". */
+export function removedFeedback(p: EnvPreview): FeedbackView {
+  return {
+    tone: 'info',
+    title: t('Đã gỡ ' + p.name + ' khỏi ' + placeLabel(p.place), 'Removed ' + p.name + ' from ' + placeLabel(p.place)),
+    body: t('Phần đã xoá được giữ trong thư mục riêng của app để hoàn tác.', 'What was removed is kept in the app’s own folder for Undo.'),
+    actions: [{ label: t('Hoàn tác', 'Undo'), act: `env:restore:${p.id}` }],
+  };
+}
+
+/** "Gỡ" did not happen. */
+export function removeFailedFeedback(p: EnvPreview | undefined, why: string): FeedbackView {
+  return {
+    tone: 'warn',
+    title: p ? t('Chưa gỡ được ' + p.name, 'Could not remove ' + p.name) : t('Chưa gỡ được', 'Could not remove it'),
+    body: why === 'io' ? t('Không ghi được file. Không có gì thay đổi.', 'The file could not be written. Nothing changed.') : refusalText(why),
+    actions: [
+      { label: t('Kiểm tra lại', 'Check again'), act: 'env:check' },
+      { label: t('Đóng', 'Close'), act: 'closeFeedback' },
+    ],
+  };
+}
+
+/** After "Hoàn tác" of a "Gỡ". */
+export function restoredFeedback(p: EnvPreview): FeedbackView {
+  return { tone: '', title: t('Đã đặt lại ' + p.name + ' ở ' + placeLabel(p.place), 'Put ' + p.name + ' back in ' + placeLabel(p.place)), body: '' };
+}
+
+export function restoreFailedFeedback(why: string): FeedbackView {
+  return {
+    tone: 'warn',
+    title: t('Chưa hoàn tác được', 'Could not undo'),
+    body:
+      why === 'changed'
+        ? t('File đã đổi sau khi gỡ, nên app không ghi đè. Mở file để thêm lại dòng đó nếu cần.', 'The file changed after the removal, so the app does not overwrite it. Open the file to add the line back if you need it.')
+        : why === 'missing'
+          ? t('Không còn bản để hoàn tác.', 'There is nothing left to undo.')
+          : t('Không ghi được file. Không có gì thay đổi.', 'The file could not be written. Nothing changed.'),
     actions: [{ label: t('Đóng', 'Close'), act: 'closeFeedback' }],
   };
 }

@@ -38,8 +38,18 @@ pub fn refresh(state: State<'_, AppState>) -> u64 {
 
 /// Opens the main window on the tab named `tab`, one of the app's own or
 /// of the extension's; any other name opens nothing.
+///
+/// Async on purpose: a synchronous command runs inside WebView2's own
+/// callback on Windows, and building a window there deadlocks (the new
+/// webview never loads, so the window stays white; wry issue 583). An async
+/// command runs on the async runtime, which may build windows. Keep it so:
+/// `no_sync_command_builds_a_window` pins it.
 #[tauri::command]
-pub fn open_window(app: AppHandle, state: State<'_, AppState>, tab: String) -> Result<(), String> {
+pub async fn open_window(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    tab: String,
+) -> Result<(), String> {
     let named = state.lock().tab(&tab);
     windows::open_main(&app, named.ok_or_else(|| format!("unknown tab `{tab}`"))?);
     Ok(())

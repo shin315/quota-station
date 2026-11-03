@@ -64,7 +64,7 @@ export type Action =
 /** "Tạo bộ", "Hoàn tác bộ", "Hoàn tác" of a delete, "Áp…" on one set (M15). */
 export type SetsAction = 'sets:new' | 'sets:undo' | 'sets:undelete' | `sets:apply:${string}`;
 
-export type EnvAction = 'env:check' | 'env:list' | 'env:settings' | `env:open:${string}` | `env:ignore:${string}` | `env:back:${string}`;
+export type EnvAction = 'env:check' | 'env:list' | 'env:settings' | `env:open:${string}` | `env:ignore:${string}` | `env:back:${string}` | `env:remove:${string}` | `env:restore:${string}`;
 
 export type SkillAction =
   | 'skills:undo'

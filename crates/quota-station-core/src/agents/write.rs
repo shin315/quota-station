@@ -59,7 +59,7 @@ static WRITES: AtomicU64 = AtomicU64::new(0);
 
 /// The real file: a symlinked file is written where it points, so the link
 /// stays.
-fn real(file: &Path) -> io::Result<PathBuf> {
+pub(crate) fn real(file: &Path) -> io::Result<PathBuf> {
     match std::fs::symlink_metadata(file) {
         Ok(m) if m.file_type().is_symlink() => std::fs::canonicalize(file),
         _ => Ok(file.to_path_buf()),

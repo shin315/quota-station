@@ -7,14 +7,18 @@
 //!
 //! The check runs after a read when the last one is older than
 //! [`EVERY`], and when "Kiểm lại" is pressed or Cài đặt opens. It knows
-//! names and places only; the app never edits a shell file and never
-//! unsets anything. "Bỏ qua" is kept in the app's folder.
+//! names and places only; the app never unsets anything. "Bỏ qua" is kept
+//! in the app's folder. "Gỡ" takes one line or key out of its file after a
+//! preview with the value masked, and "Hoàn tác" puts it back
+//! (`quota_station_core::agents::env_remove`); the check runs again after
+//! each.
 
 use std::collections::BTreeSet;
 use std::path::Path;
 use std::time::{Duration, Instant};
 
 use quota_station_core::agents::env_check::{self, Check, Found, Place, VARS};
+use quota_station_core::agents::env_remove::{self, Preview, RemoveError, UndoError};
 use quota_station_core::alerts;
 use quota_station_core::local_time;
 use serde::Serialize;
@@ -39,6 +43,9 @@ pub struct Live {
     pub tried: Option<Instant>,
     /// "Bỏ qua", as saved; `None` until the first check loads it.
     pub ignored: Option<BTreeSet<String>>,
+    /// The id the last "Gỡ" preview was for, and the hash of the file it
+    /// was made on: the removal wants that file.
+    pub planned: Option<(String, String)>,
 }
 
 /// Cài đặt's card and the Claude tab's banner.
@@ -141,6 +148,95 @@ pub fn every(app: &AppHandle, state: &AppState) {
         let _ = tauri::async_runtime::spawn_blocking(move || run(&s2)).await;
         end(&a, &s);
     });
+}
+
+/// A check now, after "Gỡ" or "Hoàn tác" changed a file, even while
+/// another one runs (that one may have read the file before the change).
+async fn check_now(app: &AppHandle, state: &AppState) {
+    {
+        state.lock().env.checking = true;
+    }
+    reader::publish(app, state);
+    let s = state.clone();
+    let _ = tauri::async_runtime::spawn_blocking(move || run(&s)).await;
+    end(app, state);
+}
+
+/// A refusal's word for the window (`multiline`, `gone`…).
+fn word(r: env_remove::Refusal) -> String {
+    serde_json::to_value(r).ok().and_then(|v| v.as_str().map(str::to_string)).unwrap_or_default()
+}
+
+/// "Gỡ": what will go, the value masked, or why the app will not. Keeps
+/// the file's hash for [`env_remove`].
+#[tauri::command]
+pub fn env_remove_preview(state: State<'_, AppState>, id: String) -> Result<Preview, String> {
+    let home = state.lock().home.clone();
+    let plan = env_remove::plan(&home, &id).map_err(word)?;
+    let preview = plan.preview.clone();
+    state.lock().env.planned = Some((id, plan.hash()));
+    Ok(preview)
+}
+
+/// "Gỡ" after its preview: takes the line or key out when the file is as
+/// the preview saw it, then checks again. Errors: a refusal's word,
+/// `changed` or `io`.
+#[tauri::command]
+pub async fn env_remove(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<(), String> {
+    let shared = state.inner().clone();
+    let (home, dir, planned) = {
+        let mut inner = shared.lock();
+        (inner.home.clone(), inner.app_dir(), inner.env.planned.take())
+    };
+    let removed = tauri::async_runtime::spawn_blocking(move || {
+        let plan = env_remove::plan(&home, &id).map_err(word)?;
+        if planned != Some((id, plan.hash())) {
+            return Err("changed".to_string());
+        }
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        env_remove::remove(&dir, plan, now).map_err(|e| match e {
+            RemoveError::Refused { refusal } => word(refusal),
+            RemoveError::Changed => "changed".into(),
+            RemoveError::Io { .. } => "io".into(),
+        })
+    })
+    .await
+    .map_err(|_| "io".to_string())
+    .and_then(|r| r);
+    check_now(&app, &shared).await;
+    removed
+}
+
+/// "Hoàn tác" after "Gỡ": puts the line or key back when the file is as
+/// the removal left it, then checks again. Errors: `missing`, `changed`
+/// or `io`.
+#[tauri::command]
+pub async fn env_restore(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<(), String> {
+    let shared = state.inner().clone();
+    let (home, dir) = {
+        let inner = shared.lock();
+        (inner.home.clone(), inner.app_dir())
+    };
+    let restored = tauri::async_runtime::spawn_blocking(move || {
+        env_remove::undo(&home, &dir, &id).map_err(|e| match e {
+            UndoError::Missing => "missing".to_string(),
+            UndoError::Changed => "changed".into(),
+            UndoError::Io { .. } => "io".into(),
+        })
+    })
+    .await
+    .map_err(|_| "io".to_string())
+    .and_then(|r| r);
+    check_now(&app, &shared).await;
+    restored
 }
 
 /// "Kiểm lại", and Cài đặt opening.

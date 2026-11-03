@@ -709,6 +709,73 @@ pub fn quit(app: &AppHandle) {
 mod tests {
     use super::*;
 
+    /// Every `.rs` file under `dir`.
+    fn sources(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+        for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                if path.file_name().is_some_and(|n| n != "target") {
+                    sources(&path, out);
+                }
+            } else if path.extension().is_some_and(|e| e == "rs") {
+                out.push(path);
+            }
+        }
+    }
+
+    /// On Windows a synchronous command runs inside WebView2's own callback,
+    /// and building a window there deadlocks (wry issue 583): the window
+    /// shows white and never loads its page. So a command that opens or
+    /// builds a window must be `async`. This reads the sources, since the
+    /// deadlock cannot be seen off Windows.
+    #[test]
+    fn no_sync_command_builds_a_window() {
+        const BUILDS: [&str; 6] = [
+            "windows::open_main(",
+            "windows::open_settings(",
+            "session::open_guide(",
+            "windows::quit(",
+            "WebviewWindowBuilder",
+            "WebviewWindow::builder",
+        ];
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let mut files = Vec::new();
+        sources(&root.join("src"), &mut files);
+        sources(&root.join("../ext"), &mut files);
+        let mut checked = 0;
+        let mut bad = Vec::new();
+        for file in files {
+            let text = std::fs::read_to_string(&file).unwrap();
+            let lines: Vec<&str> = text.lines().collect();
+            for (at, line) in lines.iter().enumerate() {
+                if !line.trim_start().starts_with("#[tauri::command") {
+                    continue;
+                }
+                let Some(head) = lines[at + 1..].iter().position(|l| l.contains("fn ")) else {
+                    continue;
+                };
+                let start = at + 1 + head;
+                let indent = lines[start].len() - lines[start].trim_start().len();
+                let close = format!("{}}}", " ".repeat(indent));
+                let end = lines[start..]
+                    .iter()
+                    .position(|l| *l == close)
+                    .map_or(lines.len(), |n| start + n);
+                let body = lines[start..end].join("\n");
+                let asynchronous = lines[start].contains("async fn");
+                let name = lines[start].trim();
+                if BUILDS.iter().any(|b| body.contains(b)) {
+                    checked += 1;
+                    if !asynchronous {
+                        bad.push(format!("{}: {name}", file.display()));
+                    }
+                }
+            }
+        }
+        assert!(checked > 0, "the scan found no command that opens a window");
+        assert!(bad.is_empty(), "synchronous commands that open a window: {bad:#?}");
+    }
+
     /// The call reaches AppKit's real property, whose type objc2 checks in a
     /// debug build, and keeps what it read for `check_material`.
     #[test]

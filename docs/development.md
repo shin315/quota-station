@@ -183,7 +183,7 @@ The core's integration tests are `crates/quota-station-core/tests/*.rs`:
 `antigravity_quota`, `antigravity_spy`, `antigravity_switch`,
 `claude_accounts`, `claude_import`, `claude_manage`, `claude_pool`,
 `claude_switch`, `claude_windows`, `cli_tools`, `codex`, `codex_accounts`,
-`codex_wake`, `detail`, `env_check`, `ext`, `history_ext`, `icon`,
+`codex_wake`, `detail`, `env_check`, `env_remove`, `ext`, `history_ext`, `icon`,
 `icon_badge`, `install_script`, `labels`, `login_item`, `os_macos`,
 `quota_readers`, `runner`, `sessions`, `settings`, `snapshot`,
 `snapshot_ext`, `stats`, `switch_ext` and `ui_fixtures`, with shared helpers in
@@ -337,7 +337,9 @@ What the main suites check:
   with fake shell files and a fake `launchctl` that records its words: a name
   counts only at the start of a line, the last line wins, `launchctl` is asked
   `getenv NAME` for the eleven names and nothing else, a file it cannot read is
-  said, and a shell file with commands in it is never run. Their trap plants a
+  said, and a shell file with commands in it is never run; `env_remove.rs`
+  (macOS and Windows) checks Claude Code's settings, profile functions and
+  encodings, and `Gỡ` with its `Hoàn tác` byte for byte. Their trap plants a
   value in every file and in `launchctl`'s answer and finds it nowhere: not in
   the result, the alerts, the app's folder or what the window is sent. That
   model is `src/fixtures/env-trap.json`, which the Vitest tests draw on Settings,
@@ -416,7 +418,8 @@ UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test stats
     and `npx.rs` install, update and remove through `npx skills`,
     `skill_updates.rs` asks GitHub for newer versions, `plugins.rs` reads the
     agents' plugin lists and `instructions.rs` the instruction files;
-    `env_check.rs` finds the variables that override a login; `sets.rs` turns a
+    `env_check.rs` finds the variables that override a login and `env_remove.rs`
+    takes one out of its file (`Gỡ`) and puts it back; `sets.rs` turns a
     configuration set into the MCP and Skills tabs' batches, applies and undoes
     it, and says how far the Mac drifted from it.
   - `stats/`: reads the session logs for their token counts (`claude_log.rs`,

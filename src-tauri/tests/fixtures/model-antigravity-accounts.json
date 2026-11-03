@@ -232,6 +232,8 @@
       "~/.zshrc",
       "~/.bash_profile",
       "~/.profile",
+      "~/.claude/settings.json",
+      "~/.claude/settings.local.json",
       "launchctl"
     ],
     "unread": [],

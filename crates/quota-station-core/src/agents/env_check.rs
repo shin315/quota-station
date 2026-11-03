@@ -5,30 +5,41 @@
 //! `ANTHROPIC_API_KEY` in `~/.zshrc` makes Claude Code in Terminal use that
 //! key instead of the claude-swap account in use, whatever the app switches.
 //!
-//! [`check`] looks for the eleven names in [`VARS`] in the five shell files
+//! [`check`] looks for the eleven names in [`VARS`] in the five shell files,
+//! the `env` of Claude Code's user settings (`~/.claude/settings.json`, and
+//! `settings.local.json` beside it), which every run of Claude Code applies,
 //! and launchd's environment ([`Place`]). It learns only whether a name is
 //! set, and where: the file and its line, or launchd. It never learns a
 //! value:
 //!
 //! - A shell file is never run or `source`d. Its bytes are read, each line
 //!   is matched by the name at its start (`export NAME=` or `NAME=`), only
-//!   the line number is kept, and the bytes are zeroed before they go.
+//!   the line number is kept, and the bytes are zeroed before they go. A
+//!   file that starts with a byte order mark is read in its encoding
+//!   (UTF-8, or UTF-16 as Windows PowerShell's `Out-File` writes).
+//! - A settings file is parsed as JSON for its `env` member's keys and
+//!   their lines, then zeroed the same way. Only the Claude Code names are
+//!   looked for there: the other agents never read it.
 //! - `launchctl getenv NAME` prints the value itself. Its output is only
 //!   asked whether it is empty, then zeroed at once: never kept, logged,
 //!   stored or shown.
 //!
 //! On Windows the places are Git Bash's three files, the two PowerShell
 //! profiles (`$env:NAME = …`, matched without regard to case, as PowerShell
-//! reads names) and the registry's environment, the user's
+//! reads names; one set inside a function's body counts only when that
+//! function is called, and [`Found::only_in`] names it), Claude Code's
+//! settings in `%USERPROFILE%\.claude` and the registry's environment, the user's
 //! (`HKCU\Environment`) and the computer's, which every app started from
 //! Start gets. For the registry only the value's size is asked for, never
 //! its text ([`crate::win::env_set`]).
 //!
-//! The app never edits a shell file and never unsets anything. "Mở file"
-//! opens the file in an editor at the line ([`open_args`]); "Bỏ qua" is
-//! kept in the app's own folder ([`load_ignored`]).
+//! The app never unsets anything, and edits a file only when the owner
+//! presses "Gỡ" on one place ([`super::env_remove`]), which takes out that
+//! one line or key after a preview. "Mở file" opens the file in an editor
+//! at the line ([`open_args`]); "Bỏ qua" is kept in the app's own folder
+//! ([`load_ignored`]).
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -145,9 +156,10 @@ pub fn var_of(name: &str) -> Option<&'static Var> {
     VARS.iter().find(|v| v.name == name)
 }
 
-/// Where a variable can be set: five shell files in the home folder, and
-/// launchd's environment, which apps opened from the Dock get. On Windows:
-/// Git Bash's files, the PowerShell profiles, and the registry's
+/// Where a variable can be set: five shell files in the home folder,
+/// Claude Code's two user settings files, and launchd's environment, which
+/// apps opened from the Dock get. On Windows: Git Bash's files, the
+/// PowerShell profiles, Claude Code's settings, and the registry's
 /// environment of the user and of the computer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -166,26 +178,46 @@ pub enum Place {
     Pwsh,
     UserEnv,
     MachineEnv,
+    /// The `env` of Claude Code's `~/.claude/settings.json`.
+    ClaudeSettings,
+    /// The `env` of `~/.claude/settings.local.json`, when there is one.
+    #[serde(rename = "claudeLocalSettings")]
+    ClaudeLocal,
+}
+
+/// How a file place sets a variable.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Syntax {
+    /// `export NAME=…` or `NAME=…`.
+    Shell,
+    /// `$env:NAME = …`.
+    PowerShell,
+    /// A key of the `env` object of a JSON settings file.
+    Json,
 }
 
 impl Place {
     /// The places on a Mac.
-    pub const ALL: [Place; 6] = [
+    pub const ALL: [Place; 8] = [
         Place::Zshenv,
         Place::Zprofile,
         Place::Zshrc,
         Place::BashProfile,
         Place::Profile,
+        Place::ClaudeSettings,
+        Place::ClaudeLocal,
         Place::Launchctl,
     ];
 
     /// The places on Windows.
-    pub const WINDOWS: [Place; 7] = [
+    pub const WINDOWS: [Place; 9] = [
         Place::BashProfile,
         Place::Bashrc,
         Place::Profile,
         Place::PsProfile,
         Place::Pwsh,
+        Place::ClaudeSettings,
+        Place::ClaudeLocal,
         Place::UserEnv,
         Place::MachineEnv,
     ];
@@ -213,6 +245,8 @@ impl Place {
                 Some("Documents/WindowsPowerShell/Microsoft.PowerShell_profile.ps1")
             }
             Place::Pwsh => Some("Documents/PowerShell/Microsoft.PowerShell_profile.ps1"),
+            Place::ClaudeSettings => Some(".claude/settings.json"),
+            Place::ClaudeLocal => Some(".claude/settings.local.json"),
             Place::Launchctl | Place::UserEnv | Place::MachineEnv => None,
         }
     }
@@ -244,6 +278,8 @@ impl Place {
             Place::Pwsh => "pwshProfile",
             Place::UserEnv => "userEnv",
             Place::MachineEnv => "machineEnv",
+            Place::ClaudeSettings => "claudeSettings",
+            Place::ClaudeLocal => "claudeLocalSettings",
         }
     }
 
@@ -251,9 +287,20 @@ impl Place {
         Place::ALL.into_iter().chain(Place::WINDOWS).find(|p| p.word() == word)
     }
 
-    /// A PowerShell profile: `$env:NAME = …`.
-    fn powershell(self) -> bool {
-        matches!(self, Place::PsProfile | Place::Pwsh)
+    /// How the file sets a variable; `None` for launchd and the registry.
+    pub fn syntax(self) -> Option<Syntax> {
+        match self {
+            Place::PsProfile | Place::Pwsh => Some(Syntax::PowerShell),
+            Place::ClaudeSettings | Place::ClaudeLocal => Some(Syntax::Json),
+            Place::Launchctl | Place::UserEnv | Place::MachineEnv => None,
+            _ => Some(Syntax::Shell),
+        }
+    }
+
+    /// Whether the place can set `v`: Claude Code's settings set only its
+    /// own variables.
+    fn sets(self, v: &Var) -> bool {
+        self.syntax() != Some(Syntax::Json) || v.agent == Agent::Claude
     }
 
     /// Where an app started by the owner gets it, before anything else.
@@ -262,6 +309,7 @@ impl Place {
             Place::Launchctl => "Trong các app mở từ Dock",
             Place::UserEnv | Place::MachineEnv => "Trong các app mở từ Start",
             Place::PsProfile | Place::Pwsh => "Trong PowerShell",
+            Place::ClaudeSettings | Place::ClaudeLocal => "Ở mọi lần chạy",
             _ => "Trong Terminal",
         }
     }
@@ -280,13 +328,25 @@ pub struct Found {
     pub place: Place,
     /// The last line of the file that sets it (the one that wins), from 1.
     pub line: Option<u32>,
+    /// The PowerShell function whose body sets it: it takes effect only
+    /// when that function is called. Empty when the function's name is not
+    /// a plain word; absent when the line runs as the profile loads.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub only_in: Option<String>,
     /// "Trong Terminal, Claude Code dùng khoá này thay cho …".
     pub effect: String,
 }
 
 impl Found {
-    fn new(v: &Var, place: Place, line: Option<u32>) -> Found {
-        let opened = place.opened();
+    fn new(v: &Var, place: Place, hit: Option<Hit>) -> Found {
+        let (line, only_in) = match hit {
+            Some(h) => (Some(h.line), h.only_in),
+            None => (None, None),
+        };
+        let opened = match &only_in {
+            Some(f) => format!("{}, khi gọi hàm {}", place.opened(), function_name(f)),
+            None => place.opened().to_string(),
+        };
         Found {
             id: id_of(v.name, place),
             name: v.name.into(),
@@ -294,16 +354,31 @@ impl Found {
             weight: v.weight,
             place,
             line,
+            only_in,
             effect: format!("{opened}, {} {}", v.agent.label(), v.effect),
         }
     }
 
-    /// `~/.zshrc dòng 42`, or `launchctl`.
+    /// `~/.zshrc dòng 42`, `$PROFILE dòng 4 (trong hàm ccd)`, or
+    /// `launchctl`.
     pub fn at(&self) -> String {
+        let inside = match &self.only_in {
+            Some(f) => format!(" (trong hàm {})", function_name(f)),
+            None => String::new(),
+        };
         match self.line {
-            Some(n) => format!("{} dòng {n}", self.place.label()),
+            Some(n) => format!("{} dòng {n}{inside}", self.place.label()),
             None => self.place.label(),
         }
+    }
+}
+
+/// A function's name as a sentence says it: `ccd`, or "không tên".
+fn function_name(f: &str) -> &str {
+    if f.is_empty() {
+        "không tên"
+    } else {
+        f
     }
 }
 
@@ -354,19 +429,19 @@ pub fn check_with(
     let mut out = Check::default();
     let mut found: Vec<Found> = Vec::new();
     for &place in places {
-        match place.file() {
-            Some(file) => match read_lines(&home.join(file), place.powershell()) {
-                Ok(Some(lines)) => {
-                    for v in &VARS {
-                        if let Some(&n) = lines.get(v.name) {
-                            found.push(Found::new(v, place, Some(n)));
+        match (place.file(), place.syntax()) {
+            (Some(file), Some(syntax)) => match read_hits(&home.join(file), syntax) {
+                Ok(Some(mut hits)) => {
+                    for v in VARS.iter().filter(|v| place.sets(v)) {
+                        if let Some(hit) = hits.remove(v.name) {
+                            found.push(Found::new(v, place, Some(hit)));
                         }
                     }
                 }
                 Ok(None) => {}
-                Err(()) => out.unread.push(place),
+                Err(Unreadable) => out.unread.push(place),
             },
-            None => {
+            _ => {
                 let mut failed = false;
                 for v in &VARS {
                     match set(place, v.name) {
@@ -387,94 +462,411 @@ pub fn check_with(
     out
 }
 
-/// For each of [`VARS`] the file sets, the last line that does (in
-/// PowerShell's words when `powershell`). `None` when there is no file; an
-/// error when it is there but cannot be read.
-fn read_lines(
+/// A file there that cannot be looked at: unreadable, too large, its
+/// UTF-16 not decoding, or a settings file that is not JSON.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Unreadable;
+
+/// Where a file sets one of [`VARS`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Hit {
+    /// From 1.
+    pub line: u32,
+    /// The PowerShell function whose body holds the line ([`Found::only_in`]).
+    pub only_in: Option<String>,
+}
+
+/// For each of [`VARS`] the file sets, where it does. `None` when there is
+/// no file; an error when it is there but cannot be read, is too large, its
+/// encoding does not decode, or a settings file is not JSON.
+fn read_hits(
     path: &Path,
-    powershell: bool,
-) -> Result<Option<std::collections::BTreeMap<&'static str, u32>>, ()> {
-    let mut file = match std::fs::File::open(path) {
-        Ok(f) => f,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(_) => return Err(()),
-    };
-    let meta = file.metadata().map_err(|_| ())?;
-    if !meta.is_file() || meta.len() > MAX_BYTES {
-        return Err(());
-    }
-    let mut bytes = Vec::with_capacity(meta.len() as usize);
-    let read = file.by_ref().take(MAX_BYTES + 1).read_to_end(&mut bytes);
-    let lines = match read {
-        Ok(_) if bytes.len() as u64 <= MAX_BYTES => {
-            Ok(Some(if powershell { scan_powershell(&bytes) } else { scan(&bytes) }))
+    syntax: Syntax,
+) -> Result<Option<BTreeMap<&'static str, Hit>>, Unreadable> {
+    let Some(mut bytes) = read_file(path)? else { return Ok(None) };
+    let hits = match decode(&bytes) {
+        Some(mut text) => {
+            let hits = scan_text(&text.body, syntax);
+            text.body.fill(0);
+            hits.map(Some)
         }
-        _ => Err(()),
+        None => Err(Unreadable),
     };
     // The values are in these bytes: they go now, zeroed first.
     bytes.fill(0);
-    lines
+    hits
 }
 
-/// The last line (from 1) that sets each name, from a file's bytes.
-pub fn scan(bytes: &[u8]) -> std::collections::BTreeMap<&'static str, u32> {
-    let mut at = std::collections::BTreeMap::new();
-    for (i, line) in bytes.split(|b| *b == b'\n').enumerate() {
+/// A file's bytes, at most [`MAX_BYTES`]: `None` when it is not there, an
+/// error when it cannot be read or is larger. The caller zeroes them.
+pub fn read_file(path: &Path) -> Result<Option<Vec<u8>>, Unreadable> {
+    let mut file = match std::fs::File::open(path) {
+        Ok(f) => f,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(_) => return Err(Unreadable),
+    };
+    let meta = file.metadata().map_err(|_| Unreadable)?;
+    if !meta.is_file() || meta.len() > MAX_BYTES {
+        return Err(Unreadable);
+    }
+    let mut bytes = Vec::with_capacity(meta.len() as usize);
+    let read = file.by_ref().take(MAX_BYTES + 1).read_to_end(&mut bytes);
+    match read {
+        Ok(_) if bytes.len() as u64 <= MAX_BYTES => Ok(Some(bytes)),
+        _ => {
+            bytes.fill(0);
+            Err(Unreadable)
+        }
+    }
+}
+
+// ===== Encodings =====
+
+/// How a file's text is stored: as it comes (UTF-8, or a code page whose
+/// first 128 bytes are ASCII's), or after a byte order mark.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Encoding {
+    Bytes,
+    Utf8Bom,
+    Utf16Le,
+    Utf16Be,
+}
+
+/// A file's text without its byte order mark: its own bytes, or UTF-16
+/// made UTF-8, so the names (ASCII) are matched the same way in each.
+#[derive(Debug)]
+pub struct Text {
+    pub encoding: Encoding,
+    pub body: Vec<u8>,
+}
+
+/// `bytes` as [`Text`]; `None` when UTF-16 does not decode (an odd length
+/// or a lone surrogate), which [`encode`] could not write back the same.
+pub fn decode(bytes: &[u8]) -> Option<Text> {
+    let utf16 = |rest: &[u8], le: bool| -> Option<Vec<u8>> {
+        if rest.len() % 2 != 0 {
+            return None;
+        }
+        let mut units: Vec<u16> = rest
+            .chunks_exact(2)
+            .map(|c| {
+                if le {
+                    u16::from_le_bytes([c[0], c[1]])
+                } else {
+                    u16::from_be_bytes([c[0], c[1]])
+                }
+            })
+            .collect();
+        let text = String::from_utf16(&units).ok().map(String::into_bytes);
+        units.fill(0);
+        text
+    };
+    if let Some(rest) = bytes.strip_prefix(b"\xEF\xBB\xBF") {
+        Some(Text { encoding: Encoding::Utf8Bom, body: rest.to_vec() })
+    } else if let Some(rest) = bytes.strip_prefix(b"\xFF\xFE") {
+        Some(Text { encoding: Encoding::Utf16Le, body: utf16(rest, true)? })
+    } else if let Some(rest) = bytes.strip_prefix(b"\xFE\xFF") {
+        Some(Text { encoding: Encoding::Utf16Be, body: utf16(rest, false)? })
+    } else {
+        Some(Text { encoding: Encoding::Bytes, body: bytes.to_vec() })
+    }
+}
+
+/// `body` written back in `encoding`, with its byte order mark. `None` when
+/// UTF-16's body is not UTF-8, which a decoded body always is.
+pub fn encode(encoding: Encoding, body: &[u8]) -> Option<Vec<u8>> {
+    let utf16 = |le: bool| -> Option<Vec<u8>> {
+        let text = std::str::from_utf8(body).ok()?;
+        let mut out = if le { vec![0xFF, 0xFE] } else { vec![0xFE, 0xFF] };
+        for u in text.encode_utf16() {
+            out.extend(if le { u.to_le_bytes() } else { u.to_be_bytes() });
+        }
+        Some(out)
+    };
+    match encoding {
+        Encoding::Bytes => Some(body.to_vec()),
+        Encoding::Utf8Bom => Some([b"\xEF\xBB\xBF".as_slice(), body].concat()),
+        Encoding::Utf16Le => utf16(true),
+        Encoding::Utf16Be => utf16(false),
+    }
+}
+
+// ===== Finding the names =====
+
+/// Where `body` (a file's text, [`decode`]d) sets each of [`VARS`]. In a
+/// shell file or a profile, the last line that sets it; in a profile, the
+/// last line that runs as it loads when there is one, else the last line
+/// inside a function. In a settings file, the last `env` key of that name.
+/// An error when a settings file is not JSON.
+pub fn scan_text(body: &[u8], syntax: Syntax) -> Result<BTreeMap<&'static str, Hit>, Unreadable> {
+    match syntax {
+        Syntax::Shell => Ok(scan_lines(body, None)),
+        Syntax::PowerShell => Ok(scan_lines(body, Some(ps_lines(body)))),
+        Syntax::Json => scan_json(body),
+    }
+}
+
+/// [`scan_text`] of a shell file (`ps`: none) or a profile (`ps`: its
+/// [`ps_lines`]).
+fn scan_lines(body: &[u8], ps: Option<Vec<PsLine>>) -> BTreeMap<&'static str, Hit> {
+    let mut always: BTreeMap<&'static str, Hit> = BTreeMap::new();
+    let mut inside: BTreeMap<&'static str, Hit> = BTreeMap::new();
+    for (i, line) in body.split(|b| *b == b'\n').enumerate() {
+        let state = ps.as_ref().and_then(|p| p.get(i));
+        if state.is_some_and(|s| s.quoted) {
+            continue;
+        }
         for v in &VARS {
-            if assigns(line, v.name.as_bytes()) {
-                at.insert(v.name, i as u32 + 1);
+            let set = match ps {
+                Some(_) => assigns_env(line, v.name.as_bytes()),
+                None => assigns(line, v.name.as_bytes()),
+            };
+            if !set {
+                continue;
+            }
+            let only_in = state.and_then(|s| s.function.clone());
+            let hit = Hit { line: i as u32 + 1, only_in };
+            if hit.only_in.is_some() {
+                inside.insert(v.name, hit);
+            } else {
+                always.insert(v.name, hit);
             }
         }
     }
-    at
+    for (name, hit) in inside {
+        always.entry(name).or_insert(hit);
+    }
+    always
 }
 
-/// [`scan`] of a PowerShell profile.
-pub fn scan_powershell(bytes: &[u8]) -> std::collections::BTreeMap<&'static str, u32> {
-    let mut at = std::collections::BTreeMap::new();
-    for (i, line) in bytes.split(|b| *b == b'\n').enumerate() {
-        for v in &VARS {
-            if assigns_env(line, v.name.as_bytes()) {
-                at.insert(v.name, i as u32 + 1);
-            }
+/// The `env` keys of a settings file. Empty text is no settings; text
+/// that is not JSON is an error. Names are matched as the system matches
+/// them: in any case on Windows.
+fn scan_json(body: &[u8]) -> Result<BTreeMap<&'static str, Hit>, Unreadable> {
+    let mut at = BTreeMap::new();
+    let text = std::str::from_utf8(body).map_err(|_| Unreadable)?;
+    if text.trim().is_empty() {
+        return Ok(at);
+    }
+    let root = super::json_text::parse(text).map_err(|_| Unreadable)?;
+    let Some(env) = root.get("env").filter(|m| m.value.is_object()) else { return Ok(at) };
+    for v in VARS.iter().filter(|v| v.agent == Agent::Claude) {
+        if let Some(i) = env_key(&env.value, v.name) {
+            let start = env.value.members()[i].key_span.start;
+            let line = text[..start].bytes().filter(|b| *b == b'\n').count() as u32 + 1;
+            at.insert(v.name, Hit { line, only_in: None });
         }
     }
-    at
+    Ok(at)
+}
+
+/// The index of the last member of `env` named `name`: JSON readers keep
+/// the last of a repeated key.
+pub fn env_key(env: &super::json_text::Node, name: &str) -> Option<usize> {
+    let same = |k: &str| if cfg!(windows) { k.eq_ignore_ascii_case(name) } else { k == name };
+    env.members().iter().rposition(|m| same(&m.key))
+}
+
+/// What a PowerShell profile's line starts inside.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct PsLine {
+    /// The innermost function whose body the line is in: its name, or empty
+    /// when the name is not a plain word.
+    pub function: Option<String>,
+    /// The line starts inside a string, a here-string or a `<# … #>`
+    /// comment: it sets nothing.
+    pub quoted: bool,
+}
+
+/// For each line of a profile (split at `\n`), what it starts inside. The
+/// text is read as PowerShell's tokens are, only as far as braces, strings
+/// and comments go: `function NAME {` (or `filter`) opens a function's
+/// body, any other `{` a block, `}` closes the innermost.
+pub fn ps_lines(body: &[u8]) -> Vec<PsLine> {
+    #[derive(Clone, Copy, PartialEq)]
+    enum S {
+        Code,
+        Single,
+        Double,
+        Comment,
+        Block,
+        HereSingle,
+        HereDouble,
+    }
+    let word = |b: u8| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'$' | b':' | b'.');
+    let blank = |b: u8| b == b' ' || b == b'\t';
+    let mut out = Vec::new();
+    let mut s = S::Code;
+    let mut stack: Vec<Option<String>> = Vec::new();
+    let mut pending: Option<String> = None;
+    let mut i = 0;
+    let mut start = true;
+    loop {
+        if start {
+            start = false;
+            let rest = &body[i..];
+            out.push(PsLine {
+                function: stack.iter().rev().find_map(|f| f.clone()),
+                quoted: !matches!(s, S::Code | S::Comment),
+            });
+            if (s == S::HereSingle && rest.starts_with(b"'@"))
+                || (s == S::HereDouble && rest.starts_with(b"\"@"))
+            {
+                s = S::Code;
+                i += 2;
+                continue;
+            }
+        }
+        let Some(&b) = body.get(i) else { break };
+        let next = body.get(i + 1).copied();
+        if b == b'\n' {
+            if s == S::Comment {
+                s = S::Code;
+            }
+            start = true;
+            i += 1;
+            continue;
+        }
+        match s {
+            S::Code => match b {
+                b'#' => s = S::Comment,
+                b'<' if next == Some(b'#') => {
+                    s = S::Block;
+                    i += 1;
+                }
+                b'@' if matches!(next, Some(b'\'' | b'"')) && {
+                    let after = &body[i + 2..];
+                    let end = after.iter().position(|c| *c == b'\n').unwrap_or(after.len());
+                    after[..end].iter().all(|c| blank(*c) || *c == b'\r')
+                } =>
+                {
+                    s = if next == Some(b'\'') { S::HereSingle } else { S::HereDouble };
+                    i += 1;
+                }
+                b'\'' => s = S::Single,
+                b'"' => s = S::Double,
+                b'`' if next != Some(b'\n') => i += 1,
+                b'$' if next == Some(b'{') => {
+                    // `${name}`: a variable, not a block.
+                    let close = body[i..].iter().position(|c| *c == b'}' || *c == b'\n');
+                    if let Some(n) = close.filter(|n| body[i + n] == b'}') {
+                        i += n;
+                    }
+                }
+                b'{' => stack.push(pending.take()),
+                b'}' => {
+                    stack.pop();
+                }
+                _ if (i == 0 || !word(body[i - 1])) && keyword(&body[i..]).is_some() => {
+                    let len = keyword(&body[i..]).unwrap_or(0);
+                    let mut j = i + len;
+                    while body.get(j).is_some_and(|c| blank(*c)) {
+                        j += 1;
+                    }
+                    let name_end = body[j..]
+                        .iter()
+                        .position(|c| c.is_ascii_whitespace() || matches!(c, b'{' | b'('))
+                        .map_or(body.len(), |n| j + n);
+                    let name = &body[j..name_end];
+                    let plain = !name.is_empty()
+                        && name.len() <= 64
+                        && name.iter().all(|c| {
+                            c.is_ascii_alphanumeric() || matches!(c, b'_' | b'-' | b':' | b'.')
+                        });
+                    pending = Some(if plain {
+                        String::from_utf8_lossy(name).into_owned()
+                    } else {
+                        String::new()
+                    });
+                    i = name_end;
+                    continue;
+                }
+                _ => {}
+            },
+            S::Single | S::HereSingle => {
+                if s == S::Single && b == b'\'' {
+                    if next == Some(b'\'') {
+                        i += 1;
+                    } else {
+                        s = S::Code;
+                    }
+                }
+            }
+            S::Double | S::HereDouble => {
+                if b == b'`' && next != Some(b'\n') {
+                    i += 1;
+                } else if s == S::Double && b == b'"' {
+                    if next == Some(b'"') {
+                        i += 1;
+                    } else {
+                        s = S::Code;
+                    }
+                }
+            }
+            S::Comment => {}
+            S::Block => {
+                if b == b'#' && next == Some(b'>') {
+                    s = S::Code;
+                    i += 1;
+                }
+            }
+        }
+        i += 1;
+    }
+    out
+}
+
+/// `function` or `filter` and a blank, in any case: the keyword's length.
+fn keyword(at: &[u8]) -> Option<usize> {
+    ["function", "filter"].iter().find_map(|k| {
+        let n = k.len();
+        let head = at.get(..n)?;
+        let blank = at.get(n).is_some_and(|c| *c == b' ' || *c == b'\t');
+        (head.eq_ignore_ascii_case(k.as_bytes()) && blank).then_some(n)
+    })
 }
 
 /// `$env:NAME = …` at the start of the line, after spaces, in any case. A
 /// comment, `$env:NAME -eq …` or `$env:OTHER_NAME =` is not.
 fn assigns_env(line: &[u8], name: &[u8]) -> bool {
-    let blank = |b: &u8| *b == b' ' || *b == b'\t';
-    let rest = &line[line.iter().take_while(|b| blank(b)).count()..];
-    let Some(after) =
-        rest.get(..5).filter(|p| p.eq_ignore_ascii_case(b"$env:")).map(|_| &rest[5..])
-    else {
-        return false;
-    };
-    let Some(after) = after
-        .get(..name.len())
-        .filter(|n| n.eq_ignore_ascii_case(name))
-        .map(|_| &after[name.len()..])
-    else {
-        return false;
-    };
-    let after = &after[after.iter().take_while(|b| blank(b)).count()..];
-    after.first() == Some(&b'=') && after.get(1) != Some(&b'=')
+    assignment(line, name, Syntax::PowerShell).is_some()
 }
 
 /// `NAME=…` or `export NAME=…` at the start of the line, after spaces. A
 /// comment, `unset NAME` or `OTHER_NAME=` is not.
 fn assigns(line: &[u8], name: &[u8]) -> bool {
+    assignment(line, name, Syntax::Shell).is_some()
+}
+
+/// Where the value starts on a line that sets `name` in a shell file or a
+/// profile: just past the `=` and, in a profile, the blanks after it. What
+/// comes before holds no value, only blanks, `export` or `$env:`, the name
+/// and the `=`.
+pub fn assignment(line: &[u8], name: &[u8], syntax: Syntax) -> Option<usize> {
     let blank = |b: &u8| *b == b' ' || *b == b'\t';
-    let skip = |s: &[u8]| -> usize { s.iter().take_while(|b| blank(b)).count() };
-    let mut rest = &line[skip(line)..];
-    if let Some(r) = rest.strip_prefix(b"export") {
-        if r.first().is_some_and(blank) {
-            rest = &r[skip(r)..];
+    let skip =
+        |s: &[u8], at: usize| -> usize { at + s[at..].iter().take_while(|b| blank(b)).count() };
+    let mut at = skip(line, 0);
+    match syntax {
+        Syntax::PowerShell => {
+            line.get(at..at + 5).filter(|p| p.eq_ignore_ascii_case(b"$env:"))?;
+            at += 5;
+            line.get(at..at + name.len()).filter(|n| n.eq_ignore_ascii_case(name))?;
+            at = skip(line, at + name.len());
+            (line.get(at) == Some(&b'=') && line.get(at + 1) != Some(&b'='))
+                .then(|| skip(line, at + 1))
         }
+        Syntax::Shell => {
+            if line[at..].starts_with(b"export") && line.get(at + 6).is_some_and(blank) {
+                at = skip(line, at + 6);
+            }
+            line[at..].starts_with(name).then_some(())?;
+            at += name.len();
+            (line.get(at) == Some(&b'=')).then_some(at + 1)
+        }
+        Syntax::Json => None,
     }
-    rest.strip_prefix(name).is_some_and(|r| r.first() == Some(&b'='))
 }
 
 /// Whether launchd's environment has `name`. `launchctl getenv` prints the

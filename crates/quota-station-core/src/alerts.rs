@@ -1196,7 +1196,8 @@ pub fn answer(
         );
         (Effect::OpenCliTools, Some(said))
     } else if action == "env:settings" {
-        let said = said(Tone::Info, "Đã mở Cài đặt", "Ở tab Dịch vụ. App không sửa file shell.");
+        let said =
+            said(Tone::Info, "Đã mở Cài đặt", "Ở tab Dịch vụ. App chỉ sửa file khi bạn bấm Gỡ.");
         (Effect::OpenSettings, Some(said))
     } else if let Some(name) = action.strip_prefix("env:ignore:") {
         let said = said(

@@ -534,22 +534,33 @@ whatever account the app switches to. The app looks for eleven such names
 (`ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL`,
 `CLAUDE_CODE_OAUTH_TOKEN`, `CLAUDE_CONFIG_DIR`, `OPENAI_API_KEY`,
 `OPENAI_BASE_URL`, `CODEX_HOME`, `GEMINI_API_KEY`, `GOOGLE_API_KEY`,
-`GOOGLE_CLOUD_PROJECT`) in six places: `~/.zshenv`, `~/.zprofile`, `~/.zshrc`,
-`~/.bash_profile`, `~/.profile` and launchd (what apps opened from the Dock
-get). It learns only whether each is set, in which file and on which line,
-never its value, and never runs a shell file.
+`GOOGLE_CLOUD_PROJECT`) in eight places: `~/.zshenv`, `~/.zprofile`, `~/.zshrc`,
+`~/.bash_profile`, `~/.profile`, the `env` of Claude Code's
+`~/.claude/settings.json` and `~/.claude/settings.local.json` (which every run of
+Claude Code applies; only Claude Code's names count there) and launchd (what
+apps opened from the Dock get). On Windows the places are Git Bash's files, the
+PowerShell profiles, the same two settings files and the user's and system
+variables; a profile line inside a function is shown as counting only when that
+function is called. It learns only whether each is set, in which file and on
+which line, never its value, and never runs a shell file.
 
 The `Environment variables that override sign-in` card in `Settings ›
 Services` (the first tab, and its first card, while a variable is set) names
 each variable, the agent it overrides, the file and line and what it does, with
 `Open file` (in Visual Studio Code, Cursor or Zed at the line when one is
-installed, else the default text editor) and `Ignore`, which has `Undo`; with
+installed, else the default text editor), `Remove` and `Ignore`, which has
+`Undo`. `Remove` first shows the one line or key that goes, its value masked,
+then takes out just that (every other byte of the file, its encoding and line
+endings stay; a settings file stays valid JSON) and checks again; its `Undo`
+puts it back while the file is unchanged. A line that is not a plain
+assignment on one line is not removed: the preview says why and offers `Open
+file`. There is no button that resets Claude Code's whole configuration; with
 none, one green line (`No variable overrides a sign-in.`). `See the list` lists
 the names and the places. A variable that overrides Claude Code also puts a red
 banner at the top of the `Claude` tab, and each variable gets one notification
 under the bell, in the app only, sent again only when it is set somewhere new.
 The app checks at most every 10 minutes after a read, when Settings opens and
-on `Check again`; it never edits a shell file and never unsets anything.
+on `Check again`; it edits a file only on `Remove` and never unsets anything.
 
 ## Stats
 

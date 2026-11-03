@@ -29,8 +29,10 @@
 //! ([`plugins`], read only) and the instruction files ([`instructions`],
 //! read only).
 //!
-//! M14 adds [`env_check`]: the environment variables in the shell files and
-//! launchd that override an agent's login, found by name, never by value.
+//! M14 adds [`env_check`]: the environment variables in the shell files,
+//! Claude Code's settings and launchd that override an agent's login, found
+//! by name, never by value; [`env_remove`] takes one line or key out of its
+//! file when the owner presses "Gỡ", with "Hoàn tác".
 //!
 //! M15 adds [`sets`]: named sets of MCP servers and skills turned on or off
 //! for the whole Mac, applied through the same checked batches after one
@@ -45,6 +47,7 @@ pub mod claude_mcp;
 pub mod codex_mcp;
 pub mod def;
 pub mod env_check;
+pub mod env_remove;
 pub mod instructions;
 pub mod json_text;
 pub mod kho;

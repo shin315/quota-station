@@ -1268,7 +1268,8 @@ export interface StatsReport {
  * `agents::env_check::Place`: on macOS five shell files in the home folder,
  * and launchd; on Windows the user's and the system's environment variables
  * (the registry), Windows PowerShell's and PowerShell 7's profiles, and Git
- * Bash's `~/.bash_profile`, `~/.bashrc` and `~/.profile`.
+ * Bash's `~/.bash_profile`, `~/.bashrc` and `~/.profile`. On both, the `env`
+ * of Claude Code's `~/.claude/settings.json` and `settings.local.json`.
  */
 export type EnvPlace =
   | 'zshenv'
@@ -1281,7 +1282,9 @@ export type EnvPlace =
   | 'machineEnv'
   | 'psProfile'
   | 'pwshProfile'
-  | 'bashrc';
+  | 'bashrc'
+  | 'claudeSettings'
+  | 'claudeLocalSettings';
 
 /** `agents::env_check::Found`: a name set in one place. Never its value. */
 export interface EnvFound {
@@ -1294,8 +1297,25 @@ export interface EnvFound {
   place: EnvPlace;
   /** The line that sets it, from 1; none in launchd. */
   line: number | null;
+  /** The PowerShell function whose body sets it: only when that function is called. Empty: a function with no plain name. */
+  onlyIn?: string | null;
   /** "Trong Terminal, Claude Code dùng khoá này thay cho …". */
   effect: string;
+}
+
+/** `agents::env_remove::Refusal`: why "Gỡ" will not take a place out. */
+export type EnvRefusal = 'noFile' | 'gone' | 'unreadable' | 'multiline' | 'continued' | 'hereString' | 'several' | 'json';
+
+/** `agents::env_remove::Preview`: what "Gỡ" will take out, the value masked. */
+export interface EnvPreview {
+  id: string;
+  name: string;
+  place: EnvPlace;
+  line: number;
+  onlyIn: string | null;
+  /** `export NAME=••••••`: the value never comes. */
+  shown: string;
+  refusal: EnvRefusal | null;
 }
 
 /** `env::EnvView`: Cài đặt's card and the Claude tab's banner. */
@@ -1303,7 +1323,7 @@ export interface EnvView {
   /** RFC 3339; none before the first check. */
   checkedAt: string | null;
   checking: boolean;
-  /** The eleven names and the six places' labels. */
+  /** The eleven names and the places' labels. */
   vars: string[];
   places: string[];
   /** Set and not ignored. */
