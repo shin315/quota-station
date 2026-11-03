@@ -1,0 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Shin315
+# SPDX-License-Identifier: MIT
+
+# An extension's app folder (ext/app, scripts/install.sh), which is built
+# from inside it: the Tauri CLI run from here (npm run app, tauri build)
+# takes src-tauri/ only.
+ext/

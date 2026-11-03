@@ -146,6 +146,22 @@ fi
     fn installed(&self) -> PathBuf {
         self.apps.join(APP)
     }
+
+    /// An extension's app folder in the source tree, `ext/app`, which the
+    /// script builds from inside instead of `src-tauri`.
+    fn with_ext_app(self) -> Sandbox {
+        std::fs::create_dir_all(self.src.join("ext/app")).unwrap();
+        std::fs::write(self.src.join("ext/app/tauri.conf.json"), r#"{ "version": "0.1.0" }"#)
+            .unwrap();
+        self
+    }
+
+    /// What the fake `cargo` records when it runs in `folder` of the source
+    /// tree (`""`: its root).
+    fn runs_in(&self, folder: &str) -> String {
+        let dir = if folder.is_empty() { self.src.clone() } else { self.src.join(folder) };
+        format!(" PWD={} ", dir.display())
+    }
 }
 
 fn touch_back(path: &Path) {
@@ -217,6 +233,8 @@ fn builds_signs_ad_hoc_installs_and_opens() {
     // A build from source keeps the Antigravity accounts, in Rust and in the
     // frontend.
     assert!(build.contains("--features antigravity-accounts"), "{build}");
+    // From the source tree's root: it has no extension's app folder.
+    assert!(build.contains(&s.runs_in("")), "{build}");
     assert!(build.contains(" QS_ANTIGRAVITY_ACCOUNTS=1 "), "{build}");
     assert!(calls.iter().any(|c| c == "security find-identity -v -p codesigning"));
     assert!(!calls.iter().any(|c| c.starts_with("npm")), "node_modules is up to date: {calls:?}");
@@ -286,8 +304,49 @@ fn qs_antigravity_accounts_0_builds_without_the_antigravity_accounts() {
     let calls = s.calls();
     let build = calls.iter().find(|c| c.starts_with("cargo tauri build")).expect("a build");
     assert!(!build.contains("antigravity-accounts"), "{build}");
+    assert!(!build.contains("--features"), "{build}");
     assert!(build.contains(" QS_ANTIGRAVITY_ACCOUNTS=0 "), "{build}");
     assert!(verifies(&s.installed()));
+}
+
+#[test]
+fn an_extension_s_app_folder_is_built_from_inside_it_with_the_app_s_features() {
+    let s = Sandbox::new("install-ext").with_ext_app();
+    ok(&s.run(&["--dest", &s.dest(), "--no-open"]));
+    let build =
+        s.calls().into_iter().find(|c| c.starts_with("cargo tauri build")).expect("a build");
+    assert!(build.contains(&s.runs_in("ext/app")), "{build}");
+    assert!(build.contains("--features antigravity-accounts "), "{build}");
+    assert!(verifies(&s.installed()));
+
+    let s = Sandbox::new("install-ext-mit").with_ext_app();
+    ok(&s.run_with(&["--dest", &s.dest(), "--no-open"], &[("QS_ANTIGRAVITY_ACCOUNTS", "0")]));
+    let build =
+        s.calls().into_iter().find(|c| c.starts_with("cargo tauri build")).expect("a build");
+    assert!(build.contains(&s.runs_in("ext/app")), "{build}");
+    assert!(!build.contains("--features"), "{build}");
+}
+
+#[test]
+fn qs_ext_app_0_builds_src_tauri_as_a_release_build_does() {
+    let s = Sandbox::new("install-no-ext").with_ext_app();
+    ok(&s.run_with(&["--dest", &s.dest(), "--no-open"], &[("QS_EXT_APP", "0")]));
+    let build =
+        s.calls().into_iter().find(|c| c.starts_with("cargo tauri build")).expect("a build");
+    assert!(build.contains(&s.runs_in("")), "{build}");
+    assert!(build.contains("--features antigravity-accounts "), "{build}");
+    assert!(verifies(&s.installed()));
+
+    // Both left out: the build takes no feature at all.
+    let s = Sandbox::new("install-plain").with_ext_app();
+    ok(&s.run_with(
+        &["--dest", &s.dest(), "--no-open"],
+        &[("QS_EXT_APP", "0"), ("QS_ANTIGRAVITY_ACCOUNTS", "0")],
+    ));
+    let build =
+        s.calls().into_iter().find(|c| c.starts_with("cargo tauri build")).expect("a build");
+    assert!(build.contains(&s.runs_in("")), "{build}");
+    assert!(!build.contains("--features"), "{build}");
 }
 
 #[test]

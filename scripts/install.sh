@@ -22,6 +22,11 @@
 # A build from source comes with the Antigravity accounts (the
 # antigravity-accounts feature, CC BY-NC-SA 4.0: NOTICE);
 # QS_ANTIGRAVITY_ACCOUNTS=0 builds the MIT app without them.
+# A clone with an extension's app folder, ext/app (a Tauri app of its own,
+# whose binary passes its extension to Quota Station), builds that folder
+# instead, from inside it and into the same target folder, so a Mac that
+# installs or updates from that clone keeps the extension; QS_EXT_APP=0
+# builds src-tauri anyway.
 #
 # It never adds a login item: launching at login is a switch in the app's
 # settings. It touches nothing outside the build folder and DIR/Quota Station.app.
@@ -190,6 +195,13 @@ build() {
   fi
   rm -rf "$built"
   say "Building the release app (a few minutes)"
+  # An extension's app folder: its binary passes the extension to the app;
+  # built from inside it (its features are the app's) into the target
+  # folder above.
+  if [ "${QS_EXT_APP:-1}" != 0 ] && [ -f "$ROOT/ext/app/tauri.conf.json" ]; then
+    export CARGO_TARGET_DIR="$target"
+    cd "$ROOT/ext/app"
+  fi
   if cargo tauri --version >/dev/null 2>&1; then
     cargo tauri build --bundles app $features || fail "cargo tauri build failed"
   else
