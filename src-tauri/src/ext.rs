@@ -123,6 +123,9 @@ pub use quota_station_core::icon::{Badge, Shape};
 /// The model every window draws, as the app's commands return it after a
 /// change: an extension's command returns it too (`Result<Model, String>`).
 pub use crate::state::Model;
+/// The main window's tabs, the app's own and the extension's
+/// ([`Extension::tabs`]), as the windows name them.
+pub use crate::state::Tab;
 
 /// How an action on the Claude accounts ended, as the Claude tab shows it
 /// (`claudeAccounts.last`): an extension's action ([`Host::claude_action`])
@@ -147,7 +150,7 @@ use quota_station_core::claude::store::Store;
 use quota_station_core::claude::Paths;
 use quota_station_core::quota::Response;
 
-use crate::state::{AppState, Inner, Shared, Tab};
+use crate::state::{AppState, Inner, Shared};
 use crate::{agents, backup, claude, reader, session, windows};
 
 /// What an extension adds to the app. Every method has a default that adds

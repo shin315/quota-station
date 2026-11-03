@@ -1396,73 +1396,19 @@ mod tests {
         quota_station_core::ext::Fields::new()
     }
 
-    /// A state with something in every part of the model, none of it from
-    /// the clock, the time zone or the machine the test runs on.
-    #[cfg(target_os = "macos")]
-    fn fixed_state(dir: &std::path::Path) -> Inner {
-        let home = dir.join("home");
-        let file = dir.join("app/settings.json");
-        std::fs::create_dir_all(&home).unwrap();
-        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
-        #[allow(unused_mut)]
-        let mut settings = serde_json::json!({
-            "setupSeen": true,
-            "machineName": "Mac phòng khách",
-            "theme": "dark",
-        });
-        std::fs::write(&file, settings.to_string()).unwrap();
-        let hooks = quota_station_core::ext::none();
-        let mut inner = Inner::new(home.clone(), file, "Mac Studio".into(), hooks);
-        inner.app_version = "1.2.3".into();
-        // Claude Code is found, whatever this machine has on its PATH.
-        inner.claude_program = Some(PathBuf::from("/TEST/claude"));
-        inner.reading = true;
-        inner.reads = 7;
-        inner.switching = Some(2);
-        inner.claude = serde_json::from_str(include_str!(
-            "../../crates/quota-station-core/tests/fixtures/claude-pool.json"
-        ))
-        .ok();
-        let account = |slot: u32, active: bool| AccountOut {
-            slot,
-            alias: Some(format!("tài khoản {slot}")),
-            ext: shown(slot != 3),
-            active,
-            kind: Default::default(),
-            status: "fresh",
-            fetched_at: Some("2026-01-16T07:00:00Z".into()),
-            age_seconds: Some(60),
-            windows: quota_station_core::claude::state::Windows {
-                five_hour: None,
-                seven_day: None,
-                fable: None,
-            },
-            error: None,
-            email: None,
-        };
-        inner.claude_accounts = vec![account(1, false), account(2, true), account(3, false)];
-        inner
-    }
-
-    /// The model JSON the windows get from [`fixed_state`] in this feature
-    /// set, with the test's folder written as `/TEST` and the things read
-    /// from this machine outside it fixed: CC Switch in /Applications is not
-    /// there, and `npx` is not found (the file says so, as Claude Code is
-    /// found: [`fixed_state`] sets that one).
+    /// The model JSON the windows get from a state with something in every
+    /// part of the model, in this feature set
+    /// ([`crate::testing::fixed_model_json`]).
     #[cfg(target_os = "macos")]
     fn fixed_model_json() -> serde_json::Value {
         let dir = std::env::temp_dir().join(format!("qs-model-golden-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        let inner = fixed_state(&dir);
-        let text = serde_json::to_string(&inner.model()).unwrap();
-        let _ = std::fs::remove_dir_all(&dir);
-        let folder = serde_json::to_string(&dir.to_string_lossy()).unwrap();
-        let folder = folder.trim_matches('"');
-        let mut json: serde_json::Value =
-            serde_json::from_str(&text.replace(folder, "/TEST")).unwrap();
-        json["codex"]["ccSwitch"]["installed"] = false.into();
-        json["skills"]["npx"] = false.into();
-        json
+        crate::testing::fixed_model_json(
+            &dir,
+            &NoExtension,
+            |_, _| {},
+            |slot| shown(slot != 3),
+            |_| {},
+        )
     }
 
     /// The model JSON is the same, key for key and value for value, as the

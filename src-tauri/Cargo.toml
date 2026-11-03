@@ -26,6 +26,12 @@ crate-type = ["rlib"]
 # (CC BY-NC-SA 4.0, see `NOTICE`). `scripts/install.sh` builds with it; a
 # build without it is MIT only.
 antigravity-accounts = ["quota-station-core/antigravity-accounts"]
+# For the tests only: the app's state, for the tests of an extension
+# outside this crate (`src/testing.rs`). The app never turns it on.
+test-support = []
+
+[dev-dependencies]
+quota-station = { path = ".", features = ["test-support"] }
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

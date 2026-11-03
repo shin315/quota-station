@@ -55,6 +55,8 @@ mod shot;
 mod skills;
 mod state;
 mod stats;
+#[cfg(any(test, feature = "test-support"))]
+pub mod testing;
 mod tray;
 mod windows;
 #[cfg(windows)]
