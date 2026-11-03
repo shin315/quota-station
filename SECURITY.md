@@ -48,10 +48,9 @@ Files, under `~/Library/Application Support/com.shin315.quota-station/`:
   `cache/quota_api_v1_desktop/authorized/<SHA-256 of the email>.json`, each
   account's last quota reading in Cockpit's cache layout (the email, the
   Cloud Code project, the time, and Google's quota answers; no token).
-  The Antigravity row lists the accounts from the index and the readings,
-  and quota-axi reads them as it reads Cockpit's. After a switch also
-  `antigravity_legacy_instances.json` (only the account id bound to
-  Antigravity.app, which the row and quota-axi read),
+  The Antigravity row lists the accounts from the index and the readings.
+  After a switch also `antigravity_legacy_instances.json` (only the account
+  id bound to Antigravity.app, in Cockpit's layout, which the row reads),
   `switch-log.jsonl`
   (time, account ids, the button pressed and the result of the last 200
   switches) and `watch.json` (the six-hour watch of the last switch). The
@@ -61,6 +60,9 @@ Files, under `~/Library/Application Support/com.shin315.quota-station/`:
   digits of a SHA-256 of the login it was read with; no token, header or
   email. `quota/claude-keychain-hold` marks that macOS held Claude Code's
   Keychain item back.
+- `update/install.log` (M7, mode 600): the output of the last
+  `Cập nhật từ mã nguồn` build, which names folders on this Mac and nothing
+  secret; each update replaces it.
 - `history/history.jsonl` and `alerts/alerts.json` (M6, folders mode 700,
   files mode 600): the switch history (time, Claude slot numbers or the
   app's Antigravity account ids, how a switch was made, at most 500 lines)
@@ -128,7 +130,8 @@ Tokens are refreshed only right before a use (a quota read), when they have
 under five minutes left. Nothing refreshes them on a timer. Logging out
 deletes the app's item and the index line, and asks Google to revoke nothing.
 
-The history and the alerts read the app's own folder.
+The history and the alerts read, besides the app's own folder, only the
+last 64 KB of the switcher's log.
 
 
 The macOS cards go through the system's
@@ -152,7 +155,7 @@ stops the same way if it runs again by then.
 ## Reading the quota
 
 The app reads the quota itself (`crates/quota-station-core/src/quota/`,
-ported from quota-axi's MIT source, `THIRD_PARTY.md`); no other program
+ported from third-party MIT code, `THIRD_PARTY.md`); no other program
 reads it for the app. A reader takes a login only to send its one usage
 request and never refreshes, rotates or writes it: an expired login shows
 as stale or as a sign-in to do, until the tool that owns it renews it. No
@@ -235,11 +238,24 @@ has the design.
   reading is and its error; no email, no token), `sessions/` and `.lock`.
   Emails reach a window only while `Hiện email` is on, and `quota-station
   claude status --json` prints them only with `--emails`.
+  `accounts.json` also says whether each account is in the rotation, and
+  the rotation keeps `rotation`, `rotation.log`, `prime` and `prime-state/`
+  there; its priming runs `claude` in the session folders too.
 - **Import.** `Nhập từ claude-swap` reads `~/.claude-swap-backup` once:
   `sequence.json`, each account's config for `oauthAccount`, its login from
   its `credentials/*.enc` file or claude-swap's Keychain item (read with
   `find-generic-password`, nothing else), and its usage cache. It writes
   nothing there.
+  It also copies the rotation file and the priming flag from
+  `~/.config/cswap-prefer-team` when the app has none.
+- **LaunchAgent.** `Tự chuyển bằng Quota Station` writes
+  `~/Library/LaunchAgents/com.shin315.quota-station.rotation.plist`
+  (`<the app>/Contents/MacOS/quota-station claude rotate` every 180 seconds)
+  and loads it with `launchctl bootstrap`; turning it off runs `bootout` and
+  removes the plist. While `com.cswap.prefer-team` or `com.cswap.auto` is
+  loaded, neither the rotation nor a switch from the app or the command line
+  writes a login, so two switchers never rotate the same refresh token. The
+  app never stops, loads or removes either of them.
 - A token pasted in `Thêm setup token` goes to the app's item and is never
   shown again; the command line takes one only on stdin. Errors carry
   `security`'s exit code and first line, never a value.
@@ -253,6 +269,11 @@ has the design.
   mark on that copy, never adds a login item or a launchd job, and never
   uses `sudo`. A copy given with `--app` must carry the app's bundle id and
   a valid signature.
+- `Cập nhật từ mã nguồn` runs the clone the owner sets in `Cài đặt`: the
+  code it builds is whatever that clone's upstream holds, as when the owner
+  builds by hand. git runs with prompts off, so it never waits for a
+  password, and with `--ff-only`, so it never merges or resets a clone with
+  local changes. It runs only when the owner presses the button.
 - `Mở khi đăng nhập` uses macOS's `SMAppService.mainApp`, only when the
   owner turns the switch on or off; macOS shows the item in System Settings
   › General › Login Items, where the owner can turn it off as well. Nothing
@@ -619,6 +640,58 @@ files, in the same sheet, after the same preview, under the same undo.
   `[[skills.config]]` entries, and anything a `codex plugin` command itself
   writes.
 
+## Copying to another Mac (M13)
+
+`Chép sang Mac khác` compares this Mac with one of `Cài đặt › Các Mac
+khác` and copies the items the owner ticks, one way or the other. It talks
+to the other Mac only through `ssh` and only to that Mac's own Quota
+Station, which does every write there.
+
+- One fixed script per call, built from constants only: `ssh -o
+  BatchMode=yes -o ConnectTimeout=5 -T <alias> /bin/sh -c '<script>'`, the
+  alias checked as for the rotation file's copy
+  ([docs/how-it-works.md](docs/how-it-works.md#what-it-reads-and-runs)).
+  The script looks for `Quota
+  Station.app` in `/Applications` and then `~/Applications`, reads
+  `QuotaStationAgents` from its `Info.plist` with `/usr/bin/plutil`, and
+  runs `quota-station agents read|export|start|status`, nothing else.
+  Nothing that is copied ever goes into the command: names, definitions,
+  files and keys go on stdin. Each call stops after 20 seconds.
+- A Mac whose app does not say `QuotaStationAgents` (version 1 of the app),
+  or that has no app, is never run, so never read or written to: the tab
+  says so and offers nothing to copy.
+- Reading the other Mac (`read`) prints what a backup pack would hold:
+  names, definitions with every secret replaced by `<redacted>`, skill
+  sources and tree ids, plugin lists, instruction files (none with a line
+  shaped like a key) and the SHA-256 of each agent file it would write.
+  Never a key's value. A command at another path on the other Mac is not a
+  difference.
+- Nothing is written before `Chép`, and only the items ticked are sent:
+  never a whole pack. When both Macs have an item but not alike, it starts
+  unticked; neither side wins on its own. A newer skill is never brought
+  down to an older one, and a file with a line shaped like a key on either
+  Mac is never copied.
+- The Mac that receives the items writes them as the restore of a pack of
+  only those items (M10, M12): the same checked write against the hashes
+  read at the comparison (a file changed since stops it, nothing written),
+  the same backups first, the same `Hoàn tác`. A skill from GitHub that is
+  newer on the sending Mac is updated with `npx -y skills update <name> -g
+  -y` after its folder is kept in `backups/skills/`. The write runs on its own
+  on that Mac (`agents start` starts `agents job` in its own process group
+  and returns), and this Mac asks `agents status` every second, each call
+  again limited to 20 seconds, for at most 15 minutes. One write at a time.
+- Keys stay home unless the owner turns on `Gửi cả khoá qua SSH`, which is
+  off for each new comparison. Then the values the app keeps for the
+  ticked servers go inside the SSH connection on stdin, from `agents start`
+  to `agents job` through a pipe, and into the receiving Mac's Keychain as
+  a restore puts a pasted key; they are never on a command line or on disk
+  on either Mac. With it off, a server that needs a key is added turned
+  off, and the receiving Mac asks for the key.
+- `Hoàn tác trên <Mac>` runs on the Mac that was written to, with the
+  record Quota Station there kept (`agents/restore-last.json`), and only
+  while that record is still this copy's.
+- Codex's provider, logins and accounts are never part of it, and nothing
+  else is ever run on the other Mac.
 
 ## Variables that override a login (M14)
 
@@ -867,6 +940,19 @@ reads or writes a login, an account, a key or a quota file of any of them.
   password) must not be in a pack, the plan, the result, the restore
   record, the app's backups, the shared skills or the commands run, and no
   skill's `run.sh` may ever run.
+- `tests/agents_copy.rs` (M13) copies between two temporary homes with a
+  fake `ssh` that records its arguments and stdin and runs the script on
+  the other home, a fake app bundle there (with and without
+  `QuotaStationAgents` in its `Info.plist`) that replays canned replies,
+  and fake `npx`, `claude`, `codex` and `security`. It checks that the
+  script is the same fixed text for every call, with `BatchMode=yes` and
+  the 20-second limit; that a Mac on version 1 or without the app is never
+  run; that an inventory and a payload without `Gửi cả khoá` hold no trap
+  key, and that with it the keys go on stdin only and land in the fake
+  Keychain; that a copy is the restore's write with its undo, that a file
+  changed since the comparison is not written, that invalid names and paths
+  and another protocol are refused, and that a write running or lost is
+  told apart. No test opens a real SSH connection.
 - `tests/env_check.rs` (M14) checks fake home folders with fake shell files
   and a fake `launchctl` that records its words. It checks that a name is
   found only at the start of a line and its last line wins, that
@@ -921,7 +1007,8 @@ reads or writes a login, an account, a key or a quota file of any of them.
   byte as they were and that only `find-generic-password` touched
   claude-swap's service; the switch tests check that a login the app does
   not keep stops a switch, that a write that does not read back is put
-  back.
+  back. They also check that nothing is written while an older switcher is
+  loaded.
 - CI has no Keychain access and no Google account.
 - The install tests run `scripts/install.sh` in a temporary folder with fake
   `open` and `security`, and fakes of `launchctl`, `osascript` and `sfltool`

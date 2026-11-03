@@ -6,6 +6,9 @@ reading every account's usage (`cswap list --json`). This note says how
 Quota Station does that itself. The logic that touches Claude Code's login
 is learned from claude-swap's MIT source and credited in `THIRD_PARTY.md`.
 
+Its advanced part (`Cài đặt › Nâng cao`) also runs the automatic rotation
+that `~/.local/bin/cswap-prefer-team` ran every three minutes from the
+LaunchAgent `com.cswap.prefer-team` (see Rotation host below).
 
 ## Store
 
@@ -29,6 +32,11 @@ is learned from claude-swap's MIT source and credited in `THIRD_PARTY.md`.
   account over under the same slot number, without a new login. It never
   writes there. Running it again changes nothing, except that a credential
   claude-swap holds a newer copy of (a later `expiresAt`) replaces the app's.
+- `accounts.json` also keeps whether each account is held out of the
+  rotation. The import puts every account in the
+  rotation (claude-swap's own `disabled` is not carried over: the old
+  switcher never read it), and copies the rotation file and the `prime`
+  flag when the app has none.
 
 ## Switch
 
@@ -74,6 +82,40 @@ claude-swap's back-off after a failure or a 429. The readings go to
 `claude/usage.json` (no email, no token). Emails stay in memory and reach the
 windows only while `Hiện email` is on, as before.
 
+## Rotation host
+
+The rotation is the `cswap-prefer-team` script's rules, ported line for line
+(`claude/engine.rs`, the same decision text) except that the early switch is
+on: while the Team account in use has room, the Team account whose five-hour
+window has started and ends sooner is taken, with room, at least 20 minutes
+and 10 points before `full` left of that window (the module doc has the
+whole rule). It reads the app's own copy of
+the rotation file, `claude/rotation` (same format; the editor and the copy to
+the other Macs work on it, and on a Mac that has not imported yet they still
+work on `~/.config/cswap-prefer-team/rotation`). The pause flag stays where it
+was, `~/.config/cswap-prefer-team/pause`, with the same guard.
+
+It runs from the app's own LaunchAgent, `com.shin315.quota-station.rotation`,
+every 180 seconds: `Quota Station.app/Contents/MacOS/quota-station claude
+rotate`, so it keeps going when the windows are closed or the app is quit.
+`Tự chuyển bằng Quota Station` in the Claude tab installs it (`launchctl
+bootstrap`) or removes it (`bootout`). Each run, and the app before showing a
+decision, checks `com.cswap.prefer-team` and `com.cswap.auto`: while either is
+loaded, or `launchctl` cannot tell, the run switches nothing and the window says so, so two switchers never
+run at once. The decisions and switches go to `claude/rotation.log`, in the
+script's log format. A switch that fails is logged with its cause on the same
+line, `switch to slot 3 failed: <kind>: <reason>` (`unknownSlot`, no account
+in that slot; `busy`, a lock another process holds; `unconfirmed`, a login or account that did not read back as
+written, with the old login put back; `keychain`; `noCredential`, the account
+has no usable login; `unmanaged`, Claude Code is on a login the app does not
+keep; `store`; `write`), and a prime that could not start as
+`prime of slot 3 failed: <kind>: <reason>`. The reason is one line of at most
+200 characters, with no token or Keychain value. An account held out of the rotation is never switched
+to; the account in use is kept or left by the script's rules, held out or not.
+
+On Windows, which has no launchd, the app runs the rotation itself every three
+minutes while it runs and the rotation is on; the next start runs it once at
+once.
 
 ## Session folders
 
@@ -94,7 +136,17 @@ copy when Claude Code refreshed it there. No credential is written to a file.
 alias, its three windows (share used and reset), how old its reading is and
 its error, and the account in use; no email, no token. `quota-station
 claude status --json` prints the same, and with `--emails` adds the emails.
-The app's Claude row is built from the same readings; the app runs no
-quota-axi.
+The app's Claude row is built from the same readings; no other tool is run
+to read them. Each account also says whether it is in the rotation
+(`enabled`).
 
 
+## Cutover
+
+On a Mac where the older switcher runs: stop `com.cswap.prefer-team`
+(`launchctl bootout`, plist kept as a backup), import, and turn on Quota
+Station's rotation.
+Until the older switcher is stopped, the app switches nothing and refreshes
+no token, so the two never rotate the same refresh token. Nothing of
+claude-swap is removed; the way back is to turn the app's rotation off and
+load the older switcher's plist again.

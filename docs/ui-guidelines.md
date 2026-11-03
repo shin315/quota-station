@@ -22,4 +22,5 @@ Quota Station keeps screens scannable at a glance so the owner sees what a featu
 | **System notifications** | `thông báo macOS`, `thông báo` | `macOS notification`, `notification` | Internal term `thẻ macOS`, `thẻ` / `macOS card`, `card` |
 | **Cancel, discard, and dismiss actions** | `Huỷ` (Cancel), `Bỏ thay đổi` (Discard changes), `Bỏ qua` (Dismiss / Ignore) | `Cancel`, `Discard changes`, `Dismiss` / `Ignore` | Colloquial `Thôi`; `Huỷ thay đổi` when paired with `Huỷ` |
 | **Expanding details** | `Chi tiết` | `Details` | Inline multi-sentence explanations on primary rows |
-
+| **Automatic account switching** | `tự động chuyển` (or `bộ tự chuyển` for the background job) | `auto-switch` | Raw English `switcher` in Vietnamese copy; `Asking the switcher…` |
+| **Pausing an account from rotation** | `Tạm dừng tự chuyển…`, `Đưa lại vào tự chuyển`, `tạm dừng đến …` | `Pause auto-switch…`, `Resume auto-switch`, `paused until …` | Colloquial `Cho nghỉ khỏi tự chuyển…`, `Cho vào lại tự chuyển`, `đang nghỉ` / `Leave out of auto-switch…`, `resting` |

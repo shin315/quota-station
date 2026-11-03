@@ -7,6 +7,14 @@ each part is in [how-it-works.md](how-it-works.md).
 
 Some parts belong to a build or a setting:
 
+- **Advanced** (`Nâng cao`): automatic switching of the Claude accounts (the
+  rotation, its rules and the pause), the copy of the rules and of the agents'
+  setup to other Macs, and the update from source (those two not on Windows).
+  Every build has them; they show only while `Settings › Advanced › Show
+  advanced features` is on. A new install starts with it off, no rotation rules
+  and accounts named `Account N` (`Tài khoản N`); a Mac that already had the
+  app gets it on.
+  Parts marked *(Advanced)* below need it.
 - **Antigravity accounts**: logging in and switching several Antigravity
   accounts, compiled only with the `antigravity-accounts` feature. Without it the Antigravity tab is `read-only` and offers a card about
   the multi-account build. Parts marked *(Antigravity accounts)* need it.
@@ -23,6 +31,8 @@ Contents: [the menu bar](#the-menu-bar-item) ·
 [Stats](#stats) · [Settings](#settings) · [the first run](#the-first-run) ·
 [app updates](#app-updates)
 
+Advanced: [rotation rules](#rotation-rules-advanced) ·
+[Copy to another Mac](#copy-to-another-mac-advanced)
 
 ## The menu bar item
 
@@ -51,6 +61,8 @@ quota is used up the icon draws a warning triangle. The tooltip and the
 VoiceOver label give every service in words, the window shown and its reset
 included (this label is in Vietnamese for now).
 
+*(Advanced)* While automatic switching is paused, two small pause bars sit
+inside the gauge; an exhausted Claude rotation draws the warning triangle.
 
 **Right-click menu**: `Open Quota Station`, `Refresh`, `Menu bar service`
 (Claude, Gemini or Codex, ticked; a service this Mac lacks is greyed out),
@@ -96,6 +108,11 @@ switch sheet, and so is every other Antigravity account the app signs in
 The footer, outside the scrolling part, explains the numbers (`% used · time
 until reset`, with `Details`) and says when a new version of the app is out.
 
+*(Advanced)* It also has the `Claude auto-switch` switch; the line that says why
+Claude is on its account shows only when there is something to act on (a pause
+or hold, waiting for quota, a switch coming, the switcher missing or failing),
+and the other Macs' line only when one of them is behind. The popover's notes
+on the rotation stay in the main window.
 
 ## The main window
 
@@ -115,6 +132,9 @@ The sidebar:
 - **Backup**: `Backup`
 - `Settings`, at the foot, with the Mac's name under it.
 
+*(Advanced)* **Activity** becomes **Automation**, with `Rotation rules`
+beside `History`; **Backup** adds `Copy to another Mac`; and under
+`Settings`, whether the other Macs have the rotation rules.
 
 `Overview` has a card per service: the Claude accounts in a table with fixed
 columns (`5-hour · Week · Fable week`), the Antigravity accounts (`5-hour` and
@@ -123,6 +143,8 @@ columns (`5-hour · Week · Fable week`), the Antigravity accounts (`5-hour` and
 account not in use and `In use` (a dot and words, nothing to press) on the one
 in use. A banner at the foot says when a new version of the app is out.
 
+*(Advanced)* The Claude card's header has `Claude auto-switch` and its one
+line, when there is more than one account.
 
 ## Names
 
@@ -133,6 +155,8 @@ Display` names them by place instead, for screenshots, and then no email or
 organization reaches the windows at all: accounts are `Account N` and
 `Antigravity N`.
 
+*(Advanced)* The organization of a Team seat or `Personal · 08–23` sits under
+the name, and the place names are `Team A`, `Personal` and `Ultra 1`.
 
 ## Claude
 
@@ -145,6 +169,20 @@ Each row's `⋯` menu has `Details and nickname…`, `Sign in again…` and `Rem
 from this Mac…`. A variable that overrides Claude Code's sign-in puts a red
 banner at the top of the tab ([below](#variables-that-override-a-sign-in)).
 
+*(Advanced)* The `⋯` menu can also pause automatic switching for that account
+(or put it back). While an older switcher (`com.cswap.prefer-team` or
+`com.cswap.auto`) is still loaded, the tab says so with `How to turn it off`,
+and a guide covers moving from claude-swap.
+
+*(Advanced)* Below the accounts, one card has two halves: `Claude auto-switch`,
+with its line (the rotation's decision from a dry run, or `Paused until HH:MM:
+<reason>` while a pause holds) and `Pause` (`1 hour`, `Until 18:00` or `Until I
+turn it back on`; while paused it resumes at once, and the banner offers `One
+more hour`); and `Background check`, which says whether launchd runs the
+rotation every 3 minutes, even when the app is closed. Without Advanced, an
+`Auto-switch with Quota Station` card shows only while the rotation runs or an
+older switcher is loaded. Banners warn when a switcher ignores the pause flag
+and when launchd does not run the rotation.
 
 **Switching.** The confirmation sheet names the account, its allowances, and
 how many Claude Code sessions running on this Mac will rebuild their prompt
@@ -155,6 +193,13 @@ switch, not yet confirmed, or why nothing changed (Claude Code held its login
 locks, the account needs a new sign-in, or Claude Code is on a sign-in the app
 does not keep).
 
+*(Advanced)* The sheet also offers a hold so automatic switching does not
+switch straight back: `30 minutes`, `1 hour` (the default), `Until reset` (the
+account's next five-hour reset) or `Let it auto-switch`; outside the personal
+account's hours it warns that the rotation will move away from it. Confirming
+writes the pause flag when a hold was chosen (a hold never shortens a pause
+that is already on for longer). The report can also say the rotation switched
+back, or that nothing changed because an older switcher is still loaded.
 
 ## Antigravity
 
@@ -290,6 +335,34 @@ every key in it replaced by `<redacted>`, writes a temporary file and renames
 it, and reads the result. The Codex folder is `~/.codex` unless `Settings ›
 Services › Codex folder` says otherwise.
 
+## Rotation rules *(Advanced)*
+
+The editor shows the rotation file's six keys: the Team accounts in the
+rotation (chips; the number is the order), the personal account and its hours,
+the two thresholds (sliders), and when an account leaves the rotation. It marks
+what changed, previews what the switcher would decide with the edited rules
+(its `--dry-run` pointed at a draft copy), and saves with one button named for
+the Macs it reaches (`Save for all three Macs` with two other Macs set, `Save
+for this Mac` with none).
+
+A save first checks the rules (all six keys, each in its form; a `rotation_…`
+reason otherwise, and nothing is written or sent).
+It rewrites the six keys in place and keeps every other readable line (a line
+the rules cannot read stays only in the backup), puts a `# updated = <time> by
+<machine>` comment at the top, writes through a temporary file and a rename, and keeps the file before as
+`rotation.bak-<time>` (the newest 10 stay). Then the file goes to each other
+Mac over SSH, the same way, and is read back to compare. The save bar has one
+line per Mac: `received 14:30`, `unreachable · retrying at 14:35`, `has a newer
+copy`. A Mac that could not take it is tried again every 5 minutes, also after
+a restart. When another Mac holds a newer copy (a later `updated`), or one
+edited by hand there (its content differs from its stamp, or it has no
+`updated` line), nothing is overwritten: the write itself checks the file is
+still the one just read, and the tab offers `Compare the two copies of the
+rules` or `Keep this Mac's copy` (stamped again, so it is the newest). When a
+newer copy lands on this Mac during an edit, the editor says `The copy on <Mac>
+is newer. Reload?` and saves over it only when told to. Leaving the tab,
+closing the window or quitting from the menu bar with unsaved changes asks
+first.
 
 ## History
 
@@ -300,10 +373,13 @@ switch made in this app) or `observed` (the account in use changed between
 two reads and the app did not make it, or Antigravity.app wrote the old
 sign-in back).
 
- The app keeps its own
-lines, at most 500, in `history/history.jsonl`; the Antigravity and Codex
-switches come from the app's own switch logs, never from Cockpit's switch
-history.
+*(Advanced)* A line can also come from the switcher (a `switch to slot N` or
+`primed slot N` line in the switcher's log, read from its last 64 KB), and
+`observed` then means neither the app nor the switcher made the change.
+
+The app keeps its own lines, at most 500, in `history/history.jsonl`; the
+Antigravity and Codex switches come from the app's own switch logs, never from
+Cockpit's switch history.
 
 ## Notifications
 
@@ -328,9 +404,17 @@ lists the kinds in both languages. The kinds:
    `Claude đã có lại hạn mức`): the pool is dry when the account in use has 10%
    or less left and no other account has 15% or more (both set in `Settings ›
    Notifications › Running-out thresholds`).
+   *(Advanced)* Only the rotation's accounts that have not left it (the
+   personal one only inside its hours) count, and the title is `Hạn mức Claude
+   trong vòng sắp cạn`. Where the app keeps no Claude account it reads the
+   rotation file.
    The card names the account in use and its share used, and
    when an account resets, and offers `Sang <account> (đã dùng N%)` when a
    better account exists, which opens the switch sheet, and `Bỏ qua`.
+2. **An account is about to leave the rotation** *(Advanced)* (`<account> rời
+   vòng lúc HH:MM`): 30 minutes before an account leaves the rotation (`expire`
+   in the rules). For the account in use it offers `Ổn` and `Chuyển ngay` (the
+   switch sheet).
 3. **An account needs to sign in again** (`<account> cần đăng nhập lại`): the
    usage read reports an error only a new sign-in mends (`invalid_grant`,
    `no_refresh_token`, `no-access-token`, `relogin_required`, a relogin), with
@@ -526,6 +610,23 @@ whole restore back, asking first when a file was edited since. See
 [`SECURITY.md`](../SECURITY.md#backup-packs-and-restore-m10) and
 [its restore section](../SECURITY.md#restoring-skills-plugins-and-instruction-files-m12).
 
+## Copy to another Mac *(Advanced)*
+
+The tab (not on Windows) copies MCP servers, skills, plugins and instruction
+files between this Mac and one of `Settings › Advanced › Other Macs`, either
+way (`From this Mac to …` or `Bring from …`). `Compare` reads the other Mac through its own Quota
+Station over SSH (names, configuration and hashes, never a key) and lists what
+differs by group: what only one Mac has, a server whose configuration differs (a
+command at another path is not a difference), a skill of another version, a
+file of other text. What only the sending Mac has starts ticked; what both have
+but not alike starts unticked, and `View` shows it on both Macs side by side.
+The copy button shows what will happen, and the Mac that receives the items
+writes them itself, as a restore of only those items: the same checked write,
+backups first, and `Undo on …` runs on that Mac. `Also send keys over SSH` is
+off by default: a server that needs a key is then added turned off and that Mac
+asks for the key. A Mac that does not answer, or whose app is still version 1,
+is never written to. Codex's provider, sign-ins and accounts are never part of
+a copy. See [`SECURITY.md`](../SECURITY.md#copying-to-another-mac-m13).
 
 ## Variables that override a sign-in
 
@@ -628,11 +729,23 @@ it.
   client` (whether `oauth-client.json` is in place and usable), and the
   `Environment variables that override sign-in` card. While a variable is set,
   this tab moves to the front of the bar and the card leads it.
+- **Advanced** (`Nâng cao`): `Show advanced features` shows the `Rotation
+  rules` and `Copy to another Mac` tabs, automatic switching with its pause
+  (`Until 18:00` among them), the background check card, the notification for
+  an account leaving the rotation, and the Personal/Team and Ultra names.
+  `Other Macs` gives a name and an SSH alias for each other Mac,
+  with `Add Mac`, `Remove` and `Test SSH` (reads that Mac's rotation file and
+  changes nothing). `Source code` is the clone this Mac updates from, and
+  `Update` (`Update from source`) pulls it and installs the new build
+  ([README](../README.md#update)). A settings file from before the list of
+  other Macs with a single `sshAlias` moves into it. On Windows the tab has no
+  `Other Macs` and no `Source code`.
 
 Links elsewhere open the tab they are about: a variable's banner or
 notification opens `Services`, and `Notification settings` under the bell
 opens `Notifications`.
 
+*(Advanced)* `Open Settings` in `Copy to another Mac` opens `Advanced`.
 
 ## The first run
 

@@ -8,9 +8,8 @@ agents' MCP servers, skills and instruction files in order. The interface is in
 English and Vietnamese.
 
 
-Quota Station reads the quota itself, on your Mac, with readers ported from
-[quota-axi](https://github.com/kunchenguid/quota-axi); it needs no other
-program for the numbers.
+Quota Station reads the quota itself, on your Mac; it needs no other program
+for the numbers.
 
 
 > **Status.** macOS 13 or later. There is no release on GitHub yet, so you
@@ -59,6 +58,8 @@ Code is signed in to, or pasting a setup-token. A switch first shows how many
 running Claude Code sessions will rebuild their prompt cache, then checks that
 it landed.
 
+An automatic rotation between Team accounts, with a pause, is one of the
+[advanced tools](#advanced).
 
 ### Codex
 
@@ -133,6 +134,7 @@ Settings has `General` (language, open at login, backup folder, app updates),
 `Services`. Turn off `Show emails` and accounts are named by place or number,
 for screenshots.
 
+Settings also has `Advanced`, which shows the [advanced tools](#advanced).
 
 ### First run
 
@@ -145,6 +147,13 @@ accounts, permissions, done.
 - **History** of every account switch on this Mac.
 - **App updates**: the app checks GitHub Releases for a newer version and tells
   you; it never installs one by itself.
+
+### Advanced
+
+`Settings › Advanced › Show advanced features`, off on a new install, adds the
+automatic Claude rotation with its pause and rules editor, sending the rules
+to other Macs over SSH, `Copy to another Mac`, and updating from a source
+clone.
 
 
 Every part is described in full in [docs/features.md](docs/features.md).
@@ -160,6 +169,7 @@ Every part is described in full in [docs/features.md](docs/features.md).
 - The keys and sign-ins the app keeps live in the macOS Keychain (the extra
   ChatGPT accounts in folders only you can open). A key never appears in a
   window, a log or a backup pack.
+  It goes to another Mac only if you tick `Also send keys over SSH`.
 
 [SECURITY.md](SECURITY.md) has the details, and
 [docs/how-it-works.md](docs/how-it-works.md) lists everything the app reads,
@@ -171,11 +181,13 @@ runs and writes.
 - To build: Rust stable (1.85 or later) and Node.js 20 or later. A Mac without
   them can install a copy built on another Mac.
 - For the numbers, nothing else: Codex, `agy` or Antigravity.app, and Claude
-  Code each only need to be signed in. quota-axi is not needed.
+  Code each only need to be signed in.
 - To sign new Claude accounts in, and for `quota-station claude run`, Claude
   Code's `claude` command.
 - To sign Antigravity accounts in (the Antigravity accounts build), the
   [OAuth client file](docs/how-it-works.md#the-oauth-client-file).
+- For the advanced tools that reach other Macs, an SSH alias to each that
+  signs in without a prompt (a key, `BatchMode=yes`).
 
 ## Install
 
@@ -216,11 +228,18 @@ From a terminal, in the clone:
 git pull --ff-only && scripts/install.sh
 ```
 
+`Settings › Advanced` can do the same, with `Show advanced features` on: set
+`Source code` to the clone and press `Update from source`. It pulls, builds and
+installs when the clone has a new commit, then offers `Restart`; a clone with
+local commits is never merged or reset, and a build longer than 30 minutes
+stops.
 
 ## Uninstall
 
 1. In `Settings › General`, turn `Open at login` off (or remove Quota Station in
    System Settings › General › Login Items).
+   If the app runs the Claude rotation, turn it off in the `Claude` tab (or
+   run `quota-station claude rotation off`).
 2. Quit Quota Station from its menu, then move
    `/Applications/Quota Station.app` to the Trash.
 3. Optionally, its data: `~/Library/Application Support/com.shin315.quota-station/`
@@ -233,6 +252,8 @@ git pull --ff-only && scripts/install.sh
    out in the app first to delete those items. Leave the `gemini`/`antigravity`
    item alone: Antigravity.app and agy use it.
 
+The pause flag and the older switcher's rotation file are shared with that
+switcher and stay.
 
 ## Documentation
 

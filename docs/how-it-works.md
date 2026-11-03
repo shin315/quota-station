@@ -10,7 +10,7 @@ label where it helps to find it.
 - [The Claude accounts](#the-claude-accounts)
 - [Antigravity logins, quota and switching](#antigravity-logins-quota-and-switching)
 - [The OAuth client file](#the-oauth-client-file)
-- [How the numbers relate to quota-axi](#how-the-numbers-relate-to-quota-axi)
+- [The pause flag and the switcher](#the-pause-flag-and-the-switcher)
 - [What it reads and runs](#what-it-reads-and-runs)
 - [The files it writes](#the-files-it-writes)
 
@@ -19,12 +19,14 @@ switch button for another Mac. Each Mac keeps its own Antigravity logins, and
 nothing assumes another Mac has any. Each Mac installs and updates its own
 copy.
 
+The only things sent to another Mac are the rotation file and, when the owner
+asks, the items of `Copy to another Mac` (`Chép sang Mac khác`).
 
 ## The quota readers
 
-The app reads the quota itself, with readers ported from
-[quota-axi](https://github.com/kunchenguid/quota-axi) (MIT), in
-`crates/quota-station-core/src/quota/`. None of them refreshes, rotates or
+The app reads the quota itself, with its own readers in
+`crates/quota-station-core/src/quota/` (ported from MIT code; where from is in
+[`THIRD_PARTY.md`](../THIRD_PARTY.md)). None of them refreshes, rotates or
 writes a login: an expired login shows as stale or as a sign-in to do, and the
 vendor's own tool renews it when it next runs.
 
@@ -35,9 +37,9 @@ vendor's own tool renews it when it next runs.
   for the ChatGPT login's five-hour and weekly windows. Codex's `app-server` is
   never started for a read.
 - **Antigravity**: `agy -p /quota --output-format json` (the first `agy` on the
-  app's `PATH`, else in `/opt/homebrew/bin` or `/usr/local/bin`, as quota-axi
-  looked for it), with stand-ins for `open` and `xdg-open` first on its `PATH`
-  so it cannot open a browser; when that gives no numbers, the language server
+  app's `PATH`, else in `/opt/homebrew/bin` or `/usr/local/bin`), with
+  stand-ins for `open` and `xdg-open` first on its `PATH` so it cannot open a
+  browser; when that gives no numbers, the language server
   of a running agy or Antigravity.app, found with `ps` and `lsof`, asked on
   127.0.0.1 for its quota summary with the CSRF token from its command line.
   The account's email is compared by a hash and never kept. An app opened from
@@ -58,6 +60,17 @@ minutes for the same login is used without asking again
 login only), and a read that fails shows the last numbers as stale. The check
 after a switch asks again at once: a cached Claude reading may still be the
 account from before the switch.
+
+What the numbers mean:
+
+- **5-hour / Week.** For the active account, this is the tighter of the live
+  five-hour and seven-day windows. A tie shows the week. For the other accounts
+  it is the effective percent of the app's own reading (claude-swap's before
+  the app keeps the accounts), labelled by the window that limits it.
+- **Fable week.** For the active account, this is the live Fable weekly window.
+  For the other accounts, it is the Fable scope of the same reading. When
+  another window limits that account first, the scope is only a bound, so the
+  app shows it as `≤98%` ("used at most") with no reset time.
 
 ## The Claude accounts
 
@@ -97,6 +110,31 @@ touches Claude Code's login is adapted from claude-swap, MIT, credited in
   organization come from the app's Keychain items, stay in memory, go to the
   windows only while `Show emails` is on, and are never written to a file or a
   log.
+- **Automatic switching.** While `Settings › Advanced › Show advanced
+  features` is on, a switch in `Details and nickname…` lets automatic
+  switching use the account, and the `⋯` menu can pause automatic switching
+  for it (it is never switched to, but kept by the usual rules while in use,
+  and can still be switched to by hand).
+- **Rotation.** The `cswap-prefer-team` rules, ported line for line, on the
+  app's own copy of the rotation file (`claude/rotation`; the rules editor and
+  the copy to the other Macs work on it), with one change: the early switch is
+  on. While the Team account in use has room, the rotation moves to another
+  Team account whose five-hour window has started and ends sooner, when that
+  account has room, at least 20 minutes of that window left and at least 10
+  points of it before the threshold (and Fable left if the account in use has
+  Fable); of several, the window that ends first. So a window is used before it
+  resets unused, for about one switch back (each switch makes every running
+  session read its context again). With no such account the one in use is kept
+  until a window reaches the threshold, as in the script. `Auto-switch with
+  Quota Station` (`Tự chuyển bằng Quota Station`) loads the app's LaunchAgent,
+  `com.shin315.quota-station.rotation`, which runs `quota-station claude rotate`
+  every 180 seconds whether or not the app is open, and logs to
+  `claude/rotation.log`; a failed step is logged with its cause on the same
+  line (`switch to slot N failed: <kind>: <reason>`), never a token. While
+  `com.cswap.prefer-team` or `com.cswap.auto` is loaded (or `launchctl` cannot
+  answer), the rotation, the switch sheet and `quota-station claude switch`
+  write nothing, so two switchers never rotate the same refresh token. On
+  Windows the app runs the rotation itself every three minutes while it runs.
 
 ### The command line
 
@@ -125,6 +163,8 @@ account in use it runs `claude` on Claude Code's own login, as `cswap run` did;
 rest (`switch`, `import`, `add [--current | --token [--email E]]`, `remove`,
 `alias`).
 
+Each account also has `enabled` (in the rotation), and the rest takes
+`rotate [--dry-run]`, `rotation on|off`, `enable` and `disable` too.
 
 ## Antigravity logins, quota and switching
 
@@ -222,20 +262,21 @@ The app refuses the placeholders, a file others can read (it must be mode
 the file is usable (`Antigravity OAuth client`), and the `Antigravity` tab says
 what is missing.
 
+## The pause flag and the switcher
 
-## How the numbers relate to quota-axi
-
-The readers are ported from quota-axi, so on the same Mac the app and
-`quota-axi --provider codex|agy --json` give the same percentages and resets.
-
-- **5-hour / Week.** For the active account, this is the tighter of the live
-  five-hour and seven-day windows. A tie shows the week. For the other accounts
-  it is the effective percent of the app's own reading (claude-swap's before
-  the app keeps the accounts), labelled by the window that limits it.
-- **Fable week.** For the active account, this is the live Fable weekly window.
-  For the other accounts, it is the Fable scope of the same reading. When
-  another window limits that account first, the scope is only a bound, so the
-  app shows it as `≤98%` ("used at most") with no reset time.
+The rotation decides on its own every three minutes; a pause only asks it to
+wait. The pause flag is `~/.config/cswap-prefer-team/pause`
+(`until = YYYY-MM-DDTHH:MM` in local time and `reason = …`; no `until` pauses
+until resumed), written through a temporary file and a rename; resuming
+deletes it. The app's own rotation has the guard built in: while the flag holds
+it switches nothing; once `until` has passed, it deletes the flag and goes on,
+and its dry run prints `paused until <until>: <reason>` (or
+`paused indefinitely: <reason>`). The older `cswap-prefer-team` script, which is
+not part of this repository, needs the same guard at its top while it still
+runs. `until` is compared with the local time as text, the same rule in both,
+so they agree on when a pause ends. When a dry run made while the flag holds
+still prints a normal decision, the app reports that the switcher ignores the
+flag and does not show Claude as paused.
 
 ## What it reads and runs
 
@@ -259,6 +300,25 @@ The readers are ported from quota-axi, so on the same Mac the app and
   claude-swap's Keychain items once and writes nothing there.
 - Live sessions are counted from `~/.claude/sessions/*.json`: only the `pid`
   and `kind` fields are read, and a session counts when its process is alive.
+- The rotation: a dry run of its rules in the app (no program runs and nothing
+  switches), the last line of `claude/rotation.log` (of
+  `~/Library/Logs/cswap-prefer-team.log` before the app keeps an account), and
+  `launchctl list` for `com.shin315.quota-station.rotation`,
+  `com.cswap.prefer-team` and `com.cswap.auto`. These run with each read while
+  the popover or the main window is open, and after a switch or a pause; while
+  both are hidden only the pause flag is read. `Auto-switch with Quota Station`
+  runs `launchctl bootstrap` or `bootout` for the app's own LaunchAgent only;
+  the app never loads, stops or removes the older ones. The rules editor's
+  preview runs the same dry run on the draft, in memory.
+- Copying the rotation file runs `ssh -o BatchMode=yes -o ConnectTimeout=5 -T
+  <alias>` with one of two fixed scripts: one prints the rotation file (the
+  app's `claude/rotation` when that Mac's app keeps accounts or has its own
+  rotation file, else `~/.config/cswap-prefer-team/rotation`), the other takes
+  the new file on stdin, keeps a backup, renames it into place and prints it
+  back. Batch mode means SSH never asks for a password or a host key. An alias
+  must start with a letter or digit, hold only letters, digits and `. - _ @`,
+  and be at most 64 characters. The `ssh` used is the first on `PATH`, else
+  `/usr/bin/ssh`.
 - Antigravity logins talk to Google when the owner presses `Add account` or
   `Sign in again`: the consent page opens in the browser (`open <url>`), then
   `https://oauth2.googleapis.com/token` and
@@ -285,7 +345,8 @@ The readers are ported from quota-axi, so on the same Mac the app and
   the cache. Opening the sheet runs only the `plutil` and `pgrep` questions.
 - History and notifications read, after each read: the app's own Antigravity
   and Codex switch logs and, while an overwrite card waits for an answer,
-  `pgrep` for Antigravity.app.
+  `pgrep` for Antigravity.app, the last 64 KB of the switcher's log, and the
+  rotation file (where the app keeps no Claude account).
   The cards go through macOS's own
   notification center (`UNUserNotificationCenter`); `Open System Settings` runs
   `open x-apple.systempreferences:com.apple.Notifications-Settings.extension`.
@@ -297,6 +358,13 @@ The readers are ported from quota-axi, so on the same Mac the app and
   and on `Check for new versions`, and keeps the answer in `release.json`.
   `Download and install` only opens the release's DMG (or its page) in the
   browser; nothing is downloaded or installed by the app.
+- `Update from source` (`Cập nhật từ mã nguồn`, not on Windows) runs,
+  only when pressed, `git -C <clone> pull --ff-only` (with
+  `GIT_TERMINAL_PROMPT=0` and `GIT_SSH_COMMAND="ssh -o BatchMode=yes"`, so git
+  never waits for a password), `git -C <clone> rev-parse HEAD`, and then, unless
+  this copy was built from that commit, `/bin/bash <clone>/scripts/install.sh
+  --dest <the folder this app is in> --no-open`. `Restart` (`Mở lại`) quits the
+  app and has `/bin/sh` wait for it to end before `open` starts the new copy.
 - Codex, while the popover or the main window is open every 60 seconds, every 5
   minutes while both are hidden, and when the `Codex` tab opens: `config.toml`
   in the Codex folder; the shape of `auth.json` (which kind of login it holds;
@@ -356,8 +424,16 @@ The readers are ported from quota-axi, so on the same Mac the app and
   `~/.claude/CLAUDE.md`, `~/.claude/rules/**/*.md` (three folders deep, at most
   200 files), the Codex folder's `AGENTS.md`, `~/.gemini/GEMINI.md` and the
   files added by hand; the choices made there are `agents/instructions.json`.
-  It never writes them, except when a restore puts back a file the owner
-  ticked.
+  It never writes them, except when a restore, or a copy from another Mac,
+  puts back a file the owner ticked.
+- Copying to another Mac, on `Compare` and the copy in the `Copy to another
+  Mac` tab: `ssh -o BatchMode=yes -o ConnectTimeout=5 -T <alias>` with one fixed
+  script that finds `Quota Station.app` in `/Applications` or
+  `~/Applications`, checks its `Info.plist` with `/usr/bin/plutil` and runs
+  `quota-station agents read|export|start|status`; whatever a call carries goes
+  on stdin, and each call stops after 20 seconds. On the Mac written to, the app
+  keeps `agents/copy-job.json` (the write running, no key) and, while it runs,
+  the items in `agents/incoming/`.
 - Variables that override a login: the bytes of `~/.zshenv`, `~/.zprofile`,
   `~/.zshrc`, `~/.bash_profile` and `~/.profile`, searched for eleven names at
   the start of a line and zeroed after (never run or `source`d), and
@@ -386,19 +462,23 @@ a rename.
 
 - `settings.json` (its own settings), `release.json` (the last release check)
   and `cli-tools.json` (the last Agent updates check), `cli-updates/` (their
-  logs).
+  logs), and `rotation-sync.json` (where each other Mac stands with the
+  rotation file).
 - `quota/<provider>.json`: the last reading of each service (windows, times and
   a hash of the login only).
 - `claude/`: the Claude accounts (`accounts.json`, `usage.json`, `state.json`,
-  `sessions/`, `adding/` and the lock file `.lock`), no email and no token.
+  `sessions/`, `adding/` and the lock file `.lock`, and the rotation's
+  `rotation`, `rotation.log`, `prime` and `prime-state/`), no email and no
+  token.
+- `update/install.log`: the last update from source's build output.
 - `antigravity/accounts.json` (Cockpit's account index layout, no token),
   `antigravity/status.json` (accounts that need a new login or a verification,
   or that Google refused),
   `antigravity/cache/quota_api_v1_desktop/authorized/<SHA-256 of the email>.json`
   (each account's last quota reading in Cockpit's cache layout, no token), and
   after an Antigravity switch `antigravity/antigravity_legacy_instances.json`
-  (the account bound to Antigravity.app, read by the Antigravity row and by
-  quota-axi), `antigravity/switch-log.jsonl` and
+  (the account bound to Antigravity.app, read by the Antigravity row),
+  `antigravity/switch-log.jsonl` and
   `antigravity/watch.json`.
 - `history/history.jsonl` (the app's own switches, at most 500 lines) and
   `alerts/alerts.json` (what was sent, answered and snoozed: the newest 30
@@ -415,8 +495,12 @@ a rename.
   `agents/mcp-store.json` (the servers the app keeps, no key),
   `agents/mcp-log.jsonl` (the last 200 MCP writes), `agents/skill-updates.json`,
   `agents/instructions.json`, `agents/restore-last.json`, `agents/sets.json`
-  and `agents/env-ignored.json`.
+  and `agents/env-ignored.json`; on a Mac being copied to,
+  `agents/copy-job.json` and `agents/incoming/`.
 - `stats/index.json`: the token counts, no text.
+- Outside that folder: the switcher's pause flag,
+  `~/.config/cswap-prefer-team/pause`, and the rotation file with its backups
+  (`rotation.bak-<time>`, the newest 10).
 - Outside that folder, the agents' own files (`config.toml`,
   `~/.claude.json`, `mcp_config.json`, the skill folders and links, the
   instruction files, Claude Code's Keychain item) are written only after a

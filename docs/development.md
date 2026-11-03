@@ -79,6 +79,30 @@ Cargo features decide what is compiled in. A plain `cargo tauri build`,
   `QS_ANTIGRAVITY_ACCOUNTS=1`. Without it the app reads the
   Antigravity account signed in and does not log in or switch accounts.
 
+The **advanced part** is not a feature: every build has it, as the extension
+the app's binary passes to `run` (`quota_station::advanced::Advanced`). It is
+`Settings › Advanced` and what it holds, the `Rotation rules` editor and the
+copy of the rotation file to the other Macs, `Copy to another Mac`, `Source
+code` and `Update from source`, and the notification for an account leaving
+the rotation. While `Settings › Advanced › Show advanced features` is off, the
+windows show none of the tabs, cards, switches or names it holds (automatic
+switching with its pause and the background check card, the Personal/Team and
+Ultra names). The model says the advanced part is there
+(`capabilities.authorTools`). On Windows it is the rotation (run by the app's
+own timer), its rules and the pause; the other Macs, `Copy to another Mac`,
+the LaunchAgent and the update from source are Unix only, and the windows
+offer none of them there.
+
+The app without an extension (`quota_station::ext::NoExtension`, which tests
+run) does not know the values the advanced part holds, and keeps them: the
+settings keys it does not know (the `Advanced` switch, the other Macs, the
+clone) stay in `Settings::ext` as they were read and are written back
+unchanged, so a settings file passes through it. So do the switches of the
+advanced part's notifications inside the app's own `alerts` key
+(`Switches::ext`): it never sends those notifications and shows no switch for
+them, and the app with the advanced part finds them as the owner left them.
+
+
 ## Browser preview
 
 `npm run dev` serves the popover at http://localhost:1420/ on the fixtures and
@@ -148,6 +172,18 @@ query parameters are:
   `clifail` (`offline`, `permission`, `busy`, `exit`, `timeout`, `unchanged`,
   `started` or `sessions`) and `cliclosed=1`.
 
+The advanced part's states:
+
+- `tab`: `rules` and `copy`, and `build=release` leaves the advanced part out
+  too.
+- Claude: `switcher` (`held`, `noguard`, `auto`, `stopped` or `missing`).
+- Rotation rules, on `tab=rules`: `rotation` (`unreachable`, `newer`, `edited`,
+  `unstamped`, `missing`, `invalid`, `unwritable` or `single`).
+- The app, on `tab=settings`: `app` also takes `nosource` and `unbundled`, and
+  `update` (`uptodate`, `pull`, `install` or `timeout`; by default an update
+  installs 0.1.1).
+- Copy to another Mac, on `tab=copy` with two made-up Macs: `copy` (`unreach`,
+  `old`, `noapp`, `none` or `changed`).
 
 
 ## Tests
@@ -187,10 +223,20 @@ The core's integration tests are `crates/quota-station-core/tests/*.rs`:
 `icon_badge`, `install_script`, `labels`, `login_item`, `os_macos`,
 `quota_readers`, `runner`, `sessions`, `settings`, `snapshot`,
 `snapshot_ext`, `stats`, `switch_ext` and `ui_fixtures`, with shared helpers in
-`common/` and synthetic data in `fixtures/`.
-inline, and in `src-tauri/tests/` those of its advanced part (`advanced.rs`,
-with its model's golden file, and `advanced_commands.rs`), of its sockets for
-an extension (`ext.rs`) and of the app's state an extension's own tests draw the model
+`common/` and synthetic data in `fixtures/`. The advanced part's tests are
+there too: `agents_copy`, `peers` and `update`, the rotation's tests
+(`claude_rotation`, `history`, `pause`, `rotation`, `switcher`,
+`switching`), and the advanced part's halves of `account_keys`, `alerts`,
+`claude_accounts`, `claude_import`, `claude_manage`, `claude_pool`,
+`history_ext`, `icon`, `icon_badge`, `labels`, `os_macos`, `settings`,
+`snapshot`, `snapshot_ext`, `switch_ext` and `ui_fixtures` beside them as
+`<name>_advanced.rs`, with the advanced part's helpers in
+`common/advanced.rs`.
+
+The app crate (`src-tauri/src`) has its tests inline, and in
+`src-tauri/tests/` those of its advanced part (`advanced.rs`, with its model's
+golden file, and `advanced_commands.rs`), of its sockets for an extension
+(`ext.rs`) and of the app's state an extension's own tests draw the model
 through (`testing.rs`: `quota_station::testing`, behind the `test-support`
 feature), filled by a test extension (`common/`) made as a crate outside the
 app would make one. The Vitest tests are the `*.test.ts(x)` files under `src/`; the
@@ -211,6 +257,12 @@ What the main suites check:
   with `--no-open`), a failed build that leaves the old copy, `npm ci` after a
   lock file change, the commit passed to the build, and a package that installs
   with `--app` on a Mac without `cargo` or `npm`, from the folder or the zip.
+- **Update from source** (`update.rs`): real git on temporary repositories (a
+  bare origin, the clone, and a second clone that pushes) with a temporary HOME
+  and no git config, and a fake `install.sh` that records its arguments: a new
+  commit pulled and installed, nothing new, a clone that cannot fast-forward
+  (left as it is), an origin that is gone, a failed install, and what counts
+  as a clone.
 - **Login item** (`login_item.rs`): the tests use a fake backend
   that keeps the state macOS would: on, off, waiting for approval, not a
   packaged app, and refused. Reading the switch never registers anything. No
@@ -267,6 +319,20 @@ What the main suites check:
   the session folders and the command line. The read after a switch is the
   app's own reading of the accounts. Session counting runs on session files in
   a temporary folder.
+- **Switching, the switcher and the pause** (`switching.rs`, `switcher.rs`,
+  `pause.rs`, `claude_rotation.rs`): the rotation's decisions on the same cases
+  as the old script; one ignored test runs the real `cswap-prefer-team` with
+  `--dry-run` beside the port when `QUOTA_STATION_PREFER_TEAM` names it. The
+  pause flag tests write the flag in a temporary folder with an `until` ahead,
+  passed, malformed or missing.
+- **Rotation and the other Macs** (`rotation.rs`, `peers.rs`) write rotation
+  files in temporary folders: one the rules accept, and ones they refuse, which
+  leave the file as it was. The other-Mac tests put a fake `ssh` first on
+  `PATH`; it runs the fixed scripts in a temporary home per alias, and has an
+  alias that cannot be reached and one that reads back something else. They
+  cover a Mac with no file, an older copy (replaced, backup kept, ten newest
+  kept), the copy already there, the 5-minute retry, a newer copy that wins, and
+  a copy edited by hand.
 - **Notifications** (`alerts.rs`) run on synthetic reports and app folders in
   temporary directories, with a fake notification center that records each
   card, its buttons and what was withdrawn, and presses a button. They step
@@ -278,6 +344,12 @@ What the main suites check:
   card changes nothing, and that a press counts once on either card. A test
   extension's kind of alert goes out among the app's, switched and answered
   like them, and none without it. Nothing posts a real notification.
+- **History, and the advanced part's notification** (`history.rs`,
+  `alerts_advanced.rs`): an account leaving the rotation in 30 minutes (and
+  not for an account that left already). The history tests merge the app's
+  journal, its switch logs and the switcher's log (the advanced part's lines,
+  `advanced/history.rs`), and keep a change nothing explains as observed only
+  once.
 - **Quota readers** (`quota_readers.rs`) never use a real login: Codex,
   Antigravity and Claude Code each run against a local fake server, a fake
   `agy`, `ps` and `lsof`, and a fake `security`, with made-up tokens. For each
@@ -285,9 +357,10 @@ What the main suites check:
   read fails, an expired or refused login (never refreshed: the login file and
   the Keychain item stay as they were) and a Mac without the tool; for Claude
   also a Keychain that holds back until the owner presses the button, and for
-  Antigravity that `agy` never opens a browser. One test runs with only
-  `/usr/bin:/bin:/usr/sbin:/sbin` on `PATH`, so no quota-axi can be found, and
-  still reads every service.
+  Antigravity that `agy` never opens a browser. One test
+  (`with_only_the_system_on_the_path_every_service_still_shows_numbers`) runs
+  with only `/usr/bin:/bin:/usr/sbin:/sbin` on `PATH` and still reads every
+  service.
 - **Codex** (`codex.rs`, `codex_accounts.rs`, `codex_wake.rs`) works on a
   temporary Codex folder filled from `tests/fixtures/codex/` (fake providers,
   fake keys and fake logins) and a temporary app folder. They check that a
@@ -334,6 +407,18 @@ What the main suites check:
   and `Try again` gets it done, that the undo takes it all back, and that no
   trap key reaches the pack, the plan, the result, the record or the app's
   backups.
+- **Copy to another Mac** (`agents_copy.rs`) copies between two temporary homes
+  through a fake `ssh` that records its arguments and stdin and runs the script
+  on the other home, where a fake app bundle answers with canned replies, with
+  or without `QuotaStationAgents` in its `Info.plist`. They check that the script
+  is the same fixed text for every call, with `BatchMode=yes` and the 20-second
+  limit; that a Mac on version 1 or without the app is never run; that the
+  comparison and a copy without keys hold no trap key, and that with them keys
+  go on stdin only and land in the fake Keychain; that a copy is the restore's
+  checked write with its undo; that a file changed since the comparison is not
+  written; and that bad names, paths and protocols are refused. No test opens a
+  real SSH connection. The Vitest tests walk the tab and its dialogs on a fake
+  Rust side.
 - **Variables that override a login** (`env_check.rs`) check fake home folders
   with fake shell files and a fake `launchctl` that records its words: a name
   counts only at the start of a line, the last line wins, `launchctl` is asked
@@ -386,11 +471,15 @@ UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test env_check
 UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test stats
 ```
 
+The first writes `ui-plain/`; `src/fixtures/snapshots/` are written by
+`UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test
+ui_fixtures_advanced`.
 
 ## Layout
 
 - `crates/quota-station-core/` is plain Rust, with no window. It reads the
-  quota (`quota/`, ported from quota-axi), turns the readings into a snapshot
+  quota (`quota/`; where its readers were ported from is in
+  [`THIRD_PARTY.md`](../THIRD_PARTY.md)), turns the readings into a snapshot
   (`snapshot.rs`, to which an extension may add its own keys once it is
   built), holds the icon rules and glyph (`icon.rs`, with a badge an extension
   may draw in the gauge) and the names the app shows for
@@ -403,6 +492,13 @@ UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test stats
     `quota-station claude` command line.
   - `sessions` counts live sessions; `switching` and `history` hold what the
     switch sheet and the History tab read.
+  - The advanced part: the rotation and its LaunchAgent (`timer.rs` on
+    Windows) in `claude/`; the pause flag (`pause.rs`), the rotation's dry run
+    and log (`switcher.rs`), the rotation file, read, checked and written
+    (`rotation.rs`), and its copy over SSH (`peers.rs`); `update`, which pulls
+    the clone and runs its install script; `agents/copy.rs`, which compares
+    two Macs and copies between them over SSH; and `advanced/`, what it adds
+    to the rest through the hooks (below).
   - `antigravity/`: logs Antigravity accounts in and out, reads their quota,
     paces those reads, and switches the account Antigravity.app and agy use.
   - `alerts`: the notification rules.
@@ -451,6 +547,57 @@ UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test stats
   (`state.rs`, `commands.rs`, `open.rs`), and on Windows the tray and windows
   (`windows.rs`, `winsys.rs`) and the test build's guided session and
   diagnostics zip (`session.rs`, `diag.rs`, `shot.rs`).
+  The app's advanced part is in `src-tauri/src/`: the update from source
+  (`advanced/update.rs`), the copy
+  tab's and the `quota-station agents …` commands another Mac runs
+  (`copy.rs`), the rotation rules (`rules.rs`), on Windows the rotation
+  timer (`timer.rs`), and the advanced part as the extension the app's
+  binary passes to `run` (`advanced/`, its hooks for the
+  core in `advanced/hooks.rs`, its own state in the running app in `advanced/state.rs`, which it keeps
+  through the host when the app starts, in `advanced/start.rs` its
+  threads and its look at the switcher at each pass of the reader, and in
+  `advanced/model.rs` its views in the model the windows draw and
+  `authorTools` in the model's `capabilities`, in `advanced/tabs.rs` the
+  names of its tabs in the main window, in `advanced/close.rs` its hold
+  on the main window's close and on `Thoát` while the rules are unsaved,
+  in `advanced/subcommand.rs` its subcommands from a terminal,
+  `quota-station agents …` on a Mac, and in `advanced/alerts.rs` what it
+  reads for its alerts after each read, the rotation file), which fills
+  the sockets one at a time. The advanced part's settings keys, which
+  it and the core's advanced modules share, are read and written in the
+  core's `advanced/settings.rs`, its commands of `quota-station claude …`
+  (`rotate`, `rotation`, `enable`, `disable`, with the usage that names
+  them) are in the core's `advanced/cli.rs`, its kind of alert (2, an
+  account leaving the rotation: its number, switch, words and cards) is in
+  the core's `advanced/alerts.rs`, and the rotation as the policy of the Claude pool
+  (who counts in alert 1's check, the rotation's keys and room in the
+  read of the accounts, and alert 1's words for it) is in the core's
+  `advanced/pool.rs`, and the accounts' names by their place in the rotation
+  and as Ultra N while Nâng cao shows (on the menu bar's title and the
+  alerts' cards, with alert 1's title for it) in the core's
+  `advanced/labels.rs`, and the rotation's part of the snapshot (each
+  account's place in it, whether it is held out, in it or gone and when it
+  leaves it, the personal hours, and Claude's pool as the rotation's room)
+  in the core's `advanced/snapshot.rs`, and the switcher's switches and
+  primes as lines of the switch history in the core's `advanced/history.rs`,
+  and around the owner's manual switch (nothing switched and no token
+  refreshed while an older switcher is loaded, the hold that pauses the
+  rotation and is kept on the switch's line in the journal, and the
+  rotation's switch back named in the outcome) in the core's
+  `advanced/switch.rs`; after the switch, `advanced/start.rs` reads the pause
+  flag again and asks the reader for a look at the switcher. The menu bar
+  icon's badge while the pause holds is drawn from the core's
+  `advanced/badge.rs` (its two bars and words), asked of the app's
+  `advanced/icon.rs`.
+  The accounts held out of the rotation (`disabled` on each account of the
+  Claude accounts' file, `enabled` in the state file and `held out` on
+  `quota-station claude status`, kept as the advanced part's keys on the
+  accounts) are in the core's `advanced/held.rs`, and the command that holds
+  one out or puts it back in the app's `advanced/held.rs`. The commands of
+  the Nâng cao switch, the pause and the quit guard for
+  unsaved rules are in `advanced/commands.rs`, and reach the app only
+  through the host (its settings saved, the model, the windows redrawn and
+  the main window closed).
 - `scripts/install.sh` builds, signs, installs and packages the app.
 - `src/` is the React and TypeScript frontend: `popover/`, `window/`,
   `claude/`, `antigravity/` (and `antigravity-off/`, which stands in when the
@@ -459,9 +606,9 @@ UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test stats
   Config sets and Agent updates), `backup/` (the backup tab and the restore
   sheet), `settings/`, `stats/` (the Stats tab and its SVG chart),
   `history/`, `alerts/`, `release/`, `setup/` (the first run), `session/` (the
-  Windows test build's guide), `lib/` (the model, the view functions and
-  `i18n.ts`), `components/` and `styles/`. `preview.ts` is the browser
-  preview.
+  Windows test build's guide), `rules/` (the rotation rules), `copy/` (Copy to
+  another Mac), `lib/` (the model, the view functions and `i18n.ts`),
+  `components/` and `styles/`. `preview.ts` is the browser preview.
 
 ## Front-end stack
 

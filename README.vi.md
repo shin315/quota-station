@@ -8,9 +8,8 @@ gọn MCP server, skill cùng file hướng dẫn của các agent. Giao diện 
 và tiếng Anh.
 
 
-Quota Station tự đọc hạn mức ngay trên máy bạn, bằng các bộ đọc chuyển từ
-[quota-axi](https://github.com/kunchenguid/quota-axi); không cần chương trình
-nào khác để có số.
+Quota Station tự đọc hạn mức ngay trên máy bạn; không cần chương trình nào
+khác để có số.
 
 
 > **Tình trạng.** macOS 13 trở lên. GitHub chưa có bản phát hành nào, nên bạn
@@ -56,6 +55,8 @@ Claude Code đang đăng nhập, hoặc dán setup-token. Trước khi chuyển,
 bao nhiêu phiên Claude Code đang chạy sẽ phải dựng lại prompt cache, rồi kiểm
 tra lại là đã chuyển xong.
 
+Vòng xoay tự động giữa các tài khoản Team, có tạm dừng, là một trong
+[các công cụ nâng cao](#nâng-cao).
 
 ### Codex
 
@@ -129,6 +130,7 @@ app), `Hiển thị` (sáng hoặc tối, sáu chủ đề, thanh menu), `Thông
 `Dịch vụ`. Tắt `Hiện email` thì tài khoản được gọi theo vị trí hoặc số thứ tự,
 tiện để chụp màn hình.
 
+Cài đặt còn có `Nâng cao`, nơi hiện ra [các công cụ nâng cao](#nâng-cao).
 
 ### Lần chạy đầu
 
@@ -141,6 +143,12 @@ Claude, quyền và thanh menu, xong.
 - **Lịch sử** mọi lần chuyển tài khoản trên máy này.
 - **Cập nhật app**: app hỏi GitHub Releases xem có bản mới không và báo cho bạn;
   app không bao giờ tự cài.
+
+### Nâng cao
+
+`Cài đặt › Nâng cao › Hiện phần nâng cao`, tắt ở bản cài mới, thêm vòng xoay
+Claude tự động cùng tạm dừng và trình sửa luật, gửi luật sang các máy Mac khác
+qua SSH, `Chép sang Mac khác`, và cập nhật từ bản clone mã nguồn.
 
 
 Mọi phần được mô tả đầy đủ trong [docs/features.md](docs/features.md) (tiếng
@@ -157,6 +165,7 @@ Anh, kèm nhãn tiếng Việt).
 - Khoá và đăng nhập mà app giữ nằm trong Keychain của macOS (các tài khoản
   ChatGPT phụ nằm trong thư mục chỉ bạn mở được). Khoá không bao giờ hiện trong
   cửa sổ, log hay gói sao lưu.
+  Khoá chỉ sang máy Mac khác khi bạn đánh dấu `Gửi cả khoá qua SSH`.
 
 [SECURITY.md](SECURITY.md) có chi tiết, và
 [docs/how-it-works.md](docs/how-it-works.md) liệt kê mọi thứ app đọc, chạy và
@@ -168,11 +177,13 @@ ghi (tiếng Anh).
 - Để dựng app: Rust stable (1.85 trở lên) và Node.js 20 trở lên. Máy không có
   chúng vẫn cài được bản dựng trên một máy Mac khác.
 - Để có số, không cần gì thêm: Codex, `agy` hoặc Antigravity.app, và Claude Code
-  chỉ cần đã đăng nhập. Không cần quota-axi.
+  chỉ cần đã đăng nhập.
 - Để đăng nhập tài khoản Claude mới, và cho `quota-station claude run`: lệnh
   `claude` của Claude Code.
 - Để đăng nhập tài khoản Antigravity (bản dựng có phần tài khoản Antigravity):
   [file OAuth client](docs/how-it-works.md#the-oauth-client-file).
+- Cho các công cụ nâng cao cần tới máy Mac khác: một SSH alias tới từng máy,
+  đăng nhập không cần hỏi (dùng khoá, `BatchMode=yes`).
 
 ## Cài đặt
 
@@ -212,11 +223,17 @@ Từ Terminal, trong thư mục clone:
 git pull --ff-only && scripts/install.sh
 ```
 
+`Cài đặt › Nâng cao` cũng làm được việc này khi bật `Hiện phần nâng cao`: đặt
+`Mã nguồn` là thư mục clone rồi bấm `Cập nhật từ mã nguồn`. App kéo mã mới, dựng
+và cài khi bản clone có commit mới, rồi đề nghị `Mở lại`; bản clone có commit
+riêng không bao giờ bị merge hay reset, và lần dựng quá 30 phút thì dừng.
 
 ## Gỡ cài đặt
 
 1. Trong `Cài đặt › Chung`, tắt `Mở khi đăng nhập` (hoặc bỏ Quota Station trong
    System Settings › General › Login Items).
+   Nếu app đang chạy vòng xoay Claude, tắt nó trong tab `Claude` (hoặc chạy
+   `quota-station claude rotation off`).
 2. Thoát Quota Station từ menu của nó, rồi kéo
    `/Applications/Quota Station.app` vào Thùng rác.
 3. Tuỳ chọn, xoá dữ liệu của app:
@@ -230,6 +247,8 @@ git pull --ff-only && scripts/install.sh
    trước để xoá các mục đó. Đừng đụng vào mục `gemini`/`antigravity`:
    Antigravity.app và agy dùng nó.
 
+Cờ tạm dừng và file luật xoay vòng của bộ tự chuyển cũ được dùng chung với bộ
+tự chuyển đó, nên vẫn ở lại.
 
 ## Tài liệu
 
