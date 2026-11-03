@@ -15,6 +15,11 @@
 //! so a settings file passes through any build. What they mean, and how a
 //! Mac new to the app starts them, is the extension's
 //! ([`crate::ext::Hooks`]).
+//!
+//! The advanced part's keys (the other Macs the rotation file is copied to,
+//! the clone "Cập nhật từ mã nguồn" builds from, and the switch of Cài đặt
+//! › Nâng cao) are read and written by [`crate::advanced::settings`]. An app
+//! without the advanced part's extension keeps them in the file it writes.
 
 use std::io;
 use std::path::{Path, PathBuf};

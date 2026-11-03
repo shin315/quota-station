@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 //! This Mac's wall clock, written `2026-10-16T18:30`, with no offset.
+//! The switcher's pause flag and log write it so.
 //!
 //! The `time` crate will not read the local offset in a multi-threaded
 //! process, so the offset comes from `jiff`, which reads the system's time

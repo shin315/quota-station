@@ -1818,6 +1818,44 @@ fn undo_skills(
     }
 }
 
+/// Brings each skill of `names` from GitHub to its newest version, as the
+/// Skills tab's "Cập nhật" does (a copy of the folder kept first), for a
+/// copy from another Mac whose skill is newer. Each is noted in `record`
+/// for the undo.
+#[cfg(unix)]
+pub(crate) fn update_skills(
+    tools: &Tools,
+    app: &AppDir,
+    names: &[String],
+    record: &mut Record,
+    now: OffsetDateTime,
+) -> Vec<PartResult> {
+    let places = &tools.skills;
+    let mut out = Vec::new();
+    for name in names {
+        let part = PartResult::new("skill", name, None, "update");
+        let Some(npx) = &tools.npx else {
+            out.push(part.fail("noNpx", false));
+            continue;
+        };
+        let dir = places.shared.join(name);
+        let before = skill_updates::tree_hash(&dir).ok();
+        let u = skill_ops::update(places, app, npx, name, now);
+        let after = skill_updates::tree_hash(&dir).ok();
+        if let (Some(backup), Some(hash)) = (u.backup, after.clone()) {
+            if after != before {
+                record.updated.push(SkillUpdated { name: name.clone(), backup, hash });
+            }
+        }
+        out.push(match u.error {
+            None => part,
+            Some(NpxError::NoNpx) => part.fail("noNpx", false),
+            Some(_) => part.fail("npx", false),
+        });
+    }
+    out
+}
+
 fn undo_plugins(tools: &Tools, record: &Record, done: &mut Undone) {
     for p in &record.plugins {
         let ok = tools.program(p.agent).is_some_and(|prog| {

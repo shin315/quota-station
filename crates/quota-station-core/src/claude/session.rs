@@ -14,6 +14,7 @@
 //! Running `claude` as one account without changing the active login:
 //! `CLAUDE_CONFIG_DIR` points at `claude/sessions/<slot>/`, a folder Claude
 //! Code treats as its own.
+//! The rotation's priming runs it.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;

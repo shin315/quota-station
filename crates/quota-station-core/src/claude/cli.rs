@@ -6,6 +6,7 @@
 //! `status --emails` prints emails. An extension may add commands of its own
 //! ([`Hooks::claude_command`]) and the usage that names them
 //! ([`Hooks::claude_usage`]).
+//! The rotation's LaunchAgent runs it too.
 
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};

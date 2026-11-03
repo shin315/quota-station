@@ -1,0 +1,847 @@
+{
+  "plain-2": {
+    "claude": {
+      "status": "ok",
+      "reason": null,
+      "accounts": [
+        {
+          "number": 1,
+          "role": "unknown",
+          "active": false,
+          "disabled": false,
+          "reading": "fresh",
+          "fetchedAt": "2026-01-16T07:19:00.000Z",
+          "source": "list",
+          "membership": "unknown",
+          "leavesAt": null,
+          "lines": [
+            {
+              "kind": "session",
+              "percent": 12.0,
+              "resetsAt": null,
+              "pending": false,
+              "atLeast": false
+            }
+          ],
+          "windows": []
+        },
+        {
+          "number": 2,
+          "role": "unknown",
+          "active": true,
+          "disabled": false,
+          "reading": "fresh",
+          "fetchedAt": "2026-01-16T07:19:00.000Z",
+          "source": "live",
+          "membership": "unknown",
+          "leavesAt": null,
+          "lines": [
+            {
+              "kind": "session",
+              "percent": 8.0,
+              "resetsAt": "2026-01-16T09:20:00Z",
+              "pending": false,
+              "atLeast": false
+            }
+          ],
+          "windows": [
+            {
+              "kind": "session",
+              "percent": 8.0,
+              "resetsAt": "2026-01-16T09:20:00Z",
+              "pending": false,
+              "atLeast": false
+            },
+            {
+              "kind": "week",
+              "percent": 60.0,
+              "resetsAt": "2026-01-19T07:20:00Z",
+              "pending": false,
+              "atLeast": false
+            }
+          ]
+        },
+        {
+          "number": 3,
+          "role": "unknown",
+          "active": false,
+          "disabled": false,
+          "reading": "fresh",
+          "fetchedAt": "2026-01-16T07:19:00.000Z",
+          "source": "list",
+          "membership": "unknown",
+          "leavesAt": null,
+          "lines": [
+            {
+              "kind": "session",
+              "percent": 14.0,
+              "resetsAt": "2026-01-16T08:20:00Z",
+              "pending": false,
+              "atLeast": false
+            }
+          ],
+          "windows": []
+        },
+        {
+          "number": 4,
+          "role": "unknown",
+          "active": false,
+          "disabled": false,
+          "reading": "fresh",
+          "fetchedAt": "2026-01-16T07:19:00.000Z",
+          "source": "list",
+          "membership": "unknown",
+          "leavesAt": null,
+          "lines": [
+            {
+              "kind": "week",
+              "percent": 90.0,
+              "resetsAt": null,
+              "pending": false,
+              "atLeast": false
+            }
+          ],
+          "windows": []
+        },
+        {
+          "number": 5,
+          "role": "unknown",
+          "active": false,
+          "disabled": true,
+          "reading": "fresh",
+          "fetchedAt": "2026-01-16T07:19:00.000Z",
+          "source": "list",
+          "membership": "unknown",
+          "leavesAt": null,
+          "lines": [
+            {
+              "kind": "week",
+              "percent": 95.0,
+              "resetsAt": null,
+              "pending": false,
+              "atLeast": false
+            }
+          ],
+          "windows": []
+        },
+        {
+          "number": 6,
+          "role": "unknown",
+          "active": false,
+          "disabled": false,
+          "reading": "fresh",
+          "fetchedAt": "2026-01-16T07:19:00.000Z",
+          "source": "list",
+          "membership": "unknown",
+          "leavesAt": null,
+          "lines": [
+            {
+              "kind": "week",
+              "percent": 80.0,
+              "resetsAt": null,
+              "pending": false,
+              "atLeast": false
+            }
+          ],
+          "windows": []
+        }
+      ],
+      "pool": {
+        "kind": "active",
+        "room": null,
+        "percent": 8.0,
+        "line": "session",
+        "scope": null,
+        "members": 0,
+        "rooms": [],
+        "nextRefillAt": "2026-01-16T09:20:00Z",
+        "refills": [],
+        "exhausted": false,
+        "reason": null
+      },
+      "generatedAt": "2026-01-16T07:20:00.000Z",
+      "newestReadingAt": "2026-01-16T07:19:00.000Z",
+      "stale": false,
+      "personalHours": null,
+      "source": null
+    },
+    "agy": {
+      "status": "unread",
+      "reason": null,
+      "accounts": [],
+      "pool": {
+        "kind": "none",
+        "room": null,
+        "percent": null,
+        "line": null,
+        "scope": null,
+        "members": 0,
+        "rooms": [],
+        "nextRefillAt": null,
+        "refills": [],
+        "exhausted": false,
+        "reason": null
+      },
+      "generatedAt": null,
+      "newestReadingAt": null,
+      "stale": false,
+      "personalHours": null,
+      "source": null
+    },
+    "codex": {
+      "status": "unread",
+      "reason": null,
+      "accounts": [],
+      "pool": {
+        "kind": "none",
+        "room": null,
+        "percent": null,
+        "line": null,
+        "scope": null,
+        "members": 0,
+        "rooms": [],
+        "nextRefillAt": null,
+        "refills": [],
+        "exhausted": false,
+        "reason": null
+      },
+      "generatedAt": null,
+      "newestReadingAt": null,
+      "stale": false,
+      "personalHours": null,
+      "source": null
+    },
+    "keychain": "granted"
+  },
+  "plain-none": {
+    "claude": {
+      "status": "ok",
+      "reason": null,
+      "accounts": [
+        {
+          "number": 1,
+          "role": "unknown",
+          "active": false,
+          "disabled": false,
+          "reading": "fresh",
+          "fetchedAt": "2026-01-16T07:19:00.000Z",
+          "source": "list",
+          "membership": "unknown",
+          "leavesAt": null,
+          "lines": [
+            {
+              "kind": "session",
+              "percent": 12.0,
+              "resetsAt": null,
+              "pending": false,
+              "atLeast": false
+            }
+          ],
+          "windows": []
+        },
+        {
+          "number": 2,
+          "role": "unknown",
+          "active": false,
+          "disabled": false,
+          "reading": "fresh",
+          "fetchedAt": "2026-01-16T07:19:00.000Z",
+          "source": "list",
+          "membership": "unknown",
+          "leavesAt": null,
+          "lines": [
+            {
+              "kind": "session",
+              "percent": 8.0,
+              "resetsAt": "2026-01-16T09:20:00Z",
+              "pending": false,
+              "atLeast": false
+            }
+          ],
+          "windows": []
+        },
+        {
+          "number": 3,
+          "role": "unknown",
+          "active": false,
+          "disabled": false,
+          "reading": "fresh",
+          "fetchedAt": "2026-01-16T07:19:00.000Z",
+          "source": "list",
+          "membership": "unknown",
+          "leavesAt": null,
+          "lines": [
+            {
+              "kind": "session",
+              "percent": 14.0,
+              "resetsAt": "2026-01-16T08:20:00Z",
+              "pending": false,
+              "atLeast": false
+            }
+          ],
+          "windows": []
+        },
+        {
+          "number": 4,
+          "role": "unknown",
+          "active": false,
+          "disabled": false,
+          "reading": "fresh",
+          "fetchedAt": "2026-01-16T07:19:00.000Z",
+          "source": "list",
+          "membership": "unknown",
+          "leavesAt": null,
+          "lines": [
+            {
+              "kind": "week",
+              "percent": 90.0,
+              "resetsAt": null,
+              "pending": false,
+              "atLeast": false
+            }
+          ],
+          "windows": []
+        },
+        {
+          "number": 5,
+          "role": "unknown",
+          "active": false,
+          "disabled": true,
+          "reading": "fresh",
+          "fetchedAt": "2026-01-16T07:19:00.000Z",
+          "source": "list",
+          "membership": "unknown",
+          "leavesAt": null,
+          "lines": [
+            {
+              "kind": "week",
+              "percent": 95.0,
+              "resetsAt": null,
+              "pending": false,
+              "atLeast": false
+            }
+          ],
+          "windows": []
+        },
+        {
+          "number": 6,
+          "role": "unknown",
+          "active": false,
+          "disabled": false,
+          "reading": "fresh",
+          "fetchedAt": "2026-01-16T07:19:00.000Z",
+          "source": "list",
+          "membership": "unknown",
+          "leavesAt": null,
+          "lines": [
+            {
+              "kind": "week",
+              "percent": 80.0,
+              "resetsAt": null,
+              "pending": false,
+              "atLeast": false
+            }
+          ],
+          "windows": []
+        }
+      ],
+      "pool": {
+        "kind": "none",
+        "room": null,
+        "percent": null,
+        "line": null,
+        "scope": null,
+        "members": 0,
+        "rooms": [],
+        "nextRefillAt": null,
+        "refills": [],
+        "exhausted": false,
+        "reason": null
+      },
+      "generatedAt": "2026-01-16T07:20:00.000Z",
+      "newestReadingAt": "2026-01-16T07:19:00.000Z",
+      "stale": false,
+      "personalHours": null,
+      "source": null
+    },
+    "agy": {
+      "status": "unread",
+      "reason": null,
+      "accounts": [],
+      "pool": {
+        "kind": "none",
+        "room": null,
+        "percent": null,
+        "line": null,
+        "scope": null,
+        "members": 0,
+        "rooms": [],
+        "nextRefillAt": null,
+        "refills": [],
+        "exhausted": false,
+        "reason": null
+      },
+      "generatedAt": null,
+      "newestReadingAt": null,
+      "stale": false,
+      "personalHours": null,
+      "source": null
+    },
+    "codex": {
+      "status": "unread",
+      "reason": null,
+      "accounts": [],
+      "pool": {
+        "kind": "none",
+        "room": null,
+        "percent": null,
+        "line": null,
+        "scope": null,
+        "members": 0,
+        "rooms": [],
+        "nextRefillAt": null,
+        "refills": [],
+        "exhausted": false,
+        "reason": null
+      },
+      "generatedAt": null,
+      "newestReadingAt": null,
+      "stale": false,
+      "personalHours": null,
+      "source": null
+    },
+    "keychain": "unknown"
+  },
+  "rules-2": {
+    "claude": {
+      "status": "ok",
+      "reason": null,
+      "accounts": [
+        {
+          "number": 1,
+          "role": "personal",
+          "active": false,
+          "disabled": false,
+          "reading": "fresh",
+          "fetchedAt": "2026-01-16T07:19:00.000Z",
+          "source": "list",
+          "membership": "in",
+          "leavesAt": null,
+          "lines": [
+            {
+              "kind": "session",
+              "percent": 12.0,
+              "resetsAt": null,
+              "pending": false,
+              "atLeast": false
+            }
+          ],
+          "windows": []
+        },
+        {
+          "number": 2,
+          "role": "team",
+          "active": true,
+          "disabled": false,
+          "reading": "fresh",
+          "fetchedAt": "2026-01-16T07:19:00.000Z",
+          "source": "live",
+          "membership": "in",
+          "leavesAt": null,
+          "lines": [
+            {
+              "kind": "session",
+              "percent": 8.0,
+              "resetsAt": "2026-01-16T09:20:00Z",
+              "pending": false,
+              "atLeast": false
+            }
+          ],
+          "windows": [
+            {
+              "kind": "session",
+              "percent": 8.0,
+              "resetsAt": "2026-01-16T09:20:00Z",
+              "pending": false,
+              "atLeast": false
+            },
+            {
+              "kind": "week",
+              "percent": 60.0,
+              "resetsAt": "2026-01-19T07:20:00Z",
+              "pending": false,
+              "atLeast": false
+            }
+          ]
+        },
+        {
+          "number": 3,
+          "role": "team",
+          "active": false,
+          "disabled": false,
+          "reading": "fresh",
+          "fetchedAt": "2026-01-16T07:19:00.000Z",
+          "source": "list",
+          "membership": "in",
+          "leavesAt": "2026-01-16T10:20:00.000Z",
+          "lines": [
+            {
+              "kind": "session",
+              "percent": 14.0,
+              "resetsAt": "2026-01-16T08:20:00Z",
+              "pending": false,
+              "atLeast": false
+            }
+          ],
+          "windows": []
+        },
+        {
+          "number": 4,
+          "role": "team",
+          "active": false,
+          "disabled": false,
+          "reading": "fresh",
+          "fetchedAt": "2026-01-16T07:19:00.000Z",
+          "source": "list",
+          "membership": "ended",
+          "leavesAt": null,
+          "lines": [
+            {
+              "kind": "week",
+              "percent": 90.0,
+              "resetsAt": null,
+              "pending": false,
+              "atLeast": false
+            }
+          ],
+          "windows": []
+        },
+        {
+          "number": 5,
+          "role": "team",
+          "active": false,
+          "disabled": true,
+          "reading": "fresh",
+          "fetchedAt": "2026-01-16T07:19:00.000Z",
+          "source": "list",
+          "membership": "in",
+          "leavesAt": null,
+          "lines": [
+            {
+              "kind": "week",
+              "percent": 95.0,
+              "resetsAt": null,
+              "pending": false,
+              "atLeast": false
+            }
+          ],
+          "windows": []
+        },
+        {
+          "number": 6,
+          "role": "unknown",
+          "active": false,
+          "disabled": false,
+          "reading": "fresh",
+          "fetchedAt": "2026-01-16T07:19:00.000Z",
+          "source": "list",
+          "membership": "out",
+          "leavesAt": null,
+          "lines": [
+            {
+              "kind": "week",
+              "percent": 80.0,
+              "resetsAt": null,
+              "pending": false,
+              "atLeast": false
+            }
+          ],
+          "windows": []
+        }
+      ],
+      "pool": {
+        "kind": "rotation",
+        "room": 1.01,
+        "percent": 25.25,
+        "line": null,
+        "scope": "all_models",
+        "members": 4,
+        "rooms": [
+          {
+            "number": 2,
+            "percent": 0.0
+          },
+          {
+            "number": 3,
+            "percent": 4.4
+          },
+          {
+            "number": 5,
+            "percent": 94.4
+          },
+          {
+            "number": 1,
+            "percent": 2.2
+          }
+        ],
+        "nextRefillAt": "2026-01-16T08:20:00.000Z",
+        "refills": [
+          3
+        ],
+        "exhausted": false,
+        "reason": null
+      },
+      "generatedAt": "2026-01-16T07:20:00.000Z",
+      "newestReadingAt": "2026-01-16T07:19:00.000Z",
+      "stale": false,
+      "personalHours": "0-23",
+      "source": null
+    },
+    "agy": {
+      "status": "unread",
+      "reason": null,
+      "accounts": [],
+      "pool": {
+        "kind": "none",
+        "room": null,
+        "percent": null,
+        "line": null,
+        "scope": null,
+        "members": 0,
+        "rooms": [],
+        "nextRefillAt": null,
+        "refills": [],
+        "exhausted": false,
+        "reason": null
+      },
+      "generatedAt": null,
+      "newestReadingAt": null,
+      "stale": false,
+      "personalHours": null,
+      "source": null
+    },
+    "codex": {
+      "status": "unread",
+      "reason": null,
+      "accounts": [],
+      "pool": {
+        "kind": "none",
+        "room": null,
+        "percent": null,
+        "line": null,
+        "scope": null,
+        "members": 0,
+        "rooms": [],
+        "nextRefillAt": null,
+        "refills": [],
+        "exhausted": false,
+        "reason": null
+      },
+      "generatedAt": null,
+      "newestReadingAt": null,
+      "stale": false,
+      "personalHours": null,
+      "source": null
+    },
+    "keychain": "granted"
+  },
+  "rules-none": {
+    "claude": {
+      "status": "ok",
+      "reason": null,
+      "accounts": [
+        {
+          "number": 1,
+          "role": "personal",
+          "active": false,
+          "disabled": false,
+          "reading": "fresh",
+          "fetchedAt": "2026-01-16T07:19:00.000Z",
+          "source": "list",
+          "membership": "in",
+          "leavesAt": null,
+          "lines": [
+            {
+              "kind": "session",
+              "percent": 12.0,
+              "resetsAt": null,
+              "pending": false,
+              "atLeast": false
+            }
+          ],
+          "windows": []
+        },
+        {
+          "number": 2,
+          "role": "team",
+          "active": false,
+          "disabled": false,
+          "reading": "fresh",
+          "fetchedAt": "2026-01-16T07:19:00.000Z",
+          "source": "list",
+          "membership": "in",
+          "leavesAt": null,
+          "lines": [
+            {
+              "kind": "session",
+              "percent": 8.0,
+              "resetsAt": "2026-01-16T09:20:00Z",
+              "pending": false,
+              "atLeast": false
+            }
+          ],
+          "windows": []
+        },
+        {
+          "number": 3,
+          "role": "team",
+          "active": false,
+          "disabled": false,
+          "reading": "fresh",
+          "fetchedAt": "2026-01-16T07:19:00.000Z",
+          "source": "list",
+          "membership": "in",
+          "leavesAt": "2026-01-16T10:20:00.000Z",
+          "lines": [
+            {
+              "kind": "session",
+              "percent": 14.0,
+              "resetsAt": "2026-01-16T08:20:00Z",
+              "pending": false,
+              "atLeast": false
+            }
+          ],
+          "windows": []
+        },
+        {
+          "number": 4,
+          "role": "team",
+          "active": false,
+          "disabled": false,
+          "reading": "fresh",
+          "fetchedAt": "2026-01-16T07:19:00.000Z",
+          "source": "list",
+          "membership": "ended",
+          "leavesAt": null,
+          "lines": [
+            {
+              "kind": "week",
+              "percent": 90.0,
+              "resetsAt": null,
+              "pending": false,
+              "atLeast": false
+            }
+          ],
+          "windows": []
+        },
+        {
+          "number": 5,
+          "role": "team",
+          "active": false,
+          "disabled": true,
+          "reading": "fresh",
+          "fetchedAt": "2026-01-16T07:19:00.000Z",
+          "source": "list",
+          "membership": "in",
+          "leavesAt": null,
+          "lines": [
+            {
+              "kind": "week",
+              "percent": 95.0,
+              "resetsAt": null,
+              "pending": false,
+              "atLeast": false
+            }
+          ],
+          "windows": []
+        },
+        {
+          "number": 6,
+          "role": "unknown",
+          "active": false,
+          "disabled": false,
+          "reading": "fresh",
+          "fetchedAt": "2026-01-16T07:19:00.000Z",
+          "source": "list",
+          "membership": "out",
+          "leavesAt": null,
+          "lines": [
+            {
+              "kind": "week",
+              "percent": 80.0,
+              "resetsAt": null,
+              "pending": false,
+              "atLeast": false
+            }
+          ],
+          "windows": []
+        }
+      ],
+      "pool": {
+        "kind": "none",
+        "room": null,
+        "percent": null,
+        "line": null,
+        "scope": null,
+        "members": 0,
+        "rooms": [],
+        "nextRefillAt": null,
+        "refills": [],
+        "exhausted": false,
+        "reason": "claude_row_not_fresh"
+      },
+      "generatedAt": "2026-01-16T07:20:00.000Z",
+      "newestReadingAt": "2026-01-16T07:19:00.000Z",
+      "stale": false,
+      "personalHours": "0-23",
+      "source": null
+    },
+    "agy": {
+      "status": "unread",
+      "reason": null,
+      "accounts": [],
+      "pool": {
+        "kind": "none",
+        "room": null,
+        "percent": null,
+        "line": null,
+        "scope": null,
+        "members": 0,
+        "rooms": [],
+        "nextRefillAt": null,
+        "refills": [],
+        "exhausted": false,
+        "reason": null
+      },
+      "generatedAt": null,
+      "newestReadingAt": null,
+      "stale": false,
+      "personalHours": null,
+      "source": null
+    },
+    "codex": {
+      "status": "unread",
+      "reason": null,
+      "accounts": [],
+      "pool": {
+        "kind": "none",
+        "room": null,
+        "percent": null,
+        "line": null,
+        "scope": null,
+        "members": 0,
+        "rooms": [],
+        "nextRefillAt": null,
+        "refills": [],
+        "exhausted": false,
+        "reason": null
+      },
+      "generatedAt": null,
+      "newestReadingAt": null,
+      "stale": false,
+      "personalHours": null,
+      "source": null
+    },
+    "keychain": "unknown"
+  }
+}

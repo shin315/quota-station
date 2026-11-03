@@ -320,17 +320,19 @@ fn words(words: &[&str]) -> Vec<String> {
 
 #[test]
 fn an_extension_answers_its_own_subcommand_from_a_terminal() {
-    assert_eq!(TestExtension.subcommand(&words(&["test-extension"])), Some(5));
-    assert_eq!(TestExtension.subcommand(&words(&["test-extension", "a", "b"])), Some(7));
+    let hooks = quota_station_core::ext::none();
+    assert_eq!(TestExtension.subcommand(&words(&["test-extension"]), hooks), Some(5));
+    assert_eq!(TestExtension.subcommand(&words(&["test-extension", "a", "b"]), hooks), Some(7));
     for args in [words(&[]), words(&["nonsense"]), words(&["--test-extension"])] {
-        assert_eq!(TestExtension.subcommand(&args), None, "{args:?}");
+        assert_eq!(TestExtension.subcommand(&args, hooks), None, "{args:?}");
     }
 }
 
 #[test]
 fn without_an_extension_no_subcommand_is_its_own() {
+    let hooks = quota_station_core::ext::none();
     for args in [words(&[]), words(&["test-extension"]), words(&["agents", "read"])] {
-        assert_eq!(NoExtension.subcommand(&args), None, "{args:?}");
+        assert_eq!(NoExtension.subcommand(&args, hooks), None, "{args:?}");
     }
 }
 

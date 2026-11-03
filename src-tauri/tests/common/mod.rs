@@ -227,7 +227,7 @@ impl Extension for TestExtension {
 
     /// `quota-station test-extension ARGS…` exits with as many as there
     /// are ARGS, plus 5; anything else is not its own.
-    fn subcommand(&self, args: &[String]) -> Option<i32> {
+    fn subcommand(&self, args: &[String], _hooks: &'static dyn Hooks) -> Option<i32> {
         (args.first()? == "test-extension").then(|| 5 + args.len() as i32 - 1)
     }
 

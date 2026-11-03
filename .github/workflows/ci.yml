@@ -179,13 +179,11 @@ jobs:
       - name: Clippy with the Antigravity accounts
         run: cargo clippy --workspace --all-targets --locked --features antigravity-accounts -- -D warnings
 
-
       - name: cargo test (MIT)
         run: cargo test --workspace --locked
 
       - name: cargo test with the Antigravity accounts
         run: cargo test --workspace --locked --features antigravity-accounts
-
 
       - name: Build the app (MIT)
         run: npx tauri build --bundles app
@@ -193,9 +191,11 @@ jobs:
 
   # The Windows build: vitest (the windows as Windows draws them, the
   # *.win.test.tsx files among them), and the core and the app crate:
-  # clippy and their tests with and without the Antigravity accounts, then
-  # the guided sessions' test installer. The macOS job stays the required
-  # check.
+  # clippy and their tests with and without the Antigravity accounts (the
+  # core's with the rotation, its rules, the pause and the rotation timer;
+  # the copies to other Macs over SSH, the LaunchAgent and the update from
+  # source are Unix only), then the guided sessions' test installer. The
+  # macOS job stays the required check.
   build-windows:
     name: Build and test (Windows x64)
     needs: changes

@@ -289,3 +289,47 @@ fn alert_one_s_thresholds_are_read_loosely() {
     assert_eq!(PoolAlert { dry_at_most: 10, room_at_least: 100 }.check(), Err("range"));
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// The `alerts` of a file `text` once a build with `hooks` opened it and
+/// wrote it again; `None` when the file has no `alerts`.
+fn alerts_written(tag: &str, text: &str, hooks: &dyn Hooks) -> Option<serde_json::Value> {
+    let dir = fresh_dir(tag);
+    let file = dir.join("settings.json");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(&file, text).unwrap();
+    Settings::open(&file, hooks).save(&file).unwrap();
+    let written: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&file).unwrap()).unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+    written.get("alerts").cloned()
+}
+
+/// The app without an extension never runs alert 2 or a kind it does not
+/// know, has no switch for them in Cài đặt, and keeps their switches in the
+/// file it writes, as it keeps an extension's other keys.
+#[test]
+fn without_an_extension_the_switches_of_alerts_it_does_not_know_are_kept_and_never_run() {
+    use serde_json::json;
+    let none = quota_station_core::ext::none();
+    let text = json!({
+        "setupSeen": true,
+        "alerts": { "pool": true, "leaving": false, "login": true, "overwrite": true, "unknownKind": true }
+    })
+    .to_string();
+    assert_eq!(
+        alerts_written("no-extension", &text, none),
+        Some(
+            json!({ "pool": true, "leaving": false, "login": true, "overwrite": true, "unknownKind": true })
+        )
+    );
+    let s: Settings = serde_json::from_str(&text).unwrap();
+    for name in ["leaving", "unknownKind"] {
+        let kind = Kind::named(name);
+        assert!(!kind.known(none), "{name}");
+        assert!(!s.alert_switches(none).on(&kind, none), "{name} never runs");
+    }
+    assert_eq!(
+        serde_json::to_value(s.alerts.shown(none)).unwrap(),
+        json!({ "pool": true, "login": true, "overwrite": true })
+    );
+}

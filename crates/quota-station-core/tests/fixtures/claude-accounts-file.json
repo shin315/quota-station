@@ -4,6 +4,7 @@
     {
       "slot": 1,
       "alias": "Cá nhân",
+      "disabled": false,
       "kind": "login",
       "accountUuid": "uuid-1",
       "organizationUuid": "",
@@ -12,6 +13,7 @@
     },
     {
       "slot": 2,
+      "disabled": true,
       "kind": "login",
       "accountUuid": "uuid-2",
       "organizationUuid": "org-team",
@@ -21,6 +23,7 @@
     {
       "slot": 3,
       "alias": "Team phụ",
+      "disabled": true,
       "kind": "setupToken",
       "accountUuid": "",
       "organizationUuid": "",
@@ -43,6 +46,7 @@
       "organizationUuid": "org-team",
       "identity": "id-5",
       "added": "2026-01-05T00:00:00Z",
+      "disabled": true,
       "note": "a key no build knows"
     }
   ]

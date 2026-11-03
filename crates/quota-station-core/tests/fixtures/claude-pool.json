@@ -50,6 +50,7 @@
           {
             "slot": 1,
             "active": false,
+            "disabled": false,
             "status": "fresh",
             "ageSeconds": 120,
             "fetchedAt": "2026-01-16T07:18:00.000Z",
@@ -69,6 +70,7 @@
           {
             "slot": 2,
             "active": true,
+            "disabled": false,
             "status": "fresh",
             "ageSeconds": 36,
             "fetchedAt": "2026-01-16T07:19:24.000Z",
@@ -88,6 +90,7 @@
           {
             "slot": 3,
             "active": false,
+            "disabled": false,
             "status": "fresh",
             "ageSeconds": 200,
             "fetchedAt": "2026-01-16T07:16:40.000Z",
@@ -106,6 +109,7 @@
           {
             "slot": 4,
             "active": false,
+            "disabled": false,
             "status": "fresh",
             "ageSeconds": 300,
             "fetchedAt": "2026-01-16T07:15:00.000Z",
@@ -122,7 +126,50 @@
               }
             ]
           }
-        ]
+        ],
+        "rotation": {
+          "team": [
+            2,
+            3,
+            4
+          ],
+          "personal": 1,
+          "personalHours": "8-23",
+          "full": 90,
+          "expire": [
+            {
+              "slot": 2,
+              "at": "2026-01-16T10:45:00.000Z"
+            }
+          ]
+        },
+        "pool": {
+          "scope": "all_models",
+          "members": 4,
+          "slotsOfRoom": 2.27,
+          "effectivePercentRemaining": 100,
+          "nextRefillAt": "2026-01-16T10:09:00.000Z",
+          "slots": [
+            {
+              "slot": 2,
+              "roomPercent": 0,
+              "refillAt": "2026-01-16T10:29:00.000Z"
+            },
+            {
+              "slot": 3,
+              "roomPercent": 100
+            },
+            {
+              "slot": 4,
+              "roomPercent": 97.8,
+              "refillAt": "2026-01-16T10:09:00.000Z"
+            },
+            {
+              "slot": 1,
+              "roomPercent": 29.2
+            }
+          ]
+        }
       }
     }
   ]

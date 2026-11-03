@@ -258,6 +258,29 @@ fn without_an_extension_a_command_the_app_has_not_prints_the_apps_usage_and_exit
     assert_eq!(switch::active_slot(&mac.store), Some(2));
 }
 
+/// The app without an extension refuses the rotation's commands as it
+/// refuses any command it does not have: the app's usage on stderr, exit 2,
+/// nothing done.
+#[test]
+fn without_an_extension_the_rotations_commands_are_refused_with_the_apps_usage() {
+    let mac = mac("cli-no-extension");
+    let cli = cli(&mac, None);
+    let before = mac.store.load().unwrap();
+    let usage = (2, String::new(), cli::USAGE.to_string());
+    for args in [
+        &["rotate"][..],
+        &["rotate", "--dry-run"],
+        &["rotation", "on"],
+        &["rotation", "off"],
+        &["enable", "3"],
+        &["disable", "3"],
+    ] {
+        assert_eq!(call_with(&cli, &NoHooks, args), usage, "{args:?}");
+    }
+    assert_eq!(mac.store.load().unwrap(), before);
+    assert!(!cli::USAGE.contains("rotate"));
+}
+
 #[test]
 fn status_names_no_email_unless_asked() {
     let mac = mac("cli-status");

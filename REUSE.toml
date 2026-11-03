@@ -27,6 +27,7 @@ path = [
   "src/fixtures/**.json",
   "crates/quota-station-core/tests/fixtures/**",
   "src-tauri/tests/fixtures/**",
+  "crates/quota-station-core/src/advanced/fixtures/**",
 ]
 SPDX-FileCopyrightText = "2026 Shin315"
 SPDX-License-Identifier = "MIT"

@@ -7,6 +7,8 @@
 //!   alias, its three windows, how old its reading is and its error, and
 //!   the account in use. No email, no token. `quota-station claude status
 //!   --json` prints the same, and only with `--emails` adds the emails.
+//!   With the advanced part also whether each account is in the rotation
+//!   (`enabled`, the advanced part's keys from `advanced/held.rs`).
 //! - what an extension writes of its own beside the state file, each time
 //!   the app writes it ([`StateCopy`]);
 //! - [`details`], for the app's own windows: each account's windows and,

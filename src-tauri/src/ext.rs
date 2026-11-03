@@ -308,10 +308,13 @@ pub trait Extension: Send + Sync + 'static {
     /// what it prints, and the app exits with it without starting; or
     /// `None`, the default, when the words are not its own: then the app
     /// answers them, or starts. Asked before the app starts, so the
-    /// extension has no [`Host`] and nothing it keeps yet. The app's own
+    /// extension has no [`Host`] and nothing it keeps yet; `hooks` are the
+    /// core's hooks the app runs with (those of the extension the app was
+    /// given, which may wrap this one), for a subcommand that opens the
+    /// app's state without a window ([`Local::open`]). The app's own
     /// subcommands (`claude`, `quota`) never reach the extension.
-    fn subcommand(&self, args: &[String]) -> Option<i32> {
-        let _ = args;
+    fn subcommand(&self, args: &[String], hooks: &'static dyn Hooks) -> Option<i32> {
+        let _ = (args, hooks);
         None
     }
 

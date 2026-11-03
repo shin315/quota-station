@@ -18,6 +18,12 @@
 //! account the owner renamed in the app stays as the owner left it, and an
 //! account already in the app under another slot is not added twice. It
 //! also copies claude-swap's last readings, only when the app has none yet.
+//!
+//! Each account comes in the rotation: claude-swap's own `disabled` is not
+//! carried over, as the old switcher never read it, and one the owner held
+//! out of the rotation in the app stays held out. It also copies the
+//! rotation file, the `prime` flag and its times, each only when the app
+//! has none yet.
 
 use std::path::{Path, PathBuf};
 

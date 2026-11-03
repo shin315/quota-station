@@ -85,13 +85,13 @@ fn hooks() -> &'static dyn Hooks {
 }
 
 /// The policy of the Claude pool the app's hooks give at each pass: with the
-/// private part, its own; without it, none.
+/// advanced part, its own; without it, none.
 fn policy() -> Option<&'static dyn PoolPolicy> {
     None
 }
 
 /// The names the app's hooks give the accounts on the cards: with the
-/// private part, its own; without it, none.
+/// advanced part, its own; without it, none.
 fn names() -> Option<&'static dyn Labels> {
     None
 }

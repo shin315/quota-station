@@ -8,11 +8,18 @@
 //!    or less, and no other account has 15 % or more; both thresholds are
 //!    set in Cài đặt ([`PoolAlert`]). Back: no longer dry. An extension's
 //!    pool policy says which accounts count ([`Facts::pool_policy`]).
+//!    With a rotation file only the accounts the switcher may choose now
+//!    count ([`crate::advanced::pool`]).
+//! 2. An account about to leave the rotation: 30 minutes before its
+//!    `expire` in the rotation file.
 //! 3. A login to renew: a Claude account whose login ends within 3 days, or
 //!    whose last reading failed with a login only a new one mends; an
 //!    Antigravity account here that needs a new login or a verification.
 //! 4. An Antigravity switch overwritten: the six-hour watch after a switch
 //!    (M4c) saw the old account back in use.
+//!
+//! Alert 2 is the advanced part's kind ([`crate::advanced::alerts`]), added
+//! through the hooks like any extension's.
 //!
 //! An extension may add kinds of its own beside these ([`ExtKind`], named by
 //! [`Hooks::alert_kinds`]), with a number, a switch and the words of their

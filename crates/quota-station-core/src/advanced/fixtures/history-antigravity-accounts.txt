@@ -1,0 +1,64 @@
+# collect(50)
+{"at":"2026-01-16T07:18:00Z","app":"claude","source":"switcher","from":null,"to":3,"cause":{"kind":"switcher","why":{"kind":"room","used":1.0,"ends":"17:00"},"raw":"<T0-120> switch to slot 3 (1.0%, ends 17:00)"}}
+{"at":"2026-01-16T07:12:00Z","app":"claude","source":"app","from":null,"to":4,"cause":{"kind":"manual","holdUntil":null,"result":"unconfirmed"}}
+{"at":"2026-01-16T07:10:00Z","app":"antigravity","source":"observed","from":2,"to":1,"cause":{"kind":"agyOverwrite","overwrites":2}}
+{"at":"2026-01-16T07:08:00Z","app":"codex","source":"observed","from":null,"to":null,"cause":{"kind":"codexObserved","from":"relay","to":"openai"}}
+{"at":"2026-01-16T07:05:00Z","app":"antigravity","source":"observed","from":1,"to":2,"cause":{"kind":"observed"}}
+{"at":"2026-01-16T06:55:00Z","app":"claude","source":"observed","from":2,"to":3,"cause":{"kind":"observed"}}
+{"at":"2026-01-16T06:50:00Z","app":"claude","source":"app","from":1,"to":2,"cause":{"kind":"manual","holdUntil":null,"result":"raced"}}
+{"at":"2026-01-16T06:50:00Z","app":"claude","source":"switcher","from":null,"to":2,"cause":{"kind":"switcher","why":{"kind":"room","used":5.0,"ends":"16:00"},"raw":"<T0-1800> switch to slot 2 (5.0%, ends 16:00)"}}
+{"at":"2026-01-16T06:39:00Z","app":"claude","source":"switcher","from":null,"to":3,"cause":{"kind":"switcher","why":{"kind":"other"},"raw":"<T0-2460> switch to slot 3 (something odd)"}}
+{"at":"2026-01-16T06:38:00Z","app":"claude","source":"switcher","from":null,"to":6,"cause":{"kind":"switcher","why":{"kind":"personal","used":12.0},"raw":"<T0-2520> switch to slot 6 (12.0%, no Team slot with room)"}}
+{"at":"2026-01-16T06:37:00Z","app":"claude","source":"switcher","from":null,"to":2,"cause":{"kind":"switcher","why":{"kind":"park","at":"14:00"},"raw":"<T0-2580> switch to slot 2 (park: no room anywhere, it resets first at 14:00)"}}
+{"at":"2026-01-16T06:36:00Z","app":"claude","source":"switcher","from":null,"to":1,"cause":{"kind":"switcher","why":{"kind":"early","at":"13:00","left":30,"before":2},"raw":"<T0-2640> switch to slot 1 (ends 13:00 with 30% left, before slot 2)"}}
+{"at":"2026-01-16T06:35:00Z","app":"claude","source":"switcher","from":null,"to":5,"cause":{"kind":"switcher","why":{"kind":"expiring","at":"12:00"},"raw":"<T0-2700> switch to slot 5 (ends for good at 12:00, use it first)"}}
+{"at":"2026-01-16T06:30:00Z","app":"claude","source":"switcher","from":null,"to":4,"cause":{"kind":"primed","raw":"<T0-3000> primed slot 4 (exit 0)"}}
+{"at":"2026-01-16T06:25:00Z","app":"claude","source":"switcher","from":null,"to":3,"cause":{"kind":"switcher","why":{"kind":"room","used":0.0,"ends":null},"raw":"<T0-3300> switch to slot 3 (0.0%, window not started)"}}
+{"at":"2026-01-16T06:20:00Z","app":"claude","source":"switcher","from":null,"to":2,"cause":{"kind":"switcher","why":{"kind":"room","used":4.0,"ends":"15:00"},"raw":"<T0-3600> switch to slot 2 (4.0%, ends 15:00)"}}
+{"at":"2026-01-16T06:18:00Z","app":"antigravity","source":"app","from":null,"to":null,"cause":{"kind":"agySwitch","how":"keepRunning","result":"unconfirmed","reopened":null}}
+{"at":"2026-01-16T06:10:00Z","app":"antigravity","source":"app","from":1,"to":2,"cause":{"kind":"agySwitch","how":"quitFirst","result":"switched","reopened":true}}
+{"at":"2026-01-16T06:05:00Z","app":"codex","source":"app","from":null,"to":null,"cause":{"kind":"codexSwitch","from":"openai","to":"relay","restarted":true}}
+{"at":"2026-01-16T05:50:00Z","app":"claude","source":"app","from":2,"to":1,"cause":{"kind":"manual","holdUntil":"2026-01-16T08:20:00Z","result":"switched"}}
+# collect(3)
+{"at":"2026-01-16T07:18:00Z","app":"claude","source":"switcher","from":null,"to":3,"cause":{"kind":"switcher","why":{"kind":"room","used":1.0,"ends":"17:00"},"raw":"<T0-120> switch to slot 3 (1.0%, ends 17:00)"}}
+{"at":"2026-01-16T07:12:00Z","app":"claude","source":"app","from":null,"to":4,"cause":{"kind":"manual","holdUntil":null,"result":"unconfirmed"}}
+{"at":"2026-01-16T07:10:00Z","app":"antigravity","source":"observed","from":2,"to":1,"cause":{"kind":"agyOverwrite","overwrites":2}}
+# timeline
+before Some(2) now Some(9)
+[(1768542600, 1), (1768544400, 2), (1768544700, 3), (1768545300, 5), (1768545360, 1), (1768545420, 2), (1768545480, 6), (1768545540, 3), (1768546200, 2), (1768546500, 3), (1768547520, 4), (1768547880, 3)]
+# seen Some(5) Some("a2")
+# journal after track
+{"at":1768542600,"app":"claude","from":"2","to":"1","what":{"kind":"manual","holdUntil":"2026-01-16T08:20:00Z","result":"switched"}}
+{"at":1768546200,"app":"claude","from":"1","to":"2","what":{"kind":"manual","result":"raced"}}
+{"at":1768546500,"app":"claude","from":"2","to":"3","what":{"kind":"observed"}}
+{"at":1768546800,"app":"claude","to":"x","what":{"kind":"manual","result":"switched"}}
+{"at":1768547100,"app":"antigravity","from":"a1","to":"a2","what":{"kind":"observed"}}
+{"at":1768547400,"app":"antigravity","from":"a2","to":"a1","what":{"kind":"overwrite","overwrites":2}}
+{ broken
+{"at":1768547520,"app":"claude","to":"4","what":{"kind":"manual","result":"unconfirmed"}}
+{"at":1768547700,"app":"codex","to":"relay","what":{"kind":"observed"}}
+{"at":1768548060,"app":"claude","from":"3","to":"5","what":{"kind":"observed"}}
+{"at":1768548060,"app":"antigravity","from":"a1","to":"a2","what":{"kind":"observed"}}
+# collect(50) after track
+{"at":"2026-01-16T07:21:00Z","app":"claude","source":"observed","from":3,"to":5,"cause":{"kind":"observed"}}
+{"at":"2026-01-16T07:21:00Z","app":"antigravity","source":"observed","from":1,"to":2,"cause":{"kind":"observed"}}
+{"at":"2026-01-16T07:18:00Z","app":"claude","source":"switcher","from":null,"to":3,"cause":{"kind":"switcher","why":{"kind":"room","used":1.0,"ends":"17:00"},"raw":"<T0-120> switch to slot 3 (1.0%, ends 17:00)"}}
+{"at":"2026-01-16T07:12:00Z","app":"claude","source":"app","from":null,"to":4,"cause":{"kind":"manual","holdUntil":null,"result":"unconfirmed"}}
+{"at":"2026-01-16T07:10:00Z","app":"antigravity","source":"observed","from":2,"to":1,"cause":{"kind":"agyOverwrite","overwrites":2}}
+{"at":"2026-01-16T07:08:00Z","app":"codex","source":"observed","from":null,"to":null,"cause":{"kind":"codexObserved","from":"relay","to":"openai"}}
+{"at":"2026-01-16T07:05:00Z","app":"antigravity","source":"observed","from":1,"to":2,"cause":{"kind":"observed"}}
+{"at":"2026-01-16T06:55:00Z","app":"claude","source":"observed","from":2,"to":3,"cause":{"kind":"observed"}}
+{"at":"2026-01-16T06:50:00Z","app":"claude","source":"app","from":1,"to":2,"cause":{"kind":"manual","holdUntil":null,"result":"raced"}}
+{"at":"2026-01-16T06:50:00Z","app":"claude","source":"switcher","from":null,"to":2,"cause":{"kind":"switcher","why":{"kind":"room","used":5.0,"ends":"16:00"},"raw":"<T0-1800> switch to slot 2 (5.0%, ends 16:00)"}}
+{"at":"2026-01-16T06:39:00Z","app":"claude","source":"switcher","from":null,"to":3,"cause":{"kind":"switcher","why":{"kind":"other"},"raw":"<T0-2460> switch to slot 3 (something odd)"}}
+{"at":"2026-01-16T06:38:00Z","app":"claude","source":"switcher","from":null,"to":6,"cause":{"kind":"switcher","why":{"kind":"personal","used":12.0},"raw":"<T0-2520> switch to slot 6 (12.0%, no Team slot with room)"}}
+{"at":"2026-01-16T06:37:00Z","app":"claude","source":"switcher","from":null,"to":2,"cause":{"kind":"switcher","why":{"kind":"park","at":"14:00"},"raw":"<T0-2580> switch to slot 2 (park: no room anywhere, it resets first at 14:00)"}}
+{"at":"2026-01-16T06:36:00Z","app":"claude","source":"switcher","from":null,"to":1,"cause":{"kind":"switcher","why":{"kind":"early","at":"13:00","left":30,"before":2},"raw":"<T0-2640> switch to slot 1 (ends 13:00 with 30% left, before slot 2)"}}
+{"at":"2026-01-16T06:35:00Z","app":"claude","source":"switcher","from":null,"to":5,"cause":{"kind":"switcher","why":{"kind":"expiring","at":"12:00"},"raw":"<T0-2700> switch to slot 5 (ends for good at 12:00, use it first)"}}
+{"at":"2026-01-16T06:30:00Z","app":"claude","source":"switcher","from":null,"to":4,"cause":{"kind":"primed","raw":"<T0-3000> primed slot 4 (exit 0)"}}
+{"at":"2026-01-16T06:25:00Z","app":"claude","source":"switcher","from":null,"to":3,"cause":{"kind":"switcher","why":{"kind":"room","used":0.0,"ends":null},"raw":"<T0-3300> switch to slot 3 (0.0%, window not started)"}}
+{"at":"2026-01-16T06:20:00Z","app":"claude","source":"switcher","from":null,"to":2,"cause":{"kind":"switcher","why":{"kind":"room","used":4.0,"ends":"15:00"},"raw":"<T0-3600> switch to slot 2 (4.0%, ends 15:00)"}}
+{"at":"2026-01-16T06:18:00Z","app":"antigravity","source":"app","from":null,"to":null,"cause":{"kind":"agySwitch","how":"keepRunning","result":"unconfirmed","reopened":null}}
+{"at":"2026-01-16T06:10:00Z","app":"antigravity","source":"app","from":1,"to":2,"cause":{"kind":"agySwitch","how":"quitFirst","result":"switched","reopened":true}}
+{"at":"2026-01-16T06:05:00Z","app":"codex","source":"app","from":null,"to":null,"cause":{"kind":"codexSwitch","from":"openai","to":"relay","restarted":true}}
+{"at":"2026-01-16T05:50:00Z","app":"claude","source":"app","from":2,"to":1,"cause":{"kind":"manual","holdUntil":"2026-01-16T08:20:00Z","result":"switched"}}

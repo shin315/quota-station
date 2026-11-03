@@ -87,7 +87,7 @@ pub fn run<E: Extension>(context: tauri::Context<tauri::Wry>, extension: E) {
     if matches!(args.first().map(String::as_str), Some("claude" | "quota")) {
         attach_console();
     }
-    if let Some(code) = subcommand(extension, &args) {
+    if let Some(code) = subcommand(extension, &args, hooks) {
         std::process::exit(code);
     }
     let builder = tauri::Builder::default()
@@ -380,15 +380,20 @@ fn attach_console() {
 /// A subcommand from a terminal, answered without a window, and nothing
 /// else starts: the app's own, else the extension's
 /// ([`Extension::subcommand`]), else the refusal of `quota-station agents
-/// …` ([`agents_refused`]). `None`: the app starts.
-fn subcommand<E: Extension + ?Sized>(extension: &E, args: &[String]) -> Option<i32> {
+/// …` ([`agents_refused`]). `None`: the app starts. `hooks` are the core's
+/// hooks the app runs with (`extension`'s).
+fn subcommand<E: Extension + ?Sized>(
+    extension: &E,
+    args: &[String],
+    hooks: &'static dyn ext::Hooks,
+) -> Option<i32> {
     match args.first().map(String::as_str) {
         // The Claude accounts from a terminal and the programs that use
         // them.
-        Some("claude") => Some(claude_cli(&args[1..], extension.hooks())),
+        Some("claude") => Some(claude_cli(&args[1..], hooks)),
         // The quota as the app reads it, from a terminal.
-        Some("quota") => Some(quota_cli(&args[1..], extension.hooks())),
-        _ => extension.subcommand(args).or_else(|| {
+        Some("quota") => Some(quota_cli(&args[1..], hooks)),
+        _ => extension.subcommand(args, hooks).or_else(|| {
             (args.first().map(String::as_str) == Some("agents")).then(|| {
                 let (text, code) = agents_refused();
                 println!("{text}");
@@ -567,11 +572,16 @@ pub(crate) fn machine_name() -> String {
 
 #[cfg(test)]
 mod tests {
-    use crate::ext::Extension;
+    use crate::ext::{Extension, Hooks};
 
     /// The extension the binary passes in this build (`main.rs`).
     fn extension() -> crate::ext::NoExtension {
         crate::ext::NoExtension
+    }
+
+    /// The core's hooks of that extension: none.
+    fn hooks() -> &'static dyn Hooks {
+        quota_station_core::ext::none()
     }
 
     /// The commands the windows can call in this build: the app's own and
@@ -590,7 +600,7 @@ mod tests {
     struct Answers;
 
     impl Extension for Answers {
-        fn subcommand(&self, args: &[String]) -> Option<i32> {
+        fn subcommand(&self, args: &[String], _hooks: &'static dyn Hooks) -> Option<i32> {
             match args.first().map(String::as_str) {
                 Some("agents") => Some(3),
                 Some("test-word") => Some(4),
@@ -606,19 +616,19 @@ mod tests {
     fn without_an_extension_agents_is_refused_and_anything_else_starts_the_app() {
         let none = crate::ext::NoExtension;
         assert_eq!(super::agents_refused(), (r#"{"error":"protocol"}"#.to_string(), 7));
-        assert_eq!(super::subcommand(&none, &words(&["agents", "read"])), Some(7));
-        assert_eq!(super::subcommand(&none, &words(&["agents"])), Some(7));
+        assert_eq!(super::subcommand(&none, &words(&["agents", "read"]), hooks()), Some(7));
+        assert_eq!(super::subcommand(&none, &words(&["agents"]), hooks()), Some(7));
         for args in [words(&[]), words(&["test-word"]), words(&["--agents"])] {
-            assert_eq!(super::subcommand(&none, &args), None, "{args:?}");
+            assert_eq!(super::subcommand(&none, &args, hooks()), None, "{args:?}");
         }
     }
 
     #[test]
     fn an_extension_answers_its_own_subcommands_and_agents_before_the_refusal() {
-        assert_eq!(super::subcommand(&Answers, &words(&["agents", "read"])), Some(3));
-        assert_eq!(super::subcommand(&Answers, &words(&["test-word", "x"])), Some(4));
+        assert_eq!(super::subcommand(&Answers, &words(&["agents", "read"]), hooks()), Some(3));
+        assert_eq!(super::subcommand(&Answers, &words(&["test-word", "x"]), hooks()), Some(4));
         for args in [words(&[]), words(&["nonsense"])] {
-            assert_eq!(super::subcommand(&Answers, &args), None, "{args:?}");
+            assert_eq!(super::subcommand(&Answers, &args, hooks()), None, "{args:?}");
         }
     }
 
@@ -626,8 +636,8 @@ mod tests {
     /// the app.
     #[test]
     fn this_builds_extension_leaves_a_launch_to_the_app() {
-        assert_eq!(super::subcommand(&extension(), &[]), None);
-        assert_eq!(super::subcommand(&extension(), &words(&["nonsense"])), None);
+        assert_eq!(super::subcommand(&extension(), &[], hooks()), None);
+        assert_eq!(super::subcommand(&extension(), &words(&["nonsense"]), hooks()), None);
     }
 
     #[test]

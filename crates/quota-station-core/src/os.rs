@@ -7,6 +7,11 @@
 //! - [`SecretStore`]: generic passwords by service and account (macOS:
 //!   the login Keychain through `/usr/bin/security`,
 //!   [`crate::claude::keychain::Security`]);
+//! - [`Scheduler`]: the rotation run every few minutes, and the older
+//!   switchers that must not run beside it (macOS: launchd through
+//!   `/bin/launchctl`, [`crate::claude::agent::Launchd`], also while the
+//!   app is closed; Windows: the app's own timer while it runs,
+//!   [`crate::claude::timer::AppTimer`]);
 //! - [`ProcessList`]: which processes run, their command lines and the
 //!   ports they listen on (macOS: `kill(pid, 0)`, `ps` and `lsof`, [`Ps`]);
 //! - [`Opener`]: a URL or a file handed to the program the owner chose for
@@ -31,6 +36,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use crate::claude::agent::AgentError;
 use crate::claude::keychain::KeychainError;
 #[cfg(unix)]
 use crate::runner;
@@ -54,6 +60,22 @@ pub trait SecretStore: Send + Sync + std::fmt::Debug {
     fn set(&self, service: &str, account: &str, value: &str) -> Result<(), KeychainError>;
     /// Removes the item; one that is not there counts as removed.
     fn delete(&self, service: &str, account: &str) -> Result<(), KeychainError>;
+}
+
+/// The job that runs `<exe> claude rotate` every few minutes, and the
+/// older switchers that must never run beside it.
+pub trait Scheduler: Send + Sync + std::fmt::Debug {
+    /// Whether the job is installed and loaded; `None` when that cannot be
+    /// told.
+    fn loaded(&self) -> Option<bool>;
+    /// The older switcher still running, if any, or of which the system
+    /// cannot tell: nothing switches or refreshes beside one.
+    fn legacy_loaded(&self) -> Option<&'static str>;
+    /// Installs and starts the job for `exe`. Refused while an older
+    /// switcher runs.
+    fn install(&self, home: &Path, exe: &Path) -> Result<(), AgentError>;
+    /// Stops the job and removes it.
+    fn remove(&self, home: &Path) -> Result<(), AgentError>;
 }
 
 /// One running process, as [`ProcessList`] lists it.
@@ -159,6 +181,18 @@ pub fn secret_store() -> crate::claude::keychain::Security {
 #[cfg(windows)]
 pub fn secret_store() -> crate::win::Secrets {
     crate::win::Secrets::system()
+}
+
+/// This system's scheduler.
+#[cfg(unix)]
+pub fn scheduler() -> crate::claude::agent::Launchd {
+    crate::claude::agent::Launchd::system()
+}
+
+/// This system's scheduler: the app's own timer.
+#[cfg(windows)]
+pub fn scheduler() -> crate::claude::timer::AppTimer {
+    crate::claude::timer::AppTimer::system()
 }
 
 /// This system's process list.

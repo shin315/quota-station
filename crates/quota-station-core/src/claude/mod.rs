@@ -8,6 +8,9 @@
 //! one process as a chosen account ([`session`]), the data file other
 //! programs read ([`state`]) and the one-time import from claude-swap
 //! ([`import`]).
+//! Also the rotation's decision ([`engine`]) and its run ([`rotate`]) from
+//! the app's own LaunchAgent ([`agent`]), or on Windows the app's own timer
+//! ([`timer`]).
 //!
 //! What touches Claude Code's login is learned from claude-swap's source
 //! (MIT, <https://github.com/realiti4/claude-swap>), credited in
@@ -15,17 +18,21 @@
 //! lock folders and their order, the `oauthAccount` splice, the usage and
 //! token endpoints, and the session folder.
 
+pub mod agent;
 pub mod cc;
 pub mod cli;
 pub mod credman;
+pub mod engine;
 pub mod import;
 pub mod keychain;
 pub mod locks;
 pub mod manage;
+pub mod rotate;
 pub mod session;
 pub mod state;
 pub mod store;
 pub mod switch;
+pub mod timer;
 pub mod usage;
 
 use std::io;
@@ -66,12 +73,30 @@ impl Paths {
         self.dir.join("usage.json")
     }
 
+    pub fn rotation(&self) -> PathBuf {
+        self.dir.join("rotation")
+    }
+
+    pub fn log(&self) -> PathBuf {
+        self.dir.join("rotation.log")
+    }
+
     pub fn state(&self) -> PathBuf {
         self.dir.join("state.json")
     }
 
     pub fn sessions(&self) -> PathBuf {
         self.dir.join("sessions")
+    }
+
+    /// Priming is on while this file exists.
+    pub fn prime_flag(&self) -> PathBuf {
+        self.dir.join("prime")
+    }
+
+    /// When each account was last primed.
+    pub fn prime_state(&self) -> PathBuf {
+        self.dir.join("prime-state")
     }
 
     /// The `flock` every change of the accounts, their credentials or Claude
@@ -94,6 +119,16 @@ impl Paths {
     /// added.
     pub fn in_use(&self) -> bool {
         self.accounts().is_file()
+    }
+
+    /// The rotation file the app reads and writes: its own once it keeps
+    /// the accounts (or has its own copy), else the old switcher's.
+    pub fn rotation_file(&self) -> PathBuf {
+        if self.in_use() || self.rotation().exists() {
+            self.rotation()
+        } else {
+            crate::rotation::path(&self.home)
+        }
     }
 
     /// The app's `settings.json`, beside this folder.
