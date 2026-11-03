@@ -16,6 +16,7 @@ use std::thread;
 use quota_station_core::claude::store::{self, Account, Kind, Store};
 use quota_station_core::claude::usage::Endpoints;
 use quota_station_core::claude::Paths;
+use quota_station_core::ext::Hooks;
 use serde_json::{json, Value};
 
 use super::os::FakeKeychain;
@@ -232,6 +233,13 @@ pub struct Mac {
 
 impl Mac {
     pub fn new(tag: &str) -> Mac {
+        let hooks = quota_station_core::ext::none();
+        Mac::with_hooks(tag, hooks)
+    }
+
+    /// A Mac whose store keeps what `hooks` keep on the accounts, as the
+    /// app's store does with an extension's.
+    pub fn with_hooks(tag: &str, hooks: &dyn Hooks) -> Mac {
         let home = temp_dir(tag);
         let dir = home.join("fakes");
         std::fs::create_dir_all(&dir).unwrap();
@@ -239,7 +247,7 @@ impl Mac {
         let mut paths = Paths::for_home(&home);
         // A lock that is held stays held: the tests never wait for one.
         paths.lock_wait = std::time::Duration::ZERO;
-        let store = Store::new(paths.clone(), keychain.clone());
+        let store = Store::new(paths.clone(), keychain.clone()).with_hooks(hooks);
         Mac { home, dir, paths, store, keychain }
     }
 

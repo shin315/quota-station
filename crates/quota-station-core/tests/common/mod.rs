@@ -25,7 +25,7 @@ use std::path::PathBuf;
 use quota_station_core::quota::Response;
 
 pub fn fixture_path(name: &str) -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures").join(name)
+    PathBuf::from(quota_station_core::TEST_DIR).join("tests/fixtures").join(name)
 }
 
 pub fn fixture_text(name: &str) -> String {

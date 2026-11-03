@@ -81,3 +81,9 @@ pub mod win;
 
 pub use icon::{icon, Icon, Tone};
 pub use snapshot::Snapshot;
+
+/// The core's own folder, which holds its tests' fixtures
+/// (`tests/fixtures/`): the shared test helpers read them from here,
+/// whichever crate's tests include them.
+#[cfg(feature = "test-support")]
+pub const TEST_DIR: &str = env!("CARGO_MANIFEST_DIR");
