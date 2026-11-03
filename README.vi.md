@@ -7,10 +7,19 @@ Antigravity của bạn đã dùng bao nhiêu, chuyển qua lại giữa các t�
 gọn MCP server, skill cùng file hướng dẫn của các agent. Giao diện có tiếng Việt
 và tiếng Anh.
 
+<p align="center">
+  <img src="docs/screenshots/vi/popover.png" width="360" alt="Popover ở giao diện tối: mỗi dịch vụ Claude, Antigravity và Codex một phần, mở ra ở tài khoản đang dùng với phần trăm đã dùng và thời gian đến lúc đặt lại, các tài khoản khác gập dưới một dòng, và Tự động chuyển Claude ở chân">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/menubar.png" width="600" alt="Mục trên thanh menu, ở thanh menu sáng và tối: đồng hồ C04 với tài khoản và phần trăm đã dùng cho Claude, Gemini và Codex qua ChatGPT, Codex qua nhà cung cấp riêng không có số, vòng xoay đang tạm dừng với hai vạch trong đồng hồ, và vòng xoay cạn với hình tam giác cảnh báo">
+</p>
 
 Quota Station tự đọc hạn mức ngay trên máy bạn; không cần chương trình nào
 khác để có số.
 
+Mọi hình trong trang này dùng dữ liệu thử bịa ra, không bao giờ là tài khoản
+thật.
 
 > **Tình trạng.** macOS 13 trở lên. GitHub chưa có bản phát hành nào, nên bạn
 > cài [từ mã nguồn](#cài-đặt). Bản Windows đang làm và chưa dùng được.
@@ -39,6 +48,7 @@ nhấp. Thanh chuyển vàng từ 70 % và đỏ từ 90 %. Nhấp phải mở m
 
 ### Cửa sổ chính
 
+<img src="docs/screenshots/vi/overview.png" width="760" alt="Tổng quan của cửa sổ chính: tài khoản Claude, Antigravity và Codex trong các bảng, với phần trăm đã dùng của từng cửa sổ và nút Chuyển trên mỗi tài khoản không dùng">
 
 `Tổng quan` gom mọi tài khoản của ba dịch vụ vào một chỗ, với `Chuyển` trên mỗi
 tài khoản chưa dùng. Thanh bên chia phần còn lại: `Thống kê`, tài khoản
@@ -48,6 +58,7 @@ tài khoản chưa dùng. Thanh bên chia phần còn lại: `Thống kê`, tài
 
 ### Tài khoản Claude
 
+<img src="docs/screenshots/vi/claude.png" width="760" alt="Tab Claude: bốn tài khoản với 5 giờ, Tuần và Fable tuần, nút Chuyển và menu ⋯ trên mỗi dòng, bên dưới là Tự động chuyển Claude với các lựa chọn tạm dừng và Chạy nền">
 
 Quota Station tự giữ nhiều tài khoản Claude và tự chuyển Claude Code giữa
 chúng: thêm tài khoản bằng cách đăng nhập trong trình duyệt, lấy tài khoản
@@ -60,6 +71,7 @@ Vòng xoay tự động giữa các tài khoản Team, có tạm dừng, là m�
 
 ### Codex
 
+<img src="docs/screenshots/vi/codex.png" width="760" alt="Tab Codex: bốn tài khoản ChatGPT và ba nhà cung cấp Custom API với nút Chuyển, ô plugin, dòng khoá API, Tự đánh thức ChatGPT và Codex trên máy này">
 
 Giữ nhiều tài khoản ChatGPT cho Codex, cùng các nhà cung cấp Custom API trong
 `config.toml` của nó, và chuyển qua lại; đăng nhập ChatGPT vẫn ở nguyên chỗ nên
@@ -76,11 +88,13 @@ và chuyển tài khoản mà Antigravity.app và `agy` dùng.
 
 ### MCP server, skill, plugin và file hướng dẫn
 
+<img src="docs/screenshots/vi/mcp.png" width="760" alt="Tab MCP: mỗi server một dòng với ô đánh dấu cho Claude Code, Codex và Antigravity, nhãn báo thiếu khoá hoặc thiếu lệnh, và các dòng cho server đã cất, server Codex tự có và bản lưu">
 
 Một bảng cho mọi MCP server của Claude Code, Codex và Antigravity, mỗi agent một
 ô đánh dấu. Các thay đổi được gom lại, cho xem trước một lần, ghi một lần kèm
 bản lưu, và hoàn tác được. Khoá nằm trong Keychain và không bao giờ hiện ra.
 
+<img src="docs/screenshots/vi/skills.png" width="760" alt="Tab Skills: mỗi skill một dòng với ô đánh dấu cho từng agent, hai skill có bản mới, Cập nhật tất cả và Cài từ GitHub">
 
 Tab `Skills` làm như vậy cho skill, cài skill từ GitHub và báo khi một skill có
 bản mới. `Plugin` liệt kê những gì mỗi agent đã cài, còn `File hướng dẫn` theo
@@ -88,6 +102,7 @@ dõi CLAUDE.md, AGENTS.md và GEMINI.md.
 
 ### Bộ cấu hình
 
+<img src="docs/screenshots/vi/sets.png" width="760" alt="Bộ cấu hình: bộ đang dùng lệch một mục, và ba bộ với Áp dụng…, Sửa và Xoá">
 
 Một bộ bật hoặc tắt một nhóm MCP server và skill đã chọn cho cả máy trong một
 lần, sau một lần xem trước, và có thể chuyển cả Codex. App báo khi máy đã lệch
@@ -95,6 +110,7 @@ khỏi bộ, và hoàn tác được.
 
 ### Sao lưu và khôi phục
 
+<img src="docs/screenshots/vi/backup.png" width="760" alt="Tab Sao lưu: gói mới nhất, công tắc tự sao lưu, các khoá đã lưu, và các gói của ba máy Mac">
 
 Sao lưu MCP server, skill, plugin và file hướng dẫn lên iCloud Drive (hoặc thư
 mục bạn chọn) rồi khôi phục trên bất kỳ máy Mac nào của bạn, từng mục một. Gói
@@ -102,6 +118,7 @@ sao lưu không bao giờ chứa khoá: lúc khôi phục app hỏi lại.
 
 ### Thống kê
 
+<img src="docs/screenshots/vi/stats.png" width="760" alt="Thống kê 7 ngày: 45,5 triệu token, giá API tương đương, mỗi ngày một cột chồng cho Claude Code và Codex, cùng số token theo tài khoản Claude, theo dự án và theo model">
 
 Số token Claude Code và Codex đã dùng trên máy này, đọc từ log phiên của chính
 chúng (chỉ đọc con số, không bao giờ đọc nội dung hội thoại): theo ngày hoặc
@@ -109,12 +126,14 @@ giờ, theo tài khoản Claude, dự án và model, kèm giá nếu tính theo 
 
 ### Cập nhật Agent
 
+<img src="docs/screenshots/vi/updates.png" width="760" alt="Cập nhật Agent: Claude Code đã là bản mới nhất, Codex CLI và Antigravity CLI có bản mới với nút Cập nhật, và Tự động kiểm tra">
 
 Kiểm tra Claude Code, Codex CLI và Antigravity CLI đã là bản mới nhất chưa, và
 chỉ chạy lệnh cập nhật của chính công cụ đó khi bạn bấm `Cập nhật`.
 
 ### Thông báo
 
+<img src="docs/screenshots/vi/notifications.png" width="760" alt="Bảng thông báo mở dưới cái chuông trên Tổng quan: hai thông báo hôm nay, Antigravity đổi về tài khoản cũ và Team A rời vòng lúc 14:45, mỗi thông báo kèm các nút của thẻ macOS">
 
 Thông báo khi hạn mức Claude sắp cạn, khi một tài khoản cần đăng nhập
 lại, khi lần chuyển Antigravity bị ghi đè, khi skill hay công cụ có bản mới, và
@@ -124,6 +143,7 @@ dưới cái chuông.
 
 ### Cài đặt, chủ đề và ngôn ngữ
 
+<img src="docs/screenshots/vi/settings.png" width="760" alt="Cài đặt › Hiển thị: Giao diện, sáu chủ đề vẽ như cửa sổ thu nhỏ, Hiện email, và dịch vụ cùng con số trên thanh menu">
 
 Cài đặt có `Chung` (ngôn ngữ, mở khi đăng nhập, thư mục sao lưu, cập nhật
 app), `Hiển thị` (sáng hoặc tối, sáu chủ đề, thanh menu), `Thông báo` và
@@ -134,6 +154,7 @@ Cài đặt còn có `Nâng cao`, nơi hiện ra [các công cụ nâng cao](#n�
 
 ### Lần chạy đầu
 
+<img src="docs/screenshots/vi/first-run.png" width="760" alt="Bước thứ hai của lần chạy đầu, Máy này có gì: đã thấy Claude Code, Codex và Antigravity">
 
 Bản cài mới mở ra một phần thiết lập ngắn: ngôn ngữ, máy này có gì, tài khoản
 Claude, quyền và thanh menu, xong.
@@ -149,7 +170,6 @@ Claude, quyền và thanh menu, xong.
 `Cài đặt › Nâng cao › Hiện phần nâng cao`, tắt ở bản cài mới, thêm vòng xoay
 Claude tự động cùng tạm dừng và trình sửa luật, gửi luật sang các máy Mac khác
 qua SSH, `Chép sang Mac khác`, và cập nhật từ bản clone mã nguồn.
-
 
 Mọi phần được mô tả đầy đủ trong [docs/features.md](docs/features.md) (tiếng
 Anh, kèm nhãn tiếng Việt).
@@ -201,7 +221,6 @@ mục đăng nhập và không bao giờ đòi `sudo`. Nó dựng kèm phần t�
 Antigravity; `QS_ANTIGRAVITY_ACCOUNTS=0` bỏ phần đó ra. `scripts/install.sh
 --help` liệt kê các tuỳ chọn.
 
-
 Trên máy không dựng được, hãy tạo gói trên một máy dựng được rồi chép sang:
 
 ```sh
@@ -214,6 +233,8 @@ Sau đó, trên máy đăng nhập tài khoản Antigravity, đặt
 [file OAuth client](docs/how-it-works.md#the-oauth-client-file) vào chỗ, và bật
 `Cài đặt › Chung › Mở khi đăng nhập` nếu muốn app chạy cùng máy.
 
+Đang chuyển từ claude-swap? Phần
+[cutover](docs/claude-accounts.md#cutover) nói cách làm.
 
 ## Cập nhật
 
@@ -234,6 +255,8 @@ riêng không bao giờ bị merge hay reset, và lần dựng quá 30 phút th�
    System Settings › General › Login Items).
    Nếu app đang chạy vòng xoay Claude, tắt nó trong tab `Claude` (hoặc chạy
    `quota-station claude rotation off`).
+   Muốn bộ tự chuyển cũ xoay vòng Claude trở lại thì nạp lại plist của nó
+   ([cutover](docs/claude-accounts.md#cutover)).
 2. Thoát Quota Station từ menu của nó, rồi kéo
    `/Applications/Quota Station.app` vào Thùng rác.
 3. Tuỳ chọn, xoá dữ liệu của app:
@@ -263,7 +286,6 @@ Các trang trong `docs/` viết bằng tiếng Anh.
 | [docs/themes.md](docs/themes.md) | Sáu chủ đề |
 | [docs/ui-guidelines.md](docs/ui-guidelines.md) | Cách viết chữ trên giao diện, tiếng Việt và tiếng Anh |
 | [SECURITY.md](SECURITY.md) | Khoá, token, những gì không bao giờ đọc, và cách báo lỗi bảo mật |
-
 
 ## Điều khoản dịch vụ
 

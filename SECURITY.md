@@ -133,7 +133,6 @@ deletes the app's item and the index line, and asks Google to revoke nothing.
 The history and the alerts read, besides the app's own folder, only the
 last 64 KB of the switcher's log.
 
-
 The macOS cards go through the system's
 notification center with the app's own bundle id; a card is withdrawn once
 it is answered in the app.

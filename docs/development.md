@@ -7,6 +7,7 @@ runs and writes is in [how-it-works.md](how-it-works.md).
 - [Build and run](#build-and-run)
 - [Build features](#build-features)
 - [Browser preview](#browser-preview)
+- [The README's screenshots](#the-readmes-screenshots)
 - [Tests](#tests)
 - [Layout](#layout)
 - [Front-end stack](#front-end-stack)
@@ -102,7 +103,6 @@ advanced part's notifications inside the app's own `alerts` key
 (`Switches::ext`): it never sends those notifications and shows no switch for
 them, and the app with the advanced part finds them as the owner left them.
 
-
 ## Browser preview
 
 `npm run dev` serves the popover at http://localhost:1420/ on the fixtures and
@@ -187,6 +187,20 @@ The advanced part's states:
 - Copy to another Mac, on `tab=copy` with two made-up Macs: `copy` (`unreach`,
   `old`, `noapp`, `none` or `changed`).
 
+## The README's screenshots
+
+The screenshots in [`screenshots/`](screenshots/) come from this preview
+(`npm run dev`), rendered in a headless browser, never from the real app
+(which shows real accounts and emails): `screenshots/en/` with `lang=en` and
+`screenshots/vi/` with `lang=vi`. The popover is `theme=dark` at 396 × 619
+pixels (its card and the margin around it); the main window is the light look
+at 1100×760 (the first run's second step, `setup=on` then `Continue`, at
+1100×380), Settings shows its `Display` tab, and `vi/notifications.png` is
+`tab=alerts`; every capture is at device scale 2. `screenshots/menubar.png` is
+drawn, not captured: the C04 glyph from `render_glyph` in
+`crates/quota-station-core/src/icon.rs` (the paused one with the advanced
+part's pause badge), with the titles the snapshot fixtures give, in a light and
+a dark menu bar.
 
 ## Tests
 
@@ -213,7 +227,6 @@ CI (`.github/workflows/ci.yml`) has three jobs:
   NSIS test installer built with `QS_TEST_SESSION=1` for the guided sessions on
   a Windows PC, uploaded as the workflow artifact
   `quota-station-windows-x64-test-setup` (kept 14 days). No release carries it.
-
 
 The core's integration tests are `crates/quota-station-core/tests/*.rs`:
 `account_keys`, `agents_backup`, `agents_mcp`, `agents_restore`,
@@ -662,3 +675,15 @@ classes.
 The app was built in milestones, M1 to M16, which the code's comments and
 the git history still name; later work is named by its pull request.
 
+They are M1 `Khung và số` (the frame and the numbers), M2 `Cửa sổ chính chỉ
+đọc` (a read-only main window), M3 `Chuyển Claude và tạm dừng` (switching Claude
+and pausing), M4a `Đăng nhập Antigravity trong app`, M4b `App tự đọc hạn mức
+Antigravity` and M4c `Chuyển Antigravity không cần Cockpit` (taking over what
+Cockpit Tools did), M5 `Luật xoay vòng` (the rotation rules), M6 the history
+and the notifications, M7 `Chuyển đổi` (installing, updating and launching at
+login), M8 `Chuyển Codex`, M9 `MCP`, M10 `Sao lưu và khôi phục` (the MCP
+servers), M11 `Skills, Plugin, File hướng dẫn`, M12 the rest of backup and
+restore (skills, plugins and instruction files), M13 `Chép sang Mac khác`, M14
+`Biến môi trường đè đăng nhập`, M15 `Bộ cấu hình` and M16 `Thống kê`. Later work
+(the English interface, the first run, the Codex accounts, Agent updates, the
+theme packs and the Windows plans W1–W5) is named by its pull request.

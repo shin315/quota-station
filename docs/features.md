@@ -442,7 +442,6 @@ once for leave to show cards, the first time the app runs. Only the packaged
 was sent, answered and snoozed is kept in `alerts/alerts.json` (the newest 30
 cards).
 
-
 ## MCP
 
 The `MCP` tab puts every MCP server of Claude Code, Codex and Antigravity in one

@@ -69,7 +69,6 @@ until it passed; those are marked *adjusted*. The four Q styles were drawn
 only in dark: their light modes are derived (same hue, glass and corners on
 a light ground) and marked *derived*.
 
-
 ## Mặc định
 
 The look as it was, unchanged: system type, Apple's blue, green bars,

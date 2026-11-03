@@ -140,7 +140,6 @@ The app's Claude row is built from the same readings; no other tool is run
 to read them. Each account also says whether it is in the rotation
 (`enabled`).
 
-
 ## Cutover
 
 On a Mac where the older switcher runs: stop `com.cswap.prefer-team`
