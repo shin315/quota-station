@@ -5,10 +5,14 @@
     "accounts": [
       {
         "number": 1,
+        "role": "personal",
         "active": false,
+        "disabled": false,
         "reading": "fresh",
         "fetchedAt": "2026-01-16T07:18:00.000Z",
         "source": "list",
+        "membership": "in",
+        "leavesAt": null,
         "lines": [
           {
             "kind": "session",
@@ -29,10 +33,14 @@
       },
       {
         "number": 2,
+        "role": "team",
         "active": true,
+        "disabled": false,
         "reading": "fresh",
         "fetchedAt": "2026-01-16T07:20:00.000Z",
         "source": "live",
+        "membership": "in",
+        "leavesAt": "2026-01-16T10:45:00.000Z",
         "lines": [
           {
             "kind": "session",
@@ -61,10 +69,14 @@
       },
       {
         "number": 3,
+        "role": "team",
         "active": false,
+        "disabled": false,
         "reading": "fresh",
         "fetchedAt": "2026-01-16T07:16:40.000Z",
         "source": "list",
+        "membership": "in",
+        "leavesAt": null,
         "lines": [
           {
             "kind": "session",
@@ -85,10 +97,14 @@
       },
       {
         "number": 4,
+        "role": "team",
         "active": false,
+        "disabled": false,
         "reading": "fresh",
         "fetchedAt": "2026-01-16T07:15:00.000Z",
         "source": "list",
+        "membership": "in",
+        "leavesAt": null,
         "lines": [
           {
             "kind": "session",
@@ -109,17 +125,42 @@
       }
     ],
     "pool": {
-      "kind": "active",
-      "percent": 4.0,
-      "line": "session",
-      "scope": null,
-      "nextRefillAt": "2026-01-16T09:52:00.000Z",
-      "exhausted": false,
+      "kind": "rotation",
+      "room": 0.0,
+      "percent": 0.0,
+      "line": null,
+      "scope": "all_models",
+      "members": 4,
+      "rooms": [
+        {
+          "number": 1,
+          "percent": 0.0
+        },
+        {
+          "number": 2,
+          "percent": 0.0
+        },
+        {
+          "number": 3,
+          "percent": 0.0
+        },
+        {
+          "number": 4,
+          "percent": 0.0
+        }
+      ],
+      "nextRefillAt": "2026-01-16T09:40:00.000Z",
+      "refills": [
+        1,
+        3
+      ],
+      "exhausted": true,
       "reason": null
     },
     "generatedAt": "2026-01-16T07:20:00.000Z",
     "newestReadingAt": "2026-01-16T07:20:00.000Z",
     "stale": false,
+    "personalHours": "8-23",
     "source": null
   },
   "agy": {
@@ -128,10 +169,14 @@
     "accounts": [
       {
         "number": 1,
+        "role": "unknown",
         "active": false,
+        "disabled": false,
         "reading": "stale",
         "fetchedAt": "2026-01-16T06:55:00.000Z",
         "source": "list",
+        "membership": "unknown",
+        "leavesAt": null,
         "lines": [
           {
             "kind": "gemini",
@@ -152,10 +197,14 @@
       },
       {
         "number": 2,
+        "role": "unknown",
         "active": true,
+        "disabled": false,
         "reading": "fresh",
         "fetchedAt": "2026-01-16T07:19:10.000Z",
         "source": "list",
+        "membership": "unknown",
+        "leavesAt": null,
         "lines": [
           {
             "kind": "gemini",
@@ -206,16 +255,21 @@
     ],
     "pool": {
       "kind": "active",
+      "room": null,
       "percent": 94.0,
       "line": "week",
       "scope": "gemini",
+      "members": 0,
+      "rooms": [],
       "nextRefillAt": null,
+      "refills": [],
       "exhausted": false,
       "reason": null
     },
     "generatedAt": "2026-01-16T07:20:00.000Z",
     "newestReadingAt": "2026-01-16T07:19:10.000Z",
     "stale": false,
+    "personalHours": null,
     "source": "quota-station"
   },
   "codex": {
@@ -224,16 +278,21 @@
     "accounts": [],
     "pool": {
       "kind": "none",
+      "room": null,
       "percent": null,
       "line": null,
       "scope": null,
+      "members": 0,
+      "rooms": [],
       "nextRefillAt": null,
+      "refills": [],
       "exhausted": false,
       "reason": null
     },
     "generatedAt": null,
     "newestReadingAt": null,
     "stale": false,
+    "personalHours": null,
     "source": null
   },
   "keychain": "granted"

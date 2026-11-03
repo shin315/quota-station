@@ -8,8 +8,10 @@
 
 import { overwriteBanner } from '@agy/agySwitch';
 import { envBanner } from './env';
-import { mac, t } from './i18n';
+import { mac, os, t } from './i18n';
 import type { Model, Section } from './model';
+import { dayClock } from './switching';
+import { autoView, pauseOf, switcherOf, type AutoView } from '@/lib/rotation';
 import { popoverView, type BannerView, type CardView, type ChipView, type NoteView, type PopoverView, type ViewOptions } from './view';
 
 export interface KeyValue {
@@ -52,8 +54,14 @@ export interface WindowView {
     /** The row lists the app's own accounts: the logins are the table's rows. */
     own: boolean;
   };
+  /** Automatic switching and why Claude is on its account (F07). */
+  auto: AutoView;
+  /** The Claude tab's own banner: the rotation's LaunchAgent is not loaded. */
+  claudeBanner: BannerView | null;
   /** The Claude tab's red banner: a variable overrides Claude Code's login (M14). */
   envBanner: BannerView | null;
+  /** The Claude tab's Switcher card: one line, the rest folded. */
+  switcher: { line: string; tone: 'ok' | 'warn' | 'bad' | 'muted'; details: KeyValue[] };
 }
 
 // ===== Antigravity =====
@@ -81,6 +89,67 @@ function agyBanner(g: Section): BannerView | null {
   return null;
 }
 
+// ===== The switcher (F07) =====
+
+function switcherCard(model: Model, auto: AutoView, now: Date): WindowView['switcher'] {
+  const sw = switcherOf(model);
+  const chip = (text: string, k: ChipView['k']): ChipView => ({ t: text, k });
+  const service = !sw.installed
+    ? chip(t('chưa có tài khoản', 'no account'), 'bad')
+    : sw.service === true
+      ? chip(t('chạy mỗi 3 phút', 'runs every 3 minutes'), 'ok')
+      : sw.service === false
+        ? chip(t('tắt', 'off'), 'bad')
+        : chip(t('không rõ', 'unknown'), '');
+  const legacy = sw.legacy ? chip(t(sw.legacy + ' đang nạp', sw.legacy + ' is loaded'), 'warn') : chip(t('tắt', 'off'), 'ok');
+  const p = pauseOf(model, now);
+  const details: KeyValue[] = [
+    { key: os(t('LaunchAgent tự chuyển', 'Auto-switch LaunchAgent'), t('Hẹn giờ tự chuyển', 'Auto-switch timer')), value: service.t, chip: service },
+    { key: t('Bộ tự chuyển cũ', 'Old auto-switcher'), value: legacy.t, chip: legacy },
+    {
+      key: t('Tạm dừng tự chuyển', 'Auto-switch paused'),
+      value: p ? (p.until ? t('đến ', 'until ') + dayClock(p.until, now) : t('đến khi bật lại', 'until turned back on')) : t('không', 'no'),
+    },
+  ];
+  if (sw.guard != null) {
+    const guard = sw.guard ? chip(t('có', 'yes'), 'ok') : chip(t('chưa', 'not yet'), 'bad');
+    details.push({ key: t('Bộ tự chuyển đọc cờ tạm dừng', 'Auto-switch reads the pause flag'), value: guard.t, chip: guard });
+  }
+  if (auto.raw) details.push({ key: t('Quyết định gần nhất', 'Latest decision') + (auto.at ? ' ' + auto.at : ''), value: auto.raw, mono: true });
+  if (sw.lastLog) details.push({ key: t('Nhật ký', 'Log') + (sw.lastLog.at ? ' ' + dayClock(sw.lastLog.at, now) : ''), value: sw.lastLog.raw, mono: true });
+  let line: string;
+  let tone: WindowView['switcher']['tone'];
+  if (!sw.installed) [line, tone] = [t('Quota Station chưa giữ tài khoản Claude nào', 'Quota Station keeps no Claude account yet'), 'bad'];
+  else if (sw.legacy)
+    [line, tone] = [t('Bộ tự chuyển cũ ' + sw.legacy + ' còn chạy: Quota Station chưa tự chuyển', 'The old auto-switcher ' + sw.legacy + ' still runs: Quota Station does not switch yet'), 'bad'];
+  else if (sw.service === false) [line, tone] = [t('Tự chuyển đang tắt', 'Auto-switch is off'), 'bad'];
+  else if (sw.service === true) [line, tone] = [auto.at ? t('Kiểm tra lúc ' + auto.at, 'Checked at ' + auto.at) : t('Đang chạy', 'Running'), 'ok'];
+  else [line, tone] = [t('Không rõ bộ tự chuyển có đang chạy không', 'Cannot tell if auto-switch is running'), 'muted'];
+  return { line, tone, details };
+}
+
+function claudeBanner(model: Model): BannerView | null {
+  const sw = switcherOf(model);
+  if (!sw.installed || sw.legacy || sw.service !== false) return null;
+  return {
+    tone: 'bad',
+    title: t('Tự chuyển Claude đang tắt', 'Claude auto-switch is off'),
+    body: os(
+      t(
+        'LaunchAgent tự chuyển của Quota Station chưa được nạp, nên không có gì tự chuyển Claude. Số vẫn cập nhật khi app đọc.',
+        'Quota Station’s auto-switch LaunchAgent is not loaded, so nothing switches Claude. The numbers still update when the app reads them.',
+      ),
+      t(
+        'Hẹn giờ tự chuyển của Quota Station đang không chạy, nên không có gì tự chuyển Claude. Số vẫn cập nhật khi app đọc.',
+        'Quota Station’s auto-switch timer is not running, so nothing switches Claude. The numbers still update when the app reads them.',
+      ),
+    ),
+    actions: [
+      { label: t('Bật tự chuyển', 'Turn on auto-switch'), act: 'claude:rotation:on' },
+      { label: t('Làm mới', 'Refresh'), act: 'refresh' },
+    ],
+  };
+}
 
 // ===== The window =====
 
@@ -98,6 +167,7 @@ export function windowView(model: Model, now: Date, options: ViewOptions = {}): 
   const g = model.snapshot.agy;
   const swap = c.accounts.some((a) => a.number > 0);
   const present = g.status !== 'notSetUp';
+  const auto = autoView(model, now);
   return {
     machine: pv.machine,
     fresh: pv.fresh,
@@ -117,6 +187,9 @@ export function windowView(model: Model, now: Date, options: ViewOptions = {}): 
       tabNote: g.status === 'single' && !g.accounts.length && g.reason ? pv.agy.note : null,
       own: g.status === 'ok' && g.source === 'quota-station',
     },
+    auto,
+    claudeBanner: claudeBanner(model),
     envBanner: envBanner(model),
+    switcher: switcherCard(model, auto, now),
   };
 }

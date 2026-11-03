@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { FIXTURE_NOW, fixtureModel } from '../fixtures/models';
 import { isFile, openLabel, placeLabel, whereLine } from './env';
 import { appName, cloudDrive, fileManager, mac, onWindows, os, osName, platform, quitKey, secretStore, setLang, setPlatform, systemSettings, terminal, toolStore } from './i18n';
+import { guide } from '@/lib/rotation';
 import { popoverView } from './view';
 import type { EnvFound } from './model';
 
@@ -75,6 +76,15 @@ describe('the words for the system', () => {
     expect(popoverView(fixtureModel('keychain'), FIXTURE_NOW).banner).toBeNull();
   });
 
+  it('the move from claude-swap has no LaunchAgent to turn off on Windows', () => {
+    const steps = guide('switcher', false).steps;
+    expect(steps[0]).toContain('launchctl bootout');
+    setPlatform('windows');
+    const win = guide('switcher', false);
+    expect(win.steps.some((s) => s.includes('launchctl'))).toBe(false);
+    expect(win.steps).toHaveLength(steps.length - 1);
+    expect(win.lead).toBe('Làm lần lượt trên từng máy. claude-swap và dữ liệu của nó được giữ nguyên, để quay lại được khi cần.');
+  });
 
   it('a variable set in Windows’ user or system variables, or in PowerShell’s profile', () => {
     setPlatform('windows');

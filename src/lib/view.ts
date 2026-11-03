@@ -6,26 +6,38 @@
 // clock give the same view, so Vitest covers every state without a window.
 // Copy follows the approved prototype (Hướng 1 · Kính macOS, bước 0.7).
 
-import { agyCells, agyGroups, agyNames, cellOf, claudeAliases, claudeCells, claudeNames, isGemini, tightest, WARN_USED, type AccountName, type CellView, type UsedTone } from './accounts';
+import { agyCells, agyGroups, agyNames, cellOf, claudeAliases, claudeCells, claudeNames, isGemini, rolesOf, tightest, WARN_USED, type AccountName, type CellView, type UsedTone } from './accounts';
 import { age, clock, secondsSince } from './format';
 import { mac, onWindows, t } from './i18n';
 import type { Account, AgyLogin, LineKind, MenubarWindow, Model, Section } from './model';
 import { codexBanner, currentId, shortName } from './codex';
+import { advancedOn } from './advanced';
+import { switcherBanner } from '@/lib/rotation';
 
 export type Tone = 'ok' | 'warn' | 'bad' | 'muted' | 'info';
 export type Action =
   | 'refresh'
   | 'settings'
+  /** Cài đặt on its Nâng cao tab: the other Macs are there. */
+  | 'settings:advanced'
   | 'window'
   /** The popover's theme button: light ↔ dark. */
   | 'theme'
   | 'keychain'
   | 'dismiss'
+  /** Removes the pause flag. */
+  | 'resume'
+  /** One more hour on a timed pause. */
+  | 'addHour'
   | 'closeFeedback'
+  | 'guide:auto'
+  | 'guide:switcher'
   /** The Claude accounts' actions on banners (`ClaudeAccounts`). */
+  | 'claude:rotation:on'
   | 'claude:import'
   /** Signs a Claude account in again (its slot): the Claude tab's dialog. */
   | `claude:relogin:${number}`
+  | `claude:unrest:${number}`
   /** Adds a Claude account: the Claude tab's dialog. */
   | 'claude:add'
   /** A newer release: its dialog, putting it off, checking now, undoing a skip. */
@@ -49,6 +61,8 @@ export type Action =
   | 'notifications'
   /** Codex (M8): the row, a switch sheet, the restart sheet, the change made outside, guides and the tab. */
   | CodexAction
+  /** The rotation editor's banners and feedback (M5). */
+  | RulesAction
   /** The MCP tab (M9): open it, undo the last write, its backups, read again. */
   | McpAction
   /** The Sao lưu tab (M10): read again, its folder in Finder, undo the last restore, restore. */
@@ -81,6 +95,7 @@ export type BackupAction =
   | 'backup:open'
   | 'backup:undo'
   | 'backup:restore'
+  | 'copy:compare'
   ;
 
 export type McpAction = 'mcp:tab' | 'mcp:undo' | 'mcp:backups' | 'mcp:reread' | `mcp:key:${string}` | `mcp:howcmd:${string}` | `mcp:later:${string}`;
@@ -104,6 +119,14 @@ export type CodexAction =
   | `codex:use:${string}`
   | `codex:relogin:${string}`;
 
+export type RulesAction =
+  | 'rules:create'
+  | 'rules:retry'
+  | 'rules:reload'
+  | 'rules:overwrite'
+  | 'rules:dismiss'
+  | `rules:adopt:${string}`
+  | `rules:compare:${string}`;
 
 export interface ChipView {
   t: string;
@@ -237,6 +260,7 @@ export { claudeNames, agyNames, type AccountName, type CellView, type UsedTone }
 export function agyName(a: Pick<Account, 'number' | 'email'>): AccountName {
   return agyNames(
     [a],
+    true,
   ).get(a.number)!;
 }
 
@@ -287,6 +311,12 @@ function listName(ctx: CardContext): string {
 
 function cardView(a: Account, kind: 'c' | 'g', names: AccountName, ctx: CardContext): CardView {
   const chips: ChipView[] = [];
+  if (kind === 'c') {
+    if (a.membership === 'out') chips.push({ t: t('ngoài vòng', 'out of rotation'), k: '' });
+    if (a.membership === 'ended') chips.push({ t: t('đã rời vòng', 'left rotation'), k: '' });
+    if (a.leavesAt) chips.push({ t: t('rời vòng ', 'leaves rotation ') + clock(a.leavesAt), k: 'warn' });
+    if (a.disabled) chips.push({ t: t('nghỉ tự chuyển', 'out of auto-switch'), k: '' });
+  }
   // Freshness shows only when the reading is not fresh: its own age, never the app's last call.
   const since = secondsSince(a.fetchedAt, ctx.now);
   if (a.reading === 'resetPending') chips.push({ t: t('chờ số sau mốc đặt lại', 'waiting for the number after its reset'), k: 'info' });
@@ -305,6 +335,7 @@ function cardView(a: Account, kind: 'c' | 'g', names: AccountName, ctx: CardCont
   if (relogin) chips.push({ t: t('cần đăng nhập lại', 'sign in again'), k: '' });
   const switchable = listed && a.number > 0 && !a.active && !off;
   let resting = false;
+  resting = !!a.disabled || a.membership === 'out' || a.membership === 'ended';
   return {
     key: kind + a.number,
     kind,
@@ -473,6 +504,7 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
   const names = claudeNames(
     c.accounts,
     claudeAliases(model),
+    rolesOf(model, true),
   );
   const nameOf = (n: number) => names.get(n)?.name ?? t('Tài khoản ', 'Account ') + n;
   // Windows asks nothing before the app reads Claude Code's sign-in: no banner, no "Cấp quyền".
@@ -488,6 +520,7 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
   };
   const gNames = agyNames(
     g.accounts,
+    advancedOn(model),
   );
   const agyCards = g.status === 'notSetUp' ? [] : g.accounts.map((a) => cardView(a, 'g', gNames.get(a.number)!, { ...ctx, agy: agySwitching }));
 
@@ -508,12 +541,19 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
   let banner: BannerView | null = null;
   let dry: BannerView | null;
   const pendingAccount = c.accounts.find((a) => a.reading === 'resetPending');
+  const switcher = switcherBanner(model, now);
   const codex = codexBanner(model, true);
   // An Antigravity switch written over comes as a macOS card with buttons (M6),
   // and stays on the main window's Antigravity tab; the popover has no banner for it.
-  if (pool.exhausted) {
+  if (switcher && switcher.tone !== 'info') banner = switcher;
+  else if (pool.exhausted) {
     let who: string[] = [];
     let title = t('Hạn mức Claude của tài khoản đang dùng đã cạn', 'Claude quota of the account in use is used up');
+    // The rotation's pool names the accounts that refill it; a snapshot without the advanced part has none.
+    if (pool.refills) {
+      who = pool.refills.map(nameOf);
+      title = t('Hạn mức Claude trong vòng đã cạn', 'Claude quota in rotation is used up');
+    }
     const at = clock(pool.nextRefillAt);
     banner = {
       tone: 'bad',
@@ -570,6 +610,7 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
       actions: [{ label: t('Làm mới', 'Refresh'), act: 'refresh' }],
     };
   } else if (codex) banner = codex;
+  else if (switcher) banner = switcher;
 
   // Group notes.
   let claudeNote: NoteView | null = null;
@@ -681,8 +722,16 @@ export function isQuiet(fb: FeedbackView): boolean {
 }
 
 /** The banner to show under a feedback line. */
+/**
+ * A line that already says the account is held (it offers to resume, or
+ * reports the pause) makes the paused banner step aside rather than repeat
+ * it and its buttons; any other line leaves it in place.
+ */
 export function bannerUnder(banner: BannerView | null, feedback: FeedbackView | null | undefined): BannerView | null {
   if (!banner || !feedback) return banner;
+  const paused = banner.tone === 'info' && banner.actions.some((a) => a.act === 'resume');
+  const repeats = feedback.tone === 'info' || !!feedback.actions?.some((a) => a.act === 'resume');
+  if (paused && repeats) return null;
   return banner;
 }
 

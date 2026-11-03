@@ -35,6 +35,9 @@ let GROUPS: [string, string[]][] = [
   ['Thông báo', ['Thông báo']],
   ['Dịch vụ', ['Dịch vụ', 'Biến môi trường đè đăng nhập']],
 ];
+// The fixture's Mac has Nâng cao on: alert 1 counts the quota in rotation, and alert 2 shows.
+POOL = 'Hạn mức Claude trong vòng sắp cạn / có lại';
+KINDS = 4;
 
 /** Shows one of Cài đặt's tabs, as a press on it does. */
 async function showGroup(name: string) {
@@ -582,6 +585,7 @@ describe('settings: the layout of settings-R2, its groups as tabs', () => {
     await open(fixtureModel('fresh'));
     await showGroup('Thông báo');
     let where = '';
+    where = ' trong vòng';
     expect(screen.getByText('Đang dùng còn ≤ 10%, mọi tài khoản' + where + ' còn < 15%.')).toBeTruthy();
     expect(screen.queryByText(/^Khi tài khoản đang dùng còn 10% trở xuống/)).toBeNull();
     await act(async () => {

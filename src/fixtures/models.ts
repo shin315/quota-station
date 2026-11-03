@@ -33,6 +33,8 @@ import type {
   Model,
   Snapshot,
 } from '../lib/model';
+import type { AuthorModel } from '@/lib/advanced';
+import type { AdvancedView, PeerView, RotationView, Rules, SourceView, SwitcherView } from '../lib/model';
 
 const files = import.meta.glob('./snapshots/*.json', { eager: true, import: 'default' }) as Record<string, Snapshot>;
 
@@ -43,12 +45,34 @@ export const SNAPSHOTS: Record<string, Snapshot> = Object.fromEntries(
 /** 40 seconds after the fixtures were generated (14:20:40 at UTC+7). */
 export const FIXTURE_NOW = new Date('2026-01-16T07:20:40.000Z');
 
+/**
+ * The switcher on a Mac where all is well: the dry run a minute ago kept
+ * Team A, and the last switch it logged was to Team A this morning.
+ */
+export function switcherFixture(over: Partial<SwitcherView> = {}): SwitcherView {
+  return {
+    installed: true,
+    pause: null,
+    dryRun: { decision: { kind: 'stay' }, raw: 'stay', at: '2026-01-16T07:19:40.000Z' },
+    dryRunError: null,
+    guard: null,
+    lastLog: {
+      at: '2026-01-16T02:12:05.000Z',
+      event: { kind: 'switch', slot: 2 },
+      raw: '2026-01-16 09:12:05 switch to slot 2 (ends for good at 17:45, use it first)',
+    },
+    service: true,
+    legacy: null,
+    ...over,
+  };
+}
 
 /** The four accounts of the pool fixture, kept by Quota Station; Team A (2) in use. */
 export function claudeAccountsFixture(over: Partial<ClaudeAccountsView> = {}): ClaudeAccountsView {
   const row = (slot: number, email: string, five: number | null, over: Partial<ClaudeAccountRow> = {}): ClaudeAccountRow => ({
     slot,
     alias: null,
+    enabled: true,
     active: false,
     kind: 'login',
     status: 'fresh',
@@ -70,15 +94,64 @@ export function claudeAccountsFixture(over: Partial<ClaudeAccountsView> = {}): C
     ],
     working: null,
     last: null,
+    rotation: true,
+    legacy: null,
     claude: true,
     ...over,
   };
 }
 
+/** Paused by a manual switch to Team A at 14:12, held until 15:20 (UTC+7). */
+export function heldSwitcher(over: Partial<SwitcherView> = {}): SwitcherView {
+  return switcherFixture({
+    pause: { until: '2026-01-16T08:20:00.000Z', reason: 'chuyển tay sang tài khoản 2 lúc 14:12', holds: true },
+    dryRun: {
+      decision: { kind: 'paused', until: '2026-01-16T15:20', reason: 'chuyển tay sang tài khoản 2 lúc 14:12' },
+      raw: 'paused until 2026-01-16T15:20: chuyển tay sang tài khoản 2 lúc 14:12',
+      at: '2026-01-16T07:19:40.000Z',
+    },
+    guard: true,
+    ...over,
+  });
+}
 
+/** The rotation in the fixtures: Team A, B and C in turn, Cá nhân 08:00–24:00, Team A leaving at 17:45. */
+export function rulesFixture(over: Partial<Rules> = {}): Rules {
+  return {
+    team: [2, 3, 4],
+    personal: 1,
+    personalFrom: 8,
+    personalTo: 23,
+    full: 90,
+    fableFull: 95,
+    expire: [{ slot: 2, at: '2026-01-16T17:45' }],
+    ...over,
+  };
+}
 
+/** Saved on this Mac at 14:02 (UTC+7); Mac B and Mac C have it. */
+export const SAVED_AT = '2026-01-16T14:02:00+07:00';
 
+export function peerFixture(name: string, alias: string, over: Partial<PeerView> = {}): PeerView {
+  return { name, alias, state: { kind: 'synced', at: '2026-01-16T07:02:05.000Z' }, current: true, theirRules: null, pushing: false, ...over };
+}
 
+export function rotationFixture(over: Partial<RotationView> = {}): RotationView {
+  return {
+    path: '~/.config/cswap-prefer-team/rotation',
+    status: 'ok',
+    rules: rulesFixture(),
+    reason: null,
+    version: 'v1',
+    stamp: { at: SAVED_AT, machine: 'Mac Studio' },
+    ignoredKeys: [],
+    defaults: rulesFixture({ expire: [] }),
+    saving: false,
+    peers: [peerFixture('Mac B', 'mac-b'), peerFixture('Mac C', 'mac-c')],
+    ssh: true,
+    ...over,
+  };
+}
 
 /** The Antigravity login card on a Mac with the OAuth client in place and no account yet. */
 export function agyFixture(over: Partial<AgyAccounts> = {}): AgyAccounts {
@@ -115,6 +188,7 @@ export function alertsFixture(over: Partial<AlertsView> = {}): AlertsView {
       pool: true,
       login: true,
       overwrite: true,
+      leaving: true,
     },
     poolAlert: { dryAtMost: 10, roomAtLeast: 15 },
     unanswered: 0,
@@ -125,6 +199,31 @@ export function alertsFixture(over: Partial<AlertsView> = {}): AlertsView {
   };
 }
 
+/**
+ * Team A leaving the rotation at 14:45, sent at 14:15 (UTC+7) on the fixture day:
+ * the prototype's card 2, with its two buttons.
+ */
+export function leavingAlert(over: Partial<AlertRecord> = {}): AlertRecord {
+  return {
+    id: 'leaving:2:2026-01-16T14:45@1768547700',
+    alert: {
+      key: 'leaving:2:2026-01-16T14:45',
+      kind: 'leaving',
+      tone: 'warn',
+      title: 'Team A rời vòng lúc 14:45',
+      body: 'Còn 30 phút. Sau đó tự động chuyển sẽ đổi sang tài khoản khác trong vòng xoay.',
+      actions: [
+        { id: 'dismiss', label: 'Ổn' },
+        { id: 'switch:3', label: 'Chuyển ngay' },
+      ],
+      at: 1768547700,
+    },
+    notified: true,
+    answer: null,
+    read: false,
+    ...over,
+  };
+}
 
 /** Claude's quota running out at 14:15 (UTC+7) on the fixture day, with a way to account 3. */
 export function poolAlert(over: Partial<AlertRecord> = {}): AlertRecord {
@@ -179,6 +278,7 @@ export function overwriteAlert(over: Partial<AlertRecord> = {}): AlertRecord {
  * switch, an Antigravity switch Antigravity.app undid, and a change seen last night
  * that nothing here made.
  */
+/** And the switcher's switch and prime. */
 export function historyFixture(): HistoryEntry[] {
   return [
     {
@@ -189,6 +289,7 @@ export function historyFixture(): HistoryEntry[] {
       to: 2,
       cause: {
         kind: 'manual',
+        holdUntil: '2026-01-16T08:20:00Z',
         result: 'switched',
       },
     },
@@ -215,6 +316,26 @@ export function historyFixture(): HistoryEntry[] {
       from: 1,
       to: 2,
       cause: { kind: 'agySwitch', how: 'quitFirst', result: 'switched', reopened: true },
+    },
+    {
+      at: '2026-01-16T02:12:05Z',
+      app: 'claude',
+      source: 'switcher',
+      from: null,
+      to: 3,
+      cause: {
+        kind: 'switcher',
+        why: { kind: 'room', used: 4, ends: '15:00' },
+        raw: '2026-01-16 09:12:05 switch to slot 3 (4.0%, ends 15:00)',
+      },
+    },
+    {
+      at: '2026-01-16T01:01:00Z',
+      app: 'claude',
+      source: 'switcher',
+      from: null,
+      to: 3,
+      cause: { kind: 'primed', raw: '2026-01-16 08:01:00 primed slot 3 (exit 0)' },
     },
     { at: '2026-01-15T15:47:00Z', app: 'claude', source: 'observed', from: 2, to: 1, cause: { kind: 'observed' } },
   ];
@@ -262,6 +383,7 @@ export function releaseAvailable(over: Partial<ReleaseView> = {}): ReleaseView {
 
 /** The app's row as this build has it. */
 type AppFixture = AppView &
+  SourceView &
   unknown;
 
 export function appFixture(over: Partial<AppView> = {}): AppFixture {
@@ -269,6 +391,13 @@ export function appFixture(over: Partial<AppView> = {}): AppFixture {
     version: '0.1.0',
     commit: 'a1b2c3d',
     launchAtLogin: 'off',
+    source: '~/src/quota-station',
+    sourceStatus: 'ok',
+    bundled: true,
+    updating: null,
+    outcome: null,
+    error: null,
+    log: '~/Library/Application Support/com.shin315.quota-station/update/install.log',
     ...over,
   };
 }
@@ -356,6 +485,10 @@ function codexQuota(number: number, email: string, left: [number, number], reset
   ];
   return {
     number,
+    role: 'unknown',
+    disabled: false,
+    membership: 'unknown',
+    leavesAt: null,
     active: false,
     reading,
     fetchedAt,
@@ -614,12 +747,27 @@ export function mcpFixture(over: Partial<McpView> = {}): McpView {
   };
 }
 
+/**
+ * The same Mac on a build without the advanced part (a release build), whatever its settings
+ * file says: Nâng cao off, and no rules editor or update from source in the model.
+ */
+export function communityModel(m: Model): Model {
+  const app: AppView = { version: m.app.version, commit: m.app.commit, launchAtLogin: m.app.launchAtLogin };
+  const advanced: AdvancedView = {
+    on: false,
+  };
+  const out: Model = { ...m, app, advanced, capabilities: { ...m.capabilities, authorTools: false } };
+  delete out.rotation;
+  return out;
+}
 
 /** The model the fixtures give. */
 type Fixture = Model &
+  AuthorModel &
   unknown;
 
 /** The author's Mac, as the fixtures were drawn: a build with the Antigravity accounts. */
+/** And with the advanced part. */
 export function fixtureModel(name: string, over: Partial<Model> = {}): Fixture {
   const snapshot = SNAPSHOTS[name];
   if (!snapshot) throw new Error('no snapshot fixture ' + name);
@@ -640,6 +788,7 @@ export function fixtureModel(name: string, over: Partial<Model> = {}): Fixture {
     menubarWindow: 'fiveHours',
     capabilities: {
       agyAccounts: true,
+      authorTools: true,
       platform: 'macos',
     },
     antigravity: agyFixture(),
@@ -657,7 +806,14 @@ export function fixtureModel(name: string, over: Partial<Model> = {}): Fixture {
     env: envFixture(),
     sets: setsFixture(),
     stats: statsFixture(),
+    switcher: switcherFixture(),
+    rotation: rotationFixture(),
+    // The author's Mac, as the fixtures were drawn: Nâng cao on.
+    advanced: {
+      on: true,
+    },
     ...over,
+    // An override of the app's row comes with the update from source, as every fixture's does.
   } as Fixture;
 }
 

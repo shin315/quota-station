@@ -54,6 +54,9 @@ describe('popover', () => {
     const acme1 = inUse('Claude');
     let label = /^lan\.acme1, đang dùng\. 5 giờ đã dùng 74%/;
     let title = 'lan.acme1@example.com · Quota Station · tài khoản 2';
+    label = /^lan\.acme1, Acme Studio, đang dùng\. 5 giờ đã dùng 74%/;
+    // Its rotation note is no chip here: the hover has it, and the main window.
+    title += ' · rời vòng 17:45';
     expect(acme1.getAttribute('aria-label')).toMatch(label);
     expect(acme1.getAttribute('data-active')).toBe('true');
     expect(acme1.getAttribute('title')).toBe(title);
@@ -312,6 +315,7 @@ describe('popover', () => {
     const fake = await open(fixtureModel('fresh'));
     act(() => fake.push(fixtureModel('exhausted')));
     let banner: [string, RegExp] = ['Hạn mức Claude sắp cạn', /Sớm nhất có lại lúc 16:40 \(Tài khoản 1\)\.$/];
+    banner = ['Hạn mức Claude trong vòng đã cạn', /^Có lại lúc 16:40 khi Cá nhân và Team B được đặt lại\.$/];
     expect(screen.getByText(banner[0])).toBeTruthy();
     expect(screen.getByText(banner[1])).toBeTruthy();
   });

@@ -28,12 +28,18 @@ export interface Line {
 }
 
 export type Reading = 'fresh' | 'stale' | 'resetPending' | 'noData';
+export type Role = 'team' | 'personal' | 'unknown';
+export type Membership = 'in' | 'out' | 'ended' | 'unknown';
 /** `live`: the one login read; `list`: the accounts the app keeps. */
 export type Source = 'live' | 'list';
 
 export interface Account {
   /** The account's number in the app's list; 0 for the only account a row reads. */
   number: number;
+  role: Role;
+  disabled: boolean;
+  membership: Membership;
+  leavesAt: string | null;
   active: boolean;
   reading: Reading;
   fetchedAt: string | null;
@@ -49,12 +55,22 @@ export interface Account {
 }
 
 export type PoolKind =
+  | 'rotation'
   | 'active'
   | 'none';
 
+export interface Room {
+  number: number;
+  percent: number;
+}
 
 export interface Pool {
   kind: PoolKind;
+  /** Rotation: room left in fresh accounts. */
+  room: number | null;
+  members: number;
+  rooms: Room[];
+  refills: number[];
   /** 0-100, for the bar. */
   percent: number | null;
   line: LineKind | null;
@@ -77,6 +93,8 @@ export interface Section {
   generatedAt: string | null;
   newestReadingAt: string | null;
   stale: boolean;
+  /** `8-23` */
+  personalHours: string | null;
   /** `quota-station` when the section lists the Antigravity accounts this app logs in. */
   source: string | null;
 }
@@ -93,6 +111,64 @@ export interface Snapshot {
 
 // ===== Manual switching (M3) =====
 
+/** Why the switcher would switch (`quota-station-core::switcher::Why`). Times are the switcher's local `HH:MM`. */
+export type Why =
+  | { kind: 'expiring'; at: string }
+  | { kind: 'early'; at: string; left: number; before: number }
+  | { kind: 'room'; used: number; ends: string | null }
+  | { kind: 'personal'; used: number }
+  | { kind: 'park'; at: string }
+  | { kind: 'other' };
+
+/** The switcher's `--dry-run` decision line, in parts. */
+export type Decision =
+  | { kind: 'stay' }
+  | { kind: 'unknown'; slot: number }
+  | { kind: 'waiting'; slot: number; at: string }
+  | { kind: 'switch'; slot: number; why: Why }
+  | { kind: 'wait' }
+  | { kind: 'paused'; until: string | null; reason: string | null }
+  /** `blocked (com.cswap.prefer-team is loaded)`: an older switcher runs, so nothing switches. */
+  | { kind: 'blocked'; label: string }
+  | { kind: 'other' };
+
+export type LogEvent =
+  | { kind: 'switch'; slot: number }
+  | { kind: 'switchFailed'; slot: number }
+  | { kind: 'primed'; slot: number }
+  | { kind: 'pauseEnded' }
+  | { kind: 'other' };
+
+export interface LogLine {
+  /** RFC 3339. */
+  at: string | null;
+  event: LogEvent;
+  raw: string;
+}
+
+export interface PauseView {
+  /** RFC 3339; null pauses until the owner resumes. */
+  until: string | null;
+  reason: string | null;
+  /** The flag held when the model was built. */
+  holds: boolean;
+}
+
+export interface SwitcherView {
+  /** Quota Station keeps the Claude accounts on this Mac (imported or added), so its rotation can run. */
+  installed: boolean;
+  /** The pause flag; null when there is none. */
+  pause: PauseView | null;
+  dryRun: { decision: Decision; raw: string; at: string } | null;
+  dryRunError: string | null;
+  /** False: the switcher decided as if not paused while the flag held, so it does not read the flag yet. */
+  guard: boolean | null;
+  lastLog: LogLine | null;
+  /** The rotation's LaunchAgent (`com.shin315.quota-station.rotation`) is loaded. */
+  service: boolean | null;
+  /** An older switcher still loaded (`com.cswap.prefer-team`, `com.cswap.auto`): nothing switches while it is. */
+  legacy: string | null;
+}
 
 export interface ClaudeSwitchView {
   /** Quota Station keeps the Claude accounts on this Mac; before that nothing can switch. */
@@ -118,6 +194,8 @@ export interface ClaudeWindowOut {
 export interface ClaudeAccountRow {
   slot: number;
   alias: string | null;
+  /** In the rotation; held out, it is still switched to by hand. */
+  enabled: boolean;
   active: boolean;
   kind: 'login' | 'setupToken';
   status: 'fresh' | 'stale' | 'noData' | 'reloginRequired';
@@ -137,6 +215,8 @@ export type ClaudeAccountAction =
   | 'token'
   | 'remove'
   | 'alias'
+  | 'enabled'
+  | 'rotation'
   ;
 
 export interface ClaudeImported {
@@ -145,6 +225,8 @@ export interface ClaudeImported {
   unchanged: number[];
   /** `[slot, why]`: `slotTaken`, `elsewhere`, `apiKey`, `noConfig`, `noCredential`, `keychain`. */
   skipped: [number, string][];
+  rotation: boolean;
+  prime: boolean;
 }
 
 export interface ClaudeActionDone {
@@ -166,32 +248,131 @@ export interface ClaudeAccountsView {
   accounts: ClaudeAccountRow[];
   working: ClaudeAccountAction | null;
   last: ClaudeActionDone | null;
+  /** The rotation's LaunchAgent is loaded; null when that cannot be told. */
+  rotation: boolean | null;
+  /** An older switcher still loaded. */
+  legacy: string | null;
   /** `claude` is on this Mac, to log a new account in with. */
   claude: boolean;
 }
 
+export interface Hold {
+  /** RFC 3339. */
+  until: string;
+  /** The pause flag could not be written. */
+  failed: boolean;
+}
 
 /** What a switch really did (`quota-station-core::switching::Outcome`). */
 export type Outcome =
   | {
       kind: 'switched';
       slot: number;
+      hold: Hold | null;
     }
   | {
       kind: 'raced';
       slot: number;
       active: number;
+      bySwitcherAt: string | null;
+      hold: Hold | null;
     }
   | {
       kind: 'unconfirmed';
       slot: number;
+      hold: Hold | null;
     }
   /**
    * `error`: the switch's error kind (`busy`, `noCredential`, `unmanaged`, `unconfirmed`, `keychain`, …).
    * `active`: the account in use when the login could not be put back as it was.
    */
+  /** Also `legacy` while an older switcher is loaded (its label in `detail`). */
   | { kind: 'failed'; slot: number; error: string; detail: string; active: number | null };
 
+// ===== The rotation file and the other Macs (M5) =====
+
+/** The six keys of the rotation file (`quota-station-core::rotation::Rules`). */
+export interface Rules {
+  /** Team slots in the switcher's order. */
+  team: number[];
+  personal: number | null;
+  /** `personal_hours = 8-23`: hour 8 through hour 23, both included. */
+  personalFrom: number;
+  personalTo: number;
+  /** Percent of a window used at which the switcher moves on. */
+  full: number;
+  fableFull: number;
+  /** `at` as written: `2026-10-16T17:45`, local time. */
+  expire: { slot: number; at: string }[];
+}
+
+/** The `# updated = <time> by <machine>` line. */
+export interface Stamp {
+  /** RFC 3339 with the writing Mac's offset. */
+  at: string;
+  machine: string;
+}
+
+/** Where another Mac stands with this Mac's file (`quota-station-core::peers::PeerState`). Times are RFC 3339. */
+export type PeerState =
+  | { kind: 'synced'; at: string }
+  | { kind: 'unreachable'; error: string; retryAt: string }
+  | { kind: 'mismatch'; retryAt: string }
+  | { kind: 'failed'; error: string; retryAt: string }
+  | { kind: 'newer'; their: Stamp }
+  /** `their` is null for a copy with no `updated` line, or one the app cannot read. */
+  | { kind: 'edited'; their: Stamp | null };
+
+export interface PeerView {
+  name: string;
+  alias: string;
+  /** Null: nothing sent to it yet. */
+  state: PeerState | null;
+  /** The state is about this Mac's file as it is now. */
+  current: boolean;
+  /** Its rules, when it holds another copy. */
+  theirRules: Rules | null;
+  pushing: boolean;
+}
+
+export interface RotationView {
+  /** `~/.config/cswap-prefer-team/rotation` */
+  path: string;
+  status: 'ok' | 'missing' | 'invalid' | 'unreadable';
+  rules: Rules | null;
+  /** The rule's reason for an invalid file (`rotation_bad_value:full`), or the read error. */
+  reason: string | null;
+  /** Sent back with a save, so a file changed meanwhile is not overwritten. */
+  version: string | null;
+  stamp: Stamp | null;
+  ignoredKeys: string[];
+  defaults: Rules;
+  saving: boolean;
+  peers: PeerView[];
+  /** An `ssh` to copy the file with. */
+  ssh: boolean;
+}
+
+/** Why a rotation command did nothing, or put the file back. */
+export interface RulesError {
+  kind: 'busy' | 'changed' | 'invalid' | 'write' | 'unreachable' | 'noFile' | 'unknownMac';
+  detail: string | null;
+  /** The file before is back on disk. */
+  restored: boolean;
+}
+
+/** What "Thử SSH" found. */
+export interface PeerTest {
+  reached: boolean;
+  error: string | null;
+  hasFile: boolean;
+  stamp: Stamp | null;
+}
+
+export interface Peer {
+  name: string;
+  alias: string;
+}
 
 // ===== Antigravity accounts the app logs in (M4a) and reads (M4b) =====
 
@@ -313,14 +494,19 @@ export interface AgySwitchView {
 /** Where a history line comes from (`quota-station-core::history::Source`). */
 export type HistorySource =
   | 'app'
+  | 'switcher'
   | 'observed';
 
 export type HistoryCause =
   /** The owner switched Claude in this app; `result` is what the check after it found. */
   | {
       kind: 'manual';
+      holdUntil: string | null;
       result: 'switched' | 'raced' | 'unconfirmed' | string;
     }
+  | { kind: 'switcher'; why: Why; raw: string }
+  /** The switcher started a five-hour window early. */
+  | { kind: 'primed'; raw: string }
   /** The account in use changed between two readings, and nothing the app knows of switched it. */
   | { kind: 'observed' }
   | { kind: 'agySwitch'; how: AgyHow; result: 'switched' | 'unconfirmed' | string; reopened: boolean | null }
@@ -346,6 +532,7 @@ export interface HistoryEntry {
 /** The kinds with a switch each (M6). */
 export type SwitchKind =
   | 'pool'
+  | 'leaving'
   | 'login'
   | 'overwrite';
 /**
@@ -429,9 +616,44 @@ export interface AlertsView {
 /** The app as a login item (`quota-station-core::login_item::Status`). */
 export type LaunchAtLogin = 'off' | 'on' | 'needsApproval' | 'unavailable';
 
+/** Where "Cập nhật từ mã nguồn" is (`quota-station-core::update::Step`). */
+export type UpdateStep = 'pulling' | 'installing';
+
+export type UpdateOutcome =
+  /** The clone had nothing new, and this copy was built from it. */
+  | { kind: 'upToDate'; commit: string }
+  /** The new copy is in place; it runs once the app opens again. */
+  | { kind: 'installed'; commit: string; version: string | null };
+
+export type UpdateError =
+  | { kind: 'source'; reason: 'missing' | 'notSource' }
+  /** `git pull --ff-only` refused or failed: its last line. */
+  | { kind: 'pull'; detail: string }
+  /** `scripts/install.sh` failed: its own error line, or its last line. */
+  | { kind: 'install'; detail: string }
+  | { kind: 'timeout'; step: UpdateStep }
+  | { kind: 'spawn'; detail: string };
+
+/**
+ * "Mã nguồn" and "Cập nhật từ mã nguồn" (`src-tauri/src/install.rs`
+ * `SourceView`): only in a build with the advanced part.
+ */
+export interface SourceView {
+  /** The clone to update from, `~/…`; null when not set. */
+  source: string | null;
+  sourceStatus: 'notSet' | 'ok' | 'missing' | 'notSource';
+  /** Runs from an installed `.app`, so an update has somewhere to go. */
+  bundled: boolean;
+  updating: UpdateStep | null;
+  outcome: UpdateOutcome | null;
+  error: UpdateError | null;
+  /** The last install's output, `~/…`. */
+  log: string;
+}
 
 /** The app itself (`src-tauri/src/install.rs` `AppView`, M7). */
 export interface AppView
+  extends Partial<SourceView>
 {
   version: string;
   /** The commit it was built from, 7 characters, `-dirty` kept; null when not built by `scripts/install.sh`. */
@@ -554,6 +776,8 @@ export type Tab =
   | 'claude'
   | 'agy'
   | 'codex'
+  | 'rules'
+  | 'copy'
   | 'history'
   /** Not a page: the bell's panel (Thông báo), open over the page in view. */
   | 'alerts'
@@ -573,6 +797,7 @@ export type SettingsGroup =
   | 'display'
   | 'notify'
   | 'services'
+  | 'advanced'
   ;
 
 // ===== Codex (M8) =====
@@ -1089,6 +1314,15 @@ export interface McpView {
   backups: McpBackup[];
 }
 
+/**
+ * Cài đặt › Nâng cao (`src-tauri/src/state.rs` `AdvancedView`): on, the
+ * tabs and switches of the advanced part show (the rotation, the pause and
+ * the switcher, the other Macs, the update from source). Off on a new
+ * install, on where the app was before.
+ */
+export interface AdvancedView {
+  on: boolean;
+}
 
 /** The system the app runs on: every difference the windows draw follows it. */
 export type Platform = 'macos' | 'windows';
@@ -1101,6 +1335,13 @@ export interface Capabilities {
    * Antigravity is the one account signed in here, read-only.
    */
   agyAccounts: boolean;
+  /**
+   * The advanced part: Cài đặt › Nâng cao, Luật xoay vòng and the other
+   * Macs, Chép sang Mac khác and the update from source. A build without it
+   * sends no such key, the model has none of their parts and the windows
+   * show no switch, tab or setting for them.
+   */
+  authorTools: boolean;
   /**
    * The system the app was built for: `data-os` on the page (fonts,
    * corners, scroll bars) and the words for the system's own parts
@@ -1124,6 +1365,12 @@ export interface Model {
   /** The name macOS gives this Mac. */
   machineDefault: string;
   granting: boolean;
+  /** The switcher; absent from a build without the advanced part (`authorTools`). */
+  switcher: SwitcherView;
+  /** The rules editor and the other Macs; only in a build with the advanced part. */
+  rotation?: RotationView;
+  /** Cài đặt › Nâng cao; absent from a build without the advanced part. */
+  advanced: AdvancedView;
   claudeSwitch: ClaudeSwitchView;
   /** The Claude accounts Quota Station keeps, and their actions. */
   claudeAccounts: ClaudeAccountsView;
@@ -1534,6 +1781,59 @@ export interface RestoreUndone {
   left?: number;
 }
 
+// ===== Chép sang Mac khác (M13) =====
+
+/** `agents::copy::DiffItem`: one item the two Macs do not have alike. */
+export interface CopyItem {
+  group: 'mcp' | 'skill' | 'plugin' | 'file';
+  /** The server's or skill's name, the plugin's `name@marketplace`, the file's `~/…`. */
+  id: string;
+  agent: Agent | null;
+  /** `mine`: only on this Mac; `theirs`: only on the other; `diff`, `ver`, `text`: both, not alike. */
+  state: 'mine' | 'theirs' | 'diff' | 'ver' | 'text';
+  /** What differs: `command`, `args`, `env`, `cwd`, `url`, `headers`, `agents`, `source`. */
+  what: string[];
+  /** Why it cannot go from this Mac (`push`) or come to it (`pull`). */
+  push: CopyBlock | null;
+  pull: CopyBlock | null;
+  /** A skill left out: `key`, `link`, `large`, `unreadable`. */
+  note: string | null;
+  /** A skill installed by hand: its files go along. */
+  hand: boolean;
+  /** A server's secrets, by their names. */
+  keys: string[];
+  mineOn: Agent[];
+  theirsOn: Agent[];
+  /** A server's definitions on each Mac, secrets masked. */
+  compare: { agent: Agent; mine: McpDef | null; theirs: McpDef | null }[];
+  /** A skill's version on each Mac, RFC 3339. */
+  mineAt: string | null;
+  theirsAt: string | null;
+  /** A file's lines, this Mac's against the other's. */
+  lines: McpLine[];
+  changed: number;
+}
+
+export type CopyBlock = 'leftOut' | 'older' | 'hand' | 'source' | 'key' | 'excluded' | 'unreadable' | 'absent';
+
+/** What "So sánh" found (`src-tauri/src/copy.rs` `Comparison`). */
+export interface CopyComparison {
+  alias: string;
+  /** The other Mac's name in its app. */
+  mac: string;
+  /** When it was read, Unix seconds. */
+  at: number;
+  diff: { items: CopyItem[]; same: string[] };
+}
+
+/** The items ticked (`agents::copy::Selection`); `updates` are skills to bring to their newest version. */
+export interface CopySelection {
+  mcp: string[];
+  skills: string[];
+  updates: string[];
+  plugins: { agent: Agent; id: string }[];
+  files: string[];
+}
 
 // ===== Skills, plugins and instruction files (M11) =====
 

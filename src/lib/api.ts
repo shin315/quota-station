@@ -7,6 +7,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import type { SessionView } from '../session/steps';
+import type { CopyComparison, CopySelection, Decision, Peer, PeerTest, Rules } from './model';
 import type {
   PackSummary,
   RestoreDone,
@@ -89,8 +90,10 @@ export interface Api {
    * Switches Claude Code's login to the app's account `slot` and reports what the second look five
    * seconds later shows. Rejects with `busy` (a switch is running) or `unknownSlot`.
    */
+  /** With `holdUntil` (RFC 3339) it pauses the rotation until then; `badTime` when it is not RFC 3339. */
   switchClaude(
     slot: number,
+    holdUntil: string | null,
   ): Promise<Outcome>;
   /** Carries claude-swap's accounts over; claude-swap is left as it is. The result is in `claudeAccounts.last`. */
   claudeImport(): Promise<Model>;
@@ -103,6 +106,45 @@ export interface Api {
   claudeAddToken(token: string, email: string | null): Promise<Model>;
   claudeRemove(slot: number): Promise<Model>;
   claudeSetAlias(slot: number, alias: string): Promise<Model>;
+  claudeSetEnabled(slot: number, enabled: boolean): Promise<Model>;
+  /** Loads or unloads the rotation's LaunchAgent. */
+  claudeSetRotation(on: boolean): Promise<Model>;
+  /** Pauses automatic switching until `until` (RFC 3339), or until resumed when null. */
+  pauseSwitching(until: string | null): Promise<Model>;
+  /** Moves the end of a timed pause later. */
+  extendPause(minutes: number): Promise<Model>;
+  resumeSwitching(): Promise<Model>;
+  /**
+   * Writes the rules on this Mac once they keep the file's rules, and copies them to the other Macs.
+   * `base` is the file version the editor started from. Rejects with a `RulesError`.
+   */
+  saveRotation(rules: Rules, base: string | null): Promise<Model>;
+  /** Takes the other Mac's copy as this Mac's file, then copies it out. Rejects with a `RulesError`. */
+  adoptRotation(alias: string, base: string | null): Promise<Model>;
+  /** Stamps this Mac's file again so it is the newest, then copies it out. Rejects with a `RulesError`. */
+  keepRotation(base: string | null): Promise<Model>;
+  /** Tries every Mac that is behind now. */
+  retryRotation(): Promise<Model>;
+  /** Rejects with `badAlias:<i>`, `sameAlias:<i>` or `tooMany`. */
+  setPeers(peers: Peer[]): Promise<Model>;
+  /** Reads the other Mac's rotation file over SSH; changes nothing. */
+  testPeer(alias: string): Promise<PeerTest>;
+  /**
+   * The switcher's `--dry-run` with these rules. Rejects with the rules' reason
+   * (`rotation_bad_value:<key>`, `rotation_personal_in_team`) for rules that
+   * cannot be written, or with the dry run's error kind (`notFound`, `timeout`, …).
+   */
+  previewRotation(rules: Rules): Promise<{ decision: Decision; raw: string }>;
+  /** The editor holds unsaved changes: closing the main window asks first. */
+  rulesDirty(dirty: boolean): Promise<void>;
+  /** Closes the main window, or quits the app with `quit`, without asking again. */
+  closeMain(quit: boolean): Promise<void>;
+  /** The main window was asked to close while the editor held unsaved changes. */
+  onCloseRequested(handler: () => void): Promise<() => void>;
+  /** `Thoát Quota Station` was chosen while the editor held unsaved changes. */
+  onQuitRequested(handler: () => void): Promise<() => void>;
+  /** Takes a pending quit request: true once per request, also when the window opened for it before listening. */
+  takeQuit(): Promise<boolean>;
   /**
    * Adds an Antigravity account, or logs one in again, through Google's consent screen in the
    * browser; resolves once the account is kept. Rejects with an `AgyLoginFailure`.
@@ -349,6 +391,21 @@ export interface Api {
    */
   restoreUndo(force: boolean): Promise<RestoreUndone>;
   /**
+   * Chép sang Mac khác (M13), "So sánh": reads the other Mac over SSH and this one; writes nothing.
+   * Rejects with `unreachable:<line>`, `timeout`, `noApp`, `old`, `noSsh`, `unknownMac`, `busy`,
+   * `refused:<why>`, `failed:<line>` or `reply`.
+   */
+  copyCompare(alias: string): Promise<CopyComparison>;
+  /**
+   * "Chép": the items ticked, `push` from this Mac to the other (written there by its own app),
+   * else from it to this Mac. Keys go only with `keys`. Resolves to what the restore did there or
+   * here; rejects as `copyCompare` does, or with `stale`, `changed:<agents>`, `keychain`, `skill`,
+   * `lost` or `waiting`.
+   */
+  copyRun(alias: string, push: boolean, selection: CopySelection, keys: boolean): Promise<RestoreDone>;
+  /** "Hoàn tác" of the copy that ran at `at`, on the Mac it was written to. Rejects with `gone`, `changed:…`, … */
+  copyUndo(alias: string, push: boolean, at: number, force: boolean): Promise<RestoreUndone>;
+  /**
    * A button on a card in the bell's panel (Thông báo), the same as on the macOS card. A switch back
    * runs on the Rust side and its result comes in the model; `openSwitch` asks this window to open
    * its switch sheet. Rejects with `answered`, `unknown` or `noSuchAction`.
@@ -361,6 +418,8 @@ export interface Api {
   setAlertSwitch(kind: AlertKind, on: boolean): Promise<Model>;
   /** Alert 1's thresholds in percent left; rejects with `range` or `order`. */
   setPoolAlert(dryAtMost: number, roomAtLeast: number): Promise<Model>;
+  /** Cài đặt › Nâng cao on or off. */
+  setAdvanced(on: boolean): Promise<Model>;
   /** The History tab's lines, newest first. */
   getHistory(): Promise<HistoryEntry[]>;
   /** Asks macOS again whether cards may show; the answer comes in the model. */
@@ -373,6 +432,15 @@ export interface Api {
   setLaunchAtLogin(on: boolean): Promise<Model>;
   /** System Settings › General › Login Items, where macOS asks for approval. */
   openLoginItems(): Promise<void>;
+  /** The clone to update from; empty forgets it. Rejects with `missing` or `notSource`. */
+  setSourceDir(path: string): Promise<Model>;
+  /**
+   * `git pull --ff-only` in the clone, then its `scripts/install.sh`; the steps and the result come
+   * in the model. Rejects with `busy`, `noSource` or `unbundled`.
+   */
+  updateFromSource(): Promise<Model>;
+  /** Quits and opens the copy just installed. Rejects with `notInstalled`, `rulesDirty` or `unbundled`. */
+  relaunch(): Promise<void>;
   /** A button on a macOS card asks the popover to open its switch sheet for a Claude account. */
   onOpenSwitch(handler: (slot: number) => void): Promise<() => void>;
   onModel(handler: (model: Model) => void): Promise<() => void>;
@@ -418,9 +486,11 @@ export const tauriApi: Api = {
   claudeSessions: () => invoke<Sessions | null>('claude_sessions'),
   switchClaude: (
     slot,
+    holdUntil,
   ) =>
     invoke<Outcome>('switch_claude', {
       slot,
+      holdUntil,
     }),
   claudeImport: () => invoke<Model>('claude_import'),
   claudeAddLogin: () => invoke<Model>('claude_add_login'),
@@ -429,6 +499,23 @@ export const tauriApi: Api = {
   claudeAddToken: (token, email) => invoke<Model>('claude_add_token', { token, email }),
   claudeRemove: (slot) => invoke<Model>('claude_remove', { slot }),
   claudeSetAlias: (slot, alias) => invoke<Model>('claude_set_alias', { slot, alias }),
+  claudeSetEnabled: (slot, enabled) => invoke<Model>('claude_set_enabled', { slot, enabled }),
+  claudeSetRotation: (on) => invoke<Model>('claude_set_rotation', { on }),
+  pauseSwitching: (until) => invoke<Model>('pause_switching', { until }),
+  extendPause: (minutes) => invoke<Model>('extend_pause', { minutes }),
+  resumeSwitching: () => invoke<Model>('resume_switching'),
+  saveRotation: (rules, base) => invoke<Model>('save_rotation', { rules, base }),
+  adoptRotation: (alias, base) => invoke<Model>('adopt_rotation', { alias, base }),
+  keepRotation: (base) => invoke<Model>('keep_rotation', { base }),
+  retryRotation: () => invoke<Model>('retry_rotation'),
+  setPeers: (peers) => invoke<Model>('set_peers', { peers }),
+  testPeer: (alias) => invoke<PeerTest>('test_peer', { alias }),
+  previewRotation: (rules) => invoke('preview_rotation', { rules }),
+  rulesDirty: (dirty) => invoke('rules_dirty', { dirty }),
+  closeMain: (quit) => invoke('close_main', { quit }),
+  onCloseRequested: (handler) => listen('closeRequested', () => handler()),
+  onQuitRequested: (handler) => listen('quitRequested', () => handler()),
+  takeQuit: () => invoke<boolean>('take_quit'),
   agyLogin: () => invoke<AgyLoginDone>('agy_login'),
   agyLoginCallback: (url) => invoke('agy_login_callback', { url }),
   agyLoginCancel: () => invoke('agy_login_cancel'),
@@ -538,17 +625,24 @@ export const tauriApi: Api = {
   restoreRun: (id, picks, more, keys, bases) => invoke<RestoreDone>('restore_run', { id, picks, more, keys, bases }),
   restoreRetry: (id, part, item, agent) => invoke<RestorePartResult>('restore_retry', { id, part, item, agent }),
   restoreUndo: (force) => invoke<RestoreUndone>('restore_undo', { force }),
+  copyCompare: (alias) => invoke<CopyComparison>('copy_compare', { alias }),
+  copyRun: (alias, push, selection, keys) => invoke<RestoreDone>('copy_run', { alias, push, selection, keys }),
+  copyUndo: (alias, push, at, force) => invoke<RestoreUndone>('copy_undo', { alias, push, at, force }),
   alertAction: (id, action) => invoke('alert_action', { id, action }),
   alertsRead: () => invoke('alerts_read'),
   testAlert: (kind) => invoke<Model>('test_alert', { kind }),
   setAlertSwitch: (kind, on) => invoke<Model>('set_alert_switch', { kind, on }),
   setPoolAlert: (dryAtMost, roomAtLeast) => invoke<Model>('set_pool_alert', { dryAtMost, roomAtLeast }),
+  setAdvanced: (on) => invoke<Model>('set_advanced', { on }),
   getHistory: () => invoke<HistoryEntry[]>('get_history'),
   notifyRefresh: () => invoke('notify_refresh'),
   openNotificationSettings: () => invoke('open_notification_settings'),
   settingsOpened: () => invoke('settings_opened'),
   setLaunchAtLogin: (on) => invoke<Model>('set_launch_at_login', { on }),
   openLoginItems: () => invoke('open_login_items'),
+  setSourceDir: (path) => invoke<Model>('set_source_dir', { path }),
+  updateFromSource: () => invoke<Model>('update_from_source'),
+  relaunch: () => invoke('relaunch'),
   onOpenSwitch: (handler) => listen<number>('openSwitch', (event) => handler(event.payload)),
   onModel: (handler) => listen<Model>('model', (event) => handler(event.payload)),
   reduceTransparency: () => invoke<boolean>('reduce_transparency'),

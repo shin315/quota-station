@@ -31,6 +31,7 @@ import { Segment, Segmented, segmentedVariants, segmentVariants } from '@/compon
 import { IdMark } from '../components/accounts';
 import { LABEL, rowClass, STACK, TabHead, TabSub, TabTitle } from '../components/page';
 import { Button, Chip, CODE, Dot, Feedback, FieldHint, More, Toggle } from '../components/parts';
+import { advancedOn } from '@/lib/advanced';
 import { alertKinds, permissionChip } from '../lib/alerts';
 import type { ChipView } from '../lib/view';
 import type { AlertKind, AppView, ClientStatus, Language, Menubar, MenubarWindow, Model, SettingsGroup, Theme, ThemePack } from '../lib/model';
@@ -252,6 +253,8 @@ function CodexAccountsRow({ model, onAction }: { model: Model; onAction: Setting
 /** Alert 1's rule in short. */
 function poolShort(model: Model): string {
   const p = model.alerts.poolAlert;
+  if (advancedOn(model))
+    return t('Đang dùng còn ≤ ' + p.dryAtMost + '%, mọi tài khoản trong vòng còn < ' + p.roomAtLeast + '%.', 'In use ≤ ' + p.dryAtMost + '% left, every account in rotation < ' + p.roomAtLeast + '% left.');
   return t('Đang dùng còn ≤ ' + p.dryAtMost + '%, mọi tài khoản còn < ' + p.roomAtLeast + '%.', 'In use ≤ ' + p.dryAtMost + '% left, every account < ' + p.roomAtLeast + '% left.');
 }
 

@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MainWindowApp, PopoverApp } from '../App';
 import { fakeApi, type FakeOptions } from '../fixtures/fakeApi';
 import { FIXTURE_NOW, fixtureModel, releaseAvailable, releaseFixture } from '../fixtures/models';
+import { communityModel } from '../fixtures/models';
 import type { Api } from '../lib/api';
 import { setLang } from '../lib/i18n';
 import type { Model, ReleaseView, Tab } from '../lib/model';
@@ -26,6 +27,7 @@ async function open(model: Model, tab: Tab = 'overview', options: FakeOptions = 
 /** The app as downloaded: no Antigravity accounts. */
 function downloaded(release: ReleaseView = releaseAvailable()): Model {
   let m: Model = fixtureModel('fresh', { release });
+  m = communityModel(m);
   return { ...m, capabilities: { ...m.capabilities, agyAccounts: false } };
 }
 

@@ -36,7 +36,8 @@ const SCENARIOS: &[(&str, &str, &str, Option<&str>)] = &[
 
 fn ui_dir() -> PathBuf {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-    root.join("src/fixtures/snapshots")
+    // Without the advanced part a snapshot has no roles and no room pool.
+    root.join("crates/quota-station-core/tests/fixtures/ui-plain")
 }
 
 /// Every window of every account, with names, as the app adds them.

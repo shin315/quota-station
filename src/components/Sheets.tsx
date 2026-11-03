@@ -32,6 +32,8 @@ import { onWindows, t, terminal } from '../lib/i18n';
 import type { AgyHow, CodexKeyPreview, CodexTarget, CodexView, Model, Sessions } from '../lib/model';
 import { CheckLine, Command, DiffFile, DiffLine, DiffView, KeyMasked } from './blocks';
 import { Button, CODE, Facts as FactList, FeedbackLine, FeedbackText, FieldHint, Hint, KVT, LinkButton, Rich, Spinner } from './parts';
+import { ChoiceGroup } from './parts';
+import type { HoldChoice } from '@/lib/rotation';
 
 /** What a write of config.toml goes through. */
 const WRITE_STEPS = () =>
@@ -70,6 +72,7 @@ export interface SheetBodyProps {
   onClose(): void;
   onSwitch(
     slot: number,
+    holdUntil: Date | null,
   ): void;
   onSwitchAgy(number: number, how: AgyHow): void;
   onSettings(): void;
@@ -90,9 +93,11 @@ export interface SheetBodyProps {
 }
 
 function ClaudeBody(props: SheetBodyProps & { slot: number }) {
+  const [choice, setChoice] = useState<HoldChoice>('60');
   const v = claudeSheet(
     props.model,
     props.slot,
+    choice,
     props.sessions,
     props.now,
   );
@@ -133,11 +138,21 @@ function ClaudeBody(props: SheetBodyProps & { slot: number }) {
   const confirm = () =>
     props.onSwitch(
       props.slot,
+      // The hold ends at the time its choice shows.
+      v.options.find((o) => o.v === choice)?.until ?? null,
     );
   return (
     <>
       <DialogTitle>{v.title}</DialogTitle>
       <Facts facts={v.facts} />
+      {v.options.length ? (
+        <>
+          <ChoiceGroup<HoldChoice> id="qs-hold" label={t('Giữ tài khoản này', 'Keep this account')} options={v.options} value={choice} onChange={setChoice} />
+          <Hint tone={v.hint.tone} aria-live="polite">
+            {v.hint.text}
+          </Hint>
+        </>
+      ) : null}
       <DialogButtons>
         {v.blocked ? (
           <LinkButton style={{ marginRight: 'auto' }} onClick={props.onSettings}>

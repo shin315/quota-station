@@ -284,17 +284,20 @@ function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeed
   }, [landed]);
   const doSwitch = async (
     slot: number,
+    holdUntil: Date | null,
   ) => {
     setWorking(true);
     try {
       const outcome = await api.switchClaude(
         slot,
+        holdUntil ? holdUntil.toISOString() : null,
       );
       if (latest.current)
         showFeedback(
           switchFeedback(
             outcome,
             latest.current,
+            clock(),
           ),
         );
     } catch (e) {

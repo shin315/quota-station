@@ -4,6 +4,7 @@
 // The Claude accounts Quota Station keeps, in words for the Claude tab: an
 // account's name, sign-in and quota for its dialog, the card before any
 // account is kept, and what an action did.
+// The rotation's LaunchAgent too.
 
 import { mac, os, t } from './i18n';
 import { clock, percent } from './format';
@@ -20,6 +21,10 @@ export function localName(row: Pick<ClaudeAccountRow, 'slot' | 'email'>): string
   return row.email ? row.email.split('@')[0] : t('Tài khoản ', 'Account ') + row.slot;
 }
 
+/** The ⋯ menu and the detail dialog hold an account out of the rotation only while it can run. */
+export function rotationMatters(v: ClaudeAccountsView, advanced: boolean): boolean {
+  return v.rotation === true || advanced;
+}
 
 /** Whether the sign-in Quota Station keeps still works, as the detail dialog's chip. */
 export function signInChip(row: ClaudeAccountRow): ChipView {
@@ -70,6 +75,33 @@ export function setupText(v: ClaudeAccountsView): { title: string; body: string 
       };
 }
 
+export interface RotationRowView {
+  on: boolean;
+  disabled: boolean;
+  line: string;
+  /** The older switcher still loaded: the warning, with its guide. */
+  legacy: string | null;
+}
+
+export function rotationRow(v: ClaudeAccountsView): RotationRowView {
+  const legacy = v.legacy
+    ? v.legacy +
+      t(
+        ' vẫn được nạp. Quota Station không chuyển tài khoản khi nó còn chạy. Tắt nó trước khi bật tự chuyển ở đây.',
+        ' is still loaded. Quota Station does not switch accounts while it runs. Turn it off before turning on auto-switch here.',
+      )
+    : null;
+  let line: string;
+  if (!v.ready) line = t('Cần ít nhất một tài khoản.', 'Needs at least one account.');
+  else if (v.rotation === true)
+    line = os(
+      t('LaunchAgent chạy mỗi 3 phút, kể cả khi đã đóng app.', 'The LaunchAgent runs every 3 minutes, even when the app is closed.'),
+      t('Hẹn giờ trong app chạy mỗi 3 phút khi app đang chạy, kể cả khi chỉ còn ở khay.', 'The app’s timer runs every 3 minutes while the app runs, even from the tray.'),
+    );
+  else if (v.rotation === false) line = t('Đang tắt: không có gì tự chuyển Claude.', 'Off: nothing switches Claude automatically.');
+  else line = os(t('Không rõ LaunchAgent có đang nạp không.', 'Not known whether the LaunchAgent is loaded.'), t('Không rõ hẹn giờ của app có đang chạy không.', 'Not known whether the app’s timer is running.'));
+  return { on: v.rotation === true, disabled: !v.ready || (!!v.legacy && v.rotation !== true) || v.working != null, line, legacy };
+}
 
 /** What went wrong, in a line. */
 export function errorText(done: ClaudeActionDone): string {
@@ -91,6 +123,10 @@ export function errorText(done: ClaudeActionDone): string {
       return t('Đã huỷ đăng nhập. Không thêm gì.', 'Sign-in cancelled. Nothing was added.');
     case 'keychain':
       return os(t('Keychain không cho ghi', 'The Keychain refused the write'), t('Kho mã hoá không cho ghi', 'The encrypted store refused the write')) + detail + '.';
+    case 'legacy':
+      return t('Bộ tự chuyển cũ ' + (done.detail ?? '') + ' còn chạy: tắt nó trước.', 'The old auto-switcher ' + (done.detail ?? '') + ' is still running: turn it off first.');
+    case 'launchctl':
+      return os(t('launchctl báo lỗi', 'launchctl reported an error'), t('Không bật được hẹn giờ của app', 'Could not start the app’s timer')) + detail + '.';
     case 'notFound':
       return mac(t('Không thấy dữ liệu claude-swap trên máy này.', 'No claude-swap data on this Mac.'));
     case 'corrupt':
@@ -118,6 +154,7 @@ function importText(done: ClaudeActionDone): string {
   let text = t('Đã nhập từ claude-swap: ', 'Imported from claude-swap: ') + (parts.length ? parts.join(', ') : t('không có gì mới', 'nothing new')) + '.';
   if (i.skipped.length)
     text += t(' Bỏ qua tài khoản ', i.skipped.length === 1 ? ' Skipped account ' : ' Skipped accounts ') + i.skipped.map(([s]) => s).join(', ') + '.';
+  if (i.rotation) text += t(' Đã chép luật xoay vòng.', ' Copied the rotation rules.');
   return text + t(' claude-swap vẫn để nguyên.', ' claude-swap stays as it is.');
 }
 
@@ -151,6 +188,24 @@ export function resultFeedback(v: ClaudeAccountsView, done: ClaudeActionDone, wh
             actions: [close()],
           }
         : { tone: '', title: t('Đã bỏ tên gọi của ' + who + '.', 'Removed ' + who + '’s nickname.'), body: '', actions: [] };
+    case 'enabled':
+      return row?.enabled === false
+        ? {
+            tone: '',
+            title: t('Đã tạm dừng tự chuyển cho ' + who + '.', 'Paused auto-switch for ' + who + '.'),
+            body: mac(t('Tự chuyển trên máy này bỏ qua tài khoản này cho tới khi bạn cho vào lại.', 'Auto-switch on this Mac skips this account until you put it back.')),
+            actions: [{ label: t('Hoàn tác', 'Undo'), act: `claude:unrest:${done.slot ?? 0}` }, close()],
+          }
+        : { tone: '', title: t('Đã đưa ' + who + ' lại vào tự chuyển.', 'Resumed auto-switch for ' + who + '.'), body: '', actions: [] };
+    case 'rotation':
+      return {
+        tone: '',
+        title: v.rotation
+          ? t('Đã bật tự chuyển bằng Quota Station.', 'Turned on auto-switch with Quota Station.')
+          : t('Đã tắt tự chuyển bằng Quota Station.', 'Turned off auto-switch with Quota Station.'),
+        body: '',
+        actions: [],
+      };
     default:
       return null;
   }

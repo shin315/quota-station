@@ -374,14 +374,17 @@ What the main suites check:
 The report fixtures in `crates/quota-station-core/tests/fixtures/` are
 synthetic, with made-up ids and values. The popover and window tests use JSON
 snapshots in `src/fixtures/snapshots/`, which the Rust side builds from those
-fixtures. After changing the snapshot rules, the variable check or the stats
-report, regenerate them:
+fixtures with the advanced part's keys;
+`crates/quota-station-core/tests/fixtures/ui-plain/` holds the same snapshots
+as a build without the advanced part sends them. After changing the snapshot
+rules, the variable check or the stats report, regenerate them:
 
 ```sh
 UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test ui_fixtures
 UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test env_check
 UPDATE_UI_FIXTURES=1 cargo test -p quota-station-core --test stats
 ```
+
 
 ## Layout
 

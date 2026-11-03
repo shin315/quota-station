@@ -5,9 +5,10 @@
 // quan, the line at the popover's foot, Cài đặt › Cập nhật's rows and the
 // dialog. The app only reads the latest release; "Tải và cài" opens its
 // disk image in the browser. A build from source (the Antigravity accounts
-// or the author's tools) is told about a release but pointed at its clone,
+// or the advanced part) is told about a release but pointed at its clone,
 // since the download has neither part.
 
+import { sourceView } from './advanced';
 import { clock } from './format';
 import { mac, t } from './i18n';
 import type { Model, ReleaseLatest } from './model';
@@ -15,12 +16,11 @@ import type { BannerView } from './view';
 
 /** This copy was built from source with a part the download leaves out. */
 export function fromSource(model: Pick<Model, 'capabilities'>): boolean {
-  let parts = model.capabilities.agyAccounts;
-  return parts;
+  return model.capabilities.agyAccounts || model.capabilities.authorTools === true;
 }
 
-/** How a build from source is told to update: rebuilt from its clone. */
-function sourceWords(): { banner: string; line: string } {
+/** How a build from source is told to update: rebuilt from its clone, or updated from source where it has that. */
+function sourceWords(model: Pick<Model, 'app'>): { banner: string; line: string } {
   let w = {
     banner: t(
       'Máy này chạy bản build từ mã nguồn, nên build lại từ bản clone để giữ phần chỉ có ở bản build này.',
@@ -28,6 +28,15 @@ function sourceWords(): { banner: string; line: string } {
     ),
     line: t('Bản build từ mã nguồn: build lại từ bản clone.', 'Built from source: rebuild from your clone.'),
   };
+  // Windows has no update from source, nor a build without the advanced part: rebuilt from the clone, as above.
+  if (sourceView(model.app))
+    w = {
+      banner: t(
+        'Máy này chạy bản build từ mã nguồn, nên cập nhật từ mã nguồn để giữ phần chỉ có ở bản build này.',
+        'This Mac runs a build from source, so update from source to keep what only this build has.',
+      ),
+      line: t('Bản build từ mã nguồn: cập nhật từ mã nguồn.', 'Built from source: update from source.'),
+    };
   return w;
 }
 
@@ -67,7 +76,7 @@ export function releaseBanner(model: Model): BannerView | null {
     icon: 'note',
     title: t('Có bản mới: Quota Station ' + l.version, 'New version: Quota Station ' + l.version),
     body: fromSource(model)
-      ? mac(sourceWords().banner)
+      ? mac(sourceWords(model).banner)
       : t('Bạn đang dùng ' + model.app.version + '. Không có gì tự cài: app hỏi trước.', 'You have ' + model.app.version + '. Nothing installs by itself: the app asks first.'),
     actions: [
       { label: t('Xem có gì mới', 'See what’s new'), act: 'release:open' },
@@ -82,7 +91,7 @@ export function releaseLine(model: Model): { title: string; body: string } | nul
   if (!l) return null;
   return {
     title: t('Có bản mới ' + l.version, 'Version ' + l.version + ' is out'),
-    body: fromSource(model) ? sourceWords().line : t('Hỏi trước khi cài.', 'Asks before installing.'),
+    body: fromSource(model) ? sourceWords(model).line : t('Hỏi trước khi cài.', 'Asks before installing.'),
   };
 }
 

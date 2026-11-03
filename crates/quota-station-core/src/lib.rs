@@ -75,7 +75,7 @@ pub mod settings;
 pub mod snapshot;
 pub mod stats;
 pub mod switching;
-mod time_util;
+pub mod time_util;
 #[cfg(windows)]
 pub mod win;
 

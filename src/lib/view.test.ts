@@ -17,6 +17,7 @@ describe('popover view', () => {
     expect(v.fresh).toEqual({ tone: 'ok', text: 'cập nhật 40 giây trước' });
     expect(v.banner).toBeNull();
     let subs = ['', '', '', ''];
+    subs = ['Cá nhân · 08–23', 'Acme Studio', 'Acme Studio', 'Acme Studio'];
     expect(v.claude.cards.map((c) => [c.name, c.sub, c.active])).toEqual([
       ['lanpham.dev', subs[0], false],
       ['lan.acme1', subs[1], true],
@@ -134,6 +135,8 @@ describe('popover view', () => {
     expect(acme1.cells.map((c) => c.tone)).toEqual(['warn', 'ok', 'warn']);
     let chips: CardView['chips'] = [];
     let label = 'lan.acme1, đang dùng. 5 giờ đã dùng 74%, đặt lại sau 3 giờ 08 phút. Tuần đã dùng 39%, đặt lại sau 4 ngày 19 giờ 39 phút. Fable đã dùng 87%, đặt lại sau 1 ngày 17 giờ 59 phút';
+    chips = [{ t: 'rời vòng 17:45', k: 'warn' }];
+    label = label.replace('lan.acme1,', 'lan.acme1, Acme Studio,') + '. rời vòng 17:45';
     expect(acme1.chips).toEqual(chips);
     expect(acme1.label).toBe(label);
     expect(cells(personal)[0]).toEqual(['5 giờ', '0%', 'chưa dùng']);
@@ -180,8 +183,15 @@ describe('popover view', () => {
   it('hidden names fall back to the places, and the folded line follows', () => {
     const v = popoverView(hideNames(fixtureModel('fresh')), FIXTURE_NOW);
     let want = [1, 2, 3, 4].map((n) => ['Tài khoản ' + n, '', '']);
+    want = [
+      ['Cá nhân', '08–23', ''],
+      ['Team A', '', ''],
+      ['Team B', '', ''],
+      ['Team C', '', ''],
+    ];
     expect(v.claude.cards.map((c) => [c.name, c.sub, c.full])).toEqual(want);
     let agy = ['Antigravity 1', 'Antigravity 2'];
+    agy = ['Ultra 1', 'Ultra 2'];
     expect(v.agy.cards.map((c) => c.name)).toEqual(agy);
     expect(JSON.stringify(v)).not.toContain('@');
     expect(JSON.stringify(v)).not.toContain('Acme');
@@ -231,6 +241,7 @@ describe('popover view', () => {
   it('never shows a number for a slot waiting after its reset', () => {
     const v = view('reset-pending');
     let fourth = 'Tài khoản 4';
+    fourth = 'Team C';
     expect(v.banner).toMatchObject({
       tone: 'info',
       title: fourth + ' vừa qua mốc đặt lại',
@@ -250,6 +261,7 @@ describe('popover view', () => {
       title: 'Hạn mức Claude sắp cạn',
       body: '**Tài khoản 2** còn 4% hạn mức 5 giờ và không tài khoản nào còn từ 15% trở lên. Sớm nhất có lại lúc 16:40 (Tài khoản 1).',
     };
+    banner = { title: 'Hạn mức Claude trong vòng đã cạn', body: 'Có lại lúc 16:40 khi Cá nhân và Team B được đặt lại.' };
     expect(v.banner).toEqual({ tone: 'bad', ...banner, actions: [] });
     expect(v.now.rows[0]).toMatchObject({ text: '96%', tone: 'bad' });
   });

@@ -5,10 +5,14 @@
     "accounts": [
       {
         "number": 1,
+        "role": "personal",
         "active": false,
+        "disabled": false,
         "reading": "fresh",
         "fetchedAt": "2026-01-16T07:18:00.000Z",
         "source": "list",
+        "membership": "in",
+        "leavesAt": null,
         "lines": [
           {
             "kind": "week",
@@ -53,10 +57,14 @@
       },
       {
         "number": 2,
+        "role": "team",
         "active": true,
+        "disabled": false,
         "reading": "fresh",
         "fetchedAt": "2026-01-16T07:20:00.000Z",
         "source": "live",
+        "membership": "in",
+        "leavesAt": "2026-01-16T10:45:00.000Z",
         "lines": [
           {
             "kind": "session",
@@ -101,10 +109,14 @@
       },
       {
         "number": 3,
+        "role": "team",
         "active": false,
+        "disabled": false,
         "reading": "fresh",
         "fetchedAt": "2026-01-16T07:16:40.000Z",
         "source": "list",
+        "membership": "in",
+        "leavesAt": null,
         "lines": [
           {
             "kind": "session",
@@ -142,10 +154,14 @@
       },
       {
         "number": 4,
+        "role": "team",
         "active": false,
+        "disabled": false,
         "reading": "fresh",
         "fetchedAt": "2026-01-16T07:15:00.000Z",
         "source": "list",
+        "membership": "in",
+        "leavesAt": null,
         "lines": [
           {
             "kind": "session",
@@ -183,17 +199,41 @@
       }
     ],
     "pool": {
-      "kind": "active",
-      "percent": 26.0,
-      "line": "session",
-      "scope": null,
-      "nextRefillAt": "2026-01-16T10:29:00.000Z",
+      "kind": "rotation",
+      "room": 2.27,
+      "percent": 56.75,
+      "line": null,
+      "scope": "all_models",
+      "members": 4,
+      "rooms": [
+        {
+          "number": 2,
+          "percent": 0.0
+        },
+        {
+          "number": 3,
+          "percent": 100.0
+        },
+        {
+          "number": 4,
+          "percent": 97.8
+        },
+        {
+          "number": 1,
+          "percent": 29.2
+        }
+      ],
+      "nextRefillAt": "2026-01-16T10:09:00.000Z",
+      "refills": [
+        4
+      ],
       "exhausted": false,
       "reason": null
     },
     "generatedAt": "2026-01-16T07:20:00.000Z",
     "newestReadingAt": "2026-01-16T07:20:00.000Z",
     "stale": false,
+    "personalHours": "8-23",
     "source": null
   },
   "agy": {
@@ -202,10 +242,14 @@
     "accounts": [
       {
         "number": 1,
+        "role": "unknown",
         "active": false,
+        "disabled": false,
         "reading": "stale",
         "fetchedAt": "2026-01-16T06:55:00.000Z",
         "source": "list",
+        "membership": "unknown",
+        "leavesAt": null,
         "lines": [
           {
             "kind": "gemini",
@@ -256,10 +300,14 @@
       },
       {
         "number": 2,
+        "role": "unknown",
         "active": true,
+        "disabled": false,
         "reading": "fresh",
         "fetchedAt": "2026-01-16T07:19:10.000Z",
         "source": "list",
+        "membership": "unknown",
+        "leavesAt": null,
         "lines": [
           {
             "kind": "gemini",
@@ -311,16 +359,21 @@
     ],
     "pool": {
       "kind": "active",
+      "room": null,
       "percent": 94.0,
       "line": "week",
       "scope": "gemini",
+      "members": 0,
+      "rooms": [],
       "nextRefillAt": null,
+      "refills": [],
       "exhausted": false,
       "reason": null
     },
     "generatedAt": "2026-01-16T07:20:00.000Z",
     "newestReadingAt": "2026-01-16T07:19:10.000Z",
     "stale": false,
+    "personalHours": null,
     "source": "quota-station"
   },
   "codex": {
@@ -329,10 +382,14 @@
     "accounts": [
       {
         "number": 0,
+        "role": "unknown",
         "active": true,
+        "disabled": false,
         "reading": "fresh",
         "fetchedAt": "2026-01-16T07:19:00.000Z",
         "source": "live",
+        "membership": "unknown",
+        "leavesAt": null,
         "lines": [
           {
             "kind": "session",
@@ -369,16 +426,21 @@
     ],
     "pool": {
       "kind": "none",
+      "room": null,
       "percent": null,
       "line": null,
       "scope": null,
+      "members": 0,
+      "rooms": [],
       "nextRefillAt": null,
+      "refills": [],
       "exhausted": false,
       "reason": null
     },
     "generatedAt": "2026-01-16T07:20:00.000Z",
     "newestReadingAt": "2026-01-16T07:19:00.000Z",
     "stale": false,
+    "personalHours": null,
     "source": null
   },
   "keychain": "granted"

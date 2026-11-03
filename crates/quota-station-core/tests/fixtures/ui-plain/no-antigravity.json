@@ -1,0 +1,176 @@
+{
+  "claude": {
+    "status": "ok",
+    "reason": null,
+    "accounts": [
+      {
+        "number": 1,
+        "active": false,
+        "reading": "fresh",
+        "fetchedAt": "2026-01-16T07:18:00.000Z",
+        "source": "list",
+        "lines": [
+          {
+            "kind": "week",
+            "percent": 100.0,
+            "resetsAt": "2026-01-22T15:20:00.000Z",
+            "pending": false,
+            "atLeast": false
+          },
+          {
+            "kind": "fableWeek",
+            "percent": 96.0,
+            "resetsAt": "2026-01-22T15:20:00.000Z",
+            "pending": false,
+            "atLeast": false
+          }
+        ],
+        "windows": []
+      },
+      {
+        "number": 2,
+        "active": true,
+        "reading": "fresh",
+        "fetchedAt": "2026-01-16T07:20:00.000Z",
+        "source": "live",
+        "lines": [
+          {
+            "kind": "session",
+            "percent": 26.0,
+            "resetsAt": "2026-01-16T10:29:00.000Z",
+            "pending": false,
+            "atLeast": false
+          },
+          {
+            "kind": "fableWeek",
+            "percent": 13.0,
+            "resetsAt": "2026-01-18T01:20:00.000Z",
+            "pending": false,
+            "atLeast": false
+          }
+        ],
+        "windows": [
+          {
+            "kind": "session",
+            "percent": 26.0,
+            "resetsAt": "2026-01-16T10:29:00.000Z",
+            "pending": false,
+            "atLeast": false
+          },
+          {
+            "kind": "week",
+            "percent": 61.0,
+            "resetsAt": "2026-01-21T03:00:00.000Z",
+            "pending": false,
+            "atLeast": false
+          },
+          {
+            "kind": "fableWeek",
+            "percent": 13.0,
+            "resetsAt": "2026-01-18T01:20:00.000Z",
+            "pending": false,
+            "atLeast": false
+          }
+        ]
+      },
+      {
+        "number": 3,
+        "active": false,
+        "reading": "fresh",
+        "fetchedAt": "2026-01-16T07:16:40.000Z",
+        "source": "list",
+        "lines": [
+          {
+            "kind": "session",
+            "percent": 100.0,
+            "resetsAt": null,
+            "pending": false,
+            "atLeast": false
+          },
+          {
+            "kind": "fableWeek",
+            "percent": 50.0,
+            "resetsAt": "2026-01-16T20:20:00.000Z",
+            "pending": false,
+            "atLeast": false
+          }
+        ],
+        "windows": []
+      },
+      {
+        "number": 4,
+        "active": false,
+        "reading": "fresh",
+        "fetchedAt": "2026-01-16T07:15:00.000Z",
+        "source": "list",
+        "lines": [
+          {
+            "kind": "session",
+            "percent": 98.0,
+            "resetsAt": "2026-01-16T10:09:00.000Z",
+            "pending": false,
+            "atLeast": false
+          },
+          {
+            "kind": "fableWeek",
+            "percent": 98.0,
+            "resetsAt": null,
+            "pending": false,
+            "atLeast": true
+          }
+        ],
+        "windows": []
+      }
+    ],
+    "pool": {
+      "kind": "active",
+      "percent": 26.0,
+      "line": "session",
+      "scope": null,
+      "nextRefillAt": "2026-01-16T10:29:00.000Z",
+      "exhausted": false,
+      "reason": null
+    },
+    "generatedAt": "2026-01-16T07:20:00.000Z",
+    "newestReadingAt": "2026-01-16T07:20:00.000Z",
+    "stale": false,
+    "source": null
+  },
+  "agy": {
+    "status": "notSetUp",
+    "reason": null,
+    "accounts": [],
+    "pool": {
+      "kind": "none",
+      "percent": null,
+      "line": null,
+      "scope": null,
+      "nextRefillAt": null,
+      "exhausted": false,
+      "reason": null
+    },
+    "generatedAt": "2026-01-16T07:20:00.000Z",
+    "newestReadingAt": null,
+    "stale": false,
+    "source": null
+  },
+  "codex": {
+    "status": "notSetUp",
+    "reason": null,
+    "accounts": [],
+    "pool": {
+      "kind": "none",
+      "percent": null,
+      "line": null,
+      "scope": null,
+      "nextRefillAt": null,
+      "exhausted": false,
+      "reason": null
+    },
+    "generatedAt": "2026-01-16T07:20:00.000Z",
+    "newestReadingAt": null,
+    "stale": false,
+    "source": null
+  },
+  "keychain": "granted"
+}

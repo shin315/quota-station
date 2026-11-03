@@ -13,6 +13,7 @@ const sheet = (m: Model, slot: number, sessions: Sessions | null) =>
   claudeSheet(
     m,
     slot,
+    '60',
     sessions,
     FIXTURE_NOW,
   );
@@ -21,6 +22,7 @@ const feedback = (outcome: Outcome, m: Model = model) =>
   switchFeedback(
     outcome,
     m,
+    FIXTURE_NOW,
   );
 
 describe('dayClock', () => {

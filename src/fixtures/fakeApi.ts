@@ -65,6 +65,9 @@ import type {
   SettingsGroup,
   Tab,
 } from '../lib/model';
+import type { AuthorModel } from '@/lib/advanced';
+import { comparisonFixture, copyDoneFixture, copyUndoneFixture } from '@/copy/fakeCopy';
+import type { CopyComparison, PeerView, RotationView, RulesError, UpdateError, UpdateOutcome } from '../lib/model';
 
 export interface FakeOptions {
   /** A test build's guided session: where the guide was, and what the PC has. */
@@ -73,14 +76,23 @@ export interface FakeOptions {
   reduceTransparency?: boolean;
   /** macOS increases contrast: the edges are drawn stronger. */
   increaseContrast?: boolean;
+  /** Aliases SSH cannot reach: a save leaves them behind, and "Thử SSH" fails. */
+  unreachable?: string[];
+  /** What a save, adopt or keep rejects with, instead of writing. */
+  rulesError?: RulesError;
+  /** How long a save takes; the preview waits to show "Đang lưu…". */
+  saveDelayMs?: number;
   /** When an action happens, for the stamps it writes. */
   clock?: () => Date;
+  /** `Thoát Quota Station` was chosen before the window listened. */
+  quitPending?: boolean;
   /** How long a switch takes before it reports; the preview waits to show the working sheet. */
   switchDelayMs?: number;
   sessions?: Sessions | null;
   /** What a switch reports; by default it lands on the slot asked for. */
   outcome?: (
     slot: number,
+    holdUntil: string | null,
   ) => Outcome;
   /** The error kind a Claude account action ends with; none lands it. */
   claudeFail?: (action: ClaudeAccountAction) => string | null;
@@ -130,6 +142,10 @@ export interface FakeOptions {
   history?: HistoryEntry[];
   /** macOS waits for the owner's approval after the login switch is turned on. */
   loginApproval?: boolean;
+  /** How "Cập nhật từ mã nguồn" ends; by default it installs 0.1.1 from a new commit. */
+  update?: () => UpdateOutcome | UpdateError;
+  /** How long each update step takes; the preview waits to show them. */
+  updateDelayMs?: number;
   /** A write finds a file changed since the preview: nothing is written. */
   mcpChanged?: boolean;
   /** How long an MCP preview or write takes. */
@@ -148,6 +164,14 @@ export interface FakeOptions {
   skillsDelayMs?: number;
   /** Skills `npx skills update` fails for, in "Cập nhật tất cả" and "Cập nhật cả bộ". */
   skillsUpdateFail?: string[];
+  /** Chép sang Mac khác (M13): Macs that do not answer, run version 1, or have no app. */
+  copyUnreach?: string[];
+  copyOld?: string[];
+  copyNoApp?: string[];
+  /** A copy finds the other Mac's file changed since the comparison: nothing is written. */
+  copyChanged?: boolean;
+  /** How long a comparison, a copy and its undo take. */
+  copyDelayMs?: number;
   /** How long "Kiểm lại" takes (M14). */
   envDelayMs?: number;
   /** "Gỡ" will not take these ids out, and why. */
@@ -170,14 +194,20 @@ export interface FakeOptions {
 
 const said = (title: string, body: string): AlertSaid => ({ tone: 'info', title, body });
 
-/** The sample "Gửi thử" sends: modelled on the Rust side's `alerts::sample`, with shorter words. */
-function sample(kind: AlertKind, at: number): Alert {
+/**
+ * The sample "Gửi thử" sends: modelled on the Rust side's `alerts::sample`, with shorter words.
+ * `rotation`: the build has the advanced part, whose alert 1 counts the quota in rotation.
+ */
+function sample(kind: AlertKind, at: number, rotation: boolean): Alert {
   const base = { key: 'test:' + kind + ':' + at, kind, at, test: true };
   switch (kind) {
     case 'pool': {
       let pool = { title: 'Hạn mức Claude sắp cạn', body: 'Thử: tài khoản đang dùng còn 8%.', to: 'Sang tài khoản 3 (còn 19%)' };
+      if (rotation) pool = { title: 'Hạn mức Claude trong vòng sắp cạn', body: 'Thử: còn tương đương 0,4 tài khoản.', to: 'Sang Cá nhân (còn 19%)' };
       return { ...base, tone: 'bad', title: pool.title, body: pool.body, actions: [{ id: 'switch:0', label: pool.to }, { id: 'dismiss', label: 'Bỏ qua' }] };
     }
+    case 'leaving':
+      return { ...base, tone: 'warn', title: 'Team A rời vòng sau 30 phút', body: 'Thử: còn 30 phút.', actions: [{ id: 'dismiss', label: 'Ổn' }, { id: 'switch:0', label: 'Chuyển ngay' }] };
     case 'login':
       return { ...base, tone: 'warn', title: 'Team B cần đăng nhập lại', body: 'Thử: đăng nhập hết hạn sau 2 ngày.', actions: [{ id: 'snooze', label: 'Nhắc ngày mai' }, { id: 'dismiss', label: 'Đã biết' }] };
     case 'overwrite':
@@ -220,10 +250,26 @@ export function hideNames(m: Model): Model {
   };
 }
 
+/** RFC 3339 cut to the minute, as the pause flag keeps it. */
+function minute(iso: string): string {
+  const d = new Date(iso);
+  d.setSeconds(0, 0);
+  return d.toISOString();
+}
 
+/** The stamp's form: this Mac's offset, to the second. */
+function stampAt(d: Date): string {
+  const p = (n: number) => String(Math.abs(n)).padStart(2, '0');
+  const off = -d.getTimezoneOffset();
+  return (
+    d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds()) +
+    (off < 0 ? '-' : '+') + p(Math.trunc(off / 60)) + ':' + p(off % 60)
+  );
+}
 
 /** The model of a build with the Antigravity accounts, as the fixtures are. */
 type Full = Model &
+  AuthorModel &
   Required<Pick<Model, 'antigravity' | 'agySwitch'>>;
 
 export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: FakeOptions = {}) {
@@ -232,14 +278,21 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
   const named = initial.snapshot;
   let tab = initialTab;
   let settingsGroup: SettingsGroup = 'general';
+  let version = 1;
   const now = options.clock ?? (() => new Date());
   const listeners = new Set<(m: Model) => void>();
   const tabListeners = new Set<(t: Tab) => void>();
+  const closeListeners = new Set<() => void>();
   const openSwitchListeners = new Set<(slot: number) => void>();
+  const quitListeners = new Set<() => void>();
   const materialListeners = new Set<(on: boolean) => void>();
   let reduceTransparency = options.reduceTransparency ?? false;
   const contrastListeners = new Set<(on: boolean) => void>();
   let increaseContrast = options.increaseContrast ?? false;
+  /** What the last `closeMain` did: the tests check a quit really quits. */
+  let closed: 'window' | 'app' | null = null;
+  let quitPending = options.quitPending ?? false;
+  let relaunched = 0;
   let session: SessionView = {
     on: false,
     step: null,
@@ -258,6 +311,27 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
   let lastSetUndo: { mcp: McpOutcome['undo']; skills: SkillOutcome['undo']; codexBefore: string | null } | null = null;
   let removedSet: { set: SetsView['sets'][number]; index: number; applied: SetsView['applied'] } | null = null;
   const setsWait = () => (options.setsDelayMs ? new Promise((r) => setTimeout(r, options.setsDelayMs)) : Promise.resolve());
+  const delay = () => (options.saveDelayMs ? new Promise((r) => setTimeout(r, options.saveDelayMs)) : Promise.resolve());
+  /** Every Mac SSH reaches takes the file; the others wait 5 minutes. */
+  const sent = (peers: PeerView[]): PeerView[] =>
+    peers.map((p) => ({
+      ...p,
+      current: true,
+      pushing: false,
+      theirRules: null,
+      state: options.unreachable?.includes(p.alias)
+        ? { kind: 'unreachable', error: 'ssh: connect to host ' + p.alias + ' port 22: Operation timed out', retryAt: new Date(now().getTime() + 300000).toISOString() }
+        : { kind: 'synced', at: now().toISOString() },
+    }));
+  const write = async (base: string | null, next: (r: RotationView) => Partial<RotationView>) => {
+    await delay();
+    if (options.rulesError) throw options.rulesError;
+    if (base !== model.rotation.version) throw { kind: 'changed', detail: null, restored: false } satisfies RulesError;
+    version += 1;
+    const r = model.rotation;
+    push({ ...model, rotation: { ...r, status: 'ok', reason: null, version: 'v' + version, peers: sent(r.peers), ...next(r) } });
+    return model;
+  };
   const push = (next: Model) => {
     model = next as Full;
     listeners.forEach((l) => l(model));
@@ -270,6 +344,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
   let endLogin: ((how: 'paste' | 'cancel' | 'self') => void) | null = null;
   /** Ends the waiting Codex sign-in: its own end, or "Thôi". */
   let codexLoginEnd: ((how: 'self' | 'cancel') => void) | null = null;
+  let lastCopy: CopyComparison | null = null;
   /** The pages "Tải và cài", "Mở trang Releases" and the bug form opened. */
   const released: string[] = [];
   const finished: string[] = [];
@@ -309,9 +384,14 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
         had.has(r.slot)
           ? {
               ...had.get(r.slot)!,
+              disabled: !r.enabled,
             }
           : {
               number: r.slot,
+              role: 'unknown',
+              disabled: !r.enabled,
+              membership: 'unknown',
+              leavesAt: null,
               active: r.active,
               reading: 'noData',
               fetchedAt: null,
@@ -326,6 +406,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
   const claudeRow = (slot: number, over: Partial<ClaudeAccountRow> = {}): ClaudeAccountRow => ({
     slot,
     alias: null,
+    enabled: true,
     active: false,
     kind: 'login',
     status: 'noData',
@@ -370,21 +451,28 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
     claudeSessions: async () => (options.sessions === undefined ? { live: 5, unreadable: 0 } : options.sessions),
     switchClaude: async (
       slot,
+      holdUntil,
     ) => {
       push({ ...model, claudeSwitch: { ...model.claudeSwitch, busy: slot } });
       if (options.switchDelayMs) await new Promise((r) => setTimeout(r, options.switchDelayMs));
       const outcome: Outcome = options.outcome?.(
         slot,
+        holdUntil,
       ) ?? {
         kind: 'switched',
         slot,
+        hold: holdUntil ? { until: minute(holdUntil), failed: false } : null,
       };
       const lands = outcome.kind === 'switched' || outcome.kind === 'unconfirmed' ? slot : outcome.kind === 'raced' ? outcome.active : null;
+      const hold = outcome.kind !== 'failed' && outcome.hold && !outcome.hold.failed ? outcome.hold : null;
       const accounts = model.snapshot.claude.accounts.map((a) => (lands == null ? a : { ...a, active: a.number === lands }));
       push({
         ...model,
         snapshot: { ...model.snapshot, claude: { ...model.snapshot.claude, accounts } },
         claudeSwitch: { ...model.claudeSwitch, busy: null },
+        switcher: hold
+          ? { ...model.switcher, pause: { until: hold.until, reason: 'chuyển tay sang tài khoản ' + slot + ' lúc 14:20', holds: true } }
+          : model.switcher,
       });
       return outcome;
     },
@@ -399,10 +487,13 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
               updated: [],
               unchanged: [],
               skipped: [],
+              rotation: true,
+              prime: false,
             },
           },
           model: {
             claudeSwitch: { ...model.claudeSwitch, ready: true },
+            switcher: { ...model.switcher, installed: true },
           },
         };
       }),
@@ -433,6 +524,91 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
         v.accounts.find((a) => a.slot === slot)?.active ? 'active' : { view: { accounts: v.accounts.filter((a) => a.slot !== slot) }, done: { slot } },
       ),
     claudeSetAlias: (slot, alias) => claudeRun('alias', editRow(slot, (r) => ({ ...r, alias: alias.trim() || null }))),
+    claudeSetEnabled: (slot, enabled) => claudeRun('enabled', editRow(slot, (r) => ({ ...r, enabled }))),
+    claudeSetRotation: (on) =>
+      claudeRun('rotation', (v) =>
+        on && v.legacy
+          ? 'legacy'
+          : { view: { rotation: on }, model: { switcher: { ...model.switcher, service: on } } },
+      ),
+    pauseSwitching: async (until) => {
+      push({
+        ...model,
+        switcher: {
+          ...model.switcher,
+          pause: { until: until && minute(until), reason: 'tạm dừng trong Quota Station lúc 14:20', holds: true },
+        },
+      });
+      return model;
+    },
+    extendPause: async (minutes) => {
+      const p = model.switcher.pause;
+      if (!p?.until) throw new Error('noEnd');
+      const until = new Date(new Date(p.until).getTime() + minutes * 60000).toISOString();
+      push({ ...model, switcher: { ...model.switcher, pause: { ...p, until } } });
+      return model;
+    },
+    resumeSwitching: async () => {
+      push({ ...model, switcher: { ...model.switcher, pause: null } });
+      return model;
+    },
+    saveRotation: (rules, base) => write(base, () => ({ rules, stamp: { at: stampAt(now()), machine: model.machine } })),
+    adoptRotation: (alias, base) => {
+      const peer = model.rotation.peers.find((p) => p.alias === alias);
+      // Stamped again by this Mac, as the Rust side does, so it goes out as the newest copy.
+      return write(base, (r) => ({ rules: peer?.theirRules ?? r.rules, stamp: { at: stampAt(now()), machine: model.machine } }));
+    },
+    keepRotation: (base) => write(base, () => ({ stamp: { at: stampAt(now()), machine: model.machine } })),
+    retryRotation: async () => {
+      // A newer or hand-edited copy waits for the owner, as on the Rust side.
+      const waits = (p: PeerView) => p.current && (p.state?.kind === 'newer' || p.state?.kind === 'edited');
+      const tried = sent(model.rotation.peers);
+      push({ ...model, rotation: { ...model.rotation, peers: model.rotation.peers.map((p, i) => (waits(p) ? p : tried[i])) } });
+      return model;
+    },
+    setPeers: async (peers) => {
+      if (peers.length > 8) throw 'tooMany';
+      const bad = peers.findIndex((p) => !/^[A-Za-z0-9][A-Za-z0-9._@-]*$/.test(p.alias.trim()));
+      if (bad >= 0) throw 'badAlias:' + bad;
+      const lower = peers.map((p) => p.alias.trim().toLowerCase());
+      const same = lower.findIndex((a, i) => lower.indexOf(a) < i);
+      if (same >= 0) throw 'sameAlias:' + same;
+      const known = new Map(model.rotation.peers.map((p) => [p.alias, p]));
+      const next = peers.map((p): PeerView => {
+        const alias = p.alias.trim();
+        const was = known.get(alias);
+        return { ...(was ?? { state: null, current: false, theirRules: null, pushing: false }), name: p.name.trim() || alias, alias };
+      });
+      push({ ...model, rotation: { ...model.rotation, peers: next } });
+      return model;
+    },
+    testPeer: async (alias) =>
+      options.unreachable?.includes(alias)
+        ? { reached: false, error: 'timeout', hasFile: false, stamp: null }
+        : { reached: true, error: null, hasFile: true, stamp: model.rotation.stamp },
+    previewRotation: async (rules) => {
+      const active = model.snapshot.claude.accounts.find((a) => a.active)?.number ?? 0;
+      if (rules.team.includes(active) || rules.personal === active) return { decision: { kind: 'stay' }, raw: 'stay' };
+      const next = rules.team[0];
+      return { decision: { kind: 'switch', slot: next, why: { kind: 'room', used: 0, ends: null } }, raw: 'switch ' + next + ' (0.0%, window not started)' };
+    },
+    rulesDirty: async () => {},
+    closeMain: async (quit) => {
+      closed = quit ? 'app' : 'window';
+    },
+    onCloseRequested: async (handler) => {
+      closeListeners.add(handler);
+      return () => closeListeners.delete(handler);
+    },
+    takeQuit: async () => {
+      const asked = quitPending;
+      quitPending = false;
+      return asked;
+    },
+    onQuitRequested: async (handler) => {
+      quitListeners.add(handler);
+      return () => quitListeners.delete(handler);
+    },
     agyLogin: async () => {
       if (model.antigravity.loggingIn) throw { kind: 'busy', detail: '' } satisfies AgyLoginFailure;
       if (model.agySwitch.busy != null) throw { kind: 'switching', detail: '' } satisfies AgyLoginFailure;
@@ -1095,6 +1271,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       [
         'Quota Station ' + model.app.version + ' (' + (model.app.commit ?? 'no commit') + ') · MIT build',
         'macOS 26.1 · aarch64 · language auto' +
+          (model.advanced ? ' · Advanced ' + (model.advanced.on ? 'on' : 'off') : '') +
           '',
         'Claude Code: found · ' + model.claudeAccounts.accounts.length + ' account(s) kept · Keychain ' + model.snapshot.keychain,
         'Claude quota: ' + model.snapshot.claude.status + ', ' + model.snapshot.claude.accounts.length + ' account(s)',
@@ -1376,6 +1553,24 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       if (options.restoreDelayMs) await new Promise((r) => setTimeout(r, options.restoreDelayMs));
       return { part, id: item, agent, kind: '', ok: true, why: null, retry: false };
     },
+    copyCompare: async (alias) => {
+      if (options.copyDelayMs) await new Promise((r) => setTimeout(r, options.copyDelayMs));
+      if (options.copyUnreach?.includes(alias)) throw 'unreachable:ssh: connect to host ' + alias + ' port 22: Operation timed out';
+      if (options.copyOld?.includes(alias)) throw 'old';
+      if (options.copyNoApp?.includes(alias)) throw 'noApp';
+      const peer = model.rotation.peers.find((p) => p.alias === alias);
+      return (lastCopy = comparisonFixture(alias, peer?.name || alias));
+    },
+    copyRun: async (alias, _push, selection, keys) => {
+      if (options.copyDelayMs) await new Promise((r) => setTimeout(r, options.copyDelayMs));
+      if (options.copyChanged) throw 'changed:codex';
+      const c = lastCopy ?? comparisonFixture(alias, alias);
+      return copyDoneFixture(c, selection, keys, Math.floor(now().getTime() / 1000));
+    },
+    copyUndo: async () => {
+      if (options.copyDelayMs) await new Promise((r) => setTimeout(r, options.copyDelayMs));
+      return copyUndoneFixture();
+    },
     restoreUndo: async (force) => {
       if (!model.backup.restore) throw 'nothing';
       if (options.restoreUndoChanged && !force) throw 'changed:codex';
@@ -1406,6 +1601,8 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       else if (action === 'dismiss') {
         let again = 'Không nhắc lại cho lần này.';
         let back = 'Không lặp lại cho cùng sự kiện. Quota Station báo lại khi có lại hạn mức.';
+        if (record.alert.kind === 'leaving') again = 'Không nhắc lại cho lần rời vòng này.';
+        if (model.capabilities.authorTools) back = 'Không lặp lại cho cùng sự kiện. Quota Station báo lại khi hạn mức trong vòng có lại.';
         result = record.alert.kind === 'pool' ? said('Đã bỏ qua thông báo này', back) : said('Đã ghi nhận', again);
       }
       else if (action === 'snooze') result = said('Sẽ nhắc lại lúc 09:00 ngày mai', 'Thứ Bảy 17/01.');
@@ -1484,7 +1681,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       push({ ...model, alerts: { ...model.alerts, recent, unread: 0 } });
     },
     testAlert: async (kind) => {
-      const alert = sample(kind, Math.floor(now().getTime() / 1000));
+      const alert = sample(kind, Math.floor(now().getTime() / 1000), model.capabilities.authorTools === true);
       const record: AlertRecord = { id: alert.key + '@' + alert.at, alert, notified: model.alerts.permission === 'allowed', answer: null, read: false };
       const recent = [record, ...model.alerts.recent.filter((r) => r.id !== record.id)].slice(0, 30);
       push({ ...model, alerts: { ...model.alerts, recent, unanswered: unanswered(recent), unread: unread(recent) } });
@@ -1501,6 +1698,10 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       push({ ...model, alerts: { ...model.alerts, poolAlert: { dryAtMost, roomAtLeast } } });
       return model;
     },
+    setAdvanced: async (on) => {
+      push({ ...model, advanced: { ...model.advanced, on } });
+      return model;
+    },
     settingsOpened: async () => {},
     setLaunchAtLogin: async (on) => {
       if (model.app.launchAtLogin === 'unavailable') throw 'unavailable';
@@ -1508,6 +1709,42 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       return model;
     },
     openLoginItems: async () => {},
+    // A clone is a path ending in `quota-station`; `nowhere` has no folder.
+    setSourceDir: async (path) => {
+      const p = path.trim();
+      if (!p) {
+        push({ ...model, app: { ...model.app, source: null, sourceStatus: 'notSet' } });
+        return model;
+      }
+      if (p.includes('nowhere')) throw 'missing';
+      if (!/quota-station\/?$/.test(p)) throw 'notSource';
+      push({ ...model, app: { ...model.app, source: p, sourceStatus: 'ok' } });
+      return model;
+    },
+    updateFromSource: async () => {
+      if (model.app.updating) throw 'busy';
+      if (!model.app.bundled) throw 'unbundled';
+      if (model.app.sourceStatus !== 'ok') throw 'noSource';
+      const ends = options.update?.() ?? { kind: 'installed', commit: 'b2c3d4e5f60718293a4b5c6d7e8f901234567890', version: '0.1.1' };
+      const wait = () => (options.updateDelayMs ? new Promise((r) => setTimeout(r, options.updateDelayMs)) : Promise.resolve());
+      push({ ...model, app: { ...model.app, updating: 'pulling', outcome: null, error: null } });
+      await wait();
+      const pulled = ends.kind !== 'upToDate' && ends.kind !== 'pull' && ends.kind !== 'source' && !(ends.kind === 'timeout' && ends.step === 'pulling');
+      if (pulled) {
+        push({ ...model, app: { ...model.app, updating: 'installing' } });
+        await wait();
+      }
+      const done = ends.kind === 'upToDate' || ends.kind === 'installed';
+      push({
+        ...model,
+        app: { ...model.app, updating: null, outcome: done ? (ends as UpdateOutcome) : null, error: done ? null : (ends as UpdateError) },
+      });
+      return model;
+    },
+    relaunch: async () => {
+      if (model.app.outcome?.kind !== 'installed') throw 'notInstalled';
+      relaunched += 1;
+    },
     getHistory: async () => options.history ?? [],
     notifyRefresh: async () => {},
     openNotificationSettings: async () => {},
@@ -1590,6 +1827,13 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       sessionCalls.push({ call: 'reveal' });
     },
   };
+  /** The window's close button, as macOS would press it with unsaved rules. */
+  const requestClose = () => closeListeners.forEach((l) => l());
+  /** `Thoát Quota Station` in the menu bar menu with unsaved rules. */
+  const requestQuit = () => {
+    quitPending = true;
+    quitListeners.forEach((l) => l());
+  };
   /** The owner turns Reduce Transparency on or off in macOS's settings. */
   const setReduceTransparency = (on: boolean) => {
     reduceTransparency = on;
@@ -1611,6 +1855,11 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
     api,
     push,
     current: () => model,
+    requestClose,
+    requestQuit,
+    closed: () => closed,
+    /** How many times "Mở lại" quit the app. */
+    relaunched: () => relaunched,
     cardOpensSwitch,
     cardOpened,
     setReduceTransparency,

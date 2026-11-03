@@ -93,12 +93,15 @@ describe('main window', () => {
     const rows = within(claude).getAllByRole('listitem');
     expect(rows).toHaveLength(4);
     let active = /^lan\.acme1, đang dùng\./;
+    active = /^lan\.acme1, Acme Studio, đang dùng\./;
     expect(rows[1].getAttribute('aria-label')).toMatch(active);
     expect(within(rows[1]).queryByRole('button')).toBeNull();
     // Fixed columns: 5 giờ · Tuần · Fable tuần, whatever window is tightest.
     const header = claude.querySelector('.wt-r.h')!;
     expect(Array.from(header.children).map((c) => c.textContent)).toEqual(['Tài khoản', '5 giờ', 'Tuần', 'Fable tuần', '']);
     expect(Array.from(rows[0].querySelectorAll('.wc b')).map((b) => b.textContent)).toEqual(['0%', '0%', '4%']);
+    // The account leaving the rotation keeps its chip.
+    expect(rows[1].getAttribute('aria-label')).toMatch(/rời vòng 17:45$/);
     expect(within(screen.getByRole('list', { name: 'Antigravity' })).getAllByRole('listitem')).toHaveLength(2);
 
 
@@ -129,6 +132,7 @@ describe('main window', () => {
     await open(hideNames(fixtureModel('fresh')), 'claude');
     const rows = within(screen.getByRole('list', { name: 'Claude Code' })).getAllByRole('listitem');
     let names = ['Tài khoản 1', 'Tài khoản 2', 'Tài khoản 3', 'Tài khoản 4'];
+    names = ['Cá nhân', 'Team A', 'Team B', 'Team C'];
     expect(rows.map((r) => r.querySelector('.an b')!.textContent)).toEqual(names);
     expect(document.body.textContent).not.toContain('@');
     expect(document.body.textContent).not.toContain('Acme');
@@ -292,6 +296,7 @@ describe('main window', () => {
     const fake = await open(fixtureModel('fresh'));
     act(() => fake.push(fixtureModel('exhausted')));
     let dry = 'Hạn mức Claude sắp cạn';
+    dry = 'Hạn mức Claude trong vòng đã cạn';
     expect(screen.getByText(dry)).toBeTruthy();
     expect(screen.getAllByText('96%').length).toBeGreaterThan(0);
   });

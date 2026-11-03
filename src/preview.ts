@@ -5,6 +5,7 @@
 // fixture, without Tauri. `?state=keychain&view=window&tab=claude`.
 // Switching (M3): `outcome=raced|failed|busy|unconfirmed` is what a switch reports, and
 // `accounts=none` shows a Mac where Quota Station keeps no Claude account yet. A switch takes 1.5 s, so the working sheet shows.
+// `switcher=held|noguard|auto|stopped|missing` sets the switcher.
 // Claude accounts: `claude=relogin` has account 3 to sign in again, `claude=renew` makes a sign-in land on
 // account 1 (already here), `claude=fail` ends a sign-in without one; an action takes 3 s.
 // GitHub Releases: `release=avail|later|skipped|offline|none|off` (up to date by default); "Kiểm tra bản mới"
@@ -12,6 +13,8 @@
 // (no Antigravity accounts), whose dialog offers the DMG.
 // The first run: `setup=on` (the fixture's Mac, its accounts not kept yet: the one signed in is
 // taken at the Claude step), `setup=signedout` (Claude Code signed in to none), `setup=none` (no agent).
+// Rotation rules (M5): `tab=rules` with `rotation=unreachable|newer|edited|unstamped|missing|invalid|unwritable|single`;
+// a save takes 1 s, and `unreachable` leaves Mac C behind.
 // Antigravity logins (M4a) and reads (M4b): `agy=two|relogin|verify|noclient|tooopen|invalid|broken|reading|failing|forbidden`
 // sets the login card, `login=timeout|noRefreshToken|keychain|…` how a login ends
 // (it keeps the next account after 3 s by default, or at once on any pasted
@@ -27,6 +30,8 @@
 // by default on `tab=alerts`; `off` is macOS refusing the cards; `many`,
 // twelve not read yet, `9+` on the bell).
 // The app itself (M7), on `tab=settings`: `app=on|approval|unavailable` sets the login switch.
+// `app=nosource|unbundled` sets the clone, and `update=uptodate|pull|install|timeout` how
+// "Cập nhật từ mã nguồn" ends (by default it installs 0.1.1). Each step takes 1.5 s.
 // Codex (M8): `codex=chatgpt|ccswitch|down|external|nologin|nokey|placeholder|header|envkey|noplugins|broken|none`
 // sets the six states of the design and more (Codex goes through the made-up `relay` by
 // default), and `codexoutcome=changed|refused` what a switch reports. A switch or a
@@ -57,6 +62,10 @@
 // (`sets`: acme/agent-skills has two newer versions too, for "Cập nhật cả bộ");
 // `skillsoutcome=changed` for a write that finds a folder changed, `skillsoutcome=updatefail`
 // for an update of release-notes that fails. npx and a write take 0.8 s.
+// Chép sang Mac khác (M13): `tab=copy` with the made-up Macs "MacBook Air" (`travel-air`) and
+// "Studio iMac" (`studio-imac`), and `copy=unreach|old|noapp|none|changed`: the first Mac does
+// not answer, runs version 1, has no app; no Mac in settings; a copy finds a file changed.
+// A comparison, a copy and its undo take 0.9 s.
 // Variables that override a login (M14): `env=found|claude2|launchd|unread|unchecked` (none set by
 // default), shown on `tab=settings` (the card), `tab=claude` (the banner) and with `alerts=env`.
 // Bộ cấu hình (M15): `tab=sets` with three made-up sets, Web app applied and drifted by one
@@ -105,6 +114,8 @@ import {
   historyFixture,
   overwriteAlert,
 } from './fixtures/models';
+import type { UpdateError, UpdateOutcome } from './lib/model';
+import { communityModel, heldSwitcher, leavingAlert, peerFixture, rotationFixture, rulesFixture, switcherFixture } from './fixtures/models';
 
 const TABS: Tab[] = [
   'overview',
@@ -122,6 +133,8 @@ const TABS: Tab[] = [
   'cliTools',
   'backup',
   'settings',
+  'rules',
+  'copy',
 ];
 
 const SKILLS: Record<string, () => Model['skills']> = {
@@ -233,6 +246,8 @@ const CODEX_OUTCOMES: Record<string, (target: CodexTarget) => CodexOutcome> = {
 
 /** The bell's other card beside the overwritten Antigravity switch: a variable over a login. */
 let otherAlert = (): AlertRecord => envAlert(API_KEY);
+// Team A leaving the rotation, with the advanced part.
+otherAlert = () => leavingAlert();
 
 const ALERTS: Record<string, () => Model['alerts']> = {
   on: () => alertsFixture({ recent: [overwriteAlert(), otherAlert()], unanswered: 2 }),
@@ -245,6 +260,7 @@ const ALERTS: Record<string, () => Model['alerts']> = {
         const at = 1768547700 - i * 2400;
         const base = i % 2 ? overwriteAlert() : otherAlert();
         let title = base.alert.title;
+        if (!(i % 2)) title = 'Team A rời vòng lúc ' + new Date((at + 7 * 3600) * 1000).toISOString().slice(11, 16);
         return { ...base, id: base.alert.key + ':' + i + '@' + at, alert: { ...base.alert, key: base.alert.key + ':' + i, title, at } };
       }),
       unanswered: 12,
@@ -260,7 +276,10 @@ const APPS: Record<string, () => Model['app']> = {
     appFixture({
       launchAtLogin: 'unavailable',
       commit: null,
+      bundled: false,
     }),
+  nosource: () => appFixture({ source: null, sourceStatus: 'notSet' }),
+  unbundled: () => appFixture({ bundled: false, launchAtLogin: 'unavailable', commit: null }),
 };
 
 const CLI_FAILS: CliFailure[] = ['offline', 'permission', 'busy', 'exit', 'timeout', 'unchanged', 'started', 'sessions'];
@@ -271,9 +290,49 @@ const CLI_FAIL_DETAIL: Record<string, string> = {
   exit: 'Error: Download failed on Cask \'codex\' with message: SHA256 mismatch (mã 1)',
 };
 
+const UPDATES: Record<string, () => UpdateOutcome | UpdateError> = {
+  uptodate: () => ({ kind: 'upToDate', commit: 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678' }),
+  pull: () => ({ kind: 'pull', detail: 'fatal: Not possible to fast-forward, aborting.' }),
+  install: () => ({ kind: 'install', detail: 'cargo tauri build failed' }),
+  timeout: () => ({ kind: 'timeout', step: 'installing' }),
+};
 
+const RETRY = '2026-01-16T07:21:40.000Z';
+const NEWER = { at: '2026-01-16T14:11:00+07:00', machine: 'Mac B' };
 
+const ROTATIONS: Record<string, () => Model['rotation']> = {
+  unreachable: () =>
+    rotationFixture({
+      stamp: { at: '2026-01-16T14:16:00+07:00', machine: 'Mac Studio' },
+      peers: [
+        peerFixture('Mac B', 'mac-b', { state: { kind: 'synced', at: '2026-01-16T07:16:04.000Z' } }),
+        peerFixture('Mac C', 'mac-c', { state: { kind: 'unreachable', error: 'ssh: connect to host mac-c port 22: Operation timed out', retryAt: RETRY } }),
+      ],
+    }),
+  unstamped: () =>
+    rotationFixture({
+      peers: [peerFixture('Mac B', 'mac-b'), peerFixture('Mac C', 'mac-c', { state: { kind: 'edited', their: null }, theirRules: null })],
+    }),
+  newer: () =>
+    rotationFixture({
+      peers: [peerFixture('Mac B', 'mac-b', { state: { kind: 'newer', their: NEWER }, theirRules: rulesFixture({ full: 88, personalTo: 21 }) }), peerFixture('Mac C', 'mac-c')],
+    }),
+  edited: () =>
+    rotationFixture({
+      peers: [peerFixture('Mac B', 'mac-b'), peerFixture('Mac C', 'mac-c', { state: { kind: 'edited', their: { at: '2026-01-16T14:02:00+07:00', machine: 'Mac Studio' } }, theirRules: rulesFixture({ team: [3, 4] }) })],
+    }),
+  missing: () => rotationFixture({ status: 'missing', rules: null, version: null, stamp: null, peers: [peerFixture('Mac B', 'mac-b', { state: null, current: false }), peerFixture('Mac C', 'mac-c', { state: null, current: false })] }),
+  invalid: () => rotationFixture({ status: 'invalid', rules: null, reason: 'rotation_bad_value:personal_hours', stamp: null }),
+  single: () => rotationFixture({ peers: [] }),
+};
 
+const SWITCHERS: Record<string, () => Model['switcher']> = {
+  held: () => heldSwitcher(),
+  noguard: () => heldSwitcher({ dryRun: { decision: { kind: 'stay' }, raw: 'stay', at: '2026-01-16T07:19:40.000Z' }, guard: false }),
+  auto: () => switcherFixture({ legacy: 'com.cswap.prefer-team' }),
+  stopped: () => switcherFixture({ service: false }),
+  missing: () => switcherFixture({ installed: false, dryRun: null, lastLog: null, service: null }),
+};
 
 const AGY: Record<string, () => AgyAccounts> = {
   two: () => agyFixture({ accounts: [agyAccount(1), agyAccount(2)] }),
@@ -296,24 +355,32 @@ const AGY: Record<string, () => AgyAccounts> = {
 
 const LOGIN_ENDS = ['timeout', 'cancelled', 'noCode', 'stateMismatch', 'noRefreshToken', 'invalidGrant', 'network', 'keychain', 'index', 'browser'];
 
+/** The hold a switch writes: to the minute, as the pause flag keeps it. */
+const holdOf = (until: string | null) =>
+  until ? { until: new Date(Math.floor(Date.parse(until) / 60000) * 60000).toISOString(), failed: false } : null;
 
 const OUTCOMES: Record<string, NonNullable<FakeOptions['outcome']>> = {
   // Another switch puts back an account other than the one asked for.
   raced: (
     slot,
+    holdUntil,
   ) => ({
     kind: 'raced',
     slot,
     active: slot === 2 ? 3 : 2,
+    bySwitcherAt: '2026-01-16T07:21:00.000Z',
+    hold: holdOf(holdUntil),
   }),
   failed: (slot) => ({ kind: 'failed', slot, error: 'noCredential', detail: '', active: null }),
   // Claude Code held its login locks, so nothing was written.
   busy: (slot) => ({ kind: 'failed', slot, error: 'busy', detail: '', active: null }),
   unconfirmed: (
     slot,
+    holdUntil,
   ) => ({
     kind: 'unconfirmed',
     slot,
+    hold: holdOf(holdUntil),
   }),
 };
 
@@ -348,9 +415,13 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
   const tab = TABS.find((t) => t === params.get('tab')) ?? 'overview';
   const view = params.get('view') === 'window' ? 'window' : 'popover';
   const over: Partial<Model> = {};
+  const switcher = pick(SWITCHERS, params.get('switcher'));
+  if (switcher) over.switcher = switcher();
   if (params.get('accounts') === 'none') {
     over.claudeSwitch = { ready: false, busy: null };
     over.claudeAccounts = claudeAccountsFixture({ ready: false, accounts: [] });
+    over.claudeAccounts.rotation = false;
+    over.switcher = switcherFixture({ installed: false, service: false, dryRun: null, dryRunError: 'noAccounts' });
   }
   const rel = params.get('release');
   if (rel === 'avail' || rel === 'later' || rel === 'skipped') over.release = releaseAvailable(rel === 'later' ? { later: '0.3.0' } : rel === 'skipped' ? { skipped: '0.3.0' } : {});
@@ -365,6 +436,9 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
     over.claudeAccounts = claudeAccountsFixture({
       accounts: claudeAccountsFixture().accounts.map((a) => (a.slot === 3 ? { ...a, status: 'reloginRequired' as const } : a)),
     });
+  const rotation = params.get('rotation');
+  const rules = pick(ROTATIONS, rotation);
+  if (rules) over.rotation = rules();
   const agy = pick(AGY, params.get('agy'));
   if (agy) over.antigravity = agy();
   const agySwitch = params.get('agyswitch');
@@ -415,6 +489,11 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
   if (menubar === 'claude' || menubar === 'gemini' || menubar === 'codex') over.menubar = menubar;
   const mbwindow = params.get('mbwindow');
   if (mbwindow === 'fiveHours' || mbwindow === 'week' || mbwindow === 'fableWeek' || mbwindow === 'tightest') over.menubarWindow = mbwindow;
+  const copy = params.get('copy');
+  if (tab === 'copy' || copy) {
+    const peers = copy === 'none' ? [] : [peerFixture('MacBook Air', 'travel-air'), peerFixture('Studio iMac', 'studio-imac')];
+    over.rotation = rotationFixture({ peers });
+  }
   const setup = params.get('setup');
   if (setup) over.claudeAccounts = claudeAccountsFixture({ accounts: [], ready: false });
   const model = fixtureModel(SNAPSHOTS[state] ? state : 'fresh', over);
@@ -460,6 +539,7 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
     model.snapshot.codex = { ...codexSnap, accounts: [{ ...first, number: 1, email: 'lan.chatgpt1@example.com' }, ...extra] };
   }
   let release: Model = params.get('build') === 'release' ? { ...model, capabilities: { ...model.capabilities, agyAccounts: false } } : model;
+  if (release !== model) release = { ...communityModel(model), capabilities: { ...model.capabilities, agyAccounts: false, authorTools: false } };
   // `os=win`: the app as Windows draws it (W5); its title bar and tray are Windows' own.
   const built: Model = params.get('os') === 'win' ? { ...release, capabilities: { ...release.capabilities, platform: 'windows' } } : release;
   const { api } = fakeApi(params.get('email') === 'off' ? hideNames(built) : built, tab, {
@@ -476,6 +556,16 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
     claudeFail: claude === 'fail' ? (action) => (action === 'login' ? 'login' : null) : undefined,
     outcome: pick(OUTCOMES, params.get('outcome')),
     clock: () => FIXTURE_NOW,
+    saveDelayMs: 1000,
+    unreachable: rotation === 'unreachable' ? ['mac-c'] : [],
+    rulesError: rotation === 'unwritable' ? { kind: 'write', detail: 'Permission denied', restored: true } : undefined,
+    update: pick(UPDATES, params.get('update')),
+    updateDelayMs: 1500,
+    copyUnreach: copy === 'unreach' ? ['travel-air'] : [],
+    copyOld: copy === 'old' ? ['travel-air'] : [],
+    copyNoApp: copy === 'noapp' ? ['travel-air'] : [],
+    copyChanged: copy === 'changed',
+    copyDelayMs: 900,
     agyLoginDelayMs: 3000,
     agyLogin: ends ? () => ({ kind: ends, detail: '' }) : undefined,
     agyApp: agyApp !== null && Object.hasOwn(AGY_APPS, agyApp) ? AGY_APPS[agyApp] : undefined,

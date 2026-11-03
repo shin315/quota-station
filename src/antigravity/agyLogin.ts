@@ -96,6 +96,7 @@ export function agyReadLine(reading: boolean, error: AgyReadError | null): AgyRo
 export function agyRows(view: AgyAccounts): AgyRowView[] {
   const names = agyNames(
     view.accounts.map((a) => ({ number: a.number, email: a.email ?? undefined })),
+    true,
   );
   return view.accounts.map((a) => {
     const name = names.get(a.number)!;

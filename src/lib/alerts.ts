@@ -11,18 +11,30 @@ import { appName, osName, systemSettings, t } from './i18n';
 import type { AlertRecord, AlertTone, Model, NotifyPermission, SwitchKind } from './model';
 import { dayLabel } from './history';
 import type { BannerView, ChipView, FeedbackView } from './view';
+import { advancedOn } from './advanced';
 
 /**
  * The kinds, in the prototype's order and words. `agy`: this build
  * switches Antigravity, so the sign-in alert covers its accounts too.
+ * `rotation`: Nâng cao is on, so alert 1 counts the quota in rotation.
  */
-export function alertKindList(agy = true): { kind: SwitchKind; title: string; text: string }[] {
+export function alertKindList(agy = true, rotation = false): { kind: SwitchKind; title: string; text: string }[] {
   let pool = {
     title: t('Hạn mức Claude sắp cạn / có lại', 'Claude quota running out / back'),
     text: t('Khi hạn mức đã dùng từ 90% trở lên và khi có lại.', 'When the quota is 90% used or more, and when it is back.'),
   };
+  if (rotation)
+    pool = {
+      title: t('Hạn mức Claude trong vòng sắp cạn / có lại', 'Claude quota in rotation running out / back'),
+      text: t('Khi hạn mức trong vòng đã dùng từ 90% trở lên và khi có lại.', 'When the quota in rotation is 90% used or more, and when it is back.'),
+    };
   return [
     { kind: 'pool', ...pool },
+    {
+      kind: 'leaving',
+      title: t('Tài khoản sắp rời vòng', 'An account is about to leave rotation'),
+      text: t('30 phút trước giờ rời vòng trong file luật.', '30 minutes before its leave time in the rules file.'),
+    },
     {
       kind: 'login',
       title: t('Tài khoản cần đăng nhập lại', 'An account needs to sign in again'),
@@ -43,16 +55,20 @@ export function alertKindList(agy = true): { kind: SwitchKind; title: string; te
  * Antigravity switch only in a build that switches Antigravity. Alert 1
  * says its thresholds.
  */
+/** The rotation's (2) only with Cài đặt › Nâng cao. */
 export function alertKinds(model: Model): { kind: SwitchKind; title: string; text: string }[] {
   const agy = model.capabilities.agyAccounts;
   const p = model.alerts.poolAlert;
-  return alertKindList(agy)
+  const adv = advancedOn(model);
+  return alertKindList(agy, adv)
     .filter((k) => k.kind !== 'overwrite' || agy)
+    .filter((k) => k.kind !== 'leaving' || adv)
     .map((k) => {
       if (k.kind !== 'pool') return k;
       let title = t('Hạn mức Claude sắp cạn / có lại', 'Claude quota running out / back');
       let where = ['', ''];
       let rule = ['', ''];
+      if (adv) [title, where] = [k.title, [' trong vòng', ' in rotation']];
       return {
         ...k,
         title,

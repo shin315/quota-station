@@ -15,6 +15,7 @@ describe('switching in English', () => {
     const v = claudeSheet(
       fixtureModel('fresh'),
       3,
+      '60',
       { live: 3, unreadable: 0 },
       FIXTURE_NOW,
     )!;

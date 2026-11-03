@@ -235,6 +235,7 @@ describe('the Claude accounts Quota Station keeps', () => {
     await open(hideNames(withAccounts({})));
     expect(names()).toHaveLength(4);
     let third = 'Tài khoản 3';
+    third = 'Team B';
     await choose(third, 'Chi tiết và tên gọi…');
     expect(dialog().textContent).not.toMatch(/\w@\w/);
     await press(inDialog('Thôi'));

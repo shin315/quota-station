@@ -9,8 +9,10 @@
 import { clock, pad } from './format';
 import { mac, os, t } from './i18n';
 import type { Model, Outcome, Sessions } from './model';
-import { BAD_USED, claudeAliases, claudeCells, tightest } from './accounts';
+import { BAD_USED, claudeAliases, claudeCells, rolesOf, tightest } from './accounts';
+import { advancedOn } from './advanced';
 import { claudeNames, type Action, type FeedbackView } from './view';
+import { autoFacts, heldFeedback, holdPart, holdTail, switchedTail, switcherOf, type HoldChoice } from '@/lib/rotation';
 
 /** One of a sheet's choices. */
 export interface ChoiceView<V extends string> {
@@ -28,6 +30,7 @@ export function namesOf(model: Model): NameOf {
   const names = claudeNames(
     model.snapshot.claude.accounts,
     claudeAliases(model),
+    rolesOf(model),
   );
   return (n) => names.get(n)?.name ?? t('tài khoản ' + n, 'account ' + n);
 }
@@ -60,6 +63,8 @@ export interface ClaudeSheetView {
   name: string;
   title: string;
   facts: FactView[];
+  options: ChoiceView<HoldChoice>[];
+  hint: { tone: '' | 'warn'; text: string };
   confirm: string;
   /** Nothing can switch now (no accounts kept yet, or the setup is out of date): the confirm button is off. */
   blocked: boolean;
@@ -113,6 +118,7 @@ function sessionsFact(sessions: Sessions | null | 'loading'): FactView {
 export function claudeSheet(
   model: Model,
   slot: number,
+  choice: HoldChoice,
   sessions: Sessions | null | 'loading',
   now: Date,
 ): ClaudeSheetView | null {
@@ -128,6 +134,10 @@ export function claudeSheet(
   if (parts.length) facts.push({ k: '', text: t(name + ' đã dùng ' + parts.join(', ') + '.', name + ' has used ' + parts.join(', ') + '.') });
   facts.push(sessionsFact(sessions));
 
+  // The rotation and its hold are Nâng cao's: without it the sheet only switches.
+  const auto = advancedOn(model);
+  const rotation = auto ? autoFacts(model, target, name, now) : { facts: [], personalOut: false };
+  facts.push(...rotation.facts);
   const tight = tightest(cells);
   if (tight && tight.used! >= BAD_USED)
     facts.push({ k: 'w', text: t(name + ' đã dùng ' + tight.used + '% hạn mức ' + tight.unit + '.', name + ' has used ' + tight.used + '% of its ' + tight.unit + ' quota.') });
@@ -142,13 +152,27 @@ export function claudeSheet(
         ),
       ),
     });
+  const legacy = switcherOf(model).legacy;
+  if (!blocked && legacy) {
+    blocked = true;
+    facts.push({
+      k: 'x',
+      text: t(
+        'Bộ tự chuyển cũ `' + legacy + '` còn chạy. Tắt nó trước (hướng dẫn ở tab Claude), để hai bên không chuyển chồng nhau.',
+        'The old auto-switcher `' + legacy + '` is still running. Turn it off first (the steps are in the Claude tab) so the two do not switch over each other.',
+      ),
+    });
+  }
 
   const title = t('Chuyển Claude sang ' + name + '?', 'Switch Claude to ' + name + '?');
   const confirm = t('Chuyển sang ' + name, 'Switch to ' + name);
+  if (auto) return { name, title, facts, confirm, blocked, ...holdPart(model, target, choice, rotation.personalOut, now) };
   return {
     name,
     title,
     facts,
+    options: [],
+    hint: { tone: '', text: '' },
     confirm,
     blocked,
   };
@@ -161,6 +185,7 @@ export const close = () => ({ label: t('Đóng', 'Close'), act: 'closeFeedback' 
 export function switchFeedback(
   outcome: Outcome,
   model: Model,
+  now: Date,
 ): FeedbackView {
   const nameOf = namesOf(model);
   const n = nameOf(outcome.slot);
@@ -169,6 +194,12 @@ export function switchFeedback(
     case 'switched': {
       let tone: FeedbackView['tone'] = '';
       let tail = '';
+      // The hold and the switcher's state come with the switcher's view.
+      if (model.switcher) {
+        const held = heldFeedback(outcome.hold, n, now);
+        if (held) return held;
+        [tone, tail] = switchedTail(outcome.hold, model, now);
+      }
       return {
         tone,
         title: t('Đã chuyển sang ' + n + '.', 'Switched to ' + n + '.'),
@@ -181,6 +212,11 @@ export function switchFeedback(
       let title = t('Một lần chuyển khác vừa chuyển sang ' + a, 'Another switch just moved to ' + a);
       let tail = '';
       const actions: { label: string; act: Action }[] = [{ label: t('Chuyển lại sang ' + n, 'Switch back to ' + n), act: ('switch:' + outcome.slot) as Action }];
+      const h = outcome.hold;
+      if (outcome.bySwitcherAt)
+        title = t('Switcher vừa chuyển sang ' + a + ' lúc ' + clock(outcome.bySwitcherAt), 'The switcher just switched to ' + a + ' at ' + clock(outcome.bySwitcherAt));
+      tail = holdTail(h, now);
+      if (h && !h.failed) actions.push({ label: t('Cho phép tự chuyển lại', 'Allow auto-switch again'), act: 'resume' });
       actions.push({ label: t('Để vậy', 'Leave it'), act: 'closeFeedback' });
       return {
         tone: 'warn',
@@ -191,6 +227,7 @@ export function switchFeedback(
     }
     case 'unconfirmed': {
       let tail = '';
+      tail = holdTail(outcome.hold, now);
       return {
         tone: 'warn',
         title: t('Đã gửi lệnh chuyển sang ' + n, 'Sent the switch to ' + n),
@@ -207,6 +244,7 @@ export function switchFeedback(
       const stays =
         outcome.error === 'unknownSlot' ||
         outcome.error === 'unmanaged' ||
+        outcome.error === 'legacy' ||
         false;
       return {
         tone: 'bad',
@@ -222,6 +260,11 @@ export function switchFeedback(
 function failedBody(outcome: Extract<Outcome, { kind: 'failed' }>, nameOf: NameOf): string {
   const detail = outcome.detail ? ' (' + outcome.detail + ')' : '';
   switch (outcome.error) {
+    case 'legacy':
+      return t(
+        'Bộ tự chuyển cũ ' + outcome.detail + ' còn chạy. Tắt nó trước theo hướng dẫn ở tab Claude. Chưa đổi gì.',
+        'The old auto-switcher ' + outcome.detail + ' is still running. Turn it off first with the steps in the Claude tab. Nothing changed.',
+      );
     case 'busy':
       return t(
         'Claude Code đang giữ khoá đăng nhập (đang làm mới hoặc ghi đăng nhập). Thử lại sau vài giây. Chưa đổi gì.',

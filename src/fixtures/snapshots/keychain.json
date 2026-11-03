@@ -5,16 +5,21 @@
     "accounts": [],
     "pool": {
       "kind": "none",
+      "room": null,
       "percent": null,
       "line": null,
       "scope": null,
+      "members": 0,
+      "rooms": [],
       "nextRefillAt": null,
+      "refills": [],
       "exhausted": false,
       "reason": null
     },
     "generatedAt": "2026-01-16T07:20:00.000Z",
     "newestReadingAt": null,
     "stale": false,
+    "personalHours": null,
     "source": null
   },
   "agy": {
@@ -23,10 +28,14 @@
     "accounts": [
       {
         "number": 0,
+        "role": "unknown",
         "active": true,
+        "disabled": false,
         "reading": "fresh",
         "fetchedAt": "2026-01-16T07:16:00.000Z",
         "source": "live",
+        "membership": "unknown",
+        "leavesAt": null,
         "lines": [
           {
             "kind": "session",
@@ -77,16 +86,21 @@
     ],
     "pool": {
       "kind": "active",
+      "room": null,
       "percent": 94.0,
       "line": "week",
       "scope": "gemini",
+      "members": 0,
+      "rooms": [],
       "nextRefillAt": null,
+      "refills": [],
       "exhausted": false,
       "reason": null
     },
     "generatedAt": "2026-01-16T07:20:00.000Z",
     "newestReadingAt": "2026-01-16T07:16:00.000Z",
     "stale": false,
+    "personalHours": null,
     "source": null
   },
   "codex": {
@@ -95,16 +109,21 @@
     "accounts": [],
     "pool": {
       "kind": "none",
+      "room": null,
       "percent": null,
       "line": null,
       "scope": null,
+      "members": 0,
+      "rooms": [],
       "nextRefillAt": null,
+      "refills": [],
       "exhausted": false,
       "reason": null
     },
     "generatedAt": null,
     "newestReadingAt": null,
     "stale": false,
+    "personalHours": null,
     "source": null
   },
   "keychain": "required"

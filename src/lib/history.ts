@@ -5,13 +5,14 @@
 // the app saw, a day at a time, newest first. Pure, like `view.ts`. Copy
 // follows the prototype's `tabHistory`: accounts by the window's names and
 // a short reason.
+// Also the switcher's log, with its own line on hover.
 
-import { agyNames, claudeAliases, claudeNames } from './accounts';
+import { agyNames, claudeAliases, claudeNames, rolesOf } from './accounts';
 import { shortName } from './codex';
 import { clock, pad } from './format';
 import { appName, t } from './i18n';
-import type { AgyHow, HistoryEntry, HistorySource, Model } from './model';
-import { type NameOf } from './switching';
+import type { AgyHow, HistoryEntry, HistorySource, Model, Why } from './model';
+import { dayClock, type NameOf } from './switching';
 import type { ChipView } from './view';
 
 export type HistoryFilter = 'all' | 'claude' | 'antigravity' | 'codex';
@@ -70,17 +71,52 @@ function agyHow(how: AgyHow): string {
   return '';
 }
 
+/** The switcher's line without the stamp it starts with. */
+function logText(raw: string): string {
+  return raw.replace(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} /, '');
+}
 
-function why(e: HistoryEntry, nameOf: NameOf, now: Date): string {
+/** Why the switcher switched, short: `5 giờ đã dùng 0% · đặt lại 23:40`. Every percent is the share used. */
+function switcherWhy(w: Why, nameOf: NameOf): string {
+  switch (w.kind) {
+    case 'expiring':
+      return t('Rời vòng lúc ', 'Left rotation at ') + w.at;
+    case 'early':
+      return t(
+        '5 giờ đã dùng ' + Math.round(100 - w.left) + '% · đặt lại ' + w.at + ', sớm hơn ' + nameOf(w.before),
+        '5-hour ' + Math.round(100 - w.left) + '% used · resets ' + w.at + ', before ' + nameOf(w.before),
+      );
+    case 'room':
+      return t(
+        '5 giờ đã dùng ' + Math.round(w.used) + '%' + (w.ends ? ' · đặt lại ' + w.ends : ''),
+        '5-hour ' + Math.round(w.used) + '% used' + (w.ends ? ' · resets ' + w.ends : ''),
+      );
+    case 'personal':
+      return t('Hết tài khoản Team còn hạn mức · 5 giờ đã dùng ', 'No Team account has quota left · 5-hour used ') + Math.round(w.used) + '%';
+    case 'park':
+      return t('Hết tài khoản còn hạn mức · đặt lại sớm nhất ', 'No account has quota left · earliest reset ') + w.at;
+    default:
+      return t('Switcher chuyển', 'The switcher switched');
+  }
+}
+
+/** `switcher`: the build has the switcher, so a change it did not make is not its either. */
+function why(e: HistoryEntry, nameOf: NameOf, now: Date, switcher: boolean): string {
   const c = e.cause;
   switch (c.kind) {
     case 'manual': {
       let s = t('Bạn chuyển tay', 'You switched by hand');
+      if (c.holdUntil) s += t(' · giữ đến ', ' · held until ') + dayClock(c.holdUntil, now);
       if (c.result === 'raced') s += t(' · một lần chuyển khác ghi ngay sau đó', ' · another switch wrote right after');
       if (c.result === 'unconfirmed') s += t(' · chưa đọc lại được để kiểm tra', ' · could not read it back to check');
       return s;
     }
+    case 'switcher':
+      return switcherWhy(c.why, nameOf);
+    case 'primed':
+      return t('Bắt đầu tính 5 giờ sớm', 'Started the 5-hour window early');
     case 'observed':
+      if (e.app === 'claude' && switcher) return t('Đổi giữa hai lần đọc, không do app hay switcher', 'Changed between two reads, not by the app or the switcher');
       return t('Đổi giữa hai lần đọc, không do app', 'Changed between two reads, not by the app');
     case 'agySwitch': {
       let s = t('Bạn chuyển trong app', 'You switched in the app') + agyHow(c.how as AgyHow);
@@ -108,6 +144,7 @@ function pill(e: HistoryEntry): HistoryRowView['pill'] {
   if (c.kind === 'agyOverwrite') return { t: t('Cảnh báo', 'Alert'), k: 'w' };
   if (e.app === 'antigravity') return { t: 'Antigravity', k: 'g' };
   if (e.app === 'codex') return { t: 'Codex', k: 'x' };
+  if (c.kind === 'primed') return { t: t('Khởi tạo sớm', 'Prime'), k: '' };
   return { t: t('Chuyển', 'Switch'), k: 'sw' };
 }
 
@@ -117,9 +154,11 @@ function pill(e: HistoryEntry): HistoryRowView['pill'] {
  * Antigravity 1. A slot the snapshot no longer lists goes by its place.
  */
 export function historyNames(model: Model): { claude: NameOf; agy: NameOf } {
-  let agyWord = 'Antigravity ';
-  let c = claudeNames(model.snapshot.claude.accounts, claudeAliases(model));
-  let g = agyNames(model.snapshot.agy.accounts);
+  // With Nâng cao: Team A, Ultra 1.
+  const roles = rolesOf(model, true);
+  const c = claudeNames(model.snapshot.claude.accounts, claudeAliases(model), roles);
+  const g = agyNames(model.snapshot.agy.accounts, !!roles);
+  const agyWord = roles ? 'Ultra ' : 'Antigravity ';
   return {
     claude: (n) => c.get(n)?.name ?? t('Tài khoản ', 'Account ') + n,
     agy: (n) => g.get(n)?.name ?? agyWord + n,
@@ -138,7 +177,7 @@ export function historyRow(e: HistoryEntry, i: number, model: Model, now: Date):
       pill: pill(e),
       from: shortName(model.codex, c.from),
       to: shortName(model.codex, c.to),
-      why: why(e, claude, now),
+      why: why(e, claude, now, !!model.switcher),
       source: { t: sourceText(e.source), k: '' },
       raw: null,
     };
@@ -149,10 +188,12 @@ export function historyRow(e: HistoryEntry, i: number, model: Model, now: Date):
     pill: pill(e),
     from: e.from != null ? nameOf(e.from) : null,
     to: e.to != null ? nameOf(e.to) : t('tài khoản đã đăng xuất', 'signed-out account'),
-    why: why(e, claude, now),
+    why: why(e, claude, now, !!model.switcher),
     source: { t: sourceText(e.source), k: '' },
     raw: null,
   };
+  if (c.kind === 'primed') row.from = null;
+  if (c.kind === 'switcher' || c.kind === 'primed') row.raw = logText(c.raw);
   return row;
 }
 

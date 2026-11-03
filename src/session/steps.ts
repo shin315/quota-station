@@ -37,6 +37,7 @@ export type Check =
   | 'machine'
   | 'claudeStore'
   | 'claudeSessions'
+  | 'rotation'
   | 'port1455'
   | 'codexConfig'
   | 'codexAccounts'
@@ -117,6 +118,7 @@ export const ITEMS = [
   // #62 (W4), M2: autostart, off in Settings, toasts, Action Center,
   // notifications off, token refresh, backup folder, files on demand,
   // diagnostic info.
+  // And the rotation.
   'W4.1',
   'W4.2',
   'W4.3',
@@ -150,6 +152,8 @@ const SHOT_MAIN: Help = { kind: 'shot', what: 'main', label: 'Chụp cửa sổ 
 export function spareSlot(model: Model): number | null {
   const row = model.claudeAccounts.accounts.find(
     (a) =>
+      // Held out of the rotation, it is no spare; a build without the advanced part holds none out.
+      a.enabled !== false &&
       !a.active,
   );
   return row ? row.slot : null;
@@ -569,6 +573,25 @@ export const STEPS: Step[] = [
     covers: ['W4.5'],
   },
   {
+    id: 'm2-rotation',
+    part: 2,
+    title: 'Xoay vòng khi app mở',
+    do: [
+      'Ở tab Claude, bật Xoay vòng (giữ luật đang có).',
+      'Để Xoay vòng bật tới cuối phần 2; app tự lưu mỗi lần chạy.',
+    ],
+    right: ['Không có cửa sổ đen (console) nào nháy lên.'],
+    help: [{ kind: 'window', tab: 'claude', label: 'Mở tab Claude' }],
+    checks: ['rotation'],
+    cannot: ({ model }) =>
+      !model.capabilities.authorTools
+        ? 'Bản build này không có xoay vòng, nên bước này tự bỏ qua.'
+        : model.claudeAccounts.accounts.length < 2
+          ? 'App cần giữ hai tài khoản Claude cho bước này, nên bước này tự bỏ qua.'
+          : null,
+    covers: ['W4.6', 'W4.7'],
+  },
+  {
     id: 'm2-backup',
     part: 2,
     title: 'Sao lưu',
@@ -803,13 +826,16 @@ export const STEPS: Step[] = [
     do: [
       'Mở popover: các tài khoản vẫn đọc được hạn mức.',
       'Ở tab MCP, MCP có token vẫn còn token.',
-      'Ở Cài đặt › Chung, tắt “Mở khi đăng nhập” nếu không muốn giữ.',
+      ({ model }) =>
+        (model.capabilities.authorTools ? 'Ở tab Claude, tắt Xoay vòng nếu lúc đầu nó tắt. ' : '') +
+        'Ở Cài đặt › Chung, tắt “Mở khi đăng nhập” nếu không muốn giữ.',
     ],
     right: ['Không tài khoản nào đòi đăng nhập lại; MCP vẫn còn token.'],
     help: [{ kind: 'window', tab: 'claude', label: 'Mở tab Claude' }],
     checks: [
       'autostart',
       'secrets',
+      'rotation',
       'claudeStore',
     ],
     covers: ['W3.6', 'W4.6', 'W4.7'],
@@ -845,8 +871,10 @@ export function facts(model: Model, session: SessionView) {
       status: model.snapshot.claude.status,
       kept: claude.length,
       inUse: claude.find((a) => a.active)?.slot ?? null,
+      on: claude.filter((a) => a.enabled !== false).length,
       signInAgain: claude.filter((a) => a.status === 'reloginRequired').length,
       program: session.claudeProgram,
+      rotation: model.claudeAccounts.rotation,
       canLogIn: model.claudeAccounts.claude,
     },
     codex: {

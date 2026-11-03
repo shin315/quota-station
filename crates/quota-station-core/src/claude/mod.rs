@@ -126,7 +126,7 @@ pub(crate) fn private_dir(dir: &Path) -> io::Result<()> {
 
 /// Writes `text` through a temporary file and a rename, mode 600, in a
 /// folder of mode 700.
-pub(crate) fn write_private(path: &Path, text: &str) -> io::Result<()> {
+pub fn write_private(path: &Path, text: &str) -> io::Result<()> {
     use std::io::Write;
     static NEXT: AtomicU64 = AtomicU64::new(0);
     let dir = path.parent().ok_or_else(|| io::Error::other("no folder"))?;

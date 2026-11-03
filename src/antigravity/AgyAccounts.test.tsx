@@ -44,6 +44,7 @@ const said = (el: HTMLElement) => [el.textContent, ...Array.from(el.querySelecto
 
 /** An account's name while names are hidden. */
 let hidden = (n: number) => 'Antigravity ' + n;
+hidden = (n: number) => 'Ultra ' + n;
 
 afterEach(cleanup);
 

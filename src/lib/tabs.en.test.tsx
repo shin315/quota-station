@@ -16,12 +16,26 @@ import { quotaLine, resultFeedback, signInChip } from './claudeAccounts';
 import { dayLabel, historyDays } from './history';
 import { setLang } from './i18n';
 import { num, readLine, tokensText } from './stats';
+import { peerFixture, rotationFixture, rulesFixture } from '../fixtures/models';
+import { compareRows, peerLine, ruleNames, rulesProblem, saveFeedback, sidebarLine } from '@/rules/rules';
 
 // The tabs' words in English, built when called: the language set here is the one they come out in.
 describe('the tabs in English', () => {
   beforeEach(() => setLang('en'));
   afterEach(cleanup);
 
+  it('Rotation rules: each Mac, the problems and the compare table', () => {
+    const model = fixtureModel('fresh');
+    expect(peerLine(peerFixture('Mac C', 'mac-c')).text).toBe('received 14:02');
+    expect(peerLine(peerFixture('Mac C', 'mac-c', { state: null })).short).toBe('Mac C: never sent');
+    expect(sidebarLine(model)).toBe('rules sent to 2 other Macs at 14:02');
+    expect(saveFeedback(model).title).toBe('Saved the rules for all three Macs at 14:02');
+    expect(rulesProblem(rulesFixture({ team: [] }))).toBe('Pick at least one Team account.');
+    const rows = compareRows(rulesFixture(), rulesFixture({ full: 88 }), ruleNames(model), FIXTURE_NOW);
+    expect(rows.map((r) => r.label)).toContain('Auto-switch threshold');
+    const lonely = fixtureModel('fresh', { rotation: rotationFixture({ peers: [] }) });
+    expect(saveFeedback(lonely).title).toBe('Saved the rules for this Mac at 14:02');
+  });
 
   it('History: days, tags and reasons', () => {
     expect(dayLabel(FIXTURE_NOW.toISOString(), FIXTURE_NOW)).toBe('Today');
@@ -54,6 +68,10 @@ describe('the tabs in English', () => {
     expect(quotaLine(row)).toBe('73% 5-hour');
     const fb = resultFeedback(view, { action: 'remove', ok: true, error: null, detail: null, slot: 3, renewed: false, imported: null }, 'Team B');
     expect(fb!.title).toBe('Removed Team B from this Mac.');
+    const rested = { ...view, accounts: view.accounts.map((a) => (a.slot === 3 ? { ...a, enabled: false } : a)) };
+    const held = resultFeedback(rested, { action: 'enabled', ok: true, error: null, detail: null, slot: 3, renewed: false, imported: null }, 'Team B');
+    expect(held!.title).toBe('Paused auto-switch for Team B.');
+    expect(held!.actions!.map((a) => a.label)).toEqual(['Undo', 'Close']);
     const claude = { dialog: { kind: 'add', how: 'browser', error: null }, pending: false } as unknown as ClaudeAccountsState;
     render(
       <Dialog open>

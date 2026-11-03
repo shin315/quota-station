@@ -186,7 +186,8 @@ describe('the bell', () => {
     expect(fake.api.setSettingsGroup).toHaveBeenLastCalledWith('notify');
     // The kinds, "Gửi thử" and their switches are there.
     const group = screen.getByRole('region', { name: 'Thông báo' });
-    let kinds = 3;
+    // Alert 2 too: the fixture's Mac has Nâng cao on.
+    let kinds = 4;
     expect(within(group).getAllByRole('button', { name: /^Gửi thử: / })).toHaveLength(kinds);
     // Asked again from another page after another tab was picked, it opens Thông báo again.
     fireEvent.mouseDown(screen.getByRole('tab', { name: 'Chung' }));

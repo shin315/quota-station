@@ -70,6 +70,14 @@ describe('main window view', () => {
     }
   });
 
+  it('the switcher card is one line, the rest folded', () => {
+    const s = view('fresh').switcher;
+    // How often it runs is the LaunchAgent's own line beside it; this one says when it last checked.
+    expect(s.line).toMatch(/^Kiểm tra lúc \d\d:\d\d$/);
+    expect(s.tone).toBe('ok');
+    expect(s.details.map((d) => d.key)).toContain('LaunchAgent tự chuyển');
+    expect(s.details.find((d) => d.key.startsWith('Quyết định gần nhất'))).toMatchObject({ mono: true });
+  });
 
   it('a Mac without Antigravity has no Antigravity card', () => {
     expect(view('no-antigravity').agy.present).toBe(false);
