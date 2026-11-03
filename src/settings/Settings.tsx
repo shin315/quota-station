@@ -9,7 +9,8 @@
 // launching at login and the version (M7). Rows speak for themselves: no
 // line of explanation under them. Each Mac runs its own copy and switches
 // only itself. First comes the card of the variables that override a login
-// (M14).
+// (M14). Last the Nâng cao card (`Advanced.tsx`); only a build with the
+// advanced part has it (`capabilities.authorTools`).
 // The layout is settings-R2 (25/10/2026) with its groups as tabs: a bar of
 // tabs under the title that stays while the page scrolls, and under it the
 // one group picked (Chung at first), its cards the page's whole width; in
@@ -17,7 +18,7 @@
 // (SetRow). A longer description waits behind its "Chi tiết". Five tabs
 // (26/10/2026): Chung (with the backup folder, and the Cập nhật card: new
 // versions and Chẩn đoán), Hiển thị, Thông báo and Dịch vụ (with the
-// variables' card).
+// variables' card), and Nâng cao.
 
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Tabs as TabsPrimitive } from 'radix-ui';
@@ -31,8 +32,10 @@ import { Segment, Segmented, segmentedVariants, segmentVariants } from '@/compon
 import { IdMark } from '../components/accounts';
 import { LABEL, rowClass, STACK, TabHead, TabSub, TabTitle } from '../components/page';
 import { Button, Chip, CODE, Dot, Feedback, FieldHint, More, Toggle } from '../components/parts';
-import { advancedOn } from '@/lib/advanced';
+import { advancedOn, authorModel } from '@/lib/advanced';
 import { alertKinds, permissionChip } from '../lib/alerts';
+import { Advanced } from '@/settings/Advanced';
+import type { Peer, PeerTest } from '../lib/model';
 import type { ChipView } from '../lib/view';
 import type { AlertKind, AppView, ClientStatus, Language, Menubar, MenubarWindow, Model, SettingsGroup, Theme, ThemePack } from '../lib/model';
 import { cloudDrive, mac, onWindows, os, osName, systemSettings, t } from '../lib/i18n';
@@ -55,6 +58,9 @@ export interface SettingsProps {
   onGrant(): void;
   /** Resolves to false when the name could not be saved. */
   onSetMachine(name: string): Promise<boolean>;
+  /** Resolves to null once saved, else the refusal (`badAlias:1`, `sameAlias:1`, `tooMany`). */
+  onSetPeers(peers: Peer[]): Promise<string | null>;
+  onTestPeer(alias: string): Promise<PeerTest>;
   /** Names (emails, organizations) on or off, in both windows. */
   onShowNames(on: boolean): void;
   onTheme(theme: Theme): void;
@@ -71,8 +77,16 @@ export interface SettingsProps {
   /** Resolves to null once changed, else the refusal (`unavailable`, or macOS's message). */
   onLaunchAtLogin(on: boolean): Promise<string | null>;
   onOpenLoginItems(): void;
+  /** Resolves to null once saved, else the refusal (`missing`, `notSource`). */
+  onSetSource(path: string): Promise<string | null>;
+  /** Resolves to null once the update ran (how it went is in the model), else the refusal. */
+  onUpdate(): Promise<string | null>;
+  /** The app quits on success; resolves to the refusal (`rulesDirty`, …) otherwise. */
+  onRelaunch(): Promise<string | null>;
   /** Skills (M11): "Kiểm tra bản mới" once a day or never, and whether a macOS card says so too. */
   onSkillChecks?(daily: boolean, notify: boolean): void;
+  /** Nâng cao on or off. */
+  onAdvanced(on: boolean): void;
   /** Alert 1's thresholds; resolves to null once saved, else the refusal (`range`, `order`). */
   onPoolAlert(dryAtMost: number, roomAtLeast: number): Promise<string | null>;
   /** Where the backup packs go; empty is iCloud Drive. Resolves to the refusal (`notFound`), or null. */
@@ -709,6 +723,7 @@ const CARDS = {
   notify: 'qs-set-notify',
   services: 'qs-set-services',
   env: 'qs-set-env',
+  advanced: 'qs-set-advanced',
 };
 
 /** How far the bar fades out at an end with more tabs past it. */
@@ -814,6 +829,8 @@ export function Settings(props: SettingsProps) {
   onReleaseChecks,
   } = props;
   const keychain = model.snapshot.keychain;
+  // Nâng cao comes with the advanced part: a build without it has no such card.
+  const author = authorModel(model);
   const env = <EnvCard id={CARDS.env} model={model} onAction={onAction} />;
   // A variable overriding a login is something to act on: while one does, its card leads Dịch vụ and Dịch vụ leads the bar.
   const envFound = model.env.found.length > 0;
@@ -945,6 +962,7 @@ export function Settings(props: SettingsProps) {
       ),
     },
     ...(envFound ? [] : [services]),
+    ...(author ? [{ key: 'advanced' as const, title: t('Nâng cao', 'Advanced'), card: <Advanced {...props} model={author} id={CARDS.advanced} /> }] : []),
   ];
   // Chung unless another tab was picked, or asked for by a link from elsewhere.
   const [own, setOwn] = useState<SettingsGroup>('general');

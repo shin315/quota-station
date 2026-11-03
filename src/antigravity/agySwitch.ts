@@ -6,6 +6,7 @@
 // running Antigravity.app wrote its old login back within six hours. Pure,
 // like `switching.ts`: the same model and answers give the same words.
 
+import { advancedOn } from '@/lib/advanced';
 import { clock } from '../lib/format';
 import { t } from '../lib/i18n';
 import type { AgyApp, AgyHow, AgyLogin, AgyOutcome, Model } from '../lib/model';
@@ -21,6 +22,7 @@ export function agyNamesOf(model: Model | null | undefined): NameOf {
   if (!model) return agyNameOf;
   const names = agyNames(
     model.snapshot.agy.accounts,
+    advancedOn(model),
   );
   return (n) => names.get(n)?.name ?? agyNameOf(n);
 }

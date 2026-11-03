@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MainWindowApp } from '../App';
 import { fakeApi, type FakeOptions } from '../fixtures/fakeApi';
 import { API_KEY, envFixture } from '../fixtures/fakeEnv';
-import { agyFixture, alertsFixture, appFixture, codexFixture, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
+import { agyFixture, alertsFixture, appFixture, codexFixture, communityModel, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
 import type { Api } from '../lib/api';
 import type { Model } from '../lib/model';
 
@@ -38,6 +38,7 @@ let GROUPS: [string, string[]][] = [
 // The fixture's Mac has Nâng cao on: alert 1 counts the quota in rotation, and alert 2 shows.
 POOL = 'Hạn mức Claude trong vòng sắp cạn / có lại';
 KINDS = 4;
+GROUPS = [...GROUPS, ['Nâng cao', ['Nâng cao']]];
 
 /** Shows one of Cài đặt's tabs, as a press on it does. */
 async function showGroup(name: string) {
@@ -267,11 +268,124 @@ describe('settings tab', () => {
     expect(fake.api.setMachineName).not.toHaveBeenCalled();
   });
 
+  it('lists the other Macs with their SSH alias, and adds, renames and removes them', async () => {
+    const fake = await open(fixtureModel('fresh'));
+    await showGroup('Nâng cao');
+    expect(screen.getByText('Các Mac khác')).toBeTruthy();
+    const alias = screen.getByLabelText('Tên kết nối SSH của Mac B') as HTMLInputElement;
+    expect(alias.value).toBe('mac-b');
+    expect((screen.getByLabelText('Tên kết nối SSH của Mac C') as HTMLInputElement).value).toBe('mac-c');
 
+    // A new row is saved once it has an alias.
+    fireEvent.click(screen.getByRole('button', { name: 'Thêm Mac' }));
+    expect(screen.getByText('Nhập tên kết nối SSH')).toBeTruthy();
+    const name = screen.getByLabelText('Tên của Mac mới') as HTMLInputElement;
+    fireEvent.change(name, { target: { value: 'Mac D' } });
+    fireEvent.blur(name);
+    expect(fake.api.setPeers).not.toHaveBeenCalled();
+    const newAlias = screen.getByLabelText('Tên kết nối SSH của Mac D');
+    fireEvent.change(newAlias, { target: { value: 'mac-d' } });
+    await act(async () => {
+      fireEvent.keyDown(newAlias, { key: 'Enter' });
+    });
+    expect(fake.api.setPeers).toHaveBeenLastCalledWith([
+      { name: 'Mac B', alias: 'mac-b' },
+      { name: 'Mac C', alias: 'mac-c' },
+      { name: 'Mac D', alias: 'mac-d' },
+    ]);
+    expect(fake.current().rotation.peers.map((p) => p.alias)).toEqual(['mac-b', 'mac-c', 'mac-d']);
 
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Bỏ Mac C' }));
+    });
+    expect(fake.api.setPeers).toHaveBeenLastCalledWith([
+      { name: 'Mac B', alias: 'mac-b' },
+      { name: 'Mac D', alias: 'mac-d' },
+    ]);
+    expect(screen.queryByLabelText('Tên kết nối SSH của Mac C')).toBeNull();
 
+    const rename = screen.getByLabelText('Tên của Mac D');
+    fireEvent.change(rename, { target: { value: 'Mac phòng làm việc' } });
+    await act(async () => {
+      fireEvent.blur(rename);
+    });
+    expect(fake.api.setPeers).toHaveBeenLastCalledWith([
+      { name: 'Mac B', alias: 'mac-b' },
+      { name: 'Mac phòng làm việc', alias: 'mac-d' },
+    ]);
+    expect(fake.current().rotation.peers.map((p) => p.name)).toEqual(['Mac B', 'Mac phòng làm việc']);
+  });
 
+  it('a new row with no alias yet neither blocks nor loses the edits to the others', async () => {
+    const fake = await open(fixtureModel('fresh'));
+    await showGroup('Nâng cao');
+    fireEvent.click(screen.getByRole('button', { name: 'Thêm Mac' }));
+    const name = screen.getByLabelText('Tên của Mac B');
+    fireEvent.change(name, { target: { value: 'Mac B2' } });
+    await act(async () => {
+      fireEvent.blur(name);
+    });
+    expect(fake.api.setPeers).toHaveBeenLastCalledWith([
+      { name: 'Mac B2', alias: 'mac-b' },
+      { name: 'Mac C', alias: 'mac-c' },
+    ]);
+    // The new row is still there, waiting for its alias.
+    expect(screen.getByLabelText('Tên kết nối SSH của Mac mới')).toBeTruthy();
+    expect(screen.getByText('Nhập tên kết nối SSH')).toBeTruthy();
+  });
 
+  it('an alias listed twice is refused on the row that repeats it', async () => {
+    const fake = await open(fixtureModel('fresh'));
+    await showGroup('Nâng cao');
+    const alias = screen.getByLabelText('Tên kết nối SSH của Mac C');
+    fireEvent.change(alias, { target: { value: 'MAC-B' } });
+    await act(async () => {
+      fireEvent.blur(alias);
+    });
+    expect(screen.getByText('Tên kết nối này đã có ở dòng trên.')).toBeTruthy();
+    expect(alias.getAttribute('data-invalid')).toBe('true');
+    expect(fake.current().rotation.peers.map((p) => p.alias)).toEqual(['mac-b', 'mac-c']);
+  });
+
+  it('refuses an alias ssh would read as an option and says why', async () => {
+    const fake = await open(fixtureModel('fresh'));
+    await showGroup('Nâng cao');
+    const alias = screen.getByLabelText('Tên kết nối SSH của Mac B');
+    fireEvent.change(alias, { target: { value: '-oProxyCommand=x' } });
+    await act(async () => {
+      fireEvent.blur(alias);
+    });
+    expect(fake.api.setPeers).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Tên kết nối chỉ gồm chữ, số và . - _ @, không bắt đầu bằng dấu gạch.')).toBeTruthy();
+    expect(fake.current().rotation.peers[0].alias).toBe('mac-b');
+  });
+
+  it('Thử SSH reads each Mac and shows which one it reached', async () => {
+    const fake = fakeApi(fixtureModel('fresh'), 'settings', { unreachable: ['mac-c'] });
+    vi.spyOn(fake.api, 'testPeer');
+    render(
+      <div className="qs app-window">
+        <MainWindowApp api={fake.api} clock={() => FIXTURE_NOW} />
+      </div>,
+    );
+    await screen.findByRole('heading', { name: 'Cài đặt' });
+    await showGroup('Nâng cao');
+    expect(screen.getAllByText('Chưa thử')).toHaveLength(2);
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Thử SSH' }));
+    });
+    expect(fake.api.testPeer).toHaveBeenCalledWith('mac-b');
+    expect(fake.api.testPeer).toHaveBeenCalledWith('mac-c');
+    expect(screen.getByText('SSH ổn')).toBeTruthy();
+    expect(screen.getByText('SSH hết thời gian chờ. Kiểm tra tên kết nối hoặc bật máy đó.')).toBeTruthy();
+  });
+
+  it('with no other Mac the rules stay on this Mac', async () => {
+    await open(fixtureModel('fresh', { rotation: { ...fixtureModel('fresh').rotation, peers: [] } }));
+    await showGroup('Nâng cao');
+    expect(screen.getByText('Chưa có Mac nào. Luật xoay vòng chỉ lưu trên máy này.')).toBeTruthy();
+    expect((screen.getByRole('button', { name: 'Thử SSH' }) as HTMLButtonElement).disabled).toBe(true);
+  });
 });
 
 describe('settings for M6', () => {
@@ -340,6 +454,8 @@ describe('settings for M7: the app itself', () => {
     return fake;
   }
   const loginSwitch = () => screen.getByRole('switch', { name: 'Mở khi đăng nhập' });
+  const updateButton = () => screen.getByRole('button', { name: /Cập nhật từ mã nguồn|Đang cập nhật…/ }) as HTMLButtonElement;
+  const sourceInput = () => screen.getByLabelText(/^Mã nguồn/) as HTMLInputElement;
 
   it('shows the version and the commit it was built from', async () => {
     // In Chung's Cập nhật card, so the tab Cài đặt opens on.
@@ -391,9 +507,15 @@ describe('settings for M7: the app itself', () => {
   it('outside the installed app the switch is off', async () => {
     const fake = await openApp({
       launchAtLogin: 'unavailable',
+      bundled: false,
     });
     expect((loginSwitch() as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText('Chỉ bản .app đã cài mới mở khi đăng nhập được.')).toBeTruthy();
+    // And so is the update.
+    await showGroup('Nâng cao');
+    expect(updateButton().disabled).toBe(true);
+    expect(screen.getByText('Bản đang chạy không phải .app đã cài, nên không có gì để cập nhật.')).toBeTruthy();
+    expect(fake.api.updateFromSource).not.toHaveBeenCalled();
     expect(fake.api.setLaunchAtLogin).not.toHaveBeenCalled();
   });
 
@@ -407,15 +529,145 @@ describe('settings for M7: the app itself', () => {
     expect(loginSwitch().getAttribute('aria-checked')).toBe('false');
   });
 
+  it('the source folder must be a clone with the install script', async () => {
+    const fake = await openApp({ source: null, sourceStatus: 'notSet' });
+    await showGroup('Nâng cao');
+    expect(screen.getByText('Để trống trên Mac cài bằng gói build từ Mac khác.')).toBeTruthy();
+    expect(screen.getByText('Đặt thư mục mã nguồn ở trên để cập nhật.')).toBeTruthy();
+    expect(updateButton().disabled).toBe(true);
 
+    fireEvent.change(sourceInput(), { target: { value: '~/Documents' } });
+    await act(async () => {
+      fireEvent.keyDown(sourceInput(), { key: 'Enter' });
+    });
+    expect(fake.api.setSourceDir).toHaveBeenLastCalledWith('~/Documents');
+    expect(screen.getByText('Thư mục này không phải bản clone Quota Station: cần .git và scripts/install.sh.')).toBeTruthy();
 
+    fireEvent.change(sourceInput(), { target: { value: '~/nowhere/quota-station' } });
+    await act(async () => {
+      fireEvent.blur(sourceInput());
+    });
+    expect(screen.getByText('Không có thư mục ở đường dẫn này.')).toBeTruthy();
 
+    fireEvent.change(sourceInput(), { target: { value: '~/Code/quota-station' } });
+    await act(async () => {
+      fireEvent.blur(sourceInput());
+    });
+    expect(fake.current().app.source).toBe('~/Code/quota-station');
+    expect(screen.getByText('Có scripts/install.sh ✓')).toBeTruthy();
+    expect(updateButton().disabled).toBe(false);
+  });
 
+  it('an update pulls, installs and offers to open the new copy', async () => {
+    const fake = await openApp();
+    await showGroup('Nâng cao');
+    await act(async () => {
+      fireEvent.click(updateButton());
+    });
+    expect(fake.api.updateFromSource).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText('Đã cài 0.1.1 (b2c3d4e). Mở lại để dùng bản mới.')).toBeTruthy();
+    expect(fake.relaunched()).toBe(0);
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Mở lại' }));
+    });
+    expect(fake.api.relaunch).toHaveBeenCalledTimes(1);
+    expect(fake.relaunched()).toBe(1);
+  });
 
+  it('while it runs it says which step it is on', async () => {
+    await openApp({ updating: 'pulling' });
+    await showGroup('Nâng cao');
+    expect(screen.getByText('Đang lấy mã mới (git pull --ff-only)…')).toBeTruthy();
+    expect(updateButton().disabled).toBe(true);
+    expect(sourceInput().disabled).toBe(true);
+    cleanup();
+    await openApp({ updating: 'installing' });
+    await showGroup('Nâng cao');
+    expect(screen.getByText('Đang build và cài. Mất vài phút; app vẫn chạy như thường.')).toBeTruthy();
+  });
+
+  it('nothing new installs nothing', async () => {
+    const fake = await openApp({}, { update: () => ({ kind: 'upToDate', commit: 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678' }) });
+    await showGroup('Nâng cao');
+    await act(async () => {
+      fireEvent.click(updateButton());
+    });
+    expect(await screen.findByText('Đã là bản mới nhất (a1b2c3d).')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Mở lại' })).toBeNull();
+    expect(fake.api.relaunch).not.toHaveBeenCalled();
+  });
+
+  it('a pull or an install that fails says why, and where the log is', async () => {
+    await openApp({ error: { kind: 'pull', detail: 'fatal: Not possible to fast-forward, aborting.' } });
+    await showGroup('Nâng cao');
+    expect(screen.getByText('git pull không chạy được: fatal: Not possible to fast-forward, aborting.')).toBeTruthy();
+    cleanup();
+    await openApp({ error: { kind: 'install', detail: 'cargo is not installed' } });
+    await showGroup('Nâng cao');
+    expect(
+      screen.getByText(
+        'Build hoặc cài lỗi: cargo is not installed. Log đầy đủ: ~/Library/Application Support/com.shin315.quota-station/update/install.log',
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Mở lại' })).toBeNull();
+  });
+
+  it('opening again waits for unsaved rules', async () => {
+    const fake = await openApp({ outcome: { kind: 'installed', commit: 'b2c3d4e5f6', version: '0.1.1' } });
+    await showGroup('Nâng cao');
+    vi.mocked(fake.api.relaunch).mockRejectedValue('rulesDirty');
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Mở lại' }));
+    });
+    expect(screen.getByText('Luật xoay vòng còn thay đổi chưa lưu. Lưu hoặc bỏ trước khi mở lại.')).toBeTruthy();
+  });
 });
 
 describe('settings: alert 1 and the backup folder', () => {
+  it('Nâng cao is the last tab; off, it hides its rows and its tabs', async () => {
+    const fake = await open(fixtureModel('fresh'));
+    expect(screen.getAllByRole('tab').at(-1)!.textContent).toBe('Nâng cao');
+    await showGroup('Nâng cao');
+    expect(screen.getByLabelText(/^Mã nguồn/)).toBeTruthy();
+    expect(screen.getByText('Các Mac khác')).toBeTruthy();
 
+    await act(async () => {
+      fireEvent.click(screen.getByRole('switch', { name: 'Hiện phần nâng cao' }));
+    });
+    expect(fake.api.setAdvanced).toHaveBeenCalledWith(false);
+    expect(screen.queryByLabelText(/^Mã nguồn/)).toBeNull();
+    expect(screen.queryByText('Các Mac khác')).toBeNull();
+    const sidebar = screen.getByRole('navigation', { name: 'Các tab' });
+    expect(within(sidebar).queryByRole('button', { name: 'Luật xoay vòng' })).toBeNull();
+    // The version stays where everyone sees it.
+    await showGroup('Chung');
+    // The build is behind the version row's Chi tiết.
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Chi tiết: Phiên bản' })));
+    expect(screen.getByText('0.1.0 (a1b2c3d) · build từ mã nguồn')).toBeTruthy();
+  });
+
+  it('a build without the author\'s tools has no Nâng cao card, switch or row', async () => {
+    await open(communityModel(fixtureModel('fresh')));
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).not.toContain('Nâng cao');
+    for (const tab of screen.getAllByRole('tab').map((t) => t.textContent!)) {
+      await showGroup(tab);
+      expect(screen.queryByRole('switch', { name: 'Hiện phần nâng cao' })).toBeNull();
+      expect(screen.queryByText('Các Mac khác')).toBeNull();
+      expect(screen.queryByLabelText(/^Mã nguồn/)).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Cập nhật từ mã nguồn' })).toBeNull();
+    }
+    // Alert 2 is theirs too.
+    await showGroup('Thông báo');
+    expect(screen.queryByText('Tài khoản sắp rời vòng')).toBeNull();
+    // What every build has stays.
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Chung', 'Hiển thị', 'Thông báo', 'Dịch vụ']);
+    await showGroup('Chung');
+    // The build is behind the version row's Chi tiết.
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Chi tiết: Phiên bản' })));
+    expect(screen.getByText('0.1.0 (a1b2c3d) · build từ mã nguồn')).toBeTruthy();
+    expect(screen.getByLabelText('Thư mục sao lưu')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Chép thông tin chẩn đoán…' })).toBeTruthy();
+  });
 
   it('alert 1 takes its two thresholds here, and says why one is refused', async () => {
     const fake = await open(fixtureModel('fresh'));
@@ -553,6 +805,21 @@ describe('settings: the layout of settings-R2, its groups as tabs', () => {
     expect(shown().map(regionName)).toEqual(['Thông báo']);
   });
 
+  it('links from elsewhere open the tab they are about', async () => {
+    // Chép sang Mac khác with no Mac yet: its "Mở Cài đặt" opens Nâng cao, where the Macs are.
+    const copy = fakeApi(fixtureModel('fresh', { rotation: { ...fixtureModel('fresh').rotation, peers: [] } }), 'copy');
+    render(
+      <div className="qs app-window">
+        <MainWindowApp api={copy.api} clock={() => FIXTURE_NOW} />
+      </div>,
+    );
+    await screen.findByText('Chưa có Mac nào để chép');
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Mở Cài đặt' }));
+    });
+    expect(shown().map(regionName)).toEqual(['Nâng cao']);
+    // The variables' banners and alerts open Dịch vụ (EnvCard.test.tsx).
+  });
 
   it('a variable overriding a login puts Dịch vụ first, its card at the top', async () => {
     await open(fixtureModel('fresh', { env: envFixture({ found: [API_KEY] }) }));
@@ -561,6 +828,10 @@ describe('settings: the layout of settings-R2, its groups as tabs', () => {
     expect(shown().map(regionName)).toEqual(['Chung', 'Cập nhật']);
     await showGroup('Dịch vụ');
     expect(shown().map(regionName)).toEqual(['Biến môi trường đè đăng nhập', 'Dịch vụ']);
+    // A build without the advanced part has no Nâng cao.
+    cleanup();
+    await open(communityModel(fixtureModel('fresh')));
+    expect(tabs().map((b) => b.textContent)).toEqual(['Chung', 'Hiển thị', 'Thông báo', 'Dịch vụ']);
   });
 
   it('a row has its name and its line on the left, and its switch at the right end', async () => {

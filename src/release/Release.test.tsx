@@ -86,6 +86,20 @@ describe('a newer release on GitHub', () => {
     expect(screen.getByText('Có bản 0.3.0 (phát hành 15/01/2026).')).toBeTruthy();
   });
 
+  it('a build from source is pointed at its clone, not the download', async () => {
+    const fake = await open(fixtureModel('fresh', { release: releaseAvailable() }));
+    expect(screen.getByText(/Máy này chạy bản build từ mã nguồn, nên cập nhật từ mã nguồn/)).toBeTruthy();
+    await press(screen.getByRole('button', { name: 'Xem có gì mới' }));
+    expect(within(dialog()).getByText('git pull --ff-only && scripts/install.sh')).toBeTruthy();
+    expect(within(dialog()).queryByRole('button', { name: 'Tải và cài' })).toBeNull();
+    const writeText = vi.fn(async () => {});
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    await press(inDialog('Chép lệnh'));
+    expect(writeText).toHaveBeenCalledWith('git pull --ff-only && scripts/install.sh');
+    expect(inDialog('Đã chép')).toBeTruthy();
+    await press(inDialog('Cập nhật từ mã nguồn'));
+    expect(fake.api.updateFromSource).toHaveBeenCalled();
+  });
 
   it('the popover has one quiet line; Xem opens Tổng quan', async () => {
     const fake = fakeApi(downloaded());

@@ -119,6 +119,7 @@ export function Glyph({ name, bold, className }: { name: GlyphName; bold?: boole
 export const PLACE_GLYPHS = {
   overview: 'squares-four',
   stats: 'chart-bar',
+  rules: 'repeat',
   history: 'clock-counter-clockwise',
   alerts: 'bell',
   mcp: 'plug',
@@ -128,6 +129,7 @@ export const PLACE_GLYPHS = {
   sets: 'stack',
   cliTools: 'arrow-circle-up',
   backup: 'archive',
+  copy: 'swap',
   settings: 'gear-six',
 } satisfies Record<string, GlyphName>;
 
@@ -138,6 +140,7 @@ export type Place = keyof typeof PLACE_GLYPHS;
  * glyph; the ones that are a place's own take that place's.
  */
 export const SECTION_GLYPHS = {
+  advanced: 'sliders-horizontal',
   general: PLACE_GLYPHS.settings,
   display: 'monitor',
   tray: 'app-window',

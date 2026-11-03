@@ -39,6 +39,7 @@ export const NAV_ICONS = {
   claude: <AgentIcon agent="claude" className="size-[15px]" />,
   agy: <AgentIcon agent="agy" className="size-[15px]" />,
   codex: <AgentIcon agent="codex" className="size-[15px]" />,
+  rules: nav('rules'),
   history: nav('history'),
   mcp: nav('mcp'),
   skills: nav('skills'),
@@ -47,6 +48,7 @@ export const NAV_ICONS = {
   sets: nav('sets'),
   cliTools: nav('cliTools'),
   backup: nav('backup'),
+  copy: nav('copy'),
   settings: nav('settings'),
 };
 
@@ -61,6 +63,8 @@ function big(place: Place) {
 /** The big plug of the empty MCP table. */
 export const PLUG_BIG = big('mcp');
 
+/** The two Macs of the empty Chép sang Mac khác tab. */
+export const SYNC_BIG = big('copy');
 
 /** The big box of the empty Sao lưu tab. */
 export const ARCHIVE_BIG = big('backup');

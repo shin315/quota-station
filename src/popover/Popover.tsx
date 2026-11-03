@@ -18,16 +18,18 @@
 // notifications (a bell with the red count of those not read yet: the main
 // window with its bell's panel open) and open the main window. The footer
 // holds a quiet line when a newer release is out, and what the numbers mean
-// behind Chi tiết.
+// behind Chi tiết. Above them, the automatic switching toggle while Cài đặt ›
+// Nâng cao is on.
 
 import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Dialog, DialogContent, DialogOverlay } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { IdMark, InUse } from '../components/accounts';
 import { PlaceGlyph } from '../components/icons';
-import { Banner, Button, Dot, Feedback, LinkButton, Meter, More, Skeleton, Spinner } from '../components/parts';
+import { Banner, Button, Dot, Feedback, LinkButton, Meter, More, Skeleton, Spinner, Toggle } from '../components/parts';
 import { isGemini } from '../lib/accounts';
 import { mac, t } from '../lib/i18n';
+import type { AutoView } from '@/lib/rotation';
 import type { CodexPopView } from '../lib/codex';
 import { bannerUnder, type Action, type CardView, type CellView, type ChipView, type FeedbackView, type GroupView, type NoteView, type NowRowView, type PopoverView, type UsedTone } from '../lib/view';
 import { ChevronIcon, MoonIcon, OpenIcon, SunIcon } from '../window/icons';
@@ -441,11 +443,43 @@ function CodexSection(props: { pop: CodexPopView; now?: NowRowView; folded: bool
   );
 }
 
+/**
+ * G17: outside the scrolling body, so the toggle is always in view. The why
+ * line shows only when there is something to act on; the usual reason stays
+ * on the main window's Claude tab. The other Macs' line likewise shows only
+ * when a copy is behind or failed.
+ */
+function Footer({ auto, sync, onToggle }: { auto: AutoView; sync: SyncLine | null; onToggle(): void }) {
+  return (
+    <>
+      <div className="li flex items-center gap-2 text-sm">
+        <PlaceGlyph place="rules" className="size-[15px]" />
+        <div className="min-w-0 flex-1">
+          <b>{auto.title}</b>
+          {auto.popLine ? <small className="block text-xs text-ink2">{auto.popLine}</small> : null}
+        </div>
+        <Toggle on={auto.toggle.on} label={auto.toggle.label} disabled={auto.toggle.disabled} onClick={onToggle} />
+      </div>
+      {sync && sync.tone !== 'ok' ? (
+        <div className="li flex items-center gap-2 text-sm">
+          <Dot tone={sync.tone} />
+          <div className="min-w-0 flex-1">
+            <small className="block text-xs text-ink2">
+              {t('Luật xoay vòng · ', 'Rotation rules · ')}
+              {sync.text}
+            </small>
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
+}
 
 /** What the numbers mean, in one line; the rest behind Chi tiết. */
-function Legend() {
+function Legend({ rotation }: { rotation: boolean }) {
   const line = t('% đã dùng · thời gian đặt lại', '% used · time until reset');
   let dim = t('Số mờ là số cũ: rê chuột lên tài khoản để xem số đọc từ bao giờ.', 'A dim number is an old one: hover the account to see how old.');
+  if (rotation) dim += t(' Ghi chú về vòng xoay nằm ở cửa sổ chính.', ' Notes about the rotation are in the main window.');
   return (
     <div className="flex items-center gap-2 text-xs text-ink2">
       <span className="min-w-0 flex-1 truncate">{line}</span>
@@ -475,11 +509,22 @@ function ReleaseLine({ line, onAction }: { line: { title: string; body: string }
   );
 }
 
+/** The other Macs and the rotation file, in the footer (I09). */
+export interface SyncLine {
+  tone: 'ok' | 'warn' | 'bad' | 'info' | 'muted';
+  text: string;
+}
 
 export interface PopoverProps {
   view: PopoverView;
   /** Codex (M8): its ChatGPT accounts and custom API; null on a Mac without Codex. */
   codex?: CodexPopView | null;
+  /** Automatic switching, in the footer; null while Cài đặt › Nâng cao is off. */
+  auto: AutoView | null;
+  /** The other Macs' copies of the rotation file; null with no other Mac. */
+  sync?: SyncLine | null;
+  /** The build has the rotation (`capabilities.authorTools`): the legend points at its notes. */
+  rotation?: boolean;
   /** A newer release on GitHub, at the foot; null when there is none to tell. */
   release?: { title: string; body: string } | null;
   /** Notifications not read yet: the bell's count. */
@@ -492,6 +537,7 @@ export interface PopoverProps {
   onSwitch(slot: number): void;
   /** An Antigravity card was pressed (M4c). */
   onSwitchAgy?(number: number): void;
+  onToggle(): void;
   /** The open sheet's body; null when none is open. */
   sheet?: ReactNode;
   onCloseSheet?(): void;
@@ -502,6 +548,10 @@ export interface PopoverProps {
 export function Popover({
   view,
   codex = null,
+  auto,
+  sync = null,
+  onToggle,
+  rotation = false,
   release = null,
   unread = 0,
   feedback,
@@ -514,7 +564,7 @@ export function Popover({
   onCloseSheet,
   onHeight,
 }: PopoverProps) {
-  let footer = !!release || !view.none;
+  const footer = !!release || !view.none || !!auto;
   const head = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const foot = useRef<HTMLDivElement>(null);
@@ -644,7 +694,8 @@ export function Popover({
       {footer ? (
         <div className="grid flex-none gap-[7px] border-t-[.5px] border-glass-line px-3.5 pt-2 pb-2.5" ref={foot} inert={open}>
           {release ? <ReleaseLine line={release} onAction={onAction} /> : null}
-          {view.none ? null : <Legend />}
+          {auto ? <Footer auto={auto} sync={sync} onToggle={onToggle} /> : null}
+          {view.none ? null : <Legend rotation={rotation} />}
         </div>
       ) : null}
       <DialogOverlay

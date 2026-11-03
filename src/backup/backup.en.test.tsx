@@ -12,6 +12,7 @@ import { API_KEY, envFixture } from '../fixtures/fakeEnv';
 import { FIXTURE_NOW, fixtureModel } from '../fixtures/models';
 import type { Api } from '../lib/api';
 import { changedLines, keysLine, restoreError } from '../lib/backup';
+import { copyError, macChip } from '@/copy/copy';
 import { checkedLine, envBanner } from '../lib/env';
 import { setLang } from '../lib/i18n';
 import type { Model, Tab } from '../lib/model';
@@ -57,6 +58,18 @@ describe('Backup and the variables card in English', () => {
     expect(within(dialog()).getByRole('button', { name: 'Cancel' })).toBeTruthy();
   });
 
+  it('compares with another Mac in English', async () => {
+    await open('copy', english());
+    await screen.findByRole('heading', { level: 2, name: 'Copy to another Mac' });
+    expect(screen.getByText('Pick a Mac and press Compare. The app only reads; nothing is written yet.')).toBeTruthy();
+    await press(button('Compare'));
+    await screen.findByRole('heading', { level: 4, name: /^Differences/ });
+    expect(screen.getByRole('switch', { name: 'Also send keys over SSH' }).getAttribute('aria-checked')).toBe('false');
+    expect(screen.getByText('Same on both: 11 items.')).toBeTruthy();
+    await press(button(/^Copy \d+ items? to /));
+    expect(within(dialog()).getByRole('heading', { name: /^Copy \d+ items? to .+\?$/ })).toBeTruthy();
+    expect(within(dialog()).getByText('Sends no keys.')).toBeTruthy();
+  });
 
   it('titles the variables card in English', () => {
     setLang('en');
@@ -70,6 +83,8 @@ describe('Backup and the variables card in English', () => {
     setLang('en');
     expect(keysLine(1)).toBe('No keys inside. On restore, the app asks for 1 key again.');
     expect(restoreError('busy').title).toBe('Not restored');
+    expect(copyError('timeout', 'Mac B').title).toBe('Mac B is not answering over SSH');
+    expect(macChip('ok')?.t).toBe('SSH OK');
     expect(changedLines('changed:codex\nskill:notes-helper', 'copy')).toEqual(['Codex files were edited after the copy.', 'Skill notes-helper was edited after the copy.']);
     expect(checkedLine(envFixture({ found: [], checkedAt: null, checking: false }))).toMatch(/not checked yet\. The app only knows whether each is set, never its value\.$/);
     expect(envBanner(fixtureModel('fresh', { env: envFixture({ found: [API_KEY] }) }))?.title).toBe('ANTHROPIC_API_KEY is overriding the Claude sign-in');

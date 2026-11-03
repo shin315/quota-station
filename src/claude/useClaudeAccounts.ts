@@ -27,6 +27,7 @@ export type ClaudeDialog =
   | { kind: 'dup'; slot: number }
   | { kind: 'fail'; text: string }
   | { kind: 'detail'; slot: number }
+  | { kind: 'rest'; slot: number }
   | { kind: 'remove'; slot: number }
   | { kind: 'relogin'; slot: number };
 
@@ -113,6 +114,11 @@ export function useClaudeAccounts(api: Api, model: Model | null, showFeedback: (
     setDialog(null);
     void plain(api.claudeSetAlias(slot, alias.trim()), nameOf(slot));
   };
+  const setEnabled = (slot: number, on: boolean) => {
+    setDialog(null);
+    void plain(api.claudeSetEnabled(slot, on), nameOf(slot));
+  };
+  const setRotation = (on: boolean) => void plain(api.claudeSetRotation(on), '');
   const remove = (slot: number) => {
     setDialog(null);
     void plain(api.claudeRemove(slot), nameOf(slot));
@@ -124,6 +130,11 @@ export function useClaudeAccounts(api: Api, model: Model | null, showFeedback: (
     if (a === 'claude:add') setDialog({ kind: 'add', how: model?.claudeAccounts.claude === false ? 'current' : 'browser', error: null });
     else if (a === 'claude:import') void plain(api.claudeImport(), '');
     else if (a.startsWith('claude:relogin:')) setDialog({ kind: 'relogin', slot: Number(a.slice('claude:relogin:'.length)) });
+    else if (a === 'claude:rotation:on') setRotation(true);
+    else if (a.startsWith('claude:unrest:')) {
+      showFeedback(null);
+      setEnabled(Number(a.slice('claude:unrest:'.length)), true);
+    }
     else return false;
     return true;
   };
@@ -141,6 +152,8 @@ export function useClaudeAccounts(api: Api, model: Model | null, showFeedback: (
     finish,
     setAlias,
     remove,
+    setEnabled,
+    setRotation,
   };
 }
 

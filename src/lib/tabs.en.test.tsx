@@ -79,6 +79,7 @@ describe('the tabs in English', () => {
           <ClaudeDialogBody
             claude={claude}
             view={view}
+            advanced={false}
             nameOf={(n) => 'Account ' + n}
             onTab={() => {}}
           />

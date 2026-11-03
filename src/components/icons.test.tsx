@@ -39,6 +39,8 @@ const TABS: Tab[] = [
   'sets',
   'backup',
   'settings',
+  'rules',
+  'copy',
 ];
 
 /** What an <svg> on screen is: a Phosphor glyph, a logo, or the chart; anything else is named by its markup. */

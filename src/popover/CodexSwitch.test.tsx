@@ -132,6 +132,7 @@ describe('the Codex row', () => {
     const sheet = screen.getByRole('dialog', { name: 'Chuyển Codex sang relay?' });
     expect(facts(sheet)[0]).toMatch(/^CC Switch vẫn đang quản lý Codex trên máy này/);
     expect(within(sheet).getByRole('button', { name: 'Vẫn chuyển' })).toBeTruthy();
+    expect(within(sheet).getByRole('button', { name: 'Hướng dẫn ngừng dùng CC Switch' })).toBeTruthy();
   });
 
   it('CC Switch also managing Codex: going to a ChatGPT account warns on the sheet too', async () => {
@@ -140,6 +141,7 @@ describe('the Codex row', () => {
     const sheet = screen.getByRole('dialog', { name: 'Chuyển Codex sang ChatGPT?' });
     expect(facts(sheet)[0]).toMatch(/^CC Switch vẫn đang quản lý Codex trên máy này/);
     expect(within(sheet).getByRole('button', { name: 'Vẫn chuyển' })).toBeTruthy();
+    expect(within(sheet).getByRole('button', { name: 'Hướng dẫn ngừng dùng CC Switch' })).toBeTruthy();
     expect(fake.api.codexUse).not.toHaveBeenCalled();
   });
 
@@ -275,6 +277,9 @@ describe('the Codex tab', () => {
     expect(screen.getByText('Đang bật')).toBeTruthy();
     await press(screen.getByRole('button', { name: 'Chi tiết: Dùng plugin với Custom API' }));
     expect(screen.getByText(/Bỏ chọn không xoá auth\.json/)).toBeTruthy();
+    // The guide to leave CC Switch is not part of this tab.
+    expect(document.getElementById('cc-card')).toBeNull();
+    expect(screen.queryByText(/Ngừng dùng CC Switch/)).toBeNull();
 
     await press(within(accounts[0]).getByRole('button', { name: 'Chuyển sang ChatGPT' }));
     expect(screen.getByRole('dialog', { name: 'Chuyển Codex sang ChatGPT?' })).toBeTruthy();

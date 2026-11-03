@@ -4,15 +4,15 @@
 // The Claude tab's dialogs, as the prototype draws them (a-add … a-remove):
 // the ways to add an account, the wait for the browser, a setup token, added
 // with its nickname, already here, not signed in; an account's details and
-// nickname; removing it; signing it in again.
+// nickname; removing it; signing it in again; holding it out of the rotation.
 // A token typed here goes to the app and is never shown again.
 
 import { useEffect, useState, type ReactNode } from 'react';
 import { DialogButtons, DialogLead, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Button, Chip, ChoiceGroup, Facts, FeedbackLine, Hint, LinkButton, Rich, Spinner } from '../components/parts';
+import { Button, Chip, ChoiceGroup, Facts, FeedbackLine, Hint, LinkButton, Rich, Spinner, Toggle } from '../components/parts';
 import { mac, secretStore, t, terminal } from '../lib/i18n';
-import { localName, quotaLine, signInChip } from '../lib/claudeAccounts';
+import { localName, quotaLine, rotationMatters, signInChip } from '../lib/claudeAccounts';
 import type { ClaudeAccountRow, ClaudeAccountsView, Tab } from '../lib/model';
 import type { AddHow, ClaudeAccountsState, ClaudeDialog } from './useClaudeAccounts';
 
@@ -22,6 +22,8 @@ export const LOGIN_WAIT_MS = 10 * 60 * 1000;
 interface BodyProps {
   claude: ClaudeAccountsState;
   view: ClaudeAccountsView;
+  /** Nâng cao is on: the rotation rules exist. */
+  advanced: boolean;
   /** The account's name as the table shows it. */
   nameOf(slot: number): string;
   onTab(tab: Tab): void;
@@ -223,11 +225,14 @@ function DoneBody({
   d,
   view,
   claude,
+  advanced,
+  onTab,
 }: { d: Extract<ClaudeDialog, { kind: 'done' }> } & Omit<BodyProps, 'nameOf'>) {
   const [alias, setAlias] = useState('');
   const row = view.accounts.find((a) => a.slot === d.slot);
   if (!row) return <Gone claude={claude} />;
   const local = localName(row);
+  const auto = rotationMatters(view, advanced);
   return (
     <Stack>
       <Head
@@ -245,10 +250,36 @@ function DoneBody({
               ),
             ),
           },
+          ...(auto
+            ? [
+                {
+                  k: 'w',
+                  text: advanced
+                    ? t(
+                        'Luật xoay vòng chưa có tài khoản này: tự động chuyển chưa tự chuyển sang nó. Thêm vào Tài khoản Team trong vòng xoay nếu muốn.',
+                        'The rotation rules do not have this account yet, so auto-switch will not move to it. Add it to Team accounts in rotation if you want.',
+                      )
+                    : t(
+                        'Tự chuyển dùng được tài khoản này. Muốn để nó ngoài, chọn Tạm dừng tự chuyển trong menu ⋯.',
+                        'Auto-switch may use this account. To keep it out, choose Pause auto-switch in its ⋯ menu.',
+                      ),
+                },
+              ]
+            : []),
         ]}
       />
       <Nickname id="qs-al-new" row={row} value={alias} onChange={setAlias} />
       <DialogButtons>
+        {auto && advanced ? (
+          <Button
+            onClick={() => {
+              void claude.finish(d.slot, alias);
+              onTab('rules');
+            }}
+          >
+            {t('Mở Luật xoay vòng', 'Open Rotation rules')}
+          </Button>
+        ) : null}
         <Button primary onClick={() => void claude.finish(d.slot, alias)}>
           {t('Xong', 'Done')}
         </Button>
@@ -296,6 +327,7 @@ function DetailBody({
   view,
   claude,
   nameOf,
+  advanced,
 }: { d: Extract<ClaudeDialog, { kind: 'detail' }> } & Omit<BodyProps, 'onTab'>) {
   const row = view.accounts.find((a) => a.slot === d.slot);
   const [alias, setAlias] = useState(row?.alias ?? '');
@@ -322,6 +354,22 @@ function DetailBody({
         <dt>{t('Hạn mức', 'Quota')}</dt>
         <dd className="tabular-nums">{quota || t('chưa có số', 'no numbers yet')}</dd>
       </dl>
+      {rotationMatters(view, advanced) ? (
+        <div className="flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <b className="block text-body font-semi">{t('Cho tự chuyển dùng tài khoản này', 'Let auto-switch use this account')}</b>
+            <small className="block text-xs text-ink2">
+              {mac(t('Tắt để tự chuyển trên máy này bỏ qua ' + who + '. Bạn vẫn chuyển tay được.', 'Turn off so auto-switch on this Mac skips ' + who + '. You can still switch by hand.'))}
+            </small>
+          </div>
+          <Toggle
+            on={row.enabled}
+            label={t('Cho tự chuyển dùng tài khoản này', 'Let auto-switch use this account')}
+            disabled={view.working != null}
+            onClick={() => (row.enabled ? claude.open({ kind: 'rest', slot: row.slot }) : claude.setEnabled(row.slot, true))}
+          />
+        </div>
+      ) : null}
       <DialogButtons className="items-center">
         <LinkButton bad className="mr-auto" onClick={() => claude.open({ kind: 'remove', slot: row.slot })}>
           {mac(t('Xoá khỏi máy này…', 'Remove from this Mac…'))}
@@ -339,12 +387,33 @@ function DetailBody({
   );
 }
 
+function RestBody({ d, claude, nameOf, view }: { d: Extract<ClaudeDialog, { kind: 'rest' }> } & Pick<BodyProps, 'claude' | 'nameOf' | 'view'>) {
+  const who = nameOf(d.slot);
+  return (
+    <Stack>
+      <Head title={t('Tạm dừng tự chuyển cho ' + who + '?', 'Pause auto-switch for ' + who + '?')} />
+      <Facts
+        items={[
+          { k: '', text: t('Tự chuyển bỏ qua ' + who + ' cho tới khi bạn cho vào lại.', 'Auto-switch skips ' + who + ' until you put it back.') },
+          { k: '', text: t('Bạn vẫn chuyển tay sang ' + who + ' được; hạn mức vẫn hiện như cũ.', 'You can still switch to ' + who + ' by hand; its quota still shows.') },
+        ]}
+      />
+      <DialogButtons>
+        <Button onClick={claude.close}>{t('Thôi', 'Cancel')}</Button>
+        <Button primary disabled={view.working != null} onClick={() => claude.setEnabled(d.slot, false)}>
+          {t('Tạm dừng', 'Pause')}
+        </Button>
+      </DialogButtons>
+    </Stack>
+  );
+}
 
 function RemoveBody({
   d,
   claude,
   nameOf,
   view,
+  advanced,
 }: { d: Extract<ClaudeDialog, { kind: 'remove' }> } & Omit<BodyProps, 'onTab'>) {
   const who = nameOf(d.slot);
   const row = view.accounts.find((a) => a.slot === d.slot);
@@ -375,6 +444,17 @@ function RemoveBody({
               ),
             ),
           },
+          ...(advanced
+            ? [
+                {
+                  k: 'w',
+                  text: t(
+                    'Luật xoay vòng vẫn có tài khoản này trong Tài khoản Team trong vòng xoay. Sửa luật sau khi xoá.',
+                    'The rotation rules still list this account in Team accounts in rotation. Edit the rules after removing it.',
+                  ),
+                },
+              ]
+            : []),
           {
             k: '',
             text: t(
@@ -460,6 +540,8 @@ export function ClaudeDialogBody(props: BodyProps) {
       return <FailBody d={d} {...props} />;
     case 'detail':
       return <DetailBody key={d.slot} d={d} {...props} />;
+    case 'rest':
+      return <RestBody d={d} {...props} />;
     case 'remove':
       return <RemoveBody d={d} {...props} />;
     case 'relogin':

@@ -7,7 +7,8 @@
 // while it is open. One card: the app filter at its top, then a line per
 // switch in fixed columns: time, tag, the accounts, a short reason on one
 // line (all of it on hover, and on focus once it is cut), and where it came
-// from.
+// from. The switcher's log adds its lines, with the switcher's own line on
+// hover.
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Badge, badgeTone } from '@/components/ui/badge';
@@ -71,13 +72,17 @@ function Reason({ text, className }: { text: string; className?: string }) {
   );
 }
 
-/** What the list says before its first switch. */
-function emptyText(): string {
-  let s = t(
+/** What the list says before its first switch; the switcher's switches too where the model has one. */
+function emptyText(switcher: boolean): string {
+  if (switcher)
+    return t(
+      'Lịch sử của máy này bắt đầu từ khi cài app. Mỗi lần chuyển tay, switcher chuyển, hay app thấy tài khoản đổi sẽ hiện ở đây.',
+      'This Mac’s history starts when the app is installed. Every manual switch, switcher switch, or account change the app notices shows up here.',
+    );
+  return t(
     'Lịch sử của máy này bắt đầu từ khi cài app. Mỗi lần chuyển tay hay app thấy tài khoản đổi sẽ hiện ở đây.',
     'This Mac’s history starts when the app is installed. Every manual switch or account change the app notices shows up here.',
   );
-  return s;
 }
 
 export function HistoryTab({ model, fresh, now, load }: HistoryTabProps) {
@@ -128,7 +133,7 @@ export function HistoryTab({ model, fresh, now, load }: HistoryTabProps) {
         ) : !entries.length ? (
           <Empty>
             <b>{t('Chưa có lần chuyển nào', 'No switches yet')}</b>
-            {mac(emptyText())}
+            {mac(emptyText(!!model.switcher))}
           </Empty>
         ) : !days.length ? (
           <Empty>

@@ -62,9 +62,10 @@ function Head({ title, lead, cap }: { title: string; lead?: string; cap?: string
 export function ReleaseDialogBody(props: {
   model: Model;
   release: ReleaseState;
+  onUpdateFromSource?: () => void;
 }) {
   const { model, release } = props;
-  let update = false;
+  const update = !!props.onUpdateFromSource;
   const l = newerRelease(model) ?? model.release.latest;
   if (!l)
     return (
@@ -118,6 +119,17 @@ export function ReleaseDialogBody(props: {
         <PullCommand />
         <DialogButtons>
           <Button onClick={release.later}>{t('Để sau', 'Later')}</Button>
+          {update && (
+            <Button
+              primary
+              onClick={() => {
+                release.close();
+                props.onUpdateFromSource?.();
+              }}
+            >
+              {t('Cập nhật từ mã nguồn', 'Update from source')}
+            </Button>
+          )}
           {!update && (
             <Button primary onClick={release.close}>
               {t('Xong', 'Done')}

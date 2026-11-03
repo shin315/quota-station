@@ -9,6 +9,8 @@ import { describe, expect, it } from 'vitest';
 import { fixtureModel } from '../fixtures/models';
 import { permissionBanner } from '../lib/alerts';
 import { errorText } from '../lib/claudeAccounts';
+import { claudeAccountsFixture } from '../fixtures/models';
+import { rotationRow } from '../lib/claudeAccounts';
 import { codexSheet } from '../lib/codex';
 import { loginFailText } from '../lib/codexAccounts';
 import { setLang, setPlatform } from '../lib/i18n';
@@ -17,6 +19,13 @@ import type { ClaudeActionDone } from '../lib/model';
 const failed = (error: string): ClaudeActionDone => ({ action: 'login', ok: false, error, detail: null, slot: null, renewed: false, imported: null });
 
 describe('Claude and Codex on Windows', () => {
+  it('the rotation runs on the app’s timer, not a LaunchAgent', () => {
+    setPlatform('windows');
+    const row = rotationRow(claudeAccountsFixture({ rotation: true }));
+    expect(row.line).toBe('Hẹn giờ trong app chạy mỗi 3 phút khi app đang chạy, kể cả khi chỉ còn ở khay.');
+    setLang('en');
+    expect(errorText(failed('launchctl'))).toBe('Could not start the app’s timer.');
+  });
 
   it('the app’s own sign-ins are in its encrypted store', () => {
     setPlatform('windows');

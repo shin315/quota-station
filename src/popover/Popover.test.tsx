@@ -7,6 +7,7 @@ import { PopoverApp } from '../App';
 import { FOLD_KEY, MORE_KEY } from './Popover';
 import { fakeApi } from '../fixtures/fakeApi';
 import { claudeAccountsFixture, codexFixture, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
+import { heldSwitcher, peerFixture, rotationFixture } from '../fixtures/models';
 import type { Api } from '../lib/api';
 import type { Model } from '../lib/model';
 
@@ -159,7 +160,28 @@ describe('popover', () => {
     set.mockRestore();
   });
 
+  it('the footer has the automatic switching toggle and why Claude is on its account', async () => {
+    await open(fixtureModel('fresh'));
+    const toggle = screen.getByRole('switch', { name: 'Tự chuyển Claude' });
+    expect(toggle.getAttribute('aria-checked')).toBe('true');
+    // Claude simply staying on its account needs no words here; the Claude tab has them.
+    expect(screen.queryByText(/Vẫn dùng lan\.acme1/)).toBeNull();
+    expect(screen.queryByText('09:12 · Switcher chuyển sang lan.acme1.')).toBeNull();
+    cleanup();
+    // A pause is something to act on: its line shows.
+    await open(fixtureModel('fresh', { switcher: heldSwitcher() }));
+    expect(screen.getByRole('switch', { name: /Tự chuyển Claude/ }).parentElement!.querySelector('small')).toBeTruthy();
+  });
 
+  it('without Nâng cao the footer has no automatic switching', async () => {
+    await open({
+      ...fixtureModel('fresh'),
+      advanced: {
+        on: false,
+      },
+    });
+    expect(screen.queryByRole('switch', { name: /Tự chuyển Claude/ })).toBeNull();
+  });
 
   it('each section opens on its account in use, with its share used and reset', async () => {
     await open(fixtureModel('fresh'));
@@ -175,6 +197,7 @@ describe('popover', () => {
     const accounts = m.snapshot.claude.accounts;
     const old = new Date(FIXTURE_NOW.getTime() - 25 * 60_000).toISOString();
     accounts[2] = { ...accounts[2], reading: 'stale', fetchedAt: old };
+    accounts[3] = { ...accounts[3], membership: 'ended' };
     showOthers();
     await open(m);
     const [, acme2, acme3] = others('Claude');
@@ -184,8 +207,11 @@ describe('popover', () => {
     const numbers = within(acme2).getAllByText(/%$/);
     expect(numbers.length).toBeGreaterThan(0);
     for (const n of numbers) expect(n.className).toContain('text-ink3');
+    // The rotation stays in the main window.
+    expect(acme3.getAttribute('title')).toBe('lan.acme3@example.com · Quota Station · tài khoản 4 · đã rời vòng');
     expect(acme3.getAttribute('data-stale')).toBeNull();
     const notes = [/phút trước/];
+    notes.push(/rời vòng/, /ngoài vòng/, /tạm dừng tự chuyển/);
     for (const note of notes) expect(screen.queryByText(note)).toBeNull();
   });
 
@@ -320,6 +346,19 @@ describe('popover', () => {
     expect(screen.getByText(banner[1])).toBeTruthy();
   });
 
+  it('the footer says which Macs have the rotation rules only when one is behind', async () => {
+    await open(fixtureModel('fresh'));
+    expect(screen.queryByText(/^Luật xoay vòng ·/)).toBeNull();
+    cleanup();
+    const down = rotationFixture({
+      peers: [peerFixture('Mac B', 'mac-b'), peerFixture('Mac C', 'mac-c', { state: { kind: 'unreachable', error: 'x', retryAt: '2026-01-16T07:25:40.000Z' } })],
+    });
+    await open(fixtureModel('fresh', { rotation: down }));
+    expect(screen.getByText('Luật xoay vòng · Mac B: 14:02 · Mac C: chưa tới được, sẽ thử lại')).toBeTruthy();
+    cleanup();
+    await open(fixtureModel('fresh', { rotation: rotationFixture({ peers: [] }) }));
+    expect(screen.queryByText(/^Luật xoay vòng ·/)).toBeNull();
+  });
 
   it('no Claude account yet: an empty card whose button opens the Claude tab', async () => {
     const m = fixtureModel('fresh');
@@ -374,6 +413,7 @@ describe('popover', () => {
     await open(fixtureModel('fresh', { language: 'en' }));
     expect(within(inUse('Claude')).getByText('In use')).toBeTruthy();
     expect(screen.getByRole('button', { name: '3 other accounts' })).toBeTruthy();
+    expect(screen.getByRole('switch', { name: 'Claude auto-switch' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Switch to the dark look' })).toBeTruthy();
     expect(document.documentElement.lang).toBe('en');
   });

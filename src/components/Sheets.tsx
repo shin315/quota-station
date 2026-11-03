@@ -6,7 +6,8 @@
 // and Codex (M8): its switch with the optional restart box, the restart of
 // its background process, the file changed outside the app, and its guides
 // and previews; "Dán khoá" for the custom provider and "Áp dụng ngay" for
-// the plugins box. Both hosts draw the same body.
+// the plugins box. Both hosts draw the same body. Also the pause of automatic
+// switching (F07) and the two rotation guides, from `RotationSheets.tsx`.
 
 import { useState } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -33,7 +34,8 @@ import type { AgyHow, CodexKeyPreview, CodexTarget, CodexView, Model, Sessions }
 import { CheckLine, Command, DiffFile, DiffLine, DiffView, KeyMasked } from './blocks';
 import { Button, CODE, Facts as FactList, FeedbackLine, FeedbackText, FieldHint, Hint, KVT, LinkButton, Rich, Spinner } from './parts';
 import { ChoiceGroup } from './parts';
-import type { HoldChoice } from '@/lib/rotation';
+import type { HoldChoice, PauseChoice } from '@/lib/rotation';
+import { GuideBody, PauseBody } from '@/components/RotationSheets';
 
 /** What a write of config.toml goes through. */
 const WRITE_STEPS = () =>
@@ -45,6 +47,8 @@ export const HOWTO = 'm-0 mb-3 grid gap-1.5 pl-5 text-sm';
 export type SheetState =
   | { kind: 'claude'; slot: number }
   | { kind: 'agy'; number: number }
+  | { kind: 'pause'; preset: PauseChoice }
+  | { kind: 'guide'; id: 'auto' | 'switcher' }
   /** `account`: the Codex account to switch to (a ChatGPT sign-in or a custom provider); without it, the other side. */
   | { kind: 'codex'; target: CodexTarget; account?: string }
   /** Restart Codex's background process; `after` straight after a switch whose box was ticked. */
@@ -75,6 +79,7 @@ export interface SheetBodyProps {
     holdUntil: Date | null,
   ): void;
   onSwitchAgy(number: number, how: AgyHow): void;
+  onPause(until: Date | null): void;
   onSettings(): void;
   /** Codex (M8): switch, with the restart sheet after it when `restart`. */
   onCodexSwitch?(target: CodexTarget, restart: boolean, account?: string): void;
@@ -84,6 +89,8 @@ export interface SheetBodyProps {
   onCodexKeep?(): void;
   /** Another Codex sheet: "Về lại …", the guides. */
   onCodexOpen?(sheet: SheetState): void;
+  /** The guide to stop using CC Switch, in the Codex tab. */
+  onCodexGuide?(): void;
   /** "Dùng plugin với Custom API": kept for the next switch. */
   onCodexPlugins?(on: boolean): void;
   /** "Dán khoá": the preview; the key comes back only as its hint. */
@@ -286,6 +293,11 @@ function CodexAccountBody(props: SheetBodyProps & { account: string }) {
         </span>
       </label>
       <DialogButtons>
+        {v.ccSwitch && props.onCodexGuide ? (
+          <LinkButton style={{ marginRight: 'auto' }} onClick={props.onCodexGuide}>
+            {t('Hướng dẫn ngừng dùng CC Switch', 'How to stop using CC Switch')}
+          </LinkButton>
+        ) : null}
         <Button large onClick={props.onClose}>
           {t('Thôi', 'Cancel')}
         </Button>
@@ -336,6 +348,11 @@ function CodexProviderBody(props: SheetBodyProps & { target: CodexTarget; accoun
         </span>
       </label>
       <DialogButtons>
+        {v.ccSwitch && props.onCodexGuide ? (
+          <LinkButton style={{ marginRight: 'auto' }} onClick={props.onCodexGuide}>
+            {t('Hướng dẫn ngừng dùng CC Switch', 'How to stop using CC Switch')}
+          </LinkButton>
+        ) : null}
         <Button large onClick={props.onClose}>
           {t('Thôi', 'Cancel')}
         </Button>
@@ -684,5 +701,7 @@ export function SheetBody(props: SheetBodyProps) {
   if (s.kind === 'codexInfo') return <CodexInfoBody {...props} id={s.id} />;
   if (s.kind === 'claude') return <ClaudeBody key={'c' + s.slot} {...props} slot={s.slot} />;
   if (s.kind === 'agy') return <AgyBody key={'g' + s.number} {...props} number={s.number} />;
+  if (s.kind === 'pause') return <PauseBody key={'p' + s.preset} {...props} preset={s.preset} />;
+  if (s.kind === 'guide') return <GuideBody {...props} id={s.id} />;
   return null;
 }

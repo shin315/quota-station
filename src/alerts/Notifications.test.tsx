@@ -10,7 +10,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MainWindowApp, PopoverApp } from '../App';
 import { fakeApi, type FakeOptions } from '../fixtures/fakeApi';
-import { agyAccount, agyFixture, alertsFixture, FIXTURE_NOW, fixtureModel, overwriteAlert, poolAlert } from '../fixtures/models';
+import { agyAccount, agyFixture, alertsFixture, FIXTURE_NOW, fixtureModel, leavingAlert, overwriteAlert, poolAlert } from '../fixtures/models';
 import type { Api } from '../lib/api';
 import type { AlertRecord, AlertsView, Model, Tab } from '../lib/model';
 import { bellCount, PANEL_FIRST } from './Notifications';
@@ -223,6 +223,14 @@ describe('a notification’s buttons in the panel', () => {
     expect(fake.current().alerts.unanswered).toBe(1);
   });
 
+  it('"Ổn" on a card about an account leaving the rotation is not said again for that leave', async () => {
+    const fake = await open(withAlerts({ recent: [leavingAlert()] }));
+    await press(within(card('Team A rời vòng lúc 14:45')).getByRole('button', { name: 'Ổn' }));
+    expect(fake.api.alertAction).toHaveBeenCalledWith('leaving:2:2026-01-16T14:45@1768547700', 'dismiss');
+    const c = card('Team A rời vòng lúc 14:45');
+    expect(within(c).getByText('Bạn đã chọn “Ổn”.')).toBeTruthy();
+    expect(within(c).getByText('Không nhắc lại cho lần rời vòng này.')).toBeTruthy();
+  });
 
   it('"Sang …" opens the switch sheet in this window, closes the panel and switches nothing yet', async () => {
     const fake = await open(withAlerts());
