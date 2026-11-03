@@ -22,13 +22,47 @@ pub mod keychain;
 pub mod os;
 pub mod ui;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use quota_station_core::quota::Response;
 use quota_station_core::rotation::Rules;
 
 pub fn fixture_path(name: &str) -> PathBuf {
-    PathBuf::from(quota_station_core::TEST_DIR).join("tests/fixtures").join(name)
+    let core = Path::new(quota_station_core::TEST_DIR);
+    let here = std::env::var_os("CARGO_MANIFEST_DIR").map(PathBuf::from);
+    if let Some(why) = built_elsewhere(here.as_deref(), Path::new(env!("CARGO_MANIFEST_DIR")), core)
+    {
+        panic!("{why}");
+    }
+    core.join("tests/fixtures").join(name)
+}
+
+/// Why this test binary cannot read this checkout's fixtures, if it cannot:
+/// `here` is the folder of the crate whose tests run (Cargo sets it as the
+/// test runs), `built` that crate's folder and `core` the core's folder
+/// ([`quota_station_core::TEST_DIR`]) where they were compiled. Cargo names
+/// a workspace's builds by their paths inside it, so a target folder shared
+/// with another checkout of the workspace (a community export, say) can
+/// hand this checkout the binary or the core built there: its fixtures are
+/// then the other checkout's, gone with that folder.
+pub fn built_elsewhere(here: Option<&Path>, built: &Path, core: &Path) -> Option<String> {
+    let same = |a: &Path, b: &Path| match (a.canonicalize(), b.canonicalize()) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => a == b,
+    };
+    // The core is `<checkout>/crates/quota-station-core`; the tests that
+    // read its fixtures are in that checkout too (the core's, ext/author's).
+    let checkout = core.parent().and_then(Path::parent).unwrap_or(core);
+    let ok = built.starts_with(checkout) && here.is_none_or(|here| same(here, built));
+    (!ok).then(|| {
+        format!(
+            "this test binary reads the fixtures of the core built in {}, not of this checkout \
+             ({}): a target folder shared with that checkout let Cargo reuse its build; give \
+             each checkout its own CARGO_TARGET_DIR",
+            core.display(),
+            here.unwrap_or(built).display()
+        )
+    })
 }
 
 pub fn fixture_text(name: &str) -> String {
