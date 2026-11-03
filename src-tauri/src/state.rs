@@ -1374,7 +1374,7 @@ mod tests {
         inner.claude_accounts = vec![AccountOut {
             slot: 1,
             alias: None,
-            ext: shown(true),
+            ext: quota_station_core::ext::Fields::new(),
             active: false,
             kind: Default::default(),
             status: "fresh",
@@ -1392,10 +1392,6 @@ mod tests {
         assert!(!json.contains("@example.com"), "nor through the accounts' list");
     }
 
-    fn shown(_enabled: bool) -> quota_station_core::ext::Fields {
-        quota_station_core::ext::Fields::new()
-    }
-
     /// The model JSON the windows get from a state with something in every
     /// part of the model, in this feature set
     /// ([`crate::testing::fixed_model_json`]).
@@ -1406,7 +1402,7 @@ mod tests {
             &dir,
             &NoExtension,
             |_, _| {},
-            |slot| shown(slot != 3),
+            |_| quota_station_core::ext::Fields::new(),
             |_| {},
         )
     }
