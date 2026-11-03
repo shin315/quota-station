@@ -188,7 +188,6 @@ jobs:
       - name: Build the app (MIT)
         run: npx tauri build --bundles app
 
-
   # The Windows build: vitest (the windows as Windows draws them, the
   # *.win.test.tsx files among them), and the core and the app crate:
   # clippy and their tests with and without the Antigravity accounts (the
