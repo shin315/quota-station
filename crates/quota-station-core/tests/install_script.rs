@@ -91,14 +91,15 @@ impl Sandbox {
         script(&self.bin.join("security"), &format!("{r}\ncat <<'EOF'\n{listing}\nEOF\n"));
     }
 
-    /// The fake `cargo`: `tauri build` writes the bundle where Tauri does,
-    /// then runs `extra`.
+    /// The fake `cargo`: it records its arguments and the folder it runs
+    /// in; `tauri build` writes the bundle where Tauri does, then runs
+    /// `extra`.
     fn cargo(&self, extra: &str) {
         let bundle = r#"$CARGO_TARGET_DIR/release/bundle/macos/Quota Station.app"#;
         let plist = INFO_PLIST.replace("BUNDLE_ID", "com.shin315.quota-station");
         let plist = plist.replace("VERSION", "0.1.0");
         let body = format!(
-            r#"echo "cargo $* QS_ANTIGRAVITY_ACCOUNTS=$QS_ANTIGRAVITY_ACCOUNTS QS_COMMIT=$QS_COMMIT" >> "$FAKE_LOG"
+            r#"echo "cargo $* PWD=$PWD QS_ANTIGRAVITY_ACCOUNTS=$QS_ANTIGRAVITY_ACCOUNTS QS_COMMIT=$QS_COMMIT" >> "$FAKE_LOG"
 if [ "$1 $2" = "tauri --version" ]; then echo "tauri-cli 2.0.0"; exit 0; fi
 if [ "$1 $2" = "tauri build" ]; then
   app="{bundle}"
