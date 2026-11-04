@@ -71,6 +71,7 @@ export function useRelease(api: Api, model: Model | null, showFeedback: (fb: Fee
     else if (a === 'release:check') quiet(api.releaseCheck());
     else if (a === 'release:unskip') quiet(api.releaseSkip(null));
     else if (a === 'release:issue') quiet(api.releaseOpen('issue'));
+    else if (a === 'release:notice') quiet(api.releaseOpen('notice'));
     else if (a === 'diag:open') openDiag();
     else return false;
     return true;

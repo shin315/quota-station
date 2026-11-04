@@ -30,6 +30,8 @@ pub const REPO: &str = "shin315/quota-station";
 pub const RELEASES_PAGE: &str = "https://github.com/shin315/quota-station/releases";
 /// The bug form, where the diagnostic info is pasted.
 pub const ISSUE_FORM: &str = "https://github.com/shin315/quota-station/issues/new";
+/// The licences and credits, for a copy whose own `NOTICE` cannot be found.
+pub const NOTICE_PAGE: &str = "https://github.com/shin315/quota-station/blob/main/NOTICE";
 
 /// How long the question may take.
 const TIMEOUT: Duration = Duration::from_secs(20);

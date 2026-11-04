@@ -302,8 +302,8 @@ export interface Api {
   cliToolsOpened(): Promise<void>;
   /** Cập nhật Agent's "Tự động kiểm tra". */
   setCliChecks(daily: boolean): Promise<void>;
-  /** Opens the latest disk image (`download`), its page (`notes`), the Releases page, or the bug form. */
-  releaseOpen(what: 'download' | 'notes' | 'releases' | 'issue'): Promise<void>;
+  /** Opens the latest disk image (`download`), its page (`notes`), the Releases page, the bug form, or the `NOTICE` this copy carries. */
+  releaseOpen(what: 'download' | 'notes' | 'releases' | 'issue' | 'notice'): Promise<void>;
   /** The diagnostic info, exactly as "Chép" copies it. */
   releaseDiagnostics(): Promise<string>;
   /** Cài đặt › Skills. */

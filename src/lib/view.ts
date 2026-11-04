@@ -47,6 +47,8 @@ export type Action =
   | 'release:unskip'
   /** The GitHub bug form, in the browser. */
   | 'release:issue'
+  /** The licences and credits: the `NOTICE` this copy carries. */
+  | 'release:notice'
   /** The diagnostic info's dialog. */
   | 'diag:open'
   /** Opens the switch sheet for a Claude slot. */

@@ -45,6 +45,12 @@
     "shortDescription": "AI coding quota in the menu bar",
     "copyright": "© 2026 Shin315. MIT; the Antigravity accounts, when built in, CC BY-NC-SA 4.0.",
     "license": "MIT",
+    "licenseFile": "../NOTICE",
+    "resources": {
+      "../LICENSE": "LICENSE",
+      "../NOTICE": "NOTICE",
+      "../LICENSES/CC-BY-NC-SA-4.0.txt": "LICENSES/CC-BY-NC-SA-4.0.txt"
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

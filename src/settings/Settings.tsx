@@ -18,7 +18,8 @@
 // (SetRow). A longer description waits behind its "Chi tiết". Five tabs
 // (26/10/2026): Chung (with the backup folder, and the Cập nhật card: new
 // versions and Chẩn đoán), Hiển thị, Thông báo and Dịch vụ (with the
-// variables' card), and Nâng cao.
+// variables' card), and Nâng cao. A build with the Antigravity accounts
+// credits Cockpit Tools and its licence under the version (`AgyCredit`).
 
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Tabs as TabsPrimitive } from 'radix-ui';
@@ -32,7 +33,7 @@ import { Input } from '@/components/ui/input';
 import { Segment, Segmented, segmentedVariants, segmentVariants } from '@/components/ui/segmented';
 import { IdMark } from '../components/accounts';
 import { LABEL, rowClass, STACK, TabHead, TabSub, TabTitle } from '../components/page';
-import { Button, Chip, CODE, Dot, Feedback, FieldHint, More, Toggle } from '../components/parts';
+import { Button, Chip, CODE, Dot, Feedback, FieldHint, LinkButton, More, Toggle } from '../components/parts';
 import { advancedOn, authorModel } from '@/lib/advanced';
 import { alertKinds, permissionChip } from '../lib/alerts';
 import { Advanced } from '@/settings/Advanced';
@@ -424,6 +425,28 @@ function Version({ app }: { app: AppView }) {
         {app.version}
         {tag ? ' · ' + tag : ''}
       </span>
+    </SetRow>
+  );
+}
+
+/**
+ * In a build with the Antigravity accounts (`capabilities.agyAccounts`): the
+ * credit their licence asks for, Cockpit Tools by jlcodes under CC BY-NC-SA
+ * 4.0, and the `NOTICE` this copy carries.
+ */
+export function AgyCredit({ onAction }: { onAction(act: Action): void }) {
+  return (
+    <SetRow
+      label={t('Giấy phép', 'License')}
+      inline
+      hint={t(
+        'Tài khoản Antigravity phỏng theo Cockpit Tools (jlcodes), giấy phép CC BY-NC-SA 4.0.',
+        'The Antigravity accounts are adapted from Cockpit Tools (jlcodes), licensed under CC BY-NC-SA 4.0.',
+      )}
+    >
+      <LinkButton small onClick={() => onAction('release:notice')}>
+        {t('Xem NOTICE', 'View NOTICE')}
+      </LinkButton>
     </SetRow>
   );
 }
@@ -918,6 +941,7 @@ export function Settings(props: SettingsProps) {
           </SettingsCard>
           <SettingsCard id={CARDS.updates} title={t('Cập nhật', 'Updates')} icon="updates">
             {onReleaseChecks ? <ReleaseRows model={model} onAction={onAction} onAuto={onReleaseChecks} /> : <Version app={model.app} />}
+            {model.capabilities.agyAccounts ? <AgyCredit onAction={onAction} /> : null}
             {onSkillChecks ? <SkillChecksRows model={model} onSet={onSkillChecks} /> : null}
             {onReleaseChecks ? <DiagnosticsRows onAction={onAction} /> : null}
           </SettingsCard>
