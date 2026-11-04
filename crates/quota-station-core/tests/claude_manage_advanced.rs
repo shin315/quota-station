@@ -82,10 +82,7 @@ fn hooks(cli: &Cli) -> CliHooks {
     let scheduler = all.iter().find(|(h, _)| h == home).expect("the Mac's launchd").1.clone();
     CliHooks {
         exe: home.join("fakes/bin/quota-station"),
-        switch: SwitchHooks {
-            scheduler,
-            pause_file: Some(home.join(".config/cswap-prefer-team/pause")),
-        },
+        switch: SwitchHooks { scheduler, pause_file: Some(quota_station_core::pause::path(home)) },
     }
 }
 

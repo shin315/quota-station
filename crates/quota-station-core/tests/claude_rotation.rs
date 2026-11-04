@@ -425,7 +425,7 @@ fn three_accounts(tag: &str) -> (Mac, FakeAnthropic, Tools) {
     let tools = Tools {
         scheduler: mac.scheduler.clone(),
         claude: None,
-        pause_file: mac.home.join(".config/cswap-prefer-team/pause"),
+        pause_file: quota_station_core::pause::path(&mac.home),
         endpoints: anthropic.endpoints(),
     };
     (mac, anthropic, tools)

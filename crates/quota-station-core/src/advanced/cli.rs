@@ -70,7 +70,7 @@ impl CliHooks {
             scheduler: self.switch.scheduler.clone(),
             claude: cli.tools.claude.clone(),
             pause_file: (self.switch.pause_file.clone())
-                .unwrap_or_else(|| pause::path(&cli.store.paths.home)),
+                .unwrap_or_else(|| pause::file(&cli.store.paths.home)),
             endpoints: cli.tools.endpoints.clone(),
         }
     }

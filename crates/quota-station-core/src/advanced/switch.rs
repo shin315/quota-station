@@ -44,7 +44,7 @@ pub const HOLD_UNTIL: &str = "holdUntil";
 
 /// The advanced part's hooks around a manual switch: the rotation's job and
 /// the older switchers (`scheduler`), and the pause flag, by default the
-/// one under the home of the accounts switched ([`pause::path`]).
+/// one under the home of the accounts switched ([`pause::file`]).
 #[derive(Debug, Clone)]
 pub struct SwitchHooks {
     pub scheduler: Arc<dyn Scheduler>,
@@ -105,7 +105,7 @@ impl Around {
     }
 
     fn pause_file(&self, store: &Store) -> PathBuf {
-        self.hooks.pause_file.clone().unwrap_or_else(|| pause::path(&store.paths.home))
+        self.hooks.pause_file.clone().unwrap_or_else(|| pause::file(&store.paths.home))
     }
 }
 

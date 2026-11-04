@@ -238,8 +238,10 @@ has the design.
   Emails reach a window only while `Hiện email` is on, and `quota-station
   claude status --json` prints them only with `--emails`.
   `accounts.json` also says whether each account is in the rotation, and
-  the rotation keeps `rotation`, `rotation.log`, `prime` and `prime-state/`
-  there; its priming runs `claude` in the session folders too.
+  the rotation keeps `rotation`, `rotation.log`, `pause`, `prime` and
+  `prime-state/` there; its priming runs `claude` in the session folders too.
+  A pause flag left at `~/.config/cswap-prefer-team/pause` is moved there
+  once, as it is, and the old file removed.
 - **Import.** `Nhập từ claude-swap` reads `~/.claude-swap-backup` once:
   `sequence.json`, each account's config for `oauthAccount`, its login from
   its `credentials/*.enc` file or claude-swap's Keychain item (read with

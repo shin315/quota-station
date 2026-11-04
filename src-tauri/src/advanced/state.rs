@@ -162,7 +162,7 @@ impl Fields {
     /// Reads the pause flag again after a command changed it; an unreadable
     /// flag counts as none.
     pub fn reload_pause(&mut self, home: &Path) {
-        self.switcher.pause = pause::read(&pause::path(home)).ok().flatten();
+        self.switcher.pause = pause::read(&pause::file(home)).ok().flatten();
         self.switcher.pause_generation += 1;
     }
 }

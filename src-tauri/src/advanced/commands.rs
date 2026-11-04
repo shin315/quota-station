@@ -50,7 +50,7 @@ pub fn extend_pause(
     minutes: u32,
 ) -> Result<Model, String> {
     let host = Host::of(&app);
-    let file = pause::path(&host.home());
+    let file = pause::file(&host.home());
     let flag = pause::read(&file).map_err(|e| e.to_string())?.ok_or("notPaused")?;
     let flag = extended(flag, minutes, OffsetDateTime::now_utc())?;
     write_flag(&host, &own, Some(flag))
@@ -106,7 +106,7 @@ fn write_flag(
 ) -> Result<Model, String> {
     host.locked(|app| {
         let mut fields = own.lock();
-        let file = pause::path(app.home());
+        let file = pause::file(app.home());
         match &flag {
             Some(flag) => pause::write(&file, flag),
             None => pause::remove(&file),

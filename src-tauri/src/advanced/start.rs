@@ -97,7 +97,7 @@ struct FullCheck {
 }
 
 fn check_switcher(home: &Path, paths: Paths, full: bool, pause_generation: u64) -> SwitcherCheck {
-    let flag_file = pause::path(home);
+    let flag_file = pause::file(home);
     let pause = pause::read(&flag_file).ok().flatten();
     let full = full.then(|| {
         let at = OffsetDateTime::now_utc();
@@ -205,6 +205,23 @@ mod tests {
         assert!(asked(&kept));
         assert!(after_accounts_change(&Kept::default()));
         assert!(!asked(&Kept::default()));
+    }
+
+    /// A pause set before the flag moved to the app's folder, at its old
+    /// place, is the pause the app shows after the upgrade; the look carries
+    /// it over.
+    #[test]
+    fn a_pause_from_before_the_move_still_shows_after_it() {
+        let home = std::env::temp_dir().join(format!("qs-author-moved-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&home);
+        let old = pause::old_path(&home);
+        std::fs::create_dir_all(old.parent().unwrap()).unwrap();
+        std::fs::write(&old, "reason = tạm dừng\n").unwrap();
+        let check = check_switcher(&home, Paths::for_home(&home), false, 0);
+        let flag = pause::Flag { until: None, reason: Some("tạm dừng".into()) };
+        assert_eq!(check.pause, Some(flag));
+        assert!(pause::path(&home).exists() && !old.exists());
+        let _ = std::fs::remove_dir_all(&home);
     }
 
     #[test]

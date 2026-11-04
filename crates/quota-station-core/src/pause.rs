@@ -1,23 +1,95 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-//! The switcher's pause flag, `~/.config/cswap-prefer-team/pause` (F07).
+//! The rotation's pause flag (F07), `claude/pause` in the app's folder, beside
+//! the rotation file and the `prime` flag: on macOS
+//! `~/Library/Application Support/com.shin315.quota-station/claude/pause`, on
+//! Windows `AppData\Roaming\com.shin315.quota-station\claude\pause`. It was
+//! `~/.config/cswap-prefer-team/pause`; [`file`] carries a flag left there over
+//! to the app's folder once.
 //!
 //! Plain `key = value` lines, like the rotation file: `until = 2026-10-16T18:30`
 //! in local time and `reason = …`. No `until` pauses until the file goes away.
-//! The switcher's guard compares `until` with its own clock as text and
+//! The rotation's guard compares `until` with its own clock as text and
 //! deletes a flag whose time has passed; [`Flag::holds`] applies the same rule,
-//! so the app and the switcher agree on whether a pause is on.
+//! so the app and the rotation agree on whether a pause is on.
 
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
-/// Under the home folder, next to the switcher's `prime` flag and rotation file.
-pub const FILE: &str = ".config/cswap-prefer-team/pause";
+/// In the app's folder for the Claude accounts ([`crate::claude::DIR`]).
+pub const FILE: &str = "pause";
+/// Where the flag was before, under the home folder.
+pub const OLD_FILE: &str = ".config/cswap-prefer-team/pause";
 
+/// The flag's place in the app's folder, found from the home folder as the
+/// command line finds it.
 pub fn path(home: &Path) -> PathBuf {
-    home.join(FILE)
+    crate::claude::Paths::for_home(home).dir.join(FILE)
+}
+
+/// Where the flag was before it moved to the app's folder.
+pub fn old_path(home: &Path) -> PathBuf {
+    home.join(OLD_FILE)
+}
+
+/// The flag every reader and writer uses: [`path`], once a flag left at
+/// [`old_path`] has been carried over (as it is, then the old file removed,
+/// so a pause set before the move still holds and is never applied twice).
+/// While a carry-over cannot be made (the app's folder cannot be written, or
+/// the old file cannot be removed) this is the old file, so the pause still
+/// holds; the next call tries again.
+pub fn file(home: &Path) -> PathBuf {
+    let new = path(home);
+    let old = old_path(home);
+    if carry_over(&old, &new).is_err() && !exists(&new) && exists(&old) {
+        old
+    } else {
+        new
+    }
+}
+
+fn exists(path: &Path) -> bool {
+    std::fs::symlink_metadata(path).is_ok()
+}
+
+/// Moves the flag at `old` to `new`. A flag already at `new` is the newer
+/// one: it stays and the old one goes. The old file is removed before the
+/// new one is put in place, never replacing one written meanwhile, so a
+/// carry-over that two processes make at once lands one flag, and a flag
+/// removed in between is not brought back.
+fn carry_over(old: &Path, new: &Path) -> io::Result<()> {
+    let text = match std::fs::read(old) {
+        Ok(text) => text,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(()),
+        Err(e) => return Err(e),
+    };
+    if exists(new) {
+        return remove(old);
+    }
+    let dir = new.parent().ok_or_else(|| io::Error::other("no folder"))?;
+    if !dir.is_dir() {
+        crate::claude::private_dir(dir)?;
+    }
+    let n = WRITES.fetch_add(1, Ordering::Relaxed);
+    let tmp = new.with_file_name(format!("pause.carry-{}-{n}", std::process::id()));
+    std::fs::write(&tmp, &text)?;
+    let placed = match std::fs::remove_file(old) {
+        // Another process carried it over first.
+        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(e),
+        Ok(()) => match std::fs::hard_link(&tmp, new) {
+            Err(e) if e.kind() != io::ErrorKind::AlreadyExists => {
+                // Put the flag back where it was, for the next try.
+                let _ = std::fs::write(old, &text);
+                Err(e)
+            }
+            _ => Ok(()),
+        },
+    };
+    let _ = std::fs::remove_file(&tmp);
+    placed
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -95,11 +167,11 @@ pub fn read(file: &Path) -> io::Result<Option<Flag>> {
 /// and a pause) never share one.
 static WRITES: AtomicU64 = AtomicU64::new(0);
 
-/// Writes through a temporary file and a rename, so the switcher never reads
-/// half a flag.
+/// Writes through a temporary file and a rename, so the rotation never reads
+/// half a flag. A folder made for it is the owner's only (700).
 pub fn write(file: &Path, flag: &Flag) -> io::Result<()> {
-    if let Some(dir) = file.parent() {
-        std::fs::create_dir_all(dir)?;
+    if let Some(dir) = file.parent().filter(|dir| !dir.is_dir()) {
+        crate::claude::private_dir(dir)?;
     }
     let n = WRITES.fetch_add(1, Ordering::Relaxed);
     let tmp = file.with_file_name(format!("pause.tmp-{}-{n}", std::process::id()));

@@ -275,8 +275,7 @@ stops.
    out in the app first to delete those items. Leave the `gemini`/`antigravity`
    item alone: Antigravity.app and agy use it.
 
-The pause flag and the older switcher's rotation file are shared with that
-switcher and stay.
+The older switcher's rotation file is shared with that switcher and stays.
 
 ## Documentation
 

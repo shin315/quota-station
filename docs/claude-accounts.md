@@ -92,8 +92,9 @@ and 10 points before `full` left of that window (the module doc has the
 whole rule). It reads the app's own copy of
 the rotation file, `claude/rotation` (same format; the editor and the copy to
 the other Macs work on it, and on a Mac that has not imported yet they still
-work on `~/.config/cswap-prefer-team/rotation`). The pause flag stays where it
-was, `~/.config/cswap-prefer-team/pause`, with the same guard.
+work on `~/.config/cswap-prefer-team/rotation`). The pause flag is the app's
+own too, `claude/pause`, with the same guard; a flag left at
+`~/.config/cswap-prefer-team/pause` is carried over once, as it is.
 
 It runs from the app's own LaunchAgent, `com.shin315.quota-station.rotation`,
 every 180 seconds: `Quota Station.app/Contents/MacOS/quota-station claude

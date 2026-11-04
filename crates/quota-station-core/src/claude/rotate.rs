@@ -51,7 +51,7 @@ impl Tools {
         Tools {
             scheduler: Arc::new(crate::os::scheduler()),
             claude: session::find_claude(home),
-            pause_file: pause::path(home),
+            pause_file: pause::file(home),
             endpoints: Endpoints::anthropic(),
         }
     }

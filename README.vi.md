@@ -270,8 +270,8 @@ riêng không bao giờ bị merge hay reset, và lần dựng quá 30 phút th�
    trước để xoá các mục đó. Đừng đụng vào mục `gemini`/`antigravity`:
    Antigravity.app và agy dùng nó.
 
-Cờ tạm dừng và file luật xoay vòng của bộ tự chuyển cũ được dùng chung với bộ
-tự chuyển đó, nên vẫn ở lại.
+File luật xoay vòng của bộ tự chuyển cũ được dùng chung với bộ tự chuyển đó,
+nên vẫn ở lại.
 
 ## Tài liệu
 

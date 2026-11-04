@@ -265,16 +265,19 @@ what is missing.
 ## The pause flag and the switcher
 
 The rotation decides on its own every three minutes; a pause only asks it to
-wait. The pause flag is `~/.config/cswap-prefer-team/pause`
+wait. The pause flag is `claude/pause` in the app's folder (it was
+`~/.config/cswap-prefer-team/pause`; the first read after the move carries a
+flag left there over as it is and removes the old file)
 (`until = YYYY-MM-DDTHH:MM` in local time and `reason = …`; no `until` pauses
 until resumed), written through a temporary file and a rename; resuming
 deletes it. The app's own rotation has the guard built in: while the flag holds
 it switches nothing; once `until` has passed, it deletes the flag and goes on,
 and its dry run prints `paused until <until>: <reason>` (or
 `paused indefinitely: <reason>`). The older `cswap-prefer-team` script, which is
-not part of this repository, needs the same guard at its top while it still
-runs. `until` is compared with the local time as text, the same rule in both,
-so they agree on when a pause ends. When a dry run made while the flag holds
+not part of this repository, does not read the flag in the app's folder, so a
+pause stops it only once it reads that file with the same guard. `until` is
+compared with the local time as text, the same rule in both, so they agree on
+when a pause ends. When a dry run made while the flag holds
 still prints a normal decision, the app reports that the switcher ignores the
 flag and does not show Claude as paused.
 
@@ -468,8 +471,8 @@ a rename.
   a hash of the login only).
 - `claude/`: the Claude accounts (`accounts.json`, `usage.json`, `state.json`,
   `sessions/`, `adding/` and the lock file `.lock`, and the rotation's
-  `rotation`, `rotation.log`, `prime` and `prime-state/`), no email and no
-  token.
+  `rotation`, `rotation.log`, `pause`, `prime` and `prime-state/`), no email
+  and no token.
 - `update/install.log`: the last update from source's build output.
 - `antigravity/accounts.json` (Cockpit's account index layout, no token),
   `antigravity/status.json` (accounts that need a new login or a verification,
@@ -498,9 +501,10 @@ a rename.
   and `agents/env-ignored.json`; on a Mac being copied to,
   `agents/copy-job.json` and `agents/incoming/`.
 - `stats/index.json`: the token counts, no text.
-- Outside that folder: the switcher's pause flag,
-  `~/.config/cswap-prefer-team/pause`, and the rotation file with its backups
-  (`rotation.bak-<time>`, the newest 10).
+- Outside that folder: the rotation file with its backups
+  (`rotation.bak-<time>`, the newest 10), and the switcher's pause flag
+  `~/.config/cswap-prefer-team/pause` only to carry it over to `claude/pause`
+  and remove it.
 - Outside that folder, the agents' own files (`config.toml`,
   `~/.claude.json`, `mcp_config.json`, the skill folders and links, the
   instruction files, Claude Code's Keychain item) are written only after a
