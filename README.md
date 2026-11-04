@@ -2,10 +2,10 @@
 
 **English** · [Tiếng Việt](README.vi.md)
 
-A macOS menu bar app that shows how much of your Claude Code, Codex and
-Antigravity quota is used, switches between your accounts, and keeps the
-agents' MCP servers, skills and instruction files in order. The interface is in
-English and Vietnamese.
+An app for the macOS menu bar and the Windows tray that shows how much of your
+Claude Code, Codex and Antigravity quota is used, switches between your
+accounts, and keeps the agents' MCP servers, skills and instruction files in
+order. The interface is in English and Vietnamese.
 
 <p align="center">
   <img src="docs/screenshots/en/popover.png" width="360" alt="The popover in the dark look: a section each for Claude, Antigravity and Codex, each opening on its account in use with the share used and the time until reset, the other accounts folded under one line, and Claude auto-switch at the foot">
@@ -15,14 +15,14 @@ English and Vietnamese.
   <img src="docs/screenshots/menubar.png" width="600" alt="The menu bar item in a light and a dark menu bar: the C04 gauge with the account and its share used for Claude, Gemini and Codex on ChatGPT, Codex through a custom provider with no number, a paused rotation with two bars in the gauge, and an exhausted rotation with a warning triangle">
 </p>
 
-Quota Station reads the quota itself, on your Mac; it needs no other program
-for the numbers.
+Quota Station reads the quota itself, on your computer; it needs no other
+program for the numbers.
 
 Every image on this page uses made-up test data, never real accounts.
 
-> **Status.** macOS 13 or later. There is no release on GitHub yet, so you
-> install it [from source](#install). A Windows build is in progress and not
-> usable yet.
+> **Status.** For macOS 13 or later and Windows 10 or 11 (x64). Download it
+> from [Releases](https://github.com/shin315/quota-station/releases/latest);
+> [Install](#install) says how.
 
 ## Contents
 
@@ -197,9 +197,10 @@ runs and writes.
 
 ## Requirements
 
-- macOS 13 or later.
-- To build: Rust stable (1.85 or later) and Node.js 20 or later. A Mac without
-  them can install a copy built on another Mac.
+- macOS 13 or later (Apple Silicon or Intel), or Windows 10 or 11 on x64.
+- To build from source: Rust stable (1.85 or later) and Node.js 20 or later.
+  The downloads need neither, and a Mac without them can also install a copy
+  built on another Mac.
 - For the numbers, nothing else: Codex, `agy` or Antigravity.app, and Claude
   Code each only need to be signed in.
 - To sign new Claude accounts in, and for `quota-station claude run`, Claude
@@ -215,6 +216,48 @@ runs and writes.
   signs in without a prompt (a key, `BatchMode=yes`).
 
 ## Install
+
+Download the app from the
+[latest release](https://github.com/shin315/quota-station/releases/latest): the
+disk image for macOS, the installer for Windows. Building from source is for
+macOS.
+
+### macOS
+
+Download `Quota.Station_<version>_universal.dmg`, open it and drag
+`Quota Station` to `Applications`. The one disk image runs on Apple Silicon and
+Intel. The app is signed with a Developer ID and notarized by Apple, so the
+first launch only asks the usual question about an app downloaded from the
+Internet: choose `Open`.
+
+A Homebrew tap is coming soon.
+
+### Windows
+
+Download `Quota.Station_<version>_x64-setup.exe` and run it. The installer is
+not signed, so Windows warns about it:
+
+1. The browser may say the file is not commonly downloaded: choose `Keep` (in
+   Edge, from the `…` menu next to the download; it may ask once more, `Keep
+   anyway`).
+2. SmartScreen says "Windows protected your PC": click `More info`, then `Run
+   anyway`.
+
+It installs for your Windows user only and needs no administrator rights.
+Quota Station then sits in the tray at the right of the taskbar; Windows may
+first put it under the `^` arrow, from where you can drag it onto the taskbar.
+
+To check that the installer is the one released, download `SHA256SUMS.txt`
+from the same release next to it and, in PowerShell in that folder:
+
+```powershell
+$sum = (Select-String '_x64-setup.exe' .\SHA256SUMS.txt).Line.Split(' ')[0]
+(Get-FileHash .\Quota.Station_<version>_x64-setup.exe).Hash -eq $sum
+```
+
+`True` means it matches. The same sums are at the foot of the release notes.
+
+### From source (macOS)
 
 From a clone, on a Mac with Rust and Node.js:
 
@@ -235,20 +278,30 @@ On a Mac that cannot build, make a package on one that can and copy it over:
 ```sh
 scripts/install.sh --package ~/Desktop          # writes quota-station-<version>.zip
 # on the other Mac, where the zip arrived:
-ditto -x -k quota-station-0.1.0.zip . && ./quota-station-0.1.0/install.sh --app "./quota-station-0.1.0/Quota Station.app"
+ditto -x -k quota-station-<version>.zip . && ./quota-station-<version>/install.sh --app "./quota-station-<version>/Quota Station.app"
 ```
 
-Then, on a Mac that signs Antigravity accounts in, put the
+### After installing
+
+On a Mac or PC that signs Antigravity accounts in, put the
 [OAuth client file](docs/how-it-works.md#the-oauth-client-file) in place, and
 turn on `Settings › General › Open at login` if the app should start with the
-Mac.
+computer.
 
 Moving from claude-swap? The
 [cutover](docs/claude-accounts.md#cutover) says how.
 
 ## Update
 
-From a terminal, in the clone:
+A downloaded copy checks GitHub Releases once a day, while `Check for app
+updates` in `Settings › General › Updates` is on, and tells you when a new
+version is out: a banner in `Overview` and a line in the popover. `Download and
+install` opens the new disk image or installer in the browser; install it as
+the first time, over the old copy (quit it first on a Mac). The app never
+downloads or installs anything by itself.
+
+A copy built from source is told about a new version too, but updates from
+its clone. From a terminal, in the clone:
 
 ```sh
 git pull --ff-only && scripts/install.sh
@@ -263,22 +316,33 @@ stops.
 ## Uninstall
 
 1. In `Settings › General`, turn `Open at login` off (or remove Quota Station in
-   System Settings › General › Login Items).
+   System Settings › General › Login Items on a Mac, or in Task Manager's
+   `Startup apps` on Windows).
    If the app runs the Claude rotation, turn it off in the `Claude` tab (or
    run `quota-station claude rotation off`).
    To have the older switcher rotate Claude again, load its plist again
    ([cutover](docs/claude-accounts.md#cutover)).
-2. Quit Quota Station from its menu, then move
-   `/Applications/Quota Station.app` to the Trash.
-3. Optionally, its data: `~/Library/Application Support/com.shin315.quota-station/`
-   (settings, the Claude accounts' folder, the Antigravity index and readings,
-   history, notifications and `oauth-client.json`), and the app's own Keychain
-   items, services `com.shin315.quota-station.claude` and
+2. Quit Quota Station from its menu. On a Mac, move
+   `/Applications/Quota Station.app` to the Trash. On Windows, open Settings ›
+   Apps › Installed apps (Apps & features on Windows 10), then `…` next to
+   Quota Station › `Uninstall`.
+3. Optionally, its data. On a Mac:
+   `~/Library/Application Support/com.shin315.quota-station/` (settings, the
+   Claude accounts' folder, the Antigravity index and readings, history,
+   notifications and `oauth-client.json`), and the app's own Keychain items,
+   services `com.shin315.quota-station.claude` and
    `com.shin315.quota-station.antigravity`, in Keychain Access. Remove the
    Claude accounts in the app (all but the one in use) to delete their items;
    Claude Code keeps its own sign-in either way. Sign the Antigravity accounts
    out in the app first to delete those items. Leave the `gemini`/`antigravity`
    item alone: Antigravity.app and agy use it.
+   On Windows: `%APPDATA%\com.shin315.quota-station\` (settings, accounts,
+   readings, history, notifications and `oauth-client.json`) and
+   `%LOCALAPPDATA%\com.shin315.quota-station\` (what stays on this PC,
+   including the app's own keys, sealed by Windows); deleting both folders
+   removes them. Claude Code keeps its own sign-in either way. Leave the
+   `gemini:antigravity` credential in Credential Manager alone: Antigravity and
+   agy use it.
 
 The older switcher's rotation file is shared with that switcher and stays.
 
