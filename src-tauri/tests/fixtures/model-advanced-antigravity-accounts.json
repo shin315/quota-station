@@ -62,6 +62,7 @@
     "agyAccounts": true,
     "authorTools": true,
     "platform": "macos",
+    "releaseBuild": false,
     "session": false
   },
   "claudeAccounts": {

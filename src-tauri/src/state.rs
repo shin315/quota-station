@@ -703,6 +703,10 @@ pub struct Capabilities {
     /// take its type, corners and scroll bars, and its words for its own
     /// parts (Keychain, Finder, the menu bar).
     pub platform: &'static str,
+    /// A release build, the one GitHub Releases offers (`QS_RELEASE=1`,
+    /// [`crate::install::release_build`]): the windows treat it as a download,
+    /// not a build from source, Antigravity accounts or not.
+    pub release_build: bool,
     /// A test build for a guided session on a Windows PC (`crate::session`):
     /// the guide's window and its pictures. False in every other build.
     pub session: bool,
@@ -715,6 +719,7 @@ impl Capabilities {
             agy_accounts: cfg!(feature = "antigravity-accounts"),
             ext,
             platform: if cfg!(windows) { "windows" } else { "macos" },
+            release_build: crate::install::release_build(),
             session: crate::session::ON,
         }
     }
@@ -1094,6 +1099,8 @@ mod tests {
         assert_eq!(json["capabilities"]["session"], option_env!("QS_TEST_SESSION").is_some());
         let agy = cfg!(feature = "antigravity-accounts");
         assert_eq!(json["capabilities"]["agyAccounts"], agy);
+        // Only the release workflow's build sets `QS_RELEASE=1`.
+        assert_eq!(json["capabilities"]["releaseBuild"], option_env!("QS_RELEASE") == Some("1"));
         assert!(json["app"].get("version").is_some());
     }
 
@@ -1145,7 +1152,7 @@ mod tests {
         let json = serde_json::to_value(&model).unwrap();
         let keys: Vec<&str> =
             json["capabilities"].as_object().unwrap().keys().map(String::as_str).collect();
-        assert_eq!(keys, ["agyAccounts", "platform", "session"]);
+        assert_eq!(keys, ["agyAccounts", "platform", "releaseBuild", "session"]);
     }
 
     /// The names the app's own tabs have always been written as (serde's

@@ -768,11 +768,12 @@ export function communityModel(m: Model): Model {
 /**
  * The downloaded app's model (`build=release` in the preview): the advanced
  * part is in it, shown while Cài đặt › Nâng cao › Hiện phần nâng cao is on,
- * and the Antigravity accounts are not (`agyAccounts`: the download is not
- * built with that feature).
+ * and the Antigravity accounts are not (`agyAccounts`: this download is not
+ * built with that feature). It carries the release marker (`releaseBuild`),
+ * though the advanced part still makes it a build from source.
  */
 export function releaseModel(m: Model): Model {
-  const out: Model = { ...m, capabilities: { ...m.capabilities, agyAccounts: false, authorTools: true } };
+  const out: Model = { ...m, capabilities: { ...m.capabilities, agyAccounts: false, authorTools: true, releaseBuild: true } };
   // Nor an extension's parts.
   return ext.fixtures ? ext.fixtures.remove(out) : out;
 }

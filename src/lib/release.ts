@@ -4,9 +4,9 @@
 // A newer Quota Station on GitHub Releases, in words: the banner on Tổng
 // quan, the line at the popover's foot, Cài đặt › Cập nhật's rows and the
 // dialog. The app only reads the latest release; "Tải và cài" opens its
-// disk image in the browser. A build from source (the Antigravity accounts
-// or the advanced part) is told about a release but pointed at its clone,
-// since the download has neither part.
+// disk image in the browser. A build from source (every build but the
+// release workflow's, and any with the advanced part) is told about a
+// release but pointed at its clone.
 
 import { sourceView } from './advanced';
 import { clock } from './format';
@@ -14,9 +14,15 @@ import { mac, t } from './i18n';
 import type { Model, ReleaseLatest } from './model';
 import type { BannerView } from './view';
 
-/** This copy was built from source with a part the download leaves out. */
+/**
+ * This copy was built from source: any build without the release marker
+ * (`capabilities.releaseBuild`, set only by the release workflow), and a
+ * build with the advanced part whatever the marker says, since the download
+ * leaves that part out. The Antigravity accounts do not count: the download
+ * has them.
+ */
 export function fromSource(model: Pick<Model, 'capabilities'>): boolean {
-  return model.capabilities.agyAccounts || model.capabilities.authorTools === true;
+  return model.capabilities.authorTools === true || model.capabilities.releaseBuild !== true;
 }
 
 /** How a build from source is told to update: rebuilt from its clone, or updated from source where it has that. */
@@ -28,7 +34,7 @@ function sourceWords(model: Pick<Model, 'app'>): { banner: string; line: string 
     ),
     line: t('Bản build từ mã nguồn: build lại từ bản clone.', 'Built from source: rebuild from your clone.'),
   };
-  // Windows has no update from source, nor a build without the advanced part: rebuilt from the clone, as above.
+  // Windows has no update from source: rebuilt from the clone, as above.
   if (sourceView(model.app))
     w = {
       banner: t(
@@ -97,7 +103,7 @@ export function releaseLine(model: Model): { title: string; body: string } | nul
 
 /** Cài đặt › Cập nhật's version row: what the last check found, and its button. */
 export interface VersionRowView {
-  /** `0.1.0 (build 412 · d6ae958) · bản tải về (MIT)`. */
+  /** `0.1.0 (build 412 · d6ae958) · bản tải về`. */
   build: string;
   status: string;
   /** Whether this copy is the newest: `ok` yes, `info` a newer one is out, `bad` the check failed, `off` not checked or skipped. */
@@ -123,7 +129,7 @@ export function versionRow(model: Model): VersionRowView {
   const build =
     versionText(model.app) +
     ' · ' +
-    (fromSource(model) ? t('build từ mã nguồn', 'built from source') : t('bản tải về (MIT)', 'download (MIT)'));
+    (fromSource(model) ? t('build từ mã nguồn', 'built from source') : t('bản tải về', 'download'));
   const at = r.checkedAt ? clock(new Date(r.checkedAt * 1000).toISOString()) : '';
   const check = { label: t('Kiểm tra bản mới', 'Check for new versions'), act: 'release:check' as const };
   if (r.checking) return { build, status: t('Đang kiểm tra GitHub Releases…', 'Checking GitHub Releases…'), tone: '', button: { ...check, disabled: true }, undo: false };

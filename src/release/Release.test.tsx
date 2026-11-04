@@ -5,12 +5,12 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MainWindowApp, PopoverApp } from '../App';
 import { fakeApi, type FakeOptions } from '../fixtures/fakeApi';
-import { FIXTURE_NOW, fixtureModel, releaseAvailable, releaseFixture } from '../fixtures/models';
+import { FIXTURE_NOW, fixtureModel, releaseAvailable, releaseFixture, releaseModel } from '../fixtures/models';
 import { communityModel } from '../fixtures/models';
 import type { Api } from '../lib/api';
-import { setLang } from '../lib/i18n';
+import { setLang, setPlatform } from '../lib/i18n';
 import type { Model, ReleaseView, Tab } from '../lib/model';
-import { releaseBanner, releaseLine, versionRow } from '../lib/release';
+import { fromSource, releaseBanner, releaseLine, versionRow } from '../lib/release';
 
 async function open(model: Model, tab: Tab = 'overview', options: FakeOptions = {}) {
   const fake = fakeApi(model, tab, options);
@@ -24,11 +24,28 @@ async function open(model: Model, tab: Tab = 'overview', options: FakeOptions = 
   return fake;
 }
 
-/** The app as downloaded: no Antigravity accounts. */
+/** The app as downloaded: the release workflow's build, with the Antigravity accounts and the release marker. */
 function downloaded(release: ReleaseView = releaseAvailable()): Model {
   let m: Model = fixtureModel('fresh', { release });
   m = communityModel(m);
-  return { ...m, capabilities: { ...m.capabilities, agyAccounts: false } };
+  return { ...m, capabilities: { ...m.capabilities, agyAccounts: true, releaseBuild: true } };
+}
+
+/** Built from a clone (`scripts/install.sh`): the Antigravity accounts, no release marker, no advanced part. */
+function cloned(release: ReleaseView = releaseAvailable()): Model {
+  const m = downloaded(release);
+  return { ...m, capabilities: { ...m.capabilities, releaseBuild: false } };
+}
+
+/** A build with the advanced part that also carries the release marker. */
+function advancedReleased(release: ReleaseView = releaseAvailable()): Model {
+  return releaseModel(fixtureModel('fresh', { release }));
+}
+
+/** `model` as Windows sends it: its own platform, and no update from source in the app's row. */
+function onWindows(model: Model): Model {
+  const { version, build, commit, launchAtLogin } = model.app;
+  return { ...model, capabilities: { ...model.capabilities, platform: 'windows' }, app: { version, build, commit, launchAtLogin } };
 }
 
 const dialog = () => screen.getByRole('dialog');
@@ -90,6 +107,7 @@ describe('a newer release on GitHub', () => {
     const fake = await open(fixtureModel('fresh', { release: releaseAvailable() }));
     expect(screen.getByText(/Máy này chạy bản build từ mã nguồn, nên cập nhật từ mã nguồn/)).toBeTruthy();
     await press(screen.getByRole('button', { name: 'Xem có gì mới' }));
+    expect(within(dialog()).getByText('Bản tải về không có phần chỉ có ở bản build này (công cụ của tác giả), nên đừng cài nó đè lên.')).toBeTruthy();
     expect(within(dialog()).getByText('git pull --ff-only && scripts/install.sh')).toBeTruthy();
     expect(within(dialog()).queryByRole('button', { name: 'Tải và cài' })).toBeNull();
     const writeText = vi.fn(async () => {});
@@ -99,6 +117,24 @@ describe('a newer release on GitHub', () => {
     expect(inDialog('Đã chép')).toBeTruthy();
     await press(inDialog('Cập nhật từ mã nguồn'));
     expect(fake.api.updateFromSource).toHaveBeenCalled();
+  });
+
+  it('a build from a clone without the release marker is pointed at its clone too, Antigravity accounts or not', async () => {
+    await open(cloned());
+    expect(screen.getByText('Máy này chạy bản build từ mã nguồn, nên build lại từ bản clone để giữ phần chỉ có ở bản build này.')).toBeTruthy();
+    await press(screen.getByRole('button', { name: 'Xem có gì mới' }));
+    expect(within(dialog()).getByText('git pull --ff-only && scripts/install.sh')).toBeTruthy();
+    expect(within(dialog()).queryByRole('button', { name: 'Tải và cài' })).toBeNull();
+    // The download has the Antigravity accounts: nothing of this build's own to lose.
+    expect(within(dialog()).queryByText(/Bản tải về không có/)).toBeNull();
+  });
+
+  it('the downloaded app with the Antigravity accounts offers the download', async () => {
+    await open(downloaded());
+    expect(screen.queryByText(/bản build từ mã nguồn/)).toBeNull();
+    await press(screen.getByRole('button', { name: 'Xem có gì mới' }));
+    expect(inDialog('Tải và cài')).toBeTruthy();
+    expect(within(dialog()).queryByText('git pull --ff-only && scripts/install.sh')).toBeNull();
   });
 
   it('the popover has one quiet line; Xem opens Tổng quan', async () => {
@@ -129,7 +165,7 @@ describe('Cài đặt › Chung › Cập nhật', () => {
     const fake = await open(downloaded(releaseFixture()), 'settings', { releaseFinds: releaseAvailable().latest });
     await showGroup('Chung');
     await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Chi tiết: Phiên bản' })));
-    expect(screen.getByText('0.1.0 (a1b2c3d) · bản tải về (MIT)')).toBeTruthy();
+    expect(screen.getByText('0.1.0 (a1b2c3d) · bản tải về')).toBeTruthy();
     expect(screen.getByText('Đã là bản mới nhất · kiểm tra lúc 09:14')).toBeTruthy();
     await press(screen.getByRole('button', { name: 'Kiểm tra bản mới' }));
     expect(fake.api.releaseCheck).toHaveBeenCalled();
@@ -201,4 +237,68 @@ describe('the release in English', () => {
     expect(versionRow(downloaded(releaseFixture({ error: 'rateLimited' }))).status).toBe('Could not check: GitHub is rate-limiting. Tries again in 1 hour.');
     expect(versionRow(downloaded(releaseFixture({ none: true, latest: null }))).status).toBe('Already the newest: no release on GitHub yet · checked at 09:14');
   });
+});
+
+describe('the release marker (`capabilities.releaseBuild`)', () => {
+  afterEach(() => {
+    setLang('vi');
+    setPlatform('macos');
+  });
+
+  it('makes a build a download, unless it has the advanced part', () => {
+    expect(fromSource(downloaded())).toBe(false);
+    expect(fromSource(cloned())).toBe(true);
+    expect(fromSource(advancedReleased())).toBe(true);
+    // A plain build: neither the marker nor the Antigravity accounts.
+    const plain = cloned();
+    expect(fromSource({ capabilities: { ...plain.capabilities, agyAccounts: false } })).toBe(true);
+    // Absent counts as no marker, as from a build before it.
+    const older = { ...downloaded().capabilities };
+    delete older.releaseBuild;
+    expect(fromSource({ capabilities: older })).toBe(true);
+  });
+
+  for (const platform of ['macos', 'windows'] as const) {
+    const win = platform === 'windows';
+    const on = (m: Model) => (win ? onWindows(m) : m);
+
+    it('marker on, with the Antigravity accounts: the download, on ' + platform, () => {
+      setPlatform(platform);
+      const m = on(downloaded());
+      expect(versionRow(m).build).toBe('0.1.0 (a1b2c3d) · bản tải về');
+      expect(releaseBanner(m)?.body).toBe('Bạn đang dùng 0.1.0. Không có gì tự cài: app hỏi trước.');
+      expect(releaseLine(m)?.body).toBe('Hỏi trước khi cài.');
+      setLang('en');
+      expect(versionRow(m).build).toBe('0.1.0 (a1b2c3d) · download');
+      expect(releaseBanner(m)?.body).toBe('You have 0.1.0. Nothing installs by itself: the app asks first.');
+      expect(releaseLine(m)?.body).toBe('Asks before installing.');
+    });
+
+    it('no marker, with the Antigravity accounts: from source, rebuilt from the clone, on ' + platform, () => {
+      setPlatform(platform);
+      const m = on(cloned());
+      expect(versionRow(m).build).toBe('0.1.0 (a1b2c3d) · build từ mã nguồn');
+      expect(releaseBanner(m)?.body).toBe('Máy này chạy bản build từ mã nguồn, nên build lại từ bản clone để giữ phần chỉ có ở bản build này.');
+      expect(releaseLine(m)?.body).toBe('Bản build từ mã nguồn: build lại từ bản clone.');
+      setLang('en');
+      expect(versionRow(m).build).toBe('0.1.0 (a1b2c3d) · built from source');
+      expect(releaseBanner(m)?.body).toBe((win ? 'This PC' : 'This Mac') + ' runs a build from source, so rebuild it from your clone to keep what only this build has.');
+      expect(releaseLine(m)?.body).toBe('Built from source: rebuild from your clone.');
+    });
+
+    it('the advanced part with the marker: still from source, on ' + platform, () => {
+      setPlatform(platform);
+      const m = on(advancedReleased());
+      expect(versionRow(m).build).toBe('0.1.0 (a1b2c3d) · build từ mã nguồn');
+      setLang('en');
+      expect(versionRow(m).build).toBe('0.1.0 (a1b2c3d) · built from source');
+      // A Mac updates from source; Windows has no such update and rebuilds from the clone.
+      expect(releaseBanner(m)?.body).toBe(
+        win
+          ? 'This PC runs a build from source, so rebuild it from your clone to keep what only this build has.'
+          : 'This Mac runs a build from source, so update from source to keep what only this build has.',
+      );
+      expect(releaseLine(m)?.body).toBe(win ? 'Built from source: rebuild from your clone.' : 'Built from source: update from source.');
+    });
+  }
 });

@@ -19,6 +19,14 @@ use crate::state::{AppState, Inner, Model};
 /// changes.
 pub const COMMIT: Option<&str> = option_env!("QS_COMMIT");
 
+/// Whether this copy is a release build, the one GitHub Releases offers:
+/// `QS_RELEASE=1` at build time, which only the release workflow sets.
+/// Every other build (`scripts/install.sh`, the update from source, a plain
+/// `cargo tauri build`) counts as a build from source.
+pub fn release_build() -> bool {
+    option_env!("QS_RELEASE") == Some("1")
+}
+
 /// The build number, from `build.rs`: the build script's `QS_BUILD`, else
 /// the commits git counts up to the one built; `None` when neither is known
 /// (`build_number`).
