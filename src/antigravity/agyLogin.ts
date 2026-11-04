@@ -123,6 +123,9 @@ export function agyRows(view: AgyAccounts): AgyRowView[] {
   });
 }
 
+const CLIENT_GUIDE = 'https://github.com/shin315/quota-station/blob/main/docs/how-it-works.md#the-oauth-client-file';
+const COCKPIT_SOURCE = 'https://github.com/jlcodes99/cockpit-tools';
+
 /** Why "Thêm tài khoản" cannot run yet, or null when it can. */
 export function clientNotice(view: AgyAccounts): { tone: 'warn' | 'bad'; title: string; body: string } | null {
   // Windows keeps no file mode: the profile's folder keeps others out there.
@@ -132,8 +135,8 @@ export function clientNotice(view: AgyAccounts): { tone: 'warn' | 'bad'; title: 
       t('File đặt ở ' + view.clientPath + '. ', 'The file goes at ' + view.clientPath + '. '),
     ) +
     t(
-      'Chép client_id và client_secret từ mã nguồn Cockpit Tools (src-tauri/src/modules/oauth.rs); định dạng và lệnh ' + os('', 'PowerShell ') + 'tạo file có trong docs/how-it-works.md, mục “The OAuth client file”.',
-      'Copy client_id and client_secret from Cockpit Tools’ source (src-tauri/src/modules/oauth.rs); docs/how-it-works.md, “The OAuth client file”, gives the format and the ' + os('', 'PowerShell ') + 'command that makes it.',
+      'Chép client_id và client_secret từ src-tauri/src/modules/oauth.rs trong mã nguồn Cockpit Tools (' + COCKPIT_SOURCE + '); định dạng và lệnh ' + os('', 'PowerShell ') + 'tạo file có trong mục “The OAuth client file” của hướng dẫn: ' + CLIENT_GUIDE,
+      'Copy client_id and client_secret from src-tauri/src/modules/oauth.rs in Cockpit Tools’ source (' + COCKPIT_SOURCE + '); the guide’s “The OAuth client file” section gives the format and the ' + os('', 'PowerShell ') + 'command that makes it: ' + CLIENT_GUIDE,
     );
   const notices: Record<Exclude<ClientStatus, 'ok'>, { tone: 'warn' | 'bad'; title: string; body: string }> = {
     missing: {
