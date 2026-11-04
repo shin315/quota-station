@@ -267,8 +267,8 @@ function Editor({ model, rules: st, now }: { model: AuthorModel; rules: RulesSta
               <p>{t('Số được xét là số cao hơn giữa hạn mức 5 giờ và tuần của tài khoản.', 'The number checked is the higher of the account’s 5-hour and week windows.')}</p>
               <p>
                 {t(
-                  'Khi chuyển, switcher ưu tiên tài khoản sắp rời vòng, rồi tài khoản Team có cửa sổ 5 giờ kết thúc sớm nhất; bằng nhau thì theo thứ tự ở Team trong vòng.',
-                  'When it switches, the switcher goes first to an account about to leave the rotation, then to the Team account whose 5-hour window ends first; on a tie, the order in Team in rotation.',
+                  'Khi chuyển, switcher ưu tiên tài khoản sắp rời vòng, rồi tài khoản Team có hạn mức tuần đặt lại sớm nhất, rồi tài khoản có cửa sổ 5 giờ kết thúc sớm nhất; bằng nhau thì theo thứ tự ở Team trong vòng. Tài khoản có hạn mức tuần đặt lại sớm hơn được dùng đến khi chạm ngưỡng, và được dùng lại ngay khi hạn mức 5 giờ của nó đặt lại.',
+                  'When it switches, the switcher goes first to an account about to leave the rotation, then to the Team account whose week resets first, then to the one whose 5-hour window ends first; on a tie, the order in Team in rotation. The account whose week resets first is used until it reaches the threshold, and taken back as soon as its 5-hour quota resets.',
                 )}
               </p>
               <p>
