@@ -573,9 +573,9 @@ fn every_bundle_carries_the_licences_and_the_overlay_names_both() {
     let bundle = &conf["bundle"];
     // Without the Antigravity accounts the app is MIT only.
     assert_eq!(bundle["license"], "MIT");
-    // Every build ships the licences, with or without them: the app's
-    // resources, and the Windows installer's licence page.
-    assert_eq!(bundle["licenseFile"], "../NOTICE");
+    // Every build ships the licences, with or without them, as the app's
+    // resources; no installer asks anyone to accept them.
+    assert!(bundle.get("licenseFile").is_none(), "{bundle:?}");
     let resources = bundle["resources"].as_object().expect("resources as a map");
     for file in ["LICENSE", "NOTICE", "LICENSES/CC-BY-NC-SA-4.0.txt"] {
         assert_eq!(resources[&format!("../{file}")], file, "{resources:?}");

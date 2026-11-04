@@ -85,8 +85,7 @@ Cargo features decide what is compiled in. A plain `cargo tauri build`,
 
 Every build carries `LICENSE`, `NOTICE` and `LICENSES/CC-BY-NC-SA-4.0.txt`
 (`bundle.resources` in `tauri.conf.json`: the app's `Contents/Resources` on
-macOS, the install folder on Windows), and the Windows installer shows
-`NOTICE` on its licence page (`bundle.licenseFile`).
+macOS, the install folder on Windows).
 
 The **advanced part** is not a feature: every build has it, as the extension
 the app's binary passes to `run` (`quota_station::advanced::Advanced`). It is
