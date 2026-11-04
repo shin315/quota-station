@@ -767,7 +767,8 @@ the switch in `Settings › General › Updates` is on, and on `Check for new
 versions`. A new version brings a banner at the foot of `Overview` (`New
 version: Quota Station X`, with `See what's new` and `Later`) and a line in the
 popover's footer; its dialog has `Download and install`, which opens the
-release's DMG (or its page) in the browser, and `Skip this version`. Nothing is
+release's DMG, or its installer on Windows (or its page), in the browser, and
+`Skip this version`. Nothing is
 downloaded or installed by the app itself. Only the release build, the one
 GitHub Releases offers (built with `QS_RELEASE=1`, the advanced part and the
 Antigravity accounts and all), counts as a download; every other build counts
