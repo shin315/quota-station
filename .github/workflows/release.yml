@@ -95,8 +95,11 @@ jobs:
           echo "No tag v$VERSION yet"
 
       # A real run only from main, and only once the owner has made the
-      # `release` environment with a required reviewer: a job naming an
-      # environment that does not exist would create it, unprotected.
+      # `release` environment with a required reviewer and limited branches
+      # and tags: a job naming an environment that does not exist would
+      # create it, unprotected. Anyone with read access may read an
+      # environment's settings (this job's token, or none in a public
+      # repository); when they cannot be read, the run stops all the same.
       - name: A real run starts from main, in a protected environment
         if: ${{ !inputs.dry_run }}
         env:
@@ -106,17 +109,27 @@ jobs:
             echo "::error::a release is built from main, not $GITHUB_REF"
             exit 1
           fi
-          if ! rules="$(gh api "repos/$GITHUB_REPOSITORY/environments/release" --jq '[.protection_rules[].type] | join(",")')"; then
-            echo "::error::the release environment does not exist (docs/releasing.md)"
+          err="$RUNNER_TEMP/environment.err"
+          if ! rules="$(gh api "repos/$GITHUB_REPOSITORY/environments/release" \
+            --jq '[.protection_rules[].type] | join(",")' 2>"$err")"; then
+            if grep -q 'HTTP 404' "$err"; then
+              echo "::error::the release environment does not exist (docs/releasing.md)"
+            else
+              cat "$err"
+              echo "::error::could not read the release environment's settings, so whether it is protected is unknown: stopping"
+            fi
             exit 1
           fi
-          case ",$rules," in
-            *,required_reviewers,*) echo "Environment release: $rules" ;;
-            *)
-              echo "::error::the release environment has no required reviewer (docs/releasing.md)"
-              exit 1
-              ;;
-          esac
+          echo "Environment release: ${rules:-no protection rules}"
+          for rule in required_reviewers branch_policy; do
+            case ",$rules," in
+              *",$rule,"*) ;;
+              *)
+                echo "::error::the release environment lacks $rule (docs/releasing.md)"
+                exit 1
+                ;;
+            esac
+          done
 
   macos:
     name: macOS (universal disk image)
