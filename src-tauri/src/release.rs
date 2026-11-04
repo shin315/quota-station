@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 use quota_station_core::release::{self, GitHub, Latest, Releases};
 use quota_station_core::snapshot::Section;
 use serde::Serialize;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 use time::OffsetDateTime;
 
 use crate::open;
@@ -177,20 +177,29 @@ pub fn set_release_checks(
 }
 
 /// Opens one of the repository's pages: `download` (the latest disk image,
-/// else its page), `notes` (the latest release's page), `releases`, or
-/// `issue` (the bug form). Only this repository's addresses on github.com.
+/// else its page), `notes` (the latest release's page), `releases`, `issue`
+/// (the bug form), or `notice`: the `NOTICE` this copy carries
+/// (`bundle.resources`) in the text editor, else the repository's. Only this
+/// repository's addresses on github.com.
 #[tauri::command]
 pub fn release_open(
     app: AppHandle,
     state: State<'_, AppState>,
     what: String,
 ) -> Result<(), String> {
+    if what == "notice" {
+        let bundled = app.path().resource_dir().ok().map(|dir| dir.join("NOTICE"));
+        if let Some(file) = bundled.filter(|f| f.is_file()) {
+            return open::text(&app, &file);
+        }
+    }
     let latest = release::load(&state.lock().app_dir()).latest;
     let url = match what.as_str() {
         "download" => latest.as_ref().and_then(|l| l.dmg.clone().or_else(|| Some(l.url.clone()))),
         "notes" => latest.as_ref().map(|l| l.url.clone()),
         "releases" => Some(release::RELEASES_PAGE.to_string()),
         "issue" => Some(release::ISSUE_FORM.to_string()),
+        "notice" => Some(release::NOTICE_PAGE.to_string()),
         _ => None,
     }
     .unwrap_or_else(|| release::RELEASES_PAGE.to_string());

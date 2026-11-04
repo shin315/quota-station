@@ -6,7 +6,7 @@
 
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { appFixture, fixtureModel } from '../fixtures/models';
+import { appFixture, fixtureModel, releaseModel } from '../fixtures/models';
 import { setLang } from '../lib/i18n';
 import type { Model } from '../lib/model';
 import { Settings, type SettingsProps } from './Settings';
@@ -123,5 +123,22 @@ describe('settings tab in English', () => {
     expect(buttons.map((b) => b.textContent)).toEqual(['Match macOS', 'Tiếng Việt', 'English']);
     for (const b of buttons) fireEvent.click(b);
     expect((props.onLanguage as ReturnType<typeof vi.fn>).mock.calls).toEqual([['auto'], ['vi'], ['en']]);
+  });
+
+  it('credits Cockpit Tools and its licence in English, only in a build with the Antigravity accounts', () => {
+    setLang('en');
+    const credit = 'The Antigravity accounts are adapted from Cockpit Tools (jlcodes), licensed under CC BY-NC-SA 4.0.';
+    const props = renderSettings(fixtureModel('fresh'));
+    const updates = screen.getByRole('region', { name: 'Updates' });
+    expect(within(updates).getByText(credit)).toBeTruthy();
+    expect(within(updates).getByText('License')).toBeTruthy();
+    fireEvent.click(within(updates).getByRole('button', { name: 'View NOTICE' }));
+    expect(props.onAction).toHaveBeenCalledWith('release:notice');
+    cleanup();
+
+    renderSettings(releaseModel(fixtureModel('fresh')));
+    expect(screen.getByRole('region', { name: 'Updates' })).toBeTruthy();
+    expect(screen.queryByText(credit)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'View NOTICE' })).toBeNull();
   });
 });

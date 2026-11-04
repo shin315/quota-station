@@ -247,13 +247,17 @@ jobs:
         run: cargo test -p quota-station --locked --no-fail-fast --features antigravity-accounts
 
       # The test installer for the guided sessions on a Windows PC (plan
-      # 4.3): NSIS, unsigned on purpose, MIT build. QS_TEST_SESSION makes it
-      # open the session's guide and write diag-<date>.zip; no release
-      # carries it.
+      # 4.3): NSIS, unsigned on purpose, with the Antigravity accounts as the
+      # build from source has them (CC BY-NC-SA 4.0, NOTICE), so its bundle's
+      # licence reads MIT AND CC-BY-NC-SA-4.0. The MIT build stays proven by
+      # the clippy and test runs without the feature here and by the macOS
+      # job's MIT app. QS_TEST_SESSION makes it open the session's guide and
+      # write diag-<date>.zip; no release carries it.
       - name: Build the session's test installer (NSIS, unsigned)
-        run: npx tauri build --bundles nsis
+        run: npx tauri build --bundles nsis --features antigravity-accounts --config src-tauri/tauri.antigravity.conf.json
         env:
           QS_TEST_SESSION: "1"
+          QS_ANTIGRAVITY_ACCOUNTS: "1"
 
       - name: Upload the session's test installer
         uses: actions/upload-artifact@v4

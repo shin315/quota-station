@@ -156,6 +156,12 @@ fi
         self
     }
 
+    /// The licence overlay a build with the Antigravity accounts passes to
+    /// Tauri, as the fake `cargo` records it.
+    fn overlay(&self) -> String {
+        format!("--config {}/src-tauri/tauri.antigravity.conf.json", self.src.display())
+    }
+
     /// What the fake `cargo` records when it runs in `folder` of the source
     /// tree (`""`: its root).
     fn runs_in(&self, folder: &str) -> String {
@@ -233,6 +239,8 @@ fn builds_signs_ad_hoc_installs_and_opens() {
     // A build from source keeps the Antigravity accounts, in Rust and in the
     // frontend.
     assert!(build.contains("--features antigravity-accounts"), "{build}");
+    // And its bundle's licence names both (the overlay over tauri.conf.json).
+    assert!(build.contains(&s.overlay()), "{build}");
     // From the source tree's root: it has no extension's app folder.
     assert!(build.contains(&s.runs_in("")), "{build}");
     assert!(build.contains(" QS_ANTIGRAVITY_ACCOUNTS=1 "), "{build}");
@@ -305,6 +313,8 @@ fn qs_antigravity_accounts_0_builds_without_the_antigravity_accounts() {
     let build = calls.iter().find(|c| c.starts_with("cargo tauri build")).expect("a build");
     assert!(!build.contains("antigravity-accounts"), "{build}");
     assert!(!build.contains("--features"), "{build}");
+    // MIT alone, as tauri.conf.json says.
+    assert!(!build.contains("--config"), "{build}");
     assert!(build.contains(" QS_ANTIGRAVITY_ACCOUNTS=0 "), "{build}");
     assert!(verifies(&s.installed()));
 }
@@ -317,6 +327,7 @@ fn an_extension_s_app_folder_is_built_from_inside_it_with_the_app_s_features() {
         s.calls().into_iter().find(|c| c.starts_with("cargo tauri build")).expect("a build");
     assert!(build.contains(&s.runs_in("ext/app")), "{build}");
     assert!(build.contains("--features antigravity-accounts "), "{build}");
+    assert!(build.contains(&s.overlay()), "{build}");
     assert!(verifies(&s.installed()));
 
     let s = Sandbox::new("install-ext-mit").with_ext_app();
@@ -547,6 +558,35 @@ fn refuses_a_copy_whose_signature_is_broken() {
     assert!(!out.status.success());
     assert!(stderr(&out).contains("does not verify"), "{}", stderr(&out));
     assert!(!s.installed().exists());
+}
+
+/// The repository's own files, beside the script the tests run.
+fn repo_file(path: &str) -> String {
+    let file = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..").join(path);
+    std::fs::read_to_string(&file).unwrap_or_else(|e| panic!("{}: {e}", file.display()))
+}
+
+#[test]
+fn every_bundle_carries_the_licences_and_the_overlay_names_both() {
+    let conf: serde_json::Value =
+        serde_json::from_str(&repo_file("src-tauri/tauri.conf.json")).unwrap();
+    let bundle = &conf["bundle"];
+    // Without the Antigravity accounts the app is MIT only.
+    assert_eq!(bundle["license"], "MIT");
+    // Every build ships the licences, with or without them, as the app's
+    // resources; no installer asks anyone to accept them.
+    assert!(bundle.get("licenseFile").is_none(), "{bundle:?}");
+    let resources = bundle["resources"].as_object().expect("resources as a map");
+    for file in ["LICENSE", "NOTICE", "LICENSES/CC-BY-NC-SA-4.0.txt"] {
+        assert_eq!(resources[&format!("../{file}")], file, "{resources:?}");
+        assert!(!repo_file(file).is_empty(), "{file}");
+    }
+    assert!(repo_file("NOTICE").contains("Cockpit Tools"));
+
+    // The overlay `install.sh` passes with them changes the licence alone.
+    let overlay: serde_json::Value =
+        serde_json::from_str(&repo_file("src-tauri/tauri.antigravity.conf.json")).unwrap();
+    assert_eq!(overlay, serde_json::json!({ "bundle": { "license": "MIT AND CC-BY-NC-SA-4.0" } }));
 }
 
 #[test]

@@ -704,8 +704,10 @@ it.
   says so and opens System Settings), `Backup folder` (empty is iCloud Drive's
   `Quota Station Agents`), then the `Updates` card: `Version` with `Check for new
   versions`, `Tell me about new versions` (a build from source; `Check for app
-  updates` in a downloaded one), `Check for skill updates` (`Daily` or `Off`),
-  `Show skill updates as macOS notifications`, and `Diagnostic info` with `Copy
+  updates` in a downloaded one), `License` in a build with the Antigravity
+  accounts (the credit to Cockpit Tools and CC BY-NC-SA 4.0, with `View NOTICE`
+  opening the `NOTICE` the app carries), `Check for skill updates` (`Daily` or
+  `Off`), `Show skill updates as macOS notifications`, and `Diagnostic info` with `Copy
   diagnostic info…` (scrubbed of emails and paths; nothing is sent) and `Open
   the GitHub bug form`.
 - **Display** (`Hiển thị`): `Appearance` (`Match macOS`, `Light` or `Dark`),

@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MainWindowApp } from '../App';
 import { fakeApi, type FakeOptions } from '../fixtures/fakeApi';
 import { API_KEY, envFixture } from '../fixtures/fakeEnv';
-import { agyFixture, alertsFixture, appFixture, codexFixture, communityModel, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
+import { agyFixture, alertsFixture, appFixture, codexFixture, communityModel, FIXTURE_NOW, fixtureModel, releaseModel } from '../fixtures/models';
 import type { Api } from '../lib/api';
 import type { Model } from '../lib/model';
 
@@ -878,5 +878,25 @@ describe('settings: the layout of settings-R2, its groups as tabs', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Chi tiết: Báo khi có bản mới' }));
     });
     expect(within(screen.getByRole('dialog')).getByText('Mỗi ngày một lần qua GitHub Releases. Bản build từ mã nguồn không cài bản tải về: chỉ báo.')).toBeTruthy();
+  });
+
+  it('a build with the Antigravity accounts credits Cockpit Tools and its licence under the version, one without does not', async () => {
+    const credit = 'Tài khoản Antigravity phỏng theo Cockpit Tools (jlcodes), giấy phép CC BY-NC-SA 4.0.';
+    const fake = await open(fixtureModel('fresh'));
+    const updates = screen.getByRole('region', { name: 'Cập nhật' });
+    expect(within(updates).getByText(credit)).toBeTruthy();
+    expect(within(updates).getByText('Giấy phép')).toBeTruthy();
+    await act(async () => {
+      fireEvent.click(within(updates).getByRole('button', { name: 'Xem NOTICE' }));
+    });
+    expect(fake.api.releaseOpen).toHaveBeenCalledWith('notice');
+    cleanup();
+
+    // The download is built without them: no CC BY-NC-SA code, nothing to credit.
+    await open(releaseModel(fixtureModel('fresh')));
+    expect(screen.getByRole('region', { name: 'Cập nhật' })).toBeTruthy();
+    expect(screen.queryByText(credit)).toBeNull();
+    expect(screen.queryByText(/Cockpit Tools/)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Xem NOTICE' })).toBeNull();
   });
 });

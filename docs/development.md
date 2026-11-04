@@ -76,9 +76,16 @@ Cargo features decide what is compiled in. A plain `cargo tauri build`,
   screens go into the bundle only with `QS_ANTIGRAVITY_ACCOUNTS=1` (Vite swaps
   in `src/antigravity-off/` otherwise, and a build without it stops if it would
   bundle a file from `src/antigravity/`). By hand:
-  `cargo tauri build --features antigravity-accounts` with
-  `QS_ANTIGRAVITY_ACCOUNTS=1`. Without it the app reads the
+  `cargo tauri build --features antigravity-accounts --config src-tauri/tauri.antigravity.conf.json`
+  with `QS_ANTIGRAVITY_ACCOUNTS=1`; the `--config` overlay makes the bundle's
+  licence read `MIT AND CC-BY-NC-SA-4.0` instead of `MIT`. Such a build credits
+  Cockpit Tools and its licence in Cài đặt › Chung › Cập nhật, with a link to
+  `NOTICE`. Without it the app reads the
   Antigravity account signed in and does not log in or switch accounts.
+
+Every build carries `LICENSE`, `NOTICE` and `LICENSES/CC-BY-NC-SA-4.0.txt`
+(`bundle.resources` in `tauri.conf.json`: the app's `Contents/Resources` on
+macOS, the install folder on Windows).
 
 The **advanced part** is not a feature: every build has it, as the extension
 the app's binary passes to `run` (`quota_station::advanced::Advanced`). It is
@@ -225,7 +232,9 @@ CI (`.github/workflows/ci.yml`) has three jobs:
   clippy, and the app crate's tests, each with and without
   `antigravity-accounts`, then an unsigned
   NSIS test installer built with `QS_TEST_SESSION=1` for the guided sessions on
-  a Windows PC, uploaded as the workflow artifact
+  a Windows PC, with the Antigravity accounts (`--features antigravity-accounts`,
+  `QS_ANTIGRAVITY_ACCOUNTS=1` and `--config src-tauri/tauri.antigravity.conf.json`),
+  uploaded as the workflow artifact
   `quota-station-windows-x64-test-setup` (kept 14 days). No release carries it.
 
 The core's integration tests are `crates/quota-station-core/tests/*.rs`:

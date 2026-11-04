@@ -15,6 +15,8 @@
 use std::sync::Arc;
 
 use super::token::TokenData;
+// macOS's store, and the tests' fake one on every system.
+#[cfg(any(not(windows), feature = "test-support"))]
 use crate::agents::secrets::SecurityCli;
 pub use crate::agents::secrets::{StoreError, TIMEOUT};
 use crate::os::SecretStore;

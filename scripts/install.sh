@@ -20,7 +20,8 @@
 #                                       else ad-hoc
 #
 # A build from source comes with the Antigravity accounts (the
-# antigravity-accounts feature, CC BY-NC-SA 4.0: NOTICE);
+# antigravity-accounts feature, CC BY-NC-SA 4.0: NOTICE), and its bundle's
+# licence then reads MIT AND CC-BY-NC-SA-4.0 (src-tauri/tauri.antigravity.conf.json);
 # QS_ANTIGRAVITY_ACCOUNTS=0 builds the MIT app without them.
 # A clone with an extension's app folder, ext/app (a Tauri app of its own,
 # whose binary passes its extension to Quota Station), builds that folder
@@ -186,15 +187,15 @@ build() {
   fi
   export QS_BUILD
   # `npm run build`, which Tauri runs first, reads the same variable.
-  local features=""
+  # Tauri's arguments, in the positional parameters (bash 3.2 has no empty
+  # arrays under set -u).
+  set -- --bundles app
   if [ "${QS_ANTIGRAVITY_ACCOUNTS:-1}" = 0 ]; then
     export QS_ANTIGRAVITY_ACCOUNTS=0
   else
     export QS_ANTIGRAVITY_ACCOUNTS=1
-    features="antigravity-accounts"
-  fi
-  if [ -n "$features" ]; then
-    features="--features $features"
+    # The bundle's licence names both (tauri.conf.json says MIT alone).
+    set -- "$@" --features antigravity-accounts --config "$ROOT/src-tauri/tauri.antigravity.conf.json"
   fi
 
   if [ ! -f node_modules/.package-lock.json ] || [ package-lock.json -nt node_modules/.package-lock.json ]; then
@@ -211,9 +212,9 @@ build() {
     cd "$ROOT/ext/app"
   fi
   if cargo tauri --version >/dev/null 2>&1; then
-    cargo tauri build --bundles app $features || fail "cargo tauri build failed"
+    cargo tauri build "$@" || fail "cargo tauri build failed"
   else
-    npx --no-install tauri build --bundles app $features || fail "tauri build failed"
+    npx --no-install tauri build "$@" || fail "tauri build failed"
   fi
   [ -d "$built" ] || fail "the build did not write $built"
   sign "$built" "$(pick_identity)"
