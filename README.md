@@ -85,8 +85,10 @@ schedule you set.
 ### Antigravity
 
 The Antigravity row shows the Gemini and Claude/GPT quota of the account signed
-in. A build with the Antigravity accounts can also sign several Google accounts
-in and switch the one Antigravity.app and `agy` use.
+in. It can also sign several Google accounts in and switch the one
+Antigravity.app and `agy` use: the downloads and a build from source with
+`scripts/install.sh` have these Antigravity accounts, and only
+`QS_ANTIGRAVITY_ACCOUNTS=0` leaves them out.
 
 ### MCP servers, skills, plugins and instruction files
 
@@ -205,9 +207,10 @@ runs and writes.
   Code each only need to be signed in.
 - To sign new Claude accounts in, and for `quota-station claude run`, Claude
   Code's `claude` command.
-- To sign Antigravity accounts in (the Antigravity accounts build), the
-  [OAuth client file](docs/how-it-works.md#the-oauth-client-file), which you
-  make yourself with the values from Cockpit Tools' source: on a Mac
+- To sign Antigravity accounts in (the downloads and a build with
+  `scripts/install.sh` have them; `QS_ANTIGRAVITY_ACCOUNTS=0` leaves them out),
+  the [OAuth client file](docs/how-it-works.md#the-oauth-client-file), which
+  you make yourself with the values from Cockpit Tools' source: on a Mac
   `~/Library/Application Support/com.shin315.quota-station/oauth-client.json`
   (mode 600), on Windows
   `%APPDATA%\com.shin315.quota-station\oauth-client.json` (the guide has a
@@ -230,7 +233,8 @@ Intel. The app is signed with a Developer ID and notarized by Apple, so the
 first launch only asks the usual question about an app downloaded from the
 Internet: choose `Open`.
 
-A Homebrew tap is coming soon.
+With Homebrew: `brew install --cask shin315/tap/quota-station` (update with
+`brew upgrade --cask quota-station`).
 
 ### Windows
 

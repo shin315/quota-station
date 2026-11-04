@@ -106,3 +106,24 @@ On the draft's page (only people with write access see it):
 
 Publishing creates the tag on the draft's commit. From then on the app's
 update check offers this version.
+
+## Homebrew
+
+Publishing also starts the **Homebrew** workflow
+([`.github/workflows/homebrew.yml`](../.github/workflows/homebrew.yml)). Its
+job is in the `release` environment, so it waits for the same approval. Then it
+checks the disk image's sha256 in `SHA256SUMS.txt` against the digest GitHub
+records for the asset, sets `version` and `sha256` in `Casks/quota-station.rb`
+of [shin315/homebrew-tap](https://github.com/shin315/homebrew-tap) and pushes
+the commit `quota-station <version>` to its `main` with the environment's
+secret `HOMEBREW_TAP_DEPLOY_KEY`, the tap's deploy key with write access. Drafts
+and pre-releases are skipped.
+
+To run it again for a published release: Actions › Homebrew › Run workflow
+with the tag, or
+
+```sh
+gh workflow run homebrew.yml -R shin315/quota-station -f tag=v<version>
+```
+
+A cask already at that version and sha256 is left as it is.
