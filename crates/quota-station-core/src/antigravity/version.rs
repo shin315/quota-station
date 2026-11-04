@@ -7,15 +7,18 @@
 // the product.json and Info.plist lookups, `parse_version_from_plutil_output`)
 // and `src-tauri/src/modules/quota.rs` (the user agents, `x-goog-api-client`,
 // the platform name, the google-auth-library lookup and the defaults)
-// (1.3.70, commit 244b957, CC BY-NC-SA 4.0); changes: macOS only; no
-// environment overrides and no configured app path, so Antigravity is looked
-// for where Cockpit looks with its default settings; the bundle is read
-// through the folder guard's read-only `Bundle`; the version is worked out
-// once per round of reads instead of once per request.
+// (1.3.70, commit 244b957, CC BY-NC-SA 4.0); changes: no environment
+// overrides and no configured app path, so Antigravity is looked for where
+// Cockpit looks with its default settings: on macOS its bundle, elsewhere
+// nowhere, so Windows sends Cockpit's defaults as Cockpit does there; the
+// bundle is read through the folder guard's read-only `Bundle`; the version
+// is worked out once per round of reads instead of once per request.
 
 //! Who the quota calls say they are: Antigravity, at the version installed
-//! on this Mac, exactly as Cockpit Tools says it. Nothing here names Quota
-//! Station: SECURITY.md explains why the user agent must not change.
+//! on this Mac, exactly as Cockpit Tools says it; on Windows, where Cockpit
+//! with its default settings reads no version, its defaults. Nothing here
+//! names Quota Station: SECURITY.md explains why the user agent must not
+//! change.
 
 use std::path::Path;
 use std::time::Duration;
@@ -34,24 +37,25 @@ pub const X_GOOG_API_CLIENT: &str = "gl-node/22.21.1";
 
 const PLUTIL: &str = "/usr/bin/plutil";
 
-/// The Antigravity app on this Mac, where Cockpit looks for it.
+/// The Antigravity app on this Mac, where Cockpit looks for it; `None`
+/// where Cockpit looks for none (Windows).
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AntigravityApp(Bundle);
+pub struct AntigravityApp(Option<Bundle>);
 
 impl AntigravityApp {
     pub fn installed() -> Self {
-        AntigravityApp(Bundle::new(DEFAULT_ROOT))
+        AntigravityApp(cfg!(target_os = "macos").then(|| Bundle::new(DEFAULT_ROOT)))
     }
 
     /// A fake bundle for the tests.
     #[cfg(feature = "test-support")]
     pub fn at(root: impl Into<std::path::PathBuf>) -> Self {
-        AntigravityApp(Bundle::new(root))
+        AntigravityApp(Some(Bundle::new(root)))
     }
 
     /// The versions the calls carry, read from the bundle now.
     pub fn identity(&self) -> Identity {
-        let root = self.0.present().then_some(&self.0);
+        let root = self.0.as_ref().filter(|b| b.present());
         Identity {
             ide_version: version_for_cloud_code(root),
             google_client_version: google_api_nodejs_client_version(root),

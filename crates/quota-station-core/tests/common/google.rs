@@ -6,8 +6,9 @@
 //! `fetchAvailableModels` and `retrieveUserQuotaSummary` under `/daily` and
 //! `/prod`), a browser that records the URL it is asked to open and follows
 //! Google's redirect to the app's callback, and a `security` that records
-//! its arguments and keeps items in a folder. Nothing here reaches Google or
-//! the Keychain.
+//! its arguments and keeps items in a folder (on Windows, a store kept in
+//! memory that records its calls in `security`'s words). Nothing here
+//! reaches Google, the Keychain or Credential Manager.
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -23,7 +24,10 @@ use quota_station_core::antigravity::oauth::Endpoints;
 use quota_station_core::antigravity::store::Keychain;
 use quota_station_core::app_dir::AppDir;
 
+#[cfg(unix)]
 pub use super::keychain::fake_security;
+#[cfg(windows)]
+use super::os::FakeKeychain;
 use super::temp_dir;
 
 pub const CLIENT_ID: &str = "000000000000-quotastationtest.apps.googleusercontent.com";
@@ -374,14 +378,18 @@ impl Browser for FakeBrowser {
 }
 
 /// A temporary home with the app's folder, an `oauth-client.json` holding a
-/// made-up client, and a fake `security`.
+/// made-up client, and a fake `security` (on Windows, a fake store).
 pub struct Home {
     pub home: PathBuf,
     pub app: AppDir,
     pub keychain: Keychain,
     /// The fake `security`'s folder: `calls` (one line per run, arguments
-    /// split by U+001F) and `items/<service>--<account>`.
+    /// split by U+001F) and `items/<service>--<account>`. Empty on Windows.
     pub sec: PathBuf,
+    /// The app's own items on Windows, where the app keeps them in its
+    /// sealed files rather than through `security`.
+    #[cfg(windows)]
+    pub store: FakeKeychain,
 }
 
 impl Home {
@@ -390,8 +398,17 @@ impl Home {
         let app = home.join("Library/Application Support/com.shin315.quota-station");
         std::fs::create_dir_all(&app).unwrap();
         let sec = home.join("fake-security");
-        let program = fake_security(&sec);
-        let home = Home { home, app: AppDir::new(app), keychain: Keychain::fake(program), sec };
+        #[cfg(unix)]
+        let home = {
+            let program = fake_security(&sec);
+            Home { home, app: AppDir::new(app), keychain: Keychain::fake(program), sec }
+        };
+        #[cfg(windows)]
+        let home = {
+            std::fs::create_dir_all(&sec).unwrap();
+            let store = FakeKeychain::new();
+            Home { home, app: AppDir::new(app), keychain: Keychain::new(store.clone()), sec, store }
+        };
         home.write_client(
             &format!(r#"{{"client_id":"{CLIENT_ID}","client_secret":"{CLIENT_SECRET}"}}"#),
             0o600,
@@ -399,11 +416,17 @@ impl Home {
         home
     }
 
+    /// Writes `oauth-client.json`, with `mode` on Unix (Windows keeps none).
     pub fn write_client(&self, text: &str, mode: u32) {
-        use std::os::unix::fs::PermissionsExt;
         let file = self.app.path().join("oauth-client.json");
         std::fs::write(&file, text).unwrap();
-        std::fs::set_permissions(&file, std::fs::Permissions::from_mode(mode)).unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&file, std::fs::Permissions::from_mode(mode)).unwrap();
+        }
+        #[cfg(windows)]
+        let _ = mode;
     }
 
     pub fn deps<'a>(&'a self, endpoints: &'a Endpoints) -> Deps<'a> {
@@ -418,26 +441,72 @@ impl Home {
         serde_json::from_str(&std::fs::read_to_string(self.index_file()).unwrap()).unwrap()
     }
 
-    /// Every `security` run so far, as argument lists.
+    /// Every `security` run so far, as argument lists; on Windows every
+    /// call to the store, as `<command> -a <account> -s <service>`.
     pub fn security_calls(&self) -> Vec<Vec<String>> {
+        #[cfg(unix)]
         let text = std::fs::read_to_string(self.sec.join("calls")).unwrap_or_default();
-        text.lines()
-            .map(|l| l.split('\u{1f}').filter(|a| !a.is_empty()).map(String::from).collect())
-            .collect()
+        #[cfg(unix)]
+        let split = |l: &str| -> Vec<String> {
+            l.split('\u{1f}').filter(|a| !a.is_empty()).map(String::from).collect()
+        };
+        #[cfg(windows)]
+        let text = self.store.calls();
+        #[cfg(windows)]
+        let split = |l: &str| -> Vec<String> { l.split(' ').map(String::from).collect() };
+        text.lines().map(split).collect()
     }
 
     /// The value the fake keeps for one of the app's items.
     pub fn item(&self, account: &str) -> Option<String> {
-        std::fs::read_to_string(
+        #[cfg(unix)]
+        return std::fs::read_to_string(
             self.sec
                 .join("items")
                 .join(format!("com.shin315.quota-station.antigravity--{account}")),
         )
-        .ok()
+        .ok();
+        #[cfg(windows)]
+        return self.store.item("com.shin315.quota-station.antigravity", account);
+    }
+
+    /// Puts `value` in one of the app's items behind the app's back.
+    pub fn put_item(&self, account: &str, value: &str) {
+        #[cfg(unix)]
+        std::fs::write(
+            self.sec
+                .join("items")
+                .join(format!("com.shin315.quota-station.antigravity--{account}")),
+            value,
+        )
+        .unwrap();
+        #[cfg(windows)]
+        self.store.put("com.shin315.quota-station.antigravity", account, value);
+    }
+
+    /// Removes one of the app's items behind the app's back.
+    pub fn remove_item(&self, account: &str) {
+        #[cfg(unix)]
+        std::fs::remove_file(
+            self.sec
+                .join("items")
+                .join(format!("com.shin315.quota-station.antigravity--{account}")),
+        )
+        .unwrap();
+        #[cfg(windows)]
+        self.store.remove("com.shin315.quota-station.antigravity", account);
     }
 
     /// Makes the fake `security` fail one command (`add`, `delete`).
     pub fn fail_security(&self, command: &str) {
+        #[cfg(unix)]
         std::fs::write(self.sec.join(format!("fail-{command}")), "").unwrap();
+        #[cfg(windows)]
+        match command {
+            "add" => self.store.fail_add(true),
+            "delete" => self.store.fail_delete(true),
+            "find" => self.store.fail_find(true),
+            other => panic!("no such command: {other}"),
+        }
     }
 }

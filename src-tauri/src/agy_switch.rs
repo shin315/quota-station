@@ -114,8 +114,10 @@ pub struct AppView {
 }
 
 /// Is Antigravity.app installed, which version, does it run. Asked when
-/// the switch sheet opens; it only runs `plutil` and `pgrep`. Rejects when
-/// it could not ask, and the sheet then says it does not know.
+/// the switch sheet opens; it only runs `plutil` and `pgrep` (on Windows it
+/// reads `Antigravity.exe`'s product.json, else asks PowerShell for its
+/// version, and lists the processes). Rejects when it could not ask, and
+/// the sheet then says it does not know.
 #[tauri::command]
 pub async fn agy_app_state() -> Result<AppView, String> {
     tauri::async_runtime::spawn_blocking(|| {

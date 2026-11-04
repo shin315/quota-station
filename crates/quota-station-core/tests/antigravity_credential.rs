@@ -11,19 +11,27 @@
 
 //! The write of the shared Antigravity login, against a fake `security`:
 //! a failed write must leave the old login as it was, and a write that
-//! hangs must be stopped before it can change anything late.
-// Unix only: the fake `security` is a shell script.
-#![cfg(unix)]
+//! hangs must be stopped before it can change anything late. On Windows,
+//! against a fake Credential Manager: a refused write leaves the old login,
+//! and the write is Cockpit's credential.
 
+#[cfg(windows)]
+mod common;
+
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
+#[cfg(unix)]
 use std::path::PathBuf;
+#[cfg(unix)]
 use std::time::Duration;
 
 use quota_station_core::antigravity::credential::SharedLogin;
 use quota_station_core::antigravity::token::TokenData;
 
+#[cfg(unix)]
 struct Fixture(PathBuf);
 
+#[cfg(unix)]
 impl Fixture {
     fn new(script: &str) -> Self {
         static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
@@ -50,6 +58,7 @@ impl Fixture {
     }
 }
 
+#[cfg(unix)]
 impl Drop for Fixture {
     fn drop(&mut self) {
         let _ = std::fs::remove_dir_all(&self.0);
@@ -60,6 +69,7 @@ fn token() -> TokenData {
     TokenData::new("fixture-access".into(), "fixture-refresh".into(), 3599, None, None, None, 0)
 }
 
+#[cfg(unix)]
 #[test]
 fn failed_keychain_upsert_does_not_delete_existing_credential() {
     let fixture = Fixture::new(
@@ -78,6 +88,7 @@ esac
     assert_eq!(fixture.old_credential(), "old-credential");
 }
 
+#[cfg(unix)]
 #[test]
 fn keychain_timeout_kills_writer_before_late_credential_overwrite() {
     let fixture = Fixture::new(
@@ -93,4 +104,46 @@ printf 'late-credential' > "${0%/*}/credential"
     // Wait beyond the fixture write delay to catch a dropped-but-still-running writer.
     std::thread::sleep(Duration::from_millis(600));
     assert_eq!(fixture.old_credential(), "old-credential");
+}
+
+#[cfg(windows)]
+#[test]
+fn a_refused_credential_write_leaves_the_existing_credential() {
+    use common::os::FakeCredentials;
+    use quota_station_core::antigravity::credential::TARGET;
+    let store = FakeCredentials::new();
+    store.put(TARGET, "antigravity", "old-credential");
+    store.refuse("injected write failure");
+    let error = SharedLogin::fake(store.clone()).write(&token()).unwrap_err();
+    assert!(error.to_string().contains("injected write failure"), "{error}");
+    assert_eq!(store.value(TARGET).as_deref(), Some("old-credential"));
+    // Written in place: never deleted first, never read.
+    assert_eq!(store.calls(), ["write gemini:antigravity antigravity"]);
+}
+
+#[cfg(windows)]
+#[test]
+fn the_windows_write_is_cockpits_credential_with_the_payload_as_it_is() {
+    use common::os::FakeCredentials;
+    use quota_station_core::antigravity::credential::{build_payload, TARGET};
+    let store = FakeCredentials::new();
+    SharedLogin::fake(store.clone()).write(&token()).unwrap();
+    assert_eq!(store.user(TARGET).as_deref(), Some("antigravity"));
+    let value = store.value(TARGET).unwrap();
+    assert_eq!(value, build_payload(&token()), "go-keyring keeps no base64 on Windows");
+    let payload: serde_json::Value = serde_json::from_str(&value).unwrap();
+    assert_eq!(payload["token"]["access_token"], "fixture-access");
+    assert_eq!(payload["token"]["refresh_token"], "fixture-refresh");
+    assert_eq!(payload["auth_method"], "consumer");
+}
+
+/// The real Credential Manager type never reads or deletes the shared
+/// login; neither call reaches Windows.
+#[cfg(windows)]
+#[test]
+fn the_shared_credential_is_never_read_or_deleted() {
+    use quota_station_core::antigravity::credential::{CredentialManager, TARGET};
+    use quota_station_core::os::Credentials;
+    assert!(CredentialManager.read(TARGET).is_err());
+    assert!(CredentialManager.delete(TARGET).is_err());
 }

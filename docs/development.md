@@ -333,6 +333,17 @@ What the main suites check:
   out while it is prepared, the 60-second preparation and one that breaks, one
   switch at a time, a reopen that fails, and the six-hour watch on synthetic
   readings.
+- **The Antigravity tests on Windows.** The login, quota, credential, switch
+  and spy tests run on Windows CI too (`cargo test -p quota-station-core
+  --features antigravity-accounts`). There the app's items are kept in memory
+  (`tests/common/os.rs`'s `FakeKeychain`), the shared login in a fake
+  Credential Manager (`FakeCredentials`), Antigravity is a fake behind the
+  switch's seam (`desktop::Host`) with an empty `Antigravity.exe` and its
+  `product.json` in a temporary folder, and `agy` is a batch file. The tests
+  that check the macOS commands' words (`security`, `osascript`, `open`,
+  `pgrep`) check the Windows ones there instead (`gemini:antigravity`, the
+  payload as it is, `taskkill /PID <pid> /T`, the start), and the ones that
+  need macOS's immutable flag, `plutil` or a file's mode run on Unix only.
 - **Claude accounts** (the `claude_*.rs` files and `sessions.rs`) never touch a real account, the real
   Keychain or Anthropic. They run in a temporary HOME with a fake `security`
   that keeps items in files (and can refuse a write or drop one, to check that a

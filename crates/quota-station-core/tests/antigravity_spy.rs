@@ -12,11 +12,13 @@
 //! switch, never read), and the sentinel must appear nowhere the app wrote or
 //! sent anything.
 //!
+//! On Windows the shared login is the `gemini:antigravity` credential, in a
+//! fake Credential Manager that holds the decoy: the switch's one write must
+//! be Cockpit's credential, and nothing may read or delete it.
+//!
 //! In a file of its own: the list of opened files is global to the test
 //! binary, so no other test that opens files may run beside it.
 #![cfg(feature = "antigravity-accounts")]
-// Unix only: the fake `security` and `agy` are shell scripts.
-#![cfg(unix)]
 
 mod common;
 
@@ -28,7 +30,11 @@ use common::desktop::{agy_quota, fake_agy, FakeApp};
 use common::google::{
     token_body, FakeBrowser, FakeGoogle, Home, Script, ACCOUNT_ID, INVALID_GRANT, MODELS,
 };
+#[cfg(windows)]
+use common::os::FakeCredentials;
 use quota_station_core::antigravity::credential::SharedLogin;
+#[cfg(windows)]
+use quota_station_core::antigravity::credential::TARGET;
 use quota_station_core::antigravity::store::SERVICE;
 use quota_station_core::antigravity::switch::{
     self, CloudCodeProbe, How, Limits, Outcome, Request,
@@ -78,13 +84,20 @@ fn all_files(dir: &Path, out: &mut Vec<PathBuf>) {
 #[test]
 fn the_antigravity_flows_never_touch_another_tools_secrets() {
     let home = Home::new("agy-spy");
+    #[allow(unused_mut)]
     let mut decoys: Vec<PathBuf> = FORBIDDEN.iter().map(|p| home.home.join(p)).collect();
     // The shared item, as the fake `security` would keep it.
+    #[cfg(unix)]
     decoys.push(home.sec.join("items/gemini--antigravity"));
     for d in &decoys {
         std::fs::create_dir_all(d.parent().unwrap()).unwrap();
         std::fs::write(d, format!("{{\"token\":\"{SENTINEL}\"}}")).unwrap();
     }
+    // On Windows, in the fake Credential Manager.
+    #[cfg(windows)]
+    let creds = FakeCredentials::new();
+    #[cfg(windows)]
+    creds.put(TARGET, "antigravity", &format!("{{\"token\":\"{SENTINEL}\"}}"));
     let before = snapshot(&decoys);
     std::thread::sleep(Duration::from_millis(20));
     let _ = fs::take_opened();
@@ -147,13 +160,17 @@ fn the_antigravity_flows_never_touch_another_tools_secrets() {
     assert!(!google.calls(MODELS).is_empty());
 
     // A switch that quits and reopens a fake Antigravity.app, then the watch.
+    #[cfg(unix)]
     let shared_item = home.sec.join("items/gemini--antigravity");
     let app = FakeApp::new(&home.home.join("desktop"), Some("2.24.0"));
     app.start();
     let agy = fake_agy(&home.home);
     std::fs::write(home.home.join("agy.json"), agy_quota(0.0, "2030-01-15T14:00:00Z")).unwrap();
     let desktop = app.desktop();
+    #[cfg(unix)]
     let shared = SharedLogin::fake(home.sec.join("bin/security"), Duration::from_secs(5));
+    #[cfg(windows)]
+    let shared = SharedLogin::fake(creds.clone());
     let switch_deps = switch::Deps {
         app: &home.app,
         endpoints: &endpoints,
@@ -186,9 +203,18 @@ fn the_antigravity_flows_never_touch_another_tools_secrets() {
     let opened = fs::take_opened();
     assert!(!opened.is_empty());
     assert!(opened.iter().any(|p| p.starts_with(&bundle)), "the bundle was read");
+    // On Windows the switch looks in the fake install folder for
+    // `Antigravity.exe` and reads its product.json.
+    let desktop_app = |path: &Path| {
+        if cfg!(windows) {
+            path.starts_with(&app.app)
+        } else {
+            path == app.app.as_path()
+        }
+    };
     for path in &opened {
         let allowed =
-            path.starts_with(home.app.path()) || path.starts_with(&bundle) || path == &app.app;
+            path.starts_with(home.app.path()) || path.starts_with(&bundle) || desktop_app(path);
         assert!(allowed, "opened {}", path.display());
     }
 
@@ -212,16 +238,33 @@ fn the_antigravity_flows_never_touch_another_tools_secrets() {
         assert_eq!(svc, Some(SERVICE), "{call:?}");
         assert!(!call.iter().any(|a| a == "-A"), "{call:?}");
     }
+    #[cfg(unix)]
     assert_eq!(shared_writes, 1);
+    // On Windows the shared login is never a `security` run: one write of
+    // Cockpit's credential, never read or deleted.
+    #[cfg(windows)]
+    {
+        assert_eq!(shared_writes, 0);
+        assert_eq!(creds.calls(), ["write gemini:antigravity antigravity"]);
+    }
 
     // 3. The decoys are untouched, but the shared item, which the switch
     // replaced without reading it.
-    let unchanged: Vec<_> =
-        snapshot(&decoys).into_iter().filter(|(f, ..)| *f != shared_item).collect();
-    let was: Vec<_> = before.into_iter().filter(|(f, ..)| *f != shared_item).collect();
-    assert_eq!(unchanged, was);
-    let item = std::fs::read_to_string(&shared_item).unwrap();
-    assert!(item.starts_with("go-keyring-base64:") && !item.contains(SENTINEL));
+    #[cfg(unix)]
+    {
+        let unchanged: Vec<_> =
+            snapshot(&decoys).into_iter().filter(|(f, ..)| *f != shared_item).collect();
+        let was: Vec<_> = before.into_iter().filter(|(f, ..)| *f != shared_item).collect();
+        assert_eq!(unchanged, was);
+        let item = std::fs::read_to_string(&shared_item).unwrap();
+        assert!(item.starts_with("go-keyring-base64:") && !item.contains(SENTINEL));
+    }
+    #[cfg(windows)]
+    {
+        assert_eq!(snapshot(&decoys), before);
+        let item = creds.value(TARGET).unwrap();
+        assert!(item.starts_with("{\"token\":{") && !item.contains(SENTINEL), "{item}");
+    }
     assert!(app.wait_running(true), "the switch opened Antigravity.app again");
 
     // 4. The sentinel is nowhere the app wrote or sent anything.

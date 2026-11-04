@@ -10,11 +10,12 @@ pub mod accounts;
 pub mod advanced;
 #[cfg(unix)]
 pub mod claude;
-// The Antigravity fakes and the fake `security` are shell scripts.
-#[cfg(all(feature = "antigravity-accounts", unix))]
+// The Antigravity fakes: shell scripts on Unix, kept in memory (and a
+// batch-file `agy`) on Windows.
+#[cfg(feature = "antigravity-accounts")]
 pub mod desktop;
 pub mod ext;
-#[cfg(all(feature = "antigravity-accounts", unix))]
+#[cfg(feature = "antigravity-accounts")]
 pub mod google;
 pub mod http;
 #[cfg(unix)]
@@ -96,6 +97,21 @@ pub fn script(path: &std::path::Path, body: &str) -> PathBuf {
     std::fs::write(path, format!("#!/bin/sh\n{body}")).unwrap();
     std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
     path.to_path_buf()
+}
+
+/// Writes a batch file at `path` with the extension `.cmd`, its lines
+/// ended as `cmd.exe` reads them, and returns its path. Windows only.
+#[cfg(windows)]
+pub fn batch(path: &std::path::Path, lines: &[&str]) -> PathBuf {
+    let path = path.with_extension("cmd");
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    let mut text = String::from("@echo off\r\n");
+    for line in lines {
+        text.push_str(line);
+        text.push_str("\r\n");
+    }
+    std::fs::write(&path, text).unwrap();
+    path
 }
 
 /// The Claude accounts' details the app shows, from a fixture in the shape

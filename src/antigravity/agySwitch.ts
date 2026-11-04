@@ -8,11 +8,12 @@
 
 import { advancedOn } from '@/lib/advanced';
 import { clock } from '../lib/format';
-import { t } from '../lib/i18n';
+import { mac, secretStore, t, toolStore } from '../lib/i18n';
 import type { AgyApp, AgyHow, AgyLogin, AgyOutcome, Model } from '../lib/model';
 import type { FactView, NameOf } from '../lib/switching';
 import { agyCells, agyGroups } from '../lib/accounts';
 import { agyName, agyNames, type Action, type BannerView, type FeedbackView } from '../lib/view';
+import { desk } from './agyLogin';
 
 /** `Ultra 2`, by the number the row and the app's list share. */
 export const agyNameOf: NameOf = (n) => agyName({ number: n }).name;
@@ -97,7 +98,7 @@ export function agySheet(model: Model, number: number, app: AppAnswer): AgySheet
   } else if (app === null || (app.installed === 'supported' && app.running === null))
     facts.push({ k: 'w', text: t('Không biết Antigravity.app có đang chạy không.', 'Could not tell whether Antigravity.app is running.') });
   else if (app.installed === 'missing')
-    facts.push({ k: '', text: t('Máy này không có Antigravity.app: chỉ đổi tài khoản của agy.', 'This Mac has no Antigravity.app: only agy’s account changes.') });
+    facts.push({ k: '', text: mac(t('Máy này không có Antigravity.app: chỉ đổi tài khoản của agy.', 'This Mac has no Antigravity.app: only agy’s account changes.')) });
   else if (app.running)
     facts.push({
       k: 'w',
@@ -123,7 +124,7 @@ export function agySheet(model: Model, number: number, app: AppAnswer): AgySheet
   return {
     title: t('Chuyển Antigravity sang ' + name + '?', 'Switch Antigravity to ' + name + '?'),
     working: t('Đang chuyển Antigravity sang ' + name + '…', 'Switching Antigravity to ' + name + '…'),
-    facts,
+    facts: facts.map((f) => ({ ...f, text: desk(f.text) })),
     buttons,
     waiting: app === 'loading',
   };
@@ -136,10 +137,10 @@ export function agyWorking(how: AgyHow | null): string {
   const writeEn = 'the shared sign-in of Antigravity.app and agy';
   const checkEn = 'then waits 5 seconds to read back the account agy uses.';
   if (how === 'quitFirst')
-    return t('Thoát Antigravity.app, ghi ' + write + ', mở lại app, ' + check, 'Quits Antigravity.app, writes ' + writeEn + ', reopens the app, ' + checkEn);
+    return desk(t('Thoát Antigravity.app, ghi ' + write + ', mở lại app, ' + check, 'Quits Antigravity.app, writes ' + writeEn + ', reopens the app, ' + checkEn));
   // Not known which button: only what every switch does.
-  if (how === null) return t('Ghi ' + write + ', ' + check, 'Writes ' + writeEn + ', ' + checkEn);
-  return t('Làm mới đăng nhập, ghi ' + write + ', ' + check, 'Refreshes the sign-in, writes ' + writeEn + ', ' + checkEn);
+  if (how === null) return desk(t('Ghi ' + write + ', ' + check, 'Writes ' + writeEn + ', ' + checkEn));
+  return desk(t('Làm mới đăng nhập, ghi ' + write + ', ' + check, 'Refreshes the sign-in, writes ' + writeEn + ', ' + checkEn));
 }
 
 // ===== Feedback after a switch =====
@@ -166,10 +167,14 @@ function tails(o: { how: AgyHow; reopened: boolean | null; saved: boolean }): { 
     );
     warn = true;
   }
-  return { text, warn };
+  return { text: desk(text), warn };
 }
 
 function failedBody(error: string, detail: string, reopened: boolean | null): string {
+  return desk(failedWords(error, detail, reopened));
+}
+
+function failedWords(error: string, detail: string, reopened: boolean | null): string {
   const nothing = t(' Chưa đổi gì.', ' Nothing changed.');
   const d = detail ? ' (' + detail + ')' : '';
   switch (error) {
@@ -206,9 +211,9 @@ function failedBody(error: string, detail: string, reopened: boolean | null): st
     case 'refresh':
       return t('Không làm mới được đăng nhập của tài khoản này' + d + '.', 'Could not refresh this account’s sign-in' + d + '.') + nothing;
     case 'client':
-      return t('Thiếu hoặc sai oauth-client.json trên máy này.', 'oauth-client.json is missing or wrong on this Mac.') + nothing;
+      return mac(t('Thiếu hoặc sai oauth-client.json trên máy này.', 'oauth-client.json is missing or wrong on this Mac.')) + nothing;
     case 'keychain':
-      return t('Không đọc được đăng nhập của tài khoản này trong Keychain của app.', 'Could not read this account’s sign-in from the app’s Keychain.') + nothing;
+      return t('Không đọc được đăng nhập của tài khoản này trong ' + secretStore() + ' của app.', 'Could not read this account’s sign-in from the app’s ' + secretStore() + '.') + nothing;
     case 'notQuit':
       return t(
         'Antigravity.app không thoát trong 20 giây, có thể đang hỏi lưu việc. App không ép thoát và chưa đổi đăng nhập nào. Đóng Antigravity.app rồi thử lại, hoặc chọn "Chuyển, để app chạy".',
@@ -234,8 +239,8 @@ function failedBody(error: string, detail: string, reopened: boolean | null): st
       const w = why ? ' (' + why + ')' : '';
       return (
         t(
-          'Không ghi được đăng nhập dùng chung vào Keychain' + w + '. Đăng nhập cũ vẫn giữ nguyên.',
-          'Could not write the shared sign-in to the Keychain' + w + '. The old sign-in is unchanged.',
+          'Không ghi được đăng nhập dùng chung vào ' + toolStore() + w + '. Đăng nhập cũ vẫn giữ nguyên.',
+          'Could not write the shared sign-in to the ' + toolStore() + w + '. The old sign-in is unchanged.',
         ) + back
       );
     }
@@ -273,13 +278,14 @@ export function agySwitchFeedback(outcome: AgyOutcome, model?: Model | null): Fe
       return {
         tone: 'warn',
         title: t('Đã ghi tài khoản ' + n + ' cho Antigravity', 'Wrote ' + n + ' for Antigravity'),
-        body:
+        body: desk(
           (outcome.active != null
             ? t(
                 'Nhưng đọc lại sau 5 giây, agy vẫn đang dùng ' + nameOf(outcome.active) + '. Antigravity.app hoặc phiên agy đang chạy có thể vẫn giữ tài khoản cũ.',
                 'But reading again after 5 seconds, agy still uses ' + nameOf(outcome.active) + '. Antigravity.app or a running agy session may still hold the old account.',
               )
             : t('Nhưng ứng dụng chưa đọc lại được tài khoản agy đang dùng để kiểm tra.', 'But the app could not read back which account agy uses to check.')) + tail.text,
+        ),
         actions: [refresh(), close()],
       };
     }
@@ -318,9 +324,11 @@ export function overwriteBanner(model: Model): BannerView | null {
     tone: 'warn',
     title: t('Chuyển Antigravity bị ghi đè', 'Antigravity switch overwritten'),
     body:
-      t(
-        'Lúc ' + clock(o.at) + ' agy lại dùng ' + from + ' sau khi chuyển sang ' + to + '. Antigravity.app đang chạy có thể đã ghi lại đăng nhập cũ.',
-        'At ' + clock(o.at) + ' agy was using ' + from + ' again after the switch to ' + to + '. A running Antigravity.app may have written the old sign-in back.',
+      desk(
+        t(
+          'Lúc ' + clock(o.at) + ' agy lại dùng ' + from + ' sau khi chuyển sang ' + to + '. Antigravity.app đang chạy có thể đã ghi lại đăng nhập cũ.',
+          'At ' + clock(o.at) + ' agy was using ' + from + ' again after the switch to ' + to + '. A running Antigravity.app may have written the old sign-in back.',
+        ),
       ) + again,
     actions: [
       { label: t('Chuyển lại', 'Switch again'), act: ('agy:switch:' + o.to) as Action },

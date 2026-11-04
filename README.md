@@ -205,7 +205,12 @@ runs and writes.
 - To sign new Claude accounts in, and for `quota-station claude run`, Claude
   Code's `claude` command.
 - To sign Antigravity accounts in (the Antigravity accounts build), the
-  [OAuth client file](docs/how-it-works.md#the-oauth-client-file).
+  [OAuth client file](docs/how-it-works.md#the-oauth-client-file), which you
+  make yourself with the values from Cockpit Tools' source: on a Mac
+  `~/Library/Application Support/com.shin315.quota-station/oauth-client.json`
+  (mode 600), on Windows
+  `%APPDATA%\com.shin315.quota-station\oauth-client.json` (the guide has a
+  PowerShell command for it).
 - For the advanced tools that reach other Macs, an SSH alias to each that
   signs in without a prompt (a key, `BatchMode=yes`).
 

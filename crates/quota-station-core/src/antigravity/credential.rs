@@ -4,23 +4,30 @@
 
 // Ported from Cockpit Tools `src-tauri/src/modules/antigravity_credential.rs`
 // (1.3.70, commit 244b957, CC BY-NC-SA 4.0); its two tests are ported in
-// `tests/antigravity_credential.rs`; changes: macOS only (the Windows Credential Manager and
-// Linux secret-tool branches and the Windows read are not included); the
-// token comes from the app's `TokenData`; `security` runs through the app's
-// runner, which stops it at the timeout; typed errors that keep no token;
-// no logging. The payload, the `go-keyring-base64:` value and the
-// `security` command are Cockpit's, word for word.
+// `tests/antigravity_credential.rs`; changes: macOS and Windows (the Linux
+// secret-tool branch and the Windows read, `CredReadW`, are not included);
+// the token comes from the app's `TokenData`; on macOS `security` runs
+// through the app's runner, which stops it at the timeout; on Windows the
+// write goes through the app's `Credentials` seam, so the tests give a fake;
+// typed errors that keep no token; no logging. The payload, the
+// `go-keyring-base64:` value, the `security` command and the Windows
+// credential (target `gemini:antigravity`, user `antigravity`, the payload's
+// bytes, `CRED_PERSIST_LOCAL_MACHINE`) are Cockpit's, word for word.
 
-//! The login Antigravity.app and the `agy` CLI share: one generic password
-//! in the login Keychain, service `gemini`, account `antigravity`, which
-//! both read when they start. Switching the Antigravity account means
-//! replacing it, and this module is the only place the app names it.
+//! The login Antigravity and the `agy` CLI share, which both read when they
+//! start. On macOS it is one generic password in the login Keychain, service
+//! `gemini`, account `antigravity`, its value the payload in go-keyring's
+//! base64; on Windows one generic credential in Credential Manager, target
+//! `gemini:antigravity`, user `antigravity`, its value the payload's JSON as
+//! it is, as go-keyring keeps it there. Switching the Antigravity account
+//! means replacing it, and this module is the only place the app names it.
 //!
 //! The app only ever writes the item, never reads it, and only when the
-//! owner confirms a switch. The write is `security add-generic-password -U`,
-//! which updates the item in place, so a failed write leaves the login that
-//! was there as it was.
+//! owner confirms a switch. The write updates the item in place
+//! (`security add-generic-password -U`, `CredWriteW`), so a failed write
+//! leaves the login that was there as it was.
 
+#[cfg(not(windows))]
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -29,12 +36,16 @@ use serde::Serialize;
 use time::OffsetDateTime;
 
 use super::token::TokenData;
+#[cfg(not(windows))]
 use crate::runner::{self, RunError};
 
 /// The shared item's service and account, as Antigravity's Go keyring
 /// names them.
 pub const SERVICE: &str = "gemini";
 pub const ACCOUNT: &str = "antigravity";
+/// The shared credential's target in Windows' Credential Manager:
+/// go-keyring's `<service>:<account>`.
+pub const TARGET: &str = "gemini:antigravity";
 /// What go-keyring puts before a base64 value.
 const PREFIX: &str = "go-keyring-base64:";
 /// The write's timeout (Cockpit's 15 seconds): `security` can hang while
@@ -99,6 +110,8 @@ pub enum CredentialError {
         code: Option<i32>,
         message: String,
     },
+    /// Credential Manager refused the write (Windows): its own words.
+    Refused(String),
 }
 
 impl std::fmt::Display for CredentialError {
@@ -112,6 +125,9 @@ impl std::fmt::Display for CredentialError {
             CredentialError::Failed { code: None, message } => {
                 write!(f, "security was stopped: {message}")
             }
+            CredentialError::Refused(message) => {
+                write!(f, "Credential Manager refused the write: {message}")
+            }
         }
     }
 }
@@ -119,11 +135,13 @@ impl std::fmt::Display for CredentialError {
 impl std::error::Error for CredentialError {}
 
 /// Writes the shared item.
+#[cfg(not(windows))]
 pub struct SharedLogin {
     program: PathBuf,
     timeout: Duration,
 }
 
+#[cfg(not(windows))]
 impl SharedLogin {
     /// macOS's `security`.
     pub fn system() -> Self {
@@ -181,6 +199,93 @@ impl SharedLogin {
             });
         }
         Ok(())
+    }
+}
+
+/// Writes the shared credential (Windows).
+#[cfg(windows)]
+pub struct SharedLogin {
+    store: std::sync::Arc<dyn crate::os::Credentials>,
+}
+
+#[cfg(windows)]
+impl SharedLogin {
+    /// Windows' Credential Manager.
+    pub fn system() -> Self {
+        // The tests give a fake store; one that reached for the real
+        // Credential Manager stops here.
+        if cfg!(feature = "test-support") {
+            panic!("tests must use a fake Credential Manager");
+        }
+        SharedLogin { store: std::sync::Arc::new(CredentialManager) }
+    }
+
+    /// A fake store for the tests.
+    #[cfg(feature = "test-support")]
+    pub fn fake(store: impl crate::os::Credentials + 'static) -> Self {
+        SharedLogin { store: std::sync::Arc::new(store) }
+    }
+
+    /// Puts `token` on the shared login. Antigravity and agy see it the
+    /// next time they start.
+    pub fn write(&self, token: &TokenData) -> Result<(), CredentialError> {
+        self.write_payload(&build_payload(token))
+    }
+
+    /// Cockpit's Windows write: the payload's bytes as they are, which
+    /// `CredWriteW` puts in place of the credential that was there.
+    fn write_payload(&self, payload_json: &str) -> Result<(), CredentialError> {
+        self.store
+            .write(TARGET, ACCOUNT, payload_json.as_bytes())
+            .map_err(|e| CredentialError::Refused(e.to_string()))
+    }
+}
+
+/// The shared credential in Credential Manager, written as Cockpit and
+/// go-keyring write it: a generic credential kept for this user on this
+/// computer (`CRED_PERSIST_LOCAL_MACHINE`, which does not roam). The app
+/// never reads or deletes it: both refuse.
+#[cfg(windows)]
+#[derive(Debug, Clone, Copy, Default)]
+pub struct CredentialManager;
+
+#[cfg(windows)]
+impl crate::os::Credentials for CredentialManager {
+    fn read(&self, _target: &str) -> std::io::Result<Option<Vec<u8>>> {
+        Err(std::io::Error::other("the app never reads the shared Antigravity login"))
+    }
+
+    fn write(&self, target: &str, account: &str, blob: &[u8]) -> std::io::Result<()> {
+        use std::os::windows::ffi::OsStrExt;
+        use windows_sys::Win32::Security::Credentials::{
+            CredWriteW, CREDENTIALW, CRED_PERSIST_LOCAL_MACHINE, CRED_TYPE_GENERIC,
+        };
+        let wide = |text: &str| -> Vec<u16> {
+            std::ffi::OsStr::new(text).encode_wide().chain(std::iter::once(0)).collect()
+        };
+        let mut name = wide(target);
+        let mut user = wide(account);
+        let size = u32::try_from(blob.len()).map_err(|_| std::io::Error::other("too large"))?;
+        let credential = CREDENTIALW {
+            Type: CRED_TYPE_GENERIC,
+            TargetName: name.as_mut_ptr(),
+            CredentialBlobSize: size,
+            CredentialBlob: blob.as_ptr().cast_mut(),
+            Persist: CRED_PERSIST_LOCAL_MACHINE,
+            UserName: user.as_mut_ptr(),
+            ..Default::default()
+        };
+        // SAFETY: every pointer in `credential` is to a live buffer, which
+        // CredWriteW only reads. It replaces an existing credential without
+        // deleting it first, so a refused write leaves the old one.
+        if unsafe { CredWriteW(&credential, 0) } == 0 {
+            return Err(std::io::Error::last_os_error());
+        }
+        Ok(())
+    }
+
+    fn delete(&self, _target: &str) -> std::io::Result<()> {
+        Err(std::io::Error::other("the app never deletes the shared Antigravity login"))
     }
 }
 

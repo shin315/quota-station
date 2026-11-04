@@ -25,6 +25,7 @@ import {
   agyRows,
   agyVerifyErrorFeedback,
   clientNotice,
+  desk,
   pasteHint,
   type AgyRowView,
 } from './agyLogin';
@@ -194,7 +195,7 @@ export function LogoutConfirm({ logins, row, inTable }: { logins: AgyLogins; row
     <div className={cn(LIST_ROW, inTable && 'col-span-full mt-0 mb-1.5 px-3')} role="group" aria-label={t('Đăng xuất ', 'Sign out ') + row.name}>
       <div>
         <b>{t('Đăng xuất ' + row.name + ' khỏi Quota Station?', 'Sign ' + row.name + ' out of Quota Station?')}</b>
-        <small className="block text-xs text-ink2">{t('Antigravity.app và agy vẫn đăng nhập như cũ.', 'Antigravity.app and agy stay signed in as before.')}</small>
+        <small className="block text-xs text-ink2">{desk(t('Antigravity.app và agy vẫn đăng nhập như cũ.', 'Antigravity.app and agy stay signed in as before.'))}</small>
       </div>
       <Button onClick={() => logins.ask(null)}>{t('Huỷ', 'Cancel')}</Button>
       <Button primary disabled={logins.busy} onClick={() => logins.logout(row)}>

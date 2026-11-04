@@ -124,8 +124,12 @@ SOFTWARE.
   token record and the account index), the quota reading (the Cloud Code
   calls, the user agent and its version lookup, the host choice, and the
   quota cache layout with its TTL) and the Antigravity account switch (the
-  shared Keychain login it writes, the Antigravity.app version rule and the
-  order of a switch) are adapted from Cockpit Tools 1.3.70, commit 244b957.
+  shared login it writes, in the macOS Keychain and in Windows' Credential
+  Manager, the Antigravity version rule, where Windows has Antigravity and
+  how it is closed and started there, and the order of a switch) are
+  adapted from Cockpit Tools 1.3.70, commit 244b957, on macOS and Windows.
+  Its Linux branches, its Windows read of the shared login and its forced
+  close (`taskkill /F`) are not ported.
   See [`NOTICE`](NOTICE) for the files and the changes; each
   adapted file also says so in its header. This is why the Antigravity
   accounts (those files, the parts that join them to the app and their

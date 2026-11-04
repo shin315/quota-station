@@ -4,22 +4,26 @@
 //! Switching the Antigravity account end to end, in a temporary home with a
 //! local fake Google, a fake `security`, a fake Antigravity.app (a shell
 //! process) with fake `plutil`, `pgrep`, `osascript` and `open`, and a fake
-//! `agy`. These tests never reach Google, the Keychain, the real
-//! Antigravity.app or the real agy.
+//! `agy`. On Windows the app's items and the shared credential are kept in
+//! memory, Antigravity is a fake behind the switch's seam with a fake
+//! `Antigravity.exe`, and `agy` is a batch file. These tests never reach
+//! Google, the Keychain, Credential Manager, the real Antigravity or the
+//! real agy.
 #![cfg(feature = "antigravity-accounts")]
-// Unix only: the fake `security`, `agy` and Antigravity.app tools are shell scripts.
-#![cfg(unix)]
 
 mod common;
 
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
+#[cfg(unix)]
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use common::desktop::{agy_quota, fake_agy, remember, FakeApp};
 use common::google::{
     token_body, FakeBrowser, FakeGoogle, Home, Script, ACCOUNT_ID, INVALID_GRANT, LOAD_CODE_ASSIST,
 };
+#[cfg(windows)]
+use common::os::FakeCredentials;
 use quota_station_core::antigravity::credential::SharedLogin;
 use quota_station_core::antigravity::index::{self, Standing};
 use quota_station_core::antigravity::listing;
@@ -36,6 +40,13 @@ use quota_station_core::quota::agy;
 const NOW: i64 = 1_768_548_000;
 const SECOND: &str = "ultra.two@example.com";
 const OLD_LOGIN: &str = "go-keyring-base64:old-login";
+/// What the fake store says when it refuses the shared login's write.
+#[cfg(unix)]
+const WRITE_REFUSED: &str = "User interaction is not allowed";
+#[cfg(windows)]
+const WRITE_REFUSED: &str = "Access is denied. (os error 5)";
+#[cfg(windows)]
+use quota_station_core::antigravity::credential::TARGET;
 /// When each account's last reading says its Gemini five hours reset; a
 /// live reading resetting at the same time is that account's.
 const FIRST_RESET: &str = "2030-01-15T13:00:00Z";
@@ -55,6 +66,9 @@ struct Setup {
     shared: SharedLogin,
     /// The second account's id: the one switched to.
     second: String,
+    /// The shared login on Windows, in a fake Credential Manager.
+    #[cfg(windows)]
+    creds: FakeCredentials,
 }
 
 /// Two accounts logged in (the first is current), each with a reading, the
@@ -79,19 +93,34 @@ fn setup(tag: &str, version: Option<&str>) -> Setup {
         login::complete(&deps, flow, &FakeBrowser::following(), Duration::from_secs(20), &now)
             .unwrap();
     }
-    std::fs::write(home.sec.join("items/gemini--antigravity"), OLD_LOGIN).unwrap();
     let app = FakeApp::new(&home.home.join("desktop"), version);
-    app.watch_item(&home.sec.join("items/gemini--antigravity"));
+    #[cfg(unix)]
+    let shared = {
+        std::fs::write(home.sec.join("items/gemini--antigravity"), OLD_LOGIN).unwrap();
+        app.watch_item(&home.sec.join("items/gemini--antigravity"));
+        SharedLogin::fake(home.sec.join("bin/security"), Duration::from_secs(5))
+    };
+    #[cfg(windows)]
+    let creds = FakeCredentials::new();
+    #[cfg(windows)]
+    let shared = {
+        creds.put(TARGET, "antigravity", OLD_LOGIN);
+        let watched = creds.clone();
+        app.watch_item(move || watched.value(TARGET));
+        SharedLogin::fake(creds.clone())
+    };
     remember(&home.app, common::google::EMAIL, 40.0, FIRST_RESET, NOW * 1000);
     remember(&home.app, SECOND, 20.0, SECOND_RESET, NOW * 1000);
     let agy = fake_agy(&home.home);
     let s = Setup {
-        shared: SharedLogin::fake(home.sec.join("bin/security"), Duration::from_secs(5)),
+        shared,
         second: index::account_id(SECOND),
         home,
         google,
         app,
         agy,
+        #[cfg(windows)]
+        creds,
     };
     s.report(Some(&agy_quota(25.0, SECOND_RESET)));
     s
@@ -142,17 +171,38 @@ impl Setup {
         self.switch(how, NOW + 60, Arc::new(NoProbe), limits())
     }
 
+    #[cfg(unix)]
     fn shared_item(&self) -> String {
         std::fs::read_to_string(self.home.sec.join("items/gemini--antigravity")).unwrap()
     }
 
+    #[cfg(windows)]
+    fn shared_item(&self) -> String {
+        self.creds.value(TARGET).unwrap()
+    }
+
     /// The `security` runs that named the shared item.
+    #[cfg(unix)]
     fn shared_calls(&self) -> Vec<Vec<String>> {
         self.home
             .security_calls()
             .into_iter()
             .filter(|c| c.iter().any(|a| a == "gemini" || a == "antigravity"))
             .collect()
+    }
+
+    /// The calls to the fake Credential Manager: `write <target> <user>`.
+    #[cfg(windows)]
+    fn shared_calls(&self) -> Vec<Vec<String>> {
+        self.creds.calls().iter().map(|c| c.split(' ').map(String::from).collect()).collect()
+    }
+
+    /// Makes the shared login's write fail, with [`WRITE_REFUSED`].
+    fn fail_shared_write(&self) {
+        #[cfg(unix)]
+        self.home.fail_security("add");
+        #[cfg(windows)]
+        self.creds.refuse(WRITE_REFUSED);
     }
 
     fn binding(&self) -> Option<serde_json::Value> {
@@ -175,10 +225,18 @@ fn limits() -> Limits {
     }
 }
 
-/// The token a shared-login value holds.
+/// The token a shared-login value holds: go-keyring's base64 on macOS, the
+/// JSON as it is on Windows.
+#[cfg(unix)]
 fn decode(value: &str) -> serde_json::Value {
     let b64 = value.strip_prefix("go-keyring-base64:").expect("go-keyring's prefix");
     serde_json::from_slice(&STANDARD.decode(b64).unwrap()).unwrap()
+}
+
+#[cfg(windows)]
+fn decode(value: &str) -> serde_json::Value {
+    assert!(!value.starts_with("go-keyring-base64:"), "no base64 on Windows: {value}");
+    serde_json::from_str(value).unwrap()
 }
 
 fn switched(number: usize, how: How, reopened: Option<bool>) -> Outcome {
@@ -197,14 +255,23 @@ fn a_switch_writes_cockpits_exact_command_then_the_pointers_and_checks() {
     let calls = s.shared_calls();
     assert_eq!(calls.len(), 1, "{calls:?}");
     let call = &calls[0];
-    assert_eq!(call.len(), 9, "{call:?}");
-    assert_eq!(
-        call[..7],
-        ["add-generic-password", "-U", "-s", "gemini", "-a", "antigravity", "-w"]
-    );
-    assert_eq!(call[8], "-A");
-    assert_eq!(call[7], s.shared_item());
-    let payload = decode(&call[7]);
+    #[cfg(unix)]
+    {
+        assert_eq!(call.len(), 9, "{call:?}");
+        assert_eq!(
+            call[..7],
+            ["add-generic-password", "-U", "-s", "gemini", "-a", "antigravity", "-w"]
+        );
+        assert_eq!(call[8], "-A");
+        assert_eq!(call[7], s.shared_item());
+    }
+    // On Windows Cockpit's credential: target gemini:antigravity, user antigravity.
+    #[cfg(windows)]
+    {
+        assert_eq!(call, &["write", "gemini:antigravity", "antigravity"]);
+        assert_eq!(s.creds.user(TARGET).as_deref(), Some("antigravity"));
+    }
+    let payload = decode(&s.shared_item());
     assert_eq!(payload["auth_method"], "consumer");
     assert_eq!(payload["token"]["access_token"], "fake-access-b");
     assert_eq!(payload["token"]["refresh_token"], "fake-refresh-b");
@@ -214,6 +281,8 @@ fn a_switch_writes_cockpits_exact_command_then_the_pointers_and_checks() {
     for c in s.home.security_calls() {
         assert!(c[0] == "add-generic-password" || !c.iter().any(|a| a == "gemini"), "{c:?}");
     }
+    #[cfg(windows)]
+    assert!(s.creds.calls().iter().all(|c| c.starts_with("write ")), "{:?}", s.creds.calls());
 
     // Then the pointers the account in use is told by and Cockpit's layout uses.
     assert_eq!(s.current().as_deref(), Some(s.second.as_str()));
@@ -250,15 +319,34 @@ fn quit_first_asks_the_app_to_quit_writes_while_it_is_gone_then_opens_it() {
     let done = s.run(How::QuitFirst);
     assert_eq!(done.outcome, switched(2, How::QuitFirst, Some(true)));
 
-    assert_eq!(
-        s.app.runs_of("osascript"),
-        [vec!["-e".to_string(), "tell application id \"com.google.antigravity\" to quit".into()]]
-    );
-    assert_eq!(s.app.runs_of("open"), [vec!["-b".to_string(), "com.google.antigravity".into()]]);
-    let pgrep = s.app.runs_of("pgrep");
-    assert!(!pgrep.is_empty());
-    let process = s.app.app.join("Contents/MacOS/Antigravity").display().to_string();
-    assert!(pgrep.iter().all(|args| *args == ["-f".to_string(), process.clone()]), "{pgrep:?}");
+    #[cfg(unix)]
+    {
+        assert_eq!(
+            s.app.runs_of("osascript"),
+            [vec![
+                "-e".to_string(),
+                "tell application id \"com.google.antigravity\" to quit".into()
+            ]]
+        );
+        assert_eq!(
+            s.app.runs_of("open"),
+            [vec!["-b".to_string(), "com.google.antigravity".into()]]
+        );
+        let pgrep = s.app.runs_of("pgrep");
+        assert!(!pgrep.is_empty());
+        let process = s.app.app.join("Contents/MacOS/Antigravity").display().to_string();
+        assert!(pgrep.iter().all(|args| *args == ["-f".to_string(), process.clone()]), "{pgrep:?}");
+    }
+    // On Windows: taskkill without /F for the app's own process only (not
+    // its helper), then the executable started again.
+    #[cfg(windows)]
+    {
+        let pid = common::desktop::windows_pid().to_string();
+        assert_eq!(s.app.runs_of("taskkill"), [vec!["/PID".to_string(), pid, "/T".into()]]);
+        let exe = s.app.app.join("Antigravity.exe").display().to_string();
+        assert_eq!(s.app.runs_of("start"), [vec![exe]]);
+        assert!(!s.app.runs_of("tasks").is_empty());
+    }
     // The old login was still there when the app was asked to quit, and the
     // new one when it was opened again.
     assert_eq!(s.app.item_at("quit").as_deref(), Some(OLD_LOGIN));
@@ -327,7 +415,7 @@ fn an_app_whose_version_cannot_be_read_stops_the_switch_before_any_write() {
     let s = setup("agy-switch-noplist", Some("2.24.0"));
     s.app.start();
     // The bundle is there, its version is not: not taken for a missing app.
-    std::fs::remove_file(s.app.app.join("Contents/Info.plist")).unwrap();
+    s.app.forget_version();
     let keychain_before = s.home.item(&s.second);
     for how in [How::QuitFirst, How::Plain, How::KeepRunning] {
         let done = s.switch(how, NOW + 3500, Arc::new(NoProbe), limits());
@@ -358,10 +446,20 @@ fn a_version_with_no_number_stops_the_switch_too() {
 }
 
 /// Sets or clears the immutable flag of `path`, so writing over it fails.
+#[cfg(unix)]
 fn immutable(path: &std::path::Path, on: bool) {
     let flag = if on { "uchg" } else { "nouchg" };
     let ok = std::process::Command::new("/usr/bin/chflags").arg(flag).arg(path).status().unwrap();
     assert!(ok.success());
+}
+
+/// Sets or clears the read-only attribute of `path`, so replacing it fails.
+#[cfg(windows)]
+fn immutable(path: &std::path::Path, on: bool) {
+    let mut permissions = std::fs::metadata(path).unwrap().permissions();
+    #[allow(clippy::permissions_set_readonly_false)]
+    permissions.set_readonly(on);
+    std::fs::set_permissions(path, permissions).unwrap();
 }
 
 /// Clears the flag again, even when the test fails.
@@ -419,13 +517,13 @@ fn a_failed_write_keeps_the_old_login_and_the_pointers_and_brings_the_app_back()
     let _one = serial();
     let s = setup("agy-switch-write", Some("2.24.0"));
     s.app.start();
-    s.home.fail_security("add");
+    s.fail_shared_write();
     let done = s.run(How::QuitFirst);
     let Outcome::Failed { error, detail, reopened, .. } = &done.outcome else {
         panic!("{:?}", done.outcome)
     };
     assert_eq!((*error, *reopened), ("write", Some(true)));
-    assert!(detail.contains("User interaction is not allowed"), "{detail}");
+    assert!(detail.contains(WRITE_REFUSED), "{detail}");
     assert_eq!(s.shared_item(), OLD_LOGIN);
     assert_eq!(s.current().as_deref(), Some(ACCOUNT_ID));
     assert!(s.binding().is_none());

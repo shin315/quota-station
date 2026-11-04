@@ -256,8 +256,10 @@ make the risk larger.
 
 The Antigravity login uses Antigravity's own OAuth client, the one Cockpit
 Tools uses (its `src-tauri/src/modules/oauth.rs`). Its id and secret are not in
-this repository. Put them in a file on each Mac that logs in, readable only by
-you. With the real values in place of both `<…>`:
+this repository, and the app ships without them: copy the two values from that
+file of Cockpit Tools' source. Put them in a file on each Mac or Windows PC that
+logs in, readable only by you. With the real values in place of both `<…>`,
+on a Mac:
 
 ```sh
 mkdir -p ~/Library/Application\ Support/com.shin315.quota-station
@@ -268,10 +270,22 @@ JSON
 )
 ```
 
-The app refuses the placeholders, a file others can read (it must be mode
-600), and anything that is not this JSON. `Settings › Services` shows whether
-the file is usable (`Antigravity OAuth client`), and the `Antigravity` tab says
-what is missing.
+On Windows the file is `%APPDATA%\com.shin315.quota-station\oauth-client.json`
+(`C:\Users\<you>\AppData\Roaming\…`). In PowerShell:
+
+```powershell
+$dir = Join-Path $env:APPDATA 'com.shin315.quota-station'
+New-Item -ItemType Directory -Force -Path $dir | Out-Null
+Set-Content -Encoding ascii -Path (Join-Path $dir 'oauth-client.json') -Value '{ "client_id": "<client id>.apps.googleusercontent.com", "client_secret": "<client secret>" }'
+```
+
+Windows keeps no file mode: your user profile's folder already keeps other
+users out. A file saved from Notepad works too.
+
+The app refuses the placeholders, on a Mac a file others can read (it must be
+mode 600), and anything that is not this JSON. `Settings › Services` shows
+whether the file is usable (`Antigravity OAuth client`), and the `Antigravity`
+tab says what is missing and where the file goes.
 
 ## The pause flag and the switcher
 

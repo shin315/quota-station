@@ -9,9 +9,17 @@
 
 import { agyNames } from '../lib/accounts';
 import { clock } from '../lib/format';
-import { t } from '../lib/i18n';
+import { mac, onWindows, os, osName, secretStore, t } from '../lib/i18n';
 import type { AgyAccounts, AgyLogin, AgyLoginDone, AgyReadError, ClientStatus } from '../lib/model';
 import type { ChipView, FeedbackView } from '../lib/view';
+
+/**
+ * A line that names the desktop app: as written on macOS; on Windows the
+ * app is Antigravity (`Antigravity.exe`), not Antigravity.app.
+ */
+export function desk(text: string): string {
+  return onWindows() ? text.replace(/Antigravity\.app/g, 'Antigravity') : text;
+}
 
 export function agyLoginName(n: number): string {
   return 'Ultra ' + n;
@@ -72,7 +80,7 @@ function readError(kind: string): string {
     rejected: t('Google từ chối', 'Google refused'),
     verification: t('Google yêu cầu xác minh', 'Google wants verification'),
     parse: t('Google trả lời lạ', 'Google gave an unexpected answer'),
-    keychain: t('không đọc được Keychain', 'cannot read the Keychain'),
+    keychain: t('không đọc được ' + secretStore(), 'cannot read the ' + secretStore()),
     client: t('oauth-client.json chưa dùng được', 'oauth-client.json is not usable yet'),
     refresh: t('không làm mới được đăng nhập', 'could not refresh the sign-in'),
     cache: t('không ghi được số vào thư mục của app', 'could not write the numbers to the app’s folder'),
@@ -117,13 +125,20 @@ export function agyRows(view: AgyAccounts): AgyRowView[] {
 
 /** Why "Thêm tài khoản" cannot run yet, or null when it can. */
 export function clientNotice(view: AgyAccounts): { tone: 'warn' | 'bad'; title: string; body: string } | null {
-  const where = t('File đặt ở ' + view.clientPath + ', quyền 600. README ghi định dạng.', 'The file goes at ' + view.clientPath + ', mode 600. The README describes the format.');
+  // Windows keeps no file mode: the profile's folder keeps others out there.
+  const where = os(
+    t('File đặt ở ' + view.clientPath + ', quyền 600. README ghi định dạng.', 'The file goes at ' + view.clientPath + ', mode 600. The README describes the format.'),
+    t(
+      'File đặt ở ' + view.clientPath + '. README ghi định dạng và lệnh PowerShell tạo nó.',
+      'The file goes at ' + view.clientPath + '. The README gives the format and the PowerShell command that makes it.',
+    ),
+  );
   const notices: Record<Exclude<ClientStatus, 'ok'>, { tone: 'warn' | 'bad'; title: string; body: string }> = {
     missing: {
       tone: 'warn',
       title: t('Chưa có oauth-client.json', 'No oauth-client.json yet'),
       body:
-        t('App đăng nhập Google bằng OAuth client của Antigravity, như Cockpit. Mã client không nằm trong mã nguồn, nên cần đặt nó vào file oauth-client.json trên máy này. ', 'The app signs in to Google with Antigravity’s OAuth client, as Cockpit does. The client ID is not in the source code, so it has to go in an oauth-client.json file on this Mac. ') +
+        mac(t('App đăng nhập Google bằng OAuth client của Antigravity, như Cockpit. Mã client không nằm trong mã nguồn, nên cần đặt nó vào file oauth-client.json trên máy này. ', 'The app signs in to Google with Antigravity’s OAuth client, as Cockpit does. The client ID is not in the source code, so it has to go in an oauth-client.json file on this Mac. ')) +
         where,
     },
     tooOpen: {
@@ -139,7 +154,7 @@ export function clientNotice(view: AgyAccounts): { tone: 'warn' | 'bad'; title: 
     unreadable: {
       tone: 'bad',
       title: t('Không đọc được oauth-client.json', 'Cannot read oauth-client.json'),
-      body: t('Kiểm tra xem đó có phải là một file thường mà tài khoản macOS của bạn đọc được không. ', 'Check that it is a regular file your macOS account can read. ') + where,
+      body: t('Kiểm tra xem đó có phải là một file thường mà tài khoản ' + osName() + ' của bạn đọc được không. ', 'Check that it is a regular file your ' + osName() + ' account can read. ') + where,
     },
   };
   return view.client === 'ok' ? null : notices[view.client];
@@ -148,7 +163,11 @@ export function clientNotice(view: AgyAccounts): { tone: 'warn' | 'bad'; title: 
 export function agyLoginFeedback(done: AgyLoginDone): FeedbackView {
   const name = agyLoginName(done.number);
   return done.added
-    ? { tone: '', title: t('Đã thêm ', 'Added ') + name, body: t('Đăng nhập giữ trong Keychain của app trên Mac này. Antigravity.app và agy không đổi.', 'The sign-in is kept in the app’s Keychain on this Mac. Antigravity.app and agy are unchanged.') }
+    ? {
+        tone: '',
+        title: t('Đã thêm ', 'Added ') + name,
+        body: desk(mac(t('Đăng nhập giữ trong ' + secretStore() + ' của app trên Mac này. Antigravity.app và agy không đổi.', 'The sign-in is kept in the app’s ' + secretStore() + ' on this Mac. Antigravity.app and agy are unchanged.'))),
+      }
     : { tone: '', title: t('Đã đăng nhập lại ' + name, name + ' is signed in again'), body: t('App dùng đăng nhập mới từ giờ.', 'The app uses the new sign-in from now on.') };
 }
 
@@ -203,8 +222,13 @@ export function agyLoginErrorFeedback(e: unknown): FeedbackView | null {
     case 'keychain':
       return {
         tone: 'bad',
-        title: t('Không lưu được vào Keychain', 'Could not save to the Keychain'),
-        body: withDetail(t('Chưa thêm tài khoản và danh sách giữ nguyên. Mở khoá Keychain rồi thử lại.', 'No account added and the list is unchanged. Unlock the Keychain, then try again.')),
+        title: t('Không lưu được vào ' + secretStore(), 'Could not save to the ' + secretStore()),
+        body: withDetail(
+          os(
+            t('Chưa thêm tài khoản và danh sách giữ nguyên. Mở khoá Keychain rồi thử lại.', 'No account added and the list is unchanged. Unlock the Keychain, then try again.'),
+            t('Chưa thêm tài khoản và danh sách giữ nguyên. Thử lại.', 'No account added and the list is unchanged. Try again.'),
+          ),
+        ),
       };
     case 'index':
       return { tone: 'bad', title: t('Không ghi được danh sách tài khoản', 'Could not write the account list'), body: withDetail(t('Đăng nhập chưa được giữ.', 'The sign-in was not kept.')) };
@@ -242,7 +266,7 @@ export function pasteHint(e: unknown): string {
 }
 
 export function agyLogoutFeedback(name: string): FeedbackView {
-  return { tone: '', title: t('Đã đăng xuất ', 'Signed out ') + name, body: t('Đã xoá đăng nhập của app. Antigravity.app và agy vẫn đăng nhập như cũ.', 'Removed the app’s sign-in. Antigravity.app and agy stay signed in as before.') };
+  return { tone: '', title: t('Đã đăng xuất ', 'Signed out ') + name, body: desk(t('Đã xoá đăng nhập của app. Antigravity.app và agy vẫn đăng nhập như cũ.', 'Removed the app’s sign-in. Antigravity.app and agy stay signed in as before.')) };
 }
 
 /** Why "Mở trang xác minh" opened nothing. */
@@ -263,7 +287,10 @@ export function agyLogoutErrorFeedback(name: string, e: unknown): FeedbackView {
     title: t('Chưa đăng xuất được ', 'Could not sign out ') + name,
     body:
       kind === 'keychain'
-        ? t('Keychain không xoá được mục của app; tài khoản vẫn trong danh sách. Mở khoá Keychain rồi thử lại.', 'The Keychain could not remove the app’s item; the account stays in the list. Unlock the Keychain, then try again.')
+        ? os(
+            t('Keychain không xoá được mục của app; tài khoản vẫn trong danh sách. Mở khoá Keychain rồi thử lại.', 'The Keychain could not remove the app’s item; the account stays in the list. Unlock the Keychain, then try again.'),
+            t('Không xoá được đăng nhập của app trong kho mã hoá; tài khoản vẫn trong danh sách. Thử lại.', 'Could not remove the app’s sign-in from its encrypted store; the account stays in the list. Try again.'),
+          )
         : kind === 'notFound'
           ? t('Tài khoản không còn trong danh sách.', 'The account is no longer in the list.')
           : kind === 'busy'

@@ -7,10 +7,9 @@
 //! writes, the 60-second TTL, one account at a time, and what 401, 403, 429,
 //! 5xx and network failures do. These tests never reach Google and never
 //! touch the Keychain. The last one lists both accounts on the Antigravity
-//! row from the files written here, with a fake `agy`.
+//! row from the files written here, with a fake `agy`. On Windows the
+//! app's items are kept in memory and `agy` is a batch file.
 #![cfg(feature = "antigravity-accounts")]
-// Unix only: the fake `security` and `agy` are shell scripts.
-#![cfg(unix)]
 
 mod common;
 
@@ -21,7 +20,9 @@ use common::google::{
     cloud_code, token_body, FakeBrowser, FakeGoogle, Home, Script, ACCESS, ACCOUNT_ID, EMAIL,
     INVALID_GRANT, LOAD_CODE_ASSIST, MODELS, SUMMARY,
 };
-use common::{fixture_text, script, temp_dir};
+#[cfg(unix)]
+use common::script;
+use common::{fixture_text, temp_dir};
 use quota_station_core::antigravity::export;
 use quota_station_core::antigravity::index::{self, Standing};
 use quota_station_core::antigravity::listing;
@@ -37,6 +38,14 @@ const NOW_MS: i64 = 1_768_548_000_000;
 const MIN: i64 = 60_000;
 const WAIT: Duration = Duration::from_secs(20);
 const ARCH: &str = if cfg!(target_arch = "aarch64") { "arm64" } else { "amd64" };
+/// The system as Antigravity's user agent names it.
+const OS: &str = if cfg!(windows) {
+    "windows"
+} else if cfg!(target_os = "linux") {
+    "linux"
+} else {
+    "darwin"
+};
 const PROJECT: &str = "fixture-project-1001";
 
 fn no_antigravity() -> Identity {
@@ -111,14 +120,21 @@ fn a_read_makes_cockpits_calls_and_writes_cockpits_cache() {
     let header = |r: &common::google::Request, k: &str| r.header(k).unwrap_or_default();
     assert_eq!(
         header(lca, "user-agent"),
-        format!("antigravity/1.20.5 darwin/{ARCH} google-api-nodejs-client/10.3.0")
+        format!("antigravity/1.20.5 {OS}/{ARCH} google-api-nodejs-client/10.3.0")
     );
     assert_eq!(header(lca, "x-goog-api-client"), "gl-node/22.21.1");
     assert_eq!(header(lca, "accept"), "*/*");
     assert_eq!(header(lca, "accept-encoding"), "gzip, deflate, br");
     assert_eq!(header(lca, "content-type"), "application/json");
     assert_eq!(header(lca, "authorization"), format!("Bearer {ACCESS}"));
-    let platform = if ARCH == "arm64" { "DARWIN_ARM64" } else { "DARWIN_AMD64" };
+    let platform = match (OS, ARCH) {
+        ("darwin", "arm64") => "DARWIN_ARM64",
+        ("darwin", _) => "DARWIN_AMD64",
+        ("windows", "amd64") => "WINDOWS_AMD64",
+        ("linux", "arm64") => "LINUX_ARM64",
+        ("linux", _) => "LINUX_AMD64",
+        _ => "PLATFORM_UNSPECIFIED",
+    };
     assert_eq!(
         lca.json(),
         serde_json::json!({
@@ -136,7 +152,7 @@ fn a_read_makes_cockpits_calls_and_writes_cockpits_cache() {
     );
 
     for r in &calls[1..] {
-        assert_eq!(header(r, "user-agent"), format!("antigravity/1.20.5 darwin/{ARCH}"));
+        assert_eq!(header(r, "user-agent"), format!("antigravity/1.20.5 {OS}/{ARCH}"));
         assert_eq!(header(r, "accept-encoding"), "gzip");
         assert_eq!(header(r, "content-type"), "application/json");
         assert_eq!(header(r, "authorization"), format!("Bearer {ACCESS}"));
@@ -147,9 +163,12 @@ fn a_read_makes_cockpits_calls_and_writes_cockpits_cache() {
     // The cache file is the record Cockpit writes, byte for byte.
     let text = cache_text(&home, EMAIL).expect("the reading is cached");
     assert_eq!(text.trim_end(), fixture_text("cloud-code/cockpit-cache-record.json").trim_end());
-    let file = export::path(&home.app, EMAIL);
-    use std::os::unix::fs::PermissionsExt;
-    assert_eq!(std::fs::metadata(&file).unwrap().permissions().mode() & 0o777, 0o600);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let file = export::path(&home.app, EMAIL);
+        assert_eq!(std::fs::metadata(&file).unwrap().permissions().mode() & 0o777, 0o600);
+    }
 
     // The project and the GCP ToS answer are kept with the token.
     let token = stored_token(&home, &id);
@@ -162,10 +181,10 @@ fn a_read_makes_cockpits_calls_and_writes_cockpits_cache() {
 fn the_user_agent_is_cockpits_with_and_without_antigravity_on_disk() {
     // No Antigravity: Cockpit's defaults.
     let none = no_antigravity();
-    assert_eq!(none.cloud_code_user_agent(), format!("antigravity/1.20.5 darwin/{ARCH}"));
+    assert_eq!(none.cloud_code_user_agent(), format!("antigravity/1.20.5 {OS}/{ARCH}"));
     assert_eq!(
         none.load_code_assist_user_agent(),
-        format!("antigravity/1.20.5 darwin/{ARCH} google-api-nodejs-client/10.3.0")
+        format!("antigravity/1.20.5 {OS}/{ARCH} google-api-nodejs-client/10.3.0")
     );
 
     // A bundle with product.json and google-auth-library.
@@ -184,10 +203,10 @@ fn the_user_agent_is_cockpits_with_and_without_antigravity_on_disk() {
         r#"{"name":"google-auth-library","version":"9.15.1"}"#,
     );
     let installed = AntigravityApp::at(&root).identity();
-    assert_eq!(installed.cloud_code_user_agent(), format!("antigravity/2.24.0 darwin/{ARCH}"));
+    assert_eq!(installed.cloud_code_user_agent(), format!("antigravity/2.24.0 {OS}/{ARCH}"));
     assert_eq!(
         installed.load_code_assist_user_agent(),
-        format!("antigravity/2.24.0 darwin/{ARCH} google-api-nodejs-client/9.15.1")
+        format!("antigravity/2.24.0 {OS}/{ARCH} google-api-nodejs-client/9.15.1")
     );
 
     // The strings reach the wire as they are.
@@ -202,8 +221,9 @@ fn the_user_agent_is_cockpits_with_and_without_antigravity_on_disk() {
     assert_eq!(calls[1].header("user-agent").unwrap(), installed.cloud_code_user_agent());
 
     // A product.json without a version falls through to Info.plist, read
-    // with plutil as Cockpit reads it.
+    // with plutil as Cockpit reads it (macOS's tool: not on Windows).
     write("Contents/Resources/app/product.json", r#"{"nameShort":"Antigravity"}"#);
+    #[cfg(unix)]
     write(
         "Contents/Info.plist",
         r#"<?xml version="1.0" encoding="UTF-8"?>
@@ -215,14 +235,17 @@ fn the_user_agent_is_cockpits_with_and_without_antigravity_on_disk() {
 "#,
     );
     let plist = AntigravityApp::at(&root).identity();
-    assert_eq!(plist.cloud_code_user_agent(), format!("antigravity/2.19.3 darwin/{ARCH}"));
+    #[cfg(unix)]
+    assert_eq!(plist.cloud_code_user_agent(), format!("antigravity/2.19.3 {OS}/{ARCH}"));
+    #[cfg(windows)]
+    assert_eq!(plist.cloud_code_user_agent(), format!("antigravity/1.20.5 {OS}/{ARCH}"));
     assert_eq!(plist.google_client_version, "9.15.1");
 
     // The second place Cockpit looks, with `version` only.
     std::fs::remove_dir_all(root.join("Contents")).unwrap();
     write("resources/app/product.json", r#"{"version":"1.22.0"}"#);
     let other = AntigravityApp::at(&root).identity();
-    assert_eq!(other.cloud_code_user_agent(), format!("antigravity/1.22.0 darwin/{ARCH}"));
+    assert_eq!(other.cloud_code_user_agent(), format!("antigravity/1.22.0 {OS}/{ARCH}"));
     assert_eq!(other.google_client_version, "10.3.0");
 }
 
@@ -646,16 +669,24 @@ fn agy_on_account_one(dir: &Path) -> agy::Tools {
         serde_json::from_str(&cloud_code("retrieve-user-quota-summary")).unwrap();
     let answer = serde_json::json!({ "command": { "name": "/quota", "data": summary } });
     std::fs::write(dir.join("agy-quota.json"), format!("{answer}\n")).unwrap();
-    agy::Tools {
-        agy: Some(script(
-            &bin.join("agy"),
-            &format!(
-                "[ \"$1\" = -p ] && [ \"$2\" = /quota ] || exit 2\ncat '{}'\n",
-                dir.join("agy-quota.json").display()
-            ),
-        )),
-        processes: std::sync::Arc::new(common::os::FakeProcesses::none()),
-    }
+    #[cfg(unix)]
+    let agy = script(
+        &bin.join("agy"),
+        &format!(
+            "[ \"$1\" = -p ] && [ \"$2\" = /quota ] || exit 2\ncat '{}'\n",
+            dir.join("agy-quota.json").display()
+        ),
+    );
+    #[cfg(windows)]
+    let agy = common::batch(
+        &bin.join("agy"),
+        &[
+            r#"if not "%~1"=="-p" exit /b 2"#,
+            r#"if not "%~2"=="/quota" exit /b 2"#,
+            &format!("type \"{}\"", dir.join("agy-quota.json").display()),
+        ],
+    );
+    agy::Tools { agy: Some(agy), processes: std::sync::Arc::new(common::os::FakeProcesses::none()) }
 }
 
 #[test]
