@@ -617,12 +617,12 @@ pub struct SystemHost;
 
 #[cfg(windows)]
 impl SystemHost {
-    fn powershell(&self, script: &str, exe: &Path) -> Result<String, String> {
+    fn powershell(&self, script: &str, exe: &Path, wait: Duration) -> Result<String, String> {
         let program = system32(&["WindowsPowerShell", "v1.0", "powershell.exe"]);
         let args =
             ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script]
                 .map(String::from);
-        let out = runner::run_with(&program, &args, &[(EXE_VAR, exe.as_os_str())], None, STEP)
+        let out = runner::run_with(&program, &args, &[(EXE_VAR, exe.as_os_str())], None, wait)
             .map_err(|e| format!("PowerShell: {e}"))?;
         if out.code != Some(0) {
             return Err(format!("PowerShell exited {:?}", out.code));
@@ -681,8 +681,9 @@ impl Host for SystemHost {
     }
 
     fn version_info(&self, exe: &Path) -> Result<String, String> {
-        self.powershell(VERSION_INFO_SCRIPT, exe).or_else(|first| {
-            self.powershell(UNINSTALL_SCRIPT, exe).map_err(|second| format!("{first}; {second}"))
+        self.powershell(VERSION_INFO_SCRIPT, exe, STEP).or_else(|first| {
+            self.powershell(UNINSTALL_SCRIPT, exe, STEP)
+                .map_err(|second| format!("{first}; {second}"))
         })
     }
 }
@@ -785,12 +786,15 @@ mod tests {
     }
 
     /// The real VersionInfo script, on a program every Windows has: it reads
-    /// only that file's version, never Antigravity's.
+    /// only that file's version, never Antigravity's. A cold PowerShell on a
+    /// busy CI runner can take longer than the app's ten seconds, so the
+    /// script gets a minute here: this checks what it prints, not how fast.
     #[cfg(windows)]
     #[test]
     fn powershell_reads_an_executables_version() {
         let notepad = system32(&["notepad.exe"]);
-        let version = SystemHost.version_info(&notepad).unwrap();
+        let version =
+            SystemHost.powershell(VERSION_INFO_SCRIPT, &notepad, Duration::from_secs(60)).unwrap();
         assert!(version.chars().next().is_some_and(|c| c.is_ascii_digit()), "{version}");
     }
 }
