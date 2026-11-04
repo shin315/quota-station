@@ -329,6 +329,10 @@ pub fn diagnostics(inner: &Inner) -> String {
     features.extend(inner.extension.build_name_part());
     let build = if features.is_empty() { "MIT build".to_string() } else { features.join(", ") };
     let commit = crate::install::COMMIT.unwrap_or("no commit");
+    let made = match &inner.app_build {
+        Some(n) => format!("build {n} · {commit}"),
+        None => commit.to_string(),
+    };
     let snap = inner.detailed_snapshot();
     let keychain = serde_json::to_value(snap.keychain)
         .ok()
@@ -343,7 +347,7 @@ pub fn diagnostics(inner: &Inner) -> String {
         platform += &format!(" · {word}");
     }
     let lines = [
-        format!("Quota Station {} ({commit}) · {build}", inner.app_version),
+        format!("Quota Station {} ({made}) · {build}", inner.app_version),
         platform,
         format!(
             "Claude Code: {} · {} account(s) kept · Keychain {keychain}",
@@ -441,6 +445,20 @@ mod tests {
         assert_eq!(after[0], before[0].replace(apps_build(), build));
         assert_eq!(after[1], format!("{} · named false · second", before[1]));
         assert_eq!(after[2..], before[2..]);
+    }
+
+    #[test]
+    fn the_first_line_has_the_build_number_before_the_commit() {
+        let mut inner = inner();
+        inner.app_version = "0.1.0".into();
+        let commit = crate::install::COMMIT.unwrap_or("no commit");
+        let first = |inner: &Inner| diagnostics(inner).lines().next().unwrap().to_string();
+        assert_eq!(first(&inner), format!("Quota Station 0.1.0 ({commit}) · {}", apps_build()));
+        inner.app_build = Some("412".into());
+        assert_eq!(
+            first(&inner),
+            format!("Quota Station 0.1.0 (build 412 · {commit}) · {}", apps_build())
+        );
     }
 
     #[test]

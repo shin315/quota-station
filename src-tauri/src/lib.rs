@@ -44,6 +44,9 @@ mod alerting;
 #[cfg(feature = "antigravity-accounts")]
 mod antigravity;
 mod backup;
+// `build.rs` includes it; here only for its tests.
+#[cfg(test)]
+mod build_number;
 mod claude;
 mod cli_tools;
 mod codex;
@@ -135,6 +138,7 @@ pub fn run<E: Extension>(context: tauri::Context<tauri::Wry>, extension: E) {
             let settings_file = app.path().app_config_dir()?.join("settings.json");
             let mut inner = Inner::new(home, settings_file, machine_name(), hooks);
             inner.app_version = app.package_info().version.to_string();
+            inner.app_build = install::BUILD.map(String::from);
             inner.extension = state_sockets;
             let state = Shared::new(inner);
             // Only asks macOS: the app never registers itself.

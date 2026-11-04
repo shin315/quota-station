@@ -27,6 +27,7 @@
     "loggingIn": false
   },
   "app": {
+    "build": null,
     "commit": null,
     "launchAtLogin": "off",
     "version": "1.2.3"

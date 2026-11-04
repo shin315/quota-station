@@ -97,7 +97,7 @@ export function releaseLine(model: Model): { title: string; body: string } | nul
 
 /** Cài đặt › Cập nhật's version row: what the last check found, and its button. */
 export interface VersionRowView {
-  /** `0.1.0 · bản tải về (MIT)`. */
+  /** `0.1.0 (build 412 · d6ae958) · bản tải về (MIT)`. */
   build: string;
   status: string;
   /** Whether this copy is the newest: `ok` yes, `info` a newer one is out, `bad` the check failed, `off` not checked or skipped. */
@@ -107,11 +107,21 @@ export interface VersionRowView {
   undo: boolean;
 }
 
+/** What tells one build from another after the version: `build 412 · d6ae958`, either part alone, or empty. */
+export function buildTag(app: { build: string | null; commit: string | null }): string {
+  return [app.build ? 'build ' + app.build : '', app.commit ?? ''].filter(Boolean).join(' · ');
+}
+
+/** `0.1.0 (build 412 · d6ae958)`, or the version alone when nothing tells the build. */
+export function versionText(app: Pick<Model['app'], 'version' | 'build' | 'commit'>): string {
+  const tag = buildTag(app);
+  return app.version + (tag ? ' (' + tag + ')' : '');
+}
+
 export function versionRow(model: Model): VersionRowView {
   const r = model.release;
   const build =
-    model.app.version +
-    (model.app.commit ? ' (' + model.app.commit + ')' : '') +
+    versionText(model.app) +
     ' · ' +
     (fromSource(model) ? t('build từ mã nguồn', 'built from source') : t('bản tải về (MIT)', 'download (MIT)'));
   const at = r.checkedAt ? clock(new Date(r.checkedAt * 1000).toISOString()) : '';

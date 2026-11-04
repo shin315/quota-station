@@ -319,7 +319,7 @@ mod tests {
         assert_eq!(live.updating, Some(Step::Pulling));
         assert_eq!(live.error, None, "the last end is forgotten");
         assert_eq!(begin(&mut live, &with_source(Some("/srv/qs"))), Err("busy".into()));
-        let installed = Outcome::Installed { commit: "abc1234".into(), version: None };
+        let installed = Outcome::Installed { commit: "abc1234".into(), version: None, build: None };
         end(&mut live, Ok(installed.clone()));
         assert_eq!(
             (live.updating, live.outcome.clone(), live.error.clone()),
@@ -338,8 +338,11 @@ mod tests {
         assert_eq!(may_relaunch(&author.lock()), Err("notInstalled".into()));
         author.lock().update.outcome = Some(Outcome::UpToDate { commit: "abc1234".into() });
         assert_eq!(may_relaunch(&author.lock()), Err("notInstalled".into()));
-        author.lock().update.outcome =
-            Some(Outcome::Installed { commit: "abc1234".into(), version: Some("1.2.3".into()) });
+        author.lock().update.outcome = Some(Outcome::Installed {
+            commit: "abc1234".into(),
+            version: Some("1.2.3".into()),
+            build: Some("412".into()),
+        });
         author.lock().rules_dirty = true;
         assert_eq!(may_relaunch(&author.lock()), Err("rulesDirty".into()));
         author.lock().rules_dirty = false;

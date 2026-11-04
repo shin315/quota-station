@@ -16,7 +16,7 @@ import { Button, Facts, LinkButton, More, Rich, Spinner, Toggle } from '../compo
 import { SetRow } from '../settings/SetRow';
 import { mac, os, t } from '../lib/i18n';
 import type { Model } from '../lib/model';
-import { fromSource, megabytes, newerRelease, releaseDate, versionRow, type VersionRowView } from '../lib/release';
+import { fromSource, megabytes, newerRelease, releaseDate, versionRow, versionText, type VersionRowView } from '../lib/release';
 import type { Action } from '../lib/view';
 import type { ReleaseState } from './useRelease';
 
@@ -231,7 +231,7 @@ export function ReleaseRows({ model, onAction, onAuto }: { model: Model; onActio
         hint={
           // One line: the version and whether it is the newest; the build behind Chi tiết.
           <span className="tabular-nums">
-            {model.app.version + (model.app.commit ? ' (' + model.app.commit + ')' : '')} ·{' '}
+            {versionText(model.app)} ·{' '}
             <span role="status" data-tone={row.tone || undefined} className={STATUS_INK[row.tone]}>
               {row.status}
             </span>{' '}

@@ -17,11 +17,11 @@ import type { Model, Tab } from '../lib/model';
 /** A Windows build with the advanced part, as Rust sends it: no update from source, no other Mac. */
 function windowsModel(): Model {
   const m = fixtureModel('fresh');
-  const { version, commit, launchAtLogin } = appFixture();
+  const { version, build, commit, launchAtLogin } = appFixture();
   return {
     ...m,
     capabilities: { ...m.capabilities, platform: 'windows' },
-    app: { version, commit, launchAtLogin },
+    app: { version, build, commit, launchAtLogin },
     rotation: { ...m.rotation!, peers: [], ssh: false },
   };
 }

@@ -201,7 +201,12 @@ jobs:
     if: ${{ !cancelled() && needs.changes.outputs.code != 'false' && (vars.WINDOWS_ON_PUSH != 'false' || github.event_name == 'workflow_dispatch') }}
     runs-on: windows-latest
     steps:
+      # The whole history: the test installer's build number is the count
+      # of commits up to the one built (src-tauri/build.rs), which a
+      # shallow clone does not have.
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v5
         with:

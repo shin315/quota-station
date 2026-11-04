@@ -23,6 +23,7 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Tabs as TabsPrimitive } from 'radix-ui';
 import { DiagnosticsRows, ReleaseRows } from '../release/ReleaseParts';
+import { buildTag } from '../lib/release';
 import { EnvCard } from './EnvCard';
 import { ThemePicker } from './ThemePicker';
 import { SET_CTL, SetRow } from './SetRow';
@@ -414,13 +415,14 @@ export function LaunchAtLogin({ app, onSet, onOpen, layout = 'form' }: { app: Ap
   );
 }
 
-/** The version this copy is. */
+/** The version this copy is, and the build number and commit that tell it from another build. */
 function Version({ app }: { app: AppView }) {
+  const tag = buildTag(app);
   return (
     <SetRow label={t('Phiên bản', 'Version')} inline>
       <span className={CODE}>
         {app.version}
-        {app.commit ? ' · ' + app.commit : ''}
+        {tag ? ' · ' + tag : ''}
       </span>
     </SetRow>
   );

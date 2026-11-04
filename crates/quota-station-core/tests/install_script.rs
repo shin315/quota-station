@@ -99,7 +99,7 @@ impl Sandbox {
         let plist = INFO_PLIST.replace("BUNDLE_ID", "com.shin315.quota-station");
         let plist = plist.replace("VERSION", "0.1.0");
         let body = format!(
-            r#"echo "cargo $* PWD=$PWD QS_ANTIGRAVITY_ACCOUNTS=$QS_ANTIGRAVITY_ACCOUNTS QS_COMMIT=$QS_COMMIT" >> "$FAKE_LOG"
+            r#"echo "cargo $* PWD=$PWD QS_ANTIGRAVITY_ACCOUNTS=$QS_ANTIGRAVITY_ACCOUNTS QS_BUILD=$QS_BUILD QS_COMMIT=$QS_COMMIT" >> "$FAKE_LOG"
 if [ "$1 $2" = "tauri --version" ]; then echo "tauri-cli 2.0.0"; exit 0; fi
 if [ "$1 $2" = "tauri build" ]; then
   app="{bundle}"
@@ -417,7 +417,7 @@ fn without_cargo_it_says_how_to_install_a_copy_built_elsewhere() {
 }
 
 #[test]
-fn the_build_carries_the_commit_it_was_built_from() {
+fn the_build_carries_the_commit_it_was_built_from_and_its_build_number() {
     let s = Sandbox::new("install-commit");
     let git = |args: &[&str]| {
         let out = Command::new("git")
@@ -438,6 +438,7 @@ fn the_build_carries_the_commit_it_was_built_from() {
     let head = git(&["rev-parse", "HEAD"]);
     ok(&s.run(&["--dest", &s.dest(), "--no-open"]));
     assert!(s.calls().iter().any(|c| c.ends_with(&format!("QS_COMMIT={head}"))), "{:?}", s.calls());
+    assert!(s.calls().iter().any(|c| c.contains(" QS_BUILD=1 ")), "{:?}", s.calls());
 
     std::fs::write(s.src.join("package-lock.json"), "{ \"changed\": true }").unwrap();
     std::fs::write(s.log.clone(), "").unwrap();
@@ -447,6 +448,12 @@ fn the_build_carries_the_commit_it_was_built_from() {
         "{:?}",
         s.calls()
     );
+
+    // One more commit: the number grows with it.
+    git(&["commit", "-q", "-am", "second"]);
+    std::fs::write(s.log.clone(), "").unwrap();
+    ok(&s.run(&["--dest", &s.dest(), "--no-open"]));
+    assert!(s.calls().iter().any(|c| c.contains(" QS_BUILD=2 ")), "{:?}", s.calls());
 }
 
 #[test]

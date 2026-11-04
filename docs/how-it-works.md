@@ -377,8 +377,12 @@ flag and does not show Claude as paused.
   `GIT_TERMINAL_PROMPT=0` and `GIT_SSH_COMMAND="ssh -o BatchMode=yes"`, so git
   never waits for a password), `git -C <clone> rev-parse HEAD`, and then, unless
   this copy was built from that commit, `/bin/bash <clone>/scripts/install.sh
-  --dest <the folder this app is in> --no-open`. `Restart` (`Mở lại`) quits the
-  app and has `/bin/sh` wait for it to end before `open` starts the new copy.
+  --dest <the folder this app is in> --no-open`. After an install it reads the
+  version from the new copy's `Info.plist`, and the build number with `git -C
+  <clone> rev-parse --is-shallow-repository` and `git -C <clone> rev-list
+  --count HEAD`, for the line that says what was installed. `Restart` (`Mở
+  lại`) quits the app and has `/bin/sh` wait for it to end before `open` starts
+  the new copy.
 - Codex, while the popover or the main window is open every 60 seconds, every 5
   minutes while both are hidden, and when the `Codex` tab opens: `config.toml`
   in the Codex folder; the shape of `auth.json` (which kind of login it holds;

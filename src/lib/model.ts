@@ -625,8 +625,8 @@ export type UpdateStep = 'pulling' | 'installing';
 export type UpdateOutcome =
   /** The clone had nothing new, and this copy was built from it. */
   | { kind: 'upToDate'; commit: string }
-  /** The new copy is in place; it runs once the app opens again. */
-  | { kind: 'installed'; commit: string; version: string | null };
+  /** The new copy is in place; it runs once the app opens again. Its version and build number, when known. */
+  | { kind: 'installed'; commit: string; version: string | null; build: string | null };
 
 export type UpdateError =
   | { kind: 'source'; reason: 'missing' | 'notSource' }
@@ -659,6 +659,8 @@ export interface AppView
   extends Partial<SourceView>
 {
   version: string;
+  /** The build number: the commits up to the one it was built from (`src-tauri/src/build_number.rs`); null when unknown. */
+  build: string | null;
   /** The commit it was built from, 7 characters, `-dirty` kept; null when not built by `scripts/install.sh`. */
   commit: string | null;
   launchAtLogin: LaunchAtLogin;

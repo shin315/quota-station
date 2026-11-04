@@ -466,6 +466,19 @@ describe('settings for M7: the app itself', () => {
     expect(screen.getByText('0.1.0 · build từ mã nguồn')).toBeTruthy();
   });
 
+  it('shows the build number before the commit, and alone in a build without the commit', async () => {
+    await openApp({ build: '412' });
+    expect(screen.getByText(/^0\.1\.0 \(build 412 · a1b2c3d\) ·/)).toBeTruthy();
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Chi tiết: Phiên bản' })));
+    expect(screen.getByText('0.1.0 (build 412 · a1b2c3d) · build từ mã nguồn')).toBeTruthy();
+    cleanup();
+    // `npx tauri build` on Windows: git counts, and nothing sets the commit.
+    await openApp({ build: '412', commit: null });
+    expect(screen.getByText(/^0\.1\.0 \(build 412\) ·/)).toBeTruthy();
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Chi tiết: Phiên bản' })));
+    expect(screen.getByText('0.1.0 (build 412) · build từ mã nguồn')).toBeTruthy();
+  });
+
   it('launching at login is off by default, and opening the tab only asks macOS', async () => {
     const fake = await openApp();
     expect(loginSwitch().getAttribute('aria-checked')).toBe('false');
@@ -561,13 +574,23 @@ describe('settings for M7: the app itself', () => {
       fireEvent.click(updateButton());
     });
     expect(fake.api.updateFromSource).toHaveBeenCalledTimes(1);
-    expect(await screen.findByText('Đã cài 0.1.1 (b2c3d4e). Mở lại để dùng bản mới.')).toBeTruthy();
+    expect(await screen.findByText('Đã cài 0.1.1 (build 413 · b2c3d4e). Mở lại để dùng bản mới.')).toBeTruthy();
     expect(fake.relaunched()).toBe(0);
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Mở lại' }));
     });
     expect(fake.api.relaunch).toHaveBeenCalledTimes(1);
     expect(fake.relaunched()).toBe(1);
+  });
+
+  it('the line after an update says the version, and the build number when it is known', async () => {
+    await openApp({ outcome: { kind: 'installed', commit: 'b2c3d4e5f6', version: '0.1.1', build: null } });
+    await showGroup('Nâng cao');
+    expect(screen.getByText('Đã cài 0.1.1 (b2c3d4e). Mở lại để dùng bản mới.')).toBeTruthy();
+    cleanup();
+    await openApp({ outcome: { kind: 'installed', commit: 'b2c3d4e5f6', version: null, build: '413' } });
+    await showGroup('Nâng cao');
+    expect(screen.getByText('Đã cài bản mới (build 413 · b2c3d4e). Mở lại để dùng bản mới.')).toBeTruthy();
   });
 
   it('while it runs it says which step it is on', async () => {
@@ -609,7 +632,7 @@ describe('settings for M7: the app itself', () => {
   });
 
   it('opening again waits for unsaved rules', async () => {
-    const fake = await openApp({ outcome: { kind: 'installed', commit: 'b2c3d4e5f6', version: '0.1.1' } });
+    const fake = await openApp({ outcome: { kind: 'installed', commit: 'b2c3d4e5f6', version: '0.1.1', build: null } });
     await showGroup('Nâng cao');
     vi.mocked(fake.api.relaunch).mockRejectedValue('rulesDirty');
     await act(async () => {
