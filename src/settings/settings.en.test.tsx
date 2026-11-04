@@ -6,7 +6,7 @@
 
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { appFixture, fixtureModel, releaseModel } from '../fixtures/models';
+import { appFixture, fixtureModel } from '../fixtures/models';
 import { setLang } from '../lib/i18n';
 import type { Model } from '../lib/model';
 import { Settings, type SettingsProps } from './Settings';
@@ -136,7 +136,8 @@ describe('settings tab in English', () => {
     expect(props.onAction).toHaveBeenCalledWith('release:notice');
     cleanup();
 
-    renderSettings(releaseModel(fixtureModel('fresh')));
+    const fresh = fixtureModel('fresh');
+    renderSettings({ ...fresh, capabilities: { ...fresh.capabilities, agyAccounts: false } });
     expect(screen.getByRole('region', { name: 'Updates' })).toBeTruthy();
     expect(screen.queryByText(credit)).toBeNull();
     expect(screen.queryByRole('button', { name: 'View NOTICE' })).toBeNull();

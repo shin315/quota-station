@@ -769,13 +769,12 @@ version: Quota Station X`, with `See what's new` and `Later`) and a line in the
 popover's footer; its dialog has `Download and install`, which opens the
 release's DMG (or its page) in the browser, and `Skip this version`. Nothing is
 downloaded or installed by the app itself. Only the release build, the one
-GitHub Releases offers (built with `QS_RELEASE=1`, Antigravity accounts and
-all), counts as a download; every other build counts as one from source
-(`scripts/install.sh`, `Update from source`, a plain build), and so does any
-build with the advanced part. A build from source is told about a new version
-but gets the command to update from the clone instead of `Download and
-install` (`git pull --ff-only && scripts/install.sh`, with `Copy command`); one
-with the advanced part also warns not to install the download over it, since
-the download lacks that part. `Details` on the `Version` row names the build
-after the version: `download` or `built from source`. While GitHub has no
-release, the status says `Already the newest: no release on GitHub yet`.
+GitHub Releases offers (built with `QS_RELEASE=1`, the advanced part and the
+Antigravity accounts and all), counts as a download; every other build counts
+as one from source (`scripts/install.sh`, `Update from source`, a plain
+build). A build from source is told about a new version but, since it was
+built from a clone, gets the command to update from that clone instead of
+`Download and install` (`git pull --ff-only && scripts/install.sh`, with `Copy
+command`). `Details` on the `Version` row names the build after the version:
+`download` or `built from source`. While GitHub has no release, the status
+says `Already the newest: no release on GitHub yet`.

@@ -5,8 +5,7 @@
 // quan, the line at the popover's foot, Cài đặt › Cập nhật's rows and the
 // dialog. The app only reads the latest release; "Tải và cài" opens its
 // disk image in the browser. A build from source (every build but the
-// release workflow's, and any with the advanced part) is told about a
-// release but pointed at its clone.
+// release workflow's) is told about a release but pointed at its clone.
 
 import { sourceView } from './advanced';
 import { clock } from './format';
@@ -16,21 +15,20 @@ import type { BannerView } from './view';
 
 /**
  * This copy was built from source: any build without the release marker
- * (`capabilities.releaseBuild`, set only by the release workflow), and a
- * build with the advanced part whatever the marker says, since the download
- * leaves that part out. The Antigravity accounts do not count: the download
- * has them.
+ * (`capabilities.releaseBuild`, set only by the release workflow). What the
+ * build has does not count: the download has the advanced part and the
+ * Antigravity accounts too.
  */
 export function fromSource(model: Pick<Model, 'capabilities'>): boolean {
-  return model.capabilities.authorTools === true || model.capabilities.releaseBuild !== true;
+  return model.capabilities.releaseBuild !== true;
 }
 
 /** How a build from source is told to update: rebuilt from its clone, or updated from source where it has that. */
 function sourceWords(model: Pick<Model, 'app'>): { banner: string; line: string } {
   let w = {
     banner: t(
-      'Máy này chạy bản build từ mã nguồn, nên build lại từ bản clone để giữ phần chỉ có ở bản build này.',
-      'This Mac runs a build from source, so rebuild it from your clone to keep what only this build has.',
+      'Máy này chạy bản build từ bản clone của bạn, nên build lại từ bản clone đó.',
+      'This Mac runs a build from your clone, so rebuild it from that clone.',
     ),
     line: t('Bản build từ mã nguồn: build lại từ bản clone.', 'Built from source: rebuild from your clone.'),
   };
@@ -38,8 +36,8 @@ function sourceWords(model: Pick<Model, 'app'>): { banner: string; line: string 
   if (sourceView(model.app))
     w = {
       banner: t(
-        'Máy này chạy bản build từ mã nguồn, nên cập nhật từ mã nguồn để giữ phần chỉ có ở bản build này.',
-        'This Mac runs a build from source, so update from source to keep what only this build has.',
+        'Máy này chạy bản build từ bản clone của bạn, nên cập nhật nó từ mã nguồn.',
+        'This Mac runs a build from your clone, so update it from source.',
       ),
       line: t('Bản build từ mã nguồn: cập nhật từ mã nguồn.', 'Built from source: update from source.'),
     };

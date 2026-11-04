@@ -132,8 +132,8 @@ query parameters are:
   theme pack: `default`, `kinhNhip`, `daiSangTinh`, `motNhipNhin`,
   `banDieuKhien` or `chieuLang`), `rt=1` (Reduce transparency), `os=win` (the
   app as Windows draws it) and `email=off` (names by place).
-- The build: `build=release` (the downloaded app: no Antigravity accounts, the
-  advanced part present).
+- The build: `build=release` (the downloaded app: the release marker, the
+  Antigravity accounts and the advanced part present).
 - The first run: `setup` (`on`, `signedout` for Claude Code signed in to none,
   `none` for no agent).
 - Releases: `release` (`avail`, `later`, `skipped`, `offline`, `none` or `off`;
