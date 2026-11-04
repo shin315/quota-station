@@ -2,10 +2,10 @@
 
 [English](README.md) · **Tiếng Việt**
 
-Ứng dụng trên thanh menu macOS cho biết hạn mức Claude Code, Codex và
-Antigravity của bạn đã dùng bao nhiêu, chuyển qua lại giữa các tài khoản, và giữ
-gọn MCP server, skill cùng file hướng dẫn của các agent. Giao diện có tiếng Việt
-và tiếng Anh.
+Ứng dụng trên thanh menu macOS và khay hệ thống Windows cho biết hạn mức
+Claude Code, Codex và Antigravity của bạn đã dùng bao nhiêu, chuyển qua lại
+giữa các tài khoản, và giữ gọn MCP server, skill cùng file hướng dẫn của các
+agent. Giao diện có tiếng Việt và tiếng Anh.
 
 <p align="center">
   <img src="docs/screenshots/vi/popover.png" width="360" alt="Popover ở giao diện tối: mỗi dịch vụ Claude, Antigravity và Codex một phần, mở ra ở tài khoản đang dùng với phần trăm đã dùng và thời gian đến lúc đặt lại, các tài khoản khác gập dưới một dòng, và Tự động chuyển Claude ở chân">
@@ -15,14 +15,15 @@ và tiếng Anh.
   <img src="docs/screenshots/menubar.png" width="600" alt="Mục trên thanh menu, ở thanh menu sáng và tối: đồng hồ C04 với tài khoản và phần trăm đã dùng cho Claude, Gemini và Codex qua ChatGPT, Codex qua nhà cung cấp riêng không có số, vòng xoay đang tạm dừng với hai vạch trong đồng hồ, và vòng xoay cạn với hình tam giác cảnh báo">
 </p>
 
-Quota Station tự đọc hạn mức ngay trên máy bạn; không cần chương trình nào
-khác để có số.
+Quota Station tự đọc hạn mức ngay trên máy tính của bạn; không cần chương
+trình nào khác để có số.
 
 Mọi hình trong trang này dùng dữ liệu thử bịa ra, không bao giờ là tài khoản
 thật.
 
-> **Tình trạng.** macOS 13 trở lên. GitHub chưa có bản phát hành nào, nên bạn
-> cài [từ mã nguồn](#cài-đặt). Bản Windows đang làm và chưa dùng được.
+> **Tình trạng.** Dành cho macOS 13 trở lên và Windows 10 hoặc 11 (x64). Tải
+> về từ [Releases](https://github.com/shin315/quota-station/releases/latest);
+> phần [Cài đặt](#cài-đặt) nói cách cài.
 
 ## Mục lục
 
@@ -193,9 +194,10 @@ ghi (tiếng Anh).
 
 ## Yêu cầu
 
-- macOS 13 trở lên.
-- Để dựng app: Rust stable (1.85 trở lên) và Node.js 20 trở lên. Máy không có
-  chúng vẫn cài được bản dựng trên một máy Mac khác.
+- macOS 13 trở lên (Apple Silicon hoặc Intel), hoặc Windows 10 hay 11 trên x64.
+- Để dựng từ mã nguồn: Rust stable (1.85 trở lên) và Node.js 20 trở lên. Bản
+  tải về không cần cả hai, và máy Mac không có chúng vẫn cài được bản dựng trên
+  một máy Mac khác.
 - Để có số, không cần gì thêm: Codex, `agy` hoặc Antigravity.app, và Claude Code
   chỉ cần đã đăng nhập.
 - Để đăng nhập tài khoản Claude mới, và cho `quota-station claude run`: lệnh
@@ -211,6 +213,46 @@ ghi (tiếng Anh).
   đăng nhập không cần hỏi (dùng khoá, `BatchMode=yes`).
 
 ## Cài đặt
+
+Tải app từ
+[bản phát hành mới nhất](https://github.com/shin315/quota-station/releases/latest):
+file DMG cho macOS, bộ cài cho Windows. Dựng từ mã nguồn chỉ dành cho macOS.
+
+### macOS
+
+Tải `Quota.Station_<version>_universal.dmg`, mở ra rồi kéo `Quota Station` vào
+`Applications`. Một file DMG chạy được trên cả Apple Silicon lẫn Intel. App đã
+được ký bằng Developer ID và được Apple notarize, nên lần mở đầu macOS chỉ hỏi
+câu quen thuộc về app tải từ Internet: chọn `Mở` (Open).
+
+Homebrew tap sắp có.
+
+### Windows
+
+Tải `Quota.Station_<version>_x64-setup.exe` rồi chạy. Bộ cài chưa được ký, nên
+Windows sẽ cảnh báo:
+
+1. Trình duyệt có thể báo file này ít được tải: chọn `Giữ lại` (Keep) (trong
+   Edge, ở menu `…` cạnh file tải về; nó có thể hỏi thêm một lần, `Vẫn giữ lại`
+   (Keep anyway)).
+2. SmartScreen báo "Windows protected your PC": bấm `Thông tin thêm` (More
+   info), rồi `Vẫn chạy` (Run anyway).
+
+Bộ cài chỉ cài cho người dùng Windows của bạn và không cần quyền quản trị. Sau
+đó Quota Station nằm ở khay hệ thống bên phải thanh tác vụ; lúc đầu Windows có
+thể giấu nó dưới mũi tên `^`, bạn kéo nó ra thanh tác vụ được.
+
+Để kiểm tra bộ cài đúng là bản đã phát hành, tải `SHA256SUMS.txt` của cùng bản
+phát hành về cạnh nó rồi, trong PowerShell ở thư mục đó:
+
+```powershell
+$sum = (Select-String '_x64-setup.exe' .\SHA256SUMS.txt).Line.Split(' ')[0]
+(Get-FileHash .\Quota.Station_<version>_x64-setup.exe).Hash -eq $sum
+```
+
+Ra `True` là khớp. Các mã này cũng nằm ở cuối ghi chú phát hành.
+
+### Từ mã nguồn (macOS)
 
 Từ một bản clone, trên máy Mac có Rust và Node.js:
 
@@ -231,10 +273,12 @@ Trên máy không dựng được, hãy tạo gói trên một máy dựng đư�
 ```sh
 scripts/install.sh --package ~/Desktop          # ghi ra quota-station-<version>.zip
 # trên máy kia, nơi file zip được chép tới:
-ditto -x -k quota-station-0.1.0.zip . && ./quota-station-0.1.0/install.sh --app "./quota-station-0.1.0/Quota Station.app"
+ditto -x -k quota-station-<version>.zip . && ./quota-station-<version>/install.sh --app "./quota-station-<version>/Quota Station.app"
 ```
 
-Sau đó, trên máy đăng nhập tài khoản Antigravity, đặt
+### Sau khi cài
+
+Trên máy Mac hoặc PC đăng nhập tài khoản Antigravity, đặt
 [file OAuth client](docs/how-it-works.md#the-oauth-client-file) vào chỗ, và bật
 `Cài đặt › Chung › Mở khi đăng nhập` nếu muốn app chạy cùng máy.
 
@@ -243,7 +287,14 @@ Sau đó, trên máy đăng nhập tài khoản Antigravity, đặt
 
 ## Cập nhật
 
-Từ Terminal, trong thư mục clone:
+Bản tải về hỏi GitHub Releases mỗi ngày một lần, khi `Tự kiểm tra bản mới của
+app` trong `Cài đặt › Chung › Cập nhật` đang bật, và báo khi có bản mới: một
+dải thông báo trong `Tổng quan` và một dòng trong popover. `Tải và cài` mở file
+DMG hoặc bộ cài mới trong trình duyệt; cài như lần đầu, đè lên bản cũ (trên Mac
+thì thoát app trước). App không bao giờ tự tải hay tự cài gì.
+
+Bản dựng từ mã nguồn cũng được báo khi có bản mới, nhưng cập nhật từ bản clone
+của nó. Từ Terminal, trong thư mục clone:
 
 ```sh
 git pull --ff-only && scripts/install.sh
@@ -257,14 +308,18 @@ riêng không bao giờ bị merge hay reset, và lần dựng quá 30 phút th�
 ## Gỡ cài đặt
 
 1. Trong `Cài đặt › Chung`, tắt `Mở khi đăng nhập` (hoặc bỏ Quota Station trong
-   System Settings › General › Login Items).
+   System Settings › General › Login Items trên Mac, hay trong `Ứng dụng khởi
+   động` (Startup apps) của Task Manager trên Windows).
    Nếu app đang chạy vòng xoay Claude, tắt nó trong tab `Claude` (hoặc chạy
    `quota-station claude rotation off`).
    Muốn bộ tự chuyển cũ xoay vòng Claude trở lại thì nạp lại plist của nó
    ([cutover](docs/claude-accounts.md#cutover)).
-2. Thoát Quota Station từ menu của nó, rồi kéo
-   `/Applications/Quota Station.app` vào Thùng rác.
-3. Tuỳ chọn, xoá dữ liệu của app:
+2. Thoát Quota Station từ menu của nó. Trên Mac, kéo
+   `/Applications/Quota Station.app` vào Thùng rác. Trên Windows, mở Cài đặt ›
+   Ứng dụng › Ứng dụng đã cài đặt (Settings › Apps › Installed apps; trên
+   Windows 10 là Ứng dụng và tính năng), rồi `…` cạnh Quota Station › `Gỡ cài
+   đặt` (Uninstall).
+3. Tuỳ chọn, xoá dữ liệu của app. Trên Mac:
    `~/Library/Application Support/com.shin315.quota-station/` (cài đặt, thư mục
    tài khoản Claude, chỉ mục và số đọc Antigravity, lịch sử, thông báo và
    `oauth-client.json`), và các mục Keychain riêng của app, service
@@ -274,6 +329,13 @@ riêng không bao giờ bị merge hay reset, và lần dựng quá 30 phút th�
    Code vẫn giữ đăng nhập của nó. Đăng xuất các tài khoản Antigravity trong app
    trước để xoá các mục đó. Đừng đụng vào mục `gemini`/`antigravity`:
    Antigravity.app và agy dùng nó.
+   Trên Windows: `%APPDATA%\com.shin315.quota-station\` (cài đặt, tài khoản,
+   số đọc, lịch sử, thông báo và `oauth-client.json`) và
+   `%LOCALAPPDATA%\com.shin315.quota-station\` (những gì chỉ ở lại máy này,
+   gồm cả khoá riêng của app, được Windows niêm phong); xoá cả hai thư mục là
+   xoá hết. Claude Code vẫn giữ đăng nhập của nó. Đừng đụng vào thông tin đăng
+   nhập `gemini:antigravity` trong Credential Manager: Antigravity và agy dùng
+   nó.
 
 File luật xoay vòng của bộ tự chuyển cũ được dùng chung với bộ tự chuyển đó,
 nên vẫn ở lại.
