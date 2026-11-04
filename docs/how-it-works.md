@@ -117,15 +117,26 @@ touches Claude Code's login is adapted from claude-swap, MIT, credited in
   and can still be switched to by hand).
 - **Rotation.** The `cswap-prefer-team` rules, ported line for line, on the
   app's own copy of the rotation file (`claude/rotation`; the rules editor and
-  the copy to the other Macs work on it), with one change: the early switch is
-  on. While the Team account in use has room, the rotation moves to another
-  Team account whose five-hour window has started and ends sooner, when that
-  account has room, at least 20 minutes of that window left and at least 10
-  points of it before the threshold (and Fable left if the account in use has
-  Fable); of several, the window that ends first. So a window is used before it
-  resets unused, for about one switch back (each switch makes every running
-  session read its context again). With no such account the one in use is kept
-  until a window reaches the threshold, as in the script. `Auto-switch with
+  the copy to the other Macs work on it), with two changes. The Team account
+  whose weekly window resets soonest goes first, so a week is used before it
+  resets unused: while the Team account in use has room, the rotation moves to
+  a Team account with room whose week resets sooner (and Fable left if the
+  account in use has Fable; never off an account that leaves the rotation), and
+  when a window of the account in use reaches the threshold, it takes the Team
+  account with room whose week resets soonest, then whose five-hour window
+  ends first. So when the five-hour window of the account whose week resets
+  first runs out, the rotation moves to the other account and comes back once
+  that window resets. Weekly resets under an hour apart count as the same
+  time, and an unknown one counts as last. And the early switch is on: while
+  the Team account in use has room, the rotation moves to another Team account
+  whose five-hour window has started and ends sooner, when that account has
+  room, at least 20 minutes of that window left and at least 10 points of it
+  before the threshold, a week that resets no later than the one in use's (and
+  Fable left if the account in use has Fable); of several, the window that ends
+  first. So a window is used before it resets unused, for about one switch back
+  (each switch makes every running session read its context again). With no
+  such account the one in use is kept until a window reaches the threshold, as
+  in the script. `Auto-switch with
   Quota Station` (`Tự chuyển bằng Quota Station`) loads the app's LaunchAgent,
   `com.shin315.quota-station.rotation`, which runs `quota-station claude rotate`
   every 180 seconds whether or not the app is open, and logs to

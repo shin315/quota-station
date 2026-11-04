@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: MIT
 
 //! The rotation inside the app: the decisions the old `cswap-prefer-team`
-//! script made, with the same rules but the early switch, and one run of it against a fake
+//! script made, with the same rules but the early switch and the weekly
+//! order, and one run of it against a fake
 //! Keychain, launchd and Anthropic. Every account is made up, and the
 //! clock is an argument, never waited on.
 
@@ -16,6 +17,7 @@ use quota_station_core::claude::rotate::{self, Tools};
 use quota_station_core::claude::switch;
 use quota_station_core::local_time;
 use quota_station_core::rotation::{self, Expire, Rules};
+use quota_station_core::switcher::{parse_decision, parse_log_line, Decision, LogEvent, Why};
 use serde_json::json;
 use time::{Duration, OffsetDateTime};
 
@@ -311,6 +313,227 @@ fn an_account_out_of_fable_never_pulls_an_early_switch_off_one_with_fable() {
     // With both out of Fable, the window that ends first is taken.
     let both = [fable_out(acct(2, 3.0, Some(294))), fable_out(acct(3, 0.0, Some(74)))];
     assert_eq!(decide(&rules(), &both, Some(2), 12).target(), Some(3));
+}
+
+// The weekly order: the Team account whose weekly window resets first is
+// used before that week resets unused.
+
+const DAY: i64 = 24 * 60;
+
+/// `a` with `used`% of its week used, the week resetting in `resets`
+/// minutes (none: not known).
+fn week(mut a: Reading, used: f64, resets: Option<i64>) -> Reading {
+    a.seven_day = Window { used: Some(used), resets_at: resets.map(at) };
+    a
+}
+
+/// A weekly reset as the decision writes it.
+fn day(t: OffsetDateTime) -> String {
+    local_time::minute(t)
+}
+
+/// The owner's Mac on 04/11/2026 at 12:40: slot 3 in use at 83% of its
+/// five hours and 34% of a week that resets in about 14 hours, slot 2 at 5%
+/// of its five hours and 46% of a week that resets in about 3 days, with a
+/// window that ends first. The early switch had moved to slot 2, spending a
+/// week that must last 3 more days while most of slot 3's reset unused.
+#[test]
+fn the_week_that_resets_first_is_used_up_before_the_other() {
+    let slot2 = week(acct(2, 5.0, Some(60)), 46.0, Some(2 * DAY + 13 * 60 + 20));
+    let slot3 = |five: f64| week(acct(3, five, Some(200)), 34.0, Some(14 * 60 + 20));
+    assert_eq!(decide(&rules(), &[slot2.clone(), slot3(83.0)], Some(3), 12).decision, "stay");
+    assert_eq!(decide(&rules(), &[slot2.clone(), slot3(89.0)], Some(3), 12).decision, "stay");
+    // Only a full window of slot 3 moves the rotation to slot 2.
+    assert_eq!(
+        decide(&rules(), &[slot2, slot3(90.0)], Some(3), 12).decision,
+        format!("switch 2 (46.0%, ends {})", hm(at(60)))
+    );
+}
+
+#[test]
+fn an_account_whose_five_hours_ran_out_is_left_and_taken_back_after_the_reset() {
+    let (soon, late) = (14 * 60, 3 * DAY);
+    let used_up = [
+        week(acct(2, 5.0, Some(200)), 46.0, Some(late)),
+        week(acct(3, 95.0, Some(60)), 34.0, Some(soon)),
+    ];
+    assert_eq!(
+        decide(&rules(), &used_up, Some(3), 12).decision,
+        format!("switch 2 (46.0%, ends {})", hm(at(200)))
+    );
+    // On slot 2, slot 3 has no room until its five-hour window resets.
+    assert_eq!(decide(&rules(), &used_up, Some(2), 12).decision, "stay");
+    // It reset: back to slot 3, whose week resets first.
+    let reset = [
+        week(acct(2, 30.0, Some(200)), 50.0, Some(late)),
+        week(acct(3, 0.0, None), 40.0, Some(soon)),
+    ];
+    assert_eq!(
+        decide(&rules(), &reset, Some(2), 12).decision,
+        format!("switch 3 (week resets {} with 60% left, before slot 2)", day(at(soon)))
+    );
+    // And it stays there, though slot 2's five-hour window ends first.
+    assert_eq!(decide(&rules(), &reset, Some(3), 12).decision, "stay");
+}
+
+#[test]
+fn of_the_accounts_with_room_the_week_that_resets_first_is_taken() {
+    let accounts = [
+        acct(2, 95.0, Some(60)),
+        week(acct(3, 10.0, Some(30)), 20.0, Some(4 * DAY)),
+        week(acct(4, 40.0, Some(250)), 70.0, Some(DAY)),
+    ];
+    assert_eq!(
+        decide(&rules(), &accounts, Some(2), 12).decision,
+        format!("switch 4 (week resets {} with 30% left, before slot 3)", day(at(DAY)))
+    );
+}
+
+#[test]
+fn weeks_that_reset_together_keep_the_five_hour_order() {
+    let full = |four_resets: i64| {
+        [
+            acct(2, 95.0, Some(60)),
+            week(acct(3, 40.0, Some(200)), 10.0, Some(DAY)),
+            week(acct(4, 70.0, Some(100)), 10.0, Some(four_resets)),
+        ]
+    };
+    assert_eq!(
+        decide(&rules(), &full(DAY), Some(2), 12).decision,
+        format!("switch 4 (70.0%, ends {})", hm(at(100)))
+    );
+    // Under an hour apart counts as together; an hour or more does not.
+    assert_eq!(decide(&rules(), &full(DAY + 59), Some(2), 12).target(), Some(4));
+    assert_eq!(decide(&rules(), &full(DAY + 60), Some(2), 12).target(), Some(3));
+    // The early switch, too.
+    let early = [
+        week(acct(2, 3.0, Some(294)), 10.0, Some(DAY)),
+        week(acct(3, 0.0, Some(74)), 10.0, Some(DAY + 30)),
+    ];
+    assert_eq!(
+        decide(&rules(), &early, Some(2), 12).decision,
+        format!("switch 3 (ends {} with 100% left, before slot 2)", hm(at(74)))
+    );
+}
+
+#[test]
+fn the_early_switch_never_spends_a_week_that_resets_later() {
+    let later = [
+        week(acct(2, 3.0, Some(294)), 50.0, Some(DAY)),
+        week(acct(3, 0.0, Some(74)), 10.0, Some(3 * DAY)),
+    ];
+    assert_eq!(decide(&rules(), &later, Some(2), 12).decision, "stay");
+    // A week that resets sooner is taken for that alone.
+    let sooner = [
+        week(acct(2, 3.0, Some(294)), 50.0, Some(3 * DAY)),
+        week(acct(3, 0.0, Some(74)), 10.0, Some(DAY)),
+    ];
+    assert_eq!(
+        decide(&rules(), &sooner, Some(2), 12).decision,
+        format!("switch 3 (week resets {} with 90% left, before slot 2)", day(at(DAY)))
+    );
+}
+
+#[test]
+fn an_unknown_weekly_reset_counts_as_last() {
+    let unknown = |a: Reading| week(a, 0.0, None);
+    let accounts =
+        [week(acct(2, 3.0, Some(294)), 50.0, Some(DAY)), unknown(acct(3, 0.0, Some(74)))];
+    // It never pulls an early switch off a known week...
+    assert_eq!(decide(&rules(), &accounts, Some(2), 12).decision, "stay");
+    // ...and a known week with room is taken from it.
+    assert_eq!(
+        decide(&rules(), &accounts, Some(3), 12).decision,
+        format!("switch 2 (week resets {} with 50% left, before slot 3)", day(at(DAY)))
+    );
+    let full = [
+        acct(2, 95.0, Some(60)),
+        unknown(acct(3, 10.0, Some(30))),
+        week(acct(4, 40.0, Some(250)), 20.0, Some(2 * DAY)),
+    ];
+    assert_eq!(decide(&rules(), &full, Some(2), 12).target(), Some(4));
+    // A week that already reset is not known either.
+    let past = [
+        acct(2, 95.0, Some(60)),
+        week(acct(3, 10.0, Some(30)), 20.0, Some(-5)),
+        week(acct(4, 40.0, Some(250)), 20.0, Some(2 * DAY)),
+    ];
+    assert_eq!(decide(&rules(), &past, Some(2), 12).target(), Some(4));
+    // Both unknown: the five-hour order, as before.
+    let both = [unknown(acct(2, 3.0, Some(294))), unknown(acct(3, 0.0, Some(74)))];
+    assert_eq!(decide(&rules(), &both, Some(2), 12).target(), Some(3));
+}
+
+#[test]
+fn held_out_and_ending_accounts_keep_their_rules_under_the_weekly_order() {
+    let mut held = week(acct(3, 0.0, None), 10.0, Some(DAY));
+    held.disabled = true;
+    let accounts = [week(acct(2, 20.0, Some(200)), 10.0, Some(3 * DAY)), held.clone()];
+    assert_eq!(decide(&rules(), &accounts, Some(2), 12).decision, "stay");
+    let full = [acct(2, 95.0, Some(60)), held, acct(4, 50.0, Some(200))];
+    assert_eq!(decide(&rules(), &full, Some(2), 12).target(), Some(4));
+
+    let mut ending = rules();
+    ending.expire = vec![Expire { slot: 4, at: "2030-01-16T09:00Z".into() }];
+    let ends = OffsetDateTime::from_unix_timestamp(1_894_784_400).unwrap();
+    let accounts = [
+        week(acct(2, 10.0, Some(300)), 10.0, Some(3 * DAY)),
+        week(acct(3, 0.0, None), 10.0, Some(DAY)),
+        week(acct(4, 50.0, Some(200)), 10.0, Some(3 * DAY)),
+    ];
+    // An account that ends for good still goes first, and is kept while it
+    // has room, though another week resets sooner.
+    assert_eq!(
+        decide(&ending, &accounts, Some(2), 12).decision,
+        format!("switch 4 (ends for good at {}, use it first)", hm(ends))
+    );
+    assert_eq!(decide(&ending, &accounts, Some(4), 12).decision, "stay");
+    // Past its time it is out of every choice, however soon its week resets.
+    ending.expire = vec![Expire { slot: 3, at: "2030-01-16T07:00Z".into() }];
+    let full = [
+        acct(2, 95.0, Some(60)),
+        week(acct(3, 0.0, Some(10)), 10.0, Some(DAY)),
+        acct(4, 50.0, Some(200)),
+    ];
+    assert_eq!(decide(&ending, &full, Some(2), 12).target(), Some(4));
+}
+
+#[test]
+fn an_account_out_of_fable_stays_last_under_the_weekly_order() {
+    let fable_out = |mut a: Reading| {
+        a.fable = Window { used: Some(96.0), resets_at: Some(at(2000)) };
+        a
+    };
+    let accounts = [
+        week(acct(2, 20.0, Some(200)), 10.0, Some(3 * DAY)),
+        fable_out(week(acct(3, 0.0, None), 10.0, Some(DAY))),
+    ];
+    assert_eq!(decide(&rules(), &accounts, Some(2), 12).decision, "stay");
+    let full = [
+        acct(2, 95.0, Some(60)),
+        fable_out(week(acct(3, 10.0, Some(30)), 10.0, Some(DAY))),
+        acct(4, 50.0, Some(250)),
+    ];
+    assert_eq!(
+        decide(&rules(), &full, Some(2), 12).decision,
+        format!("switch 4 (50.0%, ends {})", hm(at(250)))
+    );
+}
+
+/// The weekly reason is a reason inside the brackets, so the decision and
+/// the log are read as they always were: a switch to that account.
+#[test]
+fn a_weekly_decision_reads_as_a_switch() {
+    let accounts = [
+        week(acct(2, 3.0, Some(294)), 50.0, Some(3 * DAY)),
+        week(acct(3, 0.0, Some(74)), 10.0, Some(DAY)),
+    ];
+    let plan = decide(&rules(), &accounts, Some(2), 12);
+    assert_eq!(plan.target(), Some(3));
+    assert_eq!(parse_decision(&plan.decision), Decision::Switch { slot: 3, why: Why::Other });
+    let rest = plan.decision.splitn(3, ' ').nth(2).unwrap();
+    let logged = parse_log_line(&format!("2030-01-16 14:20:00 switch to slot 3 {rest}"));
+    assert_eq!(logged.event, LogEvent::Switch { slot: 3 });
 }
 
 #[test]

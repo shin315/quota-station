@@ -3,25 +3,37 @@
 
 //! The rotation's decision, ported from the owner's `cswap-prefer-team`
 //! script (its Python block), so Quota Station keeps Claude on the same
-//! accounts the script did, with the same rules but one: the early switch,
-//! which the script has off, is on here.
+//! accounts the script did, with the same rules but two: the early switch,
+//! which the script has off, is on here, and the Team accounts are spent in
+//! the order their weekly windows reset, which the script does not look at.
 //!
-//! - The Team accounts are equal. While the one in use has room, the
-//!   rotation moves to another Team account whose five-hour window has
-//!   started and ends sooner, so that window is used before it resets
-//!   unused: the account must have room, at least [`EARLY_MIN_SECONDS`] left
-//!   of that window and at least [`EARLY_MIN_POINTS`] points of it before
-//!   `full`, and must not be out of Fable while the account in use is not.
-//!   Of several, the one whose window ends soonest is taken. When its
-//!   window resets and is primed, the other account's ends sooner, so the
-//!   rotation goes back the same way. Each switch costs every running
-//!   session one re-read of its context.
+//! - The Team account whose weekly window resets soonest goes first, so a
+//!   week's quota is used before it resets unused. While the one in use has
+//!   room, the rotation moves to another Team account with room whose weekly
+//!   window resets sooner, unless that account is out of Fable while the one
+//!   in use is not, or the one in use ends for good (`expire`). So when the
+//!   five-hour window of the account whose week resets first fills up, the
+//!   rotation moves to the other account, and comes back once that window
+//!   has reset. Weekly resets less than [`WEEK_TIE_SECONDS`] apart count as
+//!   the same time, and an unknown one counts as last.
+//! - Else, while the one in use has room, the rotation moves to another
+//!   Team account whose five-hour window has started and ends sooner, so
+//!   that window is used before it resets unused: the account must have
+//!   room, at least [`EARLY_MIN_SECONDS`] left of that window and at least
+//!   [`EARLY_MIN_POINTS`] points of it before `full`, its weekly window must
+//!   reset no later than the one in use's, and it must not be out of Fable
+//!   while the account in use is not. Of several, the one whose window ends
+//!   soonest is taken. When its window resets and is primed, the other
+//!   account's ends sooner, so the rotation goes back the same way. Each
+//!   switch costs every running session one re-read of its context.
 //! - With no such account, the one in use is kept until any of its windows
 //!   reaches `full` percent.
-//! - Then the Team account with room whose five-hour window ends soonest is
-//!   taken; a window not started yet counts as ending last. An account whose
-//!   weekly Fable window is at or above `fable_full` is taken only when no
-//!   other Team account with room has Fable left.
+//! - Then, of the Team accounts with room, the one whose weekly window
+//!   resets soonest is taken, and of those that reset at the same time, the
+//!   one whose five-hour window ends soonest; a window not started yet counts
+//!   as ending last. An account whose weekly Fable window is at or above
+//!   `fable_full` is taken only when no other Team account with room has
+//!   Fable left.
 //! - The personal account is daytime overflow only (`personal_hours`), taken
 //!   only when no Team account has room.
 //! - With no room anywhere the account in use is kept until it is truly used
@@ -39,7 +51,11 @@
 //!
 //! The decision is the script's line, word for word (`switch 3 (4.0%, ends
 //! 15:00)`), so [`crate::switcher::parse_decision`] and the log reader read
-//! it as they read the script's.
+//! it as they read the script's. When the weekly order takes the account,
+//! the reason in the brackets says so (`switch 3 (week resets
+//! 2026-11-05T03:00 with 66% left, before slot 2)`): a reason the parser
+//! reads as a switch to that account with a reason it does not word, as it
+//! reads any reason it does not know.
 
 use std::collections::BTreeMap;
 
@@ -59,6 +75,9 @@ pub const EARLY_MIN_SECONDS: f64 = 20.0 * 60.0;
 pub const EARLY_MIN_POINTS: f64 = 10.0;
 /// The shortest time between two primings of one account.
 pub const PRIME_GAP_SECONDS: f64 = 30.0 * 60.0;
+/// Weekly resets closer than this count as the same time, so two readings
+/// a few seconds apart never turn the weekly order over and back.
+pub const WEEK_TIE_SECONDS: f64 = 60.0 * 60.0;
 
 /// One window of a reading: percent used and when it resets.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
@@ -146,6 +165,13 @@ fn hm(t: f64) -> String {
     local_time::clock(at)
 }
 
+/// `2026-11-05T03:00` on this Mac's clock: a weekly reset can be days away.
+fn minute(t: f64) -> String {
+    let at =
+        OffsetDateTime::from_unix_timestamp(t.floor() as i64).unwrap_or(OffsetDateTime::UNIX_EPOCH);
+    local_time::minute(at)
+}
+
 struct View<'a> {
     accts: BTreeMap<u32, &'a Reading>,
     rules: &'a Rules,
@@ -188,6 +214,50 @@ impl View<'_> {
 
     fn five_used(&self, n: u32) -> Option<f64> {
         self.accts.get(&n)?.five_hour.used
+    }
+
+    /// When the running weekly window resets; none when that is not known
+    /// (or already past).
+    fn week(&self, n: u32) -> Option<f64> {
+        let r = self.accts.get(&n)?.seven_day.resets_at.map(secs)?;
+        (r > self.now).then_some(r)
+    }
+
+    /// `x`'s weekly window resets before `y`'s, by [`WEEK_TIE_SECONDS`] or
+    /// more; an unknown reset comes after every known one.
+    fn week_sooner(&self, x: u32, y: u32) -> bool {
+        self.week(x).is_some_and(|wx| self.week(y).is_none_or(|wy| wx + WEEK_TIE_SECONDS <= wy))
+    }
+
+    /// `items` in the order the script takes them: out of Fable last, then
+    /// the five-hour window that ends soonest, then the least used.
+    fn by_five_hour(&self, mut items: Vec<u32>) -> Vec<u32> {
+        // Python's sort is stable: equal keys keep the rotation's order.
+        items.sort_by(|x, y| {
+            let kx = (self.fable_out(*x), self.key(*x), self.used(*x).unwrap_or(0.0));
+            let ky = (self.fable_out(*y), self.key(*y), self.used(*y).unwrap_or(0.0));
+            kx.partial_cmp(&ky).unwrap_or(std::cmp::Ordering::Equal)
+        });
+        items
+    }
+
+    /// The account the weekly order takes of `order` (as [`View::by_five_hour`]
+    /// sorts it): of those as far from Fable's limit as the first, the first
+    /// whose weekly window no other resets sooner than.
+    fn by_week(&self, order: &[u32]) -> Option<u32> {
+        let first = *order.first()?;
+        let peers: Vec<u32> =
+            order.iter().copied().filter(|n| self.fable_out(*n) == self.fable_out(first)).collect();
+        peers.iter().copied().find(|&n| !peers.iter().any(|&m| self.week_sooner(m, n)))
+    }
+
+    /// The decision for a switch to `n` that the weekly order made, ahead
+    /// of `before`.
+    fn week_switch(&self, n: u32, before: u32) -> String {
+        let at = self.week(n).map_or_else(|| "?".to_string(), minute);
+        let used = self.accts.get(&n).and_then(|a| a.seven_day.used);
+        let left = (100.0 - used.unwrap_or(0.0)) as i64;
+        format!("switch {n} (week resets {at} with {left}% left, before slot {before})")
     }
 }
 
@@ -235,6 +305,22 @@ pub fn decide(input: &Input) -> Plan {
         let n = first_min(&urgent_targets, |n| expire[&n]).unwrap_or(urgent_targets[0]);
         format!("switch {n} (ends for good at {}, use it first)", hm(expire[&n]))
     } else if let Some(a) = active.filter(|a| team.contains(a) && v.room(*a)) {
+        // An account that ends for good is used first: never left for a
+        // week that resets sooner.
+        let sooner: Vec<u32> = if urgent.contains(&a) {
+            Vec::new()
+        } else {
+            team.iter()
+                .copied()
+                .filter(|&o| {
+                    o != a
+                        && !held(o)
+                        && v.room(o)
+                        && v.week_sooner(o, a)
+                        && !(v.fable_out(o) && !v.fable_out(a))
+                })
+                .collect()
+        };
         let early: Vec<u32> = team
             .iter()
             .copied()
@@ -247,33 +333,39 @@ pub fn decide(input: &Input) -> Plan {
                     && e - now >= EARLY_MIN_SECONDS
                     && v.five_used(o).is_some_and(|f| rules.full - f >= EARLY_MIN_POINTS)
                     && !(v.fable_out(o) && !v.fable_out(a))
+                    // Never spend early a week that resets later.
+                    && !v.week_sooner(a, o)
             })
             .collect();
-        match first_min(&early, |o| v.key(o)) {
-            Some(o) => {
-                let left = (100.0 - v.five_used(o).unwrap_or(0.0)) as i64;
-                format!("switch {o} (ends {} with {left}% left, before slot {a})", hm(v.key(o)))
+        if let Some(o) = v.by_week(&v.by_five_hour(sooner)) {
+            v.week_switch(o, a)
+        } else {
+            match first_min(&early, |o| v.key(o)) {
+                Some(o) => {
+                    let left = (100.0 - v.five_used(o).unwrap_or(0.0)) as i64;
+                    format!("switch {o} (ends {} with {left}% left, before slot {a})", hm(v.key(o)))
+                }
+                None => "stay".to_string(),
             }
-            None => "stay".to_string(),
         }
     } else {
-        let mut cands: Vec<u32> = team
-            .iter()
-            .copied()
-            .filter(|n| Some(*n) != active && !held(*n) && v.room(*n))
-            .collect();
-        // Python's sort is stable: equal keys keep the rotation's order.
-        cands.sort_by(|x, y| {
-            let kx = (v.fable_out(*x), v.key(*x), v.used(*x).unwrap_or(0.0));
-            let ky = (v.fable_out(*y), v.key(*y), v.used(*y).unwrap_or(0.0));
-            kx.partial_cmp(&ky).unwrap_or(std::cmp::Ordering::Equal)
-        });
-        if let Some(&n) = cands.first() {
-            let why = match v.ends(n) {
-                Some(e) => format!("ends {}", hm(e)),
-                None => "window not started".to_string(),
-            };
-            format!("switch {n} ({}%, {why})", py_float(v.used(n).unwrap_or(0.0)))
+        let cands = v.by_five_hour(
+            team.iter()
+                .copied()
+                .filter(|n| Some(*n) != active && !held(*n) && v.room(*n))
+                .collect(),
+        );
+        if let Some(&first) = cands.first() {
+            let n = v.by_week(&cands).unwrap_or(first);
+            if n != first {
+                v.week_switch(n, first)
+            } else {
+                let why = match v.ends(n) {
+                    Some(e) => format!("ends {}", hm(e)),
+                    None => "window not started".to_string(),
+                };
+                format!("switch {n} ({}%, {why})", py_float(v.used(n).unwrap_or(0.0)))
+            }
         } else if let Some(p) = personal
             .filter(|p| has(Some(*p)) && day && v.room(*p) && (active == Some(*p) || !held(*p)))
         {

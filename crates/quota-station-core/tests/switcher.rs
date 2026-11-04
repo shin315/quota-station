@@ -50,6 +50,10 @@ fn every_decision_line_the_switcher_prints() {
             "blocked (com.cswap.prefer-team is loaded)",
             Blocked { label: at("com.cswap.prefer-team") },
         ),
+        (
+            "switch 3 (week resets 2026-11-05T03:00 with 66% left, before slot 2)",
+            Switch { slot: 3, why: Why::Other },
+        ),
         ("switch 3 (something new)", Switch { slot: 3, why: Why::Other }),
         ("dance", Other),
     ];
