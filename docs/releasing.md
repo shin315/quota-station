@@ -26,8 +26,9 @@ built) and `QS_BUILD` (`git rev-list --count HEAD` on a full checkout).
 
 The notes come from [`.github/release-notes.md`](../.github/release-notes.md)
 (`{{VERSION}}` is replaced), followed by the checksums. The app lists the first
-six `- ` lines of the notes, so those stay short and English; the Vietnamese
-part is a paragraph. Edit the file before a release.
+six `- ` lines of the notes, so those stay short. The notes are English only
+and link to the README and README.vi.md for install and update steps. Edit the
+file before a release.
 
 ## Running it
 
@@ -71,8 +72,9 @@ Before the first real run:
 
 Settings › Environments › `release`: the owner as required reviewer,
 deployment branches and tags limited to `main` and `v*`. Its secrets (Tauri
-reads the first five; the workflow writes the last to a temporary file and
-points `APPLE_API_KEY_PATH` at it):
+reads the first five; the Release workflow writes the sixth to a temporary
+file and points `APPLE_API_KEY_PATH` at it; the last is the
+[Homebrew](#homebrew) workflow's):
 
 | Secret | Value |
 |---|---|
@@ -82,6 +84,7 @@ points `APPLE_API_KEY_PATH` at it):
 | `APPLE_API_ISSUER` | App Store Connect API Issuer ID |
 | `APPLE_API_KEY` | App Store Connect API Key ID |
 | `APPLE_API_KEY_P8` | the key's `AuthKey_<id>.p8`, its whole text |
+| `HOMEBREW_TAP_DEPLOY_KEY` | the private key of shin315/homebrew-tap's deploy key with write access |
 
 The signed app runs with the hardened runtime and
 `src-tauri/Entitlements.plist` (Apple Events, to quit Antigravity before an
@@ -106,3 +109,24 @@ On the draft's page (only people with write access see it):
 
 Publishing creates the tag on the draft's commit. From then on the app's
 update check offers this version.
+
+## Homebrew
+
+Publishing also starts the **Homebrew** workflow
+([`.github/workflows/homebrew.yml`](../.github/workflows/homebrew.yml)). Its
+job is in the `release` environment, so it waits for the same approval. Then it
+checks the disk image's sha256 in `SHA256SUMS.txt` against the digest GitHub
+records for the asset, sets `version` and `sha256` in `Casks/quota-station.rb`
+of [shin315/homebrew-tap](https://github.com/shin315/homebrew-tap) and pushes
+the commit `quota-station <version>` to its `main` with the environment's
+secret `HOMEBREW_TAP_DEPLOY_KEY`, the tap's deploy key with write access. Drafts
+and pre-releases are skipped.
+
+To run it again for a published release: Actions › Homebrew › Run workflow
+with the tag, or
+
+```sh
+gh workflow run homebrew.yml -R shin315/quota-station -f tag=v<version>
+```
+
+A cask already at that version and sha256 is left as it is.

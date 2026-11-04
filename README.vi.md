@@ -84,8 +84,10 @@ cửa sổ 5 giờ của một tài khoản theo lịch bạn đặt.
 ### Antigravity
 
 Dòng Antigravity hiện hạn mức Gemini và Claude/GPT của tài khoản đang đăng nhập.
-Bản dựng có phần tài khoản Antigravity còn đăng nhập được nhiều tài khoản Google
-và chuyển tài khoản mà Antigravity.app và `agy` dùng.
+App còn đăng nhập được nhiều tài khoản Google và chuyển tài khoản mà
+Antigravity.app và `agy` dùng: bản tải về và bản dựng từ mã nguồn bằng
+`scripts/install.sh` đều có phần tài khoản Antigravity này, chỉ
+`QS_ANTIGRAVITY_ACCOUNTS=0` mới bỏ phần đó ra.
 
 ### MCP server, skill, plugin và file hướng dẫn
 
@@ -202,7 +204,8 @@ ghi (tiếng Anh).
   chỉ cần đã đăng nhập.
 - Để đăng nhập tài khoản Claude mới, và cho `quota-station claude run`: lệnh
   `claude` của Claude Code.
-- Để đăng nhập tài khoản Antigravity (bản dựng có phần tài khoản Antigravity):
+- Để đăng nhập tài khoản Antigravity (bản tải về và bản dựng bằng
+  `scripts/install.sh` đều có; `QS_ANTIGRAVITY_ACCOUNTS=0` bỏ phần đó ra):
   [file OAuth client](docs/how-it-works.md#the-oauth-client-file), do bạn tự
   tạo với hai giá trị lấy từ mã nguồn Cockpit Tools: trên Mac là
   `~/Library/Application Support/com.shin315.quota-station/oauth-client.json`
@@ -225,7 +228,8 @@ Tải `Quota.Station_<version>_universal.dmg`, mở ra rồi kéo `Quota Station
 được ký bằng Developer ID và được Apple notarize, nên lần mở đầu macOS chỉ hỏi
 câu quen thuộc về app tải từ Internet: chọn `Mở` (Open).
 
-Homebrew tap sắp có.
+Cài bằng Homebrew: `brew install --cask shin315/tap/quota-station` (cập nhật
+bằng `brew upgrade --cask quota-station`).
 
 ### Windows
 

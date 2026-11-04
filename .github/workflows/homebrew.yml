@@ -1,0 +1,223 @@
+# SPDX-FileCopyrightText: 2026 Shin315
+# SPDX-License-Identifier: MIT
+
+name: Homebrew
+
+# Updates the cask in the tap (shin315/homebrew-tap, Casks/quota-station.rb)
+# to a published release, so `brew install --cask shin315/tap/quota-station`
+# and `brew upgrade --cask quota-station` get it (docs/releasing.md).
+#
+# - Runs when a release is published, and by hand (Actions › Homebrew › Run
+#   workflow) with the release's tag, to run it again. Drafts and
+#   pre-releases are skipped.
+# - The job is in the `release` environment, so it waits for the reviewer's
+#   approval, and the tap's write deploy key is its secret
+#   HOMEBREW_TAP_DEPLOY_KEY.
+# - It checks the disk image's sha256 in SHA256SUMS.txt against the digest
+#   GitHub records for the asset, changes only the cask's `version` and
+#   `sha256` lines, and pushes the commit `quota-station <version>` to the
+#   tap's main. A cask already at that version and sha256 is left as it is.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag of the published release (for example v1.0.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+# One cask, one bump at a time.
+concurrency:
+  group: homebrew-tap
+  cancel-in-progress: false
+
+jobs:
+  cask:
+    name: Update the Homebrew cask
+    if: ${{ github.event_name == 'workflow_dispatch' || (!github.event.release.draft && !github.event.release.prerelease) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: release
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    env:
+      TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.tag }}
+      TAP: git@github.com:shin315/homebrew-tap.git
+      CASK: Casks/quota-station.rb
+    steps:
+      # The release as the API returns it with this job's token: published,
+      # not a pre-release, with one disk image whose sha256 in SHA256SUMS.txt
+      # is the digest GitHub computed for the asset.
+      - name: The release and its checksum
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ ! "$TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            printf 'Tag: %q\n' "$TAG"
+            echo "::error::the tag is not v<major>.<minor>.<patch>"
+            exit 1
+          fi
+          version="${TAG#v}"
+          dir="$RUNNER_TEMP/release"
+          mkdir -p "$dir"
+          if ! gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" > "$dir/release.json" 2> "$dir/api.err"; then
+            cat "$dir/api.err"
+            echo "::error::no published release $TAG"
+            exit 1
+          fi
+          if [ "$(jq -r '.draft' "$dir/release.json")" != false ]; then
+            echo "::error::release $TAG is a draft"
+            exit 1
+          fi
+          if [ "$(jq -r '.prerelease' "$dir/release.json")" != false ]; then
+            echo "::error::release $TAG is a pre-release"
+            exit 1
+          fi
+
+          dmg="Quota.Station_${version}_universal.dmg"
+          asset() {
+            jq -c --arg name "$1" '[.assets[] | select(.name == $name)]' "$dir/release.json"
+          }
+          dmg_assets="$(asset "$dmg")"
+          sums_assets="$(asset SHA256SUMS.txt)"
+          if [ "$(jq length <<<"$dmg_assets")" != 1 ]; then
+            echo "::error::release $TAG has no asset $dmg"
+            exit 1
+          fi
+          if [ "$(jq length <<<"$sums_assets")" != 1 ]; then
+            echo "::error::release $TAG has no asset SHA256SUMS.txt"
+            exit 1
+          fi
+          digest="$(jq -r '.[0].digest // ""' <<<"$dmg_assets")"
+          if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::GitHub records no sha256 digest for $dmg (${digest:-none})"
+            exit 1
+          fi
+
+          sums_id="$(jq -r '.[0].id' <<<"$sums_assets")"
+          gh api -H 'Accept: application/octet-stream' \
+            "repos/$GITHUB_REPOSITORY/releases/assets/$sums_id" > "$dir/SHA256SUMS.txt"
+          sha256="$(awk -v name="$dmg" '$2 == name || $2 == "*" name { print $1 }' "$dir/SHA256SUMS.txt")"
+          if [ -z "$sha256" ] || [ "$(wc -l <<<"$sha256")" -ne 1 ]; then
+            echo "::error::SHA256SUMS.txt has no single line for $dmg"
+            exit 1
+          fi
+          if [[ ! "$sha256" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "::error::SHA256SUMS.txt gives $dmg a checksum that is not a sha256"
+            exit 1
+          fi
+          if [ "sha256:$sha256" != "$digest" ]; then
+            echo "::error::$dmg: SHA256SUMS.txt says $sha256, GitHub's digest is $digest"
+            exit 1
+          fi
+          echo "$dmg: sha256 $sha256, as in SHA256SUMS.txt and GitHub's digest"
+          {
+            echo "version=$version"
+            echo "sha256=$sha256"
+          } >> "$GITHUB_OUTPUT"
+
+      # The deploy key and GitHub's published SSH host keys
+      # (https://api.github.com/meta, ssh_keys), readable only by this job's
+      # user; deleted in the last step. Git reaches the tap with this key
+      # alone and checks the host against these keys alone.
+      - name: Write the tap's deploy key
+        env:
+          HOMEBREW_TAP_DEPLOY_KEY: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
+        run: |
+          if [ -z "$HOMEBREW_TAP_DEPLOY_KEY" ]; then
+            echo "::error::the secret HOMEBREW_TAP_DEPLOY_KEY is missing in the release environment"
+            exit 1
+          fi
+          umask 077
+          ssh_dir="$RUNNER_TEMP/tap-ssh"
+          mkdir -p "$ssh_dir"
+          printf '%s\n' "$HOMEBREW_TAP_DEPLOY_KEY" > "$ssh_dir/deploy_key"
+          cat > "$ssh_dir/known_hosts" <<'EOF'
+          github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl
+          github.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEmKSENjQEezOmxkZMy7opKgwFB9nkt5YRrYMjNuG5N87uRgg6CLrbo5wAdT/y6v0mKV0U2w0WZ2YB/++Tpockg=
+          github.com ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCj7ndNxQowgcQnjshcLrqPEiiphnt+VTTvDP6mHBL9j1aNUkY4Ue1gvwnGLVlOhGeYrnZaMgRK6+PKCUXaDbC7qtbW8gIkhL7aGCsOr/C56SJMy/BCZfxd1nWzAOxSDPgVsmerOBYfNqltV9/hWCqBywINIR+5dIg6JTJ72pcEpEjcYgXkE2YEFXV1JHnsKgbLWNlhScqb2UmyRkQyytRLtL+38TGxkxCflmO+5Z8CSSNY7GidjMIZ7Q4zMjA2n1nGrlTDkzwDCsw+wqFPGQA179cnfGWOWRVruj16z6XyvxvjJwbz0wQZ75XK5tKSb7FNyeIEs4TT4jk+S4dhPeAUC5y+bDYirYgM4GC7uEnztnZyaVWQ7B381AK4Qdrwt51ZqExKbQpTUNn+EjqoTwvqNj4kqx5QUCI0ThS/YkOxJCXmPUWZbhjpCg56i+2aB6CmK2JGhn57K5mj0MNdBXA4/WnwH6XoPWJzK5Nyu2zB3nAZp+S5hpQs+p1vN1/wsjk=
+          EOF
+          echo "GIT_SSH_COMMAND=ssh -F /dev/null -i '$ssh_dir/deploy_key' -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile='$ssh_dir/known_hosts' -o GlobalKnownHostsFile=/dev/null" >> "$GITHUB_ENV"
+
+      - name: Clone the tap
+        run: git clone --quiet --depth 1 --branch main "$TAP" "$RUNNER_TEMP/tap"
+
+      # Only the `version` and `sha256` lines change, both of them, or the
+      # step fails; a cask already at this version and sha256 needs no commit.
+      - name: Update the cask
+        id: cask
+        working-directory: ${{ runner.temp }}/tap
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          SHA256: ${{ steps.release.outputs.sha256 }}
+        run: |
+          if [ ! -f "$CASK" ]; then
+            echo "::error::the tap has no $CASK"
+            exit 1
+          fi
+          python3 - "$CASK" "$VERSION" "$SHA256" <<'EOF'
+          import re, sys
+          path, version, sha256 = sys.argv[1:]
+          with open(path) as f:
+              lines = f.read().split("\n")
+          patterns = {
+              "version": re.compile(r'^(\s*)version "([^"]*)"$'),
+              "sha256": re.compile(r'^(\s*)sha256 "([0-9a-f]{64})"$'),
+          }
+          found = {}
+          for key, pattern in patterns.items():
+              hits = [i for i, line in enumerate(lines) if pattern.match(line)]
+              if len(hits) != 1:
+                  sys.exit(f"::error file={path}::expected one {key} \"...\" line, found {len(hits)}")
+              found[key] = hits[0]
+          old = patterns["version"].match(lines[found["version"]]).group(2)
+          def parts(v):
+              return tuple(int(n) for n in v.split(".")) if re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", v) else None
+          if parts(old) is not None and parts(old) > parts(version):
+              sys.exit(f"::error file={path}::the cask is at {old}, newer than {version}")
+          for key, value in (("version", version), ("sha256", sha256)):
+              i = found[key]
+              indent = patterns[key].match(lines[i]).group(1)
+              lines[i] = f'{indent}{key} "{value}"'
+          with open(path, "w") as f:
+              f.write("\n".join(lines))
+          EOF
+          if git diff --quiet; then
+            echo "The cask is already at $VERSION with sha256 $SHA256: nothing to commit"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git diff
+          numstat="$(git diff --numstat)"
+          if [ "$numstat" != "$(printf '2\t2\t%s' "$CASK")" ]; then
+            echo "::error::the update would change more or less than the version and sha256 lines ($numstat)"
+            exit 1
+          fi
+          changed="$(git diff -U0 | grep -E '^[-+][^-+]' || true)"
+          if grep -vqE '^[-+][[:space:]]*(version|sha256) "' <<<"$changed"; then
+            echo "::error::the update changes a line other than version and sha256"
+            exit 1
+          fi
+          git -c user.name='github-actions[bot]' \
+            -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit --quiet -m "quota-station $VERSION" -- "$CASK"
+          git log -1 --stat
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Push to the tap
+        if: ${{ steps.cask.outputs.changed == 'true' }}
+        working-directory: ${{ runner.temp }}/tap
+        run: git push origin HEAD:main
+
+      - name: Delete the deploy key
+        if: ${{ always() }}
+        run: rm -rf "$RUNNER_TEMP/tap-ssh"
