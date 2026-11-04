@@ -289,6 +289,7 @@ The older switcher's rotation file is shared with that switcher and stays.
 | [docs/features.md](docs/features.md) | Every part of the app in full |
 | [docs/how-it-works.md](docs/how-it-works.md) | The quota readers, the Claude and Antigravity accounts, the command line, what the app reads, runs and writes, the OAuth client file |
 | [docs/development.md](docs/development.md) | Building, build features, the browser preview, tests, code layout |
+| [docs/releasing.md](docs/releasing.md) | The release workflow and the one-time setup it needs |
 | [docs/claude-accounts.md](docs/claude-accounts.md) | The design of the Claude accounts |
 | [docs/themes.md](docs/themes.md) | The six theme packs |
 | [docs/ui-guidelines.md](docs/ui-guidelines.md) | Interface wording in Vietnamese and English |

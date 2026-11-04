@@ -2,10 +2,15 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!-- Merged into the bundle's Info.plist by Tauri. QuotaStationAgents: the
      version of the copy between Macs (M13) this app speaks; another Mac
-     runs `quota-station agents` here only when it is there. -->
+     runs `quota-station agents` here only when it is there.
+     NSAppleEventsUsageDescription: what macOS shows when it first asks
+     whether Quota Station may control Antigravity (quitting it before an
+     account switch). -->
 <plist version="1.0">
 <dict>
 	<key>QuotaStationAgents</key>
 	<integer>1</integer>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Quota Station asks Antigravity to quit before switching accounts. Quota Station yêu cầu Antigravity thoát trước khi chuyển tài khoản.</string>
 </dict>
 </plist>
