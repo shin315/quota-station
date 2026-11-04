@@ -257,10 +257,12 @@ jobs:
           bin="$(plutil -extract CFBundleExecutable raw "$APP/Contents/Info.plist")"
           archs="$(lipo -archs "$APP/Contents/MacOS/$bin")"
           echo "Architectures: $archs"
-          case " $archs " in
-            *" x86_64 "*" arm64 "* | *" arm64 "*" x86_64 "*) ;;
-            *) echo "::error::the app is not universal ($archs)"; exit 1 ;;
-          esac
+          for arch in x86_64 arm64; do
+            case " $archs " in
+              *" $arch "*) ;;
+              *) echo "::error::the app is not universal ($archs)"; exit 1 ;;
+            esac
+          done
           v="$(plutil -extract CFBundleShortVersionString raw "$APP/Contents/Info.plist")"
           [ "$v" = "$VERSION" ] || { echo "::error::the app says version $v"; exit 1; }
           for f in LICENSE NOTICE LICENSES/CC-BY-NC-SA-4.0.txt; do
