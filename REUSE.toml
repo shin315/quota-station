@@ -20,6 +20,7 @@ path = [
   "assets/**",
   "docs/**",
   "src-tauri/Info.plist",
+  "src-tauri/Entitlements.plist",
   "src-tauri/tauri.conf.json",
   "src-tauri/tauri.windows.conf.json",
   "src-tauri/tauri.antigravity.conf.json",

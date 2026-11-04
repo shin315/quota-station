@@ -68,7 +68,8 @@ ditto -x -k quota-station-0.1.0.zip . && ./quota-station-0.1.0/install.sh --app 
 
 Cargo features decide what is compiled in. A plain `cargo tauri build` or
 `npm run app` has none; `scripts/install.sh` turns them on
-(`QS_ANTIGRAVITY_ACCOUNTS=0` leaves the Antigravity accounts out).
+(`QS_ANTIGRAVITY_ACCOUNTS=0` leaves the Antigravity accounts out), and so does
+the release workflow ([`releasing.md`](releasing.md)).
 
 - **`antigravity-accounts`**: logging in and switching several Antigravity
   accounts, adapted from Cockpit Tools (see [`THIRD_PARTY.md`](../THIRD_PARTY.md)).
