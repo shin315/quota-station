@@ -51,6 +51,20 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # The app's version is declared three times; a release must not ship
+      # with them apart. The top-level "version" of the two JSON files (two
+      # spaces in) and the one under [workspace.package] in Cargo.toml.
+      - name: Versions agree
+        run: |
+          cargo=$(sed -n '/^\[workspace\.package\]/,/^\[/s/^version = "\(.*\)"$/\1/p' Cargo.toml)
+          tauri=$(sed -n 's/^  "version": "\(.*\)",$/\1/p' src-tauri/tauri.conf.json)
+          npm=$(sed -n 's/^  "version": "\(.*\)",$/\1/p' package.json)
+          echo "Cargo.toml: $cargo, src-tauri/tauri.conf.json: $tauri, package.json: $npm"
+          if [ -z "$cargo" ] || [ "$cargo" != "$tauri" ] || [ "$cargo" != "$npm" ]; then
+            echo "::error::Cargo.toml, src-tauri/tauri.conf.json and package.json must declare the same version."
+            exit 1
+          fi
+
       - name: reuse lint
         if: ${{ !vars.MAC_RUNNER }}
         uses: fsfe/reuse-action@v5
