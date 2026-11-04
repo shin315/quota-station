@@ -552,7 +552,8 @@ ui_fixtures_advanced`.
   quota and switch (`agy_quota.rs`, `agy_switch.rs`, `antigravity.rs`), the
   macOS notification center (`notify.rs`, `alerting.rs`), the login item
   (`login_item.rs`), the app's version and its login item commands
-  (`install.rs`), the release check
+  (`install.rs`), the build number `build.rs` counts (`build_number.rs`), the
+  release check
   (`release.rs`), the Codex thread, accounts, import and wake (`codex.rs`,
   `codex_accounts.rs`, `codex_import.rs`, `codex_wake.rs`), the MCP tab's
   commands (`agents.rs`), the backup tab's (`backup.rs`), the Skills, Plugins

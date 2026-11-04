@@ -190,10 +190,7 @@ fn a_clone_holding_the_app_in_a_folder_says_the_installed_version() {
     let new = r.push("0.3.0");
     assert_eq!(update::version(&r.source), None, "no tauri.conf.json at the clone's root");
     let (result, _) = r.run(Some(&old));
-    assert_eq!(
-        result.unwrap(),
-        Outcome::Installed { commit: new, version: Some("0.3.0".into()) }
-    );
+    assert_eq!(result.unwrap(), Outcome::Installed { commit: new, version: Some("0.3.0".into()) });
     assert_eq!(installed_version(&r.dest), Some("0.3.0".into()));
 }
 
