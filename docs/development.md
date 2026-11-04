@@ -271,8 +271,8 @@ What the main suites check:
   swap with an old copy, the quarantine mark cleared, `open` called once (or not
   with `--no-open`), a failed build that leaves the old copy, `npm ci` after a
   lock file change, the commit and the build number passed to the build, and a
-  package that installs
-  with `--app` on a Mac without `cargo` or `npm`, from the folder or the zip.
+  package that installs with `--app` on a Mac without `cargo` or `npm`, from
+  the folder or the zip.
 - **Update from source** (`update.rs`): real git on temporary repositories (a
   bare origin, the clone, and a second clone that pushes) with a temporary HOME
   and no git config, and a fake `install.sh` that records its arguments and
