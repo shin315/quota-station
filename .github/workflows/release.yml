@@ -54,7 +54,7 @@ jobs:
     outputs:
       commit: ${{ steps.commit.outputs.commit }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
 
@@ -146,19 +146,21 @@ jobs:
     steps:
       # The whole history: the build number is the count of commits up to
       # the one built. No caches: a release builds from nothing.
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           ref: ${{ needs.check.outputs.commit }}
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: 24
 
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - name: Rust (stable, both Mac architectures)
+        run: |
+          rustup toolchain install stable --profile minimal --no-self-update
+          rustup default stable
+          rustup target add aarch64-apple-darwin x86_64-apple-darwin
 
       - name: Commit and build number
         run: |
@@ -285,7 +287,7 @@ jobs:
         if: ${{ always() }}
         run: rm -f "$RUNNER_TEMP/notary-key.p8"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: quota-station-macos
           path: dist/Quota.Station_${{ inputs.version }}_universal.dmg
@@ -305,17 +307,20 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           ref: ${{ needs.check.outputs.commit }}
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: 24
 
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Rust (stable)
+        run: |
+          rustup toolchain install stable --profile minimal --no-self-update
+          rustup default stable
 
       - name: Commit and build number
         run: |
@@ -340,12 +345,12 @@ jobs:
           exe="dist/Quota.Station_${VERSION}_x64-setup.exe"
           mv "$src" "$exe"
           # The licences the app installs next to itself (bundle.resources).
-          listing="$(7z l "$exe")"
+          names="$(7z l -slt "$exe" | tr -d '\r' | sed -n 's/^Path = //p' | sed 's|.*[\\/]||')"
           for f in LICENSE NOTICE CC-BY-NC-SA-4.0.txt; do
-            grep -q "$f" <<<"$listing" || { echo "::error::the installer holds no $f"; exit 1; }
+            grep -qxF "$f" <<<"$names" || { echo "::error::the installer holds no $f"; exit 1; }
           done
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: quota-station-windows
           path: dist/Quota.Station_${{ inputs.version }}_x64-setup.exe
@@ -359,12 +364,12 @@ jobs:
     needs: [check, macos, windows]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           ref: ${{ needs.check.outputs.commit }}
           persist-credentials: false
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           pattern: quota-station-*
           path: release/assets
@@ -409,7 +414,7 @@ jobs:
             cat release/notes.md
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: release-${{ inputs.version }}
           path: release/
@@ -425,7 +430,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: release-${{ inputs.version }}
           path: release

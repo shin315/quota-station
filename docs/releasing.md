@@ -48,8 +48,23 @@ part is a paragraph. Edit the file before a release.
    it stops before building when the environment is missing or unprotected,
    and the macOS job stops when a secret is missing. The macOS job waits for
    the reviewer's approval, then the last job creates the draft release
-   `v<version>` on the built commit. A run that fails leaves no draft; a draft
-   that is wrong is deleted and the workflow run again.
+   `v<version>` on the built commit. A run that fails leaves no draft. A draft
+   that is wrong can be deleted and the workflow run again. Once published, the
+   release, its assets and its tag cannot be changed, and the name of a deleted
+   published tag cannot be used again, so a bad published release is fixed
+   with a new version.
+
+## One-time repository setup
+
+Before the first real run:
+
+- A **Developer ID Application** certificate, exported with its key as a
+  `.p12`, and an **App Store Connect API key** with Developer access for
+  notarization, entered as the six secrets of the `release` environment below.
+- The **`release` environment**, with the owner as required reviewer (below).
+- A **tag ruleset** for `v*` that lets only admins create, update or delete
+  those tags (Settings › Rules › Rulesets).
+- **Immutable releases** turned on (Settings › General › Releases).
 
 ### The release environment
 

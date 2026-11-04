@@ -11,6 +11,6 @@
 	<key>QuotaStationAgents</key>
 	<integer>1</integer>
 	<key>NSAppleEventsUsageDescription</key>
-	<string>Quota Station cần thoát Antigravity trước khi chuyển tài khoản Antigravity.</string>
+	<string>Quota Station asks Antigravity to quit before switching accounts. Quota Station yêu cầu Antigravity thoát trước khi chuyển tài khoản.</string>
 </dict>
 </plist>
