@@ -219,7 +219,10 @@ npm test                 # Vitest: every window, sheet and tab, in Vietnamese an
 
 CI (`.github/workflows/ci.yml`) has three jobs:
 
-- **Licenses**: `reuse lint`. Like the changed-files job that decides whether
+- **Licenses**: first a check that `Cargo.toml` (`[workspace.package]`),
+  `src-tauri/tauri.conf.json` and `package.json` declare the same version
+  (raise all three together; `package-lock.json` follows `npm install`), then
+  `reuse lint`. Like the changed-files job that decides whether
   the builds run, it runs on `ubuntu-latest`, or on the repository's
   `MAC_RUNNER` when that variable is set (through `uvx`, without Docker, with
   its cache in the CI root: the runner's own `QS_CI_ROOT`, set in the `.env`
