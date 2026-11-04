@@ -71,8 +71,9 @@ Before the first real run:
 
 Settings › Environments › `release`: the owner as required reviewer,
 deployment branches and tags limited to `main` and `v*`. Its secrets (Tauri
-reads the first five; the workflow writes the last to a temporary file and
-points `APPLE_API_KEY_PATH` at it):
+reads the first five; the Release workflow writes the sixth to a temporary
+file and points `APPLE_API_KEY_PATH` at it; the last is the
+[Homebrew](#homebrew) workflow's):
 
 | Secret | Value |
 |---|---|
@@ -82,6 +83,7 @@ points `APPLE_API_KEY_PATH` at it):
 | `APPLE_API_ISSUER` | App Store Connect API Issuer ID |
 | `APPLE_API_KEY` | App Store Connect API Key ID |
 | `APPLE_API_KEY_P8` | the key's `AuthKey_<id>.p8`, its whole text |
+| `HOMEBREW_TAP_DEPLOY_KEY` | the private key of shin315/homebrew-tap's deploy key with write access |
 
 The signed app runs with the hardened runtime and
 `src-tauri/Entitlements.plist` (Apple Events, to quit Antigravity before an
