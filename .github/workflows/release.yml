@@ -275,10 +275,12 @@ jobs:
         if: ${{ !inputs.dry_run }}
         run: |
           set -o pipefail
-          codesign -dvv "$APP" 2>&1 | grep -E '^(Authority|TeamIdentifier|Timestamp|Runtime Version)='
-          codesign -dvv "$APP" 2>&1 | grep -q '^Authority=Developer ID Application:' \
+          info="$(codesign -dvv "$APP" 2>&1)"
+          grep -E '^(Authority|TeamIdentifier|Timestamp|Runtime Version)=' <<<"$info"
+          grep -q '^Authority=Developer ID Application:' <<<"$info" \
             || { echo "::error::the app is not signed with Developer ID Application"; exit 1; }
-          codesign -d --entitlements - --xml "$APP" 2>/dev/null | grep -q 'com.apple.security.automation.apple-events' \
+          entitlements="$(codesign -d --entitlements - --xml "$APP" 2>/dev/null)"
+          grep -q 'com.apple.security.automation.apple-events' <<<"$entitlements" \
             || { echo "::error::the app's signature lacks the Apple Events entitlement"; exit 1; }
           xcrun stapler validate "$APP"
           spctl --assess --type execute -vv "$APP"
