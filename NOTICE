@@ -78,7 +78,9 @@ Adapted parts. Each file names its source and its changes in its header.
   from src-tauri/src/modules/antigravity_credential.rs: the login payload
   Antigravity.app and agy share, its go-keyring-base64 value, and the
   security command that writes the gemini/antigravity Keychain item with a
-  15-second timeout.
+  15-second timeout; on Windows the Credential Manager credential it
+  writes (target gemini:antigravity, user antigravity, the payload as it
+  is, kept on this computer).
 - crates/quota-station-core/tests/antigravity_credential.rs
   from src-tauri/src/modules/antigravity_credential_tests.rs: the tests that
   a failed write keeps the old item and that a hung write is stopped before
@@ -86,7 +88,13 @@ Adapted parts. Each file names its source and its changes in its header.
 - crates/quota-station-core/src/antigravity/desktop.rs
   from src-tauri/src/commands/account.rs and
   src-tauri/src/commands/system_config_types.rs: the version compare and the
-  rule that Antigravity.app 2.0 and later keep their login in the Keychain.
+  rule that Antigravity.app 2.0 and later keep their login in the Keychain;
+  on Windows also from src-tauri/src/modules/process_path_resolution.rs,
+  process_launch_candidates.rs and process_close_lifecycle.rs: the folders
+  Antigravity.exe is looked for in, its version from product.json, its
+  VersionInfo or its Uninstall entry (Cockpit's PowerShell scripts), its
+  process told by its executable, the close with taskkill /PID <pid> /T and
+  the start from its folder with --reuse-window.
 - crates/quota-station-core/src/antigravity/switch.rs
   from src-tauri/src/commands/account_desktop_switch.rs and
   prepare_account_for_injection in src-tauri/src/modules/account.rs: one
@@ -97,12 +105,15 @@ Adapted parts. Each file names its source and its changes in its header.
 
 What was changed:
 
-- macOS only. The Windows and Linux branches, the SQLite store (and with
-  it switching Antigravity.app older than 2.0), the instance management,
-  the WebSocket server, wake-up and the other platforms are not included.
+- macOS and Windows. The Linux branches, the Windows read of the shared
+  login (CredReadW, with which Cockpit imports the account signed in), the
+  SQLite store (and with it switching Antigravity older than 2.0), the
+  instance management, the WebSocket server, wake-up and the other
+  platforms are not included.
 - One OAuth client, read from a local oauth-client.json instead of
   constants in the source.
-- Tokens are kept in the app's own macOS Keychain items instead of
+- Tokens are kept in the app's own macOS Keychain items (on Windows, the
+  app's own files sealed by DPAPI for the signed-in user) instead of
   AES-encrypted files with their key beside them.
 - A thread and blocking HTTP instead of async tasks and Tauri events; typed
   errors that keep no response body, token or secret; nothing about a login
@@ -122,6 +133,14 @@ What was changed:
   hours for a running app writing its old login back. An Antigravity.app
   whose version cannot be read stops the switch instead of counting as new,
   and the index and the binding are written together or not at all.
+- On Windows, Antigravity is closed only with taskkill /PID <pid> /T, never
+  with /F as Cockpit does after its wait: one that does not close is
+  reported and left running. Its processes come from the process table
+  (sysinfo) instead of PowerShell, a Chromium helper (--type=) is not the
+  app, it is not started from a Start menu shortcut, no app path is
+  configured, PowerShell gets 10 seconds instead of 5, and the quota calls
+  carry Cockpit's default version there, as Cockpit's do with its default
+  settings.
 
 A later milestone that adapts more of Cockpit Tools adds its parts to
 this list.

@@ -2,14 +2,14 @@
 // SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
 //! Logging Antigravity accounts in and out end to end, against a local fake
-//! Google, a fake browser and a fake `security` in a temporary home. These
-//! tests never reach Google and never touch the Keychain.
+//! Google, a fake browser and a fake `security` in a temporary home (on
+//! Windows, a store kept in memory). These tests never reach Google and
+//! never touch the Keychain or the app's own sealed files.
 #![cfg(feature = "antigravity-accounts")]
-// Unix only: the fake `security` is a shell script.
-#![cfg(unix)]
 
 mod common;
 
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::time::{Duration, Instant};
 
@@ -113,8 +113,13 @@ fn a_login_opens_cockpits_consent_url_and_keeps_the_account() {
     // The token went to the app's own item, without -A.
     let calls = home.security_calls();
     let add = calls.iter().find(|c| c[0] == "add-generic-password").unwrap();
-    assert_eq!(add[..7], ["add-generic-password", "-U", "-s", SERVICE, "-a", ACCOUNT_ID, "-w"]);
-    assert_eq!(add.len(), 8, "no -A: {add:?}");
+    #[cfg(unix)]
+    {
+        assert_eq!(add[..7], ["add-generic-password", "-U", "-s", SERVICE, "-a", ACCOUNT_ID, "-w"]);
+        assert_eq!(add.len(), 8, "no -A: {add:?}");
+    }
+    #[cfg(windows)]
+    assert_eq!(add, &["add-generic-password", "-a", ACCOUNT_ID, "-s", SERVICE]);
     let token = stored_token(&home, ACCOUNT_ID);
     assert_eq!(token.access_token, ACCESS);
     assert_eq!(token.refresh_token, REFRESH);
@@ -139,9 +144,12 @@ fn a_login_opens_cockpits_consent_url_and_keeps_the_account() {
     assert_eq!(entry["last_used"], NOW);
     let text = std::fs::read_to_string(home.index_file()).unwrap();
     assert!(!text.contains(ACCESS) && !text.contains(REFRESH));
-    let mode = |p: &std::path::Path| std::fs::metadata(p).unwrap().permissions().mode() & 0o777;
-    assert_eq!(mode(&home.index_file()), 0o600);
-    assert_eq!(mode(home.index_file().parent().unwrap()), 0o700);
+    #[cfg(unix)]
+    {
+        let mode = |p: &std::path::Path| std::fs::metadata(p).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode(&home.index_file()), 0o600);
+        assert_eq!(mode(home.index_file().parent().unwrap()), 0o700);
+    }
 }
 
 #[test]
@@ -237,6 +245,8 @@ fn a_failing_keychain_leaves_the_index_unwritten() {
     assert!(!home.index_file().parent().unwrap().exists(), "nothing written at all");
 }
 
+// macOS's immutable flag; a Windows folder has none that stops a write.
+#[cfg(unix)]
 #[test]
 fn an_index_that_cannot_be_written_takes_the_new_item_back() {
     let home = Home::new("agy-noindex");
@@ -296,11 +306,7 @@ fn a_second_account_is_added_and_a_new_login_of_the_first_keeps_its_place() {
     // in again: same id, same place, created time kept, project kept.
     let mut token = stored_token(&home, ACCOUNT_ID);
     token.project_id = Some("fake-project".into());
-    std::fs::write(
-        home.sec.join(format!("items/{SERVICE}--{ACCOUNT_ID}")),
-        serde_json::to_string(&token).unwrap(),
-    )
-    .unwrap();
+    home.put_item(ACCOUNT_ID, &serde_json::to_string(&token).unwrap());
     index::set_standing(&home.app, ACCOUNT_ID, Some(Standing::NeedsLogin { since: NOW })).unwrap();
     google.set(|s| {
         s.userinfo.1 = format!(r#"{{"id":"1000001","email":"{}"}}"#, EMAIL.to_uppercase());
@@ -546,7 +552,10 @@ fn logging_out_removes_only_the_apps_item_and_the_index_line() {
     login::logout(&deps, ACCOUNT_ID).unwrap();
 
     let delete = home.security_calls().pop().unwrap();
+    #[cfg(unix)]
     assert_eq!(delete, ["delete-generic-password", "-s", SERVICE, "-a", ACCOUNT_ID]);
+    #[cfg(windows)]
+    assert_eq!(delete, ["delete-generic-password", "-a", ACCOUNT_ID, "-s", SERVICE]);
     assert!(home.item(ACCOUNT_ID).is_none());
     assert!(home.item(&second.id).is_some());
     let index = index::load(&home.app).unwrap();
@@ -578,7 +587,7 @@ fn a_logout_of_an_item_already_gone_still_forgets_the_account() {
     let home = Home::new("agy-logout-gone");
     let google = FakeGoogle::start(Script::default());
     log_in(&home, &google).0.unwrap();
-    std::fs::remove_file(home.sec.join(format!("items/{SERVICE}--{ACCOUNT_ID}"))).unwrap();
+    home.remove_item(ACCOUNT_ID);
     let endpoints = google.endpoints();
     login::logout(&home.deps(&endpoints), ACCOUNT_ID).unwrap();
     assert!(index::load(&home.app).unwrap().accounts.is_empty());
@@ -594,12 +603,22 @@ fn the_oauth_client_file_must_be_private_and_filled_in() {
         !format!("{loaded:?}").contains(CLIENT_SECRET)
             && !format!("{loaded:?}").contains(CLIENT_ID)
     );
+    // A byte order mark, as Notepad and PowerShell 5 write one, is skipped.
+    home.write_client(
+        &format!("\u{feff}{{\"client_id\":\"{CLIENT_ID}\",\"client_secret\":\"{CLIENT_SECRET}\"}}"),
+        0o600,
+    );
+    assert_eq!(client::status(&home.app), ClientStatus::Ok);
 
     home.write_client(
         &format!(r#"{{"client_id":"{CLIENT_ID}","client_secret":"{CLIENT_SECRET}"}}"#),
         0o644,
     );
+    // Windows keeps no mode: the profile's folder keeps others out there.
+    #[cfg(unix)]
     assert_eq!(client::status(&home.app), ClientStatus::TooOpen);
+    #[cfg(windows)]
+    assert_eq!(client::status(&home.app), ClientStatus::Ok);
     home.write_client("not json", 0o600);
     assert_eq!(client::status(&home.app), ClientStatus::Invalid);
     home.write_client(

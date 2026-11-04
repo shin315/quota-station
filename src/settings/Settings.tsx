@@ -906,11 +906,15 @@ export function Settings(props: SettingsProps) {
               inline
               hint={
                 <span>
-                  {t('Quyền 600, chỉ có trên Mac này.', 'Mode 600, on this Mac only.')}{' '}
+                  {os(t('Quyền 600, chỉ có trên Mac này.', 'Mode 600, on this Mac only.'), t('Chỉ có trên máy này.', 'On this PC only.'))}{' '}
                   <More small about={t('OAuth client Antigravity', 'Antigravity OAuth client')}>
                     <p>
                       <span className={CODE}>{model.antigravity.clientPath}</span>
-                      {t(', quyền 600, chỉ có trên Mac này. README ghi định dạng.', ', mode 600, on this Mac only. The README describes the format.')}
+                      {os(t(', quyền 600, chỉ có trên Mac này.', ', mode 600, on this Mac only.'), t(', chỉ có trên máy này.', ', on this PC only.'))}{' '}
+                      {t(
+                        'Chép client_id và client_secret từ src-tauri/src/modules/oauth.rs trong mã nguồn Cockpit Tools (https://github.com/jlcodes99/cockpit-tools); định dạng và lệnh ' + os('', 'PowerShell ') + 'tạo file có trong mục “The OAuth client file” của hướng dẫn: https://github.com/shin315/quota-station/blob/main/docs/how-it-works.md#the-oauth-client-file',
+                        'Copy client_id and client_secret from src-tauri/src/modules/oauth.rs in Cockpit Tools’ source (https://github.com/jlcodes99/cockpit-tools); the guide’s “The OAuth client file” section gives the format and the ' + os('', 'PowerShell ') + 'command that makes it: https://github.com/shin315/quota-station/blob/main/docs/how-it-works.md#the-oauth-client-file',
+                      )}
                     </p>
                   </More>
                 </span>

@@ -27,7 +27,15 @@ changes the app should keep these rules, or say plainly which one changes.
   app read it, as Antigravity's own keyring does. The value carries only
   the access token, the refresh token, the expiry, `token_type` (`Bearer`)
   and `auth_method` (`consumer`), and is on `security`'s command line for
-  the moment it runs, the same limit as below.
+  the moment it runs, the same limit as below. On Windows the shared login
+  is the generic credential `gemini:antigravity` (user `antigravity`) in
+  Credential Manager, as Antigravity's own keyring keeps it there. The
+  app never reads or deletes it; a switch only writes it with `CredWriteW`,
+  as Cockpit Tools does: the same JSON, as it is, kept for the signed-in
+  user on this PC (`CRED_PERSIST_LOCAL_MACHINE`, which does not roam).
+  `CredWriteW` replaces it in one call; when Windows refuses, the switch
+  ends there and points nothing at the new account. The value goes to no
+  command line.
 
 The app keeps the Claude accounts itself and runs no claude-swap command;
 what it reads and writes of Claude Code's login is in
@@ -39,7 +47,9 @@ Files, under `~/Library/Application Support/com.shin315.quota-station/`:
 
 - `oauth-client.json`: the Antigravity OAuth client, which the owner puts
   there (see [docs/how-it-works.md](docs/how-it-works.md#the-oauth-client-file)). The app only reads it, and refuses it unless only
-  the owner can read it (mode 600). The id and the secret never go into this
+  the owner can read it (mode 600; on Windows, where files keep no mode, it
+  is `%APPDATA%\com.shin315.quota-station\oauth-client.json`, which the
+  user profile's access list keeps to its owner). The id and the secret never go into this
   repository, the logs or the windows; the windows only learn whether the
   file is usable.
 - `antigravity/` (mode 700): `accounts.json`, the account index in Cockpit's
@@ -141,7 +151,9 @@ Besides its own Keychain items, the only place outside its folder the
 Antigravity code reads is the Antigravity app's bundle,
 `/Applications/Antigravity IDE.app` (where Cockpit Tools looks), for its
 version: `product.json`, google-auth-library's `package.json`, and
-`Info.plist` through `/usr/bin/plutil -p`. It never writes there.
+`Info.plist` through `/usr/bin/plutil -p`. It never writes there. On
+Windows, where Cockpit Tools with its default settings reads no version,
+the quota calls carry its default version and nothing is read for them.
 
 A switch with `Thoát app rồi chuyển` asks Antigravity.app to quit
 (`osascript`, the same as its Quit menu) and opens it again with
@@ -150,6 +162,19 @@ quit within 20 seconds, the shared login and the account pointers are not
 touched (a token refreshed for the switch stays in the app's own item, and
 the attempt is logged). `Chuyển`, offered while the app was not running,
 stops the same way if it runs again by then.
+
+On Windows a switch looks for `Antigravity.exe` where Cockpit Tools looks
+(`%LOCALAPPDATA%\Programs\Antigravity`, `%PROGRAMFILES%\Antigravity`,
+`%PROGRAMFILES(X86)%\Antigravity`) and reads its version from
+`resources\app\product.json`, else from the executable's VersionInfo or its
+Uninstall entry in the registry, both through PowerShell with Cockpit's
+scripts (the path goes in an environment variable, never into the script).
+It tells whether Antigravity runs from the process table (its executable,
+not Chromium's `--type=` helpers). `Thoát app rồi chuyển` asks it to close
+with `taskkill /PID <pid> /T`, without `/F`: Windows tells its windows to
+close, as when the owner closes them, and the app never kills it; the same
+20 seconds and the same stop apply. It is started again from its folder
+with `--reuse-window`.
 
 ## Reading the quota
 
@@ -880,11 +905,14 @@ reads or writes a login, an account, a key or a quota file of any of them.
 - The tests talk to a local fake Google (OAuth and Cloud Code) and a fake
   `security` that keeps items in a temporary folder, and switch a fake
   Antigravity.app (a shell process) through fake `plutil`, `pgrep`,
-  `osascript` and `open`. The Google and Cloud Code endpoints and the
+  `osascript` and `open`. On Windows the same tests run with the app's
+  items and the shared credential kept in memory, a fake Antigravity behind
+  the switch's seam (a fake `Antigravity.exe` in a temporary folder) and a
+  batch-file `agy`. The Google and Cloud Code endpoints and the
   Antigravity bundle can be changed only in a test build, and
   `Keychain::system()`, `SharedLogin::system()` and `Desktop::system()`
-  refuse to run in one, so no test can reach Google, the real Keychain or
-  the real Antigravity.app.
+  refuse to run in one, so no test can reach Google, the real Keychain,
+  Credential Manager or the real Antigravity.
 - `tests/agents_mcp.rs` runs the MCP tab's reads, previews and writes
   (turning on and off in each agent, a batch over all three, `Hoàn tác`, a
   file changed after the preview, a file that does not parse, Claude Code's

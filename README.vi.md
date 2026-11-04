@@ -201,7 +201,12 @@ ghi (tiếng Anh).
 - Để đăng nhập tài khoản Claude mới, và cho `quota-station claude run`: lệnh
   `claude` của Claude Code.
 - Để đăng nhập tài khoản Antigravity (bản dựng có phần tài khoản Antigravity):
-  [file OAuth client](docs/how-it-works.md#the-oauth-client-file).
+  [file OAuth client](docs/how-it-works.md#the-oauth-client-file), do bạn tự
+  tạo với hai giá trị lấy từ mã nguồn Cockpit Tools: trên Mac là
+  `~/Library/Application Support/com.shin315.quota-station/oauth-client.json`
+  (quyền 600), trên Windows là
+  `%APPDATA%\com.shin315.quota-station\oauth-client.json` (hướng dẫn có lệnh
+  PowerShell để tạo file).
 - Cho các công cụ nâng cao cần tới máy Mac khác: một SSH alias tới từng máy,
   đăng nhập không cần hỏi (dùng khoá, `BatchMode=yes`).
 

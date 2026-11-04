@@ -6,13 +6,16 @@
 // commit 244b957, CC BY-NC-SA 4.0): the client's key name and the one
 // client it logs in with; changes: the id and the secret come from
 // `oauth-client.json` instead of constants in the source, and the file is
-// checked before use.
+// checked before use (a UTF-8 byte order mark, as Windows editors write
+// one, is skipped).
 
 //! The OAuth client the app logs in with: Antigravity's own, the one Cockpit
 //! Tools uses, so Google sees the same client either way. Its id and secret
 //! never go into this public repository. The owner puts them in
 //! `oauth-client.json` at the root of the app's Application Support folder,
-//! readable only by them (mode 600):
+//! readable only by them (mode 600); on Windows that folder is
+//! `%APPDATA%\com.shin315.quota-station`, which the user profile's access
+//! list keeps to its owner:
 //!
 //! ```json
 //! { "client_id": "<id>.apps.googleusercontent.com", "client_secret": "<secret>" }
@@ -107,7 +110,9 @@ pub fn load(dir: &AppDir) -> Result<OAuthClient, ClientStatus> {
         return Err(ClientStatus::TooOpen);
     }
     let text = dir.read_to_string(&file).map_err(|_| ClientStatus::Unreadable)?;
-    let fields: Fields = serde_json::from_str(&text).map_err(|_| ClientStatus::Invalid)?;
+    // Notepad and PowerShell 5's UTF-8 may start the file with a byte order mark.
+    let text = text.strip_prefix('\u{feff}').unwrap_or(&text);
+    let fields: Fields = serde_json::from_str(text).map_err(|_| ClientStatus::Invalid)?;
     OAuthClient::new(&fields.client_id, &fields.client_secret).ok_or(ClientStatus::Invalid)
 }
 

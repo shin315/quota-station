@@ -201,7 +201,8 @@ and are built only with the `antigravity-accounts` feature (see
   left, then Cloud Code's `fetchAvailableModels` and `retrieveUserQuotaSummary`
   with Antigravity's user agent and headers (`antigravity/<version>
   darwin/<arch>`; the version is that of `/Applications/Antigravity IDE.app`,
-  where Cockpit looks, or Cockpit's `1.20.5` without it). `loadCodeAssist`,
+  where Cockpit looks, or Cockpit's `1.20.5` without it, and always on Windows,
+  as Cockpit with its default settings). `loadCodeAssist`,
   which gives the account's project and whether it is a GCP ToS account, is
   asked after a login and while the token lacks either (unlike Cockpit, a
   failed answer ends the read like a failed quota call: the last reading stays,
@@ -232,7 +233,8 @@ and are built only with the `antigravity-accounts` feature (see
   quits the app and waits up to 20 seconds when asked (an app that does not
   quit stops the switch before the shared login is touched; `Switch` stops if
   the app runs again by then), writes the login Antigravity.app and agy share
-  with Cockpit's own `security` command, then points the app's account index
+  with Cockpit's own `security` command (on Windows the Credential Manager
+  credential, with `CredWriteW` as Cockpit does), then points the app's account index
   and binding at the new account and opens the app again. Five seconds later it
   reads Antigravity again and says it switched, that agy still uses the old
   account or could not be read, or why it did not switch. Antigravity.app older
@@ -242,7 +244,10 @@ and are built only with the `antigravity-accounts` feature (see
   while a switch runs. For six hours after a switch, a reading that shows the
   old account back in use is counted as an overwrite and brings a notification;
   the `Antigravity` tab also shows the banner `Antigravity switch overwritten`
-  (`Chuyển Antigravity bị ghi đè`) with `Switch again` and `Cancel`.
+  (`Chuyển Antigravity bị ghi đè`) with `Switch again` and `Cancel`. On
+  Windows the app is `Antigravity.exe`, closed with `taskkill` without `/F`
+  and started again from its folder; [`SECURITY.md`](../SECURITY.md#what-the-app-keeps)
+  says where it is looked for and how.
 
 ### Terms of service
 
@@ -256,8 +261,10 @@ make the risk larger.
 
 The Antigravity login uses Antigravity's own OAuth client, the one Cockpit
 Tools uses (its `src-tauri/src/modules/oauth.rs`). Its id and secret are not in
-this repository. Put them in a file on each Mac that logs in, readable only by
-you. With the real values in place of both `<…>`:
+this repository, and the app ships without them: copy the two values from that
+file of Cockpit Tools' source. Put them in a file on each Mac or Windows PC that
+logs in, readable only by you. With the real values in place of both `<…>`,
+on a Mac:
 
 ```sh
 mkdir -p ~/Library/Application\ Support/com.shin315.quota-station
@@ -268,10 +275,22 @@ JSON
 )
 ```
 
-The app refuses the placeholders, a file others can read (it must be mode
-600), and anything that is not this JSON. `Settings › Services` shows whether
-the file is usable (`Antigravity OAuth client`), and the `Antigravity` tab says
-what is missing.
+On Windows the file is `%APPDATA%\com.shin315.quota-station\oauth-client.json`
+(`C:\Users\<you>\AppData\Roaming\…`). In PowerShell:
+
+```powershell
+$dir = Join-Path $env:APPDATA 'com.shin315.quota-station'
+New-Item -ItemType Directory -Force -Path $dir | Out-Null
+Set-Content -Encoding ascii -Path (Join-Path $dir 'oauth-client.json') -Value '{ "client_id": "<client id>.apps.googleusercontent.com", "client_secret": "<client secret>" }'
+```
+
+Windows keeps no file mode: your user profile's folder already keeps other
+users out. A file saved from Notepad works too.
+
+The app refuses the placeholders, on a Mac a file others can read (it must be
+mode 600), and anything that is not this JSON. `Settings › Services` shows
+whether the file is usable (`Antigravity OAuth client`), and the `Antigravity`
+tab says what is missing and where the file goes.
 
 ## The pause flag and the switcher
 
@@ -340,7 +359,8 @@ flag and does not show Claude as paused.
   with under five minutes left is refreshed at the same token URL. The tokens go
   to the app's own Keychain items through `/usr/bin/security
   add-generic-password`, `find-generic-password` and `delete-generic-password`,
-  service `com.shin315.quota-station.antigravity`.
+  service `com.shin315.quota-station.antigravity` (on Windows, to the app's own
+  files sealed by DPAPI).
 - Antigravity quota reads, at the pace above:
   `POST https://daily-cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels`
   and `…/v1internal:retrieveUserQuotaSummary` (on `cloudcode-pa` for a GCP ToS
@@ -357,6 +377,10 @@ flag and does not show Claude as paused.
   mark, `security add-generic-password -U -s gemini -a antigravity -w
   go-keyring-base64:<…> -A`, and then the Antigravity quota read above, without
   the cache. Opening the sheet runs only the `plutil` and `pgrep` questions.
+  On Windows it writes Credential Manager's `gemini:antigravity` with
+  `CredWriteW` and runs `taskkill /PID <pid> /T`, `Antigravity.exe
+  --reuse-window` and, when `product.json` gives no version, PowerShell
+  ([`SECURITY.md`](../SECURITY.md#what-the-app-keeps)).
 - History and notifications read, after each read: the app's own Antigravity
   and Codex switch logs and, while an overwrite card waits for an answer,
   `pgrep` for Antigravity.app, the last 64 KB of the switcher's log, and the

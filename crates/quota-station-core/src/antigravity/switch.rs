@@ -10,10 +10,11 @@
 // fresh token, then the project and GCP ToS probe)
 // (1.3.70, commit 244b957, CC BY-NC-SA 4.0); changes: the probe is the
 // quota read's `loadCodeAssist` (`cloud_code`), asked by its rule (no GCP
-// ToS mark or no project) and kept as it keeps it; macOS and
-// Antigravity.app 2.0 or later only (the SQLite login of older versions and
+// ToS mark or no project) and kept as it keeps it; macOS and Windows, and
+// Antigravity 2.0 or later only (the SQLite login of older versions and
 // the instance management are not ported); the app is quit with
-// `osascript` and opened with `open -b` (`desktop`), never killed; the
+// `osascript` and opened with `open -b`, on Windows closed with `taskkill`
+// without `/F` and started again from its folder (`desktop`), never killed; the
 // result is checked with a fresh read five seconds later; a log line and the
 // six-hour watch (`watch`) are the app's own; no WebSocket broadcast.
 
@@ -27,12 +28,14 @@
 //! 3. the account's token is made fresh and, while it has no GCP ToS mark
 //!    or no project, `loadCodeAssist` is asked for them, all within 60
 //!    seconds;
-//! 4. with "Thoát app rồi chuyển", Antigravity.app is asked to quit and
+//! 4. with "Thoát app rồi chuyển", Antigravity.app (on Windows,
+//!    Antigravity) is asked to quit and
 //!    given 20 seconds; if it does not quit, the shared login and the
 //!    pointers are not touched. "Chuyển" was offered for an app that was not
 //!    running, so one that runs again by then stops the switch;
 //! 5. the account must still be logged in here, and the shared login is
-//!    written (`credential`); a failure leaves the old one as it was;
+//!    written (`credential`: the Keychain item, on Windows the Credential
+//!    Manager credential); a failure leaves the old one as it was;
 //! 6. only then the index's current account and the binding are written,
 //!    both or neither, the six-hour watch starts, and the app
 //!    is opened again if it was quit (a failure to open is reported apart:

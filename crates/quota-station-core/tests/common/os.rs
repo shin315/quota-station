@@ -12,7 +12,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use quota_station_core::claude::keychain::KeychainError;
-use quota_station_core::os::{Process, ProcessList, SecretStore};
+use quota_station_core::os::{Credentials, Process, ProcessList, SecretStore};
 
 /// A secret store that keeps its items in memory and records every call
 /// (never a value) as `command -a <account> -s <service>`, in the words of
@@ -175,6 +175,79 @@ impl SecretStore for FakeKeychain {
             let _ = std::fs::remove_file(file);
         }
         keys.items.remove(&key);
+        Ok(())
+    }
+}
+
+/// Generic credentials by target, as Windows' Credential Manager keeps
+/// them, in memory: every call is recorded as `read <target>`,
+/// `write <target> <account>` or `delete <target>` (never a value).
+#[derive(Debug, Clone, Default)]
+pub struct FakeCredentials(Arc<Mutex<Creds>>);
+
+#[derive(Debug, Default)]
+struct Creds {
+    items: BTreeMap<String, (String, Vec<u8>)>,
+    calls: Vec<String>,
+    /// Writes are refused with these words.
+    refuse: Option<String>,
+}
+
+impl FakeCredentials {
+    pub fn new() -> FakeCredentials {
+        FakeCredentials::default()
+    }
+
+    fn creds(&self) -> std::sync::MutexGuard<'_, Creds> {
+        self.0.lock().unwrap()
+    }
+
+    /// The credential's value, as text.
+    pub fn value(&self, target: &str) -> Option<String> {
+        self.creds().items.get(target).map(|(_, blob)| String::from_utf8_lossy(blob).into_owned())
+    }
+
+    /// The credential's user name.
+    pub fn user(&self, target: &str) -> Option<String> {
+        self.creds().items.get(target).map(|(user, _)| user.clone())
+    }
+
+    /// Puts a credential there, as another program would; not recorded.
+    pub fn put(&self, target: &str, account: &str, value: &str) {
+        self.creds().items.insert(target.into(), (account.into(), value.as_bytes().to_vec()));
+    }
+
+    pub fn calls(&self) -> Vec<String> {
+        self.creds().calls.clone()
+    }
+
+    /// Refuses every write from now on with `message`.
+    pub fn refuse(&self, message: &str) {
+        self.creds().refuse = Some(message.into());
+    }
+}
+
+impl Credentials for FakeCredentials {
+    fn read(&self, target: &str) -> std::io::Result<Option<Vec<u8>>> {
+        let mut creds = self.creds();
+        creds.calls.push(format!("read {target}"));
+        Ok(creds.items.get(target).map(|(_, blob)| blob.clone()))
+    }
+
+    fn write(&self, target: &str, account: &str, blob: &[u8]) -> std::io::Result<()> {
+        let mut creds = self.creds();
+        creds.calls.push(format!("write {target} {account}"));
+        if let Some(message) = creds.refuse.clone() {
+            return Err(std::io::Error::other(message));
+        }
+        creds.items.insert(target.into(), (account.into(), blob.to_vec()));
+        Ok(())
+    }
+
+    fn delete(&self, target: &str) -> std::io::Result<()> {
+        let mut creds = self.creds();
+        creds.calls.push(format!("delete {target}"));
+        creds.items.remove(target);
         Ok(())
     }
 }

@@ -16,12 +16,15 @@
 //!   `cache/`, in Cockpit's layout ([`export`]), which the Antigravity row
 //!   lists ([`listing`]); the binding, the switch log and the six-hour
 //!   watch ([`switch`], [`watch`]);
-//! - the tokens only in the app's own Keychain items ([`store`]).
+//! - the tokens only in the app's own Keychain items ([`store`]; on
+//!   Windows the app's own sealed files).
 //!
 //! Switching the account (M4c, [`switch`]) writes the login Antigravity.app
-//! and agy share ([`credential`]), quits and reopens Antigravity.app when the
-//! owner asks ([`desktop`]), points the binding at the new account,
-//! and watches six hours for the switch to be undone ([`watch`]).
+//! and agy share ([`credential`]; on Windows the credential in Credential
+//! Manager), quits and reopens Antigravity.app when the owner asks
+//! ([`desktop`]; on Windows `Antigravity.exe`), points the binding at the
+//! new account, and watches six hours for the switch to be undone
+//! ([`watch`]).
 //!
 //! Parts of [`oauth`], [`oauth_server`], [`token`], [`index`],
 //! [`cloud_code`], [`version`], [`export`], [`credential`], [`desktop`] and

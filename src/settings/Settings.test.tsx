@@ -157,7 +157,8 @@ describe('settings tab', () => {
     });
     const more = screen.getByRole('dialog');
     expect(within(more).getByText('~/Library/Application Support/com.shin315.quota-station/oauth-client.json')).toBeTruthy();
-    expect(more.textContent).toMatch(/quyền 600, chỉ có trên Mac này\. README ghi định dạng\.$/);
+    expect(more.textContent).toContain('quyền 600, chỉ có trên Mac này. Chép client_id và client_secret từ src-tauri/src/modules/oauth.rs trong mã nguồn Cockpit Tools (https://github.com/jlcodes99/cockpit-tools); định dạng và lệnh tạo file có trong mục “The OAuth client file” của hướng dẫn: https://github.com/shin315/quota-station/blob/main/docs/how-it-works.md#the-oauth-client-file');
+    expect(more.textContent?.endsWith('https://github.com/shin315/quota-station/blob/main/docs/how-it-works.md#the-oauth-client-file')).toBe(true);
     cleanup();
     await open(fixtureModel('fresh', { antigravity: agyFixture({ client: 'tooOpen' }) }));
     await showGroup('Dịch vụ');

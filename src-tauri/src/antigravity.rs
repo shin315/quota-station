@@ -32,7 +32,8 @@ use crate::state::{AppState, Inner, Model, ReadState};
 #[serde(rename_all = "camelCase")]
 pub struct AccountsView {
     pub client: ClientStatus,
-    /// Where `oauth-client.json` goes, `~/…`.
+    /// Where `oauth-client.json` goes: `~/…` on macOS, `%APPDATA%\…` on
+    /// Windows, as the owner types it.
     pub client_path: String,
     pub accounts: Vec<AccountView>,
     /// `accounts.json` is there and cannot be read.
@@ -119,10 +120,20 @@ pub fn view(inner: &Inner) -> AccountsView {
         .collect();
     AccountsView {
         client: client::status(&app),
-        client_path: runner::display_path(&client::path(&app), &inner.home),
+        client_path: client_path(&runner::display_path(&client::path(&app), &inner.home)),
         accounts,
         index_error: index.is_err(),
         logging_in: inner.agy_logging_in,
+    }
+}
+
+/// The client file's place as `display_path` shows it, or on Windows under
+/// `%APPDATA%` (`~\AppData\Roaming`), the way File Explorer's address bar
+/// takes it.
+fn client_path(shown: &str) -> String {
+    match shown.strip_prefix("~/AppData/Roaming/").filter(|_| cfg!(windows)) {
+        Some(rest) => format!("%APPDATA%\\{}", rest.replace('/', "\\")),
+        None => shown.to_string(),
     }
 }
 
@@ -375,6 +386,18 @@ impl Inner {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_client_files_place_is_shown_as_the_owner_types_it() {
+        let mac = "~/Library/Application Support/com.shin315.quota-station/oauth-client.json";
+        assert_eq!(client_path(mac), mac);
+        let win = "~/AppData/Roaming/com.shin315.quota-station/oauth-client.json";
+        if cfg!(windows) {
+            assert_eq!(client_path(win), r"%APPDATA%\com.shin315.quota-station\oauth-client.json");
+        } else {
+            assert_eq!(client_path(win), win);
+        }
+    }
 
     #[test]
     fn only_googles_own_pages_open_for_a_verification() {
