@@ -35,12 +35,13 @@ fn is_number(s: &str) -> bool {
     !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit())
 }
 
-/// The files that change when `HEAD` moves to another commit: `HEAD`, the
-/// branch it names and the packed refs, those that exist (a missing one
-/// would make cargo run the build script every time). Paths git gives
-/// relative are taken from `dir`, where it runs.
+/// The files that change when `HEAD` moves to another commit: `HEAD`, its
+/// reflog (written on every move, also when the branch is only in the
+/// packed refs), the branch it names and the packed refs, those that exist
+/// (a missing one would make cargo run the build script every time). Paths
+/// git gives relative are taken from `dir`, where it runs.
 pub fn watched(dir: &Path, git: Git<'_>) -> Vec<PathBuf> {
-    let mut names = vec!["HEAD".to_string(), "packed-refs".to_string()];
+    let mut names = vec!["HEAD".to_string(), "logs/HEAD".to_string(), "packed-refs".to_string()];
     if let Some(branch) = git(&["rev-parse", "--symbolic-full-name", "HEAD"]) {
         if branch.starts_with("refs/") {
             names.push(branch);
@@ -148,6 +149,19 @@ mod tests {
         assert!(watched.iter().any(|p| p.ends_with("HEAD")), "{watched:?}");
         assert!(watched.iter().any(|p| p.ends_with("refs/heads/main")), "{watched:?}");
         assert!(watched.iter().all(|p| p.is_file()), "{watched:?}");
+
+        // With the branch only in the packed refs, the next commit writes a
+        // loose ref no one watched: a watched file must still change.
+        git(&repo, &["pack-refs", "--all", "--prune"]);
+        let watched = super::watched(&inner, &git_in(&inner));
+        let read = |paths: &[PathBuf]| -> Vec<Vec<u8>> {
+            paths.iter().map(|p| std::fs::read(p).unwrap_or_default()).collect()
+        };
+        let before = read(&watched);
+        std::fs::write(repo.join("file"), "4").unwrap();
+        git(&repo, &["commit", "-q", "-am", "4"]);
+        assert_ne!(read(&watched), before, "a commit after pack-refs changes none of {watched:?}");
+        assert_eq!(build_number(None, &git_in(&inner)), Some("4".into()));
 
         // A shallow clone fetched one commit deep.
         let path = repo.display().to_string().replace('\\', "/");
