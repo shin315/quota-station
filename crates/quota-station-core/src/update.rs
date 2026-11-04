@@ -23,6 +23,9 @@ pub const INSTALL_TIMEOUT: Duration = Duration::from_secs(30 * 60);
 /// The script, relative to the clone.
 pub const INSTALL_SCRIPT: &str = "scripts/install.sh";
 
+/// The app the script puts in the folder it is given.
+pub const APP_BUNDLE: &str = "Quota Station.app";
+
 /// Why a folder typed in settings is not a clone to update from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -89,7 +92,8 @@ pub enum Step {
 pub enum Outcome {
     /// The clone had nothing new and the running copy was built from it.
     UpToDate { commit: String },
-    /// The new copy is in place; it runs once the app opens again.
+    /// The new copy is in place; it runs once the app opens again. Its
+    /// version ([`installed_version`]), when known.
     Installed { commit: String, version: Option<String> },
 }
 
@@ -200,7 +204,8 @@ pub fn update(
     if out.code != Some(0) {
         return Err(UpdateError::Install { detail: script_error(&out.stderr, &out.stdout) });
     }
-    Ok(Outcome::Installed { commit, version: version(source) })
+    let version = installed_version(dest).or_else(|| version(source));
+    Ok(Outcome::Installed { commit, version })
 }
 
 fn failed(e: RunError, step: Step) -> UpdateError {
@@ -210,7 +215,25 @@ fn failed(e: RunError, step: Step) -> UpdateError {
     }
 }
 
-/// The version the clone builds, from `src-tauri/tauri.conf.json`.
+/// The version of the app just installed in `dest`, from its bundle's
+/// `Info.plist`, wherever the clone keeps the app's source.
+pub fn installed_version(dest: &Path) -> Option<String> {
+    let text = std::fs::read_to_string(dest.join(APP_BUNDLE).join("Contents/Info.plist")).ok()?;
+    plist_string(&text, "CFBundleShortVersionString")
+}
+
+/// The string under `key` in an XML property list, as the bundler writes
+/// it: `<key>…</key>` and then `<string>…</string>`.
+pub fn plist_string(text: &str, key: &str) -> Option<String> {
+    let tag = format!("<key>{key}</key>");
+    let after = &text[text.find(&tag)? + tag.len()..];
+    let value = after.trim_start().strip_prefix("<string>")?;
+    let value = value[..value.find("</string>")?].trim();
+    (!value.is_empty()).then(|| value.to_string())
+}
+
+/// The version the clone builds, from `src-tauri/tauri.conf.json` at its
+/// root: only a clone of this repository has it there.
 pub fn version(source: &Path) -> Option<String> {
     let text = std::fs::read_to_string(source.join("src-tauri/tauri.conf.json")).ok()?;
     let conf: serde_json::Value = serde_json::from_str(&text).ok()?;

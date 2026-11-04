@@ -4,8 +4,9 @@
 //! "Cập nhật từ mã nguồn" against temporary git repositories: a bare
 //! `origin`, the clone the app updates from, and a second clone that pushes
 //! new commits. The clone's `scripts/install.sh` is a fake that records its
-//! arguments, so nothing is built or installed. git runs with a temporary
-//! HOME and no global or system config.
+//! arguments and writes only the `Info.plist` of the app it would install,
+//! so nothing is built. git runs with a temporary HOME and no global or
+//! system config.
 
 // Unix only: the update from a clone runs shell scripts.
 #![cfg(unix)]
@@ -19,7 +20,8 @@ use std::sync::Mutex;
 
 use common::{script, temp_dir};
 use quota_station_core::update::{
-    self, check_source, install_dest, Outcome, SourceError, Step, Tools, UpdateError,
+    self, check_source, install_dest, installed_version, plist_string, Outcome, SourceError, Step,
+    Tools, UpdateError,
 };
 
 struct Repos {
@@ -30,14 +32,30 @@ struct Repos {
     upstream: PathBuf,
     dest: PathBuf,
     log: PathBuf,
+    /// Where the commit keeps `tauri.conf.json`.
+    conf: &'static str,
 }
 
+/// A clone of this repository: the app's source at its root.
+const CLONE: &str = "src-tauri/tauri.conf.json";
+/// A clone that holds this repository in a folder of its own, as a
+/// submodule: nothing of the app's source at its root.
+const OUTER: &str = "app/src-tauri/tauri.conf.json";
+
+/// Writes the installed app's `Info.plist` with the version in
+/// `scripts/bundle-version`, unless `scripts/no-bundle` is there.
 const FAKE_INSTALL: &str = r#"echo "install.sh $*" >> "$FAKE_LOG"
 echo "==> Installed Quota Station"
-if [ -f "$(dirname "$0")/fail" ]; then
+here="$(dirname "$0")"
+if [ -f "$here/fail" ]; then
   echo "   Compiling quota-station" >&2
   echo "install.sh: error: cargo is not installed: install Rust with rustup" >&2
   exit 1
+fi
+if [ ! -f "$here/no-bundle" ]; then
+  mkdir -p "$2/Quota Station.app/Contents"
+  printf '<?xml version="1.0" encoding="UTF-8"?>\n<plist version="1.0">\n<dict>\n\t<key>CFBundleName</key>\n\t<string>Quota Station</string>\n\t<key>CFBundleShortVersionString</key>\n\t<string>%s</string>\n</dict>\n</plist>\n' \
+    "$(cat "$here/bundle-version")" > "$2/Quota Station.app/Contents/Info.plist"
 fi
 "#;
 
@@ -65,33 +83,46 @@ fn git(root: &Path, dir: &Path, args: &[&str]) -> String {
 
 impl Repos {
     fn new(tag: &str) -> Repos {
+        Repos::laid_out(tag, CLONE)
+    }
+
+    /// Repositories whose commits keep `tauri.conf.json` at `conf`.
+    fn laid_out(tag: &str, conf: &'static str) -> Repos {
         let root = temp_dir(tag);
         std::fs::create_dir_all(root.join("home")).unwrap();
         git(&root, &root, &["init", "-q", "--bare", "origin.git"]);
         git(&root, &root, &["clone", "-q", "origin.git", "upstream"]);
         let upstream = root.join("upstream");
         script(&upstream.join("scripts/install.sh"), FAKE_INSTALL);
-        std::fs::create_dir_all(upstream.join("src-tauri")).unwrap();
-        std::fs::write(upstream.join("src-tauri/tauri.conf.json"), r#"{ "version": "0.1.0" }"#)
-            .unwrap();
-        git(&root, &upstream, &["add", "-A"]);
-        git(&root, &upstream, &["commit", "-q", "-m", "first"]);
-        git(&root, &upstream, &["push", "-q", "origin", "HEAD:main"]);
-        git(&root, &root, &["clone", "-q", "origin.git", "source"]);
-        std::fs::write(root.join("calls.log"), "").unwrap();
-        Repos {
+        let r = Repos {
             source: root.join("source"),
             upstream,
             dest: root.join("Applications"),
             log: root.join("calls.log"),
             root,
-        }
+            conf,
+        };
+        r.write_version("0.1.0");
+        git(&r.root, &r.upstream, &["add", "-A"]);
+        git(&r.root, &r.upstream, &["commit", "-q", "-m", "first"]);
+        git(&r.root, &r.upstream, &["push", "-q", "origin", "HEAD:main"]);
+        git(&r.root, &r.root, &["clone", "-q", "origin.git", "source"]);
+        std::fs::write(&r.log, "").unwrap();
+        r
+    }
+
+    /// The version the upstream clone builds, in its `tauri.conf.json` and
+    /// for the fake script.
+    fn write_version(&self, version: &str) {
+        let conf = self.upstream.join(self.conf);
+        std::fs::create_dir_all(conf.parent().unwrap()).unwrap();
+        std::fs::write(conf, format!(r#"{{ "version": "{version}" }}"#)).unwrap();
+        std::fs::write(self.upstream.join("scripts/bundle-version"), version).unwrap();
     }
 
     /// A new commit on origin, with the version it builds.
     fn push(&self, version: &str) -> String {
-        let conf = format!(r#"{{ "version": "{version}" }}"#);
-        std::fs::write(self.upstream.join("src-tauri/tauri.conf.json"), conf).unwrap();
+        self.write_version(version);
         git(&self.root, &self.upstream, &["commit", "-q", "-am", version]);
         git(&self.root, &self.upstream, &["push", "-q", "origin", "HEAD:main"]);
         self.head(&self.upstream)
@@ -149,6 +180,43 @@ fn pulls_then_installs_into_the_folder_of_the_running_app() {
     assert!(std::fs::read_to_string(&log).unwrap().contains("==> Installed Quota Station"));
     use std::os::unix::fs::PermissionsExt;
     assert_eq!(std::fs::metadata(&log).unwrap().permissions().mode() & 0o777, 0o600);
+}
+
+#[test]
+fn a_clone_holding_the_app_in_a_folder_says_the_installed_version() {
+    let r = Repos::laid_out("update-outer", OUTER);
+    let old = r.head(&r.source);
+    r.push("0.2.0");
+    let new = r.push("0.3.0");
+    assert_eq!(update::version(&r.source), None, "no tauri.conf.json at the clone's root");
+    let (result, _) = r.run(Some(&old));
+    assert_eq!(result.unwrap(), Outcome::Installed { commit: new, version: Some("0.3.0".into()) });
+    assert_eq!(installed_version(&r.dest), Some("0.3.0".into()));
+}
+
+#[test]
+fn without_the_installed_apps_plist_the_version_is_the_clones_or_unknown() {
+    for (conf, expected) in [(CLONE, Some("0.2.0".to_string())), (OUTER, None)] {
+        let r = Repos::laid_out("update-no-bundle", conf);
+        std::fs::write(r.source.join("scripts/no-bundle"), "").unwrap();
+        r.push("0.2.0");
+        let (result, _) = r.run(None);
+        match result.unwrap() {
+            Outcome::Installed { version, .. } => assert_eq!(version, expected, "{conf}"),
+            other => panic!("expected an install, got {other:?}"),
+        }
+        assert_eq!(installed_version(&r.dest), None);
+    }
+}
+
+#[test]
+fn reads_a_string_from_an_xml_plist() {
+    let plist = "<plist version=\"1.0\">\n<dict>\n\t<key>CFBundleVersion</key>\n\t<string>7</string>\n\t<key>CFBundleShortVersionString</key>\n\t<string>0.1.0</string>\n\t<key>LSUIElement</key>\n\t<true/>\n</dict>\n</plist>\n";
+    assert_eq!(plist_string(plist, "CFBundleShortVersionString"), Some("0.1.0".into()));
+    assert_eq!(plist_string(plist, "CFBundleVersion"), Some("7".into()));
+    assert_eq!(plist_string(plist, "LSUIElement"), None, "not a string");
+    assert_eq!(plist_string(plist, "CFBundleName"), None, "no such key");
+    assert_eq!(plist_string("", "CFBundleShortVersionString"), None);
 }
 
 #[test]

@@ -1276,7 +1276,12 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
     },
     releaseDiagnostics: async () =>
       [
-        'Quota Station ' + model.app.version + ' (' + (model.app.commit ?? 'no commit') + ') · MIT build',
+        'Quota Station ' +
+          model.app.version +
+          ' (' +
+          (model.app.build ? 'build ' + model.app.build + ' · ' : '') +
+          (model.app.commit ?? 'no commit') +
+          ') · MIT build',
         'macOS 26.1 · aarch64 · language auto' +
           (model.advanced ? ' · Advanced ' + (model.advanced.on ? 'on' : 'off') : '') +
           '',

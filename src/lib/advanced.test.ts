@@ -29,8 +29,8 @@ describe('the author\'s tools', () => {
 
   it('come on Windows without what only a Mac does', () => {
     const full = fixtureModel('fresh');
-    const { version, commit, launchAtLogin } = appFixture();
-    const win = { ...full, capabilities: { ...full.capabilities, platform: 'windows' as const }, app: { version, commit, launchAtLogin } };
+    const { version, build, commit, launchAtLogin } = appFixture();
+    const win = { ...full, capabilities: { ...full.capabilities, platform: 'windows' as const }, app: { version, build, commit, launchAtLogin } };
     expect(authorModel(win)).toBe(win);
     expect(macTools(win)).toBe(false);
     expect(sourceView(win.app)).toBeNull();

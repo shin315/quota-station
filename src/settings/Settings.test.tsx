@@ -466,6 +466,19 @@ describe('settings for M7: the app itself', () => {
     expect(screen.getByText('0.1.0 · build từ mã nguồn')).toBeTruthy();
   });
 
+  it('shows the build number before the commit, and alone in a build without the commit', async () => {
+    await openApp({ build: '412' });
+    expect(screen.getByText(/^0\.1\.0 \(build 412 · a1b2c3d\) ·/)).toBeTruthy();
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Chi tiết: Phiên bản' })));
+    expect(screen.getByText('0.1.0 (build 412 · a1b2c3d) · build từ mã nguồn')).toBeTruthy();
+    cleanup();
+    // `npx tauri build` on Windows: git counts, and nothing sets the commit.
+    await openApp({ build: '412', commit: null });
+    expect(screen.getByText(/^0\.1\.0 \(build 412\) ·/)).toBeTruthy();
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Chi tiết: Phiên bản' })));
+    expect(screen.getByText('0.1.0 (build 412) · build từ mã nguồn')).toBeTruthy();
+  });
+
   it('launching at login is off by default, and opening the tab only asks macOS', async () => {
     const fake = await openApp();
     expect(loginSwitch().getAttribute('aria-checked')).toBe('false');

@@ -270,14 +270,17 @@ What the main suites check:
   build output, the ad-hoc and the Apple Development signature, the copy and the
   swap with an old copy, the quarantine mark cleared, `open` called once (or not
   with `--no-open`), a failed build that leaves the old copy, `npm ci` after a
-  lock file change, the commit passed to the build, and a package that installs
-  with `--app` on a Mac without `cargo` or `npm`, from the folder or the zip.
+  lock file change, the commit and the build number passed to the build, and a
+  package that installs with `--app` on a Mac without `cargo` or `npm`, from
+  the folder or the zip.
 - **Update from source** (`update.rs`): real git on temporary repositories (a
   bare origin, the clone, and a second clone that pushes) with a temporary HOME
-  and no git config, and a fake `install.sh` that records its arguments: a new
-  commit pulled and installed, nothing new, a clone that cannot fast-forward
-  (left as it is), an origin that is gone, a failed install, and what counts
-  as a clone.
+  and no git config, and a fake `install.sh` that records its arguments and
+  writes the new copy's `Info.plist`: a new commit pulled and installed, with
+  its version, also from a clone that keeps the app's source in a folder of its
+  own (a submodule) and without the `Info.plist`; nothing new, a clone that
+  cannot fast-forward (left as it is), an origin that is gone, a failed
+  install, and what counts as a clone.
 - **Login item** (`login_item.rs`): the tests use a fake backend
   that keeps the state macOS would: on, off, waiting for approval, not a
   packaged app, and refused. Reading the switch never registers anything. No
@@ -549,7 +552,8 @@ ui_fixtures_advanced`.
   quota and switch (`agy_quota.rs`, `agy_switch.rs`, `antigravity.rs`), the
   macOS notification center (`notify.rs`, `alerting.rs`), the login item
   (`login_item.rs`), the app's version and its login item commands
-  (`install.rs`), the release check
+  (`install.rs`), the build number `build.rs` counts (`build_number.rs`), the
+  release check
   (`release.rs`), the Codex thread, accounts, import and wake (`codex.rs`,
   `codex_accounts.rs`, `codex_import.rs`, `codex_wake.rs`), the MCP tab's
   commands (`agents.rs`), the backup tab's (`backup.rs`), the Skills, Plugins

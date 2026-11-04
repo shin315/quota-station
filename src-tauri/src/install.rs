@@ -19,6 +19,11 @@ use crate::state::{AppState, Inner, Model};
 /// changes.
 pub const COMMIT: Option<&str> = option_env!("QS_COMMIT");
 
+/// The build number, from `build.rs`: the build script's `QS_BUILD`, else
+/// the commits git counts up to the one built; `None` when neither is known
+/// (`build_number`).
+pub const BUILD: Option<&str> = option_env!("QS_BUILD_NUMBER");
+
 /// What the app knows of itself between commands.
 #[derive(Debug)]
 pub struct InstallState {
@@ -38,6 +43,8 @@ impl Default for InstallState {
 #[serde(rename_all = "camelCase")]
 pub struct AppView {
     pub version: String,
+    /// The build number ([`BUILD`], as the app keeps it in its state).
+    pub build: Option<String>,
     /// The first 7 characters of [`COMMIT`], with `-dirty` kept.
     pub commit: Option<String>,
     pub launch_at_login: Status,
@@ -55,6 +62,7 @@ fn short(commit: &str) -> String {
 pub fn view(inner: &Inner) -> AppView {
     AppView {
         version: inner.app_version.clone(),
+        build: inner.app_build.clone(),
         commit: COMMIT.map(short),
         launch_at_login: inner.install.login,
         ext: inner.view_keys(View::App),

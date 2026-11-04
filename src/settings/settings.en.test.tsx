@@ -6,7 +6,7 @@
 
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fixtureModel } from '../fixtures/models';
+import { appFixture, fixtureModel } from '../fixtures/models';
 import { setLang } from '../lib/i18n';
 import type { Model } from '../lib/model';
 import { Settings, type SettingsProps } from './Settings';
@@ -100,6 +100,19 @@ describe('settings tab in English', () => {
     expect(screen.getByText('Show skill updates as macOS notifications')).toBeTruthy();
     show('Notifications');
     expect(screen.getByText('Running-out thresholds')).toBeTruthy();
+  });
+
+  it('without the release check, the Version row has the build number and the commit', () => {
+    setLang('en');
+    const version = (app: Partial<Model['app']>) => {
+      cleanup();
+      renderSettings(fixtureModel('fresh', { app: appFixture(app) }));
+      return screen.getByText(/^0\.1\.0/).textContent;
+    };
+    expect(version({ build: '412' })).toBe('0.1.0 · build 412 · a1b2c3d');
+    expect(version({ build: '412', commit: null })).toBe('0.1.0 · build 412');
+    expect(version({})).toBe('0.1.0 · a1b2c3d');
+    expect(version({ commit: null })).toBe('0.1.0');
   });
 
   it('the Language row offers macOS’s language, Vietnamese and English', () => {

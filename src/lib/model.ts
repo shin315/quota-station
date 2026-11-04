@@ -659,6 +659,8 @@ export interface AppView
   extends Partial<SourceView>
 {
   version: string;
+  /** The build number: the commits up to the one it was built from (`src-tauri/src/build_number.rs`); null when unknown. */
+  build: string | null;
   /** The commit it was built from, 7 characters, `-dirty` kept; null when not built by `scripts/install.sh`. */
   commit: string | null;
   launchAtLogin: LaunchAtLogin;

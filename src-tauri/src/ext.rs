@@ -743,6 +743,7 @@ impl Local {
         let settings_file = quota_station_core::claude::app_dir(&home).join("settings.json");
         let mut inner = Inner::new(home, settings_file, crate::machine_name(), hooks);
         inner.app_version = env!("CARGO_PKG_VERSION").to_string();
+        inner.app_build = crate::install::BUILD.map(String::from);
         Local { state: Shared::new(inner) }
     }
 

@@ -187,6 +187,9 @@ pub struct Inner {
     pub center: Option<Arc<notify::Center>>,
     /// This copy's version, from `tauri.conf.json`.
     pub app_version: String,
+    /// This copy's build number ([`crate::install::BUILD`]); `None` until
+    /// the app sets it at start, so the tests show none.
+    pub app_build: Option<String>,
     /// Launching at login (M7).
     /// And the update from source.
     pub install: InstallState,
@@ -361,6 +364,7 @@ impl Inner {
             extension: &NoExtension,
             center: None,
             app_version: String::new(),
+            app_build: None,
             install: InstallState::default(),
             codex: codex::Live::default(),
             mcp: agents::Live::default(),

@@ -19,6 +19,7 @@
     "unread": 0
   },
   "app": {
+    "build": null,
     "bundled": false,
     "commit": null,
     "error": null,

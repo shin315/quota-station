@@ -177,6 +177,14 @@ build() {
     QS_COMMIT="$QS_COMMIT-dirty"
   fi
   export QS_COMMIT
+  # The build number shown with it: the commits up to that one, so it only
+  # grows as the clone moves forward. None in a shallow clone, whose count
+  # is only how deep it was fetched.
+  QS_BUILD=""
+  if [ "$(git rev-parse --is-shallow-repository 2>/dev/null)" = false ]; then
+    QS_BUILD="$(git rev-list --count HEAD 2>/dev/null || true)"
+  fi
+  export QS_BUILD
   # `npm run build`, which Tauri runs first, reads the same variable.
   local features=""
   if [ "${QS_ANTIGRAVITY_ACCOUNTS:-1}" = 0 ]; then

@@ -391,6 +391,7 @@ type AppFixture = AppView &
 export function appFixture(over: Partial<AppView> = {}): AppFixture {
   return {
     version: '0.1.0',
+    build: null,
     commit: 'a1b2c3d',
     launchAtLogin: 'off',
     source: '~/src/quota-station',
@@ -755,7 +756,7 @@ export function mcpFixture(over: Partial<McpView> = {}): McpView {
  */
 /** Nor an extension's parts. */
 export function communityModel(m: Model): Model {
-  const app: AppView = { version: m.app.version, commit: m.app.commit, launchAtLogin: m.app.launchAtLogin };
+  const app: AppView = { version: m.app.version, build: m.app.build, commit: m.app.commit, launchAtLogin: m.app.launchAtLogin };
   const advanced: AdvancedView = {
     on: false,
   };
