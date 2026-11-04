@@ -61,7 +61,7 @@ signed app and `install.sh`, so a Mac without Rust or Node.js can install it:
 ```sh
 scripts/install.sh --package ~/Desktop          # writes quota-station-<version>.zip
 # on the other Mac, where the zip arrived:
-ditto -x -k quota-station-0.1.0.zip . && ./quota-station-0.1.0/install.sh --app "./quota-station-0.1.0/Quota Station.app"
+ditto -x -k quota-station-<version>.zip . && ./quota-station-<version>/install.sh --app "./quota-station-<version>/Quota Station.app"
 ```
 
 ## Build features
