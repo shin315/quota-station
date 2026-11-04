@@ -287,6 +287,7 @@ Các trang trong `docs/` viết bằng tiếng Anh.
 | [docs/features.md](docs/features.md) | Mọi phần của app, đầy đủ |
 | [docs/how-it-works.md](docs/how-it-works.md) | Các bộ đọc hạn mức, tài khoản Claude và Antigravity, dòng lệnh, những gì app đọc, chạy và ghi, file OAuth client |
 | [docs/development.md](docs/development.md) | Dựng app, các feature khi dựng, bản xem trước trên trình duyệt, kiểm thử, cấu trúc mã |
+| [docs/releasing.md](docs/releasing.md) | Workflow phát hành và phần thiết lập một lần nó cần |
 | [docs/claude-accounts.md](docs/claude-accounts.md) | Thiết kế phần tài khoản Claude |
 | [docs/themes.md](docs/themes.md) | Sáu chủ đề |
 | [docs/ui-guidelines.md](docs/ui-guidelines.md) | Cách viết chữ trên giao diện, tiếng Việt và tiếng Anh |
