@@ -20,19 +20,22 @@ describe('Antigravity on Windows', () => {
     setPlatform('windows');
     const notice = clientNotice(agyFixture({ client: 'missing', clientPath: WIN_PATH }))!;
     expect(notice.body).toContain(WIN_PATH);
-    expect(notice.body).toContain('PowerShell');
+    expect(notice.body).toContain('lệnh PowerShell tạo file có trong docs/how-it-works.md, mục “The OAuth client file”');
+    expect(notice.body).toContain('mã nguồn Cockpit Tools (src-tauri/src/modules/oauth.rs)');
     expect(notice.body).not.toContain('600');
+    expect(notice.body).not.toContain('README');
     setLang('en');
     const en = clientNotice(agyFixture({ client: 'missing', clientPath: WIN_PATH }))!;
     expect(en.body).toContain('on this PC');
     expect(en.body).not.toMatch(/\bMac\b|mode 600/);
+    expect(en.body).toContain('docs/how-it-works.md, “The OAuth client file”, gives the format and the PowerShell command');
     const unreadable = clientNotice(agyFixture({ client: 'unreadable', clientPath: WIN_PATH }))!;
     expect(unreadable.body).toContain('your Windows account');
   });
 
   it('macOS keeps its own words', () => {
     const notice = clientNotice(agyFixture({ client: 'missing' }))!;
-    expect(notice.body).toContain(', quyền 600. README ghi định dạng.');
+    expect(notice.body).toContain(', quyền 600. Chép client_id và client_secret từ mã nguồn Cockpit Tools (src-tauri/src/modules/oauth.rs); định dạng và lệnh tạo file có trong docs/how-it-works.md, mục “The OAuth client file”.');
     expect(agyWorking('quitFirst')).toContain('Thoát Antigravity.app');
   });
 

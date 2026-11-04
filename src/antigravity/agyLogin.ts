@@ -126,13 +126,15 @@ export function agyRows(view: AgyAccounts): AgyRowView[] {
 /** Why "Thêm tài khoản" cannot run yet, or null when it can. */
 export function clientNotice(view: AgyAccounts): { tone: 'warn' | 'bad'; title: string; body: string } | null {
   // Windows keeps no file mode: the profile's folder keeps others out there.
-  const where = os(
-    t('File đặt ở ' + view.clientPath + ', quyền 600. README ghi định dạng.', 'The file goes at ' + view.clientPath + ', mode 600. The README describes the format.'),
+  const where =
+    os(
+      t('File đặt ở ' + view.clientPath + ', quyền 600. ', 'The file goes at ' + view.clientPath + ', mode 600. '),
+      t('File đặt ở ' + view.clientPath + '. ', 'The file goes at ' + view.clientPath + '. '),
+    ) +
     t(
-      'File đặt ở ' + view.clientPath + '. README ghi định dạng và lệnh PowerShell tạo nó.',
-      'The file goes at ' + view.clientPath + '. The README gives the format and the PowerShell command that makes it.',
-    ),
-  );
+      'Chép client_id và client_secret từ mã nguồn Cockpit Tools (src-tauri/src/modules/oauth.rs); định dạng và lệnh ' + os('', 'PowerShell ') + 'tạo file có trong docs/how-it-works.md, mục “The OAuth client file”.',
+      'Copy client_id and client_secret from Cockpit Tools’ source (src-tauri/src/modules/oauth.rs); docs/how-it-works.md, “The OAuth client file”, gives the format and the ' + os('', 'PowerShell ') + 'command that makes it.',
+    );
   const notices: Record<Exclude<ClientStatus, 'ok'>, { tone: 'warn' | 'bad'; title: string; body: string }> = {
     missing: {
       tone: 'warn',

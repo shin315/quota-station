@@ -906,11 +906,12 @@ export function Settings(props: SettingsProps) {
               inline
               hint={
                 <span>
-                  {t('Quyền 600, chỉ có trên Mac này.', 'Mode 600, on this Mac only.')}{' '}
+                  {os(t('Quyền 600, chỉ có trên Mac này.', 'Mode 600, on this Mac only.'), t('Chỉ có trên máy này.', 'On this PC only.'))}{' '}
                   <More small about={t('OAuth client Antigravity', 'Antigravity OAuth client')}>
                     <p>
                       <span className={CODE}>{model.antigravity.clientPath}</span>
-                      {t(', quyền 600, chỉ có trên Mac này. README ghi định dạng.', ', mode 600, on this Mac only. The README describes the format.')}
+                      {os(t(', quyền 600, chỉ có trên Mac này.', ', mode 600, on this Mac only.'), t(', chỉ có trên máy này.', ', on this PC only.'))}{' '}
+                      {t('Định dạng và lệnh tạo file có trong docs/how-it-works.md, mục “The OAuth client file”.', 'docs/how-it-works.md, “The OAuth client file”, gives the format and the command that makes it.')}
                     </p>
                   </More>
                 </span>

@@ -337,12 +337,12 @@ fn quit_first_asks_the_app_to_quit_writes_while_it_is_gone_then_opens_it() {
         let process = s.app.app.join("Contents/MacOS/Antigravity").display().to_string();
         assert!(pgrep.iter().all(|args| *args == ["-f".to_string(), process.clone()]), "{pgrep:?}");
     }
-    // On Windows: taskkill without /F for the app's own process only (not
-    // its helper), then the executable started again.
+    // On Windows: only the app's own process is asked to close (not its
+    // helper), then the executable started again.
     #[cfg(windows)]
     {
         let pid = common::desktop::windows_pid().to_string();
-        assert_eq!(s.app.runs_of("taskkill"), [vec!["/PID".to_string(), pid, "/T".into()]]);
+        assert_eq!(s.app.runs_of("taskkill"), [vec![pid]]);
         let exe = s.app.app.join("Antigravity.exe").display().to_string();
         assert_eq!(s.app.runs_of("start"), [vec![exe]]);
         assert!(!s.app.runs_of("tasks").is_empty());

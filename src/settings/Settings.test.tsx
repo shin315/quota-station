@@ -157,7 +157,7 @@ describe('settings tab', () => {
     });
     const more = screen.getByRole('dialog');
     expect(within(more).getByText('~/Library/Application Support/com.shin315.quota-station/oauth-client.json')).toBeTruthy();
-    expect(more.textContent).toMatch(/quyền 600, chỉ có trên Mac này\. README ghi định dạng\.$/);
+    expect(more.textContent).toMatch(/quyền 600, chỉ có trên Mac này\. Định dạng và lệnh tạo file có trong docs\/how-it-works\.md, mục “The OAuth client file”\.$/);
     cleanup();
     await open(fixtureModel('fresh', { antigravity: agyFixture({ client: 'tooOpen' }) }));
     await showGroup('Dịch vụ');

@@ -342,8 +342,10 @@ What the main suites check:
   `product.json` in a temporary folder, and `agy` is a batch file. The tests
   that check the macOS commands' words (`security`, `osascript`, `open`,
   `pgrep`) check the Windows ones there instead (`gemini:antigravity`, the
-  payload as it is, `taskkill /PID <pid> /T`, the start), and the ones that
-  need macOS's immutable flag, `plutil` or a file's mode run on Unix only.
+  payload as it is, which pid is closed, which executable is started), and the
+  ones that need macOS's immutable flag, `plutil` or a file's mode run on Unix
+  only. The words given to `taskkill` (`/PID <pid> /T`, never `/F`) and to the
+  start (`--reuse-window`) are checked by `desktop.rs`'s unit tests.
 - **Claude accounts** (the `claude_*.rs` files and `sessions.rs`) never touch a real account, the real
   Keychain or Anthropic. They run in a temporary HOME with a fake `security`
   that keeps items in files (and can refuse a write or drop one, to check that a

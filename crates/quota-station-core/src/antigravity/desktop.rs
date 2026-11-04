@@ -338,6 +338,17 @@ pub trait Host: Send + Sync {
     fn version_info(&self, exe: &Path) -> Result<String, String>;
 }
 
+/// What `taskkill` is given to ask `pid` and the processes it started to
+/// close, as Cockpit's `request_antigravity_graceful_close` does: never `/F`.
+#[cfg(any(windows, test))]
+pub fn taskkill_args(pid: u32) -> [String; 3] {
+    ["/PID".to_string(), pid.to_string(), "/T".to_string()]
+}
+
+/// What Antigravity is started with, as Cockpit starts it.
+#[cfg(any(windows, test))]
+pub const START_ARGS: [&str; 1] = ["--reuse-window"];
+
 /// Cockpit's `Normalize-ExePath`: quotes and `\\?\` dropped, `/` as `\`,
 /// lower case, so two spellings of one executable compare equal.
 #[cfg(any(windows, test))]
@@ -647,8 +658,7 @@ impl Host for SystemHost {
     }
 
     fn close(&self, pid: u32) {
-        let args = ["/PID".to_string(), pid.to_string(), "/T".to_string()];
-        let _ = runner::run(&system32(&["taskkill.exe"]), &args, STEP);
+        let _ = runner::run(&system32(&["taskkill.exe"]), &taskkill_args(pid), STEP);
     }
 
     fn start(&self, exe: &Path) -> Result<(), String> {
@@ -662,7 +672,7 @@ impl Host for SystemHost {
             command.current_dir(dir);
         }
         command
-            .arg("--reuse-window")
+            .args(START_ARGS)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
@@ -765,6 +775,13 @@ mod tests {
         );
         assert_eq!(powershell_version(""), None);
         assert_eq!(EXES, ["Antigravity.exe", "Electron.exe"]);
+    }
+
+    #[test]
+    fn antigravity_is_asked_to_close_and_started_with_cockpits_words() {
+        assert_eq!(taskkill_args(4242), ["/PID", "4242", "/T"]);
+        assert!(!taskkill_args(1).iter().any(|a| a.eq_ignore_ascii_case("/F")));
+        assert_eq!(START_ARGS, ["--reuse-window"]);
     }
 
     /// The real VersionInfo script, on a program every Windows has: it reads

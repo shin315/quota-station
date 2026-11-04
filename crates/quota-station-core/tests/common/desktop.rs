@@ -232,7 +232,8 @@ pub fn windows_pid() -> u32 {
 /// [`Host`] that lists its process while it runs, closes it when asked
 /// (unless told to stay) and starts it again. Every question is recorded
 /// under the name of the program Windows answers it with: `tasks` (the
-/// process table), `taskkill`, `start` and `powershell`.
+/// process table), `taskkill` (with the pid it closes), `start` and
+/// `powershell`.
 #[cfg(windows)]
 mod windows {
     use std::collections::{BTreeMap, BTreeSet};
@@ -305,8 +306,7 @@ mod windows {
         }
 
         fn close(&self, pid: u32) {
-            let args = ["/PID".to_string(), pid.to_string(), "/T".to_string()];
-            let mut state = self.record("taskkill", &args);
+            let mut state = self.record("taskkill", &[pid.to_string()]);
             Self::keep(&mut state, "quit");
             if pid == PID && !state.stays {
                 state.running = false;
