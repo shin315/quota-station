@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MainWindowApp } from '../App';
 import { fakeApi, type FakeOptions } from '../fixtures/fakeApi';
 import { API_KEY, envFixture } from '../fixtures/fakeEnv';
-import { agyFixture, alertsFixture, appFixture, codexFixture, communityModel, FIXTURE_NOW, fixtureModel, releaseModel } from '../fixtures/models';
+import { agyFixture, alertsFixture, appFixture, codexFixture, communityModel, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
 import type { Api } from '../lib/api';
 import type { Model } from '../lib/model';
 
@@ -892,8 +892,9 @@ describe('settings: the layout of settings-R2, its groups as tabs', () => {
     expect(fake.api.releaseOpen).toHaveBeenCalledWith('notice');
     cleanup();
 
-    // The download is built without them: no CC BY-NC-SA code, nothing to credit.
-    await open(releaseModel(fixtureModel('fresh')));
+    // A build without them: no CC BY-NC-SA code, nothing to credit.
+    const fresh = fixtureModel('fresh');
+    await open({ ...fresh, capabilities: { ...fresh.capabilities, agyAccounts: false } });
     expect(screen.getByRole('region', { name: 'Cập nhật' })).toBeTruthy();
     expect(screen.queryByText(credit)).toBeNull();
     expect(screen.queryByText(/Cockpit Tools/)).toBeNull();

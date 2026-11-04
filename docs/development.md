@@ -66,8 +66,8 @@ ditto -x -k quota-station-0.1.0.zip . && ./quota-station-0.1.0/install.sh --app 
 
 ## Build features
 
-Cargo features decide what is compiled in. A plain `cargo tauri build`,
-`npm run app` or a release build has none; `scripts/install.sh` turns them on
+Cargo features decide what is compiled in. A plain `cargo tauri build` or
+`npm run app` has none; `scripts/install.sh` turns them on
 (`QS_ANTIGRAVITY_ACCOUNTS=0` leaves the Antigravity accounts out).
 
 - **`antigravity-accounts`**: logging in and switching several Antigravity
@@ -132,8 +132,8 @@ query parameters are:
   theme pack: `default`, `kinhNhip`, `daiSangTinh`, `motNhipNhin`,
   `banDieuKhien` or `chieuLang`), `rt=1` (Reduce transparency), `os=win` (the
   app as Windows draws it) and `email=off` (names by place).
-- The build: `build=release` (the downloaded app: no Antigravity accounts, the
-  advanced part present).
+- The build: `build=release` (the downloaded app: the release marker, the
+  Antigravity accounts and the advanced part present).
 - The first run: `setup` (`on`, `signedout` for Claude Code signed in to none,
   `none` for no agent).
 - Releases: `release` (`avail`, `later`, `skipped`, `offline`, `none` or `off`;

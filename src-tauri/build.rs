@@ -7,6 +7,9 @@ mod build_number;
 fn main() {
     // The commit `scripts/install.sh` builds from, shown next to the version.
     println!("cargo:rerun-if-env-changed=QS_COMMIT");
+    // `1` in the release workflow's build, the copy GitHub Releases offers:
+    // it counts as a download, not a build from source.
+    println!("cargo:rerun-if-env-changed=QS_RELEASE");
     // The build number shown with it: the build script's `QS_BUILD`, else
     // counted by git in the repository this crate is in, again whenever
     // HEAD moves.

@@ -50,6 +50,7 @@
   "capabilities": {
     "agyAccounts": true,
     "platform": "macos",
+    "releaseBuild": false,
     "session": false
   },
   "claudeAccounts": {

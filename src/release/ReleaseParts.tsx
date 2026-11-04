@@ -104,18 +104,7 @@ export function ReleaseDialogBody(props: {
           lead={mac(t('Máy này chạy bản build từ mã nguồn.', 'This Mac runs a build from source.')) + (date ? t(' Phát hành ' + date + '.', ' Released ' + date + '.') : '')}
         />
         {notes}
-        <Facts
-          items={[
-            {
-              k: 'w',
-              text: t(
-                'Bản tải về không có phần chỉ có ở bản build này (tài khoản Antigravity, công cụ của tác giả), nên đừng cài nó đè lên.',
-                'The download lacks what only this build has (Antigravity accounts, the author’s tools), so do not install it over this one.',
-              ),
-            },
-            { k: '', text: t('Cập nhật từ bản clone của bạn:', 'Update from your clone:') },
-          ]}
-        />
+        <Facts items={[{ k: '', text: t('Cập nhật từ bản clone của bạn:', 'Update from your clone:') }]} />
         <PullCommand />
         <DialogButtons>
           <Button onClick={release.later}>{t('Để sau', 'Later')}</Button>

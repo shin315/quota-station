@@ -1361,6 +1361,13 @@ export interface Capabilities {
    * guide's window, its self-checks and pictures. Absent in every other build.
    */
   session?: boolean;
+  /**
+   * A release build, the one GitHub Releases offers (`QS_RELEASE=1` at
+   * build time, `install.rs`): a download, Antigravity accounts or not.
+   * Absent or false in every other build, which counts as one from source
+   * (`fromSource` in release.ts).
+   */
+  releaseBuild?: boolean;
 }
 
 export interface Model {

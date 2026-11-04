@@ -10,7 +10,7 @@
 // account 1 (already here), `claude=fail` ends a sign-in without one; an action takes 3 s.
 // GitHub Releases: `release=avail|later|skipped|offline|none|off` (up to date by default); "Kiểm tra bản mới"
 // takes 1.5 s and finds 0.3.0, or `releasefinds=offline`. `build=release` is the downloaded app
-// (no Antigravity accounts, the advanced part present as in the app), whose dialog offers the DMG.
+// (the Antigravity accounts and the advanced part present, as in the app), whose dialog offers the DMG.
 // The first run: `setup=on` (the fixture's Mac, its accounts not kept yet: the one signed in is
 // taken at the Claude step), `setup=signedout` (Claude Code signed in to none), `setup=none` (no agent).
 // Rotation rules (M5): `tab=rules` with `rotation=unreachable|newer|edited|unstamped|missing|invalid|unwritable|single`;

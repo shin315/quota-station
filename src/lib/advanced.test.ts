@@ -13,10 +13,10 @@ describe('the author\'s tools', () => {
     expect(authorModel(communityModel(full))).toBeNull();
   });
 
-  it('are in the downloaded app (`build=release`), which has no Antigravity accounts', () => {
+  it('are in the downloaded app (`build=release`), with the Antigravity accounts', () => {
     const release = releaseModel(fixtureModel('fresh'));
     expect(release.capabilities.authorTools).toBe(true);
-    expect(release.capabilities.agyAccounts).toBe(false);
+    expect(release.capabilities.agyAccounts).toBe(true);
     expect(authorModel(release)).toBe(release);
     expect(release.advanced.on).toBe(true);
   });
