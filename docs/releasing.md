@@ -26,8 +26,9 @@ built) and `QS_BUILD` (`git rev-list --count HEAD` on a full checkout).
 
 The notes come from [`.github/release-notes.md`](../.github/release-notes.md)
 (`{{VERSION}}` is replaced), followed by the checksums. The app lists the first
-six `- ` lines of the notes, so those stay short and English; the Vietnamese
-part is a paragraph. Edit the file before a release.
+six `- ` lines of the notes, so those stay short. The notes are English only
+and link to the README and README.vi.md for install and update steps. Edit the
+file before a release.
 
 ## Running it
 
