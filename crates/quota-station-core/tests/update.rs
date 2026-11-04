@@ -164,11 +164,7 @@ fn pulls_then_installs_into_the_folder_of_the_running_app() {
     let (result, steps) = r.run(Some(&old));
     assert_eq!(
         result.unwrap(),
-        Outcome::Installed {
-            commit: new.clone(),
-            version: Some("0.2.0".into()),
-            build: Some("2".into()),
-        }
+        Outcome::Installed { commit: new.clone(), version: Some("0.2.0".into()) }
     );
     assert_eq!(steps, vec![Step::Pulling, Step::Installing]);
     assert_eq!(r.head(&r.source), new, "the clone moved forward");
@@ -196,7 +192,7 @@ fn a_clone_holding_the_app_in_a_folder_says_the_installed_version() {
     let (result, _) = r.run(Some(&old));
     assert_eq!(
         result.unwrap(),
-        Outcome::Installed { commit: new, version: Some("0.3.0".into()), build: Some("3".into()) }
+        Outcome::Installed { commit: new, version: Some("0.3.0".into()) }
     );
     assert_eq!(installed_version(&r.dest), Some("0.3.0".into()));
 }
@@ -209,52 +205,11 @@ fn without_the_installed_apps_plist_the_version_is_the_clones_or_unknown() {
         r.push("0.2.0");
         let (result, _) = r.run(None);
         match result.unwrap() {
-            Outcome::Installed { version, build, .. } => {
-                assert_eq!(version, expected, "{conf}");
-                assert_eq!(build, Some("2".into()), "{conf}");
-            }
+            Outcome::Installed { version, .. } => assert_eq!(version, expected, "{conf}"),
             other => panic!("expected an install, got {other:?}"),
         }
         assert_eq!(installed_version(&r.dest), None);
     }
-}
-
-#[test]
-fn a_shallow_clone_has_no_build_number() {
-    let r = Repos::new("update-shallow");
-    r.push("0.2.0");
-    let url = format!("file://{}", r.root.join("origin.git").display());
-    git(&r.root, &r.root, &["clone", "-q", "--depth", "1", &url, "shallow"]);
-    r.push("0.3.0");
-    let shallow = r.root.join("shallow");
-    let (result, steps) = {
-        let steps = Mutex::new(Vec::new());
-        let res = update::update(&r.tools(), &shallow, &r.dest, None, None, &|s| {
-            steps.lock().unwrap().push(s)
-        });
-        (res, steps.into_inner().unwrap())
-    };
-    assert_eq!(steps, vec![Step::Pulling, Step::Installing]);
-    match result.unwrap() {
-        Outcome::Installed { version, build, .. } => {
-            assert_eq!(version, Some("0.3.0".into()));
-            assert_eq!(build, None, "a count of what was fetched is not the build number");
-        }
-        other => panic!("expected an install, got {other:?}"),
-    }
-}
-
-#[test]
-fn the_outcome_carries_the_build_number_to_the_window() {
-    let installed = Outcome::Installed {
-        commit: "abc".into(),
-        version: Some("0.1.0".into()),
-        build: Some("412".into()),
-    };
-    assert_eq!(
-        serde_json::to_value(installed).unwrap(),
-        serde_json::json!({ "kind": "installed", "commit": "abc", "version": "0.1.0", "build": "412" })
-    );
 }
 
 #[test]

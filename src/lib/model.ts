@@ -625,8 +625,8 @@ export type UpdateStep = 'pulling' | 'installing';
 export type UpdateOutcome =
   /** The clone had nothing new, and this copy was built from it. */
   | { kind: 'upToDate'; commit: string }
-  /** The new copy is in place; it runs once the app opens again. Its version and build number, when known. */
-  | { kind: 'installed'; commit: string; version: string | null; build: string | null };
+  /** The new copy is in place; it runs once the app opens again. */
+  | { kind: 'installed'; commit: string; version: string | null };
 
 export type UpdateError =
   | { kind: 'source'; reason: 'missing' | 'notSource' }

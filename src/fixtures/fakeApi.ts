@@ -1737,7 +1737,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       if (model.app.updating) throw 'busy';
       if (!model.app.bundled) throw 'unbundled';
       if (model.app.sourceStatus !== 'ok') throw 'noSource';
-      const ends = options.update?.() ?? { kind: 'installed', commit: 'b2c3d4e5f60718293a4b5c6d7e8f901234567890', version: '0.1.1', build: '413' };
+      const ends = options.update?.() ?? { kind: 'installed', commit: 'b2c3d4e5f60718293a4b5c6d7e8f901234567890', version: '0.1.1' };
       const wait = () => (options.updateDelayMs ? new Promise((r) => setTimeout(r, options.updateDelayMs)) : Promise.resolve());
       push({ ...model, app: { ...model.app, updating: 'pulling', outcome: null, error: null } });
       await wait();

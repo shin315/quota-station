@@ -93,9 +93,8 @@ pub enum Outcome {
     /// The clone had nothing new and the running copy was built from it.
     UpToDate { commit: String },
     /// The new copy is in place; it runs once the app opens again. Its
-    /// version ([`installed_version`]) and build number
-    /// ([`build_number`]), when known.
-    Installed { commit: String, version: Option<String>, build: Option<String> },
+    /// version ([`installed_version`]), when known.
+    Installed { commit: String, version: Option<String> },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -206,8 +205,7 @@ pub fn update(
         return Err(UpdateError::Install { detail: script_error(&out.stderr, &out.stdout) });
     }
     let version = installed_version(dest).or_else(|| version(source));
-    let build = build_number(tools, source, &env_refs);
-    Ok(Outcome::Installed { commit, version, build })
+    Ok(Outcome::Installed { commit, version })
 }
 
 fn failed(e: RunError, step: Step) -> UpdateError {
@@ -232,29 +230,6 @@ pub fn plist_string(text: &str, key: &str) -> Option<String> {
     let value = after.trim_start().strip_prefix("<string>")?;
     let value = value[..value.find("</string>")?].trim();
     (!value.is_empty()).then(|| value.to_string())
-}
-
-/// The build number the install script passes for the clone's commit
-/// (`QS_BUILD`): the commits reachable from it, `git rev-list --count
-/// HEAD`. `None` in a shallow clone, where the count is only how deep it
-/// was fetched, or when git does not answer with a number.
-pub fn build_number(
-    tools: &Tools,
-    source: &Path,
-    env: &[(&str, &std::ffi::OsStr)],
-) -> Option<String> {
-    let dir = source.display().to_string();
-    let ask = |args: &[&str]| {
-        let args: Vec<String> =
-            ["-C", dir.as_str()].iter().chain(args).map(|s| s.to_string()).collect();
-        let out = runner::run_with(&tools.git, &args, env, None, PULL_TIMEOUT).ok()?;
-        (out.code == Some(0)).then(|| String::from_utf8_lossy(&out.stdout).trim().to_string())
-    };
-    if ask(&["rev-parse", "--is-shallow-repository"])? != "false" {
-        return None;
-    }
-    let n = ask(&["rev-list", "--count", "HEAD"])?;
-    (!n.is_empty() && n.bytes().all(|b| b.is_ascii_digit())).then_some(n)
 }
 
 /// The version the clone builds, from `src-tauri/tauri.conf.json` at its

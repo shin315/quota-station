@@ -277,11 +277,10 @@ What the main suites check:
   bare origin, the clone, and a second clone that pushes) with a temporary HOME
   and no git config, and a fake `install.sh` that records its arguments and
   writes the new copy's `Info.plist`: a new commit pulled and installed, with
-  its version and build number, also from a clone that keeps the app's source
-  in a folder of its own (a submodule) and without the `Info.plist`; nothing
-  new, a clone that cannot fast-forward (left as it is), an origin that is
-  gone, a failed install, a shallow clone (no build number), and what counts as
-  a clone.
+  its version, also from a clone that keeps the app's source in a folder of its
+  own (a submodule) and without the `Info.plist`; nothing new, a clone that
+  cannot fast-forward (left as it is), an origin that is gone, a failed
+  install, and what counts as a clone.
 - **Login item** (`login_item.rs`): the tests use a fake backend
   that keeps the state macOS would: on, off, waiting for approval, not a
   packaged app, and refused. Reading the switch never registers anything. No

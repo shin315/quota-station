@@ -13,7 +13,6 @@ import { Button, Dot, FieldHint, LinkButton, More, Toggle } from '@/components/p
 import { macTools, sourceView, type AuthorModel } from '@/lib/advanced';
 import type { Peer, PeerTest, SourceView, UpdateError } from '@/lib/model';
 import { t } from '@/lib/i18n';
-import { buildTag } from '@/lib/release';
 import { SET_CTL, SetRow } from '@/settings/SetRow';
 import { noFolderText, notSavedText, SettingsCard, useField, type SettingsProps } from '@/settings/Settings';
 import ext from '@qs-ext';
@@ -258,7 +257,7 @@ function UpdateFromSource({ app, onUpdate, onRelaunch }: { app: SourceView; onUp
     const c = short(app.outcome.commit);
     line = { tone: 'ok', text: t('Đã là bản mới nhất (' + c + ').', 'Already up to date (' + c + ').') };
   } else if (app.outcome?.kind === 'installed') {
-    const c = buildTag({ build: app.outcome.build ?? null, commit: short(app.outcome.commit) });
+    const c = short(app.outcome.commit);
     line = {
       tone: 'ok',
       text: t(

@@ -574,23 +574,13 @@ describe('settings for M7: the app itself', () => {
       fireEvent.click(updateButton());
     });
     expect(fake.api.updateFromSource).toHaveBeenCalledTimes(1);
-    expect(await screen.findByText('Đã cài 0.1.1 (build 413 · b2c3d4e). Mở lại để dùng bản mới.')).toBeTruthy();
+    expect(await screen.findByText('Đã cài 0.1.1 (b2c3d4e). Mở lại để dùng bản mới.')).toBeTruthy();
     expect(fake.relaunched()).toBe(0);
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Mở lại' }));
     });
     expect(fake.api.relaunch).toHaveBeenCalledTimes(1);
     expect(fake.relaunched()).toBe(1);
-  });
-
-  it('the line after an update says the version, and the build number when it is known', async () => {
-    await openApp({ outcome: { kind: 'installed', commit: 'b2c3d4e5f6', version: '0.1.1', build: null } });
-    await showGroup('Nâng cao');
-    expect(screen.getByText('Đã cài 0.1.1 (b2c3d4e). Mở lại để dùng bản mới.')).toBeTruthy();
-    cleanup();
-    await openApp({ outcome: { kind: 'installed', commit: 'b2c3d4e5f6', version: null, build: '413' } });
-    await showGroup('Nâng cao');
-    expect(screen.getByText('Đã cài bản mới (build 413 · b2c3d4e). Mở lại để dùng bản mới.')).toBeTruthy();
   });
 
   it('while it runs it says which step it is on', async () => {
@@ -632,7 +622,7 @@ describe('settings for M7: the app itself', () => {
   });
 
   it('opening again waits for unsaved rules', async () => {
-    const fake = await openApp({ outcome: { kind: 'installed', commit: 'b2c3d4e5f6', version: '0.1.1', build: null } });
+    const fake = await openApp({ outcome: { kind: 'installed', commit: 'b2c3d4e5f6', version: '0.1.1' } });
     await showGroup('Nâng cao');
     vi.mocked(fake.api.relaunch).mockRejectedValue('rulesDirty');
     await act(async () => {
