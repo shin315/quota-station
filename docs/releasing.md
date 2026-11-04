@@ -45,10 +45,11 @@ part is a paragraph. Edit the file before a release.
    for 14 days. It uses no environment and no secret and creates nothing.
 3. **Real run**: the same with `dry_run=false`, from `main`. It needs the
    `release` environment with a required reviewer and the six secrets below;
-   it stops before building when the environment is missing or unprotected,
-   and the macOS job stops when a secret is missing. The macOS job waits for
-   the reviewer's approval, then the last job creates the draft release
-   `v<version>` on the built commit. A run that fails leaves no draft. A draft
+   it stops before building when the environment is missing, unprotected (no
+   required reviewer or no deployment branch policy) or its settings cannot be
+   read, and the macOS job stops when a secret is missing. The macOS job
+   waits for the reviewer's approval, then the last job creates the draft
+   release `v<version>` on the built commit. A run that fails leaves no draft. A draft
    that is wrong can be deleted and the workflow run again. Once published, the
    release, its assets and its tag cannot be changed, and the name of a deleted
    published tag cannot be used again, so a bad published release is fixed
