@@ -522,14 +522,19 @@ function AutoSwitchRow({ model, onSet }: { model: Model; onSet: NonNullable<Sett
     if (!value || !Number.isInteger(v)) return setRefused('range');
     setRefused(await onSet(v));
   };
-  const rules = model.claudeAccounts.autoPolicy === 'rules';
+  const policy = model.claudeAccounts.autoPolicy;
   return (
     <SetRow
       label={autoTitle()}
       hint={
-        rules
+        policy === 'rules'
           ? t('Máy này theo luật xoay vòng (Nâng cao), nên ngưỡng ở đây chưa dùng.', 'This computer follows the rotation rules (Advanced), so this threshold is not used.')
-          : thresholdWords(at)
+          : policy === 'stopped'
+            ? t(
+                'File luật xoay vòng có lỗi nên chưa chuyển gì, và ngưỡng ở đây chưa dùng. Sửa nó trong Luật xoay vòng (Nâng cao).',
+                'The rotation rules file has an error, so nothing switches and this threshold is not used. Fix it in Rotation rules (Advanced).',
+              )
+            : thresholdWords(at)
       }
       under={refused ? <FieldHint tone="bad">{refused === 'range' ? t('Ngưỡng từ 50 tới 99%.', 'The threshold is from 50 to 99%.') : notSavedText(refused)}</FieldHint> : null}
     >

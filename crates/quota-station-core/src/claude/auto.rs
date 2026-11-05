@@ -100,6 +100,8 @@ pub fn decide(accounts: &[Reading], active: Option<u32>, at: f64) -> Plan {
             r.number != a.number
                 && r.fresh
                 && !r.disabled
+                // A reading with no number at all says nothing about room.
+                && (r.five_hour.used.is_some() || r.seven_day.used.is_some())
                 && used(r, Which::FiveHour) < at
                 && used(r, Which::Week) < at
         })
@@ -173,6 +175,18 @@ mod tests {
         held.disabled = true;
         let accounts = [acct(1, 95.0, 10.0), relogin, held, acct(4, 40.0, 40.0)];
         assert_eq!(line(&accounts, 1), "switch 4 (full 5h: slot 1 at 95%, 40% used)");
+    }
+
+    #[test]
+    fn a_reading_with_no_number_is_not_taken() {
+        let mut blank = acct(2, 0.0, 0.0);
+        blank.five_hour.used = None;
+        blank.seven_day.used = None;
+        // One window known is enough: the other counts as unused.
+        let mut week_only = acct(3, 0.0, 30.0);
+        week_only.five_hour.used = None;
+        let accounts = [acct(1, 95.0, 10.0), blank, week_only];
+        assert_eq!(line(&accounts, 1), "switch 3 (full 5h: slot 1 at 95%, 0% used)");
     }
 
     #[test]

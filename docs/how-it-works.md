@@ -121,7 +121,7 @@ touches Claude Code's login is adapted from claude-swap, MIT, credited in
   (5-hour or week) reaches the threshold (`autoSwitchAt` in `settings.json`,
   90 by default, 50 to 99, set in `Settings › Services`), Claude Code moves to
   the account with the least used of that window, of those with a fresh
-  reading (so not one that must sign in again), not held out, and under the
+  reading with a number (so not one that must sign in again), not held out, and under the
   threshold in both windows; equal ones go to the less used other window, then
   the lower number. With none, nothing moves (`wait (no account with room)`)
   and alert 1 tells the owner; without a fresh reading of the account in use,
@@ -154,8 +154,9 @@ touches Claude Code's login is adapted from claude-swap, MIT, credited in
   first. So a window is used before it resets unused, for about one switch back
   (each switch makes every running session read its context again). With no
   such account the one in use is kept until a window reaches the threshold, as
-  in the script. Turning on `Auto-switch when quota runs out` (with
-  `Settings › Advanced` on, `Auto-switch with Quota Station`) loads the app's LaunchAgent,
+  in the script. Turning on `Auto-switch when quota runs out` (labelled
+  `Auto-switch with Quota Station` in the rotation's own card while
+  `Settings › Advanced` is on) loads the app's LaunchAgent,
   `com.shin315.quota-station.rotation`, which runs `quota-station claude rotate`
   every 180 seconds whether or not the app is open, and logs to
   `claude/rotation.log`; a failed step is logged with its cause on the same
