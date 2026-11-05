@@ -6,7 +6,7 @@ resolver = "2"
 members = ["crates/quota-station-core", "src-tauri"]
 
 [workspace.package]
-version = "1.0.0"
+version = "1.1.0"
 edition = "2021"
 # The source: MIT, and CC BY-NC-SA 4.0 for the Antigravity accounts behind
 # the `antigravity-accounts` feature (NOTICE). A build without it is MIT.
