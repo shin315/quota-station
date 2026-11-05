@@ -764,8 +764,11 @@ it.
   `Other Macs` gives a name and an SSH alias for each other Mac,
   with `Add Mac`, `Remove` and `Test SSH` (reads that Mac's rotation file and
   changes nothing). `Source code` is the clone this Mac updates from, and
-  `Update` (`Update from source`) pulls it and installs the new build
-  ([README](../README.md#update)). A settings file from before the list of
+  `Update` (`Update from source`) pulls (`git pull --ff-only`), builds and
+  installs when the clone has a new commit, then offers `Restart`
+  ([README](../README.md#update)); a clone with local commits is never merged
+  or reset, and a build that takes longer than 30 minutes is stopped. A
+  settings file from before the list of
   other Macs with a single `sshAlias` moves into it. On Windows the tab has no
   `Other Macs` and no `Source code`.
 
@@ -795,7 +798,9 @@ versions`. A new version brings a banner at the foot of `Overview` (`New
 version: Quota Station X`, with `See what's new` and `Later`) and a line in the
 popover's footer; its dialog has `Download and install`, which opens the
 release's DMG, or its installer on Windows (or its page), in the browser, and
-`Skip this version`. Nothing is
+`Skip this version`. Install the new disk image or installer just like the
+first time, over the old copy (quit the app first on a Mac), or run
+`brew upgrade --cask quota-station` if installed with Homebrew. Nothing is
 downloaded or installed by the app itself. Only the release build, the one
 GitHub Releases offers (built with `QS_RELEASE=1`, the advanced part and the
 Antigravity accounts and all), counts as a download; every other build counts
@@ -806,3 +811,14 @@ built from a clone, gets the command to update from that clone instead of
 command`). `Details` on the `Version` row names the build after the version:
 `download` or `built from source`. While GitHub has no release, the status
 says `Already the newest: no release on GitHub yet`.
+
+To check that the Windows installer matches the release, download
+`SHA256SUMS.txt` from the same release into the same folder and run in
+PowerShell:
+
+```powershell
+$sum = (Select-String '_x64-setup.exe' .\SHA256SUMS.txt).Line.Split(' ')[0]
+(Get-FileHash .\Quota.Station_<version>_x64-setup.exe).Hash -eq $sum
+```
+
+`True` means it matches. The same sums are at the foot of the release notes.

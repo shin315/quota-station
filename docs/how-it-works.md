@@ -13,6 +13,7 @@ label where it helps to find it.
 - [The pause flag and the switcher](#the-pause-flag-and-the-switcher)
 - [What it reads and runs](#what-it-reads-and-runs)
 - [The files it writes](#the-files-it-writes)
+- [Uninstalling and removing data](#uninstalling-and-removing-data)
 
 Each Mac runs its own copy and switches only its own machine; there is no
 switch button for another Mac. Each Mac keeps its own Antigravity logins, and
@@ -513,7 +514,9 @@ flag and does not show Claude as paused.
 
 ## The files it writes
 
-Everything is in `~/Library/Application Support/com.shin315.quota-station/`
+Everything is in `~/Library/Application Support/com.shin315.quota-station/` on
+macOS (on Windows, `%APPDATA%\com.shin315.quota-station\` and, for data and
+keys sealed to that PC, `%LOCALAPPDATA%\com.shin315.quota-station\`)
 unless named otherwise, and each file is written through a temporary file and
 a rename.
 
@@ -563,3 +566,37 @@ a rename.
   `~/.claude.json`, `mcp_config.json`, the skill folders and links, the
   instruction files, Claude Code's Keychain item) are written only after a
   preview or a sheet the owner confirmed.
+
+## Uninstalling and removing data
+
+1. In `Settings › General`, turn `Open at login` off (or remove Quota Station in
+   System Settings › General › Login Items on a Mac, or in Task Manager's
+   `Startup apps` on Windows).
+   If `Auto-switch when quota runs out` is on, turn it off in the `Claude` tab
+   (or run `quota-station claude rotation off`).
+   To have the older switcher rotate Claude again, load its plist again
+   ([cutover](claude-accounts.md#cutover)).
+2. Quit Quota Station from its menu. On a Mac, move
+   `/Applications/Quota Station.app` to the Trash (or run
+   `brew uninstall --cask quota-station`). On Windows, open Settings › Apps ›
+   Installed apps (Apps & features on Windows 10), then `…` next to Quota
+   Station › `Uninstall`.
+3. Optionally, remove its data. On a Mac:
+   `~/Library/Application Support/com.shin315.quota-station/` (settings, the
+   Claude accounts' folder, the Antigravity index and quota readings, history,
+   notifications and `oauth-client.json`), and the app's own Keychain items,
+   services `com.shin315.quota-station.claude` and
+   `com.shin315.quota-station.antigravity`, in Keychain Access. Remove the
+   Claude accounts in the app (all but the one in use) to delete their items;
+   Claude Code keeps its own sign-in either way. Sign the Antigravity accounts
+   out in the app first to delete those items. Leave the `gemini`/`antigravity`
+   item alone: Antigravity.app and `agy` use it.
+   On Windows: `%APPDATA%\com.shin315.quota-station\` (settings, accounts,
+   quota readings, history, notifications and `oauth-client.json`) and
+   `%LOCALAPPDATA%\com.shin315.quota-station\` (what stays on this PC,
+   including the app's own keys, sealed by Windows); deleting both folders
+   removes them. Claude Code keeps its own sign-in either way. Leave the
+   `gemini:antigravity` credential in Credential Manager alone: Antigravity and
+   `agy` use it.
+
+The older switcher's rotation file is shared with that switcher and stays.
