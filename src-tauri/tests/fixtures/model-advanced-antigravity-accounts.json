@@ -18,7 +18,8 @@
       "leaving": true,
       "login": true,
       "overwrite": true,
-      "pool": true
+      "pool": true,
+      "switched": true
     },
     "unanswered": 0,
     "unread": 0
@@ -116,6 +117,8 @@
         }
       }
     ],
+    "autoPolicy": "rules",
+    "autoSwitchAt": 90,
     "claude": true,
     "importable": false,
     "last": null,

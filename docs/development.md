@@ -153,6 +153,9 @@ query parameters are:
   `agyhot=on`.
 - The menu bar settings: `menubar` (`claude`, `gemini` or `codex`) and
   `mbwindow` (`fiveHours`, `week`, `fableWeek` or `tightest`).
+- `advanced=off`: `Settings › Advanced` off, as on a new install, with no
+  rotation rules file: the Claude tab and the popover's foot show `Auto-switch
+  when quota runs out`, on, after a switch it made at 14:02.
 - History and notifications: `history=empty` and `alerts` (`on`, the default
   on `tab=alerts`, `off`, `unbundled`, `empty`, `many` or `env`).
 - The app, on `tab=settings`: `app` (`on`, `approval` or `unavailable`).

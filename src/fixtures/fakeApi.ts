@@ -209,6 +209,8 @@ function sample(kind: AlertKind, at: number, rotation: boolean): Alert {
     }
     case 'leaving':
       return { ...base, tone: 'warn', title: 'Team A rời vòng sau 30 phút', body: 'Thử: còn 30 phút.', actions: [{ id: 'dismiss', label: 'Ổn' }, { id: 'switch:0', label: 'Chuyển ngay' }] };
+    case 'switched':
+      return { ...base, tone: 'info', title: 'Đã tự chuyển Claude sang tài khoản khác', body: 'Thử: Team A đã dùng 90% hạn mức 5 giờ. Phiên Claude Code đang chạy vẫn chạy tiếp.', actions: [{ id: 'dismiss', label: 'Ổn' }] };
     case 'login':
       return { ...base, tone: 'warn', title: 'Team B cần đăng nhập lại', body: 'Thử: đăng nhập hết hạn sau 2 ngày.', actions: [{ id: 'snooze', label: 'Nhắc ngày mai' }, { id: 'dismiss', label: 'Đã biết' }] };
     case 'overwrite':
@@ -1708,6 +1710,11 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       if (!ok(dryAtMost) || !ok(roomAtLeast)) throw 'range';
       if (roomAtLeast <= dryAtMost) throw 'order';
       push({ ...model, alerts: { ...model.alerts, poolAlert: { dryAtMost, roomAtLeast } } });
+      return model;
+    },
+    setAutoSwitchAt: async (at) => {
+      if (!Number.isInteger(at) || at < 50 || at > 99) throw 'range';
+      push({ ...model, claudeAccounts: { ...model.claudeAccounts, autoSwitchAt: at } });
       return model;
     },
     setAdvanced: async (on) => {

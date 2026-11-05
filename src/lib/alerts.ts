@@ -38,6 +38,14 @@ export function alertKindList(agy = true, rotation = false): { kind: SwitchKind;
       text: t('30 phút trước giờ rời vòng trong file luật.', '30 minutes before its leave time in the rules file.'),
     },
     {
+      kind: 'switched',
+      title: t('Đã tự chuyển tài khoản Claude', 'Claude auto-switched'),
+      text: t(
+        'Mỗi lần Tự chuyển khi hết quota đổi sang tài khoản khác.',
+        'Each time auto-switch when quota runs out moves to another account.',
+      ),
+    },
+    {
       kind: 'login',
       title: t('Tài khoản cần đăng nhập lại', 'An account needs to sign in again'),
       text:

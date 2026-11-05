@@ -36,6 +36,7 @@ import { LABEL, rowClass, STACK, TabHead, TabSub, TabTitle } from '../components
 import { Button, Chip, CODE, Dot, Feedback, FieldHint, LinkButton, More, Toggle } from '../components/parts';
 import { advancedOn, authorModel } from '@/lib/advanced';
 import { alertKinds, permissionChip } from '../lib/alerts';
+import { autoTitle, thresholdWords } from '../lib/autoSwitch';
 import { Advanced } from '@/settings/Advanced';
 import type { Peer, PeerTest } from '../lib/model';
 import type { ChipView } from '../lib/view';
@@ -93,6 +94,8 @@ export interface SettingsProps {
   advancedRows?: ReactNode;
   /** Alert 1's thresholds; resolves to null once saved, else the refusal (`range`, `order`). */
   onPoolAlert(dryAtMost: number, roomAtLeast: number): Promise<string | null>;
+  /** "Tự chuyển khi hết quota"'s threshold; resolves to null once saved, else the refusal (`range`). */
+  onAutoSwitchAt?(at: number): Promise<string | null>;
   /** Where the backup packs go; empty is iCloud Drive. Resolves to the refusal (`notFound`), or null. */
   onSetBackupFolder?(path: string): Promise<string | null>;
   /** The app's language: macOS's, Vietnamese or English. */
@@ -508,6 +511,57 @@ function PoolAlertRow({ model, onSet }: { model: Model; onSet: SettingsProps['on
   );
 }
 
+/** "Tự chuyển khi hết quota": the percent of the fullest window at which it switches. */
+function AutoSwitchRow({ model, onSet }: { model: Model; onSet: NonNullable<SettingsProps['onAutoSwitchAt']> }) {
+  const at = model.claudeAccounts.autoSwitchAt;
+  const [value, setValue] = useField(String(at));
+  const [refused, setRefused] = useState<string | null>(null);
+  const commit = async () => {
+    const v = Number(value);
+    if (v === at) return setRefused(null);
+    if (!value || !Number.isInteger(v)) return setRefused('range');
+    setRefused(await onSet(v));
+  };
+  const policy = model.claudeAccounts.autoPolicy;
+  return (
+    <SetRow
+      label={autoTitle()}
+      hint={
+        policy === 'rules'
+          ? t('Máy này theo luật xoay vòng (Nâng cao), nên ngưỡng ở đây chưa dùng.', 'This computer follows the rotation rules (Advanced), so this threshold is not used.')
+          : policy === 'stopped'
+            ? t(
+                'File luật xoay vòng có lỗi nên chưa chuyển gì, và ngưỡng ở đây chưa dùng. Sửa nó trong Luật xoay vòng (Nâng cao).',
+                'The rotation rules file has an error, so nothing switches and this threshold is not used. Fix it in Rotation rules (Advanced).',
+              )
+            : thresholdWords(at)
+      }
+      under={refused ? <FieldHint tone="bad">{refused === 'range' ? t('Ngưỡng từ 50 tới 99%.', 'The threshold is from 50 to 99%.') : notSavedText(refused)}</FieldHint> : null}
+    >
+      <div className="flex flex-wrap items-center gap-1.5 text-sm">
+        <span>{t('Chuyển khi tài khoản đang dùng tới', 'Switch when the account in use reaches')}</span>
+        <Input
+          id="qs-auto-at"
+          className="w-[56px] text-right tabular-nums"
+          inputMode="numeric"
+          invalid={refused != null}
+          value={value}
+          aria-label={t('Ngưỡng tự chuyển, phần trăm đã dùng', 'Auto-switch threshold, percent used')}
+          onChange={(e) => {
+            setValue(e.target.value.replace(/[^0-9]/g, '').slice(0, 2));
+            setRefused(null);
+          }}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void commit();
+          }}
+        />
+        <span>%</span>
+      </div>
+    </SetRow>
+  );
+}
+
 /** Where the backup packs go: iCloud Drive's folder unless another is chosen. */
 function BackupFolder({ model, onSet }: { model: Model; onSet: NonNullable<SettingsProps['onSetBackupFolder']> }) {
   const b = model.backup;
@@ -898,6 +952,7 @@ export function Settings(props: SettingsProps) {
               )}
             </SetRow>
           )}
+          {props.onAutoSwitchAt ? <AutoSwitchRow model={model} onSet={props.onAutoSwitchAt} /> : null}
           {onSetCodexHome ? <CodexHome model={model} onSet={onSetCodexHome} /> : null}
           {model.codex.present ? <CodexAccountsRow model={model} onAction={onAction} /> : null}
           {model.capabilities.agyAccounts && model.antigravity ? (

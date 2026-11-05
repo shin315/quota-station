@@ -419,6 +419,8 @@ export interface Api {
   setAlertSwitch(kind: AlertKind, on: boolean): Promise<Model>;
   /** Alert 1's thresholds in percent left; rejects with `range` or `order`. */
   setPoolAlert(dryAtMost: number, roomAtLeast: number): Promise<Model>;
+  /** The auto-switch threshold, in percent of the fullest window (50 to 99); rejects with `range`. */
+  setAutoSwitchAt(at: number): Promise<Model>;
   /** Cài đặt › Nâng cao on or off. */
   setAdvanced(on: boolean): Promise<Model>;
   /** The History tab's lines, newest first. */
@@ -634,6 +636,7 @@ export const tauriApi: Api = {
   testAlert: (kind) => invoke<Model>('test_alert', { kind }),
   setAlertSwitch: (kind, on) => invoke<Model>('set_alert_switch', { kind, on }),
   setPoolAlert: (dryAtMost, roomAtLeast) => invoke<Model>('set_pool_alert', { dryAtMost, roomAtLeast }),
+  setAutoSwitchAt: (at) => invoke<Model>('set_auto_switch_at', { at }),
   setAdvanced: (on) => invoke<Model>('set_advanced', { on }),
   getHistory: () => invoke<HistoryEntry[]>('get_history'),
   notifyRefresh: () => invoke('notify_refresh'),

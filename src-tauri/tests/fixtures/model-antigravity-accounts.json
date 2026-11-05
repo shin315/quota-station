@@ -101,6 +101,8 @@
         }
       }
     ],
+    "autoPolicy": "auto",
+    "autoSwitchAt": 90,
     "claude": true,
     "importable": false,
     "last": null,

@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 use std::process::Command;
 
 use quota_station_core::claude::engine::{self, Input, Plan, Reading, Window};
-use quota_station_core::claude::rotate::{self, Tools};
+use quota_station_core::claude::rotate::{self, Policy, Tools};
 use quota_station_core::claude::switch;
 use quota_station_core::local_time;
 use quota_station_core::rotation::{self, Expire, Rules};
@@ -675,21 +675,105 @@ fn a_run_moves_claude_code_off_a_full_account_and_logs_it() {
     );
 }
 
-#[test]
-fn a_run_without_a_rotation_file_switches_nothing() {
-    // The app has no built-in rotation: a Mac that never saved one has none.
-    let (mac, anthropic, tools) = three_accounts("rotate-no-rules");
-    std::fs::remove_file(mac.paths.rotation_file()).unwrap();
+/// The readings of [`three_accounts`]'s usual case: 2, in use, at 96 % of
+/// its five-hour window; 3, a Team account, at 10 %; 1, the personal
+/// account, with its window not started.
+fn usual_readings(anthropic: &FakeAnthropic) {
     anthropic.usage("acc-1", 0.0, None, Some(5.0), None);
     anthropic.usage("acc-2", 96.0, Some(&iso(1.0)), Some(40.0), None);
     anthropic.usage("acc-3", 10.0, Some(&iso(2.0)), Some(20.0), None);
+}
+
+/// With a rotation rules file the rotation is the Team rules', as before
+/// "Tự chuyển khi hết quota": the readings that send the threshold rule to
+/// the personal account (the most room) send the Team rules to Team 3, and
+/// the saved threshold changes nothing.
+#[test]
+fn with_a_rotation_file_the_team_rules_decide_as_before() {
+    let (mac, anthropic, tools) = three_accounts("rotate-team-kept");
+    usual_readings(&anthropic);
+    let mut settings = quota_station_core::settings::Settings::default();
+    settings.auto_switch_at = quota_station_core::settings::AutoSwitchAt(50);
+    settings.save(&mac.paths.settings_file()).unwrap();
+    assert_eq!(rotate::policy(&mac.store), Policy::Rules(rules()));
+    let decided = rotate::run(&mac.store, &tools);
+    let now = OffsetDateTime::now_utc();
+    let team = rotate::plan(&mac.store, &rules(), now).decision;
+    assert_eq!(decided.line.split(' ').take(2).collect::<Vec<_>>(), ["switch", "3"]);
+    assert!(decided.line.starts_with("switch 3 (20.0%, ends "), "{}", decided.line);
+    assert_eq!(switch::active_slot(&mac.store), Some(3));
+    // The decision after the switch is the engine's, word for word.
+    assert_eq!(rotate::dry_run(&mac.store, &tools, &rotate::policy(&mac.store), now).line, team);
+}
+
+/// Without a rotation file, "Tự chuyển khi hết quota": at 90 % of the
+/// fullest window Claude moves to the account with the most room in it,
+/// whatever its kind, and the log says why.
+#[test]
+fn a_run_without_a_rotation_file_switches_at_the_threshold() {
+    let (mac, anthropic, tools) = three_accounts("rotate-no-rules");
+    std::fs::remove_file(mac.paths.rotation_file()).unwrap();
+    usual_readings(&anthropic);
+    assert_eq!(rotate::rules(&mac.store), None);
+    assert_eq!(rotate::policy(&mac.store), Policy::Auto { at: 90.0 });
+    let decided = rotate::run(&mac.store, &tools);
+    assert_eq!(decided.line, "switch 1 (full 5h: slot 2 at 96%, 0% used)");
+    assert!(decided.primes.is_empty());
+    assert_eq!(switch::active_slot(&mac.store), Some(1));
+    assert_eq!(mac.live_email().as_deref(), Some("lan@example.com"));
+    assert!(
+        log(&mac)
+            .lines()
+            .any(|l| l.ends_with(" switch to slot 1 (full 5h: slot 2 at 96%, 0% used)")),
+        "{}",
+        log(&mac)
+    );
+    let now = OffsetDateTime::now_utc();
+    assert_eq!(rotate::dry_run(&mac.store, &tools, &rotate::policy(&mac.store), now).line, "stay");
+}
+
+/// The threshold is the one in the app's settings.
+#[test]
+fn the_threshold_comes_from_the_settings() {
+    let (mac, anthropic, tools) = three_accounts("rotate-threshold");
+    std::fs::remove_file(mac.paths.rotation_file()).unwrap();
+    usual_readings(&anthropic);
+    let mut settings = quota_station_core::settings::Settings::default();
+    settings.auto_switch_at = quota_station_core::settings::AutoSwitchAt(97);
+    settings.save(&mac.paths.settings_file()).unwrap();
+    assert_eq!(rotate::policy(&mac.store), Policy::Auto { at: 97.0 });
+    assert_eq!(rotate::run(&mac.store, &tools).line, "stay");
+    assert_eq!(switch::active_slot(&mac.store), Some(2));
+}
+
+/// A rotation file its rules refuse stops the rotation: its owner meant
+/// rules, so the threshold rule does not take over.
+#[test]
+fn a_run_with_a_broken_rotation_file_switches_nothing() {
+    let (mac, anthropic, tools) = three_accounts("rotate-broken-rules");
+    std::fs::write(mac.paths.rotation_file(), "team = 2 3\n").unwrap();
+    usual_readings(&anthropic);
+    assert_eq!(rotate::policy(&mac.store), Policy::Stopped);
     let decided = rotate::run(&mac.store, &tools);
     assert_eq!(decided.line, rotate::NO_RULES);
     assert_eq!(switch::active_slot(&mac.store), Some(2));
     assert!(!log(&mac).contains("switch to slot"));
-    assert_eq!(rotate::rules(&mac.store), None);
     let now = OffsetDateTime::now_utc();
-    assert_eq!(rotate::dry_run(&mac.store, &tools, None, now).line, rotate::NO_RULES);
+    assert_eq!(rotate::dry_run(&mac.store, &tools, &Policy::Stopped, now).line, rotate::NO_RULES);
+}
+
+/// The pause holds for the threshold rule too.
+#[test]
+fn the_threshold_rule_keeps_the_pause() {
+    let (mac, anthropic, tools) = three_accounts("rotate-auto-paused");
+    std::fs::remove_file(mac.paths.rotation_file()).unwrap();
+    usual_readings(&anthropic);
+    std::fs::create_dir_all(tools.pause_file.parent().unwrap()).unwrap();
+    std::fs::write(&tools.pause_file, "until = 2999-01-01T00:00\nreason = chuyển tay\n").unwrap();
+    let decided = rotate::run(&mac.store, &tools);
+    assert_eq!(decided.line, "paused until 2999-01-01T00:00: chuyển tay");
+    assert_eq!(switch::active_slot(&mac.store), Some(2));
+    assert_eq!(log(&mac), "");
 }
 
 #[test]
@@ -758,7 +842,8 @@ fn a_run_when_launchctl_cannot_tell_neither_switches_nor_refreshes() {
 #[test]
 fn a_dry_run_reads_nothing_over_the_network() {
     let (mac, anthropic, tools) = three_accounts("rotate-dry");
-    let decided = rotate::dry_run(&mac.store, &tools, Some(&rules()), OffsetDateTime::now_utc());
+    let decided =
+        rotate::dry_run(&mac.store, &tools, &Policy::Rules(rules()), OffsetDateTime::now_utc());
     // No readings yet: the account in use is unknown, so the rotation holds.
     assert_eq!(decided.line, "stay (slot 2 usage unknown)");
     assert!(anthropic.requests().is_empty());
@@ -772,11 +857,16 @@ fn the_preview_decides_with_the_draft_rules() {
     anthropic.usage("acc-3", 10.0, Some(&iso(2.0)), Some(20.0), None);
     quota_station_core::claude::usage::read_due(&mac.store, &tools.endpoints, false, true);
     let now = OffsetDateTime::now_utc();
-    assert_eq!(rotate::dry_run(&mac.store, &tools, Some(&rules()), now).line, "stay");
+    assert_eq!(rotate::dry_run(&mac.store, &tools, &Policy::Rules(rules()), now).line, "stay");
     let mut draft = rules();
     draft.full = 50.0;
-    assert_eq!(rotate::dry_run(&mac.store, &tools, Some(&draft), now).primes, Vec::<u32>::new());
-    assert!(rotate::dry_run(&mac.store, &tools, Some(&draft), now).line.starts_with("switch 3 "));
+    assert_eq!(
+        rotate::dry_run(&mac.store, &tools, &Policy::Rules(draft.clone()), now).primes,
+        Vec::<u32>::new()
+    );
+    assert!(rotate::dry_run(&mac.store, &tools, &Policy::Rules(draft.clone()), now)
+        .line
+        .starts_with("switch 3 "));
 }
 
 // A failed switch says why, in the same line.

@@ -30,6 +30,7 @@ import { Banner, Button, Dot, Feedback, LinkButton, Meter, More, Skeleton, Spinn
 import { isGemini } from '../lib/accounts';
 import { mac, t } from '../lib/i18n';
 import type { AutoView } from '@/lib/rotation';
+import type { SimpleAutoView } from '@/lib/autoSwitch';
 import type { CodexPopView } from '../lib/codex';
 import { bannerUnder, type Action, type CardView, type CellView, type ChipView, type FeedbackView, type GroupView, type NoteView, type NowRowView, type PopoverView, type UsedTone } from '../lib/view';
 import { ChevronIcon, MoonIcon, OpenIcon, SunIcon } from '../window/icons';
@@ -475,6 +476,34 @@ function Footer({ auto, sync, onToggle }: { auto: AutoView; sync: SyncLine | nul
   );
 }
 
+/**
+ * "Tự chuyển khi hết quota" with Nâng cao off: its switch, its status and the
+ * pause (or the way back from one), always in view at the foot.
+ */
+function SimpleFooter({ auto, onAction }: { auto: SimpleAutoView; onAction(act: Action): void }) {
+  return (
+    <div className="li flex items-center gap-2 text-sm" data-testid="auto-switch-foot">
+      <PlaceGlyph place="rules" className="size-[15px]" />
+      <div className="min-w-0 flex-1">
+        <b>{auto.title}</b>
+        <small className={cn('block text-xs', auto.warn ? 'text-warn-ink' : 'text-ink2')} title={auto.line}>
+          {auto.line}
+        </small>
+      </div>
+      {auto.canPause ? (
+        <LinkButton small onClick={() => onAction('pause')}>
+          {t('Tạm dừng', 'Pause')}
+        </LinkButton>
+      ) : auto.paused ? (
+        <LinkButton small onClick={() => onAction('resume')}>
+          {t('Tiếp tục', 'Resume')}
+        </LinkButton>
+      ) : null}
+      <Toggle on={auto.on} label={auto.title} disabled={auto.disabled} onClick={() => onAction(auto.on ? 'claude:rotation:off' : 'claude:rotation:on')} />
+    </div>
+  );
+}
+
 /** What the numbers mean, in one line; the rest behind Chi tiết. */
 function Legend({ rotation }: { rotation: boolean }) {
   const line = t('% đã dùng · thời gian đặt lại', '% used · time until reset');
@@ -521,6 +550,8 @@ export interface PopoverProps {
   codex?: CodexPopView | null;
   /** Automatic switching, in the footer; null while Cài đặt › Nâng cao is off. */
   auto: AutoView | null;
+  /** "Tự chuyển khi hết quota" in the footer while Nâng cao is off; null when it does not show. */
+  simple?: SimpleAutoView | null;
   /** The other Macs' copies of the rotation file; null with no other Mac. */
   sync?: SyncLine | null;
   /** The build has the rotation (`capabilities.authorTools`): the legend points at its notes. */
@@ -549,6 +580,7 @@ export function Popover({
   view,
   codex = null,
   auto,
+  simple = null,
   sync = null,
   onToggle,
   rotation = false,
@@ -564,7 +596,7 @@ export function Popover({
   onCloseSheet,
   onHeight,
 }: PopoverProps) {
-  const footer = !!release || !view.none || !!auto;
+  const footer = !!release || !view.none || !!auto || !!simple;
   const head = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const foot = useRef<HTMLDivElement>(null);
@@ -694,7 +726,7 @@ export function Popover({
       {footer ? (
         <div className="grid flex-none gap-[7px] border-t-[.5px] border-glass-line px-3.5 pt-2 pb-2.5" ref={foot} inert={open}>
           {release ? <ReleaseLine line={release} onAction={onAction} /> : null}
-          {auto ? <Footer auto={auto} sync={sync} onToggle={onToggle} /> : null}
+          {auto ? <Footer auto={auto} sync={sync} onToggle={onToggle} /> : simple ? <SimpleFooter auto={simple} onAction={onAction} /> : null}
           {view.none ? null : <Legend rotation={rotation} />}
         </div>
       ) : null}

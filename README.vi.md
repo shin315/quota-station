@@ -5,10 +5,12 @@
 Ứng dụng trên thanh menu macOS và khay hệ thống Windows cho biết hạn mức
 Claude Code, Codex và Antigravity của bạn đã dùng bao nhiêu, chuyển qua lại
 giữa các tài khoản, và giữ gọn MCP server, skill cùng file hướng dẫn của các
-agent. Giao diện có tiếng Việt và tiếng Anh.
+agent. Có từ hai tài khoản Claude trở lên, app tự chuyển Claude Code sang tài
+khoản khác khi tài khoản đang dùng hết quota, và các phiên Claude Code đang chạy
+vẫn chạy tiếp. Giao diện có tiếng Việt và tiếng Anh.
 
 <p align="center">
-  <img src="docs/screenshots/vi/popover.png" width="360" alt="Popover ở giao diện tối: mỗi dịch vụ Claude, Antigravity và Codex một phần, mở ra ở tài khoản đang dùng với phần trăm đã dùng và thời gian đến lúc đặt lại, các tài khoản khác gập dưới một dòng, và Tự động chuyển Claude ở chân">
+  <img src="docs/screenshots/vi/popover.png" width="360" alt="Popover ở giao diện tối: mỗi dịch vụ Claude, Antigravity và Codex một phần, mở ra ở tài khoản đang dùng với phần trăm đã dùng và thời gian đến lúc đặt lại, các tài khoản khác gập dưới một dòng, và Tự chuyển khi hết quota ở chân, đang bật, có nút Tạm dừng">
 </p>
 
 <p align="center">
@@ -28,6 +30,7 @@ thật.
 ## Mục lục
 
 - [Ứng dụng làm gì](#ứng-dụng-làm-gì)
+  ([Tự chuyển khi hết quota](#tự-chuyển-khi-hết-quota))
 - [Riêng tư và an toàn](#riêng-tư-và-an-toàn)
 - [Yêu cầu](#yêu-cầu)
 - [Cài đặt](#cài-đặt)
@@ -37,6 +40,25 @@ thật.
 - [Điều khoản dịch vụ](#điều-khoản-dịch-vụ)
 
 ## Ứng dụng làm gì
+
+### Tự chuyển khi hết quota
+
+<img src="docs/screenshots/vi/claude.png" width="760" alt="Tab Claude: bốn tài khoản với 5 giờ, Tuần và Fable tuần, nút Chuyển trên mỗi dòng, bên dưới là Tự chuyển khi hết quota đang bật, với dòng trạng thái (đã chuyển lúc 14:02, đang theo dõi, chuyển ở 90%) và các lựa chọn tạm dừng">
+
+Nhiều người giữ hai ba tài khoản Claude (Pro, Max hay Team) và phải đăng xuất
+rồi đăng nhập lại mỗi khi tài khoản đang dùng hết quota. Quota Station làm việc
+đó thay bạn: bật `Tự chuyển khi hết quota` ở tab `Claude` hoặc ở chân popover,
+và khi tài khoản đang dùng tới 90 % cửa sổ 5 giờ hoặc tuần, Claude Code được
+chuyển sang tài khoản còn nhiều quota nhất ở cửa sổ đó. Tài khoản cần đăng nhập
+lại hoặc cũng sắp cạn được bỏ qua; không còn tài khoản nào thì app giữ tài khoản
+đang dùng và báo cho bạn. Phiên Claude Code đang chạy vẫn chạy tiếp, chỉ dựng
+lại prompt cache một lần.
+
+App kiểm tra mỗi 3 phút (trên Mac bằng LaunchAgent, nên chạy cả khi đã đóng
+app; trên Windows bằng hẹn giờ trong app), gửi thông báo sau mỗi lần chuyển, và
+có `Tạm dừng` (1 giờ, đến 18:00, hoặc đến khi bạn bật lại). Chuyển tay thì có
+thể giữ tài khoản mới một lúc. Ngưỡng nằm ở `Cài đặt › Dịch vụ`. Tính năng tắt
+ở bản cài mới và hiện ra ngay khi có hai tài khoản.
 
 ### Thanh menu và popover
 
@@ -59,15 +81,15 @@ tài khoản chưa dùng. Thanh bên chia phần còn lại: `Thống kê`, tài
 
 ### Tài khoản Claude
 
-<img src="docs/screenshots/vi/claude.png" width="760" alt="Tab Claude: bốn tài khoản với 5 giờ, Tuần và Fable tuần, nút Chuyển và menu ⋯ trên mỗi dòng, bên dưới là Tự động chuyển Claude với các lựa chọn tạm dừng và Chạy nền">
-
 Quota Station tự giữ nhiều tài khoản Claude và tự chuyển Claude Code giữa
 chúng: thêm tài khoản bằng cách đăng nhập trong trình duyệt, lấy tài khoản
 Claude Code đang đăng nhập, hoặc dán setup-token. Trước khi chuyển, app cho biết
 bao nhiêu phiên Claude Code đang chạy sẽ phải dựng lại prompt cache, rồi kiểm
 tra lại là đã chuyển xong.
 
-Vòng xoay tự động giữa các tài khoản Team, có tạm dừng, là một trong
+Việc tự chuyển là [Tự chuyển khi hết quota](#tự-chuyển-khi-hết-quota), cho
+mọi loại tài khoản. Luật riêng cho nó (các tài khoản Team theo thứ tự, tài khoản
+cá nhân chỉ trong khung giờ, tài khoản rời vòng vào một ngày) là một trong
 [các công cụ nâng cao](#nâng-cao).
 
 ### Codex
@@ -138,7 +160,8 @@ chỉ chạy lệnh cập nhật của chính công cụ đó khi bạn bấm `C
 
 <img src="docs/screenshots/vi/notifications.png" width="760" alt="Bảng thông báo mở dưới cái chuông trên Tổng quan: hai thông báo hôm nay, Antigravity đổi về tài khoản cũ và Team A rời vòng lúc 14:45, mỗi thông báo kèm các nút của thẻ macOS">
 
-Thông báo khi hạn mức Claude sắp cạn, khi một tài khoản cần đăng nhập
+Thông báo khi hạn mức Claude sắp cạn, khi Tự chuyển khi hết quota vừa đổi
+tài khoản Claude, khi một tài khoản cần đăng nhập
 lại, khi lần chuyển Antigravity bị ghi đè, khi skill hay công cụ có bản mới, và
 khi một biến môi trường (như `ANTHROPIC_API_KEY` trong `~/.zshrc`) đè đăng nhập
 của agent. Mỗi thông báo đến một lần, dưới dạng thẻ macOS có nút bấm, và nằm lại
@@ -170,9 +193,12 @@ Claude, quyền và thanh menu, xong.
 
 ### Nâng cao
 
-`Cài đặt › Nâng cao › Hiện phần nâng cao`, tắt ở bản cài mới, thêm vòng xoay
-Claude tự động cùng tạm dừng và trình sửa luật, gửi luật sang các máy Mac khác
-qua SSH, `Chép sang Mac khác`, và cập nhật từ bản clone mã nguồn.
+`Cài đặt › Nâng cao › Hiện phần nâng cao`, tắt ở bản cài mới, thêm trình sửa
+luật xoay vòng (các tài khoản Team theo thứ tự, tài khoản cá nhân theo khung
+giờ, ngày rời vòng, mồi cửa sổ), thay cho ngưỡng của
+[Tự chuyển khi hết quota](#tự-chuyển-khi-hết-quota) khi đã lưu luật, phần chạy
+nền chi tiết của vòng xoay, gửi luật sang các máy Mac khác qua SSH,
+`Chép sang Mac khác`, và cập nhật từ bản clone mã nguồn.
 
 Mọi phần được mô tả đầy đủ trong [docs/features.md](docs/features.md) (tiếng
 Anh, kèm nhãn tiếng Việt).
@@ -314,7 +340,7 @@ riêng không bao giờ bị merge hay reset, và lần dựng quá 30 phút th�
 1. Trong `Cài đặt › Chung`, tắt `Mở khi đăng nhập` (hoặc bỏ Quota Station trong
    System Settings › General › Login Items trên Mac, hay trong `Ứng dụng khởi
    động` (Startup apps) của Task Manager trên Windows).
-   Nếu app đang chạy vòng xoay Claude, tắt nó trong tab `Claude` (hoặc chạy
+   Nếu `Tự chuyển khi hết quota` đang bật, tắt nó trong tab `Claude` (hoặc chạy
    `quota-station claude rotation off`).
    Muốn bộ tự chuyển cũ xoay vòng Claude trở lại thì nạp lại plist của nó
    ([cutover](docs/claude-accounts.md#cutover)).

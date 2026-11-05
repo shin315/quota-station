@@ -98,6 +98,8 @@ export function claudeAccountsFixture(over: Partial<ClaudeAccountsView> = {}): C
     rotation: true,
     legacy: null,
     claude: true,
+    autoSwitchAt: 90,
+    autoPolicy: 'rules',
     ...over,
   };
 }
@@ -190,6 +192,7 @@ export function alertsFixture(over: Partial<AlertsView> = {}): AlertsView {
       login: true,
       overwrite: true,
       leaving: true,
+      switched: true,
       // An extension's, as it ships them (src/ext/types.ts).
       ...ext.fixtures?.switches(),
     } as AlertsView['switches'],

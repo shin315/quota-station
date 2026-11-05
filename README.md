@@ -5,10 +5,13 @@
 An app for the macOS menu bar and the Windows tray that shows how much of your
 Claude Code, Codex and Antigravity quota is used, switches between your
 accounts, and keeps the agents' MCP servers, skills and instruction files in
-order. The interface is in English and Vietnamese.
+order. With two or more Claude accounts it can switch Claude Code to another
+account by itself when the one in use runs out of quota, and the Claude Code
+sessions already running keep going. The interface is in English and
+Vietnamese.
 
 <p align="center">
-  <img src="docs/screenshots/en/popover.png" width="360" alt="The popover in the dark look: a section each for Claude, Antigravity and Codex, each opening on its account in use with the share used and the time until reset, the other accounts folded under one line, and Claude auto-switch at the foot">
+  <img src="docs/screenshots/en/popover.png" width="360" alt="The popover in the dark look: a section each for Claude, Antigravity and Codex, each opening on its account in use with the share used and the time until reset, the other accounts folded under one line, and Auto-switch when quota runs out at the foot, on, with Pause">
 </p>
 
 <p align="center">
@@ -27,6 +30,7 @@ Every image on this page uses made-up test data, never real accounts.
 ## Contents
 
 - [What it does](#what-it-does)
+  ([Auto-switch when quota runs out](#auto-switch-when-quota-runs-out))
 - [Privacy and safety](#privacy-and-safety)
 - [Requirements](#requirements)
 - [Install](#install)
@@ -36,6 +40,27 @@ Every image on this page uses made-up test data, never real accounts.
 - [Terms of service](#terms-of-service)
 
 ## What it does
+
+### Auto-switch when quota runs out
+
+<img src="docs/screenshots/en/claude.png" width="760" alt="The Claude tab: four accounts with their 5-hour, Week and Fable week and a Switch button on each, and below them Auto-switch when quota runs out, on, with its status line (switched at 14:02, watching, switches at 90%) and its pause choices">
+
+Many people keep two or three Claude accounts (Pro, Max or Team) and sign out
+and in again whenever the one in use runs out. Quota Station does it for you:
+turn on `Auto-switch when quota runs out` in the `Claude` tab or at the foot of
+the popover, and when the account in use reaches 90 % of its 5-hour or weekly
+window, Claude Code moves to the account with the most quota left in that
+window. Accounts that must sign in again, or are nearly out too, are skipped;
+with none left it keeps the account in use and tells you. A switch keeps the
+Claude Code sessions already running: they go on, and only rebuild their
+prompt cache once.
+
+It checks every 3 minutes (a LaunchAgent on a Mac, so even with the app
+closed; the app's own timer on Windows), sends a notification after each
+switch, and has a `Pause` (1 hour, until 18:00, or until you turn it back on).
+A switch by hand can hold the new account for a while. The threshold is in
+`Settings › Services`. It is off on a new install, and shows as soon as there
+are two accounts.
 
 ### The menu bar and the popover
 
@@ -60,16 +85,16 @@ notifications.
 
 ### Claude accounts
 
-<img src="docs/screenshots/en/claude.png" width="760" alt="The Claude tab: four accounts with their 5-hour, Week and Fable week, Switch and a ⋯ menu on each, and below them Claude auto-switch with its pause choices and the background check">
-
 Quota Station keeps several Claude accounts and switches Claude Code between
 them itself: add one by signing in with the browser, taking the account Claude
 Code is signed in to, or pasting a setup-token. A switch first shows how many
 running Claude Code sessions will rebuild their prompt cache, then checks that
 it landed.
 
-An automatic rotation between Team accounts, with a pause, is one of the
-[advanced tools](#advanced).
+Switching by itself is [Auto-switch when quota runs out](#auto-switch-when-quota-runs-out),
+for every kind of account. Rules of your own for it (Team accounts in a set
+order, a personal account only in set hours, accounts that leave on a date)
+are one of the [advanced tools](#advanced).
 
 ### Codex
 
@@ -137,8 +162,8 @@ newest, and runs a tool's own update only when you press `Update`.
 
 ### Notifications
 
-Notifications come when Claude's quota is running out, an account
-must sign in again, an Antigravity switch was undone, a skill or a tool has a
+Notifications come when Claude's quota is running out, Auto-switch moved
+Claude to another account, an account must sign in again, an Antigravity switch was undone, a skill or a tool has a
 new version, or an environment variable (such as `ANTHROPIC_API_KEY` in
 `~/.zshrc`) overrides an agent's sign-in. Each comes once, as a macOS card with
 buttons, and stays under the bell. The cards' own text is in Vietnamese for
@@ -174,9 +199,11 @@ accounts, permissions, done.
 ### Advanced
 
 `Settings › Advanced › Show advanced features`, off on a new install, adds the
-automatic Claude rotation with its pause and rules editor, sending the rules
-to other Macs over SSH, `Copy to another Mac`, and updating from a source
-clone.
+rotation rules editor (Team accounts in a set order, a personal account in set
+hours, end dates, priming), which replaces the threshold of
+[Auto-switch when quota runs out](#auto-switch-when-quota-runs-out) once rules
+are saved, the rotation's own background details, sending the rules to other
+Macs over SSH, `Copy to another Mac`, and updating from a source clone.
 
 Every part is described in full in [docs/features.md](docs/features.md).
 
@@ -322,8 +349,8 @@ stops.
 1. In `Settings › General`, turn `Open at login` off (or remove Quota Station in
    System Settings › General › Login Items on a Mac, or in Task Manager's
    `Startup apps` on Windows).
-   If the app runs the Claude rotation, turn it off in the `Claude` tab (or
-   run `quota-station claude rotation off`).
+   If `Auto-switch when quota runs out` is on, turn it off in the `Claude` tab
+   (or run `quota-station claude rotation off`).
    To have the older switcher rotate Claude again, load its plist again
    ([cutover](docs/claude-accounts.md#cutover)).
 2. Quit Quota Station from its menu. On a Mac, move

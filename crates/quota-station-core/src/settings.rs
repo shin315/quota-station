@@ -90,6 +90,12 @@ pub struct Settings {
     /// Alert 1's two thresholds.
     #[serde(default, skip_serializing_if = "PoolAlert::is_default")]
     pub pool_alert: PoolAlert,
+    /// "Tự chuyển khi hết quota": the percent of the account in use's
+    /// fullest window (5-hour or week) at which it moves Claude to another
+    /// account, when no rotation rules file says otherwise.
+    /// [`AUTO_SWITCH_AT`] by default.
+    #[serde(default, skip_serializing_if = "AutoSwitchAt::is_default")]
+    pub auto_switch_at: AutoSwitchAt,
     /// The first run's steps were gone through, or skipped: the main window
     /// no longer opens on them. Always written, so a new install stays new
     /// until its owner finishes them.
@@ -119,6 +125,39 @@ fn dry_at_most() -> u8 {
 
 fn room_at_least() -> u8 {
     15
+}
+
+/// The auto-switch threshold of a new install: 90 % of the fullest window,
+/// so a switch lands before the account runs out even when a busy session
+/// spends a few percent between two checks (every 3 minutes).
+pub const AUTO_SWITCH_AT: u8 = 90;
+/// The thresholds the setting takes, in percent.
+pub const AUTO_SWITCH_RANGE: std::ops::RangeInclusive<u8> = 50..=99;
+
+/// The auto-switch threshold, in percent: [`AUTO_SWITCH_AT`] unless set.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct AutoSwitchAt(pub u8);
+
+impl Default for AutoSwitchAt {
+    fn default() -> Self {
+        AutoSwitchAt(AUTO_SWITCH_AT)
+    }
+}
+
+impl AutoSwitchAt {
+    pub fn is_default(&self) -> bool {
+        *self == AutoSwitchAt::default()
+    }
+
+    /// `v` when the setting takes it ([`AUTO_SWITCH_RANGE`]).
+    pub fn new(v: u8) -> Option<AutoSwitchAt> {
+        AUTO_SWITCH_RANGE.contains(&v).then_some(AutoSwitchAt(v))
+    }
+
+    pub fn percent(self) -> f64 {
+        f64::from(self.0)
+    }
 }
 
 impl Default for PoolAlert {
@@ -364,6 +403,9 @@ struct Stored {
     /// An unknown or refused value reads as 10 and 15.
     #[serde(default)]
     pool_alert: serde_json::Value,
+    /// An unknown or refused value reads as [`AUTO_SWITCH_AT`].
+    #[serde(default)]
+    auto_switch_at: serde_json::Value,
     /// Missing in a file an older version wrote: that Mac had the app, so seen.
     #[serde(default)]
     setup_seen: Option<bool>,
@@ -396,6 +438,10 @@ impl From<Stored> for Settings {
             pool_alert: serde_json::from_value::<PoolAlert>(s.pool_alert)
                 .ok()
                 .filter(|p| p.check().is_ok())
+                .unwrap_or_default(),
+            auto_switch_at: serde_json::from_value::<u8>(s.auto_switch_at)
+                .ok()
+                .and_then(AutoSwitchAt::new)
                 .unwrap_or_default(),
             setup_seen: s.setup_seen.unwrap_or(true),
             ext: s.ext,

@@ -464,6 +464,20 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
   if (lang === 'vi' || lang === 'en') over.language = lang;
   const alerts = pick(ALERTS, params.get('alerts') ?? (tab === 'alerts' ? 'on' : null));
   if (alerts) over.alerts = alerts();
+  // `advanced=off`: Cài đặt › Nâng cao off, as a new install has it, with no
+  // rotation rules file: "Tự chuyển khi hết quota" on, after a switch it made at 14:02.
+  if (params.get('advanced') === 'off') {
+    over.advanced = { on: false };
+    over.claudeAccounts = { ...(over.claudeAccounts ?? claudeAccountsFixture()), autoPolicy: 'auto' };
+    over.switcher = {
+      ...(over.switcher ?? switcherFixture()),
+      lastLog: {
+        at: '2026-01-16T07:02:00.000Z',
+        event: { kind: 'switch', slot: 2 },
+        raw: '2026-01-16 14:02:00 switch to slot 2 (full 5h: slot 4 at 91%, 52% used)',
+      },
+    };
+  }
   ext.preview?.apply(params, over);
   const app = pick(APPS, params.get('app'));
   if (app) over.app = app();
@@ -500,6 +514,8 @@ export function previewSetup(params: URLSearchParams): { api: Api; view: 'popove
   const setup = params.get('setup');
   if (setup) over.claudeAccounts = claudeAccountsFixture({ accounts: [], ready: false });
   const model = fixtureModel(SNAPSHOTS[state] ? state : 'fresh', over);
+  // With no rotation rules file no account leaves a rotation.
+  if (params.get('advanced') === 'off') for (const a of model.snapshot.claude.accounts) a.leavesAt = null;
   if (setup) {
     model.firstRun = true;
     if (setup === 'signedout' || setup === 'none') for (const a of model.snapshot.claude.accounts) a.active = false;

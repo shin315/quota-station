@@ -291,7 +291,8 @@ describe('the Claude accounts Quota Station keeps', () => {
         },
       ),
     );
-    expect((screen.getByRole('switch', { name: 'Tự chuyển bằng Quota Station' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('switch', { name: 'Tự chuyển khi hết quota' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('auto-switch').textContent).toContain('Bộ tự chuyển cũ com.cswap.prefer-team còn chạy: tắt nó trước.');
     fireEvent.click(screen.getByRole('button', { name: 'Hướng dẫn tắt' }));
     const guide = screen.getByRole('dialog', { name: 'Tắt bộ tự chuyển cũ' });
     expect(within(guide).getByText('launchctl bootout gui/$(id -u)/com.cswap.prefer-team')).toBeTruthy();

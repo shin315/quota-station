@@ -18,6 +18,7 @@ import type { ClaudeAccountsView } from '../lib/model';
 import type { Action, CardView } from '../lib/view';
 import type { ClaudeManage } from '../window/MainWindow';
 import type { ClaudeAccountsState } from './useClaudeAccounts';
+import type { SimpleAutoView } from '../lib/autoSwitch';
 
 interface Props {
   view: ClaudeAccountsView;
@@ -27,6 +28,8 @@ interface Props {
   advanced: boolean;
   /** A build with the advanced part: an extension's note on the rotation shows (src/ext/types.ts). */
   authorTools?: boolean;
+  /** "Tự chuyển khi hết quota" with Nâng cao off (`lib/autoSwitch`). */
+  auto?: SimpleAutoView;
 }
 
 const ITEM = 'px-2.5 py-[7px] data-[highlighted]:bg-ctl-hover data-[highlighted]:text-ink';
@@ -150,5 +153,13 @@ export function claudeManage(props: Props): ClaudeManage {
     ) : null,
     rotation: rotationParts(props),
     rotationAlone: view.rotation === true || !!view.legacy,
+    auto: props.auto
+      ? {
+          view: props.auto,
+          // The switch is the rotation's: on runs it every 3 minutes, off stops it.
+          onToggle: () => claude.setRotation(!props.auto!.on),
+          onResume: () => onAction('resume'),
+        }
+      : undefined,
   };
 }

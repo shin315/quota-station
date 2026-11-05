@@ -134,9 +134,12 @@ export function claudeSheet(
   if (parts.length) facts.push({ k: '', text: t(name + ' đã dùng ' + parts.join(', ') + '.', name + ' has used ' + parts.join(', ') + '.') });
   facts.push(sessionsFact(sessions));
 
-  // The rotation and its hold are Nâng cao's: without it the sheet only switches.
-  const auto = advancedOn(model);
-  const rotation = auto ? autoFacts(model, target, name, now) : { facts: [], personalOut: false };
+  // The rotation's facts are Nâng cao's. Its hold pauses automatic switching,
+  // so it shows whenever that runs ("Tự chuyển khi hết quota" on), Nâng cao or
+  // not; otherwise the sheet only switches.
+  const adv = advancedOn(model);
+  const auto = adv || model.claudeAccounts.rotation === true;
+  const rotation = adv ? autoFacts(model, target, name, now) : { facts: [], personalOut: false };
   facts.push(...rotation.facts);
   const tight = tightest(cells);
   if (tight && tight.used! >= BAD_USED)

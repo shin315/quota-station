@@ -71,6 +71,24 @@ describe('the Claude switch sheet', () => {
     expect(screen.getByRole('dialog', { name: 'Quota Station' }).querySelector('.body')!.hasAttribute('inert')).toBe(true);
   });
 
+  it('with Nâng cao off, the hold comes while Tự chuyển khi hết quota runs, and not while it is off', async () => {
+    const plain = (rotation: boolean): Model => {
+      const m = fixtureModel('fresh');
+      return { ...m, advanced: { on: false }, claudeAccounts: { ...m.claudeAccounts, rotation, autoPolicy: 'auto' } };
+    };
+    const fake = await open(plain(true));
+    let sheet = await sheetFor('lan.acme2');
+    expect(radios(sheet)).toEqual(['○ 30 phútđến 14:50', '● 1 giờđến 15:20', '○ Đến lúc đặt lạiđến 19:20', '○ Để tự chuyểnkhông giữ']);
+    await act(async () => {
+      fireEvent.click(within(sheet).getByRole('button', { name: 'Chuyển sang lan.acme2' }));
+    });
+    expect(fake.api.switchClaude).toHaveBeenCalledWith(3, '2026-01-16T08:20:40.000Z');
+    cleanup();
+    await open(plain(false));
+    sheet = await sheetFor('lan.acme2');
+    expect(within(sheet).queryAllByRole('radio')).toEqual([]);
+  });
+
   it('"Đến lúc đặt lại" ends at the five-hour reset of an account whose window runs', async () => {
     await open(fixtureModel('fresh'));
     const sheet = await sheetFor('lan.acme3');

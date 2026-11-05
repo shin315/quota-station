@@ -1,16 +1,22 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-//! The advanced part's alert, a kind the app knows only through the hooks
-//! ([`crate::ext::Hooks::alert_kinds`]): 2, an account about to leave the
-//! rotation, 30 minutes before its `expire` in the report's rotation, else
-//! in the rotation file this Mac reads ([`Source::rules`]). On by default.
+//! The advanced part's alerts, kinds the app knows only through the hooks
+//! ([`crate::ext::Hooks::alert_kinds`]), both on by default:
 //!
-//! [`KINDS`] holds its number, switch and the words of its button;
-//! [`Source`] draws it at a pass of the rules, from the rotation file as
-//! the app read it for that pass; [`AlertHooks`] gives the core the kind
-//! and the card "Gửi thử" sends. Nâng cao holds it while it is off
-//! (`super::settings::SettingsHooks`).
+//! - 2, an account about to leave the rotation, 30 minutes before its
+//!   `expire` in the report's rotation, else in the rotation file this Mac
+//!   reads ([`Source::rules`]). Nâng cao holds it while it is off
+//!   (`super::settings::SettingsHooks`).
+//! - 9, "Tự chuyển khi hết quota" moved Claude to another account: the
+//!   rotation's last log line ([`Source::last_log`]) when it is such a
+//!   switch, at most [`SWITCHED_WITHIN`] old. Once per switch. Shown with
+//!   Nâng cao off too: it is a main feature.
+//!
+//! [`KINDS`] holds their numbers, switches and the words of their buttons;
+//! [`Source`] draws them at a pass of the rules, from what the app read for
+//! that pass; [`AlertHooks`] gives the core the kinds and the cards
+//! "Gửi thử" sends.
 
 use time::format_description::well_known::Rfc3339;
 use time::{OffsetDateTime, UtcOffset};
@@ -22,6 +28,7 @@ use crate::ext::Hooks;
 use crate::local_time;
 use crate::quota::Response;
 use crate::rotation::Rules;
+use crate::switcher::{self, Decision, LogEvent, LogLine, Why};
 
 /// Alert 2 comes this long before an account leaves the rotation.
 pub const LEAVING_BEFORE: i64 = 30 * 60;
@@ -29,21 +36,41 @@ pub const LEAVING_BEFORE: i64 = 30 * 60;
 /// Alert 2's name: its cards' `kind` and its switch in the settings file.
 pub const LEAVING: &str = "leaving";
 
-/// Alert 2.
-pub const KINDS: [ExtKind; 1] = [ExtKind {
-    number: 2,
-    name: LEAVING,
-    on: true,
-    answers: &[ExtAnswer {
-        action: "dismiss",
-        title: "Đã ghi nhận",
-        body: "Không nhắc lại cho lần rời vòng này.",
-    }],
-}];
+/// Alert 9's name: its cards' `kind` and its switch in the settings file.
+pub const SWITCHED: &str = "switched";
+
+/// Alert 9 tells of a switch at most this long after it, so a start of the
+/// app long after a switch does not tell of it as news.
+pub const SWITCHED_WITHIN: i64 = 30 * 60;
+
+/// Alerts 2 and 9.
+pub const KINDS: [ExtKind; 2] = [
+    ExtKind {
+        number: 2,
+        name: LEAVING,
+        on: true,
+        answers: &[ExtAnswer {
+            action: "dismiss",
+            title: "Đã ghi nhận",
+            body: "Không nhắc lại cho lần rời vòng này.",
+        }],
+    },
+    ExtKind {
+        number: 9,
+        name: SWITCHED,
+        on: true,
+        answers: &[ExtAnswer { action: "dismiss", title: "Đã ghi nhận", body: "" }],
+    },
+];
 
 /// Alert 2's kind.
 pub fn leaving() -> Kind {
     Kind::Ext(LEAVING.into())
+}
+
+/// Alert 9's kind.
+pub fn switched() -> Kind {
+    Kind::Ext(SWITCHED.into())
 }
 
 /// The advanced part's hooks for the alerts: its kind and the card
@@ -75,6 +102,8 @@ pub struct Source<'a> {
     /// ([`super::pool::rules`]), for a report without the rotation's keys
     /// (`None` where it did not read).
     pub rules: Option<&'a Rules>,
+    /// The rotation's last log line, for alert 9 (`None` where it did not read).
+    pub last_log: Option<&'a LogLine>,
 }
 
 impl ExtSource for Source<'_> {
@@ -83,8 +112,52 @@ impl ExtSource for Source<'_> {
         if let Some(report) = pass.facts.claude {
             out.extend(leaving_alerts(report, self.rules, pass));
         }
+        out.extend(self.last_log.and_then(|line| switched_alert(line, pass)));
         out
     }
+}
+
+/// `5 giờ`, `tuần`.
+fn window_words(window: &str) -> &'static str {
+    if window == "week" {
+        "tuần"
+    } else {
+        "5 giờ"
+    }
+}
+
+/// Alert 9 for the rotation's last log line, when it is a switch of
+/// "Tự chuyển khi hết quota" made in the last [`SWITCHED_WITHIN`].
+fn switched_alert(line: &LogLine, pass: &ExtPass<'_>) -> Option<Alert> {
+    let LogEvent::Switch { slot } = line.event else { return None };
+    let at = line.at.as_deref().and_then(instant)?.unix_timestamp();
+    let now = pass.facts.now.unix_timestamp();
+    if !(0..=SWITCHED_WITHIN).contains(&(now - at)) {
+        return None;
+    }
+    // `switch to slot 3 (full 5h: …)`, read as the decision it logged.
+    let reason = line.raw.split_once(&format!("switch to slot {slot} "))?.1;
+    let Decision::Switch { why: Why::Full { window, from, at: full, .. }, .. } =
+        switcher::parse_decision(&format!("switch {slot} {reason}"))
+    else {
+        return None;
+    };
+    let name = name_of(pass.names, slot);
+    Some(Alert {
+        key: format!("switched:{slot}:{at}"),
+        kind: switched(),
+        tone: Tone::Info,
+        title: format!("Đã tự chuyển Claude sang {name}"),
+        body: format!(
+            "{} đã dùng {}% hạn mức {}. Phiên Claude Code đang chạy vẫn chạy tiếp.",
+            name_of(pass.names, from),
+            full as i64,
+            window_words(&window)
+        ),
+        actions: vec![act("dismiss", "Ổn")],
+        at,
+        test: false,
+    })
 }
 
 /// An `expire` time: RFC 3339 from the report, local `2026-10-16T17:45`
@@ -160,6 +233,14 @@ pub fn sample(name: &str, now: i64, offset: UtcOffset, [a, _, _]: [&str; 3]) -> 
             "Thử: còn 30 phút. Sau đó tự động chuyển sẽ đổi sang tài khoản khác trong vòng xoay."
                 .to_string(),
             vec![act("dismiss", "Ổn"), act("switch:0", "Chuyển ngay")],
+        ),
+        SWITCHED => (
+            Tone::Info,
+            "Đã tự chuyển Claude sang tài khoản khác".to_string(),
+            format!(
+                "Thử: {a} đã dùng 90% hạn mức 5 giờ. Phiên Claude Code đang chạy vẫn chạy tiếp."
+            ),
+            vec![act("dismiss", "Ổn")],
         ),
         _ => return None,
     };

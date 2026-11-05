@@ -324,14 +324,70 @@ describe('with Nâng cao off', () => {
     expect(nav('Sao lưu')).toBeTruthy();
   });
 
-  it('the Claude tab has no Tự chuyển card or pause, and accounts go by number', async () => {
+  it('the Claude tab has Tự chuyển khi hết quota with its pause, not the rotation\'s own card, and accounts go by number', async () => {
     await open(hideNames(plain(fixtureModel('fresh'))), 'claude');
-    expect(screen.queryByRole('group', { name: 'Tạm dừng' })).toBeNull();
+    const card = screen.getByTestId('auto-switch');
+    expect(within(card).getByRole('switch', { name: 'Tự chuyển khi hết quota' }).getAttribute('aria-checked')).toBe('true');
+    expect(within(card).getByRole('group', { name: 'Tạm dừng' })).toBeTruthy();
+    // No advanced tag: it is a main feature.
+    expect(within(card).queryByText('Nâng cao')).toBeNull();
+    expect(screen.queryByText('Chạy nền')).toBeNull();
     expect(screen.queryByText(/chưa tới ngưỡng tự chuyển/)).toBeNull();
     const rows = within(screen.getByRole('list', { name: 'Claude Code' })).getAllByRole('listitem');
     const names = rows.map((r) => r.querySelector('.an b')!.textContent);
     expect(names.every((n) => /^Tài khoản \d+$/.test(n ?? ''))).toBe(true);
     expect(document.body.textContent).not.toMatch(/Team A|Cá nhân/);
+  });
+
+  it('Tự chuyển khi hết quota shows off with two accounts, and one press turns it on', async () => {
+    const m = plain(fixtureModel('fresh'));
+    const fake = await open(
+      {
+        ...m,
+        claudeAccounts: { ...m.claudeAccounts, rotation: false, autoPolicy: 'auto', autoSwitchAt: 90 },
+        switcher: { ...m.switcher!, service: false },
+      },
+      'claude',
+    );
+    const card = screen.getByTestId('auto-switch');
+    const toggle = within(card).getByRole('switch', { name: 'Tự chuyển khi hết quota' });
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
+    expect(card.textContent).toContain(
+      'Đang tắt. Khi tài khoản đang dùng tới 90% (5 giờ hoặc tuần), chuyển sang tài khoản còn nhiều quota nhất.',
+    );
+    expect(within(card).queryByRole('group', { name: 'Tạm dừng' })).toBeNull();
+    await act(async () => {
+      fireEvent.click(toggle);
+    });
+    expect(fake.api.claudeSetRotation).toHaveBeenCalledWith(true);
+    expect(within(screen.getByTestId('auto-switch')).getByRole('switch', { name: 'Tự chuyển khi hết quota' }).getAttribute('aria-checked')).toBe('true');
+    // The fixture's switcher logged a switch this morning.
+    expect(screen.getByTestId('auto-switch').textContent).toContain('Đã chuyển sang lan.acme1 lúc 09:12 · đang theo dõi · chuyển ở 90%');
+  });
+
+  it('Tự chuyển khi hết quota says when it last switched, and while paused offers to allow it again', async () => {
+    const m = plain(fixtureModel('fresh'));
+    const auto = { ...m.claudeAccounts, autoPolicy: 'auto' as const };
+    const lastLog = {
+      at: '2026-01-16T07:02:00.000Z',
+      event: { kind: 'switch' as const, slot: 3 },
+      raw: '2026-01-16 14:02:00 switch to slot 3 (full 5h: slot 2 at 91%, 0% used)',
+    };
+    await open(hideNames({ ...m, claudeAccounts: auto, switcher: switcherFixture({ lastLog }) }), 'claude');
+    expect(screen.getByTestId('auto-switch').textContent).toContain('Đã chuyển sang Tài khoản 3 lúc 14:02 · đang theo dõi · chuyển ở 90%');
+    cleanup();
+    await open({ ...m, claudeAccounts: auto, switcher: heldSwitcher() }, 'claude');
+    const card = screen.getByTestId('auto-switch');
+    expect(card.textContent).toContain('Đang tạm dừng tới 15:20');
+    expect(within(card).queryByRole('group', { name: 'Tạm dừng' })).toBeNull();
+    expect(within(card).getByRole('button', { name: 'Cho phép tự chuyển lại' })).toBeTruthy();
+  });
+
+  it('Tự chuyển khi hết quota waits for a second account', async () => {
+    const m = plain(fixtureModel('fresh'));
+    const one = claudeAccountsFixture({ rotation: false });
+    await open({ ...m, claudeAccounts: { ...one, accounts: one.accounts.slice(1, 2) } }, 'claude');
+    expect(screen.queryByTestId('auto-switch')).toBeNull();
   });
 
   it('a build without the Antigravity accounts reads Antigravity without logging in', async () => {
@@ -365,9 +421,9 @@ describe('a build without the author\'s tools', () => {
     expect(nav('Sao lưu')).toBeTruthy();
     cleanup();
     await open(communityModel(fixtureModel('fresh')), 'claude');
-    expect(screen.queryByRole('group', { name: 'Tạm dừng' })).toBeNull();
-    // The Claude accounts' own rotation switch stays: it does not come with the advanced part.
-    expect(screen.getByRole('switch', { name: 'Tự chuyển bằng Quota Station' })).toBeTruthy();
+    expect(screen.queryByText('Chạy nền')).toBeNull();
+    // Tự chuyển khi hết quota stays: it does not come with the advanced part.
+    expect(screen.getByRole('switch', { name: 'Tự chuyển khi hết quota' })).toBeTruthy();
   });
 
   it('the same Mac on a build with them keeps the tabs', async () => {

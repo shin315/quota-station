@@ -18,6 +18,8 @@ use quota_station_core::claude::manage::{self, Added, ManageError};
 use quota_station_core::claude::state::{self, AccountOut};
 use quota_station_core::claude::store::Store;
 use quota_station_core::claude::switch;
+use quota_station_core::rotation::{self, FileState};
+use quota_station_core::settings::AutoSwitchAt;
 use serde::Serialize;
 use serde_json::{Map, Value};
 use tauri::{AppHandle, State};
@@ -69,6 +71,22 @@ pub struct AccountsView {
     pub ext: Map<String, Value>,
     /// `claude` is on this Mac, to log a new account in with.
     pub claude: bool,
+    /// "Tự chuyển khi hết quota": the percent of the fullest window at which
+    /// it moves Claude (Settings' `autoSwitchAt`).
+    pub auto_switch_at: u8,
+    /// What the rotation follows here: `auto` (no rotation rules file, the
+    /// threshold rule), `rules` (the rules file, Nâng cao's) or `stopped`
+    /// (a rules file its rules refuse or that cannot be read).
+    pub auto_policy: &'static str,
+}
+
+/// [`AccountsView::auto_policy`] for the rotation file at `file`.
+fn auto_policy(file: &std::path::Path) -> &'static str {
+    match rotation::load(file) {
+        FileState::Missing => "auto",
+        FileState::Ok { .. } => "rules",
+        FileState::Invalid { .. } | FileState::Unreadable(_) => "stopped",
+    }
 }
 
 pub fn view(inner: &Inner) -> AccountsView {
@@ -87,7 +105,30 @@ pub fn view(inner: &Inner) -> AccountsView {
         last: inner.claude_live.last.clone(),
         ext: inner.view_keys(View::ClaudeAccounts),
         claude: inner.claude_program.is_some(),
+        auto_switch_at: inner.settings.auto_switch_at.0,
+        auto_policy: auto_policy(&paths.rotation_file()),
     }
+}
+
+/// Sets the threshold of "Tự chuyển khi hết quota", in percent of the
+/// fullest window: refused (`range`) unless 50 to 99. The rotation reads it
+/// at its next run.
+#[tauri::command]
+pub fn set_auto_switch_at(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    at: u8,
+) -> Result<Model, String> {
+    let at = AutoSwitchAt::new(at).ok_or("range")?;
+    {
+        let mut inner = state.lock();
+        let mut settings = inner.settings.clone();
+        settings.auto_switch_at = at;
+        settings.save(&inner.settings_file).map_err(|e| e.to_string())?;
+        inner.settings = settings;
+    }
+    reader::publish(&app, &state);
+    Ok(state.lock().model())
 }
 
 /// The accounts' rows and details from disk, with emails while names show.

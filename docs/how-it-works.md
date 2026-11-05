@@ -110,11 +110,29 @@ touches Claude Code's login is adapted from claude-swap, MIT, credited in
   organization come from the app's Keychain items, stay in memory, go to the
   windows only while `Show emails` is on, and are never written to a file or a
   log.
-- **Automatic switching.** While `Settings › Advanced › Show advanced
-  features` is on, a switch in `Details and nickname…` lets automatic
+- **Automatic switching.** While `Auto-switch when quota runs out` runs, or
+  `Settings › Advanced › Show advanced features` is on, a switch in `Details and nickname…` lets automatic
   switching use the account, and the `⋯` menu can pause automatic switching
   for it (it is never switched to, but kept by the usual rules while in use,
   and can still be switched to by hand).
+- **Auto-switch when quota runs out** (`Tự chuyển khi hết quota`). What the
+  rotation does on a computer with no rotation rules file, for any kind of
+  account. At each run it looks at the account in use: when its fuller window
+  (5-hour or week) reaches the threshold (`autoSwitchAt` in `settings.json`,
+  90 by default, 50 to 99, set in `Settings › Services`), Claude Code moves to
+  the account with the least used of that window, of those with a fresh
+  reading with a number (so not one that must sign in again), not held out, and under the
+  threshold in both windows; equal ones go to the less used other window, then
+  the lower number. With none, nothing moves (`wait (no account with room)`)
+  and alert 1 tells the owner; without a fresh reading of the account in use,
+  nothing moves either. It primes nothing. The switch is the one a switch by
+  hand makes (Claude Code's locks, the check that it landed), and it logs
+  `switch to slot N (full 5h: slot A at P%, Q% used)`; the app then sends one
+  notification for it (alert 9) when the line is under 30 minutes old. The
+  pause flag holds it as it holds the rotation. With a rotation rules file the
+  rules below decide instead, and the threshold is not read; a rules file its
+  rules refuse, or that cannot be read, stops the rotation (`stay (no rotation
+  rules)`) rather than falling back to the threshold.
 - **Rotation.** The `cswap-prefer-team` rules, ported line for line, on the
   app's own copy of the rotation file (`claude/rotation`; the rules editor and
   the copy to the other Macs work on it), with two changes. The Team account
@@ -136,8 +154,9 @@ touches Claude Code's login is adapted from claude-swap, MIT, credited in
   first. So a window is used before it resets unused, for about one switch back
   (each switch makes every running session read its context again). With no
   such account the one in use is kept until a window reaches the threshold, as
-  in the script. `Auto-switch with
-  Quota Station` (`Tự chuyển bằng Quota Station`) loads the app's LaunchAgent,
+  in the script. Turning on `Auto-switch when quota runs out` (labelled
+  `Auto-switch with Quota Station` in the rotation's own card while
+  `Settings › Advanced` is on) loads the app's LaunchAgent,
   `com.shin315.quota-station.rotation`, which runs `quota-station claude rotate`
   every 180 seconds whether or not the app is open, and logs to
   `claude/rotation.log`; a failed step is logged with its cause on the same
@@ -333,8 +352,8 @@ flag and does not show Claude as paused.
   claude-swap's Keychain items once and writes nothing there.
 - Live sessions are counted from `~/.claude/sessions/*.json`: only the `pid`
   and `kind` fields are read, and a session counts when its process is alive.
-- The rotation: a dry run of its rules in the app (no program runs and nothing
-  switches), the last line of `claude/rotation.log` (of
+- The rotation: a dry run of its rules (or of the threshold, without a rules
+  file) in the app (no program runs and nothing switches), the last line of `claude/rotation.log` (of
   `~/Library/Logs/cswap-prefer-team.log` before the app keeps an account), and
   `launchctl list` for `com.shin315.quota-station.rotation`,
   `com.cswap.prefer-team` and `com.cswap.auto`. These run with each read while

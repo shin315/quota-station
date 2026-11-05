@@ -3,14 +3,16 @@
 
 //! What the advanced part reads for its alerts after each read
 //! ([`crate::ext::Extension::alert_read`]): the rotation file, for
-//! alert 2 when the report has no rotation. Alert 2 is drawn by
-//! `quota_station_core::advanced::alerts` ([`Leaving`]).
+//! alert 2 when the report has no rotation, and the rotation's last log
+//! line, for alert 9 (a switch of "Tự chuyển khi hết quota"). Both are
+//! drawn by `quota_station_core::advanced::alerts` ([`Leaving`]).
 
 use quota_station_core::advanced::alerts::Source as Leaving;
 use quota_station_core::advanced::pool;
 use quota_station_core::alerts::{Alert, ExtPass, ExtSource};
 use quota_station_core::claude::Paths;
 use quota_station_core::rotation::Rules;
+use quota_station_core::switcher::{self, LogLine};
 
 use crate::ext::{AlertInput, AlertRead, Kept};
 
@@ -18,16 +20,20 @@ use crate::ext::{AlertInput, AlertRead, Kept};
 pub struct Read {
     /// The rotation file's rules, when it read.
     rules: Option<Rules>,
+    /// The rotation's last log line, when there is one.
+    last_log: Option<LogLine>,
 }
 
-/// Reads the rotation file this Mac follows.
+/// Reads the rotation file this Mac follows and the rotation's last log line.
 pub fn read(input: &AlertInput<'_>) -> Read {
-    Read { rules: pool::rules(&Paths::new(input.home, input.app_dir.path())) }
+    let paths = Paths::new(input.home, input.app_dir.path());
+    let last_log = paths.in_use().then(|| switcher::last_log_line(&paths.log())).flatten();
+    Read { rules: pool::rules(&paths), last_log }
 }
 
 impl ExtSource for Read {
     fn alerts(&self, pass: &mut ExtPass<'_>) -> Vec<Alert> {
-        Leaving { rules: self.rules.as_ref() }.alerts(pass)
+        Leaving { rules: self.rules.as_ref(), last_log: self.last_log.as_ref() }.alerts(pass)
     }
 }
 

@@ -120,6 +120,8 @@ export type Why =
   | { kind: 'room'; used: number; ends: string | null }
   | { kind: 'personal'; used: number }
   | { kind: 'park'; at: string }
+  /** "Tự chuyển khi hết quota": `from` reached `at`% of its `window`; the target has `used`% of it used. */
+  | { kind: 'full'; window: '5h' | 'week'; from: number; at: number; used: number }
   | { kind: 'other' };
 
 /** The switcher's `--dry-run` decision line, in parts. */
@@ -256,6 +258,14 @@ export interface ClaudeAccountsView {
   legacy: string | null;
   /** `claude` is on this Mac, to log a new account in with. */
   claude: boolean;
+  /** "Tự chuyển khi hết quota": the percent of the fullest window (5-hour or week) at which it switches. */
+  autoSwitchAt: number;
+  /**
+   * What the rotation follows: `auto`, the threshold rule (no rotation rules
+   * file); `rules`, the rotation rules file (Nâng cao); `stopped`, a rules
+   * file that cannot be followed.
+   */
+  autoPolicy: 'auto' | 'rules' | 'stopped';
 }
 
 export interface Hold {
@@ -535,6 +545,8 @@ export interface HistoryEntry {
 export type SwitchKind =
   | 'pool'
   | 'leaving'
+  /** "Tự chuyển khi hết quota" moved Claude to another account. */
+  | 'switched'
   | 'login'
   | 'overwrite'
   /** An extension's (`src/ext/types.ts`). */

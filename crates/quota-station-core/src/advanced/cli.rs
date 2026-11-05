@@ -99,7 +99,7 @@ impl Hooks for CliHooks {
                     rotate::dry_run(
                         store,
                         &tools,
-                        rotate::rules(store).as_ref(),
+                        &rotate::policy(store),
                         OffsetDateTime::now_utc(),
                     )
                 } else {
