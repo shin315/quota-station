@@ -211,7 +211,7 @@ function failedWords(error: string, detail: string, reopened: boolean | null): s
     case 'refresh':
       return t('Không làm mới được đăng nhập của tài khoản này' + d + '.', 'Could not refresh this account’s sign-in' + d + '.') + nothing;
     case 'client':
-      return mac(t('Thiếu hoặc sai oauth-client.json trên máy này.', 'oauth-client.json is missing or wrong on this Mac.')) + nothing;
+      return mac(t('OAuth client Antigravity trên Mac này chưa dùng được (xem thẻ Đăng nhập).', 'The Antigravity OAuth client is not usable on this Mac (see the Sign-in card).')) + nothing;
     case 'keychain':
       return t('Không đọc được đăng nhập của tài khoản này trong ' + secretStore() + ' của app.', 'Could not read this account’s sign-in from the app’s ' + secretStore() + '.') + nothing;
     case 'notQuit':

@@ -45,8 +45,9 @@ what it reads and writes of Claude Code's login is in
 
 Files, under `~/Library/Application Support/com.shin315.quota-station/`:
 
-- `oauth-client.json`: the Antigravity OAuth client, which the owner puts
-  there (see [docs/how-it-works.md](docs/how-it-works.md#the-oauth-client-file)). The app only reads it, and refuses it unless only
+- `oauth-client.json`, only when the owner puts one there: an Antigravity
+  OAuth client, used before the one the app finds in the installed
+  Antigravity (see [docs/how-it-works.md](docs/how-it-works.md#the-oauth-client-file)). The app only reads it, and refuses it unless only
   the owner can read it (mode 600; on Windows, where files keep no mode, it
   is `%APPDATA%\com.shin315.quota-station\oauth-client.json`, which the
   user profile's access list keeps to its owner). The id and the secret never go into this
@@ -145,11 +146,21 @@ The macOS cards go through the system's
 notification center with the app's own bundle id; a card is withdrawn once
 it is answered in the app.
 
-Besides its own Keychain items, the only place outside its folder the
-Antigravity code reads is the Antigravity app's bundle,
+Besides its own Keychain items, the places outside its folder the
+Antigravity code reads are the Antigravity app's bundle,
 `/Applications/Antigravity IDE.app`, for its
 version: `product.json`, google-auth-library's `package.json`, and
-`Info.plist` through `/usr/bin/plutil -p`. It never writes there. On
+`Info.plist` through `/usr/bin/plutil -p`; and, while there is no
+`oauth-client.json`, Antigravity's own programs, for its OAuth client:
+`language_server` (`language_server.exe`) under the desktop app's and the
+IDE's install folders and the `agy` CLI
+([docs/how-it-works.md](docs/how-it-works.md#the-oauth-client-file) lists
+the places). It reads them as plain files, never runs, changes or signs
+them, and writes nothing there. The repository holds only the SHA-256 of
+the client's id and secret; the client the app finds stays in its memory,
+never in a file, a log or the app's windows. As in any OAuth login, the id
+is in Google's consent URL in the browser and the secret goes only to
+Google's token endpoint. On
 Windows the quota calls carry a default version and nothing is read for
 them.
 
@@ -1052,9 +1063,11 @@ reads or writes a login, an account, a key or a quota file of any of them.
 ## Terms of service
 
 The Antigravity login borrows Antigravity's own OAuth client, so Google's
-consent screen names Antigravity, not Quota Station. The app calls Google
-the way Antigravity does: the same client, flow, scopes, parameters and
-refresh rule, and for quota the same three Cloud Code calls
+consent screen names Antigravity, not Quota Station. It takes that client
+from the Antigravity installed on the same computer (above) rather than
+from the repository. The app calls Google the way Antigravity does: the
+same client, flow, scopes, parameters and refresh rule, and for quota the
+same three Cloud Code calls
 (`loadCodeAssist`, `fetchAvailableModels`, `retrieveUserQuotaSummary`) with
 Antigravity's user agent, headers and bodies. A switch calls Google only to
 refresh a token about to expire and, while the token lacks them, to ask

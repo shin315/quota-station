@@ -164,11 +164,11 @@ describe('settings tab', () => {
     expect(screen.getByText('macOS sẽ hỏi. Bấm "Luôn cho phép". App chỉ đọc đăng nhập của Claude Code để lấy số, không làm mới hay sửa nó.')).toBeTruthy();
   });
 
-  it('says whether oauth-client.json is in place and where it goes', async () => {
+  it('says whether there is an OAuth client, where it comes from and where a file goes', async () => {
     await open(fixtureModel('fresh'));
     await showGroup('Dịch vụ');
     expect(screen.getByText('có, dùng được')).toBeTruthy();
-    expect(screen.getByText('Quyền 600, chỉ có trên Mac này.')).toBeTruthy();
+    expect(screen.getByText('Từ Antigravity đã cài, hoặc file oauth-client.json nếu có.')).toBeTruthy();
     // The path waits behind "Chi tiết".
     expect(screen.queryByText('~/Library/Application Support/com.shin315.quota-station/oauth-client.json')).toBeNull();
     await act(async () => {
@@ -176,7 +176,7 @@ describe('settings tab', () => {
     });
     const more = screen.getByRole('dialog');
     expect(within(more).getByText('~/Library/Application Support/com.shin315.quota-station/oauth-client.json')).toBeTruthy();
-    expect(more.textContent).toContain('quyền 600, chỉ có trên Mac này. Điền client_id và client_secret của OAuth client Antigravity; định dạng và lệnh tạo file có trong mục “The OAuth client file” của hướng dẫn: https://github.com/shin315/quota-station/blob/main/docs/how-it-works.md#the-oauth-client-file');
+    expect(more.textContent).toContain('App tìm OAuth client trong Antigravity đã cài (app hoặc CLI agy), chỉ đọc, và chỉ giữ trong bộ nhớ. File ~/Library/Application Support/com.shin315.quota-station/oauth-client.json, quyền 600, nếu có thì được dùng trước; định dạng có trong mục “The OAuth client file” của hướng dẫn: https://github.com/shin315/quota-station/blob/main/docs/how-it-works.md#the-oauth-client-file');
     expect(more.textContent?.endsWith('https://github.com/shin315/quota-station/blob/main/docs/how-it-works.md#the-oauth-client-file')).toBe(true);
     cleanup();
     await open(fixtureModel('fresh', { antigravity: agyFixture({ client: 'tooOpen' }) }));
@@ -186,6 +186,10 @@ describe('settings tab', () => {
     await open(fixtureModel('fresh', { antigravity: agyFixture({ client: 'missing' }) }));
     await showGroup('Dịch vụ');
     expect(screen.getByText('chưa có')).toBeTruthy();
+    cleanup();
+    await open(fixtureModel('fresh', { antigravity: agyFixture({ client: 'unrecognized' }) }));
+    await showGroup('Dịch vụ');
+    expect(screen.getByText('chưa nhận ra')).toBeTruthy();
   });
 
   it('the email switch is on by default and turning it off saves through the fake', async () => {

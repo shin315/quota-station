@@ -6,12 +6,14 @@
 // commit 244b957); modified for this app (NOTICE).
 
 //! The OAuth client the app logs in with: Antigravity's own, so Google sees
-//! the same client as for Antigravity itself. Its id and secret never go
-//! into this public repository. The owner puts them in
-//! `oauth-client.json` at the root of the app's Application Support folder,
-//! readable only by them (mode 600); on Windows that folder is
-//! `%APPDATA%\com.shin315.quota-station`, which the user profile's access
-//! list keeps to its owner:
+//! the same client either way. Its id and secret never go into this public
+//! repository. The app finds them in the Antigravity installed on this
+//! computer ([`super::discover`]), so adding an account needs no setup.
+//!
+//! An `oauth-client.json` at the root of the app's Application Support
+//! folder, when there, comes first: readable only by its owner (mode 600);
+//! on Windows that folder is `%APPDATA%\com.shin315.quota-station`, which
+//! the user profile's access list keeps to its owner:
 //!
 //! ```json
 //! { "client_id": "<id>.apps.googleusercontent.com", "client_secret": "<secret>" }
@@ -19,12 +21,14 @@
 //!
 //! The file is checked before use; a UTF-8 byte order mark, as Windows
 //! editors write one, is skipped. Nothing here prints the id or the secret:
-//! `Debug` hides them and the UI only learns the file's [`ClientStatus`].
+//! `Debug` hides them and the UI only learns the [`ClientStatus`].
 
 use std::path::PathBuf;
+use std::sync::OnceLock;
 
 use serde::{Deserialize, Serialize};
 
+use super::discover::{Miss, Sources};
 use crate::app_dir::AppDir;
 
 pub const FILE: &str = "oauth-client.json";
@@ -67,12 +71,16 @@ impl OAuthClient {
     }
 }
 
-/// What the app found in `oauth-client.json`.
+/// Whether the app has a client to log in with, and why not.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ClientStatus {
     Ok,
+    /// No `oauth-client.json`, and no Antigravity on this computer.
     Missing,
+    /// No `oauth-client.json`, and the Antigravity on this computer is a
+    /// build whose client the app does not know.
+    Unrecognized,
     /// Not a plain file the app can read.
     Unreadable,
     /// Group or others may read it: the app refuses it until it is 600.
@@ -91,8 +99,35 @@ pub fn path(dir: &AppDir) -> PathBuf {
     dir.path().join(FILE)
 }
 
-/// Reads the client, or says why it cannot.
+static INSTALLED: OnceLock<Sources> = OnceLock::new();
+
+/// Lets [`load`] look in `sources` when there is no `oauth-client.json`.
+/// The app calls it once as it starts, with [`Sources::system`]; a test
+/// gives only fake places, so no test reads the Antigravity of the computer
+/// it runs on.
+pub fn use_installed(sources: Sources) {
+    let _ = INSTALLED.set(sources);
+}
+
+/// Reads the client: `oauth-client.json` when it is there, else the one in
+/// the installed Antigravity; or says why there is none.
 pub fn load(dir: &AppDir) -> Result<OAuthClient, ClientStatus> {
+    load_with(dir, INSTALLED.get())
+}
+
+/// [`load`] with the given places to look in, or none.
+pub fn load_with(dir: &AppDir, installed: Option<&Sources>) -> Result<OAuthClient, ClientStatus> {
+    match (load_file(dir), installed) {
+        (Err(ClientStatus::Missing), Some(sources)) => sources.find().map_err(|miss| match miss {
+            Miss::NotInstalled => ClientStatus::Missing,
+            Miss::Unrecognized => ClientStatus::Unrecognized,
+        }),
+        (file, _) => file,
+    }
+}
+
+/// Reads `oauth-client.json`, or says why it cannot.
+fn load_file(dir: &AppDir) -> Result<OAuthClient, ClientStatus> {
     let file = path(dir);
     let meta = match dir.metadata(&file) {
         Ok(meta) => meta,

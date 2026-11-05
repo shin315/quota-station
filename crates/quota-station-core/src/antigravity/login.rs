@@ -36,7 +36,8 @@ pub struct Deps<'a> {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LoginError {
-    /// `oauth-client.json` is not usable.
+    /// No OAuth client: none in the installed Antigravity, or an
+    /// `oauth-client.json` that is not usable.
     Client(ClientStatus),
     Flow(FlowError),
     Browser(String),
@@ -77,7 +78,7 @@ impl LoginError {
 impl std::fmt::Display for LoginError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            LoginError::Client(s) => write!(f, "oauth-client.json is not usable: {s:?}"),
+            LoginError::Client(s) => write!(f, "no OAuth client to log in with: {s:?}"),
             LoginError::Flow(e) => e.fmt(f),
             LoginError::Browser(e) => write!(f, "could not open the browser: {e}"),
             LoginError::Exchange(e) => write!(f, "code exchange failed: {e}"),
@@ -272,7 +273,7 @@ pub enum UseError {
 impl std::fmt::Display for UseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            UseError::Client(s) => write!(f, "oauth-client.json is not usable: {s:?}"),
+            UseError::Client(s) => write!(f, "no OAuth client to log in with: {s:?}"),
             UseError::Keychain(e) => e.fmt(f),
             UseError::NeedsLogin => write!(f, "Google refused the refresh token: log in again"),
             UseError::Refresh(e) => write!(f, "token refresh failed: {e}"),

@@ -149,6 +149,7 @@ function LanguageRow({ model, onPick }: { model: Model; onPick(language: Languag
 const clientChips = (): Record<ClientStatus, ChipView> => ({
   ok: { t: t('có, dùng được', 'present, usable'), k: 'ok' },
   missing: { t: t('chưa có', 'missing'), k: 'warn' },
+  unrecognized: { t: t('chưa nhận ra', 'not recognized'), k: 'warn' },
   tooOpen: { t: t('cần quyền 600', 'needs mode 600'), k: 'bad' },
   invalid: { t: t('chưa đúng', 'invalid'), k: 'bad' },
   unreadable: { t: t('không đọc được', 'unreadable'), k: 'bad' },
@@ -961,14 +962,18 @@ export function Settings(props: SettingsProps) {
               inline
               hint={
                 <span>
-                  {os(t('Quyền 600, chỉ có trên Mac này.', 'Mode 600, on this Mac only.'), t('Chỉ có trên máy này.', 'On this PC only.'))}{' '}
+                  {t('Từ Antigravity đã cài, hoặc file oauth-client.json nếu có.', 'From the installed Antigravity, or an oauth-client.json when there is one.')}{' '}
                   <More small about={t('OAuth client Antigravity', 'Antigravity OAuth client')}>
                     <p>
-                      <span className={CODE}>{model.antigravity.clientPath}</span>
-                      {os(t(', quyền 600, chỉ có trên Mac này.', ', mode 600, on this Mac only.'), t(', chỉ có trên máy này.', ', on this PC only.'))}{' '}
                       {t(
-                        'Điền client_id và client_secret của OAuth client Antigravity; định dạng và lệnh ' + os('', 'PowerShell ') + 'tạo file có trong mục “The OAuth client file” của hướng dẫn: https://github.com/shin315/quota-station/blob/main/docs/how-it-works.md#the-oauth-client-file',
-                        'Fill in the client_id and client_secret of Antigravity’s OAuth client; the guide’s “The OAuth client file” section gives the format and the ' + os('', 'PowerShell ') + 'command that creates the file: https://github.com/shin315/quota-station/blob/main/docs/how-it-works.md#the-oauth-client-file',
+                        'App tìm OAuth client trong Antigravity đã cài (app hoặc CLI agy), chỉ đọc, và chỉ giữ trong bộ nhớ. File ',
+                        'The app finds the OAuth client in the installed Antigravity (the app or the agy CLI), only reading it, and keeps it in memory only. The file ',
+                      )}
+                      <span className={CODE}>{model.antigravity.clientPath}</span>
+                      {os(t(', quyền 600,', ', mode 600,'), '')}{' '}
+                      {t(
+                        'nếu có thì được dùng trước; định dạng' + os('', ' và lệnh PowerShell tạo file') + ' có trong mục “The OAuth client file” của hướng dẫn: https://github.com/shin315/quota-station/blob/main/docs/how-it-works.md#the-oauth-client-file',
+                        'comes first when it is there; the guide’s “The OAuth client file” section gives the format' + os('', ' and the PowerShell command that makes it') + ': https://github.com/shin315/quota-station/blob/main/docs/how-it-works.md#the-oauth-client-file',
                       )}
                     </p>
                   </More>

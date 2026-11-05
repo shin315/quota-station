@@ -135,6 +135,11 @@ pub fn run<E: Extension>(context: tauri::Context<tauri::Wry>, extension: E) {
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
             let home = app.path().home_dir()?;
+            // Antigravity's OAuth client, from the Antigravity installed here.
+            #[cfg(feature = "antigravity-accounts")]
+            quota_station_core::antigravity::client::use_installed(
+                quota_station_core::antigravity::discover::Sources::system(&home),
+            );
             let settings_file = app.path().app_config_dir()?.join("settings.json");
             let mut inner = Inner::new(home, settings_file, machine_name(), hooks);
             inner.app_version = app.package_info().version.to_string();

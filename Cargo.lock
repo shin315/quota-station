@@ -3103,6 +3103,7 @@ dependencies = [
  "junction",
  "libc",
  "md5",
+ "memchr",
  "open",
  "quota-station-core",
  "reqwest 0.12.28",
