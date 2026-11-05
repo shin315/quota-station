@@ -2,30 +2,30 @@
 
 **English** · [Tiếng Việt](README.vi.md)
 
-An app for the macOS menu bar and the Windows tray that shows how much of your
-Claude Code, Codex and Antigravity quota is used, switches between your
+An app for the macOS menu bar and the Windows system tray that shows how much
+of your Claude Code, Codex and Antigravity quota is used, switches between your
 accounts, and keeps the agents' MCP servers, skills and instruction files in
-order. With two or more Claude accounts it can switch Claude Code to another
-account by itself when the one in use runs out of quota, and the Claude Code
-sessions already running keep going. The interface is in English and
+order. With two or more Claude accounts, it can automatically switch Claude
+Code to another account when the one in use runs out of quota, while running
+Claude Code sessions keep going. The interface is available in English and
 Vietnamese.
 
 <p align="center">
-  <img src="docs/screenshots/en/popover.png" width="360" alt="The popover in the dark look: a section each for Claude, Antigravity and Codex, each opening on its account in use with the share used and the time until reset, the other accounts folded under one line, and Auto-switch when quota runs out at the foot, on, with Pause">
+  <img src="docs/screenshots/en/popover.png" width="360" alt="The popover in the dark look: a section each for Claude, Antigravity and Codex, each opening on its account in use with the percent used and the time until reset, the other accounts folded under one line, and Auto-switch when quota runs out at the foot, on, with Pause">
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/menubar.png" width="600" alt="The menu bar item in a light and a dark menu bar: the C04 gauge with the account and its share used for Claude, Gemini and Codex on ChatGPT, Codex through a custom provider with no number, a paused rotation with two bars in the gauge, and an exhausted rotation with a warning triangle">
+  <img src="docs/screenshots/menubar.png" width="600" alt="The menu bar item in a light and a dark menu bar: the C04 gauge with the account and its percent used for Claude, Gemini and Codex on ChatGPT, Codex through a custom provider with no number, a paused rotation with two bars in the gauge, and an exhausted rotation with a warning triangle">
 </p>
 
-Quota Station reads the quota itself, on your computer; it needs no other
-program for the numbers.
+Quota Station reads the quota itself, right on your computer; it needs no other
+program to get the data.
 
 Every image on this page uses made-up test data, never real accounts.
 
 > **Status.** For macOS 13 or later and Windows 10 or 11 (x64). Download it
 > from [Releases](https://github.com/shin315/quota-station/releases/latest);
-> [Install](#install) says how.
+> see [Install](#install) for instructions.
 
 ## Contents
 
@@ -48,33 +48,33 @@ Every image on this page uses made-up test data, never real accounts.
 Many people keep two or three Claude accounts (Pro, Max or Team) and sign out
 and in again whenever the one in use runs out. Quota Station does it for you:
 turn on `Auto-switch when quota runs out` in the `Claude` tab or at the foot of
-the popover, and when the account in use reaches 90 % of its 5-hour or weekly
+the popover, and when the account in use reaches 90% of its 5-hour or weekly
 window, Claude Code moves to the account with the most quota left in that
 window. Accounts that must sign in again, or are nearly out too, are skipped;
-with none left it keeps the account in use and tells you. A switch keeps the
-Claude Code sessions already running: they go on, and only rebuild their
-prompt cache once.
+with none left it keeps the account in use and tells you. A switch keeps
+running Claude Code sessions alive: they go on, and only rebuild their prompt
+cache once.
 
-It checks every 3 minutes (a LaunchAgent on a Mac, so even with the app
-closed; the app's own timer on Windows), sends a notification after each
-switch, and has a `Pause` (1 hour, until 18:00, or until you turn it back on).
-A switch by hand can hold the new account for a while. The threshold is in
-`Settings › Services`. It is off on a new install, and shows as soon as there
-are two accounts.
+It checks every 3 minutes (via a LaunchAgent on a Mac, so it runs even when the
+app is closed; via the app's own timer on Windows), sends a notification after
+each switch, and has a `Pause` button (1 hour, until 18:00, or until you turn
+it back on). When you switch by hand, you can hold the new account in place for
+a while. The threshold is in `Settings › Services`. It is off on a new install,
+and appears as soon as there are two accounts.
 
 ### The menu bar and the popover
 
-The menu bar shows a small gauge and the account in use with its share used,
+The menu bar shows a small gauge and the account in use with its percent used,
 such as `lan.acme1 74%`. You pick which service it follows (Claude, Gemini or
 Codex) and which window it shows (5-hour, week, Fable week, or the one used the
 most). A left click opens the popover: one section per service, each opening
-on the account in use with every quota window and its reset time, the other
-accounts one click away. The bars turn amber from 70 % and red from 90 %. A
-right click gives a short menu.
+on the account in use with every quota window and its reset time, and the other
+accounts one click away. The bars turn amber from 70% and red from 90%. A
+right click opens a short menu.
 
 ### The main window
 
-<img src="docs/screenshots/en/overview.png" width="760" alt="The main window's Overview: the Claude, Antigravity and Codex accounts in tables with the share used of each window and a Switch button on each account not in use">
+<img src="docs/screenshots/en/overview.png" width="760" alt="The main window's Overview: the Claude, Antigravity and Codex accounts in tables with the percent used of each window and a Switch button on each account not in use">
 
 `Overview` puts every account of the three services in one place, with
 `Switch` on each account not in use. The sidebar groups the rest: `Stats`, the
@@ -85,35 +85,36 @@ notifications.
 
 ### Claude accounts
 
-Quota Station keeps several Claude accounts and switches Claude Code between
-them itself: add one by signing in with the browser, taking the account Claude
-Code is signed in to, or pasting a setup-token. A switch first shows how many
-running Claude Code sessions will rebuild their prompt cache, then checks that
-it landed.
+Quota Station manages several Claude accounts and switches Claude Code between
+them directly: add one by signing in with the browser, taking the account
+Claude Code is signed in to, or pasting a setup-token. Before switching, it
+shows how many running Claude Code sessions will rebuild their prompt cache,
+then checks that the switch landed.
 
-Switching by itself is [Auto-switch when quota runs out](#auto-switch-when-quota-runs-out),
-for every kind of account. Rules of your own for it (Team accounts in a set
-order, a personal account only in set hours, accounts that leave on a date)
-are one of the [advanced tools](#advanced).
+Automatic switching is covered in
+[Auto-switch when quota runs out](#auto-switch-when-quota-runs-out) and works
+with every kind of account. Custom rotation rules (Team accounts in a set
+order, a personal account only during set hours, accounts that leave rotation
+on a given date) are part of the [advanced tools](#advanced).
 
 ### Codex
 
 <img src="docs/screenshots/en/codex.png" width="760" alt="The Codex tab: four ChatGPT accounts and three custom API providers with Switch, the plugins box, the API key line, Wake ChatGPT and Codex on this Mac">
 
-Keep several ChatGPT accounts for Codex, and custom API providers from its
-`config.toml`, and switch between them; the ChatGPT sign-in stays in place so
-Codex App's plugins keep working on a custom provider. Every switch shows what
-changes first, writes one file with a backup, and never sends your sign-in to a
-provider. `Wake ChatGPT` can start an account's five-hour window early, on a
+Keep several ChatGPT accounts for Codex, along with custom API providers from
+its `config.toml`, and switch between them; the ChatGPT sign-in stays in place
+so Codex App's plugins keep working on a custom provider. Every switch shows
+what changes first, writes one file with a backup, and never sends your sign-in
+to a provider. `Wake ChatGPT` can start an account's 5-hour window early, on a
 schedule you set.
 
 ### Antigravity
 
-The Antigravity row shows the Gemini and Claude/GPT quota of the account signed
-in. It can also sign several Google accounts in and switch the one
-Antigravity.app and `agy` use: the downloads and a build from source with
-`scripts/install.sh` have these Antigravity accounts, and only
-`QS_ANTIGRAVITY_ACCOUNTS=0` leaves them out.
+The Antigravity row shows the Gemini and Claude/GPT quota of the signed-in
+account. It can also sign in to several Google accounts and switch which one
+Antigravity.app and `agy` use: downloaded releases and builds from source with
+`scripts/install.sh` include this multi-account support, and only
+`QS_ANTIGRAVITY_ACCOUNTS=0` leaves it out.
 
 ### MCP servers, skills, plugins and instruction files
 
@@ -121,65 +122,67 @@ Antigravity.app and `agy` use: the downloads and a build from source with
 
 One table for every MCP server of Claude Code, Codex and Antigravity, with a
 checkbox per agent. Ticks are collected, shown in one preview, written once with
-a backup, and can be undone. Keys stay in the Keychain and never show.
+a backup, and can be undone. Keys stay in the Keychain and are never shown.
 
 <img src="docs/screenshots/en/skills.png" width="760" alt="The Skills tab: a row per skill with a checkbox per agent, two with updates available, Update all and Install from GitHub">
 
 The `Skills` tab does the same for skills, installs them from GitHub and tells
 you when one has a newer version. `Plugins` lists what each agent has
-installed, and `Instruction files` follows CLAUDE.md, AGENTS.md and GEMINI.md.
+installed, and `Instruction files` tracks CLAUDE.md, AGENTS.md and GEMINI.md.
 
 ### Config sets
 
 <img src="docs/screenshots/en/sets.png" width="760" alt="Config sets: the set in use with one entry that differs, and three sets with Apply…, Edit and Delete">
 
 A set turns a chosen group of MCP servers and skills on or off for the whole
-Mac in one go, after one preview, and can switch Codex too. It tells you when
-the Mac has drifted from it, and can be undone.
+Mac in one go, after a single preview, and can switch Codex too. The app tells
+you when the Mac has drifted from the active set, and applying a set can be
+undone.
 
 ### Backup and restore
 
 <img src="docs/screenshots/en/backup.png" width="760" alt="The Backup tab: the latest pack, automatic backup switches, the saved keys, and the packs of three Macs">
 
-Back the MCP servers, skills, plugins and instruction files up to iCloud Drive
+Back up your MCP servers, skills, plugins and instruction files to iCloud Drive
 (or a folder you pick) and restore them on any of your Macs, item by item.
-A pack never holds a key: the restore asks for them again.
+A backup pack never holds keys: restoring asks for them again.
 
 ### Stats
 
 <img src="docs/screenshots/en/stats.png" width="760" alt="Stats for 7 days: 45.5 million tokens, the equivalent API price, a stacked column per day for Claude Code and Codex, and the tokens by Claude account, by project and by model">
 
 The tokens Claude Code and Codex used on this Mac, read from their own session
-logs (counts only, never the conversation): by day or hour, by Claude account,
-project and model, with what they would cost at API prices.
+logs (token counts only, never the conversation): by day or hour, and by Claude
+account, project and model, along with what they would cost at API prices.
 
 ### Agent updates
 
 <img src="docs/screenshots/en/updates.png" width="760" alt="Agent updates: Claude Code already the newest, the Codex CLI and the Antigravity CLI with a new version and an Update button, and Check automatically">
 
-Checks whether Claude Code, the Codex CLI and the Antigravity CLI are the
-newest, and runs a tool's own update only when you press `Update`.
+Checks whether Claude Code, the Codex CLI and the Antigravity CLI are up to
+date, and runs each tool's own update command only when you press `Update`.
 
 ### Notifications
 
-Notifications come when Claude's quota is running out, Auto-switch moved
-Claude to another account, an account must sign in again, an Antigravity switch was undone, a skill or a tool has a
-new version, or an environment variable (such as `ANTHROPIC_API_KEY` in
-`~/.zshrc`) overrides an agent's sign-in. Each comes once, as a macOS card with
-buttons, and stays under the bell. The cards' own text is in Vietnamese for
-now, whatever the app's language.
+Notifications arrive when Claude's quota is running out, auto-switch moves
+Claude to another account, an account must sign in again, an Antigravity switch
+is overwritten, a skill or tool has a new version, or an environment variable
+(such as `ANTHROPIC_API_KEY` in `~/.zshrc`) overrides an agent's sign-in. Each
+is sent once, as a macOS notification with buttons, and stays under the bell.
+The notifications' own text is in Vietnamese for now, whatever the app's
+language.
 
 This page shows no picture of them; the
 [Vietnamese README](README.vi.md#thông-báo) does.
 
 ### Settings, themes and language
 
-<img src="docs/screenshots/en/settings.png" width="760" alt="Settings › Display: Appearance, the six theme packs drawn as the window in small, Show emails, and the menu bar's service and number">
+<img src="docs/screenshots/en/settings.png" width="760" alt="Settings › Display: Appearance, the six theme packs drawn as miniature windows, Show emails, and the menu bar's service and number">
 
 Settings has `General` (language, open at login, backup folder, app updates),
 `Display` (light or dark, six theme packs, the menu bar), `Notifications` and
-`Services`. Turn off `Show emails` and accounts are named by place or number,
-for screenshots.
+`Services`. Turn off `Show emails` to name accounts by place or number, for
+screenshots.
 
 Settings also has `Advanced`, which shows the [advanced tools](#advanced).
 
@@ -187,7 +190,7 @@ Settings also has `Advanced`, which shows the [advanced tools](#advanced).
 
 <img src="docs/screenshots/en/first-run.png" width="760" alt="The first run's second step, What this Mac has: Claude Code, Codex and Antigravity found">
 
-A new install opens on a short setup: language, what this Mac has, the Claude
+A new install opens with a short setup: language, what this Mac has, the Claude
 accounts, permissions, done.
 
 ### More
@@ -200,21 +203,22 @@ accounts, permissions, done.
 
 `Settings › Advanced › Show advanced features`, off on a new install, adds the
 rotation rules editor (Team accounts in a set order, a personal account in set
-hours, end dates, priming), which replaces the threshold of
+hours, end dates, priming)—which replaces the threshold of
 [Auto-switch when quota runs out](#auto-switch-when-quota-runs-out) once rules
-are saved, the rotation's own background details, sending the rules to other
-Macs over SSH, `Copy to another Mac`, and updating from a source clone.
+are saved—along with the rotation's background check details, sending the rules
+to other Macs over SSH, `Copy to another Mac`, and updating from a source
+clone.
 
 Every part is described in full in [docs/features.md](docs/features.md).
 
 ## Privacy and safety
 
-- The numbers are read on your Mac, from each service's own quota endpoint
-  with the agents' own sign-ins, and sent nowhere else. No account, no
-  telemetry, no server of the app's own.
-- Nothing is written to an agent's files without a preview or a confirmation
-  first, every write keeps a backup, and a file changed since the preview stops
-  the write.
+- Quota data is read on your Mac, from each service's own quota endpoint using
+  the agents' own sign-ins, and sent nowhere else. No account, no telemetry, no
+  server of the app's own.
+- Nothing is written to an agent's files without a preview or confirmation
+  first, every write keeps a backup, and the write stops if a file has changed
+  since the preview.
 - The keys and sign-ins the app keeps live in the macOS Keychain (the extra
   ChatGPT accounts in folders only you can open). A key never appears in a
   window, a log or a backup pack.
@@ -230,35 +234,35 @@ runs and writes.
 - To build from source: Rust stable (1.85 or later) and Node.js 20 or later.
   The downloads need neither, and a Mac without them can also install a copy
   built on another Mac.
-- For the numbers, nothing else: Codex, `agy` or Antigravity.app, and Claude
+- To read quota, nothing else: Codex, `agy` or Antigravity.app, and Claude
   Code each only need to be signed in.
-- To sign new Claude accounts in, and for `quota-station claude run`, Claude
+- To sign new Claude accounts in, and for `quota-station claude run`: Claude
   Code's `claude` command.
-- To sign Antigravity accounts in (the downloads and a build with
-  `scripts/install.sh` have them; `QS_ANTIGRAVITY_ACCOUNTS=0` leaves them out),
+- To sign Antigravity accounts in (included in the downloads and in builds with
+  `scripts/install.sh`; `QS_ANTIGRAVITY_ACCOUNTS=0` leaves this out):
   the [OAuth client file](docs/how-it-works.md#the-oauth-client-file), which
-  you make yourself with the values from Cockpit Tools' source: on a Mac
+  you make yourself with the values from Cockpit Tools' source—on a Mac at
   `~/Library/Application Support/com.shin315.quota-station/oauth-client.json`
-  (mode 600), on Windows
+  (mode 600), and on Windows at
   `%APPDATA%\com.shin315.quota-station\oauth-client.json` (the guide has a
   PowerShell command for it).
-- For the advanced tools that reach other Macs, an SSH alias to each that
+- For the advanced tools that reach other Macs: an SSH alias to each that
   signs in without a prompt (a key, `BatchMode=yes`).
 
 ## Install
 
 Download the app from the
 [latest release](https://github.com/shin315/quota-station/releases/latest): the
-disk image for macOS, the installer for Windows. Building from source is for
+disk image for macOS, or the installer for Windows. Building from source is for
 macOS.
 
 ### macOS
 
 Download `Quota.Station_<version>_universal.dmg`, open it and drag
-`Quota Station` to `Applications`. The one disk image runs on Apple Silicon and
-Intel. The app is signed with a Developer ID and notarized by Apple, so the
-first launch only asks the usual question about an app downloaded from the
-Internet: choose `Open`.
+`Quota Station` to `Applications`. The single disk image runs on both Apple
+Silicon and Intel. The app is signed with a Developer ID and notarized by
+Apple, so the first launch only asks the usual question about an app downloaded
+from the Internet: choose `Open`.
 
 With Homebrew: `brew install --cask shin315/tap/quota-station` (update with
 `brew upgrade --cask quota-station`).
@@ -269,17 +273,18 @@ Download `Quota.Station_<version>_x64-setup.exe` and run it. The installer is
 not signed, so Windows warns about it:
 
 1. The browser may say the file is not commonly downloaded: choose `Keep` (in
-   Edge, from the `…` menu next to the download; it may ask once more, `Keep
-   anyway`).
-2. SmartScreen says "Windows protected your PC": click `More info`, then `Run
-   anyway`.
+   Edge, from the `…` menu next to the download; it may ask once more:
+   `Keep anyway`).
+2. SmartScreen says "Windows protected your PC": click `More info`, then
+   `Run anyway`.
 
 It installs for your Windows user only and needs no administrator rights.
-Quota Station then sits in the tray at the right of the taskbar; Windows may
-first put it under the `^` arrow, from where you can drag it onto the taskbar.
+Quota Station then sits in the system tray at the right of the taskbar; Windows
+may first put it under the `^` arrow, from where you can drag it onto the
+taskbar.
 
-To check that the installer is the one released, download `SHA256SUMS.txt`
-from the same release next to it and, in PowerShell in that folder:
+To check that the installer matches the release, download `SHA256SUMS.txt` from
+the same release into the same folder and run in PowerShell:
 
 ```powershell
 $sum = (Select-String '_x64-setup.exe' .\SHA256SUMS.txt).Line.Split(' ')[0]
@@ -300,9 +305,9 @@ scripts/install.sh
 
 The script builds the app, signs it (with your `Apple Development` identity, or
 ad-hoc), copies it to `/Applications/Quota Station.app` and opens it. It never
-adds a login item and never asks for `sudo`. It builds with the Antigravity
-accounts; `QS_ANTIGRAVITY_ACCOUNTS=0` leaves them out. `scripts/install.sh
---help` lists the options.
+adds a login item and never asks for `sudo`. It builds with Antigravity account
+support; `QS_ANTIGRAVITY_ACCOUNTS=0` leaves it out. `scripts/install.sh --help`
+lists the options.
 
 On a Mac that cannot build, make a package on one that can and copy it over:
 
@@ -319,17 +324,17 @@ On a Mac or PC that signs Antigravity accounts in, put the
 turn on `Settings › General › Open at login` if the app should start with the
 computer.
 
-Moving from claude-swap? The
-[cutover](docs/claude-accounts.md#cutover) says how.
+Moving from claude-swap? See the
+[cutover guide](docs/claude-accounts.md#cutover).
 
 ## Update
 
-A downloaded copy checks GitHub Releases once a day, while `Check for app
-updates` in `Settings › General › Updates` is on, and tells you when a new
-version is out: a banner in `Overview` and a line in the popover. `Download and
-install` opens the new disk image or installer in the browser; install it as
-the first time, over the old copy (quit it first on a Mac). The app never
-downloads or installs anything by itself.
+A downloaded copy checks GitHub Releases once a day while
+`Check for app updates` in `Settings › General › Updates` is on, and tells you
+when a new version is out: a banner in `Overview` and a line in the popover.
+`Download and install` opens the new disk image or installer in the browser;
+install it just like the first time, over the old copy (quit the app first on a
+Mac). The app never downloads or installs anything by itself.
 
 A copy built from source is told about a new version too, but updates from
 its clone. From a terminal, in the clone:
@@ -341,8 +346,8 @@ git pull --ff-only && scripts/install.sh
 `Settings › Advanced` can do the same, with `Show advanced features` on: set
 `Source code` to the clone and press `Update from source`. It pulls, builds and
 installs when the clone has a new commit, then offers `Restart`; a clone with
-local commits is never merged or reset, and a build longer than 30 minutes
-stops.
+local commits is never merged or reset, and a build that takes longer than 30
+minutes is stopped.
 
 ## Uninstall
 
@@ -357,23 +362,23 @@ stops.
    `/Applications/Quota Station.app` to the Trash. On Windows, open Settings ›
    Apps › Installed apps (Apps & features on Windows 10), then `…` next to
    Quota Station › `Uninstall`.
-3. Optionally, its data. On a Mac:
+3. Optionally, remove its data. On a Mac:
    `~/Library/Application Support/com.shin315.quota-station/` (settings, the
-   Claude accounts' folder, the Antigravity index and readings, history,
+   Claude accounts' folder, the Antigravity index and quota readings, history,
    notifications and `oauth-client.json`), and the app's own Keychain items,
    services `com.shin315.quota-station.claude` and
    `com.shin315.quota-station.antigravity`, in Keychain Access. Remove the
    Claude accounts in the app (all but the one in use) to delete their items;
    Claude Code keeps its own sign-in either way. Sign the Antigravity accounts
    out in the app first to delete those items. Leave the `gemini`/`antigravity`
-   item alone: Antigravity.app and agy use it.
+   item alone: Antigravity.app and `agy` use it.
    On Windows: `%APPDATA%\com.shin315.quota-station\` (settings, accounts,
-   readings, history, notifications and `oauth-client.json`) and
+   quota readings, history, notifications and `oauth-client.json`) and
    `%LOCALAPPDATA%\com.shin315.quota-station\` (what stays on this PC,
    including the app's own keys, sealed by Windows); deleting both folders
    removes them. Claude Code keeps its own sign-in either way. Leave the
    `gemini:antigravity` credential in Credential Manager alone: Antigravity and
-   agy use it.
+   `agy` use it.
 
 The older switcher's rotation file is shared with that switcher and stays.
 
@@ -397,8 +402,8 @@ the quota as Antigravity does, carries the same terms-of-service risk as using
 Cockpit Tools, no more: the app makes the same calls, with the same user agent
 and headers, no more often. `Wake ChatGPT` sends requests on a schedule, which
 OpenAI's terms do not address: use it on your own accounts only.
-[SECURITY.md](SECURITY.md) says what could happen and which changes would make
-the risk larger.
+[SECURITY.md](SECURITY.md) explains what could happen and which changes would
+increase the risk.
 
 ---
 
