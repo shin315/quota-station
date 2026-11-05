@@ -8,7 +8,8 @@
 //! one process as a chosen account ([`session`]), the data file other
 //! programs read ([`state`]) and the one-time import from claude-swap
 //! ([`import`]).
-//! Also the rotation's decision ([`engine`]) and its run ([`rotate`]) from
+//! Also the rotation's decision ([`engine`] with a rules file, [`auto`]
+//! without one) and its run ([`rotate`]) from
 //! the app's own LaunchAgent ([`agent`]), or on Windows the app's own timer
 //! ([`timer`]).
 //!
@@ -19,6 +20,7 @@
 //! token endpoints, and the session folder.
 
 pub mod agent;
+pub mod auto;
 pub mod cc;
 pub mod cli;
 pub mod credman;

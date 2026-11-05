@@ -52,6 +52,7 @@ fn settings_round_trip_and_default_when_missing() {
         cli_checks_off: true,
         backup_dir: Some(PathBuf::from("/srv/example/backups")),
         pool_alert: PoolAlert { dry_at_most: 5, room_at_least: 20 },
+        auto_switch_at: quota_station_core::settings::AutoSwitchAt(85),
         setup_seen: true,
         ext: serde_json::Map::new(),
     };
@@ -81,6 +82,7 @@ fn settings_round_trip_and_default_when_missing() {
     assert!(text.contains(r#""skillChecks": {"#));
     assert!(text.contains("backupDir"));
     assert!(text.contains(r#""dryAtMost": 5"#));
+    assert!(text.contains(r#""autoSwitchAt": 85"#));
     for key in [r#""alias": "mac-c""#, "\"leaving\": false", "sourceDir", "\"advanced\": true"] {
         assert!(text.contains(key), "{key} in {text}");
     }
@@ -345,9 +347,9 @@ fn alerts_written(tag: &str, text: &str, hooks: &dyn Hooks) -> Option<serde_json
 }
 
 /// The switch of alert 2 reads and writes as the build before this socket
-/// wrote it: all four keys while any switch is off its default, none (no
-/// `alerts`) while every one is at it; a key missing reads as its default
-/// (on).
+/// wrote it: every key (alert 9's too) while any switch is off its
+/// default, none (no `alerts`) while every one is at it; a key missing
+/// reads as its default (on), so a file from before alert 9 has it on.
 #[test]
 fn the_switch_of_alert_two_reads_and_writes_as_before() {
     use serde_json::json;
@@ -355,10 +357,15 @@ fn the_switch_of_alert_two_reads_and_writes_as_before() {
         json!({ "setupSeen": true, "advanced": true, "alerts": alerts }).to_string()
     };
     let all = json!({ "pool": true, "leaving": false, "login": true, "overwrite": true });
-    assert_eq!(alerts_written("two-all", &settled(all.clone()), hooks()), Some(all));
+    let five = json!({
+        "pool": true, "leaving": false, "login": true, "overwrite": true, "switched": true
+    });
+    assert_eq!(alerts_written("two-all", &settled(all), hooks()), Some(five));
     assert_eq!(
         alerts_written("two-app", &settled(json!({ "login": false })), hooks()),
-        Some(json!({ "pool": true, "leaving": true, "login": false, "overwrite": true }))
+        Some(json!({
+            "pool": true, "leaving": true, "login": false, "overwrite": true, "switched": true
+        }))
     );
     let default = json!({ "pool": true, "leaving": true, "login": true, "overwrite": true });
     assert_eq!(alerts_written("two-default", &settled(default), hooks()), None);
@@ -372,13 +379,13 @@ fn the_switch_of_alert_two_reads_and_writes_as_before() {
     s.alerts.set(&leaving(), false, hooks());
     assert_eq!(
         serde_json::to_value(&s.alerts).unwrap(),
-        json!({ "pool": true, "leaving": false, "login": true, "overwrite": true })
+        json!({ "pool": true, "leaving": false, "login": true, "overwrite": true, "switched": true })
     );
     s.alerts.set(&leaving(), true, hooks());
     assert!(s.alerts.is_default(), "written as no `alerts` at all");
-    // What Cài đặt › Thông báo shows: all four.
+    // What Cài đặt › Thông báo shows: all five.
     assert_eq!(
         serde_json::to_value(s.alerts.shown(hooks())).unwrap(),
-        json!({ "pool": true, "leaving": true, "login": true, "overwrite": true })
+        json!({ "pool": true, "leaving": true, "login": true, "overwrite": true, "switched": true })
     );
 }

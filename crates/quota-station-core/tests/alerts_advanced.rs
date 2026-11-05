@@ -14,7 +14,7 @@ mod common;
 use std::sync::Mutex;
 
 use common::temp_dir;
-use quota_station_core::advanced::alerts::{leaving, AlertHooks, Source};
+use quota_station_core::advanced::alerts::{leaving, switched, AlertHooks, Source};
 use quota_station_core::advanced::labels::Roles;
 use quota_station_core::advanced::pool::{Policy, PoolHooks};
 use quota_station_core::alerts::{
@@ -139,7 +139,7 @@ fn hooks() -> &'static dyn Hooks {
 }
 
 /// The advanced part's alerts at a pass with no rotation file.
-static NO_RULES: Source<'static> = Source { rules: None };
+static NO_RULES: Source<'static> = Source { rules: None, last_log: None };
 
 /// The advanced part's policy of the Claude pool at a pass with no rotation
 /// file: the report's rotation decides.
@@ -372,7 +372,7 @@ fn without_the_reports_rotation_the_rotation_file_says_who_leaves() {
     let r = report_without_rotation(vec![slot(2, 60.0, true), slot(3, 90.0, false)]);
     let rules = Rules { expire: vec![Expire { slot: 2, at: rfc(ends) }], ..common::sample_rules() };
     let policy = Policy { rules: Some(rules.clone()) };
-    let source = Source { rules: Some(&rules) };
+    let source = Source { rules: Some(&rules), last_log: None };
     let mut f = facts(ends - 30 * MIN, Some(&r));
     f.pool_policy = Some(&policy);
     f.ext = Some(&source);
@@ -382,6 +382,55 @@ fn without_the_reports_rotation_the_rotation_file_says_who_leaves() {
     // Named as the windows name it without the report's rotation.
     assert_eq!(card.title, "Tài khoản 2 rời vòng lúc 15:20");
     assert_eq!(labels(&card.actions), ["Ổn", "Chuyển ngay"]);
+}
+
+/// The rotation's log line `text`, written at `t`.
+fn log_line(t: i64, text: &str) -> quota_station_core::switcher::LogLine {
+    let stamp = quota_station_core::local_time::stamp(at(t)).replace('T', " ");
+    quota_station_core::switcher::parse_log_line(&format!("{stamp} {text}"))
+}
+
+/// "Tự chuyển khi hết quota" tells of each switch once, with Nâng cao off
+/// too; the Team rules' switches and old switches say nothing.
+#[test]
+fn an_auto_switch_is_told_once() {
+    let center = FakeCenter::default();
+    let mut memory = Memory::default();
+    let r = report_without_rotation(vec![slot(2, 60.0, false), slot(3, 90.0, true)]);
+    let line = log_line(T0, "switch to slot 3 (full 5h: slot 2 at 91%, 12% used)");
+    let source = Source { rules: None, last_log: Some(&line) };
+    let mut f = facts(T0 + 2 * MIN, Some(&r));
+    f.ext = Some(&source);
+    let switches = Switches::default();
+    assert!(switches.on(&switched(), hooks()), "on by default");
+    run(&mut memory, &f, &center);
+    let card = center.last();
+    assert_eq!(card.kind, switched());
+    assert_eq!(card.number, 9);
+    assert_eq!(card.title, "Đã tự chuyển Claude sang Tài khoản 3");
+    assert_eq!(
+        card.body,
+        "Tài khoản 2 đã dùng 91% hạn mức 5 giờ. Phiên Claude Code đang chạy vẫn chạy tiếp."
+    );
+    assert_eq!(labels(&card.actions), ["Ổn"]);
+    // Once per switch.
+    f.now = at(T0 + 5 * MIN);
+    assert!(run(&mut memory, &f, &center).is_empty());
+
+    for (t, text) in [
+        // A Team rules switch.
+        (T0, "switch to slot 3 (20.0%, ends 15:00)"),
+        // A failed one.
+        (T0, "switch to slot 3 failed: busy: lock held"),
+        // Long ago.
+        (T0 - 2 * HOUR, "switch to slot 3 (full week: slot 2 at 95%, 1% used)"),
+    ] {
+        let line = log_line(t, text);
+        let source = Source { rules: None, last_log: Some(&line) };
+        let mut f = facts(T0 + 2 * MIN, Some(&r));
+        f.ext = Some(&source);
+        assert!(run(&mut Memory::default(), &f, &center).is_empty(), "{text}");
+    }
 }
 
 #[test]
@@ -725,18 +774,29 @@ fn alert_two_keeps_its_number_switch_default_and_words() {
     use quota_station_core::alerts::{ExtAnswer, ExtKind};
     assert_eq!(
         AlertHooks.alert_kinds(),
-        [ExtKind {
-            number: 2,
-            name: "leaving",
-            on: true,
-            answers: &[ExtAnswer {
-                action: "dismiss",
-                title: "Đã ghi nhận",
-                body: "Không nhắc lại cho lần rời vòng này.",
-            }],
-        }]
+        [
+            ExtKind {
+                number: 2,
+                name: "leaving",
+                on: true,
+                answers: &[ExtAnswer {
+                    action: "dismiss",
+                    title: "Đã ghi nhận",
+                    body: "Không nhắc lại cho lần rời vòng này.",
+                }],
+            },
+            ExtKind {
+                number: 9,
+                name: "switched",
+                on: true,
+                answers: &[ExtAnswer { action: "dismiss", title: "Đã ghi nhận", body: "" }],
+            }
+        ]
     );
-    assert_eq!(Kind::all(hooks()), [Kind::Pool, leaving(), Kind::Login, Kind::Overwrite]);
+    assert_eq!(
+        Kind::all(hooks()),
+        [Kind::Pool, leaving(), Kind::Login, Kind::Overwrite, switched()]
+    );
     assert_eq!(leaving().number(hooks()), 2);
     assert_eq!(serde_json::to_value(leaving()).unwrap(), json!("leaving"));
     assert!(Switches::default().on(&leaving(), hooks()));

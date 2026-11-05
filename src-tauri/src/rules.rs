@@ -405,7 +405,7 @@ pub async fn preview_rotation(app: AppHandle, rules: Rules) -> Result<DryRunView
     let (store, tools) = (host.claude_store(), tools(&host));
     tauri::async_runtime::spawn_blocking(move || {
         let now = OffsetDateTime::now_utc();
-        let decided = rotate::dry_run(&store, &tools, Some(&rules), now);
+        let decided = rotate::dry_run(&store, &tools, &rotate::Policy::Rules(rules), now);
         let run = switcher::decided(&decided.line);
         Ok(DryRunView { decision: run.decision, raw: run.raw, at: String::new() })
     })

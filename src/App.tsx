@@ -47,6 +47,7 @@ import { alertFailedFeedback, testFailedFeedback } from './lib/alerts';
 import type { AgyHow, AlertKind, CodexOutcome, CodexTarget, Language, Model, Platform, Sessions, SettingsGroup, Tab, Theme, ThemePack } from './lib/model';
 import { resolveLang, setLang, setPlatform, systemLanguages, t, type Lang } from './lib/i18n';
 import { switchErrorFeedback, switchFeedback } from './lib/switching';
+import { simpleAutoView } from '@/lib/autoSwitch';
 import { autoView, extendedFeedback, pauseFailedFeedback, pauseOf, pausedFeedback, resumedFeedback, type PauseChoice } from '@/lib/rotation';
 import { sidebarLine, syncSummary } from '@/rules/rules';
 import { isQuiet, keychainFeedback, popoverView, refreshedFeedback, settingsFailedFeedback, type Action, type FeedbackView } from './lib/view';
@@ -461,6 +462,8 @@ function useSwitching(api: Api, model: Model | null, clock: () => Date, showFeed
     else if (a === 'addHour') void addHour();
     else if (a === 'guide:auto' || a === 'guide:switcher') open({ kind: 'guide', id: a === 'guide:auto' ? 'auto' : 'switcher' });
     else if (a === 'claude:rotation:on') void api.claudeSetRotation(true).catch(() => {});
+    else if (a === 'claude:rotation:off') void api.claudeSetRotation(false).catch(() => {});
+    else if (a === 'pause') open({ kind: 'pause', preset: '60' });
     else if (a === 'agy:keep') void keepOverwrite();
     else if (a === 'claude:import') void api.claudeImport().catch(() => {});
     else if (a === 'codex:open' && model) open(model.codex.external ? { kind: 'codexExternal' } : { kind: 'codex', target: nextTarget(model.codex) });
@@ -639,11 +642,13 @@ export function PopoverApp({ api, clock = systemClock }: AppProps) {
   if (!model) return null;
   const view = popoverView(model, now, { keychainLater });
   const author = authorModel(model);
+  const simple = simpleAutoView(model, now);
   return (
     <Popover
       view={view}
       codex={codexPopover(model, now)}
       auto={advancedOn(model) ? autoView(model, now) : null}
+      simple={simple.shown ? simple : null}
       sync={author && advancedOn(model) ? syncSummary(author) : null}
       onToggle={switching.toggle}
       rotation={model.capabilities.authorTools}
@@ -925,6 +930,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
       onSetCodexHome={(path) => refusal(api.setCodexHome(path))}
       onSetBackupFolder={(path) => refusal(api.backupSetFolder(path))}
       onPoolAlert={(dry, room) => refusal(api.setPoolAlert(dry, room))}
+      onAutoSwitchAt={(at) => refusal(api.setAutoSwitchAt(at))}
       onAdvanced={(on) => void api.setAdvanced(on).catch(() => showFeedback(settingsFailedFeedback()))}
       advancedRows={ext.advanced ? <ext.advanced.Rows {...extProps} /> : null}
       onTestAlert={testAlert}
@@ -1098,6 +1104,7 @@ export function MainWindowApp({ api, clock = systemClock }: AppProps) {
         onAction,
         advanced: advancedOn(model),
         authorTools: model.capabilities.authorTools,
+        auto: simpleAutoView(model, now),
       })}
       // The first run waits for the browser on its own page, not in a dialog.
       dialog={model.firstRun && claude.dialog?.kind === 'wait' ? null : dialog}

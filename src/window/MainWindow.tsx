@@ -39,6 +39,7 @@ import type { KeyValue } from '../lib/window';
 import { Segment, Segmented } from '@/components/ui/segmented';
 import type { Tab } from '../lib/model';
 import { pauseOptions, type AutoView, type PauseChoice } from '@/lib/rotation';
+import type { SimpleAutoView } from '@/lib/autoSwitch';
 import { bannerUnder, type Action, type BannerView, type CardView, type ChipView, type FeedbackView, type NoteView } from '../lib/view';
 import type { WindowView } from '../lib/window';
 import { mac, onWindows, os, t } from '../lib/i18n';
@@ -426,6 +427,8 @@ export interface ClaudeManage {
   };
   /** Without Nâng cao, a card of its own: only while the rotation runs or the old switcher is loaded. */
   rotationAlone: boolean;
+  /** "Tự chuyển khi hết quota" with Nâng cao off: its view and its switch. */
+  auto?: { view: SimpleAutoView; onToggle(): void; onResume(): void };
 }
 
 function Top(props: TabProps & { title: string; banner?: boolean }) {
@@ -585,6 +588,72 @@ function RunHalf(props: { title: string; tag?: ReactNode; rotation?: ClaudeManag
   );
 }
 
+/**
+ * "Tự chuyển khi hết quota" with Nâng cao off: its switch, its status, the
+ * pause and the old switcher's warning. A main feature: it shows as soon as
+ * there are two accounts, off until turned on.
+ */
+function AutoSwitchCard(props: { auto: NonNullable<ClaudeManage['auto']>; warning: ReactNode; now: Date; onPause(preset: PauseChoice): void }) {
+  const a = props.auto.view;
+  return (
+    <Panel className="px-3.5 py-3" aria-labelledby="qs-simple-auto-h" data-testid="auto-switch">
+      <div className="flex items-center justify-between gap-2.5">
+        <b className="text-body font-semi" id="qs-simple-auto-h">
+          {a.title}
+        </b>
+        <Toggle on={a.on} label={a.title} disabled={a.disabled} onClick={props.auto.onToggle} />
+      </div>
+      <small className={cn('mt-0.5 block text-xs', a.warn ? 'text-warn-ink' : 'text-ink2')}>{a.line}</small>
+      {a.canPause ? (
+        <>
+          <CardText className="mt-3 mb-1" id="qs-simple-qp">
+            {t('Tạm dừng', 'Pause')}
+          </CardText>
+          <Segmented aria-labelledby="qs-simple-qp">
+            {pauseOptions(props.now).map((o) => (
+              <Segment key={o.v} onClick={() => props.onPause(o.v)}>
+                {o.t}
+              </Segment>
+            ))}
+          </Segmented>
+        </>
+      ) : null}
+      {a.paused ? (
+        <div className="mt-2">
+          <Button small onClick={props.auto.onResume}>
+            {t('Cho phép tự chuyển lại', 'Allow auto-switch again')}
+          </Button>
+        </div>
+      ) : null}
+      {props.warning}
+      <div className="mt-2 text-xs text-ink2">
+        {t('Phiên Claude Code đang chạy vẫn chạy', 'Running Claude Code sessions keep running')}
+        {' · '}
+        <More small about={a.title}>
+          <p>
+            {t(
+              'Quota Station kiểm tra mỗi 3 phút. Khi tài khoản đang dùng chạm ngưỡng ở cửa sổ 5 giờ hoặc tuần, nó chuyển Claude Code sang tài khoản còn nhiều quota nhất ở cửa sổ đó, bỏ qua tài khoản cần đăng nhập lại hoặc cũng sắp cạn. Áp dụng cho mọi loại tài khoản: Pro, Max, Team.',
+              'Quota Station checks every 3 minutes. When the account in use reaches the threshold in its 5-hour or weekly window, it switches Claude Code to the account with the most quota left in that window, skipping accounts that must sign in again or are nearly out too. It works with every kind of account: Pro, Max, Team.',
+            )}
+          </p>
+          <p>
+            {t(
+              'Phiên Claude Code đang chạy vẫn chạy tiếp; chúng chỉ dựng lại bộ nhớ đệm prompt một lần. Không còn tài khoản nào thì giữ tài khoản đang dùng và báo cho bạn. Đổi ngưỡng trong Cài đặt › Dịch vụ.',
+              'Running Claude Code sessions keep going; they only rebuild their prompt cache once. With no account left, it keeps the one in use and tells you. Change the threshold in Settings › Services.',
+            )}
+          </p>
+          <p>
+            {t(
+              'Chuyển tay rồi chọn thời gian giữ để tạm dừng tự chuyển trong lúc đó.',
+              'Switch by hand and pick how long to hold it to pause auto-switch meanwhile.',
+            )}
+          </p>
+        </More>
+      </div>
+    </Panel>
+  );
+}
+
 function ClaudeTab(props: TabProps) {
   const v = props.view;
   const a = v.auto;
@@ -673,6 +742,8 @@ function ClaudeTab(props: TabProps) {
             <RunHalf title={t('Chạy nền', 'Background check')} tag={<AdvancedTag />} rotation={m?.rotation} switcher={sw} />
           </section>
         </Panel>
+      ) : m?.auto?.view.shown ? (
+        <AutoSwitchCard auto={m.auto} warning={m.rotation.warning} now={props.now} onPause={props.onPause} />
       ) : m?.rotationAlone ? (
         <Panel aria-labelledby="qs-run-h">
           <RunHalf title={t('Tự chuyển bằng Quota Station', 'Auto-switch with Quota Station')} rotation={m.rotation} />

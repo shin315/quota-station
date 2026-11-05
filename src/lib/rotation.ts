@@ -271,6 +271,13 @@ export function whyText(why: Why, name: string, nameOf: NameOf): string {
         'không tài khoản nào còn hạn mức, ' + name + ' được đặt lại sớm nhất (' + why.at + ').',
         'no account has quota left; ' + name + ' resets first (' + why.at + ').',
       );
+    case 'full': {
+      const w = why.window === 'week' ? t('tuần', 'weekly') : t('5 giờ', '5-hour');
+      return t(
+        nameOf(why.from) + ' đã dùng ' + used(why.at) + ' hạn mức ' + w + '; ' + name + ' mới dùng ' + used(why.used) + '.',
+        nameOf(why.from) + ' has used ' + used(why.at) + ' of its ' + w + ' quota; ' + name + ' has used ' + used(why.used) + '.',
+      );
+    }
     default:
       return t('xem dòng gốc bên dưới.', 'see the raw line below.');
   }

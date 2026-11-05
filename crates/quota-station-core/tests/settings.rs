@@ -39,6 +39,7 @@ fn settings_round_trip_and_default_when_missing() {
         cli_checks_off: true,
         backup_dir: Some(PathBuf::from("/srv/example/backups")),
         pool_alert: PoolAlert { dry_at_most: 5, room_at_least: 20 },
+        auto_switch_at: quota_station_core::settings::AutoSwitchAt(85),
         setup_seen: true,
         ext: serde_json::Map::new(),
     };
@@ -58,6 +59,7 @@ fn settings_round_trip_and_default_when_missing() {
     assert!(text.contains(r#""skillChecks": {"#));
     assert!(text.contains("backupDir"));
     assert!(text.contains(r#""dryAtMost": 5"#));
+    assert!(text.contains(r#""autoSwitchAt": 85"#));
     assert!(text.contains("\"login\": false"));
 
     std::fs::write(&file, "{ not json").unwrap();
@@ -332,4 +334,31 @@ fn without_an_extension_the_switches_of_alerts_it_does_not_know_are_kept_and_nev
         serde_json::to_value(s.alerts.shown(none)).unwrap(),
         json!({ "pool": true, "login": true, "overwrite": true })
     );
+}
+
+/// The auto-switch threshold: 90 by default, and a value the setting does
+/// not take (out of 50 to 99, or not a number) reads as 90.
+#[test]
+fn the_auto_switch_threshold_reads_as_ninety_unless_set_well() {
+    use quota_station_core::settings::{AutoSwitchAt, AUTO_SWITCH_AT};
+    let dir = std::env::temp_dir().join(format!("qs-settings-auto-{}", std::process::id()));
+    let file = dir.join("settings.json");
+    std::fs::create_dir_all(&dir).unwrap();
+    assert_eq!(Settings::default().auto_switch_at, AutoSwitchAt(AUTO_SWITCH_AT));
+    assert_eq!(AUTO_SWITCH_AT, 90);
+    for (text, at) in [
+        (r#"{ "autoSwitchAt": 95 }"#, 95),
+        (r#"{ "autoSwitchAt": 100 }"#, 90),
+        (r#"{ "autoSwitchAt": 10 }"#, 90),
+        (r#"{ "autoSwitchAt": "x" }"#, 90),
+        ("{}", 90),
+    ] {
+        std::fs::write(&file, text).unwrap();
+        assert_eq!(Settings::load(&file).auto_switch_at, AutoSwitchAt(at), "{text}");
+    }
+    assert_eq!(AutoSwitchAt::new(49), None);
+    assert_eq!(AutoSwitchAt::new(99), Some(AutoSwitchAt(99)));
+    let saved = serde_json::to_string(&Settings::default()).unwrap();
+    assert!(!saved.contains("autoSwitchAt"), "the default is not written: {saved}");
+    let _ = std::fs::remove_dir_all(&dir);
 }

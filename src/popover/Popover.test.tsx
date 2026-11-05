@@ -173,14 +173,44 @@ describe('popover', () => {
     expect(screen.getByRole('switch', { name: /Tự chuyển Claude/ }).parentElement!.querySelector('small')).toBeTruthy();
   });
 
-  it('without Nâng cao the footer has no automatic switching', async () => {
+  it('without Nâng cao the footer has Tự chuyển khi hết quota: its switch, its line and the pause', async () => {
+    const m = fixtureModel('fresh');
+    const fake = await open({
+      ...m,
+      advanced: {
+        on: false,
+      },
+      claudeAccounts: claudeAccountsFixture({ rotation: false, autoPolicy: 'auto' }),
+    });
+    // Not the rotation's own switch.
+    expect(screen.queryByRole('switch', { name: /Tự chuyển Claude/ })).toBeNull();
+    const foot = screen.getByTestId('auto-switch-foot');
+    const toggle = within(foot).getByRole('switch', { name: 'Tự chuyển khi hết quota' });
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
+    expect(foot.textContent).toContain('Đang tắt.');
+    await act(async () => {
+      fireEvent.click(toggle);
+    });
+    expect(fake.api.claudeSetRotation).toHaveBeenCalledWith(true);
+    const on = screen.getByTestId('auto-switch-foot');
+    expect(within(on).getByRole('switch', { name: 'Tự chuyển khi hết quota' }).getAttribute('aria-checked')).toBe('true');
+    // "Tạm dừng" opens the pause sheet.
+    await act(async () => {
+      fireEvent.click(within(on).getByRole('button', { name: 'Tạm dừng' }));
+    });
+    expect(screen.getByRole('dialog', { name: 'Tạm dừng tự chuyển Claude?' })).toBeTruthy();
+  });
+
+  it('without Nâng cao and with one account, the footer has no automatic switching', async () => {
+    const one = claudeAccountsFixture({ rotation: false });
     await open({
       ...fixtureModel('fresh'),
       advanced: {
         on: false,
       },
+      claudeAccounts: { ...one, accounts: one.accounts.slice(1, 2) },
     });
-    expect(screen.queryByRole('switch', { name: /Tự chuyển Claude/ })).toBeNull();
+    expect(screen.queryByTestId('auto-switch-foot')).toBeNull();
   });
 
   it('each section opens on its account in use, with its share used and reset', async () => {

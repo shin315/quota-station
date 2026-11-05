@@ -1332,7 +1332,19 @@ mod tests {
         let json = serde_json::to_value(&model).unwrap();
         let keys: Vec<&str> =
             json["claudeAccounts"].as_object().unwrap().keys().map(String::as_str).collect();
-        assert_eq!(keys, ["accounts", "claude", "importable", "last", "ready", "working"]);
+        assert_eq!(
+            keys,
+            [
+                "accounts",
+                "autoPolicy",
+                "autoSwitchAt",
+                "claude",
+                "importable",
+                "last",
+                "ready",
+                "working"
+            ]
+        );
     }
 
     #[test]

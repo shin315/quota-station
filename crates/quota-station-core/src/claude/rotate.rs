@@ -3,7 +3,8 @@
 
 //! One run of the rotation, as one run of the old `cswap-prefer-team`
 //! script, in the same order: the pause guard, the readings, the decision
-//! ([`super::engine`]), the switch, then priming. The decisions and
+//! ([`super::engine`] with a rotation rules file, [`super::auto`] without
+//! one: [`Policy`]), the switch, then priming. The decisions and
 //! switches go to `claude/rotation.log` in the script's log format, which
 //! the history and the window read.
 //!
@@ -20,6 +21,7 @@ use std::time::Duration;
 
 use time::OffsetDateTime;
 
+use super::auto;
 use super::engine::{self, Input, Plan};
 use super::session;
 use super::store::Store;
@@ -29,6 +31,7 @@ use crate::local_time;
 use crate::os::Scheduler;
 use crate::pause::{self, Flag};
 use crate::rotation::{self, FileState, Rules};
+use crate::settings::Settings;
 
 /// The model a priming message goes to, as the script sent it.
 pub const PRIME_MODEL: &str = "claude-haiku-5-5";
@@ -67,8 +70,34 @@ pub fn rules(store: &Store) -> Option<Rules> {
     }
 }
 
-/// The decision of a run without rotation rules.
+/// The decision of a run whose rotation rules file cannot be followed.
 pub const NO_RULES: &str = "stay (no rotation rules)";
+
+/// What the rotation follows on this computer.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Policy {
+    /// The rotation rules file (Nâng cao's rules editor): the Team rules of
+    /// [`engine`], as before "Tự chuyển khi hết quota" existed.
+    Rules(Rules),
+    /// No rotation rules file: "Tự chuyển khi hết quota" ([`auto`]), at
+    /// `at` percent of the fullest window (Settings' `autoSwitchAt`).
+    Auto { at: f64 },
+    /// A rules file its rules refuse, or that cannot be read: nothing
+    /// switches until it is fixed, since its owner meant the rules.
+    Stopped,
+}
+
+/// The policy on disk now: the rotation rules file when there is one, else
+/// "Tự chuyển khi hết quota" at the threshold in the app's settings.
+pub fn policy(store: &Store) -> Policy {
+    match rotation::load(&store.paths.rotation_file()) {
+        FileState::Ok { parsed, .. } => Policy::Rules(parsed.rules),
+        FileState::Missing => Policy::Auto {
+            at: Settings::load(&store.paths.settings_file()).auto_switch_at.percent(),
+        },
+        FileState::Invalid { .. } | FileState::Unreadable(_) => Policy::Stopped,
+    }
+}
 
 /// The readings as the decision takes them.
 pub fn readings(store: &Store, now: OffsetDateTime) -> Vec<engine::Reading> {
@@ -116,6 +145,18 @@ fn primed(store: &Store) -> Option<BTreeMap<u32, f64>> {
         }
     }
     Some(last)
+}
+
+/// The decision now from the readings on disk, with `policy`; `None` when
+/// it is [`Policy::Stopped`]. Reads nothing over the network.
+pub fn decide(store: &Store, policy: &Policy, now: OffsetDateTime) -> Option<Plan> {
+    match policy {
+        Policy::Rules(rules) => Some(plan(store, rules, now)),
+        Policy::Auto { at } => {
+            Some(auto::decide(&readings(store, now), switch::active_slot(store), *at))
+        }
+        Policy::Stopped => None,
+    }
 }
 
 /// The decision now from the readings on disk, with `rules`. Reads nothing
@@ -189,14 +230,9 @@ pub fn blocked_line(label: &str) -> String {
 }
 
 /// What the rotation would do now, reading nothing over the network: the
-/// window's "why" line and the rules editor's preview (`rules` there is
+/// window's "why" line and the rules editor's preview (`policy` there holds
 /// the draft).
-pub fn dry_run(
-    store: &Store,
-    tools: &Tools,
-    rules: Option<&Rules>,
-    now: OffsetDateTime,
-) -> Decided {
+pub fn dry_run(store: &Store, tools: &Tools, policy: &Policy, now: OffsetDateTime) -> Decided {
     match guard(&tools.pause_file, now) {
         Guard::Paused(line) => return Decided { line, primes: Vec::new() },
         Guard::None | Guard::Ended { .. } => {}
@@ -204,9 +240,10 @@ pub fn dry_run(
     if let Some(label) = tools.scheduler.legacy_loaded() {
         return Decided { line: blocked_line(label), primes: Vec::new() };
     }
-    let Some(rules) = rules else { return Decided { line: NO_RULES.into(), primes: Vec::new() } };
-    let plan = plan(store, rules, now);
-    Decided { line: plan.decision, primes: plan.primes }
+    match decide(store, policy, now) {
+        Some(plan) => Decided { line: plan.decision, primes: plan.primes },
+        None => Decided { line: NO_RULES.into(), primes: Vec::new() },
+    }
 }
 
 /// Appends `text` to the rotation's log, stamped with this Mac's time.
@@ -267,10 +304,9 @@ pub fn run(store: &Store, tools: &Tools) -> Decided {
     if let Some(label) = legacy {
         return Decided { line: blocked_line(label), primes: Vec::new() };
     }
-    let Some(rules) = rules(store) else {
+    let Some(plan) = decide(store, &policy(store), now) else {
         return Decided { line: NO_RULES.into(), primes: Vec::new() };
     };
-    let plan = plan(store, &rules, now);
     if let Some(slot) = plan.target() {
         let rest = plan.decision.splitn(3, ' ').nth(2).unwrap_or("");
         match switch::switch(store, slot) {

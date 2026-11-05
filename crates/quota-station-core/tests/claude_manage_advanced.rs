@@ -158,10 +158,11 @@ fn the_private_parts_usage_names_its_commands_for_help_and_for_a_wrong_word() {
 
 #[test]
 fn rotate_prints_its_decision_and_exits_0() {
-    use quota_station_core::claude::rotate::NO_RULES;
     let mac = mac("cli-rotate");
     let cli = cli(&mac, None);
-    let decided = (0, format!("{NO_RULES}\n"), String::new());
+    // No rotation file: the threshold rule, which has no reading of the
+    // account in use yet.
+    let decided = (0, "stay (slot 2 usage unknown)\n".to_string(), String::new());
     assert_eq!(call(&cli, &["rotate", "--dry-run"]), decided);
     assert_eq!(call(&cli, &["rotate"]), decided);
     mac.load_label("com.cswap.prefer-team");

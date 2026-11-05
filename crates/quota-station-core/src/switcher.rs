@@ -107,6 +107,15 @@ pub enum Why {
     Park {
         at: String,
     },
+    /// `full 5h: slot A at P%, Q% used`: "Tự chuyển khi hết quota" moved off
+    /// account `from`, whose `window` (`5h` or `week`) reached `at` percent,
+    /// to an account with `used` percent of that window used.
+    Full {
+        window: String,
+        from: u32,
+        at: f64,
+        used: f64,
+    },
     Other,
 }
 
@@ -177,6 +186,9 @@ fn why(detail: &str) -> Why {
             None => Why::Other,
         };
     }
+    if let Some(rest) = detail.strip_prefix("full ") {
+        return full(rest).unwrap_or(Why::Other);
+    }
     if let Some(rest) = detail.strip_prefix("ends ") {
         // `HH:MM with P% left, before slot A`
         let parts = rest.split_once(" with ").and_then(|(at, r)| {
@@ -199,6 +211,19 @@ fn why(detail: &str) -> Why {
             None => Why::Other,
         },
     }
+}
+
+/// `5h: slot 1 at 91%, 12% used`.
+fn full(rest: &str) -> Option<Why> {
+    let (window, rest) = rest.split_once(": slot ")?;
+    let (from, rest) = rest.split_once(" at ")?;
+    let (at, used) = rest.split_once("%, ")?;
+    Some(Why::Full {
+        window: window.to_string(),
+        from: from.parse().ok()?,
+        at: at.parse().ok()?,
+        used: used.strip_suffix("% used")?.parse().ok()?,
+    })
 }
 
 /// `until 2026-10-16T18:30: reason`, `indefinitely: reason`, or either

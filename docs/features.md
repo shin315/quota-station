@@ -7,8 +7,9 @@ each part is in [how-it-works.md](how-it-works.md).
 
 Some parts belong to a build or a setting:
 
-- **Advanced** (`Nâng cao`): automatic switching of the Claude accounts (the
-  rotation, its rules and the pause), the copy of the rules and of the agents'
+- **Advanced** (`Nâng cao`): the Claude rotation's rules and its own
+  details (`Auto-switch when quota runs out` itself, with its pause, is not
+  advanced), the copy of the rules and of the agents'
   setup to other Macs, and the update from source (those two not on Windows).
   Every build has them; they show only while `Settings › Advanced › Show
   advanced features` is on. A new install starts with it off, no rotation rules
@@ -108,7 +109,12 @@ switch sheet, and so is every other Antigravity account the app signs in
 The footer, outside the scrolling part, explains the numbers (`% used · time
 until reset`, with `Details`) and says when a new version of the app is out.
 
-*(Advanced)* It also has the `Claude auto-switch` switch; the line that says why
+Without Advanced, with two Claude accounts or more, it also has `Auto-switch
+when quota runs out`: its switch, its status line (watching and the threshold,
+the last switch and when, paused until when, or why it cannot run) and `Pause`
+(the pause sheet), or `Resume` while paused.
+
+*(Advanced)* It has the `Claude auto-switch` switch instead; the line that says why
 Claude is on its account shows only when there is something to act on (a pause
 or hold, waiting for quota, a switch coming, the switcher missing or failing),
 and the other Macs' line only when one of them is behind. The popover's notes
@@ -160,6 +166,22 @@ the name, and the place names are `Team A`, `Personal` and `Ultra 1`.
 
 ## Claude
 
+**Auto-switch when quota runs out** (`Tự chuyển khi hết quota`) is the main
+feature, for every kind of account (Pro, Max, Team). Without Advanced its card
+sits below the accounts as soon as there are two of them, off on a new
+install: its switch (which loads the rotation's LaunchAgent on a Mac, or turns
+on the app's timer on Windows), a status line (`Watching · switches at 90%`,
+`Switched to <account> at HH:MM`, `Paused until HH:MM`, no account under the
+threshold, or the older switcher or a broken rules file), `Pause` (`1 hour`,
+`Until 18:00` or `Until I turn it back on`) or `Allow auto-switch again` while
+paused, and `Details`. Every 3 minutes, when the account in use reaches the
+threshold (90 % by default, `Settings › Services`, 50 to 99) in its 5-hour or
+weekly window, Claude Code moves to the account with the most room in that
+window, skipping accounts that must sign in again, are held out, or are at the
+threshold too; running sessions keep going and rebuild their prompt cache once.
+With a rotation rules file (Advanced) the rules decide instead
+([how-it-works.md](how-it-works.md#the-claude-accounts)).
+
 **The `Claude` tab** lists the accounts (`Accounts`, with `Add account`), with
 `Switch` on each account not in use and `In use` on the one in use; an old
 reading gets a chip by the name. `Add account` signs one in with the browser,
@@ -179,9 +201,8 @@ with its line (the rotation's decision from a dry run, or `Paused until HH:MM:
 <reason>` while a pause holds) and `Pause` (`1 hour`, `Until 18:00` or `Until I
 turn it back on`; while paused it resumes at once, and the banner offers `One
 more hour`); and `Background check`, which says whether launchd runs the
-rotation every 3 minutes, even when the app is closed. Without Advanced, an
-`Auto-switch with Quota Station` card shows only while the rotation runs or an
-older switcher is loaded. Banners warn when a switcher ignores the pause flag
+rotation every 3 minutes, even when the app is closed. Without Advanced, the
+`Auto-switch when quota runs out` card takes its place. Banners warn when a switcher ignores the pause flag
 and when launchd does not run the rotation.
 
 **Switching.** The confirmation sheet names the account, its allowances, and
@@ -193,7 +214,7 @@ switch, not yet confirmed, or why nothing changed (Claude Code held its login
 locks, the account needs a new sign-in, or Claude Code is on a sign-in the app
 does not keep).
 
-*(Advanced)* The sheet also offers a hold so automatic switching does not
+While automatic switching runs (or with Advanced) the sheet also offers a hold so automatic switching does not
 switch straight back: `30 minutes`, `1 hour` (the default), `Until reset` (the
 account's next five-hour reset) or `Let it auto-switch`; outside the personal
 account's hours it warns that the rotation will move away from it. Confirming
@@ -422,6 +443,11 @@ lists the kinds in both languages. The kinds:
    accounts that need a new sign-in, that Google blocked, or that need a
    verification (`<account> cần xác minh`) get their own card, with `Đăng nhập
    lại` (the `Antigravity` tab) or `Mở trang xác minh`.
+9. **Claude was auto-switched** (`Đã tự chuyển Claude sang <account>`):
+   `Auto-switch when quota runs out` moved Claude Code, with the account it
+   left and the share of the window it reached, and `Ổn`. Once per switch, only
+   for a switch under 30 minutes old, and not for a switch by the rotation
+   rules.
 4. **Antigravity went back to the old account** *(Antigravity accounts)*
    (`Antigravity đổi về tài khoản cũ`): the six-hour watch after an Antigravity
    switch saw the old account back. While it has happened at most twice the

@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MainWindowApp } from '../App';
 import { fakeApi, type FakeOptions } from '../fixtures/fakeApi';
 import { API_KEY, envFixture } from '../fixtures/fakeEnv';
-import { agyFixture, alertsFixture, appFixture, codexFixture, communityModel, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
+import { agyFixture, alertsFixture, appFixture, claudeAccountsFixture, codexFixture, communityModel, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
 import type { Api } from '../lib/api';
 import type { Model } from '../lib/model';
 
@@ -26,8 +26,8 @@ afterEach(cleanup);
 
 /** Alert 1 by its name in this build. */
 let POOL = 'Hạn mức Claude sắp cạn / có lại';
-/** The kinds of alert this build can send. */
-let KINDS = 3;
+/** The kinds of alert this build can send: alert 9 (an auto-switch) with Nâng cao off too. */
+let KINDS = 4;
 /** Cài đặt's tabs, and the cards each shows. */
 let GROUPS: [string, string[]][] = [
   ['Chung', ['Chung', 'Cập nhật']],
@@ -37,7 +37,7 @@ let GROUPS: [string, string[]][] = [
 ];
 // The fixture's Mac has Nâng cao on: alert 1 counts the quota in rotation, and alert 2 shows.
 POOL = 'Hạn mức Claude trong vòng sắp cạn / có lại';
-KINDS = 4;
+KINDS = 5;
 GROUPS = [...GROUPS, ['Nâng cao', ['Nâng cao']]];
 
 /** Shows one of Cài đặt's tabs, as a press on it does. */
@@ -115,11 +115,30 @@ describe('settings tab', () => {
     expect(screen.queryByText(/thanh menu hiện 5 giờ/)).toBeNull();
   });
 
+  it('sets the auto-switch threshold, 50 to 99', async () => {
+    const fake = await open(fixtureModel('fresh', { claudeAccounts: claudeAccountsFixture({ autoPolicy: 'auto' }) }));
+    await showGroup('Dịch vụ');
+    const field = screen.getByRole('textbox', { name: 'Ngưỡng tự chuyển, phần trăm đã dùng' }) as HTMLInputElement;
+    expect(field.value).toBe('90');
+    expect(screen.getByText('Khi tài khoản đang dùng tới 90% (5 giờ hoặc tuần), chuyển sang tài khoản còn nhiều quota nhất.')).toBeTruthy();
+    await act(async () => {
+      fireEvent.change(field, { target: { value: '40' } });
+      fireEvent.blur(field);
+    });
+    expect(screen.getByText('Ngưỡng từ 50 tới 99%.')).toBeTruthy();
+    await act(async () => {
+      fireEvent.change(field, { target: { value: '95' } });
+      fireEvent.blur(field);
+    });
+    expect(fake.api.setAutoSwitchAt).toHaveBeenLastCalledWith(95);
+    expect(fake.current().claudeAccounts.autoSwitchAt).toBe(95);
+  });
+
   it('shows that Keychain access is granted, and no path to another program', async () => {
     await open(fixtureModel('fresh'));
     await showGroup('Dịch vụ');
-    // The one path it asks for is Codex's own folder.
-    expect(screen.getAllByRole('textbox').map((e) => e.id)).toEqual(['qs-codex']);
+    // The one path it asks for is Codex's own folder; the other field is the auto-switch threshold.
+    expect(screen.getAllByRole('textbox').map((e) => e.id)).toEqual(['qs-auto-at', 'qs-codex']);
     expect(screen.getByText('đã cấp')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Cấp quyền một lần' })).toBeNull();
   });

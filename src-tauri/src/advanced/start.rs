@@ -106,12 +106,8 @@ fn check_switcher(home: &Path, paths: Paths, full: bool, pause_generation: u64) 
         let dry_run = if paths.in_use() {
             let store = Store::new(paths, quota_station_core::os::secret_store())
                 .with_hooks(&super::hooks::AdvancedHooks);
-            let decided = rotate::dry_run(
-                &store,
-                &rotate::Tools::system(home),
-                rotate::rules(&store).as_ref(),
-                at,
-            );
+            let decided =
+                rotate::dry_run(&store, &rotate::Tools::system(home), &rotate::policy(&store), at);
             Ok(DryRunRecord { run: switcher::decided(&decided.line), at, flag_held })
         } else {
             Err("noAccounts")

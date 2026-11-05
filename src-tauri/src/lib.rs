@@ -356,6 +356,7 @@ commands![
     alerting::test_alert,
     alerting::set_alert_switch,
     alerting::set_pool_alert,
+    claude::set_auto_switch_at,
     alerting::get_history,
     alerting::notify_refresh,
     alerting::open_notification_settings,
@@ -719,6 +720,7 @@ mod tests {
             "claude_set_alias",
             "set_alert_switch",
             "set_pool_alert",
+            "set_auto_switch_at",
             "set_launch_at_login",
             "finish_setup",
         ] {

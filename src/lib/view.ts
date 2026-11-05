@@ -34,6 +34,10 @@ export type Action =
   | 'guide:switcher'
   /** The Claude accounts' actions on banners (`ClaudeAccounts`). */
   | 'claude:rotation:on'
+  /** Stops "Tự chuyển khi hết quota" (the rotation's LaunchAgent or timer). */
+  | 'claude:rotation:off'
+  /** Opens the pause sheet of automatic switching. */
+  | 'pause'
   | 'claude:import'
   /** Signs a Claude account in again (its slot): the Claude tab's dialog. */
   | `claude:relogin:${number}`
