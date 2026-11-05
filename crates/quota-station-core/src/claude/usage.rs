@@ -2,9 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Onur Cetinkol (claude-swap)
 // SPDX-License-Identifier: MIT
 
-// The usage and token calls are claude-swap's (`oauth.py`, `usage_store.py`,
-// `poll_policy.py`, MIT, https://github.com/realiti4/claude-swap): the same
-// endpoints, beta header, client id and request bodies, the same reading of
+// Adapted from claude-swap `oauth.py`, `usage_store.py` and
+// `poll_policy.py` (MIT, https://github.com/realiti4/claude-swap); see
+// NOTICE for the changes. The usage and token calls: the same endpoints, beta header, client id and request bodies, the same reading of
 // `five_hour`, `seven_day` and the per-model `limits[]`, the same error
 // kinds, the five-minute expiry margin, the 180-second reuse and the
 // back-off after a failure or a 429.
@@ -100,7 +100,7 @@ pub struct Scoped {
     pub resets_at: Option<String>,
 }
 
-/// One reading of an account, in claude-swap's `lastGood` shape.
+/// One reading of an account, in the `lastGood` shape the import reads too.
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct Reading {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -117,7 +117,7 @@ impl Reading {
     }
 }
 
-/// The usage endpoint's answer as claude-swap reads it.
+/// The usage endpoint's answer.
 pub fn parse(data: &Value) -> Option<Reading> {
     let win = |v: &Value| -> Option<Win> {
         let pct = v.get("utilization")?.as_f64()?;
@@ -346,7 +346,7 @@ fn expired(credential: &str, now_ms: i64) -> bool {
     cc::expires_at(credential).is_some_and(|e| now_ms + EXPIRY_MARGIN_MS >= e)
 }
 
-/// The back-off after `failures` failures in a row, claude-swap's.
+/// The back-off after `failures` failures in a row.
 fn backoff(kind: &str, failures: u32, retry_after: Option<f64>) -> f64 {
     let n = failures.max(1);
     if kind == "http-429" {

@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: MIT
 
 //! Quota Station's own LaunchAgent, which runs the rotation every three
-//! minutes whether or not the app is open, as `com.cswap.prefer-team` ran
-//! the old switcher, and the check that the two older switchers are not
+//! minutes whether or not the app is open, as the old switcher's LaunchAgent
+//! ran it, and the check that the two older switchers are not
 //! loaded beside it.
 
 use std::path::{Path, PathBuf};
@@ -16,7 +16,7 @@ use crate::switcher;
 pub const LABEL: &str = "com.shin315.quota-station.rotation";
 /// How often launchd runs the rotation, as the old switcher ran.
 pub const EVERY_SECONDS: u32 = 180;
-/// The old switcher, and claude-swap's own.
+/// The two older switchers' LaunchAgents.
 pub const LEGACY: [&str; 2] = [switcher::SERVICE, switcher::AUTO_SERVICE];
 const LAUNCHCTL_TIMEOUT: Duration = Duration::from_secs(10);
 

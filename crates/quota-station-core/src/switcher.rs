@@ -4,11 +4,11 @@
 //! The rotation, the one engine that switches Claude on its own (F07): what
 //! it would do now, what it did last (its log), and whether launchd runs it.
 //! The rotation runs in the app ([`crate::claude::rotate`]); this module
-//! reads its decision line and its log, in the old `cswap-prefer-team`
+//! reads its decision line and its log, in the owner's old switcher
 //! script's words, which the history and the windows already know.
 //!
-//! The old script's LaunchAgent, and claude-swap's own, are only looked at
-//! to warn: two switchers must never run at once.
+//! The old script's LaunchAgent, and the other account switcher's own, are
+//! only looked at to warn: two switchers must never run at once.
 
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
@@ -21,11 +21,12 @@ use crate::claude::Paths;
 use crate::local_time;
 use crate::runner;
 
-/// The old switcher's log, read until the app keeps the accounts.
+/// The old switcher's log, read until the app keeps the accounts (its own
+/// path).
 pub const LOG: &str = "Library/Logs/cswap-prefer-team.log";
-/// The old switcher's LaunchAgent, every 3 minutes.
+/// The old switcher's LaunchAgent, every 3 minutes (its own label).
 pub const SERVICE: &str = "com.cswap.prefer-team";
-/// claude-swap's own automatic switcher.
+/// The other account switcher's own automatic switcher (its own label).
 pub const AUTO_SERVICE: &str = "com.cswap.auto";
 pub const LAUNCHCTL: &str = "/bin/launchctl";
 const LAUNCHCTL_TIMEOUT: Duration = Duration::from_secs(5);
@@ -71,7 +72,7 @@ pub enum Decision {
         until: Option<String>,
         reason: Option<String>,
     },
-    /// `blocked (com.cswap.prefer-team is loaded)`: an older switcher runs,
+    /// `blocked (<label> is loaded)`: an older switcher runs,
     /// so the app's rotation switches nothing.
     Blocked {
         label: String,

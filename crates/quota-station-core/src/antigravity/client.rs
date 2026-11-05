@@ -3,15 +3,11 @@
 // SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
 // Adapted from Cockpit Tools `src-tauri/src/modules/oauth.rs` (1.3.70,
-// commit 244b957, CC BY-NC-SA 4.0): the client's key name and the one
-// client it logs in with; changes: the id and the secret come from
-// `oauth-client.json` instead of constants in the source, and the file is
-// checked before use (a UTF-8 byte order mark, as Windows editors write
-// one, is skipped).
+// commit 244b957); see NOTICE for the changes.
 
-//! The OAuth client the app logs in with: Antigravity's own, the one Cockpit
-//! Tools uses, so Google sees the same client either way. Its id and secret
-//! never go into this public repository. The owner puts them in
+//! The OAuth client the app logs in with: Antigravity's own, so Google sees
+//! the same client as for Antigravity itself. Its id and secret never go
+//! into this public repository. The owner puts them in
 //! `oauth-client.json` at the root of the app's Application Support folder,
 //! readable only by them (mode 600); on Windows that folder is
 //! `%APPDATA%\com.shin315.quota-station`, which the user profile's access
@@ -21,8 +17,9 @@
 //! { "client_id": "<id>.apps.googleusercontent.com", "client_secret": "<secret>" }
 //! ```
 //!
-//! Nothing here prints the id or the secret: `Debug` hides them and the UI
-//! only learns the file's [`ClientStatus`].
+//! The file is checked before use; a UTF-8 byte order mark, as Windows
+//! editors write one, is skipped. Nothing here prints the id or the secret:
+//! `Debug` hides them and the UI only learns the file's [`ClientStatus`].
 
 use std::path::PathBuf;
 
@@ -31,7 +28,7 @@ use serde::{Deserialize, Serialize};
 use crate::app_dir::AppDir;
 
 pub const FILE: &str = "oauth-client.json";
-/// Cockpit's name for this client, kept with every token it gets
+/// The key name of this client, kept with every token it gets
 /// (`TokenData.oauth_client_key`).
 pub const CLIENT_KEY: &str = "antigravity_enterprise";
 const ID_SUFFIX: &str = ".apps.googleusercontent.com";

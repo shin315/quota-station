@@ -94,9 +94,9 @@ impl TestApp {
 /// fields to each Claude account (`account`, by slot) and its own state
 /// (`fill`). The state lives in `dir`, which is removed before and after;
 /// the JSON writes `dir` as `/TEST` and fixes the things read from this
-/// machine outside it: CC Switch in /Applications is not there, and `npx`
-/// is not found (the file says so, as Claude Code is found: the state sets
-/// that one).
+/// machine outside it: another Codex switcher in /Applications is not
+/// there, and `npx` is not found (the file says so, as Claude Code is found:
+/// the state sets that one).
 pub fn fixed_model_json<E: Extension>(
     dir: &Path,
     extension: &'static E,

@@ -2,9 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Onur Cetinkol (claude-swap)
 // SPDX-License-Identifier: MIT
 
-// Claude Code's lock folders and their order are claude-swap's
-// (`claude_locks.py`, MIT, https://github.com/realiti4/claude-swap), which
-// follows Claude Code's own: the `proper-lockfile` protocol, a folder made
+// Adapted from claude-swap `claude_locks.py` (MIT,
+// https://github.com/realiti4/claude-swap); see NOTICE for the changes.
+// Claude Code's lock folders and their order follow Claude Code's own: the `proper-lockfile` protocol, a folder made
 // with `mkdir`, judged stale by its age and touched while held.
 
 //! The locks a change of the Claude accounts takes, in this order:

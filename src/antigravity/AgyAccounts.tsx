@@ -52,8 +52,8 @@ function Waiting({ api }: { api: Api }) {
         <b className="block font-semi">{t('Đang chờ đăng nhập trong trình duyệt…', 'Waiting for sign-in in the browser…')}</b>
         <small className="block text-xs text-ink2">
           {t(
-            'Trang của Google mở trong trình duyệt mặc định. Màn hình đồng ý ghi tên ứng dụng của Antigravity, không phải Quota Station: app đăng nhập bằng client của Antigravity, như Cockpit. Chờ tối đa 10 phút.',
-            'Google’s page opens in the default browser. The consent screen names Antigravity’s app, not Quota Station: the app signs in with Antigravity’s client, as Cockpit does. Waits up to 10 minutes.',
+            'Trang của Google mở trong trình duyệt mặc định. Màn hình đồng ý ghi tên ứng dụng của Antigravity, không phải Quota Station: app đăng nhập bằng OAuth client của Antigravity. Chờ tối đa 10 phút.',
+            'Google’s page opens in the default browser. The consent screen names Antigravity’s app, not Quota Station: the app signs in with Antigravity’s OAuth client. Waits up to 10 minutes.',
           )}
         </small>
         <label htmlFor="qs-agy-cb" className="mt-1 text-xs text-ink2" style={{ display: 'block', marginTop: 8 }}>

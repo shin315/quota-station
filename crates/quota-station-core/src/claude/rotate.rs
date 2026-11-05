@@ -1,15 +1,15 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-//! One run of the rotation, as one run of the old `cswap-prefer-team`
-//! script, in the same order: the pause guard, the readings, the decision
+//! One run of the rotation, as one run of the owner's old switcher script,
+//! in the same order: the pause guard, the readings, the decision
 //! ([`super::engine`] with a rotation rules file, [`super::auto`] without
 //! one: [`Policy`]), the switch, then priming. The decisions and
 //! switches go to `claude/rotation.log` in the script's log format, which
 //! the history and the window read.
 //!
-//! Two switchers must never run at once: while `com.cswap.prefer-team` or
-//! `com.cswap.auto` is loaded, a run switches nothing, primes nothing and
+//! Two switchers must never run at once: while an older switcher's
+//! LaunchAgent ([`super::agent::LEGACY`]) is loaded, a run switches nothing, primes nothing and
 //! refreshes no token (the older switcher keeps its own copies of the same
 //! logins), and says so as its decision.
 

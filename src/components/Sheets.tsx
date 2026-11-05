@@ -89,7 +89,7 @@ export interface SheetBodyProps {
   onCodexKeep?(): void;
   /** Another Codex sheet: "Về lại …", the guides. */
   onCodexOpen?(sheet: SheetState): void;
-  /** The guide to stop using CC Switch, in the Codex tab. */
+  /** The guide to switch Codex in one place only, in the Codex tab. */
   onCodexGuide?(): void;
   /** "Dùng plugin với Custom API": kept for the next switch. */
   onCodexPlugins?(on: boolean): void;
@@ -114,8 +114,8 @@ function ClaudeBody(props: SheetBodyProps & { slot: number }) {
         <DialogTitle>{t('Không còn tài khoản này', 'This account is gone')}</DialogTitle>
         <DialogLead>
           {t(
-            'claude-swap không còn liệt kê tài khoản ' + props.slot + '. Bấm Làm mới rồi thử lại.',
-            'claude-swap no longer lists account ' + props.slot + '. Press Refresh and try again.',
+            'Công cụ chuyển tài khoản khác không còn liệt kê tài khoản ' + props.slot + '. Bấm Làm mới rồi thử lại.',
+            'The other account switcher no longer lists account ' + props.slot + '. Press Refresh and try again.',
           )}
         </DialogLead>
         <DialogButtons>
@@ -295,7 +295,7 @@ function CodexAccountBody(props: SheetBodyProps & { account: string }) {
       <DialogButtons>
         {v.ccSwitch && props.onCodexGuide ? (
           <LinkButton style={{ marginRight: 'auto' }} onClick={props.onCodexGuide}>
-            {t('Hướng dẫn ngừng dùng CC Switch', 'How to stop using CC Switch')}
+            {t('Hướng dẫn chỉ chuyển Codex ở một nơi', 'How to switch Codex in one place only')}
           </LinkButton>
         ) : null}
         <Button large onClick={props.onClose}>
@@ -350,7 +350,7 @@ function CodexProviderBody(props: SheetBodyProps & { target: CodexTarget; accoun
       <DialogButtons>
         {v.ccSwitch && props.onCodexGuide ? (
           <LinkButton style={{ marginRight: 'auto' }} onClick={props.onCodexGuide}>
-            {t('Hướng dẫn ngừng dùng CC Switch', 'How to stop using CC Switch')}
+            {t('Hướng dẫn chỉ chuyển Codex ở một nơi', 'How to switch Codex in one place only')}
           </LinkButton>
         ) : null}
         <Button large onClick={props.onClose}>
@@ -612,8 +612,8 @@ function CodexKeyBody(props: SheetBodyProps) {
       <DialogTitle>{mode === 'replace' ? t('Đổi khoá API của ' + name, 'Change ' + name + '’s API key') : t('Dán khoá API cho ' + name, 'Paste the API key for ' + name)}</DialogTitle>
       <DialogLead>
         {t(
-          'Khoá ghi vào bảng ' + name + ' trong config.toml, như CC Switch. App không hiện lại khoá, không ghi nó vào log hay bản sao lưu.',
-          'The key goes into the ' + name + ' table in config.toml, as CC Switch does. The app never shows the key again or writes it to a log or backup.',
+          'Khoá ghi vào bảng ' + name + ' trong config.toml. App không hiện lại khoá, không ghi nó vào log hay bản sao lưu.',
+          'The key goes into the ' + name + ' table in config.toml. The app never shows the key again or writes it to a log or backup.',
         )}
       </DialogLead>
       <label className="mb-2 block text-sm">
@@ -639,16 +639,16 @@ function CodexKeyBody(props: SheetBodyProps) {
           <Input mono spellCheck={false} aria-label={t('Địa chỉ thật của ' + name, name + '’s real address')} placeholder="https://…/v1" value={url} onChange={(e) => setUrl(e.target.value)} />
           <FieldHint>
             {t(
-              'Đang trỏ tới proxy của CC Switch (127.0.0.1:15721), chỉ chạy khi CC Switch mở. Để trống thì giữ nguyên.',
-              'Points to CC Switch’s proxy (127.0.0.1:15721), which only runs while CC Switch is open. Leave it empty to keep it.',
+              'Đang trỏ tới proxy cục bộ của công cụ khác (127.0.0.1:15721), chỉ chạy khi công cụ đó mở. Để trống thì giữ nguyên.',
+              'Points to another tool’s local proxy (127.0.0.1:15721), which only runs while that tool is open. Leave it empty to keep it.',
             )}
           </FieldHint>
         </label>
       ) : null}
       {catalog ? <FieldHint className="mb-2">
           {t(
-            'config.toml còn model_catalog_json của CC Switch: giữ file danh mục đó, đừng xoá. App không sửa dòng này.',
-            'config.toml still has CC Switch’s model_catalog_json: keep that catalog file, do not delete it. The app does not change this line.',
+            'config.toml còn model_catalog_json do công cụ khác để lại: giữ file danh mục đó, đừng xoá. App không sửa dòng này.',
+            'config.toml still has a model_catalog_json left by another tool: keep that catalog file, do not delete it. The app does not change this line.',
           )}
         </FieldHint> : null}
       {error ? (

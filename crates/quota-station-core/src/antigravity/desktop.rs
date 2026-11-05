@@ -2,38 +2,13 @@
 // SPDX-FileCopyrightText: jlcodes (Cockpit Tools)
 // SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
-// The version rule is adapted from Cockpit Tools
-// `src-tauri/src/commands/account.rs` (`compare_versions`,
-// `resolve_antigravity_desktop_auth_mode_from_info`) and
-// `src-tauri/src/commands/system_config_types.rs`
-// (`read_antigravity_macos_bundle_metadata`) (1.3.70, commit 244b957, CC
-// BY-NC-SA 4.0); changes: only Antigravity.app 2.0 and later are switched
-// (the old SQLite login is not ported, so an older app is refused instead of
-// written another way), a version that cannot be read stops the switch
-// instead of counting as new, and the version is read with `plutil
-// -extract`. The quit and the reopen are the app's own: Cockpit closes the
-// app's processes
-// by their data folder; this app asks macOS to quit it by its bundle id and
-// opens it again the same way.
-//
-// On Windows, adapted from the same version's Windows branches:
-// `src-tauri/src/commands/system_config_types.rs`
-// (`antigravity_metadata_candidates`, `find_antigravity_windows_exe`,
-// `read_antigravity_product_json_metadata`,
-// `read_antigravity_windows_exe_metadata`,
-// `read_antigravity_windows_uninstall_metadata`, their PowerShell scripts),
-// `src-tauri/src/modules/process_path_resolution.rs`
-// (`detect_antigravity_legacy_exec_path`),
-// `src-tauri/src/modules/process_launch_candidates.rs`
-// (`build_windows_path_filtered_process_probe_script`: the executable told
-// from the command line), `src-tauri/src/modules/process_close_lifecycle.rs`
-// (`request_antigravity_graceful_close`: `taskkill /PID <pid> /T`, and
-// `start_antigravity_legacy_with_args`: the executable started in its
-// folder, apart, with `--reuse-window`); changes: the processes come from
-// `sysinfo` instead of PowerShell, a process with `--type=` (Chromium's
-// helpers) is not the app, the close is never followed by `taskkill /F`
-// (one that does not quit is reported, as on macOS), no Start menu shortcut
-// and no configured path, and PowerShell gets ten seconds instead of five.
+// The version rule and the Windows branches are adapted from Cockpit Tools
+// `src-tauri/src/commands/account.rs`,
+// `src-tauri/src/commands/system_config_types.rs`,
+// `src-tauri/src/modules/process_path_resolution.rs`,
+// `src-tauri/src/modules/process_launch_candidates.rs` and
+// `src-tauri/src/modules/process_close_lifecycle.rs` (1.3.70, commit
+// 244b957); see NOTICE for the changes.
 
 //! Antigravity, as a switch sees it: is it installed, which version, is it
 //! running, quit it politely, open it again.
@@ -51,7 +26,7 @@
 //!   ask first. Nothing here ever kills it;
 //! - open: `open -b com.google.antigravity`.
 //!
-//! On Windows, `Antigravity.exe` where Cockpit looks for it ([`install_roots`]):
+//! On Windows, `Antigravity.exe` in its install folders ([`install_roots`]):
 //!
 //! - installed: the first of its folders that holds `Antigravity.exe` (or
 //!   `Electron.exe`), asked through `fs::Bundle`, which only reads;
@@ -81,7 +56,7 @@ pub const APP_PATH: &str = "/Applications/Antigravity.app";
 pub const PROCESS: &str = "/Applications/Antigravity.app/Contents/MacOS/Antigravity";
 /// The first version that keeps its login in the shared Keychain item.
 pub const MIN_VERSION: &str = "2.0.0";
-/// How long a quit may take before the switch gives up (Cockpit's 20 s).
+/// How long a quit may take before the switch gives up.
 pub const QUIT_WAIT: Duration = Duration::from_secs(20);
 /// Each `pgrep`, `plutil` or `open`.
 const STEP: Duration = Duration::from_secs(10);
@@ -91,8 +66,8 @@ const POLL: Duration = Duration::from_millis(250);
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Installed {
-    /// No bundle at [`APP_PATH`] (on Windows, no `Antigravity.exe` where
-    /// Cockpit looks): a switch only changes agy's login.
+    /// No bundle at [`APP_PATH`] (on Windows, no `Antigravity.exe` in its
+    /// install folders): a switch only changes agy's login.
     Missing,
     /// 2.0 or later.
     Supported { version: String },
@@ -105,7 +80,7 @@ pub enum Installed {
     Unreadable { detail: String },
 }
 
-/// Cockpit's version compare: the numbers in each, part by part.
+/// The version compare: the numbers in each, part by part.
 fn parse_version_parts(value: &str) -> Vec<u64> {
     value
         .trim()
@@ -286,7 +261,7 @@ impl Desktop {
 
 // ===== Windows =====
 
-/// The folders Cockpit looks for Antigravity in on Windows, in its order:
+/// The folders Antigravity is looked for in on Windows, in this order:
 /// `%LOCALAPPDATA%\Programs\Antigravity`, `%PROGRAMFILES%\Antigravity`,
 /// `%PROGRAMFILES(X86)%\Antigravity`; one whose variable is not set is
 /// left out.
@@ -306,7 +281,7 @@ pub fn install_roots() -> Vec<PathBuf> {
     .collect()
 }
 
-/// The executables Cockpit starts, in each folder, in its order.
+/// The executables started, in each folder, in this order.
 #[cfg(any(windows, test))]
 pub const EXES: [&str; 2] = ["Antigravity.exe", "Electron.exe"];
 
@@ -339,17 +314,17 @@ pub trait Host: Send + Sync {
 }
 
 /// What `taskkill` is given to ask `pid` and the processes it started to
-/// close, as Cockpit's `request_antigravity_graceful_close` does: never `/F`.
+/// close: never `/F`.
 #[cfg(any(windows, test))]
 pub fn taskkill_args(pid: u32) -> [String; 3] {
     ["/PID".to_string(), pid.to_string(), "/T".to_string()]
 }
 
-/// What Antigravity is started with, as Cockpit starts it.
+/// What Antigravity is started with.
 #[cfg(any(windows, test))]
 pub const START_ARGS: [&str; 1] = ["--reuse-window"];
 
-/// Cockpit's `Normalize-ExePath`: quotes and `\\?\` dropped, `/` as `\`,
+/// An executable's path normalized: quotes and `\\?\` dropped, `/` as `\`,
 /// lower case, so two spellings of one executable compare equal.
 #[cfg(any(windows, test))]
 pub fn normalize_exe(path: &str) -> String {
@@ -362,7 +337,7 @@ pub fn normalize_exe(path: &str) -> String {
     value.to_lowercase()
 }
 
-/// Cockpit's `Get-ExePathFromCmdLine`: the quoted first word, else
+/// The executable in a command line: the quoted first word, else
 /// everything up to the first `.exe`, else up to the first space.
 #[cfg(any(windows, test))]
 pub fn exe_from_command_line(command: &str) -> Option<String> {
@@ -400,7 +375,7 @@ pub fn is_app(task: &Task, exes: &[String]) -> bool {
     exes.contains(&exe) && !task.command.to_ascii_lowercase().contains("--type=")
 }
 
-/// The version in Cockpit's product.json fields, from that file's text.
+/// The version in product.json's fields, from that file's text.
 #[cfg(any(windows, test))]
 fn product_json_version(text: &str) -> Option<String> {
     let value = serde_json::from_str::<serde_json::Value>(text).ok()?;
@@ -416,7 +391,7 @@ fn product_json_version(text: &str) -> Option<String> {
         .map(str::to_string)
 }
 
-/// The version in what Cockpit's PowerShell scripts print: `ProductVersion`,
+/// The version in what the PowerShell scripts print: `ProductVersion`,
 /// else `FileVersion`, else `DisplayVersion`.
 #[cfg(any(windows, test))]
 pub fn powershell_version(stdout: &str) -> Option<String> {
@@ -543,12 +518,12 @@ fn system32(parts: &[&str]) -> PathBuf {
     parts.iter().fold(base, |p, part| p.join(part))
 }
 
-/// The variable Cockpit's scripts read the executable's path from, so no
+/// The variable the scripts read the executable's path from, so no
 /// path is ever quoted into a script.
 #[cfg(windows)]
 const EXE_VAR: &str = "QUOTA_STATION_ANTIGRAVITY_EXE";
 
-/// Cockpit's script that prints the executable's VersionInfo.
+/// The script that prints the executable's VersionInfo.
 #[cfg(windows)]
 const VERSION_INFO_SCRIPT: &str = r#"
 $ErrorActionPreference = 'Stop'
@@ -566,7 +541,7 @@ if ([string]::IsNullOrWhiteSpace($v.ProductVersion) -and [string]::IsNullOrWhite
 } | ConvertTo-Json -Compress
 "#;
 
-/// Cockpit's script that prints the Uninstall entry naming the executable.
+/// The script that prints the Uninstall entry naming the executable.
 #[cfg(windows)]
 const UNINSTALL_SCRIPT: &str = r#"
 $ErrorActionPreference = 'Stop'
@@ -699,13 +674,13 @@ mod tests {
         assert_eq!(classify("v10.1"), Installed::Supported { version: "v10.1".into() });
         assert_eq!(classify("1.20.5"), Installed::TooOld { version: "1.20.5".into() });
         assert_eq!(classify("1.99.99"), Installed::TooOld { version: "1.99.99".into() });
-        // Cockpit counts a version with no number as new; here it stops the switch.
+        // A version with no number stops the switch.
         assert!(matches!(classify("dev"), Installed::Unreadable { .. }));
         assert!(matches!(classify(""), Installed::Unreadable { .. }));
     }
 
     #[test]
-    fn a_windows_executable_is_told_from_its_command_line_as_cockpit_tells_it() {
+    fn a_windows_executable_is_told_from_its_command_line() {
         let exe = r"C:\Users\x\AppData\Local\Programs\Antigravity\Antigravity.exe";
         assert_eq!(
             exe_from_command_line(&format!("\"{exe}\" --reuse-window")).as_deref(),
@@ -779,7 +754,7 @@ mod tests {
     }
 
     #[test]
-    fn antigravity_is_asked_to_close_and_started_with_cockpits_words() {
+    fn antigravity_is_asked_to_close_and_started_with_the_expected_words() {
         assert_eq!(taskkill_args(4242), ["/PID", "4242", "/T"]);
         assert!(!taskkill_args(1).iter().any(|a| a.eq_ignore_ascii_case("/F")));
         assert_eq!(START_ARGS, ["--reuse-window"]);

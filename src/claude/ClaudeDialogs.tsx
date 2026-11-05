@@ -103,8 +103,8 @@ function AddBody({ d, view, claude, nameOf }: { d: Extract<ClaudeDialog, { kind:
   if (view.importable)
     options.push({
       v: 'import',
-      t: view.ready ? t('Nhập lại từ claude-swap', 'Import again from claude-swap') : t('Nhập từ claude-swap', 'Import from claude-swap'),
-      s: t('Mang các tài khoản sang, giữ nguyên số, không phải đăng nhập lại. claude-swap vẫn để nguyên.', 'Brings the accounts over with the same numbers and no new sign-in. claude-swap stays as it is.'),
+      t: view.ready ? t('Nhập lại từ công cụ chuyển tài khoản khác', 'Import again from another account switcher') : t('Nhập từ công cụ chuyển tài khoản khác', 'Import from another account switcher'),
+      s: t('Mang các tài khoản sang, giữ nguyên số, không phải đăng nhập lại. Công cụ đó vẫn để nguyên.', 'Brings the accounts over with the same numbers and no new sign-in. That tool stays as it is.'),
     });
   const blocked = (d.how === 'browser' && !view.claude) || claude.pending || view.working != null;
   return (

@@ -62,8 +62,8 @@ export function setupText(v: ClaudeAccountsView): { title: string; body: string 
     ? {
         title: t('Đưa các tài khoản Claude vào Quota Station', 'Bring your Claude accounts into Quota Station'),
         body: t(
-          'Nhập từ claude-swap để mang các tài khoản sang, giữ nguyên số và không phải đăng nhập lại. claude-swap và dữ liệu của nó vẫn để nguyên.',
-          'Import from claude-swap to bring the accounts over, with the same numbers and no new sign-in. claude-swap and its data stay as they are.',
+          'Nhập từ công cụ chuyển tài khoản khác để mang các tài khoản sang, giữ nguyên số và không phải đăng nhập lại. Công cụ đó và dữ liệu của nó vẫn để nguyên.',
+          'Import from another account switcher to bring the accounts over, with the same numbers and no new sign-in. That tool and its data stay as they are.',
         ),
       }
     : {
@@ -128,9 +128,9 @@ export function errorText(done: ClaudeActionDone): string {
     case 'launchctl':
       return os(t('launchctl báo lỗi', 'launchctl reported an error'), t('Không bật được hẹn giờ của app', 'Could not start the app’s timer')) + detail + '.';
     case 'notFound':
-      return mac(t('Không thấy dữ liệu claude-swap trên máy này.', 'No claude-swap data on this Mac.'));
+      return mac(t('Không thấy dữ liệu của công cụ chuyển tài khoản khác trên máy này.', 'No data from another account switcher on this Mac.'));
     case 'corrupt':
-      return t('Không đọc được sequence.json của claude-swap. Không nhập gì.', 'Cannot read claude-swap’s sequence.json. Nothing was imported.');
+      return t('Không đọc được sequence.json của công cụ chuyển tài khoản khác. Không nhập gì.', 'Cannot read the other account switcher’s sequence.json. Nothing was imported.');
     case 'unknownSlot':
       return t('Quota Station không giữ tài khoản này.', 'Quota Station does not keep this account.');
     default:
@@ -145,17 +145,17 @@ function count(n: number, what: string, one: string, many: string): string | nul
 
 function importText(done: ClaudeActionDone): string {
   const i = done.imported;
-  if (!i) return t('Đã nhập từ claude-swap.', 'Imported from claude-swap.');
+  if (!i) return t('Đã nhập từ công cụ chuyển tài khoản khác.', 'Imported from another account switcher.');
   const parts = [
     count(i.added.length, 'tài khoản mới', 'new account', 'new accounts'),
     count(i.updated.length, 'đăng nhập mới hơn', 'newer sign-in', 'newer sign-ins'),
     count(i.unchanged.length, 'giữ nguyên', 'unchanged', 'unchanged'),
   ].filter(Boolean);
-  let text = t('Đã nhập từ claude-swap: ', 'Imported from claude-swap: ') + (parts.length ? parts.join(', ') : t('không có gì mới', 'nothing new')) + '.';
+  let text = t('Đã nhập từ công cụ chuyển tài khoản khác: ', 'Imported from another account switcher: ') + (parts.length ? parts.join(', ') : t('không có gì mới', 'nothing new')) + '.';
   if (i.skipped.length)
     text += t(' Bỏ qua tài khoản ', i.skipped.length === 1 ? ' Skipped account ' : ' Skipped accounts ') + i.skipped.map(([s]) => s).join(', ') + '.';
   if (i.rotation) text += t(' Đã chép luật xoay vòng.', ' Copied the rotation rules.');
-  return text + t(' claude-swap vẫn để nguyên.', ' claude-swap stays as it is.');
+  return text + t(' Công cụ đó vẫn để nguyên.', ' That tool stays as it is.');
 }
 
 const close = (): { label: string; act: Action } => ({ label: t('Đóng', 'Close'), act: 'closeFeedback' });

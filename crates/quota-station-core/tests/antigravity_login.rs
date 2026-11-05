@@ -47,7 +47,7 @@ fn stored_token(home: &Home, id: &str) -> TokenData {
 }
 
 #[test]
-fn a_login_opens_cockpits_consent_url_and_keeps_the_account() {
+fn a_login_opens_the_consent_url_and_keeps_the_account() {
     let home = Home::new("agy-login");
     let google = FakeGoogle::start(Script::default());
 
@@ -55,8 +55,8 @@ fn a_login_opens_cockpits_consent_url_and_keeps_the_account() {
     let done = result.unwrap();
     assert_eq!(done, login::LoggedIn { id: ACCOUNT_ID.into(), number: 1, added: true });
 
-    // The consent URL: Antigravity's client, Cockpit's scopes and parameters
-    // in Cockpit's order, a loopback redirect and a UUID state.
+    // The consent URL: Antigravity's client, scopes and parameters in their
+    // order, a loopback redirect and a UUID state.
     let opened = browser.opened();
     assert_eq!(opened.len(), 1);
     let url = url::Url::parse(&opened[0]).unwrap();
@@ -132,7 +132,7 @@ fn a_login_opens_cockpits_consent_url_and_keeps_the_account() {
     assert_eq!(token.id_token.as_deref(), Some("fake-id-token"));
     assert_eq!(token.project_id, None);
 
-    // Cockpit's index layout, with no token in it.
+    // The index layout, with no token in it.
     let index = home.index_json();
     assert_eq!(index["version"], "2.0");
     assert_eq!(index["current_account_id"], ACCOUNT_ID);
@@ -153,7 +153,7 @@ fn a_login_opens_cockpits_consent_url_and_keeps_the_account() {
 }
 
 #[test]
-fn the_account_id_is_cockpits_for_the_email() {
+fn the_account_id_comes_from_the_email() {
     assert_eq!(index::account_id(EMAIL), ACCOUNT_ID);
     assert_eq!(index::account_id("  SomeOne@Example.COM "), ACCOUNT_ID);
 }
@@ -189,7 +189,7 @@ fn a_consent_without_a_code_ends_the_login() {
 }
 
 #[test]
-fn no_refresh_token_gives_cockpits_advice_and_keeps_nothing() {
+fn no_refresh_token_gives_advice_and_keeps_nothing() {
     let home = Home::new("agy-norefresh");
     let google = FakeGoogle::start(Script {
         exchange: (200, token_body(ACCESS, None)),
@@ -204,7 +204,7 @@ fn no_refresh_token_gives_cockpits_advice_and_keeps_nothing() {
     let advice = err.to_string();
     assert!(advice.contains("https://myaccount.google.com/permissions"));
     assert!(advice.contains("Antigravity Tools"));
-    assert!(google.to("/oauth2/v2/userinfo").is_empty(), "Cockpit stops before userinfo");
+    assert!(google.to("/oauth2/v2/userinfo").is_empty(), "the login stops before userinfo");
     assert!(home.security_calls().is_empty());
     assert!(!home.index_file().exists());
 }
@@ -337,7 +337,7 @@ fn a_second_account_is_added_and_a_new_login_of_the_first_keeps_its_place() {
 
 #[test]
 fn a_login_without_a_callback_gives_up_at_the_timeout() {
-    assert_eq!(LOGIN_TIMEOUT, Duration::from_secs(600), "Cockpit waits 10 minutes");
+    assert_eq!(LOGIN_TIMEOUT, Duration::from_secs(600), "the login waits 10 minutes");
     let home = Home::new("agy-timeout");
     let google = FakeGoogle::start(Script::default());
     let endpoints = google.endpoints();
@@ -622,7 +622,7 @@ fn the_oauth_client_file_must_be_private_and_filled_in() {
     home.write_client("not json", 0o600);
     assert_eq!(client::status(&home.app), ClientStatus::Invalid);
     home.write_client(
-        r#"{"client_id":"<client id from Cockpit Tools>.apps.googleusercontent.com","client_secret":"<client secret>"}"#,
+        r#"{"client_id":"<client id>.apps.googleusercontent.com","client_secret":"<client secret>"}"#,
         0o600,
     );
     assert_eq!(client::status(&home.app), ClientStatus::Invalid, "the README's placeholders");

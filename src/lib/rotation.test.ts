@@ -7,7 +7,7 @@ import { FIXTURE_NOW, fixtureModel, heldSwitcher, switcherFixture } from '@/fixt
 import type { Decision } from '@/lib/model';
 import { bannerUnder, refreshedFeedback } from '@/lib/view';
 import { claudeSheet, namesOf, switchFeedback } from '@/lib/switching';
-import { autoView, decisionText, holdOptions, logText, pauseOf, pauseOptions, pausedFeedback, switcherBanner } from './rotation';
+import { autoView, decisionText, holdOptions, logText, OLD_AGENT, pauseOf, pauseOptions, pausedFeedback, switcherBanner } from './rotation';
 
 const model = fixtureModel('fresh');
 const nameOf = namesOf(model);
@@ -77,7 +77,7 @@ describe('the pause', () => {
     expect(switcherBanner(model, FIXTURE_NOW)).toBeNull();
     expect(switcherBanner(fixtureModel('fresh', { switcher: heldSwitcher({ guard: false }) }), FIXTURE_NOW)?.tone).toBe('bad');
     expect(
-      switcherBanner(fixtureModel('fresh', { switcher: heldSwitcher({ legacy: 'com.cswap.prefer-team' }) }), FIXTURE_NOW)?.title,
+      switcherBanner(fixtureModel('fresh', { switcher: heldSwitcher({ legacy: OLD_AGENT }) }), FIXTURE_NOW)?.title,
     ).toBe('Bộ tự chuyển cũ còn chạy');
     const paused = switcherBanner(fixtureModel('fresh', { switcher: heldSwitcher() }), FIXTURE_NOW)!;
     expect(paused.title).toBe('Đang giữ lan.acme1 đến 15:20');
@@ -145,8 +145,8 @@ describe('the switcher in words', () => {
     const stopped = autoView(fixtureModel('fresh', { switcher: switcherFixture({ service: false }) }), FIXTURE_NOW);
     expect(stopped.why).toBe('Tự chuyển của Quota Station đang tắt: bật nó ở tab Claude.');
     expect(stopped.toggle.disabled).toBe(true);
-    const legacy = autoView(fixtureModel('fresh', { switcher: switcherFixture({ legacy: 'com.cswap.prefer-team' }) }), FIXTURE_NOW);
-    expect(legacy.why).toBe('Bộ tự chuyển cũ com.cswap.prefer-team còn chạy, nên Quota Station chưa tự chuyển.');
+    const legacy = autoView(fixtureModel('fresh', { switcher: switcherFixture({ legacy: OLD_AGENT }) }), FIXTURE_NOW);
+    expect(legacy.why).toBe(`Bộ tự chuyển cũ ${OLD_AGENT} còn chạy, nên Quota Station chưa tự chuyển.`);
     expect(legacy.toggle.disabled).toBe(true);
   });
 
@@ -182,7 +182,7 @@ describe('the switch sheet and its result', () => {
     expect(v.facts[0].text).toBe('lan.acme2 đã dùng **92%** 5 giờ, **50%** Fable.');
     expect(v.facts[3].text).toBe('lan.acme2 đã dùng 92% hạn mức 5 giờ.');
     expect(v.blocked).toBe(true);
-    const legacy = claudeSheet(fixtureModel('fresh', { switcher: switcherFixture({ legacy: 'com.cswap.prefer-team' }) }), 3, '60', null, FIXTURE_NOW)!;
+    const legacy = claudeSheet(fixtureModel('fresh', { switcher: switcherFixture({ legacy: OLD_AGENT }) }), 3, '60', null, FIXTURE_NOW)!;
     expect(legacy.blocked).toBe(true);
     expect(legacy.facts.at(-1)!.k).toBe('x');
   });
@@ -218,10 +218,10 @@ describe('the switch sheet and its result', () => {
     const fb = (error: string, detail = '', active: number | null = null) =>
       switchFeedback({ kind: 'failed', slot: 3, error, detail, active }, model, FIXTURE_NOW);
     const body = (error: string, detail = '', active: number | null = null) => fb(error, detail, active).body;
-    expect(body('legacy', 'com.cswap.prefer-team')).toBe(
-      'Bộ tự chuyển cũ com.cswap.prefer-team còn chạy. Tắt nó trước theo hướng dẫn ở tab Claude. Chưa đổi gì.',
+    expect(body('legacy', OLD_AGENT)).toBe(
+      `Bộ tự chuyển cũ ${OLD_AGENT} còn chạy. Tắt nó trước theo hướng dẫn ở tab Claude. Chưa đổi gì.`,
     );
-    expect(fb('legacy', 'com.cswap.prefer-team').actions!.map((a) => a.label)).toEqual(['Đóng']);
+    expect(fb('legacy', OLD_AGENT).actions!.map((a) => a.label)).toEqual(['Đóng']);
     expect(body('busy')).toContain('khoá đăng nhập');
     expect(fb('busy').actions!.map((a) => a.label)).toEqual(['Thử lại', 'Đóng']);
     expect(body('unmanaged')).toContain('Thêm tài khoản đang đăng nhập');

@@ -3,20 +3,18 @@
 // SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
 // Ported from Cockpit Tools `src-tauri/src/modules/quota.rs` (1.3.70,
-// commit 244b957, CC BY-NC-SA 4.0): `QuotaApiCacheRecord`, `hash_email`,
-// `api_cache_path`, `read_api_cache`, `is_api_cache_valid`,
-// `write_api_cache` and the 60-second TTL; changes: the folder is the app's
-// `antigravity/` folder, files go through the folder guard (mode 600 in a
-// mode 700 folder, written through a temporary file), a write failure is
-// returned, and the clock is passed in.
+// commit 244b957); see NOTICE for the changes.
 
-//! The quota cache, in Cockpit's layout: one file per account at
+//! The quota cache: one file per account at
 //! `antigravity/cache/quota_api_v1_desktop/authorized/`, named by the
 //! SHA-256 of the email (trimmed, lower case), holding Google's
 //! `fetchAvailableModels` answer with the `retrieveUserQuotaSummary` answer
 //! under `quota_summary`. With the account index beside it, the Antigravity
-//! row lists these accounts ([`super::listing`]), and a tool that reads
-//! Cockpit's files can read them as Cockpit's.
+//! row lists these accounts ([`super::listing`]).
+//!
+//! Files go through the folder guard (mode 600 in a mode 700 folder,
+//! written through a temporary file), a write failure is returned, and the
+//! clock is passed in.
 //!
 //! The same files are the app's cache: a reading younger than 60 seconds is
 //! used instead of asking Google again.
@@ -29,7 +27,7 @@ use sha2::{Digest, Sha256};
 use super::index;
 use crate::app_dir::AppDir;
 
-/// Under the app's `antigravity/` folder, as under Cockpit's data folder.
+/// Under the app's `antigravity/` folder.
 pub const CACHE_DIR: [&str; 3] = ["cache", "quota_api_v1_desktop", "authorized"];
 pub const SOURCE: &str = "authorized";
 pub const CUSTOM_SOURCE: &str = "desktop";
@@ -37,7 +35,7 @@ pub const VERSION: u8 = 1;
 /// A reading younger than this is used as it is.
 pub const TTL_MS: i64 = 60_000;
 
-/// One account's last reading, as Cockpit writes it.
+/// One account's last reading.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Record {
@@ -58,7 +56,7 @@ impl Record {
     }
 
     /// Written for a project the calls no longer name, or for the consumer
-    /// placeholder: not used, as Cockpit does not use it.
+    /// placeholder: not used.
     pub fn usable_for(&self, project_id: Option<&str>) -> bool {
         let dirty = self.project_id.as_deref().is_some_and(|p| p.trim() == "aicode-consumers");
         !dirty && self.project_id.as_deref() == project_id

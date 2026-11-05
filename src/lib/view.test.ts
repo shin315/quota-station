@@ -140,8 +140,8 @@ describe('popover view', () => {
     expect(acme1.chips).toEqual(chips);
     expect(acme1.label).toBe(label);
     expect(cells(personal)[0]).toEqual(['5 giờ', '0%', 'chưa dùng']);
-    // A Team seat claude-swap gives no week.
-    expect(acme2.cells[1]).toMatchObject({ label: 'Tuần', text: '—', none: true, title: 'claude-swap không báo hạn mức tuần cho tài khoản này' });
+    // A Team seat whose read gives no week.
+    expect(acme2.cells[1]).toMatchObject({ label: 'Tuần', text: '—', none: true, title: 'Không có hạn mức tuần cho tài khoản này' });
   });
 
   it('the tightest window wins, and a tie names the longer window', () => {

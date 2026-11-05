@@ -125,9 +125,9 @@ describe('settings tab in English', () => {
     expect((props.onLanguage as ReturnType<typeof vi.fn>).mock.calls).toEqual([['auto'], ['vi'], ['en']]);
   });
 
-  it('credits Cockpit Tools and its licence in English, only in a build with the Antigravity accounts', () => {
+  it('names the licence and NOTICE in English, only in a build with the Antigravity accounts', () => {
     setLang('en');
-    const credit = 'The Antigravity accounts are adapted from Cockpit Tools (jlcodes), licensed under CC BY-NC-SA 4.0.';
+    const credit = 'The Antigravity accounts include adapted code licensed under CC BY-NC-SA 4.0; the credits are in the NOTICE file shipped with the app.';
     const props = renderSettings(fixtureModel('fresh'));
     const updates = screen.getByRole('region', { name: 'Updates' });
     expect(within(updates).getByText(credit)).toBeTruthy();

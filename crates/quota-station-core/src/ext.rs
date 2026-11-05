@@ -54,7 +54,7 @@
 //!   the state file and on `quota-station claude status`
 //!   ([`Hooks::claude_account_keys`]); the read of the accounts carries
 //!   them on each account's slot ([`crate::quota::Slot::ext`]);
-//! - the import of claude-swap's accounts ([`crate::claude::import::import`]):
+//! - the import of another account switcher's accounts ([`crate::claude::import::import`]):
 //!   what the extension brings over of its own, at the end of the import's
 //!   outcome ([`Hooks::claude_imported`]);
 //! - the state file (`claude/state.json`, [`crate::claude::state::write`]):
@@ -272,11 +272,11 @@ pub trait Hooks: Send + Sync {
     }
 
     /// What the extension brings over of its own when the app imports
-    /// claude-swap's accounts into the Claude accounts it keeps at `paths`
+    /// another account switcher's accounts into the Claude accounts it keeps at `paths`
     /// ([`crate::claude::import::import`]), once the accounts and their
     /// readings are in: the keys it returns end the import's outcome
     /// ([`crate::claude::import::Imported::ext`]), in the order it put
-    /// them. Asked at the end of every import that read claude-swap's
+    /// them. Asked at the end of every import that read that tool's
     /// accounts. The default brings nothing.
     fn claude_imported(&self, paths: &Paths) -> Fields {
         let _ = paths;

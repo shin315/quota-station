@@ -44,7 +44,7 @@ usage: quota-station claude <command>
   run N [--require-session] [--] ARGS...
                         run `claude ARGS...` as account N, in its own folder
   session N             print account N's folder, for CLAUDE_CONFIG_DIR
-  import                carry claude-swap's accounts over (claude-swap is left as it is)
+  import                carry the other account switcher's accounts over (it is left as it is)
   add                   log a new account in with `claude auth login`
   add --current         add the login Claude Code is on now
   add --token [--email E]

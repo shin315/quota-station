@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-//! The rotation inside the app: the decisions the old `cswap-prefer-team`
+//! The rotation inside the app: the decisions the owner's old switcher
 //! script made, with the same rules but the early switch and the weekly
 //! order, and one run of it against a fake
 //! Keychain, launchd and Anthropic. Every account is made up, and the

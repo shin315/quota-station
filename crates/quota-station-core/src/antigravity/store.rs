@@ -4,13 +4,13 @@
 //! The app's own Keychain items for Antigravity tokens: one generic password
 //! per account, service [`SERVICE`], account the app's account id, value
 //! the account's [`TokenData`] as JSON. Kept with macOS's `security` tool,
-//! the way claude-swap and Cockpit Tools keep theirs, so a rebuilt app with
+//! the way other account tools keep theirs, so a rebuilt app with
 //! a new ad-hoc signature gets no Keychain prompt.
 //!
 //! Items are added without `-A`, so other programs need the owner's consent
 //! to read them. The app never names another service: not the
 //! `gemini`/`antigravity` item that Antigravity.app and agy share, not
-//! claude-swap's or Claude Code's.
+//! another account tool's or Claude Code's.
 
 use std::sync::Arc;
 

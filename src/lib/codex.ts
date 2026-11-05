@@ -86,8 +86,8 @@ export function refusalText(v: CodexView, r: CodexRefusal): string {
       );
     case 'placeholder':
       return t(
-        name + ' chỉ có khoá giữ chỗ của CC Switch nên chưa chuyển được. Dán khoá thật để dùng ' + name + '.',
-        name + ' only has CC Switch’s placeholder key, so Codex cannot switch to it yet. Paste a real key to use ' + name + '.',
+        name + ' chỉ có khoá giữ chỗ do công cụ khác để lại nên chưa chuyển được. Dán khoá thật để dùng ' + name + '.',
+        name + ' only has a placeholder key left by another tool, so Codex cannot switch to it yet. Paste a real key to use ' + name + '.',
       );
     case 'profile':
       return t(
@@ -136,7 +136,7 @@ export function codexRow(model: Model): CodexRowView | null {
         ? { t: t('không trả lời', 'not answering'), k: 'bad' }
         : { t: t(v.custom!.name + ' không trả lời', v.custom!.name + ' not answering'), k: 'warn' },
     );
-  if (ccSwitchManages(v)) chips.push({ t: t('CC Switch cũng quản lý', 'CC Switch also manages it'), k: 'warn' });
+  if (ccSwitchManages(v)) chips.push({ t: t('Công cụ khác cũng quản lý', 'Another tool also manages it'), k: 'warn' });
   if (v.external) chips.push({ t: t('đổi ngoài app', 'changed outside the app'), k: 'warn' });
   if (!hasLogin(v)) chips.push({ t: t('chưa đăng nhập', 'not signed in'), k: 'warn' });
 
@@ -174,8 +174,8 @@ export function codexRow(model: Model): CodexRowView | null {
     note = {
       tone: '',
       text: t(
-        'CC Switch cũng đang quản lý Codex. Lần chuyển sau của CC Switch sẽ ghi đè lựa chọn ở đây.',
-        'CC Switch also manages Codex. Its next switch will overwrite the choice made here.',
+        'Một công cụ chuyển Codex khác cũng đang quản lý Codex. Lần chuyển sau của công cụ đó sẽ ghi đè lựa chọn ở đây.',
+        'Another Codex switcher also manages Codex. Its next switch will overwrite the choice made here.',
       ),
     };
   const curName = longName(v, cur);
@@ -413,7 +413,7 @@ export interface CodexSheetView {
   title: string;
   lead: string;
   facts: FactView[];
-  /** CC Switch also manages Codex: the sheet links to the guide. */
+  /** Another Codex switcher also manages Codex: the sheet links to the guide. */
   ccSwitch: boolean;
   confirm: string;
   /** Not switchable now (the note says why). */
@@ -435,8 +435,8 @@ export function codexSheet(model: Model, target: CodexTarget): CodexSheetView {
       k: 'w',
       text: mac(
         t(
-          '**CC Switch vẫn đang quản lý Codex** trên máy này. Lần chuyển sau của CC Switch sẽ ghi đè lựa chọn nhà cung cấp này. Chỉ chuyển Codex ở một nơi.',
-          '**CC Switch still manages Codex** on this Mac. Its next switch will overwrite this provider choice. Switch Codex in one place only.',
+          '**Một công cụ chuyển Codex khác vẫn đang quản lý Codex** trên máy này. Lần chuyển sau của công cụ đó sẽ ghi đè lựa chọn nhà cung cấp này. Chỉ chuyển Codex ở một nơi.',
+          '**Another Codex switcher still manages Codex** on this Mac. Its next switch will overwrite this provider choice. Switch Codex in one place only.',
         ),
       ),
     });
@@ -580,7 +580,7 @@ export function externalSheet(model: Model): ExternalSheetView | null {
   const v = model.codex;
   const e = v.external;
   if (!e) return null;
-  const who = v.ccSwitch.running ? t('có thể do CC Switch', 'possibly by CC Switch') : t('có thể do CC Switch hoặc sửa tay', 'possibly by CC Switch or by hand');
+  const who = v.ccSwitch.running ? t('có thể do công cụ khác', 'possibly by another tool') : t('có thể do công cụ khác hoặc sửa tay', 'possibly by another tool or by hand');
   const since = e.lastAt ? clock(e.lastAt) : null;
   const rows = [
     { key: t('App ghi lần cuối', 'Last written by the app'), value: (e.lastAt ? clock(e.lastAt) + ' · ' : '') + longName(v, e.lastProvider) },
@@ -914,7 +914,7 @@ export function keyRefusalText(v: CodexView, r: CodexKeyRefusal): string {
     case 'tooLong':
       return t('Khoá quá dài.', 'The key is too long.');
     case 'placeholder':
-      return t('PROXY_MANAGED là khoá giữ chỗ của CC Switch, không phải khoá thật.', 'PROXY_MANAGED is CC Switch’s placeholder key, not a real key.');
+      return t('PROXY_MANAGED là khoá giữ chỗ do công cụ khác để lại, không phải khoá thật.', 'PROXY_MANAGED is a placeholder key left by another tool, not a real key.');
     case 'reference':
       return t('Đây là tên biến, không phải khoá.', 'This is a variable name, not a key.');
     case 'badUrl':

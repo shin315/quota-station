@@ -1,8 +1,9 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-//! `Nhập từ claude-swap` with the advanced part (the core's `claude_import`
-//! tests the app's own), against a made-up claude-swap folder and a fake
+//! The import from another account switcher with the advanced part (the
+//! core's `claude_import` tests the app's own), against a made-up folder of
+//! that tool and a fake
 //! Keychain in a temporary home: every account comes in the rotation, the
 //! rotation file and the priming come over once, and running it again
 //! keeps an account the owner held out.
@@ -23,9 +24,9 @@ const PERSONAL: &str = "lan@example.com";
 const TEAM: &str = "lan@team.example";
 const TOKEN: &str = "lan.ci@team.example";
 
-/// claude-swap's folder with three accounts: 1 with its login in an `.enc`
-/// file, 2 in claude-swap's Keychain item, 3 a setup token with no config.
-fn claude_swap(mac: &Mac) -> PathBuf {
+/// The other switcher's folder with three accounts: 1 with its login in an
+/// `.enc` file, 2 in its Keychain item, 3 a setup token with no config.
+fn other_switcher(mac: &Mac) -> PathBuf {
     let dir = import::source(&mac.home);
     std::fs::create_dir_all(dir.join("configs")).unwrap();
     std::fs::create_dir_all(dir.join("credentials")).unwrap();
@@ -51,14 +52,14 @@ fn claude_swap(mac: &Mac) -> PathBuf {
     }
     write_enc(&dir, 1, PERSONAL, &credential("acc-1", "ref-1", in_hours(5.0)));
     mac.put_item(
-        "claude-swap",
+        import::SWAP_SERVICE,
         &format!("account-2-{TEAM}"),
         &credential("acc-2", "ref-2", in_hours(5.0)),
     );
     let token =
         json!({ "claudeAiOauth": { "accessToken": "setup-3", "scopes": ["user:inference"] } })
             .to_string();
-    mac.put_item("claude-swap", &format!("account-3-{TOKEN}"), &token);
+    mac.put_item(import::SWAP_SERVICE, &format!("account-3-{TOKEN}"), &token);
     dir
 }
 
@@ -71,9 +72,9 @@ fn write_enc(dir: &Path, slot: u32, email: &str, credential: &str) {
 }
 
 #[test]
-fn every_account_comes_in_the_rotation_whatever_claude_swap_held_out() {
+fn every_account_comes_in_the_rotation_whatever_the_other_switcher_held_out() {
     let mac = Mac::new("import-in-rotation");
-    let dir = claude_swap(&mac);
+    let dir = other_switcher(&mac);
     let file = dir.join("sequence.json");
     let mut sequence: Value =
         serde_json::from_str(&std::fs::read_to_string(&file).unwrap()).unwrap();
@@ -88,7 +89,7 @@ fn every_account_comes_in_the_rotation_whatever_claude_swap_held_out() {
 #[test]
 fn importing_again_changes_nothing_the_owner_set() {
     let mac = Mac::new("import-again");
-    let dir = claude_swap(&mac);
+    let dir = other_switcher(&mac);
     import::import(&mac.store, &dir, ext::none()).unwrap();
     let mut list = mac.store.load().unwrap();
     list.get_mut(2).unwrap().alias = Some("Đã đổi".into());
@@ -104,7 +105,7 @@ fn importing_again_changes_nothing_the_owner_set() {
 fn the_rotation_file_and_priming_come_over_once() {
     use quota_station_core::advanced::import::ImportHooks;
     let mac = Mac::new("import-rotation");
-    let dir = claude_swap(&mac);
+    let dir = other_switcher(&mac);
     let config = mac.home.join(".config/cswap-prefer-team");
     std::fs::create_dir_all(&config).unwrap();
     std::fs::write(config.join("rotation"), "team = 2 3\npersonal = 1\nfull = 85\n").unwrap();

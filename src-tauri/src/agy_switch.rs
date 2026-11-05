@@ -6,8 +6,8 @@
 //! itself after the owner confirms, and the six-hour watch that tells the
 //! popover when a running Antigravity.app wrote its old login back.
 //!
-//! The switch writes the login Antigravity.app and agy share, with the same
-//! `security` command Cockpit Tools uses, and only when the owner confirms.
+//! The switch writes the login Antigravity.app and agy share, with
+//! `security`, and only when the owner confirms.
 //! The windows only ever get account numbers and ids, never a token.
 
 use std::sync::Arc;

@@ -73,7 +73,7 @@ use time::{OffsetDateTime, UtcOffset};
 /// The Claude accounts' file: they keep `testTag` on each account
 /// ([`TestKeys`]).
 ///
-/// An import of claude-swap's accounts: they bring over `testAccounts` (how
+/// An import of another account switcher's accounts: they bring over `testAccounts` (how
 /// many accounts the app's file has by then) and `testHome` (the home the
 /// accounts are kept under).
 ///

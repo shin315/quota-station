@@ -126,8 +126,8 @@ export function envBanner(model: Model): BannerView | null {
     tone: 'bad',
     title: t(claude.length + ' biến đang đè đăng nhập Claude', claude.length + ' variables are overriding the Claude sign-in'),
     body: t(
-      claude.map((f) => f.name + ' ở ' + at(f)).join(', ') + '. Claude Code có thể không dùng tài khoản claude-swap đang chọn.',
-      claude.map((f) => f.name + ' in ' + at(f)).join(', ') + '. Claude Code may not use the account chosen in claude-swap.',
+      claude.map((f) => f.name + ' ở ' + at(f)).join(', ') + '. Claude Code có thể không dùng tài khoản Claude đang chọn.',
+      claude.map((f) => f.name + ' in ' + at(f)).join(', ') + '. Claude Code may not use the chosen Claude account.',
     ),
     actions: [
       { label: t('Xem trong Cài đặt', 'See in Settings'), act: 'env:settings' },

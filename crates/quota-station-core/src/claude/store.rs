@@ -110,8 +110,8 @@ impl List {
 }
 
 /// The hash that names an account without its email: SHA-256 of the email
-/// and the organization id, as claude-swap tells accounts apart (one email
-/// may be in two organizations), first 32 hex digits.
+/// and the organization id (one email may be in two organizations), first
+/// 32 hex digits.
 pub fn identity(email: &str, organization_uuid: &str) -> String {
     let mut h = Sha256::new();
     h.update(email.trim().as_bytes());

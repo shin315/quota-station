@@ -36,7 +36,7 @@ pub fn add_detail(snapshot: &mut Snapshot) {
         .generated_at
         .as_deref()
         .and_then(|t| OffsetDateTime::parse(t, &Rfc3339).ok());
-    let list = super::claude_details("cswap-list-pool.json");
+    let list = super::claude_details("claude-list-pool.json");
     detail::apply_claude(&mut snapshot.claude, &list, now);
     let reading = |name: &str| serde_json::from_str(&fixture_text(name)).ok();
     let details = [

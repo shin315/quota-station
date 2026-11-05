@@ -115,6 +115,7 @@ import {
   overwriteAlert,
 } from './fixtures/models';
 import type { UpdateError, UpdateOutcome } from './lib/model';
+import { OLD_AGENT } from './lib/rotation';
 import { heldSwitcher, releaseModel, leavingAlert, peerFixture, rotationFixture, rulesFixture, switcherFixture } from './fixtures/models';
 import ext from '@qs-ext';
 
@@ -215,7 +216,7 @@ const CODEX: Record<string, () => Model['codex']> = {
   chatgpt: () => codexFixture({ current: 'chatgpt' }),
   ccswitch: () =>
     codexFixture({
-      ccSwitch: { installed: true, running: true, data: true, traces: ['model_catalog_json = "cc-switch-model-catalog.json"'] },
+      ccSwitch: { installed: true, running: true, data: true, traces: ['model_catalog_json = "model-catalog.json"'] },
       procs: { sessions: 3, app: true, daemon: true, ccSwitch: true },
     }),
   down: () => codexFixture({ reach: { state: 'down', ms: null, since: '2026-01-16T07:12:00Z', checkedAt: '2026-01-16T07:20:00Z' } }),
@@ -233,7 +234,7 @@ const CODEX: Record<string, () => Model['codex']> = {
       custom: { ...RELAY, name: 'custom', baseUrl: 'http://127.0.0.1:15721/v1', key: 'placeholder', requiresOpenaiAuth: null, proxy: true },
       wantsRequires: null,
       refusal: { kind: 'placeholder' },
-      ccSwitch: { installed: true, running: false, data: true, traces: ['model_catalog_json = "cc-switch-model-catalog.json"', '[model_providers.custom] experimental_bearer_token = "PROXY_MANAGED"'] },
+      ccSwitch: { installed: true, running: false, data: true, traces: ['model_catalog_json = "model-catalog.json"', '[model_providers.custom] experimental_bearer_token = "PROXY_MANAGED"'] },
     }),
   header: () => codexFixture({ current: 'chatgpt', custom: { ...RELAY, key: 'headers' }, wantsRequires: false, takesKey: false }),
   envkey: () => codexFixture({ current: 'chatgpt', custom: { ...RELAY, key: 'envKey', envKey: 'RELAY_API_KEY' }, takesKey: false }),
@@ -331,7 +332,7 @@ const ROTATIONS: Record<string, () => Model['rotation']> = {
 const SWITCHERS: Record<string, () => Model['switcher']> = {
   held: () => heldSwitcher(),
   noguard: () => heldSwitcher({ dryRun: { decision: { kind: 'stay' }, raw: 'stay', at: '2026-01-16T07:19:40.000Z' }, guard: false }),
-  auto: () => switcherFixture({ legacy: 'com.cswap.prefer-team' }),
+  auto: () => switcherFixture({ legacy: OLD_AGENT }),
   stopped: () => switcherFixture({ service: false }),
   missing: () => switcherFixture({ installed: false, dryRun: null, lastLog: null, service: null }),
 };

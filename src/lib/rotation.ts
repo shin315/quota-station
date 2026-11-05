@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 // The rotation's parts of the switching words (M3): the pause sheet, the
-// hold on the Claude switch sheet, the switcher's "why" line (F07) and the
+// hold on the switch sheet for Claude, the switcher's "why" line (F07) and the
 // feedback after a pause. Pure, like `lib/switching.ts`, whose shared parts
 // these build on.
 
@@ -124,7 +124,7 @@ function inHours(range: string | null, now: Date): boolean | null {
   return h >= Number(m[1]) && h <= Number(m[2]);
 }
 
-/** The rotation's facts on the Claude switch sheet; `personalOut` when the personal account is outside its hours. */
+/** The rotation's facts on the switch sheet for Claude; `personalOut` when the personal account is outside its hours. */
 export function autoFacts(model: Model, target: Account, name: string, now: Date): { facts: FactView[]; personalOut: boolean } {
   const c = model.snapshot.claude;
   const facts: FactView[] = [];
@@ -152,7 +152,7 @@ export function autoFacts(model: Model, target: Account, name: string, now: Date
   return { facts, personalOut };
 }
 
-/** The hold's choices and hint on the Claude switch sheet. */
+/** The hold's choices and hint on the switch sheet for Claude. */
 export function holdPart(
   model: Model,
   target: Account,
@@ -573,28 +573,32 @@ export interface GuideView {
   steps: string[];
 }
 
+/** The old auto-switcher's LaunchAgent labels, which the guide names in its commands; the app only checks for them. */
+export const OLD_AGENT = 'com.cswap.prefer-team';
+export const OLD_AUTO_AGENT = 'com.cswap.auto';
+
 /**
  * `auto`: stop the older switchers (step 1 of the cutover); `switcher`: the whole cutover from
- * claude-swap, as the README's checklist has it.
+ * the other account switcher, as the README's checklist has it.
  */
 export function guide(id: 'auto' | 'switcher'): GuideView {
   return id === 'auto'
     ? {
         title: t('Tắt bộ tự chuyển cũ', 'Turn off the old auto-switcher'),
         lead: t(
-          'Quota Station không chuyển tài khoản khi com.cswap.prefer-team hoặc com.cswap.auto còn được nạp, để hai bên không chuyển chồng nhau. Quota Station không tự chạy các lệnh này; claude-swap và dữ liệu của nó vẫn giữ nguyên.',
-          'Quota Station does not switch accounts while com.cswap.prefer-team or com.cswap.auto is loaded, so the two do not switch over each other. Quota Station does not run these commands itself; claude-swap and its data stay as they are.',
+          'Quota Station không chuyển tài khoản khi bộ tự chuyển cũ còn được nạp, để hai bên không chuyển chồng nhau. Quota Station không tự chạy các lệnh này; công cụ đó và dữ liệu của nó vẫn giữ nguyên.',
+          'Quota Station does not switch accounts while the old auto-switcher is loaded, so the two do not switch over each other. Quota Station does not run these commands itself; that tool and its data stay as they are.',
         ),
         steps: [
           t('Mở Terminal trên máy này.', 'Open Terminal on this Mac.'),
           t(
-            'Giữ một bản sao plist: `cp ~/Library/LaunchAgents/com.cswap.prefer-team.plist ~/Library/LaunchAgents/com.cswap.prefer-team.plist.bak`',
-            'Keep a copy of the plist: `cp ~/Library/LaunchAgents/com.cswap.prefer-team.plist ~/Library/LaunchAgents/com.cswap.prefer-team.plist.bak`',
+            'Giữ một bản sao plist: `cp ~/Library/LaunchAgents/' + OLD_AGENT + '.plist ~/Library/LaunchAgents/' + OLD_AGENT + '.plist.bak`',
+            'Keep a copy of the plist: `cp ~/Library/LaunchAgents/' + OLD_AGENT + '.plist ~/Library/LaunchAgents/' + OLD_AGENT + '.plist.bak`',
           ),
-          t('Chạy `launchctl bootout gui/$(id -u)/com.cswap.prefer-team`', 'Run `launchctl bootout gui/$(id -u)/com.cswap.prefer-team`'),
+          t('Chạy `launchctl bootout gui/$(id -u)/' + OLD_AGENT + '`', 'Run `launchctl bootout gui/$(id -u)/' + OLD_AGENT + '`'),
           t(
-            'Nếu com.cswap.auto cũng đang nạp: `launchctl bootout gui/$(id -u)/com.cswap.auto`',
-            'If com.cswap.auto is loaded too: `launchctl bootout gui/$(id -u)/com.cswap.auto`',
+            'Nếu ' + OLD_AUTO_AGENT + ' cũng đang nạp: `launchctl bootout gui/$(id -u)/' + OLD_AUTO_AGENT + '`',
+            'If ' + OLD_AUTO_AGENT + ' is loaded too: `launchctl bootout gui/$(id -u)/' + OLD_AUTO_AGENT + '`',
           ),
           t(
             'Quay lại tab Claude và bấm Làm mới. Cảnh báo bộ tự chuyển cũ phải biến mất.',
@@ -603,33 +607,33 @@ export function guide(id: 'auto' | 'switcher'): GuideView {
         ],
       }
     : {
-        title: t('Chuyển từ claude-swap sang Quota Station', 'Move from claude-swap to Quota Station'),
+        title: t('Chuyển từ công cụ chuyển tài khoản khác sang Quota Station', 'Move from another account switcher to Quota Station'),
         lead: mac(
           t(
-            'Làm lần lượt trên từng Mac. claude-swap và dữ liệu của nó được giữ nguyên, để quay lại được khi cần.',
-            'Do this on one Mac at a time. claude-swap and its data stay as they are, so you can go back if needed.',
+            'Làm lần lượt trên từng Mac. Công cụ đó và dữ liệu của nó được giữ nguyên, để quay lại được khi cần.',
+            'Do this on one Mac at a time. That tool and its data stay as they are, so you can go back if needed.',
           ),
         ),
         steps: [
-          // claude-swap's auto-switcher is a LaunchAgent: Windows has none to turn off.
+          // The old auto-switcher is a LaunchAgent: Windows has none to turn off.
           ...(onWindows()
             ? []
             : [
                 t(
-                  'Tắt bộ tự chuyển cũ: giữ bản sao plist rồi `launchctl bootout gui/$(id -u)/com.cswap.prefer-team`.',
-                  'Turn off the old auto-switcher: keep a copy of the plist, then `launchctl bootout gui/$(id -u)/com.cswap.prefer-team`.',
+                  'Tắt bộ tự chuyển cũ: giữ bản sao plist rồi `launchctl bootout gui/$(id -u)/' + OLD_AGENT + '`.',
+                  'Turn off the old auto-switcher: keep a copy of the plist, then `launchctl bootout gui/$(id -u)/' + OLD_AGENT + '`.',
                 ),
               ]),
           t(
-            'Ở tab Claude, bấm **Nhập từ claude-swap**. Chạy lại lần nữa cũng không sao: chỉ đăng nhập mới hơn được lấy thêm.',
-            'In the Claude tab, press **Import from claude-swap**. Running it again is fine: only newer sign-ins are added.',
+            'Ở tab Claude, bấm **Nhập từ công cụ chuyển tài khoản khác**. Chạy lại lần nữa cũng không sao: chỉ đăng nhập mới hơn được lấy thêm.',
+            'In the Claude tab, press **Import from another account switcher**. Running it again is fine: only newer sign-ins are added.',
           ),
           t(
             'Kiểm tra danh sách tài khoản, rồi bật **Tự chuyển bằng Quota Station**.',
             'Check the account list, then turn on **Auto-switch with Quota Station**.',
           ),
           ...(ext.guideSteps?.() ?? []),
-          mac(t('Chỉ gỡ claude-swap khi đã hỏi và mọi Mac đã chạy ổn.', 'Remove claude-swap only after asking, and once every Mac runs smoothly.')),
+          mac(t('Chỉ gỡ công cụ cũ khi đã hỏi và mọi Mac đã chạy ổn.', 'Remove the old tool only after asking, and once every Mac runs smoothly.')),
         ],
       };
 }

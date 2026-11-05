@@ -2,23 +2,16 @@
 // SPDX-FileCopyrightText: jlcodes (Cockpit Tools)
 // SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
-// Ported from Cockpit Tools `src-tauri/src/modules/wakeup_gateway.rs`
-// (`official_antigravity_root_for_version`, `official_antigravity_app_version`,
-// the product.json and Info.plist lookups, `parse_version_from_plutil_output`)
-// and `src-tauri/src/modules/quota.rs` (the user agents, `x-goog-api-client`,
-// the platform name, the google-auth-library lookup and the defaults)
-// (1.3.70, commit 244b957, CC BY-NC-SA 4.0); changes: no environment
-// overrides and no configured app path, so Antigravity is looked for where
-// Cockpit looks with its default settings: on macOS its bundle, elsewhere
-// nowhere, so Windows sends Cockpit's defaults as Cockpit does there; the
-// bundle is read through the folder guard's read-only `Bundle`; the version
-// is worked out once per round of reads instead of once per request.
+// Ported from Cockpit Tools `src-tauri/src/modules/wakeup_gateway.rs` and
+// `src-tauri/src/modules/quota.rs` (1.3.70, commit 244b957); see NOTICE for
+// the changes.
 
 //! Who the quota calls say they are: Antigravity, at the version installed
-//! on this Mac, exactly as Cockpit Tools says it; on Windows, where Cockpit
-//! with its default settings reads no version, its defaults. Nothing here
-//! names Quota Station: SECURITY.md explains why the user agent must not
-//! change.
+//! on this Mac (its bundle, read through the folder guard's read-only
+//! `Bundle`, once per round of reads); on Windows, where no version is read,
+//! the defaults. No environment overrides and no configured app path.
+//! Nothing here names Quota Station: SECURITY.md explains why the user agent
+//! must not change.
 
 use std::path::Path;
 use std::time::Duration;
@@ -26,19 +19,19 @@ use std::time::Duration;
 use crate::app_dir::Bundle;
 use crate::runner;
 
-/// Where Cockpit looks for Antigravity when no app path is set.
+/// Where Antigravity is looked for on macOS.
 pub const DEFAULT_ROOT: &str = "/Applications/Antigravity IDE.app";
-/// Cockpit's version when no Antigravity is installed.
+/// The version sent when no Antigravity is installed.
 pub const DEFAULT_IDE_VERSION: &str = "1.20.5";
-/// Cockpit's google-auth-library version when the bundle has none.
+/// The google-auth-library version when the bundle has none.
 pub const DEFAULT_GOOGLE_API_NODEJS_CLIENT_VERSION: &str = "10.3.0";
-/// Cockpit's `x-goog-api-client` for `loadCodeAssist`.
+/// The `x-goog-api-client` for `loadCodeAssist`.
 pub const X_GOOG_API_CLIENT: &str = "gl-node/22.21.1";
 
 const PLUTIL: &str = "/usr/bin/plutil";
 
-/// The Antigravity app on this Mac, where Cockpit looks for it; `None`
-/// where Cockpit looks for none (Windows).
+/// The Antigravity app on this Mac, at [`DEFAULT_ROOT`]; `None` where none
+/// is looked for (Windows).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AntigravityApp(Option<Bundle>);
 
@@ -89,7 +82,7 @@ impl Identity {
     }
 }
 
-/// Cockpit's names for this system, as Antigravity writes them.
+/// The names for this system, as Antigravity writes them.
 pub fn os() -> &'static str {
     match std::env::consts::OS {
         "macos" => "darwin",

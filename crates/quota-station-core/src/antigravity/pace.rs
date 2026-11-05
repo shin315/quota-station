@@ -1,13 +1,12 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
-//! When each Antigravity account is read: never more often than Cockpit
-//! Tools reads it, one account at a time.
+//! When each Antigravity account is read: sparingly, one account at a time.
 //!
 //! - The account in use is read with the app's own quota reads (every
 //!   60 seconds while a window is open, every 5 minutes while hidden, on
-//!   wake and after an action); Cockpit reads it about once a minute.
-//! - Every other account every 10 minutes, Cockpit's default, and when the
+//!   wake and after an action).
+//! - Every other account every 10 minutes, and when the
 //!   `Antigravity` tab opens.
 //! - No account more than once a minute, whatever asks: a reading younger
 //!   than that is used as it is (`export::TTL_MS`), and a try that failed

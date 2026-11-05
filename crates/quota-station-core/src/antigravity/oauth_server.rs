@@ -3,14 +3,12 @@
 // SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
 // Ported from Cockpit Tools `src-tauri/src/modules/oauth_server.rs` (1.3.70,
-// commit 244b957, CC BY-NC-SA 4.0); changes: a thread and a channel instead
-// of tokio and Tauri events; the flow is a value held by its caller instead
-// of a global; typed errors; the pages the browser sees are in Vietnamese.
-// The listener, the redirect URI, the state check, the request limits, the
-// 10-minute wait and the pasted-URL rules are Cockpit's.
+// commit 244b957); see NOTICE for the changes.
 
 //! The loopback server Google sends the browser back to after the consent
 //! screen, and the pasted callback URL for a browser that cannot reach it.
+//! A thread and a channel; the flow is a value held by its caller; the pages
+//! the browser sees are in Vietnamese.
 
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 // The switch sheet (F04) in the popover, on the fake Rust side: nothing
-// here runs claude-swap. The pause control (F07) too; nothing writes a pause
+// here switches a real account. The pause control (F07) too; nothing writes a pause
 // flag.
 
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
@@ -12,6 +12,7 @@ import { MORE_KEY } from './Popover';
 import { fakeApi, type FakeOptions } from '../fixtures/fakeApi';
 import { FIXTURE_NOW, fixtureModel, heldSwitcher, switcherFixture } from '../fixtures/models';
 import type { Api } from '../lib/api';
+import { OLD_AGENT } from '../lib/rotation';
 import type { Model, Outcome } from '../lib/model';
 
 async function open(model: Model, options: FakeOptions = {}, clock = () => FIXTURE_NOW) {
@@ -50,7 +51,7 @@ afterEach(() => {
   localStorage.removeItem(MORE_KEY);
 });
 
-describe('the Claude switch sheet', () => {
+describe('the switch sheet for Claude', () => {
   it('names the target, counts the live sessions and offers the four holds, one hour by default', async () => {
     const fake = await open(fixtureModel('fresh'));
     const sheet = await sheetFor('lan.acme2');
@@ -278,7 +279,7 @@ describe('the Claude switch sheet', () => {
     const rows = within(screen.getByRole('list', { name: 'Claude' })).getAllByRole('button');
     expect(rows.every((r) => r.getAttribute('aria-disabled') === 'true')).toBe(true);
     expect(rows[2].getAttribute('aria-label')).toMatch(/\. Chưa chuyển được: Quota Station chưa giữ tài khoản Claude$/);
-    expect(screen.getByText('Quota Station chưa giữ tài khoản Claude nào trên máy này: nhập từ claude-swap ở tab Claude để chuyển được tài khoản.')).toBeTruthy();
+    expect(screen.getByText('Quota Station chưa giữ tài khoản Claude nào trên máy này: nhập từ công cụ chuyển tài khoản khác ở tab Claude để chuyển được tài khoản.')).toBeTruthy();
   });
 
   it('a switch from the other window that lands on this sheet’s account closes the sheet', async () => {
@@ -416,12 +417,12 @@ describe('the pause control', () => {
     expect(fake.api.resumeSwitching).toHaveBeenCalledTimes(1);
   });
 
-  it('claude-swap’s own switcher loaded again is a warning with a guide', async () => {
-    await open(fixtureModel('fresh', { switcher: switcherFixture({ legacy: 'com.cswap.prefer-team' }) }));
+  it('the old auto-switcher loaded again is a warning with a guide', async () => {
+    await open(fixtureModel('fresh', { switcher: switcherFixture({ legacy: OLD_AGENT }) }));
     expect(screen.getByText('Bộ tự chuyển cũ còn chạy')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Hướng dẫn tắt' }));
     const guide = screen.getByRole('dialog', { name: 'Tắt bộ tự chuyển cũ' });
-    expect(within(guide).getByText('launchctl bootout gui/$(id -u)/com.cswap.prefer-team')).toBeTruthy();
+    expect(within(guide).getByText(`launchctl bootout gui/$(id -u)/${OLD_AGENT}`)).toBeTruthy();
     fireEvent.click(within(guide).getByRole('button', { name: 'Đóng' }));
     expect(screen.queryByRole('dialog', { name: /Tắt bộ/ })).toBeNull();
   });

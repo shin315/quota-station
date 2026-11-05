@@ -7,6 +7,7 @@ import { MainWindowApp } from '../App';
 import { fakeApi, hideNames, type FakeOptions } from '../fixtures/fakeApi';
 import { claudeAccountsFixture, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
 import type { Api } from '../lib/api';
+import { OLD_AGENT } from '../lib/rotation';
 import type { ClaudeAccountsView, Model } from '../lib/model';
 
 async function open(model: Model, options: FakeOptions = {}) {
@@ -79,7 +80,7 @@ describe('the Claude accounts Quota Station keeps', () => {
     expect(screen.queryByRole('switch', { name: 'Tự chuyển bằng Quota Station' })).toBeNull();
   });
 
-  it('before any account is kept, importing from claude-swap brings them over', async () => {
+  it('before any account is kept, importing from another account switcher brings them over', async () => {
     const fake = await open(
       withAccounts({
         ready: false,
@@ -90,16 +91,16 @@ describe('the Claude accounts Quota Station keeps', () => {
     expect(screen.getByText('Đưa các tài khoản Claude vào Quota Station')).toBeTruthy();
     // Nothing to rotate yet.
     expect((screen.getByRole('switch', { name: 'Tự chuyển bằng Quota Station' }) as HTMLButtonElement).disabled).toBe(true);
-    await press(screen.getByRole('button', { name: 'Nhập từ claude-swap' }));
+    await press(screen.getByRole('button', { name: 'Nhập từ công cụ chuyển tài khoản khác' }));
     expect(fake.api.claudeImport).toHaveBeenCalledTimes(1);
-    expect(screen.getByText(/^Đã nhập từ claude-swap: 4 tài khoản mới/)).toBeTruthy();
+    expect(screen.getByText(/^Đã nhập từ công cụ chuyển tài khoản khác: 4 tài khoản mới/)).toBeTruthy();
     expect(screen.queryByText('Đưa các tài khoản Claude vào Quota Station')).toBeNull();
     // Importing again stays among the ways in.
     await press(screen.getByRole('button', { name: 'Thêm tài khoản' }));
-    expect(within(dialog()).getByRole('radio', { name: /^Nhập lại từ claude-swap/ })).toBeTruthy();
+    expect(within(dialog()).getByRole('radio', { name: /^Nhập lại từ công cụ chuyển tài khoản khác/ })).toBeTruthy();
   });
 
-  it('with no account and no claude-swap, the card is empty and offers the ways in', async () => {
+  it('with no account and no other switcher to import from, the card is empty and offers the ways in', async () => {
     const empty = withAccounts({ ready: false, importable: false, accounts: [] });
     await open({ ...empty, snapshot: { ...empty.snapshot, claude: { ...empty.snapshot.claude, accounts: [] } } });
     expect(screen.getByText('Chưa có tài khoản Claude nào')).toBeTruthy();
@@ -283,7 +284,7 @@ describe('the Claude accounts Quota Station keeps', () => {
   it('while the old switcher is loaded the rotation cannot turn on, and the guide says how to stop it', async () => {
     await open(
       withAccounts(
-        { rotation: false, legacy: 'com.cswap.prefer-team' },
+        { rotation: false, legacy: OLD_AGENT },
         {
           advanced: {
             on: false,
@@ -292,10 +293,10 @@ describe('the Claude accounts Quota Station keeps', () => {
       ),
     );
     expect((screen.getByRole('switch', { name: 'Tự chuyển khi hết quota' }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByTestId('auto-switch').textContent).toContain('Bộ tự chuyển cũ com.cswap.prefer-team còn chạy: tắt nó trước.');
+    expect(screen.getByTestId('auto-switch').textContent).toContain(`Bộ tự chuyển cũ ${OLD_AGENT} còn chạy: tắt nó trước.`);
     fireEvent.click(screen.getByRole('button', { name: 'Hướng dẫn tắt' }));
     const guide = screen.getByRole('dialog', { name: 'Tắt bộ tự chuyển cũ' });
-    expect(within(guide).getByText('launchctl bootout gui/$(id -u)/com.cswap.prefer-team')).toBeTruthy();
+    expect(within(guide).getByText(`launchctl bootout gui/$(id -u)/${OLD_AGENT}`)).toBeTruthy();
   });
 
   it('with names hidden no email shows, in the table or the details', async () => {

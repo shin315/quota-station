@@ -3,20 +3,9 @@
 // SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
 // The order of a switch is ported from Cockpit Tools
-// `src-tauri/src/commands/account_desktop_switch.rs` (the single-switch gate,
-// the 60-second preparation, quitting before and opening after, writing the
-// login before the account pointers, a reopen failure reported apart) and
-// `src-tauri/src/modules/account.rs` (`prepare_account_for_injection`: a
-// fresh token, then the project and GCP ToS probe)
-// (1.3.70, commit 244b957, CC BY-NC-SA 4.0); changes: the probe is the
-// quota read's `loadCodeAssist` (`cloud_code`), asked by its rule (no GCP
-// ToS mark or no project) and kept as it keeps it; macOS and Windows, and
-// Antigravity 2.0 or later only (the SQLite login of older versions and
-// the instance management are not ported); the app is quit with
-// `osascript` and opened with `open -b`, on Windows closed with `taskkill`
-// without `/F` and started again from its folder (`desktop`), never killed; the
-// result is checked with a fresh read five seconds later; a log line and the
-// six-hour watch (`watch`) are the app's own; no WebSocket broadcast.
+// `src-tauri/src/commands/account_desktop_switch.rs` and
+// `prepare_account_for_injection` in `src-tauri/src/modules/account.rs`
+// (1.3.70, commit 244b957); see NOTICE for the changes.
 
 //! One manual switch of the Antigravity account, start to finish, after the
 //! owner confirmed it on the sheet:
@@ -67,11 +56,10 @@ use super::watch;
 use crate::app_dir::AppDir;
 use crate::quota::{agy, Response};
 
-/// The binding: the account the app's last switch put on, in this file, as
-/// in Cockpit's folder.
+/// The binding: the account the app's last switch put on, in this file.
 pub const BINDING_FILE: &str = "antigravity_legacy_instances.json";
 pub const LOG_FILE: &str = "switch-log.jsonl";
-/// The log keeps this many switches (Cockpit keeps 200 too).
+/// The log keeps this many switches.
 const LOG_KEEP: usize = 200;
 
 /// The waits of one switch.
@@ -115,7 +103,7 @@ pub struct ProjectMeta {
 }
 
 /// Looks up an account's Cloud Code project and GCP ToS mark before a
-/// switch, as Cockpit does. `email` only names the account in Google's
+/// switch. `email` only names the account in Google's
 /// error answers.
 pub trait Probe: Send + Sync {
     fn probe(&self, token: &TokenData, email: &str) -> ProjectMeta;
@@ -130,7 +118,7 @@ pub struct CloudCodeProbe {
 impl Probe for CloudCodeProbe {
     fn probe(&self, token: &TokenData, email: &str) -> ProjectMeta {
         let cloud = CloudCode { hosts: &self.hosts, identity: &self.identity };
-        // A failure does not stop the switch, as in Cockpit.
+        // A failure does not stop the switch.
         match cloud.load_code_assist(&token.access_token, email, &Context::from_token(token)) {
             // Asked and answered, kept as the quota read keeps it: a token
             // without the mark would be asked again on every switch.
@@ -420,7 +408,7 @@ fn number_of(index: &AccountIndex, id: &str) -> Option<usize> {
     index.accounts.iter().position(|a| a.id == id).map(|i| i + 1)
 }
 
-/// Cockpit's preparation, in a thread so it can be given up after `limit`:
+/// The preparation, in a thread so it can be given up after `limit`:
 /// the token refreshed when it is about to expire, and the project and GCP
 /// ToS mark looked up while the token lacks either, the quota read's rule
 /// (`quota::read_account`). A preparation given up may still finish later;
@@ -471,7 +459,7 @@ fn prepare(
 }
 
 /// Points the index and the binding at the new account, after the login is
-/// written (Cockpit's order). Both or neither: each file is replaced whole
+/// written. Both or neither: each file is replaced whole
 /// (`write_private`), the index first; if the binding then fails, the index
 /// is put back as it was, so the two never name different accounts, and
 /// `saved: false` says the pointers still name the old one.

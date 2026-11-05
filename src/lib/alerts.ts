@@ -49,7 +49,7 @@ export function alertKindList(agy = true, rotation = false): { kind: SwitchKind;
       kind: 'login',
       title: t('Tài khoản cần đăng nhập lại', 'An account needs to sign in again'),
       text:
-        t('3 ngày trước khi hết hạn, hoặc khi claude-swap báo lỗi đăng nhập.', '3 days before the sign-in expires, or when claude-swap reports a sign-in error.') +
+        t('3 ngày trước khi hết hạn, hoặc khi lần đọc hạn mức báo lỗi đăng nhập.', '3 days before the sign-in expires, or when a quota read reports a sign-in error.') +
         (agy ? t(' Cả tài khoản Antigravity cần đăng nhập lại hay xác minh.', ' Also Antigravity accounts that need to sign in again or verify.') : ''),
     },
     {

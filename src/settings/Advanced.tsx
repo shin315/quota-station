@@ -305,7 +305,7 @@ export function Advanced(props: SettingsProps & { model: AuthorModel; id: string
   const lead =
     list([t('Luật', 'Rules'), t('tạm dừng', 'pausing'), ...(mac ? [t('các Mac khác', 'other Macs')] : []), ...own], t(' và ', ' and ')) + '.';
   const more =
-    t('Tự chuyển Claude theo ', 'Automatic Claude switching by ') +
+    t('Tự chuyển Claude theo ', 'Switching Claude accounts automatically by ') +
     list(
       [
         t('luật xoay vòng', 'rotation rules'),

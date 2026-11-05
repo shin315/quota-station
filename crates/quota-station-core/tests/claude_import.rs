@@ -1,9 +1,10 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-//! `Nhập từ claude-swap` against a made-up claude-swap folder and a fake
-//! Keychain in a temporary home: what is carried over, that running it
-//! again changes nothing, and that claude-swap's own data is never touched.
+//! The import from another account switcher against a made-up folder of
+//! that tool and a fake Keychain in a temporary home: what is carried over,
+//! that running it again changes nothing, and that the tool's own data is
+//! never touched.
 
 mod common;
 
@@ -23,9 +24,9 @@ const PERSONAL: &str = "lan@example.com";
 const TEAM: &str = "lan@team.example";
 const TOKEN: &str = "lan.ci@team.example";
 
-/// claude-swap's folder with three accounts: 1 with its login in an `.enc`
-/// file, 2 in claude-swap's Keychain item, 3 a setup token with no config.
-fn claude_swap(mac: &Mac) -> PathBuf {
+/// The other switcher's folder with three accounts: 1 with its login in an
+/// `.enc` file, 2 in its Keychain item, 3 a setup token with no config.
+fn other_switcher(mac: &Mac) -> PathBuf {
     let dir = import::source(&mac.home);
     std::fs::create_dir_all(dir.join("configs")).unwrap();
     std::fs::create_dir_all(dir.join("credentials")).unwrap();
@@ -51,14 +52,14 @@ fn claude_swap(mac: &Mac) -> PathBuf {
     }
     write_enc(&dir, 1, PERSONAL, &credential("acc-1", "ref-1", in_hours(5.0)));
     mac.put_item(
-        "claude-swap",
+        import::SWAP_SERVICE,
         &format!("account-2-{TEAM}"),
         &credential("acc-2", "ref-2", in_hours(5.0)),
     );
     let token =
         json!({ "claudeAiOauth": { "accessToken": "setup-3", "scopes": ["user:inference"] } })
             .to_string();
-    mac.put_item("claude-swap", &format!("account-3-{TOKEN}"), &token);
+    mac.put_item(import::SWAP_SERVICE, &format!("account-3-{TOKEN}"), &token);
     dir
 }
 
@@ -88,9 +89,9 @@ fn snapshot(dir: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
 }
 
 #[test]
-fn every_claude_swap_account_comes_over_under_its_slot() {
+fn every_account_of_the_other_switcher_comes_over_under_its_slot() {
     let mac = Mac::new("import");
-    let dir = claude_swap(&mac);
+    let dir = other_switcher(&mac);
     let done = import::import(&mac.store, &dir, ext::none()).unwrap();
     assert_eq!(done.added, vec![1, 2, 3]);
     let list = mac.store.load().unwrap();
@@ -100,7 +101,7 @@ fn every_claude_swap_account_comes_over_under_its_slot() {
     assert_eq!(mac.store.credential(1).unwrap(), Some(credential_of(&dir, 1, PERSONAL)));
     assert_eq!(
         mac.store.credential(2).unwrap(),
-        mac.item("claude-swap", &format!("account-2-{TEAM}"))
+        mac.item(import::SWAP_SERVICE, &format!("account-2-{TEAM}"))
     );
     assert_eq!(mac.store.oauth_account(2).unwrap().unwrap()["emailAddress"], TEAM);
     assert_eq!(mac.store.oauth_account(3).unwrap().unwrap()["emailAddress"], TOKEN);
@@ -113,28 +114,29 @@ fn credential_of(dir: &Path, slot: u32, email: &str) -> String {
 }
 
 #[test]
-fn claude_swaps_own_data_is_left_as_it_was() {
+fn the_other_switchers_own_data_is_left_as_it_was() {
     let mac = Mac::new("import-untouched");
-    let dir = claude_swap(&mac);
+    let dir = other_switcher(&mac);
     let before = snapshot(&dir);
-    let claude_swaps = || {
+    let theirs_now = || {
         let items = mac.keychain.items();
-        items.into_iter().filter(|((service, _), _)| service == "claude-swap").collect::<Vec<_>>()
+        items
+            .into_iter()
+            .filter(|((service, _), _)| service == import::SWAP_SERVICE)
+            .collect::<Vec<_>>()
     };
-    let theirs = claude_swaps();
+    let theirs = theirs_now();
     import::import(&mac.store, &dir, ext::none()).unwrap();
     assert_eq!(snapshot(&dir), before);
-    assert_eq!(claude_swaps(), theirs);
-    assert!(!mac
-        .security_calls()
-        .lines()
-        .any(|l| !l.starts_with("find-generic-password") && l.contains("-s claude-swap")));
+    assert_eq!(theirs_now(), theirs);
+    assert!(!mac.security_calls().lines().any(|l| !l.starts_with("find-generic-password")
+        && l.contains(&format!("-s {}", import::SWAP_SERVICE))));
 }
 
 #[test]
 fn importing_again_changes_nothing_the_owner_set() {
     let mac = Mac::new("import-again");
-    let dir = claude_swap(&mac);
+    let dir = other_switcher(&mac);
     import::import(&mac.store, &dir, ext::none()).unwrap();
     let mut list = mac.store.load().unwrap();
     list.get_mut(2).unwrap().alias = Some("Đã đổi".into());
@@ -146,14 +148,14 @@ fn importing_again_changes_nothing_the_owner_set() {
 }
 
 #[test]
-fn a_newer_login_in_claude_swap_replaces_the_apps_copy() {
+fn a_newer_login_in_the_other_switcher_replaces_the_apps_copy() {
     let mac = Mac::new("import-newer");
-    let dir = claude_swap(&mac);
+    let dir = other_switcher(&mac);
     import::import(&mac.store, &dir, ext::none()).unwrap();
     let newer = credential("acc-1b", "ref-1b", in_hours(9.0));
     write_enc(&dir, 1, PERSONAL, &newer);
     let older = credential("acc-2-old", "ref-2-old", in_hours(1.0));
-    mac.put_item("claude-swap", &format!("account-2-{TEAM}"), &older);
+    mac.put_item(import::SWAP_SERVICE, &format!("account-2-{TEAM}"), &older);
     let done = import::import(&mac.store, &dir, ext::none()).unwrap();
     assert_eq!(done.updated, vec![1]);
     assert_eq!(mac.store.credential(1).unwrap(), Some(newer));
@@ -164,7 +166,7 @@ fn a_newer_login_in_claude_swap_replaces_the_apps_copy() {
 fn a_slot_the_app_uses_for_another_account_is_not_taken() {
     let mac = Mac::new("import-taken");
     mac.add(2, "someone@else.example", "org-x", &credential("acc-x", "ref-x", in_hours(5.0)));
-    let dir = claude_swap(&mac);
+    let dir = other_switcher(&mac);
     let done = import::import(&mac.store, &dir, ext::none()).unwrap();
     assert_eq!(done.added, vec![1, 3]);
     assert!(done.skipped.contains(&(2, "slotTaken".to_string())));
@@ -175,9 +177,9 @@ fn a_slot_the_app_uses_for_another_account_is_not_taken() {
 }
 
 #[test]
-fn an_api_key_account_is_left_in_claude_swap() {
+fn an_api_key_account_is_left_in_the_other_switcher() {
     let mac = Mac::new("import-key");
-    let dir = claude_swap(&mac);
+    let dir = other_switcher(&mac);
     let mut sequence: Value =
         serde_json::from_str(&std::fs::read_to_string(dir.join("sequence.json")).unwrap()).unwrap();
     sequence["accounts"]["4"] = json!({ "email": "api@example.com", "kind": "api_key" });
@@ -188,9 +190,9 @@ fn an_api_key_account_is_left_in_claude_swap() {
 }
 
 #[test]
-fn claude_swaps_last_readings_seed_the_apps_only_for_the_same_account() {
+fn the_other_switchers_last_readings_seed_the_apps_only_for_the_same_account() {
     let mac = Mac::new("import-usage");
-    let dir = claude_swap(&mac);
+    let dir = other_switcher(&mac);
     let cache = json!({
         "schemaVersion": 2,
         "accounts": {
@@ -209,7 +211,7 @@ fn claude_swaps_last_readings_seed_the_apps_only_for_the_same_account() {
 }
 
 #[test]
-fn a_mac_without_claude_swap_has_nothing_to_import() {
+fn a_mac_without_the_other_switcher_has_nothing_to_import() {
     let mac = Mac::new("import-none");
     assert!(!import::available(&mac.home));
     assert!(matches!(

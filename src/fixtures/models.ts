@@ -141,7 +141,7 @@ export function peerFixture(name: string, alias: string, over: Partial<PeerView>
 
 export function rotationFixture(over: Partial<RotationView> = {}): RotationView {
   return {
-    path: '~/.config/cswap-prefer-team/rotation',
+    path: '~/.config/quota-station/rotation',
     status: 'ok',
     rules: rulesFixture(),
     reason: null,

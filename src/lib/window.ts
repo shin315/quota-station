@@ -31,7 +31,7 @@ export interface WindowView {
     present: boolean;
     /** Claude Code is there with no account yet: the card offers to add one. */
     empty: boolean;
-    /** `4 tài khoản Quota Station`; `claude-swap` until Quota Station keeps the accounts. */
+    /** `4 tài khoản Quota Station`; no keeper named until Quota Station keeps the accounts. */
     count: string;
     /** In slot order, as the tables list them. */
     cards: CardView[];
@@ -175,7 +175,7 @@ export function windowView(model: Model, now: Date, options: ViewOptions = {}): 
     claude: {
       present: pv.claude.shown,
       empty: pv.claude.empty,
-      count: accountCount(pv.claude.cards.length, swap ? (model.claudeSwitch.ready ? 'Quota Station' : 'claude-swap') : ''),
+      count: accountCount(pv.claude.cards.length, swap && model.claudeSwitch.ready ? 'Quota Station' : ''),
       cards: pv.claude.cards,
       note: pv.claude.note,
     },

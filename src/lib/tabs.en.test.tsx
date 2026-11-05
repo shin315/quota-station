@@ -88,7 +88,7 @@ describe('the tabs in English', () => {
     );
     expect(screen.getByRole('heading', { name: 'Add a Claude account' })).toBeTruthy();
     expect(screen.getByRole('radio', { name: /Sign in with the browser/ })).toBeTruthy();
-    expect(screen.getByRole('radio', { name: /Import from claude-swap|Import again from claude-swap/ })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: /Import from another account switcher|Import again from another account switcher/ })).toBeTruthy();
   });
 
   it('Antigravity sign-in feedback', () => {

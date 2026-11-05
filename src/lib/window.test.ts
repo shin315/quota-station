@@ -25,8 +25,8 @@ describe('main window view', () => {
 
   it('counts the Claude accounts by what the Mac has', () => {
     expect(view('fresh').claude.count).toBe('4 tài khoản Quota Station');
-    // Before Quota Station keeps the accounts, claude-swap still does.
-    expect(view('fresh', { claudeSwitch: { ready: false, busy: null } }).claude.count).toBe('4 tài khoản claude-swap');
+    // Before Quota Station keeps the accounts, no keeper is named.
+    expect(view('fresh', { claudeSwitch: { ready: false, busy: null } }).claude.count).toBe('4 tài khoản');
     const unavailable = view('unavailable').claude;
     expect(unavailable).toMatchObject({ count: '', cards: [] });
     expect(unavailable.note?.text).toBe('Không đọc được hạn mức của Claude Code (network_unreachable).');

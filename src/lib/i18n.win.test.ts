@@ -76,14 +76,14 @@ describe('the words for the system', () => {
     expect(popoverView(fixtureModel('keychain'), FIXTURE_NOW).banner).toBeNull();
   });
 
-  it('the move from claude-swap has no LaunchAgent to turn off on Windows', () => {
+  it('the move from another account switcher has no LaunchAgent to turn off on Windows', () => {
     const steps = guide('switcher').steps;
     expect(steps[0]).toContain('launchctl bootout');
     setPlatform('windows');
     const win = guide('switcher');
     expect(win.steps.some((s) => s.includes('launchctl'))).toBe(false);
     expect(win.steps).toHaveLength(steps.length - 1);
-    expect(win.lead).toBe('Làm lần lượt trên từng máy. claude-swap và dữ liệu của nó được giữ nguyên, để quay lại được khi cần.');
+    expect(win.lead).toBe('Làm lần lượt trên từng máy. Công cụ đó và dữ liệu của nó được giữ nguyên, để quay lại được khi cần.');
   });
 
   it('a variable set in Windows’ user or system variables, or in PowerShell’s profile', () => {

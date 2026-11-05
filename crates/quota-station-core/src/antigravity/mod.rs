@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
 //! Antigravity accounts the app logs in itself (M4a), whose quota it reads
-//! (M4b) and which it switches to (M4c), taking over what Cockpit Tools
-//! does. The app talks to Google as Cockpit does: the same OAuth client,
-//! flow, scopes, parameters and refresh rule, the same Cloud Code calls,
-//! headers and user agent, and never more often.
+//! (M4b) and which it switches to (M4c). The app talks to Google as
+//! Antigravity does: Antigravity's OAuth client, flow, scopes, parameters
+//! and refresh rule, the same Cloud Code calls, headers and user agent, and
+//! no more often than needed.
 //!
 //! Where things live, all under the app's Application Support folder:
 //!
@@ -13,7 +13,7 @@
 //!   owner ([`client`]);
 //! - `antigravity/` (mode 700): `accounts.json` and `status.json`, with no
 //!   secrets ([`index`]), and each account's last quota reading under
-//!   `cache/`, in Cockpit's layout ([`export`]), which the Antigravity row
+//!   `cache/` ([`export`]), which the Antigravity row
 //!   lists ([`listing`]); the binding, the switch log and the six-hour
 //!   watch ([`switch`], [`watch`]);
 //! - the tokens only in the app's own Keychain items ([`store`]; on
@@ -28,8 +28,8 @@
 //!
 //! Parts of [`oauth`], [`oauth_server`], [`token`], [`index`],
 //! [`cloud_code`], [`version`], [`export`], [`credential`], [`desktop`] and
-//! [`switch`] are ported from Cockpit Tools 1.3.70 (CC BY-NC-SA 4.0); each
-//! file says what and what changed, and `NOTICE` credits it.
+//! [`switch`] hold adapted code under CC BY-NC-SA 4.0; each file names its
+//! source in its header, and `NOTICE` credits it and lists the changes.
 
 pub mod client;
 pub mod cloud_code;

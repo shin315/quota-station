@@ -240,7 +240,7 @@ ghi (tiếng Anh).
 - Để đăng nhập tài khoản Antigravity (bản tải về và bản dựng bằng
   `scripts/install.sh` đều có; `QS_ANTIGRAVITY_ACCOUNTS=0` bỏ phần đó ra):
   [file OAuth client](docs/how-it-works.md#the-oauth-client-file), do bạn tự
-  tạo với hai giá trị lấy từ mã nguồn Cockpit Tools—trên Mac tại
+  tạo với mã và khoá bí mật của OAuth client Antigravity—trên Mac tại
   `~/Library/Application Support/com.shin315.quota-station/oauth-client.json`
   (quyền 600), trên Windows tại
   `%APPDATA%\com.shin315.quota-station\oauth-client.json` (trong hướng dẫn có
@@ -321,7 +321,7 @@ Trên máy Mac hoặc PC cần đăng nhập tài khoản Antigravity, đặt
 [file OAuth client](docs/how-it-works.md#the-oauth-client-file) vào đúng đường
 dẫn, và bật `Cài đặt › Chung › Mở khi đăng nhập` nếu muốn app tự chạy cùng máy.
 
-Đang chuyển từ claude-swap? Xem hướng dẫn tại phần
+Đang chuyển từ công cụ chuyển tài khoản khác? Xem hướng dẫn tại phần
 [cutover](docs/claude-accounts.md#cutover).
 
 ## Cập nhật
@@ -398,13 +398,13 @@ Các trang trong `docs/` viết bằng tiếng Anh.
 ## Điều khoản dịch vụ
 
 Việc đăng nhập tài khoản Antigravity bằng OAuth client của chính Antigravity và
-đọc hạn mức theo cách Antigravity làm mang cùng mức rủi ro về điều khoản dịch vụ
-như khi dùng Cockpit Tools, không hơn: app gọi đúng những lệnh đó, với cùng
-user agent và header, và không gọi dày hơn. `Tự đánh thức ChatGPT` gửi yêu cầu
+đọc hạn mức theo cách Antigravity làm không mang thêm rủi ro về điều khoản dịch
+vụ so với chính Antigravity: app gọi đúng những lệnh đó, với cùng user agent và
+header, và không gọi dày hơn. `Tự đánh thức ChatGPT` gửi yêu cầu
 theo lịch hẹn—điều mà điều khoản của OpenAI chưa đề cập—nên chỉ dùng cho tài
 khoản của chính bạn. [SECURITY.md](SECURITY.md) giải thích những gì có thể xảy
 ra và thay đổi nào sẽ làm rủi ro lớn hơn.
 
 ---
 
-<sub>MIT, trừ phần tài khoản Antigravity tuỳ chọn (dựa một phần trên Cockpit Tools, CC BY-NC-SA 4.0). Chi tiết trong [LICENSE](LICENSE), [LICENSES/](LICENSES), [NOTICE](NOTICE) và [THIRD_PARTY.md](THIRD_PARTY.md).</sub>
+<sub>MIT, trừ phần tài khoản Antigravity tuỳ chọn (CC BY-NC-SA 4.0). Giấy phép và ghi công bên thứ ba có trong [LICENSE](LICENSE), [LICENSES/](LICENSES), [NOTICE](NOTICE) và [THIRD_PARTY.md](THIRD_PARTY.md).</sub>

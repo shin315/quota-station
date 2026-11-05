@@ -10,8 +10,8 @@
 // each; "Tự đánh thức ChatGPT" once the app keeps a ChatGPT account, resting
 // on one line that opens in place (direction C, 27/10/2026); then Codex on
 // this Mac as one line, the technical detail on its "Chi tiết…" sheet. Every
-// longer explanation is behind a Chi tiết. CC Switch shows only as the
-// banner that warns when it also switches Codex.
+// longer explanation is behind a Chi tiết. Another Codex switcher shows
+// only as the banner that warns when it also switches Codex.
 
 import { useState, type ReactNode } from 'react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -99,7 +99,7 @@ function keyChip(v: CodexView): ChipView {
     case 'headers':
       return { t: t('có · header', 'yes · header'), k: 'ok' };
     case 'placeholder':
-      return { t: t('chỉ khoá giữ chỗ của CC Switch', 'only CC Switch’s placeholder key'), k: 'bad' };
+      return { t: t('chỉ có khoá giữ chỗ do công cụ khác để lại', 'only a placeholder key left by another tool'), k: 'bad' };
     default:
       return { t: t('thiếu', 'missing'), k: 'bad' };
   }
@@ -740,10 +740,10 @@ export function CodexTab({ model, fresh, feedback, now, onAction, onPlugins, acc
   if (ccSwitchManages(v))
     banners.push({
       tone: 'warn',
-      title: t('CC Switch đang chạy và cũng đổi Codex', 'CC Switch is running and also switches Codex'),
+      title: t('Một công cụ chuyển Codex khác đang chạy', 'Another Codex switcher is running'),
       body: t(
-        'Chỉ chuyển Codex ở một nơi: lần chuyển sau của CC Switch ghi đè lựa chọn ở đây.',
-        'Switch Codex in one place only: CC Switch’s next switch overwrites the choice made here.',
+        'Chỉ chuyển Codex ở một nơi: lần chuyển sau của công cụ đó ghi đè lựa chọn ở đây.',
+        'Switch Codex in one place only: that tool’s next switch overwrites the choice made here.',
       ),
       actions: [],
     });

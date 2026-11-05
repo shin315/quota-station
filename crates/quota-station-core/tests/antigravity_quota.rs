@@ -3,8 +3,8 @@
 
 //! Reading Antigravity accounts' quota end to end, against a local fake
 //! Google and Cloud Code, a fake `security` and a fake Antigravity bundle in
-//! a temporary home: the calls and headers Cockpit Tools makes, the cache it
-//! writes, the 60-second TTL, one account at a time, and what 401, 403, 429,
+//! a temporary home: the calls and headers Antigravity makes, the cache
+//! written, the 60-second TTL, one account at a time, and what 401, 403, 429,
 //! 5xx and network failures do. These tests never reach Google and never
 //! touch the Keychain. The last one lists both accounts on the Antigravity
 //! row from the files written here, with a fake `agy`. On Windows the
@@ -102,7 +102,7 @@ fn verify_body(status: u16) -> String {
 }
 
 #[test]
-fn a_read_makes_cockpits_calls_and_writes_cockpits_cache() {
+fn a_read_makes_antigravitys_calls_and_writes_the_cache() {
     let home = Home::new("agy-quota-read");
     let google = FakeGoogle::start(Script::default());
     let id = log_in(&home, &google, NOW_MS);
@@ -160,9 +160,9 @@ fn a_read_makes_cockpits_calls_and_writes_cockpits_cache() {
         assert_eq!(r.json(), serde_json::json!({ "project": PROJECT }));
     }
 
-    // The cache file is the record Cockpit writes, byte for byte.
+    // The cache file is the expected record, byte for byte.
     let text = cache_text(&home, EMAIL).expect("the reading is cached");
-    assert_eq!(text.trim_end(), fixture_text("cloud-code/cockpit-cache-record.json").trim_end());
+    assert_eq!(text.trim_end(), fixture_text("cloud-code/cache-record.json").trim_end());
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -178,8 +178,8 @@ fn a_read_makes_cockpits_calls_and_writes_cockpits_cache() {
 }
 
 #[test]
-fn the_user_agent_is_cockpits_with_and_without_antigravity_on_disk() {
-    // No Antigravity: Cockpit's defaults.
+fn the_user_agent_is_antigravitys_with_and_without_antigravity_on_disk() {
+    // No Antigravity: the defaults.
     let none = no_antigravity();
     assert_eq!(none.cloud_code_user_agent(), format!("antigravity/1.20.5 {OS}/{ARCH}"));
     assert_eq!(
@@ -221,7 +221,7 @@ fn the_user_agent_is_cockpits_with_and_without_antigravity_on_disk() {
     assert_eq!(calls[1].header("user-agent").unwrap(), installed.cloud_code_user_agent());
 
     // A product.json without a version falls through to Info.plist, read
-    // with plutil as Cockpit reads it (macOS's tool: not on Windows).
+    // with plutil (macOS's tool: not on Windows).
     write("Contents/Resources/app/product.json", r#"{"nameShort":"Antigravity"}"#);
     #[cfg(unix)]
     write(
@@ -241,7 +241,7 @@ fn the_user_agent_is_cockpits_with_and_without_antigravity_on_disk() {
     assert_eq!(plist.cloud_code_user_agent(), format!("antigravity/1.20.5 {OS}/{ARCH}"));
     assert_eq!(plist.google_client_version, "9.15.1");
 
-    // The second place Cockpit looks, with `version` only.
+    // The second place looked in, with `version` only.
     std::fs::remove_dir_all(root.join("Contents")).unwrap();
     write("resources/app/product.json", r#"{"version":"1.22.0"}"#);
     let other = AntigravityApp::at(&root).identity();
@@ -514,7 +514,7 @@ fn a_summary_asking_for_a_verification_keeps_the_last_reading_and_says_so() {
     assert_eq!(err.kind(), "verification");
     assert!(matches!(standing(&home, &id), Some(Standing::NeedsVerification { url: Some(_), .. })));
     assert_eq!(cache_text(&home, EMAIL).unwrap(), before);
-    // Still read, as Cockpit still reads it; a full reading clears it.
+    // Still read; a full reading clears it.
     let (_, candidates) = quota::candidates(&home.app).unwrap();
     assert!(!candidates[0].skip);
     google.set(|s| s.summary = (200, cloud_code("retrieve-user-quota-summary")));
@@ -634,13 +634,13 @@ fn logging_out_removes_the_reading() {
 }
 
 #[test]
-fn the_cache_layout_is_cockpits() {
+fn the_cache_layout_is_as_expected() {
     let home = Home::new("agy-quota-layout");
     let google = FakeGoogle::start(Script::default());
     let id = log_in(&home, &google, NOW_MS);
     assert_eq!(id, ACCOUNT_ID);
     read(&home, &google, &id, NOW_MS).unwrap();
-    // The index and each account's reading, as Cockpit Tools lays them out.
+    // The index and each account's reading, in their layout.
     let dir = home.app.path().join("antigravity");
     let index: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(dir.join("accounts.json")).unwrap()).unwrap();

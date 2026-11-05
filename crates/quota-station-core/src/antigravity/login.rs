@@ -2,10 +2,12 @@
 // SPDX-FileCopyrightText: jlcodes (Cockpit Tools)
 // SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
+// Follows Cockpit Tools `start_oauth_login` in
+// `src-tauri/src/commands/oauth.rs` (1.3.70, commit 244b957); see NOTICE for
+// the changes.
+
 //! Logging an Antigravity account in and out, and getting its token right
-//! before a use. The login runs in Cockpit Tools' order
-//! (`start_oauth_login` in `src-tauri/src/commands/oauth.rs`, 1.3.70): open
-//! the consent screen, wait for the callback, exchange the code, insist on a
+//! before a use. The login: open the consent screen, wait for the callback, exchange the code, insist on a
 //! refresh token, ask userinfo for the email, then keep the account. Saving
 //! is the app's own: the token goes to the app's Keychain item first, and the
 //! index is written only once that worked.
@@ -89,7 +91,7 @@ impl std::fmt::Display for LoginError {
 
 impl std::error::Error for LoginError {}
 
-/// Cockpit's advice when Google sends no refresh token, in English for logs;
+/// The advice when Google sends no refresh token, in English for logs;
 /// the UI says it in Vietnamese.
 pub const NO_REFRESH_TOKEN: &str = "Google sent no refresh token, most likely because this \
      account approved the app before. Remove the access of \"Antigravity Tools\" at \
@@ -148,7 +150,7 @@ pub fn complete(
     upsert_account(deps, &user_info.email, user_info.get_display_name(), token_data, now())
 }
 
-/// Keeps a logged-in account: a new one gets Cockpit's id for its email, one
+/// Keeps a logged-in account: a new one gets the id for its email, one
 /// already listed keeps its id and creation time, and gets back the project
 /// and Google id its last token had when the new one has none. The Keychain
 /// item is written first; on a failure the index is not touched.
@@ -238,8 +240,8 @@ impl std::error::Error for LogoutError {}
 
 /// Forgets an account in this app: its Keychain item, its index line, its
 /// status and its quota reading. Antigravity.app and agy stay logged in as
-/// they are, and Google is not asked to revoke anything (Cockpit does not
-/// either). The item goes first, so a failure leaves the account listed
+/// they are, and Google is not asked to revoke anything. The item goes
+/// first, so a failure leaves the account listed
 /// rather than a token behind.
 pub fn logout(deps: &Deps, id: &str) -> Result<(), LogoutError> {
     let mut index = index::load(deps.app).map_err(LogoutError::Index)?;
@@ -315,7 +317,7 @@ fn renew(
     match oauth::ensure_fresh_token(deps.endpoints, client, token, now) {
         Ok(fresh) => {
             if fresh.access_token != token.access_token {
-                // As Cockpit: the fresh token works now even if keeping it failed.
+                // The fresh token works now even if keeping it failed.
                 let _ = deps.keychain.save(id, &fresh);
             }
             Ok(fresh)

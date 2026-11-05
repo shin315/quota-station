@@ -7,14 +7,14 @@
 //! that Antigravity.app and agy share. Afterwards every file the module
 //! opened must be inside the app's folder or the (fake) Antigravity bundle it
 //! reads the version from, every `security` run must name the app's own
-//! service, except the one write of a switch, which must be Cockpit's exact
-//! command, the decoys must be as they were (the shared item replaced by the
+//! service, except the one write of a switch, which must be the exact
+//! expected command, the decoys must be as they were (the shared item replaced by the
 //! switch, never read), and the sentinel must appear nowhere the app wrote or
 //! sent anything.
 //!
 //! On Windows the shared login is the `gemini:antigravity` credential, in a
 //! fake Credential Manager that holds the decoy: the switch's one write must
-//! be Cockpit's credential, and nothing may read or delete it.
+//! be that credential, and nothing may read or delete it.
 //!
 //! In a file of its own: the list of opened files is global to the test
 //! binary, so no other test that opens files may run beside it.
@@ -45,7 +45,8 @@ use quota_station_core::app_dir as fs;
 
 const SENTINEL: &str = "SENTINEL-must-never-leave-0f3c";
 
-/// The paths SECURITY.md lists, under `home`.
+/// The paths SECURITY.md lists, under `home`: other account tools' data
+/// and Claude Code's login.
 const FORBIDDEN: [&str; 11] = [
     ".claude-swap-backup/credentials/1.json",
     ".claude-swap-backup/configs/1.json",
@@ -219,7 +220,7 @@ fn the_antigravity_flows_never_touch_another_tools_secrets() {
     }
 
     // 2. Every `security` run is for the app's own service, but the one
-    // write of the switch, which is Cockpit's command and nothing else.
+    // write of the switch, which is the expected command and nothing else.
     let calls = home.security_calls();
     assert!(calls.len() >= 6, "{calls:?}");
     let mut shared_writes = 0;
@@ -241,7 +242,7 @@ fn the_antigravity_flows_never_touch_another_tools_secrets() {
     #[cfg(unix)]
     assert_eq!(shared_writes, 1);
     // On Windows the shared login is never a `security` run: one write of
-    // Cockpit's credential, never read or deleted.
+    // the shared credential, never read or deleted.
     #[cfg(windows)]
     {
         assert_eq!(shared_writes, 0);

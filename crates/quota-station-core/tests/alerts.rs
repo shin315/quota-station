@@ -278,7 +278,7 @@ fn a_claude_login_refused_asks_for_a_new_login() {
     assert!(run(&mut memory, &facts(nine + 2 * 86400, Some(&r)), &center).is_empty());
 
     // Any other error that asks for a new login goes on the card as a code,
-    // never as claude-swap's own words.
+    // never as the error's own words.
     let mut e = slot(3, 0.0, false);
     e["error"] = json!("Relogin required for owner@example.com: token revoked");
     let r = report(vec![slot(2, 60.0, true), e]);

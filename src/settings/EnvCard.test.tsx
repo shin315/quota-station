@@ -58,7 +58,7 @@ describe('Cài đặt › Dịch vụ › Biến môi trường đè đăng nh�
     const key = row('ANTHROPIC_API_KEY');
     expect(within(key).getByText('Claude Code').getAttribute('data-tone')).toBe('bad');
     expect(within(key).getByText('~/.zshrc · dòng 42')).toBeTruthy();
-    expect(within(key).getByText('Trong Terminal, Claude Code dùng khoá này thay cho tài khoản claude-swap đang chọn.')).toBeTruthy();
+    expect(within(key).getByText('Trong Terminal, Claude Code dùng khoá này thay cho tài khoản Claude đang chọn.')).toBeTruthy();
     expect(within(row('OPENAI_BASE_URL')).getByText('Codex').getAttribute('data-tone')).toBe('warn');
     // launchd has no file to open.
     const launchd = row('GEMINI_API_KEY');
@@ -140,10 +140,10 @@ describe('Cài đặt › Dịch vụ › "Gỡ"', () => {
     const rows = within(card()).getAllByRole('listitem');
     const settings = rows.find((li) => li.textContent?.includes('settings.json'))!;
     expect(within(settings).getByText('~/.claude/settings.json · dòng 4')).toBeTruthy();
-    expect(within(settings).getByText('Ở mọi lần chạy, Claude Code gửi token này thay cho đăng nhập của tài khoản claude-swap đang chọn.')).toBeTruthy();
+    expect(within(settings).getByText('Ở mọi lần chạy, Claude Code gửi token này thay cho đăng nhập của tài khoản Claude đang chọn.')).toBeTruthy();
     const ps = rows.find((li) => li.textContent?.includes('$PROFILE'))!;
     expect(within(ps).getByText('$PROFILE · dòng 5 · chỉ khi gọi hàm ccd')).toBeTruthy();
-    expect(within(ps).getByText('Trong PowerShell, khi gọi hàm ccd, Claude Code gửi token này thay cho đăng nhập của tài khoản claude-swap đang chọn.')).toBeTruthy();
+    expect(within(ps).getByText('Trong PowerShell, khi gọi hàm ccd, Claude Code gửi token này thay cho đăng nhập của tài khoản Claude đang chọn.')).toBeTruthy();
     // "Gỡ" next to "Mở file" and "Bỏ qua", only for a file.
     expect(within(ps).getAllByRole('button').map((b) => b.textContent)).toEqual(['Mở file', 'Gỡ', 'Bỏ qua']);
     expect(within(row('GEMINI_API_KEY')).getAllByRole('button').map((b) => b.textContent)).toEqual(['Bỏ qua']);
@@ -230,7 +230,7 @@ describe('the Claude tab', () => {
     const banner = screen.getByText('ANTHROPIC_API_KEY đang đè đăng nhập Claude').closest('.banner') as HTMLElement;
     expect(banner.getAttribute('data-tone')).toBe('bad');
     expect(
-      within(banner).getByText('Đặt ở ~/.zshrc dòng 42. Trong Terminal, Claude Code dùng khoá này thay cho tài khoản claude-swap đang chọn.'),
+      within(banner).getByText('Đặt ở ~/.zshrc dòng 42. Trong Terminal, Claude Code dùng khoá này thay cho tài khoản Claude đang chọn.'),
     ).toBeTruthy();
     expect(within(banner).getAllByRole('button').map((b) => b.textContent)).toEqual(['Mở ~/.zshrc ở dòng 42', 'Bỏ qua', 'Kiểm tra lại']);
     await press(within(banner).getByRole('button', { name: 'Mở ~/.zshrc ở dòng 42' }));

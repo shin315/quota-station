@@ -180,8 +180,9 @@ pub struct SwitcherState {
     pub last_log: Option<LogLine>,
     /// The app's rotation LaunchAgent is loaded.
     pub service: Option<bool>,
-    /// An older switcher still loaded (`com.cswap.prefer-team` or
-    /// `com.cswap.auto`): nothing switches while it is.
+    /// An older switcher's LaunchAgent still loaded
+    /// (`quota_station_core::claude::agent::LEGACY`): nothing switches while
+    /// it is.
     pub legacy: Option<String>,
     pub checked_at: Option<Instant>,
 }

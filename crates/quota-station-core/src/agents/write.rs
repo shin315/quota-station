@@ -10,9 +10,8 @@
 //! ([`super::redact`]) in the app's `backups/<agent>/` (the newest 10
 //! stay); the real file read again and compared with the planned-on bytes
 //! (another program wrote it meanwhile: nothing is replaced); the rename;
-//! and a read of the result. As CC Switch notes (`live/engine.rs`), a
-//! program outside the app can still write between the comparison and the
-//! rename; the hash the app keeps of its write catches that afterwards.
+//! and a read of the result. A program outside the app can still write
+//! between the comparison and the rename; the hash the app keeps of its write catches that afterwards.
 
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};

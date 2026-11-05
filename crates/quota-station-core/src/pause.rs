@@ -5,7 +5,7 @@
 //! the rotation file and the `prime` flag: on macOS
 //! `~/Library/Application Support/com.shin315.quota-station/claude/pause`, on
 //! Windows `AppData\Roaming\com.shin315.quota-station\claude\pause`. It was
-//! `~/.config/cswap-prefer-team/pause`; [`file`] carries a flag left there over
+//! under the old switcher's folder ([`OLD_FILE`]); [`file`] carries a flag left there over
 //! to the app's folder once.
 //!
 //! Plain `key = value` lines, like the rotation file: `until = 2026-10-16T18:30`
@@ -20,7 +20,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 /// In the app's folder for the Claude accounts ([`crate::claude::DIR`]).
 pub const FILE: &str = "pause";
-/// Where the flag was before, under the home folder.
+/// Where the flag was before, under the home folder (the old switcher's
+/// own path).
 pub const OLD_FILE: &str = ".config/cswap-prefer-team/pause";
 
 /// The flag's place in the app's folder, found from the home folder as the

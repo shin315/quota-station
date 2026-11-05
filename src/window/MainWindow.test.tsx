@@ -7,6 +7,7 @@ import { MainWindowApp } from '../App';
 import { fakeApi, fakeEmail, hideNames } from '../fixtures/fakeApi';
 import { agyAccount, agyFixture, claudeAccountsFixture, communityModel, FIXTURE_NOW, fixtureModel, heldSwitcher, switcherFixture } from '../fixtures/models';
 import type { Api } from '../lib/api';
+import { OLD_AGENT } from '../lib/rotation';
 import type { Model, Tab } from '../lib/model';
 
 async function open(model: Model, tab: Tab = 'overview') {
@@ -211,16 +212,16 @@ describe('main window', () => {
   it('the Claude tab marks old numbers next to the name, not in a column', async () => {
     await open(fixtureModel('stale'), 'claude');
     expect(screen.getByText('4 tài khoản Quota Station')).toBeTruthy();
-    expect(screen.queryByText(/tài khoản claude-swap/)).toBeNull();
+    expect(screen.queryByText('4 tài khoản')).toBeNull();
     // No column of when each was updated; the sidebar's Cập nhật is another place.
     expect(within(screen.getByRole('main')).queryByText('Cập nhật')).toBeNull();
     expect(screen.getAllByText('cập nhật 41 phút trước').length).toBeGreaterThan(0);
     expect(screen.getByText('Số liệu Claude đã cũ 41 phút')).toBeTruthy();
   });
 
-  it('the Claude tab names claude-swap as the keeper only until Quota Station keeps the accounts', async () => {
+  it('the Claude tab names Quota Station as the keeper only once it keeps the accounts', async () => {
     await open(fixtureModel('fresh', { claudeSwitch: { ready: false, busy: null } }), 'claude');
-    expect(screen.getByText('4 tài khoản claude-swap')).toBeTruthy();
+    expect(screen.getByText('4 tài khoản')).toBeTruthy();
     expect(screen.queryByText('4 tài khoản Quota Station')).toBeNull();
   });
 
@@ -228,8 +229,6 @@ describe('main window', () => {
     const logins = agyFixture({ accounts: [1, 2].map((n) => agyAccount(n, { email: fakeEmail(n) })) });
     const model = fixtureModel('fresh', { antigravity: logins, agySwitch: { busy: null, listed: true, overwritten: null } });
     const fake = await open(model, 'agy');
-    expect(screen.queryByText('Cockpit Tools')).toBeNull();
-    expect(screen.queryByText(/Cockpit làm mới không đều/)).toBeNull();
     expect(screen.queryByText('Đăng nhập trong Quota Station')).toBeNull();
     const table = screen.getByRole('list', { name: 'Antigravity' });
     const header = Array.from(table.querySelectorAll('.wt-r.h')).map((h) => Array.from(h.children).map((c) => c.textContent));
@@ -570,13 +569,13 @@ describe('switching Claude from the main window', () => {
   });
 
   it('an older switcher still loaded is a warning with a guide to stop it', async () => {
-    await open(fixtureModel('fresh', { switcher: switcherFixture({ legacy: 'com.cswap.prefer-team' }) }), 'claude');
+    await open(fixtureModel('fresh', { switcher: switcherFixture({ legacy: OLD_AGENT }) }), 'claude');
     await details();
-    expect(kv()['Bộ tự chuyển cũ']).toBe('com.cswap.prefer-team đang nạp');
+    expect(kv()['Bộ tự chuyển cũ']).toBe(`${OLD_AGENT} đang nạp`);
     fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
     fireEvent.click(screen.getAllByRole('button', { name: 'Hướng dẫn tắt' })[0]);
     const guide = screen.getByRole('dialog', { name: 'Tắt bộ tự chuyển cũ' });
-    expect(within(guide).getByText('launchctl bootout gui/$(id -u)/com.cswap.prefer-team')).toBeTruthy();
+    expect(within(guide).getByText(`launchctl bootout gui/$(id -u)/${OLD_AGENT}`)).toBeTruthy();
     fireEvent.click(within(guide).getByRole('button', { name: 'Đóng' }));
     expect(screen.queryByRole('dialog')).toBeNull();
   });

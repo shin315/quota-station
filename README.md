@@ -241,7 +241,8 @@ runs and writes.
 - To sign Antigravity accounts in (included in the downloads and in builds with
   `scripts/install.sh`; `QS_ANTIGRAVITY_ACCOUNTS=0` leaves this out):
   the [OAuth client file](docs/how-it-works.md#the-oauth-client-file), which
-  you make yourself with the values from Cockpit Tools' source—on a Mac at
+  you make yourself with the ID and secret of Antigravity's OAuth client—on a
+  Mac at
   `~/Library/Application Support/com.shin315.quota-station/oauth-client.json`
   (mode 600), and on Windows at
   `%APPDATA%\com.shin315.quota-station\oauth-client.json` (the guide has a
@@ -324,7 +325,7 @@ On a Mac or PC that signs Antigravity accounts in, put the
 turn on `Settings › General › Open at login` if the app should start with the
 computer.
 
-Moving from claude-swap? See the
+Moving from another account switcher? See the
 [cutover guide](docs/claude-accounts.md#cutover).
 
 ## Update
@@ -398,8 +399,8 @@ The older switcher's rotation file is shared with that switcher and stays.
 ## Terms of service
 
 Signing Antigravity accounts in with Antigravity's own OAuth client, and reading
-the quota as Antigravity does, carries the same terms-of-service risk as using
-Cockpit Tools, no more: the app makes the same calls, with the same user agent
+the quota as Antigravity does, carries no more terms-of-service risk than
+Antigravity's own use: the app makes the same calls, with the same user agent
 and headers, no more often. `Wake ChatGPT` sends requests on a schedule, which
 OpenAI's terms do not address: use it on your own accounts only.
 [SECURITY.md](SECURITY.md) explains what could happen and which changes would
@@ -407,4 +408,4 @@ increase the risk.
 
 ---
 
-<sub>MIT, except the optional Antigravity accounts part (adapted from Cockpit Tools, CC BY-NC-SA 4.0). Details in [LICENSE](LICENSE), [LICENSES/](LICENSES), [NOTICE](NOTICE) and [THIRD_PARTY.md](THIRD_PARTY.md).</sub>
+<sub>MIT, except the optional Antigravity accounts part (CC BY-NC-SA 4.0). Licenses and third-party credits are in [LICENSE](LICENSE), [LICENSES/](LICENSES), [NOTICE](NOTICE) and [THIRD_PARTY.md](THIRD_PARTY.md).</sub>

@@ -78,7 +78,7 @@ pub struct ProjectRow {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountRow {
-    /// claude-swap's slot; `None` when the history cannot tell.
+    /// The account's slot; `None` when the history cannot tell.
     pub slot: Option<u32>,
     pub tokens: u64,
 }

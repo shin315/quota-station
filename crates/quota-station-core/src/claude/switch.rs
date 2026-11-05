@@ -2,13 +2,12 @@
 // SPDX-FileCopyrightText: 2026 Onur Cetinkol (claude-swap)
 // SPDX-License-Identifier: MIT
 
-// The switch follows claude-swap's `_perform_switch` (`switcher.py`, MIT,
-// https://github.com/realiti4/claude-swap): the same four locks in the same
-// order, the outgoing account's live credential kept first (never an empty
+// Adapted from claude-swap `switcher.py` (`_perform_switch`, MIT,
+// https://github.com/realiti4/claude-swap); see NOTICE for the changes.
+// The switch: the same four locks in the same order, the outgoing account's live credential kept first (never an empty
 // or wiped one, never one of an account it does not manage), then the
 // target's credential and `oauthAccount`, and everything put back when a
-// step fails. Unlike claude-swap it reads both back before saying it
-// switched.
+// step fails. It also reads both back before saying it switched.
 
 //! Switching Claude Code's active login to one of the app's accounts. It
 //! makes no network call and never refreshes a token.

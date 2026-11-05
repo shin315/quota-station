@@ -2,24 +2,25 @@
 // SPDX-FileCopyrightText: 2026 Onur Cetinkol (claude-swap)
 // SPDX-License-Identifier: MIT
 
-// Where claude-swap keeps each account is read as claude-swap reads it
-// (`switcher.py`, `credentials.py`, MIT, https://github.com/realiti4/claude-swap):
-// `sequence.json` for the slots, `configs/.claude-config-N-<email>.json` for
-// `oauthAccount`, and the credential from `credentials/.creds-N-<email>.enc`
-// when that file is there and decodes, else the Keychain item
-// `claude-swap` / `account-N-<email>`.
+// Adapted from claude-swap `switcher.py` and `credentials.py` (MIT,
+// https://github.com/realiti4/claude-swap); see NOTICE for the changes.
+// Where the other switcher keeps each account: `sequence.json` for the
+// slots, `configs/.claude-config-N-<email>.json` for `oauthAccount`, and the credential from `credentials/.creds-N-<email>.enc`
+// when that file is there and decodes, else its Keychain item
+// ([`SWAP_SERVICE`] / `account-N-<email>`).
 
-//! `Nhập từ claude-swap`: carries every claude-swap account over to the app,
-//! under the same slot number, without a new login. It only reads
-//! claude-swap's folder and Keychain items, never writes them.
+//! `Nhập từ công cụ chuyển tài khoản khác`: carries every account of the
+//! other account switcher over to the app, under the same slot number,
+//! without a new login. It only reads that tool's folder and Keychain items,
+//! never writes them.
 //!
-//! Running it again changes nothing, except that a credential claude-swap
+//! Running it again changes nothing, except that a credential that tool
 //! holds a newer copy of (a later `expiresAt`) replaces the app's: an
 //! account the owner renamed in the app stays as the owner left it, and an
 //! account already in the app under another slot is not added twice. It
-//! also copies claude-swap's last readings, only when the app has none yet.
+//! also copies that tool's last readings, only when the app has none yet.
 //!
-//! Each account comes in the rotation: claude-swap's own `disabled` is not
+//! Each account comes in the rotation: that tool's own `disabled` is not
 //! carried over, as the old switcher never read it, and one the owner held
 //! out of the rotation in the app stays held out. It also copies the
 //! rotation file, the `prime` flag and its times, each only when the app
@@ -40,10 +41,11 @@ use super::store::{self, Account, Kind, Store, StoreError};
 use super::usage::{self, Row, Scoped, Win};
 use crate::ext::{Fields, Hooks};
 
-/// claude-swap's folder on macOS.
+/// The other account switcher's folder on macOS (its own name, read only).
 pub const SOURCE: &str = ".claude-swap-backup";
-/// claude-swap's Keychain service for its accounts.
-const SWAP_SERVICE: &str = "claude-swap";
+/// The other account switcher's Keychain service for its accounts (its own
+/// name, read only).
+pub const SWAP_SERVICE: &str = "claude-swap";
 
 pub fn source(home: &Path) -> PathBuf {
     home.join(SOURCE)
@@ -69,7 +71,7 @@ pub struct Imported {
 
 #[derive(Debug)]
 pub enum ImportError {
-    /// No `sequence.json`: claude-swap has no accounts here.
+    /// No `sequence.json`: the other account switcher has no accounts here.
     NotFound,
     /// `sequence.json` is there but does not read.
     Corrupt,
@@ -80,8 +82,8 @@ pub enum ImportError {
 impl std::fmt::Display for ImportError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ImportError::NotFound => write!(f, "claude-swap has no accounts on this Mac"),
-            ImportError::Corrupt => write!(f, "claude-swap's sequence.json does not read"),
+            ImportError::NotFound => write!(f, "no accounts to import on this Mac"),
+            ImportError::Corrupt => write!(f, "the accounts' sequence.json does not read"),
             ImportError::Lock(e) => write!(f, "{e}"),
             ImportError::Store(e) => write!(f, "{e}"),
         }
@@ -102,12 +104,12 @@ impl From<StoreError> for ImportError {
     }
 }
 
-/// claude-swap has accounts on this Mac to import.
+/// The other account switcher has accounts on this Mac to import.
 pub fn available(home: &Path) -> bool {
     source(home).join("sequence.json").is_file()
 }
 
-/// One claude-swap account as found.
+/// One of the other account switcher's accounts as found.
 struct Found {
     slot: u32,
     email: String,
@@ -135,7 +137,7 @@ fn read_sequence(dir: &Path) -> Result<Vec<Found>, ImportError> {
 }
 
 /// The account's credential: the `.enc` file when it decodes to something,
-/// else claude-swap's Keychain item.
+/// else that tool's Keychain item.
 fn read_credential(dir: &Path, store: &Store, f: &Found) -> Result<Option<String>, ()> {
     let enc = dir.join("credentials").join(format!(".creds-{}-{}.enc", f.slot, f.email));
     if let Ok(text) = std::fs::read_to_string(&enc) {
@@ -165,7 +167,8 @@ fn text<'a>(v: &'a Value, key: &str) -> &'a str {
     v.get(key).and_then(Value::as_str).unwrap_or("")
 }
 
-/// Imports from claude-swap's folder at `dir` (normally `~/.claude-swap-backup`),
+/// Imports from the other account switcher's folder at `dir` (normally
+/// `~/` + [`SOURCE`]),
 /// and then whatever `hooks` bring over of their own
 /// ([`Hooks::claude_imported`]).
 pub fn import(store: &Store, dir: &Path, hooks: &dyn Hooks) -> Result<Imported, ImportError> {
@@ -197,7 +200,7 @@ pub fn import(store: &Store, dir: &Path, hooks: &dyn Hooks) -> Result<Imported, 
         let token = cc::refresh_token(&credential).is_none_or(|r| r.is_empty());
         let oauth = match read_oauth(dir, f) {
             Some(o) => o,
-            // claude-swap's own record for a setup token.
+            // That tool's own record for a setup token.
             None if token && !f.email.is_empty() => json!({
                 "emailAddress": f.email,
                 "accountUuid": "",
@@ -273,7 +276,7 @@ pub fn import(store: &Store, dir: &Path, hooks: &dyn Hooks) -> Result<Imported, 
     Ok(done)
 }
 
-/// claude-swap's last readings for the imported accounts the app has no
+/// That tool's last readings for the imported accounts the app has no
 /// reading of yet, and a fresh start for those whose login was replaced.
 fn seed_usage(
     store: &Store,
@@ -304,7 +307,7 @@ fn seed_usage(
         }
         let Some(f) = found.iter().find(|f| f.slot == *slot) else { continue };
         let Some(row) = theirs.pointer(&format!("/accounts/{key}")) else { continue };
-        // claude-swap's own guard: a row written for another account is not used.
+        // That tool's own guard: a row written for another account is not used.
         if text(row, "email") != f.email {
             continue;
         }

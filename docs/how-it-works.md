@@ -65,8 +65,8 @@ What the numbers mean:
 
 - **5-hour / Week.** For the active account, this is the tighter of the live
   five-hour and seven-day windows. A tie shows the week. For the other accounts
-  it is the effective percent of the app's own reading (claude-swap's before
-  the app keeps the accounts), labelled by the window that limits it.
+  it is the effective percent of the app's own reading (the other account
+  switcher's before the app keeps the accounts), labelled by the window that limits it.
 - **Fable week.** For the active account, this is the live Fable weekly window.
   For the other accounts, it is the Fable scope of the same reading. When
   another window limits that account first, the scope is only a bound, so the
@@ -74,11 +74,9 @@ What the numbers mean:
 
 ## The Claude accounts
 
-Quota Station keeps the Claude accounts itself, the way claude-swap kept them,
-so no other app is needed to switch or read them
-([`claude-accounts.md`](claude-accounts.md) has the design; the logic that
-touches Claude Code's login is adapted from claude-swap, MIT, credited in
-[`THIRD_PARTY.md`](../THIRD_PARTY.md)).
+Quota Station keeps the Claude accounts itself, so no other app is needed to
+switch or read them ([`claude-accounts.md`](claude-accounts.md) has the design;
+adapted code is credited in [`NOTICE`](../NOTICE)).
 
 - **Store.** Each account's login and its `oauthAccount` are in the login
   Keychain under the app's own service, `com.shin315.quota-station.claude`
@@ -90,7 +88,7 @@ touches Claude Code's login is adapted from claude-swap, MIT, credited in
   `claude/adding/`, so Claude Code's login does not change), taking the account
   Claude Code is signed in to, `Paste a setup-token` (a `claude setup-token`
   token, kept as a login without refresh; the field is a password field and the
-  token is never shown again) and `Import from claude-swap` (once per Mac;
+  token is never shown again) and `Import from another account switcher` (once per Mac;
   again later only takes a newer login). Each row's `⋯` menu has `Details and
   nickname…`, `Sign in again…` and `Remove from this Mac…` (not the one in
   use).
@@ -133,7 +131,7 @@ touches Claude Code's login is adapted from claude-swap, MIT, credited in
   rules below decide instead, and the threshold is not read; a rules file its
   rules refuse, or that cannot be read, stops the rotation (`stay (no rotation
   rules)`) rather than falling back to the threshold.
-- **Rotation.** The `cswap-prefer-team` rules, ported line for line, on the
+- **Rotation.** The earlier rotation script's rules, ported line for line, on the
   app's own copy of the rotation file (`claude/rotation`; the rules editor and
   the copy to the other Macs work on it), with two changes. The Team account
   whose weekly window resets soonest goes first, so a week is used before it
@@ -161,7 +159,7 @@ touches Claude Code's login is adapted from claude-swap, MIT, credited in
   every 180 seconds whether or not the app is open, and logs to
   `claude/rotation.log`; a failed step is logged with its cause on the same
   line (`switch to slot N failed: <kind>: <reason>`), never a token. While
-  `com.cswap.prefer-team` or `com.cswap.auto` is loaded (or `launchctl` cannot
+  the old auto-switcher's LaunchAgent is loaded (or `launchctl` cannot
   answer), the rotation, the switch sheet and `quota-station claude switch`
   write nothing, so two switchers never rotate the same refresh token. On
   Windows the app runs the rotation itself every three minutes while it runs.
@@ -188,7 +186,7 @@ read. `run N` runs `claude` with `CLAUDE_CONFIG_DIR` set to
 folder, with the variables that would override that login
 (`ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `CLAUDE_CODE_OAUTH_TOKEN` and two
 `*_FILE_DESCRIPTOR` ones) removed, and returns `claude`'s exit code. For the
-account in use it runs `claude` on Claude Code's own login, as `cswap run` did;
+account in use it runs `claude` on Claude Code's own login;
 `--require-session` refuses that instead. `quota-station claude help` lists the
 rest (`switch`, `import`, `add [--current | --token [--email E]]`, `remove`,
 `alias`).
@@ -198,14 +196,14 @@ Each account also has `enabled` (in the rotation), and the rest takes
 
 ## Antigravity logins, quota and switching
 
-These parts are adapted from [Cockpit Tools](https://github.com/jlcodes99/cockpit-tools)
-and are built only with the `antigravity-accounts` feature (see
-[`THIRD_PARTY.md`](../THIRD_PARTY.md)). Without it the `Antigravity` tab is marked
+These parts contain adapted code under CC BY-NC-SA 4.0 (credited in
+[`NOTICE`](../NOTICE)) and are built only with the `antigravity-accounts`
+feature (see [`THIRD_PARTY.md`](../THIRD_PARTY.md)). Without it the `Antigravity` tab is marked
 `read-only` (`chỉ đọc`): it reads the account signed in, and logs nothing in.
 
 - **Logins.** `Add account` opens Google's consent screen in the default
   browser, with Antigravity's own OAuth client, so the screen names Antigravity,
-  not Quota Station. The flow is Cockpit's: a loopback callback on a random
+  not Quota Station. The flow: a loopback callback on a random
   port, a fresh `state`, a 10-minute wait, the code exchange, then userinfo for
   the email. A browser that cannot reach the app can paste the callback URL
   instead. The card lists the accounts by number (the order the Antigravity row
@@ -215,26 +213,25 @@ and are built only with the `antigravity-accounts` feature (see
   only: Antigravity.app and agy stay signed in. Without a usable
   [`oauth-client.json`](#the-oauth-client-file) the card says what is missing
   and cannot add.
-- **Quota.** The app reads the quota of the accounts logged in here itself, as
-  Cockpit Tools does: the token, refreshed only when it has under five minutes
+- **Quota.** The app reads the quota of the accounts logged in here itself:
+  the token, refreshed only when it has under five minutes
   left, then Cloud Code's `fetchAvailableModels` and `retrieveUserQuotaSummary`
   with Antigravity's user agent and headers (`antigravity/<version>
   darwin/<arch>`; the version is that of `/Applications/Antigravity IDE.app`,
-  where Cockpit looks, or Cockpit's `1.20.5` without it, and always on Windows,
-  as Cockpit with its default settings). `loadCodeAssist`,
+  or `1.20.5` without it, and always on Windows). `loadCodeAssist`,
   which gives the account's project and whether it is a GCP ToS account, is
-  asked after a login and while the token lacks either (unlike Cockpit, a
+  asked after a login and while the token lacks either (a
   failed answer ends the read like a failed quota call: the last reading stays,
   and a 429 or 5xx backs the account off); a GCP ToS account with a project is
   read from `cloudcode-pa.googleapis.com`, every other from
-  `daily-cloudcode-pa.googleapis.com`. Each reading goes, in Cockpit's cache
+  `daily-cloudcode-pa.googleapis.com`. Each reading goes, in the quota cache
   layout, to the app's `antigravity/` folder; the Antigravity row lists every
   account from there, beside the live read of the account in use.
-  The pace is never denser than Cockpit's: the account in use with each of the
+  The pace: the account in use with each of the
   app's reads, the others every 10 minutes and when the `Antigravity` tab opens,
   one account at a time, and no account twice within a minute (a reading
   younger than that is used as it is). A network error on
-  `fetchAvailableModels` is tried three times, a second apart, as Cockpit does;
+  `fetchAvailableModels` is tried three times, a second apart;
   after that, or after any other failure, the last numbers stay with their age
   and the row says `read failed: …`. After a 429 or a 5xx the account waits at
   least 2 minutes, then 4, 8, 16 and at most 30. A 403 on
@@ -252,8 +249,8 @@ and are built only with the `antigravity-accounts` feature (see
   quits the app and waits up to 20 seconds when asked (an app that does not
   quit stops the switch before the shared login is touched; `Switch` stops if
   the app runs again by then), writes the login Antigravity.app and agy share
-  with Cockpit's own `security` command (on Windows the Credential Manager
-  credential, with `CredWriteW` as Cockpit does), then points the app's account index
+  with a `security` command (on Windows the Credential Manager
+  credential, with `CredWriteW`), then points the app's account index
   and binding at the new account and opens the app again. Five seconds later it
   reads Antigravity again and says it switched, that agy still uses the old
   account or could not be read, or why it did not switch. Antigravity.app older
@@ -271,17 +268,16 @@ and are built only with the `antigravity-accounts` feature (see
 ### Terms of service
 
 Logging in with Antigravity's client and reading quota as Antigravity does
-carries the same terms-of-service risk as using Cockpit Tools, no more: the app
+carries no more terms-of-service risk than Antigravity's own use: the app
 makes the same calls, with the same user agent and headers, no more often.
 [`SECURITY.md`](../SECURITY.md) says what could happen and which changes would
 make the risk larger.
 
 ## The OAuth client file
 
-The Antigravity login uses Antigravity's own OAuth client, the one Cockpit
-Tools uses (its `src-tauri/src/modules/oauth.rs`). Its id and secret are not in
-this repository, and the app ships without them: copy the two values from that
-file of Cockpit Tools' source. Put them in a file on each Mac or Windows PC that
+The Antigravity login uses Antigravity's own OAuth client. Its id and secret
+are not in this repository, and the app ships without them: use the two values
+Antigravity signs in with. Put them in a file on each Mac or Windows PC that
 logs in, readable only by you. With the real values in place of both `<…>`,
 on a Mac:
 
@@ -314,15 +310,15 @@ tab says what is missing and where the file goes.
 ## The pause flag and the switcher
 
 The rotation decides on its own every three minutes; a pause only asks it to
-wait. The pause flag is `claude/pause` in the app's folder (it was
-`~/.config/cswap-prefer-team/pause`; the first read after the move carries a
-flag left there over as it is and removes the old file)
+wait. The pause flag is `claude/pause` in the app's folder (it was in the
+earlier rotation script's folder under `~/.config`; the first read after the
+move carries a flag left there over as it is and removes the old file)
 (`until = YYYY-MM-DDTHH:MM` in local time and `reason = …`; no `until` pauses
 until resumed), written through a temporary file and a rename; resuming
 deletes it. The app's own rotation has the guard built in: while the flag holds
 it switches nothing; once `until` has passed, it deletes the flag and goes on,
 and its dry run prints `paused until <until>: <reason>` (or
-`paused indefinitely: <reason>`). The older `cswap-prefer-team` script, which is
+`paused indefinitely: <reason>`). The earlier rotation script, which is
 not part of this repository, does not read the flag in the app's folder, so a
 pause stops it only once it reads that file with the same guard. `until` is
 compared with the local time as text, the same rule in both, so they agree on
@@ -348,15 +344,16 @@ flag and does not show Claude as paused.
   `oauthAccount` in `~/.claude.json`. `Sign in with the browser` runs
   `claude auth login` (the first `claude` on `PATH`, else in `~/.local/bin`,
   `/opt/homebrew/bin` or `/usr/local/bin`) with `CLAUDE_CONFIG_DIR` set to
-  `claude/adding/`; `Import from claude-swap` reads `~/.claude-swap-backup` and
-  claude-swap's Keychain items once and writes nothing there.
+  `claude/adding/`; `Import from another account switcher` reads that tool's
+  backup folder in your home folder and its Keychain items once and writes
+  nothing there.
 - Live sessions are counted from `~/.claude/sessions/*.json`: only the `pid`
   and `kind` fields are read, and a session counts when its process is alive.
 - The rotation: a dry run of its rules (or of the threshold, without a rules
   file) in the app (no program runs and nothing switches), the last line of `claude/rotation.log` (of
-  `~/Library/Logs/cswap-prefer-team.log` before the app keeps an account), and
-  `launchctl list` for `com.shin315.quota-station.rotation`,
-  `com.cswap.prefer-team` and `com.cswap.auto`. These run with each read while
+  the earlier rotation script's log in `~/Library/Logs` before the app keeps an
+  account), and `launchctl list` for `com.shin315.quota-station.rotation` and
+  the old auto-switcher's LaunchAgents. These run with each read while
   the popover or the main window is open, and after a switch or a pause; while
   both are hidden only the pause flag is read. `Auto-switch with Quota Station`
   runs `launchctl bootstrap` or `bootout` for the app's own LaunchAgent only;
@@ -365,7 +362,8 @@ flag and does not show Claude as paused.
 - Copying the rotation file runs `ssh -o BatchMode=yes -o ConnectTimeout=5 -T
   <alias>` with one of two fixed scripts: one prints the rotation file (the
   app's `claude/rotation` when that Mac's app keeps accounts or has its own
-  rotation file, else `~/.config/cswap-prefer-team/rotation`), the other takes
+  rotation file, else the earlier rotation script's file under `~/.config`),
+  the other takes
   the new file on stdin, keeps a backup, renames it into place and prints it
   back. Batch mode means SSH never asks for a password or a host key. An alias
   must start with a letter or digit, hold only letters, digits and `. - _ @`,
@@ -428,10 +426,10 @@ flag and does not show Claude as paused.
   minutes while both are hidden, and when the `Codex` tab opens: `config.toml`
   in the Codex folder; the shape of `auth.json` (which kind of login it holds;
   no value is kept); `ps -ww -Ao tty=,command=` for terminal sessions, Codex App,
-  the background process and CC Switch; `codex --version`; the first line of
-  each `sessions/**/rollout-*.jsonl` for its provider; and whether
-  `/Applications/CC Switch.app` and `~/.cc-switch` exist (nothing inside is
-  read). It checks the custom provider answers with `GET <base_url>/models`
+  the background process and another Codex switcher; `codex --version`; the
+  first line of each `sessions/**/rollout-*.jsonl` for its provider; and whether
+  that other switcher's app and its folder in your home folder exist (nothing
+  inside is read). It checks the custom provider answers with `GET <base_url>/models`
   with no key and no login, five seconds at most, three tries; any HTTP answer,
   a 401 included, counts. (`Check` (`Kiểm tra`) when adding a provider is the
   one call that sends the key typed there, as a bearer token, to the same
@@ -530,11 +528,11 @@ a rename.
   `rotation`, `rotation.log`, `pause`, `prime` and `prime-state/`), no email
   and no token.
 - `update/install.log`: the last update from source's build output.
-- `antigravity/accounts.json` (Cockpit's account index layout, no token),
+- `antigravity/accounts.json` (the account index, no token),
   `antigravity/status.json` (accounts that need a new login or a verification,
   or that Google refused),
   `antigravity/cache/quota_api_v1_desktop/authorized/<SHA-256 of the email>.json`
-  (each account's last quota reading in Cockpit's cache layout, no token), and
+  (each account's last quota reading, no token), and
   after an Antigravity switch `antigravity/antigravity_legacy_instances.json`
   (the account bound to Antigravity.app, read by the Antigravity row),
   `antigravity/switch-log.jsonl` and
@@ -558,9 +556,9 @@ a rename.
   `agents/copy-job.json` and `agents/incoming/`.
 - `stats/index.json`: the token counts, no text.
 - Outside that folder: the rotation file with its backups
-  (`rotation.bak-<time>`, the newest 10), and the switcher's pause flag
-  `~/.config/cswap-prefer-team/pause` only to carry it over to `claude/pause`
-  and remove it.
+  (`rotation.bak-<time>`, the newest 10), and the earlier rotation script's
+  pause flag under `~/.config` only to carry it over to `claude/pause` and
+  remove it.
 - Outside that folder, the agents' own files (`config.toml`,
   `~/.claude.json`, `mcp_config.json`, the skill folders and links, the
   instruction files, Claude Code's Keychain item) are written only after a

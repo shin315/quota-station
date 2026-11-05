@@ -41,7 +41,7 @@ describe('rules editor', () => {
   it('shows the rules on this Mac and one status per Mac', async () => {
     await open();
     expect(heading()).toBe('Luật xoay vòng');
-    expect(screen.queryByText('~/.config/cswap-prefer-team/rotation')).toBeNull();
+    expect(screen.queryByText('~/.config/quota-station/rotation')).toBeNull();
     const chips = team().getAllByRole('button');
     expect(chips.map((b) => [b.textContent, b.getAttribute('aria-pressed')])).toEqual([
       ['1lan.acme1, thứ tự 1', 'true'],

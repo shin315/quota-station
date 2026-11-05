@@ -103,7 +103,8 @@ pub fn advanced(input: &ModelInput<'_>) -> AdvancedView {
 #[serde(rename_all = "camelCase")]
 pub struct RotationView {
     /// `~/Library/Application Support/com.shin315.quota-station/claude/rotation`
-    /// once the app keeps the accounts, else `~/.config/cswap-prefer-team/rotation`.
+    /// once the app keeps the accounts, else the old switcher's
+    /// (`~/` + `quota_station_core::rotation::FILE`).
     pub path: String,
     /// `ok`, `missing`, `invalid` (the file's rules refuse it) or `unreadable`.
     pub status: &'static str,

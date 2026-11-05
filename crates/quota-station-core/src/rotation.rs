@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-//! The rotation file, `~/.config/cswap-prefer-team/rotation` (F06): which
-//! claude-swap slots the switcher moves through, the personal slot and its
+//! The rotation file, `~/` + [`FILE`] (F06): which account slots the
+//! switcher moves through, the personal slot and its
 //! hours, the two thresholds and when a slot leaves the rotation.
 //!
 //! `key = value` lines, `#` comments, the last value of a key wins. The
@@ -27,7 +27,8 @@ use time::OffsetDateTime;
 use crate::local_time;
 use crate::time_util::parse_ts;
 
-/// Under the home folder, next to the pause flag.
+/// Under the home folder, next to the pause flag (the old switcher's own
+/// path).
 pub const FILE: &str = ".config/cswap-prefer-team/rotation";
 /// The keys the file requires, in the order the app writes them.
 pub const KEYS: [&str; 6] = ["team", "personal", "personal_hours", "full", "fable_full", "expire"];
@@ -441,7 +442,7 @@ pub fn render(rules: &Rules, stamp: &Stamp, previous: Option<&str>) -> String {
             }
         }
         None => {
-            out.push("# Luật xoay vòng của cswap-prefer-team, sửa trong Quota Station.".into());
+            out.push("# Luật xoay vòng, sửa trong Quota Station.".into());
         }
     }
     for k in KEYS {

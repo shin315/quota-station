@@ -33,7 +33,7 @@ usage: quota-station claude <command>
   session N             print account N's folder, for CLAUDE_CONFIG_DIR
   rotate [--dry-run]    one run of the rotation (the LaunchAgent's)
   rotation on|off       load or unload the rotation's LaunchAgent
-  import                carry claude-swap's accounts over (claude-swap is left as it is)
+  import                carry the other account switcher's accounts over (it is left as it is)
   add                   log a new account in with `claude auth login`
   add --current         add the login Claude Code is on now
   add --token [--email E]

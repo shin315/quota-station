@@ -4,8 +4,8 @@
 //! The switch history (F08), Claude and Antigravity, each line with its
 //! reason and where it comes from:
 //!
-//! - the app's own journal, `history/history.jsonl` in its folder: a Claude switch
-//!   the owner made here, an account in use that changed between two
+//! - the app's own journal, `history/history.jsonl` in its folder: a switch of the
+//!   Claude account the owner made here, an account in use that changed between two
 //!   readings with nothing here to explain it, and an Antigravity switch
 //!   that Antigravity.app undid (the six-hour watch of M4c); the line of a
 //!   switch the owner made keeps the keys an extension gives it
@@ -252,7 +252,7 @@ pub fn append(app: &AppDir, line: &Stored) -> std::io::Result<()> {
     app.write_private(&path(app), &out)
 }
 
-/// A Claude switch the owner made here, with the keys the extension keeps
+/// A switch of the Claude account the owner made here, with the keys the extension keeps
 /// for it (`ext`, [`crate::switching::Done::journal`]).
 pub fn manual_claude(
     app: &AppDir,

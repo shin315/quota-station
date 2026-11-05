@@ -7,19 +7,19 @@ changes the app should keep these rules, or say plainly which one changes.
 
 ## What the app never reads, prints or copies
 
-- claude-swap's logins, except once, read-only, when the owner presses
-  `Nhập từ claude-swap` (see [The Claude accounts](#the-claude-accounts)):
-  the app never writes in `~/.claude-swap-backup`, never writes or deletes
-  a Keychain item of claude-swap's, and never reads its
+- The other account switcher's logins, except once, read-only, when the
+  owner presses `Nhập từ công cụ chuyển tài khoản khác` (see
+  [The Claude accounts](#the-claude-accounts)): the app never writes in that
+  tool's backup folder in your home folder, never writes or deletes a
+  Keychain item of that tool's, and never reads its
   `sessions/*/.credentials.json`.
-- Cockpit Tools' files: `~/.cockpit_tools/accounts/*.json` (its encrypted
-  tokens), its `*.key` files, `server.json`, `config.json`, and the same
-  files in the older `~/.antigravity_cockpit`.
+- Other Antigravity account tools' files in your home folder: their
+  encrypted tokens, `*.key` files and settings.
 - The `gemini`/`antigravity` Keychain item that Antigravity.app and the
   `agy` CLI share. The app never reads it. Logging in and out does not touch
   it either: logging out of the app leaves Antigravity.app and agy logged in
   as they are. Switching the Antigravity account from the app only writes
-  it, when the owner confirms the switch, with Cockpit Tools' exact command
+  it, when the owner confirms the switch, with exactly the command
   `security add-generic-password -U -s gemini -a antigravity -w
   go-keyring-base64:<…> -A`. `-U` updates the item in place in one
   Keychain call; when `security` fails or is stopped after 15 seconds, the
@@ -30,14 +30,14 @@ changes the app should keep these rules, or say plainly which one changes.
   the moment it runs, the same limit as below. On Windows the shared login
   is the generic credential `gemini:antigravity` (user `antigravity`) in
   Credential Manager, as Antigravity's own keyring keeps it there. The
-  app never reads or deletes it; a switch only writes it with `CredWriteW`,
-  as Cockpit Tools does: the same JSON, as it is, kept for the signed-in
+  app never reads or deletes it; a switch only writes it with `CredWriteW`:
+  the same JSON, as it is, kept for the signed-in
   user on this PC (`CRED_PERSIST_LOCAL_MACHINE`, which does not roam).
   `CredWriteW` replaces it in one call; when Windows refuses, the switch
   ends there and points nothing at the new account. The value goes to no
   command line.
 
-The app keeps the Claude accounts itself and runs no claude-swap command;
+The app keeps the Claude accounts itself and runs no other switcher's command;
 what it reads and writes of Claude Code's login is in
 [The Claude accounts](#the-claude-accounts).
 
@@ -52,15 +52,15 @@ Files, under `~/Library/Application Support/com.shin315.quota-station/`:
   user profile's access list keeps to its owner). The id and the secret never go into this
   repository, the logs or the windows; the windows only learn whether the
   file is usable.
-- `antigravity/` (mode 700): `accounts.json`, the account index in Cockpit's
-  layout (ids, emails, names, times; no token), `status.json`, the accounts
+- `antigravity/` (mode 700): `accounts.json`, the account index
+  (ids, emails, names, times; no token), `status.json`, the accounts
   that need a new login or a verification or that Google refused, and
   `cache/quota_api_v1_desktop/authorized/<SHA-256 of the email>.json`, each
-  account's last quota reading in Cockpit's cache layout (the email, the
+  account's last quota reading in the quota cache layout (the email, the
   Cloud Code project, the time, and Google's quota answers; no token).
   The Antigravity row lists the accounts from the index and the readings.
   After a switch also `antigravity_legacy_instances.json` (only the account
-  id bound to Antigravity.app, in Cockpit's layout, which the row reads),
+  id bound to Antigravity.app, which the row reads),
   `switch-log.jsonl`
   (time, account ids, the button pressed and the result of the last 200
   switches) and `watch.json` (the six-hour watch of the last switch). The
@@ -121,18 +121,16 @@ In the owner's login Keychain, not in that folder:
   service `com.shin315.quota-station.antigravity`, account the app's account
   id, value the account's tokens as JSON. Items are added without `-A`, so
   another program needs the owner's consent to read one. The app adds,
-  reads and deletes them with `/usr/bin/security`, as claude-swap and
-  Cockpit Tools do with theirs. The value is passed to `security` on its
-  command line for the moment the command runs, which other processes of
-  the same macOS user can see; claude-swap and Cockpit Tools have the same
-  limit.
+  reads and deletes them with `/usr/bin/security`. The value is passed to
+  `security` on its command line for the moment the command runs, which
+  other processes of the same macOS user can see.
 
 Emails stay in the index and the Keychain. They go to the windows, with
 the Claude accounts' emails and organizations from the app's own Keychain
 items (held in memory only), while `Hiện email` is on, which it is by default;
 turned off, the model sent to the windows carries none. The app writes no
 email or organization to a file of its own or a log. The windows
-do get each account's id, which is Cockpit's: `antigravity_` and the MD5 of
+do get each account's id: `antigravity_` and the MD5 of
 the email. It is not the email, but anyone who guesses an address can check
 the guess against it, so it is kept as private as the index.
 
@@ -149,11 +147,11 @@ it is answered in the app.
 
 Besides its own Keychain items, the only place outside its folder the
 Antigravity code reads is the Antigravity app's bundle,
-`/Applications/Antigravity IDE.app` (where Cockpit Tools looks), for its
+`/Applications/Antigravity IDE.app`, for its
 version: `product.json`, google-auth-library's `package.json`, and
 `Info.plist` through `/usr/bin/plutil -p`. It never writes there. On
-Windows, where Cockpit Tools with its default settings reads no version,
-the quota calls carry its default version and nothing is read for them.
+Windows the quota calls carry a default version and nothing is read for
+them.
 
 A switch with `Thoát app rồi chuyển` asks Antigravity.app to quit
 (`osascript`, the same as its Quit menu) and opens it again with
@@ -163,12 +161,12 @@ touched (a token refreshed for the switch stays in the app's own item, and
 the attempt is logged). `Chuyển`, offered while the app was not running,
 stops the same way if it runs again by then.
 
-On Windows a switch looks for `Antigravity.exe` where Cockpit Tools looks
+On Windows a switch looks for `Antigravity.exe` in
 (`%LOCALAPPDATA%\Programs\Antigravity`, `%PROGRAMFILES%\Antigravity`,
 `%PROGRAMFILES(X86)%\Antigravity`) and reads its version from
 `resources\app\product.json`, else from the executable's VersionInfo or its
-Uninstall entry in the registry, both through PowerShell with Cockpit's
-scripts (the path goes in an environment variable, never into the script).
+Uninstall entry in the registry, both through PowerShell scripts (the path
+goes in an environment variable, never into the script).
 It tells whether Antigravity runs from the process table (its executable,
 not Chromium's `--type=` helpers). `Thoát app rồi chuyển` asks it to close
 with `taskkill /PID <pid> /T`, without `/F`: Windows tells its windows to
@@ -218,9 +216,8 @@ reaches a browser.
 
 ## The Claude accounts
 
-The app keeps the Claude accounts the way claude-swap did, and the logic
-that touches Claude Code's login follows claude-swap's MIT source
-(`THIRD_PARTY.md`). [`docs/claude-accounts.md`](docs/claude-accounts.md)
+The app keeps the Claude accounts itself; adapted code is credited in
+[`NOTICE`](NOTICE). [`docs/claude-accounts.md`](docs/claude-accounts.md)
 has the design.
 
 - **Keychain.** Two items per account in the login Keychain, service
@@ -228,9 +225,8 @@ has the design.
   Claude Code stores it (a login's access and refresh token, or a setup
   token), and `slot-N.account`, the account's `oauthAccount` object (its
   email and organization). They are written with `security -i`, the value
-  as hex on stdin so it stays off the command line, as claude-swap writes
-  (a value too long for one line of `security -i` goes on the command line,
-  as claude-swap's does). Removing an account deletes both.
+  as hex on stdin so it stays off the command line (a value too long for
+  one line of `security -i` goes on the command line). Removing an account deletes both.
 - **Claude Code's login.** The item `Claude Code-credentials` (account
   `$USER`) and `~/.claude.json`'s `oauthAccount` are read to tell which
   account is in use and, for that account only, to read its usage with
@@ -265,20 +261,20 @@ has the design.
   `accounts.json` also says whether each account is in the rotation, and
   the rotation keeps `rotation`, `rotation.log`, `pause`, `prime` and
   `prime-state/` there; its priming runs `claude` in the session folders too.
-  A pause flag left at `~/.config/cswap-prefer-team/pause` is moved there
-  once, as it is, and the old file removed.
-- **Import.** `Nhập từ claude-swap` reads `~/.claude-swap-backup` once:
-  `sequence.json`, each account's config for `oauthAccount`, its login from
-  its `credentials/*.enc` file or claude-swap's Keychain item (read with
-  `find-generic-password`, nothing else), and its usage cache. It writes
-  nothing there.
-  It also copies the rotation file and the priming flag from
-  `~/.config/cswap-prefer-team` when the app has none.
+  A pause flag left by the earlier rotation script under `~/.config` is
+  moved there once, as it is, and the old file removed.
+- **Import.** `Nhập từ công cụ chuyển tài khoản khác` reads that tool's
+  backup folder in your home folder once: `sequence.json`, each account's
+  config for `oauthAccount`, its login from its `credentials/*.enc` file or
+  that tool's Keychain item (read with `find-generic-password`, nothing
+  else), and its usage cache. It writes nothing there.
+  It also copies the rotation file and the priming flag from the earlier
+  rotation script's folder under `~/.config` when the app has none.
 - **LaunchAgent.** `Tự chuyển bằng Quota Station` writes
   `~/Library/LaunchAgents/com.shin315.quota-station.rotation.plist`
   (`<the app>/Contents/MacOS/quota-station claude rotate` every 180 seconds)
   and loads it with `launchctl bootstrap`; turning it off runs `bootout` and
-  removes the plist. While `com.cswap.prefer-team` or `com.cswap.auto` is
+  removes the plist. While the old auto-switcher's LaunchAgent is
   loaded, neither the rotation nor a switch from the app or the command line
   writes a login, so two switchers never rotate the same refresh token. The
   app never stops, loads or removes either of them.
@@ -381,8 +377,9 @@ has the design.
   folders) and keeps only counts and yes/no answers. It runs
   `codex --version` and, only after the owner confirms,
   `codex app-server daemon restart`; it never kills a Codex process.
-- It never runs or opens CC Switch or reads its data: it only checks whether
-  `/Applications/CC Switch.app` and `~/.cc-switch` exist.
+- It never runs or opens another Codex switcher or reads its data: it only
+  checks whether that switcher's app and its folder in your home folder
+  exist.
 - The Codex tests use a temporary Codex folder filled from fixtures with
   fake keys and fake logins (made-up `id_token` claims for the accounts), a
   fake `codex` that records its arguments and a local server for the
@@ -897,7 +894,9 @@ reads or writes a login, an account, a key or a quota file of any of them.
   Keychain item. It checks that every file opened was in the app's folder
   or a fake Antigravity bundle, that every `security` run named the app's
   own service and no `-A` except the switch's one write, which must be
-  Cockpit's exact command, that the decoys are unchanged (the shared item
+  exactly the command in
+  [What the app never reads, prints or copies](#what-the-app-never-reads-prints-or-copies),
+  that the decoys are unchanged (the shared item
   replaced, never read), and that the sentinel appears nowhere the app
   wrote or sent anything. A second test checks that no other Antigravity
   source file, nor the app's quota or switch code, opens files itself or
@@ -1032,9 +1031,9 @@ reads or writes a login, an account, a key or a quota file of any of them.
   Anthropic; every login in them is made up. `Security::system()` and
   `Endpoints::anthropic()` refuse to run in a test build, so no test can
   reach the real Keychain, Claude Code's real login or Anthropic. The import
-  tests check that claude-swap's folder and Keychain items are byte for
-  byte as they were and that only `find-generic-password` touched
-  claude-swap's service; the switch tests check that a login the app does
+  tests check that the other account switcher's folder and Keychain items
+  are byte for byte as they were and that only `find-generic-password`
+  touched that tool's service; the switch tests check that a login the app does
   not keep stops a switch, that a write that does not read back is put
   back. They also check that nothing is written while an older switcher is
   loaded.
@@ -1052,20 +1051,20 @@ reads or writes a login, an account, a key or a quota file of any of them.
 
 ## Terms of service
 
-The Antigravity login borrows Antigravity's own OAuth client, as Cockpit
-Tools does, so Google's consent screen names Antigravity, not Quota Station.
-The app calls Google exactly as Cockpit does: the same client, flow, scopes,
-parameters and refresh rule, and for quota the same three Cloud Code calls
+The Antigravity login borrows Antigravity's own OAuth client, so Google's
+consent screen names Antigravity, not Quota Station. The app calls Google
+the way Antigravity does: the same client, flow, scopes, parameters and
+refresh rule, and for quota the same three Cloud Code calls
 (`loadCodeAssist`, `fetchAvailableModels`, `retrieveUserQuotaSummary`) with
-Antigravity's user agent, headers and bodies, built by code ported from
-Cockpit. A switch calls Google only to refresh a token about to expire
-and, while the token lacks them, to ask `loadCodeAssist` for its project
-and GCP ToS mark, as Cockpit's switch does. It calls never more often: `loadCodeAssist` less often than
-Cockpit, the account in use at most once a minute, the others every 10
-minutes, one account at a time, and longer waits after a 429 or a 5xx. Its
-tokens are used only for what Cockpit uses them for; it never calls a
-model. The risk is therefore the one of using Cockpit Tools: Google may ask
-an account to verify itself, revoke its refresh token or lock it. The app
+Antigravity's user agent, headers and bodies. A switch calls Google only to
+refresh a token about to expire and, while the token lacks them, to ask
+`loadCodeAssist` for its project and GCP ToS mark. It calls sparingly:
+`loadCodeAssist` only when needed, the account in use at most once a
+minute, the others every 10 minutes, one account at a time, and longer
+waits after a 429 or a 5xx. Its tokens are used only to sign in, read the
+quota and switch; it never calls a model. The risk is therefore that of a
+second Antigravity client on the same account: Google may ask an account to
+verify itself, revoke its refresh token or lock it. The app
 then marks the account `cần đăng nhập lại`, `cần xác minh` or `Google chặn`
 and does not retry a refused account on its own.
 

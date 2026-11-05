@@ -22,7 +22,7 @@ describe('switching in English', () => {
     ]);
   });
 
-  it('the Claude switch sheet', () => {
+  it('the switch sheet for Claude', () => {
     const v = claudeSheet(fixtureModel('fresh'), 3, '60', { live: 3, unreadable: 0 }, FIXTURE_NOW)!;
     expect(v.title).toBe('Switch Claude to lan.acme2?');
     expect(v.confirm).toBe('Switch to lan.acme2');

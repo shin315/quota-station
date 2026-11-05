@@ -132,7 +132,7 @@ export type Decision =
   | { kind: 'switch'; slot: number; why: Why }
   | { kind: 'wait' }
   | { kind: 'paused'; until: string | null; reason: string | null }
-  /** `blocked (com.cswap.prefer-team is loaded)`: an older switcher runs, so nothing switches. */
+  /** `blocked (<label> is loaded)`: an older auto-switcher runs, so nothing switches. */
   | { kind: 'blocked'; label: string }
   | { kind: 'other' };
 
@@ -170,7 +170,7 @@ export interface SwitcherView {
   lastLog: LogLine | null;
   /** The rotation's LaunchAgent (`com.shin315.quota-station.rotation`) is loaded. */
   service: boolean | null;
-  /** An older switcher still loaded (`com.cswap.prefer-team`, `com.cswap.auto`): nothing switches while it is. */
+  /** The LaunchAgent label of an older auto-switcher still loaded: nothing switches while it is. */
   legacy: string | null;
 }
 
@@ -247,7 +247,7 @@ export interface ClaudeActionDone {
 export interface ClaudeAccountsView {
   /** Quota Station keeps the accounts on this Mac. */
   ready: boolean;
-  /** claude-swap's folder is on this Mac, to import from. */
+  /** The other account switcher's folder is on this Mac, to import from. */
   importable: boolean;
   accounts: ClaudeAccountRow[];
   working: ClaudeAccountAction | null;
@@ -348,7 +348,7 @@ export interface PeerView {
 }
 
 export interface RotationView {
-  /** `~/.config/cswap-prefer-team/rotation` */
+  /** The rotation rules file, under `~/.config/`. */
   path: string;
   status: 'ok' | 'missing' | 'invalid' | 'unreadable';
   rules: Rules | null;
@@ -836,7 +836,7 @@ export interface CodexCustom {
   requiresOpenaiAuth: boolean | null;
   /** A plain `[model_providers.<id>]` table; other shapes are not edited. */
   plain: boolean;
-  /** `baseUrl` points at CC Switch's local proxy (port 15721). */
+  /** `baseUrl` points at another Codex switcher's local proxy (port 15721). */
   proxy: boolean;
 }
 
@@ -1498,7 +1498,7 @@ export interface StatsProjectRow {
 }
 
 export interface StatsAccountRow {
-  /** claude-swap's slot; null when the switch history cannot tell. */
+  /** The account's slot; null when the switch history cannot tell. */
   slot: number | null;
   tokens: number;
 }

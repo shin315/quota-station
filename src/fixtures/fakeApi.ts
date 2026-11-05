@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 // A fake Rust side on fixture data, for the tests and the browser preview.
-// Never reads a real quota or runs claude-swap, never opens a browser
+// Never reads a real quota or runs another switcher, never opens a browser
 // or the Keychain, and writes no file.
 // Plain code: the preview bundle must not load Vitest.
 

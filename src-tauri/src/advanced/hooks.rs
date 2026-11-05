@@ -28,7 +28,7 @@
 //! rotation, kept on the Claude accounts' file and shown in the state file
 //! and on `quota-station claude status`, from
 //! `quota_station_core::advanced::held`; and the old switcher's
-//! rotation file and priming brought over on an import from claude-swap,
+//! rotation file and priming brought over on an import from another account switcher,
 //! from `quota_station_core::advanced::import`.
 
 use std::io::Write;

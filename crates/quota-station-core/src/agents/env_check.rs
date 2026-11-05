@@ -3,7 +3,7 @@
 
 //! Environment variables that override an agent's login (M14, I): an
 //! `ANTHROPIC_API_KEY` in `~/.zshrc` makes Claude Code in Terminal use that
-//! key instead of the claude-swap account in use, whatever the app switches.
+//! key instead of the Claude account in use, whatever the app switches.
 //!
 //! [`check`] looks for the eleven names in [`VARS`] in the five shell files,
 //! the `env` of Claude Code's user settings (`~/.claude/settings.json`, and
@@ -88,13 +88,13 @@ pub const VARS: [Var; 11] = [
         "ANTHROPIC_API_KEY",
         Agent::Claude,
         Weight::Bad,
-        "dùng khoá này thay cho tài khoản claude-swap đang chọn.",
+        "dùng khoá này thay cho tài khoản Claude đang chọn.",
     ),
     var(
         "ANTHROPIC_AUTH_TOKEN",
         Agent::Claude,
         Weight::Bad,
-        "gửi token này thay cho đăng nhập của tài khoản claude-swap đang chọn.",
+        "gửi token này thay cho đăng nhập của tài khoản Claude đang chọn.",
     ),
     var(
         "ANTHROPIC_BASE_URL",
@@ -106,13 +106,13 @@ pub const VARS: [Var; 11] = [
         "CLAUDE_CODE_OAUTH_TOKEN",
         Agent::Claude,
         Weight::Bad,
-        "dùng token này thay cho tài khoản claude-swap đang chọn.",
+        "dùng token này thay cho tài khoản Claude đang chọn.",
     ),
     var(
         "CLAUDE_CONFIG_DIR",
         Agent::Claude,
         Weight::Warn,
-        "đọc đăng nhập ở thư mục này, không phải chỗ claude-swap chuyển tài khoản.",
+        "đọc đăng nhập ở thư mục này, không phải ở thư mục nơi tài khoản được chuyển.",
     ),
     var(
         "OPENAI_API_KEY",

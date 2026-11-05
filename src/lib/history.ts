@@ -135,7 +135,7 @@ function why(e: HistoryEntry, nameOf: NameOf, now: Date, switcher: boolean): str
         (c.restarted ? t(' · đã khởi động lại tiến trình nền', ' · restarted the background process') : '')
       );
     case 'codexObserved':
-      return t('config.toml đổi ngoài app (có thể do CC Switch hoặc sửa tay)', 'config.toml changed outside the app (possibly by CC Switch or by hand)');
+      return t('config.toml đổi ngoài app (có thể do công cụ khác hoặc sửa tay)', 'config.toml changed outside the app (possibly by another tool or by hand)');
   }
 }
 

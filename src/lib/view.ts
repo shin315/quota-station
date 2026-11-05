@@ -144,7 +144,7 @@ export interface ChipView {
 export interface CardView {
   key: string;
   kind: 'c' | 'g';
-  /** claude-swap slot or Antigravity account number; 0 for the one account a row reads alone. */
+  /** Claude slot or Antigravity account number; 0 for the one account a row reads alone. */
   slot: number;
   name: string;
   /** Organization, `Cá nhân · 08–23`, ''. */
@@ -310,9 +310,9 @@ function offReason(a: Account, ctx: CardContext): string {
   return '';
 }
 
-/** Who keeps the Claude accounts' list: Quota Station once it does, claude-swap before. */
-function listName(ctx: CardContext): string {
-  return ctx.switching?.ready === false ? 'claude-swap' : 'Quota Station';
+/** `Quota Station · tài khoản 3` once Quota Station keeps the Claude accounts, `Tài khoản 3` before. */
+function claudeLabel(ctx: CardContext, n: number): string {
+  return ctx.switching?.ready === false ? t('Tài khoản ', 'Account ') + n : t('Quota Station · tài khoản ', 'Quota Station · account ') + n;
 }
 
 function cardView(a: Account, kind: 'c' | 'g', names: AccountName, ctx: CardContext): CardView {
@@ -333,7 +333,7 @@ function cardView(a: Account, kind: 'c' | 'g', names: AccountName, ctx: CardCont
     a.number === 0
       ? ''
       : kind === 'c'
-        ? listName(ctx) + t(' · tài khoản ', ' · account ') + a.number
+        ? claudeLabel(ctx, a.number)
         : t('Quota Station · tài khoản ', 'Quota Station · account ') + a.number;
   const off = offReason(a, ctx);
   const listed = kind === 'c' ? !!ctx.switching?.listed : !!ctx.agy?.listed;
@@ -610,8 +610,8 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
       tone: 'info',
       title: t(nameOf(pendingAccount.number) + ' vừa qua mốc đặt lại', nameOf(pendingAccount.number) + ' just passed its reset'),
       body: t(
-        'Đang chờ ' + swapName(model) + ' đọc số mới. App không hiện số khi chưa có số thật.',
-        'Waiting for ' + swapName(model) + ' to read the new numbers. The app shows no number until it has a real one.',
+        'Đang chờ ' + readerName(model)[0] + ' đọc số mới. App không hiện số khi chưa có số thật.',
+        'Waiting for ' + readerName(model)[1] + ' to read the new numbers. The app shows no number until it has a real one.',
       ),
       actions: [{ label: t('Làm mới', 'Refresh'), act: 'refresh' }],
     };
@@ -628,8 +628,8 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
       tone: 'warn',
       text: mac(
         t(
-          'Quota Station chưa giữ tài khoản Claude nào trên máy này: nhập từ claude-swap ở tab Claude để chuyển được tài khoản.',
-          'Quota Station keeps no Claude account on this Mac yet: import from claude-swap in the Claude tab to switch accounts.',
+          'Quota Station chưa giữ tài khoản Claude nào trên máy này: nhập từ công cụ chuyển tài khoản khác ở tab Claude để chuyển được tài khoản.',
+          'Quota Station keeps no Claude account on this Mac yet: import from another account switcher in the Claude tab to switch accounts.',
         ),
       ),
     };
@@ -766,7 +766,7 @@ export function keychainFeedback(model: Model | null): FeedbackView {
       };
 }
 
-/** Who reads the Claude accounts' numbers: Quota Station once it keeps them, claude-swap before. */
-function swapName(model: Model): string {
-  return model.claudeSwitch.ready ? 'Quota Station' : 'claude-swap';
+/** Who reads the Claude accounts' numbers, in Vietnamese and English: Quota Station once it keeps them, the other account switcher before. */
+function readerName(model: Model): [string, string] {
+  return model.claudeSwitch.ready ? ['Quota Station', 'Quota Station'] : ['công cụ chuyển tài khoản khác', 'the other account switcher'];
 }

@@ -2,14 +2,14 @@
 // SPDX-License-Identifier: MIT
 
 //! Switching Codex between the ChatGPT login and a custom API provider (M8),
-//! which CC Switch did before, while keeping the ChatGPT login so Codex App's
+//! while keeping the ChatGPT login so Codex App's
 //! plugins and remote control keep working through the custom provider.
 //!
 //! The app writes one file, `<Codex home>/config.toml`, and in it only the
 //! keys the switch owns ([`config`]): `model_provider`, and
 //! `requires_openai_auth` in the custom provider's table; and, when the
 //! owner pastes one ("Dán khoá", [`set_key`]), the provider's own key and
-//! the `base_url` that pointed at CC Switch's proxy. It backs the file
+//! the `base_url` that pointed at another switcher's local proxy. It backs the file
 //! up first, with the keys left out of the backup, and checks it was not
 //! changed meanwhile ([`files`]). It never writes into `auth.json` (only
 //! its shape is looked at, [`login`]): a switch between ChatGPT accounts
@@ -674,8 +674,8 @@ fn write_key(
     }
 }
 
-/// Whether the custom provider's table takes a pasted key: CC Switch's
-/// placeholder, no key, or a key to replace, in a plain table.
+/// Whether the custom provider's table takes a pasted key: the placeholder
+/// another tool left, no key, or a key to replace, in a plain table.
 pub fn takes_key(parsed: &Parsed) -> bool {
     parsed.custom.as_ref().is_some_and(|c| {
         c.plain && matches!(c.key, KeyKind::Bearer | KeyKind::Placeholder | KeyKind::None)

@@ -176,7 +176,7 @@ describe('settings tab', () => {
     });
     const more = screen.getByRole('dialog');
     expect(within(more).getByText('~/Library/Application Support/com.shin315.quota-station/oauth-client.json')).toBeTruthy();
-    expect(more.textContent).toContain('quyền 600, chỉ có trên Mac này. Chép client_id và client_secret từ src-tauri/src/modules/oauth.rs trong mã nguồn Cockpit Tools (https://github.com/jlcodes99/cockpit-tools); định dạng và lệnh tạo file có trong mục “The OAuth client file” của hướng dẫn: https://github.com/shin315/quota-station/blob/main/docs/how-it-works.md#the-oauth-client-file');
+    expect(more.textContent).toContain('quyền 600, chỉ có trên Mac này. Điền client_id và client_secret của OAuth client Antigravity; định dạng và lệnh tạo file có trong mục “The OAuth client file” của hướng dẫn: https://github.com/shin315/quota-station/blob/main/docs/how-it-works.md#the-oauth-client-file');
     expect(more.textContent?.endsWith('https://github.com/shin315/quota-station/blob/main/docs/how-it-works.md#the-oauth-client-file')).toBe(true);
     cleanup();
     await open(fixtureModel('fresh', { antigravity: agyFixture({ client: 'tooOpen' }) }));
@@ -900,8 +900,8 @@ describe('settings: the layout of settings-R2, its groups as tabs', () => {
     expect(within(screen.getByRole('dialog')).getByText('Mỗi ngày một lần qua GitHub Releases. Bản build từ mã nguồn không cài bản tải về: chỉ báo.')).toBeTruthy();
   });
 
-  it('a build with the Antigravity accounts credits Cockpit Tools and its licence under the version, one without does not', async () => {
-    const credit = 'Tài khoản Antigravity phỏng theo Cockpit Tools (jlcodes), giấy phép CC BY-NC-SA 4.0.';
+  it('a build with the Antigravity accounts names their licence and NOTICE under the version, one without does not', async () => {
+    const credit = 'Tài khoản Antigravity có mã phỏng theo một dự án dùng giấy phép CC BY-NC-SA 4.0; ghi công ở file NOTICE kèm app.';
     const fake = await open(fixtureModel('fresh'));
     const updates = screen.getByRole('region', { name: 'Cập nhật' });
     expect(within(updates).getByText(credit)).toBeTruthy();
@@ -917,7 +917,7 @@ describe('settings: the layout of settings-R2, its groups as tabs', () => {
     await open({ ...fresh, capabilities: { ...fresh.capabilities, agyAccounts: false } });
     expect(screen.getByRole('region', { name: 'Cập nhật' })).toBeTruthy();
     expect(screen.queryByText(credit)).toBeNull();
-    expect(screen.queryByText(/Cockpit Tools/)).toBeNull();
+    expect(screen.queryByText(/CC BY-NC-SA/)).toBeNull();
     expect(screen.queryByRole('button', { name: 'Xem NOTICE' })).toBeNull();
   });
 });
