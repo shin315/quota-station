@@ -64,8 +64,8 @@ pub struct KeyUndo {
     /// SHA-256 of the file the key write left: the undo runs only on it.
     pub hash: String,
     pub provider: String,
-    /// `experimental_bearer_token` before: the placeholder another tool left, empty,
-    /// or `None` when there was none.
+    /// `experimental_bearer_token` before: the placeholder another tool left,
+    /// empty, or `None` when there was none.
     pub token: Option<String>,
     /// `base_url` before, when the write changed it.
     #[serde(default)]

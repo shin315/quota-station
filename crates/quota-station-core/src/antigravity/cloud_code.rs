@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
 // Ported from Cockpit Tools `src-tauri/src/modules/quota.rs` (1.3.70,
-// commit 244b957); see NOTICE for the changes.
+// commit 244b957); modified for this app (NOTICE).
 
 //! The three Cloud Code calls Antigravity makes to learn an account's quota,
 //! with Antigravity's hosts, paths, headers, bodies and user agents.
@@ -28,7 +28,8 @@ const PROD_BASE_URL: &str = "https://cloudcode-pa.googleapis.com";
 const LOAD_CODE_ASSIST_PATH: &str = "v1internal:loadCodeAssist";
 const FETCH_AVAILABLE_MODELS_PATH: &str = "v1internal:fetchAvailableModels";
 const RETRIEVE_USER_QUOTA_SUMMARY_PATH: &str = "v1internal:retrieveUserQuotaSummary";
-/// The project Google names for consumer accounts; never sent.
+/// The project Google names for consumer accounts: a placeholder, never
+/// sent as a project ([`valid_project_id`] drops it).
 const CONSUMER_PLACEHOLDER: &str = "aicode-consumers";
 
 /// Tries of `fetchAvailableModels` after network errors, a second apart.

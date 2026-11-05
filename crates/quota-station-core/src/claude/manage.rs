@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 // Adapted from claude-swap's `add` command (MIT,
-// https://github.com/realiti4/claude-swap); see NOTICE for the changes.
+// https://github.com/realiti4/claude-swap); modified for this app (NOTICE).
 // Logging a new account in through `claude auth login` in a folder of its
 // own, and keeping a setup token as a credential with only an access token.
 

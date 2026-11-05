@@ -7,9 +7,9 @@
 //! it is kept, printed or sent anywhere, and it is never written.
 //!
 //! Ported in part from CC Switch `src-tauri/src/codex_config.rs` (4.0.15,
-//! commit 79e754ab, MIT); see `NOTICE` for the changes: which fields count
-//! as a login (`codex_auth_has_credential_login_material`) and the store
-//! modes (`codex_config_auth_store_mode`).
+//! commit 79e754ab, MIT); modified for this app (`NOTICE`). Ported: which
+//! fields count as a login (`codex_auth_has_credential_login_material`) and the
+//! store modes (`codex_config_auth_store_mode`).
 
 use std::io::Read;
 use std::path::Path;

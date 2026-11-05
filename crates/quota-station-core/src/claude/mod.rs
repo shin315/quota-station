@@ -196,7 +196,8 @@ pub(crate) fn read_optional(path: &Path) -> io::Result<Option<String>> {
     }
 }
 
-/// Seconds since the epoch, with the fraction, as the imported files keep times.
+/// Seconds since the epoch, with the fraction, as the imported files keep
+/// times.
 pub(crate) fn epoch(t: time::OffsetDateTime) -> f64 {
     t.unix_timestamp_nanos() as f64 / 1e9
 }

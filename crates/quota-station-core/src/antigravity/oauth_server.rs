@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
 // Ported from Cockpit Tools `src-tauri/src/modules/oauth_server.rs` (1.3.70,
-// commit 244b957); see NOTICE for the changes.
+// commit 244b957); modified for this app (NOTICE).
 
 //! The loopback server Google sends the browser back to after the consent
 //! screen, and the pasted callback URL for a browser that cannot reach it.

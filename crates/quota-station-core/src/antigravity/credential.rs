@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
 // Ported from Cockpit Tools `src-tauri/src/modules/antigravity_credential.rs`
-// (1.3.70, commit 244b957); see NOTICE for the changes.
+// (1.3.70, commit 244b957); modified for this app (NOTICE).
 
 //! The login Antigravity and the `agy` CLI share, which both read when they
 //! start. On macOS it is one generic password in the login Keychain, service
@@ -156,13 +156,14 @@ impl SharedLogin {
         self.write_payload(&build_payload(token))
     }
 
-    /// Updates the item in place (`-U`) so a failed write leaves the existing login intact, and
-    /// lets any app read it (`-A`), as Antigravity's own keyring does.
+    /// Updates the item in place (`-U`) so a failed write leaves the existing
+    /// login intact, and lets any app read it (`-A`), as Antigravity's own
+    /// keyring does.
     ///
     /// The value goes on `security`'s command line (`-w`); the form that
     /// prompts for it needs a terminal. A process of the same user that lists
-    /// arguments can see it for the moment `security` runs; that user can read the item (`-A`)
-    /// anyway.
+    /// arguments can see it for the moment `security` runs; that user can read
+    /// the item (`-A`) anyway.
     fn write_payload(&self, payload_json: &str) -> Result<(), CredentialError> {
         let keychain_value = keychain_value(payload_json);
         let args = [

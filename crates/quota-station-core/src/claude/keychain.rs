@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 // Adapted from claude-swap `macos_keychain.py` (MIT,
-// https://github.com/realiti4/claude-swap); see NOTICE for the changes.
+// https://github.com/realiti4/claude-swap); modified for this app (NOTICE).
 // The `security` commands: the read with `-w` and exit 44
 // for a missing item, the write piped to `security -i` with the value as hex
 // (`-X`) so it stays off the command line, the command-line fallback for a

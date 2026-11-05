@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
 // Ported from Cockpit Tools `src-tauri/src/models/token.rs` (1.3.70, commit
-// 244b957); see NOTICE for the changes.
+// 244b957); modified for this app (NOTICE).
 
 //! One account's tokens, as the app keeps them in its own Keychain item.
 

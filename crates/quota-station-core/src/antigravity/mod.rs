@@ -4,8 +4,9 @@
 //! Antigravity accounts the app logs in itself (M4a), whose quota it reads
 //! (M4b) and which it switches to (M4c). The app talks to Google as
 //! Antigravity does: Antigravity's OAuth client, flow, scopes, parameters
-//! and refresh rule, the same Cloud Code calls, headers and user agent, and
-//! no more often than needed.
+//! and refresh rule, the same Cloud Code calls, headers and user agent, at
+//! the pace [`pace`] sets: the account in use with the app's reads, the others
+//! every 10 minutes, none more than once a minute.
 //!
 //! Where things live, all under the app's Application Support folder:
 //!

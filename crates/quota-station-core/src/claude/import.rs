@@ -3,11 +3,11 @@
 // SPDX-License-Identifier: MIT
 
 // Adapted from claude-swap `switcher.py` and `credentials.py` (MIT,
-// https://github.com/realiti4/claude-swap); see NOTICE for the changes.
-// Where the other switcher keeps each account: `sequence.json` for the
-// slots, `configs/.claude-config-N-<email>.json` for `oauthAccount`, and the credential from `credentials/.creds-N-<email>.enc`
-// when that file is there and decodes, else its Keychain item
-// ([`SWAP_SERVICE`] / `account-N-<email>`).
+// https://github.com/realiti4/claude-swap); modified for this app (NOTICE).
+// Where the other switcher keeps each account: `sequence.json` for the slots,
+// `configs/.claude-config-N-<email>.json` for `oauthAccount`, and the
+// credential from `credentials/.creds-N-<email>.enc` when that file is there
+// and decodes, else its Keychain item ([`SWAP_SERVICE`] / `account-N-<email>`).
 
 //! `Nhập từ công cụ chuyển tài khoản khác`: carries every account of the
 //! other account switcher over to the app, under the same slot number,

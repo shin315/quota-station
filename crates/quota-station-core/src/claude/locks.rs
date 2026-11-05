@@ -3,9 +3,10 @@
 // SPDX-License-Identifier: MIT
 
 // Adapted from claude-swap `claude_locks.py` (MIT,
-// https://github.com/realiti4/claude-swap); see NOTICE for the changes.
-// Claude Code's lock folders and their order follow Claude Code's own: the `proper-lockfile` protocol, a folder made
-// with `mkdir`, judged stale by its age and touched while held.
+// https://github.com/realiti4/claude-swap); modified for this app (NOTICE).
+// Claude Code's lock folders and their order follow Claude Code's own: the
+// `proper-lockfile` protocol, a folder made with `mkdir`, judged stale by its
+// age and touched while held.
 
 //! The locks a change of the Claude accounts takes, in this order:
 //!

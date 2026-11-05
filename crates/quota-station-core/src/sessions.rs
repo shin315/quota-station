@@ -1,13 +1,13 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-//! How many Claude Code sessions run on this Mac (F04): one record per session in `~/.claude/sessions`,
-//! live while its pid is alive.
+//! How many Claude Code sessions run on this Mac (F04): one record per session
+//! in `~/.claude/sessions`, live while its pid is alive.
 //!
-//! Only `pid` and `kind` are read from a record; serde drops every other
-//! field. Sessions started with `quota-station claude run` (or another
-//! switcher's own run command) keep their own profile and record elsewhere, and a switch does not touch
-//! them.
+//! Only `pid` and `kind` are read from a record; serde drops every other field.
+//! Sessions started with `quota-station claude run` (or another switcher's own
+//! run command) keep their own profile and record elsewhere, and a switch does
+//! not touch them.
 
 use std::io;
 use std::path::{Path, PathBuf};

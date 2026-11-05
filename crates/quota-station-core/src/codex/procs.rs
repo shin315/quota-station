@@ -4,9 +4,9 @@
 
 //! Codex on this Mac as the process table shows it: `codex` sessions in a
 //! terminal, Codex App, the shared background process (`codex app-server
-//! --managed-daemon`), and whether another Codex switcher runs. Only `ps` is read (on
-//! Windows `sysinfo`'s table, [`crate::win::Tasks`]). The one thing run is
-//! Codex's own `codex app-server daemon restart`, after the owner
+//! --managed-daemon`), and whether another Codex switcher runs. Only `ps` is
+//! read (on Windows `sysinfo`'s table, [`crate::win::Tasks`]). The one thing
+//! run is Codex's own `codex app-server daemon restart`, after the owner
 //! confirmed it.
 //!
 //! On Windows a command line names `codex.exe` with `\`, Codex App is the
@@ -16,8 +16,8 @@
 //!
 //! Ported in part from CC Switch
 //! `src-tauri/src/services/provider/codex_client_catalog.rs` (4.0.15, commit
-//! 79e754ab, MIT); see `NOTICE` for the changes: telling the daemon from the
-//! other app-servers by its command line (`app_server_role`,
+//! 79e754ab, MIT); modified for this app (`NOTICE`). Ported: telling the daemon
+//! from the other app-servers by its command line (`app_server_role`,
 //! `after_codex_executable`, `run_restart`).
 
 use std::path::{Path, PathBuf};

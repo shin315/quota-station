@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: MIT
 
 //! The rotation's pause flag (F07), `claude/pause` in the app's folder, beside
-//! the rotation file and the `prime` flag: on macOS
-//! `~/Library/Application Support/com.shin315.quota-station/claude/pause`, on
-//! Windows `AppData\Roaming\com.shin315.quota-station\claude\pause`. It was
-//! under the old switcher's folder ([`OLD_FILE`]); [`file`] carries a flag left there over
-//! to the app's folder once.
+//! the rotation file and the `prime` flag: on macOS `~/Library/Application
+//! Support/com.shin315.quota-station/claude/pause`, on Windows
+//! `AppData\Roaming\com.shin315.quota-station\claude\pause`. It was under the
+//! old switcher's folder ([`OLD_FILE`]); [`file`] carries a flag left there
+//! over to the app's folder once.
 //!
 //! Plain `key = value` lines, like the rotation file: `until = 2026-10-16T18:30`
 //! in local time and `reason = …`. No `until` pauses until the file goes away.

@@ -4,8 +4,8 @@
 
 // Follows Cockpit Tools `fetch_quota_with_fresh_token` in
 // `src-tauri/src/modules/account.rs` and `fetch_quota_with_context` in
-// `src-tauri/src/modules/quota.rs` (1.3.70, commit 244b957); see NOTICE for
-// the changes.
+// `src-tauri/src/modules/quota.rs` (1.3.70, commit 244b957); modified for this
+// app (NOTICE).
 
 //! Reading one Antigravity account's quota: a token refreshed when it is
 //! due, `fetchAvailableModels`, `retrieveUserQuotaSummary`, then the reading
@@ -13,12 +13,12 @@
 //! new login, a 403 stops the reads, and a request for verification is
 //! shown to the owner.
 //!
-//! As few calls as possible: a reading younger than a minute is used before
-//! any call is made, and `loadCodeAssist` is asked only while the token has
-//! no project or no GCP ToS mark: after a login, or when Google gave none. A
-//! failed `loadCodeAssist` ends the read like a failed quota call: the last reading stays with its age, and a 429 or a
-//! 5xx backs the account off, so a struggling Google is not asked again
-//! every minute.
+//! As few calls as possible: a reading younger than a minute is used before any
+//! call is made, and `loadCodeAssist` is asked only while the token has no
+//! project or no GCP ToS mark: after a login, or when Google gave none. A
+//! failed `loadCodeAssist` ends the read like a failed quota call: the last
+//! reading stays with its age, and a 429 or a 5xx backs the account off, so a
+//! struggling Google is not asked again every minute.
 
 use super::client::ClientStatus;
 use super::cloud_code::{self, CloudCode, CloudCodeError, Context, Hosts};

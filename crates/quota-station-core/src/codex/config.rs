@@ -15,18 +15,18 @@
 //! text, at the places the parser found, and checked by [`apply`] before it
 //! is returned. A switch never writes `auth.json` or `[mcp_servers]`.
 //!
-//! "Dán khoá" ([`key_plan`], [`apply_key`]) is the one other edit: the
-//! custom provider's own `experimental_bearer_token`, and its `base_url` when
-//! it still points at another switcher's local proxy, in that table only and checked
-//! the same way. The key is never kept, printed or sent back to a window.
+//! "Dán khoá" ([`key_plan`], [`apply_key`]) is the one other edit: the custom
+//! provider's own `experimental_bearer_token`, and its `base_url` when it still
+//! points at another switcher's local proxy, in that table only and checked the
+//! same way. The key is never kept, printed or sent back to a window.
 //!
-//! Ported in part from CC Switch `src-tauri/src/live/project/codex.rs`
-//! (4.0.15, commit 79e754ab, MIT); see `NOTICE` for the changes: the reserved and built-in provider
-//! ids, how a table's own credentials are told apart (`declared_auth`), the
-//! `requires_openai_auth` rule, the refusal of a table with no key of its own
-//! (`keyless_fallback_error`), the placeholder left in a dormant table, and
-//! the check that the active profile does not choose another provider
-//! (`check_effective_route`).
+//! Ported in part from CC Switch `src-tauri/src/live/project/codex.rs` (4.0.15,
+//! commit 79e754ab, MIT); modified for this app (`NOTICE`). Ported: the
+//! reserved and built-in provider ids, how a table's own credentials are told
+//! apart (`declared_auth`), the `requires_openai_auth` rule, the refusal of a
+//! table with no key of its own (`keyless_fallback_error`), the placeholder
+//! left in a dormant table, and the check that the active profile does not
+//! choose another provider (`check_effective_route`).
 
 use serde::Serialize;
 use toml_edit::{Document, DocumentMut, Item, TableLike};
@@ -42,8 +42,8 @@ const BUILT_IN_IDS: &[&str] =
 /// The id another Codex switcher writes its custom provider under; the app
 /// prefers it when the file has several provider tables and none is remembered.
 pub const CC_SWITCH_ID: &str = "custom";
-/// The key another Codex switcher leaves in the table while the ChatGPT login is in use
-/// (its "dormant" table, pointing at its own proxy): not a real key.
+/// The key another Codex switcher leaves in the table while the ChatGPT login
+/// is in use (its "dormant" table, pointing at its own proxy): not a real key.
 pub const PROXY_TOKEN_PLACEHOLDER: &str = "PROXY_MANAGED";
 /// The model list another Codex switcher writes and points
 /// `model_catalog_json` at (its own file name).
@@ -154,8 +154,8 @@ pub struct Parsed {
     pub profile: Option<Profile>,
     pub store: AuthStore,
     pub mcp: Vec<Mcp>,
-    /// What another Codex switcher left in the file: `model_catalog_json`, a table under
-    /// a reserved id, its dormant table.
+    /// What another Codex switcher left in the file: `model_catalog_json`, a
+    /// table under a reserved id, its dormant table.
     pub traces: Vec<String>,
     /// A top-level `openai_base_url` sends the ChatGPT login elsewhere.
     pub openai_base_url: bool,

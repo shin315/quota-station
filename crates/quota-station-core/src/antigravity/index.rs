@@ -4,7 +4,7 @@
 
 // `AccountIndex`, `AccountSummary` and `account_id` are ported from Cockpit
 // Tools `src-tauri/src/models/account.rs` and `modules/account.rs` (1.3.70,
-// commit 244b957); see NOTICE for the changes. The status file is the app's
+// commit 244b957); modified for this app (NOTICE). The status file is the app's
 // own.
 
 //! The non-secret files in the app's `antigravity/` folder, read and written

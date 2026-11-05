@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
 // Adapted from Cockpit Tools `src-tauri/src/modules/oauth.rs` (1.3.70,
-// commit 244b957); see NOTICE for the changes.
+// commit 244b957); modified for this app (NOTICE).
 
 //! The OAuth client the app logs in with: Antigravity's own, so Google sees
 //! the same client as for Antigravity itself. Its id and secret never go

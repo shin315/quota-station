@@ -1,10 +1,10 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-//! The Claude accounts the app keeps (see `docs/claude-accounts.md`): what
-//! the Claude tab shows of them, and its actions: import from another account switcher,
-//! log a new account in, add the login Claude Code is on or a setup token,
-//! remove an account and give it an alias. An extension runs its own
+//! The Claude accounts the app keeps (see `docs/claude-accounts.md`): what the
+//! Claude tab shows of them, and its actions: import from another account
+//! switcher, log a new account in, add the login Claude Code is on or a setup
+//! token, remove an account and give it an alias. An extension runs its own
 //! actions on the accounts the same way ([`crate::ext::Host::claude_action`]).
 //!
 //! The windows only ever get account numbers, aliases and readings; an

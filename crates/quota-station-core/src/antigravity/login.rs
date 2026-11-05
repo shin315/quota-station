@@ -3,14 +3,14 @@
 // SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
 // Follows Cockpit Tools `start_oauth_login` in
-// `src-tauri/src/commands/oauth.rs` (1.3.70, commit 244b957); see NOTICE for
-// the changes.
+// `src-tauri/src/commands/oauth.rs` (1.3.70, commit 244b957); modified for this
+// app (NOTICE).
 
 //! Logging an Antigravity account in and out, and getting its token right
-//! before a use. The login: open the consent screen, wait for the callback, exchange the code, insist on a
-//! refresh token, ask userinfo for the email, then keep the account. Saving
-//! is the app's own: the token goes to the app's Keychain item first, and the
-//! index is written only once that worked.
+//! before a use. The login: open the consent screen, wait for the callback,
+//! exchange the code, insist on a refresh token, ask userinfo for the email,
+//! then keep the account. Saving is the app's own: the token goes to the app's
+//! Keychain item first, and the index is written only once that worked.
 
 use std::time::Duration;
 

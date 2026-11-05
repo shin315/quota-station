@@ -5,19 +5,18 @@
 //! while keeping the ChatGPT login so Codex App's
 //! plugins and remote control keep working through the custom provider.
 //!
-//! The app writes one file, `<Codex home>/config.toml`, and in it only the
-//! keys the switch owns ([`config`]): `model_provider`, and
-//! `requires_openai_auth` in the custom provider's table; and, when the
-//! owner pastes one ("Dán khoá", [`set_key`]), the provider's own key and
-//! the `base_url` that pointed at another switcher's local proxy. It backs the file
-//! up first, with the keys left out of the backup, and checks it was not
-//! changed meanwhile ([`files`]). It never writes into `auth.json` (only
-//! its shape is looked at, [`login`]): a switch between ChatGPT accounts
-//! moves whole `auth.json` files between the Codex folder and each
-//! account's own folder ([`accounts`]); the switch never writes the
-//! `[mcp_servers]` list, which only the MCP tab edits
-//! ([`crate::agents::codex_mcp`]); and the custom provider's settings come
-//! from the file itself: no host, URL or key is built in. It runs `ps` and, when the
+//! The app writes one file, `<Codex home>/config.toml`, and in it only the keys
+//! the switch owns ([`config`]): `model_provider`, and `requires_openai_auth`
+//! in the custom provider's table; and, when the owner pastes one ("Dán khoá",
+//! [`set_key`]), the provider's own key and the `base_url` that pointed at
+//! another switcher's local proxy. It backs the file up first, with the keys
+//! left out of the backup, and checks it was not changed meanwhile ([`files`]).
+//! It never writes into `auth.json` (only its shape is looked at, [`login`]): a
+//! switch between ChatGPT accounts moves whole `auth.json` files between the
+//! Codex folder and each account's own folder ([`accounts`]); the switch never
+//! writes the `[mcp_servers]` list, which only the MCP tab edits
+//! ([`crate::agents::codex_mcp`]); and the custom provider's settings come from
+//! the file itself: no host, URL or key is built in. It runs `ps` and, when the
 //! owner confirms, `codex app-server daemon restart` ([`procs`]); it asks the
 //! provider's `/models` with no key to see that it answers ([`probe`]).
 

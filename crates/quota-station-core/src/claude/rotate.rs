@@ -8,9 +8,9 @@
 //! switches go to `claude/rotation.log` in the script's log format, which
 //! the history and the window read.
 //!
-//! Two switchers must never run at once: while an older switcher's
-//! LaunchAgent ([`super::agent::LEGACY`]) is loaded, a run switches nothing, primes nothing and
-//! refreshes no token (the older switcher keeps its own copies of the same
+//! Two switchers must never run at once: while an older switcher's LaunchAgent
+//! ([`super::agent::LEGACY`]) is loaded, a run switches nothing, primes nothing
+//! and refreshes no token (the older switcher keeps its own copies of the same
 //! logins), and says so as its decision.
 
 use std::collections::BTreeMap;

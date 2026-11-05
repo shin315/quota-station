@@ -13,7 +13,7 @@ publish = false
 
 [features]
 # The Antigravity accounts the app logs in, reads and switches itself
-# (`src/antigravity/`), which hold adapted code under
+# (`src/antigravity/`), whose code is in part adapted under
 # CC BY-NC-SA 4.0 (`LICENSES/`, `NOTICE`). Off, the crate is MIT only and
 # Antigravity is the one account signed in on this Mac, read-only.
 antigravity-accounts = []

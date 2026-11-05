@@ -5,7 +5,7 @@
 // The order of a switch is ported from Cockpit Tools
 // `src-tauri/src/commands/account_desktop_switch.rs` and
 // `prepare_account_for_injection` in `src-tauri/src/modules/account.rs`
-// (1.3.70, commit 244b957); see NOTICE for the changes.
+// (1.3.70, commit 244b957); modified for this app (NOTICE).
 
 //! One manual switch of the Antigravity account, start to finish, after the
 //! owner confirmed it on the sheet:

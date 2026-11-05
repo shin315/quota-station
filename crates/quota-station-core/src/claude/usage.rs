@@ -2,12 +2,12 @@
 // SPDX-FileCopyrightText: 2026 Onur Cetinkol (claude-swap)
 // SPDX-License-Identifier: MIT
 
-// Adapted from claude-swap `oauth.py`, `usage_store.py` and
-// `poll_policy.py` (MIT, https://github.com/realiti4/claude-swap); see
-// NOTICE for the changes. The usage and token calls: the same endpoints, beta header, client id and request bodies, the same reading of
-// `five_hour`, `seven_day` and the per-model `limits[]`, the same error
-// kinds, the five-minute expiry margin, the 180-second reuse and the
-// back-off after a failure or a 429.
+// Adapted from claude-swap `oauth.py`, `usage_store.py` and `poll_policy.py`
+// (MIT, https://github.com/realiti4/claude-swap); modified for this app
+// (NOTICE). The usage and token calls: the same endpoints, beta header, client
+// id and request bodies, the same reading of `five_hour`, `seven_day` and the
+// per-model `limits[]`, the same error kinds, the five-minute expiry margin,
+// the 180-second reuse and the back-off after a failure or a 429.
 
 //! Each account's three windows, read by the app itself. The account Claude
 //! Code is on is read with Claude Code's live token, never refreshed here:

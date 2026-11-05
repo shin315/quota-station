@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
 // Ported from Cockpit Tools `src-tauri/src/modules/oauth.rs` (1.3.70, commit
-// 244b957); see NOTICE for the changes.
+// 244b957); modified for this app (NOTICE).
 
 //! Google's side of an Antigravity login: the authorization URL, the code
 //! exchange, the token refresh and userinfo. Blocking HTTP; errors keep only

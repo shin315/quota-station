@@ -8,7 +8,7 @@
 // `src-tauri/src/modules/process_path_resolution.rs`,
 // `src-tauri/src/modules/process_launch_candidates.rs` and
 // `src-tauri/src/modules/process_close_lifecycle.rs` (1.3.70, commit
-// 244b957); see NOTICE for the changes.
+// 244b957); modified for this app (NOTICE).
 
 //! Antigravity, as a switch sees it: is it installed, which version, is it
 //! running, quit it politely, open it again.
@@ -261,7 +261,7 @@ impl Desktop {
 
 // ===== Windows =====
 
-/// The folders Antigravity is looked for in on Windows, in this order:
+/// The Windows folders searched for Antigravity, in this order:
 /// `%LOCALAPPDATA%\Programs\Antigravity`, `%PROGRAMFILES%\Antigravity`,
 /// `%PROGRAMFILES(X86)%\Antigravity`; one whose variable is not set is
 /// left out.

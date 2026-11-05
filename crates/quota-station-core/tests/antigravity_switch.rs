@@ -265,7 +265,8 @@ fn a_switch_writes_the_exact_command_then_the_pointers_and_checks() {
         assert_eq!(call[8], "-A");
         assert_eq!(call[7], s.shared_item());
     }
-    // On Windows the shared credential: target gemini:antigravity, user antigravity.
+    // On Windows the shared credential: target gemini:antigravity, user
+    // antigravity.
     #[cfg(windows)]
     {
         assert_eq!(call, &["write", "gemini:antigravity", "antigravity"]);

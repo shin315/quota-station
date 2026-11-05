@@ -5,7 +5,7 @@
 #![cfg(feature = "antigravity-accounts")]
 // The two tests are ported from Cockpit Tools
 // `src-tauri/src/modules/antigravity_credential_tests.rs` (1.3.70, commit
-// 244b957); see NOTICE for the changes.
+// 244b957); modified for this app (NOTICE).
 
 //! The write of the shared Antigravity login, against a fake `security`:
 //! a failed write must leave the old login as it was, and a write that

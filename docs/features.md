@@ -732,8 +732,8 @@ it.
   `Quota Station Agents`), then the `Updates` card: `Version` with `Check for new
   versions`, `Tell me about new versions` (a build from source; `Check for app
   updates` in a downloaded one), `License` in a build with the Antigravity
-  accounts (CC BY-NC-SA 4.0 and where the credits are, with `View NOTICE`
-  opening the `NOTICE` the app carries), `Check for skill updates` (`Daily` or
+  accounts (the CC BY-NC-SA 4.0 license; the credits for the adapted code are
+  in `NOTICE`, which `View NOTICE` opens from the app), `Check for skill updates` (`Daily` or
   `Off`), `Show skill updates as macOS notifications`, and `Diagnostic info` with `Copy
   diagnostic info…` (scrubbed of emails and paths; nothing is sent) and `Open
   the GitHub bug form`.

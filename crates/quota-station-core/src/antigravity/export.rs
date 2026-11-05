@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
 // Ported from Cockpit Tools `src-tauri/src/modules/quota.rs` (1.3.70,
-// commit 244b957); see NOTICE for the changes.
+// commit 244b957); modified for this app (NOTICE).
 
 //! The quota cache: one file per account at
 //! `antigravity/cache/quota_api_v1_desktop/authorized/`, named by the

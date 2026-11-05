@@ -1,16 +1,15 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
-//! The spy test of SECURITY.md: every Antigravity flow runs in a temporary
-//! home that has a decoy, holding a sentinel secret, at every path the app
-//! must never touch, and a decoy for the `gemini`/`antigravity` Keychain item
-//! that Antigravity.app and agy share. Afterwards every file the module
-//! opened must be inside the app's folder or the (fake) Antigravity bundle it
-//! reads the version from, every `security` run must name the app's own
-//! service, except the one write of a switch, which must be the exact
-//! expected command, the decoys must be as they were (the shared item replaced by the
-//! switch, never read), and the sentinel must appear nowhere the app wrote or
-//! sent anything.
+//! The spy test of SECURITY.md: every Antigravity flow runs in a temporary home
+//! that has a decoy, holding a sentinel secret, at every path the app must
+//! never touch, and a decoy for the `gemini`/`antigravity` Keychain item that
+//! Antigravity.app and agy share. Afterwards every file the module opened must
+//! be inside the app's folder or the (fake) Antigravity bundle it reads the
+//! version from, every `security` run must name the app's own service, except
+//! the one write of a switch, which must be the exact expected command, the
+//! decoys must be as they were (the shared item replaced by the switch, never
+//! read), and the sentinel must appear nowhere the app wrote or sent anything.
 //!
 //! On Windows the shared login is the `gemini:antigravity` credential, in a
 //! fake Credential Manager that holds the decoy: the switch's one write must

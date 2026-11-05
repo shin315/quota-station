@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 // Adapted from claude-swap `session.py` (MIT,
-// https://github.com/realiti4/claude-swap); see NOTICE for the changes.
+// https://github.com/realiti4/claude-swap); modified for this app (NOTICE).
 // The session folder: a `CLAUDE_CONFIG_DIR` per
 // account with its `oauthAccount` and links to the owner's settings, the
 // login variables taken out of the environment, a newer login Claude Code
