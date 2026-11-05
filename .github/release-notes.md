@@ -1,9 +1,9 @@
-- First public release: macOS 13+ (Apple Silicon and Intel) and Windows 10/11 (x64).
-- Quota for Claude Code, Codex and Antigravity in the menu bar and the tray.
-- Claude accounts and the weekly-aware rotation; Antigravity accounts on macOS and Windows.
-- MCP servers, skills and instruction files; backup and restore.
-- Windows: the installer is not signed; see the README for the SmartScreen step.
-- Licences: MIT, with the Antigravity accounts part under CC BY-NC-SA 4.0 (NOTICE).
+- Auto-switch when quota runs out, any Claude account (Pro, Max, Team); sessions keep running.
+- It moves to the account with the most quota left once the one in use reaches 90%.
+- One switch in the Claude tab or the popover, with Pause and a notification per switch.
+- The threshold is in Settings › Services; a switch by hand can hold the new account.
+- Homebrew: brew install --cask shin315/tap/quota-station.
+- Team rotation rules stay under Settings › Advanced and decide as before.
 
 Install and update steps are in the [README](https://github.com/shin315/quota-station#install) ([Vietnamese](https://github.com/shin315/quota-station/blob/main/README.vi.md)).
 
