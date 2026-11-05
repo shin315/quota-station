@@ -6,16 +6,15 @@
 //! ([`store`]), the switch of Claude Code's active login under Claude
 //! Code's own locks ([`switch`]), each account's usage ([`usage`]), running
 //! one process as a chosen account ([`session`]), the data file other
-//! programs read ([`state`]) and the one-time import from claude-swap
-//! ([`import`]).
+//! programs read ([`state`]) and the one-time import from another account
+//! switcher ([`import`]).
 //! Also the rotation's decision ([`engine`] with a rules file, [`auto`]
 //! without one) and its run ([`rotate`]) from
 //! the app's own LaunchAgent ([`agent`]), or on Windows the app's own timer
 //! ([`timer`]).
 //!
-//! What touches Claude Code's login is learned from claude-swap's source
-//! (MIT, <https://github.com/realiti4/claude-swap>), credited in
-//! `THIRD_PARTY.md`: the Keychain items and their `security` commands, the
+//! What touches Claude Code's login is adapted from MIT code credited in
+//! `NOTICE`: the Keychain items and their `security` commands, the
 //! lock folders and their order, the `oauthAccount` splice, the usage and
 //! token endpoints, and the session folder.
 
@@ -197,7 +196,8 @@ pub(crate) fn read_optional(path: &Path) -> io::Result<Option<String>> {
     }
 }
 
-/// Seconds since the epoch, with the fraction, as claude-swap keeps times.
+/// Seconds since the epoch, with the fraction, as the imported files keep
+/// times.
 pub(crate) fn epoch(t: time::OffsetDateTime) -> f64 {
     t.unix_timestamp_nanos() as f64 / 1e9
 }

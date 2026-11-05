@@ -11,7 +11,7 @@ import { claudeSheet } from './switching';
 describe('switching in English', () => {
   beforeEach(() => setLang('en'));
 
-  it('the Claude switch sheet', () => {
+  it('the switch sheet for Claude', () => {
     const v = claudeSheet(
       fixtureModel('fresh'),
       3,

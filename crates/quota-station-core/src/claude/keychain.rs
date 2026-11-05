@@ -2,14 +2,15 @@
 // SPDX-FileCopyrightText: 2026 Onur Cetinkol (claude-swap)
 // SPDX-License-Identifier: MIT
 
-// The `security` commands are claude-swap's (`macos_keychain.py`, MIT,
-// https://github.com/realiti4/claude-swap): the read with `-w` and exit 44
+// Adapted from claude-swap `macos_keychain.py` (MIT,
+// https://github.com/realiti4/claude-swap); modified for this app (NOTICE).
+// The `security` commands: the read with `-w` and exit 44
 // for a missing item, the write piped to `security -i` with the value as hex
 // (`-X`) so it stays off the command line, the command-line fallback for a
 // line too long for `security -i`, and the 5-second limit.
 
 //! Generic passwords in the login Keychain, through macOS's own
-//! `/usr/bin/security`, the way claude-swap and Claude Code keep theirs: an
+//! `/usr/bin/security`, the way Claude Code keeps its own: an
 //! item `security` made is one `security` reads without a prompt.
 //!
 //! A value is never printed or logged here: errors carry `security`'s exit
@@ -26,7 +27,7 @@ use crate::runner::{self, RunError};
 pub const TIMEOUT: Duration = Duration::from_secs(5);
 /// `security`'s exit code for "the specified item could not be found".
 const NOT_FOUND: i32 = 44;
-/// The longest line `security -i` reads whole (claude-swap's limit).
+/// The longest line `security -i` reads whole.
 const STDIN_LINE_LIMIT: usize = 4096 - 64;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -158,7 +159,7 @@ impl SecretStore for Security {
             self.run(&["-i"], Some(&line))?
         } else {
             // Too long for one `security -i` line: the hex goes on the
-            // command line instead, as claude-swap does.
+            // command line instead.
             self.run(
                 &["add-generic-password", "-U", "-a", account, "-s", service, "-X", &hex],
                 None,

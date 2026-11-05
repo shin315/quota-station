@@ -413,9 +413,9 @@ export interface ClaudeManage {
   /** The ⋯ menu of an account Quota Station keeps; null for one it does not. */
   menu(card: CardView): ReactNode;
   onAdd(): void;
-  /** No account yet: the empty box's other way in (claude-swap's import). */
+  /** No account yet: the empty box's other way in (the import from another account switcher). */
   emptyExtra?: ReactNode;
-  /** Before Quota Station keeps the accounts claude-swap lists: the banner to bring them in. */
+  /** Before Quota Station keeps the accounts another switcher lists: the banner to bring them in. */
   setup?: ReactNode;
   /** The rotation's LaunchAgent, in the Claude tab's "Chạy nền": its switch, its line, the old switcher's warning. */
   rotation: {
@@ -575,8 +575,8 @@ function RunHalf(props: { title: string; tag?: ReactNode; rotation?: ClaudeManag
           <More small about={props.title}>
             <p>
               {t(
-                'LaunchAgent com.shin315.quota-station.rotation chạy luật xoay vòng mỗi 3 phút, kể cả khi đã đóng app. Khi bộ tự chuyển cũ (com.cswap.prefer-team hoặc com.cswap.auto) còn được nạp, nó không chuyển gì.',
-                'The LaunchAgent com.shin315.quota-station.rotation runs the rotation rules every 3 minutes, even with the app closed. While the old auto-switcher (com.cswap.prefer-team or com.cswap.auto) is loaded, it switches nothing.',
+                'LaunchAgent com.shin315.quota-station.rotation chạy luật xoay vòng mỗi 3 phút, kể cả khi đã đóng app. Khi bộ tự chuyển cũ còn được nạp, nó không chuyển gì.',
+                'The LaunchAgent com.shin315.quota-station.rotation runs the rotation rules every 3 minutes, even with the app closed. While the old auto-switcher is loaded, it switches nothing.',
               )}
             </p>
             {notes}

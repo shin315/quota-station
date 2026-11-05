@@ -166,7 +166,7 @@
           }
         ],
         "at": 1768547700,
-        "body": "Đặt ở ~/.zshenv dòng 10, ~/.zprofile dòng 10, ~/.zshrc dòng 10, ~/.bash_profile dòng 10, ~/.profile dòng 10 và launchctl. Trong Terminal, Claude Code đọc đăng nhập ở thư mục này, không phải chỗ claude-swap chuyển tài khoản.",
+        "body": "Đặt ở ~/.zshenv dòng 10, ~/.zprofile dòng 10, ~/.zshrc dòng 10, ~/.bash_profile dòng 10, ~/.profile dòng 10 và launchctl. Trong Terminal, Claude Code đọc đăng nhập ở thư mục này, không phải ở thư mục nơi tài khoản được chuyển.",
         "key": "env:CLAUDE_CONFIG_DIR:zshenv,zprofile,zshrc,bashProfile,profile,launchctl",
         "kind": "env",
         "title": "CLAUDE_CONFIG_DIR đang đè đăng nhập Claude Code",
@@ -190,7 +190,7 @@
           }
         ],
         "at": 1768547700,
-        "body": "Đặt ở ~/.zshenv dòng 8, ~/.zprofile dòng 8, ~/.zshrc dòng 8, ~/.bash_profile dòng 8, ~/.profile dòng 8 và launchctl. Trong Terminal, Claude Code dùng token này thay cho tài khoản claude-swap đang chọn.",
+        "body": "Đặt ở ~/.zshenv dòng 8, ~/.zprofile dòng 8, ~/.zshrc dòng 8, ~/.bash_profile dòng 8, ~/.profile dòng 8 và launchctl. Trong Terminal, Claude Code dùng token này thay cho tài khoản Claude đang chọn.",
         "key": "env:CLAUDE_CODE_OAUTH_TOKEN:zshenv,zprofile,zshrc,bashProfile,profile,launchctl",
         "kind": "env",
         "title": "CLAUDE_CODE_OAUTH_TOKEN đang đè đăng nhập Claude Code",
@@ -238,7 +238,7 @@
           }
         ],
         "at": 1768547700,
-        "body": "Đặt ở ~/.zshenv dòng 4, ~/.zprofile dòng 4, ~/.zshrc dòng 4, ~/.bash_profile dòng 4, ~/.profile dòng 4 và launchctl. Trong Terminal, Claude Code gửi token này thay cho đăng nhập của tài khoản claude-swap đang chọn.",
+        "body": "Đặt ở ~/.zshenv dòng 4, ~/.zprofile dòng 4, ~/.zshrc dòng 4, ~/.bash_profile dòng 4, ~/.profile dòng 4 và launchctl. Trong Terminal, Claude Code gửi token này thay cho đăng nhập của tài khoản Claude đang chọn.",
         "key": "env:ANTHROPIC_AUTH_TOKEN:zshenv,zprofile,zshrc,bashProfile,profile,launchctl",
         "kind": "env",
         "title": "ANTHROPIC_AUTH_TOKEN đang đè đăng nhập Claude Code",
@@ -262,7 +262,7 @@
           }
         ],
         "at": 1768547700,
-        "body": "Đặt ở ~/.zshenv dòng 2, ~/.zprofile dòng 2, ~/.bash_profile dòng 2, ~/.profile dòng 2 và launchctl. Trong Terminal, Claude Code dùng khoá này thay cho tài khoản claude-swap đang chọn.",
+        "body": "Đặt ở ~/.zshenv dòng 2, ~/.zprofile dòng 2, ~/.bash_profile dòng 2, ~/.profile dòng 2 và launchctl. Trong Terminal, Claude Code dùng khoá này thay cho tài khoản Claude đang chọn.",
         "key": "env:ANTHROPIC_API_KEY:zshenv,zprofile,bashProfile,profile,launchctl",
         "kind": "env",
         "title": "ANTHROPIC_API_KEY đang đè đăng nhập Claude Code",
@@ -277,7 +277,7 @@
   "found": [
     {
       "agent": "claude",
-      "effect": "Trong Terminal, Claude Code dùng khoá này thay cho tài khoản claude-swap đang chọn.",
+      "effect": "Trong Terminal, Claude Code dùng khoá này thay cho tài khoản Claude đang chọn.",
       "id": "ANTHROPIC_API_KEY@zshenv",
       "line": 2,
       "name": "ANTHROPIC_API_KEY",
@@ -286,7 +286,7 @@
     },
     {
       "agent": "claude",
-      "effect": "Trong Terminal, Claude Code dùng khoá này thay cho tài khoản claude-swap đang chọn.",
+      "effect": "Trong Terminal, Claude Code dùng khoá này thay cho tài khoản Claude đang chọn.",
       "id": "ANTHROPIC_API_KEY@zprofile",
       "line": 2,
       "name": "ANTHROPIC_API_KEY",
@@ -295,7 +295,7 @@
     },
     {
       "agent": "claude",
-      "effect": "Trong Terminal, Claude Code dùng khoá này thay cho tài khoản claude-swap đang chọn.",
+      "effect": "Trong Terminal, Claude Code dùng khoá này thay cho tài khoản Claude đang chọn.",
       "id": "ANTHROPIC_API_KEY@bashProfile",
       "line": 2,
       "name": "ANTHROPIC_API_KEY",
@@ -304,7 +304,7 @@
     },
     {
       "agent": "claude",
-      "effect": "Trong Terminal, Claude Code dùng khoá này thay cho tài khoản claude-swap đang chọn.",
+      "effect": "Trong Terminal, Claude Code dùng khoá này thay cho tài khoản Claude đang chọn.",
       "id": "ANTHROPIC_API_KEY@profile",
       "line": 2,
       "name": "ANTHROPIC_API_KEY",
@@ -313,7 +313,7 @@
     },
     {
       "agent": "claude",
-      "effect": "Trong các app mở từ Dock, Claude Code dùng khoá này thay cho tài khoản claude-swap đang chọn.",
+      "effect": "Trong các app mở từ Dock, Claude Code dùng khoá này thay cho tài khoản Claude đang chọn.",
       "id": "ANTHROPIC_API_KEY@launchctl",
       "line": null,
       "name": "ANTHROPIC_API_KEY",
@@ -322,7 +322,7 @@
     },
     {
       "agent": "claude",
-      "effect": "Trong Terminal, Claude Code gửi token này thay cho đăng nhập của tài khoản claude-swap đang chọn.",
+      "effect": "Trong Terminal, Claude Code gửi token này thay cho đăng nhập của tài khoản Claude đang chọn.",
       "id": "ANTHROPIC_AUTH_TOKEN@zshenv",
       "line": 4,
       "name": "ANTHROPIC_AUTH_TOKEN",
@@ -331,7 +331,7 @@
     },
     {
       "agent": "claude",
-      "effect": "Trong Terminal, Claude Code gửi token này thay cho đăng nhập của tài khoản claude-swap đang chọn.",
+      "effect": "Trong Terminal, Claude Code gửi token này thay cho đăng nhập của tài khoản Claude đang chọn.",
       "id": "ANTHROPIC_AUTH_TOKEN@zprofile",
       "line": 4,
       "name": "ANTHROPIC_AUTH_TOKEN",
@@ -340,7 +340,7 @@
     },
     {
       "agent": "claude",
-      "effect": "Trong Terminal, Claude Code gửi token này thay cho đăng nhập của tài khoản claude-swap đang chọn.",
+      "effect": "Trong Terminal, Claude Code gửi token này thay cho đăng nhập của tài khoản Claude đang chọn.",
       "id": "ANTHROPIC_AUTH_TOKEN@zshrc",
       "line": 4,
       "name": "ANTHROPIC_AUTH_TOKEN",
@@ -349,7 +349,7 @@
     },
     {
       "agent": "claude",
-      "effect": "Trong Terminal, Claude Code gửi token này thay cho đăng nhập của tài khoản claude-swap đang chọn.",
+      "effect": "Trong Terminal, Claude Code gửi token này thay cho đăng nhập của tài khoản Claude đang chọn.",
       "id": "ANTHROPIC_AUTH_TOKEN@bashProfile",
       "line": 4,
       "name": "ANTHROPIC_AUTH_TOKEN",
@@ -358,7 +358,7 @@
     },
     {
       "agent": "claude",
-      "effect": "Trong Terminal, Claude Code gửi token này thay cho đăng nhập của tài khoản claude-swap đang chọn.",
+      "effect": "Trong Terminal, Claude Code gửi token này thay cho đăng nhập của tài khoản Claude đang chọn.",
       "id": "ANTHROPIC_AUTH_TOKEN@profile",
       "line": 4,
       "name": "ANTHROPIC_AUTH_TOKEN",
@@ -367,7 +367,7 @@
     },
     {
       "agent": "claude",
-      "effect": "Trong các app mở từ Dock, Claude Code gửi token này thay cho đăng nhập của tài khoản claude-swap đang chọn.",
+      "effect": "Trong các app mở từ Dock, Claude Code gửi token này thay cho đăng nhập của tài khoản Claude đang chọn.",
       "id": "ANTHROPIC_AUTH_TOKEN@launchctl",
       "line": null,
       "name": "ANTHROPIC_AUTH_TOKEN",
@@ -430,7 +430,7 @@
     },
     {
       "agent": "claude",
-      "effect": "Trong Terminal, Claude Code dùng token này thay cho tài khoản claude-swap đang chọn.",
+      "effect": "Trong Terminal, Claude Code dùng token này thay cho tài khoản Claude đang chọn.",
       "id": "CLAUDE_CODE_OAUTH_TOKEN@zshenv",
       "line": 8,
       "name": "CLAUDE_CODE_OAUTH_TOKEN",
@@ -439,7 +439,7 @@
     },
     {
       "agent": "claude",
-      "effect": "Trong Terminal, Claude Code dùng token này thay cho tài khoản claude-swap đang chọn.",
+      "effect": "Trong Terminal, Claude Code dùng token này thay cho tài khoản Claude đang chọn.",
       "id": "CLAUDE_CODE_OAUTH_TOKEN@zprofile",
       "line": 8,
       "name": "CLAUDE_CODE_OAUTH_TOKEN",
@@ -448,7 +448,7 @@
     },
     {
       "agent": "claude",
-      "effect": "Trong Terminal, Claude Code dùng token này thay cho tài khoản claude-swap đang chọn.",
+      "effect": "Trong Terminal, Claude Code dùng token này thay cho tài khoản Claude đang chọn.",
       "id": "CLAUDE_CODE_OAUTH_TOKEN@zshrc",
       "line": 8,
       "name": "CLAUDE_CODE_OAUTH_TOKEN",
@@ -457,7 +457,7 @@
     },
     {
       "agent": "claude",
-      "effect": "Trong Terminal, Claude Code dùng token này thay cho tài khoản claude-swap đang chọn.",
+      "effect": "Trong Terminal, Claude Code dùng token này thay cho tài khoản Claude đang chọn.",
       "id": "CLAUDE_CODE_OAUTH_TOKEN@bashProfile",
       "line": 8,
       "name": "CLAUDE_CODE_OAUTH_TOKEN",
@@ -466,7 +466,7 @@
     },
     {
       "agent": "claude",
-      "effect": "Trong Terminal, Claude Code dùng token này thay cho tài khoản claude-swap đang chọn.",
+      "effect": "Trong Terminal, Claude Code dùng token này thay cho tài khoản Claude đang chọn.",
       "id": "CLAUDE_CODE_OAUTH_TOKEN@profile",
       "line": 8,
       "name": "CLAUDE_CODE_OAUTH_TOKEN",
@@ -475,7 +475,7 @@
     },
     {
       "agent": "claude",
-      "effect": "Trong các app mở từ Dock, Claude Code dùng token này thay cho tài khoản claude-swap đang chọn.",
+      "effect": "Trong các app mở từ Dock, Claude Code dùng token này thay cho tài khoản Claude đang chọn.",
       "id": "CLAUDE_CODE_OAUTH_TOKEN@launchctl",
       "line": null,
       "name": "CLAUDE_CODE_OAUTH_TOKEN",
@@ -484,7 +484,7 @@
     },
     {
       "agent": "claude",
-      "effect": "Trong Terminal, Claude Code đọc đăng nhập ở thư mục này, không phải chỗ claude-swap chuyển tài khoản.",
+      "effect": "Trong Terminal, Claude Code đọc đăng nhập ở thư mục này, không phải ở thư mục nơi tài khoản được chuyển.",
       "id": "CLAUDE_CONFIG_DIR@zshenv",
       "line": 10,
       "name": "CLAUDE_CONFIG_DIR",
@@ -493,7 +493,7 @@
     },
     {
       "agent": "claude",
-      "effect": "Trong Terminal, Claude Code đọc đăng nhập ở thư mục này, không phải chỗ claude-swap chuyển tài khoản.",
+      "effect": "Trong Terminal, Claude Code đọc đăng nhập ở thư mục này, không phải ở thư mục nơi tài khoản được chuyển.",
       "id": "CLAUDE_CONFIG_DIR@zprofile",
       "line": 10,
       "name": "CLAUDE_CONFIG_DIR",
@@ -502,7 +502,7 @@
     },
     {
       "agent": "claude",
-      "effect": "Trong Terminal, Claude Code đọc đăng nhập ở thư mục này, không phải chỗ claude-swap chuyển tài khoản.",
+      "effect": "Trong Terminal, Claude Code đọc đăng nhập ở thư mục này, không phải ở thư mục nơi tài khoản được chuyển.",
       "id": "CLAUDE_CONFIG_DIR@zshrc",
       "line": 10,
       "name": "CLAUDE_CONFIG_DIR",
@@ -511,7 +511,7 @@
     },
     {
       "agent": "claude",
-      "effect": "Trong Terminal, Claude Code đọc đăng nhập ở thư mục này, không phải chỗ claude-swap chuyển tài khoản.",
+      "effect": "Trong Terminal, Claude Code đọc đăng nhập ở thư mục này, không phải ở thư mục nơi tài khoản được chuyển.",
       "id": "CLAUDE_CONFIG_DIR@bashProfile",
       "line": 10,
       "name": "CLAUDE_CONFIG_DIR",
@@ -520,7 +520,7 @@
     },
     {
       "agent": "claude",
-      "effect": "Trong Terminal, Claude Code đọc đăng nhập ở thư mục này, không phải chỗ claude-swap chuyển tài khoản.",
+      "effect": "Trong Terminal, Claude Code đọc đăng nhập ở thư mục này, không phải ở thư mục nơi tài khoản được chuyển.",
       "id": "CLAUDE_CONFIG_DIR@profile",
       "line": 10,
       "name": "CLAUDE_CONFIG_DIR",
@@ -529,7 +529,7 @@
     },
     {
       "agent": "claude",
-      "effect": "Trong các app mở từ Dock, Claude Code đọc đăng nhập ở thư mục này, không phải chỗ claude-swap chuyển tài khoản.",
+      "effect": "Trong các app mở từ Dock, Claude Code đọc đăng nhập ở thư mục này, không phải ở thư mục nơi tài khoản được chuyển.",
       "id": "CLAUDE_CONFIG_DIR@launchctl",
       "line": null,
       "name": "CLAUDE_CONFIG_DIR",

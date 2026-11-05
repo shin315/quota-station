@@ -3,25 +3,16 @@
 // SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
 // Ported from Cockpit Tools `src-tauri/src/modules/quota.rs` (1.3.70,
-// commit 244b957, CC BY-NC-SA 4.0): the hosts and their choice
-// (`select_cloud_code_base_url`), `QuotaCloudCodeContext`, the
-// `loadCodeAssist` request (`build_cloud_code_metadata`,
-// `build_load_code_assist_payload`, its headers, `extract_project_id`, the
-// GCP ToS detection), the `fetchAvailableModels` and
-// `retrieveUserQuotaSummary` requests and the payload Cockpit caches, the
-// 403 handling, the retries a second apart, and
-// `parse_google_api_error_with_email` with `format_google_validation_url`.
-// Changes: blocking HTTP; no environment overrides, no autopush host, no
-// `onboardUser`, no tier or credit parsing for a UI; `loadCodeAssist` is
-// asked once, only when the caller needs it; retries only after a network
-// error (a 429 or 5xx is not retried here: the caller backs off instead);
-// typed errors that keep Google's reason code and verification link, never
-// a response body or a token; no logging; the hosts point at a local fake in
-// the tests.
+// commit 244b957); modified for this app (NOTICE).
 
 //! The three Cloud Code calls Antigravity makes to learn an account's quota,
-//! made the way Cockpit Tools makes them: the same hosts, paths, headers,
-//! bodies and user agents.
+//! with Antigravity's hosts, paths, headers, bodies and user agents.
+//!
+//! Blocking HTTP; `loadCodeAssist` is asked once, only when the caller needs
+//! it; retries only after a network error (a 429 or 5xx is not retried
+//! here: the caller backs off instead); errors keep Google's reason code and
+//! verification link, never a response body or a token; nothing is logged;
+//! the tests point the hosts at a local fake.
 
 use std::time::Duration;
 
@@ -37,11 +28,11 @@ const PROD_BASE_URL: &str = "https://cloudcode-pa.googleapis.com";
 const LOAD_CODE_ASSIST_PATH: &str = "v1internal:loadCodeAssist";
 const FETCH_AVAILABLE_MODELS_PATH: &str = "v1internal:fetchAvailableModels";
 const RETRIEVE_USER_QUOTA_SUMMARY_PATH: &str = "v1internal:retrieveUserQuotaSummary";
-/// The project Google names for consumer accounts; Cockpit never sends it.
+/// The project Google names for consumer accounts: a placeholder, never
+/// sent as a project ([`valid_project_id`] drops it).
 const CONSUMER_PLACEHOLDER: &str = "aicode-consumers";
 
-/// Tries of `fetchAvailableModels` after network errors (Cockpit's
-/// `max_retries = 3`), a second apart.
+/// Tries of `fetchAvailableModels` after network errors, a second apart.
 pub const ATTEMPTS: usize = 3;
 pub const RETRY_DELAY: Duration = Duration::from_secs(1);
 
@@ -154,8 +145,8 @@ impl CloudCodeError {
         self.status().is_some_and(|s| s == 429 || s >= 500)
     }
 
-    /// `fetchAvailableModels` answered 403: Cockpit marks the account
-    /// forbidden and stops reading it.
+    /// `fetchAvailableModels` answered 403: the account is marked forbidden
+    /// and no longer read.
     pub fn forbidden(&self) -> bool {
         matches!(self, CloudCodeError::Rejected { call: Call::Models, status: 403, .. })
     }
@@ -245,7 +236,7 @@ fn metadata(identity: &Identity, duet_project: Option<&str>) -> Value {
     Value::Object(metadata)
 }
 
-/// Cockpit sends its own version here; the app sends its own.
+/// The app sends its own version here.
 fn plugin_version() -> String {
     let version = env!("CARGO_PKG_VERSION").trim();
     if version.is_empty() {
@@ -322,7 +313,7 @@ fn extract_project_id(value: &Value) -> Option<String> {
 
 impl CloudCode<'_> {
     /// The account's project and whether it is a GCP ToS account. Asked
-    /// once, as Cockpit asks it.
+    /// once.
     pub fn load_code_assist(
         &self,
         access_token: &str,
@@ -364,10 +355,9 @@ impl CloudCode<'_> {
     }
 
     /// `fetchAvailableModels`, then `retrieveUserQuotaSummary`: the payload
-    /// Cockpit caches, the models answer with the summary under
-    /// `quota_summary`. Unlike Cockpit, a summary that did not come back is
-    /// an error rather than a payload without it, so the caller keeps the
-    /// last full reading.
+    /// cached is the models answer with the summary under `quota_summary`. A
+    /// summary that did not come back is an error rather than a payload
+    /// without it, so the caller keeps the last full reading.
     pub fn fetch_quota(
         &self,
         access_token: &str,
@@ -425,8 +415,8 @@ impl CloudCode<'_> {
     }
 }
 
-/// Google's reason code and verification link from an error body, as
-/// Cockpit reads them. The message itself is only looked at, never kept.
+/// Google's reason code and verification link from an error body. The
+/// message itself is only looked at, never kept.
 pub fn parse_google_api_error(text: &str, email: &str) -> ApiError {
     let mut message = text.to_string();
     let mut reason: Option<String> = None;
@@ -477,7 +467,7 @@ pub fn parse_google_api_error(text: &str, email: &str) -> ApiError {
 }
 
 /// A Google verification page with the account's email filled in, so it
-/// opens for the right account, as Cockpit does.
+/// opens for the right account.
 pub fn format_validation_url(raw_url: &str, email: &str) -> String {
     let email = email.trim();
     if raw_url.trim().is_empty() || email.is_empty() {
@@ -563,9 +553,9 @@ mod tests {
     }
 
     #[test]
-    fn the_bodies_are_cockpits() {
+    fn the_bodies_are_antigravitys() {
         let body = load_code_assist_payload(&identity(), Some("p-1"));
-        // serde_json keeps keys sorted, as in Cockpit's build.
+        // serde_json keeps keys sorted.
         let expected = format!(
             concat!(
                 r#"{{"cloudaicompanionProject":"p-1","metadata":{{"duetProject":"p-1","#,

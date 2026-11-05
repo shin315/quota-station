@@ -60,7 +60,7 @@ export function endText(at: string, now: Date): string {
   return Number.isNaN(new Date(at).getTime()) ? at : dayClock(at, now);
 }
 
-/** Every slot the editor offers: claude-swap's accounts and any slot the rules name. */
+/** Every slot the editor offers: the Claude accounts listed and any slot the rules name. */
 export function slotsOf(model: Model, ...rules: (Rules | null)[]): number[] {
   const out = new Set<number>(model.snapshot.claude.accounts.map((a) => a.number).filter((n) => n > 0));
   for (const r of rules) {

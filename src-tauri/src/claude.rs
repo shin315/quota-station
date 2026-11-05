@@ -1,10 +1,10 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-//! The Claude accounts the app keeps (see `docs/claude-accounts.md`): what
-//! the Claude tab shows of them, and its actions: import from claude-swap,
-//! log a new account in, add the login Claude Code is on or a setup token,
-//! remove an account and give it an alias. An extension runs its own
+//! The Claude accounts the app keeps (see `docs/claude-accounts.md`): what the
+//! Claude tab shows of them, and its actions: import from another account
+//! switcher, log a new account in, add the login Claude Code is on or a setup
+//! token, remove an account and give it an alias. An extension runs its own
 //! actions on the accounts the same way ([`crate::ext::Host::claude_action`]).
 //!
 //! The windows only ever get account numbers, aliases and readings; an
@@ -61,7 +61,7 @@ pub struct Done {
 pub struct AccountsView {
     /// The app keeps the accounts on this Mac: imported or added.
     pub ready: bool,
-    /// claude-swap's folder is on this Mac, to import from.
+    /// The other account switcher's folder is on this Mac, to import from.
     pub importable: bool,
     pub accounts: Vec<AccountOut>,
     pub working: Option<&'static str>,
@@ -259,7 +259,8 @@ pub(crate) async fn run(
     Ok(finish(&app, &state, &store, names, done))
 }
 
-/// Carries claude-swap's accounts over. claude-swap is left as it is.
+/// Carries the other account switcher's accounts over. That tool is left as
+/// it is.
 #[tauri::command]
 pub async fn claude_import(app: AppHandle, state: State<'_, AppState>) -> Result<Model, String> {
     let (home, hooks) = {

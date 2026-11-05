@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-// What the switching parts show (M3): the Claude switch sheet (F04) and
+// What the switching parts show (M3): the switch sheet for Claude (F04) and
 // the feedback after each action. Pure, like `view.ts`: the same model and
 // clock give the same words. Copy follows the approved prototype
 // (`sheetClaude`, `fbLine`, wording review W01–W11, W43).
@@ -49,7 +49,7 @@ export function dayClock(iso: string, now: Date): string {
   return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + ' ' + clock(iso);
 }
 
-// ===== The Claude switch sheet (F04) =====
+// ===== The switch sheet for Claude (F04) =====
 
 export interface FactView {
   /** `.facts li` class: '' bullet, `w` warning, `x` blocker, `ok` a promise kept. */
@@ -150,8 +150,8 @@ export function claudeSheet(
       k: 'x',
       text: mac(
         t(
-          'Quota Station chưa giữ tài khoản Claude nào trên máy này. Nhập từ claude-swap hoặc thêm tài khoản ở tab Claude.',
-          'Quota Station keeps no Claude accounts on this Mac yet. Import from claude-swap or add an account in the Claude tab.',
+          'Quota Station chưa giữ tài khoản Claude nào trên máy này. Nhập từ công cụ chuyển tài khoản khác hoặc thêm tài khoản ở tab Claude.',
+          'Quota Station keeps no Claude accounts on this Mac yet. Import from another account switcher or add an account in the Claude tab.',
         ),
       ),
     });

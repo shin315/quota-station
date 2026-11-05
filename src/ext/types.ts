@@ -87,7 +87,7 @@ export interface Extension {
   };
   /** Said after the pause sheet's hint. */
   pauseNote?(): string;
-  /** Steps of the move from claude-swap, before its last. */
+  /** Steps of the move from the other account switcher, before its last. */
   guideSteps?(): string[];
   /** In a build with the advanced part, the Claude tab's "Chạy nền": a line before its Chi tiết, and more inside. */
   rotationNote?: {

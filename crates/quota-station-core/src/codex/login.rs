@@ -6,10 +6,10 @@
 //! values. The file is read into memory, looked at and dropped; nothing in
 //! it is kept, printed or sent anywhere, and it is never written.
 //!
-//! Which fields count as a login is ported from CC Switch (MIT, © 2025
-//! Jason Young), commit 79e754ab, `src-tauri/src/codex_config.rs`
-//! (`codex_auth_has_credential_login_material`) and the store modes of
-//! `codex_config_auth_store_mode`. See `NOTICE`.
+//! Ported in part from CC Switch `src-tauri/src/codex_config.rs` (4.0.15,
+//! commit 79e754ab, MIT); modified for this app (`NOTICE`). Ported: which
+//! fields count as a login (`codex_auth_has_credential_login_material`) and the
+//! store modes (`codex_config_auth_store_mode`).
 
 use std::io::Read;
 use std::path::Path;
@@ -44,8 +44,7 @@ pub enum Login {
 
 impl Login {
     /// Codex will find a login: the input to the `requires_openai_auth`
-    /// rule. A login the app cannot see in the Keychain counts, as CC Switch
-    /// counts it when it keeps the login.
+    /// rule. A login the app cannot see in the Keychain counts.
     pub fn on_disk(self) -> bool {
         matches!(self, Login::ChatGpt | Login::Other | Login::Keychain)
     }

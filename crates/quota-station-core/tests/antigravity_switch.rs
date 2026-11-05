@@ -244,14 +244,14 @@ fn switched(number: usize, how: How, reopened: Option<bool>) -> Outcome {
 }
 
 #[test]
-fn a_switch_writes_cockpits_exact_command_then_the_pointers_and_checks() {
+fn a_switch_writes_the_exact_command_then_the_pointers_and_checks() {
     let _one = serial();
     let s = setup("agy-switch-plain", Some("2.24.0"));
     let done = s.run(How::Plain);
     assert_eq!(done.outcome, switched(2, How::Plain, None));
     assert!(done.report.is_some());
 
-    // Exactly Cockpit's command, once, with the second account's login.
+    // Exactly the expected command, once, with the second account's login.
     let calls = s.shared_calls();
     assert_eq!(calls.len(), 1, "{calls:?}");
     let call = &calls[0];
@@ -265,7 +265,8 @@ fn a_switch_writes_cockpits_exact_command_then_the_pointers_and_checks() {
         assert_eq!(call[8], "-A");
         assert_eq!(call[7], s.shared_item());
     }
-    // On Windows Cockpit's credential: target gemini:antigravity, user antigravity.
+    // On Windows the shared credential: target gemini:antigravity, user
+    // antigravity.
     #[cfg(windows)]
     {
         assert_eq!(call, &["write", "gemini:antigravity", "antigravity"]);
@@ -284,7 +285,7 @@ fn a_switch_writes_cockpits_exact_command_then_the_pointers_and_checks() {
     #[cfg(windows)]
     assert!(s.creds.calls().iter().all(|c| c.starts_with("write ")), "{:?}", s.creds.calls());
 
-    // Then the pointers the account in use is told by and Cockpit's layout uses.
+    // Then the pointers the account in use is told by.
     assert_eq!(s.current().as_deref(), Some(s.second.as_str()));
     assert_eq!(s.binding().unwrap()["defaultSettings"]["bindAccountId"], s.second.as_str());
     let index = index::load(&s.home.app).unwrap();

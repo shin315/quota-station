@@ -84,7 +84,7 @@ fn stable(text: String) -> String {
 /// Antigravity switch log (switched, failed, and to an account no longer
 /// listed), the Codex switch log (switched and restarted, failed, seen),
 /// and two Antigravity accounts listed where the build keeps them.
-/// Also the switcher's log at `Library/Logs/cswap-prefer-team.log` under
+/// Also the old switcher's log ([`quota_station_core::switcher::LOG`]) under
 /// the home (switches with each kind of reason, a prime, lines that are
 /// neither, one without a time, and one at the same second as a journal
 /// line), which only the advanced part reads.

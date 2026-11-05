@@ -225,10 +225,10 @@ pub struct KeyUndoView {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CcSwitchView {
-    /// `CC Switch.app` is in /Applications.
+    /// Another Codex switcher's app is in /Applications.
     pub installed: bool,
     pub running: bool,
-    /// Its folder `~/.cc-switch` is there (only its presence is looked at).
+    /// Its folder is in the home folder (only its presence is looked at).
     pub data: bool,
     /// What it left in `config.toml`.
     pub traces: Vec<String>,
@@ -381,6 +381,7 @@ pub fn view(inner: &Inner) -> CodexView {
         back_refusal,
         login,
         reach: live.reach.clone(),
+        // Another Codex switcher's own app and folder names.
         cc_switch: CcSwitchView {
             installed: std::path::Path::new("/Applications/CC Switch.app").exists(),
             running: live.procs.as_ref().is_some_and(|p| p.cc_switch),

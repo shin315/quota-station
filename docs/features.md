@@ -186,15 +186,15 @@ With a rotation rules file (Advanced) the rules decide instead
 `Switch` on each account not in use and `In use` on the one in use; an old
 reading gets a chip by the name. `Add account` signs one in with the browser,
 takes the account Claude Code is signed in to, takes a pasted setup-token, or
-imports claude-swap's accounts (see [how-it-works.md](how-it-works.md#the-claude-accounts)).
+imports another account switcher's accounts (see [how-it-works.md](how-it-works.md#the-claude-accounts)).
 Each row's `⋯` menu has `Details and nickname…`, `Sign in again…` and `Remove
 from this Mac…`. A variable that overrides Claude Code's sign-in puts a red
 banner at the top of the tab ([below](#variables-that-override-a-sign-in)).
 
 *(Advanced)* The `⋯` menu can also pause automatic switching for that account
-(or put it back). While an older switcher (`com.cswap.prefer-team` or
-`com.cswap.auto`) is still loaded, the tab says so with `How to turn it off`,
-and a guide covers moving from claude-swap.
+(or put it back). While an older auto-switcher is still loaded, the tab says
+so with `How to turn it off`, and a guide covers moving from another account
+switcher.
 
 *(Advanced)* Below the accounts, one card has two halves: `Claude auto-switch`,
 with its line (the rotation's decision from a dry run, or `Paused until HH:MM:
@@ -298,7 +298,7 @@ process after switching` box (ticked by default for a switch between ChatGPT
 accounts, off for a switch to a custom provider). A switch the app cannot make
 safely is refused with the reason under the row: no custom provider table, a
 table without a key of its own (the ChatGPT sign-in would be sent to the
-provider), the placeholder key CC Switch leaves in a table it does not use, a
+provider), a placeholder key another tool left in a table it does not use, a
 profile that picks its own provider, or a table written inline. The custom
 provider's name and address come from the file, and its key from the file or
 from the owner's paste; nothing is built in.
@@ -306,17 +306,17 @@ from the owner's paste; nothing is built in.
 **The key.** While Codex is on the custom provider, a line under the table says
 how its key is given, with `Paste key…`, `Change key…` or `How to set the key…`.
 `Paste key…` puts the owner's key in the table as `experimental_bearer_token`,
-the way CC Switch's direct switch keeps it. The key goes in a password field; a
+the way Codex reads it. The key goes in a password field; a
 paste with `Bearer `, quotes or the `NAME=` it was copied with gives the key
-alone. When the table still points at CC Switch's local proxy
+alone. When the table still points at another tool's local proxy
 (`127.0.0.1:15721`), the same sheet takes the provider's real address. A
 preview shows the lines that change, the key only as `sk-…abcd`; the write
 keeps a backup with the key left out and refuses a file changed since the
-preview. `Undo` puts CC Switch's placeholder (or no key) and the old address
+preview. `Undo` puts the placeholder (or no key) and the old address
 back while the file is the one the write left; a key written over another key
 cannot be undone, since the app never keeps a key, and the preview says so. A
 table that reads its key from `env_key` gets the steps to set the variable, and
-nothing is written. CC Switch's `model_catalog_json` is only reported: Codex
+nothing is written. A `model_catalog_json` another tool left is only reported: Codex
 does not start without that file. The key never reaches a window, the log,
 `History`, a backup, a copy between Macs or a configuration set.
 
@@ -334,8 +334,9 @@ terminal sessions, Codex App, the MCP count) with `Details…` (the technical
 detail: `auth.json`, the address, how the key is given, `requires_openai_auth`,
 the file written and its backups, the sessions that can be resumed by provider,
 the recent switches, and `Restart background process…`) and `Open MCP`. While
-CC Switch still runs and manages Codex, a banner says to switch Codex in one
-place only: CC Switch's next switch overwrites the provider choice. A change
+another Codex switcher still runs and manages Codex, a banner says to switch
+Codex in one place only: that tool's next switch overwrites the provider
+choice. A change
 made to `config.toml` outside the app shows as a banner with `See changes` and
 `Got it`; the app never writes it back. Every switch, and every change seen
 from outside, goes to `History` under `Codex`. Opening or installing the app
@@ -346,7 +347,7 @@ the custom provider's id, or removed for the ChatGPT sign-in) and, in the custom
 provider's table, `requires_openai_auth` change. That key is on when the
 table's key comes from an environment variable or a bearer token, a ChatGPT
 sign-in exists and the plugins box is ticked, and off for a key sent in its own
-header, as CC Switch decides it. `Paste key` writes only the table's
+header. `Paste key` writes only the table's
 `experimental_bearer_token` and, when asked, its `base_url`. Every other byte
 stays, comments included; a switch never writes `[mcp_servers]` or `profiles`.
 `auth.json` is never edited: an account switch only moves whole files between
@@ -400,7 +401,7 @@ sign-in back).
 
 The app keeps its own lines, at most 500, in `history/history.jsonl`; the
 Antigravity and Codex switches come from the app's own switch logs, never from
-Cockpit's switch history.
+another tool's switch history.
 
 ## Notifications
 
@@ -731,8 +732,8 @@ it.
   `Quota Station Agents`), then the `Updates` card: `Version` with `Check for new
   versions`, `Tell me about new versions` (a build from source; `Check for app
   updates` in a downloaded one), `License` in a build with the Antigravity
-  accounts (the credit to Cockpit Tools and CC BY-NC-SA 4.0, with `View NOTICE`
-  opening the `NOTICE` the app carries), `Check for skill updates` (`Daily` or
+  accounts (the CC BY-NC-SA 4.0 license; the credits for the adapted code are
+  in `NOTICE`, which `View NOTICE` opens from the app), `Check for skill updates` (`Daily` or
   `Off`), `Show skill updates as macOS notifications`, and `Diagnostic info` with `Copy
   diagnostic info…` (scrubbed of emails and paths; nothing is sent) and `Open
   the GitHub bug form`.

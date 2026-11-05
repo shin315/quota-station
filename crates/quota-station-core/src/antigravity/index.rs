@@ -3,18 +3,16 @@
 // SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
 // `AccountIndex`, `AccountSummary` and `account_id` are ported from Cockpit
-// Tools `src-tauri/src/models/account.rs` and `modules/account.rs`
-// (`build_account_storage_id`) (1.3.70, commit 244b957, CC BY-NC-SA 4.0);
-// changes: the clock is passed in, the index is read and written through the
-// app's folder guard, and an unreadable index is reported instead of
-// rebuilt from account files. The status file is the app's own.
+// Tools `src-tauri/src/models/account.rs` and `modules/account.rs` (1.3.70,
+// commit 244b957); modified for this app (NOTICE). The status file is the app's
+// own.
 
-//! The non-secret files in the app's `antigravity/` folder:
+//! The non-secret files in the app's `antigravity/` folder, read and written
+//! through the app's folder guard:
 //!
-//! - `accounts.json`, the account index in Cockpit's layout (version `2.0`:
-//!   id, email, name, created and last-used times, current account), which
-//!   the Antigravity row lists and a reader of Cockpit's files reads as
-//!   Cockpit's;
+//! - `accounts.json`, the account index (version `2.0`: id, email, name,
+//!   created and last-used times, current account), which the Antigravity
+//!   row lists; an unreadable index is reported, never rebuilt;
 //! - `status.json`, the accounts that need the owner: a new login after
 //!   Google refused the refresh token, a verification Google asks for, or
 //!   an account the quota API refuses.
@@ -52,7 +50,7 @@ impl AccountIndex {
         Self { version: INDEX_VERSION.to_string(), accounts: Vec::new(), current_account_id: None }
     }
 
-    /// The account for `email`, compared as Cockpit does: trimmed, any case.
+    /// The account for `email`, compared trimmed and in any case.
     pub fn find_email(&self, email: &str) -> Option<&AccountSummary> {
         let id = account_id(email);
         let email = email.trim();
@@ -66,7 +64,7 @@ impl Default for AccountIndex {
     }
 }
 
-/// Cockpit's id for an account: `antigravity_` and the MD5 of the email,
+/// An account's id: `antigravity_` and the MD5 of the email,
 /// trimmed and in lower case. The same email always gets the same id.
 pub fn account_id(email: &str) -> String {
     let seed = email.trim().to_lowercase();
@@ -146,7 +144,7 @@ pub enum Standing {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         url: Option<String>,
     },
-    /// The quota API answered 403 (Cockpit's `is_forbidden`): the account is
+    /// The quota API answered 403: the account is
     /// not read again until a new login, with Google's verification link
     /// when it sent one.
     Forbidden {

@@ -3,7 +3,8 @@
 
 //! The Codex switch (M8) on a temporary Codex home built from the fixtures
 //! in `fixtures/codex/`: every name, URL and key in them is made up, and no
-//! test reads or writes the real `~/.codex`, Codex's login or CC Switch.
+//! test reads or writes the real `~/.codex`, Codex's login or another Codex
+//! switcher.
 //!
 //! What these tests prove about keeping the ChatGPT login (the plugins and
 //! remote control of Codex App): a switch to the custom provider leaves
@@ -121,7 +122,7 @@ fn a_file_with_several_tables_goes_back_to_the_one_last_used() {
     assert_eq!(
         config::parse(text, None).unwrap().custom.unwrap().id,
         "custom",
-        "CC Switch's id first"
+        "the other switcher's id first"
     );
     assert_eq!(
         config::parse(text, Some("alpha")).unwrap().custom.unwrap().id,
@@ -140,7 +141,7 @@ fn a_file_with_several_tables_goes_back_to_the_one_last_used() {
 
 #[test]
 fn requires_openai_auth_follows_the_login_only_for_a_provider_with_its_own_key() {
-    // CC Switch's own table of cases.
+    // The upstream table of cases.
     for (kind, login, want) in [
         (KeyKind::Bearer, true, true),
         (KeyKind::Bearer, false, false),
@@ -436,7 +437,7 @@ fn a_change_outside_the_app_is_seen_and_can_be_kept() {
     );
     let h = hash(&home);
     codex::switch(&home, &app, Target::Custom, Some(&h), true, at(0));
-    // CC Switch, or a hand, switches back.
+    // Another switcher, or a hand, switches back.
     let text = config_text(&home).replacen("model_provider = \"custom\"\n", "", 1);
     std::fs::write(home.join(codex::CONFIG), text).unwrap();
     let reading = codex::read(&home, &files::load(&app));
@@ -717,7 +718,7 @@ fn the_real_address_replaces_cc_switch_s_proxy_in_the_same_write_and_undo_puts_b
     let parsed = codex::read(&home, &Record::default());
     assert!(
         parsed.parsed().unwrap().custom.as_ref().unwrap().proxy,
-        "127.0.0.1:15721 is CC Switch's"
+        "127.0.0.1:15721 is the other switcher's local proxy"
     );
     let url = "https://relay.example.com/v1";
     let preview = codex::key_preview(&home, &app, NEW_KEY, Some(url));

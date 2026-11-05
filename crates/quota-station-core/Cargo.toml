@@ -13,7 +13,7 @@ publish = false
 
 [features]
 # The Antigravity accounts the app logs in, reads and switches itself
-# (`src/antigravity/`), adapted from Cockpit Tools and so under
+# (`src/antigravity/`), whose code is in part adapted under
 # CC BY-NC-SA 4.0 (`LICENSES/`, `NOTICE`). Off, the crate is MIT only and
 # Antigravity is the one account signed in on this Mac, read-only.
 antigravity-accounts = []
@@ -34,14 +34,14 @@ fs4 = { version = "1", features = ["sync"] }
 jiff = "0.2"
 libc = "0.2"
 md5 = "0.7"
-# The features Cockpit Tools builds reqwest 0.12 with that shape a request:
-# the default TLS (macOS's own) and the same Accept-Encoding.
+# The features that shape a request to Google's Antigravity endpoints:
+# the default TLS (macOS's own) and the Accept-Encoding sent.
 reqwest = { version = "0.12", features = ["blocking", "json", "gzip", "brotli", "deflate", "zstd"] }
 serde.workspace = true
 # `raw_value`: the session logs' lines are read for their token fields
 # only; the rest of a line is skipped without being copied (`stats`).
 serde_json = { workspace = true, features = ["raw_value"] }
-# The quota cache is named by the SHA-256 of the email, as Cockpit names it.
+# The quota cache is named by the SHA-256 of the email.
 sha2 = "0.10"
 # Git's object ids: a skill folder's tree hash, as `npx skills` records it.
 sha1 = "0.10"
@@ -56,8 +56,8 @@ junction = "2"
 # The default browser or app (`os::SystemOpener`): what `tauri-plugin-opener`
 # opens with in the app.
 open = "5"
-# The command lines of the processes that run (`win::Tasks`), as Cockpit
-# Tools reads them on Windows; never built on macOS, where it would ask for
+# The command lines of the processes that run (`win::Tasks`), read on
+# Windows; never built on macOS, where it would ask for
 # permissions `ps` does not need.
 sysinfo = { version = "0.36", default-features = false, features = ["system"] }
 # Whether a process runs and a file's volume and index (`os`); the app's own

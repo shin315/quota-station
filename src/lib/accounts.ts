@@ -154,7 +154,7 @@ export function claudeCells(a: Account, now: Date): CellView[] {
     cellOf(pick('week'), 'week', now, has ? t('không có', 'none') : '—'),
     cellOf(pick('fableWeek'), 'fableWeek', now),
   ].map((c) =>
-    c.none && c.kind === 'week' && has ? { ...c, title: t('claude-swap không báo hạn mức tuần cho tài khoản này', 'claude-swap reports no weekly quota for this account') } : c,
+    c.none && c.kind === 'week' && has ? { ...c, title: t('Không có hạn mức tuần cho tài khoản này', 'No weekly quota is reported for this account') } : c,
   );
 }
 

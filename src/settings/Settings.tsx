@@ -19,7 +19,7 @@
 // (26/10/2026): Chung (with the backup folder, and the Cập nhật card: new
 // versions and Chẩn đoán), Hiển thị, Thông báo and Dịch vụ (with the
 // variables' card), and Nâng cao. A build with the Antigravity accounts
-// credits Cockpit Tools and its licence under the version (`AgyCredit`).
+// names their licence and its NOTICE under the version (`AgyCredit`).
 
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Tabs as TabsPrimitive } from 'radix-ui';
@@ -434,8 +434,8 @@ function Version({ app }: { app: AppView }) {
 
 /**
  * In a build with the Antigravity accounts (`capabilities.agyAccounts`): the
- * credit their licence asks for, Cockpit Tools by jlcodes under CC BY-NC-SA
- * 4.0, and the `NOTICE` this copy carries.
+ * credit their licence (CC BY-NC-SA 4.0) asks for: the `NOTICE` this copy
+ * carries, which names the adapted work.
  */
 export function AgyCredit({ onAction }: { onAction(act: Action): void }) {
   return (
@@ -443,8 +443,8 @@ export function AgyCredit({ onAction }: { onAction(act: Action): void }) {
       label={t('Giấy phép', 'License')}
       inline
       hint={t(
-        'Tài khoản Antigravity phỏng theo Cockpit Tools (jlcodes), giấy phép CC BY-NC-SA 4.0.',
-        'The Antigravity accounts are adapted from Cockpit Tools (jlcodes), licensed under CC BY-NC-SA 4.0.',
+        'Tài khoản Antigravity có mã phỏng theo một dự án dùng giấy phép CC BY-NC-SA 4.0; ghi công ở file NOTICE kèm app.',
+        'The Antigravity accounts include adapted code licensed under CC BY-NC-SA 4.0; the credits are in the NOTICE file shipped with the app.',
       )}
     >
       <LinkButton small onClick={() => onAction('release:notice')}>
@@ -967,8 +967,8 @@ export function Settings(props: SettingsProps) {
                       <span className={CODE}>{model.antigravity.clientPath}</span>
                       {os(t(', quyền 600, chỉ có trên Mac này.', ', mode 600, on this Mac only.'), t(', chỉ có trên máy này.', ', on this PC only.'))}{' '}
                       {t(
-                        'Chép client_id và client_secret từ src-tauri/src/modules/oauth.rs trong mã nguồn Cockpit Tools (https://github.com/jlcodes99/cockpit-tools); định dạng và lệnh ' + os('', 'PowerShell ') + 'tạo file có trong mục “The OAuth client file” của hướng dẫn: https://github.com/shin315/quota-station/blob/main/docs/how-it-works.md#the-oauth-client-file',
-                        'Copy client_id and client_secret from src-tauri/src/modules/oauth.rs in Cockpit Tools’ source (https://github.com/jlcodes99/cockpit-tools); the guide’s “The OAuth client file” section gives the format and the ' + os('', 'PowerShell ') + 'command that makes it: https://github.com/shin315/quota-station/blob/main/docs/how-it-works.md#the-oauth-client-file',
+                        'Điền client_id và client_secret của OAuth client Antigravity; định dạng và lệnh ' + os('', 'PowerShell ') + 'tạo file có trong mục “The OAuth client file” của hướng dẫn: https://github.com/shin315/quota-station/blob/main/docs/how-it-works.md#the-oauth-client-file',
+                        'Fill in the client_id and client_secret of Antigravity’s OAuth client; the guide’s “The OAuth client file” section gives the format and the ' + os('', 'PowerShell ') + 'command that creates the file: https://github.com/shin315/quota-station/blob/main/docs/how-it-works.md#the-oauth-client-file',
                       )}
                     </p>
                   </More>

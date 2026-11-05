@@ -3,16 +3,13 @@
 // SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
 // Ported from Cockpit Tools `src-tauri/src/modules/oauth.rs` (1.3.70, commit
-// 244b957, CC BY-NC-SA 4.0); changes: one OAuth client, read from
-// `oauth-client.json` instead of constants in the source
-// (`resolve_oauth_client_key` dropped); blocking HTTP; typed errors that
-// keep only Google's error code, never a response body, a token or the
-// secret; no logging; the clock is passed in; the endpoints point at a local
-// fake in the tests. The URLs, scopes, parameters, timeout and refresh rule
-// are Cockpit's.
+// 244b957); modified for this app (NOTICE).
 
 //! Google's side of an Antigravity login: the authorization URL, the code
-//! exchange, the token refresh and userinfo.
+//! exchange, the token refresh and userinfo. Blocking HTTP; errors keep only
+//! Google's error code, never a response body, a token or the secret;
+//! nothing is logged; the clock is passed in, and the tests point the
+//! endpoints at a local fake.
 
 use std::time::Duration;
 
@@ -25,7 +22,7 @@ const TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
 const USERINFO_URL: &str = "https://www.googleapis.com/oauth2/v2/userinfo";
 const AUTH_URL: &str = "https://accounts.google.com/o/oauth2/v2/auth";
 
-/// Antigravity's scopes, in Cockpit's order.
+/// Antigravity's scopes, in their usual order.
 pub const SCOPES: [&str; 7] = [
     "openid",
     "https://www.googleapis.com/auth/cloud-platform",
@@ -36,7 +33,7 @@ pub const SCOPES: [&str; 7] = [
     "https://www.googleapis.com/auth/aicode",
 ];
 
-/// Every request's timeout (Cockpit's `create_client(15)`).
+/// Every request's timeout.
 pub const HTTP_TIMEOUT: Duration = Duration::from_secs(15);
 /// A token is refreshed when it has less than this left, and only right
 /// before it is used.

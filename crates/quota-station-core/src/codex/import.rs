@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: MIT
 
 //! Sign-ins brought in from a file: Codex's own `auth.json`, or the
-//! `codex-*.json` CLIProxyAPI keeps (the same flat fields Cockpit exports as
-//! "CPA"). A file may hold one sign-in, an array of them or one a line.
+//! `codex-*.json` CLIProxyAPI keeps (the same flat fields other tools export
+//! as "CPA"). A file may hold one sign-in, an array of them or one a line.
 //!
 //! Nothing here sends, renews or prints a token: a sign-in is read for who
 //! it is, as [`super::accounts::who`] reads one, and kept in memory only

@@ -124,7 +124,6 @@ export function agyRows(view: AgyAccounts): AgyRowView[] {
 }
 
 const CLIENT_GUIDE = 'https://github.com/shin315/quota-station/blob/main/docs/how-it-works.md#the-oauth-client-file';
-const COCKPIT_SOURCE = 'https://github.com/jlcodes99/cockpit-tools';
 
 /** Why "Thêm tài khoản" cannot run yet, or null when it can. */
 export function clientNotice(view: AgyAccounts): { tone: 'warn' | 'bad'; title: string; body: string } | null {
@@ -135,15 +134,15 @@ export function clientNotice(view: AgyAccounts): { tone: 'warn' | 'bad'; title: 
       t('File đặt ở ' + view.clientPath + '. ', 'The file goes at ' + view.clientPath + '. '),
     ) +
     t(
-      'Chép client_id và client_secret từ src-tauri/src/modules/oauth.rs trong mã nguồn Cockpit Tools (' + COCKPIT_SOURCE + '); định dạng và lệnh ' + os('', 'PowerShell ') + 'tạo file có trong mục “The OAuth client file” của hướng dẫn: ' + CLIENT_GUIDE,
-      'Copy client_id and client_secret from src-tauri/src/modules/oauth.rs in Cockpit Tools’ source (' + COCKPIT_SOURCE + '); the guide’s “The OAuth client file” section gives the format and the ' + os('', 'PowerShell ') + 'command that makes it: ' + CLIENT_GUIDE,
+      'Điền client_id và client_secret của OAuth client Antigravity; định dạng và lệnh ' + os('', 'PowerShell ') + 'tạo file có trong mục “The OAuth client file” của hướng dẫn: ' + CLIENT_GUIDE,
+      'Fill in the client_id and client_secret of Antigravity’s OAuth client; the guide’s “The OAuth client file” section gives the format and the ' + os('', 'PowerShell ') + 'command that creates the file: ' + CLIENT_GUIDE,
     );
   const notices: Record<Exclude<ClientStatus, 'ok'>, { tone: 'warn' | 'bad'; title: string; body: string }> = {
     missing: {
       tone: 'warn',
       title: t('Chưa có oauth-client.json', 'No oauth-client.json yet'),
       body:
-        mac(t('App đăng nhập Google bằng OAuth client của Antigravity, như Cockpit. Mã client không nằm trong mã nguồn, nên cần đặt nó vào file oauth-client.json trên máy này. ', 'The app signs in to Google with Antigravity’s OAuth client, as Cockpit does. The client ID is not in the source code, so it has to go in an oauth-client.json file on this Mac. ')) +
+        mac(t('App đăng nhập Google bằng OAuth client của Antigravity. Mã client không nằm trong mã nguồn, nên cần đặt nó vào file oauth-client.json trên máy này. ', 'The app signs in to Google with Antigravity’s OAuth client. The client ID is not in the source code, so it has to go in an oauth-client.json file on this Mac. ')) +
         where,
     },
     tooOpen: {

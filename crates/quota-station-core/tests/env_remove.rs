@@ -152,7 +152,7 @@ fn claude_code_settings_and_their_local_twin_are_checked() {
     assert_eq!(token.at(), "~/.claude/settings.json dòng 4");
     assert_eq!(
         token.effect,
-        "Ở mọi lần chạy, Claude Code gửi token này thay cho đăng nhập của tài khoản claude-swap đang chọn."
+        "Ở mọi lần chạy, Claude Code gửi token này thay cho đăng nhập của tài khoản Claude đang chọn."
     );
     no_trap("the check", &serde_json::to_string(&c).unwrap());
 

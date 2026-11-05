@@ -96,7 +96,7 @@ export interface Api {
     slot: number,
     holdUntil: string | null,
   ): Promise<Outcome>;
-  /** Carries claude-swap's accounts over; claude-swap is left as it is. The result is in `claudeAccounts.last`. */
+  /** Carries the other account switcher's accounts over; that tool is left as it is. The result is in `claudeAccounts.last`. */
   claudeImport(): Promise<Model>;
   /** Logs a new account in with `claude auth login` in a folder of its own; waits for the browser. */
   claudeAddLogin(): Promise<Model>;

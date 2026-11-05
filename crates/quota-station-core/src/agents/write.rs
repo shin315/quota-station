@@ -4,15 +4,14 @@
 //! Writing an agent's file safely, and the backups kept before each write.
 //! The Codex switch (M8) and the MCP tab (M9) both write through here.
 //!
-//! A write: the bytes the edit was planned on (or that the file was not
-//! there); the new text to a temporary file next to the real one (mode 600,
-//! synced); a backup of the planned-on text **with its secrets left out**
-//! ([`super::redact`]) in the app's `backups/<agent>/` (the newest 10
-//! stay); the real file read again and compared with the planned-on bytes
-//! (another program wrote it meanwhile: nothing is replaced); the rename;
-//! and a read of the result. As CC Switch notes (`live/engine.rs`), a
-//! program outside the app can still write between the comparison and the
-//! rename; the hash the app keeps of its write catches that afterwards.
+//! A write: the bytes the edit was planned on (or that the file was not there);
+//! the new text to a temporary file next to the real one (mode 600, synced); a
+//! backup of the planned-on text **with its secrets left out**
+//! ([`super::redact`]) in the app's `backups/<agent>/` (the newest 10 stay);
+//! the real file read again and compared with the planned-on bytes (another
+//! program wrote it meanwhile: nothing is replaced); the rename; and a read of
+//! the result. A program outside the app can still write between the comparison
+//! and the rename; the hash the app keeps of its write catches that afterwards.
 
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};

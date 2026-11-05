@@ -2,10 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Onur Cetinkol (claude-swap)
 // SPDX-License-Identifier: MIT
 
+// Adapted from claude-swap's `add` command (MIT,
+// https://github.com/realiti4/claude-swap); modified for this app (NOTICE).
 // Logging a new account in through `claude auth login` in a folder of its
-// own, and keeping a setup token as a credential with only an access token,
-// follow claude-swap (`cswap add`, `cswap add --token`, MIT,
-// https://github.com/realiti4/claude-swap).
+// own, and keeping a setup token as a credential with only an access token.
 
 //! Adding, removing and changing the app's Claude accounts: a new login in
 //! a folder of its own (Claude Code's default login is never touched), the

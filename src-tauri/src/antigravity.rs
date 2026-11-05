@@ -6,7 +6,7 @@
 //! consent screen, take a pasted callback, cancel, log out, open Google's
 //! verification page, and read every account when the tab opens. Tokens
 //! stay in the app's own Keychain items; the windows only ever get each
-//! account's id (Cockpit's MD5 of its email), its number, its status, how
+//! account's id (from the MD5 of its email), its number, its status, how
 //! the app's read of it stands and, when the owner turns them on, the
 //! emails. The numbers themselves come from the Antigravity row's list
 //! (`quota_station_core::antigravity::listing`).
@@ -45,7 +45,7 @@ pub struct AccountsView {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountView {
-    /// Cockpit's id: `antigravity_` and the MD5 of the email. Not the email,
+    /// The id: `antigravity_` and the MD5 of the email. Not the email,
     /// but a guessed address can be checked against it (SECURITY.md).
     pub id: String,
     /// Its place in the index, from 1, as the Antigravity row numbers it.
@@ -210,7 +210,7 @@ pub async fn agy_login(app: AppHandle, state: State<'_, AppState>) -> Result<Log
     reader::publish(&app, &shared);
     match done {
         Ok(Ok(kept)) => {
-            // Its quota is read now, as Cockpit reads it right after a login.
+            // Its quota is read right after a login.
             shared.lock().agy_pace.ask(&kept.id);
             shared.wake_agy();
             Ok(LoginDone { number: kept.number, added: kept.added })

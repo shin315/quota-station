@@ -3,8 +3,8 @@
 
 // The Claude accounts Quota Station keeps, in the Claude tab's table: each
 // account's ⋯ menu (details and nickname, signing in again, removing it),
-// "Thêm tài khoản" and its dialogs (ClaudeDialogs), and claude-swap's
-// import while its folder is here. The menu also holds an account out of the
+// "Thêm tài khoản" and its dialogs (ClaudeDialogs), and the import from the
+// other account switcher while its folder is here. The menu also holds an account out of the
 // rotation, and the tab has the rotation's LaunchAgent with the old
 // switcher's warning.
 
@@ -124,7 +124,7 @@ export function claudeManage(props: Props): ClaudeManage {
       <BannerBox tone="info" title={setup.title} body={setup.body}>
         <BannerButtons>
           <Button small tint disabled={busy} onClick={() => onAction('claude:import')}>
-            {t('Nhập từ claude-swap', 'Import from claude-swap')}
+            {t('Nhập từ công cụ chuyển tài khoản khác', 'Import from another account switcher')}
           </Button>
           <Button small onClick={() => onAction('guide:switcher')}>
             {t('Hướng dẫn', 'Guide')}
@@ -144,10 +144,10 @@ export function claudeManage(props: Props): ClaudeManage {
     emptyExtra: view.importable ? (
       <>
         <Button small disabled={busy} onClick={() => onAction('claude:import')}>
-          {t('Nhập từ claude-swap', 'Import from claude-swap')}
+          {t('Nhập từ công cụ chuyển tài khoản khác', 'Import from another account switcher')}
         </Button>
         <LinkButton small onClick={() => onAction('guide:switcher')}>
-          {t('Hướng dẫn chuyển từ claude-swap', 'How to move from claude-swap')}
+          {t('Hướng dẫn chuyển từ công cụ chuyển tài khoản khác', 'How to move from another account switcher')}
         </LinkButton>
       </>
     ) : null,

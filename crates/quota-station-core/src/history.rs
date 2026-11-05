@@ -4,19 +4,19 @@
 //! The switch history (F08), Claude and Antigravity, each line with its
 //! reason and where it comes from:
 //!
-//! - the app's own journal, `history/history.jsonl` in its folder: a Claude switch
-//!   the owner made here, an account in use that changed between two
-//!   readings with nothing here to explain it, and an Antigravity switch
-//!   that Antigravity.app undid (the six-hour watch of M4c); the line of a
-//!   switch the owner made keeps the keys an extension gives it
-//!   ([`crate::switching::AroundSwitch::journal`]), and the History tab
-//!   shows the extension's keys from them ([`Hooks::manual_line`]);
+//! - the app's own journal, `history/history.jsonl` in its folder: a switch of
+//!   the Claude account the owner made here, an account in use that changed
+//!   between two readings with nothing here to explain it, and an Antigravity
+//!   switch that Antigravity.app undid (the six-hour watch of M4c); the line of
+//!   a switch the owner made keeps the keys an extension gives it
+//!   ([`crate::switching::AroundSwitch::journal`]), and the History tab shows
+//!   the extension's keys from them ([`Hooks::manual_line`]);
 //! - the app's Antigravity switch log of M4c, `antigravity/switch-log.jsonl`;
 //! - the app's Codex switch log of M8, `codex/switch-log.jsonl`: the owner's
 //!   switches and the changes of provider made outside the app;
-//! - an extension's own lines ([`Hooks::history_lines`]), each with the
-//!   source and the reason the extension gives ([`ExtLine`]); they too
-//!   explain a change of the account in use.
+//! - an extension's own lines ([`Hooks::history_lines`]), each with the source
+//!   and the reason the extension gives ([`ExtLine`]); they too explain a
+//!   change of the account in use.
 //!
 //! Accounts are kept by slot number (Claude) and by the app's account id
 //! (Antigravity, shown by its number in the app's list), Codex providers by
@@ -252,8 +252,8 @@ pub fn append(app: &AppDir, line: &Stored) -> std::io::Result<()> {
     app.write_private(&path(app), &out)
 }
 
-/// A Claude switch the owner made here, with the keys the extension keeps
-/// for it (`ext`, [`crate::switching::Done::journal`]).
+/// A switch of the Claude account the owner made here, with the keys the
+/// extension keeps for it (`ext`, [`crate::switching::Done::journal`]).
 pub fn manual_claude(
     app: &AppDir,
     from: Option<u32>,

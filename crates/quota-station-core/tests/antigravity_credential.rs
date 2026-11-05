@@ -5,15 +5,13 @@
 #![cfg(feature = "antigravity-accounts")]
 // The two tests are ported from Cockpit Tools
 // `src-tauri/src/modules/antigravity_credential_tests.rs` (1.3.70, commit
-// 244b957, CC BY-NC-SA 4.0); changes: they write through the app's
-// `SharedLogin` with a token instead of Cockpit's private payload function,
-// and the fixture folder is named by a counter instead of the clock.
+// 244b957); modified for this app (NOTICE).
 
 //! The write of the shared Antigravity login, against a fake `security`:
 //! a failed write must leave the old login as it was, and a write that
 //! hangs must be stopped before it can change anything late. On Windows,
 //! against a fake Credential Manager: a refused write leaves the old login,
-//! and the write is Cockpit's credential.
+//! and the write is the shared credential Antigravity reads.
 
 #[cfg(windows)]
 mod common;
@@ -123,7 +121,7 @@ fn a_refused_credential_write_leaves_the_existing_credential() {
 
 #[cfg(windows)]
 #[test]
-fn the_windows_write_is_cockpits_credential_with_the_payload_as_it_is() {
+fn the_windows_write_is_the_shared_credential_with_the_payload_as_it_is() {
     use common::os::FakeCredentials;
     use quota_station_core::antigravity::credential::{build_payload, TARGET};
     let store = FakeCredentials::new();

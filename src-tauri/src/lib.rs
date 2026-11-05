@@ -8,10 +8,10 @@
 //! since M3 it also switches Claude when the owner
 //! confirms. Since the Claude accounts moved in (`docs/claude-accounts.md`)
 //! it keeps their logins itself, reads their usage and runs a process as a
-//! chosen account (`quota-station claude …`), without claude-swap.
+//! chosen account (`quota-station claude …`), without another tool.
 //! Since M4a it logs Antigravity accounts in itself, since M4b it reads
 //! their quota itself and lists it on the Antigravity row, and since M4c
-//! it switches the Antigravity account without Cockpit Tools. Since M6 it
+//! it switches the Antigravity account itself. Since M6 it
 //! keeps a history of the switches and sends alerts as macOS cards with
 //! buttons. Since M7 it can launch at login (a switch in settings, off by
 //! default). Since M8 it switches Codex between the ChatGPT login and a

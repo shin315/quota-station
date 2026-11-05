@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-//! The rotation's decision, ported from the owner's `cswap-prefer-team`
-//! script (its Python block), so Quota Station keeps Claude on the same
+//! The rotation's decision, ported from the owner's old switcher script
+//! (its Python block), so Quota Station keeps Claude on the same
 //! accounts the script did, with the same rules but two: the early switch,
 //! which the script has off, is on here, and the Team accounts are spent in
 //! the order their weekly windows reset, which the script does not look at.
@@ -45,8 +45,7 @@
 //!   started gets one tiny message, so its window starts now, at most every
 //!   30 minutes per account, and only where the owner turned priming on.
 //!
-//! An account the owner held out of the rotation is never switched to, as
-//! claude-swap's `disable` holds an account out of its own rotation; the
+//! An account the owner held out of the rotation is never switched to; the
 //! account in use is kept or left by the rules above, held out or not.
 //!
 //! The decision is the script's line, word for word (`switch 3 (4.0%, ends

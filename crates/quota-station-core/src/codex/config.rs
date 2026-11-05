@@ -4,7 +4,8 @@
 
 //! Codex's `config.toml`: which provider it uses, the custom provider table
 //! a switch goes to, its own key, the MCP list (read here; only the MCP tab
-//! edits it, [`crate::agents::codex_mcp`]) and what CC Switch left behind;
+//! edits it, [`crate::agents::codex_mcp`]) and what another Codex switcher
+//! left behind;
 //! and the edit a switch makes.
 //!
 //! The edit touches only the keys the switch owns: `model_provider` at the
@@ -14,18 +15,18 @@
 //! text, at the places the parser found, and checked by [`apply`] before it
 //! is returned. A switch never writes `auth.json` or `[mcp_servers]`.
 //!
-//! "Dán khoá" ([`key_plan`], [`apply_key`]) is the one other edit: the
-//! custom provider's own `experimental_bearer_token`, and its `base_url` when
-//! it still points at CC Switch's local proxy, in that table only and checked
-//! the same way. The key is never kept, printed or sent back to a window.
+//! "Dán khoá" ([`key_plan`], [`apply_key`]) is the one other edit: the custom
+//! provider's own `experimental_bearer_token`, and its `base_url` when it still
+//! points at another switcher's local proxy, in that table only and checked the
+//! same way. The key is never kept, printed or sent back to a window.
 //!
-//! Ported in part from CC Switch (MIT, © 2025 Jason Young), commit 79e754ab,
-//! `src-tauri/src/live/project/codex.rs`: the reserved and built-in provider
-//! ids, how a table's own credentials are told apart (`declared_auth`), the
-//! `requires_openai_auth` rule, the refusal of a table with no key of its own
-//! (`keyless_fallback_error`), the placeholder CC Switch leaves in a dormant
-//! table, and the check that the active profile does not choose another
-//! provider (`check_effective_route`). See `NOTICE`.
+//! Ported in part from CC Switch `src-tauri/src/live/project/codex.rs` (4.0.15,
+//! commit 79e754ab, MIT); modified for this app (`NOTICE`). Ported: the
+//! reserved and built-in provider ids, how a table's own credentials are told
+//! apart (`declared_auth`), the `requires_openai_auth` rule, the refusal of a
+//! table with no key of its own (`keyless_fallback_error`), the placeholder
+//! left in a dormant table, and the check that the active profile does not
+//! choose another provider (`check_effective_route`).
 
 use serde::Serialize;
 use toml_edit::{Document, DocumentMut, Item, TableLike};
@@ -38,21 +39,22 @@ pub const RESERVED_TABLE_IDS: &[&str] = &["openai", "ollama", "lmstudio"];
 /// Codex's own providers (case-sensitive, as upstream: `OpenAI` is a valid custom id).
 const BUILT_IN_IDS: &[&str] =
     &["amazon-bedrock", "amazon-bedrock-runtime", "openai", "ollama", "lmstudio"];
-/// The id CC Switch writes its custom provider under; the app prefers it
-/// when the file has several provider tables and none is remembered.
+/// The id another Codex switcher writes its custom provider under; the app
+/// prefers it when the file has several provider tables and none is remembered.
 pub const CC_SWITCH_ID: &str = "custom";
-/// The key CC Switch leaves in the table while the ChatGPT login is in use
-/// (its "dormant" table, pointing at its own proxy): not a real key.
+/// The key another Codex switcher leaves in the table while the ChatGPT login
+/// is in use (its "dormant" table, pointing at its own proxy): not a real key.
 pub const PROXY_TOKEN_PLACEHOLDER: &str = "PROXY_MANAGED";
-/// The model list CC Switch writes and points `model_catalog_json` at.
+/// The model list another Codex switcher writes and points
+/// `model_catalog_json` at (its own file name).
 pub const CC_SWITCH_CATALOG: &str = "cc-switch-model-catalog.json";
-/// The port of CC Switch's local proxy, which its dormant table points at.
+/// The port of that switcher's local proxy, which its dormant table points at.
 pub const CC_SWITCH_PROXY_PORT: u16 = 15721;
 /// The key Codex reads from a custom provider's table.
 pub const BEARER_KEY: &str = "experimental_bearer_token";
 
-/// `base_url` goes to CC Switch's local proxy: without CC Switch running,
-/// Codex reaches nothing there.
+/// `base_url` goes to another switcher's local proxy: without that tool
+/// running, Codex reaches nothing there.
 pub fn cc_switch_proxy(base_url: &str) -> bool {
     url::Url::parse(base_url).is_ok_and(|u| {
         matches!(u.host_str(), Some("127.0.0.1" | "localhost" | "[::1]"))
@@ -75,7 +77,8 @@ pub enum KeyKind {
     /// The table authenticates itself: an `auth` command, `aws`, an
     /// `Authorization` header or query parameters.
     Headers,
-    /// Only CC Switch's placeholder: the real key is in CC Switch's data.
+    /// Only the placeholder another tool left: the real key is in that
+    /// tool's data.
     Placeholder,
     /// No credentials of its own.
     None,
@@ -124,7 +127,7 @@ pub struct Custom {
     pub requires_openai_auth: Option<bool>,
     /// A plain `[model_providers.<id>]` table: other shapes are not edited.
     pub plain: bool,
-    /// `base_url` points at CC Switch's local proxy.
+    /// `base_url` points at another switcher's local proxy.
     pub proxy: bool,
 }
 
@@ -151,8 +154,8 @@ pub struct Parsed {
     pub profile: Option<Profile>,
     pub store: AuthStore,
     pub mcp: Vec<Mcp>,
-    /// What CC Switch left in the file: `model_catalog_json`, a table under
-    /// a reserved id, its dormant table.
+    /// What another Codex switcher left in the file: `model_catalog_json`, a
+    /// table under a reserved id, its dormant table.
     pub traces: Vec<String>,
     /// A top-level `openai_base_url` sends the ChatGPT login elsewhere.
     pub openai_base_url: bool,
@@ -169,7 +172,7 @@ pub struct Profile {
 
 impl Parsed {
     /// The key of the active profile that would send requests somewhere
-    /// other than `selector` (CC Switch's `check_effective_route`). Without
+    /// other than `selector` (`check_effective_route` upstream). Without
     /// `model_provider` at the top Codex uses `openai`: a profile that picks
     /// it goes where the ChatGPT login goes.
     pub fn profile_override(&self, selector: Option<&str>) -> Option<(String, String)> {
@@ -213,8 +216,8 @@ fn declares_authorization_header(item: Option<&Item>) -> bool {
         .is_some_and(|t| t.iter().any(|(key, _)| key.eq_ignore_ascii_case("authorization")))
 }
 
-/// The table's own credentials (CC Switch's `declared_auth` and the keyless
-/// branch of `custom_route`). An `Authorization` header counts as Headers
+/// The table's own credentials (`declared_auth` and the keyless branch of
+/// `custom_route` upstream). An `Authorization` header counts as Headers
 /// whatever `requires_openai_auth` holds now: the switch sets it to `false`
 /// for this kind, so the header is what Codex sends.
 fn key_kind(table: &dyn TableLike) -> KeyKind {
@@ -390,7 +393,8 @@ pub enum Refusal {
     /// The table has no key of its own: Codex would send the ChatGPT login
     /// to the provider.
     NoKey,
-    /// Only CC Switch's placeholder: the real key is in CC Switch's data.
+    /// Only the placeholder another tool left: the real key is in that
+    /// tool's data.
     Placeholder,
     /// The active profile picks another provider.
     Profile { profile: String, key: String },
@@ -600,7 +604,7 @@ pub enum KeyRefusal {
     /// Spaces, line breaks or control characters inside: not a key.
     NotAKey,
     TooLong,
-    /// CC Switch's placeholder, not a key.
+    /// The placeholder another tool left, not a key.
     Placeholder,
     /// `${NAME}` or `$NAME`: a variable's name, not its value.
     Reference,
@@ -723,7 +727,8 @@ pub fn key_plan(
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OldToken {
     Absent,
-    /// CC Switch's placeholder or an empty string, which an undo can put back.
+    /// The placeholder another tool left or an empty string, which an undo
+    /// can put back.
     NotAKey(String),
     /// A key: the app does not keep it, so it cannot be put back.
     Key,

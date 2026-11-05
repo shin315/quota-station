@@ -72,16 +72,17 @@ Cargo features decide what is compiled in. A plain `cargo tauri build` or
 the release workflow ([`releasing.md`](releasing.md)).
 
 - **`antigravity-accounts`**: logging in and switching several Antigravity
-  accounts, adapted from Cockpit Tools (see [`THIRD_PARTY.md`](../THIRD_PARTY.md)).
+  accounts, with adapted code under CC BY-NC-SA 4.0 (see
+  [`THIRD_PARTY.md`](../THIRD_PARTY.md)).
   The Rust side is the feature; the interface's
   screens go into the bundle only with `QS_ANTIGRAVITY_ACCOUNTS=1` (Vite swaps
   in `src/antigravity-off/` otherwise, and a build without it stops if it would
   bundle a file from `src/antigravity/`). By hand:
   `cargo tauri build --features antigravity-accounts --config src-tauri/tauri.antigravity.conf.json`
   with `QS_ANTIGRAVITY_ACCOUNTS=1`; the `--config` overlay makes the bundle's
-  licence read `MIT AND CC-BY-NC-SA-4.0` instead of `MIT`. Such a build credits
-  Cockpit Tools and its licence in Cài đặt › Chung › Cập nhật, with a link to
-  `NOTICE`. Without it the app reads the
+  licence read `MIT AND CC-BY-NC-SA-4.0` instead of `MIT`. Such a build names
+  that licence in Cài đặt › Chung › Cập nhật, with a link to `NOTICE` for the
+  credits. Without it the app reads the
   Antigravity account signed in and does not log in or switch accounts.
 
 Every build carries `LICENSE`, `NOTICE` and `LICENSES/CC-BY-NC-SA-4.0.txt`
@@ -115,7 +116,7 @@ them, and the app with the advanced part finds them as the owner left them.
 
 `npm run dev` serves the popover at http://localhost:1420/ on the fixtures and
 the fake Rust side the tests use, without Tauri. Nothing is switched, no
-browser opens and no file is written: an action only waits (a Claude switch
+browser opens and no file is written: an action only waits (switching Claude
 1.5 s, a Claude account action or an Antigravity login 3 s, a rules save 1 s,
 an update step 1.5 s, MCP 0.6 s, a restore 1.2 s, skills 0.8 s, a copy 0.9 s,
 a set 0.5 s, an Agent updates check 1 s and an update 2 s) and updates the
@@ -314,11 +315,11 @@ What the main suites check:
   in [`SECURITY.md`](../SECURITY.md).
 - **Antigravity quota** (`antigravity_quota.rs`) runs against the same fake
   Google, which also answers `loadCodeAssist`, `fetchAvailableModels` and
-  `retrieveUserQuotaSummary` with fixtures in Cockpit's cache format
+  `retrieveUserQuotaSummary` with fixtures in the quota cache format
   (`tests/fixtures/cloud-code/`), under a `daily` and a `prod` path; the hosts
   can be changed only in a test build. They compare the headers, bodies and user
-  agents with Cockpit's, with and without a fake Antigravity bundle on disk;
-  check that the cache file is the record Cockpit writes, byte for byte; and
+  agents with the expected ones, with and without a fake Antigravity bundle on
+  disk; check that the cache file is the expected record, byte for byte; and
   cover the 60-second reuse, one account at a time with the one in use first, a
   refresh that is due, `invalid_grant`, 401, 403, 429 and 5xx, network
   failures, and a verification request. One more test reads the Antigravity row
@@ -326,8 +327,9 @@ What the main suites check:
   with the one in use told by its reading.
 - **Antigravity switch** (`antigravity_switch.rs`) never touches the Keychain,
   Antigravity.app or the real `agy`. A fake `security` checks that the shared
-  login is written with Cockpit's exact arguments, keeps the old item when the
-  write fails and is stopped when it hangs (the two tests ported from Cockpit).
+  login is written with the exact arguments, keeps the old item when the
+  write fails and is stopped when it hangs (the two ported tests, credited in
+  [`NOTICE`](../NOTICE)).
   Antigravity.app is a shell process behind fake `plutil`, `pgrep`,
   `osascript` and `open`: one that quits, one that stays (the shared login is
   not touched and it keeps running), one opened again before a plain switch,
@@ -361,15 +363,15 @@ What the main suites check:
   the `test-support` feature `Security::system()` and `Endpoints::anthropic()`
   refuse to run. They cover the switch and its locks, a login the app does not
   keep, the usage reads and their back-off, a refresh of an account not in use
-  and never of the one in use, the import (claude-swap's folder and items
-  unchanged, running it again changes nothing), adding and removing accounts,
+  and never of the one in use, the import (the other account switcher's
+  folder and items unchanged, running it again changes nothing), adding and removing accounts,
   the session folders and the command line. The read after a switch is the
   app's own reading of the accounts. Session counting runs on session files in
   a temporary folder.
 - **Switching, the switcher and the pause** (`switching.rs`, `switcher.rs`,
   `pause.rs`, `claude_rotation.rs`): the rotation's decisions on the same cases
-  as the old script; one ignored test runs the real `cswap-prefer-team` with
-  `--dry-run` beside the port when `QUOTA_STATION_PREFER_TEAM` names it. The
+  as the old script; one ignored test runs the real earlier rotation script
+  with `--dry-run` beside the port when `QUOTA_STATION_PREFER_TEAM` names it. The
   pause flag tests write the flag in a temporary folder with an `until` ahead,
   passed, malformed or missing.
 - **Rotation and the other Macs** (`rotation.rs`, `peers.rs`) write rotation
@@ -535,7 +537,8 @@ ui_fixtures_advanced`.
   modules:
   - `claude/`: the Claude accounts: the Keychain store (and `credman.rs`, the
     Windows Credential Manager), Claude Code's locks and login, the switch, the
-    usage reads, the session folders, the import from claude-swap and the
+    usage reads, the session folders, the import from another account
+    switcher and the
     `quota-station claude` command line.
   - `sessions` counts live sessions; `switching` and `history` hold what the
     switch sheet and the History tab read.
@@ -711,8 +714,8 @@ the git history still name; later work is named by its pull request.
 They are M1 `Khung và số` (the frame and the numbers), M2 `Cửa sổ chính chỉ
 đọc` (a read-only main window), M3 `Chuyển Claude và tạm dừng` (switching Claude
 and pausing), M4a `Đăng nhập Antigravity trong app`, M4b `App tự đọc hạn mức
-Antigravity` and M4c `Chuyển Antigravity không cần Cockpit` (taking over what
-Cockpit Tools did), M5 `Luật xoay vòng` (the rotation rules), M6 the history
+Antigravity` and M4c `Chuyển Antigravity trong app` (switching Antigravity
+accounts in the app), M5 `Luật xoay vòng` (the rotation rules), M6 the history
 and the notifications, M7 `Chuyển đổi` (installing, updating and launching at
 login), M8 `Chuyển Codex`, M9 `MCP`, M10 `Sao lưu và khôi phục` (the MCP
 servers), M11 `Skills, Plugin, File hướng dẫn`, M12 the rest of backup and

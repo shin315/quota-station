@@ -73,9 +73,9 @@ use time::{OffsetDateTime, UtcOffset};
 /// The Claude accounts' file: they keep `testTag` on each account
 /// ([`TestKeys`]).
 ///
-/// An import of claude-swap's accounts: they bring over `testAccounts` (how
-/// many accounts the app's file has by then) and `testHome` (the home the
-/// accounts are kept under).
+/// An import of another account switcher's accounts: they bring over
+/// `testAccounts` (how many accounts the app's file has by then) and `testHome`
+/// (the home the accounts are kept under).
 ///
 /// The state file: each time the app writes it, they write their own copy
 /// beside it ([`TestCopy`]).

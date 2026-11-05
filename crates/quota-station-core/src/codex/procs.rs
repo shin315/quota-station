@@ -4,9 +4,9 @@
 
 //! Codex on this Mac as the process table shows it: `codex` sessions in a
 //! terminal, Codex App, the shared background process (`codex app-server
-//! --managed-daemon`), and whether CC Switch runs. Only `ps` is read (on
-//! Windows `sysinfo`'s table, [`crate::win::Tasks`]). The one thing run is
-//! Codex's own `codex app-server daemon restart`, after the owner
+//! --managed-daemon`), and whether another Codex switcher runs. Only `ps` is
+//! read (on Windows `sysinfo`'s table, [`crate::win::Tasks`]). The one thing
+//! run is Codex's own `codex app-server daemon restart`, after the owner
 //! confirmed it.
 //!
 //! On Windows a command line names `codex.exe` with `\`, Codex App is the
@@ -14,10 +14,11 @@
 //! process has no terminal to tell: every `codex` that is not one of
 //! [`NOT_SESSIONS`] counts as a session.
 //!
-//! Telling the daemon from the other app-servers by its command line is
-//! ported from CC Switch (MIT, © 2025 Jason Young), commit 79e754ab,
-//! `src-tauri/src/services/provider/codex_client_catalog.rs`
-//! (`app_server_role`, `after_codex_executable`, `run_restart`). See `NOTICE`.
+//! Ported in part from CC Switch
+//! `src-tauri/src/services/provider/codex_client_catalog.rs` (4.0.15, commit
+//! 79e754ab, MIT); modified for this app (`NOTICE`). Ported: telling the daemon
+//! from the other app-servers by its command line (`app_server_role`,
+//! `after_codex_executable`, `run_restart`).
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -28,7 +29,7 @@ use crate::os::{Process, ProcessList};
 use crate::runner;
 
 /// The daemon finishes its running work first, up to its 60-second grace,
-/// then starts again; CC Switch allows 75 seconds on top of the grace.
+/// then starts again, with 75 seconds on top of the grace.
 pub const RESTART_TIMEOUT: Duration = Duration::from_secs(60 + 75);
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
@@ -123,6 +124,7 @@ pub fn classify_in(processes: &[Process], needs_tty: bool) -> Procs {
     let mut p = Procs::default();
     for process in processes {
         let command = process.command.as_str();
+        // Another Codex switcher's app, by its own executable names.
         if command.contains("/CC Switch.app/Contents/MacOS/")
             || command.split(' ').next().is_some_and(|w| w.ends_with("/cc-switch"))
             || command.contains("\\CC Switch.exe")

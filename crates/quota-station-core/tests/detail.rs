@@ -26,7 +26,7 @@ fn each_claude_account_gets_its_windows_email_and_organization() {
     let report = fixture("claude-pool.json");
     let now = parse_ts(&report.generated_at);
     let mut s = Snapshot::build(Some(&report), None);
-    let list = common::claude_details("cswap-list-pool.json");
+    let list = common::claude_details("claude-list-pool.json");
     detail::apply_claude(&mut s.claude, &list, now);
     let a = &s.claude.accounts;
 
@@ -51,7 +51,7 @@ fn each_claude_account_gets_its_windows_email_and_organization() {
         ]
     );
     assert_eq!(a[1].org.as_deref(), Some("Acme Studio"));
-    // A Team seat claude-swap gives no week has no weekly window.
+    // A Team seat given no week has no weekly window.
     assert_eq!(
         windows(&a[2].windows),
         [(LineKind::Session, Some(100.0), false), (LineKind::FableWeek, Some(50.0), false)]
@@ -65,7 +65,7 @@ fn each_claude_account_gets_its_windows_email_and_organization() {
 
 #[test]
 fn a_claude_window_past_its_reset_has_no_number() {
-    let list = common::claude_details("cswap-list-pool.json");
+    let list = common::claude_details("claude-list-pool.json");
     let later = parse_ts("2026-01-16T10:30:00Z");
     let lines = detail::claude_windows(&list[3], later);
     assert_eq!(lines[0].kind, LineKind::Session);

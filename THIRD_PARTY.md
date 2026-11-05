@@ -1,14 +1,8 @@
 # Third-party notices
 
-Quota Station reads the quota with code ported from quota-axi, and runs no
-quota-axi program. The way it keeps the Claude accounts is adapted from
-claude-swap. Parts of its
-Antigravity login, quota reading and account switch are adapted from
-Cockpit Tools, parts of
-its Codex switch are ported from CC Switch, and its interface components
-are adapted from shadcn/ui; [`NOTICE`](NOTICE) lists those files and what
-was changed. The agents' and the services' logos come from svgl, and the
-interface's icons from Phosphor.
+Quota Station contains code ported or adapted from the projects below, which
+[`NOTICE`](NOTICE) credits file by file. The agents' and the services' logos
+come from svgl, and the interface's icons from Phosphor.
 
 ## Quota Station's own licenses
 
@@ -17,9 +11,9 @@ Copyright © 2026 Shin315.
 Quota Station is licensed under the [MIT License](LICENSE), except:
 
 - **The Antigravity accounts** (signing several Antigravity accounts in, reading
-  their quota and switching between them), adapted from Cockpit Tools (below),
-  are licensed under the [Creative Commons Attribution-NonCommercial-ShareAlike
-  4.0 International License](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+  their quota and switching between them), which contain code adapted under
+  CC BY-NC-SA 4.0 (below), are licensed under the [Creative Commons
+  Attribution-NonCommercial-ShareAlike 4.0 International License](https://creativecommons.org/licenses/by-nc-sa/4.0/)
   ([`LICENSES/CC-BY-NC-SA-4.0.txt`](LICENSES/CC-BY-NC-SA-4.0.txt)): personal and
   non-commercial use. They are `crates/quota-station-core/src/antigravity/`,
   `src-tauri/src/{antigravity,agy_quota,agy_switch}.rs`, `src/antigravity/`, and
@@ -35,10 +29,8 @@ Quota Station is licensed under the [MIT License](LICENSE), except:
   [SIL Open Font License 1.1](LICENSES/OFL-1.1.txt) (below).
 
 Every file names its license in an `SPDX-License-Identifier` line or in
-[`REUSE.toml`](REUSE.toml), and `reuse lint` checks it in CI. Code adapted from
-Cockpit Tools, code ported from quota-axi (MIT) and CC Switch (MIT), and code
-adapted from claude-swap (MIT) and shadcn/ui (MIT) are credited in
-[`NOTICE`](NOTICE) and in the sections below.
+[`REUSE.toml`](REUSE.toml), and `reuse lint` checks it in CI. Ported and
+adapted code is credited in [`NOTICE`](NOTICE) and in the sections below.
 
 ## quota-axi
 
@@ -80,14 +72,8 @@ SOFTWARE.
 ## claude-swap
 
 - Project: https://github.com/realiti4/claude-swap
-- How it is used: Quota Station keeps the Claude accounts itself, and the
-  logic that touches Claude Code's login is adapted from claude-swap's
-  source: the `security` commands, Claude Code's Keychain items and lock
-  folders, the switch, the usage and token calls, the session folders,
-  adding a login or a setup token, and reading claude-swap's own folder for
-  `Nhập từ claude-swap`. [`NOTICE`](NOTICE) lists the files and what was
-  changed. The app runs no claude-swap command and never writes claude-swap's
-  files or Keychain items; the import only reads them, when the owner asks.
+- How it is used: adapted code (`crates/quota-station-core/src/claude/`),
+  listed in [`NOTICE`](NOTICE).
 - License: MIT
 
 ```
@@ -119,36 +105,18 @@ SOFTWARE.
 - Project: https://github.com/jlcodes99/cockpit-tools
 - License: CC BY-NC-SA 4.0 (https://creativecommons.org/licenses/by-nc-sa/4.0/),
   © jlcodes
-- How it is used: adapted code. The Antigravity login (the OAuth URL, the
-  loopback callback, the code exchange, the token refresh, userinfo, the
-  token record and the account index), the quota reading (the Cloud Code
-  calls, the user agent and its version lookup, the host choice, and the
-  quota cache layout with its TTL) and the Antigravity account switch (the
-  shared login it writes, in the macOS Keychain and in Windows' Credential
-  Manager, the Antigravity version rule, where Windows has Antigravity and
-  how it is closed and started there, and the order of a switch) are
-  adapted from Cockpit Tools 1.3.70, commit 244b957, on macOS and Windows.
-  Its Linux branches, its Windows read of the shared login and its forced
-  close (`taskkill /F`) are not ported.
-  See [`NOTICE`](NOTICE) for the files and the changes; each
-  adapted file also says so in its header. This is why the Antigravity
-  accounts (those files, the parts that join them to the app and their
-  screens) are shared under the same license, apart from the rest of Quota
-  Station, which is MIT. They are built only with the `antigravity-accounts`
-  feature; an app built without it holds none of this code. Cockpit's menu
-  bar card was a design reference for the popover.
+- How it is used: adapted code from version 1.3.70, commit 244b957
+  (`crates/quota-station-core/src/antigravity/`), listed in
+  [`NOTICE`](NOTICE). This is why the Antigravity accounts are shared under
+  the same license, apart from the rest of Quota Station, which is MIT. They
+  are built only with the `antigravity-accounts` feature; an app built
+  without it holds none of this code.
 
 ## CC Switch
 
 - Project: https://github.com/farion1231/cc-switch
-- How it is used: ported code. The rules the Codex switch follows (the
-  reserved provider ids, how a provider table's own key is told apart, the
-  `requires_openai_auth` rule, the refusals, the `auth.json` login fields
-  and how Codex's shared background process is found and restarted) are
-  ported from CC Switch 4.0.15, commit 79e754ab. See [`NOTICE`](NOTICE) for
-  the files and the changes. The app never runs CC Switch or reads its data:
-  it only checks whether CC Switch.app and its folder exist, whether it is
-  running (from the process table), and what it left in `config.toml`.
+- How it is used: ported code from version 4.0.15, commit 79e754ab
+  (`crates/quota-station-core/src/codex/`), listed in [`NOTICE`](NOTICE).
 - License: MIT
 
 ```

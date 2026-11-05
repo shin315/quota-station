@@ -880,11 +880,11 @@ fn without_an_extension_the_claude_accounts_keep_only_the_apps_keys() {
     }
 }
 
-// An import of claude-swap's accounts.
+// An import of another account switcher's accounts.
 
-/// claude-swap's folder under `mac`'s home with one account, 1, its login
-/// in claude-swap's Keychain item.
-fn claude_swap_one(mac: &Mac) -> PathBuf {
+/// That tool's folder under `mac`'s home with one account, 1, its login
+/// in that tool's Keychain item.
+fn other_switcher_one(mac: &Mac) -> PathBuf {
     let dir = import::source(&mac.home);
     std::fs::create_dir_all(dir.join("configs")).unwrap();
     let email = "lan@example.com";
@@ -894,7 +894,7 @@ fn claude_swap_one(mac: &Mac) -> PathBuf {
     std::fs::write(dir.join(format!("configs/.claude-config-1-{email}.json")), config.to_string())
         .unwrap();
     let login = credential("acc-1", "ref-1", in_hours(5.0));
-    mac.put_item("claude-swap", &format!("account-1-{email}"), &login);
+    mac.put_item(import::SWAP_SERVICE, &format!("account-1-{email}"), &login);
     dir
 }
 
@@ -904,7 +904,7 @@ fn claude_swap_one(mac: &Mac) -> PathBuf {
 #[test]
 fn the_extension_brings_its_own_over_at_the_end_of_an_import() {
     let mac = Mac::new("ext-import");
-    let dir = claude_swap_one(&mac);
+    let dir = other_switcher_one(&mac);
     let done = import::import(&mac.store, &dir, &TestHooks).unwrap();
     assert_eq!(done.added, vec![1]);
     assert_eq!(done.ext.get("testAccounts"), Some(&json!(1)));
@@ -927,7 +927,7 @@ fn without_an_extension_an_import_brings_only_the_apps_own() {
     for (n, hooks) in [ext::none(), &NoHooks as &dyn Hooks].into_iter().enumerate() {
         let mac = Mac::new(&format!("ext-import-none-{n}"));
         assert!(hooks.claude_imported(&mac.paths).is_empty());
-        let dir = claude_swap_one(&mac);
+        let dir = other_switcher_one(&mac);
         let done = import::import(&mac.store, &dir, hooks).unwrap();
         assert_eq!(done.added, vec![1]);
         assert!(done.ext.is_empty());

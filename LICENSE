@@ -24,6 +24,6 @@ SOFTWARE.
 
 Except the Antigravity accounts, which are licensed under the Creative
 Commons Attribution-NonCommercial-ShareAlike 4.0 International License
-(LICENSES/CC-BY-NC-SA-4.0.txt) because they are adapted from Cockpit Tools.
-NOTICE lists those files, and every file names its license in an
+(LICENSES/CC-BY-NC-SA-4.0.txt) because they contain code adapted under that
+license. NOTICE lists those files and credits their source, and every file names its license in an
 SPDX-License-Identifier line or in REUSE.toml.

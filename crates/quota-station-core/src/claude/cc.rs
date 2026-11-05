@@ -2,13 +2,13 @@
 // SPDX-FileCopyrightText: 2026 Onur Cetinkol (claude-swap)
 // SPDX-License-Identifier: MIT
 
-// Which item and file hold Claude Code's login, and how a switch writes
-// them, follow claude-swap (`credentials.py`, `session.py`, `switcher.py`,
-// MIT, https://github.com/realiti4/claude-swap): the Keychain item
-// `Claude Code-credentials` under `$USER`, the per-folder item named from
-// the folder's SHA-256, the MCP and plugin secrets kept from the live
-// login, `~/.claude/.credentials.json` rewritten only when it is there, and
-// only `oauthAccount` replaced in `~/.claude.json`.
+// Adapted from claude-swap `credentials.py`, `session.py` and `switcher.py`
+// (MIT, https://github.com/realiti4/claude-swap); modified for this app
+// (NOTICE). Which item and file hold Claude Code's login, and how a switch
+// writes them: the Keychain item `Claude Code-credentials` under `$USER`, the
+// per-folder item named from the folder's SHA-256, the MCP and plugin secrets
+// kept from the live login, `~/.claude/.credentials.json` rewritten only when
+// it is there, and only `oauthAccount` replaced in `~/.claude.json`.
 
 //! Claude Code's side of a login: its Keychain item, its credentials file
 //! and the `oauthAccount` member of `~/.claude.json`.

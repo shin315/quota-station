@@ -2,12 +2,13 @@
 // SPDX-FileCopyrightText: 2026 Onur Cetinkol (claude-swap)
 // SPDX-License-Identifier: MIT
 
-// The session folder follows claude-swap's `cswap run` (`session.py`, MIT,
-// https://github.com/realiti4/claude-swap): a `CLAUDE_CONFIG_DIR` per
+// Adapted from claude-swap `session.py` (MIT,
+// https://github.com/realiti4/claude-swap); modified for this app (NOTICE).
+// The session folder: a `CLAUDE_CONFIG_DIR` per
 // account with its `oauthAccount` and links to the owner's settings, the
 // login variables taken out of the environment, a newer login Claude Code
 // wrote there taken back once the folder is quiet, and the folder left
-// alone while a session in it runs. Unlike claude-swap, the login is put in
+// alone while a session in it runs. Here the login is put in
 // the Keychain item Claude Code keys to the folder, never in a file; on
 // Windows it goes where Claude Code reads it there (`cc::write_login`).
 

@@ -142,7 +142,7 @@ fn names_are_found_at_the_start_of_a_line_in_each_shell_file() {
     assert_eq!(key.at(), "~/.zshrc dòng 6");
     assert_eq!(
         key.effect,
-        "Trong Terminal, Claude Code dùng khoá này thay cho tài khoản claude-swap đang chọn."
+        "Trong Terminal, Claude Code dùng khoá này thay cho tài khoản Claude đang chọn."
     );
     assert_eq!(c.found[2].weight, Weight::Warn);
 }
@@ -306,7 +306,7 @@ fn one_alert_per_variable_sent_again_only_for_a_new_place() {
     assert_eq!(key.alert.title, "ANTHROPIC_API_KEY đang đè đăng nhập Claude Code");
     assert_eq!(
         key.alert.body,
-        "Đặt ở ~/.zshrc dòng 1 và launchctl. Trong Terminal, Claude Code dùng khoá này thay cho tài khoản claude-swap đang chọn."
+        "Đặt ở ~/.zshrc dòng 1 và launchctl. Trong Terminal, Claude Code dùng khoá này thay cho tài khoản Claude đang chọn."
     );
     assert_eq!(
         key.alert.actions.iter().map(|a| (a.id.as_str(), a.label.as_str())).collect::<Vec<_>>(),

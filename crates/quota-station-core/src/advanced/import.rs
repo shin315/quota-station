@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: MIT
 
 //! What the advanced part brings over from the old switcher when the app
-//! imports claude-swap's accounts, which the app knows only through the
-//! hooks ([`crate::ext::Hooks::claude_imported`]): the rotation file, and
-//! the `prime` flag with its times, each only when the app has none yet.
-//! The import's outcome says whether each came over (`rotation`, `prime`,
+//! imports the other account switcher's accounts, which the app knows only
+//! through the hooks ([`crate::ext::Hooks::claude_imported`]): the rotation
+//! file, and the `prime` flag with its times, each only when the app has none
+//! yet. The import's outcome says whether each came over (`rotation`, `prime`,
 //! at its end, both always written).
 
 use serde_json::Value;
@@ -13,7 +13,7 @@ use serde_json::Value;
 use crate::claude::{private_dir, write_private, Paths};
 use crate::ext::{Fields, Hooks};
 
-/// The old switcher's priming times.
+/// The old switcher's priming times (its own paths, read only).
 const PRIME_STATE: &str = ".local/state/cswap-prefer-team";
 const PRIME_FLAG: &str = ".config/cswap-prefer-team/prime";
 

@@ -4,32 +4,29 @@
 //! The hooks the advanced part gives the core ([`crate::ext::Hooks`]),
 //! which [`super::Advanced::hooks`] hands over.
 //!
-//! Filled so far: the settings file (the advanced part's keys, how a Mac new
-//! to the app starts Nâng cao, and alert 2 held while Nâng cao is off),
-//! from `quota_station_core::advanced::settings`; the advanced part's
-//! commands of `quota-station claude …` (the rotation, its LaunchAgent, and
-//! an account held out of the rotation or put back), from
-//! `quota_station_core::advanced::cli`; and its kind of alert (2, an account
-//! leaving the rotation) with the card "Gửi thử" sends for it, from
-//! `quota_station_core::advanced::alerts`;
-//! and the rotation as the policy of the Claude pool, with alert 1's words
-//! for it, from `quota_station_core::advanced::pool`; and the accounts' names
-//! by their place in the rotation while Nâng cao shows, with alert 1's
-//! title for it, from `quota_station_core::advanced::labels`; and the
-//! rotation's part of the snapshot (each account's place in it, the
-//! leaves it, its personal hours and its room), from
-//! `quota_station_core::advanced::snapshot`; and the switcher's switches and
-//! primes as lines of the switch history, with the hold on the lines of the
-//! owner's switches, from `quota_station_core::advanced::history`; and around
-//! the owner's manual switch the older switcher's refusal, the hold that
-//! pauses the rotation and the rotation's switch back, with no token
+//! Filled so far: the settings file (the advanced part's keys, how a Mac new to
+//! the app starts Nâng cao, and alert 2 held while Nâng cao is off), from
+//! `quota_station_core::advanced::settings`; the advanced part's commands of
+//! `quota-station claude …` (the rotation, its LaunchAgent, and an account held
+//! out of the rotation or put back), from `quota_station_core::advanced::cli`;
+//! and its kind of alert (2, an account leaving the rotation) with the card
+//! "Gửi thử" sends for it, from `quota_station_core::advanced::alerts`; and the
+//! rotation as the policy of the Claude pool, with alert 1's words for it, from
+//! `quota_station_core::advanced::pool`; and the accounts' names by their place
+//! in the rotation while Nâng cao shows, with alert 1's title for it, from
+//! `quota_station_core::advanced::labels`; and the rotation's part of the
+//! snapshot (each account's place in it, the leaves it, its personal hours and
+//! its room), from `quota_station_core::advanced::snapshot`; and the switcher's
+//! switches and primes as lines of the switch history, with the hold on the
+//! lines of the owner's switches, from `quota_station_core::advanced::history`;
+//! and around the owner's manual switch the older switcher's refusal, the hold
+//! that pauses the rotation and the rotation's switch back, with no token
 //! refreshed while an older switcher is loaded, from
 //! `quota_station_core::advanced::switch`; and the accounts held out of the
-//! rotation, kept on the Claude accounts' file and shown in the state file
-//! and on `quota-station claude status`, from
-//! `quota_station_core::advanced::held`; and the old switcher's
-//! rotation file and priming brought over on an import from claude-swap,
-//! from `quota_station_core::advanced::import`.
+//! rotation, kept on the Claude accounts' file and shown in the state file and
+//! on `quota-station claude status`, from `quota_station_core::advanced::held`;
+//! and the old switcher's rotation file and priming brought over on an import
+//! from another account switcher, from `quota_station_core::advanced::import`.
 
 use std::io::Write;
 use std::path::Path;

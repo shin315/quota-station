@@ -78,7 +78,7 @@ const REMIND_HOUR: u8 = 9;
 const RECENT_KEEP: usize = 30;
 /// A sent key is forgotten after this long.
 const SENT_KEEP: i64 = 60 * 86400;
-/// claude-swap's errors that only a new login mends: a refresh token
+/// The usage reading's errors that only a new login mends: a refresh token
 /// Anthropic refused, or a login without one.
 const RELOGIN_ERRORS: [&str; 4] =
     ["invalid_grant", "no_refresh_token", "no-access-token", "relogin_required"];
@@ -781,9 +781,9 @@ fn pool_title(labels: Option<&dyn Labels>) -> &'static str {
     labels.and_then(|l| l.pool_title()).unwrap_or("Hạn mức Claude sắp cạn")
 }
 
-/// A claude-swap error that only a new login mends, as one of the known
+/// A reading error that only a new login mends, as one of the known
 /// codes (`relogin` for any other that asks for one). The card and its key
-/// carry only this code, never claude-swap's own text.
+/// carry only this code, never the error's own text.
 pub fn relogin_code(error: &str) -> Option<&'static str> {
     let e = error.trim().to_ascii_lowercase();
     if let Some(code) = RELOGIN_ERRORS.iter().find(|c| **c == e) {
@@ -799,7 +799,7 @@ pub fn relogin_error(error: &str) -> bool {
     relogin_code(error).is_some()
 }
 
-const CLAUDE_RELOGIN: &str = "Đăng nhập lại bằng claude-swap trong Terminal.";
+const CLAUDE_RELOGIN: &str = "Đăng nhập lại ở tab Claude.";
 
 fn login_alerts(report: &Response, names: &BTreeMap<u32, String>, f: &Facts) -> Vec<Alert> {
     let now = f.now.unix_timestamp();
@@ -817,7 +817,7 @@ fn login_alerts(report: &Response, names: &BTreeMap<u32, String>, f: &Facts) -> 
                 tone: Tone::Warn,
                 title: format!("{name} cần đăng nhập lại"),
                 body: format!(
-                    "claude-swap không làm mới được đăng nhập của tài khoản này ({error}). {CLAUDE_RELOGIN}"
+                    "App không làm mới được đăng nhập của tài khoản này ({error}). {CLAUDE_RELOGIN}"
                 ),
                 actions,
                 at: now,

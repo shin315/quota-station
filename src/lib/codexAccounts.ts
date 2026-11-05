@@ -76,7 +76,7 @@ function customChips(a: CodexAccount): ChipView[] {
   const chips: ChipView[] = [];
   if (c.key === 'placeholder') chips.push({ t: t('chỉ khoá giữ chỗ', 'placeholder key only'), k: 'bad' });
   if (c.key === 'none') chips.push({ t: t('chưa có khoá', 'no key yet'), k: 'bad' });
-  if (c.proxy) chips.push({ t: t('qua proxy CC Switch', 'through the CC Switch proxy'), k: 'warn' });
+  if (c.proxy) chips.push({ t: t('qua proxy của công cụ khác', 'through another tool’s proxy'), k: 'warn' });
   if (a.reach?.state === 'down') chips.push({ t: t('không trả lời', 'not answering'), k: 'bad' });
   return chips;
 }
@@ -179,7 +179,7 @@ export interface AccountSheetView {
   facts: FactView[];
   confirm: string;
   blocked: boolean;
-  /** CC Switch also switches Codex: the guide to stop using it goes on the sheet. */
+  /** Another Codex switcher also switches Codex: the guide to switch in one place goes on the sheet. */
   ccSwitch: boolean;
 }
 
@@ -204,8 +204,8 @@ export function accountSheet(model: Model, id: string): AccountSheetView | null 
       k: 'w',
       text: mac(
         t(
-          '**CC Switch vẫn đang quản lý Codex** trên máy này. Lần chuyển sau của CC Switch sẽ ghi đè tài khoản chọn ở đây. Chỉ chuyển Codex ở một nơi.',
-          '**CC Switch still manages Codex** on this Mac. Its next switch will overwrite the account chosen here. Switch Codex in one place only.',
+          '**Một công cụ chuyển Codex khác vẫn đang quản lý Codex** trên máy này. Lần chuyển sau của công cụ đó sẽ ghi đè tài khoản chọn ở đây. Chỉ chuyển Codex ở một nơi.',
+          '**Another Codex switcher still manages Codex** on this Mac. Its next switch will overwrite the account chosen here. Switch Codex in one place only.',
         ),
       ),
     });

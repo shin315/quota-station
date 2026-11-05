@@ -115,7 +115,7 @@ pub fn batch(path: &std::path::Path, lines: &[&str]) -> PathBuf {
 }
 
 /// The Claude accounts' details the app shows, from a fixture in the shape
-/// of claude-swap's `cswap list --json`, as the fixtures were made.
+/// of the account list JSON the fixtures were made from.
 pub fn claude_details(name: &str) -> Vec<quota_station_core::detail::ClaudeDetail> {
     use quota_station_core::detail::{ClaudeDetail, Usage};
     use serde_json::Value;

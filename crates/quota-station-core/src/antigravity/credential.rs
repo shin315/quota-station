@@ -3,16 +3,7 @@
 // SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
 // Ported from Cockpit Tools `src-tauri/src/modules/antigravity_credential.rs`
-// (1.3.70, commit 244b957, CC BY-NC-SA 4.0); its two tests are ported in
-// `tests/antigravity_credential.rs`; changes: macOS and Windows (the Linux
-// secret-tool branch and the Windows read, `CredReadW`, are not included);
-// the token comes from the app's `TokenData`; on macOS `security` runs
-// through the app's runner, which stops it at the timeout; on Windows the
-// write goes through the app's `Credentials` seam, so the tests give a fake;
-// typed errors that keep no token; no logging. The payload, the
-// `go-keyring-base64:` value, the `security` command and the Windows
-// credential (target `gemini:antigravity`, user `antigravity`, the payload's
-// bytes, `CRED_PERSIST_LOCAL_MACHINE`) are Cockpit's, word for word.
+// (1.3.70, commit 244b957); modified for this app (NOTICE).
 
 //! The login Antigravity and the `agy` CLI share, which both read when they
 //! start. On macOS it is one generic password in the login Keychain, service
@@ -48,7 +39,7 @@ pub const ACCOUNT: &str = "antigravity";
 pub const TARGET: &str = "gemini:antigravity";
 /// What go-keyring puts before a base64 value.
 const PREFIX: &str = "go-keyring-base64:";
-/// The write's timeout (Cockpit's 15 seconds): `security` can hang while
+/// The write's timeout: `security` can hang while
 /// the Keychain is locked, and is stopped then.
 pub const TIMEOUT: Duration = Duration::from_secs(15);
 
@@ -69,7 +60,7 @@ struct AntigravityCredentialPayload<'a> {
 /// The JSON Antigravity keeps for its login: the access token, the refresh
 /// token and the access token's expiry, RFC 3339 in UTC to the microsecond.
 pub fn build_payload(token: &TokenData) -> String {
-    // Cockpit's fallback for a time out of range: an expiry already passed,
+    // A time out of range falls back to an expiry already passed,
     // so Antigravity refreshes the access token with the refresh token.
     let t = OffsetDateTime::from_unix_timestamp(token.expiry_timestamp)
         .unwrap_or_else(|_| OffsetDateTime::now_utc());
@@ -165,15 +156,14 @@ impl SharedLogin {
         self.write_payload(&build_payload(token))
     }
 
-    /// Cockpit's `write_antigravity_keychain_payload`: updates the item in
-    /// place (`-U`) so a failed write leaves the existing login intact, and
-    /// lets any app read it (`-A`), as Antigravity's own keyring does.
+    /// Updates the item in place (`-U`) so a failed write leaves the existing
+    /// login intact, and lets any app read it (`-A`), as Antigravity's own
+    /// keyring does.
     ///
-    /// The value goes on `security`'s command line (`-w`), in Cockpit's
-    /// command kept word for word; the form that prompts for it needs a
-    /// terminal. A process of the same user that lists arguments can see it
-    /// for the moment `security` runs; that user can read the item (`-A`)
-    /// anyway.
+    /// The value goes on `security`'s command line (`-w`); the form that
+    /// prompts for it needs a terminal. A process of the same user that lists
+    /// arguments can see it for the moment `security` runs; that user can read
+    /// the item (`-A`) anyway.
     fn write_payload(&self, payload_json: &str) -> Result<(), CredentialError> {
         let keychain_value = keychain_value(payload_json);
         let args = [
@@ -232,7 +222,7 @@ impl SharedLogin {
         self.write_payload(&build_payload(token))
     }
 
-    /// Cockpit's Windows write: the payload's bytes as they are, which
+    /// The Windows write: the payload's bytes as they are, which
     /// `CredWriteW` puts in place of the credential that was there.
     fn write_payload(&self, payload_json: &str) -> Result<(), CredentialError> {
         self.store
@@ -241,8 +231,8 @@ impl SharedLogin {
     }
 }
 
-/// The shared credential in Credential Manager, written as Cockpit and
-/// go-keyring write it: a generic credential kept for this user on this
+/// The shared credential in Credential Manager, written as go-keyring
+/// writes it: a generic credential kept for this user on this
 /// computer (`CRED_PERSIST_LOCAL_MACHINE`, which does not roam). The app
 /// never reads or deletes it: both refuse.
 #[cfg(windows)]

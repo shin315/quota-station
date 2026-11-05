@@ -68,8 +68,8 @@ pub fn account(mcp: &str, slot: &str) -> String {
     format!("{mcp}:{slot}")
 }
 
-/// macOS's `security` with the value on its command line (`-w`), the form
-/// Cockpit Tools keeps its items in: the [`SecretStore`] of the MCP secrets
+/// macOS's `security` with the value on its command line (`-w`): the
+/// [`SecretStore`] of the MCP secrets
 /// and of the Antigravity tokens (`antigravity::store`) on macOS.
 #[derive(Debug, Clone)]
 pub struct SecurityCli {

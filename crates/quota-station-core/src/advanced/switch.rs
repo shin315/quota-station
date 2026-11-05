@@ -6,7 +6,7 @@
 //! ([`crate::ext::Hooks::manual_switch`],
 //! [`crate::ext::Hooks::may_refresh_logins`]):
 //!
-//! - while an older switcher (`com.cswap.prefer-team`, `com.cswap.auto`) is
+//! - while an older switcher ([`crate::claude::agent::LEGACY`]) is
 //!   loaded nothing is switched, by the app or by `quota-station claude
 //!   switch`, and no token is refreshed: it keeps its own copies of the same
 //!   logins;

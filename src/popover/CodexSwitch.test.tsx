@@ -3,7 +3,7 @@
 
 // Switching Codex from the popover and the main window (M8), on the fake
 // Rust side: nothing here reads or writes Codex's files, restarts anything
-// or opens CC Switch. The custom provider is the made-up `relay`.
+// or opens another Codex switcher. The custom provider is the made-up `relay`.
 
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -122,26 +122,26 @@ describe('the Codex row', () => {
 
   const ccSwitch = { ccSwitch: { installed: true, running: true, data: true, traces: [] }, procs: { sessions: 3, app: true, daemon: true, ccSwitch: true } };
 
-  it('CC Switch also managing Codex: a note, the hover of what is in use, and "Vẫn chuyển" on the sheet', async () => {
+  it('another Codex switcher also managing Codex: a note, the hover of what is in use, and "Vẫn chuyển" on the sheet', async () => {
     await openPopover(withCodex({ current: 'chatgpt', ...ccSwitch }));
     // No chip: the note says it, and the hover of what is in use.
-    expect(codexSection().textContent).not.toContain('CC Switch cũng quản lý');
-    expect(inUse().getAttribute('title')).toContain('CC Switch cũng quản lý');
-    expect(screen.getByText('CC Switch cũng đang quản lý Codex. Lần chuyển sau của CC Switch sẽ ghi đè lựa chọn ở đây.')).toBeTruthy();
+    expect(codexSection().textContent).not.toContain('Công cụ khác cũng quản lý');
+    expect(inUse().getAttribute('title')).toContain('Công cụ khác cũng quản lý');
+    expect(screen.getByText('Một công cụ chuyển Codex khác cũng đang quản lý Codex. Lần chuyển sau của công cụ đó sẽ ghi đè lựa chọn ở đây.')).toBeTruthy();
     await press(codexRow());
     const sheet = screen.getByRole('dialog', { name: 'Chuyển Codex sang relay?' });
-    expect(facts(sheet)[0]).toMatch(/^CC Switch vẫn đang quản lý Codex trên máy này/);
+    expect(facts(sheet)[0]).toMatch(/^Một công cụ chuyển Codex khác vẫn đang quản lý Codex trên máy này/);
     expect(within(sheet).getByRole('button', { name: 'Vẫn chuyển' })).toBeTruthy();
-    expect(within(sheet).getByRole('button', { name: 'Hướng dẫn ngừng dùng CC Switch' })).toBeTruthy();
+    expect(within(sheet).getByRole('button', { name: 'Hướng dẫn chỉ chuyển Codex ở một nơi' })).toBeTruthy();
   });
 
-  it('CC Switch also managing Codex: going to a ChatGPT account warns on the sheet too', async () => {
+  it('another Codex switcher also managing Codex: going to a ChatGPT account warns on the sheet too', async () => {
     const fake = await openPopover(withCodex(ccSwitch));
     await press(codexRow());
     const sheet = screen.getByRole('dialog', { name: 'Chuyển Codex sang ChatGPT?' });
-    expect(facts(sheet)[0]).toMatch(/^CC Switch vẫn đang quản lý Codex trên máy này/);
+    expect(facts(sheet)[0]).toMatch(/^Một công cụ chuyển Codex khác vẫn đang quản lý Codex trên máy này/);
     expect(within(sheet).getByRole('button', { name: 'Vẫn chuyển' })).toBeTruthy();
-    expect(within(sheet).getByRole('button', { name: 'Hướng dẫn ngừng dùng CC Switch' })).toBeTruthy();
+    expect(within(sheet).getByRole('button', { name: 'Hướng dẫn chỉ chuyển Codex ở một nơi' })).toBeTruthy();
     expect(fake.api.codexUse).not.toHaveBeenCalled();
   });
 
@@ -277,9 +277,9 @@ describe('the Codex tab', () => {
     expect(screen.getByText('Đang bật')).toBeTruthy();
     await press(screen.getByRole('button', { name: 'Chi tiết: Dùng plugin với Custom API' }));
     expect(screen.getByText(/Bỏ chọn không xoá auth\.json/)).toBeTruthy();
-    // The guide to leave CC Switch is not part of this tab.
+    // The guide to switch Codex in one place is not part of this tab.
     expect(document.getElementById('cc-card')).toBeNull();
-    expect(screen.queryByText(/Ngừng dùng CC Switch/)).toBeNull();
+    expect(screen.queryByText(/Hướng dẫn chỉ chuyển Codex ở một nơi/)).toBeNull();
 
     await press(within(accounts[0]).getByRole('button', { name: 'Chuyển sang ChatGPT' }));
     expect(screen.getByRole('dialog', { name: 'Chuyển Codex sang ChatGPT?' })).toBeTruthy();
@@ -317,7 +317,7 @@ describe('"Dán khoá" for the custom provider', () => {
       custom: { ...codexFixture().custom!, name: 'custom', baseUrl: 'http://127.0.0.1:15721/v1', key: 'placeholder', requiresOpenaiAuth: null, proxy: true },
       wantsRequires: null,
       refusal: { kind: 'placeholder' },
-      ccSwitch: { installed: true, running: false, data: true, traces: ['model_catalog_json = "cc-switch-model-catalog.json"'] },
+      ccSwitch: { installed: true, running: false, data: true, traces: ['model_catalog_json = "model-catalog.json"'] },
     });
 
   it('is offered under the row\'s placeholder note, previews the key masked, and writes it only on confirm', async () => {
@@ -327,7 +327,7 @@ describe('"Dán khoá" for the custom provider', () => {
     const sheet = screen.getByRole('dialog', { name: 'Dán khoá API cho custom' });
     const field = within(sheet).getByLabelText('Khoá API của custom') as HTMLInputElement;
     expect(field.type).toBe('password');
-    expect(within(sheet).getByText(/model_catalog_json của CC Switch: giữ file danh mục đó, đừng xoá/)).toBeTruthy();
+    expect(within(sheet).getByText(/model_catalog_json do công cụ khác để lại: giữ file danh mục đó, đừng xoá/)).toBeTruthy();
     await act(async () => {
       fireEvent.change(field, { target: { value: KEY } });
       fireEvent.change(within(sheet).getByLabelText('Địa chỉ thật của custom'), { target: { value: 'https://relay.example.com/v1' } });
@@ -358,7 +358,7 @@ describe('"Dán khoá" for the custom provider', () => {
       fireEvent.change(within(sheet).getByLabelText('Khoá API của relay'), { target: { value: 'PROXY_MANAGED' } });
     });
     await press(within(sheet).getByRole('button', { name: 'Xem trước' }));
-    expect(within(sheet).getByText('PROXY_MANAGED là khoá giữ chỗ của CC Switch, không phải khoá thật.')).toBeTruthy();
+    expect(within(sheet).getByText('PROXY_MANAGED là khoá giữ chỗ do công cụ khác để lại, không phải khoá thật.')).toBeTruthy();
     await act(async () => {
       fireEvent.change(within(sheet).getByLabelText('Khoá API của relay'), { target: { value: KEY } });
     });

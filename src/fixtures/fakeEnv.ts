@@ -28,7 +28,7 @@ export const API_KEY: EnvFound = {
   weight: 'bad',
   place: 'zshrc',
   line: 42,
-  effect: 'Trong Terminal, Claude Code dùng khoá này thay cho tài khoản claude-swap đang chọn.',
+  effect: 'Trong Terminal, Claude Code dùng khoá này thay cho tài khoản Claude đang chọn.',
 };
 export const BASE_URL: EnvFound = {
   id: 'OPENAI_BASE_URL@zprofile',
@@ -66,7 +66,7 @@ export const SETTINGS_TOKEN: EnvFound = {
   weight: 'bad',
   place: 'claudeSettings',
   line: 4,
-  effect: 'Ở mọi lần chạy, Claude Code gửi token này thay cho đăng nhập của tài khoản claude-swap đang chọn.',
+  effect: 'Ở mọi lần chạy, Claude Code gửi token này thay cho đăng nhập của tài khoản Claude đang chọn.',
 };
 export const PS_TOKEN: EnvFound = {
   id: 'ANTHROPIC_AUTH_TOKEN@psProfile',
@@ -76,7 +76,7 @@ export const PS_TOKEN: EnvFound = {
   place: 'psProfile',
   line: 5,
   onlyIn: 'ccd',
-  effect: 'Trong PowerShell, khi gọi hàm ccd, Claude Code gửi token này thay cho đăng nhập của tài khoản claude-swap đang chọn.',
+  effect: 'Trong PowerShell, khi gọi hàm ccd, Claude Code gửi token này thay cho đăng nhập của tài khoản Claude đang chọn.',
 };
 
 /** Checked a minute before the fixture's now; nothing set by default. */

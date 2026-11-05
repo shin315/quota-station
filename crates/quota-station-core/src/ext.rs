@@ -16,47 +16,48 @@
 //! Today's hooks:
 //!
 //! - the settings file ([`Settings::open`]): the extension's keys, kept in
-//!   [`Settings::ext`], are read by [`Hooks::tidy_settings`] and settled
-//!   for a Mac new to the app by [`Hooks::settle_settings`], and
+//!   [`Settings::ext`], are read by [`Hooks::tidy_settings`] and settled for a
+//!   Mac new to the app by [`Hooks::settle_settings`], and
 //!   [`Hooks::settled_key`] names the key that tells a file was settled;
-//! - which alerts run ([`Settings::alert_switches`]): [`Hooks::alert_switches`];
-//! - the alerts ([`crate::alerts`]): the kinds the extension adds to the
-//!   app's, with their switches in the settings file and the words of their
-//!   buttons ([`Hooks::alert_kinds`]), and the card "Gửi thử" sends for one
+//! - which alerts run ([`Settings::alert_switches`]):
+//!   [`Hooks::alert_switches`];
+//! - the alerts ([`crate::alerts`]): the kinds the extension adds to the app's,
+//!   with their switches in the settings file and the words of their buttons
+//!   ([`Hooks::alert_kinds`]), and the card "Gửi thử" sends for one
 //!   ([`Hooks::alert_sample`]); their alerts at each pass of the rules come
 //!   from what the extension read for it ([`crate::alerts::Facts::ext`]);
-//! - `quota-station claude …` ([`crate::claude::cli::run`]): the commands
-//!   the extension adds to the app's ([`Hooks::claude_command`]) and the
-//!   usage that names them ([`Hooks::claude_usage`]);
-//! - the Claude pool: which of the accounts the app keeps count in it and
-//!   the room it has, at the read ([`crate::quota::claude::own_now`]) and in
-//!   alert 1's check ([`crate::alerts::pool_check`]), by the extension's
-//!   policy ([`Hooks::claude_pool`]), and the words alert 1's card has for
-//!   the pool so counted ([`Hooks::pool_answers`]);
-//! - the names of the accounts the app shows where no name is shown, on
-//!   the menu bar's title ([`crate::icon`]) and on the alerts' cards
-//!   ([`crate::alerts`]), and alert 1's title: the extension's for the
-//!   settings in force ([`Hooks::account_labels`]);
-//! - the snapshot the windows and the menu bar draw: what the extension
-//!   adds to it once the app has built it ([`Hooks::decorate_snapshot`]),
-//!   in its own keys among the app's ([`Fields`]);
-//! - the switch history ([`crate::history`]): the lines the extension adds
-//!   to the app's, each with its source and reason ([`Hooks::history_lines`]),
-//!   and its keys on the lines of the owner's manual switches
+//! - `quota-station claude …` ([`crate::claude::cli::run`]): the commands the
+//!   extension adds to the app's ([`Hooks::claude_command`]) and the usage that
+//!   names them ([`Hooks::claude_usage`]);
+//! - the Claude pool: which of the accounts the app keeps count in it and the
+//!   room it has, at the read ([`crate::quota::claude::own_now`]) and in alert
+//!   1's check ([`crate::alerts::pool_check`]), by the extension's policy
+//!   ([`Hooks::claude_pool`]), and the words alert 1's card has for the pool so
+//!   counted ([`Hooks::pool_answers`]);
+//! - the names of the accounts the app shows where no name is shown, on the
+//!   menu bar's title ([`crate::icon`]) and on the alerts' cards
+//!   ([`crate::alerts`]), and alert 1's title: the extension's for the settings
+//!   in force ([`Hooks::account_labels`]);
+//! - the snapshot the windows and the menu bar draw: what the extension adds to
+//!   it once the app has built it ([`Hooks::decorate_snapshot`]), in its own
+//!   keys among the app's ([`Fields`]);
+//! - the switch history ([`crate::history`]): the lines the extension adds to
+//!   the app's, each with its source and reason ([`Hooks::history_lines`]), and
+//!   its keys on the lines of the owner's manual switches
 //!   ([`Hooks::manual_line`]);
 //! - the owner's manual switch of the Claude account
-//!   ([`crate::switching::switch_claude`], and `quota-station claude
-//!   switch`): what the extension does around it ([`Hooks::manual_switch`]);
+//!   ([`crate::switching::switch_claude`], and `quota-station claude switch`):
+//!   what the extension does around it ([`Hooks::manual_switch`]);
 //! - whether the app refreshes a Claude login's token while it reads
 //!   ([`Hooks::may_refresh_logins`]);
-//! - the Claude accounts' file (`claude/accounts.json`): the keys the
-//!   extension keeps on each account there, and what it shows of them in
-//!   the state file and on `quota-station claude status`
-//!   ([`Hooks::claude_account_keys`]); the read of the accounts carries
-//!   them on each account's slot ([`crate::quota::Slot::ext`]);
-//! - the import of claude-swap's accounts ([`crate::claude::import::import`]):
-//!   what the extension brings over of its own, at the end of the import's
-//!   outcome ([`Hooks::claude_imported`]);
+//! - the Claude accounts' file (`claude/accounts.json`): the keys the extension
+//!   keeps on each account there, and what it shows of them in the state file
+//!   and on `quota-station claude status` ([`Hooks::claude_account_keys`]); the
+//!   read of the accounts carries them on each account's slot
+//!   ([`crate::quota::Slot::ext`]);
+//! - the import of another account switcher's accounts
+//!   ([`crate::claude::import::import`]): what the extension brings over of its
+//!   own, at the end of the import's outcome ([`Hooks::claude_imported`]);
 //! - the state file (`claude/state.json`, [`crate::claude::state::write`]):
 //!   what the extension writes of its own each time the app writes it
 //!   ([`Hooks::claude_state_copy`]).
@@ -271,13 +272,13 @@ pub trait Hooks: Send + Sync {
         None
     }
 
-    /// What the extension brings over of its own when the app imports
-    /// claude-swap's accounts into the Claude accounts it keeps at `paths`
+    /// What the extension brings over of its own when the app imports another
+    /// account switcher's accounts into the Claude accounts it keeps at `paths`
     /// ([`crate::claude::import::import`]), once the accounts and their
     /// readings are in: the keys it returns end the import's outcome
-    /// ([`crate::claude::import::Imported::ext`]), in the order it put
-    /// them. Asked at the end of every import that read claude-swap's
-    /// accounts. The default brings nothing.
+    /// ([`crate::claude::import::Imported::ext`]), in the order it put them.
+    /// Asked at the end of every import that read that tool's accounts. The
+    /// default brings nothing.
     fn claude_imported(&self, paths: &Paths) -> Fields {
         let _ = paths;
         Fields::new()

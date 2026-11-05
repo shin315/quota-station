@@ -3,9 +3,7 @@
 // SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
 // Ported from Cockpit Tools `src-tauri/src/models/token.rs` (1.3.70, commit
-// 244b957, CC BY-NC-SA 4.0); changes: the clock is passed in, comments in
-// English. The fields and their JSON names are Cockpit's, so a token the app
-// keeps reads the same as one Cockpit keeps.
+// 244b957); modified for this app (NOTICE).
 
 //! One account's tokens, as the app keeps them in its own Keychain item.
 

@@ -55,7 +55,7 @@ function previewError(e: string): string {
   const known: Record<string, string> = {
     notFound: t('Không có switcher trên máy này.', 'No switcher on this Mac.'),
     timeout: t('Switcher không trả lời kịp.', 'The switcher did not answer in time.'),
-    noDecision: t('Switcher không in quyết định (claude-swap không trả số).', 'The switcher printed no decision (claude-swap returned no numbers).'),
+    noDecision: t('Switcher không in quyết định (không có số hạn mức).', 'The switcher printed no decision (no quota numbers came back).'),
   };
   return known[e] ?? t('Chưa xem trước được: ', 'Could not preview: ') + e;
 }
