@@ -388,8 +388,13 @@ export interface Peer {
 
 // ===== Antigravity accounts the app logs in (M4a) and reads (M4b) =====
 
-/** What the app found in `oauth-client.json` (`quota-station-core::antigravity::client`). */
-export type ClientStatus = 'ok' | 'missing' | 'unreadable' | 'tooOpen' | 'invalid';
+/**
+ * Whether the app has an OAuth client to sign in with (`quota-station-core::antigravity::client`):
+ * `ok`, a usable `oauth-client.json` or the installed Antigravity's client; `missing`, no file and
+ * no Antigravity installed; `unrecognized`, no file and an Antigravity build whose client the app
+ * does not know; `tooOpen`, `invalid` and `unreadable` are about the file.
+ */
+export type ClientStatus = 'ok' | 'missing' | 'unrecognized' | 'unreadable' | 'tooOpen' | 'invalid';
 
 export type AgyStatus = 'ok' | 'needsLogin' | 'needsVerification' | 'forbidden';
 

@@ -28,8 +28,9 @@ in English and Vietnamese for macOS 13+ and Windows 10/11 (x64) — download fro
 - **Claude, Codex and Antigravity accounts**: Add and switch between multiple Claude accounts
   (browser sign-in, current Claude Code login, or setup-token), multiple ChatGPT accounts and
   custom API providers from `config.toml` for Codex (keeping ChatGPT plugins working, plus
-  scheduled `Wake ChatGPT`), and multiple Google accounts for Antigravity.app and `agy` ([OAuth
-  client file](docs/how-it-works.md#the-oauth-client-file)).
+  scheduled `Wake ChatGPT`), and multiple Google accounts for Antigravity.app and `agy`
+  (signing in uses the OAuth client of the Antigravity installed on the same computer, so there
+  is nothing to set up; [details](docs/how-it-works.md#the-oauth-client-file)).
 - **MCP servers, skills, plugins and instruction files**: Toggle MCP servers and skills per
   agent (`Claude Code`, `Codex`, `Antigravity`) in one shared table, install or update skills
   from GitHub, view installed `Plugins`, and track `CLAUDE.md`, `AGENTS.md` and `GEMINI.md`

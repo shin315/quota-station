@@ -211,8 +211,9 @@ feature (see [`THIRD_PARTY.md`](../THIRD_PARTY.md)). Without it the `Antigravity
   uses) with `signed in`, `sign in again` (Google refused the refresh token),
   `needs verification` or `blocked by Google`, `Sign in again`, and `Sign out`
   with a confirmation in the row. Signing out forgets the account in this app
-  only: Antigravity.app and agy stay signed in. Without a usable
-  [`oauth-client.json`](#the-oauth-client-file) the card says what is missing
+  only: Antigravity.app and agy stay signed in. The OAuth client comes from
+  the Antigravity installed on the same computer
+  ([below](#the-oauth-client-file)); without one the card says what to do
   and cannot add.
 - **Quota.** The app reads the quota of the accounts logged in here itself:
   the token, refreshed only when it has under five minutes
@@ -277,10 +278,38 @@ make the risk larger.
 ## The OAuth client file
 
 The Antigravity login uses Antigravity's own OAuth client. Its id and secret
-are not in this repository, and the app ships without them: use the two values
-Antigravity signs in with. Put them in a file on each Mac or Windows PC that
-logs in, readable only by you. With the real values in place of both `<…>`,
-on a Mac:
+are not in this repository and the app ships without them: it finds them in
+the Antigravity installed on the same computer, so adding an account needs no
+setup. Antigravity's programs carry the client among their strings; the app
+reads those files as plain files and keeps, of the strings beside the markers
+`.apps.googleusercontent.com` and `GOCSPX-`, the id and the secret whose
+SHA-256 are the two hashes in the source
+(`crates/quota-station-core/src/antigravity/discover.rs`). Finding it never
+runs, changes or signs those programs. The client it finds stays in its
+memory, never in a file, a log or the app's windows; the id goes to Google's
+consent page, as in any OAuth login. It looks in, in this order:
+
+| | The desktop app and the IDE (each searched for `language_server*`) | The `agy` CLI |
+|---|---|---|
+| macOS | `/Applications/Antigravity.app`, `/Applications/Antigravity IDE.app`, the same in `~/Applications` (the desktop app keeps it in `Contents/Resources/bin/language_server`) | `agy` on the `PATH`, `~/.local/bin/agy` (where its installer puts it), `/opt/homebrew/bin/agy`, `/usr/local/bin/agy` |
+| Windows | `Antigravity` and `Antigravity IDE` in `%LOCALAPPDATA%\Programs`, `%PROGRAMFILES%` and `%PROGRAMFILES(X86)%` (the desktop app keeps it in `resources\bin\language_server.exe`) | `agy.exe` on the `PATH`, `%LOCALAPPDATA%\agy\bin\agy.exe` (where its installer puts it), `~\.local\bin\agy.exe` |
+
+Files under 1 MB or over 1 GB are passed over, and so are folders inside an
+install folder that are symlinks (the install folder itself and a CLI on the
+`PATH` may be symlinks). The result is kept while the programs found are the
+same files, with the same length and time; once one changes, as when
+Antigravity updates itself, or one appears or goes, they are read again.
+
+When it finds none, the `Antigravity` tab says what to do: install
+Antigravity (the app or the `agy` CLI) when there is none, or update
+Antigravity and Quota Station when the installed build's client is not the
+one the app knows.
+
+### By hand
+
+An `oauth-client.json` in the app's folder, when there, is used instead of
+the installed Antigravity's client. Put the real values in place of both
+`<…>`, in a file readable only by you. On a Mac:
 
 ```sh
 mkdir -p ~/Library/Application\ Support/com.shin315.quota-station
@@ -304,9 +333,10 @@ Windows keeps no file mode: your user profile's folder already keeps other
 users out. A file saved from Notepad works too.
 
 The app refuses the placeholders, on a Mac a file others can read (it must be
-mode 600), and anything that is not this JSON. `Settings › Services` shows
-whether the file is usable (`Antigravity OAuth client`), and the `Antigravity`
-tab says what is missing and where the file goes.
+mode 600), and anything that is not this JSON; a file it refuses is reported,
+not passed over, and once it is removed the app looks in the installed
+Antigravity again. `Settings › Services` shows whether there is a client
+(`Antigravity OAuth client`), and the `Antigravity` tab says what is missing.
 
 ## The pause flag and the switcher
 
@@ -378,7 +408,9 @@ flag and does not show Claude as paused.
   to the app's own Keychain items through `/usr/bin/security
   add-generic-password`, `find-generic-password` and `delete-generic-password`,
   service `com.shin315.quota-station.antigravity` (on Windows, to the app's own
-  files sealed by DPAPI).
+  files sealed by DPAPI). The OAuth client comes from reading Antigravity's
+  own programs, as plain files and never run ([The OAuth client
+  file](#the-oauth-client-file)).
 - Antigravity quota reads, at the pace above:
   `POST https://daily-cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels`
   and `…/v1internal:retrieveUserQuotaSummary` (on `cloudcode-pa` for a GCP ToS

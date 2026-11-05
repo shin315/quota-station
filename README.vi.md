@@ -29,8 +29,9 @@ Giao diện có tiếng Việt và tiếng Anh, hỗ trợ macOS 13+ và Windows
 - **Tài khoản Claude, Codex và Antigravity**: Lưu và chuyển giữa nhiều tài khoản Claude (đăng
   nhập trình duyệt, lấy tài khoản Claude Code đang dùng, hoặc dán setup-token), nhiều tài khoản
   ChatGPT và Custom API trong `config.toml` cho Codex (giữ đăng nhập ChatGPT để dùng plugin, kèm
-  `Tự đánh thức ChatGPT`), và nhiều tài khoản Google cho Antigravity.app cùng `agy` ([file OAuth
-  client](docs/how-it-works.md#the-oauth-client-file)).
+  `Tự đánh thức ChatGPT`), và nhiều tài khoản Google cho Antigravity.app cùng `agy` (đăng nhập
+  bằng OAuth client của Antigravity đã cài trên cùng máy, không phải cài đặt gì;
+  [chi tiết](docs/how-it-works.md#the-oauth-client-file)).
 - **MCP server, skill, plugin và file hướng dẫn**: Bật/tắt MCP server và skill cho từng agent
   (`Claude Code`, `Codex`, `Antigravity`) trên một bảng chung, cài hoặc cập nhật skill từ
   GitHub, xem `Plugin` đã cài, và theo dõi `CLAUDE.md`, `AGENTS.md`, `GEMINI.md` (`File hướng

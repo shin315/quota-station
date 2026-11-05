@@ -313,6 +313,15 @@ What the main suites check:
   Keychain that refuses (the index stays unwritten), logging out, and the
   `oauth-client.json` checks. The spy test (`antigravity_spy.rs`) is described
   in [`SECURITY.md`](../SECURITY.md).
+- **Finding the OAuth client** (`antigravity_discover.rs`) lays out fake
+  installs as the macOS and Windows builds of Antigravity and its `agy` CLI lay
+  themselves out, with fake programs that hold a fake client among other
+  strings, and pins made from that fake client; it covers each place, a build
+  whose client is not the pinned one, no Antigravity, the file coming first,
+  and three logins in a row with the client found. No test reads the
+  Antigravity of the computer it runs on: the app gives `client::use_installed`
+  the system's places (`Sources::system`) as it starts, and the tests give
+  only fake ones.
 - **Antigravity quota** (`antigravity_quota.rs`) runs against the same fake
   Google, which also answers `loadCodeAssist`, `fetchAvailableModels` and
   `retrieveUserQuotaSummary` with fixtures in the quota cache format

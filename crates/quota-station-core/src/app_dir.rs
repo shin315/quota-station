@@ -7,9 +7,10 @@
 //! inside that folder are allowed: a path anywhere else, or one that passes
 //! through a symlinked folder, is refused before it is opened. So no bug in
 //! the Antigravity accounts can reach another tool's login files
-//! (SECURITY.md lists them). The one other place read is
-//! an installed app's bundle ([`Bundle`]), only for its version, and never
-//! written.
+//! (SECURITY.md lists them). The other places read are an installed
+//! app's bundle ([`Bundle`]), only for its version, and Antigravity's own
+//! programs, only for its OAuth client (`antigravity::discover`); neither
+//! is ever written.
 //!
 //! With the `test-support` feature every path is also recorded, for the spy
 //! test that runs every flow and checks where they went.
@@ -195,12 +196,12 @@ impl Bundle {
 static OPENED: std::sync::Mutex<Vec<PathBuf>> = std::sync::Mutex::new(Vec::new());
 
 #[cfg(feature = "test-support")]
-fn record(path: &Path) {
+pub(crate) fn record(path: &Path) {
     OPENED.lock().unwrap_or_else(|e| e.into_inner()).push(path.to_path_buf());
 }
 
 #[cfg(not(feature = "test-support"))]
-fn record(_: &Path) {}
+pub(crate) fn record(_: &Path) {}
 
 /// Every path checked so far, allowed or not, and clears the list.
 #[cfg(feature = "test-support")]

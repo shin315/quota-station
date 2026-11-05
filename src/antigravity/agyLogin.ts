@@ -81,7 +81,7 @@ function readError(kind: string): string {
     verification: t('Google yêu cầu xác minh', 'Google wants verification'),
     parse: t('Google trả lời lạ', 'Google gave an unexpected answer'),
     keychain: t('không đọc được ' + secretStore(), 'cannot read the ' + secretStore()),
-    client: t('oauth-client.json chưa dùng được', 'oauth-client.json is not usable yet'),
+    client: t('OAuth client Antigravity chưa dùng được', 'the Antigravity OAuth client is not usable yet'),
     refresh: t('không làm mới được đăng nhập', 'could not refresh the sign-in'),
     cache: t('không ghi được số vào thư mục của app', 'could not write the numbers to the app’s folder'),
     index: t('không đọc được danh sách tài khoản', 'cannot read the account list'),
@@ -125,40 +125,49 @@ export function agyRows(view: AgyAccounts): AgyRowView[] {
 
 const CLIENT_GUIDE = 'https://github.com/shin315/quota-station/blob/main/docs/how-it-works.md#the-oauth-client-file';
 
+/** Where an OAuth client file goes and where the guide gives its format: the end of a notice. */
+function clientFile(path: string): { vi: string; en: string } {
+  return {
+    vi: path + os(', quyền 600', '') + '; định dạng' + os('', ' và lệnh PowerShell tạo file') + ' có trong mục “The OAuth client file” của hướng dẫn: ' + CLIENT_GUIDE,
+    en: path + os(', mode 600', '') + '; the guide’s “The OAuth client file” section gives the format' + os('', ' and the PowerShell command that makes it') + ': ' + CLIENT_GUIDE,
+  };
+}
+
 /** Why "Thêm tài khoản" cannot run yet, or null when it can. */
 export function clientNotice(view: AgyAccounts): { tone: 'warn' | 'bad'; title: string; body: string } | null {
-  // Windows keeps no file mode: the profile's folder keeps others out there.
-  const where =
-    os(
-      t('File đặt ở ' + view.clientPath + ', quyền 600. ', 'The file goes at ' + view.clientPath + ', mode 600. '),
-      t('File đặt ở ' + view.clientPath + '. ', 'The file goes at ' + view.clientPath + '. '),
-    ) +
-    t(
-      'Điền client_id và client_secret của OAuth client Antigravity; định dạng và lệnh ' + os('', 'PowerShell ') + 'tạo file có trong mục “The OAuth client file” của hướng dẫn: ' + CLIENT_GUIDE,
-      'Fill in the client_id and client_secret of Antigravity’s OAuth client; the guide’s “The OAuth client file” section gives the format and the ' + os('', 'PowerShell ') + 'command that creates the file: ' + CLIENT_GUIDE,
-    );
+  const file = clientFile(view.clientPath);
+  // Not found: the manual way, as a fallback.
+  const orFile = t(' Hoặc đặt OAuth client vào file ' + file.vi, ' Or put an OAuth client in ' + file.en);
+  // A file is there and wins: fix it, or remove it to use the installed Antigravity's.
+  const theFile = t(
+    'Sửa file, hoặc xoá nó để app tìm OAuth client trong Antigravity đã cài. File ở ' + file.vi,
+    'Fix the file, or remove it to let the app look for the OAuth client in the installed Antigravity. The file is at ' + file.en,
+  );
   const notices: Record<Exclude<ClientStatus, 'ok'>, { tone: 'warn' | 'bad'; title: string; body: string }> = {
     missing: {
       tone: 'warn',
-      title: t('Chưa có oauth-client.json', 'No oauth-client.json yet'),
-      body:
-        mac(t('App đăng nhập Google bằng OAuth client của Antigravity. Mã client không nằm trong mã nguồn, nên cần đặt nó vào file oauth-client.json trên máy này. ', 'The app signs in to Google with Antigravity’s OAuth client. The client ID is not in the source code, so it has to go in an oauth-client.json file on this Mac. ')) +
-        where,
+      title: mac(t('Chưa thấy Antigravity trên Mac này', 'Antigravity is not on this Mac')),
+      body: t('App đăng nhập Google bằng OAuth client của Antigravity đã cài trên máy. Cài Antigravity (app hoặc CLI agy) rồi mở lại tab này.', 'The app signs in to Google with the OAuth client of the Antigravity installed here. Install Antigravity (the app or the agy CLI), then open this tab again.') + orFile,
+    },
+    unrecognized: {
+      tone: 'warn',
+      title: t('Chưa nhận ra bản Antigravity này', 'This Antigravity build is not recognized'),
+      body: t('Antigravity đã cài không có OAuth client mà app biết. Cập nhật Antigravity và Quota Station lên bản mới nhất rồi mở lại tab này.', 'The installed Antigravity has no OAuth client the app knows. Update Antigravity and Quota Station to their latest versions, then open this tab again.') + orFile,
     },
     tooOpen: {
       tone: 'bad',
       title: t('oauth-client.json đang để người khác đọc được', 'oauth-client.json can be read by others'),
-      body: t('App chỉ dùng file khi chỉ bạn đọc được nó. Chạy chmod 600 cho file rồi mở lại tab này.', 'The app only uses the file when only you can read it. Run chmod 600 on it, then open this tab again.'),
+      body: t('App chỉ dùng file khi chỉ bạn đọc được nó. Chạy chmod 600 cho file rồi mở lại tab này. ', 'The app only uses the file when only you can read it. Run chmod 600 on it, then open this tab again. ') + theFile,
     },
     invalid: {
       tone: 'bad',
       title: t('oauth-client.json chưa đúng', 'oauth-client.json is not right'),
-      body: t('Cần client_id (đuôi .apps.googleusercontent.com) và client_secret thật, không phải giá trị mẫu. ', 'It needs a real client_id (ending in .apps.googleusercontent.com) and client_secret, not the sample values. ') + where,
+      body: t('Cần client_id (đuôi .apps.googleusercontent.com) và client_secret thật, không phải giá trị mẫu. ', 'It needs a real client_id (ending in .apps.googleusercontent.com) and client_secret, not the sample values. ') + theFile,
     },
     unreadable: {
       tone: 'bad',
       title: t('Không đọc được oauth-client.json', 'Cannot read oauth-client.json'),
-      body: t('Kiểm tra xem đó có phải là một file thường mà tài khoản ' + osName() + ' của bạn đọc được không. ', 'Check that it is a regular file your ' + osName() + ' account can read. ') + where,
+      body: t('Kiểm tra xem đó có phải là một file thường mà tài khoản ' + osName() + ' của bạn đọc được không. ', 'Check that it is a regular file your ' + osName() + ' account can read. ') + theFile,
     },
   };
   return view.client === 'ok' ? null : notices[view.client];
@@ -237,7 +246,7 @@ export function agyLoginErrorFeedback(e: unknown): FeedbackView | null {
     case 'index':
       return { tone: 'bad', title: t('Không ghi được danh sách tài khoản', 'Could not write the account list'), body: withDetail(t('Đăng nhập chưa được giữ.', 'The sign-in was not kept.')) };
     case 'client':
-      return { tone: 'warn', title: t('Chưa dùng được oauth-client.json', 'oauth-client.json is not usable yet'), body: t('Xem hướng dẫn trong thẻ Đăng nhập trong Quota Station.', 'See the steps on the Sign-in card in Quota Station.') };
+      return { tone: 'warn', title: t('OAuth client Antigravity chưa dùng được', 'The Antigravity OAuth client is not usable yet'), body: t('Xem thẻ Đăng nhập trong Quota Station.', 'See the Sign-in card in Quota Station.') };
     case 'browser':
       return { tone: 'bad', title: t('Không mở được trình duyệt', 'Could not open the browser'), body: t('Chưa thêm tài khoản. Thử lại.', 'No account added. Try again.') };
     case 'bind':

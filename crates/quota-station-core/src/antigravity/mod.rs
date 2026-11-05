@@ -10,8 +10,9 @@
 //!
 //! Where things live, all under the app's Application Support folder:
 //!
-//! - `oauth-client.json` at its root: the OAuth client, put there by the
-//!   owner ([`client`]);
+//! - `oauth-client.json` at its root, when the owner put one there: the
+//!   OAuth client, which otherwise comes from the installed Antigravity
+//!   ([`client`], [`discover`]);
 //! - `antigravity/` (mode 700): `accounts.json` and `status.json`, with no
 //!   secrets ([`index`]), and each account's last quota reading under
 //!   `cache/` ([`export`]), which the Antigravity row
@@ -36,6 +37,7 @@ pub mod client;
 pub mod cloud_code;
 pub mod credential;
 pub mod desktop;
+pub mod discover;
 pub mod export;
 pub mod index;
 pub mod listing;

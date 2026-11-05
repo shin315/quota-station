@@ -112,7 +112,7 @@ impl std::fmt::Display for ReadError {
             ReadError::Forbidden => write!(f, "Google refused this account (403)"),
             ReadError::Index(e) => e.fmt(f),
             ReadError::Keychain(e) => e.fmt(f),
-            ReadError::Client(s) => write!(f, "oauth-client.json is not usable: {s:?}"),
+            ReadError::Client(s) => write!(f, "no OAuth client to log in with: {s:?}"),
             ReadError::Refresh(e) => write!(f, "token refresh failed: {e}"),
             ReadError::CloudCode(e) => e.fmt(f),
             ReadError::Cache(e) => write!(f, "cannot keep the reading: {e}"),

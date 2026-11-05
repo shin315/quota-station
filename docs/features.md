@@ -754,7 +754,8 @@ it.
 - **Services** (`Dịch vụ`): `Keychain access` (a one-time `Grant once` that lets
   the app ask macOS for Claude Code's Keychain item, on a Mac where the app keeps
   no Claude account), `Codex folder`, `Codex accounts`, `Antigravity OAuth
-  client` (whether `oauth-client.json` is in place and usable), and the
+  client` (whether the app has one: found in the installed Antigravity, or an
+  `oauth-client.json` in place and usable), and the
   `Environment variables that override sign-in` card. While a variable is set,
   this tab moves to the front of the bar and the card leads it.
 - **Advanced** (`Nâng cao`): `Show advanced features` shows the `Rotation

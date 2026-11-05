@@ -63,13 +63,24 @@ describe('Antigravity accounts logged in here', () => {
     expect(addButton().disabled).toBe(false);
   });
 
-  it('without oauth-client.json it explains what is missing and cannot add', async () => {
+  it('with no OAuth client it says what to do and cannot add', async () => {
     const fake = await open(withAgy({ client: 'missing' }));
-    expect(screen.getByText('Chưa có oauth-client.json')).toBeTruthy();
-    expect(screen.getByText(/~\/Library\/Application Support\/com\.shin315\.quota-station\/oauth-client\.json, quyền 600/)).toBeTruthy();
+    expect(screen.getByText('Chưa thấy Antigravity trên Mac này')).toBeTruthy();
+    expect(screen.getByText(/Cài Antigravity \(app hoặc CLI agy\) rồi mở lại tab này\. Hoặc đặt OAuth client vào file ~\/Library\/Application Support\/com\.shin315\.quota-station\/oauth-client\.json, quyền 600/)).toBeTruthy();
     expect(addButton().disabled).toBe(true);
     fireEvent.click(addButton());
     expect(fake.api.agyLogin).not.toHaveBeenCalled();
+    cleanup();
+    await open(withAgy({ client: 'unrecognized' }));
+    expect(screen.getByText('Chưa nhận ra bản Antigravity này')).toBeTruthy();
+    expect(screen.getByText(/Cập nhật Antigravity và Quota Station lên bản mới nhất/)).toBeTruthy();
+    expect(addButton().disabled).toBe(true);
+  });
+
+  it('with the client found, adding is offered with nothing to set up', async () => {
+    await open(withAgy({ client: 'ok' }));
+    expect(screen.queryByText(/oauth-client\.json/)).toBeNull();
+    expect(addButton().disabled).toBe(false);
   });
 
   it('a client file others can read, or one still holding placeholders, is refused', async () => {

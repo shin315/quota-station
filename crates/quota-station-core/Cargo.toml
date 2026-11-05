@@ -16,7 +16,7 @@ publish = false
 # (`src/antigravity/`), whose code is in part adapted under
 # CC BY-NC-SA 4.0 (`LICENSES/`, `NOTICE`). Off, the crate is MIT only and
 # Antigravity is the one account signed in on this Mac, read-only.
-antigravity-accounts = []
+antigravity-accounts = ["dep:memchr"]
 # For the tests only: points the Google, Anthropic and ChatGPT endpoints at
 # a local fake, lets a fake `security` stand in for the Keychain, and
 # records every file the Antigravity module opens. The app never turns it on.
@@ -34,6 +34,9 @@ fs4 = { version = "1", features = ["sync"] }
 jiff = "0.2"
 libc = "0.2"
 md5 = "0.7"
+# Finds the markers of Antigravity's OAuth client in its programs
+# (`antigravity::discover`).
+memchr = { version = "2", optional = true }
 # The features that shape a request to Google's Antigravity endpoints:
 # the default TLS (macOS's own) and the Accept-Encoding sent.
 reqwest = { version = "0.12", features = ["blocking", "json", "gzip", "brotli", "deflate", "zstd"] }
