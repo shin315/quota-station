@@ -10,8 +10,8 @@
 //! app, installs it over the running copy and offers to reopen. A build from
 //! source keeps "Cập nhật từ mã nguồn" and is never replaced by a download; a
 //! copy Homebrew installed is updated by Homebrew, so the app shows the
-//! command; a release build without the public key (the placeholder in
-//! `src-tauri/updater.pub`) opens the download as before.
+//! command; a release build without a public key in `src-tauri/updater.pub`
+//! opens the download as before.
 
 use std::path::Path;
 
@@ -57,7 +57,7 @@ pub fn way(release_build: bool, homebrew: bool, key_ready: bool, bundled: bool) 
 
 /// Whether `text` is a minisign public key as `tauri signer generate` writes
 /// it: base64 of an `untrusted comment:` line and the key's own base64 line,
-/// `Ed`, its 8-byte id and its 32 bytes. The placeholder is not.
+/// `Ed`, its 8-byte id and its 32 bytes.
 pub fn key_ready(text: &str) -> bool {
     key_id(text).is_some()
 }

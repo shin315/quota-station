@@ -19,9 +19,8 @@ use std::sync::OnceLock;
 use quota_station_core::self_update::{self, Way};
 use tauri::AppHandle;
 
-/// The update key's public half (`src-tauri/updater.pub`): a placeholder
-/// until the owner makes the key; a copy built with it opens the download
-/// instead of installing.
+/// The update key's public half (`src-tauri/updater.pub`). A copy built
+/// without a key there opens the download instead of installing.
 pub const PUBKEY: &str = include_str!("../updater.pub");
 
 /// The `.app` this copy runs from (macOS); `None` outside one.
@@ -136,14 +135,13 @@ mod tests {
         assert_eq!(bundle_of(Path::new("/x/Contents/MacOS/quota-station")), None);
     }
 
-    /// The committed key is the placeholder or a real public key, never
-    /// anything else: a broken file would quietly turn self-update off.
+    /// The committed key is a minisign public key: a broken file would
+    /// quietly turn self-update off in every release.
     #[test]
-    fn the_committed_key_is_the_placeholder_or_a_public_key() {
-        let key = super::PUBKEY.trim();
+    fn the_committed_key_is_a_public_key() {
         assert!(
-            key.starts_with("placeholder:") || quota_station_core::self_update::key_ready(key),
-            "src-tauri/updater.pub holds neither the placeholder nor a minisign public key"
+            quota_station_core::self_update::key_ready(super::PUBKEY),
+            "src-tauri/updater.pub holds no minisign public key"
         );
     }
 }

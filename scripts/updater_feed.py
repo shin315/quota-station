@@ -13,7 +13,7 @@
         --out latest.json
 
 `check-key` fails unless the file holds a minisign public key as `tauri signer
-generate` writes it (not the placeholder). `manifest` writes `latest.json`, the
+generate` writes it. `manifest` writes `latest.json`, the
 file the app's updater reads from the latest release: for each entry, the
 platforms it serves, the asset's download URL and the content of its `.sig`
 (next to it). Each signature must be for this version (the app requires it,
@@ -98,7 +98,7 @@ def check_key(args):
     if not os.path.isfile(args.file):
         fail(f"{args.file} is missing: commit the update key's public half (docs/releasing.md)")
     if key_id(read(args.file)) is None:
-        fail(f"{args.file} holds no update key's public half (still the placeholder?): run the key steps in docs/releasing.md and commit the public key")
+        fail(f"{args.file} holds no update key's public half: commit the key's .pub file there (docs/releasing.md)")
     print(f"{args.file}: an update key's public half")
 
 

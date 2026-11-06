@@ -62,7 +62,7 @@ file before a release.
 3. **Real run**: the same with `dry_run=false`, from `main`. It needs the
    update key's public half in `src-tauri/updater.pub`, and the `release`
    environment with a required reviewer and the secrets below; it stops
-   before building when the public key is missing or still the placeholder,
+   before building when that file is missing or holds no key,
    or the environment is missing, unprotected (no required reviewer or no
    deployment branch policy) or its settings cannot be read, and the macOS
    and Windows jobs stop when a secret is missing. Both jobs wait for the
@@ -78,7 +78,7 @@ file before a release.
 Before the first real run:
 
 - The **update key** (below): its two secrets in the `release` environment and
-  its public half committed as `src-tauri/updater.pub`.
+  its public half committed as `src-tauri/updater.pub` (done).
 - A **Developer ID Application** certificate, exported with its key as a
   `.p12`, and an **App Store Connect API key** with Developer access for
   notarization, entered as the six secrets of the `release` environment below.
@@ -90,28 +90,24 @@ Before the first real run:
 ### The update key
 
 One key signs every updater file; every installed copy checks updates against
-its public half, built into the app. Make it once, on your own computer:
+its public half, built into the app from `src-tauri/updater.pub` (minisign key
+id `6106898F7F0F986C`). Its private half and password are the `release`
+environment's `TAURI_SIGNING_PRIVATE_KEY` and
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, and are kept in an offline backup.
+**Losing either ends updates for every installed copy**: they would need a
+manual install of a release with a new key. Never commit the private half.
 
-```sh
-npx tauri signer generate -w ~/quota-station-update.key
-```
+The key was made with `npx tauri signer generate -w <file>` (with a password),
+its two secrets set with `gh secret set <name> --env release -R
+shin315/quota-station`, reading from the file or stdin, and its `.pub` file
+committed as `src-tauri/updater.pub`. A new key means doing the same again,
+and copies built with the old key cannot install releases signed with the new
+one.
 
-Give it a password. Then:
-
-- Set `TAURI_SIGNING_PRIVATE_KEY` (the private key file's text) and
-  `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` as secrets of the `release` environment,
-  for example `gh secret set TAURI_SIGNING_PRIVATE_KEY --env release -R
-  shin315/quota-station < ~/quota-station-update.key`.
-- Commit the public half (`~/quota-station-update.key.pub`, one line) as
-  `src-tauri/updater.pub`, replacing the placeholder.
-- Keep the private key and its password in an offline backup. **Losing either
-  ends updates for every installed copy**: they would need a manual install of
-  a release with a new key. Never commit the private key.
-
-Until `src-tauri/updater.pub` holds the key, every build opens the download
-instead of installing (`crates/quota-station-core/src/self_update.rs`). The
-first release built with the key is the first that later releases can update
-in place; copies on 1.1.1 or older need one more manual install.
+The first release built with the key (the first after 1.1.1) is the first that
+later releases can update in place; copies on 1.1.1 or older need one more
+manual install. A build whose `src-tauri/updater.pub` holds no key opens the
+download instead of installing (`crates/quota-station-core/src/self_update.rs`).
 
 ### The release environment
 
