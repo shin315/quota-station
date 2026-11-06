@@ -22,7 +22,7 @@ Giao diện có tiếng Việt và tiếng Anh, hỗ trợ macOS 13+ và Windows
   90% cửa sổ 5 giờ hoặc tuần (`Cài đặt › Dịch vụ`), Claude Code tự chuyển sang tài khoản còn
   nhiều quota nhất trong khi các phiên đang mở vẫn chạy tiếp. App kiểm tra mỗi 3 phút, gửi thông
   báo sau mỗi lần chuyển và có nút `Tạm dừng` bất cứ lúc nào.
-- **Thanh menu, popover và `Tổng quan`**: Thanh menu hiện đồng hồ nhỏ cùng tài khoản đang dùng
+- **Thanh menu, popover và `Tổng quan`**: Thanh menu hiện biểu tượng đo nhỏ cùng tài khoản đang dùng
   và phần trăm đã dùng (`lan.acme1 74%`), nhấp trái mở popover xem mọi cửa sổ hạn mức. Trong cửa
   sổ chính, tab `Tổng quan` gom tất cả tài khoản Claude, Antigravity và Codex vào một chỗ với
   nút `Chuyển` trên từng tài khoản đang không dùng.
