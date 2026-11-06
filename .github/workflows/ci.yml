@@ -168,6 +168,12 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         if: ${{ !vars.MAC_RUNNER }}
 
+      # No code file over 1000 lines, but the ones on .file-length-allowlist,
+      # which only get shorter (scripts/check-file-length.mjs). Needs Node
+      # alone, so it runs before the install.
+      - name: File length (at most 1000 lines)
+        run: npm run check:file-length
+
       - name: Install npm packages
         run: npm ci
 
