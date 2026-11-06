@@ -88,6 +88,7 @@ pub mod rotation;
 pub mod runner;
 pub mod schedule;
 pub mod sealed;
+pub mod self_update;
 pub mod sessions;
 pub mod settings;
 pub mod snapshot;

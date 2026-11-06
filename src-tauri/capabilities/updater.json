@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "updater",
+  "description": "The main window's \"Tải và cài\": the updater's check, download and install. Only a release build that updates itself registers the updater (src/updater.rs); in every other copy these calls find no plugin.",
+  "windows": ["main"],
+  "permissions": ["updater:default"]
+}

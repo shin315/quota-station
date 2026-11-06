@@ -11,12 +11,24 @@ tag `v<version>` appears when the owner presses **Publish** on it.
 |---|---|---|
 | `Quota.Station_<version>_universal.dmg` | `macos-latest`, `--target universal-apple-darwin` | Developer ID Application, notarized and stapled (app and disk image) |
 | `Quota.Station_<version>_x64-setup.exe` | `windows-latest`, NSIS | No: SmartScreen asks once (README) |
-| `SHA256SUMS.txt` | | |
+| `Quota.Station_<version>_universal.app.tar.gz` | the macOS job: the signed, stapled app, archived | |
+| `….app.tar.gz.sig`, `…_x64-setup.exe.sig` | | the update key (below) |
+| `latest.json` | `scripts/updater_feed.py` | |
+| `SHA256SUMS.txt` | the `.dmg`, the `.exe` and the `.app.tar.gz` | |
 
-These are the names the app's update check looks for
-(`crates/quota-station-core/src/release.rs`, `installs`): the first `.dmg` on
-macOS, the file ending in `_x64-setup.exe` on Windows x64. Keep one `.dmg` per
-release.
+The installers keep the names the app's update check and the Homebrew cask
+look for (`crates/quota-station-core/src/release.rs`, `installs`): the first
+`.dmg` on macOS, the file ending in `_x64-setup.exe` on Windows x64. Keep one
+`.dmg` per release.
+
+`latest.json` is what the app's updater reads, at
+`https://github.com/shin315/quota-station/releases/latest/download/latest.json`
+(`plugins.updater` in `src-tauri/tauri.conf.json`), so it serves only the
+published latest release. It sends `darwin-aarch64` and `darwin-x86_64` to the
+universal `.app.tar.gz` and `windows-x86_64` to the `-setup.exe`, each with its
+`.sig`. The app checks the signature against the key in `src-tauri/updater.pub`
+and that it was made for the version `latest.json` announces
+(`requireSignedVersion`), then installs over the running copy.
 
 Both builds have the Antigravity accounts (`--features antigravity-accounts`,
 `QS_ANTIGRAVITY_ACCOUNTS=1`, and `src-tauri/tauri.antigravity.conf.json`, so the
@@ -42,14 +54,19 @@ file before a release.
    ```
 
    It builds both installers (the app signed ad-hoc, as a build from source
-   is) and keeps them, `SHA256SUMS.txt` and the notes as the run's artifacts
-   for 14 days. It uses no environment and no secret and creates nothing.
+   is) and the updater files, signed with a throwaway key each job makes
+   (`scripts/updater-dry-key.sh`), so they and `latest.json` show their shape
+   but can never install. It keeps them, `SHA256SUMS.txt` and the notes as the
+   run's artifacts for 14 days. It uses no environment and no secret and
+   creates nothing.
 3. **Real run**: the same with `dry_run=false`, from `main`. It needs the
-   `release` environment with a required reviewer and the six secrets below;
-   it stops before building when the environment is missing, unprotected (no
-   required reviewer or no deployment branch policy) or its settings cannot be
-   read, and the macOS job stops when a secret is missing. The macOS job
-   waits for the reviewer's approval, then the last job creates the draft
+   update key's public half in `src-tauri/updater.pub`, and the `release`
+   environment with a required reviewer and the secrets below; it stops
+   before building when the public key is missing or still the placeholder,
+   or the environment is missing, unprotected (no required reviewer or no
+   deployment branch policy) or its settings cannot be read, and the macOS
+   and Windows jobs stop when a secret is missing. Both jobs wait for the
+   reviewer's approval (one review covers both), then the last job creates the draft
    release `v<version>` on the built commit. A run that fails leaves no draft. A draft
    that is wrong can be deleted and the workflow run again. Once published, the
    release, its assets and its tag cannot be changed, and the name of a deleted
@@ -60,6 +77,8 @@ file before a release.
 
 Before the first real run:
 
+- The **update key** (below): its two secrets in the `release` environment and
+  its public half committed as `src-tauri/updater.pub`.
 - A **Developer ID Application** certificate, exported with its key as a
   `.p12`, and an **App Store Connect API key** with Developer access for
   notarization, entered as the six secrets of the `release` environment below.
@@ -68,13 +87,39 @@ Before the first real run:
   those tags (Settings › Rules › Rulesets).
 - **Immutable releases** turned on (Settings › General › Releases).
 
+### The update key
+
+One key signs every updater file; every installed copy checks updates against
+its public half, built into the app. Make it once, on your own computer:
+
+```sh
+npx tauri signer generate -w ~/quota-station-update.key
+```
+
+Give it a password. Then:
+
+- Set `TAURI_SIGNING_PRIVATE_KEY` (the private key file's text) and
+  `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` as secrets of the `release` environment,
+  for example `gh secret set TAURI_SIGNING_PRIVATE_KEY --env release -R
+  shin315/quota-station < ~/quota-station-update.key`.
+- Commit the public half (`~/quota-station-update.key.pub`, one line) as
+  `src-tauri/updater.pub`, replacing the placeholder.
+- Keep the private key and its password in an offline backup. **Losing either
+  ends updates for every installed copy**: they would need a manual install of
+  a release with a new key. Never commit the private key.
+
+Until `src-tauri/updater.pub` holds the key, every build opens the download
+instead of installing (`crates/quota-station-core/src/self_update.rs`). The
+first release built with the key is the first that later releases can update
+in place; copies on 1.1.1 or older need one more manual install.
+
 ### The release environment
 
 Settings › Environments › `release`: the owner as required reviewer,
 deployment branches and tags limited to `main` and `v*`. Its secrets (Tauri
-reads the first five; the Release workflow writes the sixth to a temporary
-file and points `APPLE_API_KEY_PATH` at it; the last is the
-[Homebrew](#homebrew) workflow's):
+reads the first five and the two update key secrets; the Release workflow
+writes the sixth to a temporary file and points `APPLE_API_KEY_PATH` at it;
+the last is the [Homebrew](#homebrew) workflow's):
 
 | Secret | Value |
 |---|---|
@@ -84,6 +129,8 @@ file and points `APPLE_API_KEY_PATH` at it; the last is the
 | `APPLE_API_ISSUER` | App Store Connect API Issuer ID |
 | `APPLE_API_KEY` | App Store Connect API Key ID |
 | `APPLE_API_KEY_P8` | the key's `AuthKey_<id>.p8`, its whole text |
+| `TAURI_SIGNING_PRIVATE_KEY` | the update key's private half, its whole text |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | its password |
 | `HOMEBREW_TAP_DEPLOY_KEY` | the private key of shin315/homebrew-tap's deploy key with write access |
 
 The signed app runs with the hardened runtime and
@@ -95,8 +142,10 @@ what macOS shows when it asks.
 
 On the draft's page (only people with write access see it):
 
-- The three assets are there with the names above, and `shasum -a 256 -c
-  SHA256SUMS.txt` (or `Get-FileHash`) matches the downloads.
+- The assets are there with the names above, and `shasum -a 256 -c
+  SHA256SUMS.txt` (or `Get-FileHash`) matches the downloads. `latest.json`
+  names this version and points at this release's `.app.tar.gz` and
+  `-setup.exe`.
 - macOS: the DMG opens without a Gatekeeper warning beyond "downloaded from
   the Internet"; `spctl -a -vv "/Applications/Quota Station.app"` says
   `source=Notarized Developer ID`. Settings shows `<version> (build N ·
@@ -108,7 +157,9 @@ On the draft's page (only people with write access see it):
 - The notes read right, and the release is not marked as a pre-release.
 
 Publishing creates the tag on the draft's commit. From then on the app's
-update check offers this version.
+update check offers this version, and copies built with the update key install
+it with `Download and install`. After publishing, a copy of the previous
+release updating to it in place is the end-to-end check.
 
 ## Homebrew
 
@@ -130,3 +181,7 @@ gh workflow run homebrew.yml -R shin315/quota-station -f tag=v<version>
 ```
 
 A cask already at that version and sha256 is left as it is.
+
+The cask has no `auto_updates true`: a copy Homebrew installed does not update
+itself (the app shows `brew upgrade --cask shin315/tap/quota-station`), so
+`brew upgrade` and `brew outdated` keep handling it.

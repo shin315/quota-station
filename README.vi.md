@@ -113,11 +113,15 @@ Chi tiết về bảo mật và lưu ý điều khoản dịch vụ có trong [S
 ## Cập nhật
 
 Bản tải về kiểm tra GitHub Releases mỗi ngày (`Cài đặt › Chung › Cập nhật`) và báo khi có bản
-mới: bấm `Tải và cài` để mở file `.dmg` hoặc `.exe` mới trên trình duyệt rồi cài đè lên bản cũ
-(trên macOS thì thoát app trước), hoặc chạy:
+mới. Từ bản phát hành đầu tiên sau 1.1.1, `Tải và cài` tải bản mới, kiểm tra chữ ký, cài đè lên
+bản đang chạy rồi hỏi mở lại (trên Windows bộ cài đóng app rồi mở bản mới). Bản 1.1.1 trở về
+trước thì cài thủ công thêm một lần: mở file `.dmg` hoặc `.exe` mới trên trình duyệt rồi cài đè
+lên bản cũ (trên macOS thì thoát app trước).
+
+Bản cài qua Homebrew cập nhật bằng Homebrew; app chỉ hiện lệnh:
 
 ```sh
-brew upgrade --cask quota-station
+brew upgrade --cask shin315/tap/quota-station
 ```
 
 Bản dựng từ mã nguồn cập nhật bằng `Cập nhật từ mã nguồn` trong `Cài đặt › Nâng cao` hoặc:
@@ -126,7 +130,7 @@ Bản dựng từ mã nguồn cập nhật bằng `Cập nhật từ mã nguồn
 git pull --ff-only && scripts/install.sh
 ```
 
-App không bao giờ tự tải hay tự cài bản cập nhật.
+Không có gì được cài khi bạn chưa bấm nút. Bản dựng từ mã nguồn không bao giờ cài bản tải về.
 
 ## Gỡ cài đặt
 

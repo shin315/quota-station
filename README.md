@@ -110,11 +110,15 @@ Details and terms-of-service notes are in [SECURITY.md](SECURITY.md) and
 ## Update
 
 Downloaded builds check GitHub Releases daily (`Settings › General › Updates`) and notify you
-when a new version is out: click `Download and install` to open the new `.dmg` or `.exe` in your
-browser and install it over the old copy (quit first on macOS), or run:
+when a new version is out. From the first release after 1.1.1, `Download and install` downloads
+it, checks its signature, installs it over the running copy and offers to reopen (on Windows the
+installer closes the app and opens the new version). Copies on 1.1.1 or older install the new
+`.dmg` or `.exe` from the browser over the old copy once more (quit first on macOS).
+
+Homebrew installs update with Homebrew; the app shows the command:
 
 ```sh
-brew upgrade --cask quota-station
+brew upgrade --cask shin315/tap/quota-station
 ```
 
 Source builds update with `Update from source` in `Settings › Advanced` or:
@@ -123,7 +127,7 @@ Source builds update with `Update from source` in `Settings › Advanced` or:
 git pull --ff-only && scripts/install.sh
 ```
 
-The app never downloads or installs updates by itself.
+Nothing installs until you press the button. Source builds never install a downloaded release.
 
 ## Uninstall
 
