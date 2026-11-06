@@ -70,12 +70,24 @@ in English and Vietnamese for macOS 13+ and Windows 10/11 (x64) — download fro
 Download from the [latest release](https://github.com/shin315/quota-station/releases/latest) for
 **macOS 13+** (Apple Silicon or Intel) or **Windows 10/11 (x64)**.
 
-- **macOS (Homebrew)**: `brew install --cask shin315/tap/quota-station`
+- **macOS (Homebrew)**:
+
+  ```sh
+  brew install --cask shin315/tap/quota-station
+  ```
+
 - **macOS (DMG)**: Download `Quota.Station_<version>_universal.dmg`, open it and drag `Quota
   Station` to `Applications` (Developer ID signed and notarized by Apple; choose `Open` on first
   launch).
 - **macOS (from source)**: On a Mac with Rust 1.85+ and Node.js 20+, clone the repo and run
-  `scripts/install.sh` ([docs/development.md](docs/development.md#build-and-run)).
+  `scripts/install.sh` ([docs/development.md](docs/development.md#build-and-run)):
+
+  ```sh
+  git clone https://github.com/shin315/quota-station.git
+  cd quota-station
+  scripts/install.sh
+  ```
+
 - **Windows**: Download `Quota.Station_<version>_x64-setup.exe` and run it (installs per user, no
   admin rights needed). Because the installer is not signed, choose `Keep` (`Keep anyway` in
   Edge) if the browser warns, and in SmartScreen click `More info` › `Run anyway`.
@@ -99,17 +111,32 @@ Details and terms-of-service notes are in [SECURITY.md](SECURITY.md) and
 
 Downloaded builds check GitHub Releases daily (`Settings › General › Updates`) and notify you
 when a new version is out: click `Download and install` to open the new `.dmg` or `.exe` in your
-browser and install it over the old copy (quit first on macOS), or run `brew upgrade --cask
-quota-station`. Source builds update with `git pull --ff-only && scripts/install.sh` or `Update
-from source` in `Settings › Advanced`. The app never downloads or installs updates by itself.
+browser and install it over the old copy (quit first on macOS), or run:
+
+```sh
+brew upgrade --cask quota-station
+```
+
+Source builds update with `Update from source` in `Settings › Advanced` or:
+
+```sh
+git pull --ff-only && scripts/install.sh
+```
+
+The app never downloads or installs updates by itself.
 
 ## Uninstall
 
 Turn off `Open at login` (`Settings › General`) and `Auto-switch when quota runs out` (`Claude`
-tab), then quit Quota Station. On **macOS**, move `/Applications/Quota Station.app` to the Trash
-(or `brew uninstall --cask quota-station`); on **Windows**, uninstall `Quota Station` in
-`Settings › Apps › Installed apps`. To also remove saved settings, account folders and Keychain /
-Credential Manager items, see
+tab), then quit Quota Station. On **macOS**, move `/Applications/Quota Station.app` to the Trash,
+or run:
+
+```sh
+brew uninstall --cask quota-station
+```
+
+On **Windows**, uninstall `Quota Station` in `Settings › Apps › Installed apps`. To also remove
+saved settings, account folders and Keychain / Credential Manager items, see
 [Uninstalling and removing data](docs/how-it-works.md#uninstalling-and-removing-data).
 
 ## Documentation

@@ -71,12 +71,24 @@ Giao diện có tiếng Việt và tiếng Anh, hỗ trợ macOS 13+ và Windows
 Tải ứng dụng từ [bản phát hành mới nhất](https://github.com/shin315/quota-station/releases/latest)
 cho **macOS 13+** (Apple Silicon hoặc Intel) hoặc **Windows 10/11 (x64)**.
 
-- **macOS (Homebrew)**: `brew install --cask shin315/tap/quota-station`
+- **macOS (Homebrew)**:
+
+  ```sh
+  brew install --cask shin315/tap/quota-station
+  ```
+
 - **macOS (DMG)**: Tải `Quota.Station_<version>_universal.dmg`, mở file rồi kéo `Quota Station`
   vào `Applications` (đã ký Developer ID và được Apple notarize; chọn `Mở` / `Open` ở lần chạy
   đầu).
 - **macOS (từ mã nguồn)**: Trên máy Mac có Rust 1.85+ và Node.js 20+, clone repo và chạy
-  `scripts/install.sh` ([docs/development.md](docs/development.md#build-and-run)).
+  `scripts/install.sh` ([docs/development.md](docs/development.md#build-and-run)):
+
+  ```sh
+  git clone https://github.com/shin315/quota-station.git
+  cd quota-station
+  scripts/install.sh
+  ```
+
 - **Windows**: Tải `Quota.Station_<version>_x64-setup.exe` rồi chạy (chỉ cài cho user hiện tại,
   không cần quyền quản trị). Do bộ cài chưa ký số: chọn `Giữ lại` / `Keep` (`Keep anyway` trong
   Edge) nếu trình duyệt cảnh báo, và ở SmartScreen bấm `More info` (`Thông tin thêm`) › `Run
@@ -102,17 +114,32 @@ Chi tiết về bảo mật và lưu ý điều khoản dịch vụ có trong [S
 
 Bản tải về kiểm tra GitHub Releases mỗi ngày (`Cài đặt › Chung › Cập nhật`) và báo khi có bản
 mới: bấm `Tải và cài` để mở file `.dmg` hoặc `.exe` mới trên trình duyệt rồi cài đè lên bản cũ
-(trên macOS thì thoát app trước), hoặc chạy `brew upgrade --cask quota-station`. Bản dựng từ mã
-nguồn cập nhật bằng `git pull --ff-only && scripts/install.sh` hoặc `Cập nhật từ mã nguồn` trong
-`Cài đặt › Nâng cao`. App không bao giờ tự tải hay tự cài bản cập nhật.
+(trên macOS thì thoát app trước), hoặc chạy:
+
+```sh
+brew upgrade --cask quota-station
+```
+
+Bản dựng từ mã nguồn cập nhật bằng `Cập nhật từ mã nguồn` trong `Cài đặt › Nâng cao` hoặc:
+
+```sh
+git pull --ff-only && scripts/install.sh
+```
+
+App không bao giờ tự tải hay tự cài bản cập nhật.
 
 ## Gỡ cài đặt
 
 Tắt `Mở khi đăng nhập` (`Cài đặt › Chung`) và `Tự chuyển khi hết quota` (tab `Claude`), rồi thoát
-Quota Station. Trên **macOS**, kéo `/Applications/Quota Station.app` vào Thùng rác (hoặc `brew
-uninstall --cask quota-station`); trên **Windows**, gỡ `Quota Station` trong `Settings › Apps ›
-Installed apps`. Để xoá thêm cài đặt, thư mục tài khoản và các mục trong Keychain / Credential
-Manager, xem [Uninstalling and removing data](docs/how-it-works.md#uninstalling-and-removing-data).
+Quota Station. Trên **macOS**, kéo `/Applications/Quota Station.app` vào Thùng rác, hoặc chạy:
+
+```sh
+brew uninstall --cask quota-station
+```
+
+Trên **Windows**, gỡ `Quota Station` trong `Settings › Apps › Installed apps`. Để xoá thêm cài đặt,
+thư mục tài khoản và các mục trong Keychain / Credential Manager, xem
+[Uninstalling and removing data](docs/how-it-works.md#uninstalling-and-removing-data).
 
 ## Tài liệu
 
