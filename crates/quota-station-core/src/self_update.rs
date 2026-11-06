@@ -18,9 +18,6 @@ use std::path::Path;
 use base64::Engine;
 use serde::Serialize;
 
-/// What the app shows a copy Homebrew installed.
-pub const BREW_UPGRADE: &str = "brew upgrade --cask shin315/tap/quota-station";
-
 /// Where Homebrew keeps the cask's record: Apple silicon's prefix, then
 /// Intel's.
 pub const CASKROOMS: [&str; 2] =
@@ -32,7 +29,7 @@ pub const CASKROOMS: [&str; 2] =
 pub enum Way {
     /// Downloads, checks the signature, installs and offers to reopen.
     Install,
-    /// Homebrew installed it: the app shows [`BREW_UPGRADE`].
+    /// Homebrew installed it: the app shows Homebrew's upgrade command.
     Brew,
     /// Opens the installer or the release page in the browser, as before.
     Download,

@@ -16,12 +16,12 @@ export type UpdateWay = 'install' | 'brew' | 'download' | 'source';
 
 declare module './model' {
   interface ReleaseView {
-    /** How "Tải và cài" goes for this copy; an older app sends none. */
-    way?: UpdateWay;
+    /** How "Tải và cài" goes for this copy. */
+    way: UpdateWay;
   }
 }
 
-/** The command a copy Homebrew installed is updated with (`self_update::BREW_UPGRADE`). */
+/** The command a copy Homebrew installed is updated with. */
 export const BREW_UPGRADE = 'brew upgrade --cask shin315/tap/quota-station';
 
 /** The update downloaded and checked, waiting for `installUpdate`. */
@@ -59,7 +59,7 @@ export async function installUpdate(): Promise<void> {
   await pending.install();
 }
 
-/** Quits and opens the copy just installed. */
+/** Quits and opens the copy just installed (macOS; Windows' installer reopens the app itself). */
 export function relaunch(): Promise<void> {
   return invoke<void>('release_relaunch');
 }

@@ -68,10 +68,11 @@ pub fn plugin() -> Option<tauri::plugin::TauriPlugin<tauri::Wry, tauri_plugin_up
         .then(|| tauri_plugin_updater::Builder::new().pubkey(PUBKEY.trim()).build())
 }
 
-/// "Mở lại" once the new copy is installed (macOS): a small shell waits for
-/// this process to end, then starts the new copy's executable from the same
-/// bundle with this copy's environment. Rejects with `notInstall` on a copy
-/// that does not install releases itself, `unbundled` outside a `.app`.
+/// "Mở lại" once the new copy is installed (macOS only): a small shell waits
+/// for this process to end, then starts the new copy's executable from the
+/// same bundle with this copy's environment. Rejects with `notInstall` on a
+/// copy that does not install releases itself, `unbundled` outside a `.app`,
+/// and `macosOnly` on Windows, whose installer reopens the app itself.
 #[tauri::command]
 pub fn release_relaunch(app: AppHandle) -> Result<(), String> {
     if way() != Way::Install {
@@ -102,11 +103,9 @@ fn relaunch(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-/// Windows' installer reopens the app itself; this only serves a copy whose
-/// installer did not.
 #[cfg(windows)]
-fn relaunch(app: AppHandle) -> Result<(), String> {
-    app.restart()
+fn relaunch(_app: AppHandle) -> Result<(), String> {
+    Err("macosOnly".into())
 }
 
 /// The executable the bundle's `Info.plist` names now: the update may have

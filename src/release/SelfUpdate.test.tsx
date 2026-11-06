@@ -20,9 +20,9 @@ const updater = vi.hoisted(() => ({
 vi.mock('../lib/updater', () => ({ ...updater, BREW_UPGRADE: 'brew upgrade --cask shin315/tap/quota-station' }));
 
 /** The release workflow's build, told how "Tải và cài" goes (`way`), on `platform`. */
-function release(way: UpdateWay | undefined, platform: 'macos' | 'windows' = 'macos'): Model {
-  const m = releaseModel(fixtureModel('fresh', { release: { ...releaseAvailable(), way } }));
-  return { ...m, capabilities: { ...m.capabilities, platform } };
+function release(way: UpdateWay, platform: 'macos' | 'windows' = 'macos'): Model {
+  const m = releaseModel(fixtureModel('fresh', { release: releaseAvailable() }));
+  return { ...m, release: { ...m.release, way }, capabilities: { ...m.capabilities, platform } };
 }
 
 async function open(model: Model) {
@@ -81,15 +81,17 @@ describe('Tải và cài on a release build that updates itself', () => {
     expect(fake.released()).toEqual([]);
   });
 
-  it('on Windows installs only when asked, since the app closes for the installer', async () => {
+  it('on Windows one press downloads and installs, after saying the app closes and reopens', async () => {
     updater.downloadUpdate.mockResolvedValue('0.3.0');
+    updater.installUpdate.mockReturnValue(new Promise<void>(() => {}));
     await open(release('install', 'windows'));
     await openDialog();
+    expect(within(dialog()).getByText(/app sẽ tự đóng lại và mở lại để cài xong/)).toBeTruthy();
     await press(inDialog('Tải và cài'));
-    expect(within(dialog()).getByText('Đã tải Quota Station 0.3.0 và kiểm tra chữ ký.')).toBeTruthy();
-    expect(updater.installUpdate).not.toHaveBeenCalled();
-    await press(inDialog('Cài và mở lại'));
+    expect(updater.downloadUpdate).toHaveBeenCalledTimes(1);
     expect(updater.installUpdate).toHaveBeenCalledTimes(1);
+    expect(within(dialog()).getByText('Đang mở bộ cài…')).toBeTruthy();
+    expect(within(dialog()).queryByRole('button', { name: /mở lại/i })).toBeNull();
     expect(updater.relaunch).not.toHaveBeenCalled();
   });
 
@@ -130,15 +132,12 @@ describe('the other ways', () => {
     expect(releaseLine(release('brew'))?.body).toBe('Cập nhật bằng Homebrew.');
   });
 
-  it('a release build without the update key, or an older app, opens the download as before', async () => {
-    for (const way of ['download', undefined] as const) {
-      const fake = await open(release(way));
-      await openDialog();
-      expect(within(dialog()).getByText(/mở bản DMG 14 MB trên GitHub/)).toBeTruthy();
-      await press(inDialog('Tải và cài'));
-      expect(fake.released()).toEqual(['download']);
-      cleanup();
-    }
+  it('a release build without the update key opens the download as before', async () => {
+    const fake = await open(release('download'));
+    await openDialog();
+    expect(within(dialog()).getByText(/mở bản DMG 14 MB trên GitHub/)).toBeTruthy();
+    await press(inDialog('Tải và cài'));
+    expect(fake.released()).toEqual(['download']);
     expect(updater.downloadUpdate).not.toHaveBeenCalled();
   });
 

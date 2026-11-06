@@ -101,25 +101,8 @@ function InstallSteps({ install, release }: { install: InstallState; release: Re
           />
           <DialogButtons>
             <Button onClick={release.close}>{t('Để sau', 'Later')}</Button>
-            <Button primary onClick={() => void release.finish()}>
+            <Button primary onClick={() => void release.reopen()}>
               {t('Mở lại', 'Reopen')}
-            </Button>
-          </DialogButtons>
-        </>
-      );
-    case 'downloaded':
-      return (
-        <>
-          <Facts
-            items={[
-              { k: 'ok', text: t('Đã tải Quota Station ' + install.version + ' và kiểm tra chữ ký.', 'Downloaded Quota Station ' + install.version + ' and checked its signature.') },
-              { k: '', text: t('Cài thì app đóng lại, bộ cài chạy rồi mở bản mới.', 'Installing closes the app; the installer runs and opens the new version.') },
-            ]}
-          />
-          <DialogButtons>
-            <Button onClick={release.close}>{t('Để sau', 'Later')}</Button>
-            <Button primary onClick={() => void release.finish()}>
-              {t('Cài và mở lại', 'Install and reopen')}
             </Button>
           </DialogButtons>
         </>
@@ -172,8 +155,8 @@ export function InstallBody({ head, notes, release, size }: { head: ReactNode; n
                     'Download and install gets the new version from GitHub, checks its signature and installs it over this one. Then you choose when to reopen.',
                   ),
                   t(
-                    'Tải và cài tải bản cài đặt' + (size ? ' ' + megabytes(size) : '') + ' từ GitHub và kiểm tra chữ ký. Cài thì app đóng lại rồi tự mở bản mới.',
-                    'Download and install gets the' + (size ? ' ' + megabytes(size) : '') + ' installer from GitHub and checks its signature. Installing closes the app and opens the new version.',
+                    'Tải và cài tải bản cài đặt' + (size ? ' ' + megabytes(size) : '') + ' từ GitHub, kiểm tra chữ ký rồi cài ngay: app sẽ tự đóng lại và mở lại để cài xong.',
+                    'Download and install gets the' + (size ? ' ' + megabytes(size) : '') + ' installer from GitHub, checks its signature and installs it right away: the app will close and reopen itself to finish installing.',
                   ),
                 ),
               },

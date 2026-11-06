@@ -9,9 +9,9 @@
 
 import { useRef, useState } from 'react';
 import type { Api } from '../lib/api';
-import { onWindows, t } from '../lib/i18n';
+import { t } from '../lib/i18n';
 import type { Model } from '../lib/model';
-import { newerRelease, updateWay } from '../lib/release';
+import { newerRelease } from '../lib/release';
 import * as updater from '../lib/updater';
 import type { Action, FeedbackView } from '../lib/view';
 
@@ -22,10 +22,8 @@ export type InstallState =
   | { step: 'idle' }
   | { step: 'downloading'; got: number; total: number | null }
   | { step: 'installing' }
-  /** macOS: in place; runs once the app opens again. */
+  /** macOS: in place; runs once the app opens again. Windows never gets here: its installer closes the app. */
   | { step: 'installed'; version: string }
-  /** Windows: downloaded and checked; installing closes the app and opens the new copy. */
-  | { step: 'downloaded'; version: string }
   | { step: 'failed'; reason: string; detail: string };
 
 /** The progress shown at most this often, in milliseconds. */
@@ -90,7 +88,7 @@ export function useRelease(api: Api, model: Model | null, showFeedback: (fb: Fee
   };
   const busy = install.step === 'downloading' || install.step === 'installing';
 
-  /** Downloads and checks the update, then installs it on macOS; Windows waits for "Cài và mở lại". */
+  /** Downloads and checks the update, then installs it: on Windows the installer closes the app and opens the new copy. */
   const selfInstall = async () => {
     if (busy) return;
     shown.current = 0;
@@ -102,7 +100,6 @@ export function useRelease(api: Api, model: Model | null, showFeedback: (fb: Fee
         shown.current = now;
         setInstall({ step: 'downloading', got, total });
       });
-      if (onWindows()) return setInstall({ step: 'downloaded', version: v });
       setInstall({ step: 'installing' });
       await updater.installUpdate();
       setInstall({ step: 'installed', version: v });
@@ -113,20 +110,15 @@ export function useRelease(api: Api, model: Model | null, showFeedback: (fb: Fee
 
   /** "Tải và cài": in place where this copy installs releases itself, else the installer in the browser. */
   const download = () => {
-    if (model && updateWay(model) === 'install') return void selfInstall();
+    if (model?.release.way === 'install') return void selfInstall();
     setDialog(null);
     quiet(api.releaseOpen('download'));
   };
 
-  /** After the download: "Mở lại" on macOS, "Cài và mở lại" on Windows (the app closes there). */
-  const finish = async () => {
+  /** "Mở lại" once the new copy is installed (macOS). */
+  const reopen = async () => {
     try {
-      if (install.step === 'downloaded') {
-        setInstall({ step: 'installing' });
-        await updater.installUpdate();
-      } else {
-        await updater.relaunch();
-      }
+      await updater.relaunch();
     } catch (e) {
       setInstall({ step: 'failed', ...installFailure(e) });
     }
@@ -162,7 +154,7 @@ export function useRelease(api: Api, model: Model | null, showFeedback: (fb: Fee
     later,
     skip,
     download,
-    finish,
+    reopen,
     openDownload,
     open: (what: 'notes' | 'releases' | 'issue') => quiet(api.releaseOpen(what)),
     setAuto: (on: boolean) => quiet(api.setReleaseChecks(on)),

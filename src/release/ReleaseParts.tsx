@@ -14,7 +14,7 @@ import { Button, Facts, LinkButton, More, Rich, Spinner, Toggle } from '../compo
 import { SetRow } from '../settings/SetRow';
 import { mac, os, t } from '../lib/i18n';
 import type { Model } from '../lib/model';
-import { fromSource, megabytes, newerRelease, releaseDate, updateWay, versionRow, versionText, type VersionRowView } from '../lib/release';
+import { fromSource, megabytes, newerRelease, releaseDate, versionRow, versionText, type VersionRowView } from '../lib/release';
 import type { Action } from '../lib/view';
 import { BrewBody, CopyCommand, InstallBody } from './UpdateParts';
 import type { ReleaseState } from './useRelease';
@@ -111,7 +111,7 @@ export function ReleaseDialogBody(props: {
       lead={t('Bạn đang dùng ' + model.app.version + '.', 'You have ' + model.app.version + '.') + (date ? t(' Phát hành ' + date + ' trên GitHub Releases.', ' Released ' + date + ' on GitHub Releases.') : '')}
     />
   );
-  const way = updateWay(model);
+  const way = model.release.way;
   if (way === 'install') return <InstallBody head={head} notes={notes} release={release} size={l.size} />;
   if (way === 'brew') return <BrewBody head={head} notes={notes} release={release} />;
   return (
