@@ -1,9 +1,11 @@
-- Add account in the Antigravity tab now signs in through the browser, with no setup file.
-- Works on macOS and Windows, for the first account and every account after it.
-- The app finds the sign-in client in the Antigravity app or agy CLI on the same computer.
-- An oauth-client.json, if there, is still read first; the files searched are only read.
-- The app and its docs no longer name other tools; licence credits stay in NOTICE.
-- A shorter README; the details moved to docs/features.md and docs/how-it-works.md.
+- The app now downloads, checks and installs a new release by itself, then reopens.
+- One press of "Download and install" does it all, on macOS and on Windows.
+- The download is checked against the app's built-in key before anything is installed.
+- Copies installed with Homebrew keep updating with `brew upgrade`.
+- Copies built from source keep their own update path.
+- The tab "Rotation rules" is now called "Auto-switch accounts".
+
+Going from 1.1.1 to 1.2.0 is still a manual install: download and install it as before. From 1.2.0 on, updates install in place.
 
 Install and update steps are in the [README](https://github.com/shin315/quota-station#install) ([Vietnamese](https://github.com/shin315/quota-station/blob/main/README.vi.md)).
 
