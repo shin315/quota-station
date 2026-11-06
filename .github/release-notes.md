@@ -1,9 +1,9 @@
-- Auto-switch when quota runs out, any Claude account (Pro, Max, Team); sessions keep running.
-- It moves to the account with the most quota left once the one in use reaches 90%.
-- One switch in the Claude tab or the popover, with Pause and a notification per switch.
-- The threshold is in Settings › Services; a switch by hand can hold the new account.
-- Homebrew: brew install --cask shin315/tap/quota-station.
-- Team rotation rules stay under Settings › Advanced and decide as before.
+- Add account in the Antigravity tab now signs in through the browser, with no setup file.
+- Works on macOS and Windows, for the first account and every account after it.
+- The app finds the sign-in client in the Antigravity app or agy CLI on the same computer.
+- An oauth-client.json, if there, is still read first; the files searched are only read.
+- The app and its docs no longer name other tools; licence credits stay in NOTICE.
+- A shorter README; the details moved to docs/features.md and docs/how-it-works.md.
 
 Install and update steps are in the [README](https://github.com/shin315/quota-station#install) ([Vietnamese](https://github.com/shin315/quota-station/blob/main/README.vi.md)).
 
