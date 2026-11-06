@@ -366,6 +366,7 @@ export function releaseFixture(over: Partial<ReleaseView> = {}): ReleaseView {
     newer: false,
     skipped: null,
     later: null,
+    way: 'source',
     ...over,
   };
 }
@@ -775,7 +776,7 @@ export function communityModel(m: Model): Model {
  * marker (`releaseBuild`), which makes it a download, not a build from source.
  */
 export function releaseModel(m: Model): Model {
-  const out: Model = { ...m, capabilities: { ...m.capabilities, agyAccounts: true, authorTools: true, releaseBuild: true } };
+  const out: Model = { ...m, release: { ...m.release, way: 'download' }, capabilities: { ...m.capabilities, agyAccounts: true, authorTools: true, releaseBuild: true } };
   // Nor an extension's parts.
   return ext.fixtures ? ext.fixtures.remove(out) : out;
 }

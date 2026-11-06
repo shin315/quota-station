@@ -31,7 +31,7 @@ function downloaded(release: ReleaseView = releaseAvailable()): Model {
 /** The same build from a clone (`scripts/install.sh`): everything the download has but the release marker. */
 function cloned(release: ReleaseView = releaseAvailable()): Model {
   const m = downloaded(release);
-  return { ...m, capabilities: { ...m.capabilities, releaseBuild: false } };
+  return { ...m, release: { ...m.release, way: 'source' }, capabilities: { ...m.capabilities, releaseBuild: false } };
 }
 
 /** `model` without an update from source in the app's row (a plain build). */

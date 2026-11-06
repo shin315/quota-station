@@ -78,6 +78,7 @@ pub mod testing;
 #[cfg(windows)]
 mod timer;
 mod tray;
+mod updater;
 mod windows;
 #[cfg(windows)]
 mod winsys;
@@ -129,6 +130,12 @@ pub fn run<E: Extension>(context: tauri::Context<tauri::Wry>, extension: E) {
     // Windows's toasts with buttons (`notify`); macOS posts its own cards.
     #[cfg(windows)]
     let builder = builder.plugin(tauri_plugin_notification::init());
+    // "Tải và cài" installs a release only on a release build that may
+    // update itself (`updater::way`); every other copy has no updater.
+    let builder = match updater::plugin() {
+        Some(plugin) => builder.plugin(plugin),
+        None => builder,
+    };
     builder
         .setup(move |app| {
             #[cfg(target_os = "macos")]
@@ -314,6 +321,7 @@ commands![
     release::set_release_checks,
     release::release_open,
     release::release_diagnostics,
+    updater::release_relaunch,
     cli_tools::cli_tools_check,
     cli_tools::cli_tools_opened,
     cli_tools::cli_tool_update,

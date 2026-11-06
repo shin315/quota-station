@@ -797,13 +797,19 @@ The app asks GitHub Releases for a newer version of itself: once a day while
 the switch in `Settings › General › Updates` is on, and on `Check for new
 versions`. A new version brings a banner at the foot of `Overview` (`New
 version: Quota Station X`, with `See what's new` and `Later`) and a line in the
-popover's footer; its dialog has `Download and install`, which opens the
-release's DMG, or its installer on Windows (or its page), in the browser, and
-`Skip this version`. Install the new disk image or installer just like the
-first time, over the old copy (quit the app first on a Mac), or run
-`brew upgrade --cask quota-station` if installed with Homebrew. Nothing is
-downloaded or installed by the app itself. Only the release build, the one
-GitHub Releases offers (built with `QS_RELEASE=1`, the advanced part and the
+popover's footer; its dialog has `Download and install`, `Later` and `Skip
+this version`. On a release build, `Download and install` downloads the
+release's updater file (Tauri's updater, `latest.json` on the latest
+release), checks its signature against the update key built into the app,
+installs it over the running copy with a progress bar, and reopens the app,
+all on that one press (macOS through the app itself; on Windows the installer,
+NSIS passive, closes the app and opens the new version). If anything fails,
+the dialog says why and offers `Open the download`, the release's DMG or
+installer in the browser, to install as the first time. A copy Homebrew
+installed (the cask recorded and the app in an `Applications` folder) gets
+`brew upgrade --cask shin315/tap/quota-station` to copy instead, and a
+release build made without the update key opens the download. Only the
+release build, the one GitHub Releases offers (built with `QS_RELEASE=1`, the advanced part and the
 Antigravity accounts and all), counts as a download; every other build counts
 as one from source (`scripts/install.sh`, `Update from source`, a plain
 build). A build from source is told about a new version but, since it was

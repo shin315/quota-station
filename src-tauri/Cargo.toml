@@ -51,6 +51,10 @@ tauri-plugin-single-instance = "2"
 # URLs, folders and files, opened in the program the owner chose for them
 # (`src/open.rs`), on macOS and Windows alike.
 tauri-plugin-opener = "2"
+# "Tải và cài" on a release build: downloads the release's updater file,
+# checks its signature and installs it (`src/updater.rs`), on macOS and
+# Windows alike.
+tauri-plugin-updater = "2.14"
 url = "2.5"
 
 # Windows: the taskbar's theme and the tray icon's size, the material,

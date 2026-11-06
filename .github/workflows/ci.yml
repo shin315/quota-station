@@ -205,8 +205,29 @@ jobs:
       - name: cargo test with the Antigravity accounts
         run: cargo test --workspace --locked --features antigravity-accounts
 
-      - name: Build the app (MIT)
-        run: npx tauri build --bundles app
+      # With the updater file the Release workflow attaches (the app,
+      # archived, and its signature), signed with a throwaway key, and the
+      # latest.json written for it (scripts/updater_feed.py).
+      - name: A throwaway update key
+        run: bash scripts/updater-dry-key.sh
+
+      - name: Build the app (MIT) and its updater file
+        run: npx tauri build --bundles app --config src-tauri/tauri.updater.conf.json --config "$UPDATER_DRY_CONFIG"
+
+      - name: The updater file and latest.json
+        run: |
+          set -o pipefail
+          version="$(node -p 'require("./src-tauri/tauri.conf.json").version')"
+          dir="${CARGO_TARGET_DIR:-target}/release/bundle/macos"
+          tgz="$dir/Quota Station.app.tar.gz"
+          [ -f "$tgz" ] && [ -f "$tgz.sig" ] || { echo "::error::no updater file and signature in $dir"; ls -la "$dir" || true; exit 1; }
+          tar -tzf "$tgz" | grep -qx 'Quota Station.app/Contents/Info.plist' \
+            || { echo "::error::the updater file does not hold Quota Station.app"; exit 1; }
+          python3 -I -B scripts/updater_feed.py manifest --version "$version" \
+            --base-url "https://github.com/$GITHUB_REPOSITORY/releases/download/v$version" \
+            --pubkey "$UPDATER_DRY_PUBKEY" --entry "darwin-aarch64,darwin-x86_64=$tgz" \
+            --out "$RUNNER_TEMP/latest.json"
+          cat "$RUNNER_TEMP/latest.json"
 
   # The Windows build: vitest (the windows as Windows draws them, the
   # *.win.test.tsx files among them), and the core and the app crate:
@@ -273,11 +294,32 @@ jobs:
       # the clippy and test runs without the feature here and by the macOS
       # job's MIT app. QS_TEST_SESSION makes it open the session's guide and
       # write diag-<date>.zip; no release carries it.
+      # The installer is also the updater's file on Windows: signed here
+      # with a throwaway key, and written into a latest.json
+      # (scripts/updater_feed.py), as the Release workflow does with the
+      # update key.
+      - name: A throwaway update key
+        shell: bash
+        run: bash scripts/updater-dry-key.sh
+
       - name: Build the session's test installer (NSIS, unsigned)
-        run: npx tauri build --bundles nsis --features antigravity-accounts --config src-tauri/tauri.antigravity.conf.json
+        run: npx tauri build --bundles nsis --features antigravity-accounts --config src-tauri/tauri.antigravity.conf.json --config src-tauri/tauri.updater.conf.json --config "${{ env.UPDATER_DRY_CONFIG }}"
         env:
           QS_TEST_SESSION: "1"
           QS_ANTIGRAVITY_ACCOUNTS: "1"
+
+      - name: The installer's updater signature and latest.json
+        shell: bash
+        run: |
+          version="$(node -p 'require("./src-tauri/tauri.conf.json").version')"
+          exe="target/release/bundle/nsis/Quota Station_${version}_x64-setup.exe"
+          [ -f "$exe" ] && [ -f "$exe.sig" ] || { echo "::error::no $exe and its .sig"; ls -la target/release/bundle/nsis || true; exit 1; }
+          py="$(command -v python3 || command -v python)"
+          "$py" -I -B scripts/updater_feed.py manifest --version "$version" \
+            --base-url "https://github.com/$GITHUB_REPOSITORY/releases/download/v$version" \
+            --pubkey "$UPDATER_DRY_PUBKEY" --entry "windows-x86_64=$exe" \
+            --out "$RUNNER_TEMP/latest.json"
+          cat "$RUNNER_TEMP/latest.json"
 
       - name: Upload the session's test installer
         uses: actions/upload-artifact@v4

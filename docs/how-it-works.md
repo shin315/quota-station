@@ -444,8 +444,17 @@ flag and does not show Claude as paused.
 - The app's update check asks GitHub's API for this repository's latest release
   once a day while `Tell me about new versions` / `Check for app updates` is on,
   and on `Check for new versions`, and keeps the answer in `release.json`.
-  `Download and install` only opens the release's DMG (or its page) in the
-  browser; nothing is downloaded or installed by the app.
+  Only when pressed, `Download and install` on a release build that installs
+  releases itself (Tauri's updater, [`docs/releasing.md`](releasing.md))
+  reads `latest.json` from the latest release, downloads this system's
+  updater file, checks its signature against the update key built into the
+  app and installs it over the running copy; on macOS `/bin/sh` then waits for
+  the app to end and starts the new copy, on Windows the installer closes the
+  app and opens the new one. A copy Homebrew installed only shows
+  `brew upgrade --cask shin315/tap/quota-station`; a release build without
+  the update key, and `Open the download` after a failed install, opens the
+  release's DMG or installer (or its page) in the browser. A build from
+  source is never replaced by a download.
 - `Update from source` (`Cập nhật từ mã nguồn`, not on Windows) runs,
   only when pressed, `git -C <clone> pull --ff-only` (with
   `GIT_TERMINAL_PROMPT=0` and `GIT_SSH_COMMAND="ssh -o BatchMode=yes"`, so git

@@ -3,46 +3,23 @@
 
 // A newer release and the diagnostic info, as the prototype draws them
 // (u-dialog, u-source, u-set…, u-diag): the dialog with what is new and
-// "Tải và cài", the build from source pointed at its clone, Cài đặt ›
+// "Tải và cài" (installed in place, Homebrew's command or the download:
+// UpdateParts), the build from source pointed at its clone, Cài đặt ›
 // Cập nhật's rows, and Chẩn đoán's row with its dialog. The rows are laid
 // out as the rest of Cài đặt (SetRow): the name and its line on the left,
 // the button or the switch on the right.
 
-import { useState } from 'react';
 import { DialogButtons, DialogLead, DialogTitle } from '@/components/ui/dialog';
-import { Command } from '../components/blocks';
-import { Glyph } from '../components/icons';
 import { Button, Facts, LinkButton, More, Rich, Spinner, Toggle } from '../components/parts';
 import { SetRow } from '../settings/SetRow';
 import { mac, os, t } from '../lib/i18n';
 import type { Model } from '../lib/model';
 import { fromSource, megabytes, newerRelease, releaseDate, versionRow, versionText, type VersionRowView } from '../lib/release';
 import type { Action } from '../lib/view';
+import { BrewBody, CopyCommand, InstallBody } from './UpdateParts';
 import type { ReleaseState } from './useRelease';
 
 const PULL = 'git pull --ff-only && scripts/install.sh';
-
-/** The clone's command and "Chép lệnh", which says "Đã chép" once it has. */
-function PullCommand() {
-  const [copied, setCopied] = useState(false);
-  return (
-    <div className="flex items-start gap-2 [&>div]:mb-0 [&>div]:flex-1">
-      <Command>{PULL}</Command>
-      <Button
-        small
-        onClick={() =>
-          navigator.clipboard.writeText(PULL).then(
-            () => setCopied(true),
-            () => setCopied(false),
-          )
-        }
-      >
-        <Glyph name={copied ? 'check' : 'copy'} bold />
-        {copied ? t('Đã chép', 'Copied') : t('Chép lệnh', 'Copy command')}
-      </Button>
-    </div>
-  );
-}
 
 function Head({ title, lead, cap }: { title: string; lead?: string; cap?: string }) {
   return (
@@ -105,7 +82,7 @@ export function ReleaseDialogBody(props: {
         />
         {notes}
         <Facts items={[{ k: '', text: t('Cập nhật từ bản clone của bạn:', 'Update from your clone:') }]} />
-        <PullCommand />
+        <CopyCommand command={PULL} />
         <DialogButtons>
           <Button onClick={release.later}>{t('Để sau', 'Later')}</Button>
           {update && (
@@ -127,13 +104,19 @@ export function ReleaseDialogBody(props: {
         </DialogButtons>
       </div>
     );
+  const head = (
+    <Head
+      cap={t('Bản mới', 'New version')}
+      title={'Quota Station ' + l.version}
+      lead={t('Bạn đang dùng ' + model.app.version + '.', 'You have ' + model.app.version + '.') + (date ? t(' Phát hành ' + date + ' trên GitHub Releases.', ' Released ' + date + ' on GitHub Releases.') : '')}
+    />
+  );
+  const way = model.release.way;
+  if (way === 'install') return <InstallBody head={head} notes={notes} release={release} size={l.size} />;
+  if (way === 'brew') return <BrewBody head={head} notes={notes} release={release} />;
   return (
     <div className="grid gap-3.5">
-      <Head
-        cap={t('Bản mới', 'New version')}
-        title={'Quota Station ' + l.version}
-        lead={t('Bạn đang dùng ' + model.app.version + '.', 'You have ' + model.app.version + '.') + (date ? t(' Phát hành ' + date + ' trên GitHub Releases.', ' Released ' + date + ' on GitHub Releases.') : '')}
-      />
+      {head}
       {notes}
       <Facts
         items={[

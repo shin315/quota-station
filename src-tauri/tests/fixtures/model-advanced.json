@@ -296,7 +296,8 @@
     "latest": null,
     "newer": false,
     "none": false,
-    "skipped": null
+    "skipped": null,
+    "way": "source"
   },
   "rotation": {
     "defaults": {

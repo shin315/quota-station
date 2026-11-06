@@ -235,14 +235,18 @@ CI (`.github/workflows/ci.yml`) has three jobs:
 - **Build and test (macOS)**, the required check: Vitest, the frontend's type
   check and build with and without `QS_ANTIGRAVITY_ACCOUNTS=1`, rustfmt, and
   clippy and `cargo test --workspace` with no feature and with
-  `antigravity-accounts`; then the MIT app (`tauri build --bundles app`).
+  `antigravity-accounts`; then the MIT app (`tauri build --bundles app`)
+  with its updater file, signed with a throwaway key
+  (`scripts/updater-dry-key.sh`), and a `latest.json` written for it
+  (`scripts/updater_feed.py`).
 - **Build and test (Windows x64)**: Vitest, the core's `cargo check` and tests,
   clippy, and the app crate's tests, each with and without
   `antigravity-accounts`, then an unsigned
   NSIS test installer built with `QS_TEST_SESSION=1` for the guided sessions on
   a Windows PC, with the Antigravity accounts (`--features antigravity-accounts`,
   `QS_ANTIGRAVITY_ACCOUNTS=1` and `--config src-tauri/tauri.antigravity.conf.json`),
-  uploaded as the workflow artifact
+  signed for the updater with a throwaway key and written into a
+  `latest.json`, and uploaded as the workflow artifact
   `quota-station-windows-x64-test-setup` (kept 14 days). No release carries it.
 
 The core's integration tests are `crates/quota-station-core/tests/*.rs`:

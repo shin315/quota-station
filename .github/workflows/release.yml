@@ -7,19 +7,27 @@ name: Release
 # (docs/releasing.md). Started only by hand: Actions › Release › Run workflow.
 #
 # - dry_run (the default): builds the macOS disk image (ad-hoc signature, as a
-#   build from source has) and the Windows installer, writes SHA256SUMS.txt
-#   and the notes, and keeps them as the run's artifacts. It uses no
-#   environment and no secret, and creates no tag, release or environment.
-# - dry_run off: the macOS job runs in the `release` environment (its
-#   reviewer approves the run), signs the app with Developer ID, notarizes
-#   and staples the app and the disk image; then the last job creates a
-#   draft release v<version> on the built commit with the three assets.
-#   Never a published release, never a tag: GitHub creates the tag when the
-#   owner presses Publish on the draft.
+#   build from source has), the Windows installer and their updater files,
+#   writes SHA256SUMS.txt, latest.json and the notes, and keeps them as the
+#   run's artifacts. The updater files are signed with a throwaway key each
+#   job makes for itself, so they show their shape but can never install.
+#   It uses no environment and no secret, and creates no tag, release or
+#   environment.
+# - dry_run off: src-tauri/updater.pub must hold the update key's public
+#   half. The macOS and Windows jobs run in the `release` environment (its
+#   reviewer approves them), sign the updater files with the update key, and
+#   the macOS job signs the app with Developer ID, notarizes and staples the
+#   app and the disk image; then the last job creates a draft release
+#   v<version> on the built commit with the assets. Never a published
+#   release, never a tag: GitHub creates the tag when the owner presses
+#   Publish on the draft.
 #
-# The assets are the names the app's update check looks for
+# The installers keep the names the app's update check looks for
 # (crates/quota-station-core/src/release.rs, `installs`): the first `.dmg`
-# on macOS, the file ending in `_x64-setup.exe` on Windows x64.
+# on macOS, the file ending in `_x64-setup.exe` on Windows x64. The updater
+# (src-tauri/src/updater.rs) reads latest.json from the latest release,
+# which points at the macOS `.app.tar.gz` and the Windows `-setup.exe`, each
+# with its `.sig`.
 
 on:
   workflow_dispatch:
@@ -86,6 +94,12 @@ jobs:
           print(f"Version {version} in " + ", ".join(found))
           EOF
 
+      # The app checks every update's signature against this key; a release
+      # built without it could never be installed by the updater.
+      - name: The update key's public half is committed
+        if: ${{ !inputs.dry_run }}
+        run: python3 -I -B scripts/updater_feed.py check-key src-tauri/updater.pub
+
       - name: The tag does not exist yet
         run: |
           if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" >/dev/null; then
@@ -143,6 +157,7 @@ jobs:
       QS_ANTIGRAVITY_ACCOUNTS: "1"
       QS_RELEASE: "1"
       APP: target/universal-apple-darwin/release/bundle/macos/Quota Station.app
+      UPDATER: target/universal-apple-darwin/release/bundle/macos/Quota Station.app.tar.gz
     steps:
       # The whole history: the build number is the count of commits up to
       # the one built. No caches: a release builds from nothing.
@@ -170,9 +185,13 @@ jobs:
       - name: Install npm packages
         run: npm ci
 
-      - name: Build the app and disk image (dry run, ad-hoc signature)
+      - name: A throwaway update key (dry run)
         if: ${{ inputs.dry_run }}
-        run: npx tauri build --target universal-apple-darwin --bundles app,dmg --features antigravity-accounts --config src-tauri/tauri.antigravity.conf.json
+        run: bash scripts/updater-dry-key.sh
+
+      - name: Build the app, disk image and updater file (dry run, ad-hoc signature)
+        if: ${{ inputs.dry_run }}
+        run: npx tauri build --target universal-apple-darwin --bundles app,dmg --features antigravity-accounts --config src-tauri/tauri.antigravity.conf.json --config src-tauri/tauri.updater.conf.json --config "$UPDATER_DRY_CONFIG"
 
       - name: The signing secrets are there
         if: ${{ !inputs.dry_run }}
@@ -183,16 +202,18 @@ jobs:
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           missing=""
-          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_API_ISSUER APPLE_API_KEY APPLE_API_KEY_P8; do
+          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_API_ISSUER APPLE_API_KEY APPLE_API_KEY_P8 TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD; do
             [ -n "${!name}" ] || missing="$missing $name"
           done
           if [ -n "$missing" ]; then
             echo "::error::secrets missing in the release environment:$missing"
             exit 1
           fi
-          echo "All six signing secrets are set"
+          echo "All eight signing secrets are set"
 
       # The App Store Connect key as the file Tauri and notarytool read,
       # readable only by this job's user; deleted in the last step.
@@ -208,8 +229,11 @@ jobs:
 
       # Tauri reads these: it imports the certificate into a keychain of its
       # own, signs with the hardened runtime and src-tauri/Entitlements.plist,
-      # notarizes and staples the app, then signs the disk image.
-      - name: Build, sign and notarize the app and disk image
+      # notarizes and staples the app, then signs the disk image. The updater
+      # file is the stapled app, archived, signed with the update key
+      # (src-tauri/tauri.updater.conf.json, its public half in
+      # src-tauri/updater.pub).
+      - name: Build, sign and notarize the app and disk image, sign the updater file
         if: ${{ !inputs.dry_run }}
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -217,7 +241,9 @@ jobs:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-        run: npx tauri build --target universal-apple-darwin --bundles app,dmg --features antigravity-accounts --config src-tauri/tauri.antigravity.conf.json
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npx tauri build --target universal-apple-darwin --bundles app,dmg --features antigravity-accounts --config src-tauri/tauri.antigravity.conf.json --config src-tauri/tauri.updater.conf.json
 
       - name: Name the disk image
         run: |
@@ -230,6 +256,15 @@ jobs:
           mkdir -p dist
           mv "$src" "dist/Quota.Station_${VERSION}_universal.dmg"
           echo "DMG=dist/Quota.Station_${VERSION}_universal.dmg" >> "$GITHUB_ENV"
+
+      # Made after the app was signed, notarized and stapled.
+      - name: Name the updater file
+        run: |
+          for f in "$UPDATER" "$UPDATER.sig"; do
+            [ -f "$f" ] || { echo "::error::no $f"; ls -la "$(dirname "$UPDATER")" || true; exit 1; }
+          done
+          mv "$UPDATER" "dist/Quota.Station_${VERSION}_universal.app.tar.gz"
+          mv "$UPDATER.sig" "dist/Quota.Station_${VERSION}_universal.app.tar.gz.sig"
 
       - name: Notarize and staple the disk image
         if: ${{ !inputs.dry_run }}
@@ -270,6 +305,14 @@ jobs:
           done
           codesign --verify --deep --strict --verbose=2 "$APP"
           hdiutil verify "$DMG"
+          # The updater file holds this app, as the updater puts it in place.
+          unpacked="$RUNNER_TEMP/updater-app"
+          rm -rf "$unpacked" && mkdir -p "$unpacked"
+          tar -xzf "dist/Quota.Station_${VERSION}_universal.app.tar.gz" -C "$unpacked"
+          v="$(plutil -extract CFBundleShortVersionString raw "$unpacked/Quota Station.app/Contents/Info.plist")"
+          [ "$v" = "$VERSION" ] || { echo "::error::the updater file's app says version $v"; exit 1; }
+          codesign --verify --deep --strict --verbose=2 "$unpacked/Quota Station.app"
+          echo "UPDATER_APP=$unpacked/Quota Station.app" >> "$GITHUB_ENV"
 
       - name: Check the signature and notarization
         if: ${{ !inputs.dry_run }}
@@ -284,6 +327,8 @@ jobs:
             || { echo "::error::the app's signature lacks the Apple Events entitlement"; exit 1; }
           xcrun stapler validate "$APP"
           spctl --assess --type execute -vv "$APP"
+          xcrun stapler validate "$UPDATER_APP"
+          spctl --assess --type execute -vv "$UPDATER_APP"
           xcrun stapler validate "$DMG"
           spctl --assess --type open --context context:primary-signature -vv "$DMG"
 
@@ -294,16 +339,22 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: quota-station-macos
-          path: dist/Quota.Station_${{ inputs.version }}_universal.dmg
+          path: |
+            dist/Quota.Station_${{ inputs.version }}_universal.dmg
+            dist/Quota.Station_${{ inputs.version }}_universal.app.tar.gz
+            dist/Quota.Station_${{ inputs.version }}_universal.app.tar.gz.sig
           if-no-files-found: error
           retention-days: 14
 
-  # Not signed (docs/releasing.md); the README explains SmartScreen's step.
+  # Not signed with a certificate (docs/releasing.md); the README explains
+  # SmartScreen's step. The installer is also the updater file, signed with
+  # the update key, whose secrets live in the environment a real run enters.
   windows:
     name: Windows x64 (installer)
     needs: check
     runs-on: windows-latest
     timeout-minutes: 90
+    environment: ${{ !inputs.dry_run && 'release' || '' }}
     env:
       QS_ANTIGRAVITY_ACCOUNTS: "1"
       QS_RELEASE: "1"
@@ -334,8 +385,29 @@ jobs:
       - name: Install npm packages
         run: npm ci
 
-      - name: Build the installer (NSIS)
-        run: npx tauri build --bundles nsis --features antigravity-accounts --config src-tauri/tauri.antigravity.conf.json
+      - name: A throwaway update key (dry run)
+        if: ${{ inputs.dry_run }}
+        run: bash scripts/updater-dry-key.sh
+
+      - name: Build the installer (NSIS, dry run)
+        if: ${{ inputs.dry_run }}
+        run: npx tauri build --bundles nsis --features antigravity-accounts --config src-tauri/tauri.antigravity.conf.json --config src-tauri/tauri.updater.conf.json --config "$UPDATER_DRY_CONFIG"
+
+      - name: Build the installer (NSIS), sign it for the updater
+        if: ${{ !inputs.dry_run }}
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          missing=""
+          for name in TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD; do
+            [ -n "${!name}" ] || missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::secrets missing in the release environment:$missing"
+            exit 1
+          fi
+          npx tauri build --bundles nsis --features antigravity-accounts --config src-tauri/tauri.antigravity.conf.json --config src-tauri/tauri.updater.conf.json
 
       - name: Name and check the installer
         run: |
@@ -345,9 +417,11 @@ jobs:
             ls -la target/release/bundle/nsis || true
             exit 1
           fi
+          [ -f "$src.sig" ] || { echo "::error::no $src.sig"; exit 1; }
           mkdir -p dist
           exe="dist/Quota.Station_${VERSION}_x64-setup.exe"
           mv "$src" "$exe"
+          mv "$src.sig" "$exe.sig"
           # The licences the app installs next to itself (bundle.resources).
           names="$(7z l -slt "$exe" | tr -d '\r' | sed -n 's/^Path = //p' | sed 's|.*[\\/]||')"
           for f in LICENSE NOTICE CC-BY-NC-SA-4.0.txt; do
@@ -357,14 +431,16 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: quota-station-windows
-          path: dist/Quota.Station_${{ inputs.version }}_x64-setup.exe
+          path: |
+            dist/Quota.Station_${{ inputs.version }}_x64-setup.exe
+            dist/Quota.Station_${{ inputs.version }}_x64-setup.exe.sig
           if-no-files-found: error
           retention-days: 14
 
-  # The checksums and the notes, kept as an artifact; a dry run stops here
-  # and prints what the draft would hold.
+  # The checksums, latest.json and the notes, kept as an artifact; a dry run
+  # stops here and prints what the draft would hold.
   assemble:
-    name: Checksums and notes
+    name: Checksums, latest.json and notes
     needs: [check, macos, windows]
     runs-on: ubuntu-latest
     steps:
@@ -384,11 +460,12 @@ jobs:
           cd release/assets
           dmg="Quota.Station_${VERSION}_universal.dmg"
           exe="Quota.Station_${VERSION}_x64-setup.exe"
+          tgz="Quota.Station_${VERSION}_universal.app.tar.gz"
           ls -la
-          for f in "$dmg" "$exe"; do
+          for f in "$dmg" "$exe" "$tgz" "$exe.sig" "$tgz.sig"; do
             [ -f "$f" ] || { echo "::error::no $f among the artifacts"; exit 1; }
           done
-          sha256sum -- "$dmg" "$exe" > SHA256SUMS.txt
+          sha256sum -- "$dmg" "$exe" "$tgz" > SHA256SUMS.txt
           cd ../..
           {
             sed "s/{{VERSION}}/$VERSION/g" .github/release-notes.md
@@ -398,13 +475,30 @@ jobs:
             echo '```'
           } > release/notes.md
 
+      # The updater's feed: the universal app serves both Mac processors.
+      # A real run checks each signature against src-tauri/updater.pub; a
+      # dry run's are from throwaway keys.
+      - name: latest.json
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          pubkey=()
+          [ "$DRY_RUN" = true ] || pubkey=(--pubkey src-tauri/updater.pub)
+          python3 -I -B scripts/updater_feed.py manifest --version "$VERSION" \
+            --base-url "https://github.com/$GITHUB_REPOSITORY/releases/download/v$VERSION" \
+            --notes "https://github.com/$GITHUB_REPOSITORY/releases/tag/v$VERSION" \
+            "${pubkey[@]}" \
+            --entry "darwin-aarch64,darwin-x86_64=release/assets/Quota.Station_${VERSION}_universal.app.tar.gz" \
+            --entry "windows-x86_64=release/assets/Quota.Station_${VERSION}_x64-setup.exe" \
+            --out release/assets/latest.json
+
       - name: What the draft holds
         env:
           DRY_RUN: ${{ inputs.dry_run }}
           COMMIT: ${{ needs.check.outputs.commit }}
         run: |
           if [ "$DRY_RUN" = true ]; then
-            say="Dry run: nothing is created. A real run would create"
+            say="Dry run: nothing is created (the updater files are signed with throwaway keys). A real run would create"
           else
             say="The next job creates"
           fi
@@ -458,4 +552,8 @@ jobs:
             --title "Quota Station $VERSION" --notes-file release/notes.md \
             "release/assets/Quota.Station_${VERSION}_universal.dmg" \
             "release/assets/Quota.Station_${VERSION}_x64-setup.exe" \
+            "release/assets/Quota.Station_${VERSION}_universal.app.tar.gz" \
+            "release/assets/Quota.Station_${VERSION}_universal.app.tar.gz.sig" \
+            "release/assets/Quota.Station_${VERSION}_x64-setup.exe.sig" \
+            release/assets/latest.json \
             release/assets/SHA256SUMS.txt

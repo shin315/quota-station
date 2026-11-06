@@ -3,12 +3,15 @@
 
 //! A newer Quota Station on GitHub Releases, and the diagnostic info for a
 //! bug report (the community edition's B1). The check only reads the
-//! latest release; "Tải và cài" opens its disk image or page in the browser.
-//! Nothing here downloads, installs or sends anything else.
+//! latest release. "Tải và cài" installs it on a release build that updates
+//! itself (`crate::updater`, [`ReleaseView::way`]), else opens its installer
+//! or page in the browser. Nothing here downloads, installs or sends
+//! anything else.
 
 use std::time::{Duration, Instant};
 
 use quota_station_core::release::{self, GitHub, Latest, Releases};
+use quota_station_core::self_update::Way;
 use quota_station_core::snapshot::Section;
 use serde::Serialize;
 use tauri::{AppHandle, Manager, State};
@@ -46,6 +49,9 @@ pub struct ReleaseView {
     pub newer: bool,
     pub skipped: Option<String>,
     pub later: Option<String>,
+    /// How "Tải và cài" goes for this copy: installs it, shows Homebrew's
+    /// command, opens the download, or points a build from source at its clone.
+    pub way: Way,
 }
 
 pub fn view(inner: &Inner) -> ReleaseView {
@@ -60,6 +66,7 @@ pub fn view(inner: &Inner) -> ReleaseView {
         latest: r.latest,
         skipped: r.skipped,
         later: r.later,
+        way: crate::updater::way(),
     }
 }
 

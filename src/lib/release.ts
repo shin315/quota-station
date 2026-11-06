@@ -3,9 +3,11 @@
 
 // A newer Quota Station on GitHub Releases, in words: the banner on Tổng
 // quan, the line at the popover's foot, Cài đặt › Cập nhật's rows and the
-// dialog. The app only reads the latest release; "Tải và cài" opens its
-// disk image in the browser. A build from source (every build but the
-// release workflow's) is told about a release but pointed at its clone.
+// dialog. The app reads the latest release; "Tải và cài" installs it on a
+// release build that updates itself (`release.way`), shows Homebrew's command
+// to a copy Homebrew installed, and else opens its installer in the
+// browser. A build from source (every build but the release workflow's) is
+// told about a release but pointed at its clone.
 
 import { sourceView } from './advanced';
 import { clock } from './format';
@@ -81,7 +83,9 @@ export function releaseBanner(model: Model): BannerView | null {
     title: t('Có bản mới: Quota Station ' + l.version, 'New version: Quota Station ' + l.version),
     body: fromSource(model)
       ? mac(sourceWords(model).banner)
-      : t('Bạn đang dùng ' + model.app.version + '. Không có gì tự cài: app hỏi trước.', 'You have ' + model.app.version + '. Nothing installs by itself: the app asks first.'),
+      : model.release.way === 'brew'
+        ? t('Bạn đang dùng ' + model.app.version + ', cài qua Homebrew: cập nhật bằng Homebrew.', 'You have ' + model.app.version + ', installed with Homebrew: update it with Homebrew.')
+        : t('Bạn đang dùng ' + model.app.version + '. Không có gì tự cài: app hỏi trước.', 'You have ' + model.app.version + '. Nothing installs by itself: the app asks first.'),
     actions: [
       { label: t('Xem có gì mới', 'See what’s new'), act: 'release:open' },
       { label: t('Để sau', 'Later'), act: 'release:later' },
@@ -95,7 +99,11 @@ export function releaseLine(model: Model): { title: string; body: string } | nul
   if (!l) return null;
   return {
     title: t('Có bản mới ' + l.version, 'Version ' + l.version + ' is out'),
-    body: fromSource(model) ? sourceWords(model).line : t('Hỏi trước khi cài.', 'Asks before installing.'),
+    body: fromSource(model)
+      ? sourceWords(model).line
+      : model.release.way === 'brew'
+        ? t('Cập nhật bằng Homebrew.', 'Update with Homebrew.')
+        : t('Hỏi trước khi cài.', 'Asks before installing.'),
   };
 }
 
