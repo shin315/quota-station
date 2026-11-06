@@ -52,7 +52,7 @@ pub const KINDS: [ExtKind; 2] = [
         answers: &[ExtAnswer {
             action: "dismiss",
             title: "Đã ghi nhận",
-            body: "Không nhắc lại cho lần rời vòng này.",
+            body: "Không nhắc lại cho lần ngừng dùng này.",
         }],
     },
     ExtKind {
@@ -202,18 +202,18 @@ fn leaving_alerts(report: &Response, rules: Option<&Rules>, pass: &ExtPass<'_>) 
             let mut body = format!("Còn {}.", span(at - now));
             let mut actions = vec![act("dismiss", "Ổn")];
             if active == Some(slot) {
-                body += " Sau đó tự động chuyển sẽ đổi sang tài khoản khác trong vòng xoay.";
+                body += " Sau đó tự động chuyển sẽ đổi sang tài khoản khác.";
                 if let Some((slot, _)) = check.and_then(PoolCheck::best_other) {
                     actions.push(act(format!("switch:{slot}"), "Chuyển ngay"));
                 }
             } else {
-                body += " Sau đó tài khoản này không còn trong vòng.";
+                body += " Sau đó tự động chuyển không dùng tài khoản này nữa.";
             }
             Some(Alert {
                 key: format!("leave:{slot}:{at}"),
                 kind: leaving(),
                 tone: Tone::Warn,
-                title: format!("{name} rời vòng lúc {}", clock(at, f.offset)),
+                title: format!("{name}: ngừng dùng lúc {}", clock(at, f.offset)),
                 body,
                 actions,
                 at: now,
@@ -229,9 +229,8 @@ pub fn sample(name: &str, now: i64, offset: UtcOffset, [a, _, _]: [&str; 3]) -> 
     let (tone, title, body, actions) = match name {
         LEAVING => (
             Tone::Warn,
-            format!("{a} rời vòng lúc {}", clock(now + 30 * 60, offset)),
-            "Thử: còn 30 phút. Sau đó tự động chuyển sẽ đổi sang tài khoản khác trong vòng xoay."
-                .to_string(),
+            format!("{a}: ngừng dùng lúc {}", clock(now + 30 * 60, offset)),
+            "Thử: còn 30 phút. Sau đó tự động chuyển sẽ đổi sang tài khoản khác.".to_string(),
             vec![act("dismiss", "Ổn"), act("switch:0", "Chuyển ngay")],
         ),
         SWITCHED => (

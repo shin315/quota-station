@@ -26,16 +26,16 @@ export function alertKindList(agy = true, rotation = false): { kind: SwitchKind;
   };
   if (rotation)
     pool = {
-      title: t('Hạn mức Claude trong vòng sắp cạn / có lại', 'Claude quota in rotation running out / back'),
-      text: t('Khi hạn mức trong vòng đã dùng từ 90% trở lên và khi có lại.', 'When the quota in rotation is 90% used or more, and when it is back.'),
+      title: t('Hạn mức Claude để tự chuyển sắp cạn / có lại', 'Claude quota to switch to running out / back'),
+      text: t('Khi hạn mức để tự chuyển đã dùng từ 90% trở lên và khi có lại.', 'When the quota to switch to is 90% used or more, and when it is back.'),
     };
   if (rotation && ext.alerts) pool.text += ext.alerts.poolRule();
   return [
     { kind: 'pool', ...pool },
     {
       kind: 'leaving',
-      title: t('Tài khoản sắp rời vòng', 'An account is about to leave rotation'),
-      text: t('30 phút trước giờ rời vòng trong file luật.', '30 minutes before its leave time in the rules file.'),
+      title: t('Tài khoản sắp ngừng dùng', 'An account is about to stop being used'),
+      text: t('30 phút trước giờ ngừng dùng trong file luật.', '30 minutes before its stop time in the rules file.'),
     },
     {
       kind: 'switched',
@@ -81,7 +81,7 @@ export function alertKinds(model: Model): { kind: SwitchKind; title: string; tex
       if (k.kind !== 'pool') return k;
       let title = t('Hạn mức Claude sắp cạn / có lại', 'Claude quota running out / back');
       let where = ['', ''];
-      if (adv) [title, where] = [k.title, [' trong vòng', ' in rotation']];
+      if (adv) [title, where] = [k.title, [' được dùng', ' to use']];
       return {
         ...k,
         title,

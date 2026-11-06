@@ -139,7 +139,7 @@ function OtherMacs({ model, onSet, onTest }: { model: AuthorModel; onSet: Settin
           );
         })}
         {error ? <FieldHint tone="bad">{error.text}</FieldHint> : null}
-        {!rows.length ? <FieldHint>{t('Chưa có Mac nào. Luật xoay vòng chỉ lưu trên máy này.', 'No other Macs yet. Rotation rules stay on this Mac.')}</FieldHint> : null}
+        {!rows.length ? <FieldHint>{t('Chưa có Mac nào. Luật tự chuyển chỉ lưu trên máy này.', 'No other Macs yet. The auto-switch rules stay on this Mac.')}</FieldHint> : null}
         {!model.rotation.ssh ? <FieldHint tone="bad">{t('Không thấy ssh trên máy này.', 'ssh was not found on this Mac.')}</FieldHint> : null}
         <div>
           <Button disabled={rows.length >= 8} onClick={() => setRows([...rows, { name: '', alias: '' }])}>
@@ -231,8 +231,8 @@ const updateRefused = (): Record<string, string> => ({
   noSource: t('Đặt thư mục mã nguồn ở trên để cập nhật.', 'Set the source folder above to update.'),
   unbundled: t('Bản đang chạy không phải .app đã cài, nên không có gì để cập nhật.', 'This copy is not the installed .app, so there is nothing to update.'),
   rulesDirty: t(
-    'Luật xoay vòng còn thay đổi chưa lưu. Lưu hoặc bỏ trước khi mở lại.',
-    'The rotation rules have unsaved changes. Save or discard them before restarting.',
+    'Tab Tự chuyển tài khoản còn thay đổi chưa lưu. Lưu hoặc bỏ trước khi mở lại.',
+    'The Auto-switch accounts tab has unsaved changes. Save or discard them before restarting.',
   ),
   notInstalled: t('Chưa có bản mới để mở.', 'No new version to open yet.'),
 });
@@ -291,7 +291,7 @@ function UpdateFromSource({ app, onUpdate, onRelaunch }: { app: SourceView; onUp
 }
 
 /**
- * Nâng cao, the last card: the advanced part. Off, its tabs (Luật xoay vòng,
+ * Nâng cao, the last card: the advanced part. Off, its tabs (Tự chuyển tài khoản,
  * Chép sang Mac khác), the automatic switch and the pause, and alert 2 are
  * hidden; the rows below come with it.
  */
@@ -308,7 +308,7 @@ export function Advanced(props: SettingsProps & { model: AuthorModel; id: string
     t('Tự chuyển Claude theo ', 'Switching Claude accounts automatically by ') +
     list(
       [
-        t('luật xoay vòng', 'rotation rules'),
+        t('luật tự chuyển', 'auto-switch rules'),
         t('tạm dừng', 'pausing'),
         ...(mac ? [t('các Mac khác', 'other Macs'), t('cập nhật từ mã nguồn', 'updating from source')] : []),
         ...own,

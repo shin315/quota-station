@@ -180,12 +180,12 @@ fn with_the_private_part_on_the_accounts_go_by_their_place() {
             .map(|(n, name)| (n, name.to_string()))
             .into(),
         pool_card: (
-            "Hạn mức Claude trong vòng sắp cạn".into(),
+            "Hạn mức Claude để tự chuyển sắp cạn".into(),
             "Team A đã dùng 73%. Team C có lại hạn mức lúc 17:09.".into(),
             strings(["Sang Team B (đã dùng 0%)", "Bỏ qua"]),
         ),
         pool_sample: (
-            "Hạn mức Claude trong vòng sắp cạn".into(),
+            "Hạn mức Claude để tự chuyển sắp cạn".into(),
             "Thử: Team A đã dùng 92%. Team B có lại hạn mức lúc 16:20.".into(),
             strings(["Sang Cá nhân (đã dùng 81%)", "Bỏ qua"]),
         ),

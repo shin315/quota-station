@@ -1360,7 +1360,7 @@ export interface Capabilities {
    */
   agyAccounts: boolean;
   /**
-   * The advanced part: Cài đặt › Nâng cao, Luật xoay vòng and the other
+   * The advanced part: Cài đặt › Nâng cao, Tự chuyển tài khoản and the other
    * Macs, Chép sang Mac khác and the update from source. A build without it
    * sends no such key, the model has none of their parts and the windows
    * show no switch, tab or setting for them.

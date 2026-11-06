@@ -102,7 +102,7 @@ describe('main window', () => {
     expect(Array.from(header.children).map((c) => c.textContent)).toEqual(['Tài khoản', '5 giờ', 'Tuần', 'Fable tuần', '']);
     expect(Array.from(rows[0].querySelectorAll('.wc b')).map((b) => b.textContent)).toEqual(['0%', '0%', '4%']);
     // The account leaving the rotation keeps its chip.
-    expect(rows[1].getAttribute('aria-label')).toMatch(/rời vòng 17:45$/);
+    expect(rows[1].getAttribute('aria-label')).toMatch(/ngừng dùng 17:45$/);
     expect(within(screen.getByRole('list', { name: 'Antigravity' })).getAllByRole('listitem')).toHaveLength(2);
 
     // Automatic switching in the Claude section's head: its switch and why Claude is on its account.
@@ -300,7 +300,7 @@ describe('main window', () => {
     const fake = await open(fixtureModel('fresh'));
     act(() => fake.push(fixtureModel('exhausted')));
     let dry = 'Hạn mức Claude sắp cạn';
-    dry = 'Hạn mức Claude trong vòng đã cạn';
+    dry = 'Hạn mức Claude để tự chuyển đã cạn';
     expect(screen.getByText(dry)).toBeTruthy();
     expect(screen.getAllByText('96%').length).toBeGreaterThan(0);
   });
@@ -314,11 +314,11 @@ describe('with Nâng cao off', () => {
     },
   });
 
-  it('the sidebar has no Luật xoay vòng or Chép sang Mac khác, and a hidden tab gives way to Tổng quan', async () => {
+  it('the sidebar has no Tự chuyển tài khoản or Chép sang Mac khác, and a hidden tab gives way to Tổng quan', async () => {
     await open(plain(fixtureModel('fresh')), 'rules');
     expect(heading()).toBe('Tổng quan');
     const sidebar = screen.getByRole('navigation', { name: 'Các tab' });
-    for (const name of ['Luật xoay vòng', 'Chép sang Mac khác']) expect(within(sidebar).queryByRole('button', { name })).toBeNull();
+    for (const name of ['Tự chuyển tài khoản', 'Chép sang Mac khác']) expect(within(sidebar).queryByRole('button', { name })).toBeNull();
     expect(nav('Claude')).toBeTruthy();
     expect(nav('Sao lưu')).toBeTruthy();
   });
@@ -415,7 +415,7 @@ describe('a build without the author\'s tools', () => {
     await open(communityModel(fixtureModel('fresh')), 'rules');
     expect(heading()).toBe('Tổng quan');
     const sidebar = screen.getByRole('navigation', { name: 'Các tab' });
-    for (const name of ['Luật xoay vòng', 'Chép sang Mac khác']) expect(within(sidebar).queryByRole('button', { name })).toBeNull();
+    for (const name of ['Tự chuyển tài khoản', 'Chép sang Mac khác']) expect(within(sidebar).queryByRole('button', { name })).toBeNull();
     expect(nav('Claude')).toBeTruthy();
     expect(nav('Sao lưu')).toBeTruthy();
     cleanup();
@@ -427,7 +427,7 @@ describe('a build without the author\'s tools', () => {
 
   it('the same Mac on a build with them keeps the tabs', async () => {
     await open(fixtureModel('fresh'), 'claude');
-    for (const name of ['Luật xoay vòng', 'Chép sang Mac khác']) expect(nav(name)).toBeTruthy();
+    for (const name of ['Tự chuyển tài khoản', 'Chép sang Mac khác']) expect(nav(name)).toBeTruthy();
   });
 
 });

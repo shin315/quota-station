@@ -7,7 +7,7 @@
 //!
 //! [`Extension::tabs`]: crate::ext::Extension::tabs
 
-/// The rules editor of the rotation (Xoay vòng), where `Thoát` asks about
+/// The rules editor of the rotation (Tự chuyển tài khoản), where `Thoát` asks about
 /// unsaved rules ([`super::close`]).
 pub const RULES: &str = "rules";
 /// The copy to another Mac.

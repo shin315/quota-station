@@ -154,7 +154,7 @@ function importText(done: ClaudeActionDone): string {
   let text = t('Đã nhập từ công cụ chuyển tài khoản khác: ', 'Imported from another account switcher: ') + (parts.length ? parts.join(', ') : t('không có gì mới', 'nothing new')) + '.';
   if (i.skipped.length)
     text += t(' Bỏ qua tài khoản ', i.skipped.length === 1 ? ' Skipped account ' : ' Skipped accounts ') + i.skipped.map(([s]) => s).join(', ') + '.';
-  if (i.rotation) text += t(' Đã chép luật xoay vòng.', ' Copied the rotation rules.');
+  if (i.rotation) text += t(' Đã chép luật tự chuyển.', ' Copied the auto-switch rules.');
   return text + t(' Công cụ đó vẫn để nguyên.', ' That tool stays as it is.');
 }
 

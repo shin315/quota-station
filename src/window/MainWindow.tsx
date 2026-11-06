@@ -8,7 +8,7 @@
 // from M6, and Thông báo, the bell at the right of every page's title row,
 // with its red count of the notifications not read yet.
 // Tổng quan and Claude show automatic switching and why Claude is on its
-// account (F07), and Luật xoay vòng edits the rotation for every Mac (F06).
+// account (F07), and Tự chuyển tài khoản edits the rotation for every Mac (F06).
 // Codex (M8) has its own tab and a compact card on Tổng quan.
 // The Agent group starts with MCP (M9): every agent's MCP servers in one table,
 // then Skills, Plugin and File hướng dẫn (M11).
@@ -18,8 +18,8 @@
 // Bộ cấu hình (M15) follows: named sets applied for the whole Mac. Cập nhật
 // closes the Agent group: Claude Code, Codex and agy's versions (macOS only).
 // Thống kê (M16) follows Tổng quan: the tokens counted from this Mac's session logs.
-// Cài đặt › Nâng cao holds the advanced part: off, the sidebar has no Luật
-// xoay vòng or Chép sang Mac khác, and Tổng quan and Claude show no automatic
+// Cài đặt › Nâng cao holds the advanced part: off, the sidebar has no Tự
+// chuyển tài khoản or Chép sang Mac khác, and Tổng quan and Claude show no automatic
 // switching, pause or switcher. A build without the advanced part shows none
 // of them.
 // An extension's tabs (src/ext/types.ts) come after the item each names,
@@ -75,7 +75,7 @@ function navs(
     ['agy', 'Antigravity'],
     ['codex', 'Codex'],
     ['-', watch],
-    ['rules', t('Luật xoay vòng', 'Rotation rules')],
+    ['rules', t('Tự chuyển tài khoản', 'Auto-switch accounts')],
     ['history', t('Lịch sử', 'History')],
     ['-', 'Agent'],
     ['mcp', 'MCP'],
@@ -575,8 +575,8 @@ function RunHalf(props: { title: string; tag?: ReactNode; rotation?: ClaudeManag
           <More small about={props.title}>
             <p>
               {t(
-                'LaunchAgent com.shin315.quota-station.rotation chạy luật xoay vòng mỗi 3 phút, kể cả khi đã đóng app. Khi bộ tự chuyển cũ còn được nạp, nó không chuyển gì.',
-                'The LaunchAgent com.shin315.quota-station.rotation runs the rotation rules every 3 minutes, even with the app closed. While the old auto-switcher is loaded, it switches nothing.',
+                'LaunchAgent com.shin315.quota-station.rotation chạy luật tự chuyển mỗi 3 phút, kể cả khi đã đóng app. Khi bộ tự chuyển cũ còn được nạp, nó không chuyển gì.',
+                'The LaunchAgent com.shin315.quota-station.rotation runs the auto-switch rules every 3 minutes, even with the app closed. While the old auto-switcher is loaded, it switches nothing.',
               )}
             </p>
             {notes}
@@ -807,7 +807,7 @@ export interface MainWindowProps {
   onPause(preset: PauseChoice): void;
   /** The Cài đặt tab, drawn by the settings component. */
   settings: ReactNode;
-  /** The Luật xoay vòng tab, drawn by the rules editor. */
+  /** The Tự chuyển tài khoản tab, drawn by the rules editor. */
   rules: ReactNode;
   /** The Codex tab (M8) and Codex's card on Tổng quan. */
   codex?: ReactNode;

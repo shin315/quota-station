@@ -24,7 +24,7 @@ describe('the tabs in English', () => {
   beforeEach(() => setLang('en'));
   afterEach(cleanup);
 
-  it('Rotation rules: each Mac, the problems and the compare table', () => {
+  it('Auto-switch accounts: each Mac, the problems and the compare table', () => {
     const model = fixtureModel('fresh');
     expect(peerLine(peerFixture('Mac C', 'mac-c')).text).toBe('received 14:02');
     expect(peerLine(peerFixture('Mac C', 'mac-c', { state: null })).short).toBe('Mac C: never sent');

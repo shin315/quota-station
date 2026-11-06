@@ -57,11 +57,11 @@ describe('popover', () => {
     let title = 'lan.acme1@example.com · Quota Station · tài khoản 2';
     label = /^lan\.acme1, Acme Studio, đang dùng\. 5 giờ đã dùng 74%/;
     // Its rotation note is no chip here: the hover has it, and the main window.
-    title += ' · rời vòng 17:45';
+    title += ' · ngừng dùng 17:45';
     expect(acme1.getAttribute('aria-label')).toMatch(label);
     expect(acme1.getAttribute('data-active')).toBe('true');
     expect(acme1.getAttribute('title')).toBe(title);
-    expect(screen.queryByText(/rời vòng/)).toBeNull();
+    expect(screen.queryByText(/ngừng dùng/)).toBeNull();
     expect(within(acme1).getByText('Đang dùng')).toBeTruthy();
     expect(within(acme1).getByText('74%')).toBeTruthy();
     expect(within(acme1).queryByText('Acme Studio')).toBeNull();
@@ -238,10 +238,10 @@ describe('popover', () => {
     expect(numbers.length).toBeGreaterThan(0);
     for (const n of numbers) expect(n.className).toContain('text-ink3');
     // The rotation stays in the main window.
-    expect(acme3.getAttribute('title')).toBe('lan.acme3@example.com · Quota Station · tài khoản 4 · đã rời vòng');
+    expect(acme3.getAttribute('title')).toBe('lan.acme3@example.com · Quota Station · tài khoản 4 · đã ngừng dùng');
     expect(acme3.getAttribute('data-stale')).toBeNull();
     const notes = [/phút trước/];
-    notes.push(/rời vòng/, /ngoài vòng/, /tạm dừng tự chuyển/);
+    notes.push(/ngừng dùng/, /không được dùng/, /tạm dừng tự chuyển/);
     for (const note of notes) expect(screen.queryByText(note)).toBeNull();
   });
 
@@ -371,23 +371,23 @@ describe('popover', () => {
     const fake = await open(fixtureModel('fresh'));
     act(() => fake.push(fixtureModel('exhausted')));
     let banner: [string, RegExp] = ['Hạn mức Claude sắp cạn', /Sớm nhất có lại lúc 16:40 \(Tài khoản 1\)\.$/];
-    banner = ['Hạn mức Claude trong vòng đã cạn', /^Có lại lúc 16:40 khi Cá nhân và Team B được đặt lại\.$/];
+    banner = ['Hạn mức Claude để tự chuyển đã cạn', /^Có lại lúc 16:40 khi Cá nhân và Team B được đặt lại\.$/];
     expect(screen.getByText(banner[0])).toBeTruthy();
     expect(screen.getByText(banner[1])).toBeTruthy();
   });
 
   it('the footer says which Macs have the rotation rules only when one is behind', async () => {
     await open(fixtureModel('fresh'));
-    expect(screen.queryByText(/^Luật xoay vòng ·/)).toBeNull();
+    expect(screen.queryByText(/^Tự chuyển tài khoản ·/)).toBeNull();
     cleanup();
     const down = rotationFixture({
       peers: [peerFixture('Mac B', 'mac-b'), peerFixture('Mac C', 'mac-c', { state: { kind: 'unreachable', error: 'x', retryAt: '2026-01-16T07:25:40.000Z' } })],
     });
     await open(fixtureModel('fresh', { rotation: down }));
-    expect(screen.getByText('Luật xoay vòng · Mac B: 14:02 · Mac C: chưa tới được, sẽ thử lại')).toBeTruthy();
+    expect(screen.getByText('Tự chuyển tài khoản · Mac B: 14:02 · Mac C: chưa tới được, sẽ thử lại')).toBeTruthy();
     cleanup();
     await open(fixtureModel('fresh', { rotation: rotationFixture({ peers: [] }) }));
-    expect(screen.queryByText(/^Luật xoay vòng ·/)).toBeNull();
+    expect(screen.queryByText(/^Tự chuyển tài khoản ·/)).toBeNull();
   });
 
   it('no Claude account yet: an empty card whose button opens the Claude tab', async () => {

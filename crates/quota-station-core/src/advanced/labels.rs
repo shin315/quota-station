@@ -70,6 +70,6 @@ impl Labels for Roles {
     }
 
     fn pool_title(&self) -> Option<&'static str> {
-        Some("Hạn mức Claude trong vòng sắp cạn")
+        Some("Hạn mức Claude để tự chuyển sắp cạn")
     }
 }

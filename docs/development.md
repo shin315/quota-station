@@ -91,7 +91,7 @@ macOS, the install folder on Windows).
 
 The **advanced part** is not a feature: every build has it, as the extension
 the app's binary passes to `run` (`quota_station::advanced::Advanced`). It is
-`Settings › Advanced` and what it holds, the `Rotation rules` editor and the
+`Settings › Advanced` and what it holds, the `Auto-switch accounts` rules editor and the
 copy of the rotation file to the other Macs, `Copy to another Mac`, `Source
 code` and `Update from source`, and the notification for an account leaving
 the rotation. While `Settings › Advanced › Show advanced features` is off, the
@@ -191,7 +191,7 @@ The advanced part's states:
   has the advanced part (shown while `Settings › Advanced › Show advanced
   features` is on).
 - Claude: `switcher` (`held`, `noguard`, `auto`, `stopped` or `missing`).
-- Rotation rules, on `tab=rules`: `rotation` (`unreachable`, `newer`, `edited`,
+- Auto-switch accounts, on `tab=rules`: `rotation` (`unreachable`, `newer`, `edited`,
   `unstamped`, `missing`, `invalid`, `unwritable` or `single`).
 - The app, on `tab=settings`: `app` also takes `nosource` and `unbundled`, and
   `update` (`uptodate`, `pull`, `install` or `timeout`; by default an update
@@ -724,7 +724,7 @@ They are M1 `Khung và số` (the frame and the numbers), M2 `Cửa sổ chính 
 đọc` (a read-only main window), M3 `Chuyển Claude và tạm dừng` (switching Claude
 and pausing), M4a `Đăng nhập Antigravity trong app`, M4b `App tự đọc hạn mức
 Antigravity` and M4c `Chuyển Antigravity trong app` (switching Antigravity
-accounts in the app), M5 `Luật xoay vòng` (the rotation rules), M6 the history
+accounts in the app), M5 `Tự chuyển tài khoản` (the rules editor), M6 the history
 and the notifications, M7 `Chuyển đổi` (installing, updating and launching at
 login), M8 `Chuyển Codex`, M9 `MCP`, M10 `Sao lưu và khôi phục` (the MCP
 servers), M11 `Skills, Plugin, File hướng dẫn`, M12 the rest of backup and

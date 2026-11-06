@@ -575,17 +575,17 @@ export const STEPS: Step[] = [
   {
     id: 'm2-rotation',
     part: 2,
-    title: 'Xoay vòng khi app mở',
+    title: 'Tự chuyển khi app mở',
     do: [
-      'Ở tab Claude, bật Xoay vòng (giữ luật đang có).',
-      'Để Xoay vòng bật tới cuối phần 2; app tự lưu mỗi lần chạy.',
+      'Ở tab Claude, bật Tự chuyển khi hết quota (giữ luật đang có).',
+      'Để Tự chuyển khi hết quota bật tới cuối phần 2; app tự lưu mỗi lần chạy.',
     ],
     right: ['Không có cửa sổ đen (console) nào nháy lên.'],
     help: [{ kind: 'window', tab: 'claude', label: 'Mở tab Claude' }],
     checks: ['rotation'],
     cannot: ({ model }) =>
       !model.capabilities.authorTools
-        ? 'Bản build này không có xoay vòng, nên bước này tự bỏ qua.'
+        ? 'Bản build này không có tự chuyển, nên bước này tự bỏ qua.'
         : model.claudeAccounts.accounts.length < 2
           ? 'App cần giữ hai tài khoản Claude cho bước này, nên bước này tự bỏ qua.'
           : null,
@@ -827,7 +827,7 @@ export const STEPS: Step[] = [
       'Mở popover: các tài khoản vẫn đọc được hạn mức.',
       'Ở tab MCP, MCP có token vẫn còn token.',
       ({ model }) =>
-        (model.capabilities.authorTools ? 'Ở tab Claude, tắt Xoay vòng nếu lúc đầu nó tắt. ' : '') +
+        (model.capabilities.authorTools ? 'Ở tab Claude, tắt Tự chuyển khi hết quota nếu lúc đầu nó tắt. ' : '') +
         'Ở Cài đặt › Chung, tắt “Mở khi đăng nhập” nếu không muốn giữ.',
     ],
     right: ['Không tài khoản nào đòi đăng nhập lại; MCP vẫn còn token.'],

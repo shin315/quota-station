@@ -216,8 +216,8 @@ export function leavingAlert(over: Partial<AlertRecord> = {}): AlertRecord {
       key: 'leaving:2:2026-01-16T14:45',
       kind: 'leaving',
       tone: 'warn',
-      title: 'Team A rời vòng lúc 14:45',
-      body: 'Còn 30 phút. Sau đó tự động chuyển sẽ đổi sang tài khoản khác trong vòng xoay.',
+      title: 'Team A: ngừng dùng lúc 14:45',
+      body: 'Còn 30 phút. Sau đó tự động chuyển sẽ đổi sang tài khoản khác.',
       actions: [
         { id: 'dismiss', label: 'Ổn' },
         { id: 'switch:3', label: 'Chuyển ngay' },

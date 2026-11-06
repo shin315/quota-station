@@ -225,11 +225,11 @@ describe('a notification’s buttons in the panel', () => {
 
   it('"Ổn" on a card about an account leaving the rotation is not said again for that leave', async () => {
     const fake = await open(withAlerts({ recent: [leavingAlert()] }));
-    await press(within(card('Team A rời vòng lúc 14:45')).getByRole('button', { name: 'Ổn' }));
+    await press(within(card('Team A: ngừng dùng lúc 14:45')).getByRole('button', { name: 'Ổn' }));
     expect(fake.api.alertAction).toHaveBeenCalledWith('leaving:2:2026-01-16T14:45@1768547700', 'dismiss');
-    const c = card('Team A rời vòng lúc 14:45');
+    const c = card('Team A: ngừng dùng lúc 14:45');
     expect(within(c).getByText('Bạn đã chọn “Ổn”.')).toBeTruthy();
-    expect(within(c).getByText('Không nhắc lại cho lần rời vòng này.')).toBeTruthy();
+    expect(within(c).getByText('Không nhắc lại cho lần ngừng dùng này.')).toBeTruthy();
   });
 
   it('"Sang …" opens the switch sheet in this window, closes the panel and switches nothing yet', async () => {

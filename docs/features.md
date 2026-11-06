@@ -7,12 +7,12 @@ each part is in [how-it-works.md](how-it-works.md).
 
 Some parts belong to a build or a setting:
 
-- **Advanced** (`Nâng cao`): the Claude rotation's rules and its own
+- **Advanced** (`Nâng cao`): the `Auto-switch accounts` rules and their own
   details (`Auto-switch when quota runs out` itself, with its pause, is not
   advanced), the copy of the rules and of the agents'
   setup to other Macs, and the update from source (those two not on Windows).
   Every build has them; they show only while `Settings › Advanced › Show
-  advanced features` is on. A new install starts with it off, no rotation rules
+  advanced features` is on. A new install starts with it off, no auto-switch rules
   and accounts named `Account N` (`Tài khoản N`); a Mac that already had the
   app gets it on.
   Parts marked *(Advanced)* below need it.
@@ -32,7 +32,7 @@ Contents: [the menu bar](#the-menu-bar-item) ·
 [Stats](#stats) · [Settings](#settings) · [the first run](#the-first-run) ·
 [app updates](#app-updates)
 
-Advanced: [rotation rules](#rotation-rules-advanced) ·
+Advanced: [Auto-switch accounts](#auto-switch-accounts-advanced) ·
 [Copy to another Mac](#copy-to-another-mac-advanced)
 
 ## The menu bar item
@@ -118,7 +118,7 @@ the last switch and when, paused until when, or why it cannot run) and `Pause`
 Claude is on its account shows only when there is something to act on (a pause
 or hold, waiting for quota, a switch coming, the switcher missing or failing),
 and the other Macs' line only when one of them is behind. The popover's notes
-on the rotation stay in the main window.
+on auto-switch stay in the main window.
 
 ## The main window
 
@@ -138,9 +138,9 @@ The sidebar:
 - **Backup**: `Backup`
 - `Settings`, at the foot, with the Mac's name under it.
 
-*(Advanced)* **Activity** becomes **Automation**, with `Rotation rules`
+*(Advanced)* **Activity** becomes **Automation**, with `Auto-switch accounts`
 beside `History`; **Backup** adds `Copy to another Mac`; and under
-`Settings`, whether the other Macs have the rotation rules.
+`Settings`, whether the other Macs have the auto-switch rules.
 
 `Overview` has a card per service: the Claude accounts in a table with fixed
 columns (`5-hour · Week · Fable week`), the Antigravity accounts (`5-hour` and
@@ -179,7 +179,7 @@ threshold (90 % by default, `Settings › Services`, 50 to 99) in its 5-hour or
 weekly window, Claude Code moves to the account with the most room in that
 window, skipping accounts that must sign in again, are held out, or are at the
 threshold too; running sessions keep going and rebuild their prompt cache once.
-With a rotation rules file (Advanced) the rules decide instead
+With an auto-switch rules file (`Auto-switch accounts`, Advanced) the rules decide instead
 ([how-it-works.md](how-it-works.md#the-claude-accounts)).
 
 **The `Claude` tab** lists the accounts (`Accounts`, with `Add account`), with
@@ -217,7 +217,7 @@ does not keep).
 While automatic switching runs (or with Advanced) the sheet also offers a hold so automatic switching does not
 switch straight back: `30 minutes`, `1 hour` (the default), `Until reset` (the
 account's next five-hour reset) or `Let it auto-switch`; outside the personal
-account's hours it warns that the rotation will move away from it. Confirming
+account's hours it warns that auto-switch will move away from it. Confirming
 writes the pause flag when a hold was chosen (a hold never shortens a pause
 that is already on for longer). The report can also say the rotation switched
 back, or that nothing changed because an older switcher is still loaded.
@@ -357,11 +357,11 @@ every key in it replaced by `<redacted>`, writes a temporary file and renames
 it, and reads the result. The Codex folder is `~/.codex` unless `Settings ›
 Services › Codex folder` says otherwise.
 
-## Rotation rules *(Advanced)*
+## Auto-switch accounts *(Advanced)*
 
-The editor shows the rotation file's six keys: the Team accounts in the
-rotation (chips; the number is the order), the personal account and its hours,
-the two thresholds (sliders), and when an account leaves the rotation. It marks
+The editor shows the rules file's six keys: the Team accounts to use
+(chips; the number is the order), the personal account and its hours,
+the two thresholds (sliders), and when an account stops being used (`Stops at`). It marks
 what changed, previews what the switcher would decide with the edited rules
 (its `--dry-run` pointed at a draft copy), and saves with one button named for
 the Macs it reaches (`Save for all three Macs` with two other Macs set, `Save
@@ -426,15 +426,15 @@ lists the kinds in both languages. The kinds:
    `Claude đã có lại hạn mức`): the pool is dry when the account in use has 10%
    or less left and no other account has 15% or more (both set in `Settings ›
    Notifications › Running-out thresholds`).
-   *(Advanced)* Only the rotation's accounts that have not left it (the
+   *(Advanced)* Only the accounts to use that have not stopped (the
    personal one only inside its hours) count, and the title is `Hạn mức Claude
-   trong vòng sắp cạn`. Where the app keeps no Claude account it reads the
+   để tự chuyển sắp cạn`. Where the app keeps no Claude account it reads the
    rotation file.
    The card names the account in use and its share used, and
    when an account resets, and offers `Sang <account> (đã dùng N%)` when a
    better account exists, which opens the switch sheet, and `Bỏ qua`.
-2. **An account is about to leave the rotation** *(Advanced)* (`<account> rời
-   vòng lúc HH:MM`): 30 minutes before an account leaves the rotation (`expire`
+2. **An account is about to stop being used** *(Advanced)* (`<account>: ngừng
+   dùng lúc HH:MM`): 30 minutes before an account stops being used (`expire`
    in the rules). For the account in use it offers `Ổn` and `Chuyển ngay` (the
    switch sheet).
 3. **An account needs to sign in again** (`<account> cần đăng nhập lại`): the
@@ -758,10 +758,10 @@ it.
   `oauth-client.json` in place and usable), and the
   `Environment variables that override sign-in` card. While a variable is set,
   this tab moves to the front of the bar and the card leads it.
-- **Advanced** (`Nâng cao`): `Show advanced features` shows the `Rotation
-  rules` and `Copy to another Mac` tabs, automatic switching with its pause
+- **Advanced** (`Nâng cao`): `Show advanced features` shows the `Auto-switch
+  accounts` and `Copy to another Mac` tabs, automatic switching with its pause
   (`Until 18:00` among them), the background check card, the notification for
-  an account leaving the rotation, and the Personal/Team and Ultra names.
+  an account about to stop being used, and the Personal/Team and Ultra names.
   `Other Macs` gives a name and an SSH alias for each other Mac,
   with `Add Mac`, `Remove` and `Test SSH` (reads that Mac's rotation file and
   changes nothing). `Source code` is the clone this Mac updates from, and

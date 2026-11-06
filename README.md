@@ -45,7 +45,7 @@ in English and Vietnamese for macOS 13+ and Windows 10/11 (x64) — download fro
   again, or an env var (such as `ANTHROPIC_API_KEY`) overrides a login.
 - **Themes, screenshot privacy and Advanced tools**: Pick light or dark mode, six theme packs,
   and turn off `Show emails` for screenshots. `Settings › Advanced › Show advanced features` adds
-  custom rotation rules, syncing rules and agent configs to other Macs over SSH (`Copy to another
+  `Auto-switch accounts` (your own auto-switch rules), syncing rules and agent configs to other Macs over SSH (`Copy to another
   Mac`), and `Update from source`.
 
 <p align="center">

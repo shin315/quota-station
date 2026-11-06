@@ -70,8 +70,8 @@ export function simpleAutoView(model: Model, now: Date): SimpleAutoView {
   else if (v.autoPolicy === 'stopped') {
     warn = true;
     line = t(
-      'File luật xoay vòng có lỗi nên chưa chuyển gì. Sửa nó trong Luật xoay vòng (Nâng cao).',
-      'The rotation rules file has an error, so nothing switches. Fix it in Rotation rules (Advanced).',
+      'File luật tự chuyển có lỗi nên chưa chuyển gì. Sửa nó ở tab Tự chuyển tài khoản (Nâng cao).',
+      'The auto-switch rules file has an error, so nothing switches. Fix it in the Auto-switch accounts tab (Advanced).',
     );
   } else {
     const last = sw.lastLog;
@@ -79,7 +79,7 @@ export function simpleAutoView(model: Model, now: Date): SimpleAutoView {
       last && last.event.kind === 'switch' && last.at && now.getTime() - new Date(last.at).getTime() <= RECENT_MS && now.getTime() >= new Date(last.at).getTime();
     const watching =
       v.autoPolicy === 'rules'
-        ? t('Đang theo dõi theo luật xoay vòng (Nâng cao)', 'Watching, by the rotation rules (Advanced)')
+        ? t('Đang theo dõi theo tab Tự chuyển tài khoản (Nâng cao)', 'Watching, by the Auto-switch accounts tab (Advanced)')
         : t('Đang theo dõi · chuyển ở ' + at + '%', 'Watching · switches at ' + at + '%');
     if (sw.dryRun?.decision.kind === 'wait') {
       warn = true;

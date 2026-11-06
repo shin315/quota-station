@@ -80,7 +80,7 @@ function logText(raw: string): string {
 function switcherWhy(w: Why, nameOf: NameOf): string {
   switch (w.kind) {
     case 'expiring':
-      return t('Rời vòng lúc ', 'Left rotation at ') + w.at;
+      return t('Ngừng dùng lúc ', 'Stops at ') + w.at;
     case 'early':
       return t(
         '5 giờ đã dùng ' + Math.round(100 - w.left) + '% · đặt lại ' + w.at + ', sớm hơn ' + nameOf(w.before),
