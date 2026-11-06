@@ -144,8 +144,8 @@ export function autoFacts(model: Model, target: Account, name: string, now: Date
     facts.push({
       k: 'w',
       text: t(
-        name + ' không còn trong vòng xoay. Nếu để tự chuyển, switcher sẽ đổi sang tài khoản trong vòng.',
-        name + ' is no longer in the rotation. If you let it auto-switch, the switcher moves to an account in rotation.',
+        name + ' không còn được dùng. Nếu để tự chuyển, switcher sẽ đổi sang tài khoản được dùng.',
+        name + ' is no longer among the accounts to use. If you let it auto-switch, the switcher moves to one of them.',
       ),
     });
   }
@@ -248,8 +248,8 @@ export function whyText(why: Why, name: string, nameOf: NameOf): string {
   switch (why.kind) {
     case 'expiring':
       return t(
-        'ưu tiên dùng ' + name + ' trước khi tài khoản rời vòng lúc ' + why.at + '.',
-        name + ' goes first, before it leaves rotation at ' + why.at + '.',
+        'ưu tiên dùng ' + name + ' trước khi ngừng dùng nó lúc ' + why.at + '.',
+        name + ' goes first, before it stops being used at ' + why.at + '.',
       );
     case 'early':
       return t(

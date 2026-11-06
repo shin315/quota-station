@@ -128,7 +128,7 @@ const ACCOUNT_WINDOWS: [&str; 2] = ["five_hour", "seven_day"];
 pub const ANSWERS: [ExtAnswer; 1] = [ExtAnswer {
     action: "dismiss",
     title: "Đã bỏ qua thông báo này",
-    body: "Không lặp lại cho cùng sự kiện. Quota Station báo lại khi hạn mức trong vòng có lại.",
+    body: "Không lặp lại cho cùng sự kiện. Quota Station báo lại khi hạn mức để tự chuyển có lại.",
 }];
 
 /// The advanced part's hooks for the Claude pool: the rotation's policy,

@@ -135,8 +135,8 @@ describe('popover view', () => {
     expect(acme1.cells.map((c) => c.tone)).toEqual(['warn', 'ok', 'warn']);
     let chips: CardView['chips'] = [];
     let label = 'lan.acme1, đang dùng. 5 giờ đã dùng 74%, đặt lại sau 3 giờ 08 phút. Tuần đã dùng 39%, đặt lại sau 4 ngày 19 giờ 39 phút. Fable đã dùng 87%, đặt lại sau 1 ngày 17 giờ 59 phút';
-    chips = [{ t: 'rời vòng 17:45', k: 'warn' }];
-    label = label.replace('lan.acme1,', 'lan.acme1, Acme Studio,') + '. rời vòng 17:45';
+    chips = [{ t: 'ngừng dùng 17:45', k: 'warn' }];
+    label = label.replace('lan.acme1,', 'lan.acme1, Acme Studio,') + '. ngừng dùng 17:45';
     expect(acme1.chips).toEqual(chips);
     expect(acme1.label).toBe(label);
     expect(cells(personal)[0]).toEqual(['5 giờ', '0%', 'chưa dùng']);
@@ -261,7 +261,7 @@ describe('popover view', () => {
       title: 'Hạn mức Claude sắp cạn',
       body: '**Tài khoản 2** còn 4% hạn mức 5 giờ và không tài khoản nào còn từ 15% trở lên. Sớm nhất có lại lúc 16:40 (Tài khoản 1).',
     };
-    banner = { title: 'Hạn mức Claude trong vòng đã cạn', body: 'Có lại lúc 16:40 khi Cá nhân và Team B được đặt lại.' };
+    banner = { title: 'Hạn mức Claude để tự chuyển đã cạn', body: 'Có lại lúc 16:40 khi Cá nhân và Team B được đặt lại.' };
     expect(v.banner).toEqual({ tone: 'bad', ...banner, actions: [] });
     expect(v.now.rows[0]).toMatchObject({ text: '96%', tone: 'bad' });
   });

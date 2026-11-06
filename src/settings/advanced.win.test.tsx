@@ -44,7 +44,7 @@ describe('the author\'s tools on Windows', () => {
   it('keep the rules in the sidebar, without Chép sang Mac khác', async () => {
     await open(windowsModel(), 'overview');
     const nav = screen.getByRole('navigation', { name: 'Các tab' });
-    expect(within(nav).getByRole('button', { name: /Luật xoay vòng/ })).toBeTruthy();
+    expect(within(nav).getByRole('button', { name: /Tự chuyển tài khoản/ })).toBeTruthy();
     expect(within(nav).queryByRole('button', { name: /Chép sang Mac khác/ })).toBeNull();
   });
 

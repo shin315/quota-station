@@ -36,7 +36,7 @@ let GROUPS: [string, string[]][] = [
   ['Dịch vụ', ['Dịch vụ', 'Biến môi trường đè đăng nhập']],
 ];
 // The fixture's Mac has Nâng cao on: alert 1 counts the quota in rotation, and alert 2 shows.
-POOL = 'Hạn mức Claude trong vòng sắp cạn / có lại';
+POOL = 'Hạn mức Claude để tự chuyển sắp cạn / có lại';
 KINDS = 5;
 GROUPS = [...GROUPS, ['Nâng cao', ['Nâng cao']]];
 
@@ -408,7 +408,7 @@ describe('settings tab', () => {
   it('with no other Mac the rules stay on this Mac', async () => {
     await open(fixtureModel('fresh', { rotation: { ...fixtureModel('fresh').rotation, peers: [] } }));
     await showGroup('Nâng cao');
-    expect(screen.getByText('Chưa có Mac nào. Luật xoay vòng chỉ lưu trên máy này.')).toBeTruthy();
+    expect(screen.getByText('Chưa có Mac nào. Luật tự chuyển chỉ lưu trên máy này.')).toBeTruthy();
     expect((screen.getByRole('button', { name: 'Thử SSH' }) as HTMLButtonElement).disabled).toBe(true);
   });
 });
@@ -652,7 +652,7 @@ describe('settings for M7: the app itself', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Mở lại' }));
     });
-    expect(screen.getByText('Luật xoay vòng còn thay đổi chưa lưu. Lưu hoặc bỏ trước khi mở lại.')).toBeTruthy();
+    expect(screen.getByText('Tab Tự chuyển tài khoản còn thay đổi chưa lưu. Lưu hoặc bỏ trước khi mở lại.')).toBeTruthy();
   });
 });
 
@@ -671,7 +671,7 @@ describe('settings: alert 1 and the backup folder', () => {
     expect(screen.queryByLabelText(/^Mã nguồn/)).toBeNull();
     expect(screen.queryByText('Các Mac khác')).toBeNull();
     const sidebar = screen.getByRole('navigation', { name: 'Các tab' });
-    expect(within(sidebar).queryByRole('button', { name: 'Luật xoay vòng' })).toBeNull();
+    expect(within(sidebar).queryByRole('button', { name: 'Tự chuyển tài khoản' })).toBeNull();
     // The version stays where everyone sees it.
     await showGroup('Chung');
     // The build is behind the version row's Chi tiết.
@@ -691,7 +691,7 @@ describe('settings: alert 1 and the backup folder', () => {
     }
     // Alert 2 is theirs too.
     await showGroup('Thông báo');
-    expect(screen.queryByText('Tài khoản sắp rời vòng')).toBeNull();
+    expect(screen.queryByText('Tài khoản sắp ngừng dùng')).toBeNull();
     // What every build has stays.
     expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Chung', 'Hiển thị', 'Thông báo', 'Dịch vụ']);
     await showGroup('Chung');
@@ -889,7 +889,7 @@ describe('settings: the layout of settings-R2, its groups as tabs', () => {
     await open(fixtureModel('fresh'));
     await showGroup('Thông báo');
     let where = '';
-    where = ' trong vòng';
+    where = ' được dùng';
     expect(screen.getByText('Đang dùng còn ≤ 10%, mọi tài khoản' + where + ' còn < 15%.')).toBeTruthy();
     expect(screen.queryByText(/^Khi tài khoản đang dùng còn 10% trở xuống/)).toBeNull();
     await act(async () => {

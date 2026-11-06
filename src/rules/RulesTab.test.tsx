@@ -22,7 +22,7 @@ async function open(model: Model = fixtureModel('fresh'), options: FakeOptions =
 }
 
 const heading = () => screen.getByRole('heading', { level: 2 }).textContent;
-const team = () => within(screen.getByRole('group', { name: /^Team trong vòng/ }));
+const team = () => within(screen.getByRole('group', { name: /^Team được dùng/ }));
 const personal = () => within(screen.getByRole('group', { name: /^Cá nhân/ }));
 const macs = () => within(screen.getByLabelText('Các Mac'));
 const saveButton = () => screen.queryByRole('button', { name: /^Lưu cho/ }) as HTMLButtonElement | null;
@@ -40,7 +40,7 @@ afterEach(() => {
 describe('rules editor', () => {
   it('shows the rules on this Mac and one status per Mac', async () => {
     await open();
-    expect(heading()).toBe('Luật xoay vòng');
+    expect(heading()).toBe('Tự chuyển tài khoản');
     expect(screen.queryByText('~/.config/quota-station/rotation')).toBeNull();
     const chips = team().getAllByRole('button');
     expect(chips.map((b) => [b.textContent, b.getAttribute('aria-pressed')])).toEqual([
@@ -55,8 +55,8 @@ describe('rules editor', () => {
     expect((screen.getByLabelText('Giờ kết thúc dùng tài khoản cá nhân') as HTMLSelectElement).value).toBe('24');
     expect((screen.getByLabelText('Ngưỡng tự chuyển, phần trăm hạn mức 5 giờ đã dùng') as HTMLInputElement).value).toBe('90');
     expect((screen.getByLabelText('Ngưỡng Fable tuần, phần trăm đã dùng') as HTMLInputElement).value).toBe('95');
-    expect((screen.getByLabelText('Giờ rời vòng của lan.acme1') as HTMLInputElement).value).toBe('2026-01-16T17:45');
-    expect(screen.getByRole('button', { name: 'Đặt giờ rời vòng cho lan.acme2' })).toBeTruthy();
+    expect((screen.getByLabelText('Giờ ngừng dùng lan.acme1') as HTMLInputElement).value).toBe('2026-01-16T17:45');
+    expect(screen.getByRole('button', { name: 'Đặt giờ ngừng dùng cho lan.acme2' })).toBeTruthy();
 
     expect(macs().getByText('Mac Studio (máy này)').textContent).toBe('Mac Studio (máy này) · lưu 14:02');
     expect(macs().getByText('Mac B').textContent).toBe('Mac B · đã nhận 14:02');
@@ -90,8 +90,8 @@ describe('rules editor', () => {
   it('saves for every Mac and says when', async () => {
     const fake = await open();
     fireEvent.change(screen.getByLabelText('Ngưỡng tự chuyển, phần trăm hạn mức 5 giờ đã dùng'), { target: { value: '85' } });
-    await press(screen.getByRole('button', { name: 'Đặt giờ rời vòng cho lan.acme2' }));
-    expect((screen.getByLabelText('Giờ rời vòng của lan.acme2') as HTMLInputElement).value).toBe('2026-01-16T18:00');
+    await press(screen.getByRole('button', { name: 'Đặt giờ ngừng dùng cho lan.acme2' }));
+    expect((screen.getByLabelText('Giờ ngừng dùng lan.acme2') as HTMLInputElement).value).toBe('2026-01-16T18:00');
     await press(saveButton()!);
     expect(fake.api.saveRotation).toHaveBeenCalledWith(
       rulesFixture({ full: 85, expire: [{ slot: 2, at: '2026-01-16T17:45' }, { slot: 3, at: '2026-01-16T18:00' }] }),
@@ -143,7 +143,7 @@ describe('rules editor', () => {
   it('a file with the personal account inside Team is shown as invalid, to save over', async () => {
     await open(fixtureModel('fresh', { rotation: rotationFixture({ status: 'invalid', rules: null, reason: 'rotation_personal_in_team' }) }));
     expect(screen.getByText('File luật trên máy này không hợp lệ')).toBeTruthy();
-    expect(screen.getByText(/^Tài khoản cá nhân cũng nằm trong vòng Team\./)).toBeTruthy();
+    expect(screen.getByText(/^Tài khoản cá nhân cũng nằm trong Team được dùng\./)).toBeTruthy();
   });
 
   it('a save the rules refuse shows the key and writes nothing', async () => {
@@ -237,13 +237,13 @@ describe('rules editor', () => {
     await press(team().getByRole('button', { name: /lan\.acme3/ }));
     await press(screen.getByRole('button', { name: 'Claude' }));
     const dialog = screen.getByRole('dialog', { name: 'Lưu thay đổi luật trước khi rời trang này?' });
-    expect(within(dialog).getByText('Tài khoản Team được xoay vòng: lan.acme1, lan.acme2, lan.acme3 → lan.acme1, lan.acme2')).toBeTruthy();
+    expect(within(dialog).getByText('Tài khoản Team được dùng: lan.acme1, lan.acme2, lan.acme3 → lan.acme1, lan.acme2')).toBeTruthy();
     await press(within(dialog).getByRole('button', { name: 'Huỷ' }));
-    expect(heading()).toBe('Luật xoay vòng');
+    expect(heading()).toBe('Tự chuyển tài khoản');
     await press(screen.getByRole('button', { name: 'Claude' }));
     await press(screen.getByRole('button', { name: 'Bỏ thay đổi' }));
     expect(heading()).toBe('Claude');
-    await press(screen.getByRole('button', { name: 'Luật xoay vòng' }));
+    await press(screen.getByRole('button', { name: 'Tự chuyển tài khoản' }));
     expect(screen.queryByText(/thay đổi chưa lưu/)).toBeNull();
   });
 
@@ -320,7 +320,7 @@ describe('rules editor', () => {
 
   it('rows have short names and no line of explanation', async () => {
     await open();
-    for (const label of ['Team trong vòng', 'Cá nhân', 'Chuyển khi 5 giờ đã dùng', 'Bỏ qua khi Fable tuần đã dùng', 'Giờ rời vòng', 'Xem trước'])
+    for (const label of ['Team được dùng', 'Cá nhân', 'Chuyển khi 5 giờ đã dùng', 'Bỏ qua khi Fable tuần đã dùng', 'Giờ ngừng dùng', 'Xem trước'])
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
     const card = document.querySelector('.form')!;
     expect(card.textContent).not.toMatch(/Khoá/);

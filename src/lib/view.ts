@@ -318,9 +318,9 @@ function claudeLabel(ctx: CardContext, n: number): string {
 function cardView(a: Account, kind: 'c' | 'g', names: AccountName, ctx: CardContext): CardView {
   const chips: ChipView[] = [];
   if (kind === 'c') {
-    if (a.membership === 'out') chips.push({ t: t('ngoài vòng', 'out of rotation'), k: '' });
-    if (a.membership === 'ended') chips.push({ t: t('đã rời vòng', 'left rotation'), k: '' });
-    if (a.leavesAt) chips.push({ t: t('rời vòng ', 'leaves rotation ') + clock(a.leavesAt), k: 'warn' });
+    if (a.membership === 'out') chips.push({ t: t('không được dùng', 'not used'), k: '' });
+    if (a.membership === 'ended') chips.push({ t: t('đã ngừng dùng', 'no longer used'), k: '' });
+    if (a.leavesAt) chips.push({ t: t('ngừng dùng ', 'stops ') + clock(a.leavesAt), k: 'warn' });
     if (a.disabled) chips.push({ t: t('nghỉ tự chuyển', 'out of auto-switch'), k: '' });
   }
   // Freshness shows only when the reading is not fresh: its own age, never the app's last call.
@@ -558,7 +558,7 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
     // The rotation's pool names the accounts that refill it; a snapshot without the advanced part has none.
     if (pool.refills) {
       who = pool.refills.map(nameOf);
-      title = t('Hạn mức Claude trong vòng đã cạn', 'Claude quota in rotation is used up');
+      title = t('Hạn mức Claude để tự chuyển đã cạn', 'Claude quota to switch to is used up');
     }
     const at = clock(pool.nextRefillAt);
     banner = {

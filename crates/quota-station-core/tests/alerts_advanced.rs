@@ -56,7 +56,7 @@ fn name(n: u32) -> String {
 }
 
 /// The title of alert 1's card.
-const DRY: &str = "Hạn mức Claude trong vòng sắp cạn";
+const DRY: &str = "Hạn mức Claude để tự chuyển sắp cạn";
 
 /// One of the app's Claude accounts as its report gives it.
 fn slot(n: u32, left: f64, active: bool) -> Value {
@@ -335,11 +335,8 @@ fn an_account_leaving_the_rotation_is_told_thirty_minutes_before() {
     run(&mut memory, &facts(ends - 30 * MIN, Some(&r)), &center);
     let card = center.last();
     assert_eq!(card.kind, leaving());
-    assert_eq!(card.title, "Team A rời vòng lúc 15:20");
-    assert_eq!(
-        card.body,
-        "Còn 30 phút. Sau đó tự động chuyển sẽ đổi sang tài khoản khác trong vòng xoay."
-    );
+    assert_eq!(card.title, "Team A: ngừng dùng lúc 15:20");
+    assert_eq!(card.body, "Còn 30 phút. Sau đó tự động chuyển sẽ đổi sang tài khoản khác.");
     assert_eq!(labels(&card.actions), ["Ổn", "Chuyển ngay"]);
     // Once only, up to the end; past it, nothing.
     assert!(run(&mut memory, &facts(ends - 10 * MIN, Some(&r)), &center).is_empty());
@@ -359,8 +356,8 @@ fn an_account_leaving_the_rotation_is_told_thirty_minutes_before() {
     );
     run(&mut memory, &facts(ends - 20 * MIN, Some(&r)), &center);
     let card = center.last();
-    assert_eq!(card.title, "Team C rời vòng lúc 15:20");
-    assert_eq!(card.body, "Còn 20 phút. Sau đó tài khoản này không còn trong vòng.");
+    assert_eq!(card.title, "Team C: ngừng dùng lúc 15:20");
+    assert_eq!(card.body, "Còn 20 phút. Sau đó tự động chuyển không dùng tài khoản này nữa.");
     assert_eq!(labels(&card.actions), ["Ổn"]);
 }
 
@@ -380,7 +377,7 @@ fn without_the_reports_rotation_the_rotation_file_says_who_leaves() {
     let card = center.last();
     assert_eq!(card.kind, leaving());
     // Named as the windows name it without the report's rotation.
-    assert_eq!(card.title, "Tài khoản 2 rời vòng lúc 15:20");
+    assert_eq!(card.title, "Tài khoản 2: ngừng dùng lúc 15:20");
     assert_eq!(labels(&card.actions), ["Ổn", "Chuyển ngay"]);
 }
 
@@ -782,7 +779,7 @@ fn alert_two_keeps_its_number_switch_default_and_words() {
                 answers: &[ExtAnswer {
                     action: "dismiss",
                     title: "Đã ghi nhận",
-                    body: "Không nhắc lại cho lần rời vòng này.",
+                    body: "Không nhắc lại cho lần ngừng dùng này.",
                 }],
             },
             ExtKind {
@@ -812,14 +809,14 @@ fn alert_two_keeps_its_number_switch_default_and_words() {
     let said = memory.record(&card.id).unwrap().answer.clone().unwrap().result.unwrap();
     assert_eq!(
         (said.tone, said.title.as_str(), said.body.as_str()),
-        (alerts::Tone::Info, "Đã ghi nhận", "Không nhắc lại cho lần rời vòng này.")
+        (alerts::Tone::Info, "Đã ghi nhận", "Không nhắc lại cho lần ngừng dùng này.")
     );
 
     // "Gửi thử", as the build before sent it.
     let two = sample(leaving(), T0);
     assert_eq!(
         (two.key.as_str(), two.title.as_str()),
-        ("test:2:1768548000", "Team A rời vòng lúc 14:50")
+        ("test:2:1768548000", "Team A: ngừng dùng lúc 14:50")
     );
     assert_eq!(labels(&two.actions), ["Ổn", "Chuyển ngay"]);
 }

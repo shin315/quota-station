@@ -13,7 +13,7 @@
 // (the Antigravity accounts and the advanced part present, as in the app), whose dialog offers the DMG.
 // The first run: `setup=on` (the fixture's Mac, its accounts not kept yet: the one signed in is
 // taken at the Claude step), `setup=signedout` (Claude Code signed in to none), `setup=none` (no agent).
-// Rotation rules (M5): `tab=rules` with `rotation=unreachable|newer|edited|unstamped|missing|invalid|unwritable|single`;
+// Tự chuyển tài khoản (M5): `tab=rules` with `rotation=unreachable|newer|edited|unstamped|missing|invalid|unwritable|single`;
 // a save takes 1 s, and `unreachable` leaves Mac C behind.
 // Antigravity logins (M4a) and reads (M4b): `agy=two|relogin|verify|noclient|tooopen|invalid|broken|reading|failing|forbidden`
 // sets the login card, `login=timeout|noRefreshToken|keychain|…` how a login ends
@@ -264,7 +264,7 @@ const ALERTS: Record<string, () => Model['alerts']> = {
         const at = 1768547700 - i * 2400;
         const base = i % 2 ? overwriteAlert() : otherAlert();
         let title = base.alert.title;
-        if (!(i % 2)) title = 'Team A rời vòng lúc ' + new Date((at + 7 * 3600) * 1000).toISOString().slice(11, 16);
+        if (!(i % 2)) title = 'Team A: ngừng dùng lúc ' + new Date((at + 7 * 3600) * 1000).toISOString().slice(11, 16);
         return { ...base, id: base.alert.key + ':' + i + '@' + at, alert: { ...base.alert, key: base.alert.key + ':' + i, title, at } };
       }),
       unanswered: 12,

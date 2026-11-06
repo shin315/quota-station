@@ -45,8 +45,8 @@ Giao diện có tiếng Việt và tiếng Anh, hỗ trợ macOS 13+ và Windows
   nhật`), xem `Lịch sử` chuyển tài khoản, và nhận thông báo khi hạn mức sắp cạn, tài khoản cần
   đăng nhập lại hoặc có biến môi trường (như `ANTHROPIC_API_KEY`) đè đăng nhập.
 - **Chủ đề, ẩn email và Công cụ nâng cao**: Chọn giao diện sáng/tối, sáu bộ chủ đề, và tắt `Hiện
-  email` khi chụp màn hình. `Cài đặt › Nâng cao › Hiện phần nâng cao` mở thêm trình sửa luật xoay
-  vòng riêng, đồng bộ luật và cấu hình agent sang máy Mac khác qua SSH (`Chép sang Mac khác`),
+  email` khi chụp màn hình. `Cài đặt › Nâng cao › Hiện phần nâng cao` mở thêm tab `Tự chuyển
+  tài khoản` (luật tự chuyển riêng), đồng bộ luật và cấu hình agent sang máy Mac khác qua SSH (`Chép sang Mac khác`),
   cùng `Cập nhật từ mã nguồn`.
 
 <p align="center">
@@ -95,7 +95,7 @@ cho **macOS 13+** (Apple Silicon hoặc Intel) hoặc **Windows 10/11 (x64)**.
   anyway` (`Vẫn chạy`).
 
 Bật `Cài đặt › Chung › Mở khi đăng nhập` nếu muốn app tự khởi động cùng máy. Đang chuyển từ công
-cụ xoay vòng Claude cũ? Xem [hướng dẫn cutover](docs/claude-accounts.md#cutover).
+cụ chuyển tài khoản Claude cũ? Xem [hướng dẫn cutover](docs/claude-accounts.md#cutover).
 
 ## Quyền riêng tư và an toàn
 

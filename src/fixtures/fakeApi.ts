@@ -204,11 +204,11 @@ function sample(kind: AlertKind, at: number, rotation: boolean): Alert {
   switch (kind) {
     case 'pool': {
       let pool = { title: 'Hạn mức Claude sắp cạn', body: 'Thử: tài khoản đang dùng còn 8%.', to: 'Sang tài khoản 3 (còn 19%)' };
-      if (rotation) pool = { title: 'Hạn mức Claude trong vòng sắp cạn', body: 'Thử: còn tương đương 0,4 tài khoản.', to: 'Sang Cá nhân (còn 19%)' };
+      if (rotation) pool = { title: 'Hạn mức Claude để tự chuyển sắp cạn', body: 'Thử: còn tương đương 0,4 tài khoản.', to: 'Sang Cá nhân (còn 19%)' };
       return { ...base, tone: 'bad', title: pool.title, body: pool.body, actions: [{ id: 'switch:0', label: pool.to }, { id: 'dismiss', label: 'Bỏ qua' }] };
     }
     case 'leaving':
-      return { ...base, tone: 'warn', title: 'Team A rời vòng sau 30 phút', body: 'Thử: còn 30 phút.', actions: [{ id: 'dismiss', label: 'Ổn' }, { id: 'switch:0', label: 'Chuyển ngay' }] };
+      return { ...base, tone: 'warn', title: 'Team A: ngừng dùng sau 30 phút', body: 'Thử: còn 30 phút.', actions: [{ id: 'dismiss', label: 'Ổn' }, { id: 'switch:0', label: 'Chuyển ngay' }] };
     case 'switched':
       return { ...base, tone: 'info', title: 'Đã tự chuyển Claude sang tài khoản khác', body: 'Thử: Team A đã dùng 90% hạn mức 5 giờ. Phiên Claude Code đang chạy vẫn chạy tiếp.', actions: [{ id: 'dismiss', label: 'Ổn' }] };
     case 'login':
@@ -1615,8 +1615,8 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       else if (action === 'dismiss') {
         let again = 'Không nhắc lại cho lần này.';
         let back = 'Không lặp lại cho cùng sự kiện. Quota Station báo lại khi có lại hạn mức.';
-        if (record.alert.kind === 'leaving') again = 'Không nhắc lại cho lần rời vòng này.';
-        if (model.capabilities.authorTools) back = 'Không lặp lại cho cùng sự kiện. Quota Station báo lại khi hạn mức trong vòng có lại.';
+        if (record.alert.kind === 'leaving') again = 'Không nhắc lại cho lần ngừng dùng này.';
+        if (model.capabilities.authorTools) back = 'Không lặp lại cho cùng sự kiện. Quota Station báo lại khi hạn mức để tự chuyển có lại.';
         result = record.alert.kind === 'pool' ? said('Đã bỏ qua thông báo này', back) : said('Đã ghi nhận', again);
       }
       else if (action === 'snooze') result = said('Sẽ nhắc lại lúc 09:00 ngày mai', 'Thứ Bảy 17/01.');

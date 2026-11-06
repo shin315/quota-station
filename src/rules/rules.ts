@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-// What the Luật xoay vòng tab shows (M5, F06): the changes in the editor,
+// What the Tự chuyển tài khoản tab shows (M5, F06): the changes in the editor,
 // the line for each Mac, the banners about the file on disk and the other
 // Macs, the feedback after each action, and the table that compares two
 // copies. Pure, like `view.ts`. Copy follows the approved prototype
@@ -47,7 +47,7 @@ export function keyWords(reason: string | null): string {
   if (what === 'rotation_bad_value') return t('khoá ' + key + ' sai', 'key ' + key + ' has a bad value');
   if (what === 'rotation_missing_key') return t('thiếu khoá ' + key, 'key ' + key + ' is missing');
   if (what === 'rotation_malformed_line') return t('có dòng không đọc được', 'a line cannot be read');
-  if (what === 'rotation_personal_in_team') return t('tài khoản cá nhân cũng nằm trong vòng Team', 'the personal account is also in the Team rotation');
+  if (what === 'rotation_personal_in_team') return t('tài khoản cá nhân cũng nằm trong Team được dùng', 'the personal account is also among the Team accounts to use');
   return reason;
 }
 
@@ -95,7 +95,7 @@ export function markLeft(value: number, min: number, max: number): number {
 export function ruleChanges(a: Rules, b: Rules, nameOf: NameOf, now: Date): string[] {
   const out: string[] = [];
   const list = (r: Rules) => r.team.map(nameOf).join(', ') || t('không có', 'none');
-  if (a.team.join() !== b.team.join()) out.push(t('Tài khoản Team được xoay vòng: ', 'Team accounts in rotation: ') + list(a) + ' → ' + list(b));
+  if (a.team.join() !== b.team.join()) out.push(t('Tài khoản Team được dùng: ', 'Team accounts to use: ') + list(a) + ' → ' + list(b));
   const pers = (r: Rules) => (r.personal ? nameOf(r.personal) : t('không có', 'none'));
   if (a.personal !== b.personal) out.push(t('Tài khoản cá nhân: ', 'Personal account: ') + pers(a) + ' → ' + pers(b));
   if (a.personalFrom !== b.personalFrom || a.personalTo !== b.personalTo)
@@ -108,7 +108,7 @@ export function ruleChanges(a: Rules, b: Rules, nameOf: NameOf, now: Date): stri
     const y = b.expire.find((e) => e.slot === s)?.at;
     const notSet = t('chưa đặt', 'not set');
     if (x !== y)
-      out.push(t('Giờ rời vòng của ' + nameOf(s) + ': ', nameOf(s) + ' leaves rotation at: ') + (x ? endText(x, now) : notSet) + ' → ' + (y ? endText(y, now) : notSet));
+      out.push(t('Giờ ngừng dùng ' + nameOf(s) + ': ', nameOf(s) + ' stops at: ') + (x ? endText(x, now) : notSet) + ' → ' + (y ? endText(y, now) : notSet));
   }
   return out;
 }
@@ -117,7 +117,7 @@ export function ruleChanges(a: Rules, b: Rules, nameOf: NameOf, now: Date): stri
 export function rulesProblem(r: Rules): string | null {
   if (!r.team.length) return t('Chọn ít nhất một tài khoản Team.', 'Pick at least one Team account.');
   if (r.personalTo < r.personalFrom) return t('Giờ kết thúc phải sau giờ bắt đầu.', 'The end hour must come after the start hour.');
-  if (r.personal !== null && r.team.includes(r.personal)) return t('Tài khoản cá nhân không được nằm trong vòng Team.', 'The personal account cannot be in the Team rotation.');
+  if (r.personal !== null && r.team.includes(r.personal)) return t('Tài khoản cá nhân không được nằm trong Team được dùng.', 'The personal account cannot be among the Team accounts to use.');
   return null;
 }
 
@@ -413,12 +413,12 @@ export function compareRows(mine: Rules, theirs: Rules, nameOf: NameOf, now: Dat
       .map((e) => nameOf(e.slot) + ' ' + endText(e.at, now))
       .join(', ') || t('chưa đặt', 'not set');
   const rows: [string, (r: Rules) => string][] = [
-    [t('Tài khoản Team được xoay vòng', 'Team accounts in rotation'), team],
+    [t('Tài khoản Team được dùng', 'Team accounts to use'), team],
     [t('Tài khoản cá nhân', 'Personal account'), pers],
     [t('Giờ dùng tài khoản cá nhân', 'Personal account hours'), (r) => hoursText(r.personalFrom, r.personalTo)],
     [t('Ngưỡng tự chuyển', 'Auto-switch threshold'), (r) => r.full + '%'],
     [t('Ngưỡng Fable tuần', 'Fable week threshold'), (r) => r.fableFull + '%'],
-    [t('Giờ rời vòng', 'Leaves rotation at'), ends],
+    [t('Giờ ngừng dùng', 'Stops at'), ends],
   ];
   return rows.map(([label, f]) => ({ label, mine: f(mine), theirs: f(theirs), diff: f(mine) !== f(theirs) }));
 }

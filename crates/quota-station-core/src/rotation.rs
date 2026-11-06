@@ -442,7 +442,7 @@ pub fn render(rules: &Rules, stamp: &Stamp, previous: Option<&str>) -> String {
             }
         }
         None => {
-            out.push("# Luật xoay vòng, sửa trong Quota Station.".into());
+            out.push("# Luật tự chuyển tài khoản, sửa trong Quota Station.".into());
         }
     }
     for k in KEYS {

@@ -98,7 +98,7 @@ describe('the switcher in words', () => {
     [{ kind: 'wait' }, 'Không tài khoản nào còn hạn mức. Tự động chuyển giữ tài khoản đang dùng.'],
     [
       { kind: 'switch', slot: 2, why: { kind: 'expiring', at: '17:45' } },
-      'Lần kiểm tra tới sẽ chuyển sang lan.acme1: ưu tiên dùng lan.acme1 trước khi tài khoản rời vòng lúc 17:45.',
+      'Lần kiểm tra tới sẽ chuyển sang lan.acme1: ưu tiên dùng lan.acme1 trước khi ngừng dùng nó lúc 17:45.',
     ],
     [
       { kind: 'switch', slot: 4, why: { kind: 'early', at: '17:09', left: 30, before: 3 } },
@@ -178,7 +178,7 @@ describe('the switch sheet and its result', () => {
     a.membership = 'out';
     const v = claudeSheet({ ...low, claudeSwitch: { ready: false, busy: null } }, 3, '60', { live: 1, unreadable: 0 }, FIXTURE_NOW)!;
     expect(v.facts.map((f) => f.k)).toEqual(['', 'w', 'w', 'w', 'x']);
-    expect(v.facts[2].text).toBe('lan.acme2 không còn trong vòng xoay. Nếu để tự chuyển, switcher sẽ đổi sang tài khoản trong vòng.');
+    expect(v.facts[2].text).toBe('lan.acme2 không còn được dùng. Nếu để tự chuyển, switcher sẽ đổi sang tài khoản được dùng.');
     expect(v.facts[0].text).toBe('lan.acme2 đã dùng **92%** 5 giờ, **50%** Fable.');
     expect(v.facts[3].text).toBe('lan.acme2 đã dùng 92% hạn mức 5 giờ.');
     expect(v.blocked).toBe(true);

@@ -256,8 +256,8 @@ function DoneBody({
                   k: 'w',
                   text: advanced
                     ? t(
-                        'Luật xoay vòng chưa có tài khoản này: tự động chuyển chưa tự chuyển sang nó. Thêm vào Tài khoản Team trong vòng xoay nếu muốn.',
-                        'The rotation rules do not have this account yet, so auto-switch will not move to it. Add it to Team accounts in rotation if you want.',
+                        'Luật tự chuyển chưa có tài khoản này: tự động chuyển chưa tự chuyển sang nó. Thêm vào Tài khoản Team được dùng nếu muốn.',
+                        'The auto-switch rules do not have this account yet, so auto-switch will not move to it. Add it to Team accounts to use if you want.',
                       )
                     : t(
                         'Tự chuyển dùng được tài khoản này. Muốn để nó ngoài, chọn Tạm dừng tự chuyển trong menu ⋯.',
@@ -277,7 +277,7 @@ function DoneBody({
               onTab('rules');
             }}
           >
-            {t('Mở Luật xoay vòng', 'Open Rotation rules')}
+            {t('Mở tab Tự chuyển tài khoản', 'Open the Auto-switch accounts tab')}
           </Button>
         ) : null}
         <Button primary onClick={() => void claude.finish(d.slot, alias)}>
@@ -449,8 +449,8 @@ function RemoveBody({
                 {
                   k: 'w',
                   text: t(
-                    'Luật xoay vòng vẫn có tài khoản này trong Tài khoản Team trong vòng xoay. Sửa luật sau khi xoá.',
-                    'The rotation rules still list this account in Team accounts in rotation. Edit the rules after removing it.',
+                    'Luật tự chuyển vẫn có tài khoản này trong Tài khoản Team được dùng. Sửa luật sau khi xoá.',
+                    'The auto-switch rules still list this account in Team accounts to use. Edit the rules after removing it.',
                   ),
                 },
               ]

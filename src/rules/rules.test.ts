@@ -40,7 +40,7 @@ describe('rules view', () => {
     expect(keyWords('rotation_bad_value:personal_hours')).toBe('khoá personal_hours sai');
     expect(keyWords('rotation_missing_key:full')).toBe('thiếu khoá full');
     expect(keyWords('rotation_malformed_line')).toBe('có dòng không đọc được');
-    expect(keyWords('rotation_personal_in_team')).toBe('tài khoản cá nhân cũng nằm trong vòng Team');
+    expect(keyWords('rotation_personal_in_team')).toBe('tài khoản cá nhân cũng nằm trong Team được dùng');
   });
 
   it('lists every change by account name', () => {
@@ -56,13 +56,13 @@ describe('rules view', () => {
       expire: [{ slot: 3, at: '2026-01-17T09:00' }],
     });
     expect(ruleChanges(before, after, nameOf, FIXTURE_NOW)).toEqual([
-      'Tài khoản Team được xoay vòng: lan.acme1, lan.acme2, lan.acme3 → lan.acme2, lan.acme1',
+      'Tài khoản Team được dùng: lan.acme1, lan.acme2, lan.acme3 → lan.acme2, lan.acme1',
       'Tài khoản cá nhân: lanpham.dev → không có',
       'Giờ dùng tài khoản cá nhân: 08:00–24:00 → 09:00–22:00',
       'Ngưỡng tự chuyển: 90% → 85%',
       'Ngưỡng Fable tuần: 95% → 97%',
-      'Giờ rời vòng của lan.acme1: 17:45 → chưa đặt',
-      'Giờ rời vòng của lan.acme2: chưa đặt → ngày mai 09:00',
+      'Giờ ngừng dùng lan.acme1: 17:45 → chưa đặt',
+      'Giờ ngừng dùng lan.acme2: chưa đặt → ngày mai 09:00',
     ]);
     expect(ruleChanges(before, rulesFixture(), nameOf, FIXTURE_NOW)).toEqual([]);
   });
@@ -85,7 +85,7 @@ describe('rules view', () => {
     expect(rulesProblem(rulesFixture())).toBeNull();
     expect(rulesProblem(rulesFixture({ team: [] }))).toBe('Chọn ít nhất một tài khoản Team.');
     expect(rulesProblem(rulesFixture({ personalFrom: 20, personalTo: 7 }))).toBe('Giờ kết thúc phải sau giờ bắt đầu.');
-    expect(rulesProblem(rulesFixture({ team: [1, 2], personal: 1 }))).toBe('Tài khoản cá nhân không được nằm trong vòng Team.');
+    expect(rulesProblem(rulesFixture({ team: [1, 2], personal: 1 }))).toBe('Tài khoản cá nhân không được nằm trong Team được dùng.');
   });
 
   it('one status per Mac', () => {
@@ -198,6 +198,6 @@ describe('rules view', () => {
       ['Giờ dùng tài khoản cá nhân', '08:00–24:00', '08:00–22:00'],
       ['Ngưỡng tự chuyển', '90%', '88%'],
     ]);
-    expect(rows.find((r) => r.label === 'Giờ rời vòng')?.mine).toBe('lan.acme1 17:45');
+    expect(rows.find((r) => r.label === 'Giờ ngừng dùng')?.mine).toBe('lan.acme1 17:45');
   });
 });

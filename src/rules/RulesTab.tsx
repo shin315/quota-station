@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-// The Luật xoay vòng tab (F06): the prototype's rules editor (mockup B's
+// The Tự chuyển tài khoản tab (F06): the prototype's rules editor (mockup B's
 // chips and sliders) as one form, and at the card's foot one row with the
 // preview from the switcher's dry run in one sentence, a line per Mac and
 // the save button; then the two dialogs: compare two copies, and unsaved
@@ -132,7 +132,7 @@ function Editor({ model, rules: st, now }: { model: AuthorModel; rules: RulesSta
     <div className="form grid">
       <div className={rowClass(teamChanged)}>
         <div className={LABEL} id="qs-r-team">
-          {t('Team trong vòng', 'Team in rotation')}
+          {t('Team được dùng', 'Team accounts to use')}
           <Changed on={teamChanged} />
         </div>
         <div>
@@ -190,7 +190,7 @@ function Editor({ model, rules: st, now }: { model: AuthorModel; rules: RulesSta
                       {on ? '✓' : ''}
                     </span>
                     {nameOf(n)}
-                    {on ? <span className="sr-only">{t(', trong vòng', ', in rotation')}</span> : null}
+                    {on ? <span className="sr-only">{t(', được dùng', ', used')}</span> : null}
                   </button>
                 );
               })}
@@ -267,8 +267,8 @@ function Editor({ model, rules: st, now }: { model: AuthorModel; rules: RulesSta
               <p>{t('Số được xét là số cao hơn giữa hạn mức 5 giờ và tuần của tài khoản.', 'The number checked is the higher of the account’s 5-hour and week windows.')}</p>
               <p>
                 {t(
-                  'Khi chuyển, switcher ưu tiên tài khoản sắp rời vòng, rồi tài khoản Team có hạn mức tuần đặt lại sớm nhất, rồi tài khoản có cửa sổ 5 giờ kết thúc sớm nhất; bằng nhau thì theo thứ tự ở Team trong vòng. Tài khoản có hạn mức tuần đặt lại sớm hơn được dùng đến khi chạm ngưỡng, và được dùng lại ngay khi hạn mức 5 giờ của nó đặt lại.',
-                  'When it switches, the switcher goes first to an account about to leave the rotation, then to the Team account whose week resets first, then to the one whose 5-hour window ends first; on a tie, the order in Team in rotation. The account whose week resets first is used until it reaches the threshold, and taken back as soon as its 5-hour quota resets.',
+                  'Khi chuyển, switcher ưu tiên tài khoản sắp ngừng dùng, rồi tài khoản Team có hạn mức tuần đặt lại sớm nhất, rồi tài khoản có cửa sổ 5 giờ kết thúc sớm nhất; bằng nhau thì theo thứ tự ở Team được dùng. Tài khoản có hạn mức tuần đặt lại sớm hơn được dùng đến khi chạm ngưỡng, và được dùng lại ngay khi hạn mức 5 giờ của nó đặt lại.',
+                  'When it switches, the switcher goes first to an account about to stop being used, then to the Team account whose week resets first, then to the one whose 5-hour window ends first; on a tie, the order in Team accounts to use. The account whose week resets first is used until it reaches the threshold, and taken back as soon as its 5-hour quota resets.',
                 )}
               </p>
               <p>
@@ -308,7 +308,7 @@ function Editor({ model, rules: st, now }: { model: AuthorModel; rules: RulesSta
 
       <div className={rowClass(expChanged)}>
         <div className={LABEL}>
-          {t('Giờ rời vòng', 'Leaves rotation at')}
+          {t('Giờ ngừng dùng', 'Stops at')}
           <Changed on={expChanged} />
         </div>
         <div>
@@ -324,7 +324,7 @@ function Editor({ model, rules: st, now }: { model: AuthorModel; rules: RulesSta
                         type="datetime-local"
                         className="w-[196px]"
                         value={localInput(e.at)}
-                        aria-label={t('Giờ rời vòng của ' + nameOf(n), 'When ' + nameOf(n) + ' leaves rotation')}
+                        aria-label={t('Giờ ngừng dùng ' + nameOf(n), nameOf(n) + ' stops at')}
                         disabled={disabled}
                         onChange={(ev) => {
                           const v = ev.target.value;
@@ -337,9 +337,9 @@ function Editor({ model, rules: st, now }: { model: AuthorModel; rules: RulesSta
                     </>
                   ) : (
                     <>
-                      <span className="text-ink2">{t('Chưa đặt giờ rời vòng', 'No leave time set')}</span>{' '}
+                      <span className="text-ink2">{t('Chưa đặt giờ ngừng dùng', 'No stop time set')}</span>{' '}
                       <LinkButton
-                        aria-label={t('Đặt giờ rời vòng cho ' + nameOf(n), 'Set when ' + nameOf(n) + ' leaves rotation')}
+                        aria-label={t('Đặt giờ ngừng dùng cho ' + nameOf(n), 'Set when ' + nameOf(n) + ' stops')}
                         disabled={disabled}
                         onClick={() => st.edit((d) => (d.expire = [...d.expire, { slot: n, at: defaultEnd(now) }].sort((a, b) => a.slot - b.slot)))}
                       >
@@ -445,7 +445,7 @@ export function RulesTab({ model, fresh, rules: st, feedback, now, onAction }: R
   return (
     <>
       <TabHead>
-        <TabTitle>{t('Luật xoay vòng', 'Rotation rules')}</TabTitle>
+        <TabTitle>{t('Tự chuyển tài khoản', 'Auto-switch accounts')}</TabTitle>
         <TabSub>
           <Dot tone={fresh.tone} />
           {model.machine} · {fresh.text}

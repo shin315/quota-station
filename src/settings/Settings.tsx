@@ -276,7 +276,7 @@ function CodexAccountsRow({ model, onAction }: { model: Model; onAction: Setting
 function poolShort(model: Model): string {
   const p = model.alerts.poolAlert;
   if (advancedOn(model))
-    return t('Đang dùng còn ≤ ' + p.dryAtMost + '%, mọi tài khoản trong vòng còn < ' + p.roomAtLeast + '%.', 'In use ≤ ' + p.dryAtMost + '% left, every account in rotation < ' + p.roomAtLeast + '% left.');
+    return t('Đang dùng còn ≤ ' + p.dryAtMost + '%, mọi tài khoản được dùng còn < ' + p.roomAtLeast + '%.', 'In use ≤ ' + p.dryAtMost + '% left, every account to switch to < ' + p.roomAtLeast + '% left.');
   return t('Đang dùng còn ≤ ' + p.dryAtMost + '%, mọi tài khoản còn < ' + p.roomAtLeast + '%.', 'In use ≤ ' + p.dryAtMost + '% left, every account < ' + p.roomAtLeast + '% left.');
 }
 
@@ -529,11 +529,11 @@ function AutoSwitchRow({ model, onSet }: { model: Model; onSet: NonNullable<Sett
       label={autoTitle()}
       hint={
         policy === 'rules'
-          ? t('Máy này theo luật xoay vòng (Nâng cao), nên ngưỡng ở đây chưa dùng.', 'This computer follows the rotation rules (Advanced), so this threshold is not used.')
+          ? t('Máy này theo luật ở tab Tự chuyển tài khoản (Nâng cao), nên ngưỡng ở đây chưa dùng.', 'This computer follows the rules in the Auto-switch accounts tab (Advanced), so this threshold is not used.')
           : policy === 'stopped'
             ? t(
-                'File luật xoay vòng có lỗi nên chưa chuyển gì, và ngưỡng ở đây chưa dùng. Sửa nó trong Luật xoay vòng (Nâng cao).',
-                'The rotation rules file has an error, so nothing switches and this threshold is not used. Fix it in Rotation rules (Advanced).',
+                'File luật tự chuyển có lỗi nên chưa chuyển gì, và ngưỡng ở đây chưa dùng. Sửa nó ở tab Tự chuyển tài khoản (Nâng cao).',
+                'The auto-switch rules file has an error, so nothing switches and this threshold is not used. Fix it in the Auto-switch accounts tab (Advanced).',
               )
             : thresholdWords(at)
       }
