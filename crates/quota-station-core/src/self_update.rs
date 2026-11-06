@@ -7,7 +7,7 @@
 //! Only a release build (the release workflow's, `QS_RELEASE=1`) updates
 //! itself, with Tauri's updater: it downloads the release's updater file,
 //! checks its signature against the update key's public half built into the
-//! app, installs it over the running copy and offers to reopen. A build from
+//! app, installs it over the running copy and reopens the app. A build from
 //! source keeps "Cập nhật từ mã nguồn" and is never replaced by a download; a
 //! copy Homebrew installed is updated by Homebrew, so the app shows the
 //! command; a release build without a public key in `src-tauri/updater.pub`
@@ -27,7 +27,7 @@ pub const CASKROOMS: [&str; 2] =
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Way {
-    /// Downloads, checks the signature, installs and offers to reopen.
+    /// Downloads, checks the signature, installs and reopens.
     Install,
     /// Homebrew installed it: the app shows Homebrew's upgrade command.
     Brew,

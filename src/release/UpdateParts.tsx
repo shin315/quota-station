@@ -3,7 +3,7 @@
 
 // The release dialog's lower half for a copy that does not just open the
 // download: a release build that installs releases itself ("Tải và cài"
-// downloads, checks the signature, installs and offers to reopen, with its
+// downloads, checks the signature, installs and reopens the app, with its
 // progress and a clear error that falls back to the download), and a copy
 // Homebrew installed (Homebrew's command to copy). A command to copy is
 // drawn the same way for the build from source.
@@ -90,23 +90,6 @@ function InstallSteps({ install, release }: { install: InstallState; release: Re
           <DialogButtons>{closeButton}</DialogButtons>
         </>
       );
-    case 'installed':
-      return (
-        <>
-          <Facts
-            items={[
-              { k: 'ok', text: t('Đã cài Quota Station ' + install.version + '. Mở lại để dùng bản mới.', 'Installed Quota Station ' + install.version + '. Reopen to use it.') },
-              { k: '', text: t('Để sau thì bản mới chạy ở lần mở app tới.', 'Later means it runs the next time the app opens.') },
-            ]}
-          />
-          <DialogButtons>
-            <Button onClick={release.close}>{t('Để sau', 'Later')}</Button>
-            <Button primary onClick={() => void release.reopen()}>
-              {t('Mở lại', 'Reopen')}
-            </Button>
-          </DialogButtons>
-        </>
-      );
     case 'failed':
       return (
         <>
@@ -151,8 +134,8 @@ export function InstallBody({ head, notes, release, size }: { head: ReactNode; n
                 k: '',
                 text: os(
                   t(
-                    'Tải và cài tải bản mới từ GitHub, kiểm tra chữ ký rồi cài đè lên bản này. Xong thì bạn chọn lúc mở lại.',
-                    'Download and install gets the new version from GitHub, checks its signature and installs it over this one. Then you choose when to reopen.',
+                    'Tải và cài tải bản mới từ GitHub, kiểm tra chữ ký rồi cài đè lên bản này: app sẽ tự mở lại với bản mới.',
+                    'Download and install gets the new version from GitHub, checks its signature and installs it over this one: the app will reopen itself on the new version.',
                   ),
                   t(
                     'Tải và cài tải bản cài đặt' + (size ? ' ' + megabytes(size) : '') + ' từ GitHub, kiểm tra chữ ký rồi cài ngay: app sẽ tự đóng lại và mở lại để cài xong.',

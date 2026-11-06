@@ -13,7 +13,7 @@ import type { UpdateWay } from '../lib/updater';
 import { installFailure } from './useRelease';
 
 const updater = vi.hoisted(() => ({
-  downloadUpdate: vi.fn<(onProgress: (got: number, total: number | null) => void) => Promise<string>>(),
+  downloadUpdate: vi.fn<(onProgress: (got: number, total: number | null) => void) => Promise<void>>(),
   installUpdate: vi.fn<() => Promise<void>>(),
   relaunch: vi.fn<() => Promise<void>>(),
 }));
@@ -59,30 +59,31 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('Tải và cài on a release build that updates itself', () => {
-  it('downloads with its progress, installs, and offers to reopen (macOS)', async () => {
-    let finish: (v: string) => void = () => {};
+  it('on macOS one press downloads with its progress, installs, then reopens the app', async () => {
+    let finish: () => void = () => {};
     updater.downloadUpdate.mockImplementation(async (onProgress) => {
       onProgress(4_000_000, 14_000_000);
-      return new Promise<string>((resolve) => (finish = resolve));
+      return new Promise<void>((resolve) => (finish = resolve));
     });
     const fake = await open(release('install'));
     await openDialog();
-    expect(within(dialog()).getByText(/kiểm tra chữ ký rồi cài đè lên bản này/)).toBeTruthy();
+    expect(within(dialog()).getByText(/app sẽ tự mở lại với bản mới/)).toBeTruthy();
     await press(inDialog('Tải và cài'));
     expect(within(dialog()).getByText('4.0 / 14 MB')).toBeTruthy();
     expect(within(dialog()).getByRole('progressbar').getAttribute('aria-valuenow')).toBe('29');
     expect(updater.installUpdate).not.toHaveBeenCalled();
-    await act(async () => finish('0.3.0'));
+    expect(updater.relaunch).not.toHaveBeenCalled();
+    await act(async () => finish());
     expect(updater.installUpdate).toHaveBeenCalledTimes(1);
-    expect(within(dialog()).getByText('Đã cài Quota Station 0.3.0. Mở lại để dùng bản mới.')).toBeTruthy();
-    await press(inDialog('Mở lại'));
     expect(updater.relaunch).toHaveBeenCalledTimes(1);
+    expect(updater.relaunch.mock.invocationCallOrder[0]).toBeGreaterThan(updater.installUpdate.mock.invocationCallOrder[0]);
+    expect(within(dialog()).queryByRole('button', { name: /mở lại/i })).toBeNull();
     // Nothing went to the browser.
     expect(fake.released()).toEqual([]);
   });
 
   it('on Windows one press downloads and installs, after saying the app closes and reopens', async () => {
-    updater.downloadUpdate.mockResolvedValue('0.3.0');
+    updater.downloadUpdate.mockResolvedValue(undefined);
     updater.installUpdate.mockReturnValue(new Promise<void>(() => {}));
     await open(release('install', 'windows'));
     await openDialog();

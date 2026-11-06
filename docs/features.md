@@ -801,9 +801,9 @@ popover's footer; its dialog has `Download and install`, `Later` and `Skip
 this version`. On a release build, `Download and install` downloads the
 release's updater file (Tauri's updater, `latest.json` on the latest
 release), checks its signature against the update key built into the app,
-installs it over the running copy with a progress bar, and offers `Reopen`;
-on Windows the installer (NSIS, passive) closes the app and opens the new
-version. If anything fails, the dialog says why and offers `Open the
+installs it over the running copy with a progress bar, and reopens the app,
+all on that one press (macOS through the app itself; on Windows the installer,
+NSIS passive, closes the app and opens the new version). If anything fails, the dialog says why and offers `Open the
 download`, the release's DMG or installer in the browser, to install as the
 first time. A copy Homebrew installed (the cask recorded and the app in an
 `Applications` folder) gets `brew upgrade --cask shin315/tap/quota-station`

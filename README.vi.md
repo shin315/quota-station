@@ -114,7 +114,7 @@ Chi tiết về bảo mật và lưu ý điều khoản dịch vụ có trong [S
 
 Bản tải về kiểm tra GitHub Releases mỗi ngày (`Cài đặt › Chung › Cập nhật`) và báo khi có bản
 mới. Từ bản phát hành đầu tiên sau 1.1.1, `Tải và cài` tải bản mới, kiểm tra chữ ký, cài đè lên
-bản đang chạy rồi hỏi mở lại (trên Windows bộ cài đóng app rồi mở bản mới). Bản 1.1.1 trở về
+bản đang chạy rồi tự mở lại app (trên Windows bộ cài đóng app rồi mở bản mới). Bản 1.1.1 trở về
 trước thì cài thủ công thêm một lần: mở file `.dmg` hoặc `.exe` mới trên trình duyệt rồi cài đè
 lên bản cũ (trên macOS thì thoát app trước).
 

@@ -8,7 +8,7 @@
 //! the plugin's own commands (`@tauri-apps/plugin-updater`): it reads
 //! `latest.json` from the latest release, downloads this system's updater
 //! file, checks its signature against [`PUBKEY`] and installs it over the
-//! running copy. On macOS the app then offers [`release_relaunch`]; on
+//! running copy. On macOS the app then reopens through [`release_relaunch`]; on
 //! Windows the installer (NSIS, `installMode` passive) closes the app and
 //! opens the new one itself.
 
@@ -68,7 +68,7 @@ pub fn plugin() -> Option<tauri::plugin::TauriPlugin<tauri::Wry, tauri_plugin_up
         .then(|| tauri_plugin_updater::Builder::new().pubkey(PUBKEY.trim()).build())
 }
 
-/// "Mở lại" once the new copy is installed (macOS only): a small shell waits
+/// Reopens the app once the new copy is installed (macOS only): a small shell waits
 /// for this process to end, then starts the new copy's executable from the
 /// same bundle with this copy's environment. Rejects with `notInstall` on a
 /// copy that does not install releases itself, `unbundled` outside a `.app`,

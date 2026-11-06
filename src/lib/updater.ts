@@ -30,10 +30,10 @@ let pending: Update | null = null;
 /**
  * Finds the newer release in `latest.json`, downloads this system's file and
  * checks its signature. `onProgress` hears the bytes so far and the whole
- * size when the server gives it. Resolves to the version downloaded; rejects
- * with `noUpdate` when `latest.json` offers nothing newer for this system.
+ * size when the server gives it. Rejects with `noUpdate` when `latest.json`
+ * offers nothing newer for this system.
  */
-export async function downloadUpdate(onProgress: (got: number, total: number | null) => void): Promise<string> {
+export async function downloadUpdate(onProgress: (got: number, total: number | null) => void): Promise<void> {
   const update = await check();
   if (!update) throw new Error('noUpdate');
   let got = 0;
@@ -46,7 +46,6 @@ export async function downloadUpdate(onProgress: (got: number, total: number | n
   const before = pending;
   pending = update;
   if (before) void before.close().catch(() => undefined);
-  return update.version;
 }
 
 /**

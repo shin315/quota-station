@@ -22,8 +22,6 @@ export type InstallState =
   | { step: 'idle' }
   | { step: 'downloading'; got: number; total: number | null }
   | { step: 'installing' }
-  /** macOS: in place; runs once the app opens again. Windows never gets here: its installer closes the app. */
-  | { step: 'installed'; version: string }
   | { step: 'failed'; reason: string; detail: string };
 
 /** The progress shown at most this often, in milliseconds. */
@@ -88,13 +86,13 @@ export function useRelease(api: Api, model: Model | null, showFeedback: (fb: Fee
   };
   const busy = install.step === 'downloading' || install.step === 'installing';
 
-  /** Downloads and checks the update, then installs it: on Windows the installer closes the app and opens the new copy. */
+  /** Downloads and checks the update, installs it and reopens the app: on macOS through `relaunch`, on Windows the installer closes the app and opens the new copy. */
   const selfInstall = async () => {
     if (busy) return;
     shown.current = 0;
     setInstall({ step: 'downloading', got: 0, total: null });
     try {
-      const v = await updater.downloadUpdate((got, total) => {
+      await updater.downloadUpdate((got, total) => {
         const now = Date.now();
         if (now - shown.current < PROGRESS_EVERY && got !== total) return;
         shown.current = now;
@@ -102,7 +100,7 @@ export function useRelease(api: Api, model: Model | null, showFeedback: (fb: Fee
       });
       setInstall({ step: 'installing' });
       await updater.installUpdate();
-      setInstall({ step: 'installed', version: v });
+      await updater.relaunch();
     } catch (e) {
       setInstall({ step: 'failed', ...installFailure(e) });
     }
@@ -113,15 +111,6 @@ export function useRelease(api: Api, model: Model | null, showFeedback: (fb: Fee
     if (model?.release.way === 'install') return void selfInstall();
     setDialog(null);
     quiet(api.releaseOpen('download'));
-  };
-
-  /** "Mở lại" once the new copy is installed (macOS). */
-  const reopen = async () => {
-    try {
-      await updater.relaunch();
-    } catch (e) {
-      setInstall({ step: 'failed', ...installFailure(e) });
-    }
   };
 
   /** The fallback when the install failed: the installer or page in the browser, as before. */
@@ -154,7 +143,6 @@ export function useRelease(api: Api, model: Model | null, showFeedback: (fb: Fee
     later,
     skip,
     download,
-    reopen,
     openDownload,
     open: (what: 'notes' | 'releases' | 'issue') => quiet(api.releaseOpen(what)),
     setAuto: (on: boolean) => quiet(api.setReleaseChecks(on)),

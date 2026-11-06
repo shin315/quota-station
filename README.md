@@ -111,7 +111,7 @@ Details and terms-of-service notes are in [SECURITY.md](SECURITY.md) and
 
 Downloaded builds check GitHub Releases daily (`Settings › General › Updates`) and notify you
 when a new version is out. From the first release after 1.1.1, `Download and install` downloads
-it, checks its signature, installs it over the running copy and offers to reopen (on Windows the
+it, checks its signature, installs it over the running copy and reopens the app (on Windows the
 installer closes the app and opens the new version). Copies on 1.1.1 or older install the new
 `.dmg` or `.exe` from the browser over the old copy once more (quit first on macOS).
 
