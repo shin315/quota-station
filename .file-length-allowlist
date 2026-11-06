@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: 2026 Shin315
+# SPDX-License-Identifier: MIT
+
+# The code files that were over 1000 lines when scripts/check-file-length.mjs
+# was added: "<lines> <path>" per line, sorted by path. A number only ever goes
+# down, to the file's new length; a file at 1000 lines or fewer comes off the
+# list. Never raise a number or add a file: split the file into smaller modules.
+1245 crates/quota-station-core/src/agents/batch.rs
+1379 crates/quota-station-core/src/agents/copy.rs
+1030 crates/quota-station-core/src/agents/env_check.rs
+1119 crates/quota-station-core/src/agents/pack.rs
+1914 crates/quota-station-core/src/agents/restore.rs
+1560 crates/quota-station-core/src/agents/skills.rs
+1575 crates/quota-station-core/src/alerts.rs
+1028 crates/quota-station-core/tests/agents_skills.rs
+1016 crates/quota-station-core/tests/ext.rs
+1136 src-tauri/src/skills.rs
+1486 src-tauri/src/state.rs
+1134 src/App.tsx
+1013 src/agents/McpDialogs.tsx
+1989 src/fixtures/fakeApi.ts
+1041 src/lib/codex.ts
+2178 src/lib/model.ts
+1089 src/settings/Settings.tsx
+1102 src/styles/tokens.css

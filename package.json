@@ -9,6 +9,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "test": "vitest run",
+    "check:file-length": "node scripts/check-file-length.mjs",
     "tauri": "tauri",
     "app": "tauri dev",
     "app:build": "tauri build"
