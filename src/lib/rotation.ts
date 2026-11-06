@@ -145,7 +145,7 @@ export function autoFacts(model: Model, target: Account, name: string, now: Date
       k: 'w',
       text: t(
         name + ' không còn được dùng. Nếu để tự chuyển, switcher sẽ đổi sang tài khoản được dùng.',
-        name + ' is no longer among the accounts to use. If you let it auto-switch, the switcher moves to an account to use.',
+        name + ' is no longer among the accounts to use. If you let it auto-switch, the switcher moves to one of them.',
       ),
     });
   }

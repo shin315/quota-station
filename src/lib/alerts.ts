@@ -81,7 +81,7 @@ export function alertKinds(model: Model): { kind: SwitchKind; title: string; tex
       if (k.kind !== 'pool') return k;
       let title = t('Hạn mức Claude sắp cạn / có lại', 'Claude quota running out / back');
       let where = ['', ''];
-      if (adv) [title, where] = [k.title, [' được dùng', ' to use']];
+      if (adv) [title, where] = [k.title, [' được dùng', ' to switch to']];
       return {
         ...k,
         title,

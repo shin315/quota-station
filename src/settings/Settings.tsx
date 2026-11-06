@@ -276,7 +276,7 @@ function CodexAccountsRow({ model, onAction }: { model: Model; onAction: Setting
 function poolShort(model: Model): string {
   const p = model.alerts.poolAlert;
   if (advancedOn(model))
-    return t('Đang dùng còn ≤ ' + p.dryAtMost + '%, mọi tài khoản được dùng còn < ' + p.roomAtLeast + '%.', 'In use ≤ ' + p.dryAtMost + '% left, every account to use < ' + p.roomAtLeast + '% left.');
+    return t('Đang dùng còn ≤ ' + p.dryAtMost + '%, mọi tài khoản được dùng còn < ' + p.roomAtLeast + '%.', 'In use ≤ ' + p.dryAtMost + '% left, every account to switch to < ' + p.roomAtLeast + '% left.');
   return t('Đang dùng còn ≤ ' + p.dryAtMost + '%, mọi tài khoản còn < ' + p.roomAtLeast + '%.', 'In use ≤ ' + p.dryAtMost + '% left, every account < ' + p.roomAtLeast + '% left.');
 }
 

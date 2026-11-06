@@ -429,7 +429,7 @@ lists the kinds in both languages. The kinds:
    *(Advanced)* Only the accounts to use that have not stopped (the
    personal one only inside its hours) count, and the title is `Hạn mức Claude
    để tự chuyển sắp cạn`. Where the app keeps no Claude account it reads the
-   rotation file.
+   rules file.
    The card names the account in use and its share used, and
    when an account resets, and offers `Sang <account> (đã dùng N%)` when a
    better account exists, which opens the switch sheet, and `Bỏ qua`.

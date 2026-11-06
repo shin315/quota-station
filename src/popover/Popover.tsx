@@ -508,7 +508,7 @@ function SimpleFooter({ auto, onAction }: { auto: SimpleAutoView; onAction(act: 
 function Legend({ rotation }: { rotation: boolean }) {
   const line = t('% đã dùng · thời gian đặt lại', '% used · time until reset');
   let dim = t('Số mờ là số cũ: rê chuột lên tài khoản để xem số đọc từ bao giờ.', 'A dim number is an old one: hover the account to see how old.');
-  if (rotation) dim += t(' Ghi chú về tự chuyển nằm ở cửa sổ chính.', ' Notes about auto-switch are in the main window.');
+  if (rotation) dim += t(' Ghi chú về tự chuyển tài khoản nằm ở cửa sổ chính.', ' Notes about auto-switching accounts are in the main window.');
   return (
     <div className="flex items-center gap-2 text-xs text-ink2">
       <span className="min-w-0 flex-1 truncate">{line}</span>

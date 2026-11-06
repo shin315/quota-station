@@ -95,7 +95,7 @@ cho **macOS 13+** (Apple Silicon hoặc Intel) hoặc **Windows 10/11 (x64)**.
   anyway` (`Vẫn chạy`).
 
 Bật `Cài đặt › Chung › Mở khi đăng nhập` nếu muốn app tự khởi động cùng máy. Đang chuyển từ công
-cụ tự chuyển tài khoản Claude cũ? Xem [hướng dẫn cutover](docs/claude-accounts.md#cutover).
+cụ chuyển tài khoản Claude cũ? Xem [hướng dẫn cutover](docs/claude-accounts.md#cutover).
 
 ## Quyền riêng tư và an toàn
 

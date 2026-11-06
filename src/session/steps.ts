@@ -577,8 +577,8 @@ export const STEPS: Step[] = [
     part: 2,
     title: 'Tự chuyển khi app mở',
     do: [
-      'Ở tab Claude, bật Tự chuyển khi hết quota (giữ luật đang có).',
-      'Để Tự chuyển khi hết quota bật tới cuối phần 2; app tự lưu mỗi lần chạy.',
+      'Ở tab Claude, bật Tự động chuyển Claude (giữ luật đang có).',
+      'Để Tự động chuyển Claude bật tới cuối phần 2; app tự lưu mỗi lần chạy.',
     ],
     right: ['Không có cửa sổ đen (console) nào nháy lên.'],
     help: [{ kind: 'window', tab: 'claude', label: 'Mở tab Claude' }],
@@ -827,7 +827,7 @@ export const STEPS: Step[] = [
       'Mở popover: các tài khoản vẫn đọc được hạn mức.',
       'Ở tab MCP, MCP có token vẫn còn token.',
       ({ model }) =>
-        (model.capabilities.authorTools ? 'Ở tab Claude, tắt Tự chuyển khi hết quota nếu lúc đầu nó tắt. ' : '') +
+        (model.capabilities.authorTools ? 'Ở tab Claude, tắt Tự động chuyển Claude nếu lúc đầu nó tắt. ' : '') +
         'Ở Cài đặt › Chung, tắt “Mở khi đăng nhập” nếu không muốn giữ.',
     ],
     right: ['Không tài khoản nào đòi đăng nhập lại; MCP vẫn còn token.'],
