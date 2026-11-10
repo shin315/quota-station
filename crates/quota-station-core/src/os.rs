@@ -11,7 +11,8 @@
 //!   switchers that must not run beside it (macOS: launchd through
 //!   `/bin/launchctl`, [`crate::claude::agent::Launchd`], also while the
 //!   app is closed; Windows: the app's own timer while it runs,
-//!   [`crate::claude::timer::AppTimer`]);
+//!   [`crate::claude::timer::AppTimer`]; Linux: a `systemd --user` timer,
+//!   `claude::systemd::Systemd`);
 //! - [`ProcessList`]: which processes run, their command lines and the
 //!   ports they listen on (macOS: `kill(pid, 0)`, `ps` and `lsof`, [`Ps`]);
 //! - [`Opener`]: a URL or a file handed to the program the owner chose for
@@ -200,11 +201,10 @@ pub fn scheduler() -> crate::claude::agent::Launchd {
     crate::claude::agent::Launchd::system()
 }
 
-/// This system's scheduler: none yet, so turning the rotation on is
-/// refused before anything is written.
+/// This system's scheduler: a `systemd --user` timer.
 #[cfg(target_os = "linux")]
-pub fn scheduler() -> crate::linux::NoScheduler {
-    crate::linux::NoScheduler
+pub fn scheduler() -> crate::claude::systemd::Systemd {
+    crate::claude::systemd::Systemd::system()
 }
 
 /// This system's scheduler: the app's own timer.

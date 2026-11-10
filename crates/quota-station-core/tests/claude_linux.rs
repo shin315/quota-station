@@ -4,8 +4,9 @@
 //! The Claude accounts on Linux, with the secret store the command line
 //! runs with there (`linux::Secrets`) in a temporary home: the accounts'
 //! logins as files only their owner reads, Claude Code's login in
-//! `~/.claude/.credentials.json` alone, and one run of the rotation against
-//! a fake Anthropic. Every login is made up.
+//! `~/.claude/.credentials.json` alone, one run of the rotation against
+//! a fake Anthropic, and its `systemd --user` timer on a fake `systemctl`.
+//! Every login is made up.
 
 #![cfg(target_os = "linux")]
 
@@ -15,11 +16,16 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use quota_station_core::advanced::cli::CliHooks;
 use quota_station_core::advanced::held::HeldHooks;
+use quota_station_core::advanced::switch::SwitchHooks;
+use quota_station_core::claude::cli::{self, Cli};
 use quota_station_core::claude::keychain::user_account;
 use quota_station_core::claude::rotate::{self, Policy, Tools};
 use quota_station_core::claude::store::{self, Account, Kind, Store};
+use quota_station_core::claude::systemd::{self, Systemd};
 use quota_station_core::claude::{self, cc, session, switch, usage, Paths};
+use quota_station_core::ext::Hooks;
 use quota_station_core::linux::{self, NoItems, Plain, Secrets};
 use quota_station_core::os::{Scheduler, SecretStore, Split};
 use quota_station_core::sealed::SealedFiles;
@@ -255,17 +261,102 @@ fn below_ninety_percent_the_rotation_stays() {
     assert_eq!(pc.live_access(), "acc-2");
 }
 
+/// A fake `systemctl`: each call's words go to `calls`; a user manager
+/// answers while `up` is there, and the timer is active while `active` is.
+fn fake_systemctl(dir: &Path) -> Systemd {
+    let body = r#"d=$(dirname "$0")
+echo "$*" >> "$d/calls"
+[ -e "$d/up" ] || { echo "Failed to connect to bus: No medium found" >&2; exit 1; }
+case "$2" in
+  is-system-running) echo running ;;
+  is-active) if [ -e "$d/active" ]; then echo active; else echo inactive; exit 3; fi ;;
+  restart) touch "$d/active" ;;
+  stop) rm -f "$d/active" ;;
+esac
+"#;
+    Systemd { systemctl: common::script(&dir.join("systemctl"), body) }
+}
+
+fn calls(dir: &Path) -> Vec<String> {
+    let text = std::fs::read_to_string(dir.join("calls")).unwrap_or_default();
+    text.lines().filter(|l| !l.contains("is-system-running")).map(String::from).collect()
+}
+
+/// `rotation on|off` as the command line runs them, on `systemctl`.
+fn rotation_command(pc: &Pc, systemd: Systemd, word: &str) -> (i32, String) {
+    let hooks = CliHooks {
+        exe: PathBuf::from("/home/lan/.local/bin/quota-station"),
+        switch: SwitchHooks { scheduler: Arc::new(systemd), pause_file: None },
+    };
+    let anthropic = FakeAnthropic::start();
+    let cli = Cli {
+        store: Store::new(pc.paths.clone(), NoItems),
+        tools: cli::Tools { claude: None, endpoints: anthropic.endpoints() },
+    };
+    let args: Vec<String> = ["rotation", word].iter().map(|a| a.to_string()).collect();
+    let (mut out, mut err) = (Vec::new(), Vec::new());
+    let code = hooks.claude_command(&cli, &args, &mut out, &mut err).unwrap();
+    (code, String::from_utf8(err).unwrap())
+}
+
 #[test]
-fn without_a_timer_yet_rotation_on_is_refused_and_writes_nothing() {
-    let pc = Pc::new("linux-no-timer");
-    let scheduler = quota_station_core::os::scheduler();
-    assert_eq!(scheduler.loaded(), Some(false));
-    assert_eq!(scheduler.legacy_loaded(), None);
-    let exe = pc.home.join(".local/bin/quota-station");
-    assert!(scheduler.install(&pc.home, &exe).is_err());
-    assert!(!pc.home.join("Library").exists(), "no LaunchAgent plist");
-    assert!(!pc.home.join(".config/systemd").exists());
-    scheduler.remove(&pc.home).unwrap();
+fn rotation_on_starts_a_systemd_user_timer_and_off_removes_it() {
+    let pc = Pc::new("linux-timer");
+    let fakes = pc.home.join("fakes");
+    let systemd = fake_systemctl(&fakes);
+    std::fs::write(fakes.join("up"), "").unwrap();
+    assert_eq!(systemd.loaded(), Some(false));
+    assert_eq!(rotation_command(&pc, systemd.clone(), "on"), (0, String::new()));
+    let service = std::fs::read_to_string(systemd::service_path(&pc.home)).unwrap();
+    assert!(
+        service.contains("ExecStart=\"/home/lan/.local/bin/quota-station\" claude rotate"),
+        "{service}"
+    );
+    assert_eq!(std::fs::read_to_string(systemd::timer_path(&pc.home)).unwrap(), systemd::timer());
+    let timer = "com.shin315.quota-station.rotation.timer";
+    assert_eq!(
+        calls(&fakes),
+        [
+            "--user is-active com.shin315.quota-station.rotation.timer".to_string(),
+            "--user daemon-reload".into(),
+            format!("--user enable {timer}"),
+            format!("--user restart {timer}"),
+        ]
+    );
+    assert_eq!(systemd.loaded(), Some(true));
+    assert_eq!(systemd.legacy_loaded(), None);
+
+    std::fs::remove_file(fakes.join("calls")).unwrap();
+    assert_eq!(rotation_command(&pc, systemd.clone(), "off"), (0, String::new()));
+    assert!(!systemd::service_path(&pc.home).exists());
+    assert!(!systemd::timer_path(&pc.home).exists());
+    let off = calls(&fakes);
+    assert!(off.contains(&format!("--user stop {timer}")), "{off:?}");
+    assert!(off.contains(&format!("--user disable {timer}")), "{off:?}");
+    assert_eq!(systemd.loaded(), Some(false));
+    // Off again: nothing there, nothing to do.
+    std::fs::remove_file(fakes.join("calls")).unwrap();
+    assert_eq!(rotation_command(&pc, systemd.clone(), "off"), (0, String::new()));
+    let again = calls(&fakes);
+    assert!(!again.iter().any(|c| c.contains(" stop ") || c.contains(" disable ")), "{again:?}");
+}
+
+#[test]
+fn without_a_user_manager_rotation_on_gives_the_cron_line_and_writes_nothing() {
+    let pc = Pc::new("linux-no-systemd");
+    let fakes = pc.home.join("fakes");
+    let systemd = fake_systemctl(&fakes);
+    assert_eq!(systemd.loaded(), None, "no answer cannot be told");
+    let (code, err) = rotation_command(&pc, systemd, "on");
+    assert_eq!(code, 1);
+    assert!(err.contains("crontab -e"), "{err}");
+    assert!(
+        err.trim_end().ends_with(
+            "*/3 * * * * '/home/lan/.local/bin/quota-station' claude rotate >/dev/null 2>&1"
+        ),
+        "{err}"
+    );
+    assert!(!systemd::unit_dir(&pc.home).exists());
 }
 
 fn walk(dir: &Path) -> Vec<PathBuf> {
