@@ -155,7 +155,8 @@ fn a_flag_in_the_app_folder_is_used_as_it_is() {
     pause::write(&pause::path(&home), &flag).unwrap();
     assert_eq!(pause::file(&home), pause::path(&home));
     assert_eq!(pause::read(&pause::file(&home)).unwrap(), Some(flag));
-    assert!(!home.join(".config").exists(), "the old folder is not made");
+    let old = pause::old_path(&home);
+    assert!(!old.parent().unwrap().exists(), "the old folder is not made");
 }
 
 #[test]

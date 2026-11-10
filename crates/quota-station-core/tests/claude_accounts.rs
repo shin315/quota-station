@@ -274,7 +274,10 @@ fn claude_runs_as_another_account_in_its_own_folder() {
             .unwrap();
     assert_eq!(config["oauthAccount"]["emailAddress"], "lan.b@team.example");
     let service = cc::profile_service(&folder).unwrap();
-    assert_eq!(mac.item(&service, &mac.user()), mac.store.credential(3).unwrap());
+    // Where Claude Code reads that folder's login: its item, or on Linux its
+    // `.credentials.json`.
+    let login = cc::read_login(&mac.keychain, &service, &folder).unwrap();
+    assert_eq!(login, mac.store.credential(3).unwrap());
     // Claude Code's default login is not touched.
     assert_eq!(switch::active_slot(&mac.store), Some(2));
 }

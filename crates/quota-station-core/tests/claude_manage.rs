@@ -161,7 +161,8 @@ fn removing_an_account_takes_its_secrets_folder_and_reading() {
     session::run(&mac.store, &claude, 3, true, &[]).unwrap();
     let folder = session::folder(&mac.store, 3);
     let profile = cc::profile_service(&folder).unwrap();
-    assert!(mac.item(&profile, &mac.user()).is_some());
+    let login = || cc::read_login(&mac.keychain, &profile, &folder).unwrap();
+    assert!(login().is_some());
     let anthropic = FakeAnthropic::start();
     anthropic.usage("acc-3", 5.0, None, None, None);
     usage::read_due(&mac.store, &anthropic.endpoints(), false, true);
@@ -172,6 +173,7 @@ fn removing_an_account_takes_its_secrets_folder_and_reading() {
     assert_eq!(mac.store.oauth_account(3).unwrap(), None);
     assert_eq!(mac.item(&profile, &mac.user()), None);
     assert!(!folder.exists());
+    assert_eq!(login(), None);
     assert!(usage::load(&mac.store).row(3).is_none());
 }
 

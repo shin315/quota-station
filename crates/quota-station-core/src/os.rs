@@ -18,6 +18,10 @@
 //!   it (macOS: `/usr/bin/open`; Windows: the shell, through the `open`
 //!   crate; [`SystemOpener`]).
 //!
+//! On Linux, where only the command line runs (`quota-station-cli`), the
+//! secret store is [`crate::linux::Secrets`]: Claude Code keeps no item
+//! there, and the app's own secrets are files only their owner reads.
+//!
 //! The app gets each from [`secret_store`], [`processes`] and [`opener`];
 //! the tests give their own, kept in memory, so none of them runs a system
 //! tool. On Windows the secret store is two ([`Split`]): the app's own
@@ -171,9 +175,16 @@ pub trait Opener {
 pub const UNSUPPORTED: &str = "not available on this system yet";
 
 /// This system's secret store.
-#[cfg(unix)]
+#[cfg(all(unix, not(target_os = "linux")))]
 pub fn secret_store() -> crate::claude::keychain::Security {
     crate::claude::keychain::Security::system()
+}
+
+/// This system's secret store: no item of Claude Code's, which keeps its
+/// login in its file, and the app's own in files of mode 600.
+#[cfg(target_os = "linux")]
+pub fn secret_store() -> crate::linux::Secrets {
+    crate::linux::Secrets::system()
 }
 
 /// This system's secret store: Claude Code's items in Credential Manager,
@@ -222,8 +233,10 @@ pub struct Ps {
 
 #[cfg(unix)]
 impl Ps {
+    /// macOS's `lsof` is in `/usr/sbin`, Linux's in `/usr/bin`.
     pub fn system() -> Ps {
-        Ps { ps: PathBuf::from("/bin/ps"), lsof: PathBuf::from("/usr/sbin/lsof") }
+        let lsof = if cfg!(target_os = "linux") { "/usr/bin/lsof" } else { "/usr/sbin/lsof" };
+        Ps { ps: PathBuf::from("/bin/ps"), lsof: PathBuf::from(lsof) }
     }
 }
 
@@ -271,14 +284,15 @@ impl ProcessList for Ps {
     }
 }
 
-/// `ps`'s `tty=,command=` lines; `??` and `-` are no terminal.
+/// `ps`'s `tty=,command=` lines; `??` and `-` (macOS) and `?` (Linux) are
+/// no terminal.
 pub fn tty_table(table: &str) -> Vec<Process> {
     table
         .lines()
         .filter_map(|line| {
             let line = line.trim_start();
             let (tty, command) = line.split_once(char::is_whitespace)?;
-            let tty = (tty != "??" && tty != "-").then(|| tty.to_string());
+            let tty = (!matches!(tty, "??" | "-" | "?")).then(|| tty.to_string());
             Some(Process { pid: 0, tty, command: command.trim_start().to_string() })
         })
         .collect()
@@ -329,11 +343,12 @@ impl Opener for SystemOpener {
         open::that_detached(target).map_err(|e| e.to_string())
     }
 
+    /// `open` on macOS, `xdg-open` on Linux.
     #[cfg(unix)]
     fn open(&self, target: &str) -> Result<(), String> {
-        let out =
-            runner::run(Path::new("/usr/bin/open"), &[target.to_string()], Duration::from_secs(15))
-                .map_err(|e| e.to_string())?;
+        let program = if cfg!(target_os = "linux") { "/usr/bin/xdg-open" } else { "/usr/bin/open" };
+        let out = runner::run(Path::new(program), &[target.to_string()], Duration::from_secs(15))
+            .map_err(|e| e.to_string())?;
         if out.code == Some(0) {
             Ok(())
         } else {

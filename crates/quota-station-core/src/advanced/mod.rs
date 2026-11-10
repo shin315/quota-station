@@ -11,6 +11,7 @@ pub mod badge;
 pub mod cli;
 pub mod held;
 pub mod history;
+pub mod hooks;
 pub mod import;
 pub mod labels;
 pub mod pool;

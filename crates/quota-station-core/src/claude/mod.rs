@@ -44,7 +44,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 /// folder.
 pub const DIR: &str = "claude";
 
-/// Where everything of the Claude accounts lives on this Mac.
+/// Where everything of the Claude accounts lives on this Mac (or PC).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Paths {
     /// The owner's home folder: Claude Code's files are under it.
@@ -143,12 +143,15 @@ impl Paths {
 /// The app's own folder for `home`, as Tauri's `PathResolver` names it
 /// from the bundle id (`app_config_dir`, where `settings.json` is): the
 /// Application Support folder on macOS, the roaming AppData folder on
-/// Windows. The app takes it from Tauri; the command line, which runs
-/// without Tauri, from here.
+/// Windows, `~/.config` on Linux (where only the command line runs, and
+/// `XDG_CONFIG_HOME` is not followed). The app takes it from Tauri; the
+/// command line, which runs without Tauri, from here.
 pub fn app_dir(home: &Path) -> PathBuf {
     let id = crate::app_dir::ID;
     if cfg!(windows) {
         home.join("AppData").join("Roaming").join(id)
+    } else if cfg!(target_os = "linux") {
+        home.join(".config").join(id)
     } else {
         home.join("Library/Application Support").join(id)
     }

@@ -164,6 +164,10 @@ fn switching_to_the_account_in_use_writes_nothing() {
 }
 
 #[test]
+#[cfg_attr(
+    target_os = "linux",
+    ignore = "no `chflags` on Linux, and no flag a user may set keeps a file from being replaced"
+)]
 fn a_login_file_that_cannot_be_written_puts_the_keychain_back() {
     let (mac, c2, _) = two_accounts("switch-file-refused");
     let file = mac.home.join(".claude/.credentials.json");

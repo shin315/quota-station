@@ -76,6 +76,8 @@ pub mod ext;
 pub mod history;
 pub mod icon;
 pub mod labels;
+#[cfg(target_os = "linux")]
+pub mod linux;
 pub mod local_time;
 pub mod login_item;
 pub mod os;
