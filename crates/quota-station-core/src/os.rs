@@ -18,6 +18,10 @@
 //!   it (macOS: `/usr/bin/open`; Windows: the shell, through the `open`
 //!   crate; [`SystemOpener`]).
 //!
+//! On Linux, where only the command line runs (`quota-station-cli`), the
+//! secret store is [`crate::linux::Secrets`]: Claude Code keeps no item
+//! there, and the app's own secrets are files only their owner reads.
+//!
 //! The app gets each from [`secret_store`], [`processes`] and [`opener`];
 //! the tests give their own, kept in memory, so none of them runs a system
 //! tool. On Windows the secret store is two ([`Split`]): the app's own
@@ -171,9 +175,16 @@ pub trait Opener {
 pub const UNSUPPORTED: &str = "not available on this system yet";
 
 /// This system's secret store.
-#[cfg(unix)]
+#[cfg(all(unix, not(target_os = "linux")))]
 pub fn secret_store() -> crate::claude::keychain::Security {
     crate::claude::keychain::Security::system()
+}
+
+/// This system's secret store: no item of Claude Code's, which keeps its
+/// login in its file, and the app's own in files of mode 600.
+#[cfg(target_os = "linux")]
+pub fn secret_store() -> crate::linux::Secrets {
+    crate::linux::Secrets::system()
 }
 
 /// This system's secret store: Claude Code's items in Credential Manager,
@@ -184,9 +195,16 @@ pub fn secret_store() -> crate::win::Secrets {
 }
 
 /// This system's scheduler.
-#[cfg(unix)]
+#[cfg(all(unix, not(target_os = "linux")))]
 pub fn scheduler() -> crate::claude::agent::Launchd {
     crate::claude::agent::Launchd::system()
+}
+
+/// This system's scheduler: none yet, so turning the rotation on is
+/// refused before anything is written.
+#[cfg(target_os = "linux")]
+pub fn scheduler() -> crate::linux::NoScheduler {
+    crate::linux::NoScheduler
 }
 
 /// This system's scheduler: the app's own timer.
@@ -222,8 +240,14 @@ pub struct Ps {
 
 #[cfg(unix)]
 impl Ps {
+    /// macOS's `lsof` is in `/usr/sbin`; Linux's in `/usr/bin` (Debian,
+    /// Ubuntu, Arch) or `/usr/sbin` (Fedora, RHEL).
     pub fn system() -> Ps {
-        Ps { ps: PathBuf::from("/bin/ps"), lsof: PathBuf::from("/usr/sbin/lsof") }
+        let mut lsof = PathBuf::from("/usr/sbin/lsof");
+        if cfg!(target_os = "linux") && !lsof.is_file() {
+            lsof = PathBuf::from("/usr/bin/lsof");
+        }
+        Ps { ps: PathBuf::from("/bin/ps"), lsof }
     }
 }
 
@@ -271,14 +295,15 @@ impl ProcessList for Ps {
     }
 }
 
-/// `ps`'s `tty=,command=` lines; `??` and `-` are no terminal.
+/// `ps`'s `tty=,command=` lines; `??` and `-` (macOS) and `?` (Linux) are
+/// no terminal.
 pub fn tty_table(table: &str) -> Vec<Process> {
     table
         .lines()
         .filter_map(|line| {
             let line = line.trim_start();
             let (tty, command) = line.split_once(char::is_whitespace)?;
-            let tty = (tty != "??" && tty != "-").then(|| tty.to_string());
+            let tty = (!matches!(tty, "??" | "-" | "?")).then(|| tty.to_string());
             Some(Process { pid: 0, tty, command: command.trim_start().to_string() })
         })
         .collect()
@@ -329,7 +354,26 @@ impl Opener for SystemOpener {
         open::that_detached(target).map_err(|e| e.to_string())
     }
 
-    #[cfg(unix)]
+    /// `xdg-open` on Linux, with no pipe a browser it starts could keep
+    /// open: only its exit is waited for.
+    #[cfg(target_os = "linux")]
+    fn open(&self, target: &str) -> Result<(), String> {
+        let status = std::process::Command::new("/usr/bin/xdg-open")
+            .arg(target)
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .map_err(|e| format!("xdg-open: {e}"))?;
+        if status.success() {
+            Ok(())
+        } else {
+            Err(format!("xdg-open: {status}"))
+        }
+    }
+
+    /// `open` on macOS.
+    #[cfg(all(unix, not(target_os = "linux")))]
     fn open(&self, target: &str) -> Result<(), String> {
         let out =
             runner::run(Path::new("/usr/bin/open"), &[target.to_string()], Duration::from_secs(15))

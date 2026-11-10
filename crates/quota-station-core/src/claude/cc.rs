@@ -17,6 +17,8 @@
 //! `.credentials.json`, unless its Credential Manager store is on
 //! ([`credman_used`]); the item is then read before the file, as Claude
 //! Code reads them, and a login is written where Claude Code reads it.
+//! On Linux it keeps the login in that file alone: the secret store there
+//! has none of its items (`linux::NoItems`).
 
 use std::path::Path;
 
@@ -180,8 +182,10 @@ pub fn merge_shared(target: &str, live: Option<&str>) -> String {
 /// Puts `credential` on Claude Code's own item, and in
 /// `~/.claude/.credentials.json` when that file is there (a running Claude
 /// Code notices the file changed), never creating it. On Windows, where
-/// Claude Code keeps the login in that file unless [`credman_used`], the
-/// file is written instead of the item, made when it is not there.
+/// Claude Code keeps the login in that file unless [`credman_used`], and
+/// on Linux, where it keeps no item (the secret store has none, unless a
+/// test's), the file is written instead of the item, made when it is not
+/// there.
 pub fn write_credential(
     paths: &Paths,
     security: &dyn SecretStore,
@@ -202,7 +206,12 @@ pub fn write_login(
     let account = user_account();
     let file = dir.join(".credentials.json");
     let item = || security.exists(service, &account).unwrap_or(false);
-    if cfg!(windows) && !credman_used(credman_forced(), credman_flag(dir, config), item()) {
+    let in_file = if cfg!(windows) {
+        !credman_used(credman_forced(), credman_flag(dir, config), item())
+    } else {
+        cfg!(target_os = "linux") && !item()
+    };
+    if in_file {
         return super::write_private(&file, credential);
     }
     security
@@ -214,11 +223,11 @@ pub fn write_login(
     Ok(())
 }
 
-/// Takes Claude Code's login away: its item, and on Windows its
+/// Takes Claude Code's login away: its item, and on Windows and Linux its
 /// `.credentials.json` too. Whether both are gone.
 pub fn remove_credential(paths: &Paths, security: &dyn SecretStore) -> bool {
     let item = security.delete(ACTIVE_SERVICE, &user_account()).is_ok();
-    if !cfg!(windows) {
+    if !cfg!(windows) && !cfg!(target_os = "linux") {
         return item;
     }
     match std::fs::remove_file(paths.claude_home().join(".credentials.json")) {

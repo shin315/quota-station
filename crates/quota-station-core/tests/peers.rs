@@ -127,7 +127,9 @@ fn a_mac_without_the_file_gets_it_and_reads_it_back() {
 fn a_mac_where_the_app_keeps_the_accounts_gets_the_apps_own_file() {
     let net = Net::new("peer-own");
     let home = net.dir.join("macs/mac-b");
-    let own = quota_station_core::claude::Paths::for_home(&home);
+    // The other Mac's own folder, wherever these tests run.
+    let app = home.join("Library/Application Support").join(quota_station_core::app_dir::ID);
+    let own = quota_station_core::claude::Paths::new(&home, &app);
     std::fs::create_dir_all(&own.dir).unwrap();
     std::fs::write(own.accounts(), "{\"version\":1,\"accounts\":[]}").unwrap();
     let (text, stamp) = mine(now());

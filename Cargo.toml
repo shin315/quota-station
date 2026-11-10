@@ -3,7 +3,7 @@
 
 [workspace]
 resolver = "2"
-members = ["crates/quota-station-core", "src-tauri"]
+members = ["crates/quota-station-core", "crates/quota-station-cli", "src-tauri"]
 
 [workspace.package]
 version = "1.2.0"

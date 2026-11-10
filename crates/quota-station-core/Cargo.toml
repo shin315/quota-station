@@ -78,5 +78,11 @@ windows-sys = { version = "0.61", features = [
     "Win32_System_Threading",
 ] }
 
+[target.'cfg(target_os = "linux")'.dependencies]
+# reqwest's default TLS on Linux is the system's OpenSSL, whose headers a
+# Linux machine often lacks (`libssl-dev`): the command line's build there
+# carries its own. macOS and Windows keep their system's TLS.
+openssl = { version = "0.10", features = ["vendored"] }
+
 [dev-dependencies]
 quota-station-core = { path = ".", features = ["test-support"] }
