@@ -10,7 +10,7 @@ No window, no tray icon.
 
 ```sh
 cargo build --release -p quota-station-cli
-install -m 755 target/release/quota-station-cli ~/.local/bin/quota-station
+install -D -m 755 target/release/quota-station-cli ~/.local/bin/quota-station
 ```
 
 The Linux build carries its own OpenSSL (the `openssl` crate's `vendored`
@@ -43,14 +43,17 @@ your Macs (1, 2, 3, …) to keep the same numbers there and here.
 ## Switching
 
 ```sh
-quota-station claude status [--json] [--refresh]
+quota-station claude status [--json] [--emails] [--refresh]
 quota-station claude switch N
 quota-station claude rotate --dry-run
 ```
 
 `rotate [--dry-run]` is one run of the Mac's rotation: a rotation file
 (`claude/rotation`, copy the one from a Mac to follow its order), else the
-switch at 90 % of the fullest window to the account with the most room.
+switch to the account with the most room once the fullest window reaches
+the threshold: `autoSwitchAt` in `settings.json` beside the `claude`
+folder, 90 % by default. The timer that runs it every three minutes is not
+on Linux yet: `rotation on` is refused there and writes nothing.
 
 `switch N` writes account N's login to `~/.claude/.credentials.json` (made
 when it is not there, the live login's MCP and plugin secrets kept) and its

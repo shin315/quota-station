@@ -21,7 +21,7 @@ use quota_station_core::claude::rotate::{self, Policy, Tools};
 use quota_station_core::claude::store::{self, Account, Kind, Store};
 use quota_station_core::claude::{self, cc, session, switch, usage, Paths};
 use quota_station_core::linux::{self, NoItems, Plain, Secrets};
-use quota_station_core::os::{SecretStore, Split};
+use quota_station_core::os::{Scheduler, SecretStore, Split};
 use quota_station_core::sealed::SealedFiles;
 use serde_json::{json, Value};
 
@@ -253,6 +253,19 @@ fn below_ninety_percent_the_rotation_stays() {
     anthropic.usage("acc-3", 10.0, Some(&iso(2.0)), Some(20.0), None);
     assert_eq!(rotate::run(&pc.store, &tools).line, "stay");
     assert_eq!(pc.live_access(), "acc-2");
+}
+
+#[test]
+fn without_a_timer_yet_rotation_on_is_refused_and_writes_nothing() {
+    let pc = Pc::new("linux-no-timer");
+    let scheduler = quota_station_core::os::scheduler();
+    assert_eq!(scheduler.loaded(), Some(false));
+    assert_eq!(scheduler.legacy_loaded(), None);
+    let exe = pc.home.join(".local/bin/quota-station");
+    assert!(scheduler.install(&pc.home, &exe).is_err());
+    assert!(!pc.home.join("Library").exists(), "no LaunchAgent plist");
+    assert!(!pc.home.join(".config/systemd").exists());
+    scheduler.remove(&pc.home).unwrap();
 }
 
 fn walk(dir: &Path) -> Vec<PathBuf> {

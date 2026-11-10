@@ -28,3 +28,16 @@ fn the_commands_are_the_advanced_parts() {
     assert!(usage.contains("  rotate [--dry-run]"), "{usage}");
     assert!(usage.contains("  rotation on|off"), "{usage}");
 }
+
+#[test]
+fn an_argument_that_is_not_utf8_is_refused_not_cut() {
+    use std::ffi::OsString;
+    let ok = quota_station_cli::text_args([OsString::from("claude"), OsString::from("status")]);
+    assert_eq!(ok, Some(vec!["claude".to_string(), "status".to_string()]));
+    #[cfg(unix)]
+    {
+        use std::os::unix::ffi::OsStringExt;
+        let bad = OsString::from_vec(vec![0x66, 0xff, 0x6f]);
+        assert_eq!(quota_station_cli::text_args([OsString::from("claude"), bad]), None);
+    }
+}

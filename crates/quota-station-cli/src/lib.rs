@@ -34,7 +34,7 @@ pub fn run(args: &[String], out: &mut dyn Write, err: &mut dyn Write) -> i32 {
     match args.first().map(String::as_str) {
         Some("claude") => {
             let Some(home) = home() else {
-                let _ = writeln!(err, "quota-station claude: HOME is not set");
+                let _ = writeln!(err, "quota-station claude: no home folder (HOME is not set)");
                 return 1;
             };
             claude(&home, &args[1..], &HOOKS, out, err)
@@ -67,6 +67,22 @@ pub fn claude(
     cli::run(&cli, hooks, args, out, err)
 }
 
+/// The home folder the commands and the secret store use: on Linux the one
+/// [`quota_station_core::linux::home`] gives (never a relative path), else
+/// `HOME`.
 fn home() -> Option<PathBuf> {
-    std::env::var_os("HOME").filter(|h| !h.is_empty()).map(PathBuf::from)
+    #[cfg(target_os = "linux")]
+    {
+        quota_station_core::linux::home()
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        std::env::var_os("HOME").filter(|h| !h.is_empty()).map(PathBuf::from)
+    }
+}
+
+/// The program's arguments as text; `None` when one is not valid UTF-8,
+/// which the commands cannot carry.
+pub fn text_args(args: impl IntoIterator<Item = std::ffi::OsString>) -> Option<Vec<String>> {
+    args.into_iter().map(|a| a.into_string().ok()).collect()
 }

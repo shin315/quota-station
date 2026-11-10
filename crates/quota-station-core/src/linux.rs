@@ -12,13 +12,16 @@
 //!   `~/.local/share/com.shin315.quota-station/secrets`, as Claude Code
 //!   keeps its own ([`Plain`]): a headless machine, or Linux in WSL, has no
 //!   keyring the app could count on.
+//! - [`NoScheduler`]: no job for the rotation yet; `rotation on` is
+//!   refused and `rotate` runs by hand.
 
 use std::io;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use crate::claude::agent::AgentError;
 use crate::claude::keychain::KeychainError;
-use crate::os::{SecretStore, Split};
+use crate::os::{Scheduler, SecretStore, Split};
 use crate::sealed::{Seal, SealedFiles};
 
 /// The app's secrets and Claude Code's (absent) login items, each in its
@@ -38,9 +41,28 @@ impl Secrets {
         if cfg!(feature = "test-support") {
             panic!("tests must use a fake secret store");
         }
-        let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default();
+        let home = home().expect("no home folder: HOME is not set and the user has none");
         Split { claude_code: NoItems, own: SealedFiles::new(secrets_dir(&home), Plain) }
     }
+}
+
+/// The user's home folder: `HOME` when it is an absolute path, else the one
+/// the user database gives. Never a relative path, which would put the
+/// secrets in whatever folder the program runs in.
+pub fn home() -> Option<PathBuf> {
+    let from_env = std::env::var_os("HOME").map(PathBuf::from).filter(|h| h.is_absolute());
+    from_env.or_else(|| {
+        // SAFETY: `getpwuid` returns a pointer into static storage or null;
+        // the folder is copied out at once.
+        unsafe {
+            let pw = libc::getpwuid(libc::getuid());
+            if pw.is_null() || (*pw).pw_dir.is_null() {
+                return None;
+            }
+            let dir = std::ffi::CStr::from_ptr((*pw).pw_dir).to_str().ok()?;
+            Some(PathBuf::from(dir)).filter(|d| d.is_absolute())
+        }
+    })
 }
 
 /// No seal: the bytes as they are, in a file only its owner reads
@@ -55,6 +77,30 @@ impl Seal for Plain {
 
     fn open(&self, sealed: &[u8]) -> io::Result<Vec<u8>> {
         Ok(sealed.to_vec())
+    }
+}
+
+/// The rotation's job on Linux, until it has one of its own: none is
+/// loaded, turning it on is refused before anything is written, and
+/// turning it off has nothing to do. `rotate` still runs by hand.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct NoScheduler;
+
+impl Scheduler for NoScheduler {
+    fn loaded(&self) -> Option<bool> {
+        Some(false)
+    }
+
+    fn legacy_loaded(&self) -> Option<&'static str> {
+        None
+    }
+
+    fn install(&self, _home: &Path, _exe: &Path) -> Result<(), AgentError> {
+        Err(AgentError::Io(format!("the rotation's timer is {}", crate::os::UNSUPPORTED)))
+    }
+
+    fn remove(&self, _home: &Path) -> Result<(), AgentError> {
+        Ok(())
     }
 }
 

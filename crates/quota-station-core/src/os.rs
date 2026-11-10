@@ -195,9 +195,16 @@ pub fn secret_store() -> crate::win::Secrets {
 }
 
 /// This system's scheduler.
-#[cfg(unix)]
+#[cfg(all(unix, not(target_os = "linux")))]
 pub fn scheduler() -> crate::claude::agent::Launchd {
     crate::claude::agent::Launchd::system()
+}
+
+/// This system's scheduler: none yet, so turning the rotation on is
+/// refused before anything is written.
+#[cfg(target_os = "linux")]
+pub fn scheduler() -> crate::linux::NoScheduler {
+    crate::linux::NoScheduler
 }
 
 /// This system's scheduler: the app's own timer.
@@ -233,10 +240,14 @@ pub struct Ps {
 
 #[cfg(unix)]
 impl Ps {
-    /// macOS's `lsof` is in `/usr/sbin`, Linux's in `/usr/bin`.
+    /// macOS's `lsof` is in `/usr/sbin`; Linux's in `/usr/bin` (Debian,
+    /// Ubuntu, Arch) or `/usr/sbin` (Fedora, RHEL).
     pub fn system() -> Ps {
-        let lsof = if cfg!(target_os = "linux") { "/usr/bin/lsof" } else { "/usr/sbin/lsof" };
-        Ps { ps: PathBuf::from("/bin/ps"), lsof: PathBuf::from(lsof) }
+        let mut lsof = PathBuf::from("/usr/sbin/lsof");
+        if cfg!(target_os = "linux") && !lsof.is_file() {
+            lsof = PathBuf::from("/usr/bin/lsof");
+        }
+        Ps { ps: PathBuf::from("/bin/ps"), lsof }
     }
 }
 
@@ -343,12 +354,30 @@ impl Opener for SystemOpener {
         open::that_detached(target).map_err(|e| e.to_string())
     }
 
-    /// `open` on macOS, `xdg-open` on Linux.
-    #[cfg(unix)]
+    /// `xdg-open` on Linux, with no pipe a browser it starts could keep
+    /// open: only its exit is waited for.
+    #[cfg(target_os = "linux")]
     fn open(&self, target: &str) -> Result<(), String> {
-        let program = if cfg!(target_os = "linux") { "/usr/bin/xdg-open" } else { "/usr/bin/open" };
-        let out = runner::run(Path::new(program), &[target.to_string()], Duration::from_secs(15))
-            .map_err(|e| e.to_string())?;
+        let status = std::process::Command::new("xdg-open")
+            .arg(target)
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .map_err(|e| format!("xdg-open: {e}"))?;
+        if status.success() {
+            Ok(())
+        } else {
+            Err(format!("xdg-open: {status}"))
+        }
+    }
+
+    /// `open` on macOS.
+    #[cfg(all(unix, not(target_os = "linux")))]
+    fn open(&self, target: &str) -> Result<(), String> {
+        let out =
+            runner::run(Path::new("/usr/bin/open"), &[target.to_string()], Duration::from_secs(15))
+                .map_err(|e| e.to_string())?;
         if out.code == Some(0) {
             Ok(())
         } else {
