@@ -333,7 +333,7 @@ jobs:
   # the core and `quota-station-cli` with and without the Antigravity
   # accounts, the core's unit tests and its Linux tests (the accounts'
   # logins as files, the switch that writes Claude Code's
-  # `.credentials.json`, one run of the rotation). The
+  # `.credentials.json`, the rotation and its systemd user timer). The
   # core's other tests drive macOS's tools and stay on the macOS job.
   build-linux:
     name: Build and test (Linux command line)
