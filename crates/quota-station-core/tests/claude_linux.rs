@@ -264,20 +264,17 @@ fn below_ninety_percent_the_rotation_stays() {
 /// A fake `systemctl`: each call's words go to `calls`; a user manager
 /// answers while `up` is there, and the timer is active while `active` is.
 fn fake_systemctl(dir: &Path) -> Systemd {
-    let body = format!(
-        r#"d='{}'
+    let body = r#"d=$(dirname "$0")
 echo "$*" >> "$d/calls"
-[ -e "$d/up" ] || {{ echo "Failed to connect to bus: No medium found" >&2; exit 1; }}
+[ -e "$d/up" ] || { echo "Failed to connect to bus: No medium found" >&2; exit 1; }
 case "$2" in
   is-system-running) echo running ;;
   is-active) if [ -e "$d/active" ]; then echo active; else echo inactive; exit 3; fi ;;
   restart) touch "$d/active" ;;
   stop) rm -f "$d/active" ;;
 esac
-"#,
-        dir.display()
-    );
-    Systemd { systemctl: common::script(&dir.join("systemctl"), &body) }
+"#;
+    Systemd { systemctl: common::script(&dir.join("systemctl"), body) }
 }
 
 fn calls(dir: &Path) -> Vec<String> {
@@ -337,6 +334,11 @@ fn rotation_on_starts_a_systemd_user_timer_and_off_removes_it() {
     assert!(off.contains(&format!("--user stop {timer}")), "{off:?}");
     assert!(off.contains(&format!("--user disable {timer}")), "{off:?}");
     assert_eq!(systemd.loaded(), Some(false));
+    // Off again: nothing there, nothing to do.
+    std::fs::remove_file(fakes.join("calls")).unwrap();
+    assert_eq!(rotation_command(&pc, systemd.clone(), "off"), (0, String::new()));
+    let again = calls(&fakes);
+    assert!(!again.iter().any(|c| c.contains(" stop ") || c.contains(" disable ")), "{again:?}");
 }
 
 #[test]

@@ -19,9 +19,8 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use crate::claude::agent::AgentError;
 use crate::claude::keychain::KeychainError;
-use crate::os::{Scheduler, SecretStore, Split};
+use crate::os::{SecretStore, Split};
 use crate::sealed::{Seal, SealedFiles};
 
 /// The app's secrets and Claude Code's (absent) login items, each in its

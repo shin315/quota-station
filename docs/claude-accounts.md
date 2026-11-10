@@ -122,7 +122,8 @@ On Windows, which has no launchd, the app runs the rotation itself every three
 minutes while it runs and the rotation is on; the next start runs it once at
 once.
 
-On Linux, which has no app, `quota-station-cli claude rotation on` runs it
+On Linux, which has no app, `quota-station claude rotation on` (the command line,
+`quota-station-cli` installed as `quota-station`) runs it
 from a `systemd --user` timer every 180 seconds, and the accounts' logins are
 files of mode 600 ([linux.md](linux.md)).
 

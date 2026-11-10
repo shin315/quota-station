@@ -82,13 +82,18 @@ WantedBy=timers.target
     )
 }
 
+/// `text` as one word for `sh`: in single quotes, a `'` in it as `'\''`.
+fn sh_word(text: &str) -> String {
+    format!("'{}'", text.replace('\'', "'\\''"))
+}
+
 /// What `install` says where no user manager answers.
 pub fn no_systemd(exe: &Path) -> String {
     format!(
         "systemd --user does not answer here, so the rotation cannot be turned on; \
          run it every three minutes from cron instead (crontab -e): \
-         */3 * * * * '{}' claude rotate >/dev/null 2>&1",
-        exe.display()
+         */3 * * * * {} claude rotate >/dev/null 2>&1",
+        sh_word(&exe.display().to_string())
     )
 }
 
@@ -154,7 +159,8 @@ impl Scheduler for Systemd {
         let state = String::from_utf8_lossy(&out.stdout).trim().to_string();
         match state.as_str() {
             "active" => Some(true),
-            "inactive" | "failed" | "activating" | "deactivating" => Some(false),
+            // `unknown`: no such unit, as some versions say it.
+            "inactive" | "failed" | "activating" | "deactivating" | "unknown" => Some(false),
             _ => None,
         }
     }
@@ -181,15 +187,18 @@ impl Scheduler for Systemd {
         self.checked(&["restart", &format!("{UNIT}.timer")])
     }
 
-    /// Stops the timer and removes the units.
+    /// Stops the timer, disables it and removes the units. Nothing there
+    /// is nothing to do; a stop or a disable that fails is reported, and
+    /// the units are then left for another try.
     fn remove(&self, home: &Path) -> Result<(), AgentError> {
         let timer = format!("{UNIT}.timer");
         if self.answers() {
-            if self.loaded() != Some(false) {
+            if self.loaded() == Some(true) {
                 self.checked(&["stop", &timer])?;
             }
-            // Not enabled is fine: only the link is wanted gone.
-            let _ = self.run(&["disable", &timer]);
+            if timer_path(home).is_file() {
+                self.checked(&["disable", &timer])?;
+            }
         }
         for file in [timer_path(home), service_path(home)] {
             match std::fs::remove_file(file) {
@@ -255,5 +264,7 @@ mod tests {
             ),
             "{text}"
         );
+        let odd = no_systemd(Path::new("/home/o'brien/bin/qs"));
+        assert!(odd.contains(" '/home/o'\\''brien/bin/qs' claude rotate"), "{odd}");
     }
 }

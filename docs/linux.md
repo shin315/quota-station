@@ -54,8 +54,7 @@ quota-station claude rotate --dry-run
 (`claude/rotation`, copy the one from a Mac to follow its order), else the
 switch to the account with the most room once the fullest window reaches
 the threshold: `autoSwitchAt` in `settings.json` beside the `claude`
-folder, 90 % by default. The timer that runs it every three minutes is not
-on Linux yet: `rotation on` is refused there and writes nothing.
+folder, 90 % by default.
 
 `switch N` writes account N's login to `~/.claude/.credentials.json` (made
 when it is not there, the live login's MCP and plugin secrets kept) and its
@@ -79,10 +78,8 @@ tail ~/.config/com.shin315.quota-station/claude/rotation.log
 
 `rotation on` writes the two units and starts the timer: `quota-station
 claude rotate` 5 seconds after it starts, then every 180 seconds, as the
-LaunchAgent runs it on a Mac. The rules are the Mac's: a rotation file
-(`claude/rotation`, copy the one from a Mac to follow its order), else the
-switch at 90 % of the fullest window to the account with the most room
-(`autoSwitchAt` in `settings.json` beside the `claude` folder). The pause
+LaunchAgent runs it on a Mac. The rules are `rotate`'s above, the Mac's:
+the rotation file, else the switch at `autoSwitchAt` (90 % by default). The pause
 flag, the accounts held out (`disable N`) and the log are the Mac's too.
 
 The timer runs while the user manager runs. On WSL that needs
