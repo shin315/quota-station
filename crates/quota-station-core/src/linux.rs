@@ -12,8 +12,8 @@
 //!   `~/.local/share/com.shin315.quota-station/secrets`, as Claude Code
 //!   keeps its own ([`Plain`]): a headless machine, or Linux in WSL, has no
 //!   keyring the app could count on.
-//! - [`NoScheduler`]: no job for the rotation yet; `rotation on` is
-//!   refused and `rotate` runs by hand.
+//! - the rotation every three minutes, from a `systemd --user` timer
+//!   ([`crate::claude::systemd::Systemd`], [`crate::os::scheduler`]).
 
 use std::io;
 use std::path::{Path, PathBuf};
@@ -78,30 +78,6 @@ impl Seal for Plain {
 
     fn open(&self, sealed: &[u8]) -> io::Result<Vec<u8>> {
         Ok(sealed.to_vec())
-    }
-}
-
-/// The rotation's job on Linux, until it has one of its own: none is
-/// loaded, turning it on is refused before anything is written, and
-/// turning it off has nothing to do. `rotate` still runs by hand.
-#[derive(Debug, Clone, Copy, Default)]
-pub struct NoScheduler;
-
-impl Scheduler for NoScheduler {
-    fn loaded(&self) -> Option<bool> {
-        Some(false)
-    }
-
-    fn legacy_loaded(&self) -> Option<&'static str> {
-        None
-    }
-
-    fn install(&self, _home: &Path, _exe: &Path) -> Result<(), AgentError> {
-        Err(AgentError::Io(format!("the rotation's timer is {}", crate::os::UNSUPPORTED)))
-    }
-
-    fn remove(&self, _home: &Path) -> Result<(), AgentError> {
-        Ok(())
     }
 }
 

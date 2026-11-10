@@ -11,7 +11,7 @@
 //! Also the rotation's decision ([`engine`] with a rules file, [`auto`]
 //! without one) and its run ([`rotate`]) from
 //! the app's own LaunchAgent ([`agent`]), or on Windows the app's own timer
-//! ([`timer`]).
+//! ([`timer`]), or on Linux a `systemd --user` timer (`systemd`).
 //!
 //! What touches Claude Code's login is adapted from MIT code credited in
 //! `NOTICE`: the Keychain items and their `security` commands, the
@@ -33,6 +33,8 @@ pub mod session;
 pub mod state;
 pub mod store;
 pub mod switch;
+#[cfg(target_os = "linux")]
+pub mod systemd;
 pub mod timer;
 pub mod usage;
 
