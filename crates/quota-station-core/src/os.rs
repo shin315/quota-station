@@ -358,7 +358,7 @@ impl Opener for SystemOpener {
     /// open: only its exit is waited for.
     #[cfg(target_os = "linux")]
     fn open(&self, target: &str) -> Result<(), String> {
-        let status = std::process::Command::new("xdg-open")
+        let status = std::process::Command::new("/usr/bin/xdg-open")
             .arg(target)
             .stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::null())

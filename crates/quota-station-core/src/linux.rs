@@ -59,8 +59,9 @@ pub fn home() -> Option<PathBuf> {
             if pw.is_null() || (*pw).pw_dir.is_null() {
                 return None;
             }
-            let dir = std::ffi::CStr::from_ptr((*pw).pw_dir).to_str().ok()?;
-            Some(PathBuf::from(dir)).filter(|d| d.is_absolute())
+            use std::os::unix::ffi::OsStrExt;
+            let dir = std::ffi::CStr::from_ptr((*pw).pw_dir).to_bytes();
+            Some(PathBuf::from(std::ffi::OsStr::from_bytes(dir))).filter(|d| d.is_absolute())
         }
     })
 }

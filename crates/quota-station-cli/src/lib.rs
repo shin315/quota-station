@@ -34,7 +34,10 @@ pub fn run(args: &[String], out: &mut dyn Write, err: &mut dyn Write) -> i32 {
     match args.first().map(String::as_str) {
         Some("claude") => {
             let Some(home) = home() else {
-                let _ = writeln!(err, "quota-station claude: no home folder (HOME is not set)");
+                let _ = writeln!(
+                    err,
+                    "quota-station claude: no home folder (HOME is unset or not an absolute path)"
+                );
                 return 1;
             };
             claude(&home, &args[1..], &HOOKS, out, err)
