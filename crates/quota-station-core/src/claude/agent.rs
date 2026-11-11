@@ -21,7 +21,12 @@ pub const LEGACY: [&str; 2] = [switcher::SERVICE, switcher::AUTO_SERVICE];
 const LAUNCHCTL_TIMEOUT: Duration = Duration::from_secs(10);
 
 pub fn plist_path(home: &Path) -> PathBuf {
-    home.join("Library/LaunchAgents").join(format!("{LABEL}.plist"))
+    job_plist_path(home, LABEL)
+}
+
+/// Where the LaunchAgent `label` keeps its plist.
+pub fn job_plist_path(home: &Path, label: &str) -> PathBuf {
+    home.join("Library/LaunchAgents").join(format!("{label}.plist"))
 }
 
 fn escape(text: &str) -> String {
@@ -30,18 +35,24 @@ fn escape(text: &str) -> String {
 
 /// The agent's plist: `<exe> claude rotate` every [`EVERY_SECONDS`].
 pub fn plist(exe: &Path) -> String {
+    job_plist(LABEL, exe, &["claude", "rotate"])
+}
+
+/// A LaunchAgent `label` that runs `<exe> <args>` every [`EVERY_SECONDS`],
+/// once at load, its output dropped.
+pub fn job_plist(label: &str, exe: &Path, args: &[&str]) -> String {
+    let words: String =
+        args.iter().map(|a| format!("\n    <string>{}</string>", escape(a))).collect();
     format!(
         r#"<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>{LABEL}</string>
+  <string>{}</string>
   <key>ProgramArguments</key>
   <array>
-    <string>{}</string>
-    <string>claude</string>
-    <string>rotate</string>
+    <string>{}</string>{words}
   </array>
   <key>StartInterval</key>
   <integer>{EVERY_SECONDS}</integer>
@@ -56,6 +67,7 @@ pub fn plist(exe: &Path) -> String {
 </dict>
 </plist>
 "#,
+        escape(label),
         escape(&exe.display().to_string())
     )
 }
@@ -119,24 +131,45 @@ pub fn install(launchctl: &Path, home: &Path, exe: &Path) -> Result<(), AgentErr
     if let Some(label) = legacy_loaded(launchctl) {
         return Err(AgentError::Legacy(label.to_string()));
     }
-    let file = plist_path(home);
+    install_job(launchctl, home, LABEL, exe, &["claude", "rotate"])
+}
+
+/// Writes the plist of the LaunchAgent `label` ([`job_plist`]) and loads
+/// it, in place of a copy loaded from another plist.
+pub fn install_job(
+    launchctl: &Path,
+    home: &Path,
+    label: &str,
+    exe: &Path,
+    args: &[&str],
+) -> Result<(), AgentError> {
+    if !cfg!(unix) {
+        return Err(AgentError::Io(crate::os::UNSUPPORTED.into()));
+    }
+    let file = job_plist_path(home, label);
     if let Some(dir) = file.parent() {
         std::fs::create_dir_all(dir).map_err(|e| AgentError::Io(e.to_string()))?;
     }
-    std::fs::write(&file, plist(exe)).map_err(|e| AgentError::Io(e.to_string()))?;
-    if loaded(launchctl) == Some(true) {
+    std::fs::write(&file, job_plist(label, exe, args))
+        .map_err(|e| AgentError::Io(e.to_string()))?;
+    if switcher::service_loaded(launchctl, label) == Some(true) {
         // A plist for another copy of the app: load this one instead.
-        let _ = launchctl_run(launchctl, &["bootout", &format!("{}/{LABEL}", domain())]);
+        let _ = launchctl_run(launchctl, &["bootout", &format!("{}/{label}", domain())]);
     }
     launchctl_run(launchctl, &["bootstrap", &domain(), &file.display().to_string()])
 }
 
 /// Unloads the agent and removes its plist.
 pub fn remove(launchctl: &Path, home: &Path) -> Result<(), AgentError> {
-    if loaded(launchctl) != Some(false) {
-        launchctl_run(launchctl, &["bootout", &format!("{}/{LABEL}", domain())])?;
+    remove_job(launchctl, home, LABEL)
+}
+
+/// Unloads the LaunchAgent `label` and removes its plist.
+pub fn remove_job(launchctl: &Path, home: &Path, label: &str) -> Result<(), AgentError> {
+    if switcher::service_loaded(launchctl, label) != Some(false) {
+        launchctl_run(launchctl, &["bootout", &format!("{}/{label}", domain())])?;
     }
-    match std::fs::remove_file(plist_path(home)) {
+    match std::fs::remove_file(job_plist_path(home, label)) {
         Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(AgentError::Io(e.to_string())),
         _ => Ok(()),
     }

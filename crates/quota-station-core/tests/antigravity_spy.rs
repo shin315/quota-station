@@ -307,7 +307,8 @@ const FILE_CALLS: [&str; 11] = [
 /// module that writes it.
 #[test]
 fn only_the_folder_guard_opens_files() {
-    let sources: [(&str, &str); 22] = [
+    let sources: [(&str, &str); 24] = [
+        ("cli.rs", include_str!("../src/antigravity/cli.rs")),
         ("client.rs", include_str!("../src/antigravity/client.rs")),
         ("cloud_code.rs", include_str!("../src/antigravity/cloud_code.rs")),
         ("credential.rs", include_str!("../src/antigravity/credential.rs")),
@@ -322,6 +323,7 @@ fn only_the_folder_guard_opens_files() {
         ("oauth_server.rs", include_str!("../src/antigravity/oauth_server.rs")),
         ("pace.rs", include_str!("../src/antigravity/pace.rs")),
         ("quota.rs", include_str!("../src/antigravity/quota.rs")),
+        ("rotate.rs", include_str!("../src/antigravity/rotate.rs")),
         ("store.rs", include_str!("../src/antigravity/store.rs")),
         ("switch.rs", include_str!("../src/antigravity/switch.rs")),
         ("token.rs", include_str!("../src/antigravity/token.rs")),

@@ -8,7 +8,7 @@
 // reading each account's quota or its last read failed (M4b). While a login
 // waits for the browser, the card offers to paste the callback URL and to
 // cancel. Logins the row does not list yet stay in a short list under the
-// table.
+// table, and with two accounts or more the rotation's switch (AgyRotation).
 
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
@@ -30,6 +30,7 @@ import {
   type AgyRowView,
 } from './agyLogin';
 import type { AgyAccounts as AgyAccountsModel } from '../lib/model';
+import { AgyRotation } from './AgyRotation';
 import type { ChipView, FeedbackView } from '../lib/view';
 
 /** A login's row under the table, or the question under its row. */
@@ -262,6 +263,7 @@ export function LoginNotes({ logins, listed }: { logins: AgyLogins; listed: numb
       ) : null}
       {!logins.rows.length && !view.indexError ? <p className="mt-2 mb-0 text-sm text-ink2">{t('Chưa có tài khoản nào đăng nhập trong app.', 'No accounts signed in to the app yet.')}</p> : null}
       {view.loggingIn ? <Waiting api={logins.api} /> : null}
+      {logins.rows.length >= 2 ? <AgyRotation api={logins.api} /> : null}
     </>
   );
 }

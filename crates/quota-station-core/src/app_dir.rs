@@ -135,6 +135,35 @@ impl AppDir {
         written
     }
 
+    /// Takes the lock of the file `path` without waiting (`flock` on Unix,
+    /// `LockFileEx` on Windows), held until the [`FileLock`] is dropped:
+    /// `Ok(None)` while another process, or another open of it, holds it.
+    /// The file is made when missing, readable only by the owner (600), in
+    /// a folder only the owner can open (700); a symlink is refused.
+    pub fn try_lock(&self, path: &Path) -> io::Result<Option<FileLock>> {
+        self.check(path)?;
+        let dir = path.parent().ok_or_else(|| io::Error::other("no folder"))?;
+        if dir != self.0 {
+            self.check(dir)?;
+        }
+        std::fs::DirBuilder::new().recursive(true).create(dir)?;
+        os::set_mode(dir, 0o700)?;
+        if std::fs::symlink_metadata(path).is_ok_and(|m| m.file_type().is_symlink()) {
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, "a symlink"));
+        }
+        let file = os::with_mode(
+            std::fs::OpenOptions::new().create(true).truncate(false).write(true),
+            0o600,
+        )
+        .open(path)?;
+        // Named in full, as newer Rust has a `File::try_lock` of its own.
+        match fs4::FileExt::try_lock(&file) {
+            Ok(()) => Ok(Some(FileLock { _file: file })),
+            Err(fs4::TryLockError::WouldBlock) => Ok(None),
+            Err(fs4::TryLockError::Error(e)) => Err(e),
+        }
+    }
+
     /// Removes a file; one that is not there counts as removed.
     pub fn remove(&self, path: &Path) -> io::Result<()> {
         self.check(path)?;
@@ -143,6 +172,12 @@ impl AppDir {
             other => other,
         }
     }
+}
+
+/// A lock [`AppDir::try_lock`] took, released when dropped.
+#[derive(Debug)]
+pub struct FileLock {
+    _file: std::fs::File,
 }
 
 /// An installed app's bundle, such as Antigravity's, read only for its

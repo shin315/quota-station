@@ -92,7 +92,8 @@ use crate::ext::{Extension, Host};
 use crate::state::{Inner, Shared, Tab};
 
 /// The app: a subcommand from a terminal (`quota-station claude …`,
-/// `quota-station quota …`, or one of `extension`'s), else the menu bar
+/// `quota-station quota …`, `quota-station antigravity …`, or one of
+/// `extension`'s), else the menu bar
 /// app, with what `extension` adds ([`ext`]). The binary (`main.rs`) only
 /// calls it, with the Tauri context of its own `tauri.conf.json` and the
 /// extension it is built with.
@@ -105,7 +106,7 @@ pub fn run<E: Extension>(context: tauri::Context<tauri::Wry>, extension: E) {
     let hooks = extension.hooks();
     let args: Vec<String> = std::env::args().skip(1).collect();
     #[cfg(windows)]
-    if matches!(args.first().map(String::as_str), Some("claude" | "quota")) {
+    if matches!(args.first().map(String::as_str), Some("claude" | "quota" | "antigravity")) {
         attach_console();
     }
     if let Some(code) = subcommand(extension, &args, hooks) {
@@ -270,6 +271,10 @@ commands![
     agy_switch::switch_agy,
     #[cfg(feature = "antigravity-accounts")]
     agy_switch::agy_dismiss_overwrite,
+    #[cfg(feature = "antigravity-accounts")]
+    agy_switch::agy_rotation,
+    #[cfg(feature = "antigravity-accounts")]
+    agy_switch::agy_set_rotation,
     codex::codex_switch,
     codex::codex_key_preview,
     codex::codex_set_key,
@@ -428,6 +433,8 @@ fn subcommand<E: Extension + ?Sized>(
         Some("claude") => Some(claude_cli(&args[1..], hooks)),
         // The quota as the app reads it, from a terminal.
         Some("quota") => Some(quota_cli(&args[1..], hooks)),
+        // The Antigravity accounts the app logs in, and their rotation.
+        Some("antigravity") => Some(antigravity_cli(&args[1..])),
         _ => extension.subcommand(args, hooks).or_else(|| {
             (args.first().map(String::as_str) == Some("agents")).then(|| {
                 let (text, code) = agents_refused();
@@ -462,6 +469,31 @@ fn claude_cli(args: &[String], hooks: &dyn ext::Hooks) -> i32 {
         tools: cli::Tools::system(&home),
     };
     cli::run(&cli, hooks, args, &mut std::io::stdout(), &mut std::io::stderr())
+}
+
+/// `quota-station antigravity …`, with the owner's home: the accounts the
+/// app logs in, their switch and their rotation
+/// (`quota_station_core::antigravity::cli`), in a build with them.
+#[cfg(feature = "antigravity-accounts")]
+fn antigravity_cli(args: &[String]) -> i32 {
+    use quota_station_core::antigravity::cli;
+    let Some(home) = cli_home() else {
+        eprintln!("quota-station antigravity: HOME is not set");
+        return 1;
+    };
+    cli::run(&cli::Cli::system(&home), args, &mut std::io::stdout(), &mut std::io::stderr())
+}
+
+/// A build without the Antigravity accounts reads the one signed in, and
+/// neither lists nor switches accounts.
+#[cfg(not(feature = "antigravity-accounts"))]
+fn antigravity_cli(args: &[String]) -> i32 {
+    let _ = args;
+    eprintln!(
+        "quota-station antigravity: this build has no Antigravity accounts \
+         (build it with the antigravity-accounts feature, as scripts/install.sh does)"
+    );
+    1
 }
 
 const QUOTA_USAGE: &str = "\

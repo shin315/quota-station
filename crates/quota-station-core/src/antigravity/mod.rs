@@ -33,6 +33,7 @@
 //! [`switch`] hold adapted code under CC BY-NC-SA 4.0; each file names its
 //! source in its header, and `NOTICE` credits it and lists the changes.
 
+pub mod cli;
 pub mod client;
 pub mod cloud_code;
 pub mod credential;
@@ -46,6 +47,7 @@ pub mod oauth;
 pub mod oauth_server;
 pub mod pace;
 pub mod quota;
+pub mod rotate;
 pub mod store;
 pub mod switch;
 pub mod token;
