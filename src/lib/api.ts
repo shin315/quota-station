@@ -186,6 +186,14 @@ export interface Api {
   /** "Thôi" on the overwrite banner: stops watching the last switch. */
   agyDismissOverwrite(): Promise<Model>;
   /**
+   * The Antigravity rotation: whether its LaunchAgent can run here and is loaded, and its
+   * settings. Only a build with the Antigravity accounts has it; without it (the fixtures'
+   * api among them) the Antigravity tab shows no rotation switch.
+   */
+  agyRotation?(): Promise<AgyRotation>;
+  /** Loads (`on`) or unloads the Antigravity rotation's LaunchAgent; rejects with why it could not. */
+  agySetRotation?(on: boolean): Promise<AgyRotation>;
+  /**
    * Switches Codex after the owner confirmed it, when `config.toml` still has the hash the sheet
    * showed. Rejects with `busy` while a switch or a restart runs.
    */
@@ -475,6 +483,21 @@ export interface Api {
   sessionReveal(): Promise<void>;
 }
 
+/**
+ * The Antigravity rotation as its switch shows it: its LaunchAgent runs `quota-station antigravity
+ * rotate` every 3 minutes, switching when the account in use has `threshold` % of Gemini left or
+ * less to the account with the most, `minLead` points more, at most once every `cooldownMinutes`.
+ */
+export interface AgyRotation {
+  /** macOS: a LaunchAgent can run it here. */
+  supported: boolean;
+  /** Its LaunchAgent is loaded; null when launchd could not tell. */
+  on: boolean | null;
+  threshold: number;
+  cooldownMinutes: number;
+  minLead: number;
+}
+
 export const tauriApi: Api = {
   getModel: () => invoke<Model>('get_model'),
   refresh: () => invoke<number>('refresh'),
@@ -535,6 +558,8 @@ export const tauriApi: Api = {
   agyAppState: () => invoke<AgyApp>('agy_app_state'),
   switchAgy: (id, how) => invoke<AgyOutcome>('switch_agy', { id, how }),
   agyDismissOverwrite: () => invoke<Model>('agy_dismiss_overwrite'),
+  agyRotation: () => invoke<AgyRotation>('agy_rotation'),
+  agySetRotation: (on) => invoke<AgyRotation>('agy_set_rotation', { on }),
   codexSwitch: (target, base) => invoke<CodexOutcome>('codex_switch', { target, base }),
   codexRestart: (afterSwitch) => invoke<CodexRestart>('codex_restart', { afterSwitch }),
   codexKeep: () => invoke<Model>('codex_keep'),

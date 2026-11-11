@@ -10,7 +10,8 @@
 //! One manual switch of the Antigravity account, start to finish, after the
 //! owner confirmed it on the sheet:
 //!
-//! 1. one switch at a time (a second one is refused as busy); the account
+//! 1. one switch at a time, in this process and across processes (a second
+//!    one is refused as busy); the account
 //!    must be logged in here and not need a new login;
 //! 2. Antigravity.app must be 2.0 or later, or not installed (then only
 //!    agy's login changes); one whose version cannot be read stops here;
@@ -267,6 +268,27 @@ impl Drop for Permit {
     }
 }
 
+/// The file whose lock a switch holds across processes: the app's, the
+/// command line's (`quota-station antigravity switch`) and the rotation's.
+pub const LOCK_FILE: &str = "switch.lock";
+
+/// Held for the whole switch across processes (`flock` on Unix,
+/// `LockFileEx` on Windows): a switch in another process meanwhile is
+/// refused as busy. A lock file that cannot be made holds nothing back.
+struct ProcessLock {
+    _held: Option<crate::app_dir::FileLock>,
+}
+
+impl ProcessLock {
+    fn take(app: &AppDir) -> Option<ProcessLock> {
+        match app.try_lock(&index::dir(app).join(LOCK_FILE)) {
+            Ok(Some(held)) => Some(ProcessLock { _held: Some(held) }),
+            Ok(None) => None,
+            Err(_) => Some(ProcessLock { _held: None }),
+        }
+    }
+}
+
 /// Switches the Antigravity account. Blocks for the preparation, the quit
 /// and `limits.settle` before the check. `now` is the clock in Unix seconds.
 pub fn switch_antigravity(
@@ -276,6 +298,9 @@ pub fn switch_antigravity(
     now: &dyn Fn() -> i64,
 ) -> Done {
     let Some(_permit) = Permit::take() else {
+        return failed(0, &Stop::Busy, None);
+    };
+    let Some(_lock) = ProcessLock::take(deps.app) else {
         return failed(0, &Stop::Busy, None);
     };
     let index = match index::load(deps.app) {

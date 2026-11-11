@@ -239,6 +239,43 @@ old account back in use is counted as an overwrite: the tab shows the banner
 `Antigravity switch overwritten` with `Switch again` and `Cancel`, and a
 notification comes. The popover has no banner for it.
 
+*(Antigravity accounts)* With two accounts or more, `Switch automatically when
+Gemini runs low` under the table turns the Antigravity rotation on or off
+(off for a new owner, macOS only). It is a LaunchAgent of its own,
+`com.shin315.quota-station.agy-rotation`, that runs
+`Quota Station.app/Contents/MacOS/quota-station antigravity rotate` every 180
+seconds whether the app is open or not. Each run reads the account in use, and
+the others whose reading is older than ten minutes; when the account in use
+has 5% of Gemini left or less, it switches to the account with the most Gemini
+left, through the same switch as `Switch` (the same switch log, Antigravity.app
+quit and opened again when it runs). Only an account with a fresh reading, more
+than the threshold left and at least 10 points more than the account in use is
+switched to, never one that needs a new sign-in or a verification, and at most
+once every 30 minutes (counted from any switch). While the last switch shows as
+overwritten it does not switch again until that is answered. Each switch it
+tries is a line of `antigravity/rotation-log.jsonl`, its last run is in
+`antigravity/rotation-state.json`, and its settings in
+`antigravity/rotation.json`, all in the app's folder.
+
+The same from a terminal, whether the app is open or not:
+
+```
+quota-station antigravity status [--json] [--emails] [--refresh]
+quota-station antigravity switch N|EMAIL [--keep-running] [--json]
+quota-station antigravity rotate [--dry-run]
+quota-station antigravity rotation on [--threshold PCT] [--cooldown MIN]
+quota-station antigravity rotation off | status [--json]
+```
+
+`switch` exits 0 when the check shows the new account in use, 3 when the login
+was written but the check could not confirm it, and 1 when nothing was
+switched. A switch reaches only the Antigravity and `agy` that start after it:
+an `agy` session already running keeps the account it started with, and writes
+that account's login back at its next hourly token refresh, which undoes the
+switch, so restart running `agy` sessions after switching. On Windows `status`
+and `switch` work; the rotation does not run there yet and `rotation on` says
+so.
+
 ## Codex
 
 Codex can go through the official ChatGPT sign-in or through a custom API

@@ -4,7 +4,9 @@
 //! Switching the Antigravity account from the app (M4c): what the sheet
 //! asks about Antigravity.app before it offers its buttons, the switch
 //! itself after the owner confirms, and the six-hour watch that tells the
-//! popover when a running Antigravity.app wrote its old login back.
+//! popover when a running Antigravity.app wrote its old login back; and
+//! the switch on the Antigravity tab that turns the rotation's LaunchAgent
+//! on or off (`quota_station_core::antigravity::rotate`).
 //!
 //! The switch writes the login Antigravity.app and agy share, with
 //! `security`, and only when the owner confirms.
@@ -17,6 +19,7 @@ use quota_station_core::antigravity::credential::SharedLogin;
 use quota_station_core::antigravity::desktop::{Desktop, Installed};
 use quota_station_core::antigravity::index;
 use quota_station_core::antigravity::oauth::Endpoints;
+use quota_station_core::antigravity::rotate;
 use quota_station_core::antigravity::store::Keychain;
 use quota_station_core::antigravity::switch::{
     self, CloudCodeProbe, Deps, How, Limits, Outcome, Request,
@@ -223,6 +226,64 @@ pub async fn switch(
     crate::alerting::track_history(&shared);
     reader::publish(app, &shared);
     done.map(|d| d.outcome).map_err(|e| e.to_string())
+}
+
+/// The Antigravity rotation as its switch on the Antigravity tab shows it:
+/// whether its LaunchAgent can run here (macOS) and is loaded (`None` when
+/// launchd could not tell), and its settings.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RotationView {
+    pub supported: bool,
+    pub on: Option<bool>,
+    #[serde(flatten)]
+    pub settings: rotate::Settings,
+}
+
+fn rotation_view(dir: &quota_station_core::app_dir::AppDir) -> RotationView {
+    RotationView {
+        supported: cfg!(target_os = "macos"),
+        on: rotate::Schedule::system().loaded(),
+        settings: rotate::load_settings(dir),
+    }
+}
+
+/// Asked when the Antigravity tab shows the rotation's switch: runs
+/// `launchctl list` once, off the main thread.
+#[tauri::command]
+pub async fn agy_rotation(state: State<'_, AppState>) -> Result<RotationView, String> {
+    let dir = state.lock().app_dir();
+    tauri::async_runtime::spawn_blocking(move || rotation_view(&dir))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Loads the rotation's LaunchAgent (`on`), which runs `quota-station
+/// antigravity rotate` every three minutes whether the app is open or not,
+/// or unloads it. Rejects with why when launchd refused, or where no
+/// LaunchAgent runs.
+#[tauri::command]
+pub async fn agy_set_rotation(
+    state: State<'_, AppState>,
+    on: bool,
+) -> Result<RotationView, String> {
+    let (dir, home) = {
+        let inner = state.lock();
+        (inner.app_dir(), inner.home.clone())
+    };
+    tauri::async_runtime::spawn_blocking(move || {
+        let schedule = rotate::Schedule::system();
+        let done = if on {
+            let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+            schedule.install(&home, &exe)
+        } else {
+            schedule.remove(&home)
+        };
+        done.map_err(|e| e.to_string())?;
+        Ok(rotation_view(&dir))
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// "Thôi" on the overwrite banner: stops the six-hour watch.
