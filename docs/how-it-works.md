@@ -86,15 +86,19 @@ adapted code is credited in [`NOTICE`](../NOTICE)).
   is in a file.
 - **Adding.** `Add account` (`Thêm tài khoản`) in the `Claude` tab opens a sheet
   with `Sign in with the browser` (`claude auth login` in a folder of its own,
-  `claude/adding/`, so Claude Code's login does not change), taking the account
+  `claude/adding/`, so Claude Code's login does not change, unless the sign-in
+  is of the account Claude Code is on: that new login goes to Claude Code too,
+  written and read back as a switch writes it), taking the account
   Claude Code is signed in to, `Paste a setup-token` (a `claude setup-token`
   token, kept as a login without refresh; the field is a password field and the
   token is never shown again) and `Import from another account switcher` (once per Mac;
   again later only takes a newer login). Each row's `⋯` menu has `Details and
   nickname…`, `Sign in again…` and `Remove from this Mac…` (not the one in
-  use).
+  use). A sign-in again that ends signed in to another account says so in red:
+  the account asked for is unchanged.
 - **Switch.** Under Claude Code's own lock folders, the app keeps the live login
-  of the account in use, writes the target's login to Claude Code's Keychain
+  of the account in use (unless its own copy is newer, as after a new sign-in
+  while that login had died), writes the target's login to Claude Code's Keychain
   item and its `oauthAccount` to `~/.claude.json`, and reads both back, putting
   them back when they do not match. A login the app does not keep stops the
   switch, so it is never lost. A switch never refreshes a token. It drops
@@ -178,7 +182,7 @@ QS="/Applications/Quota Station.app/Contents/MacOS/quota-station"
 
 `status --json` prints `schemaVersion`, `generatedAt`, `activeSlot` and
 `accounts[]` (`slot`, `alias`, `active`, `kind`, `status`
-`fresh`/`stale`/`noData`/`reloginRequired`, `fetchedAt`, `ageSeconds`,
+`fresh`/`stale`/`noData`/`reloginRequired`/`liveExpired`, `fetchedAt`, `ageSeconds`,
 `windows.fiveHour|sevenDay|fable` with `usedPercent` and `resetsAt`, and
 `error`); emails only with `--emails`, and `--refresh` reads the accounts that
 are due first. The same object is written to `claude/state.json` after every

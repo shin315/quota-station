@@ -49,6 +49,10 @@ const STAGGER: Duration = Duration::from_millis(250);
 const VERSION: u32 = 1;
 /// The age at which a reading stops counting as fresh.
 pub const FRESH_SECONDS: i64 = 900;
+/// How long Claude Code's own login may stay expired before the app says
+/// Claude Code could not refresh it: it refreshes it when it next runs, so
+/// an expired login alone (a Mac left overnight) is no sign of trouble.
+pub const LIVE_STUCK_SECONDS: f64 = 900.0;
 
 /// Where the reads go. The app always uses [`Endpoints::anthropic`].
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -179,6 +183,10 @@ pub struct Row {
     /// Another reader is fetching it until then.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub claim_until: Option<f64>,
+    /// The account in use, whose last read found Claude Code's own login
+    /// expired (`token_expired`): when it expired, Unix seconds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub live_expired_at: Option<f64>,
 }
 
 impl Row {
@@ -193,6 +201,14 @@ impl Row {
         self.last_good.is_some()
             && !self.relogin
             && self.age(now).is_some_and(|a| a <= FRESH_SECONDS as f64)
+    }
+
+    /// The last read found Claude Code's own login of the account in use
+    /// expired for [`LIVE_STUCK_SECONDS`] or more at `now`: Claude Code did
+    /// not refresh it, and may not be able to.
+    pub fn live_stuck(&self, now: f64) -> bool {
+        self.last_error.as_deref() == Some("token_expired")
+            && self.live_expired_at.is_some_and(|e| now - e >= LIVE_STUCK_SECONDS)
     }
 
     /// Another copy of the login was stored: it is read again at once, not
@@ -414,27 +430,28 @@ pub fn read_due(store: &Store, endpoints: &Endpoints, force: bool, may_refresh: 
         }
     }
 
-    let mut results: Vec<(u32, Result<Reading, Failure>)> = Vec::new();
+    let mut results: Vec<(u32, Result<Reading, Failure>, Option<f64>)> = Vec::new();
     for (i, account) in due.iter().enumerate() {
         if i > 0 {
             std::thread::sleep(STAGGER);
         }
-        let result = if Some(account.slot) == active {
+        let (result, expired_at) = if Some(account.slot) == active {
             read_active(store, endpoints)
         } else {
-            read_stored(store, endpoints, account.slot, account.kind, may_refresh)
+            (read_stored(store, endpoints, account.slot, account.kind, may_refresh), None)
         };
-        results.push((account.slot, result));
+        results.push((account.slot, result, expired_at));
     }
 
     let mut pass = Pass::default();
     let Ok(_app) = AppLock::take(&store.paths) else { return pass };
     let mut cache = load(store);
     let now = super::epoch(OffsetDateTime::now_utc());
-    for (slot, result) in results {
+    for (slot, result, expired_at) in results {
         let Some(row) = cache.accounts.get_mut(&slot.to_string()) else { continue };
         row.claim_until = None;
         row.last_attempt_at = Some(now);
+        row.live_expired_at = expired_at;
         match result {
             Ok(reading) => {
                 row.last_good = Some(reading);
@@ -464,19 +481,28 @@ pub fn read_due(store: &Store, endpoints: &Endpoints, force: bool, may_refresh: 
     pass
 }
 
-/// The account Claude Code is on, with its live token, read-only.
-fn read_active(store: &Store, endpoints: &Endpoints) -> Result<Reading, Failure> {
-    let credential = cc::read_credential(&store.paths, &*store.security)
-        .map_err(|_| Failure { kind: "keychain_unavailable".into(), retry_after: None })?
-        .ok_or(Failure { kind: "no-access-token".into(), retry_after: None })?;
+/// The account Claude Code is on, with its live token, read-only. With the
+/// failure, when Claude Code's login expired (Unix seconds) if it had.
+fn read_active(store: &Store, endpoints: &Endpoints) -> (Result<Reading, Failure>, Option<f64>) {
+    let credential = match cc::read_credential(&store.paths, &*store.security) {
+        Ok(Some(c)) => c,
+        Ok(None) => {
+            return (Err(Failure { kind: "no-access-token".into(), retry_after: None }), None)
+        }
+        Err(_) => {
+            return (Err(Failure { kind: "keychain_unavailable".into(), retry_after: None }), None)
+        }
+    };
     let now_ms = (OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000) as i64;
-    if cc::expires_at(&credential).is_some_and(|e| now_ms >= e) {
+    if let Some(e) = cc::expires_at(&credential).filter(|e| now_ms >= *e) {
         // Claude Code refreshes its own login when it next runs.
-        return Err(Failure { kind: "token_expired".into(), retry_after: None });
+        let failure = Failure { kind: "token_expired".into(), retry_after: None };
+        return (Err(failure), Some(e as f64 / 1000.0));
     }
-    let token = access_token(&credential)
-        .ok_or(Failure { kind: "no-access-token".into(), retry_after: None })?;
-    fetch_usage(endpoints, &token)
+    let Some(token) = access_token(&credential) else {
+        return (Err(Failure { kind: "no-access-token".into(), retry_after: None }), None);
+    };
+    (fetch_usage(endpoints, &token), None)
 }
 
 /// Another account, with the app's copy of its login, refreshed first when

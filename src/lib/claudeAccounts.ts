@@ -31,6 +31,8 @@ export function signInChip(row: ClaudeAccountRow): ChipView {
   switch (row.status) {
     case 'reloginRequired':
       return { t: t('hết hạn', 'expired'), k: 'bad' };
+    case 'liveExpired':
+      return { t: t('Claude Code chưa làm mới được đăng nhập', 'Claude Code could not refresh its sign-in'), k: 'bad', title: liveExpiredText() };
     case 'stale':
       return { t: t('số cũ', 'old numbers'), k: 'stale' };
     case 'noData':
@@ -40,6 +42,14 @@ export function signInChip(row: ClaudeAccountRow): ChipView {
       return { t: at ? t('ổn · đọc lúc ' + at, 'fine · read at ' + at) : t('ổn', 'fine'), k: 'ok' };
     }
   }
+}
+
+/** Why the account in use shows `liveExpired`, in a sentence. */
+export function liveExpiredText(): string {
+  return t(
+    'Đăng nhập mà Claude Code đang dùng đã hết hạn hơn 15 phút và chưa được làm mới. Nếu Claude Code báo hết hạn, đăng nhập lại tài khoản này hoặc chuyển sang tài khoản khác.',
+    'The sign-in Claude Code uses expired over 15 minutes ago and was not refreshed. If Claude Code says it expired, sign this account in again or switch to another one.',
+  );
 }
 
 /** `73% 5 giờ · 12% tuần`: the windows it has numbers for; '' when none. */
@@ -211,12 +221,29 @@ export function resultFeedback(v: ClaudeAccountsView, done: ClaudeActionDone, wh
   }
 }
 
-/** After an add's dialog closes: the account is in, its numbers come with the next read. */
-export function addedFeedback(who: string, relogin: boolean): FeedbackView {
+/**
+ * After an add's dialog closes: the account is in, its numbers come with the
+ * next read. `live`: a new sign-in of the account Claude Code is on, and
+ * whether Claude Code's own login got it too.
+ */
+export function addedFeedback(who: string, relogin: boolean, live?: boolean): FeedbackView {
+  if (relogin && live === false)
+    return {
+      tone: 'warn',
+      title: t(who + ' đã đăng nhập lại trong Quota Station, nhưng Claude Code vẫn dùng đăng nhập cũ.', who + ' is signed in again in Quota Station, but Claude Code still uses the old sign-in.'),
+      body: t(
+        'Claude Code đang giữ đăng nhập của nó nên app chưa ghi được. Thử đăng nhập lại sau ít phút, hoặc chuyển sang tài khoản khác rồi chuyển lại.',
+        'Claude Code was holding its sign-in, so the app could not write it. Sign in again in a few minutes, or switch to another account and back.',
+      ),
+      actions: [close()],
+    };
   return {
     tone: '',
     title: relogin ? t(who + ' đã đăng nhập lại.', who + ' is signed in again.') : t('Đã thêm ' + who + '.', 'Added ' + who + '.'),
-    body: t('Hạn mức có ở lần đọc tới.', 'Its quota shows up on the next read.'),
+    body:
+      live === true
+        ? t('Claude Code dùng đăng nhập mới ngay. Hạn mức có ở lần đọc tới.', 'Claude Code uses the new sign-in now. Its quota shows up on the next read.')
+        : t('Hạn mức có ở lần đọc tới.', 'Its quota shows up on the next read.'),
     actions: [close()],
   };
 }

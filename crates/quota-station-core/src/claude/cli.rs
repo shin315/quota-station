@@ -189,6 +189,20 @@ pub fn run(
                         if a.new { "added" } else { "updated" },
                         a.slot
                     );
+                    match a.live {
+                        Some(true) => {
+                            let _ = writeln!(out, "Claude Code uses the new login too");
+                        }
+                        Some(false) => {
+                            let _ = writeln!(
+                                err,
+                                "Claude Code's own login was not changed (its locks were held, \
+                                 or the write did not read back): switch away and back to use \
+                                 the new login"
+                            );
+                        }
+                        None => {}
+                    }
                     0
                 }
                 Err(e) => fail(err, &e),

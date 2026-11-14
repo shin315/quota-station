@@ -96,6 +96,76 @@ fn logging_in_an_account_the_app_has_renews_its_login() {
 
 #[cfg(unix)]
 #[test]
+fn a_relogin_of_the_account_in_use_reaches_claude_code() {
+    let mac = mac("manage-relogin-active");
+    let mut live: Value =
+        serde_json::from_str(&mac.live_credential().unwrap()).expect("the login is JSON");
+    live["mcpOAuth"] = serde_json::json!({ "linear": { "accessToken": "mcp-made-up" } });
+    mac.put_item("Claude Code-credentials", &mac.user(), &live.to_string());
+    let config = std::fs::read_to_string(mac.paths.claude_json()).unwrap();
+    let claude = fake_login(&mac, "lan@team.example", false);
+    let added = manage::login(&mac.store, &claude, false, &AtomicBool::new(false)).unwrap();
+    assert_eq!((added.slot, added.new, added.live), (2, false, Some(true)));
+    let ours = mac.store.credential(2).unwrap().unwrap();
+    assert_eq!(cc::refresh_token(&ours).as_deref(), Some("ref-new"));
+    // Claude Code's own login is the new one, with the Mac's MCP secrets kept;
+    // `~/.claude.json` is not touched.
+    let now: Value = serde_json::from_str(&mac.live_credential().unwrap()).unwrap();
+    assert_eq!(now["claudeAiOauth"]["refreshToken"], "ref-new");
+    assert_eq!(now["mcpOAuth"], live["mcpOAuth"]);
+    assert_eq!(std::fs::read_to_string(mac.paths.claude_json()).unwrap(), config);
+    assert_eq!(switch::active_slot(&mac.store), Some(2));
+    // Read with Claude Code's login, which is the new one.
+    let anthropic = FakeAnthropic::start();
+    anthropic.usage("acc-new", 10.0, None, None, None);
+    anthropic.usage("acc-3", 20.0, None, None, None);
+    let pass = usage::read_due(&mac.store, &anthropic.endpoints(), true, true);
+    assert_eq!(pass.read, vec![2, 3], "{pass:?}");
+}
+
+#[cfg(unix)]
+#[test]
+fn a_relogin_of_the_account_in_use_while_claude_code_holds_its_lock_stays_in_the_app() {
+    let mac = mac("manage-relogin-active-busy");
+    let live = mac.live_credential();
+    std::fs::create_dir(mac.home.join(".claude.lock")).unwrap();
+    let claude = fake_login(&mac, "lan@team.example", false);
+    let added = manage::login(&mac.store, &claude, false, &AtomicBool::new(false)).unwrap();
+    assert_eq!((added.slot, added.new, added.live), (2, false, Some(false)));
+    let ours = mac.store.credential(2).unwrap().unwrap();
+    assert_eq!(cc::refresh_token(&ours).as_deref(), Some("ref-new"));
+    assert_eq!(mac.live_credential(), live);
+    assert!(mac.home.join(".claude.lock").is_dir());
+}
+
+#[cfg(unix)]
+#[test]
+fn a_relogin_of_the_account_in_use_that_does_not_read_back_is_put_back() {
+    let mac = mac("manage-relogin-active-unconfirmed");
+    let live = mac.live_credential();
+    mac.keychain.drop_add("Claude Code-credentials");
+    let claude = fake_login(&mac, "lan@team.example", false);
+    let added = manage::login(&mac.store, &claude, false, &AtomicBool::new(false)).unwrap();
+    assert_eq!((added.slot, added.live), (2, Some(false)));
+    assert_eq!(mac.live_credential(), live);
+    assert_eq!(
+        cc::refresh_token(&mac.store.credential(2).unwrap().unwrap()).as_deref(),
+        Some("ref-new")
+    );
+}
+
+#[test]
+fn adding_the_login_claude_code_is_on_again_writes_nothing_to_it() {
+    let mac = mac("manage-adopt-same");
+    let added = manage::adopt_live(&mac.store).unwrap();
+    assert_eq!((added.slot, added.new, added.live), (2, false, None));
+    assert!(!mac.security_calls().lines().any(
+        |l| l.starts_with("add-generic-password") && l.ends_with("-s Claude Code-credentials")
+    ));
+}
+
+#[cfg(unix)]
+#[test]
 fn a_login_that_fails_adds_nothing() {
     let mac = mac("manage-fail");
     let claude = fake_login(&mac, "", true);

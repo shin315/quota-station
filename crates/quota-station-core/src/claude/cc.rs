@@ -154,6 +154,12 @@ pub fn expires_at(credential: &str) -> Option<i64> {
     oauth_part(credential)?.get("expiresAt")?.as_i64()
 }
 
+/// `credential` is a newer copy of a login than `than`: usable, and its
+/// access token lasts longer (`expiresAt`; none counts as the oldest).
+pub fn newer(credential: &str, than: &str) -> bool {
+    usable(credential) && expires_at(credential).unwrap_or(0) > expires_at(than).unwrap_or(0)
+}
+
 /// The refresh token, to tell two copies of one login apart.
 pub fn refresh_token(credential: &str) -> Option<String> {
     oauth_part(credential)?.get("refreshToken")?.as_str().map(String::from)
@@ -375,5 +381,17 @@ mod tests {
         assert!(usable(r#"{"claudeAiOauth":{"accessToken":"a","refreshToken":""}}"#));
         assert!(!usable(r#"{"claudeAiOauth":{"accessToken":"","refreshToken":""}}"#));
         assert!(!usable("not json"));
+    }
+
+    #[test]
+    fn a_copy_is_newer_by_its_expiry() {
+        let at = |access: &str, ms: i64| {
+            format!(r#"{{"claudeAiOauth":{{"accessToken":"{access}","expiresAt":{ms}}}}}"#)
+        };
+        assert!(newer(&at("b", 2), &at("a", 1)));
+        assert!(!newer(&at("a", 1), &at("b", 2)));
+        assert!(!newer(&at("a", 1), &at("b", 1)));
+        assert!(newer(&at("b", 1), r#"{"claudeAiOauth":{"accessToken":"a"}}"#));
+        assert!(!newer(&at("", 9), &at("a", 1)), "a wiped copy is never newer");
     }
 }

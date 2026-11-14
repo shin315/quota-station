@@ -253,6 +253,51 @@ describe('the Claude accounts Quota Station keeps', () => {
     expect(screen.getByText('lan.acme2 đã đăng nhập lại')).toBeTruthy();
   });
 
+  it('signing an account in again as another account warns that the first is still expired', async () => {
+    const relogin = claudeAccountsFixture().accounts.map((a) => (a.slot === 3 ? { ...a, status: 'reloginRequired' as const } : a));
+    const fake = await open(withAccounts({ accounts: relogin }), { claudeRenews: 4 });
+    await press(screen.getByRole('button', { name: 'Đăng nhập lại…' }));
+    await press(inDialog('Mở trang đăng nhập'));
+    expect(within(dialog()).getByRole('heading', { name: 'Bạn vừa đăng nhập lan.acme3, không phải lan.acme2' })).toBeTruthy();
+    expect(dialog().textContent).toContain('lan.acme2 vẫn hết hạn. Đổi tài khoản trong trình duyệt sang lan.acme2@example.com rồi thử lại.');
+    expect(within(dialog()).getByText('Đăng nhập của lan.acme2 không đổi.')).toBeTruthy();
+    expect(within(dialog()).getByText('Đăng nhập của lan.acme3 được làm mới bằng lần đăng nhập này.')).toBeTruthy();
+    // Not reported as signed in again, nor as an account already here.
+    expect(screen.queryByText('lan.acme2 đã đăng nhập lại')).toBeNull();
+    expect(within(dialog()).queryByRole('heading', { name: 'Tài khoản này đã có' })).toBeNull();
+    await press(inDialog('Thử lại'));
+    expect(fake.api.claudeAddLogin).toHaveBeenCalledTimes(2);
+  });
+
+  it('signing an account in again that comes in as a new account says so too', async () => {
+    await open(withAccounts({}));
+    await choose('lan.acme2', 'Đăng nhập lại…');
+    await press(inDialog('Mở trang đăng nhập'));
+    expect(within(dialog()).getByRole('heading', { name: 'Bạn vừa đăng nhập lan.new5, không phải lan.acme2' })).toBeTruthy();
+    expect(within(dialog()).getByText('lan.new5 được thêm thành tài khoản mới.')).toBeTruthy();
+  });
+
+  it('signing the account in use in again reaches Claude Code, or says it did not', async () => {
+    await open(withAccounts({}), { claudeRenews: 2 });
+    await choose('lan.acme1', 'Đăng nhập lại…');
+    await press(inDialog('Mở trang đăng nhập'));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByText('lan.acme1 đã đăng nhập lại')).toBeTruthy();
+    expect(screen.getByRole('status').getAttribute('title')).toMatch(/^Claude Code dùng đăng nhập mới ngay\./);
+    cleanup();
+    await open(withAccounts({}), { claudeRenews: 2, claudeLive: false });
+    await choose('lan.acme1', 'Đăng nhập lại…');
+    await press(inDialog('Mở trang đăng nhập'));
+    expect(screen.getByText(/^lan\.acme1 đã đăng nhập lại trong Quota Station, nhưng Claude Code vẫn dùng đăng nhập cũ/)).toBeTruthy();
+  });
+
+  it('Claude Code’s own login left expired shows in the account’s details', async () => {
+    const accounts = claudeAccountsFixture().accounts.map((a) => (a.slot === 2 ? { ...a, status: 'liveExpired' as const } : a));
+    await open(withAccounts({ accounts }));
+    await choose('lan.acme1', 'Chi tiết và tên gọi…');
+    expect(within(dialog()).getByText('Claude Code chưa làm mới được đăng nhập')).toBeTruthy();
+  });
+
   it('without the claude command there is no sign-in with the browser', async () => {
     await open(withAccounts({ claude: false }));
     await press(screen.getByRole('button', { name: 'Thêm tài khoản' }));

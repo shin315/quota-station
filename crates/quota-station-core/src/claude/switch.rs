@@ -14,6 +14,7 @@
 //! makes no network call and never refreshes a token.
 
 use serde::Serialize;
+use serde_json::Value;
 
 use super::cc;
 use super::keychain::KeychainError;
@@ -173,9 +174,13 @@ pub fn switch(store: &Store, slot: u32) -> Result<Switched, SwitchError> {
     };
 
     // Keep the outgoing login: Claude Code may have refreshed it since the
-    // app last stored it.
+    // app last stored it. Not when the app holds a newer copy (a new sign-in
+    // while Claude Code's own login had died): the dead one would replace it.
+    let mut stored_newer = false;
     if let (Some(f), Some(cred)) = (from, live_cred.as_deref()) {
-        if store.credential(f)?.as_deref() != Some(cred) {
+        let ours = store.credential(f)?;
+        stored_newer = ours.as_deref().is_some_and(|o| o != cred && cc::newer(o, cred));
+        if ours.as_deref() != Some(cred) && !stored_newer {
             store.set_credential(f, cred)?;
             session::refresh_profile(store, f);
             super::usage::login_replaced(store, f);
@@ -186,12 +191,36 @@ pub fn switch(store: &Store, slot: u32) -> Result<Switched, SwitchError> {
             }
         }
     }
-    if from == Some(slot) && live.who().is_some() {
+    // On the account already, with its newest login: nothing to write. With
+    // a newer copy in the app, that copy goes to Claude Code as a switch's.
+    if from == Some(slot) && live.who().is_some() && !stored_newer {
         return Ok(Switched { from, to: slot, already: true });
     }
 
-    let config_before = super::read_optional(&paths.claude_json())?;
-    let composed = cc::merge_shared(&target_cred, live.credential.as_deref());
+    write_live(store, &live, &target_cred, Some((&target_oauth, &target.identity)))?;
+    Ok(Switched { from, to: slot, already: false })
+}
+
+/// Puts `credential` on Claude Code's login, with the live login's MCP and
+/// plugin secrets ([`cc::merge_shared`]), and with `account` also its
+/// `oauthAccount` in `~/.claude.json` (the value and the identity it must
+/// read back as). Both are read back; a write that fails or does not read
+/// back as written puts `live` (and the config) back as they were. `live` is
+/// Claude Code's login as read under the locks: the caller holds the app's
+/// lock and Claude Code's login and config locks ([`locks::credentials`],
+/// [`locks::config`]).
+pub(crate) fn write_live(
+    store: &Store,
+    live: &cc::Live,
+    credential: &str,
+    account: Option<(&Value, &str)>,
+) -> Result<(), SwitchError> {
+    let paths = &store.paths;
+    let config_before = match account {
+        Some(_) => Some(super::read_optional(&paths.claude_json())?),
+        None => None,
+    };
+    let composed = cc::merge_shared(credential, live.credential.as_deref());
     let login_back = || cc::read_credential(paths, &*store.security).ok().flatten();
     let put_back = || -> bool {
         if login_back() != live.credential {
@@ -201,7 +230,9 @@ pub fn switch(store: &Store, slot: u32) -> Result<Switched, SwitchError> {
             };
         }
         login_back() == live.credential
-            && cc::restore_config(paths, config_before.as_deref()).is_ok()
+            && config_before
+                .as_ref()
+                .is_none_or(|before| cc::restore_config(paths, before.as_deref()).is_ok())
     };
     let failed = |step: &str| {
         let step = step.to_string();
@@ -212,11 +243,14 @@ pub fn switch(store: &Store, slot: u32) -> Result<Switched, SwitchError> {
     };
     cc::write_credential(paths, &*store.security, &composed)
         .map_err(failed("writing the login"))?;
-    cc::write_oauth(paths, &target_oauth).map_err(failed("writing the account to .claude.json"))?;
+    if let Some((oauth, _)) = account {
+        cc::write_oauth(paths, oauth).map_err(failed("writing the account to .claude.json"))?;
+    }
 
-    let who_back = cc::read_oauth(paths).map(|o| Who::of(&o).identity());
     let login_kept = login_back().as_deref() == Some(composed.as_str());
-    let who_kept = who_back.as_deref() == Some(target.identity.as_str());
+    let who_kept = account.is_none_or(|(_, identity)| {
+        cc::read_oauth(paths).map(|o| Who::of(&o).identity()).as_deref() == Some(identity)
+    });
     if !login_kept || !who_kept {
         let detail = match (login_kept, who_kept) {
             (false, true) => "the login read back from the Keychain is not the one written",
@@ -225,5 +259,5 @@ pub fn switch(store: &Store, slot: u32) -> Result<Switched, SwitchError> {
         };
         return Err(SwitchError::NotConfirmed { restored: put_back(), detail: detail.into() });
     }
-    Ok(Switched { from, to: slot, already: false })
+    Ok(())
 }

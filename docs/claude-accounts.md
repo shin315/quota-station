@@ -48,7 +48,9 @@ switch) runs under five locks, in this order: the app's own `flock` on
 1. reads the live login (the Keychain item `Claude Code-credentials`,
    account `$USER`) and `oauthAccount` in `~/.claude.json`; when that
    account is one of the app's, it keeps the live credential in that slot
-   (never an empty or wiped one); with no `oauthAccount` to tell whose it
+   (never an empty or wiped one, nor one whose access token expires before
+   the app's copy's: a new sign-in made while Claude Code's login had died
+   stays, and a switch to the account in use then writes that copy); with no `oauthAccount` to tell whose it
    is, the live login is the app's account whose refresh token it holds; a
    login the app does not know stops the switch, so it is never lost;
 2. writes the target's credential to Claude Code's item (`-U`), keeping the
@@ -60,6 +62,19 @@ switch) runs under five locks, in this order: the app's own `flock` on
    puts the login and the file back as they were and reports the failure.
 
 A switch never refreshes a token and makes no network call.
+
+## A new sign-in
+
+`Sign in again…` and `Add account` run `claude auth login` in
+`claude/adding/`; the login it makes goes to the account of its identity, a
+new one or one the app has. When that is the account Claude Code is on, the
+new login also goes to Claude Code's own (the account in use is read with it,
+never with the app's copy): under Claude Code's login and config locks, as a
+switch's step 2 writes it, read back, and put back when it does not read back
+(`quota-station claude add` says so on stderr; the app says so in the line
+after the sign-in). `oauthAccount` in `~/.claude.json` is not touched. A sign-in
+again that ends signed in to another account than the one asked for renews or
+adds that one, and the window says the account asked for is still as it was.
 
 ## Usage
 
@@ -75,7 +90,11 @@ stored in the app's item. A login a running Claude Code holds, in the
 account's session folder or as Claude Code's own login (the same refresh
 token), is never refreshed by the app: it reads with that copy's token while
 it lasts. A login that needs a new sign-in is not read again until another
-copy of it is stored; the account in use is read all the same. An account is read at most every 180 seconds, with a
+copy of it is stored; the account in use is read all the same. When the
+account in use is read with an expired Claude Code login, the reading keeps
+when it expired; 15 minutes after that, still not refreshed, the account's
+status is `liveExpired` (Claude Code refreshes its login when it next runs,
+so a Mac left overnight wakes up with an expired one that still works). An account is read at most every 180 seconds, with a
 back-off after a failure or a 429. The readings go to
 `claude/usage.json` (no email, no token). Emails stay in memory and reach the
 windows only while `Hiện email` is on, as before.
@@ -145,6 +164,9 @@ copy when Claude Code refreshed it there. No credential is written to a file.
 alias, its three windows (share used and reset), how old its reading is and
 its error, and the account in use; no email, no token. `quota-station
 claude status --json` prints the same, and with `--emails` adds the emails.
+Each account's `status` is `fresh`, `stale`, `noData`, `reloginRequired` (the
+app's copy of its login was refused) or `liveExpired` (the account in use,
+whose login in Claude Code itself stayed expired, above).
 The app's Claude row is built from the same readings; no other tool is run
 to read them. Each account also says whether it is in the rotation
 (`enabled`).

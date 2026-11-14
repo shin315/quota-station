@@ -232,6 +232,60 @@ fn the_data_file_has_every_account_and_no_secret_or_email() {
     }
 }
 
+/// The data file's status of the account in `slot` at `now`.
+fn status(mac: &Mac, slot: u32, now: OffsetDateTime) -> String {
+    let list = mac.store.load().unwrap();
+    let cache = usage::load(&mac.store);
+    let out = state::build(&list, &cache, switch::active_slot(&mac.store), None, now);
+    out.accounts.iter().find(|a| a.slot == slot).unwrap().status.to_string()
+}
+
+#[test]
+fn claude_codes_own_login_left_expired_is_told_apart() {
+    let (mac, anthropic) = mac("state-live-expired");
+    // Claude Code's login of account 2 expired 2 h ago and was not refreshed.
+    mac.log_in(
+        &credential("acc-2", "ref-2", in_hours(-2.0)),
+        &oauth("lan@team.example", "uuid-2", "org-team"),
+    );
+    anthropic.usage("acc-3", 5.0, None, None, None);
+    let pass = read(&mac, &anthropic, false);
+    assert_eq!(pass.failed, vec![(2, "token_expired".to_string())]);
+    let expired_at = row(&mac, 2).live_expired_at.unwrap();
+    let now = OffsetDateTime::now_utc();
+    assert_eq!(status(&mac, 2, now), "liveExpired");
+    assert_eq!(status(&mac, 3, now), "fresh");
+    // Less than 15 minutes after it expired: Claude Code may still refresh it.
+    let soon = OffsetDateTime::from_unix_timestamp(expired_at as i64 + 600).unwrap();
+    assert_eq!(status(&mac, 2, soon), "noData");
+    // Claude Code refreshed it: the next read clears it.
+    mac.log_in(
+        &credential("acc-2b", "ref-2b", in_hours(8.0)),
+        &oauth("lan@team.example", "uuid-2", "org-team"),
+    );
+    anthropic.usage("acc-2b", 30.0, None, None, None);
+    assert!(read(&mac, &anthropic, true).read.contains(&2));
+    assert_eq!(row(&mac, 2).live_expired_at, None);
+    assert_eq!(status(&mac, 2, OffsetDateTime::now_utc()), "fresh");
+}
+
+#[test]
+fn an_expired_login_of_an_account_not_in_use_is_not_claude_codes() {
+    let (mac, anthropic) = mac("state-live-expired-other");
+    mac.log_in(
+        &credential("acc-2", "ref-2", in_hours(-2.0)),
+        &oauth("lan@team.example", "uuid-2", "org-team"),
+    );
+    anthropic.usage("acc-3", 5.0, None, None, None);
+    read(&mac, &anthropic, false);
+    // Claude Code moved to account 3 since: account 2's row is old numbers.
+    mac.log_in(
+        &credential("acc-3", "ref-3", in_hours(5.0)),
+        &oauth("lan.b@team.example", "uuid-3", "org-team"),
+    );
+    assert_eq!(status(&mac, 2, OffsetDateTime::now_utc()), "noData");
+}
+
 // Running `claude` as one account.
 
 /// A fake `claude` that writes where it ran and with which folder, and, when

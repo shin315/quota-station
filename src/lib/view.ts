@@ -11,6 +11,7 @@ import { age, clock, secondsSince } from './format';
 import { mac, onWindows, t } from './i18n';
 import type { Account, AgyLogin, LineKind, MenubarWindow, Model, Section } from './model';
 import { codexBanner, currentId, shortName } from './codex';
+import { liveExpiredText } from './claudeAccounts';
 import { advancedOn } from './advanced';
 import { switcherBanner } from '@/lib/rotation';
 
@@ -278,6 +279,8 @@ interface CardContext {
   switching: { listed: boolean; ready: boolean; busy: number | null } | null;
   /** Claude accounts whose login in Quota Station expired. */
   relogin?: Set<number>;
+  /** The Claude account in use, when Claude Code's own login of it expired and was not refreshed. */
+  liveExpired?: number | null;
   /** Antigravity cards: what switching needs (M4c). */
   agy: AgyRowSwitch | null;
 }
@@ -339,6 +342,7 @@ function cardView(a: Account, kind: 'c' | 'g', names: AccountName, ctx: CardCont
   const listed = kind === 'c' ? !!ctx.switching?.listed : !!ctx.agy?.listed;
   const relogin = kind === 'c' && !!ctx.relogin?.has(a.number);
   if (relogin) chips.push({ t: t('cần đăng nhập lại', 'sign in again'), k: '' });
+  if (kind === 'c' && a.active && ctx.liveExpired === a.number) chips.push({ t: t('đăng nhập Claude Code hết hạn', 'Claude Code sign-in expired'), k: 'bad', title: liveExpiredText() });
   const switchable = listed && a.number > 0 && !a.active && !off;
   let resting = false;
   resting = !!a.disabled || a.membership === 'out' || a.membership === 'ended';
@@ -518,7 +522,8 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
   const ctx: CardContext = { now, switching: null, agy: null };
   const claudeSwitching = { listed: c.status === 'ok', ready: model.claudeSwitch.ready, busy: model.claudeSwitch.busy };
   const relogin = new Set(model.claudeAccounts.accounts.filter((r) => r.status === 'reloginRequired').map((r) => r.slot));
-  const claudeCards = c.accounts.map((a) => cardView(a, 'c', names.get(a.number)!, { ...ctx, switching: claudeSwitching, relogin }));
+  const liveExpired = model.claudeAccounts.accounts.find((r) => r.active && r.status === 'liveExpired')?.slot ?? null;
+  const claudeCards = c.accounts.map((a) => cardView(a, 'c', names.get(a.number)!, { ...ctx, switching: claudeSwitching, relogin, liveExpired }));
   const agySwitching: AgyRowSwitch = {
     listed: g.status === 'ok' && !!model.agySwitch?.listed,
     busy: model.agySwitch?.busy ?? null,
@@ -552,7 +557,16 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
   // An Antigravity switch written over comes as a macOS card with buttons (M6),
   // and stays on the main window's Antigravity tab; the popover has no banner for it.
   if (switcher && switcher.tone !== 'info') banner = switcher;
-  else if (pool.exhausted) {
+  else if (liveExpired != null && claudeCards.some((x) => x.active && x.slot === liveExpired)) {
+    // Claude Code itself cannot run on a login that died: before the quota.
+    const who = nameOf(liveExpired);
+    banner = {
+      tone: 'bad',
+      title: t('Claude Code chưa làm mới được đăng nhập của ' + who, 'Claude Code could not refresh ' + who + '’s sign-in'),
+      body: liveExpiredText(),
+      actions: [{ label: t('Đăng nhập lại…', 'Sign in again…'), act: `claude:relogin:${liveExpired}` }],
+    };
+  } else if (pool.exhausted) {
     let who: string[] = [];
     let title = t('Hạn mức Claude của tài khoản đang dùng đã cạn', 'Claude quota of the account in use is used up');
     // The rotation's pool names the accounts that refill it; a snapshot without the advanced part has none.

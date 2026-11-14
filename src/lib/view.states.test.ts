@@ -3,7 +3,8 @@
 
 // The popover's states the community edition's design added (D07, D08):
 // a first read, no Claude account yet, no agent at all, an account to sign in
-// again, the account in use running dry, and the English words.
+// again, Claude Code's own login left expired, the account in use running
+// dry, and the English words.
 
 import { describe, expect, it } from 'vitest';
 import { claudeAccountsFixture, codexFixture, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
@@ -65,6 +66,27 @@ describe('popover states', () => {
     expect(card.chips.map((c) => c.t)).toContain('cần đăng nhập lại');
     expect(v.claude.cards.filter((c) => c.relogin).map((c) => c.slot)).toEqual([3]);
     expect(v.banner).toMatchObject({ tone: 'info', actions: [{ act: 'claude:relogin:3' }] });
+  });
+
+  it('Claude Code’s own login of the account in use left expired has a red chip and a banner that signs it in again', () => {
+    const accounts = claudeAccountsFixture();
+    const active = accounts.accounts.find((a) => a.active)!;
+    accounts.accounts = accounts.accounts.map((a) => (a.slot === active.slot ? { ...a, status: 'liveExpired' as const } : a));
+    const v = view(fixtureModel('fresh', { claudeAccounts: accounts }));
+    const card = v.claude.cards.find((c) => c.slot === active.slot)!;
+    expect(card.chips).toContainEqual(expect.objectContaining({ t: 'đăng nhập Claude Code hết hạn', k: 'bad' }));
+    expect(card.relogin).toBe(false);
+    expect(v.banner).toMatchObject({
+      tone: 'bad',
+      title: 'Claude Code chưa làm mới được đăng nhập của lan.acme1',
+      actions: [{ act: `claude:relogin:${active.slot}` }],
+    });
+    // Only the account in use: another one with that status says nothing.
+    const other = claudeAccountsFixture();
+    other.accounts[2] = { ...other.accounts[2], status: 'liveExpired' };
+    const quiet = view(fixtureModel('fresh', { claudeAccounts: other }));
+    expect(quiet.banner?.title ?? '').not.toMatch(/^Claude Code chưa làm mới/);
+    expect(quiet.claude.cards.flatMap((c) => c.chips).map((c) => c.t)).not.toContain('đăng nhập Claude Code hết hạn');
   });
 
   it('the account in use running dry with no room elsewhere says so, with the earliest reset', () => {

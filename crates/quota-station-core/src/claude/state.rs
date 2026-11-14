@@ -54,8 +54,10 @@ pub struct AccountOut {
     pub active: bool,
     /// `login` or `setupToken`.
     pub kind: Kind,
-    /// `fresh` (at most 15 minutes old), `stale`, `noData` or
-    /// `reloginRequired`.
+    /// `fresh` (at most 15 minutes old), `stale`, `noData`,
+    /// `reloginRequired`, or `liveExpired`: the account in use, whose login
+    /// in Claude Code itself expired over 15 minutes ago and was not
+    /// refreshed ([`usage::Row::live_stuck`]).
     pub status: &'static str,
     pub fetched_at: Option<String>,
     pub age_seconds: Option<u64>,
@@ -103,6 +105,7 @@ pub fn build(
             let reading = row.and_then(|r| r.last_good.as_ref());
             let status = match row {
                 Some(r) if r.relogin => "reloginRequired",
+                Some(r) if active == Some(a.slot) && r.live_stuck(at) => "liveExpired",
                 Some(r) if r.fresh(at) => "fresh",
                 Some(r) if r.last_good.is_some() => "stale",
                 _ => "noData",

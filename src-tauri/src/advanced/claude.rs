@@ -48,6 +48,7 @@ fn rotation_done(result: Result<(), AgentError>) -> Done {
         detail,
         slot: None,
         renewed: false,
+        live: None,
         imported: None,
     }
 }
