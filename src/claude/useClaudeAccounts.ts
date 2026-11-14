@@ -4,7 +4,8 @@
 // The Claude tab's accounts: the open dialog and what each action does once
 // the app answers. An add goes through its dialog (the three ways in, the
 // wait for the browser, then added, already here, or not signed in); the ⋯
-// menu opens the details, signing in again and removing; the rest end on
+// menu opens the details, signing in again (a sign-in to another account
+// than the one asked for says so) and removing; the rest end on
 // the line under the tab's head. Each call returns
 // the model with what it did (`claudeAccounts.last`), so the answer is read
 // from the call rather than from whichever model comes next.
@@ -25,6 +26,8 @@ export type ClaudeDialog =
   | { kind: 'token'; error: string | null }
   | { kind: 'done'; slot: number }
   | { kind: 'dup'; slot: number }
+  /** Signing `slot` in again ended signed in to account `got` instead (`renewed`: one the app had; else added). */
+  | { kind: 'wrong'; slot: number; got: number; renewed: boolean }
   | { kind: 'fail'; text: string }
   | { kind: 'detail'; slot: number }
   | { kind: 'rest'; slot: number }
@@ -69,8 +72,10 @@ export function useClaudeAccounts(api: Api, model: Model | null, showFeedback: (
     if (!d.ok) return from('wait', d.error === 'cancelled' ? null : { kind: 'fail', text: errorText(d) });
     if (slot != null && d.renewed && d.slot === slot) {
       from('wait', null);
-      return showFeedback(addedFeedback(nameOf(slot), true));
+      return showFeedback(addedFeedback(nameOf(slot), true, d.live));
     }
+    // Another account than the one to sign in again: that one is still as it was.
+    if (slot != null && d.slot != null && d.slot !== slot) return from('wait', { kind: 'wrong', slot, got: d.slot, renewed: d.renewed });
     from('wait', d.slot == null ? null : { kind: d.renewed ? 'dup' : 'done', slot: d.slot });
   };
 

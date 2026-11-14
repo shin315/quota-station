@@ -253,7 +253,7 @@ The core's integration tests are `crates/quota-station-core/tests/*.rs`:
 `account_keys`, `agents_backup`, `agents_mcp`, `agents_restore`,
 `agents_sets`, `agents_skills`, `alerts`, `antigravity_credential`, `antigravity_login`,
 `antigravity_quota`, `antigravity_spy`, `antigravity_switch`,
-`claude_accounts`, `claude_import`, `claude_manage`, `claude_pool`,
+`claude_accounts`, `claude_import`, `claude_manage`, `claude_pool`, `claude_relogin`,
 `claude_switch`, `claude_windows`, `cli_tools`, `codex`, `codex_accounts`,
 `codex_wake`, `detail`, `env_check`, `env_remove`, `ext`, `history_ext`, `icon`,
 `icon_badge`, `install_script`, `labels`, `login_item`, `os_macos`,

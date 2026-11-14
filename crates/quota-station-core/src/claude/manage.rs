@@ -8,9 +8,10 @@
 // own, and keeping a setup token as a credential with only an access token.
 
 //! Adding, removing and changing the app's Claude accounts: a new login in
-//! a folder of its own (Claude Code's default login is never touched), the
-//! login Claude Code is on now, a setup token, and each account's alias.
-//! Every change holds the app's account lock.
+//! a folder of its own, the login Claude Code is on now, a setup token, and
+//! each account's alias. Claude Code's default login is touched only by a new
+//! sign-in of the account it is on, which it gets too. Every change holds the
+//! app's account lock.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -23,7 +24,7 @@ use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
 use super::keychain::{user_account, KeychainError};
-use super::locks::{AppLock, LockError};
+use super::locks::{self, AppLock, LockError};
 use super::store::{self, Account, Kind, Store, StoreError, Who};
 use super::{cc, session, switch, usage};
 use crate::ext::Fields;
@@ -121,6 +122,11 @@ pub struct Added {
     pub slot: u32,
     /// A new account; otherwise the account the app had got the newer login.
     pub new: bool,
+    /// The account is the one Claude Code is on and got a new login: whether
+    /// Claude Code's own login is that one now too (written and read back),
+    /// or was left as it was (its locks were held, or the write did not
+    /// read back and was put back). None otherwise.
+    pub live: Option<bool>,
 }
 
 /// Puts a login in the app: the account it already has with this identity
@@ -138,7 +144,13 @@ fn put(store: &Store, credential: &str, oauth: &Value, kind: Kind) -> Result<Add
         store.set_oauth_account(slot, oauth)?;
         session::refresh_profile(store, slot);
         usage::login_replaced(store, slot);
-        return Ok(Added { slot, new: false });
+        // Claude Code reads the account it is on from its own login, never
+        // from the app's copy: a new sign-in goes there too, or it would
+        // keep the old (perhaps dead) one.
+        let live = (kind == Kind::Login && switch::active_slot(store) == Some(slot))
+            .then(|| to_claude_code(store, credential, &identity))
+            .flatten();
+        return Ok(Added { slot, new: false, live });
     }
     let slot = list.next_slot();
     store.set_credential(slot, credential)?;
@@ -157,7 +169,30 @@ fn put(store: &Store, credential: &str, oauth: &Value, kind: Kind) -> Result<Add
         added: OffsetDateTime::now_utc().format(&Rfc3339).unwrap_or_default(),
     });
     store.save(&list)?;
-    Ok(Added { slot, new: true })
+    Ok(Added { slot, new: true, live: None })
+}
+
+/// Puts a new login of the account Claude Code is on (`identity`) on Claude
+/// Code's own login, under its locks, as a switch writes it: read back, and
+/// put back when it does not read back as written. None when there was
+/// nothing to do (Claude Code has that login already, or is on another
+/// account by now); otherwise whether it is there now. The caller holds the
+/// app's lock.
+fn to_claude_code(store: &Store, credential: &str, identity: &str) -> Option<bool> {
+    let paths = &store.paths;
+    let (Ok(_login), Ok(_config)) = (locks::credentials(paths), locks::config(paths)) else {
+        return Some(false);
+    };
+    let Ok(live) = cc::read_live(paths, &*store.security) else { return Some(false) };
+    // Claude Code moved to another account meanwhile: that login stays.
+    if live.who().map(|w| w.identity()).as_deref() != Some(identity) {
+        return None;
+    }
+    if live.credential.as_deref() == Some(&cc::merge_shared(credential, live.credential.as_deref()))
+    {
+        return None;
+    }
+    Some(switch::write_live(store, &live, credential, None).is_ok())
 }
 
 /// Drops the account's reading. The caller holds the app's lock.

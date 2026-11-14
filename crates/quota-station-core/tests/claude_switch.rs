@@ -59,6 +59,36 @@ fn the_outgoing_login_is_kept_as_claude_code_last_refreshed_it() {
     assert_eq!(mac.store.credential(2).unwrap(), Some(refreshed));
 }
 
+/// Claude Code's login of account 2 died (expired 2 h ago, its tokens
+/// still there) while the app got a new sign-in of it.
+fn dead_live_newer_copy(tag: &str) -> (Mac, String, String) {
+    let (mac, _, _) = two_accounts(tag);
+    let dead = credential("acc-dead", "ref-dead", in_hours(-2.0));
+    mac.put_item("Claude Code-credentials", &mac.user(), &dead);
+    let newer = credential("acc-new", "ref-new", in_hours(8.0));
+    mac.store.set_credential(2, &newer).unwrap();
+    (mac, dead, newer)
+}
+
+#[test]
+fn a_switch_away_keeps_a_newer_relogin_over_a_dead_live_login() {
+    let (mac, _, newer) = dead_live_newer_copy("switch-keep-newer");
+    let done = switch::switch(&mac.store, 3).unwrap();
+    assert_eq!((done.from, done.to), (Some(2), 3));
+    assert_eq!(mac.store.credential(2).unwrap(), Some(newer));
+    assert_eq!(access(&mac.live_credential().unwrap()), "acc-3");
+}
+
+#[test]
+fn a_switch_to_the_account_in_use_puts_its_newer_copy_in_claude_codes_login() {
+    let (mac, _, newer) = dead_live_newer_copy("switch-same-newer");
+    let done = switch::switch(&mac.store, 2).unwrap();
+    assert_eq!((done.from, done.to, done.already), (Some(2), 2, false));
+    assert_eq!(mac.live_credential(), Some(newer.clone()));
+    assert_eq!(mac.store.credential(2).unwrap(), Some(newer));
+    assert_eq!(switch::active_slot(&mac.store), Some(2));
+}
+
 #[test]
 fn claude_codes_own_secrets_stay_with_the_live_login() {
     let (mac, _, _) = two_accounts("switch-shared");

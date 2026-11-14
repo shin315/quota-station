@@ -188,7 +188,9 @@ reading gets a chip by the name. `Add account` signs one in with the browser,
 takes the account Claude Code is signed in to, takes a pasted setup-token, or
 imports another account switcher's accounts (see [how-it-works.md](how-it-works.md#the-claude-accounts)).
 Each row's `⋯` menu has `Details and nickname…`, `Sign in again…` and `Remove
-from this Mac…`. A variable that overrides Claude Code's sign-in puts a red
+from this Mac…`. When Claude Code's own login of the account in use stays
+expired 15 minutes, unrefreshed, that card gets a red chip and the popover a
+red banner with `Sign in again…`. A variable that overrides Claude Code's sign-in puts a red
 banner at the top of the tab ([below](#variables-that-override-a-sign-in)).
 
 *(Advanced)* The `⋯` menu can also pause automatic switching for that account

@@ -4,7 +4,8 @@
 // The Claude tab's dialogs, as the prototype draws them (a-add … a-remove):
 // the ways to add an account, the wait for the browser, a setup token, added
 // with its nickname, already here, not signed in; an account's details and
-// nickname; removing it; signing it in again; holding it out of the rotation.
+// nickname; removing it; signing it in again, and a sign-in to another
+// account than that one; holding it out of the rotation.
 // A token typed here goes to the app and is never shown again.
 
 import { useEffect, useState, type ReactNode } from 'react';
@@ -307,6 +308,40 @@ function DupBody({ d, claude, nameOf }: { d: Extract<ClaudeDialog, { kind: 'dup'
   );
 }
 
+/** Signing an account in again ended signed in to another one: the account asked for is still as it was. */
+function WrongBody({ d, claude, nameOf, view }: { d: Extract<ClaudeDialog, { kind: 'wrong' }> } & Pick<BodyProps, 'claude' | 'nameOf' | 'view'>) {
+  const [want, got] = [nameOf(d.slot), nameOf(d.got)];
+  const email = view.accounts.find((a) => a.slot === d.slot)?.email;
+  return (
+    <Stack>
+      <Head
+        title={t('Bạn vừa đăng nhập ' + got + ', không phải ' + want, 'You signed in to ' + got + ', not ' + want)}
+        lead={t(
+          want + ' vẫn hết hạn. Đổi tài khoản trong trình duyệt' + (email ? ' sang **' + email + '**' : '') + ' rồi thử lại.',
+          want + ' is still expired. Switch accounts in the browser' + (email ? ' to **' + email + '**' : '') + ', then try again.',
+        )}
+      />
+      <Facts
+        items={[
+          { k: 'x', text: t('Đăng nhập của ' + want + ' không đổi.', want + '’s sign-in did not change.') },
+          {
+            k: '',
+            text: d.renewed
+              ? t('Đăng nhập của ' + got + ' được làm mới bằng lần đăng nhập này.', got + '’s sign-in was refreshed with this one.')
+              : t(got + ' được thêm thành tài khoản mới.', got + ' was added as a new account.'),
+          },
+        ]}
+      />
+      <DialogButtons>
+        <Button onClick={claude.close}>{t('Đóng', 'Close')}</Button>
+        <Button primary disabled={!view.claude || view.working != null} onClick={() => void claude.login(d.slot)}>
+          {t('Thử lại', 'Try again')}
+        </Button>
+      </DialogButtons>
+    </Stack>
+  );
+}
+
 function FailBody({ d, claude, view }: { d: Extract<ClaudeDialog, { kind: 'fail' }> } & Pick<BodyProps, 'claude' | 'view'>) {
   return (
     <Stack>
@@ -536,6 +571,8 @@ export function ClaudeDialogBody(props: BodyProps) {
       return <DoneBody key={d.slot} d={d} {...props} />;
     case 'dup':
       return <DupBody d={d} {...props} />;
+    case 'wrong':
+      return <WrongBody d={d} {...props} />;
     case 'fail':
       return <FailBody d={d} {...props} />;
     case 'detail':

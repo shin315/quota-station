@@ -39,7 +39,8 @@ quota-station claude status
 
 `add` logs in with `claude auth login` in a folder of its own
 (`CLAUDE_CONFIG_DIR`), so Claude Code's own login, and every Claude Code that
-runs on it, is left alone. Add the accounts in the order their slots have on
+runs on it, is left alone, unless the login is of the account Claude Code is
+on: then Claude Code's login gets it too. Add the accounts in the order their slots have on
 your Macs (1, 2, 3, …) to keep the same numbers there and here.
 
 ## Switching

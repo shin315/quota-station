@@ -53,6 +53,10 @@ pub struct Done {
     pub slot: Option<u32>,
     /// An add renewed an account the app had.
     pub renewed: bool,
+    /// The renewed account is the one Claude Code is on: whether Claude
+    /// Code's own login got the new sign-in too ([`Added::live`]).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub live: Option<bool>,
     pub imported: Option<Imported>,
 }
 
@@ -199,6 +203,7 @@ fn failed(action: &'static str, e: &ManageError) -> Done {
         },
         slot: None,
         renewed: false,
+        live: None,
         imported: None,
     }
 }
@@ -212,6 +217,7 @@ fn added(action: &'static str, result: Result<Added, ManageError>) -> Done {
             detail: None,
             slot: Some(a.slot),
             renewed: !a.new,
+            live: a.live,
             imported: None,
         },
         Err(e) => failed(action, &e),
@@ -228,6 +234,7 @@ pub(crate) fn changed(action: &'static str, slot: u32, result: Result<(), Manage
             detail: None,
             slot: Some(slot),
             renewed: false,
+            live: None,
             imported: None,
         },
         Err(e) => failed(action, &e),
@@ -254,6 +261,7 @@ pub(crate) async fn run(
         detail: Some(e.to_string()),
         slot: None,
         renewed: false,
+        live: None,
         imported: None,
     });
     Ok(finish(&app, &state, &store, names, done))
@@ -276,6 +284,7 @@ pub async fn claude_import(app: AppHandle, state: State<'_, AppState>) -> Result
                 detail: None,
                 slot: None,
                 renewed: false,
+                live: None,
                 imported: Some(imported),
             },
             Err(e) => Done {
@@ -293,6 +302,7 @@ pub async fn claude_import(app: AppHandle, state: State<'_, AppState>) -> Result
                 detail: None,
                 slot: None,
                 renewed: false,
+                live: None,
                 imported: None,
             },
         }
@@ -301,7 +311,8 @@ pub async fn claude_import(app: AppHandle, state: State<'_, AppState>) -> Result
 }
 
 /// Logs a new account in with `claude auth login` in a folder of its own:
-/// the browser opens, and Claude Code's own login is not touched.
+/// the browser opens. Claude Code's own login is touched only by a new
+/// sign-in of the account it is on, which it gets too ([`Done::live`]).
 #[tauri::command]
 pub async fn claude_add_login(app: AppHandle, state: State<'_, AppState>) -> Result<Model, String> {
     let shared = state.inner().clone();

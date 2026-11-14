@@ -9,6 +9,7 @@
 import type { SessionView } from '../session/steps';
 import type { Api } from '../lib/api';
 import { fakeParts, fakeRestore, planFixture, summaryFixture } from './fakeBackup';
+import { keptSnapshot, renewedDone } from './fakeClaude';
 import { fakeApply, fakePaste, fakePreview } from './fakeMcp';
 import { fakeSetChanges, fakeSetDrift } from './fakeSets';
 import { SKIPPED_NONE, statsReport } from './fakeStats';
@@ -16,7 +17,6 @@ import { claudeAccountsFixture } from './models';
 import { nextWake, wakeTimes } from '../lib/codexWake';
 import { fakeSkillApply, fakeSkillPreview, instrDiffFixture, instrShownFixture, repoFixture, SKILL_MD } from './fakeSkills';
 import type {
-  Account,
   ReleaseView,
   Agent,
   AgyApp,
@@ -101,6 +101,8 @@ export interface FakeOptions {
   claudeDelayMs?: number;
   /** A sign-in or the account Claude Code is on turns out to be this kept account: it is renewed, not added. */
   claudeRenews?: number;
+  /** A sign-in that renews the account Claude Code is on: whether Claude Code's own login got it too (by default it did). */
+  claudeLive?: boolean;
   /** What "Kiểm tra bản mới" of the app finds: a release (by default the one the model has), or an error kind. */
   releaseFinds?: ReleaseView['latest'] | 'offline';
   /** How long that check takes. */
@@ -385,33 +387,6 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
     }
     return model;
   };
-  /** The quota rows follow the kept accounts, as the app's list does: a new one has no numbers yet. */
-  const keptSnapshot = (snap: Model['snapshot'], kept: ClaudeAccountRow[]): Model['snapshot'] => {
-    const had = new Map(snap.claude.accounts.map((a) => [a.number, a]));
-    const accounts = kept.map(
-      (r): Account =>
-        had.has(r.slot)
-          ? {
-              ...had.get(r.slot)!,
-              disabled: !r.enabled,
-            }
-          : {
-              number: r.slot,
-              role: 'unknown',
-              disabled: !r.enabled,
-              membership: 'unknown',
-              leavesAt: null,
-              active: r.active,
-              reading: 'noData',
-              fetchedAt: null,
-              source: 'list',
-              lines: [],
-              windows: [],
-              ...(r.email ? { email: r.email } : {}),
-            },
-    );
-    return { ...snap, claude: { ...snap.claude, accounts } };
-  };
   const claudeRow = (slot: number, over: Partial<ClaudeAccountRow> = {}): ClaudeAccountRow => ({
     slot,
     alias: null,
@@ -508,7 +483,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       }),
     claudeAddLogin: () =>
       claudeRun('login', (v) => {
-        if (options.claudeRenews != null) return { view: {}, done: { slot: options.claudeRenews, renewed: true } };
+        if (options.claudeRenews != null) return { view: {}, done: renewedDone(v, options.claudeRenews, options.claudeLive) };
         const slot = nextSlot(v);
         return { view: { ready: true, accounts: [...v.accounts, claudeRow(slot)] }, done: { slot } };
       }),

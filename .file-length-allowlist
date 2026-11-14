@@ -18,8 +18,8 @@
 1486 src-tauri/src/state.rs
 1134 src/App.tsx
 1013 src/agents/McpDialogs.tsx
-1989 src/fixtures/fakeApi.ts
+1964 src/fixtures/fakeApi.ts
 1041 src/lib/codex.ts
-2178 src/lib/model.ts
+2101 src/lib/model.ts
 1089 src/settings/Settings.tsx
 1102 src/styles/tokens.css

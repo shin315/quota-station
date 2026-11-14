@@ -12,7 +12,7 @@ import { useCodexAccounts } from '../codex/useCodexAccounts';
 import { fakeApi } from '../fixtures/fakeApi';
 import { claudeAccountsFixture, FIXTURE_NOW, fixtureModel, historyFixture } from '../fixtures/models';
 import { alertKinds, permissionChip } from './alerts';
-import { quotaLine, resultFeedback, signInChip } from './claudeAccounts';
+import { addedFeedback, quotaLine, resultFeedback, signInChip } from './claudeAccounts';
 import { dayLabel, historyDays } from './history';
 import { setLang } from './i18n';
 import { num, readLine, tokensText } from './stats';
@@ -65,6 +65,8 @@ describe('the tabs in English', () => {
     const view = claudeAccountsFixture();
     const row = view.accounts[1];
     expect(signInChip({ ...row, status: 'reloginRequired' }).t).toBe('expired');
+    expect(signInChip({ ...row, status: 'liveExpired' })).toMatchObject({ t: 'Claude Code could not refresh its sign-in', k: 'bad' });
+    expect(addedFeedback('Team A', true, false).title).toBe('Team A is signed in again in Quota Station, but Claude Code still uses the old sign-in.');
     expect(quotaLine(row)).toBe('73% 5-hour');
     const fb = resultFeedback(view, { action: 'remove', ok: true, error: null, detail: null, slot: 3, renewed: false, imported: null }, 'Team B');
     expect(fb!.title).toBe('Removed Team B from this Mac.');

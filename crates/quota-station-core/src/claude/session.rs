@@ -75,7 +75,7 @@ pub fn adopt_newer(store: &Store, slot: u32) {
     let newer = match ours.as_deref() {
         None => true,
         Some(ours) if ours == theirs => false,
-        Some(ours) => cc::expires_at(&theirs).unwrap_or(0) > cc::expires_at(ours).unwrap_or(0),
+        Some(ours) => cc::newer(&theirs, ours),
     };
     if newer && store.set_credential(slot, &theirs).is_ok() {
         super::usage::login_replaced(store, slot);
