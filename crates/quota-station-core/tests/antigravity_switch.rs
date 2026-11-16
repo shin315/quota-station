@@ -257,12 +257,13 @@ fn a_switch_writes_the_exact_command_then_the_pointers_and_checks() {
     let call = &calls[0];
     #[cfg(unix)]
     {
-        assert_eq!(call.len(), 9, "{call:?}");
+        // No `-A` and no `-T`: `security` would change the item's access, which asks
+        // the owner for the login password at every switch.
+        assert_eq!(call.len(), 8, "{call:?}");
         assert_eq!(
             call[..7],
             ["add-generic-password", "-U", "-s", "gemini", "-a", "antigravity", "-w"]
         );
-        assert_eq!(call[8], "-A");
         assert_eq!(call[7], s.shared_item());
     }
     // On Windows the shared credential: target gemini:antigravity, user

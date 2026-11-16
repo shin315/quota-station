@@ -88,6 +88,28 @@ esac
 
 #[cfg(unix)]
 #[test]
+fn the_write_never_asks_security_to_change_the_items_access() {
+    // `-A` and `-T` make `security` change the item's ACL as well as its value,
+    // which asks the owner for the login password at every switch.
+    let fixture = Fixture::new(
+        r#"#!/bin/sh
+printf '%s\n' "$@" > "${0%/*}/args"
+exit 0
+"#,
+    );
+    fixture.writer(Duration::from_secs(2)).write(&token()).unwrap();
+    let args = std::fs::read_to_string(fixture.0.join("args")).unwrap();
+    let args: Vec<&str> = args.lines().collect();
+    assert_eq!(
+        args[..7],
+        ["add-generic-password", "-U", "-s", "gemini", "-a", "antigravity", "-w"]
+    );
+    assert!(args[7].starts_with("go-keyring-base64:"), "{args:?}");
+    assert_eq!(args.len(), 8, "no option after the value: {args:?}");
+}
+
+#[cfg(unix)]
+#[test]
 fn keychain_timeout_kills_writer_before_late_credential_overwrite() {
     let fixture = Fixture::new(
         r#"#!/bin/sh

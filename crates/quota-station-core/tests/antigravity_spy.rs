@@ -225,12 +225,12 @@ fn the_antigravity_flows_never_touch_another_tools_secrets() {
     let mut shared_writes = 0;
     for call in &calls {
         if call.iter().any(|a| a == "gemini" || a == "antigravity") {
-            assert_eq!(call.len(), 9, "{call:?}");
+            assert_eq!(call.len(), 8, "{call:?}");
             assert_eq!(
                 call[..7],
                 ["add-generic-password", "-U", "-s", "gemini", "-a", "antigravity", "-w"]
             );
-            assert!(call[7].starts_with("go-keyring-base64:") && call[8] == "-A", "{call:?}");
+            assert!(call[7].starts_with("go-keyring-base64:"), "{call:?}");
             shared_writes += 1;
             continue;
         }

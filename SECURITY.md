@@ -21,10 +21,12 @@ changes the app should keep these rules, or say plainly which one changes.
   as they are. Switching the Antigravity account from the app only writes
   it, when the owner confirms the switch, with exactly the command
   `security add-generic-password -U -s gemini -a antigravity -w
-  go-keyring-base64:<…> -A`. `-U` updates the item in place in one
+  go-keyring-base64:<…>`. `-U` updates the item in place in one
   Keychain call; when `security` fails or is stopped after 15 seconds, the
-  switch ends there and points nothing at the new account. `-A` lets any
-  app read it, as Antigravity's own keyring does. The value carries only
+  switch ends there and points nothing at the new account. The command has
+  no `-A` and no `-T`, so the item's access stays what it was (as
+  Antigravity's own keyring leaves it) and a switch never asks for the login
+  password: changing an item's access would. The value carries only
   the access token, the refresh token, the expiry, `token_type` (`Bearer`)
   and `auth_method` (`consumer`), and is on `security`'s command line for
   the moment it runs, the same limit as below. On Windows the shared login

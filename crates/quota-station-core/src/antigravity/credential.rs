@@ -16,7 +16,9 @@
 //! The app only ever writes the item, never reads it, and only when the
 //! owner confirms a switch. The write updates the item in place
 //! (`security add-generic-password -U`, `CredWriteW`), so a failed write
-//! leaves the login that was there as it was.
+//! leaves the login that was there as it was, and it leaves the item's
+//! access as it was too: on macOS it never changes the item's ACL, which
+//! would ask the owner for the login password at every switch.
 
 #[cfg(not(windows))]
 use std::path::PathBuf;
@@ -157,27 +159,27 @@ impl SharedLogin {
     }
 
     /// Updates the item in place (`-U`) so a failed write leaves the existing
-    /// login intact, and lets any app read it (`-A`), as Antigravity's own
-    /// keyring does.
+    /// login intact.
+    ///
+    /// It never passes `-A` (nor `-T`). Those make `security` set the item's
+    /// access, and on an item that exists it does so with a second Keychain
+    /// call, `SecKeychainItemSetAccess`, which changes the item's ACL and so
+    /// asks the owner for the login password every time: on the owner's Mac
+    /// each switch put up that dialog, and the item's access stayed as it was.
+    /// Without them `-U` replaces the value only, and the access the item has
+    /// stays as it is: `/usr/bin/security` alone, which is how Antigravity's
+    /// own keyring (go-keyring) leaves it, and how `agy` reads it, without a
+    /// prompt, to this day. An item that does not exist yet is created the
+    /// same way.
     ///
     /// The value goes on `security`'s command line (`-w`); the form that
     /// prompts for it needs a terminal. A process of the same user that lists
-    /// arguments can see it for the moment `security` runs; that user can read
-    /// the item (`-A`) anyway.
+    /// arguments can see it for the moment `security` runs.
     fn write_payload(&self, payload_json: &str) -> Result<(), CredentialError> {
         let keychain_value = keychain_value(payload_json);
-        let args = [
-            "add-generic-password",
-            "-U",
-            "-s",
-            SERVICE,
-            "-a",
-            ACCOUNT,
-            "-w",
-            &keychain_value,
-            "-A",
-        ]
-        .map(String::from);
+        let args =
+            ["add-generic-password", "-U", "-s", SERVICE, "-a", ACCOUNT, "-w", &keychain_value]
+                .map(String::from);
         let output = runner::run(&self.program, &args, self.timeout).map_err(|e| match e {
             RunError::Timeout(_) => CredentialError::Timeout,
             other => CredentialError::Spawn(other.to_string()),

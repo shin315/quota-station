@@ -429,7 +429,7 @@ flag and does not show Claude as paused.
   `open -b com.google.antigravity` (only with `Quit the app, then switch`),
   `…/v1internal:loadCodeAssist` while the token lacks a project or the GCP ToS
   mark, `security add-generic-password -U -s gemini -a antigravity -w
-  go-keyring-base64:<…> -A`, and then the Antigravity quota read above, without
+  go-keyring-base64:<…>` (no `-A`: the item's access is left as it is), and then the Antigravity quota read above, without
   the cache. Opening the sheet runs only the `plutil` and `pgrep` questions.
   On Windows it writes Credential Manager's `gemini:antigravity` with
   `CredWriteW` and runs `taskkill /PID <pid> /T`, `Antigravity.exe
