@@ -1,11 +1,10 @@
-- The app now downloads, checks and installs a new release by itself, then reopens.
-- One press of "Download and install" does it all, on macOS and on Windows.
-- The download is checked against the app's built-in key before anything is installed.
-- Copies installed with Homebrew keep updating with `brew upgrade`.
-- Copies built from source keep their own update path.
-- The tab "Rotation rules" is now called "Auto-switch accounts".
+- Claude accounts can now be managed from the command line on Linux (WSL).
+- On Linux, the account rotation now runs every three minutes from a systemd user timer.
+- Antigravity accounts can now be managed from the command line, and the rotation switches accounts when Gemini runs low.
+- A new sign-in of the account in use now reaches Claude Code.
+- Switching Antigravity accounts no longer asks for the login password.
 
-Going from 1.1.1 to 1.2.0 is still a manual install: download and install it as before. From 1.2.0 on, updates install in place.
+Copies of 1.2.0 and later update in place.
 
 Install and update steps are in the [README](https://github.com/shin315/quota-station#install) ([Vietnamese](https://github.com/shin315/quota-station/blob/main/README.vi.md)).
 
