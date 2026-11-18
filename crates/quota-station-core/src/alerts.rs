@@ -57,6 +57,8 @@ use crate::antigravity::index::{self, Standing};
 use crate::antigravity::switch::{How, Outcome as AgyOutcome};
 #[cfg(feature = "antigravity-accounts")]
 use crate::antigravity::watch;
+#[cfg(feature = "antigravity-accounts")]
+use crate::antigravity::words;
 use crate::app_dir::AppDir;
 use crate::ext::Hooks;
 use crate::labels::Labels;
@@ -842,13 +844,10 @@ fn agy_login_alerts(logins: &[AgyLogin], now: i64, labels: Option<&dyn Labels>) 
                     "Google không nhận đăng nhập của tài khoản này nữa. Đăng nhập lại trong tab Antigravity.".to_string(),
                     false,
                 ),
-                Standing::NeedsVerification { since, url } => (
-                    "verify",
-                    *since,
-                    format!("{name} cần xác minh"),
-                    "Google cần xác minh tài khoản này trước khi cho đọc hạn mức.".to_string(),
-                    url.is_some(),
-                ),
+                Standing::NeedsVerification { since, url, reason } => {
+                    let (title, body) = words::verification(&name, reason.as_deref(), url.is_some());
+                    ("verify", *since, title, body, url.is_some())
+                }
                 Standing::Forbidden { since, url } => (
                     "forbidden",
                     *since,

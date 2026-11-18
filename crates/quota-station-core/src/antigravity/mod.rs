@@ -53,3 +53,4 @@ pub mod switch;
 pub mod token;
 pub mod version;
 pub mod watch;
+pub mod words;

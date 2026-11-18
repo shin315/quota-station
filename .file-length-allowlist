@@ -11,7 +11,7 @@
 1119 crates/quota-station-core/src/agents/pack.rs
 1914 crates/quota-station-core/src/agents/restore.rs
 1560 crates/quota-station-core/src/agents/skills.rs
-1575 crates/quota-station-core/src/alerts.rs
+1574 crates/quota-station-core/src/alerts.rs
 1028 crates/quota-station-core/tests/agents_skills.rs
 1016 crates/quota-station-core/tests/ext.rs
 1136 src-tauri/src/skills.rs

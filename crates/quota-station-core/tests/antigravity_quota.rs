@@ -522,6 +522,79 @@ fn a_summary_asking_for_a_verification_keeps_the_last_reading_and_says_so() {
     assert_eq!(standing(&home, &id), None);
 }
 
+/// A Google error body asking for a verification without sending the page for it.
+fn verify_body_without_page(status: u16) -> String {
+    format!(
+        r#"{{"error":{{"code":{status},"message":"Verify your account to continue.","status":"PERMISSION_DENIED","details":[{{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"VALIDATION_REQUIRED"}}]}}}}"#
+    )
+}
+
+/// The report from the owner: signed in again and verified at Google, the account still shows
+/// "sign in again" and its reading does not move. Google kept asking, so the new login's read
+/// puts the status straight back; what the status keeps decides whether the app can say so.
+#[test]
+fn a_verification_google_keeps_asking_for_stays_one_status_and_clears_only_when_google_stops() {
+    let home = Home::new("agy-quota-verify-stuck");
+    let google = FakeGoogle::start(Script::default());
+    let id = log_in(&home, &google, NOW_MS);
+    read(&home, &google, &id, NOW_MS).unwrap();
+    let kept = cache_text(&home, EMAIL).unwrap();
+    google.set(|s| s.summary = (403, verify_body_without_page(403)));
+
+    // The account is refused; it keeps the reason Google gave, and says there is no page.
+    let first = NOW_MS + 11 * MIN;
+    assert_eq!(read(&home, &google, &id, first).unwrap_err().kind(), "verification");
+    let Some(Standing::NeedsVerification { since, url: None, reason }) = standing(&home, &id)
+    else {
+        panic!("needs a verification, with no page")
+    };
+    assert_eq!(since, first / 1000);
+    assert_eq!(reason.as_deref(), Some("VALIDATION_REQUIRED"));
+
+    // Refused again at every later read: still the same status, from the same moment.
+    for minutes in [22, 33] {
+        let err = read(&home, &google, &id, NOW_MS + minutes * MIN).unwrap_err();
+        assert_eq!(err.kind(), "verification");
+        assert_eq!(standing(&home, &id).map(|s| s.since()), Some(first / 1000), "{minutes}");
+    }
+    // It is still read, so it can clear by itself, but at its own slower pace.
+    let (_, candidates) = quota::candidates(&home.app).unwrap();
+    assert!(!candidates[0].skip && candidates[0].verification);
+
+    // A new login clears the status and the app reads at once: Google refuses again, so the
+    // status is back and the reading has not moved.
+    let again = NOW_MS + 40 * MIN;
+    log_in(&home, &google, again);
+    assert_eq!(standing(&home, &id), None, "a new login clears the status");
+    google.clear();
+    assert_eq!(read(&home, &google, &id, again).unwrap_err().kind(), "verification");
+    assert_eq!(ends(&google.cloud_code()), [LOAD_CODE_ASSIST, MODELS, SUMMARY]);
+    assert_eq!(standing(&home, &id).map(|s| s.since()), Some(again / 1000));
+    assert_eq!(cache_text(&home, EMAIL).unwrap(), kept, "the last reading is still the old one");
+
+    // Google stops asking (verified anywhere, or a new reading): the next read clears it.
+    google.set(|s| s.summary = (200, cloud_code("retrieve-user-quota-summary")));
+    assert_eq!(read(&home, &google, &id, again + 31 * MIN), Ok(Outcome::Read));
+    assert_eq!(standing(&home, &id), None);
+    assert_ne!(cache_text(&home, EMAIL).unwrap(), kept, "a new reading is in the cache");
+}
+
+#[test]
+fn a_status_from_an_older_app_without_a_reason_still_reads() {
+    let home = Home::new("agy-quota-old-status");
+    let google = FakeGoogle::start(Script::default());
+    let id = log_in(&home, &google, NOW_MS);
+    let text =
+        format!(r#"{{"accounts":{{"{id}":{{"state":"needsVerification","since":1768548000}}}}}}"#);
+    std::fs::write(index::status_path(&home.app), text).unwrap();
+    assert_eq!(
+        standing(&home, &id),
+        Some(Standing::NeedsVerification { since: 1_768_548_000, url: None, reason: None })
+    );
+    assert_eq!(read(&home, &google, &id, NOW_MS), Ok(Outcome::Read));
+    assert_eq!(standing(&home, &id), None);
+}
+
 #[test]
 fn an_account_google_logged_out_is_not_read() {
     let home = Home::new("agy-quota-relogin");

@@ -231,7 +231,11 @@ back, or that nothing changed because an older switcher is still loaded.
 out` and a `⋯` menu with `Sign in again…` (at any time, after a confirmation
 under the row) and, with two accounts or more on macOS, `Pause auto-switch…`
 or `Resume auto-switch`; an account that needs a new sign-in or a
-verification also has `Sign in again` on its row. A new sign-in meant for one
+verification also has `Sign in again` on its row. One Google wants verified
+also has `Open the verification page` when Google sent it and `Check again`
+(reads it now; the app reads it every 30 minutes anyway), and its row says what
+Google asked: a verification with or without a page, or a subscription
+(`needs a subscription`), which signing in again does not change. A new sign-in meant for one
 account that the browser signs in to another Google account says so (`You
 signed in to …, not …`): the account meant stays as it was, and the other is
 refreshed or added. The card's header has `Add account`; the accounts the app signs in
@@ -290,6 +294,12 @@ that account's login back at its next hourly token refresh, which undoes the
 switch, so restart running `agy` sessions after switching. On Windows `status`
 and `switch` work; the rotation does not run there yet and `rotation on` says
 so.
+
+For an account Google asks something of, `status --json` gives `standing`
+(`needsLogin`, `needsVerification` or `forbidden`), `standingSince` (when it
+first needed it), `standingReason` (Google's reason code, such as
+`VALIDATION_REQUIRED` or `SUBSCRIPTION_REQUIRED`, when it gave one) and
+`verificationPage` (whether Google sent a page; the link is never printed).
 
 ## Codex
 
@@ -494,8 +504,10 @@ lists the kinds in both languages. The kinds:
    `no_refresh_token`, `no-access-token`, `relogin_required`, a relogin), with
    `Nhắc ngày mai` (asks again at 09:00 the next day) and `Đã biết`. Antigravity
    accounts that need a new sign-in, that Google blocked, or that need a
-   verification (`<account> cần xác minh`) get their own card, with `Đăng nhập
-   lại` (the `Antigravity` tab) or `Mở trang xác minh`.
+   verification (`<account> cần xác minh`, or `<account> cần gói đăng ký` when
+   Google asks for a subscription) get their own card, with `Đăng nhập
+   lại` (the `Antigravity` tab) or `Mở trang xác minh`; the card is told once
+   per time the account first needed it, not at every refused read.
 9. **Claude was auto-switched** (`Đã tự chuyển Claude sang <account>`):
    `Auto-switch when quota runs out` moved Claude Code, with the account it
    left and the share of the window it reached, and `Ổn`. Once per switch, only

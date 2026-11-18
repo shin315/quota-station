@@ -245,8 +245,13 @@ feature (see [`THIRD_PARTY.md`](../THIRD_PARTY.md)). Without it the `Antigravity
   and the row says `read failed: …`. After a 429 or a 5xx the account waits at
   least 2 minutes, then 4, 8, 16 and at most 30. A 403 on
   `fetchAvailableModels` marks it `blocked by Google` and stops its reads until
-  a new login; an account that needs a new login is not read either. A Mac with
-  no account logged in reads nothing.
+  a new login; an account that needs a new login is not read either. An
+  account Google wants verified (or says needs a subscription) is still read,
+  so it clears by itself once verified anywhere, but every 30 minutes, not with
+  the account-in-use reads; a new login, `Check again` on its row and the tab
+  opening read it at once. Its status keeps Google's reason code and the
+  moment it first needed it (a refused read does not move that moment), and
+  a full reading clears it. A Mac with no account logged in reads nothing.
 - **Switching.** The sheet names the account and its allowances, says whether
   Antigravity.app runs, and that a running `agy` session keeps the old account
   until it restarts. While Antigravity.app runs it offers `Quit the app, then

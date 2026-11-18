@@ -636,7 +636,7 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       push({ ...model, antigravity: agy({ accounts: accounts(list.filter((a) => a.id !== id), model.showNames) }) });
       return model;
     },
-    agyOpenVerification: async () => {},
+    agyOpenVerification: async () => {}, agyRecheck: async () => {},
     agyTabOpened: async () => {},
     agyAppState: async () => {
       if (options.agyApp === null) throw new Error('spawn');

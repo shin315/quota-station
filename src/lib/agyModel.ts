@@ -37,6 +37,8 @@ export interface AgyLogin {
   status: AgyStatus;
   /** Google sent a verification page for it. */
   verify: boolean;
+  /** Why Google asked, with `needsVerification`: `VALIDATION_REQUIRED`, `SUBSCRIPTION_REQUIRED`… when it said. */
+  reason?: string | null;
   /** The app is reading its quota now. */
   reading: boolean;
   /** The app's last read failed; the row keeps the last numbers, with their age. */

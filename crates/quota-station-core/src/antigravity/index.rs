@@ -161,11 +161,16 @@ pub enum Standing {
     NeedsLogin { since: i64 },
     /// The quota API asked for a verification (`VALIDATION_REQUIRED`) or a
     /// subscription (`SUBSCRIPTION_REQUIRED`), with Google's link when it
-    /// sent one.
+    /// sent one. `since` is when the account first needed it, not the last
+    /// time a read was refused.
     NeedsVerification {
         since: i64,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         url: Option<String>,
+        /// Google's reason code (`VALIDATION_REQUIRED`, `SUBSCRIPTION_REQUIRED`…)
+        /// when it gave one, to tell a verification from a subscription.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        reason: Option<String>,
     },
     /// The quota API answered 403: the account is
     /// not read again until a new login, with Google's verification link
@@ -201,12 +206,44 @@ pub fn load_statuses(app: &AppDir) -> Statuses {
     read_statuses(app).unwrap_or_default()
 }
 
+impl Standing {
+    pub fn since(&self) -> i64 {
+        match self {
+            Standing::NeedsLogin { since }
+            | Standing::NeedsVerification { since, .. }
+            | Standing::Forbidden { since, .. } => *since,
+        }
+    }
+
+    fn with_since(self, since: i64) -> Standing {
+        match self {
+            Standing::NeedsLogin { .. } => Standing::NeedsLogin { since },
+            Standing::NeedsVerification { url, reason, .. } => {
+                Standing::NeedsVerification { since, url, reason }
+            }
+            Standing::Forbidden { url, .. } => Standing::Forbidden { since, url },
+        }
+    }
+
+    fn same_kind(&self, other: &Standing) -> bool {
+        std::mem::discriminant(self) == std::mem::discriminant(other)
+    }
+}
+
 /// Sets or clears (`None`) one account's status. An unreadable file is left
-/// as it is, so no other account loses its status.
+/// as it is, so no other account loses its status. The same status set
+/// again keeps its first `since`: a refusal read every few minutes is one
+/// status, not a new one each time (a notification is keyed by it).
 pub fn set_standing(app: &AppDir, id: &str, standing: Option<Standing>) -> Result<(), IndexError> {
     let mut statuses = read_statuses(app)?;
     let changed = match standing {
-        Some(s) => statuses.accounts.insert(id.to_string(), s.clone()) != Some(s),
+        Some(s) => {
+            let s = match statuses.accounts.get(id) {
+                Some(old) if old.same_kind(&s) => s.with_since(old.since()),
+                _ => s,
+            };
+            statuses.accounts.insert(id.to_string(), s.clone()) != Some(s)
+        }
         None => statuses.accounts.remove(id).is_some(),
     };
     if !changed {

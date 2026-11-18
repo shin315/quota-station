@@ -58,6 +58,9 @@ pub struct AccountView {
     pub status: &'static str,
     /// Google sent a verification page for it.
     pub verify: bool,
+    /// Why Google asked, for `needsVerification`: `VALIDATION_REQUIRED`,
+    /// `SUBSCRIPTION_REQUIRED`… when it said.
+    pub reason: Option<String>,
     /// The app is reading its quota now.
     pub reading: bool,
     /// The app's last read of it failed; the last numbers stay.
@@ -109,6 +112,10 @@ pub fn view(inner: &Inner) -> AccountsView {
                     Some(Standing::Forbidden { .. }) => "forbidden",
                 },
                 verify: verification_page(standing).is_some(),
+                reason: match standing {
+                    Some(Standing::NeedsVerification { reason, .. }) => reason.clone(),
+                    _ => None,
+                },
                 reading: matches!(read, Some(ReadState::Reading)),
                 read_error: match read {
                     Some(ReadState::Failed { kind, detail }) => Some(ReadErrorView {
@@ -371,6 +378,22 @@ pub fn open_verification(app: &AppHandle, dir: &AppDir, id: &str) -> Result<(), 
         return Err("noPage".into());
     }
     open::url(app, url).map_err(|_| "browser".to_string())
+}
+
+/// "Kiểm tra lại": the owner verified the account somewhere else, or wants to
+/// know now. The account is read at once, unless it was read in the last
+/// minute (`quota_station_core::antigravity::pace`); a full reading clears its
+/// status, a refusal keeps it.
+#[tauri::command]
+pub fn agy_recheck(state: State<'_, AppState>, id: String) -> Result<(), String> {
+    let dir = state.lock().app_dir();
+    let Ok(listed) = index::load(&dir) else { return Err("index".into()) };
+    if !listed.accounts.iter().any(|a| a.id == id) {
+        return Err("notFound".into());
+    }
+    state.lock().agy_pace.ask(&id);
+    state.wake_agy();
+    Ok(())
 }
 
 /// The `Antigravity` tab opened: every account is read now, unless it was

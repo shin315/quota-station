@@ -168,6 +168,39 @@ describe('Antigravity accounts logged in here', () => {
     expect(screen.getByText('Không mở được trình duyệt')).toBeTruthy();
   });
 
+  it('an account waiting on Google offers a new check first, and says what Google asked', async () => {
+    const fake = await open(
+      withAgy({
+        accounts: [
+          login(1, { status: 'needsVerification', verify: false, reason: 'VALIDATION_REQUIRED' }),
+          login(2, { status: 'needsVerification', verify: false, reason: 'SUBSCRIPTION_REQUIRED' }),
+        ],
+      }),
+    );
+    const first = () => row('lanpham.ultra');
+    const second = () => row('lan.ultra2');
+    // Google sent no page: the row says so and offers no page; "Đăng nhập lại" stays, as the lesser button.
+    expect(within(first()).getByText('cần xác minh')).toBeTruthy();
+    expect(within(first()).getByRole('button', { name: 'Đăng nhập lại' })).toBeTruthy();
+    expect(within(first()).queryByRole('button', { name: 'Mở trang xác minh' })).toBeNull();
+    expect(said(first())).toMatch(/không gửi trang xác minh/);
+    // A subscription is not a verification.
+    expect(within(second()).getByText('cần gói đăng ký')).toBeTruthy();
+    expect(within(second()).queryByText('cần xác minh')).toBeNull();
+    expect(said(second())).toMatch(/đăng nhập lại không đổi được/);
+
+    await act(async () => {
+      fireEvent.click(within(first()).getByRole('button', { name: 'Kiểm tra lại' }));
+    });
+    expect(fake.api.agyRecheck).toHaveBeenCalledWith('antigravity_fake1');
+    expect(screen.getByText('Đang đọc lại lanpham.ultra')).toBeTruthy();
+    vi.mocked(fake.api.agyRecheck).mockRejectedValueOnce('notFound');
+    await act(async () => {
+      fireEvent.click(within(second()).getByRole('button', { name: 'Kiểm tra lại' }));
+    });
+    expect(screen.getByText('Chưa đọc lại được lan.ultra2')).toBeTruthy();
+  });
+
   it('adds an account through the browser and says so', async () => {
     const fake = await open(withAgy({ accounts: [login(1)] }), { agyLoginDelayMs: 10 });
     expect(within(row('lan.ultra2')).queryByRole('button', { name: /Đăng xuất/ })).toBeNull();

@@ -148,6 +148,10 @@ pub fn candidates(app: &AppDir) -> Result<(AccountIndex, Vec<Candidate>), IndexE
                 statuses.accounts.get(&a.id),
                 Some(Standing::NeedsLogin { .. } | Standing::Forbidden { .. })
             ),
+            verification: matches!(
+                statuses.accounts.get(&a.id),
+                Some(Standing::NeedsVerification { .. })
+            ),
         })
         .collect();
     Ok((index, list))
@@ -254,7 +258,8 @@ pub fn read_account(deps: &Deps, id: &str, now_ms: i64) -> ReadResult {
 fn refused(app: &AppDir, id: &str, now: i64, e: CloudCodeError) -> ReadError {
     if let Some(api) = e.api_error().filter(|a| a.needs_verification()) {
         let url = api.validation_url.clone();
-        let verify = Standing::NeedsVerification { since: now, url };
+        let reason = api.reason.clone();
+        let verify = Standing::NeedsVerification { since: now, url, reason };
         let _ = index::set_standing(app, id, Some(verify));
     }
     ReadError::CloudCode(e)

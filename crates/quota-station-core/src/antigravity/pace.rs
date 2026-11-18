@@ -15,6 +15,10 @@
 //!   most 30, until a read gets through.
 //! - Accounts that need a new login or that Google refused (403) are not
 //!   read at all.
+//! - An account Google wants verified is still read, so it clears by itself
+//!   once the owner verifies it anywhere, but every 30 minutes: the account in
+//!   use's 60-second reads do not apply to it, and its own tab, a new login
+//!   and "Kiểm tra lại" still read it at once.
 //!
 //! All times are Unix milliseconds, passed in.
 
@@ -23,6 +27,8 @@ use std::collections::BTreeMap;
 use super::export::TTL_MS;
 
 pub const OTHERS_EVERY_MS: i64 = 10 * 60_000;
+/// How often an account that needs a verification is looked at again.
+pub const VERIFICATION_EVERY_MS: i64 = 30 * 60_000;
 /// The first wait after a 429 or a 5xx is twice this.
 pub const BACKOFF_BASE_MS: i64 = 60_000;
 pub const BACKOFF_MAX_MS: i64 = 30 * 60_000;
@@ -35,6 +41,8 @@ pub struct Candidate {
     pub read_at: Option<i64>,
     /// Needs a new login, or Google refused it: never read.
     pub skip: bool,
+    /// Google wants it verified: read, but less often.
+    pub verification: bool,
 }
 
 /// How a read ended, for the pace.
@@ -126,8 +134,10 @@ impl Pace {
                 continue;
             }
             let last = a.tried_at.max(c.read_at);
-            let timed = last.is_none_or(|t| now - t >= OTHERS_EVERY_MS);
-            if timed || a.asked || self.all || (is_active && self.cycle) {
+            let every = if c.verification { VERIFICATION_EVERY_MS } else { OTHERS_EVERY_MS };
+            let timed = last.is_none_or(|t| now - t >= every);
+            let followed = is_active && self.cycle && !c.verification;
+            if timed || a.asked || self.all || followed {
                 a.asked = false;
                 due.push(c.id.clone());
             }
@@ -178,7 +188,10 @@ mod tests {
     const MIN: i64 = 60_000;
 
     fn two(read_at: Option<i64>) -> Vec<Candidate> {
-        ["a", "b"].iter().map(|id| Candidate { id: id.to_string(), read_at, skip: false }).collect()
+        ["a", "b"]
+            .iter()
+            .map(|id| Candidate { id: id.to_string(), read_at, skip: false, verification: false })
+            .collect()
     }
 
     #[test]
@@ -256,12 +269,44 @@ mod tests {
     fn opening_the_tab_reads_every_account_but_skipped_ones() {
         let mut pace = Pace::new();
         let mut list = two(Some(T0));
-        list.push(Candidate { id: "c".into(), read_at: Some(T0), skip: true });
+        list.push(Candidate { id: "c".into(), read_at: Some(T0), skip: true, verification: false });
         pace.ask_all();
         assert!(pace.pending());
         assert_eq!(pace.take(&list, Some("b"), T0 + 2 * MIN), ["b", "a"]);
         pace.ask("c");
         assert!(pace.take(&list, None, T0 + 30 * MIN).iter().all(|id| id != "c"));
+    }
+
+    #[test]
+    fn an_account_that_needs_a_verification_is_read_every_half_hour_or_when_asked() {
+        let due = |pace: &mut Pace, list: &[Candidate], active: Option<&str>, now: i64| {
+            pace.take(list, active, now).contains(&"a".to_string())
+        };
+        let mut list = two(Some(T0));
+        list[0].verification = true;
+
+        // Followed by the app's reads as the account in use: not while it waits for a verification.
+        let mut pace = Pace::new();
+        pace.cycle();
+        assert!(!due(&mut pace, &list, Some("a"), T0 + 2 * MIN));
+        // The others' ten minutes are not its either.
+        assert!(!due(&mut pace, &list, Some("b"), T0 + 11 * MIN));
+        assert!(!due(&mut pace, &list, Some("b"), T0 + 29 * MIN));
+        assert!(due(&mut pace, &list, Some("b"), T0 + 30 * MIN));
+
+        // A look at once: a new login, "Kiểm tra lại" or the tab.
+        let mut pace = Pace::new();
+        pace.started("a", T0);
+        pace.ask("a");
+        assert!(due(&mut pace, &list, None, T0 + MIN));
+        pace.started("a", T0 + MIN);
+        pace.ask_all();
+        assert!(due(&mut pace, &list, None, T0 + 2 * MIN));
+        // Read and refused again: the next look by itself is half an hour on.
+        pace.started("a", T0 + 2 * MIN);
+        pace.finished("a", Finish::Failed, T0 + 2 * MIN);
+        assert!(!due(&mut pace, &list, None, T0 + 31 * MIN));
+        assert!(due(&mut pace, &list, None, T0 + 32 * MIN));
     }
 
     #[test]

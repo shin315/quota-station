@@ -365,6 +365,16 @@ pub struct AccountOut {
     pub status: String,
     /// `needsLogin`, `needsVerification` or `forbidden`.
     pub standing: Option<&'static str>,
+    /// When the account first needed it (not the last refused read).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub standing_since: Option<String>,
+    /// Google's reason code behind `needsVerification` (`VALIDATION_REQUIRED`,
+    /// `SUBSCRIPTION_REQUIRED`…), when it gave one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub standing_reason: Option<String>,
+    /// Google sent a verification page for it (the link itself is never printed).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verification_page: Option<bool>,
     /// Held out of the rotation by the owner: never switched to by it.
     pub rotation_paused: bool,
     pub age_seconds: Option<f64>,
@@ -442,6 +452,21 @@ pub fn status(cli: &Cli, report: &Response, emails: bool, now: OffsetDateTime) -
                     Standing::NeedsVerification { .. } => "needsVerification",
                     Standing::Forbidden { .. } => "forbidden",
                 }),
+                standing_since: statuses
+                    .accounts
+                    .get(&summary.id)
+                    .and_then(|s| OffsetDateTime::from_unix_timestamp(s.since()).ok())
+                    .map(iso),
+                standing_reason: match statuses.accounts.get(&summary.id) {
+                    Some(Standing::NeedsVerification { reason, .. }) => reason.clone(),
+                    _ => None,
+                },
+                verification_page: match statuses.accounts.get(&summary.id) {
+                    Some(
+                        Standing::NeedsVerification { url, .. } | Standing::Forbidden { url, .. },
+                    ) => Some(url.is_some()),
+                    _ => None,
+                },
                 rotation_paused: summary.rotation_paused,
                 age_seconds: a.age_seconds,
                 fetched_at: a.fetched_at.clone(),

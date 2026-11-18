@@ -346,6 +346,7 @@ fn antigravity_accounts_that_need_a_login_or_a_verification_are_told() {
         Some(Standing::NeedsVerification {
             since: T0,
             url: Some("https://example.com/verify".into()),
+            reason: Some("VALIDATION_REQUIRED".into()),
         }),
     )
     .unwrap();
@@ -366,7 +367,13 @@ fn antigravity_accounts_that_need_a_login_or_a_verification_are_told() {
     let mut f = facts(T0 + 5 * MIN, None);
     f.agy = alerts::agy_logins(&app);
     assert!(run(&mut memory, &f, &center).is_empty());
-    // Asked again later (a new `since`): a new card.
+    // Refused again, with the same status, from the same moment: still nothing new.
+    index::set_standing(&app, &ids[0], Some(Standing::NeedsLogin { since: T0 + 600 })).unwrap();
+    let mut f = facts(T0 + 600, None);
+    f.agy = alerts::agy_logins(&app);
+    assert!(run(&mut memory, &f, &center).is_empty());
+    // Mended by a new login and asked again later (a new `since`): a new card.
+    index::set_standing(&app, &ids[0], None).unwrap();
     index::set_standing(&app, &ids[0], Some(Standing::NeedsLogin { since: T0 + 86400 })).unwrap();
     let mut f = facts(T0 + 86400, None);
     f.agy = alerts::agy_logins(&app);

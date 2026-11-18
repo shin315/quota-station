@@ -38,41 +38,51 @@ export interface AgyRowView {
   chip: ChipView;
   /**
    * "Đăng nhập lại" on the row itself, for an account Google stopped accepting or wants verified
-   * (a new login answers both); every account has it in its ⋯ menu.
+   * (a new login clears the status, but only Google's answer to the next read keeps it clear: for a
+   * verification the row's main button is "Kiểm tra lại"); every account has it in its ⋯ menu.
    */
   relogin: boolean;
   /** "Mở trang xác minh" when Google sent one. */
   verify: boolean;
+  /** "Kiểm tra lại": read the account now, for one waiting on a verification or a subscription. */
+  recheck: boolean;
   /** "đang đọc…" while the app reads its quota, "đọc lỗi: …" after a failed read. */
   read: { tone: 'info' | 'warn' | 'bad'; text: string } | null;
   /** Held out of the rotation by the owner ("Tạm dừng tự chuyển"). */
   paused: boolean;
 }
 
-function statusChip(status: AgyLogin['status']): ChipView {
+const SUBSCRIPTION = 'SUBSCRIPTION_REQUIRED';
+
+function statusChip(status: AgyLogin['status'], reason?: string | null): ChipView {
   switch (status) {
     case 'ok':
       return { t: t('đã đăng nhập', 'signed in'), k: 'ok' };
     case 'needsLogin':
       return { t: t('cần đăng nhập lại', 'sign in again'), k: 'bad' };
     case 'needsVerification':
-      return { t: t('cần xác minh', 'needs verification'), k: 'warn' };
+      return reason === SUBSCRIPTION ? { t: t('cần gói đăng ký', 'needs a subscription'), k: 'warn' } : { t: t('cần xác minh', 'needs verification'), k: 'warn' };
     case 'forbidden':
       return { t: t('Google chặn', 'blocked by Google'), k: 'bad' };
   }
 }
 
-function needs(status: AgyLogin['status']): string {
+function needs(status: AgyLogin['status'], reason?: string | null, page = false): string {
   switch (status) {
     case 'ok':
       return '';
     case 'needsLogin':
       return t('Google không nhận đăng nhập cũ nữa. Đăng nhập lại để dùng tiếp tài khoản này.', 'Google no longer accepts the old sign-in. Sign in again to keep using this account.');
-    case 'needsVerification':
-      return t(
-        'Google yêu cầu xác minh tài khoản này trước khi dùng tiếp. Xác minh rồi đăng nhập lại để dùng tiếp.',
-        'Google wants this account verified before it can be used again. Verify it, then sign in again.',
+    case 'needsVerification': {
+      const retry = t('App tự đọc lại mỗi 30 phút; bấm Kiểm tra lại để đọc ngay.', 'The app reads it again every 30 minutes; press Check again to read it now.');
+      if (reason === SUBSCRIPTION)
+        return t('Google báo tài khoản này cần gói đăng ký trước khi cho đọc hạn mức; đăng nhập lại không đổi được điều đó. ', 'Google says this account needs a subscription before it gives its quota; signing in again does not change that. ') + retry;
+      return (
+        (page
+          ? t('Google yêu cầu xác minh tài khoản này. Mở trang xác minh, xong bấm Kiểm tra lại. ', 'Google wants this account verified. Open the verification page, then press Check again. ')
+          : t('Google yêu cầu xác minh tài khoản này nhưng không gửi trang xác minh. Xác minh trong Antigravity hoặc ở tài khoản Google, rồi bấm Kiểm tra lại. ', 'Google wants this account verified but sent no verification page. Verify it in Antigravity or on the Google account, then press Check again. ')) + retry
       );
+    }
     case 'forbidden':
       return t('Google từ chối đọc hạn mức của tài khoản này (403), nên app thôi đọc nó. Đăng nhập lại để thử lại.', 'Google refused to give this account’s quota (403), so the app stopped reading it. Sign in again to retry.');
   }
@@ -122,10 +132,11 @@ export function agyRows(view: AgyAccounts): AgyRowView[] {
       name: name.name,
       full: name.full,
       short: 'U' + a.number,
-      sub: needs(a.status),
-      chip: statusChip(a.status),
+      sub: needs(a.status, a.reason, a.verify),
+      chip: statusChip(a.status, a.reason),
       relogin: a.status !== 'ok',
       verify: (a.status === 'needsVerification' || a.status === 'forbidden') && a.verify,
+      recheck: a.status === 'needsVerification',
       read: agyReadLine(a.reading, a.readError),
       paused: a.rotationPaused,
     };
@@ -344,6 +355,15 @@ export function agyVerifyErrorFeedback(name: string, e: unknown): FeedbackView {
         title: t('Không còn trang xác minh cho ', 'No verification page left for ') + name,
         body: t('Trạng thái của tài khoản đã đổi, hoặc trang Google gửi không phải trang của Google. App không mở trang nào.', 'The account’s state changed, or the page sent is not a Google page. The app opened nothing.'),
       };
+}
+
+/** What "Kiểm tra lại" did: the account is read now, and the row says what Google answers. */
+export function agyRecheckFeedback(name: string): FeedbackView {
+  return { tone: 'info', title: t('Đang đọc lại ', 'Reading again: ') + name, body: t('Nếu Google đã bỏ yêu cầu, nhãn tự hết sau lần đọc này. Nếu chưa, tài khoản vẫn cần xác minh.', 'If Google dropped the request, the label goes after this read. If not, the account still needs it.') };
+}
+
+export function agyRecheckErrorFeedback(name: string, e: unknown): FeedbackView {
+  return { tone: 'bad', title: t('Chưa đọc lại được ', 'Could not read again: ') + name, body: errorKind(e) === 'notFound' ? t('Tài khoản không còn trong danh sách.', 'The account is no longer in the list.') : t('Không bắt đầu được lần đọc. Thử lại.', 'The read did not start. Try again.') };
 }
 
 export function agyLogoutErrorFeedback(name: string, e: unknown): FeedbackView {

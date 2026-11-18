@@ -22,6 +22,7 @@ export const useAgyLogins: typeof Real.useAgyLogins = (view, api) => ({
   login: () => {},
   relogin: () => {},
   verify: () => {},
+  recheck: () => {},
   logout: () => {},
   setPaused: () => {},
   ask: () => {},

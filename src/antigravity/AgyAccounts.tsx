@@ -28,6 +28,8 @@ import {
   agyLogoutFeedback,
   agyPauseErrorFeedback,
   agyPauseFeedback,
+  agyRecheckErrorFeedback,
+  agyRecheckFeedback,
   agyReloginFeedback,
   agyRows,
   agyVerifyErrorFeedback,
@@ -113,6 +115,8 @@ export interface AgyLogins {
   /** A new login meant for this account; another Google account picked in the browser is said, not taken for it. */
   relogin(row: AgyRowView): void;
   verify(row: AgyRowView): void;
+  /** Reads the account now, for one waiting on a verification. */
+  recheck(row: AgyRowView): void;
   logout(row: AgyRowView): void;
   /** Holds the account out of the rotation (`true`) or puts it back. */
   setPaused(row: AgyRowView, paused: boolean): void;
@@ -157,6 +161,14 @@ export function useAgyLogins(view: AgyAccountsModel, api: Api, onFeedback: (fb: 
       onFeedback(agyVerifyErrorFeedback(row.name, e));
     }
   };
+  const recheck = async (row: AgyRowView) => {
+    try {
+      await api.agyRecheck(row.id);
+      onFeedback(agyRecheckFeedback(row.name));
+    } catch (e) {
+      onFeedback(agyRecheckErrorFeedback(row.name, e));
+    }
+  };
   const logout = async (row: AgyRowView) => {
     setLeaving(true);
     try {
@@ -181,6 +193,7 @@ export function useAgyLogins(view: AgyAccountsModel, api: Api, onFeedback: (fb: 
     login: () => void login(),
     relogin: (row) => void relogin(row),
     verify: (row) => void verify(row),
+    recheck: (row) => void recheck(row),
     logout: (row) => void logout(row),
     setPaused: (row, paused) => void setPaused(row, paused),
     ask: (id, kind = 'logout') => setConfirm(id == null ? null : { id, kind }),
@@ -222,13 +235,18 @@ export function LoginActions({ logins, row }: { logins: AgyLogins; row: AgyRowVi
   return (
     <>
       {row.relogin ? (
-        <Button primary disabled={logins.busy || !!logins.notice} onClick={() => logins.relogin(row)}>
+        <Button primary={!row.recheck} disabled={logins.busy || !!logins.notice} onClick={() => logins.relogin(row)}>
           {t('Đăng nhập lại', 'Sign in again')}
         </Button>
       ) : null}
       {row.verify ? (
         <Button primary onClick={() => logins.verify(row)}>
           {t('Mở trang xác minh', 'Open the verification page')}
+        </Button>
+      ) : null}
+      {row.recheck ? (
+        <Button primary={!row.verify} onClick={() => logins.recheck(row)}>
+          {t('Kiểm tra lại', 'Check again')}
         </Button>
       ) : null}
       <Button label={t('Đăng xuất ', 'Sign out ') + row.name} disabled={logins.busy} onClick={() => logins.ask(row.id)}>

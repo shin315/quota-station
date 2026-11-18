@@ -264,6 +264,8 @@ commands![
     #[cfg(feature = "antigravity-accounts")]
     antigravity::agy_open_verification,
     #[cfg(feature = "antigravity-accounts")]
+    antigravity::agy_recheck,
+    #[cfg(feature = "antigravity-accounts")]
     antigravity::agy_tab_opened,
     #[cfg(feature = "antigravity-accounts")]
     antigravity::agy_set_rotation_paused,
