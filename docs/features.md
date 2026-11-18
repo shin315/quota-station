@@ -743,18 +743,24 @@ on `Check again`; it edits a file only on `Remove` and never unsets anything.
 
 ## Stats
 
-`Stats`, right under Overview: the tokens Claude Code and Codex used on this
-Mac, from their own session logs (`~/.claude/projects/**/*.jsonl`; `sessions/`
-and `archived_sessions/` in the Codex folder): the total, each agent's share, a
+`Stats`, right under Overview: the tokens Claude Code, Codex and Antigravity used
+on this Mac, from their own session logs (`~/.claude/projects/**/*.jsonl`;
+`sessions/` and `archived_sessions/` in the Codex folder) and Antigravity's
+conversations (the SQLite file of each conversation of the `agy` command line,
+`~/.gemini/antigravity-cli/conversations/`): the total, each agent's share, a
 column per hour for `Today` or per day for `7 days` and `30 days` (labels five
-days apart), and the counts by Claude account, by project and by model (input,
-output and cache reads). `Equivalent API price` is what the tokens would cost at
+days apart), and the counts by Claude and Antigravity account, by project and by
+model (input, output and cache reads). `Equivalent API price` is what the tokens would cost at
 the API prices, only to compare with the subscriptions; the prices are one table
 in the code with its source and date, and a model without a price is left out.
 The Claude account is an estimate (`Estimated from the switch history`): each
-quarter hour goes to the account the switch history says was in use.
-Antigravity keeps no token log on the Mac, so the chart says `Antigravity: no
-token log on this Mac`.
+quarter hour goes to the account the switch history says was in use; for
+Antigravity the same, by its account's number in the app's list, and only where
+the app has that history (a build with the Antigravity accounts), since its
+conversations do not say which account was used. Antigravity's tokens have no
+`Equivalent API price` (its models are limited by quota, shown as `by quota`),
+and its models are named by the code its files hold (`M528`), not a name. Only
+the `agy` command line's conversations are read, not the Antigravity app's.
 
 Each column stacks the agents, each in its own colour, with that colour beside
 the agent's name under the chart; a number sits on the tallest column only, and

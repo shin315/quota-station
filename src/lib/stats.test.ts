@@ -33,10 +33,15 @@ describe('the numbers of Thống kê', () => {
     expect(p.lines).toEqual([
       ['', 'Claude Code · 2.140 file log'],
       ['run', 'Codex · 640/960 file'],
-      ['wait', 'Antigravity · chưa có log token trên máy'],
+      ['wait', 'Antigravity'],
     ]);
     expect(p.percent).toBe(90);
     expect(progressLines(statsFixture({ reading: true, first: true })).lines[0]).toEqual(['wait', 'Claude Code']);
+    // Antigravity's are conversations, and a Mac without any says so.
+    const agy = (done: number, total: number) =>
+      progressLines(statsFixture({ reading: true, first: true, progress: [{ agent: 'claude', done: 1, total: 1 }, { agent: 'codex', done: 1, total: 1 }, { agent: 'agy', done, total }] })).lines[2];
+    expect(agy(12, 86)).toEqual(['run', 'Antigravity · 12/86 hội thoại']);
+    expect(agy(0, 0)).toEqual(['', 'Antigravity · chưa có hội thoại']);
   });
 
   it('tell skipped sessions until "Đã biết" counted them', () => {

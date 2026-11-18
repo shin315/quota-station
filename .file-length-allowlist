@@ -20,6 +20,6 @@
 1013 src/agents/McpDialogs.tsx
 1953 src/fixtures/fakeApi.ts
 1041 src/lib/codex.ts
-2041 src/lib/model.ts
+1965 src/lib/model.ts
 1089 src/settings/Settings.tsx
 1102 src/styles/tokens.css

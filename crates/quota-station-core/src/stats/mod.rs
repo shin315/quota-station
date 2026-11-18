@@ -1,10 +1,10 @@
 // SPDX-FileCopyrightText: 2026 Shin315
 // SPDX-License-Identifier: MIT
 
-//! Thống kê (M16, J): the tokens Claude Code and Codex used on this Mac,
-//! counted from their own session logs.
+//! Thống kê (M16, J): the tokens Claude Code, Codex and Antigravity used on
+//! this Mac, counted from their own session logs and conversations.
 //!
-//! Only four things are read from a log line: the token counts, the model,
+//! Only four things are read from a log line or step: the token counts, the model,
 //! the time and the project folder. A line is deserialized into a struct
 //! that names those fields and nothing else, so serde skips the
 //! conversation, the prompts and the tool output without ever copying
@@ -15,6 +15,8 @@
 //! - [`claude_log`] reads `~/.claude/projects/**/*.jsonl`.
 //! - [`codex_log`] reads `sessions/**/rollout-*.jsonl` and
 //!   `archived_sessions/` in the Codex folder.
+//! - [`agy_log`] reads the SQLite files of `~/.gemini/antigravity-cli`'s
+//!   conversations, one model call per step.
 //! - [`index`] keeps, in the app's folder, how far each log was read and
 //!   the counts per quarter hour, model and project; later reads take only
 //!   what was appended, and a truncated, replaced or deleted log is handled
@@ -26,9 +28,11 @@
 //! - [`prices`] is the one table of API prices, for "Giá API tương đương".
 //!
 //! A line or a file in a format the app does not know is skipped and
-//! counted, never guessed. Antigravity keeps no token log on the Mac that
-//! the app can read, so it has no row of numbers.
+//! counted, never guessed. What Antigravity keeps is the tokens of each model
+//! call, not its price: its numbers are tokens only, with no equivalent API
+//! price.
 
+pub mod agy_log;
 pub mod claude_log;
 pub mod codex_log;
 pub mod index;

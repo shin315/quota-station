@@ -25,7 +25,7 @@ use base64::Engine;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use super::{claude_log, codex_log, Agent, Line, Tokens, Usage};
+use super::{agy_log, claude_log, codex_log, Agent, Line, Tokens, Usage};
 use crate::app_dir::AppDir;
 use crate::os;
 
@@ -48,14 +48,19 @@ const DEPTH: usize = 6;
 pub struct Roots {
     pub claude: Vec<PathBuf>,
     pub codex: Vec<PathBuf>,
+    /// Antigravity's folder (`~/.gemini/antigravity-cli`), whose
+    /// `conversations/` the counts are read from.
+    pub agy: Vec<PathBuf>,
 }
 
 impl Roots {
-    /// Claude Code's under the home, Codex's under its folder.
+    /// Claude Code's and Antigravity's under the home, Codex's under its
+    /// folder.
     pub fn new(home: &Path, codex_home: &Path) -> Self {
         Roots {
             claude: vec![home.join(claude_log::DIR)],
             codex: vec![codex_home.join(codex_log::SESSIONS), codex_home.join(codex_log::ARCHIVED)],
+            agy: vec![home.join(agy_log::DIR)],
         }
     }
 
@@ -63,7 +68,7 @@ impl Roots {
         match agent {
             Agent::Claude => &self.claude,
             Agent::Codex => &self.codex,
-            Agent::Agy => &[],
+            Agent::Agy => &self.agy,
         }
     }
 }
@@ -74,13 +79,16 @@ impl Roots {
 pub enum Reader {
     Claude(claude_log::File),
     Codex(codex_log::File),
+    /// An Antigravity conversation, read by [`agy_log`] and not line by line.
+    Agy(agy_log::File),
 }
 
 impl Reader {
     fn new(agent: Agent) -> Self {
         match agent {
             Agent::Codex => Reader::Codex(codex_log::File::default()),
-            _ => Reader::Claude(claude_log::File::default()),
+            Agent::Agy => Reader::Agy(agy_log::File::default()),
+            Agent::Claude => Reader::Claude(claude_log::File::default()),
         }
     }
 
@@ -88,6 +96,7 @@ impl Reader {
         match self {
             Reader::Claude(_) => Agent::Claude,
             Reader::Codex(_) => Agent::Codex,
+            Reader::Agy(_) => Agent::Agy,
         }
     }
 
@@ -95,6 +104,7 @@ impl Reader {
         match self {
             Reader::Claude(f) => f.version.as_deref(),
             Reader::Codex(f) => f.version.as_deref(),
+            Reader::Agy(_) => None,
         }
     }
 
@@ -102,6 +112,8 @@ impl Reader {
         match self {
             Reader::Claude(f) => f.line(bytes),
             Reader::Codex(f) => f.line(bytes),
+            // Read by `agy_log::scan`, never line by line.
+            Reader::Agy(_) => Line::Quiet,
         }
     }
 }
@@ -290,7 +302,7 @@ impl Index {
     }
 
     pub fn skipped(&self) -> Vec<Skipped> {
-        [Agent::Claude, Agent::Codex]
+        [Agent::Claude, Agent::Codex, Agent::Agy]
             .into_iter()
             .map(|agent| {
                 let logs: Vec<&Log> = self
@@ -330,14 +342,32 @@ impl Index {
             .map(|b| ((b.at, b.agent, b.model, b.project), b.tokens))
             .collect();
         let mut found: HashSet<(u64, u64)> = HashSet::new();
-        for agent in [Agent::Claude, Agent::Codex] {
-            let files = list(roots.of(agent));
+        for agent in [Agent::Claude, Agent::Codex, Agent::Agy] {
+            let files = if agent == Agent::Agy {
+                conversations(roots.of(agent))
+            } else {
+                list(roots.of(agent))
+            };
             let total = files.len() as u32;
             progress(Progress { agent, done: 0, total });
+            // The folders of Antigravity's conversations, asked of its
+            // summaries once, and only when a conversation changed.
+            let mut folders: Option<HashMap<String, String>> = None;
             for (i, (file, meta)) in files.into_iter().enumerate() {
                 let id = os::file_id(&file, &meta);
                 if id.is_ok_and(|id| found.insert(id)) {
-                    self.read_log(agent, &file, &meta, keep_from, &mut buckets);
+                    if agent == Agent::Agy {
+                        self.read_conversation(
+                            &file,
+                            &meta,
+                            roots,
+                            keep_from,
+                            &mut buckets,
+                            &mut folders,
+                        );
+                    } else {
+                        self.read_log(agent, &file, &meta, keep_from, &mut buckets);
+                    }
                 }
                 progress(Progress { agent, done: i as u32 + 1, total });
             }
@@ -445,6 +475,127 @@ impl Index {
         }
         line.fill(0);
     }
+}
+
+impl Index {
+    /// Reads the steps an Antigravity conversation gained since the last
+    /// read, when its file (or its write-ahead log) changed.
+    fn read_conversation(
+        &mut self,
+        file: &Path,
+        meta: &std::fs::Metadata,
+        roots: &Roots,
+        keep_from: i64,
+        buckets: &mut BTreeMap<BucketKey, Tokens>,
+        folders: &mut Option<HashMap<String, String>>,
+    ) {
+        let Ok((dev, ino)) = os::file_id(file, meta) else { return };
+        let (len, modified) = signature(file, meta);
+        let at = self.logs.iter().position(|l| l.dev == dev && l.ino == ino);
+        let known = at.and_then(|i| match &self.logs[i].reader {
+            Reader::Agy(f) => Some((i, f.clone())),
+            _ => None,
+        });
+        let (i, mut state) = match known {
+            Some((i, f)) => {
+                // Nothing written since: nothing to open.
+                if self.logs[i].path == file && f.len == len && f.modified == modified {
+                    return;
+                }
+                // Shorter than before: replaced, so read from its start; the
+                // calls already counted are known by their keys.
+                (i, if len < f.len { agy_log::File::default() } else { f })
+            }
+            None => {
+                let log = fresh(Agent::Agy, file, dev, ino);
+                match at {
+                    Some(i) => {
+                        self.logs[i] = log;
+                        (i, agy_log::File::default())
+                    }
+                    None => {
+                        self.logs.push(log);
+                        (self.logs.len() - 1, agy_log::File::default())
+                    }
+                }
+            }
+        };
+        let id = file.file_stem().and_then(|s| s.to_str()).unwrap_or_default().to_string();
+        let project = folders
+            .get_or_insert_with(|| {
+                roots.agy.iter().fold(HashMap::new(), |mut all, root| {
+                    all.extend(agy_log::folders(&root.join(agy_log::SUMMARIES)));
+                    all
+                })
+            })
+            .get(&id)
+            .cloned();
+        let result = agy_log::scan(file, &id, project.as_deref(), state.next);
+        let log = &mut self.logs[i];
+        log.path = file.to_path_buf();
+        log.gone = false;
+        match result {
+            Ok(scan) => {
+                for u in scan.usages {
+                    add(&mut self.seen, buckets, Agent::Agy, u, keep_from, log);
+                }
+                log.skipped += scan.unknown;
+                if scan.unknown > 0 && log.skipped_since.is_none() {
+                    log.skipped_since = Some(log.last_at.unwrap_or(os::changed(meta)));
+                }
+                state.next = scan.next;
+            }
+            // A file not in Antigravity's format: told once, not at every read.
+            Err(agy_log::Fail::Unreadable) => {
+                if log.skipped == 0 {
+                    log.skipped = 1;
+                    log.skipped_since = Some(log.last_at.unwrap_or(os::changed(meta)));
+                }
+            }
+            // Locked right now: nothing is kept, so the next read tries again.
+            Err(agy_log::Fail::Busy) => {
+                log.reader = Reader::Agy(state);
+                return;
+            }
+        }
+        state.len = len;
+        state.modified = modified;
+        log.reader = Reader::Agy(state);
+    }
+}
+
+/// A conversation's size and newest change, its write-ahead log's with it:
+/// SQLite may write there for a while before the file itself changes.
+fn signature(file: &Path, meta: &std::fs::Metadata) -> (u64, i64) {
+    let nanos = |m: &std::fs::Metadata| {
+        m.modified()
+            .ok()
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map_or(0, |d| i64::try_from(d.as_nanos()).unwrap_or(i64::MAX))
+    };
+    let mut wal = file.as_os_str().to_os_string();
+    wal.push("-wal");
+    let (wal_len, wal_at) =
+        std::fs::metadata(PathBuf::from(wal)).map_or((0, 0), |m| (m.len(), nanos(&m)));
+    (meta.len() + wal_len, nanos(meta).max(wal_at))
+}
+
+/// Antigravity's conversations: the `.db` files in the `conversations`
+/// folder of each root, sorted, without following a symlink.
+fn conversations(roots: &[PathBuf]) -> Vec<(PathBuf, std::fs::Metadata)> {
+    let mut out = Vec::new();
+    for root in roots {
+        let Ok(entries) = std::fs::read_dir(root.join(agy_log::CONVERSATIONS)) else { continue };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let Ok(meta) = std::fs::symlink_metadata(&path) else { continue };
+            if meta.is_file() && path.extension().is_some_and(|e| e == "db") {
+                out.push((path, meta));
+            }
+        }
+    }
+    out.sort_by(|a, b| a.0.cmp(&b.0));
+    out
 }
 
 fn fresh(agent: Agent, file: &Path, dev: u64, ino: u64) -> Log {

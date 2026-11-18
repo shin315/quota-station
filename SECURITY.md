@@ -111,9 +111,11 @@ Files, under `~/Library/Application Support/com.shin315.quota-station/`:
   session log read, its path, device and inode, how many bytes were read,
   the SHA-256 of its first 256 bytes, how many lines were skipped, the
   agent's version and, for Codex, the folder, model and running token
-  totals; the token counts per quarter hour, agent, model and project
-  folder for the last 62 days; and an 8-byte hash of each Claude response's
-  id, so a response is counted once. No line of a log, no prompt, reply,
+  totals (for an Antigravity conversation, the first step not read, and its
+  file's size and change time); the token counts per quarter hour, agent,
+  model and project folder for the last 62 days; and an 8-byte hash of each
+  Claude response's and Antigravity model call's id, so a call is counted
+  once. No line of a log, no prompt, reply,
   tool output or instruction, nothing that came from a conversation.
 
 In the owner's login Keychain, not in that folder:
@@ -818,10 +820,11 @@ owner presses `Áp bộ` after its preview. It adds no write path of its own.
 
 ## Token statistics (M16)
 
-`Thống kê` counts the tokens Claude Code and Codex used on this Mac from
-their own session logs: `~/.claude/projects/**/*.jsonl`, and `sessions/` and
-`archived_sessions/` in the Codex folder. It reads session logs but keeps
-only counts, never text.
+`Thống kê` counts the tokens Claude Code, Codex and Antigravity used on this
+Mac from their own session logs: `~/.claude/projects/**/*.jsonl`, `sessions/`
+and `archived_sessions/` in the Codex folder, and the conversations of the
+`agy` command line (`~/.gemini/antigravity-cli/conversations/*.db`, SQLite).
+It reads them but keeps only counts, never text.
 
 - Only four things are read from a line: the token counts, the model, the
   time and the project folder (and the agent's version, to name a format the
@@ -830,14 +833,20 @@ only counts, never text.
   the thinking, the tool calls and their output without copying them, and
   the line's bytes are zeroed once read. Nothing from a conversation is
   stored, logged, indexed, exported or shown.
+- Antigravity's conversation files are opened read only (SQLite, with a
+  short wait when one is being written, and never a write, a journal or a
+  checkpoint of the app's own); from each step's `metadata` the protocol
+  buffer is walked past field by field, and only the time, the model, the four
+  counts and the call's id are taken. A tool call's arguments or output in the
+  same bytes are skipped by their length and never copied. The credentials of
+  Antigravity are not in these files and are not read.
 - The logs are read when the tab opens and on `Đọc lại`, on a thread of its
   own, never on a timer. Later reads take only what was appended; a log is
   never written, moved or deleted. Symlinks are not followed.
 - A line or a log in a format the app does not know is skipped and counted
   (`Bỏ qua N phiên`), never guessed.
 - Nothing is sent anywhere, and no other Mac's logs are read: the copy to
-  another Mac (M13) does not carry the index. Antigravity keeps no token log
-  on the Mac the app can read, so it has no numbers.
+  another Mac (M13) does not carry the index.
 - `Giá API tương đương` comes from one table in the code
   (`crates/quota-station-core/src/stats/prices.rs`, with its source and
   date); nothing fetches prices. The Claude account of a session is
@@ -1036,8 +1045,12 @@ reads or writes a login, an account, a key or a quota file of any of them.
   tool output and instruction in the fixtures carries the same text, which
   is in no index, report or other file of the app's. The window's tests
   draw that very report (`src/fixtures/stats-trap.json`), its table and its
-  hover cards, and find no such text. No test reads the real `~/.claude`
-  or `~/.codex`.
+  hover cards, and find no such text. `tests/stats_agy.rs` does the same for
+  Antigravity on made-up SQLite conversations (a call written over two steps
+  counts once, a step finished after the last read is found, a file in
+  another format or one that is being written is told once or left for the
+  next read, and the same trap text is in no file of the app's). No test
+  reads the real `~/.claude`, `~/.codex` or `~/.gemini`.
 - The Claude account tests (`tests/claude_*.rs`, `tests/switching.rs`) run
   in a temporary home with a fake `security` that keeps items in files and
   records every call, a fake `launchctl`, a fake `claude` and a local fake

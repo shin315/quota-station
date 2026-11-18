@@ -5,9 +5,25 @@
       "tokens": 26684
     }
   ],
+  "agy": 72740,
+  "agyAccounts": [
+    {
+      "slot": null,
+      "tokens": 72740
+    }
+  ],
   "claude": 26684,
   "codex": 31000,
   "models": [
+    {
+      "agent": "agy",
+      "cacheRead": 60000,
+      "input": 3000,
+      "model": "M528",
+      "output": 500,
+      "total": 63500,
+      "usd": null
+    },
     {
       "agent": "codex",
       "cacheRead": 12000,
@@ -45,6 +61,15 @@
       "usd": 0.01503
     },
     {
+      "agent": "agy",
+      "cacheRead": 9000,
+      "input": 200,
+      "model": "M417",
+      "output": 40,
+      "total": 9240,
+      "usd": null
+    },
+    {
       "agent": "claude",
       "cacheRead": 0,
       "input": 1500,
@@ -57,36 +82,43 @@
   "period": "week",
   "points": [
     {
+      "agy": 0,
       "claude": 0,
       "codex": 0,
       "label": "10/01"
     },
     {
+      "agy": 0,
       "claude": 0,
       "codex": 0,
       "label": "11/01"
     },
     {
+      "agy": 0,
       "claude": 0,
       "codex": 0,
       "label": "12/01"
     },
     {
+      "agy": 0,
       "claude": 0,
       "codex": 0,
       "label": "13/01"
     },
     {
+      "agy": 0,
       "claude": 0,
       "codex": 0,
       "label": "14/01"
     },
     {
+      "agy": 0,
       "claude": 1750,
       "codex": 0,
       "label": "15/01"
     },
     {
+      "agy": 72740,
       "claude": 24934,
       "codex": 31000,
       "label": "16/01"
@@ -96,14 +128,14 @@
   "pricesSource": "anthropic.com/pricing · openai.com/api/pricing",
   "projects": [
     {
+      "name": "web-shop",
+      "path": "~/Projects/web-shop",
+      "tokens": 97674
+    },
+    {
       "name": "api-server",
       "path": "~/Projects/api-server",
       "tokens": 31000
-    },
-    {
-      "name": "web-shop",
-      "path": "~/Projects/web-shop",
-      "tokens": 24934
     },
     {
       "name": "notes-app",
@@ -132,9 +164,17 @@
       "versions": [
         "0.170.0"
       ]
+    },
+    {
+      "acknowledged": 0,
+      "agent": "agy",
+      "lines": 0,
+      "sessions": 0,
+      "since": null,
+      "versions": []
     }
   ],
-  "total": 57684,
+  "total": 130424,
   "unpriced": [],
   "usd": 0.06042499999999999
 }

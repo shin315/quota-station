@@ -287,7 +287,7 @@ fn unix(at: &str) -> Option<i64> {
 
 /// An Antigravity account's number in the app's list, by its id. Without
 /// the Antigravity accounts the app keeps no list, so no id has a number.
-fn agy_numbers(app: &AppDir) -> impl Fn(&str) -> Option<u32> {
+pub fn agy_numbers(app: &AppDir) -> impl Fn(&str) -> Option<u32> {
     #[cfg(feature = "antigravity-accounts")]
     let accounts = index::load(app).unwrap_or_default().accounts;
     #[cfg(not(feature = "antigravity-accounts"))]

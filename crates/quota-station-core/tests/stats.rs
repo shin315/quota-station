@@ -359,13 +359,49 @@ fn progress_counts_each_agent_s_logs() {
     assert!(ix.first_read(Agent::Claude));
     ix.update(&mac.roots(), now().unix_timestamp(), &mut |p| seen.push(p));
     assert_eq!(seen.first(), Some(&Progress { agent: Agent::Claude, done: 0, total: 3 }));
-    assert_eq!(seen.last(), Some(&Progress { agent: Agent::Codex, done: 3, total: 3 }));
+    assert_eq!(
+        seen.iter().rfind(|p| p.agent == Agent::Codex),
+        Some(&Progress { agent: Agent::Codex, done: 3, total: 3 })
+    );
+    // No Antigravity on this Mac: its read is empty, and still reported.
+    assert_eq!(seen.last(), Some(&Progress { agent: Agent::Agy, done: 0, total: 0 }));
     assert!(!ix.first_read(Agent::Codex));
 }
 
 #[test]
 fn no_conversation_text_is_kept_anywhere() {
     let mac = full_mac("stats-trap");
+    // And an Antigravity conversation, whose steps carry the same text.
+    let agy = mac.home.join(".gemini/antigravity-cli");
+    std::fs::create_dir_all(agy.join("conversations")).unwrap();
+    let conn = rusqlite::Connection::open(agy.join("conversations/c1.db")).unwrap();
+    conn.execute_batch("CREATE TABLE steps (idx integer, step_type integer, metadata blob, step_payload blob, PRIMARY KEY (idx));").unwrap();
+    for (idx, (at, model, tokens, call)) in [
+        (1_768_540_000, 1528, [3_000, 500, 0, 60_000], "call-a"),
+        (1_768_544_000, 1417, [200, 40, 0, 9_000], "call-b"),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        conn.execute(
+            "INSERT INTO steps VALUES (?1, 15, ?2, ?3)",
+            rusqlite::params![
+                idx as i64,
+                quota_station_core::stats::agy_log::wire::metadata(at, model, tokens, call, TRAP),
+                TRAP.as_bytes()
+            ],
+        )
+        .unwrap();
+    }
+    drop(conn);
+    let summaries = rusqlite::Connection::open(agy.join("conversation_summaries.db")).unwrap();
+    summaries
+        .execute_batch(
+            "CREATE TABLE conversation_summaries (conversation_id text, workspace_uris text);
+             INSERT INTO conversation_summaries VALUES ('c1', '[\"file:///Users/demo/Projects/web-shop\"]');",
+        )
+        .unwrap();
+    drop(summaries);
     let ix = mac.read();
     let rep = week(&ix);
     let today = report::report(

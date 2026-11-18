@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 //! The Thống kê tab (M16, J): reads Claude Code's and Codex's session logs
-//! on this Mac into the app's index (`quota_station_core::stats`), off the
+//! and Antigravity's conversations on this Mac into the app's index (`quota_station_core::stats`), off the
 //! UI thread, with each agent's progress in the model, and answers the
 //! tab's report for a period.
 //!
@@ -12,9 +12,10 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use quota_station_core::history::{self, App};
 use quota_station_core::local_time;
 use quota_station_core::stats::index::{self, Index, Progress, Roots};
-use quota_station_core::stats::report::{self, Period, Report, Timeline};
+use quota_station_core::stats::report::{self, Accounts, Period, Report, Timeline};
 use serde::Serialize;
 use tauri::{AppHandle, State};
 use time::format_description::well_known::Rfc3339;
@@ -140,13 +141,17 @@ pub async fn stats_report(state: State<'_, AppState>, period: Period) -> Result<
     let shared = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let ix = index_of(&shared);
-        let (home, now_slot) = {
+        let (home, dir, now_slot, now_agy) = {
             let inner = shared.lock();
-            (inner.home.clone(), inner.seen.claude)
+            (inner.home.clone(), inner.app_dir(), inner.seen.claude, inner.seen.agy.clone())
         };
         let entries = crate::alerting::history_lines(&shared, usize::MAX);
-        let accounts = Timeline::from_history(&entries, now_slot);
-        report::report(
+        let number = history::agy_numbers(&dir);
+        let accounts = Accounts {
+            claude: Timeline::from_history(&entries, now_slot),
+            agy: Timeline::of(&entries, App::Antigravity, now_agy.as_deref().and_then(&number)),
+        };
+        report::report_of(
             &ix,
             period,
             OffsetDateTime::now_utc(),

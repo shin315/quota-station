@@ -39,7 +39,7 @@ in English and Vietnamese for macOS 13+ and Windows 10/11 (x64) — download fro
 - **Config sets and Backup**: Save groups of MCP servers and skills as `Config sets` to apply or
   undo across the Mac in one step. Back up your setup to iCloud Drive (or a chosen folder) and
   restore item by item on any Mac—API keys are never stored in a backup pack.
-- **Stats, Agent updates, History and Notifications**: View local Claude Code and Codex token
+- **Stats, Agent updates, History and Notifications**: View local Claude Code, Codex and Antigravity token
   usage and equivalent API cost (`Stats`), check and run updates for the agent CLIs (`Updates`),
   review switch `History`, and get notifications when quota runs low, an account must sign in
   again, or an env var (such as `ANTHROPIC_API_KEY`) overrides a login.

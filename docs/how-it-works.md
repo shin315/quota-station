@@ -557,7 +557,10 @@ flag and does not show Claude as paused.
   last check is `cli-tools.json`.
 - Token statistics: `~/.claude/projects/**/*.jsonl` and the Codex folder's
   `sessions/` and `archived_sessions/`, for each line's token counts, model,
-  time and project folder only; the bytes are zeroed after. The counts are
+  time and project folder only; the bytes are zeroed after. Antigravity's
+  `~/.gemini/antigravity-cli/conversations/*.db` (opened read only, the
+  `metadata` of each step for its time, model and token counts) and
+  `conversation_summaries.db` (the folder of each conversation). The counts are
   `stats/index.json` (no text). Nothing is sent anywhere.
 
 ## The files it writes

@@ -517,7 +517,10 @@ What the main suites check:
   prices. The trap: the conversation in every fixture carries one text, found in
   no index, report or file of the app's; the report is
   `src/fixtures/stats-trap.json`, which the Vitest tests draw with its table and
-  hover cards, finding no such text.
+  hover cards, finding no such text. `tests/stats_agy.rs` builds made-up
+  Antigravity conversations (SQLite files with protocol buffer steps) in a
+  temporary home for the same checks and for its own: a call counted once, a
+  step finished late, a busy or foreign file.
 
 The report fixtures in `crates/quota-station-core/tests/fixtures/` are
 synthetic, with made-up ids and values. The popover and window tests use JSON

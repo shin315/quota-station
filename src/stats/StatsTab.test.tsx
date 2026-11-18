@@ -15,7 +15,7 @@ import { FIXTURE_NOW, fixtureModel } from '../fixtures/models';
 import trap from '../fixtures/stats-trap.json';
 import type { Api } from '../lib/api';
 import type { Model, StatsReport } from '../lib/model';
-import { num, tokensText, unitOf, usd } from '../lib/stats';
+import { num, share, tokensText, unitOf, usd } from '../lib/stats';
 
 async function openTab(model: Model = fixtureModel('fresh'), options: FakeOptions = {}) {
   const fake = fakeApi(model, 'stats', options);
@@ -68,16 +68,21 @@ describe('the Thống kê tab', () => {
     expect(screen.queryByText('Theo agent')).toBeNull();
     const legend = screen.getByRole('list', { name: 'Chú thích' });
     expect(within(legend).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
-      'Claude Code · ' + tokensText(r.claude) + ' (68%)',
-      'Codex · ' + tokensText(r.codex) + ' (32%)',
-      'Antigravity: chưa có log token trên máy',
+      'Claude Code · ' + tokensText(r.claude) + ' (' + share(r.claude, r.total) + ')',
+      'Codex · ' + tokensText(r.codex) + ' (' + share(r.codex, r.total) + ')',
+      'Antigravity · ' + tokensText(r.agy) + ' (' + share(r.agy, r.total) + ')',
     ]);
     // The accounts by the window's names, estimated; the rule behind Chi tiết.
     expect(screen.getByText(/^Ước tính theo lịch sử chuyển/)).toBeTruthy();
     const accounts = screen.getByRole('table', { name: 'Theo tài khoản Claude' });
     expect(within(accounts).getAllByRole('row')).toHaveLength(3);
-    await press(screen.getByRole('button', { name: 'Chi tiết: Theo tài khoản Claude' }));
+    // Antigravity's accounts are in the same card, under its own name, by the window's names for them.
+    const agyAccounts = screen.getByRole('table', { name: 'Theo tài khoản Antigravity' });
+    expect(within(agyAccounts).getAllByRole('row')).toHaveLength(2);
+    expect(accounts.closest('[data-slot=card]')).toBe(agyAccounts.closest('[data-slot=card]'));
+    await press(screen.getByRole('button', { name: 'Chi tiết: Theo tài khoản' }));
     expect(screen.getByText(/Log được gom theo lát 15 phút/)).toBeTruthy();
+    expect(screen.getByText(/Hội thoại Antigravity không ghi tài khoản nào đã dùng/)).toBeTruthy();
     // Accounts and projects share a row; the models take the whole width under them.
     const projects = screen.getByRole('table', { name: 'Theo dự án' });
     expect(accounts.closest('[data-slot=card]')!.parentElement).toBe(projects.closest('[data-slot=card]')!.parentElement);
@@ -86,10 +91,14 @@ describe('the Thống kê tab', () => {
     expect(models.closest('[data-slot=card]')!.parentElement).not.toBe(accounts.closest('[data-slot=card]')!.parentElement);
     expect(within(models).getByText('claude-opus-5-5')).toBeTruthy();
     expect(within(models).getByText('Giá API tương đương')).toBeTruthy();
+    // Antigravity's models are codes with no API price: "theo hạn mức", not "chưa có giá".
+    expect(within(models).getByText('M528')).toBeTruthy();
+    expect(within(models).getAllByText('theo hạn mức')).toHaveLength(2);
+    expect(within(models).queryAllByText('chưa có giá')).toHaveLength(0);
     expect(screen.getByText(/¹ gồm ghi cache · giá API 19\/10\/2026/)).toBeTruthy();
   });
 
-  it('stacks each day by agent, Claude Code under Codex, with a number on the tallest only', async () => {
+  it('stacks each day by agent, Claude Code under Codex under Antigravity, with a number on the tallest only', async () => {
     await openTab();
     expect(bars()).toHaveLength(7);
     const r = statsReport('week');
@@ -101,12 +110,13 @@ describe('the Thống kê tab', () => {
       expect(parts.map((p) => p.getAttribute('class'))).toEqual([
         ...(r.points[i].claude > 0 ? ['fill-series-1'] : []),
         ...(r.points[i].codex > 0 ? ['fill-series-2'] : []),
+        ...(r.points[i].agy > 0 ? ['fill-series-3'] : []),
       ]);
       // Only the top part is rounded, and the parts never touch.
       expect(parts.map((p) => /Q/.test(p.getAttribute('d')!))).toEqual(parts.map((_, j) => j === parts.length - 1));
-      if (parts.length === 2) {
-        const top0 = Number(parts[0].getAttribute('d')!.match(/V([\d.]+)/)![1]);
-        const base1 = Number(parts[1].getAttribute('d')!.match(/^M[\d.]+,([\d.]+)/)![1]);
+      for (let j = 1; j < parts.length; j++) {
+        const top0 = Number(parts[j - 1].getAttribute('d')!.match(/V([\d.]+)/)![1]);
+        const base1 = Number(parts[j].getAttribute('d')!.match(/^M[\d.]+,([\d.]+)/)![1]);
         expect(top0 - base1).toBeGreaterThanOrEqual(2 - 1e-9);
       }
     });
@@ -116,7 +126,7 @@ describe('the Thống kê tab', () => {
       const xs = [...d.matchAll(/[MH]([\d.]+)/g)].map((m) => Number(m[1]));
       expect(Math.max(...xs) - Math.min(...xs)).toBeLessThanOrEqual(24.001);
     }
-    const max = Math.max(...r.points.map((p) => p.claude + p.codex));
+    const max = Math.max(...r.points.map((p) => p.claude + p.codex + p.agy));
     const u = unitOf(max);
     const labels = [...chart().querySelectorAll('text')].map((t) => t.textContent);
     const top = num(max / u.div, 1) + ' ' + u.short;
@@ -129,7 +139,7 @@ describe('the Thống kê tab', () => {
     expect(all.filter((b) => b.getAttribute('tabindex') === '0')).toHaveLength(1);
     expect(all[6].getAttribute('tabindex')).toBe('0');
     const r = statsReport('week');
-    expect(all[6].getAttribute('aria-label')).toBe('Ngày 16/01: ' + tokensText(r.points[6].claude + r.points[6].codex) + ', Claude Code ' + tokensText(r.points[6].claude) + ', Codex ' + tokensText(r.points[6].codex));
+    expect(all[6].getAttribute('aria-label')).toBe('Ngày 16/01: ' + tokensText(r.points[6].claude + r.points[6].codex + r.points[6].agy) + ', Claude Code ' + tokensText(r.points[6].claude) + ', Codex ' + tokensText(r.points[6].codex) + ', Antigravity ' + tokensText(r.points[6].agy));
     fireEvent.pointerEnter(all[1]);
     expect(screen.getByTestId('chart-tip').textContent).toContain('Ngày 11/01');
     fireEvent.pointerLeave(all[1]);
@@ -150,13 +160,13 @@ describe('the Thống kê tab', () => {
     await openTab();
     await press(screen.getByRole('button', { name: 'Xem bảng' }));
     const r = statsReport('week');
-    const u = unitOf(Math.max(...r.points.map((p) => p.claude + p.codex)));
+    const u = unitOf(Math.max(...r.points.map((p) => p.claude + p.codex + p.agy)));
     const table = screen.getByRole('table', { name: 'Token mỗi ngày' });
     const rows = within(table).getAllByRole('row').slice(1);
     expect(rows).toHaveLength(8);
     r.points.forEach((p, i) => {
       const cells = within(rows[i]).getAllByRole('cell').map((c) => c.textContent);
-      expect(cells).toEqual([p.label, num(p.claude / u.div), num(p.codex / u.div), num((p.claude + p.codex) / u.div)]);
+      expect(cells).toEqual([p.label, num(p.claude / u.div), num(p.codex / u.div), num(p.agy / u.div), num((p.claude + p.codex + p.agy) / u.div)]);
     });
     expect(within(rows[7]).getAllByRole('cell')[0].textContent).toBe('Tổng cộng');
     await press(screen.getByRole('button', { name: 'Xem biểu đồ' }));
@@ -182,7 +192,7 @@ describe('the Thống kê tab', () => {
     await openTab(fixtureModel('fresh', { stats: statsFixture({ readAt: null }) }), { statsStepMs: 40 });
     expect(await screen.findByText(/Claude Code · \d/)).toBeTruthy();
     expect(screen.getByText('Đọc lần đầu mất vài phút. Lần sau chỉ đọc phần mới.')).toBeTruthy();
-    expect(screen.getByText('Antigravity · chưa có log token trên máy')).toBeTruthy();
+    expect(await screen.findByText(/Antigravity · \d+\/86 hội thoại/, {}, { timeout: 4000 })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Làm mới' }).hasAttribute('disabled')).toBe(true);
     expect(await screen.findByText('Tổng · 7 ngày', {}, { timeout: 4000 })).toBeTruthy();
     expect(screen.getByText(/cập nhật lúc/)).toBeTruthy();
@@ -192,12 +202,15 @@ describe('the Thống kê tab', () => {
     await openTab(fixtureModel('fresh', { stats: firstReadFixture() }));
     expect(screen.getByText('Claude Code · 2.140 file log')).toBeTruthy();
     expect(screen.getByText('Codex · 640/960 file')).toBeTruthy();
+    // Antigravity waits its turn, named alone, in the first read's list.
+    expect(screen.getAllByText('Antigravity').some((el) => el.closest('[aria-label="Đọc log lần đầu"]'))).toBe(true);
     expect(screen.getByText(/đang cập nhật…/)).toBeTruthy();
   });
 
   it('says how many sessions it skipped, never guessing them, until "Đã biết"', async () => {
     const fake = await openTab(fixtureModel('fresh'), { statsSkipped: SKIPPED_CODEX });
     expect(screen.getByText('Bỏ qua 38 phiên Codex')).toBeTruthy();
+    expect(screen.queryByText(/phiên Antigravity/)).toBeNull();
     expect(screen.getByText('Log của Codex 0.170.0 có dạng app chưa đọc được. Số Codex từ 14/01 thiếu các phiên này.')).toBeTruthy();
     await press(screen.getByRole('button', { name: 'Đã biết' }));
     expect(fake.api.statsAck).toHaveBeenCalled();

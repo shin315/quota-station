@@ -269,6 +269,7 @@ SOFTWARE.
 ## Libraries
 
 The Rust crates and npm packages this app builds with, such as Tauri, serde,
-time, reqwest, url, uuid, md5, sha2, toml_edit, objc2, React, Vite, Tailwind
+time, reqwest, url, uuid, md5, sha2, toml_edit, rusqlite (with SQLite, public domain, which
+reads Antigravity's conversations for `Stats`), objc2, React, Vite, Tailwind
 CSS, Radix, class-variance-authority, clsx and tailwind-merge, keep their own licenses. Those licenses are listed in
 `Cargo.lock`, `package-lock.json` and each package's own files.

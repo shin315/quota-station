@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: MIT
 
 // The Thống kê tab of the main window (M16, J), as the approved prototype's
-// `st` screens: the tokens counted from this Mac's own session logs for
-// Hôm nay (by hour), 7 ngày or 30 ngày; the totals, a column per hour or
-// day, and the counts by agent, Claude account, model and project, with
-// "Giá API tương đương" only to compare with the subscriptions.
+// `st` screens: the tokens counted from this Mac's own session logs and
+// Antigravity's conversations for Hôm nay (by hour), 7 ngày or 30 ngày; the
+// totals, a column per hour or day, and the counts by agent, Claude and
+// Antigravity account, model and project, with "Giá API tương đương" only to
+// compare with the subscriptions (Antigravity's tokens have no API price).
 //
 // The chart stacks each column by agent (redraw of 25/10/2026): the total
 // and who made it in one mark, the agents in their fixed series colours with
@@ -32,7 +33,7 @@ import type { Agent, Model, StatsPeriod, StatsPoint, StatsReport } from '../lib/
 import {
   accountRows,
   AGENT_NAME,
-  agyNone,
+  agyAccountRows,
   bigTokens,
   chartTitle,
   day,
@@ -124,13 +125,14 @@ function barPath(x: number, w: number, top: number, base: number, round = true):
 const STACK_AGENTS = [
   { agent: 'claude', fill: 'fill-series-1', swatch: 'bg-series-1' },
   { agent: 'codex', fill: 'fill-series-2', swatch: 'bg-series-2' },
+  { agent: 'agy', fill: 'fill-series-3', swatch: 'bg-series-3' },
 ] as const;
 
 /** The space between two agents' parts of a column: the card shows through. */
 const SEG_GAP = 2;
 
 /** An agent's colour where it is named: a small square, the same as its part of the columns. */
-function Swatch({ agent }: { agent: 'claude' | 'codex' }) {
+function Swatch({ agent }: { agent: 'claude' | 'codex' | 'agy' }) {
   return <i className={cn('inline-block size-2.5 shrink-0 rounded-[3px]', STACK_AGENTS.find((a) => a.agent === agent)!.swatch)} aria-hidden="true" />;
 }
 
@@ -223,7 +225,7 @@ export function ColumnChart({ points, period }: { points: StatsPoint[]; period: 
                 rx={4}
                 role="img"
                 tabIndex={i === stop ? 0 : -1}
-                aria-label={pointWords(p, period) + ', Claude Code ' + tokensText(p.claude) + ', Codex ' + tokensText(p.codex)}
+                aria-label={pointWords(p, period) + ', Claude Code ' + tokensText(p.claude) + ', Codex ' + tokensText(p.codex) + ', Antigravity ' + tokensText(p.agy)}
                 onPointerEnter={() => setShown(i)}
                 onPointerLeave={() => setShown((s) => (s === i ? null : s))}
                 onFocus={() => {
@@ -246,7 +248,7 @@ export function ColumnChart({ points, period }: { points: StatsPoint[]; period: 
         >
           <div className="text-ink2">{(period === 'today' ? t('Giờ ', 'Hour ') : t('Ngày ', 'Day ')) + tip.label}</div>
           <b className="block text-body tabular-nums">{tokensText(pointTotal(tip))}</b>
-          {(['claude', 'codex'] as const).map((a) => (
+          {(['claude', 'codex', 'agy'] as const).map((a) => (
             <span key={a} className="flex items-center justify-between gap-3 text-ink2 tabular-nums">
               <span className="flex items-center gap-1.5">
                 <Swatch agent={a} />
@@ -282,21 +284,17 @@ function Stack({ point, x, w, y, base, lit }: { point: StatsPoint; x: number; w:
   );
 }
 
-/** Under the chart: each agent with its colour, its total and its share; Antigravity, which has no token log. */
+/** Under the chart: each agent with its colour, its total and its share. */
 function Legend({ report }: { report: StatsReport }) {
   return (
     <ul className="m-0 mt-1.5 flex list-none flex-wrap items-center gap-x-4 gap-y-1 p-0 text-xs text-ink2 tabular-nums" aria-label={t('Chú thích', 'Legend')}>
-      {(['claude', 'codex'] as const).map((a) => (
+      {(['claude', 'codex', 'agy'] as const).map((a) => (
         <li key={a} className="flex items-center gap-1.5">
           <Swatch agent={a} />
           <span className="text-ink">{AGENT_NAME[a]}</span>
           {' · ' + tokensText(report[a]) + ' (' + share(report[a], report.total) + ')'}
         </li>
       ))}
-      <li className="flex items-center gap-1.5">
-        <AgentMark agent="agy" />
-        {AGENT_NAME.agy + ': ' + agyNone()}
-      </li>
     </ul>
   );
 }
@@ -318,6 +316,7 @@ export function PointTable({ report }: { report: StatsReport }) {
               <th scope="col">{report.period === 'today' ? t('Giờ', 'Hour') : t('Ngày', 'Day')}</th>
               <th scope="col">Claude Code</th>
               <th scope="col">Codex</th>
+              <th scope="col">Antigravity</th>
               <th scope="col">{t('Tổng', 'Total')}</th>
             </tr>
           </thead>
@@ -327,6 +326,7 @@ export function PointTable({ report }: { report: StatsReport }) {
                 <td>{p.label}</td>
                 <td>{inUnit(p.claude, unit)}</td>
                 <td>{inUnit(p.codex, unit)}</td>
+                <td>{inUnit(p.agy, unit)}</td>
                 <td>{inUnit(pointTotal(p), unit)}</td>
               </tr>
             ))}
@@ -334,6 +334,7 @@ export function PointTable({ report }: { report: StatsReport }) {
               <td>{t('Tổng cộng', 'Total')}</td>
               <td>{inUnit(report.claude, unit)}</td>
               <td>{inUnit(report.codex, unit)}</td>
+              <td>{inUnit(report.agy, unit)}</td>
               <td>{inUnit(report.total, unit)}</td>
             </tr>
           </tbody>
@@ -397,6 +398,21 @@ export function BarTable({ caption, rows }: { caption: string; rows: BarRow[] })
   );
 }
 
+/** One agent's accounts as a table of bars, with its name above when both agents have some. */
+function AccountList({ agent, caption, rows, heading }: { agent: Agent; caption: string; rows: { name: string; tokens: number }[]; heading: boolean }) {
+  return (
+    <div>
+      {heading ? (
+        <div className="mb-0.5 flex items-center gap-1.5 text-xs text-ink2">
+          <AgentMark agent={agent} />
+          {AGENT_NAME[agent]}
+        </div>
+      ) : null}
+      <BarTable caption={caption} rows={rows.map((a) => ({ key: a.name, name: a.name, tokens: a.tokens }))} />
+    </div>
+  );
+}
+
 function ModelTable({ report }: { report: StatsReport }) {
   const unit = unitOf(Math.max(0, ...report.models.map((m) => Math.max(m.input, m.output, m.cacheRead))));
   return (
@@ -425,7 +441,17 @@ function ModelTable({ report }: { report: StatsReport }) {
               <td>{inUnit(m.input, unit)}</td>
               <td>{inUnit(m.output, unit)}</td>
               <td>{inUnit(m.cacheRead, unit)}</td>
-              <td>{m.usd == null ? <span className="text-ink2">{t('chưa có giá', 'no price yet')}</span> : usd(m.usd)}</td>
+              <td>
+                {m.agent === 'agy' ? (
+                  <span className="text-ink2" title={t('Antigravity tính theo hạn mức, không theo token', 'Antigravity is limited by quota, not paid by the token')}>
+                    {t('theo hạn mức', 'by quota')}
+                  </span>
+                ) : m.usd == null ? (
+                  <span className="text-ink2">{t('chưa có giá', 'no price yet')}</span>
+                ) : (
+                  usd(m.usd)
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -442,6 +468,14 @@ function ModelTable({ report }: { report: StatsReport }) {
             )}
           </p>
           <p>{priceWords(report)}</p>
+          {report.models.some((m) => m.agent === 'agy') ? (
+            <p>
+              {t(
+                'Antigravity chỉ ghi mã model trong hội thoại (M528), không ghi tên model, nên bảng gọi model theo mã đó. Antigravity tính theo hạn mức chứ không theo token, nên không có giá API tương đương.',
+                'Antigravity records only a model code in its conversations (M528), not a name, so the table names a model by that code. Antigravity is limited by quota rather than paid by the token, so it has no equivalent API price.',
+              )}
+            </p>
+          ) : null}
         </More>
       </div>
     </>
@@ -517,15 +551,15 @@ export function StatsTab({ model, fresh, stats }: StatsTabProps) {
         <p>
           {mac(
             t(
-              'App chỉ lấy số token, model, thời gian và thư mục dự án từ log phiên của Claude Code và Codex trên máy này. Nội dung hội thoại không được lưu, ghi lại hay hiện ra, và không có gì được gửi đi.',
-              'The app takes only the token counts, the model, the time and the project folder from Claude Code’s and Codex’s session logs on this Mac. No conversation is kept, logged or shown, and nothing is sent anywhere.',
+              'App chỉ lấy số token, model, thời gian và thư mục dự án từ log phiên của Claude Code và Codex, và từ hội thoại của Antigravity (lệnh agy) trên máy này. Nội dung hội thoại không được lưu, ghi lại hay hiện ra, và không có gì được gửi đi.',
+              'The app takes only the token counts, the model, the time and the project folder from Claude Code’s and Codex’s session logs, and from Antigravity’s (agy) conversations on this Mac. No conversation is kept, logged or shown, and nothing is sent anywhere.',
             ),
           )}
         </p>
         <p>
           {t(
-            'Lần đọc sau chỉ đọc phần log mới. Dòng log ở dạng app chưa biết thì bỏ qua và báo, không đoán. Antigravity chưa có log token mà app đọc được, nên không có số, không phải 0.',
-            'Later reads take only what is new. A log line in a format the app does not know is skipped and reported, never guessed. Antigravity keeps no token log the app can read, so it has no number, not 0.',
+            'Lần đọc sau chỉ đọc phần log mới. Dòng log ở dạng app chưa biết thì bỏ qua và báo, không đoán. Antigravity chỉ có số token của agy (dòng lệnh) trên máy này, chưa có của ứng dụng Antigravity, và không có giá API tương đương vì tính theo hạn mức.',
+            'Later reads take only what is new. A log line in a format the app does not know is skipped and reported, never guessed. Antigravity has the tokens of agy (the command line) on this Mac only, not of the Antigravity app, and no equivalent API price because it is limited by quota.',
           )}
         </p>
         <p>{t('Số đã làm tròn nên cộng lại có thể lệch 0,1.', 'Numbers are rounded, so their sum may be off by 0.1.')}</p>
@@ -588,6 +622,7 @@ export function StatsTab({ model, fresh, stats }: StatsTabProps) {
   }
 
   const accounts = accountRows(model, report);
+  const agyAccounts = agyAccountRows(model, report);
   const projects = projectRows(report);
   const big = bigTokens(report.total);
   return (
@@ -622,8 +657,8 @@ export function StatsTab({ model, fresh, stats }: StatsTabProps) {
             <b>{t('Chưa có token nào ' + per.within, 'No tokens ' + per.within)}</b>
             {mac(
               t(
-                'Log phiên của Claude Code và Codex trên máy này chưa có số trong khoảng này.',
-                'The Claude Code and Codex session logs on this Mac have no numbers for this range.',
+                'Log phiên của Claude Code, Codex và hội thoại Antigravity trên máy này chưa có số trong khoảng này.',
+                'The Claude Code and Codex session logs and the Antigravity conversations on this Mac have no numbers for this range.',
               ),
             )}
           </Empty>
@@ -639,16 +674,23 @@ export function StatsTab({ model, fresh, stats }: StatsTabProps) {
       {/* The two rankings side by side, the same size, ending on one line. */}
       <div className={GRID2_EVEN}>
         <Panel className="flex flex-col">
-          <CardTitle>{t('Theo tài khoản Claude', 'By Claude account')}</CardTitle>
-          {accounts.length ? (
-            <BarTable caption={t('Theo tài khoản Claude', 'By Claude account')} rows={accounts.map((a) => ({ key: a.name, name: a.name, tokens: a.tokens }))} />
+          <CardTitle>{t('Theo tài khoản', 'By account')}</CardTitle>
+          {accounts.length || agyAccounts.length ? (
+            <div className="grid gap-2.5">
+              {accounts.length ? (
+                <AccountList agent="claude" caption={t('Theo tài khoản Claude', 'By Claude account')} rows={accounts} heading={agyAccounts.length > 0} />
+              ) : null}
+              {agyAccounts.length ? (
+                <AccountList agent="agy" caption={t('Theo tài khoản Antigravity', 'By Antigravity account')} rows={agyAccounts} heading={accounts.length > 0} />
+              ) : null}
+            </div>
           ) : (
-            <p className="m-0 text-sm text-ink2">{t('Chưa có token Claude Code ' + per.within + '.', 'No Claude Code tokens ' + per.within + '.')}</p>
+            <p className="m-0 text-sm text-ink2">{t('Chưa có token Claude Code hay Antigravity ' + per.within + '.', 'No Claude Code or Antigravity tokens ' + per.within + '.')}</p>
           )}
           <div className="mt-auto pt-1.5 text-xs text-ink2">
             {t('Ước tính theo lịch sử chuyển', 'Estimated from the switch history')}
             {' · '}
-            <More small about={t('Theo tài khoản Claude', 'By Claude account')}>
+            <More small about={t('Theo tài khoản', 'By account')}>
               <p>
                 {t(
                   'Log được gom theo lát 15 phút. Token của mỗi lát tính cho tài khoản đang dùng ở giữa lát theo lịch sử chuyển; thiếu mốc thì vào “Chưa rõ tài khoản”.',
@@ -657,8 +699,8 @@ export function StatsTab({ model, fresh, stats }: StatsTabProps) {
               </p>
               <p>
                 {t(
-                  'Nhiều phiên chạy cùng lúc trên các tài khoản khác nhau, hoặc đăng nhập đổi ngoài app, có thể bị tính nhầm tài khoản.',
-                  'Sessions running at once on different accounts, or a sign-in changed outside the app, may be counted to the wrong account.',
+                  'Nhiều phiên chạy cùng lúc trên các tài khoản khác nhau, hoặc đăng nhập đổi ngoài app, có thể bị tính nhầm tài khoản. Hội thoại Antigravity không ghi tài khoản nào đã dùng, nên số theo tài khoản Antigravity chỉ đúng khi app ghi được lịch sử chuyển tài khoản.',
+                  'Sessions running at once on different accounts, or a sign-in changed outside the app, may be counted to the wrong account. Antigravity’s conversations do not say which account was used, so its per-account numbers hold only where the app has the account switch history.',
                 )}
               </p>
             </More>

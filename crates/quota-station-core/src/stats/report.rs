@@ -48,6 +48,7 @@ pub struct Point {
     pub label: String,
     pub claude: u64,
     pub codex: u64,
+    pub agy: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -90,14 +91,17 @@ pub struct Report {
     pub points: Vec<Point>,
     pub claude: u64,
     pub codex: u64,
+    pub agy: u64,
     pub total: u64,
-    /// At the API prices, for the models the table has.
+    /// At the API prices, for the models the table has (never Antigravity's).
     pub usd: f64,
     /// Models with tokens and no price: left out of `usd`.
     pub unpriced: Vec<String>,
     pub models: Vec<ModelRow>,
     pub projects: Vec<ProjectRow>,
     pub accounts: Vec<AccountRow>,
+    /// The same for Antigravity, by the number the app gives its accounts.
+    pub agy_accounts: Vec<AccountRow>,
     pub prices_as_of: &'static str,
     pub prices_source: &'static str,
     pub skipped: Vec<Skipped>,
@@ -108,7 +112,7 @@ pub struct Report {
 /// Which Claude account was in use when, from the switch history.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Timeline {
-    /// `(Unix seconds, slot)`, oldest first.
+    /// `(Unix seconds, slot or account number)`, oldest first.
     pub switches: Vec<(i64, u32)>,
     /// The account before the first switch, when the history says.
     pub before: Option<u32>,
@@ -119,13 +123,21 @@ pub struct Timeline {
 impl Timeline {
     /// From the History tab's lines: the owner's switches here, the
     /// changes the readings showed and an extension's lines that are
-    /// switches.
+    /// switches, of Claude's accounts.
     pub fn from_history(entries: &[Entry], now: Option<u32>) -> Self {
+        Self::of(entries, App::Claude, now)
+    }
+
+    /// The same for `app`'s accounts: Antigravity's, which the app numbers
+    /// by their place in its list.
+    pub fn of(entries: &[Entry], app: App, now: Option<u32>) -> Self {
         let mut switches: Vec<(i64, Option<u32>, u32)> = entries
             .iter()
-            .filter(|e| e.app == App::Claude)
+            .filter(|e| e.app == app)
             .filter(|e| match &e.cause {
                 Cause::Manual { result, .. } => result == "switched" || result == "unconfirmed",
+                #[cfg(feature = "antigravity-accounts")]
+                Cause::AgySwitch { result, .. } => result == "switched" || result == "unconfirmed",
                 Cause::Observed => true,
                 Cause::Ext(cause) => cause.switch(),
                 _ => false,
@@ -149,6 +161,14 @@ impl Timeline {
     }
 }
 
+/// Which account was in use when, for each agent whose accounts the tab
+/// splits.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Accounts {
+    pub claude: Timeline,
+    pub agy: Timeline,
+}
+
 /// Midnight of `date` on this Mac's clock.
 fn midnight(date: Date, offset: &dyn Fn(OffsetDateTime) -> UtcOffset) -> OffsetDateTime {
     let naive = date.with_time(Time::MIDNIGHT);
@@ -156,8 +176,9 @@ fn midnight(date: Date, offset: &dyn Fn(OffsetDateTime) -> UtcOffset) -> OffsetD
     naive.assume_offset(offset(naive.assume_offset(first)))
 }
 
-/// The report for `period` ending `now`; `offset` is this Mac's offset at
-/// an instant ([`crate::local_time::offset_at`]).
+/// The report for `period` ending `now`, with Claude's accounts only (the
+/// Antigravity ones are not placed); `offset` is this Mac's offset at an
+/// instant ([`crate::local_time::offset_at`]).
 pub fn report(
     index: &Index,
     period: Period,
@@ -166,15 +187,28 @@ pub fn report(
     accounts: &Timeline,
     home: &Path,
 ) -> Report {
+    let accounts = Accounts { claude: accounts.clone(), agy: Timeline::default() };
+    report_of(index, period, now, offset, &accounts, home)
+}
+
+/// [`report`] with each agent's accounts.
+pub fn report_of(
+    index: &Index,
+    period: Period,
+    now: OffsetDateTime,
+    offset: &dyn Fn(OffsetDateTime) -> UtcOffset,
+    accounts: &Accounts,
+    home: &Path,
+) -> Report {
     let today = now.to_offset(offset(now)).date();
     let first_day = today - Duration::days(period.days() - 1);
     let from = midnight(first_day, offset).unix_timestamp();
     let to = midnight(today + Duration::days(1), offset).unix_timestamp();
 
     let mut points: Vec<Point> = match period {
-        Period::Today => {
-            (0..24).map(|h| Point { label: format!("{h:02}:00"), claude: 0, codex: 0 }).collect()
-        }
+        Period::Today => (0..24)
+            .map(|h| Point { label: format!("{h:02}:00"), claude: 0, codex: 0, agy: 0 })
+            .collect(),
         _ => (0..period.days())
             .map(|i| {
                 let d = first_day + Duration::days(i);
@@ -182,6 +216,7 @@ pub fn report(
                     label: format!("{:02}/{:02}", d.day(), u8::from(d.month())),
                     claude: 0,
                     codex: 0,
+                    agy: 0,
                 }
             })
             .collect(),
@@ -189,6 +224,7 @@ pub fn report(
     let mut models: BTreeMap<(Agent, String), Tokens> = BTreeMap::new();
     let mut projects: BTreeMap<String, u64> = BTreeMap::new();
     let mut slots: BTreeMap<Option<u32>, u64> = BTreeMap::new();
+    let mut agy_slots: BTreeMap<Option<u32>, u64> = BTreeMap::new();
 
     for b in index::between(index, from, to) {
         let Ok(start) = OffsetDateTime::from_unix_timestamp(b.at) else { continue };
@@ -201,27 +237,39 @@ pub fn report(
         if let Some(p) = points.get_mut(column) {
             match b.agent {
                 Agent::Codex => p.codex += n,
-                _ => p.claude += n,
+                Agent::Agy => p.agy += n,
+                Agent::Claude => p.claude += n,
             }
         }
         models.entry((b.agent, b.model.clone())).or_default().add(&b.tokens);
         *projects.entry(b.project.clone()).or_default() += n;
-        if b.agent == Agent::Claude {
-            *slots.entry(accounts.slot_at(b.at + BUCKET / 2)).or_default() += n;
+        match b.agent {
+            Agent::Claude => {
+                *slots.entry(accounts.claude.slot_at(b.at + BUCKET / 2)).or_default() += n
+            }
+            Agent::Agy => {
+                *agy_slots.entry(accounts.agy.slot_at(b.at + BUCKET / 2)).or_default() += n
+            }
+            Agent::Codex => {}
         }
     }
 
     let claude = points.iter().map(|p| p.claude).sum();
     let codex = points.iter().map(|p| p.codex).sum();
+    let agy = points.iter().map(|p| p.agy).sum();
     let mut usd = 0.0;
     let mut unpriced = Vec::new();
     let mut model_rows: Vec<ModelRow> = models
         .into_iter()
         .map(|((agent, model), t)| {
-            let cost = prices::price(&model).map(|p| prices::cost(&p, &t));
+            // Antigravity is paid by its quota, not by the token: its models
+            // have no API price to compare with.
+            let cost = (agent != Agent::Agy)
+                .then(|| prices::price(&model).map(|p| prices::cost(&p, &t)))
+                .flatten();
             match cost {
                 Some(c) => usd += c,
-                None if !t.is_empty() => unpriced.push(model.clone()),
+                None if !t.is_empty() && agent != Agent::Agy => unpriced.push(model.clone()),
                 None => {}
             }
             ModelRow {
@@ -238,21 +286,26 @@ pub fn report(
     model_rows.sort_by(|a, b| b.total.cmp(&a.total).then_with(|| a.model.cmp(&b.model)));
     let mut project_rows = project::rows(projects, home);
     project_rows.sort_by(|a, b| b.tokens.cmp(&a.tokens).then_with(|| a.path.cmp(&b.path)));
-    let mut account_rows: Vec<AccountRow> =
-        slots.into_iter().map(|(slot, tokens)| AccountRow { slot, tokens }).collect();
-    account_rows.sort_by(|a, b| b.tokens.cmp(&a.tokens).then_with(|| a.slot.cmp(&b.slot)));
+    let rows = |slots: BTreeMap<Option<u32>, u64>| {
+        let mut rows: Vec<AccountRow> =
+            slots.into_iter().map(|(slot, tokens)| AccountRow { slot, tokens }).collect();
+        rows.sort_by(|a, b| b.tokens.cmp(&a.tokens).then_with(|| a.slot.cmp(&b.slot)));
+        rows
+    };
 
     Report {
         period,
         points,
         claude,
         codex,
-        total: claude + codex,
+        agy,
+        total: claude + codex + agy,
         usd,
         unpriced,
         models: model_rows,
         projects: project_rows,
-        accounts: account_rows,
+        accounts: rows(slots),
+        agy_accounts: rows(agy_slots),
         prices_as_of: prices::AS_OF,
         prices_source: prices::SOURCE,
         skipped: index.skipped(),

@@ -4,11 +4,12 @@
 // What the Thống kê tab shows (M16, J), from the report the Rust side
 // counts: numbers in Vietnamese (a comma before the decimals) and in one
 // unit per chart or table, the notices of skipped logs, the first read's
-// progress lines, and the Claude accounts by the window's names. Pure,
+// progress lines, and the Claude and Antigravity accounts by the window's names. Pure,
 // like `view.ts`. Copy follows the prototype's `tabStats`.
 
 import { clock, pad } from './format';
-import { lang, mac, t } from './i18n';
+import { historyNames } from './history';
+import { lang, t } from './i18n';
 import type { Agent, Model, StatsPeriod, StatsPoint, StatsReport, StatsView } from './model';
 import { namesOf } from './switching';
 
@@ -22,11 +23,6 @@ export function periods(): { v: StatsPeriod; t: string; per: string; within: str
 }
 
 export const AGENT_NAME: Record<Agent, string> = { claude: 'Claude Code', codex: 'Codex', agy: 'Antigravity' };
-
-/** Antigravity keeps no token log on the Mac that the app can read. */
-export function agyNone(): string {
-  return mac(t('chưa có log token trên máy', 'no token log on this Mac'));
-}
 
 /** The unit numbers are shown in: `long` after a big number, `short` on an axis. */
 export interface Unit {
@@ -152,15 +148,21 @@ export function skippedNotices(report: StatsReport | null): SkippedNotice[] {
 
 /** The first read's lines: `[tone, words]`; ✓ done, running, or waiting. */
 export function progressLines(stats: StatsView): { lines: [string, string][]; percent: number } {
-  const lines: [string, string][] = (['claude', 'codex'] as const).map((agent) => {
+  const lines: [string, string][] = (['claude', 'codex', 'agy'] as const).map((agent) => {
     const p = stats.progress.find((x) => x.agent === agent);
     const name = AGENT_NAME[agent];
     if (!p) return ['wait', name];
+    // Antigravity keeps conversations, the others session logs.
+    const conversations = agent === 'agy';
+    if (conversations && p.total === 0) return ['', name + ' · ' + t('chưa có hội thoại', 'no conversations')];
     if (p.done >= p.total && stats.progress[stats.progress.length - 1]?.agent !== agent)
-      return ['', name + ' · ' + num(p.total, 0) + t(' file log', p.total === 1 ? ' log file' : ' log files')];
-    return ['run', name + ' · ' + num(p.done, 0) + '/' + num(p.total, 0) + t(' file', p.total === 1 ? ' file' : ' files')];
+      return conversations
+        ? ['', name + ' · ' + num(p.total, 0) + t(' hội thoại', p.total === 1 ? ' conversation' : ' conversations')]
+        : ['', name + ' · ' + num(p.total, 0) + t(' file log', p.total === 1 ? ' log file' : ' log files')];
+    return conversations
+      ? ['run', name + ' · ' + num(p.done, 0) + '/' + num(p.total, 0) + t(' hội thoại', p.total === 1 ? ' conversation' : ' conversations')]
+      : ['run', name + ' · ' + num(p.done, 0) + '/' + num(p.total, 0) + t(' file', p.total === 1 ? ' file' : ' files')];
   });
-  lines.push(['wait', AGENT_NAME.agy + ' · ' + agyNone()]);
   const done = stats.progress.reduce((a, p) => a + p.done, 0);
   const total = stats.progress.reduce((a, p) => a + p.total, 0);
   return { lines, percent: total ? Math.round((done / total) * 100) : 0 };
@@ -168,7 +170,7 @@ export function progressLines(stats: StatsView): { lines: [string, string][]; pe
 
 /** A column's total. */
 export function pointTotal(p: StatsPoint): number {
-  return p.claude + p.codex;
+  return p.claude + p.codex + p.agy;
 }
 
 /** What a column says, for its label and the hover card. */
@@ -190,6 +192,12 @@ export function labelEvery(count: number): number {
 export function accountRows(model: Model, report: StatsReport): { name: string; tokens: number }[] {
   const nameOf = namesOf(model);
   return report.accounts.map((a) => ({ name: a.slot == null ? t('Chưa rõ tài khoản', 'Unknown account') : nameOf(a.slot), tokens: a.tokens }));
+}
+
+/** Antigravity's accounts by the window's names (`Ultra 2`, or the email's name); one the history cannot place is "Chưa rõ". */
+export function agyAccountRows(model: Model, report: StatsReport): { name: string; tokens: number }[] {
+  const nameOf = historyNames(model).agy;
+  return report.agyAccounts.map((a) => ({ name: a.slot == null ? t('Chưa rõ tài khoản', 'Unknown account') : nameOf(a.slot), tokens: a.tokens }));
 }
 
 /** The projects shown: the biggest seven, the rest in one row. */

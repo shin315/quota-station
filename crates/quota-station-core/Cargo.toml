@@ -52,6 +52,7 @@ time.workspace = true
 toml_edit = "0.25"
 url = "2.5"
 uuid = { version = "1.10", features = ["v4"] }
+rusqlite = { version = "0.37", default-features = false, features = ["bundled"] }
 
 [target.'cfg(windows)'.dependencies]
 # A link to a folder without Developer Mode (`os::link_dir`).

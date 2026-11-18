@@ -1264,11 +1264,11 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
       const step = options.statsStepMs;
       const done = () => push({ ...model, stats: { ...model.stats, reading: false, first: false, progress: [], generation: model.stats.generation + 1, readAt: now().toISOString() } });
       if (!step) return done();
-      // A first read: Claude Code's logs, then Codex's, a tenth at a time.
+      // A first read: Claude Code's logs, then Codex's, then Antigravity's, a tenth at a time.
       const first = !model.stats.readAt;
       push({ ...model, stats: { ...model.stats, reading: true, first, progress: [] } });
-      const totals = { claude: 2140, codex: 960 } as const;
-      for (const agent of ['claude', 'codex'] as const) {
+      const totals = { claude: 2140, codex: 960, agy: 86 } as const;
+      for (const agent of ['claude', 'codex', 'agy'] as const) {
         for (let i = 0; i <= 10; i++) {
           await new Promise((r) => setTimeout(r, step));
           const progress = model.stats.progress.filter((p) => p.agent !== agent);

@@ -40,7 +40,7 @@ Giao diện có tiếng Việt và tiếng Anh, hỗ trợ macOS 13+ và Windows
 - **Bộ cấu hình và Sao lưu**: Lưu nhóm MCP server và skill thành các `Bộ cấu hình` để áp dụng
   hoặc hoàn tác cho toàn máy trong một bước. Sao lưu cấu hình lên iCloud Drive (hoặc thư mục tự
   chọn) rồi khôi phục từng mục trên bất kỳ máy Mac nào — gói sao lưu không bao giờ chứa khoá API.
-- **Thống kê, Cập nhật Agent, Lịch sử và Thông báo**: Xem số token Claude Code và Codex đã dùng
+- **Thống kê, Cập nhật Agent, Lịch sử và Thông báo**: Xem số token Claude Code, Codex và Antigravity đã dùng
   cùng chi phí API tương đương (`Thống kê`), kiểm tra và cập nhật CLI của các agent (`Cập
   nhật`), xem `Lịch sử` chuyển tài khoản, và nhận thông báo khi hạn mức sắp cạn, tài khoản cần
   đăng nhập lại hoặc có biến môi trường (như `ANTHROPIC_API_KEY`) đè đăng nhập.
