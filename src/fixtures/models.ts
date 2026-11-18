@@ -179,6 +179,7 @@ export function agyAccount(n: number, over: Partial<AgyLogin> = {}): AgyLogin {
     verify: false,
     reading: false,
     readError: null,
+    rotationPaused: false,
     ...over,
   };
 }

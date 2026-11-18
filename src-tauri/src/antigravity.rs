@@ -4,7 +4,8 @@
 //! The Antigravity accounts this app logs in (M4a) and reads (M4b): what the
 //! windows show of them, and the commands to add one through Google's
 //! consent screen, take a pasted callback, cancel, log out, open Google's
-//! verification page, and read every account when the tab opens. Tokens
+//! verification page, hold an account out of the rotation or put it back,
+//! and read every account when the tab opens. Tokens
 //! stay in the app's own Keychain items; the windows only ever get each
 //! account's id (from the MD5 of its email), its number, its status, how
 //! the app's read of it stands and, when the owner turns them on, the
@@ -61,6 +62,8 @@ pub struct AccountView {
     pub reading: bool,
     /// The app's last read of it failed; the last numbers stay.
     pub read_error: Option<ReadErrorView>,
+    /// Held out of the rotation by the owner ("Tạm dừng tự chuyển").
+    pub rotation_paused: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -115,6 +118,7 @@ pub fn view(inner: &Inner) -> AccountsView {
                     }),
                     _ => None,
                 },
+                rotation_paused: a.rotation_paused,
             }
         })
         .collect();
@@ -167,6 +171,9 @@ fn failure(kind: &'static str) -> Failure {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LoginDone {
+    /// The account the login kept: the one Google's page was signed in to,
+    /// which may not be the one the owner meant to log in again.
+    pub id: String,
     pub number: usize,
     /// Not listed before: a new account rather than a new login of one.
     pub added: bool,
@@ -213,7 +220,7 @@ pub async fn agy_login(app: AppHandle, state: State<'_, AppState>) -> Result<Log
             // Its quota is read right after a login.
             shared.lock().agy_pace.ask(&kept.id);
             shared.wake_agy();
-            Ok(LoginDone { number: kept.number, added: kept.added })
+            Ok(LoginDone { id: kept.id, number: kept.number, added: kept.added })
         }
         Ok(Err(e)) => Err(Failure::from(&e)),
         Err(e) => Err(Failure { kind: "spawn", detail: e.to_string() }),
@@ -299,6 +306,36 @@ pub async fn agy_logout(
         LogoutError::Index(_) => "index".to_string(),
     })?;
     let model = shared.lock().model();
+    Ok(model)
+}
+
+/// "Tạm dừng tự chuyển" (`paused`) or "Đưa lại vào tự chuyển" on an
+/// account: the rotation ([`quota_station_core::antigravity::rotate`])
+/// never switches to an account held out, the LaunchAgent's run included,
+/// whether or not the app is open. Rejects with `notFound`, `index`, and
+/// like a logout with `busy`, `loggingOut` or `loggingIn`, which rewrite
+/// the account list too.
+#[tauri::command]
+pub fn agy_set_rotation_paused(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+    paused: bool,
+) -> Result<Model, String> {
+    let dir = {
+        let inner = state.lock();
+        if let Some(why) = inner.agy_logout_refusal() {
+            return Err(why.into());
+        }
+        inner.app_dir()
+    };
+    match index::set_rotation_paused(&dir, &id, paused) {
+        Ok(true) => {}
+        Ok(false) => return Err("notFound".into()),
+        Err(_) => return Err("index".into()),
+    }
+    reader::publish(&app, &state);
+    let model = state.lock().model();
     Ok(model)
 }
 

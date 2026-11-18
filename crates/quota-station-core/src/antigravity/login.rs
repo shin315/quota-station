@@ -194,6 +194,7 @@ fn upsert_account(
             name,
             created_at: now,
             last_used: now,
+            rotation_paused: false,
         }),
     }
     if index.current_account_id.is_none() {

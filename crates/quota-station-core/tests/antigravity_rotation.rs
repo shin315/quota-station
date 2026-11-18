@@ -48,6 +48,7 @@ fn accounts(tag: &str, used: [f64; 3]) -> AppDir {
             name: Some(format!("Name {}", i + 1)),
             created_at: 0,
             last_used: 0,
+            rotation_paused: false,
         });
         remember(&app, email, used[i], RESET, now_ms());
     }
@@ -404,6 +405,75 @@ fn rotate_runs_the_rotation_once() {
     assert_eq!(code, 0);
     assert!(out.contains("switched to account 3"), "{out}");
     assert_eq!(rotate::read_log(&cli.app).len(), 1);
+}
+
+// Accounts held out of the rotation ("Tạm dừng tự chuyển").
+
+#[test]
+fn an_index_without_the_pause_key_reads_every_account_in_the_rotation() {
+    let app = AppDir::new(temp_dir("agy-pause-old").join("app"));
+    let old = r#"{"version":"2.0","accounts":[{"id":"antigravity_a","email":"a@example.com",
+        "name":null,"created_at":1,"last_used":2}],"current_account_id":"antigravity_a"}"#;
+    app.write_private(&index::index_path(&app), old).unwrap();
+    assert!(!index::load(&app).unwrap().accounts[0].rotation_paused);
+
+    // Held out, the key is written and read back; put back, it goes again.
+    assert_eq!(index::set_rotation_paused(&app, "antigravity_a", true), Ok(true));
+    let text = std::fs::read_to_string(index::index_path(&app)).unwrap();
+    assert!(text.contains(r#""rotation_paused": true"#), "{text}");
+    let read = index::load(&app).unwrap();
+    assert!(read.accounts[0].rotation_paused);
+    assert_eq!(read.current_account_id.as_deref(), Some("antigravity_a"), "the rest stays");
+    assert_eq!(index::set_rotation_paused(&app, "antigravity_a", false), Ok(true));
+    let text = std::fs::read_to_string(index::index_path(&app)).unwrap();
+    assert!(!text.contains("rotation_paused"), "{text}");
+    assert_eq!(index::set_rotation_paused(&app, "antigravity_none", true), Ok(false));
+}
+
+#[test]
+fn the_rotation_never_switches_to_a_paused_account_until_it_is_put_back() {
+    // Account 3 has the most Gemini, but is held out.
+    let app = accounts("agy-rot-paused", [97.0, 40.0, 10.0]);
+    index::set_rotation_paused(&app, &id(3), true).unwrap();
+    let world = FakeWorld::on(1);
+    let dry = rotate::run(&app, &world, now(), true);
+    assert_eq!(dry.decision, Decision::Switch { from: 1, to: 2, from_left: 3.0, to_left: 60.0 });
+    assert_eq!(dry.paused, vec![3]);
+    assert!(dry.print().contains("skipped, auto-switch paused: account 3"), "{}", dry.print());
+
+    let run = rotate::run(&app, &world, now(), false);
+    assert!(matches!(run.outcome, Some(Outcome::Switched { number: 2, .. })));
+    assert_eq!(*world.asked.borrow(), vec![(id(2), Some(id(1)), None)]);
+    assert_eq!(rotate::last_run(&app).unwrap()["paused"], serde_json::json!([3]));
+
+    // Put back, it is the one taken again.
+    index::set_rotation_paused(&app, &id(3), false).unwrap();
+    let back = rotate::run(&app, &world, now(), true);
+    assert!(matches!(back.decision, Decision::Switch { to: 3, .. }), "{:?}", back.decision);
+    assert!(back.paused.is_empty());
+    assert!(!back.print().contains("paused"), "{}", back.print());
+}
+
+#[test]
+fn status_rotate_and_rotation_status_name_the_paused_accounts() {
+    let (cli, _) = cli("agy-cli-paused", [96.0, 40.0, 10.0], 1);
+    index::set_rotation_paused(&cli.app, &id(3), true).unwrap();
+    let (_, out, _) = call(&cli, &["status", "--json"]);
+    let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(v["accounts"][2]["rotationPaused"], true);
+    assert_eq!(v["accounts"][0]["rotationPaused"], false);
+    assert_eq!(v["rotation"]["paused"], serde_json::json!([3]));
+    let (_, text, _) = call(&cli, &["status"]);
+    let line = text.lines().find(|l| l.starts_with("   3  Gemini")).unwrap_or_default();
+    assert!(line.contains("[auto-switch paused]"), "{text}");
+    assert!(text.lines().filter(|l| l.contains("paused")).count() == 1, "{text}");
+
+    let (_, out, _) = call(&cli, &["rotation", "status"]);
+    assert!(out.contains("auto-switch paused for account 3: never switched to"), "{out}");
+    let (code, out, _) = call(&cli, &["rotate", "--dry-run"]);
+    assert_eq!(code, 0);
+    assert!(out.contains("would switch to account 2"), "{out}");
+    assert!(out.contains("skipped, auto-switch paused: account 3"), "{out}");
 }
 
 #[test]

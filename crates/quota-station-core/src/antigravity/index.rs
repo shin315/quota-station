@@ -4,15 +4,18 @@
 
 // `AccountIndex`, `AccountSummary` and `account_id` are ported from Cockpit
 // Tools `src-tauri/src/models/account.rs` and `modules/account.rs` (1.3.70,
-// commit 244b957); modified for this app (NOTICE). The status file is the app's
-// own.
+// commit 244b957); modified for this app (NOTICE). The status file and the
+// `rotation_paused` key are the app's own.
 
 //! The non-secret files in the app's `antigravity/` folder, read and written
 //! through the app's folder guard:
 //!
 //! - `accounts.json`, the account index (version `2.0`: id, email, name,
 //!   created and last-used times, current account), which the Antigravity
-//!   row lists; an unreadable index is reported, never rebuilt;
+//!   row lists; an unreadable index is reported, never rebuilt. An account
+//!   the owner holds out of the rotation ("Tạm dừng tự chuyển") carries
+//!   `"rotation_paused": true`; the key is written only then, and a file
+//!   without it reads every account as in the rotation;
 //! - `status.json`, the accounts that need the owner: a new login after
 //!   Google refused the refresh token, a verification Google asks for, or
 //!   an account the quota API refuses.
@@ -43,6 +46,11 @@ pub struct AccountSummary {
     pub name: Option<String>,
     pub created_at: i64,
     pub last_used: i64,
+    /// Held out of the rotation by the owner: [`super::rotate`] never
+    /// switches to it, until it is put back. It can still be switched to by
+    /// hand, and a new login of it keeps the hold.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub rotation_paused: bool,
 }
 
 impl AccountIndex {
@@ -127,6 +135,21 @@ pub fn save(app: &AppDir, index: &AccountIndex) -> Result<(), IndexError> {
         .map_err(|e| IndexError::Write(INDEX_FILE, e.to_string()))?;
     app.write_private(&index_path(app), &text)
         .map_err(|e| IndexError::Write(INDEX_FILE, e.to_string()))
+}
+
+/// Holds the account `id` out of the rotation (`true`) or puts it back.
+/// `Ok(false)` when no account has that id; the file is then left alone, as
+/// it is when the account already is that way.
+pub fn set_rotation_paused(app: &AppDir, id: &str, paused: bool) -> Result<bool, IndexError> {
+    let mut index = load(app)?;
+    let Some(summary) = index.accounts.iter_mut().find(|s| s.id == id) else {
+        return Ok(false);
+    };
+    if summary.rotation_paused != paused {
+        summary.rotation_paused = paused;
+        save(app, &index)?;
+    }
+    Ok(true)
 }
 
 /// Why an account needs the owner. Accounts that need nothing are not listed.

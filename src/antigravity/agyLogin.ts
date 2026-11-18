@@ -36,12 +36,17 @@ export interface AgyRowView {
   /** What the account needs, or ''. */
   sub: string;
   chip: ChipView;
-  /** "Đăng nhập lại" on an account Google stopped accepting. */
+  /**
+   * "Đăng nhập lại" on the row itself, for an account Google stopped accepting or wants verified
+   * (a new login answers both); every account has it in its ⋯ menu.
+   */
   relogin: boolean;
   /** "Mở trang xác minh" when Google sent one. */
   verify: boolean;
   /** "đang đọc…" while the app reads its quota, "đọc lỗi: …" after a failed read. */
   read: { tone: 'info' | 'warn' | 'bad'; text: string } | null;
+  /** Held out of the rotation by the owner ("Tạm dừng tự chuyển"). */
+  paused: boolean;
 }
 
 function statusChip(status: AgyLogin['status']): ChipView {
@@ -64,7 +69,10 @@ function needs(status: AgyLogin['status']): string {
     case 'needsLogin':
       return t('Google không nhận đăng nhập cũ nữa. Đăng nhập lại để dùng tiếp tài khoản này.', 'Google no longer accepts the old sign-in. Sign in again to keep using this account.');
     case 'needsVerification':
-      return t('Google yêu cầu xác minh tài khoản này trước khi dùng tiếp.', 'Google wants this account verified before it can be used again.');
+      return t(
+        'Google yêu cầu xác minh tài khoản này trước khi dùng tiếp. Xác minh rồi đăng nhập lại để dùng tiếp.',
+        'Google wants this account verified before it can be used again. Verify it, then sign in again.',
+      );
     case 'forbidden':
       return t('Google từ chối đọc hạn mức của tài khoản này (403), nên app thôi đọc nó. Đăng nhập lại để thử lại.', 'Google refused to give this account’s quota (403), so the app stopped reading it. Sign in again to retry.');
   }
@@ -116,9 +124,10 @@ export function agyRows(view: AgyAccounts): AgyRowView[] {
       short: 'U' + a.number,
       sub: needs(a.status),
       chip: statusChip(a.status),
-      relogin: a.status === 'needsLogin' || a.status === 'forbidden',
+      relogin: a.status !== 'ok',
       verify: (a.status === 'needsVerification' || a.status === 'forbidden') && a.verify,
       read: agyReadLine(a.reading, a.readError),
+      paused: a.rotationPaused,
     };
   });
 }
@@ -173,8 +182,7 @@ export function clientNotice(view: AgyAccounts): { tone: 'warn' | 'bad'; title: 
   return view.client === 'ok' ? null : notices[view.client];
 }
 
-export function agyLoginFeedback(done: AgyLoginDone): FeedbackView {
-  const name = agyLoginName(done.number);
+export function agyLoginFeedback(done: AgyLoginDone, name = agyLoginName(done.number)): FeedbackView {
   return done.added
     ? {
         tone: '',
@@ -182,6 +190,51 @@ export function agyLoginFeedback(done: AgyLoginDone): FeedbackView {
         body: desk(mac(t('Đăng nhập giữ trong ' + secretStore() + ' của app trên Mac này. Antigravity.app và agy không đổi.', 'The sign-in is kept in the app’s ' + secretStore() + ' on this Mac. Antigravity.app and agy are unchanged.'))),
       }
     : { tone: '', title: t('Đã đăng nhập lại ' + name, name + ' is signed in again'), body: t('App dùng đăng nhập mới từ giờ.', 'The app uses the new sign-in from now on.') };
+}
+
+/**
+ * What a new login meant for `row` did. Google's page may have been signed in to another account:
+ * then `row` is unchanged, and the line says which account the login went to instead.
+ */
+export function agyReloginFeedback(row: AgyRowView, done: AgyLoginDone, rows: AgyRowView[]): FeedbackView {
+  if (done.id === row.id) return agyLoginFeedback(done, row.name);
+  const got = rows.find((r) => r.id === done.id)?.name ?? agyLoginName(done.number);
+  const want = row.full || row.name;
+  return {
+    tone: 'warn',
+    title: t('Bạn vừa đăng nhập ' + got + ', không phải ' + row.name, 'You signed in to ' + got + ', not ' + row.name),
+    body:
+      t('Đăng nhập của ' + row.name + ' không đổi. ', row.name + '’s sign-in did not change. ') +
+      (done.added
+        ? t(got + ' được thêm thành tài khoản mới. ', got + ' was added as a new account. ')
+        : t('Đăng nhập của ' + got + ' được làm mới. ', got + '’s sign-in was refreshed. ')) +
+      t('Đổi tài khoản Google trong trình duyệt sang ' + want + ' rồi đăng nhập lại.', 'Switch Google accounts in the browser to ' + want + ', then sign in again.'),
+  };
+}
+
+export function agyPauseFeedback(name: string, paused: boolean): FeedbackView {
+  return paused
+    ? {
+        tone: '',
+        title: t('Đã tạm dừng tự chuyển cho ' + name + '.', 'Paused auto-switch for ' + name + '.'),
+        body: mac(t('Tự chuyển trên máy này bỏ qua tài khoản này cho tới khi bạn cho vào lại.', 'Auto-switch on this Mac skips this account until you put it back.')),
+      }
+    : { tone: '', title: t('Đã đưa ' + name + ' lại vào tự chuyển.', 'Resumed auto-switch for ' + name + '.'), body: '' };
+}
+
+export function agyPauseErrorFeedback(name: string, paused: boolean, e: unknown): FeedbackView {
+  const kind = errorKind(e);
+  const why: Record<string, string> = {
+    notFound: t('Tài khoản không còn trong danh sách.', 'The account is no longer in the list.'),
+    busy: t('Một lần chuyển Antigravity đang chạy. Chờ nó xong rồi thử lại.', 'An Antigravity switch is running. Wait for it to finish, then try again.'),
+    loggingOut: t('Một lần đăng xuất đang chạy. Chờ nó xong rồi thử lại.', 'A sign-out is running. Wait for it to finish, then try again.'),
+    loggingIn: t('Một lần đăng nhập đang chờ. Xong lần đó, hoặc bấm Huỷ, rồi thử lại.', 'A sign-in is waiting. Finish it, or press Cancel, then try again.'),
+  };
+  return {
+    tone: 'bad',
+    title: paused ? t('Chưa tạm dừng được tự chuyển cho ' + name, 'Could not pause auto-switch for ' + name) : t('Chưa đưa được ' + name + ' lại vào tự chuyển', 'Could not resume auto-switch for ' + name),
+    body: why[kind] ?? t('Không ghi được danh sách tài khoản. Thử lại.', 'Could not write the account list. Try again.'),
+  };
 }
 
 /** The kind a rejected call carries: Tauri rejects with the error value, the fake with an Error. */

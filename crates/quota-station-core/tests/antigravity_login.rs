@@ -308,6 +308,8 @@ fn a_second_account_is_added_and_a_new_login_of_the_first_keeps_its_place() {
     token.project_id = Some("fake-project".into());
     home.put_item(ACCOUNT_ID, &serde_json::to_string(&token).unwrap());
     index::set_standing(&home.app, ACCOUNT_ID, Some(Standing::NeedsLogin { since: NOW })).unwrap();
+    // Held out of the rotation, too: the new login keeps that.
+    assert_eq!(index::set_rotation_paused(&home.app, ACCOUNT_ID, true), Ok(true));
     google.set(|s| {
         s.userinfo.1 = format!(r#"{{"id":"1000001","email":"{}"}}"#, EMAIL.to_uppercase());
         s.exchange.1 = token_body("fake-access-c", Some("fake-refresh-c"));
@@ -333,6 +335,8 @@ fn a_second_account_is_added_and_a_new_login_of_the_first_keeps_its_place() {
     );
     assert_eq!(index.current_account_id.as_deref(), Some(ACCOUNT_ID));
     assert!(index::load_statuses(&home.app).accounts.is_empty(), "the new login answered it");
+    assert!(index.accounts[0].rotation_paused, "a new login keeps the hold");
+    assert!(!index.accounts[1].rotation_paused);
 }
 
 #[test]

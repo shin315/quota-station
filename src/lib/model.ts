@@ -5,6 +5,7 @@
 // Field names are serde's camelCase; `Option` arrives as null.
 
 import type { ExtSwitchKinds, ExtTabs } from '@/ext/types';
+import type { AgyAccounts } from './agyModel';
 import type { ClaudeAccountsView } from './claudeModel';
 
 export type LineKind =
@@ -309,31 +310,10 @@ export interface Peer {
   alias: string;
 }
 
-// ===== Antigravity accounts the app logs in (M4a) and reads (M4b) =====
+// ===== Antigravity accounts the app logs in (M4a) and reads (M4b): `agyModel.ts` =====
 
-/**
- * Whether the app has an OAuth client to sign in with (`quota-station-core::antigravity::client`):
- * `ok`, a usable `oauth-client.json` or the installed Antigravity's client; `missing`, no file and
- * no Antigravity installed; `unrecognized`, no file and an Antigravity build whose client the app
- * does not know; `tooOpen`, `invalid` and `unreadable` are about the file.
- */
-export type ClientStatus = 'ok' | 'missing' | 'unrecognized' | 'unreadable' | 'tooOpen' | 'invalid';
+export type { AgyAccounts, AgyLogin, AgyLoginDone, AgyLoginFailure, AgyReadError, AgyStatus, ClientStatus } from './agyModel';
 
-export type AgyStatus = 'ok' | 'needsLogin' | 'needsVerification' | 'forbidden';
-
-/** The app's last read of an account failed (`src-tauri/src/antigravity.rs` `ReadErrorView`). */
-export interface AgyReadError {
-  /**
-   * `quota::ReadError::kind`: `network`, `unauthorized`, `rateLimited`, `server`, `rejected`,
-   * `verification`, `parse`, `keychain`, `client`, `refresh`, `cache` or `index`.
-   */
-  kind: string;
-  detail: string;
-  /** After a 429 or a 5xx: when the app reads it again (RFC 3339). */
-  retryAt: string | null;
-}
-
-/** One account logged in here (`src-tauri/src/antigravity.rs` `AccountView`). */
 export type Theme = 'auto' | 'light' | 'dark';
 /** The theme pack every window is drawn in (`src/styles/tokens.css`). */
 export type ThemePack = 'default' | 'kinhNhip' | 'daiSangTinh' | 'motNhipNhin' | 'banDieuKhien' | 'chieuLang';
@@ -343,46 +323,6 @@ export type Language = 'auto' | 'vi' | 'en';
 export type Menubar = 'claude' | 'gemini' | 'codex';
 /** The window the menu bar title shows; one the service lacks falls back to five hours, then the tightest. */
 export type MenubarWindow = 'fiveHours' | 'week' | 'fableWeek' | 'tightest';
-
-export interface AgyLogin {
-  id: string;
-  /** Its place in the app's list, from 1. */
-  number: number;
-  /** Only when the owner turned emails on. */
-  email: string | null;
-  name: string | null;
-  status: AgyStatus;
-  /** Google sent a verification page for it. */
-  verify: boolean;
-  /** The app is reading its quota now. */
-  reading: boolean;
-  /** The app's last read failed; the row keeps the last numbers, with their age. */
-  readError: AgyReadError | null;
-}
-
-export interface AgyAccounts {
-  client: ClientStatus;
-  /** Where `oauth-client.json` goes, `~/…`. */
-  clientPath: string;
-  accounts: AgyLogin[];
-  /** `accounts.json` is there and cannot be read. */
-  indexError: boolean;
-  /** A login is waiting for the browser. */
-  loggingIn: boolean;
-}
-
-/** A login that kept an account. */
-export interface AgyLoginDone {
-  number: number;
-  /** A new account, not a new login of one already listed. */
-  added: boolean;
-}
-
-/** A login that kept nothing: `LoginError::kind` in Rust, plus `busy` and `spawn`. */
-export interface AgyLoginFailure {
-  kind: string;
-  detail: string;
-}
 
 // ===== Switching the Antigravity account (M4c) =====
 

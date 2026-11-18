@@ -20,6 +20,14 @@
 //! wrote its own login back), it does not switch again until the owner
 //! answers that in the app or switches.
 //!
+//! An account the owner holds out ("Tạm dừng tự chuyển", `rotation_paused`
+//! in `accounts.json`, [`index::set_rotation_paused`]) is never switched
+//! to, however much Gemini it has, until it is put back; each run names it
+//! ([`Run::paused`]). Held out while in use, it is treated as the Claude
+//! rotation treats a held-out account in use: it stays while it has more
+//! than the threshold, and at or under it the rotation moves to another
+//! account, as from any other; it never comes back to it.
+//!
 //! Its files, in the app's `antigravity/` folder: `rotation.json` (the
 //! settings), `rotation-log.jsonl` (one line per switch it tried) and
 //! `rotation-state.json` (its last run, for `rotation status`).
@@ -106,6 +114,8 @@ pub struct Seen {
     pub fresh: bool,
     /// Needs a new login, a verification, or was refused: not switched to.
     pub blocked: bool,
+    /// Held out of the rotation by the owner: not switched to.
+    pub paused: bool,
 }
 
 /// What one run decided.
@@ -176,7 +186,7 @@ pub fn decide(accounts: &[Seen], last_switch: Option<i64>, now: i64, s: &Setting
     }
     let best = accounts
         .iter()
-        .filter(|a| !a.active && !a.blocked && a.fresh)
+        .filter(|a| !a.active && !a.blocked && !a.paused && a.fresh)
         .filter_map(|a| a.gemini_left.map(|l| (a.number, l)))
         // The most left; of two alike, the first in the list.
         .fold(None, |best: Option<(u32, f64)>, (n, l)| match best {
@@ -204,7 +214,8 @@ pub fn seen(list: &AgyAccounts, index: &AccountIndex, statuses: &Statuses) -> Ve
     list.accounts
         .iter()
         .map(|a| {
-            let id = index.accounts.get((a.account as usize).wrapping_sub(1)).map(|s| &s.id);
+            let summary = index.accounts.get((a.account as usize).wrapping_sub(1));
+            let id = summary.map(|s| &s.id);
             Seen {
                 number: a.account,
                 active: a.active,
@@ -223,6 +234,7 @@ pub fn seen(list: &AgyAccounts, index: &AccountIndex, statuses: &Statuses) -> Ve
                                 | Standing::NeedsVerification { .. }
                         )
                     }),
+                paused: summary.is_some_and(|s| s.rotation_paused),
             }
         })
         .collect()
@@ -262,6 +274,21 @@ pub struct Run {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub outcome: Option<Outcome>,
     pub dry_run: bool,
+    /// The accounts held out of the rotation, by number: never switched to.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub paused: Vec<u32>,
+}
+
+/// The accounts of `index` held out of the rotation, by number.
+pub fn paused_numbers(index: &AccountIndex) -> Vec<u32> {
+    (1u32..).zip(&index.accounts).filter(|(_, a)| a.rotation_paused).map(|(n, _)| n).collect()
+}
+
+/// `account 2` or `accounts 2, 3`.
+pub fn numbers_text(numbers: &[u32]) -> String {
+    let list: Vec<String> = numbers.iter().map(u32::to_string).collect();
+    let word = if numbers.len() == 1 { "account" } else { "accounts" };
+    format!("{word} {}", list.join(", "))
 }
 
 impl Run {
@@ -308,7 +335,15 @@ impl Run {
                 }
             }
         };
-        format!("{what}\n")
+        let paused = if self.paused.is_empty() {
+            String::new()
+        } else {
+            format!(
+                "skipped, auto-switch paused: {} (never switched to until put back)\n",
+                numbers_text(&self.paused)
+            )
+        };
+        format!("{what}\n{paused}")
     }
 }
 
@@ -340,6 +375,7 @@ fn at_text(at: i64) -> String {
 pub fn run(app: &AppDir, world: &dyn World, now: OffsetDateTime, dry_run: bool) -> Run {
     let settings = load_settings(app);
     let at = now.unix_timestamp();
+    let paused = index::load(app).map(|i| paused_numbers(&i)).unwrap_or_default();
     let decision = match index::load(app) {
         Err(_) => Decision::NoAccounts { reason: "unreadable".into() },
         Ok(index) if index.accounts.len() < 2 => {
@@ -372,7 +408,7 @@ pub fn run(app: &AppDir, world: &dyn World, now: OffsetDateTime, dry_run: bool) 
             }
         }
     };
-    let mut run = Run { at, decision, outcome: None, dry_run };
+    let mut run = Run { at, decision, outcome: None, dry_run, paused };
     if dry_run {
         return run;
     }
@@ -503,7 +539,7 @@ mod tests {
     use super::*;
 
     fn acc(number: u32, active: bool, left: Option<f64>) -> Seen {
-        Seen { number, active, gemini_left: left, fresh: true, blocked: false }
+        Seen { number, active, gemini_left: left, fresh: true, blocked: false, paused: false }
     }
 
     const NOW: i64 = 1_800_000_000;
@@ -570,6 +606,61 @@ mod tests {
             decide(&list, None, NOW, &s),
             Decision::NoBetter { active: 1, left: 1.0, best: None, best_left: None }
         );
+    }
+
+    #[test]
+    fn a_paused_account_is_never_switched_to_even_with_the_most_gemini() {
+        let s = Settings::default();
+        let mut paused = acc(3, false, Some(100.0));
+        paused.paused = true;
+        let list = [acc(1, true, Some(2.0)), acc(2, false, Some(60.0)), paused.clone()];
+        assert_eq!(
+            decide(&list, None, NOW, &s),
+            Decision::Switch { from: 1, to: 2, from_left: 2.0, to_left: 60.0 }
+        );
+        // The only other account held out: nothing to switch to.
+        let alone = [acc(1, true, Some(2.0)), paused.clone()];
+        assert_eq!(
+            decide(&alone, None, NOW, &s),
+            Decision::NoBetter { active: 1, left: 2.0, best: None, best_left: None }
+        );
+        // Put back, it is the best again.
+        paused.paused = false;
+        let back = [acc(1, true, Some(2.0)), acc(2, false, Some(60.0)), paused];
+        assert!(matches!(decide(&back, None, NOW, &s), Decision::Switch { to: 3, .. }));
+    }
+
+    #[test]
+    fn a_paused_account_in_use_is_still_left_when_it_runs_low() {
+        let s = Settings::default();
+        let mut active = acc(1, true, Some(30.0));
+        active.paused = true;
+        let list = [active.clone(), acc(2, false, Some(90.0))];
+        assert!(matches!(decide(&list, None, NOW, &s), Decision::Enough { active: 1, .. }));
+        active.gemini_left = Some(3.0);
+        let list = [active, acc(2, false, Some(90.0))];
+        assert!(matches!(decide(&list, None, NOW, &s), Decision::Switch { from: 1, to: 2, .. }));
+    }
+
+    #[test]
+    fn a_run_names_the_paused_accounts() {
+        let run = Run {
+            at: NOW,
+            decision: Decision::Enough { active: 1, left: 50.0 },
+            outcome: None,
+            dry_run: true,
+            paused: vec![2, 4],
+        };
+        assert_eq!(
+            run.print(),
+            "account 1 has 50% of Gemini left: no switch\nskipped, auto-switch paused: accounts \
+             2, 4 (never switched to until put back)\n"
+        );
+        let value = serde_json::to_value(&run).unwrap();
+        assert_eq!(value["paused"], serde_json::json!([2, 4]));
+        let none = Run { paused: Vec::new(), ..run };
+        assert_eq!(none.print(), "account 1 has 50% of Gemini left: no switch\n");
+        assert!(serde_json::to_value(&none).unwrap().get("paused").is_none());
     }
 
     #[test]

@@ -18,13 +18,17 @@ export const useAgyLogins: typeof Real.useAgyLogins = (view, api) => ({
   busy: false,
   confirm: null,
   notice: null,
+  canPause: false,
   login: () => {},
+  relogin: () => {},
   verify: () => {},
   logout: () => {},
+  setPaused: () => {},
   ask: () => {},
 });
 export const loginChips: typeof Real.loginChips = () => [];
 export const AddAccount: typeof Real.AddAccount = () => <></>;
 export const LoginActions: typeof Real.LoginActions = () => <></>;
-export const LogoutConfirm: typeof Real.LogoutConfirm = () => <></>;
+export const AgyMenu: typeof Real.AgyMenu = () => <></>;
+export const RowConfirm: typeof Real.RowConfirm = () => <></>;
 export const LoginNotes: typeof Real.LoginNotes = () => <></>;

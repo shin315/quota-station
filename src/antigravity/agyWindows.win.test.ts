@@ -58,7 +58,7 @@ describe('Antigravity on Windows', () => {
   it('a new sign-in is kept in the app’s encrypted store on this PC', () => {
     setPlatform('windows');
     setLang('en');
-    const done = agyLoginFeedback({ number: 1, added: true });
+    const done = agyLoginFeedback({ id: 'antigravity_fake1', number: 1, added: true });
     expect(done.body).toBe('The sign-in is kept in the app’s encrypted store on this PC. Antigravity and agy are unchanged.');
   });
 });

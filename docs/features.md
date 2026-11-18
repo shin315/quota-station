@@ -227,8 +227,14 @@ back, or that nothing changed because an older switcher is still loaded.
 ## Antigravity
 
 **The `Antigravity` tab** lists the accounts with the same columns as Overview.
-*(Antigravity accounts)* Each account the app signs in has `Switch` and `Sign
-out`, and the card's header has `Add account`; the accounts the app signs in
+*(Antigravity accounts)* Each account the app signs in has `Switch`, `Sign
+out` and a `⋯` menu with `Sign in again…` (at any time, after a confirmation
+under the row) and, with two accounts or more on macOS, `Pause auto-switch…`
+or `Resume auto-switch`; an account that needs a new sign-in or a
+verification also has `Sign in again` on its row. A new sign-in meant for one
+account that the browser signs in to another Google account says so (`You
+signed in to …, not …`): the account meant stays as it was, and the other is
+refreshed or added. The card's header has `Add account`; the accounts the app signs in
 that the row does not list yet stay in a short list under the table. Each such
 account shows `reading…` while the app reads its quota and `read failed: …`
 when that read failed. Opening the tab reads every account. A Mac without an
@@ -252,8 +258,15 @@ has 5% of Gemini left or less, it switches to the account with the most Gemini
 left, through the same switch as `Switch` (the same switch log, Antigravity.app
 quit and opened again when it runs). Only an account with a fresh reading, more
 than the threshold left and at least 10 points more than the account in use is
-switched to, never one that needs a new sign-in or a verification, and at most
-once every 30 minutes (counted from any switch). While the last switch shows as
+switched to, never one that needs a new sign-in or a verification or one held
+out with `Pause auto-switch…` (its row shows `out of auto-switch`, until
+`Resume auto-switch`), and at most
+once every 30 minutes (counted from any switch). An account held out while in
+use stays while it has more than the threshold and is left, as any other, when
+it runs low; the rotation never comes back to it. The hold is
+`"rotation_paused": true` on the account in `antigravity/accounts.json`, so the
+LaunchAgent's runs see it with the app closed; `rotate` (`--dry-run` too),
+`rotation status` and `status` name the accounts held out. While the last switch shows as
 overwritten it does not switch again until that is answered. Each switch it
 tries is a line of `antigravity/rotation-log.jsonl`, its last run is in
 `antigravity/rotation-state.json`, and its settings in

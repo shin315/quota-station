@@ -266,6 +266,8 @@ commands![
     #[cfg(feature = "antigravity-accounts")]
     antigravity::agy_tab_opened,
     #[cfg(feature = "antigravity-accounts")]
+    antigravity::agy_set_rotation_paused,
+    #[cfg(feature = "antigravity-accounts")]
     agy_switch::agy_app_state,
     #[cfg(feature = "antigravity-accounts")]
     agy_switch::switch_agy,

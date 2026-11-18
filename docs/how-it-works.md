@@ -213,8 +213,11 @@ feature (see [`THIRD_PARTY.md`](../THIRD_PARTY.md)). Without it the `Antigravity
   the email. A browser that cannot reach the app can paste the callback URL
   instead. The card lists the accounts by number (the order the Antigravity row
   uses) with `signed in`, `sign in again` (Google refused the refresh token),
-  `needs verification` or `blocked by Google`, `Sign in again`, and `Sign out`
-  with a confirmation in the row. Signing out forgets the account in this app
+  `needs verification` or `blocked by Google`, `Sign in again` (on the row
+  for an account that needs it, and in every account's `⋯` menu), and
+  `Sign out` with a confirmation in the row. A new sign-in keeps the account
+  Google's page was signed in to: when that is not the account it was meant
+  for, the window says so and that account is unchanged. Signing out forgets the account in this app
   only: Antigravity.app and agy stay signed in. The OAuth client comes from
   the Antigravity installed on the same computer
   ([below](#the-oauth-client-file)); without one the card says what to do
@@ -576,7 +579,8 @@ a rename.
   `rotation`, `rotation.log`, `pause`, `prime` and `prime-state/`), no email
   and no token.
 - `update/install.log`: the last update from source's build output.
-- `antigravity/accounts.json` (the account index, no token),
+- `antigravity/accounts.json` (the account index, no token; `rotation_paused`
+  on an account held out of the rotation),
   `antigravity/status.json` (accounts that need a new login or a verification,
   or that Google refused),
   `antigravity/cache/quota_api_v1_desktop/authorized/<SHA-256 of the email>.json`

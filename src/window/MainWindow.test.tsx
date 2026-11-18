@@ -232,11 +232,13 @@ describe('main window', () => {
     expect(screen.queryByText('Đăng nhập trong Quota Station')).toBeNull();
     const table = screen.getByRole('list', { name: 'Antigravity' });
     const header = Array.from(table.querySelectorAll('.wt-r.h')).map((h) => Array.from(h.children).map((c) => c.textContent));
+    // The last column is the logins' ⋯ menus.
     expect(header).toEqual([
-      ['', 'Gemini', 'Claude/GPT', ''],
-      ['Tài khoản', '5 giờ', 'Tuần', '5 giờ', 'Tuần', ''],
+      ['', 'Gemini', 'Claude/GPT', '', ''],
+      ['Tài khoản', '5 giờ', 'Tuần', '5 giờ', 'Tuần', '', ''],
     ]);
     const [u1, u2] = within(table).getAllByRole('listitem');
+    expect(within(u1).getByRole('button', { name: 'Thêm thao tác cho lanpham.ultra' })).toBeTruthy();
     expect(within(u1).getByRole('button', { name: 'Chuyển sang lanpham.ultra' })).toBeTruthy();
     expect(within(u1).getByRole('button', { name: 'Đăng xuất lanpham.ultra' })).toBeTruthy();
     expect(within(u2).getByText('Đang dùng')).toBeTruthy();

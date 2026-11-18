@@ -194,6 +194,11 @@ export interface Api {
   /** Loads (`on`) or unloads the Antigravity rotation's LaunchAgent; rejects with why it could not. */
   agySetRotation?(on: boolean): Promise<AgyRotation>;
   /**
+   * Holds an Antigravity account out of the rotation (`paused`) or puts it back. Only a build with
+   * the Antigravity accounts has it. Rejects with `notFound`, `index`, `busy`, `loggingOut` or `loggingIn`.
+   */
+  agySetRotationPaused?(id: string, paused: boolean): Promise<Model>;
+  /**
    * Switches Codex after the owner confirmed it, when `config.toml` still has the hash the sheet
    * showed. Rejects with `busy` while a switch or a restart runs.
    */
@@ -560,6 +565,7 @@ export const tauriApi: Api = {
   agyDismissOverwrite: () => invoke<Model>('agy_dismiss_overwrite'),
   agyRotation: () => invoke<AgyRotation>('agy_rotation'),
   agySetRotation: (on) => invoke<AgyRotation>('agy_set_rotation', { on }),
+  agySetRotationPaused: (id, paused) => invoke<Model>('agy_set_rotation_paused', { id, paused }),
   codexSwitch: (target, base) => invoke<CodexOutcome>('codex_switch', { target, base }),
   codexRestart: (afterSwitch) => invoke<CodexRestart>('codex_restart', { afterSwitch }),
   codexKeep: () => invoke<Model>('codex_keep'),

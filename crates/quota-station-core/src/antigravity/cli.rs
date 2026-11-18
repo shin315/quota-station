@@ -5,8 +5,9 @@
 //! from a terminal, whether or not the app is open. `status` lists them with
 //! their readings, `switch` runs the app's own switch ([`super::switch`]),
 //! `rotate` is one run of the rotation ([`super::rotate`]) and `rotation`
-//! turns its LaunchAgent on or off. No command prints a token; only
-//! `status --emails` prints emails.
+//! turns its LaunchAgent on or off. `status`, `rotate` and `rotation status`
+//! name the accounts held out of the rotation ("Tạm dừng tự chuyển" in the
+//! app). No command prints a token; only `status --emails` prints emails.
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -288,6 +289,13 @@ fn rotation(cli: &Cli, rest: &[String], out: &mut dyn Write, err: &mut dyn Write
                 if let Some(at) = view.last_switch_at.as_deref() {
                     let _ = writeln!(out, "last switch {at}");
                 }
+                if !view.paused.is_empty() {
+                    let _ = writeln!(
+                        out,
+                        "auto-switch paused for {}: never switched to",
+                        rotate::numbers_text(&view.paused)
+                    );
+                }
             }
             0
         }
@@ -357,6 +365,8 @@ pub struct AccountOut {
     pub status: String,
     /// `needsLogin`, `needsVerification` or `forbidden`.
     pub standing: Option<&'static str>,
+    /// Held out of the rotation by the owner: never switched to by it.
+    pub rotation_paused: bool,
     pub age_seconds: Option<f64>,
     pub fetched_at: Option<String>,
     /// `gemini` and `claude_gpt`: what is left, the windows holding it there
@@ -375,6 +385,8 @@ pub struct RotationOut {
     pub settings: Settings,
     pub last_switch_at: Option<String>,
     pub last_run: Option<serde_json::Value>,
+    /// The accounts held out of the rotation, by number.
+    pub paused: Vec<u32>,
 }
 
 pub fn rotation_view(cli: &Cli) -> RotationOut {
@@ -384,6 +396,7 @@ pub fn rotation_view(cli: &Cli) -> RotationOut {
         settings: rotate::load_settings(&cli.app),
         last_switch_at: last.and_then(|at| OffsetDateTime::from_unix_timestamp(at).ok()).map(iso),
         last_run: rotate::last_run(&cli.app),
+        paused: index::load(&cli.app).map(|i| rotate::paused_numbers(&i)).unwrap_or_default(),
     }
 }
 
@@ -429,6 +442,7 @@ pub fn status(cli: &Cli, report: &Response, emails: bool, now: OffsetDateTime) -
                     Standing::NeedsVerification { .. } => "needsVerification",
                     Standing::Forbidden { .. } => "forbidden",
                 }),
+                rotation_paused: summary.rotation_paused,
                 age_seconds: a.age_seconds,
                 fetched_at: a.fetched_at.clone(),
                 scopes: a.scopes.clone(),
@@ -470,13 +484,14 @@ fn print_status(view: &StatusOut, out: &mut dyn Write) {
         let age = a.age_seconds.map(|s| format!(" {}m", (s / 60.0).round())).unwrap_or_default();
         let _ = writeln!(
             out,
-            "{} {:>2}  Gemini {}  Claude/GPT {}  {:<8} {}{}{}",
+            "{} {:>2}  Gemini {}  Claude/GPT {}  {:<8} {}{}{}{}",
             if a.active { '*' } else { ' ' },
             a.account,
             left(a, GEMINI),
             left(a, CLAUDE_GPT),
             format!("{}{age}", a.status),
             a.standing.map(|s| format!("[{s}] ")).unwrap_or_default(),
+            if a.rotation_paused { "[auto-switch paused] " } else { "" },
             a.label.as_deref().unwrap_or(""),
             a.email.as_deref().map(|e| format!("  {e}")).unwrap_or_default(),
         );

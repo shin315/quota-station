@@ -316,6 +316,131 @@ describe('Antigravity accounts logged in here', () => {
   });
 });
 
+/** Opens an account's ⋯ menu as a pointer does: Radix opens a menu on pointerdown. */
+async function menu(name: string) {
+  await act(async () => {
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Thêm thao tác cho ' + name }), { button: 0, ctrlKey: false });
+  });
+  return screen.getByRole('menu');
+}
+
+async function choose(account: string, item: string) {
+  await menu(account);
+  await act(async () => {
+    fireEvent.click(screen.getByRole('menuitem', { name: item }));
+  });
+}
+
+/** Presses a button and lets a login that ends by itself (`agyLoginDelayMs: 0`) end. */
+async function pressAndWait(button: HTMLElement) {
+  await act(async () => {
+    fireEvent.click(button);
+    await new Promise((r) => setTimeout(r, 10));
+  });
+}
+
+describe('each Antigravity account’s ⋯ menu', () => {
+  it('offers a new login at any time and a pause of the rotation, as the Claude tab does', async () => {
+    for (const name of ['lanpham.ultra', 'lan.ultra2']) {
+      cleanup();
+      await open(withAgy({ accounts: [login(1), login(2)] }));
+      const items = within(await menu(name)).getAllByRole('menuitem');
+      expect(items.map((i) => i.textContent)).toEqual(['Tạm dừng tự chuyển…', 'Đăng nhập lại…']);
+    }
+    // An account that is fine has no sign-in button on its row: only in the menu.
+    expect(within(row('lanpham.ultra')).queryByRole('button', { name: 'Đăng nhập lại' })).toBeNull();
+  });
+
+  it('with one account there is no rotation to pause, but signing in again stays', async () => {
+    await open(withAgy({ accounts: [login(1)] }));
+    const items = within(await menu('lanpham.ultra')).getAllByRole('menuitem');
+    expect(items.map((i) => i.textContent)).toEqual(['Đăng nhập lại…']);
+  });
+
+  it('signs an account that is fine in again after asking, and says so', async () => {
+    const fake = await open(withAgy({ accounts: [login(1), login(2)] }), { agyLoginDelayMs: 0, agyLoginPicks: 'antigravity_fake1' });
+    await choose('lanpham.ultra', 'Đăng nhập lại…');
+    const ask = screen.getByRole('group', { name: 'Đăng nhập lại lanpham.ultra' });
+    expect(within(ask).getByText('Đăng nhập lại lanpham.ultra?')).toBeTruthy();
+    expect(within(ask).getByText(/Chọn đúng lanpham\.ultra@example\.com; chọn tài khoản khác thì lanpham\.ultra không đổi\./)).toBeTruthy();
+    expect(fake.api.agyLogin).not.toHaveBeenCalled();
+    await pressAndWait(within(ask).getByRole('button', { name: 'Mở trang đăng nhập' }));
+    expect(fake.api.agyLogin).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Đã đăng nhập lại lanpham.ultra')).toBeTruthy();
+    expect(screen.queryByRole('group', { name: 'Đăng nhập lại lanpham.ultra' })).toBeNull();
+  });
+
+  it('a new login that lands on another Google account warns that the account meant is unchanged', async () => {
+    await open(withAgy({ accounts: [login(1), login(2)] }), { agyLoginDelayMs: 0, agyLoginPicks: 'antigravity_fake2' });
+    await choose('lanpham.ultra', 'Đăng nhập lại…');
+    await pressAndWait(screen.getByRole('button', { name: 'Mở trang đăng nhập' }));
+    expect(screen.getByText('Bạn vừa đăng nhập lan.ultra2, không phải lanpham.ultra')).toBeTruthy();
+    expect(screen.getByText(/^Đăng nhập của lanpham\.ultra không đổi\. Đăng nhập của lan\.ultra2 được làm mới\. Đổi tài khoản Google trong trình duyệt sang lanpham\.ultra@example\.com rồi đăng nhập lại\.$/)).toBeTruthy();
+    expect(screen.queryByText(/^Đã đăng nhập lại/)).toBeNull();
+    cleanup();
+
+    // An account not listed yet is added, and that is said too.
+    await open(withAgy({ accounts: [login(1), login(2)] }), { agyLoginDelayMs: 0, agyLoginPicks: 'antigravity_other' });
+    await choose('lan.ultra2', 'Đăng nhập lại…');
+    await pressAndWait(screen.getByRole('button', { name: 'Mở trang đăng nhập' }));
+    expect(screen.getByText('Bạn vừa đăng nhập Ultra 3, không phải lan.ultra2')).toBeTruthy();
+    expect(screen.getByText(/Đăng nhập của lan\.ultra2 không đổi\. Ultra 3 được thêm thành tài khoản mới\./)).toBeTruthy();
+  });
+
+  it('pauses the rotation for an account after asking, marks its row, and puts it back', async () => {
+    const fake = await open(withAgy({ accounts: [login(1), login(2)] }));
+    await choose('lan.ultra2', 'Tạm dừng tự chuyển…');
+    const ask = screen.getByRole('group', { name: 'Tạm dừng tự chuyển cho lan.ultra2' });
+    expect(within(ask).getByText('Tạm dừng tự chuyển cho lan.ultra2?')).toBeTruthy();
+    expect(within(ask).getByText(/Tự chuyển bỏ qua lan\.ultra2 cho tới khi bạn cho vào lại\. Bạn vẫn chuyển tay sang lan\.ultra2 được/)).toBeTruthy();
+    await act(async () => {
+      fireEvent.click(within(ask).getByRole('button', { name: 'Huỷ' }));
+    });
+    expect(fake.api.agySetRotationPaused).not.toHaveBeenCalled();
+
+    await choose('lan.ultra2', 'Tạm dừng tự chuyển…');
+    await act(async () => {
+      fireEvent.click(within(screen.getByRole('group', { name: 'Tạm dừng tự chuyển cho lan.ultra2' })).getByRole('button', { name: 'Tạm dừng' }));
+    });
+    expect(fake.api.agySetRotationPaused).toHaveBeenCalledWith('antigravity_fake2', true);
+    expect(within(row('lan.ultra2')).getByText('nghỉ tự chuyển')).toBeTruthy();
+    expect(within(row('lanpham.ultra')).queryByText('nghỉ tự chuyển')).toBeNull();
+    expect(screen.getByText('Đã tạm dừng tự chuyển cho lan.ultra2')).toBeTruthy();
+    // Still switched to by hand.
+    expect(within(row('lan.ultra2')).queryByRole('button', { name: /Đăng xuất/ })).toBeTruthy();
+
+    const items = within(await menu('lan.ultra2')).getAllByRole('menuitem');
+    expect(items.map((i) => i.textContent)).toEqual(['Đưa lại vào tự chuyển', 'Đăng nhập lại…']);
+    await act(async () => {
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Đưa lại vào tự chuyển' }));
+    });
+    expect(fake.api.agySetRotationPaused).toHaveBeenLastCalledWith('antigravity_fake2', false);
+    expect(within(row('lan.ultra2')).queryByText('nghỉ tự chuyển')).toBeNull();
+    expect(screen.getByText('Đã đưa lan.ultra2 lại vào tự chuyển')).toBeTruthy();
+  });
+
+  it('a paused account shows as one, and a pause the app refuses says why', async () => {
+    const fake = await open(withAgy({ accounts: [login(1, { rotationPaused: true }), login(2)] }));
+    expect(within(row('lanpham.ultra')).getByText('nghỉ tự chuyển')).toBeTruthy();
+    vi.mocked(fake.api.agySetRotationPaused!).mockRejectedValueOnce('busy');
+    await choose('lanpham.ultra', 'Đưa lại vào tự chuyển');
+    expect(screen.getByText('Chưa đưa được lanpham.ultra lại vào tự chuyển')).toBeTruthy();
+    expect(screen.getByText('Một lần chuyển Antigravity đang chạy. Chờ nó xong rồi thử lại.')).toBeTruthy();
+    expect(within(row('lanpham.ultra')).getByText('nghỉ tự chuyển')).toBeTruthy();
+  });
+
+  it('an account waiting for a verification without Google’s link can still sign in again from its row', async () => {
+    const fake = await open(withAgy({ accounts: [login(1), login(2, { status: 'needsVerification', verify: false })] }), { agyLoginDelayMs: 0 });
+    const second = () => row('lan.ultra2');
+    expect(within(second()).getByText('cần xác minh')).toBeTruthy();
+    expect(within(second()).queryByRole('button', { name: 'Mở trang xác minh' })).toBeNull();
+    await pressAndWait(within(second()).getByRole('button', { name: 'Đăng nhập lại' }));
+    expect(fake.api.agyLogin).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Đã đăng nhập lại lan.ultra2')).toBeTruthy();
+    expect(within(second()).queryByText('cần xác minh')).toBeNull();
+  });
+});
+
 describe('Antigravity quota reads', () => {
   it('opening the tab asks the app to read every account', async () => {
     const fake = await open(withAgy({ accounts: [login(1), login(2)] }));

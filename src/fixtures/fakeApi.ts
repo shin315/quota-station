@@ -9,6 +9,7 @@
 import type { SessionView } from '../session/steps';
 import type { Api } from '../lib/api';
 import { fakeParts, fakeRestore, planFixture, summaryFixture } from './fakeBackup';
+import { agyLoginLands } from './fakeAgy';
 import { keptSnapshot, renewedDone } from './fakeClaude';
 import { fakeApply, fakePaste, fakePreview } from './fakeMcp';
 import { fakeSetChanges, fakeSetDrift } from './fakeSets';
@@ -22,7 +23,6 @@ import type {
   AgyApp,
   AgyHow,
   AgyLogin,
-  AgyLoginDone,
   AgyLoginFailure,
   AgyOutcome,
   Alert,
@@ -120,6 +120,8 @@ export interface FakeOptions {
   agyLogin?: () => AgyLoginFailure | null;
   /** How long a login waits for the browser before it ends on its own; none waits for a paste. */
   agyLoginDelayMs?: number;
+  /** The account (an id) the browser is signed in to at a login; by default one that needs a login, else a new one. */
+  agyLoginPicks?: string;
   /** What the switch sheet learns about Antigravity.app; null makes the question fail. By default it runs. */
   agyApp?: AgyApp | null;
   /** What an Antigravity switch reports; by default it lands on the account asked for. */
@@ -609,27 +611,14 @@ export function fakeApi(initial: Model, initialTab: Tab = 'overview', options: F
         push({ ...model, antigravity: agy({ loggingIn: false }) });
         throw failure;
       }
-      // A login of an account that needs one answers it; otherwise the next account is added.
-      const list = model.antigravity.accounts;
-      const again = list.find((a) => a.status !== 'ok');
-      const next = again
-        ? list.map((a) => (a.id === again.id ? { ...a, status: 'ok' as const, verify: false } : a))
-        : [
-            ...list,
-            {
-              id: 'antigravity_fake' + (list.length + 1),
-              number: 0,
-              email: null,
-              name: null,
-              status: 'ok' as const,
-              verify: false,
-              reading: false,
-              readError: null,
-            },
-          ];
+      const { next, done } = agyLoginLands(model.antigravity.accounts, options.agyLoginPicks);
       push({ ...model, antigravity: agy({ loggingIn: false, accounts: accounts(next, model.showNames) }) });
-      const done: AgyLoginDone = again ? { number: again.number, added: false } : { number: next.length, added: true };
       return done;
+    },
+    agySetRotationPaused: async (id, paused) => {
+      if (!model.antigravity.accounts.some((a) => a.id === id)) throw 'notFound';
+      push({ ...model, antigravity: agy({ accounts: model.antigravity.accounts.map((a) => (a.id === id ? { ...a, rotationPaused: paused } : a)) }) });
+      return model;
     },
     agyLoginCallback: async (url) => {
       if (!endLogin) throw new Error('noLogin');

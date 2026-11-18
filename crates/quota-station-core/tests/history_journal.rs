@@ -34,6 +34,7 @@ fn setup(n: usize) -> (AppDir, Vec<String>) {
             name: None,
             created_at: T0,
             last_used: T0,
+            rotation_paused: false,
         });
     }
     let ids = idx.accounts.iter().map(|a| a.id.clone()).collect();

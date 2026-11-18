@@ -116,6 +116,7 @@ fn files() -> Files {
                 name: None,
                 created_at: T0,
                 last_used: T0,
+                rotation_paused: false,
             });
         }
         index::save(&app, &idx).unwrap();

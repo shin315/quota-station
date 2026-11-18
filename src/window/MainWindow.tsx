@@ -31,7 +31,7 @@ import { Fragment, type ReactNode } from 'react';
 import { Card as Panel, CardText, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogOverlay } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { AddAccount, LoginActions, LoginNotes, LogoutConfirm, loginChips, type AgyLogins } from '@agy/AgyAccounts';
+import { AddAccount, AgyMenu, LoginActions, LoginNotes, RowConfirm, loginChips, type AgyLogins } from '@agy/AgyAccounts';
 import { AccountName, IdMark, InUse, WindowCell } from '../components/accounts';
 import { Empty, HeadEnd, OV_COLS, TABLE, TABLE_BOX, TABLE_CELLS, TABLE_END, TABLE_HEAD, TABLE_ROW, TABLE_ROW_ON, TabHead, TabNote, TabSub, TabTitle } from '../components/page';
 import { Banner, Button, Chip, CODE, Dot, Feedback, KVT, More, Toggle } from '../components/parts';
@@ -294,6 +294,8 @@ function AgyTable(props: { cards: CardView[]; logins?: AgyLogins; tight?: boolea
   if (!props.cards.length) return null;
   const four = props.cards.every((c) => c.cells.length === 4);
   const logins = props.logins;
+  // The logins' ⋯ menus, in a column of their own as on the Claude tab.
+  const menu = !!logins && !props.tight;
   // Whole class names, so Tailwind finds them. The buttons' column (Chuyển, and
   // with the logins the verification page and Đăng xuất) is as wide as the widest row's.
   const cols = props.tight
@@ -301,8 +303,13 @@ function AgyTable(props: { cards: CardView[]; logins?: AgyLogins; tight?: boolea
       ? OV_COLS.agy4
       : OV_COLS.agy2
     : four
-      ? '[--wt-cols:minmax(96px,1.25fr)_repeat(4,minmax(56px,.82fr))_minmax(66px,auto)]'
-      : '[--wt-cols:minmax(96px,1.25fr)_repeat(2,minmax(64px,1fr))_minmax(66px,auto)]';
+      ? menu
+        ? '[--wt-cols:minmax(96px,1.25fr)_repeat(4,minmax(56px,.82fr))_minmax(66px,auto)_28px]'
+        : '[--wt-cols:minmax(96px,1.25fr)_repeat(4,minmax(56px,.82fr))_minmax(66px,auto)]'
+      : menu
+        ? '[--wt-cols:minmax(96px,1.25fr)_repeat(2,minmax(64px,1fr))_minmax(66px,auto)_28px]'
+        : '[--wt-cols:minmax(96px,1.25fr)_repeat(2,minmax(64px,1fr))_minmax(66px,auto)]';
+  const end = menu ? <span /> : null;
   return (
     <div className={TABLE_BOX}>
       <div className={cn(TABLE, cols)} role="list" aria-label="Antigravity">
@@ -313,6 +320,7 @@ function AgyTable(props: { cards: CardView[]; logins?: AgyLogins; tight?: boolea
               <span className={GROUP}>Gemini</span>
               <span className={GROUP}>Claude/GPT</span>
               <span />
+              {end}
             </div>
             <div className={cn(HEAD, 'border-t-0')} aria-hidden="true">
               <span>{t('Tài khoản', 'Account')}</span>
@@ -321,6 +329,7 @@ function AgyTable(props: { cards: CardView[]; logins?: AgyLogins; tight?: boolea
               <span>{t('5 giờ', '5-hour')}</span>
               <span>{t('Tuần', 'Week')}</span>
               <span />
+              {end}
             </div>
           </>
         ) : (
@@ -329,6 +338,7 @@ function AgyTable(props: { cards: CardView[]; logins?: AgyLogins; tight?: boolea
             <span>Gemini</span>
             <span>Claude/GPT</span>
             <span />
+            {end}
           </div>
         )}
         {props.cards.map((c) => {
@@ -340,9 +350,10 @@ function AgyTable(props: { cards: CardView[]; logins?: AgyLogins; tight?: boolea
                 tight={props.tight}
                 chips={loginChips(row)}
                 extra={logins && row ? <LoginActions logins={logins} row={row} /> : null}
+                menu={menu ? logins && row ? <AgyMenu logins={logins} row={row} /> : null : undefined}
                 onSwitch={props.onSwitch}
               />
-              {logins && row && logins.confirm === row.id ? <LogoutConfirm logins={logins} row={row} inTable /> : null}
+              {logins && row && logins.confirm?.id === row.id ? <RowConfirm logins={logins} row={row} inTable /> : null}
             </Fragment>
           );
         })}
