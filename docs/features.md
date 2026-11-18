@@ -192,7 +192,7 @@ from this Mac…`. When Claude Code's own login of the account in use stays
 expired 15 minutes, unrefreshed, that card gets a red chip and the popover a
 red banner with `Sign in again…`; when that login holds nothing left to renew it with,
 the card says `sign in again`, the popover has the same red banner, and the automatic
-switching moves off it. A variable that overrides Claude Code's sign-in puts a red
+switching moves off it when another account has room. A variable that overrides Claude Code's sign-in puts a red
 banner at the top of the tab ([below](#variables-that-override-a-sign-in)).
 
 *(Advanced)* The `⋯` menu can also pause automatic switching for that account

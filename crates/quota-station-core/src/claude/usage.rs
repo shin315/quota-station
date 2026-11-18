@@ -463,6 +463,19 @@ pub fn read_due(store: &Store, endpoints: &Endpoints, force: bool, may_refresh: 
     for (slot, result, expired_at) in results {
         let Some(row) = cache.accounts.get_mut(&slot.to_string()) else { continue };
         row.claim_until = None;
+        // A login read dead before a new sign-in landed is not marked dead
+        // over it: Claude Code's login is read again under the lock, and a
+        // read that no longer holds is dropped, as the next one will redo it.
+        if Some(slot) == active && matches!(&result, Err(f) if f.kind == LIVE_DEAD) {
+            let now_ms = (OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000) as i64;
+            let still = cc::read_credential(&store.paths, &*store.security)
+                .ok()
+                .flatten()
+                .is_some_and(|c| cc::dead(&c, now_ms));
+            if !still {
+                continue;
+            }
+        }
         row.last_attempt_at = Some(now);
         row.live_expired_at = expired_at;
         // Only the read of Claude Code's own login says it is dead.

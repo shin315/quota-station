@@ -310,19 +310,17 @@ pub fn run(store: &Store, tools: &Tools) -> Decided {
         return Decided { line: NO_RULES.into(), primes: Vec::new() };
     };
     if let Some(slot) = plan.target() {
-        // Why it leaves an account it would otherwise have kept waiting on.
-        if let Some(from) = switch::active_slot(store).filter(|f| login_dead(store, *f)) {
-            log(
-                store,
-                &format!(
-                    "slot {from} login cannot be renewed (no refresh token left), leaving it for slot {slot}"
-                ),
-                OffsetDateTime::now_utc(),
-            );
-        }
+        let dead_from = switch::active_slot(store).filter(|f| login_dead(store, *f));
         let rest = plan.decision.splitn(3, ' ').nth(2).unwrap_or("");
         match switch::switch(store, slot) {
             Ok(_) => {
+                // Why it leaves an account it would otherwise have kept waiting on.
+                if let Some(from) = dead_from {
+                    let why = format!(
+                        "slot {from} login cannot be renewed (no refresh token left), left for slot {slot}"
+                    );
+                    log(store, &why, OffsetDateTime::now_utc());
+                }
                 log(store, &format!("switch to slot {slot} {rest}"), OffsetDateTime::now_utc())
             }
             Err(e) => log(

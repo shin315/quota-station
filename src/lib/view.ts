@@ -523,8 +523,8 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
   const claudeSwitching = { listed: c.status === 'ok', ready: model.claudeSwitch.ready, busy: model.claudeSwitch.busy };
   const relogin = new Set(model.claudeAccounts.accounts.filter((r) => r.status === 'reloginRequired').map((r) => r.slot));
   const liveExpired = model.claudeAccounts.accounts.find((r) => r.active && r.status === 'liveExpired')?.slot ?? null;
-  // The account in use that must sign in again: Claude Code's own login of it has nothing left to renew it with.
-  const liveDead = model.claudeAccounts.accounts.find((r) => r.active && r.status === 'reloginRequired')?.slot ?? null;
+  // The account in use that must sign in again because Claude Code's own login of it has nothing left to renew it with (`no_refresh_token`).
+  const liveDead = model.claudeAccounts.accounts.find((r) => r.active && r.status === 'reloginRequired' && r.error === 'no_refresh_token')?.slot ?? null;
   const claudeCards = c.accounts.map((a) => cardView(a, 'c', names.get(a.number)!, { ...ctx, switching: claudeSwitching, relogin, liveExpired }));
   const agySwitching: AgyRowSwitch = {
     listed: g.status === 'ok' && !!model.agySwitch?.listed,
