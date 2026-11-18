@@ -245,7 +245,7 @@ export function LoginActions({ logins, row }: { logins: AgyLogins; row: AgyRowVi
         </Button>
       ) : null}
       {row.recheck ? (
-        <Button primary={!row.verify} onClick={() => logins.recheck(row)}>
+        <Button primary={!row.verify} disabled={row.read?.tone === 'info'} onClick={() => logins.recheck(row)}>
           {t('Kiểm tra lại', 'Check again')}
         </Button>
       ) : null}

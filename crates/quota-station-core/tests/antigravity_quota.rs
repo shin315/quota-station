@@ -580,6 +580,39 @@ fn a_verification_google_keeps_asking_for_stays_one_status_and_clears_only_when_
 }
 
 #[test]
+fn a_refusal_without_a_reason_keeps_the_reason_the_status_had() {
+    let home = Home::new("agy-quota-keep-reason");
+    let id = "antigravity_x";
+    let set = |reason: Option<&str>, url: Option<&str>, since| {
+        let s = Standing::NeedsVerification {
+            since,
+            url: url.map(String::from),
+            reason: reason.map(String::from),
+        };
+        index::set_standing(&home.app, id, Some(s)).unwrap();
+    };
+    set(Some("SUBSCRIPTION_REQUIRED"), None, 100);
+    set(None, Some("https://accounts.google.com/x"), 200);
+    assert_eq!(
+        standing(&home, id),
+        Some(Standing::NeedsVerification {
+            since: 100,
+            url: Some("https://accounts.google.com/x".into()),
+            reason: Some("SUBSCRIPTION_REQUIRED".into()),
+        })
+    );
+    // A new reason replaces the old; a status of another kind starts afresh.
+    set(Some("VALIDATION_REQUIRED"), None, 300);
+    assert!(matches!(
+        standing(&home, id),
+        Some(Standing::NeedsVerification { since: 100, reason: Some(r), .. }) if r == "VALIDATION_REQUIRED"
+    ));
+    index::set_standing(&home.app, id, Some(Standing::Forbidden { since: 400, url: None }))
+        .unwrap();
+    assert_eq!(standing(&home, id), Some(Standing::Forbidden { since: 400, url: None }));
+}
+
+#[test]
 fn a_status_from_an_older_app_without_a_reason_still_reads() {
     let home = Home::new("agy-quota-old-status");
     let google = FakeGoogle::start(Script::default());

@@ -247,7 +247,8 @@ feature (see [`THIRD_PARTY.md`](../THIRD_PARTY.md)). Without it the `Antigravity
   `fetchAvailableModels` marks it `blocked by Google` and stops its reads until
   a new login; an account that needs a new login is not read either. An
   account Google wants verified (or says needs a subscription) is still read,
-  so it clears by itself once verified anywhere, but every 30 minutes, not with
+  so it clears by itself once Google stops asking (a verification done
+  anywhere, a subscription taken), but every 30 minutes, not with
   the account-in-use reads; a new login, `Check again` on its row and the tab
   opening read it at once. Its status keeps Google's reason code and the
   moment it first needed it (a refused read does not move that moment), and

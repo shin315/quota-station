@@ -215,13 +215,19 @@ impl Standing {
         }
     }
 
-    fn with_since(self, since: i64) -> Standing {
-        match self {
-            Standing::NeedsLogin { .. } => Standing::NeedsLogin { since },
-            Standing::NeedsVerification { url, reason, .. } => {
-                Standing::NeedsVerification { since, url, reason }
+    /// This status, from `old`'s moment, and with `old`'s reason when this one gives none.
+    fn continuing(self, old: &Standing) -> Standing {
+        let since = old.since();
+        match (self, old) {
+            (Standing::NeedsVerification { url, reason, .. }, old) => {
+                let kept = match old {
+                    Standing::NeedsVerification { reason, .. } => reason.clone(),
+                    _ => None,
+                };
+                Standing::NeedsVerification { since, url, reason: reason.or(kept) }
             }
-            Standing::Forbidden { url, .. } => Standing::Forbidden { since, url },
+            (Standing::NeedsLogin { .. }, _) => Standing::NeedsLogin { since },
+            (Standing::Forbidden { url, .. }, _) => Standing::Forbidden { since, url },
         }
     }
 
@@ -239,7 +245,7 @@ pub fn set_standing(app: &AppDir, id: &str, standing: Option<Standing>) -> Resul
     let changed = match standing {
         Some(s) => {
             let s = match statuses.accounts.get(id) {
-                Some(old) if old.same_kind(&s) => s.with_since(old.since()),
+                Some(old) if old.same_kind(&s) => s.continuing(old),
                 _ => s,
             };
             statuses.accounts.insert(id.to_string(), s.clone()) != Some(s)
