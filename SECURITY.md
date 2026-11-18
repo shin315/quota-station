@@ -84,7 +84,7 @@ Files, under `~/Library/Application Support/com.shin315.quota-station/`:
   holds an email or a token: cards name accounts as the windows do
   (`Team A`, `Ultra 2`), and the usage read's error text never goes on a card:
   a login error shows only as one of the known codes (`invalid_grant`,
-  `no_refresh_token`, `no-access-token`, `relogin_required`, or `relogin`
+  `no_refresh_token`, `login_ended`, `no-access-token`, `relogin_required`, or `relogin`
   for any other that asks for a new login).
 
 - `agents/restore-last.json` (M10, mode 600): the last restore from a

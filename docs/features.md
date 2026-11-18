@@ -504,7 +504,7 @@ lists the kinds in both languages. The kinds:
    switch sheet).
 3. **An account needs to sign in again** (`<account> cần đăng nhập lại`): the
    usage read reports an error only a new sign-in mends (`invalid_grant`,
-   `no_refresh_token`, `no-access-token`, `relogin_required`, a relogin), with
+   `no_refresh_token`, `login_ended`, `no-access-token`, `relogin_required`, a relogin), with
    `Nhắc ngày mai` (asks again at 09:00 the next day) and `Đã biết`. Antigravity
    accounts that need a new sign-in, that Google blocked, or that need a
    verification (`<account> cần xác minh`, or `<account> cần gói đăng ký` when

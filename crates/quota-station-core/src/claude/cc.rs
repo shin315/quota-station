@@ -171,6 +171,38 @@ pub fn expires_at(credential: &str) -> Option<i64> {
     oauth_part(credential)?.get("expiresAt")?.as_i64()
 }
 
+/// 2025-01-01T00:00:00Z in milliseconds: Claude Code takes an end date
+/// before it for no date at all.
+const END_DATE_FROM_MS: f64 = 1_735_689_600_000.0;
+
+/// The end date of the refresh token, `refreshTokenExpiresAt` in
+/// milliseconds, which Claude Code keeps in its own login to warn that the
+/// login is about to expire, and to tell a login that still works from one
+/// that does not. It has now passed at `now_ms`. A date that is missing, not
+/// a number, or from before 2025 (a negative one, or a count of seconds) is
+/// not a date, and says nothing: the login is then judged as if it had none.
+/// Claude Code also drops a date more than ten years ahead, which is never
+/// in the past here.
+///
+/// A past date alone does not mean Claude Code gave up: the access token may
+/// still work, or Claude Code may be about to refresh it, so the caller
+/// pairs it with an access token that stopped working a while ago. This is
+/// read from the credential alone and takes no call to Anthropic.
+pub fn refresh_ended(credential: &str, now_ms: i64) -> bool {
+    oauth_part(credential)
+        .and_then(|o| o.get("refreshTokenExpiresAt").and_then(Value::as_f64))
+        .is_some_and(|t| t.is_finite() && t >= END_DATE_FROM_MS && t <= now_ms as f64)
+}
+
+/// Claude Code marked the login as having reached its time limit
+/// (`loginEnded: "time_limit"`), which it does when it clears a login after
+/// Anthropic said the refresh token expired.
+pub fn time_limit(credential: &str) -> bool {
+    oauth_part(credential)
+        .and_then(|o| o.get("loginEnded").and_then(Value::as_str).map(|s| s == "time_limit"))
+        == Some(true)
+}
+
 /// `credential` is a newer copy of a login than `than`: usable, and its
 /// access token lasts longer (`expiresAt`; none counts as the oldest).
 pub fn newer(credential: &str, than: &str) -> bool {
@@ -422,6 +454,45 @@ mod tests {
         // Not a login at all: not known to be dead.
         assert!(!dead("not json", 5));
         assert!(!dead(r#"{"mcpOAuth":{}}"#, 5));
+    }
+
+    #[test]
+    fn a_refresh_token_is_ended_by_a_date_that_has_passed() {
+        const NOW: i64 = 1_800_000_000_000;
+        let with = |date: &str| {
+            format!(
+                r#"{{"claudeAiOauth":{{"accessToken":"a","refreshToken":"r","refreshTokenExpiresAt":{date}}}}}"#
+            )
+        };
+        assert!(refresh_ended(&with("1790000000000"), NOW));
+        assert!(refresh_ended(&with(&NOW.to_string()), NOW), "the day itself is over");
+        assert!(!refresh_ended(&with(&(NOW + 1).to_string()), NOW));
+        assert!(!refresh_ended(&with("1900000000000"), NOW));
+        // Not a date Claude Code reads: ignored, never a reason to call it ended.
+        assert!(!refresh_ended(&with("\"1790000000000\""), NOW), "a string");
+        assert!(!refresh_ended(&with("-5"), NOW), "negative");
+        assert!(!refresh_ended(&with("0"), NOW));
+        assert!(!refresh_ended(&with("1790000000"), NOW), "seconds, not milliseconds");
+        assert!(!refresh_ended(&with("null"), NOW));
+        assert!(!refresh_ended(&with("1e400"), NOW), "too large to be a number");
+        assert!(!refresh_ended(r#"{"claudeAiOauth":{"refreshToken":"r"}}"#, NOW), "no date");
+        assert!(!refresh_ended("not json", NOW));
+        assert!(
+            !refresh_ended(r#"{"refreshTokenExpiresAt":1790000000000}"#, NOW),
+            "not in the login"
+        );
+    }
+
+    #[test]
+    fn claude_codes_time_limit_mark_is_read() {
+        let with = |mark: &str| {
+            format!(r#"{{"claudeAiOauth":{{"refreshToken":"","loginEnded":{mark}}}}}"#)
+        };
+        assert!(time_limit(&with("\"time_limit\"")));
+        assert!(!time_limit(&with("\"other\"")));
+        assert!(!time_limit(&with("null")));
+        assert!(!time_limit(r#"{"claudeAiOauth":{"refreshToken":""}}"#));
+        assert!(!time_limit("not json"));
     }
 
     #[test]

@@ -8,6 +8,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { claudeAccountsFixture, codexFixture, FIXTURE_NOW, fixtureModel } from '../fixtures/models';
+import { liveDeadText, liveEndedText } from './claudeAccounts';
 import { setLang } from './i18n';
 import type { Model } from './model';
 import { popoverView } from './view';
@@ -109,6 +110,21 @@ describe('popover states', () => {
     const refused = claudeAccountsFixture();
     refused.accounts = refused.accounts.map((a) => (a.active ? { ...a, status: 'reloginRequired' as const, error: 'invalid_grant' } : a));
     expect(view(fixtureModel('fresh', { claudeAccounts: refused })).banner?.title ?? '').not.toMatch(/^Đăng nhập Claude Code của/);
+  });
+
+  it('the account in use whose login is past its end date has the same banner, with its own words', () => {
+    const accounts = claudeAccountsFixture();
+    const active = accounts.accounts.find((a) => a.active)!;
+    accounts.accounts = accounts.accounts.map((a) => (a.slot === active.slot ? { ...a, status: 'reloginRequired' as const, error: 'login_ended' } : a));
+    const v = view(fixtureModel('fresh', { claudeAccounts: accounts }));
+    expect(v.claude.cards.find((c) => c.slot === active.slot)!.relogin).toBe(true);
+    expect(v.banner).toMatchObject({
+      tone: 'bad',
+      title: 'Đăng nhập Claude Code của lan.acme1 đã hết, cần đăng nhập lại',
+      body: liveEndedText(),
+      actions: [{ act: `claude:relogin:${active.slot}` }],
+    });
+    expect(liveEndedText()).not.toBe(liveDeadText());
   });
 
   it('the account in use running dry with no room elsewhere says so, with the earliest reset', () => {

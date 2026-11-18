@@ -103,8 +103,22 @@ is `reloginRequired` at once, with the error `no_refresh_token`, and the
 rotation leaves it for the account it would take if it were full (`switch 3
 (…)`, or `switch 3 (slot 2 login ended, 20% used)` without a rotation file),
 with a line in `claude/rotation.log` saying why; with nowhere to go it says
-`wait (no account with room)`. An expired login that still has its refresh
-token keeps the old behaviour, `stay (slot N usage unknown)`. An account is read at most every 180 seconds, with a
+`wait (no account with room)`. Claude Code clears a login itself when
+Anthropic refuses its refresh token (no tokens, `expiresAt` 0, and
+`loginEnded: "time_limit"` when the server said the refresh token expired),
+so that case is the one above; the line in `rotation.log` says `reached its
+time limit` when Claude Code left that mark. A login that still has its
+refresh token is also dead when nothing has renewed it past the end date
+Claude Code keeps for it: its access token expired 15 minutes ago or more and
+its `refreshTokenExpiresAt` (milliseconds, a date from 2025 on) has passed.
+Claude Code treats such a login as one that cannot be used, so the account's
+status is `reloginRequired` with the error `login_ended`, the rotation leaves
+it as above, and the log line says `reached its end date`. A date that is
+missing, not a number, or still ahead, and an access token that still works
+or expired less than 15 minutes ago, change nothing; this reads only the
+login, and the refresh token is never sent. Every other expired login that
+still has its refresh token keeps the old behaviour, `stay (slot N usage
+unknown)`. An account is read at most every 180 seconds, with a
 back-off after a failure or a 429. The readings go to
 `claude/usage.json` (no email, no token). Emails stay in memory and reach the
 windows only while `Hiện email` is on, as before.
@@ -176,7 +190,8 @@ its error, and the account in use; no email, no token. `quota-station
 claude status --json` prints the same, and with `--emails` adds the emails.
 Each account's `status` is `fresh`, `stale`, `noData`, `reloginRequired` (the
 app's copy of its login was refused, or, for the account in use, Claude Code's
-own login holds nothing to renew it with) or `liveExpired` (the account in use,
+own login holds nothing to renew it with, or is past the end date of its
+refresh token) or `liveExpired` (the account in use,
 whose login in Claude Code itself stayed expired, above).
 The app's Claude row is built from the same readings; no other tool is run
 to read them. Each account also says whether it is in the rotation

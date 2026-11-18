@@ -29,13 +29,11 @@ fn mac_with_live(tag: &str, live: &str) -> (Mac, FakeAnthropic) {
     (mac, anthropic)
 }
 
-/// What Claude Code leaves of a login it can no longer use: the tokens gone,
-/// the expiry kept.
+/// What Claude Code leaves of a login it can no longer use: the tokens gone
+/// and the expiry set to 0 (see `claude_live_ended.rs` for the mark it adds
+/// when the server said the refresh token expired).
 fn wiped() -> String {
-    format!(
-        r#"{{"claudeAiOauth":{{"accessToken":"","refreshToken":"","expiresAt":{}}}}}"#,
-        in_hours(-2.0)
-    )
+    r#"{"claudeAiOauth":{"accessToken":"","refreshToken":"","expiresAt":0}}"#.to_string()
 }
 
 /// An expired access token with its refresh token still there.

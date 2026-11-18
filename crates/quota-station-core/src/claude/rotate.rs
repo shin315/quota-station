@@ -22,6 +22,7 @@ use std::time::Duration;
 use time::OffsetDateTime;
 
 use super::auto;
+use super::cc;
 use super::engine::{self, Input, Plan};
 use super::session;
 use super::store::Store;
@@ -310,15 +311,13 @@ pub fn run(store: &Store, tools: &Tools) -> Decided {
         return Decided { line: NO_RULES.into(), primes: Vec::new() };
     };
     if let Some(slot) = plan.target() {
-        let dead_from = switch::active_slot(store).filter(|f| login_dead(store, *f));
+        let dead_from = switch::active_slot(store).and_then(|f| Some((f, login_dead(store, f)?)));
         let rest = plan.decision.splitn(3, ' ').nth(2).unwrap_or("");
         match switch::switch(store, slot) {
             Ok(_) => {
                 // Why it leaves an account it would otherwise have kept waiting on.
-                if let Some(from) = dead_from {
-                    let why = format!(
-                        "slot {from} login cannot be renewed (no refresh token left), left for slot {slot}"
-                    );
+                if let Some((from, reason)) = dead_from {
+                    let why = format!("slot {from} login {reason}, left for slot {slot}");
                     log(store, &why, OffsetDateTime::now_utc());
                 }
                 log(store, &format!("switch to slot {slot} {rest}"), OffsetDateTime::now_utc())
@@ -340,9 +339,25 @@ pub fn run(store: &Store, tools: &Tools) -> Decided {
 }
 
 /// The last read of `slot`, the account in use, found Claude Code's own login
-/// holding nothing to renew it with.
-fn login_dead(store: &Store, slot: u32) -> bool {
-    usage::load(store).row(slot).is_some_and(|r| r.live_dead)
+/// that can never work again, with the reason for the log: Claude Code marked
+/// it as having reached its time limit, it is past the end date Claude Code
+/// keeps for its refresh token, or it holds nothing to renew it with. Read
+/// from what Claude Code left in the login; nothing goes to Anthropic.
+fn login_dead(store: &Store, slot: u32) -> Option<&'static str> {
+    let cache = usage::load(store);
+    let row = cache.row(slot).filter(|r| r.live_dead)?;
+    if row.last_error.as_deref() == Some("login_ended") {
+        return Some("reached its end date (the refresh token expired)");
+    }
+    let marked = cc::read_credential(&store.paths, &*store.security)
+        .ok()
+        .flatten()
+        .is_some_and(|c| cc::time_limit(&c));
+    Some(if marked {
+        "reached its time limit (Claude Code ended it, no refresh token left)"
+    } else {
+        "cannot be renewed (no refresh token left)"
+    })
 }
 
 /// One tiny message as account `slot`, in its own session folder, so its

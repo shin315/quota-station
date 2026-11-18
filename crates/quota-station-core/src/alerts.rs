@@ -81,9 +81,9 @@ const RECENT_KEEP: usize = 30;
 /// A sent key is forgotten after this long.
 const SENT_KEEP: i64 = 60 * 86400;
 /// The usage reading's errors that only a new login mends: a refresh token
-/// Anthropic refused, or a login without one.
-const RELOGIN_ERRORS: [&str; 4] =
-    ["invalid_grant", "no_refresh_token", "no-access-token", "relogin_required"];
+/// Anthropic refused, a login without one, or one past its end date.
+const RELOGIN_ERRORS: [&str; 5] =
+    ["invalid_grant", "no_refresh_token", "login_ended", "no-access-token", "relogin_required"];
 
 /// A kind of alert: one of the app's own, or one an extension adds
 /// ([`Kind::Ext`]). Written as its name: `pool`, `login`, …

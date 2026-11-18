@@ -60,6 +60,14 @@ export function liveDeadText(): string {
   );
 }
 
+/** Why the account in use shows `reloginRequired` when Claude Code's login of it passed the end date of its refresh token. */
+export function liveEndedText(): string {
+  return t(
+    'Đăng nhập mà Claude Code đang dùng đã quá hạn tối đa của nó và đã hết hạn từ hơn 15 phút, nên Claude Code không làm mới được và không chạy được trên tài khoản này. Đăng nhập lại tài khoản này; việc tự chuyển sẽ rời khỏi nó sang tài khoản còn hạn mức.',
+    'The sign-in Claude Code uses is past its time limit and expired over 15 minutes ago, so Claude Code cannot renew it and cannot run on this account. Sign this account in again; the rotation moves off it to an account with room.',
+  );
+}
+
 /** `73% 5 giờ · 12% tuần`: the windows it has numbers for; '' when none. */
 export function quotaLine(row: ClaudeAccountRow): string {
   const w = row.windows;

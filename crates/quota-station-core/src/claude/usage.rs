@@ -60,6 +60,27 @@ pub const LIVE_STUCK_SECONDS: f64 = 900.0;
 /// The error kind of a login with no refresh token left (a stored copy that
 /// lost it, or Claude Code's own login once it is [`cc::dead`]).
 const LIVE_DEAD: &str = "no_refresh_token";
+/// The error kind of Claude Code's own login that still has a refresh token
+/// but is past the end date Claude Code keeps for it, with its access token
+/// long expired ([`ended`]): Claude Code cannot renew it either.
+const LIVE_ENDED: &str = "login_ended";
+
+/// The read found Claude Code's own login of the account in use that can
+/// never work again: only a new sign-in mends it.
+fn live_dead_kind(kind: &str) -> bool {
+    kind == LIVE_DEAD || kind == LIVE_ENDED
+}
+
+/// Claude Code's own login still has its refresh token, but its access token
+/// expired [`LIVE_STUCK_SECONDS`] or more before `now_ms` and the end date it
+/// keeps for the refresh token has passed ([`cc::refresh_ended`]): it has
+/// reached its time limit, and Claude Code cannot renew it. Read from the
+/// login alone; the refresh token is never sent. Within the 15 minutes, or
+/// with a date that is missing or still ahead, the login is only waited on.
+fn ended(credential: &str, now_ms: i64) -> bool {
+    cc::expires_at(credential).is_some_and(|e| (now_ms - e) as f64 >= LIVE_STUCK_SECONDS * 1000.0)
+        && cc::refresh_ended(credential, now_ms)
+}
 
 /// Where the reads go. The app always uses [`Endpoints::anthropic`].
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -195,8 +216,9 @@ pub struct Row {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub live_expired_at: Option<f64>,
     /// The account in use, whose last read found Claude Code's own login
-    /// holding nothing to renew it with ([`cc::dead`]): only a new sign-in
-    /// mends it. Never set from a login that still has its refresh token.
+    /// holding nothing to renew it with ([`cc::dead`]), or past its own end date
+    /// ([`ended`]): only a new sign-in mends it. Never set from a login that
+    /// still has its refresh token and is not past that date.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub live_dead: bool,
 }
@@ -466,12 +488,12 @@ pub fn read_due(store: &Store, endpoints: &Endpoints, force: bool, may_refresh: 
         // A login read dead before a new sign-in landed is not marked dead
         // over it: Claude Code's login is read again under the lock, and a
         // read that no longer holds is dropped, as the next one will redo it.
-        if Some(slot) == active && matches!(&result, Err(f) if f.kind == LIVE_DEAD) {
+        if Some(slot) == active && matches!(&result, Err(f) if live_dead_kind(&f.kind)) {
             let now_ms = (OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000) as i64;
             let still = cc::read_credential(&store.paths, &*store.security)
                 .ok()
                 .flatten()
-                .is_some_and(|c| cc::dead(&c, now_ms));
+                .is_some_and(|c| cc::dead(&c, now_ms) || ended(&c, now_ms));
             if !still {
                 continue;
             }
@@ -479,7 +501,8 @@ pub fn read_due(store: &Store, endpoints: &Endpoints, force: bool, may_refresh: 
         row.last_attempt_at = Some(now);
         row.live_expired_at = expired_at;
         // Only the read of Claude Code's own login says it is dead.
-        row.live_dead = Some(slot) == active && matches!(&result, Err(f) if f.kind == LIVE_DEAD);
+        row.live_dead =
+            Some(slot) == active && matches!(&result, Err(f) if live_dead_kind(&f.kind));
         match result {
             Ok(reading) => {
                 row.last_good = Some(reading);
@@ -492,7 +515,7 @@ pub fn read_due(store: &Store, endpoints: &Endpoints, force: bool, may_refresh: 
             }
             Err(f) => {
                 row.failures += 1;
-                row.relogin = matches!(f.kind.as_str(), "invalid_grant" | "no_refresh_token");
+                row.relogin = matches!(f.kind.as_str(), "invalid_grant" | LIVE_DEAD | LIVE_ENDED);
                 row.backoff_until = Some(now + backoff(&f.kind, row.failures, f.retry_after));
                 row.last_error = Some(f.kind.clone());
                 pass.failed.push((slot, f.kind));
@@ -530,6 +553,12 @@ fn read_active(store: &Store, endpoints: &Endpoints) -> (Result<Reading, Failure
         return (Err(failure), expired_at.map(|e| e as f64 / 1000.0));
     }
     if let Some(e) = expired_at {
+        if ended(&credential, now_ms) {
+            // Past the end date Claude Code keeps for the refresh token, with
+            // nothing to show it refreshed since: Claude Code cannot renew it.
+            let failure = Failure { kind: LIVE_ENDED.into(), retry_after: None };
+            return (Err(failure), Some(e as f64 / 1000.0));
+        }
         // Claude Code refreshes its own login when it next runs; whether it
         // can is not known without refreshing it, which the app never does.
         let failure = Failure { kind: "token_expired".into(), retry_after: None };
