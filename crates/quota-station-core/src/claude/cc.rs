@@ -149,6 +149,23 @@ pub fn usable(credential: &str) -> bool {
     })
 }
 
+/// A login that can never work again, seen from the credential alone: it
+/// has a `claudeAiOauth` part and no refresh token in it, and no access
+/// token that still works at `now_ms` (none, or past its `expiresAt`).
+/// Claude Code has nothing to renew it with, so only a new sign-in mends it.
+/// This takes no call to Anthropic, so it never uses up a refresh token. A
+/// login whose refresh token is still there is never dead by this: whether
+/// the server would refuse it is not known without refreshing it, and an
+/// expired one may only be waiting for Claude Code to run.
+pub fn dead(credential: &str, now_ms: i64) -> bool {
+    let Some(oauth) = oauth_part(credential) else { return false };
+    let has = |k: &str| oauth.get(k).and_then(Value::as_str).is_some_and(|s| !s.is_empty());
+    if has("refreshToken") {
+        return false;
+    }
+    !has("accessToken") || expires_at(credential).is_some_and(|e| now_ms >= e)
+}
+
 /// When the access token stops working, in milliseconds since the epoch.
 pub fn expires_at(credential: &str) -> Option<i64> {
     oauth_part(credential)?.get("expiresAt")?.as_i64()
@@ -381,6 +398,30 @@ mod tests {
         assert!(usable(r#"{"claudeAiOauth":{"accessToken":"a","refreshToken":""}}"#));
         assert!(!usable(r#"{"claudeAiOauth":{"accessToken":"","refreshToken":""}}"#));
         assert!(!usable("not json"));
+    }
+
+    #[test]
+    fn a_login_is_dead_only_when_nothing_is_left_to_renew_it_with() {
+        let at = |access: &str, refresh: &str, ms: i64| {
+            format!(
+                r#"{{"claudeAiOauth":{{"accessToken":"{access}","refreshToken":"{refresh}","expiresAt":{ms}}}}}"#
+            )
+        };
+        // Wiped, with or without an expiry.
+        assert!(dead(&at("", "", 9), 5));
+        assert!(dead(r#"{"claudeAiOauth":{}}"#, 5));
+        // An expired access token and no refresh token.
+        assert!(dead(&at("a", "", 5), 5));
+        assert!(dead(r#"{"claudeAiOauth":{"accessToken":"a","expiresAt":1}}"#, 5));
+        // Still working: the access token lasts, or none has an expiry.
+        assert!(!dead(&at("a", "", 9), 5));
+        assert!(!dead(r#"{"claudeAiOauth":{"accessToken":"a"}}"#, 5));
+        // A refresh token that is there: expired or not, it may renew.
+        assert!(!dead(&at("a", "r", 1), 5));
+        assert!(!dead(&at("", "r", 9), 5));
+        // Not a login at all: not known to be dead.
+        assert!(!dead("not json", 5));
+        assert!(!dead(r#"{"mcpOAuth":{}}"#, 5));
     }
 
     #[test]

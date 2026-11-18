@@ -89,6 +89,24 @@ describe('popover states', () => {
     expect(quiet.claude.cards.flatMap((c) => c.chips).map((c) => c.t)).not.toContain('đăng nhập Claude Code hết hạn');
   });
 
+  it('the account in use that must sign in again has a banner that signs it in again; another account does not', () => {
+    const accounts = claudeAccountsFixture();
+    const active = accounts.accounts.find((a) => a.active)!;
+    accounts.accounts = accounts.accounts.map((a) => (a.slot === active.slot ? { ...a, status: 'reloginRequired' as const } : a));
+    const v = view(fixtureModel('fresh', { claudeAccounts: accounts }));
+    expect(v.claude.cards.find((c) => c.slot === active.slot)!.relogin).toBe(true);
+    expect(v.banner).toMatchObject({
+      tone: 'bad',
+      title: 'Đăng nhập Claude Code của lan.acme1 đã hết, cần đăng nhập lại',
+      actions: [{ act: `claude:relogin:${active.slot}` }],
+    });
+    // An account not in use that must sign in again keeps its chip and gets no banner.
+    const other = claudeAccountsFixture();
+    other.accounts[2] = { ...other.accounts[2], status: 'reloginRequired' };
+    const quiet = view(fixtureModel('fresh', { claudeAccounts: other }));
+    expect(quiet.banner?.title ?? '').not.toMatch(/^Đăng nhập Claude Code của/);
+  });
+
   it('the account in use running dry with no room elsewhere says so, with the earliest reset', () => {
     const v = view(allLeft(fixtureModel('fresh'), 5));
     expect(v.banner?.tone).toBe('bad');

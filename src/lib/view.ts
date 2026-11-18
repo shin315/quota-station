@@ -11,7 +11,7 @@ import { age, clock, secondsSince } from './format';
 import { mac, onWindows, t } from './i18n';
 import type { Account, AgyLogin, LineKind, MenubarWindow, Model, Section } from './model';
 import { codexBanner, currentId, shortName } from './codex';
-import { liveExpiredText } from './claudeAccounts';
+import { liveDeadText, liveExpiredText } from './claudeAccounts';
 import { advancedOn } from './advanced';
 import { switcherBanner } from '@/lib/rotation';
 
@@ -523,6 +523,8 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
   const claudeSwitching = { listed: c.status === 'ok', ready: model.claudeSwitch.ready, busy: model.claudeSwitch.busy };
   const relogin = new Set(model.claudeAccounts.accounts.filter((r) => r.status === 'reloginRequired').map((r) => r.slot));
   const liveExpired = model.claudeAccounts.accounts.find((r) => r.active && r.status === 'liveExpired')?.slot ?? null;
+  // The account in use that must sign in again: Claude Code's own login of it has nothing left to renew it with.
+  const liveDead = model.claudeAccounts.accounts.find((r) => r.active && r.status === 'reloginRequired')?.slot ?? null;
   const claudeCards = c.accounts.map((a) => cardView(a, 'c', names.get(a.number)!, { ...ctx, switching: claudeSwitching, relogin, liveExpired }));
   const agySwitching: AgyRowSwitch = {
     listed: g.status === 'ok' && !!model.agySwitch?.listed,
@@ -565,6 +567,15 @@ export function popoverView(model: Model, now: Date, options: ViewOptions = {}):
       title: t('Claude Code chưa làm mới được đăng nhập của ' + who, 'Claude Code could not refresh ' + who + '’s sign-in'),
       body: liveExpiredText(),
       actions: [{ label: t('Đăng nhập lại…', 'Sign in again…'), act: `claude:relogin:${liveExpired}` }],
+    };
+  } else if (liveDead != null && claudeCards.some((x) => x.active && x.slot === liveDead)) {
+    // The rotation leaves it on its own; until then Claude Code cannot run on it.
+    const who = nameOf(liveDead);
+    banner = {
+      tone: 'bad',
+      title: t('Đăng nhập Claude Code của ' + who + ' đã hết, cần đăng nhập lại', 'Claude Code’s sign-in of ' + who + ' is gone, sign in again'),
+      body: liveDeadText(),
+      actions: [{ label: t('Đăng nhập lại…', 'Sign in again…'), act: `claude:relogin:${liveDead}` }],
     };
   } else if (pool.exhausted) {
     let who: string[] = [];

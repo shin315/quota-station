@@ -52,6 +52,14 @@ export function liveExpiredText(): string {
   );
 }
 
+/** Why the account in use shows `reloginRequired`: Claude Code's own login of it holds nothing to renew it with. */
+export function liveDeadText(): string {
+  return t(
+    'Đăng nhập mà Claude Code đang dùng không còn gì để làm mới, nên Claude Code không chạy được trên tài khoản này. Đăng nhập lại tài khoản này; việc tự chuyển sẽ rời khỏi nó sang tài khoản còn hạn mức.',
+    'The sign-in Claude Code uses has nothing left to renew it with, so Claude Code cannot run on this account. Sign this account in again; the rotation moves off it to an account with room.',
+  );
+}
+
 /** `73% 5 giờ · 12% tuần`: the windows it has numbers for; '' when none. */
 export function quotaLine(row: ClaudeAccountRow): string {
   const w = row.windows;

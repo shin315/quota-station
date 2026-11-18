@@ -48,6 +48,11 @@
 //! An account the owner held out of the rotation is never switched to; the
 //! account in use is kept or left by the rules above, held out or not.
 //!
+//! The account in use with no fresh reading is kept (`stay (slot N usage
+//! unknown)`), since its numbers may only be late, unless its login is dead
+//! ([`Reading::dead`]): then it counts as no account with room, and the
+//! account in use is left by the rules above, as when it is used up.
+//!
 //! The decision is the script's line, word for word (`switch 3 (4.0%, ends
 //! 15:00)`), so [`crate::switcher::parse_decision`] and the log reader read
 //! it as they read the script's. When the weekly order takes the account,
@@ -96,6 +101,11 @@ pub struct Reading {
     pub fable: Window,
     /// Held out of the rotation by the owner.
     pub disabled: bool,
+    /// The login of the account in use holds nothing to renew it with
+    /// (`usage::Row::live_dead`): proved from the login itself, never from
+    /// an expiry, which a Mac left overnight shows too. Only a new sign-in
+    /// mends it, so the account in use is left, not waited on.
+    pub dead: bool,
 }
 
 /// Everything one decision depends on.
@@ -189,6 +199,11 @@ impl View<'_> {
                 .fold(None, |m: Option<f64>, p| Some(m.map_or(p, |m| m.max(p))))
                 .unwrap_or(0.0),
         )
+    }
+
+    /// The login of `n`, the account in use, cannot be renewed.
+    fn dead(&self, n: u32) -> bool {
+        self.accts.get(&n).is_some_and(|a| a.dead)
     }
 
     fn room(&self, n: u32) -> bool {
@@ -297,7 +312,7 @@ pub fn decide(input: &Input) -> Plan {
         team.iter().copied().filter(|n| expire.contains_key(n) && v.room(*n)).collect();
     let urgent_targets: Vec<u32> = urgent.iter().copied().filter(|n| !held(*n)).collect();
     let decision = if let Some(a) =
-        active.filter(|a| has(Some(*a)) && !gone(*a) && v.used(*a).is_none())
+        active.filter(|a| has(Some(*a)) && !gone(*a) && v.used(*a).is_none() && !v.dead(*a))
     {
         format!("stay (slot {a} usage unknown)")
     } else if !urgent_targets.is_empty() && !active.is_some_and(|a| urgent.contains(&a)) {
@@ -380,7 +395,9 @@ pub fn decide(input: &Input) -> Plan {
             let started: Vec<u32> = team
                 .iter()
                 .copied()
-                .filter(|n| v.ends(*n).is_some() && (Some(*n) == active || !held(*n)))
+                .filter(|n| {
+                    v.ends(*n).is_some() && !v.dead(*n) && (Some(*n) == active || !held(*n))
+                })
                 .collect();
             let last = active.filter(|a| has(Some(*a))).and_then(|a| v.used(a));
             let keeps = active.is_some_and(|a| team.contains(&a) || (Some(a) == personal && day));

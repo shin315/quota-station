@@ -11,8 +11,12 @@
 
 //! Each account's three windows, read by the app itself. The account Claude
 //! Code is on is read with Claude Code's live token, never refreshed here:
-//! Claude Code refreshes its own login. Another account whose token is about
-//! to expire is refreshed first, under the app's lock, after its stored
+//! Claude Code refreshes its own login. When that login holds nothing to renew
+//! it with ([`cc::dead`]: no refresh token, no working access token), the
+//! account needs a new sign-in and the read says so, with no call to
+//! Anthropic; an expired login that still has its refresh token only waits for
+//! Claude Code to run. Another account whose token is about to expire is
+//! refreshed first, under the app's lock, after its stored
 //! credential is read again, and the new one is stored in the app's item.
 //!
 //! The readings go to `claude/usage.json`: windows, times and error kinds,
@@ -53,6 +57,9 @@ pub const FRESH_SECONDS: i64 = 900;
 /// Claude Code could not refresh it: it refreshes it when it next runs, so
 /// an expired login alone (a Mac left overnight) is no sign of trouble.
 pub const LIVE_STUCK_SECONDS: f64 = 900.0;
+/// The error kind of a login with no refresh token left (a stored copy that
+/// lost it, or Claude Code's own login once it is [`cc::dead`]).
+const LIVE_DEAD: &str = "no_refresh_token";
 
 /// Where the reads go. The app always uses [`Endpoints::anthropic`].
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -187,6 +194,11 @@ pub struct Row {
     /// expired (`token_expired`): when it expired, Unix seconds.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub live_expired_at: Option<f64>,
+    /// The account in use, whose last read found Claude Code's own login
+    /// holding nothing to renew it with ([`cc::dead`]): only a new sign-in
+    /// mends it. Never set from a login that still has its refresh token.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub live_dead: bool,
 }
 
 impl Row {
@@ -215,6 +227,7 @@ impl Row {
     /// held back for a new sign-in or a back-off.
     pub fn new_login(&mut self) {
         self.relogin = false;
+        self.live_dead = false;
         self.backoff_until = None;
         self.failures = 0;
     }
@@ -452,6 +465,8 @@ pub fn read_due(store: &Store, endpoints: &Endpoints, force: bool, may_refresh: 
         row.claim_until = None;
         row.last_attempt_at = Some(now);
         row.live_expired_at = expired_at;
+        // Only the read of Claude Code's own login says it is dead.
+        row.live_dead = Some(slot) == active && matches!(&result, Err(f) if f.kind == LIVE_DEAD);
         match result {
             Ok(reading) => {
                 row.last_good = Some(reading);
@@ -494,8 +509,16 @@ fn read_active(store: &Store, endpoints: &Endpoints) -> (Result<Reading, Failure
         }
     };
     let now_ms = (OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000) as i64;
-    if let Some(e) = cc::expires_at(&credential).filter(|e| now_ms >= *e) {
-        // Claude Code refreshes its own login when it next runs.
+    let expired_at = cc::expires_at(&credential).filter(|e| now_ms >= *e);
+    if cc::dead(&credential, now_ms) {
+        // Nothing left to renew it with: Claude Code cannot refresh it when
+        // it next runs, and no call to Anthropic is needed to know.
+        let failure = Failure { kind: LIVE_DEAD.into(), retry_after: None };
+        return (Err(failure), expired_at.map(|e| e as f64 / 1000.0));
+    }
+    if let Some(e) = expired_at {
+        // Claude Code refreshes its own login when it next runs; whether it
+        // can is not known without refreshing it, which the app never does.
         let failure = Failure { kind: "token_expired".into(), retry_after: None };
         return (Err(failure), Some(e as f64 / 1000.0));
     }

@@ -104,6 +104,7 @@ pub fn readings(store: &Store, now: OffsetDateTime) -> Vec<engine::Reading> {
     let Ok(list) = store.load() else { return Vec::new() };
     let cache = usage::load(store);
     let at = super::epoch(now);
+    let active = switch::active_slot(store);
     let win = |w: Option<&usage::Win>| engine::Window {
         used: w.map(|w| w.pct),
         resets_at: w.and_then(|w| w.resets_at.as_deref()).and_then(crate::time_util::parse_ts),
@@ -123,6 +124,7 @@ pub fn readings(store: &Store, now: OffsetDateTime) -> Vec<engine::Reading> {
                     .map(|f| usage::Win { pct: f.pct, resets_at: f.resets_at.clone() })
                     .as_ref()),
                 disabled: crate::advanced::held::disabled(a),
+                dead: Some(a.slot) == active && row.is_some_and(|r| r.live_dead),
             }
         })
         .collect()
@@ -308,6 +310,16 @@ pub fn run(store: &Store, tools: &Tools) -> Decided {
         return Decided { line: NO_RULES.into(), primes: Vec::new() };
     };
     if let Some(slot) = plan.target() {
+        // Why it leaves an account it would otherwise have kept waiting on.
+        if let Some(from) = switch::active_slot(store).filter(|f| login_dead(store, *f)) {
+            log(
+                store,
+                &format!(
+                    "slot {from} login cannot be renewed (no refresh token left), leaving it for slot {slot}"
+                ),
+                OffsetDateTime::now_utc(),
+            );
+        }
         let rest = plan.decision.splitn(3, ' ').nth(2).unwrap_or("");
         match switch::switch(store, slot) {
             Ok(_) => {
@@ -327,6 +339,12 @@ pub fn run(store: &Store, tools: &Tools) -> Decided {
         }
     }
     Decided { line: plan.decision.clone(), primes: plan.primes }
+}
+
+/// The last read of `slot`, the account in use, found Claude Code's own login
+/// holding nothing to renew it with.
+fn login_dead(store: &Store, slot: u32) -> bool {
+    usage::load(store).row(slot).is_some_and(|r| r.live_dead)
 }
 
 /// One tiny message as account `slot`, in its own session folder, so its

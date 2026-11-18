@@ -164,6 +164,40 @@ fn an_unknown_reading_of_the_account_in_use_holds_the_rotation() {
 }
 
 #[test]
+fn an_account_in_use_whose_login_is_dead_is_left_by_the_usual_rules() {
+    let mut dead = acct(2, 95.0, Some(60));
+    dead.fresh = false;
+    dead.dead = true;
+    // Slot 3's window ends first, so it is taken, as when 2 is full.
+    let accounts = [dead.clone(), acct(3, 0.0, Some(30)), acct(4, 20.0, Some(200))];
+    let plan = decide(&rules(), &accounts, Some(2), 12);
+    assert_eq!(plan.target(), Some(3), "{}", plan.decision);
+    // The same reading, dead only by an expiry the app does not call dead.
+    let mut waiting = dead.clone();
+    waiting.dead = false;
+    let accounts = [waiting, acct(3, 0.0, Some(30)), acct(4, 20.0, Some(200))];
+    assert_eq!(decide(&rules(), &accounts, Some(2), 12).decision, "stay (slot 2 usage unknown)");
+}
+
+#[test]
+fn a_dead_login_in_use_with_no_room_elsewhere_never_waits_on_its_old_window() {
+    let mut dead = acct(2, 50.0, Some(60));
+    dead.fresh = false;
+    dead.dead = true;
+    let accounts = [dead, acct(3, 100.0, Some(300)), acct(4, 100.0, Some(120))];
+    let plan = decide(&rules(), &accounts, Some(2), 12);
+    // Parks on the account that resets first, not "waiting for slot 2".
+    assert_eq!(plan.target(), Some(4), "{}", plan.decision);
+    let alone = [{
+        let mut d = acct(2, 50.0, Some(60));
+        d.fresh = false;
+        d.dead = true;
+        d
+    }];
+    assert_eq!(decide(&rules(), &alone, Some(2), 12).decision, "wait (no account with room)");
+}
+
+#[test]
 fn a_stale_reading_never_counts_as_room() {
     let mut stale = acct(3, 0.0, Some(30));
     stale.fresh = false;

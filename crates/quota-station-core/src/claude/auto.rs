@@ -17,7 +17,10 @@
 //!   lower number.
 //! - With no such account Claude stays, and the decision says so
 //!   (`wait (no account with room)`); alert 1 tells the owner.
-//! - With no fresh reading of the account in use, nothing moves.
+//! - With no fresh reading of the account in use, nothing moves, unless its
+//!   login is dead ([`Reading::dead`]: nothing left to renew it with): then
+//!   it is left as if it were full, for the account with the most room in
+//!   the 5-hour window.
 //!
 //! The decision is a line the rotation's readers already know: `stay`,
 //! `stay (slot 2 usage unknown)`, `wait (no account with room)`, or
@@ -87,10 +90,11 @@ pub fn decide(accounts: &[Reading], active: Option<u32>, at: f64) -> Plan {
         // Claude Code is on an account the app does not keep: leave it.
         return plan("stay".into());
     };
-    if !a.fresh {
+    if !a.fresh && !a.dead {
         return plan(format!("stay (slot {} usage unknown)", a.number));
     }
-    let (which, full) = fullest(a);
+    // A dead login has no windows to read: it is left as if it were full.
+    let (which, full) = if a.dead { (Which::FiveHour, 100.0) } else { fullest(a) };
     if full < at {
         return plan("stay".into());
     }
@@ -112,6 +116,12 @@ pub fn decide(accounts: &[Reading], active: Option<u32>, at: f64) -> Plan {
         kx.0.total_cmp(&ky.0).then(kx.1.total_cmp(&ky.1)).then(kx.2.cmp(&ky.2))
     });
     match room.first() {
+        Some(to) if a.dead => plan(format!(
+            "switch {} (slot {} login ended, {}% used)",
+            to.number,
+            a.number,
+            whole(used(to, which)),
+        )),
         Some(to) => plan(format!(
             "switch {} (full {}: slot {} at {}%, {}% used)",
             to.number,
@@ -208,6 +218,25 @@ mod tests {
         let mut stale = acct(1, 99.0, 99.0);
         stale.fresh = false;
         assert_eq!(line(&[stale, acct(2, 0.0, 0.0)], 1), "stay (slot 1 usage unknown)");
+    }
+
+    #[test]
+    fn a_dead_login_in_use_is_left_for_the_account_with_the_most_room() {
+        let mut dead = acct(1, 0.0, 0.0);
+        dead.fresh = false;
+        dead.dead = true;
+        let accounts = [dead.clone(), acct(2, 30.0, 10.0), acct(3, 12.0, 70.0)];
+        assert_eq!(line(&accounts, 1), "switch 3 (slot 1 login ended, 12% used)");
+        // The decision line stays one the readers know.
+        let plan = decide(&accounts, Some(1), 90.0);
+        assert_eq!(plan.target(), Some(3));
+        assert_eq!(parse_decision(&plan.decision), Decision::Switch { slot: 3, why: Why::Other });
+        // With no room anywhere it waits, as for a full account.
+        assert_eq!(line(&[dead, acct(2, 95.0, 0.0)], 1), "wait (no account with room)");
+        // Not dead: unknown numbers still hold the rotation.
+        let mut late = acct(1, 0.0, 0.0);
+        late.fresh = false;
+        assert_eq!(line(&[late, acct(2, 0.0, 0.0)], 1), "stay (slot 1 usage unknown)");
     }
 
     #[test]

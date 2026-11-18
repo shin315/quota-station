@@ -94,7 +94,17 @@ copy of it is stored; the account in use is read all the same. When the
 account in use is read with an expired Claude Code login, the reading keeps
 when it expired; 15 minutes after that, still not refreshed, the account's
 status is `liveExpired` (Claude Code refreshes its login when it next runs,
-so a Mac left overnight wakes up with an expired one that still works). An account is read at most every 180 seconds, with a
+so a Mac left overnight wakes up with an expired one that still works). The app
+never refreshes that login to find out more, so it cannot tell a refresh Anthropic
+would refuse from one that is only waiting. It does know a login that holds
+nothing to renew it with: no refresh token, and no access token that still
+works (a login whose tokens were wiped). That account's status
+is `reloginRequired` at once, with the error `no_refresh_token`, and the
+rotation leaves it for the account it would take if it were full (`switch 3
+(…)`, or `switch 3 (slot 2 login ended, 20% used)` without a rotation file),
+with a line in `claude/rotation.log` saying why; with nowhere to go it says
+`wait (no account with room)`. An expired login that still has its refresh
+token keeps the old behaviour, `stay (slot N usage unknown)`. An account is read at most every 180 seconds, with a
 back-off after a failure or a 429. The readings go to
 `claude/usage.json` (no email, no token). Emails stay in memory and reach the
 windows only while `Hiện email` is on, as before.
@@ -165,7 +175,8 @@ alias, its three windows (share used and reset), how old its reading is and
 its error, and the account in use; no email, no token. `quota-station
 claude status --json` prints the same, and with `--emails` adds the emails.
 Each account's `status` is `fresh`, `stale`, `noData`, `reloginRequired` (the
-app's copy of its login was refused) or `liveExpired` (the account in use,
+app's copy of its login was refused, or, for the account in use, Claude Code's
+own login holds nothing to renew it with) or `liveExpired` (the account in use,
 whose login in Claude Code itself stayed expired, above).
 The app's Claude row is built from the same readings; no other tool is run
 to read them. Each account also says whether it is in the rotation
