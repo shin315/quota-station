@@ -77,7 +77,7 @@ fn live_dead_kind(kind: &str) -> bool {
 /// reached its time limit, and Claude Code cannot renew it. Read from the
 /// login alone; the refresh token is never sent. Within the 15 minutes, or
 /// with a date that is missing or still ahead, the login is only waited on.
-fn ended(credential: &str, now_ms: i64) -> bool {
+pub fn ended(credential: &str, now_ms: i64) -> bool {
     cc::expires_at(credential).is_some_and(|e| (now_ms - e) as f64 >= LIVE_STUCK_SECONDS * 1000.0)
         && cc::refresh_ended(credential, now_ms)
 }

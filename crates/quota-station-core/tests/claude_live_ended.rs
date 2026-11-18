@@ -155,6 +155,24 @@ fn a_run_leaves_a_login_past_its_end_date_and_logs_why() {
 }
 
 #[test]
+fn the_account_left_for_a_login_past_its_end_date_still_asks_to_sign_in_again() {
+    let live = login(in_hours(-2.0), Some(json!(in_hours(-3.0 * DAY))));
+    let (mac, anthropic) = mac_with_live("ended-date-left", &live);
+    // The app's copy is older than the login Claude Code held, so the switch keeps that one.
+    mac.store.set_credential(2, &credential("acc-2", "ref-2", in_hours(-30.0))).unwrap();
+    rotate::run(&mac.store, &tools(&mac, &anthropic));
+    assert_eq!(switch::active_slot(&mac.store), Some(3));
+    assert_eq!(mac.store.credential(2).unwrap().as_deref(), Some(live.as_str()));
+    let r = row(&mac, 2);
+    assert!(r.relogin, "{r:?}");
+    assert_eq!(status(&mac, 2), "reloginRequired");
+    // Not read again, so its refresh token is not sent either.
+    let pass = usage::read_due(&mac.store, &anthropic.endpoints(), true, true);
+    assert!(!pass.read.contains(&2) && !pass.failed.iter().any(|(s, _)| *s == 2), "{pass:?}");
+    assert!(anthropic.to("/v1/oauth/token").is_empty());
+}
+
+#[test]
 fn an_expired_login_before_its_end_date_is_only_waited_on() {
     let live = login(in_hours(-2.0), Some(json!(in_hours(20.0 * DAY))));
     let (mac, anthropic) = mac_with_live("ended-date-ahead", &live);

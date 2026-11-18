@@ -113,7 +113,9 @@ Claude Code keeps for it: its access token expired 15 minutes ago or more and
 its `refreshTokenExpiresAt` (milliseconds, a date from 2025 on) has passed.
 Claude Code treats such a login as one that cannot be used, so the account's
 status is `reloginRequired` with the error `login_ended`, the rotation leaves
-it as above, and the log line says `reached its end date`. A date that is
+it as above, and the log line says `reached its end date`; once the rotation
+has left it, the account keeps that status (and is not read again) until a new
+sign-in is stored. A date that is
 missing, not a number, or still ahead, and an access token that still works
 or expired less than 15 minutes ago, change nothing; this reads only the
 login, and the refresh token is never sent. Every other expired login that

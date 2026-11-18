@@ -183,7 +183,13 @@ pub fn switch(store: &Store, slot: u32) -> Result<Switched, SwitchError> {
         if ours.as_deref() != Some(cred) && !stored_newer {
             store.set_credential(f, cred)?;
             session::refresh_profile(store, f);
-            super::usage::login_replaced(store, f);
+            // A login that is over stays marked: the app's copy is that same
+            // login, and a new sign-in is what clears it.
+            let now_ms =
+                (time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000) as i64;
+            if !cc::dead(cred, now_ms) && !super::usage::ended(cred, now_ms) {
+                super::usage::login_replaced(store, f);
+            }
         }
         if let Some(oauth) = live.oauth.as_ref().filter(|_| live.who().is_some()) {
             if store.oauth_account(f)?.as_ref() != Some(oauth) {
