@@ -135,9 +135,10 @@ quota-station antigravity status
 DIR` reads that folder into the app's store here. Both print the accounts
 by number and email, nothing else. The accounts keep their numbers: the
 Mac's numbers are this machine's, unless accounts were imported here
-before, which keep theirs (the new ones come after them). An account
-imported again gets its new token. Accounts held out of the rotation on the
-Mac are held out here too.
+before, which keep theirs (the new ones come after them). An account held
+out of the rotation on the Mac is held out here when it is imported for the
+first time. An account imported again gets its new token and name and keeps
+the hold set on this machine.
 
 The bundle holds every account's refresh token: whoever has it can use the
 accounts. Keep it like a password and remove it once imported.

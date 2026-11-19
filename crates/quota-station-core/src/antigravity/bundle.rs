@@ -239,8 +239,9 @@ impl Bundle {
     /// Puts the bundle into the app's store here: each account's token in
     /// [`Keychain`], then the index, then `oauth-client.json`. The accounts
     /// already here keep their numbers and their current account; one the
-    /// bundle also holds gets its token and name, and loses a standing that
-    /// asked for a new login. The others are added in the bundle's order.
+    /// bundle also holds gets its token and name, keeps its hold here, and
+    /// loses a standing that asked for a new login. The others are added in
+    /// the bundle's order, held out of the rotation as they were there.
     /// Gives each account of the bundle by its number here and email.
     pub fn install(
         &self,
