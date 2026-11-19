@@ -287,6 +287,7 @@ quota-station antigravity switch N|EMAIL [--keep-running] [--json]
 quota-station antigravity rotate [--dry-run]
 quota-station antigravity rotation on [--threshold PCT] [--cooldown MIN]
 quota-station antigravity rotation off | status [--json]
+quota-station antigravity export DIR | import DIR
 ```
 
 `switch` exits 0 when the check shows the new account in use, 3 when the login
@@ -296,7 +297,9 @@ an `agy` session already running keeps the account it started with, and writes
 that account's login back at its next hourly token refresh, which undoes the
 switch, so restart running `agy` sessions after switching. On Windows `status`
 and `switch` work; the rotation does not run there yet and `rotation on` says
-so.
+so. `export` and `import` carry the accounts to another computer, and on
+Linux the same commands switch the `agy` that runs there
+([linux.md](linux.md#the-antigravity-accounts)).
 
 For an account Google asks something of, `status --json` gives `standing`
 (`needsLogin`, `needsVerification` or `forbidden`), `standingSince` (when it

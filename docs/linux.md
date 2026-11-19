@@ -179,12 +179,13 @@ quota-station antigravity rotate --dry-run
 
 `switch` writes the account's login to agy's file, replacing it whole; it
 makes agy's folder (`~/.gemini/antigravity-cli`) when it is not there yet
-and sets it to mode 700 each time. There is no desktop app to quit or open again. agy is a program each
-terminal starts on its own: an agy session started after the switch is on
-the new account; one that was already running stays on the old one and
-writes the old login back at its next hourly token refresh, so quit and
-start those again. `status` names the account in use from the last switch
-(or from agy's own reading, when it answers).
+and sets it to mode 700 each time. There is no desktop app to quit or
+open again. agy is a program each terminal starts on its own: an agy
+session started after the switch is on the new account; one that was
+already running stays on the old one and writes the old login back at its
+next hourly token refresh, so quit and start those again. `status` names
+the account in use from the last switch (or from agy's own reading, when it
+answers).
 
 `rotate` is one run of the Mac's rotation. `rotation on` is macOS's
 LaunchAgent only and is refused here; to run the rotation every three
