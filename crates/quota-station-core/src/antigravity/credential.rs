@@ -19,8 +19,10 @@
 //! only where it finds one it can count on. Under WSL, on a host with no
 //! D-Bus session bus, over SSH and in a container it keeps its login in
 //! that file instead, of mode 600 (checked in agy 1.5.12's own Linux build).
-//! The file is replaced whole: written to a temporary file beside it and
-//! renamed over it, so a failed write leaves the login that was there.
+//! A switch makes agy's folder when it is not there yet and sets it to mode
+//! 700 each time, and replaces the file whole: written to a temporary file
+//! beside it and renamed over it, so a failed write leaves the login that
+//! was there.
 //!
 //! The app only ever writes the item, never reads it, and only when the
 //! owner confirms a switch. The write updates the item in place
@@ -246,7 +248,7 @@ fn write_item(
 /// agy's login file replaced whole by `payload_json`, as agy writes it: the
 /// JSON as it is, mode 600. Written to a temporary file beside it and renamed
 /// over it, so a failed write leaves the login that was there; agy's folder
-/// is made, for its owner alone, when it is not there yet.
+/// is made when it is not there yet and set to mode 700 each time.
 #[cfg(not(windows))]
 fn write_file(path: &Path, payload_json: &str) -> Result<(), CredentialError> {
     crate::sealed::write_new(path, payload_json.as_bytes())

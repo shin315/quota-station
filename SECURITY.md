@@ -42,10 +42,11 @@ changes the app should keep these rules, or say plainly which one changes.
   file agy keeps it in where it has no keyring it can count on (WSL, no
   D-Bus session bus, SSH, a container):
   `~/.gemini/antigravity-cli/antigravity-oauth-token`. The command line
-  never reads it; a switch only replaces it whole with the same JSON, as
-  it is: written to a temporary file of mode 600 beside it and renamed
-  over it, so a failed write leaves the login that was there. The value
-  goes to no command line.
+  never reads it; a switch makes agy's folder (`~/.gemini/antigravity-cli`)
+  when it is not there yet and sets it to mode 700 each time, and replaces
+  the login file whole with the same JSON, as it is: written to a temporary
+  file of mode 600 beside it and renamed over it, so a failed write leaves
+  the login that was there. The value goes to no command line.
 
 The app keeps the Claude accounts itself and runs no other switcher's command;
 what it reads and writes of Claude Code's login is in
