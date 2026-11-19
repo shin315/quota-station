@@ -134,12 +134,11 @@ mode 700), written whole and renamed over the old one: a headless machine,
 or WSL, has no keyring the command line could count on.
 
 `quota-station antigravity export` writes every account's tokens, the
-index and the OAuth client to a place the owner names (a new folder of mode
-700 with files of mode 600, a new tar file of mode 600, or a pipe, never a
-terminal), so that `import` on another computer adds them there without a
-new login. Whoever has that bundle can use the accounts; it is kept like a
-password and removed once imported. Neither command prints a token or the
-client, only the accounts' numbers and emails.
+index and the OAuth client to a new folder the owner names (mode 700, its
+files mode 600), so that `import` on another computer adds them there
+without a new login. Whoever has that bundle can use the accounts; it is
+kept like a password and removed once imported. Neither command prints a
+token or the client, only the accounts' numbers and emails.
 
 In the owner's login Keychain, not in that folder:
 

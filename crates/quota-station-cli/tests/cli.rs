@@ -51,7 +51,7 @@ fn antigravity_is_the_apps_antigravity_commands() {
     let (code, out, err) = call(&["antigravity", "help"]);
     assert_eq!((code, err.as_str()), (0, ""));
     assert_eq!(out, quota_station_core::antigravity::cli::USAGE);
-    assert!(out.contains("  import DIR|FILE.tar|-"), "{out}");
+    assert!(out.contains("  import DIR"), "{out}");
 }
 
 /// A build without the Antigravity accounts says how to get them.

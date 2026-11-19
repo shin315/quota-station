@@ -145,7 +145,7 @@ pub fn name(text: &str) -> String {
 
 /// `bytes` at `file` through a temporary file beside it and a rename, in
 /// folders for their owner alone.
-fn write_new(file: &Path, bytes: &[u8]) -> io::Result<()> {
+pub(crate) fn write_new(file: &Path, bytes: &[u8]) -> io::Result<()> {
     static NEXT: AtomicU64 = AtomicU64::new(0);
     let dir = file.parent().ok_or_else(|| io::Error::other("no folder"))?;
     crate::os::owner_dir(dir)?;

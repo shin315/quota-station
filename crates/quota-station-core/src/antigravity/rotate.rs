@@ -499,8 +499,7 @@ pub fn last_run(app: &AppDir) -> Option<serde_json::Value> {
 }
 
 /// The rotation's LaunchAgent through `launchctl` on macOS; on Windows and
-/// Linux it is never on and cannot be turned on (on Linux the refusal gives
-/// the line that runs it from `cron`, [`cron_line`]).
+/// Linux it is never on and cannot be turned on.
 #[derive(Debug, Clone)]
 pub struct Schedule {
     pub launchctl: PathBuf,
@@ -521,13 +520,7 @@ impl Schedule {
 
     /// Writes and loads the LaunchAgent that runs `<exe> antigravity rotate`.
     pub fn install(&self, home: &Path, exe: &Path) -> Result<(), AgentError> {
-        if cfg!(target_os = "linux") {
-            return Err(AgentError::Io(format!(
-                "{UNSUPPORTED}; on Linux run it from cron instead (crontab -e):\n{}",
-                cron_line(exe)
-            )));
-        }
-        if !cfg!(unix) {
+        if !cfg!(target_os = "macos") {
             return Err(AgentError::Io(UNSUPPORTED.into()));
         }
         agent::install_job(&self.launchctl, home, LABEL, exe, &ARGS)
@@ -539,13 +532,6 @@ impl Schedule {
         }
         agent::remove_job(&self.launchctl, home, LABEL)
     }
-}
-
-/// The `crontab` line that runs `<exe> antigravity rotate` every three
-/// minutes, as the LaunchAgent does, the program's path quoted for `sh`.
-pub fn cron_line(exe: &Path) -> String {
-    let exe = exe.display().to_string().replace('\'', "'\\''");
-    format!("*/3 * * * * '{exe}' {} >/dev/null 2>&1", ARGS.join(" "))
 }
 
 #[cfg(test)]

@@ -21,9 +21,9 @@ use common::desktop::remember;
 use common::google::{CLIENT_ID, CLIENT_SECRET};
 use common::os::FakeProcesses;
 use common::temp_dir;
-use quota_station_core::antigravity::bundle::{Bundle, FORMAT};
+use quota_station_core::antigravity::bundle::FORMAT;
 use quota_station_core::antigravity::cli::{self, Cli};
-use quota_station_core::antigravity::credential::{build_payload, SharedLogin, AGY_LOGIN_FILE};
+use quota_station_core::antigravity::credential::{agy_login_file, build_payload, SharedLogin};
 use quota_station_core::antigravity::desktop::{Desktop, Installed};
 use quota_station_core::antigravity::index::{self, AccountIndex, AccountSummary};
 use quota_station_core::antigravity::listing;
@@ -112,8 +112,9 @@ impl Computer {
         mac
     }
 
+    /// agy 1.5.12's login file on Linux, under `HOME`.
     fn agy_login(&self) -> PathBuf {
-        self.home.join(AGY_LOGIN_FILE)
+        self.home.join(".gemini/antigravity-cli/antigravity-oauth-token")
     }
 
     fn cli(&self, world: Box<dyn World>) -> Cli {
@@ -131,7 +132,7 @@ impl Computer {
     fn linux(&self) -> Cli {
         self.cli(Box::new(Linux {
             keychain: self.keychain.clone(),
-            shared: SharedLogin::file(self.agy_login()),
+            shared: SharedLogin::file(agy_login_file(&self.home)),
         }))
     }
 
@@ -262,38 +263,6 @@ fn an_import_keeps_the_numbers_tokens_holds_and_client_in_private_files() {
     assert_eq!(quota_station_core::antigravity::client::load(&pc.app).unwrap().id(), CLIENT_ID);
 }
 
-#[test]
-fn a_tar_stream_carries_the_same_bundle() {
-    let mac = Computer::mac("agy-tar-mac");
-    let pc = Computer::empty("agy-tar-pc");
-    // To a pipe: the tar on stdout, what it holds on stderr.
-    let (code, tar, err) = {
-        let args = ["export".to_string(), "-".to_string()];
-        let (mut out, mut err) = (Vec::new(), Vec::new());
-        let code = cli::run(&mac.linux(), &args, &mut out, &mut err);
-        (code, out, String::from_utf8(err).unwrap())
-    };
-    assert_eq!(code, 0, "{err}");
-    assert!(err.contains("exported account 3  three@example.com"), "{err}");
-    assert_eq!(tar.len() % 512, 0);
-    let bundle = Bundle::read_tar(&mut tar.as_slice()).unwrap();
-    assert_eq!(bundle.accounts().len(), 3);
-    // To a tar file, which only its owner reads, and from it.
-    let file = mac.home.join("accounts.tar");
-    let (code, _, err) = mac.call(&["export", file.to_str().unwrap()]);
-    assert_eq!((code, err.as_str()), (0, ""));
-    assert_eq!(mode(&file), 0o600);
-    assert_eq!(std::fs::read(&file).unwrap(), tar);
-    let (code, out, err) = pc.call(&["import", file.to_str().unwrap()]);
-    assert_eq!((code, err.as_str()), (0, ""));
-    assert_eq!(
-        out,
-        "imported account 1  one@example.com\nimported account 2  two@example.com\n\
-         imported account 3  three@example.com\n"
-    );
-    assert_eq!(pc.keychain.read(&index::account_id(EMAILS[2])).unwrap(), token(3));
-}
-
 /// Breaks a copy of a bundle in the folder it is given.
 type Breaks<'a> = dyn Fn(&Path) + 'a;
 
@@ -304,7 +273,7 @@ fn a_bundle_that_does_not_check_out_is_refused_and_nothing_is_written() {
     assert_eq!(mac.call(&["export", dir.to_str().unwrap()]).0, 0);
     let token2 = format!("tokens/{}.json", index::account_id(EMAILS[1]));
     let write = |d: &Path, name: &str, text: &str| std::fs::write(d.join(name), text).unwrap();
-    let broken: [(&str, &Breaks<'_>); 5] = [
+    let broken: [(&str, &Breaks<'_>); 6] = [
         ("names x", &|d| write(d, "manifest.json", r#"{"format":"x","version":1}"#)),
         ("no tokens/", &|d| std::fs::remove_file(d.join(&token2)).unwrap()),
         ("another account's", &|d| write(d, &token2, &serde_json::to_string(&token(1)).unwrap())),
@@ -312,6 +281,10 @@ fn a_bundle_that_does_not_check_out_is_refused_and_nothing_is_written() {
             write(d, "oauth-client.json", r#"{"client_id":"<id>","client_secret":"<secret>"}"#)
         }),
         ("unexpected file", &|d| write(d, "notes.txt", "hi")),
+        ("manifest.json is not a plain file", &|d| {
+            std::fs::remove_file(d.join("manifest.json")).unwrap();
+            std::os::unix::fs::symlink(d.join("accounts.json"), d.join("manifest.json")).unwrap();
+        }),
     ];
     for (i, (why, breaks)) in broken.iter().enumerate() {
         let copy = mac.home.join(format!("broken-{i}"));
@@ -332,18 +305,6 @@ fn a_bundle_that_does_not_check_out_is_refused_and_nothing_is_written() {
         assert!(!store::files_dir(&pc.app).exists(), "{why}");
         assert!(!pc.app.path().join("oauth-client.json").exists(), "{why}");
     }
-}
-
-#[test]
-fn a_tar_with_a_link_in_it_is_refused() {
-    let mut tar = vec![0u8; 512];
-    tar[..14].copy_from_slice(b"manifest.json\0");
-    tar[100..108].copy_from_slice(b"0000777\0");
-    tar[124..136].copy_from_slice(b"00000000000\0");
-    tar[156] = b'2';
-    tar.extend_from_slice(&[0; 1024]);
-    let err = Bundle::read_tar(&mut tar.as_slice()).unwrap_err().to_string();
-    assert!(err.contains("manifest.json is not a plain file"), "{err}");
 }
 
 #[test]
@@ -377,7 +338,8 @@ fn an_import_beside_accounts_already_here_keeps_their_numbers() {
 #[test]
 fn agys_login_file_is_replaced_whole_and_only_its_owner_reads_it() {
     let pc = Computer::empty("agy-file");
-    let shared = SharedLogin::file(pc.agy_login());
+    assert_eq!(agy_login_file(&pc.home), pc.agy_login());
+    let shared = SharedLogin::file(agy_login_file(&pc.home));
     shared.write(&token(1)).unwrap();
     assert_eq!(std::fs::read_to_string(pc.agy_login()).unwrap(), build_payload(&token(1)));
     assert_eq!(mode(&pc.agy_login()), 0o600);
@@ -456,11 +418,55 @@ fn rotate_moves_agy_to_the_account_with_the_most_left() {
     assert!(out.lines().any(|l| l.starts_with("*  3")), "{out}");
 }
 
+fn files_outside_app(computer: &Computer) -> Vec<PathBuf> {
+    fn walk(dir: &Path, root: &Path, app: &Path, out: &mut Vec<PathBuf>) {
+        for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+            let path = entry.path();
+            if path == app {
+                continue;
+            }
+            if path.is_dir() {
+                walk(&path, root, app, out);
+            } else {
+                out.push(path.strip_prefix(root).unwrap().to_path_buf());
+            }
+        }
+    }
+    let mut out = Vec::new();
+    walk(&computer.home, &computer.home, computer.app.path(), &mut out);
+    out.sort();
+    out
+}
+
 #[test]
-fn the_rotation_cannot_be_turned_on_without_a_launch_agent() {
-    let line = rotate::cron_line(Path::new("/home/it's me/.local/bin/quota-station"));
-    assert_eq!(
-        line,
-        r"*/3 * * * * '/home/it'\''s me/.local/bin/quota-station' antigravity rotate >/dev/null 2>&1"
-    );
+fn export_import_and_switch_write_only_the_bundle_and_agys_login_outside_the_app_folder() {
+    let _serial = serial();
+    let mac = Computer::mac("agy-paths-mac");
+    let pc = Computer::empty("agy-paths-pc");
+    let bundle = pc.home.join("bundle");
+    assert_eq!(mac.call(&["export", bundle.to_str().unwrap()]).0, 0);
+    assert_eq!(pc.call(&["import", bundle.to_str().unwrap()]).0, 0);
+    assert_eq!(pc.call(&["switch", "2"]).0, 0);
+    assert!(files_outside_app(&mac).is_empty());
+    let mut expected = vec![
+        PathBuf::from(".gemini/antigravity-cli/antigravity-oauth-token"),
+        PathBuf::from("bundle/accounts.json"),
+        PathBuf::from("bundle/manifest.json"),
+        PathBuf::from("bundle/oauth-client.json"),
+    ];
+    for email in EMAILS {
+        expected.push(PathBuf::from(format!("bundle/tokens/{}.json", index::account_id(email))));
+    }
+    expected.sort();
+    assert_eq!(files_outside_app(&pc), expected);
+}
+
+#[test]
+#[cfg(not(target_os = "macos"))]
+fn a_refused_rotation_on_saves_no_settings() {
+    let pc = Computer::empty("agy-rotation-on");
+    let (code, out, err) = pc.call(&["rotation", "on", "--threshold", "15"]);
+    assert_eq!((code, out.as_str()), (1, ""));
+    assert!(err.contains(rotate::UNSUPPORTED), "{err}");
+    assert!(!rotate::settings_path(&pc.app).exists());
 }

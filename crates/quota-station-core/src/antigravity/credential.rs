@@ -249,31 +249,8 @@ fn write_item(
 /// is made, for its owner alone, when it is not there yet.
 #[cfg(not(windows))]
 fn write_file(path: &Path, payload_json: &str) -> Result<(), CredentialError> {
-    use std::io::Write;
-    use std::os::unix::fs::DirBuilderExt;
-    use std::sync::atomic::{AtomicU64, Ordering};
-    static NEXT: AtomicU64 = AtomicU64::new(0);
-    let fail = |e: std::io::Error| CredentialError::File(e.to_string());
-    let dir = path.parent().ok_or_else(|| CredentialError::File("no folder".into()))?;
-    std::fs::DirBuilder::new().recursive(true).mode(0o700).create(dir).map_err(fail)?;
-    let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-    let tmp = dir.join(format!(
-        ".{name}.{}.{}.tmp",
-        std::process::id(),
-        NEXT.fetch_add(1, Ordering::Relaxed)
-    ));
-    let written =
-        crate::os::with_mode(std::fs::OpenOptions::new().write(true).create_new(true), 0o600)
-            .open(&tmp)
-            .and_then(|mut file| {
-                file.write_all(payload_json.as_bytes())?;
-                crate::os::sync_all(&file)
-            })
-            .and_then(|()| crate::os::replace(&tmp, path));
-    if written.is_err() {
-        let _ = std::fs::remove_file(&tmp);
-    }
-    written.map_err(fail)
+    crate::sealed::write_new(path, payload_json.as_bytes())
+        .map_err(|e| CredentialError::File(e.to_string()))
 }
 
 /// Writes the shared credential (Windows).

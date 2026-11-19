@@ -16,11 +16,10 @@
 //! - `tokens/<id>.json`: each account's [`TokenData`], as the app keeps it
 //!   in its Keychain item.
 //!
-//! A bundle is a folder (mode 700, its files 600) or the same files in a tar
-//! stream. It holds every account's refresh token: whoever has it can use
-//! the accounts, so it is kept like a password and removed once imported.
-//! Nothing here prints a token or the client; the commands print account
-//! numbers and emails only.
+//! A bundle is a folder (mode 700, its files 600). It holds every account's
+//! refresh token: whoever has it can use the accounts, so it is kept like a
+//! password and removed once imported. Nothing here prints a token or the
+//! client; the commands print account numbers and emails only.
 
 use std::collections::BTreeMap;
 use std::io::{self, Read, Write};
@@ -192,37 +191,6 @@ impl Bundle {
         (1..).zip(&self.index.accounts).map(|(n, a)| (n, a.email.clone())).collect()
     }
 
-    /// Writes the bundle where `export` was told: a tar stream on `out`
-    /// (`-`), a new tar file of mode 600 (a name ending in `.tar`), else
-    /// the folder [`Bundle::write_dir`] makes.
-    pub fn write_to(&self, to: &str, out: &mut dyn Write) -> Result<(), BundleError> {
-        if to == "-" {
-            return self.write_tar(out);
-        }
-        if to.ends_with(".tar") {
-            let mut file = crate::os::with_mode(
-                std::fs::OpenOptions::new().write(true).create_new(true),
-                0o600,
-            )
-            .open(to)?;
-            return self.write_tar(&mut file);
-        }
-        self.write_dir(Path::new(to))
-    }
-
-    /// Reads the bundle `import` was told: a tar stream on `input` (`-`), a
-    /// folder, else a tar file.
-    pub fn read_from(from: &str, input: &mut dyn Read) -> Result<Bundle, BundleError> {
-        let path = Path::new(from);
-        if from == "-" {
-            Bundle::read_tar(input)
-        } else if path.is_dir() {
-            Bundle::read_dir(path)
-        } else {
-            Bundle::read_tar(&mut std::fs::File::open(path)?)
-        }
-    }
-
     /// Writes the bundle as the folder `dir`, which must not be there yet
     /// or be empty: mode 700, its files 600, none replaced.
     pub fn write_dir(&self, dir: &Path) -> Result<(), BundleError> {
@@ -246,18 +214,6 @@ impl Bundle {
         Ok(())
     }
 
-    /// Writes the bundle as a tar stream (ustar, regular files of mode 600).
-    pub fn write_tar(&self, out: &mut dyn Write) -> Result<(), BundleError> {
-        for (name, bytes) in self.files() {
-            out.write_all(&tar_header(&name, bytes.len() as u64)?)?;
-            out.write_all(&bytes)?;
-            out.write_all(&vec![0; padding(bytes.len() as u64)])?;
-        }
-        out.write_all(&[0; 1024])?;
-        out.flush()?;
-        Ok(())
-    }
-
     /// Reads and checks the bundle in the folder `dir`.
     pub fn read_dir(dir: &Path) -> Result<Bundle, BundleError> {
         let mut files = BTreeMap::new();
@@ -267,7 +223,7 @@ impl Bundle {
                 let entry = entry?;
                 let kind = entry.file_type()?;
                 let name = entry.file_name().to_string_lossy().into_owned();
-                if (prefix.is_empty() && name == TOKENS && kind.is_dir()) || skipped(&name) {
+                if prefix.is_empty() && name == TOKENS && kind.is_dir() {
                     continue;
                 }
                 if !kind.is_file() {
@@ -276,40 +232,6 @@ impl Bundle {
                 let bytes = read_capped(std::fs::File::open(entry.path())?, &mut total)?;
                 files.insert(format!("{prefix}{name}"), bytes);
             }
-        }
-        Bundle::from_files(files)
-    }
-
-    /// Reads and checks a bundle from a tar stream: regular files and
-    /// folders only (a link is refused), names as [`Bundle::write_tar`]
-    /// writes them or under `./`.
-    pub fn read_tar(input: &mut dyn Read) -> Result<Bundle, BundleError> {
-        let mut files = BTreeMap::new();
-        let mut total = 0;
-        loop {
-            let mut header = [0u8; 512];
-            input.read_exact(&mut header).map_err(|_| invalid("the tar stream ends early"))?;
-            if header.iter().all(|&b| b == 0) {
-                break;
-            }
-            let size = octal(&header[124..136]).ok_or_else(|| invalid("a tar header is bad"))?;
-            let name = tar_name(&header)?;
-            let kind = header[156];
-            let mut body = (&mut *input).take(size + padding(size) as u64);
-            match kind {
-                b'0' | 0 if !skipped(name.rsplit('/').next().unwrap_or("")) => {
-                    let mut part = (&mut body).take(size);
-                    let bytes = read_capped(&mut part, &mut total)?;
-                    if bytes.len() as u64 != size {
-                        return Err(invalid("the tar stream ends early"));
-                    }
-                    files.insert(name, bytes);
-                }
-                // Folders, pax headers, and files the bundle never holds.
-                b'0' | 0 | b'5' | b'x' | b'g' => {}
-                _ => return Err(invalid(format!("{name} is not a plain file"))),
-            }
-            io::copy(&mut body, &mut io::sink())?;
         }
         Bundle::from_files(files)
     }
@@ -355,11 +277,6 @@ impl Bundle {
     }
 }
 
-/// Files a copy of the folder may pick up on the way that are no part of it.
-fn skipped(name: &str) -> bool {
-    name.starts_with("._") || name == ".DS_Store"
-}
-
 fn read_capped(input: impl Read, total: &mut u64) -> Result<Vec<u8>, BundleError> {
     let mut bytes = Vec::new();
     input.take(FILE_LIMIT + 1).read_to_end(&mut bytes)?;
@@ -368,51 +285,6 @@ fn read_capped(input: impl Read, total: &mut u64) -> Result<Vec<u8>, BundleError
         return Err(invalid("a file is too large"));
     }
     Ok(bytes)
-}
-
-fn padding(size: u64) -> usize {
-    ((512 - size % 512) % 512) as usize
-}
-
-fn octal(field: &[u8]) -> Option<u64> {
-    let text = std::str::from_utf8(field).ok()?;
-    let text = text.trim_matches(|c: char| c == '\0' || c == ' ');
-    if text.is_empty() {
-        return Some(0);
-    }
-    u64::from_str_radix(text, 8).ok()
-}
-
-fn tar_name(header: &[u8; 512]) -> Result<String, BundleError> {
-    let field = |range: std::ops::Range<usize>| {
-        let raw = &header[range];
-        let end = raw.iter().position(|&b| b == 0).unwrap_or(raw.len());
-        String::from_utf8(raw[..end].to_vec()).map_err(|_| invalid("a tar name is not text"))
-    };
-    let (prefix, name) = (field(345..500)?, field(0..100)?);
-    let full = if prefix.is_empty() { name } else { format!("{prefix}/{name}") };
-    Ok(full.trim_start_matches("./").trim_end_matches('/').to_string())
-}
-
-fn tar_header(name: &str, size: u64) -> io::Result<[u8; 512]> {
-    let mut h = [0u8; 512];
-    if name.len() >= 100 {
-        return Err(io::Error::other(format!("{name}: too long a name")));
-    }
-    let mut put = |at: usize, text: &str| h[at..at + text.len()].copy_from_slice(text.as_bytes());
-    put(0, name);
-    put(100, "0000600\0");
-    put(108, "0000000\0");
-    put(116, "0000000\0");
-    put(124, &format!("{size:011o}\0"));
-    put(136, "00000000000\0");
-    put(148, "        ");
-    put(156, "0");
-    put(257, "ustar\0");
-    put(263, "00");
-    let sum: u32 = h.iter().map(|&b| u32::from(b)).sum();
-    h[148..156].copy_from_slice(format!("{sum:06o}\0 ").as_bytes());
-    Ok(h)
 }
 
 /// A part of the bundle as pretty JSON, ending in a newline.

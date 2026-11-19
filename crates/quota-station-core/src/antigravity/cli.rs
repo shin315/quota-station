@@ -60,13 +60,10 @@ usage: quota-station antigravity <command>
                         every MIN minutes (default 30)
   rotation off          stop it
   rotation status [--json]
-  export DIR|FILE.tar|-
-                        write every account, its token and the OAuth client
-                        to a new folder, a tar file or (-) stdout, for
-                        `import` on another computer; keep it like a password
-  import DIR|FILE.tar|-
-                        add the accounts of a bundle `export` wrote (a folder,
-                        a tar file or (-) a tar stream on stdin)
+  export DIR            write every account, its token and the OAuth client
+                        to a new folder, for `import` on another computer;
+                        keep it like a password
+  import DIR            add the accounts of a bundle `export` wrote
 ";
 
 /// After a switch: what `agy` sessions that were already running do.
@@ -264,10 +261,8 @@ pub fn run(cli: &Cli, args: &[String], out: &mut dyn Write, err: &mut dyn Write)
     }
 }
 
-/// `export TO`: the bundle to the folder `TO`, the tar file `TO` (a name
-/// ending in `.tar`), or a tar stream on `out` (`-`), never to a terminal.
-/// The accounts, by number and email, on `out`, or on `err` when the
-/// bundle went to `out`.
+/// `export DIR`: the bundle to the folder `DIR`, and the accounts, by
+/// number and email, on `out`.
 fn export(cli: &Cli, to: &str, out: &mut dyn Write, err: &mut dyn Write) -> i32 {
     let fail = |err: &mut dyn Write, e: &dyn std::fmt::Display| {
         let _ = writeln!(err, "quota-station antigravity export: {e}");
@@ -277,31 +272,22 @@ fn export(cli: &Cli, to: &str, out: &mut dyn Write, err: &mut dyn Write) -> i32 
         Ok(bundle) => bundle,
         Err(e) => return fail(err, &e),
     };
-    if to == "-" && std::io::IsTerminal::is_terminal(&std::io::stdout()) {
-        return fail(
-            err,
-            &"the bundle holds every account's token: send it to a file or a pipe, not the \
-              terminal",
-        );
-    }
-    if let Err(e) = bundle.write_to(to, out) {
+    if let Err(e) = bundle.write_dir(Path::new(to)) {
         return fail(err, &e);
     }
-    let said: &mut dyn Write = if to == "-" { err } else { out };
     for (n, email) in bundle.accounts() {
-        let _ = writeln!(said, "exported account {n}  {email}");
+        let _ = writeln!(out, "exported account {n}  {email}");
     }
     0
 }
 
-/// `import FROM`: the bundle in the folder `FROM`, the tar file `FROM`, or
-/// the tar stream on stdin (`-`), into the app's store here.
+/// `import DIR`: the bundle in the folder `DIR`, into the app's store here.
 fn import(cli: &Cli, from: &str, out: &mut dyn Write, err: &mut dyn Write) -> i32 {
     let fail = |err: &mut dyn Write, e: &dyn std::fmt::Display| {
         let _ = writeln!(err, "quota-station antigravity import: {e}");
         1
     };
-    let bundle = match Bundle::read_from(from, &mut std::io::stdin().lock()) {
+    let bundle = match Bundle::read_dir(Path::new(from)) {
         Ok(bundle) => bundle,
         Err(e) => return fail(err, &e),
     };
@@ -323,6 +309,9 @@ fn rotation(cli: &Cli, rest: &[String], out: &mut dyn Write, err: &mut dyn Write
     };
     match rest.first().map(String::as_str) {
         Some("on") => {
+            if !cfg!(target_os = "macos") {
+                return fail(err, &rotate::UNSUPPORTED);
+            }
             let mut settings = rotate::load_settings(&cli.app);
             let flag = |name: &str| rest.iter().position(|a| a == name).map(|i| rest.get(i + 1));
             match flag("--threshold") {

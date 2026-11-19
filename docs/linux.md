@@ -118,40 +118,33 @@ in the app on a Mac and carried over in a bundle.
 On the Mac, with the app built with the Antigravity accounts:
 
 ```sh
-'/Applications/Quota Station.app/Contents/MacOS/quota-station' antigravity export ~/agy-accounts.tar
+'/Applications/Quota Station.app/Contents/MacOS/quota-station' antigravity export ~/agy-accounts
 ```
 
-Copy `agy-accounts.tar` to the Linux machine (on WSL, for example, from
-`/mnt/c/Users/<you>/Downloads`), then:
+Copy the `agy-accounts` folder to the Linux machine (on WSL, for example,
+through `/mnt/c/Users/<you>/Downloads`, or over SSH with `scp -r` or the
+system `tar`), then:
 
 ```sh
-quota-station antigravity import ~/agy-accounts.tar
-rm ~/agy-accounts.tar
+quota-station antigravity import ~/agy-accounts
+rm -rf ~/agy-accounts
 quota-station antigravity status
 ```
 
-Or in one go over SSH, nothing written to a disk on the way:
-
-```sh
-'/Applications/Quota Station.app/Contents/MacOS/quota-station' antigravity export - \
-  | ssh the-linux-machine 'quota-station antigravity import -'
-```
-
-`export DIR|FILE.tar|-` writes a new folder, a new tar file of mode 600, or
-a tar stream on stdout (refused when stdout is a terminal). `import
-DIR|FILE.tar|-` reads a folder, a tar file or a tar stream on stdin. Both
-print the accounts by number and email, nothing else. The accounts keep
-their numbers: the Mac's numbers are this machine's, unless accounts were
-imported here before, which keep theirs (the new ones come after them). An
-account imported again gets its new token. Accounts held out of the
-rotation on the Mac are held out here too.
+`export DIR` writes a new folder of mode 700, its files mode 600. `import
+DIR` reads that folder into the app's store here. Both print the accounts
+by number and email, nothing else. The accounts keep their numbers: the
+Mac's numbers are this machine's, unless accounts were imported here
+before, which keep theirs (the new ones come after them). An account
+imported again gets its new token. Accounts held out of the rotation on the
+Mac are held out here too.
 
 The bundle holds every account's refresh token: whoever has it can use the
 accounts. Keep it like a password and remove it once imported.
 
 ### The bundle
 
-A folder (mode 700, its files 600), or the same files in a tar stream:
+A folder (mode 700, its files 600):
 
 | File | What |
 |---|---|
@@ -163,7 +156,7 @@ A folder (mode 700, its files 600), or the same files in a tar stream:
 `import` checks it all before it writes anything: the manifest, an index of
 version 2.0 whose ids are the MD5 of their emails (`antigravity_<md5>`), a
 usable client, and for each account a token with a refresh token, of that
-account's email. Any other file is refused, as is a link in a tar stream.
+account's email. Any other file, or a link, is refused.
 
 ### Where things are
 
@@ -191,9 +184,9 @@ writes the old login back at its next hourly token refresh, so quit and
 start those again. `status` names the account in use from the last switch
 (or from agy's own reading, when it answers).
 
-`rotate` is one run of the Mac's rotation. `rotation on` is refused: there
-is no LaunchAgent here, and the refusal gives the `crontab` line that runs
-the rotation every three minutes instead:
+`rotate` is one run of the Mac's rotation. `rotation on` is macOS's
+LaunchAgent only and is refused here; to run the rotation every three
+minutes on Linux, add it to `cron` (`crontab -e`):
 
 ```sh
 */3 * * * * '/home/you/.local/bin/quota-station' antigravity rotate >/dev/null 2>&1
